@@ -91,6 +91,7 @@ structure Reg64s where
   | .ah | .bh | .ch | .dh => let old := s.get64 r.base;
     s.set64 r.base (old.replaceLow (BitVec.append v (s.get (.low r.base .W8))))
 
+@[reducible]  -- or change this to an abbrev
 def ZmmValue : Type := BitVec 512
   deriving Repr, BEq, DecidableEq, Hashable, Hashable, Lean.ToExpr
 
@@ -132,7 +133,7 @@ structure RegZmms where
   zmm32 : ZmmValue := zmmZero
   deriving Repr, BEq, DecidableEq, Hashable, Hashable, Lean.ToExpr
 
-def RegZmms.get512 (s : RegZmms) (r : RegMm) : AvxWidth.W512.type := (match r with
+@[kstep] def RegZmms.get512 (s : RegZmms) (r : RegMm) : AvxWidth.W512.type := (match r with
   | .mm0  => s.zmm0  | .mm1  => s.zmm1  | .mm2  => s.zmm2  | .mm3  => s.zmm3
   | .mm4  => s.zmm4  | .mm5  => s.zmm5  | .mm6  => s.zmm6  | .mm7  => s.zmm7
   | .mm8  => s.zmm8  | .mm9  => s.zmm9  | .mm10 => s.zmm10 | .mm11 => s.zmm11
@@ -142,7 +143,7 @@ def RegZmms.get512 (s : RegZmms) (r : RegMm) : AvxWidth.W512.type := (match r wi
   | .mm24 => s.zmm24 | .mm25 => s.zmm25 | .mm26 => s.zmm26 | .mm27 => s.zmm27
   | .mm28 => s.zmm28 | .mm29 => s.zmm29 | .mm30 => s.zmm30 | .mm31 => s.zmm31)
 
-def RegZmms.set512 (regs : RegZmms) (r : RegMm) (v : AvxWidth.W512.type) : RegZmms :=
+@[kstep] def RegZmms.set512 (regs : RegZmms) (r : RegMm) (v : AvxWidth.W512.type) : RegZmms :=
   match r with
   | .mm0  => { regs with zmm0  := v } | .mm1  => { regs with zmm1  := v }
   | .mm2  => { regs with zmm2  := v } | .mm3  => { regs with zmm3  := v }
@@ -161,15 +162,15 @@ def RegZmms.set512 (regs : RegZmms) (r : RegMm) (v : AvxWidth.W512.type) : RegZm
   | .mm28 => { regs with zmm28 := v } | .mm29 => { regs with zmm29 := v }
   | .mm30 => { regs with zmm30 := v } | .mm31 => { regs with zmm31 := v }
 
-def RegZmms.get (s : RegZmms) {w} (r : AvxReg w) : w.type :=
+@[kstep] def RegZmms.get (s : RegZmms) {w} (r : AvxReg w) : w.type :=
   (s.get512 r.base).take w.bits
 
-def RegZmms.set (s : RegZmms) {w} (r : AvxReg w) (v : w.type) : RegZmms := match r with
+@[kstep] def RegZmms.set (s : RegZmms) {w} (r : AvxReg w) (v : w.type) : RegZmms := match r with
   | .zmm r => s.set512 r v
   | .ymm r => s.set512 r (v.zeroExtend _)
   | .xmm r => s.set512 r (v.zeroExtend _)
 
-def RegZmms.setLegacy (s : RegZmms) {w} (r : AvxReg w) (v : w.type) : RegZmms := match r with
+@[kstep] def RegZmms.setLegacy (s : RegZmms) {w} (r : AvxReg w) (v : w.type) : RegZmms := match r with
   | .zmm r => s.set512 r v  -- impossible
   | .ymm r => s.set512 r ((s.get512 r).replaceLow v)  -- impossible
   | .xmm r => s.set512 r ((s.get512 r).replaceLow v)
@@ -180,29 +181,48 @@ def BitVec.toAddressSize [address_size: AddressSize] (w: BitVec 64): BitVec addr
 
 -- TODO: consider adding a `split` helper to switch representations between
 -- u128, 4xu32, etc.
+/--
+Rebuilds a BitVec from a list of chunks of size `c` (ordered from low to high).
+The head of the list is treated as the lowest chunk.
+-/
+def rebuildChunks {c : Nat} (chunks : List (BitVec c)) : Σ n, BitVec n :=
+  match chunks with
+  | [] => ⟨0, 0#0⟩
+  | ch :: chs =>
+    let ⟨n, rest⟩ := rebuildChunks chs
+    ⟨n + c, rest.append ch⟩
+
+/--
+A flat, non-recursive definition of `packedBinOp` using list-based chunking.
+This prevents AST term explosion during symbolic evaluation in proofs.
+-/
 def BitVec.packedBinOp {w : Nat} (c : Nat) (op : BitVec c → BitVec c → BitVec c) (a b : BitVec w) : BitVec w :=
-  if _ : c = 0 ∨ w < c then
-    a -- Fallback/Base case (w = 0 or invalid chunk size)
+  if h : c = 0 ∨ w < c then
+    a -- Fallback case
   else
-    -- Extract the lowest chunk
-    let a_low := a.take c
-    let b_low := b.take c
-    let res_low := op a_low b_low
+    let n := w / c
+    -- 1. Extract chunks of size `c` from both BitVecs (low to high)
+    let chunksA := (List.range n).map (fun i => a.extractLsb' (i * c) c)
+    let chunksB := (List.range n).map (fun i => b.extractLsb' (i * c) c)
 
-    -- Recursively process the remaining high bits
-    let a_high := a.drop c
-    let b_high := b.drop c
-    let res_high := BitVec.packedBinOp c op a_high b_high
+    -- 2. Apply the binary operation element-wise
+    let resChunks := List.zipWith op chunksA chunksB
 
-    -- Recombine: res_high is the high part, res_low is the low part
-    (BitVec.append res_high res_low).setWidth _
-termination_by w
-decreasing_by omega
+    -- 3. Reconstruct the combined BitVec
+    let ⟨_, full⟩ := rebuildChunks resChunks
 
-def BitVec.toFloat32 (v : BitVec 32) : Float32 :=
+    -- 4. Append the remainder if the width is not a perfect multiple of `c`
+    let remainder := w - n * c
+    if hr : remainder = 0 then
+      full.setWidth w
+    else
+      let remA := a.extractLsb' (n * c) remainder
+      (remA.append full).setWidth w
+
+@[kstep] def BitVec.toFloat32 (v : BitVec 32) : Float32 :=
   Float32.ofBits (UInt32.ofBitVec v)
 
-def Float32.toBitVec (f : Float32) : BitVec 32 :=
+@[kstep] def Float32.toBitVec (f : Float32) : BitVec 32 :=
   UInt32.toBitVec (Float32.toBits f)
 
 structure StatusFlags where
@@ -285,7 +305,7 @@ def MachineData.load
 
 -- Alternatively, we could define this in terms of BitVecs without %:
 -- (addr &&& BitVec.ofNat 64 (bytes - 1)) == 0#64
-def isAligned (bytes : Nat) (addr : BitVec 64) : Bool :=
+@[kstep] def isAligned (bytes : Nat) (addr : BitVec 64) : Bool :=
   addr.toNat % bytes == 0
 
 -- Legacy SSE instructions are generally stricter about alignment requirements,
@@ -348,7 +368,7 @@ match o with
   | .reg r => ret (s.regs.get r) s
   | .mem a => s.load ((a.interp s.regs p).zeroExtend _) w ret
 
-def AvxRegOrMem.interp {w} [Labels] [AddressSize]
+@[kstep] def AvxRegOrMem.interp {w} [Labels] [AddressSize]
   (o : AvxRegOrMem w) (s : MachineData) (p : Std.Rco Int64)
   (ret : w.type → MachineData → Effects) (checkAlign : Bool := false) :=
 match o with
@@ -359,10 +379,10 @@ match o with
 def MachineData.setReg (s : MachineData) {w} (r : Reg w) (v : w.type) : MachineData :=
   { s with regs := s.regs.set r v }
 
-def MachineData.setAvxReg (s : MachineData) {w : AvxWidth} (r : AvxReg w) (v : w.type) : MachineData :=
+@[kstep] def MachineData.setAvxReg (s : MachineData) {w : AvxWidth} (r : AvxReg w) (v : w.type) : MachineData :=
   { s with zmms := s.zmms.set r v }
 
-def MachineData.setAvxLegacyReg (s : MachineData) {w : AvxWidth} (r : AvxReg w) (v : w.type) : MachineData :=
+@[kstep] def MachineData.setAvxLegacyReg (s : MachineData) {w : AvxWidth} (r : AvxReg w) (v : w.type) : MachineData :=
   { s with zmms := s.zmms.setLegacy r v }
 
 @[kstep]
@@ -371,12 +391,12 @@ def MachineData.set {w} [Labels] [AddressSize] (s : MachineData) (d : Dst w) (v 
   | .reg r => ret (s.setReg r v)
   | .mem a => s.store ((a.interp s.regs p).zeroExtend _) v ret
 
-def MachineData.setAvx {aw} [Labels] [AddressSize] (s : MachineData) (d : AvxDst aw) (v : aw.type) (p : Std.Rco Int64) (ret : MachineData → Effects) (checkAlign : Bool := false) : Effects :=
+@[kstep] def MachineData.setAvx {aw} [Labels] [AddressSize] (s : MachineData) (d : AvxDst aw) (v : aw.type) (p : Std.Rco Int64) (ret : MachineData → Effects) (checkAlign : Bool := false) : Effects :=
 match d with
   | .avx r => ret (s.setAvxReg r v)
   | .mem a => s.storeAvx ((a.interp s.regs p).zeroExtend _) v ret checkAlign
 
-def MachineData.setAvxLegacy {w} [Labels] [AddressSize] (s : MachineData) (d : AvxDst w) (v : w.type) (p : Std.Rco Int64) (ret : MachineData → Effects) (checkAlign : Bool := false) : Effects :=
+@[kstep] def MachineData.setAvxLegacy {w} [Labels] [AddressSize] (s : MachineData) (d : AvxDst w) (v : w.type) (p : Std.Rco Int64) (ret : MachineData → Effects) (checkAlign : Bool := false) : Effects :=
 match d with
   | .avx r => ret (s.setAvxLegacyReg r v)
   | .mem a => s.storeAvx ((a.interp s.regs p).zeroExtend _) v ret checkAlign
@@ -389,7 +409,7 @@ match d with
   | .imm v => ret ((v.interp p).toBitVec.truncate _) s
   -- we rely on assemblers erroring out on too-large immediates in uniform ops
 
-def AvxOperand.interp {aw} [Labels] [AddressSize]
+@[kstep] def AvxOperand.interp {aw} [Labels] [AddressSize]
   (o : AvxOperand aw) (s : MachineData) (p : Std.Rco Int64)
   (ret : aw.type → MachineData → Effects) (checkAlign : Bool := false) :=
 match o with
@@ -433,8 +453,8 @@ def cpop_ {w} (x : BitVec w) : BitVec w := BitVec.ofNat w (cpopNatRec_ x w 0)
 end BitVec
 
 @[kstep] def StatusFlags.from_result {w} (result : BitVec w) (f : from_result.Remaining) : StatusFlags :=
-  { pf := (result.take 8).cpop_ % 2 == BitVec.zero _
-    zf := result == BitVec.zero _
+  { pf := (result.take 8).cpop_ % 2 == BitVec.zero 8
+    zf := result == BitVec.zero w
     sf := result.msb, cf := f.cf, af := f.af, of := f.of }
 
 
@@ -721,7 +741,8 @@ set_option maxHeartbeats 1000000
   | nop _ | nopalign _ _ => next s
 
 -- AVX Operations Interpreter
-def AvxOperation.interp [Labels] [address_size : AddressSize]
+set_option maxHeartbeats 1000000
+@[kstep] def AvxOperation.interp [Labels] [address_size : AddressSize]
   {w} (i : AvxOperation w) (p : Std.Rco Int64) (s : MachineData)
   (next : MachineData → Effects) : Effects :=
 match i with
