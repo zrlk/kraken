@@ -1,6 +1,8 @@
 import Kraken.X64.Syntax
 import Kraken.X64.Semantics
 import Kraken.X64.OmniSemantics
+import Kraken.X64.PrintIntel
+import Lean
 
 theorem Executable.withAddresses_map_snd (ds : List (Directive × Nat)) (a : Int64) :
     (Executable.withAddresses (a, ds)).map (·.2) = ds := by
@@ -40,7 +42,7 @@ macro "kprologue" p:ident : tactic =>
 
 --------------------------------------------------------------------------------
 
-open Lean Meta Sym Sym.DSimp
+open Lean Meta Sym Sym.DSimp PrettyPrinter Delaborator SubExpr
 open Elab Tactic
 
 partial def peelLambdaLets (f : Expr) (args : Array Expr) (fvars : Array Expr) (k : Expr → Array Expr → DSimpM Result) : DSimpM Result := do
@@ -283,3 +285,178 @@ def evalSymKStep : Grind.GrindTactic :=
   )
 
   Grind.setGoals [ { gGoal with mvarId } ]
+
+--------------------------------------------------------------------------------
+-- 1. Define custom syntax representations for the Goal View (with Explicit Names)
+--------------------------------------------------------------------------------
+
+-- Explicitly named so we can construct them manually and safely
+syntax (name := asmSym) "[asm|" ppIndent((ppLine str)*) "]" : term
+syntax (name := asmLayoutSym) "[asm_layout|" ppIndent((ppLine term)*) "]" : term
+
+-- Standard fallback syntax for general open lists
+syntax "[asm| " term,* " ]" : term
+
+--------------------------------------------------------------------------------
+-- 2. Define safe helpers to identify types & navigate arrays
+--------------------------------------------------------------------------------
+
+-- Fully compiler-independent indexing helper using core GetElem
+def getArg (args : Array Expr) (i : Nat) : Expr :=
+  if h : i < args.size then
+    GetElem.getElem args i h
+  else
+    Expr.bvar 0
+
+def isDirectiveType (e : Expr) : MetaM Bool :=
+  return Expr.isConstOf e ``Directive
+
+def isNatType (e : Expr) : MetaM Bool :=
+  return Expr.isConstOf e ``Nat
+
+def isDirectiveNatType (e : Expr) : MetaM Bool :=
+  match e.getAppFn with
+  | Expr.const ``Prod _ =>
+    let args := e.getAppArgs
+    if args.size >= 2 then
+      return Expr.isConstOf (getArg args 0) ``Directive && Expr.isConstOf (getArg args 1) ``Nat
+    else return false
+  | _ => return false
+
+-- Version-independent helper with fully-qualified constructors
+def getNatVal? (e : Expr) : Option Nat :=
+  match e with
+  | Expr.lit (Literal.natVal n) => some n
+  | Expr.app (Expr.app (Expr.app (Expr.const ``OfNat.ofNat _) _) (Expr.lit (Literal.natVal n))) _ => some n
+  | _ => none
+
+--------------------------------------------------------------------------------
+-- 3. Define the consolidated Delaborator (Unsafe, getArg & Explicit Namespaces)
+--------------------------------------------------------------------------------
+
+-- Delaborates individual (Directive × Nat) pairs beautifully as "@N: instruction"
+@[app_delab Prod.mk]
+unsafe def delabDirectiveNatPair : Delab := do
+  let e ← getExpr
+  let args := e.getAppArgs
+  if args.size >= 4 then
+    let alpha := getArg args 0
+    let beta := getArg args 1
+    if (← isDirectiveType alpha) && (← isNatType beta) then
+      let dExpr := getArg args 2
+      let nExpr := getArg args 3
+
+      -- 1. Evaluates closed Directive parts to their authentic ToString assembly format
+      let dStr ← if !dExpr.hasFVar && !dExpr.hasMVar then
+        let typeExpr ← Meta.inferType dExpr
+        let d ← Meta.evalExpr Directive typeExpr dExpr
+        pure s!"{d}"
+      else
+        pure "<symbolic_directive>"
+
+      -- 2. Extract the Nat index/offset from nExpr using fully-qualified matches
+      let idxStr ← match nExpr with
+        | Expr.app _ arg =>
+          if let some n := getNatVal? arg then
+            pure s!"{n}"
+          else
+            -- If it's a symbolic index (e.g. `layout.size 0`), navigate inside to get the index term
+            let idxStx ← withAppArg (withAppArg delab)
+            let fmt ← PrettyPrinter.ppTerm idxStx
+            pure s!"{fmt}"
+        | _ =>
+          if let some n := getNatVal? nExpr then
+            pure s!"{n}"
+          else
+            let idxStx ← withAppArg delab
+            let fmt ← PrettyPrinter.ppTerm idxStx
+            pure s!"{fmt}"
+
+      let combinedStr := s!"@{idxStr}: {dStr}"
+      return Syntax.mkStrLit combinedStr
+  failure
+
+-- Recursive helper to process Lists of symbolic pairs
+unsafe def delabDirectiveNatListGo : DelabM (List Term) := do
+  let curr ← getExpr
+  if curr.isAppOfArity ``List.cons 3 then
+    let head ← withAppFn (withAppArg delab)
+    let tail ← withAppArg delabDirectiveNatListGo
+    return head :: tail
+  else if curr.isAppOfArity ``List.nil 1 then
+    return []
+  else
+    let tail ← delab
+    return [tail]
+
+-- Standalone helper for List Directive (Program)
+unsafe def delabProgramListGo : DelabM (List Term) := do
+  let curr ← getExpr
+  if curr.isAppOfArity ``List.cons 3 then
+    let head ← withAppFn (withAppArg delab)
+    let tail ← withAppArg delabProgramListGo
+    return head :: tail
+  else if curr.isAppOfArity ``List.nil 1 then
+    return []
+  else
+    let tail ← delab
+    return [tail]
+
+@[app_delab List.cons]
+unsafe def delabProgramList : Delab := do
+  let e ← getExpr
+  let args := e.getAppArgs
+  if args.size >= 3 then
+    let alpha := getArg args 0
+
+    -- ==========================================
+    -- Case A: List Directive (Program)
+    -- ==========================================
+    if ← isDirectiveType alpha then
+      if !e.hasFVar && !e.hasMVar then
+        let typeExpr ← Meta.inferType e
+        let prog ← Meta.evalExpr (List Directive) typeExpr e
+        let lines := prog.map (fun d => s!"{d}")
+        let linesStx : Array Syntax := lines.map (fun line => Syntax.mkStrLit line) |>.toArray
+
+        -- Manually build raw Syntax node and coerce to Term with anonymous constructor ⟨...⟩
+        let node := Syntax.node SourceInfo.none ``asmSym #[
+          Syntax.atom SourceInfo.none "[asm|",
+          Syntax.node SourceInfo.none nullKind linesStx,
+          Syntax.atom SourceInfo.none "]"
+        ]
+        return ⟨node⟩
+      else
+        let elems ← delabProgramListGo
+        let elemsArr := elems.toArray
+        return ← `([asm| $elemsArr,* ])
+
+    -- ==========================================
+    -- Case B: List (Directive × Nat) (Layout)
+    -- ==========================================
+    else if ← isDirectiveNatType alpha then
+      if !e.hasFVar && !e.hasMVar then
+        let typeExpr ← Meta.inferType e
+        let prog ← Meta.evalExpr (List (Directive × Nat)) typeExpr e
+        let lines := prog.map (fun (d, sz) => s!"{d}  [size: {sz}]")
+        let linesStx : Array Syntax := lines.map (fun line => Syntax.mkStrLit line) |>.toArray
+
+        -- Manually build raw Syntax node and coerce to Term with anonymous constructor ⟨...⟩
+        let node := Syntax.node SourceInfo.none ``asmSym #[
+          Syntax.atom SourceInfo.none "[asm|",
+          Syntax.node SourceInfo.none nullKind linesStx,
+          Syntax.atom SourceInfo.none "]"
+        ]
+        return ⟨node⟩
+      else
+        -- Fallback: Manually build raw Syntax node and coerce to Term with anonymous constructor ⟨...⟩
+        let elems ← delabDirectiveNatListGo
+        let elemsArr : Array Syntax := elems.map (·.raw) |>.toArray
+        let node := Syntax.node SourceInfo.none ``asmLayoutSym #[
+          Syntax.atom SourceInfo.none "[asm_layout|",
+          Syntax.node SourceInfo.none nullKind elemsArr,
+          Syntax.atom SourceInfo.none "]"
+        ]
+        return ⟨node⟩
+
+  failure
