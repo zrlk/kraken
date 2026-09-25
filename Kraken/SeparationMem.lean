@@ -124,3 +124,32 @@ theorem At_append_sep {w : Nat} (bs1 bs2 : List UInt8) (a : BitVec w)
     rw [← List.At_append _ _ _ h_len]
 
 end Mem
+
+/-- Split a byte array around the chunk `[off, off + n)`. -/
+theorem Mem.At_split_chunk {w : Nat} (m : List UInt8) (off n : Nat) (a : BitVec w)
+    (h : off + n ≤ m.length) (hlen : m.length ≤ 2 ^ w) :
+    Eq (m.At a) =
+      Eq ((m.take off).At a) ⋆ Eq (((m.drop off).take n).At (a + .ofNat w off)) ⋆
+        Eq ((m.drop (off + n)).At (a + .ofNat w off + .ofNat w n)) := by
+  conv => lhs; rw [← List.take_append_drop off m, ← List.take_append_drop n (m.drop off),
+    List.drop_drop]
+  rw [Mem.At_append_sep _ _ _ (by simp; omega), Mem.At_append_sep _ _ _ (by simp; omega)]
+  have h1 : (m.take off).length = off := by simp; omega
+  have h2 : ((m.drop off).take n).length = n := by simp; omega
+  rw [h1, h2, sep_assoc]
+
+/-- `Mem.storeInt_sep`, for all stored values at once: this can be stated before the
+value is known, and then used (e.g. by `ecancel`) after symbolic execution. -/
+theorem Mem.storeInt_sep_forall {w : Nat} {m : Mem w} {bs : List UInt8} {a : BitVec w} {n : Nat}
+    {R : Mem w → Prop} (H : (Eq (bs.At a) ⋆ R) m) (hl : bs.length = n) :
+    ∀ v, (Eq ((Int.toBytes n v).At a) ⋆ R) (m.storeInt a n v) :=
+  Mem.storeInt_sep a n bs R m ⟨H, hl⟩
+
+/-- Three-way version of `Mem.At_append_sep`. -/
+theorem Mem.At_append3_sep {w : Nat} (pre mid post : List UInt8) (a : BitVec w)
+    (h : pre.length + mid.length + post.length ≤ 2 ^ w) :
+    Eq ((pre ++ mid ++ post).At a) =
+      Eq (pre.At a) ⋆ Eq (mid.At (a + .ofNat w pre.length)) ⋆
+        Eq (post.At (a + .ofNat w pre.length + .ofNat w mid.length)) := by
+  rw [Mem.At_append_sep _ _ _ (by simp; omega), Mem.At_append_sep _ _ _ (by omega),
+    List.length_append, BitVec.ofNat_add, BitVec.add_assoc]

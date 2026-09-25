@@ -561,3 +561,69 @@ theorem tailrec_loop_straightline [Layout] (e : Executable) (hwf : e.WellFormed)
     · exact .inl hp
     · exact .inr ⟨v'', (), hp', hlt, fun _ => id⟩
 
+/-- The directives reachable from the address of `l` are exactly the directives
+that follow `l` in the program text; i.e. no other directive shares `l`'s
+address (which can happen if `layout` gives some directive size `0`). -/
+def Executable.LabelIsFirstAtAddress (e : Executable) (l : Label) : Prop :=
+  (Kraken.Executable.withAddresses e).dropWhile (fun x => x.1 ≠ (Executable.labels e).label l) =
+  (Kraken.Executable.withAddresses e).dropWhile (fun x => x.2.1 != .label l)
+
+private theorem map_dropWhile_withAddresses (ds : List (Directive × Nat)) (a : Int64) (l : Label) :
+    (((Kraken.Executable.withAddresses (a, ds)).dropWhile (fun x => x.2.1 != .label l)).map (·.2)) =
+      ds.dropWhile (fun x => x.1 != .label l) := by
+  induction ds generalizing a with
+  | nil => rfl
+  | cons d ds ih =>
+    rw [Kraken.Executable.withAddresses_cons]
+    simp only [List.dropWhile_cons]
+    split
+    · exact ih _
+    · rename_i h
+      simp only [List.map_cons]
+      rw [Kraken.Executable.withAddresses_map_snd]
+
+theorem directivesFromAddress_label [layout : Layout] (prog : Program) (l : Label)
+    (h_wf : Executable.LabelIsFirstAtAddress (layout prog) l) :
+    Kraken.Executable.directivesFromAddress (layout prog)
+        ((Executable.labels (layout prog)).label l) =
+      Executable.directivesFromLabel (layout prog) l := by
+  dsimp only [Executable.LabelIsFirstAtAddress, Kraken.Executable.directivesFromAddress,
+    Executable.directivesFromLabel] at *
+  rw [h_wf]
+  exact map_dropWhile_withAddresses (layout prog).2 (layout prog).1 l
+
+
+/-- Loop rule for a `sym`-style proof that has already stepped up to the head of
+the loop body.
+
+Unlike `tailrec_loop_straightline`, the instruction stream `ds` and the program
+counter `pc` are explicit arguments, so applying this lemma unifies them
+*syntactically* with the residual goal left behind by `kstep`. The single
+defeq-heavy obligation (`ds` really is the stream reachable from `pc`) is
+isolated in `hds`, and the invariant no longer has to mention the pc. -/
+theorem tailrec_loop_interp [Layout] (e : Executable) (hwf : e.WellFormed)
+    (post : @Post MachineState) (ds : List (Directive × Nat)) (pc : Int64)
+    (hds : Kraken.Executable.directivesFromAddress e pc = ds)
+    (Inv : Nat → MachineData → Prop)
+    (hbody : ∀ v s, Inv v s →
+      Effects.All (fun mid => post mid ∨ ∃ v', Inv v' mid.1 ∧ mid.2 = pc ∧ v' < v)
+        (@Directives.interp (Executable.labels e) ds s pc (fun pc s => Effects.done (s, pc))))
+    (v0 : Nat) (s0 : MachineData) (hP : Inv v0 s0) :
+    Effects.All (fun mid => Eventually (step1 e) post mid)
+      (@Directives.interp (Executable.labels e) ds s0 pc (fun pc s => Effects.done (s, pc))) := by
+  let _ : Labels := Executable.labels e
+  have key : ∀ v st, (Inv v st.1 ∧ st.2 = pc) →
+      straightlineStep e st
+        (fun mid => post mid ∨ ∃ v', (Inv v' mid.1 ∧ mid.2 = pc) ∧ v' < v) := by
+    rintro v ⟨s, pc'⟩ ⟨hi, rfl⟩
+    dsimp only [straightlineStep, Executable.straightline]
+    rw [hds]
+    refine Directives.interp_mono _ _ _ ?_ (hbody v s hi)
+    rintro pc'' s'' (h | ⟨v', h1, h2, h3⟩)
+    · exact .inl h
+    · exact .inr ⟨v', ⟨h1, h2⟩, h3⟩
+  have h := tailrec_loop_straightline e hwf post (s0, pc)
+    (fun v st => Inv v st.1 ∧ st.2 = pc) v0 ⟨hP, rfl⟩ key
+  dsimp only [straightlineStep, Executable.straightline] at h
+  rw [hds] at h
+  exact h

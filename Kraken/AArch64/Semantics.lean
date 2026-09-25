@@ -940,14 +940,54 @@ set_option maxHeartbeats 1000000
   | .instr i => i.interp s p next jmp
   | .byteArray _ => .unimplemented s!"Unimplemented: execution reached data block at {p.1}"
 
-def Directives.interp [Labels]
+/-- Executable implementation of `Directives.interp` (the code generator does not
+support `List.rec`). -/
+def Directives.interpImpl [Labels]
   (ds : List (Directive × Nat)) (s : MachineData) (pc : Int64)
   (ret : Int64 → MachineData → Effects) : Effects :=
   match ds with
   | [] => ret pc s
   | (d, sz) :: ds =>
     d.interp s (.mk pc (pc+.ofNat sz)) (jmp:=ret) (next := (fun s =>
-    interp ds s (pc+.ofNat sz) ret))
+      Directives.interpImpl ds s (pc+.ofNat sz) ret))
+
+/-- Body of `Directives.interp`; see there. -/
+noncomputable def Directives.interpRaw [Labels]
+  (ds : List (Directive × Nat)) (s : MachineData) (pc : Int64)
+  (ret : Int64 → MachineData → Effects) : Effects :=
+  List.rec (motive := fun _ => MachineData → Int64 → Effects)
+    (fun s pc => ret pc s)
+    (fun d _ ih s pc =>
+      d.1.interp s (.mk pc (pc+.ofNat d.2)) (jmp:=ret) (next := (fun s =>
+      ih s (pc+.ofNat d.2))))
+    ds s pc
+
+/- `Directives.interp ds s pc ret` runs a straight-line stream of directives,
+starting at address `pc`. It is defined with `List.rec` and declared with
+`ReducibilityHints.opaque`, for kernel performance; see the X64 version
+(`Kraken/X64/Semantics.lean`) for the full explanation. Use
+`Directives.interp_nil` / `Directives.interp_cons` to reason about it. -/
+open Lean in
+run_meta do
+  let info ← getConstInfoDefn ``Directives.interpRaw
+  addDecl (.defnDecl { info with name := `Directives.interp, hints := .opaque })
+
+attribute [implemented_by Directives.interpImpl] Directives.interp
+
+-- Deliberately not `@[simp]`: `kprologue` calls `simp`, and it must leave
+-- `Directives.interp` folded so that `kstep` can count steps.
+-- The `Labels` binder is implicit rather than instance-implicit, so that `rw` unifies it
+-- with the (non-canonical) instance in the goal instead of trying to synthesize one.
+theorem Directives.interp_nil {_ : Labels} (s : MachineData) (pc : Int64)
+    (ret : Int64 → MachineData → Effects) :
+    Directives.interp [] s pc ret = ret pc s := rfl
+
+theorem Directives.interp_cons {_ : Labels} (d : Directive) (sz : Nat)
+    (ds : List (Directive × Nat)) (s : MachineData) (pc : Int64)
+    (ret : Int64 → MachineData → Effects) :
+    Directives.interp ((d, sz) :: ds) s pc ret =
+      d.interp s (.mk pc (pc+.ofNat sz)) (jmp:=ret) (next := (fun s =>
+        Directives.interp ds s (pc+.ofNat sz) ret)) := rfl
 
 abbrev Layout := Kraken.Layout Directive
 

@@ -28,3 +28,47 @@ theorem load_sep (s : MachineData) (addr : BitVec 64) (w : Width) (ret : w.type 
       require_read_access addr w (fun _ => ret (.ofInt w.bits (Int.ofBytes bs)) s) := by
   simp only [MachineData.load,
     Mem.loadInt_sep bs addr w.bytes R s.dmem h_mem h_len (by cases w <;> decide)]
+
+--------------------------------------------------------------------------------
+-- AVX memory specs
+--------------------------------------------------------------------------------
+
+@[kspec]
+theorem loadAvx_sep_aligned (s : MachineData) (addr : BitVec 64) (w : AvxWidth)
+    (ret : w.type → MachineData → Effects) (bs : List UInt8) (R : DataMem → Prop)
+    (h_mem : s.dmem =⋆ Eq (bs.At addr) ⋆ R)
+    (h_len : bs.length = w.bytes)
+    (h_align : isAligned w.bytes addr = true) :
+    MachineData.loadAvx s addr w ret true =
+      require_read_access addr .W64 (fun _ => ret (.ofInt w.bits (Int.ofBytes bs)) s) := by
+  simp only [MachineData.loadAvx, h_align]
+  simp only [Mem.loadInt_sep bs addr w.bytes R s.dmem h_mem h_len (by cases w <;> decide)]
+  rfl
+
+@[kspec]
+theorem storeAvx_sep_aligned (s : MachineData) (addr : BitVec 64) (w : AvxWidth) (v : w.type)
+    (ret : MachineData → Effects) (bs : List UInt8) (R : DataMem → Prop)
+    (h_mem : s.dmem =⋆ Eq (bs.At addr) ⋆ R)
+    (h_len : bs.length = w.bytes)
+    (h_align : isAligned w.bytes addr = true) :
+    MachineData.storeAvx s addr v ret true =
+      require_write_access addr .W64 (fun _ =>
+        ret { s with dmem := Mem.storeInt s.dmem addr w.bytes v.toInt }) := by
+  simp only [MachineData.storeAvx, h_align]
+  simp only [Mem.loadInt_sep bs addr w.bytes R s.dmem h_mem h_len (by cases w <;> decide)]
+  rfl
+
+attribute [kstep]
+  AvxOperand.interp
+  AvxReg.base
+  AvxOperation.interp
+  AvxRegOrMem.interp
+  MachineData.setAvx
+  MachineData.setAvxLegacy
+  MachineData.setAvxLegacyReg
+  MachineData.setAvxReg
+  RegZmms.get
+  RegZmms.get512
+  RegZmms.set
+  RegZmms.set512
+  RegZmms.setLegacy

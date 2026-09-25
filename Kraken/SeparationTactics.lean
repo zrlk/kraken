@@ -25,9 +25,16 @@ private partial def reifyClauses (e : Expr) : MetaM (List Expr) := do
     return p ++ q
   return [e]
 
+-- A "naked" metavariable may also be applied to bound variables (`?R v`, e.g.
+-- when the frame is elaborated under a binder); `isDefEq` then performs
+-- higher-order pattern unification.
+private def isNakedMVar (e : Expr) : Bool :=
+  e.getAppFn.isMVar && e.getAppArgs.all (·.isFVar)
+
 private def assignNaked (predType : Expr) (lhs rhs : List Expr) : MetaM Bool := do
-  let [.mvar mvarId] := lhs | return false
-  isDefEq (.mvar mvarId) (← denoteClauses predType rhs)
+  let [l] := lhs | return false
+  unless isNakedMVar l do return false
+  isDefEq l (← denoteClauses predType rhs)
 
 private def reduceProjectionApp (e : Expr) : MetaM Expr := do
   let some declName := e.getAppFn.constName? | return e
@@ -56,14 +63,32 @@ private partial def matchClosed (lhs rhs : Expr) (fuel : Nat := 2) : MetaM Bool 
     if ← matchClosed lhs rhs (fuel - 1) then return true
   return false
 
+-- Matching with metavariables. A failed match against the wrong clause must fail
+-- fast: plain `isDefEq` at default transparency may unfold both sides arbitrarily
+-- deep (e.g. `Int.toBytes 16 ?v =?= List.take n m`). So we unify at `instances`
+-- transparency, descending into applications with the same head, and only allow a
+-- bounded number of definition unfoldings (e.g. `UInt64.At v a ~~> v.toBytes.At a`).
+private partial def matchWithMVars (lhs rhs : Expr) (fuel : Nat := 2) : MetaM Bool := do
+  if ← withTransparency .instances (isDefEq lhs rhs) then return true
+  if lhs.getAppFn == rhs.getAppFn && lhs.getAppNumArgs == rhs.getAppNumArgs then
+    let ok ← commitWhen do
+      for a in lhs.getAppArgs, b in rhs.getAppArgs do
+        unless ← matchWithMVars (← instantiateMVars a) (← instantiateMVars b) fuel do
+          return false
+      return true
+    if ok then return true
+  if fuel == 0 then return false
+  if let some rhs' ← unfoldDefinition? rhs then
+    if ← matchWithMVars lhs rhs' (fuel - 1) then return true
+  if let some lhs' ← unfoldDefinition? lhs then
+    if ← matchWithMVars lhs' rhs (fuel - 1) then return true
+  return false
+
 private def matchAtom (lhs rhs : Expr) : MetaM Bool := do
   if lhs == rhs then return true
-  if lhs.hasExprMVar || rhs.hasExprMVar then isDefEq lhs rhs
+  if lhs.hasExprMVar || rhs.hasExprMVar then matchWithMVars lhs rhs
   else matchClosed lhs rhs
 
-private def isNakedMVar : Expr → Bool
-  | .mvar _ => true
-  | _ => false
 
 -- Closed clauses can be cancelled greedily: unlike clauses containing
 -- metavariables, matching them cannot constrain a later cancellation choice.
@@ -152,10 +177,10 @@ private def solveSepEq (lhs rhs : Expr) : MetaM (Option Expr) := do
   unless ← cancelClauses predType lhsClauses rhsClauses do return none
   proveSeqEq lhs rhs
 
-private def solveFromHypothesis (target : Expr) (localDecl : LocalDecl) : MetaM (Option Expr) := do
+private def solveFromHypothesis (target hypType hyp : Expr) : MetaM (Option Expr) := do
   let target ← instantiateMVars target
-  let hypType ← instantiateMVars localDecl.type
-  unless hypType.isApp do return none
+  let hypType ← instantiateMVars hypType
+  unless hypType.isApp && target.isApp do return none
   let targetFn := target.appFn!
   let targetArg := target.appArg!
   let hypFn := hypType.appFn!
@@ -164,18 +189,36 @@ private def solveFromHypothesis (target : Expr) (localDecl : LocalDecl) : MetaM 
     return none
   let some hSeps ← solveSepEq hypFn targetFn | return none
   let hFunEq ← mkAppM ``congrFun #[hSeps, hypArg]
-  return some (← mkAppM ``Eq.mp #[hFunEq, localDecl.toExpr])
+  return some (← mkAppM ``Eq.mp #[hFunEq, hyp])
 
-syntax (name := ecancel) "ecancel" : tactic
+/-- Like `solveFromHypothesis`, but the hypothesis may be universally quantified
+(`h : ∀ v, (P v ⋆ Q) (m v)`); its binders are instantiated by unification. This lets
+the user state, *before* symbolic execution, facts about memories that are only
+computed later (e.g. the memory after a store of a yet-unknown value). -/
+private def solveFromForallHypothesis (target : Expr) (localDecl : LocalDecl) :
+    MetaM (Option Expr) := do
+  let type ← instantiateMVars localDecl.type
+  unless type.isForall do
+    return ← solveFromHypothesis target type localDecl.toExpr
+  commitWhenSome? do
+    let (mvars, _, body) ← forallMetaTelescopeReducing type
+    let some proof ← solveFromHypothesis target body (mkAppN localDecl.toExpr mvars)
+      | return none
+    let proof ← instantiateMVars proof
+    -- all binders must have been determined by unification
+    if (← mvars.anyM fun m => return (← instantiateMVars m).hasExprMVar) then
+      return none
+    return some proof
 
-@[tactic ecancel]
-def evalEcancel : Tactic :=
-  fun _stx : Syntax => withMainContext do
-  let goal ← getMainGoal
-  let target ← goal.getType
+/-- Try to close `goal` (an `=`-between-separation-predicates goal, or a
+separation predicate applied to a memory) using AC-matching of the clauses,
+possibly against a hypothesis. Metavariables in the goal (e.g. `?bs`, `?R`) are
+instantiated. Returns `true` on success. -/
+def ecancelCore (goal : MVarId) : MetaM Bool := goal.withContext do
+  let target ← instantiateMVars (← goal.getType)
   -- Existential witnesses introduced by tactics are synthetic-opaque goals;
   -- `ecancel` intentionally instantiates them as part of cancellation.
-  let solved ← withConfig (fun config => { config with assignSyntheticOpaque := true }) do
+  withConfig (fun config => { config with assignSyntheticOpaque := true }) do
     if target.isAppOfArity ``Eq 3 then
       let args := target.getAppArgs
       if let some proof ← solveSepEq args[1]! args[2]! then
@@ -183,10 +226,18 @@ def evalEcancel : Tactic :=
         return true
     for localDecl? in (← getLCtx).decls.toArray.reverse do
       if let some localDecl := localDecl? then
-        if let some proof ← solveFromHypothesis target localDecl then
+        if localDecl.isImplementationDetail then continue
+        if let some proof ← solveFromForallHypothesis target localDecl then
           goal.assign proof
           return true
     return false
-  unless solved do
-    throwError "ecancel: could not automatically solve goal {target}"
+
+syntax (name := ecancel) "ecancel" : tactic
+
+@[tactic ecancel]
+def evalEcancel : Tactic :=
+  fun _stx : Syntax => withMainContext do
+  let goal ← getMainGoal
+  unless ← ecancelCore goal do
+    throwError "ecancel: could not automatically solve goal {← goal.getType}"
 end Kraken.Tactic

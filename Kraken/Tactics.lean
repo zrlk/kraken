@@ -6,6 +6,7 @@ Core tactics and theorems for stepping through Kraken assembly proofs.
 
 import Kraken.Attribute
 import Kraken.Layout
+import Kraken.SeparationTactics
 import Lean
 import Std
 
@@ -132,7 +133,33 @@ partial def peelArgsLets (args : Array Expr) (i : Nat) (peeled : Array Expr) (fv
   else
     k peeled fvars
 
-def kdeltaBetaOnly (targets: List Name) (maxInstrCount : Option (IO.Ref Nat)) : DSimproc := fun e => do
+/-- For `e = Directives.interp ds s pc ret`, build a proof of `e = e'`, where `e'` is
+one step of the interpreter, from `Directives.interp_nil` / `Directives.interp_cons`.
+
+`kstep` rewrites with this equation rather than delta-unfolding `Directives.interp`
+inside `dsimp`: with a definitional step, the kernel had to re-derive the unfolding
+by comparing the goals before and after, which was exponential in the length of
+the remaining stream (~6s of kernel time for a 7-instruction `kstep 1`). With an
+equation, the kernel only checks syntactic equalities. -/
+def directivesInterpEq? (e : Expr) : MetaM (Option Expr) := do
+  let args := e.getAppArgs
+  unless e.getAppFn.isConstOf `Directives.interp && args.size == 5 do return none
+  let inst := args[0]!; let s := args[2]!; let pc := args[3]!; let ret := args[4]!
+  let rec go (ds : Expr) (fuel : Nat) : MetaM (Option Expr) := do
+    match_expr ds with
+    | List.nil _ => return some (mkAppN (mkConst `Directives.interp_nil) #[inst, s, pc, ret])
+    | List.cons _ hd tl =>
+      let_expr Prod.mk _ _ d sz := hd | return none
+      return some (mkAppN (mkConst `Directives.interp_cons) #[inst, d, sz, tl, s, pc, ret])
+    | _ =>
+      -- Not a list literal: reduce the discriminant and try again.
+      if fuel = 0 then return none
+      let ds' ← whnf ds
+      if ds' == ds then return none
+      go ds' (fuel - 1)
+  go args[1]! 1
+
+def kdeltaBetaOnly (targets: List Name) : DSimproc := fun e => do
   -- This focuses on application nodes.
   unless e.isApp && targets.any e.getAppFn'.isConstOf do return .rfl
 
@@ -147,32 +174,14 @@ def kdeltaBetaOnly (targets: List Name) (maxInstrCount : Option (IO.Ref Nat)) : 
   peelArgsLets args 0 #[] #[] fun (args : Array Expr) (fvars : Array Expr) => do
 
     if f.isConstOf `Effects.All && args[1]!.isApp && args[1]!.getAppFn'.isConstOf `Directives.interp then
-      -- We optionally track how many times we've hit Directives.interp -- this tracks how
-      -- many instructions we've stepped through.
-      if (← maxInstrCount.mapM (·.get)) = .some 0 then
-        return .rfl
-      maxInstrCount.forM (fun r => r.modify (· - 1))
-
-      -- Finding a node of the form `Effects.All ... (Directives.interp ...)`
-      -- means that we are ready to step through. We manually force reduction of
-      -- Directives.interp (since it is *not* is our list of targets), then let
-      -- everything simplify until we're called again.
-      let some arg1 ← Meta.unfoldDefinition? args[1]! true | throwError "can't unfold Directives.interp"
-      let e := mkAppN f (args.set! 1 arg1)
-      let e' ← shareCommon e
-      let e'' ← mkLetFVars fvars e'
-      return .step e''
-      -- TODO: we could here have a post := in the simproc that forces the
-      -- result to be .step ... (done := true) to prevent the next unrolling of
-      -- Directives.interp from being applied. This would essentially allow
-      -- implementing a kstep1 tactic (and leave it to done := false to keep
-      -- stepping until something blocks).
-
-      -- Essentially this behavior allows us to keep reducing and stepping,
-      -- until we have no steps left to apply and YET the goal has landed us
-      -- back on something that is neither Effects.All ... (Directives.interp
-      -- ...), nor Effects.All ... (require_exec_access ...), handled in the
-      -- case below.
+      -- `Effects.All ... (Directives.interp ...)`: we are ready to step through the
+      -- next directive. dsimp does *not* do this (see `directivesInterpEq?`); the
+      -- main loop of `kstep` rewrites with `Directives.interp_cons` instead. Here we
+      -- only hoist lets, so that the main loop finds `Directives.interp` right
+      -- under `Effects.All`.
+      if fvars.size > 0 then
+        return .step (← mkLetFVars fvars (mkAppN f args))
+      return .rfl
     else
       -- Application, *sans* the let-bindings in the arguments.
       let e_rebuilt := mkAppN f args
@@ -248,10 +257,27 @@ def kbeta: DSimproc := fun e => do
   else
     return .rfl
 
+/-- Zeta-reduce `let`/`have`. Only used on spec side conditions: in the main goal,
+lets are deliberately hoisted instead (see `kdeltaBetaOnly`). -/
+def kzeta : DSimproc := fun e => do
+  match e with
+  | .letE _ _ v b _ => return .step (b.instantiate1 v)
+  | _ => return .rfl
+
 def kdsimpProj : DSimproc := fun e => do
   let f := e.getAppFn
   let .const declName _ := f | return .rfl
-  let some _projInfo ← getProjectionFnInfo? declName | return .rfl
+  let some projInfo ← getProjectionFnInfo? declName | return .rfl
+  -- Fast path, which also covers class projections (whose projection functions
+  -- `unfoldDefinition?` does not unfold): `S.f (S.mk .. x ..) ~~> x`.
+  let args := e.getAppArgs
+  if h : projInfo.numParams < args.size then
+    let str := args[projInfo.numParams]
+    let strArgs := str.getAppArgs
+    if str.getAppFn.isConstOf projInfo.ctorName then
+      if h' : projInfo.numParams + projInfo.i < strArgs.size then
+        return .step (← shareCommon
+          (mkAppN strArgs[projInfo.numParams + projInfo.i] (args.extract (projInfo.numParams + 1))))
   let reduceProjCont? (e? : Option Expr) : DSimpM Result := do
     match e? with
     | none   => return .rfl
@@ -340,7 +366,7 @@ partial def evalSymKStep : Grind.GrindTactic :=
 
   let declsForDSimp := (kstepExtension.getState env).toList
   let maxInstrCount ← maxSteps?.mapM (IO.mkRef ·)
-  let kdsimpDecls := kdeltaBetaOnly declsForDSimp maxInstrCount
+  let kdsimpDecls := kdeltaBetaOnly declsForDSimp
 
   -- https://lean-lang.org/doc/api/Lean/Meta/Sym/Simp/SimpM.html
   -- note the "contextual ite handling" --> are we doing this?
@@ -362,20 +388,32 @@ partial def evalSymKStep : Grind.GrindTactic :=
       | .goal _ goal => pure goal
     pure (← insertGimmick goal)
 
+  -- One definitional-simplification pass (delta / beta / iota / projections).
+  let dsimpStep (goal: Grind.Goal): Grind.GrindTacticM Grind.Goal := do
+    let tOld ← goal.mvarId.getType
+    let tNew ← goal.mvarId.withContext $ Grind.liftGrindM $
+      Sym.dsimp
+        (config := { maxSteps := 1000000 })
+        (methods := {
+          pre := klog >> evalGround >> kdsimpDecls >> kdsimpMatch >> kdsimpProj >> kbeta })
+        tOld
+    if config.debug then
+      let tOld' ← instantiateMVars tOld
+      let tNew' ← instantiateMVars tNew
+      let lctx ← goal.mvarId.withContext getLCtx
+      let t0 ← IO.monoMsNow
+      let r ← IO.ofExcept ((Kernel.isDefEq (← getEnv) lctx tOld' tNew').mapError (fun _ => "kernel exception"))
+      let t1 ← IO.monoMsNow
+      logInfo m!"KERNEL dsimp check: {t1 - t0}ms ok={r}"
+    let mvarId ← goal.mvarId.replaceTargetDefEq tNew
+    introsIf ({ goal with mvarId })
+
   -- MAIN LOOP
   let rec go (goal: Grind.Goal): Grind.GrindTacticM (Grind.Goal × List Grind.Goal) := do
     -- STEP 1: dsimp
-    let goal ← do
-      let mvarId ← goal.mvarId.replaceTargetDefEq (← Grind.liftGrindM $
-        Sym.dsimp
-          (config := { maxSteps := 1000000 })
-          (methods := {
-            pre := klog >> evalGround >> kdsimpDecls >> kdsimpMatch >> kdsimpProj >> kbeta })
-          (← goal.mvarId.getType))
-      introsIf ({ goal with mvarId })
+    let goal ← dsimpStep goal
 
     if config.debug then
-      let t ← goal.mvarId.getType
       logInfo m!"MAIN LOOP, after step 1: {goal.mvarId}"
 
     -- TEMPORARY: trying to simplify binders in the goal
@@ -391,8 +429,7 @@ partial def evalSymKStep : Grind.GrindTactic :=
       | .goal mvarId => pure (true, { goal with mvarId })
       | .closed => throwError "unexpected"
     if config.debug then
-      let t ← goal.mvarId.getType
-      logInfo m!"MAIN LOOP, after step 2: {t}"
+      logInfo m!"MAIN LOOP, after step 2: {goal.mvarId}"
 
     -- STEP 3: spec lemmas
     let goalState ← do
@@ -413,6 +450,28 @@ partial def evalSymKStep : Grind.GrindTactic :=
       let some state := getEffectsState goalT' | return (goal, [])
       pure state
 
+    -- STEP 3a: `Effects.All _ (Directives.interp ..)`: step into the next directive by
+    -- rewriting with its equation (see `directivesInterpEq?` for why this is not done
+    -- by dsimp). We optionally count these steps, to implement `kstep n`.
+    if goalState.isAppOf `Directives.interp then
+      if (← maxInstrCount.mapM (·.get)) = some 0 then
+        return (goal, [])
+      if goalState.hasLooseBVars then
+        throwError "kstep: `Directives.interp` under a binder, cannot step:{indentExpr goalState}"
+      let some heq ← goal.mvarId.withContext (directivesInterpEq? goalState)
+        | throwError "kstep: cannot step through{indentExpr goalState}"
+      maxInstrCount.forM (·.modify (· - 1))
+      let mvarId ← goal.mvarId.withContext do
+        let target ← instantiateMVars (← goal.mvarId.getType)
+        let some (ty, lhs, rhs) := (← inferType heq).eq? | throwError "kstep: bad equation"
+        let motive ← kabstract target lhs
+        unless motive.hasLooseBVars do
+          throwError "kstep: could not find{indentExpr lhs}"
+        let target' := motive.instantiate1 rhs
+        let proof ← mkCongrArg (.lam `x ty motive .default) heq
+        goal.mvarId.replaceTargetEq target' proof
+      return ← go { goal with mvarId }
+
     let (keepGoingSpec, goal) ←
       match getMatch specTree goalState with
       | #[ thmName ] =>
@@ -421,6 +480,22 @@ partial def evalSymKStep : Grind.GrindTactic :=
         logInfo m!"{subGoals.length} subgoals generated"
 
         let subGoals ← subGoals.mapM fun (subGoal: Grind.Goal) => do
+          -- Normalize the side condition exactly like the main goal (delta / iota /
+          -- projections): spec side conditions mention raw semantic terms (e.g. the
+          -- unreduced `AddrExpr.interp` of the instruction's operand), which `simp`
+          -- alone does not reduce, and which then fail to match hypotheses.
+          let subGoal ← subGoal.mvarId.withContext do
+            -- `Sym.dsimp` only has `pre` methods here, so a matcher whose discriminant
+            -- only becomes a constructor after reducing it is handled by the next pass.
+            let mut t ← instantiateMVars (← subGoal.mvarId.getType)
+            for _ in [0:8] do
+              let t' ← Grind.liftGrindM <| Sym.dsimp
+                (config := { maxSteps := 1000000 })
+                (methods := { pre := kzeta >> evalGround >> kdsimpDecls >> kdsimpMatch >> kdsimpProj >> kbeta })
+                t
+              if t' == t then break
+              t := t'
+            pure { subGoal with mvarId := ← subGoal.mvarId.replaceTargetDefEq t }
           -- Try simp -- who knows, one might get lucky
           let simpResult ← Grind.liftGrindM (Sym.simpGoal subGoal.mvarId simpMethods)
           match simpResult with
@@ -444,6 +519,14 @@ partial def evalSymKStep : Grind.GrindTactic :=
             let .some e ← getExprMVarAssignment? subGoal.mvarId | throwError "oh noes"
             logInfo m!"Solved by exact: {t} by {e}"
             return true
+
+          -- Separation goals: AC-match the clauses against a (possibly
+          -- universally quantified) hypothesis, instantiating `?bs`/`?R`.
+          let t ← instantiateMVars (← subGoal.mvarId.getType)
+          if t.getAppFn.isConstOf `Std.ExtHashMap.sep then
+            if ← withReducible (Kraken.Tactic.ecancelCore subGoal.mvarId) then
+              logInfo m!"Solved by ecancel: {t}"
+              return true
 
           -- Solvable with refl, maybe.
           try
