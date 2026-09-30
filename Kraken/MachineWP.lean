@@ -1671,6 +1671,20 @@ theorem Program.label_addrOf_drop [layout : _root_.Layout] {p : Program}
     rw [htake, hpt] at hdz
     exact hfresh (Program.mem_labels_of_cell (heq ▸ Layout.frag_mem hdz))
 
+/-- A label whose scope suffix starts right behind an `.align n` directive is
+`n`-aligned, whatever the layout. Every hypothesis is decidable for a concrete
+program. -/
+theorem Program.label_aligned_of_align [layout : _root_.Layout] {p : Program}
+    [hv : Executable.ValidLayout (layout p)] (hnd : (Program.labels p).Nodup)
+    {l : Label} {i : Nat} {aw w : Width} {n : Nat} {pad : Option Nat}
+    (hal : p[i]? = some (.instr (.regular aw w (.nopalign n pad))))
+    (hdrop : p.drop (i + 1) = Program.fromLabel p l)
+    (hne : Program.fromLabel p l ≠ []) (hn : 0 < n) :
+    isAligned n ((_root_.Executable.labels (layout p)).label l).toBitVec = true := by
+  rw [Program.label_addrOf_drop hnd hdrop hne]
+  have h := hv.align_addr i aw w n pad _ (by rw [layout_getElem, hal]; rfl) hn
+  simp [isAligned, h]
+
 /-- Behind a laid-out program whose last cell is an instruction the text runs
 out. -/
 theorem Kraken.Executable.directivesFromAddress_end [layout : _root_.Layout] {p : Program}

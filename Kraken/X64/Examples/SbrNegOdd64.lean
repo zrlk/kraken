@@ -14,26 +14,30 @@ sign bit set in lanes 1 and 3, and stores them back.
 The program below is the routine's machine code, disassembled from the object
 file, in the parser's AT&T syntax. There are two changes. The final `ret` is
 left off. The 16 bytes of `ps_mask2`, which the object file keeps in
-`.rodata`, sit in the program behind a `jmp` that skips them, so that the label
-`ps_mask2` names their address.
+`.rodata`, sit in the program behind a `jmp` that skips them and an
+`.align 16`, so that the label `ps_mask2` names their address and that address
+is 16-byte aligned, as in `.rodata`.
 
 We prove that the loop terminates without faulting, and that on exit the
 array and the mask are still in place, separated from each other and from the
 frame `R`. The machine keeps code and data in separate memories, so the
-precondition owns the 16 bytes at `ps_mask2` in data memory, aligned as `xorps`
-requires. The proof never needs their contents, which need not match the
-`.byte` line.
+precondition owns the 16 bytes at `ps_mask2` in data memory. The proof never
+needs their contents, which need not match the `.byte` line.
 
-The layout is a parameter. `ValidLayout` fixes only that labels take no bytes
-and every other directive at least one, so the `jmp` can take any size and
-`ps_mask2` can land at any address. `h_mask_aligned` restricts the theorem to
-the layouts that align it to 16 bytes, as the assembler source does by putting
-the constant in `SECTION_RODATA`, which `x86inc.asm` aligns to 16. For the
-other layouts the theorem says nothing. The hypothesis is needed only at the
-four `xorps`: without it the proof fails there and nowhere else.
-`sbr_neg_odd_64_hyps_satisfiable`, at the end of the file, gives a layout, a
-machine and a frame that meet every hypothesis at once, so the theorem is not
-vacuous.
+The layout is a parameter. `ValidLayout` lets the `jmp` take any size, but it
+makes the `.align 16` cell end at a multiple of 16, so `ps_mask2_aligned`
+proves the mask aligned, as `xorps` requires, in every valid layout. This
+matches the assembler source, which puts the constant in `SECTION_RODATA`,
+aligned to 16 by `x86inc.asm`. Unlike an assembler, which pads nothing at an
+address that is already aligned, the layout pads 1 to 16 bytes. The alignment
+is needed only at the four `xorps`: without it the proof fails there and
+nowhere else. The remaining preconditions are a 16-byte aligned `z` and
+ownership of its 256 bytes and of the mask.
+
+Because `ValidLayout` constrains addresses, a program could have no valid
+layout at all, which would make the theorems vacuous. `sbr_wit_layout`, at the
+end of the file, is a valid layout, and `sbr_neg_odd_64_hyps_satisfiable`
+shows that under it the remaining hypotheses hold at once.
 
 The proof has the shape of `ButterfliesBlocks.lean`: `sbr_table` gives the
 assertion at each label (at `.loop`, the loop invariant), `sbr_var` is the
@@ -50,10 +54,11 @@ open Lean.Order
 set_option experimental.vcgen true
 
 /-- The program: `ff_sbr_neg_odd_64_sse` from the object file without its
-`ret`, with the mask it reads placed behind a `jmp`. -/
+`ret`, with the mask it reads placed behind a `jmp` and aligned to 16 bytes. -/
 def sbr_neg_odd_64_prog : Program := parse("
 start:
     jmp ff_sbr_neg_odd_64_sse
+    .align 16
 ps_mask2:
     .byte 0, 0, 0, 0, 0, 0, 0, 0x80, 0, 0, 0, 0, 0, 0, 0, 0x80
 ff_sbr_neg_odd_64_sse:
@@ -105,14 +110,20 @@ local instance sbr.env : CodeEnv := ⟨layout sbr_neg_odd_64_prog⟩
 /-- The address of the mask: where the layout puts the label `ps_mask2`. -/
 abbrev ps_mask2 : BitVec 64 := ((_root_.Executable.labels cenv).label "ps_mask2").toBitVec
 
+/-- The mask is 16-byte aligned in every valid layout: its label sits right
+behind the `.align 16` at position 2. -/
+theorem ps_mask2_aligned : isAligned 16 ps_mask2 = true :=
+  Program.label_aligned_of_align (p := sbr_neg_odd_64_prog) (l := "ps_mask2") (i := 2)
+    (by decide +kernel) rfl (by decide +kernel) (by decide +kernel) (by decide)
+
 theorem sbr_neg_odd_64_correct (d : MachineData)
     (h_z_aligned : isAligned 16 (d.regs.get64 .rdi) = true)
-    (h_mask_aligned : isAligned 16 ps_mask2 = true)
     (R : DataMem → Prop)
     (h_mem : d.dmem =⋆ Mem.Blocks [(d.regs.get64 .rdi, 256), (ps_mask2, 16)] ⋆ R) :
     ⦃ fun s => s = d ⦄
       sbr_neg_odd_64_prog
     ⦃ fun _ s => s.dmem =⋆ Mem.Blocks [(d.regs.get64 .rdi, 256), (ps_mask2, 16)] ⋆ R ⦄ := by
+  have h_mask_aligned := ps_mask2_aligned
   apply MachineWP.cfg (sbr_table d ps_mask2 R) sbr_var
   cfg_cases [sbr_neg_odd_64_prog]
   · vcgen with finish
@@ -124,25 +135,33 @@ theorem sbr_neg_odd_64_correct (d : MachineData)
 theorem sbr_neg_odd_64_terminates_and_safe
     (s₀ : MachineData)
     (h_z_aligned : isAligned 16 s₀.regs.rdi.toBitVec)
-    (h_mask_aligned : isAligned 16 ps_mask2)
     (R : DataMem → Prop)
     (h_mem : s₀.dmem =⋆ Mem.Blocks [(s₀.regs.rdi.toBitVec, 256), (ps_mask2, 16)] ⋆ R) :
     Eventually (straightlineStep (layout sbr_neg_odd_64_prog))
       (fun s' => s'.1.dmem =⋆ Mem.Blocks [(s₀.regs.rdi.toBitVec, 256), (ps_mask2, 16)] ⋆ R)
       (s₀, Kraken.Layout.start Directive) :=
-  Program.run_of_triple (sbr_neg_odd_64_correct s₀ h_z_aligned h_mask_aligned R h_mem) rfl
+  Program.run_of_triple (sbr_neg_odd_64_correct s₀ h_z_aligned R h_mem) rfl
 
-/-! ## The hypotheses can hold
+/-! ## A valid layout exists
 
-`h_mask_aligned` holds only for some layouts. Here is one: the text starts at
-0, labels take no bytes and every other directive takes 16, so `ps_mask2` is
-16. With the array right behind the mask, all the hypotheses of
-`sbr_neg_odd_64_correct` hold at once, so the theorem is not vacuous. -/
+`ValidLayout` constrains the address behind the `.align 16`, so the theorems
+above would be vacuous if the program had no valid layout. Here is one: the
+text starts at 0, labels take no bytes and every other directive takes 16,
+which puts `ps_mask2` at 32. With the array right behind the mask, the
+hypotheses of `sbr_neg_odd_64_correct` hold at once. -/
 
-/-- A layout that puts `ps_mask2` at 16. -/
+/-- A layout that puts `ps_mask2` at 32. -/
 @[reducible] def sbr_wit_layout : _root_.Layout where
   start := 0
   size i := if (sbr_neg_odd_64_prog[i]?.map Directive.isLabel).getD false then 0 else 16
+
+/-- Whether the cell at position `i` is an `.align n` that ends at a multiple
+of `n` under `sbr_wit_layout`, or no `.align` at all. -/
+private def sbr_wit_aligned (i : Nat) : Bool :=
+  match sbr_neg_odd_64_prog[i]? with
+  | some (.instr (.regular _ _ (.nopalign n _))) =>
+      ((sbr_wit_layout sbr_neg_odd_64_prog).addrOf (i + 1)).toBitVec.toNat % n == 0
+  | _ => true
 
 omit layout [Executable.ValidLayout (layout sbr_neg_odd_64_prog)] in
 theorem sbr_wit_layout_valid : Executable.ValidLayout (sbr_wit_layout sbr_neg_odd_64_prog) where
@@ -161,37 +180,45 @@ theorem sbr_wit_layout_valid : Executable.ValidLayout (sbr_wit_layout sbr_neg_od
     show 0 < (if (sbr_neg_odd_64_prog[i]?.map Directive.isLabel).getD false then 0 else 16)
     simp [hd, this]
   no_wrap := by decide +kernel
+  align_addr i aw w n pad z h hn := by
+    simp only [Kraken.Layout.apply, List.getElem?_mapIdx, Option.map_eq_some_iff,
+      Prod.mk.injEq] at h
+    obtain ⟨d, hd, hdeq, -⟩ := h
+    subst hdeq
+    have hi : i < sbr_neg_odd_64_prog.length := (List.getElem?_eq_some_iff.mp hd).1
+    have key : ∀ j, j < sbr_neg_odd_64_prog.length → sbr_wit_aligned j = true := by
+      decide +kernel
+    have := key i hi
+    simp only [sbr_wit_aligned, hd, beq_iff_eq] at this
+    exact this
 
 omit layout [Executable.ValidLayout (layout sbr_neg_odd_64_prog)] in
-/-- `ps_mask2` is 16 under `sbr_wit_layout`: it follows the label `start`
-and the 16-byte `jmp`. -/
-theorem sbr_wit_mask : @ps_mask2 sbr_wit_layout = 16#64 := by
-  have h := Executable.label_addrOf (sbr_wit_layout sbr_neg_odd_64_prog) "ps_mask2" 2
+/-- `ps_mask2` is 32 under `sbr_wit_layout`: it follows the label `start`,
+the 16-byte `jmp` and the 16-byte `.align 16`. -/
+theorem sbr_wit_mask : @ps_mask2 sbr_wit_layout = 32#64 := by
+  have h := Executable.label_addrOf (sbr_wit_layout sbr_neg_odd_64_prog) "ps_mask2" 3
     (by decide +kernel) (by decide +kernel)
   simp only [ps_mask2, h]
   decide +kernel
 
 omit layout [Executable.ValidLayout (layout sbr_neg_odd_64_prog)] in
-/-- Under `sbr_wit_layout`, a machine with the mask's 16 bytes at 16 and the
-array's 256 bytes at 32 meets every hypothesis of `sbr_neg_odd_64_correct`. -/
+/-- Under `sbr_wit_layout`, a machine with the mask's 16 bytes at 32 and the
+array's 256 bytes at 48 meets every hypothesis of `sbr_neg_odd_64_correct`. -/
 theorem sbr_neg_odd_64_hyps_satisfiable :
     ∃ (d : MachineData) (R : DataMem → Prop),
       isAligned 16 (d.regs.get64 .rdi) = true ∧
-      isAligned 16 (@ps_mask2 sbr_wit_layout) = true ∧
       d.dmem =⋆ Mem.Blocks [(d.regs.get64 .rdi, 256), (@ps_mask2 sbr_wit_layout, 16)] ⋆ R := by
-  have hsplit := Mem.At_append_sep (List.replicate 16 (0 : UInt8)) (List.replicate 256 0) 16#64
+  have hsplit := Mem.At_append_sep (List.replicate 16 (0 : UInt8)) (List.replicate 256 0) 32#64
     (by rw [List.length_replicate, List.length_replicate]; omega)
   simp only [List.length_replicate] at hsplit
-  rw [show (16#64 + BitVec.ofNat 64 16 : BitVec 64) = 32#64 from rfl] at hsplit
-  have h : ((List.replicate 16 (0 : UInt8) ++ List.replicate 256 0).At 16#64) =⋆
-      Eq ((List.replicate 16 (0 : UInt8)).At 16#64) ⋆ Eq ((List.replicate 256 (0 : UInt8)).At 32#64) := by
+  rw [show (32#64 + BitVec.ofNat 64 16 : BitVec 64) = 48#64 from rfl] at hsplit
+  have h : ((List.replicate 16 (0 : UInt8) ++ List.replicate 256 0).At 32#64) =⋆
+      Eq ((List.replicate 16 (0 : UInt8)).At 32#64) ⋆ Eq ((List.replicate 256 (0 : UInt8)).At 48#64) := by
     rw [← hsplit]
   have h1 := Mem.Block.sep_intro (len := 16) List.length_replicate (by decide) h
   rw [Std.ExtHashMap.sep_comm] at h1
   have h2 := Mem.Block.sep_intro (len := 256) List.length_replicate (by decide) h1
-  generalize (List.replicate 16 (0 : UInt8) ++ List.replicate 256 0).At 16#64 = m at h2
-  refine ⟨{ dmem := m, regs := { rdi := 32 } }, Std.ExtHashMap.emp, by dsimp only; decide,
-    by rw [sbr_wit_mask]; rfl, ?_⟩
+  generalize (List.replicate 16 (0 : UInt8) ++ List.replicate 256 0).At 32#64 = m at h2
+  refine ⟨{ dmem := m, regs := { rdi := 48 } }, Std.ExtHashMap.emp, by dsimp only; decide, ?_⟩
   rw [Std.ExtHashMap.sep_emp, sbr_wit_mask]
   exact h2
-
