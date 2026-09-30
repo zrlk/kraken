@@ -375,6 +375,31 @@ def Program.blockAt (p : Program) (l : Label) : Option Program.Block :=
 def Program.blockIdx (p : Program) (l : Label) : Nat :=
   (Program.labels p).idxOf l
 
+theorem Program.labels_eq_view (p : Program) :
+    Program.labels p = (Program.view p).2.map (·.1) := by
+  induction p with
+  | nil => rfl
+  | cons d p ih => cases d <;> simp [Program.labels, Program.view, ih]
+
+theorem Program.isSome_blockAtAux (bs : List (Label × Program)) (l : Label) :
+    (Program.blockAtAux bs l).isSome = (bs.map (·.1)).contains l := by
+  induction bs with
+  | nil => rfl
+  | cons b bs ih =>
+    obtain ⟨l', b⟩ := b
+    by_cases h : l' = l
+    · simp [Program.blockAtAux, h]
+    · simp only [Program.blockAtAux, h, if_false, ih, List.map_cons, List.contains_cons]
+      simp [Ne.symm h]
+
+theorem Program.isSome_blockAt (p : Program) (l : Label) :
+    (Program.blockAt p l).isSome = ((Program.view p).2.map (·.1)).contains l :=
+  Program.isSome_blockAtAux _ l
+
+theorem Program.blockIdx_eq_view (p : Program) (l : Label) :
+    Program.blockIdx p l = ((Program.view p).2.map (·.1)).idxOf l := by
+  rw [Program.blockIdx, Program.labels_eq_view]
+
 /-- What the block map found: the label's position in the view, its body
 there, and the following label. -/
 theorem Program.blockAtAux_spec : ∀ {bs : List (Label × Program)} {l : Label}
@@ -493,57 +518,68 @@ abbrev Program.EdgeLt (p : Program) (var : Label → MachineData → Nat)
   var l' s < n ∨ (var l' s = n ∧ Program.blockIdx p l < Program.blockIdx p l')
 
 open Lean Meta Elab Tactic in
-/-- The labels of a closed text, in order, read off by reduction. -/
-private partial def cfgLabels (e : Expr) : MetaM (List String) := do
+/-- The directives of a closed text, in order, read off by reduction. -/
+private partial def cfgDirectives (e : Expr) (acc : Array Expr := #[]) :
+    MetaM (Array Expr) := do
   let e ← whnfD e
   match_expr e with
-  | List.nil _ => return []
-  | List.cons _ hd tl =>
-    let .lit (.strVal s) ← whnfD hd
-      | throwError "cfg_label_facts: the label {hd} is not a string literal"
-    return s :: (← cfgLabels tl)
-  | _ => throwError "cfg_label_facts: cannot compute the labels of the text"
+  | List.nil _ => return acc
+  | List.cons _ hd tl => cfgDirectives tl (acc.push hd)
+  | _ => throwError "cfg_view: cannot compute the directives of the text"
 
 open Lean Meta Elab Tactic in
-/-- Record, for every label of the text `p` behind the block-map equation
-`h : Program.blockAt p l = _`, that the label is mapped and at which position:
-the two facts a jump exit of the control-flow rule asks about its target.
-Each fact is proved by `decide`. -/
-elab "cfg_label_facts" h:term : tactic => withMainContext do
+/-- For the block-map equation `h : Program.blockAt p l = _` of a closed text
+`p`, add `n : (Program.view p).2 = bs`, where `bs` lists the labeled blocks of
+`p` with their directives. For the text `[.label "a", i₁, .label "b", i₂]`,
+`bs` is `[("a", [i₁]), ("b", [i₂])]`. The kernel checks the equation. -/
+elab "cfg_view " h:term " as " n:ident : tactic => withMainContext do
   let ty ← instantiateMVars (← inferType (← elabTerm h none))
   let_expr Eq _ lhs _ := ty
-    | throwError "cfg_label_facts: expected `Program.blockAt p l = _`"
+    | throwError "cfg_view: expected `Program.blockAt p l = _`"
   let_expr Program.blockAt p _ := lhs
-    | throwError "cfg_label_facts: expected `Program.blockAt p l = _`"
-  let labels ← cfgLabels (mkApp (mkConst ``Program.labels) p)
-  let mut goal ← getMainGoal
-  for l in labels.eraseDups do
-    let lit := mkStrLit l
-    let mapped ← mkEq (← mkAppM ``Option.isSome #[← mkAppM ``Program.blockAt #[p, lit]])
-      (mkConst ``Bool.true)
-    let pos ← mkEq (← mkAppM ``Program.blockIdx #[p, lit]) (mkNatLit (labels.idxOf l))
-    for stmt in [mapped, pos] do
-      unless (← withAtLeastTransparency .default <| whnf (← mkDecide stmt)).isConstOf ``true do
-        throwError "cfg_label_facts: failed to decide {stmt}"
-      let (_, g) ← goal.note (← mkFreshUserName `h) (← mkDecideProof stmt) stmt
-      goal := g
-  replaceMainGoal [goal]
+    | throwError "cfg_view: expected `Program.blockAt p l = _`"
+  let dirTy := mkConst ``Directive
+  let mut blocks : Array (Expr × Array Expr) := #[]
+  for d in ← cfgDirectives p do
+    match_expr ← whnfD d with
+    | Directive.label l =>
+      let .lit (.strVal s) ← whnfD l
+        | throwError "cfg_view: the label {l} is not a string literal"
+      blocks := blocks.push (mkStrLit s, #[])
+    | _ =>
+      let some (l, body) := blocks.back?
+        | throwError "cfg_view: the text does not start with a label"
+      blocks := blocks.pop.push (l, body.push d)
+  let pairs ← blocks.mapM fun (l, body) => do
+    mkAppM ``Prod.mk #[l, ← mkListLit dirTy body.toList]
+  let bs ← mkListLit (← mkAppM ``Prod #[mkConst ``Label, mkConst ``Program]) pairs.toList
+  let stmt ← mkEq (← mkAppM ``Prod.snd #[mkApp (mkConst ``Program.view) p]) bs
+  let pf ← mkAuxTheorem stmt (← mkEqRefl bs)
+  let (_, g) ← (← getMainGoal).note n.getId pf stmt
+  replaceMainGoal [g]
 
 /-- Split the control-flow obligations into one goal per block: compute the
 block map on the program's text, case on the label it matches, and substitute
 the block it names. The bracket lists the program's definitional unfoldings.
-Each goal also records, for every label of the text, that it is mapped and at
-which position (`cfg_label_facts`), so a jump exit's target needs no lemmas of
-its own. -/
+In each goal, a jump exit asks whether its target is mapped and at which
+position through the list of labels, `["start", ".loop", …]`. Once vcgen
+supplies the target, `grind` evaluates that question with the `MachineWP`
+normalization rules. -/
 macro "cfg_cases" "[" ids:Lean.Parser.Tactic.simpLemma,* "]" : tactic =>
   `(tactic|
     (intro l blk hblk n
-     try cfg_label_facts hblk
-     simp only [$ids,*, Program.blockAt, Program.blockAtAux, Program.view,
-       List.cons_append, List.nil_append, List.head?_cons, List.head?_nil] at hblk
+     cfg_view hblk as hview
+     have hlabels := congrArg (List.map (·.1)) hview
+     simp only [List.map_cons, List.map_nil] at hlabels
+     rw [Program.blockAt, hview] at hblk
+     clear hview
+     simp only [$ids,*, Program.blockAtAux, List.head?_cons, List.head?_nil, Option.map_some,
+       Option.map_none] at hblk
      repeat' split at hblk
      all_goals subst_vars
      all_goals simp only [Option.some.injEq, reduceCtorEq] at hblk
      all_goals subst hblk
-     all_goals dsimp only))
+     all_goals simp only [Program.EdgeLt, Program.isSome_blockAt, Program.blockIdx_eq_view,
+       hlabels]
+     all_goals clear hlabels))
 
