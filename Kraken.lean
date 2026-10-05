@@ -27,5 +27,6 @@ import Kraken.MachineWP
 import Kraken.SepWP
 import Kraken.SepSpecs
 import Kraken.SepFrameProc
+import Kraken.SysV
 import Kraken.X64.Examples.SepAluMem
 import Kraken.X64.Examples.SepDynamicStack

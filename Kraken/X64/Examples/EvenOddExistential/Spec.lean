@@ -23,13 +23,15 @@ ordinary induction on `N` (the ghost version needs strong induction on `n`).
 `EvenSpecK_all` in `Link.lean` then drops the bound.
 
 What the existential costs: at the call the caller must *produce* the
-witnesses (`⟨n - 1, R', …⟩`), and to establish the spec the table of the
-blocks carries the existential too, which `MachineWP.cfg_blocks_exists`
-reduces to the ghost-shaped obligations. What it buys: the specification
-reads as one sentence, and the induction is on a bound, not an index.
+witnesses (`⟨n - 1, R', …⟩`). What it buys: the specification reads as one
+sentence, and the induction is on a bound, not an index. Establishing the
+spec is the same work as in the ghost style: `ProcSpecK.of_cfg_exists`
+(`MachineWP`, general) states the blocks in the witness as a logical
+variable, and the tables are those of the ghost proofs.
 -/
 
 open Kraken
+open Kraken.SysV
 open Mem
 
 namespace Kraken.Examples.EvenOddExistential
@@ -49,17 +51,5 @@ abbrev EvenSpecK [CodeEnv] (N : Nat) : Prop :=
 
 abbrev OddSpecK [CodeEnv] (N : Nat) : Prop :=
   cenv.ProcSpecK ((_root_.Executable.labels cenv).label "odd") (OddK N)
-
-/-- What the blocks establish at the exit, in the terms of a witness `(n, R)`:
-the exit form of the ghost proof. `exit_K` maps it into the continuation. -/
-abbrev ExitCells (n : Nat) (R : Mem 64 → Prop) (ra : Int64) (t₀ : MachineData)
-    (parity : Nat) (a : Int64) (s : MachineData) : Prop :=
-  a = ra ∧ n < 2 ^ 32 ∧ CallPostCells n R ra t₀ s ∧ (s.regs.get64 .rax).toNat % 256 = parity
-
-theorem exit_K {n : Nat} {R : Mem 64 → Prop} {ra : Int64} {K : MachineData → Prop}
-    {t₀ : MachineData} {parity : Nat}
-    (hK : ∀ s', CallPost n R ra t₀ s' ∧ (s'.regs.get64 .rax).toNat % 256 = parity → K s')
-    (a : Int64) (s : MachineData) (h : ExitCells n R ra t₀ parity a s) : a = ra ∧ K s :=
-  ⟨h.1, hK s ⟨CallPost.of_cells h.2.1 h.2.2.1, h.2.2.2⟩⟩
 
 end Kraken.Examples.EvenOddExistential

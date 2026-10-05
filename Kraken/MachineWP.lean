@@ -1539,6 +1539,28 @@ theorem MachineWP.call_proc_specK_at {Spec : Int64 → (MachineData → Prop) �
       ⦃ Q; E ⦄ :=
   fun asz osz _ _ _ => MachineWP.call_proc_specK asz osz l hproc
 
+/-- The state `vcgen` leaves at a call site is a literal: the pushed state
+`s.pushRa ra`, with registers set one by one. `grind` does not read a
+register or the memory out of such a literal; this does, in every hypothesis
+and the goal. Run it after a `vcgen` that stepped a `call`, `push` or `pop`,
+before `grind`.
+
+A call site with `vcgen [call_proc_spec_at x l hproc]` then reads:
+```
+vcgen [hc]
+all_goals call_simp
+all_goals try refine ⟨fun w => ⟨?_, fun s' hpost => ?_⟩, ?_⟩  -- open the rule's shape
+all_goals try (vcgen; all_goals call_simp)                   -- the block after the return
+all_goals grind …
+```
+The `refine` is the one step that is not mechanical: the rule states the
+callee's precondition and the continuation under `∀ ra`, and `vcgen` does not
+step into the continuation's `wp` there; the second `vcgen` does once the
+quantifier is open. -/
+macro "call_simp" : tactic =>
+  `(tactic| try simp only [MachineData.dmem_pushRa, MachineData.get64_pushRa,
+      Reg64s.get64_set64, reduceCtorEq, ite_true, ite_false] at *)
+
 @[spec] theorem MachineWP.jcc_spec (asz osz : Width) (cc : CondCode) (l : Label) :
     ⦃ fun s =>
         (cc.interp s.status = true → E ((_root_.Executable.labels cenv).label l) s)
@@ -2767,6 +2789,42 @@ theorem MachineWP.cfg_blocks_exists [CodeEnv] {β : Type} {p : Program}
   · rintro a s' (⟨l', hl, hsome, ht', he⟩ | hex)
     · exact Or.inl ⟨l', hl, hsome, ⟨x, hw, ht'⟩, he⟩
     · exact Or.inr (hexit x hw a s' hex)
+
+open MachineWP in
+/-- `ProcSpec.of_cfg_post` for a `ProcSpecK` whose `Spec` quantifies the
+caller's data existentially: `Spec ra K t` gives a witness `x` with `W ra K t
+x` (the data's side conditions, and the continuation's: `∀ s', Post' x ra t s'
+→ K s'`) and the entry `T x ra t l₀ t`. The table and the exit are stated in
+`x` as a logical variable, so the block obligations are the ones of the ghost
+style, verbatim, with `W` in hand (a recursive procedure's bound lives there). -/
+theorem Kraken.Executable.ProcSpecK.of_cfg_exists [CodeEnv] {p p' : Program} {l₀ : Label}
+    {β : Type} {Spec : Int64 → (MachineData → Prop) → MachineData → Prop}
+    (T : β → Int64 → MachineData → Label → MachineData → Prop)
+    (Post' : β → Int64 → MachineData → MachineData → Prop)
+    (W : Int64 → (MachineData → Prop) → MachineData → β → Prop)
+    (var : Label → MachineData → Nat := fun _ _ => 0)
+    (hblocks : ∀ (x : β) (ra : Int64) (K : MachineData → Prop) (t₀ : MachineData),
+      W ra K t₀ x → ∀ l blk, Program.blockAt p l = some blk → ∀ n : Nat,
+      ⦃ fun s => T x ra t₀ l s ∧ var l s = n ⦄ blk.body
+      ⦃ (match blk.next with
+         | some l' => fun _ s => T x ra t₀ l' s ∧ var l' s ≤ n
+         | none => fun _ _ => False);
+        fun a s => Table.ofLabels (fun l' s => (Program.blockAt p l').isSome ∧ T x ra t₀ l' s
+          ∧ Program.EdgeLt p var l n l' s) a s ∨ (a = ra ∧ Post' x ra t₀ s) ⦄)
+    (hpre : ∀ ra K t, Spec ra K t → ∃ x, W ra K t x ∧ T x ra t l₀ t)
+    (hpost : ∀ ra K t₀ x, W ra K t₀ x → ∀ s, Post' x ra t₀ s → K s)
+    (hp : p = Directive.label l₀ :: p' := by rfl)
+    (hwf : Program.WF p := by decide)
+    (hpl : Program.PlacedIn p := by assumption) :
+    cenv.ProcSpecK ((_root_.Executable.labels cenv).label l₀) Spec :=
+  Kraken.Executable.ProcSpecK.of_cfg
+    (fun ra K t₀ l s => ∃ x, W ra K t₀ x ∧ T x ra t₀ l s) var
+    (fun ra K _ a s => a = ra ∧ K s)
+    (fun ra K t₀ => MachineWP.cfg_blocks_exists (fun x l s => T x ra t₀ l s) (W ra K t₀) var
+      (fun x a s => a = ra ∧ Post' x ra t₀ s) (fun a s => a = ra ∧ K s)
+      (fun x hw => hblocks x ra K t₀ hw)
+      (fun x hw a s h => ⟨h.1, hpost ra K t₀ x hw s h.2⟩))
+    hpre (by rintro ra K t₀ a s ⟨rfl, h⟩; exact Eventually.done _ ⟨rfl, h⟩) hp hwf hpl
 
 -- Smoke test: the walk steps a placed fragment through the registered specs.
 set_option mvcgen.warning false in

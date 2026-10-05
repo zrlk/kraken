@@ -222,3 +222,10 @@ theorem sbr_neg_odd_64_hyps_satisfiable :
   refine ⟨{ dmem := m, regs := { rdi := 48 } }, Std.ExtHashMap.emp, by dsimp only; decide, ?_⟩
   rw [Std.ExtHashMap.sep_emp, sbr_wit_mask]
   exact h2
+
+-- array logics, insn support
+-- look into what happens with NaN
+-- grind regression
+-- how to do function calls?
+-- where are the aes instructions used in ffmpeg?
+-- we can reuse the rocq formalization of these
