@@ -100,6 +100,9 @@ abbrev CallPost (d : Nat) (R : Mem 64 → Prop) (_ra : Int64) (t s : MachineData
 /-- An `unsigned` argument: the low 32 bits of `rdi`. -/
 abbrev ArgU32 (t : MachineData) (n : Nat) : Prop := (t.regs.get64 .rdi).toNat % 2 ^ 32 = n
 
+theorem ArgU32.lt {t : MachineData} {n : Nat} (h : ArgU32 t n) : n < 2 ^ 32 :=
+  h ▸ Nat.mod_lt _ (by decide)
+
 /-- A `bool`/byte result in `al` — all 8 bits of it. -/
 abbrev RetU8 (s : MachineData) (v : Nat) : Prop := (s.regs.get64 .rax).toNat % 256 = v
 

@@ -1,3 +1,4 @@
+import Kraken.X64.Parser
 import Kraken.X64.Examples.EvenOddGhost.Spec
 
 /-!
@@ -16,7 +17,7 @@ conditions are in `Spec.lean`, sorted into calling convention and semantics.
   which is stated at `even`'s address, whatever it is.
 * The table below, one entry per block, as for any procedure. The *own* 24
   bytes of the frame are listed cell by cell, in the layout clang chose
-  (`Own`, `OwnCells` in `Spec.lean`); below them sits the reservation for the
+  (`Own`, `OwnCells` below); below them sits the reservation for the
   callee, `Reserve (below n) (r - 24)`, passed around whole and opened only
   at the call (`Reserve_below_succ`). Every entry carries `ArgU32 t₀ n`: it
   links the spilled argument to `n` for the callee's argument, and bounds `n`
@@ -25,7 +26,7 @@ conditions are in `Spec.lean`, sorted into calling convention and semantics.
 ## How the blocks are discharged
 
 Every block is `vcgen`, then `grind_cells` (the cell rules of `SepCells` and
-the `grind` rules of `Spec.lean`), as in the other examples. The call block
+`Reserve_below_succ` below), as in the other examples. The call block
 has two more steps, both from the shape of `call_proc_spec_at` and the same
 at every call site (see `call_simp` in `MachineWP`): `call_simp` reads the
 registers and the memory out of the pushed state, and a `refine` opens the
@@ -50,7 +51,117 @@ open MachineWP
 set_option mvcgen.warning false
 set_option grind.warning false
 
-namespace Kraken.Examples.EvenOddGhost
+namespace Kraken.Examples.EvenOddGhost.Odd
+
+/-- `odd`, as clang `-O0` emits it: the text of `even` with the base case
+returning `0` and the call going to `even` (AT&T syntax; labels renamed for
+the parser; the `ret` is kept — Kraken's `ret_spec` reads the address at
+`[rsp]`). -/
+def odd_body : Program := parse("
+odd:
+  pushq %rbp
+  movq %rsp, %rbp
+  subq $16, %rsp
+  movl %edi, -8(%rbp)
+  cmpl $0, -8(%rbp)
+  jne .LBB1_2
+  movb $0, -1(%rbp)
+  jmp .LBB1_3
+.LBB1_2:
+  movl -8(%rbp), %edi
+  subl $1, %edi
+  call even
+  andb $1, %al
+  movb %al, -1(%rbp)
+.LBB1_3:
+  movb -1(%rbp), %al
+  andb $1, %al
+  addq $16, %rsp
+  popq %rbp
+  ret
+")
+
+/-! ## The frame
+
+The stack layout of this body, as clang `-O0` laid it out: nothing here is
+shared with any other procedure (that `even` happens to have the same frame is
+a coincidence of two identical prologues). -/
+
+/-- What is reserved below a procedure's own 24 bytes: `need n - 24`. -/
+def below (n : Nat) : Nat := 32 * n
+
+theorem need_eq (n : Nat) : need n = 24 + below n := rfl
+
+/-- The reservation below the own bytes, at `n + 1`: the slot the call pushes
+into, then the callee's reservation. The blocks open it this way at the call
+(`grind` rule). -/
+@[grind =] theorem Reserve_below_succ (k : Nat) (r : BitVec 64) (hk : k < 2 ^ 32) :
+    Reserve (below (k + 1)) r = 8 ?@ (r - 8) ⋆ Reserve (need k) (r - 8) := by
+  have e : below (k + 1) = 8 + need k := by unfold below need; omega
+  rw [e, Reserve_split 8 (need k) r (by unfold need; omega)]
+  rfl
+
+/-- The procedure's own 24 bytes as the cells its code uses, in front of `X`:
+the unused 8, the spilled argument, padding, the `bool` local, the saved
+`rbp`. -/
+abbrev OwnCells (r : BitVec 64) (X : Mem 64 → Prop) : Mem 64 → Prop :=
+  8 ?@ (r - 24) ⋆ (4 ?@ (r - 16) ⋆ (3 ?@ (r - 12) ⋆ (1 ?@ (r - 9) ⋆ (8 ?@ (r - 8) ⋆ X))))
+
+theorem own_cells (r : BitVec 64) (X : Mem 64 → Prop) :
+    24 ?@ (r - 24) ⋆ X = OwnCells r X := by
+  have h24 : (24 : Nat) = 8 + (4 + (3 + (1 + 8))) := rfl
+  have e1 : r - 24 + BitVec.ofNat 64 8 = r - 16 := by bv_omega
+  have e2 : r - 16 + BitVec.ofNat 64 4 = r - 12 := by bv_omega
+  have e3 : r - 12 + BitVec.ofNat 64 3 = r - 9 := by bv_omega
+  have e4 : r - 9 + BitVec.ofNat 64 1 = r - 8 := by bv_omega
+  rw [h24, Block.split _ 8 _ (by decide), e1, Block.split _ 4 _ (by decide), e2,
+    Block.split _ 3 _ (by decide), e3, Block.split _ 1 _ (by decide), e4]
+  simp only [Std.ExtHashMap.sep_assoc]
+
+/-- The reservation in front of `X` is the cells the code uses in front of
+the reservation below them. Used at a procedure's entry (`hpre`) and exit
+(`hpost`) so that inside the blocks every tree names the same cells at the
+same address terms (see the note on addresses in `SepCells`). Not a `grind`
+rewrite: the blocks pass the callee's reservation around whole. -/
+theorem Reserve_cells (n : Nat) (r : BitVec 64) (X : Mem 64 → Prop)
+    (hn : need n ≤ 2 ^ 64) :
+    Reserve (need n) r ⋆ X = 8 ?@ (r - 24) ⋆ (4 ?@ (r - 16) ⋆ (3 ?@ (r - 12)
+      ⋆ (1 ?@ (r - 9) ⋆ (8 ?@ (r - 8) ⋆ (Reserve (below n) (r - 24) ⋆ X))))) := by
+  rw [need_eq] at hn ⊢
+  have e : BitVec.ofNat 64 24 = (24 : BitVec 64) := rfl
+  rw [Reserve_split 24 (below n) r hn, e, Std.ExtHashMap.sep_assoc, own_cells]
+
+/-- The procedure's own cells other than the `bool` local, in front of `X`,
+as the table names them after the prologue: saved `rbp`
+(holding `rbp₀`), padding, the spilled argument (holding `arg`), the unused 8
+bytes. -/
+abbrev Own (r rbp₀ : BitVec 64) (arg : Int) (X : Mem 64 → Prop) : Mem 64 → Prop :=
+  Int.toBytes 8 rbp₀.toInt =@ (r - 8) ⋆ (3 ?@ (r - 12)
+    ⋆ (Int.toBytes 4 arg =@ (r - 16) ⋆ (8 ?@ (r - 24) ⋆ X)))
+
+/-- `CallPre`'s memory as the entry block reads it. -/
+theorem CallPre.cells {n : Nat} {R : Mem 64 → Prop} {ra : Int64} {t : MachineData}
+    (hn : n < 2 ^ 32) (h : CallPre (need n) R ra t) :
+    t.dmem =⋆ RetCell ra (t.regs.get64 .rsp)
+      ⋆ OwnCells (t.regs.get64 .rsp) (Reserve (below n) (t.regs.get64 .rsp - 24) ⋆ R) := by
+  have hmem : t.dmem =⋆ RetCell ra (t.regs.get64 .rsp)
+      ⋆ (Reserve (need n) (t.regs.get64 .rsp) ⋆ R) := h
+  rw [Reserve_cells _ _ _ (need_le hn)] at hmem
+  exact hmem
+
+/-- `CallPost` as the exit block leaves it: the own bytes as the cells the code
+used, the rest of the reservation below them. The blocks establish this;
+`CallPost.of_cells` folds it (`hpost` of `ProcSpec.of_cfg_post`). -/
+abbrev CallPostCells (n : Nat) (R : Mem 64 → Prop) (_ra : Int64) (t s : MachineData) : Prop :=
+  s.regs.get64 .rsp = t.regs.get64 .rsp + 8
+  ∧ s.regs.get64 .rbp = t.regs.get64 .rbp ∧ SavedRegs t s
+  ∧ (s.dmem =⋆ 8 ?@ (t.regs.get64 .rsp)
+      ⋆ OwnCells (t.regs.get64 .rsp) (Reserve (below n) (t.regs.get64 .rsp - 24) ⋆ R))
+
+theorem CallPost.of_cells {n : Nat} {R : Mem 64 → Prop} {ra : Int64} {t s : MachineData}
+    (hn : n < 2 ^ 32) (h : CallPostCells n R ra t s) : CallPost (need n) R ra t s := by
+  obtain ⟨h₁, h₂, h₃, hmem⟩ := h
+  exact ⟨h₁, h₂, h₃, by rw [Reserve_cells _ _ _ (need_le hn)]; exact hmem⟩
 
 variable [CodeEnv]
 
@@ -111,4 +222,4 @@ theorem odd_spec (hpl : Program.PlacedIn odd_body) (n : Nat) (ih : EvenSpecBelow
   · rintro R ra t₀ s ⟨hn, hcells, hal⟩
     exact ⟨CallPost.of_cells hn hcells, hal⟩
 
-end Kraken.Examples.EvenOddGhost
+end Kraken.Examples.EvenOddGhost.Odd

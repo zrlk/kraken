@@ -21,16 +21,17 @@ namespace Kraken.Examples.EvenOddGhost
 variable [CodeEnv]
 
 /-- Both specifications, at every argument. -/
-theorem even_odd_spec (hpe : Program.PlacedIn even_body) (hpo : Program.PlacedIn odd_body)
-    (n : Nat) : EvenSpec n ∧ OddSpec n := by
+theorem even_odd_spec (hpe : Program.PlacedIn Even.even_body)
+    (hpo : Program.PlacedIn Odd.odd_body) (n : Nat) : EvenSpec n ∧ OddSpec n := by
   induction n using Nat.strongRecOn with
   | _ n ih =>
-    exact ⟨even_spec hpe n (fun m hm => (ih m hm).2), odd_spec hpo n (fun m hm => (ih m hm).1)⟩
+    exact ⟨Even.even_spec hpe n (fun m hm => (ih m hm).2),
+      Odd.odd_spec hpo n (fun m hm => (ih m hm).1)⟩
 
-theorem even_spec_all (hpe : Program.PlacedIn even_body) (hpo : Program.PlacedIn odd_body)
-    (n : Nat) : EvenSpec n := (even_odd_spec hpe hpo n).1
+theorem even_spec_all (hpe : Program.PlacedIn Even.even_body)
+    (hpo : Program.PlacedIn Odd.odd_body) (n : Nat) : EvenSpec n := (even_odd_spec hpe hpo n).1
 
-theorem odd_spec_all (hpe : Program.PlacedIn even_body) (hpo : Program.PlacedIn odd_body)
-    (n : Nat) : OddSpec n := (even_odd_spec hpe hpo n).2
+theorem odd_spec_all (hpe : Program.PlacedIn Even.even_body)
+    (hpo : Program.PlacedIn Odd.odd_body) (n : Nat) : OddSpec n := (even_odd_spec hpe hpo n).2
 
 end Kraken.Examples.EvenOddGhost

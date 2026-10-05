@@ -24,23 +24,26 @@ open EvenOddGhost
 variable [CodeEnv]
 
 /-- Both specifications, below every bound. -/
-theorem even_odd_specK (hpe : Program.PlacedIn even_body) (hpo : Program.PlacedIn odd_body)
+theorem even_odd_specK (hpe : Program.PlacedIn Even.even_body)
+    (hpo : Program.PlacedIn Odd.odd_body)
     (N : Nat) : EvenSpecK N ∧ OddSpecK N := by
   induction N with
   | zero => exact ⟨fun _ _ _ ⟨_, _, h, _⟩ => absurd h (Nat.not_lt_zero _),
       fun _ _ _ ⟨_, _, h, _⟩ => absurd h (Nat.not_lt_zero _)⟩
-  | succ N ih => exact ⟨even_specK hpe N ih.2, odd_specK hpo N ih.1⟩
+  | succ N ih => exact ⟨Even.even_specK hpe N ih.2, Odd.odd_specK hpo N ih.1⟩
 
 /-- `even`, with the bound gone: for a caller with any argument `n` and any
 memory `R`, a run from `EvenPre n R` ends at `ra` in the continuation. -/
-theorem EvenSpecK_all (hpe : Program.PlacedIn even_body) (hpo : Program.PlacedIn odd_body) :
+theorem EvenSpecK_all (hpe : Program.PlacedIn Even.even_body)
+    (hpo : Program.PlacedIn Odd.odd_body) :
     cenv.ProcSpecK ((_root_.Executable.labels cenv).label "even")
       (fun ra K t => ∃ (n : Nat) (R : Mem 64 → Prop),
         EvenPre n R ra t ∧ ∀ s', EvenPost n R ra t s' → K s') :=
   fun ra K t ⟨n, R, hpre, hK⟩ =>
     (even_odd_specK hpe hpo (n + 1)).1 ra K t ⟨n, R, Nat.lt_succ_self n, hpre, hK⟩
 
-theorem OddSpecK_all (hpe : Program.PlacedIn even_body) (hpo : Program.PlacedIn odd_body) :
+theorem OddSpecK_all (hpe : Program.PlacedIn Even.even_body)
+    (hpo : Program.PlacedIn Odd.odd_body) :
     cenv.ProcSpecK ((_root_.Executable.labels cenv).label "odd")
       (fun ra K t => ∃ (n : Nat) (R : Mem 64 → Prop),
         OddPre n R ra t ∧ ∀ s', OddPost n R ra t s' → K s') :=
