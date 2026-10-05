@@ -182,6 +182,16 @@ def MachineData.retAddr (t : MachineData) : Option Int64 :=
     (s.pushRa ra).dmem = Mem.storeInt s.dmem (s.regs.get64 .rsp - Width.W64.bytesv)
       Width.W64.bytes ra.toBitVec.toInt := rfl
 
+/-- Registers after the push, read directly: `rsp` moved by a word, the rest
+as they were. (`regs_pushRa` with `get64_set64` says the same in two steps,
+through a `UInt64` field; `grind` reaches the bitvector there only as a
+`toNat`, which does not merge the address with the cells of the caller's
+tree.) -/
+@[grind =] theorem MachineData.get64_pushRa (s : MachineData) (ra : Int64) (r : Reg64) :
+    (s.pushRa ra).regs.get64 r =
+      if r = .rsp then s.regs.get64 .rsp - Width.W64.bytesv else s.regs.get64 r := by
+  simp [MachineData.pushRa]
+
 /-- A load at the address a store wrote reads the stored value back. -/
 @[grind =] theorem Mem.loadInt_storeInt_64 (m : DataMem) (a : BitVec 64) (v : Int) :
     (m.storeInt a Width.W64.bytes v).loadInt a Width.W64.bytes
@@ -667,6 +677,250 @@ wrapped to 32 bits and zero-extended; the upper half of the index is ignored. -/
     ⦃ Q; E ⦄ :=
   fallthrough_spec (fun s rng P hP => by wp_step; exact hP)
 
+/-! ### The stack and sub-registers
+
+The forms a compiler's frame code uses: `push`/`pop` of a 64-bit register,
+32- and 8-bit moves between a sub-register (or an immediate) and `d(%b)`, a
+32-bit compare of memory with an immediate, and 32- and 8-bit `sub`/`and` on a
+sub-register. A 32-bit write zero-extends into the register
+(`Reg64s.set_low32`); an 8-bit write keeps the upper bytes
+(`Reg64s.set_low8`). A load needs its bytes readable; a store needs them
+owned (readable), as the SSE rules do. -/
+
+/-- `push %r` : the slot below the stack pointer must be owned; the tail runs
+with the register's value there and the stack pointer lowered. -/
+@[spec] theorem MachineWP.push_reg_spec (asz : Width) (r : Reg64) :
+    ⦃ fun s =>
+        let a := s.regs.get64 .rsp - Width.W64.bytesv
+        ((Mem.loadInt s.dmem a Width.W64.bytes).isSome = true)
+          ⊓ WP.wp p Q E { s with
+              regs := s.regs.set64 .rsp a,
+              dmem := Mem.storeInt s.dmem a Width.W64.bytes (s.regs.get64 r).toInt } ⦄
+      (Directive.instr (.regular asz .W64 (.push (.regOrMem (.reg (.low r .W64))))) :: p)
+    ⦃ Q; E ⦄ :=
+  Triple.intro fun s h => by
+    simp only [meet_prop_eq_and] at h
+    obtain ⟨hsome, hk⟩ := h
+    obtain ⟨v, hv⟩ := Option.isSome_iff_exists.mp hsome
+    intro pc hpl
+    obtain ⟨z, rest, hseg, hpl'⟩ := hpl
+    rw [after_instr hseg]
+    refine step_here hseg (Or.inl ?_)
+    wp_step
+    simp only [MachineData.store, hv, Effects.All]
+    exact hk _ hpl'
+
+/-- `pop %r` : the stack top must be readable; the tail runs with its value in
+the register and the stack pointer raised. -/
+@[spec] theorem MachineWP.pop_reg_spec (asz : Width) (r : Reg64) :
+    ⦃ fun s =>
+        let a := s.regs.get64 .rsp
+        ((Mem.loadInt s.dmem a Width.W64.bytes).isSome = true)
+          ⊓ (∀ v, Mem.loadInt s.dmem a Width.W64.bytes = some v →
+            WP.wp p Q E { s with
+              regs := (s.regs.set64 .rsp (a + Width.W64.bytesv)).set64 r (BitVec.ofInt 64 v) }) ⦄
+      (Directive.instr (.regular asz .W64 (.pop (.reg (.low r .W64)))) :: p)
+    ⦃ Q; E ⦄ :=
+  Triple.intro fun s h => by
+    simp only [meet_prop_eq_and] at h
+    obtain ⟨hsome, hk⟩ := h
+    obtain ⟨v, hv⟩ := Option.isSome_iff_exists.mp hsome
+    intro pc hpl
+    obtain ⟨z, rest, hseg, hpl'⟩ := hpl
+    rw [after_instr hseg]
+    refine step_here hseg (Or.inl ?_)
+    wp_step
+    simp only [MachineData.load, hv, Effects.All]
+    exact hk v hv _ hpl'
+
+/-- `movl %r32, d(%b)` : the 4 bytes must be owned; the tail runs on the
+updated memory. -/
+@[spec] theorem MachineWP.mov32_store_base_disp_spec (b : Reg64) (d : Int64) (r : Reg64) :
+    ⦃ fun s =>
+        let a := s.regs.get64 b + d.toBitVec
+        ((Mem.loadInt s.dmem a 4).isSome = true)
+          ⊓ WP.wp p Q E { s with
+              dmem := Mem.storeInt s.dmem a 4 ((s.regs.get64 r).setWidth 32).toInt } ⦄
+      (Directive.instr (.regular .W64 .W32
+          (.mov (.mem ⟨some (.reg b), none, .int64 d⟩) (.regOrMem (.reg (.low r .W32))))) :: p)
+    ⦃ Q; E ⦄ :=
+  Triple.intro fun s h => by
+    simp only [meet_prop_eq_and] at h
+    obtain ⟨hsome, hk⟩ := h
+    obtain ⟨v, hv⟩ := Option.isSome_iff_exists.mp hsome
+    intro pc hpl
+    obtain ⟨z, rest, hseg, hpl'⟩ := hpl
+    rw [after_instr hseg]
+    refine step_here hseg (Or.inl ?_)
+    wp_step
+    simp only [MachineData.store, AddrExpr.zeroExtend_interp_base_disp,
+      BitVec.ofInt_toInt_int64, Reg64s.get_low32, Width.bytes, hv, Effects.All]
+    exact hk _ hpl'
+
+/-- `movl d(%b), %r32` : the 4 bytes must be readable; the tail runs with them
+zero-extended in the register. -/
+@[spec] theorem MachineWP.mov32_load_base_disp_spec (r b : Reg64) (d : Int64) :
+    ⦃ fun s =>
+        let a := s.regs.get64 b + d.toBitVec
+        ((Mem.loadInt s.dmem a 4).isSome = true)
+          ⊓ (∀ v, Mem.loadInt s.dmem a 4 = some v →
+            WP.wp p Q E { s with
+              regs := s.regs.set64 r ((BitVec.ofInt 32 v).setWidth 64) }) ⦄
+      (Directive.instr (.regular .W64 .W32
+          (.mov (.reg (.low r .W32)) (.regOrMem (.mem ⟨some (.reg b), none, .int64 d⟩)))) :: p)
+    ⦃ Q; E ⦄ :=
+  Triple.intro fun s h => by
+    simp only [meet_prop_eq_and] at h
+    obtain ⟨hsome, hk⟩ := h
+    obtain ⟨v, hv⟩ := Option.isSome_iff_exists.mp hsome
+    intro pc hpl
+    obtain ⟨z, rest, hseg, hpl'⟩ := hpl
+    rw [after_instr hseg]
+    refine step_here hseg (Or.inl ?_)
+    wp_step
+    simp only [MachineData.load, AddrExpr.zeroExtend_interp_base_disp,
+      BitVec.ofInt_toInt_int64, Reg64s.set_low32, Width.bytes, hv, Effects.All]
+    exact hk v hv _ hpl'
+
+/-- `cmpl $i, d(%b)` : the 4 bytes must be readable; the flags are those of
+their 32-bit difference with the immediate. -/
+@[spec] theorem MachineWP.cmp32_mem_imm_spec (b : Reg64) (d i : Int64) :
+    ⦃ fun s =>
+        let addr := s.regs.get64 b + d.toBitVec
+        ((Mem.loadInt s.dmem addr 4).isSome = true)
+          ⊓ (∀ m, Mem.loadInt s.dmem addr 4 = some m →
+            let a := BitVec.ofInt 32 m
+            let c := i.toBitVec.truncate 32
+            let v := a - c
+            WP.wp p Q E { s with
+              status := StatusFlags.from_result v
+                { cf := v.unsigned != a.unsigned - c.unsigned,
+                  af := (v.take 4).unsigned != (a.take 4).unsigned - (c.take 4).unsigned,
+                  of := v.signed != a.signed - c.signed } }) ⦄
+      (Directive.instr (.regular .W64 .W32
+          (.cmp (.mem ⟨some (.reg b), none, .int64 d⟩) (.imm (.int64 i)))) :: p)
+    ⦃ Q; E ⦄ :=
+  Triple.intro fun s h => by
+    simp only [meet_prop_eq_and] at h
+    obtain ⟨hsome, hk⟩ := h
+    obtain ⟨v, hv⟩ := Option.isSome_iff_exists.mp hsome
+    intro pc hpl
+    obtain ⟨z, rest, hseg, hpl'⟩ := hpl
+    rw [after_instr hseg]
+    refine step_here hseg (Or.inl ?_)
+    wp_step
+    simp only [MachineData.load, AddrExpr.zeroExtend_interp_base_disp,
+      BitVec.ofInt_toInt_int64, Width.bytes, hv, Effects.All]
+    exact hk v hv _ hpl'
+
+/-- `movb $i, d(%b)` : the byte must be owned; the tail runs on the updated
+memory. -/
+@[spec] theorem MachineWP.mov8_store_imm_base_disp_spec (b : Reg64) (d i : Int64) :
+    ⦃ fun s =>
+        let a := s.regs.get64 b + d.toBitVec
+        ((Mem.loadInt s.dmem a 1).isSome = true)
+          ⊓ WP.wp p Q E { s with
+              dmem := Mem.storeInt s.dmem a 1 (i.toBitVec.truncate 8).toInt } ⦄
+      (Directive.instr (.regular .W64 .W8
+          (.mov (.mem ⟨some (.reg b), none, .int64 d⟩) (.imm (.int64 i)))) :: p)
+    ⦃ Q; E ⦄ :=
+  Triple.intro fun s h => by
+    simp only [meet_prop_eq_and] at h
+    obtain ⟨hsome, hk⟩ := h
+    obtain ⟨v, hv⟩ := Option.isSome_iff_exists.mp hsome
+    intro pc hpl
+    obtain ⟨z, rest, hseg, hpl'⟩ := hpl
+    rw [after_instr hseg]
+    refine step_here hseg (Or.inl ?_)
+    wp_step
+    simp only [MachineData.store, AddrExpr.zeroExtend_interp_base_disp,
+      BitVec.ofInt_toInt_int64, Width.bytes, hv, Effects.All]
+    exact hk _ hpl'
+
+/-- `movb %r8, d(%b)` : the byte must be owned; the tail runs on the updated
+memory. -/
+@[spec] theorem MachineWP.mov8_store_reg_base_disp_spec (b : Reg64) (d : Int64) (r : Reg64) :
+    ⦃ fun s =>
+        let a := s.regs.get64 b + d.toBitVec
+        ((Mem.loadInt s.dmem a 1).isSome = true)
+          ⊓ WP.wp p Q E { s with
+              dmem := Mem.storeInt s.dmem a 1 ((s.regs.get64 r).setWidth 8).toInt } ⦄
+      (Directive.instr (.regular .W64 .W8
+          (.mov (.mem ⟨some (.reg b), none, .int64 d⟩) (.regOrMem (.reg (.low r .W8))))) :: p)
+    ⦃ Q; E ⦄ :=
+  Triple.intro fun s h => by
+    simp only [meet_prop_eq_and] at h
+    obtain ⟨hsome, hk⟩ := h
+    obtain ⟨v, hv⟩ := Option.isSome_iff_exists.mp hsome
+    intro pc hpl
+    obtain ⟨z, rest, hseg, hpl'⟩ := hpl
+    rw [after_instr hseg]
+    refine step_here hseg (Or.inl ?_)
+    wp_step
+    simp only [MachineData.store, AddrExpr.zeroExtend_interp_base_disp,
+      BitVec.ofInt_toInt_int64, Reg64s.get_low8, Width.bytes, hv, Effects.All]
+    exact hk _ hpl'
+
+/-- `movb d(%b), %r8` : the byte must be readable; the tail runs with it as
+the register's low byte. -/
+@[spec] theorem MachineWP.mov8_load_base_disp_spec (r b : Reg64) (d : Int64) :
+    ⦃ fun s =>
+        let a := s.regs.get64 b + d.toBitVec
+        ((Mem.loadInt s.dmem a 1).isSome = true)
+          ⊓ (∀ v, Mem.loadInt s.dmem a 1 = some v →
+            WP.wp p Q E { s with
+              regs := s.regs.set64 r ((s.regs.get64 r).replaceLow (BitVec.ofInt 8 v)) }) ⦄
+      (Directive.instr (.regular .W64 .W8
+          (.mov (.reg (.low r .W8)) (.regOrMem (.mem ⟨some (.reg b), none, .int64 d⟩)))) :: p)
+    ⦃ Q; E ⦄ :=
+  Triple.intro fun s h => by
+    simp only [meet_prop_eq_and] at h
+    obtain ⟨hsome, hk⟩ := h
+    obtain ⟨v, hv⟩ := Option.isSome_iff_exists.mp hsome
+    intro pc hpl
+    obtain ⟨z, rest, hseg, hpl'⟩ := hpl
+    rw [after_instr hseg]
+    refine step_here hseg (Or.inl ?_)
+    wp_step
+    simp only [MachineData.load, AddrExpr.zeroExtend_interp_base_disp,
+      BitVec.ofInt_toInt_int64, Reg64s.set_low8, Width.bytes, hv, Effects.All]
+    exact hk v hv _ hpl'
+
+/-- `subl $i, %r32` : the 32-bit difference, zero-extended into the register,
+and its flags. -/
+@[spec] theorem MachineWP.sub32_reg_imm_spec (asz : Width) (r : Reg64) (i : Int64) :
+    ⦃ fun s =>
+        let b := (s.regs.get64 r).setWidth 32
+        let a := i.toBitVec.truncate 32
+        let v := b - a
+        WP.wp p Q E
+          { s with
+              regs := s.regs.set64 r (v.setWidth 64),
+              status := StatusFlags.from_result v
+                { cf := v.unsigned != b.unsigned - a.unsigned,
+                  af := (v.take 4).unsigned != (b.take 4).unsigned - (a.take 4).unsigned,
+                  of := v.signed != b.signed - a.signed } } ⦄
+      (Directive.instr (.regular asz .W32 (.sub (.reg (.low r .W32)) (.imm (.int64 i)))) :: p)
+    ⦃ Q; E ⦄ :=
+  fallthrough_spec (fun s rng P hP => by
+    wp_step; simp only [Reg64s.get_low32, Reg64s.set_low32]; exact hP)
+
+/-- `andb $i, %r8` : the low byte gets its conjunction with the immediate, the
+rest of the register stays, and the flags are those of the byte, with `af`
+left arbitrary. -/
+@[spec] theorem MachineWP.and8_reg_imm_spec (asz : Width) (r : Reg64) (i : Int64) :
+    ⦃ fun s =>
+        let v := (s.regs.get64 r).setWidth 8 &&& i.toBitVec.truncate 8
+        ∀ af : Bool,
+          WP.wp p Q E
+            { s with
+                regs := s.regs.set64 r ((s.regs.get64 r).replaceLow v),
+                status := StatusFlags.from_result v { cf := false, of := false, af } } ⦄
+      (Directive.instr (.regular asz .W8 (.and (.reg (.low r .W8)) (.imm (.int64 i)))) :: p)
+    ⦃ Q; E ⦄ :=
+  fallthrough_nondet_spec (fun s rng P hP => by
+    wp_step; simp only [Reg64s.get_low8, Reg64s.set_low8]; exact hP)
+
 /-- `movaps d(%b), %xmm` : the address must be 16-byte aligned and the 16 bytes
 there readable; the tail runs with the loaded value in the register. -/
 @[spec] theorem MachineWP.movaps_load_base_disp_spec (x : RegMm) (b : Reg64) (d : Int64) :
@@ -1131,6 +1385,159 @@ theorem MachineWP.fun_spec_from_label {Pre : MachineData → Prop}
   rintro a s' ⟨rfl, hpost⟩
   rw [if_pos rfl]
   exact hcont₀ s' hpost
+
+/-! ### Procedures by specification
+
+`call_spec` takes the callee's text. A procedure that calls one that is not
+yet verified — itself, or its partner in a mutual recursion — needs the callee
+as a *specification* instead. `ProcSpec` is that: a proposition about the
+executable alone, so it can be assumed by one proof and established by
+another, and be the subject of an induction.
+
+The specification is stated at the callee's entry state `t` and the address
+`ra` the run must reach. Nothing in it mentions the stack: how `ra` is handed
+over is part of `Pre` (`t.retAddr = some ra` under the SysV convention; a
+register, under another), and `Post` relates `t` to the exit state however
+the convention has it. A tail call `jmp f` is a run that reaches `ra` through
+`f`, so it is covered by `f`'s `ProcSpec` at the same `ra`.
+
+Two forms. `ProcSpec` carries a logical variable `x : α` (the argument, the
+caller's memory frame) that a call site instantiates. `ProcSpecK` packs the
+logical variables inside `Spec`, existentially, with the continuation `K` the
+run must end in, in the style of `fun_spec_from_label`. They are
+interderivable (`ProcSpec.toK`); the examples show both. -/
+
+/-- A run of `e` entered at `entry` in a state `t` with `Pre x ra t` reaches
+`ra` in a state `s'` with `Post x ra t s'`. -/
+def Kraken.Executable.ProcSpec (e : Kraken.Executable Directive) (entry : Int64) {α : Type}
+    (Pre : α → Int64 → MachineData → Prop)
+    (Post : α → Int64 → MachineData → MachineData → Prop) : Prop :=
+  ∀ (x : α) (ra : Int64) (t : MachineData), Pre x ra t →
+    Eventually e.instrStep (fun st => st.2 = ra ∧ Post x ra t st.1) (t, entry)
+
+/-- The continuation form: `Spec ra K t` is what the procedure asks of its
+entry state `t` for a run that reaches `ra` in a state satisfying `K`. -/
+def Kraken.Executable.ProcSpecK (e : Kraken.Executable Directive) (entry : Int64)
+    (Spec : Int64 → (MachineData → Prop) → MachineData → Prop) : Prop :=
+  ∀ (ra : Int64) (K : MachineData → Prop) (t : MachineData), Spec ra K t →
+    Eventually e.instrStep (fun st => st.2 = ra ∧ K st.1) (t, entry)
+
+theorem Kraken.Executable.ProcSpec.toK {e : Kraken.Executable Directive} {entry : Int64}
+    {α : Type} {Pre : α → Int64 → MachineData → Prop}
+    {Post : α → Int64 → MachineData → MachineData → Prop}
+    (h : e.ProcSpec entry Pre Post) :
+    e.ProcSpecK entry (fun ra K t => ∃ x, Pre x ra t ∧ ∀ s', Post x ra t s' → K s') := by
+  rintro ra K t ⟨x, hpre, hk⟩
+  exact eventually_weaken _ _ _ _ (fun st ⟨ha, hp⟩ => ⟨ha, hk _ hp⟩) (h x ra t hpre)
+
+theorem Kraken.Executable.ProcSpecK.toGhost {e : Kraken.Executable Directive} {entry : Int64}
+    {α : Type} {Pre : α → Int64 → MachineData → Prop}
+    {Post : α → Int64 → MachineData → MachineData → Prop}
+    (h : e.ProcSpecK entry (fun ra K t => ∃ x, Pre x ra t ∧ ∀ s', Post x ra t s' → K s')) :
+    e.ProcSpec entry Pre Post :=
+  fun x ra t hpre => h ra (Post x ra t) t ⟨x, hpre, fun _ hp => hp⟩
+
+/-- Stepping a `call` through the callee's spec: the caller fixes the logical
+variable `x`, and for whatever address the machine pushes, the callee's
+precondition holds of the pushed state and its postcondition continues the
+caller's tail. -/
+theorem MachineWP.call_proc_spec {α : Type} {Pre : α → Int64 → MachineData → Prop}
+    {Post : α → Int64 → MachineData → MachineData → Prop} (x : α) (asz osz : Width)
+    (l : Label) (hproc : cenv.ProcSpec ((_root_.Executable.labels cenv).label l) Pre Post) :
+    ⦃ fun s =>
+        (∀ ra : Int64, Pre x ra (s.pushRa ra)
+          ∧ ∀ s' : MachineData, Post x ra (s.pushRa ra) s' → WP.wp p Q E s')
+        ∧ (Mem.loadInt s.dmem (s.regs.get64 .rsp - Width.W64.bytesv)
+             Width.W64.bytes).isSome = true ⦄
+      (Directive.instr (.regular asz osz
+          (.call (.rel (.sub (.label l) .after_current_instruction)))) :: p)
+    ⦃ Q; E ⦄ := by
+  refine Triple.intro fun s h => ?_
+  obtain ⟨hP, hmapped⟩ := h
+  intro pc hpl
+  obtain ⟨z, rest, hseg, hpl'⟩ := hpl
+  obtain ⟨v, hv⟩ := Option.isSome_iff_exists.mp hmapped
+  have hcancel : Int64.ofBitVec
+      (pc + Int64.ofNat z + ((_root_.Executable.labels cenv).label l - (pc + Int64.ofNat z))).toBitVec
+      = (_root_.Executable.labels cenv).label l := by
+    rw [Int64.ofBitVec_toBitVec]
+    apply Int64.toBitVec_inj.mp
+    simp only [Int64.toBitVec_add, Int64.toBitVec_sub]
+    rw [BitVec.add_comm, BitVec.sub_add_cancel]
+  refine step_cps _ _ _ ⟨_, _, _, hseg, Or.inr ?_⟩
+  simp only [Directive.interp, Instr.interp, Operation.interp, RelRegOrMem.interp,
+    ConstExpr.interp, MachineData.store, hv, Effects.All, hcancel]
+  refine eventually_trans _ _ _ _
+    (hproc x (pc + Int64.ofNat z) (s.pushRa (pc + Int64.ofNat z)) (hP _).1) ?_
+  rintro ⟨s', a⟩ ⟨rfl, hpost⟩
+  rw [after_instr hseg]
+  exact (hP _).2 s' hpost _ hpl'
+
+/-- `call_proc_spec` with the widths, the tail and the channels open, in the
+form `vcgen [hc]` steps a call with: `have hc := call_proc_spec_at x l hproc`
+at the call site, `x` the callee's logical variable for this call. -/
+theorem MachineWP.call_proc_spec_at {α : Type} {Pre : α → Int64 → MachineData → Prop}
+    {Post : α → Int64 → MachineData → MachineData → Prop} (x : α) (l : Label)
+    (hproc : cenv.ProcSpec ((_root_.Executable.labels cenv).label l) Pre Post) :
+    ∀ ⦃asz osz : Width⦄ ⦃p : Program⦄ ⦃Q : Unit → MachineData → Prop⦄
+      ⦃E : Int64 → MachineData → Prop⦄,
+      ⦃ fun s =>
+          (∀ ra : Int64, Pre x ra (s.pushRa ra)
+            ∧ ∀ s' : MachineData, Post x ra (s.pushRa ra) s' → WP.wp p Q E s')
+          ∧ (Mem.loadInt s.dmem (s.regs.get64 .rsp - Width.W64.bytesv)
+               Width.W64.bytes).isSome = true ⦄
+        (Directive.instr (.regular asz osz
+            (.call (.rel (.sub (.label l) .after_current_instruction)))) :: p)
+      ⦃ Q; E ⦄ :=
+  fun asz osz _ _ _ => MachineWP.call_proc_spec x asz osz l hproc
+
+/-- `call_proc_spec` for the continuation form: the callee's `Spec` is asked
+with the caller's tail as the continuation. -/
+theorem MachineWP.call_proc_specK {Spec : Int64 → (MachineData → Prop) → MachineData → Prop}
+    (asz osz : Width) (l : Label)
+    (hproc : cenv.ProcSpecK ((_root_.Executable.labels cenv).label l) Spec) :
+    ⦃ fun s =>
+        (∀ ra : Int64, Spec ra (WP.wp p Q E) (s.pushRa ra))
+        ∧ (Mem.loadInt s.dmem (s.regs.get64 .rsp - Width.W64.bytesv)
+             Width.W64.bytes).isSome = true ⦄
+      (Directive.instr (.regular asz osz
+          (.call (.rel (.sub (.label l) .after_current_instruction)))) :: p)
+    ⦃ Q; E ⦄ := by
+  refine Triple.intro fun s h => ?_
+  obtain ⟨hP, hmapped⟩ := h
+  intro pc hpl
+  obtain ⟨z, rest, hseg, hpl'⟩ := hpl
+  obtain ⟨v, hv⟩ := Option.isSome_iff_exists.mp hmapped
+  have hcancel : Int64.ofBitVec
+      (pc + Int64.ofNat z + ((_root_.Executable.labels cenv).label l - (pc + Int64.ofNat z))).toBitVec
+      = (_root_.Executable.labels cenv).label l := by
+    rw [Int64.ofBitVec_toBitVec]
+    apply Int64.toBitVec_inj.mp
+    simp only [Int64.toBitVec_add, Int64.toBitVec_sub]
+    rw [BitVec.add_comm, BitVec.sub_add_cancel]
+  refine step_cps _ _ _ ⟨_, _, _, hseg, Or.inr ?_⟩
+  simp only [Directive.interp, Instr.interp, Operation.interp, RelRegOrMem.interp,
+    ConstExpr.interp, MachineData.store, hv, Effects.All, hcancel]
+  refine eventually_trans _ _ _ _
+    (hproc (pc + Int64.ofNat z) _ (s.pushRa (pc + Int64.ofNat z)) (hP _)) ?_
+  rintro ⟨s', a⟩ ⟨rfl, hpost⟩
+  rw [after_instr hseg]
+  exact hpost _ hpl'
+
+/-- `call_proc_specK` with the widths, the tail and the channels open, for
+`vcgen [hc]` with `have hc := call_proc_specK_at l hproc` at the call site. -/
+theorem MachineWP.call_proc_specK_at {Spec : Int64 → (MachineData → Prop) → MachineData → Prop}
+    (l : Label) (hproc : cenv.ProcSpecK ((_root_.Executable.labels cenv).label l) Spec) :
+    ∀ ⦃asz osz : Width⦄ ⦃p : Program⦄ ⦃Q : Unit → MachineData → Prop⦄
+      ⦃E : Int64 → MachineData → Prop⦄,
+      ⦃ fun s =>
+          (∀ ra : Int64, Spec ra (WP.wp p Q E) (s.pushRa ra))
+          ∧ (Mem.loadInt s.dmem (s.regs.get64 .rsp - Width.W64.bytesv)
+               Width.W64.bytes).isSome = true ⦄
+        (Directive.instr (.regular asz osz
+            (.call (.rel (.sub (.label l) .after_current_instruction)))) :: p)
+      ⦃ Q; E ⦄ :=
+  fun asz osz _ _ _ => MachineWP.call_proc_specK asz osz l hproc
 
 @[spec] theorem MachineWP.jcc_spec (asz osz : Width) (cc : CondCode) (l : Label) :
     ⦃ fun s =>
@@ -1804,16 +2211,24 @@ block body, and the order is the lex order of variant and block position.
 `Program.Placed` collects the placement facts that connect the program's
 syntax to the ambient addresses. -/
 
-/-- Where a label's block sits in the ambient code. -/
-structure Program.Placed [CodeEnv] (p : Program) (l₀ : Label) : Prop where
-  /-- Every placement of the text starts at the entry label's address. -/
-  entry : ∀ pc, cenv.sits pc p → (_root_.Executable.labels cenv).label l₀ = pc
+/-- Where the blocks of a fragment sit in the ambient code: every block at its
+label's address, falling through to the address of the label behind it. This
+much holds of one procedure inside a larger image, so it is what a procedure's
+proof assumes (`Program.PlacedIn.of_placed` derives it from the image's
+`Placed`). -/
+structure Program.PlacedIn [CodeEnv] (p : Program) : Prop where
   /-- A block's body sits at its label's address. -/
   block : ∀ l blk, Program.blockAt p l = some blk →
     cenv.sits ((_root_.Executable.labels cenv).label l) blk.body
   /-- A block that falls into another ends at that block's address. -/
   next : ∀ l blk l', Program.blockAt p l = some blk → blk.next = some l' →
     cenv.after ((_root_.Executable.labels cenv).label l) blk.body = (_root_.Executable.labels cenv).label l'
+
+/-- Where a label's block sits in the ambient code, for the whole text. -/
+structure Program.Placed [CodeEnv] (p : Program) (l₀ : Label) : Prop
+    extends Program.PlacedIn p where
+  /-- Every placement of the text starts at the entry label's address. -/
+  entry : ∀ pc, cenv.sits pc p → (_root_.Executable.labels cenv).label l₀ = pc
   /-- The last block ends where the text ends. -/
   last : ∀ l blk, Program.blockAt p l = some blk → blk.next = none →
     cenv.after ((_root_.Executable.labels cenv).label l) blk.body = cenv.after ((_root_.Executable.labels cenv).label l₀) p
@@ -1886,16 +2301,20 @@ theorem Program.placed_of_layout [layout : _root_.Layout] {p p' : Program}
     obtain ⟨hsits, hafter⟩ := Executable.walk_addrOf blk.body _ (t.length + 1) hbody
     rw [hstep] at hsits hafter
     exact ⟨t.length, i, hlt, hnext, hbody, hlabel, hsits, hafter⟩
-  refine @Program.Placed.mk ⟨layout p⟩ p l₀ ?_ ?_ ?_ ?_
-  · intro pc hplace
+  refine @Program.Placed.mk ⟨layout p⟩ p l₀ (@Program.PlacedIn.mk ⟨layout p⟩ p ?block ?next)
+    ?entry ?last
+  case entry =>
+    intro pc hplace
     rw [hentry]
     exact (Executable.entry_of_sits (List.countP_pos_iff.mpr (List.any_eq_true.mp hne))
       hplace).symm
-  · intro l blk hb
+  case block =>
+    intro l blk hb
     obtain ⟨pos, i, -, -, -, hlabel, hsits, -⟩ := hpos l blk hb
     rw [hlabel]
     exact hsits
-  · intro l blk l' hb hn
+  case next =>
+    intro l blk l' hb hn
     obtain ⟨pos, i, -, hnext, hbody, hlabel, -, hafter⟩ := hpos l blk hb
     show (layout p).after ((_root_.Executable.labels (layout p)).label l) blk.body = (_root_.Executable.labels (layout p)).label l'
     rw [hn] at hnext
@@ -1912,7 +2331,8 @@ theorem Program.placed_of_layout [layout : _root_.Layout] {p p' : Program}
       rw [Program.fromLabel_view hnd hi', Program.drop_flatMap_cons hi']
       exact List.cons_ne_nil _ _
     rw [hlabel, hafter, Program.label_addrOf_drop hnd htail hne']
-  · intro l blk hb hn
+  case last =>
+    intro l blk hb hn
     obtain ⟨pos, i, hlt, hnext, hbody, hlabel, -, hafter⟩ := hpos l blk hb
     show (layout p).after ((_root_.Executable.labels (layout p)).label l) blk.body
       = (layout p).after ((_root_.Executable.labels (layout p)).label l₀) p
@@ -1933,6 +2353,47 @@ theorem Program.placed_of_layout [layout : _root_.Layout] {p p' : Program}
       rw [List.length_drop] at h
       omega
     rw [hlabel, hafter, hlenb, ← hwhole, hentry]
+
+/-- The blocks of `p` are among those of `q`: same bodies, and the same
+successor wherever `p` has one. Decidable, so `by decide` closes it for
+closed texts; it holds when `p` is a run of whole blocks of `q`. -/
+def Program.subBlocksOf (p q : Program) : Bool :=
+  (Program.view p).2.all fun lb =>
+    match Program.blockAt p lb.1, Program.blockAt q lb.1 with
+    | some blk, some blk' =>
+      decide (blk'.body = blk.body) && (blk.next.isNone || decide (blk'.next = blk.next))
+    | _, _ => false
+
+/-- A fragment whose blocks are among a placed text's is placed. -/
+theorem Program.PlacedIn.of_placed [CodeEnv] {p q : Program} {m₀ : Label}
+    (hq : Program.Placed q m₀) (h : Program.subBlocksOf p q = true) : Program.PlacedIn p := by
+  have key : ∀ l blk, Program.blockAt p l = some blk →
+      ∃ blk', Program.blockAt q l = some blk' ∧ blk'.body = blk.body
+        ∧ (blk.next.isNone = true ∨ blk'.next = blk.next) := by
+    intro l blk hb
+    have hmem : l ∈ (Program.view p).2.map (·.1) := by
+      rw [← Program.labels_view]
+      exact Program.blockAt_mem_labels hb
+    obtain ⟨lb, hlb, rfl⟩ := List.mem_map.mp hmem
+    have hall := List.all_eq_true.mp h lb hlb
+    simp only [hb] at hall
+    cases hb' : Program.blockAt q lb.1 with
+    | none => rw [hb'] at hall; cases hall
+    | some blk' =>
+      rw [hb'] at hall
+      simp only [Bool.and_eq_true, decide_eq_true_eq, Bool.or_eq_true] at hall
+      exact ⟨blk', rfl, hall.1, hall.2⟩
+  refine ⟨?_, ?_⟩
+  · intro l blk hb
+    obtain ⟨blk', hb', hbody, -⟩ := key l blk hb
+    rw [← hbody]
+    exact hq.block l blk' hb'
+  · intro l blk l' hb hn
+    obtain ⟨blk', hb', hbody, hnext⟩ := key l blk hb
+    rw [hn] at hnext
+    simp only [Option.isNone_some, Bool.false_eq_true, false_or] at hnext
+    rw [← hbody]
+    exact hq.next l blk' l' hb' hnext
 
 /-- A label-keyed table, read at an address. -/
 def Table.ofLabels [CodeEnv] (tl : Label → MachineData → Prop) :
@@ -2080,6 +2541,232 @@ theorem MachineWP.cfg [CodeEnv] {p p' : Program} {P : MachineData → Prop}
           omega
         · rw [heq]
           omega
+
+/-! ## The control-flow rule for a procedure
+
+`cfg` concludes a triple on the whole text, which needs the text to be the
+whole placement (`Placed.entry`) and closes the exit channel. A procedure is
+a fragment of a larger image that leaves through `ret` (or a tail jump), so
+its rule, `cfg_reach`, takes `PlacedIn`, keeps the exit channel `E` open, and
+concludes that the run from the entry label reaches `E`. `ProcSpec.of_cfg`
+and `ProcSpecK.of_cfg` dress this as a procedure specification: the table
+and the exits may mention the logical variable, the return address and the
+entry state, and the exits are those the convention allows — by default a
+return, `a = ra` with the postcondition; a tail call `jmp f` adds an exit at
+`f`'s label discharged by `f`'s `ProcSpec` at the same `ra` (`hexit`). -/
+
+/-- `cfg` for a fragment with an open exit channel: entered at `l₀` with its
+table entry, the run reaches `E`. The last block must not fall off the end. -/
+theorem MachineWP.cfg_reach [CodeEnv] {p p' : Program} {l₀ : Label}
+    (T : Label → MachineData → Prop) (var : Label → MachineData → Nat)
+    (E : Int64 → MachineData → Prop)
+    (hblocks : ∀ l blk, Program.blockAt p l = some blk → ∀ n : Nat,
+      ⦃ fun s => T l s ∧ var l s = n ⦄ blk.body
+      ⦃ (match blk.next with
+         | some l' => fun _ s => T l' s ∧ var l' s ≤ n
+         | none => fun _ _ => False);
+        fun a s => Table.ofLabels (fun l' s => (Program.blockAt p l').isSome ∧ T l' s
+          ∧ Program.EdgeLt p var l n l' s) a s ∨ E a s ⦄)
+    (hp : p = Directive.label l₀ :: p') (hwf : Program.WF p) (hpl : Program.PlacedIn p) :
+    ∀ s, T l₀ s →
+      Eventually cenv.instrStep (fun st => E st.2 st.1) (s, (_root_.Executable.labels cenv).label l₀) := by
+  have hnd := hwf.nodup
+  intro s hT
+  have hK : ∀ l, Program.blockIdx p l ≤ (Program.view p).2.length :=
+    Program.blockIdx_le p
+  have key := Program.link (post := fun st => E st.2 st.1)
+    (frag := fun l => (Program.blockAt p l).elim [] (·.body))
+    (entry := fun l => (_root_.Executable.labels cenv).label l)
+    (T := fun l s => (Program.blockAt p l).isSome ∧ T l s)
+    (r := fun x y => Program.cfgMeasure p var x < Program.cfgMeasure p var y)
+    (measure (Program.cfgMeasure p var)).wf ?_ ?_
+  · have h0 : (Program.blockAt p l₀).isSome := by
+      rw [hp]
+      show (Program.blockAtAux (Program.view (Directive.label l₀ :: p')).2 l₀).isSome = true
+      simp [Program.view, Program.blockAtAux]
+    exact key l₀ s ⟨h0, hT⟩
+  · intro l
+    cases hb : Program.blockAt p l with
+    | none => exact trivial
+    | some blk => simpa using hpl.block l blk hb
+  · intro l s₀
+    cases hb : Program.blockAt p l with
+    | none =>
+      exact Triple.intro fun s hpre => absurd hpre.1.1 (by simp)
+    | some blk =>
+      simp only [Option.elim]
+      refine Triple.intro fun s hpre => ?_
+      obtain ⟨⟨-, hTl⟩, rfl⟩ := hpre
+      have hidx : Program.blockIdx p l < (Program.view p).2.length :=
+        Program.blockIdx_lt hnd hb
+      have hw := (hblocks l blk hb (var l s)).le_wp s ⟨hTl, rfl⟩
+      rw [MachineWP.wp_eq] at hw ⊢
+      refine Executable.wp_mono ?_ ?_ hw
+      · intro s' hq
+        cases hnx : blk.next with
+        | some l' =>
+          rw [hnx] at hq
+          obtain ⟨hTl', hvar⟩ := hq
+          obtain ⟨hsome', hidx'⟩ := Program.blockAt_next hnd hb hnx
+          refine Or.inr ⟨l', (hpl.next l blk l' hb hnx).symm, ⟨hsome', hTl'⟩, ?_⟩
+          have hmul : var l' s' * ((Program.view p).2.length + 1)
+              ≤ var l s * ((Program.view p).2.length + 1) :=
+            Nat.mul_le_mul_right _ hvar
+          simp only [Program.cfgMeasure]
+          omega
+        | none =>
+          rw [hnx] at hq
+          exact hq.elim
+      · rintro a s' (⟨l', hlab, hsome', hTl', hedge⟩ | hE)
+        · refine Or.inr ⟨l', hlab, ⟨hsome', hTl'⟩, ?_⟩
+          have hle' : Program.blockIdx p l' ≤ (Program.view p).2.length := hK l'
+          simp only [Program.cfgMeasure]
+          rcases hedge with hlt | ⟨heq, hij⟩
+          · have hmul : (var l' s' + 1) * ((Program.view p).2.length + 1)
+                ≤ var l s * ((Program.view p).2.length + 1) :=
+              Nat.mul_le_mul_right _ hlt
+            have hsucc : (var l' s' + 1) * ((Program.view p).2.length + 1)
+                = var l' s' * ((Program.view p).2.length + 1)
+                  + ((Program.view p).2.length + 1) := Nat.succ_mul _ _
+            omega
+          · rw [heq]
+            omega
+        · exact Or.inl hE
+
+open MachineWP in
+/-- A procedure's spec from its blocks. `T x ra t₀ l` is the table entry at
+label `l` for the logical variable `x`, the address `ra` to reach, and the
+entry state `t₀`; `Exit` the exits the blocks may take besides jumps inside
+the procedure, by default the return `a = ra ∧ Post x ra t₀ s`; `hexit` that
+every exit reaches `ra` with `Post`, automatic for the default. The blocks
+are discharged with `intro x ra t₀` and `cfg_cases`. -/
+theorem Kraken.Executable.ProcSpec.of_cfg [CodeEnv] {p p' : Program} {l₀ : Label} {α : Type}
+    {Pre : α → Int64 → MachineData → Prop}
+    {Post : α → Int64 → MachineData → MachineData → Prop}
+    (T : α → Int64 → MachineData → Label → MachineData → Prop)
+    (var : Label → MachineData → Nat := fun _ _ => 0)
+    (Exit : α → Int64 → MachineData → Int64 → MachineData → Prop :=
+      fun x ra t₀ a s => a = ra ∧ Post x ra t₀ s)
+    (hblocks : ∀ (x : α) (ra : Int64) (t₀ : MachineData) l blk,
+      Program.blockAt p l = some blk → ∀ n : Nat,
+      ⦃ fun s => T x ra t₀ l s ∧ var l s = n ⦄ blk.body
+      ⦃ (match blk.next with
+         | some l' => fun _ s => T x ra t₀ l' s ∧ var l' s ≤ n
+         | none => fun _ _ => False);
+        fun a s => Table.ofLabels (fun l' s => (Program.blockAt p l').isSome ∧ T x ra t₀ l' s
+          ∧ Program.EdgeLt p var l n l' s) a s ∨ Exit x ra t₀ a s ⦄)
+    (hpre : ∀ x ra t, Pre x ra t → T x ra t l₀ t)
+    (hexit : ∀ x ra t₀ a s, Exit x ra t₀ a s →
+      Eventually cenv.instrStep (fun st => st.2 = ra ∧ Post x ra t₀ st.1) (s, a) := by
+      rintro x ra t₀ a s ⟨rfl, h⟩; exact Eventually.done _ ⟨rfl, h⟩)
+    (hp : p = Directive.label l₀ :: p' := by rfl)
+    (hwf : Program.WF p := by decide)
+    (hpl : Program.PlacedIn p := by assumption) :
+    cenv.ProcSpec ((_root_.Executable.labels cenv).label l₀) Pre Post := by
+  intro x ra t ht
+  have h := MachineWP.cfg_reach (T x ra t) var (Exit x ra t) (hblocks x ra t) hp hwf hpl t
+    (hpre x ra t ht)
+  exact eventually_trans _ _ _ _ h (fun st hst => hexit x ra t st.2 st.1 hst)
+
+open MachineWP in
+/-- `ProcSpec.of_cfg` with the blocks returning through `Post'`, a form of
+the postcondition in the terms the exit block leaves (a frame as the cells
+the code used, say), and `hpost` recovering the specification's `Post` from
+it: the exit counterpart of `hpre`. -/
+theorem Kraken.Executable.ProcSpec.of_cfg_post [CodeEnv] {p p' : Program} {l₀ : Label}
+    {α : Type} {Pre : α → Int64 → MachineData → Prop}
+    {Post : α → Int64 → MachineData → MachineData → Prop}
+    (T : α → Int64 → MachineData → Label → MachineData → Prop)
+    (Post' : α → Int64 → MachineData → MachineData → Prop)
+    (var : Label → MachineData → Nat := fun _ _ => 0)
+    (hblocks : ∀ (x : α) (ra : Int64) (t₀ : MachineData) l blk,
+      Program.blockAt p l = some blk → ∀ n : Nat,
+      ⦃ fun s => T x ra t₀ l s ∧ var l s = n ⦄ blk.body
+      ⦃ (match blk.next with
+         | some l' => fun _ s => T x ra t₀ l' s ∧ var l' s ≤ n
+         | none => fun _ _ => False);
+        fun a s => Table.ofLabels (fun l' s => (Program.blockAt p l').isSome ∧ T x ra t₀ l' s
+          ∧ Program.EdgeLt p var l n l' s) a s ∨ (a = ra ∧ Post' x ra t₀ s) ⦄)
+    (hpre : ∀ x ra t, Pre x ra t → T x ra t l₀ t)
+    (hpost : ∀ x ra t₀ s, Post' x ra t₀ s → Post x ra t₀ s)
+    (hp : p = Directive.label l₀ :: p' := by rfl)
+    (hwf : Program.WF p := by decide)
+    (hpl : Program.PlacedIn p := by assumption) :
+    cenv.ProcSpec ((_root_.Executable.labels cenv).label l₀) Pre Post :=
+  Kraken.Executable.ProcSpec.of_cfg T var (fun x ra t₀ a s => a = ra ∧ Post' x ra t₀ s) hblocks
+    hpre (by rintro x ra t₀ a s ⟨rfl, h⟩; exact Eventually.done _ ⟨rfl, hpost x a t₀ s h⟩)
+    hp hwf hpl
+
+open MachineWP in
+/-- `ProcSpec.of_cfg` for the continuation form: the table and the exits
+mention the continuation `K` instead of a logical variable; the default exit
+is the return into `K`. -/
+theorem Kraken.Executable.ProcSpecK.of_cfg [CodeEnv] {p p' : Program} {l₀ : Label}
+    {Spec : Int64 → (MachineData → Prop) → MachineData → Prop}
+    (T : Int64 → (MachineData → Prop) → MachineData → Label → MachineData → Prop)
+    (var : Label → MachineData → Nat := fun _ _ => 0)
+    (Exit : Int64 → (MachineData → Prop) → MachineData → Int64 → MachineData → Prop :=
+      fun ra K _ a s => a = ra ∧ K s)
+    (hblocks : ∀ (ra : Int64) (K : MachineData → Prop) (t₀ : MachineData) l blk,
+      Program.blockAt p l = some blk → ∀ n : Nat,
+      ⦃ fun s => T ra K t₀ l s ∧ var l s = n ⦄ blk.body
+      ⦃ (match blk.next with
+         | some l' => fun _ s => T ra K t₀ l' s ∧ var l' s ≤ n
+         | none => fun _ _ => False);
+        fun a s => Table.ofLabels (fun l' s => (Program.blockAt p l').isSome ∧ T ra K t₀ l' s
+          ∧ Program.EdgeLt p var l n l' s) a s ∨ Exit ra K t₀ a s ⦄)
+    (hpre : ∀ ra K t, Spec ra K t → T ra K t l₀ t)
+    (hexit : ∀ ra K t₀ a s, Exit ra K t₀ a s →
+      Eventually cenv.instrStep (fun st => st.2 = ra ∧ K st.1) (s, a) := by
+      rintro ra K t₀ a s ⟨rfl, h⟩; exact Eventually.done _ ⟨rfl, h⟩)
+    (hp : p = Directive.label l₀ :: p' := by rfl)
+    (hwf : Program.WF p := by decide)
+    (hpl : Program.PlacedIn p := by assumption) :
+    cenv.ProcSpecK ((_root_.Executable.labels cenv).label l₀) Spec := by
+  intro ra K t ht
+  have h := MachineWP.cfg_reach (T ra K t) var (Exit ra K t) (hblocks ra K t) hp hwf hpl t
+    (hpre ra K t ht)
+  exact eventually_trans _ _ _ _ h (fun st hst => hexit ra K t st.2 st.1 hst)
+
+open MachineWP in
+/-- The block obligations of a table with an existential in front, `∃ x, W x ∧
+T x l s`, from the obligations at each witness `x` (with `W x` in hand): the
+blocks are proved as if `x` were a logical variable, and the exits of the
+witness's table are mapped into the common exit `Exit'`. This is how a
+`ProcSpecK` whose `Spec` quantifies the caller's data existentially is
+established from blocks stated in that data (`ProcSpecK.of_cfg` with the
+table `fun ra K t₀ l s => ∃ x, W ra K t₀ x ∧ T ra t₀ x l s`). -/
+theorem MachineWP.cfg_blocks_exists [CodeEnv] {β : Type} {p : Program}
+    (T : β → Label → MachineData → Prop) (W : β → Prop) (var : Label → MachineData → Nat)
+    (Exit : β → Int64 → MachineData → Prop) (Exit' : Int64 → MachineData → Prop)
+    (hblocks : ∀ x, W x → ∀ l blk, Program.blockAt p l = some blk → ∀ n : Nat,
+      ⦃ fun s => T x l s ∧ var l s = n ⦄ blk.body
+      ⦃ (match blk.next with
+         | some l' => fun _ s => T x l' s ∧ var l' s ≤ n
+         | none => fun _ _ => False);
+        fun a s => Table.ofLabels (fun l' s => (Program.blockAt p l').isSome ∧ T x l' s
+          ∧ Program.EdgeLt p var l n l' s) a s ∨ Exit x a s ⦄)
+    (hexit : ∀ x, W x → ∀ a s, Exit x a s → Exit' a s) :
+    ∀ l blk, Program.blockAt p l = some blk → ∀ n : Nat,
+      ⦃ fun s => (∃ x, W x ∧ T x l s) ∧ var l s = n ⦄ blk.body
+      ⦃ (match blk.next with
+         | some l' => fun _ s => (∃ x, W x ∧ T x l' s) ∧ var l' s ≤ n
+         | none => fun _ _ => False);
+        fun a s => Table.ofLabels (fun l' s => (Program.blockAt p l').isSome
+          ∧ (∃ x, W x ∧ T x l' s) ∧ Program.EdgeLt p var l n l' s) a s ∨ Exit' a s ⦄ := by
+  intro l blk hblk n
+  refine Triple.intro fun s ⟨⟨x, hw, ht⟩, hv⟩ => ?_
+  have h := (hblocks x hw l blk hblk n).le_wp s ⟨ht, hv⟩
+  rw [MachineWP.wp_eq] at h ⊢
+  refine Executable.wp_mono ?_ ?_ h
+  · intro s' hq
+    revert hq
+    cases blk.next with
+    | some l' => exact fun hq => ⟨⟨x, hw, hq.1⟩, hq.2⟩
+    | none => exact fun hq => hq
+  · rintro a s' (⟨l', hl, hsome, ht', he⟩ | hex)
+    · exact Or.inl ⟨l', hl, hsome, ⟨x, hw, ht'⟩, he⟩
+    · exact Or.inr (hexit x hw a s' hex)
 
 -- Smoke test: the walk steps a placed fragment through the registered specs.
 set_option mvcgen.warning false in
