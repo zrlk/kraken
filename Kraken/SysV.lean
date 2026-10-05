@@ -41,7 +41,7 @@ abbrev RetCell (ra : Int64) (a : BitVec 64) : Mem 64 → Prop :=
   Int.toBytes 8 ra.toBitVec.toInt =@ a
 
 /-- `d` bytes of free stack just below `r`: a procedure's stack reservation.
-A `def`, so that `grind` moves it as one cell (`Split.here_reserve`). -/
+A `def`, so that `grind` moves it as one cell (`Split.at_head`). -/
 def Reserve (d : Nat) (r : BitVec 64) : Mem 64 → Prop := d ?@ (r - .ofNat 64 d)
 
 /-- The reservation, with `a` bytes carved off its top: the rest is a smaller
@@ -68,14 +68,6 @@ theorem Reserve.excess (d d' : Nat) (r : BitVec 64) (h : d ≤ d') (hw : d' ≤ 
   have e : r - BitVec.ofNat 64 d - BitVec.ofNat 64 (d' - d) = r - BitVec.ofNat 64 d' := by
     bv_omega
   rw [e]
-
-/-- A reservation is a head the cell rules can pull out of a tree: the
-callee's stack moves between the caller's tree and the callee's specification
-whole. -/
-theorem Split.here_reserve (d : Nat) (r : BitVec 64) (R : Mem 64 → Prop) :
-    Split (Reserve d r) R (Reserve d r ⋆ R) := Split.here _ _
-
-grind_pattern Split.here_reserve => sep (Reserve d r) R
 
 /-- The callee-saved registers other than `rbp` (which a frame-pointer
 prologue moves and the epilogue restores) hold their entry values. -/
@@ -107,10 +99,3 @@ theorem ArgU32.lt {t : MachineData} {n : Nat} (h : ArgU32 t n) : n < 2 ^ 32 :=
 abbrev RetU8 (s : MachineData) (v : Nat) : Prop := (s.regs.get64 .rax).toNat % 256 = v
 
 end Kraken.SysV
-
-/-- The `grind` call that walks a frame of cells: more E-matching rounds than
-the default (a chain of `Split`s per cell), and without the two `toInt`
-lemmas, which only add case splits. -/
-macro "grind_cells" : tactic =>
-  `(tactic| grind (ematch := 20) (gen := 20) (instances := 5000)
-      [-BitVec.toInt_eq_toNat_of_msb, -BitVec.toInt_eq_toNat_bmod])

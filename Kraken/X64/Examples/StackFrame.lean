@@ -48,9 +48,10 @@ local, 3 unused bytes, the byte local. -/
 abbrev FrameCells (r : BitVec 64) (R : Mem 64 → Prop) : Mem 64 → Prop :=
   8 ?@ (r - 8) ⋆ (8 ?@ (r - 24) ⋆ (4 ?@ (r - 16) ⋆ (3 ?@ (r - 12) ⋆ (1 ?@ (r - 9) ⋆ R))))
 
-/- The cell rules chain through the tree (a split per level, then a walk of
-the goal's tree), so `finish` needs more E-matching rounds and a deeper
-generation bound than its defaults. -/
+/- The cell rules chain through the tree (a demand down to the cell, a split
+back up, per access, then a walk of the goal's tree), so `finish` needs many
+more E-matching rounds and a deeper generation bound than its defaults; see
+`grind_cells` in `SepCells`. -/
 theorem frame_correct (d : MachineData) (R : Mem 64 → Prop)
     (hmem : d.dmem =⋆ FrameCells (d.regs.get64 .rsp) R) :
     ⦃ fun s => s = d ⦄
@@ -61,6 +62,6 @@ theorem frame_correct (d : MachineData) (R : Mem 64 → Prop)
         ∧ (s.regs.get64 .rdi).toNat = (d.regs.get64 .rdi).toNat % 2 ^ 32
         ∧ (s.regs.get64 .rax).toNat % 256 = 1
         ∧ s.dmem =⋆ FrameCells (d.regs.get64 .rsp) R ⦄ := by
-  vcgen [frame] with finish (ematch := 20) (gen := 20)
+  vcgen [frame] with finish (ematch := 400) (gen := 400) (instances := 20000)
 
 end Kraken.Examples.StackFrame
