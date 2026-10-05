@@ -129,13 +129,18 @@ theorem Reserve_cells (n : Nat) (r : BitVec 64) (X : Mem 64 → Prop)
   have e : BitVec.ofNat 64 24 = (24 : BitVec 64) := rfl
   rw [Reserve_split 24 (below n) r hn, e, Std.ExtHashMap.sep_assoc, own_cells]
 
-/-- The procedure's own cells other than the `bool` local, in front of `X`,
-as the table names them after the prologue: saved `rbp`
-(holding `rbp₀`), padding, the spilled argument (holding `arg`), the unused 8
-bytes. -/
-abbrev Own (r rbp₀ : BitVec 64) (arg : Int) (X : Mem 64 → Prop) : Mem 64 → Prop :=
-  Int.toBytes 8 rbp₀.toInt =@ (r - 8) ⋆ (3 ?@ (r - 12)
-    ⋆ (Int.toBytes 4 arg =@ (r - 16) ⋆ (8 ?@ (r - 24) ⋆ X)))
+/-- The frame after the prologue, read off the body with `r` the entry `rsp`
+and `rbp = r - 8`: the saved `rbp` at `(%rbp)`, the `bool` local at
+`-1(%rbp)`, 3 bytes of padding, the spilled argument at `-8(%rbp)`, 8 unused
+bytes at `-16(%rbp)`, and the return address at `r`. `L` is the local's cell,
+given its address (`(1 ?@ ·)` before the store, the result after); `X` is what
+sits below the frame. -/
+abbrev Frame (t₀ : MachineData) (ra : Int64) (L : BitVec 64 → Mem 64 → Prop)
+    (X : Mem 64 → Prop) : Mem 64 → Prop :=
+  let r := t₀.regs.get64 .rsp
+  L (r - 9) ⋆ (Int.toBytes 8 (t₀.regs.get64 .rbp).toInt =@ (r - 8) ⋆ (3 ?@ (r - 12)
+    ⋆ (Int.toBytes 4 ((t₀.regs.get64 .rdi).setWidth 32).toInt =@ (r - 16)
+    ⋆ (8 ?@ (r - 24) ⋆ (RetCell ra r ⋆ X)))))
 
 /-- `CallPre`'s memory as the entry block reads it. -/
 theorem CallPre.cells {n : Nat} {R : Mem 64 → Prop} {ra : Int64} {t : MachineData}
@@ -175,15 +180,13 @@ abbrev even_table (n : Nat) (R : Mem 64 → Prop) (ra : Int64) (t₀ : MachineDa
     let r := t₀.regs.get64 .rsp
     n ≠ 0 ∧ ArgU32 t₀ n
     ∧ s.regs.get64 .rsp = r - 24 ∧ s.regs.get64 .rbp = r - 8 ∧ SavedRegs t₀ s
-    ∧ (s.dmem =⋆ 1 ?@ (r - 9) ⋆ Own r (t₀.regs.get64 .rbp) ((t₀.regs.get64 .rdi).setWidth 32).toInt
-        (RetCell ra r ⋆ (Reserve (below n) (r - 24) ⋆ R)))
+    ∧ (s.dmem =⋆ Frame t₀ ra (1 ?@ ·) (Reserve (below n) (r - 24) ⋆ R))
   | ".LBB0_3", s =>
     let r := t₀.regs.get64 .rsp
     ArgU32 t₀ n
     ∧ s.regs.get64 .rsp = r - 24 ∧ s.regs.get64 .rbp = r - 8 ∧ SavedRegs t₀ s
-    ∧ (s.dmem =⋆ Int.toBytes 1 (((n + 1) % 2 : Nat) : Int) =@ (r - 9)
-        ⋆ Own r (t₀.regs.get64 .rbp) ((t₀.regs.get64 .rdi).setWidth 32).toInt
-        (RetCell ra r ⋆ (Reserve (below n) (r - 24) ⋆ R)))
+    ∧ (s.dmem =⋆ Frame t₀ ra (Int.toBytes 1 (((n + 1) % 2 : Nat) : Int) =@ ·)
+        (Reserve (below n) (r - 24) ⋆ R))
   | _, _ => False
 
 -- The blocks walk the frame's cells with `grind`; the default budget does not
@@ -203,10 +206,9 @@ theorem even_spec (hpl : Program.PlacedIn even_body) (n : Nat) (ih : OddSpecBelo
     · -- the call: `odd` at `n - 1` by its spec; its caller's memory is our cells
       rcases n with _ | k
       · exact Triple.intro fun s h => absurd rfl h.1.1
-      · vcgen [MachineWP.call_proc_spec_at
-          (1 ?@ (t₀.regs.get64 .rsp - 9) ⋆ Own (t₀.regs.get64 .rsp) (t₀.regs.get64 .rbp)
-            ((t₀.regs.get64 .rdi).setWidth 32).toInt (RetCell ra (t₀.regs.get64 .rsp) ⋆ R))
-          "odd" (ih k (Nat.lt_succ_self k))]
+      · -- the callee's caller memory: our frame, the local unwritten, over `R`
+        vcgen [MachineWP.call_proc_spec_at (Frame t₀ ra (1 ?@ ·) R) "odd"
+          (ih k (Nat.lt_succ_self k))]
         all_goals call_simp
         all_goals try refine ⟨fun w => ⟨?_, fun s' hpost => ?_⟩, ?_⟩
         all_goals try (vcgen; all_goals call_simp)
