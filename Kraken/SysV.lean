@@ -1,10 +1,10 @@
-import Kraken.MachineWP
+import Kraken.Step
 import Kraken.SepCells
 
 /-!
 # Procedures under the SysV x86-64 calling convention
 
-What a procedure specification (`ProcSpec`, `ProcSpecK` in `MachineWP`) says
+What a procedure specification (`ProcSpec`, `ProcSpecK` in `Kraken.Step`) says
 about the stack and the registers when the code follows the SysV convention,
 stated once for every procedure:
 

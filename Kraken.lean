@@ -23,6 +23,7 @@ import Kraken.X64M
 import Kraken.Device
 import Kraken.Tactics
 import Kraken.Easm
+import Kraken.Step
 import Kraken.MachineWP
 import Kraken.SepWP
 import Kraken.SepSpecs

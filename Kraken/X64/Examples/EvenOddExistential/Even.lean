@@ -1,4 +1,5 @@
 import Kraken.X64.Parser
+import Kraken.MachineWP
 import Kraken.X64.Examples.EvenOddExistential.Spec
 
 /-!
