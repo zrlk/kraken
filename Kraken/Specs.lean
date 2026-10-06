@@ -135,6 +135,66 @@ theorem BitVec.toInt_le_toInt_iff_flip (a b : BitVec 64) :
     grind [BitVec.signed_eq]
   simp only [this, BitVec.toInt_le_toInt_iff_flip]
 
+/-! ## Unsigned comparisons
+
+`ja`/`jbe` after `cmp` read the flags of `a - b` as the unsigned order of `a`
+and `b`: the carry flag is the borrow, the zero flag equality. The hypothesis
+on `f` says the carry flag is the one a subtraction computes; `grind`
+discharges it by reducing the projection, as for the signed rules above. -/
+
+/-- The borrow of an unsigned subtraction, as two linear cases. -/
+theorem BitVec.toNat_sub_cases {w} (a b : BitVec w) :
+    (b.toNat ≤ a.toNat → (a - b).toNat = a.toNat - b.toNat)
+    ∧ (a.toNat < b.toNat → (a - b).toNat = 2 ^ w - b.toNat + a.toNat) := by
+  have ha := a.isLt
+  have hb := b.isLt
+  rw [BitVec.toNat_sub]
+  generalize 2 ^ w = d at *
+  refine ⟨fun h => ?_, fun h => ?_⟩
+  · rw [show d - b.toNat + a.toNat = (a.toNat - b.toNat) + d by omega,
+      Nat.add_mod_right, Nat.mod_eq_of_lt (by omega)]
+  · rw [Nat.mod_eq_of_lt (by omega)]
+
+@[grind =] theorem CondCode.interp_a_sub {w} (a b : BitVec w)
+    (f : StatusFlags.from_result.Remaining)
+    (hf : f.cf = ((a - b).unsigned != a.unsigned - b.unsigned)) :
+    CondCode.a.interp (StatusFlags.from_result (a - b) f) = decide (b.toNat < a.toNat) := by
+  rw [CondCode.interp_a, StatusFlags.cf_from_result, StatusFlags.zf_from_result, hf]
+  have ⟨h₁, h₂⟩ := BitVec.toNat_sub_cases a b
+  have ha := a.isLt
+  have hb := b.isLt
+  have hz : (a - b == BitVec.zero w) = decide (a.toNat = b.toNat) := by
+    rw [Bool.eq_iff_iff, beq_iff_eq, decide_eq_true_iff, BitVec.toNat_eq]
+    simp only [BitVec.zero_eq, BitVec.toNat_ofNat, Nat.zero_mod]
+    generalize 2 ^ w = d at *
+    by_cases h : b.toNat ≤ a.toNat
+    · rw [h₁ h]; omega
+    · rw [h₂ (by omega)]; omega
+  rw [hz, BitVec.unsigned_eq, BitVec.unsigned_eq, BitVec.unsigned_eq]
+  generalize 2 ^ w = d at *
+  by_cases h : b.toNat ≤ a.toNat
+  · rw [h₁ h]
+    by_cases he : a.toNat = b.toNat
+    · simp [he]
+    · have : b.toNat < a.toNat := by omega
+      simp [he, this]
+      omega
+  · rw [h₂ (by omega)]
+    have : ¬ b.toNat < a.toNat := by omega
+    simp [this]
+    omega
+
+@[grind =] theorem CondCode.interp_be_sub {w} (a b : BitVec w)
+    (f : StatusFlags.from_result.Remaining)
+    (hf : f.cf = ((a - b).unsigned != a.unsigned - b.unsigned)) :
+    CondCode.be.interp (StatusFlags.from_result (a - b) f) = decide (a.toNat ≤ b.toNat) := by
+  have h := CondCode.interp_a_sub a b f hf
+  rw [CondCode.interp_a] at h
+  rw [CondCode.interp_be]
+  revert h
+  cases (StatusFlags.from_result (a - b) f).cf <;> cases (StatusFlags.from_result (a - b) f).zf <;>
+    simp <;> omega
+
 /-! ## Reading a named register, one lemma per field -/
 
 @[simp, grind =] theorem Reg64s.get64_rax (s : Reg64s) : s.get64 .rax = s.rax.toBitVec := rfl

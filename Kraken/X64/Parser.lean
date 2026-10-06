@@ -381,12 +381,21 @@ def parseMemory : Parser (Width × AddrExpr) := do
 
   pure (w, { base, idx, disp })
 
+/-- A symbolic immediate: `$sym`, `$sym1-sym2` or `$sym1+sym2` (one operator;
+  the assembler folds a difference of labels to a constant at link time). -/
+def parseSymImm : Parser ConstExpr := do
+  let _ ← pchar '$'
+  let a ← parseLabel
+  (attempt do skipHWs; let _ ← pchar '-'; skipHWs; let b ← parseLabel; pure (.sub a b))
+  <|> (attempt do skipHWs; let _ ← pchar '+'; skipHWs; let b ← parseLabel; pure (.add a b))
+  <|> pure a
+
 def parseImm w : Parser (Operand w) := do
   skipHWs
   let c ← peek!
   let i ←
     match c with
-    | '$' => parseInt64
+    | '$' => attempt parseInt64 <|> parseSymImm
     | _ => parseLabel
   pure (.imm i)
 
@@ -399,7 +408,7 @@ def parseOperand: Parser (MaybeAddrWidth × MaybeOpWidth Operand) := do
     let ⟨ w, r ⟩ ← parseRegW
     pure (.none, ⟨ w, .reg r ⟩)
   | '$' =>
-    let i ← parseInt64
+    let i ← attempt parseInt64 <|> parseSymImm
     pure (.none, ⟨ .none, .imm i ⟩)
   | _ =>
     if c == '(' || c == '-' || c.isDigit then
@@ -792,6 +801,12 @@ def parseInstr : Parser Instr := do
     let src ← parseRegO w_src; parseComma
     let dst ← parseRegO w_dst
     pure (toInstr .none (.movsx (.reg dst) (.reg src)))
+
+  | "movslq" =>
+    -- `movsxd`: the source may be memory (a jump table entry, say)
+    let (addr_w, src) ← parseRegOrMemAO .W32; parseComma
+    let dst ← parseRegO .W64
+    pure (toInstr addr_w (.movsx (.reg dst) src))
 
   | "movzbw" | "movzbl" | "movzbq" | "movzwl" | "movzwq" =>
     let w_dst ← instrWidth mn
