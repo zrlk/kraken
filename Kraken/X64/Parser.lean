@@ -447,7 +447,21 @@ def parseAvxRegOrMem: Parser (MaybeAddrWidth × MaybeAvxOpWidth AvxRegOrMem) := 
 
 def parseRelRegOrMem: Parser (MaybeAddrWidth × RelRegOrMem) := do
   skipHWs
+  -- GNU's `*` marks an indirect target: a register or a memory operand.
   (do
+    let _ ← pchar '*'
+    skipHWs
+    (do
+      let ⟨ w, r ⟩ ← parseRegW
+      if h: w = .W64 then
+        pure (.none, (.reg (h ▸ r)))
+      else
+        fail "expected a 64-bit register in an indirect jump or call"
+    ) <|> (do
+      let (w, m) ← parseMemory
+      pure (w, (.mem m))
+    )
+  ) <|> (do
     let ⟨ w, r ⟩ ← parseRegW
     if h: w = .W64 then
       pure (.none, (.reg (h ▸ r)))

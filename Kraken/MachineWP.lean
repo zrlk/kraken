@@ -784,6 +784,30 @@ updated memory. -/
       BitVec.ofInt_toInt_int64, Reg64s.get_low32, Width.bytes, hv, Effects.All]
     exact hk _ hpl'
 
+/-- `movq %r, d(%b)` : the 8 bytes must be owned; the tail runs on the updated
+memory. -/
+@[spec] theorem MachineWP.mov_store_base_disp_spec (b : Reg64) (d : Int64) (r : Reg64) :
+    ⦃ fun s =>
+        let a := s.regs.get64 b + d.toBitVec
+        ((Mem.loadInt s.dmem a 8).isSome = true)
+          ⊓ WP.wp p Q E { s with
+              dmem := Mem.storeInt s.dmem a 8 (s.regs.get64 r).toInt } ⦄
+      (Directive.instr (.regular .W64 .W64
+          (.mov (.mem ⟨some (.reg b), none, .int64 d⟩) (.regOrMem (.reg (.low r .W64))))) :: p)
+    ⦃ Q; E ⦄ :=
+  Triple.intro fun s h => by
+    simp only [meet_prop_eq_and] at h
+    obtain ⟨hsome, hk⟩ := h
+    obtain ⟨v, hv⟩ := Option.isSome_iff_exists.mp hsome
+    intro pc hpl
+    obtain ⟨z, rest, hseg, hpl'⟩ := hpl
+    rw [after_instr hseg]
+    refine step_here hseg (Or.inl ?_)
+    wp_step
+    simp only [MachineData.store, AddrExpr.zeroExtend_interp_base_disp,
+      BitVec.ofInt_toInt_int64, Reg64s.get_low64, Width.bytes, hv, Effects.All]
+    exact hk _ hpl'
+
 /-- `movl d(%b), %r32` : the 4 bytes must be readable; the tail runs with them
 zero-extended in the register. -/
 @[spec] theorem MachineWP.mov32_load_base_disp_spec (r b : Reg64) (d : Int64) :
@@ -1401,6 +1425,28 @@ blocks' triples at their addresses. -/
     refine step_here hseg ?_
     wp_step
     exact Eventually.done _ (Or.inr h)
+
+/-- `jmp *d(%b)` : an indirect jump, to the address stored at `b + d`. The 8
+bytes must be readable. -/
+@[spec] theorem MachineWP.jmp_mem_base_disp_spec (osz : Width) (b : Reg64) (d : Int64) :
+    ⦃ fun s =>
+        let a := s.regs.get64 b + d.toBitVec
+        ((Mem.loadInt s.dmem a 8).isSome = true)
+          ⊓ (∀ v, Mem.loadInt s.dmem a 8 = some v →
+              E (Int64.ofBitVec (BitVec.ofInt 64 v)) s) ⦄
+      (Directive.instr (.regular .W64 osz (.jmp (.mem ⟨some (.reg b), none, .int64 d⟩))) :: p)
+    ⦃ Q; E ⦄ :=
+  Triple.intro fun s h => by
+    simp only [meet_prop_eq_and] at h
+    obtain ⟨hsome, hk⟩ := h
+    obtain ⟨v, hv⟩ := Option.isSome_iff_exists.mp hsome
+    intro pc hpl
+    obtain ⟨z, rest, hseg, -⟩ := hpl
+    refine step_here hseg ?_
+    wp_step
+    simp only [MachineData.load, AddrExpr.zeroExtend_interp_base_disp,
+      BitVec.ofInt_toInt_int64, Width.bytes, hv, Effects.All]
+    exact Or.inr (Eventually.done _ (Or.inr (hk v hv)))
 
 /-- `lea d(%rip), %r` at the address `pc`: the register gets the address behind
 the instruction plus `d`, and the run continues there. -/
