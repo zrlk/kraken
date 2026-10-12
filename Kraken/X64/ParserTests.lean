@@ -200,4 +200,36 @@ section broken
 
 end broken
 
+-- Test: `sym+off(%rip)` and `sym-off(%rip)`: the displacement is the symbol
+-- plus or minus the offset, relative to the end of the instruction
+/--
+info: [Directive.instr
+    (regular Width.W64 Width.W64
+      (Operation.lea (low Reg64.rax Width.W64)
+        { base := some RegOrRip.rip, idx := none,
+          disp := ((↑"ps_noise13").add ↑16).sub ConstExpr.after_current_instruction }))] : List Directive
+-/
+#guard_msgs in
+#check parse("lea ps_noise13+16(%rip), %rax")
+
+/--
+info: [Directive.instr
+    (regular Width.W64 Width.W64
+      (Operation.mov ↑(low Reg64.rax Width.W64)
+        ↑↑{ base := some RegOrRip.rip, idx := none,
+              disp := ((↑"tbl").sub ↑8).sub ConstExpr.after_current_instruction }))] : List Directive
+-/
+#guard_msgs in
+#check parse("movq tbl-0x8(%rip), %rax")
+
+-- Test: `sym+off(%reg)`, an absolute symbolic displacement
+/--
+info: [Directive.instr
+    (regular Width.W64 Width.W64
+      (Operation.mov ↑(low Reg64.rax Width.W64)
+        ↑↑{ base := some (RegOrRip.reg Reg64.rbx), idx := none, disp := (↑"tbl").add ↑8 }))] : List Directive
+-/
+#guard_msgs in
+#check parse("movq tbl+8(%rbx), %rax")
+
 end Tests

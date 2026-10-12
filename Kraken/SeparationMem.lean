@@ -289,6 +289,39 @@ theorem Blocks.Inside.add_base_add {w : Nat} {a c x : BitVec w} {n len : Nat}
     rw [BitVec.add_comm c a, BitVec.add_assoc, BitVec.add_comm, BitVec.add_sub_cancel]
     exact h)
 
+/-- An access `a + x + c` into the block at `a + c`: an operand `c(%a,%i,s)`
+whose displacement is part of the block's base, such as `0x40(%rsi,%rcx,4)`
+for the block at `rsi + 0x40`. -/
+theorem Blocks.Inside.add_disp {w : Nat} {a c x : BitVec w} {n len : Nat}
+    {bs : List (BitVec w × Nat)} (h : x.toNat + n ≤ len) :
+    Blocks.Inside (a + x + c) n ((a + c, len) :: bs) :=
+  Or.inl (by
+    rw [BitVec.add_assoc, BitVec.add_comm x c, ← BitVec.add_assoc, BitVec.add_comm,
+      BitVec.add_sub_cancel]
+    exact h)
+
+/-- An access `a + c` into the block at `a + c'`: a displacement `c` from a
+register into a block that starts at another displacement `c'` from it, such
+as `0x48(%rdi)` in the block at `rdi + 0x40` (a field of a structure embedded
+at a fixed offset). The side condition is about `c - c'`, which `grind`
+evaluates when both are literals. -/
+theorem Blocks.Inside.add_off {w : Nat} {a c c' : BitVec w} {n len : Nat}
+    {bs : List (BitVec w × Nat)} (h : (c - c').toNat + n ≤ len) :
+    Blocks.Inside (a + c) n ((a + c', len) :: bs) :=
+  Or.inl (by
+    have e : a + c - (a + c') = c - c' := by grind
+    rw [e]; exact h)
+
+/-- An access `a + x + c` into the block at `a + c'`: an indexed operand
+`c(%a,%i,s)` into a block that starts at another displacement `c'` from the
+base register, such as `0x48(%rdi,%rcx,4)` in the block at `rdi + 0x40`. -/
+theorem Blocks.Inside.add_idx_off {w : Nat} {a x c c' : BitVec w} {n len : Nat}
+    {bs : List (BitVec w × Nat)} (h : (x + (c - c')).toNat + n ≤ len) :
+    Blocks.Inside (a + x + c) n ((a + c', len) :: bs) :=
+  Or.inl (by
+    have e : a + x + c - (a + c') = x + (c - c') := by grind
+    rw [e]; exact h)
+
 /-- An access at an offset `x` from a pointer `p` into a block, given the
 pointer's offset `p - a` from the base: the form in which a loop invariant
 tracks a moving pointer. -/
@@ -354,6 +387,9 @@ grind_pattern Blocks.Inside.base => Blocks.Inside a n ((a, len) :: bs)
 grind_pattern Blocks.Inside.base_add => Blocks.Inside (a + x) n ((a, len) :: bs)
 grind_pattern Blocks.Inside.base_add_add => Blocks.Inside (a + c + x) n ((a, len) :: bs)
 grind_pattern Blocks.Inside.add_base_add => Blocks.Inside (c + a + x) n ((a, len) :: bs)
+grind_pattern Blocks.Inside.add_disp => Blocks.Inside (a + x + c) n ((a + c, len) :: bs)
+grind_pattern Blocks.Inside.add_off => Blocks.Inside (a + c) n ((a + c', len) :: bs)
+grind_pattern Blocks.Inside.add_idx_off => Blocks.Inside (a + x + c) n ((a + c', len) :: bs)
 -- The pointer rule also needs the offset `p - a` among the terms, which an
 -- invariant about the pointer puts there. Otherwise any pointer into any block
 -- would match, and ruling out the wrong blocks swamps the arithmetic.

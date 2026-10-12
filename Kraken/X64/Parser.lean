@@ -313,6 +313,21 @@ def parseLabel : Parser ConstExpr := do
   let n ← parseLabelRaw
   pure (.label n)
 
+/-- A symbolic displacement: `sym`, `sym+off` or `sym-off`, with `off` an
+integer (`ps_noise13+16(%rip)`). The offset is kept as written: `.add` or
+`.sub` of the label and the integer. -/
+def parseLabelDisp : Parser ConstExpr := do
+  let l ← parseLabel
+  (attempt do
+    skipHWs; let _ ← pchar '+'; skipHWs
+    let i ← parseHexOrDec
+    pure (.add l (.int64 (Int64.ofInt i))))
+  <|> (attempt do
+    skipHWs; let _ ← pchar '-'; skipHWs
+    let i ← parseHexOrDec
+    pure (.sub l (.int64 (Int64.ofInt i))))
+  <|> pure l
+
 /-- Parse a memory operand (a.k.a. "address expression"): disp(%base),
   (%base,%idx,scale), etc. Just like `as`, we enforce consistency at the level
   of operands. For instance, we also error out on this:
@@ -324,7 +339,7 @@ def parseLabel : Parser ConstExpr := do
 def parseMemory : Parser (Width × AddrExpr) := do
   skipHWs
   -- Optional displacement; TODO: parse ConstExpr generally
-  let disp ← (do let i ← parseInt; pure (.int64 (Int64.ofInt i))) <|> parseLabel <|> pure (.int64 0)
+  let disp ← (do let i ← parseInt; pure (.int64 (Int64.ofInt i))) <|> parseLabelDisp <|> pure (.int64 0)
   skipHWs
   let _ ← pchar '('
 
@@ -374,9 +389,13 @@ def parseMemory : Parser (Width × AddrExpr) := do
   let base := Option.map Prod.snd base
   let idx := Option.map (fun (_, idx) => ⟨idx, scale⟩) idx
 
-  -- Handle rip-relative addressing (like parseRelRegOrMem below).
+  -- Handle rip-relative addressing (like parseRelRegOrMem below). A symbolic
+  -- displacement `sym`, `sym+off` or `sym-off` is assembled relative to the
+  -- end of the instruction; a numeric one is used as is.
   let disp := match base, disp with
     | .some .rip, .label l => .sub (.label l) .after_current_instruction
+    | .some .rip, e@(.add (.label _) (.int64 _)) => .sub e .after_current_instruction
+    | .some .rip, e@(.sub (.label _) (.int64 _)) => .sub e .after_current_instruction
     | _, _ => disp
 
   pure (w, { base, idx, disp })
@@ -415,8 +434,13 @@ def parseOperand: Parser (MaybeAddrWidth × MaybeOpWidth Operand) := do
       let (w, m) ← parseMemory
       pure (w, ⟨ .none, .mem m ⟩)
     else
-      let i ← parseLabel
-      pure (.none, ⟨ .none, .imm i ⟩)
+      -- `sym(%rip)` is memory; a bare `sym` is a label immediate.
+      (attempt do
+        let (w, m) ← parseMemory
+        pure ((w, ⟨ .none, .mem m ⟩) : MaybeAddrWidth × MaybeOpWidth Operand))
+      <|> (do
+        let i ← parseLabel
+        pure ((.none, ⟨ .none, .imm i ⟩) : MaybeAddrWidth × MaybeOpWidth Operand))
 
 /-- Parse a register or memory operand (not immediate). -/
 def parseRegOrMem: Parser (MaybeAddrWidth × MaybeOpWidth RegOrMem) := do
@@ -425,7 +449,9 @@ def parseRegOrMem: Parser (MaybeAddrWidth × MaybeOpWidth RegOrMem) := do
   if c == '%' then
     let ⟨ w, r ⟩ ← parseRegW
     pure (.none, ⟨ .some w, .reg r ⟩)
-  else if c == '(' || c == '-' || c.isDigit then
+  -- A symbol starts a memory operand too: a register-or-memory operand is
+  -- never an immediate, so `sym(%rip)` is a rip-relative reference.
+  else if c == '(' || c == '-' || c.isDigit || c.isAlpha || c == '_' || c == '.' then
     let (w, m) ← parseMemory
     pure (w, ⟨ .none, .mem m ⟩)
   else
@@ -507,6 +533,8 @@ def parseCondCode (suffix : String.Slice) : Parser CondCode :=
   | "le" | "ng" => .pure .le
   | "ge" | "nl" => .pure .ge
   | "g" | "nle" => .pure .g
+  | "p" | "pe" => .pure .p
+  | "np" | "po" => .pure .np
   | _ => .fail s!"unknown condition code: {suffix}"
 
 -- ============================================================================
@@ -622,6 +650,60 @@ def parseAvxXmm3 (mk : AvxReg .W128 → AvxReg .W128 → AvxReg .W128 → AvxOpe
   let src1 ← parseAvxRegO .W128; parseComma
   let dst ← parseAvxRegO .W128
   pure (toAvxInstr .none (mk dst src1 src2))
+
+/-- The VEX three-operand form `op src2, src1, dst` on xmm registers, where
+`src2` may be a memory operand. -/
+def parseAvx3x (mk : AvxReg .W128 → AvxReg .W128 → AvxRegOrMem .W128 → AvxOperation .W128) :
+    Parser Instr := do
+  let (addr_w, src2) ← parseAvxRegOrMem; parseComma
+  let src1 ← parseAvxRegO .W128; parseComma
+  let dst ← parseAvxRegO .W128
+  let src2 ← ascribeAvx .W128 src2
+  pure (toAvxInstr addr_w (mk dst src1 src2))
+
+/-- A two-operand `op src, dst` on xmm registers or memory. -/
+def parseXmm2 (mk : AvxDst .W128 → AvxRegOrMem .W128 → AvxOperation .W128) : Parser Instr := do
+  let (addr_w1, src) ← parseAvxRegOrMem; parseComma
+  let (addr_w2, dst) ← parseAvxRegOrMem
+  let addr_w ← mergeAddrWidths addr_w1 addr_w2
+  let src ← ascribeAvx .W128 src
+  let dst ← ascribeAvx .W128 dst
+  pure (toAvxInstr addr_w (mk dst src))
+
+/-- A two-operand `op src, dst` whose destination is an xmm register. -/
+def parseXmm2R (mk : AvxReg .W128 → AvxRegOrMem .W128 → AvxOperation .W128) : Parser Instr := do
+  let (addr_w, src) ← parseAvxRegOrMem; parseComma
+  let dst ← parseAvxRegO .W128
+  let src ← ascribeAvx .W128 src
+  pure (toAvxInstr addr_w (mk dst src))
+
+/-- `op src, dst` with a register-or-memory source and an AVX register
+destination giving the width. -/
+def parseAvx2 (mk : {w : AvxWidth} → AvxReg w → AvxRegOrMem w → AvxOperation w) : Parser Instr := do
+  let (addr_w, src) ← parseAvxRegOrMem; parseComma
+  let ⟨ w, dst ⟩ ← parseAvxRegW
+  let src ← ascribeAvx w src
+  pure (toAvxInstr addr_w (mk dst src))
+
+/-- `vmovd`/`vmovq`: between an xmm register and a general-purpose register
+or memory, in either direction. -/
+def parseVmovGpr (w : Width) (to : AvxReg .W128 → RegOrMem w → AvxOperation .W128)
+    (frm : RegOrMem w → AvxReg .W128 → AvxOperation .W128) : Parser Instr :=
+  (attempt do
+    let src ← parseAvxRegO .W128; parseComma
+    let (addr_w, dst) ← parseRegOrMemAO w
+    pure (toAvxInstr addr_w (frm dst src)))
+  <|> (do
+    let (addr_w, src) ← parseRegOrMemAO w; parseComma
+    let dst ← parseAvxRegO .W128
+    pure (toAvxInstr addr_w (to dst src)))
+
+def vcmpPred? (mn : String) : Option UInt8 :=
+  match mn with
+  | "vcmpeqss" => some 0 | "vcmpltss" => some 1 | "vcmpless" => some 2
+  | "vcmpunordss" => some 3 | "vcmpneqss" => some 4 | "vcmpnltss" => some 5
+  | "vcmpnless" => some 6 | "vcmpordss" => some 7
+  | _ => none
 
 def assertW {T} (v: MaybeOpWidth T): Parser (Σ w: Width, T w) :=
   match v with
@@ -791,7 +873,11 @@ def parseInstr : Parser Instr := do
   | "mov" | "movabs" =>
     commaSeparated .none parseOperand parseRegOrMem .mov
 
-  | "movq" | "movl" | "movw" | "movb"
+  | "movq" =>
+    -- the SSE2 `movq` between xmm registers and memory, else the integer move
+    attempt (parseXmm2 .movqx) <|> commaSeparated (some .W64) parseOperand parseRegOrMem .mov
+
+  | "movl" | "movw" | "movb"
   | "movabsq" | "movabsl" | "movabsw" | "movabsb" =>
     let w ← instrWidth mn
     commaSeparated w parseOperand parseRegOrMem .mov
@@ -812,9 +898,9 @@ def parseInstr : Parser Instr := do
     let w_dst ← instrWidth mn
     let c_src ← String.Pos.Raw.get? mn (.mk (mn.length - 2))
     let w_src ← Char.toWidth c_src
-    let src ← parseRegO w_src; parseComma
+    let (addr_w, src) ← parseRegOrMemAO w_src; parseComma
     let dst ← parseRegO w_dst
-    pure (toInstr .none (.movsx (.reg dst) (.reg src)))
+    pure (toInstr addr_w (.movsx (.reg dst) src))
 
   | "movslq" =>
     -- `movsxd`: the source may be memory (a jump table entry, say)
@@ -826,9 +912,31 @@ def parseInstr : Parser Instr := do
     let w_dst ← instrWidth mn
     let c_src ← String.Pos.Raw.get? mn (.mk (mn.length - 2))
     let w_src ← Char.toWidth c_src
-    let src ← parseRegO w_src; parseComma
+    let (addr_w, src) ← parseRegOrMemAO w_src; parseComma
     let dst ← parseRegO w_dst
-    pure (toInstr .none (.movzx (.reg dst) (.reg src)))
+    pure (toInstr addr_w (.movzx (.reg dst) src))
+
+  | "cltq" | "cdqe" =>
+    pure (toInstr .none (w := .W64) .cltq)
+
+  | "ud1" | "ud1l" =>
+    let (addr_w, src) ← parseRegOrMem; parseComma
+    let ⟨ w, dst ⟩ ← parseRegW
+    let src ← ascribe w src
+    pure (toInstr addr_w (.ud1 dst src))
+
+  | "ud2" => pure (toInstr .none (w := .W64) .ud2)
+  | "int3" => pure (toInstr .none (w := .W64) .int3)
+
+  | "inc" =>
+    let ( addr_w, dst ) ← parseRegOrMem
+    let ⟨ _w, dst ⟩ ← assertW dst
+    pure (toInstr addr_w (.inc dst))
+
+  | "incq" | "incl" | "incw" | "incb" =>
+    let w ← instrWidth mn
+    let ( addr_w, dst ) ← parseRegOrMemAO w
+    pure (toInstr addr_w (.inc dst))
 
   | "lea" =>
     let ( addr_w, src ) ← parseMemory; parseComma
@@ -873,6 +981,8 @@ def parseInstr : Parser Instr := do
   | "vaddps" => parseAvx3 .vaddps
   | "vmulps" => parseAvx3 .vmulps
   | "vfmadd231ps" => parseAvx3 .vfmadd231ps
+  | "vfmadd132ps" => parseAvx3 .vfmadd132ps
+  | "vpermps" => parseAvx3 .vpermps
 
   | "vshufps" =>
     let imm ← parseImm8; parseComma
@@ -884,9 +994,139 @@ def parseInstr : Parser Instr := do
     let dst ← parseAvxRegO .W128
     pure (toAvxInstr .none (w := .W256) (.vextractf128 dst src imm))
 
+  | "vinsertf128" =>
+    let imm ← parseImm8; parseComma
+    let (addr_w, src2) ← parseAvxRegOrMem; parseComma
+    let src1 ← parseAvxRegO .W256; parseComma
+    let dst ← parseAvxRegO .W256
+    let src2 ← ascribeAvx .W128 src2
+    pure (toAvxInstr addr_w (w := .W256) (.vinsertf128 dst src1 src2 imm))
+
   | "vmovhlps" => parseAvxXmm3 .vmovhlps
-  | "vmovss" => parseAvxXmm3 .vmovss
-  | "vaddss" => parseAvxXmm3 .vaddss
+  | "vmovss" => attempt (parseAvxXmm3 .vmovss) <|> parseXmm2 .vmovssMem
+  | "vmovsd" => parseXmm2 .vmovsdMem
+  | "vaddss" =>
+    attempt (parseAvxXmm3 .vaddss) <|> (do
+      let (addr_w, src2) ← parseMemory; parseComma
+      let src1 ← parseAvxRegO .W128; parseComma
+      let dst ← parseAvxRegO .W128
+      pure (toAvxInstr (some addr_w) (w := .W128) (.vaddssMem dst src1 src2)))
+  | "vsubss" => parseAvx3x .vsubss
+  | "vmulss" => parseAvx3x .vmulss
+  | "vdivss" => parseAvx3x .vdivss
+  | "vminss" => parseAvx3x .vminss
+  | "vsqrtss" => parseAvx3x .vsqrtss
+  | "vmulsd" => parseAvx3x .vmulsd
+  | "vcmpss" =>
+    let pred ← parseImm8; parseComma
+    parseAvx3x (.vcmpss pred)
+  | "vucomiss" | "vucomisd" =>
+    let (addr_w, src2) ← parseAvxRegOrMem; parseComma
+    let src1 ← parseAvxRegO .W128
+    let src2 ← ascribeAvx .W128 src2
+    pure (toAvxInstr addr_w (w := .W128)
+      (if mn == "vucomiss" then .vucomiss src1 src2 else .vucomisd src1 src2))
+  | "vcvtsi2ss" | "vcvtsi2ssl" | "vcvtsi2ssq" =>
+    let (addr_w, src2) ← parseRegOrMem; parseComma
+    let ⟨ _w, src2 ⟩ ← (match mn with
+      | "vcvtsi2ssl" => do let v ← ascribe .W32 src2; pure ⟨ .W32, v ⟩
+      | "vcvtsi2ssq" => do let v ← ascribe .W64 src2; pure ⟨ .W64, v ⟩
+      | _ => assertW src2 : Parser (Σ w, RegOrMem w))
+    let src1 ← parseAvxRegO .W128; parseComma
+    let dst ← parseAvxRegO .W128
+    pure (toAvxInstr addr_w (w := .W128) (.vcvtsi2ss dst src1 src2))
+  | "vcvtss2sd" => parseAvx3x .vcvtss2sd
+  | "vcvtsd2ss" => parseAvx3x .vcvtsd2ss
+  | "vcvtps2pd" => parseXmm2R .vcvtps2pd
+  | "vmovd" => parseVmovGpr .W32 .vmovdTo .vmovdFrom
+  | "vmovq" => parseVmovGpr .W64 .vmovqTo .vmovqFrom
+  | "vmovapd" => commaSeparatedAvx .none parseAvxRegOrMem parseAvxRegOrMem .vmovapd
+  | "vmovdqa" => commaSeparatedAvx .none parseAvxRegOrMem parseAvxRegOrMem .vmovdqa
+  | "vxorpd" => parseAvx3 .vxorpd
+  | "vsubps" => parseAvx3 .vsubps
+  | "vdivps" => parseAvx3 .vdivps
+  | "vaddsubps" => parseAvx3 .vaddsubps
+  | "vandps" => parseAvx3 .vandps
+  | "vandnps" => parseAvx3 .vandnps
+  | "vpaddd" => parseAvx3 .vpaddd
+  | "vpand" => parseAvx3 .vpand
+  | "vpxor" => parseAvx3 .vpxor
+  | "vblendvps" =>
+    let ⟨ w, mask ⟩ ← parseAvxRegW; parseComma
+    let (addr_w, src2) ← parseAvxRegOrMem; parseComma
+    let src1 ← parseAvxRegO w; parseComma
+    let dst ← parseAvxRegO w
+    let src2 ← ascribeAvx w src2
+    pure (toAvxInstr addr_w (.vblendvps dst src1 src2 mask))
+  | "vshufpd" =>
+    let imm ← parseImm8; parseComma
+    parseAvx3 (fun dst src1 src2 => .vshufpd dst src1 src2 imm)
+  | "vpblendw" =>
+    let imm ← parseImm8; parseComma
+    parseAvx3 (fun dst src1 src2 => .vpblendw dst src1 src2 imm)
+  | "vpermilps" =>
+    let imm ← parseImm8; parseComma
+    parseAvx2 (fun dst src => .vpermilps dst src imm)
+  | "vpslld" =>
+    let imm ← parseImm8; parseComma
+    let ⟨ w, src ⟩ ← parseAvxRegW; parseComma
+    let dst ← parseAvxRegO w
+    pure (toAvxInstr .none (.vpslld dst src imm))
+  | "vmovshdup" => parseAvx2 .vmovshdup
+  | "vmovsldup" => parseAvx2 .vmovsldup
+  | "vbroadcastss" =>
+    let (addr_w, src) ← parseAvxRegOrMem; parseComma
+    let ⟨ _w, dst ⟩ ← parseAvxRegW
+    let src ← ascribeAvx .W128 src
+    pure (toAvxInstr addr_w (.vbroadcastss dst src))
+  | "vinsertps" =>
+    let imm ← parseImm8; parseComma
+    parseAvx3x (fun dst src1 src2 => .vinsertps dst src1 src2 imm)
+  | "vpinsrd" =>
+    let imm ← parseImm8; parseComma
+    let (addr_w, src2) ← parseRegOrMemAO .W32; parseComma
+    let src1 ← parseAvxRegO .W128; parseComma
+    let dst ← parseAvxRegO .W128
+    pure (toAvxInstr addr_w (w := .W128) (.vpinsrd dst src1 src2 imm))
+  | "vpextrd" =>
+    let imm ← parseImm8; parseComma
+    let src ← parseAvxRegO .W128; parseComma
+    let (addr_w, dst) ← parseRegOrMemAO .W32
+    pure (toAvxInstr addr_w (w := .W128) (.vpextrd dst src imm))
+  | "vmovlps" =>
+    let src ← parseAvxRegO .W128; parseComma
+    let (addr_w, dst) ← parseMemory
+    pure (toAvxInstr (some addr_w) (w := .W128) (.vmovlpsStore dst src))
+
+  -- Legacy SSE forms on xmm registers
+  | "movss" => parseXmm2 .movss
+  | "movsd" => parseXmm2 .movsd
+  | "movlps" => parseXmm2 .movlps
+  | "movhps" => parseXmm2 .movhps
+  | "movdqa" => parseXmm2 .movdqa
+  | "movdqu" => parseXmm2 .movdqu
+  | "addss" => parseXmm2R .addss
+  | "movlhps" | "movhlps" =>
+    let src ← parseAvxRegO .W128; parseComma
+    let dst ← parseAvxRegO .W128
+    pure (toAvxInstr .none (w := .W128)
+      (if mn == "movlhps" then .movlhps dst src else .movhlps dst src))
+  | "shufps" =>
+    let imm ← parseImm8; parseComma
+    parseXmm2R (fun dst src => .shufps dst src imm)
+  | "unpcklps" => parseXmm2R .unpcklps
+  | "unpckhps" => parseXmm2R .unpckhps
+  | "haddps" => parseXmm2R .haddps
+  | "movddup" => parseXmm2R .movddup
+  | "movshdup" => parseXmm2R .movshdup
+  | "pxor" => parseXmm2R .pxor
+  | "pand" => parseXmm2R .pand
+  | "pcmpeqd" => parseXmm2R .pcmpeqd
+  | "pshufd" =>
+    let imm ← parseImm8; parseComma
+    parseXmm2R (fun dst src => .pshufd dst src imm)
+  | "punpckldq" => parseXmm2R .punpckldq
+  | "punpckhdq" => parseXmm2R .punpckhdq
 
   | "vzeroupper" =>
     pure (toAvxInstr .none (w := .W128) .vzeroupper)
@@ -1076,7 +1316,9 @@ def parseInstr : Parser Instr := do
 
   -- Control flow - conditional jumps
   | _ =>
-    if mn.startsWith "j" then
+    if let some pred := vcmpPred? mn then
+      parseAvx3x (.vcmpss pred)
+    else if mn.startsWith "j" then
       let cc ← parseCondCode (mn.drop 1)
       skipHWs
       let target ← parseLabelRaw

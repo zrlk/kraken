@@ -268,7 +268,7 @@ local macro "wp_step" : tactic =>
       Reg64s.get_low64, Reg64s.set_low64, Effects.All, or_false, false_or])
 
 /-- Unfold the fall-through address past one instruction cell. -/
-private theorem after_instr {i : Instr} {q : Program} {pc : Int64} {z : Nat}
+theorem MachineWP.after_instr {i : Instr} {q : Program} {pc : Int64} {z : Nat}
     {rest : List (Directive × Nat)}
     (hcode : cenv.codeAt pc = (Directive.instr i, z) :: rest) :
     cenv.after pc (Directive.instr i :: q) = cenv.after (pc + .ofNat z) q := by
@@ -276,7 +276,7 @@ private theorem after_instr {i : Instr} {q : Program} {pc : Int64} {z : Nat}
 
 /-- Run one cell and continue: the rule pattern shared by every
 instruction. -/
-private theorem step_here {post : @Post MachineState} {s : MachineData} {pc : Int64}
+theorem MachineWP.step_here {post : @Post MachineState} {s : MachineData} {pc : Int64}
     {d : Directive} {z : Nat} {rest : List (Directive × Nat)}
     (hseg : cenv.codeAt pc = (d, z) :: rest)
     (hall : cenv.stepAt d z (s, pc) (fun st => Eventually cenv.instrStep post st)) :
@@ -287,7 +287,7 @@ private theorem step_here {post : @Post MachineState} {s : MachineData} {pc : In
 at the state the cell computes, so the tail's wp there is the cell's
 precondition. Each entry of the dictionary below is this rule at one
 instruction, with the reduction of its interpretation as the only content. -/
-private theorem fallthrough_spec {i : Instr} {f : MachineData → MachineData}
+theorem MachineWP.fallthrough_spec {i : Instr} {f : MachineData → MachineData}
     (hcell : ∀ (s : MachineData) (rng : Std.Rco Int64) (P : MachineState → Prop),
       P (f s, 0) → (@Directive.interp (_root_.Executable.labels cenv) (Directive.instr i) s rng
         (fun s' => .done (s', 0)) (fun _ _ => .unimplemented "jump")).All P) :
@@ -300,7 +300,7 @@ private theorem fallthrough_spec {i : Instr} {f : MachineData → MachineData}
 
 /-- The rule of a cell whose fall-through leaves a value unspecified: the
 tail's wp must hold whatever the machine picks. -/
-private theorem fallthrough_nondet_spec {α : Type} [NondetSupportingType α] {i : Instr}
+theorem MachineWP.fallthrough_nondet_spec {α : Type} [NondetSupportingType α] {i : Instr}
     {f : MachineData → α → MachineData}
     (hcell : ∀ (s : MachineData) (rng : Std.Rco Int64) (P : MachineState → Prop),
       (∀ v : α, P (f s v, 0)) → (@Directive.interp (_root_.Executable.labels cenv) (Directive.instr i) s rng

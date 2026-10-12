@@ -70,6 +70,14 @@ private theorem set_sound [Labels] [AddressSize] {w} {d : Dst w} {v : w.type}
   | reg r => exact hk _ h
   | mem a => exact store_sound hk h
 
+private theorem interpLow_sound [Labels] [AddressSize] {o : AvxRegOrMem .W128} {n : Width}
+    {s : MachineData} {p : Std.Rco Int64} {r₁ r₂ : n.type → MachineData → Effects}
+    (hk : ∀ v s', (r₁ v s').All P₁ → (r₂ v s').All P₂)
+    (h : (o.interpLow n s p r₁).All P₁) : (o.interpLow n s p r₂).All P₂ := by
+  cases o with
+  | avx r => exact hk _ _ h
+  | mem a => exact load_sound hk h
+
 private theorem undefined_sound {α} [NondetSupportingType α] {r₁ r₂ : α → Effects}
     (hk : ∀ v, (r₁ v).All P₁ → (r₂ v).All P₂)
     (h : (Effects.undefined r₁).All P₁) : (Effects.undefined r₂).All P₂ :=
@@ -171,7 +179,7 @@ definitions the lemmas are keyed on makes a mismatch a comparison of two head
 symbols instead. -/
 set_option allowUnsafeReducibility true in
 attribute [local irreducible] RegOrMem.interp Operand.interp RelRegOrMem.interp
-  AvxRegOrMem.interp MachineData.set MachineData.setAvx MachineData.setAvxLegacy
+  AvxRegOrMem.interp AvxRegOrMem.interpLow MachineData.set MachineData.setAvx MachineData.setAvxLegacy
   MachineData.load MachineData.store MachineData.loadAvx MachineData.storeAvx
 
 private theorem operation_sound {w} [Labels] [AddressSize] {P : MachineState → Prop}
@@ -258,6 +266,12 @@ theorem Directive.interp_sound [Labels] {P : MachineState → Prop}
           | exact h.elim
           | refine AvxRegOrMem.wpRead_mono (fun v s' h => ?_) h
           | refine AvxDst.wpWrite_mono (fun s' h => ?_) h
+          | refine load_sound (fun v s' h => ?_) h
+          | refine store_sound (fun s' h => ?_) h
+          | refine set_sound (fun s' h => ?_) h
+          | refine regOrMem_sound (fun v s' h => ?_) h
+          | refine interpLow_sound (fun v s' h => ?_) h
+          | (split at h <;> try simp only [Effects.All] at h ⊢)
           | simp only [] at h ⊢
 
 end WP1Sound

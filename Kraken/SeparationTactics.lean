@@ -1,6 +1,7 @@
 import Kraken.Separation
 import Lean.Elab.Tactic
 import Lean.Meta.Tactic.AC
+import Kraken.SepAC
 
 open Lean Elab Tactic Meta
 
@@ -183,6 +184,12 @@ private def proveSeqEq (ops : SepOps) (lhs rhs : Expr) : MetaM (Option Expr) :=
     let some rhsClauses ← alignClauses lhsClauses rhsClauses | return none
     let some (lhs, []) ← canonicalize ops lhs lhsClauses | return none
     let some (rhs, []) ← canonicalize ops rhs rhsClauses | return none
+    -- An explicit permutation proof the kernel checks without computation; the
+    -- reflection proof of `Lean.Meta.AC` stays as the fallback.
+    if SepAC.kraken.sepAC.get (← getOptions) then
+      if let some proof ← SepAC.proveACPerm ops.sep ops.emp lhs rhs then
+        return some proof
+      trace[kraken.sepAC.fallback] "proveSeqEq: proveACPerm failed, falling back to Lean.Meta.AC"
     let proof ← mkFreshExprMVar (← mkEq lhs rhs)
     Lean.Meta.AC.rewriteUnnormalizedRefl proof.mvarId!
     return some (← instantiateMVars proof)

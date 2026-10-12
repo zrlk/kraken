@@ -93,6 +93,12 @@ def AvxRegOrMem.toStr {w} (rm : AvxRegOrMem w) (addr_w : Width := .W64) : String
     | .W128 => "XMMWORD PTR " ++ a.toStr addr_w
 instance {w} : ToString (AvxRegOrMem w) where toString rm := rm.toStr
 
+/-- An xmm register, or a scalar memory operand of `n` bits (`m32`, `m64`). -/
+def AvxRegOrMem.toStrLow {w} (rm : AvxRegOrMem w) (n : Width) (addr_w : Width := .W64) : String :=
+  match rm with
+  | .avx r => ToString.toString r
+  | .mem a => (RegOrMem.mem (w := n) a).toStr addr_w
+
 def Operand.toStr {w} (op : Operand w) (addr_w : Width := .W64) : String := match op with
   | .regOrMem rm => rm.toStr addr_w
   | .imm v => toString v
@@ -111,12 +117,13 @@ instance : ToString RelRegOrMem where toString rel := rel.toStr
 
 instance : ToString CondCode where toString
   | .z => "e" | .nz => "ne" | .c => "b" | .nc => "ae" | .a => "a" | .be => "be" | .l => "l" | .le => "le"
-  | .ge => "ge" | .g => "g"
+  | .ge => "ge" | .g => "g" | .p => "p" | .np => "np"
 
 instance : ToString ShiftCountExpr where toString
   | .cl => "cl"
   | .imm8 v => ToString.toString v
 
+set_option maxHeartbeats 2000000 in
 def Operation.toStr {w} (op : Operation w) (addr_w : Width := .W64) : String := match op with
   | .mov dst src => s!"mov {dst.toStr addr_w}, {src.toStr addr_w}"
   | .movsx dst src => s!"movsx {dst.toStr addr_w}, {src.toStr addr_w}"
@@ -156,6 +163,10 @@ def Operation.toStr {w} (op : Operation w) (addr_w : Width := .W64) : String := 
   | .rcl dst cnt => s!"rcl {dst.toStr addr_w}, {cnt}"
   | .rcr dst cnt => s!"rcr {dst.toStr addr_w}, {cnt}"
   | .bswap dst => s!"bswap {dst}"
+  | .cltq => "cdqe"
+  | .ud1 dst src => s!"ud1 {dst}, {src.toStr addr_w}"
+  | .ud2 => "ud2"
+  | .int3 => "int3"
   | .jcc cc l => s!"j{cc} {l}"
   | .jmp tgt => s!"jmp {tgt.toStr addr_w}"
   | .call tgt => s!"call {tgt.toStr addr_w}"
@@ -165,6 +176,14 @@ def Operation.toStr {w} (op : Operation w) (addr_w : Width := .W64) : String := 
   | .nopalign a (some p) => s!".align {a}, {p}"
 instance {w} : ToString (Operation w) where toString op := op.toStr
 
+/-- The mnemonic infix of the `cmpss` predicates 0..7. -/
+def vcmpPredName (pred : UInt8) : Option String :=
+  match pred.toNat with
+  | 0 => some "eq" | 1 => some "lt" | 2 => some "le" | 3 => some "unord"
+  | 4 => some "neq" | 5 => some "nlt" | 6 => some "nle" | 7 => some "ord"
+  | _ => none
+
+set_option maxHeartbeats 2000000 in
 def AvxOperation.toStr {w} (op : AvxOperation w) (addr_w : Width := .W64) : String := match op with
   | .movups dst src => s!"movups {dst.toStr addr_w}, {src.toStr addr_w}"
   | .vmovups dst src => s!"vmovups {dst.toStr addr_w}, {src.toStr addr_w}"
@@ -178,12 +197,83 @@ def AvxOperation.toStr {w} (op : AvxOperation w) (addr_w : Width := .W64) : Stri
   | .vaddps dst src1 src2 => s!"vaddps {dst}, {src1}, {src2.toStr addr_w}"
   | .vmulps dst src1 src2 => s!"vmulps {dst}, {src1}, {src2.toStr addr_w}"
   | .vfmadd231ps dst src1 src2 => s!"vfmadd231ps {dst}, {src1}, {src2.toStr addr_w}"
+  | .vfmadd132ps dst src1 src2 => s!"vfmadd132ps {dst}, {src1}, {src2.toStr addr_w}"
+  | .vpermps dst src1 src2 => s!"vpermps {dst}, {src1}, {src2.toStr addr_w}"
   | .vshufps dst src1 src2 imm => s!"vshufps {dst}, {src1}, {src2.toStr addr_w}, {imm}"
   | .vextractf128 dst src imm => s!"vextractf128 {dst}, {src}, {imm}"
+  | .vinsertf128 dst src1 src2 imm => s!"vinsertf128 {dst}, {src1}, {src2.toStr addr_w}, {imm}"
   | .vmovhlps dst src1 src2 => s!"vmovhlps {dst}, {src1}, {src2}"
   | .vmovss dst src1 src2 => s!"vmovss {dst}, {src1}, {src2}"
   | .vaddss dst src1 src2 => s!"vaddss {dst}, {src1}, {src2}"
   | .vzeroupper => "vzeroupper"
+  | .vmovssMem dst src => s!"vmovss {dst.toStrLow .W32 addr_w}, {src.toStrLow .W32 addr_w}"
+  | .vmovsdMem dst src => s!"vmovsd {dst.toStrLow .W64 addr_w}, {src.toStrLow .W64 addr_w}"
+  | .vaddssMem dst src1 src2 => s!"vaddss {dst}, {src1}, {(RegOrMem.mem (w := .W32) src2).toStr addr_w}"
+  | .vsubss dst src1 src2 => s!"vsubss {dst}, {src1}, {src2.toStrLow .W32 addr_w}"
+  | .vmulss dst src1 src2 => s!"vmulss {dst}, {src1}, {src2.toStrLow .W32 addr_w}"
+  | .vdivss dst src1 src2 => s!"vdivss {dst}, {src1}, {src2.toStrLow .W32 addr_w}"
+  | .vminss dst src1 src2 => s!"vminss {dst}, {src1}, {src2.toStrLow .W32 addr_w}"
+  | .vsqrtss dst src1 src2 => s!"vsqrtss {dst}, {src1}, {src2.toStrLow .W32 addr_w}"
+  | .vmulsd dst src1 src2 => s!"vmulsd {dst}, {src1}, {src2.toStrLow .W64 addr_w}"
+  | .vcmpss pred dst src1 src2 =>
+    match vcmpPredName pred with
+    | some n => s!"vcmp{n}ss {dst}, {src1}, {src2.toStrLow .W32 addr_w}"
+    | none => s!"vcmpss {dst}, {src1}, {src2.toStrLow .W32 addr_w}, {pred}"
+  | .vucomiss src1 src2 => s!"vucomiss {src1}, {src2.toStrLow .W32 addr_w}"
+  | .vucomisd src1 src2 => s!"vucomisd {src1}, {src2.toStrLow .W64 addr_w}"
+  | .vcvtsi2ss dst src1 src2 => s!"vcvtsi2ss {dst}, {src1}, {src2.toStr addr_w}"
+  | .vcvtss2sd dst src1 src2 => s!"vcvtss2sd {dst}, {src1}, {src2.toStrLow .W32 addr_w}"
+  | .vcvtsd2ss dst src1 src2 => s!"vcvtsd2ss {dst}, {src1}, {src2.toStrLow .W64 addr_w}"
+  | .vcvtps2pd dst src => s!"vcvtps2pd {dst}, {src.toStrLow .W64 addr_w}"
+  | .vmovdTo dst src => s!"vmovd {dst}, {src.toStr addr_w}"
+  | .vmovdFrom dst src => s!"vmovd {dst.toStr addr_w}, {src}"
+  | .vmovqTo dst src => s!"vmovq {dst}, {src.toStr addr_w}"
+  | .vmovqFrom dst src => s!"vmovq {dst.toStr addr_w}, {src}"
+  | .vmovapd dst src => s!"vmovapd {dst.toStr addr_w}, {src.toStr addr_w}"
+  | .vmovdqa dst src => s!"vmovdqa {dst.toStr addr_w}, {src.toStr addr_w}"
+  | .vxorpd dst src1 src2 => s!"vxorpd {dst}, {src1}, {src2.toStr addr_w}"
+  | .vsubps dst src1 src2 => s!"vsubps {dst}, {src1}, {src2.toStr addr_w}"
+  | .vdivps dst src1 src2 => s!"vdivps {dst}, {src1}, {src2.toStr addr_w}"
+  | .vaddsubps dst src1 src2 => s!"vaddsubps {dst}, {src1}, {src2.toStr addr_w}"
+  | .vandps dst src1 src2 => s!"vandps {dst}, {src1}, {src2.toStr addr_w}"
+  | .vandnps dst src1 src2 => s!"vandnps {dst}, {src1}, {src2.toStr addr_w}"
+  | .vpaddd dst src1 src2 => s!"vpaddd {dst}, {src1}, {src2.toStr addr_w}"
+  | .vpand dst src1 src2 => s!"vpand {dst}, {src1}, {src2.toStr addr_w}"
+  | .vpxor dst src1 src2 => s!"vpxor {dst}, {src1}, {src2.toStr addr_w}"
+  | .vblendvps dst src1 src2 mask => s!"vblendvps {dst}, {src1}, {src2.toStr addr_w}, {mask}"
+  | .vshufpd dst src1 src2 imm => s!"vshufpd {dst}, {src1}, {src2.toStr addr_w}, {imm}"
+  | .vpblendw dst src1 src2 imm => s!"vpblendw {dst}, {src1}, {src2.toStr addr_w}, {imm}"
+  | .vpermilps dst src imm => s!"vpermilps {dst}, {src.toStr addr_w}, {imm}"
+  | .vpslld dst src imm => s!"vpslld {dst}, {src}, {imm}"
+  | .vmovshdup dst src => s!"vmovshdup {dst}, {src.toStr addr_w}"
+  | .vmovsldup dst src => s!"vmovsldup {dst}, {src.toStr addr_w}"
+  | .vbroadcastss dst src => s!"vbroadcastss {dst}, {src.toStrLow .W32 addr_w}"
+  | .vinsertps dst src1 src2 imm => s!"vinsertps {dst}, {src1}, {src2.toStrLow .W32 addr_w}, {imm}"
+  | .vpinsrd dst src1 src2 imm => s!"vpinsrd {dst}, {src1}, {src2.toStr addr_w}, {imm}"
+  | .vpextrd dst src imm => s!"vpextrd {dst.toStr addr_w}, {src}, {imm}"
+  | .vmovlpsStore dst src => s!"vmovlps {(RegOrMem.mem (w := .W64) dst).toStr addr_w}, {src}"
+  | .movss dst src => s!"movss {dst.toStrLow .W32 addr_w}, {src.toStrLow .W32 addr_w}"
+  | .movsd dst src => s!"movsd {dst.toStrLow .W64 addr_w}, {src.toStrLow .W64 addr_w}"
+  | .movqx dst src => s!"movq {dst.toStrLow .W64 addr_w}, {src.toStrLow .W64 addr_w}"
+  | .movlps dst src => s!"movlps {dst.toStrLow .W64 addr_w}, {src.toStrLow .W64 addr_w}"
+  | .movhps dst src => s!"movhps {dst.toStrLow .W64 addr_w}, {src.toStrLow .W64 addr_w}"
+  | .movdqa dst src => s!"movdqa {dst.toStr addr_w}, {src.toStr addr_w}"
+  | .movdqu dst src => s!"movdqu {dst.toStr addr_w}, {src.toStr addr_w}"
+  | .addss dst src => s!"addss {dst}, {src.toStrLow .W32 addr_w}"
+  | .movlhps dst src => s!"movlhps {dst}, {src}"
+  | .movhlps dst src => s!"movhlps {dst}, {src}"
+  | .shufps dst src imm => s!"shufps {dst}, {src.toStr addr_w}, {imm}"
+  | .unpcklps dst src => s!"unpcklps {dst}, {src.toStr addr_w}"
+  | .unpckhps dst src => s!"unpckhps {dst}, {src.toStr addr_w}"
+  | .haddps dst src => s!"haddps {dst}, {src.toStr addr_w}"
+  | .movddup dst src => s!"movddup {dst}, {src.toStrLow .W64 addr_w}"
+  | .movshdup dst src => s!"movshdup {dst}, {src.toStr addr_w}"
+  | .pxor dst src => s!"pxor {dst}, {src.toStr addr_w}"
+  | .pand dst src => s!"pand {dst}, {src.toStr addr_w}"
+  | .pcmpeqd dst src => s!"pcmpeqd {dst}, {src.toStr addr_w}"
+  | .pshufd dst src imm => s!"pshufd {dst}, {src.toStr addr_w}, {imm}"
+  | .punpckldq dst src => s!"punpckldq {dst}, {src.toStr addr_w}"
+  | .punpckhdq dst src => s!"punpckhdq {dst}, {src.toStr addr_w}"
 instance {w} : ToString (Operation w) where toString op := op.toStr
 
 instance : ToString Instr where

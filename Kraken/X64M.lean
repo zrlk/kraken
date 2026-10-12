@@ -239,6 +239,10 @@ def Operation.interpM {w} (i : Operation w) (p : Std.Rco Int64) : MachineM Unit 
             ++ a.extractLsb' 32 8 ++ a.extractLsb' 40 8 ++ a.extractLsb' 48 8 ++ a.drop 56
       modify (fun s => s.setReg dst (v.setWidth _))
     | _ => throw .undefinedFlags -- TODO: model undefined flags for bswap on W8/W16
+  | .cltq =>
+    modify (fun s => s.setReg (.low .rax .W64) ((s.regs.get (.low .rax .W32)).signExtend 64))
+  -- A trap has no successor state; the straightline model claims nothing.
+  | .ud1 _ _ | .ud2 | .int3 => throw (.unimplemented "trap")
   | .jcc cc l =>
     if cc.interp (← get).status
     then throw (.jump (labels.label l))

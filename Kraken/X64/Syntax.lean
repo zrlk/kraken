@@ -169,7 +169,7 @@ attribute [coe] AvxOperand.regOrMem
 abbrev AvxOperand.avx {w} (r : AvxReg w) : AvxOperand w := regOrMem (.avx r)
 abbrev AvxOperand.mem {w} (m : AddrExpr) : AvxOperand w := regOrMem (.mem m)
 
-inductive CondCode | z | nz | c | nc | a | be | l | le | ge | g
+inductive CondCode | z | nz | c | nc | a | be | l | le | ge | g | p | np
   deriving Repr, BEq, DecidableEq, Hashable, Lean.ToExpr
 abbrev CondCode.e := CondCode.z
 abbrev CondCode.ne := CondCode.nz
@@ -225,6 +225,14 @@ inductive Operation (w : Width)
   | rcl  (_ : Dst w) (_ : ShiftCountExpr)
   | rcr  (_ : Dst w) (_ : ShiftCountExpr)
   | bswap  (dst : Reg w) -- (_ : w = .W32 ∨ w = .W64)
+  -- `cltq` (Intel `cdqe`): `rax := sign-extend eax`
+  | cltq
+  -- Traps: each raises an exception (#UD, #BP) before touching its operands,
+  -- so a step never has a successor state. `ud1`'s operands only fill the
+  -- encoding (compilers put a check identifier in the ModRM byte).
+  | ud1 (_ : Reg w) (src : RegOrMem w)
+  | ud2
+  | int3
   -- Control flow
   | jcc (cc : CondCode) (target : Label)
   | jmp (target : RelRegOrMem)
@@ -255,15 +263,113 @@ inductive AvxOperation (w : AvxWidth)
   | vmulps (_ : AvxReg w) (src1 : AvxReg w) (src2 : AvxRegOrMem w)
   -- `dst := src1 * src2 + dst`, lanewise, rounded once
   | vfmadd231ps (_ : AvxReg w) (src1 : AvxReg w) (src2 : AvxRegOrMem w)
+  -- `dst := dst * src2 + src1`, lanewise, rounded once
+  | vfmadd132ps (_ : AvxReg w) (src1 : AvxReg w) (src2 : AvxRegOrMem w)
+  -- `dst[i] := src2[src1[i] mod 8]` on 32-bit elements (AVX2, VEX.256 only)
+  | vpermps (_ : AvxReg w) (src1 : AvxReg w) (src2 : AvxRegOrMem w)
   | vshufps (_ : AvxReg w) (src1 : AvxReg w) (src2 : AvxRegOrMem w) (imm : UInt8)
   -- Forms whose operands have fixed widths; `w` is the vector length of the
   -- encoding (`vextractf128` is VEX.256, the others VEX.128). Only the
   -- register forms are modeled.
   | vextractf128 (_ : AvxReg .W128) (src : AvxReg .W256) (imm : UInt8)
+  -- `src1` with its 128-bit lane `imm[0]` replaced by `src2` (VEX.256; `src2`
+  -- may be memory, 16 bytes at any alignment)
+  | vinsertf128 (_ : AvxReg .W256) (src1 : AvxReg .W256) (src2 : AvxRegOrMem .W128) (imm : UInt8)
   | vmovhlps (_ : AvxReg .W128) (src1 src2 : AvxReg .W128)
   | vmovss (_ : AvxReg .W128) (src1 src2 : AvxReg .W128)
   | vaddss (_ : AvxReg .W128) (src1 src2 : AvxReg .W128)
   | vzeroupper
+  /- VEX scalar float forms (VEX.128; `w` is `.W128`). An `AvxRegOrMem .W128`
+  marked `m32`/`m64` reads the low 32/64 bits of a register, or that many
+  bytes of memory. The result is written to the low element of `dst`, the
+  rest of bits 127..0 come from `src1`, and the bits above 127 are cleared. -/
+  -- `vmovss m32, xmm` (zeroes bits 32 and up) and `vmovss xmm, m32`; exactly
+  -- one operand is memory (the register-register form is `vmovss` above).
+  | vmovssMem (_ : AvxDst .W128) (src : AvxRegOrMem .W128)
+  -- `vmovsd m64, xmm` and `vmovsd xmm, m64`.
+  | vmovsdMem (_ : AvxDst .W128) (src : AvxRegOrMem .W128)
+  | vaddssMem (_ : AvxReg .W128) (src1 : AvxReg .W128) (src2 : AddrExpr)
+  | vsubss (_ : AvxReg .W128) (src1 : AvxReg .W128) (src2 : AvxRegOrMem .W128) -- m32
+  | vmulss (_ : AvxReg .W128) (src1 : AvxReg .W128) (src2 : AvxRegOrMem .W128) -- m32
+  | vdivss (_ : AvxReg .W128) (src1 : AvxReg .W128) (src2 : AvxRegOrMem .W128) -- m32
+  | vminss (_ : AvxReg .W128) (src1 : AvxReg .W128) (src2 : AvxRegOrMem .W128) -- m32
+  | vsqrtss (_ : AvxReg .W128) (src1 : AvxReg .W128) (src2 : AvxRegOrMem .W128) -- m32
+  | vmulsd (_ : AvxReg .W128) (src1 : AvxReg .W128) (src2 : AvxRegOrMem .W128) -- m64
+  -- `vcmpss` with predicate `pred` (0..31; `vcmpltss` is 1, `vcmpeqss` 0):
+  -- the low element becomes all ones or all zeros.
+  | vcmpss (pred : UInt8) (_ : AvxReg .W128) (src1 : AvxReg .W128) (src2 : AvxRegOrMem .W128) -- m32
+  -- Flag-setting unordered compares of `src1` with `src2`.
+  | vucomiss (src1 : AvxReg .W128) (src2 : AvxRegOrMem .W128) -- m32
+  | vucomisd (src1 : AvxReg .W128) (src2 : AvxRegOrMem .W128) -- m64
+  | vcvtsi2ss {iw : Width} (_ : AvxReg .W128) (src1 : AvxReg .W128) (src2 : RegOrMem iw)
+  | vcvtss2sd (_ : AvxReg .W128) (src1 : AvxReg .W128) (src2 : AvxRegOrMem .W128) -- m32
+  | vcvtsd2ss (_ : AvxReg .W128) (src1 : AvxReg .W128) (src2 : AvxRegOrMem .W128) -- m64
+  -- The two low floats of `src` (xmm or m64) widened to doubles.
+  | vcvtps2pd (_ : AvxReg .W128) (src : AvxRegOrMem .W128)
+  -- `vmovd r/m32, xmm` (zero-extends) and `vmovd xmm, r/m32`.
+  | vmovdTo (_ : AvxReg .W128) (src : RegOrMem .W32)
+  | vmovdFrom (_ : RegOrMem .W32) (src : AvxReg .W128)
+  -- `vmovq r/m64, xmm` (zero-extends) and `vmovq xmm, r/m64`.
+  | vmovqTo (_ : AvxReg .W128) (src : RegOrMem .W64)
+  | vmovqFrom (_ : RegOrMem .W64) (src : AvxReg .W128)
+  /- VEX packed forms; `w` is the vector length. -/
+  | vmovapd (_ : AvxDst w) (src : AvxRegOrMem w)
+  | vmovdqa (_ : AvxDst w) (src : AvxRegOrMem w)
+  | vxorpd (_ : AvxReg w) (src1 : AvxReg w) (src2 : AvxRegOrMem w)
+  | vsubps (_ : AvxReg w) (src1 : AvxReg w) (src2 : AvxRegOrMem w)
+  | vdivps (_ : AvxReg w) (src1 : AvxReg w) (src2 : AvxRegOrMem w)
+  -- even lanes `src1 - src2`, odd lanes `src1 + src2`
+  | vaddsubps (_ : AvxReg w) (src1 : AvxReg w) (src2 : AvxRegOrMem w)
+  | vandps (_ : AvxReg w) (src1 : AvxReg w) (src2 : AvxRegOrMem w)
+  -- `~~~src1 &&& src2`
+  | vandnps (_ : AvxReg w) (src1 : AvxReg w) (src2 : AvxRegOrMem w)
+  | vpaddd (_ : AvxReg w) (src1 : AvxReg w) (src2 : AvxRegOrMem w)
+  | vpand (_ : AvxReg w) (src1 : AvxReg w) (src2 : AvxRegOrMem w)
+  | vpxor (_ : AvxReg w) (src1 : AvxReg w) (src2 : AvxRegOrMem w)
+  -- lane `i` from `src2` when the sign bit of lane `i` of `mask` is set
+  | vblendvps (_ : AvxReg w) (src1 : AvxReg w) (src2 : AvxRegOrMem w) (mask : AvxReg w)
+  | vshufpd (_ : AvxReg w) (src1 : AvxReg w) (src2 : AvxRegOrMem w) (imm : UInt8)
+  | vpblendw (_ : AvxReg w) (src1 : AvxReg w) (src2 : AvxRegOrMem w) (imm : UInt8)
+  | vpermilps (_ : AvxReg w) (src : AvxRegOrMem w) (imm : UInt8)
+  | vpslld (_ : AvxReg w) (src : AvxReg w) (imm : UInt8)
+  | vmovshdup (_ : AvxReg w) (src : AvxRegOrMem w)
+  | vmovsldup (_ : AvxReg w) (src : AvxRegOrMem w)
+  -- the low float of `src` (m32 or xmm) in every lane of `dst`
+  | vbroadcastss (_ : AvxReg w) (src : AvxRegOrMem .W128)
+  | vinsertps (_ : AvxReg .W128) (src1 : AvxReg .W128) (src2 : AvxRegOrMem .W128) (imm : UInt8) -- m32
+  | vpinsrd (_ : AvxReg .W128) (src1 : AvxReg .W128) (src2 : RegOrMem .W32) (imm : UInt8)
+  | vpextrd (_ : RegOrMem .W32) (src : AvxReg .W128) (imm : UInt8)
+  -- `vmovlps xmm, m64`
+  | vmovlpsStore (_ : AddrExpr) (src : AvxReg .W128)
+  /- Legacy SSE/SSE2/SSE3 forms (`w` is `.W128`). A register destination keeps
+  bits 255..128. A 128-bit memory operand must be 16-byte aligned, except for
+  `movdqu`; 32- and 64-bit memory operands need no alignment. -/
+  -- `movss xmm, xmm` merges the low float; `movss m32, xmm` zeroes bits
+  -- 127..32; `movss xmm, m32` stores. Not both operands memory.
+  | movss (_ : AvxDst .W128) (src : AvxRegOrMem .W128)
+  | movsd (_ : AvxDst .W128) (src : AvxRegOrMem .W128)
+  -- `movq xmm/m64, xmm` (zeroes bits 127..64) and `movq xmm, m64`.
+  | movqx (_ : AvxDst .W128) (src : AvxRegOrMem .W128)
+  -- the low (`movlps`) or high (`movhps`) quadword, to or from m64
+  | movlps (_ : AvxDst .W128) (src : AvxRegOrMem .W128)
+  | movhps (_ : AvxDst .W128) (src : AvxRegOrMem .W128)
+  | movdqa (_ : AvxDst .W128) (src : AvxRegOrMem .W128)
+  | movdqu (_ : AvxDst .W128) (src : AvxRegOrMem .W128)
+  | addss (_ : AvxReg .W128) (src : AvxRegOrMem .W128) -- m32
+  | movlhps (_ : AvxReg .W128) (src : AvxReg .W128)
+  | movhlps (_ : AvxReg .W128) (src : AvxReg .W128)
+  | shufps (_ : AvxReg .W128) (src : AvxRegOrMem .W128) (imm : UInt8)
+  | unpcklps (_ : AvxReg .W128) (src : AvxRegOrMem .W128)
+  | unpckhps (_ : AvxReg .W128) (src : AvxRegOrMem .W128)
+  | haddps (_ : AvxReg .W128) (src : AvxRegOrMem .W128)
+  | movddup (_ : AvxReg .W128) (src : AvxRegOrMem .W128) -- m64
+  | movshdup (_ : AvxReg .W128) (src : AvxRegOrMem .W128)
+  | pxor (_ : AvxReg .W128) (src : AvxRegOrMem .W128)
+  | pand (_ : AvxReg .W128) (src : AvxRegOrMem .W128)
+  | pcmpeqd (_ : AvxReg .W128) (src : AvxRegOrMem .W128)
+  | pshufd (_ : AvxReg .W128) (src : AvxRegOrMem .W128) (imm : UInt8)
+  | punpckldq (_ : AvxReg .W128) (src : AvxRegOrMem .W128)
+  | punpckhdq (_ : AvxReg .W128) (src : AvxRegOrMem .W128)
   deriving Repr, DecidableEq, Hashable, Lean.ToExpr
 
 inductive Instr

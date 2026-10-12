@@ -252,6 +252,121 @@ def BitVec.f32fma (a b c : BitVec 32) : BitVec 32 :=
   Float32.toBitVec
     (Kraken.Float32.fma (BitVec.toFloat32 a) (BitVec.toFloat32 b) (BitVec.toFloat32 c))
 
+/-- `a - b` on single-precision lanes. -/
+def BitVec.f32sub (a b : BitVec 32) : BitVec 32 :=
+  Float32.toBitVec (BitVec.toFloat32 a - BitVec.toFloat32 b)
+
+/-- `a / b` on single-precision lanes. -/
+def BitVec.f32div (a b : BitVec 32) : BitVec 32 :=
+  Float32.toBitVec (BitVec.toFloat32 a / BitVec.toFloat32 b)
+
+/-- `minss`: `a` when `a < b`, otherwise `b`. So a NaN in either operand, or
+two zeros of either sign, give `b`, as the hardware does. -/
+def BitVec.f32min (a b : BitVec 32) : BitVec 32 :=
+  if BitVec.toFloat32 a < BitVec.toFloat32 b then a else b
+
+/-- Correctly rounded square root on a single-precision lane. -/
+def BitVec.f32sqrt (a : BitVec 32) : BitVec 32 :=
+  Float32.toBitVec (BitVec.toFloat32 a).sqrt
+
+def BitVec.toFloat64 (v : BitVec 64) : Float :=
+  Float.ofBits (UInt64.ofBitVec v)
+
+def Float.toBitVec64 (f : Float) : BitVec 64 :=
+  UInt64.toBitVec (Float.toBits f)
+
+/-- `a * b` on double-precision lanes. -/
+def BitVec.f64mul (a b : BitVec 64) : BitVec 64 :=
+  Float.toBitVec64 (BitVec.toFloat64 a * BitVec.toFloat64 b)
+
+/-- An unpacked float rounded (to nearest, ties to even) to the format `spec`, in the canonical
+form that `UnpackedFloat.pack spec` expects. Infinities, NaN and zeros are unchanged. Values
+that overflow `spec` are packed as infinity by `pack`. -/
+def Kraken.roundUnpacked (spec : Float.Model.Format) :
+    Float.Model.UnpackedFloat → Float.Model.UnpackedFloat
+  | .finite s m e _ => Float.Model.UnpackedFloat.round spec s m e
+  | f => f
+
+/-- `cvtss2sd`/`cvtps2pd` on one lane: the exact widening, defined through Lean core's float
+model (every binary32 value is a binary64 value, so the rounding is exact; a NaN becomes the
+canonical quiet NaN `0x7FF8000000000000`). Unlike `Float32.toFloat` (an opaque C cast), this
+reduces in the kernel. -/
+def BitVec.f32to64 (a : BitVec 32) : BitVec 64 :=
+  Float.Model.UnpackedFloat.pack .binary64
+    (Kraken.roundUnpacked .binary64 (Float.Model.UnpackedFloat.unpack .binary32 a))
+
+/-- `cvtsd2ss` on one lane, rounded to nearest even, defined through Lean core's float model
+(overflow gives infinity, a NaN becomes the canonical quiet NaN `0x7FC00000`). -/
+def BitVec.f64to32 (a : BitVec 64) : BitVec 32 :=
+  Float.Model.UnpackedFloat.pack .binary32
+    (Kraken.roundUnpacked .binary32 (Float.Model.UnpackedFloat.unpack .binary64 a))
+
+/-- `cvtsi2ss`: a signed integer (32 or 64 bits) rounded to single precision. -/
+def BitVec.sitof32 {n} (a : BitVec n) : BitVec 32 :=
+  Float32.toBitVec (Int64.ofInt a.toInt).toFloat32
+
+/-- The outcome of an IEEE comparison: `(unordered, less, equal)`. Exactly one
+holds, or none when `a > b`. -/
+def BitVec.f32cmp (a b : BitVec 32) : Bool × Bool × Bool :=
+  let x := BitVec.toFloat32 a
+  let y := BitVec.toFloat32 b
+  let un := x.isNaN || y.isNaN
+  (un, !un && x < y, !un && x == y)
+
+def BitVec.f64cmp (a b : BitVec 64) : Bool × Bool × Bool :=
+  let x := BitVec.toFloat64 a
+  let y := BitVec.toFloat64 b
+  let un := x.isNaN || y.isNaN
+  (un, !un && x < y, !un && x == y)
+
+/-- The `cmpss` predicates 0..31 (bit 4 only selects signaling behavior,
+which is not modeled since exceptions are masked). -/
+def BitVec.f32cmpPred (pred : UInt8) (a b : BitVec 32) : Bool :=
+  let (un, lt, eq) := BitVec.f32cmp a b
+  let gt := !un && !lt && !eq
+  match pred.toNat % 16 with
+  | 0 => eq | 1 => lt | 2 => lt || eq | 3 => un
+  | 4 => !eq | 5 => !lt | 6 => !(lt || eq) | 7 => !un
+  | 8 => eq || un | 9 => lt || un | 10 => !gt | 11 => false
+  | 12 => !eq && !un | 13 => gt || eq | 14 => gt | _ => true
+
+/-- The 32-bit element `i` of `x`. -/
+abbrev BitVec.dw {n} (x : BitVec n) (i : Nat) : BitVec 32 := x.extractLsb' (32 * i) 32
+
+/-- The 64-bit element `i` of `x`. -/
+abbrev BitVec.qw {n} (x : BitVec n) (i : Nat) : BitVec 64 := x.extractLsb' (64 * i) 64
+
+/-- `packedBinOp` whose lane operation also receives the lane index. -/
+def BitVec.packedBinOpIdx {w : Nat} (c : Nat) (op : Nat → BitVec c → BitVec c → BitVec c)
+    (a b : BitVec w) (i : Nat := 0) : BitVec w :=
+  if _ : c = 0 ∨ w < c then
+    a
+  else
+    let res_low := op i (a.take c) (b.take c)
+    let res_high := BitVec.packedBinOpIdx c op (a.drop c) (b.drop c) (i + 1)
+    (BitVec.append res_high res_low).setWidth _
+termination_by w
+decreasing_by omega
+
+/-- One 128-bit lane of `haddps`. -/
+def BitVec.haddps128 (a b : BitVec 128) : BitVec 128 :=
+  BitVec.f32add (b.dw 2) (b.dw 3) ++ BitVec.f32add (b.dw 0) (b.dw 1)
+    ++ BitVec.f32add (a.dw 2) (a.dw 3) ++ BitVec.f32add (a.dw 0) (a.dw 1)
+
+/-- One 128-bit lane of `pshufd`/`vpermilps`: element `i` is element
+`imm[2i+1:2i]` of `a`. -/
+def BitVec.pshufd128 (imm : UInt8) (a : BitVec 128) : BitVec 128 :=
+  let pick (k : Nat) : BitVec 32 := a.dw ((imm.toNat >>> k) % 4)
+  pick 6 ++ pick 4 ++ pick 2 ++ pick 0
+
+/-- `insertps`: element `imm[5:4]` of `a` replaced by `v`, then the elements
+selected by `imm[3:0]` zeroed. -/
+def BitVec.insertps (imm : UInt8) (a : BitVec 128) (v : BitVec 32) : BitVec 128 :=
+  let d := (imm.toNat >>> 4) % 4
+  let el (i : Nat) : BitVec 32 :=
+    if (imm.toNat >>> i) % 2 = 1 then 0#32 else if i = d then v else a.dw i
+  el 3 ++ el 2 ++ el 1 ++ el 0
+
 /-- One 128-bit lane of `shufps`: the low two floats of the result come from
 `a` and the high two from `b`, each picked by two bits of `imm`. -/
 def BitVec.shufps128 (imm : UInt8) (a b : BitVec 128) : BitVec 128 :=
@@ -267,6 +382,12 @@ structure StatusFlags where
   sf : Bool
   of : Bool
   deriving Repr, BEq, DecidableEq, Hashable, Lean.ToExpr
+
+/-- The `(u)comiss`/`(u)comisd` flags: ZF, PF, CF are `111` unordered, `000`
+greater, `001` less, `100` equal; OF, SF, AF are cleared. -/
+def StatusFlags.ofFCmp (c : Bool × Bool × Bool) : StatusFlags :=
+  let (un, lt, eq) := c
+  { zf := un || eq, pf := un, cf := un || lt, of := false, sf := false, af := false }
 
 abbrev DataMem := Mem 64
 instance : Repr DataMem where reprPrec _ _ := "<opaque memory>"
@@ -300,6 +421,9 @@ inductive Effects
   | done (a : MachineData × Int64)
   | unimplemented (msg : String)
   | gp_unaligned (addr : BitVec 64) (w : Nat)
+  -- A trap instruction (`ud1`, `ud2`, `int3`) raised its exception: like a
+  -- faulting access, the step has no successor state.
+  | trap (what : String)
   -- loads and stores *outside* the data memory, eg. MMIO, might still affect the data memory:
   -- for instance, MMIO reads/writes at certain device register addresses might change what
   -- data memory the process logically owns vs what memory is owned by devices
@@ -409,6 +533,16 @@ match o with
   | .avx r => ret (s.zmms.get r) s
   | .mem a => s.loadAvx ((a.interp s.regs p).zeroExtend _) w ret checkAlign
 
+/-- A scalar read of an xmm-or-memory operand: the low `n` bits of the
+register, or an `n`-bit memory load (`m32`/`m64` operands, which need no
+alignment). -/
+def AvxRegOrMem.interpLow [Labels] [AddressSize]
+  (o : AvxRegOrMem .W128) (n : Width) (s : MachineData) (p : Std.Rco Int64)
+  (ret : n.type → MachineData → Effects) : Effects :=
+match o with
+  | .avx r => ret ((s.zmms.get r).setWidth n.bits) s
+  | .mem a => s.load ((a.interp s.regs p).zeroExtend _) n ret
+
 @[kstep]
 def MachineData.setReg (s : MachineData) {w} (r : Reg w) (v : w.type) : MachineData :=
   { s with regs := s.regs.set r v }
@@ -455,6 +589,7 @@ def CondCode.interp (cc : CondCode) (s : StatusFlags) : Bool := match cc with
   | .a  => !s.cf && !s.zf | .be => s.cf || s.zf
   | .l => s.sf != s.of | .le => (s.sf != s.of) || s.zf
   | .ge => s.sf == s.of | .g => !s.zf && (s.sf == s.of)
+  | .p => s.pf | .np => !s.pf
 
 @[kstep] def ShiftCountExpr.interp [Labels] (c : ShiftCountExpr) (s : MachineData) (p : Std.Rco Int64) := match c with
   | .cl => s.regs.rcx.toBitVec.take 8
@@ -760,6 +895,11 @@ set_option maxHeartbeats 1000000
             ++ a.extractLsb' 32 8 ++ a.extractLsb' 40 8 ++ a.extractLsb' 48 8 ++ a.drop 56
       next (s.setReg dst (v.setWidth _))
     | _ => undefined (fun v => next (s.setReg dst v))
+  | .cltq =>
+    next (s.setReg (.low .rax .W64) ((s.regs.get (.low .rax .W32)).signExtend 64))
+  | .ud1 _ _ => .trap "ud1"
+  | .ud2 => .trap "ud2"
+  | .int3 => .trap "int3"
   | .jcc cc l =>
     if cc.interp s.status
     then jmp (label l) s
@@ -833,11 +973,24 @@ match i with
     src2.interp s p (fun b s =>
       next (s.setAvxReg dst
         (BitVec.packedTernOp 32 BitVec.f32fma (s.zmms.get src1) b (s.zmms.get dst))))
+  | .vfmadd132ps dst src1 src2 =>
+    src2.interp s p (fun b s =>
+      next (s.setAvxReg dst
+        (BitVec.packedTernOp 32 BitVec.f32fma (s.zmms.get dst) b (s.zmms.get src1))))
+  | .vpermps dst src1 src2 =>
+    src2.interp s p (fun b s =>
+      next (s.setAvxReg dst (BitVec.packedBinOp 32
+        (fun i _ => b.extractLsb' (32 * (i.toNat % 8)) 32) (s.zmms.get src1) (s.zmms.get src1))))
   | .vshufps dst src1 src2 imm =>
     src2.interp s p (fun b s =>
       next (s.setAvxReg dst (BitVec.packedBinOp 128 (BitVec.shufps128 imm) (s.zmms.get src1) b)))
   | .vextractf128 dst src imm =>
     next (s.setAvxReg dst ((s.zmms.get src).extractLsb' (128 * (imm.toNat % 2)) 128))
+  | .vinsertf128 dst src1 src2 imm =>
+    src2.interp s p (fun b s =>
+      let a := s.zmms.get src1
+      next (s.setAvxReg dst
+        (if imm.toNat % 2 = 0 then a.extractLsb' 128 128 ++ b else b ++ a.extractLsb' 0 128)))
   | .vmovhlps dst src1 src2 =>
     next (s.setAvxReg dst
       ((s.zmms.get src1).extractLsb' 64 64 ++ (s.zmms.get src2).extractLsb' 64 64))
@@ -850,6 +1003,265 @@ match i with
     next (s.setAvxReg dst
       (a.extractLsb' 32 96 ++ BitVec.f32add (a.extractLsb' 0 32) (b.extractLsb' 0 32)))
   | .vzeroupper => next { s with zmms := s.zmms.zeroUpper }
+  -- VEX scalar forms. Scalar memory operands go through the general-purpose
+  -- `load`/`store` at 32 or 64 bits, without an alignment check.
+  | .vmovssMem dst src =>
+    match dst, src with
+    | .avx d, .mem a =>
+      s.load ((a.interp s.regs p).zeroExtend _) .W32 (fun v s =>
+        next (s.setAvxReg d (v.zeroExtend 128)))
+    | .mem a, .avx r =>
+      s.store ((a.interp s.regs p).zeroExtend _) (w := .W32) ((s.zmms.get r).setWidth 32) next
+    | _, _ => unimplemented "vmovss: exactly one operand is memory"
+  | .vmovsdMem dst src =>
+    match dst, src with
+    | .avx d, .mem a =>
+      s.load ((a.interp s.regs p).zeroExtend _) .W64 (fun v s =>
+        next (s.setAvxReg d (v.zeroExtend 128)))
+    | .mem a, .avx r =>
+      s.store ((a.interp s.regs p).zeroExtend _) (w := .W64) ((s.zmms.get r).setWidth 64) next
+    | _, _ => unimplemented "vmovsd: exactly one operand is memory"
+  | .vaddssMem dst src1 src2 =>
+    s.load ((src2.interp s.regs p).zeroExtend _) .W32 (fun b s =>
+      let a := s.zmms.get src1
+      next (s.setAvxReg dst (a.extractLsb' 32 96 ++ BitVec.f32add (a.extractLsb' 0 32) b)))
+  | .vsubss dst src1 src2 =>
+    src2.interpLow .W32 s p (fun b s =>
+      let a := s.zmms.get src1
+      next (s.setAvxReg dst (a.extractLsb' 32 96 ++ BitVec.f32sub (a.extractLsb' 0 32) b)))
+  | .vmulss dst src1 src2 =>
+    src2.interpLow .W32 s p (fun b s =>
+      let a := s.zmms.get src1
+      next (s.setAvxReg dst (a.extractLsb' 32 96 ++ BitVec.f32mul (a.extractLsb' 0 32) b)))
+  | .vdivss dst src1 src2 =>
+    src2.interpLow .W32 s p (fun b s =>
+      let a := s.zmms.get src1
+      next (s.setAvxReg dst (a.extractLsb' 32 96 ++ BitVec.f32div (a.extractLsb' 0 32) b)))
+  | .vminss dst src1 src2 =>
+    src2.interpLow .W32 s p (fun b s =>
+      let a := s.zmms.get src1
+      next (s.setAvxReg dst (a.extractLsb' 32 96 ++ BitVec.f32min (a.extractLsb' 0 32) b)))
+  | .vsqrtss dst src1 src2 =>
+    src2.interpLow .W32 s p (fun b s =>
+      let a := s.zmms.get src1
+      next (s.setAvxReg dst (a.extractLsb' 32 96 ++ BitVec.f32sqrt b)))
+  | .vmulsd dst src1 src2 =>
+    src2.interpLow .W64 s p (fun b s =>
+      let a := s.zmms.get src1
+      next (s.setAvxReg dst (a.extractLsb' 64 64 ++ BitVec.f64mul (a.extractLsb' 0 64) b)))
+  | .vcmpss pred dst src1 src2 =>
+    src2.interpLow .W32 s p (fun b s =>
+      let a := s.zmms.get src1
+      let r : BitVec 32 :=
+        if BitVec.f32cmpPred pred (a.extractLsb' 0 32) b then BitVec.allOnes 32 else 0#32
+      next (s.setAvxReg dst (a.extractLsb' 32 96 ++ r)))
+  | .vucomiss src1 src2 =>
+    src2.interpLow .W32 s p (fun b s =>
+      next { s with status := .ofFCmp (BitVec.f32cmp ((s.zmms.get src1).extractLsb' 0 32) b) })
+  | .vucomisd src1 src2 =>
+    src2.interpLow .W64 s p (fun b s =>
+      next { s with status := .ofFCmp (BitVec.f64cmp ((s.zmms.get src1).extractLsb' 0 64) b) })
+  | .vcvtsi2ss dst src1 src2 =>
+    src2.interp s p (fun b s =>
+      let a := s.zmms.get src1
+      next (s.setAvxReg dst (a.extractLsb' 32 96 ++ BitVec.sitof32 b)))
+  | .vcvtss2sd dst src1 src2 =>
+    src2.interpLow .W32 s p (fun b s =>
+      let a := s.zmms.get src1
+      next (s.setAvxReg dst (a.extractLsb' 64 64 ++ BitVec.f32to64 b)))
+  | .vcvtsd2ss dst src1 src2 =>
+    src2.interpLow .W64 s p (fun b s =>
+      let a := s.zmms.get src1
+      next (s.setAvxReg dst (a.extractLsb' 32 96 ++ BitVec.f64to32 b)))
+  | .vcvtps2pd dst src =>
+    src.interpLow .W64 s p (fun b s =>
+      next (s.setAvxReg dst (BitVec.f32to64 (b.dw 1) ++ BitVec.f32to64 (b.dw 0))))
+  | .vmovdTo dst src =>
+    src.interp s p (fun v s => next (s.setAvxReg dst (v.zeroExtend 128)))
+  | .vmovdFrom dst src =>
+    s.set dst ((s.zmms.get src).setWidth 32) p next
+  | .vmovqTo dst src =>
+    src.interp s p (fun v s => next (s.setAvxReg dst (v.zeroExtend 128)))
+  | .vmovqFrom dst src =>
+    s.set dst ((s.zmms.get src).setWidth 64) p next
+  -- VEX packed forms
+  | .vmovapd dst src =>
+    src.interp s p (checkAlign := true)
+      (fun val s => s.setAvx dst val p (checkAlign := true) next)
+  | .vmovdqa dst src =>
+    src.interp s p (checkAlign := true)
+      (fun val s => s.setAvx dst val p (checkAlign := true) next)
+  | .vxorpd dst src1 src2 =>
+    src2.interp s p (fun b s =>
+      next (s.setAvxReg dst (s.zmms.get src1 ^^^ b)))
+  | .vsubps dst src1 src2 =>
+    src2.interp s p (fun b s =>
+      next (s.setAvxReg dst (BitVec.packedBinOp 32 BitVec.f32sub (s.zmms.get src1) b)))
+  | .vdivps dst src1 src2 =>
+    src2.interp s p (fun b s =>
+      next (s.setAvxReg dst (BitVec.packedBinOp 32 BitVec.f32div (s.zmms.get src1) b)))
+  | .vaddsubps dst src1 src2 =>
+    src2.interp s p (fun b s =>
+      next (s.setAvxReg dst (BitVec.packedBinOpIdx 32
+        (fun i x y => if i % 2 = 0 then BitVec.f32sub x y else BitVec.f32add x y)
+        (s.zmms.get src1) b)))
+  | .vandps dst src1 src2 =>
+    src2.interp s p (fun b s =>
+      next (s.setAvxReg dst (s.zmms.get src1 &&& b)))
+  | .vandnps dst src1 src2 =>
+    src2.interp s p (fun b s =>
+      next (s.setAvxReg dst (~~~(s.zmms.get src1) &&& b)))
+  | .vpaddd dst src1 src2 =>
+    src2.interp s p (fun b s =>
+      next (s.setAvxReg dst (BitVec.packedBinOp 32 (· + ·) (s.zmms.get src1) b)))
+  | .vpand dst src1 src2 =>
+    src2.interp s p (fun b s =>
+      next (s.setAvxReg dst (s.zmms.get src1 &&& b)))
+  | .vpxor dst src1 src2 =>
+    src2.interp s p (fun b s =>
+      next (s.setAvxReg dst (s.zmms.get src1 ^^^ b)))
+  | .vblendvps dst src1 src2 mask =>
+    src2.interp s p (fun b s =>
+      next (s.setAvxReg dst (BitVec.packedTernOp 32 (fun x y m => if m.msb then y else x)
+        (s.zmms.get src1) b (s.zmms.get mask))))
+  | .vshufpd dst src1 src2 imm =>
+    src2.interp s p (fun b s =>
+      next (s.setAvxReg dst (BitVec.packedBinOpIdx 128 (fun k x y =>
+        let i := imm.toNat >>> (2 * k)
+        (if (i >>> 1) % 2 = 1 then y.qw 1 else y.qw 0) ++ (if i % 2 = 1 then x.qw 1 else x.qw 0))
+        (s.zmms.get src1) b)))
+  | .vpblendw dst src1 src2 imm =>
+    src2.interp s p (fun b s =>
+      next (s.setAvxReg dst (BitVec.packedBinOpIdx 16
+        (fun i x y => if (imm.toNat >>> (i % 8)) % 2 = 1 then y else x) (s.zmms.get src1) b)))
+  | .vpermilps dst src imm =>
+    src.interp s p (fun b s =>
+      next (s.setAvxReg dst (BitVec.packedBinOp 128 (fun x _ => BitVec.pshufd128 imm x) b b)))
+  | .vpslld dst src imm =>
+    let a := s.zmms.get src
+    next (s.setAvxReg dst (BitVec.packedBinOp 32
+      (fun x _ => if imm.toNat > 31 then 0#32 else x <<< imm.toNat) a a))
+  | .vmovshdup dst src =>
+    src.interp s p (fun b s =>
+      next (s.setAvxReg dst (BitVec.packedBinOp 128
+        (fun x _ => x.dw 3 ++ x.dw 3 ++ x.dw 1 ++ x.dw 1) b b)))
+  | .vmovsldup dst src =>
+    src.interp s p (fun b s =>
+      next (s.setAvxReg dst (BitVec.packedBinOp 128
+        (fun x _ => x.dw 2 ++ x.dw 2 ++ x.dw 0 ++ x.dw 0) b b)))
+  | .vbroadcastss dst src =>
+    src.interpLow .W32 s p (fun v s =>
+      next (s.setAvxReg dst (BitVec.packedBinOp 32 (fun _ _ => v) 0 0)))
+  | .vinsertps dst src1 src2 imm =>
+    match src2 with
+    | .avx r =>
+      next (s.setAvxReg dst (BitVec.insertps imm (s.zmms.get src1)
+        ((s.zmms.get r).dw ((imm.toNat >>> 6) % 4))))
+    | .mem a =>
+      s.load ((a.interp s.regs p).zeroExtend _) .W32 (fun v s =>
+        next (s.setAvxReg dst (BitVec.insertps imm (s.zmms.get src1) v)))
+  | .vpinsrd dst src1 src2 imm =>
+    src2.interp s p (fun v s =>
+      let a := s.zmms.get src1
+      next (s.setAvxReg dst (BitVec.packedBinOpIdx 32
+        (fun i x _ => if i = imm.toNat % 4 then v else x) a a)))
+  | .vpextrd dst src imm =>
+    s.set dst ((s.zmms.get src).dw (imm.toNat % 4)) p next
+  | .vmovlpsStore dst src =>
+    s.store ((dst.interp s.regs p).zeroExtend _) (w := .W64) ((s.zmms.get src).setWidth 64) next
+  -- Legacy SSE forms: register writes keep bits 255..128.
+  | .movss dst src =>
+    match dst, src with
+    | .avx d, .avx r =>
+      next (s.setAvxLegacyReg d
+        ((s.zmms.get d).extractLsb' 32 96 ++ (s.zmms.get r).extractLsb' 0 32))
+    | .avx d, .mem a =>
+      s.load ((a.interp s.regs p).zeroExtend _) .W32 (fun v s =>
+        next (s.setAvxLegacyReg d (v.zeroExtend 128)))
+    | .mem a, .avx r =>
+      s.store ((a.interp s.regs p).zeroExtend _) (w := .W32) ((s.zmms.get r).setWidth 32) next
+    | .mem _, .mem _ => unimplemented "movss: two memory operands"
+  | .movsd dst src =>
+    match dst, src with
+    | .avx d, .avx r =>
+      next (s.setAvxLegacyReg d
+        ((s.zmms.get d).extractLsb' 64 64 ++ (s.zmms.get r).extractLsb' 0 64))
+    | .avx d, .mem a =>
+      s.load ((a.interp s.regs p).zeroExtend _) .W64 (fun v s =>
+        next (s.setAvxLegacyReg d (v.zeroExtend 128)))
+    | .mem a, .avx r =>
+      s.store ((a.interp s.regs p).zeroExtend _) (w := .W64) ((s.zmms.get r).setWidth 64) next
+    | .mem _, .mem _ => unimplemented "movsd: two memory operands"
+  | .movqx dst src =>
+    match dst, src with
+    | .avx d, .avx r =>
+      next (s.setAvxLegacyReg d (((s.zmms.get r).setWidth 64).zeroExtend 128))
+    | .avx d, .mem a =>
+      s.load ((a.interp s.regs p).zeroExtend _) .W64 (fun v s =>
+        next (s.setAvxLegacyReg d (v.zeroExtend 128)))
+    | .mem a, .avx r =>
+      s.store ((a.interp s.regs p).zeroExtend _) (w := .W64) ((s.zmms.get r).setWidth 64) next
+    | .mem _, .mem _ => unimplemented "movq: two memory operands"
+  | .movlps dst src =>
+    match dst, src with
+    | .avx d, .mem a =>
+      s.load ((a.interp s.regs p).zeroExtend _) .W64 (fun v s =>
+        next (s.setAvxLegacyReg d ((s.zmms.get d).extractLsb' 64 64 ++ v)))
+    | .mem a, .avx r =>
+      s.store ((a.interp s.regs p).zeroExtend _) (w := .W64) ((s.zmms.get r).setWidth 64) next
+    | _, _ => unimplemented "movlps: exactly one operand is memory"
+  | .movhps dst src =>
+    match dst, src with
+    | .avx d, .mem a =>
+      s.load ((a.interp s.regs p).zeroExtend _) .W64 (fun v s =>
+        next (s.setAvxLegacyReg d (v ++ (s.zmms.get d).extractLsb' 0 64)))
+    | .mem a, .avx r =>
+      s.store ((a.interp s.regs p).zeroExtend _) (w := .W64) ((s.zmms.get r).extractLsb' 64 64) next
+    | _, _ => unimplemented "movhps: exactly one operand is memory"
+  | .movdqa dst src =>
+    src.interp s p (checkAlign := true)
+      (fun val s => s.setAvxLegacy dst val p (checkAlign := true) next)
+  | .movdqu dst src => src.interp s p (fun val s => s.setAvxLegacy dst val p next)
+  | .addss dst src =>
+    src.interpLow .W32 s p (fun b s =>
+      let a := s.zmms.get dst
+      next (s.setAvxLegacyReg dst (a.extractLsb' 32 96 ++ BitVec.f32add (a.extractLsb' 0 32) b)))
+  | .movlhps dst src =>
+    next (s.setAvxLegacyReg dst ((s.zmms.get src).extractLsb' 0 64 ++ (s.zmms.get dst).extractLsb' 0 64))
+  | .movhlps dst src =>
+    next (s.setAvxLegacyReg dst ((s.zmms.get dst).extractLsb' 64 64 ++ (s.zmms.get src).extractLsb' 64 64))
+  | .shufps dst src imm =>
+    src.interp s p (checkAlign := true) (fun b s =>
+      next (s.setAvxLegacyReg dst (BitVec.shufps128 imm (s.zmms.get dst) b)))
+  | .unpcklps dst src | .punpckldq dst src =>
+    src.interp s p (checkAlign := true) (fun b s =>
+      let a := s.zmms.get dst
+      next (s.setAvxLegacyReg dst (b.dw 1 ++ a.dw 1 ++ b.dw 0 ++ a.dw 0)))
+  | .unpckhps dst src | .punpckhdq dst src =>
+    src.interp s p (checkAlign := true) (fun b s =>
+      let a := s.zmms.get dst
+      next (s.setAvxLegacyReg dst (b.dw 3 ++ a.dw 3 ++ b.dw 2 ++ a.dw 2)))
+  | .haddps dst src =>
+    src.interp s p (checkAlign := true) (fun b s =>
+      next (s.setAvxLegacyReg dst (BitVec.haddps128 (s.zmms.get dst) b)))
+  | .movddup dst src =>
+    src.interpLow .W64 s p (fun v s => next (s.setAvxLegacyReg dst (v ++ v)))
+  | .movshdup dst src =>
+    src.interp s p (checkAlign := true) (fun b s =>
+      next (s.setAvxLegacyReg dst (b.dw 3 ++ b.dw 3 ++ b.dw 1 ++ b.dw 1)))
+  | .pxor dst src =>
+    src.interp s p (checkAlign := true) (fun b s =>
+      next (s.setAvxLegacyReg dst (s.zmms.get dst ^^^ b)))
+  | .pand dst src =>
+    src.interp s p (checkAlign := true) (fun b s =>
+      next (s.setAvxLegacyReg dst (s.zmms.get dst &&& b)))
+  | .pcmpeqd dst src =>
+    src.interp s p (checkAlign := true) (fun b s =>
+      next (s.setAvxLegacyReg dst (BitVec.packedBinOp 32
+        (fun x y => if x = y then BitVec.allOnes 32 else 0#32) (s.zmms.get dst) b)))
+  | .pshufd dst src imm =>
+    src.interp s p (checkAlign := true) (fun b s =>
+      next (s.setAvxLegacyReg dst (BitVec.pshufd128 imm b)))
 
 @[kstep]
 def Instr.interp [Labels]
@@ -910,6 +1322,7 @@ where
     | .done s => eval e s until_
     | .unimplemented msg => .error msg
     | .gp_unaligned addr w => .error s!"#GP: Memory op at {repr addr} did not have mandatory alignment of {w}"
+    | .trap what => .error s!"trap: {what}"
     | .require_read_access _ _ ok => handleEffects (ok ())
     | .require_write_access _ _ ok => handleEffects (ok ())
     | .require_exec_access _ ok => handleEffects (ok ())
