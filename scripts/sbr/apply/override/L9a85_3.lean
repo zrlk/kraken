@@ -7,7 +7,7 @@ theorem blk_L9a85_3 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
   intro n
   refine Triple.pin fun s₀ hs₀ => ?_
   obtain ⟨hs, hn⟩ := hs₀
-  obtain ⟨ch, c0, hC, hrsp, hrbp, hbx, h15, h13, h12, h14, y, hK, hCy, hdi, hsi, hcx, hdx, h8, h9, v, hm⟩ :=
+  obtain ⟨ch, c0, hC, hrsp, hrbp, hbx, h15, h13, h12, h14, y, hK, hCy, hdi, hsi, hcx, hdx, h8, h9, v, hw1, hw2, hm⟩ :=
     T.L9a85_3.mp hs
   clear hs
   have hdy : dsN y = dsN x := by simp only [dsN, hK.2.2.2.1, hK.2.2.2.2.2.2.2]
@@ -88,13 +88,14 @@ theorem blk_L9a85_3 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
       have e := hRc'.down; subst e
       try simp only [syn_subadd _ _ _ (by decide : 8 ≤ 496) (by decide), Nat.reduceSub] at hrsp'
       obtain ⟨hb', h12', h13', h14', h15'⟩ := hsv
-      sep_pull hm' [4 ?@ (t₀.regs.get64 .rsi + 269664#64)] as F hF
-      obtain ⟨v', hm2⟩ := blk4_cell hm'
+      sep_pull hm' [VOffW (t₀.regs.get64 .rsi + 269664#64)] as F hF
+      obtain ⟨v', hw1', hw2', hm2⟩ := voffw_cell hm'
       subst hF
       refine MachineWP.nil_spec.le_wp s' ?_
       refine ⟨?_, by var_step⟩
       rw [T.L9a85_4]
-      refine ⟨ch, c0, hC, by rw [hrsp']; bv_omega, hrbp', (y.setV0 v).setV1 v', hK, ?_⟩
+      refine ⟨ch, c0, hC, by rw [hrsp']; bv_omega, hrbp', (y.setV0 v).setV1 v', hK,
+        applyc_setV1 (applyc_setV0 hCy hw1 hw2) hw1' hw2', ?_⟩
       simp only [Mm, ApplyF]
       rw [show ScW ((y.setV0 v).setV1 v') t₀ = ScW y t₀ from rfl, show TabW ((y.setV0 v).setV1 v') t₀ = TabW y t₀ from rfl,
         show AcW ((y.setV0 v).setV1 v') t₀ = AcW y t₀ from rfl, show OutW ((y.setV0 v).setV1 v') t₀ = OutW y t₀ from rfl,
@@ -175,13 +176,14 @@ theorem blk_L9a85_3 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
       have e := hRc'.down; subst e
       try simp only [syn_subadd _ _ _ (by decide : 8 ≤ 496) (by decide), Nat.reduceSub] at hrsp'
       obtain ⟨hb', h12', h13', h14', h15'⟩ := hsv
-      sep_pull hm' [4 ?@ (t₀.regs.get64 .rsi + 269664#64)] as F hF
-      obtain ⟨v', hm2⟩ := blk4_cell hm'
+      sep_pull hm' [VOffW (t₀.regs.get64 .rsi + 269664#64)] as F hF
+      obtain ⟨v', hw1', hw2', hm2⟩ := voffw_cell hm'
       subst hF
       refine MachineWP.nil_spec.le_wp s' ?_
       refine ⟨?_, by var_step⟩
       rw [T.L9a85_4]
-      refine ⟨ch, c0, hC, by rw [hrsp']; bv_omega, hrbp', (y.setV0 v).setV1 v', hK, ?_⟩
+      refine ⟨ch, c0, hC, by rw [hrsp']; bv_omega, hrbp', (y.setV0 v).setV1 v', hK,
+        applyc_setV1 (applyc_setV0 hCy hw1 hw2) hw1' hw2', ?_⟩
       simp only [Mm, ApplyF]
       rw [show ScW ((y.setV0 v).setV1 v') t₀ = ScW y t₀ from rfl, show TabW ((y.setV0 v).setV1 v') t₀ = TabW y t₀ from rfl,
         show AcW ((y.setV0 v).setV1 v') t₀ = AcW y t₀ from rfl, show OutW ((y.setV0 v).setV1 v') t₀ = OutW y t₀ from rfl,

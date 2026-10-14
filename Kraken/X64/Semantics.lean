@@ -305,6 +305,27 @@ def BitVec.f64to32 (a : BitVec 64) : BitVec 32 :=
 def BitVec.sitof32 {n} (a : BitVec n) : BitVec 32 :=
   Float32.toBitVec (Int64.ofInt a.toInt).toFloat32
 
+/-- The nonnegative rational `m * 2 ^ e` rounded to the nearest integer, ties to even. -/
+def Kraken.roundNatRNE (m : Nat) (e : Int) : Nat :=
+  if 0 ≤ e then m * 2 ^ e.toNat else
+  let k := (-e).toNat
+  let q := m / 2 ^ k
+  let r := m % 2 ^ k
+  if 2 ^ k < 2 * r ∨ (2 * r = 2 ^ k ∧ q % 2 = 1) then q + 1 else q
+
+/-- `cvtss2si` with a 64-bit destination: the float rounded to the nearest integer, ties to
+even, defined through Lean core's float model. A NaN, an infinity, or a value whose rounded
+result is outside the signed 64-bit range gives the integer indefinite `0x8000000000000000`.
+MXCSR is not modeled: the default rounding mode (to nearest even) is assumed, and the
+floating-point exceptions are masked. -/
+def BitVec.f32toi64 (a : BitVec 32) : BitVec 64 :=
+  match Float.Model.UnpackedFloat.unpack .binary32 a with
+  | .finite s m e _ =>
+    let v : Int := s.apply (Kraken.roundNatRNE m e)
+    if -2 ^ 63 ≤ v ∧ v < 2 ^ 63 then BitVec.ofInt 64 v else 0x8000000000000000#64
+  | .zero _ => 0#64
+  | _ => 0x8000000000000000#64
+
 /-- The outcome of an IEEE comparison: `(unordered, less, equal)`. Exactly one
 holds, or none when `a > b`. -/
 def BitVec.f32cmp (a b : BitVec 32) : Bool × Bool × Bool :=
@@ -373,6 +394,12 @@ def BitVec.shufps128 (imm : UInt8) (a b : BitVec 128) : BitVec 128 :=
   let pick (x : BitVec 128) (k : Nat) : BitVec 32 :=
     x.extractLsb' (32 * ((imm.toNat >>> k) % 4)) 32
   pick b 6 ++ pick b 4 ++ pick a 2 ++ pick a 0
+
+/-- One 128-bit lane of `pshufb`: byte `i` is zero when bit 7 of byte `i` of `ctl` is set, and
+otherwise byte `ctl[i] & 15` of `a`. -/
+def BitVec.pshufb128 (a ctl : BitVec 128) : BitVec 128 :=
+  BitVec.packedBinOp 8
+    (fun c _ => if c.msb then 0#8 else a.extractLsb' (8 * (c.toNat % 16)) 8) ctl ctl
 
 structure StatusFlags where
   cf : Bool
@@ -590,6 +617,7 @@ def CondCode.interp (cc : CondCode) (s : StatusFlags) : Bool := match cc with
   | .l => s.sf != s.of | .le => (s.sf != s.of) || s.zf
   | .ge => s.sf == s.of | .g => !s.zf && (s.sf == s.of)
   | .p => s.pf | .np => !s.pf
+  | .s => s.sf | .ns => !s.sf
 
 @[kstep] def ShiftCountExpr.interp [Labels] (c : ShiftCountExpr) (s : MachineData) (p : Std.Rco Int64) := match c with
   | .cl => s.regs.rcx.toBitVec.take 8
@@ -782,6 +810,34 @@ set_option maxHeartbeats 1000000
     let cf := v.signed != a.signed * b.signed
     undefined (λ sf => undefined (λ zf => undefined (λ af => undefined (λ pf =>
     next { s with status := { cf := cf, pf, af, zf, sf, of := cf }})))))))
+  -- The dividend is `rdx:rax` (`ax` for `.W8`). A zero divisor or a quotient
+  -- outside the destination's range raises #DE, a trap with no successor.
+  -- `idiv` truncates toward zero (the remainder has the dividend's sign).
+  -- All six status flags are undefined (one nondeterministic `StatusFlags`).
+  | .div src =>
+    src.interp s p (fun b s =>
+    let n : Nat := if w == .W8 then (s.regs.get (.low .rax .W16)).toNat else
+      (s.regs.get (.low .rdx w)).toNat * 2 ^ w.bits + (s.regs.get (.low .rax w)).toNat
+    let d : Nat := b.toNat
+    if d = 0 ∨ 2 ^ w.bits ≤ n / d then .trap "#DE" else
+    let q := n / d
+    let r := n % d
+    let s := if w == .W8
+      then s.setReg (.low .rax .W16) (.ofNat _ (r * 2 ^ 8 + q))
+      else (s.setReg (.low .rax w) (.ofNat _ q)).setReg (.low .rdx w) (.ofNat _ r)
+    undefined (λ (status : StatusFlags) => next { s with status }))
+  | .idiv src =>
+    src.interp s p (fun b s =>
+    let n : Int := if w == .W8 then (s.regs.get (.low .rax .W16)).toInt else
+      (s.regs.get (.low .rdx w)).toInt * 2 ^ w.bits + (s.regs.get (.low .rax w)).toNat
+    let d : Int := b.toInt
+    let q := n.tdiv d
+    let r := n.tmod d
+    if d = 0 ∨ q < -2 ^ (w.bits - 1) ∨ 2 ^ (w.bits - 1) ≤ q then .trap "#DE" else
+    let s := if w == .W8
+      then s.setReg (.low .rax .W16) (BitVec.ofInt 8 r ++ BitVec.ofInt 8 q)
+      else (s.setReg (.low .rax w) (.ofInt _ q)).setReg (.low .rdx w) (.ofInt _ r)
+    undefined (λ (status : StatusFlags) => next { s with status }))
 -- Bitwise
   | .test a b =>
     a.interp s p (fun a s =>
@@ -897,6 +953,8 @@ set_option maxHeartbeats 1000000
     | _ => undefined (fun v => next (s.setReg dst v))
   | .cltq =>
     next (s.setReg (.low .rax .W64) ((s.regs.get (.low .rax .W32)).signExtend 64))
+  | .cltd =>
+    next (s.setReg (.low .rdx .W32) ((s.regs.get (.low .rax .W32)).sshiftRight 31))
   | .ud1 _ _ => .trap "ud1"
   | .ud2 => .trap "ud2"
   | .int3 => .trap "int3"
@@ -1169,6 +1227,55 @@ match i with
     s.set dst ((s.zmms.get src).dw (imm.toNat % 4)) p next
   | .vmovlpsStore dst src =>
     s.store ((dst.interp s.regs p).zeroExtend _) (w := .W64) ((s.zmms.get src).setWidth 64) next
+  | .vmovdqu dst src =>
+    src.interp s p (fun val s => s.setAvx dst val p next)
+  | .vcvtdq2ps dst src =>
+    src.interp s p (fun b s =>
+      next (s.setAvxReg dst (BitVec.packedBinOp 32 (fun x _ => BitVec.sitof32 x) b b)))
+  | .vblendps dst src1 src2 imm =>
+    src2.interp s p (fun b s =>
+      next (s.setAvxReg dst (BitVec.packedBinOpIdx 32
+        (fun i x y => if (imm.toNat >>> (i % 8)) % 2 = 1 then y else x) (s.zmms.get src1) b)))
+  | .vpaddw dst src1 src2 =>
+    src2.interp s p (fun b s =>
+      next (s.setAvxReg dst (BitVec.packedBinOp 16 (· + ·) (s.zmms.get src1) b)))
+  | .vpminsd dst src1 src2 =>
+    src2.interp s p (fun b s =>
+      next (s.setAvxReg dst (BitVec.packedBinOp 32
+        (fun x y => if x.slt y then x else y) (s.zmms.get src1) b)))
+  | .vpshufb dst src1 src2 =>
+    src2.interp s p (fun b s =>
+      next (s.setAvxReg dst (BitVec.packedBinOp 128 BitVec.pshufb128 (s.zmms.get src1) b)))
+  | .vpunpcklqdq dst src1 src2 =>
+    src2.interp s p (fun b s =>
+      next (s.setAvxReg dst (BitVec.packedBinOp 128
+        (fun x y => y.qw 0 ++ x.qw 0) (s.zmms.get src1) b)))
+  | .vpshufd dst src imm =>
+    src.interp s p (fun b s =>
+      next (s.setAvxReg dst (BitVec.packedBinOp 128 (fun x _ => BitVec.pshufd128 imm x) b b)))
+  | .vcvtss2si dst src =>
+    src.interpLow .W32 s p (fun b s => next (s.setReg dst (BitVec.f32toi64 b)))
+  | .vpinsrw dst src1 src2 imm =>
+    let v := (s.regs.get src2).setWidth 16
+    let a := s.zmms.get src1
+    next (s.setAvxReg dst (BitVec.packedBinOpIdx 16
+      (fun i x _ => if i = imm.toNat % 8 then v else x) a a))
+  | .vpmovsxwd dst src =>
+    src.interpLow .W64 s p (fun b s =>
+      let el (i : Nat) : BitVec 32 := (b.extractLsb' (16 * i) 16).signExtend 32
+      next (s.setAvxReg dst (el 3 ++ el 2 ++ el 1 ++ el 0)))
+  | .vpcmpeqd dst src1 src2 =>
+    src2.interp s p (fun b s =>
+      next (s.setAvxReg dst (BitVec.packedBinOp 32
+        (fun x y => if x = y then BitVec.allOnes 32 else 0#32) (s.zmms.get src1) b)))
+  | .vpsrldx dst src count =>
+    let n := ((s.zmms.get count).extractLsb' 0 64).toNat
+    let a := s.zmms.get src
+    next (s.setAvxReg dst (BitVec.packedBinOp 32
+      (fun x _ => if n > 31 then 0#32 else x >>> n) a a))
+  | .vpmovzxdq dst src =>
+    src.interpLow .W64 s p (fun b s =>
+      next (s.setAvxReg dst ((b.dw 1).zeroExtend 64 ++ (b.dw 0).zeroExtend 64)))
   -- Legacy SSE forms: register writes keep bits 255..128.
   | .movss dst src =>
     match dst, src with

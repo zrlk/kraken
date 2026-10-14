@@ -85,13 +85,13 @@ theorem blk_L9a85_1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
       have e := hRc'.down; subst e
       try simp only [syn_subadd _ _ _ (by decide : 8 ≤ 496) (by decide), Nat.reduceSub] at hrsp'
       obtain ⟨hb', h12', h13', h14', h15'⟩ := hsv
-      sep_pull hm' [4 ?@ (t₀.regs.get64 .rsi + 180896#64)] as F hF
-      obtain ⟨v, hm2⟩ := blk4_cell hm'
+      sep_pull hm' [VOffW (t₀.regs.get64 .rsi + 180896#64)] as F hF
+      obtain ⟨v, hw1, hw2, hm2⟩ := voffw_cell hm'
       subst hF
       refine MachineWP.nil_spec.le_wp s' ?_
       refine ⟨?_, by var_step⟩
       rw [T.L9a85_2]
-      refine ⟨ch, c0, hC, by rw [hrsp']; bv_omega, hrbp', ?_, ?_, ?_, ?_, ?_, y, hK, hCy, v, ?_⟩
+      refine ⟨ch, c0, hC, by rw [hrsp']; bv_omega, hrbp', ?_, ?_, ?_, ?_, ?_, y, hK, hCy, v, hw1, hw2, ?_⟩
       · rw [hb']; try simp only [MachineData.pushRa, Reg64s.get64_set64, reduceCtorEq, ite_true, ite_false, hbx, arg1]
       · rw [h15']; try simp only [MachineData.pushRa, Reg64s.get64_set64, reduceCtorEq, ite_true, ite_false, h15, arg0]
       · rw [h13']; try simp only [MachineData.pushRa, Reg64s.get64_set64, reduceCtorEq, ite_true, ite_false, h13, sbrA,
@@ -179,13 +179,13 @@ theorem blk_L9a85_1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
       have e := hRc'.down; subst e
       try simp only [syn_subadd _ _ _ (by decide : 8 ≤ 496) (by decide), Nat.reduceSub] at hrsp'
       obtain ⟨hb', h12', h13', h14', h15'⟩ := hsv
-      sep_pull hm' [4 ?@ (t₀.regs.get64 .rsi + 180896#64)] as F hF
-      obtain ⟨v, hm2⟩ := blk4_cell hm'
+      sep_pull hm' [VOffW (t₀.regs.get64 .rsi + 180896#64)] as F hF
+      obtain ⟨v, hw1, hw2, hm2⟩ := voffw_cell hm'
       subst hF
       refine MachineWP.nil_spec.le_wp s' ?_
       refine ⟨?_, by var_step⟩
       rw [T.L9a85_2]
-      refine ⟨ch, c0, hC, by rw [hrsp']; bv_omega, hrbp', ?_, ?_, ?_, ?_, ?_, y, hK, hCy, v, ?_⟩
+      refine ⟨ch, c0, hC, by rw [hrsp']; bv_omega, hrbp', ?_, ?_, ?_, ?_, ?_, y, hK, hCy, v, hw1, hw2, ?_⟩
       · rw [hb']; try simp only [MachineData.pushRa, Reg64s.get64_set64, reduceCtorEq, ite_true, ite_false, hbx, arg1]
       · rw [h15']; try simp only [MachineData.pushRa, Reg64s.get64_set64, reduceCtorEq, ite_true, ite_false, h15, arg0]
       · rw [h13']; try simp only [MachineData.pushRa, Reg64s.get64_set64, reduceCtorEq, ite_true, ite_false, h13, sbrA,

@@ -18,7 +18,7 @@ Run it from anywhere inside the repository; everything is resolved from the repo
 
 | step | checks |
 |---|---|
-| build | `lake build` of each module of the proof, one at a time in dependency order (Spec, Dsp/*, the C procedures, ApplySpec, ApplyTable, the Apply shards, Apply, Link, Witness); fails on a nonzero exit, an `error`, or `declaration uses 'sorry'` |
+| build | `lake build` of each module of the proof, one at a time in dependency order (Spec, Dsp/*, the C procedures, ApplySpec, ApplyTable, the Apply shards, Apply, Link, Witness, Linked, Session, ParseModel); fails on a nonzero exit, an `error`, or `declaration uses 'sorry'` |
 | axioms | `#print axioms` (`Ax.lean`) of the final theorem, every procedure specification and the four satisfiability witnesses equals `baseline/axioms.txt`: each exactly `[propext, Classical.choice, Quot.sound]` |
 | tv | `tv/tv.sh`, translation validation. The objects' hashes equal `baseline/objects.sha256`; the oleans are built from the current sources. The elaborated program texts (`tv/Export.lean`) are re-assembled with `llvm-mc` at the object addresses and compared with the objects byte for byte (relocations resolved, labels at their symbols, padding sized). `tv/tv_data.py` checks that the object variants agree and that every data region, alignment and constant the proofs assume holds in the objects. The row-crossing discipline (below). Finally each edit in `tv/mutations/` is applied to the exported text and must be caught |
 | a2 | `tv/a2_discipline.py`, the row-crossing discipline: `HfAssemble.lean` (with `HfAssemble/*.lean`) crosses a row of `Y` only through `a2_row_spill` |
@@ -33,7 +33,8 @@ The kernel checks every proof; what it cannot check is what the statement means.
 reviewer reads the trusted closure (`tcb` step), not the proofs:
 
 - the specification: `Spec.lean` (callee contracts), `ApplySpec.lean` (`ApplySpec`,
-  `ApplyPre`, `ApplyF`, `SbrWF`, `LayoutC`, `CstW`, `KeepD`; hand-written, definitions only),
+  `ApplyPre`, `ApplyF`, `SbrWF`, `LayoutC`, `CstW`, `KeepD`, `KeepT`; hand-written, definitions
+  only),
   `Link.lean` (the final statement, `SbrPlaced`, `SbrSlots`, `SbrAssumed`), the `Dsp.lean` /
   `FloatDsp.lean` slot specifications;
 - the machine model this work added to: `Kraken/X64/Semantics.lean`, `Syntax.lean`;
@@ -44,6 +45,18 @@ reviewer reads the trusted closure (`tcb` step), not the proofs:
 - for adequacy: whether the `SbrAssumed` contracts hold of the real routines (an over-strong
   one makes the theorem vacuous; see FD1) and the statements, not the proofs, of
   the satisfiability witnesses (`Witness.lean`, `Linked.lean`).
+- for the use of the theorem across calls: `Session.lean` (not in the trusted closure; it imports
+  `Link.lean` and nothing imports it). It states a decoding session of one element: the values
+  after `ff_aac_sbr_ctx_alloc_init` (`xInit`, with `SbrWF` proved), the reachable values
+  (`Reachable`) and the assumptions they rest on: `ParseStep` (the parser preserves `SbrWF`
+  together with a parser-side invariant) and `CallerFrame` (each call state owns the footprint
+  at the current values). Read the statements of `ParseStep`, `FrameStep`, `xInit`,
+  `CallerFrame` and `session_call`.
+  `ParseModel.lean` (imports `Session.lean`, nothing imports it) is a functional model of the
+  parser transcribed from the C source, with `ParseStep ModelStep (GridInv ∧ Inv2)` proved
+  (`modelStep_parseStep`; `ModelStep` has no guard on the visible values): evidence that `ParseStep` is satisfiable by the parser's source
+  semantics, not a statement about its machine code. Its abstractions are listed in its doc
+  comments.
 
 Block proofs, label tables and entry assertions, helper lemmas, the generated `Apply/*.lean`,
 `HfAssemble/*.lean` and the tactics need no review for soundness.
@@ -190,3 +203,71 @@ heartbeats in `hfasm/hb_table.txt`); `HfAssemble/Cells.lean` is hand-written. In
 
 `build.sh` writes into `Kraken/X64/Examples/Sbr/` (`HFASM_OUT` elsewhere; its header lists
 the switches). The `regen` CI step checks that the checked-in files are its output.
+
+## How to prove a parser routine
+
+The parser proofs (`Kraken/X64/Examples/Sbr/Parse/`) share a library:
+
+| file | contents |
+|---|---|
+| `Parse/Lib.lean` | havoc rules for values that are never needed (`bswap32_havoc`, `shl_cl32_havoc`, `shr_cl32_havoc`, `shr_cl8_havoc`), `shl_cl64_val`, `get64_ite`; byte lists (`bsplit`, `bmerge`, `getD_set_*`); focus (`focus`, `pick_*`, `eq_*`, `Hide`); cell access (`cell4_load`/`cell4_store`, `cell1_*`, `cell8_*`, `slot_load`/`slot_store`, `blocks_load`); `lt4_cases`, `zx8`, `sub_add_lit`; `jt_target`; the `cells_grind` tactic |
+| `Parse/LibGb.lean` | `GetBitContext`: `GbW`, `GbC`, `gb_load_buf`/`gb_load_idx`/`gb_load_p8`, `gb_store_idx`, `rd_off`, `shr30_lt`/`shr_lt`/`shr7_lt`, `gb_clamp`/`gb_clamp64` (the index update of `get_bits`) |
+| `Parse/LibAbort.lean` | `ProcSpecA` (a run returns or reaches `abort`), `ProcSpec.toA`, `call_procA_spec_at`, `call_abort_at`, `ProcSpecA.of_cfg_post` |
+| `Parse/LibCall.lean` | callee contracts with values (`MemcpyValSpec`, `MemsetValSpec`) |
+| `scripts/sbr/parse/focus.py` | writes a routine's footprint `T`, its opaque cell groups, one AC equation per focus target and the access lemmas, from a layout (`scripts/sbr/parse/layouts/grid.py` writes `Parse/GridFoot.lean`) |
+
+The recipe (the `read_sbr_grid` files are the worked example):
+
+1. Text. Extract the routine with `to_program`, name the `0x0(%rip)` operands from the
+   relocations, and cut the text into blocks of at most about ten instructions, two stores and one
+   conditional exit for unrolled code (`scripts/sbr/grid/gen.py`, its `CUTS`). A bit read (`get_bits`)
+   is one block or the head of one.
+2. Spec. Logical variables (`GArgs`), the state between blocks (`GSt`: the fields the routine
+   writes, as cells), the footprint (`GF`), the side conditions (`GridC`), `Pre`/`Post` as
+   `CallPre`/`CallPost`. A routine that can reach `abort` gets a `ProcSpecA`.
+3. Footprint. Write the layout and run `focus.py`: every struct region is an opaque `def` (one atom
+   for `simp`/`grind`), byte arrays are one 1-byte cell per element, and every cell a block touches
+   has a focus equation `T_x : T … = X ⋆ Tx …` and access lemmas (`T_storeN`, `T_loadTe`, `T_storeTeO`, …).
+4. Table. One assertion per label: the registers the later blocks read, `∃ st,` an invariant of
+   `st`, `s.dmem =⋆ T … st`. Loops need a progress clause in `var` (a back edge must decrease it).
+   Error returns reached from inside a body need an invariant that implies the postcondition
+   there (for `read_sbr_grid`: `SInv`, which holds on every edge into an error path).
+   A large table is a match on the label's Nat key (`lkey "f.Lxxxx"` patterns, `labKey`), with
+   `def table l s := tableK (labKey l) s` and dsimprocs that reduce a lookup at a literal label
+   (`reduceTable`/`reduceVar` in `Parse/GridBase.lean`); a match on `String` literals costs
+   ~0.4 M heartbeats per compared label.
+5. Blocks. `cfg_block`, `measure_hb`, `Triple.pin`, destructure the entry assertion; derive the
+   memory facts the block needs from the access lemmas *before* `vcgen` (stores as functions of the
+   stored value: `have hs := fun v => T_storeN hm v`); hide the footprint (`have hmT : Hide _ := hm`,
+   `clear hm`) and register facts (`PLift`); `vcgen [havoc rules]`; normalize; close each VC with
+   the prepared facts (`with_reducible exact`), the table goals with `Table.ofLabels_at` then
+   `dsimp only [reduceTable, reduceVar]`, the edge order with `edge_lt`, a jump to a trap with
+   `exfalso`.
+6. Assembly. `scripts/sbr/grid/asm.py BODY.s` writes `Parse/GridAsm.lean`: the whole-routine
+   `ProcSpecA` from the proved block theorems and a structure `GridOpen` whose fields are the
+   open obligations; add a block to `PROVED`/`SMP` when it is proved and regenerate.
+
+Rules (measured on `read_sbr_grid`):
+
+1. Never `grind` over a whole footprint: ~50 cells cost 0.3–2 M heartbeats per block or fail. Focus
+   (an AC equation plus one access lemma) costs a few thousand.
+2. A variable-index access is never split inside a block: use the array lemma that takes the
+   index as a parameter (the split is paid once, in the lemma).
+3. Keep big hypotheses away from `simp … at *` (`Hide`, `PLift`): it rewrites them (it turned a
+   register fact into `True` through another register equation).
+4. Never leave `all_goals try grind` over goals that include the `Table.ofLabels` disjunctions: a
+   failing `grind` burns its whole budget. Target the VCs (`case vcN => …`).
+5. Cut blocks rather than raise `maxHeartbeats` (no options in `Parse/`): an unrolled 44-instruction
+   block did not close at 420 k heartbeats.
+
+Pitfalls:
+
+* Inaccessible names after `vcgen` need `rename_i`.
+* `exact h` against a goal that matches only up to unfolding `storeInt`/`loadInt` can hit the
+  recursion limit, and `try` does not catch it: use `with_reducible exact`.
+* `decide` on a consistent flag hypothesis recurses instead of failing: normalize with
+  `simp only [CondCode.interp, StatusFlags.from_result, BitVec.reduce…]` and require `done`.
+* `simp (config := {decide := true}) at *` times out on block goals.
+* `grind` does not identify `d + 1 + 12` with `d + 13`: normalize offsets first (`BitVec.add_assoc`,
+  `BitVec.reduceAdd`, `sub_add_lit` for the stack slots after pops).
+* `Blocks` must be at the head of a focused hypothesis for its lemmas (`T_blocks`).

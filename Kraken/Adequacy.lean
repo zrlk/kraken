@@ -616,6 +616,9 @@ theorem Operation.interpM_All {w} (labels : Labels) (address_size : AddressSize)
   case cltq =>
     simp only [Operation.interpM] at h; mrun h
     simpa only [Operation.interp] using h
+  case cltd =>
+    simp only [Operation.interpM] at h; mrun h
+    simpa only [Operation.interp] using h
   case jcc cc l =>
     simp only [Operation.interpM] at h; mrun h
     simp only [Operation.interp]

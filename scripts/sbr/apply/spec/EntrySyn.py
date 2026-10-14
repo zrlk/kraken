@@ -22,12 +22,12 @@ def define(g):
             " ∧ (s.dmem =⋆ Mm k e x ra t₀ (FrD x t₀))")
     # after start_2's `je L6817` (start = 0) or the inlined sbr_turnoff (L6797_1)
     g.entry("L6817", f"ApplyC x t₀ ∧ BaseZ t₀ s ∧ s.regs.get64 .r9 = arg1 t₀ ∧ {BL1}"
-            " ∧ ∃ x' : Args, (x' = x ∨ x' = x.turnoff) ∧ IdLive t₀ x' ∧ (s.dmem =⋆ Mm k e x' ra t₀ (FrD x t₀))")
+            " ∧ ∃ x' : Args, (x' = x ∨ x' = x.turnoff.spSet) ∧ IdLive t₀ x' ∧ (s.dmem =⋆ Mm k e x' ra t₀ (FrD x t₀))")
     # start_3: `jne L6825` on the flags of `cmpl $0, pushed` (start ≠ 0, ready ≠ 0: the dequant path, bl = 0)
     g.entry("start_3", f"(ApplyC x t₀ ∧ IdLive t₀ x) ∧ BaseZ t₀ s ∧ s.regs.get64 .r9 = arg1 t₀ ∧ {BL0}"
             " ∧ x.start ≠ 0 ∧ s.status.zf = decide (x.pushed = 0) ∧ (s.dmem =⋆ Mm k e x ra t₀ (FrD x t₀))")
     # L676e / L6825: the kx_and_m_pushed step; bl = 1 (no dequant: start = 0) or bl = 0 (dequant, no turnoff)
-    PRE = (f"ApplyC x t₀ ∧ BaseZ t₀ s ∧ s.regs.get64 .r9 = arg1 t₀ ∧ ∃ x' : Args, (x' = x ∨ x' = x.turnoff)"
+    PRE = (f"ApplyC x t₀ ∧ BaseZ t₀ s ∧ s.regs.get64 .r9 = arg1 t₀ ∧ ∃ x' : Args, (x' = x ∨ x' = x.turnoff.spSet)"
            f" ∧ ({BL1} ∨ ({BL0} ∧ x' = x ∧ x.start ≠ 0))")
     g.entry("L676e", PRE + " ∧ x'.pushed = 0 ∧ IdLive t₀ x' ∧ (s.dmem =⋆ Mm k e x' ra t₀ (FrD x t₀))")
     g.entry("L6825", PRE + " ∧ x'.pushed ≠ 0 ∧ IdLive t₀ x' ∧ (s.dmem =⋆ Mm k e x' ra t₀ (FrD x t₀))")
@@ -42,7 +42,7 @@ def define(g):
     g.entry("L6f32", f"ApplyC x t₀ ∧ BaseZ t₀ s ∧ {BL1} ∧ (s.dmem =⋆ Mm k e x ra t₀ (FrD x t₀))")
     g.entry("L6f32_1", f"ApplyC x t₀ ∧ BaseZ t₀ s ∧ {BL1} ∧ (s.dmem =⋆ Mm k e x ra t₀ (FrD x t₀))")
     g.entry("L6f32_2", f"ApplyC x t₀ ∧ BaseZ t₀ s ∧ s.regs.get64 .r9 = arg1 t₀ ∧ {BL1}"
-            " ∧ (s.dmem =⋆ Mm k e x.turnoff ra t₀ (FrD x t₀))")
+            " ∧ (s.dmem =⋆ Mm k e x.turnoff.spSet ra t₀ (FrD x t₀))")
     # Setup (L74de: after the dequant, ready_for_dequant = 0)
     g.entry("L74e9", "ApplyC x t₀ ∧ BaseZ t₀ s ∧ s.regs.get64 .r9 = arg1 t₀"
             " ∧ ∃ y : Args, (x.Keep y ∧ IdLive t₀ y) ∧ ApplyC y t₀ ∧ (s.dmem =⋆ Mm k e y ra t₀ (FrD x t₀))")
@@ -92,14 +92,18 @@ def define(g):
     g.entry("L9a85_1", "∃ ch c0, ApplyC x t₀ ∧ " + RS + " ∧ ∃ y : Args, x.Keep y ∧ ApplyC y t₀" + CA
             + " ∧ s.regs.get64 .r8 = arg3 t₀ ∧ s.regs.get64 .r9 = sbrA t₀ + 0x53b40#64"
             " ∧ (s.dmem =⋆ MmS k e y ra t₀ (SynArgs x t₀ 0) (FrCs x t₀ ch c0))")
-    # after channel 0's synthesis: its v_off has a new value v (DWF of channel 1 still from ApplyC y)
+    # after channel 0's synthesis: its v_off has a new value v within DWF's bounds (QmfFPost's VOffW);
+    # ApplyC y still holds for the other fields (and channel 1)
     g.entry("L9a85_2", "∃ ch c0, ApplyC x t₀ ∧ " + RS + " ∧ ∃ y : Args, x.Keep y ∧ ApplyC y t₀"
-            " ∧ ∃ v, (s.dmem =⋆ Mm k e (y.setV0 v) ra t₀ (FrCs x t₀ ch c0))")
+            " ∧ ∃ v : BitVec 32, v.toInt ≤ 1664 ∧ v.toNat % 8 = 0"
+            " ∧ (s.dmem =⋆ Mm k e (y.setV0 v) ra t₀ (FrCs x t₀ ch c0))")
     RS3 = RS.replace("s.regs.get64 .rbx = arg1 t₀", "s.regs.get64 .rbx = arg1 t₀ + 0x41d60#64")
     g.entry("L9a85_3", "∃ ch c0, ApplyC x t₀ ∧ " + RS3 + " ∧ ∃ y : Args, x.Keep y ∧ ApplyC y t₀" + CA
             + " ∧ s.regs.get64 .r8 = arg4 t₀ ∧ s.regs.get64 .r9 = sbrA t₀ + 0x58740#64"
-            " ∧ ∃ v, (s.dmem =⋆ MmS k e (y.setV0 v) ra t₀ (SynArgs x t₀ 1) (FrCs x t₀ ch c0))")
-    MK = " ∧ ∃ y : Args, x.Keep y ∧ (s.dmem =⋆ Mm k e y ra t₀ (FrCs x t₀ ch c0))"
+            " ∧ ∃ v : BitVec 32, v.toInt ≤ 1664 ∧ v.toNat % 8 = 0"
+            " ∧ (s.dmem =⋆ MmS k e (y.setV0 v) ra t₀ (SynArgs x t₀ 1) (FrCs x t₀ ch c0))")
+    # after both syntheses: ApplyC of the new values (applyc_setV0/1), for ApplyFPost's SbrWF
+    MK = " ∧ ∃ y : Args, x.Keep y ∧ ApplyC y t₀ ∧ (s.dmem =⋆ Mm k e y ra t₀ (FrCs x t₀ ch c0))"
     g.entry("L9a85_4", "∃ ch c0, ApplyC x t₀ ∧ s.regs.get64 .rsp = t₀.regs.get64 .rsp - 0x1e8#64"
             " ∧ s.regs.get64 .rbp = t₀.regs.get64 .rsp - 8#64" + MK)
     g.entry("L9b24", "∃ ch c0, ApplyC x t₀ ∧ Base t₀ s" + MK)

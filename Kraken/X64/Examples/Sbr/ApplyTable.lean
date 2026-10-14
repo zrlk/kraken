@@ -37,14 +37,26 @@ theorem ChLive.one {t : MachineData} {y : Args} (h : IdLive t y)
 
 variable [CodeEnv]
 
+theorem Args.KeepT.rfl' {x : Args} : x.KeepT x := by
+  unfold Args.KeepT
+  exact ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, Or.inr ⟨rfl, rfl, rfl⟩⟩
+
+/-- `sbr_turnoff` (with its `spectrum_params` memset) keeps the tables and clears `start`. -/
+theorem Args.KeepT.turnoff {x y : Args} (h : x.KeepT y) : x.KeepT y.turnoff.spSet := by
+  unfold Args.KeepT at h ⊢
+  obtain ⟨t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, -⟩ := h
+  exact ⟨t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, Or.inl ⟨rfl, rfl, rfl⟩⟩
+
 theorem Args.KeepD.rfl' {x : Args} : x.KeepD x :=
-  ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
+  ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, Args.KeepT.rfl'⟩
 
 theorem Args.Keep.rfl' {x : Args} : x.Keep x :=
   ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, Args.KeepD.rfl'⟩
 
-/-- `sbr_turnoff` keeps what `Keep` fixes. -/
-theorem Args.Keep.turnoff {x y : Args} (h : x.Keep y) : x.Keep y.turnoff := h
+/-- `sbr_turnoff` keeps what `Keep` fixes (`start = 0`: the clear case of `KeepT`). -/
+theorem Args.Keep.turnoff {x y : Args} (h : x.Keep y) : x.Keep y.turnoff.spSet := by
+  obtain ⟨a1, a2, a3, a4, a5, a6, a7, a8, d1, d2, d3, d4, d5, d6, d7, d8, d9, ht⟩ := h
+  exact ⟨a1, a2, a3, a4, a5, a6, a7, a8, d1, d2, d3, d4, d5, d6, d7, d8, d9, ht.turnoff⟩
 
 /-- The `kx_and_m_pushed` step keeps what `Keep` fixes. -/
 theorem Args.Keep.push {x y : Args} (h : x.Keep y) : x.Keep y.push := h
@@ -89,6 +101,12 @@ theorem ApplyC.push {y : Args} {t : MachineData} (h : ApplyC y t) : ApplyC y.pus
 plain `simp` calls of already-checked blocks are unaffected; use by name). -/
 theorem PsW_push (x : Args) (t : MachineData) : PsW x.push t = PsW x t := rfl
 theorem PsW_turnoff (x : Args) (t : MachineData) : PsW x.turnoff t = PsW x t := rfl
+
+/-- The `spectrum_params` memset touches no field `ApplyC`, `IdLive`, `ChLive` read. -/
+theorem ApplyC.spSet {y : Args} {t : MachineData} (h : ApplyC y t) : ApplyC y.spSet t := h
+theorem IdLive.spSet {t : MachineData} {y : Args} (h : IdLive t y) : IdLive t y.spSet := h
+theorem ChLive.spSet {t : MachineData} {ch : Nat} {y : Args} (h : ChLive t ch y) :
+    ChLive t ch y.spSet := h
 
 /-- The low byte after an 8-bit write (`mov $1,%bl`) is the byte written. -/
 @[simp] theorem setWidth8_replaceLow (old : BitVec 64) (new : BitVec 8) :
@@ -9858,7 +9876,7 @@ abbrev start_3 (k : Nat) (e : Env) (x : Args) (ra : Int64) (t₀ : MachineData) 
   fun s => (ApplyC x t₀ ∧ IdLive t₀ x) ∧ BaseZ t₀ s ∧ s.regs.get64 .r9 = arg1 t₀ ∧ BitVec.setWidth 8 (s.regs.get64 .rbx) = 0#8 ∧ x.start ≠ 0 ∧ s.status.zf = decide (x.pushed = 0) ∧ (s.dmem =⋆ Mm k e x ra t₀ (FrD x t₀))
 /-- ff_aac_sbr_apply.L676e -/
 abbrev L676e (k : Nat) (e : Env) (x : Args) (ra : Int64) (t₀ : MachineData) : MachineData → Prop :=
-  fun s => ApplyC x t₀ ∧ BaseZ t₀ s ∧ s.regs.get64 .r9 = arg1 t₀ ∧ ∃ x' : Args, (x' = x ∨ x' = x.turnoff) ∧ (BitVec.setWidth 8 (s.regs.get64 .rbx) = 1#8 ∨ (BitVec.setWidth 8 (s.regs.get64 .rbx) = 0#8 ∧ x' = x ∧ x.start ≠ 0)) ∧ x'.pushed = 0 ∧ IdLive t₀ x' ∧ (s.dmem =⋆ Mm k e x' ra t₀ (FrD x t₀))
+  fun s => ApplyC x t₀ ∧ BaseZ t₀ s ∧ s.regs.get64 .r9 = arg1 t₀ ∧ ∃ x' : Args, (x' = x ∨ x' = x.turnoff.spSet) ∧ (BitVec.setWidth 8 (s.regs.get64 .rbx) = 1#8 ∨ (BitVec.setWidth 8 (s.regs.get64 .rbx) = 0#8 ∧ x' = x ∧ x.start ≠ 0)) ∧ x'.pushed = 0 ∧ IdLive t₀ x' ∧ (s.dmem =⋆ Mm k e x' ra t₀ (FrD x t₀))
 /-- ff_aac_sbr_apply.L6797 -/
 abbrev L6797 (k : Nat) (e : Env) (x : Args) (ra : Int64) (t₀ : MachineData) : MachineData → Prop :=
   fun s => ApplyC x t₀ ∧ BaseZ t₀ s ∧ s.regs.get64 .rdi = arg0 t₀ ∧ s.regs.get64 .rdx = arg2 t₀ ∧ (s.dmem =⋆ Mm k e x ra t₀ (FrD x t₀))
@@ -9867,10 +9885,10 @@ abbrev L6797_1 (k : Nat) (e : Env) (x : Args) (ra : Int64) (t₀ : MachineData) 
   fun s => ApplyC x t₀ ∧ BaseZ t₀ s ∧ (s.dmem =⋆ Mm k e x ra t₀ (FrD x t₀))
 /-- ff_aac_sbr_apply.L6817 -/
 abbrev L6817 (k : Nat) (e : Env) (x : Args) (ra : Int64) (t₀ : MachineData) : MachineData → Prop :=
-  fun s => ApplyC x t₀ ∧ BaseZ t₀ s ∧ s.regs.get64 .r9 = arg1 t₀ ∧ BitVec.setWidth 8 (s.regs.get64 .rbx) = 1#8 ∧ ∃ x' : Args, (x' = x ∨ x' = x.turnoff) ∧ IdLive t₀ x' ∧ (s.dmem =⋆ Mm k e x' ra t₀ (FrD x t₀))
+  fun s => ApplyC x t₀ ∧ BaseZ t₀ s ∧ s.regs.get64 .r9 = arg1 t₀ ∧ BitVec.setWidth 8 (s.regs.get64 .rbx) = 1#8 ∧ ∃ x' : Args, (x' = x ∨ x' = x.turnoff.spSet) ∧ IdLive t₀ x' ∧ (s.dmem =⋆ Mm k e x' ra t₀ (FrD x t₀))
 /-- ff_aac_sbr_apply.L6825 -/
 abbrev L6825 (k : Nat) (e : Env) (x : Args) (ra : Int64) (t₀ : MachineData) : MachineData → Prop :=
-  fun s => ApplyC x t₀ ∧ BaseZ t₀ s ∧ s.regs.get64 .r9 = arg1 t₀ ∧ ∃ x' : Args, (x' = x ∨ x' = x.turnoff) ∧ (BitVec.setWidth 8 (s.regs.get64 .rbx) = 1#8 ∨ (BitVec.setWidth 8 (s.regs.get64 .rbx) = 0#8 ∧ x' = x ∧ x.start ≠ 0)) ∧ x'.pushed ≠ 0 ∧ IdLive t₀ x' ∧ (s.dmem =⋆ Mm k e x' ra t₀ (FrD x t₀))
+  fun s => ApplyC x t₀ ∧ BaseZ t₀ s ∧ s.regs.get64 .r9 = arg1 t₀ ∧ ∃ x' : Args, (x' = x ∨ x' = x.turnoff.spSet) ∧ (BitVec.setWidth 8 (s.regs.get64 .rbx) = 1#8 ∨ (BitVec.setWidth 8 (s.regs.get64 .rbx) = 0#8 ∧ x' = x ∧ x.start ≠ 0)) ∧ x'.pushed ≠ 0 ∧ IdLive t₀ x' ∧ (s.dmem =⋆ Mm k e x' ra t₀ (FrD x t₀))
 /-- ff_aac_sbr_apply.L6838 -/
 abbrev L6838 (k : Nat) (e : Env) (x : Args) (ra : Int64) (t₀ : MachineData) : MachineData → Prop :=
   fun s => (ApplyC x t₀ ∧ IdLive t₀ x) ∧ BaseZ t₀ s ∧ s.regs.get64 .r9 = arg1 t₀ ∧ x.start ≠ 0 ∧ (s.dmem =⋆ Mm k e x.push ra t₀ (FrD x t₀))
@@ -10026,7 +10044,7 @@ abbrev L6f32_1 (k : Nat) (e : Env) (x : Args) (ra : Int64) (t₀ : MachineData) 
   fun s => ApplyC x t₀ ∧ BaseZ t₀ s ∧ BitVec.setWidth 8 (s.regs.get64 .rbx) = 1#8 ∧ (s.dmem =⋆ Mm k e x ra t₀ (FrD x t₀))
 /-- ff_aac_sbr_apply.L6f32_2 -/
 abbrev L6f32_2 (k : Nat) (e : Env) (x : Args) (ra : Int64) (t₀ : MachineData) : MachineData → Prop :=
-  fun s => ApplyC x t₀ ∧ BaseZ t₀ s ∧ s.regs.get64 .r9 = arg1 t₀ ∧ BitVec.setWidth 8 (s.regs.get64 .rbx) = 1#8 ∧ (s.dmem =⋆ Mm k e x.turnoff ra t₀ (FrD x t₀))
+  fun s => ApplyC x t₀ ∧ BaseZ t₀ s ∧ s.regs.get64 .r9 = arg1 t₀ ∧ BitVec.setWidth 8 (s.regs.get64 .rbx) = 1#8 ∧ (s.dmem =⋆ Mm k e x.turnoff.spSet ra t₀ (FrD x t₀))
 /-- ff_aac_sbr_apply.L6fbe -/
 abbrev L6fbe (k : Nat) (e : Env) (x : Args) (ra : Int64) (t₀ : MachineData) : MachineData → Prop :=
   fun s => (ApplyC x t₀ ∧ IdLive t₀ x) ∧ BaseZ t₀ s ∧ s.regs.get64 .r9 = arg1 t₀ ∧ (s.dmem =⋆ Mm k e x.push ra t₀ (FrD x t₀))
@@ -10548,7 +10566,7 @@ abbrev L879e_1 (k : Nat) (e : Env) (x : Args) (ra : Int64) (t₀ : MachineData) 
   fun s => ApplyC x t₀ ∧ Base t₀ s ∧ ∃ y ch c0 j, (x.Keep y ∧ ChLive t₀ ch y) ∧ ApplyC y t₀ ∧ c0.getLsbD 0 = decide (ch = 0) ∧ y.start ≠ 0 ∧ ch < 2 ∧ j < (y.d ch).nenv ∧ s.regs.get64 .rbx = dA t₀ ch ∧ (s.dmem =⋆ Mm k e y ra t₀ (FrM0 x t₀ ch c0 y j))
 /-- ff_aac_sbr_apply.L879e_2 -/
 abbrev L879e_2 (k : Nat) (e : Env) (x : Args) (ra : Int64) (t₀ : MachineData) : MachineData → Prop :=
-  fun s => ApplyC x t₀ ∧ Base t₀ s ∧ ∃ y ch c0 j, (x.Keep y ∧ ChLive t₀ ch y) ∧ ApplyC y t₀ ∧ c0.getLsbD 0 = decide (ch = 0) ∧ ch < 2 ∧ s.regs.get64 .rbx = dA t₀ ch ∧ (s.dmem =⋆ Mm k e y ra t₀ (FrM0 x t₀ ch c0 y j))
+  fun s => ApplyC x t₀ ∧ Base t₀ s ∧ ∃ y ch c0 j, (x.Keep y.spSet ∧ ChLive t₀ ch y) ∧ ApplyC y t₀ ∧ c0.getLsbD 0 = decide (ch = 0) ∧ ch < 2 ∧ s.regs.get64 .rbx = dA t₀ ch ∧ (s.dmem =⋆ Mm k e y ra t₀ (FrM0 x t₀ ch c0 y j))
 /-- ff_aac_sbr_apply.L8818 -/
 abbrev L8818 (k : Nat) (e : Env) (x : Args) (ra : Int64) (t₀ : MachineData) : MachineData → Prop :=
   fun s => ApplyC x t₀ ∧ Base t₀ s ∧ ∃ y ch c0, (x.Keep y ∧ ChLive t₀ ch y) ∧ ApplyC y t₀ ∧ c0.getLsbD 0 = decide (ch = 0) ∧ y.start ≠ 0 ∧ ch < 2 ∧ s.regs.get64 .rbx = dA t₀ ch ∧ s.regs.get64 .r8 = arg1 t₀ ∧ s.regs.get64 .rax = BitVec.ofNat 64 (y.d ch).nenv ∧ (s.dmem =⋆ Mm k e y ra t₀ (FrO8 x t₀ ch c0 y))
@@ -11022,16 +11040,16 @@ abbrev L9a85_1 (k : Nat) (e : Env) (x : Args) (ra : Int64) (t₀ : MachineData) 
   fun s => ∃ ch c0, ApplyC x t₀ ∧ s.regs.get64 .rsp = t₀.regs.get64 .rsp - 0x1e8#64 ∧ s.regs.get64 .rbp = t₀.regs.get64 .rsp - 8#64 ∧ s.regs.get64 .rbx = arg1 t₀ ∧ s.regs.get64 .r15 = arg0 t₀ ∧ s.regs.get64 .r13 = sbrA t₀ + 0x601e0#64 ∧ s.regs.get64 .r12 = sbrA t₀ + 0x5fcc0#64 ∧ s.regs.get64 .r14 = BitVec.ofNat 64 (dsN x) ∧ ∃ y : Args, x.Keep y ∧ ApplyC y t₀ ∧ s.regs.get64 .rdi = y.synCtx ∧ s.regs.get64 .rsi = e.fs.qfs.tx.toBitVec ∧ s.regs.get64 .rcx = y.fdsp ∧ s.regs.get64 .rdx = sbrA t₀ + 0x601e0#64 ∧ s.regs.get64 .r8 = arg3 t₀ ∧ s.regs.get64 .r9 = sbrA t₀ + 0x53b40#64 ∧ (s.dmem =⋆ MmS k e y ra t₀ (SynArgs x t₀ 0) (FrCs x t₀ ch c0))
 /-- ff_aac_sbr_apply.L9a85_2 -/
 abbrev L9a85_2 (k : Nat) (e : Env) (x : Args) (ra : Int64) (t₀ : MachineData) : MachineData → Prop :=
-  fun s => ∃ ch c0, ApplyC x t₀ ∧ s.regs.get64 .rsp = t₀.regs.get64 .rsp - 0x1e8#64 ∧ s.regs.get64 .rbp = t₀.regs.get64 .rsp - 8#64 ∧ s.regs.get64 .rbx = arg1 t₀ ∧ s.regs.get64 .r15 = arg0 t₀ ∧ s.regs.get64 .r13 = sbrA t₀ + 0x601e0#64 ∧ s.regs.get64 .r12 = sbrA t₀ + 0x5fcc0#64 ∧ s.regs.get64 .r14 = BitVec.ofNat 64 (dsN x) ∧ ∃ y : Args, x.Keep y ∧ ApplyC y t₀ ∧ ∃ v, (s.dmem =⋆ Mm k e (y.setV0 v) ra t₀ (FrCs x t₀ ch c0))
+  fun s => ∃ ch c0, ApplyC x t₀ ∧ s.regs.get64 .rsp = t₀.regs.get64 .rsp - 0x1e8#64 ∧ s.regs.get64 .rbp = t₀.regs.get64 .rsp - 8#64 ∧ s.regs.get64 .rbx = arg1 t₀ ∧ s.regs.get64 .r15 = arg0 t₀ ∧ s.regs.get64 .r13 = sbrA t₀ + 0x601e0#64 ∧ s.regs.get64 .r12 = sbrA t₀ + 0x5fcc0#64 ∧ s.regs.get64 .r14 = BitVec.ofNat 64 (dsN x) ∧ ∃ y : Args, x.Keep y ∧ ApplyC y t₀ ∧ ∃ v : BitVec 32, v.toInt ≤ 1664 ∧ v.toNat % 8 = 0 ∧ (s.dmem =⋆ Mm k e (y.setV0 v) ra t₀ (FrCs x t₀ ch c0))
 /-- ff_aac_sbr_apply.L9a85_3 -/
 abbrev L9a85_3 (k : Nat) (e : Env) (x : Args) (ra : Int64) (t₀ : MachineData) : MachineData → Prop :=
-  fun s => ∃ ch c0, ApplyC x t₀ ∧ s.regs.get64 .rsp = t₀.regs.get64 .rsp - 0x1e8#64 ∧ s.regs.get64 .rbp = t₀.regs.get64 .rsp - 8#64 ∧ s.regs.get64 .rbx = arg1 t₀ + 0x41d60#64 ∧ s.regs.get64 .r15 = arg0 t₀ ∧ s.regs.get64 .r13 = sbrA t₀ + 0x601e0#64 ∧ s.regs.get64 .r12 = sbrA t₀ + 0x5fcc0#64 ∧ s.regs.get64 .r14 = BitVec.ofNat 64 (dsN x) ∧ ∃ y : Args, x.Keep y ∧ ApplyC y t₀ ∧ s.regs.get64 .rdi = y.synCtx ∧ s.regs.get64 .rsi = e.fs.qfs.tx.toBitVec ∧ s.regs.get64 .rcx = y.fdsp ∧ s.regs.get64 .rdx = sbrA t₀ + 0x601e0#64 ∧ s.regs.get64 .r8 = arg4 t₀ ∧ s.regs.get64 .r9 = sbrA t₀ + 0x58740#64 ∧ ∃ v, (s.dmem =⋆ MmS k e (y.setV0 v) ra t₀ (SynArgs x t₀ 1) (FrCs x t₀ ch c0))
+  fun s => ∃ ch c0, ApplyC x t₀ ∧ s.regs.get64 .rsp = t₀.regs.get64 .rsp - 0x1e8#64 ∧ s.regs.get64 .rbp = t₀.regs.get64 .rsp - 8#64 ∧ s.regs.get64 .rbx = arg1 t₀ + 0x41d60#64 ∧ s.regs.get64 .r15 = arg0 t₀ ∧ s.regs.get64 .r13 = sbrA t₀ + 0x601e0#64 ∧ s.regs.get64 .r12 = sbrA t₀ + 0x5fcc0#64 ∧ s.regs.get64 .r14 = BitVec.ofNat 64 (dsN x) ∧ ∃ y : Args, x.Keep y ∧ ApplyC y t₀ ∧ s.regs.get64 .rdi = y.synCtx ∧ s.regs.get64 .rsi = e.fs.qfs.tx.toBitVec ∧ s.regs.get64 .rcx = y.fdsp ∧ s.regs.get64 .rdx = sbrA t₀ + 0x601e0#64 ∧ s.regs.get64 .r8 = arg4 t₀ ∧ s.regs.get64 .r9 = sbrA t₀ + 0x58740#64 ∧ ∃ v : BitVec 32, v.toInt ≤ 1664 ∧ v.toNat % 8 = 0 ∧ (s.dmem =⋆ MmS k e (y.setV0 v) ra t₀ (SynArgs x t₀ 1) (FrCs x t₀ ch c0))
 /-- ff_aac_sbr_apply.L9a85_4 -/
 abbrev L9a85_4 (k : Nat) (e : Env) (x : Args) (ra : Int64) (t₀ : MachineData) : MachineData → Prop :=
-  fun s => ∃ ch c0, ApplyC x t₀ ∧ s.regs.get64 .rsp = t₀.regs.get64 .rsp - 0x1e8#64 ∧ s.regs.get64 .rbp = t₀.regs.get64 .rsp - 8#64 ∧ ∃ y : Args, x.Keep y ∧ (s.dmem =⋆ Mm k e y ra t₀ (FrCs x t₀ ch c0))
+  fun s => ∃ ch c0, ApplyC x t₀ ∧ s.regs.get64 .rsp = t₀.regs.get64 .rsp - 0x1e8#64 ∧ s.regs.get64 .rbp = t₀.regs.get64 .rsp - 8#64 ∧ ∃ y : Args, x.Keep y ∧ ApplyC y t₀ ∧ (s.dmem =⋆ Mm k e y ra t₀ (FrCs x t₀ ch c0))
 /-- ff_aac_sbr_apply.L9b24 -/
 abbrev L9b24 (k : Nat) (e : Env) (x : Args) (ra : Int64) (t₀ : MachineData) : MachineData → Prop :=
-  fun s => ∃ ch c0, ApplyC x t₀ ∧ Base t₀ s ∧ ∃ y : Args, x.Keep y ∧ (s.dmem =⋆ Mm k e y ra t₀ (FrCs x t₀ ch c0))
+  fun s => ∃ ch c0, ApplyC x t₀ ∧ Base t₀ s ∧ ∃ y : Args, x.Keep y ∧ ApplyC y t₀ ∧ (s.dmem =⋆ Mm k e y ra t₀ (FrCs x t₀ ch c0))
 /-- ff_aac_sbr_apply.L9b2b -/
 abbrev L9b2b (k : Nat) (e : Env) (x : Args) (ra : Int64) (t₀ : MachineData) : MachineData → Prop :=
   fun s => ApplyC x t₀ ∧ s.regs.get64 .rsp = t₀.regs.get64 .rsp - 0x30#64 ∧ s.regs.get64 .rbp = t₀.regs.get64 .rsp - 8#64 ∧ (s.dmem =⋆ Reserve (0x298 + k) (t₀.regs.get64 .rsp - 0x1c8#64) ⋆ (ApplyFPost e x t₀ ⋆ FrRaw t₀ (RetCell ra (t₀.regs.get64 .rsp) ⋆ x.R)))

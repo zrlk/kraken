@@ -840,7 +840,8 @@ set_option maxRecDepth 200000 in
 /-- `ff_aac_sbr_apply` is memory safe (`ApplySpec`) with its callees at `k` bytes of stack.
 Every access lies in the bytes it owns (`ApplyF ⋆ x.R`). On return it gives back the same
 groups at new values `y`, and `x.KeepD y` holds (INV-D5): `bs_num_env`, `t_env`, `bs_freq_res`,
-`t_q` of both channels and `ps->common` are unchanged.
+`t_q` of both channels, `ps->common`, `k[0]` and the frequency tables are unchanged, and `start`
+is unchanged or cleared (`sbr_turnoff`).
 
 **The synthesis window (D2).** `qmfVSize` gives `sbr_qmf_synthesis` either 9216 or 11264
 bytes from `v0`, depending on `div` and `vOff`. In the larger case the call site carves the

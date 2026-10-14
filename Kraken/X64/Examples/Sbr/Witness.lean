@@ -650,6 +650,8 @@ def xSce : Args where
   synCtx := 0x200401000
   psc := zs 764
   psh := zs 68
+  spLo := BitVec.allOnes 32
+  spHi := BitVec.allOnes 16
 
 /-- `ps->common` with PS started: `enable_iid = 1`, `iid_quant = 0`, `nr_iid_par = 20`,
 `num_env_old = num_env = 1`, `border_position = {-1, 31}`, `iid_par[0][0..20) = 3`,

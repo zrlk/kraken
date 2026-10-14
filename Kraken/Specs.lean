@@ -88,6 +88,10 @@ def AddrExpr.interp64 (labels : Labels) (a : AddrExpr) (s : Reg64s) (p : Std.Rco
     CondCode.ge.interp s = (s.sf == s.of) := rfl
 @[simp, grind =] theorem CondCode.interp_g (s : StatusFlags) :
     CondCode.g.interp s = (!s.zf && (s.sf == s.of)) := rfl
+@[simp, grind =] theorem CondCode.interp_s (s : StatusFlags) :
+    CondCode.s.interp s = s.sf := rfl
+@[simp, grind =] theorem CondCode.interp_ns (s : StatusFlags) :
+    CondCode.ns.interp s = !s.sf := rfl
 
 /-! ## Signed comparisons
 

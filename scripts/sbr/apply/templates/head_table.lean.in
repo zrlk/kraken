@@ -37,14 +37,26 @@ theorem ChLive.one {t : MachineData} {y : Args} (h : IdLive t y)
 
 variable [CodeEnv]
 
+theorem Args.KeepT.rfl' {x : Args} : x.KeepT x := by
+  unfold Args.KeepT
+  exact ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, Or.inr ⟨rfl, rfl, rfl⟩⟩
+
+/-- `sbr_turnoff` (with its `spectrum_params` memset) keeps the tables and clears `start`. -/
+theorem Args.KeepT.turnoff {x y : Args} (h : x.KeepT y) : x.KeepT y.turnoff.spSet := by
+  unfold Args.KeepT at h ⊢
+  obtain ⟨t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, -⟩ := h
+  exact ⟨t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, Or.inl ⟨rfl, rfl, rfl⟩⟩
+
 theorem Args.KeepD.rfl' {x : Args} : x.KeepD x :=
-  ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
+  ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, Args.KeepT.rfl'⟩
 
 theorem Args.Keep.rfl' {x : Args} : x.Keep x :=
   ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, Args.KeepD.rfl'⟩
 
-/-- `sbr_turnoff` keeps what `Keep` fixes. -/
-theorem Args.Keep.turnoff {x y : Args} (h : x.Keep y) : x.Keep y.turnoff := h
+/-- `sbr_turnoff` keeps what `Keep` fixes (`start = 0`: the clear case of `KeepT`). -/
+theorem Args.Keep.turnoff {x y : Args} (h : x.Keep y) : x.Keep y.turnoff.spSet := by
+  obtain ⟨a1, a2, a3, a4, a5, a6, a7, a8, d1, d2, d3, d4, d5, d6, d7, d8, d9, ht⟩ := h
+  exact ⟨a1, a2, a3, a4, a5, a6, a7, a8, d1, d2, d3, d4, d5, d6, d7, d8, d9, ht.turnoff⟩
 
 /-- The `kx_and_m_pushed` step keeps what `Keep` fixes. -/
 theorem Args.Keep.push {x y : Args} (h : x.Keep y) : x.Keep y.push := h
@@ -89,6 +101,12 @@ theorem ApplyC.push {y : Args} {t : MachineData} (h : ApplyC y t) : ApplyC y.pus
 plain `simp` calls of already-checked blocks are unaffected; use by name). -/
 theorem PsW_push (x : Args) (t : MachineData) : PsW x.push t = PsW x t := rfl
 theorem PsW_turnoff (x : Args) (t : MachineData) : PsW x.turnoff t = PsW x t := rfl
+
+/-- The `spectrum_params` memset touches no field `ApplyC`, `IdLive`, `ChLive` read. -/
+theorem ApplyC.spSet {y : Args} {t : MachineData} (h : ApplyC y t) : ApplyC y.spSet t := h
+theorem IdLive.spSet {t : MachineData} {y : Args} (h : IdLive t y) : IdLive t y.spSet := h
+theorem ChLive.spSet {t : MachineData} {ch : Nat} {y : Args} (h : ChLive t ch y) :
+    ChLive t ch y.spSet := h
 
 /-- The low byte after an 8-bit write (`mov $1,%bl`) is the byte written. -/
 @[simp] theorem setWidth8_replaceLow (old : BitVec 64) (new : BitVec 8) :

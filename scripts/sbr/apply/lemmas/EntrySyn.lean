@@ -3,12 +3,46 @@ set_option linter.unusedSimpArgs false
 
 /-! ## Syn helper lemmas (apply) -/
 
-/-- Re-packing the footprint at values `y` (that `Keep` the pointers of `x`) as `ApplyFPost`. -/
+/-- Re-packing the footprint at values `y` (that `Keep` the pointers of `x`, with `SbrWF y`)
+as `ApplyFPost`. -/
 theorem fpost_of {e : Env} {x y : Args} {t : MachineData} {A K : Mem 64 → Prop} {m : Mem 64}
-    (hK : x.Keep y) (h : m =⋆ A ⋆ (ApplyF e y t ⋆ K)) : m =⋆ A ⋆ (ApplyFPost e x t ⋆ K) := by
+    (hK : x.Keep y) (hw : SbrWF y) (h : m =⋆ A ⋆ (ApplyF e y t ⋆ K)) :
+    m =⋆ A ⋆ (ApplyFPost e x t ⋆ K) := by
   obtain ⟨a, b, hu, hi, ha, c, d, hu', hi', hc, hd⟩ := h
-  obtain ⟨-, -, hf, he, -, ha', hs, hr, hD⟩ := hK
-  exact ⟨a, b, hu, hi, ha, c, d, hu', hi', ⟨y, he, hf, ha', hs, hr, hD, hc⟩, hd⟩
+  obtain ⟨-, hav, hf, he, hps, ha', hs, hr, hD⟩ := hK
+  exact ⟨a, b, hu, hi, ha, c, d, hu', hi', ⟨y, he, hf, ha', hs, hr, hD, hw, hav, hps, hc⟩, hd⟩
+
+/-- `DWF` with a new `synthesis_filterbank_samples_offset` within its bounds. -/
+theorem dwf_setVOff {live : Prop} {d : DV} {v : BitVec 32} (hw : DWF live d)
+    (h1 : v.toInt ≤ 1664) (h2 : v.toNat % 8 = 0) : DWF live { d with vOff := v } := by
+  obtain ⟨b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, -, -, b16⟩ := hw
+  exact ⟨b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, h1, h2, b16⟩
+
+/-- `SbrWF` after channel 0's synthesis (`*v_off` as `QmfFPost`'s `VOffW` returns it). -/
+theorem sbrwf_setV0 {y : Args} {v : BitVec 32} (hw : SbrWF y) (h1 : v.toInt ≤ 1664)
+    (h2 : v.toNat % 8 = 0) : SbrWF (y.setV0 v) := by
+  obtain ⟨a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16⟩ := hw
+  exact ⟨a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, dwf_setVOff a14 h1 h2, a15, a16⟩
+
+/-- `SbrWF` after channel 1's synthesis. -/
+theorem sbrwf_setV1 {y : Args} {v : BitVec 32} (hw : SbrWF y) (h1 : v.toInt ≤ 1664)
+    (h2 : v.toNat % 8 = 0) : SbrWF (y.setV1 v) := by
+  obtain ⟨a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16⟩ := hw
+  exact ⟨a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, dwf_setVOff a15 h1 h2, a16⟩
+
+theorem applyc_setV0 {y : Args} {t : MachineData} {v : BitVec 32} (h : ApplyC y t)
+    (h1 : v.toInt ≤ 1664) (h2 : v.toNat % 8 = 0) : ApplyC (y.setV0 v) t :=
+  ⟨sbrwf_setV0 h.1 h1 h2, h.2⟩
+
+theorem applyc_setV1 {y : Args} {t : MachineData} {v : BitVec 32} (h : ApplyC y t)
+    (h1 : v.toInt ≤ 1664) (h2 : v.toNat % 8 = 0) : ApplyC (y.setV1 v) t :=
+  ⟨sbrwf_setV1 h.1 h1 h2, h.2⟩
+
+/-- The `*v_off` cell `sbr_qmf_synthesis` returns (`VOffW`): some value within `DWF`'s bounds. -/
+theorem voffw_cell {a : BitVec 64} {F : Mem 64 → Prop} {m : Mem 64} (h : m =⋆ VOffW a ⋆ F) :
+    ∃ v : BitVec 32, v.toInt ≤ 1664 ∧ v.toNat % 8 = 0 ∧ (m =⋆ cell4 a v ⋆ F) := by
+  obtain ⟨m₁, m₂, hu, hi, ⟨v, h1, h2, hc⟩, hF⟩ := h
+  exact ⟨v, h1, h2, m₁, m₂, hu, hi, hc, hF⟩
 
 
 /-- The callees' area with four 8-byte cells (the stack arguments of `sbr_qmf_synthesis`) carved off its top. -/

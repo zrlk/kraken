@@ -46,7 +46,91 @@ MODS="Spec DequantFloat
  Apply.MapA1 Apply.MapA2 Apply.MapA3 Apply.MapA4 Apply.MapA5 Apply.MapBLem Apply.MapB1
  Apply.MapB2 Apply.MapB3 Apply.MapB4 Apply.MapB5 Apply.MapB6 Apply.MapB7 Apply.MapB8
  Apply.MapB9 Apply.MapB10 Apply.MapB11 Apply.MapB12 Apply.MapB13 Apply.GainAsm Apply
- Link Witness Placement Linked"
+ Link Witness Placement Linked Session ParseModel
+ Parse.Lib Parse.LibGb Parse.LibAbort Parse.LibCall Parse.LibMem Parse.GridFoot
+ Parse.GridBlk1 Parse.GridBlk2 Parse.GridBlk3 Parse.GridBlk4 Parse.GridTrap Parse.GridSmp
+ Parse.GridShA1 Parse.GridShA2 Parse.GridShA3 Parse.GridShA4 Parse.GridShA5 Parse.GridShA6 Parse.GridShA7 Parse.GridShA8 Parse.GridShB1 Parse.GridShB2 Parse.GridShB3 Parse.GridShB4
+ Parse.GridShC1 Parse.GridShC2 Parse.GridShC3
+ Parse.GridShD0 Parse.GridShD1 Parse.GridShD2 Parse.GridShD3 Parse.GridShD4 Parse.GridShD5 Parse.GridShD6 Parse.GridShD7 Parse.GridShD8 Parse.GridShD9 Parse.GridShD10
+ Parse.GridAsm
+ Parse.DecExtText Parse.DecExtSpec Parse.DecExtBase Parse.DecExtMem Parse.DecExtEntry
+ Parse.DecExtPro Parse.DecExtPro2 Parse.DecExtExit Parse.DecExtOff Parse.DecExtCall
+ Parse.DecExtOffD Parse.DecExtDat Parse.DecExtSce Parse.DecExtSce2 Parse.DecExtHarm
+ Parse.DecExtExt Parse.DecExtPs Parse.DecExtCpe Parse.DecExtCpeH Parse.DecExtCpB Parse.DecExtCpD
+ Parse.DecExtCpTail Parse.DecExtCpF Parse.DecExtCpG Parse.DecExtCpInvf Parse.DecExtAll
+ Parse.HdrText Parse.HdrSpec Parse.ResetText Parse.ResetSpec Parse.DecExtGlue Parse.DtdfText
+ Parse.DtdfSpec Parse.InvfText Parse.InvfSpec Parse.DecExtGlueC Parse.DecExtGlueR Parse.EnvVlc
+ Parse.NoiseText Parse.NoiseSpec Parse.EnvText Parse.EnvSpec Parse.DecExtGlueN Parse.DecExtGlueH
+ Parse.DecExtGlueG Parse.PsText Parse.PsSpec Parse.DecExtGlueP Parse.DecExtNeed Parse.DecExtWF
+ Parse.DtdfBase Parse.DtdfBlk1 Parse.DtdfBlk2 Parse.DtdfLoop Parse.DtdfProc Parse.EnvLib
+ Parse.EnvBase Parse.EnvFrame Parse.EnvVar Parse.EnvMem Parse.EnvBlk1 Parse.EnvBlk2 Parse.EnvBlk3
+ Parse.EnvBlk6 Parse.EnvBlk7 Parse.EnvBlk8 Parse.EnvBlk11 Parse.EnvBlk10 Parse.EnvBlk12
+ Parse.EnvBlk13 Parse.EnvBlk14 Parse.EnvBlk4 Parse.EnvBlk5 Parse.EnvBlk9 Parse.EnvStack
+ Parse.EnvEntry Parse.EnvTrap Parse.EnvProc Parse.HdrLib Parse.HdrBase Parse.HdrMem Parse.HdrFrame
+ Parse.HdrStep Parse.HdrBlk1 Parse.HdrBlk2 Parse.HdrBlk3 Parse.HdrEnd Parse.HdrBlk4 Parse.HdrCall
+ Parse.HdrProc Parse.InvfBase Parse.InvfMem Parse.InvfBlk Parse.InvfProc Parse.LibQsort
+ Parse.NoiseBase Parse.NoiseMem Parse.NoiseBlk1 Parse.NoiseFrame Parse.NoiseVlc Parse.NoiseBlk2
+ Parse.NoiseBlk3 Parse.NoiseBlk4 Parse.NoiseBlk5 Parse.NoiseBlk6 Parse.NoiseBlk7 Parse.NoiseBlk8
+ Parse.NoiseProc Parse.PsLib Parse.PsCore Parse.PsInvH Parse.PsInvL Parse.PsInvX Parse.PsInvT1
+ Parse.PsInvT2 Parse.PsInvT Parse.PsCfg Parse.PsCfgH Parse.PsCfgL Parse.PsCfgX Parse.PsCfgT
+ Parse.PsBase Parse.PsFrame Parse.PsBlkHLib Parse.PsBlkH0 Parse.PsBlkH1 Parse.PsBlkH2
+ Parse.PsBlkH3 Parse.PsBlkH4 Parse.PsBlkH5 Parse.PsBlkHNLib Parse.PsBlkHN1 Parse.PsBlkHN2
+ Parse.PsBlkHN3 Parse.PsBlkHNLib2 Parse.PsBlkHNAvx Parse.PsBlkHN4 Parse.PsBlkHN5 Parse.PsBlkLLib
+ Parse.PsBlkL1 Parse.PsBlkL2 Parse.PsBlkL3 Parse.PsBlkL4 Parse.PsBlkL5 Parse.PsBlkL6 Parse.PsBlkL7
+ Parse.PsBlkLPLib Parse.PsBlkLE1 Parse.PsBlkLP1 Parse.PsBlkLP2 Parse.PsBlkT1Lib Parse.PsBlkT1L1
+ Parse.PsBlkT1_1 Parse.PsBlkT1_2 Parse.PsBlkT1_3 Parse.PsBlkT1_4 Parse.PsBlkT1_5 Parse.PsBlkT1_6
+ Parse.PsBlkT1_7 Parse.PsBlkT1_8 Parse.PsBlkT2Lib Parse.PsBlkT2L1 Parse.PsBlkT2_1 Parse.PsBlkT2_10
+ Parse.PsBlkT2_2 Parse.PsBlkT2_3 Parse.PsBlkT2_4 Parse.PsBlkT2_5 Parse.PsBlkT2_6 Parse.PsBlkT2_7
+ Parse.PsBlkT2_8 Parse.PsBlkT2_9 Parse.PsBlkXLib Parse.PsBlkX1 Parse.PsBlkX2 Parse.PsBlkX3
+ Parse.PsBlkX4 Parse.PsBlkX5 Parse.PsBlkX6 Parse.PsBlkX7 Parse.PsBlkX8 Parse.PsBlkX9 Parse.PsConv
+ Parse.PsEntry Parse.ResetA1Avx Parse.ResetA1Avx2 Parse.ResetLib Parse.ResetBase Parse.ResetFoot
+ Parse.ResetIface Parse.ResetTable Parse.ResetA1Lib Parse.ResetA1Disp Parse.ResetA2Lib
+ Parse.ResetA1Mem Parse.ResetModel Parse.ResetA1K2 Parse.ResetA1F0 Parse.ResetA1Inc
+ Parse.ResetA1F1 Parse.ResetA1F2 Parse.ResetA1F3 Parse.ResetA1F4 Parse.ResetA1W Parse.ResetA2Lane
+ Parse.ResetA1F5 Parse.ResetA1Fail Parse.ResetLog Parse.ResetA1Float Parse.ResetA1G
+ Parse.ResetA1G2 Parse.ResetA1G3 Parse.ResetA1K0 Parse.ResetA1Pro Parse.ResetA1Stop
+ Parse.ResetA1Sum Parse.ResetA2Spec Parse.ResetA2Exit Parse.ResetA2Blk Parse.ResetA2Flt
+ Parse.ResetA2Mk Parse.ResetA2Mk2 Parse.ResetA2Pfx Parse.ResetA2Loop Parse.ResetA2Loop2
+ Parse.ResetA2Loop3 Parse.ResetExitW Parse.ResetA2Mc Parse.ResetA2Pfx1 Parse.ResetA2Pfx0
+ Parse.ResetA2Rem Parse.ResetDerLib Parse.ResetOff2 Parse.ResetDer Parse.ResetELib Parse.ResetE1
+ Parse.ResetE2 Parse.ResetE3 Parse.ResetE4 Parse.ResetE5 Parse.ResetE6 Parse.ResetE7 Parse.ResetE8
+ Parse.ResetExit Parse.ResetFail Parse.ResetPatLib Parse.ResetNoiseLib Parse.ResetNoise1
+ Parse.ResetNq Parse.ResetNz Parse.ResetNzB Parse.ResetNzC Parse.ResetOff Parse.ResetPat1
+ Parse.ResetPat2 Parse.ResetPat3 Parse.ResetPat5 Parse.ResetPat6 Parse.ResetPat7 Parse.ResetQsFr
+ Parse.ResetQs1A Parse.ResetQsLib Parse.ResetQs1B Parse.ResetQs1Lib Parse.ResetQs1C
+ Parse.ResetQs1D Parse.ResetQs1E Parse.ResetQs2Lib Parse.ResetQs2Lib2 Parse.ResetQs2Lib3
+ Parse.ResetQs2Lib4 Parse.ResetQs1F Parse.ResetQs1G Parse.ResetQs2A Parse.ResetQs2B
+ Parse.ResetQs2C Parse.ResetQs2D Parse.ResetQs2E Parse.ResetQs2F Parse.ResetQs2G Parse.ResetQs2H
+ Parse.ResetQs2I Parse.ResetQs2J Parse.ResetQs3Lib Parse.ResetQs3A Parse.ResetQs3B Parse.ResetQs3C
+ Parse.ResetQs3D Parse.ResetQs3E Parse.ResetQs3F Parse.ResetQs3G Parse.ResetQs4Lib Parse.ResetQs4A
+ Parse.ResetQs4B Parse.ResetQs4C Parse.ResetQs4D Parse.ResetQs4E Parse.ResetQs4F Parse.ResetQs4G
+ Parse.ResetTail Parse.ResetTrap Parse.ResetProc Parse.TlimText Parse.TlimSpec Parse.TlimLib
+ Parse.TlimBase Parse.TlimVar Parse.TlimTab Parse.TlimMem Parse.TlimAcc Parse.TlimBlkA
+ Parse.TlimBlkB Parse.TlimBlkC Parse.TlimBlkD Parse.TlimBlkE Parse.TlimMc Parse.TlimFin
+ Parse.TlimCmp Parse.TlimCmp2 Parse.TlimCmp3 Parse.TlimGlue Parse.TlimHdr Parse.TlimTrap
+ Parse.TlimQsLib Parse.TlimQsA Parse.TlimQsB Parse.TlimQsLib2 Parse.TlimQsC Parse.TlimQsD
+ Parse.TlimQsG1 Parse.TlimQsG2 Parse.TlimQsG3 Parse.TlimQsG4 Parse.TlimQsG5 Parse.TlimQsE
+ Parse.TlimQsF Parse.TlimQsH1 Parse.TlimQsH2 Parse.TlimQsH3 Parse.TlimProc Parse.UsacText
+ Parse.UsacSpec Parse.UsacCfg Parse.UsacBase Parse.UsacModel Parse.UsacTbl1 Parse.UsacTbl5
+ Parse.UsacTbl6 Parse.UsacBlk1 Parse.UsacTbl2 Parse.UsacTbl3 Parse.UsacBlk2 Parse.UsacTbl4
+ Parse.UsacBlk3 Parse.UsacBlk7 Parse.UsacBlk8 Parse.UsacBlk9 Parse.UsacBlk10 Parse.UsacBlk11
+ Parse.UsacBlk12 Parse.UsacBlk13 Parse.UsacBlk14 Parse.UsacBlk15 Parse.UsacBlk16 Parse.UsacBlk17
+ Parse.UsacBlk18 Parse.UsacBlk19 Parse.UsacBlk20 Parse.UsacBlk21 Parse.UsacBlk22 Parse.UsacBlk23
+ Parse.UsacBlk24 Parse.UsacBlk25 Parse.UsacBlk4 Parse.UsacBlk5 Parse.UsacBlk6 Parse.UsacGrd
+ Parse.UsacGrd2 Parse.UsacCall Parse.UsacCall2 Parse.UsacGC1 Parse.UsacCpM Parse.UsacCpL
+ Parse.UsacCp1 Parse.UsacCp2 Parse.UsacCp3 Parse.UsacCp4 Parse.UsacAsm
+ Parse.UsacGlueL Parse.UsacGlueR Parse.UsacGlueH
+ Parse.VlcData Parse.VlcWit Parse.GridJtWit
+ Parse.InitText Parse.InitFoot Parse.InitSpec Parse.InitBase Parse.InitFrame Parse.InitMem
+ Parse.InitTx Parse.InitBlk1 Parse.InitBlk2 Parse.InitBlk3 Parse.InitBlk4 Parse.InitBlk5
+ Parse.InitBlk6 Parse.InitBlk7 Parse.InitEnd Parse.InitBlk8 Parse.InitProc Parse.InitLinkBase
+ Parse.InitLink
+ SessionBin.Defs SessionBin.LeafDerive SessionBin.Bridge SessionBin.Inv SessionBin.FApplyD SessionBin.FApplyS
+ SessionBin.FApply SessionBin.DecAsm SessionBin.FDec SessionBin.FCfgA SessionBin.FCfg
+ SessionBin.SApply SessionBin.SConfig SessionBin.SDec SessionBin.BridgeU SessionBin.UsacAsmS
+ SessionBin.FUsac SessionBin.SUsac SessionBin.Main
+ SessionBin.SInit SessionBin.TopDefs SessionBin.InitSafe SessionBin.TopCalls
+ SessionBin.Top"
 # tv/Export.lean imports Kraken.X64.PrintIntel (tv/Fresh.lean checks its olean), which no
 # module in MODS imports: build it first, alone, so it never races with the module builds
 tvlib=ok

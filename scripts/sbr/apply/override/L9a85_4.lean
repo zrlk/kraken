@@ -5,12 +5,12 @@ theorem blk_L9a85_4 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
   intro n
   refine Triple.pin fun s₀ hs₀ => ?_
   obtain ⟨hs, hn⟩ := hs₀
-  obtain ⟨ch, c0, hC, hrsp, hrbp, y, hK, hm⟩ := T.L9a85_4.mp hs
+  obtain ⟨ch, c0, hC, hrsp, hrbp, y, hK, hCy, hm⟩ := T.L9a85_4.mp hs
   clear hs
   have hK' := PLift.up hK; clear hK
   simp only [Mm] at hm
   rw [show y.R = x.R from hK'.down.1] at hm
-  have hm' := fpost_of hK'.down hm
+  have hm' := fpost_of hK'.down hCy.1 hm
   clear hm
   simp only [B.L9a85_4]
   have z : ∀ a : BitVec 64, a + 0 = a := fun a => BitVec.add_zero a

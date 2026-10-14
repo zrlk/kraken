@@ -535,6 +535,8 @@ def parseCondCode (suffix : String.Slice) : Parser CondCode :=
   | "g" | "nle" => .pure .g
   | "p" | "pe" => .pure .p
   | "np" | "po" => .pure .np
+  | "s" => .pure .s
+  | "ns" => .pure .ns
   | _ => .fail s!"unknown condition code: {suffix}"
 
 -- ============================================================================
@@ -780,6 +782,21 @@ def parseInstr : Parser Instr := do
     let ( addr_w, src ) ← parseRegOrMemAO w
     pure (toInstr addr_w (.mul src))
 
+  | "div" | "idiv" =>
+    let ( addr_w, src) ← parseRegOrMem
+    let ⟨ _w, src ⟩ ← assertW src
+    pure (toInstr addr_w (if mn == "div" then .div src else .idiv src))
+
+  | "divq" | "divl" | "divw" | "divb" =>
+    let w ← instrWidth mn
+    let ( addr_w, src ) ← parseRegOrMemAO w
+    pure (toInstr addr_w (.div src))
+
+  | "idivq" | "idivl" | "idivw" | "idivb" =>
+    let w ← instrWidth mn
+    let ( addr_w, src ) ← parseRegOrMemAO w
+    pure (toInstr addr_w (.idiv src))
+
   | "mulx" =>
     -- Per Intel SDM: MULX dest1 and dest2 must be registers
     -- mulxq src, lo, hi (AT&T: src → rdx*src, result in lo:hi)
@@ -918,6 +935,8 @@ def parseInstr : Parser Instr := do
 
   | "cltq" | "cdqe" =>
     pure (toInstr .none (w := .W64) .cltq)
+  | "cltd" | "cdq" =>
+    pure (toInstr .none (w := .W32) .cltd)
 
   | "ud1" | "ud1l" =>
     let (addr_w, src) ← parseRegOrMem; parseComma
@@ -1097,6 +1116,37 @@ def parseInstr : Parser Instr := do
     let src ← parseAvxRegO .W128; parseComma
     let (addr_w, dst) ← parseMemory
     pure (toAvxInstr (some addr_w) (w := .W128) (.vmovlpsStore dst src))
+  | "vmovdqu" => commaSeparatedAvx .none parseAvxRegOrMem parseAvxRegOrMem .vmovdqu
+  | "vcvtdq2ps" => parseAvx2 .vcvtdq2ps
+  | "vblendps" =>
+    let imm ← parseImm8; parseComma
+    parseAvx3 (fun dst src1 src2 => .vblendps dst src1 src2 imm)
+  | "vpaddw" => parseAvx3 .vpaddw
+  | "vpminsd" => parseAvx3 .vpminsd
+  | "vpshufb" => parseAvx3 .vpshufb
+  | "vpunpcklqdq" => parseAvx3 .vpunpcklqdq
+  | "vpshufd" =>
+    let imm ← parseImm8; parseComma
+    parseAvx2 (fun dst src => .vpshufd dst src imm)
+  | "vcvtss2si" | "vcvtss2siq" =>
+    let (addr_w, src) ← parseAvxRegOrMem; parseComma
+    let dst ← parseRegO .W64
+    let src ← ascribeAvx .W128 src
+    pure (toAvxInstr addr_w (w := .W128) (.vcvtss2si dst src))
+  | "vpinsrw" =>
+    let imm ← parseImm8; parseComma
+    let src2 ← parseRegO .W32; parseComma
+    let src1 ← parseAvxRegO .W128; parseComma
+    let dst ← parseAvxRegO .W128
+    pure (toAvxInstr .none (w := .W128) (.vpinsrw dst src1 src2 imm))
+  | "vpmovsxwd" => parseXmm2R .vpmovsxwd
+  | "vpcmpeqd" => parseAvx3 .vpcmpeqd
+  | "vpsrld" =>
+    let count ← parseAvxRegO .W128; parseComma
+    let ⟨ w, src ⟩ ← parseAvxRegW; parseComma
+    let dst ← parseAvxRegO w
+    pure (toAvxInstr .none (.vpsrldx dst src count))
+  | "vpmovzxdq" => parseXmm2R .vpmovzxdq
 
   -- Legacy SSE forms on xmm registers
   | "movss" => parseXmm2 .movss

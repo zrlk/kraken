@@ -169,7 +169,7 @@ attribute [coe] AvxOperand.regOrMem
 abbrev AvxOperand.avx {w} (r : AvxReg w) : AvxOperand w := regOrMem (.avx r)
 abbrev AvxOperand.mem {w} (m : AddrExpr) : AvxOperand w := regOrMem (.mem m)
 
-inductive CondCode | z | nz | c | nc | a | be | l | le | ge | g | p | np
+inductive CondCode | z | nz | c | nc | a | be | l | le | ge | g | p | np | s | ns
   deriving Repr, BEq, DecidableEq, Hashable, Lean.ToExpr
 abbrev CondCode.e := CondCode.z
 abbrev CondCode.ne := CondCode.nz
@@ -209,6 +209,11 @@ inductive Operation (w : Width)
   -- syntax level `imul` instruction, where imul1 is the 1-operand case
   | imul1 (src : RegOrMem w)
   | imul (_ : Option (Dst w)) (src1 : RegOrMem w) (src2 : Operand w)
+  -- Unsigned (`div`) and signed (`idiv`) division of `rdx:rax` (`ax` for
+  -- `.W8`) by `src`: quotient to `rax`, remainder to `rdx` (`al`, `ah` for
+  -- `.W8`). A zero divisor or a quotient that does not fit raises #DE.
+  | div  (src : RegOrMem w)
+  | idiv (src : RegOrMem w)
   -- Bitwise
   | test (a : RegOrMem w) (b : Operand w)
   | and  (_ : Dst w) (src : Operand w)
@@ -227,6 +232,8 @@ inductive Operation (w : Width)
   | bswap  (dst : Reg w) -- (_ : w = .W32 ∨ w = .W64)
   -- `cltq` (Intel `cdqe`): `rax := sign-extend eax`
   | cltq
+  -- `cltd` (Intel `cdq`): `edx := ` every bit a copy of bit 31 of `eax`
+  | cltd
   -- Traps: each raises an exception (#UD, #BP) before touching its operands,
   -- so a step never has a successor state. `ud1`'s operands only fill the
   -- encoding (compilers put a check identifier in the ModRM byte).
@@ -341,6 +348,47 @@ inductive AvxOperation (w : AvxWidth)
   | vpextrd (_ : RegOrMem .W32) (src : AvxReg .W128) (imm : UInt8)
   -- `vmovlps xmm, m64`
   | vmovlpsStore (_ : AddrExpr) (src : AvxReg .W128)
+  -- like `vmovdqa`, but a memory operand may have any alignment
+  | vmovdqu (_ : AvxDst w) (src : AvxRegOrMem w)
+  -- signed 32-bit integer lanes converted to floats
+  | vcvtdq2ps (_ : AvxReg w) (src : AvxRegOrMem w)
+  -- lane `i` from `src2` when bit `i` of `imm` is set (32-bit lanes)
+  | vblendps (_ : AvxReg w) (src1 : AvxReg w) (src2 : AvxRegOrMem w) (imm : UInt8)
+  -- wrapping add of 16-bit lanes
+  | vpaddw (_ : AvxReg w) (src1 : AvxReg w) (src2 : AvxRegOrMem w)
+  -- signed minimum of 32-bit lanes
+  | vpminsd (_ : AvxReg w) (src1 : AvxReg w) (src2 : AvxRegOrMem w)
+  -- byte `i` of each 128-bit lane is zero when bit 7 of byte `i` of `src2`
+  -- is set, else byte `src2[i] & 15` of the same lane of `src1`
+  | vpshufb (_ : AvxReg w) (src1 : AvxReg w) (src2 : AvxRegOrMem w)
+  -- each 128-bit lane: the low quadword of `src1`, then that of `src2`
+  | vpunpcklqdq (_ : AvxReg w) (src1 : AvxReg w) (src2 : AvxRegOrMem w)
+  -- the 32-bit elements of each 128-bit lane permuted by `imm` (as `pshufd`)
+  | vpshufd (_ : AvxReg w) (src : AvxRegOrMem w) (imm : UInt8)
+  -- the low float of `src` (xmm or m32) to a 64-bit signed integer
+  | vcvtss2si (_ : Reg .W64) (src : AvxRegOrMem .W128) -- m32
+  -- 16-bit element `imm & 7` of `src1` replaced by the low 16 bits of `src2`
+  -- (only the register form is modeled)
+  | vpinsrw (_ : AvxReg .W128) (src1 : AvxReg .W128) (src2 : Reg .W32) (imm : UInt8)
+  -- the four low 16-bit elements of `src` (xmm or m64) sign-extended to 32 bits
+  | vpmovsxwd (_ : AvxReg .W128) (src : AvxRegOrMem .W128) -- m64
+  -- each 32-bit lane all ones when the lanes of `src1` and `src2` are equal,
+  -- else zero (Intel SDM vol. 2, PCMPEQD, VEX encoded versions:
+  -- `DEST[31:0] ← IF SRC1[31:0] = SRC2[31:0] THEN FFFFFFFFH ELSE 0`, for each
+  -- doubleword; `DEST[MAXVL-1:VL] ← 0`)
+  | vpcmpeqd (_ : AvxReg w) (src1 : AvxReg w) (src2 : AvxRegOrMem w)
+  -- `vpsrld %count, %src, %dst`: each 32-bit lane of `src` shifted right
+  -- (logical) by the low 64 bits of `count` read as an unsigned number; zero
+  -- past 31 (only the register form of `count` is modeled). Intel SDM vol. 2,
+  -- PSRLW/PSRLD/PSRLQ, `LOGICAL_RIGHT_SHIFT_DWORDS`: `COUNT ← COUNT_SRC[63:0];
+  -- IF (COUNT > 31) THEN DEST ← 0 ELSE DEST[31:0] ← ZeroExtend(SRC[31:0] >>
+  -- COUNT)`, for each doubleword; VEX: `DEST[MAXVL-1:VL] ← 0`
+  | vpsrldx (_ : AvxReg w) (src : AvxReg w) (count : AvxReg .W128)
+  -- the two low 32-bit elements of `src` (xmm or m64) zero-extended to 64 bits
+  -- (Intel SDM vol. 2, PMOVZX, `PACKED_ZERO_EXTEND_DWORD_TO_QWORD`:
+  -- `DEST[63:0] ← ZeroExtend(SRC[31:0]); DEST[127:64] ← ZeroExtend(SRC[63:32])`;
+  -- VEX.128: `DEST[MAXVL-1:128] ← 0`)
+  | vpmovzxdq (_ : AvxReg .W128) (src : AvxRegOrMem .W128) -- m64
   /- Legacy SSE/SSE2/SSE3 forms (`w` is `.W128`). A register destination keeps
   bits 255..128. A 128-bit memory operand must be 16-byte aligned, except for
   `movdqu`; 32- and 64-bit memory operands need no alignment. -/

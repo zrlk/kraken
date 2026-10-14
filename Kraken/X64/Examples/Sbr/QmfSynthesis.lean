@@ -1078,12 +1078,12 @@ abbrev table (d k : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (fs : QmfFns) (x 
   | "sbr_qmf_synthesis.La125", s =>
       s.regs.get64 .rsp = t₀.regs.get64 .rsp - 0x128#64
       ∧ s.regs.get64 .rbp = t₀.regs.get64 .rsp - 8#64
-      ∧ (s.dmem =⋆ T d k Ctx fs x ra t₀ (4 ?@ x.vOff)
+      ∧ (s.dmem =⋆ T d k Ctx fs x ra t₀ (VOffW x.vOff)
           (fun K => BlankLW (t₀.regs.get64 .rsp) ⋆ Saved t₀ K))
   | "sbr_qmf_synthesis.done", s =>
       s.regs.get64 .rsp = t₀.regs.get64 .rsp ∧ s.regs.get64 .rbp = t₀.regs.get64 .rbp
       ∧ SavedRegs t₀ s
-      ∧ (s.dmem =⋆ T d k Ctx fs x ra t₀ (4 ?@ x.vOff)
+      ∧ (s.dmem =⋆ T d k Ctx fs x ra t₀ (VOffW x.vOff)
           (fun K => BlankLW (t₀.regs.get64 .rsp) ⋆ Saved t₀ K))
   | _, _ => False
 
@@ -1128,7 +1128,7 @@ abbrev Post' (d k : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (fs : QmfFns) (x 
   let r := t₀.regs.get64 .rsp
   s.regs.get64 .rsp = r + 8 ∧ s.regs.get64 .rbp = t₀.regs.get64 .rbp ∧ SavedRegs t₀ s
   ∧ (s.dmem =⋆ 8 ?@ (r - 0x130#64) ⋆ (Reserve k (r - 0x130#64) ⋆ (DataW d Ctx x t₀ Std.ExtHashMap.emp
-    ⋆ (4 ?@ x.vOff ⋆ (FnsW fs t₀ ⋆ (ArgsW d x t₀ ⋆ (BlankLW r ⋆ Saved t₀ (8 ?@ r ⋆ x.R))))))))
+    ⋆ (VOffW x.vOff ⋆ (FnsW fs t₀ ⋆ (ArgsW d x t₀ ⋆ (BlankLW r ⋆ Saved t₀ (8 ?@ r ⋆ x.R))))))))
 
 /-- `grind_cells` without model-based theory combination: on a frame of
 many `Int.toBytes 8 v =@ a` cells it spends its case splits equating the
@@ -2392,20 +2392,40 @@ theorem T_head {d k : Nat} {Ctx : BitVec 64 → Mem 64 → Prop} {fs : QmfFns} {
       (Mem.Entails.sep_left (Mem.Entails.forget8 _ _ (Mem.Entails.refl _)))))))
   exact e m h
 
+omit [CodeEnv] in
+/-- `Entails` in both parts of a separating conjunction. -/
+theorem Entails_sep_mono {X Y K K' : Mem 64 → Prop} (e₁ : Mem.Entails X Y)
+    (e₂ : Mem.Entails K K') : Mem.Entails (X ⋆ K) (Y ⋆ K') := by
+  intro m ⟨m₁, m₂, hd, hm, h₁, h₂⟩
+  exact ⟨m₁, m₂, hd, hm, e₁ m₁ h₁, e₂ m₂ h₂⟩
+
+omit [CodeEnv] in
+/-- The `*v_off` cell after the update, `n = (v - v0) / 4` with `v` at most 6656
+bytes into `v0` and 32-aligned there, meets `VOffW`. -/
+theorem voffw_of {a : BitVec 64} {n : Nat} (hn : n ≤ 1664) (h8 : n % 8 = 0) :
+    Mem.Entails (Int.toBytes 4 (n : Int) =@ a) (VOffW a) := by
+  intro m h
+  refine ⟨BitVec.ofInt 32 (n : Int), ?_, ?_, ?_⟩
+  · rw [BitVec.toInt_ofInt32_natCast _ (by omega)]; omega
+  · rw [BitVec.toNat_ofInt32_natCast _ (by omega)]; exact h8
+  · rw [BitVec.toInt_ofInt32_natCast _ (by omega)]; exact h
+
 /-- (block-specific: `lend` → `.La125`) The exit's memory from the end of the
-loop body: `*v_off` and the spill slots forgotten. -/
+loop body: the `*v_off` cell as `VOffW` (the value of the last update), the
+spill slots forgotten. -/
 theorem T_exit {d k : Nat} {Ctx : BitVec 64 → Mem 64 → Prop} {fs : QmfFns} {x : QmfArgs}
-    {ra : Int64} {t₀ : MachineData} {m : Mem 64} {v : Int} {w : BitVec 64}
-    (h : m =⋆ T d k Ctx fs x ra t₀ (Int.toBytes 4 v =@ x.vOff)
+    {ra : Int64} {t₀ : MachineData} {m : Mem 64} {n : Nat} {w : BitVec 64}
+    (hn : n ≤ 1664) (h8 : n % 8 = 0)
+    (h : m =⋆ T d k Ctx fs x ra t₀ (Int.toBytes 4 (n : Int) =@ x.vOff)
       (Fr d x t₀ (c8 (t₀.regs.get64 .rsp - 0x128#64) w))) :
-    m =⋆ T d k Ctx fs x ra t₀ (4 ?@ x.vOff)
+    m =⋆ T d k Ctx fs x ra t₀ (VOffW x.vOff)
       (fun K => BlankLW (t₀.regs.get64 .rsp) ⋆ Saved t₀ K) := by
-  have e : Mem.Entails (T d k Ctx fs x ra t₀ (Int.toBytes 4 v =@ x.vOff)
+  have e : Mem.Entails (T d k Ctx fs x ra t₀ (Int.toBytes 4 (n : Int) =@ x.vOff)
       (Fr d x t₀ (c8 (t₀.regs.get64 .rsp - 0x128#64) w)))
-      (T d k Ctx fs x ra t₀ (4 ?@ x.vOff)
+      (T d k Ctx fs x ra t₀ (VOffW x.vOff)
       (fun K => BlankL (t₀.regs.get64 .rsp) (Saved t₀ K))) := by
     refine Mem.Entails.sep_left (Mem.Entails.sep_left (Mem.Entails.sep_left ?_))
-    refine Mem.Entails.forget (Mem.Split.here _ _) ?_ (Int.toBytes_length 4 v) (by decide)
+    refine Entails_sep_mono (voffw_of hn h8) ?_
     refine Mem.Entails.sep_left (Mem.Entails.sep_left ?_)
     repeat (first | exact Mem.Entails.refl _ | refine Mem.Entails.forget8 _ _ ?_)
   have := e m h
@@ -3070,7 +3090,7 @@ theorem blk_lend (d k : Nat) (hd : d ≤ 1) (hk : k ≤ 2 ^ 32)
       rw [hrbp, show t₀.regs.get64 .rsp - 8#64 - 288#64 = t₀.regs.get64 .rsp - 0x128#64 by bv_omega]
       exact T_ctr hm
     have hmH := T_head hm
-    have hmX := T_exit hm
+    have hmX := T_exit (by have := hV.2.2; omega) (by have := hV.1; omega) hm
     have hl : Mem.loadInt s₀.dmem x.vOff 4
         = some (Int.ofBytes (Int.toBytes 4 ((vbOf x s₀ / 4 : Nat) : Int))) :=
       Mem.Val.loadInt hm
@@ -3468,7 +3488,7 @@ theorem spec (hpl : Program.PlacedIn body) (d k : Nat) (hd : d ≤ 1) (hk : k �
       (Mem.Entails.sep_left (Mem.Entails.sep_left (Saved_blank t₀ _))))))) _ hm
     rw [BlankLW_open, ← frame_cells] at hm'
     rw [show QmfFPost d Ctx TxTab fs x t₀ ⋆ x.R = DataW d (CT Ctx TxTab) x t₀ Std.ExtHashMap.emp
-        ⋆ (4 ?@ x.vOff ⋆ (FnsW fs t₀ ⋆ (ArgsW d x t₀ ⋆ x.R))) from by
+        ⋆ (VOffW x.vOff ⋆ (FnsW fs t₀ ⋆ (ArgsW d x t₀ ⋆ x.R))) from by
       simp -implicitDefEqProofs only [QmfFPost]; rw [Std.ExtHashMap.sep_assoc, QmfData_eq]; rfl]
     rw [show qmfNeed k = 0x130 + k from rfl, reserve_frame k hk]
     exact Mem.ac hm'

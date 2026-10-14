@@ -139,14 +139,34 @@ structure Args where
   `sbr->ps.opd_hist ++ ipd_hist` (68 bytes at `sbr + 0x4c150`), see `PsWF`. -/
   psc : List UInt8
   psh : List UInt8
+  /-- `sbr->spectrum_params` (`SpectrumParameters`, 6 bytes at `sbr + 0x1c`): bytes 0..3 and
+  4..5, the two stores of `sbr_turnoff`'s `memset(&sbr->spectrum_params, -1, 6)`. Byte 0 is
+  `bs_start_freq`. -/
+  spLo : BitVec 32
+  spHi : BitVec 16
+
+/-- The frequency tables `ff_aac_sbr_apply` does not modify: `k[0]`, `n[0..1]`, `n_q`,
+`n_lim`, `num_patches`, `patch_num_subbands`, `patch_start_subband`,
+`f_tablelow/high/noise/lim` (written only by `sbr_make_f_master`, `sbr_make_f_derived`,
+`sbr_make_f_tablelim` and `sbr_hf_calc_npatches`, from the parser's `sbr_reset` and header).
+And `start` with `spectrum_params` are kept, or cleared together: the only writes of
+`sbr->start` and `sbr->spectrum_params` reachable from apply are `sbr_turnoff`'s `start = 0`
+and `memset(&sbr->spectrum_params, -1, …)` (`aacsbr_template.c`:58-68). -/
+def Args.KeepT (x y : Args) : Prop :=
+  y.k0 = x.k0 ∧ y.n0 = x.n0 ∧ y.n1 = x.n1 ∧ y.nq = x.nq ∧ y.nlim = x.nlim
+  ∧ y.npatch = x.npatch ∧ y.pnum = x.pnum ∧ y.pstart = x.pstart ∧ y.ftLow = x.ftLow
+  ∧ y.ftHigh = x.ftHigh ∧ y.ftNoise = x.ftNoise ∧ y.ftLim = x.ftLim
+  ∧ ((y.start = 0 ∧ y.spLo = BitVec.allOnes 32 ∧ y.spHi = BitVec.allOnes 16)
+      ∨ (y.start = x.start ∧ y.spLo = x.spLo ∧ y.spHi = x.spHi))
 
 /-- The decoder state `ff_aac_sbr_apply` does not modify (INV-D5): both channels'
 `bs_num_env`, `t_env`/`t_env_num_env_old`, `bs_freq_res`, `t_q`, and the PS common
-context. Only the grid parser (`read_sbr_grid`) and the PS parser write them. -/
+context (only the grid parser, `read_sbr_grid`, and the PS parser write them), and the
+frequency tables with `start` kept or cleared (`KeepT`). -/
 abbrev Args.KeepD (x y : Args) : Prop :=
   y.d0.nenv = x.d0.nenv ∧ y.d0.te = x.d0.te ∧ y.d1.nenv = x.d1.nenv ∧ y.d1.te = x.d1.te
   ∧ y.d0.freqRes = x.d0.freqRes ∧ y.d1.freqRes = x.d1.freqRes
-  ∧ y.d0.tq = x.d0.tq ∧ y.d1.tq = x.d1.tq ∧ y.psc = x.psc
+  ∧ y.d0.tq = x.d0.tq ∧ y.d1.tq = x.d1.tq ∧ y.psc = x.psc ∧ x.KeepT y
 
 /-- What stays fixed while the body runs (also across `sbr_turnoff`): the caller's rest,
 the pointers and rates the final state is stated with, and (`KeepD`, one nested
@@ -162,6 +182,14 @@ abbrev Args.d (x : Args) (ch : Nat) : DV := if ch = 0 then x.d0 else x.d1
 /-- `sbr_turnoff`'s effect on the scalar fields: `start = ready = 0`, `kx[1] = 32`,
 `m[1] = 0` (the other fields it writes are raw in the footprint). -/
 abbrev Args.turnoff (x : Args) : Args := { x with start := 0, ready := 0, kx1 := 32, m1 := 0 }
+
+/-- `sbr_turnoff`'s `memset(&sbr->spectrum_params, -1, sizeof(SpectrumParameters))`. -/
+abbrev Args.spSet (x : Args) : Args :=
+  { x with spLo := BitVec.allOnes 32, spHi := BitVec.allOnes 16 }
+
+/-- I1: a stopped decoder has `spectrum_params.bs_start_freq = 0xFF` (`sbr_turnoff`'s memset;
+a header that sets `start` also sets `bs_start_freq`). -/
+def Args.I1 (x : Args) : Prop := x.start = 0 → x.spLo.setWidth 8 = 0xFF#8
 
 /-- The prologue's `kx_and_m_pushed` step (before `sbr_dequant`): `kx[0] = kx[1]`, `m[0] = m[1]`
 unless pushed; then `kx_and_m_pushed = 0`. -/
@@ -216,12 +244,13 @@ abbrev c4 (a : BitVec 64) (v : Nat) : Mem 64 → Prop := Int.toBytes 4 (v : Int)
 def ScW (x : Args) (t : MachineData) : Mem 64 → Prop :=
   let s := sbrA t
   cell4 s x.sampleRate ⋆ (cell4 (s + 0x4#64) x.start ⋆ (cell4 (s + 0x8#64) x.ready
-    ⋆ (cell4 (s + 0xc#64) x.idAac ⋆ (4 ?@ (s + 0x10#64) ⋆ (cell4 (s + 0x18#64) x.reset ⋆ (6 ?@ (s + 0x1c#64)
+    ⋆ (cell4 (s + 0xc#64) x.idAac ⋆ (4 ?@ (s + 0x10#64) ⋆ (cell4 (s + 0x18#64) x.reset
+    ⋆ (cell4 (s + 0x1c#64) x.spLo ⋆ (Int.toBytes 2 x.spHi.toInt =@ (s + 0x20#64)
     ⋆ (c4 (s + 0x30#64) x.limGains ⋆ (cell4 (s + 0x34#64) x.interpol
     ⋆ (cell4 (s + 0x38#64) x.smooth ⋆ (cell4 (s + 0x3c#64) x.coupling
     ⋆ (c4 (s + 0x40#64) x.k0 ⋆ (c4 (s + 0x54#64) x.kx0 ⋆ (c4 (s + 0x58#64) x.kx1
     ⋆ (c4 (s + 0x5c#64) x.m0 ⋆ (c4 (s + 0x60#64) x.m1
-    ⋆ cell4 (s + 0x64#64) x.pushed)))))))))))))))
+    ⋆ cell4 (s + 0x64#64) x.pushed))))))))))))))))
 
 /-- The frequency tables and their sizes, and the patches. -/
 def TabW (x : Args) (t : MachineData) : Mem 64 → Prop :=
@@ -262,8 +291,7 @@ def DArrW (t : MachineData) (ch : Nat) : Mem 64 → Prop :=
 /-- The work arrays of `*sbr` (`s = sbr`): `X_low`, `X_high`, `X[0]`, `X[1]` (0x4c00
 bytes each), `alpha0/1`, `e_origmapped`, `q_mapped`, `s_mapped`, `e_curr`, `q_m`,
 `s_m`, `gain` (1536 bytes each), `qmf_filter_scratch`. The PS state at
-`s + 0x2b600` is `PsW`. ScW gap names: `usac`/`inter_tes` (`s + 0x10`, 4 bytes),
-`spectrum_params` (`s + 0x1c`, 6 bytes). -/
+`s + 0x2b600` is `PsW`. ScW gap name: `usac`/`inter_tes` (`s + 0x10`, 4 bytes). -/
 def ArrW (t : MachineData) : Mem 64 → Prop :=
   let s := sbrA t
   Blocks [(s + 0x4c340#64, 10240), (s + 0x4eb40#64, 20480),
@@ -444,12 +472,19 @@ abbrev ApplyPre (k : Nat) (e : Env) (x : Args) (ra : Int64) (t : MachineData) : 
   CallPre (applyNeed k) (ApplyF e x t ⋆ x.R) ra t ∧ ApplyC x t
 
 /-- On return the footprint is owned again, with other contents: the same groups at
-values `y` (the pointers that place them unchanged), and with the decoder state apply
+values `y` (the pointers that place them unchanged), with the decoder state apply
 does not write unchanged (`KeepD`, INV-D5: both channels' `bs_num_env`, `t_env`,
-`bs_freq_res`, `t_q`, and `ps->common`). -/
+`bs_freq_res`, `t_q`, `ps->common`, and the frequency tables with `k[0]`; `start` and
+`spectrum_params` kept, or cleared together by `sbr_turnoff`, so that I1 is kept,
+`Args.KeepT.i1`), and with the decoder invariant `SbrWF`
+re-established for `y` (the fields apply writes: both channels'
+`synthesis_filterbank_samples_offset`, from `sbr_qmf_synthesis`, and the PS phase
+histories, from `ff_ps_apply`), so that `ApplyC y t` holds again (`LayoutC` does not
+depend on the values). -/
 abbrev ApplyFPost (e : Env) (x : Args) (t : MachineData) : Mem 64 → Prop :=
   fun m => ∃ y : Args, y.extRate = x.extRate ∧ y.fdsp = x.fdsp ∧ y.anaCtx = x.anaCtx
-    ∧ y.synCtx = x.synCtx ∧ y.sampleRate = x.sampleRate ∧ x.KeepD y ∧ ApplyF e y t m
+    ∧ y.synCtx = x.synCtx ∧ y.sampleRate = x.sampleRate ∧ x.KeepD y ∧ SbrWF y
+    ∧ y.avctx = x.avctx ∧ y.ps = x.ps ∧ ApplyF e y t m
 
 abbrev ApplyPost (k : Nat) (e : Env) (x : Args) (ra : Int64) (t s : MachineData) : Prop :=
   CallPost (applyNeed k) (ApplyFPost e x t ⋆ x.R) ra t s
@@ -492,3 +527,86 @@ What the statement does and does not say:
    dsp initialisation (the slot contents, by cpu flags). -/
 abbrev ApplySpec (k : Nat) (e : Env) : Prop :=
   cenv.ProcSpec (entry "ff_aac_sbr_apply") (ApplyPre k e) (ApplyPost k e)
+
+/-! ## I1 and the precondition
+
+`ApplyFPost` keeps I1 (`Args.KeepD.i1`). The values of `spectrum_params` in `ScW` add no
+assumption: `ScW` is `ScWRaw` (those six bytes unknown) at some values (`scWRaw_eq`). -/
+
+/-- I1 survives apply: `start` and `spectrum_params` are kept, or cleared together. -/
+theorem Args.KeepT.i1 {x y : Args} (h : x.KeepT y) (hx : x.I1) : y.I1 := by
+  unfold Args.KeepT at h
+  obtain ⟨-, -, -, -, -, -, -, -, -, -, -, -, h⟩ := h
+  intro hy
+  rcases h with ⟨-, hl, -⟩ | ⟨hs, hl, -⟩
+  · rw [hl]; decide
+  · rw [hl]; exact hx (hs ▸ hy)
+
+theorem Args.KeepD.i1 {x y : Args} (h : x.KeepD y) (hx : x.I1) : y.I1 :=
+  h.2.2.2.2.2.2.2.2.2.i1 hx
+
+/-- The postcondition keeps I1: input I1 and apply give output I1. -/
+theorem applyFPost_i1 {e : Env} {x : Args} {t : MachineData} {m : Mem 64} (hx : x.I1)
+    (h : ApplyFPost e x t m) : ∃ y : Args, y.I1 ∧ ApplyF e y t m := by
+  obtain ⟨y, -, -, -, -, -, hk, -, -, -, hm⟩ := h
+  exact ⟨y, hk.i1 hx, hm⟩
+
+theorem sep_ex_l {α : Type} (P : α → Mem 64 → Prop) (R : Mem 64 → Prop) :
+    ((fun m => ∃ v, P v m) ⋆ R) = fun m => ∃ v, (P v ⋆ R) m := by
+  funext m; apply propext; constructor
+  · rintro ⟨a, b, h1, h2, ⟨v, hv⟩, hr⟩; exact ⟨v, a, b, h1, h2, hv, hr⟩
+  · rintro ⟨v, a, b, h1, h2, hv, hr⟩; exact ⟨a, b, h1, h2, ⟨v, hv⟩, hr⟩
+
+theorem sep_ex_r {α : Type} (P : α → Mem 64 → Prop) (L : Mem 64 → Prop) :
+    (L ⋆ fun m => ∃ v, P v m) = fun m => ∃ v, (L ⋆ P v) m := by
+  funext m; apply propext; constructor
+  · rintro ⟨a, b, h1, h2, hl, ⟨v, hv⟩⟩; exact ⟨v, a, b, h1, h2, hl, hv⟩
+  · rintro ⟨v, a, b, h1, h2, hl, hv⟩; exact ⟨a, b, h1, h2, hl, ⟨v, hv⟩⟩
+
+theorem toBytes_ofInt_ofBytes (n : Nat) (bs : List UInt8) (h : bs.length = n) :
+    Int.toBytes n (BitVec.ofInt (8 * n) (Int.ofBytes bs)).toInt = bs := by
+  rw [BitVec.toInt_ofInt, ← Int.toBytes_emod, Int.take]
+  have e : (Int.ofBytes bs).bmod (2 ^ (8 * n)) % (2 ^ (8 * n) : Int)
+      = Int.ofBytes bs % 2 ^ (8 * n) := Int.bmod_emod
+  rw [e, show Int.ofBytes bs % 2 ^ (8 * n) = (Int.ofBytes bs).take (8 * n) from rfl,
+    Int.toBytes_emod, ← h, Int.toBytes_ofBytes_all]
+
+/-- An unknown `n`-byte region is a known one with some `8n`-bit value. -/
+theorem block_eq_exists (a : BitVec 64) (n : Nat) (hn : n ≤ 2 ^ 64) :
+    (n ?@ a) = fun m => ∃ v : BitVec (8 * n), (Int.toBytes n v.toInt =@ a) m := by
+  funext m; apply propext; constructor
+  · rintro ⟨-, bs, hlen, h⟩
+    exact ⟨BitVec.ofInt (8 * n) (Int.ofBytes bs), by
+      show (Int.toBytes n _).At a = m; rw [toBytes_ofInt_ofBytes n bs hlen]; exact h⟩
+  · rintro ⟨v, h⟩
+    exact ⟨hn, _, Int.toBytes_length .., h⟩
+
+
+/-- `ScW` with the six bytes of `spectrum_params` unknown (`6 ?@`), as the footprint was
+stated before they had values. -/
+def ScWRaw (x : Args) (t : MachineData) : Mem 64 → Prop :=
+  let s := sbrA t
+  cell4 s x.sampleRate ⋆ (cell4 (s + 0x4#64) x.start ⋆ (cell4 (s + 0x8#64) x.ready
+    ⋆ (cell4 (s + 0xc#64) x.idAac ⋆ (4 ?@ (s + 0x10#64) ⋆ (cell4 (s + 0x18#64) x.reset ⋆ (6 ?@ (s + 0x1c#64)
+    ⋆ (c4 (s + 0x30#64) x.limGains ⋆ (cell4 (s + 0x34#64) x.interpol
+    ⋆ (cell4 (s + 0x38#64) x.smooth ⋆ (cell4 (s + 0x3c#64) x.coupling
+    ⋆ (c4 (s + 0x40#64) x.k0 ⋆ (c4 (s + 0x54#64) x.kx0 ⋆ (c4 (s + 0x58#64) x.kx1
+    ⋆ (c4 (s + 0x5c#64) x.m0 ⋆ (c4 (s + 0x60#64) x.m1
+    ⋆ cell4 (s + 0x64#64) x.pushed)))))))))))))))
+
+/-- The precondition is unchanged in meaning: the raw `spectrum_params` bytes are the valued
+cells at some `spLo`, `spHi` (and `Args` is universally quantified in `ApplySpec`). -/
+theorem scWRaw_eq (x : Args) (t : MachineData) :
+    ScWRaw x t = fun m => ∃ (lo : BitVec 32) (hi : BitVec 16),
+      ScW { x with spLo := lo, spHi := hi } t m := by
+  unfold ScWRaw ScW
+  dsimp only
+  rw [Block.split_at (sbrA t + 0x1c#64) 6 4 (by decide) (by decide),
+    block_eq_exists (sbrA t + 0x1c#64) 4 (by decide),
+    block_eq_exists (sbrA t + 0x1c#64 + BitVec.ofNat 64 4) (6 - 4) (by decide),
+    Std.ExtHashMap.sep_assoc]
+  simp only [sep_ex_l, sep_ex_r, BitVec.add_assoc, BitVec.reduceAdd, BitVec.ofNat_eq_ofNat,
+    Nat.reduceSub, Nat.reduceMul]
+  funext m
+  exact propext ⟨fun ⟨v, w, h⟩ => ⟨w, v, h⟩, fun ⟨w, v, h⟩ => ⟨v, w, h⟩⟩
+

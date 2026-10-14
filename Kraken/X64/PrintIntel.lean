@@ -118,6 +118,7 @@ instance : ToString RelRegOrMem where toString rel := rel.toStr
 instance : ToString CondCode where toString
   | .z => "e" | .nz => "ne" | .c => "b" | .nc => "ae" | .a => "a" | .be => "be" | .l => "l" | .le => "le"
   | .ge => "ge" | .g => "g" | .p => "p" | .np => "np"
+  | .s => "s" | .ns => "ns"
 
 instance : ToString ShiftCountExpr where toString
   | .cl => "cl"
@@ -126,7 +127,10 @@ instance : ToString ShiftCountExpr where toString
 set_option maxHeartbeats 2000000 in
 def Operation.toStr {w} (op : Operation w) (addr_w : Width := .W64) : String := match op with
   | .mov dst src => s!"mov {dst.toStr addr_w}, {src.toStr addr_w}"
-  | .movsx dst src => s!"movsx {dst.toStr addr_w}, {src.toStr addr_w}"
+  | @Operation.movsx _ w' dst src =>
+    -- Intel spells the 32-to-64-bit form `movsxd` (opcode 63 /r, AT&T `movslq`).
+    let m := if w == .W64 && w' == .W32 then "movsxd" else "movsx"
+    s!"{m} {dst.toStr addr_w}, {src.toStr addr_w}"
   | .movzx dst src => s!"movzx {dst.toStr addr_w}, {src.toStr addr_w}"
   | .push src => s!"push {src.toStr addr_w}"
   | .pop dst => s!"pop {dst.toStr addr_w}"
@@ -148,6 +152,8 @@ def Operation.toStr {w} (op : Operation w) (addr_w : Width := .W64) : String := 
   | .imul none src1 src2 => s!"imul {src1.toStr addr_w}, {src2.toStr addr_w}"
   | .imul (some dst) src1 src2 => s!"imul {dst.toStr addr_w}, {src1.toStr addr_w}, {src2.toStr addr_w}"
   | .imul1 src => s!"imul {src.toStr addr_w}"
+  | .div src => s!"div {src.toStr addr_w}"
+  | .idiv src => s!"idiv {src.toStr addr_w}"
   | .test a b => s!"test {a.toStr addr_w}, {b.toStr addr_w}"
   | .and dst src => s!"and {dst.toStr addr_w}, {src.toStr addr_w}"
   | .not dst => s!"not {dst.toStr addr_w}"
@@ -164,6 +170,7 @@ def Operation.toStr {w} (op : Operation w) (addr_w : Width := .W64) : String := 
   | .rcr dst cnt => s!"rcr {dst.toStr addr_w}, {cnt}"
   | .bswap dst => s!"bswap {dst}"
   | .cltq => "cdqe"
+  | .cltd => "cdq"
   | .ud1 dst src => s!"ud1 {dst}, {src.toStr addr_w}"
   | .ud2 => "ud2"
   | .int3 => "int3"
@@ -252,6 +259,20 @@ def AvxOperation.toStr {w} (op : AvxOperation w) (addr_w : Width := .W64) : Stri
   | .vpinsrd dst src1 src2 imm => s!"vpinsrd {dst}, {src1}, {src2.toStr addr_w}, {imm}"
   | .vpextrd dst src imm => s!"vpextrd {dst.toStr addr_w}, {src}, {imm}"
   | .vmovlpsStore dst src => s!"vmovlps {(RegOrMem.mem (w := .W64) dst).toStr addr_w}, {src}"
+  | .vmovdqu dst src => s!"vmovdqu {dst.toStr addr_w}, {src.toStr addr_w}"
+  | .vcvtdq2ps dst src => s!"vcvtdq2ps {dst}, {src.toStr addr_w}"
+  | .vblendps dst src1 src2 imm => s!"vblendps {dst}, {src1}, {src2.toStr addr_w}, {imm}"
+  | .vpaddw dst src1 src2 => s!"vpaddw {dst}, {src1}, {src2.toStr addr_w}"
+  | .vpminsd dst src1 src2 => s!"vpminsd {dst}, {src1}, {src2.toStr addr_w}"
+  | .vpshufb dst src1 src2 => s!"vpshufb {dst}, {src1}, {src2.toStr addr_w}"
+  | .vpunpcklqdq dst src1 src2 => s!"vpunpcklqdq {dst}, {src1}, {src2.toStr addr_w}"
+  | .vpshufd dst src imm => s!"vpshufd {dst}, {src.toStr addr_w}, {imm}"
+  | .vcvtss2si dst src => s!"vcvtss2si {dst}, {src.toStrLow .W32 addr_w}"
+  | .vpinsrw dst src1 src2 imm => s!"vpinsrw {dst}, {src1}, {src2}, {imm}"
+  | .vpmovsxwd dst src => s!"vpmovsxwd {dst}, {src.toStrLow .W64 addr_w}"
+  | .vpcmpeqd dst src1 src2 => s!"vpcmpeqd {dst}, {src1}, {src2.toStr addr_w}"
+  | .vpsrldx dst src count => s!"vpsrld {dst}, {src}, {count}"
+  | .vpmovzxdq dst src => s!"vpmovzxdq {dst}, {src.toStrLow .W64 addr_w}"
   | .movss dst src => s!"movss {dst.toStrLow .W32 addr_w}, {src.toStrLow .W32 addr_w}"
   | .movsd dst src => s!"movsd {dst.toStrLow .W64 addr_w}, {src.toStrLow .W64 addr_w}"
   | .movqx dst src => s!"movq {dst.toStrLow .W64 addr_w}, {src.toStrLow .W64 addr_w}"

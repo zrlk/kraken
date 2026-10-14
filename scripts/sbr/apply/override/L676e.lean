@@ -7,9 +7,9 @@ theorem blk_L676e (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
   obtain ⟨hs, hn⟩ := hs₀
   obtain ⟨hC, ⟨hrsp, hrbp⟩, h9, x', hx', hbl, hp, hid, hm⟩ := T.L676e.mp hs
   clear hs
-  have hK : x.Keep x'.push ∧ IdLive t₀ x'.push := ⟨by rcases hx' with rfl | rfl <;> exact Args.Keep.rfl', hid⟩
+  have hK : x.Keep x'.push ∧ IdLive t₀ x'.push := ⟨by rcases hx' with rfl | rfl <;> first | exact Args.Keep.rfl'.push | exact Args.Keep.rfl'.turnoff.push, hid⟩
   have hid' := PLift.up hid; clear hid
-  have hC' : ApplyC x'.push t₀ := by rcases hx' with rfl | rfl <;> first | exact hC.push | exact hC.turnoff.push
+  have hC' : ApplyC x'.push t₀ := by rcases hx' with rfl | rfl <;> first | exact hC.push | exact hC.turnoff.spSet.push
   have hK' := PLift.up hK; have hC'' := PLift.up hC'; clear hK hC'
   simp only [Mm, ApplyF, ScW, sbrA, arg1, BitVec.add_assoc, BitVec.reduceAdd] at hm h9
   simp only [B.L676e]

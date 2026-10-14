@@ -78,13 +78,13 @@ def yy(f):
     return f.replace("x.", "y.")
 
 
-def ent(ex, facts, fr="FrMb", mapc=None):
+def ent(ex, facts, fr="FrMb", mapc=None, keep="y"):
     mapc = MAPC if mapc is None else mapc
     # owner's channel-loop shape (05:16): ApplyC x ∧ Base ∧ ∃ y …, x.Keep y ∧ ApplyC y t₀ ∧ facts(y) ∧ Mm … y
     facts = [yy(f) for f in facts]
     LAST["v"] = (ex.split(), list(facts), fr)
     mem = f"(s.dmem =⋆ Mm k e y ra t₀ ({fr} x t₀ ch c0 y j))"
-    body = " ∧ ".join(["(x.Keep y ∧ ChLive t₀ ch y)", "ApplyC y t₀", "c0.getLsbD 0 = decide (ch = 0)", yy(mapc)] + facts + [mem])
+    body = " ∧ ".join([f"(x.Keep {keep} ∧ ChLive t₀ ch y)", "ApplyC y t₀", "c0.getLsbD 0 = decide (ch = 0)", yy(mapc)] + facts + [mem])
     return f"ApplyC x t₀ ∧ Base t₀ s ∧ ∃ y ch c0 j{(' ' + ex) if ex else ''}, {body}"
 
 
@@ -166,8 +166,9 @@ def define(g):
     # (mapb 08:20) av_log, then the turnoff stores; the 4-byte tmp30 store at L7db0 stays inside FrM0's 8 ?@.
     E("L879e", ent("", [R("rbx", "dA t₀ ch")], "FrM0"))
     E("L879e_1", ent("", [R("rbx", "dA t₀ ch")], "FrM0"))
-    # after the sbr-side stores y is already turned off (start = 0): only ch < 2 survives of MAPC
-    E("L879e_2", ent("", [R("rbx", "dA t₀ ch")], "FrM0", "ch < 2"))
+    # after the sbr-side stores y is already turned off (start = 0): only ch < 2 survives of MAPC;
+    # the spectrum_params memset (this block's two stores) is still to come: `Keep` holds of y.spSet
+    E("L879e_2", ent("", [R("rbx", "dA t₀ ch")], "FrM0", "ch < 2", keep="y.spSet"))
 
 
 if __name__ == "__main__":

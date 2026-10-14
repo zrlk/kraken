@@ -42,7 +42,7 @@ theorem blk_L6797_1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
     rotate_left
     · var_step
     rw [T.L6817]
-    refine ⟨hC, ⟨?_, ?_⟩, ?_, ?_, x.turnoff, Or.inr rfl, IdLive.turnoff, ?_⟩
+    refine ⟨hC, ⟨?_, ?_⟩, ?_, ?_, x.turnoff.spSet, Or.inr rfl, (IdLive.turnoff).spSet, ?_⟩
     all_goals try (simp only [Reg64s.get64_set64, reduceCtorEq, ite_true, ite_false, hrsp, hrbp, and_self, arg1]; done)
     all_goals try (simp only [Reg64s.get64_set64, ite_true, setWidth8_replaceLow, e8]; done)
     have h8 : Int.toBytes 8 (BitVec.setWidth 64 0#64).toInt
@@ -51,13 +51,15 @@ theorem blk_L6797_1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
     have e32 : (BitVec.setWidth 32 32#64).toInt = ((32 : Nat) : Int) := by decide
     rw [h8, Val.append_eq _ _ _ (t₀.regs.get64 .rsi + 166184#64) (by simp only [Int.toBytes_length,
       BitVec.add_assoc, BitVec.reduceAdd]) (by simp only [Int.toBytes_length]; decide)] at hm
-    simp only [e0, e32] at hm
-    have hT : TabW x.turnoff t₀ = TabW x t₀ := rfl
-    have hF : FnW e x.turnoff t₀ = FnW e x t₀ := rfl
-    have hA : AcW x.turnoff t₀ = AcW x t₀ := rfl
-    have hO : OutW x.turnoff t₀ = OutW x t₀ := rfl
-    have hP : PsW x.turnoff t₀ = PsW x t₀ := rfl
+    have es32 : BitVec.setWidth 32 4294967295#64 = BitVec.allOnes 32 := by decide
+    have es16 : BitVec.setWidth 16 65535#64 = BitVec.allOnes 16 := by decide
+    simp only [e0, e32, es32, es16] at hm
+    have hT : TabW x.turnoff.spSet t₀ = TabW x t₀ := rfl
+    have hF : FnW e x.turnoff.spSet t₀ = FnW e x t₀ := rfl
+    have hA : AcW x.turnoff.spSet t₀ = AcW x t₀ := rfl
+    have hO : OutW x.turnoff.spSet t₀ = OutW x t₀ := rfl
+    have hP : PsW x.turnoff.spSet t₀ = PsW x t₀ := rfl
     simp only [Mm, ApplyF, hT, hF, hA, hO, hP]
-    simp only [ScW, DScW, FrD, sbrA, dA, Args.d, Args.turnoff, arg1, BitVec.add_assoc,
+    simp only [ScW, DScW, FrD, sbrA, dA, Args.d, Args.turnoff, Args.spSet, arg1, BitVec.add_assoc,
       BitVec.reduceAdd, BitVec.ofNat_eq_ofNat, Nat.reduceMul, Nat.reduceAdd]
     sep_close hm

@@ -471,10 +471,16 @@ abbrev QmfF (d : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab : Mem 64 → 
     (fs : QmfFns) (x : QmfArgs) (t : MachineData) : Mem 64 → Prop :=
   QmfData d Ctx TxTab fs x t (Int.toBytes 4 x.off.toInt =@ x.vOff) ⋆ QmfArgCells d x t
 
-/-- The footprint on return: `*v_off` changed. -/
+/-- The `*v_off` cell at `a` on return: some `int` value `v`, at most 1664 and a
+multiple of 8 (what `QmfC` asks of the value on entry, so that the next call's
+condition holds again; `aacsbr_template.c:1427-1432`). -/
+def VOffW (a : BitVec 64) : Mem 64 → Prop :=
+  fun m => ∃ v : BitVec 32, v.toInt ≤ 1664 ∧ v.toNat % 8 = 0 ∧ (Int.toBytes 4 v.toInt =@ a) m
+
+/-- The footprint on return: `*v_off` changed, within the bounds of `VOffW`. -/
 abbrev QmfFPost (d : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab : Mem 64 → Prop)
     (fs : QmfFns) (x : QmfArgs) (t : MachineData) : Mem 64 → Prop :=
-  QmfData d Ctx TxTab fs x t (4 ?@ x.vOff) ⋆ QmfArgCells d x t
+  QmfData d Ctx TxTab fs x t (VOffW x.vOff) ⋆ QmfArgCells d x t
 
 /-- The side conditions: `div ∈ {0, 1}`; `rsi` holds `mdct_fn`; the alignments
 the callees ask for (`X` 16; `mdct_buf`, `v0`, `out`, the window 32 — `mdct_buf`

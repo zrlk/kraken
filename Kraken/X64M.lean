@@ -241,6 +241,8 @@ def Operation.interpM {w} (i : Operation w) (p : Std.Rco Int64) : MachineM Unit 
     | _ => throw .undefinedFlags -- TODO: model undefined flags for bswap on W8/W16
   | .cltq =>
     modify (fun s => s.setReg (.low .rax .W64) ((s.regs.get (.low .rax .W32)).signExtend 64))
+  | .cltd =>
+    modify (fun s => s.setReg (.low .rdx .W32) ((s.regs.get (.low .rax .W32)).sshiftRight 31))
   -- A trap has no successor state; the straightline model claims nothing.
   | .ud1 _ _ | .ud2 | .int3 => throw (.unimplemented "trap")
   | .jcc cc l =>
@@ -265,7 +267,7 @@ def Operation.interpM {w} (i : Operation w) (p : Std.Rco Int64) : MachineM Unit 
   | nop _ | nopalign _ _ => pure ()
   -- TODO: the following instructions leave some status flags undefined; the
   -- straightline model throws rather than committing to a nondeterministic value.
-  | .mul .. | .imul1 .. | .imul .. | .test .. | .and .. | .or .. | .xor ..
+  | .mul .. | .imul1 .. | .imul .. | .div .. | .idiv .. | .test .. | .and .. | .or .. | .xor ..
   | .shl .. | .shr .. | .sar .. | .shld .. | .shrd ..
   | .rol .. | .ror .. | .rcl .. | .rcr .. => throw .undefinedFlags
 

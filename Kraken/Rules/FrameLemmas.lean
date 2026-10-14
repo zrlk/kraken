@@ -47,6 +47,112 @@ variable [CodeEnv] {p : Program} {Q : Unit → MachineData → Prop} {E : Int64 
       Reg64s.set_low64, Effects.All]
     simpa [Reg64s.get_low32] using hP)
 
+/-- `cltd` (`cdq`): `edx` becomes the sign of `eax` (all ones or all zeros), the upper half
+of `rdx` is cleared. -/
+@[spec] theorem cltd_spec (asz osz : Width) :
+    ⦃ fun s => WP.wp p Q E { s with regs := (s.regs.set64 .rdx
+        ((((s.regs.get64 .rax).setWidth 32).sshiftRight 31).setWidth 64)) } ⦄
+      (Directive.instr (.regular asz osz .cltd) :: p) ⦃ Q; E ⦄ :=
+  fallthrough_spec (fun s rng P hP => by
+    simp only [Directive.interp, Instr.interp, Operation.interp, MachineData.setReg,
+      Reg64s.set_low32, Effects.All]
+    simpa [Reg64s.get_low32] using hP)
+
+/-- The rule of a cell that falls through only under a side condition `C` (otherwise it traps)
+and leaves a value unspecified: the precondition is `C` and the tail's wp whatever the machine
+picks. -/
+theorem fallthrough_nondet_cond_spec {α : Type} [NondetSupportingType α] {i : Instr}
+    {C : MachineData → Prop} {f : MachineData → α → MachineData}
+    (hcell : ∀ (s : MachineData) (rng : Std.Rco Int64) (P : MachineState → Prop), C s →
+      (∀ v : α, P (f s v, 0)) → (@Directive.interp (_root_.Executable.labels cenv)
+        (Directive.instr i) s rng (fun s' => .done (s', 0))
+        (fun _ _ => .unimplemented "jump")).All P) :
+    ⦃ fun s => C s ∧ ∀ v : α, WP.wp p Q E (f s v) ⦄ (Directive.instr i :: p) ⦃ Q; E ⦄ :=
+  Triple.intro fun s h => by
+    intro pc hpl
+    obtain ⟨z, rest, hseg, hpl'⟩ := hpl
+    rw [after_instr hseg]
+    exact step_here hseg (Or.inl (hcell s _ _ h.1 (fun v => h.2 v _ hpl')))
+
+/-- `divl %r32`: `edx:eax` divided by `r32`, unsigned; the quotient and remainder are
+zero-extended into `rax` and `rdx`, the flags are arbitrary. The divisor must be nonzero and
+the quotient must fit in 32 bits (otherwise the instruction raises #DE). -/
+@[spec] theorem div32_reg_spec (asz : Width) (r : Reg64) :
+    ⦃ fun s =>
+        let n := ((s.regs.get64 .rdx).setWidth 32).toNat * 2 ^ 32
+          + ((s.regs.get64 .rax).setWidth 32).toNat
+        let d := ((s.regs.get64 r).setWidth 32).toNat
+        (d ≠ 0 ∧ n / d < 2 ^ 32) ∧ ∀ st : StatusFlags, WP.wp p Q E
+          { s with
+              regs := (s.regs.set64 .rax ((BitVec.ofNat 32 (n / d)).setWidth 64)).set64 .rdx
+                ((BitVec.ofNat 32 (n % d)).setWidth 64),
+              status := st } ⦄
+      (Directive.instr (.regular asz .W32 (.div (.reg (.low r .W32)))) :: p) ⦃ Q; E ⦄ :=
+  fallthrough_nondet_cond_spec (fun s rng P hC hP => by
+    simp only [Directive.interp, Instr.interp, Operation.interp, RegOrMem.interp,
+      MachineData.setReg, Reg64s.get_low32, Reg64s.set_low32, Effects.All]
+    simp only [Width.bits, show (Width.W32 == Width.W8) = false from rfl, Bool.false_eq_true,
+      ↓reduceIte, Nat.not_le.mpr hC.2, hC.1, false_or, Effects.All]
+    exact hP)
+
+/-- `divq %r64`: `rdx:rax` divided by `r64`, unsigned. As `div32_reg_spec`. -/
+@[spec] theorem div64_reg_spec (asz : Width) (r : Reg64) :
+    ⦃ fun s =>
+        let n := (s.regs.get64 .rdx).toNat * 2 ^ 64 + (s.regs.get64 .rax).toNat
+        let d := (s.regs.get64 r).toNat
+        (d ≠ 0 ∧ n / d < 2 ^ 64) ∧ ∀ st : StatusFlags, WP.wp p Q E
+          { s with
+              regs := (s.regs.set64 .rax (BitVec.ofNat 64 (n / d))).set64 .rdx
+                (BitVec.ofNat 64 (n % d)),
+              status := st } ⦄
+      (Directive.instr (.regular asz .W64 (.div (.reg (.low r .W64)))) :: p) ⦃ Q; E ⦄ :=
+  fallthrough_nondet_cond_spec (fun s rng P hC hP => by
+    simp only [Directive.interp, Instr.interp, Operation.interp, RegOrMem.interp,
+      MachineData.setReg, Reg64s.get_low64, Reg64s.set_low64, Effects.All]
+    simp only [Width.bits, show (Width.W64 == Width.W8) = false from rfl, Bool.false_eq_true,
+      ↓reduceIte, Nat.not_le.mpr hC.2, hC.1, false_or, Effects.All]
+    exact hP)
+
+/-- `idivl %r32`: `edx:eax` divided by `r32`, signed, truncating toward zero (`Int.tdiv`,
+`Int.tmod`); the quotient and remainder are zero-extended into `rax` and `rdx`, the flags are
+arbitrary. The divisor must be nonzero and the quotient must fit in 32 bits (otherwise the
+instruction raises #DE; `INT_MIN / -1` is such a case). -/
+@[spec] theorem idiv32_reg_spec (asz : Width) (r : Reg64) :
+    ⦃ fun s =>
+        let n := ((s.regs.get64 .rdx).setWidth 32).toInt * 2 ^ 32
+          + (((s.regs.get64 .rax).setWidth 32).toNat : Int)
+        let d := ((s.regs.get64 r).setWidth 32).toInt
+        (d ≠ 0 ∧ -2 ^ 31 ≤ n.tdiv d ∧ n.tdiv d < 2 ^ 31) ∧ ∀ st : StatusFlags, WP.wp p Q E
+          { s with
+              regs := (s.regs.set64 .rax ((BitVec.ofInt 32 (n.tdiv d)).setWidth 64)).set64 .rdx
+                ((BitVec.ofInt 32 (n.tmod d)).setWidth 64),
+              status := st } ⦄
+      (Directive.instr (.regular asz .W32 (.idiv (.reg (.low r .W32)))) :: p) ⦃ Q; E ⦄ :=
+  fallthrough_nondet_cond_spec (fun s rng P hC hP => by
+    simp only [Directive.interp, Instr.interp, Operation.interp, RegOrMem.interp,
+      MachineData.setReg, Reg64s.get_low32, Reg64s.set_low32, Effects.All]
+    simp only [Width.bits, show (Width.W32 == Width.W8) = false from rfl, Bool.false_eq_true,
+      ↓reduceIte, Int.not_lt.mpr hC.2.1, Int.not_le.mpr hC.2.2, hC.1, false_or, Effects.All]
+    exact hP)
+
+/-- `idivq %r64`: `rdx:rax` divided by `r64`, signed. As `idiv32_reg_spec`. -/
+@[spec] theorem idiv64_reg_spec (asz : Width) (r : Reg64) :
+    ⦃ fun s =>
+        let n := (s.regs.get64 .rdx).toInt * 2 ^ 64 + ((s.regs.get64 .rax).toNat : Int)
+        let d := (s.regs.get64 r).toInt
+        (d ≠ 0 ∧ -2 ^ 63 ≤ n.tdiv d ∧ n.tdiv d < 2 ^ 63) ∧ ∀ st : StatusFlags, WP.wp p Q E
+          { s with
+              regs := (s.regs.set64 .rax (BitVec.ofInt 64 (n.tdiv d))).set64 .rdx
+                (BitVec.ofInt 64 (n.tmod d)),
+              status := st } ⦄
+      (Directive.instr (.regular asz .W64 (.idiv (.reg (.low r .W64)))) :: p) ⦃ Q; E ⦄ :=
+  fallthrough_nondet_cond_spec (fun s rng P hC hP => by
+    simp only [Directive.interp, Instr.interp, Operation.interp, RegOrMem.interp,
+      MachineData.setReg, Reg64s.get_low64, Reg64s.set_low64, Effects.All]
+    simp only [Width.bits, show (Width.W64 == Width.W8) = false from rfl, Bool.false_eq_true,
+      ↓reduceIte, Int.not_lt.mpr hC.2.1, Int.not_le.mpr hC.2.2, hC.1, false_or, Effects.All]
+    exact hP)
+
 /-- A block from one fixed entry state: the logical variables of a call (the
 caller's memory subtrees, which mention the entry state) can then be named
 before `vcgen` steps to the call. -/

@@ -5,9 +5,10 @@ theorem blk_L9a85_2 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
   intro n
   refine Triple.pin fun s₀ hs₀ => ?_
   obtain ⟨hs, hn⟩ := hs₀
-  obtain ⟨ch, c0, hC, hrsp, hrbp, hbx, h15, h13, h12, h14, y, hK, hCy, v, hm⟩ := T.L9a85_2.mp hs
+  obtain ⟨ch, c0, hC, hrsp, hrbp, hbx, h15, h13, h12, h14, y, hK, hCy, v, hw1, hw2, hm⟩ := T.L9a85_2.mp hs
   clear hs
   have hK' := PLift.up hK; have hCy' := PLift.up hCy; clear hK hCy
+  have hW := PLift.up (⟨hw1, hw2⟩ : _ ∧ _); clear hw1 hw2
   have hR := PLift.up (⟨hrsp, hrbp, hbx, h15, h13, h12, h14⟩ : _ ∧ _ ∧ _ ∧ _ ∧ _ ∧ _ ∧ _)
   simp only [Mm] at hm
   rw [res_args k hk] at hm
@@ -38,7 +39,7 @@ theorem blk_L9a85_2 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
     obtain ⟨hrsp, hrbp, hbx, h15, h13, h12, h14⟩ := hR.down
     refine ⟨?_, by var_step⟩
     rw [T.L9a85_3]
-    refine ⟨ch, c0, hC, ?_, ?_, ?_, ?_, ?_, ?_, ?_, y, hK'.down, hCy'.down, ?_, ?_, ?_, ?_, ?_, ?_, v, ?_⟩
+    refine ⟨ch, c0, hC, ?_, ?_, ?_, ?_, ?_, ?_, ?_, y, hK'.down, hCy'.down, ?_, ?_, ?_, ?_, ?_, ?_, v, hW.down.1, hW.down.2, ?_⟩
     all_goals try (simp only [Reg64s.get64_set64, reduceCtorEq, ite_true, ite_false, hrsp, hrbp, hbx, h15, h13, h12, h14,
         BitVec.ofInt_ofBytes_toBytes 64 8 rfl, Int64.ofBitVec_toBitVec, sbrA, arg0, arg1, arg3, arg4,
         BitVec.add_assoc, BitVec.reduceAdd, Int64.toBitVec_ofNat_norm, BitVec.ofNat_eq_ofNat]; done)
@@ -54,7 +55,7 @@ theorem blk_L9a85_2 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
     · simp only [lex_var] at hn ⊢; exact hn
     · simp only [lex_var]; decide
     rw [T.L9b24]
-    refine ⟨ch, c0, hC, ⟨?_, ?_⟩, y.setV0 v, hK'.down, ?_⟩
+    refine ⟨ch, c0, hC, ⟨?_, ?_⟩, y.setV0 v, hK'.down, applyc_setV0 hCy'.down hW.down.1 hW.down.2, ?_⟩
     all_goals try (simp only [Reg64s.get64_set64, reduceCtorEq, ite_true, ite_false, hrsp, hrbp, hbx, h15, h13, h12, h14,
         BitVec.ofInt_ofBytes_toBytes 64 8 rfl, Int64.ofBitVec_toBitVec, sbrA, arg0, arg1, arg3, arg4,
         BitVec.add_assoc, BitVec.reduceAdd, Int64.toBitVec_ofNat_norm, BitVec.ofNat_eq_ofNat]; done)

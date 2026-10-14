@@ -18,12 +18,46 @@ set_option linter.unusedSimpArgs false
 
 /-! ## Syn helper lemmas (apply) -/
 
-/-- Re-packing the footprint at values `y` (that `Keep` the pointers of `x`) as `ApplyFPost`. -/
+/-- Re-packing the footprint at values `y` (that `Keep` the pointers of `x`, with `SbrWF y`)
+as `ApplyFPost`. -/
 theorem fpost_of {e : Env} {x y : Args} {t : MachineData} {A K : Mem 64 → Prop} {m : Mem 64}
-    (hK : x.Keep y) (h : m =⋆ A ⋆ (ApplyF e y t ⋆ K)) : m =⋆ A ⋆ (ApplyFPost e x t ⋆ K) := by
+    (hK : x.Keep y) (hw : SbrWF y) (h : m =⋆ A ⋆ (ApplyF e y t ⋆ K)) :
+    m =⋆ A ⋆ (ApplyFPost e x t ⋆ K) := by
   obtain ⟨a, b, hu, hi, ha, c, d, hu', hi', hc, hd⟩ := h
-  obtain ⟨-, -, hf, he, -, ha', hs, hr, hD⟩ := hK
-  exact ⟨a, b, hu, hi, ha, c, d, hu', hi', ⟨y, he, hf, ha', hs, hr, hD, hc⟩, hd⟩
+  obtain ⟨-, hav, hf, he, hps, ha', hs, hr, hD⟩ := hK
+  exact ⟨a, b, hu, hi, ha, c, d, hu', hi', ⟨y, he, hf, ha', hs, hr, hD, hw, hav, hps, hc⟩, hd⟩
+
+/-- `DWF` with a new `synthesis_filterbank_samples_offset` within its bounds. -/
+theorem dwf_setVOff {live : Prop} {d : DV} {v : BitVec 32} (hw : DWF live d)
+    (h1 : v.toInt ≤ 1664) (h2 : v.toNat % 8 = 0) : DWF live { d with vOff := v } := by
+  obtain ⟨b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, -, -, b16⟩ := hw
+  exact ⟨b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, h1, h2, b16⟩
+
+/-- `SbrWF` after channel 0's synthesis (`*v_off` as `QmfFPost`'s `VOffW` returns it). -/
+theorem sbrwf_setV0 {y : Args} {v : BitVec 32} (hw : SbrWF y) (h1 : v.toInt ≤ 1664)
+    (h2 : v.toNat % 8 = 0) : SbrWF (y.setV0 v) := by
+  obtain ⟨a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16⟩ := hw
+  exact ⟨a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, dwf_setVOff a14 h1 h2, a15, a16⟩
+
+/-- `SbrWF` after channel 1's synthesis. -/
+theorem sbrwf_setV1 {y : Args} {v : BitVec 32} (hw : SbrWF y) (h1 : v.toInt ≤ 1664)
+    (h2 : v.toNat % 8 = 0) : SbrWF (y.setV1 v) := by
+  obtain ⟨a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16⟩ := hw
+  exact ⟨a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, dwf_setVOff a15 h1 h2, a16⟩
+
+theorem applyc_setV0 {y : Args} {t : MachineData} {v : BitVec 32} (h : ApplyC y t)
+    (h1 : v.toInt ≤ 1664) (h2 : v.toNat % 8 = 0) : ApplyC (y.setV0 v) t :=
+  ⟨sbrwf_setV0 h.1 h1 h2, h.2⟩
+
+theorem applyc_setV1 {y : Args} {t : MachineData} {v : BitVec 32} (h : ApplyC y t)
+    (h1 : v.toInt ≤ 1664) (h2 : v.toNat % 8 = 0) : ApplyC (y.setV1 v) t :=
+  ⟨sbrwf_setV1 h.1 h1 h2, h.2⟩
+
+/-- The `*v_off` cell `sbr_qmf_synthesis` returns (`VOffW`): some value within `DWF`'s bounds. -/
+theorem voffw_cell {a : BitVec 64} {F : Mem 64 → Prop} {m : Mem 64} (h : m =⋆ VOffW a ⋆ F) :
+    ∃ v : BitVec 32, v.toInt ≤ 1664 ∧ v.toNat % 8 = 0 ∧ (m =⋆ cell4 a v ⋆ F) := by
+  obtain ⟨m₁, m₂, hu, hi, ⟨v, h1, h2, hc⟩, hF⟩ := h
+  exact ⟨v, h1, h2, m₁, m₂, hu, hi, hc, hF⟩
 
 
 /-- The callees' area with four 8-byte cells (the stack arguments of `sbr_qmf_synthesis`) carved off its top. -/
@@ -384,9 +418,9 @@ theorem blk_L676e (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
   obtain ⟨hs, hn⟩ := hs₀
   obtain ⟨hC, ⟨hrsp, hrbp⟩, h9, x', hx', hbl, hp, hid, hm⟩ := T.L676e.mp hs
   clear hs
-  have hK : x.Keep x'.push ∧ IdLive t₀ x'.push := ⟨by rcases hx' with rfl | rfl <;> exact Args.Keep.rfl', hid⟩
+  have hK : x.Keep x'.push ∧ IdLive t₀ x'.push := ⟨by rcases hx' with rfl | rfl <;> first | exact Args.Keep.rfl'.push | exact Args.Keep.rfl'.turnoff.push, hid⟩
   have hid' := PLift.up hid; clear hid
-  have hC' : ApplyC x'.push t₀ := by rcases hx' with rfl | rfl <;> first | exact hC.push | exact hC.turnoff.push
+  have hC' : ApplyC x'.push t₀ := by rcases hx' with rfl | rfl <;> first | exact hC.push | exact hC.turnoff.spSet.push
   have hK' := PLift.up hK; have hC'' := PLift.up hC'; clear hK hC'
   simp only [Mm, ApplyF, ScW, sbrA, arg1, BitVec.add_assoc, BitVec.reduceAdd] at hm h9
   simp only [B.L676e]
@@ -539,7 +573,7 @@ theorem blk_L6797_1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
     rotate_left
     · var_step
     rw [T.L6817]
-    refine ⟨hC, ⟨?_, ?_⟩, ?_, ?_, x.turnoff, Or.inr rfl, IdLive.turnoff, ?_⟩
+    refine ⟨hC, ⟨?_, ?_⟩, ?_, ?_, x.turnoff.spSet, Or.inr rfl, (IdLive.turnoff).spSet, ?_⟩
     all_goals try (simp only [Reg64s.get64_set64, reduceCtorEq, ite_true, ite_false, hrsp, hrbp, and_self, arg1]; done)
     all_goals try (simp only [Reg64s.get64_set64, ite_true, setWidth8_replaceLow, e8]; done)
     have h8 : Int.toBytes 8 (BitVec.setWidth 64 0#64).toInt
@@ -548,14 +582,16 @@ theorem blk_L6797_1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
     have e32 : (BitVec.setWidth 32 32#64).toInt = ((32 : Nat) : Int) := by decide
     rw [h8, Val.append_eq _ _ _ (t₀.regs.get64 .rsi + 166184#64) (by simp only [Int.toBytes_length,
       BitVec.add_assoc, BitVec.reduceAdd]) (by simp only [Int.toBytes_length]; decide)] at hm
-    simp only [e0, e32] at hm
-    have hT : TabW x.turnoff t₀ = TabW x t₀ := rfl
-    have hF : FnW e x.turnoff t₀ = FnW e x t₀ := rfl
-    have hA : AcW x.turnoff t₀ = AcW x t₀ := rfl
-    have hO : OutW x.turnoff t₀ = OutW x t₀ := rfl
-    have hP : PsW x.turnoff t₀ = PsW x t₀ := rfl
+    have es32 : BitVec.setWidth 32 4294967295#64 = BitVec.allOnes 32 := by decide
+    have es16 : BitVec.setWidth 16 65535#64 = BitVec.allOnes 16 := by decide
+    simp only [e0, e32, es32, es16] at hm
+    have hT : TabW x.turnoff.spSet t₀ = TabW x t₀ := rfl
+    have hF : FnW e x.turnoff.spSet t₀ = FnW e x t₀ := rfl
+    have hA : AcW x.turnoff.spSet t₀ = AcW x t₀ := rfl
+    have hO : OutW x.turnoff.spSet t₀ = OutW x t₀ := rfl
+    have hP : PsW x.turnoff.spSet t₀ = PsW x t₀ := rfl
     simp only [Mm, ApplyF, hT, hF, hA, hO, hP]
-    simp only [ScW, DScW, FrD, sbrA, dA, Args.d, Args.turnoff, arg1, BitVec.add_assoc,
+    simp only [ScW, DScW, FrD, sbrA, dA, Args.d, Args.turnoff, Args.spSet, arg1, BitVec.add_assoc,
       BitVec.reduceAdd, BitVec.ofNat_eq_ofNat, Nat.reduceMul, Nat.reduceAdd]
     sep_close hm
 
@@ -616,9 +652,9 @@ theorem blk_L6825 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
   obtain ⟨hs, hn⟩ := hs₀
   obtain ⟨hC, ⟨hrsp, hrbp⟩, h9, x', hx', hbl, hp, hid, hm⟩ := T.L6825.mp hs
   clear hs
-  have hK : x.Keep x'.push ∧ IdLive t₀ x'.push := ⟨by rcases hx' with rfl | rfl <;> exact Args.Keep.rfl', hid⟩
+  have hK : x.Keep x'.push ∧ IdLive t₀ x'.push := ⟨by rcases hx' with rfl | rfl <;> first | exact Args.Keep.rfl'.push | exact Args.Keep.rfl'.turnoff.push, hid⟩
   have hid' := PLift.up hid; clear hid
-  have hC' : ApplyC x'.push t₀ := by rcases hx' with rfl | rfl <;> first | exact hC.push | exact hC.turnoff.push
+  have hC' : ApplyC x'.push t₀ := by rcases hx' with rfl | rfl <;> first | exact hC.push | exact hC.turnoff.spSet.push
   have hK' := PLift.up hK; have hC'' := PLift.up hC'; clear hK hC'
   simp only [Mm, ApplyF, ScW, sbrA, arg1, BitVec.add_assoc, BitVec.reduceAdd] at hm h9
   have hp' : ¬ x'.pushed = 0#32 := hp
@@ -913,14 +949,16 @@ theorem blk_L6f32_1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
   have e32 : (BitVec.setWidth 32 32#64).toInt = ((32 : Nat) : Int) := by decide
   rw [h8, Val.append_eq _ _ _ (t₀.regs.get64 .rsi + 166184#64) (by simp only [Int.toBytes_length,
     BitVec.add_assoc, BitVec.reduceAdd]) (by simp only [Int.toBytes_length]; decide)] at hm
-  simp only [e0, e32] at hm
-  have hT : TabW x.turnoff t₀ = TabW x t₀ := rfl
-  have hF : FnW e x.turnoff t₀ = FnW e x t₀ := rfl
-  have hA : AcW x.turnoff t₀ = AcW x t₀ := rfl
-  have hO : OutW x.turnoff t₀ = OutW x t₀ := rfl
-  have hP : PsW x.turnoff t₀ = PsW x t₀ := rfl
+  have es32 : BitVec.setWidth 32 4294967295#64 = BitVec.allOnes 32 := by decide
+  have es16 : BitVec.setWidth 16 65535#64 = BitVec.allOnes 16 := by decide
+  simp only [e0, e32, es32, es16] at hm
+  have hT : TabW x.turnoff.spSet t₀ = TabW x t₀ := rfl
+  have hF : FnW e x.turnoff.spSet t₀ = FnW e x t₀ := rfl
+  have hA : AcW x.turnoff.spSet t₀ = AcW x t₀ := rfl
+  have hO : OutW x.turnoff.spSet t₀ = OutW x t₀ := rfl
+  have hP : PsW x.turnoff.spSet t₀ = PsW x t₀ := rfl
   simp only [Mm, ApplyF, hT, hF, hA, hO, hP]
-  simp only [ScW, DScW, FrD, sbrA, dA, Args.d, Args.turnoff, arg1, BitVec.add_assoc,
+  simp only [ScW, DScW, FrD, sbrA, dA, Args.d, Args.turnoff, Args.spSet, arg1, BitVec.add_assoc,
     BitVec.reduceAdd, BitVec.ofNat_eq_ofNat, Nat.reduceMul, Nat.reduceAdd]
   sep_close hm
 
@@ -937,7 +975,7 @@ theorem blk_L6f32_2 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
   obtain ⟨hC, ⟨hrsp, hrbp⟩, h9, hb, hm⟩ := T.L6f32_2.mp hs
   clear hs
   simp only [Mm, ApplyF, ScW, sbrA, arg1, BitVec.add_assoc, BitVec.reduceAdd] at hm h9
-  have hp0 := BitVec.ofInt_ofBytes_toBytes 32 4 rfl x.turnoff.pushed
+  have hp0 := BitVec.ofInt_ofBytes_toBytes 32 4 rfl x.turnoff.spSet.pushed
   simp only [B.L6f32_2]
   have z : ∀ a : BitVec 64, a + 0 = a := fun a => BitVec.add_zero a
   try (have p_hm : PLift _ := ⟨hm⟩; clear hm)
@@ -962,7 +1000,7 @@ theorem blk_L6f32_2 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
                  refine ⟨isSome_at L.L676e, ?_, ?_⟩; rw [T.L676e])
   all_goals try (left; goal_has_str "ff_aac_sbr_apply.L6825"; refine Table.ofLabels_at (l := "ff_aac_sbr_apply.L6825") ?_
                  refine ⟨isSome_at L.L6825, ?_, ?_⟩; rw [T.L6825])
-  all_goals try (refine ⟨hC, ⟨?_, ?_⟩, ?_, x.turnoff, Or.inr rfl, Or.inl hb, by assumption, IdLive.turnoff, ?_⟩)
+  all_goals try (refine ⟨hC, ⟨?_, ?_⟩, ?_, x.turnoff.spSet, Or.inr rfl, Or.inl hb, by assumption, (IdLive.turnoff).spSet, ?_⟩)
   all_goals try (simp only [Reg64s.get64_set64, reduceCtorEq, ite_true, ite_false, hrsp, hrbp, and_self, h9, arg1]; done)
   all_goals try (simp only [Mm, ApplyF, ScW, FrD, sbrA, arg0, arg1, arg3, arg4, BitVec.add_assoc,
     BitVec.reduceAdd] at hm ⊢; sep_close hm)
@@ -1700,13 +1738,13 @@ theorem blk_L9a85_1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
       have e := hRc'.down; subst e
       try simp only [syn_subadd _ _ _ (by decide : 8 ≤ 496) (by decide), Nat.reduceSub] at hrsp'
       obtain ⟨hb', h12', h13', h14', h15'⟩ := hsv
-      sep_pull hm' [4 ?@ (t₀.regs.get64 .rsi + 180896#64)] as F hF
-      obtain ⟨v, hm2⟩ := blk4_cell hm'
+      sep_pull hm' [VOffW (t₀.regs.get64 .rsi + 180896#64)] as F hF
+      obtain ⟨v, hw1, hw2, hm2⟩ := voffw_cell hm'
       subst hF
       refine MachineWP.nil_spec.le_wp s' ?_
       refine ⟨?_, by var_step⟩
       rw [T.L9a85_2]
-      refine ⟨ch, c0, hC, by rw [hrsp']; bv_omega, hrbp', ?_, ?_, ?_, ?_, ?_, y, hK, hCy, v, ?_⟩
+      refine ⟨ch, c0, hC, by rw [hrsp']; bv_omega, hrbp', ?_, ?_, ?_, ?_, ?_, y, hK, hCy, v, hw1, hw2, ?_⟩
       · rw [hb']; try simp only [MachineData.pushRa, Reg64s.get64_set64, reduceCtorEq, ite_true, ite_false, hbx, arg1]
       · rw [h15']; try simp only [MachineData.pushRa, Reg64s.get64_set64, reduceCtorEq, ite_true, ite_false, h15, arg0]
       · rw [h13']; try simp only [MachineData.pushRa, Reg64s.get64_set64, reduceCtorEq, ite_true, ite_false, h13, sbrA,
@@ -1794,13 +1832,13 @@ theorem blk_L9a85_1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
       have e := hRc'.down; subst e
       try simp only [syn_subadd _ _ _ (by decide : 8 ≤ 496) (by decide), Nat.reduceSub] at hrsp'
       obtain ⟨hb', h12', h13', h14', h15'⟩ := hsv
-      sep_pull hm' [4 ?@ (t₀.regs.get64 .rsi + 180896#64)] as F hF
-      obtain ⟨v, hm2⟩ := blk4_cell hm'
+      sep_pull hm' [VOffW (t₀.regs.get64 .rsi + 180896#64)] as F hF
+      obtain ⟨v, hw1, hw2, hm2⟩ := voffw_cell hm'
       subst hF
       refine MachineWP.nil_spec.le_wp s' ?_
       refine ⟨?_, by var_step⟩
       rw [T.L9a85_2]
-      refine ⟨ch, c0, hC, by rw [hrsp']; bv_omega, hrbp', ?_, ?_, ?_, ?_, ?_, y, hK, hCy, v, ?_⟩
+      refine ⟨ch, c0, hC, by rw [hrsp']; bv_omega, hrbp', ?_, ?_, ?_, ?_, ?_, y, hK, hCy, v, hw1, hw2, ?_⟩
       · rw [hb']; try simp only [MachineData.pushRa, Reg64s.get64_set64, reduceCtorEq, ite_true, ite_false, hbx, arg1]
       · rw [h15']; try simp only [MachineData.pushRa, Reg64s.get64_set64, reduceCtorEq, ite_true, ite_false, h15, arg0]
       · rw [h13']; try simp only [MachineData.pushRa, Reg64s.get64_set64, reduceCtorEq, ite_true, ite_false, h13, sbrA,
@@ -1843,9 +1881,10 @@ theorem blk_L9a85_2 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
   intro n
   refine Triple.pin fun s₀ hs₀ => ?_
   obtain ⟨hs, hn⟩ := hs₀
-  obtain ⟨ch, c0, hC, hrsp, hrbp, hbx, h15, h13, h12, h14, y, hK, hCy, v, hm⟩ := T.L9a85_2.mp hs
+  obtain ⟨ch, c0, hC, hrsp, hrbp, hbx, h15, h13, h12, h14, y, hK, hCy, v, hw1, hw2, hm⟩ := T.L9a85_2.mp hs
   clear hs
   have hK' := PLift.up hK; have hCy' := PLift.up hCy; clear hK hCy
+  have hW := PLift.up (⟨hw1, hw2⟩ : _ ∧ _); clear hw1 hw2
   have hR := PLift.up (⟨hrsp, hrbp, hbx, h15, h13, h12, h14⟩ : _ ∧ _ ∧ _ ∧ _ ∧ _ ∧ _ ∧ _)
   simp only [Mm] at hm
   rw [res_args k hk] at hm
@@ -1880,7 +1919,7 @@ theorem blk_L9a85_2 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
     obtain ⟨hrsp, hrbp, hbx, h15, h13, h12, h14⟩ := hR.down
     refine ⟨?_, by var_step⟩
     rw [T.L9a85_3]
-    refine ⟨ch, c0, hC, ?_, ?_, ?_, ?_, ?_, ?_, ?_, y, hK'.down, hCy'.down, ?_, ?_, ?_, ?_, ?_, ?_, v, ?_⟩
+    refine ⟨ch, c0, hC, ?_, ?_, ?_, ?_, ?_, ?_, ?_, y, hK'.down, hCy'.down, ?_, ?_, ?_, ?_, ?_, ?_, v, hW.down.1, hW.down.2, ?_⟩
     all_goals try (simp only [Reg64s.get64_set64, reduceCtorEq, ite_true, ite_false, hrsp, hrbp, hbx, h15, h13, h12, h14,
         BitVec.ofInt_ofBytes_toBytes 64 8 rfl, Int64.ofBitVec_toBitVec, sbrA, arg0, arg1, arg3, arg4,
         BitVec.add_assoc, BitVec.reduceAdd, Int64.toBitVec_ofNat_norm, BitVec.ofNat_eq_ofNat]; done)
@@ -1896,7 +1935,7 @@ theorem blk_L9a85_2 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
     · simp only [lex_var] at hn ⊢; exact hn
     · simp only [lex_var]; decide
     rw [T.L9b24]
-    refine ⟨ch, c0, hC, ⟨?_, ?_⟩, y.setV0 v, hK'.down, ?_⟩
+    refine ⟨ch, c0, hC, ⟨?_, ?_⟩, y.setV0 v, hK'.down, applyc_setV0 hCy'.down hW.down.1 hW.down.2, ?_⟩
     all_goals try (simp only [Reg64s.get64_set64, reduceCtorEq, ite_true, ite_false, hrsp, hrbp, hbx, h15, h13, h12, h14,
         BitVec.ofInt_ofBytes_toBytes 64 8 rfl, Int64.ofBitVec_toBitVec, sbrA, arg0, arg1, arg3, arg4,
         BitVec.add_assoc, BitVec.reduceAdd, Int64.toBitVec_ofNat_norm, BitVec.ofNat_eq_ofNat]; done)
@@ -1918,7 +1957,7 @@ theorem blk_L9a85_3 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
   intro n
   refine Triple.pin fun s₀ hs₀ => ?_
   obtain ⟨hs, hn⟩ := hs₀
-  obtain ⟨ch, c0, hC, hrsp, hrbp, hbx, h15, h13, h12, h14, y, hK, hCy, hdi, hsi, hcx, hdx, h8, h9, v, hm⟩ :=
+  obtain ⟨ch, c0, hC, hrsp, hrbp, hbx, h15, h13, h12, h14, y, hK, hCy, hdi, hsi, hcx, hdx, h8, h9, v, hw1, hw2, hm⟩ :=
     T.L9a85_3.mp hs
   clear hs
   have hdy : dsN y = dsN x := by simp only [dsN, hK.2.2.2.1, hK.2.2.2.2.2.2.2]
@@ -1999,13 +2038,14 @@ theorem blk_L9a85_3 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
       have e := hRc'.down; subst e
       try simp only [syn_subadd _ _ _ (by decide : 8 ≤ 496) (by decide), Nat.reduceSub] at hrsp'
       obtain ⟨hb', h12', h13', h14', h15'⟩ := hsv
-      sep_pull hm' [4 ?@ (t₀.regs.get64 .rsi + 269664#64)] as F hF
-      obtain ⟨v', hm2⟩ := blk4_cell hm'
+      sep_pull hm' [VOffW (t₀.regs.get64 .rsi + 269664#64)] as F hF
+      obtain ⟨v', hw1', hw2', hm2⟩ := voffw_cell hm'
       subst hF
       refine MachineWP.nil_spec.le_wp s' ?_
       refine ⟨?_, by var_step⟩
       rw [T.L9a85_4]
-      refine ⟨ch, c0, hC, by rw [hrsp']; bv_omega, hrbp', (y.setV0 v).setV1 v', hK, ?_⟩
+      refine ⟨ch, c0, hC, by rw [hrsp']; bv_omega, hrbp', (y.setV0 v).setV1 v', hK,
+        applyc_setV1 (applyc_setV0 hCy hw1 hw2) hw1' hw2', ?_⟩
       simp only [Mm, ApplyF]
       rw [show ScW ((y.setV0 v).setV1 v') t₀ = ScW y t₀ from rfl, show TabW ((y.setV0 v).setV1 v') t₀ = TabW y t₀ from rfl,
         show AcW ((y.setV0 v).setV1 v') t₀ = AcW y t₀ from rfl, show OutW ((y.setV0 v).setV1 v') t₀ = OutW y t₀ from rfl,
@@ -2086,13 +2126,14 @@ theorem blk_L9a85_3 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
       have e := hRc'.down; subst e
       try simp only [syn_subadd _ _ _ (by decide : 8 ≤ 496) (by decide), Nat.reduceSub] at hrsp'
       obtain ⟨hb', h12', h13', h14', h15'⟩ := hsv
-      sep_pull hm' [4 ?@ (t₀.regs.get64 .rsi + 269664#64)] as F hF
-      obtain ⟨v', hm2⟩ := blk4_cell hm'
+      sep_pull hm' [VOffW (t₀.regs.get64 .rsi + 269664#64)] as F hF
+      obtain ⟨v', hw1', hw2', hm2⟩ := voffw_cell hm'
       subst hF
       refine MachineWP.nil_spec.le_wp s' ?_
       refine ⟨?_, by var_step⟩
       rw [T.L9a85_4]
-      refine ⟨ch, c0, hC, by rw [hrsp']; bv_omega, hrbp', (y.setV0 v).setV1 v', hK, ?_⟩
+      refine ⟨ch, c0, hC, by rw [hrsp']; bv_omega, hrbp', (y.setV0 v).setV1 v', hK,
+        applyc_setV1 (applyc_setV0 hCy hw1 hw2) hw1' hw2', ?_⟩
       simp only [Mm, ApplyF]
       rw [show ScW ((y.setV0 v).setV1 v') t₀ = ScW y t₀ from rfl, show TabW ((y.setV0 v).setV1 v') t₀ = TabW y t₀ from rfl,
         show AcW ((y.setV0 v).setV1 v') t₀ = AcW y t₀ from rfl, show OutW ((y.setV0 v).setV1 v') t₀ = OutW y t₀ from rfl,
@@ -2128,12 +2169,12 @@ theorem blk_L9a85_4 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
   intro n
   refine Triple.pin fun s₀ hs₀ => ?_
   obtain ⟨hs, hn⟩ := hs₀
-  obtain ⟨ch, c0, hC, hrsp, hrbp, y, hK, hm⟩ := T.L9a85_4.mp hs
+  obtain ⟨ch, c0, hC, hrsp, hrbp, y, hK, hCy, hm⟩ := T.L9a85_4.mp hs
   clear hs
   have hK' := PLift.up hK; clear hK
   simp only [Mm] at hm
   rw [show y.R = x.R from hK'.down.1] at hm
-  have hm' := fpost_of hK'.down hm
+  have hm' := fpost_of hK'.down hCy.1 hm
   clear hm
   simp only [B.L9a85_4]
   have z : ∀ a : BitVec 64, a + 0 = a := fun a => BitVec.add_zero a
@@ -2166,12 +2207,12 @@ theorem blk_L9b24 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
   intro n
   refine Triple.pin fun s₀ hs₀ => ?_
   obtain ⟨hs, hn⟩ := hs₀
-  obtain ⟨ch, c0, hC, ⟨hrsp, hrbp⟩, y, hK, hm⟩ := T.L9b24.mp hs
+  obtain ⟨ch, c0, hC, ⟨hrsp, hrbp⟩, y, hK, hCy, hm⟩ := T.L9b24.mp hs
   clear hs
   have hK' := PLift.up hK; clear hK
   simp only [Mm] at hm
   rw [show y.R = x.R from hK'.down.1] at hm
-  have hm' := fpost_of hK'.down hm
+  have hm' := fpost_of hK'.down hCy.1 hm
   clear hm
   simp only [B.L9b24]
   have z : ∀ a : BitVec 64, a + 0 = a := fun a => BitVec.add_zero a

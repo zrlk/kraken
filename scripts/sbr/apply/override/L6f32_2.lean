@@ -8,7 +8,7 @@ theorem blk_L6f32_2 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
   obtain ⟨hC, ⟨hrsp, hrbp⟩, h9, hb, hm⟩ := T.L6f32_2.mp hs
   clear hs
   simp only [Mm, ApplyF, ScW, sbrA, arg1, BitVec.add_assoc, BitVec.reduceAdd] at hm h9
-  have hp0 := BitVec.ofInt_ofBytes_toBytes 32 4 rfl x.turnoff.pushed
+  have hp0 := BitVec.ofInt_ofBytes_toBytes 32 4 rfl x.turnoff.spSet.pushed
   simp only [B.L6f32_2]
   have z : ∀ a : BitVec 64, a + 0 = a := fun a => BitVec.add_zero a
   vcgen
@@ -29,7 +29,7 @@ theorem blk_L6f32_2 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
                  refine ⟨isSome_at L.L676e, ?_, ?_⟩; rw [T.L676e])
   all_goals try (left; goal_has_str "ff_aac_sbr_apply.L6825"; refine Table.ofLabels_at (l := "ff_aac_sbr_apply.L6825") ?_
                  refine ⟨isSome_at L.L6825, ?_, ?_⟩; rw [T.L6825])
-  all_goals try (refine ⟨hC, ⟨?_, ?_⟩, ?_, x.turnoff, Or.inr rfl, Or.inl hb, by assumption, IdLive.turnoff, ?_⟩)
+  all_goals try (refine ⟨hC, ⟨?_, ?_⟩, ?_, x.turnoff.spSet, Or.inr rfl, Or.inl hb, by assumption, (IdLive.turnoff).spSet, ?_⟩)
   all_goals try (simp only [Reg64s.get64_set64, reduceCtorEq, ite_true, ite_false, hrsp, hrbp, and_self, h9, arg1]; done)
   all_goals try (simp only [Mm, ApplyF, ScW, FrD, sbrA, arg0, arg1, arg3, arg4, BitVec.add_assoc,
     BitVec.reduceAdd] at hm ⊢; sep_close hm)
