@@ -1,4 +1,5 @@
 import Kraken.X64.Examples.Sbr.Parse.HdrText
+import Kraken.X64.Examples.Sbr.ParseModel
 
 /-!
 # `read_sbr_header`: the specification

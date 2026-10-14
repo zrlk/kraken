@@ -121,7 +121,11 @@ theorem blk_entry (k : Nat) (hk : k ≤ 2 ^ 32) (Ext : Mem 64 → Prop) (x : EAr
     intro n
     refine Triple.pin fun s₀ hs₀ => ?_
     obtain ⟨⟨rfl, hC, hm⟩, hn⟩ := hs₀
-    rw [envNeed, Reserve_split 0xb0 k _ (by omega)] at hm
+    have hw : 0xb0 ≤ (s₀.regs.get64 .rsp).toNat := by
+      have := (show envNeed k ≤ (s₀.regs.get64 .rsp).toNat by
+        obtain ⟨_, _, _, _, _, _, _, _, _, h1, _⟩ := hm; exact h1.1)
+      unfold envNeed at this; omega
+    rw [envNeed, Reserve_split 0xb0 k _ hw] at hm
     have h0 : s₀.dmem =⋆ 0xb0 ?@ (s₀.regs.get64 .rsp - 0xb0#64)
         ⋆ (Reserve k (s₀.regs.get64 .rsp - 0xb0#64) ⋆ (EF Ext x s₀ x.idx ⋆ Rest x.R ra s₀)) := by
       simp only [Rest]; exact Mem.ac hm

@@ -67,10 +67,11 @@ theorem shD_ChW (d : BitVec 64) (st : GSt) (hf : st.fr.length = 9) (ht : st.te.l
   simp only [ChW, ChB, shD_FrB d _ hf, shD_TeB d _ ht, shD_TqB d _ hq, shD_ea,
     Std.ExtHashMap.sep_assoc]
 
-theorem shD_reserve_frame (k : Nat) (hk : k ≤ 2 ^ 32) (r : BitVec 64) (K : Mem 64 → Prop) :
+theorem shD_reserve_frame (k : Nat) (r : BitVec 64) (hw : 0x30 ≤ r.toNat)
+    (K : Mem 64 → Prop) :
     Reserve (0x30 + k) r ⋆ K
       = 8 ?@ (r - 0x30#64) ⋆ (Reserve k (r - 0x30#64) ⋆ (0x28 ?@ (r - 0x28#64) ⋆ K)) :=
-  Reserve_split_frame 0x30 k (by decide) (by omega) r K
+  Reserve_split_frame 0x30 k (by decide) r hw K
 
 theorem shD_split8 (a : BitVec 64) (n : Nat) (hw : n + 8 ≤ 2 ^ 64) :
     (n + 8) ?@ a = 8 ?@ a ⋆ n ?@ (a + 8#64) := by
@@ -102,30 +103,34 @@ theorem shD_GF (Ext : Mem 64 → Prop) (x : GArgs) (t : MachineData) (st : GSt)
   rw [← shD_ChW _ st hf ht hq]
 
 /-- `GridPre` → the table's entry assertion. -/
-theorem grid_pre (k : Nat) (hk : k ≤ 2 ^ 32) (Ext : Mem 64 → Prop) :
+theorem grid_pre (k : Nat) (Ext : Mem 64 → Prop) :
     ∀ x ra t, GridPre k Ext x ra t → table k Ext x ra t "read_sbr_grid" t := by
   rintro x ra t ⟨hm, hC⟩
+  have hw : 0x30 ≤ (t.regs.get64 .rsp).toNat := by
+    have := CallPre.le hm; unfold gridNeed at this; omega
   dsimp only [reduceTable]
   refine ⟨rfl, hC, ?_⟩
   have hD := hC.1
   rw [shD_GF Ext x t x.st hD.1 hD.2.2.1 hD.2.2.2.1] at hm
   simp only [CallPre, gridNeed] at hm
-  rw [shD_reserve_frame k hk] at hm
+  rw [shD_reserve_frame k _ hw] at hm
   simp only [T, Rest]
   rw [← shD_frame_cells]
   exact Mem.ac hm
 
 /-- `Post'` → `GridPost`. -/
-theorem grid_post (k : Nat) (hk : k ≤ 2 ^ 32) (Ext : Mem 64 → Prop) :
-    ∀ x ra t₀ s, Post' k Ext x ra t₀ s → GridPost k Ext x ra t₀ s := by
-  rintro x ra t₀ s ⟨st, hO, h1, h2, h3, hm⟩
+theorem grid_post (k : Nat) (Ext : Mem 64 → Prop) :
+    ∀ x ra t₀ s, GridPre k Ext x ra t₀ → Post' k Ext x ra t₀ s → GridPost k Ext x ra t₀ s := by
+  rintro x ra t₀ s hp ⟨st, hO, h1, h2, h3, hm⟩
+  have hw : 0x30 ≤ (t₀.regs.get64 .rsp).toNat := by
+    have := CallPre.le hp.1; unfold gridNeed at this; omega
   have hD := hO.1
   refine ⟨st, hO, h1, h2, h3, ?_⟩
   have hm' := Mem.Entails.sep_left (Mem.Entails.sep_left (Mem.Entails.sep_left
     (shD_Saved_blank t₀ _))) _ hm
   rw [← shD_frame_cells] at hm'
   rw [shD_GF Ext x t₀ st hD.1 hD.2.2.1 hD.2.2.2.1]
-  rw [show gridNeed k = 0x30 + k from rfl, shD_reserve_frame k hk]
+  rw [show gridNeed k = 0x30 + k from rfl, shD_reserve_frame k _ hw]
   exact Mem.ac hm'
 
 end Kraken.Examples.Sbr.Grid

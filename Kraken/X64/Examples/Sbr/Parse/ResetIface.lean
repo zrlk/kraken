@@ -39,7 +39,7 @@ def NqIn (e : REnv) (st : St) : Prop := st.k2.toNat ≤ 64 ∧ NqOK e.lg
 `r13 = n_master` (zero-extended), the low byte of `r14` is `bs_xover_band`, the frame slot
 `rbp - 0x40` holds `ac`; only `k[0]` (and raw fields) of the decoder values written. -/
 def AtDerived (k : Nat) (e : REnv) (a : RArgs) (ra : Int64) (t₀ s : MachineData) : Prop :=
-  ResetC a t₀ ∧ Base t₀ s ∧ s.regs.get64 .r12 = arg1 t₀
+  ResetCI a t₀ ∧ Base t₀ s ∧ s.regs.get64 .r12 = arg1 t₀
   ∧ ∃ (st : St) (fr : List UInt8) (nm : Nat) (k0 : Int),
     Master a.x.sampleRate.toInt (u8 a.sp 0) (u8 a.sp 2) (some k0) (some (nm, fOf st))
     ∧ st.x = { a.x with k0 := k0.toNat } ∧ st.sp = a.sp ∧ NqIn e st ∧ st.fm.length = 98 ∧ FrOk fr
@@ -51,7 +51,7 @@ def AtDerived (k : Nat) (e : REnv) (a : RArgs) (ra : Int64) (t₀ s : MachineDat
 /-- On the failure paths, at `L1d31` (the last `av_log` and `sbr_turnoff`): `r12 = sbr`,
 `r15 = ac`, and turning the current values off is a result `Reset` allows. -/
 def AtFail (k : Nat) (e : REnv) (a : RArgs) (ra : Int64) (t₀ s : MachineData) : Prop :=
-  ResetC a t₀ ∧ Base t₀ s ∧ s.regs.get64 .r12 = arg1 t₀ ∧ s.regs.get64 .r15 = arg0 t₀
+  ResetCI a t₀ ∧ Base t₀ s ∧ s.regs.get64 .r12 = arg1 t₀ ∧ s.regs.get64 .r15 = arg0 t₀
   ∧ ∃ (st : St) (fr : List UInt8), Reset (spOf a) (lbN a) a.x st.x.turnoff ∧ st.sp = a.sp
     ∧ st.fm.length = 98
     ∧ FrOk fr ∧ (s.dmem =⋆ Mm k e a ra t₀ st fr)
@@ -62,7 +62,7 @@ def AtFailLog (k : Nat) (e : REnv) (a : RArgs) (ra : Int64) (t₀ s : MachineDat
 
 /-- At the epilogue `L1d95`: the result values. -/
 def AtExit (k : Nat) (e : REnv) (a : RArgs) (ra : Int64) (t₀ s : MachineData) : Prop :=
-  ResetC a t₀ ∧ Base t₀ s
+  ResetCI a t₀ ∧ Base t₀ s
   ∧ ∃ (u : BitVec 32) (st : St) (fr : List UInt8), ResetOut a st.x st.sp u ∧ st.fm.length = 98
     ∧ FrOk fr ∧ (s.dmem =⋆ Mm k e { a with us := u } ra t₀ st fr)
 
@@ -127,7 +127,7 @@ def offA : Nat → RArgs → RArgs
 
 /-- Inside `sbr_turnoff` (after the last `av_log`): `r12 = sbr`, `rbx = &spectrum_params`. -/
 def AtOff (j k : Nat) (e : REnv) (a : RArgs) (ra : Int64) (t₀ s : MachineData) : Prop :=
-  ResetC a t₀ ∧ Base t₀ s ∧ s.regs.get64 .r12 = arg1 t₀ ∧ s.regs.get64 .rbx = arg1 t₀ + 0x1c#64
+  ResetCI a t₀ ∧ Base t₀ s ∧ s.regs.get64 .r12 = arg1 t₀ ∧ s.regs.get64 .rbx = arg1 t₀ + 0x1c#64
   ∧ ∃ (st : St) (fr : List UInt8), Reset (spOf a) (lbN a) a.x st.x.turnoff ∧ st.sp = a.sp
     ∧ st.fm.length = 98
     ∧ FrOk fr ∧ (s.dmem =⋆ Mm k e (offA j a) ra t₀ (offSt j st) fr)

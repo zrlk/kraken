@@ -1,5 +1,5 @@
 theorem blk_L7bb3_1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L7bb3_1" ⟨"ff_aac_sbr_apply.L7bb3_1", B.L7bb3_1, some "ff_aac_sbr_apply.L7bb3_2"⟩ := by
   obtain ⟨-, -, -, -, hHG, -⟩ := hc
   have hHG' := PLift.up hHG
@@ -49,9 +49,9 @@ theorem blk_L7bb3_1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
     (16 * (u8 (y.d ch).te (y.d ch).nenv - u8 (y.d ch).te 0) + 16) (by omega) (by decide)
   have hA0 := carve_at (t₀.regs.get64 .rsi + 547936#64) 512 (8 * (u8 y.pstart j + xx)) 8 (by omega) (by decide)
   have hA1 := carve_at (t₀.regs.get64 .rsi + 548448#64) 512 (8 * (u8 y.pstart j + xx)) 8 (by omega) (by decide)
-  rw [hXh, hXl, hA0, hA1, call_res k hk] at hm
+  rw [hXh, hXl, hA0, hA1, call_res k hSt] at hm
   simp only [BitVec.sub_sub_ofNat, Nat.reduceAdd] at hm
-  rw [Reserve.excess 0 k _ (Nat.zero_le _) (by omega)] at hm
+  rw [res_k0 hSt] at hm
   simp only [dA, sbrA, arg1, BitVec.add_assoc, BitVec.reduceAdd] at hbx
   have hR := PLift.up (⟨hrsp, hrbp, hsl, hn, hbx, h8, hax, h15, h12, h14, h13, hdi, hsi⟩ :
     _ ∧ _ ∧ _ ∧ _ ∧ _ ∧ _ ∧ _ ∧ _ ∧ _ ∧ _ ∧ _ ∧ _ ∧ _)
@@ -138,9 +138,9 @@ theorem blk_L7bb3_1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
       rw [te_split (y.d ch).te _ (y.d ch).nenv hn1' (by omega) (by omega)]
       simp only [Mm, ApplyF, FrH, ScW, TabW, DScW, DArrW, ArrW, DspW, CstW, Blocks, c4, sbrA, arg0, arg1, arg3,
         arg4, lab, BitVec.add_assoc, BitVec.reduceAdd]
-      rw [hXh, hXl, hA0, hA1, call_res k hk]
+      rw [hXh, hXl, hA0, hA1, call_res k hSt]
       simp only [BitVec.sub_sub_ofNat, Nat.reduceAdd]
-      rw [Reserve.excess 0 k _ (Nat.zero_le _) (by omega)]
+      rw [res_k0 hSt]
       simp only [BitVec.sub_sub_ofNat, Nat.reduceAdd, BitVec.ofNat_eq_ofNat, BitVec.add_assoc, BitVec.reduceAdd,
         dA, Args.d] at hm' ⊢
       sep_close hm'

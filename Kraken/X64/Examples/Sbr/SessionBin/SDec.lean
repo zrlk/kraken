@@ -45,7 +45,7 @@ theorem session_dec_of (fpre : FDecPre) (fpost : FDecPost) (hpl : SessPlaced) (k
   have hdp : DecExt.DecPre Ps.PsInv (decKc k) (ExtD e vs vp)
       (xaOf (DecRest e σ.1 t ⋆ Rc) (toDS σ) b ix sr) ra t :=
     ⟨⟨a, b', hu, hi, ha, c, dd, hu2, hi2, hc, hF⟩, hmi, ⟨spBytes_length σ.1, rfl, rfl, hlens⟩,
-      hpi, hfr.rd, hpl.jt, hfr.align, hlb, hel.1, sbrA_aligned hel.1, hel.2.1, hel.2.2, hfr.stk⟩
+      hpi, hfr.rd, hpl.jt, hfr.align, hlb, hel.1, sbrA_aligned hel.1, hel.2.1, hel.2.2⟩
   refine eventually_weaken _ _ _ _ (fun st h => h.imp (fun hr => ?_) id)
     (decAsm k e vs vp pw lg hk hpl has _ ra t hdp)
   obtain ⟨hra, d', i', hout, hi', hrax, h1, h2, h3, hm⟩ := hr

@@ -56,12 +56,6 @@ theorem al_usac (r : BitVec 64) (h : isAligned 16 (r + 8#64) = true) :
   simp only [BitVec.toNat_ofNat]
   omega
 
-omit [CodeEnv] in
-theorem stk_usac (r : BitVec 64) (h : 0x50 + 0x9d0 + 8 ≤ r.toNat) :
-    0x9d0 + 8 ≤ (r - 80#64).toNat := by
-  rw [BitVec.toNat_sub_of_le (by rw [BitVec.le_def]; simp; omega)]
-  simp; omega
-
 /-- `sbr_reset(ac, sbr)` with a reset pending. -/
 theorem blk_L35ea (k : Nat) (A : UA) (ra : Int64) (t₀ : MachineData)
     (hc : ResetSpec k A.1.Ext A.1.Oth) :
@@ -93,12 +87,11 @@ theorem blk_L35ea (k : Nat) (A : UA) (ra : Int64) (t₀ : MachineData)
     have hrsp := hF.2.2.2.2.2
     refine ⟨fun ra' => ⟨⟨⟨?_, trivial, trivial⟩, h12, h13, hz, hhi.2.2.1 hz, hhi.1, hI.2.1,
       (hw hz).1,
-      (hw hz).2, hF.1.2.2.2.2.2.2.1, ?_, ?_⟩, fun s' hpost => ?_⟩,
+      (hw hz).2, hF.1.2.2.2.2.2.2.1, ?_⟩, fun s' hpost => ?_⟩,
         fun _ => Or.inr (Or.inr (Or.inl trivial)),
       hld⟩
     · rw [e50]; exact hpush _
-    · rw [e50]; exact al_usac _ hrsp.1
-    · rw [e50]; exact stk_usac _ hrsp.2
+    · rw [e50]; exact al_usac _ hrsp
     · obtain ⟨st', hrel, hsp', hbp', ⟨hbx', h12', h13', h14', h15'⟩, hm'⟩ := hpost
       rw [e50] at hm'
       obtain ⟨hI', hmi', hid', hu'⟩ := reset_ok hI hhi hrel

@@ -63,7 +63,8 @@ theorem blk_Lba (k : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab X : Mem 6
         · rw [if_pos hc] at hq
           exact Or.inl ⟨hc, c, f, htf hc, BE1_st Ctx (tx_ok_syn hq)⟩
         · rw [if_neg hc] at hq
-          exact Or.inr ⟨Int.lt_of_not_ge hc, _, tx_fail hq⟩
+          obtain ⟨bc, bf, hl1, hl2, hf⟩ := tx_fail_syn hq
+          exact Or.inr ⟨Int.lt_of_not_ge hc, bc, bf, hl1, hl2, hf⟩
     · rw [e1, hsp]; exact hld _
 
 theorem blk_Le1 (k : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab X : Mem 64 → Prop)
@@ -84,9 +85,9 @@ theorem blk_Le1 (k : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab X : Mem 6
       left
       refine ⟨"ff_aac_sbr_ctx_alloc_init.L17f", rfl, by decide, ⟨hR, ?_⟩,
         Or.inr ⟨trivial, by decide⟩⟩
-      rcases hm with ⟨h0, -⟩ | ⟨-, J, hm⟩
+      rcases hm with ⟨h0, -⟩ | ⟨-, bc, bf, hl1, hl2, hm⟩
       · exact absurd hneg (Int.not_lt.mpr h0)
-      · exact Or.inr (Or.inr ⟨hneg, _, J, hm⟩)
+      · exact Or.inr (Or.inr (Or.inl ⟨hneg, _, bc, bf, hl1, hl2, hm⟩))
     · rename_i hz
       rw [BitVec.msb_eq_toInt] at hz
       have hpos := Int.not_lt.mp (of_decide_eq_false hz)

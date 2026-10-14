@@ -111,7 +111,7 @@ theorem blk_done (PI : List UInt8 → Prop) (kc : Nat) (Ext : Mem 64 → Prop) (
     all_goals simp only [hra, Option.isSome_some, Option.some.injEq] at *
     subst_vars
     right; left
-    refine ⟨rfl, d, ih, hI, hih, ?_, ?_, ?_, ?_, hpost⟩
+    refine ⟨rfl, hC.rsp, d, ih, hI, hih, ?_, ?_, ?_, ?_, hpost⟩
     all_goals try simp only [Reg64s.get64_set64, reduceCtorEq, ↓reduceIte, hsp, hbp, hsv, hax,
       and_self]
     all_goals rfl

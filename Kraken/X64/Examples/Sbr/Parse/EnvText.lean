@@ -1,4 +1,4 @@
-import Kraken.X64.Examples.Sbr.Parse.EnvVlc
+import Kraken.X64.Parser
 
 /-!
 # `read_sbr_envelope`: the program text
@@ -9,8 +9,7 @@ The compiled `read_sbr_envelope(ac, sbr, gb, ch_data, ch)` of `libavcodec/aacsbr
 are the object's, plus the cut points of the generator.
 -/
 
-open Kraken Kraken.SysV Mem Kraken.X64.Parser Std.WP MachineWP
-open Kraken.Examples.Sbr Kraken.Examples.Sbr.Apply
+open Kraken Kraken.X64.Parser
 
 set_option mvcgen.warning false
 set_option grind.warning false

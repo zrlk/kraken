@@ -1,4 +1,4 @@
-import Kraken.X64.Examples.Sbr.ParseModel
+import Kraken.X64.Parser
 
 /-!
 # `read_sbr_header`: the program text
@@ -7,8 +7,7 @@ import Kraken.X64.Examples.Sbr.ParseModel
 `scripts/sbr/README.md`), from `to_program` and `scripts/sbr/parse/hdr/gen.py`.
 -/
 
-open Kraken Kraken.SysV Mem Kraken.X64.Parser Std.WP MachineWP
-open Kraken.Examples.Sbr Kraken.Examples.Sbr.Apply
+open Kraken Kraken.X64.Parser
 
 set_option mvcgen.warning false
 set_option grind.warning false

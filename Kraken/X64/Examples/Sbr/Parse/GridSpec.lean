@@ -1,4 +1,8 @@
 import Kraken.X64.Examples.Sbr.Parse.GridText
+import Kraken.X64.Examples.Sbr.Parse.LibGb
+import Kraken.X64.Examples.Sbr.Parse.LibAbort
+import Kraken.X64.Examples.Sbr.ApplySpec
+import Kraken.X64.Examples.Sbr.SessionSpec
 
 /-!
 # `read_sbr_grid`: the specification
@@ -75,22 +79,6 @@ def GSt.dv (x : GArgs) (st : GSt) : DV :=
 
 variable [CodeEnv]
 
-/-- The switch's jump table (`.rodata` of `aacsbr.o`, four 32-bit offsets from the table). -/
-abbrev JT : BitVec 64 := lab "read_sbr_grid_jt"
-
-abbrev jtOff (l : Label) : BitVec 32 := (lab l - JT).setWidth 32
-
-def JtW : Mem 64 → Prop :=
-  cell4 JT (jtOff "read_sbr_grid.L448b") ⋆ (cell4 (JT + 4#64) (jtOff "read_sbr_grid.L4773")
-    ⋆ (cell4 (JT + 8#64) (jtOff "read_sbr_grid.L44e3") ⋆ cell4 (JT + 12#64) (jtOff "read_sbr_grid.L46a2")))
-
-/-- Layout: each entry, sign-extended, is the target's offset from the table. -/
-def JtC : Prop :=
-  (jtOff "read_sbr_grid.L448b").signExtend 64 = lab "read_sbr_grid.L448b" - JT
-  ∧ (jtOff "read_sbr_grid.L4773").signExtend 64 = lab "read_sbr_grid.L4773" - JT
-  ∧ (jtOff "read_sbr_grid.L44e3").signExtend 64 = lab "read_sbr_grid.L44e3" - JT
-  ∧ (jtOff "read_sbr_grid.L46a2").signExtend 64 = lab "read_sbr_grid.L46a2" - JT
-
 /-- `*ch_data` at `d`: `bs_frame_class` (+0, raw), `bs_num_env`, `bs_freq_res`, `bs_num_noise`,
 `bs_amp_res` (+0x64, raw), `e_a[2]` (+0x3904, raw), `t_env` with `t_env_num_env_old`, `t_q`. -/
 abbrev ChW (d : BitVec 64) (st : GSt) : Mem 64 → Prop :=
@@ -119,9 +107,6 @@ def GridC (x : GArgs) : Prop :=
   DWF False x.v ∧ u8 x.v.te x.v.nenv ≤ 19
   ∧ x.idx.toNat ≤ x.p8.toNat ∧ x.p8.toNat < 2 ^ 31 ∧ x.p8.toNat / 8 + 4 ≤ x.L ∧ x.L < 2 ^ 32
   ∧ JtC
-
-/-- The stack: five pushes, the return slot of a call, the callee's `k`. -/
-abbrev gridNeed (k : Nat) : Nat := 0x30 + k
 
 abbrev GridPre (k : Nat) (Ext : Mem 64 → Prop) (x : GArgs) (ra : Int64) (t : MachineData) : Prop :=
   CallPre (gridNeed k) (GF Ext x t x.st ⋆ x.R) ra t ∧ GridC x

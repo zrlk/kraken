@@ -1,5 +1,4 @@
-import Kraken.X64.Examples.Sbr.Parse.LibAbort
-import Kraken.X64.Examples.Sbr.Parse.GridSpec
+import Kraken.X64.Parser
 
 /-!
 # `ff_aac_sbr_decode_extension`: the program text
@@ -12,7 +11,7 @@ The compiled `ff_aac_sbr_decode_extension(ac, che, gb_host, crc, cnt, id_aac)` o
 cut points).
 -/
 
-open Kraken Kraken.SysV Mem Kraken.X64.Parser Std.WP MachineWP
+open Kraken Kraken.X64.Parser
 
 set_option mvcgen.warning false
 set_option grind.warning false

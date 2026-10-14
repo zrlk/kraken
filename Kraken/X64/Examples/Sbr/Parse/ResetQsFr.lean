@@ -381,9 +381,9 @@ theorem stkPhi_eq {s : MachineData} (hm : s.dmem =⋆ Mm k e a ra t₀ st fr) (h
 end Phi
 
 /-- The stack need: no wrap below the frame. -/
-theorem rsp_ok {a : RArgs} {t : MachineData} (hC : ResetC a t) :
-    resetStkMin + 8 ≤ (t.regs.get64 .rsp).toNat :=
-  hC.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2
+theorem rsp_ok {a : RArgs} {t : MachineData} (hC : ResetCI a t) :
+    resetStkMin ≤ (t.regs.get64 .rsp).toNat :=
+  hC.rsp
 
 omit [CodeEnv] in
 /-- A variant step with an unchanged measure and a smaller phase. -/

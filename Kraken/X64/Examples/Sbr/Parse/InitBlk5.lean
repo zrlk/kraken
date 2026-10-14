@@ -69,9 +69,8 @@ theorem blk_Le9 (k : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab X : Mem 6
         · rw [if_pos hc] at hq
           exact Or.inl ⟨hc, c, f, c', f', ⟨htf, htf' hc⟩, BE2_st Ctx (be2_of (tx_ok_ana hq))⟩
         · rw [if_neg hc] at hq
-          have hf := tx_fail hq
-          rw [Std.ExtHashMap.sep_assoc] at hf
-          exact Or.inr ⟨Int.lt_of_not_ge hc, _, hf⟩
+          obtain ⟨bc, bf, hl1, hl2, hf⟩ := tx_fail_ana hq
+          exact Or.inr ⟨Int.lt_of_not_ge hc, c, f, bc, bf, hl1, hl2, M_swap hf⟩
     · rw [e1, ea, hsp]; exact hld _ _
 
 theorem blk_L11f (k : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab X : Mem 64 → Prop)
@@ -92,9 +91,9 @@ theorem blk_L11f (k : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab X : Mem 
       left
       refine ⟨"ff_aac_sbr_ctx_alloc_init.L17f", rfl, by decide, ⟨hR, ?_⟩,
         Or.inr ⟨trivial, by decide⟩⟩
-      rcases hm with ⟨h0, -⟩ | ⟨-, J, hm⟩
+      rcases hm with ⟨h0, -⟩ | ⟨-, c, f, bc, bf, hl1, hl2, hm⟩
       · exact absurd hneg (Int.not_lt.mpr h0)
-      · exact Or.inr (Or.inr ⟨hneg, _, J, hm⟩)
+      · exact Or.inr (Or.inr (Or.inr ⟨hneg, _, c, f, bc, bf, hl1, hl2, hm⟩))
     · rename_i hz
       rw [BitVec.msb_eq_toInt] at hz
       have hpos := Int.not_lt.mp (of_decide_eq_false hz)

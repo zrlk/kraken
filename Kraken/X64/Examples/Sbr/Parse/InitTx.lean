@@ -86,6 +86,38 @@ theorem tx_fail {A H Q : Mem 64 → Prop} (h : m =⋆ Q ⋆ (H ⋆ (A ⋆ Mo k T
     m =⋆ M k TxTab X R ra t₀ (A ⋆ (Q ⋆ H)) := by
   rw [M_eq]; exact Mem.ac h
 
+/-- A failed `av_tx_init(&sbr->mdct, …)`: the element with any bytes in the two cells. -/
+theorem tx_fail_syn {A : Mem 64 → Prop} {p : BitVec 64} {v : EV}
+    (h : m =⋆ (8 ?@ (p + 0x88af0#64) ⋆ 8 ?@ (p + 0x88af8#64))
+      ⋆ (ElemH_syn p v ⋆ (A ⋆ Mo k TxTab X R ra t₀))) :
+    ∃ bc bf : List UInt8, bc.length = 8 ∧ bf.length = 8
+      ∧ (m =⋆ M k TxTab X R ra t₀ (A ⋆ ElemS p { v with synC := bc, synF := bf })) := by
+  rw [Std.ExtHashMap.sep_assoc] at h
+  obtain ⟨-, bc, hc, h1⟩ := Block.sep_elim h
+  rw [Std.ExtHashMap.sep_comm_l] at h1
+  obtain ⟨-, bf, hf, h2⟩ := Block.sep_elim h1
+  rw [Std.ExtHashMap.sep_comm_l] at h2
+  refine ⟨bc, bf, hc, hf, ?_⟩
+  rw [M_eq]; exact Mem.ac (ElemS_in_syn h2)
+
+theorem M_swap {A C E : Mem 64 → Prop} (h : m =⋆ M k TxTab X R ra t₀ ((A ⋆ C) ⋆ E)) :
+    m =⋆ M k TxTab X R ra t₀ (A ⋆ (E ⋆ C)) := by
+  rw [M_eq] at h ⊢; exact Mem.ac h
+
+/-- A failed `av_tx_init(&sbr->mdct_ana, …)`. -/
+theorem tx_fail_ana {A : Mem 64 → Prop} {p : BitVec 64} {v : EV}
+    (h : m =⋆ (8 ?@ (p + 0x88ae0#64) ⋆ 8 ?@ (p + 0x88ae8#64))
+      ⋆ (ElemH_ana p v ⋆ (A ⋆ Mo k TxTab X R ra t₀))) :
+    ∃ bc bf : List UInt8, bc.length = 8 ∧ bf.length = 8
+      ∧ (m =⋆ M k TxTab X R ra t₀ (A ⋆ ElemS p { v with anaC := bc, anaF := bf })) := by
+  rw [Std.ExtHashMap.sep_assoc] at h
+  obtain ⟨-, bc, hc, h1⟩ := Block.sep_elim h
+  rw [Std.ExtHashMap.sep_comm_l] at h1
+  obtain ⟨-, bf, hf, h2⟩ := Block.sep_elim h1
+  rw [Std.ExtHashMap.sep_comm_l] at h2
+  refine ⟨bc, bf, hc, hf, ?_⟩
+  rw [M_eq]; exact Mem.ac (ElemS_in_ana h2)
+
 end
 
 /-- The frame of `ff_psdsp_init` / `ff_sbrdsp_init`. -/

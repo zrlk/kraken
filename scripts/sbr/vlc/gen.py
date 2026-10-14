@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generates Kraken/X64/Examples/Sbr/Parse/VlcData.lean: the twenty Huffman tables the SBR
+"""Generates Kraken/X64/Examples/Sbr/SessionSpecData.lean: the twenty Huffman tables the SBR
 and PS parsers read (`ff_aac_sbr_vlc[10]`, `vlc_ps[10]`), as FFmpeg's start-up code builds
 them.
 
@@ -24,7 +24,7 @@ import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, "../../.."))
-OUT = os.path.join(ROOT, "Kraken/X64/Examples/Sbr/Parse/VlcData.lean")
+OUT = os.path.join(ROOT, "Kraken/X64/Examples/Sbr/SessionSpecData.lean")
 
 
 def sbr_block(src):

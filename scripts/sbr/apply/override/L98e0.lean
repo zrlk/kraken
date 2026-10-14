@@ -1,5 +1,5 @@
 theorem blk_L98e0 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L98e0" ⟨"ff_aac_sbr_apply.L98e0", B.L98e0, some "ff_aac_sbr_apply.L9927"⟩ := by
   obtain ⟨-, -, -, -, -, -, -, -, -, hae, hHA, -⟩ := hc
   have hHA' := PLift.up hHA
@@ -36,7 +36,7 @@ theorem blk_L98e0 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
     sep_mem hm
     simp only [Option.getD_some, BitVec.ofInt_ofBytes_toBytes 64 8 rfl]
   simp only [lex_var, hsl] at hn
-  rw [gn_call_res_n k (0x290 + k) hk (by omega)] at hm
+  rw [gn_call_res_n k (0x290 + k) hSt (by omega)] at hm
   simp only [BitVec.sub_sub_ofNat, Nat.reduceAdd, Nat.sub_self] at hm
   sep_pull hm [8 ?@ (t₀.regs.get64 .rsi + (166176#64 + (BitVec.ofNat 64 (128 + 88768 * ch) + 14596#64)))] as Re hRe
   obtain ⟨v0, v1, hm⟩ := gn_ea hm
@@ -192,7 +192,7 @@ theorem blk_L98e0 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
           rw [gn_te10 _ htl0]
           simp only [Mm, ApplyF, FrCs, ScW, TabW, DScW, DArrW, ArrW, PsW, DspW, FnW, CstW, Blocks, c4, cell4, sbrA, arg0,
             arg1, arg3, arg4, lab, FnCell, BitVec.add_assoc, BitVec.reduceAdd]
-          rw [gn_call_res_n k (0x290 + k) hk (by omega)]
+          rw [gn_call_res_n k (0x290 + k) hSt (by omega)]
           simp only [BitVec.sub_sub_ofNat, Nat.reduceAdd, Nat.sub_self, dA, Args.d, Nat.reducePow, Nat.reduceSub,
             Nat.reduceMod, Nat.reduceMul, BitVec.ofNat_eq_ofNat, BitVec.add_assoc, BitVec.reduceAdd, ↓reduceIte,
             Nat.one_ne_zero] at hm' ⊢
@@ -209,7 +209,7 @@ theorem blk_L98e0 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
           rw [gn_te10 _ htl0]
           simp only [Mm, ApplyF, FrCs, ScW, TabW, DScW, DArrW, ArrW, PsW, DspW, FnW, CstW, Blocks, c4, cell4, sbrA, arg0,
             arg1, arg3, arg4, lab, FnCell, BitVec.add_assoc, BitVec.reduceAdd]
-          rw [gn_call_res_n k (0x290 + k) hk (by omega)]
+          rw [gn_call_res_n k (0x290 + k) hSt (by omega)]
           simp only [BitVec.sub_sub_ofNat, Nat.reduceAdd, Nat.sub_self, dA, Args.d, Nat.reducePow, Nat.reduceSub,
             Nat.reduceMod, Nat.reduceMul, BitVec.ofNat_eq_ofNat, BitVec.add_assoc, BitVec.reduceAdd, ↓reduceIte,
             Nat.one_ne_zero] at hm' ⊢

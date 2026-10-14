@@ -1,5 +1,5 @@
 theorem blk_L9a02 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L9a02" ⟨"ff_aac_sbr_apply.L9a02", B.L9a02, some "ff_aac_sbr_apply.L9a02_1"⟩ := by
   obtain ⟨-, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, hPs, -⟩ := hc
   intro n
@@ -13,7 +13,7 @@ theorem blk_L9a02 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
   have ha1 : isAligned 32 (t₀.regs.get64 .rsi) = true := hCy.2.1
   have hK' := PLift.up hK; have hCy' := PLift.up hCy; have hPW' := PLift.up hPW; clear hK hCy hPW
   simp only [Mm, ApplyF, ArrW, PsW, FrCs, FnW, AcW, ScW, Blocks, sbrA, arg0, arg1, BitVec.add_assoc, BitVec.reduceAdd] at hm h12
-  rw [call_res k hk] at hm
+  rw [call_res k hSt] at hm
   simp only [BitVec.sub_sub_ofNat, Nat.reduceAdd] at hm
   have hR := PLift.up (⟨hrsp, hrbp, h9, h12⟩ : _ ∧ _ ∧ _ ∧ _)
   sep_pull hm [8 ?@ (t₀.regs.get64 .rsp - 464#64), Reserve k (t₀.regs.get64 .rsp - 464#64),
@@ -61,7 +61,7 @@ theorem blk_L9a02 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
     all_goals try (simp only [Reg64s.get64_set64, reduceCtorEq, ite_true, ite_false, hrsp, hrbp, h9, h12, sbrA, arg0, arg1, dsN,
         BitVec.ofInt_ofBytes_toBytes 64 8 rfl, BitVec.add_assoc, BitVec.reduceAdd]; done)
     · simp only [Mm, ApplyF, ArrW, PsW, FrCs, FnW, AcW, ScW, Blocks, sbrA, arg0, arg1, BitVec.add_assoc, BitVec.reduceAdd]
-      rw [call_res k hk]
+      rw [call_res k hSt]
       simp only [BitVec.sub_sub_ofNat, Nat.reduceAdd]
       sep_close hm
   case vc6 =>
@@ -77,7 +77,7 @@ theorem blk_L9a02 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
     all_goals try (simp only [Reg64s.get64_set64, reduceCtorEq, ite_true, ite_false, hrsp, hrbp, h9, h12, sbrA, arg0, arg1, dsN,
         BitVec.ofInt_ofBytes_toBytes 64 8 rfl, BitVec.add_assoc, BitVec.reduceAdd]; done)
     · simp only [Mm, ApplyF, ArrW, PsW, FrCs, FnW, AcW, ScW, Blocks, sbrA, arg0, arg1, BitVec.add_assoc, BitVec.reduceAdd]
-      rw [call_res k hk]
+      rw [call_res k hSt]
       simp only [BitVec.sub_sub_ofNat, Nat.reduceAdd]
       sep_close hm
   case vc10 =>
@@ -129,6 +129,6 @@ theorem blk_L9a02 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
       simp only [Mm, ApplyF]
       rw [show TabW { y with psh := h' } t₀ = TabW y t₀ from rfl, show OutW { y with psh := h' } t₀ = OutW y t₀ from rfl]
       simp only [ArrW, PsW, FrCs, FnW, AcW, ScW, Blocks, sbrA, arg0, arg1, BitVec.add_assoc, BitVec.reduceAdd]
-      rw [call_res k hk]
+      rw [call_res k hSt]
       simp only [BitVec.sub_sub_ofNat, Nat.reduceAdd]
       sep_close hm2

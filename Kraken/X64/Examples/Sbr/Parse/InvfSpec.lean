@@ -1,4 +1,5 @@
 import Kraken.X64.Examples.Sbr.Parse.InvfText
+import Kraken.X64.Examples.Sbr.ParseModel
 
 /-!
 # `read_sbr_invf`: the specification

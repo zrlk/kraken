@@ -1,5 +1,5 @@
 theorem blk_L7750_3 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L7750_3" ⟨"ff_aac_sbr_apply.L7750_3", B.L7750_3, some "ff_aac_sbr_apply.L7750_4"⟩ := by
   obtain ⟨-, -, -, -, -, -, -, -, -, -, -, -, -, -, -, hFR, -⟩ := hc
   have hFR' := PLift.up hFR
@@ -31,7 +31,7 @@ theorem blk_L7750_3 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
   clear hZ hZ2
   rcases (by omega : ch = 0 ∨ ch = 1) with rfl | rfl
   all_goals
-    rw [hZ'.down, hZ2'.down, call_res k hk] at hm
+    rw [hZ'.down, hZ2'.down, call_res k hSt] at hm
     simp only [BitVec.sub_sub_ofNat, Nat.reduceAdd] at hm
     have hR := PLift.up (⟨hrsp, hrbp, h12, h13, h14, h15, hbx, hsl⟩ : _ ∧ _ ∧ _ ∧ _ ∧ _ ∧ _ ∧ _ ∧ _)
     dsimp only
@@ -99,7 +99,7 @@ theorem blk_L7750_3 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
           BitVec.add_assoc, BitVec.setWidth_eq, Blocks, BitVec.toNat_setWidth, BitVec.toNat_ofNat, hbx', h12', h13', h14', h15', dA, sbrA, arg1, Args.d, ↓reduceIte]; done)
         simp only [Mm, ApplyF, FrA6, ArrW, FnW, Blocks, dA, sbrA, arg0, arg1, arg3, arg4,
           BitVec.add_assoc, BitVec.reduceAdd, Nat.reduceMul, Nat.reduceAdd, ↓reduceIte, Nat.one_ne_zero, hac]
-        rw [hZ'.down, hZ2'.down, call_res k hk]
+        rw [hZ'.down, hZ2'.down, call_res k hSt]
         simp only [BitVec.sub_sub_ofNat, Nat.reduceAdd]
         try simp only [BitVec.sub_sub_ofNat, Nat.reduceAdd, BitVec.ofNat_eq_ofNat] at hm' ⊢
         sep_close hm'

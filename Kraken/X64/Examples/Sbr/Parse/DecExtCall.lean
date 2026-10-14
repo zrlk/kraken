@@ -157,13 +157,13 @@ theorem blk_L11d (PI : List UInt8 → Prop) (kc : Nat) (Ext : Mem 64 → Prop)
     all_goals try dsimp only at *
     all_goals try subst_vars
     refine ⟨fun ra' => ⟨⟨⟨?_, ⟨hrb.1, hC.2.2.2.1.2⟩, hI.2.1⟩, ?_, ?_, hI.1, hr,
-      (hI.2.2.2.2.2 hr).1, (hI.2.2.2.2.2 hr).2.1, (hI.2.2.2.2.2 hr).2.2, hC.2.2.2.2.2.2.2.2.2.2.1, ?_, ?_⟩,
+      (hI.2.2.2.2.2 hr).1, (hI.2.2.2.2.2 hr).2.1, (hI.2.2.2.2.2 hr).2.2,
+      hC.2.2.2.2.2.2.2.2.2.2.1, ?_⟩,
       fun s' hpost => ?_⟩, hld⟩
     · rw [e70]; exact hpush _
     · exact h12
     · exact hbx
     · rw [e70]; exact al_ret _ hC.2.2.2.2.2.1
-    · rw [e70]; have := hC.2.2.2.2.2.2.2.2.2.2.2; bv_omega
     · obtain ⟨d', i', ⟨hMI, -, hpsc, hsi⟩, hok, hxk, hi', hsp', hbp', ⟨hbx', h12', h13', h14', -⟩,
         hm'⟩ := hpost
       refine MachineWP.nil_spec.le_wp s' ?_

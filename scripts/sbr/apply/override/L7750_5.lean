@@ -1,5 +1,5 @@
 theorem blk_L7750_5 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L7750_5" ⟨"ff_aac_sbr_apply.L7750_5", B.L7750_5, some "ff_aac_sbr_apply.L7750_6"⟩ := by
   obtain ⟨-, -, -, -, -, hlfe, hFR, -⟩ := hc
   have hFR' := PLift.up hFR
@@ -27,7 +27,7 @@ theorem blk_L7750_5 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
   rcases (by omega : ch = 0 ∨ ch = 1) with rfl | rfl
   all_goals
     simp only [dA, sbrA, arg1, BitVec.add_assoc, BitVec.reduceAdd, Nat.reduceMul, Nat.reduceAdd] at hm
-    rw [call_res_n k (0x30 + k) hk (by omega)] at hm
+    rw [call_res_n k (0x30 + k) hSt (by omega)] at hm
     simp only [BitVec.sub_sub_ofNat, Nat.reduceAdd] at hm
     have hR := PLift.up (⟨hrsp, hrbp, h12, h13, h14, h15, hbx, hsl⟩ : _ ∧ _ ∧ _ ∧ _ ∧ _ ∧ _ ∧ _ ∧ _)
     dsimp only
@@ -68,7 +68,7 @@ theorem blk_L7750_5 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
           ↓reduceIte, Nat.one_ne_zero, BitVec.ofNat_eq_ofNat]; done)
         simp only [Mm, ApplyF, FrA6, DArrW, DScW, c4, ArrW, FnW, ScW, Blocks, dA, sbrA, arg0, arg1, arg3, arg4,
           BitVec.add_assoc, BitVec.reduceAdd, Nat.reduceMul, Nat.reduceAdd, ↓reduceIte, Nat.one_ne_zero, hfd]
-        rw [call_res_n k (0x30 + k) hk (by omega)]
+        rw [call_res_n k (0x30 + k) hSt (by omega)]
         try simp only [BitVec.sub_sub_ofNat, Nat.reduceAdd, BitVec.ofNat_eq_ofNat] at hm ⊢
         first
           | sep_close hm
@@ -143,7 +143,7 @@ theorem blk_L7750_5 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
           ↓reduceIte, Nat.one_ne_zero, hbx', h12', h13', h14', h15', dA, sbrA, arg1]; done)
           simp only [Mm, ApplyF, FrA6, DArrW, DScW, c4, ArrW, FnW, ScW, Blocks, dA, sbrA, arg0, arg1, arg3, arg4,
             BitVec.add_assoc, BitVec.reduceAdd, Nat.reduceMul, Nat.reduceAdd, ↓reduceIte, Nat.one_ne_zero, hfd]
-          rw [call_res_n k (0x30 + k) hk (by omega)]
+          rw [call_res_n k (0x30 + k) hSt (by omega)]
           try simp only [BitVec.sub_sub_ofNat, Nat.reduceAdd, BitVec.ofNat_eq_ofNat] at hm' ⊢
           first
             | sep_close hm'

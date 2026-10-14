@@ -1,11 +1,12 @@
+import Kraken.X64.Examples.Sbr.ApplyText
 import Kraken.X64.Examples.Sbr.ApplySpec
 
 /-!
-# `ff_aac_sbr_apply`: the text, the footprint, the table
+# `ff_aac_sbr_apply`: the control flow, the footprint, the table
 
 `libavcodec/aacsbr_template.c` (FFmpeg n8.1), `ff_aac_sbr_apply(ac, che, id_aac, L, R)`
-from the `-c opt` object (`aacsbr.o`). The text is cut into 434 blocks (a label at
-every jump target, after every call, and inside long runs); each block's body is a
+from the `-c opt` object (`aacsbr.o`). The text (`ApplyText.lean`) is cut into 434 blocks (a
+label at every jump target, after every call, and inside long runs); each block's body is a
 separate definition `B.<id>` and the text is their concatenation, so the control-flow
 rule reads the block list without reducing the text (`Kraken/Rules/CfgTable.lean`).
 
@@ -13,7 +14,7 @@ The table is position-indexed (`Program.LTable`): the entry of the `i`-th label 
 `i`-th entry of `ENT`; `T.<id>` rewrites the table at a literal label to its entry.
 Block obligations (`BlockOb`) are stated on the literal block and proved in the
 phase files `Apply/<Phase>.lean`; `Apply.lean` assembles them with
-`ProcSpec.of_cfg_post`.
+`ProcSpec.of_cfg_post_pre`.
 -/
 
 open Kraken Kraken.X64.Parser Std.WP MachineWP Kraken.SysV Mem

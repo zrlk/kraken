@@ -170,8 +170,7 @@ theorem dec_top (B : SessPlaced) (S : Setup) (hk : 0x9d0 + S.k ≤ 2 ^ 32)
         exact dec_mem _ _ _ b avctx Rc i t
       rd := hc.rd
       elem := elemOK_elemC h1 hc.elem
-      align := hc.align
-      stk := hc.stk }
+      align := hc.align }
   refine eventually_weaken _ _ _ _ (fun st h => h.imp (fun hr => ?_) id)
     (session_dec B S.k hk e S.vs S.vp S.pw S.lg has ii (sreach_withAc hσ avctx er ps) hfr)
   obtain ⟨hra, σ', i', hσ', ⟨hav, hps⟩, hi', hrax, c1, c2, c3, hm'⟩ := hr
@@ -203,8 +202,7 @@ theorem usac_top (B : SessPlaced) (S : Setup) (hk : 0x9d0 + S.k ≤ 2 ^ 32)
       ue := hc.ue
       uev3 := hc.uev3
       elem := elemOK_elemC h1 hc.elem
-      align := hc.align
-      stk := hc.stk }
+      align := hc.align }
   refine eventually_weaken _ _ _ _ (fun st h => h.imp (fun hr => ?_) id)
     (session_usac B S.k hk e S.vs S.vp S.pw S.lg has ii false (sreach_withAc hσ avctx er ps) hfr)
   obtain ⟨hra, σ', i', hσ', ⟨hav, her, hps⟩, hi', c1, c2, c3, hm'⟩ := hr

@@ -1,4 +1,5 @@
 import Kraken.X64.Examples.Sbr.Parse.InitFoot
+import Kraken.X64.Examples.Sbr.SessionSpec
 
 /-!
 # `ff_aac_sbr_ctx_alloc_init`: the specification
@@ -21,8 +22,9 @@ read.
 * The postcondition, on every return: `0` with `*che = p` and the element at `p` owned with the
   values `evInit` (`ElemS`: zero except the cells listed in `EV`), the two contexts owned
   (`Ctx`), the two functions `TxSpec`, the slots `DspSlotsOK`; or `-12` (`AVERROR(ENOMEM)`,
-  `av_mallocz` failed) with `*che` as it was; or a negative result of `av_tx_init` with
-  `*che = p` and the rest of what the routine allocated not described (`J`).
+  `av_mallocz` failed) with `*che` as it was; or a negative result of the first or the second
+  `av_tx_init` with `*che = p` and the element with the cells stored before the call (`evPre`),
+  the failed call's `*ctx`, `*tx` any bytes, after the second also the first context.
 -/
 
 open Kraken Kraken.SysV Mem Kraken.X64.Parser Std.WP MachineWP
@@ -35,111 +37,6 @@ namespace Kraken.Examples.Sbr.Init
 variable [CodeEnv]
 
 /-! ## The assumed contracts -/
-
-/-- Assumed: `av_mallocz(size)` (`libavutil/mem.c`) returns `NULL`, or a new address holding
-`size` zero bytes, disjoint from the caller's memory; it uses the external state `X` and gives it
-back. -/
-abbrev AvMalloczSpec (X : Mem 64 → Prop) (need : Nat) : Prop :=
-  cenv.ProcSpec (entry "av_mallocz")
-    (fun (R : Mem 64 → Prop) ra t => CallPre need (X ⋆ R) ra t)
-    (fun R ra t s => (s.regs.get64 .rax = 0#64 ∧ CallPost need (X ⋆ R) ra t s)
-      ∨ (s.regs.get64 .rax ≠ 0#64
-        ∧ CallPost need ((zs (arg0 t).toNat =@ s.regs.get64 .rax ⋆ X) ⋆ R) ra t s))
-
-/-- What `av_tx_init` reads or writes besides `*ctx` and `*tx`: `*scale` (4 bytes at `r9`), the
-stack argument `flags` (above the return address), the tables `TxTab`, the state `X`. -/
-abbrev TxIn (TxTab X : Mem 64 → Prop) (t : MachineData) : Mem 64 → Prop :=
-  4 ?@ arg5 t ⋆ (8 ?@ (t.regs.get64 .rsp + 8#64) ⋆ (TxTab ⋆ X))
-
-/-- `*ctx` and `*tx` after `av_tx_init`: on success (`eax ≥ 0`) a context `c`, owned as `Ctx c`,
-and a function `f`; otherwise any bytes. -/
-abbrev TxOut (Ctx : BitVec 64 → Mem 64 → Prop) (t s : MachineData) (c : BitVec 64) (f : Int64) :
-    Mem 64 → Prop :=
-  if 0 ≤ ((s.regs.get64 .rax).setWidth 32).toInt then
-    c8 (arg0 t) c ⋆ (FnCell (arg1 t) f ⋆ Ctx c)
-  else 8 ?@ arg0 t ⋆ 8 ?@ arg1 t
-
-/-- Assumed: `av_tx_init(ctx, tx, type, inv, len, scale, flags)` (`libavutil/tx.c`) writes
-`*ctx` and `*tx` (`TxOut`), reads `*scale` and `flags`, and uses `TxTab` and `X`. On success
-(`eax ≥ 0`) the function `f` it returns satisfies the `av_tx` contract `TxSpec` (the transform
-on the context `c`, owned as `Ctx c`, with the tables `TxTab`, at `need` bytes of stack).
-Nothing is assumed of the arguments. -/
-abbrev AvTxInitSpec (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab X : Mem 64 → Prop) (need : Nat) :
-    Prop :=
-  cenv.ProcSpec (entry "av_tx_init")
-    (fun (R : Mem 64 → Prop) ra t =>
-      CallPre need ((8 ?@ arg0 t ⋆ (8 ?@ arg1 t ⋆ TxIn TxTab X t)) ⋆ R) ra t)
-    (fun R ra t s => ∃ c f,
-      (0 ≤ ((s.regs.get64 .rax).setWidth 32).toInt → TxSpec Ctx TxTab need f)
-      ∧ CallPost need ((TxOut Ctx t s c f ⋆ TxIn TxTab X t) ⋆ R) ra t s)
-
-/-- Assumed: `ff_psdsp_init(s)` (`libavcodec/aacpsdsp_template.c`) writes only `*s`
-(`PSDSPContext`, 64 bytes) and uses `X`. -/
-abbrev PsDspInitSpec (X : Mem 64 → Prop) (need : Nat) : Prop :=
-  LeafSpec "ff_psdsp_init" need (fun t => 64 ?@ arg0 t ⋆ X) (fun _ => True)
-
-/-- The fourteen `sbr->dsp` slots (`SBRDSPContext` order, as `DspW`) as `ff_sbrdsp_init` leaves
-them. -/
-structure Slots where
-  sum64x5 : Int64
-  sumSquare : Int64
-  negOdd64 : Int64
-  preShuffle : Int64
-  postShuffle : Int64
-  deintNeg : Int64
-  deintBfly : Int64
-  autocorr : Int64
-  hfGen : Int64
-  gfilt : Int64
-  noise0 : Int64
-  noise1 : Int64
-  noise2 : Int64
-  noise3 : Int64
-
-/-- The bytes of a function pointer. -/
-abbrev fb (f : Int64) : List UInt8 := Int.toBytes 8 f.toBitVec.toInt
-
-/-- The slots' bytes. -/
-def Slots.bytes (sl : Slots) : List UInt8 :=
-  fb sl.sum64x5 ++ fb sl.sumSquare ++ fb sl.negOdd64 ++ fb sl.preShuffle ++ fb sl.postShuffle
-    ++ fb sl.deintNeg ++ fb sl.deintBfly ++ fb sl.autocorr ++ fb sl.hfGen ++ fb sl.gfilt
-    ++ fb sl.noise0 ++ fb sl.noise1 ++ fb sl.noise2 ++ fb sl.noise3
-
-/-- The `sbr->dsp` slots as `ff_sbrdsp_init_x86` sets them with SSE, SSE2 and SSE3 present: the
-fourteen `sbr->dsp` clauses of `SbrSlots`, stated of the slots. -/
-structure DspSlotsOK (sl : Slots) : Prop where
-  sum64x5 : sl.sum64x5 = entry "ff_sbr_sum64x5_sse"
-  sumSquare : sl.sumSquare = entry "ff_sbr_sum_square_sse"
-  preShuffle : sl.preShuffle = entry "ff_sbr_qmf_pre_shuffle_sse2"
-  postShuffle : sl.postShuffle = entry "ff_sbr_qmf_post_shuffle_sse"
-  hfGen : sl.hfGen = entry "ff_sbr_hf_gen_sse"
-  autocorr : sl.autocorr = entry "ff_sbr_autocorrelate_sse"
-    ∨ sl.autocorr = entry "ff_sbr_autocorrelate_sse3"
-  gfilt : sl.gfilt = entry "ff_sbr_hf_g_filt_sse"
-  noise0 : sl.noise0 = entry "ff_sbr_hf_apply_noise_0_sse2"
-  noise1 : sl.noise1 = entry "ff_sbr_hf_apply_noise_1_sse2"
-  noise2 : sl.noise2 = entry "ff_sbr_hf_apply_noise_2_sse2"
-  noise3 : sl.noise3 = entry "ff_sbr_hf_apply_noise_3_sse2"
-  negOdd64 : sl.negOdd64 = entry "ff_sbr_neg_odd_64_sse"
-  deintNeg : sl.deintNeg = entry "ff_sbr_qmf_deint_neg_sse"
-  deintBfly : sl.deintBfly = entry "ff_sbr_qmf_deint_bfly_sse2"
-
-/-- Assumed: `ff_sbrdsp_init(s)` (`libavcodec/sbrdsp_template.c`, with
-`ff_sbrdsp_init_x86`) writes only `*s` (`SBRDSPContext`, 0x70 bytes), leaving the slots
-`DspSlotsOK`, and uses `X`. -/
-abbrev SbrDspInitSpec (X : Mem 64 → Prop) (need : Nat) : Prop :=
-  cenv.ProcSpec (entry "ff_sbrdsp_init")
-    (fun (R : Mem 64 → Prop) ra t => CallPre need ((0x70 ?@ arg0 t ⋆ X) ⋆ R) ra t)
-    (fun R ra t s => ∃ sl : Slots, DspSlotsOK sl
-      ∧ CallPost need ((sl.bytes =@ arg0 t ⋆ X) ⋆ R) ra t s)
-
-/-- The assumed contracts of the callees, with `need` bytes of stack each. -/
-structure InitAssumed (need : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab X : Mem 64 → Prop) :
-    Prop where
-  mallocz : AvMalloczSpec X need
-  txInit : AvTxInitSpec Ctx TxTab X need
-  psdsp : PsDspInitSpec X need
-  sbrdsp : SbrDspInitSpec X need
 
 /-! ## The values after a successful run -/
 
@@ -190,18 +87,7 @@ def InitOK (Ctx : BitVec 64 → Mem 64 → Prop) (che : BitVec 64) (idAac : BitV
 
 /-! ## The specification -/
 
-/-- Own bytes (`push rbp`, three saved registers, `sub $0x18`), the return slot of a call, the
-callee's `k`. -/
-abbrev initNeed (k : Nat) : Nat := 0x40 + k
-
-/-- The id at entry. -/
-abbrev idOf (t : MachineData) : BitVec 32 := (arg2 t).setWidth 32
-
-abbrev InitPre (k : Nat) (TxTab X : Mem 64 → Prop) (R : Mem 64 → Prop) (ra : Int64)
-    (t : MachineData) : Prop :=
-  CallPre (initNeed k) ((8 ?@ arg1 t ⋆ (TxTab ⋆ X)) ⋆ R) ra t
-
-/-- The three outcomes (the result is `eax`). -/
+/-- The four outcomes (the result is `eax`). -/
 abbrev InitPost (k : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab X : Mem 64 → Prop)
     (R : Mem 64 → Prop) (ra : Int64) (t s : MachineData) : Prop :=
   let ret := (s.regs.get64 .rax).setWidth 32
@@ -209,8 +95,20 @@ abbrev InitPost (k : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab X : Mem 6
       ∧ TxSpec Ctx TxTab k r.anaFn ∧ TxSpec Ctx TxTab k r.synFn
       ∧ CallPost (initNeed k) ((InitOK Ctx (arg1 t) (idOf t) r ⋆ (TxTab ⋆ X)) ⋆ R) ra t s)
   ∨ (ret = 0xfffffff4#32 ∧ CallPost (initNeed k) ((8 ?@ arg1 t ⋆ (TxTab ⋆ X)) ⋆ R) ra t s)
-  ∨ (ret.toInt < 0 ∧ ∃ (p : BitVec 64) (J : Mem 64 → Prop),
-      CallPost (initNeed k) ((c8 (arg1 t) p ⋆ (J ⋆ (TxTab ⋆ X))) ⋆ R) ra t s)
+  -- `av_tx_init(&sbr->mdct, …)` failed: `*che = p`, the element with the stored cells and
+  -- `*ctx`, `*tx` of `sbr->mdct` any bytes
+  ∨ (ret.toInt < 0 ∧ ∃ (p : BitVec 64) (bc bf : List UInt8), bc.length = 8 ∧ bf.length = 8
+      ∧ CallPost (initNeed k) ((c8 (arg1 t) p
+          ⋆ (ElemS p { evPre (idOf t) p with synC := bc, synF := bf } ⋆ (TxTab ⋆ X))) ⋆ R)
+        ra t s)
+  -- `av_tx_init(&sbr->mdct_ana, …)` failed: also the first context `c` (owned, `Ctx c`) and the
+  -- function `f` in `sbr->mdct`, `sbr->mdct_fn`; `sbr->mdct_ana`, `sbr->mdct_ana_fn` any bytes
+  ∨ (ret.toInt < 0 ∧ ∃ (p c : BitVec 64) (f : Int64) (bc bf : List UInt8), bc.length = 8
+      ∧ bf.length = 8 ∧ CallPost (initNeed k) ((c8 (arg1 t) p
+          ⋆ (ElemS p
+              { evPre (idOf t) p with
+                synC := Int.toBytes 8 c.toInt, synF := fb f, anaC := bc, anaF := bf }
+            ⋆ (Ctx c ⋆ (TxTab ⋆ X)))) ⋆ R) ra t s)
 
 /-- `ff_aac_sbr_ctx_alloc_init` with its callees at `k` bytes of stack. -/
 abbrev InitSpec (k : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab X : Mem 64 → Prop) : Prop :=

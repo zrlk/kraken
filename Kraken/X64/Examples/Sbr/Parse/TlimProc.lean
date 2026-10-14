@@ -131,21 +131,22 @@ theorem body_wf : Program.WF body := by decide
 variable [CodeEnv]
 
 /-- The procedure from all block obligations. -/
-theorem spec_of (hpl : Program.PlacedIn body) (k : Nat) (hk : k ≤ 2 ^ 32)
+theorem spec_of (hpl : Program.PlacedIn body) (k : Nat) (_hk : k ≤ 2 ^ 32)
     (hB : ∀ x ra t₀ l, l ∈ labelList → BlockOb k x ra t₀ l) : TlimSpec k := by
-  refine Kraken.Executable.ProcSpec.of_cfg_post (p := body) (fun x ra t₀ => table k x ra t₀)
+  refine Kraken.Executable.ProcSpec.of_cfg_post_pre (p := body)
+    (fun x ra t₀ => table k x ra t₀)
     (fun x ra t₀ s => Post' k x ra t₀ s) var (hblocks := ?_) (hpre := ?_) (hpost := ?_)
     (hwf := body_wf)
-  · intro x ra t₀ l blk h
+  · intro x ra t₀ _ l blk h
     have hs : (Program.blockAt body l).isSome = true := by rw [h]; rfl
     rw [Program.isSome_blockAt, ← Program.labels_eq_view, List.contains_iff_mem,
       labels_body] at hs
     exact hB x ra t₀ l hs blk h
   · rintro x ra t ⟨hc, hC⟩
-    obtain ⟨stk, pb, hs, hp, hm⟩ := pre_glue hk hc
+    obtain ⟨stk, pb, hs, hp, hm⟩ := pre_glue hc
     exact ⟨rfl, hC, stk, pb, ⟨hC.2.2.2.2.2.1, hs, hp⟩, hm⟩
-  · intro x ra t₀ s h
-    exact post_glue hk h
+  · intro x ra t₀ s hp h
+    exact post_glue hp.1 h
 
 /-- `sbr_make_f_tablelim` meets `TlimSpec k`, with `memcpy` as `MemcpyValSpec k`. -/
 theorem spec (hpl : Program.PlacedIn body) (k : Nat) (hk : k ≤ 2 ^ 32)

@@ -3,6 +3,7 @@ import Kraken.X64.Examples.Sbr.SessionBin.BridgeU
 import Kraken.X64.Examples.Sbr.Parse.UsacAsm
 import Kraken.X64.Examples.Sbr.Parse.UsacGlueL
 import Kraken.X64.Examples.Sbr.Parse.UsacGlueH
+import Kraken.X64.Examples.Sbr.SessionSpec
 
 /-!
 # A decoding session over the binary: `decode_usac_data` from the routines' own specifications
@@ -22,18 +23,14 @@ namespace Kraken.Examples.Sbr.SessionBin
 
 variable [CodeEnv]
 
-/-- The index of `decode_usac_data`'s callees from the leaf need `k`: their stack
-`Usac.cneed (usacK k) = 0x9d0 + k` is `sbr_reset`'s. -/
-def usacK (k : Nat) : Nat := 0x9a0 + k
-
 /-- `read_sbr_grid`'s specification at a larger stack. -/
 theorem grid_widen {k K : Nat} {Ext : Mem 64 → Prop}
     (h : ProcSpecA (entry "read_sbr_grid") (Grid.GridPre k Ext) (Grid.GridPost k Ext))
-    (hk : k ≤ K) (hK : 0x30 + K ≤ 2 ^ 64) :
+    (hk : k ≤ K) (_hK : 0x30 + K ≤ 2 ^ 64) :
     ProcSpecA (entry "read_sbr_grid") (Grid.GridPre K Ext) (Grid.GridPost K Ext) := by
   intro x ra t ⟨hcall, hc⟩
   have e := Reserve.excess (Grid.gridNeed k) (Grid.gridNeed K) (t.regs.get64 .rsp)
-    (by simp only [Grid.gridNeed]; omega) hK
+    (by simp only [Grid.gridNeed]; omega) (CallPre.le hcall)
   refine eventually_weaken _ _ _ _ ?_
     (h { x with R := x.R ⋆ (Grid.gridNeed K - Grid.gridNeed k) ?@
       (t.regs.get64 .rsp - .ofNat 64 (Grid.gridNeed K)) } ra t ⟨?_, hc⟩)

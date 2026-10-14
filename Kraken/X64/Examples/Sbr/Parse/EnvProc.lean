@@ -119,7 +119,8 @@ abbrev EnvSpecP (k : Nat) (Ext : Mem 64 → Prop) : Prop :=
 
 theorem read_sbr_envelope_spec (hpl : Program.PlacedIn body) (k : Nat) (hk : k ≤ 2 ^ 32)
     (Ext : Mem 64 → Prop) (hAv : AvLogSpec Ext k) : EnvSpecP k Ext := by
-  refine Kraken.Examples.Sbr.Parse.ProcSpecS.of_cfg_post (p := body) (table k Ext) (Post' k Ext) var
+  refine Kraken.Examples.Sbr.Parse.ProcSpecS.of_cfg_postP (p := body) (table k Ext) (Post' k Ext)
+    var
     (hblocks := ?_) (hpre := ?_) (hpost := ?_) (hwf := body_wf)
   · intro x ra t₀ l blk hblk
     have hl := Program.blockAt_mem_labels hblk
@@ -209,6 +210,6 @@ theorem read_sbr_envelope_spec (hpl : Program.PlacedIn body) (k : Nat) (hk : k �
     · exact blk_L60f9 k Ext x ra t₀ blk hblk
   · rintro x ra t ⟨hcall, hc⟩
     exact ⟨rfl, hc, hcall⟩
-  · exact post_of k hk Ext
+  · exact post_of k Ext
 
 end Kraken.Examples.Sbr.Env

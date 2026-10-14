@@ -172,7 +172,7 @@ theorem reset_glue (k : Nat) (e : Reset.REnv) (hR : Reset.ResetSpec k e)
     (hB : Reset.BandsOK e.lg e.pw) (hal : isAligned 16 (lab "LCPI5_6") = true) :
     ResetSpec (Reset.resetNeed k) (ExtR e) := by
   apply ProcSpec.adapt hR
-  intro c ra t ⟨⟨hcall, hrok, hdok⟩, h0, h1, hhi, hres, hs3, hs4, hlb, hnw, hal16, hstk⟩
+  intro c ra t ⟨⟨hcall, hrok, hdok⟩, h0, h1, hhi, hres, hs3, hs4, hlb, hnw, hal16⟩
   let G := GbR c.g c.r c.i ⋆ (BufW c.r ⋆ (Grid.JtW ⋆ c.R))
   obtain ⟨l1, l2, l3, l4, l5, l6, l7⟩ := hdok.2.2.2
   refine ⟨⟨{ c.d.a with R := FRm c.d c.s G }, c.d.sp, BitVec.ofNat 32 c.d.h.lb, c.d.usac⟩,
@@ -183,7 +183,7 @@ theorem reset_glue (k : Nat) (e : Reset.REnv) (hR : Reset.ResetSpec k e)
       ⋆ FRm c.d c.s G))
     rw [rf_gen _ _ _ _ t _ c.s c.ac _ h1 h0 hlb]
     exact hm
-  · refine ⟨hdok.1, ?_, hs3, hs4, hhi.1, ?_, l1, l2, l3, l4, l5, l6, ?_, hal16, hal, hstk⟩
+  · refine ⟨hdok.1, ?_, hs3, hs4, hhi.1, ?_, l1, l2, l3, l4, l5, l6, ?_, hal16, hal⟩
     · show u8 c.d.sp 0 < 16
       rw [← hdok.2.1]; exact hhi.2.2.1 hres
     · show (BitVec.ofNat 32 c.d.h.lb).toNat ≤ 3

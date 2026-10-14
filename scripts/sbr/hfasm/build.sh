@@ -1,6 +1,7 @@
 #!/bin/bash
-# Generates the sbr_hf_assemble proof: Kraken/X64/Examples/Sbr/HfAssemble.lean and
-# HfAssemble/{Base,Part1..K}.lean (HfAssemble/Cells.lean is hand-written, not generated).
+# Generates the sbr_hf_assemble proof: Kraken/X64/Examples/Sbr/HfAssemble.lean,
+# HfAssembleText.lean (the program text) and HfAssemble/{Base,Part1..K}.lean
+# (HfAssemble/Cells.lean is hand-written, not generated).
 # env: HFASM_WORK (scratch dir, default a temporary one), HFASM_OUT (output .lean, default the
 #      Kraken file), HFASM_SPLIT (number of block modules, default 2; 0 = one file),
 #      HFASM_OVR (override dir: <blk>.lean = full text of theorem blk_<blk>, default ./override),
@@ -20,6 +21,12 @@ spec = open('spec.lean.in').read()
 head = open('proof_head.lean.in').read().replace('BODY', open('body.s').read())
 frames = open(W + '/gen.lean.in').read()
 open(W + '/full.lean', 'w').write(spec + head + frames)
+PY
+# HfAssembleText.lean: the program text, next to OUT
+mkdir -p "$(dirname "$OUT")"
+python3 - "$(dirname "$OUT")/HfAssembleText.lean" <<'PY'
+import sys
+open(sys.argv[1], 'w').write(open('text.lean.in').read().replace('BODY', open('body.s').read()))
 PY
 # HfAssemble/Base.lean + Part1..K.lean + HfAssemble.lean (split.py)
 python3 split.py "$W/full.lean" "$OUT" "${HFASM_SPLIT:-2}" || exit 1

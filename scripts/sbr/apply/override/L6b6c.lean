@@ -1,5 +1,5 @@
 theorem blk_L6b6c (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L6b6c" ⟨"ff_aac_sbr_apply.L6b6c", B.L6b6c, some "ff_aac_sbr_apply.L6ba0"⟩ := by
   clear hc
   intro n

@@ -1,15 +1,39 @@
 import Kraken.X64.PrintIntel
-import Kraken.X64.Examples.Sbr.Dsp
-import Kraken.X64.Examples.Sbr.FloatDsp
-import Kraken.X64.Examples.Sbr.QmfSynthesis
-import Kraken.X64.Examples.Sbr.LfGen
-import Kraken.X64.Examples.Sbr.HfInverseFilter
-import Kraken.X64.Examples.Sbr.XGen
-import Kraken.X64.Examples.Sbr.HfAssemble
-import Kraken.X64.Examples.Sbr.ApplyTable
+import Kraken.X64.Examples.Sbr.Dsp.NegOdd64Text
+import Kraken.X64.Examples.Sbr.Dsp.Sum64x5Text
+import Kraken.X64.Examples.Sbr.Dsp.SumSquareText
+import Kraken.X64.Examples.Sbr.Dsp.QmfPreShuffleText
+import Kraken.X64.Examples.Sbr.Dsp.QmfPostShuffleText
+import Kraken.X64.Examples.Sbr.Dsp.QmfDeintNegText
+import Kraken.X64.Examples.Sbr.Dsp.QmfDeintBflyText
+import Kraken.X64.Examples.Sbr.Dsp.AutocorrelateText
+import Kraken.X64.Examples.Sbr.Dsp.HfGenText
+import Kraken.X64.Examples.Sbr.Dsp.HfGFiltText
+import Kraken.X64.Examples.Sbr.Dsp.HfApplyNoiseText
+import Kraken.X64.Examples.Sbr.Dsp.VectorFmulText
+import Kraken.X64.Examples.Sbr.Dsp.VectorFmulAddText
+import Kraken.X64.Examples.Sbr.Dsp.VectorFmulRevText
+import Kraken.X64.Examples.Sbr.LfGenText
+import Kraken.X64.Examples.Sbr.HfInverseFilterText
+import Kraken.X64.Examples.Sbr.XGenText
+import Kraken.X64.Examples.Sbr.QmfSynthesisText
+import Kraken.X64.Examples.Sbr.HfAssembleText
+import Kraken.X64.Examples.Sbr.ApplyText
+import Kraken.X64.Examples.Sbr.Parse.DecExtText
+import Kraken.X64.Examples.Sbr.Parse.UsacText
+import Kraken.X64.Examples.Sbr.Parse.HdrText
+import Kraken.X64.Examples.Sbr.Parse.ResetBlocks
+import Kraken.X64.Examples.Sbr.Parse.TlimText
+import Kraken.X64.Examples.Sbr.Parse.GridText
+import Kraken.X64.Examples.Sbr.Parse.DtdfText
+import Kraken.X64.Examples.Sbr.Parse.InvfText
+import Kraken.X64.Examples.Sbr.Parse.EnvText
+import Kraken.X64.Examples.Sbr.Parse.NoiseText
+import Kraken.X64.Examples.Sbr.Parse.PsText
+import Kraken.X64.Examples.Sbr.Parse.InitText
 
 /-! Translation validation, step 1: print the elaborated `Program` terms that the
-final theorems mention (one directive per line, Intel syntax via
+final theorems mention (`ff_aac_sbr_apply_linked` and `SessionBin.sbr_session_safe`) (one directive per line, Intel syntax via
 `Kraken/X64/PrintIntel.lean`). Also prints Lean's `Repr` of each directive on the
 same line after ` ;; ` so that the comparison script can see the term structure
 (widths, address size). Output dir: `$SBR_TV_LEANDIR` (set by `tv.sh`). -/
@@ -42,7 +66,21 @@ def progs : List (String × Program) :=
   , ("sbr_hf_inverse_filter", HfInverseFilter.body)
   , ("sbr_x_gen", XGen.body)
   , ("sbr_hf_assemble", HfAssemble.body)
-  , ("ff_aac_sbr_apply", Apply.body) ]
+  , ("ff_aac_sbr_apply", Apply.body)
+  -- the session's parser entry points and their callees (`SessionBin.SessPlaced`)
+  , ("ff_aac_sbr_decode_extension", DecExt.body)
+  , ("ff_aac_sbr_decode_usac_data", Usac.body)
+  , ("ff_aac_sbr_config_usac", Usac.cbody)
+  , ("ff_aac_sbr_ctx_alloc_init", Init.body)
+  , ("read_sbr_header", Hdr.body)
+  , ("sbr_reset", Reset.body)
+  , ("sbr_make_f_tablelim", Tlim.body)
+  , ("read_sbr_grid", Grid.body)
+  , ("read_sbr_dtdf", Dtdf.body)
+  , ("read_sbr_invf", Invf.body)
+  , ("read_sbr_envelope", Env.body)
+  , ("read_sbr_noise", Noise.body)
+  , ("ff_ps_read_data", Ps.body) ]
 
 def dirLine (d : Directive) : String :=
   match d with

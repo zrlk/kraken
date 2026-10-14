@@ -75,7 +75,7 @@ variable [CodeEnv]
 /-- The body of `AtSrch j` with the witnesses `st fr c`. -/
 def SQ (j k : Nat) (e : REnv) (a : RArgs) (ra : Int64) (t₀ s : MachineData) (st : St)
     (fr : List UInt8) (c : PCx) : Prop :=
-  ResetC a t₀ ∧ Base t₀ s ∧
+  ResetCI a t₀ ∧ Base t₀ s ∧
     (PFix a c (fOf st) ∧ st.sp = a.sp ∧ st.fm.length = 98 ∧ FrOk fr
     ∧ frSlot64 fr 0x40 = arg0 t₀ ∧ frSlot64 fr 0x30 = arg1 t₀
     ∧ frSlot64 fr 0x38 = BitVec.ofNat 64 c.nm ∧ frSlot64 fr 0x48 = arg1 t₀ + 0x4c1f0#64

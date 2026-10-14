@@ -111,7 +111,7 @@ theorem Kraken.Executable.ProcSpec.widen [CodeEnv] {f : Int64} {need k : Nat}
     {F : MachineData → Mem 64 → Prop} {C : MachineData → Prop}
     (h : cenv.ProcSpec f (fun R ra t => CallPre need (F t ⋆ R) ra t ∧ C t)
         (fun R ra t s => CallPost need (F t ⋆ R) ra t s))
-    (hk : need ≤ k) (hk' : k ≤ 2 ^ 64) :
+    (hk : need ≤ k) (_hk' : k ≤ 2 ^ 64) :
     cenv.ProcSpec f
       (fun (x : (Mem 64 → Prop) × (Mem 64 → Prop)) ra t =>
         CallPre k (x.1 ⋆ x.2) ra t ∧ C t ∧ ∃ H, x.1 = F t ⋆ H)
@@ -119,7 +119,7 @@ theorem Kraken.Executable.ProcSpec.widen [CodeEnv] {f : Int64} {need k : Nat}
   rintro ⟨G, R⟩ ra t ⟨hpre, hC, H, hG⟩
   dsimp only at hG hpre ⊢
   subst hG
-  have e := Reserve.excess need k (t.regs.get64 .rsp) hk hk'
+  have e := Reserve.excess need k (t.regs.get64 .rsp) hk (CallPre.le hpre)
   refine eventually_weaken _ _ _ _ ?_
     (h (H ⋆ ((k - need) ?@ (t.regs.get64 .rsp - .ofNat 64 k) ⋆ R)) ra t ⟨?_, hC⟩)
   · rintro st ⟨hra, h1, h2, h3, hm⟩

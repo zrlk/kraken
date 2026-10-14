@@ -23,6 +23,8 @@ For each program:
  5. Coverage: the object instructions behind the last Lean instruction, up to
     the routine's end, must be padding. Labels named like an object symbol must
     sit at that symbol's address; labels `<sym>.L<hex>` at address <hex>.
+ Relocation targets: Lean labels resolve to the object symbol of that name, or by
+ LEAN_ALIAS (data the object has no symbol for), or `<sym>_got` to `<sym>`'s GOT slot.
 Exit status 1 on any FINDING.
 """
 import json
@@ -40,8 +42,9 @@ TVOUT = os.path.join(os.path.abspath(os.environ.get("SBR_OUT") or os.path.join(R
 OBJDIR = os.environ.get("SBR_OBJ_DIR", "")
 if not OBJDIR:
   sys.exit("tv: SBR_OBJ_DIR is not set (directory holding aacsbr.rela.o, aacsbr.pic.o, "
-           "aacsbr.g.o, sbrdsp.o and float_dsp.o; see scripts/sbr/README.md)")
+           "aacsbr.g.o, aacps_common.{rela,pic,g}.o, sbrdsp.o and float_dsp.o; see scripts/sbr/README.md)")
 OBJS = {"sbrdsp": os.path.join(OBJDIR, "sbrdsp.o"), "float_dsp": os.path.join(OBJDIR, "float_dsp.o"),
+        "aacps": os.path.join(OBJDIR, "aacps_common.rela.o"),
         "aacsbr": os.path.join(OBJDIR, "aacsbr.rela.o")}
 WORK = os.path.join(TVOUT, "work")
 LEANDIR = os.environ.get("TV_LEANDIR") or os.path.join(TVOUT, "lean")
@@ -203,7 +206,22 @@ def to_mc(txt):
   return t
 
 
-RELSIZE = {"R_X86_64_PC32": 4, "R_X86_64_PLT32": 4, "R_X86_64_GOTPC32": 4, "R_X86_64_GOTOFF64": 8}
+RELSIZE = {"R_X86_64_PC32": 4, "R_X86_64_PLT32": 4, "R_X86_64_GOTPC32": 4, "R_X86_64_GOTOFF64": 8,
+           "R_X86_64_GOTPCREL": 4, "R_X86_64_GOTPCRELX": 4, "R_X86_64_REX_GOTPCRELX": 4}
+GOTREL = ("R_X86_64_GOTPCREL", "R_X86_64_GOTPCRELX", "R_X86_64_REX_GOTPCRELX")
+
+# Lean labels for data without an object symbol of that name, as (target, offset): the target
+# is an object symbol (resolved as the Lean names are) or a section name. Each is a separate
+# label of the proofs (its own footprint region), placed where the object has the data.
+#  * `sbr_offset_<k>`: row k of `static const int8_t sbr_offset[6][16]` (sbr_reset);
+#  * `sbr_make_f_tablelim_bw`: the function-local `bands_warped[3]` of sbr_make_f_tablelim;
+#  * `read_sbr_grid_jt`: read_sbr_grid's switch jump table, at the start of `.rodata` (no
+#    symbol; its entries are checked by tv_data.py).
+LEAN_ALIAS = dict({f"sbr_offset_{k}": ("sbr_offset", 16 * k) for k in range(6)},
+                  sbr_make_f_tablelim_bw=("sbr_make_f_tablelim.bands_warped", 0),
+                  read_sbr_grid_jt=(".rodata", 0))
+# A Lean label `<sym>_got` is the GOT slot of `<sym>`: the proofs assume it holds `lab "<sym>"`
+# (ff_ps_read_data: `PsSpec`), and the object loads it through a GOTPCREL-type relocation.
 
 
 # ----------------------------------------------------------- compare -----
@@ -211,6 +229,12 @@ RELSIZE = {"R_X86_64_PC32": 4, "R_X86_64_PLT32": 4, "R_X86_64_GOTPC32": 4, "R_X8
 def resolve(elf, sym, addend, lean_side):
   """Canonical (base, offset) of a relocation target S + A."""
   s = None
+  if lean_side and sym in LEAN_ALIAS:
+    tgt, extra = LEAN_ALIAS[sym]
+    if any(x["name"] == tgt for x in elf.secs):
+      return (tgt, extra + addend)
+    b, o = resolve(elf, tgt, extra + addend, True)
+    return (b, o)
   if lean_side:
     # Kraken label names: `.LCPI14_4` -> `LCPI14_4`, `.L.str.1` -> `L_str_1`,
     # function-local statics `sbr_dequant.exp2_tab` -> `exp2_tab`.
@@ -245,7 +269,7 @@ def obj_symname(elf, base, off):
 def check(prog, report):
   items = read_lean(prog)
   entry = items[0][1]
-  key = next((k for k in ("sbrdsp", "float_dsp") if Elf(OBJS[k]).sym(entry)), "aacsbr")
+  key = next((k for k in ("sbrdsp", "float_dsp", "aacps") if Elf(OBJS[k]).sym(entry)), "aacsbr")
   path = OBJS[key]
   elf = Elf(path)
   esym = elf.sym(entry)
@@ -317,7 +341,14 @@ def check(prog, report):
     if p["lean"].startswith(".nops"):
       p["pad"] = True
       continue
-    asm.append(to_mc(p["lean"]))
+    if norm(p["otext"]) == "ret" and p["lean"].startswith("jmp "):
+      # object `ret`, Lean `jmp <block>`: the block must be a lone `ret` (checked below,
+      # ret_targets). Assembled as `ret` so that the 2-byte `jmp` does not run into the
+      # next instruction's `.org` (when the object has more code or padding behind it).
+      p["retjmp"] = True
+      asm.append("ret")
+    else:
+      asm.append(to_mc(p["lean"]))
     asm.append(f"__tv_end_{i}:")
   os.makedirs(WORK, exist_ok=True)
   sfile = os.path.join(WORK, prog + ".s")
@@ -353,6 +384,11 @@ def check(prog, report):
       else:
         findings.append(f"{a:#x}: Lean nop {mn[1]} B but object padding `{ot}` is {p['olen']} B")
       continue
+    if p.get("retjmp"):
+      allowed.append(("ret->jmp done", a, ot, p["lean"]))
+      notes.append(f"{a:#x}: object `ret`, Lean `{p['lean']}` (checked: see ret_targets)")
+      report.setdefault("ret_targets", []).append((prog, a, p["lean"].split()[1]))
+      continue
     glen = gends[f"__tv_end_{i}"] - off
     ob = elf.bytes_at(esec, a, p["olen"])
     lb = gb[off: off + glen]
@@ -374,13 +410,14 @@ def check(prog, report):
     for o in sorted(set(ofields) | set(gfields)):
       if o in ofields:
         t, s, ad = ofields[o]
-        oc = resolve(elf, s, ad, False)
+        oc = ("GOT:" + s, ad) if t in GOTREL else resolve(elf, s, ad, False)
       else:  # resolved by the assembler: S + A = disp + P
         disp = struct.unpack_from("<i", ob, o - a)[0]
         oc = (esec, disp + o)
       if o in gfields:
         t, s, ad = gfields[o]
-        lc = resolve(elf, s, ad, True)
+        lc = (("GOT:" + s[:-4], ad) if s.endswith("_got") and t == "R_X86_64_PC32"
+              else resolve(elf, s, ad, True))
         lsym = s
       else:
         disp = struct.unpack_from("<i", lb, o - a)[0] if o - a + 4 <= len(lb) else None
@@ -426,9 +463,11 @@ def check(prog, report):
   for l, ad in labaddr.items():
     if l in symaddr and symaddr[l] != ad:
       findings.append(f"label {l} at {ad:#x} but object symbol {l} at {symaddr[l]:#x}")
-    m = re.match(r"^.*\.L([0-9a-f]+)(?:_\d+)?$", l)
+    m = re.match(r"^.*\.L([0-9a-f]+)(_\d+)?$", l)
     if m and int(m[1], 16) != ad and l not in symaddr:
-      notes.append(f"label {l} sits at {ad:#x} (name suggests {m[1]})")
+      # `<sym>.L<hex>` names the object address <hex> (tv_data.py relies on it for the jump
+      # table); `<sym>.L<hex>_<n>` is a later cut in the block that starts there.
+      (notes if m[2] else findings).append(f"label {l} sits at {ad:#x} (name says {m[1]})")
   # ret_targets: the jump target block must be a lone `ret`
   for (pg, a, tgt) in report.get("ret_targets", []):
     if pg != prog:

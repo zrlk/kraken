@@ -334,7 +334,7 @@ theorem blk_L2b60 (k : Nat) (e : REnv) (hc : ResetCallees k e) (a : RArgs) (ra :
 set_option maxRecDepth 100000 in
 /-- The exit of `L2b65` to `L2bb5` (`n_q < 6`), the value `c` abstract. -/
 theorem nq_to_L2bb5 {k : Nat} {e : REnv} {a : RArgs} {ra : Int64} {t₀ : MachineData} {s : MachineData}
-    {st : St} {fr : List UInt8} {nm : Nat} {k0 : Int} (hC : ResetC a t₀)
+    {st : St} {fr : List UInt8} {nm : Nat} {k0 : Int} (hC : ResetCI a t₀)
     (hMa : Master a.x.sampleRate.toInt (u8 a.sp 0) (u8 a.sp 2) (some k0) (some (nm, fOf st)))
     (hsp : st.sp = a.sp) (hfm : st.fm.length = 98) (hF : FrOk fr) (h40 : frSlot64 fr 0x40 = arg0 t₀)
     (hk2 : NqIn e st) (hf1 : (fOf st) nm ≤ 64) (hf2 : (fOf st) (xoOf a) ≤ 32) (h30 : frSlot64 fr 0x30 = arg1 t₀)
@@ -362,7 +362,7 @@ theorem nq_to_L2bb5 {k : Nat} {e : REnv} {a : RArgs} {ra : Int64} {t₀ : Machin
 set_option maxRecDepth 100000 in
 /-- The exit of `L2b65` to the log `L2b9d` (`n_q > 5`). -/
 theorem nq_to_L2b9d {k : Nat} {e : REnv} {a : RArgs} {ra : Int64} {t₀ : MachineData} {s : MachineData}
-    {st : St} {fr : List UInt8} {nm : Nat} {k0 : Int} (hC : ResetC a t₀)
+    {st : St} {fr : List UInt8} {nm : Nat} {k0 : Int} (hC : ResetCI a t₀)
     (hMa : Master a.x.sampleRate.toInt (u8 a.sp 0) (u8 a.sp 2) (some k0) (some (nm, fOf st)))
     (hsp : st.sp = a.sp) (hfm : st.fm.length = 98) (hF : FrOk fr) (h40 : frSlot64 fr 0x40 = arg0 t₀)
     (hk2 : NqIn e st) (hf1 : (fOf st) nm ≤ 64) (hf2 : (fOf st) (xoOf a) ≤ 32) (h30 : frSlot64 fr 0x30 = arg1 t₀)

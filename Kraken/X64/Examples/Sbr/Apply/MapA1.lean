@@ -16,7 +16,7 @@ variable [CodeEnv]
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L7ce4 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L7ce4" ⟨"ff_aac_sbr_apply.L7ce4", B.L7ce4, some "ff_aac_sbr_apply.L7ce4_1"⟩ := by
   info_off
   clear hc
@@ -265,7 +265,7 @@ theorem blk_L7ce4 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 200000 in
 theorem blk_L7ce4_1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L7ce4_1" ⟨"ff_aac_sbr_apply.L7ce4_1", B.L7ce4_1, some "ff_aac_sbr_apply.L7ce4_2"⟩ := by
   info_off
   clear hc
@@ -520,7 +520,7 @@ theorem blk_L7ce4_1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 300000 in
 theorem blk_L7ce4_2 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L7ce4_2" ⟨"ff_aac_sbr_apply.L7ce4_2", B.L7ce4_2, some "ff_aac_sbr_apply.L7ce4_3"⟩ := by
   info_off
   clear hc
@@ -822,7 +822,7 @@ theorem blk_L7ce4_2 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 200000 in
 theorem blk_L7ce4_3 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L7ce4_3" ⟨"ff_aac_sbr_apply.L7ce4_3", B.L7ce4_3, some "ff_aac_sbr_apply.L7ce4_4"⟩ := by
   info_off
   clear hc
@@ -1077,7 +1077,7 @@ theorem blk_L7ce4_3 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 200000 in
 theorem blk_L7ce4_4 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L7ce4_4" ⟨"ff_aac_sbr_apply.L7ce4_4", B.L7ce4_4, some "ff_aac_sbr_apply.L7ce4_5"⟩ := by
   info_off
   clear hc

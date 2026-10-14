@@ -11,7 +11,7 @@ ENTRIES = {
     # the epilogue
     "L1d95": "AtExit k e a ra t₀ s",
     # after the pops, before `ret`
-    "done": "ResetC a t₀ ∧ s.regs.get64 .rsp = t₀.regs.get64 .rsp "
+    "done": "ResetCI a t₀ ∧ s.regs.get64 .rsp = t₀.regs.get64 .rsp "
             "∧ s.regs.get64 .rbp = t₀.regs.get64 .rbp ∧ SavedRegs t₀ s "
             "∧ ∃ (x' : Args) (sp' : List UInt8) (us' : BitVec 32), ResetOut a x' sp' us' "
             "∧ (s.dmem =⋆ RetCell ra (t₀.regs.get64 .rsp) ⋆ (Reserve (resetNeed k) "

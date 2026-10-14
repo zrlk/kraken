@@ -1,4 +1,6 @@
 import Kraken.X64.Examples.Sbr.Parse.DtdfText
+import Kraken.X64.Examples.Sbr.Parse.Lib
+import Kraken.X64.Examples.Sbr.ApplySpec
 
 /-!
 # `read_sbr_dtdf`: the specification

@@ -315,9 +315,10 @@ set_option maxRecDepth 200000 in
 theorem spec (hpl : Program.PlacedIn body) (k : Nat) (hk : k ≤ 2 ^ 32) (Ext : Mem 64 → Prop)
     (hAv : AvLogSpec Ext k) (hMs : MemsetValSpec k) :
     PsReadSpec k Ext := by
-  refine Kraken.Executable.ProcSpec.of_cfg_post (p := body) (fun x ra t₀ => table k Ext x ra t₀)
-    (fun x ra t₀ => Post' k Ext x ra t₀) var ?_ (ps_pre k hk Ext) (ps_post k hk Ext) (hwf := body_wf)
-  intro x ra t₀ l blk hblk
+  refine Kraken.Executable.ProcSpec.of_cfg_post_pre (p := body)
+    (fun x ra t₀ => table k Ext x ra t₀) (fun x ra t₀ => Post' k Ext x ra t₀) var ?_
+    (ps_pre k Ext) (ps_post k Ext) (hwf := body_wf)
+  intro x ra t₀ _ l blk hblk
   have hl := Program.blockAt_mem_labels hblk
   rw [labels_body] at hl
   simp only [psLabels, List.mem_cons, List.not_mem_nil, or_false] at hl

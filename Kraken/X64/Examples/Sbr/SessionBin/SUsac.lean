@@ -53,7 +53,7 @@ theorem session_usac_of (hb : FUsac) (hpl : SessPlaced) (k : Nat) (hk : 0x9d0 + 
       ∧ Usac.QE e.Ext (OthU vs vp) (uq e vs vp q R) :=
     ⟨⟨⟨a, b', hu, hi, ha, c, dd, hu2, hi2, hc, hUF⟩,
       ⟨hmi, hsp, hfr.rd.1, hfr.rd.2, ⟨u1, u2, u3, u4, hfr.uev3⟩, hpl.jt, hlay⟩,
-      ha0, ha1, ha2, ha3, hfr.align, hfr.stk⟩, rfl, rfl⟩
+      ha0, ha1, ha2, ha3, hfr.align⟩, rfl, rfl⟩
   refine eventually_weaken _ _ _ _ (fun st h => h.imp (fun hr => ?_) id)
     (usacAsm k e vs vp pw lg hk hpl has _ ra t hpre)
   obtain ⟨hra, u, ⟨hmi', hlive, hkeep, hsp', hi'⟩, h1, h2, h3, hm⟩ := hr

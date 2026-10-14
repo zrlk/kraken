@@ -1,6 +1,6 @@
 set_option maxRecDepth 8000 in
 theorem blk_L7140 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L7140" ⟨"ff_aac_sbr_apply.L7140", B.L7140, some "ff_aac_sbr_apply.L7166"⟩ := by
   clear hc
   intro n

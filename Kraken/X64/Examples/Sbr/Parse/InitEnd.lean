@@ -24,14 +24,18 @@ variable [CodeEnv] {k : Nat} {Ctx : BitVec 64 → Mem 64 → Prop} {TxTab : Mem 
 /-- `Out` along a change of the memory around the body. -/
 theorem Out_mono (hk : ∀ B, (m =⋆ Mk B) → (m =⋆ Mk' B)) (h : Out k Ctx TxTab t₀ Mk ret m) :
     Out k Ctx TxTab t₀ Mk' ret m := by
-  rcases h with ⟨h1, r, h2, h4, ha, hs, h3⟩ | ⟨h1, h2⟩ | ⟨h1, p, J, h2⟩
+  rcases h with ⟨h1, r, h2, h4, ha, hs, h3⟩ | ⟨h1, h2⟩ | ⟨h1, p, bc, bf, l1, l2, h2⟩
+    | ⟨h1, p, c, f, bc, bf, l1, l2, h2⟩
   · exact Or.inl ⟨h1, r, h2, h4, ha, hs, hk _ h3⟩
   · exact Or.inr (Or.inl ⟨h1, hk _ h2⟩)
-  · exact Or.inr (Or.inr ⟨h1, p, J, hk _ h2⟩)
+  · exact Or.inr (Or.inr (Or.inl ⟨h1, p, bc, bf, l1, l2, hk _ h2⟩))
+  · exact Or.inr (Or.inr (Or.inr ⟨h1, p, c, f, bc, bf, l1, l2, hk _ h2⟩))
 
 /-- Every outcome has some body. -/
 theorem Out_ex (h : Out k Ctx TxTab t₀ Mk ret m) : ∃ B, m =⋆ Mk B := by
-  rcases h with ⟨-, r, -, -, -, -, h⟩ | ⟨-, h⟩ | ⟨-, p, J, h⟩
+  rcases h with ⟨-, r, -, -, -, -, h⟩ | ⟨-, h⟩ | ⟨-, p, bc, bf, -, -, h⟩
+    | ⟨-, p, c, f, bc, bf, -, -, h⟩
+  · exact ⟨_, h⟩
   · exact ⟨_, h⟩
   · exact ⟨_, h⟩
   · exact ⟨_, h⟩

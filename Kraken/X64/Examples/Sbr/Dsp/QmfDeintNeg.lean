@@ -4,6 +4,7 @@ import Kraken.Rules.PackedSse
 import Kraken.Rules.IntMisc
 import Kraken.X64.Examples.Sbr.Spec
 import Kraken.Rules.LeafLemmas
+import Kraken.X64.Examples.Sbr.Dsp.QmfDeintNegText
 
 /-!
 # `ff_sbr_qmf_deint_neg_sse` as a `ProcSpec`
@@ -55,31 +56,6 @@ set_option mvcgen.warning false
 set_option grind.warning false
 
 namespace Kraken.Examples.Sbr.QmfDeintNeg
-
-/-- The routine from the object file, labels prefixed with the symbol, the
-final `ret` kept behind a label of its own (`….done`). -/
-def body : Program := parse("
-ff_sbr_qmf_deint_neg_sse:
-    mov $0xffffffffffffff80,%rcx
-    lea 0x100(%rdi),%rdx
-    add $0x70,%rdi
-    add $0x100,%rsi
-    movaps ff_ps_neg(%rip),%xmm3
-ff_sbr_qmf_deint_neg_sse.loop:
-    movaps (%rsi,%rcx,2),%xmm0
-    movaps 0x10(%rsi,%rcx,2),%xmm1
-    movaps %xmm0,%xmm2
-    shufps $0x88,%xmm1,%xmm2
-    shufps $0x77,%xmm0,%xmm1
-    xorps %xmm3,%xmm2
-    movaps %xmm1,(%rdi)
-    movaps %xmm2,(%rdx,%rcx,1)
-    sub $0x10,%rdi
-    add $0x10,%rcx
-    jl ff_sbr_qmf_deint_neg_sse.loop
-ff_sbr_qmf_deint_neg_sse.done:
-    ret
-")
 
 variable [CodeEnv]
 

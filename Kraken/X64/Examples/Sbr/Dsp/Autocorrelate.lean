@@ -6,6 +6,7 @@ import Kraken.Rules.PackedSse
 import Kraken.Rules.ScalarFloat
 import Kraken.X64.Examples.Sbr.Spec
 import Kraken.Rules.LeafLemmas
+import Kraken.X64.Examples.Sbr.Dsp.AutocorrelateText
 
 /-!
 # `ff_sbr_autocorrelate_sse` / `_sse3` as `ProcSpec`s
@@ -47,7 +48,8 @@ only those bytes and its reservation.
   `.tail` block (the aligned `addps (%rsp)` loads) fail (negative check,
   scratch).
   The reservation is carried as one owned block (`Own`) that the code writes
-  and reads back; `Reserve 40 r` unfolds to it at entry and exit.
+  and reads back; `Reserve 40 r` is that block at entry and exit (`Reserve_eq`,
+  with the entry's headroom `CallPre.le`).
 * Proof shape: four blocks per entry (entry, `.loop`, `.tail` after the
   `jl`, `.done` with the `ret`). The loop invariant needs `rsi = phi`
   although the loop does not touch `rsi`: the tail writes through it.
@@ -77,106 +79,6 @@ set_option grind.warning false
 
 
 namespace Kraken.Examples.Sbr.Autocorrelate
-
-def body : Program := parse("
-ff_sbr_autocorrelate_sse:
-    sub $0x28,%rsp
-    mov $0x128,%edx
-    add %rdx,%rdi
-    neg %rdx
-    movlps (%rdi,%rdx,1),%xmm5
-    movlhps %xmm5,%xmm5
-    movlps 0x8(%rdi,%rdx,1),%xmm7
-    movlps 0x10(%rdi,%rdx,1),%xmm1
-    shufps $0x14,%xmm7,%xmm7
-    shufps $0x14,%xmm1,%xmm1
-    movaps %xmm5,%xmm3
-    mulps %xmm7,%xmm3
-    movaps %xmm5,%xmm4
-    mulps %xmm5,%xmm4
-    mulps %xmm1,%xmm5
-    movaps %xmm3,(%rsp)
-    movaps %xmm4,0x10(%rsp)
-    add $0x8,%rdx
-    movlps 0x10(%rdi,%rdx,1),%xmm2
-    movlhps %xmm7,%xmm7
-    shufps $0x14,%xmm2,%xmm2
-    movaps %xmm7,%xmm6
-    mulps %xmm1,%xmm6
-    movaps %xmm7,%xmm4
-    mulps %xmm2,%xmm4
-    mulps %xmm7,%xmm7
-    addps %xmm4,%xmm5
-    nop
-    nop
-ff_sbr_autocorrelate_sse.loop:
-    add $0x8,%rdx
-    movlps 0x10(%rdi,%rdx,1),%xmm0
-    movlhps %xmm1,%xmm1
-    shufps $0x14,%xmm0,%xmm0
-    movaps %xmm1,%xmm3
-    mulps %xmm2,%xmm3
-    movaps %xmm1,%xmm4
-    mulps %xmm0,%xmm4
-    mulps %xmm1,%xmm1
-    addps %xmm3,%xmm6
-    addps %xmm4,%xmm5
-    addps %xmm1,%xmm7
-    add $0x8,%rdx
-    movlps 0x10(%rdi,%rdx,1),%xmm1
-    movlhps %xmm2,%xmm2
-    shufps $0x14,%xmm1,%xmm1
-    movaps %xmm2,%xmm3
-    mulps %xmm0,%xmm3
-    movaps %xmm2,%xmm4
-    mulps %xmm1,%xmm4
-    mulps %xmm2,%xmm2
-    addps %xmm3,%xmm6
-    addps %xmm4,%xmm5
-    addps %xmm2,%xmm7
-    add $0x8,%rdx
-    movlps 0x10(%rdi,%rdx,1),%xmm2
-    movlhps %xmm0,%xmm0
-    shufps $0x14,%xmm2,%xmm2
-    movaps %xmm0,%xmm3
-    mulps %xmm1,%xmm3
-    movaps %xmm0,%xmm4
-    mulps %xmm2,%xmm4
-    mulps %xmm0,%xmm0
-    addps %xmm3,%xmm6
-    addps %xmm4,%xmm5
-    addps %xmm0,%xmm7
-    jl ff_sbr_autocorrelate_sse.loop
-ff_sbr_autocorrelate_sse.tail:
-    movlhps %xmm1,%xmm1
-    mulps %xmm1,%xmm2
-    mulps %xmm1,%xmm1
-    addps %xmm6,%xmm2
-    addps %xmm7,%xmm1
-    addps (%rsp),%xmm6
-    addps 0x10(%rsp),%xmm7
-    xorps ps_mask3(%rip),%xmm2
-    xorps ps_mask3(%rip),%xmm5
-    xorps ps_mask3(%rip),%xmm6
-    movaps %xmm2,%xmm3
-    shufps $0x88,%xmm5,%xmm2
-    shufps $0xdd,%xmm5,%xmm3
-    addps %xmm3,%xmm2
-    movaps %xmm7,%xmm4
-    shufps $0x88,%xmm6,%xmm7
-    shufps $0xdd,%xmm6,%xmm4
-    addps %xmm4,%xmm7
-    movss %xmm1,%xmm0
-    shufps $0x1,%xmm1,%xmm1
-    addss %xmm0,%xmm1
-    movaps %xmm2,(%rsi)
-    movhps %xmm7,0x18(%rsi)
-    movss %xmm7,0x28(%rsi)
-    movss %xmm1,0x10(%rsi)
-    add $0x28,%rsp
-ff_sbr_autocorrelate_sse.done:
-    ret
-")
 
 variable [CodeEnv]
 
@@ -229,9 +131,9 @@ abbrev Post' (R : Mem 64 → Prop) (_ra : Int64) (t₀ s : MachineData) : Prop :
 
 theorem spec_sse (hpl : Program.PlacedIn body) :
     AutocorrelateSpec "ff_sbr_autocorrelate_sse" := by
-  refine Kraken.Executable.ProcSpec.of_cfg_post (p := body) table Post' var
+  refine Kraken.Executable.ProcSpec.of_cfg_post_pre (p := body) table Post' var
     (hblocks := ?_) (hpre := ?_) (hpost := ?_)
-  · intro R ra t₀
+  · intro R ra t₀ _
     cfg_cases [body]
     · vcgen with finish
     · vcgen with finish
@@ -243,106 +145,14 @@ theorem spec_sse (hpl : Program.PlacedIn body) :
   · rintro R ra t ⟨hcall, hc⟩
     refine ⟨rfl, hc, ?_⟩
     have h := hcall
-    simp only [Own, Blocks, Rest, CallPre, Reserve] at h ⊢
+    simp only [Own, Blocks, Rest, CallPre, Reserve_eq _ _ (CallPre.le hcall)] at h ⊢
     exact Mem.ac h
-  · rintro R ra t₀ s ⟨h1, h2, h3, hm⟩
+  · rintro R ra t₀ s ⟨hcall, -⟩ ⟨h1, h2, h3, hm⟩
     refine ⟨h1, h2, h3, ?_⟩
-    simp only [Own, Blocks, Reserve] at hm ⊢
+    simp only [Own, Blocks, Reserve_eq _ _ (CallPre.le hcall)] at hm ⊢
     exact Mem.ac hm
 
 /-! ## The SSE3 variant: same CFG, `movddup`/`movsd` loads and `haddps` in the tail -/
-
-def body3 : Program := parse("
-ff_sbr_autocorrelate_sse3:
-    sub $0x28,%rsp
-    mov $0x128,%edx
-    add %rdx,%rdi
-    neg %rdx
-    movddup (%rdi,%rdx,1),%xmm5
-    movsd 0x8(%rdi,%rdx,1),%xmm7
-    movsd 0x10(%rdi,%rdx,1),%xmm1
-    shufps $0x14,%xmm7,%xmm7
-    shufps $0x14,%xmm1,%xmm1
-    movaps %xmm5,%xmm3
-    mulps %xmm7,%xmm3
-    movaps %xmm5,%xmm4
-    mulps %xmm5,%xmm4
-    mulps %xmm1,%xmm5
-    movaps %xmm3,(%rsp)
-    movaps %xmm4,0x10(%rsp)
-    add $0x8,%rdx
-    movsd 0x10(%rdi,%rdx,1),%xmm2
-    movlhps %xmm7,%xmm7
-    shufps $0x14,%xmm2,%xmm2
-    movaps %xmm7,%xmm6
-    mulps %xmm1,%xmm6
-    movaps %xmm7,%xmm4
-    mulps %xmm2,%xmm4
-    mulps %xmm7,%xmm7
-    addps %xmm4,%xmm5
-    nop
-    nop
-ff_sbr_autocorrelate_sse3.loop:
-    add $0x8,%rdx
-    movsd 0x10(%rdi,%rdx,1),%xmm0
-    movlhps %xmm1,%xmm1
-    shufps $0x14,%xmm0,%xmm0
-    movaps %xmm1,%xmm3
-    mulps %xmm2,%xmm3
-    movaps %xmm1,%xmm4
-    mulps %xmm0,%xmm4
-    mulps %xmm1,%xmm1
-    addps %xmm3,%xmm6
-    addps %xmm4,%xmm5
-    addps %xmm1,%xmm7
-    add $0x8,%rdx
-    movsd 0x10(%rdi,%rdx,1),%xmm1
-    movlhps %xmm2,%xmm2
-    shufps $0x14,%xmm1,%xmm1
-    movaps %xmm2,%xmm3
-    mulps %xmm0,%xmm3
-    movaps %xmm2,%xmm4
-    mulps %xmm1,%xmm4
-    mulps %xmm2,%xmm2
-    addps %xmm3,%xmm6
-    addps %xmm4,%xmm5
-    addps %xmm2,%xmm7
-    add $0x8,%rdx
-    movsd 0x10(%rdi,%rdx,1),%xmm2
-    movlhps %xmm0,%xmm0
-    shufps $0x14,%xmm2,%xmm2
-    movaps %xmm0,%xmm3
-    mulps %xmm1,%xmm3
-    movaps %xmm0,%xmm4
-    mulps %xmm2,%xmm4
-    mulps %xmm0,%xmm0
-    addps %xmm3,%xmm6
-    addps %xmm4,%xmm5
-    addps %xmm0,%xmm7
-    jl ff_sbr_autocorrelate_sse3.loop
-ff_sbr_autocorrelate_sse3.tail:
-    movlhps %xmm1,%xmm1
-    mulps %xmm1,%xmm2
-    mulps %xmm1,%xmm1
-    addps %xmm6,%xmm2
-    addps %xmm7,%xmm1
-    addps (%rsp),%xmm6
-    addps 0x10(%rsp),%xmm7
-    xorps ps_mask3(%rip),%xmm2
-    xorps ps_mask3(%rip),%xmm5
-    xorps ps_mask3(%rip),%xmm6
-    haddps %xmm5,%xmm2
-    haddps %xmm6,%xmm7
-    movshdup %xmm1,%xmm0
-    addss %xmm0,%xmm1
-    movaps %xmm2,(%rsi)
-    movhps %xmm7,0x18(%rsi)
-    movss %xmm7,0x28(%rsi)
-    movss %xmm1,0x10(%rsi)
-    add $0x28,%rsp
-ff_sbr_autocorrelate_sse3.done:
-    ret
-")
 
 abbrev table3 (R : Mem 64 → Prop) (ra : Int64) (t₀ : MachineData) :
     Label → MachineData → Prop
@@ -377,9 +187,9 @@ abbrev var3 : Label → MachineData → Nat
 
 theorem spec_sse3 (hpl : Program.PlacedIn body3) :
     AutocorrelateSpec "ff_sbr_autocorrelate_sse3" := by
-  refine Kraken.Executable.ProcSpec.of_cfg_post (p := body3) table3 Post' var3
+  refine Kraken.Executable.ProcSpec.of_cfg_post_pre (p := body3) table3 Post' var3
     (hblocks := ?_) (hpre := ?_) (hpost := ?_)
-  · intro R ra t₀
+  · intro R ra t₀ _
     cfg_cases [body3]
     · vcgen with finish
     · vcgen with finish
@@ -391,11 +201,11 @@ theorem spec_sse3 (hpl : Program.PlacedIn body3) :
   · rintro R ra t ⟨hcall, hc⟩
     refine ⟨rfl, hc, ?_⟩
     have h := hcall
-    simp only [Own, Blocks, Rest, CallPre, Reserve] at h ⊢
+    simp only [Own, Blocks, Rest, CallPre, Reserve_eq _ _ (CallPre.le hcall)] at h ⊢
     exact Mem.ac h
-  · rintro R ra t₀ s ⟨h1, h2, h3, hm⟩
+  · rintro R ra t₀ s ⟨hcall, -⟩ ⟨h1, h2, h3, hm⟩
     refine ⟨h1, h2, h3, ?_⟩
-    simp only [Own, Blocks, Reserve] at hm ⊢
+    simp only [Own, Blocks, Reserve_eq _ _ (CallPre.le hcall)] at hm ⊢
     exact Mem.ac hm
 
 end Kraken.Examples.Sbr.Autocorrelate

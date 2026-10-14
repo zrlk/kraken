@@ -54,7 +54,7 @@ abbrev PNr (s : PL) : Prop := ¬ ((s.k : Int) = s.lk ∧ (s.msb : Int) = s.lmsb)
 /-- Inside the patch loop: `r12 = sbr` unless said otherwise, the frame slots of the loop. -/
 def AtPat (k : Nat) (e : REnv) (a : RArgs) (ra : Int64) (t₀ s : MachineData)
     (P : St → PCx → Prop) : Prop :=
-  ResetC a t₀ ∧ Base t₀ s ∧ ∃ (st : St) (fr : List UInt8) (c : PCx),
+  ResetCI a t₀ ∧ Base t₀ s ∧ ∃ (st : St) (fr : List UInt8) (c : PCx),
     PFix a c (fOf st) ∧ st.sp = a.sp ∧ st.fm.length = 98 ∧ FrOk fr
     ∧ frSlot64 fr 0x40 = arg0 t₀ ∧ frSlot64 fr 0x30 = arg1 t₀
     ∧ frSlot64 fr 0x38 = BitVec.ofNat 64 c.nm ∧ frSlot64 fr 0x48 = arg1 t₀ + 0x4c1f0#64
@@ -64,7 +64,7 @@ def AtPat (k : Nat) (e : REnv) (a : RArgs) (ra : Int64) (t₀ s : MachineData)
 
 /-- A failure of the patch loop decided (`Derived.badPatch`): the values, `r12 = sbr`. -/
 def AtPatF (k : Nat) (e : REnv) (a : RArgs) (ra : Int64) (t₀ s : MachineData) : Prop :=
-  ResetC a t₀ ∧ Base t₀ s ∧ s.regs.get64 .r12 = arg1 t₀
+  ResetCI a t₀ ∧ Base t₀ s ∧ s.regs.get64 .r12 = arg1 t₀
   ∧ ∃ (st : St) (fr : List UInt8) (c : PCx),
     Master a.x.sampleRate.toInt (u8 a.sp 0) (xoOf a) (some c.k0) (some (c.nm, fOf st))
     ∧ Reset (spOf a) (lbN a) a.x st.x.turnoff ∧ st.x.avctx = a.x.avctx ∧ st.sp = a.sp ∧ st.fm.length = 98 ∧ FrOk fr
@@ -72,7 +72,7 @@ def AtPatF (k : Nat) (e : REnv) (a : RArgs) (ra : Int64) (t₀ s : MachineData) 
 
 /-- `num_patches > 5` decided (`L31f5`, from the inner loop): as `AtPatF`, `r12` free. -/
 def AtPatG (k : Nat) (e : REnv) (a : RArgs) (ra : Int64) (t₀ s : MachineData) : Prop :=
-  ResetC a t₀ ∧ Base t₀ s
+  ResetCI a t₀ ∧ Base t₀ s
   ∧ ∃ (st : St) (fr : List UInt8) (c : PCx),
     Master a.x.sampleRate.toInt (u8 a.sp 0) (xoOf a) (some c.k0) (some (c.nm, fOf st))
     ∧ Reset (spOf a) (lbN a) a.x st.x.turnoff ∧ st.x.avctx = a.x.avctx ∧ st.sp = a.sp ∧ st.fm.length = 98 ∧ FrOk fr

@@ -110,11 +110,12 @@ theorem TlimF_eq (lb : BitVec 32) (a : Args) (t : MachineData) : TlimF lb a t = 
   rfl
 
 theorem Mm_tl (k : Nat) (e : REnv) (a : RArgs) (ra : Int64) (t₀ : MachineData) (st : St)
-    (fr : List UInt8) (hd : 8 + tlimNeed k ≤ 2 ^ 64) :
+    (fr : List UInt8) (hd : 8 + tlimNeed k ≤ (t₀.regs.get64 .rsp - 0x578#64).toNat) :
     Mm k e a ra t₀ st fr = 8 ?@ (t₀.regs.get64 .rsp - 0x578#64 - 8#64)
       ⋆ (Reserve (tlimNeed k) (t₀.regs.get64 .rsp - 0x578#64 - 8#64)
         ⋆ (TlA a.lb st.x (arg1 t₀) ⋆ Mx_tl k e a ra t₀ st fr)) := by
-  simp only [Mm, Reserve_split 8 (tlimNeed k) _ hd, TlA, Mx_tl, BwR]
+  simp only [Mm, Reserve_split 8 (tlimNeed k) (t₀.regs.get64 .rsp - 0x578#64) (by omega), TlA,
+    Mx_tl, BwR]
   ac_rfl
 
 /-- `sbr_make_f_tablelim` changes only `f_tablelim` and `n_lim`, outside `Mx_tl`. -/

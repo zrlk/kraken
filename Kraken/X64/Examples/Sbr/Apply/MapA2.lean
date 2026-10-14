@@ -16,7 +16,7 @@ variable [CodeEnv]
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 200000 in
 theorem blk_L7ce4_5 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L7ce4_5" ⟨"ff_aac_sbr_apply.L7ce4_5", B.L7ce4_5, some "ff_aac_sbr_apply.L7db0"⟩ := by
   info_off
   clear hc
@@ -279,7 +279,7 @@ theorem blk_L7ce4_5 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 700000 in
 theorem blk_L7db0 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L7db0" ⟨"ff_aac_sbr_apply.L7db0", B.L7db0, some "ff_aac_sbr_apply.L7db0_1"⟩ := by
   info_off
   clear hc
@@ -854,7 +854,7 @@ theorem blk_L7db0 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L7db0_1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L7db0_1" ⟨"ff_aac_sbr_apply.L7db0_1", B.L7db0_1, some "ff_aac_sbr_apply.L7e20"⟩ := by
   info_off
   clear hc
@@ -1478,7 +1478,7 @@ theorem blk_L7db0_1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 300000 in
 theorem blk_L7e20 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L7e20" ⟨"ff_aac_sbr_apply.L7e20", B.L7e20, some "ff_aac_sbr_apply.L7e29"⟩ := by
   info_off
   clear hc

@@ -1,4 +1,5 @@
 import Kraken.X64.Examples.Sbr.ApplySpec
+import Kraken.X64.Examples.Sbr.SessionSpec
 
 /-!
 # The SBR Huffman tables (`ff_aac_sbr_vlc`) and the inlined `get_vlc2` walk
@@ -21,70 +22,16 @@ open Kraken.Examples.Sbr Kraken.Examples.Sbr.Apply
 
 namespace Kraken.Examples.Sbr.Vlc
 
-/-- One table: its address and its bytes (`4 * N` bytes for `N` entries). -/
-structure VlcTab where
-  p : BitVec 64
-  es : List UInt8
-
-/-- The number of entries. -/
-abbrev VlcTab.N (t : VlcTab) : Nat := t.es.length / 4
-
-/-- `table[i].sym` and `table[i].len` (little-endian `int16_t`). -/
-abbrev vsym (es : List UInt8) (i : Nat) : BitVec 16 :=
-  BitVec.ofInt 16 (Int.ofBytes ((es.drop (4 * i)).take 2))
-
-abbrev vlen (es : List UInt8) (i : Nat) : BitVec 16 :=
-  BitVec.ofInt 16 (Int.ofBytes ((es.drop (4 * i + 2)).take 2))
-
-/-- The subtable entry reached from a subtable entry `i` (`len < 0`) with `j` the window
-shifted right by `len & 31` (`j < 2 ^ (32 - len % 32)`). -/
-abbrev vnext (es : List UInt8) (i j : Nat) : Nat :=
-  (BitVec.ofNat 32 j + (vsym es i).signExtend 32).toNat
-
-/-- A walk of at most `d` levels from entry `i` stays inside the table: every entry it reads
-is an entry of the table, and a walk that has used its `d` levels ends on an entry with
-`len ≥ 0`. -/
-def VWalk (es : List UInt8) : Nat → Nat → Prop
-  | 0, _ => False
-  | d + 1, i => i < es.length / 4 ∧ ((vlen es i).msb = false
-      ∨ ∀ j, j < 2 ^ (32 - (vlen es i).toNat % 32) → VWalk es d (vnext es i j))
-
 instance VWalk.dec (es : List UInt8) : ∀ d i, Decidable (VWalk es d i)
   | 0, _ => isFalse (fun h => h)
   | d + 1, i => by
     have := fun j => VWalk.dec es d (vnext es i j)
     unfold VWalk; exact inferInstance
 
-/-- A table for `get_vlc2(gb, table, nb, d)`: whole entries, fewer than `2 ^ 28` of them,
-and the walk from every `nb`-bit first-level index stays inside the table. -/
-def VlcOk (nb d : Nat) (t : VlcTab) : Prop :=
-  t.es.length % 4 = 0 ∧ t.N < 2 ^ 28 ∧ ∀ i, i < 2 ^ nb → VWalk t.es d i
-
 instance (nb d : Nat) (t : VlcTab) : Decidable (VlcOk nb d t) := by
   unfold VlcOk; exact inferInstance
 
 variable [CodeEnv]
-
-/-- The pointer cells `ff_aac_sbr_vlc[0..n-1]`. -/
-def VPtrs (V : BitVec 64) (v : Nat → VlcTab) : Nat → Mem 64 → Prop
-  | 0 => Std.ExtHashMap.emp
-  | n + 1 => c8 (V + BitVec.ofNat 64 (8 * n)) (v n).p ⋆ VPtrs V v n
-
-/-- The tables `0..n-1`. -/
-def VTabs (v : Nat → VlcTab) : Nat → Mem 64 → Prop
-  | 0 => Std.ExtHashMap.emp
-  | n + 1 => (v n).es =@ (v n).p ⋆ VTabs v n
-
-/-- The address of `ff_aac_sbr_vlc`. -/
-abbrev VA : BitVec 64 := lab "ff_aac_sbr_vlc"
-
-/-- `ff_aac_sbr_vlc[10]` and the ten tables (read only). -/
-def VlcW (v : Nat → VlcTab) : Mem 64 → Prop :=
-  VPtrs VA v 10 ⋆ VTabs v 10
-
-/-- Every table is `VlcOk 9 3` (`get_vlc2(gb, t, 9, 3)` in `read_sbr_envelope` and
-`read_sbr_noise`). -/
-def VlcC (v : Nat → VlcTab) : Prop := ∀ k, k < 10 → VlcOk 9 3 (v k)
 
 omit [CodeEnv] in
 theorem VPtrs_pick (V : BitVec 64) (v : Nat → VlcTab) :

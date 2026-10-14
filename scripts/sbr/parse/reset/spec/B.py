@@ -20,7 +20,7 @@ abbrev d1d (x : Args) (nm xo : Nat) (f : Nat → Nat) : Args :=
 (not written again), `ac` in the frame slot `rbp - 0x40`; `P` the progress. -/
 def AtDer (k : Nat) (e : REnv) (a : RArgs) (ra : Int64) (t₀ s : MachineData)
     (P : St → List UInt8 → Nat → Int → Prop) : Prop :=
-  ResetC a t₀ ∧ Base t₀ s ∧ ∃ (st : St) (fr : List UInt8) (nm : Nat) (k0 : Int),
+  ResetCI a t₀ ∧ Base t₀ s ∧ ∃ (st : St) (fr : List UInt8) (nm : Nat) (k0 : Int),
     Master a.x.sampleRate.toInt (u8 a.sp 0) (u8 a.sp 2) (some k0) (some (nm, fOf st))
     ∧ st.sp = a.sp ∧ st.fm.length = 98 ∧ FrOk fr ∧ frSlot64 fr 0x40 = arg0 t₀
     ∧ P st fr nm k0 ∧ (s.dmem =⋆ Mm k e a ra t₀ st fr)
@@ -49,7 +49,7 @@ def DerOk (a : RArgs) (z : Args) : Prop :=
 
 /-- The success tail (`L3228`, `L3230`): `r12 = sbr`, `P` the progress. -/
 def AtTail (k : Nat) (e : REnv) (a : RArgs) (ra : Int64) (t₀ s : MachineData) (P : St → Prop) : Prop :=
-  ResetC a t₀ ∧ Base t₀ s ∧ s.regs.get64 .r12 = arg1 t₀
+  ResetCI a t₀ ∧ Base t₀ s ∧ s.regs.get64 .r12 = arg1 t₀
   ∧ ∃ (st : St) (fr : List UInt8), P st ∧ st.sp = a.sp ∧ st.fm.length = 98 ∧ FrOk fr
     ∧ (s.dmem =⋆ Mm k e a ra t₀ st fr)
 /-- `derived1` then `derived2` (`f_tablelow` copied). -/

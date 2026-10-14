@@ -1,5 +1,5 @@
 theorem blk_L9a69 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L9a69" ⟨"ff_aac_sbr_apply.L9a69", B.L9a69, some "ff_aac_sbr_apply.L9a7d"⟩ := by
   obtain ⟨-, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, hMc, -⟩ := hc
   intro n
@@ -9,7 +9,7 @@ theorem blk_L9a69 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
   clear hs
   have hK' := PLift.up hK; have hCy' := PLift.up hCy; clear hK hCy
   simp only [Mm, ApplyF, ArrW, FrCs, Blocks, sbrA, arg0, arg1, BitVec.add_assoc, BitVec.reduceAdd] at hm hax h12
-  rw [call_res k hk] at hm
+  rw [call_res k hSt] at hm
   simp only [BitVec.sub_sub_ofNat, Nat.reduceAdd] at hm
   have hsl : (s₀.dmem.loadInt (t₀.regs.get64 .rsp - 176#64) 8) = some (Int.ofBytes (Int.toBytes 8 (t₀.regs.get64 .rsi + 509024#64).toInt)) := by
     sep_mem hm
@@ -76,6 +76,6 @@ theorem blk_L9a69 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
       have e := hRc'.down
       subst e
       simp only [Mm, ApplyF, ArrW, FrCs, Blocks, sbrA, arg0, arg1, BitVec.add_assoc, BitVec.reduceAdd]
-      rw [call_res k hk]
+      rw [call_res k hSt]
       simp only [BitVec.sub_sub_ofNat, Nat.reduceAdd]
       sep_close hm'

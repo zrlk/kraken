@@ -56,38 +56,41 @@ theorem rsub (r : BitVec 64) (a b : Nat) :
 
 omit [CodeEnv] in
 /-- The caller's reservation as the frame's slots. -/
-theorem reserve_frame (n : Nat) (hn : n ≤ 2 ^ 33) (r : BitVec 64) :
+theorem reserve_frame (n : Nat) (r : BitVec 64) (hr : 0x50 ≤ r.toNat) :
     Reserve (0x50 + n) r = 8 ?@ (r - 0x50#64) ⋆ (Reserve n (r - 0x50#64) ⋆ (LocR r ⋆ Bs r)) := by
-  have e : 0x50 + n = 8 + (8 + (8 + (8 + (8 + (8 + (4 + (2 + (2 + (4 + (12 + (8 + n))))))))))) := by
+  rw [Reserve_split 0x50 n r hr]
+  have e : (0x50 : Nat) = 8 + (8 + (8 + (8 + (8 + (8 + (4 + (2 + (2 + (4 + (12 + 8)))))))))) := by
     omega
   rw [e]
-  repeat rw [Reserve_split _ _ _ (by omega)]
-  have e2 : r - 0x50#64 - BitVec.ofNat 64 n = r - BitVec.ofNat 64 (n + 80) := by
-    rw [BitVec.sub_sub, Nat.add_comm, BitVec.ofNat_add]
-  simp only [rsub, Reserve, Bs, LocR, e2]
+  repeat rw [block_split_top _ _ _ (by omega)]
+  simp only [rsub, Bs, LocR]
   try simp only [Nat.reduceAdd]
   ac_rfl
 
-theorem usac_hpre (k : Nat) (hk : k ≤ 2 ^ 32) (A : UA) (ra : Int64) (t : MachineData)
+theorem usac_hpre (k : Nat) (A : UA) (ra : Int64) (t : MachineData)
     (h : UsacPre k A ra t) : table k A ra t "ff_aac_sbr_decode_usac_data" t := by
   obtain ⟨hm, hc, h0, h1, h2, h3, h4⟩ := h
+  have hr : 0x50 ≤ (t.regs.get64 .rsp).toNat := by
+    have := CallPre.le hm; simp only [usacNeed, cneed, Grid.gridNeed] at this; omega
   refine ⟨rfl, ⟨hc, h0, h1, h2, h3, h4⟩, ?_⟩
   have e : RetCell ra (t.regs.get64 .rsp) ⋆ (Reserve (usacNeed k) (t.regs.get64 .rsp)
       ⋆ (UF A.1 A.2 ⋆ A.1.R))
       = UM k A ra t (LocR (t.regs.get64 .rsp)) (Bs (t.regs.get64 .rsp)) A.2 := by
-    simp only [UM, usacNeed, reserve_frame (cneed k) (by simp only [cneed, Grid.gridNeed]; omega)]
+    simp only [UM, usacNeed, reserve_frame (cneed k) _ hr]
     ac_rfl
   exact e ▸ hm
 
-theorem usac_hpost (k : Nat) (hk : k ≤ 2 ^ 32) (A : UA) (ra : Int64) (t s : MachineData)
-    (h : Post' k A ra t s) : UsacPost k A ra t s := by
+theorem usac_hpost (k : Nat) (A : UA) (ra : Int64) (t s : MachineData)
+    (hp : UsacPre k A ra t) (h : Post' k A ra t s) : UsacPost k A ra t s := by
+  have hr : 0x50 ≤ (t.regs.get64 .rsp).toNat := by
+    have := CallPre.le hp.1; simp only [usacNeed, cneed, Grid.gridNeed] at this; omega
   obtain ⟨st, ho, h1, h2, h3, hm⟩ := h
   refine ⟨st, ho, h1, h2, h3, ?_⟩
   have e : 8 ?@ (t.regs.get64 .rsp) ⋆ (Reserve (usacNeed k) (t.regs.get64 .rsp)
       ⋆ (UF A.1 st ⋆ A.1.R)) = 8 ?@ (t.regs.get64 .rsp - 0x50#64) ⋆ (Reserve (cneed k)
         (t.regs.get64 .rsp - 0x50#64) ⋆ (UF A.1 st ⋆ (LocR (t.regs.get64 .rsp)
         ⋆ (Bs (t.regs.get64 .rsp) ⋆ (8 ?@ (t.regs.get64 .rsp) ⋆ A.1.R))))) := by
-    simp only [usacNeed, reserve_frame (cneed k) (by simp only [cneed, Grid.gridNeed]; omega)]
+    simp only [usacNeed, reserve_frame (cneed k) _ hr]
     ac_rfl
   exact e ▸ hm
 
@@ -95,15 +98,15 @@ theorem usac_hpost (k : Nat) (hk : k ≤ 2 ^ 32) (A : UA) (ra : Int64) (t s : Ma
 abbrev UA.fix (Ext Oth : Mem 64 → Prop) (A : UA) : UA := ({ A.1 with Ext := Ext, Oth := Oth }, A.2)
 
 /-- The routine at every logical variable with its callees' states replaced by `Ext`, `Oth`. -/
-theorem usacSpec_fix (k : Nat) (hk : k ≤ 2 ^ 32) (Ext Oth : Mem 64 → Prop)
+theorem usacSpec_fix (k : Nat) (_hk : k ≤ 2 ^ 32) (Ext Oth : Mem 64 → Prop)
     (hc : UsacCallees k Ext Oth) (hpl : Program.PlacedIn body) :
     ProcSpecS usacStops (entry "ff_aac_sbr_decode_usac_data")
       (fun (A : UA) => UsacPre k (A.fix Ext Oth))
       (fun (A : UA) => UsacPost k (A.fix Ext Oth)) := by
-  refine ProcSpecS.of_cfg_post (p := body) (fun (A : UA) => table k (A.fix Ext Oth))
+  refine ProcSpecS.of_cfg_postP (p := body) (fun (A : UA) => table k (A.fix Ext Oth))
     (fun (A : UA) => Post' k (A.fix Ext Oth)) var (hblocks := ?_)
-    (hpre := fun (A : UA) => usac_hpre k hk (A.fix Ext Oth))
-    (hpost := fun (A : UA) => usac_hpost k hk (A.fix Ext Oth)) (hwf := by decide +kernel)
+    (hpre := fun (A : UA) => usac_hpre k (A.fix Ext Oth))
+    (hpost := fun (A : UA) => usac_hpost k (A.fix Ext Oth)) (hwf := by decide +kernel)
   intro A ra t₀ l blk hblk
   have hmem := Program.isSome_blockAt body l
   cfg_view hblk as hview

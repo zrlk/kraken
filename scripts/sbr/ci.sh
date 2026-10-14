@@ -12,8 +12,14 @@
 #   5. srcscan     srcscan.py against baseline/srcscan_baseline.txt, and which baseline
 #                  files are imported by Link/Witness/Linked (closure.py)
 #   5a. regen      apply/ and hfasm/check_regen.sh: the generators reproduce the checked-in files
-#   5b. tcb        Tcb.lean: the trusted closure of the linked theorem (what a reviewer
-#                  reads); its fingerprint equals baseline/tcb_fingerprint.txt
+#   5b. tcb        Tcb.lean: the trusted closures of ff_aac_sbr_apply_linked and
+#                  sbr_session_safe (what a reviewer reads); their fingerprints equal
+#                  baseline/tcb_fingerprint.txt and baseline/tcb_fingerprint_session.txt
+#   5c. spec       SpecCheck.lean: every declaration of the two closures outside the machine
+#                  model and the program texts is in SessionSpec.lean/SessionSpecData.lean;
+#                  text modules and SessionSpec import no proof module; spec_text.py: the
+#                  generated part of SessionSpec.lean equals `parse/init/foot.py --spec`, and
+#                  the statement it quotes equals sbr_session_safe's in SessionBin/Top.lean
 #   6. real        OPTIONAL, only with SBR_REAL=1: real/check.sh, the proofs about a real
 #                  linked binary (SBR_BIN) and their check against it
 # Env: SBR_OBJ_DIR (required), LLVM_BIN, SBR_OUT, SBR_CAP_CMD, SBR_SKIP_BUILD=1,
@@ -30,11 +36,18 @@ mark() { RES[$1]=$2; [ "$2" = ok ] || fail=1; }
 cap_note
 if [ -z "${SBR_OBJ_DIR:-}" ]; then
   echo "ci: SBR_OBJ_DIR is not set: point it at the directory holding aacsbr.rela.o," \
-       "aacsbr.pic.o, aacsbr.g.o, sbrdsp.o and float_dsp.o (see scripts/sbr/README.md)"; exit 2
+       "aacsbr.pic.o, aacsbr.g.o, aacps_common.{rela,pic,g}.o, sbrdsp.o and float_dsp.o (see scripts/sbr/README.md)"; exit 2
 fi
 
 # ---- 1. build (dependency order; each module on its own)
-MODS="Spec DequantFloat
+MODS="ApplyText Dsp.NegOdd64Text Dsp.Sum64x5Text Dsp.SumSquareText Dsp.QmfPreShuffleText
+ Dsp.QmfPostShuffleText Dsp.QmfDeintNegText Dsp.QmfDeintBflyText Dsp.AutocorrelateText
+ Dsp.HfGenText Dsp.HfGFiltText Dsp.HfApplyNoiseText Dsp.VectorFmulText Dsp.VectorFmulAddText
+ Dsp.VectorFmulRevText LfGenText HfInverseFilterText XGenText QmfSynthesisText HfAssembleText
+ Parse.DecExtText Parse.HdrText Parse.DtdfText Parse.InvfText Parse.NoiseText Parse.EnvText
+ Parse.PsText Parse.TlimText Parse.UsacText Parse.InitText Parse.GridText Parse.ResetBlocks
+ SessionSpecData SessionSpec
+ Spec DequantFloat
  Dsp.NegOdd64 Dsp.Sum64x5 Dsp.SumSquare Dsp.QmfPreShuffle Dsp.QmfPostShuffle Dsp.QmfDeintNeg
  Dsp.QmfDeintBfly Dsp.Autocorrelate Dsp.HfGen Dsp.HfGFilt Dsp.HfApplyNoise Dsp
  Dsp.FloatDspCommon Dsp.VectorFmul Dsp.VectorFmulAdd Dsp.VectorFmulRev FloatDsp
@@ -53,15 +66,15 @@ MODS="Spec DequantFloat
  Parse.GridShC1 Parse.GridShC2 Parse.GridShC3
  Parse.GridShD0 Parse.GridShD1 Parse.GridShD2 Parse.GridShD3 Parse.GridShD4 Parse.GridShD5 Parse.GridShD6 Parse.GridShD7 Parse.GridShD8 Parse.GridShD9 Parse.GridShD10
  Parse.GridAsm
- Parse.DecExtText Parse.DecExtSpec Parse.DecExtBase Parse.DecExtMem Parse.DecExtEntry
+ Parse.DecExtSpec Parse.DecExtBase Parse.DecExtMem Parse.DecExtEntry
  Parse.DecExtPro Parse.DecExtPro2 Parse.DecExtExit Parse.DecExtOff Parse.DecExtCall
  Parse.DecExtOffD Parse.DecExtDat Parse.DecExtSce Parse.DecExtSce2 Parse.DecExtHarm
  Parse.DecExtExt Parse.DecExtPs Parse.DecExtCpe Parse.DecExtCpeH Parse.DecExtCpB Parse.DecExtCpD
  Parse.DecExtCpTail Parse.DecExtCpF Parse.DecExtCpG Parse.DecExtCpInvf Parse.DecExtAll
- Parse.HdrText Parse.HdrSpec Parse.ResetText Parse.ResetSpec Parse.DecExtGlue Parse.DtdfText
- Parse.DtdfSpec Parse.InvfText Parse.InvfSpec Parse.DecExtGlueC Parse.DecExtGlueR Parse.EnvVlc
- Parse.NoiseText Parse.NoiseSpec Parse.EnvText Parse.EnvSpec Parse.DecExtGlueN Parse.DecExtGlueH
- Parse.DecExtGlueG Parse.PsText Parse.PsSpec Parse.DecExtGlueP Parse.DecExtNeed Parse.DecExtWF
+ Parse.HdrSpec Parse.ResetText Parse.ResetSpec Parse.DecExtGlue
+ Parse.DtdfSpec Parse.InvfSpec Parse.DecExtGlueC Parse.DecExtGlueR Parse.EnvVlc
+ Parse.NoiseSpec Parse.EnvSpec Parse.DecExtGlueN Parse.DecExtGlueH
+ Parse.DecExtGlueG Parse.PsSpec Parse.DecExtGlueP Parse.DecExtNeed Parse.DecExtWF
  Parse.DtdfBase Parse.DtdfBlk1 Parse.DtdfBlk2 Parse.DtdfLoop Parse.DtdfProc Parse.EnvLib
  Parse.EnvBase Parse.EnvFrame Parse.EnvVar Parse.EnvMem Parse.EnvBlk1 Parse.EnvBlk2 Parse.EnvBlk3
  Parse.EnvBlk6 Parse.EnvBlk7 Parse.EnvBlk8 Parse.EnvBlk11 Parse.EnvBlk10 Parse.EnvBlk12
@@ -104,13 +117,13 @@ MODS="Spec DequantFloat
  Parse.ResetQs2I Parse.ResetQs2J Parse.ResetQs3Lib Parse.ResetQs3A Parse.ResetQs3B Parse.ResetQs3C
  Parse.ResetQs3D Parse.ResetQs3E Parse.ResetQs3F Parse.ResetQs3G Parse.ResetQs4Lib Parse.ResetQs4A
  Parse.ResetQs4B Parse.ResetQs4C Parse.ResetQs4D Parse.ResetQs4E Parse.ResetQs4F Parse.ResetQs4G
- Parse.ResetTail Parse.ResetTrap Parse.ResetProc Parse.TlimText Parse.TlimSpec Parse.TlimLib
+ Parse.ResetTail Parse.ResetTrap Parse.ResetProc Parse.TlimSpec Parse.TlimLib
  Parse.TlimBase Parse.TlimVar Parse.TlimTab Parse.TlimMem Parse.TlimAcc Parse.TlimBlkA
  Parse.TlimBlkB Parse.TlimBlkC Parse.TlimBlkD Parse.TlimBlkE Parse.TlimMc Parse.TlimFin
  Parse.TlimCmp Parse.TlimCmp2 Parse.TlimCmp3 Parse.TlimGlue Parse.TlimHdr Parse.TlimTrap
  Parse.TlimQsLib Parse.TlimQsA Parse.TlimQsB Parse.TlimQsLib2 Parse.TlimQsC Parse.TlimQsD
  Parse.TlimQsG1 Parse.TlimQsG2 Parse.TlimQsG3 Parse.TlimQsG4 Parse.TlimQsG5 Parse.TlimQsE
- Parse.TlimQsF Parse.TlimQsH1 Parse.TlimQsH2 Parse.TlimQsH3 Parse.TlimProc Parse.UsacText
+ Parse.TlimQsF Parse.TlimQsH1 Parse.TlimQsH2 Parse.TlimQsH3 Parse.TlimProc
  Parse.UsacSpec Parse.UsacCfg Parse.UsacBase Parse.UsacModel Parse.UsacTbl1 Parse.UsacTbl5
  Parse.UsacTbl6 Parse.UsacBlk1 Parse.UsacTbl2 Parse.UsacTbl3 Parse.UsacBlk2 Parse.UsacTbl4
  Parse.UsacBlk3 Parse.UsacBlk7 Parse.UsacBlk8 Parse.UsacBlk9 Parse.UsacBlk10 Parse.UsacBlk11
@@ -120,8 +133,8 @@ MODS="Spec DequantFloat
  Parse.UsacGrd2 Parse.UsacCall Parse.UsacCall2 Parse.UsacGC1 Parse.UsacCpM Parse.UsacCpL
  Parse.UsacCp1 Parse.UsacCp2 Parse.UsacCp3 Parse.UsacCp4 Parse.UsacAsm
  Parse.UsacGlueL Parse.UsacGlueR Parse.UsacGlueH
- Parse.VlcData Parse.VlcWit Parse.GridJtWit
- Parse.InitText Parse.InitFoot Parse.InitSpec Parse.InitBase Parse.InitFrame Parse.InitMem
+ Parse.VlcWit Parse.GridJtWit
+ Parse.InitFoot Parse.InitSpec Parse.InitBase Parse.InitFrame Parse.InitMem
  Parse.InitTx Parse.InitBlk1 Parse.InitBlk2 Parse.InitBlk3 Parse.InitBlk4 Parse.InitBlk5
  Parse.InitBlk6 Parse.InitBlk7 Parse.InitEnd Parse.InitBlk8 Parse.InitProc Parse.InitLinkBase
  Parse.InitLink
@@ -176,7 +189,7 @@ fi
 
 # ---- 3. tv
 bash "$SBR_DIR/tv/tv.sh" > "$OUT/tv.txt" 2>&1; rc=$?
-grep -E '^(objects|oleans|programs|data checks|ok a2|FAIL|mutation|tv:)|FINDING|LINK' "$OUT/tv.txt"
+grep -E '^(objects|oleans|programs|data|vlc tables|ok a2|FAIL|mutation|tv:)|FINDING|LINK' "$OUT/tv.txt"
 [ $rc = 0 ] && mark tv ok || mark tv FAIL
 
 # ---- 3b. row-crossing discipline (also part of tv.sh; listed on its own)
@@ -201,20 +214,31 @@ bash "$SBR_DIR/hfasm/check_regen.sh" >> "$OUT/regen.txt" 2>&1; rc2=$?
 cat "$OUT/regen.txt"
 [ $rc = 0 ] && [ $rc2 = 0 ] && mark regen ok || mark regen FAIL
 
-# ---- 5b. trusted closure: changes exactly when the meaning of the statement can change
+# ---- 5b. trusted closures: change exactly when the meaning of a statement can change
 "${CAP[@]}" lake env lean "$SBR_DIR/Tcb.lean" > "$OUT/tcb.txt" 2>&1; rc=$?
-tail -2 "$OUT/tcb.txt"
-fpn=$(sed -n 's/^FINGERPRINT //p' "$OUT/tcb.txt"); fpb=$(cat "$SBR_DIR/baseline/tcb_fingerprint.txt" 2>/dev/null)
-if [ $rc = 0 ] && [ -n "$fpn" ] && [ "$fpn" = "$fpb" ]; then
-  echo "tcb: fingerprint equals baseline/tcb_fingerprint.txt"; mark tcb ok
-else
-  echo "tcb: fingerprint $fpn differs from baseline/tcb_fingerprint.txt ($fpb), rc=$rc: the statement's"
-  echo "     specification, machine model or a program text changed; review it, then re-record"
-  mark tcb FAIL
-fi
+grep -E '^(TOTAL|FINGERPRINT|== )' "$OUT/tcb.txt"
+tcbok=1
+for pair in "FINGERPRINT:tcb_fingerprint.txt" "FINGERPRINT_SESSION:tcb_fingerprint_session.txt"; do
+  tag=${pair%%:*}; base=${pair#*:}
+  fpn=$(sed -n "s/^$tag //p" "$OUT/tcb.txt"); fpb=$(cat "$SBR_DIR/baseline/$base" 2>/dev/null)
+  if [ $rc = 0 ] && [ -n "$fpn" ] && [ "$fpn" = "$fpb" ]; then
+    echo "tcb: $tag equals baseline/$base"
+  else
+    echo "tcb: $tag $fpn differs from baseline/$base ($fpb), rc=$rc: the statement's"
+    echo "     specification, machine model or a program text changed; review it, then re-record"
+    tcbok=0
+  fi
+done
+[ $tcbok = 1 ] && mark tcb ok || mark tcb FAIL
+
+# ---- 5c. the specification is one file, importing no proofs
+"${CAP[@]}" lake env lean "$SBR_DIR/SpecCheck.lean" > "$OUT/spec.txt" 2>&1; rc=$?
+python3 "$SBR_DIR/spec_text.py" >> "$OUT/spec.txt" 2>&1; rc2=$?
+grep -vE '^text module' "$OUT/spec.txt" | head -40
+[ $rc = 0 ] && [ $rc2 = 0 ] && grep -q '^SPECCHECK ok' "$OUT/spec.txt" && mark spec ok || mark spec FAIL
 
 # ---- 6. real (optional)
-STEPS="build axioms tv a2 heartbeats srcscan regen tcb"
+STEPS="build axioms tv a2 heartbeats srcscan regen tcb spec"
 if [ "${SBR_REAL:-0}" = 1 ]; then
   bash "$SBR_DIR/real/check.sh" > "$OUT/real.txt" 2>&1; rc=$?
   cat "$OUT/real.txt"

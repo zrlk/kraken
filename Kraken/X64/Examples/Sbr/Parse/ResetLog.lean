@@ -23,8 +23,8 @@ variable [CodeEnv]
 
 omit [CodeEnv] in
 theorem reserve_le {m : Mem 64} {d : Nat} {r : BitVec 64} {F : Mem 64 → Prop}
-    (h : m =⋆ Reserve d r ⋆ F) : d ≤ 2 ^ 64 := by
-  unfold Reserve at h; exact (Block.sep_elim h).1
+    (h : m =⋆ Reserve d r ⋆ F) : d ≤ r.toNat :=
+  Reserve.le_head h
 
 /-- What `Mm` keeps beside a callee's return slot, reservation and `Ext`. -/
 abbrev CallF (k : Nat) (e : REnv) (a : RArgs) (ra : Int64) (t₀ : MachineData) (st : St)
@@ -33,16 +33,17 @@ abbrev CallF (k : Nat) (e : REnv) (a : RArgs) (ra : Int64) (t₀ : MachineData) 
 
 /-- A callee's frame inside `Mm` (`k` bytes of the reservation, below the return slot). -/
 theorem Mm_callF (k : Nat) (e : REnv) (a : RArgs) (ra : Int64) (t₀ : MachineData) (st : St)
-    (fr : List UInt8) (hd : 8 + tlimNeed k ≤ 2 ^ 64) :
+    (fr : List UInt8) (hd : 8 + tlimNeed k ≤ (t₀.regs.get64 .rsp - 0x578#64).toNat) :
     Mm k e a ra t₀ st fr = 8 ?@ (t₀.regs.get64 .rsp - 0x578#64 - 8#64)
       ⋆ (Reserve k (t₀.regs.get64 .rsp - 0x578#64 - 8#64) ⋆ (e.Ext ⋆ CallF k e a ra t₀ st fr)) := by
-  rw [Mm_call, Reserve_split 8 (tlimNeed k) _ hd]
+  have hd8 : k ≤ (t₀.regs.get64 .rsp - 0x578#64 - BitVec.ofNat 64 8).toNat := by
+    unfold tlimNeed at hd; bv_omega
+  rw [Mm_call, Reserve_split 8 (tlimNeed k) _ (by omega)]
   have e1 : Reserve (tlimNeed k) (t₀.regs.get64 .rsp - 0x578#64 - BitVec.ofNat 64 8)
       = Reserve k (t₀.regs.get64 .rsp - 0x578#64 - 8#64)
         ⋆ Reserve 0x450 (t₀.regs.get64 .rsp - 0x578#64 - 8#64 - BitVec.ofNat 64 k) := by
     rw [show tlimNeed k = k + 0x450 by unfold tlimNeed; omega,
-      Reserve_split k 0x450 _ (by unfold tlimNeed at hd; omega)]
-    rfl
+      Reserve_split k 0x450 _ hd8, Reserve_eq k _ hd8]
   rw [e1]
   simp only [CallF]
   ac_rfl

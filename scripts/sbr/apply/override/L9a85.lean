@@ -1,5 +1,5 @@
 theorem blk_L9a85 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L9a85" ⟨"ff_aac_sbr_apply.L9a85", B.L9a85, some "ff_aac_sbr_apply.L9a85_1"⟩ := by
   clear hc
   intro n
@@ -10,7 +10,7 @@ theorem blk_L9a85 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
   have hK' := PLift.up hK; have hCy' := PLift.up hCy; clear hK hCy
   have hR := PLift.up (⟨hrsp, hrbp, h9, hbx, h12, h14⟩ : _ ∧ _ ∧ _ ∧ _ ∧ _ ∧ _)
   simp only [Mm] at hm
-  rw [res_args k hk] at hm
+  rw [res_args k hSt] at hm
   simp only [ApplyF, FrCs, FnW, AcW, FnCell, sbrA, dA, arg0, arg1, arg4, BitVec.sub_sub_ofNat, Nat.reduceAdd,
     BitVec.add_assoc, BitVec.reduceAdd] at hm
   simp only [B.L9a85]

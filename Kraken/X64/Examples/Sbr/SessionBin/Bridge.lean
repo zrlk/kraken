@@ -1,4 +1,5 @@
 import Kraken.X64.Examples.Sbr.SessionBin.Defs
+import Kraken.X64.Examples.Sbr.SessionSpec
 
 /-!
 # A decoding session over the binary: the bridges (statements)
@@ -123,10 +124,6 @@ def FCfg : Prop :=
         ∃ it : BitVec 32, (SessW e vs vp (ofUSt st it) t ⋆ Rc) m'
 
 /-! ## The parser's assembly (statement) -/
-
-/-- The stack of `decode_extension`'s callees from the leaf need `k`: the largest callee need,
-`sbr_reset`'s (`Reset.resetNeed k`). -/
-def decKc (k : Nat) : Nat := 0x9d0 + k
 
 /-- **`decode_extension` from the routines' own specifications**: `DecExtSpec` with `PI = PsInv`
 and `Ext = ExtD`, from the placement, the assumed contracts, the glue (`DecExtGlue*`). -/

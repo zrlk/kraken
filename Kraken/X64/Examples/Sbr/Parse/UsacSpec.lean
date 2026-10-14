@@ -1,7 +1,10 @@
 import Kraken.X64.Examples.Sbr.Parse.UsacText
+import Kraken.X64.Examples.Sbr.Parse.LibAbort
+import Kraken.X64.Examples.Sbr.ApplySpec
 import Kraken.X64.Examples.Sbr.Parse.GridSpec
 import Kraken.X64.Examples.Sbr.ParseModel
 import Kraken.X64.Examples.Sbr.Parse.DecExtSpec
+import Kraken.X64.Examples.Sbr.SessionSpec
 
 /-!
 # `ff_aac_sbr_decode_usac_data`, `ff_aac_sbr_config_usac`: the specification
@@ -36,45 +39,11 @@ open Kraken.Examples.Sbr.Parse
 
 namespace Kraken.Examples.Sbr.Usac
 
-/-- The values that stay fixed through the call: the caller's rest `R`, the addresses of
-`ac`, `che`, `ue`, `gb`, the bit reader (`buffer`, `size_in_bits_plus8`, the buffer's length),
-the twelve bytes `ue->sbr` at `ue + 0xc` (`bs_intertes`, the default header, `+0xc..+0x17`),
-`av_log`'s state and the other callees' state. -/
-structure UQ where
-  R : Mem 64 → Prop
-  a : BitVec 64
-  c : BitVec 64
-  ue : BitVec 64
-  g : BitVec 64
-  buf : BitVec 64
-  p8 : BitVec 32
-  L : Nat
-  uev : List UInt8
-  Ext : Mem 64 → Prop
-  Oth : Mem 64 → Prop
-
-/-- The values between blocks: the model's state `(x, h)`, the reader's `index`, `sbr->usac`,
-`sbr->bs_amp_res_header`, the bytes of `spectrum_params`. -/
-structure USt where
-  x : Args
-  h : Hid
-  i : BitVec 32
-  u : BitVec 32
-  amp : BitVec 32
-  sp : List UInt8
-
 /-- `sbr`. -/
 abbrev sA (c : BitVec 64) : BitVec 64 := c + 0x28920#64
 
 /-- `&sbr->data[ch]`. -/
 abbrev dAc (c : BitVec 64) (ch : Nat) : BitVec 64 := sA c + BitVec.ofNat 64 (0x80 + 0x15ac0 * ch)
-
-/-- `Hid` read from the bytes: `bs_start_freq`, `bs_xover_band` are bytes 0 and 2 of
-`spectrum_params`; `bs_limiter_bands` (an `unsigned`) is a cell of its own, a 2-bit value
-(`DecExt.DS.si`); the lengths of the byte arrays (`DecExt.Lens`). -/
-def SpOk (st : USt) : Prop :=
-  st.sp.length = 6 ∧ u8 st.sp 0 = st.h.start ∧ u8 st.sp 2 = st.h.xover ∧ st.h.lb ≤ 3
-  ∧ DecExt.Lens st.x
 
 variable [CodeEnv]
 
@@ -130,11 +99,6 @@ def DRaw (c : BitVec 64) (ch : Nat) : Mem 64 → Prop :=
 def AcU (a : BitVec 64) (x : Args) : Mem 64 → Prop :=
   Int.toBytes 8 x.avctx.toInt =@ (a + 0x8#64) ⋆ cell4 (a + 0x57f4#64) x.extRate
 
-/-- `*gb` with `index = i` (`size_in_bits` raw). -/
-def GbU (q : UQ) (i : BitVec 32) : Mem 64 → Prop :=
-  Int.toBytes 8 q.buf.toInt =@ q.g ⋆ (cell4 (q.g + 8#64) i ⋆ (4 ?@ (q.g + 0xc#64)
-    ⋆ cell4 (q.g + 0x10#64) q.p8))
-
 /-- What is only read, and the callees' state: the bitstream, `ceil_log2`, the jump table,
 `ue->sbr`, `Ext`, `Oth`. -/
 def RdU (q : UQ) : Mem 64 → Prop :=
@@ -145,11 +109,6 @@ def RdU (q : UQ) : Mem 64 → Prop :=
 def UF (q : UQ) (st : USt) : Mem 64 → Prop :=
   SHW q.c st ⋆ (TWc q.c st.x ⋆ (DSc q.c 0 st.x.d0 ⋆ (DRaw q.c 0 ⋆ (DSc q.c 1 st.x.d1
     ⋆ (DRaw q.c 1 ⋆ (AcU q.a st.x ⋆ (GbU q st.i ⋆ RdU q)))))))
-
-/-- The `Args` fields outside the footprint are kept. -/
-def UKeep (x y : Args) : Prop :=
-  y.psc = x.psc ∧ y.psh = x.psh ∧ y.anaCtx = x.anaCtx ∧ y.synCtx = x.synCtx ∧ y.fdsp = x.fdsp
-  ∧ y.ps = x.ps ∧ y.avctx = x.avctx ∧ y.extRate = x.extRate
 
 /-- The bit reader's precondition (as `read_sbr_grid`'s): `index ≤ size_in_bits_plus8 < 2^31`,
 every read loads at most 4 bytes at `buffer + index / 8` inside the buffer. -/
@@ -170,15 +129,9 @@ def LayU (q : UQ) : Prop := (sA q.c).toNat + 0x60000 < 2 ^ 64 ∧ (sA q.c).toNat
 def UsacC (q : UQ) (st : USt) : Prop :=
   MI (st.x, st.h) ∧ SpOk st ∧ st.i.toNat ≤ q.p8.toNat ∧ GbC q ∧ UeC q ∧ Grid.JtC ∧ LayU q
 
-/-- The stack at entry: the ABI alignment, and room below this frame (`0x50` bytes) for the k-free
-part of `sbr_reset`'s need (`resetStkMin = 0x9d0` and its return slot). -/
+/-- The stack at entry: the ABI alignment. -/
 def StkC (t : MachineData) : Prop :=
-  isAligned 16 (t.regs.get64 .rsp + 8#64) = true ∧ 0x50 + 0x9d0 + 8 ≤ (t.regs.get64 .rsp).toNat
-
-/-- Own frame (`push rbp`, five saved registers, `sub $0x18`), a call's return slot, the
-callee's `cneed k`. -/
-abbrev cneed (k : Nat) : Nat := Grid.gridNeed k
-abbrev usacNeed (k : Nat) : Nat := 0x50 + cneed k
+  isAligned 16 (t.regs.get64 .rsp + 8#64) = true
 
 /-- The logical variables: the fixed values and the state at entry. -/
 abbrev UA := UQ × USt
@@ -282,13 +235,13 @@ abbrev TablelimSpec (k : Nat) (Ext Oth : Mem 64 → Prop) : Prop :=
 `0xFF` and `usac = 0`, or the tables of `TabWF` with `Inv2`, `usac` kept); `bs_limiter_bands`
 kept. From the field widths
 of `bs_freq_scale`, `bs_alter_scale` (and `SpOk`), no address wrap of `*sbr`, the ABI stack
-alignment, the k-free stack need (`resetStkMin + 8 ≤ rsp`, `resetStkMin = 0x9d0`). -/
+alignment. -/
 abbrev ResetSpec (k : Nat) (Ext Oth : Mem 64 → Prop) : Prop :=
   ProcSpecA (entry "sbr_reset")
     (fun (A : UA) ra t => CPre k Ext Oth A ra t ∧ arg0 t = A.1.a ∧ arg1 t = sA A.1.c
       ∧ A.2.x.reset ≠ 0 ∧ A.2.h.start < 16 ∧ Scal A.2.x ∧ SpOk A.2
       ∧ u8 A.2.sp 3 ≤ 3 ∧ u8 A.2.sp 4 ≤ 1 ∧ (sA A.1.c).toNat + 0x60000 < 2 ^ 64
-      ∧ isAligned 16 (t.regs.get64 .rsp + 8#64) = true ∧ 0x9d0 + 8 ≤ (t.regs.get64 .rsp).toNat)
+      ∧ isAligned 16 (t.regs.get64 .rsp + 8#64) = true)
     (fun A => CPost k (fun st st' => Scal st'.x ∧ ∃ y, TFrame st.x y ∧ UKeep st.x y
       ∧ ((st'.x = y.turnoff ∧ st'.h = st.h.turnoff ∧ st'.u = 0#32)
         ∨ (st'.x = y ∧ st'.h = st.h ∧ st'.u = st.u ∧ TabWF y ∧ 1 ≤ y.n0 ∧ 1 ≤ y.npatch))

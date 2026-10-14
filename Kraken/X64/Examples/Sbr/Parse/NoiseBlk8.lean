@@ -47,21 +47,20 @@ theorem noise_pre (k : Nat) (Ext : Mem 64 → Prop) :
   rintro x ra t ⟨hm, hC⟩
   dsimp only [reduceTable]
   refine ⟨rfl, hC, ?_⟩
-  have hw : 0x60 + k ≤ 2 ^ 64 := by
-    have h' : t.dmem =⋆ Reserve (noiseNeed k) (t.regs.get64 .rsp)
-        ⋆ (RetCell ra (t.regs.get64 .rsp) ⋆ (NoiseF Ext x t x.idx ⋆ x.R)) := Mem.ac hm
-    unfold Reserve at h'
-    exact (Block.sep_elim h').1
+  have hw : 0x60 ≤ (t.regs.get64 .rsp).toNat := by
+    have := CallPre.le hm; unfold noiseNeed at this; omega
   simp only [CallPre, noiseNeed] at hm
-  rw [Reserve_split_frame 0x60 k (by decide) hw] at hm
+  rw [Reserve_split_frame 0x60 k (by decide) _ hw] at hm
   simp only [Nat.reduceSub, frame58] at hm
   simp only [T, Blank, BlankS, Rest] at hm ⊢
   exact Mem.ac hm
 
 
-theorem noise_post (k : Nat) (hk : k ≤ 2 ^ 32) (Ext : Mem 64 → Prop) :
-    ∀ x ra t₀ s, Post' k Ext x ra t₀ s → NoisePost k Ext x ra t₀ s := by
-  rintro x ra t₀ s ⟨i, hi, hv, h1, h2, h3, hm⟩
+theorem noise_post (k : Nat) (Ext : Mem 64 → Prop) :
+    ∀ x ra t₀ s, NoisePre k Ext x ra t₀ → Post' k Ext x ra t₀ s → NoisePost k Ext x ra t₀ s := by
+  rintro x ra t₀ s ⟨hcall, -⟩ ⟨i, hi, hv, h1, h2, h3, hm⟩
+  have hw : 0x60 ≤ (t₀.regs.get64 .rsp).toNat := by
+    have := CallPre.le hcall; unfold noiseNeed at this; omega
   refine ⟨i, hi, hv, h1, h2, h3, ?_⟩
   have e : ∀ K : Mem 64 → Prop, Mem.Entails (Saved t₀ K) (BlankS (t₀.regs.get64 .rsp) K) :=
     fun K => Mem.Entails.forget8 _ _ (Mem.Entails.forget8 _ _ (Mem.Entails.forget8 _ _
@@ -72,7 +71,7 @@ theorem noise_post (k : Nat) (hk : k ≤ 2 ^ 32) (Ext : Mem 64 → Prop) :
     Mem.ac hm
   have hm1 := Mem.Entails.sep_left (e _) _ hm0
   simp only [noiseNeed]
-  rw [Reserve_split_frame 0x60 k (by decide) (by omega)]
+  rw [Reserve_split_frame 0x60 k (by decide) _ hw]
   simp only [Nat.reduceSub, frame58]
   simp only [Blank, BlankS] at hm1 ⊢
   exact Mem.ac hm1

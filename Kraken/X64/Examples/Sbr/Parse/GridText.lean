@@ -1,16 +1,13 @@
-import Kraken.X64.Examples.Sbr.Parse.LibGb
-import Kraken.X64.Examples.Sbr.Parse.LibAbort
-import Kraken.X64.Examples.Sbr.ApplySpec
+import Kraken.X64.Parser
 
 /-!
-# `read_sbr_grid` (pilot of the parser proofs)
+# `read_sbr_grid`: the program text
 
-Memory safety and the grid invariants of the compiled `read_sbr_grid(ac, sbr, gb, ch_data)`
-of `libavcodec/aacsbr_template.c` (FFmpeg n8.1, `aacsbr.o`, see `scripts/sbr/README.md`).
+The compiled `read_sbr_grid(ac, sbr, gb, ch_data)` of `libavcodec/aacsbr_template.c` (FFmpeg
+n8.1, `aacsbr.o`, see `scripts/sbr/README.md`), the pilot of the parser proofs.
 -/
 
-open Kraken Kraken.SysV Mem Kraken.X64.Parser Std.WP MachineWP
-open Kraken.Examples.Sbr Kraken.Examples.Sbr.Apply Kraken.Examples.Sbr.Parse
+open Kraken Kraken.X64.Parser
 
 set_option mvcgen.warning false
 set_option grind.warning false

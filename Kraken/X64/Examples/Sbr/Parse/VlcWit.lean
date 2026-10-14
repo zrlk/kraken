@@ -1,6 +1,7 @@
-import Kraken.X64.Examples.Sbr.Parse.VlcData
+import Kraken.X64.Examples.Sbr.SessionSpecData
 import Kraken.X64.Examples.Sbr.Parse.EnvVlc
 import Kraken.X64.Examples.Sbr.Parse.PsSpec
+import Kraken.X64.Examples.Sbr.SessionSpec
 
 /-!
 # The Huffman-table hypotheses hold of FFmpeg's tables
@@ -24,12 +25,6 @@ namespace Kraken.Examples.Sbr.VlcWit
 open VlcData
 
 /-! ## Tables as natural numbers -/
-
-/-- Byte `k` of `N`. -/
-def byteN (N k : Nat) : UInt8 := UInt8.ofNat (N / 2 ^ (8 * k))
-
-/-- The first `L` bytes of `N`. -/
-def natBytes (N L : Nat) : List UInt8 := (List.range L).map (byteN N)
 
 theorem natBytes_length (N L : Nat) : (natBytes N L).length = L := by simp [natBytes]
 
@@ -143,26 +138,6 @@ theorem ps_vlcOk_of {nb d N n : Nat} (p : BitVec 64) (h : okB nb d N n = true)
   · simp only [Ps.VlcTab.N, natBytes_length]; omega
 
 /-! ## The tables -/
-
-/-- `ff_aac_sbr_vlc[k]`'s table: bytes and number of entries. -/
-def sbrN : Nat → Nat × Nat
-  | 0 => (sbr0, sbr0E) | 1 => (sbr1, sbr1E) | 2 => (sbr2, sbr2E) | 3 => (sbr3, sbr3E)
-  | 4 => (sbr4, sbr4E) | 5 => (sbr5, sbr5E) | 6 => (sbr6, sbr6E) | 7 => (sbr7, sbr7E)
-  | 8 => (sbr8, sbr8E) | _ => (sbr9, sbr9E)
-
-/-- `vlc_ps[k]`'s table. -/
-def psN : Nat → Nat × Nat
-  | 0 => (ps0, ps0E) | 1 => (ps1, ps1E) | 2 => (ps2, ps2E) | 3 => (ps3, ps3E)
-  | 4 => (ps4, ps4E) | 5 => (ps5, ps5E) | 6 => (ps6, ps6E) | 7 => (ps7, ps7E)
-  | 8 => (ps8, ps8E) | _ => (ps9, ps9E)
-
-/-- The SBR tables at the addresses `ptr k`. -/
-def vS (ptr : Nat → BitVec 64) (k : Nat) : Vlc.VlcTab :=
-  ⟨ptr k, natBytes (sbrN k).1 (4 * (sbrN k).2)⟩
-
-/-- The PS tables at the addresses `ptr k`. -/
-def vP (ptr : Nat → BitVec 64) (k : Nat) : Ps.VlcTab :=
-  ⟨ptr k, natBytes (psN k).1 (4 * (psN k).2)⟩
 
 theorem sbr_ok0 : okB 9 3 sbr0 sbr0E = true := by decide +kernel
 theorem sbr_ok1 : okB 9 3 sbr1 sbr1E = true := by decide +kernel

@@ -1,4 +1,6 @@
 import Kraken.X64.Examples.Sbr.Parse.TlimText
+import Kraken.MachineWP
+import Kraken.X64.Examples.Sbr.ApplySpec
 import Kraken.X64.Examples.Sbr.ParseModel
 import Kraken.X64.Examples.Sbr.Parse.LibCall
 

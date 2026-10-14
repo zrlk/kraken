@@ -1,5 +1,5 @@
 theorem blk_L9b2b (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L9b2b" ⟨"ff_aac_sbr_apply.L9b2b", B.L9b2b, some "ff_aac_sbr_apply.done"⟩ := by
   clear hc
   intro n
@@ -25,5 +25,5 @@ theorem blk_L9b2b (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
     all_goals try (simp only [Reg64s.get64_set64, reduceCtorEq, ite_true, ite_false, BitVec.sub_zero,
       BitVec.ofInt_ofBytes_toBytes 64 8 rfl]; done)
     simp only [applyNeed]
-    rw [reserve_frame k hk, frame_split]
+    rw [reserve_frame k hSt, frame_split]
     sep_close hm

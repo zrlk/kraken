@@ -1,4 +1,5 @@
 import Kraken.X64.Examples.Sbr.Parse.Lib
+import Kraken.X64.Examples.Sbr.SessionSpec
 
 /-!
 # Procedures that may abort
@@ -24,9 +25,6 @@ open Kraken MachineWP Std.WP Lean.Order Mem
 namespace Kraken.Examples.Sbr.Parse
 
 variable [CodeEnv]
-
-/-- The entry of `abort`. -/
-abbrev abortA : Int64 := (_root_.Executable.labels cenv).label "abort"
 
 /-- A run entered at `entry` in a state `t` with `Pre x ra t` reaches `ra` in a state `s'` with
 `Post x ra t s'`, or reaches the entry of `abort`. -/
@@ -299,5 +297,86 @@ theorem ProcSpecS.of_cfg_post {stops : Int64 → Prop} {p p' : Program} {l₀ : 
     (hpre x ra t ht)
   exact eventually_weaken _ _ _ _
     (fun st hst => hst.imp (fun ⟨h1, h2⟩ => ⟨h1, hpost x ra t st.1 h2⟩) id) h
+
+/-! ## The precondition at the exit
+
+`of_cfg_postP`: as `of_cfg_post`, with `hpost` also given the precondition at the entry state
+(for its stack headroom, `CallPre.le`: rebuilding the caller's reservation from the frame needs
+the frame below `rsp` not to wrap). -/
+
+/-- `ProcSpec.of_cfg_post` with the precondition in hand at the exit. -/
+theorem ProcSpec.of_cfg_postP {p p' : Program} {l₀ : Label}
+    {α : Type} {Pre : α → Int64 → MachineData → Prop}
+    {Post : α → Int64 → MachineData → MachineData → Prop}
+    (T : α → Int64 → MachineData → Label → MachineData → Prop)
+    (Post' : α → Int64 → MachineData → MachineData → Prop)
+    (var : Label → MachineData → Nat := fun _ _ => 0)
+    (hblocks : ∀ (x : α) (ra : Int64) (t₀ : MachineData) l blk,
+      Program.blockAt p l = some blk → ∀ n : Nat,
+      ⦃ fun s => T x ra t₀ l s ∧ var l s = n ⦄ blk.body
+      ⦃ (match blk.next with
+         | some l' => fun _ s => T x ra t₀ l' s ∧ var l' s ≤ n
+         | none => fun _ _ => False);
+        fun a s => Table.ofLabels (fun l' s => (Program.blockAt p l').isSome ∧ T x ra t₀ l' s
+          ∧ Program.EdgeLt p var l n l' s) a s ∨ (a = ra ∧ Post' x ra t₀ s) ⦄)
+    (hpre : ∀ x ra t, Pre x ra t → T x ra t l₀ t)
+    (hpost : ∀ x ra t₀ s, Pre x ra t₀ → Post' x ra t₀ s → Post x ra t₀ s)
+    (hp : p = Directive.label l₀ :: p' := by rfl)
+    (hwf : Program.WF p := by decide)
+    (hpl : Program.PlacedIn p := by assumption) :
+    cenv.ProcSpec ((_root_.Executable.labels cenv).label l₀) Pre Post :=
+  Kraken.Executable.ProcSpec.of_cfg_post_pre T Post' var (fun x ra t₀ _ => hblocks x ra t₀) hpre
+    hpost hp hwf hpl
+
+/-- `ProcSpecS.of_cfg_post` with the precondition in hand at the exit. -/
+theorem ProcSpecS.of_cfg_postP {stops : Int64 → Prop} {p p' : Program} {l₀ : Label}
+    {α : Type} {Pre : α → Int64 → MachineData → Prop}
+    {Post : α → Int64 → MachineData → MachineData → Prop}
+    (T : α → Int64 → MachineData → Label → MachineData → Prop)
+    (Post' : α → Int64 → MachineData → MachineData → Prop)
+    (var : Label → MachineData → Nat := fun _ _ => 0)
+    (hblocks : ∀ (x : α) (ra : Int64) (t₀ : MachineData) l blk,
+      Program.blockAt p l = some blk → ∀ n : Nat,
+      ⦃ fun s => T x ra t₀ l s ∧ var l s = n ⦄ blk.body
+      ⦃ (match blk.next with
+         | some l' => fun _ s => T x ra t₀ l' s ∧ var l' s ≤ n
+         | none => fun _ _ => False);
+        fun a s => Table.ofLabels (fun l' s => (Program.blockAt p l').isSome ∧ T x ra t₀ l' s
+          ∧ Program.EdgeLt p var l n l' s) a s ∨ ((a = ra ∧ Post' x ra t₀ s) ∨ stops a) ⦄)
+    (hpre : ∀ x ra t, Pre x ra t → T x ra t l₀ t)
+    (hpost : ∀ x ra t₀ s, Pre x ra t₀ → Post' x ra t₀ s → Post x ra t₀ s)
+    (hp : p = Directive.label l₀ :: p' := by rfl)
+    (hwf : Program.WF p := by decide)
+    (hpl : Program.PlacedIn p := by assumption) :
+    ProcSpecS stops ((_root_.Executable.labels cenv).label l₀) Pre Post := by
+  intro x ra t ht
+  have h := MachineWP.cfg_reach (T x ra t) var
+    (fun a s => (a = ra ∧ Post' x ra t s) ∨ stops a) (hblocks x ra t) hp hwf hpl t
+    (hpre x ra t ht)
+  exact eventually_weaken _ _ _ _
+    (fun st hst => hst.imp (fun ⟨h1, h2⟩ => ⟨h1, hpost x ra t st.1 ht h2⟩) id) h
+
+/-- `ProcSpecA.of_cfg_post` with the precondition in hand at the exit. -/
+theorem ProcSpecA.of_cfg_postP {p p' : Program} {l₀ : Label}
+    {α : Type} {Pre : α → Int64 → MachineData → Prop}
+    {Post : α → Int64 → MachineData → MachineData → Prop}
+    (T : α → Int64 → MachineData → Label → MachineData → Prop)
+    (Post' : α → Int64 → MachineData → MachineData → Prop)
+    (var : Label → MachineData → Nat := fun _ _ => 0)
+    (hblocks : ∀ (x : α) (ra : Int64) (t₀ : MachineData) l blk,
+      Program.blockAt p l = some blk → ∀ n : Nat,
+      ⦃ fun s => T x ra t₀ l s ∧ var l s = n ⦄ blk.body
+      ⦃ (match blk.next with
+         | some l' => fun _ s => T x ra t₀ l' s ∧ var l' s ≤ n
+         | none => fun _ _ => False);
+        fun a s => Table.ofLabels (fun l' s => (Program.blockAt p l').isSome ∧ T x ra t₀ l' s
+          ∧ Program.EdgeLt p var l n l' s) a s ∨ ((a = ra ∧ Post' x ra t₀ s) ∨ a = abortA) ⦄)
+    (hpre : ∀ x ra t, Pre x ra t → T x ra t l₀ t)
+    (hpost : ∀ x ra t₀ s, Pre x ra t₀ → Post' x ra t₀ s → Post x ra t₀ s)
+    (hp : p = Directive.label l₀ :: p' := by rfl)
+    (hwf : Program.WF p := by decide)
+    (hpl : Program.PlacedIn p := by assumption) :
+    ProcSpecA ((_root_.Executable.labels cenv).label l₀) Pre Post :=
+  ProcSpecS.of_cfg_postP (stops := (· = abortA)) T Post' var hblocks hpre hpost hp hwf hpl
 
 end Kraken.Examples.Sbr.Parse

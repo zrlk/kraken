@@ -10,13 +10,6 @@ set_option grind.warning false
 
 namespace Kraken.Examples.Sbr.HfAssemble
 
-set_option maxRecDepth 100000 in
-/-- The procedure from the `-c opt` object (`aacsbr.o`): labels prefixed with
-the symbol, a free label after every call and inside long runs, the `.LCPI17_*`
-constants as ambient labels, the final `ret` behind `….done`. -/
-def body : Program := parse("
-BODY")
-
 variable [CodeEnv]
 
 abbrev c8 (a v : BitVec 64) : Mem 64 → Prop := Int.toBytes 8 v.toInt =@ a

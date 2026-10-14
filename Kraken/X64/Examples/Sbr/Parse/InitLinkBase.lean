@@ -1,6 +1,7 @@
 import Kraken.X64.Examples.Sbr.Parse.InitSpec
 import Kraken.X64.Examples.Sbr.Parse.DecExtSpec
 import Kraken.X64.Examples.Sbr.Link
+import Kraken.X64.Examples.Sbr.SessionSpec
 
 /-!
 # `ff_aac_sbr_ctx_alloc_init`: the session's parameters from the results
@@ -50,16 +51,6 @@ def inOf (r : IR) (id : BitVec 32) (R : Mem 64 → Prop) (avctx fdsp : BitVec 64
     (extRate ps : BitVec 32) : InitIn :=
   ⟨id, R, avctx, fdsp, extRate, ps, r.anaCtx, r.synCtx⟩
 
-/-- The `float_dsp` slots of `SbrSlots`. -/
-structure FdspOK (e : Env) : Prop where
-  fmul : e.fs.qfs.fmul = entry "ff_vector_fmul_sse" ∨ e.fs.qfs.fmul = entry "ff_vector_fmul_avx"
-  fmulAdd : e.fs.qfs.fmulAdd = entry "ff_vector_fmul_add_sse"
-    ∨ e.fs.qfs.fmulAdd = entry "ff_vector_fmul_add_avx"
-    ∨ e.fs.qfs.fmulAdd = entry "ff_vector_fmul_add_fma3"
-  fmulRev : e.fs.fmulRev = entry "ff_vector_fmul_reverse_sse"
-    ∨ e.fs.fmulRev = entry "ff_vector_fmul_reverse_avx"
-    ∨ e.fs.fmulRev = entry "ff_vector_fmul_reverse_avx2"
-
 /-- The slots of an environment in `sbr->dsp` order. -/
 def slotsOf (e : Env) : Slots :=
   ⟨e.fs.sum64x5, e.fs.sumSquare, e.fs.qfs.negOdd64, e.fs.preShuffle, e.fs.postShuffle,
@@ -97,15 +88,6 @@ theorem txSpecs_envOf {e₀ : Env} {r : IR} {k : Nat} (ha : TxSpec e₀.Ctx e₀
   ⟨ha, hs⟩
 
 /-! ## The memory -/
-
-/-- The bytes of the element outside the session's description: the `ChannelElement` part and
-the 16 bytes after `sbr->c`. -/
-def InitGap (p : BitVec 64) : Mem 64 → Prop := Blocks [(p, 0x28920), (p + 0x88b90#64, 0x10)]
-
-/-- The three `float_dsp` slots of `*ac->fdsp` in `FnW`. -/
-def FdspW (e : Env) (fdsp : BitVec 64) : Mem 64 → Prop :=
-  FnCell fdsp e.fs.qfs.fmul ⋆ (FnCell (fdsp + 0x30#64) e.fs.qfs.fmulAdd
-    ⋆ FnCell (fdsp + 0x38#64) e.fs.fmulRev)
 
 /-- `sbr->ps` beyond `ps->common` (the session's `PsRest`). -/
 def PsRestI (x : Args) (t : MachineData) : Mem 64 → Prop :=

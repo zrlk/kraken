@@ -1,5 +1,5 @@
 theorem blk_L8b77_1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L8b77_1" ⟨"ff_aac_sbr_apply.L8b77_1", B.L8b77_1, some "ff_aac_sbr_apply.L8b77_2"⟩ := by
   obtain ⟨-, hSS, -⟩ := hc
   intro n
@@ -31,9 +31,9 @@ theorem blk_L8b77_1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
   have hNc := env_cnt (BitVec.ofNat 64 (2 * (((y.d ch).te.getD 2 0).toNat - ((y.d ch).te.getD 1 0).toNat))) _ rfl (by omega)
   rw [hN] at hNc
   have hm0 := hm
-  rw [Block.carve hin (by decide), call_res k hk] at hm
+  rw [Block.carve hin (by decide), call_res k hSt] at hm
   simp only [BitVec.sub_sub_ofNat, Nat.reduceAdd] at hm
-  rw [Reserve.excess 0 k _ (Nat.zero_le _) (by omega)] at hm
+  rw [res_k0 hSt] at hm
   have hP' := PLift.up hP
   have hN' := PLift.up hN
   have hPc' := PLift.up hPc
@@ -100,7 +100,7 @@ theorem blk_L8b77_1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
       · rw [hs14]; try simp only [Reg64s.get64_set64, reduceCtorEq, ite_true, ite_false, hrdi'.down, sbrA,
           BitVec.add_assoc, BitVec.reduceAdd]
       simp only [Mm, ApplyF, ArrW, DspW, sbrA, Blocks, arg1, BitVec.add_assoc, BitVec.reduceAdd]
-      rw [Block.carve hin (by decide), call_res k hk]
+      rw [Block.carve hin (by decide), call_res k hSt]
       simp only [BitVec.sub_sub_ofNat, Nat.reduceAdd]
-      rw [Reserve.excess 0 k _ (Nat.zero_le _) (by omega)]
+      rw [res_k0 hSt]
       sep_close hm'

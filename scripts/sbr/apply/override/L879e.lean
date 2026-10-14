@@ -1,5 +1,5 @@
 theorem blk_L879e (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L879e" ⟨"ff_aac_sbr_apply.L879e", B.L879e, some "ff_aac_sbr_apply.L879e_1"⟩ := by
   obtain ⟨-, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, hAv, -⟩ := hc
   intro n
@@ -9,7 +9,7 @@ theorem blk_L879e (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
   clear hs
   simp only [Mm, ApplyF, AcW, FnW, FrM0, sbrA, arg0, arg1, arg2, arg3, arg4, BitVec.add_assoc,
     BitVec.reduceAdd] at hm
-  rw [call_res k hk] at hm
+  rw [call_res k hSt] at hm
   simp only [BitVec.sub_sub_ofNat, Nat.reduceAdd] at hm
   sep_pull hm [8 ?@ (t₀.regs.get64 .rsp - 464#64), Reserve k (t₀.regs.get64 .rsp - 464#64), e.Ext]
     as Rc hRc
@@ -55,6 +55,6 @@ theorem blk_L879e (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
       | (simp only [hsv, MachineData.pushRa, Reg64s.get64_set64, reduceCtorEq, ite_false, ite_true]; exact h_rbx)
     simp only [Mm, ApplyF, AcW, FnW, FrM0, sbrA, arg0, arg1, arg2, arg3, arg4, BitVec.add_assoc,
       BitVec.reduceAdd]
-    rw [call_res k hk]
+    rw [call_res k hSt]
     simp only [BitVec.sub_sub_ofNat, Nat.reduceAdd]
     sep_close hm1

@@ -583,13 +583,15 @@ theorem gq_asc {w : Nat} (a b : BitVec w) : a + b - a = b := by
 /-! ### GainAsm call blocks L98e0 / L9934_1 (apply-anahf) -/
 
 omit [CodeEnv] in
-theorem gn_call_res_n (k need : Nat) (hk : k ≤ 2 ^ 32) (hn : need ≤ 0x290 + k) (r : BitVec 64)
-    (K : Mem 64 → Prop) :
-    Reserve (0x298 + k) r ⋆ K
-      = 8 ?@ (r - 8#64) ⋆ (Reserve need (r - 8#64)
-        ⋆ ((0x290 + k - need) ?@ (r - BitVec.ofNat 64 (0x298 + k)) ⋆ K)) := by
+theorem gn_call_res_n (k need : Nat) {r₀ : BitVec 64} (hW : 0x460 + k ≤ r₀.toNat)
+    (hn : need ≤ 0x290 + k) (K : Mem 64 → Prop) :
+    Reserve (0x298 + k) (r₀ - 0x1c8#64) ⋆ K
+      = 8 ?@ (r₀ - 0x1c8#64 - 8#64) ⋆ (Reserve need (r₀ - 0x1c8#64 - 8#64)
+        ⋆ ((0x290 + k - need) ?@ (r₀ - 0x1c8#64 - BitVec.ofNat 64 (0x298 + k)) ⋆ K)) := by
+  have hr : 0x298 + k ≤ (r₀ - 0x1c8#64).toNat := by bv_omega
+  generalize r₀ - 0x1c8#64 = r at hr ⊢
   rw [show 0x298 + k = 8 + (0x290 + k) by omega, Reserve_split 8 (0x290 + k) r (by omega),
-    Reserve.excess need (0x290 + k) (r - BitVec.ofNat 64 8) hn (by omega), BitVec.sub_sub_ofNat]
+    Reserve.excess need (0x290 + k) (r - BitVec.ofNat 64 8) hn (by bv_omega), BitVec.sub_sub_ofNat]
   simp only [Std.ExtHashMap.sep_assoc]
 
 omit [CodeEnv] in
@@ -871,7 +873,7 @@ theorem gn_x2 (r : BitVec 64) (p : Nat) (hp : p ≤ 1) (K : Mem 64 → Prop) :
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L9146 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L9146" ⟨"ff_aac_sbr_apply.L9146", B.L9146, some "ff_aac_sbr_apply.L914e"⟩ := by
   info_off
   clear hc
@@ -899,7 +901,7 @@ theorem blk_L9146 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L914e (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L914e" ⟨"ff_aac_sbr_apply.L914e", B.L914e, some "ff_aac_sbr_apply.L914e_1"⟩ := by
   info_off
   clear hc
@@ -951,7 +953,7 @@ theorem blk_L914e (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L914e_1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L914e_1" ⟨"ff_aac_sbr_apply.L914e_1", B.L914e_1, some "ff_aac_sbr_apply.L914e_2"⟩ := by
   info_off
   clear hc
@@ -1009,7 +1011,7 @@ theorem blk_L914e_1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L914e_2 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L914e_2" ⟨"ff_aac_sbr_apply.L914e_2", B.L914e_2, some "ff_aac_sbr_apply.L914e_3"⟩ := by
   info_off
   clear hc
@@ -1061,7 +1063,7 @@ theorem blk_L914e_2 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L914e_3 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L914e_3" ⟨"ff_aac_sbr_apply.L914e_3", B.L914e_3, some "ff_aac_sbr_apply.L91c0"⟩ := by
   info_off
   clear hc
@@ -1120,7 +1122,7 @@ theorem blk_L914e_3 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L91c0 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L91c0" ⟨"ff_aac_sbr_apply.L91c0", B.L91c0, some "ff_aac_sbr_apply.L91f7"⟩ := by
   info_off
   clear hc
@@ -1190,7 +1192,7 @@ theorem blk_L91c0 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L91f7 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L91f7" ⟨"ff_aac_sbr_apply.L91f7", B.L91f7, some "ff_aac_sbr_apply.L9206"⟩ := by
   info_off
   clear hc
@@ -1241,7 +1243,7 @@ theorem blk_L91f7 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L9206 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L9206" ⟨"ff_aac_sbr_apply.L9206", B.L9206, some "ff_aac_sbr_apply.L9215"⟩ := by
   info_off
   clear hc
@@ -1292,7 +1294,7 @@ theorem blk_L9206 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L9215 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L9215" ⟨"ff_aac_sbr_apply.L9215", B.L9215, some "ff_aac_sbr_apply.L9215_1"⟩ := by
   info_off
   clear hc
@@ -1347,7 +1349,7 @@ theorem blk_L9215 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L9215_1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L9215_1" ⟨"ff_aac_sbr_apply.L9215_1", B.L9215_1, some "ff_aac_sbr_apply.L9215_2"⟩ := by
   info_off
   clear hc
@@ -1403,7 +1405,7 @@ theorem blk_L9215_1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L9215_2 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L9215_2" ⟨"ff_aac_sbr_apply.L9215_2", B.L9215_2, some "ff_aac_sbr_apply.L9215_3"⟩ := by
   info_off
   clear hc
@@ -1459,7 +1461,7 @@ theorem blk_L9215_2 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L9215_3 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L9215_3" ⟨"ff_aac_sbr_apply.L9215_3", B.L9215_3, some "ff_aac_sbr_apply.L9215_4"⟩ := by
   info_off
   clear hc
@@ -1515,7 +1517,7 @@ theorem blk_L9215_3 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L9215_4 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L9215_4" ⟨"ff_aac_sbr_apply.L9215_4", B.L9215_4, some "ff_aac_sbr_apply.L9215_5"⟩ := by
   info_off
   clear hc
@@ -1571,7 +1573,7 @@ theorem blk_L9215_4 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L9215_5 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L9215_5" ⟨"ff_aac_sbr_apply.L9215_5", B.L9215_5, some "ff_aac_sbr_apply.L9290"⟩ := by
   info_off
   clear hc
@@ -1628,7 +1630,7 @@ theorem blk_L9215_5 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L9290 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L9290" ⟨"ff_aac_sbr_apply.L9290", B.L9290, some "ff_aac_sbr_apply.L929e"⟩ := by
   info_off
   clear hc
@@ -1702,7 +1704,7 @@ theorem blk_L9290 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L929e (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L929e" ⟨"ff_aac_sbr_apply.L929e", B.L929e, some "ff_aac_sbr_apply.L929e_1"⟩ := by
   info_off
   clear hc
@@ -1759,7 +1761,7 @@ theorem blk_L929e (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L929e_1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L929e_1" ⟨"ff_aac_sbr_apply.L929e_1", B.L929e_1, some "ff_aac_sbr_apply.L9300"⟩ := by
   info_off
   clear hc
@@ -1830,7 +1832,7 @@ theorem blk_L929e_1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L9300 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L9300" ⟨"ff_aac_sbr_apply.L9300", B.L9300, some "ff_aac_sbr_apply.L9300_1"⟩ := by
   info_off
   clear hc
@@ -1899,7 +1901,7 @@ theorem blk_L9300 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L9300_1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L9300_1" ⟨"ff_aac_sbr_apply.L9300_1", B.L9300_1, some "ff_aac_sbr_apply.L9300_2"⟩ := by
   info_off
   clear hc
@@ -1968,7 +1970,7 @@ theorem blk_L9300_1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L9300_2 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L9300_2" ⟨"ff_aac_sbr_apply.L9300_2", B.L9300_2, some "ff_aac_sbr_apply.L9370"⟩ := by
   info_off
   clear hc
@@ -2037,7 +2039,7 @@ theorem blk_L9300_2 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L9370 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L9370" ⟨"ff_aac_sbr_apply.L9370", B.L9370, some "ff_aac_sbr_apply.L9386"⟩ := by
   info_off
   clear hc
@@ -2106,7 +2108,7 @@ theorem blk_L9370 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L9386 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L9386" ⟨"ff_aac_sbr_apply.L9386", B.L9386, some "ff_aac_sbr_apply.L9386_1"⟩ := by
   info_off
   clear hc
@@ -2177,7 +2179,7 @@ theorem blk_L9386 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L9386_1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L9386_1" ⟨"ff_aac_sbr_apply.L9386_1", B.L9386_1, some "ff_aac_sbr_apply.L93d0"⟩ := by
   info_off
   clear hc
@@ -2246,7 +2248,7 @@ theorem blk_L9386_1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L93d0 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L93d0" ⟨"ff_aac_sbr_apply.L93d0", B.L93d0, some "ff_aac_sbr_apply.L93f0"⟩ := by
   info_off
   clear hc
@@ -2309,7 +2311,7 @@ theorem blk_L93d0 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L93f0 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L93f0" ⟨"ff_aac_sbr_apply.L93f0", B.L93f0, some "ff_aac_sbr_apply.L93f0_1"⟩ := by
   info_off
   clear hc
@@ -2381,7 +2383,7 @@ theorem blk_L93f0 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L93f0_1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L93f0_1" ⟨"ff_aac_sbr_apply.L93f0_1", B.L93f0_1, some "ff_aac_sbr_apply.L9440"⟩ := by
   info_off
   clear hc
@@ -2449,7 +2451,7 @@ theorem blk_L93f0_1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L9440 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L9440" ⟨"ff_aac_sbr_apply.L9440", B.L9440, some "ff_aac_sbr_apply.L9458"⟩ := by
   info_off
   clear hc
@@ -2521,7 +2523,7 @@ theorem blk_L9440 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L9458 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L9458" ⟨"ff_aac_sbr_apply.L9458", B.L9458, some "ff_aac_sbr_apply.L9470"⟩ := by
   info_off
   clear hc
@@ -2586,7 +2588,7 @@ theorem blk_L9458 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L9470 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L9470" ⟨"ff_aac_sbr_apply.L9470", B.L9470, some "ff_aac_sbr_apply.L9470_1"⟩ := by
   info_off
   clear hc
@@ -2654,7 +2656,7 @@ theorem blk_L9470 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L9470_1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L9470_1" ⟨"ff_aac_sbr_apply.L9470_1", B.L9470_1, some "ff_aac_sbr_apply.L9504"⟩ := by
   info_off
   clear hc
@@ -2730,7 +2732,7 @@ theorem blk_L9470_1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L9504 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L9504" ⟨"ff_aac_sbr_apply.L9504", B.L9504, some "ff_aac_sbr_apply.L9520"⟩ := by
   info_off
   clear hc
@@ -2793,7 +2795,7 @@ theorem blk_L9504 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L9520 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L9520" ⟨"ff_aac_sbr_apply.L9520", B.L9520, some "ff_aac_sbr_apply.L952c"⟩ := by
   info_off
   clear hc
@@ -2857,7 +2859,7 @@ theorem blk_L9520 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L952c (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L952c" ⟨"ff_aac_sbr_apply.L952c", B.L952c, some "ff_aac_sbr_apply.L9530"⟩ := by
   info_off
   clear hc
@@ -2921,7 +2923,7 @@ theorem blk_L952c (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L9530 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L9530" ⟨"ff_aac_sbr_apply.L9530", B.L9530, some "ff_aac_sbr_apply.L9530_1"⟩ := by
   info_off
   clear hc
@@ -3010,7 +3012,7 @@ theorem blk_L9530 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L9530_1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L9530_1" ⟨"ff_aac_sbr_apply.L9530_1", B.L9530_1, some "ff_aac_sbr_apply.L95a0"⟩ := by
   info_off
   clear hc
@@ -3077,7 +3079,7 @@ theorem blk_L9530_1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L95a0 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L95a0" ⟨"ff_aac_sbr_apply.L95a0", B.L95a0, some "ff_aac_sbr_apply.L95a0_1"⟩ := by
   info_off
   clear hc
@@ -3146,7 +3148,7 @@ theorem blk_L95a0 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L95a0_1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L95a0_1" ⟨"ff_aac_sbr_apply.L95a0_1", B.L95a0_1, some "ff_aac_sbr_apply.L95a0_2"⟩ := by
   info_off
   clear hc
@@ -3217,7 +3219,7 @@ theorem blk_L95a0_1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L95a0_2 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L95a0_2" ⟨"ff_aac_sbr_apply.L95a0_2", B.L95a0_2, some "ff_aac_sbr_apply.L9600"⟩ := by
   info_off
   clear hc
@@ -3286,7 +3288,7 @@ theorem blk_L95a0_2 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L9600 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L9600" ⟨"ff_aac_sbr_apply.L9600", B.L9600, some "ff_aac_sbr_apply.L9617"⟩ := by
   info_off
   clear hc
@@ -3359,7 +3361,7 @@ theorem blk_L9600 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L9617 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L9617" ⟨"ff_aac_sbr_apply.L9617", B.L9617, some "ff_aac_sbr_apply.L9617_1"⟩ := by
   info_off
   clear hc
@@ -3424,7 +3426,7 @@ theorem blk_L9617 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L9617_1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L9617_1" ⟨"ff_aac_sbr_apply.L9617_1", B.L9617_1, some "ff_aac_sbr_apply.L968d"⟩ := by
   info_off
   clear hc
@@ -3497,7 +3499,7 @@ theorem blk_L9617_1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L968d (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L968d" ⟨"ff_aac_sbr_apply.L968d", B.L968d, some "ff_aac_sbr_apply.L96d3"⟩ := by
   info_off
   clear hc
@@ -3565,7 +3567,7 @@ theorem blk_L968d (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L96d3 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L96d3" ⟨"ff_aac_sbr_apply.L96d3", B.L96d3, some "ff_aac_sbr_apply.L96e1"⟩ := by
   info_off
   clear hc
@@ -3636,7 +3638,7 @@ theorem blk_L96d3 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L96e1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L96e1" ⟨"ff_aac_sbr_apply.L96e1", B.L96e1, some "ff_aac_sbr_apply.L9720"⟩ := by
   info_off
   clear hc
@@ -3707,7 +3709,7 @@ theorem blk_L96e1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L9720 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L9720" ⟨"ff_aac_sbr_apply.L9720", B.L9720, some "ff_aac_sbr_apply.L9731"⟩ := by
   info_off
   clear hc
@@ -3776,7 +3778,7 @@ theorem blk_L9720 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L9731 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L9731" ⟨"ff_aac_sbr_apply.L9731", B.L9731, some "ff_aac_sbr_apply.L9731_1"⟩ := by
   info_off
   clear hc
@@ -3842,7 +3844,7 @@ theorem blk_L9731 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L9731_1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L9731_1" ⟨"ff_aac_sbr_apply.L9731_1", B.L9731_1, some "ff_aac_sbr_apply.L97b7"⟩ := by
   info_off
   clear hc
@@ -3913,7 +3915,7 @@ theorem blk_L9731_1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L97b7 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L97b7" ⟨"ff_aac_sbr_apply.L97b7", B.L97b7, some "ff_aac_sbr_apply.L97f0"⟩ := by
   info_off
   clear hc
@@ -3986,7 +3988,7 @@ theorem blk_L97b7 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L97f0 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L97f0" ⟨"ff_aac_sbr_apply.L97f0", B.L97f0, some "ff_aac_sbr_apply.L9820"⟩ := by
   info_off
   clear hc
@@ -4057,7 +4059,7 @@ theorem blk_L97f0 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L9820 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L9820" ⟨"ff_aac_sbr_apply.L9820", B.L9820, some "ff_aac_sbr_apply.L983f"⟩ := by
   info_off
   clear hc
@@ -4118,7 +4120,7 @@ theorem blk_L9820 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L983f (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L983f" ⟨"ff_aac_sbr_apply.L983f", B.L983f, some "ff_aac_sbr_apply.L9860"⟩ := by
   info_off
   clear hc
@@ -4182,7 +4184,7 @@ theorem blk_L983f (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L9860 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L9860" ⟨"ff_aac_sbr_apply.L9860", B.L9860, some "ff_aac_sbr_apply.L9860_1"⟩ := by
   info_off
   clear hc
@@ -4251,7 +4253,7 @@ theorem blk_L9860 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L9860_1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L9860_1" ⟨"ff_aac_sbr_apply.L9860_1", B.L9860_1, some "ff_aac_sbr_apply.L9860_2"⟩ := by
   info_off
   clear hc
@@ -4320,7 +4322,7 @@ theorem blk_L9860_1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L9860_2 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L9860_2" ⟨"ff_aac_sbr_apply.L9860_2", B.L9860_2, some "ff_aac_sbr_apply.L9860_3"⟩ := by
   info_off
   clear hc
@@ -4391,7 +4393,7 @@ theorem blk_L9860_2 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L9860_3 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L9860_3" ⟨"ff_aac_sbr_apply.L9860_3", B.L9860_3, some "ff_aac_sbr_apply.L98bc"⟩ := by
   info_off
   clear hc
@@ -4460,7 +4462,7 @@ theorem blk_L9860_3 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L98bc (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L98bc" ⟨"ff_aac_sbr_apply.L98bc", B.L98bc, some "ff_aac_sbr_apply.L98e0"⟩ := by
   info_off
   clear hc
@@ -4472,7 +4474,7 @@ theorem blk_L98bc (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L98e0 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L98e0" ⟨"ff_aac_sbr_apply.L98e0", B.L98e0, some "ff_aac_sbr_apply.L9927"⟩ := by
   info_off
   obtain ⟨-, -, -, -, -, -, -, -, -, hae, hHA, -⟩ := hc
@@ -4510,7 +4512,7 @@ theorem blk_L98e0 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
     sep_mem hm
     simp only [Option.getD_some, BitVec.ofInt_ofBytes_toBytes 64 8 rfl]
   simp only [lex_var, hsl] at hn
-  rw [gn_call_res_n k (0x290 + k) hk (by omega)] at hm
+  rw [gn_call_res_n k (0x290 + k) hSt (by omega)] at hm
   simp only [BitVec.sub_sub_ofNat, Nat.reduceAdd, Nat.sub_self] at hm
   sep_pull hm [8 ?@ (t₀.regs.get64 .rsi + (166176#64 + (BitVec.ofNat 64 (128 + 88768 * ch) + 14596#64)))] as Re hRe
   obtain ⟨v0, v1, hm⟩ := gn_ea hm
@@ -4670,7 +4672,7 @@ theorem blk_L98e0 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
           rw [gn_te10 _ htl0]
           simp only [Mm, ApplyF, FrCs, ScW, TabW, DScW, DArrW, ArrW, PsW, DspW, FnW, CstW, Blocks, c4, cell4, sbrA, arg0,
             arg1, arg3, arg4, lab, FnCell, BitVec.add_assoc, BitVec.reduceAdd]
-          rw [gn_call_res_n k (0x290 + k) hk (by omega)]
+          rw [gn_call_res_n k (0x290 + k) hSt (by omega)]
           simp only [BitVec.sub_sub_ofNat, Nat.reduceAdd, Nat.sub_self, dA, Args.d, Nat.reducePow, Nat.reduceSub,
             Nat.reduceMod, Nat.reduceMul, BitVec.ofNat_eq_ofNat, BitVec.add_assoc, BitVec.reduceAdd, ↓reduceIte,
             Nat.one_ne_zero] at hm' ⊢
@@ -4687,7 +4689,7 @@ theorem blk_L98e0 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
           rw [gn_te10 _ htl0]
           simp only [Mm, ApplyF, FrCs, ScW, TabW, DScW, DArrW, ArrW, PsW, DspW, FnW, CstW, Blocks, c4, cell4, sbrA, arg0,
             arg1, arg3, arg4, lab, FnCell, BitVec.add_assoc, BitVec.reduceAdd]
-          rw [gn_call_res_n k (0x290 + k) hk (by omega)]
+          rw [gn_call_res_n k (0x290 + k) hSt (by omega)]
           simp only [BitVec.sub_sub_ofNat, Nat.reduceAdd, Nat.sub_self, dA, Args.d, Nat.reducePow, Nat.reduceSub,
             Nat.reduceMod, Nat.reduceMul, BitVec.ofNat_eq_ofNat, BitVec.add_assoc, BitVec.reduceAdd, ↓reduceIte,
             Nat.one_ne_zero] at hm' ⊢
@@ -4704,7 +4706,7 @@ theorem blk_L98e0 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L9927 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L9927" ⟨"ff_aac_sbr_apply.L9927", B.L9927, some "ff_aac_sbr_apply.L9934"⟩ := by
   info_off
   clear hc
@@ -4767,7 +4769,7 @@ theorem blk_L9927 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L9934 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L9934" ⟨"ff_aac_sbr_apply.L9934", B.L9934, some "ff_aac_sbr_apply.L9934_1"⟩ := by
   info_off
   clear hc
@@ -4847,7 +4849,7 @@ theorem blk_L9934 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L9934_1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L9934_1" ⟨"ff_aac_sbr_apply.L9934_1", B.L9934_1, some "ff_aac_sbr_apply.L9934_2"⟩ := by
   info_off
   obtain ⟨-, -, -, -, -, -, -, -, -, -, -, hxe, hXG, -⟩ := hc
@@ -4884,7 +4886,7 @@ theorem blk_L9934_1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
     sep_mem hm
     simp only [Option.getD_some, BitVec.ofInt_ofBytes_toBytes 64 8 rfl]
   simp only [lex_var, hsl] at hn
-  rw [gn_x2 (t₀.regs.get64 .rsi) ch (by omega), gn_call_res_n k (0x60 + k) hk (by omega)] at hm
+  rw [gn_x2 (t₀.regs.get64 .rsi) ch (by omega), gn_call_res_n k (0x60 + k) hSt (by omega)] at hm
   simp only [BitVec.sub_sub_ofNat, Nat.reduceAdd] at hm
   have hR := PLift.up (⟨hrsp, hrbp, hsl, hn, h12, h9, hsi, hdi, hax, hcx, hrb⟩ :
     _ ∧ _ ∧ _ ∧ _ ∧ _ ∧ _ ∧ _ ∧ _ ∧ _ ∧ _ ∧ _)
@@ -4983,7 +4985,7 @@ theorem blk_L9934_1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
       rw [gn_byte_split (y.d ch).te _ 9 (by omega) (by omega)]
       simp only [Mm, ApplyF, FrCs, ScW, TabW, DScW, DArrW, ArrW, DspW, FnW, CstW, Blocks, c4, sbrA, arg0, arg1, arg3,
         arg4, lab, BitVec.add_assoc, BitVec.reduceAdd]
-      rw [gn_x2 (t₀.regs.get64 .rsi) ch (by omega), gn_call_res_n k (0x60 + k) hk (by omega)]
+      rw [gn_x2 (t₀.regs.get64 .rsi) ch (by omega), gn_call_res_n k (0x60 + k) hSt (by omega)]
       simp only [BitVec.sub_sub_ofNat, Nat.reduceAdd, dA, Args.d, Nat.reducePow, Nat.reduceSub, Nat.reduceMod,
         Nat.reduceMul, BitVec.ofNat_eq_ofNat, BitVec.add_assoc, BitVec.reduceAdd] at hm' ⊢
       sep_close hm'
@@ -4996,7 +4998,7 @@ theorem blk_L9934_1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 400000 in
 theorem blk_L9934_2 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L9934_2" ⟨"ff_aac_sbr_apply.L9934_2", B.L9934_2, some "ff_aac_sbr_apply.L99c6"⟩ := by
   info_off
   clear hc

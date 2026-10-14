@@ -11,6 +11,7 @@ import Kraken.Rules.FrameLemmas
 import Kraken.Rules.HelperLemmas
 import Kraken.X64.Examples.Sbr.Spec
 import Kraken.X64.Examples.Sbr.HfAssemble.Cells
+import Kraken.X64.Examples.Sbr.HfAssembleText
 import Kraken.InfoOff
 
 /-!

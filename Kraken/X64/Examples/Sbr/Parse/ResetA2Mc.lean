@@ -83,7 +83,8 @@ theorem a2_Mx_call_mc (k : Nat) (e : REnv) (a : RArgs) (ra : Int64) (t₀ : Mach
 
 theorem a2_Mm_mc (k : Nat) (e : REnv) (a : RArgs) (ra : Int64) (t₀ : MachineData) (st : St)
     (fr : List UInt8) {fo o n : Nat} (hF : FrOk fr) (hfm : st.fm.length = 98)
-    (h1 : fo + n ≤ 0x548) (h2 : o + n ≤ 98) (hd : 8 + tlimNeed k ≤ 2 ^ 64) :
+    (h1 : fo + n ≤ 0x548) (h2 : o + n ≤ 98)
+    (hd : 8 + tlimNeed k ≤ (t₀.regs.get64 .rsp - 0x578#64).toNat) :
     Mm k e a ra t₀ st fr = 8 ?@ (t₀.regs.get64 .rsp - 0x578#64 - 8#64)
       ⋆ (Reserve k (t₀.regs.get64 .rsp - 0x578#64 - 8#64)
         ⋆ ((slice fr fo n =@ (t₀.regs.get64 .rsp - 0x578#64 + BitVec.ofNat 64 fo)
@@ -98,7 +99,7 @@ theorem a2_Mm_mc (k : Nat) (e : REnv) (a : RArgs) (ra : Int64) (t₀ : MachineDa
 theorem a2_Mm_mc_post {m : Mem 64} (k : Nat) (e : REnv) (a : RArgs) (ra : Int64)
     (t₀ : MachineData) (st : St) (fr : List UInt8) {fo o n : Nat} (hF : FrOk fr)
     (hfm : st.fm.length = 98) (h1 : fo + n ≤ 0x548) (h2 : o + n ≤ 98)
-    (hd : 8 + tlimNeed k ≤ 2 ^ 64)
+    (hd : 8 + tlimNeed k ≤ (t₀.regs.get64 .rsp - 0x578#64).toNat)
     (hm : m =⋆ 8 ?@ (t₀.regs.get64 .rsp - 0x578#64 - 8#64)
       ⋆ (Reserve k (t₀.regs.get64 .rsp - 0x578#64 - 8#64)
         ⋆ ((slice fr fo n =@ (t₀.regs.get64 .rsp - 0x578#64 + BitVec.ofNat 64 fo)

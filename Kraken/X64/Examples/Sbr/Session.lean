@@ -1,4 +1,5 @@
 import Kraken.X64.Examples.Sbr.Link
+import Kraken.X64.Examples.Sbr.SessionSpec
 
 /-!
 # A decoding session of `ff_aac_sbr_apply`
@@ -60,19 +61,6 @@ variable [CodeEnv]
 
 /-! ## The steps of a session -/
 
-/-- The value part of `ApplyFPost` (`applyFPost_iff`): the values `y` a call at `x` returns
-with. -/
-def ApplyRel (x y : Args) : Prop :=
-  y.extRate = x.extRate ∧ y.fdsp = x.fdsp ∧ y.anaCtx = x.anaCtx ∧ y.synCtx = x.synCtx
-    ∧ y.sampleRate = x.sampleRate ∧ x.KeepD y ∧ SbrWF y ∧ y.avctx = x.avctx ∧ y.ps = x.ps
-
-/-- A frame step between calls: the caller's memory `R` and the `ac` fields the footprint
-reads (`ac->avctx`, `ac->oc[1].m4ac.ext_sample_rate`, `ac->oc[1].m4ac.ps`) take new values;
-every value of `*sbr` and `ac->fdsp` stays. (`ext_sample_rate` and `ps` change with the output
-configuration; `ac->fdsp` is allocated once with the decoder.) -/
-def FrameStep (x x' : Args) : Prop :=
-  x' = { x with R := x'.R, avctx := x'.avctx, extRate := x'.extRate, ps := x'.ps }
-
 /-! ## Building blocks for the parser's proof
 
 Two steps that the parser's paths share, proved to preserve `SbrWF`: `sbr_turnoff`, which ends
@@ -103,83 +91,6 @@ theorem sbrWF_save {x : Args} (p : BitVec 32) (h : SbrWF x) :
 
 /-! ## The values after `ff_aac_sbr_ctx_alloc_init` -/
 
-/-- The inputs of init that the SBR code does not determine: the element type `id_aac` (the
-`type` argument from `che_configure`, `D`:150), the `av_tx` contexts (`av_tx_init`, l.95-106),
-and the caller's memory and `ac` fields (set by the decoder, not by init). -/
-structure InitIn where
-  idAac : BitVec 32
-  R : Mem 64 → Prop
-  avctx : BitVec 64
-  fdsp : BitVec 64
-  extRate : BitVec 32
-  ps : BitVec 32
-  anaCtx : BitVec 64
-  synCtx : BitVec 64
-
-/-- `n` zero bytes. -/
-abbrev zs (n : Nat) : List UInt8 := List.replicate n 0
-
-/-- A channel after init: `av_mallocz` (l.74) zeroes `SBRData`, then
-`synthesis_filterbank_samples_offset = SBR_SYNTHESIS_BUF_SIZE - (1280 - 128) = 1152`
-(l.88-89, `sbr.h`: `SBR_SYNTHESIS_BUF_SIZE = (1280 - 128) * 2`). -/
-def dvInit : DV :=
-  { nenv := 0, freqRes := zs 9, nnoise := 0, invf := zs 10, vOff := 1152, ypos := 0,
-    te := zs 10, tq := zs 3, idx := 0 }
-
-/-- The values `ff_aac_sbr_ctx_alloc_init(ac, che, id_aac)` (l.70-111) leaves. `xInit` models a
-successful `ff_aac_sbr_ctx_alloc_init` (`InitIn` assumes it returned 0):
-* `ExtChannelElement` comes from `av_mallocz` (l.74): every field starts at zero;
-* `kx[0] = kx[1]` (l.85) is taken before `sbr_turnoff`, so `kx[0] = 0`;
-* `id_aac` (l.86);
-* `sbr_turnoff` (l.87, l.58-68): `start = ready_for_dequant = 0`, `kx[1] = 32`, `m[1] = 0`
-  (and `usac = 0`, `e_a[1] = -1`, `spectrum_params` all ones: raw in the footprint);
-* both `synthesis_filterbank_samples_offset = 1152` (l.88-89);
-* `sbr->mdct`, `sbr->mdct_ana` from `av_tx_init` (l.95-106): parameters;
-* `ff_ps_ctx_init` (l.108, `PH`:97-100) sets only `ps->dsp`: `ps->common` and the phase
-  histories stay zero (`ff_ps_init`, `P`:740, builds static tables only);
-* `ff_sbrdsp_init`, `aacsbr_func_ptr_init` (l.109-110) set the slots (`SbrSlots`).
-`sample_rate` stays 0 until the first `ff_aac_sbr_decode_extension` (l.1146-1147). -/
-def xInit (i : InitIn) : Args where
-  R := i.R
-  start := 0
-  ready := 0
-  idAac := i.idAac
-  reset := 0
-  smooth := 0
-  pushed := 0
-  k0 := 0
-  kx0 := 0
-  kx1 := 32
-  m0 := 0
-  m1 := 0
-  limGains := 0
-  interpol := 0
-  coupling := 0
-  n0 := 0
-  n1 := 0
-  nq := 0
-  nlim := 0
-  npatch := 0
-  pnum := zs 6
-  pstart := zs 6
-  ftLow := zs 50
-  ftHigh := zs 98
-  ftNoise := zs 12
-  ftLim := zs 60
-  d0 := dvInit
-  d1 := dvInit
-  sampleRate := 0
-  avctx := i.avctx
-  fdsp := i.fdsp
-  extRate := i.extRate
-  ps := i.ps
-  anaCtx := i.anaCtx
-  synCtx := i.synCtx
-  psc := zs 764
-  psh := zs 68
-  spLo := BitVec.allOnes 32
-  spHi := BitVec.allOnes 16
-
 omit [CodeEnv] in
 /-- `PsWF` of a zeroed `PSContext` (W1-W6 hold of zeros; `start = 0`). -/
 theorem psWF_zero : PsWF (zs 764) (zs 68) := by
@@ -206,11 +117,6 @@ theorem sbrWF_xInit (i : InitIn) : SbrWF (xInit i) := by
     hd.mono (fun h => absurd rfl h), hd.mono (fun h => absurd rfl h.1), psWF_zero⟩
 
 /-! ## A parser-side invariant -/
-
-/-- The candidate parser invariant for `t_env_num_env_old` (see `ParseStep`): each channel's last
-border `t_env[bs_num_env]` is at most `19`, live or not. Not proved of the parser here. -/
-def GridInv (x : Args) : Prop :=
-  u8 x.d0.te x.d0.nenv ≤ 19 ∧ u8 x.d1.te x.d1.nenv ≤ 19
 
 omit [CodeEnv] in
 /-- `GridInv` reads only `bs_num_env` and `t_env`, which apply keeps. -/

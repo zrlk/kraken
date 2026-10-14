@@ -16,7 +16,7 @@ variable [CodeEnv]
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 600000 in
 theorem blk_L85cd_1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L85cd_1" ⟨"ff_aac_sbr_apply.L85cd_1", B.L85cd_1, some "ff_aac_sbr_apply.L85cd_2"⟩ := by
   info_off
   clear hc
@@ -587,7 +587,7 @@ theorem blk_L85cd_1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 200000 in
 theorem blk_L85cd_2 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L85cd_2" ⟨"ff_aac_sbr_apply.L85cd_2", B.L85cd_2, some "ff_aac_sbr_apply.L8620"⟩ := by
   info_off
   clear hc
@@ -1028,7 +1028,7 @@ theorem blk_L85cd_2 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 200000 in
 theorem blk_L8620 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L8620" ⟨"ff_aac_sbr_apply.L8620", B.L8620, some "ff_aac_sbr_apply.L862d"⟩ := by
   info_off
   clear hc
@@ -1465,7 +1465,7 @@ theorem blk_L8620 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 200000 in
 theorem blk_L862d (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L862d" ⟨"ff_aac_sbr_apply.L862d", B.L862d, some "ff_aac_sbr_apply.L862d_1"⟩ := by
   info_off
   clear hc

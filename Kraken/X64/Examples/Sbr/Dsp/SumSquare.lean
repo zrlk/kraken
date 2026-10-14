@@ -6,6 +6,7 @@ import Kraken.Rules.IntMisc
 import Kraken.Rules.ScalarFloat
 import Kraken.X64.Examples.Sbr.Spec
 import Kraken.Rules.LeafLemmas
+import Kraken.X64.Examples.Sbr.Dsp.SumSquareText
 
 /-!
 # `ff_sbr_sum_square_sse` as a `ProcSpec`
@@ -62,51 +63,6 @@ set_option mvcgen.warning false
 set_option grind.warning false
 
 namespace Kraken.Examples.Sbr.SumSquare
-
-def body : Program := parse("
-ff_sbr_sum_square_sse:
-    mov %esi,%edx
-    xorps %xmm0,%xmm0
-    xorps %xmm1,%xmm1
-    sar $0x3,%rdx
-    je ff_sbr_sum_square_sse.prepare
-ff_sbr_sum_square_sse.loop:
-    movups (%rdi),%xmm2
-    movups 0x10(%rdi),%xmm3
-    movups 0x20(%rdi),%xmm4
-    movups 0x30(%rdi),%xmm5
-    mulps %xmm2,%xmm2
-    mulps %xmm3,%xmm3
-    mulps %xmm4,%xmm4
-    mulps %xmm5,%xmm5
-    addps %xmm2,%xmm0
-    addps %xmm3,%xmm1
-    addps %xmm4,%xmm0
-    addps %xmm5,%xmm1
-    add $0x40,%rdi
-    dec %rdx
-    jne ff_sbr_sum_square_sse.loop
-ff_sbr_sum_square_sse.prepare:
-    and $0x7,%rsi
-    sar $1,%rsi
-    je ff_sbr_sum_square_sse.end
-ff_sbr_sum_square_sse.endloop:
-    movups (%rdi),%xmm2
-    add $0x10,%rdi
-    mulps %xmm2,%xmm2
-    dec %rsi
-    addps %xmm2,%xmm0
-    jne ff_sbr_sum_square_sse.endloop
-ff_sbr_sum_square_sse.end:
-    addps %xmm1,%xmm0
-    movhlps %xmm0,%xmm2
-    addps %xmm2,%xmm0
-    movss %xmm0,%xmm1
-    shufps $0x1,%xmm0,%xmm0
-    addss %xmm1,%xmm0
-ff_sbr_sum_square_sse.done:
-    ret
-")
 
 variable [CodeEnv]
 

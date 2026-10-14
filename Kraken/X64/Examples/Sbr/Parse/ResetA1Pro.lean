@@ -28,8 +28,11 @@ theorem a1_pro_split {m : Mem 64} {r : BitVec 64} {ra : Int64} {X : Mem 64 → P
     (hk : k ≤ 2 ^ 32) (h : m =⋆ RetCell ra r ⋆ (Reserve (1408 + 1104 + k) r ⋆ X)) :
     m =⋆ 8 ?@ (r - 8#64) ⋆ (8 ?@ (r - 16#64) ⋆ (Reserve (1408 + 1104 + k - 16) (r - 16#64)
       ⋆ (RetCell ra r ⋆ X))) := by
+  have hr : 1408 + 1104 + k ≤ r.toNat := by
+    obtain ⟨_, _, _, _, _, _, _, _, _, h1, _⟩ := h; exact h1.1
+  have hr8 : 8 ≤ (r - BitVec.ofNat 64 8).toNat := by bv_omega
   have e : 1408 + 1104 + k = 8 + (8 + (1408 + 1104 + k - 16)) := by omega
-  rw [e, Reserve_split 8 _ r (by omega), Reserve_split 8 _ _ (by omega)] at h
+  rw [e, Reserve_split 8 _ r (by omega), Reserve_split 8 _ _ hr8] at h
   rw [show r - BitVec.ofNat 64 8 - BitVec.ofNat 64 8 = r - 16#64 by bv_omega] at h
   have eq : (RetCell ra r ⋆ ((8 ?@ (r - BitVec.ofNat 64 8) ⋆ (8 ?@ (r - 16#64)
       ⋆ Reserve (1408 + 1104 + k - 16) (r - 16#64))) ⋆ X))
@@ -72,7 +75,9 @@ theorem blk_start (k : Nat) (hk : k ≤ 2 ^ 32) (e : REnv) (a : RArgs) (ra : Int
     all_goals try simp only [reduceCtorEq, ↓reduceIte, Reg64s.get64_set64, Width.bytes, a1_sub8]
     · exact ld1
     · exact ld2 _
-    · refine ⟨T.L1086.mpr ⟨hC, hBO, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩, by var_step⟩
+    · have hCI := ResetCI.of hC (by
+        have := CallPre.le hm; unfold resetNeed at this; unfold resetStkMin; omega)
+      refine ⟨T.L1086.mpr ⟨hCI, hBO, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩, by var_step⟩
       all_goals try (simp only [reduceCtorEq, ↓reduceIte, Reg64s.get64_set64, Nat.reduceMul]; done)
       all_goals try rfl
       simp only [ProM, resetNeed, Nat.reduceMul]
@@ -80,19 +85,20 @@ theorem blk_start (k : Nat) (hk : k ≤ 2 ^ 32) (e : REnv) (a : RArgs) (ra : Int
 
 omit [CodeEnv] in
 /-- Two push slots off the top of a reservation. -/
-theorem a1_res_carve (d : Nat) (r : BitVec 64) (hd : 16 ≤ d) (hw : d ≤ 2 ^ 64) :
+theorem a1_res_carve (d : Nat) (r : BitVec 64) (hd : 16 ≤ d) (hw : d ≤ r.toNat) :
     Reserve d r = 8 ?@ (r - 8#64) ⋆ (8 ?@ (r - 16#64) ⋆ Reserve (d - 16) (r - 16#64)) := by
   have e : d = 8 + (8 + (d - 16)) := by omega
+  have hr8 : 8 ≤ (r - BitVec.ofNat 64 8).toNat := by bv_omega
   conv => lhs; rw [e]
-  rw [Reserve_split 8 _ r (by omega), Reserve_split 8 _ _ (by omega)]
+  rw [Reserve_split 8 _ r (by omega), Reserve_split 8 _ _ hr8]
   rw [show r - BitVec.ofNat 64 8 - BitVec.ofNat 64 8 = r - 16#64 by bv_omega]
 
 omit [CodeEnv] in
 theorem a1_pro_push2' {m : Mem 64} {r : BitVec 64} {A R : Mem 64 → Prop} {d : Nat}
-    (hd : 16 ≤ d) (hw : d ≤ 2 ^ 64) (h : m =⋆ A ⋆ (Reserve d r ⋆ R)) (v w : BitVec 64) :
+    (hd : 16 ≤ d) (h : m =⋆ A ⋆ (Reserve d r ⋆ R)) (v w : BitVec 64) :
     ((m.storeInt (r - 8#64) 8 v.toInt).storeInt (r - 16#64) 8 w.toInt)
       =⋆ A ⋆ ((c8 (r - 0x8#64) v ⋆ c8 (r - 0x10#64) w) ⋆ (Reserve (d - 16) (r - 16#64) ⋆ R)) := by
-  rw [a1_res_carve d r hd hw] at h
+  rw [a1_res_carve d r hd (res_le_mid h)] at h
   have eq : A ⋆ ((8 ?@ (r - 8#64) ⋆ (8 ?@ (r - 16#64) ⋆ Reserve (d - 16) (r - 16#64))) ⋆ R)
       = 8 ?@ (r - 8#64) ⋆ (8 ?@ (r - 16#64) ⋆ (A ⋆ (Reserve (d - 16) (r - 16#64) ⋆ R))) := by
     ac_rfl
@@ -105,10 +111,10 @@ theorem a1_pro_push2' {m : Mem 64} {r : BitVec 64} {A R : Mem 64 → Prop} {d : 
 
 omit [CodeEnv] in
 theorem a1_pro_ld {m : Mem 64} {r : BitVec 64} {A R : Mem 64 → Prop} {d : Nat}
-    (hd : 16 ≤ d) (hw : d ≤ 2 ^ 64) (h : m =⋆ A ⋆ (Reserve d r ⋆ R)) :
+    (hd : 16 ≤ d) (h : m =⋆ A ⋆ (Reserve d r ⋆ R)) :
     (m.loadInt (r - 8#64) 8).isSome = true
       ∧ ∀ v : Int, ((m.storeInt (r - 8#64) 8 v).loadInt (r - 16#64) 8).isSome = true := by
-  rw [a1_res_carve d r hd hw] at h
+  rw [a1_res_carve d r hd (res_le_mid h)] at h
   have eq : A ⋆ ((8 ?@ (r - 8#64) ⋆ (8 ?@ (r - 16#64) ⋆ Reserve (d - 16) (r - 16#64))) ⋆ R)
       = 8 ?@ (r - 8#64) ⋆ (8 ?@ (r - 16#64) ⋆ (A ⋆ (Reserve (d - 16) (r - 16#64) ⋆ R))) := by
     ac_rfl
@@ -134,8 +140,8 @@ theorem blk_L1086 (k : Nat) (hk : k ≤ 2 ^ 32) (e : REnv) (a : RArgs) (ra : Int
     clear hs
     simp only [ProM] at hm
     have hN : resetNeed k = 0x580 + 0x450 + k := rfl
-    have hP := a1_pro_push2' (by omega) (by omega) hm
-    have ld := a1_pro_ld (by omega) (by omega) hm
+    have hP := a1_pro_push2' (by omega) hm
+    have ld := a1_pro_ld (by omega) hm
     have hQ := hP (t₀.regs.get64 .r14) (t₀.regs.get64 .r13)
     simp only [Nat.reduceMul] at hQ
     rw [show t₀.regs.get64 .rsp - 16#64 - 8#64 = t₀.regs.get64 .rsp - 0x18#64 by bv_omega,
@@ -223,8 +229,10 @@ theorem a1_entry {k : Nat} (hk : k ≤ 2 ^ 32) {e : REnv} {a : RArgs} {ra : Int6
       ∧ (m =⋆ Mm k e a ra t₀ st fr) := by
   have hN : resetNeed k = 0x580 + 0x450 + k := rfl
   have hT : tlimNeed k = 0x450 + k := rfl
+  have hw := res_le_mid h
+  have hw' : 0x548 ≤ (t₀.regs.get64 .rsp - 48#64).toNat := by omega
   rw [show resetNeed k - 48 = 0x548 + (8 + tlimNeed k) by omega,
-    Reserve_split 0x548 _ _ (by omega),
+    Reserve_split 0x548 _ _ hw',
     show t₀.regs.get64 .rsp - 48#64 - BitVec.ofNat 64 0x548 = t₀.regs.get64 .rsp - 0x578#64 by
       bv_omega] at h
   simp only [RF, ScR, TabR, DR] at h
@@ -286,7 +294,7 @@ macro "a1_ld " hv:ident : tactic => `(tactic| (
   obtain rfl := Option.some.inj $hv:ident))
 
 theorem a1_rd_of {k : Nat} {e : REnv} {a : RArgs} {ra : Int64} {t₀ s : MachineData}
-    (hC : ResetC a t₀) (hBO : BandsOK e.lg e.pw)
+    (hC : ResetCI a t₀) (hBO : BandsOK e.lg e.pw)
     (hr : s.regs.get64 .rsp = t₀.regs.get64 .rsp - 0x578#64)
     (hb : s.regs.get64 .rbp = t₀.regs.get64 .rsp - 8#64)
     (h12 : s.regs.get64 .r12 = arg1 t₀) (h15 : s.regs.get64 .r15 = arg0 t₀)
@@ -318,8 +326,8 @@ theorem blk_L108a (k : Nat) (hk : k ≤ 2 ^ 32) (e : REnv) (a : RArgs) (ra : Int
     clear hs
     simp only [ProM, Nat.reduceMul] at hm hrsp
     have hN : resetNeed k = 0x580 + 0x450 + k := rfl
-    have hP := a1_pro_push2' (by omega) (by omega) hm
-    have ld := a1_pro_ld (by omega) (by omega) hm
+    have hP := a1_pro_push2' (by omega) hm
+    have ld := a1_pro_ld (by omega) hm
     obtain ⟨st, fr, hx, hsp, hfm, hfr, hMm⟩ :=
       a1_entry hk (a1_saved_shape (by omega) (hP (t₀.regs.get64 .r12) (t₀.regs.get64 .rbx)))
     have hL := a1_sr_load hMm

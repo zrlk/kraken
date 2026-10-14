@@ -1,5 +1,5 @@
 theorem blk_L907f (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L907f" ⟨"ff_aac_sbr_apply.L907f", B.L907f, some "ff_aac_sbr_apply.L907f_1"⟩ := by
   clear hc
   intro n

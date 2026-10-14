@@ -47,21 +47,15 @@ theorem savedB_eq (t₀ : MachineData) :
 
 omit [CodeEnv] in
 /-- The caller's reservation is the callees' stack, the frame and the pushes. -/
-theorem reserve_exit (k : Nat) (hk : k ≤ 2 ^ 32) (t₀ : MachineData) :
+theorem reserve_exit (k : Nat) (t₀ : MachineData) (hR : 0x578 ≤ (t₀.regs.get64 .rsp).toNat) :
     Reserve (resetNeed k) (t₀.regs.get64 .rsp)
       = Reserve (8 + tlimNeed k) (t₀.regs.get64 .rsp - 0x578#64)
         ⋆ 0x548 ?@ (t₀.regs.get64 .rsp - 0x578#64) ⋆ SavedB t₀ := by
   rw [← savedB_eq]
-  generalize t₀.regs.get64 .rsp = R
-  unfold Reserve
-  rw [blk_cons _ (8 + tlimNeed k) 0x578 (resetNeed k) (by unfold resetNeed tlimNeed; omega)
-      (by unfold resetNeed; omega),
-    show R - BitVec.ofNat 64 (resetNeed k) + BitVec.ofNat 64 (8 + tlimNeed k) = R - 0x578#64 by
-      unfold resetNeed tlimNeed; bv_omega,
-    show R - BitVec.ofNat 64 (resetNeed k) = R - 0x578#64 - BitVec.ofNat 64 (8 + tlimNeed k) by
-      unfold resetNeed tlimNeed; bv_omega,
-    blk_cons _ 0x548 0x30 0x578 rfl (by decide),
-    show R - 0x578#64 + BitVec.ofNat 64 0x548 = R - 0x30#64 by bv_omega]
+  generalize t₀.regs.get64 .rsp = R at hR ⊢
+  rw [show resetNeed k = 0x578 + (8 + tlimNeed k) by unfold resetNeed tlimNeed; omega,
+    Reserve_split 0x578 _ R hR, blk_cons _ 0x548 0x30 0x578 rfl (by decide),
+    show R - BitVec.ofNat 64 0x578 + BitVec.ofNat 64 0x548 = R - 0x30#64 by bv_omega]
   ac_rfl
 
 omit [CodeEnv] in
@@ -70,13 +64,14 @@ theorem blk8_split (s : BitVec 64) : 8 ?@ (s + 0x44#64) = 4 ?@ (s + 0x44#64) ⋆
 
 /-- The body's memory given back: the return slot, the reservation, the footprint of the
 result values. -/
-theorem exit_mem {k : Nat} (hk : k ≤ 2 ^ 32) {e : REnv} {a : RArgs} {ra : Int64}
-    {t₀ : MachineData} {st : St} {fr : List UInt8} (hF : FrOk fr) (hfm : st.fm.length = 98)
+theorem exit_mem {k : Nat} {e : REnv} {a : RArgs} {ra : Int64}
+    {t₀ : MachineData} (hR : 0x578 ≤ (t₀.regs.get64 .rsp).toNat) {st : St} {fr : List UInt8}
+    (hF : FrOk fr) (hfm : st.fm.length = 98)
     {m : Mem 64} (h : m =⋆ Mm k e a ra t₀ st fr) :
     m =⋆ RetCell ra (t₀.regs.get64 .rsp) ⋆ (Reserve (resetNeed k) (t₀.regs.get64 .rsp)
       ⋆ (RF e { a with x := st.x, sp := st.sp } t₀ ⋆ a.x.R)) := by
   have hw := Mm_MmW k e a ra t₀ st fr hF hfm m h
-  rw [reserve_exit k hk]
+  rw [reserve_exit k t₀ hR]
   simp only [RF, ScR, TabR, DR]
   rw [blk8_split]
   unfold MmW at hw
@@ -147,7 +142,7 @@ theorem blk_L1d95 (k : Nat) (hk : k ≤ 2 ^ 32) (e : REnv) (a : RArgs) (ra : Int
     obtain ⟨hs, hn⟩ := hs₀
     obtain ⟨hC, ⟨hrsp, hrbp⟩, u, st, fr, hout, hfm, hF, hm⟩ := T.L1d95.mp hs
     clear hs
-    have hX0 := exit_mem hk hF hfm hm
+    have hX0 := exit_mem (by have := hC.rsp; unfold resetStkMin at this; omega) hF hfm hm
     have hX : s₀.dmem =⋆ RetCell ra (t₀.regs.get64 .rsp) ⋆ (Reserve (resetNeed k) (t₀.regs.get64 .rsp)
         ⋆ (RF e { a with x := st.x, sp := st.sp, us := u } t₀ ⋆ a.x.R)) := hX0
     clear hX0

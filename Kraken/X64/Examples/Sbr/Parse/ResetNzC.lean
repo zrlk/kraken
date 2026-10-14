@@ -32,7 +32,7 @@ theorem rsP_rate {v : BitVec 32} (h : v.toInt ∈ rates) :
 
 /-- The fixed facts of the patch loop, from `Master` and the `derived1` checks. -/
 theorem rsP_fix {a : RArgs} {t₀ : MachineData} {k0 : Int} {nm q : Nat} {f : Nat → Nat}
-    (hC : ResetC a t₀)
+    (hC : ResetCI a t₀)
     (hMa : Master a.x.sampleRate.toInt (u8 a.sp 0) (u8 a.sp 2) (some k0) (some (nm, f)))
     (hf1 : f nm ≤ 64) (hf2 : f (xoOf a) ≤ 32) (hq1 : 1 ≤ q) (hq6 : q < 6) :
     PFix a ⟨k0, nm, q⟩ f := by

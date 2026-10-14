@@ -143,7 +143,7 @@ theorem blk_Ld4 (PI : List UInt8 → Prop) (kc : Nat) (Ext : Mem 64 → Prop) (X
 
 
 /-- After the prologue (`reset = 0`) `MI` still holds: the invariant at `read_sbr_data`. -/
-theorem inv2_pro {PI : List UInt8 → Prop} {X : XA} {t : MachineData} (hC : DecC PI X t) :
+theorem inv2_pro {PI : List UInt8 → Prop} {X : XA} {t : MachineData} (hC : DecCI PI X t) :
     Inv2 PI X (X.d.pro X.sr) :=
   ⟨mi_extPro _ _ hC.1, hC.2.1, hC.2.2.1, ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩, hC.2.2.2.2.2.2.1⟩
 

@@ -7,8 +7,15 @@ hands to a callee (byte lists, fields of `EV`). Emits `EV`, `ev0`, `ElemS`, one 
 and one equation `ElemS_x : ElemS p v = v.x =@ (p + off) ⋆ ElemH_x p v` per field (and the
 pairs `ana`, `syn`), and the split of the zeroed block `zs_elemS`.
 
+The two definitions the final statement mentions, `EV` and `ElemS`, are specification: they
+live in `SessionSpec.lean` (the section of `Parse/InitFoot.lean`), and `foot.py --spec` prints them as they
+stand there (`ci.sh`, step `spec`, compares); the rest (`ev0`, `EV.ok`,
+the `ElemH_x` holes and the lemmas) is `Parse/InitFoot.lean`.
+
 Usage: foot.py > Kraken/X64/Examples/Sbr/Parse/InitFoot.lean
+       foot.py --spec   (the `EV`/`ElemS` text of SessionSpec.lean)
 """
+import sys
 
 SEGS = [
     ("z", 0x0, 0x9e40), ("pr0", 0x9e40, 8), ("z", 0x9e48, 0x9db8), ("pr1", 0x13c00, 8),
@@ -62,7 +69,40 @@ def sep(xs):
   return s
 
 
+def wrap(head, s, ind="  ", cont="    ", width=100):
+  """`head` then the sum `s` broken at ` ⋆ ` into lines of at most `width` characters."""
+  out, cur = [head], ind
+  for i, x in enumerate(s.split(" ⋆ ")):
+    tok = x if i == 0 else "⋆ " + x
+    if cur.strip() and len(cur) + 1 + len(tok) > width:
+      out.append(cur)
+      cur = cont + tok
+    else:
+      cur = cur + (" " if cur.strip() else "") + tok
+  out.append(cur)
+  return out
+
+
+def spec_text():
+  """`EV` and `ElemS` (in `SessionSpec.lean`)."""
+  P = []
+  p = P.append
+  p("/-- The bytes of the cells the routine writes or hands to a callee. -/")
+  p("structure EV where")
+  for n, a, l in FIELDS:
+    p(f"  /-- {DOC[n]} ({l} bytes at `p + {hex(a)}`). -/")
+    p(f"  {n} : List UInt8")
+  p("")
+  p("/-- The element at `p` with the cells `v`. -/")
+  P.extend(wrap("def ElemS (p : BitVec 64) (v : EV) : Mem 64 → Prop :=",
+                sep([atom(*s) for s in SEGS])))
+  return P
+
+
 def main():
+  if "--spec" in sys.argv:
+    print("\n".join(spec_text()))
+    return
   o = 0
   for n, a, l in SEGS:
     assert a == o, (n, hex(a), hex(o))
@@ -71,7 +111,10 @@ def main():
   P = []
   p = P.append
   p("import Kraken.X64.Examples.Sbr.Parse.InitText")
+  p("import Kraken.X64.Examples.Sbr.Parse.Lib")
+  p("import Kraken.X64.Examples.Sbr.ApplySpec")
   p("import Kraken.X64.Examples.Sbr.Session")
+  p("import Kraken.X64.Examples.Sbr.SessionSpec")
   p("")
   p("/-!")
   p("# `ff_aac_sbr_ctx_alloc_init`: the element as cells")
@@ -80,19 +123,14 @@ def main():
   p("returns (0x88ba0 bytes at `p`; `sbr` at `p + 0x28920`) as cells in address order: the zero")
   p("runs and the cells the routine writes or hands to a callee (the fields of `EV`, byte lists).")
   p("`ElemS_x` brings the cell of field `x` to the front (`ElemH_x`: the other cells, which do not")
-  p("depend on `v.x`); `zs_elemS` splits the zeroed block.")
+  p("depend on `v.x`); `zs_elemS` splits the zeroed block. `EV` and `ElemS` are in")
+  p("`SessionSpec.lean` (`foot.py --spec`).")
   p("-/")
   p("")
   p("open Kraken Kraken.SysV Mem Kraken.X64.Parser Std.WP MachineWP")
   p("open Kraken.Examples.Sbr.Session (zs)")
   p("")
   p("namespace Kraken.Examples.Sbr.Init")
-  p("")
-  p("/-- The bytes of the cells the routine writes or hands to a callee. -/")
-  p("structure EV where")
-  for n, a, l in FIELDS:
-    p(f"  /-- {DOC[n]} ({l} bytes at `p + {hex(a)}`). -/")
-    p(f"  {n} : List UInt8")
   p("")
   p("/-- All zero (the element as `av_mallocz` returns it). -/")
   p("def ev0 : EV where")
@@ -102,10 +140,6 @@ def main():
   p("/-- The cell lengths. -/")
   p("def EV.ok (v : EV) : Prop :=")
   p("  " + " ∧ ".join(f"v.{n}.length = {hex(l)}" for n, a, l in FIELDS))
-  p("")
-  p("/-- The element at `p` with the cells `v`. -/")
-  p("def ElemS (p : BitVec 64) (v : EV) : Mem 64 → Prop :=")
-  p("  " + sep([atom(*s) for s in SEGS]))
   p("")
   targets = [(n, [n]) for n, a, l in FIELDS] + list(PAIRS.items())
   for t, fs in targets:

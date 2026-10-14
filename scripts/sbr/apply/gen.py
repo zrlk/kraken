@@ -2,9 +2,11 @@
 """M4 generator: ff_aac_sbr_apply proof skeleton (owner: apply).
 
 Outputs (default into the Kraken tree, override with APPLY_OUT=<dir>):
-  ApplyTable.lean         text (B.<id> per block), CFG lemmas, footprint, frames, table
+  ApplyText.lean          the text (B.<id> per block, labelList, blocks, body); parser and
+                          machine model imports only
+  ApplyTable.lean         CFG lemmas, footprint, frames, table
   Apply/<File>.lean       blk_<id> theorems of one shard file (imports ApplyTable only)
-  Apply.lean              of_cfg_post assembly
+  Apply.lean              of_cfg_post_pre assembly
 
 Inputs: body.s and blocks.json (cut.py's output: the blocks of the text), templates/*.lean.in.
 Hooks (all optional, in this directory):
@@ -323,10 +325,11 @@ def file_of(phase):
     raise KeyError(phase)
 
 
-def table_file(g):
+def text_file(g):
+    """ApplyText.lean: the program text only (imports the parser and the machine model)."""
     bl = g.blocks
-    t = [open(os.path.join(HERE, "templates/head_table.lean.in")).read()]  # the spec: Sbr/ApplySpec.lean (hand-written)
-    t.append("/-! ## The text -/\n\nnamespace B\n")
+    t = [open(os.path.join(HERE, "templates/head_text.lean.in")).read()]
+    t.append("namespace B\n")
     for b in bl:
         t.append(f'set_option maxRecDepth 20000 in\n/-- asm line {b["line"]} ({b["phase"]}, {b["kind"]}) -/\n'
                  f'def {b["id"]} : Program := parse("\n' + "\n".join(b["body"]) + '\n")\n')
@@ -338,6 +341,16 @@ def table_file(g):
     t.append(f"""
 /-- The text of `{PROC}`: the blocks glued with their labels. -/
 def body : Program := blocks.flatMap Program.blockCells
+
+end {NS}
+""")
+    return "\n".join(t)
+
+
+def table_file(g):
+    bl = g.blocks
+    t = [open(os.path.join(HERE, "templates/head_table.lean.in")).read()]  # imports ApplyText, SessionSpec
+    t.append(f"""/-! ## The control flow of the text (`ApplyText.lean`) -/
 
 set_option maxRecDepth 200000 in
 theorem blocks_free : ∀ lb ∈ blocks, ∀ d ∈ lb.2, d.isLabel = false := by decide +kernel
@@ -418,9 +431,13 @@ namespace T
     return "\n".join(t)
 
 
+# the entry's stack headroom (`CallPre.le` of `ApplyPre`), a hypothesis of every block
+HST = "applyNeed k ≤ (t₀.regs.get64 .rsp).toNat"
+
+
 def blk_head(b, nxt):
     return (f"theorem blk_{b['id']} (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)\n"
-            f"    (x : Args) (ra : Int64) (t₀ : MachineData) :\n"
+            f"    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : {HST}) :\n"
             f"    BlockOb k e x ra t₀ \"{b['lab']}\" ⟨\"{b['lab']}\", B.{b['id']}, {nxt}⟩ := by\n")
 
 
@@ -770,7 +787,7 @@ def shard_file(mname, g, hb, dev):
         h = hb.get(b["id"], DEFAULT_HB)
         pre = f"set_option maxRecDepth 100000 in\nset_option maxHeartbeats {h} in\n"
         if use:
-            # the statement is the generator's, not the override's: Apply.lean's of_cfg_post needs
+            # the statement is the generator's, not the override's: Apply.lean's cfg rule needs
             # BlockOb's `next` = the text successor (helper tables once wrote `none` after a `jmp`)
             txt = opt_proof(open(f).read().rstrip(), b["id"], f6_plan(g, b) if b["id"] in F6 or "all" in F6 else None) + "\n"
             txt, nsub = re.subn(r'(BlockOb k e x ra t₀ "[^"]+" ⟨"[^"]+", B\.\S+, )(none|some "[^"]+")⟩',
@@ -814,7 +831,7 @@ def lemma_path(fname):
 
 def main_file(g):
     bl = g.blocks
-    chain = "".join(f"\n      (.cons (blk_{b['id']} k hk e hc x ra t₀)" for b in bl) + \
+    chain = "".join(f"\n      (.cons (blk_{b['id']} k hk e hc x ra t₀ hSt)" for b in bl) + \
         " (.nil _)" + ")" * len(bl)
     imps = "\n".join(f"import {MOD}.Apply.{m}" for m, _ in modules())
     return f"""{imps}
@@ -822,7 +839,7 @@ def main_file(g):
 /-!
 # `{PROC}` (`libavcodec/aacsbr_template.c`): memory safety
 
-The blocks (`Apply/*.lean`) assembled by `ProcSpec.of_cfg_post` over the block list
+The blocks (`Apply/*.lean`) assembled by `ProcSpec.of_cfg_post_pre` over the block list
 (`Program.forall_blockAt`, `view_body`), with `body_wf` for the label uniqueness.
 
 M4-F1 (closed): `sbr_hf_gen`'s read of `bw_array[g]` is inside the 20-byte `bw_array`
@@ -882,15 +899,16 @@ may be crossed only through `a2_row_spill`.
   `sbr->c` slots hold, set by cpu flags). -/
 theorem spec (hpl : Program.PlacedIn body) (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env)
     (hc : ApplyCallees k e) : ApplySpec k e := by
-  refine Kraken.Executable.ProcSpec.of_cfg_post (p := body) (table k e) (Post' k e) var
+  refine Kraken.Executable.ProcSpec.of_cfg_post_pre (p := body) (table k e) (Post' k e) var
     (hblocks := ?_) (hpre := ?_) (hpost := ?_) (hwf := body_wf)
-  · intro x ra t₀
+  · intro x ra t₀ hp
+    have hSt := CallPre.le hp.1
     refine Program.forall_blockAt ?_
     rw [view_body]
     exact {chain}
   · intro x ra t ht
     exact (T.start).mpr ⟨rfl, ht⟩
-  · intro x ra t₀ s h; exact h
+  · intro x ra t₀ s _ h; exact h
 
 end {NS}
 """
@@ -928,6 +946,7 @@ def main():
         open(p, "w").write(txt)
 
     if os.environ.get("APPLY_NOTABLE") != "1":
+        write("ApplyText.lean", text_file(g))
         write("ApplyTable.lean", table_file(g))
         write("Apply.lean", main_file(g))
     for f in PARTS:

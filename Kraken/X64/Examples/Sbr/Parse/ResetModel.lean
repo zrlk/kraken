@@ -106,7 +106,7 @@ theorem reset_lens {sp : Spec} {lb : Nat} {x x' : Args} (h : Reset sp lb x x') (
     have := derived_lens hd hl
     exact this
 
-theorem resetC_lens {a : RArgs} {t : MachineData} [CodeEnv] (h : ResetC a t) : RLens a.x :=
+theorem resetC_lens {a : RArgs} {t : MachineData} [CodeEnv] (h : ResetCI a t) : RLens a.x :=
   ⟨h.2.2.2.2.2.2.1, h.2.2.2.2.2.2.2.1, h.2.2.2.2.2.2.2.2.1, h.2.2.2.2.2.2.2.2.2.1,
     h.2.2.2.2.2.2.2.2.2.2.1, h.2.2.2.2.2.2.2.2.2.2.2.1⟩
 

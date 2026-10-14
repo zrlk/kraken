@@ -180,13 +180,14 @@ end MachineWP
 /-- A procedure's own `f` bytes off the top of a reservation of `f + k`,
 split into the 8 bytes at the bottom and the `f - 8` above them (a frame whose
 top slots are the saved registers, below the return address). -/
-theorem Reserve_split_frame (f k : Nat) (hf : 8 ≤ f) (hw : f + k ≤ 2 ^ 64) (r : BitVec 64)
+theorem Reserve_split_frame (f k : Nat) (hf : 8 ≤ f) (r : BitVec 64) (hw : f ≤ r.toNat)
     (K : Mem 64 → Prop) :
     Reserve (f + k) r ⋆ K
       = 8 ?@ (r - .ofNat 64 f) ⋆ (Reserve k (r - .ofNat 64 f)
         ⋆ ((f - 8) ?@ (r - .ofNat 64 (f - 8)) ⋆ K)) := by
   rw [Reserve_split f k r hw]
   have e : f = (f - 8) + 8 := by omega
+  have := r.isLt
   rw [show (f ?@ (r - BitVec.ofNat 64 f) : Mem 64 → Prop)
       = ((f - 8) + 8) ?@ (r - BitVec.ofNat 64 f) by rw [← e],
     Block.split_at (r - BitVec.ofNat 64 f) ((f - 8) + 8) 8 (by omega) (by omega),

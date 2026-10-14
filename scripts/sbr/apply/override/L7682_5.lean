@@ -1,5 +1,5 @@
 theorem blk_L7682_5 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L7682_5" ⟨"ff_aac_sbr_apply.L7682_5", B.L7682_5, some "ff_aac_sbr_apply.L7682_6"⟩ := by
   obtain ⟨-, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, hMc, -⟩ := hc
   intro n
@@ -32,7 +32,7 @@ theorem blk_L7682_5 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
   rcases (by omega : ch = 0 ∨ ch = 1) with rfl | rfl
   all_goals
     simp only [dA, sbrA, arg1, BitVec.add_assoc, BitVec.reduceAdd, Nat.reduceMul, Nat.reduceAdd] at hH hm
-    rw [hH, call_res k hk] at hm
+    rw [hH, call_res k hSt] at hm
     simp only [BitVec.sub_sub_ofNat, Nat.reduceAdd] at hm
     simp only [DScW, Args.d, ↓reduceIte, Nat.one_ne_zero, dA, sbrA, arg1, BitVec.add_assoc, BitVec.reduceAdd,
       Nat.reduceMul, Nat.reduceAdd] at hm hyp
@@ -110,7 +110,7 @@ theorem blk_L7682_5 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
           dA, sbrA, arg0, arg1, arg2, BitVec.add_assoc, BitVec.setWidth_eq, BitVec.zero_mul, hbx', h12', h13', h14', h15', hsx _ hyp, Args.d, ↓reduceIte, Nat.one_ne_zero]; done)
           simp only [Mm, ApplyF, FrA5, DArrW, DScW, Blocks, Args.d, ↓reduceIte, Nat.one_ne_zero, dA, sbrA, arg0, arg1, arg3, arg4,
             BitVec.add_assoc, BitVec.reduceAdd, Nat.reduceMul, Nat.reduceAdd]
-          rw [hH, call_res k hk]
+          rw [hH, call_res k hSt]
           simp only [BitVec.sub_sub_ofNat, Nat.reduceAdd]
           sep_close hm'
         · simp only [lex_var, slot64, hrbp', hrbp, BitVec.sub_sub_ofNat, Nat.reduceAdd]

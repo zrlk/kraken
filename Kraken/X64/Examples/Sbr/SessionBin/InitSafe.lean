@@ -1,6 +1,7 @@
 import Kraken.X64.Examples.Sbr.SessionBin.TopDefs
 import Kraken.X64.Examples.Sbr.Parse.InitLink
 import Kraken.X64.Examples.Sbr.Parse.InitProc
+import Kraken.X64.Examples.Sbr.SessionSpec
 
 /-!
 # `ff_aac_sbr_ctx_alloc_init`, composed with the session
@@ -8,7 +9,7 @@ import Kraken.X64.Examples.Sbr.Parse.InitProc
 A call of `ff_aac_sbr_ctx_alloc_init(ac, che, id)` returns; on `0` the element at the address
 `p` it stored to `*che` is `Live`, in an environment meeting the session's contracts (the
 externals at the caller's environment and the two transforms init set up), with the caller's
-`ac` fields back as `AcFields`; otherwise as `InitPost`.
+`ac` fields back as `AcFields`; otherwise one branch per failure point, as `InitPost`.
 -/
 
 open Kraken Kraken.SysV Mem Kraken.X64.Parser Std.WP MachineWP
@@ -20,39 +21,6 @@ namespace Kraken.Examples.Sbr.SessionBin
 variable [CodeEnv]
 
 /-! ## Hypotheses -/
-
-/-- The external contracts at the caller's environment `S.env`, with init's state `X`. -/
-structure InitExt (S : Setup) (X : Mem 64 → Prop) : Prop where
-  /-- The stack reservation fits in 32 bits. -/
-  kle : S.k ≤ 2 ^ 32
-  /-- Init's externals (`av_tx_init`, `av_mallocz`, `av_free`, …). -/
-  init : InitAssumed S.k S.env.Ctx S.env.TxTab X
-  /-- `ff_ps_apply`. -/
-  psApply : PsApplySpec S.env.PsTab S.k
-  /-- `av_log` on the logging state. -/
-  avLog : AvLogSpec S.env.Ext S.k
-  /-- `memcpy`, as a value contract. -/
-  memcpyV : MemcpyValSpec S.k
-  /-- `memset`, as a value contract. -/
-  memsetV : MemsetValSpec S.k
-  /-- `avpriv_request_sample` on the logging state. -/
-  avReq : DecExt.AvReqSpec S.env.Ext S.k
-  /-- `powf` computes `S.pw`. -/
-  powf : Reset.PowfSpec ⟨S.env.Ext, S.pw, S.lg⟩ S.k
-  /-- `log2f` computes `S.lg`. -/
-  log2f : Reset.Log2fSpec ⟨S.env.Ext, S.pw, S.lg⟩ S.k
-  /-- The floating-point facts on `S.pw`, `S.lg`. -/
-  bands : Reset.BandsOK S.lg S.pw
-  /-- The `float_dsp` slots of `S.env`. -/
-  fdsp : FdspOK S.env
-
-/-- What the caller owns at the call besides `*che` and init's state: the `ac` fields, the
-`ac->fdsp` cell, the `float_dsp` slots, the PS tables, `av_log`'s state, the constants, the
-parser's static data, and the rest `Rest`. -/
-abbrev InitOwn (S : Setup) (ac avctx fdsp : BitVec 64) (er ps : BitVec 32)
-    (Rest : Mem 64 → Prop) : Mem 64 → Prop :=
-  AcFields ac avctx er ps ⋆ (c8 (ac + 0x2550#64) fdsp ⋆ (FdspW S.env fdsp ⋆ (S.env.PsTab
-    ⋆ (S.env.Ext ⋆ (CstW ⋆ (PStat S.vs S.vp ⋆ Rest))))))
 
 /-! ## Transport -/
 
@@ -125,31 +93,7 @@ theorem initSafe_sep_r2 {A B P Q : Mem 64 → Prop} (h : ∀ m, P m → Q m) {m 
   obtain ⟨a, b, hu, hi, ha, c, d, hu2, hi2, hc, hd⟩ := hm
   exact ⟨a, b, hu, hi, ha, c, d, hu2, hi2, hc, h d hd⟩
 
-omit [CodeEnv] in
-theorem initSafe_sep_imp {P P' Q Q' : Mem 64 → Prop} (hp : ∀ m, P m → P' m)
-    (hq : ∀ m, Q m → Q' m) : ∀ m, (P ⋆ Q) m → (P' ⋆ Q') m := by
-  rintro m ⟨m1, m2, hu, hd, h1, h2⟩
-  exact ⟨m1, m2, hu, hd, hp _ h1, hq _ h2⟩
-
-omit [CodeEnv] in
-theorem initSafe_perm4 (C J T R : Mem 64 → Prop) :
-    (C ⋆ (J ⋆ T)) ⋆ R = ((C ⋆ T) ⋆ R) ⋆ J := by
-  ac_rfl
-
 /-! ## Init, composed -/
-
-/-- What `ff_aac_sbr_ctx_alloc_init(ac, che, id)` (called in `t`, returning to `ra`) leaves in
-`s`: on `0`, an address `p` such that the element at `p` (of `ac`) is live, with the caller's
-`ac` fields, the cell `*che = p`, init's state `X` and the rest; otherwise a nonzero result and
-the caller's objects given back (the 8 bytes at `che`, the transforms' tables, `X`, everything
-of `InitOwn`), with some further memory `J` (what init allocated before it failed). -/
-def InitQ (S : Setup) (X Rest : Mem 64 → Prop) (avctx fdsp : BitVec 64) (er ps : BitVec 32)
-    (ra : Int64) (t s : MachineData) : Prop :=
-  (ret32 s = 0#32 ∧ ∃ p : BitVec 64, CallPost (initNeed S.k) (Live S p (arg0 t)
-      ⋆ (AcFields (arg0 t) avctx er ps ⋆ (Apply.c8 (arg1 t) p ⋆ (X ⋆ Rest)))) ra t s)
-  ∨ (ret32 s ≠ 0#32 ∧ ∃ J : Mem 64 → Prop, CallPost (initNeed S.k)
-      (((8 ?@ arg1 t ⋆ (S.env.TxTab ⋆ X)) ⋆ InitOwn S (arg0 t) avctx fdsp er ps Rest) ⋆ J)
-      ra t s)
 
 /-- **Init, composed.** A call of `ff_aac_sbr_ctx_alloc_init(ac, che, id)` with the caller's
 parts returns to `ra` with `InitQ` (and reaches no stop). -/
@@ -160,18 +104,11 @@ theorem init_safe {S : Setup} {X : Mem 64 → Prop} (hpl : Program.PlacedIn Init
     Ends "ff_aac_sbr_ctx_alloc_init" t₀ ra (InitQ S X Rest avctx fdsp er ps ra t₀) NoStops := by
   refine eventually_weaken _ _ _ _ (fun st hs => Or.inl ⟨hs.1, ?_⟩)
     (Init.spec hpl S.k hx.kle _ _ _ hx.init _ ra t₀ hpre)
-  rcases hs.2 with ⟨h0, r, hpsd, hsl, hta, hts, h1, h2, h3, hm⟩ | h
+  rcases hs.2 with ⟨h0, r, hpsd, hsl, hta, hts, h1, h2, h3, hm⟩ | h | h | h
   · exact Or.inl ⟨h0, r.p, h1, h2, h3,
       initSafe_sep_r2 (fun m hm' => init_live_elem (envOK_envOf hx hta hts hsl) hpsd hm') hm⟩
-  · rcases h with ⟨h0, h1, h2, h3, hm⟩ | ⟨h0, p, J, h1, h2, h3, hm⟩
-    · refine Or.inr ⟨by unfold ret32; rw [h0]; decide, Std.ExtHashMap.emp, h1, h2, h3, ?_⟩
-      rw [Std.ExtHashMap.sep_emp]; exact hm
-    · refine Or.inr ⟨?_, J, h1, h2, h3, ?_⟩
-      · unfold ret32; intro he; rw [he] at h0; exact absurd h0 (by decide)
-      · rw [initSafe_perm4] at hm
-        exact initSafe_sep_imp (fun _ h => h) (initSafe_sep_imp (fun _ h => h)
-          (initSafe_sep_imp (initSafe_sep_imp (initSafe_sep_imp
-            (fun _ hc => ⟨by decide, _, Int.toBytes_length _ _, hc⟩) (fun _ h => h))
-            (fun _ h => h)) (fun _ h => h))) _ hm
+  · exact Or.inr (Or.inl h)
+  · exact Or.inr (Or.inr (Or.inl h))
+  · exact Or.inr (Or.inr (Or.inr h))
 
 end Kraken.Examples.Sbr.SessionBin

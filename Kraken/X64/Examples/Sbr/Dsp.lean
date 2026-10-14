@@ -9,6 +9,7 @@ import Kraken.X64.Examples.Sbr.Dsp.Autocorrelate
 import Kraken.X64.Examples.Sbr.Dsp.HfGen
 import Kraken.X64.Examples.Sbr.Dsp.HfGFilt
 import Kraken.X64.Examples.Sbr.Dsp.HfApplyNoise
+import Kraken.X64.Examples.Sbr.SessionSpec
 
 /-!
 # `ff_aac_sbr_apply`: the `SBRDSPContext` routines together
@@ -24,17 +25,6 @@ open Kraken
 namespace Kraken.Examples.Sbr
 
 variable [CodeEnv]
-
-/-- The code of every routine, as its proof states it, placed in the ambient
-code. `hf_apply_noise_k`'s four entries and `apply_noise_main` are one
-program, as in the object. -/
-def SbrDspPlaced : Prop :=
-  Program.PlacedIn NegOdd64.body ∧ Program.PlacedIn Sum64x5.body
-    ∧ Program.PlacedIn SumSquare.body ∧ Program.PlacedIn QmfPreShuffle.body
-    ∧ Program.PlacedIn QmfPostShuffle.body ∧ Program.PlacedIn QmfDeintNeg.body
-    ∧ Program.PlacedIn QmfDeintBfly.body ∧ Program.PlacedIn Autocorrelate.body
-    ∧ Program.PlacedIn Autocorrelate.body3 ∧ Program.PlacedIn HfGen.body
-    ∧ Program.PlacedIn HfGFilt.body ∧ Program.PlacedIn HfApplyNoise.body
 
 theorem sbrDspSpecs (h : SbrDspPlaced) : SbrDspSpecs := by
   obtain ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12⟩ := h

@@ -88,8 +88,11 @@ theorem frame_fold {m : Mem 64} (t₀ : MachineData) (fv : FV) (G : Mem 64 → P
 variable [CodeEnv]
 
 /-- The return: the frame and the saved registers given back as the reservation. -/
-theorem post_of (k : Nat) (hk : k ≤ 2 ^ 32) (Ext : Mem 64 → Prop) (x : EArgs) (ra : Int64)
-    (t₀ s : MachineData) (h : Post' k Ext x ra t₀ s) : EnvPost k Ext x ra t₀ s := by
+theorem post_of (k : Nat) (Ext : Mem 64 → Prop) (x : EArgs) (ra : Int64)
+    (t₀ s : MachineData) (hp : EnvPre k Ext x ra t₀) (h : Post' k Ext x ra t₀ s) :
+    EnvPost k Ext x ra t₀ s := by
+  have hw : 0xb0 ≤ (t₀.regs.get64 .rsp).toNat := by
+    have := CallPre.le hp.1; unfold envNeed at this; omega
   obtain ⟨gi, hO, hsp, hbp, hsv, fv, hm⟩ := h
   refine ⟨gi, hO, hsp, hbp, hsv, ?_⟩
   generalize EF Ext x t₀ gi ⋆ x.R = K at hm ⊢
@@ -100,7 +103,7 @@ theorem post_of (k : Nat) (hk : k ≤ 2 ^ 32) (Ext : Mem 64 → Prop) (x : EArgs
     ac_rfl
   rw [e1] at hm
   have h2 := frame_fold t₀ fv _ hm
-  rw [envNeed, Reserve_split 0xb0 k _ (by omega)]
+  rw [envNeed, Reserve_split 0xb0 k _ hw]
   have e2 : 8 ?@ t₀.regs.get64 .rsp ⋆ ((0xb0 ?@ (t₀.regs.get64 .rsp - BitVec.ofNat 64 0xb0)
       ⋆ Reserve k (t₀.regs.get64 .rsp - BitVec.ofNat 64 0xb0)) ⋆ K)
       = 0xb0 ?@ (t₀.regs.get64 .rsp - 0xb0#64) ⋆ (Reserve k (t₀.regs.get64 .rsp - 0xb0#64)

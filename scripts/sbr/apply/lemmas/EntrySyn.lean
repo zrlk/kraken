@@ -46,15 +46,17 @@ theorem voffw_cell {a : BitVec 64} {F : Mem 64 → Prop} {m : Mem 64} (h : m =�
 
 
 /-- The callees' area with four 8-byte cells (the stack arguments of `sbr_qmf_synthesis`) carved off its top. -/
-theorem res_args (k : Nat) (hk : k ≤ 2 ^ 32) (r : BitVec 64) (K : Mem 64 → Prop) :
-    Reserve (0x298 + k) r ⋆ K
-      = 8 ?@ (r - 8#64) ⋆ (8 ?@ (r - 16#64) ⋆ (8 ?@ (r - 24#64) ⋆ (8 ?@ (r - 32#64)
-        ⋆ (Reserve (0x278 + k) (r - 32#64) ⋆ K)))) := by
+theorem res_args (k : Nat) {r₀ : BitVec 64} (hW : 0x460 + k ≤ r₀.toNat) (K : Mem 64 → Prop) :
+    Reserve (0x298 + k) (r₀ - 0x1c8#64) ⋆ K
+      = 8 ?@ (r₀ - 0x1c8#64 - 8#64) ⋆ (8 ?@ (r₀ - 0x1c8#64 - 16#64) ⋆ (8 ?@ (r₀ - 0x1c8#64 - 24#64)
+        ⋆ (8 ?@ (r₀ - 0x1c8#64 - 32#64) ⋆ (Reserve (0x278 + k) (r₀ - 0x1c8#64 - 32#64) ⋆ K)))) := by
+  have hr : 0x298 + k ≤ (r₀ - 0x1c8#64).toNat := by bv_omega
+  generalize r₀ - 0x1c8#64 = r at hr ⊢
   rw [show 0x298 + k = 8 + (8 + (8 + (8 + (0x278 + k)))) by omega,
     Reserve_split 8 _ r (by omega)]
-  rw [Reserve_split 8 _ (r - BitVec.ofNat 64 8) (by omega)]
-  rw [Reserve_split 8 _ (r - BitVec.ofNat 64 8 - BitVec.ofNat 64 8) (by omega)]
-  rw [Reserve_split 8 _ (r - BitVec.ofNat 64 8 - BitVec.ofNat 64 8 - BitVec.ofNat 64 8) (by omega)]
+  rw [Reserve_split 8 _ (r - BitVec.ofNat 64 8) (by bv_omega)]
+  rw [Reserve_split 8 _ (r - BitVec.ofNat 64 8 - BitVec.ofNat 64 8) (by bv_omega)]
+  rw [Reserve_split 8 _ (r - BitVec.ofNat 64 8 - BitVec.ofNat 64 8 - BitVec.ofNat 64 8) (by bv_omega)]
   simp only [BitVec.sub_sub_ofNat, Nat.reduceAdd, BitVec.ofNat_eq_ofNat, Std.ExtHashMap.sep_assoc]
 
 /-- A raw 4-byte block holds some 32-bit value. -/
@@ -73,12 +75,12 @@ theorem blk4_cell {a : BitVec 64} {F : Mem 64 → Prop} {m : Mem 64} (h : m =⋆
 
 /-- The callees' area at the `sbr_qmf_synthesis` calls (stack arguments already pushed):
 the return-address slot, the callee's `qmfNeed k`, the rest. -/
-theorem res_qmf (k : Nat) (hk : k ≤ 2 ^ 32) (r : BitVec 64) (K : Mem 64 → Prop) :
+theorem res_qmf (k : Nat) (r : BitVec 64) (hr : 0x278 + k ≤ r.toNat) (K : Mem 64 → Prop) :
     Reserve (0x278 + k) r ⋆ K
       = 8 ?@ (r - 8#64) ⋆ (Reserve (0x130 + k) (r - 8#64)
         ⋆ (0x140 ?@ (r - BitVec.ofNat 64 (0x278 + k)) ⋆ K)) := by
   rw [show 0x278 + k = 8 + (0x270 + k) by omega, Reserve_split 8 (0x270 + k) r (by omega),
-    Reserve.excess (0x130 + k) (0x270 + k) (r - BitVec.ofNat 64 8) (by omega) (by omega),
+    Reserve.excess (0x130 + k) (0x270 + k) (r - BitVec.ofNat 64 8) (by omega) (by bv_omega),
     BitVec.sub_sub_ofNat, show 0x270 + k - (0x130 + k) = 0x140 by omega]
   simp only [Std.ExtHashMap.sep_assoc]
 

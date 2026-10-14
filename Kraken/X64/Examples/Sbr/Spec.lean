@@ -1,5 +1,6 @@
 import Kraken.SysV
 import Kraken.SeparationMem
+import Kraken.X64.Examples.Sbr.SessionSpec
 
 /-!
 # `ff_aac_sbr_apply`: the specifications
@@ -50,37 +51,6 @@ open Mem
 namespace Kraken.Examples.Sbr
 
 variable [CodeEnv]
-
-/-- The address of a label of the ambient code. -/
-abbrev lab (l : Label) : BitVec 64 := ((_root_.Executable.labels cenv).label l).toBitVec
-
-/-- The address of a label as an `Int64` (what `ProcSpec` is stated at). -/
-abbrev entry (l : Label) : Int64 := (_root_.Executable.labels cenv).label l
-
-/-- The argument registers at entry, as 64-bit values. -/
-abbrev arg0 (t : MachineData) : BitVec 64 := t.regs.get64 .rdi
-abbrev arg1 (t : MachineData) : BitVec 64 := t.regs.get64 .rsi
-abbrev arg2 (t : MachineData) : BitVec 64 := t.regs.get64 .rdx
-abbrev arg3 (t : MachineData) : BitVec 64 := t.regs.get64 .rcx
-abbrev arg4 (t : MachineData) : BitVec 64 := t.regs.get64 .r8
-abbrev arg5 (t : MachineData) : BitVec 64 := t.regs.get64 .r9
-
-/-- A leaf's specification: the convention with `need` bytes of stack, the
-footprint `F t` (in terms of the entry state) owned in front of the caller's
-memory, and the side conditions `C t` (alignment, sizes). It returns with the
-convention restored and the footprint still owned (its contents changed). -/
-abbrev LeafPre (need : Nat) (F : MachineData → Mem 64 → Prop) (C : MachineData → Prop)
-    (R : Mem 64 → Prop) (ra : Int64) (t : MachineData) : Prop :=
-  CallPre need (F t ⋆ R) ra t ∧ C t
-
-abbrev LeafPost (need : Nat) (F : MachineData → Mem 64 → Prop)
-    (R : Mem 64 → Prop) (ra : Int64) (t s : MachineData) : Prop :=
-  CallPost need (F t ⋆ R) ra t s
-
-/-- The `ProcSpec` of a leaf at label `l`. -/
-abbrev LeafSpec (l : Label) (need : Nat) (F : MachineData → Mem 64 → Prop)
-    (C : MachineData → Prop) : Prop :=
-  cenv.ProcSpec (entry l) (LeafPre need F C) (LeafPost need F)
 
 /-! ## `neg_odd_64(float *z)`: `z[64]` read and written, `ps_mask2` read -/
 
@@ -309,31 +279,6 @@ others are *assumed* (decisions 2 and 3 of the plan) and stated below as
 `LeafSpecAt` contracts with explicit footprints. All callees may use `k`
 bytes of stack (the `SBRDSPContext` routines use none). -/
 
-/-- A contract at a code address `f`: `LeafSpec` for a callee known only
-through a pointer. `LeafSpec l` is `LeafSpecAt (entry l)`. -/
-abbrev LeafSpecAt (f : Int64) (need : Nat) (F : MachineData → Mem 64 → Prop)
-    (C : MachineData → Prop) : Prop :=
-  cenv.ProcSpec f (LeafPre need F C) (LeafPost need F)
-
-/-- Assumed: `mdct_fn(ctx, out, in, stride)` for the half-length inverse MDCT of
-length 64 that `sbr->mdct` is initialised to (`av_tx_init(…, AV_TX_FLOAT_MDCT,
-1, 64, …)`, `libavutil/tx.h`): it reads `in[64]`, writes `out[64]` (both 256
-bytes, disjoint) and uses its context, an abstract owned predicate `Ctx ctx`
-that it gives back, and `TxTab`, the shared static tables of `av_tx`
-(`ff_tx_tab_*`, `tab_32_float`; `libavutil/tx_template.c`,
-`libavutil/x86/tx_float.asm`), also given back (that it only reads them is not
-expressed). The stride is the sample size, 4; `out` is 32-byte aligned (the
-SIMD kernels store aligned). -/
-abbrev TxF (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab : Mem 64 → Prop) (t : MachineData) :
-    Mem 64 → Prop :=
-  Blocks [(arg1 t, 256), (arg2 t, 256)] ⋆ (Ctx (arg0 t) ⋆ TxTab)
-
-abbrev TxC (t : MachineData) : Prop := arg3 t = 4#64 ∧ isAligned 32 (arg1 t) = true
-
-abbrev TxSpec (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab : Mem 64 → Prop) (need : Nat)
-    (f : Int64) : Prop :=
-  LeafSpecAt f need (TxF Ctx TxTab) TxC
-
 /-- `len` of `vector_fmul`, the low 32 bits of `rcx` (`int`). -/
 abbrev fmulN (t : MachineData) : Nat := (arg3 t).toNat % 2 ^ 32
 
@@ -372,27 +317,6 @@ abbrev VectorFmulAddC (t : MachineData) : Prop :=
 abbrev VectorFmulAddSpec (need : Nat) (f : Int64) : Prop :=
   LeafSpecAt f need VectorFmulAddF VectorFmulAddC
 
-/-- Assumed: `memcpy(dst, src, n)`: `dst[n]` written, `src[n]` read, disjoint. -/
-abbrev MemcpyF (t : MachineData) : Mem 64 → Prop :=
-  Blocks [(arg0 t, (arg2 t).toNat), (arg1 t, (arg2 t).toNat)]
-
-abbrev MemcpySpec (need : Nat) : Prop := LeafSpec "memcpy" need MemcpyF (fun _ => True)
-
-/-- Assumed: `memset(dst, c, n)`: `dst[n]` written, nothing else. -/
-abbrev MemsetF (t : MachineData) : Mem 64 → Prop :=
-  Blocks [(arg0 t, (arg2 t).toNat)]
-
-abbrev MemsetSpec (need : Nat) : Prop := LeafSpec "memset" need MemsetF (fun _ => True)
-
-/-- The code addresses `sbr_qmf_synthesis` calls through pointers. -/
-structure QmfFns where
-  negOdd64 : Int64
-  deintNeg : Int64
-  deintBfly : Int64
-  tx : Int64
-  fmul : Int64
-  fmulAdd : Int64
-
 /-- What the callees must meet: the three proved `SBRDSPContext` contracts at
 the slot contents, and the assumed `av_tx`, `vector_fmul`, `vector_fmul_add`
 and `memcpy` contracts with `k` bytes of stack. -/
@@ -423,9 +347,6 @@ sbr_qmf_window_us`, both `.lrodata` of `aacsbr.o`): 640 floats, or 320 when
 downsampled. -/
 abbrev qmfWin (d : Nat) : BitVec 64 :=
   if d = 0 then lab "sbr_qmf_window_us" else lab "sbr_qmf_window_ds"
-
-/-- A code address `f` stored in the 8 bytes at `a` (a function-pointer slot). -/
-abbrev FnCell (a : BitVec 64) (f : Int64) : Mem 64 → Prop := Int.toBytes 8 f.toBitVec.toInt =@ a
 
 /-- The bytes of `v0` the code may touch for `div = d` and entry `*v_off = off`:
 9216 (`v0[2304]`, `synthesis_filterbank_samples`), or 11264 under the condition below,
@@ -625,9 +546,6 @@ abbrev xgCh (t : MachineData) : Nat := (arg5 t).toNat % 2 ^ 32
 `sbr + 0x80`; the field is at 0x15aa5 in it). -/
 abbrev xgTe (t : MachineData) : BitVec 64 := arg0 t + BitVec.ofNat 64 (0x15b25 + 0x15ac0 * xgCh t)
 
-/-- A 4-byte `int` field holding `v`. -/
-abbrev cell4 (a : BitVec 64) (v : BitVec 32) : Mem 64 → Prop := Int.toBytes 4 v.toInt =@ a
-
 /-- A 1-byte field holding `v`. -/
 abbrev cell1 (a : BitVec 64) (v : BitVec 8) : Mem 64 → Prop := Int.toBytes 1 v.toInt =@ a
 
@@ -675,15 +593,6 @@ Reached through `sbr->c.sbr_hf_assemble`. Callees: `hf_g_filt` and the four
 `hf_apply_noise[k]` (the proved `SBRDSPContext` contracts, at the slot
 contents) and the assumed `memcpy` (`HfCallees k fs`). Proof:
 `HfAssemble.lean`. -/
-
-/-- The code addresses `sbr_hf_assemble` calls through `sbr->dsp`:
-`hf_g_filt` and the four `hf_apply_noise[k]`. -/
-structure HfFns where
-  gfilt : Int64
-  noise0 : Int64
-  noise1 : Int64
-  noise2 : Int64
-  noise3 : Int64
 
 /-- The callees: the proved `SBRDSPContext` contracts at the slot contents (no
 stack) and the assumed `memcpy` with `k` bytes of stack. -/
@@ -932,107 +841,6 @@ abbrev VectorFmulRevC (t : MachineData) : Prop :=
 abbrev VectorFmulRevSpec (need : Nat) (f : Int64) : Prop :=
   LeafSpecAt f need VectorFmulRevF VectorFmulRevC
 
-/-- The signed little-endian 32-bit integer at byte offset `o` of `bs`. -/
-abbrev i32 (bs : List UInt8) (o : Nat) : Int :=
-  (BitVec.ofNat 32 (Nat.ofBytes ((bs.drop o).take 4))).toInt
-
-/-- The signed byte at offset `o` of `bs`. -/
-abbrev i8 (bs : List UInt8) (o : Nat) : Int :=
-  (BitVec.ofNat 8 (bs.getD o 0).toNat).toInt
-
-/-- The logical variables of `ff_ps_apply`: the caller's memory, the 764 bytes
-of `PSCommonContext` (`ps->common`, at `ps + 0`) and the 68 bytes
-`opd_hist[34] ++ ipd_hist[34]` (`int8_t`, at `ps + 133968`). -/
-structure PsArgs where
-  R : Mem 64 → Prop
-  psc : List UInt8
-  psh : List UInt8
-
-/-- The PS state invariant (`libavcodec/aacps.h`, `aacps_common.c` = PC,
-`aacps.c` = P). Offsets in `c = ps->common`: `start` 0, `enable_iid` 4,
-`iid_quant` 8, `nr_iid_par` 12, `num_env_old` 40, `num_env` 44,
-`border_position[6]` 52, `iid_par`/`icc_par`/`ipd_par`/`opd_par` (`[5][34]`
-`int8_t`) 76/246/416/586, `is34bands` 756; in `h`: `opd_hist` 0, `ipd_hist` 34.
-* W1 `is34bands ∈ {0,1}` (PC:263); W2 `0 ≤ num_env, num_env_old ≤ 5`
-  (PC:170-171, 256); W3 `iid_quant ∈ {0,1}` (PC:153);
-* W4 `icc_par ∈ [0,7]` (PC:108, 202, 233, 285); W5 `ipd_par, opd_par ∈ [0,7]`
-  (PC:86/95/109, 236-237, 268-269, 286-287); W6 `opd_hist, ipd_hist ∈ [0,63]`
-  (P:607/625, 649-650), all entries, unconditionally;
-* when `start ≠ 0` (the PS data of the frame was parsed successfully):
-  W7 `1 ≤ num_env` (PC:224-257); W8 `border_position[0] = -1`, nondecreasing
-  up to `num_env`, `border_position[num_env] = 31` (PC:173-184, 224/257);
-  W9 `enable_iid → nr_iid_par ∈ {10,20,34}` (PC:147, 152); W10 the live
-  `iid_par` entries within `±(7 + 8·iid_quant)` (PC:107, 187-193, 241-246). -/
-def PsWF (c h : List UInt8) : Prop :=
-  c.length = 764 ∧ h.length = 68
-  ∧ (i32 c 756 = 0 ∨ i32 c 756 = 1)
-  ∧ (0 ≤ i32 c 44 ∧ i32 c 44 ≤ 5) ∧ (0 ≤ i32 c 40 ∧ i32 c 40 ≤ 5)
-  ∧ (i32 c 8 = 0 ∨ i32 c 8 = 1)
-  ∧ (∀ e < 5, ∀ b < 34, 0 ≤ i8 c (246 + 34 * e + b) ∧ i8 c (246 + 34 * e + b) ≤ 7)
-  ∧ (∀ e < 5, ∀ b < 34, 0 ≤ i8 c (416 + 34 * e + b) ∧ i8 c (416 + 34 * e + b) ≤ 7
-      ∧ 0 ≤ i8 c (586 + 34 * e + b) ∧ i8 c (586 + 34 * e + b) ≤ 7)
-  ∧ (∀ b < 34, 0 ≤ i8 h b ∧ i8 h b ≤ 63 ∧ 0 ≤ i8 h (34 + b) ∧ i8 h (34 + b) ≤ 63)
-  ∧ (i32 c 0 ≠ 0 →
-      1 ≤ i32 c 44
-      ∧ i32 c 52 = -1
-      ∧ (∀ e : Nat, (e : Int) < i32 c 44 → i32 c (52 + 4 * e) ≤ i32 c (52 + 4 * (e + 1)))
-      ∧ i32 c (52 + 4 * (i32 c 44).toNat) = 31
-      ∧ (i32 c 4 ≠ 0 → i32 c 12 = 10 ∨ i32 c 12 = 20 ∨ i32 c 12 = 34)
-      ∧ (∀ e : Nat, (e : Int) < i32 c 44 → ∀ b : Nat, b < 34 →
-          (i32 c 4 = 0 ∨ (b : Int) < i32 c 12) →
-          -(7 + 8 * i32 c 8) ≤ i8 c (76 + 34 * e + b)
-            ∧ i8 c (76 + 34 * e + b) ≤ 7 + 8 * i32 c 8))
-
-/-- The footprint of `ff_ps_apply(ps, L, R, top)` (`libavcodec/aacps.c`): the
-whole `PSContext` (0x20be0 bytes at `ps`) with `ps->common` (764 bytes) and
-`opd_hist`/`ipd_hist` (68 bytes at `ps + 133968`) as value cells, and the rest
-raw — owning the whole struct over-approximates the writes of `ff_ps_apply`,
-which stay in `[768, 134036)`; `L`, `R` (`[2][38][64]` floats, 0x4c00 bytes
-each) read and written; and `PsTab`, the static tables of the PS decoder
-(`g1_Q2`, `pd_re/im_smooth`, `HA`, `HB`, `f20_0_8`, `f34_*`,
-`Q_fract_allpass`, `phi_fract`, `ff_k_to_i_20/34`, the decorrelation
-coefficients, `ps_p1m1p1m1`, the `NR_*` constants), given back. -/
-abbrev PsApplyF (PsTab : Mem 64 → Prop) (x : PsArgs) (t : MachineData) : Mem 64 → Prop :=
-  x.psc =@ arg0 t ⋆ (4 ?@ (arg0 t + 764#64) ⋆ (133200 ?@ (arg0 t + 768#64)
-    ⋆ (x.psh =@ (arg0 t + 133968#64) ⋆ (76 ?@ (arg0 t + 134036#64)
-    ⋆ (Blocks [(arg1 t, 0x4c00), (arg2 t, 0x4c00)] ⋆ PsTab)))))
-
-/-- The side conditions: `top` (an `int`) at most 64 (`aacps.c` memsets
-`NR_BANDS - (top + NR_BANDS - 64)` entries; at the call `top = kx[1] + m[1]`,
-`aacsbr_template.c:568`), the PS data parsed (`ps->common.start ≠ 0`, the
-caller's test, `aacsbr_template.c:1760`), the invariant `PsWF`, and `ps`, `L`,
-`R` 16-aligned. -/
-abbrev PsApplyC (x : PsArgs) (t : MachineData) : Prop :=
-  (arg3 t).toNat % 2 ^ 32 ≤ 64 ∧ i32 x.psc 0 ≠ 0 ∧ PsWF x.psc x.psh
-    ∧ isAligned 16 (arg0 t) = true ∧ isAligned 16 (arg1 t) = true
-    ∧ isAligned 16 (arg2 t) = true
-
-/-- On return `ps->common` is unchanged and the phase histories are some values
-still within W6. -/
-def PsApplyFPost (PsTab : Mem 64 → Prop) (x : PsArgs) (t : MachineData) : Mem 64 → Prop :=
-  fun m => ∃ h' : List UInt8, h'.length = 68
-    ∧ (∀ b < 34, 0 ≤ i8 h' b ∧ i8 h' b ≤ 63 ∧ 0 ≤ i8 h' (34 + b) ∧ i8 h' (34 + b) ≤ 63)
-    ∧ PsApplyF PsTab { x with psh := h' } t m
-
-abbrev PsApplyPre (need : Nat) (PsTab : Mem 64 → Prop) (x : PsArgs) (ra : Int64)
-    (t : MachineData) : Prop :=
-  CallPre need (PsApplyF PsTab x t ⋆ x.R) ra t ∧ PsApplyC x t
-
-abbrev PsApplyPost (need : Nat) (PsTab : Mem 64 → Prop) (x : PsArgs) (ra : Int64)
-    (t s : MachineData) : Prop :=
-  CallPost need (PsApplyFPost PsTab x t ⋆ x.R) ra t s
-
-/-- Assumed (trusted): `ff_ps_apply` is memory-safe given `PsWF`, `top ≤ 64`
-and 16-alignment, and preserves W6. Ownership of the whole `PSContext`
-over-approximates its writes (`[768, 134036)`). Proving it is a possible M6. -/
-abbrev PsApplySpec (PsTab : Mem 64 → Prop) (need : Nat) : Prop :=
-  cenv.ProcSpec (entry "ff_ps_apply") (PsApplyPre need PsTab) (PsApplyPost need PsTab)
-
-/-- Assumed: `av_log(avcl, level, fmt, ...)` (`libavutil/log.h`) touches only `Ext`
-(the logging state, the context it reads), given back. -/
-abbrev AvLogSpec (Ext : Mem 64 → Prop) (need : Nat) : Prop :=
-  LeafSpec "av_log" need (fun _ => Ext) (fun _ => True)
-
 /-- `abort` does not return: its precondition is `False`, so the specification holds
 of any code, and a call to it must be shown unreachable. -/
 abbrev AbortSpec : Prop :=
@@ -1050,9 +858,6 @@ builds `temp1` from its bit pattern (`2^(7 - q)` normal or subnormal, or `+0`, f
 `L6d51`, `L6e23`, `L6eeb` of `ff_aac_sbr_apply`) need. It is not an assumption of the final
 theorem: it is proved, `dequantFloatModel_holds` (`DequantFloat.lean`), from a bit-level
 model of the widening, and the proof of `sbr_dequant` uses that theorem directly. -/
-
-/-- The double `1E20` (the constant `LCPI14_4` of `aacsbr.o`). -/
-def dbl1E20 : BitVec 64 := 0x4415AF1D78B58C40#64
 
 /-- (R1) A single-precision value whose bit pattern is at most `0x43000000` (that is, a
 non-negative number `≤ 128.0f`), widened to double, is ordered with and strictly below `1E20`:

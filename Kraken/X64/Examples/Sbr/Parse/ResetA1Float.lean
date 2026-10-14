@@ -83,7 +83,7 @@ theorem a1_fk_store570 (h : a1FK k e a ra t₀ st m) (v : Int) :
 end Mem
 
 theorem a1_SD_of {k : Nat} {e : REnv} {a : RArgs} {ra : Int64} {t₀ s : MachineData} {st : St}
-    {row : Nat} (hr : rateRow (srI a) = some row) (hsp1 : u8 a.sp 1 ≤ 13) (hC : ResetC a t₀)
+    {row : Nat} (hr : rateRow (srI a) = some row) (hsp1 : u8 a.sp 1 ≤ 13) (hC : ResetCI a t₀)
     (hBO : BandsOK e.lg e.pw) (hb : Base t₀ s) (hx : st.x = xk0 a row) (hsp : st.sp = a.sp)
     (hfm : st.fm.length = 98) (h : a1FK k e a ra t₀ st s.dmem) :
     SD k e a ra t₀ s (fun _ _ => True) := by
@@ -92,7 +92,7 @@ theorem a1_SD_of {k : Nat} {e : REnv} {a : RArgs} {ra : Int64} {t₀ s : Machine
 
 theorem a1_SD570_of {k : Nat} {e : REnv} {a : RArgs} {ra : Int64} {t₀ s : MachineData} {st : St}
     {row : Nat} {v : Int} (hr : rateRow (srI a) = some row) (hsp1 : u8 a.sp 1 ≤ 13)
-    (hC : ResetC a t₀) (hBO : BandsOK e.lg e.pw) (hb : Base t₀ s) (hx : st.x = xk0 a row)
+    (hC : ResetCI a t₀) (hBO : BandsOK e.lg e.pw) (hb : Base t₀ s) (hx : st.x = xk0 a row)
     (hsp : st.sp = a.sp) (hfm : st.fm.length = 98)
     (h : ∃ fr, FrOk fr ∧ frSlot64 fr 0x40 = arg0 t₀ ∧ frSlot64 fr 0x30 = arg1 t₀
       ∧ frSlot64 fr 0x570 = BitVec.ofInt 64 v ∧ (s.dmem =⋆ Mm k e a ra t₀ st fr))

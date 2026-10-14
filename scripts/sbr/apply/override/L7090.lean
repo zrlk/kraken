@@ -1,6 +1,6 @@
 set_option maxRecDepth 8000 in
 theorem blk_L7090 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L7090" ⟨"ff_aac_sbr_apply.L7090", B.L7090, some "ff_aac_sbr_apply.L7090_1"⟩ := by
   obtain ⟨-, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, hAv, -⟩ := hc
   intro n
@@ -12,7 +12,7 @@ theorem blk_L7090 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
   have pn : PLift _ := ⟨hn⟩
   clear hj hn
   simp only [Mm, ApplyF, TabW_push, FnW_push, AcW_push, OutW_push, FnW, FrDq, sbrA, arg1, BitVec.add_assoc, BitVec.reduceAdd] at hm h9
-  rw [call_res k hk] at hm
+  rw [call_res k hSt] at hm
   simp only [BitVec.sub_sub_ofNat, Nat.reduceAdd] at hm
   sep_pull hm [8 ?@ (t₀.regs.get64 .rsp - 464#64), Reserve k (t₀.regs.get64 .rsp - 464#64), e.Ext]
     as Rc hRc
@@ -55,7 +55,7 @@ theorem blk_L7090 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
         · rw [h12', h12]
         · rw [hbx']; exact hk48
         · simp only [Mm, ApplyF, TabW_push, FnW_push, AcW_push, OutW_push, FnW, FrDq, sbrA, arg1, BitVec.add_assoc, BitVec.reduceAdd]
-          rw [call_res k hk]
+          rw [call_res k hSt]
           simp only [BitVec.sub_sub_ofNat, Nat.reduceAdd]
           sep_close hm'
       · have hn := pn.down

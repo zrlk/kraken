@@ -255,7 +255,7 @@ macro "dq_lex2" : tactic => `(tactic| (dq_is_lex; first
   | (right; exact ⟨trivial, by decide⟩)))
 
 theorem blk_L6fbe (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L6fbe" ⟨"ff_aac_sbr_apply.L6fbe", B.L6fbe, some "ff_aac_sbr_apply.L6fca"⟩ := by
   clear hc
   intro n

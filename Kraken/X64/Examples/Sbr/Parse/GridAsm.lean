@@ -211,8 +211,9 @@ theorem spec (hpl : Program.PlacedIn body) (k : Nat) (hk : k ≤ 2 ^ 32) (Ext : 
     (hAv : AvLogSpec Ext k) (hMs : MemsetValSpec k) :
     ProcSpecA ((_root_.Executable.labels cenv).label "read_sbr_grid")
       (fun x ra t => GridPre k Ext x ra t) (fun x ra t s => GridPost k Ext x ra t s) := by
-  refine ProcSpecA.of_cfg_post (p := body) (fun x ra t₀ => table k Ext x ra t₀)
-    (fun x ra t₀ => Post' k Ext x ra t₀) var ?_ (grid_pre k hk Ext) (grid_post k hk Ext) (hwf := body_wf)
+  refine ProcSpecA.of_cfg_postP (p := body) (fun x ra t₀ => table k Ext x ra t₀)
+    (fun x ra t₀ => Post' k Ext x ra t₀) var ?_ (grid_pre k Ext) (grid_post k Ext)
+    (hwf := body_wf)
   intro x ra t₀ l blk hblk
   have hl := Program.blockAt_mem_labels hblk
   rw [labels_body] at hl

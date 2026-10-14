@@ -35,9 +35,8 @@ theorem gl_perm_cp (Rc Rs X H1 R1 H2 R2 : Mem 64 → Prop) (e : H1 ⋆ R1 = H2 �
 
 omit [CodeEnv] in
 theorem gl_need {need : Nat} {H : Mem 64 → Prop} {ra : Int64} {t : MachineData}
-    (h : CallPre need H ra t) : need ≤ 2 ^ 64 := by
-  obtain ⟨-, m2, -, -, -, ⟨m3, -, -, -, ⟨hw, -⟩, -⟩⟩ := h
-  exact hw
+    (h : CallPre need H ra t) : need ≤ (t.regs.get64 .rsp).toNat :=
+  CallPre.le h
 
 omit [CodeEnv] in
 /-- The excess of the caller's stack below the routine's need. -/
@@ -54,8 +53,9 @@ theorem gl_pre {need need' : Nat} (hk : need' ≤ need) {H1 R1 H2 R2 : Mem 64 �
   exact h
 
 omit [CodeEnv] in
-theorem gl_post {need need' : Nat} (hk : need' ≤ need) (hw : need ≤ 2 ^ 64)
-    {H1 R1 H2 R2 : Mem 64 → Prop} {ra : Int64} {t s : MachineData} (e : H1 ⋆ R1 = H2 ⋆ R2)
+theorem gl_post {need need' : Nat} {t s : MachineData} (hk : need' ≤ need)
+    (hw : need ≤ (t.regs.get64 .rsp).toNat) {H1 R1 H2 R2 : Mem 64 → Prop} {ra : Int64}
+    (e : H1 ⋆ R1 = H2 ⋆ R2)
     (h : CallPost need' (H2 ⋆ (R2 ⋆ Exc need need' t)) ra t s) :
     CallPost need (H1 ⋆ R1) ra t s := by
   obtain ⟨h1, h2, h3, hm⟩ := h

@@ -1,5 +1,5 @@
 theorem blk_L7c80 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L7c80" ⟨"ff_aac_sbr_apply.L7c80", B.L7c80, some "ff_aac_sbr_apply.L7c80_1"⟩ := by
   obtain ⟨-, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, hAv, -⟩ := hc
   intro n
@@ -15,7 +15,7 @@ theorem blk_L7c80 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
     simp only [Option.getD_some, BitVec.ofInt_ofBytes_toBytes 64 8 rfl]
   simp only [lex_var, hsl] at hn
   have hR := PLift.up (⟨hrsp, hrbp, hbx, hn⟩ : _ ∧ _ ∧ _ ∧ _)
-  rw [call_res k hk] at hm
+  rw [call_res k hSt] at hm
   simp only [BitVec.sub_sub_ofNat, Nat.reduceAdd] at hm
   have hm0 := hm
   sep_pull hm [8 ?@ (t₀.regs.get64 .rsp - 464#64), Reserve k (t₀.regs.get64 .rsp - 464#64), e.Ext]
@@ -69,7 +69,7 @@ theorem blk_L7c80 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
         · rw [hsv.1, hbx]
         simp only [Mm, ApplyF, FrH, ScW, TabW, FnW, AcW, c4, sbrA, arg0, arg1, arg3, arg4, BitVec.add_assoc,
           BitVec.reduceAdd]
-        rw [call_res k hk]
+        rw [call_res k hSt]
         simp only [BitVec.sub_sub_ofNat, Nat.reduceAdd]
         sep_close hm'
       · simp only [lex_var, slot64, hrbp', BitVec.sub_sub_ofNat, Nat.reduceAdd]

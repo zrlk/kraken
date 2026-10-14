@@ -1,5 +1,5 @@
 theorem blk_L9a85_3 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L9a85_3" ⟨"ff_aac_sbr_apply.L9a85_3", B.L9a85_3, some "ff_aac_sbr_apply.L9a85_4"⟩ := by
   obtain ⟨-, -, -, -, -, -, -, -, -, -, -, -, -, hQ0, hQ1, -⟩ := hc
   have hQ := syn_qspec (x := x) hQ0 hQ1
@@ -22,7 +22,7 @@ theorem blk_L9a85_3 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
   rw [show ScW (y.setV0 v) t₀ = ScW y t₀ from rfl, show TabW (y.setV0 v) t₀ = TabW y t₀ from rfl,
     show AcW (y.setV0 v) t₀ = AcW y t₀ from rfl, show OutW (y.setV0 v) t₀ = OutW y t₀ from rfl,
     show FnW e (y.setV0 v) t₀ = FnW e y t₀ from rfl, show PsW (y.setV0 v) t₀ = PsW y t₀ from rfl] at hm
-  rw [c8_div _ _ (syn_dsN_le x), res_qmf k hk] at hm
+  rw [c8_div _ _ (syn_dsN_le x), res_qmf k (t₀.regs.get64 .rsp - 0x1e8#64) (by (try simp only [applyNeed] at hSt); bv_omega)] at hm
   simp only [ArrW, DArrW, DScW, OutW, CstW, DspW, FnW, Blocks, sbrA, dA, arg0, arg1, arg3, arg4,
     Args.setV0, hdy, BitVec.add_assoc, BitVec.reduceAdd, Nat.reduceMul, Nat.reduceAdd, BitVec.sub_sub_ofNat,
     BitVec.ofNat_eq_ofNat] at hm
@@ -100,7 +100,8 @@ theorem blk_L9a85_3 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
       rw [show ScW ((y.setV0 v).setV1 v') t₀ = ScW y t₀ from rfl, show TabW ((y.setV0 v).setV1 v') t₀ = TabW y t₀ from rfl,
         show AcW ((y.setV0 v).setV1 v') t₀ = AcW y t₀ from rfl, show OutW ((y.setV0 v).setV1 v') t₀ = OutW y t₀ from rfl,
         show FnW e ((y.setV0 v).setV1 v') t₀ = FnW e y t₀ from rfl]
-      rw [res_args k hk, BitVec.sub_sub_ofNat, res_qmf k hk]
+      rw [res_args k hSt, BitVec.sub_sub_ofNat,
+        res_qmf k (t₀.regs.get64 .rsp - 0x1c8#64 - 32#64) (by (try simp only [applyNeed] at hSt); bv_omega)]
       simp only [ArrW, DArrW, DScW, OutW, CstW, DspW, FnW, Blocks, sbrA, dA, arg0, arg1, arg3, arg4,
         Args.setV0, Args.setV1, hdy, BitVec.add_assoc, BitVec.reduceAdd, Nat.reduceMul, Nat.reduceAdd, BitVec.sub_sub_ofNat,
         BitVec.ofNat_eq_ofNat]
@@ -188,7 +189,8 @@ theorem blk_L9a85_3 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
       rw [show ScW ((y.setV0 v).setV1 v') t₀ = ScW y t₀ from rfl, show TabW ((y.setV0 v).setV1 v') t₀ = TabW y t₀ from rfl,
         show AcW ((y.setV0 v).setV1 v') t₀ = AcW y t₀ from rfl, show OutW ((y.setV0 v).setV1 v') t₀ = OutW y t₀ from rfl,
         show FnW e ((y.setV0 v).setV1 v') t₀ = FnW e y t₀ from rfl]
-      rw [res_args k hk, BitVec.sub_sub_ofNat, res_qmf k hk]
+      rw [res_args k hSt, BitVec.sub_sub_ofNat,
+        res_qmf k (t₀.regs.get64 .rsp - 0x1c8#64 - 32#64) (by (try simp only [applyNeed] at hSt); bv_omega)]
       simp only [ArrW, DArrW, DScW, OutW, CstW, DspW, FnW, Blocks, sbrA, dA, arg0, arg1, arg3, arg4,
         Args.setV0, Args.setV1, hdy, BitVec.add_assoc, BitVec.reduceAdd, Nat.reduceMul, Nat.reduceAdd, BitVec.sub_sub_ofNat,
         BitVec.ofNat_eq_ofNat]

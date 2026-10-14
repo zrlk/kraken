@@ -1,5 +1,4 @@
-import Kraken.X64.Examples.Sbr.Parse.LibAbort
-import Kraken.X64.Examples.Sbr.ApplySpec
+import Kraken.X64.Parser
 
 /-!
 # `ff_aac_sbr_decode_usac_data`, `ff_aac_sbr_config_usac`: program text
@@ -10,8 +9,7 @@ see `scripts/sbr/README.md`), from `scripts/sbr/parse/usac/gen.py`: the labels a
 labels plus cut points (each call ends a block; at most two stores per straight-line block).
 -/
 
-open Kraken Kraken.SysV Mem Kraken.X64.Parser Std.WP MachineWP
-open Kraken.Examples.Sbr Kraken.Examples.Sbr.Apply
+open Kraken Kraken.X64.Parser
 
 namespace Kraken.Examples.Sbr.Usac
 

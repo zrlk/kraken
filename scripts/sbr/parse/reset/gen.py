@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Labelled program text of `sbr_reset` for `ResetText.lean`.
+"""Labelled program text of `sbr_reset` for `ResetBlocks.lean`.
 
 Inputs: the `to_program` text of `sbr_reset` (aacsbr.rela.o), its notes (stderr of
 `to_program`, which lists the relocation of every rip-relative operand), and the llvm-objdump

@@ -1,5 +1,5 @@
 theorem blk_L7cbf (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L7cbf" ⟨"ff_aac_sbr_apply.L7cbf", B.L7cbf, some "ff_aac_sbr_apply.L7ce0"⟩ := by
   obtain ⟨-, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, hMs, -⟩ := hc
   intro n
@@ -16,7 +16,7 @@ theorem blk_L7cbf (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
     simp only [Option.getD_some, BitVec.ofInt_ofBytes_toBytes 64 8 rfl]
   simp only [lex_var, hsl] at hn
   have hX := carve_at (t₀.regs.get64 .rsi + 488544#64) 20480 (320 * kk) (320 * cnt) (by omega) (by decide)
-  rw [hX, call_res k hk] at hm
+  rw [hX, call_res k hSt] at hm
   simp only [BitVec.sub_sub_ofNat, Nat.reduceAdd] at hm
   have hm0 := hm
   sep_pull hm [8 ?@ (t₀.regs.get64 .rsp - 464#64), Reserve k (t₀.regs.get64 .rsp - 464#64),
@@ -78,7 +78,7 @@ theorem blk_L7cbf (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
         simp only [Mm, ApplyF, FrH, ScW, TabW, FnW, AcW, ArrW, Blocks, c4, sbrA, arg0, arg1, arg3, arg4,
           BitVec.add_assoc, BitVec.reduceAdd]
         rw [carve_at (t₀.regs.get64 .rsi + 488544#64) 20480 (320 * kk) (320 * cnt) (by omega) (by decide),
-          call_res k hk]
+          call_res k hSt]
         simp only [BitVec.sub_sub_ofNat, Nat.reduceAdd]
         try simp only [BitVec.add_assoc, BitVec.reduceAdd] at hm' ⊢
         sep_close hm'

@@ -1,5 +1,5 @@
 theorem blk_L6797 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L6797" ⟨"ff_aac_sbr_apply.L6797", B.L6797, some "ff_aac_sbr_apply.L6797_1"⟩ := by
   obtain ⟨-, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, hAv, -⟩ := hc
   intro n
@@ -9,7 +9,7 @@ theorem blk_L6797 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
   clear hs
   simp only [Mm, ApplyF, AcW, FnW, FrD, sbrA, arg0, arg1, arg2, arg3, arg4, BitVec.add_assoc,
     BitVec.reduceAdd] at hm h0 h2
-  rw [call_res k hk] at hm
+  rw [call_res k hSt] at hm
   simp only [BitVec.sub_sub_ofNat, Nat.reduceAdd] at hm
   sep_pull hm [8 ?@ (t₀.regs.get64 .rsp - 464#64), Reserve k (t₀.regs.get64 .rsp - 464#64), e.Ext]
     as Rc hRc
@@ -52,6 +52,6 @@ theorem blk_L6797 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
       refine ⟨hC, ⟨hrsp', hrbp', h14'⟩, ?_⟩
       simp only [Mm, ApplyF, AcW, FnW, FrD, sbrA, arg0, arg1, arg2, arg3, arg4, BitVec.add_assoc,
         BitVec.reduceAdd]
-      rw [call_res k hk]
+      rw [call_res k hSt]
       simp only [BitVec.sub_sub_ofNat, Nat.reduceAdd]
       sep_close hm'

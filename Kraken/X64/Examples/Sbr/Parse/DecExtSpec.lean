@@ -1,6 +1,9 @@
 import Kraken.X64.Examples.Sbr.Parse.DecExtText
+import Kraken.X64.Examples.Sbr.Parse.LibAbort
+import Kraken.X64.Examples.Sbr.Parse.GridSpec
 import Kraken.X64.Examples.Sbr.ParseModel
 import Kraken.X64.Examples.Sbr.Parse.LibGb
+import Kraken.X64.Examples.Sbr.SessionSpec
 
 /-!
 # `ff_aac_sbr_decode_extension`: the specification
@@ -35,41 +38,6 @@ namespace Kraken.Examples.Sbr.DecExt
 
 /-! ## Values -/
 
-/-- The decoder-state values: the model's `Args` and `Hid`, and the raw scalars `sbr->usac`,
-`sbr->bs_amp_res_header` and the six bytes of `spectrum_params`. -/
-structure DS where
-  a : Args
-  h : Hid
-  usac : BitVec 32
-  amp : BitVec 32
-  sp : List UInt8
-  /-- `sbr->inter_tes` (+0x14, read by `read_sbr_envelope`). -/
-  it : BitVec 32
-
-/-- The lengths of the byte arrays of the footprint (so that each list cell is the array). -/
-def Lens (x : Args) : Prop :=
-  x.ftLow.length = 50 ∧ x.ftHigh.length = 98 ∧ x.ftNoise.length = 12 ∧ x.ftLim.length = 60
-  ∧ x.pnum.length = 6 ∧ x.pstart.length = 6 ∧ x.psc.length = 764
-
-/-- `Hid.start` is `spectrum_params.bs_start_freq` (byte 0), `Hid.xover` is
-`spectrum_params.bs_xover_band` (byte 2); the array lengths. -/
-def DS.ok (d : DS) : Prop :=
-  d.sp.length = 6 ∧ d.h.start = u8 d.sp 0 ∧ d.h.xover = u8 d.sp 2 ∧ Lens d.a
-
-/-- The invariant of the raw scalars: the field width of `bs_limiter_bands` (2 bits). -/
-def DS.si (d : DS) : Prop := d.h.lb ≤ 3
-
-/-- The bit reader: the buffer, `size_in_bits_plus8`, and the bytes `[buf, buf + L)` owned. -/
-structure Rd where
-  buf : BitVec 64
-  p8 : BitVec 32
-  L : Nat
-
-/-- The reader's precondition: every read loads at most 4 bytes at `buf + index / 8` with
-`index ≤ size_in_bits_plus8`. -/
-def Rd.ok (r : Rd) (i : BitVec 32) : Prop :=
-  i.toNat ≤ r.p8.toNat ∧ r.p8.toNat < 2 ^ 31 ∧ r.p8.toNat / 8 + 4 ≤ r.L ∧ r.L < 2 ^ 32
-
 /-- `&sbr->data[b]`. -/
 abbrev chA (s : BitVec 64) (b : Bool) : BitVec 64 := if b then s + 0x15b40#64 else s + 0x80#64
 
@@ -92,52 +60,9 @@ def GridV (v : DV) (ret : BitVec 32) : Prop :=
   ∧ (ret = 0#32 → 1 ≤ v.nenv ∧ (∀ e, e ≤ v.nenv → u8 v.te e ≤ 19)
       ∧ (∀ e, e < v.nenv → u8 v.te e < u8 v.te (e + 1)))
 
-/-- The fields of `Args` outside the footprint, and those no routine of the parser writes. -/
-def XKeep (x y : Args) : Prop :=
-  y.R = x.R ∧ y.fdsp = x.fdsp ∧ y.anaCtx = x.anaCtx ∧ y.synCtx = x.synCtx ∧ y.psh = x.psh
-  ∧ y.avctx = x.avctx ∧ y.ps = x.ps
-
 variable [CodeEnv]
 
 /-! ## The footprint groups -/
-
-/-- The scalar fields of `*sbr` at `s` (`0x0`–`0x80`). -/
-def SbrS (d : DS) (s : BitVec 64) : Mem 64 → Prop :=
-  cell4 s d.a.sampleRate ⋆ (cell4 (s + 0x4#64) d.a.start ⋆ (cell4 (s + 0x8#64) d.a.ready
-  ⋆ (cell4 (s + 0xc#64) d.a.idAac ⋆ (cell4 (s + 0x10#64) d.usac ⋆ (cell4 (s + 0x14#64) d.it
-  ⋆ (cell4 (s + 0x18#64) d.a.reset ⋆ (d.sp =@ (s + 0x1c#64)
-  ⋆ (2 ?@ (s + 0x22#64) ⋆ (cell4 (s + 0x24#64) d.amp ⋆ (4 ?@ (s + 0x28#64)
-  ⋆ (c4 (s + 0x2c#64) d.h.lb ⋆ (c4 (s + 0x30#64) d.a.limGains ⋆ (cell4 (s + 0x34#64) d.a.interpol
-  ⋆ (cell4 (s + 0x38#64) d.a.smooth ⋆ (cell4 (s + 0x3c#64) d.a.coupling
-  ⋆ (c4 (s + 0x40#64) d.a.k0 ⋆ (16 ?@ (s + 0x44#64) ⋆ (c4 (s + 0x54#64) d.a.kx0
-  ⋆ (c4 (s + 0x58#64) d.a.kx1 ⋆ (c4 (s + 0x5c#64) d.a.m0 ⋆ (c4 (s + 0x60#64) d.a.m1
-  ⋆ (cell4 (s + 0x64#64) d.a.pushed ⋆ 0x18 ?@ (s + 0x68#64)))))))))))))))))))))))
-
-/-- One `SBRData` at `d` (`0x15ac0` bytes) with values `v`; the fields outside `DV` are raw. -/
-def DataF (v : DV) (d : BitVec 64) : Mem 64 → Prop :=
-  4 ?@ d ⋆ (4 ?@ (d + 0x4#64) ⋆ (c4 (d + 0x8#64) v.nenv ⋆ (v.freqRes =@ (d + 0xc#64)
-  ⋆ (3 ?@ (d + 0x15#64) ⋆ (c4 (d + 0x18#64) v.nnoise ⋆ (11 ?@ (d + 0x1c#64)
-  ⋆ (v.invf =@ (d + 0x27#64) ⋆ (48 ?@ (d + 0x31#64) ⋆ (3 ?@ (d + 0x61#64)
-  ⋆ (4 ?@ (d + 0x64#64) ⋆ (0x3898 ?@ (d + 0x68#64) ⋆ (cell4 (d + 0x3900#64) v.vOff
-  ⋆ (4 ?@ (d + 0x3904#64) ⋆ (4 ?@ (d + 0x3908#64) ⋆ (0x4014 ?@ (d + 0x390c#64)
-  ⋆ (c4 (d + 0x7920#64) v.ypos
-  ⋆ (0xe178 ?@ (d + 0x7924#64) ⋆ (v.te =@ (d + 0x15a9c#64) ⋆ (v.tq =@ (d + 0x15aa6#64)
-  ⋆ (3 ?@ (d + 0x15aa9#64) ⋆ (Apply.c8 (d + 0x15aac#64) v.idx ⋆ 12 ?@ (d + 0x15ab4#64))))))))))))))))))))))
-
-/-- The frequency tables (`n`, `n_q`, `n_lim`, `f_master` raw, the four tables, the patches)
-at `s + 0x4c1e0`. -/
-def TabF (x : Args) (s : BitVec 64) : Mem 64 → Prop :=
-  c4 (s + 0x4c1e0#64) x.n0 ⋆ (c4 (s + 0x4c1e4#64) x.n1 ⋆ (c4 (s + 0x4c1e8#64) x.nq
-  ⋆ (c4 (s + 0x4c1ec#64) x.nlim ⋆ (98 ?@ (s + 0x4c1f0#64) ⋆ (x.ftLow =@ (s + 0x4c252#64)
-  ⋆ (x.ftHigh =@ (s + 0x4c284#64) ⋆ (x.ftNoise =@ (s + 0x4c2e6#64)
-  ⋆ (x.ftLim =@ (s + 0x4c2f2#64) ⋆ (2 ?@ (s + 0x4c32e#64) ⋆ (c4 (s + 0x4c330#64) x.npatch
-  ⋆ (x.pnum =@ (s + 0x4c334#64) ⋆ x.pstart =@ (s + 0x4c33a#64))))))))))))
-
-/-- The decoder state at `sbr = s`: the scalars, `data[0]`, `data[1]`, `ps->common`, the
-tables. -/
-def SbrF (d : DS) (s : BitVec 64) : Mem 64 → Prop :=
-  SbrS d s ⋆ (DataF d.a.d0 (s + 0x80#64) ⋆ (DataF d.a.d1 (s + 0x15b40#64)
-  ⋆ (d.a.psc =@ (s + 0x2b600#64) ⋆ TabF d.a s)))
 
 /-- A `GetBitContext` at `g` as the callees see it: `buffer`, `index = i`, `size_in_bits`
 (raw), `size_in_bits_plus8`. -/
@@ -196,15 +121,14 @@ abbrev HdrSpec (need : Nat) (Ext : Mem 64 → Prop) : Prop :=
       ∧ d'.usac = 0#32 ∧ u8 d'.sp 3 < 4 ∧ u8 d'.sp 4 < 2 ∧ d'.h.lb < 4)
 
 /-- `sbr_reset(ac, sbr)` (l.1113-1124) with `reset ≠ 0`, from `HI` and the header's field widths
-(`sbr_reset`'s `ResetC`), no address wrap of `*sbr`, the ABI stack alignment, the k-free stack
-need (`resetStkMin + 8 ≤ rsp`, `resetStkMin = 0x9d0`): `MI`
+(`sbr_reset`'s `ResetC`), no address wrap of `*sbr`, the ABI stack alignment: `MI`
 (`ParseModel.reset_step`), `id_aac` kept, `DS.si` kept. -/
 abbrev ResetSpec (need : Nat) (Ext : Mem 64 → Prop) : Prop :=
   cenv.ProcSpec (entry "sbr_reset")
     (fun (c : CA) ra t => CPre need Ext c ra t ∧ arg0 t = c.ac ∧ arg1 t = c.s
       ∧ HI (c.d.a, c.d.h) ∧ c.d.a.reset ≠ 0
       ∧ u8 c.d.sp 3 ≤ 3 ∧ u8 c.d.sp 4 ≤ 1 ∧ c.d.h.lb ≤ 3 ∧ c.s.toNat + 0x60000 < 2 ^ 64
-      ∧ isAligned 16 (t.regs.get64 .rsp + 8#64) = true ∧ 0x9d0 + 8 ≤ (t.regs.get64 .rsp).toNat)
+      ∧ isAligned 16 (t.regs.get64 .rsp + 8#64) = true)
     (fun c ra t s => CPost need Ext c ra t s fun d' => MI (d'.a, d'.h)
       ∧ d'.a.idAac = c.d.a.idAac ∧ d'.a.psc = c.d.a.psc ∧ (c.d.si → d'.si))
 
@@ -287,10 +211,6 @@ abbrev PsSpec (PI : List UInt8 → Prop) (need : Nat) (Ext : Mem 64 → Prop) : 
       ∧ ((s.regs.get64 .rax).setWidth 32).toInt ≤ ((arg3 t).setWidth 32).toInt
       ∧ CallPost need ((c' =@ arg2 t ⋆ (GbR p.g p.r i' ⋆ (BufW p.r ⋆ Ext))) ⋆ p.R) ra t s)
 
-/-- Assumed: `avpriv_request_sample(avc, msg, ...)` touches only `Ext`. -/
-abbrev AvReqSpec (Ext : Mem 64 → Prop) (need : Nat) : Prop :=
-  LeafSpec "avpriv_request_sample" need (fun _ => Ext) (fun _ => True)
-
 /-- The callees: `kc` bytes of stack for the decoder-state callees, `k` for the logging ones. -/
 abbrev DecCallees (PI : List UInt8 → Prop) (kc k : Nat) (Ext : Mem 64 → Prop) : Prop :=
   HdrSpec kc Ext ∧ ResetSpec kc Ext ∧ DtdfSpec kc Ext ∧ InvfSpec kc Ext ∧ EnvSpec kc Ext
@@ -298,18 +218,6 @@ abbrev DecCallees (PI : List UInt8 → Prop) (kc k : Nat) (Ext : Mem 64 → Prop
   ∧ AvLogSpec Ext k ∧ AvReqSpec Ext k
 
 /-! ## The specification -/
-
-/-- The logical variables: the caller's memory, the decoder-state values, the reader `*gb_host`
-(`index`, `size_in_bits`, the four padding bytes after `size_in_bits_plus8`, which the copy of
-the struct reads), `ac->oc[1].m4ac.sample_rate`. -/
-structure XA where
-  R : Mem 64 → Prop
-  d : DS
-  r : Rd
-  i : BitVec 32
-  sib : BitVec 32
-  pad : BitVec 32
-  sr : BitVec 32
 
 /-- `*gb_host` at `g` with `index = i`. -/
 abbrev GhW (g : BitVec 64) (X : XA) (i : BitVec 32) : Mem 64 → Prop :=
@@ -330,13 +238,10 @@ def DecF (Ext : Mem 64 → Prop) (X : XA) (t : MachineData) (d : DS) (i : BitVec
 
 /-- `DS.si` (`bs_limiter_bands ≤ 3`) and the layout of `*che` (as `ApplySpec.LayoutC`:
 `che` and `sbr` 32-aligned, the signed bound past `sbr + 0x5fcc0`), and no address wrap of
-`*sbr` (`sbr_reset`, `sbr_make_f_tablelim`), and the stack below `rsp` reaching the k-free part
-of `sbr_reset`'s need below this frame (`0x70` own bytes, `sbr_reset`'s `resetStkMin = 0x9d0`, its
-return slot). -/
+`*sbr` (`sbr_reset`, `sbr_make_f_tablelim`). -/
 def DecL (X : XA) (t : MachineData) : Prop :=
   X.d.si ∧ isAligned 32 (arg1 t) = true ∧ isAligned 32 (sbrA t) = true
   ∧ (sbrA t + 0x5fcc0#64).toInt + 1280 < 2 ^ 63 ∧ (sbrA t).toNat + 0x60000 < 2 ^ 64
-  ∧ 0x70 + 0x9d0 + 8 ≤ (t.regs.get64 .rsp).toNat
 
 /-- The side conditions: the model invariant `MI` of the values, `ff_ps_read_data`'s invariant
 `PI` of `ps->common`, the reader, the jump table's
@@ -345,29 +250,36 @@ def DecC (PI : List UInt8 → Prop) (X : XA) (t : MachineData) : Prop :=
   MI (X.d.a, X.d.h) ∧ X.d.ok ∧ PI X.d.a.psc ∧ X.r.ok X.i ∧ Grid.JtC
   ∧ (isAligned 16 (t.regs.get64 .rsp + 8#64) = true ∧ DecL X t)
 
-/-- Own bytes (`push rbp`, five saved registers, `sub $0x38`), the return slot of a call, and the
-callee's reservation. -/
-abbrev decNeed (kc : Nat) : Nat := 0x70 + kc
+/-- The proof's invariant form of `DecL`: with the frame's own bytes below `rsp` (`0x70`), which
+the entry reads off `CallPre (decNeed kc)` (`CallPre.le`). -/
+def DecLI (X : XA) (t : MachineData) : Prop :=
+  X.d.si ∧ isAligned 32 (arg1 t) = true ∧ isAligned 32 (sbrA t) = true
+  ∧ (sbrA t + 0x5fcc0#64).toInt + 1280 < 2 ^ 63 ∧ (sbrA t).toNat + 0x60000 < 2 ^ 64
+  ∧ 0x70 ≤ (t.regs.get64 .rsp).toNat
+
+/-- `DecC` with `DecLI`. -/
+def DecCI (PI : List UInt8 → Prop) (X : XA) (t : MachineData) : Prop :=
+  MI (X.d.a, X.d.h) ∧ X.d.ok ∧ PI X.d.a.psc ∧ X.r.ok X.i ∧ Grid.JtC
+  ∧ (isAligned 16 (t.regs.get64 .rsp + 8#64) = true ∧ DecLI X t)
+
+theorem DecCI.of {PI : List UInt8 → Prop} {X : XA} {t : MachineData} (h : DecC PI X t)
+    (hr : 0x70 ≤ (t.regs.get64 .rsp).toNat) : DecCI PI X t := by
+  obtain ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11⟩ := h
+  exact ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, hr⟩
+
+theorem DecCI.rsp {PI : List UInt8 → Prop} {X : XA} {t : MachineData} (h : DecCI PI X t) :
+    0x70 ≤ (t.regs.get64 .rsp).toNat :=
+  h.2.2.2.2.2.2.2.2.2.2.2
 
 abbrev DecPre (PI : List UInt8 → Prop) (kc : Nat) (Ext : Mem 64 → Prop) (X : XA) (ra : Int64)
     (t : MachineData) : Prop :=
   CallPre (decNeed kc) (DecF Ext X t X.d X.i ⋆ X.R) ra t ∧ DecC PI X t
-
-/-- What a return leaves: values with `MI` and `LiveC` (the conclusion of
-`ParseModel.decext_spec`), `Hid` tied to `spectrum_params`, the fields outside the footprint
-kept, the host reader advanced within `size_in_bits_plus8`, and `cnt` returned. -/
-def DecOut (PI : List UInt8 → Prop) (X : XA) (d' : DS) : Prop :=
-  MI (d'.a, d'.h) ∧ LiveC d'.a ∧ d'.ok ∧ PI d'.a.psc ∧ XKeep X.d.a d'.a ∧ d'.si
 
 abbrev DecPost (PI : List UInt8 → Prop) (kc : Nat) (Ext : Mem 64 → Prop) (X : XA) (ra : Int64)
     (t s : MachineData) : Prop :=
   ∃ d' i', DecOut PI X d' ∧ i'.toNat ≤ X.r.p8.toNat
     ∧ (s.regs.get64 .rax).setWidth 32 = (arg4 t).setWidth 32
     ∧ CallPost (decNeed kc) (DecF Ext X t d' i' ⋆ X.R) ra t s
-
-/-- The safe stops: `abort`'s entry (`read_sbr_grid`'s assertion) and the bounds trap of
-`read_sbr_envelope` (`ud1`, an envelope index ≥ 6). -/
-abbrev DStops (a : Int64) : Prop := a = abortA ∨ a = entry "read_sbr_envelope.L60f9"
 
 /-- `ff_aac_sbr_decode_extension` with its callees: it returns with `DecPost` or reaches a stop
 of `DStops`. -/

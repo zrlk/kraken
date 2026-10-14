@@ -2997,6 +2997,36 @@ theorem Kraken.Executable.ProcSpec.of_cfg_post [CodeEnv] {p p' : Program} {l₀ 
     hp hwf hpl
 
 open MachineWP in
+/-- `ProcSpec.of_cfg_post` with the precondition at the entry state in hand
+for the blocks and for `hpost`: facts about the entry (the stack pointer's
+headroom, say) need not be carried through the table. -/
+theorem Kraken.Executable.ProcSpec.of_cfg_post_pre [CodeEnv] {p p' : Program} {l₀ : Label}
+    {α : Type} {Pre : α → Int64 → MachineData → Prop}
+    {Post : α → Int64 → MachineData → MachineData → Prop}
+    (T : α → Int64 → MachineData → Label → MachineData → Prop)
+    (Post' : α → Int64 → MachineData → MachineData → Prop)
+    (var : Label → MachineData → Nat := fun _ _ => 0)
+    (hblocks : ∀ (x : α) (ra : Int64) (t₀ : MachineData), Pre x ra t₀ → ∀ l blk,
+      Program.blockAt p l = some blk → ∀ n : Nat,
+      ⦃ fun s => T x ra t₀ l s ∧ var l s = n ⦄ blk.body
+      ⦃ (match blk.next with
+         | some l' => fun _ s => T x ra t₀ l' s ∧ var l' s ≤ n
+         | none => fun _ _ => False);
+        fun a s => Table.ofLabels (fun l' s => (Program.blockAt p l').isSome ∧ T x ra t₀ l' s
+          ∧ Program.EdgeLt p var l n l' s) a s ∨ (a = ra ∧ Post' x ra t₀ s) ⦄)
+    (hpre : ∀ x ra t, Pre x ra t → T x ra t l₀ t)
+    (hpost : ∀ x ra t₀ s, Pre x ra t₀ → Post' x ra t₀ s → Post x ra t₀ s)
+    (hp : p = Directive.label l₀ :: p' := by rfl)
+    (hwf : Program.WF p := by decide)
+    (hpl : Program.PlacedIn p := by assumption) :
+    cenv.ProcSpec ((_root_.Executable.labels cenv).label l₀) Pre Post := by
+  intro x ra t ht
+  have h := MachineWP.cfg_reach (T x ra t) var (fun a s => a = ra ∧ Post' x ra t s)
+    (hblocks x ra t ht) hp hwf hpl t (hpre x ra t ht)
+  exact eventually_trans _ _ _ _ h (fun st hst =>
+    Eventually.done _ ⟨hst.1, hpost x ra t st.1 ht hst.2⟩)
+
+open MachineWP in
 /-- `ProcSpec.of_cfg` for the continuation form: the table and the exits
 mention the continuation `K` instead of a logical variable; the default exit
 is the return into `K`. -/

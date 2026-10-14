@@ -1,5 +1,5 @@
 theorem blk_L9934_1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L9934_1" ⟨"ff_aac_sbr_apply.L9934_1", B.L9934_1, some "ff_aac_sbr_apply.L9934_2"⟩ := by
   obtain ⟨-, -, -, -, -, -, -, -, -, -, -, hxe, hXG, -⟩ := hc
   have hXG' := PLift.up hXG
@@ -35,7 +35,7 @@ theorem blk_L9934_1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
     sep_mem hm
     simp only [Option.getD_some, BitVec.ofInt_ofBytes_toBytes 64 8 rfl]
   simp only [lex_var, hsl] at hn
-  rw [gn_x2 (t₀.regs.get64 .rsi) ch (by omega), gn_call_res_n k (0x60 + k) hk (by omega)] at hm
+  rw [gn_x2 (t₀.regs.get64 .rsi) ch (by omega), gn_call_res_n k (0x60 + k) hSt (by omega)] at hm
   simp only [BitVec.sub_sub_ofNat, Nat.reduceAdd] at hm
   have hR := PLift.up (⟨hrsp, hrbp, hsl, hn, h12, h9, hsi, hdi, hax, hcx, hrb⟩ :
     _ ∧ _ ∧ _ ∧ _ ∧ _ ∧ _ ∧ _ ∧ _ ∧ _ ∧ _ ∧ _)
@@ -130,7 +130,7 @@ theorem blk_L9934_1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
       rw [gn_byte_split (y.d ch).te _ 9 (by omega) (by omega)]
       simp only [Mm, ApplyF, FrCs, ScW, TabW, DScW, DArrW, ArrW, DspW, FnW, CstW, Blocks, c4, sbrA, arg0, arg1, arg3,
         arg4, lab, BitVec.add_assoc, BitVec.reduceAdd]
-      rw [gn_x2 (t₀.regs.get64 .rsi) ch (by omega), gn_call_res_n k (0x60 + k) hk (by omega)]
+      rw [gn_x2 (t₀.regs.get64 .rsi) ch (by omega), gn_call_res_n k (0x60 + k) hSt (by omega)]
       simp only [BitVec.sub_sub_ofNat, Nat.reduceAdd, dA, Args.d, Nat.reducePow, Nat.reduceSub, Nat.reduceMod,
         Nat.reduceMul, BitVec.ofNat_eq_ofNat, BitVec.add_assoc, BitVec.reduceAdd] at hm' ⊢
       sep_close hm'

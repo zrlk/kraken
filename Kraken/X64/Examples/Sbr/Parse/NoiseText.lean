@@ -1,5 +1,4 @@
-import Kraken.X64.Examples.Sbr.Parse.EnvVlc
-import Kraken.X64.Examples.Sbr.Parse.LibGb
+import Kraken.X64.Parser
 
 /-!
 # `read_sbr_noise`: the program text
@@ -12,7 +11,7 @@ each unrolled `delta` element at its `n_q` test, after the first-level window, a
 first-level entry, before the second-level shift; the `f_huff` loop likewise).
 -/
 
-open Kraken Kraken.SysV Mem Kraken.X64.Parser Std.WP MachineWP
+open Kraken Kraken.X64.Parser
 
 set_option mvcgen.warning false
 set_option grind.warning false

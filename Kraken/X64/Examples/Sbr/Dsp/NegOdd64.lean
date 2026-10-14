@@ -1,6 +1,7 @@
 import Kraken.X64.Parser
 import Kraken.MachineWP
 import Kraken.X64.Examples.Sbr.Spec
+import Kraken.X64.Examples.Sbr.Dsp.NegOdd64Text
 
 /-!
 # `ff_sbr_neg_odd_64_sse` as a `ProcSpec`
@@ -44,31 +45,6 @@ set_option mvcgen.warning false
 set_option grind.warning false
 
 namespace Kraken.Examples.Sbr.NegOdd64
-
-/-- The routine from the object file, labels prefixed with the symbol, the
-final `ret` kept behind a label of its own (`….done`). -/
-def body : Program := parse("
-ff_sbr_neg_odd_64_sse:
-    lea 0x100(%rdi),%rsi
-ff_sbr_neg_odd_64_sse.loop:
-    movaps (%rdi),%xmm0
-    movaps 0x10(%rdi),%xmm1
-    movaps 0x20(%rdi),%xmm2
-    movaps 0x30(%rdi),%xmm3
-    xorps ps_mask2(%rip),%xmm0
-    xorps ps_mask2(%rip),%xmm1
-    xorps ps_mask2(%rip),%xmm2
-    xorps ps_mask2(%rip),%xmm3
-    movaps %xmm0,(%rdi)
-    movaps %xmm1,0x10(%rdi)
-    movaps %xmm2,0x20(%rdi)
-    movaps %xmm3,0x30(%rdi)
-    add $0x40,%rdi
-    cmp %rsi,%rdi
-    jne ff_sbr_neg_odd_64_sse.loop
-ff_sbr_neg_odd_64_sse.done:
-    ret
-")
 
 variable [CodeEnv]
 

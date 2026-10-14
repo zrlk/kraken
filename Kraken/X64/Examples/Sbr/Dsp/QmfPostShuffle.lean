@@ -3,6 +3,7 @@ import Kraken.MachineWP
 import Kraken.Rules.PackedSse
 import Kraken.X64.Examples.Sbr.Spec
 import Kraken.Rules.LeafLemmas
+import Kraken.X64.Examples.Sbr.Dsp.QmfPostShuffleText
 
 /-!
 # `ff_sbr_qmf_post_shuffle_sse` as a `ProcSpec`
@@ -131,33 +132,6 @@ theorem qmf_loop_facts {W z r d i : BitVec 64} (hd : d = z + (240#64 - (r - z)))
   rw [e1, e2, BitVec.toNat_sub, BitVec.toNat_add]
   simp only [BitVec.toNat_ofNat]
   omega
-
-/-- The routine from the object file, labels prefixed with the symbol, three free
-labels cutting the loop (`.step`, `.cmp`), the final `ret` behind `.done`. -/
-def body : Program := parse("
-ff_sbr_qmf_post_shuffle_sse:
-    lea 0xf0(%rsi),%rdx
-    movaps ff_ps_neg(%rip),%xmm3
-ff_sbr_qmf_post_shuffle_sse.loop:
-    movaps (%rsi),%xmm1
-    movaps (%rdx),%xmm0
-    xorps %xmm3,%xmm0
-    shufps $0x1b,%xmm0,%xmm0
-    movaps %xmm0,%xmm2
-    unpcklps %xmm1,%xmm2
-    unpckhps %xmm1,%xmm0
-    movaps %xmm2,(%rdi)
-    movaps %xmm0,0x10(%rdi)
-ff_sbr_qmf_post_shuffle_sse.step:
-    add $0x20,%rdi
-    sub $0x10,%rdx
-    add $0x10,%rsi
-ff_sbr_qmf_post_shuffle_sse.cmp:
-    cmp %rdx,%rsi
-    jl ff_sbr_qmf_post_shuffle_sse.loop
-ff_sbr_qmf_post_shuffle_sse.done:
-    ret
-")
 
 variable [CodeEnv]
 

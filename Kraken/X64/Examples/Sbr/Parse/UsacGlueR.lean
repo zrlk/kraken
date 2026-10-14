@@ -62,11 +62,11 @@ theorem u_widen {f : Int64} {need k : Nat} {Ext Oth : Mem 64 → Prop}
     (hC : ∀ (A : UA) (R : Mem 64 → Prop) ra t, C A ra t → C ({ A.1 with R := R }, A.2) ra t)
     (hR : ∀ (A : UA) (R : Mem 64 → Prop) st', Rel ({ A.1 with R := R }, A.2) A.2 st' →
       Rel A A.2 st')
-    (hk : need ≤ cneed k) (hk' : cneed k ≤ 2 ^ 64) :
+    (hk : need ≤ cneed k) (_hk' : cneed k ≤ 2 ^ 64) :
     ProcSpecA f (fun A ra t => CPre k Ext Oth A ra t ∧ C A ra t)
       (fun A => CPost k (Rel A) A) := by
   intro A ra t ⟨⟨hcall, hq⟩, hc⟩
-  have e := Reserve.excess need (cneed k) (t.regs.get64 .rsp) hk hk'
+  have e := Reserve.excess need (cneed k) (t.regs.get64 .rsp) hk (CallPre.le hcall)
   refine eventually_weaken _ _ _ _ ?_
     (h ({ A.1 with R := A.1.R ⋆ (cneed k - need) ?@ (t.regs.get64 .rsp - .ofNat 64 (cneed k)) },
       A.2) ra t ⟨⟨?_, hq⟩, hC A _ ra t hc⟩)
@@ -219,7 +219,7 @@ theorem usac_reset_glue (k kr : Nat) (e : Reset.REnv) (Oth O : Mem 64 → Prop)
   case hc => exact fun _ _ _ _ h => h
   case hr => exact fun _ _ _ h => h
   apply DecExt.ProcSpec.adapt hR
-  intro A ra t ⟨⟨hcall, hqe, hqo⟩, h0, h1, _, hst, hsc, hsp, hs3, hs4, hnw, hal16, hstk⟩
+  intro A ra t ⟨⟨hcall, hqe, hqo⟩, h0, h1, _, hst, hsc, hsp, hs3, hs4, hnw, hal16⟩
   have hO' : A.1.Oth = Reset.CstR ⋆ (Reset.BwR ⋆ O) := hqo.trans hO
   obtain ⟨sl, s0, s2, slb, hlens⟩ := hsp
   obtain ⟨l1, l2, l3, l4, l5, l6, l7⟩ := hlens
@@ -228,14 +228,12 @@ theorem usac_reset_glue (k kr : Nat) (e : Reset.REnv) (Oth O : Mem 64 → Prop)
   · show t.dmem =⋆ _ ⋆ (_ ⋆ (Reset.RF e (raOf A.2 F) t ⋆ F))
     rw [← uf_r e A.1 A.2 O F hO' hqe t h0 h1 sl]
     exact hcall
-  · refine ⟨sl, ?_, hs3, hs4, hsc, ?_, l1, l2, l3, l4, l5, l6, ?_, hal16, hal, ?_⟩
+  · refine ⟨sl, ?_, hs3, hs4, hsc, ?_, l1, l2, l3, l4, l5, l6, ?_, hal16, hal⟩
     · show u8 A.2.sp 0 < 16
       rw [s0]; exact hst
     · show (BitVec.ofNat 32 A.2.h.lb).toNat ≤ 3
       rw [BitVec.toNat_ofNat]; omega
     · rw [h1]; omega
-    · show 0x580 + 0x450 + 8 ≤ _
-      omega
   · intro s ⟨x', sp', us', hout, hsr, hbp, hsv, hm⟩
     obtain ⟨sc', hrl, y, ht, -, -, hyav, hz⟩ := hout
     obtain ⟨t1, t2, t3, t4, -, -, -, -, -, -, t11, t12⟩ := ht

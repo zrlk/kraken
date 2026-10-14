@@ -1,4 +1,5 @@
 import Kraken.X64.Examples.Sbr.Session
+import Kraken.X64.Examples.Sbr.SessionSpec
 
 /-!
 # A source-level model of the SBR parser
@@ -177,10 +178,6 @@ def copyGrid (dst src : DV) : DV :=
     tq := mk 3 (fun j => old src.tq j), nenv := src.nenv, nnoise := src.nnoise }
 
 /-! ### The grid preserves `DWF` and the border invariant -/
-
-/-- The clauses of `DWF` for a live grid. -/
-def Live (v : DV) : Prop :=
-  1 ≤ v.nenv ∧ (∀ e, e ≤ v.nenv → u8 v.te e ≤ 19) ∧ (∀ e, e < v.nenv → u8 v.te e < u8 v.te (e + 1))
 
 theorem dwf_iff {L : Prop} {v : DV} : DWF L v ↔ DWF False v ∧ (L → Live v) := by
   constructor
@@ -407,32 +404,6 @@ theorem u16_lt (bs : List UInt8) (i : Nat) : u16 bs i < 65536 := by
   omega
 
 /-! ### `sbr_make_f_master` -/
-
-/-- The row of `sbr_offset[][]` (`aacsbrdata.h`) for `sbr->sample_rate` (l.283-306), or `none`
-(unsupported rate: return before any store). -/
-def rateRow (sr : Int) : Option Nat :=
-  if sr = 16000 then some 0 else if sr = 22050 then some 1 else if sr = 24000 then some 2
-  else if sr = 32000 then some 3 else if sr = 44100 ∨ sr = 48000 ∨ sr = 64000 then some 4
-  else if sr = 88200 ∨ sr = 96000 ∨ sr = 128000 ∨ sr = 176400 ∨ sr = 192000 then some 5
-  else none
-
-/-- `sbr_offset[6][16]` (`aacsbrdata.h`). -/
-def sbrOffset : List (List Int) :=
-  [[-8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7],
-   [-5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 9, 11, 13],
-   [-5, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 9, 11, 13, 16],
-   [-6, -4, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 9, 11, 13, 16],
-   [-4, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 9, 11, 13, 16, 20],
-   [-2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 9, 11, 13, 16, 20, 24]]
-
-/-- `k[0] = start_min + sbr_offset_ptr[bs_start_freq]` (l.308-318). -/
-def k0Of (sr : Int) (row start : Nat) : Int :=
-  let temp : Int := if sr < 32000 then 3000 else if sr < 64000 then 4000 else 5000
-  (temp * 128 + sr / 2) / sr + (sbrOffset.getD row []).getD start 0
-
-/-- The supported rates. -/
-def rates : List Int :=
-  [16000, 22050, 24000, 32000, 44100, 48000, 64000, 88200, 96000, 128000, 176400, 192000]
 
 theorem rateRow_mem {sr : Int} {row : Nat} (h : rateRow sr = some row) : sr ∈ rates := by
   apply Classical.byContradiction; intro hn
@@ -967,11 +938,6 @@ inductive Reset (sp : Spec) (lb : Nat) (x : Args) : Args → Prop
 
 /-! ### The tables preserve the invariant -/
 
-/-- The unconditional numeric clauses of `SbrWF`. -/
-def Scal (x : Args) : Prop :=
-  x.kx0 ≤ 32 ∧ x.kx1 ≤ 32 ∧ x.kx0 + x.m0 ≤ 64 ∧ x.kx1 + x.m1 ≤ 64 ∧ x.m1 ≤ 48 ∧ x.k0 ≤ 32
-  ∧ x.limGains ≤ 3 ∧ x.n0 ≤ 24 ∧ x.n1 ≤ 48 ∧ x.nq ≤ 5 ∧ x.nlim ≤ 29 ∧ x.npatch ≤ 6
-
 /-- The fields the table code leaves alone (up to `f_indexnoise`). -/
 def TFrame (x y : Args) : Prop :=
   y.kx0 = x.kx0 ∧ y.m0 = x.m0 ∧ y.limGains = x.limGains ∧ y.start = x.start ∧ y.idAac = x.idAac
@@ -1228,29 +1194,6 @@ The state of the model is `Args` plus `Hid`, the bytes of the decoder state outs
 decide which paths are taken: `spectrum_params.bs_start_freq`, `bs_xover_band` and
 `bs_limiter_bands`. The other fields of `SpectrumParameters` only feed the abstracted band
 computation (`Master`) or the change test of the header, which the model makes a free choice. -/
-
-/-- `spectrum_params.bs_start_freq`, `spectrum_params.bs_xover_band`, `bs_limiter_bands`. -/
-structure Hid where
-  start : Nat
-  xover : Nat
-  lb : Nat
-
-/-- `sbr_turnoff` sets `spectrum_params` to all ones (l.67). -/
-def Hid.turnoff (h : Hid) : Hid := { h with start := 255, xover := 255 }
-
-/-- The model's state. -/
-abbrev St := Args × Hid
-
-/-- `sbr_turnoff` (l.58-68) on the model's state. -/
-def stOff (s : St) : St := (s.1.turnoff, s.2.turnoff)
-
-/-- **I1**, a modelling device: while `start = 0`, `spectrum_params.bs_start_freq` is `0xFF`.
-It is a fact about hidden state, so `ModelStep` quantifies the hidden state existentially under
-it; this is sound only because the real decoder maintains I1: `sbr_turnoff` sets the byte to
-`0xFF` (l.67) together with `start = 0` (l.61), at init too (l.87); `start = 1` is set only by a
-header (l.197, l.1259), and each header writes the byte (l.207, l.1188) with a 4-bit value; no
-other code writes `start` or the byte. -/
-def I1 (x : Args) (h : Hid) : Prop := x.start = 0 → h.start = 255
 
 /-- **I2**: a started decoder has `n[0] ≥ 1` and `num_patches ≥ 1`. -/
 def Inv2 (x : Args) : Prop := x.start ≠ 0 → 1 ≤ x.n0 ∧ 1 ≤ x.npatch
@@ -1762,19 +1705,6 @@ def ModelStep (x x' : Args) : Prop :=
   x' = x ∨ ∃ h m h', I1 x h ∧ Star Call (x, h) m ∧ Final m (x', h')
 
 /-! ## The invariant through the calls -/
-
-/-- The invariant between calls, on `Args`: `SbrWF` without the live clauses, the started
-decoder's tables with I2, and `GridInv`. -/
-def AI (x : Args) : Prop :=
-  Scal x ∧ (x.start ≠ 0 → TabWF x ∧ 1 ≤ x.n0 ∧ 1 ≤ x.npatch) ∧ DWF False x.d0
-  ∧ DWF False x.d1 ∧ PsWF x.psc x.psh ∧ GridInv x
-
-/-- The invariant between calls on the model's state: `AI` and I1. -/
-def MI (s : St) : Prop := AI s.1 ∧ I1 s.1 s.2
-
-/-- The live clauses of `SbrWF`, which the last call establishes. -/
-def LiveC (x : Args) : Prop :=
-  (x.start ≠ 0 → Live x.d0) ∧ (x.start ≠ 0 ∧ x.idAac = 1 → Live x.d1)
 
 theorem clrNoise_te (v : DV) : (clrNoise v).te = v.te := by unfold clrNoise; rfl
 theorem clrNoise_nenv (v : DV) : (clrNoise v).nenv = v.nenv := by unfold clrNoise; rfl

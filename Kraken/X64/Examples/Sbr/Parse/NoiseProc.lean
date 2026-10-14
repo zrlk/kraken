@@ -91,11 +91,11 @@ structure NoiseOpen (k : Nat) (Ext : Mem 64 → Prop) : Prop where
   done : True
 
 /-- `read_sbr_noise` meets `NoiseSpec`, given the open obligations. -/
-theorem spec (hpl : Program.PlacedIn body) (k : Nat) (hk : k ≤ 2 ^ 32) (Ext : Mem 64 → Prop)
+theorem spec (hpl : Program.PlacedIn body) (k : Nat) (_hk : k ≤ 2 ^ 32) (Ext : Mem 64 → Prop)
     (hAv : AvLogSpec Ext k) (hO : NoiseOpen k Ext) : NoiseSpec k Ext := by
-  refine Kraken.Executable.ProcSpec.of_cfg_post (p := body) (table k Ext) (Post' k Ext) var
-    (hblocks := ?_) (hpre := (noise_pre k Ext)) (hpost := (noise_post k hk Ext))
-  intro x ra t₀ l blk hblk
+  refine Kraken.Executable.ProcSpec.of_cfg_post_pre (p := body) (table k Ext) (Post' k Ext)
+    var (hblocks := ?_) (hpre := (noise_pre k Ext)) (hpost := (noise_post k Ext))
+  intro x ra t₀ _ l blk hblk
   have hl := Program.blockAt_mem_labels hblk
   rw [labels_body] at hl
   simp only [noiseLabels, List.mem_cons, List.not_mem_nil, or_false] at hl

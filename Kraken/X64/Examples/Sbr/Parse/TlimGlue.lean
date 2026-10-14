@@ -39,12 +39,14 @@ theorem frame_eq (r : BitVec 64) :
 
 variable [CodeEnv]
 
-theorem pre_glue {k : Nat} (hk : k ≤ 2 ^ 32) {x : TArgs} {ra : Int64} {t : MachineData}
+theorem pre_glue {k : Nat} {x : TArgs} {ra : Int64} {t : MachineData}
     (h : CallPre (tlimNeed k) (TlimF x.lb x.a t ⋆ x.R) ra t) :
     ∃ stk pb, stk.length = 1024 ∧ pb.length = 14
       ∧ (t.dmem =⋆ T k x ra t (BlankS (rS t)) (st0 x stk pb)) := by
+  have hr : 0x450 ≤ (t.regs.get64 .rsp).toNat := by
+    have := CallPre.le h; unfold tlimNeed at this; omega
   simp only [CallPre, tlimNeed] at h
-  rw [Reserve_split 0x450 k _ (by omega)] at h
+  rw [Reserve_split 0x450 k _ hr] at h
   have e : t.regs.get64 .rsp - BitVec.ofNat 64 0x450 = t.regs.get64 .rsp - 0x450#64 := rfl
   rw [e, frame_eq] at h
   have h1 := Mem.ac h (H₂ := 1024 ?@ (t.regs.get64 .rsp - 0x448#64) ⋆ (14 ?@ (t.regs.get64 .rsp - 0x36#64)
@@ -71,8 +73,11 @@ theorem fv {m : Mem 64} {bs : List UInt8} {a : BitVec 64} {F G : Mem 64 → Prop
   have := Block.sep_intro rfl hw h
   rwa [Std.ExtHashMap.sep_comm_l] at this
 
-theorem post_glue {k : Nat} (hk : k ≤ 2 ^ 32) {x : TArgs} {ra : Int64} {t₀ s : MachineData}
+theorem post_glue {k : Nat} {x : TArgs} {ra : Int64} {t₀ s : MachineData}
+    (hc : CallPre (tlimNeed k) (TlimF x.lb x.a t₀ ⋆ x.R) ra t₀)
     (h : Post' k x ra t₀ s) : TlimPost k x ra t₀ s := by
+  have hr : 0x450 ≤ (t₀.regs.get64 .rsp).toNat := by
+    have := CallPre.le hc; unfold tlimNeed at this; omega
   obtain ⟨y, stk, pb, hT, hy, ⟨hfl, hs, hp⟩, hsp, hbp, hsv, hm⟩ := h
   refine ⟨y, hT, hsp, hbp, hsv, ?_⟩
   simp only at hfl hs hp
@@ -92,7 +97,7 @@ theorem post_glue {k : Nat} (hk : k ≤ 2 ^ 32) {x : TArgs} {ra : Int64} {t₀ s
     (fv (by omega) (fv (by omega) h1))))))
   simp only [Int.toBytes_length, hs, hp] at h8
   simp only [tlimNeed]
-  rw [Reserve_split 0x450 k _ (by omega)]
+  rw [Reserve_split 0x450 k _ hr]
   have e : t₀.regs.get64 .rsp - BitVec.ofNat 64 0x450 = t₀.regs.get64 .rsp - 0x450#64 := rfl
   rw [e, frame_eq]
   exact Mem.ac h8 (by simp only [Junk]; ac_rfl)

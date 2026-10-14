@@ -123,19 +123,34 @@ abbrev Rs (t₀ s : MachineData) : Prop :=
   ∧ s.regs.get64 .r14 = (idOf t₀).setWidth 64 ∧ s.regs.get64 .r15 = arg1 t₀
   ∧ s.regs.get64 .r12 = t₀.regs.get64 .r12 ∧ s.regs.get64 .r13 = t₀.regs.get64 .r13
 
+/-- After the first `av_tx_init` failed: `*che = p`, the element with the cells `evPre`, `*ctx`
+and `*tx` of `sbr->mdct` the bytes `bc`, `bf`. -/
+abbrev BF1 (t₀ : MachineData) (p : BitVec 64) (bc bf : List UInt8) : Mem 64 → Prop :=
+  c8 (arg1 t₀) p ⋆ ElemS p { evPre (idOf t₀) p with synC := bc, synF := bf }
+
+/-- After the second failed: also the first context `c` and function `f`. -/
+abbrev BF2 (Ctx : BitVec 64 → Mem 64 → Prop) (t₀ : MachineData) (p c : BitVec 64) (f : Int64)
+    (bc bf : List UInt8) : Mem 64 → Prop :=
+  c8 (arg1 t₀) p ⋆ (ElemS p
+    { evPre (idOf t₀) p with synC := Int.toBytes 8 c.toInt, synF := fb f, anaC := bc, anaF := bf }
+    ⋆ Ctx c)
+
 /-- The contracts of the two `av_tx` functions (`sbr->mdct_fn` `f`, `sbr->mdct_ana_fn` `f'`). -/
 abbrev TF (k : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab : Mem 64 → Prop) (f f' : Int64) :
     Prop :=
   TxSpec Ctx TxTab k f ∧ TxSpec Ctx TxTab k f'
 
-/-- The three outcomes with the result `ret`, the memory `Mk B` around the body `B`. -/
+/-- The four outcomes with the result `ret`, the memory `Mk B` around the body `B`. -/
 def Out (k : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab : Mem 64 → Prop) (t₀ : MachineData)
     (Mk : (Mem 64 → Prop) → Mem 64 → Prop) (ret : BitVec 32) (m : Mem 64) : Prop :=
   (ret = 0#32 ∧ ∃ r : IR, r.psd.length = 64 ∧ DspSlotsOK r.sl
     ∧ TxSpec Ctx TxTab k r.anaFn ∧ TxSpec Ctx TxTab k r.synFn
     ∧ (m =⋆ Mk (InitOK Ctx (arg1 t₀) (idOf t₀) r)))
   ∨ (ret = 0xfffffff4#32 ∧ (m =⋆ Mk (8 ?@ arg1 t₀)))
-  ∨ (ret.toInt < 0 ∧ ∃ (p : BitVec 64) (J : Mem 64 → Prop), (m =⋆ Mk (c8 (arg1 t₀) p ⋆ J)))
+  ∨ (ret.toInt < 0 ∧ ∃ (p : BitVec 64) (bc bf : List UInt8), bc.length = 8 ∧ bf.length = 8
+    ∧ (m =⋆ Mk (BF1 t₀ p bc bf)))
+  ∨ (ret.toInt < 0 ∧ ∃ (p c : BitVec 64) (f : Int64) (bc bf : List UInt8), bc.length = 8
+    ∧ bf.length = 8 ∧ (m =⋆ Mk (BF2 Ctx t₀ p c f bc bf)))
 
 abbrev eax (s : MachineData) : BitVec 32 := (s.regs.get64 .rax).setWidth 32
 
@@ -173,14 +188,16 @@ abbrev table (k : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab X R : Mem 64
   | "ff_aac_sbr_ctx_alloc_init.Le1", s => Rs t₀ s
       ∧ ((0 ≤ (eax s).toInt ∧ ∃ c f, TxSpec Ctx TxTab k f
           ∧ (s.dmem =⋆ M k TxTab X R ra t₀ (BE1 Ctx t₀ (rbx s) (evS (rbx s) (idOf t₀) c f) c)))
-        ∨ ((eax s).toInt < 0 ∧ ∃ J, (s.dmem =⋆ M k TxTab X R ra t₀ (c8 (arg1 t₀) (rbx s) ⋆ J))))
+        ∨ ((eax s).toInt < 0 ∧ ∃ bc bf : List UInt8, bc.length = 8 ∧ bf.length = 8
+          ∧ (s.dmem =⋆ M k TxTab X R ra t₀ (BF1 t₀ (rbx s) bc bf))))
   | "ff_aac_sbr_ctx_alloc_init.Le9", s => Rs t₀ s ∧ ∃ c f, TxSpec Ctx TxTab k f
       ∧ (s.dmem =⋆ M k TxTab X R ra t₀ (BE1 Ctx t₀ (rbx s) (evS (rbx s) (idOf t₀) c f) c))
   | "ff_aac_sbr_ctx_alloc_init.L11f", s => Rs t₀ s
       ∧ ((0 ≤ (eax s).toInt ∧ ∃ c f c' f', TF k Ctx TxTab f f'
           ∧ (s.dmem =⋆ M k TxTab X R ra t₀
             (BE2 Ctx t₀ (rbx s) (evT (rbx s) (idOf t₀) c f c' f') c c')))
-        ∨ ((eax s).toInt < 0 ∧ ∃ J, (s.dmem =⋆ M k TxTab X R ra t₀ (c8 (arg1 t₀) (rbx s) ⋆ J))))
+        ∨ ((eax s).toInt < 0 ∧ ∃ (c : BitVec 64) (f : Int64) (bc bf : List UInt8), bc.length = 8
+          ∧ bf.length = 8 ∧ (s.dmem =⋆ M k TxTab X R ra t₀ (BF2 Ctx t₀ (rbx s) c f bc bf))))
   | "ff_aac_sbr_ctx_alloc_init.L123", s => Rs t₀ s ∧ ∃ c f c' f', TF k Ctx TxTab f f'
       ∧ (s.dmem =⋆ M k TxTab X R ra t₀
         (BE2 Ctx t₀ (rbx s) (evT (rbx s) (idOf t₀) c f c' f') c c'))

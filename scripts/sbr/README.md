@@ -24,19 +24,25 @@ Run it from anywhere inside the repository; everything is resolved from the repo
 | a2 | `tv/a2_discipline.py`, the row-crossing discipline: `HfAssemble.lean` (with `HfAssemble/*.lean`) crosses a row of `Y` only through `a2_row_spill` |
 | heartbeats | `hbscan.py`: the generated per-block `maxHeartbeats` of the Apply shards equal `baseline/hb_table.txt`; no other `maxHeartbeats`/`maxRecDepth` option beyond `baseline/hb_baseline.txt` |
 | srcscan | `srcscan.py`: no `sorry`, `admit`, `axiom`, `native_decide`, `bv_decide`, and none of the kernel-bypassing `debug.*` options (e.g. `debug.skipKernelTC`), `implemented_by`, `@[extern]`, `unsafe`, in `Kraken/X64/Examples/Sbr/`; elsewhere in `Kraken/` nothing beyond `baseline/srcscan_baseline.txt` (19 upstream uses, one an `unsafe def` in `Eval.lean`). `closure.py` prints which of those files the proof imports (`Rules/IntMisc.lean`, `Specs.lean`; the axioms step shows none of their `bv_decide` lemmas is used) |
-| regen | `apply/check_regen.sh` and `hfasm/check_regen.sh`: the generators regenerate `ApplyTable.lean`, `Apply.lean`, `Apply/*.lean`, and `HfAssemble.lean`, `HfAssemble/{Base,Part1,Part2}.lean`, into a scratch directory; they must equal the checked-in files byte for byte (no Lean run) |
-| tcb | `Tcb.lean`: the trusted closure of the final theorem, i.e. every declaration reachable from its statement through statements and definition bodies but not proofs, with its source lines per module, and a fingerprint of the closure's names, types and bodies. The fingerprint must equal `baseline/tcb_fingerprint.txt`. It changes exactly when the specification, the machine model or a program text changes; review such a change, then re-record the line printed as `FINGERPRINT` |
+| regen | `apply/check_regen.sh` and `hfasm/check_regen.sh`: the generators regenerate `ApplyText.lean`, `ApplyTable.lean`, `Apply.lean`, `Apply/*.lean`, and `HfAssemble.lean`, `HfAssemble/{Base,Part1,Part2}.lean`, into a scratch directory; they must equal the checked-in files byte for byte (no Lean run) |
+| spec | `SpecCheck.lean`: every declaration of the two trusted closures that is neither the machine model (`Kraken.*` outside `Kraken.X64.Examples`, and Lean) nor a program text is defined in `SessionSpec.lean` or `SessionSpecData.lean`; the modules holding the program texts import (transitively) only the machine model and other text modules; `SessionSpec`/`SessionSpecData` import only those. Also `spec_text.py`: `parse/init/foot.py --spec` (the generated `EV`, `ElemS`) must appear verbatim in `SessionSpec.lean`, and the statement of `sbr_session_safe` quoted in its module docstring must equal the one in `SessionBin/Top.lean` (up to `:=`, whitespace-normalized) |
+| tcb | `Tcb.lean`: the trusted closures of the two final theorems, `ff_aac_sbr_apply_linked` and `SessionBin.sbr_session_safe`, i.e. every declaration reachable from a statement through statements and definition bodies but not proofs, with its source lines per module, and a fingerprint of each closure's names, types and bodies. The fingerprints must equal `baseline/tcb_fingerprint.txt` (`FINGERPRINT`) and `baseline/tcb_fingerprint_session.txt` (`FINGERPRINT_SESSION`). They change exactly when the specification, the machine model or a program text changes; review such a change, then re-record the printed line |
 
 ## What to review
 
 The kernel checks every proof; what it cannot check is what the statement means. A
 reviewer reads the trusted closure (`tcb` step), not the proofs:
 
-- the specification: `Spec.lean` (callee contracts), `ApplySpec.lean` (`ApplySpec`,
-  `ApplyPre`, `ApplyF`, `SbrWF`, `LayoutC`, `CstW`, `KeepD`, `KeepT`; hand-written, definitions
-  only),
-  `Link.lean` (the final statement, `SbrPlaced`, `SbrSlots`, `SbrAssumed`), the `Dsp.lean` /
-  `FloatDsp.lean` slot specifications;
+- the specification: `SessionSpec.lean`, with the Huffman tables in `SessionSpecData.lean`.
+  It holds every definition the two final statements depend on other than the machine model and
+  the program texts, in dependency order, one section per proof module (callee contracts,
+  `ApplySpec`, the placement and slot facts, the session vocabulary `Live`/`Ready`/`AcFields`,
+  the models, the parser contracts, and the parts of `sbr_session_safe`); its module docstring
+  has a table of contents. It imports only the machine model, the program texts (the
+  `…Text.lean` modules, `ApplyText.lean`, `Parse/ResetBlocks.lean`, which import only the parser
+  and the machine model) and `SessionSpecData`; the `spec` step checks all of this. The final
+  statements are in `Link.lean` (`ff_aac_sbr_apply_linked`) and `SessionBin/Top.lean`
+  (`sbr_session_safe`);
 - the machine model this work added to: `Kraken/X64/Semantics.lean`, `Syntax.lean`;
 - not the program texts themselves but the checker that matches them to the objects:
   `tv/tv.py`, `tv/tv_data.py`, `tv/tv.sh`, `tv/Export.lean`, `tv/Fresh.lean`,
@@ -65,9 +71,10 @@ Block proofs, label tables and entry assertions, helper lemmas, the generated `A
 
 | variable | |
 |---|---|
-| `SBR_OBJ_DIR` | required: directory with `aacsbr.rela.o`, `aacsbr.pic.o`, `aacsbr.g.o`, `sbrdsp.o`, `float_dsp.o` (hashes in `baseline/objects.sha256`) |
+| `SBR_OBJ_DIR` | required: directory with `aacsbr.rela.o`, `aacsbr.pic.o`, `aacsbr.g.o`, `aacps_common.rela.o`, `aacps_common.pic.o`, `aacps_common.g.o`, `log2_tab.g.o`, `sbrdsp.o`, `float_dsp.o` (hashes in `baseline/objects.sha256`) |
 | `LLVM_BIN` | directory of `llvm-objdump`, `llvm-objcopy`, `llvm-mc`, `llvm-readelf` (LLVM 21 was used); default: from `PATH` |
 | `SBR_CAP_CMD` | optional command prefix for every `lake`/`lean` call, e.g. a memory cap. Without it lean runs uncapped. The largest module (`Apply.GainAsm`) peaks at about 9.5 GB, so modules must be built one at a time (`ci.sh` does); a plain parallel `lake build` of the Apply shards runs out of memory on ordinary machines |
+| `SBR_FFMPEG_SRC`, `SBR_FFMPEG_INC` | optional: the FFmpeg n8.1 source tree (and extra include directories, space-separated) for the tv check of the Huffman tables `SessionSpecData.lean` (`vlc/gen.py --check`); without it that check is skipped and says so |
 | `SBR_OUT` | scratch and output, default `.lake/sbr-ci` |
 | `SBR_SKIP_BUILD=1` | skip the build step (the tv step still refuses stale oleans) |
 
@@ -81,12 +88,19 @@ FFmpeg n8_1, built with clang at `-O3 -mavx -msse4.2 -fPIC -mcmodel=medium
 - `aacsbr.rela.o`: the same object merged into one `.text` (`ld -r`), the addresses the
   Lean texts are named after (`ff_aac_sbr_apply.L66e0` …);
 - `aacsbr.g.o`: the same compilation with debug information (DWARF);
+- `aacps_common.pic.o`, `aacps_common.rela.o`, `aacps_common.g.o`: the same three for
+  `libavcodec/aacps_common.c` (`ff_ps_read_data`, which `aacsbr.o` calls);
+- `log2_tab.g.o`: `libavutil/log2_tab.c` of the same build, with debug information
+  (`ff_log2_tab`, which `ff_ps_read_data` reads through the GOT);
 - `sbrdsp.o`: `libavcodec/x86/sbrdsp.asm`, assembled with NASM for x86-64;
 - `float_dsp.o`: `libavutil/x86/float_dsp.asm`, assembled with NASM 3.01 from the
   FFmpeg source root: `nasm -f elf64 -DPIC -g -F dwarf -I./ -P./config.asm
   libavutil/x86/float_dsp.asm -o float_dsp.o`.
 
-`tv_data.py` checks that the six C procedures are identical in the three `aacsbr` objects.
+`tv_data.py` checks that the C procedures tv compares (apply's six and the session's twelve in
+`aacsbr`, `ff_ps_read_data` in `aacps_common`) are identical in the three objects of each, and (part D) that every constant
+byte list the two top theorems place at a label (printed from their elaborated closures by
+`tv/ExportData.lean`) equals the object's bytes there.
 
 ## Expected output
 
@@ -105,7 +119,7 @@ tcb         ok
 ci: exit 0
 ```
 
-`tv` prints one line per program (18 programs, `findings=0 link=0`), `mutation m1` … `m8:
+`tv` prints one line per program (39 programs, `findings=0 link=0`), `mutation m1` … `m12:
 caught`, and `tv: exit 0`. Exit status 1 means a check failed; 2 means a setup problem
 (objects missing or different, stale oleans).
 

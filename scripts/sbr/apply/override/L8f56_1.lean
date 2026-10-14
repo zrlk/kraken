@@ -1,5 +1,5 @@
 theorem blk_L8f56_1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L8f56_1" ⟨"ff_aac_sbr_apply.L8f56_1", B.L8f56_1, some "ff_aac_sbr_apply.L8f56_2"⟩ := by
   obtain ⟨-, hSS, -⟩ := hc
   intro n
@@ -28,9 +28,9 @@ theorem blk_L8f56_1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
     have hPc : s₀.regs.get64 .r12 = P := by rw [hr12, ← hP]
     have hNc := envb_cnt (BitVec.ofNat 64 (2 * (((y.d ch).te.getD 6 0).toNat - ((y.d ch).te.getD 5 0).toNat))) _ rfl (by omega)
     rw [hN] at hNc
-    rw [Block.carve hin (by decide), call_res k hk] at hm
+    rw [Block.carve hin (by decide), call_res k hSt] at hm
     simp only [BitVec.sub_sub_ofNat, Nat.reduceAdd] at hm
-    rw [Reserve.excess 0 k _ (Nat.zero_le _) (by omega)] at hm
+    rw [res_k0 hSt] at hm
     have hP' := PLift.up hP
     have hN' := PLift.up hN
     have hPc' := PLift.up hPc
@@ -108,9 +108,9 @@ theorem blk_L8f56_1 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k
         · rw [hsbx]; try simp only [Reg64s.get64_set64, reduceCtorEq, ite_true, ite_false, hrbx]
         · rw [hs12]; (try simp only [Reg64s.get64_set64, reduceCtorEq, ite_true, ite_false, arg1, sbrA, u8, BitVec.add_assoc, BitVec.reduceAdd]); first | exact hP'.down.symm | exact hPc'.down.trans hP'.down.symm | rfl
         simp only [Mm, ApplyF, ArrW, DspW, ScW, c4, sbrA, Blocks, arg1, BitVec.add_assoc, BitVec.reduceAdd]
-        rw [Block.carve hin (by decide), call_res k hk]
+        rw [Block.carve hin (by decide), call_res k hSt]
         simp only [BitVec.sub_sub_ofNat, Nat.reduceAdd]
-        rw [Reserve.excess 0 k _ (Nat.zero_le _) (by omega)]
+        rw [res_k0 hSt]
         sep_close hm'
   · dsimp only
     simp only [B.L8f56_1]

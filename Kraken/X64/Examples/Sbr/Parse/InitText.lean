@@ -1,5 +1,4 @@
-import Kraken.X64.Examples.Sbr.Parse.Lib
-import Kraken.X64.Examples.Sbr.ApplySpec
+import Kraken.X64.Parser
 
 /-!
 # `ff_aac_sbr_ctx_alloc_init`: the program text
@@ -14,7 +13,7 @@ block). `ff_ps_ctx_init` (`aacps.h`) and `aacsbr_func_ptr_init` are inlined; `sb
 store).
 -/
 
-open Kraken Kraken.SysV Mem Kraken.X64.Parser Std.WP MachineWP
+open Kraken Kraken.X64.Parser
 
 set_option mvcgen.warning false
 set_option grind.warning false

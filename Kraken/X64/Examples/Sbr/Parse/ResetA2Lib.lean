@@ -155,7 +155,7 @@ theorem a2_k0Of_nonneg {sr : Int} {row st : Nat} (hrow : rateRow sr = some row) 
 variable [CodeEnv]
 
 theorem a2_bands_of {e : REnv} {a : RArgs} {t₀ : MachineData} {row k2 : Nat} (hB : BandsOK e.lg e.pw)
-    (hC : ResetC a t₀) (hrow : rateRow (srI a) = some row) (hk2 : k2 ≤ 64) (hk02 : k0N a row ≤ k2)
+    (hC : ResetCI a t₀) (hrow : rateRow (srI a) = some row) (hk2 : k2 ≤ 64) (hk02 : k0N a row ≤ k2)
     (hkq : (k2 : Int) - k0A a row ≤ maxQ (srI a)) (hu : 1 ≤ u8 a.sp 3) :
     (0 < A2.n0I e a (k0N a row) k2 → A2.n0I e a (k0N a row) k2 ≤ 48
         ∧ BandsAt e.pw (k0N a row) (A2.k1Of (k0N a row) k2) (A2.n0N e a (k0N a row) k2))

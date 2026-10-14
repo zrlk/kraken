@@ -1,6 +1,4 @@
 import Kraken.X64.Parser
-import Kraken.MachineWP
-import Kraken.X64.Examples.Sbr.ApplySpec
 
 /-!
 # `sbr_make_f_tablelim`: the program text

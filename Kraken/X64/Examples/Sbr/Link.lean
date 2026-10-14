@@ -6,6 +6,7 @@ import Kraken.X64.Examples.Sbr.XGen
 import Kraken.X64.Examples.Sbr.HfInverseFilter
 import Kraken.X64.Examples.Sbr.HfAssemble
 import Kraken.X64.Examples.Sbr.QmfSynthesis
+import Kraken.X64.Examples.Sbr.SessionSpec
 
 /-!
 # `ff_aac_sbr_apply`: the cluster linked
@@ -37,80 +38,6 @@ variable [CodeEnv]
 
 /-- `abort`'s specification holds of any code: its precondition is `False`. -/
 theorem abortSpec_holds : AbortSpec := fun _ _ _ h => h.elim
-
-/-- Placement: the text of each of the six C procedures, of every
-`SBRDSPContext` routine (`SbrDspPlaced`) and of every `float_dsp` routine the
-slots may hold (`FloatDspPlaced`), sits in the ambient code
-(`Program.PlacedIn`: each block at its label, falling through to the next).
-
-Not proved. The evidence is `tv.sh`: it re-assembles each text at the object
-addresses and compares it with the objects (`aacsbr.o`, `sbrdsp.o`,
-`float_dsp.o`). It exits 0
-with no open link item. -/
-structure SbrPlaced : Prop where
-  apply : Program.PlacedIn Apply.body
-  lfGen : Program.PlacedIn LfGen.body
-  hfInv : Program.PlacedIn HfInverseFilter.body
-  xGen : Program.PlacedIn XGen.body
-  hfAsm : Program.PlacedIn HfAssemble.body
-  qmfSyn : Program.PlacedIn QmfSynthesis.body
-  dsp : SbrDspPlaced
-  fdsp : FloatDspPlaced
-
-/-- The slot contents. The `sbr->dsp` slots are set by `ff_sbrdsp_init_x86`
-(`libavcodec/x86/sbrdsp_init.c`). With SSE, SSE2 and SSE3 present they hold the
-routines below. `autocorrelate` is the SSE version, or the SSE3 version when
-the cpu has SSE3, so it is a disjunction. The `sbr->c` slots are set by
-`ff_aacsbr_func_ptr_init` (`libavcodec/aacsbr_template.c`) to the four C
-procedures. The three `float_dsp` slots `ff_aac_sbr_apply` calls are set by
-`ff_float_dsp_init_x86` (`libavutil/x86/float_dsp_init.c`): with SSE present
-and an x86 asm build, each holds one of its SSE/AVX/FMA3/AVX2 routines, by cpu
-flags, so each is a disjunction (the C fallbacks of `libavutil/float_dsp.c`
-are excluded by that premise, the same as for `sbr->dsp`). The `av_tx` and
-`mdct_ana` slots are not constrained: their contracts are assumed at whatever
-they hold (`SbrAssumed`). -/
-structure SbrSlots (e : Env) : Prop where
-  sum64x5 : e.fs.sum64x5 = entry "ff_sbr_sum64x5_sse"
-  sumSquare : e.fs.sumSquare = entry "ff_sbr_sum_square_sse"
-  preShuffle : e.fs.preShuffle = entry "ff_sbr_qmf_pre_shuffle_sse2"
-  postShuffle : e.fs.postShuffle = entry "ff_sbr_qmf_post_shuffle_sse"
-  hfGen : e.fs.hfGen = entry "ff_sbr_hf_gen_sse"
-  autocorr : e.fs.autocorr = entry "ff_sbr_autocorrelate_sse"
-    ∨ e.fs.autocorr = entry "ff_sbr_autocorrelate_sse3"
-  gfilt : e.fs.hfs.gfilt = entry "ff_sbr_hf_g_filt_sse"
-  noise0 : e.fs.hfs.noise0 = entry "ff_sbr_hf_apply_noise_0_sse2"
-  noise1 : e.fs.hfs.noise1 = entry "ff_sbr_hf_apply_noise_1_sse2"
-  noise2 : e.fs.hfs.noise2 = entry "ff_sbr_hf_apply_noise_2_sse2"
-  noise3 : e.fs.hfs.noise3 = entry "ff_sbr_hf_apply_noise_3_sse2"
-  negOdd64 : e.fs.qfs.negOdd64 = entry "ff_sbr_neg_odd_64_sse"
-  deintNeg : e.fs.qfs.deintNeg = entry "ff_sbr_qmf_deint_neg_sse"
-  deintBfly : e.fs.qfs.deintBfly = entry "ff_sbr_qmf_deint_bfly_sse2"
-  lfGen : e.fs.lfGen = entry "sbr_lf_gen"
-  hfInv : e.fs.hfInv = entry "sbr_hf_inverse_filter"
-  hfAsm : e.fs.hfAsm = entry "sbr_hf_assemble"
-  xGen : e.fs.xGen = entry "sbr_x_gen"
-  fmul : e.fs.qfs.fmul = entry "ff_vector_fmul_sse" ∨ e.fs.qfs.fmul = entry "ff_vector_fmul_avx"
-  fmulAdd : e.fs.qfs.fmulAdd = entry "ff_vector_fmul_add_sse"
-    ∨ e.fs.qfs.fmulAdd = entry "ff_vector_fmul_add_avx"
-    ∨ e.fs.qfs.fmulAdd = entry "ff_vector_fmul_add_fma3"
-  fmulRev : e.fs.fmulRev = entry "ff_vector_fmul_reverse_sse"
-    ∨ e.fs.fmulRev = entry "ff_vector_fmul_reverse_avx"
-    ∨ e.fs.fmulRev = entry "ff_vector_fmul_reverse_avx2"
-
-/-- The assumed contracts (trusted, not proved, and not witnessed: nothing here
-shows they are jointly satisfiable by real code). These are the callees outside
-the cluster, with `k` bytes of stack:
-`ff_ps_apply` given `PsWF`, `top ≤ 64` and 16-alignment; the two `av_tx` calls
-(`mdct_ana_fn` and synthesis' `mdct_fn`) with their tables `TxTab`; `memcpy`,
-`memset`, `av_log`. (The `float_dsp` contracts are no longer assumed: they are
-proved of the routines `SbrSlots` allows, `FloatDsp.lean`.) -/
-structure SbrAssumed (k : Nat) (e : Env) : Prop where
-  psApply : PsApplySpec e.PsTab k
-  txAna : TxSpec e.Ctx e.TxTab k e.fs.mdctAna
-  txSyn : TxSpec e.Ctx e.TxTab k e.fs.qfs.tx
-  memcpy : MemcpySpec k
-  memset : MemsetSpec k
-  avLog : AvLogSpec e.Ext k
 
 /-- The callees of `ff_aac_sbr_apply`, from the proofs of the cluster and the
 three hypotheses. -/

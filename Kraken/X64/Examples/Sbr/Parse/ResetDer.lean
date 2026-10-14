@@ -257,7 +257,7 @@ theorem Mx_call_cp (k : Nat) (e : REnv) (a : RArgs) (ra : Int64) (t₀ : Machine
 
 theorem Mm_cp (k : Nat) (e : REnv) (a : RArgs) (ra : Int64) (t₀ : MachineData) (st : St)
     (fr : List UInt8) {o n : Nat} (hfm : st.fm.length = 98) (hfh : st.x.ftHigh.length = 98)
-    (h : o + n ≤ 98) (hd : 8 + tlimNeed k ≤ 2 ^ 64) :
+    (h : o + n ≤ 98) (hd : 8 + tlimNeed k ≤ (t₀.regs.get64 .rsp - 0x578#64).toNat) :
     Mm k e a ra t₀ st fr = 8 ?@ (t₀.regs.get64 .rsp - 0x578#64 - 8#64)
       ⋆ (Reserve k (t₀.regs.get64 .rsp - 0x578#64 - 8#64)
         ⋆ ((slice st.fm o n =@ (arg1 t₀ + 0x4c1f0#64 + BitVec.ofNat 64 o)
@@ -270,7 +270,8 @@ theorem Mm_cp (k : Nat) (e : REnv) (a : RArgs) (ra : Int64) (t₀ : MachineData)
 /-- After the copy: `f_tablehigh` starts with the copied bytes. -/
 theorem Mm_cp_post {m : Mem 64} (k : Nat) (e : REnv) (a : RArgs) (ra : Int64) (t₀ : MachineData)
     (st : St) (fr : List UInt8) {o n : Nat} (hfm : st.fm.length = 98)
-    (hfh : st.x.ftHigh.length = 98) (h : o + n ≤ 98) (hd : 8 + tlimNeed k ≤ 2 ^ 64)
+    (hfh : st.x.ftHigh.length = 98) (h : o + n ≤ 98)
+    (hd : 8 + tlimNeed k ≤ (t₀.regs.get64 .rsp - 0x578#64).toNat)
     (hm : m =⋆ 8 ?@ (t₀.regs.get64 .rsp - 0x578#64 - 8#64)
       ⋆ (Reserve k (t₀.regs.get64 .rsp - 0x578#64 - 8#64)
         ⋆ ((slice st.fm o n =@ (arg1 t₀ + 0x4c1f0#64 + BitVec.ofNat 64 o)

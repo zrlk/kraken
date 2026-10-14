@@ -127,7 +127,7 @@ abbrev RdB (X : XA) (gi ih : BitVec 32) : Prop :=
 /-- In the prologue: values `d`, the readers within bounds. -/
 abbrev P0 (PI : List UInt8 → Prop) (kc : Nat) (Ext : Mem 64 → Prop) (X : XA) (ra : Int64)
     (t₀ s : MachineData) (d : DS) : Prop :=
-  DecC PI X t₀ ∧ R0 t₀ s ∧ ∃ gi ih, RdB X gi ih ∧ Mm0 kc Ext X ra t₀ s gi d ih
+  DecCI PI X t₀ ∧ R0 t₀ s ∧ ∃ gi ih, RdB X gi ih ∧ Mm0 kc Ext X ra t₀ s gi d ih
 
 /-- The values' invariant after the header: `HI`, `DS.si`, the header's field
 widths while a reset is pending (`sbr_reset`'s `ResetC`). -/
@@ -150,7 +150,7 @@ def TInv (PI : List UInt8 → Prop) (X : XA) (d : DS) : Prop :=
 /-- Between the header and `read_sbr_data` (`rbx = sbr`, `r12 = ac`, `r13 = id_aac`). -/
 abbrev PH (PI : List UInt8 → Prop) (kc : Nat) (Ext : Mem 64 → Prop) (X : XA) (ra : Int64)
     (t₀ s : MachineData) (I : DS → Prop) : Prop :=
-  DecC PI X t₀ ∧ Fr t₀ s ∧ s.regs.get64 .rbx = sbrA t₀ ∧ s.regs.get64 .r12 = arg0 t₀
+  DecCI PI X t₀ ∧ Fr t₀ s ∧ s.regs.get64 .rbx = sbrA t₀ ∧ s.regs.get64 .r12 = arg0 t₀
   ∧ s.regs.get64 .r13 = idZ t₀
   ∧ ∃ gi d ih, I d ∧ RdB X gi ih ∧ Mm0 kc Ext X ra t₀ s gi d ih
 
@@ -158,7 +158,7 @@ abbrev PH (PI : List UInt8 → Prop) (kc : Nat) (Ext : Mem 64 → Prop) (X : XA)
 the locals `LocE`. -/
 abbrev PX (PI : List UInt8 → Prop) (kc : Nat) (Ext : Mem 64 → Prop) (X : XA) (ra : Int64)
     (t₀ s : MachineData) (I : DS → Prop) : Prop :=
-  DecC PI X t₀ ∧ Fr t₀ s ∧ s.regs.get64 .r12 = arg0 t₀
+  DecCI PI X t₀ ∧ Fr t₀ s ∧ s.regs.get64 .r12 = arg0 t₀
   ∧ ∃ d ih, I d ∧ ih.toNat ≤ X.r.p8.toNat
     ∧ (s.dmem =⋆ T kc Ext X ra t₀ (Saved t₀) (LocE t₀) d ih)
 
@@ -176,7 +176,7 @@ def SInv (PI : List UInt8 → Prop) (X : XA) (t₀ : MachineData) (d : DS) : Pro
 with index `gi`): the values `d` with `I i0 gi d`, the readers within bounds. -/
 abbrev PD (PI : List UInt8 → Prop) (kc : Nat) (Ext : Mem 64 → Prop) (X : XA) (ra : Int64)
     (t₀ s : MachineData) (I : BitVec 64 → BitVec 32 → DS → Prop) : Prop :=
-  DecC PI X t₀ ∧ Fr t₀ s
+  DecCI PI X t₀ ∧ Fr t₀ s
   ∧ ∃ i0 gi d ih, I i0 gi d ∧ RdB X gi ih
     ∧ (s.dmem =⋆ T kc Ext X ra t₀ (Saved t₀) (LocW X t₀ i0 gi) d ih)
 
@@ -418,16 +418,16 @@ def tableE (PI : List UInt8 → Prop) (kc : Nat) (Ext : Mem 64 → Prop) (X : XA
 
 abbrev table (PI : List UInt8 → Prop) (kc : Nat) (Ext : Mem 64 → Prop) (X : XA) (ra : Int64)
     (t₀ : MachineData) : Label → MachineData → Prop
-  | "ff_aac_sbr_decode_extension", s => s = t₀ ∧ DecC PI X t₀
+  | "ff_aac_sbr_decode_extension", s => s = t₀ ∧ DecCI PI X t₀
       ∧ (t₀.dmem =⋆ T kc Ext X ra t₀ (BlankS (t₀.regs.get64 .rsp))
           (Loc0 (t₀.regs.get64 .rsp)) X.d X.i)
-  | "ff_aac_sbr_decode_extension.L21", s => DecC PI X t₀ ∧ R0 t₀ s
+  | "ff_aac_sbr_decode_extension.L21", s => DecCI PI X t₀ ∧ R0 t₀ s
       ∧ s.regs.get64 .rdx = arg2 t₀ ∧ s.regs.get64 .rcx = arg3 t₀ ∧ s.regs.get64 .r8 = arg4 t₀
       ∧ (s.dmem =⋆ T kc Ext X ra t₀ (Saved t₀) (Loc0 (t₀.regs.get64 .rsp)) X.d X.i)
-  | "ff_aac_sbr_decode_extension.L36", s => DecC PI X t₀ ∧ R0 t₀ s
+  | "ff_aac_sbr_decode_extension.L36", s => DecCI PI X t₀ ∧ R0 t₀ s
       ∧ s.regs.get64 .rdx = arg2 t₀ ∧ s.regs.get64 .rcx = arg3 t₀ ∧ s.regs.get64 .r8 = arg4 t₀
       ∧ Mm0 kc Ext X ra t₀ s X.i X.d X.i
-  | "ff_aac_sbr_decode_extension.L63", s => DecC PI X t₀ ∧ R0 t₀ s
+  | "ff_aac_sbr_decode_extension.L63", s => DecCI PI X t₀ ∧ R0 t₀ s
       ∧ s.regs.get64 .rcx = arg3 t₀
       ∧ ∃ ih, RdB X X.i ih ∧ Mm0 kc Ext X ra t₀ s X.i X.d ih
   | "ff_aac_sbr_decode_extension.L301", s => P0 PI kc Ext X ra t₀ s (X.d.st1 0 X.d.a.extRate)
@@ -496,7 +496,7 @@ abbrev table (PI : List UInt8 → Prop) (kc : Nat) (Ext : Mem 64 → Prop) (X : 
   | "ff_aac_sbr_decode_extension.L569", s => PX PI kc Ext X ra t₀ s
       (fun d => ∃ d₀, TInv PI X d₀ ∧ d = d₀.off2)
   | "ff_aac_sbr_decode_extension.L57e", s => PX PI kc Ext X ra t₀ s (EInv PI X)
-  | "ff_aac_sbr_decode_extension.done", s => DecC PI X t₀
+  | "ff_aac_sbr_decode_extension.done", s => DecCI PI X t₀
       ∧ s.regs.get64 .rsp = t₀.regs.get64 .rsp ∧ s.regs.get64 .rbp = t₀.regs.get64 .rbp
       ∧ SavedRegs t₀ s ∧ (s.regs.get64 .rax).setWidth 32 = (arg4 t₀).setWidth 32
       ∧ ∃ d ih, EInv PI X d ∧ ih.toNat ≤ X.r.p8.toNat
@@ -886,7 +886,7 @@ macro "grind_cells'" : tactic =>
 abbrev Post' (PI : List UInt8 → Prop) (kc : Nat) (Ext : Mem 64 → Prop) (X : XA) (ra : Int64)
     (t₀ s : MachineData) : Prop :=
   let r := t₀.regs.get64 .rsp
-  ∃ d i, EInv PI X d ∧ i.toNat ≤ X.r.p8.toNat
+  0x70 ≤ r.toNat ∧ ∃ d i, EInv PI X d ∧ i.toNat ≤ X.r.p8.toNat
     ∧ (s.regs.get64 .rax).setWidth 32 = (arg4 t₀).setWidth 32
     ∧ s.regs.get64 .rsp = r + 8 ∧ s.regs.get64 .rbp = t₀.regs.get64 .rbp ∧ SavedRegs t₀ s
     ∧ (s.dmem =⋆ 8 ?@ r ⋆ (8 ?@ (r - 0x70#64) ⋆ (Reserve kc (r - 0x70#64) ⋆ (LocE t₀

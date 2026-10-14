@@ -3,8 +3,8 @@
 
 omit [CodeEnv] in
 /-- The reservation at entry: the callees' area below the frame, the own slot area,
-the six saved-register slots. -/
-theorem reserve_frame (k : Nat) (hk : k ≤ 2 ^ 32) (r : BitVec 64) (K : Mem 64 → Prop) :
+the six saved-register slots (`hW`: the entry's headroom, `CallPre.le`). -/
+theorem reserve_frame (k : Nat) {r : BitVec 64} (hW : 0x460 + k ≤ r.toNat) (K : Mem 64 → Prop) :
     Reserve (0x460 + k) r ⋆ K
       = Reserve (0x298 + k) (r - 0x1c8#64) ⋆ (0x198 ?@ (r - 0x1c8#64) ⋆ (8 ?@ (r - 0x30#64)
         ⋆ (8 ?@ (r - 0x28#64) ⋆ (8 ?@ (r - 0x20#64) ⋆ (8 ?@ (r - 0x18#64)
@@ -34,13 +34,23 @@ theorem reserve_frame (k : Nat) (hk : k ≤ 2 ^ 32) (r : BitVec 64) (K : Mem 64 
 omit [CodeEnv] in
 /-- A call's share of the callees' area: the push slot, the callee's `k`, the rest
 (`sbr_qmf_synthesis`'s stack arguments and slack) below. -/
-theorem call_res (k : Nat) (hk : k ≤ 2 ^ 32) (r : BitVec 64) (K : Mem 64 → Prop) :
-    Reserve (0x298 + k) r ⋆ K
-      = 8 ?@ (r - 8#64) ⋆ (Reserve k (r - 8#64) ⋆ (0x290 ?@ (r - BitVec.ofNat 64 (0x298 + k)) ⋆ K)) := by
+theorem call_res (k : Nat) {r₀ : BitVec 64} (hW : 0x460 + k ≤ r₀.toNat) (K : Mem 64 → Prop) :
+    Reserve (0x298 + k) (r₀ - 0x1c8#64) ⋆ K
+      = 8 ?@ (r₀ - 0x1c8#64 - 8#64) ⋆ (Reserve k (r₀ - 0x1c8#64 - 8#64)
+        ⋆ (0x290 ?@ (r₀ - 0x1c8#64 - BitVec.ofNat 64 (0x298 + k)) ⋆ K)) := by
+  have hr : 0x298 + k ≤ (r₀ - 0x1c8#64).toNat := by bv_omega
+  generalize r₀ - 0x1c8#64 = r at hr ⊢
   rw [show 0x298 + k = 8 + (k + 0x290) by omega, Reserve_split 8 (k + 0x290) r (by omega),
-    Reserve.excess k (k + 0x290) (r - BitVec.ofNat 64 8) (by omega) (by omega),
+    Reserve.excess k (k + 0x290) (r - BitVec.ofNat 64 8) (by omega) (by bv_omega),
     Nat.add_sub_cancel_left, BitVec.sub_sub_ofNat]
   simp only [Std.ExtHashMap.sep_assoc]
+
+omit [CodeEnv] in
+/-- A callee's reservation of `k` below the push slot as none and the `k` bytes. -/
+theorem res_k0 {k : Nat} {r₀ : BitVec 64} (hW : 0x460 + k ≤ r₀.toNat) :
+    Reserve k (r₀ - 464#64)
+      = Reserve 0 (r₀ - 464#64) ⋆ (k - 0) ?@ (r₀ - 464#64 - BitVec.ofNat 64 k) :=
+  Reserve.excess 0 k _ (Nat.zero_le _) (by bv_omega)
 
 
 section OmegaSafeSec

@@ -26,7 +26,7 @@ variable [CodeEnv]
 /-- The static facts: `AtMaster`'s, `bs_freq_scale ≠ 0`, the stored `k[1]`, `k[2]`, two regions,
 `num_bands_1` in range. -/
 def C (e : REnv) (a : RArgs) (t₀ : MachineData) (row k2 : Nat) (st : St) : Prop :=
-  ResetC a t₀ ∧ BandsOK e.lg e.pw ∧ rateRow (srI a) = some row ∧ k2 ≤ 64 ∧ k0N a row ≤ k2
+  ResetCI a t₀ ∧ BandsOK e.lg e.pw ∧ rateRow (srI a) = some row ∧ k2 ≤ 64 ∧ k0N a row ≤ k2
   ∧ (k2 : Int) - k0A a row ≤ maxQ (srI a) ∧ 1 ≤ u8 a.sp 3
   ∧ st.x = xk0 a row ∧ st.sp = a.sp ∧ st.fm.length = 98 ∧ st.k2 = BitVec.ofNat 32 k2
   ∧ st.k1 = BitVec.ofNat 32 (A2.k1Of (k0N a row) k2) ∧ 110 * k0N a row < 49 * k2

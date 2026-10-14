@@ -1,5 +1,5 @@
 theorem blk_L86b0 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e)
-    (x : Args) (ra : Int64) (t₀ : MachineData) :
+    (x : Args) (ra : Int64) (t₀ : MachineData) (hSt : applyNeed k ≤ (t₀.regs.get64 .rsp).toNat) :
     BlockOb k e x ra t₀ "ff_aac_sbr_apply.L86b0" ⟨"ff_aac_sbr_apply.L86b0", B.L86b0, some "ff_aac_sbr_apply.L86b0_1"⟩ := by
   obtain ⟨-, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, hMs, -⟩ := hc
   intro n
@@ -14,7 +14,7 @@ theorem blk_L86b0 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
   generalize u16 (if u8 (y.d ch).freqRes (j + 1) = 0 then y.ftLow else y.ftHigh) (i + 1) = b at *
   simp only [Mm, ApplyF, ArrW, Blocks, FrMs, sbrA, arg0, arg1, Nat.reduceMul, Nat.reduceAdd] at hm
   rw [mapb_carve (t₀.regs.get64 .rsi + 166176#64 + 385856#64) 384 (48 * j + (a - y.kx1)) (b - a) (by omega) (by omega)] at hm
-  rw [call_res k hk] at hm
+  rw [call_res k hSt] at hm
   simp only [BitVec.sub_sub_ofNat, Nat.reduceAdd] at hm
   sep_pull hm [8 ?@ (t₀.regs.get64 .rsp - 464#64), Reserve k (t₀.regs.get64 .rsp - 464#64),
     (b - a) ?@ (t₀.regs.get64 .rsi + 166176#64 + 385856#64 + BitVec.ofNat 64 (48 * j + (a - y.kx1)))]
@@ -64,6 +64,6 @@ theorem blk_L86b0 (k : Nat) (hk : k ≤ 2 ^ 32) (e : Env) (hc : ApplyCallees k e
     · rw [hsv.2.2.1]; apply BitVec.eq_of_toNat_eq; simp only [BitVec.toNat_add, BitVec.toNat_ofNat, BitVec.reduceToNat, Nat.mod_eq_of_lt (show i < 2 ^ 64 by omega)]
     simp only [Mm, ApplyF, ArrW, Blocks, FrMs, sbrA, arg0, arg1, Nat.reduceMul, Nat.reduceAdd]
     rw [mapb_carve (t₀.regs.get64 .rsi + 166176#64 + 385856#64) 384 (48 * j + (a - y.kx1)) (b - a) (by omega) (by omega)]
-    rw [call_res k hk]
+    rw [call_res k hSt]
     simp only [BitVec.sub_sub_ofNat, Nat.reduceAdd]
     sep_close hm1

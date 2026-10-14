@@ -86,7 +86,7 @@ variable [CodeEnv]
 
 theorem spec (hpl : Program.PlacedIn body) (k : Nat) (hk : k ≤ 2 ^ 32) (fs : HfFns)
     (hc : HfCallees k fs) : HfAssembleSpec k fs := by
-  refine Kraken.Executable.ProcSpec.of_cfg_post (p := body) (table k fs)
+  refine Kraken.Executable.ProcSpec.of_cfg_post_pre (p := body) (table k fs)
     (Post' k fs) var (hblocks := ?_) (hpre := ?_) (hpost := ?_)
     -- `hwf`, the labels are distinct: the kernel compares one `Nat` per label (its UTF-8 bytes
     -- as a base-256 numeral), about 6x cheaper than comparing the strings pairwise.
@@ -94,7 +94,7 @@ theorem spec (hpl : Program.PlacedIn body) (k : Nat) (hk : k ≤ 2 ^ 32) (fs : H
       (fun s : String => s.toByteArray.data.toList.foldl (fun n b => n * 256 + b.toNat) 0)
       (fun _ _ h e => h (by subst e; rfl)) (by decide +kernel)⟩)
   · -- each block by its label's membership in the label list (`hall`), no case split
-    intro x ra t₀ l blk hblk
+    intro x ra t₀ _ l blk hblk
     have hmem := Program.blockAt_mem_labels hblk
     rw [Program.labels_eq_view] at hmem
     cfg_view hblk as hview
@@ -251,18 +251,19 @@ theorem spec (hpl : Program.PlacedIn body) (k : Nat) (hk : k ≤ 2 ^ 32) (fs : H
   · -- hpre
     rintro x ra t ⟨hm, hC⟩
     refine ⟨rfl, hC, ?_⟩
+    have hw := CallPre.le hm
     simp -implicitDefEqProofs only [CallPre, hfNeed] at hm
-    rw [reserve_frame k hk, frame_cells] at hm
+    rw [reserve_frame k hw, frame_cells] at hm
     simp -implicitDefEqProofs only [T, Rest, FA, ScW, FnW, TeW, EaW, IdxC, HfF] at hm ⊢
     rw [DataW_eq x t (hfc_ypos hC) (hfc_y1 hC)] at hm
     exact Mem.ac hm
   · -- hpost
-    rintro x ra t₀ s ⟨hC, h1, h2, h3, hm⟩
+    rintro x ra t₀ s ⟨h0, -⟩ ⟨hC, h1, h2, h3, hm⟩
     refine ⟨h1, h2, h3, ?_⟩
     have hm' := Mem.Entails.sep_left (Mem.Entails.sep_left (Mem.Entails.sep_left (Mem.Entails.sep_left
       (Mem.Entails.sep_left (Mem.Entails.sep_left (Mem.Entails.sep_left (Mem.Entails.sep_left
       (Mem.Entails.sep_left (Saved_blank t₀ _))))))))) _ hm
-    rw [show hfNeed k = 0x290 + k from rfl, reserve_frame k hk, frame_exit]
+    rw [show hfNeed k = 0x290 + k from rfl, reserve_frame k (CallPre.le h0), frame_exit]
     simp -implicitDefEqProofs only [HfFPost, ScW, FnW, TeW, EaW] at hm' ⊢
     rw [DataW_eq x t₀ (hfc_ypos hC) (hfc_y1 hC)]
     exact Mem.ac hm'

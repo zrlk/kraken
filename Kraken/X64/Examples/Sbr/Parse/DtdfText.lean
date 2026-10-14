@@ -1,5 +1,4 @@
-import Kraken.X64.Examples.Sbr.Parse.Lib
-import Kraken.X64.Examples.Sbr.ApplySpec
+import Kraken.X64.Parser
 
 /-!
 # `read_sbr_dtdf`: the program text
@@ -10,7 +9,7 @@ cuts 5202 52d2 5392 5462 54e2 55b2 (the second half of each two-element loop bod
 object the first argument is `sbr->usac` (the only field of `*sbr` the routine reads).
 -/
 
-open Kraken Kraken.SysV Mem Kraken.X64.Parser Std.WP MachineWP
+open Kraken Kraken.X64.Parser
 
 set_option mvcgen.warning false
 set_option grind.warning false

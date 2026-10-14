@@ -49,12 +49,12 @@ theorem frame_split (r : BitVec 64) :
 omit [CodeEnv] in
 /-- The caller's reservation as the routine's frame, the return slot of the call and the
 callee's reservation. -/
-theorem need_split (k : Nat) (hk : k ≤ 2 ^ 32) (r : BitVec 64) (K : Mem 64 → Prop) :
+theorem need_split (k : Nat) (r : BitVec 64) (hw : 0x30 ≤ r.toNat) (K : Mem 64 → Prop) :
     Reserve (hdrNeed k) r ⋆ K
       = 8 ?@ (r - 0x30#64) ⋆ (Reserve k (r - 0x30#64)
         ⋆ ((8 ?@ (r - 0x28#64) ⋆ (4 ?@ (r - 0x20#64) ⋆ (2 ?@ (r - 0x1c#64) ⋆ (2 ?@ (r - 0x1a#64)
         ⋆ (8 ?@ (r - 0x18#64) ⋆ (8 ?@ (r - 0x10#64) ⋆ 8 ?@ (r - 0x8#64))))))) ⋆ K)) := by
-  rw [hdrNeed, Reserve_split_frame 0x30 k (by omega) (by omega) r K, frame_split]
+  rw [hdrNeed, Reserve_split_frame 0x30 k (by omega) r hw K, frame_split]
 
 omit [CodeEnv] in
 theorem toBytes4_ofInt (bs : List UInt8) (h : bs.length = 4) :
@@ -86,9 +86,9 @@ theorem spec (hpl : Program.PlacedIn body) (k : Nat) (hk : k ≤ 2 ^ 32)
     (TlT : BitVec 64 → Mem 64 → Prop) (TlT' : BitVec 32 → BitVec 64 → Mem 64 → Prop)
     (TlC : BitVec 32 → BitVec 64 → Prop) (htl : TlimSpec TlT TlT' TlC k) :
     HdrSpec k TlT TlT' TlC := by
-  refine Kraken.Executable.ProcSpec.of_cfg_post (p := body) (table k TlT TlT' TlC)
+  refine Kraken.Executable.ProcSpec.of_cfg_post_pre (p := body) (table k TlT TlT' TlC)
     (Post' k TlT TlT') var (hblocks := ?_) (hpre := ?_) (hpost := ?_)
-  · intro x ra t₀
+  · intro x ra t₀ _
     refine Program.forall_blockAt ?_
     exact
       (.cons (blk_entry k TlT TlT' TlC x ra t₀ _ rfl)
@@ -119,8 +119,10 @@ theorem spec (hpl : Program.PlacedIn body) (k : Nat) (hk : k ≤ 2 ^ 32)
       (.nil _))))))))))))))))))))))))))
   · rintro x ra t ⟨hcall, hc⟩
     refine ⟨rfl, hc, ?_⟩
+    have hw : 0x30 ≤ (t.regs.get64 .rsp).toNat := by
+      have := CallPre.le hcall; unfold hdrNeed at this; omega
     simp only [CallPre] at hcall
-    rw [need_split k hk] at hcall
+    rw [need_split k _ hw] at hcall
     have h4 : t.dmem =⋆ 4 ?@ (arg0 t + 0x10#64) ⋆ Mr k x ra t (FrB t) x.st (TlT (arg0 t)) := by
       simp only [Mr, SbX_us, GbW, Rest, HF, SbW, HArgs.st, FrB, L0] at hcall ⊢
       exact Mem.ac hcall
@@ -128,9 +130,11 @@ theorem spec (hpl : Program.PlacedIn body) (k : Nat) (hk : k ≤ 2 ^ 32)
     refine ⟨u, ?_⟩
     simp only [Mr, SbX_us, GbW, Rest, MU, MtU, SbWu, HArgs.st, FrB, L0] at hu ⊢
     exact Mem.ac hu
-  · rintro x ra t₀ s ⟨hsp, hbp, hsv, st, hO, hm⟩
+  · rintro x ra t₀ s ⟨hcall, -⟩ ⟨hsp, hbp, hsv, st, hO, hm⟩
+    have hw : 0x30 ≤ (t₀.regs.get64 .rsp).toNat := by
+      have := CallPre.le hcall; unfold hdrNeed at this; omega
     refine ⟨st, hO, hsp, hbp, hsv, ?_⟩
-    rw [need_split k hk]
+    rw [need_split k _ hw]
     simp only [Mt, MtU, usacOf, HFu, FrB, L0] at hm ⊢
     exact Mem.ac hm
 

@@ -1,6 +1,7 @@
 import Kraken.X64.Examples.Sbr.Dsp.VectorFmul
 import Kraken.X64.Examples.Sbr.Dsp.VectorFmulAdd
 import Kraken.X64.Examples.Sbr.Dsp.VectorFmulRev
+import Kraken.X64.Examples.Sbr.SessionSpec
 
 /-!
 # `ff_aac_sbr_apply`: the `AVFloatDSPContext` routines together
@@ -28,15 +29,6 @@ open Kraken
 namespace Kraken.Examples.Sbr
 
 variable [CodeEnv]
-
-/-- The code of every `float_dsp` routine `ff_aac_sbr_apply` may reach, as its
-proof states it, placed in the ambient code. -/
-def FloatDspPlaced : Prop :=
-  Program.PlacedIn VectorFmul.bodySse ∧ Program.PlacedIn VectorFmul.bodyAvx
-    ∧ Program.PlacedIn VectorFmulAdd.bodySse ∧ Program.PlacedIn VectorFmulAdd.bodyAvx
-    ∧ Program.PlacedIn VectorFmulAdd.bodyFma3
-    ∧ Program.PlacedIn VectorFmulRev.bodySse ∧ Program.PlacedIn VectorFmulRev.bodyAvx
-    ∧ Program.PlacedIn VectorFmulRev.bodyAvx2
 
 theorem vectorFmulSpec_of (h : FloatDspPlaced) (k : Nat) {f : Int64}
     (hf : f = entry "ff_vector_fmul_sse" ∨ f = entry "ff_vector_fmul_avx") :

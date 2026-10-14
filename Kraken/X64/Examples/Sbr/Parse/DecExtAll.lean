@@ -183,16 +183,16 @@ theorem rsub (r : BitVec 64) (a b : Nat) :
 omit [CodeEnv] in
 /-- The caller's reservation as the frame at entry: the callees' slot and reservation, the
 locals `Loc0`, the six register slots. -/
-theorem reserve_frame0 (kc : Nat) (hk : kc ≤ 2 ^ 32) (r : BitVec 64) (K : Mem 64 → Prop) :
+theorem reserve_frame0 (kc : Nat) (r : BitVec 64) (K : Mem 64 → Prop)
+    (hr : 0x70 ≤ r.toNat) :
     Reserve (0x70 + kc) r ⋆ K
       = 8 ?@ (r - 0x70#64) ⋆ (Reserve kc (r - 0x70#64) ⋆ (Loc0 r ⋆ BlankS r K)) := by
-  have e : 0x70 + kc = 8 + (8 + (8 + (8 + (8 + (8 + (8 + (16 + (8 + (8 + (8 + (8 + (8
-      + kc)))))))))))) := by omega
+  rw [Reserve_split 0x70 kc r hr]
+  have e : (0x70 : Nat) = 8 + (8 + (8 + (8 + (8 + (8 + (8 + (16 + (8 + (8 + (8 + (8
+      + 8))))))))))) := by omega
   rw [e]
-  repeat rw [Reserve_split _ _ _ (by omega)]
-  have e2 : r - 0x70#64 - BitVec.ofNat 64 kc = r - BitVec.ofNat 64 (kc + 0x70) := by
-    rw [BitVec.sub_sub, Nat.add_comm, BitVec.ofNat_add]
-  simp only [rsub, Reserve, Loc0, BlankS, e2]
+  repeat rw [block_split_top _ _ _ (by omega)]
+  simp only [rsub, Loc0, BlankS]
   try simp only [Nat.reduceAdd]
   ac_rfl
 
@@ -204,34 +204,36 @@ abbrev LocER (r : BitVec 64) : Mem 64 → Prop :=
 
 omit [CodeEnv] in
 /-- The reservation as the frame at the exit. -/
-theorem reserve_frameE (kc : Nat) (hk : kc ≤ 2 ^ 32) (r : BitVec 64) (K : Mem 64 → Prop) :
+theorem reserve_frameE (kc : Nat) (r : BitVec 64) (K : Mem 64 → Prop)
+    (hr : 0x70 ≤ r.toNat) :
     Reserve (0x70 + kc) r ⋆ K
       = 8 ?@ (r - 0x70#64) ⋆ (Reserve kc (r - 0x70#64) ⋆ (LocER r ⋆ BlankS r K)) := by
-  have e : 0x70 + kc = 8 + (8 + (8 + (8 + (8 + (8 + (4 + (4 + (4 + (4 + (8 + (8 + (8 + (8
-      + (8 + (8 + kc))))))))))))))) := by omega
+  rw [Reserve_split 0x70 kc r hr]
+  have e : (0x70 : Nat) = 8 + (8 + (8 + (8 + (8 + (8 + (4 + (4 + (4 + (4 + (8 + (8 + (8 + (8
+      + (8 + 8)))))))))))))) := by omega
   rw [e]
-  repeat rw [Reserve_split _ _ _ (by omega)]
-  have e2 : r - 0x70#64 - BitVec.ofNat 64 kc = r - BitVec.ofNat 64 (kc + 0x70) := by
-    rw [BitVec.sub_sub, Nat.add_comm, BitVec.ofNat_add]
-  simp only [rsub, Reserve, LocER, BlankS, e2]
+  repeat rw [block_split_top _ _ _ (by omega)]
+  simp only [rsub, LocER, BlankS]
   try simp only [Nat.reduceAdd]
   ac_rfl
 
-theorem dec_hpre (PI : List UInt8 → Prop) (kc : Nat) (hk : kc ≤ 2 ^ 32) (Ext : Mem 64 → Prop)
+theorem dec_hpre (PI : List UInt8 → Prop) (kc : Nat) (Ext : Mem 64 → Prop)
     (X : XA) (ra : Int64) (t : MachineData) (h : DecPre PI kc Ext X ra t) :
     table PI kc Ext X ra t "ff_aac_sbr_decode_extension" t := by
   obtain ⟨hm, hC⟩ := h
-  refine ⟨rfl, hC, ?_⟩
+  have hr : 0x70 ≤ (t.regs.get64 .rsp).toNat := by
+    have := CallPre.le hm; unfold decNeed at this; omega
+  refine ⟨rfl, DecCI.of hC hr, ?_⟩
   unfold CallPre at hm
-  rw [reserve_frame0 kc hk] at hm
+  rw [reserve_frame0 kc _ _ hr] at hm
   simp only [BlankS] at hm
   simp only [T, Rest, BlankS]
   exact Mem.ac hm
 
-theorem dec_hpost (PI : List UInt8 → Prop) (kc : Nat) (hk : kc ≤ 2 ^ 32) (Ext : Mem 64 → Prop)
+theorem dec_hpost (PI : List UInt8 → Prop) (kc : Nat) (Ext : Mem 64 → Prop)
     (X : XA) (ra : Int64) (t₀ s : MachineData) (h : Post' PI kc Ext X ra t₀ s) :
     DecPost PI kc Ext X ra t₀ s := by
-  obtain ⟨d, i, hI, hi, hax, hsp, hbp, hsv, hm⟩ := h
+  obtain ⟨hr, d, i, hI, hi, hax, hsp, hbp, hsv, hm⟩ := h
   refine ⟨d, i, hI, hi, hax, hsp, hbp, hsv, ?_⟩
   have e : Mem.Entails (8 ?@ t₀.regs.get64 .rsp ⋆ (8 ?@ (t₀.regs.get64 .rsp - 0x70#64)
       ⋆ (Reserve kc (t₀.regs.get64 .rsp - 0x70#64) ⋆ (LocE t₀
@@ -246,7 +248,7 @@ theorem dec_hpost (PI : List UInt8 → Prop) (kc : Nat) (hk : kc ≤ 2 ^ 32) (Ex
         (Mem.Entails.forget8 _ _ (Mem.Entails.forget8 _ _ (Mem.Entails.forget8 _ _
         (Mem.Entails.refl _))))))
   have hm' := e _ hm
-  rw [reserve_frameE kc hk]
+  rw [reserve_frameE kc _ _ hr]
   simp only [BlankS] at hm' ⊢
   exact Mem.ac hm'
 
@@ -257,7 +259,7 @@ structure DecMissing (PI : List UInt8 → Prop) (kc : Nat) (Ext : Mem 64 → Pro
 `sbr_reset`, `read_sbr_grid`, `read_sbr_dtdf`, `read_sbr_invf`, `read_sbr_envelope`,
 `read_sbr_noise`, `ff_ps_read_data` and `avpriv_request_sample` (with `kc` bytes), the blocks of
 `DecMissing`, `kc ≤ 2^32`, and the placement of the text. -/
-theorem decExtSpec_holds (PI : List UInt8 → Prop) (kc : Nat) (hk : kc ≤ 2 ^ 32)
+theorem decExtSpec_holds (PI : List UInt8 → Prop) (kc : Nat) (_hk : kc ≤ 2 ^ 32)
     (Ext : Mem 64 → Prop) (hAv : AvLogSpec Ext kc) (hH : HdrSpec kc Ext) (hR : ResetSpec kc Ext)
     (hG : GridSpec kc Ext) (hD : DtdfSpec kc Ext) (hI : InvfSpec kc Ext) (hV : EnvSpec kc Ext)
     (hN : NoiseSpec kc Ext) (hPs : PsSpec PI kc Ext) (hReq : AvReqSpec Ext kc)
@@ -265,7 +267,7 @@ theorem decExtSpec_holds (PI : List UInt8 → Prop) (kc : Nat) (hk : kc ≤ 2 ^ 
     (hpl : Program.PlacedIn body) :
     DecExtSpec PI kc Ext := by
   refine ProcSpecS.of_cfg_post (p := body) (table PI kc Ext) (Post' PI kc Ext) var
-    (hblocks := ?_) (hpre := dec_hpre PI kc hk Ext) (hpost := dec_hpost PI kc hk Ext)
+    (hblocks := ?_) (hpre := dec_hpre PI kc Ext) (hpost := dec_hpost PI kc Ext)
     (hwf := by decide +kernel)
   intro X ra t₀ l blk hblk
   have hmem := Program.isSome_blockAt body l

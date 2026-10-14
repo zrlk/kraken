@@ -567,13 +567,15 @@ theorem gq_asc {w : Nat} (a b : BitVec w) : a + b - a = b := by
 /-! ### GainAsm call blocks L98e0 / L9934_1 (apply-anahf) -/
 
 omit [CodeEnv] in
-theorem gn_call_res_n (k need : Nat) (hk : k ≤ 2 ^ 32) (hn : need ≤ 0x290 + k) (r : BitVec 64)
-    (K : Mem 64 → Prop) :
-    Reserve (0x298 + k) r ⋆ K
-      = 8 ?@ (r - 8#64) ⋆ (Reserve need (r - 8#64)
-        ⋆ ((0x290 + k - need) ?@ (r - BitVec.ofNat 64 (0x298 + k)) ⋆ K)) := by
+theorem gn_call_res_n (k need : Nat) {r₀ : BitVec 64} (hW : 0x460 + k ≤ r₀.toNat)
+    (hn : need ≤ 0x290 + k) (K : Mem 64 → Prop) :
+    Reserve (0x298 + k) (r₀ - 0x1c8#64) ⋆ K
+      = 8 ?@ (r₀ - 0x1c8#64 - 8#64) ⋆ (Reserve need (r₀ - 0x1c8#64 - 8#64)
+        ⋆ ((0x290 + k - need) ?@ (r₀ - 0x1c8#64 - BitVec.ofNat 64 (0x298 + k)) ⋆ K)) := by
+  have hr : 0x298 + k ≤ (r₀ - 0x1c8#64).toNat := by bv_omega
+  generalize r₀ - 0x1c8#64 = r at hr ⊢
   rw [show 0x298 + k = 8 + (0x290 + k) by omega, Reserve_split 8 (0x290 + k) r (by omega),
-    Reserve.excess need (0x290 + k) (r - BitVec.ofNat 64 8) hn (by omega), BitVec.sub_sub_ofNat]
+    Reserve.excess need (0x290 + k) (r - BitVec.ofNat 64 8) hn (by bv_omega), BitVec.sub_sub_ofNat]
   simp only [Std.ExtHashMap.sep_assoc]
 
 omit [CodeEnv] in

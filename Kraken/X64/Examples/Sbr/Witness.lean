@@ -208,6 +208,7 @@ theorem wit_mem (x : Args) (ra : Int64) (hC : SatIn CstW [(0, 2 ^ 32)])
       ⋆ (Reserve (applyNeed wK) (wT0.regs.get64 .rsp) ⋆ (ApplyF wEnv x wT0 ⋆ x.R)) := by
   have : ∃ L, SatIn (RetCell ra (wT0.regs.get64 .rsp)
       ⋆ (Reserve (applyNeed wK) (wT0.regs.get64 .rsp) ⋆ (ApplyF wEnv x wT0 ⋆ x.R))) L := by
+    rw [Reserve_eq _ _ (by decide +kernel)]
     simp only [ApplyF, FnW, hfd, hana, hsyn, hR]
     exact ⟨_, by sat_tac⟩
   obtain ⟨L, m, hm, -⟩ := this

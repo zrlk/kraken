@@ -2,7 +2,8 @@
 """split.py FULL.lean OUT.lean K: split the generated HfAssemble text into modules.
 
   OUT                     = .../Sbr/HfAssemble.lean: the module doc, imports of the parts, `spec`
-  OUT-dir/Base.lean       = .../Sbr/HfAssemble/Base.lean: `body`, the table, the lemmas, macros
+  OUT-dir/Base.lean       = .../Sbr/HfAssemble/Base.lean: the table, the lemmas, macros
+                            (the text `body` is in HfAssembleText.lean, written by build.sh)
   OUT-dir/Part<i>.lean    = the `blk_*` theorems, i = 1..K, balanced by measured heartbeats
                             (hb_table.txt; unknown blocks count 100k)
 All declarations keep their names (same namespace). K = 0: write FULL to OUT unchanged
@@ -78,8 +79,9 @@ def write(p, s):
     open(p, 'w').write(s)
 
 write(os.path.join(d, 'Base.lean'), imports
-      + '/-! `sbr_hf_assemble`: the text, the label table, the frames and the lemmas of the block\n'
-      + f'proofs. The block theorems are in `HfAssemble/Part*.lean`, `spec` in `HfAssemble.lean`. -/\n\n'
+      + '/-! `sbr_hf_assemble`: the label table, the frames and the lemmas of the block proofs.\n'
+      + f'The text is in `HfAssembleText.lean`, the block theorems in `HfAssemble/Part*.lean`, `spec`\n'
+      + f'in `HfAssemble.lean`. -/\n\n'
       + preamble + base.rstrip('\n') + '\n\n' + END)
 for j, ps in enumerate(parts, 1):
     ps.sort(key=lambda nm: order[nm])

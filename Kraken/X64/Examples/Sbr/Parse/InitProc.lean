@@ -54,30 +54,30 @@ theorem frame_split (r : BitVec 64) :
 omit [CodeEnv] in
 /-- The caller's reservation as the routine's frame, the return slot of a call and the
 callees' reservation. -/
-theorem need_split (k : Nat) (hk : k ≤ 2 ^ 32) (r : BitVec 64) (K : Mem 64 → Prop) :
+theorem need_split (k : Nat) (r : BitVec 64) (hw : 0x40 ≤ r.toNat) (K : Mem 64 → Prop) :
     Reserve (initNeed k) r ⋆ K
       = 8 ?@ (r - 0x40#64) ⋆ (Reserve k (r - 0x40#64)
         ⋆ ((8 ?@ (r - 0x8#64) ⋆ (8 ?@ (r - 0x10#64) ⋆ (8 ?@ (r - 0x18#64) ⋆ (8 ?@ (r - 0x20#64)
         ⋆ (4 ?@ (r - 0x24#64) ⋆ (12 ?@ (r - 0x30#64) ⋆ 8 ?@ (r - 0x38#64))))))) ⋆ K)) := by
-  rw [initNeed, Reserve_split_frame 0x40 k (by omega) (by omega) r K, frame_split]
+  rw [initNeed, Reserve_split_frame 0x40 k (by omega) r hw K, frame_split]
 
 omit [CodeEnv] in
 /-- The memory at the return as the convention's. -/
-theorem post_mem {k : Nat} (hk : k ≤ 2 ^ 32) {TxTab X R B : Mem 64 → Prop} {t₀ : MachineData}
-    {m : Mem 64}
+theorem post_mem {k : Nat} {TxTab X R B : Mem 64 → Prop} {t₀ : MachineData}
+    (hw : 0x40 ≤ (t₀.regs.get64 .rsp).toNat) {m : Mem 64}
     (h : m =⋆ 8 ?@ t₀.regs.get64 .rsp ⋆ MF k TxTab X t₀ (FrB t₀) B R) :
     m =⋆ 8 ?@ t₀.regs.get64 .rsp ⋆ (Reserve (initNeed k) (t₀.regs.get64 .rsp)
       ⋆ ((B ⋆ (TxTab ⋆ X)) ⋆ R)) := by
-  rw [need_split k hk]
+  rw [need_split k _ hw]
   simp only [MF, FrB] at h
   exact Mem.ac h
 
 theorem spec (hpl : Program.PlacedIn body) (k : Nat) (hk : k ≤ 2 ^ 32)
     (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab X : Mem 64 → Prop)
     (hA : InitAssumed k Ctx TxTab X) : InitSpec k Ctx TxTab X := by
-  refine Kraken.Executable.ProcSpec.of_cfg_post (p := body) (table k Ctx TxTab X)
+  refine Kraken.Executable.ProcSpec.of_cfg_post_pre (p := body) (table k Ctx TxTab X)
     (fun R _ t₀ s => Post' k Ctx TxTab X R t₀ s) var (hblocks := ?_) (hpre := ?_) (hpost := ?_)
-  · intro R ra t₀
+  · intro R ra t₀ _
     refine Program.forall_blockAt ?_
     exact
       (.cons (blk_entry k Ctx TxTab X hA.mallocz R ra t₀ _ rfl)
@@ -104,15 +104,25 @@ theorem spec (hpl : Program.PlacedIn body) (k : Nat) (hk : k ≤ 2 ^ 32)
       (.nil _))))))))))))))))))))))
   · rintro R ra t hcall
     refine ⟨rfl, ?_⟩
-    simp only [InitPre, CallPre] at hcall; rw [need_split k hk] at hcall
+    have hw : 0x40 ≤ (t.regs.get64 .rsp).toNat := by
+      have := CallPre.le hcall; unfold initNeed at this; omega
+    simp only [InitPre, CallPre] at hcall; rw [need_split k _ hw] at hcall
     simp only [MF, FrB, Rest]
     exact Mem.ac hcall
-  · rintro R ra t₀ s ⟨hsp, hbp, hsv, hO⟩
-    rcases hO with ⟨h1, r, h2, h4, ha, hs, h3⟩ | ⟨h1, h3⟩ | ⟨h1, p, J, h3⟩
-    · exact Or.inl ⟨h1, r, h2, h4, ha, hs, hsp, hbp, hsv, post_mem hk h3⟩
-    · exact Or.inr (Or.inl ⟨h1, hsp, hbp, hsv, post_mem hk h3⟩)
-    · refine Or.inr (Or.inr ⟨h1, p, J, hsp, hbp, hsv, ?_⟩)
-      have h := post_mem hk h3
+  · rintro R ra t₀ s hcall ⟨hsp, hbp, hsv, hO⟩
+    have hw : 0x40 ≤ (t₀.regs.get64 .rsp).toNat := by
+      have := CallPre.le hcall; unfold initNeed at this; omega
+    rcases hO with ⟨h1, r, h2, h4, ha, hs, h3⟩ | ⟨h1, h3⟩ | ⟨h1, p, bc, bf, l1, l2, h3⟩
+      | ⟨h1, p, c, f, bc, bf, l1, l2, h3⟩
+    · exact Or.inl ⟨h1, r, h2, h4, ha, hs, hsp, hbp, hsv, post_mem hw h3⟩
+    · exact Or.inr (Or.inl ⟨h1, hsp, hbp, hsv, post_mem hw h3⟩)
+    · refine Or.inr (Or.inr (Or.inl ⟨h1, p, bc, bf, l1, l2, hsp, hbp, hsv, ?_⟩))
+      have h := post_mem hw h3
+      unfold BF1 at h
+      exact Mem.ac h
+    · refine Or.inr (Or.inr (Or.inr ⟨h1, p, c, f, bc, bf, l1, l2, hsp, hbp, hsv, ?_⟩))
+      have h := post_mem hw h3
+      unfold BF2 at h
       exact Mem.ac h
 
 end Kraken.Examples.Sbr.Init

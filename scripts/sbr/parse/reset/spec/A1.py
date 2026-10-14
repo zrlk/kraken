@@ -32,7 +32,7 @@ abbrev xk0 (a : RArgs) (row : Nat) : Args := { a.x with k0 := k0N a row }
 `st` whose decoder values are `x`, and `P` on the rest. -/
 def A1S (k : Nat) (e : REnv) (a : RArgs) (ra : Int64) (t₀ s : MachineData) (x : Args)
     (P : St → List UInt8 → Prop) : Prop :=
-  ResetC a t₀ ∧ BandsOK e.lg e.pw ∧ Base t₀ s
+  ResetCI a t₀ ∧ BandsOK e.lg e.pw ∧ Base t₀ s
   ∧ ∃ (st : St) (fr : List UInt8), st.x = x ∧ st.sp = a.sp ∧ st.fm.length = 98 ∧ FrOk fr
     ∧ P st fr ∧ (s.dmem =⋆ Mm k e a ra t₀ st fr)
 
@@ -46,7 +46,7 @@ def ProM (j : Nat) (t₀ : MachineData) : Mem 64 → Prop :=
 
 /-- The prologue after `j` pushes: the rest of the reservation below them. -/
 def Pro (j : Nat) (k : Nat) (e : REnv) (a : RArgs) (ra : Int64) (t₀ s : MachineData) : Prop :=
-  ResetC a t₀ ∧ BandsOK e.lg e.pw
+  ResetCI a t₀ ∧ BandsOK e.lg e.pw
   ∧ s.regs.get64 .rsp = t₀.regs.get64 .rsp - BitVec.ofNat 64 (8 * j)
   ∧ s.regs.get64 .rbp = t₀.regs.get64 .rsp - 8#64
   ∧ s.regs.get64 .rdi = arg0 t₀ ∧ s.regs.get64 .rsi = arg1 t₀

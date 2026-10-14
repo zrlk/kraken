@@ -46,11 +46,11 @@ theorem leaf_fw {f : Int64} {need k : Nat} {E : Mem 64 → Prop} (A : Mem 64 →
     {C : MachineData → Prop} {Q : MachineData → MachineData → Prop}
     (h : cenv.ProcSpec f (LeafPre need (fun _ => E) C)
       (fun R ra t s => LeafPost need (fun _ => E) R ra t s ∧ Q t s))
-    (hk : need ≤ k) (hk' : k ≤ 2 ^ 64) :
+    (hk : need ≤ k) (_hk' : k ≤ 2 ^ 64) :
     cenv.ProcSpec f (LeafPre k (fun _ => A ⋆ E) C)
       (fun R ra t s => LeafPost k (fun _ => A ⋆ E) R ra t s ∧ Q t s) := by
   intro R ra t ⟨hcall, hc⟩
-  have e := Reserve.excess need k (t.regs.get64 .rsp) hk hk'
+  have e := Reserve.excess need k (t.regs.get64 .rsp) hk (CallPre.le hcall)
   refine eventually_weaken _ _ _ _ ?_
     (h (A ⋆ R ⋆ (k - need) ?@ (t.regs.get64 .rsp - .ofNat 64 k)) ra t ⟨?_, hc⟩)
   · rintro st ⟨hra, ⟨h1, h2, h3, hm⟩, hq⟩
@@ -64,9 +64,9 @@ theorem leaf_fw {f : Int64} {need k : Nat} {E : Mem 64 → Prop} (A : Mem 64 →
 /-- `leaf_fw` for a leaf contract without a value postcondition (`LeafSpec`). -/
 theorem leaf_fw0 {l : Label} {need k : Nat} {E : Mem 64 → Prop} (A : Mem 64 → Prop)
     {C : MachineData → Prop} (h : LeafSpec l need (fun _ => E) C)
-    (hk : need ≤ k) (hk' : k ≤ 2 ^ 64) : LeafSpec l k (fun _ => A ⋆ E) C := by
+    (hk : need ≤ k) (_hk' : k ≤ 2 ^ 64) : LeafSpec l k (fun _ => A ⋆ E) C := by
   intro R ra t ⟨hcall, hc⟩
-  have e := Reserve.excess need k (t.regs.get64 .rsp) hk hk'
+  have e := Reserve.excess need k (t.regs.get64 .rsp) hk (CallPre.le hcall)
   refine eventually_weaken _ _ _ _ ?_
     (h (A ⋆ R ⋆ (k - need) ?@ (t.regs.get64 .rsp - .ofNat 64 k)) ra t ⟨?_, hc⟩)
   · rintro st ⟨hra, h1, h2, h3, hm⟩
@@ -104,10 +104,10 @@ theorem tlim_reset {k : Nat} (h : Tlim.TlimSpec k) : Reset.TlimSpec k :=
 
 /-- `ff_ps_read_data`'s local contract at a larger stack. -/
 theorem ps_widen {PI : List UInt8 → Prop} {need k : Nat} {Ext : Mem 64 → Prop}
-    (h : DecExt.PsSpec PI need Ext) (hk : need ≤ k) (hk' : k ≤ 2 ^ 64) :
+    (h : DecExt.PsSpec PI need Ext) (hk : need ≤ k) (_hk' : k ≤ 2 ^ 64) :
     DecExt.PsSpec PI k Ext := by
   intro p ra t ⟨hcall, h1, h2, h3, h4, h5⟩
-  have e := Reserve.excess need k (t.regs.get64 .rsp) hk hk'
+  have e := Reserve.excess need k (t.regs.get64 .rsp) hk (CallPre.le hcall)
   refine eventually_weaken _ _ _ _ ?_
     (h { p with R := p.R ⋆ (k - need) ?@ (t.regs.get64 .rsp - .ofNat 64 k) } ra t
       ⟨?_, h1, h2, h3, h4, h5⟩)
@@ -126,11 +126,11 @@ theorem ca_widenT {f : Int64} {need k : Nat} {Ext : Mem 64 → Prop}
       (fun c ra t s => DecExt.CPost need Ext c ra t s (P c t)))
     (hC : ∀ (c : DecExt.CA) (R : Mem 64 → Prop) ra t, C c ra t → C { c with R := R } ra t)
     (hP : ∀ (c : DecExt.CA) (R : Mem 64 → Prop) t d, P { c with R := R } t d → P c t d)
-    (hk : need ≤ k) (hk' : k ≤ 2 ^ 64) :
+    (hk : need ≤ k) (_hk' : k ≤ 2 ^ 64) :
     cenv.ProcSpec f (fun c ra t => DecExt.CPre k Ext c ra t ∧ C c ra t)
       (fun c ra t s => DecExt.CPost k Ext c ra t s (P c t)) := by
   intro c ra t ⟨⟨hcall, hr, hd⟩, hc⟩
-  have e := Reserve.excess need k (t.regs.get64 .rsp) hk hk'
+  have e := Reserve.excess need k (t.regs.get64 .rsp) hk (CallPre.le hcall)
   refine eventually_weaken _ _ _ _ ?_
     (h { c with R := c.R ⋆ (k - need) ?@ (t.regs.get64 .rsp - .ofNat 64 k) } ra t
       ⟨⟨?_, hr, hd⟩, hC c _ ra t hc⟩)

@@ -24,11 +24,11 @@ theorem ca_widen {f : Int64} {need k : Nat} {Ext : Mem 64 → Prop}
       (fun c ra t s => CPost need Ext c ra t s (P c)))
     (hC : ∀ (c : CA) (R : Mem 64 → Prop) ra t, C c ra t → C { c with R := R } ra t)
     (hP : ∀ (c : CA) (R : Mem 64 → Prop) d, P { c with R := R } d → P c d)
-    (hk : need ≤ k) (hk' : k ≤ 2 ^ 64) :
+    (hk : need ≤ k) (_hk' : k ≤ 2 ^ 64) :
     cenv.ProcSpec f (fun c ra t => CPre k Ext c ra t ∧ C c ra t)
       (fun c ra t s => CPost k Ext c ra t s (P c)) := by
   intro c ra t ⟨⟨hcall, hr, hd⟩, hc⟩
-  have e := Reserve.excess need k (t.regs.get64 .rsp) hk hk'
+  have e := Reserve.excess need k (t.regs.get64 .rsp) hk (CallPre.le hcall)
   refine eventually_weaken _ _ _ _ ?_
     (h { c with R := c.R ⋆ (k - need) ?@ (t.regs.get64 .rsp - .ofNat 64 k) } ra t
       ⟨⟨?_, hr, hd⟩, hC c _ ra t hc⟩)
@@ -56,12 +56,12 @@ theorem ca_widenS {α : Type} {stops : Int64 → Prop} {f : Int64} {need k : Nat
       (fun a ra t s => CPost need Ext (cOf a) ra t s (P a s)))
     (hC : ∀ a R ra t, C a ra t → C (upd a R) ra t)
     (hP : ∀ a R s d, P (upd a R) s d → P a s d)
-    (hk : need ≤ k) (hk' : k ≤ 2 ^ 64) :
+    (hk : need ≤ k) (_hk' : k ≤ 2 ^ 64) :
     Kraken.Examples.Sbr.Parse.ProcSpecS stops f
       (fun a ra t => CPre k Ext (cOf a) ra t ∧ C a ra t)
       (fun a ra t s => CPost k Ext (cOf a) ra t s (P a s)) := by
   intro a ra t ⟨⟨hcall, hr, hd⟩, hc⟩
-  have e := Reserve.excess need k (t.regs.get64 .rsp) hk hk'
+  have e := Reserve.excess need k (t.regs.get64 .rsp) hk (CallPre.le hcall)
   have hpre : CPre need Ext (cOf (upd a ((cOf a).R ⋆ (k - need) ?@ (t.regs.get64 .rsp - .ofNat 64 k)))) ra t ∧ C (upd a ((cOf a).R ⋆ (k - need) ?@ (t.regs.get64 .rsp - .ofNat 64 k))) ra t := by
     rw [hcu]
     refine ⟨⟨?_, hr, hd⟩, hC a _ ra t hc⟩

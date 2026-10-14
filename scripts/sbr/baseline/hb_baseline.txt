@@ -38,9 +38,9 @@ Kraken/X64/Examples/Sbr/Apply/MapB9.lean maxRecDepth 100000 4
 Kraken/X64/Examples/Sbr/Apply/MapBLem.lean maxRecDepth 20000 2
 Kraken/X64/Examples/Sbr/Apply/MapBLem.lean maxRecDepth 100000 2
 Kraken/X64/Examples/Sbr/Apply/Trap.lean maxRecDepth 100000 47
-Kraken/X64/Examples/Sbr/ApplyTable.lean maxRecDepth 20000 434
 Kraken/X64/Examples/Sbr/ApplyTable.lean maxRecDepth 100000 1
 Kraken/X64/Examples/Sbr/ApplyTable.lean maxRecDepth 200000 3
+Kraken/X64/Examples/Sbr/ApplyText.lean maxRecDepth 20000 434
 Kraken/X64/Examples/Sbr/Dsp/HfGFilt.lean maxHeartbeats 300000 1
 Kraken/X64/Examples/Sbr/Dsp/NegOdd64.lean maxHeartbeats 1000000 1
 Kraken/X64/Examples/Sbr/Dsp/QmfDeintBfly.lean maxHeartbeats 1000000 1
@@ -59,7 +59,8 @@ Kraken/X64/Examples/Sbr/HfAssemble.lean maxHeartbeats 800000 1
 Kraken/X64/Examples/Sbr/HfAssemble.lean maxHeartbeats 1000000 1
 Kraken/X64/Examples/Sbr/HfAssemble.lean maxHeartbeats 1400000 2
 Kraken/X64/Examples/Sbr/HfAssemble.lean maxHeartbeats 1700000 1
-Kraken/X64/Examples/Sbr/HfAssemble.lean maxRecDepth 100000 113
+Kraken/X64/Examples/Sbr/HfAssemble.lean maxRecDepth 100000 112
+Kraken/X64/Examples/Sbr/HfAssembleText.lean maxRecDepth 100000 1
 Kraken/X64/Examples/Sbr/HfInverseFilter.lean maxHeartbeats 20000 1
 Kraken/X64/Examples/Sbr/HfInverseFilter.lean maxHeartbeats 30000 2
 Kraken/X64/Examples/Sbr/HfInverseFilter.lean maxHeartbeats 40000 1
