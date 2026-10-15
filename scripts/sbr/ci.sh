@@ -8,6 +8,7 @@
 #   3. tv          tv/tv.sh: translation validation against the objects, data, row-crossing
 #                  discipline, mutation test of the checker
 #   3b. a2         tv/a2_discipline.py (row-crossing discipline) on its own
+#   3c. count      count_instr.py: instructions of the exported texts vs llvm-objdump of the objects
 #   4. heartbeats  hbscan.py against baseline/hb_table.txt and baseline/hb_baseline.txt
 #   5. srcscan     srcscan.py against baseline/srcscan_baseline.txt, and which baseline
 #                  files are imported by Link/Witness/Linked (closure.py)
@@ -197,6 +198,11 @@ python3 "$SBR_DIR/tv/a2_discipline.py" > "$OUT/a2.txt" 2>&1; rc=$?
 cat "$OUT/a2.txt"
 [ $rc = 0 ] && mark a2 ok || mark a2 FAIL
 
+# ---- 3c. instruction count, independent of tv.py (uses tv.sh's export)
+python3 "$SBR_DIR/count_instr.py" "$SBR_OUT/tv/lean" "$SBR_OBJ_DIR" > "$OUT/count.txt" 2>&1; rc=$?
+tail -2 "$OUT/count.txt"
+[ $rc = 0 ] && mark count ok || mark count FAIL
+
 # ---- 4. heartbeats
 python3 "$SBR_DIR/hbscan.py" > "$OUT/hbscan.txt" 2>&1; rc=$?
 cat "$OUT/hbscan.txt"
@@ -238,7 +244,7 @@ grep -vE '^text module' "$OUT/spec.txt" | head -40
 [ $rc = 0 ] && [ $rc2 = 0 ] && grep -q '^SPECCHECK ok' "$OUT/spec.txt" && mark spec ok || mark spec FAIL
 
 # ---- 6. real (optional)
-STEPS="build axioms tv a2 heartbeats srcscan regen tcb spec"
+STEPS="build axioms tv a2 count heartbeats srcscan regen tcb spec"
 if [ "${SBR_REAL:-0}" = 1 ]; then
   bash "$SBR_DIR/real/check.sh" > "$OUT/real.txt" 2>&1; rc=$?
   cat "$OUT/real.txt"
