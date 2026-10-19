@@ -183,7 +183,7 @@ private abbrev sp_table (d : MachineData) (L : Nat) : Label → MachineData → 
       let rcx := (s.regs.get64 .rcx).toNat
       s.regs.get64 .rdi = d.regs.get64 .rdi ∧ s.regs.get64 .rsi = d.regs.get64 .rsi ∧
       (s.regs.get64 .rdx).toNat = L ∧ s.dmem = d.dmem ∧
-      rcx = L / 128 * 128 ∧ r8 % 128 = 0 ∧ r8 < rcx
+      rcx % 128 = 0 ∧ rcx ≤ L ∧ L < rcx + 128 ∧ r8 % 128 = 0 ∧ r8 < rcx
   | ".l64", s =>
       let r8 := (s.regs.get64 .r8).toNat
       let rcx := (s.regs.get64 .rcx).toNat
@@ -230,6 +230,8 @@ private abbrev sp_var : Label → MachineData → Nat
   | ".loop128", s => (s.regs.get64 .rcx).toNat - (s.regs.get64 .r8).toNat
   | _, _ => 0
 
+attribute [local sym_simp] sp_table sp_var
+
 variable [layout : _root_.Layout] [Executable.ValidLayout (layout scalarproduct_fma3_prog)]
 
 /-- The ambient code of the example: `scalarproduct_fma3_prog`, laid out. -/
@@ -244,17 +246,16 @@ theorem scalarproduct_fma3_correct (d : MachineData) (len : Nat)
     (h_v2 : d.dmem =⋆ Mem.Blocks [(d.regs.get64 .rsi, len * 4)] ⋆ R₂) :
     ⦃ fun s => s = d ⦄ scalarproduct_fma3_prog ⦃ fun _ s => s.dmem = d.dmem ⦄ := by
   apply MachineWP.cfg (sp_table d (len * 4)) sp_var
-  cfg_cases [scalarproduct_fma3_prog]
-  all_goals simp only [sp_table, sp_var]
-  · vcgen simplifying_assumptions with finish
-  · vcgen simplifying_assumptions with finish
-  · vcgen simplifying_assumptions with finish
-  · vcgen simplifying_assumptions with finish
-  · vcgen simplifying_assumptions with finish
-  · vcgen simplifying_assumptions with finish
-  · vcgen simplifying_assumptions with finish
-  · vcgen simplifying_assumptions with finish
-  · vcgen simplifying_assumptions with finish
+  cfg_cases
+  · vcgen simplifying_assumptions with (cfg_exit; finish)
+  · vcgen simplifying_assumptions with (cfg_exit; finish)
+  · vcgen simplifying_assumptions with (cfg_exit; finish)
+  · vcgen simplifying_assumptions with (cfg_exit; finish)
+  · vcgen simplifying_assumptions with (cfg_exit; finish)
+  · vcgen simplifying_assumptions with (cfg_exit; finish)
+  · vcgen simplifying_assumptions with (cfg_exit; finish)
+  · vcgen simplifying_assumptions with (cfg_exit; finish)
+  · vcgen simplifying_assumptions with (cfg_exit; finish)
 
 /-- `scalarproduct_fma3_correct`, read at the machine as the baseline judgment. -/
 theorem scalarproduct_fma3_terminates_and_safe

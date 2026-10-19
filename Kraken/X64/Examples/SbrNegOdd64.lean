@@ -85,8 +85,10 @@ ff_sbr_neg_odd_64_sse:
 
 /-- The spec table: the machine at each label, for a run that started on `d`
 with the mask at `mask`. At `.loop` it is the loop invariant: `rsi` is the end
-of the array, `rdi` is a multiple of 64 bytes into it, and the array and the
-mask are in place. Control never reaches the mask's cell. -/
+of the array, `rdi` is `j` bytes into it for a multiple `j` of 64, and the array
+and the mask are in place. The offset `j` is also the difference of `rdi` and
+the start of the array as natural numbers. Control never reaches the mask's
+cell. -/
 private abbrev sbr_table (d : MachineData) (mask : BitVec 64) (R : DataMem → Prop) :
     Label → MachineData → Prop
   | "start", s => s = d
@@ -94,13 +96,16 @@ private abbrev sbr_table (d : MachineData) (mask : BitVec 64) (R : DataMem → P
   | ".loop", s =>
       let j := (s.regs.get64 .rdi - d.regs.get64 .rdi).toNat
       s.regs.get64 .rsi = d.regs.get64 .rdi + 256#64 ∧ j < 256 ∧ j % 64 = 0 ∧
+      (d.regs.get64 .rdi).toNat + j = (s.regs.get64 .rdi).toNat ∧
       s.dmem =⋆ Mem.Blocks [(d.regs.get64 .rdi, 256), (mask, 16)] ⋆ R
   | _, _ => False
 
 /-- The variant: the bytes still to process at `.loop`; the entry runs once. -/
 private abbrev sbr_var : Label → MachineData → Nat
-  | ".loop", s => (s.regs.get64 .rsi - s.regs.get64 .rdi).toNat
+  | ".loop", s => (s.regs.get64 .rsi).toNat - (s.regs.get64 .rdi).toNat
   | _, _ => 2 ^ 64
+
+attribute [local sym_simp] sbr_table sbr_var
 
 variable [layout : _root_.Layout] [Executable.ValidLayout (layout sbr_neg_odd_64_prog)]
 
@@ -125,11 +130,11 @@ theorem sbr_neg_odd_64_correct (d : MachineData)
     ⦃ fun _ s => s.dmem =⋆ Mem.Blocks [(d.regs.get64 .rdi, 256), (ps_mask2, 16)] ⋆ R ⦄ := by
   have h_mask_aligned := ps_mask2_aligned
   apply MachineWP.cfg (sbr_table d ps_mask2 R) sbr_var
-  cfg_cases [sbr_neg_odd_64_prog]
-  · vcgen with finish
-  · vcgen with finish
-  · vcgen with finish
-  · vcgen with finish
+  cfg_cases
+  · vcgen with (cfg_exit; finish)
+  · vcgen with (cfg_exit; finish)
+  · vcgen with (cfg_exit; finish)
+  · vcgen with (cfg_exit; finish)
 
 /-- `sbr_neg_odd_64_correct`, read at the machine as the baseline judgment. -/
 theorem sbr_neg_odd_64_terminates_and_safe
@@ -221,7 +226,8 @@ theorem sbr_neg_odd_64_hyps_satisfiable :
   generalize (List.replicate 16 (0 : UInt8) ++ List.replicate 256 0).At 32#64 = m at h2
   refine ⟨{ dmem := m, regs := { rdi := 48 } }, Std.ExtHashMap.emp, by dsimp only; decide, ?_⟩
   rw [Std.ExtHashMap.sep_emp, sbr_wit_mask]
-  exact h2
+  obtain ⟨m₁, m₂, hu, hi, hb₁, hb₂⟩ := h2
+  exact ⟨m₁, m₂, hu, hi, ⟨(by decide : (48#64 : BitVec 64).toNat + 256 < 2 ^ 64), hb₁⟩, by decide, hb₂⟩
 
 -- array logics, insn support
 -- look into what happens with NaN

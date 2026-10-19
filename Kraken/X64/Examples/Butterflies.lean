@@ -57,28 +57,30 @@ loop:
 
 /-! ## The proof -/
 
-/- The `jl` exit reads the overflow flag, which compares signed values. -/
-attribute [local grind =] BitVec.signed_eq
 
 /-- The spec table: the machine at each label, for a run that started on `d`
 over arrays of `L` bytes. At `loop` it is the loop invariant: both pointers sit
-one past the end of their array, `rdx` is minus the bytes still to process (a
-positive multiple of 16, at most `L`), and the arrays are in place. -/
+one past the end of their array, `rdx` is minus the bytes still to process, and
+the arrays are in place. Read as an unsigned number `x`, `rdx` is `2 ^ 64`
+minus the bytes still to process, so `2 ^ 64 - L ≤ x` says that at most `L`
+bytes remain, and `x % 16 = 0` that a multiple of 16 bytes remains. -/
 private abbrev bf_table (d : MachineData) (L : Nat) (R : DataMem → Prop) :
     Label → MachineData → Prop
   | "start", s => s = d
   | "loop", s =>
-      let j := (-s.regs.get64 .rdx).toNat
+      let x := (s.regs.get64 .rdx).toNat
       s.regs.get64 .rdi = d.regs.get64 .rdi + BitVec.ofNat 64 L ∧
       s.regs.get64 .rsi = d.regs.get64 .rsi + BitVec.ofNat 64 L ∧
-      0 < j ∧ j ≤ L ∧ j % 16 = 0 ∧
+      2 ^ 64 - L ≤ x ∧ x % 16 = 0 ∧
       s.dmem =⋆ Mem.Blocks [(d.regs.get64 .rdi, L), (d.regs.get64 .rsi, L)] ⋆ R
   | _, _ => False
 
 /-- The variant: the bytes still to process at `loop`; the prologue runs once. -/
 private abbrev bf_var : Label → MachineData → Nat
-  | "loop", s => (-s.regs.get64 .rdx).toNat
+  | "loop", s => 2 ^ 64 - (s.regs.get64 .rdx).toNat
   | _, _ => 2 ^ 64
+
+attribute [local sym_simp] bf_table bf_var
 
 variable [layout : _root_.Layout] [Executable.ValidLayout (layout butterflies_float_prog)]
 
@@ -98,9 +100,9 @@ theorem butterflies_correct (d : MachineData) (len : Nat)
     ⦃ fun _ s => s.dmem =⋆
         Mem.Blocks [(d.regs.get64 .rdi, len * 4), (d.regs.get64 .rsi, len * 4)] ⋆ R ⦄ := by
   apply MachineWP.cfg (bf_table d (len * 4) R) bf_var
-  cfg_cases [butterflies_float_prog]
-  · vcgen with finish
-  · vcgen with finish
+  cfg_cases
+  · vcgen with (cfg_exit; finish)
+  · vcgen with (cfg_exit; finish)
 
 /-- `butterflies_correct`, read at the machine as the baseline judgment. The
 two arrays, with their contents, are the two blocks, and the blocks on exit
@@ -117,6 +119,8 @@ theorem butterflies_float_terminates_and_safe
     (h_v2_len : v2.length = len * 4)
     (h_v1_aligned : isAligned 16 s₀.regs.rdi.toBitVec)
     (h_v2_aligned : isAligned 16 s₀.regs.rsi.toBitVec)
+    (h_v1_nw : s₀.regs.rdi.toBitVec.toNat + len * 4 < 2 ^ 64)
+    (h_v2_nw : s₀.regs.rsi.toBitVec.toNat + len * 4 < 2 ^ 64)
     (R : DataMem → Prop)
     (h_mem : s₀.dmem =⋆ Eq (v1.At s₀.regs.rdi.toBitVec) ⋆ Eq (v2.At s₀.regs.rsi.toBitVec) ⋆ R) :
     Eventually (straightlineStep (layout butterflies_float_prog))
@@ -127,11 +131,22 @@ theorem butterflies_float_terminates_and_safe
           s'.1.dmem =⋆ Eq (v1'.At s₀.regs.rdi.toBitVec) ⋆ Eq (v2'.At s₀.regs.rsi.toBitVec) ⋆ R)
       (s₀, Kraken.Layout.start Directive) := by
   have hw : len * 4 ≤ 2 ^ 64 := by omega
-  obtain ⟨m12, mR, hu, hi, ⟨m1, m2, hu', hi', rfl, rfl⟩, hR⟩ := h_mem
+  have h_blocks : s₀.dmem =⋆
+      Mem.Blocks [(s₀.regs.rdi.toBitVec, len * 4), (s₀.regs.rsi.toBitVec, len * 4)] ⋆ R := by
+    refine Mem.Blocks.cons_intro h_v1_nw (Mem.Block.sep_intro h_v1_len hw ?_)
+    rw [Std.ExtHashMap.sep_comm_l]
+    refine Mem.Blocks.cons_intro h_v2_nw (Mem.Block.sep_intro h_v2_len hw ?_)
+    simp only [Mem.Blocks, Std.ExtHashMap.emp_sep]
+    rwa [Std.ExtHashMap.sep_comm_l, ← Std.ExtHashMap.sep_assoc]
   refine eventually_weaken _ _ _ _ ?_ (Program.run_of_triple
     (butterflies_correct s₀ len h_len_reg h_len_mod h_len_bound h_len_gt h_v1_aligned
-      h_v2_aligned R
-      ⟨_, mR, hu, hi, ⟨_, _, hu', hi', ⟨hw, v1, h_v1_len, rfl⟩, ⟨hw, v2, h_v2_len, rfl⟩⟩, hR⟩)
-    rfl)
-  rintro s' ⟨m12, mR, hu, hi, ⟨m1, m2, hu', hi', ⟨-, v1', h1, rfl⟩, ⟨-, v2', h2, rfl⟩⟩, hR⟩
-  exact ⟨v1', v2', h1, h2, _, mR, hu, hi, ⟨_, _, hu', hi', rfl, rfl⟩, hR⟩
+      h_v2_aligned R h_blocks) rfl)
+  intro s' h
+  obtain ⟨-, h⟩ := Mem.Blocks.cons_elim h
+  obtain ⟨-, v1', h1, h⟩ := Mem.Block.sep_elim h
+  rw [Std.ExtHashMap.sep_comm_l] at h
+  obtain ⟨-, h⟩ := Mem.Blocks.cons_elim h
+  obtain ⟨-, v2', h2, h⟩ := Mem.Block.sep_elim h
+  simp only [Mem.Blocks, Std.ExtHashMap.emp_sep] at h
+  rw [Std.ExtHashMap.sep_comm_l, ← Std.ExtHashMap.sep_assoc] at h
+  exact ⟨v1', v2', h1, h2, h⟩

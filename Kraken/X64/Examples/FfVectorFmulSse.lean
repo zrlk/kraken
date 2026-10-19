@@ -118,6 +118,8 @@ private abbrev vfm_var : Label → MachineData → Nat
   | ".loop", s => (s.regs.get64 .rcx).toNat
   | _, _ => 0
 
+attribute [local sym_simp] vfm_table vfm_var
+
 variable [layout : _root_.Layout] [Executable.ValidLayout (layout vector_fmul_sse_prog)]
 
 /-- The ambient code of the example: `vector_fmul_sse_prog`, laid out. -/
@@ -137,9 +139,9 @@ theorem vector_fmul_sse_correct (d : MachineData) (len : Nat)
       vector_fmul_sse_prog
     ⦃ fun _ s => s.dmem =⋆ Mem.Blocks [(d.regs.get64 .rdi, len * 4)] ⋆ R ⦄ := by
   apply MachineWP.cfg (vfm_table d (len * 4) R) vfm_var
-  cfg_cases [vector_fmul_sse_prog]
-  · vcgen with finish
-  · vcgen with finish
+  cfg_cases
+  · vcgen with (cfg_exit; finish)
+  · vcgen with (cfg_exit; finish)
 
 /-- `vector_fmul_sse_correct`, read at the machine as the baseline judgment. -/
 theorem vector_fmul_sse_terminates_and_safe

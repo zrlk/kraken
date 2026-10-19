@@ -62,28 +62,30 @@ loop:
 
 /-! ## The proof -/
 
-/- The `jl` exit reads the overflow flag, which compares signed values. -/
-attribute [local grind =] BitVec.signed_eq
 
 /-- The spec table: the machine at each label, for a run that started on `d`
 over arrays of `L` bytes. At `loop` it is the loop invariant: both pointers sit
-one past the end of their array, `rdx` is minus the bytes still to process (a
-positive multiple of 16, at most `L`), and the arrays are in place. -/
+one past the end of their array, `rdx` is minus the bytes still to process, and
+the arrays are in place. Read as an unsigned number `x`, `rdx` is `2 ^ 64`
+minus the bytes still to process, so `2 ^ 64 - L ≤ x` says that at most `L`
+bytes remain, and `x % 16 = 0` that a multiple of 16 bytes remains. -/
 private abbrev bf_table (d : MachineData) (L : Nat) (R : DataMem → Prop) :
     Label → MachineData → Prop
   | "start", s => s = d
   | "loop", s =>
-      let j := (-s.regs.get64 .rdx).toNat
+      let x := (s.regs.get64 .rdx).toNat
       s.regs.get64 .rdi = d.regs.get64 .rdi + BitVec.ofNat 64 L ∧
       s.regs.get64 .rsi = d.regs.get64 .rsi + BitVec.ofNat 64 L ∧
-      0 < j ∧ j ≤ L ∧ j % 16 = 0 ∧
+      2 ^ 64 - L ≤ x ∧ x % 16 = 0 ∧
       s.dmem =⋆ Mem.Blocks [(d.regs.get64 .rdi, L), (d.regs.get64 .rsi, L)] ⋆ R
   | _, _ => False
 
 /-- The variant: the bytes still to process at `loop`; the prologue runs once. -/
 private abbrev bf_var : Label → MachineData → Nat
-  | "loop", s => (-s.regs.get64 .rdx).toNat
+  | "loop", s => 2 ^ 64 - (s.regs.get64 .rdx).toNat
   | _, _ => 2 ^ 64
+
+attribute [local sym_simp] bf_table bf_var
 
 variable [layout : _root_.Layout] [Executable.ValidLayout (layout butterflies_float_prog)]
 
@@ -103,9 +105,9 @@ theorem butterflies_correct (d : MachineData) (len : Nat)
     ⦃ fun _ s => s.dmem =⋆
         Mem.Blocks [(d.regs.get64 .rdi, len * 4), (d.regs.get64 .rsi, len * 4)] ⋆ R ⦄ := by
   apply MachineWP.cfg (bf_table d (len * 4) R) bf_var
-  cfg_cases [butterflies_float_prog]
-  · vcgen with finish
-  · vcgen with finish
+  cfg_cases
+  · vcgen with (cfg_exit; finish)
+  · vcgen with (cfg_exit; finish)
 
 /-- `butterflies_correct`, read at the machine as the baseline judgment. -/
 theorem butterflies_float_terminates_and_safe

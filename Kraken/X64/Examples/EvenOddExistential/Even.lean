@@ -183,7 +183,7 @@ theorem even_specK (hpl : Program.PlacedIn even_body) (N : Nat) (ih : OddSpecK N
     (hblocks := ?_) (hpre := ?_) (hpost := ?_)
   · rintro ⟨n, R⟩ ra K t₀ ⟨hN, -⟩
     dsimp only at hN ⊢
-    cfg_cases [even_body]
+    cfg_cases
     · -- entry: prologue, spill, test
       vcgen
       all_goals call_simp
@@ -195,8 +195,8 @@ theorem even_specK (hpl : Program.PlacedIn even_body) (N : Nat) (ih : OddSpecK N
         all_goals call_simp
         -- the witnesses: the callee's argument, and its caller memory — our frame,
         -- the local unwritten, over `R`
-        all_goals try refine ⟨fun w => ⟨k, Frame t₀ ra (1 ?@ ·) R, Nat.lt_of_succ_lt_succ hN, ?_,
-          fun s' hpost => ?_⟩, ?_⟩
+        all_goals try refine ⟨k, Frame t₀ ra (1 ?@ ·) R, Nat.lt_of_succ_lt_succ hN, ?_,
+          fun s' hpost => ?_⟩
         all_goals try (vcgen; all_goals call_simp)
         all_goals grind_cells
     · -- the result and the epilogue

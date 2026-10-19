@@ -207,8 +207,8 @@ def normalizeAtoms (e : Expr) : MetaM (Expr × Option Expr) := do
   thms ← thms.addConst ``eq_self_iff_true
   for n in [``UInt64.AtM, ``UInt32.AtM, ``UInt16.AtM, ``UInt8.AtM] do
     thms ← thms.addDeclToUnfold n
-  for n in [``Reg64s.get64_r10, ``Reg64s.get64_r11, ``Reg64s.get64_r12, ``Reg64s.get64_r13, ``Reg64s.get64_r14, ``Reg64s.get64_r15, ``Reg64s.get64_r8, ``Reg64s.get64_r9, ``Reg64s.get64_rax, ``Reg64s.get64_rbp, ``Reg64s.get64_rbx, ``Reg64s.get64_rcx, ``Reg64s.get64_rdi, ``Reg64s.get64_rdx, ``Reg64s.get64_rsi, ``Reg64s.get64_rsp] do
-    thms ← thms.addConst n (inv := true)
+  for n in [``Reg64s.toBitVec_r10, ``Reg64s.toBitVec_r11, ``Reg64s.toBitVec_r12, ``Reg64s.toBitVec_r13, ``Reg64s.toBitVec_r14, ``Reg64s.toBitVec_r15, ``Reg64s.toBitVec_r8, ``Reg64s.toBitVec_r9, ``Reg64s.toBitVec_rax, ``Reg64s.toBitVec_rbp, ``Reg64s.toBitVec_rbx, ``Reg64s.toBitVec_rcx, ``Reg64s.toBitVec_rdi, ``Reg64s.toBitVec_rdx, ``Reg64s.toBitVec_rsi, ``Reg64s.toBitVec_rsp] do
+    thms ← thms.addConst n
   let ctx ← Simp.mkContext {} (simpTheorems := #[thms])
   let (r, _) ← Meta.simp e ctx (simprocs := #[← Simp.getSimprocs])
   return (r.expr, r.proof?)
@@ -336,8 +336,9 @@ theorem sep_elim [CodeEnv] {q : Program} {F : MProp 64}
 interpretation is a frame closure, and `∗` composes resources by `sep_assoc`.
 This is the fact the frame inference of `vcgen` discharges per spec
 application. -/
-theorem frames [CodeEnv] (q : Program) (F : MProp 64) :
-    @WP.Frames Program Unit _ _ _ _ instWP _ frameOp _ _ q F := by
+theorem frames [CodeEnv] (q : Program) (F : MProp 64)
+    (P : Reg64s → RegZmms → StatusFlags → MProp 64) :
+    @WP.Frames Program Unit _ _ _ _ instWP _ frameOp _ _ q F P := by
   refine WP.frames_of_frameClosure frameOp MProp.sep ?_ ?_ ⟨fun q => (base.wpTrans q), fun _ => rfl⟩
   · intro r r' a
     funext regs zmms flags
@@ -376,9 +377,10 @@ where `vcgen` sequences them. -/
 
 /-- The frame fact of one directive, spelled with the exception companion
 `vcgen` derives for the exit channel. -/
-@[grind .] theorem frames_directive [CodeEnv] (d : Directive) (F : MProp 64) :
-    WP.Frames (Prog := Directive) frameOp d F :=
-  ⟨(frames [d] F).op_wp_le_wp_op⟩
+@[grind .] theorem frames_directive [CodeEnv] (d : Directive) (F : MProp 64)
+    (P : Reg64s → RegZmms → StatusFlags → MProp 64) :
+    WP.Frames (Prog := Directive) frameOp d F P :=
+  ⟨(frames [d] F P).op_wp_le_wp_op⟩
 
 end SepWP
 
