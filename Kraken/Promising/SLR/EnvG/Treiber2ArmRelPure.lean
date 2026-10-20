@@ -1,0 +1,163 @@
+/-
+Part 6: **the worker of `treiber2_arm.kl` is pure**
+(as `EnvG/Treiber2DataRelPure.lean`): in `SharedEnv.relPure Arch.armv8 rel`
+for release predicates pure at `top` (the pop `cas` is not a release), the
+node's data word `[n]` (4 bytes) and link word `[n + 8]` (8 bytes).
+
+`StartWA`, `treiber2ArmPureSpec` and `treiber2ArmPureSpec_init`.
+-/
+import Kraken.Promising.SLR.EnvG.Treiber2ArmVCGen
+
+open Std.WP Kraken Kraken.Promising Kraken.Promising.AArch64 MachineWP
+open Kraken.Promising.SLR Kraken.Promising.AArch64.EnvG
+
+namespace Kraken.Promising.SLR.EnvG.Treiber2Arm
+
+set_option mvcgen.warning false
+set_option experimental.vcgen true
+
+section Worker
+
+variable [layout : _root_.Layout] [Executable.ValidLayout (layout treiber2ArmWorker)]
+
+local instance treiber2ArmWorker.env : CodeEnv := ⟨layout treiber2ArmWorker⟩
+
+/-- The `treiber2_arm` worker's purity table: the frame everywhere. -/
+abbrev workAPureTable (t n : BitVec 64) (rel : Loc → Pred) :
+    Label → MachineData → (SharedEnv.counted (SharedEnv.relPure Arch.armv8 rel)).State → Prop :=
+  fun lb s _ => s.regs.X0.toBitVec = t ∧ s.regs.X1.toBitVec = n ∧ (∀ a, Mem.loadInt s.dmem a 8 = none) ∧
+    (∀ a, Mem.loadInt s.dmem a 4 = none) ∧ (lb = "worker" ∨ lb = "push" ∨ lb = "pop" ∨ lb = "done")
+
+/-- **The `treiber2_arm` worker is pure** (counted, partial): its `str`s
+write the data word and the link, pure there; the push `casl` is a release;
+the pop `cas` (plain) writes `top`, pure there. -/
+theorem treiber2ArmWorker_relPure (rel : Loc → Pred) (t n : BitVec 64)
+    (ht : ∀ v : Val, Pred.Pure (rel ⟨t, 8⟩) v) (hd : ∀ v : Val, Pred.Pure (rel ⟨n, 4⟩) v) (hn : ∀ v : Val, Pred.Pure (rel ⟨n + 8, 8⟩) v) :
+    PartialTripleEnv (SharedEnv.counted (SharedEnv.relPure Arch.armv8 rel))
+      (fun s _ => s.regs.X0.toBitVec = t ∧ s.regs.X1.toBitVec = n ∧ (∀ a, Mem.loadInt s.dmem a 8 = none) ∧
+        (∀ a, Mem.loadInt s.dmem a 4 = none))
+      treiber2ArmWorker (fun _ _ => True) (fun _ _ _ => False) := by
+  apply MachineWP.cfgEnv_partial (workAPureTable t n rel) (hP := by funext s g; simp [workAPureTable])
+  cfg_cases_env [treiber2ArmWorker]
+  all_goals intro s₀ g₀
+  all_goals vcgen
+  all_goals obtain ⟨⟨hx0, hx1, hd8, hd4, hT⟩, rfl, rfl⟩ := ‹(_ ∧ _) ∧ _ = _ ∧ _ = _›
+  all_goals simp only [SharedEnv.counted_step, SharedEnv.counted_ok] at *
+  all_goals have hn' : ∀ v : Val, Pred.Pure (rel ⟨n + 8#64, 8⟩) v := hn
+  all_goals try (simp [hx0, hx1, hd8, SharedEnv.relPureQ, Arch.storeKind, hn', hd,
+    show Arch.armv8.plainStore = .plain from rfl]; done)
+  case vc3 =>
+    rename_i s σ0 rng dm σ1 hst _
+    simp [hx1, hd4] at hst
+    obtain ⟨rfl, -⟩ := hst
+    simp (config := { decide := true }) [hx0, hx1, hd8, hd4]
+  case vc6 =>
+    rename_i s σ0 rng xv σ1 rng2 dm σ2 hld hst _
+    simp [hx1, hd8] at hst
+    obtain ⟨rfl, -⟩ := hst
+    simp [hx0, hd8]
+  case vc7 =>
+    rename_i s σ0 rng xv σ1 rng2 dm σ2 hld hst _
+    simp [hx1, hd8] at hst
+    obtain ⟨rfl, -⟩ := hst
+    simp [hx0, hx1, SharedEnv.relPureQ]
+    -- the `casl` is a release RMW: unconstrained
+    exact fun h => (h (by decide)).elim
+  case vc8 =>
+    rename_i s σ0 rng xv σ1 rng2 dm σ2 old σ3 hbr hld hst hcas _
+    simp [hd8] at hld
+    obtain ⟨_, h1, -⟩ := hld
+    simp [hx1, hd8] at hst
+    obtain ⟨rfl, hst2⟩ := hst
+    have h12 : σ1.2 ≤ σ2.2 := by omega
+    refine Table.ofLabelsEnv_at ⟨by decide, ⟨by simp [hx0], by simp [hx1], by simp [hd8], by simp [hd4],
+      .inr (.inl rfl)⟩, .inr fun ⟨_, hg⟩ => ?_⟩
+    subst hg
+    have h2 := hcas.2
+    simp only [SharedEnv.tick_rmw] at h1 h2
+    omega
+  case vc9 =>
+    rename_i s σ0 rng xv σ1 rng2 dm σ2 old σ3 hbr hld hst hcas _
+    simp [hx1, hd8] at hst
+    obtain ⟨rfl, -⟩ := hst
+    simp [hx0, hx1, hd8, hd4]
+  case vc4 =>
+    exact Table.ofLabelsEnv_at ⟨by decide, ⟨by simp [hx0], by simp [hx1], by simp [hd8], by simp [hd4],
+      .inr (.inr (.inr rfl))⟩, .inl (by decide)⟩
+  case vc9 =>
+    simp [hx0, SharedEnv.relPureQ]
+    -- the plain `cas` writes a value pure for `top`'s predicate
+    exact fun _ _ _ _ => ht _
+  case vc10 =>
+    rename_i s σ0 v σ1 hnz rng v4 σ2 old σ3 hbr hld hld2 hcas _
+    simp [hd8] at hld2
+    have h12 : σ1.2 ≤ σ2.2 := by
+      obtain ⟨_, ⟨_, h⟩, _⟩ := hld2
+      omega
+    refine Table.ofLabelsEnv_at ⟨by decide, ⟨by simp [hx0], by simp [hx1], by simp [hd8], by simp [hd4],
+      .inr (.inr (.inl rfl))⟩, .inr fun ⟨_, hg⟩ => ?_⟩
+    subst hg
+    have h1 := hld.2; have h2 := hcas.2
+    simp only [SharedEnv.tick_load, SharedEnv.tick_rmw] at h1 h2
+    omega
+  case vc13 =>
+    exact Table.ofLabelsEnv_at ⟨by decide, ⟨by simp [hx0], by simp [hx1], by simp [hd8], by simp [hd4],
+      .inr (.inr (.inr rfl))⟩, .inl (by decide)⟩
+  all_goals done
+
+end Worker
+
+/-! ## Start states and the purity specifications -/
+
+section Start
+
+variable [layout : _root_.Layout]
+
+/-- **A `treiber2_arm` worker's start state** (`i:X0=top; i:X1=n(i+1); i:X9=d`): at
+the start of `treiber2ArmWorker` with `x0 = t`, `x1 = n`, `w9 = d`; no private
+copy of any 8- or 4-byte word. -/
+structure StartWA (t n : BitVec 64) (d : BitVec 32) (s : isa.State) : Prop where
+  exe : s.exe = layout treiber2ArmWorker
+  decls : s.decls = {}
+  endPc : s.endPc = (layout treiber2ArmWorker).addrOf treiber2ArmWorker.length
+  pc : s.st.2 = (layout treiber2ArmWorker).addrOf 0
+  x0 : s.st.1.regs.X0.toBitVec = t
+  x1 : s.st.1.regs.X1.toBitVec = n
+  x9 : s.st.1.regs.X9.toBitVec.setWidth 32 = d
+  d8 : ∀ a, Mem.loadInt s.st.1.dmem a 8 = none
+  d4 : ∀ a, Mem.loadInt s.st.1.dmem a 4 = none
+
+end Start
+
+/-- The `treiber2_arm` threads' purity specifications: the worker at layout `l0` at
+thread `0`, at layout `l1` elsewhere. -/
+def treiber2ArmPureSpec (l0 l1 : _root_.Layout) [Executable.ValidLayout (l0 treiber2ArmWorker)]
+    [Executable.ValidLayout (l1 treiber2ArmWorker)] (rel : Loc → Pred) : Nat → RelPureSpec Arch.armv8 rel
+  | 0 => RelPureSpec.ofProgram (layout := l0) treiber2ArmWorker fun _ _ => ∃ _ : Nat, True
+  | _ + 1 => RelPureSpec.ofProgram (layout := l1) treiber2ArmWorker fun _ _ => ∃ _ : Nat, True
+
+/-- **The purity specifications hold at the start states**, for release
+predicates pure at `top` and the nodes' data words and links. -/
+theorem treiber2ArmPureSpec_init (l0 l1 : _root_.Layout) [Executable.ValidLayout (l0 treiber2ArmWorker)]
+    [Executable.ValidLayout (l1 treiber2ArmWorker)] {rel : Loc → Pred} {t n0 n1 : BitVec 64} {d0 d1 : BitVec 32}
+    (ht : ∀ v : Val, Pred.Pure (rel ⟨t, 8⟩) v) (hd0 : ∀ v : Val, Pred.Pure (rel ⟨n0, 4⟩) v) (hd1 : ∀ v : Val, Pred.Pure (rel ⟨n1, 4⟩) v)
+    (hn0 : ∀ v : Val, Pred.Pure (rel ⟨n0 + 8, 8⟩) v) (hn1 : ∀ v : Val, Pred.Pure (rel ⟨n1 + 8, 8⟩) v)
+    {s0 s1 : isa.State} (h0 : StartWA (layout := l0) t n0 d0 s0) (h1 : StartWA (layout := l1) t n1 d1 s1) :
+    ∀ tid s, [s0, s1][tid]? = some s → (treiber2ArmPureSpec l0 l1 rel tid).Holds s
+  | 0, s, hs => by
+    cases hs
+    obtain ⟨he, hds, hend, hpc, hx0, hx1, -, hd8, hd4⟩ := h0
+    letI : CodeEnv := ⟨l0 treiber2ArmWorker⟩
+    exact RelPureSpec.holds_of_partialTripleEnv (layout := l0)
+      (treiber2ArmWorker_relPure (layout := l0) rel t n0 ht hd0 hn0).uncount rfl he hds hend hpc
+      ⟨0, hx0, hx1, hd8, hd4⟩
+  | 1, s, hs => by
+    cases hs
+    obtain ⟨he, hds, hend, hpc, hx0, hx1, -, hd8, hd4⟩ := h1
+    letI : CodeEnv := ⟨l1 treiber2ArmWorker⟩
+    exact RelPureSpec.holds_of_partialTripleEnv (layout := l1)
+      (treiber2ArmWorker_relPure (layout := l1) rel t n1 ht hd1 hn1).uncount rfl he hds hend hpc
+      ⟨0, hx0, hx1, hd8, hd4⟩
+  | _ + 2, _, hs => by cases hs
+
+end Kraken.Promising.SLR.EnvG.Treiber2Arm

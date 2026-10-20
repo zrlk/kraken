@@ -1,0 +1,12 @@
+AArch64 MP+dmb.st+wb
+{
+int64_t x; int64_t y; int64_t z;
+0:X1=x; 0:X2=y;
+1:X1=x; 1:X2=y; 1:X3=z; 1:X6=x;
+}
+ P0          | P1                ;
+ MOV X9,#1   | LDR X0,[X2]       ;
+ STR X9,[X1] | STR X0,[X3],#0    ;
+ DMB ST      | SUB X7,X3,X3      ;
+ STR X9,[X2] | LDR X5,[X6,X7]    ;
+exists (1:X0=1 /\ 1:X5=0)

@@ -1,0 +1,82 @@
+X86_64 SpscQueueEarly
+(* spsc_queue.kl with the consumer reading the slot *before* it checks
+   `tail` (and re-reading it on every spin iteration):
+       v = buf[head]; spin while head == tail; use v
+   This is not a weak-memory bug but a program-order one: the data load
+   is issued before the index load that is supposed to validate it, so
+   even sequentially consistent executions can pair a stale slot value
+   with a later, successful index check (producer writes slot and tail
+   between the consumer's two loads). TSO is at least as weak as SC, so
+   the explorer finds it. The weak-memory relevant variant - consumer
+   loads the index then the data with plain `mov`s, no acquire - is
+   spsc_queue.kl itself, which is correct on TSO because loads are not
+   reordered with loads.
+   Property: the consumer receives 1, 2, 3 in that order (expected to
+   fail).
+# flags: -fuel 300 -witness
+# expect: Sometimes
+# Proved reachable: Kraken.Promising.Reach.SpscQueueEarly.spsc_queue_early_reachable (Kraken/Promising/ReachX64SpscQueueEarly.lean)
+*)
+{
+buf0=0; buf1=0; head=0; tail=0;
+0:rbx=buf0; 1:rbx=buf0;
+}
+threads { P0: producer pdone; P1: consumer cdone; }
+code {
+producer:
+  movl $1,%r8d
+produce:
+  movl (tail),%eax
+  movl %eax,%ecx
+  addl $1,%ecx
+  andl $1,%ecx
+pfull:
+  movl (head),%edx
+  cmpl %ecx,%edx
+  je pfull
+  movl %eax,%edx
+  shll $8,%edx
+  movl %r8d,(%rbx,%rdx,1)
+  movl %ecx,(tail)
+  addl $1,%r8d
+  cmpl $4,%r8d
+  jne produce
+  jmp pdone
+pdone:
+
+consumer:
+  movl (head),%eax
+  movl %eax,%edx
+  shll $8,%edx
+cempty0:
+  movl (%rbx,%rdx,1),%r12d
+  movl (tail),%ecx
+  cmpl %eax,%ecx
+  je cempty0
+  addl $1,%eax
+  andl $1,%eax
+  movl %eax,(head)
+  movl %eax,%edx
+  shll $8,%edx
+cempty1:
+  movl (%rbx,%rdx,1),%r13d
+  movl (tail),%ecx
+  cmpl %eax,%ecx
+  je cempty1
+  addl $1,%eax
+  andl $1,%eax
+  movl %eax,(head)
+  movl %eax,%edx
+  shll $8,%edx
+cempty2:
+  movl (%rbx,%rdx,1),%r14d
+  movl (tail),%ecx
+  cmpl %eax,%ecx
+  je cempty2
+  addl $1,%eax
+  andl $1,%eax
+  movl %eax,(head)
+  jmp cdone
+cdone:
+}
+forall (1:r12=1 /\ 1:r13=2 /\ 1:r14=3)

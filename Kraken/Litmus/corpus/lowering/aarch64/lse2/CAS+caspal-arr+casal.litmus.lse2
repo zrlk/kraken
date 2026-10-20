@@ -1,0 +1,7 @@
+Test CAS+caspal-arr+casal Allowed
+States 2
+0:X0=0; 1:X5=1; t={1,2};
+0:X0=3; 1:X5=0; t={3,0};
+No
+Condition exists (0:X0=0 /\ 1:X5=0)
+Observation CAS+caspal-arr+casal Never 0 2

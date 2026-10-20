@@ -1,0 +1,12 @@
+X86_64 SB+nt-mfences
+"SB with NT stores and mfence"
+{
+ 0:rax=x; 1:rax=y;
+}
+ P0                  | P1                  ;
+ movl $1,%ebx        | movl $1,%ebx        ;
+ movntil %ebx,(%rax) | movntil %ebx,(%rax) ;
+ mfence              | mfence              ;
+ movl (y),%ecx       | movl (x),%ecx       ;
+
+exists (0:rcx=0 /\ 1:rcx=0)

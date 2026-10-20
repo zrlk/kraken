@@ -1,0 +1,12 @@
+Test MP+dmb.st+stp-wb Allowed
+States 4
+1:X0=0; 1:X5=0;
+1:X0=0; 1:X5=1;
+1:X0=1; 1:X5=0;
+1:X0=1; 1:X5=1;
+Ok
+Witnesses
+Positive: 1 Negative: 3
+Condition exists (1:X0=1 /\ 1:X5=0)
+Observation MP+dmb.st+stp-wb Sometimes 1 3
+

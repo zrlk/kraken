@@ -1,0 +1,10 @@
+Test A56 Allowed
+States 1
+0:X0=2752512;
+Ok
+Witnesses
+Positive: 1 Negative: 0
+Condition exists (0:X0=2752512)
+Observation A56 Always 1 0
+Hash=95c00b4811cad97ec49224ec7e045dff
+

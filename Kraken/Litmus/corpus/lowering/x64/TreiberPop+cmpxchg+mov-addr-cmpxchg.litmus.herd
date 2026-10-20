@@ -1,0 +1,11 @@
+Test TreiberPop+cmpxchg+mov-addr-cmpxchg Allowed
+States 3
+1:rbx=0; 1:r8=d; [top]=0;
+1:rbx=0; 1:r8=d; [top]=n;
+1:rbx=d; 1:r8=n; [top]=d;
+No
+Witnesses
+Positive: 0 Negative: 4
+Condition exists (1:r8=n /\ 1:rbx=0)
+Observation TreiberPop+cmpxchg+mov-addr-cmpxchg Never 0 4
+

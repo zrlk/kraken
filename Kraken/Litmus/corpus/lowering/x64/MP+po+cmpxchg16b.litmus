@@ -1,0 +1,10 @@
+X86_64 MP+po+cmpxchg16b
+"MP: data store, then lock cmpxchg16b (0,0)->(1,1) as the flag; reader: movdqa, then data"
+{
+__int128 rec; uint32_t x;
+0:rax=0; 0:rdx=0; 0:rbx=1; 0:rcx=1;
+}
+ P0                    | P1                 ;
+ movl $1,(x)           | movdqa (rec),%xmm2 ;
+ lock cmpxchg16b (rec) | movl (x),%eax      ;
+exists (1:xmm2=0x10000000000000001 /\ 1:rax=0)

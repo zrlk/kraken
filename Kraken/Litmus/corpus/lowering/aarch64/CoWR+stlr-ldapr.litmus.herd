@@ -1,0 +1,11 @@
+Test CoWR+stlr-ldapr Allowed
+States 3
+0:X2=1; [x]=1;
+0:X2=1; [x]=2;
+0:X2=2; [x]=2;
+No
+Witnesses
+Positive: 0 Negative: 3
+Condition exists (0:X2=0 \/ [x]=1 /\ 0:X2=2)
+Observation CoWR+stlr-ldapr Never 0 3
+

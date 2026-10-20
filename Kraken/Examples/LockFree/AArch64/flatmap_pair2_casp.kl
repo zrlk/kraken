@@ -1,0 +1,78 @@
+AArch64 FlatMapPair2Casp
+(* flatmap_pair2.kl with the reader's two LDPs replaced by CASPALs used
+   as 16-byte loads: comparand {99,99}, which no slot ever holds, so each
+   CASPAL fails, writes nothing and returns the slot's {key, value} in
+   (X2, X3), resp. (X4, X5). Inserters, table, registers and condition are
+   those of flatmap_pair2.kl. Run with `-lse2` like the original (no LDP or
+   STP here, so the flag changes nothing).
+   Every 16-byte access in this program is a CASP, so the only possible
+   source of a torn pair is Kraken's two-event CASP (KNOWN_GAPS.md, CASP
+   paragraph). Hardware: CASP is single-copy atomic at 128 bits (Arm ARM
+   DDI 0487G.a §B2.2.1, with or without FEAT_LSE2): Never torn, property
+   holds.
+   Kraken: Sometimes (the reader's CASPAL and a failed inserter CASPAL can
+   return {k, 0} or {0, v}): "Kraken weaker than hardware". This file is
+   the direct evidence for the pending CASP decision: with CASP as one
+   paired 16-byte `rmw` it would be Always. *)
+# flags: -lse2
+# expect: Sometimes
+{
+uint64_t tab[4];
+0:X0=tab; 1:X0=tab; 2:X0=tab;
+0:X8=1; 0:X12=11; 1:X8=2; 1:X12=22;
+uint64_t 0:X4; uint64_t 0:X5; uint64_t 1:X4; uint64_t 1:X5;
+uint64_t 2:X2; uint64_t 2:X3; uint64_t 2:X4; uint64_t 2:X5;
+}
+threads { P0: ins done; P1: ins done; P2: scan done; }
+code {
+ins:
+  MOV X14,#0
+ins_loop:
+  LSL X16,X14,#4
+  ADD X17,X0,X16
+  MOV X4,#0
+  MOV X5,#0
+  MOV X6,X8
+  MOV X7,X12
+  CASPAL X4,X5,X6,X7,[X17]
+  ORR X9,X4,X5
+  CBZ X9,ins_won
+  CBNZ X14,ins_next
+  MOV X20,X4
+  MOV X21,X5
+ins_next:
+  CMP X4,X8
+  B.EQ ins_dup
+  ADD X14,X14,#1
+  CMP X14,#2
+  B.LT ins_loop
+  MOV X10,#0
+  B done
+ins_dup:
+  MOV X10,#9
+  B done
+ins_won:
+  ADD X10,X14,#1
+  B done
+scan:
+  MOV X2,#99
+  MOV X3,#99
+  MOV X6,#99
+  MOV X7,#99
+  CASPAL X2,X3,X6,X7,[X0]
+  ADD X17,X0,#16
+  MOV X4,#99
+  MOV X5,#99
+  CASPAL X4,X5,X6,X7,[X17]
+  B done
+done:
+  NOP
+}
+forall (
+  ((0:X10=1 /\ 1:X10=2 /\ tab={1,11,2,22}) \/
+   (0:X10=2 /\ 1:X10=1 /\ tab={2,22,1,11})) /\
+  ((0:X20=0 /\ 0:X21=0) \/ (0:X20=2 /\ 0:X21=22)) /\
+  ((1:X20=0 /\ 1:X21=0) \/ (1:X20=1 /\ 1:X21=11)) /\
+  ((2:X2=0 /\ 2:X3=0) \/ (2:X2=1 /\ 2:X3=11) \/ (2:X2=2 /\ 2:X3=22)) /\
+  ((2:X4=0 /\ 2:X5=0) \/ (2:X4=1 /\ 2:X5=11) \/ (2:X4=2 /\ 2:X5=22))
+)

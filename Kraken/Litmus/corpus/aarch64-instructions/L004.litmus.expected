@@ -1,0 +1,10 @@
+Test L004 Required
+States 1
+0:X1=1; 0:X3=-2;
+Ok
+Witnesses
+Positive: 1 Negative: 0
+Condition forall (true)
+Observation L004 Always 1 0
+Hash=e776c867cc5bda05cab9872972a90854
+

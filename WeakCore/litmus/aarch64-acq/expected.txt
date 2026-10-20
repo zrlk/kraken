@@ -1,0 +1,7 @@
+MP+dmb+rfi-acq allowed 5
+SB+rfi-acq+dmb allowed 4
+WRC+rel+casa+acq forbidden 7
+WRC+rel+cas+acq forbidden 7
+WRC+rel+casal+acq forbidden 7
+WRC+rel+ldst+acq forbidden 9
+WRC+rel+st+acq forbidden 9

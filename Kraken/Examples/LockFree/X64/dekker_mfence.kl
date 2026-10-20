@@ -1,0 +1,49 @@
+X86_64 DekkerMfence
+(* dekker_broken.kl with an `mfence` between raising the own flag and
+   reading the other one. The fence drains the store buffer, so at least
+   one thread sees the other's flag up and backs off, or enters only
+   after the other has lowered its flag: no lost increment.
+   Property: no final state in which both threads entered and an
+   increment was lost (counter = 1).
+   Proved for every layout of the runner's image, the code verbatim
+   (`decls = {}`): `DekkerAbs.x64_dekker_public_verbatim`
+   (Promising/SLR/EnvG/DekkerAbsPublic.lean). Proved from the runner's exact
+   configuration (declarations and initial memory included):
+   `DekkerAbs.x64_dekker_public_runner` (DekkerAbsRunner.lean), with a
+   `.Concrete` instance.
+   Proved no fault at the runner's declarations (rule-level):
+   `DekkerAbs.x64_dekker_public_runner_noFault`
+   (Promising/SLR/EnvG/X64NoFaultDLocks.lean), with a `.Concrete` instance.
+   The shared symbols are typed (`uint32_t`) so that the runner declares
+   them as sized locations at the width of the code's accesses (DECLS): the
+   runner's declarations then agree with the proofs'
+   locations. The code block and the verdict are unchanged.
+   Proved (fault freedom at the runner's declarations, MEMVALS):
+   `DekkerAbs.x64_dekker_public_runner_faultFree`
+   (Promising/SLR/EnvG/X64FaultFreeFixed.lean), with a `.Concrete` instance.
+# flags: -fuel 300
+# expect: Never
+*)
+{
+uint32_t flag0=0; uint32_t flag1=0; uint32_t counter=0;
+0:rsi=flag0; 0:rdi=flag1;
+1:rsi=flag1; 1:rdi=flag0;
+}
+threads { P0: worker done; P1: worker done; }
+code {
+worker:
+  xorl %edx,%edx
+  movl $1,(%rsi)
+  mfence
+  movl (%rdi),%eax
+  testl %eax,%eax
+  jne done
+  movl $1,%edx
+  movl (counter),%ecx
+  addl $1,%ecx
+  movl %ecx,(counter)
+  movl $0,(%rsi)
+  jmp done
+done:
+}
+~exists (0:edx=1 /\ 1:edx=1 /\ [counter]=1)

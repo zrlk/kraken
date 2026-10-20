@@ -1,0 +1,12 @@
+Test S+ponant+ponaa Allowed
+States 4
+[x]=1; 1:rbx=0; 1:rcx=2;
+[x]=1; 1:rbx=1; 1:rcx=2;
+[x]=2; 1:rbx=0; 1:rcx=0;
+[x]=2; 1:rbx=1; 1:rcx=0;
+Ok
+Witnesses
+Positive: 1 Negative: 3
+Condition exists ([x]=2 /\ 1:rbx=1 /\ 1:rcx=0)
+Observation S+ponant+ponaa Sometimes 1 3
+

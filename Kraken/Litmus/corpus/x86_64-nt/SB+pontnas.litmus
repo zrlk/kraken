@@ -1,0 +1,17 @@
+X86_64 SB+pontnas
+Generator=diycross7 (version 7.58+1)
+Prefetch=0:x=F,0:y=T,1:y=F,1:x=T
+Com=Fr Fr
+Orig=PodWR Fre NT PodWR Fre NT
+Cycle=PodWRNTNa FreNaNT PodWRNTNa FreNaNT
+"PodWR Fre NT PodWR Fre NT"
+{
+ 0:rax=x;
+ 1:rbx=y;
+}
+ P0                  | P1                  ;
+ movl $1,%ebx        | movl $1,%ecx        ;
+ movntil %ebx,(%rax) | movntil %ecx,(%rbx) ;
+ movl (y),%ecx       | movl (x),%edx       ;
+
+exists (0:rcx=0 /\ 1:rdx=0)

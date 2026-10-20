@@ -1,0 +1,69 @@
+X86_64 MpRelay3Xchg
+(* Three-thread ownership relay on x86-TSO, the x64 counterpart of
+   `../AArch64/mp_relay3_swpl.kl`. The writer stores 42 to `d` (x64 MP's
+   `mpWriterX`) and publishes
+   it with a plain `movl` to `f1` (a release store under TSO). The relay
+   spins with plain loads on `f1` (acquires under TSO), overwrites `d` with
+   43, and publishes with `xchgl` (implicitly locked, an `.acqRel` RMW) to
+   `f2`. The reader spins on `f2`, then loads `d` into ebx.
+   Property: the reader sees 43 and the final value of `d` is 43.
+   Proved: `mp_relay3_xchg_envG` (Promising/SLR/EnvG/X64RelayXchgPublic.lean),
+   on the x64 claim-conditional environment with taking loads `EnvGTCX`
+   (`X64RmwGhostLink.lean`: the `xchg` claims, as every x64 RMW, and gives
+   `d` from the relay's own resource).
+   The relay's single `xchg` is not in a loop, so the exploration is
+   bounded. (Threads have different roles: do not use -sym.)
+   Proved for every layout of the runner's image, the code verbatim
+   (`decls = {}`): `RelayAbs.mp_relay3_xchg_envG_verbatim`
+   (Promising/SLR/EnvG/X64RelayAbsPublic.lean). Proved from the runner's
+   exact configuration (declarations and initial memory included):
+   `RelayAbs.mp_relay3_xchg_envG_runner` (X64RelayAbsRunner.lean), with a
+   `.Concrete` instance.
+   Proved no fault at the runner's declarations (rule-level):
+   `RelayAbs.mp_relay3_xchg_envG_runner_noFault`
+   (Promising/SLR/EnvG/X64NoFaultDMp.lean), with a `.Concrete` instance.
+   The shared symbols are typed (`uint32_t`) so that the runner declares
+   them as sized locations at the width of the code's accesses (DECLS): the
+   runner's declarations then agree with the proofs'
+   locations. The code block and the verdict are unchanged.
+   Proved (fault freedom at the runner's declarations, MEMVALS):
+   `RelayAbs.mp_relay3_xchg_envG_runner_faultFree`
+   (Promising/SLR/EnvG/X64FaultFreeFixed.lean), with a `.Concrete` instance.
+# flags: -fuel 300
+# expect: Always
+*)
+{
+uint32_t d=0; uint32_t f1=0; uint32_t f2=0;
+0:rdi=f1; 0:rsi=d;
+1:rdi=f1; 1:rsi=d; 1:rdx=f2;
+2:rdi=f2; 2:rsi=d;
+}
+threads { P0: writer wdone; P1: relay rdone; P2: reader ddone; }
+code {
+writer:
+  movl $42,%eax
+  movl %eax,(%rsi)
+  movl $1,%ecx
+  movl %ecx,(%rdi)
+  jmp wdone
+wdone:
+  nop
+relay:
+  movl (%rdi),%eax
+  cmpl $0,%eax
+  je relay
+  movl $43,(%rsi)
+  movl $1,%ecx
+  xchgl %ecx,(%rdx)
+  jmp rdone
+rdone:
+  nop
+reader:
+  movl (%rdi),%eax
+  cmpl $0,%eax
+  je reader
+  movl (%rsi),%ebx
+  jmp ddone
+ddone:
+}
+forall (2:ebx=43 /\ [d]=43)

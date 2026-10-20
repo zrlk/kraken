@@ -1,0 +1,11 @@
+X86_64 CoWR+nt
+"Coherence: a thread reads its own NT store"
+{
+ 0:rax=x;
+}
+ P0                  ;
+ movl $1,%ebx        ;
+ movntil %ebx,(%rax) ;
+ movl (x),%ecx       ;
+
+exists (0:rcx=0)

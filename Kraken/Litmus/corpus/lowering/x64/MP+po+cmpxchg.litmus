@@ -1,0 +1,10 @@
+X86_64 MP+po+cmpxchg
+"MP: plain stores; reader: lock cmpxchg 1->2 on the flag, then load data"
+{
+}
+ P0          | P1                     ;
+ movl $1,(x) | movl $1,%eax           ;
+ movl $1,(y) | movl $2,%ebx           ;
+             | lock cmpxchgl %ebx,(y) ;
+             | movl (x),%edx          ;
+exists (1:rax=1 /\ 1:rdx=0)

@@ -1,0 +1,12 @@
+Test S+dmb.sy+amo.steor-po Allowed
+States 4
+[x]=1; [y]=1;
+[x]=1; [y]=3;
+[x]=2; [y]=1;
+[x]=2; [y]=3;
+Ok
+Witnesses
+Positive: 1 Negative: 3
+Condition exists ([x]=2 /\ [y]=3)
+Observation S+dmb.sy+amo.steor-po Sometimes 1 3
+

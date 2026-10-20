@@ -1,0 +1,30 @@
+AArch64 SpinlockRelaxedRelease2
+(* Test-and-set spinlock (as spinlock2.kl) with the release done by a plain
+   STR instead of STLR. The counter write may be reordered after the
+   unlock, so the second thread can read the stale counter: lost update.
+   Property checked: counter = 2 (forall). Expected: Sometimes (violated;
+   [counter]=1 reachable). *)
+# flags: -sym
+# expect: Sometimes
+# Proved reachable: Kraken.Promising.Reach.SpinlockRelaxed2.spinlock_relaxed2_reachable (Kraken/Promising/ReachA64SpinlockRelaxed2.lean)
+{
+lock=0; counter=0;
+0:X0=lock; 0:X1=counter;
+1:X0=lock; 1:X1=counter;
+}
+threads { P0: worker done; P1: worker done; }
+code {
+worker:
+  LDAXR W2,[X0]
+  CBNZ W2,worker
+  MOV W3,#1
+  STXR W4,W3,[X0]
+  CBNZ W4,worker
+  LDR W5,[X1]
+  ADD W5,W5,#1
+  STR W5,[X1]
+  STR WZR,[X0]
+  B done
+done:
+}
+forall [counter]=2

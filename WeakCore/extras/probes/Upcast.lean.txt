@@ -1,0 +1,63 @@
+/-
+# Probe: interface upcast by repacking at the opened type
+
+Gated (check-promises.sh, after ArrayLib).  `Counter`'s
+vtable embeds a pointer to a `Getter` vtable; `upcast` opens the `Counter`,
+pairs the `Getter` vtable with `self`, and packs at the opened `T` (allowed:
+only a function's type argument may not expose an unpacked type).
+-/
+import WeakCore.ArrayLib
+open ArrayLib CoreTerm TermRun
+
+-- Sub-interface Counter = Getter + bump; vtable holds a pointer to the Getter vtable (embedding).
+def upSrc : String := "
+def getI(p : Ptr pub Int) : Int =
+  let x = load p
+  ret x
+
+def bumpI(p : Ptr pub Int) : Unit =
+  let x = load p
+  let y = x + 1
+  let w = store p y
+  let u = ()
+  ret u
+
+def useGetter(o : exists (T : {share, noOwn}). Ptr pub Code(Ptr pub T, Int) * Ptr pub T) : Int =
+  let <[T], g> = unpack o
+  let (vt, self) = g
+  let get = load vt
+  let v = callc get self
+  ret v
+
+def upcast(o : exists (T : {share, noOwn}). Ptr pub (Ptr pub Code(Ptr pub T, Int) * Code(Ptr pub T, Unit)) * Ptr pub T) : exists (T : {share, noOwn}). Ptr pub Code(Ptr pub T, Int) * Ptr pub T =
+  let <[T], g> = unpack o
+  let (vt, self) = g
+  let ms = load vt
+  let (gv, bump) = ms
+  let a = callc bump self
+  let h = (gv, self)
+  let o2 = pack h at [T] : exists (T : {share, noOwn}). Ptr pub Code(Ptr pub T, Int) * Ptr pub T
+  ret o2
+
+def main(z : Int) : Int =
+  let c0 = new z
+  let s = publish c0
+  let fg = fnptr getI
+  let g0 = new fg
+  let gv = publish g0
+  let fb = fnptr bumpI
+  let ms = (gv, fb)
+  let v0 = new ms
+  let vt = publish v0
+  let g = (vt, s)
+  let o = pack g at [Int] : exists (T : {share, noOwn}). Ptr pub (Ptr pub Code(Ptr pub T, Int) * Code(Ptr pub T, Unit)) * Ptr pub T
+  let o2 = upcast(o)
+  let r = useGetter(o2)
+  ret r
+"
+def runTo (src f : String) (n : Nat) : Option (List WeakMem.Val) :=
+  (TermSmoke.runSetup (parsed src) f [] .int [cst (.num n)] 300).map fun st => st.res.map (·.val)
+
+#guard refusal upSrc == ""
+-- 5, bumped once through the Counter view, then read through the Getter view.
+#guard runTo upSrc "main" 5 == some [.num 6]

@@ -1,0 +1,9 @@
+Test CoWR+nt Allowed
+States 1
+0:rcx=1;
+No
+Witnesses
+Positive: 0 Negative: 1
+Condition exists (0:rcx=0)
+Observation CoWR+nt Never 0 1
+

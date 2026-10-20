@@ -1,0 +1,9 @@
+Test CoWW+nt Allowed
+States 1
+[x]=2;
+No
+Witnesses
+Positive: 0 Negative: 1
+Condition exists ([x]=1)
+Observation CoWW+nt Never 0 1
+

@@ -1,0 +1,17 @@
+AArch64 LB+rel+ctrl+popls
+Generator=diycross7 (version 7.58+1)
+Prefetch=0:x=F,0:y=W,1:y=F,1:x=W
+Com=Rf Rf
+Orig=PodRW L Rfe PodRW L Rfe
+Cycle=PodRWPL RfeLP PodRWPL RfeLP
+"PodRW L Rfe PodRW L Rfe"
+{
+ 0:X0=x; 0:X3=y;
+ 1:X0=x; 1:X3=y;
+}
+ P0           | P1           ;
+ LDR W1,[X0]  | LDR W1,[X3]  ;
+ MOV W2,#1    | MOV W2,#1    ;
+ STLR W2,[X3] | STLR W2,[X0] ;
+
+exists (0:X1=1 /\ 1:X1=1)

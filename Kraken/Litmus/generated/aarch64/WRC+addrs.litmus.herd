@@ -1,0 +1,15 @@
+Test WRC+addrs Allowed
+States 7
+0:X1=0; 1:X1=0; 1:X3=0;
+0:X1=0; 1:X1=0; 1:X3=1;
+0:X1=0; 1:X1=1; 1:X3=0;
+0:X1=0; 1:X1=1; 1:X3=1;
+0:X1=1; 1:X1=0; 1:X3=0;
+0:X1=1; 1:X1=0; 1:X3=1;
+0:X1=1; 1:X1=1; 1:X3=1;
+No
+Witnesses
+Positive: 0 Negative: 7
+Condition exists (0:X1=1 /\ 1:X1=1 /\ 1:X3=0)
+Observation WRC+addrs Never 0 7
+

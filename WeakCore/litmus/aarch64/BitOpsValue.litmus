@@ -1,0 +1,10 @@
+AArch64 BitOpsValue
+{
+0:X14=x;
+1:X14=x;
+}
+ P0                 | P1                 ;
+ MOV W11,#6         | MOV W11,#3         ;
+ LDSET W11,W0,[X14] | MVN W11,W11        ;
+                    | LDCLR W11,W0,[X14] ;
+exists ([x]=2)

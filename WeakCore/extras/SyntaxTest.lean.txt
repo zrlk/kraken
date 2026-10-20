@@ -1,0 +1,68 @@
+/-
+# SyntaxTest — every library program survives print → parse
+
+For each library below, every code block `d` is printed with
+`Syntax.showDecl` and read back with `Syntax.parseDecl`; the result must be
+`d` again, field by field.  So the concrete syntax can express the whole
+library, and printed programs are programs.  Whole programs are also printed
+and parsed, and `Scope` (the checker-faithful index scope) is checked to
+follow the checker through every accepted block.
+
+Build: LEAN_PATH=build lean SyntaxTest.lean   (after the libraries and Syntax.olean)
+-/
+import WeakCore.Syntax
+import WeakCore.FlatHashMap
+import WeakCore.HashMapLF
+import WeakCore.RWLock
+import WeakCore.Typestate
+import WeakCore.Caps
+import WeakCore.Freeze
+import WeakCore.SubWord
+import WeakCore.BufSmoke
+open CoreLang CoreTerm Syntax
+
+namespace SyntaxTest
+
+def corpus : List (String × Prog) :=
+  [("mutexLib", mutexLib), ("seqLib", seqLib), ("queueLib Int", queueLib .int),
+   ("polyQueueLib", polyQueueLib), ("claimLib Int", claimLib .int), ("pcLib", pcLib),
+   ("TermSmoke", TermSmoke.seqProg ++ TermSmoke.qProg ++ TermSmoke.cProg ++ TermSmoke.bProg),
+   ("BufSmoke", BufSmoke.mpGood ++ BufSmoke.mpPlain ++ BufSmoke.mpBad ++ BufSmoke.zProg),
+   ("Typestate", Typestate.fileLib), ("Caps", Caps.capLib),
+   ("RWLock", RWLock.rwLib ++ RWLock.bsemLib),
+   ("HashMap", HashMap.hmLib ++ HashMap.instLib ++ HashMap.intLib ++ HashMap.rwProg),
+   ("HashMapOwn", HashMapOwn.ohmLib ++ HashMapOwn.oInstLib),
+   ("HashMapLF", HashMapLF.lfLib ++ HashMapLF.lfProg),
+   ("Freeze", Freeze.frzLib ++ Freeze.frzCLib), ("SubWord", SubWord.swLib),
+   ("FlatHashMap portable", FlatHashMap.ownLib false), ("FlatHashMap x64", FlatHashMap.ownLib true)]
+
+/-- The code blocks that do not round-trip, with what went wrong. -/
+def failures : List String :=
+  corpus.flatMap fun (_, p) => (p.filter (!roundTrips ·)).map roundTripReport
+
+#guard failures.isEmpty
+
+/-- Whole programs round-trip too, where each block is printed and parsed
+knowing the blocks before it (so `Scope` follows the checker through calls). -/
+def progFailures : List String :=
+  corpus.filterMap fun (n, p) =>
+    match parseProg (showProg p) with
+    | .ok q => if q.length == p.length && (p.zip q).all (fun (a, b) => sameDecl a b) then none
+               else some n
+    | .error e => some s!"{n}: {e}"
+
+#guard progFailures.isEmpty
+
+/-- `Scope.branches` follows the checker to the end of every block the
+checker accepts (in its own program). -/
+def scopeGaps : List String :=
+  corpus.flatMap fun (_, p) =>
+    (p.filter fun d => accepts (checkDecl p d) && !Scope.covers p d).map (·.name)
+
+#guard scopeGaps.isEmpty
+
+/-- How much was exercised. -/
+def blocks : Nat := (corpus.map (·.2.length)).foldl (· + ·) 0
+#eval s!"SyntaxTest: {blocks} code blocks round-trip"
+
+end SyntaxTest

@@ -1,0 +1,12 @@
+Test MPcr+popl+amo.cas-po Allowed
+States 4
+1:X1=0; 1:X4=0; [y]=1;
+1:X1=0; 1:X4=1; [y]=1;
+1:X1=1; 1:X4=0; [y]=2;
+1:X1=1; 1:X4=1; [y]=2;
+Ok
+Witnesses
+Positive: 2 Negative: 8
+Condition exists ([y]=2 /\ 1:X1=1 /\ 1:X4=0)
+Observation MPcr+popl+amo.cas-po Sometimes 2 8
+

@@ -1,0 +1,11 @@
+Test MPcw+popa-amo.casal+poqp Allowed
+States 3
+0:X3=0; 1:X1=0; 1:X3=0;
+0:X3=0; 1:X1=0; 1:X3=1;
+0:X3=0; 1:X1=1; 1:X3=1;
+No
+Witnesses
+Positive: 0 Negative: 6
+Condition exists (0:X3=0 /\ 1:X1=1 /\ 1:X3=0)
+Observation MPcw+popa-amo.casal+poqp Never 0 6
+

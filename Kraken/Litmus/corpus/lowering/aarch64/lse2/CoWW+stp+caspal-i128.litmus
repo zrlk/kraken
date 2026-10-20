@@ -1,0 +1,15 @@
+AArch64 CoWW+stp+caspal-i128
+"STP (1,1) vs CASPAL (0,0)->(2,2) on one 16-byte location: CASP reads a whole value; the STP is last either way"
+{
+__int128 x;
+0:X4=x; 1:X4=x;
+uint64_t 1:X0; uint64_t 1:X1;
+}
+ P0             | P1                      ;
+ MOV X0,#1      | MOV X0,#0               ;
+ MOV X1,#1      | MOV X1,#0               ;
+ STP X0,X1,[X4] | MOV X2,#2               ;
+                | MOV X3,#2               ;
+                | CASPAL X0,X1,X2,X3,[X4] ;
+locations [x;]
+exists (1:X0=1 /\ 1:X1=0 \/ 1:X0=0 /\ 1:X1=1)

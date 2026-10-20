@@ -1,0 +1,40 @@
+AArch64 Treiber2Relaxed
+(* Treiber stack (as treiber2.kl) with no ordering at all: plain LDR of
+   `top` and plain CAS in both push and pop. A popper may then read the
+   popped node's `next` or data before the pusher's writes are visible:
+   a node is lost (pop returns 0) or stale data (X11=0) is read.
+   Property checked: as treiber2.kl (forall). Expected: Sometimes. *)
+# flags:
+# slow
+# expect: Sometimes
+# Proved reachable: Kraken.Promising.Reach.Treiber2Relaxed.treiber2_relaxed_reachable (Kraken/Promising/ReachA64Treiber2Relaxed.lean)
+{
+top=0; n1=0; n2=0;
+0:X0=top; 0:X1=n1; 0:X9=1;
+1:X0=top; 1:X1=n2; 1:X9=2;
+}
+threads { P0: worker done; P1: worker done; }
+code {
+worker:
+  STR W9,[X1]
+push:
+  LDR X2,[X0]
+  STR X2,[X1,#8]
+  MOV X3,X2
+  CAS X3,X1,[X0]
+  CMP X3,X2
+  B.NE push
+pop:
+  LDR X2,[X0]
+  CBZ X2,done
+  LDR X4,[X2,#8]
+  MOV X3,X2
+  CAS X3,X4,[X0]
+  CMP X3,X2
+  B.NE pop
+  MOV X10,X2
+  LDR W11,[X2]
+  B done
+done:
+}
+forall ((0:X10=n1 /\ 0:X11=1 /\ 1:X10=n2 /\ 1:X11=2) \/ (0:X10=n2 /\ 0:X11=2 /\ 1:X10=n1 /\ 1:X11=1))

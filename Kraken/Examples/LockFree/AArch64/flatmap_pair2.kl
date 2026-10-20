@@ -1,0 +1,92 @@
+AArch64 FlatMapPair2
+(* Lock-free flat hash map, pair variant: each slot is a 16-byte
+   {key, value} group inserted by one `casPair` {0,0} -> {k,v} and read by
+   one 16-byte atomic load. WeakCore lowering on FEAT_LSE2: `casPair acq
+   rel` = CASPAL, 16-byte atomic load = LDP. Run with `-lse2`.
+   Table: N = 2 slots in `uint64_t tab[4]`: slot i is {tab[2i], tab[2i+1]}
+   = {key, value} at tab + 16*i (16-byte aligned). Keys 1 and 2 both have
+   home slot 0.
+     insert(k, v): for i = 0, 1: (X4,X5) := CASPAL tab+16i {0,0} -> {k,v};
+                   if (X4,X5) = (0,0): return i+1;
+                   if X4 = k: return 9 (duplicate); else next slot;
+                   return 0 (full).
+   P0: insert(1, 11) -> X10;  P1: insert(2, 22) -> X10 (same code,
+   registers differ). Each inserter keeps the old pair its CASPAL returned
+   on slot 0 in (X20, X21) (initially (0,0), set only on failure).
+   P2 (scan): LDP slot 0 -> (X2, X3); LDP slot 1 -> (X4, X5).
+   Property: no torn {key, value} anywhere: every pair the reader loads
+   and every old pair a failed CASPAL returns is {0,0}, {1,11} or {2,22};
+   and the final table is {1:11, 2:22} in slots matching the inserters'
+   results.
+   Hardware (Arm ARM DDI 0487G.a §B2.2.1; §B2.2.1.1 for FEAT_LSE2): CASP's
+   reads and writes are single-copy atomic at 128 bits, and an aligned
+   LDP of two X registers is single-copy atomic on FEAT_LSE2: Never torn,
+   so the property holds on hardware.
+   Kraken: Sometimes, a "Kraken weaker than hardware" result, from two
+   model facts (`Kraken/Litmus/KNOWN_GAPS.md`, CASP paragraph):
+   (1) CASP is two per-half `rmw` events (herd's model): a reader can see
+       the key half of an insert and the old value half, {k, 0}; a failed
+       CASPAL can return {k, 0} the same way;
+   (2) `-lse2` makes LDP one access only on a declared 16-byte location
+       (`__int128`); `tab` is two 8-byte cells per slot (CASP on an
+       `__int128` cell is unsupported, ./open/flatmap_pair2_i128.kl), so
+       LDP stays two loads.
+   flatmap_pair2_casp.kl isolates (1): its reader uses a failing CASPAL
+   as the 16-byte load, so the only source of tearing is the two-event
+   CASP. No -sym (P2 differs). *)
+# flags: -lse2
+# expect: Sometimes
+{
+uint64_t tab[4];
+0:X0=tab; 1:X0=tab; 2:X0=tab;
+0:X8=1; 0:X12=11; 1:X8=2; 1:X12=22;
+uint64_t 0:X4; uint64_t 0:X5; uint64_t 1:X4; uint64_t 1:X5;
+uint64_t 2:X2; uint64_t 2:X3; uint64_t 2:X4; uint64_t 2:X5;
+}
+threads { P0: ins done; P1: ins done; P2: scan done; }
+code {
+ins:
+  MOV X14,#0
+ins_loop:
+  LSL X16,X14,#4
+  ADD X17,X0,X16
+  MOV X4,#0
+  MOV X5,#0
+  MOV X6,X8
+  MOV X7,X12
+  CASPAL X4,X5,X6,X7,[X17]
+  ORR X9,X4,X5
+  CBZ X9,ins_won
+  CBNZ X14,ins_next
+  MOV X20,X4
+  MOV X21,X5
+ins_next:
+  CMP X4,X8
+  B.EQ ins_dup
+  ADD X14,X14,#1
+  CMP X14,#2
+  B.LT ins_loop
+  MOV X10,#0
+  B done
+ins_dup:
+  MOV X10,#9
+  B done
+ins_won:
+  ADD X10,X14,#1
+  B done
+scan:
+  LDP X2,X3,[X0]
+  ADD X17,X0,#16
+  LDP X4,X5,[X17]
+  B done
+done:
+  NOP
+}
+forall (
+  ((0:X10=1 /\ 1:X10=2 /\ tab={1,11,2,22}) \/
+   (0:X10=2 /\ 1:X10=1 /\ tab={2,22,1,11})) /\
+  ((0:X20=0 /\ 0:X21=0) \/ (0:X20=2 /\ 0:X21=22)) /\
+  ((1:X20=0 /\ 1:X21=0) \/ (1:X20=1 /\ 1:X21=11)) /\
+  ((2:X2=0 /\ 2:X3=0) \/ (2:X2=1 /\ 2:X3=11) \/ (2:X2=2 /\ 2:X3=22)) /\
+  ((2:X4=0 /\ 2:X5=0) \/ (2:X4=1 /\ 2:X5=11) \/ (2:X4=2 /\ 2:X5=22))
+)

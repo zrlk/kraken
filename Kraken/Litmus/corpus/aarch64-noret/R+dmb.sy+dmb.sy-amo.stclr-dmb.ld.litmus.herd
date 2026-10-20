@@ -1,0 +1,11 @@
+Test R+dmb.sy+dmb.sy-amo.stclr-dmb.ld Allowed
+States 3
+1:X5=0; [y]=1;
+1:X5=1; [y]=1;
+1:X5=1; [y]=2;
+No
+Witnesses
+Positive: 0 Negative: 3
+Condition exists ([y]=2 /\ 1:X5=0)
+Observation R+dmb.sy+dmb.sy-amo.stclr-dmb.ld Never 0 3
+

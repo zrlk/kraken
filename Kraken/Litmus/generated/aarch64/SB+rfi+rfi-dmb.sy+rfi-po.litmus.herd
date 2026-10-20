@@ -1,0 +1,12 @@
+Test SB+rfi+rfi-dmb.sy+rfi-po Allowed
+States 4
+0:X2=1; 0:X4=0; 1:X2=1; 1:X4=0;
+0:X2=1; 0:X4=0; 1:X2=1; 1:X4=1;
+0:X2=1; 0:X4=1; 1:X2=1; 1:X4=0;
+0:X2=1; 0:X4=1; 1:X2=1; 1:X4=1;
+Ok
+Witnesses
+Positive: 1 Negative: 3
+Condition exists (0:X2=1 /\ 0:X4=0 /\ 1:X2=1 /\ 1:X4=0)
+Observation SB+rfi+rfi-dmb.sy+rfi-po Sometimes 1 3
+

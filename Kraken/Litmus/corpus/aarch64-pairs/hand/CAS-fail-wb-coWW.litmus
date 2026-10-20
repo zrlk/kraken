@@ -1,0 +1,13 @@
+AArch64 CAS-fail-wb-coWW
+"A failing CAS reading P2's first write: its write-back sits immediately after that write in coherence, so it cannot make the first value final after the second"
+{
+uint64_t x;
+0:X1=x; 1:X1=x; 2:X1=x;
+uint64_t 0:X6; uint64_t 1:X0; uint64_t 1:X3;
+}
+P0                 | P1            | P2          ;
+MOV X6,#7          | LDR X0,[X1]   | MOV X5,#2   ;
+MOV X7,#9          | LDR X3,[X1]   | STR X5,[X1] ;
+CAS X6,X7,[X1]     |               | MOV X5,#3   ;
+                   |               | STR X5,[X1] ;
+exists (0:X6=2 /\ x=2 \/ 1:X0=3 /\ 1:X3=2)

@@ -1,0 +1,14 @@
+AArch64 LB+cas.zr-dmb.st+dmb.sy
+"cas.zr; dmb.st; write || read; DMB SY; write"
+{
+x=5; 
+0:X1=x; 0:X3=y;
+1:X1=y; 1:X3=x;
+}
+ P0              | P1           ;
+ MOV W4,#3       | LDR W0,[X1]  ;
+ CAS WZR,W4,[X1] | DMB SY       ;
+ DMB ST          | STR WZR,[X3] ;
+ MOV W7,#1       |              ;
+ STR W7,[X3]     |              ;
+exists ([x]=3 /\ 1:X0=1)

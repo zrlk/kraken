@@ -1,0 +1,9 @@
+Test L093 Required
+States 1
+0:X2=-2067618079; 0:X4=9566392045350387456;
+Ok
+Witnesses
+Positive: 1 Negative: 0
+Condition forall (0:X2=2227349217 /\ 0:X4=-8880352028359164160)
+Observation L093 Always 1 0
+

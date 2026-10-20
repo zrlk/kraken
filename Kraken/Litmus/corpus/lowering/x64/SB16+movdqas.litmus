@@ -1,0 +1,10 @@
+X86_64 SB16+movdqas
+"SB with 16-byte movdqa stores and loads: TSO lets each load pass the earlier store"
+{
+__int128 a; __int128 b;
+0:xmm0=0x10000000000000001; 1:xmm0=0x10000000000000001;
+}
+ P0               | P1               ;
+ movdqa %xmm0,(a) | movdqa %xmm0,(b) ;
+ movdqa (b),%xmm1 | movdqa (a),%xmm1 ;
+exists (0:xmm1=0 /\ 1:xmm1=0)

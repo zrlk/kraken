@@ -1,0 +1,11 @@
+AArch64 MIX-i128-ldxp-str
+"A 16-byte location read by LDXP and written by a plain 8-byte STR to its high half: Kraken must not be stricter than herd (mixed sizes)"
+{
+__int128 x;
+0:X5=x; 1:X5=x;
+uint64_t 0:X2; uint64_t 0:X3;
+}
+P0                  | P1               ;
+LDXP X2,X3,[X5]     | MOV X0,#1        ;
+                    | STR X0,[X5,#8]   ;
+exists (0:X2=0 /\ 0:X3=1)

@@ -1,0 +1,9 @@
+AArch64 XADDValue
+{
+0:X14=x;
+1:X14=x;
+}
+ P0                 | P1                 ;
+ MOV W11,#1         | MOV W11,#2         ;
+ LDADD W11,W0,[X14] | LDADD W11,W0,[X14] ;
+exists ([x]=1)

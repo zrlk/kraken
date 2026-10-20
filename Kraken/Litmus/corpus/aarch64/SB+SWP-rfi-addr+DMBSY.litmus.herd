@@ -1,0 +1,12 @@
+Test SB+SWP-rfi-addr+DMBSY Allowed
+States 4
+0:X3=0; 0:X5=1; 0:X7=0; 1:X2=0;
+0:X3=0; 0:X5=1; 0:X7=0; 1:X2=1;
+0:X3=0; 0:X5=1; 0:X7=1; 1:X2=0;
+0:X3=0; 0:X5=1; 0:X7=1; 1:X2=1;
+Ok
+Witnesses
+Positive: 1 Negative: 3
+Condition exists (0:X3=0 /\ 0:X5=1 /\ 0:X7=0 /\ 1:X2=0)
+Observation SB+SWP-rfi-addr+DMBSY Sometimes 1 3
+

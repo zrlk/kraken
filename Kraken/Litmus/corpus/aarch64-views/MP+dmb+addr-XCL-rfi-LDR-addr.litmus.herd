@@ -1,0 +1,16 @@
+Test MP+dmb+addr-XCL-rfi-LDR-addr Allowed
+States 8
+1:X0=0; 1:X5=0; 1:X7=1; 1:X10=0;
+1:X0=0; 1:X5=0; 1:X7=1; 1:X10=1;
+1:X0=0; 1:X5=1; 1:X7=0; 1:X10=0;
+1:X0=0; 1:X5=1; 1:X7=0; 1:X10=1;
+1:X0=1; 1:X5=0; 1:X7=1; 1:X10=0;
+1:X0=1; 1:X5=0; 1:X7=1; 1:X10=1;
+1:X0=1; 1:X5=1; 1:X7=0; 1:X10=0;
+1:X0=1; 1:X5=1; 1:X7=0; 1:X10=1;
+Ok
+Witnesses
+Positive: 1 Negative: 7
+Condition exists (1:X0=1 /\ 1:X7=0 /\ 1:X5=1 /\ 1:X10=0)
+Observation MP+dmb+addr-XCL-rfi-LDR-addr Sometimes 1 7
+

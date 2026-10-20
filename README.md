@@ -38,3 +38,34 @@ Thus incidental extensions to x64 must not clash with actual features of x64,
 or undefined behavior in x64 (e.g. bswap r16).
 
 More guidance on reviewing semantics is in [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Weak memory (multi-threaded) model
+
+`Kraken/Promising/` is an ISA-generic operational weak-memory model after
+Promising-ARM/RISC-V (Pulte et al., PLDI 2019): a global timestamped memory,
+per-thread views, promises with certification. A thread is Kraken's
+single-threaded interpreter, unchanged; shared memory is left out of a
+thread's `dmem`, so every shared access reaches the model as the
+`nonmem_*`/`sync_*`/`rmw`/`fence` effect the ISA emits for unmapped memory.
+Two architecture profiles: `Arch.armv8` (the paper's model, with herd7's
+conventions for pick dependencies and `CAS`) and `Arch.tso` (x86-TSO as an
+instance of the same rules).
+
+`krakenlitmus_aarch64` and `krakenlitmus_x64` run herd7 `.litmus` tests and
+print herd's report; `Kraken/Litmus/litmus_tests.py` compares state sets with
+herd7's; see [Kraken/Litmus/README.md](Kraken/Litmus/README.md) for worked
+examples and [Kraken/Litmus/INTERACTIVE.md](Kraken/Litmus/INTERACTIVE.md)
+for a tutorial on the interactive stepper. The catalogue and generated corpora agree with herd7 master on every
+test (`Kraken/Litmus/KNOWN_GAPS.md`). The single-threaded model and proofs are
+untouched by this layer: the only observable change to sequential semantics
+is that `STXR`/`STLXR` may fail spuriously, as the architecture allows.
+
+## Third-party material
+
+`Kraken/Litmus/corpus/` contains litmus tests from the
+[diy toolsuite / herdtools7](https://github.com/herd/herdtools7) by Jade
+Alglave and Luc Maranget, copyright INRIA and the authors, distributed under
+the CeCILL-B license; see
+[Kraken/Litmus/corpus/README.md](Kraken/Litmus/corpus/README.md) and
+[LICENSE-herdtools7.txt](Kraken/Litmus/corpus/LICENSE-herdtools7.txt).
+Kraken's own code is under the MIT license ([LICENSE](LICENSE)).

@@ -1,0 +1,14 @@
+AArch64 LB+staddl-dmb.sy+dmb.sy
+"staddl; dmb.sy; write || read; DMB SY; write"
+{
+
+0:X1=x; 0:X3=y;
+1:X1=y; 1:X3=x;
+}
+ P0             | P1          ;
+ MOV W0,#1      | LDR W0,[X1] ;
+ STADDL W0,[X1] | DMB SY      ;
+ DMB SY         | MOV W2,#2   ;
+ MOV W7,#1      | STR W2,[X3] ;
+ STR W7,[X3]    |             ;
+exists ([x]=3 /\ 1:X0=1)

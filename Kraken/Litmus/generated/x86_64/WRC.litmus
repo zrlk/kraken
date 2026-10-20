@@ -1,0 +1,14 @@
+X86_64 WRC
+Generator=diycross7 (version 7.58+1)
+Prefetch=0:x=F,0:y=W,1:y=F,1:x=T
+Com=Rf Fr Rf
+Orig=Rfe PodRW Rfe PodRR Fre
+Cycle=Rfe PodRW Rfe PodRR Fre
+"Rfe PodRW Rfe PodRR Fre"
+{
+}
+ P0            | P1            | P2          ;
+ movl (x),%eax | movl (y),%eax | movl $1,(x) ;
+ movl $1,(y)   | movl (x),%ebx |             ;
+
+exists (0:rax=1 /\ 1:rax=1 /\ 1:rbx=0)

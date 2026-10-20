@@ -1,0 +1,2 @@
+# Tests that take minutes each; litmus_tests.py skips them unless --slow.
+L058.litmus  # two STP/LDP pairs per thread, ~150-240 s (per-store data dependencies)

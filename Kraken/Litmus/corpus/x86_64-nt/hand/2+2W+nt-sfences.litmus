@@ -1,0 +1,12 @@
+X86_64 2+2W+nt-sfences
+"2+2W with NT first stores and sfence"
+{
+ 0:rax=x; 1:rbx=y;
+}
+ P0                  | P1                  ;
+ movl $2,%ebx        | movl $2,%ecx        ;
+ movntil %ebx,(%rax) | movntil %ecx,(%rbx) ;
+ sfence              | sfence              ;
+ movl $1,(y)         | movl $1,(x)         ;
+
+exists ([x]=2 /\ [y]=2)

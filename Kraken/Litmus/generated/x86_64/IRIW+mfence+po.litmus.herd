@@ -1,0 +1,23 @@
+Test IRIW+mfence+po Allowed
+States 15
+0:rax=0; 0:rbx=0; 2:rax=0; 2:rbx=0;
+0:rax=0; 0:rbx=0; 2:rax=0; 2:rbx=1;
+0:rax=0; 0:rbx=0; 2:rax=1; 2:rbx=0;
+0:rax=0; 0:rbx=0; 2:rax=1; 2:rbx=1;
+0:rax=0; 0:rbx=1; 2:rax=0; 2:rbx=0;
+0:rax=0; 0:rbx=1; 2:rax=0; 2:rbx=1;
+0:rax=0; 0:rbx=1; 2:rax=1; 2:rbx=0;
+0:rax=0; 0:rbx=1; 2:rax=1; 2:rbx=1;
+0:rax=1; 0:rbx=0; 2:rax=0; 2:rbx=0;
+0:rax=1; 0:rbx=0; 2:rax=0; 2:rbx=1;
+0:rax=1; 0:rbx=0; 2:rax=1; 2:rbx=1;
+0:rax=1; 0:rbx=1; 2:rax=0; 2:rbx=0;
+0:rax=1; 0:rbx=1; 2:rax=0; 2:rbx=1;
+0:rax=1; 0:rbx=1; 2:rax=1; 2:rbx=0;
+0:rax=1; 0:rbx=1; 2:rax=1; 2:rbx=1;
+No
+Witnesses
+Positive: 0 Negative: 15
+Condition exists (0:rax=1 /\ 0:rbx=0 /\ 2:rax=1 /\ 2:rbx=0)
+Observation IRIW+mfence+po Never 0 15
+

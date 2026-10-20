@@ -1,0 +1,12 @@
+Test MP+dmb.sy+ldaddl.zr-dmb.ld Allowed
+States 4
+1:X7=0; [y]=2;
+1:X7=0; [y]=3;
+1:X7=1; [y]=2;
+1:X7=1; [y]=3;
+Ok
+Witnesses
+Positive: 1 Negative: 3
+Condition exists ([y]=3 /\ 1:X7=0)
+Observation MP+dmb.sy+ldaddl.zr-dmb.ld Sometimes 1 3
+

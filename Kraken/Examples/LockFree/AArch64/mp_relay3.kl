@@ -1,0 +1,66 @@
+AArch64 MpRelay3
+(* Three-thread ownership relay (proved: `Relay.mp_relay3_envG`,
+   `SLR/EnvG/Relay*.lean`). The writer (MP's `mpWriter`) stores 1
+   to `d` and publishes it with STLR to `f1`. The relay spins with LDAR on
+   `f1`, overwrites `d` with 43, and publishes with STLR to `f2` (it takes
+   and then releases the ownership of `d`). The reader spins with LDAR on
+   `f2`, then loads `d` into W4.
+   Property: the reader sees 43 and the final value of `d` is 43.
+   Expected: Always. (Threads have different roles: do not use -sym.)
+   Whole image (one layout, every thread runs this code block from its
+   entry label to its exit label): `Relay.mp_relay3_envG_whole`, with a
+   concrete instance checked by `runnerMatchesW`
+   (Promising/SLR/EnvG/A64WholeRelay*.lean).
+   The shared symbols are typed (`uint32_t d`, `f1`, `f2`, the width of every access)
+   so that the runner declares them as sized locations at the width of
+   the code's accesses (A64DECLS): the runner's
+   declarations then agree with the proofs' locations. The code block and
+   the verdict are unchanged. Proved from the runner's exact configuration
+   (declarations and initial memory included): `mp_relay3_envG_runner`, concrete
+   `mp_relay3_envG_runner_concrete` (Promising/SLR/EnvG/A64WholeRelayRunner.lean).
+   Proved no fault at the runner's declarations (each access resolves as
+   at `decls = {}`): `mp_relay3{W,Y,D}_envG_runner_noFault`, concrete
+   `mp_relay3_envG_runner_noFault_concrete` (Promising/SLR/EnvG/A64NoFaultDRelay.lean).
+   Proved program-level fault freedom at the runner's declarations (no
+   reachable configuration has a faulting step, any architecture, promises
+   included): `mp_relay3_envG_runner_faultFree`, concrete
+   `mp_relay3_envG_runner_faultFree_concrete` (Promising/SLR/EnvG/A64FaultFreeFixed.lean).
+   Proved both at once (safety and fault freedom, at the union of their
+   hypotheses): `mp_relay3_envG_runner_safe_faultFree`, concrete
+   `mp_relay3_envG_runner_safe_faultFree_concrete` (Promising/SLR/EnvG/RunnerSafeFFA64.lean). *)
+# flags:
+# expect: Always
+{
+uint32_t d=0; uint32_t f1=0; uint32_t f2=0;
+0:X0=f1; 0:X1=d;
+1:X0=f1; 1:X1=d; 1:X2=f2;
+2:X0=f2; 2:X1=d;
+}
+threads { P0: writer wdone; P1: relay rdone; P2: reader ddone; }
+code {
+writer:
+  MOV W2,#1
+  STR W2,[X1]
+  MOV W3,#1
+  STLR W3,[X0]
+  B wdone
+wdone:
+  NOP
+relay:
+  LDAR W3,[X0]
+  CBZ W3,relay
+  MOV W5,#43
+  STR W5,[X1]
+  MOV W6,#1
+  STLR W6,[X2]
+  B rdone
+rdone:
+  NOP
+reader:
+  LDAR W3,[X0]
+  CBZ W3,reader
+  LDR W4,[X1]
+  B ddone
+ddone:
+}
+forall (2:X4=43 /\ [d]=43)

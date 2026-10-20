@@ -1,0 +1,17 @@
+Test WWC Forbidden
+States 9
+1:rax=0; 2:rax=0; [x]=1;
+1:rax=0; 2:rax=0; [x]=2;
+1:rax=0; 2:rax=1; [x]=1;
+1:rax=0; 2:rax=1; [x]=2;
+1:rax=1; 2:rax=0; [x]=1;
+1:rax=1; 2:rax=0; [x]=2;
+1:rax=2; 2:rax=0; [x]=1;
+1:rax=2; 2:rax=0; [x]=2;
+1:rax=2; 2:rax=1; [x]=1;
+Ok
+Witnesses
+Positive: 9 Negative: 0
+Condition ~exists ([x]=2 /\ 1:rax=2 /\ 2:rax=1)
+Observation WWC Never 0 9
+

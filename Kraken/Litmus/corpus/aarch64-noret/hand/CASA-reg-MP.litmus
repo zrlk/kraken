@@ -1,0 +1,13 @@
+AArch64 CASA-reg-MP
+"Control for CASA-zr-MP: the comparand is a register holding 0, so the read is an acquire"
+{
+y=5;
+0:X1=x; 0:X3=y;
+1:X1=y; 1:X3=x; 1:X4=2; 1:X6=0;
+}
+ P0           | P1               ;
+ MOV W0,#1    | CASA W6,W4,[X1]  ;
+ STR W0,[X1]  | LDR W0,[X3]      ;
+ DMB SY       |                  ;
+ STR WZR,[X3] |                  ;
+exists ([y]=2 /\ 1:X0=0)

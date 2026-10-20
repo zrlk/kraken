@@ -1,0 +1,8 @@
+Test SB16+mfences Allowed
+States 3
+0:xmm1=0; 1:xmm1=18446744073709551617;
+0:xmm1=18446744073709551617; 1:xmm1=0;
+0:xmm1=18446744073709551617; 1:xmm1=18446744073709551617;
+No
+Condition exists (0:xmm1=0 /\ 1:xmm1=0)
+Observation SB16+mfences Never 0 3

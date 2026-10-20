@@ -1,0 +1,12 @@
+Test MP+pontna+po Allowed
+States 4
+1:rbx=0; 1:rcx=0;
+1:rbx=0; 1:rcx=1;
+1:rbx=1; 1:rcx=0;
+1:rbx=1; 1:rcx=1;
+Ok
+Witnesses
+Positive: 1 Negative: 3
+Condition exists (1:rbx=1 /\ 1:rcx=0)
+Observation MP+pontna+po Sometimes 1 3
+

@@ -1,0 +1,14 @@
+AArch64 MP+caspal-arr+caspal-rd
+"CASPAL (0,0)->(1,2) on two 8-byte array elements vs a failing CASPAL (comparand (5,5)) used as a pair read: CASP is single-copy atomic at 128 bits, so the read is never torn"
+{
+uint64_t t[2];
+0:X4=t; 1:X4=t;
+uint64_t 0:X0; uint64_t 0:X1; uint64_t 1:X6; uint64_t 1:X7;
+}
+ P0                      | P1                      ;
+ MOV X0,#0               | MOV X6,#5               ;
+ MOV X1,#0               | MOV X7,#5               ;
+ MOV X2,#1               | MOV X8,#6               ;
+ MOV X3,#2               | MOV X9,#6               ;
+ CASPAL X0,X1,X2,X3,[X4] | CASPAL X6,X7,X8,X9,[X4] ;
+exists (1:X6=1 /\ 1:X7=0 \/ 1:X6=0 /\ 1:X7=2)

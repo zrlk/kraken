@@ -1,0 +1,12 @@
+X86_64 CoWR
+"Coe PosWR Fre"
+Cycle=Fre Coe PosWR
+Generator=diycross7 (version 7.58)
+Com=Co Fr
+Orig=Coe PosWR Fre
+{
+}
+ P0          | P1            ;
+ movl $1,(x) | movl $2,(x)   ;
+             | movl (x),%eax ;
+exists ([x]=2 /\ 1:rax=0)

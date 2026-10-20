@@ -1,0 +1,18 @@
+AArch64 MPcr+dmb.ishst+amo.cas-po
+"DMB.STdWW Rfe Amo.Cas PodWR Fre"
+Cycle=Rfe Amo.Cas PodWR Fre DMB.STdWW
+Generator=diycross7 (version 7.58)
+Prefetch=0:x=F,0:y=W,1:y=F,1:x=T
+Com=Rf Fr
+Orig=DMB.STdWW Rfe Amo.Cas PodWR Fre
+{
+0:X1=x; 0:X3=y;
+1:X0=y; 1:X3=x;
+}
+ P0          | P1             ;
+ MOV W0,#1   | MOV W1,#1      ;
+ STR W0,[X1] | MOV W2,#2      ;
+ DMB ISHST      | CAS W1,W2,[X0] ;
+ MOV W2,#1   | LDR W4,[X3]    ;
+ STR W2,[X3] |                ;
+exists ([y]=2 /\ 1:X1=1 /\ 1:X4=0)

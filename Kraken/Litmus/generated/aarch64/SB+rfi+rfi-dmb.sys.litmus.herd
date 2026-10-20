@@ -1,0 +1,11 @@
+Test SB+rfi+rfi-dmb.sys Allowed
+States 3
+0:X2=1; 0:X4=0; 1:X2=1; 1:X4=1;
+0:X2=1; 0:X4=1; 1:X2=1; 1:X4=0;
+0:X2=1; 0:X4=1; 1:X2=1; 1:X4=1;
+No
+Witnesses
+Positive: 0 Negative: 3
+Condition exists (0:X2=1 /\ 0:X4=0 /\ 1:X2=1 /\ 1:X4=0)
+Observation SB+rfi+rfi-dmb.sys Never 0 3
+

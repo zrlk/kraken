@@ -1,0 +1,12 @@
+Test LB+cas-fail-po+poap Allowed
+States 4
+0:X0=0; 1:X0=0;
+0:X0=0; 1:X0=1;
+0:X0=1; 1:X0=0;
+0:X0=1; 1:X0=1;
+Ok
+Witnesses
+Positive: 3 Negative: 9
+Condition exists (0:X0=1 /\ 1:X0=1)
+Observation LB+cas-fail-po+poap Sometimes 3 9
+

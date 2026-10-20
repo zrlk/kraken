@@ -1,0 +1,11 @@
+X86_64 SB+cmpxchg-fails
+"SB: store, failing lock cmpxchg on a third location, load. A failed locked cmpxchg is still a full fence"
+{
+}
+ P0                     | P1                     ;
+ movl $1,(x)            | movl $1,(y)            ;
+ movl $5,%eax           | movl $5,%eax           ;
+ movl $6,%ebx           | movl $6,%ebx           ;
+ lock cmpxchgl %ebx,(z) | lock cmpxchgl %ebx,(w) ;
+ movl (y),%ecx          | movl (x),%ecx          ;
+exists (0:rcx=0 /\ 1:rcx=0)

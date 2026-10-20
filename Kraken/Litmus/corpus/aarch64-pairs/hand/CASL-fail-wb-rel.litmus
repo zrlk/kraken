@@ -1,0 +1,14 @@
+AArch64 CASL-fail-wb-rel
+"A failing CASL after a store to y: an acquiring reader of x that sees x's value cannot tell the release write-back from the initial write, so it may still miss y"
+{
+uint64_t x=5; uint64_t y;
+0:X1=x; 0:X2=y; 1:X1=x; 1:X2=y;
+uint64_t 1:X0; uint64_t 1:X3;
+}
+P0                 | P1            ;
+MOV X5,#1          | LDAR X0,[X1]  ;
+STR X5,[X2]        | LDR X3,[X2]   ;
+MOV X6,#7          |               ;
+MOV X7,#9          |               ;
+CASL X6,X7,[X1]    |               ;
+exists (1:X0=5 /\ 1:X3=0)

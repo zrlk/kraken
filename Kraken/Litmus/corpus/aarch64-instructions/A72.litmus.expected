@@ -1,0 +1,10 @@
+Test A72 Allowed
+States 1
+0:X0=58;
+Ok
+Witnesses
+Positive: 1 Negative: 0
+Condition exists (0:X0=58)
+Observation A72 Always 1 0
+Hash=8a6082446156fb119fa8614516392d34
+

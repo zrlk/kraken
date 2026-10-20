@@ -1,0 +1,14 @@
+X86_64 SB+po+poana
+"PodWR FreNaA PodWRANa Fre"
+Cycle=Fre PodWR FreNaA PodWRANa
+Generator=diycross7 (version 7.58)
+Prefetch=0:x=F,0:y=T,1:y=F,1:x=T
+Com=Fr Fr
+Orig=PodWR FreNaA PodWRANa Fre
+{
+}
+ P0            | P1             ;
+ movl $1,(x)   | movl $1,%eax   ;
+ movl (y),%eax | xchgl (y),%eax ;
+               | movl (x),%ebx  ;
+exists ([y]=1 /\ 0:rax=0 /\ 1:rax=0 /\ 1:rbx=0)

@@ -1,0 +1,11 @@
+X86_64 R+po+cmpxchg
+"R: P1 stores y then lock cmpxchg on z as the full fence, then loads x"
+{
+}
+ P0          | P1                     ;
+ movl $1,(x) | movl $2,(y)            ;
+ movl $1,(y) | movl $0,%eax           ;
+             | movl $1,%ebx           ;
+             | lock cmpxchgl %ebx,(z) ;
+             | movl (x),%ecx          ;
+exists (y=2 /\ 1:rcx=0)

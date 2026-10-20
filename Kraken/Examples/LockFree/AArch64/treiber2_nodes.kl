@@ -1,0 +1,58 @@
+AArch64 Treiber2Nodes
+(* Treiber stack (as treiber2.kl: LDAR on `top`, CASAL in push and pop)
+   without the per-node data word, so the only shared writes are the
+   `next` links and `top`. Thread i pushes node i then pops once into X10.
+   Property: both pops return distinct, non-null nodes (no node lost, no
+   double pop). Expected: Always. About 20x fewer configurations than
+   treiber2.kl: the early-promisable data store multiplies the state
+   space.
+   Proved: `treiber2_nodes_envG` (Promising/SLR/EnvG/Treiber2Public.lean)
+   for the block without its `worker:` label; whole image:
+   `treiber2_nodes_envG_whole` (Promising/SLR/EnvG/A64WholeTreiber2Nodes.lean),
+   both threads run this whole code block under one layout from `worker`
+   to `done`, with a concrete instance checked by `runnerMatchesW`.
+   The shared symbols are typed (`uint64_t top`, `n1`, `n2`; the code reads and writes only `top`
+   and the nodes' 8-byte `next` at `n+8`, which stays undeclared)
+   so that the runner declares them as sized locations at the width of
+   the code's accesses (A64DECLS): the runner's
+   declarations then agree with the proofs' locations. The code block and
+   the verdict are unchanged. Proved from the runner's exact configuration
+   (declarations and initial memory included): `treiber2_nodes_envG_runner`, concrete
+   `treiber2_nodes_envG_runner_concrete` (Promising/SLR/EnvG/A64WholeTreiber2NodesRunner.lean).
+   Proved program-level fault freedom at the runner's declarations (no
+   reachable configuration has a faulting step, any architecture, promises
+   included): `treiber2_nodes_envG_runner_faultFree`, concrete
+   `treiber2_nodes_envG_runner_faultFree_concrete` (Promising/SLR/EnvG/MemValsA64Treiber2Nodes.lean).
+   Proved both at once (safety and fault freedom, at the union of their
+   hypotheses): `treiber2_nodes_envG_runner_safe_faultFree`, concrete
+   `treiber2_nodes_envG_runner_safe_faultFree_concrete` (Promising/SLR/EnvG/RunnerSafeFFA64.lean). *)
+# flags:
+# expect: Always
+{
+uint64_t top=0; uint64_t n1=0; uint64_t n2=0;
+0:X0=top; 0:X1=n1;
+1:X0=top; 1:X1=n2;
+}
+threads { P0: worker done; P1: worker done; }
+code {
+worker:
+push:
+  LDAR X2,[X0]
+  STR X2,[X1,#8]
+  MOV X3,X2
+  CASAL X3,X1,[X0]
+  CMP X3,X2
+  B.NE push
+pop:
+  LDAR X2,[X0]
+  CBZ X2,done
+  LDR X4,[X2,#8]
+  MOV X3,X2
+  CASAL X3,X4,[X0]
+  CMP X3,X2
+  B.NE pop
+  MOV X10,X2
+  B done
+done:
+}
+forall ((0:X10=n1 /\ 1:X10=n2) \/ (0:X10=n2 /\ 1:X10=n1))

@@ -1,0 +1,18 @@
+Test WRC+casa.zr-dmb.ld+dmb.sy Allowed
+States 10
+2:X0=0; 2:X2=0; [x]=0;
+2:X0=0; 2:X2=0; [x]=3;
+2:X0=0; 2:X2=3; [x]=3;
+2:X0=0; 2:X2=5; [x]=0;
+2:X0=0; 2:X2=5; [x]=3;
+2:X0=1; 2:X2=0; [x]=0;
+2:X0=1; 2:X2=0; [x]=3;
+2:X0=1; 2:X2=3; [x]=3;
+2:X0=1; 2:X2=5; [x]=0;
+2:X0=1; 2:X2=5; [x]=3;
+Ok
+Witnesses
+Positive: 2 Negative: 20
+Condition exists ([x]=3 /\ 2:X0=1 /\ 2:X2=5)
+Observation WRC+casa.zr-dmb.ld+dmb.sy Sometimes 2 20
+

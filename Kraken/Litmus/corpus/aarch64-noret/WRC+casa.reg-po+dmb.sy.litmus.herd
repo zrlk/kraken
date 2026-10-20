@@ -1,0 +1,17 @@
+Test WRC+casa.reg-po+dmb.sy Allowed
+States 9
+2:X0=0; 2:X2=0; [x]=0;
+2:X0=0; 2:X2=0; [x]=3;
+2:X0=0; 2:X2=3; [x]=3;
+2:X0=0; 2:X2=5; [x]=0;
+2:X0=0; 2:X2=5; [x]=3;
+2:X0=1; 2:X2=0; [x]=0;
+2:X0=1; 2:X2=0; [x]=3;
+2:X0=1; 2:X2=3; [x]=3;
+2:X0=1; 2:X2=5; [x]=0;
+No
+Witnesses
+Positive: 0 Negative: 20
+Condition exists ([x]=3 /\ 2:X0=1 /\ 2:X2=5)
+Observation WRC+casa.reg-po+dmb.sy Never 0 20
+

@@ -1,0 +1,9 @@
+Test CAS-fail-SB+dmb.sy Allowed
+States 1
+0:X5=1; 1:X2=1;
+No
+Witnesses
+Positive: 0 Negative: 8
+Condition exists (0:X5=0 /\ 1:X2=1)
+Observation CAS-fail-SB+dmb.sy Never 0 8
+

@@ -1,0 +1,12 @@
+Test MP+rel+CAS-ok-RsRs-addr Allowed
+States 4
+1:X7=0; 1:X9=0;
+1:X7=0; 1:X9=1;
+1:X7=1; 1:X9=0;
+1:X7=1; 1:X9=1;
+Ok
+Witnesses
+Positive: 1 Negative: 6
+Condition exists (1:X9=1 /\ 1:X7=0)
+Observation MP+rel+CAS-ok-RsRs-addr Sometimes 1 6
+

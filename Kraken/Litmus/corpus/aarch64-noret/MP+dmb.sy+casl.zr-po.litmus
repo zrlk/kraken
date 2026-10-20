@@ -1,0 +1,13 @@
+AArch64 MP+dmb.sy+casl.zr-po
+"write; DMB SY; write || casl.zr; po; read"
+{
+y=5; 
+0:X1=x; 0:X3=y;
+1:X1=y; 1:X3=x;
+}
+ P0           | P1               ;
+ MOV W0,#1    | MOV W4,#3        ;
+ STR W0,[X1]  | CASL WZR,W4,[X1] ;
+ DMB SY       | LDR W7,[X3]      ;
+ STR WZR,[X3] |                  ;
+exists ([y]=3 /\ 1:X7=0)

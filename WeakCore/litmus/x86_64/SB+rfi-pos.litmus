@@ -1,0 +1,7 @@
+X86_64 SB+rfi-pos
+{ uint64_t x = 0; uint64_t y = 0; }
+ P0             | P1             ;
+ movq $1, (x)   | movq $1, (y)   ;
+ movq (x), %rax | movq (y), %rax ;
+ movq (y), %rsi | movq (x), %rsi ;
+exists (0:rax=1 /\ 0:rsi=0 /\ 1:rax=1 /\ 1:rsi=0)

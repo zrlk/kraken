@@ -1,0 +1,12 @@
+Test SB+CAS-rfi-LDR-addr Allowed
+States 4
+0:X3=0; 0:X5=1; 1:X3=0; 1:X5=1;
+0:X3=0; 0:X5=1; 1:X3=1; 1:X5=1;
+0:X3=1; 0:X5=1; 1:X3=0; 1:X5=1;
+0:X3=1; 0:X5=1; 1:X3=1; 1:X5=1;
+Ok
+Witnesses
+Positive: 4 Negative: 12
+Condition exists (0:X5=1 /\ 1:X5=1 /\ 0:X3=0 /\ 1:X3=0)
+Observation SB+CAS-rfi-LDR-addr Sometimes 4 12
+

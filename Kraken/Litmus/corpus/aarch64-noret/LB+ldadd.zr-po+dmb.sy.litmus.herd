@@ -1,0 +1,12 @@
+Test LB+ldadd.zr-po+dmb.sy Allowed
+States 4
+1:X0=0; [x]=2;
+1:X0=0; [x]=3;
+1:X0=1; [x]=2;
+1:X0=1; [x]=3;
+Ok
+Witnesses
+Positive: 1 Negative: 3
+Condition exists ([x]=3 /\ 1:X0=1)
+Observation LB+ldadd.zr-po+dmb.sy Sometimes 1 3
+

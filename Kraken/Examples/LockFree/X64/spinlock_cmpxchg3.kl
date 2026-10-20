@@ -1,0 +1,56 @@
+X86_64 SpinlockCmpxchg3
+(* Compare-and-swap spinlock on x86-TSO (see spinlock_cmpxchg2.kl):
+   `lock cmpxchg` acquire loop, plain-store release. Three threads each
+   increment a shared counter once under the lock.
+   Property: counter = 3 in every final state.
+   Proved for every layout of the runner's image, the code verbatim
+   (`decls = {}`): `CmpxAbs.x64_cmpx_counter_envG_verbatim`
+   (Promising/SLR/EnvG/X64CmpxAbsPublic.lean). Proved from the runner's
+   exact configuration (declarations and initial memory included):
+   `CmpxAbs.x64_cmpx_counter_envG_runner` (X64CmpxAbsRunner.lean), with a
+   `.Concrete` instance.
+   Proved no fault at the runner's declarations (rule-level):
+   `CmpxAbs.x64_cmpx_counter_envG_runner_noFault`
+   (Promising/SLR/EnvG/X64NoFaultDLocks.lean), with a `.Concrete` instance.
+   The shared symbols are typed (`uint32_t`) so that the runner declares
+   them as sized locations at the width of the code's accesses (DECLS): the
+   runner's declarations then agree with the proofs'
+   locations. The code block and the verdict are unchanged.
+   Proved (fault freedom at the runner's declarations, MEMVALS):
+   `CmpxAbs.x64_cmpx_counter_envG_runner_faultFree`
+   (Promising/SLR/EnvG/X64FaultFreeFixed.lean), with a `.Concrete` instance.
+   Proved (LIVESPINX): promise-free deadlock-freedom on a valid layout
+   of the image (`[ValidLayout (layout cmpxImageV)]`):
+   `Live.SpinX64CmpxPF.spin_cmpx_live_pf : CmpxSpinLivePF fuel`, at the
+   runner's layout `spin_cmpx_live_pf_concrete` and from its start state
+   `spin_cmpx_live_pf_runnerN`; one-shot form `spin_cmpx_live_oneShot_pf`
+   (Promising/LiveSpinX64CmpxPF.lean).
+   Proved (LIVESPINXSEM): deadlock-freedom with promises on the machine
+   with semantic certification, every fuel, under `WeakFairSem ∧ MemFair`
+   (`MemFair` a modelling assumption on x86), on a valid layout:
+   `Live.SpinX64SemCmpx.spin_cmpx_live_sem : CmpxSpinLiveSem fuel`, at the
+   runner's layout `spin_cmpx_live_sem_concrete`; one-shot form
+   `spin_cmpx_live_oneShot_sem` (Promising/LiveSpinX64SemCmpx.lean). The
+   `CmpxSpinLive` (over `succs`, incomplete `certify`) stays open
+   (KNOWN_GAPS.md, "Liveness: spinlocks, x64 (LIVESPINX)").
+# flags: -sym -fuel 300
+# expect: Always
+*)
+{
+uint32_t lock=0; uint32_t counter=0;
+}
+threads { P0: worker done; P1: worker done; P2: worker done; }
+code {
+worker:
+  xorl %eax,%eax
+  movl $1,%ecx
+  lock cmpxchgl %ecx,(lock)
+  jne worker
+  movl (counter),%edx
+  addl $1,%edx
+  movl %edx,(counter)
+  movl $0,(lock)
+  jmp done
+done:
+}
+forall [counter]=3

@@ -1,0 +1,6 @@
+X86_64 LB+xadd
+{ uint64_t x = 0; uint64_t y = 0; }
+ P0                | P1                ;
+ movq (x), %rsi    | movq (y), %rsi    ;
+ lock addq $1, (y) | lock addq $1, (x) ;
+exists (0:rsi=1 /\ 1:rsi=1)

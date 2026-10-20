@@ -1,0 +1,11 @@
+Test LB+addr-stxr Allowed
+States 3
+0:X0=0; 1:X2=0;
+0:X0=0; 1:X2=1;
+0:X0=1; 1:X2=0;
+No
+Witnesses
+Positive: 0 Negative: 5
+Condition exists (0:X0=1 /\ 1:X2=1)
+Observation LB+addr-stxr Never 0 5
+

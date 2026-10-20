@@ -1,0 +1,18 @@
+AArch64 MPcw+po-amo.cas+poap
+"PodWR Amo.Cas RfePA PodRRAP Fre"
+Cycle=Fre PodWR Amo.Cas RfePA PodRRAP
+Generator=diycross7 (version 7.58)
+Prefetch=0:x=F,0:y=W,1:y=F,1:x=T
+Com=Rf Fr
+Orig=PodWR Amo.Cas RfePA PodRRAP Fre
+{
+0:X1=x; 0:X2=y;
+1:X0=y; 1:X2=x;
+}
+ P0             | P1           ;
+ MOV W0,#1      | LDAR W1,[X0] ;
+ STR W0,[X1]    | LDR W3,[X2]  ;
+ MOV W3,#0      |              ;
+ MOV W4,#1      |              ;
+ CAS W3,W4,[X2] |              ;
+exists (0:X3=0 /\ 1:X1=1 /\ 1:X3=0)

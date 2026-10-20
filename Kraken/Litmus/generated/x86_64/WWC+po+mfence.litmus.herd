@@ -1,0 +1,15 @@
+Test WWC+po+mfence Allowed
+States 7
+0:rax=0; 1:rax=0; [y]=1;
+0:rax=0; 1:rax=0; [y]=2;
+0:rax=0; 1:rax=1; [y]=1;
+0:rax=0; 1:rax=1; [y]=2;
+0:rax=1; 1:rax=0; [y]=1;
+0:rax=1; 1:rax=1; [y]=1;
+0:rax=1; 1:rax=1; [y]=2;
+No
+Witnesses
+Positive: 0 Negative: 7
+Condition exists ([y]=2 /\ 0:rax=1 /\ 1:rax=0)
+Observation WWC+po+mfence Never 0 7
+

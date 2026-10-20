@@ -1,0 +1,9 @@
+AArch64 CoRW1
+{
+0:X14=x;
+}
+ P0           ;
+ LDR W0,[X14] ;
+ MOV W8,#1    ;
+ STR W8,[X14] ;
+exists (0:X0=1)

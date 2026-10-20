@@ -1,0 +1,16 @@
+Test MP16+movups Allowed
+States 8
+1:xmm2=0; rec={2,2};
+1:xmm2=18446744073709551616; rec={2,2};
+1:xmm2=18446744073709551617; rec={2,2};
+1:xmm2=18446744073709551618; rec={2,2};
+1:xmm2=1; rec={2,2};
+1:xmm2=36893488147419103232; rec={2,2};
+1:xmm2=36893488147419103233; rec={2,2};
+1:xmm2=36893488147419103234; rec={2,2};
+Ok
+Witnesses
+Positive: 5 Negative: 3
+Condition exists (not (1:xmm2=0 \/ 1:xmm2=18446744073709551617 \/ 1:xmm2=36893488147419103234))
+Observation MP16+movups Sometimes 5 3
+

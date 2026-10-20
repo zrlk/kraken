@@ -1,0 +1,10 @@
+Test LB+datapair00 Allowed
+States 2
+0:X0=0; 1:X0=0;
+0:X0=1; 1:X0=0;
+No
+Witnesses
+Positive: 0 Negative: 3
+Condition exists (0:X0=1 /\ 1:X0=1)
+Observation LB+datapair00 Never 0 3
+

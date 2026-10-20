@@ -1,0 +1,11 @@
+Test MP+nt-lfence+po Allowed
+States 3
+1:rbx=0; 1:rcx=0;
+1:rbx=0; 1:rcx=1;
+1:rbx=1; 1:rcx=1;
+No
+Witnesses
+Positive: 0 Negative: 3
+Condition exists (1:rbx=1 /\ 1:rcx=0)
+Observation MP+nt-lfence+po Never 0 3
+

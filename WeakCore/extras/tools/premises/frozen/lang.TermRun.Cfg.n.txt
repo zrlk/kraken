@@ -1,0 +1,6 @@
+TermRun.Cfg : Type
+TermRun.Cfg.cap : TermRun.Cfg → Nat
+TermRun.Cfg.n : TermRun.Cfg → Nat
+  := fun c => max c.cap c.ths.size
+TermRun.Cfg.ths : TermRun.Cfg → Array TermRun.TTh
+TermRun.TTh : Type

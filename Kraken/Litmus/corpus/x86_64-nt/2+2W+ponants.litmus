@@ -1,0 +1,17 @@
+X86_64 2+2W+ponants
+Generator=diycross7 (version 7.58+1)
+Prefetch=0:x=F,0:y=W,1:y=F,1:x=W
+Com=Co Co
+Orig=PodWW NT Coe PodWW NT Coe
+Cycle=PodWWNaNT CoeNTNa PodWWNaNT CoeNTNa
+"PodWW NT Coe PodWW NT Coe"
+{
+ 0:rax=y;
+ 1:rbx=x;
+}
+ P0                  | P1                  ;
+ movl $2,(x)         | movl $2,(y)         ;
+ movl $1,%ebx        | movl $1,%ecx        ;
+ movntil %ebx,(%rax) | movntil %ecx,(%rbx) ;
+
+exists ([x]=2 /\ [y]=2)

@@ -1,0 +1,74 @@
+AArch64 MSQueueRelaxed1
+(* Michael-Scott queue (Promising-ARM PLDI'19 §7 "QU"), relaxed variant: plain CAS (no
+   release) on tail.next, tail and head, so the node's data STR is not
+   ordered before the link and the dequeuer can read stale data (0).
+   One enqueuer of value 1 and one dequeuer that dequeues once (smallest
+   instance).
+   Static nodes: `d` is the initial dummy (head = tail = d), `n1`, `n2` are
+   the enqueued nodes; node data at [n], next pointer at [n,#8].
+   Enqueue: STR data; loop { LDAR tail; LDAR tail.next; if next != 0 then
+   CAS tail -> next, retry; CAS tail.next: 0 -> node; }; CAS
+   tail -> node. Dequeue (retried until non-empty): LDAR head; LDAR tail;
+   LDAR head.next; if head = tail then (empty or help advance tail) else
+   LDR next.data; CAS head -> next.
+   Property checked: the dequeuer receives 1 (forall).
+   Expected: Sometimes. (Threads have different roles: do not use -sym.) *)
+# flags:
+# expect: Sometimes
+# Proved reachable: Kraken.Promising.Reach.MsqueueRelaxed1.msqueue_relaxed1_reachable (Kraken/Promising/ReachA64MsqueueRelaxed1.lean)
+{
+head=d; tail=d; d=0; n1=0; n2=0;
+0:X0=head; 0:X1=tail; 0:X12=n1; 0:X13=n2;
+1:X0=head; 1:X1=tail;
+}
+threads { P0: enq pdone; P1: deq1 ddone1; }
+code {
+enq:
+enq1:
+  MOV X2,X12
+  MOV W9,#1
+  STR W9,[X2]
+enq1_loop:
+  LDAR X3,[X1]
+  ADD X8,X3,#8
+  LDAR X4,[X8]
+  CBNZ X4,enq1_fix
+  MOV X5,#0
+  CAS X5,X2,[X8]
+  CBNZ X5,enq1_loop
+  MOV X5,X3
+  CAS X5,X2,[X1]
+  B enq1_end
+enq1_fix:
+  MOV X5,X3
+  CAS X5,X4,[X1]
+  B enq1_loop
+enq1_end:
+  B pdone
+pdone:
+  NOP
+deq1:
+deq1a:
+  LDAR X3,[X0]
+  LDAR X4,[X1]
+  ADD X8,X3,#8
+  LDAR X5,[X8]
+  CMP X3,X4
+  B.NE deq1a_ne
+  CBZ X5,deq1a
+  MOV X6,X3
+  CAS X6,X5,[X1]
+  B deq1a
+deq1a_ne:
+  CBZ X5,deq1a
+  LDR W7,[X5]
+  MOV X6,X3
+  CAS X6,X5,[X0]
+  CMP X6,X3
+  B.NE deq1a
+  MOV W10,W7
+  B ddone1
+ddone1:
+  NOP
+}
+forall (1:X10=1)

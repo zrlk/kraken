@@ -1,0 +1,186 @@
+/-
+**The public statement of the SWP spinlock counter** (AArch64,
+`Kraken.AArch64.Examples.InvEnv.swpWorker`, `spinlock_swp2.kl`): a wrapper of
+`SwpInv.swp_counter_armv8` (`SLR/SwpFinal.lean`) whose hypotheses mention
+only the layout, the number of threads `N`, the lock and counter addresses
+`l`, `c`, the thread states and the initial values of the two words.
+
+- The ghost token locations `K`, `F` of `Params`, and the seven ghost fields
+  of `SpinLocs`, are chosen here (`ghostParams`): `K j = ⟨0, 2j + 5⟩`,
+  `F j = ⟨0, 2j + 6⟩`. They never occur in the program's accesses or in the
+  conclusion; no lemma needs them well-sized or address-disjoint from the
+  lock and the counter (they differ from `⟨l, 4⟩`, `⟨c, 4⟩` by `bytes`).
+- `0 < N` is dropped: for `N = 0` there are no threads, the initial
+  configuration is the only reachable one, and the counter is its initial
+  value `0`.
+- The thread-state hypothesis is `StartState l c`: `Frame` and `AtPos 0`
+  without the ghost parameters (the `W3 = 1` field of `Frame` holds at the
+  start address automatically).
+
+`swp_counter_2'` re-derives the concrete instance `SwpConcrete.swp_counter_2`
+through the wrapper.
+-/
+import Kraken.Promising.SLR.SwpFinal
+import Kraken.Promising.SLR.SwpConcrete
+
+namespace Kraken.Promising.SLR.SwpPublic
+
+open Kraken Kraken.Promising Kraken.Promising.AArch64
+open Kraken.AArch64.Examples.InvEnv
+open Kraken.Promising.SLR.Spinlock
+open Kraken.Promising.SLR.SwpTrees
+open Kraken.Promising.SLR.SwpInv
+
+section General
+
+variable [layout : _root_.Layout] [hv : Executable.ValidLayout (layout swpWorker)]
+
+/-- A worker thread at its start, with lock address `l` and counter address
+`c`: it runs the laid-out `swpWorker` from its first cell (the label
+`worker`) to the end of the text, without declarations (so its accesses are
+the 4-byte words `⟨l, 4⟩`, `⟨c, 4⟩`), with `X0 = l`, `X1 = c`, and neither
+word in its private data memory. -/
+structure StartState (l c : BitVec 64) (s : State) : Prop where
+  exe : s.exe = layout swpWorker
+  decls : s.decls = {}
+  endPc : s.endPc = (layout swpWorker).addrOf 16
+  pc : s.st.2 = (layout swpWorker).addrOf 0
+  x0 : s.st.1.regs.X0.toBitVec = l
+  x1 : s.st.1.regs.X1.toBitVec = c
+  dl : Mem.loadInt s.st.1.dmem l 4 = none
+  dc : Mem.loadInt s.st.1.dmem c 4 = none
+
+/-- The parameters with the ghost locations chosen: `K j = ⟨0, 2j + 5⟩`,
+`F j = ⟨0, 2j + 6⟩` (never 4 bytes wide, odd and even widths). -/
+def ghostParams (N : Nat) (l c : BitVec 64) : Params where
+  N := N
+  l := l
+  c := c
+  K j := ⟨0, 2 * j + 5⟩
+  F j := ⟨0, 2 * j + 6⟩
+
+omit layout hv in
+/-- The ghost fields of `SpinLocs` hold for `ghostParams`; only `l ≠ c` is
+needed. -/
+theorem ghostParams_spinLocs {N : Nat} {l c : BitVec 64} (hlc : l ≠ c) :
+    SpinLocs (ghostParams N l c).N (ghostParams N l c).Lk (ghostParams N l c).C
+      (ghostParams N l c).K (ghostParams N l c).F where
+  lk_c h := hlc (congrArg Loc.addr h)
+  k_lk j _ h := by have := congrArg Loc.bytes h; simp [ghostParams] at this
+  k_c j _ h := by have := congrArg Loc.bytes h; simp [ghostParams] at this
+  f_lk j _ h := by have := congrArg Loc.bytes h; simp [ghostParams] at this
+  f_c j _ h := by have := congrArg Loc.bytes h; simp [ghostParams] at this
+  k_f i _ j _ h := by have := congrArg Loc.bytes h; simp [ghostParams] at this; omega
+  k_inj i _ j _ h := by have := congrArg Loc.bytes h; simp [ghostParams] at this; omega
+  f_inj i _ j _ h := by have := congrArg Loc.bytes h; simp [ghostParams] at this; omega
+
+/-- A start state is a `Frame` at position 0 for any ghost parameters. -/
+theorem StartState.frame {N : Nat} {l c : BitVec 64} {s : State} (h : StartState l c s) :
+    Frame (ghostParams N l c) s ∧ AtPos s 0 :=
+  ⟨⟨h.exe, h.decls, h.endPc, h.x0, h.x1, h.dl, h.dc,
+      Or.inl (by rw [h.pc]; exact (addrOf_label (i := 0) (l := "worker") rfl).symm)⟩, h.pc⟩
+
+omit layout hv in
+/-- With no threads, nothing steps: the initial configuration is the only
+reachable one. -/
+private theorem reachable_nil {A : Arch} {fuel : Nat} {initMem : List (Loc × Val)} {cfg : Config isa}
+    (h : Reachable A fuel (Config.init [] initMem) cfg) : cfg = Config.init [] initMem :=
+  Reachable.eq_of_init_nil h
+
+/-- **`counter = N` for the AArch64 SWP spinlock workers**, public form.
+
+For every valid layout of `swpWorker`, every number of threads `N < 2 ^ 32`
+and all addresses `l`, `c` whose 4-byte words are disjoint: if `states` consists of `N` threads, each at the
+start of the worker with `X0 = l`, `X1 = c` (`StartState`), and the initial
+memory has the 4-byte words `⟨l, 4⟩` (lock) and `⟨c, 4⟩` (counter) at `0`
+(an absent entry counts as `0`), then every configuration `Reachable` under
+`Arch.armv8` that is final has the counter word at `N`.
+
+What is and is not covered:
+- The locations are the undeclared 4-byte footprints `⟨l, 4⟩`, `⟨c, 4⟩`
+  (`decls = {}`). The `.kl` runner instead declares `lock` and `counter` as
+  unsized locations (`⟨l, 0⟩`, `⟨c, 0⟩`, legacy mode); that configuration is
+  not covered (see `SLR/SwpConcrete.lean`, "Provenance").
+  Known limitation / provenance: apart from `decls` the
+  runner's threads are the start states here, but no theorem bridges the
+  two, since every cell lemma goes through `exec_eq_of_codeAt`'s
+  `decls = {}` (`SLR/AArch64Bridge.lean`, `SLR/X64Bridge.lean`). The
+  planned generalisation: `Frame.decls` becomes "`decls.resolve a 4 = .ok
+  ⟨a, 4⟩` for `a ∈ {l, c}`", with a lemma `toEv D t = toEv {} t` for trees
+  whose accesses resolve identically under `D` and `{}`; declaring the `.kl`
+  locations sized (`int lock = 0; int counter = 0;`) then puts the runner's
+  configuration under the theorem. The legacy unsized mode would need a
+  renaming simulation `⟨a, 0⟩ ↦ ⟨a, 4⟩` of `Reachable` instead.
+- `hdisj : Decls.overlaps l 4 c 4 = false`: the two 4-byte words are
+  disjoint (which implies `l ≠ c`). The proof does not use it beyond
+  `l ≠ c`. It is there because the model (`succs`, hence `Reachable`) treats
+  distinct `Loc`s as independent locations even when their byte ranges
+  overlap (e.g. `l = c + 2`), where real hardware would not: for overlapping
+  words the model is laxer than the hardware, and a conclusion there would
+  say nothing about real executions. The hypothesis keeps the theorem inside
+  the region where the model matches the hardware (see
+  `Kraken/Litmus/KNOWN_GAPS.md`, mixed-size accesses).
+- Conclusions are about final configurations only (every thread halted, no
+  outstanding promise). A faulting step has no successor, so a run that
+  faults never becomes final and is not constrained; a thread whose pc
+  leaves the text counts as halted. (For this worker no access faults.)
+  The observable predicates (`Config.FaultFree`, `Config.WildFree`,
+  `Promising/Faults.lean`) are not concluded here; the N = 2 instance is
+  checked against them by the explorer only (`SLR/SwpFaults.lean`).
+- Faults: faults are not covered by this theorem. What exists:
+  `NoFaultRule` is proved for this program's rule (`swpRuleX_noFault`,
+  `SLR/SwpNoFault.lean`); fault-freedom of the whole program reduces to the open
+  statement `ErasedWitness` (`noFaultTheorem_of_erasedWitness`,
+  `SLR/Sim/CertExtOpen.lean`), which is not proved; the explorer check finds
+  no faults for N = 2 (`SLR/SwpFaults.lean`), which is evidence, not proof.
+- `N < 2 ^ 32`: the counter is a 32-bit word. -/
+theorem swp_counter_public {fuel : Nat} (N : Nat) (l c : BitVec 64)
+    (hdisj : Decls.overlaps l 4 c 4 = false) (hN32 : N < 2 ^ 32)
+    {states : List isa.State} {initMem : List (Loc × Val)}
+    (hst : ∀ s ∈ states, StartState l c s) (hN : states.length = N)
+    (hC0 : (Config.init states initMem).mem.initVal ⟨c, 4⟩ = 0)
+    (hLk0 : (Config.init states initMem).mem.initVal ⟨l, 4⟩ = 0)
+    {cfg : Config isa} (hc : Reachable Arch.armv8 fuel (Config.init states initMem) cfg)
+    (hf : cfg.final = true) :
+    cfg.mem.finalVal ⟨c, 4⟩ = BitVec.ofNat 128 N := by
+  have hlc : l ≠ c := by rintro rfl; simp [Decls.overlaps] at hdisj
+  rcases Nat.eq_zero_or_pos N with rfl | hN0
+  · obtain rfl : states = [] := List.length_eq_zero_iff.mp hN
+    obtain rfl := reachable_nil hc
+    simpa [Memory.finalVal, Config.init] using hC0
+  · exact swp_counter_armv8 (ghostParams N l c) (ghostParams_spinLocs hlc) hN32
+      (fun _ s h => (hst s (List.mem_of_getElem? h)).frame) hN hN0 hC0 hLk0 hc hf
+
+end General
+
+/-! ## The concrete instance through the public theorem -/
+
+section Concrete
+
+open Kraken.Promising.SLR.SwpConcrete
+
+attribute [local instance] swpLayout
+
+/-- The runner's thread `worker0` is a start state. -/
+theorem worker0_start : StartState lockAddr counterAddr worker0 :=
+  let h := worker0_frame.1
+  ⟨h.exe, h.decls, h.endPc, worker0_frame.2, h.x0, h.x1, h.dl, h.dc⟩
+
+/-- **`counter = 2`** for the two workers of `spinlock_swp2.kl` under
+`Arch.armv8`, derived from `swp_counter_public` (the statement of
+`SwpConcrete.swp_counter_2`). -/
+theorem swp_counter_2' {fuel : Nat} {c : Config isa}
+    (hc : Reachable Arch.armv8 fuel (Config.init states2 initMem2) c) (hf : c.final = true) :
+    c.mem.finalVal P2.C = 2 :=
+  swp_counter_public 2 lockAddr counterAddr (by decide) (by decide)
+    (fun s hs => by
+      have : s = worker0 := by
+        rcases List.mem_cons.mp hs with h | h
+        · exact h
+        · exact List.mem_singleton.mp h
+      subst this; exact worker0_start)
+    rfl (by decide) (by decide) hc hf
+
+end Concrete
+
+end Kraken.Promising.SLR.SwpPublic

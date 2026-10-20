@@ -1,0 +1,10 @@
+Test CASP-fail-W Allowed
+States 2
+0:X0=0; 0:X1=0;
+0:X0=0; 0:X1=9;
+Ok
+Witnesses
+Positive: 2 Negative: 2
+Condition exists (0:X0=0 /\ 0:X1=9)
+Observation CASP-fail-W Sometimes 2 2
+

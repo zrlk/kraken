@@ -1,0 +1,10 @@
+X86_64 MP+po+cmpxchg-fail
+"MP: plain stores; reader: failing lock cmpxchg on the flag (comparand 5) reads it, then load data"
+{
+}
+ P0          | P1                     ;
+ movl $1,(x) | movl $5,%eax           ;
+ movl $1,(y) | movl $6,%ebx           ;
+             | lock cmpxchgl %ebx,(y) ;
+             | movl (x),%edx          ;
+exists (1:rax=1 /\ 1:rdx=0)

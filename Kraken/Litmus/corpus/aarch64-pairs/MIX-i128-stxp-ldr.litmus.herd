@@ -1,0 +1,11 @@
+Test MIX-i128-stxp-ldr Allowed
+States 3
+1:X2=0; 1:X3=0;
+1:X2=1; 1:X3=0;
+1:X2=1; 1:X3=2;
+No
+Witnesses
+Positive: 0 Negative: 8
+Condition exists (1:X3=2 /\ 1:X2=0)
+Observation MIX-i128-stxp-ldr Never 0 8
+

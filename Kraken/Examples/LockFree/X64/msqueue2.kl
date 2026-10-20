@@ -1,0 +1,91 @@
+X86_64 MSQueue2
+(* Michael-Scott queue on x86-TSO with statically allocated nodes. A node
+   is identified by its address and consists of a single `next` field at
+   offset 0 (its "value" is its identity). `s` is the sentinel; `head`
+   and `tail` start at `s`.
+   Enqueue(node) (P0, nodes n1 then n2, rsi = node):
+     t = tail; next = t.next; if tail != t retry;
+     if next != 0 { CAS(tail, t, next); retry }
+     if !CAS(t.next, 0, node) retry;  CAS(tail, t, node).
+   Dequeue (P1, twice, results in r12 and r13):
+     h = head; t = tail; next = h.next; if head != h retry;
+     if h == t { if next == 0 retry (empty); CAS(tail, t, next); retry }
+     if !CAS(head, h, next) retry;  return next.
+   All CASes are `lock cmpxchgq`; the other accesses are plain.
+   Property: the dequeuer gets n1 then n2 (FIFO, nothing lost or
+   duplicated).
+   Proved for every layout of the runner's image, the code verbatim
+   (`decls = {}`): `MsQueueX.x64_msqueue2_envG_verbatim`
+   (Promising/SLR/EnvG/X64MsQueue2Public.lean). Proved from the runner's
+   exact configuration (declarations and initial memory included):
+   `MsQueueX.x64_msqueue2_envG_runner` (X64MsQueue2Runner.lean), with a
+   `.Concrete` instance.
+   The shared symbols are typed (`uint64_t`) so that the runner declares
+   them as sized locations at the width of the code's accesses (DECLS): the
+   runner's declarations then agree with the proofs'
+   locations. The code block and the verdict are unchanged.
+   Proved (fault freedom at the runner's declarations, MEMVALS):
+   `MsQueueX.x64_msqueue2_envG_runner_faultFree`
+   (Promising/SLR/EnvG/MemValsMsQueue.lean), with a `.Concrete` instance.
+# flags: -fuel 300
+# expect: Always
+*)
+{
+uint64_t s=0; uint64_t n1=0; uint64_t n2=0; uint64_t head=s; uint64_t tail=s;
+}
+threads { P0: enqueuer edone; P1: dequeuer ddone; }
+code {
+enqueuer:
+  movq $n1,%rsi
+enq:
+  movq (tail),%rbx
+  movq (%rbx),%rcx
+  cmpq %rbx,(tail)
+  jne enq
+  testq %rcx,%rcx
+  jne enq_swing
+  xorl %eax,%eax
+  lock cmpxchgq %rsi,(%rbx)
+  jne enq
+  movq %rbx,%rax
+  lock cmpxchgq %rsi,(tail)
+  movq $n2,%rax
+  cmpq %rax,%rsi
+  je edone
+  movq %rax,%rsi
+  jmp enq
+enq_swing:
+  movq %rbx,%rax
+  lock cmpxchgq %rcx,(tail)
+  jmp enq
+edone:
+
+dequeuer:
+  xorl %r13d,%r13d
+deq:
+  movq (head),%rbx
+  movq (tail),%rdx
+  movq (%rbx),%rcx
+  cmpq %rbx,(head)
+  jne deq
+  cmpq %rbx,%rdx
+  jne deq_pop
+  testq %rcx,%rcx
+  je deq
+  movq %rbx,%rax
+  lock cmpxchgq %rcx,(tail)
+  jmp deq
+deq_pop:
+  movq %rbx,%rax
+  lock cmpxchgq %rcx,(head)
+  jne deq
+  testq %r12,%r12
+  jne deq_second
+  movq %rcx,%r12
+  jmp deq
+deq_second:
+  movq %rcx,%r13
+  jmp ddone
+ddone:
+}
+forall (1:r12=n1 /\ 1:r13=n2)

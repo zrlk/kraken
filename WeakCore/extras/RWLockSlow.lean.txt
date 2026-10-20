@@ -1,0 +1,16 @@
+import WeakCore.RWLock
+
+/-! # Slow explorer runs for RWLock.lean
+
+The one-promise (`maxP 1`) runs: about two minutes interpreted, a few seconds
+with the gate's native library.  They used to be opt-in (`WM_SLOW=1`). -/
+
+namespace RWLock
+open CoreLang CoreTerm TermRun TermSmoke
+
+-- One reader and the writer, with a promise: still never inside.
+#guard let r := runE (rwLib) rwSetup (rwThr 1) 1; clean r && readsOK r 1
+-- Exit without `rel` (load buffering): seen with one promise.
+#guard let r := runE (rwLib true false) (rwSetup true false) (rwThr 1) 1; clean r && sawInside r
+
+end RWLock

@@ -1,0 +1,19 @@
+AArch64 2+2W+dmb.lds
+Generator=diycross7 (version 7.58+1)
+Prefetch=0:x=F,0:y=W,1:y=F,1:x=W
+Com=Co Co
+Orig=DMB.LDdWW Coe DMB.LDdWW Coe
+Cycle=DMB.LDdWW Coe DMB.LDdWW Coe
+"DMB.LDdWW Coe DMB.LDdWW Coe"
+{
+ 0:X1=x; 0:X3=y;
+ 1:X1=x; 1:X3=y;
+}
+ P0          | P1          ;
+ MOV W0,#2   | MOV W0,#2   ;
+ STR W0,[X1] | STR W0,[X3] ;
+ DMB LD      | DMB LD      ;
+ MOV W2,#1   | MOV W2,#1   ;
+ STR W2,[X3] | STR W2,[X1] ;
+
+exists ([x]=2 /\ [y]=2)

@@ -1,0 +1,14 @@
+X86_64 WWC
+Generator=diycross7 (version 7.58+1)
+Prefetch=0:x=F,0:y=W,1:y=F,1:x=T
+Com=Co Fr Rf
+Orig=Rfe PodRW Coe PodWR Fre
+Cycle=Rfe PodRW Coe PodWR Fre
+"Rfe PodRW Coe PodWR Fre"
+{
+}
+ P0            | P1            | P2          ;
+ movl (x),%eax | movl $2,(y)   | movl $1,(x) ;
+ movl $1,(y)   | movl (x),%eax |             ;
+
+exists ([y]=2 /\ 0:rax=1 /\ 1:rax=0)

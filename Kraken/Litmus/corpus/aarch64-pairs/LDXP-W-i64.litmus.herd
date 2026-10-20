@@ -1,0 +1,10 @@
+Test LDXP-W-i64 Allowed
+States 2
+1:X2=0; 1:X3=0;
+1:X2=1; 1:X3=2;
+No
+Witnesses
+Positive: 0 Negative: 18
+Condition exists (1:X2=1 /\ 1:X3=0)
+Observation LDXP-W-i64 Never 0 18
+

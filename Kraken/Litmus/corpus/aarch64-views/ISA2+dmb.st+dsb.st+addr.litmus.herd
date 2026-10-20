@@ -1,0 +1,16 @@
+Test ISA2+dmb.st+dsb.st+addr Allowed
+States 8
+1:X0=0; 2:X0=0; 2:X5=0;
+1:X0=0; 2:X0=0; 2:X5=1;
+1:X0=0; 2:X0=1; 2:X5=0;
+1:X0=0; 2:X0=1; 2:X5=1;
+1:X0=1; 2:X0=0; 2:X5=0;
+1:X0=1; 2:X0=0; 2:X5=1;
+1:X0=1; 2:X0=1; 2:X5=0;
+1:X0=1; 2:X0=1; 2:X5=1;
+Ok
+Witnesses
+Positive: 1 Negative: 7
+Condition exists (1:X0=1 /\ 2:X0=1 /\ 2:X5=0)
+Observation ISA2+dmb.st+dsb.st+addr Sometimes 1 7
+

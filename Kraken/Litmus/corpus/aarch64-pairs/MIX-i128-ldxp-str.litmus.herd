@@ -1,0 +1,10 @@
+Test MIX-i128-ldxp-str Allowed
+States 2
+0:X2=0; 0:X3=0;
+0:X2=0; 0:X3=1;
+Ok
+Witnesses
+Positive: 1 Negative: 1
+Condition exists (0:X2=0 /\ 0:X3=1)
+Observation MIX-i128-ldxp-str Sometimes 1 1
+

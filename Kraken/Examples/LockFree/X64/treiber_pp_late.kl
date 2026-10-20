@@ -1,0 +1,39 @@
+X86_64 TreiberPushPopLate
+(* Negative variant of `treiber_pp.kl`: the pusher writes the node's data
+   word only after its `lock cmpxchgq` has published the node. The popper
+   can then pop n1 and read its data word before the data store, so
+   `1:r11=0` is reachable (even under SC).
+# flags: -fuel 300
+# expect: Sometimes
+# Proved reachable: Kraken.Promising.Reach.TreiberPpLate.treiber_pp_late_reachable (Kraken/Promising/ReachX64TreiberPpLate.lean)
+*)
+{
+top=0; n1=0;
+0:rdi=top; 0:rbx=n1;
+1:rdi=top;
+}
+threads { P0: pusher pdone; P1: popper qdone; }
+code {
+pusher:
+push:
+  movq (%rdi),%rax
+  movq %rax,8(%rbx)
+  lock cmpxchgq %rbx,(%rdi)
+  jne push
+  movl $1,(%rbx)
+  jmp pdone
+pdone:
+  nop
+popper:
+  movq (%rdi),%rax
+  testq %rax,%rax
+  je popper
+  movq 8(%rax),%rcx
+  lock cmpxchgq %rcx,(%rdi)
+  jne popper
+  movq %rax,%r10
+  movl (%rax),%r11d
+  jmp qdone
+qdone:
+}
+forall (1:r10=n1 /\ 1:r11=1)

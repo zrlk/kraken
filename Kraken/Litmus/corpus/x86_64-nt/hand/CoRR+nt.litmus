@@ -1,0 +1,10 @@
+X86_64 CoRR+nt
+"Coherence: reads of an NT store do not go back in time"
+{
+ 0:rax=x;
+}
+ P0                  | P1            ;
+ movl $1,%ebx        | movl (x),%ebx ;
+ movntil %ebx,(%rax) | movl (x),%ecx ;
+
+exists (1:rbx=1 /\ 1:rcx=0)

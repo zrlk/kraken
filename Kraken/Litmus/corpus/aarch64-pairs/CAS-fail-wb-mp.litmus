@@ -1,0 +1,14 @@
+AArch64 CAS-fail-wb-mp
+"A failing CASL after a store: herd's write-back branch is a release write, which adds no outcome"
+{
+uint64_t x; uint64_t y;
+0:X4=x; 0:X5=y; 1:X4=x; 1:X5=y;
+uint64_t 0:X0; uint64_t 1:X0; uint64_t 1:X1;
+}
+P0                 | P1           ;
+MOV X1,#1          | LDR X0,[X4]  ;
+STR X1,[X5]        | DMB SY       ;
+MOV X0,#7          | LDR X1,[X5]  ;
+MOV X2,#3          |              ;
+CASL X0,X2,[X4]    |              ;
+exists (1:X0=0 /\ 1:X1=0)

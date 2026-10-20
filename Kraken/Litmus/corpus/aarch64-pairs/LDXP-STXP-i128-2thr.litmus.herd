@@ -1,0 +1,15 @@
+Test LDXP-STXP-i128-2thr Allowed
+States 7
+0:X3=0; 0:X9=0; 1:X3=0; 1:X9=1;
+0:X3=0; 0:X9=0; 1:X3=1; 1:X9=0;
+0:X3=0; 0:X9=0; 1:X3=1; 1:X9=1;
+0:X3=0; 0:X9=1; 1:X3=0; 1:X9=0;
+0:X3=0; 0:X9=1; 1:X3=0; 1:X9=1;
+0:X3=3; 0:X9=0; 1:X3=0; 1:X9=0;
+0:X3=3; 0:X9=1; 1:X3=0; 1:X9=0;
+No
+Witnesses
+Positive: 0 Negative: 67
+Condition exists (0:X9=0 /\ 1:X9=0 /\ 0:X3=0 /\ 1:X3=0)
+Observation LDXP-STXP-i128-2thr Never 0 67
+

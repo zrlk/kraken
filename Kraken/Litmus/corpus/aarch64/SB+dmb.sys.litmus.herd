@@ -1,0 +1,11 @@
+Test SB+dmb.sys Forbidden
+States 3
+0:X2=0; 1:X2=1;
+0:X2=1; 1:X2=0;
+0:X2=1; 1:X2=1;
+Ok
+Witnesses
+Positive: 3 Negative: 0
+Condition ~exists (0:X2=0 /\ 1:X2=0)
+Observation SB+dmb.sys Never 0 3
+

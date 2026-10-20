@@ -1,0 +1,272 @@
+/-
+**WeakCore's Michael–Scott `deq`, lowered, on
+the Promising model** (shape A: one enqueuer `enq(1); enq(2)`, one dequeuer
+`deq(); deq()`).
+
+`wcMsq_promising` (executable machine, `isa`) and `wcMsq_promising_lse2`
+(`isaLSE2`), by `Kit.lower_promising{,_lse2}`: thread `1` runs `progD`
+(`WcMsqProg`: WeakCore's `deqBody` lowered faithfully, try once, no
+`head = tail` check, payload loaded after the `casal`), thread `0` runs
+`MsqPilot`'s `progE` unchanged. **Lowering deviation**: WeakCore's `enq` reads
+`tail`/links with plain loads; `MsqPilot`'s enqueuer uses `ldar` (stronger,
+hence a valid lowering of the same source; the plain-load lowering
+`wcEnqFrag` is checked by the explorer only, `wcMsqRunA`). The protocol
+(`form2`/`ghost2`/`planD2`, msqueue2's final law) is reused unchanged.
+
+**What is proved** (`WcMsqFinal`): per `deq` the result is empty (tag `1`)
+or tag `0` with payload `1` or `2`; if both dequeued, the payloads are
+`1` then `2` (FIFO). The outcomes `(E, 2)` and `(2, E)` (explored: never
+reached) are **not** excluded: that needs "every `head` message is this
+dequeuer's own swing", and `planD2`'s fractions do not record writers.
+-/
+import Kraken.Promising.Lower.WcMsqPure
+import Kraken.Promising.Lower.KitMsq
+import Kraken.Promising.Lower.KitLSE2
+import Kraken.Promising.Lower.MsqPilotLSE2
+import Kraken.Promising.Lower.Lowerable
+
+open Std.WP Kraken Kraken.Promising Kraken.Promising.AArch64 MachineWP
+open Kraken.Promising.SLR Kraken.Promising.SLR.EnvG Kraken.Promising.AArch64.EnvG
+
+namespace Kraken.Promising.Lower.WcMsq
+
+open Kraken.Promising.SLR.EnvG.MsQueue Kraken.Promising.Lower.Kit
+open Kraken.Promising.Lower.MsqPilot (StartE MainEPre mainE_pure mainE_partialTripleEnv)
+
+/-! ## The final reading -/
+
+/-- **The dequeuer's two results, by value**: per call empty (tag `1`) or
+tag `0` with payload `1` or `2`; both dequeued: `1` then `2`. -/
+def WVals (t1 v1 t2 v2 : BitVec 64) : Prop :=
+  (t1 = 1 ∨ (t1 = 0 ∧ (v1 = 1 ∨ v1 = 2))) ∧ (t2 = 1 ∨ (t2 = 0 ∧ (v2 = 1 ∨ v2 = 2))) ∧
+    (t1 = 0 → t2 = 0 → v1 = 1 ∧ v2 = 2)
+
+/-- **The property of shape A**: thread `1`'s `x10, x11` (first result) and
+`x12, x13` (second) satisfy `WVals`. -/
+def WcMsqFinal (c : Config isa) : Prop :=
+  ∃ th1, c.threads[1]? = some th1 ∧ WVals th1.st.st.1.regs.X10.toBitVec th1.st.st.1.regs.X11.toBitVec
+    th1.st.st.1.regs.X12.toBitVec th1.st.st.1.regs.X13.toBitVec
+
+/-- The shared postcondition: `MB2` with `WDone` for `DoneD2`. -/
+def WB (P : Params2) (c : Config isa) (r : Res) (_ : Ghost) : Prop :=
+  (∃ th, c.threads[1]? = some th ∧ WDone c.mem P th.st.st.1.regs.X10.toBitVec th.st.st.1.regs.X11.toBitVec
+    th.st.st.1.regs.X12.toBitVec th.st.st.1.regs.X13.toBitVec ∧ InitV2 c.mem P ∧
+    ∀ x, P.IsW x → 1 ≤ r.acq x 0) ∨ 1 ≤ (r.wr P.tokE).q
+
+section Final
+
+variable {I : ISA} {P : Params2} {rF : Nat → Res} {g : Ghost} {TT : Nat → Prop} {c : Config I}
+  (E : Erase rF g TT c) (hW : GW2 P g) (hL : QLocs2 P) (hi : InitV2 c.mem P)
+  (htot : ∀ x, P.IsW x → (total rF g c).acq x 0 = 1) (hno : ∀ ts, ¬ Outstanding c ts)
+include E hW hL hi htot hno
+
+/-- **One dequeue's value** is `1` or `2` (`deq_data`, `head_msg`). -/
+theorem deq_val {V : Time} {x : BitVec 64} (hd : Deq c.mem P V x) : x = 1 ∨ x = 2 := by
+  obtain ⟨yh, w, hg, h1, h2⟩ := deq_data E hW hL hi htot hno hd
+  obtain ⟨_, _, _, _, _, hy⟩ := head_msg E hW hL hi htot hg
+  rcases hy with ⟨hy, -⟩ | ⟨hy, -⟩
+  · exact .inl (h1 hy)
+  · exact .inr (h2 hy)
+
+theorem wvals {t1 v1 t2 v2 : BitVec 64} (hd : WDone c.mem P t1 v1 t2 v2) : WVals t1 v1 t2 v2 :=
+  ⟨hd.1.imp_right fun ⟨e, _, hV⟩ => ⟨e, deq_val E hW hL hi htot hno hV⟩,
+    hd.2.1.imp_right fun ⟨e, _, hV⟩ => ⟨e, deq_val E hW hL hi htot hno hV⟩,
+    fun e1 e2 => final_values2 E hW hL hi htot hno (hd.2.2 e1 e2)⟩
+
+end Final
+
+/-- **The final step** (`msqueue2_final_of_hB` with `WB`, `wvals`). -/
+theorem wcMsq_final_of_hB {h t d n1 n2 : BitVec 64} (hL : QLocs2 ⟨⟨h, t, d, n1⟩, n2⟩) {cfg : Config isa}
+    (hf : cfg.final = true) {rF' : Nat → Res} {g' : Ghost} (E' : Erase rF' g' (fun _ => False) cfg)
+    (hle : (ghost2 ⟨⟨h, t, d, n1⟩, n2⟩).Le g') (hsize : cfg.threads.size = 2)
+    (hB : ∀ tid, cfg.Done tid → WB ⟨⟨h, t, d, n1⟩, n2⟩ cfg (rF' tid) g') : WcMsqFinal cfg := by
+  have hi0 : (0 : Nat) < cfg.threads.size := by rw [hsize]; simp
+  have hi1 : (1 : Nat) < cfg.threads.size := by rw [hsize]; simp
+  have hW := (ghost2_gw ⟨⟨h, t, d, n1⟩, n2⟩).mono hle
+  have hno := Config.final_not_outstanding hf
+  have fin : ∀ i, i < cfg.threads.size → (∃ th, cfg.threads[1]? = some th ∧
+      WDone cfg.mem ⟨⟨h, t, d, n1⟩, n2⟩ th.st.st.1.regs.X10.toBitVec th.st.st.1.regs.X11.toBitVec
+        th.st.st.1.regs.X12.toBitVec th.st.st.1.regs.X13.toBitVec ∧
+      InitV2 cfg.mem ⟨⟨h, t, d, n1⟩, n2⟩ ∧ ∀ x, Params2.IsW ⟨⟨h, t, d, n1⟩, n2⟩ x → 1 ≤ (rF' i).acq x 0) →
+      WcMsqFinal cfg := by
+    rintro i hi ⟨th, hth, hd, hiv, hacq⟩
+    exact ⟨th, hth, wvals E' hW hL hiv (fun x hx => TreiberCommon.total_acq_of_ge E' hi (hacq x hx)) hno hd⟩
+  rcases hB 0 (Config.final_done hf hi0) with hd0 | hq0
+  · exact fin 0 hi0 hd0
+  rcases hB 1 (Config.final_done hf hi1) with hd1 | hq1
+  · exact fin 1 hi1 hd1
+  exact (tokE_pair_false (P := (⟨h, t, d, n1⟩ : Params)) E' hi0 hi1 (by decide) hq0 hq1).elim
+
+/-! ## The threads -/
+
+/-- `hB` of the enqueuer (`KitMsq.hB_E` with `WB`). -/
+theorem hB_E (l : _root_.Layout) (P : Params2) : ∀ (c : Config isa) (t : Thread isa) r g cl (σ : EStateA),
+    postOf (layout := l) MsqPilot.progE (fun _ σ => ∃ _ : Nat, ComE2 P σ) (t.st.st, σ) → t.prom = [] →
+    EnvRel 0 (planE2 P) σ c t r g cl → cl → WB P c r g := by
+  intro c t r g cl σ hpost hp hrel _
+  obtain ⟨-, -, hcom⟩ := hpost.resolve_right id
+  rcases hrel.res with ⟨rfl, -⟩ | ⟨ts, -, -, hts, -⟩
+  · exact .inr hcom.2.2.1
+  · rw [hp] at hts; cases hts
+
+/-- `hB` of the dequeuer (`KitMsq.hB_D` with `WDn`, `WB`). -/
+theorem hB_D (l : _root_.Layout) (P : Params2) : ∀ (c : Config isa) (t : Thread isa) r g cl (σ : EStateA),
+    postOf (layout := l) progD (fun s σ => ∃ _ : Nat, WDn P s.regs.X10.toBitVec s.regs.X11.toBitVec
+      s.regs.X12.toBitVec s.regs.X13.toBitVec σ) (t.st.st, σ) → t.prom = [] →
+    EnvRel 1 (planD2 P) σ c t r g cl → cl → WB P c r g := by
+  intro c t r g cl σ hpost hp hrel _
+  obtain ⟨-, -, hcom, hd⟩ := hpost.resolve_right id
+  have hpre : σ.snap.mem.Prefix c.mem := ⟨hrel.snap.init, hrel.snap.msgs⟩
+  rcases hrel.res with ⟨rfl, -⟩ | ⟨ts, -, -, hts, -⟩
+  · exact .inl ⟨t, hrel.ht, hd.mono hpre, hcom.2.2.2.2.1.of_init hrel.snap.init, hcom.2.2.2.1⟩
+  · rw [hp] at hts; cases hts
+
+/-- **The enqueuer** (thread `0`): `KitMsq.enqT` with `WB` for `MB2`. -/
+noncomputable def enqT (l : _root_.Layout) [Executable.ValidLayout (l MsqPilot.progE)] (P : Params2)
+    (hL : QLocs2 P) (ht : P.t = P.h + 8) (hd : ∀ v : Val, Pred.Pure ((ghost2 P).rel ⟨P.n1, 4⟩) v)
+    (hd2 : ∀ v : Val, Pred.Pure ((ghost2 P).rel ⟨P.n2, 4⟩) v) :
+    LowerThread Arch.armv8 0 (ghost2 P).rel (WB P) where
+  l := l
+  p := MsqPilot.progE
+  valid := inferInstance
+  pl := planE2 P
+  hpl := planE2_valid P
+  live := MsqPilot.progE_rmwLive (layout := l)
+  shape := MsqPilot.progE_phase1F (layout := l)
+  stuck env := not_instrStepEnv_of_end_labels (layout := l) env 1
+  Q _ σ := ComE2 P σ.1
+  hB := hB_E l P
+  PreR s _ := Int64.ofBitVec s.regs.X30.toBitVec = MsqPilot.endE (layout := l) ∧ s.regs.X22.toBitVec = P.n1 ∧
+    s.regs.X23.toBitVec = P.n2 ∧ Pilot.NoDmem s
+  QR _ _ := True
+  pure := mainE_pure (layout := l) _ P.n1 P.n2 hd hd2
+  Pre := MainEPre (layout := l) P
+  main := mainE_partialTripleEnv (layout := l) P hL ht
+
+/-- **The dequeuer** (thread `1`, WeakCore's `deq` twice). -/
+noncomputable def deqT (l : _root_.Layout) [Executable.ValidLayout (l progD)] (P : Params2) (hL : QLocs2 P) :
+    LowerThread Arch.armv8 1 (ghost2 P).rel (WB P) where
+  l := l
+  p := progD
+  valid := inferInstance
+  pl := planD2 P
+  hpl := planD2_valid P
+  live := progD_rmwLive (layout := l)
+  shape := progD_phase1F (layout := l)
+  stuck env := not_instrStepEnv_of_end_labels (layout := l) env 1
+  Q s σ := WDn P s.regs.X10.toBitVec s.regs.X11.toBitVec s.regs.X12.toBitVec s.regs.X13.toBitVec σ.1
+  hB := hB_D l P
+  PreR s _ := Int64.ofBitVec s.regs.X30.toBitVec = endD (layout := l) ∧ Pilot.NoDmem s
+  QR _ _ := True
+  pure := mainD_pure (layout := l) _
+  Pre := MainDPre (layout := l) P
+  main := mainD_partialTripleEnv (layout := l) P hL
+
+/-- **The dequeuer's start state**: at the start of `progD`, returning to its
+end; `q = &head` in `x21`; empty `dmem`. -/
+structure StartD [layout : _root_.Layout] (h : BitVec 64) (s : isa.State) : Prop where
+  exe : s.exe = layout progD
+  decls : s.decls = {}
+  endPc : s.endPc = (layout progD).addrOf progD.length
+  pc : s.st.2 = (layout progD).addrOf 0
+  x30 : Int64.ofBitVec s.st.1.regs.X30.toBitVec = (layout progD).addrOf progD.length
+  x21 : s.st.1.regs.X21.toBitVec = h
+  d8 : ∀ a, Mem.loadInt s.st.1.dmem a 8 = none
+  d4 : ∀ a, Mem.loadInt s.st.1.dmem a 4 = none
+
+/-- WeakCore's `deq` text is in the WeakCore-lowerable fragment. -/
+theorem progD_wcLowerable : progD.WCLowerable := by decide
+
+/-! ## The theorems -/
+
+/-- **WeakCore's Michael–Scott `deq`, lowered, on the Promising model**
+(AArch64, `Arch.armv8`, `isa`; shape A): for all layouts `l0` of `MsqPilot`'s
+`progE` and `l1` of `progD`, all addresses with msqueue2's disequalities
+(`head` `h`, `tail` `t = h + 8`, dummy `d`, nodes `n1`, `n2`: data `[n]`, 4
+bytes; link `[n + 8]`), if thread `0` starts `progE` (`StartE`), thread `1`
+starts `progD` (`StartD`) and the initial memory has `head = tail = d` and
+the links `0` (`InitV2`), then every reachable final configuration satisfies
+`WcMsqFinal`. -/
+theorem wcMsq_promising {fuel : Nat} (l0 l1 : _root_.Layout) [Executable.ValidLayout (l0 MsqPilot.progE)]
+    [Executable.ValidLayout (l1 progD)] (h t d n1 n2 : BitVec 64) (ht : t = h + 8) (hht : h ≠ t)
+    (hhd : h ≠ d + 8) (hhn : h ≠ n1 + 8) (hhn2 : h ≠ n2 + 8) (htd : t ≠ d + 8) (htn : t ≠ n1 + 8)
+    (htn2 : t ≠ n2 + 8) (hdn : d ≠ n1) (hdn2 : d ≠ n2) (hn12 : n1 ≠ n2) (hn1 : n1 ≠ 0) (hn2 : n2 ≠ 0)
+    {s0 s1 : isa.State} {initMem : List (Loc × Val)} (h0 : StartE (layout := l0) h n1 n2 s0)
+    (h1 : StartD (layout := l1) h s1) (hi : InitV2 (Config.init [s0, s1] initMem).mem ⟨⟨h, t, d, n1⟩, n2⟩)
+    {cfg : Config isa} (hc : Reachable Arch.armv8 fuel (Config.init [s0, s1] initMem) cfg)
+    (hf : cfg.final = true) : WcMsqFinal cfg := by
+  have hL : QLocs2 ⟨⟨h, t, d, n1⟩, n2⟩ := ⟨⟨hht, hhd, hhn, htd, htn, hdn⟩, hhn2, htn2, hdn2, hn12, hn1, hn2⟩
+  have hr : ∀ l, ¬ Params2.IsW ⟨⟨h, t, d, n1⟩, n2⟩ l → ∀ v, Pred.Pure ((ghost2 ⟨⟨h, t, d, n1⟩, n2⟩).rel l) v :=
+    fun l hl v => by rw [ghost2_rel_ne hl]; exact Pred.emp_pure v
+  refine lower_promising Arch.armv8 fuel (fun _ hc' => Config.ntFree_armv8 hc') (erase_init2 hL _) rfl
+    (fun tid hh => match tid, hh with
+      | 0, _ => enqT l0 _ hL ht (hr _ (not_isW_dat _)) (hr _ (not_isW_dat2 _))
+      | 1, _ => deqT l1 _ hL
+      | _ + 2, hh => absurd hh (by simp))
+    (fun tid hh => ?_) hc hf fun rF' g' E' hle hsize hB => wcMsq_final_of_hB hL hf E' hle hsize hB
+  rcases tid with _ | _ | _
+  · obtain ⟨he, hds, hend, hpc, h30, h21, h22, h23, hd8, hd4⟩ := h0
+    exact ⟨⟨he, hds, hend, hpc, 0, h30, h22, h23, hd8, hd4⟩, 0, h30, h21, h22, h23, ⟨hd8, hd4⟩, start1_init _ _⟩
+  · obtain ⟨he, hds, hend, hpc, h30, h21, hd8, hd4⟩ := h1
+    exact ⟨⟨he, hds, hend, hpc, 0, h30, hd8, hd4⟩, 0, h30, h21, ⟨hd8, hd4⟩, comD2_init _ _ hi⟩
+  · simp at hh; omega
+
+/-- **`wcMsq_promising` on `isaLSE2`** (executable machine): `hfree` from
+`progD_wcLowerable` and `MsqPilot`'s `progE_lse2Free`. -/
+theorem wcMsq_promising_lse2 {fuel : Nat} (l0 l1 : _root_.Layout)
+    [Executable.ValidLayout (l0 MsqPilot.progE)] [Executable.ValidLayout (l1 progD)] (h t d n1 n2 : BitVec 64)
+    (ht : t = h + 8) (hht : h ≠ t) (hhd : h ≠ d + 8) (hhn : h ≠ n1 + 8) (hhn2 : h ≠ n2 + 8)
+    (htd : t ≠ d + 8) (htn : t ≠ n1 + 8) (htn2 : t ≠ n2 + 8) (hdn : d ≠ n1) (hdn2 : d ≠ n2) (hn12 : n1 ≠ n2)
+    (hn1 : n1 ≠ 0) (hn2 : n2 ≠ 0) {s0 s1 : isa.State} {initMem : List (Loc × Val)}
+    (h0 : StartE (layout := l0) h n1 n2 s0) (h1 : StartD (layout := l1) h s1)
+    (hi : InitV2 (Config.init [s0, s1] initMem : Config isa).mem ⟨⟨h, t, d, n1⟩, n2⟩)
+    {cfg : Config isaLSE2} (hc : Reachable Arch.armv8 fuel (Config.init [s0, s1] initMem : Config isaLSE2) cfg)
+    (hf : cfg.final = true) : WcMsqFinal (ofL cfg) := by
+  have hL : QLocs2 ⟨⟨h, t, d, n1⟩, n2⟩ := ⟨⟨hht, hhd, hhn, htd, htn, hdn⟩, hhn2, htn2, hdn2, hn12, hn1, hn2⟩
+  have hr : ∀ l, ¬ Params2.IsW ⟨⟨h, t, d, n1⟩, n2⟩ l → ∀ v, Pred.Pure ((ghost2 ⟨⟨h, t, d, n1⟩, n2⟩).rel l) v :=
+    fun l hl v => by rw [ghost2_rel_ne hl]; exact Pred.emp_pure v
+  refine lower_promising_lse2 Arch.armv8 (fun _ hc' => Config.ntFree_armv8K hc') (erase_init2 hL _) rfl
+    (fun tid hh => match tid, hh with
+      | 0, _ => enqT l0 _ hL ht (hr _ (not_isW_dat _)) (hr _ (not_isW_dat2 _))
+      | 1, _ => deqT l1 _ hL
+      | _ + 2, hh => absurd hh (by simp))
+    (fun tid hh => ?_) (fun tid hh => ?_)
+    (fun _ hf' rF' g' E' hle hsize hB => wcMsq_final_of_hB hL hf' E' hle hsize hB) hc hf
+  · rcases tid with _ | _ | _
+    · obtain ⟨he, hds, hend, hpc, h30, h21, h22, h23, hd8, hd4⟩ := h0
+      exact ⟨⟨he, hds, hend, hpc, 0, h30, h22, h23, hd8, hd4⟩, 0, h30, h21, h22, h23, ⟨hd8, hd4⟩, start1_init _ _⟩
+    · obtain ⟨he, hds, hend, hpc, h30, h21, hd8, hd4⟩ := h1
+      exact ⟨⟨he, hds, hend, hpc, 0, h30, hd8, hd4⟩, 0, h30, h21, ⟨hd8, hd4⟩, comD2_init _ _ hi⟩
+    · simp at hh; omega
+  · rcases tid with _ | _ | _
+    · exact MsqPilot.progE_lse2Free
+    · exact progD_wcLowerable.lse2Free
+    · simp at hh; omega
+
+/-! ## The concrete instance (`wcMsqRunA'`'s configuration) -/
+
+section
+attribute [local instance] layoutD
+
+theorem threadD_start : StartD 0x1000 threadD := by
+  refine ⟨rfl, rfl, by decide, by decide, by decide, by decide, fun a => ?_, fun a => ?_⟩ <;>
+    simp [threadD, Mem.loadInt, Mem.loadBytes, List.allSome, List.range_succ]
+
+end
+
+/-- **Non-vacuity**: `wcMsq_promising` at the explorer's configuration
+(`wcMsqRunA'`: `MsqPilot`'s `threadE`, this `threadD`, `head`/`tail` at
+`0x1000`/`0x1008`, dummy `0x1100`, nodes `0x1200`, `0x1300`). -/
+theorem wcMsq_promising_concrete {fuel : Nat} {c : Config isa}
+    (hc : Reachable Arch.armv8 fuel (Config.init [MsqPilot.threadE, threadD] MsqPilot.initMem) c)
+    (hf : c.final = true) : WcMsqFinal c :=
+  wcMsq_promising MsqPilot.layoutE layoutD 0x1000 0x1008 0x1100 0x1200 0x1300 (by decide) (by decide)
+    (by decide) (by decide) (by decide) (by decide) (by decide) (by decide) (by decide) (by decide) (by decide)
+    (by decide) (by decide) MsqPilot.threadE_start threadD_start
+    (by refine ⟨⟨?_, ?_, ?_, ?_⟩, ?_⟩ <;> simp only [Config.init] <;> decide) hc hf
+
+end Kraken.Promising.Lower.WcMsq
+
+#print axioms Kraken.Promising.Lower.WcMsq.wcMsq_promising
+#print axioms Kraken.Promising.Lower.WcMsq.wcMsq_promising_lse2
+#print axioms Kraken.Promising.Lower.WcMsq.wcMsq_promising_concrete

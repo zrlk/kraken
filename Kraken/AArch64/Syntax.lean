@@ -1,7 +1,13 @@
 import Kraken.Attribute
 import Kraken.Layout
+import Kraken.MemKinds
 import Lean
 import Std
+
+deriving instance Lean.ToExpr for Kraken.LoadKind
+deriving instance Lean.ToExpr for Kraken.StoreKind
+deriving instance Lean.ToExpr for Kraken.RmwKind
+deriving instance Lean.ToExpr for Kraken.FenceKind
 
 /--
 Memory access width.
@@ -347,6 +353,14 @@ attribute [coe] ExtOrImmReg.imm
 
 instance {w} : Coe (RegOrZr w) (ShiftRegExpr w) where coe := fun r => { reg := r, amount := 0, shift := .LSL }
 
+/--
+Operation of an atomic load-and-op instruction (FEAT_LSE):
+`LDADD`, `LDCLR`, `LDEOR`, `LDSET`, `LDSMAX`, `LDSMIN`, `LDUMAX`, `LDUMIN`
+(and the `STADD`-style aliases with the result register `XZR`/`WZR`).
+-/
+inductive AtomicOp | ADD | CLR | EOR | SET | SMAX | SMIN | UMAX | UMIN
+  deriving Repr, BEq, DecidableEq, Hashable, Lean.ToExpr
+
 inductive Operation : RegWidth → Type
   -- Loads and Stores.
   | LDR {w} (dst : RegOrZr w) (src : AddrOrLit) : Operation w
@@ -465,6 +479,46 @@ inductive Operation : RegWidth → Type
   | CBNZ {w} (reg : RegOrZr w) (target : ConstExpr) : Operation w
   | TBZ {w} (reg : RegOrZr w) (bit : Nat) (target : ConstExpr) : Operation w
   | TBNZ {w} (reg : RegOrZr w) (bit : Nat) (target : ConstExpr) : Operation w
+  --
+  -- Acquire/release, exclusive and atomic memory instructions, and barriers.
+  -- These take only base-register addressing (`[Xn]`, `[Xn, #0]`, `[SP]`). `sz` is
+  -- the access size: the `B`/`H` forms access 8/16 bits through a `W` register
+  -- (zero-extending on load); otherwise `sz` is the register width.
+  --
+  -- Load-acquire / load-exclusive: `LDAR` (`k = .acq`, `xcl = false`), `LDAPR`
+  -- (`.acqPc`, `false`), `LDXR` (`.plain`, `true`), `LDAXR` (`.acq`, `true`), each +B/H.
+  | LDAR {w} (k : Kraken.LoadKind) (xcl : Bool) (sz : MemWidth) (dst : RegOrZr w) (base : RegOrSp .W64) : Operation w
+  -- Store-release `STLR` (+B/H).
+  | STLR {w} (sz : MemWidth) (src : RegOrZr w) (base : RegOrSp .W64) : Operation w
+  -- Store-exclusive `STXR Ws, Rt, [Xn]` (`k = .plain`) / `STLXR` (`.rel`), each +B/H.
+  -- `status` receives 0 on success and 1 on failure.
+  | STXR {w} (k : Kraken.StoreKind) (sz : MemWidth) (status : RegOrZr .W32) (src : RegOrZr w) (base : RegOrSp .W64) : Operation w
+  -- Compare-and-swap `CAS Rs, Rt, [Xn]` (`CAS`/`CASA`/`CASL`/`CASAL`, +B/H): if the memory
+  -- value equals `rs`, write `rt`; `rs` receives the old value either way.
+  | CAS {w} (k : Kraken.RmwKind) (sz : MemWidth) (rs : RegOrZr w) (rt : RegOrZr w) (base : RegOrSp .W64) : Operation w
+  -- Swap `SWP Rs, Rt, [Xn]` (`SWP`/`SWPA`/`SWPL`/`SWPAL`, +B/H): write `rs`, `rt` receives the old value.
+  | SWP {w} (k : Kraken.RmwKind) (sz : MemWidth) (rs : RegOrZr w) (rt : RegOrZr w) (base : RegOrSp .W64) : Operation w
+  -- Atomic load-and-op `LDADD Rs, Rt, [Xn]` etc. (`op` names the operation, `k` the
+  -- `A`/`L`/`AL` suffix, +B/H): write `op mem rs`, `rt` receives the old value. The
+  -- `STADD Rs, [Xn]` family is this with `rt = XZR`/`WZR`.
+  | LDOP {w} (op : AtomicOp) (k : Kraken.RmwKind) (sz : MemWidth) (rs : RegOrZr w) (rt : RegOrZr w) (base : RegOrSp .W64) : Operation w
+  -- Pair exclusives and pair compare-and-swap (`W` or `X` registers: each half
+  -- is the register width, at `[Xn]` and `[Xn + w.bytes]`). herd (`AArch64Sem.ml`)
+  -- performs them as two accesses, one per half, with per-location atomicity.
+  -- Load-exclusive pair `LDXP Rt1, Rt2, [Xn]` (`k = .plain`) / `LDAXP` (`.acq`).
+  | LDXP {w} (k : Kraken.LoadKind) (dst1 : RegOrZr w) (dst2 : RegOrZr w) (base : RegOrSp .W64) : Operation w
+  -- Store-exclusive pair `STXP Ws, Rt1, Rt2, [Xn]` (`k = .plain`) / `STLXP` (`.rel`): both
+  -- halves are written or neither; `status` receives 0 on success and 1 on failure.
+  | STXP {w} (k : Kraken.StoreKind) (status : RegOrZr .W32) (src1 : RegOrZr w) (src2 : RegOrZr w) (base : RegOrSp .W64) : Operation w
+  -- Compare-and-swap pair `CASP Rs1, Rs2, Rt1, Rt2, [Xn]` (`CASP`/`CASPA`/`CASPL`/`CASPAL`;
+  -- `Rs2 = Rs1 + 1`, `Rt2 = Rt1 + 1`, both even): if memory holds `rs1:rs2`, write `rt1:rt2`;
+  -- `rs1`, `rs2` receive the old values either way.
+  | CASP {w} (k : Kraken.RmwKind) (rs1 rs2 : RegOrZr w) (rt1 rt2 : RegOrZr w) (base : RegOrSp .W64) : Operation w
+  -- Barriers. `DMB`/`DSB` options `SY ISH OSH NSH` ⇒ `.sy`, `LD ISHLD OSHLD NSHLD` ⇒ `.ld`,
+  -- `ST ISHST OSHST NSHST` ⇒ `.st` (the shareability domain is not modelled); `ISB` ⇒ `.isb`.
+  | DMB (k : Kraken.FenceKind) : Operation .W64
+  | DSB (k : Kraken.FenceKind) : Operation .W64
+  | ISB : Operation .W64
   --
   -- Misc.
   | NOP {w} : Operation w

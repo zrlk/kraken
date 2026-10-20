@@ -1,0 +1,16 @@
+AArch64 CoWW+dmb.sys
+"DMB.SYsWW Coe"
+Cycle=Coe DMB.SYsWW
+Generator=diycross7 (version 7.58)
+Com=Co
+Orig=DMB.SYsWW Coe
+{
+0:X1=x;
+}
+ P0          ;
+ MOV W0,#2   ;
+ STR W0,[X1] ;
+ DMB SY      ;
+ MOV W2,#1   ;
+ STR W2,[X1] ;
+exists ([x]=1)

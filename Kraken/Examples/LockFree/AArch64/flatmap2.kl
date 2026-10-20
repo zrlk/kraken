@@ -1,0 +1,152 @@
+AArch64 FlatMap2
+(* Lock-free flat hash map (open addressing, linear probing, insert-only,
+   one word per key and one per value), lowered with the WeakCore table
+   (`cas acq rel` = CASAL, `store rel` = STLR, `load acq` = LDAR).
+   Table: N = 4 slots, `uint64_t key[4]`, `uint64_t val[4]` (slot i is
+   key[i], val[i]; 0 = empty key / unpublished value). Hash: keys 1 and 2
+   have home slot 0 (they collide), key 3 has home slot 2.
+     insert(k, v, h): for p = 0..3: i := (h+p) mod 4;
+                      old := CASAL key[i] 0 -> k;
+                      if old = 0: STLR val[i] := v; return i+1;
+                      if old = k: return 9 (duplicate);
+                      return 0 (full).
+     lookup(k, h):    for p = 0..3: i := (h+p) mod 4; x := LDAR key[i];
+                      if x = k: return (i+1, LDAR val[i]);
+                      if x = 0: stop;
+                      return (0, 0) (absent).
+   One insert/lookup body is shared by all calls; X6 is the continuation
+   (which call site to return to), X8/X12/X7 the key, value and home slot,
+   X19/X18 the results.
+   P0: insert(1, 11, 0) -> X10; insert(3, 33, 2) -> X11.
+   P1: insert(2, 22, 0) -> X10.
+   P2: lookup(3, 2) -> (X10, X11); then lookup(1, 0) -> (X12, X13).
+   Property:
+   - no key lost or duplicated, and every value belongs to its key: the
+     final table is {1:11, 2:22} in slots 0/1 (in either order, matching
+     the slots the inserters returned), {3:33} in slot 2, slot 3 empty;
+   - a lookup that finds key k returns v_k or 0 (not yet published), never
+     another key's value, and finds it in the slot k really occupies;
+   - causality across inserts: if lookup(3) returned 33 then lookup(1),
+     which runs after it, finds key 1 with value 11 (P0's insert of 1
+     precedes its insert of 3, and the reader acquired P0's `val[2]`).
+   Expected: Always. CASAL is a full acquire-release RMW, STLR releases
+   the value after the key, LDAR acquires. With plain LDRs in the reader
+   the causality clause fails (flatmap2_relaxed.kl). Threads have
+   different roles: no -sym. *)
+# flags:
+# expect: Always
+{
+uint64_t key[4]; uint64_t val[4];
+0:X0=key; 0:X1=val; 1:X0=key; 1:X1=val; 2:X0=key; 2:X1=val;
+}
+threads { P0: p0 done; P1: p1 done; P2: reader done; }
+code {
+p0:
+  MOV X8,#1
+  MOV X12,#11
+  MOV X7,#0
+  MOV X6,#0
+  B ins
+p0b:
+  MOV X10,X19
+  MOV X8,#3
+  MOV X12,#33
+  MOV X7,#2
+  MOV X6,#1
+  B ins
+p0c:
+  MOV X11,X19
+  B done
+p1:
+  MOV X8,#2
+  MOV X12,#22
+  MOV X7,#0
+  MOV X6,#2
+  B ins
+p1b:
+  MOV X10,X19
+  B done
+ins:
+  MOV X14,#0
+ins_loop:
+  ADD X15,X7,X14
+  AND X15,X15,#3
+  LSL X16,X15,#3
+  ADD X17,X0,X16
+  MOV X9,#0
+  CASAL X9,X8,[X17]
+  CBZ X9,ins_won
+  CMP X9,X8
+  B.EQ ins_dup
+  ADD X14,X14,#1
+  CMP X14,#4
+  B.LT ins_loop
+  MOV X19,#0
+  B ins_ret
+ins_dup:
+  MOV X19,#9
+  B ins_ret
+ins_won:
+  ADD X17,X1,X16
+  STLR X12,[X17]
+  ADD X19,X15,#1
+ins_ret:
+  CMP X6,#0
+  B.EQ p0b
+  CMP X6,#1
+  B.EQ p0c
+  B p1b
+reader:
+  MOV X8,#3
+  MOV X7,#2
+  MOV X6,#0
+  B look
+rb:
+  MOV X10,X19
+  MOV X11,X18
+  MOV X8,#1
+  MOV X7,#0
+  MOV X6,#1
+  B look
+rc:
+  MOV X12,X19
+  MOV X13,X18
+  B done
+look:
+  MOV X14,#0
+look_loop:
+  ADD X15,X7,X14
+  AND X15,X15,#3
+  LSL X16,X15,#3
+  ADD X17,X0,X16
+  LDAR X9,[X17]
+  CMP X9,X8
+  B.EQ look_hit
+  CBZ X9,look_miss
+  ADD X14,X14,#1
+  CMP X14,#4
+  B.LT look_loop
+look_miss:
+  MOV X19,#0
+  MOV X18,#0
+  B look_ret
+look_hit:
+  ADD X17,X1,X16
+  LDAR X18,[X17]
+  ADD X19,X15,#1
+look_ret:
+  CBZ X6,rb
+  B rc
+done:
+  NOP
+}
+forall (
+  ((0:X10=1 /\ 1:X10=2 /\ [key[0]]=1 /\ [val[0]]=11 /\ [key[1]]=2 /\ [val[1]]=22) \/
+   (0:X10=2 /\ 1:X10=1 /\ [key[0]]=2 /\ [val[0]]=22 /\ [key[1]]=1 /\ [val[1]]=11)) /\
+  0:X11=3 /\ [key[2]]=3 /\ [val[2]]=33 /\ [key[3]]=0 /\ [val[3]]=0 /\
+  ((2:X10=0 /\ 2:X11=0) \/ (2:X10=3 /\ (2:X11=33 \/ 2:X11=0))) /\
+  ((2:X12=0 /\ 2:X13=0) \/
+   (2:X12=1 /\ [key[0]]=1 /\ (2:X13=11 \/ 2:X13=0)) \/
+   (2:X12=2 /\ [key[1]]=1 /\ (2:X13=11 \/ 2:X13=0))) /\
+  ~(2:X11=33 /\ (2:X12=0 \/ 2:X13=0))
+)

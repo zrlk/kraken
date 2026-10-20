@@ -1682,6 +1682,894 @@ info: [Directive.instr
 #check parseAArch64("ret // return to caller")
 
 -- ============================================================================
+-- 11a. Acquire/Release, Exclusive, Atomic and Barrier Instructions
+-- ============================================================================
+
+-- Test: LDAR 32-bit, herd spelling (no space after comma)
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W32,
+      operation :=
+        Operation.LDAR Kraken.LoadKind.acq false MemWidth.W32 (↑↑XReg.X0 RegWidth.W32)
+          (↑↑XReg.X1 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("LDAR W0,[X1]")
+
+-- Test: LDAR 64-bit, base with explicit zero offset
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W64,
+      operation :=
+        Operation.LDAR Kraken.LoadKind.acq false MemWidth.W64 (↑↑XReg.X0 RegWidth.W64)
+          (↑↑XReg.X1 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("ldar x0, [x1, #0]")
+
+-- Test: LDARB / LDARH write a W register
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W32,
+      operation :=
+        Operation.LDAR Kraken.LoadKind.acq false MemWidth.W8 (↑↑XReg.X0 RegWidth.W32)
+          (↑↑XReg.X1 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("ldarb w0, [x1]")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W32,
+      operation :=
+        Operation.LDAR Kraken.LoadKind.acq false MemWidth.W16 (↑↑XReg.X0 RegWidth.W32)
+          (↑XRegOrSp.SP RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("ldarh w0, [sp]")
+
+-- Test: LDAPR family (RCpc acquire)
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W64,
+      operation :=
+        Operation.LDAR Kraken.LoadKind.acqPc false MemWidth.W64 (↑↑XReg.X3 RegWidth.W64)
+          (↑↑XReg.X4 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("LDAPR X3,[X4]")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W32,
+      operation :=
+        Operation.LDAR Kraken.LoadKind.acqPc false MemWidth.W8 (↑↑XReg.X3 RegWidth.W32)
+          (↑↑XReg.X4 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("ldaprb w3, [x4]")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W32,
+      operation :=
+        Operation.LDAR Kraken.LoadKind.acqPc false MemWidth.W16 (↑↑XReg.X3 RegWidth.W32)
+          (↑↑XReg.X4 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("ldaprh w3, [x4]")
+
+-- Test: Load-exclusive LDXR / LDAXR
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W32,
+      operation :=
+        Operation.LDAR Kraken.LoadKind.plain true MemWidth.W32 (↑↑XReg.X0 RegWidth.W32)
+          (↑↑XReg.X1 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("LDXR W0,[X1]")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W32,
+      operation :=
+        Operation.LDAR Kraken.LoadKind.plain true MemWidth.W8 (↑↑XReg.X0 RegWidth.W32)
+          (↑↑XReg.X1 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("ldxrb w0, [x1]")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W32,
+      operation :=
+        Operation.LDAR Kraken.LoadKind.plain true MemWidth.W16 (↑↑XReg.X0 RegWidth.W32)
+          (↑↑XReg.X1 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("ldxrh w0, [x1]")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W64,
+      operation :=
+        Operation.LDAR Kraken.LoadKind.acq true MemWidth.W64 (↑↑XReg.X5 RegWidth.W64)
+          (↑↑XReg.X1 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("LDAXR X5,[X1]")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W32,
+      operation :=
+        Operation.LDAR Kraken.LoadKind.acq true MemWidth.W8 (↑↑XReg.X5 RegWidth.W32)
+          (↑↑XReg.X1 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("ldaxrb w5, [x1]")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W32,
+      operation :=
+        Operation.LDAR Kraken.LoadKind.acq true MemWidth.W16 (↑↑XReg.X5 RegWidth.W32)
+          (↑↑XReg.X1 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("ldaxrh w5, [x1]")
+
+-- Test: Store-release STLR
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W32,
+      operation := Operation.STLR MemWidth.W32 (↑↑XReg.X0 RegWidth.W32) (↑↑XReg.X1 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("STLR W0,[X1]")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W64,
+      operation := Operation.STLR MemWidth.W64 (↑↑XReg.X0 RegWidth.W64) (↑XRegOrSp.SP RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("stlr x0, [sp]")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W32,
+      operation := Operation.STLR MemWidth.W8 (↑↑XReg.X0 RegWidth.W32) (↑↑XReg.X1 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("stlrb w0, [x1]")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W32,
+      operation := Operation.STLR MemWidth.W16 (↑↑XReg.X0 RegWidth.W32) (↑↑XReg.X1 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("stlrh w0, [x1]")
+
+-- Test: Store-exclusive STXR / STLXR: status register first
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W32,
+      operation :=
+        Operation.STXR Kraken.StoreKind.plain MemWidth.W32 (↑↑XReg.X2 RegWidth.W32) (↑↑XReg.X0 RegWidth.W32)
+          (↑↑XReg.X1 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("STXR W2,W0,[X1]")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W64,
+      operation :=
+        Operation.STXR Kraken.StoreKind.plain MemWidth.W64 (↑↑XReg.X2 RegWidth.W32) (↑↑XReg.X0 RegWidth.W64)
+          (↑↑XReg.X1 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("stxr w2, x0, [x1]")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W32,
+      operation :=
+        Operation.STXR Kraken.StoreKind.plain MemWidth.W8 (↑↑XReg.X2 RegWidth.W32) (↑↑XReg.X0 RegWidth.W32)
+          (↑↑XReg.X1 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("stxrb w2, w0, [x1]")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W32,
+      operation :=
+        Operation.STXR Kraken.StoreKind.plain MemWidth.W16 (↑↑XReg.X2 RegWidth.W32) (↑↑XReg.X0 RegWidth.W32)
+          (↑↑XReg.X1 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("stxrh w2, w0, [x1]")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W64,
+      operation :=
+        Operation.STXR Kraken.StoreKind.rel MemWidth.W64 (↑↑XReg.X2 RegWidth.W32) (↑↑XReg.X0 RegWidth.W64)
+          (↑↑XReg.X1 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("STLXR W2,X0,[X1]")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W32,
+      operation :=
+        Operation.STXR Kraken.StoreKind.rel MemWidth.W8 (↑↑XReg.X2 RegWidth.W32) (↑↑XReg.X0 RegWidth.W32)
+          (↑↑XReg.X1 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("stlxrb w2, w0, [x1]")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W32,
+      operation :=
+        Operation.STXR Kraken.StoreKind.rel MemWidth.W16 (↑↑XReg.X2 RegWidth.W32) (↑↑XReg.X0 RegWidth.W32)
+          (↑↑XReg.X1 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("stlxrh w2, w0, [x1]")
+
+-- Test: CAS with ordering suffixes
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W32,
+      operation :=
+        Operation.CAS Kraken.RmwKind.plain MemWidth.W32 (↑↑XReg.X0 RegWidth.W32) (↑↑XReg.X1 RegWidth.W32)
+          (↑↑XReg.X2 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("CAS W0,W1,[X2]")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W64,
+      operation :=
+        Operation.CAS Kraken.RmwKind.acq MemWidth.W64 (↑↑XReg.X0 RegWidth.W64) (↑↑XReg.X1 RegWidth.W64)
+          (↑↑XReg.X2 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("CASA X0,X1,[X2]")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W32,
+      operation :=
+        Operation.CAS Kraken.RmwKind.rel MemWidth.W32 (↑↑XReg.X0 RegWidth.W32) (↑↑XReg.X1 RegWidth.W32)
+          (↑↑XReg.X2 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("casl w0, w1, [x2]")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W64,
+      operation :=
+        Operation.CAS Kraken.RmwKind.acqRel MemWidth.W64 (↑↑XReg.X0 RegWidth.W64) (↑↑XReg.X1 RegWidth.W64)
+          (↑↑XReg.X2 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("CASAL X0,X1,[X2]")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W32,
+      operation :=
+        Operation.CAS Kraken.RmwKind.plain MemWidth.W8 (↑↑XReg.X0 RegWidth.W32) (↑↑XReg.X1 RegWidth.W32)
+          (↑↑XReg.X2 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("casb w0, w1, [x2]")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W32,
+      operation :=
+        Operation.CAS Kraken.RmwKind.acqRel MemWidth.W16 (↑↑XReg.X0 RegWidth.W32) (↑↑XReg.X1 RegWidth.W32)
+          (↑↑XReg.X2 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("casalh w0, w1, [x2]")
+
+-- Test: SWP with ordering suffixes
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W32,
+      operation :=
+        Operation.SWP Kraken.RmwKind.plain MemWidth.W32 (↑↑XReg.X0 RegWidth.W32) (↑↑XReg.X1 RegWidth.W32)
+          (↑↑XReg.X2 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("SWP W0,W1,[X2]")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W64,
+      operation :=
+        Operation.SWP Kraken.RmwKind.acq MemWidth.W64 (↑↑XReg.X0 RegWidth.W64) (↑↑XReg.X1 RegWidth.W64)
+          (↑↑XReg.X2 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("swpa x0, x1, [x2]")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W32,
+      operation :=
+        Operation.SWP Kraken.RmwKind.rel MemWidth.W32 (↑↑XReg.X0 RegWidth.W32) (↑↑XReg.X1 RegWidth.W32)
+          (↑↑XReg.X2 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("SWPL W0,W1,[X2]")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W64,
+      operation :=
+        Operation.SWP Kraken.RmwKind.acqRel MemWidth.W64 (↑↑XReg.X0 RegWidth.W64) (↑↑XReg.X1 RegWidth.W64)
+          (↑↑XReg.X2 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("swpal x0, x1, [x2]")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W32,
+      operation :=
+        Operation.SWP Kraken.RmwKind.plain MemWidth.W8 (↑↑XReg.X0 RegWidth.W32) (↑↑XReg.X1 RegWidth.W32)
+          (↑↑XReg.X2 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("swpb w0, w1, [x2]")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W32,
+      operation :=
+        Operation.SWP Kraken.RmwKind.rel MemWidth.W16 (↑↑XReg.X0 RegWidth.W32) (↑↑XReg.X1 RegWidth.W32)
+          (↑↑XReg.X2 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("swplh w0, w1, [x2]")
+
+-- Test: Atomic load-and-op: all eight operations
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W32,
+      operation :=
+        Operation.LDOP AtomicOp.ADD Kraken.RmwKind.plain MemWidth.W32 (↑↑XReg.X0 RegWidth.W32) (↑↑XReg.X1 RegWidth.W32)
+          (↑↑XReg.X2 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("LDADD W0,W1,[X2]")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W64,
+      operation :=
+        Operation.LDOP AtomicOp.CLR Kraken.RmwKind.plain MemWidth.W64 (↑↑XReg.X0 RegWidth.W64) (↑↑XReg.X1 RegWidth.W64)
+          (↑↑XReg.X2 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("ldclr x0, x1, [x2]")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W32,
+      operation :=
+        Operation.LDOP AtomicOp.EOR Kraken.RmwKind.plain MemWidth.W32 (↑↑XReg.X0 RegWidth.W32) (↑↑XReg.X1 RegWidth.W32)
+          (↑↑XReg.X2 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("ldeor w0, w1, [x2]")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W64,
+      operation :=
+        Operation.LDOP AtomicOp.SET Kraken.RmwKind.plain MemWidth.W64 (↑↑XReg.X0 RegWidth.W64) (↑↑XReg.X1 RegWidth.W64)
+          (↑↑XReg.X2 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("ldset x0, x1, [x2]")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W32,
+      operation :=
+        Operation.LDOP AtomicOp.SMAX Kraken.RmwKind.plain MemWidth.W32 (↑↑XReg.X0 RegWidth.W32) (↑↑XReg.X1 RegWidth.W32)
+          (↑↑XReg.X2 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("ldsmax w0, w1, [x2]")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W64,
+      operation :=
+        Operation.LDOP AtomicOp.SMIN Kraken.RmwKind.plain MemWidth.W64 (↑↑XReg.X0 RegWidth.W64) (↑↑XReg.X1 RegWidth.W64)
+          (↑↑XReg.X2 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("ldsmin x0, x1, [x2]")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W32,
+      operation :=
+        Operation.LDOP AtomicOp.UMAX Kraken.RmwKind.plain MemWidth.W32 (↑↑XReg.X0 RegWidth.W32) (↑↑XReg.X1 RegWidth.W32)
+          (↑↑XReg.X2 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("ldumax w0, w1, [x2]")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W64,
+      operation :=
+        Operation.LDOP AtomicOp.UMIN Kraken.RmwKind.plain MemWidth.W64 (↑↑XReg.X0 RegWidth.W64) (↑↑XReg.X1 RegWidth.W64)
+          (↑↑XReg.X2 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("ldumin x0, x1, [x2]")
+
+-- Test: Atomic load-and-op: ordering and size suffixes
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W32,
+      operation :=
+        Operation.LDOP AtomicOp.ADD Kraken.RmwKind.acq MemWidth.W32 (↑↑XReg.X0 RegWidth.W32) (↑↑XReg.X1 RegWidth.W32)
+          (↑↑XReg.X2 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("LDADDA W0,W1,[X2]")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W32,
+      operation :=
+        Operation.LDOP AtomicOp.ADD Kraken.RmwKind.rel MemWidth.W32 (↑↑XReg.X0 RegWidth.W32) (↑↑XReg.X1 RegWidth.W32)
+          (↑↑XReg.X2 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("LDADDL W0,W1,[X2]")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W32,
+      operation :=
+        Operation.LDOP AtomicOp.ADD Kraken.RmwKind.acqRel MemWidth.W32 (↑↑XReg.X0 RegWidth.W32) (↑↑XReg.X1 RegWidth.W32)
+          (↑↑XReg.X2 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("LDADDAL W0,W1,[X2]")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W32,
+      operation :=
+        Operation.LDOP AtomicOp.ADD Kraken.RmwKind.plain MemWidth.W8 (↑↑XReg.X0 RegWidth.W32) (↑↑XReg.X1 RegWidth.W32)
+          (↑↑XReg.X2 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("ldaddb w0, w1, [x2]")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W32,
+      operation :=
+        Operation.LDOP AtomicOp.ADD Kraken.RmwKind.acqRel MemWidth.W16 (↑↑XReg.X0 RegWidth.W32) (↑↑XReg.X1 RegWidth.W32)
+          (↑↑XReg.X2 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("ldaddalh w0, w1, [x2]")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W32,
+      operation :=
+        Operation.LDOP AtomicOp.SMAX Kraken.RmwKind.rel MemWidth.W8 (↑↑XReg.X0 RegWidth.W32) (↑↑XReg.X1 RegWidth.W32)
+          (↑↑XReg.X2 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("ldsmaxlb w0, w1, [x2]")
+
+-- Test: No-result atomics STADD etc.: Rt is XZR/WZR
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W32,
+      operation :=
+        Operation.LDOP AtomicOp.ADD Kraken.RmwKind.plain MemWidth.W32 (↑↑XReg.X0 RegWidth.W32)
+          (↑XRegOrXzr.XZR RegWidth.W32) (↑↑XReg.X2 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("STADD W0,[X2]")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W64,
+      operation :=
+        Operation.LDOP AtomicOp.CLR Kraken.RmwKind.plain MemWidth.W64 (↑↑XReg.X0 RegWidth.W64)
+          (↑XRegOrXzr.XZR RegWidth.W64) (↑↑XReg.X2 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("stclr x0, [x2]")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W32,
+      operation :=
+        Operation.LDOP AtomicOp.EOR Kraken.RmwKind.rel MemWidth.W32 (↑↑XReg.X0 RegWidth.W32)
+          (↑XRegOrXzr.XZR RegWidth.W32) (↑↑XReg.X2 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("steorl w0, [x2]")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W32,
+      operation :=
+        Operation.LDOP AtomicOp.SET Kraken.RmwKind.rel MemWidth.W8 (↑↑XReg.X0 RegWidth.W32)
+          (↑XRegOrXzr.XZR RegWidth.W32) (↑↑XReg.X2 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("stsetlb w0, [x2]")
+
+-- Test: Barriers
+/-- info: [Directive.instr { operation_size := RegWidth.W64, operation := Operation.DMB Kraken.FenceKind.sy }] : List Directive -/
+#guard_msgs in
+#check parseAArch64("DMB SY")
+
+/-- info: [Directive.instr { operation_size := RegWidth.W64, operation := Operation.DMB Kraken.FenceKind.sy }] : List Directive -/
+#guard_msgs in
+#check parseAArch64("dmb ish")
+
+/-- info: [Directive.instr { operation_size := RegWidth.W64, operation := Operation.DMB Kraken.FenceKind.ld }] : List Directive -/
+#guard_msgs in
+#check parseAArch64("DMB LD")
+
+/-- info: [Directive.instr { operation_size := RegWidth.W64, operation := Operation.DMB Kraken.FenceKind.ld }] : List Directive -/
+#guard_msgs in
+#check parseAArch64("dmb ishld")
+
+/-- info: [Directive.instr { operation_size := RegWidth.W64, operation := Operation.DMB Kraken.FenceKind.st }] : List Directive -/
+#guard_msgs in
+#check parseAArch64("DMB ST")
+
+/-- info: [Directive.instr { operation_size := RegWidth.W64, operation := Operation.DMB Kraken.FenceKind.st }] : List Directive -/
+#guard_msgs in
+#check parseAArch64("dmb oshst")
+
+/-- info: [Directive.instr { operation_size := RegWidth.W64, operation := Operation.DSB Kraken.FenceKind.sy }] : List Directive -/
+#guard_msgs in
+#check parseAArch64("DSB SY")
+
+/-- info: [Directive.instr { operation_size := RegWidth.W64, operation := Operation.DSB Kraken.FenceKind.ld }] : List Directive -/
+#guard_msgs in
+#check parseAArch64("dsb nshld")
+
+/-- info: [Directive.instr { operation_size := RegWidth.W64, operation := Operation.ISB }] : List Directive -/
+#guard_msgs in
+#check parseAArch64("ISB")
+
+/-- info: [Directive.instr { operation_size := RegWidth.W64, operation := Operation.ISB }] : List Directive -/
+#guard_msgs in
+#check parseAArch64("isb sy")
+
+-- Test: Herd spelling of ordinary instructions used by the litmus corpora
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W32,
+      operation := Operation.MOVZ (↑↑XReg.X1 RegWidth.W32) (↑7) MovShift.LSL0 }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("MOV W1,#7")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W32,
+      operation :=
+        Operation.ORR_s (↑↑XReg.X1 RegWidth.W32) (↑XRegOrXzr.XZR RegWidth.W32)
+          { reg := ↑↑XReg.X3 RegWidth.W32, amount := 0, shift := ShiftType.LSL } }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("MOV W1,W3")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W32,
+      operation :=
+        Operation.SUBS_e (↑XRegOrXzr.XZR RegWidth.W32) (↑↑XReg.X0 RegWidth.W32)
+          ↑{ imm := ↑0, shift := ImmShift.S0 } }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("CMP W0,#0")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W32,
+      operation :=
+        Operation.CSEL (↑↑XReg.X1 RegWidth.W32) (↑↑XReg.X1 RegWidth.W32) (↑↑XReg.X3 RegWidth.W32)
+          CondCode.EQ }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("CSEL W1,W1,W3,EQ")
+
+/-- info: [Directive.instr { operation_size := RegWidth.W64, operation := Operation.B_cond CondCode.EQ ↑"over" }] : List Directive -/
+#guard_msgs in
+#check parseAArch64("B.EQ over")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W32, operation := Operation.CBZ (↑↑XReg.X0 RegWidth.W32) ↑"over" }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("CBZ W0,over")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W64, operation := Operation.CBNZ (↑↑XReg.X0 RegWidth.W64) ↑"over" }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("CBNZ X0,over")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W32,
+      operation :=
+        Operation.EOR_s (↑↑XReg.X2 RegWidth.W32) (↑↑XReg.X0 RegWidth.W32)
+          { reg := ↑↑XReg.X0 RegWidth.W32, amount := 0, shift := ShiftType.LSL } }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("EOR W2,W0,W0")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W32,
+      operation :=
+        Operation.ADD_s (↑↑XReg.X3 RegWidth.W32) (↑↑XReg.X2 RegWidth.W32)
+          { reg := ↑↑XReg.X1 RegWidth.W32, amount := 0, shift := ShiftType.LSL } }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("ADD W3,W2,W1")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W32,
+      operation :=
+        Operation.AND_s (↑↑XReg.X3 RegWidth.W32) (↑↑XReg.X2 RegWidth.W32)
+          { reg := ↑↑XReg.X1 RegWidth.W32, amount := 0, shift := ShiftType.LSL } }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("AND W3,W2,W1")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W32,
+      operation :=
+        Operation.LDR (↑↑XReg.X0 RegWidth.W32)
+          ↑{ base := ↑↑XReg.X1 RegWidth.W64, off := ↑{ imm := ↑0, index := none } } }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("LDR W0,[X1]")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W32,
+      operation :=
+        Operation.STR (↑↑XReg.X0 RegWidth.W32)
+          { base := ↑↑XReg.X1 RegWidth.W64, off := ↑{ imm := ↑0, index := none } } }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("STR W0,[X1]")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W32,
+      operation :=
+        Operation.LDR (↑↑XReg.X2 RegWidth.W32)
+          ↑{ base := ↑↑XReg.X1 RegWidth.W64,
+              off :=
+                ↑{ reg := { w := RegWidth.W32, reg := ↑↑XReg.X2 RegWidth.W32 },
+                    ext := { type := MemExtendType.SXTW, amount := MemExtendAmount.E0 } } } }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("LDR W2,[X1,W2,SXTW]")
+
+-- Test: label inside a thread
+/--
+info: [Directive.label "over",
+  Directive.instr
+    { operation_size := RegWidth.W32,
+      operation :=
+        Operation.LDR (↑↑XReg.X0 RegWidth.W32)
+          ↑{ base := ↑↑XReg.X1 RegWidth.W64, off := ↑{ imm := ↑0, index := none } } }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("over:
+  LDR W0,[X1]")
+
+-- Test: Only base-register addressing is allowed
+/-- error: line 1: only base-register addressing [Xn] is allowed here (offset 8 is not 0) -/
+#guard_msgs in
+#check parseAArch64("ldar w0, [x1, #8]")
+
+/-- error: line 1: only base-register addressing [Xn] is allowed here -/
+#guard_msgs in
+#check parseAArch64("ldar w0, [x1, x2]")
+
+/-- error: line 1: unexpected trailing characters on line -/
+#guard_msgs in
+#check parseAArch64("stlr w0, [x1], #8")
+
+-- Test: B/H forms require a W register
+/-- error: line 1: expected w32 register, got w64 -/
+#guard_msgs in
+#check parseAArch64("ldarb x0, [x1]")
+
+/-- error: line 1: expected w32 register, got w64 -/
+#guard_msgs in
+#check parseAArch64("casb x0, x1, [x2]")
+
+-- Test: The status register of STXR is a W register
+/-- error: line 1: expected w32 register, got w64 -/
+#guard_msgs in
+#check parseAArch64("stxr x2, x0, [x1]")
+
+-- Test: No-result atomics only exist without suffix or with L
+/-- error: line 1: unsupported instruction: stadda -/
+#guard_msgs in
+#check parseAArch64("stadda w0, [x2]")
+
+/-- error: line 1: unsupported instruction: staddal -/
+#guard_msgs in
+#check parseAArch64("staddal w0, [x2]")
+
+/-- error: line 1: unsupported instruction: stsmax -/
+#guard_msgs in
+#check parseAArch64("stsmax w0, [x2]")
+
+-- Test: Barrier options
+/-- error: line 1: unexpected end of input -/
+#guard_msgs in
+#check parseAArch64("dmb")
+
+/-- error: line 1: unknown barrier option: foo -/
+#guard_msgs in
+#check parseAArch64("dmb foo")
+
+/-- error: line 1: unknown isb option: foo -/
+#guard_msgs in
+#check parseAArch64("isb foo")
+
+-- Test: Exclusive pairs (LDXP/LDAXP, STXP/STLXP) and compare-and-swap pairs (CASP*)
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W64,
+      operation :=
+        Operation.LDXP Kraken.LoadKind.plain (↑↑XReg.X0 RegWidth.W64) (↑↑XReg.X1 RegWidth.W64)
+          (↑↑XReg.X2 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("ldxp x0, x1, [x2]")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W32,
+      operation :=
+        Operation.LDXP Kraken.LoadKind.acq (↑↑XReg.X3 RegWidth.W32) (↑↑XReg.X4 RegWidth.W32)
+          (↑XRegOrSp.SP RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("LDAXP W3, W4, [SP]")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W64,
+      operation :=
+        Operation.STXP Kraken.StoreKind.plain (↑↑XReg.X5 RegWidth.W32) (↑↑XReg.X0 RegWidth.W64) (↑↑XReg.X1 RegWidth.W64)
+          (↑↑XReg.X2 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("stxp w5, x0, x1, [x2]")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W32,
+      operation :=
+        Operation.STXP Kraken.StoreKind.rel (↑↑XReg.X5 RegWidth.W32) (↑↑XReg.X0 RegWidth.W32) (↑↑XReg.X1 RegWidth.W32)
+          (↑↑XReg.X2 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("stlxp w5, w0, w1, [x2, #0]")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W64,
+      operation :=
+        Operation.CASP Kraken.RmwKind.plain (↑↑XReg.X0 RegWidth.W64) (↑↑XReg.X1 RegWidth.W64) (↑↑XReg.X2 RegWidth.W64)
+          (↑↑XReg.X3 RegWidth.W64) (↑↑XReg.X4 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("casp x0, x1, x2, x3, [x4]")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W32,
+      operation :=
+        Operation.CASP Kraken.RmwKind.acq (↑↑XReg.X4 RegWidth.W32) (↑↑XReg.X5 RegWidth.W32) (↑↑XReg.X6 RegWidth.W32)
+          (↑↑XReg.X7 RegWidth.W32) (↑↑XReg.X8 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("caspa w4, w5, w6, w7, [x8]")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W64,
+      operation :=
+        Operation.CASP Kraken.RmwKind.rel (↑↑XReg.X30 RegWidth.W64) (↑XRegOrXzr.XZR RegWidth.W64)
+          (↑↑XReg.X0 RegWidth.W64) (↑↑XReg.X1 RegWidth.W64) (↑↑XReg.X2 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("caspl x30, xzr, x0, x1, [x2]")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W64,
+      operation :=
+        Operation.CASP Kraken.RmwKind.acqRel (↑↑XReg.X2 RegWidth.W64) (↑↑XReg.X3 RegWidth.W64) (↑↑XReg.X4 RegWidth.W64)
+          (↑↑XReg.X5 RegWidth.W64) (↑XRegOrSp.SP RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("caspal x2, x3, x4, x5, [sp]")
+
+/-- error: line 1: ldxp/ldaxp: the two destination registers must differ -/
+#guard_msgs in
+#check parseAArch64("ldxp x0, x0, [x2]")
+
+/-- error: line 1: expected w64 register, got w32 -/
+#guard_msgs in
+#check parseAArch64("ldxp x0, w1, [x2]")
+
+/-- error: line 1: expected w32 register, got w64 -/
+#guard_msgs in
+#check parseAArch64("stxp x5, x0, x1, [x2]")
+
+/-- error: line 1: only base-register addressing [Xn] is allowed here (offset 16 is not 0) -/
+#guard_msgs in
+#check parseAArch64("ldxp x0, x1, [x2, #16]")
+
+/-- error: line 1: casp: the comparand registers must be an even-numbered register and its successor -/
+#guard_msgs in
+#check parseAArch64("casp x1, x2, x4, x5, [x6]")
+
+/-- error: line 1: casp: the new-value registers must be an even-numbered register and its successor -/
+#guard_msgs in
+#check parseAArch64("casp x0, x1, x4, x6, [x6]")
+
+/-- error: line 1: expected w64 register, got w32 -/
+#guard_msgs in
+#check parseAArch64("casp x0, x1, w2, w3, [x6]")
+
+/-- error: line 1: unsupported instruction: caspb -/
+#guard_msgs in
+#check parseAArch64("caspb w0, w1, w2, w3, [x6]")
+
+-- ============================================================================
 -- 12. Error Reporting
 -- ============================================================================
 section error_reporting

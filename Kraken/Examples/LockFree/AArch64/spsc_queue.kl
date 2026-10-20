@@ -1,0 +1,96 @@
+AArch64 SpscQueue
+(* Single-producer single-consumer circular buffer (Promising-ARM PLDI'19
+   §7 "PCS"): 2 slots at [buf] and [buf,#8], monotone `head`/`tail`
+   counters. Producer: wait while tail-head = 2 (LDAR head), STR data,
+   STLR tail. Consumer: wait while tail = head (LDAR tail), LDR data,
+   STLR head. The producer enqueues 1,2,3 (so slot 0 is reused), the
+   consumer dequeues three values into X10,X11,X12.
+   Property: the consumer receives 1,2,3 in order. Expected: Always.
+   (Threads have different roles: do not use -sym.)
+   Proved: `a64_spsc_envG` (Promising/SLR/EnvG/A64SpscPublic.lean) for all
+   layouts, on the low 32 bits, initial head = tail = 0; both threads on the
+   cumulative take route (`ThreadRuleRXGS.ofSafelyEnvGTU`, the consumer may
+   skip a tail release); per-thread image (each thread runs its own part of
+   the code block; the block is `spscProdA ++ spscNop ++ spscConsA`,
+   `codeMatches`); concrete instance in A64SpscConcrete.lean.
+   Whole image (per-thread deviation resolved): `a64_spsc_envG_whole`
+   (Promising/SLR/EnvG/A64SpscWholePublic.lean), both threads run this
+   whole code block from `prod`/`cons` to `pdone`/`cdone`; concrete
+   instance with `runnerMatchesW` in A64SpscWholeConcrete.lean.
+   The shared symbols are typed (`uint32_t buf`, slot 0's 4-byte word, slot 1's at `buf+8` undeclared;
+   `uint64_t head`, `tail`)
+   so that the runner declares them as sized locations at the width of
+   the code's accesses (A64DECLS): the runner's
+   declarations then agree with the proofs' locations. The code block and
+   the verdict are unchanged. Proved from the runner's exact configuration
+   (declarations and initial memory included): `a64_spsc_envG_runner`, concrete
+   `a64_spsc_envG_runner_concrete` (Promising/SLR/EnvG/A64SpscWholeRunner.lean).
+   Proved no fault at the runner's declarations (each access resolves as
+   at `decls = {}`): `a64_spsc{P,C}_envG_runner_noFault`, concrete
+   `a64_spsc_envG_runner_noFault_concrete` (Promising/SLR/EnvG/A64NoFaultDSpsc.lean).
+   Proved program-level fault freedom at the runner's declarations (no
+   reachable configuration has a faulting step, any architecture, promises
+   included): `a64_spsc_envG_runner_faultFree`, concrete
+   `a64_spsc_envG_runner_faultFree_concrete` (Promising/SLR/EnvG/A64FaultFreeFixed.lean).
+   Proved both at once (safety and fault freedom, at the union of their
+   hypotheses): `a64_spsc_envG_runner_safe_faultFree`, concrete
+   `a64_spsc_envG_runner_safe_faultFree_concrete` (Promising/SLR/EnvG/RunnerSafeFFA64.lean). *)
+# flags:
+# expect: Always
+{
+uint32_t buf=0; uint64_t head=0; uint64_t tail=0;
+0:X0=buf; 0:X1=head; 0:X2=tail;
+1:X0=buf; 1:X1=head; 1:X2=tail;
+}
+threads { P0: prod pdone; P1: cons cdone; }
+code {
+prod:
+  MOV W3,#1
+  MOV X4,#0
+  MOV X7,X0
+prod_loop:
+  LDAR X5,[X1]
+  SUB X6,X4,X5
+  CMP X6,#2
+  B.EQ prod_loop
+  STR W3,[X7]
+  EOR X7,X7,#8
+  ADD X4,X4,#1
+  STLR X4,[X2]
+  ADD W3,W3,#1
+  CMP W3,#4
+  B.NE prod_loop
+  B pdone
+pdone:
+  NOP
+cons:
+  MOV X4,#0
+  MOV X7,X0
+c1:
+  LDAR X5,[X2]
+  CMP X5,X4
+  B.EQ c1
+  LDR W10,[X7]
+  EOR X7,X7,#8
+  ADD X4,X4,#1
+  STLR X4,[X1]
+c2:
+  LDAR X5,[X2]
+  CMP X5,X4
+  B.EQ c2
+  LDR W11,[X7]
+  EOR X7,X7,#8
+  ADD X4,X4,#1
+  STLR X4,[X1]
+c3:
+  LDAR X5,[X2]
+  CMP X5,X4
+  B.EQ c3
+  LDR W12,[X7]
+  EOR X7,X7,#8
+  ADD X4,X4,#1
+  STLR X4,[X1]
+  B cdone
+cdone:
+}
+forall (1:X10=1 /\ 1:X11=2 /\ 1:X12=3)

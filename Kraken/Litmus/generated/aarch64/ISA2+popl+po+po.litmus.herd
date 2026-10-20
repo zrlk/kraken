@@ -1,0 +1,16 @@
+Test ISA2+popl+po+po Allowed
+States 8
+1:X0=0; 2:X0=0; 2:X2=0;
+1:X0=0; 2:X0=0; 2:X2=1;
+1:X0=0; 2:X0=1; 2:X2=0;
+1:X0=0; 2:X0=1; 2:X2=1;
+1:X0=1; 2:X0=0; 2:X2=0;
+1:X0=1; 2:X0=0; 2:X2=1;
+1:X0=1; 2:X0=1; 2:X2=0;
+1:X0=1; 2:X0=1; 2:X2=1;
+Ok
+Witnesses
+Positive: 1 Negative: 7
+Condition exists (1:X0=1 /\ 2:X0=1 /\ 2:X2=0)
+Observation ISA2+popl+po+po Sometimes 1 7
+

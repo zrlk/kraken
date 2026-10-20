@@ -1,0 +1,12 @@
+X86_64 MP+nt-sfence-nt+po
+"NT data, sfence, NT flag"
+{
+ 0:rax=x; 0:rdx=y;
+}
+ P0                  | P1            ;
+ movl $1,%ebx        | movl (y),%ebx ;
+ movntil %ebx,(%rax) | movl (x),%ecx ;
+ sfence              |               ;
+ movntil %ebx,(%rdx) |               ;
+
+exists (1:rbx=1 /\ 1:rcx=0)

@@ -1,0 +1,11 @@
+Test 2+2W+ponant+poana Allowed
+States 3
+1:rbx=0; [x]=1; [y]=1;
+1:rbx=0; [x]=2; [y]=1;
+1:rbx=1; [x]=1; [y]=2;
+No
+Witnesses
+Positive: 0 Negative: 3
+Condition exists ([x]=2 /\ [y]=2 /\ 1:rbx=1)
+Observation 2+2W+ponant+poana Never 0 3
+

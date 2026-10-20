@@ -1,0 +1,10 @@
+Test A07 Allowed
+States 1
+0:X0=0;
+Ok
+Witnesses
+Positive: 1 Negative: 0
+Condition exists (0:X0=0)
+Observation A07 Always 1 0
+Hash=1eac5759b6eb709e67926b7d08348088
+

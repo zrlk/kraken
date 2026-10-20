@@ -1,0 +1,12 @@
+Test SB+rfi+rfi-mfence+rfi-po Allowed
+States 4
+0:rax=1; 0:rbx=0; 1:rax=1; 1:rbx=0;
+0:rax=1; 0:rbx=0; 1:rax=1; 1:rbx=1;
+0:rax=1; 0:rbx=1; 1:rax=1; 1:rbx=0;
+0:rax=1; 0:rbx=1; 1:rax=1; 1:rbx=1;
+Ok
+Witnesses
+Positive: 1 Negative: 3
+Condition exists (0:rax=1 /\ 0:rbx=0 /\ 1:rax=1 /\ 1:rbx=0)
+Observation SB+rfi+rfi-mfence+rfi-po Sometimes 1 3
+

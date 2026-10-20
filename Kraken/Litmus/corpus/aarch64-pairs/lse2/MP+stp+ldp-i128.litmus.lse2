@@ -1,0 +1,8 @@
+Test MP+stp+ldp-i128 Allowed
+States 2
+1:X2=0; 1:X3=0;
+1:X2=1; 1:X3=2;
+No
+Condition exists (1:X2=1 /\ 1:X3=0 \/ 1:X2=0 /\ 1:X3=2)
+Observation MP+stp+ldp-i128 Never 0 2
+

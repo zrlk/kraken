@@ -1,0 +1,12 @@
+/- Driver for the promise machine.  See `Promises.lean` for the model.
+
+   Kept separate so `Promises.lean` compiles to an olean that a one-section
+   scratch driver can import; running the whole report takes long enough that
+   attributing the cost matters.
+
+   Build:  ./check-promises.sh
+-/
+
+import WeakCore.Promises
+
+#eval Promises.reportIO

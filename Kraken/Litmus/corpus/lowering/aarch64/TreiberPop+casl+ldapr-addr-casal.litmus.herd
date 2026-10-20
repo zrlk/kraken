@@ -1,0 +1,11 @@
+Test TreiberPop+casl+ldapr-addr-casal Allowed
+States 3
+1:X5=d; 1:X6=0; [top]=0;
+1:X5=d; 1:X6=0; [top]=n;
+1:X5=n; 1:X6=d; [top]=d;
+No
+Witnesses
+Positive: 0 Negative: 16
+Condition exists (1:X5=n /\ 1:X6=0)
+Observation TreiberPop+casl+ldapr-addr-casal Never 0 16
+

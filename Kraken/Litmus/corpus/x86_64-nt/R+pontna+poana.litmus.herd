@@ -1,0 +1,11 @@
+Test R+pontna+poana Allowed
+States 3
+1:rbx=0; 1:rcx=0; [y]=1;
+1:rbx=0; 1:rcx=1; [y]=1;
+1:rbx=1; 1:rcx=1; [y]=2;
+No
+Witnesses
+Positive: 0 Negative: 3
+Condition exists ([y]=2 /\ 1:rbx=1 /\ 1:rcx=0)
+Observation R+pontna+poana Never 0 3
+

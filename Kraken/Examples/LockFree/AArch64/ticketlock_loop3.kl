@@ -1,0 +1,49 @@
+AArch64 TicketLockLoop3
+(* Repeated-acquire ticket lock (LOOP, Stage 4): the worker of
+   `ticketlock_loop2.kl` (k rounds of the `ticketlock2.kl` worker, round
+   counter in X7, here k = 2) with three threads.
+   Property: counter = 3*2 = 6 in every final state. Expected: Always.
+   Bounded check: did not finish within run.sh's 600 s timeout (> 5.6 GB at
+   6 min); marked slow. Safety: only the bounded check is claimed for
+   this file (no verdict).
+   Liveness, promise-free fragment on the semantic machine (any valid
+   layout, N threads, k rounds, N*k+1 < 2^32, WeakFairSem and MemFair):
+   `Live.TicketLoopPF.ticket_loop_starve_pf`, `ticket_loop_finish_pf`,
+   `ticket_loop_live_pf`, concrete `ticket_loop_live_pf_concrete`
+   (Promising/LiveTicketLoopPF.lean).
+   Proved with promises (semantic certification, same hypotheses):
+   `Live.TicketLoopSem.ticket_loop_starve_sem`, `ticket_loop_finish_sem`,
+   `ticket_loop_term_sem`, `ticket_loop_live_sem`, concrete
+   `ticket_loop_live_sem_concrete` (Promising/LiveTicketLoopSem.lean).
+   Open: whole-image safety (KNOWN_GAPS.md, "Liveness: repeated
+   acquisition (LOOP)"). *)
+# flags: -sym
+# slow
+# expect: Always
+{
+uint32_t next=0; uint32_t owner=0; uint32_t counter=0;
+0:X0=next; 0:X1=owner; 0:X2=counter; 0:X7=2;
+1:X0=next; 1:X1=owner; 1:X2=counter; 1:X7=2;
+2:X0=next; 2:X1=owner; 2:X2=counter; 2:X7=2;
+}
+threads { P0: worker done; P1: worker done; P2: worker done; }
+code {
+worker:
+  MOV W6,#1
+round:
+  CBZ W7,done
+  LDADDA W6,W3,[X0]
+spin:
+  LDAR W4,[X1]
+  CMP W4,W3
+  B.NE spin
+  LDR W5,[X2]
+  ADD W5,W5,#1
+  STR W5,[X2]
+  ADD W4,W3,#1
+  STLR W4,[X1]
+  SUB W7,W7,#1
+  B round
+done:
+}
+forall [counter]=6

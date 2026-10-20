@@ -1,0 +1,13 @@
+AArch64 CAS-fail-LB+dmb.sy
+"CAS with comparand WZR on a location that is never 0 always fails and writes nothing; its read is NoRet"
+{
+x=1;
+0:X1=x; 0:X3=y; 0:X4=3;
+1:X1=y; 1:X3=x;
+}
+ P0               | P1          ;
+ CAS WZR,W4,[X1]  | LDR W0,[X1] ;
+ DMB SY           | DMB SY      ;
+ MOV W2,#1        | MOV W2,#2   ;
+ STR W2,[X3]      | STR W2,[X3] ;
+exists ([x]=2 /\ 1:X0=1)

@@ -1,0 +1,11 @@
+X86_64 SB+cmpxchg16b-fail+mfence
+"SB: store x, failing lock cmpxchg16b (comparand (5,5)) on a third location, load y; P1: store y, mfence, load x"
+{
+__int128 a; uint32_t x; uint32_t y;
+0:rax=5; 0:rdx=5; 0:rbx=6; 0:rcx=6;
+}
+ P0                  | P1            ;
+ movl $1,(x)         | movl $1,(y)   ;
+ lock cmpxchg16b (a) | mfence        ;
+ movl (y),%esi       | movl (x),%esi ;
+exists (0:rsi=0 /\ 1:rsi=0)

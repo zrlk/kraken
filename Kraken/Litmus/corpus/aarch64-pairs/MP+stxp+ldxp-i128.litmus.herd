@@ -1,0 +1,12 @@
+Test MP+stxp+ldxp-i128 Allowed
+States 4
+1:X2=0; 1:X4=0;
+1:X2=0; 1:X4=1;
+1:X2=1; 1:X4=0;
+1:X2=1; 1:X4=1;
+Ok
+Witnesses
+Positive: 16 Negative: 20
+Condition exists (1:X2=1 /\ 1:X4=0)
+Observation MP+stxp+ldxp-i128 Sometimes 16 20
+

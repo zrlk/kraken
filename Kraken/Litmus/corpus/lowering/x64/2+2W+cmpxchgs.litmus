@@ -1,0 +1,10 @@
+X86_64 2+2W+cmpxchgs
+"2+2W: lock cmpxchg 0->2 on one location, then a plain store to the other"
+{
+}
+ P0                     | P1                     ;
+ movl $0,%eax           | movl $0,%eax           ;
+ movl $2,%ebx           | movl $2,%ebx           ;
+ lock cmpxchgl %ebx,(x) | lock cmpxchgl %ebx,(y) ;
+ movl $1,(y)            | movl $1,(x)            ;
+exists (x=2 /\ y=2)

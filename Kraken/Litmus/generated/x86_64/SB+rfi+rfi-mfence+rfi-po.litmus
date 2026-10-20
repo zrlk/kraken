@@ -1,0 +1,16 @@
+X86_64 SB+rfi+rfi-mfence+rfi-po
+Generator=diycross7 (version 7.58+1)
+Prefetch=0:x=F,0:y=T,1:y=F,1:x=T
+Com=Fr Fr
+Orig=Rfi MFencedRR Fre Rfi PodRR Fre
+Cycle=Rfi MFencedRR Fre Rfi PodRR Fre
+"Rfi MFencedRR Fre Rfi PodRR Fre"
+{
+}
+ P0            | P1            ;
+ movl $1,(x)   | movl $1,(y)   ;
+ movl (x),%eax | movl (y),%eax ;
+ mfence        | movl (x),%ebx ;
+ movl (y),%ebx |               ;
+
+exists (0:rax=1 /\ 0:rbx=0 /\ 1:rax=1 /\ 1:rbx=0)

@@ -1,0 +1,11 @@
+Test LB+data-stxr Allowed
+States 3
+0:X0=0; 1:X2=0;
+0:X0=1; 1:X2=0;
+0:X0=1; 1:X2=1;
+Ok
+Witnesses
+Positive: 1 Negative: 5
+Condition exists (0:X0=1 /\ 1:X2=1)
+Observation LB+data-stxr Sometimes 1 5
+

@@ -1,0 +1,64 @@
+X86_64 Ticketlock2
+(* Ticket lock on x86-TSO: take a ticket with `lock xadd` on `next`, spin
+   with plain loads until `owner` equals the ticket, critical section
+   increments a shared counter, release by bumping `owner` with an
+   unlocked `incl` (only the holder writes `owner`, and a store cannot be
+   reordered with the earlier accesses of the critical section on TSO).
+   Two threads each increment once.
+   Property: counter = 2 in every final state.
+   The ticket take alone is also checked (`xaddTake_phase1R`,
+   `xaddTake_noFault`, Promising/SLR/EnvG/TicketRX64Link.lean).
+   Proved by evaluation (the explorer's verdict at fuel 300):
+   `Kraken.Examples.LockFree.ticketlock2_x64`
+   (Examples/LockFree/TheoremsX64.lean).
+   The shared symbols are typed (`uint32_t`) so that the runner declares
+   them as sized locations at the width of the code's accesses (DECLS,
+   typed .kl symbols): the runner's declarations then agree with the
+   proofs' locations. The code block and the verdict are unchanged.
+   Proved: TicketX2.ticket2_counter_envG_verbatim and
+   TicketX2.ticket2_counter_envG_runner (EnvG/X64Ticket2Public.lean), with
+   the runner-exact instance in EnvG/X64Ticket2Runner.lean (TICKETX2: the
+   unlocked `incl (owner)` release by an access-timestamp invariant,
+   EnvG/TicketX2{Run,Env,Reach,Final}.lean).
+   Proved (fault freedom at the runner's declarations):
+   `TicketX2.ticket2_counter_envG_runner_faultFree` and, with the counter,
+   `TicketX2.ticket2_counter_envG_runner_safe_faultFree`
+   (Promising/SLR/EnvG/X64Ticket2FaultFree.lean), with `.Concrete` instances.
+   Proved (LIVEX64B): promise-free liveness (every waiting thread is
+   eventually done, under WeakFair and MemFair, valid layouts)
+   `Live.Ticket2X64PF.ticket2_x64_live_pf`, with
+   `ticket2_x64_live_pf_concrete` at the runner's layout
+   (Promising/LiveX64Ticket2PF.lean); the holder's `incl` reads the current
+   `owner` (Promising/LiveX64Ticket2Inv.lean).
+   With promises (LIVEX64SEM2): proved on the machine with semantic
+   certification, for every fuel, valid layouts:
+   `Live.X64Sem2Ticket.ticket2_x64_live_sem`, with
+   `ticket2_x64_live_sem_concrete` at the runner's layout
+   (Promising/LiveX64Sem2Ticket.lean); the statement over `succs`
+   stays open (`certify` is incomplete; KNOWN_GAPS "Liveness: ticket
+   lock, x64"). Weak fairness alone is not enough:
+   `Live.Ticket2X64Cex.ticket2X64LiveWF_false`
+   (Promising/LiveX64Ticket2Cex.lean).
+# flags: -sym -fuel 300
+# expect: Always
+*)
+{
+uint32_t next=0; uint32_t owner=0; uint32_t counter=0;
+}
+threads { P0: worker done; P1: worker done; }
+code {
+worker:
+  movl $1,%eax
+  lock xaddl %eax,(next)
+spin:
+  movl (owner),%ecx
+  cmpl %eax,%ecx
+  jne spin
+  movl (counter),%edx
+  addl $1,%edx
+  movl %edx,(counter)
+  incl (owner)
+  jmp done
+done:
+}
+forall [counter]=2

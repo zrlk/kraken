@@ -1,0 +1,44 @@
+X86_64 DekkerBroken
+(* A "lock" built from plain stores and loads, Dekker/Peterson style
+   without a fence: each thread raises its own flag, then reads the other
+   thread's flag, and enters the critical section only if that flag is
+   down (if it is up, the thread backs off and never enters, to keep the
+   example finite). Each thread records in `edx` whether it entered; the
+   critical section does a non-atomic increment of `counter` and then
+   lowers the flag.
+   This is the store-buffering (SB) pattern: on x86-TSO each thread's
+   flag store may sit in its store buffer while its load reads the other
+   flag's initial 0, so both threads enter at the same time. A violation
+   is expected; this is the one weak behaviour TSO has.
+   Registers: rsi = own flag, rdi = other thread's flag.
+   Property: no final state in which both threads entered and an
+   increment was lost (counter = 1). Both entering with counter = 2 is
+   legitimate: the second entered after the first lowered its flag.
+   A lost update is only possible when both threads are in the critical
+   section at once (the flag release drains behind the counter store).
+# flags: -fuel 300 -witness
+# expect: Sometimes
+# Proved reachable: Kraken.Promising.Reach.DekkerBroken.dekker_broken_reachable (Kraken/Promising/ReachX64DekkerBroken.lean)
+*)
+{
+flag0=0; flag1=0; counter=0;
+0:rsi=flag0; 0:rdi=flag1;
+1:rsi=flag1; 1:rdi=flag0;
+}
+threads { P0: worker done; P1: worker done; }
+code {
+worker:
+  xorl %edx,%edx
+  movl $1,(%rsi)
+  movl (%rdi),%eax
+  testl %eax,%eax
+  jne done
+  movl $1,%edx
+  movl (counter),%ecx
+  addl $1,%ecx
+  movl %ecx,(counter)
+  movl $0,(%rsi)
+  jmp done
+done:
+}
+~exists (0:edx=1 /\ 1:edx=1 /\ [counter]=1)

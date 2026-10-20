@@ -105,6 +105,12 @@ theorem BitVec.ofInt_ofBytes_toBytes (w : Nat) (n : Nat) (h_wn : w = 8 * n) (val
   rw [ofBytes_toBytes, show 8 * n = w from h_wn.symm, Int.take, BitVec.ofInt_emod_self]
   exact BitVec.ofInt_toInt
 
+/-- `ofInt_ofBytes_toBytes` for an arbitrary integer: the bytes of `v` read
+back at width `w = 8 * n` are `v` at that width. -/
+theorem BitVec.ofInt_ofBytes_toBytes_eq (w : Nat) (n : Nat) (h_wn : w = 8 * n) (v : Int) :
+    BitVec.ofInt w (Int.ofBytes (Int.toBytes n v)) = BitVec.ofInt w v := by
+  rw [ofBytes_toBytes, show 8 * n = w from h_wn.symm, Int.take, BitVec.ofInt_emod_self]
+
 theorem Int.ofBytes_ge_zero (bs : List UInt8) : 0 <= Int.ofBytes bs := by
   induction bs with
   | nil => decide

@@ -1,0 +1,11 @@
+Test MPpb+dmb.sy+dmb.syppa Allowed
+States 3
+1:X0=0; 1:X2=0; 1:X4=0;
+1:X0=0; 1:X2=1; 1:X4=0;
+1:X0=1; 1:X2=1; 1:X4=0;
+No
+Witnesses
+Positive: 0 Negative: 3
+Condition exists (1:X0=1 /\ 1:X2=0 /\ 1:X4=0)
+Observation MPpb+dmb.sy+dmb.syppa Never 0 3
+

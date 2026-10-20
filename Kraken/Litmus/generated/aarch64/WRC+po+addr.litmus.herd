@@ -1,0 +1,16 @@
+Test WRC+po+addr Allowed
+States 8
+0:X1=0; 1:X1=0; 1:X4=0;
+0:X1=0; 1:X1=0; 1:X4=1;
+0:X1=0; 1:X1=1; 1:X4=0;
+0:X1=0; 1:X1=1; 1:X4=1;
+0:X1=1; 1:X1=0; 1:X4=0;
+0:X1=1; 1:X1=0; 1:X4=1;
+0:X1=1; 1:X1=1; 1:X4=0;
+0:X1=1; 1:X1=1; 1:X4=1;
+Ok
+Witnesses
+Positive: 1 Negative: 7
+Condition exists (0:X1=1 /\ 1:X1=1 /\ 1:X4=0)
+Observation WRC+po+addr Sometimes 1 7
+

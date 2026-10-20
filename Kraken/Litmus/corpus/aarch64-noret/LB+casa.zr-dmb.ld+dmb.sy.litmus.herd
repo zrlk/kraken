@@ -1,0 +1,12 @@
+Test LB+casa.zr-dmb.ld+dmb.sy Allowed
+States 4
+1:X0=0; [x]=0;
+1:X0=0; [x]=3;
+1:X0=1; [x]=0;
+1:X0=1; [x]=3;
+Ok
+Witnesses
+Positive: 2 Negative: 6
+Condition exists ([x]=3 /\ 1:X0=1)
+Observation LB+casa.zr-dmb.ld+dmb.sy Sometimes 2 6
+

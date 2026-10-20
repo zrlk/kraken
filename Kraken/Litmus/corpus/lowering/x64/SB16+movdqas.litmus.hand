@@ -1,0 +1,9 @@
+Test SB16+movdqas Allowed
+States 4
+0:xmm1=0; 1:xmm1=0;
+0:xmm1=0; 1:xmm1=18446744073709551617;
+0:xmm1=18446744073709551617; 1:xmm1=0;
+0:xmm1=18446744073709551617; 1:xmm1=18446744073709551617;
+Ok
+Condition exists (0:xmm1=0 /\ 1:xmm1=0)
+Observation SB16+movdqas Sometimes 1 3

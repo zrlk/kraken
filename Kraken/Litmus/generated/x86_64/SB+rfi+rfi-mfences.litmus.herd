@@ -1,0 +1,11 @@
+Test SB+rfi+rfi-mfences Allowed
+States 3
+0:rax=1; 0:rbx=0; 1:rax=1; 1:rbx=1;
+0:rax=1; 0:rbx=1; 1:rax=1; 1:rbx=0;
+0:rax=1; 0:rbx=1; 1:rax=1; 1:rbx=1;
+No
+Witnesses
+Positive: 0 Negative: 3
+Condition exists (0:rax=1 /\ 0:rbx=0 /\ 1:rax=1 /\ 1:rbx=0)
+Observation SB+rfi+rfi-mfences Never 0 3
+

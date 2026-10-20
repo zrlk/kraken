@@ -1,0 +1,16 @@
+AArch64 CAS-fail-wb-dep
+"A failing CAS whose write-back would give P1 a write of x that is not data-after the read of y (W0 reaches the CAS by rfi): herd still forbids, through (addr|data);rfi, so the write-back adds no outcome"
+{
+uint64_t x; uint64_t y;
+0:X1=x; 0:X2=y; 1:X1=x; 1:X2=y;
+uint64_t 0:X3; uint64_t 1:X0;
+}
+P0                 | P1           ;
+LDR X3,[X2]        | LDR X0,[X1]  ;
+EOR X4,X3,X3       | DMB SY       ;
+ADD X4,X4,#1       | MOV X5,#1    ;
+STR X4,[X1]        | STR X5,[X2]  ;
+MOV X6,#7          |              ;
+MOV X7,#9          |              ;
+CAS X6,X7,[X1]     |              ;
+exists (0:X3=1 /\ 1:X0=1)

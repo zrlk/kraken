@@ -1,0 +1,14 @@
+AArch64 S+dmb.sy+swpa.zr-dsb.ld
+"write; DMB SY; write || swpa.zr; dsb.ld; write"
+{
+
+0:X1=x; 0:X3=y;
+1:X1=y; 1:X3=x;
+}
+ P0          | P1               ;
+ MOV W0,#2   | MOV W0,#1        ;
+ STR W0,[X1] | SWPA W0,WZR,[X1] ;
+ DMB SY      | DSB LD           ;
+ MOV W2,#2   | MOV W7,#1        ;
+ STR W2,[X3] | STR W7,[X3]      ;
+exists ([y]=1 /\ [x]=2)

@@ -1,0 +1,6 @@
+WideStoreSolo allowed 1
+WidePairRead forbidden 2
+WidePairReadSwapped forbidden 2
+WideOrderedRead forbidden 3
+WideOrderedReadSwapped forbidden 3
+WidePlainPairRead allowed 4

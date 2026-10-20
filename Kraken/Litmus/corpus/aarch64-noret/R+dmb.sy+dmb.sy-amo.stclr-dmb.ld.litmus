@@ -1,0 +1,21 @@
+AArch64 R+dmb.sy+dmb.sy-amo.stclr-dmb.ld
+Generator=diycross7 (version 7.58+1)
+Prefetch=0:x=F,0:y=W,1:y=F,1:x=T
+Com=Co Fr
+Orig=DMB.SYdWW Coe DMB.SYdWR Amo.StClr DMB.LDdWR Fre
+Cycle=DMB.SYdWW Coe DMB.SYdWR Amo.StClr DMB.LDdWR Fre
+"DMB.SYdWW Coe DMB.SYdWR Amo.StClr DMB.LDdWR Fre"
+{
+ 0:X1=x; 0:X3=y;
+ 1:X1=x; 1:X2=z; 1:X3=y;
+}
+ P0          | P1            ;
+ MOV W0,#1   | MOV W0,#2     ;
+ STR W0,[X1] | STR W0,[X3]   ;
+ DMB SY      | DMB SY        ;
+ MOV W2,#1   | MOV W4,#1     ;
+ STR W2,[X3] | STCLR W4,[X2] ;
+             | DMB LD        ;
+             | LDR W5,[X1]   ;
+
+exists ([y]=2 /\ 1:X5=0)

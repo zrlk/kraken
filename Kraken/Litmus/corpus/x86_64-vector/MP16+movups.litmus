@@ -1,0 +1,11 @@
+X86_64 MP16+movups
+(* Hand-written for Kraken: herd7 has no vector instructions. See README.md *)
+{
+uint64_t rec[2];
+0:xmm0=0x10000000000000001; 0:xmm1=0x20000000000000002;
+}
+ P0                 | P1                 ;
+ movups %xmm0,(rec) | movups (rec),%xmm2 ;
+ movups %xmm1,(rec) |                    ;
+locations [rec;]
+exists (not (1:xmm2=0 \/ 1:xmm2=0x10000000000000001 \/ 1:xmm2=0x20000000000000002))

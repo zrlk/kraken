@@ -1,0 +1,125 @@
+X86_64 TreiberABATagged
+(* Tagged-pointer Treiber stack on x86-TSO: the head is a 16-byte
+   `{ptr, tag}` pair (`__int128 head`: ptr in the low 8 bytes, tag in the
+   high 8), read with `movdqa` (a single-copy-atomic 16-byte load on
+   processors with AVX, SDM Vol. 3A "Guaranteed Atomic Operations") and
+   swung with `lock cmpxchg16b`, which compares `rdx:rax` with the head and
+   writes `rcx:rbx`, incrementing the tag on every successful swing. Nodes
+   `A` and `B` are static, one `next` field each; the initial stack is
+   A -> B. Each load of the head goes through the private stack
+   (`movdqa` to `-16(%rsp)`, then `movq`) to split it into `rax`/`rdx`.
+
+   P0 pops once (waiting while the stack is empty): reads head {A, t},
+   reads A.next (= B), then CASes the head from {A, t} to {B, t+1}. P1 pops A, pops B, and pushes A back (each pop
+   returns 0 on an empty stack, retrying only when its CAS fails). The ABA
+   schedule is P0 reading {A, t} and A.next = B, then P1 running all three
+   operations (head {A, t+3}), then P0's CAS. With an untagged head the CAS
+   would succeed and install B, which P1 has popped: B would be both popped
+   and on the stack. With the tag the head is {A, t+3} != {A, t}, the CAS
+   fails and P0 retries (`treiber_aba_untagged.kl` is the same without the
+   tag: there the outcome is observable).
+
+   Outcome checked: P0 popped A (r12) installing next = B (r13), while P1's
+   second pop returned B (1:r13). In the linearisations of P0's pop among
+   P1's operations, P0 pops A only first (then P1 pops B and finds the
+   stack empty: 1:r13 = 0) or after P1 re-pushed A onto the empty stack
+   (A.next = 0, so 0:r13 = 0); so the outcome is exactly the ABA
+   corruption, and TSO plus the 16-byte atomicity of `movdqa` and
+   `lock cmpxchg16b` rule it out: Never. The three reachable states are
+   those linearisations (P0 pops A first; P0 pops B second; P0 pops the
+   re-pushed A last).
+
+   Proved for every valid layout of the runner's image, the code verbatim,
+   with strict sized declarations: `VecABA.x64_treiber_aba_tagged_never`
+   (Promising/SLR/EnvG/X64VecTreiberABA.lean).
+   Proved from the runner's exact configuration:
+   `VecABA.Concrete.x64_treiber_aba_tagged_runner_concrete`.
+   Proved program-level fault freedom at the runner's declarations:
+   `VecABA.x64_treiber_aba_tagged_runner_faultFree`, concrete
+   `VecABA.Concrete.x64_treiber_aba_tagged_runner_faultFree_concrete`
+   (Promising/SLR/EnvG/MemValsX64ABA.lean, MemValsX64ABAConcrete.lean).
+   Proved both at once: `VecABA.x64_treiber_aba_tagged_runner_safe_faultFree`,
+   concrete `VecABA.Concrete.x64_treiber_aba_tagged_runner_safe_faultFree_concrete`
+   (Promising/SLR/EnvG/RunnerSafeFFX64ABA.lean).
+
+   The nodes are typed `uint64_t` (8-byte `next` fields) so that the
+   runner declares them as 8-byte locations, the size of every access the
+   code makes to them (`movq (%rax),%rbx`, `movq %rax,(%r12)`); untyped
+   they were unsized (`⟨A,0⟩`), which the proof (`X64VecTreiberABA*`)
+   cannot relate to its 8-byte locations. The code block is unchanged and
+   so is the verdict.
+
+   herd7 has no `movdqa`/`cmpxchg16b` (its x86 catalogue has no vector
+   tests), so the verdict is argued here rather than checked against herd.
+   Proved (fault freedom at the runner's declarations, MEMVALS2):
+   `VecABA.x64_treiber_aba_tagged_runner_faultFree`
+   (Promising/SLR/EnvG/MemValsX64ABA.lean), concrete instance
+   `VecABA.Concrete.x64_treiber_aba_tagged_runner_faultFree_concrete`
+   (MemValsX64ABAConcrete.lean).
+# flags: -fuel 300
+# expect: Never
+*)
+{
+__int128 head=A; uint64_t A=B; uint64_t B=0;
+}
+threads { P0: p0 done; P1: p1 done; }
+stack 64
+code {
+p0:
+  movdqa (head),%xmm0
+  movdqa %xmm0,-16(%rsp)
+  movq -16(%rsp),%rax
+  movq -8(%rsp),%rdx
+  testq %rax,%rax
+  je p0
+  movq (%rax),%rbx
+  leaq 1(%rdx),%rcx
+  lock cmpxchg16b (head)
+  jne p0
+  movq %rax,%r12
+  movq %rbx,%r13
+  jmp done
+p1:
+p1pop1:
+  movdqa (head),%xmm0
+  movdqa %xmm0,-16(%rsp)
+  movq -16(%rsp),%rax
+  movq -8(%rsp),%rdx
+  movq $0,%r12
+  testq %rax,%rax
+  je p1pop2
+  movq (%rax),%rbx
+  leaq 1(%rdx),%rcx
+  lock cmpxchg16b (head)
+  jne p1pop1
+  movq %rax,%r12
+p1pop2:
+  movdqa (head),%xmm0
+  movdqa %xmm0,-16(%rsp)
+  movq -16(%rsp),%rax
+  movq -8(%rsp),%rdx
+  movq $0,%r13
+  testq %rax,%rax
+  je p1push
+  movq (%rax),%rbx
+  leaq 1(%rdx),%rcx
+  lock cmpxchg16b (head)
+  jne p1pop2
+  movq %rax,%r13
+p1push:
+  testq %r12,%r12
+  je done
+p1push1:
+  movdqa (head),%xmm0
+  movdqa %xmm0,-16(%rsp)
+  movq -16(%rsp),%rax
+  movq -8(%rsp),%rdx
+  movq %rax,(%r12)
+  movq %r12,%rbx
+  leaq 1(%rdx),%rcx
+  lock cmpxchg16b (head)
+  jne p1push1
+  jmp done
+done:
+}
+exists (0:r12=A /\ 0:r13=B /\ 1:r13=B)

@@ -1,0 +1,12 @@
+X86_64 CoRW1
+"Rfe PosRW Coe"
+Cycle=Rfe PosRW Coe
+Generator=diycross7 (version 7.58)
+Com=Rf Co
+Orig=Rfe PosRW Coe
+{
+}
+ P0          | P1            ;
+ movl $2,(x) | movl (x),%eax ;
+             | movl $1,(x)   ;
+exists ([x]=1 /\ 1:rax=2)

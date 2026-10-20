@@ -1,0 +1,11 @@
+Test LB+data-stxp-i128 Allowed
+States 3
+0:X0=0; 1:X2=0;
+0:X0=1; 1:X2=0;
+0:X0=1; 1:X2=1;
+Ok
+Witnesses
+Positive: 16 Negative: 219
+Condition exists (0:X0=1 /\ 1:X2=1)
+Observation LB+data-stxp-i128 Sometimes 16 219
+

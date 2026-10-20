@@ -1,0 +1,14 @@
+AArch64 LDXP-STXP-i128-2thr
+"Two exclusive pairs on one 16-byte location (L031 on __int128): at most one succeeds over the same value"
+{
+__int128 x;
+0:X2=x; 1:X2=x;
+uint64_t 0:X3; uint64_t 0:X4;
+uint64_t 1:X3; uint64_t 1:X4;
+}
+  P0                |  P1                ;
+ MOV X0,#1          | MOV X0,#3          ;
+ MOV X1,#2          | MOV X1,#4          ;
+ LDXP X3,X4,[X2]    | LDXP X3,X4,[X2]    ;
+ STXP W9,X0,X1,[X2] | STXP W9,X0,X1,[X2] ;
+exists (0:X9=0 /\ 1:X9=0 /\ 0:X3=0 /\ 1:X3=0)

@@ -1,0 +1,11 @@
+Test S+dmb.sy+casa.reg-popl Allowed
+States 3
+[x]=1; [y]=0;
+[x]=1; [y]=3;
+[x]=2; [y]=0;
+No
+Witnesses
+Positive: 0 Negative: 6
+Condition exists ([y]=3 /\ [x]=2)
+Observation S+dmb.sy+casa.reg-popl Never 0 6
+

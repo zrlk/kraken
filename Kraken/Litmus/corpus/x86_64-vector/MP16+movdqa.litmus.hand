@@ -1,0 +1,11 @@
+Test MP16+movdqa Allowed
+States 3
+1:xmm2=0;
+1:xmm2=18446744073709551617;
+1:xmm2=36893488147419103234;
+No
+Witnesses
+Positive: 0 Negative: 3
+Condition exists (not (1:xmm2=0 \/ 1:xmm2=18446744073709551617 \/ 1:xmm2=36893488147419103234))
+Observation MP16+movdqa Never 0 3
+

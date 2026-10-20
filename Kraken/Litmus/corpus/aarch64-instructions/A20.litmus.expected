@@ -1,0 +1,10 @@
+Test A20 Allowed
+States 1
+[x]=1;
+Ok
+Witnesses
+Positive: 1 Negative: 0
+Condition exists ([x]=1)
+Observation A20 Always 1 0
+Hash=d6754c68abd908862dde0e5ba59572e0
+

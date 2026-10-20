@@ -1,0 +1,13 @@
+AArch64 WRC+ctrl+ctrlisb
+{
+0:X14=x;
+1:X14=x; 1:X15=y;
+2:X14=y; 2:X15=x;
+}
+ P0           | P1           | P2           ;
+ MOV W8,#1    | LDR W0,[X14] | LDR W0,[X14] ;
+ STR W8,[X14] | CBNZ W0,L10  | CBNZ W0,L20  ;
+              | L10:         | L20:         ;
+              | MOV W8,#1    | ISB          ;
+              | STR W8,[X15] | LDR W1,[X15] ;
+exists (1:X0=1 /\ 2:X0=1 /\ 2:X1=0)

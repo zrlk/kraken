@@ -1,0 +1,10 @@
+Test A90 Allowed
+States 1
+0:X0=65537;
+Ok
+Witnesses
+Positive: 1 Negative: 0
+Condition exists (0:X0=65537)
+Observation A90 Always 1 0
+Hash=86fd95e686b8d607ffbbe5c4575c58c9
+

@@ -253,11 +253,22 @@ theorem label_addrOf (e : Kraken.Executable Directive) (l : Label) (n : Nat)
 well-behaved: labels occupy no bytes, every other directive occupies at least
 one, and the program fits in the address space. Distinct cut points that
 follow a non-label directive then sit at distinct addresses
-(`addrOf_ne_of_valid`). -/
+(`addrOf_ne_of_valid`).
+
+An `.align n` directive (the no-op `nopalign n _`) pads to the next multiple
+of `n`: the address behind its cell is a multiple of `n`. Like any other
+non-label directive it occupies at least one byte, so where an assembler would
+pad nothing this layout pads `n` bytes. An alignment of zero constrains
+nothing. Absurd alignments (say, several cells aligned to `2 ^ 63`) can leave
+a program with no valid layout at all, which makes every theorem about it
+vacuous; a proof that relies on alignment should exhibit one. -/
 class ValidLayout (e : Kraken.Executable Directive) : Prop where
   label_size : ∀ (i : Nat) l z, e.2[i]? = some (Directive.label l, z) → z = 0
   instr_size : ∀ (i : Nat) d z, e.2[i]? = some (d, z) → (∀ l, d ≠ Directive.label l) → 0 < z
   no_wrap : (e.2.map (·.2)).sum < 2 ^ 64
+  align_addr : ∀ (i : Nat) aw w n pad z,
+    e.2[i]? = some (.instr (.regular aw w (.nopalign n pad)), z) → 0 < n →
+      (e.addrOf (i + 1)).toBitVec.toNat % n = 0
 
 private theorem sum_map_take_le {α} (f : α → Nat) (l : List α) (k : Nat) :
     ((l.take k).map f).sum ≤ (l.map f).sum := by

@@ -1,0 +1,5 @@
+# diycross7 -arch AArch64 -name LB+rel+ctrl PodRWPL,DpCtrldW Rfe PodRWPL,DpCtrldW Rfe
+# Version 7.58+1, Revision: 9574394fc4b2bcb1a7ba23dd7877f46bb28ebb34
+LB+rel+ctrl+popls.litmus
+LB+rel+ctrl+ctrl+popl.litmus
+LB+rel+ctrl+ctrls.litmus

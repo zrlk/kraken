@@ -1,0 +1,12 @@
+Test MP+dmb.sy+cas.zr-dmb.ld Allowed
+States 4
+1:X7=0; [y]=0;
+1:X7=0; [y]=3;
+1:X7=1; [y]=0;
+1:X7=1; [y]=3;
+Ok
+Witnesses
+Positive: 2 Negative: 6
+Condition exists ([y]=3 /\ 1:X7=0)
+Observation MP+dmb.sy+cas.zr-dmb.ld Sometimes 2 6
+

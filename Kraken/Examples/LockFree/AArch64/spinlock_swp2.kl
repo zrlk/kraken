@@ -1,0 +1,71 @@
+AArch64 SpinlockSwp2
+(* Spinlock as compiled from C++/Rust (Promising-ARM PLDI'19 §7 "SLC/SLR"),
+   test-and-test-and-set shape: `while (lock.exchange(1, acquire)) { while
+   (lock.load(relaxed)) {} }` -- SWPA to acquire, LDR spin while held, STLR
+   release. (A bare SWPA spin loop has an infinite state space in the
+   promising machine: every failed swap appends a new message.)
+   Two threads each take the lock once and increment a shared counter.
+   Property: counter = 2 in every final state. Expected: Always.
+   Proved for all layouts and any number of threads, the runner's whole
+   image (`A64WholeCounters.runnerWhole`): `SwpInv.swp_counter_armv8`
+   (Promising/SLR/SwpFinal.lean), `SwpPublic.swp_counter_public`
+   (Promising/SLR/SwpPublic.lean), concrete `SwpConcrete.swp_counter_2`
+   (Promising/SLR/SwpConcrete.lean); at `decls = {}`, on the pre-EnvG cell
+   route. No fault at `decls = {}`: `SwpInv.swpRuleX_noFault`
+   (Promising/SLR/SwpNoFault.lean).
+   The shared symbols are typed (`uint32_t lock`, `uint32_t counter`, the width of every access)
+   so that the runner declares them as sized locations at the width of
+   the code's accesses (A64DECLS): the runner's
+   declarations then agree with the proofs' locations. The code block and
+   the verdict are unchanged.
+   The runner-exact theorem and the no-fault at the runner's declarations
+   are proved by a new EnvG proof with the statement
+   of `swp_counter_public` (SWPRUN): `SwpEnvG.swp_counter_envG`
+   (Promising/SLR/EnvG/SwpEnvGPublic.lean). Proved from the runner's exact
+   configuration (declarations and initial memory included):
+   `swp_counter_envG_runner`, concrete `swp_counter_envG_runner_concrete2`
+   (Promising/SLR/EnvG/A64SwpRunner.lean).
+   Proved no fault at the runner's declarations (each access resolves as
+   at `decls = {}`): `swp_counter_envG_runner_noFault`, concrete
+   `swp_counter_envG_runner_noFault_concrete` (Promising/SLR/EnvG/A64SwpNoFault.lean).
+   Proved program-level fault freedom at the runner's declarations (no
+   reachable configuration has a faulting step, any architecture, promises
+   included): `swp_counter_envG_runner_faultFree`, concrete
+   `swp_counter_envG_runner_faultFree_concreteN 2` (Promising/SLR/EnvG/A64SwpNoFault.lean).
+   Proved (LIVESPIN2): promise-free deadlock-freedom on a valid layout,
+   `Live.SpinSwpFam.spin_swp_live_pf [ValidLayout (layout swpWorker)] : SwpSpinLivePF fuel`,
+   concrete `spin_swp_live_pf_concrete`; per-thread liveness of these one-shot
+   workers `spin_swp_live_oneShot_pf` (Promising/LiveSpinSwpFam.lean). With
+   promises (`SwpSpinLive`) open (KNOWN_GAPS.md, "Liveness: spinlocks (LIVESPIN)").
+   Proved (LIVESPINSEM2): with promises and semantic certification,
+   `Live.SpinSemSwpLive.spin_swp_live_sem [ValidLayout (layout swpWorker)] : SwpSpinLiveSem fuel`
+   for every fuel, concrete `spin_swp_live_sem_concrete`, and the one-shot
+   `spin_swp_live_oneShot_sem` (Promising/LiveSpinSemSwpLive.lean). `SwpSpinLive`
+   (over `succs`) stays open (KNOWN_GAPS.md). *)
+# flags: -sym
+# expect: Always
+{
+uint32_t lock=0; uint32_t counter=0;
+0:X0=lock; 0:X1=counter;
+1:X0=lock; 1:X1=counter;
+}
+threads { P0: worker done; P1: worker done; }
+code {
+worker:
+  MOV W3,#1
+try:
+  SWPA W3,W2,[X0]
+  CBZ W2,cs
+spin:
+  LDR W2,[X0]
+  CBNZ W2,spin
+  B try
+cs:
+  LDR W5,[X1]
+  ADD W5,W5,#1
+  STR W5,[X1]
+  STLR WZR,[X0]
+  B done
+done:
+}
+forall [counter]=2

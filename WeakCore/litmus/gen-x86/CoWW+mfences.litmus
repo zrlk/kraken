@@ -1,0 +1,13 @@
+X86_64 CoWW+mfences
+"MFencesWW Coe"
+Cycle=Coe MFencesWW
+Generator=diycross7 (version 7.58)
+Com=Co
+Orig=MFencesWW Coe
+{
+}
+ P0          ;
+ movl $2,(x) ;
+ mfence      ;
+ movl $1,(x) ;
+exists ([x]=1)

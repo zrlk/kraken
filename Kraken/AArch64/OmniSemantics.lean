@@ -12,6 +12,13 @@ import Kraken.OmniSemantics
   | .unaligned_sp .. => False
   | .nonmem_load .. => False
   | .nonmem_store .. => False
+  | .sync_load .. => False
+  | .sync_store .. => False
+  | .rmw .. => False
+  | .sync_load_pair .. => False
+  | .sync_store_pair .. => False
+  | .rmw_pair .. => False
+  | .fence _ ok => (ok ()).All post
   | @Effects.undefined α _ cont => ∀ v: α, (cont v).All post
   | .require_read_access _ _ cont => (cont ()).All post
   | .require_write_access _ _ cont => (cont ()).All post

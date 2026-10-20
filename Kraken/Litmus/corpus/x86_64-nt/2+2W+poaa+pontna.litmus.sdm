@@ -1,0 +1,12 @@
+Test 2+2W+poaa+pontna Allowed
+States 4
+[x]=1; [y]=1; 0:rax=0; 0:rbx=2;
+[x]=1; [y]=2; 0:rax=0; 0:rbx=0;
+[x]=2; [y]=1; 0:rax=1; 0:rbx=2;
+[x]=2; [y]=2; 0:rax=1; 0:rbx=0;
+Ok
+Witnesses
+Positive: 1 Negative: 3
+Condition exists ([x]=2 /\ [y]=2 /\ 0:rax=1 /\ 0:rbx=0)
+Observation 2+2W+poaa+pontna Sometimes 1 3
+

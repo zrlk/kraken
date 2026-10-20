@@ -1,0 +1,14 @@
+AArch64 LB+po-stxp-i128
+"Control for LB+data-stxp-i128: STXP of a constant does not depend on the earlier load"
+{
+__int128 f;
+uint64_t x;
+0:X5=f; 0:X1=x; 1:X5=f; 1:X1=x;
+uint64_t 0:X0; uint64_t 1:X2; uint64_t 1:X3;
+}
+P0                   | P1               ;
+LDR X0,[X1]          | LDXP X2,X3,[X5]  ;
+MOV X9,#1            | DMB SY           ;
+LDXP X6,X7,[X5]      | MOV X4,#1        ;
+STXP W8,X9,X9,[X5]   | STR X4,[X1]      ;
+exists (0:X0=1 /\ 1:X2=1)

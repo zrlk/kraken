@@ -1,0 +1,13 @@
+AArch64 CASA-zr-MP
+"CASA WZR succeeding on the 0 written after DMB SY: the acquire is dropped (NoRet), so the later read may be stale"
+{
+y=5;
+0:X1=x; 0:X3=y;
+1:X1=y; 1:X3=x; 1:X4=2;
+}
+ P0           | P1               ;
+ MOV W0,#1    | CASA WZR,W4,[X1] ;
+ STR W0,[X1]  | LDR W0,[X3]      ;
+ DMB SY       |                  ;
+ STR WZR,[X3] |                  ;
+exists ([y]=2 /\ 1:X0=0)

@@ -1,0 +1,11 @@
+Test MP+cmpxchg+po Allowed
+States 3
+1:rcx=0; 1:rdx=0;
+1:rcx=0; 1:rdx=1;
+1:rcx=1; 1:rdx=1;
+No
+Witnesses
+Positive: 0 Negative: 3
+Condition exists (1:rcx=1 /\ 1:rdx=0)
+Observation MP+cmpxchg+po Never 0 3
+

@@ -1,0 +1,15 @@
+AArch64 WRC+caspdata+addr
+{
+uint64_t y[2];
+0:X14=x;
+1:X14=x; 1:X15=y;
+2:X14=y; 2:X15=x;
+}
+ P0           | P1                       | P2                  ;
+ MOV W8,#1    | LDR W4,[X14]             | LDR W0,[X14]        ;
+ STR W8,[X14] | MOV X2,#0                | EOR W8,W0,W0        ;
+              | MOV X3,#0                | ADD X10,X15,W8,SXTW ;
+              | MOV X12,X4               | LDR W1,[X10]        ;
+              | MOV X13,X4               |                     ;
+              | CASP X2,X3,X12,X13,[X15] |                     ;
+exists (1:X4=1 /\ 2:X0=1 /\ 2:X1=0)

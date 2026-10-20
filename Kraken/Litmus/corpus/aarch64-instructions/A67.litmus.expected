@@ -1,0 +1,10 @@
+Test A67 Allowed
+States 1
+0:X0=43;
+Ok
+Witnesses
+Positive: 1 Negative: 0
+Condition exists (0:X0=43)
+Observation A67 Always 1 0
+Hash=56e537ca04fcf3ae5706e0fe97f53c99
+

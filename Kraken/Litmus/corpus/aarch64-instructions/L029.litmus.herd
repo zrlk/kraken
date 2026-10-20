@@ -1,0 +1,8 @@
+Test L029 Required
+States 0
+Loop Ok
+Witnesses
+Positive: 0 Negative: 0
+Condition forall (0:X1=10)
+Observation L029 Never 0 0
+

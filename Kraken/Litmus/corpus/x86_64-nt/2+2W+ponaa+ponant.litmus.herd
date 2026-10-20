@@ -1,0 +1,11 @@
+Test 2+2W+ponaa+ponant Allowed
+States 3
+0:rax=0; [x]=1; [y]=2;
+0:rax=2; [x]=1; [y]=1;
+0:rax=2; [x]=2; [y]=1;
+No
+Witnesses
+Positive: 0 Negative: 3
+Condition exists ([x]=2 /\ [y]=2 /\ 0:rax=0)
+Observation 2+2W+ponaa+ponant Never 0 3
+

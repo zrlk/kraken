@@ -1,0 +1,15 @@
+X86_64 IRIW+mfences
+Generator=diycross7 (version 7.58+1)
+Prefetch=0:x=F,0:y=T,2:y=F,2:x=T
+Com=Fr Rf Fr Rf
+Orig=Rfe MFencedRR Fre Rfe MFencedRR Fre
+Cycle=Rfe MFencedRR Fre Rfe MFencedRR Fre
+"Rfe MFencedRR Fre Rfe MFencedRR Fre"
+{
+}
+ P0            | P1          | P2            | P3          ;
+ movl (x),%eax | movl $1,(y) | movl (y),%eax | movl $1,(x) ;
+ mfence        |             | mfence        |             ;
+ movl (y),%ebx |             | movl (x),%ebx |             ;
+
+exists (0:rax=1 /\ 0:rbx=0 /\ 2:rax=1 /\ 2:rbx=0)

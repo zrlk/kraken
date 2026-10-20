@@ -1,0 +1,10 @@
+Test A13 Allowed
+States 1
+[x]=128;
+Ok
+Witnesses
+Positive: 1 Negative: 0
+Condition exists ([x]=128)
+Observation A13 Always 1 0
+Hash=b7727c71d73a802a04c961cfff953cb0
+

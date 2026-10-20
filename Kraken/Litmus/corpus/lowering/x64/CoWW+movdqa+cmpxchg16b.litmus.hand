@@ -1,0 +1,7 @@
+Test CoWW+movdqa+cmpxchg16b Allowed
+States 2
+1:rax=0; 1:rdx=0; [rec]=18446744073709551617;
+1:rax=1; 1:rdx=1; [rec]=18446744073709551617;
+No
+Condition exists (1:rax=1 /\ 1:rdx=0 \/ 1:rax=0 /\ 1:rdx=1)
+Observation CoWW+movdqa+cmpxchg16b Never 0 2

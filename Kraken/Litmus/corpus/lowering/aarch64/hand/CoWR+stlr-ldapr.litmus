@@ -1,0 +1,11 @@
+AArch64 CoWR+stlr-ldapr
+"CoWR: STLR x then LDAPR x (same location: no relaxation)"
+{
+0:X1=x;
+1:X1=x;
+}
+ P0            | P1          ;
+ MOV W0,#1     | MOV W0,#2   ;
+ STLR W0,[X1]  | STR W0,[X1] ;
+ LDAPR W2,[X1] |             ;
+exists (0:X2=0 \/ x=1 /\ 0:X2=2)

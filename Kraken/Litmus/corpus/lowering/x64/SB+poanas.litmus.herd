@@ -1,0 +1,11 @@
+Test SB+poanas Allowed
+States 3
+0:rax=0; 0:rbx=0; 1:rax=0; 1:rbx=1; [x]=1; [y]=1;
+0:rax=0; 0:rbx=1; 1:rax=0; 1:rbx=0; [x]=1; [y]=1;
+0:rax=0; 0:rbx=1; 1:rax=0; 1:rbx=1; [x]=1; [y]=1;
+No
+Witnesses
+Positive: 0 Negative: 3
+Condition exists ([x]=1 /\ [y]=1 /\ 0:rax=0 /\ 0:rbx=0 /\ 1:rax=0 /\ 1:rbx=0)
+Observation SB+poanas Never 0 3
+

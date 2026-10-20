@@ -1,0 +1,787 @@
+CoreLang.Cap : Type
+CoreLang.Cap.frz : CoreLang.Cap
+CoreLang.ECounter : Type
+CoreLang.Idx : Type
+CoreLang.Idx.lit : Nat → CoreLang.Idx
+CoreLang.Kind : Type
+CoreLang.Mode : Type
+CoreLang.Mode.own : CoreLang.Mode
+CoreLang.Mode.pub : CoreLang.Mode
+CoreLang.Mode.rgn : CoreLang.Idx → CoreLang.Mode
+CoreLang.Pred : Type
+CoreLang.Pred.ini : CoreLang.Idx → CoreLang.Pred
+CoreLang.Proto : Type
+CoreLang.Proto.ghost : CoreLang.Proto → Bool
+CoreLang.Proto2 : Type
+CoreLang.Ty : Type
+CoreLang.Ty.array : CoreLang.Idx → CoreLang.Ty → CoreLang.Ty
+CoreLang.Ty.cap : CoreLang.Cap → CoreLang.Idx → CoreLang.Ty
+CoreLang.Ty.code : CoreLang.Ty → CoreLang.Ty → CoreLang.Ty
+CoreLang.Ty.epair : CoreLang.Idx → CoreLang.ECounter → CoreLang.Ty
+CoreLang.Ty.fix : Bool → CoreLang.Wd → CoreLang.Ty
+CoreLang.Ty.int : CoreLang.Ty
+CoreLang.Ty.lanes : Bool → CoreLang.Wd → CoreLang.Ty
+CoreLang.Ty.loc : CoreLang.Mode → CoreLang.Ty → CoreLang.Ty
+CoreLang.Ty.prod : CoreLang.Ty → CoreLang.Ty → CoreLang.Ty
+CoreLang.Ty.ptr : CoreLang.Mode → CoreLang.Ty → CoreLang.Ty
+CoreLang.Ty.ptrOpt : CoreLang.Mode → CoreLang.Ty → CoreLang.Ty
+CoreLang.Ty.refine : CoreLang.Ty → CoreLang.Pred → CoreLang.Ty
+CoreLang.Ty.sum : CoreLang.Ty → CoreLang.Ty → CoreLang.Ty
+CoreLang.Ty.tok : CoreLang.Idx → Option (CoreLang.Proto × CoreLang.Idx) → CoreLang.Ty
+CoreLang.Ty.unit : CoreLang.Ty
+CoreLang.Ty.word : CoreLang.Idx → CoreLang.Proto → CoreLang.Ty
+CoreLang.Ty.word2 : CoreLang.Idx → CoreLang.Proto2 → CoreLang.Ty
+CoreLang.Wd : Type
+CoreLang.Wd.lanes : CoreLang.Wd → Nat
+CoreLang.zeroableIn : CoreLang.IEnv → CoreLang.KEnv → CoreLang.Ty → Bool
+CoreTerm.At : Type
+CoreTerm.BitOp : Type
+CoreTerm.BitOp1 : Type
+CoreTerm.Decl : Type
+CoreTerm.Decl.argTy : CoreTerm.Decl → CoreLang.Ty
+CoreTerm.Decl.name : CoreTerm.Decl → String
+CoreTerm.Decl.retTy : CoreTerm.Decl → CoreLang.Ty
+CoreTerm.FCmp : Type
+CoreTerm.FOp : Type
+CoreTerm.FOp1 : Type
+CoreTerm.Fence : Type
+CoreTerm.FetchOp : Type
+CoreTerm.FetchOp.kind : CoreTerm.FetchOp → WeakMem.RmwKind
+CoreTerm.Op : Type
+CoreTerm.cellOf : CoreLang.Ty → Option (CoreLang.Mode × CoreLang.Ty)
+CoreTerm.fixOf : CoreLang.Ty → Option (Bool × CoreLang.Wd)
+CoreTerm.lanesOf : CoreLang.Ty → Option (Bool × CoreLang.Wd)
+CoreTerm.pairRef : CoreLang.Ty → Bool
+CoreTerm.unfold1 : CoreLang.Ty → CoreLang.Ty
+CoreTerm.word2Of : CoreLang.Ty → Option (CoreLang.Idx × CoreLang.Proto2)
+CoreTerm.wordOf : CoreLang.Ty → Option (CoreLang.Idx × CoreLang.Proto)
+Promises.TVal : Type
+Promises.TVal.rts : Promises.TVal → WeakMem.Ts
+Promises.TVal.val : Promises.TVal → WeakMem.Val
+Promises.TVal.view : Promises.TVal → WeakMem.Ts
+Promises.Thread : Type
+Promises.Thread.promises : Promises.Thread → List WeakMem.Ts
+Promises.Thread.regs : Promises.Thread → WeakMem.Reg → Promises.TVal
+Promises.Thread.vs : Promises.Thread → WeakMem.VState
+Promises.stepRmw : Promises.Knobs →
+  WeakMem.Arch →
+    WeakMem.Memory →
+      List WeakMem.Ts →
+        Promises.Thread →
+          WeakMem.Reg →
+            WeakMem.Address →
+              WeakMem.RmwKind → WeakMem.Expr → List WeakMem.Reg → Bool → Bool → List (WeakMem.Memory × Promises.Thread)
+TermRun.Acc : Type
+TermRun.Acc.one : TermRun.Acc
+TermRun.Acc.two : TermRun.Acc
+TermRun.Env : Type
+TermRun.G : Type
+TermRun.G.arch : TermRun.G → WeakMem.Arch
+TermRun.G.i : TermRun.G → Nat
+TermRun.G.k : TermRun.G → Promises.Knobs
+TermRun.G.lbase : TermRun.G → Nat
+TermRun.G.n : TermRun.G → Nat
+TermRun.G.p : TermRun.G → CoreTerm.Prog
+TermRun.St : Type
+TermRun.St.mem : TermRun.St → WeakMem.Memory
+TermRun.St.nalloc : TermRun.St → Nat
+TermRun.St.pairs : TermRun.St → List WeakMem.Ts
+TermRun.St.undefs : TermRun.St → Nat
+TermRun.W64 : Nat
+TermRun.Word : Type
+TermRun.accs : CoreLang.Ty → Option (List TermRun.Acc)
+TermRun.addW : TermRun.Word → TermRun.Word → TermRun.Word
+TermRun.addrOf : TermRun.Word → Option WeakMem.Address
+TermRun.alloc : Promises.Knobs →
+  WeakMem.Arch →
+    WeakMem.AllocLabel → List TermRun.Acc → List TermRun.Word → TermRun.St → List (TermRun.St × TermRun.Word)
+TermRun.allocBuf : WeakMem.AllocLabel → Nat → Option (List WeakMem.Val) → TermRun.St → TermRun.St × TermRun.Word
+TermRun.armsOf : CoreLang.Ty → List CoreLang.Ty
+TermRun.bit1N : CoreTerm.BitOp1 → Nat → Nat
+TermRun.bitN : CoreTerm.BitOp → Nat → Nat → Nat
+TermRun.bufElem : CoreLang.Ty → Option (CoreLang.Mode × CoreLang.Ty)
+TermRun.close : List CoreLang.Ty → CoreLang.Ty → CoreLang.Ty
+TermRun.compOff : CoreLang.Ty → List Nat → Option (CoreLang.Ty × Nat)
+TermRun.countUndef : List TermRun.Word → Nat
+TermRun.cst : WeakMem.Val → TermRun.Word
+TermRun.cvtN : CoreLang.Ty → CoreLang.Wd → Nat → Nat
+TermRun.dataE : WeakMem.Reg → TermRun.Word → WeakMem.Expr
+TermRun.evalAt : TermRun.Env → CoreTerm.At → Option (CoreLang.Ty × List TermRun.Word)
+TermRun.evalOp : TermRun.G →
+  TermRun.Env → List CoreLang.Ty → TermRun.St → CoreTerm.Op → List (TermRun.St × CoreLang.Ty × List TermRun.Word)
+  := fun g env σs s x =>
+  match x with
+  | CoreTerm.Op.atom a =>
+    TermRun.ol
+      (Option.map
+        (fun x =>
+          match x with
+          | (t, ws) => (s, t, ws))
+        (TermRun.evalAt env a))
+  | CoreTerm.Op.pair a b =>
+    TermRun.ol do
+      let __x ← TermRun.evalAt env a
+      match __x with
+        | (t, ws) => do
+          let __x ← TermRun.evalAt env b
+          match __x with
+            | (u, us) => pure (s, t.prod u, ws ++ us)
+  | CoreTerm.Op.inl τ a =>
+    match TermRun.evalAt env a with
+    | some (t, ws) =>
+      have S := t.sum (TermRun.close σs τ);
+      List.flatMap
+        (fun x =>
+          match x with
+          | (s1, j, p) =>
+            List.map
+              (fun x =>
+                match x with
+                | (s2, q) => (s2, S, q))
+              (TermRun.injM g s1 S j p))
+        (TermRun.projM g s t ws)
+    | none => []
+  | CoreTerm.Op.inr τ a =>
+    match TermRun.evalAt env a with
+    | some (t, ws) =>
+      have τ' := TermRun.close σs τ;
+      have S := τ'.sum t;
+      List.flatMap
+        (fun x =>
+          match x with
+          | (s1, j, p) =>
+            List.map
+              (fun x =>
+                match x with
+                | (s2, q) => (s2, S, q))
+              (TermRun.injM g s1 S ((TermRun.armsOf τ').length + j) p))
+        (TermRun.projM g s t ws)
+    | none => []
+  | CoreTerm.Op.add a b =>
+    TermRun.ol do
+      let __x ← TermRun.evalAt env a
+      match __x with
+        | (fst, ws) => do
+          let __x ← TermRun.evalAt env b
+          match __x with
+            | (fst, us) =>
+              match ws, us with
+              | [x], [y] => pure (s, CoreLang.Ty.int, [TermRun.addW x y])
+              | x, x_1 => none
+  | CoreTerm.Op.sub a b =>
+    TermRun.ol do
+      let __x ← TermRun.evalAt env a
+      match __x with
+        | (fst, ws) => do
+          let __x ← TermRun.evalAt env b
+          match __x with
+            | (fst, us) =>
+              match ws, us with
+              | [x], [y] => pure (s, CoreLang.Ty.int, [TermRun.subW x y])
+              | x, x_1 => none
+  | CoreTerm.Op.new a =>
+    match TermRun.evalAt env a with
+    | none => []
+    | some (t, ws) =>
+      match TermRun.accs t with
+      | none => []
+      | some us =>
+        have lbl := TermRun.freshLabel g.lbase g.n g.i s.nalloc;
+        List.map
+          (fun x =>
+            match x with
+            | (s', pw) => (s', CoreLang.Ty.ptr CoreLang.Mode.own t, [pw]))
+          (TermRun.alloc g.k g.arch lbl us ws s)
+  | CoreTerm.Op.null μ τ => [(s, CoreLang.Ty.ptrOpt μ (TermRun.close σs τ), [TermRun.cst WeakMem.Val.null])]
+  | CoreTerm.Op.fold a τ =>
+    TermRun.ol
+      (Option.map
+        (fun x =>
+          match x with
+          | (fst, ws) => (s, TermRun.close σs τ, ws))
+        (TermRun.evalAt env a))
+  | CoreTerm.Op.publish a =>
+    TermRun.ol do
+      let __x ← TermRun.evalAt env a
+      match __x with
+        | (t, ws) =>
+          match t with
+          | CoreLang.Ty.ptr μ u => pure (TermRun.fenceS s WeakMem.Fence.st, CoreLang.Ty.ptr CoreLang.Mode.pub u, ws)
+          | (CoreLang.Ty.loc μ (CoreLang.Ty.array n u)).refine ψ =>
+            pure
+              (TermRun.fenceS s WeakMem.Fence.st, (CoreLang.Ty.loc CoreLang.Mode.pub (CoreLang.Ty.array n u)).refine ψ,
+                ws)
+          | x => none
+  | CoreTerm.Op.intoRgn r a =>
+    TermRun.ol do
+      let __x ← TermRun.evalAt env a
+      match __x with
+        | (t, ws) =>
+          match t with
+          | CoreLang.Ty.ptr μ u =>
+            pure (TermRun.fenceS s WeakMem.Fence.st, CoreLang.Ty.ptr (CoreLang.Mode.rgn (CoreLang.Idx.lit 0)) u, ws)
+          | (CoreLang.Ty.loc μ (CoreLang.Ty.array n u)).refine ψ =>
+            pure
+              (TermRun.fenceS s WeakMem.Fence.st,
+                (CoreLang.Ty.loc (CoreLang.Mode.rgn (CoreLang.Idx.lit 0)) (CoreLang.Ty.array n u)).refine ψ, ws)
+          | x => none
+  | CoreTerm.Op.fld i a =>
+    TermRun.ol do
+      let __x ← TermRun.evalAt env a
+      match __x with
+        | (t, ws) =>
+          have __do_jp := fun pw => do
+            let __x ← CoreTerm.cellOf t
+            match __x with
+              | (μ, u) =>
+                have __do_jp := fun __x =>
+                  match __x with
+                  | (c1, c2) =>
+                    have __do_jp := fun off =>
+                      match pw.val with
+                      | WeakMem.Val.loc b g =>
+                        pure
+                          (s, CoreLang.Ty.loc μ (if (i == 0) = true then c1 else c2),
+                            [{ val := WeakMem.Val.loc (TermRun.offs b off) g, view := pw.view, rts := pw.rts }])
+                      | x => none;
+                    if (i == 0) = true then do
+                      let off ← some 0
+                      __do_jp off
+                    else do
+                      let off ← TermRun.nWords <$> TermRun.accs c1
+                      __do_jp off;
+                match CoreTerm.unfold1 u with
+                | c1.prod c2 => do
+                  let __x ← some (c1, c2)
+                  __do_jp __x
+                | x => do
+                  let __x ← none
+                  __do_jp __x;
+          match ws with
+          | [w] => do
+            let pw ← some w
+            __do_jp pw
+          | x => do
+            let pw ← none
+            __do_jp pw
+  | CoreTerm.Op.load acq a =>
+    match TermRun.evalAt env a with
+    | some (t, [pw]) =>
+      match CoreTerm.cellOf t, TermRun.addrOf pw with
+      | some (fst, u), some b =>
+        have rt := if (CoreTerm.wordOf t).isSome = true then CoreLang.Ty.int else u;
+        match TermRun.accs u with
+        | some us =>
+          List.map
+            (fun x =>
+              match x with
+              | (s', ws) => (s', rt, ws))
+            (TermRun.loadUnits g.arch pw b acq us 0 s)
+        | none => []
+      | x, x_1 => []
+    | x => []
+  | CoreTerm.Op.store rel a v tok =>
+    match TermRun.evalAt env a, TermRun.evalAt env v with
+    | some (t, [pw]), some (fst, ws) =>
+      match CoreTerm.cellOf t, TermRun.addrOf pw with
+      | some (fst, u), some b =>
+        match TermRun.accs u with
+        | some us => List.map (fun x => (x, CoreLang.Ty.unit, [])) (TermRun.storeUnits g.k g.arch pw b rel us ws 0 s)
+        | none => []
+      | x, x_1 => []
+    | x, x_1 => []
+  | CoreTerm.Op.fence f => [(TermRun.fenceS s (TermRun.toWFence f), CoreLang.Ty.unit, [])]
+  | CoreTerm.Op.mkWord r P v tok =>
+    if P.ghost = true then
+      [(s, (CoreLang.Ty.word (CoreLang.Idx.lit 0) P).prod (CoreLang.Ty.tok (CoreLang.Idx.lit 0) none), [])]
+    else
+      TermRun.ol
+        (Option.map
+          (fun x =>
+            match x with
+            | (fst, ws) => (s, CoreLang.Ty.word (CoreLang.Idx.lit 0) P, ws))
+          (TermRun.evalAt env v))
+  | CoreTerm.Op.mkWord2 r P v0 v1 tok =>
+    TermRun.ol do
+      let __x ← TermRun.evalAt env v0
+      match __x with
+        | (fst, w0) => do
+          let __x ← TermRun.evalAt env v1
+          match __x with
+            | (fst, w1) => pure (s, CoreLang.Ty.word2 (CoreLang.Idx.lit 0) P, w0 ++ w1)
+  | CoreTerm.Op.ldp acq a n0 n1 =>
+    match TermRun.evalAt env a with
+    | some (t, [pw]) =>
+      if CoreTerm.pairRef t = true then
+        match TermRun.addrOf pw with
+        | some b =>
+          List.map
+            (fun x =>
+              match x with
+              | (s', ws) => (s', CoreLang.Ty.int.prod CoreLang.Ty.int, ws))
+            (TermRun.loadUnits g.arch pw b acq [TermRun.Acc.two] 0 s)
+        | none => []
+      else []
+    | x => []
+  | CoreTerm.Op.stp rel a v0 v1 tok =>
+    match TermRun.evalAt env a, TermRun.evalAt env v0, TermRun.evalAt env v1 with
+    | some (t, [pw]), some (fst, w0), some (fst_1, w1) =>
+      match CoreTerm.word2Of t, TermRun.addrOf pw with
+      | some val, some b =>
+        List.map (fun x => (x, CoreLang.Ty.unit, []))
+          (TermRun.storeUnits g.k g.arch pw b rel [TermRun.Acc.two] (w0 ++ w1) 0 s)
+      | x, x_1 => []
+    | x, x_1, x_2 => []
+  | CoreTerm.Op.mkEPair r P v0 v1 =>
+    TermRun.ol do
+      let __x ← TermRun.evalAt env v0
+      match __x with
+        | (fst, w0) => do
+          let __x ← TermRun.evalAt env v1
+          match __x with
+            | (fst, w1) => pure (s, CoreLang.Ty.epair (CoreLang.Idx.lit 0) P, w0 ++ w1)
+  | CoreTerm.Op.mkTicket r N P v tok =>
+    TermRun.ol
+      (Option.map
+        (fun x =>
+          match x with
+          | (fst, ws) =>
+            (s, (CoreLang.Ty.word (CoreLang.Idx.lit 0) N).prod (CoreLang.Ty.word (CoreLang.Idx.lit 0) P), ws ++ ws))
+        (TermRun.evalAt env v))
+  | CoreTerm.Op.claim a tok => [(s, CoreLang.Ty.unit, [])]
+  | CoreTerm.Op.fetch o acq rel a v =>
+    match TermRun.evalAt env a, TermRun.evalAt env v with
+    | some (t, [pw]), some (fst, [nw]) =>
+      match TermRun.addrOf pw with
+      | some b =>
+        List.map
+          (fun x =>
+            match x with
+            | (mem', th') =>
+              have rd := th'.regs 1;
+              ({ mem := mem', pairs := s.pairs, vs := th'.vs, promises := th'.promises, nalloc := s.nalloc,
+                  undefs := s.undefs + TermRun.countUndef [rd] },
+                TermRun.fetchRtTy t, [rd]))
+          (Promises.stepRmw g.k g.arch s.mem s.pairs (TermRun.mth s pw nw nw) 1 b o.kind (TermRun.dataE 1 nw) [0] acq
+            rel)
+      | none => []
+    | x, x_1 => []
+  | CoreTerm.Op.pack a w τ =>
+    TermRun.ol
+      (Option.map
+        (fun x =>
+          match x with
+          | (fst, ws) => (s, TermRun.close σs τ, ws))
+        (TermRun.evalAt env a))
+  | CoreTerm.Op.packT a σ τ =>
+    TermRun.ol
+      (Option.map
+        (fun x =>
+          match x with
+          | (fst, ws) => (s, TermRun.close σs τ, ws))
+        (TermRun.evalAt env a))
+  | CoreTerm.Op.validate y =>
+    TermRun.ol
+      (Option.map
+        (fun x =>
+          match x with
+          | (t, ws) => (s, t, ws))
+        (TermRun.lookupE env y))
+  | CoreTerm.Op.call f is a ts => []
+  | CoreTerm.Op.borrow c t => [(s, CoreLang.Ty.cap c (CoreLang.Idx.lit 0), [])]
+  | CoreTerm.Op.freeze t => [(s, CoreLang.Ty.cap CoreLang.Cap.frz (CoreLang.Idx.lit 0), [])]
+  | CoreTerm.Op.cvt sg w a =>
+    TermRun.ol do
+      let __x ← TermRun.evalAt env a
+      match __x with
+        | (t, ws) => do
+          let x ← TermRun.numOf ws
+          pure (s, CoreLang.Ty.fix sg w, [TermRun.cst (WeakMem.Val.num (TermRun.cvtN t w x))])
+  | CoreTerm.Op.toInt a =>
+    TermRun.ol do
+      let __do_lift ← TermRun.evalAt env a
+      let x ← TermRun.numOf __do_lift.snd
+      pure (s, CoreLang.Ty.int, [TermRun.cst (WeakMem.Val.num x)])
+  | CoreTerm.Op.asLanes sg w a =>
+    TermRun.ol do
+      let __do_lift ← TermRun.evalAt env a
+      let x ← TermRun.numOf __do_lift.snd
+      pure (s, CoreLang.Ty.lanes sg w, [TermRun.cst (WeakMem.Val.num (x % TermRun.W64))])
+  | CoreTerm.Op.fop o a b =>
+    TermRun.ol do
+      let __x ← TermRun.evalAt env a
+      match __x with
+        | (t, ws) => do
+          let __x ← CoreTerm.fixOf t
+          match __x with
+            | (sg, w) => do
+              let x ← TermRun.numOf ws
+              let __do_lift ← TermRun.evalAt env b
+              let y ← TermRun.numOf __do_lift.snd
+              pure (s, CoreLang.Ty.fix sg w, [TermRun.cst (WeakMem.Val.num (TermRun.fopN sg w o x y))])
+  | CoreTerm.Op.fcmp o a b =>
+    TermRun.ol do
+      let __x ← TermRun.evalAt env a
+      match __x with
+        | (t, ws) => do
+          let __x ← CoreTerm.fixOf t
+          match __x with
+            | (sg, w) => do
+              let x ← TermRun.numOf ws
+              let __do_lift ← TermRun.evalAt env b
+              let y ← TermRun.numOf __do_lift.snd
+              pure (s, CoreLang.Ty.int, [TermRun.cst (WeakMem.Val.num (TermRun.fcmpN sg w o x y))])
+  | CoreTerm.Op.fop1 o a =>
+    TermRun.ol do
+      let __x ← TermRun.evalAt env a
+      match __x with
+        | (t, ws) => do
+          let __x ← CoreTerm.fixOf t
+          match __x with
+            | (sg, w) => do
+              let x ← TermRun.numOf ws
+              pure (s, CoreLang.Ty.fix sg w, [TermRun.cst (WeakMem.Val.num (TermRun.fop1N sg w o x))])
+  | CoreTerm.Op.lane a j =>
+    TermRun.ol do
+      let __x ← TermRun.evalAt env a
+      match __x with
+        | (t, ws) => do
+          let __x ← CoreTerm.lanesOf t
+          match __x with
+            | (sg, w) => do
+              let x ← TermRun.numOf ws
+              let __do_lift ← TermRun.evalAt env j
+              let jj ← TermRun.numOf __do_lift.snd
+              pure (s, CoreLang.Ty.fix sg w, [TermRun.cst (WeakMem.Val.num (TermRun.laneN w x (jj % w.lanes)))])
+  | CoreTerm.Op.setLane a j v =>
+    TermRun.ol do
+      let __x ← TermRun.evalAt env a
+      match __x with
+        | (t, ws) => do
+          let __x ← CoreTerm.lanesOf t
+          match __x with
+            | (sg, w) => do
+              let x ← TermRun.numOf ws
+              let __do_lift ← TermRun.evalAt env j
+              let jj ← TermRun.numOf __do_lift.snd
+              let __do_lift ← TermRun.evalAt env v
+              let y ← TermRun.numOf __do_lift.snd
+              pure (s, CoreLang.Ty.lanes sg w, [TermRun.cst (WeakMem.Val.num (TermRun.setLaneN w x (jj % w.lanes) y))])
+  | CoreTerm.Op.ldl b i =>
+    match TermRun.evalAt env b, TermRun.evalAt env i with
+    | some (t, [pw]), some (fst, iws) =>
+      match TermRun.bufElem t, TermRun.numOf iws, TermRun.addrOf pw with
+      | some (fst, u), some j, some a =>
+        match CoreTerm.lanesOf u with
+        | some (sg, w) =>
+          List.filterMap
+            (fun x =>
+              match x with
+              | (s1, old) =>
+                Option.map
+                  (fun x =>
+                    (s1, CoreLang.Ty.fix sg w, [TermRun.cst (WeakMem.Val.num (TermRun.laneN w x (j % w.lanes)))]))
+                  (TermRun.numOf old))
+            (TermRun.loadUnits g.arch pw (TermRun.offs a (j / w.lanes)) false [TermRun.Acc.one] 0 s)
+        | none => []
+      | x, x_1, x_2 => []
+    | x, x_1 => []
+  | CoreTerm.Op.ldlw b wi jl =>
+    match TermRun.evalAt env b, TermRun.evalAt env wi, TermRun.evalAt env jl with
+    | some (t, [pw]), some (fst, iws), some (fst_1, jws) =>
+      match TermRun.bufElem t, TermRun.numOf iws, TermRun.numOf jws, TermRun.addrOf pw with
+      | some (fst, u), some i, some j, some a =>
+        match CoreTerm.lanesOf u with
+        | some (sg, w) =>
+          List.filterMap
+            (fun x =>
+              match x with
+              | (s1, old) =>
+                Option.map
+                  (fun x =>
+                    (s1, CoreLang.Ty.fix sg w, [TermRun.cst (WeakMem.Val.num (TermRun.laneN w x (j % w.lanes)))]))
+                  (TermRun.numOf old))
+            (TermRun.loadUnits g.arch pw (TermRun.offs a i) false [TermRun.Acc.one] 0 s)
+        | none => []
+      | x, x_1, x_2, x_3 => []
+    | x, x_1, x_2 => []
+  | CoreTerm.Op.stlw b wi jl v =>
+    match TermRun.evalAt env b, TermRun.evalAt env wi, TermRun.evalAt env jl, TermRun.evalAt env v with
+    | some (t, [pw]), some (fst, iws), some (fst_1, jws), some (fst_2, vs) =>
+      match TermRun.bufElem t, TermRun.numOf iws, TermRun.numOf jws, TermRun.numOf vs, TermRun.addrOf pw with
+      | some (fst, u), some i, some j, some y, some a =>
+        match CoreTerm.lanesOf u with
+        | some (fst, w) =>
+          List.flatMap
+            (fun x =>
+              match x with
+              | (s1, old) =>
+                match TermRun.numOf old with
+                | some x =>
+                  List.map (fun s2 => (s2, CoreLang.Ty.unit, []))
+                    (TermRun.storeUnits g.k g.arch pw (TermRun.offs a i) false [TermRun.Acc.one]
+                      [TermRun.cst (WeakMem.Val.num (TermRun.setLaneN w x (j % w.lanes) y))] 0 s1)
+                | none => [])
+            (TermRun.loadUnits g.arch pw (TermRun.offs a i) false [TermRun.Acc.one] 0 s)
+        | none => []
+      | x, x_1, x_2, x_3, x_4 => []
+    | x, x_1, x_2, x_3 => []
+  | CoreTerm.Op.stl b i v =>
+    match TermRun.evalAt env b, TermRun.evalAt env i, TermRun.evalAt env v with
+    | some (t, [pw]), some (fst, iws), some (fst_1, vs) =>
+      match TermRun.bufElem t, TermRun.numOf iws, TermRun.numOf vs, TermRun.addrOf pw with
+      | some (fst, u), some j, some y, some a =>
+        match CoreTerm.lanesOf u with
+        | some (fst, w) =>
+          have a' := TermRun.offs a (j / w.lanes);
+          List.flatMap
+            (fun x =>
+              match x with
+              | (s1, old) =>
+                match TermRun.numOf old with
+                | some x =>
+                  List.map (fun s2 => (s2, CoreLang.Ty.unit, []))
+                    (TermRun.storeUnits g.k g.arch pw a' false [TermRun.Acc.one]
+                      [TermRun.cst (WeakMem.Val.num (TermRun.setLaneN w x (j % w.lanes) y))] 0 s1)
+                | none => [])
+            (TermRun.loadUnits g.arch pw a' false [TermRun.Acc.one] 0 s)
+        | none => []
+      | x, x_1, x_2, x_3 => []
+    | x, x_1, x_2 => []
+  | CoreTerm.Op.endBorrow t => [(s, CoreLang.Ty.unit, [])]
+  | CoreTerm.Op.xchg a v =>
+    match TermRun.evalAt env a, TermRun.evalAt env v with
+    | some (t, [pw]), some (fst, ws) =>
+      match CoreTerm.cellOf t, TermRun.addrOf pw with
+      | some (fst, u), some b =>
+        match TermRun.accs u with
+        | some us =>
+          List.flatMap
+            (fun x =>
+              match x with
+              | (s1, old) => List.map (fun s2 => (s2, u, old)) (TermRun.storeUnits g.k g.arch pw b false us ws 0 s1))
+            (TermRun.loadUnits g.arch pw b false us 0 s)
+        | none => []
+      | x, x_1 => []
+    | x, x_1 => []
+  | CoreTerm.Op.fnptr f =>
+    match List.findIdx? (fun x => x.name == f) g.p, List.find? (fun x => x.name == f) g.p with
+    | some i, some d => [(s, d.argTy.code d.retTy, [TermRun.cst (WeakMem.Val.num i)])]
+    | x, x_1 => []
+  | CoreTerm.Op.callc f a => []
+  | CoreTerm.Op.rem a n =>
+    TermRun.ol do
+      let __x ← TermRun.evalAt env a
+      match __x with
+        | (fst, ws) => do
+          let __x ← TermRun.evalAt env n
+          match __x with
+            | (fst, ns) => do
+              let x ← TermRun.numOf ws
+              let m ← TermRun.numOf ns
+              if (m == 0) = true then none else pure (s, CoreLang.Ty.int, [TermRun.cst (WeakMem.Val.num (x % m))])
+  | CoreTerm.Op.nameI a =>
+    TermRun.ol
+      (Option.map
+        (fun x =>
+          match x with
+          | (t, ws) => (s, t, ws))
+        (TermRun.evalAt env a))
+  | CoreTerm.Op.xchgAt b i v =>
+    match TermRun.evalAt env b, TermRun.evalAt env i, TermRun.evalAt env v with
+    | some (t, [pw]), some (fst, iws), some (fst_1, xs) =>
+      match TermRun.bufElem t, TermRun.numOf iws, TermRun.addrOf pw with
+      | some (fst, u), some j, some a =>
+        match TermRun.accs u with
+        | some us =>
+          have a' := TermRun.offs a (j * TermRun.nWords us);
+          List.flatMap
+            (fun x =>
+              match x with
+              | (s1, old) => List.map (fun s2 => (s2, u, old)) (TermRun.storeUnits g.k g.arch pw a' false us xs 0 s1))
+            (TermRun.loadUnits g.arch pw a' false us 0 s)
+        | none => []
+      | x, x_1, x_2 => []
+    | x, x_1, x_2 => []
+  | CoreTerm.Op.loadAt b i =>
+    match TermRun.evalAt env b, TermRun.evalAt env i with
+    | some (t, [pw]), some (fst, iws) =>
+      match TermRun.bufElem t, TermRun.numOf iws, TermRun.addrOf pw with
+      | some (fst, u), some j, some a =>
+        match TermRun.accs u with
+        | some us =>
+          List.map
+            (fun x =>
+              match x with
+              | (s1, old) => (s1, u, old))
+            (TermRun.loadUnits g.arch pw (TermRun.offs a (j * TermRun.nWords us)) false us 0 s)
+        | none => []
+      | x, x_1, x_2 => []
+    | x, x_1 => []
+  | CoreTerm.Op.bits o a b =>
+    TermRun.ol do
+      let __do_lift ← TermRun.evalAt env a
+      let x ← TermRun.numOf __do_lift.snd
+      let __do_lift ← TermRun.evalAt env b
+      let y ← TermRun.numOf __do_lift.snd
+      pure (s, CoreLang.Ty.int, [TermRun.cst (WeakMem.Val.num (TermRun.bitN o x y))])
+  | CoreTerm.Op.bit1 o a =>
+    TermRun.ol do
+      let __do_lift ← TermRun.evalAt env a
+      let x ← TermRun.numOf __do_lift.snd
+      pure (s, CoreLang.Ty.int, [TermRun.cst (WeakMem.Val.num (TermRun.bit1N o x))])
+  | CoreTerm.Op.vmatch lo hi b =>
+    TermRun.ol do
+      let __do_lift ← TermRun.evalAt env lo
+      let x ← TermRun.numOf __do_lift.snd
+      let __do_lift ← TermRun.evalAt env hi
+      let y ← TermRun.numOf __do_lift.snd
+      let __do_lift ← TermRun.evalAt env b
+      let z ← TermRun.numOf __do_lift.snd
+      pure (s, CoreLang.Ty.int, [TermRun.cst (WeakMem.Val.num (TermRun.vmatchN x y z))])
+  | CoreTerm.Op.band a m =>
+    TermRun.ol do
+      let __do_lift ← TermRun.evalAt env a
+      let x ← TermRun.numOf __do_lift.snd
+      let __do_lift ← TermRun.evalAt env m
+      let y ← TermRun.numOf __do_lift.snd
+      pure (s, CoreLang.Ty.int, [TermRun.cst (WeakMem.Val.num (x % TermRun.W64 &&& y))])
+  | CoreTerm.Op.zero τ =>
+    TermRun.ol
+      (have τ' := TermRun.close σs τ;
+      do
+      let z ← TermRun.zeroWords τ'
+      pure (s, τ', List.map TermRun.cst z))
+  | CoreTerm.Op.xchgAtF b i p v =>
+    match TermRun.evalAt env b, TermRun.evalAt env i, TermRun.evalAt env v with
+    | some (t, [pw]), some (fst, iws), some (fst_1, xs) =>
+      match TermRun.bufElem t, TermRun.numOf iws, TermRun.addrOf pw with
+      | some (fst, u), some j, some a =>
+        match TermRun.accs u, TermRun.compOff u p with
+        | some us, some (c, o) =>
+          match TermRun.accs c with
+          | some cs =>
+            have a' := TermRun.offs a (j * TermRun.nWords us + o);
+            List.flatMap
+              (fun x =>
+                match x with
+                | (s1, old) => List.map (fun s2 => (s2, c, old)) (TermRun.storeUnits g.k g.arch pw a' false cs xs 0 s1))
+              (TermRun.loadUnits g.arch pw a' false cs 0 s)
+          | none => []
+        | x, x_1 => []
+      | x, x_1, x_2 => []
+    | x, x_1, x_2 => []
+  | CoreTerm.Op.loadAtF b i p =>
+    match TermRun.evalAt env b, TermRun.evalAt env i with
+    | some (t, [pw]), some (fst, iws) =>
+      match TermRun.bufElem t, TermRun.numOf iws, TermRun.addrOf pw with
+      | some (fst, u), some j, some a =>
+        match TermRun.accs u, TermRun.compOff u p with
+        | some us, some (c, o) =>
+          match TermRun.accs c with
+          | some cs =>
+            List.map
+              (fun x =>
+                match x with
+                | (s1, old) => (s1, c, old))
+              (TermRun.loadUnits g.arch pw (TermRun.offs a (j * TermRun.nWords us + o)) false cs 0 s)
+          | none => []
+        | x, x_1 => []
+      | x, x_1, x_2 => []
+    | x, x_1 => []
+  | CoreTerm.Op.newBuf n τ =>
+    TermRun.ol do
+      let __x ← TermRun.evalAt env n
+      match __x with
+        | (fst, ws) => do
+          let k ← TermRun.numOf ws
+          have τ' : CoreLang.Ty := TermRun.close σs τ
+          let us ← TermRun.accs τ'
+          have w : Nat := TermRun.nWords us
+          have z : Option (List WeakMem.Val) :=
+            if CoreLang.zeroableIn [] [] τ' = true then TermRun.zeroWords τ' else none
+          have lbl : WeakMem.AllocLabel := TermRun.freshLabel g.lbase g.n g.i s.nalloc
+          match TermRun.allocBuf lbl (k * w) z s with
+            | (s', pw) =>
+              have ini := if z.isSome = true then k else 0;
+              pure
+                (s',
+                  (CoreLang.Ty.loc CoreLang.Mode.own (CoreLang.Ty.array (CoreLang.Idx.lit k) τ')).refine
+                    (CoreLang.Pred.ini (CoreLang.Idx.lit ini)),
+                  [pw])
+  | CoreTerm.Op.idx b i =>
+    TermRun.ol do
+      let __x ← TermRun.evalAt env b
+      match __x with
+        | (t, ws) =>
+          have __do_jp := fun pw => do
+            let __x ← TermRun.evalAt env i
+            match __x with
+              | (fst, iws) => do
+                let j ← TermRun.numOf iws
+                let __x ← TermRun.bufElem t
+                match __x with
+                  | (μ, u) => do
+                    let w ← TermRun.nWords <$> TermRun.accs u
+                    match pw.val with
+                      | WeakMem.Val.loc a gg =>
+                        pure
+                          (s, CoreLang.Ty.loc μ u,
+                            [{ val := WeakMem.Val.loc (TermRun.offs a (j * w)) gg, view := pw.view, rts := pw.rts }])
+                      | x => none;
+          match ws with
+          | [w] => do
+            let pw ← some w
+            __do_jp pw
+          | x => do
+            let pw ← none
+            __do_jp pw
+  | CoreTerm.Op.bufInit b i x =>
+    match TermRun.evalAt env b, TermRun.evalAt env i, TermRun.evalAt env x with
+    | some (t, [pw]), some (fst, iws), some (fst_1, xs) =>
+      match TermRun.bufElem t, TermRun.numOf iws, TermRun.addrOf pw with
+      | some (fst, u), some j, some a =>
+        match TermRun.accs u, t with
+        | some us, (CoreLang.Ty.loc μ (CoreLang.Ty.array n τ)).refine ψ =>
+          List.map
+            (fun s' =>
+              (s', (CoreLang.Ty.loc μ (CoreLang.Ty.array n u)).refine (CoreLang.Pred.ini (CoreLang.Idx.lit (j + 1))),
+                [pw]))
+            (TermRun.storeUnits g.k g.arch pw (TermRun.offs a (j * TermRun.nWords us)) false us xs 0 s)
+        | x, x_1 => []
+      | x, x_1, x_2 => []
+    | x, x_1, x_2 => []
+TermRun.fcmpN : Bool → CoreLang.Wd → CoreTerm.FCmp → Nat → Nat → Nat
+TermRun.fenceS : TermRun.St → WeakMem.Fence → TermRun.St
+TermRun.fetchRtTy : CoreLang.Ty → CoreLang.Ty
+TermRun.fop1N : Bool → CoreLang.Wd → CoreTerm.FOp1 → Nat → Nat
+TermRun.fopN : Bool → CoreLang.Wd → CoreTerm.FOp → Nat → Nat → Nat
+TermRun.freshLabel : Nat → Nat → Nat → Nat → WeakMem.AllocLabel
+TermRun.injM : TermRun.G → TermRun.St → CoreLang.Ty → Nat → List TermRun.Word → List (TermRun.St × List TermRun.Word)
+TermRun.laneN : CoreLang.Wd → Nat → Nat → Nat
+TermRun.loadUnits : WeakMem.Arch →
+  TermRun.Word → WeakMem.Address → Bool → List TermRun.Acc → Nat → TermRun.St → List (TermRun.St × List TermRun.Word)
+TermRun.lookupE : TermRun.Env → String → Option (CoreLang.Ty × List TermRun.Word)
+TermRun.mth : TermRun.St → TermRun.Word → TermRun.Word → TermRun.Word → Promises.Thread
+TermRun.nWords : List TermRun.Acc → Nat
+TermRun.numOf : List TermRun.Word → Option Nat
+TermRun.offs : WeakMem.Address → Nat → WeakMem.Address
+TermRun.ol : {α : Type} → Option α → List α
+TermRun.projM : TermRun.G → TermRun.St → CoreLang.Ty → List TermRun.Word → List (TermRun.St × Nat × List TermRun.Word)
+TermRun.setLaneN : CoreLang.Wd → Nat → Nat → Nat → Nat
+TermRun.storeUnits : Promises.Knobs →
+  WeakMem.Arch →
+    TermRun.Word → WeakMem.Address → Bool → List TermRun.Acc → List TermRun.Word → Nat → TermRun.St → List TermRun.St
+TermRun.subW : TermRun.Word → TermRun.Word → TermRun.Word
+TermRun.toWFence : CoreTerm.Fence → WeakMem.Fence
+TermRun.vmatchN : Nat → Nat → Nat → Nat
+TermRun.zeroWords : CoreLang.Ty → Option (List WeakMem.Val)
+WeakMem.Address : Type
+WeakMem.AllocLabel : Type
+WeakMem.Fence.st : WeakMem.Fence
+WeakMem.Memory : Type
+WeakMem.Reg : Type
+WeakMem.Val : Type
+WeakMem.Val.loc : WeakMem.Address → Nat → WeakMem.Val
+WeakMem.Val.null : WeakMem.Val
+WeakMem.Val.num : Nat → WeakMem.Val

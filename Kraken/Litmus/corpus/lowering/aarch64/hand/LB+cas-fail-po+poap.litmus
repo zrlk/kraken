@@ -1,0 +1,13 @@
+AArch64 LB+cas-fail-po+poap
+"LB: failing CAS reads x (comparand 2) then STR y; P1 LDAR y then STR x. A failing CASA still acquires"
+{
+0:X1=x; 0:X3=y;
+1:X1=x; 1:X3=y;
+}
+ P0             | P1           ;
+ MOV W0,#2      | LDAR W0,[X3] ;
+ MOV W2,#3      | MOV W4,#1    ;
+ CAS W0,W2,[X1] | STR W4,[X1]  ;
+ MOV W4,#1      |              ;
+ STR W4,[X3]    |              ;
+exists (0:X0=1 /\ 1:X0=1)

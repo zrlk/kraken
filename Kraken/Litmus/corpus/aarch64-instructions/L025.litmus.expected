@@ -1,0 +1,10 @@
+Test L025 Required
+States 1
+0:X9=4; 1:X9=5;
+Ok
+Witnesses
+Positive: 1 Negative: 0
+Condition forall (0:X9=4 /\ 1:X9=5)
+Observation L025 Always 1 0
+Hash=f7fcb4a949f25b60342d28cd60d4b4ad
+

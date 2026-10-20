@@ -1,0 +1,11 @@
+Test MP+dmb+addr-CAS-rfi-LDR-addr Allowed
+States 3
+1:X0=0; 1:X5=1; 1:X10=0;
+1:X0=0; 1:X5=1; 1:X10=1;
+1:X0=1; 1:X5=1; 1:X10=1;
+No
+Witnesses
+Positive: 0 Negative: 6
+Condition exists (1:X0=1 /\ 1:X5=1 /\ 1:X10=0)
+Observation MP+dmb+addr-CAS-rfi-LDR-addr Never 0 6
+

@@ -1,0 +1,85 @@
+X86_64 MSQueue3
+(* Michael-Scott queue on x86-TSO (see msqueue2.kl for the code shape):
+   one enqueuer (P0) enqueues n1 then n2; two dequeuers (P1, P2) each
+   dequeue once, result in r12. A dequeuer returns 0 when it observes the
+   queue empty (head == tail and head.next == 0) and retries only on
+   contention, so every thread terminates; this keeps the exploration
+   much smaller than two spinning dequeuers (which does not finish in 15
+   minutes).
+   Property: with a, b the two results, (a, b) is one of (n1, n2),
+   (n2, n1), (n1, 0), (0, n1), (0, 0): no node is dequeued twice, and n2
+   is never dequeued unless n1 was (nothing lost, FIFO). Threads are not
+   interchangeable: no -sym.
+   Proved for every layout of the runner's image, the code verbatim
+   (`decls = {}`): `MsQueue3X.x64_msqueue3_envG_verbatim`
+   (Promising/SLR/EnvG/X64MsQueue3Public.lean). Proved from the runner's
+   exact configuration (declarations and initial memory included):
+   `MsQueue3X.x64_msqueue3_envG_runner` (X64MsQueue3Runner.lean), with a
+   `.Concrete` instance.
+   The shared symbols are typed (`uint64_t`) so that the runner declares
+   them as sized locations at the width of the code's accesses (DECLS): the
+   runner's declarations then agree with the proofs'
+   locations. The code block and the verdict are unchanged.
+   Proved (fault freedom at the runner's declarations, MEMVALS):
+   `MsQueueX.x64_msqueue3_envG_runner_faultFree`
+   (Promising/SLR/EnvG/MemValsMsQueue.lean), with a `.Concrete` instance.
+# flags: -fuel 300
+# expect: Always
+# slow
+*)
+{
+uint64_t s=0; uint64_t n1=0; uint64_t n2=0; uint64_t head=s; uint64_t tail=s;
+}
+threads { P0: enqueuer edone; P1: dequeuer ddone; P2: dequeuer ddone; }
+code {
+enqueuer:
+  movq $n1,%rsi
+enq:
+  movq (tail),%rbx
+  movq (%rbx),%rcx
+  cmpq %rbx,(tail)
+  jne enq
+  testq %rcx,%rcx
+  jne enq_swing
+  xorl %eax,%eax
+  lock cmpxchgq %rsi,(%rbx)
+  jne enq
+  movq %rbx,%rax
+  lock cmpxchgq %rsi,(tail)
+  movq $n2,%rax
+  cmpq %rax,%rsi
+  je edone
+  movq %rax,%rsi
+  jmp enq
+enq_swing:
+  movq %rbx,%rax
+  lock cmpxchgq %rcx,(tail)
+  jmp enq
+edone:
+
+dequeuer:
+deq:
+  movq (head),%rbx
+  movq (tail),%rdx
+  movq (%rbx),%rcx
+  cmpq %rbx,(head)
+  jne deq
+  cmpq %rbx,%rdx
+  jne deq_pop
+  testq %rcx,%rcx
+  je deq_empty
+  movq %rbx,%rax
+  lock cmpxchgq %rcx,(tail)
+  jmp deq
+deq_pop:
+  movq %rbx,%rax
+  lock cmpxchgq %rcx,(head)
+  jne deq
+  movq %rcx,%r12
+  jmp ddone
+deq_empty:
+  xorl %r12d,%r12d
+  jmp ddone
+ddone:
+}
+forall ((1:r12=n1 /\ 2:r12=n2) \/ (1:r12=n2 /\ 2:r12=n1) \/ (1:r12=n1 /\ 2:r12=0) \/ (1:r12=0 /\ 2:r12=n1) \/ (1:r12=0 /\ 2:r12=0))

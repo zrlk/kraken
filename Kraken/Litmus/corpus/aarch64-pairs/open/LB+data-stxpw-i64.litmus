@@ -1,0 +1,14 @@
+AArch64 LB+data-stxpw-i64
+"STXP of two W registers read from x, on one 8-byte location (a true data dependency): herd reads the data register with read_reg_ord and allows LB, which needs the stored value before the load that produces it; Kraken's Promising machine certifies promises without value speculation and forbids it (open issue)"
+{
+uint64_t f;
+int x;
+0:X5=f; 0:X1=x; 1:X5=f; 1:X1=x;
+int 0:X0; uint64_t 1:X2;
+}
+P0                   | P1               ;
+LDR W0,[X1]          | LDR X2,[X5]      ;
+LDXP W6,W7,[X5]      | DMB SY           ;
+STXP W8,W0,W0,[X5]   | MOV W4,#1        ;
+                     | STR W4,[X1]      ;
+exists (0:X0=1 /\ 1:X2=0x100000001)

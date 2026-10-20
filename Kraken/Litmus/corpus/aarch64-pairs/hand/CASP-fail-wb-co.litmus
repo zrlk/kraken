@@ -1,0 +1,14 @@
+AArch64 CASP-fail-wb-co
+"A failing CASPL: herd's write-back branch adds no outcome"
+{
+uint64_t t[2];
+0:X4=t; 1:X4=t; 2:X4=t;
+uint64_t 0:X0; uint64_t 0:X1;
+}
+P0                       | P1           | P2            ;
+MOV X0,#7                | MOV X1,#1    | MOV X1,#2     ;
+MOV X1,#7                | STR X1,[X4]  | STR X1,[X4,#8];
+MOV X2,#3                |              |               ;
+MOV X3,#3                |              |               ;
+CASPL X0,X1,X2,X3,[X4]   |              |               ;
+exists (0:X0=1 /\ 0:X1=2 /\ t={1,2})

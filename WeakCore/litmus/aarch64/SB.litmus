@@ -1,0 +1,10 @@
+AArch64 SB
+{
+0:X14=x; 0:X15=y;
+1:X14=y; 1:X15=x;
+}
+ P0           | P1           ;
+ MOV W8,#1    | MOV W8,#1    ;
+ STR W8,[X14] | STR W8,[X14] ;
+ LDR W0,[X15] | LDR W0,[X15] ;
+exists (0:X0=0 /\ 1:X0=0)

@@ -1,6 +1,6 @@
 name = "Kraken"
 version = "0.1.0"
-defaultTargets = ["Kraken", "KrakenAArch64", "krakenrunner_x64", "krakenrunner_aarch64", "att2intel"]
+defaultTargets = ["Kraken", "KrakenAArch64", "krakenrunner_x64", "krakenrunner_aarch64", "att2intel", "krakenlitmus_aarch64", "krakenlitmus_x64"]
 
 [leanOptions]
 autoImplicit = false
@@ -29,3 +29,25 @@ root = "KrakenRunnerAArch64"
 [[lean_exe]]
 name = "att2intel"
 root = "Att2Intel"
+
+[[lean_exe]]
+name = "krakenlitmus_aarch64"
+root = "KrakenLitmusAArch64"
+
+[[lean_exe]]
+name = "krakenlitmus_x64"
+root = "KrakenLitmusX64"
+
+# Checker comparison tools: the main explorer against the prototype
+# checker (`Kraken/Litmus/CheckerCompare.lean`); not default targets.
+[[lean_exe]]
+name = "checkercompare_aarch64"
+root = "CheckerCompareAArch64"
+
+[[lean_exe]]
+name = "checkercompare_x64"
+root = "CheckerCompareX64"
+
+[[lean_lib]]
+name = "WeakCore"
+globs = ["WeakCore.*"]

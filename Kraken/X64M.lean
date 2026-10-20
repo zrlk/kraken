@@ -44,6 +44,7 @@ inductive X64Exit
   | unimplemented (msg : String)
   | nonmemLoad (dmem : DataMem) (addr : BitVec 64) (w : Width)
   | nonmemStore (dmem : DataMem) (addr : BitVec 64) (w : Width)
+  | nonmemRmw (dmem : DataMem) (addr : BitVec 64) (w : Width)
   | undefinedFlags
   deriving Repr
 
@@ -68,6 +69,20 @@ def MachineData.storeM (addr : BitVec 64) {w : Width} (v : w.type) : MachineM Un
   | .some _ => MonadStateOf.set { s with dmem := Mem.storeInt s.dmem addr w.bytes v.toInt }
   | .none => throw (.nonmemStore s.dmem addr w)
 
+-- A locked read-modify-write inside the mapped data memory is the load followed
+-- by the store; outside it, straightline execution throws.
+def MachineData.rmwM (addr : BitVec 64) (w : Width) (op : w.type → Option w.type) :
+    MachineM w.type := do
+  let s ← get
+  match Mem.loadInt s.dmem addr w.bytes with
+  | .some i =>
+    let old : w.type := .ofInt _ i
+    match op old with
+    | .some new => MonadStateOf.set { s with dmem := Mem.storeInt s.dmem addr w.bytes new.toInt }
+    | .none => pure ()
+    pure old
+  | .none => throw (.nonmemRmw s.dmem addr w)
+
 def RegOrMem.interpM {w} (o : RegOrMem w) (p : Std.Rco Int64) : MachineM w.type := do
   match o with
   | .reg r => return (← get).regs.get r
@@ -77,6 +92,26 @@ def MachineData.setM {w} (d : Dst w) (v : w.type) (p : Std.Rco Int64) : MachineM
   match d with
   | .reg r => modify (·.setReg r v)
   | .mem a => MachineData.storeM ((@AddrExpr.interp labels address_size a (← get).regs p).zeroExtend _) v
+
+def RegOrMem.rmwM {w} (o : RegOrMem w) (lock : Bool) (p : Std.Rco Int64)
+    (op : w.type → Option w.type) : MachineM w.type := do
+  match o with
+  | .reg r =>
+    let s ← get
+    let old := s.regs.get r
+    match op old with
+    | .some new => MonadStateOf.set (s.setReg r new)
+    | .none => pure ()
+    pure old
+  | .mem a =>
+    let addr := (@AddrExpr.interp labels address_size a (← get).regs p).zeroExtend 64
+    if lock then MachineData.rmwM addr w op
+    else
+      let old ← MachineData.loadM addr w
+      match op old with
+      | .some new => MachineData.storeM addr new
+      | .none => pure ()
+      pure old
 
 def Operand.interpM {w} (o : Operand w) (p : Std.Rco Int64) : MachineM w.type := do
   match o with
@@ -259,11 +294,58 @@ def Operation.interpM {w} (i : Operation w) (p : Std.Rco Int64) : MachineM Unit 
     modify (fun s => { s with regs := s.regs.set64 .rsp (rsp + 8) })
     throw (.jump (.ofBitVec ra))
   | nop _ | nopalign _ _ => pure ()
+  -- Atomics and barriers
+  | .lockBin op dst src =>
+    match op with
+    | .add | .sub =>
+      let b ← src.interpM labels address_size p
+      let addr := (@AddrExpr.interp labels address_size dst (← get).regs p).zeroExtend 64
+      let a ← MachineData.rmwM addr w (fun a => some (op.eval a b))
+      modify (fun s => { s with status := op.status a b (op.eval a b) false })
+    -- The logic operations leave `AF` undefined.
+    | .and | .or | .xor => throw .undefinedFlags
+  | .lockUn op dst =>
+    let addr := (@AddrExpr.interp labels address_size dst (← get).regs p).zeroExtend 64
+    let a ← MachineData.rmwM addr w (fun a => some (op.eval a))
+    modify (fun s => { s with status := op.status a (op.eval a) s.status })
+  | .xchg r m =>
+    let v := (← get).regs.get r
+    let old ← m.rmwM labels address_size true p (fun _ => some v)
+    modify (·.setReg r old)
+  | .xadd lock dst src =>
+    let b := (← get).regs.get src
+    match dst with
+    | .reg r =>
+      let s ← get
+      let a := s.regs.get r
+      let v := a + b
+      set { (s.setReg src a).setReg r v with status := LockBinOp.add.status a b v false }
+    | .mem addr =>
+      let a ← (RegOrMem.mem addr).rmwM labels address_size lock p (fun a => some (a + b))
+      modify (fun s => { s.setReg src a with status := LockBinOp.add.status a b (a + b) false })
+  | .cmpxchg lock dst src =>
+    let s ← get
+    let acc := s.regs.get (.low .rax w)
+    let v := s.regs.get src
+    let a ← dst.rmwM labels address_size lock p (fun a => if a == acc then some v else none)
+    let d := acc - a
+    let status := StatusFlags.from_result d {
+      cf := d.unsigned != acc.unsigned - a.unsigned
+      af := (d.take 4).unsigned != (acc.take 4).unsigned - (a.take 4).unsigned,
+      of := d.signed != acc.signed - a.signed }
+    modify (fun s =>
+      let s := if a == acc then s else s.setReg (.low .rax w) a
+      { s with status })
+  | .mfence | .lfence | .sfence => pure ()
+  -- sequentially an ordinary store
+  | .movnti dst src =>
+    let v := (← get).regs.get src
+    MachineData.setM labels address_size (.mem dst) v p
   -- TODO: the following instructions leave some status flags undefined; the
   -- straightline model throws rather than committing to a nondeterministic value.
   | .mul .. | .imul1 .. | .imul .. | .test .. | .and .. | .or .. | .xor ..
   | .shl .. | .shr .. | .sar .. | .shld .. | .shrd ..
-  | .rol .. | .ror .. | .rcl .. | .rcr .. => throw .undefinedFlags
+  | .rol .. | .ror .. | .rcl .. | .rcr .. | .tzcnt .. => throw .undefinedFlags
 
 end InterpM
 
@@ -302,6 +384,7 @@ partial def Executable.evalM (e : Executable) (s : MachineState) (until_ : Machi
   | .error (.unimplemented msg) _ => .error msg
   | .error (.nonmemLoad _ addr _) _ => .error s!"Load at unmapped address {repr addr}"
   | .error (.nonmemStore _ addr _) _ => .error s!"Store at unmapped address {repr addr}"
+  | .error (.nonmemRmw _ addr _) _ => .error s!"Read-modify-write at unmapped address {repr addr}"
   | .error .undefinedFlags _ => .error "undefined flags encountered"
 
 /-- info: Except.ok 42 -/
@@ -481,6 +564,111 @@ def pop (dst : Dst .W64) : X64M D Unit := do
     | none => liftM (throw (.nonmemLoad s.dmem rsp .W64) : SysM D Unit)
   | _ => liftM (throw (.unimplemented "pop") : SysM D Unit)
 
+/-! Atomics and barriers, at 64 bits with a memory destination. On mapped memory
+a read-modify-write is the load followed by the store (`MachineData.rmwM`); an
+unmapped address throws `nonmemRmw` when locked, and `nonmemLoad` (the first of
+the two plain accesses) when not. The barriers are no-ops in a straightline run;
+the weak-memory layer (`Kraken/Promising`) is what gives them a meaning. -/
+
+/-- `xchg %r, (m)`, locked whether or not the prefix is written: `r` receives the
+old value. -/
+def xchg (r : Reg .W64) (m : RegOrMem .W64) : X64M D Unit := do
+  match r, m with
+  | .low r _, .mem ae =>
+    let addr ← evalAddr ae
+    let s ← getMachine
+    match Mem.loadInt s.dmem addr 8 with
+    | some i =>
+      modifyMachine (fun s => { s with
+        regs := s.regs.set64 r (BitVec.ofInt 64 i),
+        dmem := Mem.storeInt s.dmem addr 8 (s.regs.get64 r).toInt })
+    | none => liftM (throw (.nonmemRmw s.dmem addr .W64) : SysM D Unit)
+  | _, _ => liftM (throw (.unimplemented "xchg") : SysM D Unit)
+
+/-- `lock add`/`lock sub` of an immediate or a register into memory. The logic
+operations leave `AF` undefined, so (like `xor`) they throw `undefinedFlags`. -/
+def lockBin (op : LockBinOp) (dst : AddrExpr) (src : Operand .W64) : X64M D Unit := do
+  match op with
+  | .add | .sub =>
+    let b? : Option (MachineData → BitVec 64) := match src with
+      | .imm (.int64 i) => some (fun _ => BitVec.setWidth 64 i.toBitVec)
+      | .regOrMem (.reg (.low rs _)) => some (fun s => s.regs.get64 rs)
+      | _ => none
+    match b? with
+    | some b =>
+      let addr ← evalAddr dst
+      let s ← getMachine
+      match Mem.loadInt s.dmem addr 8 with
+      | some i =>
+        modifyMachine (fun s => { s with
+          status := op.status (BitVec.ofInt 64 i) (b s) (op.eval (BitVec.ofInt 64 i) (b s)) false,
+          dmem := Mem.storeInt s.dmem addr 8 (op.eval (BitVec.ofInt 64 i) (b s)).toInt })
+      | none => liftM (throw (.nonmemRmw s.dmem addr .W64) : SysM D Unit)
+    | none => liftM (throw (.unimplemented "lockBin") : SysM D Unit)
+  | .and | .or | .xor => liftM (throw .undefinedFlags : SysM D Unit)
+
+/-- `lock inc/dec/neg/not` of memory. -/
+def lockUn (op : LockUnOp) (dst : AddrExpr) : X64M D Unit := do
+  let addr ← evalAddr dst
+  let s ← getMachine
+  match Mem.loadInt s.dmem addr 8 with
+  | some i =>
+    modifyMachine (fun s => { s with
+      status := op.status (BitVec.ofInt 64 i) (op.eval (BitVec.ofInt 64 i)) s.status,
+      dmem := Mem.storeInt s.dmem addr 8 (op.eval (BitVec.ofInt 64 i)).toInt })
+  | none => liftM (throw (.nonmemRmw s.dmem addr .W64) : SysM D Unit)
+
+/-- `[lock] xadd %r, (m)`: memory receives the sum, `r` the old value. -/
+def xadd (lock : Bool) (dst : RegOrMem .W64) (src : Reg .W64) : X64M D Unit := do
+  match dst, src with
+  | .mem ae, .low rs _ =>
+    let addr ← evalAddr ae
+    let s ← getMachine
+    match Mem.loadInt s.dmem addr 8 with
+    | some i =>
+      modifyMachine (fun s => { s with
+        regs := s.regs.set64 rs (BitVec.ofInt 64 i),
+        status := LockBinOp.add.status (BitVec.ofInt 64 i) (s.regs.get64 rs)
+          (BitVec.ofInt 64 i + s.regs.get64 rs) false,
+        dmem := Mem.storeInt s.dmem addr 8 (BitVec.ofInt 64 i + s.regs.get64 rs).toInt })
+    | none =>
+      liftM (throw (if lock then .nonmemRmw s.dmem addr .W64 else .nonmemLoad s.dmem addr .W64)
+        : SysM D Unit)
+  | _, _ => liftM (throw (.unimplemented "xadd") : SysM D Unit)
+
+/-- The flags of `cmpxchg`: those of `cmp` of the accumulator with the old value. -/
+def cmpxchgStatus (acc old : BitVec 64) : StatusFlags :=
+  StatusFlags.from_result (acc - old) {
+    cf := (acc - old).unsigned != acc.unsigned - old.unsigned
+    af := ((acc - old).take 4).unsigned != (acc.take 4).unsigned - (old.take 4).unsigned,
+    of := (acc - old).signed != acc.signed - old.signed }
+
+/-- `[lock] cmpxchg %r, (m)`: if the old value equals `rax`, memory receives `r`;
+otherwise `rax` receives the old value. -/
+def cmpxchg (lock : Bool) (dst : RegOrMem .W64) (src : Reg .W64) : X64M D Unit := do
+  match dst, src with
+  | .mem ae, .low rs _ =>
+    let addr ← evalAddr ae
+    let s ← getMachine
+    match Mem.loadInt s.dmem addr 8 with
+    | some i =>
+      modifyMachine (fun s =>
+        if BitVec.ofInt 64 i == s.regs.get64 .rax then
+          { s with
+            status := cmpxchgStatus (s.regs.get64 .rax) (BitVec.ofInt 64 i),
+            dmem := Mem.storeInt s.dmem addr 8 (s.regs.get64 rs).toInt }
+        else
+          { s with
+            regs := s.regs.set64 .rax (BitVec.ofInt 64 i),
+            status := cmpxchgStatus (s.regs.get64 .rax) (BitVec.ofInt 64 i) })
+    | none =>
+      liftM (throw (if lock then .nonmemRmw s.dmem addr .W64 else .nonmemLoad s.dmem addr .W64)
+        : SysM D Unit)
+  | _, _ => liftM (throw (.unimplemented "cmpxchg") : SysM D Unit)
+
+/-- `mfence`, `lfence`, `sfence`. -/
+def fence : X64M D Unit := pure ()
+
 /-- Dispatch a decoded operation to its encoded primitive, resolving a jump's
 label against the environment. An operation or operand shape without an encoding
 throws `unimplemented`. -/
@@ -495,6 +683,12 @@ def exec (op : Operation .W64) : X64M D Unit :=
   | .push src => push src
   | .pop dst => pop dst
   | .jcc cc l => do let env ← read; jcc cc (env.labels.label l)
+  | .xchg r m => xchg r m
+  | .lockBin op dst src => lockBin op dst src
+  | .lockUn op dst => lockUn op dst
+  | .xadd lock dst src => xadd lock dst src
+  | .cmpxchg lock dst src => cmpxchg lock dst src
+  | .mfence | .lfence | .sfence => fence
   | _ => liftM (throw (.unimplemented "exec") : SysM D Unit)
 
 end Op
@@ -723,6 +917,146 @@ device component survives. -/
       Op.pop (.reg (.low dst .W64)) ⦃ Q; E ⦄ := by
   sym =>
     vcgen [Op.pop, getMachine, modifyMachine]
+    all_goals finish
+
+/-! ### Atomics and barriers
+
+The single-threaded meaning: a read-modify-write of mapped memory is its load
+and store. -/
+
+@[spec] theorem Op.xchg_reg_mem_spec (r : Reg64) (ae : AddrExpr) (v : Int) :
+    ⦃ fun env rip s =>
+        (Mem.loadInt s.machine.dmem (AddrExpr.interp64 env.labels ae s.machine.regs (.mk rip (rip + Int64.ofNat env.curSize))) 8 = some v) ⊓
+        Q () env rip { s with machine := { s.machine with
+          regs := s.machine.regs.set64 r (BitVec.ofInt 64 v)
+          dmem := Mem.storeInt s.machine.dmem (AddrExpr.interp64 env.labels ae s.machine.regs (.mk rip (rip + Int64.ofNat env.curSize))) 8
+            (s.machine.regs.get64 r).toInt } } ⦄
+      Op.xchg (.low r .W64) (.mem ae) ⦃ Q; E ⦄ := by
+  sym =>
+    vcgen [Op.xchg, evalAddr, getMachine, modifyMachine]
+    all_goals finish
+
+@[spec] theorem Op.lockBin_add_imm_spec (ae : AddrExpr) (i : Int64) (v : Int) :
+    ⦃ fun env rip s =>
+        (Mem.loadInt s.machine.dmem (AddrExpr.interp64 env.labels ae s.machine.regs (.mk rip (rip + Int64.ofNat env.curSize))) 8 = some v) ⊓
+        Q () env rip { s with machine := { s.machine with
+          status := LockBinOp.add.status (BitVec.ofInt 64 v) (BitVec.setWidth 64 i.toBitVec)
+            (BitVec.ofInt 64 v + BitVec.setWidth 64 i.toBitVec) false
+          dmem := Mem.storeInt s.machine.dmem (AddrExpr.interp64 env.labels ae s.machine.regs (.mk rip (rip + Int64.ofNat env.curSize))) 8
+            (BitVec.ofInt 64 v + BitVec.setWidth 64 i.toBitVec).toInt } } ⦄
+      Op.lockBin .add ae (.imm (.int64 i)) ⦃ Q; E ⦄ := by
+  sym =>
+    vcgen [Op.lockBin, evalAddr, getMachine, modifyMachine]
+    all_goals finish [LockBinOp.eval]
+
+@[spec] theorem Op.lockBin_add_reg_spec (ae : AddrExpr) (rs : Reg64) (v : Int) :
+    ⦃ fun env rip s =>
+        (Mem.loadInt s.machine.dmem (AddrExpr.interp64 env.labels ae s.machine.regs (.mk rip (rip + Int64.ofNat env.curSize))) 8 = some v) ⊓
+        Q () env rip { s with machine := { s.machine with
+          status := LockBinOp.add.status (BitVec.ofInt 64 v) (s.machine.regs.get64 rs)
+            (BitVec.ofInt 64 v + s.machine.regs.get64 rs) false
+          dmem := Mem.storeInt s.machine.dmem (AddrExpr.interp64 env.labels ae s.machine.regs (.mk rip (rip + Int64.ofNat env.curSize))) 8
+            (BitVec.ofInt 64 v + s.machine.regs.get64 rs).toInt } } ⦄
+      Op.lockBin .add ae (.regOrMem (.reg (.low rs .W64))) ⦃ Q; E ⦄ := by
+  sym =>
+    vcgen [Op.lockBin, evalAddr, getMachine, modifyMachine]
+    all_goals finish [LockBinOp.eval]
+
+@[spec] theorem Op.lockBin_sub_imm_spec (ae : AddrExpr) (i : Int64) (v : Int) :
+    ⦃ fun env rip s =>
+        (Mem.loadInt s.machine.dmem (AddrExpr.interp64 env.labels ae s.machine.regs (.mk rip (rip + Int64.ofNat env.curSize))) 8 = some v) ⊓
+        Q () env rip { s with machine := { s.machine with
+          status := LockBinOp.sub.status (BitVec.ofInt 64 v) (BitVec.setWidth 64 i.toBitVec)
+            (BitVec.ofInt 64 v - BitVec.setWidth 64 i.toBitVec) false
+          dmem := Mem.storeInt s.machine.dmem (AddrExpr.interp64 env.labels ae s.machine.regs (.mk rip (rip + Int64.ofNat env.curSize))) 8
+            (BitVec.ofInt 64 v - BitVec.setWidth 64 i.toBitVec).toInt } } ⦄
+      Op.lockBin .sub ae (.imm (.int64 i)) ⦃ Q; E ⦄ := by
+  sym =>
+    vcgen [Op.lockBin, evalAddr, getMachine, modifyMachine]
+    all_goals finish [LockBinOp.eval]
+
+@[spec] theorem Op.lockBin_sub_reg_spec (ae : AddrExpr) (rs : Reg64) (v : Int) :
+    ⦃ fun env rip s =>
+        (Mem.loadInt s.machine.dmem (AddrExpr.interp64 env.labels ae s.machine.regs (.mk rip (rip + Int64.ofNat env.curSize))) 8 = some v) ⊓
+        Q () env rip { s with machine := { s.machine with
+          status := LockBinOp.sub.status (BitVec.ofInt 64 v) (s.machine.regs.get64 rs)
+            (BitVec.ofInt 64 v - s.machine.regs.get64 rs) false
+          dmem := Mem.storeInt s.machine.dmem (AddrExpr.interp64 env.labels ae s.machine.regs (.mk rip (rip + Int64.ofNat env.curSize))) 8
+            (BitVec.ofInt 64 v - s.machine.regs.get64 rs).toInt } } ⦄
+      Op.lockBin .sub ae (.regOrMem (.reg (.low rs .W64))) ⦃ Q; E ⦄ := by
+  sym =>
+    vcgen [Op.lockBin, evalAddr, getMachine, modifyMachine]
+    all_goals finish [LockBinOp.eval]
+
+/-! The logic operations leave `AF` undefined. One triple per operation, so that
+no spec for `lock and/or/xor` also matches `lock add/sub`. -/
+
+@[spec] theorem Op.lockBin_and_spec (ae : AddrExpr) (src : Operand .W64) :
+    ⦃ fun _ _ s => E .undefinedFlags s ⦄ Op.lockBin .and ae src ⦃ Q; E ⦄ := by
+  sym =>
+    vcgen [Op.lockBin]
+    all_goals finish
+
+@[spec] theorem Op.lockBin_or_spec (ae : AddrExpr) (src : Operand .W64) :
+    ⦃ fun _ _ s => E .undefinedFlags s ⦄ Op.lockBin .or ae src ⦃ Q; E ⦄ := by
+  sym =>
+    vcgen [Op.lockBin]
+    all_goals finish
+
+@[spec] theorem Op.lockBin_xor_spec (ae : AddrExpr) (src : Operand .W64) :
+    ⦃ fun _ _ s => E .undefinedFlags s ⦄ Op.lockBin .xor ae src ⦃ Q; E ⦄ := by
+  sym =>
+    vcgen [Op.lockBin]
+    all_goals finish
+
+@[spec] theorem Op.lockUn_spec (op : LockUnOp) (ae : AddrExpr) (v : Int) :
+    ⦃ fun env rip s =>
+        (Mem.loadInt s.machine.dmem (AddrExpr.interp64 env.labels ae s.machine.regs (.mk rip (rip + Int64.ofNat env.curSize))) 8 = some v) ⊓
+        Q () env rip { s with machine := { s.machine with
+          status := op.status (BitVec.ofInt 64 v) (op.eval (BitVec.ofInt 64 v)) s.machine.status
+          dmem := Mem.storeInt s.machine.dmem (AddrExpr.interp64 env.labels ae s.machine.regs (.mk rip (rip + Int64.ofNat env.curSize))) 8
+            (op.eval (BitVec.ofInt 64 v)).toInt } } ⦄
+      Op.lockUn op ae ⦃ Q; E ⦄ := by
+  sym =>
+    vcgen [Op.lockUn, evalAddr, getMachine, modifyMachine]
+    all_goals finish
+
+@[spec] theorem Op.xadd_mem_reg_spec (lock : Bool) (ae : AddrExpr) (rs : Reg64) (v : Int) :
+    ⦃ fun env rip s =>
+        (Mem.loadInt s.machine.dmem (AddrExpr.interp64 env.labels ae s.machine.regs (.mk rip (rip + Int64.ofNat env.curSize))) 8 = some v) ⊓
+        Q () env rip { s with machine := { s.machine with
+          regs := s.machine.regs.set64 rs (BitVec.ofInt 64 v)
+          status := LockBinOp.add.status (BitVec.ofInt 64 v) (s.machine.regs.get64 rs)
+            (BitVec.ofInt 64 v + s.machine.regs.get64 rs) false
+          dmem := Mem.storeInt s.machine.dmem (AddrExpr.interp64 env.labels ae s.machine.regs (.mk rip (rip + Int64.ofNat env.curSize))) 8
+            (BitVec.ofInt 64 v + s.machine.regs.get64 rs).toInt } } ⦄
+      Op.xadd lock (.mem ae) (.low rs .W64) ⦃ Q; E ⦄ := by
+  sym =>
+    vcgen [Op.xadd, evalAddr, getMachine, modifyMachine]
+    all_goals finish
+
+/-- Both outcomes of the compare, as for a conditional jump. -/
+@[spec] theorem Op.cmpxchg_mem_reg_spec (lock : Bool) (ae : AddrExpr) (rs : Reg64) (v : Int) :
+    ⦃ fun env rip s =>
+        (Mem.loadInt s.machine.dmem (AddrExpr.interp64 env.labels ae s.machine.regs (.mk rip (rip + Int64.ofNat env.curSize))) 8 = some v) ⊓
+        (BitVec.ofInt 64 v = s.machine.regs.get64 .rax →
+          Q () env rip { s with machine := { s.machine with
+            status := Op.cmpxchgStatus (s.machine.regs.get64 .rax) (BitVec.ofInt 64 v)
+            dmem := Mem.storeInt s.machine.dmem (AddrExpr.interp64 env.labels ae s.machine.regs (.mk rip (rip + Int64.ofNat env.curSize))) 8
+              (s.machine.regs.get64 rs).toInt } }) ⊓
+        (BitVec.ofInt 64 v ≠ s.machine.regs.get64 .rax →
+          Q () env rip { s with machine := { s.machine with
+            regs := s.machine.regs.set64 .rax (BitVec.ofInt 64 v)
+            status := Op.cmpxchgStatus (s.machine.regs.get64 .rax) (BitVec.ofInt 64 v) } }) ⦄
+      Op.cmpxchg lock (.mem ae) (.low rs .W64) ⦃ Q; E ⦄ := by
+  sym =>
+    vcgen [Op.cmpxchg, evalAddr, getMachine, modifyMachine]
+    all_goals finish
+
+@[spec] theorem Op.fence_spec :
+    ⦃ fun env rip s => Q () env rip s ⦄ Op.fence ⦃ Q; E ⦄ := by
+  sym =>
+    vcgen [Op.fence]
     all_goals finish
 
 end

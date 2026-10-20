@@ -1,0 +1,19 @@
+Test WRC+ldadd.reg-dmb.ld+dmb.sy Allowed
+States 11
+2:X0=0; 2:X2=0; [x]=2;
+2:X0=0; 2:X2=0; [x]=3;
+2:X0=0; 2:X2=1; [x]=2;
+2:X0=0; 2:X2=2; [x]=2;
+2:X0=0; 2:X2=2; [x]=3;
+2:X0=0; 2:X2=3; [x]=3;
+2:X0=1; 2:X2=0; [x]=2;
+2:X0=1; 2:X2=1; [x]=2;
+2:X0=1; 2:X2=2; [x]=2;
+2:X0=1; 2:X2=2; [x]=3;
+2:X0=1; 2:X2=3; [x]=3;
+No
+Witnesses
+Positive: 0 Negative: 11
+Condition exists ([x]=3 /\ 2:X0=1 /\ 2:X2=0)
+Observation WRC+ldadd.reg-dmb.ld+dmb.sy Never 0 11
+

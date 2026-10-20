@@ -1,0 +1,12 @@
+Test MPpa+poppa+dmb.ld Allowed
+States 4
+1:X0=0; 1:X3=0;
+1:X0=0; 1:X3=1;
+1:X0=1; 1:X3=0;
+1:X0=1; 1:X3=1;
+Ok
+Witnesses
+Positive: 1 Negative: 3
+Condition exists (1:X0=1 /\ 1:X3=0)
+Observation MPpa+poppa+dmb.ld Sometimes 1 3
+

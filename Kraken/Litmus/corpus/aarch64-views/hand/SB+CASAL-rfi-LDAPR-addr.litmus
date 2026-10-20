@@ -1,0 +1,14 @@
+AArch64 SB+CASAL-rfi-LDAPR-addr
+"SB: CASAL 0->1 on own location, re-read with LDAPR, then address-dependent LDR of the other"
+{
+0:X2=x; 0:X4=y;
+1:X2=y; 1:X4=x;
+}
+ P0                  | P1                  ;
+ MOV W0,#0           | MOV W0,#0           ;
+ MOV W1,#1           | MOV W1,#1           ;
+ CASAL W0,W1,[X2]     | CASAL W0,W1,[X2]     ;
+ LDAPR W5,[X2]        | LDAPR W5,[X2]        ;
+ EOR W6,W5,W5        | EOR W6,W5,W5        ;
+ LDR W3,[X4,W6,SXTW] | LDR W3,[X4,W6,SXTW] ;
+exists (0:X5=1 /\ 1:X5=1 /\ 0:X3=0 /\ 1:X3=0)

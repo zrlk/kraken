@@ -1,0 +1,19 @@
+AArch64 Cas+amo.cas-dmb.sy+amo.cas-po
+"Amo.Cas DMB.SYdWW Rfe Amo.Cas PodWW Rfe"
+Cycle=Rfe Amo.Cas PodWW Rfe Amo.Cas DMB.SYdWW
+Generator=diycross7 (version 7.58)
+Prefetch=0:x=F,0:y=W,1:y=F,1:x=W
+Com=Rf Rf
+Orig=Amo.Cas DMB.SYdWW Rfe Amo.Cas PodWW Rfe
+{
+0:X0=x; 0:X4=y;
+1:X0=y; 1:X4=x;
+}
+ P0             | P1             ;
+ MOV W1,#1      | MOV W1,#1      ;
+ MOV W2,#2      | MOV W2,#2      ;
+ CAS W1,W2,[X0] | CAS W1,W2,[X0] ;
+ DMB SY         | MOV W3,#1      ;
+ MOV W3,#1      | STR W3,[X4]    ;
+ STR W3,[X4]    |                ;
+exists ([x]=2 /\ [y]=2 /\ 0:X1=1 /\ 1:X1=1)

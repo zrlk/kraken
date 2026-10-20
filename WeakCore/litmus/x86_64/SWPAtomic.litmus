@@ -1,0 +1,6 @@
+X86_64 SWPAtomic
+{ uint64_t x = 0; }
+ P0              | P1              ;
+ movq $1, %rax   | movq $2, %rax   ;
+ xchgq %rax, (x) | xchgq %rax, (x) ;
+exists (0:rax=0 /\ 1:rax=0)

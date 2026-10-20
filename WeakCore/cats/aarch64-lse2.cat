@@ -1,0 +1,92 @@
+"AArch64 pair-atomic + FEAT_LSE2"
+(* Contains material from herdtools7's bundled cat models (CeCILL-B); see LICENSE-herdtools7.txt. *)
+
+(* Uses herd7's aarch64.cat (copyright Arm Ltd) by `include' only and contains
+   none of its text; this file's own content is ours. *)
+
+(*
+ * cats/aarch64-pair.cat with ONE change: the write side of both pair axioms is
+ * widened from `pairRMWW' (the two writes of a read-modify-write) to `pairW'
+ * (the two writes of ANY multi-event instruction).
+ *
+ * That is exactly the change cats/aarch64-pair.cat declines to make, and says
+ * so in terms:
+ *
+ *     `same-instr' is a built-in ... relating *all* events of any multi-event
+ *     instruction -- including the two reads of an LDP and the two writes of
+ *     an STP.  Constraining both sides with it would forbid LDP/STP tearing,
+ *     i.e. impose FEAT_LSE2 on baseline hardware.  That would be wrong.
+ *
+ * The CoreLang target accepts requiring FEAT_LSE2 (Armv8.4),
+ * so for the CoreLang target baseline it is no longer wrong -- it is the
+ * point.  This file is the reference model for the target's tier-2 access.
+ *
+ * VALIDATION
+ *
+ * Measured when this file was added, against cats/aarch64-pair.cat and against
+ * stock aarch64.cat, all under `-variant mixed'.  litmus/aarch64-lse2/ holds
+ * the four probes and they run on every ./check-herd.sh.
+ *
+ *   probe               stock        pair.cat     THIS FILE
+ *   I-ldp-stp           Sometimes 4  Sometimes 4  Never 2
+ *   I-ldp-stp-swapped   Sometimes 4  Sometimes 4  Never 2
+ *   K-ldp-stp-sep       Sometimes 4  Sometimes 4  Never 3
+ *   J-plain-str-tear    Sometimes 4  Sometimes 4  Sometimes 4   \/- control
+ *
+ * The state set is the evidence, not the count.  Under this model I-ldp-stp
+ * leaves exactly
+ *
+ *   1:X4=0; 1:X5=0;
+ *   1:X4=1; 1:X5=1;
+ *
+ * so the observer sees the STP entirely or not at all.  That is single-copy
+ * atomicity itself rather than a model that merely forbids more.
+ *
+ * Three things that make the table worth believing:
+ *
+ * - stock and pair.cat agree on all four probes, so this is a real change
+ *   rather than a re-confirmation of something already in force.  pair.cat
+ *   does stop exactly one token short of FEAT_LSE2, as its comment claims.
+ * - both tearing orientations flip together.  An earlier version of this
+ *   development was found forbidding a pair probe in one word order and allowing it
+ *   swapped; I-ldp-stp-swapped is what establishes that it does not recur
+ *   here, rather than an argument that it would not.
+ * - the J control keeps all four states, including both torn ones, so two
+ *   separate STRs still tear and the axiom does not over-reach.  That is also
+ *   right against real hardware: single-copy atomicity of the *load* still
+ *   lets it land between two independent stores.
+ *
+ * Conservativity, verdict and state count, bit-identical in every case:
+ *
+ *   litmus/aarch64-pair/  (9 tests)   pair.cat vs this file
+ *   litmus/aarch64/      (25 tests)   pair.cat vs this file
+ *   litmus/aarch64/      (25 tests)   bare aarch64.cat vs this file
+ *
+ * The CoreLang target's tier-2 access is what it is for.
+ *)
+
+catdep
+
+include "aarch64.cat"
+
+(* Any two events of one instruction. *)
+let pairAny = same-instr
+
+(* The two WRITES of one multi-event instruction -- STP as well as CASP.
+   cats/aarch64-pair.cat restricts this to range(rmw); that restriction is
+   precisely what this file removes. *)
+let pairW = same-instr & (W * W)
+
+irreflexive (pairAny ; fr ; pairW ; rf) as pair-atomic
+
+(* A multi-event instruction's writes are one single-copy-atomic access.
+   `sca2' widens aarch64.cat's `sca-class' by them; `ob2' is aarch64.cat's
+   ordered-before, referenced by name (`hw-reqs', `obs', `Exp-obs', `Tag-obs'),
+   with the explicit and tag observations also allowed to continue by an
+   `sca2' step.  As sca-class <= sca2, this is the old obs2/ob2 pair, with `+'
+   for the recursive `ob2 ; ob2'. *)
+let sca2 = (sca-class | pairW)+
+
+let ob2 = (hw-reqs | obs | Exp-obs ; sca2 | Tag-obs ; sca2)+
+
+irreflexive ob2 as pair-external

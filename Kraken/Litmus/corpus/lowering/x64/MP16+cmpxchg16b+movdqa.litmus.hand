@@ -1,0 +1,7 @@
+Test MP16+cmpxchg16b+movdqa Allowed
+States 2
+1:xmm2=0;
+1:xmm2=18446744073709551617;
+No
+Condition exists (not (1:xmm2=0 \/ 1:xmm2=0x10000000000000001))
+Observation MP16+cmpxchg16b+movdqa Never 0 2

@@ -1,0 +1,18 @@
+Test CoRR+cmpxchg Allowed
+States 10
+1:rcx=0; 1:rdx=0;
+1:rcx=0; 1:rdx=1;
+1:rcx=0; 1:rdx=2;
+1:rcx=0; 1:rdx=3;
+1:rcx=1; 1:rdx=1;
+1:rcx=1; 1:rdx=2;
+1:rcx=1; 1:rdx=3;
+1:rcx=2; 1:rdx=2;
+1:rcx=2; 1:rdx=3;
+1:rcx=3; 1:rdx=3;
+No
+Witnesses
+Positive: 0 Negative: 10
+Condition exists (1:rcx=3 /\ 1:rdx=2 \/ 1:rcx=2 /\ 1:rdx=1)
+Observation CoRR+cmpxchg Never 0 10
+

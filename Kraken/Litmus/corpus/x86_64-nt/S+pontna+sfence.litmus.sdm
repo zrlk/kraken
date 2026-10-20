@@ -1,0 +1,12 @@
+Test S+pontna+sfence Allowed
+States 4
+[x]=1; 1:rbx=0;
+[x]=1; 1:rbx=1;
+[x]=2; 1:rbx=0;
+[x]=2; 1:rbx=1;
+Ok
+Witnesses
+Positive: 1 Negative: 3
+Condition exists ([x]=2 /\ 1:rbx=1)
+Observation S+pontna+sfence Sometimes 1 3
+

@@ -366,12 +366,15 @@ partial def evalSymKStep : Grind.GrindTactic :=
   let rec go (goal: Grind.Goal): Grind.GrindTacticM (Grind.Goal × List Grind.Goal) := do
     -- STEP 1: dsimp
     let goal ← do
-      let mvarId ← goal.mvarId.replaceTargetDefEq (← Grind.liftGrindM $
-        Sym.dsimp
-          (config := { maxSteps := 1000000 })
-          (methods := {
-            pre := klog >> evalGround >> kdsimpDecls >> kdsimpMatch >> kdsimpProj >> kbeta })
-          (← goal.mvarId.getType))
+      -- In the goal's context, which may hold locals introduced by `introsIf`
+      -- (a let-bound value, the outcome of an `undefined`).
+      let mvarId ← goal.withContext do
+        goal.mvarId.replaceTargetDefEq (← Grind.liftGrindM $
+          Sym.dsimp
+            (config := { maxSteps := 1000000 })
+            (methods := {
+              pre := klog >> evalGround >> kdsimpDecls >> kdsimpMatch >> kdsimpProj >> kbeta })
+            (← goal.mvarId.getType))
       introsIf ({ goal with mvarId })
 
     if config.debug then
@@ -414,7 +417,9 @@ partial def evalSymKStep : Grind.GrindTactic :=
       pure state
 
     let (keepGoingSpec, goal) ←
-      match ← Lean.Meta.DiscrTree.getMatch specTree goalState with
+      -- In the goal's context: `introsIf` may have introduced let-bound locals
+      -- (e.g. an address) that occur in the state.
+      match ← goal.withContext (Lean.Meta.DiscrTree.getMatch specTree goalState) with
       | #[ thmName ] =>
         logInfo m!"Found a spec lemma: {thmName}"
         let (goal, subGoals) ← rwTarget goal false (mkConst thmName)

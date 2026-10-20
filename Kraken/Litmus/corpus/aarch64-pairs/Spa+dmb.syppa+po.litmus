@@ -1,0 +1,21 @@
+AArch64 Spa+dmb.syppa+po
+Generator=diycross7 (version 7.58+1)
+Prefetch=0:x=F,0:y=W,1:y=F,1:x=W
+Com=Rf Co
+Orig=DMB.SYdWW Pa Rfe PodRW Coe
+Cycle=DMB.SYdWWPPa RfePaP PodRW Coe
+"DMB.SYdWW Pa Rfe PodRW Coe"
+{
+ int y[2]={0,0};
+ 0:X1=x; 0:X2=y;
+ 1:X1=x; 1:X2=y;
+}
+ P0             | P1          ;
+ MOV W0,#2      | LDR W0,[X2] ;
+ STR W0,[X1]    | MOV W3,#1   ;
+ DMB SY         | STR W3,[X1] ;
+ MOV W3,#2      |             ;
+ SUB W4,W3,#1   |             ;
+ STP W4,W3,[X2] |             ;
+
+exists ([x]=2 /\ 1:X0=1)

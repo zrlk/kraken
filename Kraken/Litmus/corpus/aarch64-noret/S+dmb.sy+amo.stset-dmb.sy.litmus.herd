@@ -1,0 +1,11 @@
+Test S+dmb.sy+amo.stset-dmb.sy Allowed
+States 3
+[x]=1; [y]=1;
+[x]=1; [y]=3;
+[x]=2; [y]=1;
+No
+Witnesses
+Positive: 0 Negative: 3
+Condition exists ([x]=2 /\ [y]=3)
+Observation S+dmb.sy+amo.stset-dmb.sy Never 0 3
+

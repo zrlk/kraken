@@ -1,0 +1,67 @@
+AArch64 SpinlockSwpl2
+(* Spinlock released by a release-only swap: `spinlock_swp2.kl` with the
+   release `STLR WZR,[X0]` replaced by `SWPL WZR,W2,[X0]` (writes 0, the old
+   value goes to W2). Test-and-test-and-set shape: SWPA to acquire, LDR spin
+   while held, SWPL release. SWPL rather than SWPAL: the release needs only
+   release ordering (on the claim-conditional environment `EnvGC` the
+   acquire half would make the swap claim the slots of the message it
+   reads, for nothing).
+   Two threads each take the lock once and increment a shared counter.
+   Property: counter = 2 in every final state. Expected: Always.
+   Proved for all layouts and any number of threads: `swpl_counter_envG`
+   (Promising/SLR/EnvG/SwplLockPublic.lean), the first lock with an RMW
+   release (KNOWN_GAPS.md, RMWREL, "Lifted").
+   The shared symbols are typed (`uint32_t lock`, `uint32_t counter`, the width of every access)
+   so that the runner declares them as sized locations at the width of
+   the code's accesses (A64DECLS): the runner's
+   declarations then agree with the proofs' locations. The code block and
+   the verdict are unchanged. Proved from the runner's exact configuration
+   (declarations and initial memory included): `swpl_counter_envG_runner`, concrete
+   `swpl_counter_envG_runner_concrete2` (Promising/SLR/EnvG/A64SwplRunner.lean).
+   Proved no fault at the runner's declarations (each access resolves as
+   at `decls = {}`): `swpl_counter_envG_runner_noFault`, concrete
+   `swpl_counter_envG_runner_noFault_concrete` (Promising/SLR/EnvG/A64NoFaultDLocks.lean).
+   Proved program-level fault freedom at the runner's declarations (no
+   reachable configuration has a faulting step, any architecture, promises
+   included): `swpl_counter_envG_runner_faultFree`, concrete
+   `swpl_counter_envG_runner_faultFree_concreteN 2` (Promising/SLR/EnvG/A64FaultFreeFixed.lean).
+   Proved both at once (safety and fault freedom, at the union of their
+   hypotheses): `swpl_counter_envG_runner_safe_faultFree`, concrete
+   `swpl_counter_envG_runner_safe_faultFree_concreteN 2` (Promising/SLR/EnvG/RunnerSafeFFA64.lean).
+   Proved (LIVESPIN2): promise-free deadlock-freedom on a valid layout,
+   `Live.SpinSwpFam.spin_swpl_live_pf [ValidLayout (layout swplWorker)] : SwplSpinLivePF fuel`,
+   concrete `spin_swpl_live_pf_concrete`; per-thread liveness of these one-shot
+   workers `spin_swpl_live_oneShot_pf` (Promising/LiveSpinSwpFam.lean). With
+   promises (`SwplSpinLive`) open (KNOWN_GAPS.md, "Liveness: spinlocks (LIVESPIN)").
+   Proved (LIVESPINSEM2): with promises and semantic certification,
+   `Live.SpinSemSwpLive.spin_swpl_live_sem [ValidLayout (layout swplWorker)] : SwplSpinLiveSem fuel`
+   for every fuel, concrete `spin_swpl_live_sem_concrete`, and the one-shot
+   `spin_swpl_live_oneShot_sem` (Promising/LiveSpinSemSwpLive.lean). `SwplSpinLive`
+   (over `succs`) stays open (KNOWN_GAPS.md). *)
+# flags: -sym
+# expect: Always
+{
+uint32_t lock=0; uint32_t counter=0;
+0:X0=lock; 0:X1=counter;
+1:X0=lock; 1:X1=counter;
+}
+threads { P0: worker done; P1: worker done; }
+code {
+worker:
+  MOV W3,#1
+try:
+  SWPA W3,W2,[X0]
+  CBZ W2,cs
+spin:
+  LDR W2,[X0]
+  CBNZ W2,spin
+  B try
+cs:
+  LDR W5,[X1]
+  ADD W5,W5,#1
+  STR W5,[X1]
+  SWPL WZR,W2,[X0]
+  B done
+done:
+}
+forall [counter]=2

@@ -1,0 +1,11 @@
+X86_64 SB+cmpxchg16b+mfence
+"SB: lock cmpxchg16b (0,0)->(1,1) on a, then load y; P1: store y, mfence, movdqa a. A locked instruction is a full fence"
+{
+__int128 a; uint32_t y;
+0:rax=0; 0:rdx=0; 0:rbx=1; 0:rcx=1;
+}
+ P0                  | P1               ;
+ lock cmpxchg16b (a) | movl $1,(y)      ;
+ movl (y),%esi       | mfence           ;
+                     | movdqa (a),%xmm2 ;
+exists (0:rsi=0 /\ 1:xmm2=0)

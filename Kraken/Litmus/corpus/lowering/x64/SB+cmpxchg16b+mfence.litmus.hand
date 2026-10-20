@@ -1,0 +1,8 @@
+Test SB+cmpxchg16b+mfence Allowed
+States 3
+0:rsi=0; 1:xmm2=18446744073709551617;
+0:rsi=1; 1:xmm2=0;
+0:rsi=1; 1:xmm2=18446744073709551617;
+No
+Condition exists (0:rsi=0 /\ 1:xmm2=0)
+Observation SB+cmpxchg16b+mfence Never 0 3

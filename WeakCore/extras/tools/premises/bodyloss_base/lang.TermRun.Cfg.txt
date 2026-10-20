@@ -1,0 +1,6 @@
+TermRun.Cfg : Type
+  | TermRun.Cfg.mk : WeakMem.Memory → List WeakMem.Ts → Array TermRun.TTh → Nat → Bool → TermRun.Cfg
+  fields #[mem, pairs, ths, lbase, boxFence]
+TermRun.TTh : Type
+WeakMem.Memory : Type
+WeakMem.Ts : Type

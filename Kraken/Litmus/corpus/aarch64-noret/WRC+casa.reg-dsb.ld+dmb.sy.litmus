@@ -1,0 +1,16 @@
+AArch64 WRC+casa.reg-dsb.ld+dmb.sy
+"write || casa.reg; dsb.ld; write || read; DMB SY; read"
+{
+x=5; 
+0:X1=x;
+1:X1=x; 1:X3=y;
+2:X1=y; 2:X3=x;
+}
+ P0           | P1              | P2          ;
+ STR WZR,[X1] | MOV W4,#3       | LDR W0,[X1] ;
+              | MOV W6,#0       | DMB SY      ;
+              | CASA W6,W4,[X1] | LDR W2,[X3] ;
+              | DSB LD          |             ;
+              | MOV W7,#1       |             ;
+              | STR W7,[X3]     |             ;
+exists ([x]=3 /\ 2:X0=1 /\ 2:X2=5)

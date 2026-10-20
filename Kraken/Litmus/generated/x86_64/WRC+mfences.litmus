@@ -1,0 +1,15 @@
+X86_64 WRC+mfences
+Generator=diycross7 (version 7.58+1)
+Prefetch=0:x=F,0:y=W,1:y=F,1:x=T
+Com=Rf Fr Rf
+Orig=Rfe MFencedRW Rfe MFencedRR Fre
+Cycle=Rfe MFencedRW Rfe MFencedRR Fre
+"Rfe MFencedRW Rfe MFencedRR Fre"
+{
+}
+ P0            | P1            | P2          ;
+ movl (x),%eax | movl (y),%eax | movl $1,(x) ;
+ mfence        | mfence        |             ;
+ movl $1,(y)   | movl (x),%ebx |             ;
+
+exists (0:rax=1 /\ 1:rax=1 /\ 1:rbx=0)

@@ -1,0 +1,115 @@
+AArch64 ChaseLev2NoFence
+(* chaselev2.kl without the owner's DMB ISH between its `bottom` store
+   and its `top` load in take (the thief keeps its fence). This is the
+   classic store-buffering (SB/Dekker) bug of the Chase-Lev deque: the
+   owner's STR bottom := 1 is not yet visible when the thief's second
+   steal reads `bottom`, while the owner's LDR top still reads 0 from
+   before the thief's first CASAL. The owner sees t < b and takes slot 1
+   without a CAS; the thief's second steal also takes slot 1 by CASAL
+   top 1 -> 2.
+   Property: as in chaselev2.kl (no duplicate, nothing lost).
+   Expected: Sometimes, with the duplicate outcome 0:X10=2, 1:X10=1,
+   1:X11=2. Threads have different roles: no -sym. *)
+# flags:
+# expect: Sometimes
+{
+uint32_t buf=0; uint64_t top=0; uint64_t bottom=0;
+0:X0=buf; 0:X1=top; 0:X2=bottom;
+1:X0=buf; 1:X1=top; 1:X2=bottom;
+}
+threads { P0: owner odone; P1: thief tdone; }
+code {
+owner:
+push1:
+  LDR X3,[X2]
+  LSL X6,X3,#3
+  ADD X6,X0,X6
+  MOV W9,#1
+  STR W9,[X6]
+  ADD X3,X3,#1
+  STLR X3,[X2]
+push2:
+  LDR X3,[X2]
+  LSL X6,X3,#3
+  ADD X6,X0,X6
+  MOV W9,#2
+  STR W9,[X6]
+  ADD X3,X3,#1
+  STLR X3,[X2]
+take:
+  MOV W10,#0
+  LDR X3,[X2]
+  SUB X3,X3,#1
+  STR X3,[X2]
+  LDR X4,[X1]
+  CMP X4,X3
+  B.GT take_empty
+  LSL X6,X3,#3
+  ADD X6,X0,X6
+  LDR W7,[X6]
+  B.NE take_ok
+  MOV X5,X4
+  ADD X8,X4,#1
+  CASAL X5,X8,[X1]
+  ADD X3,X3,#1
+  STR X3,[X2]
+  CMP X5,X4
+  B.NE take_done
+  MOV W10,W7
+  B take_done
+take_ok:
+  MOV W10,W7
+  B take_done
+take_empty:
+  ADD X3,X3,#1
+  STR X3,[X2]
+take_done:
+  B odone
+odone:
+  NOP
+thief:
+steal1:
+  MOV W10,#0
+  LDAR X4,[X1]
+  DMB ISH
+  LDAR X3,[X2]
+  CMP X4,X3
+  B.GE steal2
+  LSL X6,X4,#3
+  ADD X6,X0,X6
+  LDR W7,[X6]
+  MOV X5,X4
+  ADD X8,X4,#1
+  CASAL X5,X8,[X1]
+  CMP X5,X4
+  B.NE steal2
+  MOV W10,W7
+steal2:
+  MOV W11,#0
+  LDAR X4,[X1]
+  DMB ISH
+  LDAR X3,[X2]
+  CMP X4,X3
+  B.GE steal_done
+  LSL X6,X4,#3
+  ADD X6,X0,X6
+  LDR W7,[X6]
+  MOV X5,X4
+  ADD X8,X4,#1
+  CASAL X5,X8,[X1]
+  CMP X5,X4
+  B.NE steal_done
+  MOV W11,W7
+steal_done:
+  B tdone
+tdone:
+  NOP
+}
+forall (
+  ~(0:X10=1 /\ 1:X10=1) /\ ~(0:X10=1 /\ 1:X11=1) /\ ~(1:X10=1 /\ 1:X11=1) /\
+  ~(0:X10=2 /\ 1:X10=2) /\ ~(0:X10=2 /\ 1:X11=2) /\ ~(1:X10=2 /\ 1:X11=2) /\
+  ((0:X10=1 \/ 1:X10=1 \/ 1:X11=1) \/ ([top]=0 /\ ([bottom]=1 \/ [bottom]=2))) /\
+  ~((0:X10=1 \/ 1:X10=1 \/ 1:X11=1) /\ ([top]=0 /\ ([bottom]=1 \/ [bottom]=2))) /\
+  ((0:X10=2 \/ 1:X10=2 \/ 1:X11=2) \/ (([top]=0 \/ [top]=1) /\ [bottom]=2)) /\
+  ~((0:X10=2 \/ 1:X10=2 \/ 1:X11=2) /\ (([top]=0 \/ [top]=1) /\ [bottom]=2))
+)

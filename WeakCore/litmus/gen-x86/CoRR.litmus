@@ -1,0 +1,12 @@
+X86_64 CoRR
+"Rfe PosRR Fre"
+Cycle=Rfe PosRR Fre
+Generator=diycross7 (version 7.58)
+Com=Rf Fr
+Orig=Rfe PosRR Fre
+{
+}
+ P0          | P1            ;
+ movl $1,(x) | movl (x),%eax ;
+             | movl (x),%ebx ;
+exists (1:rax=1 /\ 1:rbx=0)

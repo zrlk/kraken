@@ -1,0 +1,11 @@
+X86_64 CAS16+cmpxchg16bs
+"two lock cmpxchg16b from (0,0) on one record: exactly one succeeds; the loser reads the winner's record into rdx:rax"
+{
+__int128 rec;
+0:rax=0; 0:rdx=0; 0:rbx=1; 0:rcx=1;
+1:rax=0; 1:rdx=0; 1:rbx=2; 1:rcx=2;
+}
+ P0                    | P1                    ;
+ lock cmpxchg16b (rec) | lock cmpxchg16b (rec) ;
+locations [rec;]
+exists (0:rax=0 /\ 1:rax=0)

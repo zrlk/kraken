@@ -1,0 +1,7 @@
+Test CAS16+cmpxchg16bs Allowed
+States 2
+0:rax=0; 1:rax=1; [rec]=18446744073709551617;
+0:rax=2; 1:rax=0; [rec]=36893488147419103234;
+No
+Condition exists (0:rax=0 /\ 1:rax=0)
+Observation CAS16+cmpxchg16bs Never 0 2

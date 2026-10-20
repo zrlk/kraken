@@ -1,0 +1,12 @@
+Test SB+po+poana Allowed
+States 4
+0:rax=0; 1:rax=0; 1:rbx=0; [y]=1;
+0:rax=0; 1:rax=0; 1:rbx=1; [y]=1;
+0:rax=1; 1:rax=0; 1:rbx=0; [y]=1;
+0:rax=1; 1:rax=0; 1:rbx=1; [y]=1;
+Ok
+Witnesses
+Positive: 1 Negative: 3
+Condition exists ([y]=1 /\ 0:rax=0 /\ 1:rax=0 /\ 1:rbx=0)
+Observation SB+po+poana Sometimes 1 3
+

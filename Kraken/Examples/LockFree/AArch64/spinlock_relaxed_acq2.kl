@@ -1,0 +1,31 @@
+AArch64 SpinlockRelaxedAcquire2
+(* Test-and-set spinlock (as spinlock2.kl) with the acquire done by LDXR
+   instead of LDAXR (no acquire ordering). The counter read in the critical
+   section may be satisfied before the lock read, so it can see the value
+   from before the previous holder's increment: lost update.
+   Property checked: counter = 2 (forall). Expected: Sometimes (violated;
+   [counter]=1 reachable). *)
+# flags: -sym
+# expect: Sometimes
+# Proved reachable: Kraken.Promising.Reach.SpinlockRelaxedAcq2.spinlock_relaxed_acq2_reachable (Kraken/Promising/ReachA64SpinlockRelaxedAcq2.lean)
+{
+lock=0; counter=0;
+0:X0=lock; 0:X1=counter;
+1:X0=lock; 1:X1=counter;
+}
+threads { P0: worker done; P1: worker done; }
+code {
+worker:
+  LDXR W2,[X0]
+  CBNZ W2,worker
+  MOV W3,#1
+  STXR W4,W3,[X0]
+  CBNZ W4,worker
+  LDR W5,[X1]
+  ADD W5,W5,#1
+  STR W5,[X1]
+  STLR WZR,[X0]
+  B done
+done:
+}
+forall [counter]=2

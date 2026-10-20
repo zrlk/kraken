@@ -1,0 +1,16 @@
+Test WRC+dsb.st+dmb.ld Allowed
+States 8
+0:X1=0; 1:X1=0; 1:X2=0;
+0:X1=0; 1:X1=0; 1:X2=1;
+0:X1=0; 1:X1=1; 1:X2=0;
+0:X1=0; 1:X1=1; 1:X2=1;
+0:X1=1; 1:X1=0; 1:X2=0;
+0:X1=1; 1:X1=0; 1:X2=1;
+0:X1=1; 1:X1=1; 1:X2=0;
+0:X1=1; 1:X1=1; 1:X2=1;
+Ok
+Witnesses
+Positive: 1 Negative: 7
+Condition exists (0:X1=1 /\ 1:X1=1 /\ 1:X2=0)
+Observation WRC+dsb.st+dmb.ld Sometimes 1 7
+

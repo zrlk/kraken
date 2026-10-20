@@ -1,0 +1,15 @@
+Test ISA2 Allowed
+States 7
+1:rax=0; 2:rax=0; 2:rbx=0;
+1:rax=0; 2:rax=0; 2:rbx=1;
+1:rax=0; 2:rax=1; 2:rbx=0;
+1:rax=0; 2:rax=1; 2:rbx=1;
+1:rax=1; 2:rax=0; 2:rbx=0;
+1:rax=1; 2:rax=0; 2:rbx=1;
+1:rax=1; 2:rax=1; 2:rbx=1;
+No
+Witnesses
+Positive: 0 Negative: 7
+Condition exists (1:rax=1 /\ 2:rax=1 /\ 2:rbx=0)
+Observation ISA2 Never 0 7
+

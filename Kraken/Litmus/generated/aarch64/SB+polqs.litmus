@@ -1,0 +1,17 @@
+AArch64 SB+polqs
+Generator=diycross7 (version 7.58+1)
+Prefetch=0:x=F,0:y=T,1:y=F,1:x=T
+Com=Fr Fr
+Orig=PodWR Q Fre L PodWR Q Fre L
+Cycle=PodWRLQ FreQL PodWRLQ FreQL
+"PodWR Q Fre L PodWR Q Fre L"
+{
+ 0:X1=x; 0:X2=y;
+ 1:X1=x; 1:X2=y;
+}
+ P0            | P1            ;
+ MOV W0,#1     | MOV W0,#1     ;
+ STLR W0,[X1]  | STLR W0,[X2]  ;
+ LDAPR W3,[X2] | LDAPR W3,[X1] ;
+
+exists (0:X3=0 /\ 1:X3=0)

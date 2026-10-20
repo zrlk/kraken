@@ -1,0 +1,148 @@
+X86_64 FlatMap2
+(* Lock-free flat hash map on x86-TSO (open addressing, linear probing,
+   insert-only, one word per key and one per value), lowered with the
+   WeakCore table (`cas acq rel` = lock cmpxchgq, `store rel` and
+   `load acq` = plain movq). The x64 twin of ../AArch64/flatmap2.kl: same
+   table, calls and property.
+   Table: N = 4 slots, `uint64_t key[4]`, `uint64_t val[4]` (slot i is
+   key[i] = key + 8*i and val[i]; 0 = empty key / unpublished value).
+   Hash: keys 1 and 2 have home slot 0 (they collide), key 3 home slot 2.
+     insert(k, v, h): for p = 0..3: i := (h+p) mod 4;
+                      lock cmpxchgq key[i] 0 -> k (old value in rax);
+                      if old = 0: val[i] := v; return i+1;
+                      if old = k: return 9 (duplicate);
+                      return 0 (full).
+     lookup(k, h):    for p = 0..3: i := (h+p) mod 4; x := key[i];
+                      if x = k: return (i+1, val[i]); if x = 0: stop;
+                      return (0, 0) (absent).
+   One insert/lookup body is shared by all calls; r9 is the continuation,
+   r8/r11/rdi the key, value and home slot, rax/rcx scratch, r14/r15 the
+   results.
+   P0: insert(1, 11, 0) -> r12; insert(3, 33, 2) -> r13.
+   P1: insert(2, 22, 0) -> r12.
+   P2: lookup(3, 2) -> (r12, r13); then lookup(1, 0) -> (r10, rbp).
+   Property (as on AArch64): the final table is {1:11, 2:22} in slots 0/1
+   matching the inserters' results, {3:33} in slot 2, slot 3 empty; a
+   lookup that finds k returns v_k or 0 in the slot k occupies; if
+   lookup(3) returned 33, lookup(1) finds 1 with value 11.
+   Expected: Always. TSO keeps store-store and load-load order, so the
+   plain-mov publication is already release/acquire. There is no weaker
+   lowering of `store rel`/`load acq` on x64, so this file has no
+   `_relaxed` twin (it would be the same code). No -sym.
+# flags: -fuel 300
+# expect: Always
+*)
+{
+uint64_t key[4]; uint64_t val[4];
+0:rbx=key; 0:rdx=val; 1:rbx=key; 1:rdx=val; 2:rbx=key; 2:rdx=val;
+}
+threads { P0: p0 done; P1: p1 done; P2: reader done; }
+code {
+p0:
+  movq $1,%r8
+  movq $11,%r11
+  movq $0,%rdi
+  movq $0,%r9
+  jmp ins
+p0b:
+  movq %r14,%r12
+  movq $3,%r8
+  movq $33,%r11
+  movq $2,%rdi
+  movq $1,%r9
+  jmp ins
+p0c:
+  movq %r14,%r13
+  jmp done
+p1:
+  movq $2,%r8
+  movq $22,%r11
+  movq $0,%rdi
+  movq $2,%r9
+  jmp ins
+p1b:
+  movq %r14,%r12
+  jmp done
+ins:
+  movq $0,%rsi
+ins_loop:
+  movq %rdi,%rcx
+  addq %rsi,%rcx
+  andq $3,%rcx
+  xorl %eax,%eax
+  lock cmpxchgq %r8,(%rbx,%rcx,8)
+  je ins_won
+  cmpq %r8,%rax
+  je ins_dup
+  addq $1,%rsi
+  cmpq $4,%rsi
+  jl ins_loop
+  movq $0,%r14
+  jmp ins_ret
+ins_dup:
+  movq $9,%r14
+  jmp ins_ret
+ins_won:
+  movq %r11,(%rdx,%rcx,8)
+  movq %rcx,%r14
+  addq $1,%r14
+ins_ret:
+  cmpq $0,%r9
+  je p0b
+  cmpq $1,%r9
+  je p0c
+  jmp p1b
+reader:
+  movq $3,%r8
+  movq $2,%rdi
+  movq $0,%r9
+  jmp look
+rb:
+  movq %r14,%r12
+  movq %r15,%r13
+  movq $1,%r8
+  movq $0,%rdi
+  movq $1,%r9
+  jmp look
+rc:
+  movq %r14,%r10
+  movq %r15,%rbp
+  jmp done
+look:
+  movq $0,%rsi
+look_loop:
+  movq %rdi,%rcx
+  addq %rsi,%rcx
+  andq $3,%rcx
+  movq (%rbx,%rcx,8),%rax
+  cmpq %r8,%rax
+  je look_hit
+  testq %rax,%rax
+  je look_miss
+  addq $1,%rsi
+  cmpq $4,%rsi
+  jl look_loop
+look_miss:
+  movq $0,%r14
+  movq $0,%r15
+  jmp look_ret
+look_hit:
+  movq (%rdx,%rcx,8),%r15
+  movq %rcx,%r14
+  addq $1,%r14
+look_ret:
+  cmpq $0,%r9
+  je rb
+  jmp rc
+done:
+}
+forall (
+  ((0:r12=1 /\ 1:r12=2 /\ [key[0]]=1 /\ [val[0]]=11 /\ [key[1]]=2 /\ [val[1]]=22) \/
+   (0:r12=2 /\ 1:r12=1 /\ [key[0]]=2 /\ [val[0]]=22 /\ [key[1]]=1 /\ [val[1]]=11)) /\
+  0:r13=3 /\ [key[2]]=3 /\ [val[2]]=33 /\ [key[3]]=0 /\ [val[3]]=0 /\
+  ((2:r12=0 /\ 2:r13=0) \/ (2:r12=3 /\ (2:r13=33 \/ 2:r13=0))) /\
+  ((2:r10=0 /\ 2:rbp=0) \/
+   (2:r10=1 /\ [key[0]]=1 /\ (2:rbp=11 \/ 2:rbp=0)) \/
+   (2:r10=2 /\ [key[1]]=1 /\ (2:rbp=11 \/ 2:rbp=0))) /\
+  ~(2:r13=33 /\ (2:r10=0 \/ 2:rbp=0))
+)

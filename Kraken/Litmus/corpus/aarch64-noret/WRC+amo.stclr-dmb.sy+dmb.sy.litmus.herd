@@ -1,0 +1,12 @@
+Test WRC+amo.stclr-dmb.sy+dmb.sy Allowed
+States 4
+1:X1=0; 1:X2=0; [x]=1;
+1:X1=0; 1:X2=1; [x]=1;
+1:X1=1; 1:X2=0; [x]=1;
+1:X1=1; 1:X2=1; [x]=1;
+Ok
+Witnesses
+Positive: 1 Negative: 8
+Condition exists ([x]=1 /\ 1:X1=1 /\ 1:X2=0)
+Observation WRC+amo.stclr-dmb.sy+dmb.sy Sometimes 1 8
+

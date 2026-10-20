@@ -1,0 +1,13 @@
+X86_64 TreiberPop+cmpxchg+mov-addr-cmpxchg
+"Treiber pop vs push: push writes n.next then lock cmpxchg top; pop: mov top, mov top->next, lock cmpxchg top"
+{
+uint64_t top=d; uint64_t n[2]; uint64_t d[2];
+0:rax=d; 0:rbx=n; 0:rsi=n;
+}
+ P0                       | P1                       ;
+ movq %rax,8(%rsi)        | movq (top),%rax          ;
+ lock cmpxchgq %rbx,(top) | movq 8(%rax),%rbx        ;
+                          | movq %rax,%r8            ;
+                          | lock cmpxchgq %rbx,(top) ;
+locations [top;]
+exists (1:r8=n /\ 1:rbx=0)

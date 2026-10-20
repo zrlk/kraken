@@ -1,0 +1,18 @@
+AArch64 CASPFulfilSingles
+{
+uint64_t x[2];
+0:X14=x; 0:X15=x;
+1:X14=x; 1:X15=x;
+}
+ P0                       | P1              ;
+ MOV X2,#0                | LDR W6,[X14]    ;
+ MOV X3,#0                | DMB SY          ;
+ MOV X12,#1               | LDR W7,[X15,#8] ;
+ MOV X13,#1               |                 ;
+ CASP X2,X3,X12,X13,[X14] |                 ;
+ DMB SY                   |                 ;
+ MOV W8,#1                |                 ;
+ STR W8,[X14]             |                 ;
+ MOV W8,#1                |                 ;
+ STR W8,[X15,#8]          |                 ;
+exists (0:X2=0 /\ 0:X3=0 /\ 1:X6=1 /\ 1:X7=0)

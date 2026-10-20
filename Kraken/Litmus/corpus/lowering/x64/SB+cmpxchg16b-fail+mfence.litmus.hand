@@ -1,0 +1,8 @@
+Test SB+cmpxchg16b-fail+mfence Allowed
+States 3
+0:rsi=0; 1:rsi=1;
+0:rsi=1; 1:rsi=0;
+0:rsi=1; 1:rsi=1;
+No
+Condition exists (0:rsi=0 /\ 1:rsi=0)
+Observation SB+cmpxchg16b-fail+mfence Never 0 3

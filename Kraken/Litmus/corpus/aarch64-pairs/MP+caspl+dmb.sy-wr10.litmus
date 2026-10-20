@@ -1,0 +1,14 @@
+AArch64 MP+caspl+dmb.sy-wr10
+"The two writes of a successful CASPL are unordered: an observer may see t[1] written and t[0] not"
+{
+uint64_t t[2];
+0:X4=t; 1:X4=t;
+uint64_t 1:X0; uint64_t 1:X1;
+}
+P0                        | P1             ;
+MOV X0,#0                 | ADD X5,X4,#8   ;
+MOV X1,#0                 | ADD X6,X4,#0   ;
+MOV X2,#1                 | LDR X0,[X5]    ;
+MOV X3,#1                 | DMB SY         ;
+CASPL X0,X1,X2,X3,[X4]   | LDR X1,[X6]    ;
+exists (1:X0=1 /\ 1:X1=0)

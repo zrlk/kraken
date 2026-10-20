@@ -1,0 +1,9 @@
+Test L012 Required
+States 1
+v={3,2,1};
+Ok
+Witnesses
+Positive: 1 Negative: 0
+Condition forall (true)
+Observation L012 Always 1 0
+

@@ -1,0 +1,14 @@
+AArch64 MP+caspal-i128+ldp
+"CASPAL (0,0)->(1,2) on a 16-byte location vs an LSE2 LDP: CASP is single-copy atomic at 128 bits (Arm ARM B2.2.1), so no torn read"
+{
+__int128 x;
+0:X4=x; 1:X4=x;
+uint64_t 0:X0; uint64_t 0:X1; uint64_t 1:X7; uint64_t 1:X8;
+}
+ P0                      | P1             ;
+ MOV X0,#0               | LDP X7,X8,[X4] ;
+ MOV X1,#0               |                ;
+ MOV X2,#1               |                ;
+ MOV X3,#2               |                ;
+ CASPAL X0,X1,X2,X3,[X4] |                ;
+exists (1:X7=1 /\ 1:X8=0 \/ 1:X7=0 /\ 1:X8=2)

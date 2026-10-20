@@ -1,0 +1,71 @@
+AArch64 TicketLock2
+(* Ticket lock (Promising-ARM PLDI'19 §7 "TL"): take a ticket with LDADDA
+   on `next`, spin with LDAR on `owner` until it equals the ticket, critical
+   section increments a counter, release with STLR of ticket+1 to `owner`.
+   Two threads each take the lock once.
+   Property: counter = 2 in every final state. Expected: Always.
+   Proved for all layouts and any number N of threads (N + 1 < 2^32):
+   `ticket_counter_envG` (Promising/SLR/EnvG/TicketLockPublic.lean), on the
+   ticket environment `EnvGTD` through the dispenser route
+   (KNOWN_GAPS.md, "Write after load-acquire").
+   Counterexample (liveness under weak fairness alone):
+   `Live.TicketCex.ticket_not_live_weakFair` (Promising/LiveTicketCex.lean),
+   a weakly fair, promise-free trace from the runner's configuration that
+   starves a thread; `ticket_fair_exists` shows the fairness hypotheses of
+   the Stage 3 statement are satisfiable.
+   Open: liveness over the executable certification. `Live.Ticket.TicketLive fuel`
+   (weak and memory fairness, the Stage 3 statement; Promising/LiveTicket.lean)
+   for fuel >= 1. Its promise-free fragment and the semantic-certification
+   version are proved (below).
+   The shared symbols are typed (`uint32_t next`, `owner`, `counter`, the width of every access)
+   so that the runner declares them as sized locations at the width of
+   the code's accesses (A64DECLS): the runner's
+   declarations then agree with the proofs' locations. The code block and
+   the verdict are unchanged. Proved from the runner's exact configuration
+   (declarations and initial memory included): `ticket_counter_envG_runner`, concrete
+   `ticket_counter_envG_runner_concrete2` (Promising/SLR/EnvG/A64TicketRunner.lean).
+   Proved no fault at the runner's declarations (each access resolves as
+   at `decls = {}`): `ticket_counter_envG_runner_noFault`, concrete
+   `ticket_counter_envG_runner_noFault_concrete` (Promising/SLR/EnvG/A64NoFaultDLocks.lean).
+   Proved program-level fault freedom at the runner's declarations (no
+   reachable configuration has a faulting step, any architecture, promises
+   included): `ticket_counter_envG_runner_faultFree`, concrete
+   `ticket_counter_envG_runner_faultFree_concreteN 2` (Promising/SLR/EnvG/A64FaultFreeFixed.lean).
+   Proved both at once (safety and fault freedom, at the union of their
+   hypotheses): `ticket_counter_envG_runner_safe_faultFree`, concrete
+   `ticket_counter_envG_runner_safe_faultFree_concreteN 2` (Promising/SLR/EnvG/RunnerSafeFFA64.lean).
+   Proved (LIVEPF): the promise-free fragment on a valid layout,
+   `Live.TicketPF.ticket_live_pf [ValidLayout (layout tkWorker)] : TicketLivePF fuel`,
+   concrete `ticket_live_pf_concrete` (Promising/LiveTicketPF.lean); `TicketLive`
+   (promises allowed) stays open. On an invalid layout one thread can spin forever
+   (KNOWN_GAPS.md, "Liveness (LIVEPF)").
+   Proved (LIVEPROM): `Live.TicketZero.ticket_live_zero : TicketLive 0`
+   (Promising/LiveTicketZero.lean). With promises and semantic certification,
+   `Live.TicketSem.ticket_live_sem : TicketLiveSem fuel` holds for every fuel,
+   concrete `ticket_live_sem_concrete` (Promising/LiveTicketSem.lean).
+   `TicketLive fuel` for fuel >= 1 stays open (KNOWN_GAPS.md). *)
+# flags: -sym
+# expect: Always
+{
+uint32_t next=0; uint32_t owner=0; uint32_t counter=0;
+0:X0=next; 0:X1=owner; 0:X2=counter;
+1:X0=next; 1:X1=owner; 1:X2=counter;
+}
+threads { P0: worker done; P1: worker done; }
+code {
+worker:
+  MOV W6,#1
+  LDADDA W6,W3,[X0]
+spin:
+  LDAR W4,[X1]
+  CMP W4,W3
+  B.NE spin
+  LDR W5,[X2]
+  ADD W5,W5,#1
+  STR W5,[X2]
+  ADD W4,W3,#1
+  STLR W4,[X1]
+  B done
+done:
+}
+forall [counter]=2

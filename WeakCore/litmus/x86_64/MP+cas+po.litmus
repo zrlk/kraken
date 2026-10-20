@@ -1,0 +1,8 @@
+X86_64 MP+cas+po
+{ uint64_t x = 0; uint64_t y = 0; }
+ P0                      | P1             ;
+ movq $1, (x)            | movq (y), %rax ;
+ movq $0, %rax           | movq (x), %rsi ;
+ movq $1, %r11           |                ;
+ lock cmpxchgq (y), %r11 |                ;
+exists (1:rax=1 /\ 1:rsi=0)

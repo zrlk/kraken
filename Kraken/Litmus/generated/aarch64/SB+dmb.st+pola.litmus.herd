@@ -1,0 +1,12 @@
+Test SB+dmb.st+pola Allowed
+States 4
+0:X3=0; 1:X3=0;
+0:X3=0; 1:X3=1;
+0:X3=1; 1:X3=0;
+0:X3=1; 1:X3=1;
+Ok
+Witnesses
+Positive: 1 Negative: 3
+Condition exists (0:X3=0 /\ 1:X3=0)
+Observation SB+dmb.st+pola Sometimes 1 3
+

@@ -1,0 +1,11 @@
+Test SB+dmb.sy+rel-acq Forbidden
+States 3
+0:X2=0; 1:X0=1;
+0:X2=1; 1:X0=0;
+0:X2=1; 1:X0=1;
+Ok
+Witnesses
+Positive: 3 Negative: 0
+Condition ~exists (0:X2=0 /\ 1:X0=0)
+Observation SB+dmb.sy+rel-acq Never 0 3
+

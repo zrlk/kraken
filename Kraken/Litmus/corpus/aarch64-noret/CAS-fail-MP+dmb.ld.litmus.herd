@@ -1,0 +1,10 @@
+Test CAS-fail-MP+dmb.ld Allowed
+States 2
+1:X7=0; [y]=6;
+1:X7=1; [y]=6;
+Ok
+Witnesses
+Positive: 4 Negative: 4
+Condition exists ([y]=6 /\ 1:X7=0)
+Observation CAS-fail-MP+dmb.ld Sometimes 4 4
+

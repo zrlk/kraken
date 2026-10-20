@@ -1,0 +1,22 @@
+import WeakCore.HashMapLF
+
+/-!
+# HashMapLFSlow — the lock-free map's concurrent runs (gated; about 10 s native, 10 min interpreted)
+-/
+
+namespace HashMapLF
+open CoreLang CoreTerm TermRun TermSmoke HashMap
+
+-- `1` and `9` hash to the same slot: the claim race is decided by `cas`, the
+-- loser probes on, and each thread reads its own value back.
+#guard let r := runE lfProg lfSetup (fun s => [("p1", [], LMI, s.res), ("p9", [], LMI, s.res)]) 0 2000
+  clean r && resultsOf r 0 == [[.num 10]] && resultsOf r 1 == [[.num 90]]
+-- The same key from two threads: one slot, and each reads 10 or 20.
+#guard let r := runE lfProg lfSetup (fun s => [("p1", [], LMI, s.res), ("p1b", [], LMI, s.res)]) 0 2000
+  clean r && (resultsOf r 0).all (fun x => x == [.num 10] || x == [.num 20]) &&
+    (resultsOf r 1).all (fun x => x == [.num 10] || x == [.num 20])
+-- A racing reader sees absent (0) or the value, never a torn or `undef` one.
+#guard let r := runE lfProg lfSetup (fun s => [("p1", [], LMI, s.res), ("g1", [], LMI, s.res)]) 0 2000
+  clean r && sameSet (resultsOf r 1) [[.num 0], [.num 10]]
+
+end HashMapLF

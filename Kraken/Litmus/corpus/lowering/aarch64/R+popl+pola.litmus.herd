@@ -1,0 +1,11 @@
+Test R+popl+pola Allowed
+States 3
+1:X3=0; [y]=1;
+1:X3=1; [y]=1;
+1:X3=1; [y]=2;
+No
+Witnesses
+Positive: 0 Negative: 3
+Condition exists ([y]=2 /\ 1:X3=0)
+Observation R+popl+pola Never 0 3
+

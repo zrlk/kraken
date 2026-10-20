@@ -1,0 +1,9 @@
+Test L003 Required
+States 1
+0:X1=1; 0:X3=4294967295;
+Ok
+Witnesses
+Positive: 1 Negative: 0
+Condition forall (true)
+Observation L003 Always 1 0
+

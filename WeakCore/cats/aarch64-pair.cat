@@ -1,0 +1,193 @@
+"AArch64 pair-atomic"
+(* Contains material from herdtools7's bundled cat models (CeCILL-B); see LICENSE-herdtools7.txt. *)
+
+(* Uses herd7's aarch64.cat (copyright Arm Ltd) by `include' only and contains
+   none of its text; this file's own content is ours. *)
+
+(*
+ * The stock Armv8 application-level model, plus TWO axioms giving CASP
+ * genuine pair (cross-location) atomicity.
+ *
+ * Status: these are OUR axioms, not Arm's.  They are validated by probe, not
+ * transcribed from an authoritative source -- unlike cats/x86tso-mixed-rmw.cat,
+ * whose repair was copied from aarch64's own `aob'.  Treat them accordingly.
+ * The second one, however, is a *reinstatement* of Arm's own mechanism rather
+ * than an invention; see "THE SECOND AXIOM" below.
+ *
+ *
+ * WHY THIS IS NEEDED
+ *
+ * herd7 7.58 decomposes a CASP into independent per-word events.
+ * AArch64Sem.ml's `casp' builds the success path as
+ *
+ *   read_mem  a = rmw_amo_read  ... a >>| (add_size a sz >>= rmw_amo_read  ...)
+ *   write_mem a = rmw_amo_write ... a v1 >>| (add_size a sz >>= rmw_amo_write ...)
+ *
+ * and `>>|' is parallel composition -- nothing couples the two locations.
+ * Stock aarch64.cat's atomicity axiom (`atomic': no coherence-later write may
+ * come between an rmw's read and its write, stated with fr and co)
+ *
+ * is per-location by construction, since fr and co both relate same-location
+ * events.  So a *successful* CASP may partially commit.  Witness, from
+ * probe H-diag.litmus under -variant mixed (the probes were scratch and are
+ * not checked in):
+ *
+ *   0:X2=0; 0:X3=0; 1:X2=1; 1:X3=0; x[0]=1; x[1]=0;
+ *
+ * P0 read (0,0), matching its expected pair, so P0 succeeded -- yet only
+ * x[0]=1 landed.  P1 read the torn intermediate (1,0).
+ *
+ *
+ * WHAT DOES NOT WORK
+ *
+ * The obvious generalisation of the adjacency axiom,
+ *
+ *   let prmw = same-instr & (R * W)
+ *   empty prmw & (fre; coe)
+ *
+ * collapses straight back to per-location.  fre runs from a read to writes at
+ * *its own* location and coe likewise, so the composition silently forces
+ * loc(w) = loc(r) and you have re-derived the axiom that is already there.
+ * Cross-location atomicity is not an adjacency property.
+ *
+ *
+ * THE FIRST AXIOM: pair-atomic
+ *
+ * The tear has a cycle shape.  Writing r1,r2 for the reads of one pair
+ * instruction and w1,w2 for the writes of another:
+ *
+ *   r1 --same-instr--> r2 --fr--> w2 --same-instr--> w1 --rf--> r1
+ *
+ * One read of the pair saw the other instruction's write, while the other
+ * read of the same pair saw a state before that instruction's corresponding
+ * write.  That is exactly "the two reads did not come from a consistent
+ * snapshot", and forbidding it is one irreflexivity constraint.
+ *
+ * `same-instr' is a built-in (machModelChecker.ml:449) relating *all* events
+ * of any multi-event instruction -- including the two reads of an LDP and the
+ * two writes of an STP.  Constraining both sides with it would forbid
+ * LDP/STP tearing, i.e. impose FEAT_LSE2 on baseline hardware.  That would be
+ * wrong.
+ *
+ * So the *write* side is restricted to range(rmw): the cycle is only forbidden
+ * when the instruction being observed is a genuine read-modify-write.  This
+ * says "nobody may observe a pair RMW's write torn", which is right, while
+ * leaving plain STP non-atomic, which is also right.
+ *
+ * cats/aarch64-lse2.cat is that same model with exactly this restriction
+ * dropped -- one token, `range(rmw) * range(rmw)' becomes `W * W' -- because
+ * FEAT_LSE2 is precisely the hardware feature that makes the paragraph above
+ * no longer true.  It is a separate file, checked against a separate
+ * directory, so that this file continues to say what baseline Armv8 permits.
+ *
+ * The *read* side is deliberately NOT restricted.  A failing CASP's events are
+ * not in `rmw' at all, and a failing CASP must still read its pair atomically
+ * (probe C-read-tear).  Restricting the read side to RMW events was the first
+ * attempt and it silently did nothing.
+ *
+ *
+ * THE SECOND AXIOM: pair-external
+ *
+ * pair-atomic constrains only observers that read the pair with ONE
+ * instruction.  A scratch probe asked what happens when the observer uses two
+ * separate, ordered loads -- probe K:
+ *
+ *   P0: CASP X2,X3,X4,X5,[X0]   | P1: LDR X2,[X0,#8] ; DMB SY ; LDR X3,[X0]
+ *
+ * P1 sees the new second word and then, after a full barrier, the OLD first
+ * word.  `same-instr' does not relate two different LDRs, so pair-atomic says
+ * nothing, and both stock herd7 and this model reported `Sometimes'.  Probe K2
+ * is the same shape with the words swapped, and also reported `Sometimes'.
+ *
+ * Arm already has the mechanism for this and herd7 already computes it:
+ * `sca-class', the single-copy-atomicity class, which aarch64.cat threads
+ * through `obs' by letting an explicit or tag observation continue by one
+ * optional single-copy-atomicity step.  Once two writes are in one class,
+ * observing either one puts you after both, and the existing `irreflexive ob'
+ * forbids K and K2 with no new axiom at all.
+ *
+ * Measured with a scratch cat, sca-probe.cat, on probe K (not checked in):
+ *
+ *   Flag sca-nontrivial    (sca-class \ id)                        non-empty
+ *   Flag pairw-offdiag     (same-instr & range(rmw)^2) \ id        non-empty
+ *   Flag pairw-not-sca     ... \ sca-class                         non-empty
+ *
+ * The first says herd7 does build single-copy-atomicity classes here.  The
+ * third says a CASP's two writes are not in one -- which is the bug, stated
+ * exactly.  (`-variant S128' does not change this.)
+ *
+ * So the repair is to widen the class and re-run Arm's own external-visibility
+ * requirement over it.  `ob2' below is the transitive closure of aarch64.cat's
+ * `hw-reqs' and `obs' plus the two observation relations followed by an `sca2'
+ * step.  Since ob2 includes ob, `irreflexive ob2' implies stock's
+ * `irreflexive ob'; the stock axiom is left in place anyway.
+ *
+ *
+ * TRAP: `catdep'
+ *
+ * The `catdep' option below is load-bearing and must be repeated here.  It is
+ * declared in stock aarch64.cat and is NOT inherited through `include'.
+ * Without it, herd7 stops using the cat file's dependency computation and
+ * MP+dmb.st+addr, MP+dmb.st+ctrlisb, LB+ctrl and LB+data all silently flip
+ * from forbidden to allowed.  A bare `include "aarch64.cat"' wrapper with no
+ * axiom at all reproduces that, which is how it was diagnosed.
+ *
+ *
+ * VALIDATION
+ *
+ * Measured when `pair-external` was added.  Every line of it was unchanged
+ * from before.  The counts below are what was on disk *that day*; both
+ * directories have grown since, and the current numbers are the ones
+ * ./check-herd.sh prints, not these:
+ *
+ * - all 22 AArch64 tests then in litmus/aarch64/ were bit-identical to stock
+ *   (verdict and state count), so the axioms are conservative over the harness.
+ *   Re-measured at 25 tests when cats/aarch64-lse2.cat was added: still
+ *   bit-identical, both for this file and for that one
+ * - all 4 pair tests that existed then were bit-identical to this file's
+ *   previous, one-axiom version.  `CASPOrderedRead` and
+ *   `CASPOrderedReadSwapped` were added afterwards, and litmus/aarch64-pair/
+ *   holds 12<!--@herd-pair--> today; all nine are checked on every run of
+ *   ./check-herd.sh, which is the standing gate this block is only the origin
+ *   story for
+ * - the nine CASP probes were bit-identical to the previous version, and every
+ *   contended one still collapsed to exactly two states, "P0 wins" or "P1
+ *   wins".  Those probes were scratch and are not checked in
+ * - I-ldp-stp.litmus reports Sometimes under BOTH this model and stock, so
+ *   FEAT_LSE2 has not been imposed by accident.  That probe is no longer
+ *   scratch: it lives in litmus/aarch64-lse2/, where the gate re-runs it under
+ *   the model that *does* impose FEAT_LSE2 and requires Never.  Only that
+ *   direction is gated -- the Sometimes reported here is still a one-off
+ *   measurement, because litmus/aarch64-pair/ is generated from WeakMem.lean
+ *   and a hand-written probe cannot be added to it
+ * - J-plain-write-tear.litmus stays Sometimes: two ordinary STRs to the two
+ *   words are still allowed to be seen half-done, so the write side really is
+ *   still restricted to RMWs
+ * - K and K2 flip from Sometimes to Never, which is the point
+ *
+ * The full probe table was scratch and is not checked in.
+ *)
+
+catdep
+
+include "aarch64.cat"
+
+(* Any two events of one instruction. *)
+let pairAny = same-instr
+
+(* Two writes of one read-modify-write instruction. *)
+let pairRMWW = same-instr & (range(rmw) * range(rmw))
+
+irreflexive (pairAny ; fr ; pairRMWW ; rf) as pair-atomic
+
+(* A pair RMW's two writes are one single-copy-atomic access.  `sca2' widens
+   aarch64.cat's `sca-class' by them; `ob2' is aarch64.cat's ordered-before,
+   referenced by name (`hw-reqs', `obs', `Exp-obs', `Tag-obs'), with the
+   explicit and tag observations also allowed to continue by an `sca2' step.
+   As sca-class <= sca2, this is the old obs2/ob2 pair, with `+' for the
+   recursive `ob2 ; ob2'. *)
+let sca2 = (sca-class | pairRMWW)+
+
+let ob2 = (hw-reqs | obs | Exp-obs ; sca2 | Tag-obs ; sca2)+
+
+irreflexive ob2 as pair-external

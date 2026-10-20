@@ -1,0 +1,11 @@
+X86_64 CoRR+cmpxchg
+"CoRR: a lock cmpxchg 1->2 between two stores; reader sees coherence order"
+{
+}
+ P0                     | P1            ;
+ movl $1,(x)            | movl (x),%ecx ;
+ movl $1,%eax           | movl (x),%edx ;
+ movl $2,%ebx           |               ;
+ lock cmpxchgl %ebx,(x) |               ;
+ movl $3,(x)            |               ;
+exists (1:rcx=3 /\ 1:rdx=2 \/ 1:rcx=2 /\ 1:rdx=1)

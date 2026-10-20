@@ -1,0 +1,11 @@
+AArch64 MP+xaddl+ldar
+{
+0:X14=x; 0:X15=y;
+1:X14=y; 1:X15=x;
+}
+ P0                  | P1            ;
+ MOV W8,#1           | LDAR W0,[X14] ;
+ STR W8,[X14]        | LDR W4,[X15]  ;
+ MOV W11,#1          |               ;
+ LDADDL W11,W0,[X15] |               ;
+exists (1:X0=1 /\ 1:X4=0)

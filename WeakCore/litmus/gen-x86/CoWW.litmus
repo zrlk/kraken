@@ -1,0 +1,12 @@
+X86_64 CoWW
+"PosWW Coe"
+Cycle=Coe PosWW
+Generator=diycross7 (version 7.58)
+Com=Co
+Orig=PosWW Coe
+{
+}
+ P0          ;
+ movl $2,(x) ;
+ movl $1,(x) ;
+exists ([x]=1)

@@ -1,0 +1,11 @@
+Test LB+swpl.zr-dsb.sy+dmb.sy Allowed
+States 3
+1:X0=0; [x]=1;
+1:X0=0; [x]=2;
+1:X0=1; [x]=2;
+No
+Witnesses
+Positive: 0 Negative: 3
+Condition exists ([x]=1 /\ 1:X0=1)
+Observation LB+swpl.zr-dsb.sy+dmb.sy Never 0 3
+

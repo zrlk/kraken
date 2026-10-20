@@ -1,0 +1,11 @@
+Test SB+CASAL-rfi-LDAPR-addr Allowed
+States 3
+0:X3=0; 0:X5=1; 1:X3=1; 1:X5=1;
+0:X3=1; 0:X5=1; 1:X3=0; 1:X5=1;
+0:X3=1; 0:X5=1; 1:X3=1; 1:X5=1;
+No
+Witnesses
+Positive: 0 Negative: 12
+Condition exists (0:X5=1 /\ 1:X5=1 /\ 0:X3=0 /\ 1:X3=0)
+Observation SB+CASAL-rfi-LDAPR-addr Never 0 12
+

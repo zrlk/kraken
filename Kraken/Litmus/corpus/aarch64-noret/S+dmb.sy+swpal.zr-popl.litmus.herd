@@ -1,0 +1,11 @@
+Test S+dmb.sy+swpal.zr-popl Allowed
+States 3
+[x]=1; [y]=1;
+[x]=1; [y]=2;
+[x]=2; [y]=2;
+No
+Witnesses
+Positive: 0 Negative: 3
+Condition exists ([y]=1 /\ [x]=2)
+Observation S+dmb.sy+swpal.zr-popl Never 0 3
+

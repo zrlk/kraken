@@ -1,0 +1,11 @@
+Test 2+2W+swpa.zr-dmb.sy+dmb.sy Allowed
+States 3
+[x]=1; [y]=1;
+[x]=2; [y]=1;
+[x]=2; [y]=2;
+No
+Witnesses
+Positive: 0 Negative: 3
+Condition exists ([x]=1 /\ [y]=2)
+Observation 2+2W+swpa.zr-dmb.sy+dmb.sy Never 0 3
+

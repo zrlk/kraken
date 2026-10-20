@@ -1,0 +1,11 @@
+Test CAS-fail-coRR Allowed
+States 3
+0:X5=1; 0:X6=1;
+0:X5=1; 0:X6=2;
+0:X5=2; 0:X6=2;
+No
+Witnesses
+Positive: 0 Negative: 8
+Condition exists (0:X5=2 /\ 0:X6=1)
+Observation CAS-fail-coRR Never 0 8
+

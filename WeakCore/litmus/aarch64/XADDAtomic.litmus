@@ -1,0 +1,9 @@
+AArch64 XADDAtomic
+{
+0:X14=x;
+1:X14=x;
+}
+ P0                 | P1                 ;
+ MOV W11,#1         | MOV W11,#1         ;
+ LDADD W11,W0,[X14] | LDADD W11,W0,[X14] ;
+exists (0:X0=0 /\ 1:X0=0)

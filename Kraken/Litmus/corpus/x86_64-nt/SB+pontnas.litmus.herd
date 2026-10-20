@@ -1,0 +1,12 @@
+Test SB+pontnas Allowed
+States 4
+0:rcx=0; 1:rdx=0;
+0:rcx=0; 1:rdx=1;
+0:rcx=1; 1:rdx=0;
+0:rcx=1; 1:rdx=1;
+Ok
+Witnesses
+Positive: 1 Negative: 3
+Condition exists (0:rcx=0 /\ 1:rdx=0)
+Observation SB+pontnas Sometimes 1 3
+

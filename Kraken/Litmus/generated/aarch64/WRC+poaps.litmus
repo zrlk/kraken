@@ -1,0 +1,18 @@
+AArch64 WRC+poaps
+Generator=diycross7 (version 7.58+1)
+Prefetch=0:x=F,0:y=W,1:y=F,1:x=T
+Com=Rf Fr Rf
+Orig=Rfe A PodRW Rfe A PodRR Fre
+Cycle=RfePA PodRWAP RfePA PodRRAP Fre
+"Rfe A PodRW Rfe A PodRR Fre"
+{
+ 0:X0=x; 0:X3=y;
+ 1:X0=x; 1:X3=y;
+ 2:X0=x;
+}
+ P0           | P1           | P2          ;
+ LDAR W1,[X0] | LDAR W1,[X3] | MOV W1,#1   ;
+ MOV W2,#1    | LDR W2,[X0]  | STR W1,[X0] ;
+ STR W2,[X3]  |              |             ;
+
+exists (0:X1=1 /\ 1:X1=1 /\ 1:X2=0)

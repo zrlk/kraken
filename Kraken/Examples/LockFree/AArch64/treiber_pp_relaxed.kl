@@ -1,0 +1,41 @@
+AArch64 TreiberPushPopRelaxed
+(* Treiber stack push/pop (as treiber_pp.kl) with no ordering: plain LDR
+   of `top` and plain CAS. The popper can see the new `top` before the
+   node's data: it pops n1 but reads data 0.
+   Property checked: as treiber_pp.kl (forall). Expected: Sometimes. *)
+# flags:
+# expect: Sometimes
+# Proved reachable: Kraken.Promising.Reach.TreiberPpRelaxed.treiber_pp_relaxed_reachable (Kraken/Promising/ReachA64TreiberPpRelaxed.lean)
+{
+top=0; n1=0;
+0:X0=top; 0:X1=n1; 0:X9=1;
+1:X0=top;
+}
+threads { P0: pusher pdone; P1: popper qdone; }
+code {
+pusher:
+  STR W9,[X1]
+push:
+  LDR X2,[X0]
+  STR X2,[X1,#8]
+  MOV X3,X2
+  CAS X3,X1,[X0]
+  CMP X3,X2
+  B.NE push
+  B pdone
+pdone:
+  NOP
+popper:
+  LDR X2,[X0]
+  CBZ X2,popper
+  LDR X4,[X2,#8]
+  MOV X3,X2
+  CAS X3,X4,[X0]
+  CMP X3,X2
+  B.NE popper
+  MOV X10,X2
+  LDR W11,[X2]
+  B qdone
+qdone:
+}
+forall (1:X10=n1 /\ 1:X11=1)

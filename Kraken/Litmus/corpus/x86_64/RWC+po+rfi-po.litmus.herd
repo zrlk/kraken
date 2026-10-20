@@ -1,0 +1,16 @@
+Test RWC+po+rfi-po Allowed
+States 8
+1:rax=0; 1:rbx=0; 2:rax=1; 2:rbx=0;
+1:rax=0; 1:rbx=0; 2:rax=1; 2:rbx=1;
+1:rax=0; 1:rbx=1; 2:rax=1; 2:rbx=0;
+1:rax=0; 1:rbx=1; 2:rax=1; 2:rbx=1;
+1:rax=1; 1:rbx=0; 2:rax=1; 2:rbx=0;
+1:rax=1; 1:rbx=0; 2:rax=1; 2:rbx=1;
+1:rax=1; 1:rbx=1; 2:rax=1; 2:rbx=0;
+1:rax=1; 1:rbx=1; 2:rax=1; 2:rbx=1;
+Ok
+Witnesses
+Positive: 1 Negative: 7
+Condition exists (1:rax=1 /\ 1:rbx=0 /\ 2:rax=1 /\ 2:rbx=0)
+Observation RWC+po+rfi-po Sometimes 1 7
+

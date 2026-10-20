@@ -1,0 +1,11 @@
+Test MP+popl+casa-fail-po Allowed
+States 3
+1:X1=0; 1:X4=0;
+1:X1=0; 1:X4=1;
+1:X1=1; 1:X4=1;
+No
+Witnesses
+Positive: 0 Negative: 9
+Condition exists (1:X1=1 /\ 1:X4=0)
+Observation MP+popl+casa-fail-po Never 0 9
+

@@ -1,0 +1,7 @@
+Test CoWW+stp+caspal-i128 Allowed
+States 2
+1:X0=0; 1:X1=0; [x]=18446744073709551617;
+1:X0=1; 1:X1=1; [x]=18446744073709551617;
+No
+Condition exists (1:X0=1 /\ 1:X1=0 \/ 1:X0=0 /\ 1:X1=1)
+Observation CoWW+stp+caspal-i128 Never 0 2

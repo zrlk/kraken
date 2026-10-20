@@ -1,0 +1,60 @@
+AArch64 SpscQueueRelaxed2
+(* SPSC circular buffer (as spsc_queue.kl) with the producer publishing
+   `tail` by a plain STR instead of STLR: the data store is no longer
+   ordered before the tail update, so the consumer can read a slot before
+   the data landed (a stale 0). Two items (no wraparound), so the explorer
+   finishes in seconds; spsc_queue_relaxed3.kl is the three-item version.
+   Property checked: consumer receives 1,2 in order (forall).
+   Expected: Sometimes. *)
+# flags:
+# expect: Sometimes
+# Proved reachable: Kraken.Promising.Reach.SpscQueueRelaxed2.spsc_queue_relaxed2_reachable (Kraken/Promising/ReachA64SpscQueueRelaxed2.lean)
+{
+buf=0; head=0; tail=0;
+0:X0=buf; 0:X1=head; 0:X2=tail;
+1:X0=buf; 1:X1=head; 1:X2=tail;
+}
+threads { P0: prod pdone; P1: cons cdone; }
+code {
+prod:
+  MOV W3,#1
+  MOV X4,#0
+  MOV X7,X0
+prod_loop:
+  LDAR X5,[X1]
+  SUB X6,X4,X5
+  CMP X6,#2
+  B.EQ prod_loop
+  STR W3,[X7]
+  EOR X7,X7,#8
+  ADD X4,X4,#1
+  STR X4,[X2]
+  ADD W3,W3,#1
+  CMP W3,#3
+  B.NE prod_loop
+  B pdone
+pdone:
+  NOP
+cons:
+  MOV X4,#0
+  MOV X7,X0
+c1:
+  LDAR X5,[X2]
+  CMP X5,X4
+  B.EQ c1
+  LDR W10,[X7]
+  EOR X7,X7,#8
+  ADD X4,X4,#1
+  STLR X4,[X1]
+c2:
+  LDAR X5,[X2]
+  CMP X5,X4
+  B.EQ c2
+  LDR W11,[X7]
+  EOR X7,X7,#8
+  ADD X4,X4,#1
+  STLR X4,[X1]
+  B cdone
+cdone:
+}
+forall (1:X10=1 /\ 1:X11=2)

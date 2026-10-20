@@ -1,0 +1,73 @@
+AArch64 FlatMapPair2I128
+(* The hardware-faithful form of ../flatmap_pair2.kl: each slot is a
+   declared 16-byte location (`__int128 s0, s1`; key in the low 8 bytes,
+   value in the high 8, as the LSE2 corpus prints them), inserted by
+   CASPAL and read by LDP under `-lse2`. Same code and condition, slot
+   addresses in X0/X1 instead of tab + 16*i.
+   Hardware (Arm ARM §B2.2.1: CASP 128-bit single-copy atomic; FEAT_LSE2
+   aligned LDP single-copy atomic): Never torn, so `# expect: Never` is
+   the hardware oracle for the `exists`-free `forall` below (all states
+   satisfy it).
+   Kraken today: UNSUPPORTED. Each half of a CASP is an 8-byte `rmw` on a
+   declared 16-byte location, a mixed-size access the model rejects
+   (`corpus/aarch64-pairs/hand/CASP-i128.litmus`,
+   `corpus/lowering/aarch64/lse2/open/`). Kept outside the regression run
+   (run.sh reads only the top-level directory); the closest supported
+   variants are ../flatmap_pair2.kl and ../flatmap_pair2_casp.kl. *)
+# flags: -lse2
+# expect: Never
+{
+__int128 s0; __int128 s1;
+0:X0=s0; 1:X0=s0; 2:X0=s0; 0:X1=s1; 1:X1=s1; 2:X1=s1;
+0:X8=1; 0:X12=11; 1:X8=2; 1:X12=22;
+uint64_t 0:X4; uint64_t 0:X5; uint64_t 1:X4; uint64_t 1:X5;
+uint64_t 2:X2; uint64_t 2:X3; uint64_t 2:X4; uint64_t 2:X5;
+}
+threads { P0: ins done; P1: ins done; P2: scan done; }
+code {
+ins:
+  MOV X14,#0
+ins_loop:
+  MOV X17,X0
+  CBZ X14,ins_cas
+  MOV X17,X1
+ins_cas:
+  MOV X4,#0
+  MOV X5,#0
+  MOV X6,X8
+  MOV X7,X12
+  CASPAL X4,X5,X6,X7,[X17]
+  ORR X9,X4,X5
+  CBZ X9,ins_won
+  CBNZ X14,ins_next
+  MOV X20,X4
+  MOV X21,X5
+ins_next:
+  CMP X4,X8
+  B.EQ ins_dup
+  ADD X14,X14,#1
+  CMP X14,#2
+  B.LT ins_loop
+  MOV X10,#0
+  B done
+ins_dup:
+  MOV X10,#9
+  B done
+ins_won:
+  ADD X10,X14,#1
+  B done
+scan:
+  LDP X2,X3,[X0]
+  LDP X4,X5,[X1]
+  B done
+done:
+  NOP
+}
+forall (
+  ((0:X10=1 /\ 1:X10=2 /\ [s0]=0xb0000000000000001 /\ [s1]=0x160000000000000002) \/
+   (0:X10=2 /\ 1:X10=1 /\ [s0]=0x160000000000000002 /\ [s1]=0xb0000000000000001)) /\
+  ((0:X20=0 /\ 0:X21=0) \/ (0:X20=2 /\ 0:X21=22)) /\
+  ((1:X20=0 /\ 1:X21=0) \/ (1:X20=1 /\ 1:X21=11)) /\
+  ((2:X2=0 /\ 2:X3=0) \/ (2:X2=1 /\ 2:X3=11) \/ (2:X2=2 /\ 2:X3=22)) /\
+  ((2:X4=0 /\ 2:X5=0) \/ (2:X4=1 /\ 2:X5=11) \/ (2:X4=2 /\ 2:X5=22))
+)

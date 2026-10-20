@@ -1,0 +1,125 @@
+X86_64 ChaseLev2
+(* Chase-Lev work-stealing deque on x86-TSO, the weak-memory version of
+   Lê, Pop, Cohen and Zappa Nardelli (PPoPP 2013, Fig. 1), lowered with
+   the WeakCore table (`load acq`/`store rel` = plain mov, `fence full` =
+   mfence, CAS = lock cmpxchgq). Fixed static buffer, no resize: slots
+   `buf0`,`buf1` are consecutive symbols, which the runner lays out 0x100
+   bytes apart, so slot i is at buf0 + (i << 8) (rbx = buf0). `top` and
+   `bottom` are absolute 64-bit indices, both initially 0.
+   Owner (P0): push 1; push 2; take, result in r12d (0 = empty/lost race).
+     push x: b := bottom; buf[b] := x; bottom := b+1.
+     take:   b := bottom - 1; bottom := b; mfence; t := top;
+             if t > b: bottom := b+1, empty;
+             if t < b: return buf[b];
+             (last element) x := buf[b]; lock cmpxchgq top t -> t+1;
+             bottom := b+1; return x if the CAS succeeded, else empty.
+   Thief (P1): steal twice, results in r12d, r13d (0 = empty or abort).
+     steal:  t := top; mfence; b := bottom; if t >= b: empty;
+             x := buf[t]; lock cmpxchgq top t -> t+1; return x if it
+             succeeded, else abort (no retry).
+   Property: no value is obtained twice, and nothing is lost: each of
+   1 (slot 0) and 2 (slot 1) is obtained by exactly one of take, steal1,
+   steal2, or is still in the deque, i.e. inside [top, bottom) of the
+   final memory.
+   Expected: Always. The owner's mfence drains its `bottom` store before
+   its `top` load; the thief's locked cmpxchg is a full fence. Without the
+   owner's mfence this is store buffering (chaselev2_nofence.kl).
+   Threads have different roles: no -sym.
+   The shared symbols are typed (`uint32_t` slots, `uint64_t` indices) so
+   that the runner declares them at the width of the code's accesses.
+# flags: -fuel 300
+# expect: Always
+*)
+{
+uint32_t buf0=0; uint32_t buf1=0; uint64_t top=0; uint64_t bottom=0;
+0:rbx=buf0; 1:rbx=buf0;
+}
+threads { P0: owner odone; P1: thief tdone; }
+code {
+owner:
+  movq (bottom),%rax
+  movq %rax,%rdx
+  shlq $8,%rdx
+  movl $1,(%rbx,%rdx,1)
+  addq $1,%rax
+  movq %rax,(bottom)
+  movq (bottom),%rax
+  movq %rax,%rdx
+  shlq $8,%rdx
+  movl $2,(%rbx,%rdx,1)
+  addq $1,%rax
+  movq %rax,(bottom)
+take:
+  xorl %r12d,%r12d
+  movq (bottom),%rax
+  subq $1,%rax
+  movq %rax,(bottom)
+  mfence
+  movq (top),%rcx
+  movq %rax,%r10
+  addq $1,%r10
+  movq %rax,%rdx
+  shlq $8,%rdx
+  movl (%rbx,%rdx,1),%r8d
+  cmpq %rax,%rcx
+  jg take_empty
+  je take_last
+  movl %r8d,%r12d
+  jmp odone
+take_last:
+  movq %rcx,%rax
+  movq %rcx,%rsi
+  addq $1,%rsi
+  lock cmpxchgq %rsi,(top)
+  movq %r10,(bottom)
+  jne odone
+  movl %r8d,%r12d
+  jmp odone
+take_empty:
+  movq %r10,(bottom)
+  jmp odone
+odone:
+
+thief:
+  xorl %r12d,%r12d
+  movq (top),%rcx
+  mfence
+  movq (bottom),%rax
+  cmpq %rax,%rcx
+  jge steal2
+  movq %rcx,%rdx
+  shlq $8,%rdx
+  movl (%rbx,%rdx,1),%r8d
+  movq %rcx,%rax
+  movq %rcx,%rsi
+  addq $1,%rsi
+  lock cmpxchgq %rsi,(top)
+  jne steal2
+  movl %r8d,%r12d
+steal2:
+  xorl %r13d,%r13d
+  movq (top),%rcx
+  mfence
+  movq (bottom),%rax
+  cmpq %rax,%rcx
+  jge tdone
+  movq %rcx,%rdx
+  shlq $8,%rdx
+  movl (%rbx,%rdx,1),%r8d
+  movq %rcx,%rax
+  movq %rcx,%rsi
+  addq $1,%rsi
+  lock cmpxchgq %rsi,(top)
+  jne tdone
+  movl %r8d,%r13d
+  jmp tdone
+tdone:
+}
+forall (
+  ~(0:r12=1 /\ 1:r12=1) /\ ~(0:r12=1 /\ 1:r13=1) /\ ~(1:r12=1 /\ 1:r13=1) /\
+  ~(0:r12=2 /\ 1:r12=2) /\ ~(0:r12=2 /\ 1:r13=2) /\ ~(1:r12=2 /\ 1:r13=2) /\
+  ((0:r12=1 \/ 1:r12=1 \/ 1:r13=1) \/ ([top]=0 /\ ([bottom]=1 \/ [bottom]=2))) /\
+  ~((0:r12=1 \/ 1:r12=1 \/ 1:r13=1) /\ ([top]=0 /\ ([bottom]=1 \/ [bottom]=2))) /\
+  ((0:r12=2 \/ 1:r12=2 \/ 1:r13=2) \/ (([top]=0 \/ [top]=1) /\ [bottom]=2)) /\
+  ~((0:r12=2 \/ 1:r12=2 \/ 1:r13=2) /\ (([top]=0 \/ [top]=1) /\ [bottom]=2))
+)

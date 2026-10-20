@@ -1,0 +1,16 @@
+Test WRW+WR Allowed
+States 8
+1:rax=0; 2:rax=0; [y]=1;
+1:rax=0; 2:rax=0; [y]=2;
+1:rax=0; 2:rax=1; [y]=1;
+1:rax=0; 2:rax=1; [y]=2;
+1:rax=1; 2:rax=0; [y]=1;
+1:rax=1; 2:rax=0; [y]=2;
+1:rax=1; 2:rax=1; [y]=1;
+1:rax=1; 2:rax=1; [y]=2;
+Ok
+Witnesses
+Positive: 1 Negative: 7
+Condition exists ([y]=2 /\ 1:rax=1 /\ 2:rax=0)
+Observation WRW+WR Sometimes 1 7
+

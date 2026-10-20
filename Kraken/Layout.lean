@@ -7,6 +7,14 @@ namespace Kraken
 abbrev Executable (Directive : Type) := Int64 × List (Directive × Nat)
 
 -- JP: why is `size` not `Directive → Nat`?
+/-- A layout of a program: its start address and the size of the directive at
+each position. Sizes are indexed by position, not by directive, because a
+real assembler may give the same directive different sizes at different
+positions (x64 branch relaxation, alignment padding). So a `Layout` belongs
+to one program: in a multi-thread theorem each thread's program has its own
+layout (e.g. `Mp.mp_armv8` takes one for the writer and one for the reader).
+`Layout.ofSize` builds the layout in which every directive has a fixed size,
+as the runners and the litmus driver do. -/
 class Layout (Directive : Type) where
   start : Int64
   size : Nat → Nat
@@ -16,6 +24,23 @@ def Layout.apply {Directive : Type} (l : Layout Directive) (prog : List Directiv
 
 instance {Directive : Type} : CoeFun (Layout Directive) (fun _ => List Directive → Executable Directive) where
   coe := Layout.apply
+
+/-- The layout of `prog` at `start` in which every directive `d` takes
+`sz d` bytes. -/
+@[reducible] def Layout.ofSize {Directive : Type} (start : Int64) (sz : Directive → Nat) (prog : List Directive) :
+    Layout Directive where
+  start := start
+  size i := (prog[i]?.map sz).getD 0
+
+/-- `Layout.ofSize` lays out its program directive by directive. -/
+theorem Layout.ofSize_apply {Directive : Type} (start : Int64) (sz : Directive → Nat) (prog : List Directive) :
+    Layout.ofSize start sz prog prog = (start, prog.map fun d => (d, sz d)) := by
+  show (start, prog.mapIdx fun i d => (d, (prog[i]?.map sz).getD 0)) = _
+  congr 1
+  apply List.ext_getElem (by simp)
+  intro i _ h2
+  have hi : i < prog.length := by simpa using h2
+  simp [List.getElem_mapIdx, List.getElem?_eq_getElem hi]
 
 -- Returns each directive paired with its start address and size.
 -- TODO: tail-recursive version for efficiency?

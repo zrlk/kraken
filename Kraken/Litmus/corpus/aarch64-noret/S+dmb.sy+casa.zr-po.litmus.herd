@@ -1,0 +1,12 @@
+Test S+dmb.sy+casa.zr-po Allowed
+States 4
+[x]=1; [y]=0;
+[x]=1; [y]=3;
+[x]=2; [y]=0;
+[x]=2; [y]=3;
+Ok
+Witnesses
+Positive: 2 Negative: 6
+Condition exists ([y]=3 /\ [x]=2)
+Observation S+dmb.sy+casa.zr-po Sometimes 2 6
+

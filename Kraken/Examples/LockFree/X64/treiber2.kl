@@ -1,0 +1,53 @@
+X86_64 Treiber2
+(* Treiber stack on x86-TSO with statically allocated nodes. A node is
+   identified by its address and consists of a single `next` field at
+   offset 0 (the node's "value" is its identity, so no payload field is
+   needed). `top` is the stack pointer (0 = empty).
+   Push(node): read top, node.next = top, `lock cmpxchgq` top from the
+   read value to node, retry on failure.
+   Pop: read top (retry while empty), next = top.next, `lock cmpxchgq`
+   top from the read value to next, retry on failure; return the old top.
+   Two threads: each pushes its own node (rbx), then pops once, leaving
+   the popped node in r12. Nodes are never reused, so ABA cannot occur.
+   Property: the two pops return the two distinct nodes (no node is lost,
+   none is popped twice).
+   Proved for every layout of the runner's image, the code verbatim
+   (`decls = {}`): `Treiber2X.x64_treiber2_envG_verbatim`
+   (Promising/SLR/EnvG/X64Treiber2Public.lean). Proved from the runner's
+   exact configuration (declarations and initial memory included):
+   `Treiber2X.x64_treiber2_envG_runner` (X64Treiber2Runner.lean), with a
+   `.Concrete` instance.
+   The shared symbols are typed (`uint64_t`) so that the runner declares
+   them as sized locations at the width of the code's accesses (DECLS): the
+   runner's declarations then agree with the proofs'
+   locations. The code block and the verdict are unchanged.
+   Proved (fault freedom at the runner's declarations, MEMVALS):
+   `Treiber2X.x64_treiber2_envG_runner_faultFree`
+   (Promising/SLR/EnvG/MemValsTreiber2.lean), with a `.Concrete` instance.
+# flags: -fuel 300
+# expect: Always
+*)
+{
+uint64_t top=0; uint64_t n1=0; uint64_t n2=0;
+0:rbx=n1; 1:rbx=n2;
+}
+threads { P0: worker done; P1: worker done; }
+code {
+worker:
+push:
+  movq (top),%rax
+  movq %rax,(%rbx)
+  lock cmpxchgq %rbx,(top)
+  jne push
+pop:
+  movq (top),%rax
+  testq %rax,%rax
+  je pop
+  movq (%rax),%rcx
+  lock cmpxchgq %rcx,(top)
+  jne pop
+  movq %rax,%r12
+  jmp done
+done:
+}
+forall ((0:r12=n1 /\ 1:r12=n2) \/ (0:r12=n2 /\ 1:r12=n1))

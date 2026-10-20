@@ -1,0 +1,12 @@
+Test R+CAS+DMBLD Allowed
+States 4
+0:X3=0; 1:X2=0; [y]=2;
+0:X3=0; 1:X2=1; [y]=2;
+0:X3=2; 1:X2=0; [y]=2;
+0:X3=2; 1:X2=1; [y]=2;
+Ok
+Witnesses
+Positive: 2 Negative: 6
+Condition exists ([y]=2 /\ 0:X3=0 /\ 1:X2=0)
+Observation R+CAS+DMBLD Sometimes 2 6
+

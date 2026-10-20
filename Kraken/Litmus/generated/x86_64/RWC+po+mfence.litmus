@@ -1,0 +1,15 @@
+X86_64 RWC+po+mfence
+Generator=diycross7 (version 7.58+1)
+Prefetch=0:x=F,0:y=T,1:y=F,1:x=T
+Com=Fr Fr Rf
+Orig=Rfe PodRR Fre MFencedWR Fre
+Cycle=Rfe PodRR Fre MFencedWR Fre
+"Rfe PodRR Fre MFencedWR Fre"
+{
+}
+ P0            | P1            | P2          ;
+ movl (x),%eax | movl $1,(y)   | movl $1,(x) ;
+ movl (y),%ebx | mfence        |             ;
+               | movl (x),%eax |             ;
+
+exists (0:rax=1 /\ 0:rbx=0 /\ 1:rax=0)

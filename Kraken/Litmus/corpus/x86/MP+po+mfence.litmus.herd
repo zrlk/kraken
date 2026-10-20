@@ -1,0 +1,11 @@
+Test MP+po+mfence Allowed
+States 3
+1:EAX=0; 1:EBX=0;
+1:EAX=0; 1:EBX=1;
+1:EAX=1; 1:EBX=1;
+No
+Witnesses
+Positive: 0 Negative: 3
+Condition exists (1:EAX=1 /\ 1:EBX=0)
+Observation MP+po+mfence Never 0 3
+

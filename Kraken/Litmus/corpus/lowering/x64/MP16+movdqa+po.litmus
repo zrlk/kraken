@@ -1,0 +1,10 @@
+X86_64 MP16+movdqa+po
+"MP: aligned 16-byte movdqa store of the record, then a flag; reader: flag, then movdqa load"
+{
+__int128 rec; uint32_t f;
+0:xmm0=0x10000000000000001;
+}
+ P0                 | P1                 ;
+ movdqa %xmm0,(rec) | movl (f),%eax      ;
+ movl $1,(f)        | movdqa (rec),%xmm1 ;
+exists (1:rax=1 /\ 1:xmm1=0)

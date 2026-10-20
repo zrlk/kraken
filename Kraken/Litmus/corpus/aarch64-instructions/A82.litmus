@@ -1,0 +1,9 @@
+AArch64 A82
+(* Tests add (shifted register), left shift by 4 *)
+
+{ uint64_t 0:X0=42; uint64_t 0:X1=1; }
+
+P0;
+ADD X0, X0, X1, lsl #4;
+
+exists (0:X0=58)

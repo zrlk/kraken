@@ -1,0 +1,15 @@
+Test WRC+dmb.sys Allowed
+States 7
+0:X1=0; 1:X1=0; 1:X2=0;
+0:X1=0; 1:X1=0; 1:X2=1;
+0:X1=0; 1:X1=1; 1:X2=0;
+0:X1=0; 1:X1=1; 1:X2=1;
+0:X1=1; 1:X1=0; 1:X2=0;
+0:X1=1; 1:X1=0; 1:X2=1;
+0:X1=1; 1:X1=1; 1:X2=1;
+No
+Witnesses
+Positive: 0 Negative: 7
+Condition exists (0:X1=1 /\ 1:X1=1 /\ 1:X2=0)
+Observation WRC+dmb.sys Never 0 7
+

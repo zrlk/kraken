@@ -1,0 +1,12 @@
+Test SB+dsb.st+po Allowed
+States 4
+0:X3=0; 1:X3=0;
+0:X3=0; 1:X3=1;
+0:X3=1; 1:X3=0;
+0:X3=1; 1:X3=1;
+Ok
+Witnesses
+Positive: 1 Negative: 3
+Condition exists (0:X3=0 /\ 1:X3=0)
+Observation SB+dsb.st+po Sometimes 1 3
+

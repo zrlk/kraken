@@ -1,0 +1,12 @@
+Test MP+CAS-rfi-ctrl+acq Allowed
+States 4
+1:X0=0; 1:X2=0; [x]=1;
+1:X0=0; 1:X2=1; [x]=1;
+1:X0=1; 1:X2=0; [x]=1;
+1:X0=1; 1:X2=1; [x]=1;
+Ok
+Witnesses
+Positive: 2 Negative: 6
+Condition exists ([x]=1 /\ 1:X0=1 /\ 1:X2=0)
+Observation MP+CAS-rfi-ctrl+acq Sometimes 2 6
+

@@ -1,0 +1,11 @@
+Test LB+dmb.sy+data-amo.swp Forbidden
+States 3
+0:X1=0; 1:X1=0;
+0:X1=0; 1:X1=1;
+0:X1=1; 1:X1=0;
+Ok
+Witnesses
+Positive: 3 Negative: 0
+Condition ~exists (0:X1=1 /\ 1:X1=1)
+Observation LB+dmb.sy+data-amo.swp Never 0 3
+

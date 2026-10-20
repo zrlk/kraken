@@ -1,0 +1,133 @@
+AArch64 FlatMap2Relaxed
+(* flatmap2.kl with the reader's two loads (key and value) plain LDR
+   instead of LDAR; the inserters are unchanged (CASAL on the key, STLR of
+   the value). Same calls, registers and condition: see flatmap2.kl.
+   Expected: Sometimes, and only through the causality clause. The other
+   clauses hold even with plain loads, because every key cell is written
+   once (by the winning CASAL) and every value cell only by the winner of
+   its key: a lookup that sees key k at slot i can read nothing but v_k or
+   the initial 0 from val[i], whatever the ordering. What breaks is
+   publication across inserts: the reader can read P0's val[2] = 33 and
+   then miss key 1 (stale key slot, `2:X12=0`) or read its value as 0.
+   This is the "plain reader loads" relaxation; the "plain value store"
+   one (STR for STLR, LDAR kept) is not a separate file: there STR val[0]
+   is not ordered before P0's later STR val[2] (CASAL key[2] orders it
+   before the key write, not before the later value store), so the same
+   clause fails. *)
+# flags:
+# expect: Sometimes
+{
+uint64_t key[4]; uint64_t val[4];
+0:X0=key; 0:X1=val; 1:X0=key; 1:X1=val; 2:X0=key; 2:X1=val;
+}
+threads { P0: p0 done; P1: p1 done; P2: reader done; }
+code {
+p0:
+  MOV X8,#1
+  MOV X12,#11
+  MOV X7,#0
+  MOV X6,#0
+  B ins
+p0b:
+  MOV X10,X19
+  MOV X8,#3
+  MOV X12,#33
+  MOV X7,#2
+  MOV X6,#1
+  B ins
+p0c:
+  MOV X11,X19
+  B done
+p1:
+  MOV X8,#2
+  MOV X12,#22
+  MOV X7,#0
+  MOV X6,#2
+  B ins
+p1b:
+  MOV X10,X19
+  B done
+ins:
+  MOV X14,#0
+ins_loop:
+  ADD X15,X7,X14
+  AND X15,X15,#3
+  LSL X16,X15,#3
+  ADD X17,X0,X16
+  MOV X9,#0
+  CASAL X9,X8,[X17]
+  CBZ X9,ins_won
+  CMP X9,X8
+  B.EQ ins_dup
+  ADD X14,X14,#1
+  CMP X14,#4
+  B.LT ins_loop
+  MOV X19,#0
+  B ins_ret
+ins_dup:
+  MOV X19,#9
+  B ins_ret
+ins_won:
+  ADD X17,X1,X16
+  STLR X12,[X17]
+  ADD X19,X15,#1
+ins_ret:
+  CMP X6,#0
+  B.EQ p0b
+  CMP X6,#1
+  B.EQ p0c
+  B p1b
+reader:
+  MOV X8,#3
+  MOV X7,#2
+  MOV X6,#0
+  B look
+rb:
+  MOV X10,X19
+  MOV X11,X18
+  MOV X8,#1
+  MOV X7,#0
+  MOV X6,#1
+  B look
+rc:
+  MOV X12,X19
+  MOV X13,X18
+  B done
+look:
+  MOV X14,#0
+look_loop:
+  ADD X15,X7,X14
+  AND X15,X15,#3
+  LSL X16,X15,#3
+  ADD X17,X0,X16
+  LDR X9,[X17]
+  CMP X9,X8
+  B.EQ look_hit
+  CBZ X9,look_miss
+  ADD X14,X14,#1
+  CMP X14,#4
+  B.LT look_loop
+look_miss:
+  MOV X19,#0
+  MOV X18,#0
+  B look_ret
+look_hit:
+  ADD X17,X1,X16
+  LDR X18,[X17]
+  ADD X19,X15,#1
+look_ret:
+  CBZ X6,rb
+  B rc
+done:
+  NOP
+}
+forall (
+  ((0:X10=1 /\ 1:X10=2 /\ [key[0]]=1 /\ [val[0]]=11 /\ [key[1]]=2 /\ [val[1]]=22) \/
+   (0:X10=2 /\ 1:X10=1 /\ [key[0]]=2 /\ [val[0]]=22 /\ [key[1]]=1 /\ [val[1]]=11)) /\
+  0:X11=3 /\ [key[2]]=3 /\ [val[2]]=33 /\ [key[3]]=0 /\ [val[3]]=0 /\
+  ((2:X10=0 /\ 2:X11=0) \/ (2:X10=3 /\ (2:X11=33 \/ 2:X11=0))) /\
+  ((2:X12=0 /\ 2:X13=0) \/
+   (2:X12=1 /\ [key[0]]=1 /\ (2:X13=11 \/ 2:X13=0)) \/
+   (2:X12=2 /\ [key[1]]=1 /\ (2:X13=11 \/ 2:X13=0))) /\
+  ~(2:X11=33 /\ (2:X12=0 \/ 2:X13=0))
+)

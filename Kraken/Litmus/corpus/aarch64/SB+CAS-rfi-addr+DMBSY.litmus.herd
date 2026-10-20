@@ -1,0 +1,12 @@
+Test SB+CAS-rfi-addr+DMBSY Allowed
+States 4
+0:X3=0; 0:X5=1; 0:X7=0; 1:X2=0;
+0:X3=0; 0:X5=1; 0:X7=0; 1:X2=1;
+0:X3=0; 0:X5=1; 0:X7=1; 1:X2=0;
+0:X3=0; 0:X5=1; 0:X7=1; 1:X2=1;
+Ok
+Witnesses
+Positive: 2 Negative: 6
+Condition exists (0:X3=0 /\ 0:X5=1 /\ 0:X7=0 /\ 1:X2=0)
+Observation SB+CAS-rfi-addr+DMBSY Sometimes 2 6
+

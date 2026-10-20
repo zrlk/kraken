@@ -1,0 +1,14 @@
+X86_64 R+mfences
+"MFencedWW Coe MFencedWR Fre"
+Cycle=Fre MFencedWW Coe MFencedWR
+Generator=diycross7 (version 7.58)
+Prefetch=0:x=F,0:y=W,1:y=F,1:x=T
+Com=Co Fr
+Orig=MFencedWW Coe MFencedWR Fre
+{
+}
+ P0          | P1            ;
+ movl $1,(x) | movl $2,(y)   ;
+ mfence      | mfence        ;
+ movl $1,(y) | movl (x),%eax ;
+exists ([y]=2 /\ 1:rax=0)

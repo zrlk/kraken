@@ -1,0 +1,133 @@
+AArch64 ChaseLev2
+(* Chase-Lev work-stealing deque, the weak-memory version of Lê, Pop,
+   Cohen and Zappa Nardelli (PPoPP 2013, "Correct and efficient
+   work-stealing for weak memory models", Fig. 1), lowered with the
+   WeakCore table (`load acq` = LDAR, `store rel` = STLR, `fence full` =
+   DMB ISH, CAS = CASAL). Fixed static buffer, no resize: slot i is at
+   buf + 8*i (slot 1 at buf+8 is undeclared), `top` and `bottom` are
+   absolute 64-bit indices in memory, both initially 0.
+   Owner (P0): push 1; push 2; take, result in W10 (0 = empty/lost race).
+     push x: b := LDR bottom; STR x to buf[b]; STLR bottom := b+1.
+     take:   b := LDR bottom - 1; STR bottom := b; DMB ISH; t := LDR top;
+             if t > b: STR bottom := b+1, empty;
+             x := LDR buf[b]; if t < b: return x;
+             (last element) CASAL top t -> t+1; STR bottom := b+1;
+             return x if the CAS succeeded, else empty.
+   Thief (P1): steal twice, results in W10, W11 (0 = empty or abort).
+     steal:  t := LDAR top; DMB ISH; b := LDAR bottom; if t >= b: empty;
+             x := LDR buf[t]; CASAL top t -> t+1; return x if it
+             succeeded, else abort (no retry).
+   Property: no value is obtained twice, and nothing is lost: each of
+   1 (slot 0) and 2 (slot 1) is obtained by exactly one of take, steal1,
+   steal2, or is still in the deque, i.e. inside [top, bottom) of the
+   final memory.
+   Expected: Always. The owner's DMB ISH orders its `bottom` store before
+   its `top` load; the thief's CASAL on `top` is a full fence for its next
+   steal. Without the owner's fence this is store buffering (see
+   chaselev2_nofence.kl). Threads have different roles: no -sym.
+   The shared words are typed (`uint64_t top`, `bottom`; `uint32_t buf`,
+   slot 1 at buf+8 undeclared) in the house style of spsc_queue.kl. *)
+# flags:
+# expect: Always
+{
+uint32_t buf=0; uint64_t top=0; uint64_t bottom=0;
+0:X0=buf; 0:X1=top; 0:X2=bottom;
+1:X0=buf; 1:X1=top; 1:X2=bottom;
+}
+threads { P0: owner odone; P1: thief tdone; }
+code {
+owner:
+push1:
+  LDR X3,[X2]
+  LSL X6,X3,#3
+  ADD X6,X0,X6
+  MOV W9,#1
+  STR W9,[X6]
+  ADD X3,X3,#1
+  STLR X3,[X2]
+push2:
+  LDR X3,[X2]
+  LSL X6,X3,#3
+  ADD X6,X0,X6
+  MOV W9,#2
+  STR W9,[X6]
+  ADD X3,X3,#1
+  STLR X3,[X2]
+take:
+  MOV W10,#0
+  LDR X3,[X2]
+  SUB X3,X3,#1
+  STR X3,[X2]
+  DMB ISH
+  LDR X4,[X1]
+  CMP X4,X3
+  B.GT take_empty
+  LSL X6,X3,#3
+  ADD X6,X0,X6
+  LDR W7,[X6]
+  B.NE take_ok
+  MOV X5,X4
+  ADD X8,X4,#1
+  CASAL X5,X8,[X1]
+  ADD X3,X3,#1
+  STR X3,[X2]
+  CMP X5,X4
+  B.NE take_done
+  MOV W10,W7
+  B take_done
+take_ok:
+  MOV W10,W7
+  B take_done
+take_empty:
+  ADD X3,X3,#1
+  STR X3,[X2]
+take_done:
+  B odone
+odone:
+  NOP
+thief:
+steal1:
+  MOV W10,#0
+  LDAR X4,[X1]
+  DMB ISH
+  LDAR X3,[X2]
+  CMP X4,X3
+  B.GE steal2
+  LSL X6,X4,#3
+  ADD X6,X0,X6
+  LDR W7,[X6]
+  MOV X5,X4
+  ADD X8,X4,#1
+  CASAL X5,X8,[X1]
+  CMP X5,X4
+  B.NE steal2
+  MOV W10,W7
+steal2:
+  MOV W11,#0
+  LDAR X4,[X1]
+  DMB ISH
+  LDAR X3,[X2]
+  CMP X4,X3
+  B.GE steal_done
+  LSL X6,X4,#3
+  ADD X6,X0,X6
+  LDR W7,[X6]
+  MOV X5,X4
+  ADD X8,X4,#1
+  CASAL X5,X8,[X1]
+  CMP X5,X4
+  B.NE steal_done
+  MOV W11,W7
+steal_done:
+  B tdone
+tdone:
+  NOP
+}
+forall (
+  ~(0:X10=1 /\ 1:X10=1) /\ ~(0:X10=1 /\ 1:X11=1) /\ ~(1:X10=1 /\ 1:X11=1) /\
+  ~(0:X10=2 /\ 1:X10=2) /\ ~(0:X10=2 /\ 1:X11=2) /\ ~(1:X10=2 /\ 1:X11=2) /\
+  ((0:X10=1 \/ 1:X10=1 \/ 1:X11=1) \/ ([top]=0 /\ ([bottom]=1 \/ [bottom]=2))) /\
+  ~((0:X10=1 \/ 1:X10=1 \/ 1:X11=1) /\ ([top]=0 /\ ([bottom]=1 \/ [bottom]=2))) /\
+  ((0:X10=2 \/ 1:X10=2 \/ 1:X11=2) \/ (([top]=0 \/ [top]=1) /\ [bottom]=2)) /\
+  ~((0:X10=2 \/ 1:X10=2 \/ 1:X11=2) /\ (([top]=0 \/ [top]=1) /\ [bottom]=2))
+)

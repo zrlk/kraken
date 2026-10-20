@@ -1,0 +1,12 @@
+Test CAS+data1 Allowed
+States 4
+1:X5=0; [y]=0;
+1:X5=0; [y]=1;
+1:X5=1; [y]=0;
+1:X5=1; [y]=1;
+Ok
+Witnesses
+Positive: 2 Negative: 10
+Condition exists (1:X5=1 /\ [y]=1)
+Observation CAS+data1 Sometimes 2 10
+

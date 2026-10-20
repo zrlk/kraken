@@ -1,0 +1,64 @@
+/-
+# Probe: a typeclass / interface value as a type existential (trait object)
+
+Gated (check-promises.sh, after ArrayLib).  A two-method `Counter` interface is a package of a vtable
+pointer and a `self` pointer, packed at `[Int]`, opened and called.  A method
+taking the hidden type by value can be written in a type, but `unpack` refuses
+the package (`Ty.guardT` recurses into `Code`).
+-/
+import WeakCore.ArrayLib
+open ArrayLib CoreTerm TermRun
+
+-- A two-method "Counter" class as a trait object: vtable behind a pointer, self behind a pointer.
+def tcSrc : String := "
+def getI(p : Ptr pub Int) : Int =
+  let x = load p
+  ret x
+
+def bumpI(p : Ptr pub Int) : Unit =
+  let x = load p
+  let y = x + 1
+  let w = store p y
+  let u = ()
+  ret u
+
+def useCounter(o : exists (T : {share, noOwn}). Ptr pub (Code(Ptr pub T, Int) * Code(Ptr pub T, Unit)) * Ptr pub T) : Int =
+  let <[T], g> = unpack o
+  let (vt, self) = g
+  let ms = load vt
+  let (get, bump) = ms
+  let a = callc bump self
+  let b = callc bump self
+  let v = callc get self
+  ret v
+
+def mkAndUse(z : Int) : Int =
+  let c0 = new z
+  let s = publish c0
+  let fg = fnptr getI
+  let fb = fnptr bumpI
+  let ms = (fg, fb)
+  let v0 = new ms
+  let vt = publish v0
+  let g = (vt, s)
+  let o = pack g at [Int] : exists (T : {share, noOwn}). Ptr pub (Code(Ptr pub T, Int) * Code(Ptr pub T, Unit)) * Ptr pub T
+  let r = useCounter(o)
+  ret r
+"
+
+-- A method taking the hidden type by value: the type can be written, but a
+-- package of it cannot be opened (`T` is not under a reference).
+def binSrc : String := "
+def f(o : exists (T : {share, noOwn}). Code(T * T, Int) * Ptr pub T) : Unit =
+  let <[T], g> = unpack o
+  let u = ()
+  ret u
+"
+
+def runTo (src f : String) (n : Nat) : Option (List WeakMem.Val) :=
+  (TermSmoke.runSetup (parsed src) f [] .int [cst (.num n)] 300).map fun st => st.res.map (·.val)
+
+#guard refusal tcSrc == ""
+-- 5, bumped twice through the vtable.
+#guard runTo tcSrc "mkAndUse" 5 == some [.num 7]
+#guard mentions (refusal binSrc) "unpack: the package's variable must occur only under a reference"

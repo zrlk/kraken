@@ -1,0 +1,67 @@
+CoreLang.Ty : Type
+CoreLang.Ty.sum : CoreLang.Ty → CoreLang.Ty → CoreLang.Ty
+CoreTerm.At : Type
+CoreTerm.Expr : Type
+CoreTerm.Fence : Type
+CoreTerm.FetchOp : Type
+CoreTerm.Op : Type
+TermRun.TTh : Type
+TermRun.TTh.env : TermRun.TTh → TermRun.Env
+TermRun.TTh.term : TermRun.TTh → CoreTerm.Expr
+TermRun.TTh.σs : TermRun.TTh → List CoreLang.Ty
+TermRun.Word : Type
+TermRun.close : List CoreLang.Ty → CoreLang.Ty → CoreLang.Ty
+TermRun.evalAt : TermRun.Env → CoreTerm.At → Option (CoreLang.Ty × List TermRun.Word)
+TermRun.isBoxed : CoreLang.Ty → Bool
+TermRun.touchesMem : TermRun.TTh → Bool
+  := fun th =>
+  have boxedAt := fun a =>
+    match TermRun.evalAt th.env a with
+    | some (t, snd) =>
+      TermRun.isBoxed t ||
+        match t with
+        | u.sum w => TermRun.isBoxed u || TermRun.isBoxed w
+        | x => false
+    | none => false;
+  match th.term with
+  | CoreTerm.Expr.let_ x op e =>
+    match op with
+    | CoreTerm.Op.load acq a => true
+    | CoreTerm.Op.store rel a v tok => true
+    | CoreTerm.Op.xchg a v => true
+    | CoreTerm.Op.fetch o acq rel a v => true
+    | CoreTerm.Op.xchgAt b i v => true
+    | CoreTerm.Op.loadAt b i => true
+    | CoreTerm.Op.xchgAtF b i p v => true
+    | CoreTerm.Op.loadAtF b i p => true
+    | CoreTerm.Op.ldl b i => true
+    | CoreTerm.Op.stl b i v => true
+    | CoreTerm.Op.ldlw b wi j => true
+    | CoreTerm.Op.stlw b wi j v => true
+    | CoreTerm.Op.new a => true
+    | CoreTerm.Op.publish a => true
+    | CoreTerm.Op.intoRgn r a => true
+    | CoreTerm.Op.fence f => true
+    | CoreTerm.Op.newBuf n τ => true
+    | CoreTerm.Op.bufInit b i v => true
+    | CoreTerm.Op.ldp acq a n0 n1 => true
+    | CoreTerm.Op.stp rel a v0 v1 tok => true
+    | CoreTerm.Op.spawn f a T ts => true
+    | CoreTerm.Op.inl τ a =>
+      boxedAt a || TermRun.isBoxed τ ||
+        match TermRun.evalAt th.env a with
+        | some (t, snd) =>
+          TermRun.isBoxed (t.sum (TermRun.close th.σs τ)) || TermRun.isBoxed ((TermRun.close th.σs τ).sum t)
+        | none => false
+    | CoreTerm.Op.inr τ a =>
+      boxedAt a || TermRun.isBoxed τ ||
+        match TermRun.evalAt th.env a with
+        | some (t, snd) =>
+          TermRun.isBoxed (t.sum (TermRun.close th.σs τ)) || TermRun.isBoxed ((TermRun.close th.σs τ).sum t)
+        | none => false
+    | x => false
+  | CoreTerm.Expr.cas acq rel w e v t ok fail => true
+  | CoreTerm.Expr.casp acq rel w e0 e1 v0 v1 t ok fail => true
+  | CoreTerm.Expr.region a r p t e => true
+  | CoreTerm.Expr.case a x e₁ y e₂ => boxedAt a
+  | x => false

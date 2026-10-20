@@ -1,0 +1,12 @@
+Test L103 Allowed
+States 4
+0:X3=y; 1:X3=x;
+0:X3=y; 1:X3=z;
+0:X3=z; 1:X3=x;
+0:X3=z; 1:X3=z;
+Ok
+Witnesses
+Positive: 1 Negative: 3
+Condition exists (0:X3=y /\ 1:X3=x)
+Observation L103 Sometimes 1 3
+

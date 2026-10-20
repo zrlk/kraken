@@ -1,0 +1,9 @@
+Test LoopMatch Required
+States 1
+[x]=2;
+Loop Ok
+Witnesses
+Positive: 3 Negative: 0
+Condition forall ([x]=2)
+Observation LoopMatch Always 3 0
+

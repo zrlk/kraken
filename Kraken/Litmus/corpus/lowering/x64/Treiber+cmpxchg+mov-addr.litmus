@@ -1,0 +1,11 @@
+X86_64 Treiber+cmpxchg+mov-addr
+"Treiber push: mov init, lock cmpxchg link; reader: mov top, address-dependent mov of the node"
+{
+uint64_t top=d; uint64_t n=0; uint64_t d=2;
+0:rax=d; 0:rbx=n; 0:rsi=n;
+1:rdi=n;
+}
+ P0                       | P1               ;
+ movq $1,(%rsi)           | movq (top),%rax  ;
+ lock cmpxchgq %rbx,(top) | movq (%rax),%rcx ;
+exists (1:rax=n /\ 1:rcx=0)

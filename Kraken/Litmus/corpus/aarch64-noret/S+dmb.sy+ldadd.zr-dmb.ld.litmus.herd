@@ -1,0 +1,12 @@
+Test S+dmb.sy+ldadd.zr-dmb.ld Allowed
+States 4
+[x]=1; [y]=2;
+[x]=1; [y]=3;
+[x]=2; [y]=2;
+[x]=2; [y]=3;
+Ok
+Witnesses
+Positive: 1 Negative: 3
+Condition exists ([y]=3 /\ [x]=2)
+Observation S+dmb.sy+ldadd.zr-dmb.ld Sometimes 1 3
+

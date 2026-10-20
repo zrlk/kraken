@@ -1,0 +1,10 @@
+X86_64 MP16+movdqa
+(* Hand-written for Kraken: herd7 has no vector instructions. See README.md *)
+{
+__int128 rec;
+0:xmm0=0x10000000000000001; 0:xmm1=0x20000000000000002;
+}
+ P0                 | P1                 ;
+ movdqa %xmm0,(rec) | movdqa (rec),%xmm2 ;
+ movdqa %xmm1,(rec) |                    ;
+exists (not (1:xmm2=0 \/ 1:xmm2=0x10000000000000001 \/ 1:xmm2=0x20000000000000002))

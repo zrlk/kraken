@@ -1,0 +1,11 @@
+X86_64 MP+nt-xchg+po
+"NT data, flag set by xchg (locked): the locked op orders the NT store"
+{
+ 0:rax=x; 0:rdx=1;
+}
+ P0                  | P1            ;
+ movl $1,%ebx        | movl (y),%ebx ;
+ movntil %ebx,(%rax) | movl (x),%ecx ;
+ xchgl %edx,(y)      |               ;
+
+exists (1:rbx=1 /\ 1:rcx=0)

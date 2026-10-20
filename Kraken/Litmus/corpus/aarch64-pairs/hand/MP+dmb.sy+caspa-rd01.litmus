@@ -1,0 +1,15 @@
+AArch64 MP+dmb.sy+caspa-rd01
+"CASPA reads both halves unordered: it may see the later write (t[1]) and miss the earlier one (t[0])"
+{
+uint64_t t[2];
+0:X4=t; 1:X4=t;
+uint64_t 0:X0; uint64_t 0:X1;
+}
+P0                        | P1             ;
+MOV X0,#5                 | MOV X1,#1      ;
+MOV X1,#5                 | ADD X5,X4,#0   ;
+MOV X2,#7                 | ADD X6,X4,#8   ;
+MOV X3,#7                 | STR X1,[X5]    ;
+CASPA X0,X1,X2,X3,[X4]   | DMB SY         ;
+                          | STR X1,[X6]    ;
+exists (0:X0=0 /\ 0:X1=1)

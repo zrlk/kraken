@@ -1,0 +1,12 @@
+AArch64 SB+casal+polq
+"SB: CASAL then LDR vs STLR then LDAPR (the RCpc relaxation on one side)"
+{
+0:X2=x; 0:X4=y;
+1:X2=y; 1:X4=x;
+}
+ P0               | P1            ;
+ MOV W0,#0        | MOV W0,#1     ;
+ MOV W1,#1        | STLR W0,[X2]  ;
+ CASAL W0,W1,[X2] | LDAPR W3,[X4] ;
+ LDR W3,[X4]      |               ;
+exists (0:X3=0 /\ 1:X3=0)

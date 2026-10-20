@@ -294,6 +294,90 @@ theorem Op.exec_jcc_adequate {D} (cc : CondCode) (l : Label) :
     gm_apply, lm_bind, lm_ebind, lm_get, lm_eget, apply_ite, lm_throw, lm_pure, bind_assoc,
     pure_bind, throw_apply, pure_apply]
 
+/-! ### Atomics and barriers
+
+A locked read-modify-write lifts to one load-then-store, which `lm_rmw_bind` fuses
+with its continuation into the encoding's `match` on the mapped-ness of the
+address; each equation then closes by splitting that `match` (and, for
+`cmpxchg`, the comparison). The unlocked `xadd`/`cmpxchg` are two plain accesses
+whose store re-checks the mapping the load established. The barriers are
+`pure ()` on both sides. -/
+
+/-- A lifted locked 8-byte read-modify-write fused with its continuation: a mapped
+address stores `op`'s result, if any, and feeds the old value to `k`; an unmapped
+address faults. -/
+@[simp] theorem lm_rmw_bind {D α} (addr : BitVec 64) (op : BitVec 64 → Option (BitVec 64))
+    (k : BitVec 64 → X64M D α) :
+    ((liftMachine (MachineData.rmwM addr .W64 op) : X64M D (BitVec 64)) >>= k)
+      = getMachine >>= fun s => (match Mem.loadInt s.dmem addr 8 with
+          | some i => (match op (BitVec.ofInt 64 i) with
+              | some new => modifyMachine (fun m => { m with dmem := Mem.storeInt m.dmem addr 8 new.toInt })
+              | none => pure ()) >>= fun _ => k (BitVec.ofInt 64 i)
+          | none => liftM (throw (.nonmemRmw s.dmem addr .W64) : SysM D α)) := by
+  funext env rip s
+  simp only [MachineData.rmwM, liftMachine, getMachine, modifyMachine, bind, pure, get, set, getThe,
+    liftM, monadLift, MonadLift.monadLift, ReaderT.bind, ReaderT.pure, StateT.bind, StateT.pure,
+    StateT.lift, MonadStateOf.get, EStateM.get, MonadStateOf.set, EStateM.bind, EStateM.pure, throw,
+    throwThe, MonadExceptOf.throw, Width.bytes, modify, modifyGet, MonadStateOf.modifyGet, Width.bits]
+  cases Mem.loadInt s.machine.dmem addr 8 with
+  | none => rfl
+  | some i =>
+    dsimp only
+    cases op (BitVec.ofInt 64 i) <;> rfl
+
+/-- `fw_simp` for the atomics: the same normalization, with the atomic primitives,
+the read-modify-write bridge, and the `lock` dispatch's `if`. -/
+local macro "atom_simp" : tactic =>
+  `(tactic| simp only [Op.exec, Op.xchg, Op.lockBin, Op.lockUn, Op.xadd, Op.cmpxchg, Op.fence, liftBaseline, Operation.interpM, Operand.interpM, RegOrMem.interpM, RegOrMem.rmwM, ConstExpr.interp, MachineData.setM, evalAddr, AddrExpr.interp64, lm_pure, lm_bind, lm_ebind, lm_get, lm_eget, lm_modify, lm_set, lm_throw, lm_throw_bind, lm_load_bind, lm_store, lm_rmw_bind, gm_gm, gm_mm, gm_mset, mm_mm, gm_gt, read_bind_const, getThe_bind_const, read_read, gt_gt, bind_assoc, pure_bind, bind_pure, match_bind, MachineData.setReg, Reg64s.get_low64, Reg64s.set_low64, Width.bytes, Width.bytesv, BitVec.ofInt_toInt, ze64, gm_store_fuse, BitVec.setWidth_64_64, ite_true, ite_false, Bool.false_eq_true])
+
+/-- Apply both sides to a state and split the mapped-ness of the access at `ae`; a
+store after the load re-checks the same mapping, which the split hypothesis settles. -/
+local macro "atom_close" ae:term : tactic =>
+  `(tactic| (funext env rip s
+             simp only [read_apply, getThe_apply, gm_apply]
+             cases h : Mem.loadInt s.machine.dmem (@AddrExpr.interp env.labels (.mk .W64) $ae s.machine.regs (.mk rip (rip + Int64.ofNat env.curSize))) 8 <;>
+               simp only [h, mm_apply, mm_mm, throw_apply, gm_apply, pure_apply]))
+
+theorem Op.exec_xchg_reg_mem_adequate {D} (r : Reg64) (ae : AddrExpr) :
+    (Op.exec (.xchg (.low r .W64) (.mem ae)) : X64M D Unit)
+      = liftBaseline (.xchg (.low r .W64) (.mem ae)) := by
+  atom_simp <;> atom_close ae
+
+theorem Op.exec_lockBin_imm_adequate {D} (op : LockBinOp) (ae : AddrExpr) (i : Int64) :
+    (Op.exec (.lockBin op ae (.imm (.int64 i))) : X64M D Unit)
+      = liftBaseline (.lockBin op ae (.imm (.int64 i))) := by
+  cases op <;> atom_simp <;> atom_close ae
+
+theorem Op.exec_lockBin_reg_adequate {D} (op : LockBinOp) (ae : AddrExpr) (rs : Reg64) :
+    (Op.exec (.lockBin op ae (.regOrMem (.reg (.low rs .W64)))) : X64M D Unit)
+      = liftBaseline (.lockBin op ae (.regOrMem (.reg (.low rs .W64)))) := by
+  cases op <;> atom_simp <;> atom_close ae
+
+theorem Op.exec_lockUn_adequate {D} (op : LockUnOp) (ae : AddrExpr) :
+    (Op.exec (.lockUn op ae) : X64M D Unit) = liftBaseline (.lockUn op ae) := by
+  atom_simp <;> atom_close ae
+
+theorem Op.exec_xadd_mem_reg_adequate {D} (lock : Bool) (ae : AddrExpr) (rs : Reg64) :
+    (Op.exec (.xadd lock (.mem ae) (.low rs .W64)) : X64M D Unit)
+      = liftBaseline (.xadd lock (.mem ae) (.low rs .W64)) := by
+  cases lock <;> atom_simp <;> atom_close ae
+
+theorem Op.exec_cmpxchg_mem_reg_adequate {D} (lock : Bool) (ae : AddrExpr) (rs : Reg64) :
+    (Op.exec (.cmpxchg lock (.mem ae) (.low rs .W64)) : X64M D Unit)
+      = liftBaseline (.cmpxchg lock (.mem ae) (.low rs .W64)) := by
+  cases lock <;> atom_simp <;> funext env rip s <;> simp only [read_apply, getThe_apply, gm_apply] <;>
+  cases h : Mem.loadInt s.machine.dmem (@AddrExpr.interp env.labels (.mk .W64) ae s.machine.regs (.mk rip (rip + Int64.ofNat env.curSize))) 8 with
+  | none => simp only [throw_apply]
+  | some i =>
+    cases hc : (BitVec.ofInt 64 i == s.machine.regs.get64 .rax) <;>
+    simp only [h, hc, Op.cmpxchgStatus, gm_apply, mm_apply, mm_mm, lm_pure, lm_bind, lm_store,
+      bind_assoc, pure_bind, Bool.false_eq_true, ↓reduceIte]
+
+theorem Op.exec_fence_adequate {D} (op : Operation .W64)
+    (h : op = .mfence ∨ op = .lfence ∨ op = .sfence) :
+    (Op.exec op : X64M D Unit) = liftBaseline op := by
+  rcases h with rfl | rfl | rfl <;> atom_simp
+
 /-! ## Adequacy against the baseline omni-semantics
 
 The half above ends at `Operation.interpM`, a reference we wrote; this half ties
@@ -359,6 +443,83 @@ theorem MachineData.storeM_All {w : Width} {addr : BitVec 64} {v : w.type} {s : 
     first
       | exact h
       | exact h.elim
+
+/-- A non-temporal store (`movnti`) is sequentially an ordinary store. -/
+theorem MachineData.storeM_storeNT_All {w : Width} {addr : BitVec 64} {v : w.type} {s : MachineData}
+    {ret : MachineData → Effects} {jmp}
+    (h : MachineM.Outcomes post (fun _ => ret) jmp (MachineData.storeM addr v s)) :
+    (MachineData.storeNT s addr v ret).All post := by
+  unfold MachineData.storeM at h
+  mrun h
+  unfold MachineData.storeNT
+  simp only [Effects.All]
+  cases hm : Mem.loadInt s.dmem addr w.bytes <;> simp only [hm] at h ⊢ <;> mrun h <;>
+    first
+      | exact h
+      | exact h.elim
+
+theorem MachineData.rmwM_All {w : Width} {k : Kraken.RmwKind} {addr : BitVec 64} {s : MachineData}
+    {op : w.type → Option w.type} {ret : w.type → MachineData → Effects} {jmp}
+    (h : MachineM.Outcomes post ret jmp (MachineData.rmwM addr w op s)) :
+    (MachineData.rmwK s k addr w op ret).All post := by
+  unfold MachineData.rmwM at h
+  mrun h
+  unfold MachineData.rmwK
+  simp only [Effects.All]
+  cases hm : Mem.loadInt s.dmem addr w.bytes <;> simp only [hm] at h ⊢
+  · mrun h
+  · rename_i i
+    cases ho : op (.ofInt _ i) <;> simp only [ho] at h ⊢ <;> mrun h <;>
+      first
+        | exact h
+        | exact h.elim
+
+theorem MachineData.rmwPlainM_All {w : Width} {addr : BitVec 64} {s : MachineData}
+    {op : w.type → Option w.type} {ret : w.type → MachineData → Effects} {jmp}
+    (h : MachineM.Outcomes post ret jmp
+      ((do
+        let old ← MachineData.loadM addr w
+        match op old with
+        | .some new => MachineData.storeM addr new
+        | .none => pure ()
+        pure old : MachineM w.type) s)) :
+    (MachineData.rmwPlain s addr w op ret).All post := by
+  unfold MachineData.rmwPlain
+  apply MachineData.loadM_All
+  cases hx : MachineData.loadM addr w s with
+  | ok old t =>
+    simp only [MachineM.Outcomes, bind, EStateM.bind, hx] at h ⊢
+    cases ho : op old <;> simp only [ho] at h ⊢
+    · simp only [pure, EStateM.pure] at h; exact h
+    · rename_i new
+      apply MachineData.storeM_All
+      cases hy : MachineData.storeM addr new t with
+      | ok u t' => simp only [MachineM.Outcomes, bind, EStateM.bind, hy, pure, EStateM.pure] at h ⊢; exact h
+      | error e t' => simp only [MachineM.Outcomes, bind, EStateM.bind, hy] at h ⊢; cases e <;> first | exact h | exact h.elim
+  | error e t =>
+    simp only [MachineM.Outcomes, bind, EStateM.bind, hx] at h ⊢
+    cases e <;> first | exact h | exact h.elim
+
+theorem RegOrMem.rmwM_All {w} (labels : Labels) (address_size : AddressSize)
+    {o : RegOrMem w} {lock : Bool} {s : MachineData} {p : Std.Rco Int64}
+    {op : w.type → Option w.type} {ret : w.type → MachineData → Effects} {jmp}
+    (h : MachineM.Outcomes post ret jmp (RegOrMem.rmwM labels address_size o lock p op s)) :
+    (@RegOrMem.rmw w labels address_size o lock s p op ret).All post := by
+  cases o with
+  | reg r =>
+    simp only [RegOrMem.rmwM] at h; mrun h
+    simp only [RegOrMem.rmw]
+    cases ho : op (s.regs.get r) <;> simp only [ho] at h ⊢ <;> mrun h <;> exact h
+  | mem a =>
+    simp only [RegOrMem.rmwM] at h; mrun h
+    simp only [RegOrMem.rmw]
+    cases lock with
+    | true =>
+      simp only [ite_true] at h ⊢
+      exact MachineData.rmwM_All h
+    | false =>
+      simp only [Bool.false_eq_true, ite_false] at h ⊢
+      exact MachineData.rmwPlainM_All h
 
 theorem RegOrMem.interpM_All {w} (labels : Labels) (address_size : AddressSize)
     {o : RegOrMem w} {s : MachineData} {p : Std.Rco Int64}
@@ -652,6 +813,78 @@ theorem Operation.interpM_All {w} (labels : Labels) (address_size : AddressSize)
   case nopalign a b =>
     simp only [Operation.interpM] at h; mrun h
     simpa only [Operation.interp] using h
+  case lockBin op dst src =>
+    cases op <;> simp only [Operation.interpM] at h <;> simp only [Operation.interp]
+    case and | or | xor => mrun h
+    all_goals
+      apply Operand.interpM_All labels address_size
+      cases hx : Operand.interpM labels address_size src p s with
+      | ok b t =>
+        mstep hx h
+        apply MachineData.rmwM_All (jmp := jmp)
+        generalize MachineData.rmwM _ w _ t = r at h ⊢
+        cases r with
+        | ok a u =>
+          mstep hx h
+          simp only [Effects.All, LockBinOp.status]
+          intro _
+          exact h
+        | error e u => mstep hx h; mdone e h
+      | error e t => mstep hx h; mdone e h
+  case lockUn op dst =>
+    simp only [Operation.interpM] at h
+    simp only [Operation.interp]
+    mrun h
+    apply MachineData.rmwM_All (jmp := jmp)
+    generalize MachineData.rmwM _ w _ s = r at h ⊢
+    cases r with
+    | ok a u => mrun h; exact h
+    | error e u => mrun h; mdone e h
+  case xchg r m =>
+    simp only [Operation.interpM] at h
+    simp only [Operation.interp]
+    mrun h
+    apply RegOrMem.rmwM_All labels address_size (jmp := jmp)
+    generalize RegOrMem.rmwM labels address_size m true p _ s = r at h ⊢
+    cases r with
+    | ok a u => mrun h; exact h
+    | error e u => mrun h; mdone e h
+  case xadd lock dst src =>
+    cases dst with
+    | reg r =>
+      simp only [Operation.interpM] at h; mrun h
+      simpa only [Operation.interp] using h
+    | mem a =>
+      simp only [Operation.interpM] at h
+      simp only [Operation.interp]
+      mrun h
+      apply RegOrMem.rmwM_All labels address_size (jmp := jmp)
+      generalize RegOrMem.rmwM labels address_size (RegOrMem.mem a) lock p _ s = r at h ⊢
+      cases r with
+      | ok a u => mrun h; exact h
+      | error e u => mrun h; mdone e h
+  case cmpxchg lock dst src =>
+    simp only [Operation.interpM] at h
+    simp only [Operation.interp]
+    mrun h
+    apply RegOrMem.rmwM_All labels address_size (jmp := jmp)
+    generalize RegOrMem.rmwM labels address_size dst lock p _ s = r at h ⊢
+    cases r with
+    | ok a u => mrun h; exact h
+    | error e u => mrun h; mdone e h
+  case mfence =>
+    simp only [Operation.interpM] at h; mrun h
+    simpa only [Operation.interp, Effects.All] using h
+  case lfence =>
+    simp only [Operation.interpM] at h; mrun h
+    simpa only [Operation.interp, Effects.All] using h
+  case sfence =>
+    simp only [Operation.interpM] at h; mrun h
+    simpa only [Operation.interp, Effects.All] using h
+  case movnti dst src =>
+    simp only [Operation.interpM, MachineData.setM] at h; mrun h
+    simp only [Operation.interp]
+    exact MachineData.storeM_storeNT_All h
   all_goals simp only [Operation.interpM] at h <;> mrun h
 
 theorem Instr.interpM_All (labels : Labels) {i : Instr} {p : Std.Rco Int64} {s : MachineData}

@@ -1,0 +1,9 @@
+Test A8 Allowed
+States 1
+0:X0=1; 0:X1=x;
+Ok
+Witnesses
+Positive: 1 Negative: 0
+Condition exists (0:X0=1 /\ 0:X1=x)
+Observation A8 Always 1 0
+

@@ -1,0 +1,14 @@
+AArch64 LB+ldp-stp-i128
+"FEAT_LSE2: LB with LDP of one 16-byte location then STP of the other, plain on both sides"
+{
+__int128 x; __int128 y;
+0:X5=x; 0:X6=y;
+1:X5=y; 1:X6=x;
+uint64_t 0:X7; uint64_t 0:X8; uint64_t 1:X7; uint64_t 1:X8;
+}
+ P0             | P1             ;
+ LDP X7,X8,[X5] | LDP X7,X8,[X5] ;
+ MOV X0,#1      | MOV X0,#1      ;
+ MOV X1,#1      | MOV X1,#1      ;
+ STP X0,X1,[X6] | STP X0,X1,[X6] ;
+exists (0:X7=1 /\ 1:X7=1 \/ 0:X7=1 /\ 0:X8=0 \/ 1:X7=1 /\ 1:X8=0)

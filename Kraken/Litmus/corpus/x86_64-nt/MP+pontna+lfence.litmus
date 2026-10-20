@@ -1,0 +1,16 @@
+X86_64 MP+pontna+lfence
+Generator=diycross7 (version 7.58+1)
+Prefetch=0:x=F,0:y=W,1:y=F,1:x=T
+Com=Rf Fr
+Orig=PodWW Rfe LFencedRR Fre NT
+Cycle=PodWWNTNa Rfe LFencedRR FreNaNT
+"PodWW Rfe LFencedRR Fre NT"
+{
+ 0:rax=x;
+}
+ P0                  | P1            ;
+ movl $1,%ebx        | movl (y),%ebx ;
+ movntil %ebx,(%rax) | lfence        ;
+ movl $1,(y)         | movl (x),%ecx ;
+
+exists (1:rbx=1 /\ 1:rcx=0)

@@ -1,0 +1,12 @@
+Test R+pontna+po Allowed
+States 4
+1:rbx=0; [y]=1;
+1:rbx=0; [y]=2;
+1:rbx=1; [y]=1;
+1:rbx=1; [y]=2;
+Ok
+Witnesses
+Positive: 1 Negative: 3
+Condition exists ([y]=2 /\ 1:rbx=0)
+Observation R+pontna+po Sometimes 1 3
+

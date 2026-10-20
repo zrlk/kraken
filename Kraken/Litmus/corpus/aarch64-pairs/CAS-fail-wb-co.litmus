@@ -1,0 +1,12 @@
+AArch64 CAS-fail-wb-co
+"A failing CAS: herd also explores a failure that writes the old value back; the outcomes are those without it"
+{
+uint64_t x;
+0:X4=x; 1:X4=x; 2:X4=x;
+uint64_t 0:X0;
+}
+P0                 | P1           | P2           ;
+MOV X0,#7          | MOV X1,#1    | MOV X1,#2    ;
+MOV X2,#3          | STR X1,[X4]  | STR X1,[X4]  ;
+CASL X0,X2,[X4]    |              |              ;
+exists (0:X0=1 /\ x=1)

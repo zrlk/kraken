@@ -1,0 +1,13 @@
+AArch64 LB+stadd-dmb.ld+dmb.sy
+"No-result atomic (STADD) read, DMB LD, write; DMB SY in P1"
+{
+0:X1=x; 0:X3=y;
+1:X1=y; 1:X3=x;
+}
+ P0             | P1          ;
+ MOV W0,#1      | LDR W0,[X1] ;
+ STADD W0,[X1]  | DMB SY      ;
+ DMB LD         | MOV W2,#2   ;
+ MOV W2,#1      | STR W2,[X3] ;
+ STR W2,[X3]    |             ;
+exists (x=3 /\ 1:X0=1)

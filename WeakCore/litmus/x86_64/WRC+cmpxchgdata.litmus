@@ -1,0 +1,7 @@
+X86_64 WRC+cmpxchgdata
+{ uint64_t x = 0; uint64_t y = 0; }
+ P0           | P1                      | P2             ;
+ movq $1, (x) | movq (x), %rbx          | movq (y), %rax ;
+              | movq $0, %rax           | movq (x), %rbx ;
+              | lock cmpxchgq (y), %rbx |                ;
+exists (1:rbx=1 /\ 2:rax=1 /\ 2:rbx=0)

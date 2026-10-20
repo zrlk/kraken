@@ -1,0 +1,11 @@
+Test MP+po+cmpxchg-fail Allowed
+States 3
+1:rax=0; 1:rdx=0;
+1:rax=0; 1:rdx=1;
+1:rax=1; 1:rdx=1;
+No
+Witnesses
+Positive: 0 Negative: 3
+Condition exists (1:rax=1 /\ 1:rdx=0)
+Observation MP+po+cmpxchg-fail Never 0 3
+

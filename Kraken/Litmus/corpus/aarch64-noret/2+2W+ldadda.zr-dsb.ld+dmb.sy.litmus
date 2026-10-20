@@ -1,0 +1,14 @@
+AArch64 2+2W+ldadda.zr-dsb.ld+dmb.sy
+"ldadda.zr; dsb.ld; write || write; DMB SY; write"
+{
+
+0:X1=x; 0:X3=y;
+1:X1=y; 1:X3=x;
+}
+ P0                 | P1          ;
+ MOV W0,#1          | MOV W2,#2   ;
+ LDADDA W0,WZR,[X1] | STR W2,[X1] ;
+ DSB LD             | DMB SY      ;
+ MOV W7,#1          | MOV W8,#2   ;
+ STR W7,[X3]        | STR W8,[X3] ;
+exists ([x]=3 /\ [y]=2)

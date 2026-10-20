@@ -1,0 +1,14 @@
+X86_64 ExchS+mfence+rmw-po
+"MFencedWW Rfe Exch PodWW Coe"
+Cycle=Rfe Exch PodWW Coe MFencedWW
+Generator=diycross7 (version 7.58)
+Prefetch=0:x=F,0:y=W,1:y=F,1:x=W
+Com=Rf Co
+Orig=MFencedWW Rfe Exch PodWW Coe
+{
+}
+ P0          | P1             ;
+ movl $2,(x) | movl $2,%eax   ;
+ mfence      | xchgl (y),%eax ;
+ movl $1,(y) | movl $1,(x)    ;
+exists ([x]=2 /\ [y]=2 /\ 1:rax=1)

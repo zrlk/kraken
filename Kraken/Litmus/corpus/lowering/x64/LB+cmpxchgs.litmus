@@ -1,0 +1,10 @@
+X86_64 LB+cmpxchgs
+"LB: load, then lock cmpxchg 0->1 on the other location"
+{
+}
+ P0                     | P1                     ;
+ movl (x),%ecx          | movl (y),%ecx          ;
+ movl $0,%eax           | movl $0,%eax           ;
+ movl $1,%ebx           | movl $1,%ebx           ;
+ lock cmpxchgl %ebx,(y) | lock cmpxchgl %ebx,(x) ;
+exists (0:rcx=1 /\ 1:rcx=1)

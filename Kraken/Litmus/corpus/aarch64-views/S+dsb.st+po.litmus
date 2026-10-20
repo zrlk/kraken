@@ -1,0 +1,19 @@
+AArch64 S+dsb.st+po
+Generator=diycross7 (version 7.58+1)
+Prefetch=0:x=F,0:y=W,1:y=F,1:x=W
+Com=Rf Co
+Orig=DSB.STdWW Rfe PodRW Coe
+Cycle=DSB.STdWW Rfe PodRW Coe
+"DSB.STdWW Rfe PodRW Coe"
+{
+ 0:X1=x; 0:X3=y;
+ 1:X1=x; 1:X3=y;
+}
+ P0          | P1          ;
+ MOV W0,#2   | LDR W0,[X3] ;
+ STR W0,[X1] | MOV W2,#1   ;
+ DSB ST      | STR W2,[X1] ;
+ MOV W2,#1   |             ;
+ STR W2,[X3] |             ;
+
+exists ([x]=2 /\ 1:X0=1)

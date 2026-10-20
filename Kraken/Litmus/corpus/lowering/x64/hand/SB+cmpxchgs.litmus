@@ -1,0 +1,10 @@
+X86_64 SB+cmpxchgs
+"SB: lock cmpxchg 0->1 on each own location, then load the other"
+{
+}
+ P0                     | P1                     ;
+ movl $0,%eax           | movl $0,%eax           ;
+ movl $1,%ebx           | movl $1,%ebx           ;
+ lock cmpxchgl %ebx,(x) | lock cmpxchgl %ebx,(y) ;
+ movl (y),%ecx          | movl (x),%ecx          ;
+exists (0:rcx=0 /\ 1:rcx=0)

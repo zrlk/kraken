@@ -1,0 +1,10 @@
+Test CASPAL-SB Allowed
+States 2
+0:X0=0; 0:X1=0; 1:X0=1; 1:X1=0;
+0:X0=0; 0:X1=2; 1:X0=0; 1:X1=0;
+No
+Witnesses
+Positive: 0 Negative: 8
+Condition exists (0:X0=0 /\ 0:X1=0 /\ 1:X0=0 /\ 1:X1=0)
+Observation CASPAL-SB Never 0 8
+

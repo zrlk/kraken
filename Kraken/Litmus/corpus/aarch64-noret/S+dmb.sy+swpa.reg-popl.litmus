@@ -1,0 +1,14 @@
+AArch64 S+dmb.sy+swpa.reg-popl
+"write; DMB SY; write || swpa.reg; popl; write"
+{
+
+0:X1=x; 0:X3=y;
+1:X1=y; 1:X3=x;
+}
+ P0          | P1              ;
+ MOV W0,#2   | MOV W0,#1       ;
+ STR W0,[X1] | SWPA W0,W5,[X1] ;
+ DMB SY      | MOV W7,#1       ;
+ MOV W2,#2   | STLR W7,[X3]    ;
+ STR W2,[X3] |                 ;
+exists ([y]=1 /\ [x]=2)

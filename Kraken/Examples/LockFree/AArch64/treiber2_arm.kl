@@ -1,0 +1,58 @@
+AArch64 Treiber2Arm
+(* Treiber stack (as treiber2.kl) with the Arm-minimal annotations in the
+   spirit of the paper's "optimised for ARMv8" variants: push reads `top`
+   with a plain LDR (a stale value only makes the CAS fail) and links with
+   CASL (release, so the node's data and next are published with `top`);
+   pop reads `top` with LDAR (acquire, so next/data are read after the
+   push's release) and swings it with a plain CAS (nothing to publish).
+   Same property as treiber2.kl. Expected: Always.
+   Proved: `treiber2_arm_envG` (Promising/SLR/EnvG/Treiber2ArmPublic.lean);
+   whole image (one layout, both threads from `worker` to `done`):
+   `treiber2_arm_envG_whole`, with a concrete instance checked by
+   `runnerMatchesWA` (Promising/SLR/EnvG/A64Treiber2ArmWhole.lean).
+   The shared symbols are typed (`uint64_t top`; `uint32_t n1`, `n2`, the nodes' 4-byte values, their
+   8-byte `next` at `n+8` undeclared)
+   as in treiber2.kl (A64DECLS): the runner's declarations then agree with
+   the proofs' locations. The code block and the verdict are unchanged.
+   Proved from the runner's exact configuration (declarations and initial
+   memory included): `treiber2_arm_envG_runner`, concrete
+   `treiber2_arm_envG_runner_concrete` (Promising/SLR/EnvG/A64Treiber2ArmRunner.lean).
+   Proved program-level fault freedom at the runner's declarations (no
+   reachable configuration has a faulting step, any architecture, promises
+   included): `treiber2_arm_envG_runner_faultFree`, concrete
+   `treiber2_arm_envG_runner_faultFree_concrete` (Promising/SLR/EnvG/MemValsA64Treiber2Arm.lean).
+   Proved both at once (safety and fault freedom, at the union of their
+   hypotheses): `treiber2_arm_envG_runner_safe_faultFree`, concrete
+   `treiber2_arm_envG_runner_safe_faultFree_concrete` (Promising/SLR/EnvG/RunnerSafeFFA64.lean). *)
+# flags:
+# expect: Always
+{
+uint64_t top=0; uint32_t n1=0; uint32_t n2=0;
+0:X0=top; 0:X1=n1; 0:X9=1;
+1:X0=top; 1:X1=n2; 1:X9=2;
+}
+threads { P0: worker done; P1: worker done; }
+code {
+worker:
+  STR W9,[X1]
+push:
+  LDR X2,[X0]
+  STR X2,[X1,#8]
+  MOV X3,X2
+  CASL X3,X1,[X0]
+  CMP X3,X2
+  B.NE push
+pop:
+  LDAR X2,[X0]
+  CBZ X2,done
+  LDR X4,[X2,#8]
+  MOV X3,X2
+  CAS X3,X4,[X0]
+  CMP X3,X2
+  B.NE pop
+  MOV X10,X2
+  LDR W11,[X2]
+  B done
+done:
+}
+forall ((0:X10=n1 /\ 0:X11=1 /\ 1:X10=n2 /\ 1:X11=2) \/ (0:X10=n2 /\ 0:X11=2 /\ 1:X10=n1 /\ 1:X11=1))

@@ -1,0 +1,11 @@
+Test SB+dsb.st+dsb.sy Allowed
+States 3
+0:X3=0; 1:X3=1;
+0:X3=1; 1:X3=0;
+0:X3=1; 1:X3=1;
+No
+Witnesses
+Positive: 0 Negative: 3
+Condition exists (0:X3=0 /\ 1:X3=0)
+Observation SB+dsb.st+dsb.sy Never 0 3
+

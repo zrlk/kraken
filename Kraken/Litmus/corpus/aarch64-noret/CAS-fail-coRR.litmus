@@ -1,0 +1,12 @@
+AArch64 CAS-fail-coRR
+"A failing CAS with comparand WZR still reads: a later read of the location is coherence-ordered after it"
+{
+x=1;
+0:X1=x; 0:X4=3;
+1:X1=x;
+}
+ P0               | P1          ;
+ CAS WZR,W4,[X1]  | MOV W2,#2   ;
+ LDR W5,[X1]      | STR W2,[X1] ;
+ LDR W6,[X1]      |             ;
+exists (0:X5=2 /\ 0:X6=1)

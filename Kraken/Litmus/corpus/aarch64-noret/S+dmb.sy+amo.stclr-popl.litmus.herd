@@ -1,0 +1,10 @@
+Test S+dmb.sy+amo.stclr-popl Allowed
+States 2
+[x]=1; [y]=1;
+[x]=2; [y]=1;
+Ok
+Witnesses
+Positive: 1 Negative: 2
+Condition exists ([x]=2 /\ [y]=1)
+Observation S+dmb.sy+amo.stclr-popl Sometimes 1 2
+

@@ -1,0 +1,11 @@
+Test MP+stlxp+ldaxp-i128 Allowed
+States 3
+1:X2=0; 1:X4=0;
+1:X2=0; 1:X4=1;
+1:X2=1; 1:X4=1;
+No
+Witnesses
+Positive: 0 Negative: 20
+Condition exists (1:X2=1 /\ 1:X4=0)
+Observation MP+stlxp+ldaxp-i128 Never 0 20
+

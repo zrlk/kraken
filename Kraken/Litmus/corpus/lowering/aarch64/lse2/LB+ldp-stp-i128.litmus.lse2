@@ -1,0 +1,9 @@
+Test LB+ldp-stp-i128 Allowed
+States 4
+0:X7=0; 0:X8=0; 1:X7=0; 1:X8=0;
+0:X7=0; 0:X8=0; 1:X7=1; 1:X8=1;
+0:X7=1; 0:X8=1; 1:X7=0; 1:X8=0;
+0:X7=1; 0:X8=1; 1:X7=1; 1:X8=1;
+Ok
+Condition exists (0:X7=1 /\ 1:X7=1 \/ 0:X7=1 /\ 0:X8=0 \/ 1:X7=1 /\ 1:X8=0)
+Observation LB+ldp-stp-i128 Sometimes 1 3

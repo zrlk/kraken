@@ -1,0 +1,10 @@
+Test CASL-fail-wb-rel Allowed
+States 2
+1:X0=5; 1:X3=0;
+1:X0=5; 1:X3=1;
+Ok
+Witnesses
+Positive: 2 Negative: 3
+Condition exists (1:X0=5 /\ 1:X3=0)
+Observation CASL-fail-wb-rel Sometimes 2 3
+

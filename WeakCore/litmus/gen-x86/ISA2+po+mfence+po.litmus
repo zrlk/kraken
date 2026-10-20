@@ -1,0 +1,14 @@
+X86_64 ISA2+po+mfence+po
+"PodWW Rfe MFencedRW Rfe PodRR Fre"
+Cycle=Rfe PodRR Fre PodWW Rfe MFencedRW
+Generator=diycross7 (version 7.58)
+Prefetch=0:x=F,0:y=W,1:y=F,1:z=W,2:z=F,2:x=T
+Com=Rf Rf Fr
+Orig=PodWW Rfe MFencedRW Rfe PodRR Fre
+{
+}
+ P0          | P1            | P2            ;
+ movl $1,(x) | movl (y),%eax | movl (z),%eax ;
+ movl $1,(y) | mfence        | movl (x),%ebx ;
+             | movl $1,(z)   |               ;
+exists (1:rax=1 /\ 2:rax=1 /\ 2:rbx=0)

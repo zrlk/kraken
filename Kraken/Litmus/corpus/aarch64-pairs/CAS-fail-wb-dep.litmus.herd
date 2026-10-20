@@ -1,0 +1,11 @@
+Test CAS-fail-wb-dep Allowed
+States 3
+0:X3=0; 1:X0=0;
+0:X3=0; 1:X0=1;
+0:X3=1; 1:X0=0;
+No
+Witnesses
+Positive: 0 Negative: 7
+Condition exists (0:X3=1 /\ 1:X0=1)
+Observation CAS-fail-wb-dep Never 0 7
+

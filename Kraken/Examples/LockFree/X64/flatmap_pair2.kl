@@ -1,0 +1,75 @@
+X86_64 FlatMapPair2
+(* Lock-free flat hash map on x86-TSO, pair variant: each slot is a
+   16-byte {key, value} group (`__int128 s0, s1`; key in the low 8 bytes,
+   value in the high 8), inserted by one `lock cmpxchg16b` {0,0} -> {k,v}
+   and read by one aligned 16-byte `movdqa` load (WeakCore: `casPair` =
+   cmpxchg16b, 16-byte atomic load = movdqa; SDM Vol. 3A "Guaranteed
+   Atomic Operations": with AVX an aligned 16-byte movdqa is single-copy
+   atomic, and cmpxchg16b with `lock` is one atomic 16-byte RMW). Keys 1
+   and 2 both have home slot 0; N = 2 slots (s0, s1).
+     insert(k, v): rdx:rax := {0,0}; rcx:rbx := {k,v};
+                   lock cmpxchg16b s0; ZF: return 1;
+                   (rax, rdx) is the old pair: keep it in (r14, r15);
+                   if rax = k: return 9 (duplicate);
+                   lock cmpxchg16b s1 (rdx:rax reset to 0); ZF: return 2;
+                   return 0 (full).
+   P0: insert(1, 11) -> r12; P1: insert(2, 22) -> r12 (same code,
+   registers differ; r14/r15 stay 0 unless the slot-0 CAS fails).
+   P2 (scan): movdqa s0 -> xmm2; movdqa s1 -> xmm3.
+   A 16-byte value prints as one number, key + (value << 64):
+   {1,11} = 0xb0000000000000001, {2,22} = 0x160000000000000002.
+   Property: no torn {key, value}: each of xmm2, xmm3 and the old pair a
+   failed cmpxchg16b returns is {0,0}, {1,11} or {2,22}; and the final
+   table is {1:11, 2:22} in the slots the inserters returned.
+   Expected: Always (Kraken makes the locked cmpxchg16b one `rmw` and
+   movdqa one 16-byte load or store on a 16-byte location). This is the
+   x64 side of the pair-atomicity evidence (../AArch64/flatmap_pair2.kl:
+   on AArch64 the same program is Sometimes in Kraken). herd7 has no
+   cmpxchg16b/movdqa, so the verdict is argued here. No -sym.
+# flags: -fuel 300
+# expect: Always
+*)
+{
+__int128 s0; __int128 s1;
+0:rbx=1; 0:rcx=11; 1:rbx=2; 1:rcx=22;
+}
+threads { P0: ins done; P1: ins done; P2: scan done; }
+code {
+ins:
+  xorl %eax,%eax
+  xorl %edx,%edx
+  lock cmpxchg16b (s0)
+  je won0
+  movq %rax,%r14
+  movq %rdx,%r15
+  cmpq %rbx,%rax
+  je dup
+  xorl %eax,%eax
+  xorl %edx,%edx
+  lock cmpxchg16b (s1)
+  je won1
+  movq $0,%r12
+  jmp done
+dup:
+  movq $9,%r12
+  jmp done
+won0:
+  movq $1,%r12
+  jmp done
+won1:
+  movq $2,%r12
+  jmp done
+scan:
+  movdqa (s0),%xmm2
+  movdqa (s1),%xmm3
+  jmp done
+done:
+}
+forall (
+  ((0:r12=1 /\ 1:r12=2 /\ [s0]=0xb0000000000000001 /\ [s1]=0x160000000000000002) \/
+   (0:r12=2 /\ 1:r12=1 /\ [s0]=0x160000000000000002 /\ [s1]=0xb0000000000000001)) /\
+  ((0:r14=0 /\ 0:r15=0) \/ (0:r14=2 /\ 0:r15=22)) /\
+  ((1:r14=0 /\ 1:r15=0) \/ (1:r14=1 /\ 1:r15=11)) /\
+  (2:xmm2=0 \/ 2:xmm2=0xb0000000000000001 \/ 2:xmm2=0x160000000000000002) /\
+  (2:xmm3=0 \/ 2:xmm3=0xb0000000000000001 \/ 2:xmm3=0x160000000000000002)
+)

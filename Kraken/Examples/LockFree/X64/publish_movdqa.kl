@@ -1,0 +1,45 @@
+X86_64 PublishMovdqa
+(* A two-word record published with one 16-byte `movdqa` store and read
+   with one 16-byte `movdqa` load: never torn.
+
+   `rec` is declared `__int128`, a 16-byte location. P0 publishes version
+   1, `{1, 1}`, then version 2, `{2, 2}` (low word, high word), each with a
+   single `movdqa` from `xmm0`/`xmm1`; P1 reads the record once into
+   `xmm2`. The SDM (Vol. 3A, "Guaranteed Atomic Operations") guarantees
+   that on processors with AVX an aligned 16-byte `movdqa` access is single
+   copy atomic, so each store is one 16-byte write and the load reads
+   exactly one of them (or the initial record): `xmm2` is 0, version 1 or
+   version 2, never a mix of the halves of two versions. A 16-byte value
+   prints as one unsigned number, low word in the low 64 bits:
+   `{1, 1}` = 0x10000000000000001, `{2, 2}` = 0x20000000000000002.
+
+   herd7 has no `movdqa` (its x86 catalogue has no vector tests), so the
+   verdict is argued here rather than checked against herd.
+
+   Proved for every layout of the runner's image, the code verbatim, at
+   declarations agreeing with the runner's on every cell:
+   `VecPublish.x64_publish_movdqa_verbatim`, fault freedom
+   `VecPublish.x64_publish_movdqa_verbatim_faultFree`
+   (Promising/SLR/EnvG/X64VecPublish.lean). Proved from the runner's exact
+   configuration:
+   `VecPublish.Concrete.x64_publish_movdqa_verbatim_concrete`,
+   `..._concrete_faultFree` (X64VecPublishConcrete.lean).
+# flags: -fuel 300
+# expect: Never
+*)
+{
+__int128 rec;
+0:xmm0=0x10000000000000001; 0:xmm1=0x20000000000000002;
+}
+threads { P0: writer done; P1: reader done; }
+code {
+writer:
+  movdqa %xmm0,(rec)
+  movdqa %xmm1,(rec)
+  jmp done
+reader:
+  movdqa (rec),%xmm2
+  jmp done
+done:
+}
+exists (not (1:xmm2=0 \/ 1:xmm2=0x10000000000000001 \/ 1:xmm2=0x20000000000000002))

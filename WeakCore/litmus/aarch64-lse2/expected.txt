@@ -1,0 +1,4 @@
+I-ldp-stp forbidden 2
+I-ldp-stp-swapped forbidden 2
+J-plain-str-tear allowed 4
+K-ldp-stp-sep forbidden 3

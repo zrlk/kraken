@@ -119,6 +119,13 @@ structure Reg64s where
 @[kstep] def Reg64s.getRegOrZr (s : Reg64s) {w} (r : RegOrZr w) : w.type :=
   (s.getRegOrZr64 r.base).take w.bits
 
+/-- Is the operand the zero register? (An atomic whose destination is `XZR`/`WZR`
+is herd's `NoRet`; see `MachineData.rmwK`.) -/
+@[kstep] def RegOrZr.isZr {w} (r : RegOrZr w) : Bool :=
+  match r.base with
+  | .XZR => true
+  | .reg _ => false
+
 @[kstep] def Reg64s.setRegOrSp (s : Reg64s) {w} (r : RegOrSp w) (v : w.type) : Reg64s := match r with
   | .low r .W64 => s.setRegOrSp64 r v
   | .low r .W32 => s.setRegOrSp64 r (v.zeroExtend _)
@@ -171,7 +178,42 @@ inductive Effects
   | require_write_access (addr : BitVec 64) (w : MemWidth) (ok : Unit → Effects)
   | require_exec_access (p: Std.Rco Int64) (ok : Unit → Effects)
   | unaligned_sp {w : RegWidth} (sp : w.type)
-export Effects (unimplemented nonmem_load nonmem_store undefined require_read_access require_write_access require_exec_access)
+  -- Memory events of the weak-memory layer (`Kraken/MemKinds.lean`), emitted only for
+  -- addresses *outside* the data memory, like `nonmem_load`/`nonmem_store` (which stay
+  -- the plain-kind events). On mapped memory the instructions act sequentially; see
+  -- `MachineData.loadK`/`storeK`/`rmwK`.
+  | sync_load (k : Kraken.LoadKind) (xcl : Bool) (dmem : DataMem) (addr : BitVec 64) (w : MemWidth)
+      (ret : w.type → DataMem → Effects)
+  -- The `Bool` is store-exclusive success (always `true` for a non-exclusive store).
+  | sync_store (k : Kraken.StoreKind) (xcl : Bool) (dmem : DataMem) (addr : BitVec 64) {w : MemWidth} (v : w.type)
+      (ret : Bool → DataMem → Effects)
+  -- Read-modify-write: `op old = none` means nothing is written (a failed `CAS` compare);
+  -- `ret` receives the old value. `noRet`: the old value is discarded (the destination
+  -- register is `XZR`/`WZR`: `ST<op>`, `LD<op>`/`SWP` to `XZR`, `CAS` with comparand `XZR`),
+  -- herd's `NoRet` read, which `DMB LD`/`DSB LD` do not order and which loses its acquire
+  -- annotation (see `MachineData.rmwK`). Only the weak-memory layer reads it.
+  | rmw (k : Kraken.RmwKind) (noRet : Bool) (dmem : DataMem) (addr : BitVec 64) (w : MemWidth)
+      (op : w.type → Option w.type) (ret : w.type → DataMem → Effects)
+  | fence (k : Kraken.FenceKind) (ok : Unit → Effects)
+  -- Pair accesses (`LDXP`/`LDAXP`, `STXP`/`STLXP`, `CASP*`) both of whose halves are
+  -- outside the data memory: two `w`-sized accesses at `addr` and `addr + w.bytes`, the
+  -- first register's half at the lower address. herd performs them as two accesses of one
+  -- instruction, unordered with each other, with per-location atomicity; the weak-memory
+  -- layer (`Kraken/Promising/AArch64.lean`) translates them so. A pair with one half in
+  -- `dmem` uses the single-access effects on the other half (`MachineData.loadPairK`).
+  -- Load pair of kind `k` (`xcl`: load-exclusive pair); `ret` receives both halves.
+  | sync_load_pair (k : Kraken.LoadKind) (xcl : Bool) (dmem : DataMem) (addr : BitVec 64) (w : MemWidth)
+      (ret : w.type → w.type → DataMem → Effects)
+  -- Store pair of kind `k`: both halves are written or (a store-exclusive pair, `xcl`,
+  -- failing) neither; the `Bool` is the success, always `true` when `xcl = false`.
+  | sync_store_pair (k : Kraken.StoreKind) (xcl : Bool) (dmem : DataMem) (addr : BitVec 64) {w : MemWidth}
+      (v1 v2 : w.type) (ret : Bool → DataMem → Effects)
+  -- Compare-and-swap pair (`CASP`): if the halves hold `cmp1`, `cmp2`, write `new1`, `new2`,
+  -- otherwise write nothing; `ret` receives the old halves.
+  | rmw_pair (k : Kraken.RmwKind) (dmem : DataMem) (addr : BitVec 64) {w : MemWidth}
+      (cmp1 cmp2 new1 new2 : w.type) (ret : w.type → w.type → DataMem → Effects)
+export Effects (unimplemented nonmem_load nonmem_store undefined require_read_access require_write_access require_exec_access
+  sync_load sync_store rmw fence sync_load_pair sync_store_pair rmw_pair)
 
 -- the unused `Std.Rco Int64` argument and the unmodified `MachineData` return
 -- value are present for uniformity with RegOrMem.interp
@@ -209,6 +251,148 @@ def MachineData.store (s : MachineData) (addr : BitVec 64) {w : MemWidth} (v : w
     | .some _ =>
         ret { s with dmem := Mem.storeInt s.dmem addr w.bytes v.toInt }
     | .none => nonmem_store s.dmem addr v (fun dmem' => ret { s with dmem := dmem' }))
+
+-- The kinded variants used by the acquire/release, exclusive and atomic
+-- instructions. They follow the same mapped-first discipline as `load`/`store`:
+-- a mapped address is served from `dmem` with plain sequential semantics, and
+-- only an unmapped address reaches the weak-memory layer as a `sync_load`,
+-- `sync_store` or `rmw` effect. Alignment of the access is not checked here.
+
+/-- A load of kind `k` (`xcl`: load-exclusive). On mapped memory this is `load`. -/
+def MachineData.loadK
+  (s : MachineData) (k : Kraken.LoadKind) (xcl : Bool) (addr : BitVec 64) (w : MemWidth)
+  (ret : w.type → MachineData → Effects): Effects :=
+  require_read_access addr w (fun _unit =>
+    match Mem.loadInt s.dmem addr w.bytes with
+    | .some i => ret (.ofInt _ i) s
+    | .none => sync_load k xcl s.dmem addr w (fun v dmem => ret v { s with dmem }))
+
+/-- A store of kind `k`; `ret` receives whether the store took place. A plain
+(`xcl = false`) store always succeeds. A store-exclusive (`xcl = true`) on mapped
+memory **may fail spuriously** (`undefined Bool`), as the architecture permits and
+as herd7 and Promising-ARM model it: on `true` the value is written and success
+reported, on `false` nothing is written. Unmapped exclusives emit `sync_store`
+with `xcl := true` and let the handler decide. -/
+def MachineData.storeK
+  (s : MachineData) (k : Kraken.StoreKind) (xcl : Bool) (addr : BitVec 64) {w : MemWidth} (v : w.type)
+  (ret : Bool → MachineData → Effects) : Effects :=
+  require_write_access addr w (fun _unit =>
+    match Mem.loadInt s.dmem addr w.bytes with
+    | .some _ =>
+      let s' := { s with dmem := Mem.storeInt s.dmem addr w.bytes v.toInt }
+      if xcl then
+        undefined (α := Bool) (fun ok => if ok then ret true s' else ret false s)
+      else
+        ret true s'
+    | .none => sync_store k xcl s.dmem addr v (fun ok dmem' => ret ok { s with dmem := dmem' }))
+
+/-- A read-modify-write of kind `k`: `ret` receives the old value; if
+`op old = some new` then `new` is written, otherwise nothing is (a failed `CAS`
+compare). On mapped memory this is a load followed by a store.
+
+`noRet` marks herd's `NoRet` atomics (`AArch64Sem.ml`: `swp`, `cas`, `ldop`):
+the instruction discards the value read, i.e. its destination is the zero
+register — `Rt` for `SWP` and `LD<op>` (so every `ST<op>`), the comparand `Rs`
+for `CAS` (`CASP` has none). herd then annotates the read `NoRet` in place of
+its `A`/`X` annotation, whatever the `A`/`L` suffix: the read is not ordered by
+`DMB LD`/`DSB LD` (`[(Exp & R) \ NoRet]` in `bob`/`DSB-ob` of
+`aarch64hwreqs.cat`) and is never an acquire; the write keeps its annotation
+(release for `L`/`AL`). The flag only reaches the weak-memory layer (`rmw`);
+on mapped memory it is ignored. -/
+def MachineData.rmwK
+  (s : MachineData) (k : Kraken.RmwKind) (noRet : Bool) (addr : BitVec 64) (w : MemWidth)
+  (op : w.type → Option w.type) (ret : w.type → MachineData → Effects) : Effects :=
+  require_read_access addr w (fun _unit =>
+  require_write_access addr w (fun _unit =>
+    match Mem.loadInt s.dmem addr w.bytes with
+    | .some i =>
+      let old : w.type := .ofInt _ i
+      match op old with
+      | .some new => ret old { s with dmem := Mem.storeInt s.dmem addr w.bytes new.toInt }
+      | .none => ret old s
+    | .none => rmw k noRet s.dmem addr w op (fun old dmem' => ret old { s with dmem := dmem' })))
+
+-- The pair variants, for `LDXP`/`STXP`/`CASP` (and the LSE2 reading of `LDP`/`STP` in
+-- `Kraken/Promising/AArch64.lean`): two `w`-sized halves at `addr` and `addr + w.bytes`,
+-- each checked for access. Mapped-first per half: both halves in `dmem` act
+-- sequentially; both outside it are one pair effect; one of each is the single-access
+-- effect on the outside half, with the inside half served by `dmem` (so that the
+-- merged link of `Kraken/Promising/SeqLinkAArch64.lean` holds for a pair that is half
+-- private and half shared).
+
+/-- A load pair of kind `k` (`xcl`: load-exclusive pair). On mapped memory this is
+two loads. -/
+def MachineData.loadPairK
+  (s : MachineData) (k : Kraken.LoadKind) (xcl : Bool) (addr : BitVec 64) (w : MemWidth)
+  (ret : w.type → w.type → MachineData → Effects) : Effects :=
+  require_read_access addr w (fun _unit =>
+  require_read_access (addr + w.bytesv) w (fun _unit =>
+    match Mem.loadInt s.dmem addr w.bytes, Mem.loadInt s.dmem (addr + w.bytesv) w.bytes with
+    | .some i1, .some i2 => ret (.ofInt _ i1) (.ofInt _ i2) s
+    | .none, .none => sync_load_pair k xcl s.dmem addr w (fun v1 v2 dmem => ret v1 v2 { s with dmem })
+    | .some i1, .none =>
+      sync_load k xcl s.dmem (addr + w.bytesv) w (fun v2 dmem => ret (.ofInt _ i1) v2 { s with dmem })
+    | .none, .some i2 =>
+      sync_load k xcl s.dmem addr w (fun v1 dmem => ret v1 (.ofInt _ i2) { s with dmem })))
+
+/-- A store pair of kind `k`: both halves are written or neither. A
+store-exclusive pair (`xcl`) on mapped memory **may fail spuriously**, as one
+(`undefined Bool`), like `storeK`; `ret` receives the success. -/
+def MachineData.storePairK
+  (s : MachineData) (k : Kraken.StoreKind) (xcl : Bool) (addr : BitVec 64) {w : MemWidth} (v1 v2 : w.type)
+  (ret : Bool → MachineData → Effects) : Effects :=
+  require_write_access addr w (fun _unit =>
+  require_write_access (addr + w.bytesv) w (fun _unit =>
+    match Mem.loadInt s.dmem addr w.bytes, Mem.loadInt s.dmem (addr + w.bytesv) w.bytes with
+    | .some _, .some _ =>
+      let s' := { s with dmem := Mem.storeInt (Mem.storeInt s.dmem addr w.bytes v1.toInt)
+                                   (addr + w.bytesv) w.bytes v2.toInt }
+      if xcl then
+        undefined (α := Bool) (fun ok => if ok then ret true s' else ret false s)
+      else
+        ret true s'
+    | .none, .none => sync_store_pair k xcl s.dmem addr v1 v2 (fun ok dmem => ret ok { s with dmem })
+    | .some _, .none =>
+      sync_store k xcl s.dmem (addr + w.bytesv) v2 (fun ok dmem =>
+        if ok then ret true { s with dmem := Mem.storeInt dmem addr w.bytes v1.toInt }
+        else ret false { s with dmem })
+    | .none, .some _ =>
+      sync_store k xcl s.dmem addr v1 (fun ok dmem =>
+        if ok then ret true { s with dmem := Mem.storeInt dmem (addr + w.bytesv) w.bytes v2.toInt }
+        else ret false { s with dmem })))
+
+/-- A compare-and-swap pair of kind `k` (`CASP`): `ret` receives both old
+halves; if they are `cmp1`, `cmp2`, then `new1`, `new2` are written, otherwise
+nothing is. On mapped memory this is two loads followed by two stores. -/
+def MachineData.rmwPairK
+  (s : MachineData) (k : Kraken.RmwKind) (addr : BitVec 64) {w : MemWidth}
+  (cmp1 cmp2 new1 new2 : w.type) (ret : w.type → w.type → MachineData → Effects) : Effects :=
+  require_read_access addr w (fun _unit =>
+  require_write_access addr w (fun _unit =>
+  require_read_access (addr + w.bytesv) w (fun _unit =>
+  require_write_access (addr + w.bytesv) w (fun _unit =>
+    match Mem.loadInt s.dmem addr w.bytes, Mem.loadInt s.dmem (addr + w.bytesv) w.bytes with
+    | .some i1, .some i2 =>
+      let o1 : w.type := .ofInt _ i1
+      let o2 : w.type := .ofInt _ i2
+      if o1 == cmp1 && o2 == cmp2 then
+        ret o1 o2 { s with dmem := Mem.storeInt (Mem.storeInt s.dmem addr w.bytes new1.toInt)
+                                     (addr + w.bytesv) w.bytes new2.toInt }
+      else ret o1 o2 s
+    | .none, .none => rmw_pair k s.dmem addr cmp1 cmp2 new1 new2 (fun o1 o2 dmem => ret o1 o2 { s with dmem })
+    | .some i1, .none =>
+      let o1 : w.type := .ofInt _ i1
+      rmw k false s.dmem (addr + w.bytesv) w (fun o2 => if o1 == cmp1 && o2 == cmp2 then some new2 else none)
+        (fun o2 dmem =>
+          if o1 == cmp1 && o2 == cmp2 then ret o1 o2 { s with dmem := Mem.storeInt dmem addr w.bytes new1.toInt }
+          else ret o1 o2 { s with dmem })
+    | .none, .some i2 =>
+      let o2 : w.type := .ofInt _ i2
+      rmw k false s.dmem addr w (fun o1 => if o1 == cmp1 && o2 == cmp2 then some new1 else none)
+        (fun o1 dmem =>
+          if o1 == cmp1 && o2 == cmp2 then
+            ret o1 o2 { s with dmem := Mem.storeInt dmem (addr + w.bytesv) w.bytes new2.toInt }
+          else ret o1 o2 { s with dmem })))))
 
 class Labels where label : Label → Int64
 export Labels (label)
@@ -370,6 +554,30 @@ def ConstExpr.evalBranchTarget [Labels] (target : ConstExpr) (p : Std.Rco Int64)
   match expr with
   | .addr addr_expr => addr_expr.interpLoad s p ret
   | .lit lit_expr => lit_expr.interpLoad s p ret
+
+/-- The address of a base-register-only memory operand `[Xn|SP]`, as used by the
+acquire/release, exclusive and atomic instructions. AArch64 mandates 16-byte
+alignment when accessing memory through SP. (No `let` for the address, so that
+`kstep` leaves it as an expression in the goal, as for `AddrExpr`.) -/
+@[kstep] def RegOrSp.interpBase (base : RegOrSp .W64) (s : MachineData) (ok : BitVec 64 → Effects) : Effects :=
+  match base with
+  | .SP =>
+    if s.regs.getRegOrSp .SP % 16#64 != 0#64 then .unaligned_sp (s.regs.getRegOrSp .SP)
+    else ok (s.regs.getRegOrSp .SP)
+  | _ => ok (s.regs.getRegOrSp base)
+
+/-- The arithmetic of an atomic load-and-op instruction: the new memory value
+given the old one and the `Rs` operand. -/
+@[kstep] def AtomicOp.apply {n} (op : AtomicOp) (old rs : BitVec n) : BitVec n :=
+  match op with
+  | .ADD => old + rs
+  | .CLR => old &&& ~~~rs
+  | .EOR => old ^^^ rs
+  | .SET => old ||| rs
+  | .SMAX => if old.slt rs then rs else old
+  | .SMIN => if old.slt rs then old else rs
+  | .UMAX => if old.ult rs then rs else old
+  | .UMIN => if old.ult rs then old else rs
 
 @[kstep] def MachineData.setRegOrSp (s : MachineData) {w} (r : RegOrSp w) (v : w.type) (ret : MachineData → Effects) : Effects :=
   ret { s with regs := s.regs.setRegOrSp r v }
@@ -924,6 +1132,55 @@ set_option maxHeartbeats 1000000
       jmp (target.evalBranchTarget p) s
     else
       next s
+  | .LDAR k xcl sz dst base =>
+    base.interpBase s (fun addr =>
+      s.loadK k xcl addr sz (fun val s' =>
+        s'.setRegOrZr dst (val.zeroExtend w.bits) next))
+  | .STLR sz src base =>
+    base.interpBase s (fun addr =>
+      s.storeK .rel false addr ((s.regs.getRegOrZr src).take sz.bits) (fun _ok s' => next s'))
+  | .STXR k sz status src base =>
+    base.interpBase s (fun addr =>
+      s.storeK k true addr ((s.regs.getRegOrZr src).take sz.bits) (fun ok s' =>
+        s'.setRegOrZr status (if ok then 0#32 else 1#32) next))
+  | .CAS k sz rs rt base =>
+    base.interpBase s (fun addr =>
+      let cmp := (s.regs.getRegOrZr rs).take sz.bits
+      let new := (s.regs.getRegOrZr rt).take sz.bits
+      s.rmwK k rs.isZr addr sz (fun old => if old == cmp then some new else none) (fun old s' =>
+        s'.setRegOrZr rs (old.zeroExtend w.bits) next))
+  | .SWP k sz rs rt base =>
+    base.interpBase s (fun addr =>
+      let new := (s.regs.getRegOrZr rs).take sz.bits
+      s.rmwK k rt.isZr addr sz (fun _old => some new) (fun old s' =>
+        s'.setRegOrZr rt (old.zeroExtend w.bits) next))
+  | .LDOP op k sz rs rt base =>
+    base.interpBase s (fun addr =>
+      let arg := (s.regs.getRegOrZr rs).take sz.bits
+      s.rmwK k rt.isZr addr sz (fun old => some (op.apply old arg)) (fun old s' =>
+        s'.setRegOrZr rt (old.zeroExtend w.bits) next))
+  | .LDXP k dst1 dst2 base =>
+    base.interpBase s (fun addr =>
+      s.loadPairK k true addr w (fun val1 val2 s' =>
+        s'.setRegOrZr dst1 val1 (fun s'' =>
+          s''.setRegOrZr dst2 val2 next)))
+  | .STXP k status src1 src2 base =>
+    base.interpBase s (fun addr =>
+      s.storePairK k true addr (s.regs.getRegOrZr src1) (s.regs.getRegOrZr src2) (fun ok s' =>
+        s'.setRegOrZr status (if ok then 0#32 else 1#32) next))
+  | .CASP k rs1 rs2 rt1 rt2 base =>
+    base.interpBase s (fun addr =>
+      let cmp1 := s.regs.getRegOrZr rs1
+      let cmp2 := s.regs.getRegOrZr rs2
+      let new1 := s.regs.getRegOrZr rt1
+      let new2 := s.regs.getRegOrZr rt2
+      s.rmwPairK k addr (w := (w : MemWidth)) cmp1 cmp2 new1 new2
+        (fun old1 old2 s' =>
+          s'.setRegOrZr rs1 old1 (fun s'' =>
+            s''.setRegOrZr rs2 old2 next)))
+  | .DMB k => fence k (fun _unit => next s)
+  | .DSB k => fence (if k == .st then .stAll else k) (fun _unit => next s)
+  | .ISB => fence .isb (fun _unit => next s)
   | .NOP => next s
 
 @[kstep] def Instr.interp [Labels]
@@ -983,6 +1240,13 @@ where
     | .require_exec_access _ ok => handleEffects (ok ())
     | .nonmem_load _ addr _ _ => .error s!"Load at unmapped address {repr addr}"
     | .nonmem_store _ addr _ _ => .error s!"Store at unmapped address {repr addr}"
+    | .sync_load _ _ _ addr _ _ => .error s!"Load at unmapped address {repr addr}"
+    | .sync_store _ _ _ addr _ _ => .error s!"Store at unmapped address {repr addr}"
+    | .rmw _ _ _ addr _ _ _ => .error s!"Read-modify-write at unmapped address {repr addr}"
+    | .sync_load_pair _ _ _ addr _ _ => .error s!"Load pair at unmapped address {repr addr}"
+    | .sync_store_pair _ _ _ addr _ _ _ => .error s!"Store pair at unmapped address {repr addr}"
+    | .rmw_pair _ _ addr _ _ _ _ _ => .error s!"Read-modify-write pair at unmapped address {repr addr}"
+    | .fence _ ok => handleEffects (ok ())
     | .unaligned_sp sp => .error s!"SP={sp} (is not 16-byte aligned)"
     | @Effects.undefined _ t cont => handleEffects (cont (t.from_hash (hash s.1.regs)))
 
@@ -1036,3 +1300,207 @@ abbrev eval [layout : Layout] (prog : Program) := Executable.eval (layout prog)
     | some v => .ok (v, s.1.regs.SP)
     | none => .error "Memory store failed"
   )
+
+-- Tests of the acquire/release, exclusive and atomic instructions on mapped
+-- memory. Each runs a small program from `main` to its end on a memory holding
+-- `42` at `0x100` (`X1 = 0x100`), and reports a register and the final word.
+
+private def runAtomicTest {α} (prog : Program) (f : MachineData → α)
+    (regs : Reg64s := { X1 := 0x100 }) : Except String α :=
+  let exe := Program.fakeLayout ([.label "main"] ++ prog)
+  let start := (Executable.labels exe).label "main"
+  let data : MachineData := { dmem := Mem.storeInt {} 0x100 8 42, regs }
+  (Executable.eval exe (data, start) (fun (_, pc) => (exe.directivesFromAddress pc).isEmpty)).map (f ·.1)
+
+private def memAt (s : MachineData) (addr : BitVec 64 := 0x100) : Int :=
+  (Mem.loadInt s.dmem addr 8).getD (-1)
+
+-- LDAR reads, STLR writes, DMB is a skip: X2 := [X1]; [X1] := X2 + 1.
+/-- info: Except.ok (42, 43) -/
+#guard_msgs in
+#eval runAtomicTest [
+    .instr ⟨.W64, .LDAR .acq false .W64 .X2 .X1⟩,
+    .instr ⟨.W64, .DMB .sy⟩,
+    .instr ⟨.W64, .ADD_e .X3 .X2 1⟩,
+    .instr ⟨.W64, .STLR .W64 .X3 .X1⟩,
+    .instr ⟨.W64, .ISB⟩]
+  fun s => (s.regs.X2, memAt s)
+
+-- LDARB zero-extends into a W register; STLRH writes only the low halfword.
+/-- info: Except.ok (255, 65535) -/
+#guard_msgs in
+#eval runAtomicTest [
+    .instr ⟨.W32, .STLR .W16 .W4 .X1⟩,
+    .instr ⟨.W32, .LDAR .acq false .W8 .W2 .X1⟩]
+  (fun s => (s.regs.X2, memAt s))
+  (regs := { X1 := 0x100, X3 := 0xFFFFFFFF, X4 := 0xFFFF_FFFF_FFFF_FFFF })
+
+-- CAS succeeds: X2 (= 42) matches memory, so X3 (= 7) is written; X2 receives the old value.
+/-- info: Except.ok (42, 7) -/
+#guard_msgs in
+#eval runAtomicTest [
+    .instr ⟨.W64, .CAS .acqRel .W64 .X2 .X3 .X1⟩]
+  (fun s => (s.regs.X2, memAt s))
+  (regs := { X1 := 0x100, X2 := 42, X3 := 7 })
+
+-- CAS fails: X2 (= 41) does not match, memory is untouched, X2 still receives the old value.
+/-- info: Except.ok (42, 42) -/
+#guard_msgs in
+#eval runAtomicTest [
+    .instr ⟨.W64, .CAS .plain .W64 .X2 .X3 .X1⟩]
+  (fun s => (s.regs.X2, memAt s))
+  (regs := { X1 := 0x100, X2 := 41, X3 := 7 })
+
+-- SWP: X2 is written, X3 receives the old value.
+/-- info: Except.ok (42, 7) -/
+#guard_msgs in
+#eval runAtomicTest [
+    .instr ⟨.W64, .SWP .acq .W64 .X2 .X3 .X1⟩]
+  (fun s => (s.regs.X3, memAt s))
+  (regs := { X1 := 0x100, X2 := 7 })
+
+-- LDADD: memory += X2, X3 receives the old value; STADD (Rt = XZR) adds again.
+/-- info: Except.ok (42, 62) -/
+#guard_msgs in
+#eval runAtomicTest [
+    .instr ⟨.W64, .LDOP .ADD .plain .W64 .X2 .X3 .X1⟩,
+    .instr ⟨.W64, .LDOP .ADD .rel .W64 .X2 .XZR .X1⟩]
+  (fun s => (s.regs.X3, memAt s))
+  (regs := { X1 := 0x100, X2 := 10 })
+
+-- LDSMAX/LDUMAX differ on a negative operand: as a signed 64-bit value -1 < 42, as unsigned it is the max.
+/-- info: Except.ok (42, 18446744073709551615) -/
+#guard_msgs in
+#eval runAtomicTest [
+    .instr ⟨.W64, .LDOP .SMAX .plain .W64 .X2 .X3 .X1⟩,
+    .instr ⟨.W64, .LDOP .UMAX .plain .W64 .X2 .X4 .X1⟩]
+  (fun s => (s.regs.X3, memAt s))
+  (regs := { X1 := 0x100, X2 := 0xFFFF_FFFF_FFFF_FFFF })
+
+-- LDCLR/LDSET/LDEOR on a halfword: 42 = 0b101010; clear 0b10 -> 40; set 0b101 -> 45; eor 0xFF -> 210.
+/-- info: Except.ok 210 -/
+#guard_msgs in
+#eval runAtomicTest [
+    .instr ⟨.W32, .LDOP .CLR .plain .W16 .W2 .WZR .X1⟩,
+    .instr ⟨.W32, .LDOP .SET .plain .W16 .W3 .WZR .X1⟩,
+    .instr ⟨.W32, .LDOP .EOR .plain .W16 .W4 .WZR .X1⟩]
+  (fun s => memAt s)
+  (regs := { X1 := 0x100, X2 := 2, X3 := 5, X4 := 0xFF })
+
+-- LDXR/STXR: the store exclusive may fail spuriously (resolved from a hash by
+-- `Executable.eval`); whichever way it goes, the status register and memory agree.
+/-- info: Except.ok true -/
+#guard_msgs in
+#eval runAtomicTest [
+    .instr ⟨.W64, .LDAR .plain true .W64 .X2 .X1⟩,
+    .instr ⟨.W64, .STXR .plain .W64 .W4 .X3 .X1⟩]
+  (fun s => (s.regs.X2 == 42) && (if s.regs.X4 == 0 then memAt s == 7 else s.regs.X4 == 1 && memAt s == 42))
+  (regs := { X1 := 0x100, X3 := 7 })
+
+-- An exclusive retry loop terminates under `Executable.eval`'s hash-driven choice
+-- (the hash is over the registers, which the loop changes: a counter in X5).
+/-- info: Except.ok (0, 7, true) -/
+#guard_msgs in
+#eval runAtomicTest [
+    .label "retry",
+    .instr ⟨.W64, .ADD_e .X5 .X5 1⟩,
+    .instr ⟨.W64, .LDAR .acq true .W64 .X2 .X1⟩,
+    .instr ⟨.W64, .STXR .rel .W64 .W4 .X3 .X1⟩,
+    .instr ⟨.W32, .CBNZ .W4 (.label "retry")⟩]
+  (fun s => (s.regs.X4, memAt s, decide (s.regs.X5 ≥ 1)))
+  (regs := { X1 := 0x100, X3 := 7 })
+
+-- An atomic at an unmapped address stops the sequential evaluator.
+/-- info: Except.error "Read-modify-write at unmapped address 0x0000000000000200#64" -/
+#guard_msgs in
+#eval runAtomicTest [
+    .instr ⟨.W64, .SWP .plain .W64 .X2 .X3 .X1⟩]
+  (fun s => memAt s)
+  (regs := { X1 := 0x200, X2 := 7 })
+
+-- Tests of the pair exclusives and `CASP` on mapped memory: `0x100` holds 42 and
+-- `0x108` holds 43 (`X1 = 0x100`); each test reports registers and both words.
+
+private def runPairTest {α} (prog : Program) (f : MachineData → α)
+    (regs : Reg64s := { X1 := 0x100 }) : Except String α :=
+  let exe := Program.fakeLayout ([.label "main"] ++ prog)
+  let start := (Executable.labels exe).label "main"
+  let data : MachineData := { dmem := Mem.storeInt (Mem.storeInt {} 0x100 8 42) 0x108 8 43, regs }
+  (Executable.eval exe (data, start) (fun (_, pc) => (exe.directivesFromAddress pc).isEmpty)).map (f ·.1)
+
+-- LDXP reads both halves, the first register from the lower address.
+/-- info: Except.ok (42, 43) -/
+#guard_msgs in
+#eval runPairTest [
+    .instr ⟨.W64, .LDXP .acq .X2 .X3 .X1⟩]
+  (fun s => (s.regs.X2, s.regs.X3))
+
+-- LDXP with `W` registers: two 4-byte halves of the word 42 (42 and 0).
+/-- info: Except.ok (42, 0) -/
+#guard_msgs in
+#eval runPairTest [
+    .instr ⟨.W32, .LDXP .plain .W2 .W3 .X1⟩]
+  (fun s => (s.regs.X2, s.regs.X3))
+
+-- LDXP/STXP: the store exclusive pair may fail spuriously, as one; whichever way
+-- it goes, the status register and both words agree.
+/-- info: Except.ok true -/
+#guard_msgs in
+#eval runPairTest [
+    .instr ⟨.W64, .LDXP .plain .X2 .X3 .X1⟩,
+    .instr ⟨.W64, .STXP .rel .W4 .X5 .X6 .X1⟩]
+  (fun s => (s.regs.X2 == 42 && s.regs.X3 == 43) &&
+    (if s.regs.X4 == 0 then memAt s == 7 && memAt s 0x108 == 8
+     else s.regs.X4 == 1 && memAt s == 42 && memAt s 0x108 == 43))
+  (regs := { X1 := 0x100, X5 := 7, X6 := 8 })
+
+-- An exclusive pair retry loop terminates (the counter in X7 changes the hash).
+/-- info: Except.ok (0, 7, 8) -/
+#guard_msgs in
+#eval runPairTest [
+    .label "retry",
+    .instr ⟨.W64, .ADD_e .X7 .X7 1⟩,
+    .instr ⟨.W64, .LDXP .acq .X2 .X3 .X1⟩,
+    .instr ⟨.W64, .STXP .plain .W4 .X5 .X6 .X1⟩,
+    .instr ⟨.W32, .CBNZ .W4 (.label "retry")⟩]
+  (fun s => (s.regs.X4, memAt s, memAt s 0x108))
+  (regs := { X1 := 0x100, X5 := 7, X6 := 8 })
+
+-- CASP succeeds: X2:X3 (= 42:43) match, so X4:X5 (= 7:8) are written; X2:X3 receive the old values.
+/-- info: Except.ok (42, 43, 7, 8) -/
+#guard_msgs in
+#eval runPairTest [
+    .instr ⟨.W64, .CASP .acqRel .X2 .X3 .X4 .X5 .X1⟩]
+  (fun s => (s.regs.X2, s.regs.X3, memAt s, memAt s 0x108))
+  (regs := { X1 := 0x100, X2 := 42, X3 := 43, X4 := 7, X5 := 8 })
+
+-- CASP fails when only one half matches: memory is untouched, X2:X3 still receive the old values.
+/-- info: Except.ok (42, 43, 42, 43) -/
+#guard_msgs in
+#eval runPairTest [
+    .instr ⟨.W64, .CASP .plain .X2 .X3 .X4 .X5 .X1⟩]
+  (fun s => (s.regs.X2, s.regs.X3, memAt s, memAt s 0x108))
+  (regs := { X1 := 0x100, X2 := 42, X3 := 0, X4 := 7, X5 := 8 })
+
+-- CASP with `W` registers compares and writes two 4-byte halves: 42:0 becomes 7:8.
+/-- info: Except.ok (42, 0, 34359738375) -/
+#guard_msgs in
+#eval runPairTest [
+    .instr ⟨.W32, .CASP .rel .W2 .W3 .W4 .W5 .X1⟩]
+  (fun s => (s.regs.X2, s.regs.X3, memAt s))
+  (regs := { X1 := 0x100, X2 := 42, X3 := 0, X4 := 7, X5 := 8 })
+
+-- A pair at an unmapped address stops the sequential evaluator; so does a pair
+-- with one half unmapped (here the upper half, at 0x110).
+/-- info: Except.error "Read-modify-write pair at unmapped address 0x0000000000000200#64" -/
+#guard_msgs in
+#eval runPairTest [
+    .instr ⟨.W64, .CASP .plain .X2 .X3 .X4 .X5 .X1⟩]
+  (fun s => memAt s)
+  (regs := { X1 := 0x200 })
+/-- info: Except.error "Load at unmapped address 0x0000000000000110#64" -/
+#guard_msgs in
+#eval runPairTest [
+    .instr ⟨.W64, .LDXP .plain .X2 .X3 .X1⟩]
+  (fun s => memAt s)
+  (regs := { X1 := 0x108 })

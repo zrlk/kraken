@@ -1,0 +1,9 @@
+Test L020 Forbidden
+States 1
+[y]=2;
+Ok
+Witnesses
+Positive: 1 Negative: 0
+Condition ~exists ([y]=3)
+Observation L020 Never 0 1
+

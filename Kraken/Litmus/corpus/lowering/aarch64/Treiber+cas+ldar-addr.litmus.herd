@@ -1,0 +1,11 @@
+Test Treiber+cas+ldar-addr Allowed
+States 3
+1:X5=d; 1:X6=2;
+1:X5=n; 1:X6=0;
+1:X5=n; 1:X6=1;
+Ok
+Witnesses
+Positive: 2 Negative: 4
+Condition exists (1:X5=n /\ 1:X6=0)
+Observation Treiber+cas+ldar-addr Sometimes 2 4
+

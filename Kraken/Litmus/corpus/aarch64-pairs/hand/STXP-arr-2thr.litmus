@@ -1,0 +1,14 @@
+AArch64 STXP-arr-2thr
+"L031 shape on an array: herd forbids a pair seeing half of the other's pair"
+{
+uint64_t t[2];
+0:X2=t; 1:X2=t;
+uint64_t 0:X3; uint64_t 0:X4;
+uint64_t 1:X3; uint64_t 1:X4;
+}
+  P0                |  P1                ;
+ MOV X0,#1          | MOV X0,#3          ;
+ MOV X1,#2          | MOV X1,#4          ;
+ LDXP X3,X4,[X2]    | LDXP X3,X4,[X2]    ;
+ STXP W9,X0,X1,[X2] | STXP W9,X0,X1,[X2] ;
+exists (1:X3=1 /\ 1:X4=0)

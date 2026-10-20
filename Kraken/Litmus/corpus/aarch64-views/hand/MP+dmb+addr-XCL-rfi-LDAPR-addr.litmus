@@ -1,0 +1,17 @@
+AArch64 MP+dmb+addr-XCL-rfi-LDAPR-addr
+"MP: LDXR address-dependent on the flag read, STXR, LDAR re-read, then address-dependent LDR of the data"
+{
+0:X1=z; 0:X2=x;
+1:X1=z; 1:X2=x; 1:X4=y;
+}
+ P0          | P1                   ;
+ MOV W0,#1   | MOV W11,#1           ;
+ STR W0,[X1] | LDR W0,[X2]          ;
+ DMB SY      | EOR W8,W0,W0         ;
+ STR W0,[X2] | ADD X9,X4,W8,SXTW    ;
+             | LDXR W3,[X9]         ;
+             | STXR W7,W11,[X4]      ;
+             | LDAPR W5,[X4]         ;
+             | EOR W6,W5,W5         ;
+             | LDR W10,[X1,W6,SXTW] ;
+exists (1:X0=1 /\ 1:X7=0 /\ 1:X5=1 /\ 1:X10=0)

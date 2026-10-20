@@ -1,0 +1,16 @@
+X86_64 MP-xchg+pontna+rmw-po
+Generator=diycross7 (version 7.58+1)
+Prefetch=0:x=F,0:y=W,1:y=F,1:x=T
+Com=Rf Fr
+Orig=PodWW Rfe Exch PodWR Fre NT
+Cycle=PodWWNTNa Rfe Exch PodWR FreNaNT
+"PodWW Rfe Exch PodWR Fre NT"
+{
+ 0:rax=x;
+}
+ P0                  | P1             ;
+ movl $1,%ebx        | movl $2,%ebx   ;
+ movntil %ebx,(%rax) | xchgl (y),%ebx ;
+ movl $1,(y)         | movl (x),%ecx  ;
+
+exists ([y]=2 /\ 1:rbx=1 /\ 1:rcx=0)

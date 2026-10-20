@@ -1,0 +1,19 @@
+AArch64 IRIW+dmb.sy+poap
+Generator=diycross7 (version 7.58+1)
+Prefetch=0:x=F,0:y=T,2:y=F,2:x=T
+Com=Fr Rf Fr Rf
+Orig=Rfe DMB.SYdRR Fre Rfe A PodRR Fre
+Cycle=Rfe DMB.SYdRR Fre RfePA PodRRAP Fre
+"Rfe DMB.SYdRR Fre Rfe A PodRR Fre"
+{
+ 0:X0=x; 0:X2=y;
+ 1:X2=y;
+ 2:X0=x; 2:X2=y;
+ 3:X0=x;
+}
+ P0          | P1          | P2           | P3          ;
+ LDR W1,[X0] | MOV W1,#1   | LDAR W1,[X2] | MOV W1,#1   ;
+ DMB SY      | STR W1,[X2] | LDR W3,[X0]  | STR W1,[X0] ;
+ LDR W3,[X2] |             |              |             ;
+
+exists (0:X1=1 /\ 0:X3=0 /\ 2:X1=1 /\ 2:X3=0)

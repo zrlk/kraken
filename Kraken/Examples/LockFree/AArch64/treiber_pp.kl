@@ -1,0 +1,62 @@
+AArch64 TreiberPushPop
+(* Treiber stack, smallest instance: thread 0 writes data 1 into node n1
+   and pushes it (CASAL on `top`); thread 1 pops (LDAR `top`, retried until
+   non-empty, CASAL) and reads the node's data. Node layout as treiber2.kl.
+   Property: the popper gets n1 with data 1 (the push's data and link are
+   visible to the popper). Expected: Always.
+   Proved: `treiber_pp_envG` (Promising/SLR/EnvG/TreiberPublic.lean), each
+   thread over its own part of the code block (per-thread image); whole
+   image: `treiber_pp_envG_whole` (Promising/SLR/EnvG/A64WholeTreiberPublic.lean),
+   both threads run this whole code block from `pusher`/`popper` to
+   `pdone`/`qdone` (the pusher over its mask, the dead `NOP` masked);
+   concrete instance with `runnerMatchesW` in A64WholeTreiberConcrete.lean.
+   The shared symbols are typed (`uint64_t top`; `uint32_t n1`, the node's 4-byte value, its 8-byte
+   `next` at `n1+8` undeclared)
+   so that the runner declares them as sized locations at the width of
+   the code's accesses (A64DECLS): the runner's
+   declarations then agree with the proofs' locations. The code block and
+   the verdict are unchanged. Proved from the runner's exact configuration
+   (declarations and initial memory included): `treiber_pp_envG_runner`, concrete
+   `treiber_pp_envG_runner_concrete` (Promising/SLR/EnvG/A64WholeTreiberRunner.lean).
+   Proved program-level fault freedom at the runner's declarations (no
+   reachable configuration has a faulting step, any architecture, promises
+   included): `treiber_pp_envG_runner_faultFree`, concrete
+   `treiber_pp_envG_runner_faultFree_concrete` (Promising/SLR/EnvG/MemValsA64TreiberPP.lean).
+   Proved both at once (safety and fault freedom, at the union of their
+   hypotheses): `treiber_pp_envG_runner_safe_faultFree`, concrete
+   `treiber_pp_envG_runner_safe_faultFree_concrete` (Promising/SLR/EnvG/RunnerSafeFFA64.lean). *)
+# flags:
+# expect: Always
+{
+uint64_t top=0; uint32_t n1=0;
+0:X0=top; 0:X1=n1; 0:X9=1;
+1:X0=top;
+}
+threads { P0: pusher pdone; P1: popper qdone; }
+code {
+pusher:
+  STR W9,[X1]
+push:
+  LDAR X2,[X0]
+  STR X2,[X1,#8]
+  MOV X3,X2
+  CASAL X3,X1,[X0]
+  CMP X3,X2
+  B.NE push
+  B pdone
+pdone:
+  NOP
+popper:
+  LDAR X2,[X0]
+  CBZ X2,popper
+  LDR X4,[X2,#8]
+  MOV X3,X2
+  CASAL X3,X4,[X0]
+  CMP X3,X2
+  B.NE popper
+  MOV X10,X2
+  LDR W11,[X2]
+  B qdone
+qdone:
+}
+forall (1:X10=n1 /\ 1:X11=1)

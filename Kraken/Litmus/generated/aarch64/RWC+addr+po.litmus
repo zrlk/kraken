@@ -1,0 +1,18 @@
+AArch64 RWC+addr+po
+Generator=diycross7 (version 7.58+1)
+Prefetch=0:x=F,0:y=T,1:y=F,1:x=T
+Com=Fr Fr Rf
+Orig=Rfe DpAddrdR Fre PodWR Fre
+Cycle=Rfe DpAddrdR Fre PodWR Fre
+"Rfe DpAddrdR Fre PodWR Fre"
+{
+ 0:X0=x; 0:X4=y;
+ 1:X0=x; 1:X4=y;
+ 2:X0=x;
+}
+ P0                  | P1          | P2          ;
+ LDR W1,[X0]         | MOV W1,#1   | MOV W1,#1   ;
+ EOR W2,W1,W1        | STR W1,[X4] | STR W1,[X0] ;
+ LDR W3,[X4,W2,SXTW] | LDR W2,[X0] |             ;
+
+exists (0:X1=1 /\ 0:X3=0 /\ 1:X2=0)

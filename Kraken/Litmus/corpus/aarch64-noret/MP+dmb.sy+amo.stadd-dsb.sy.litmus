@@ -1,0 +1,19 @@
+AArch64 MP+dmb.sy+amo.stadd-dsb.sy
+Generator=diycross7 (version 7.58+1)
+Prefetch=0:x=F,0:y=W,1:y=F,1:x=T
+Com=Rf Fr
+Orig=DMB.SYdWW Rfe Amo.StAdd DSB.SYdWR Fre
+Cycle=DMB.SYdWW Rfe Amo.StAdd DSB.SYdWR Fre
+"DMB.SYdWW Rfe Amo.StAdd DSB.SYdWR Fre"
+{
+ 0:X1=x; 0:X3=y;
+ 1:X1=x; 1:X3=y;
+}
+ P0          | P1            ;
+ MOV W0,#1   | MOV W0,#2     ;
+ STR W0,[X1] | STADD W0,[X3] ;
+ DMB SY      | DSB SY        ;
+ MOV W2,#1   | LDR W2,[X1]   ;
+ STR W2,[X3] |               ;
+
+exists ([y]=3 /\ 1:X2=0)

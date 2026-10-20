@@ -1,0 +1,20 @@
+Test WRC+ldadda.zr-dmb.ld+dmb.sy Allowed
+States 12
+2:X0=0; 2:X2=0; [x]=2;
+2:X0=0; 2:X2=0; [x]=3;
+2:X0=0; 2:X2=1; [x]=2;
+2:X0=0; 2:X2=2; [x]=2;
+2:X0=0; 2:X2=2; [x]=3;
+2:X0=0; 2:X2=3; [x]=3;
+2:X0=1; 2:X2=0; [x]=2;
+2:X0=1; 2:X2=0; [x]=3;
+2:X0=1; 2:X2=1; [x]=2;
+2:X0=1; 2:X2=2; [x]=2;
+2:X0=1; 2:X2=2; [x]=3;
+2:X0=1; 2:X2=3; [x]=3;
+Ok
+Witnesses
+Positive: 1 Negative: 11
+Condition exists ([x]=3 /\ 2:X0=1 /\ 2:X2=0)
+Observation WRC+ldadda.zr-dmb.ld+dmb.sy Sometimes 1 11
+

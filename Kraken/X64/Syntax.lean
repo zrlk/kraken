@@ -169,7 +169,7 @@ attribute [coe] AvxOperand.regOrMem
 abbrev AvxOperand.avx {w} (r : AvxReg w) : AvxOperand w := regOrMem (.avx r)
 abbrev AvxOperand.mem {w} (m : AddrExpr) : AvxOperand w := regOrMem (.mem m)
 
-inductive CondCode | z | nz | c | nc | a | be | l | le
+inductive CondCode | z | nz | c | nc | a | be | l | le | ge | g
   deriving Repr, BEq, DecidableEq, Hashable, Lean.ToExpr
 abbrev CondCode.e := CondCode.z
 abbrev CondCode.ne := CondCode.nz
@@ -180,6 +180,17 @@ inductive ShiftCountExpr | cl | imm8 (v : ConstExpr)
   deriving Repr, BEq, DecidableEq, Hashable, Lean.ToExpr
 
 inductive RelRegOrMem | rel (_ : ConstExpr) | reg (r : Reg .W64) | mem (_ : AddrExpr)
+  deriving Repr, BEq, DecidableEq, Hashable, Lean.ToExpr
+
+/-- The binary ALU operations that take a `lock` prefix on a memory destination
+(`lock addl $1, (%rdi)`). The unlocked forms are the `Operation` constructors
+of the same name; the locked form is one atomic read-modify-write. -/
+inductive LockBinOp | add | sub | and | or | xor
+  deriving Repr, BEq, DecidableEq, Hashable, Lean.ToExpr
+
+/-- The unary ALU operations that take a `lock` prefix on a memory destination
+(`lock incq (%rdi)`). -/
+inductive LockUnOp | inc | dec | neg | not
   deriving Repr, BEq, DecidableEq, Hashable, Lean.ToExpr
 
 inductive Operation (w : Width)
@@ -225,6 +236,8 @@ inductive Operation (w : Width)
   | rcl  (_ : Dst w) (_ : ShiftCountExpr)
   | rcr  (_ : Dst w) (_ : ShiftCountExpr)
   | bswap  (dst : Reg w) -- (_ : w = .W32 ∨ w = .W64)
+  -- `tzcnt r, r/m` (BMI1): the trailing zero count of `src` (`{_ : 16 <= w.bits}`)
+  | tzcnt (dst : Reg w) (src : RegOrMem w)
   -- Control flow
   | jcc (cc : CondCode) (target : Label)
   | jmp (target : RelRegOrMem)
@@ -234,6 +247,27 @@ inductive Operation (w : Width)
   -- TODO: optiona third argument, with the caveat that `.align 16,,0` is valid
   -- syntax
   | nopalign (alignment : Nat) (pad : Option Nat)
+  -- Atomics and barriers. `lock` is not a
+  -- flag on the plain ALU constructors so that their semantics and proofs are
+  -- untouched; the lockable forms with a memory destination are separate
+  -- constructors, and `lock` on a register destination is a parse error, as
+  -- in the assembler.
+  | lockBin (op : LockBinOp) (dst : AddrExpr) (src : Operand w)
+  | lockUn (op : LockUnOp) (dst : AddrExpr)
+  -- `xchg` with a memory operand is locked whether or not the prefix is written.
+  | xchg (r : Reg w) (m : RegOrMem w)
+  -- `xadd`/`cmpxchg`: `lock` is the prefix; with a register destination it is
+  -- never set (parse error), and the semantics ignores it there.
+  | xadd (lock : Bool) (dst : RegOrMem w) (src : Reg w)
+  | cmpxchg (lock : Bool) (dst : RegOrMem w) (src : Reg w)
+  | mfence
+  | lfence
+  | sfence
+  -- `movnti r32/r64, m32/m64`: a non-temporal store (`{_ : 32 <= w.bits}`).
+  -- Sequentially it is `mov src, (dst)`; to the memory model it is a weakly
+  -- ordered store (SDM vol. 3A §8.2.2: ordered only by `sfence`, `mfence`,
+  -- locked and serializing instructions, and per-location coherence).
+  | movnti (dst : AddrExpr) (src : Reg w)
   deriving Repr, DecidableEq, Hashable, Lean.ToExpr
 
 -- The non-v* variants take SSE registers only.
@@ -244,6 +278,42 @@ inductive AvxOperation (w : AvxWidth)
   | movaps (_ : AvxDst w) (src : AvxRegOrMem w)
   | subps (_ : AvxDst w) (src : AvxRegOrMem w)
   | addps (_ : AvxDst w) (src : AvxRegOrMem w)
+  | mulps (_ : AvxDst w) (src : AvxRegOrMem w)
+  | xorps (_ : AvxDst w) (src : AvxRegOrMem w)
+  -- VEX-encoded forms. A register destination is written with the bits above
+  -- `w` cleared. The three-operand forms read `src1` and `src2`, in Intel
+  -- order (AT&T writes `src2, src1, dst`).
+  | vmovaps (_ : AvxDst w) (src : AvxRegOrMem w)
+  | vxorps (_ : AvxReg w) (src1 : AvxReg w) (src2 : AvxRegOrMem w)
+  | vaddps (_ : AvxReg w) (src1 : AvxReg w) (src2 : AvxRegOrMem w)
+  | vmulps (_ : AvxReg w) (src1 : AvxReg w) (src2 : AvxRegOrMem w)
+  -- `dst := src1 * src2 + dst`, lanewise, rounded once
+  | vfmadd231ps (_ : AvxReg w) (src1 : AvxReg w) (src2 : AvxRegOrMem w)
+  | vshufps (_ : AvxReg w) (src1 : AvxReg w) (src2 : AvxRegOrMem w) (imm : UInt8)
+  -- Forms whose operands have fixed widths; `w` is the vector length of the
+  -- encoding (`vextractf128` is VEX.256, the others VEX.128). Only the
+  -- register forms are modeled.
+  | vextractf128 (_ : AvxReg .W128) (src : AvxReg .W256) (imm : UInt8)
+  | vmovhlps (_ : AvxReg .W128) (src1 src2 : AvxReg .W128)
+  | vmovss (_ : AvxReg .W128) (src1 src2 : AvxReg .W128)
+  | vaddss (_ : AvxReg .W128) (src1 src2 : AvxReg .W128)
+  | vzeroupper
+  -- Integer and double-precision moves. The
+  -- aligned ones (`movapd`, `movdqa`, `vmovapd`, `vmovdqa`) fault on a
+  -- misaligned memory operand, like `movaps`/`vmovaps`; `movdqu`/`vmovdqu`
+  -- are the unaligned ones, like `movups`/`vmovups`.
+  | movapd (_ : AvxDst w) (src : AvxRegOrMem w)
+  | movdqa (_ : AvxDst w) (src : AvxRegOrMem w)
+  | movdqu (_ : AvxDst w) (src : AvxRegOrMem w)
+  | vmovapd (_ : AvxDst w) (src : AvxRegOrMem w)
+  | vmovdqa (_ : AvxDst w) (src : AvxRegOrMem w)
+  | vmovdqu (_ : AvxDst w) (src : AvxRegOrMem w)
+  -- `[lock] cmpxchg16b m128`: compare `rdx:rax` with the 16 bytes at `dst`;
+  -- if equal, ZF is set and `rcx:rbx` is written, otherwise ZF is cleared and
+  -- the memory is loaded into `rdx:rax`. Not a vector instruction, but its
+  -- 16-byte access is one (`w` is `W128`), so it lives here with the other
+  -- 16-byte accesses.
+  | cmpxchg16b (lock : Bool) (dst : AddrExpr)
   deriving Repr, DecidableEq, Hashable, Lean.ToExpr
 
 inductive Instr

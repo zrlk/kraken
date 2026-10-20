@@ -1,0 +1,12 @@
+Test SB+casal-fail+dmb.ish Allowed
+States 4
+0:X2=0; 1:X2=0;
+0:X2=0; 1:X2=1;
+0:X2=1; 1:X2=0;
+0:X2=1; 1:X2=1;
+Ok
+Witnesses
+Positive: 2 Negative: 9
+Condition exists (0:X2=0 /\ 1:X2=0)
+Observation SB+casal-fail+dmb.ish Sometimes 2 9
+

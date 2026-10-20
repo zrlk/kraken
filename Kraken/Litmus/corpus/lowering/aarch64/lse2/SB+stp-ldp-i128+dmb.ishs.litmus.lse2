@@ -1,0 +1,8 @@
+Test SB+stp-ldp-i128+dmb.ishs Allowed
+States 3
+0:X7=0; 0:X8=0; 1:X7=1; 1:X8=1;
+0:X7=1; 0:X8=1; 1:X7=0; 1:X8=0;
+0:X7=1; 0:X8=1; 1:X7=1; 1:X8=1;
+No
+Condition exists (0:X7=0 /\ 1:X7=0 \/ 0:X7=1 /\ 0:X8=0 \/ 1:X7=1 /\ 1:X8=0)
+Observation SB+stp-ldp-i128+dmb.ishs Never 0 3

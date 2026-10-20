@@ -329,7 +329,20 @@ def parseMemory : Parser (Width × AddrExpr) := do
   let _ ← pchar '('
 
   skipHWs
-  let (w1, base) ← parseRegOrRipW
+  -- `(sym)`: an absolute address, as `as` reads it (herd's litmus tests
+  -- address shared locations this way: `movl $1,(x)`). Only without a
+  -- displacement in front, and the parentheses then hold nothing else.
+  let absolute ← if disp == .int64 0 then
+      (attempt do
+        let l ← parseLabel
+        skipHWs
+        let _ ← pchar ')'
+        pure (some l)) <|> pure none
+    else pure none
+  if let some l := absolute then
+    return (.W64, { base := none, idx := none, disp := l })
+  -- The base register is optional, as in `-0x40(,%ecx,4)`.
+  let base ← (do let b ← parseRegOrRipW; pure (some b)) <|> pure none
   -- Check for index register
   let idx ← (do
     skipHWs
@@ -357,30 +370,44 @@ def parseMemory : Parser (Width × AddrExpr) := do
   skipHWs
   let _ ← pchar ')'
   -- Some adapters between the parsed components and the expected dependent
-  -- pairs:
-  let w ← match w1, idx with
-    | w1, .some (w2, _) =>
+  -- pairs. Without a base, the index register gives the address width.
+  let w ← match base, idx with
+    | .some (w1, _), .some (w2, _) =>
       if w1 ≠ w2 then
         fail "type mismatch in memory addressing operands: base ({w1}) and index ({w2}) have different widths"
       else
         .pure w1
-    | w1, .none =>
+    | .some (w1, _), .none =>
       .pure w1
+    | .none, .some (w2, _) =>
+      .pure w2
+    | .none, .none =>
+      fail "memory operand needs a base or an index register"
+  let base := Option.map Prod.snd base
   let idx := Option.map (fun (_, idx) => ⟨idx, scale⟩) idx
 
   -- Handle rip-relative addressing (like parseRelRegOrMem below).
   let disp := match base, disp with
-    | .rip, .label l => .sub (.label l) .after_current_instruction
+    | .some .rip, .label l => .sub (.label l) .after_current_instruction
     | _, _ => disp
 
   pure (w, { base, idx, disp })
+
+/-- A symbolic immediate: `$sym`, `$sym1-sym2` or `$sym1+sym2` (one operator;
+  the assembler folds a difference of labels to a constant at link time). -/
+def parseSymImm : Parser ConstExpr := do
+  let _ ← pchar '$'
+  let a ← parseLabel
+  (attempt do skipHWs; let _ ← pchar '-'; skipHWs; let b ← parseLabel; pure (.sub a b))
+  <|> (attempt do skipHWs; let _ ← pchar '+'; skipHWs; let b ← parseLabel; pure (.add a b))
+  <|> pure a
 
 def parseImm w : Parser (Operand w) := do
   skipHWs
   let c ← peek!
   let i ←
     match c with
-    | '$' => parseInt64
+    | '$' => attempt parseInt64 <|> parseSymImm
     | _ => parseLabel
   pure (.imm i)
 
@@ -393,7 +420,7 @@ def parseOperand: Parser (MaybeAddrWidth × MaybeOpWidth Operand) := do
     let ⟨ w, r ⟩ ← parseRegW
     pure (.none, ⟨ w, .reg r ⟩)
   | '$' =>
-    let i ← parseInt64
+    let i ← attempt parseInt64 <|> parseSymImm
     pure (.none, ⟨ .none, .imm i ⟩)
   | _ =>
     if c == '(' || c == '-' || c.isDigit then
@@ -422,7 +449,9 @@ def parseAvxRegOrMem: Parser (MaybeAddrWidth × MaybeAvxOpWidth AvxRegOrMem) := 
   if c == '%' then
     let ⟨ w, r ⟩ ← parseAvxRegW
     pure (.none, ⟨ .some w, .avx r ⟩)
-  else if c == '(' || c == '-' || c.isDigit then
+  -- A symbol starts a memory operand too: an SSE operand is never an
+  -- immediate, so `sym(%rip)` is a rip-relative reference.
+  else if c == '(' || c == '-' || c.isDigit || c.isAlpha || c == '_' || c == '.' then
     let (w, m) ← parseMemory
     pure (w, ⟨ .none, .mem m ⟩)
   else
@@ -430,7 +459,21 @@ def parseAvxRegOrMem: Parser (MaybeAddrWidth × MaybeAvxOpWidth AvxRegOrMem) := 
 
 def parseRelRegOrMem: Parser (MaybeAddrWidth × RelRegOrMem) := do
   skipHWs
+  -- GNU's `*` marks an indirect target: a register or a memory operand.
   (do
+    let _ ← pchar '*'
+    skipHWs
+    (do
+      let ⟨ w, r ⟩ ← parseRegW
+      if h: w = .W64 then
+        pure (.none, (.reg (h ▸ r)))
+      else
+        fail "expected a 64-bit register in an indirect jump or call"
+    ) <|> (do
+      let (w, m) ← parseMemory
+      pure (w, (.mem m))
+    )
+  ) <|> (do
     let ⟨ w, r ⟩ ← parseRegW
     if h: w = .W64 then
       pure (.none, (.reg (h ▸ r)))
@@ -474,6 +517,8 @@ def parseCondCode (suffix : String.Slice) : Parser CondCode :=
   | "be" | "na" => .pure .be
   | "l" | "nge" => .pure .l
   | "le" | "ng" => .pure .le
+  | "ge" | "nl" => .pure .ge
+  | "g" | "nle" => .pure .g
   | _ => .fail s!"unknown condition code: {suffix}"
 
 -- ============================================================================
@@ -555,6 +600,41 @@ def commaSeparatedAvx {T1 T2} (op_w: Option AvxWidth) (p1: Parser (MaybeAddrWidt
     let addr_w ← mergeAddrWidths addr_w1 addr_w2
     pure (toAvxInstr addr_w (mk dst src))
 
+/-- An AVX register of width `w`. -/
+def parseAvxRegO (w : AvxWidth) : Parser (AvxReg w) := do
+  let ⟨ w', r ⟩ ← parseAvxRegW
+  if h : w' = w then
+    pure (h ▸ r)
+  else
+    fail s!"type error: {w} != {w'}"
+
+/-- The 8-bit immediate `$imm` of a shuffle or lane extract. -/
+def parseImm8 : Parser UInt8 := do
+  skipHWs
+  let _ ← pchar '$'
+  let v ← parseInt
+  if v < -128 || v > 255 then
+    fail s!"immediate {v} out of 8-bit range"
+  pure (UInt8.ofNat (v % 256).toNat)
+
+/-- The VEX three-operand form `op src2, src1, dst`: `src2` may be a memory
+operand, and the registers give the width. -/
+def parseAvx3 (mk : {w : AvxWidth} → AvxReg w → AvxReg w → AvxRegOrMem w → AvxOperation w) :
+    Parser Instr := do
+  let (addr_w, src2) ← parseAvxRegOrMem; parseComma
+  let ⟨ w, src1 ⟩ ← parseAvxRegW; parseComma
+  let dst ← parseAvxRegO w
+  let src2 ← ascribeAvx w src2
+  pure (toAvxInstr addr_w (mk dst src1 src2))
+
+/-- The three-register form `op src2, src1, dst` on xmm registers. -/
+def parseAvxXmm3 (mk : AvxReg .W128 → AvxReg .W128 → AvxReg .W128 → AvxOperation .W128) :
+    Parser Instr := do
+  let src2 ← parseAvxRegO .W128; parseComma
+  let src1 ← parseAvxRegO .W128; parseComma
+  let dst ← parseAvxRegO .W128
+  pure (toAvxInstr .none (mk dst src1 src2))
+
 def assertW {T} (v: MaybeOpWidth T): Parser (Σ w: Width, T w) :=
   match v with
   | ⟨ .none, _ ⟩ => fail "missing type annotation"
@@ -567,14 +647,97 @@ def Option.toParser {T} (self: Option T): Parser T :=
 
 instance {T} : Coe (Option T) (Parser T) where coe := Option.toParser
 
+/-- The `lock`-prefixed form of an operation, or `none` when the assembler
+rejects the prefix: it needs a read-modify-write with a memory destination
+(`expecting lockable instruction after 'lock'`). `xchg` with a memory operand
+is locked already, so the prefix changes nothing. -/
+def lockOperation {w} : Operation w → Option (Operation w)
+  | .add (.mem a) src => some (.lockBin .add a src)
+  | .sub (.mem a) src => some (.lockBin .sub a src)
+  | .and (.mem a) src => some (.lockBin .and a src)
+  | .or (.mem a) src => some (.lockBin .or a src)
+  | .xor (.mem a) src => some (.lockBin .xor a src)
+  | .inc (.mem a) => some (.lockUn .inc a)
+  | .dec (.mem a) => some (.lockUn .dec a)
+  | .neg (.mem a) => some (.lockUn .neg a)
+  | .not (.mem a) => some (.lockUn .not a)
+  | .xadd false (.mem a) src => some (.xadd true (.mem a) src)
+  | .cmpxchg false (.mem a) src => some (.cmpxchg true (.mem a) src)
+  | .xchg r (.mem a) => some (.xchg r (.mem a))
+  | _ => none
+
+/-- `xchg` takes its two operands in either order; the register is kept
+first, and a memory operand (or the other register) second. -/
+def mkXchg {w} (a b : RegOrMem w) : Parser (Operation w) :=
+  match a, b with
+  | .reg r, m => pure (.xchg r m)
+  | m, .reg r => pure (.xchg r m)
+  | _, _ => fail "xchg needs a register operand"
+
 /-- Parse an instruction mnemonic and its operands.
     AT&T syntax: src, dst (reversed from Intel). -/
-def parseInstr : Parser Instr := do
+partial def parseInstr : Parser Instr := do
   skipHWs
   let mnemonic ← parseName
   let mn := mnemonic.toLower
   -- Match on full mnemonic name (no suffix stripping)
   match mn with
+  -- The lock prefix: the instruction follows on the same line.
+  | "lock" =>
+    let i ← parseInstr
+    match i with
+    | .regular asz osz op =>
+      match lockOperation op with
+      | some op' => pure (.regular asz osz op')
+      | none => fail "expecting lockable instruction after `lock'"
+    | .avx asz osz (.cmpxchg16b false a) => pure (.avx asz osz (.cmpxchg16b true a))
+    | .avx .. => fail "expecting lockable instruction after `lock'"
+
+  -- Barriers
+  | "mfence" => pure (toInstr .none (w := .W64) .mfence)
+  | "lfence" => pure (toInstr .none (w := .W64) .lfence)
+  | "sfence" => pure (toInstr .none (w := .W64) .sfence)
+
+  -- Non-temporal store: `movnti r32/r64, m32/m64`; the register gives the
+  -- width (or the suffix, which must agree with it).
+  | "movnti" | "movntil" | "movntiq" =>
+    let ⟨ w, src ⟩ ← parseRegW
+    if mn != "movnti" then
+      let w' ← instrWidth mn
+      if w' != w then fail s!"type error: {w'} != {w}"
+    if w != .W32 && w != .W64 then fail "movnti needs a 32- or 64-bit register"
+    parseComma
+    let (addr_w, dst) ← parseMemory
+    pure (toInstr (some addr_w) (.movnti dst src))
+
+  -- Atomics
+  | "xchg" =>
+    let a ← parseRegOrMem; parseComma
+    let (addr_w, ⟨ _w, a, b ⟩) ← ascribeOrInfer a parseRegOrMem
+    let op ← mkXchg a b
+    pure (toInstr addr_w op)
+
+  | "xchgq" | "xchgl" | "xchgw" | "xchgb" =>
+    let w ← instrWidth mn
+    let (addr_w1, a) ← parseRegOrMemAO w; parseComma
+    let (addr_w2, b) ← parseRegOrMemAO w
+    let addr_w ← mergeAddrWidths addr_w1 addr_w2
+    let op ← mkXchg a b
+    pure (toInstr addr_w op)
+
+  | "xadd" =>
+    commaSeparated .none parseRegA parseRegOrMem (fun dst src => .xadd false dst src)
+
+  | "xaddq" | "xaddl" | "xaddw" | "xaddb" =>
+    let w ← instrWidth mn
+    commaSeparated w parseRegA parseRegOrMem (fun dst src => .xadd false dst src)
+
+  | "cmpxchg" =>
+    commaSeparated .none parseRegA parseRegOrMem (fun dst src => .cmpxchg false dst src)
+
+  | "cmpxchgq" | "cmpxchgl" | "cmpxchgw" | "cmpxchgb" =>
+    let w ← instrWidth mn
+    commaSeparated w parseRegA parseRegOrMem (fun dst src => .cmpxchg false dst src)
   -- Arithmetic (two-operand: src, dst) - 64-bit
   | "add" =>
     commaSeparated .none parseOperand parseRegOrMem .add
@@ -710,6 +873,16 @@ def parseInstr : Parser Instr := do
     let ( addr_w, dst ) ← parseRegOrMemAO w
     pure (toInstr addr_w (.neg dst))
 
+  | "inc" =>
+    let ( addr_w, dst ) ← parseRegOrMem
+    let ⟨ _w, dst ⟩ ← assertW dst
+    pure (toInstr addr_w (.inc dst))
+
+  | "incq" | "incl" | "incw" | "incb" =>
+    let w ← instrWidth mn
+    let ( addr_w, dst ) ← parseRegOrMemAO w
+    pure (toInstr addr_w (.inc dst))
+
   | "dec" =>
     let ( addr_w, dst ) ← parseRegOrMem
     let ⟨ _w, dst ⟩ ← assertW dst
@@ -748,6 +921,12 @@ def parseInstr : Parser Instr := do
     let dst ← parseRegO w_dst
     pure (toInstr .none (.movsx (.reg dst) (.reg src)))
 
+  | "movslq" =>
+    -- `movsxd`: the source may be memory (a jump table entry, say)
+    let (addr_w, src) ← parseRegOrMemAO .W32; parseComma
+    let dst ← parseRegO .W64
+    pure (toInstr addr_w (.movsx (.reg dst) src))
+
   | "movzbw" | "movzbl" | "movzbq" | "movzwl" | "movzwq" =>
     let w_dst ← instrWidth mn
     let c_src ← String.Pos.Raw.get? mn (.mk (mn.length - 2))
@@ -779,11 +958,65 @@ def parseInstr : Parser Instr := do
   | "movaps" =>
     commaSeparatedAvx .none parseAvxRegOrMem parseAvxRegOrMem .movaps
 
+  | "movapd" =>
+    commaSeparatedAvx .none parseAvxRegOrMem parseAvxRegOrMem .movapd
+
+  | "movdqa" =>
+    commaSeparatedAvx .none parseAvxRegOrMem parseAvxRegOrMem .movdqa
+
+  | "movdqu" =>
+    commaSeparatedAvx .none parseAvxRegOrMem parseAvxRegOrMem .movdqu
+
   | "addps" =>
     commaSeparatedAvx .none parseAvxRegOrMem parseAvxRegOrMem .addps
 
   | "subps" =>
     commaSeparatedAvx .none parseAvxRegOrMem parseAvxRegOrMem .subps
+
+  | "mulps" =>
+    commaSeparatedAvx .none parseAvxRegOrMem parseAvxRegOrMem .mulps
+
+  | "xorps" =>
+    commaSeparatedAvx .none parseAvxRegOrMem parseAvxRegOrMem .xorps
+
+  -- VEX-encoded forms
+  | "vmovaps" =>
+    commaSeparatedAvx .none parseAvxRegOrMem parseAvxRegOrMem .vmovaps
+
+  | "vmovapd" =>
+    commaSeparatedAvx .none parseAvxRegOrMem parseAvxRegOrMem .vmovapd
+
+  | "vmovdqa" =>
+    commaSeparatedAvx .none parseAvxRegOrMem parseAvxRegOrMem .vmovdqa
+
+  | "vmovdqu" =>
+    commaSeparatedAvx .none parseAvxRegOrMem parseAvxRegOrMem .vmovdqu
+
+  | "cmpxchg16b" =>
+    let (addr_w, a) ← parseMemory
+    pure (toAvxInstr (some addr_w) (w := .W128) (.cmpxchg16b false a))
+
+  | "vxorps" => parseAvx3 .vxorps
+  | "vaddps" => parseAvx3 .vaddps
+  | "vmulps" => parseAvx3 .vmulps
+  | "vfmadd231ps" => parseAvx3 .vfmadd231ps
+
+  | "vshufps" =>
+    let imm ← parseImm8; parseComma
+    parseAvx3 (fun dst src1 src2 => .vshufps dst src1 src2 imm)
+
+  | "vextractf128" =>
+    let imm ← parseImm8; parseComma
+    let src ← parseAvxRegO .W256; parseComma
+    let dst ← parseAvxRegO .W128
+    pure (toAvxInstr .none (w := .W256) (.vextractf128 dst src imm))
+
+  | "vmovhlps" => parseAvxXmm3 .vmovhlps
+  | "vmovss" => parseAvxXmm3 .vmovss
+  | "vaddss" => parseAvxXmm3 .vaddss
+
+  | "vzeroupper" =>
+    pure (toAvxInstr .none (w := .W128) .vzeroupper)
 
   -- Bitwise - 64-bit
   | "xor" =>
@@ -928,6 +1161,16 @@ def parseInstr : Parser Instr := do
     else
       pure (toInstr .none (.bswap dst))
 
+  -- Trailing zero count (BMI1): `tzcnt src, dst`, `dst` a 16-, 32- or 64-bit register
+  | "tzcnt" | "tzcntq" | "tzcntl" | "tzcntw" =>
+    let i ← if mn == "tzcnt" then commaSeparated .none parseRegOrMem parseRegA .tzcnt
+      else do
+        let w ← instrWidth mn
+        commaSeparated w parseRegOrMem parseRegA .tzcnt
+    match i with
+    | .regular _ .W8 _ => fail "tzcnt has no 8-bit form"
+    | i => pure i
+
   -- Stack operations
   | "push" =>
     let ( addr_w, src ) ← parseOperand
@@ -1020,6 +1263,18 @@ def parseAlign : Parser Instr := do
   ) <|> pure none
   pure (toInstr .none (w := .W64) (.nopalign alignment.toNat pad))
 
+/-- Parse a `.byte` data directive: comma-separated byte values, decimal or
+hex. The bytes become one data cell. -/
+def parseByteData : Parser Directive := do
+  let _ ← pstring ".byte"
+  skipHWs
+  let first ← parseHexOrDec
+  let rest ← many (attempt do parseComma; parseHexOrDec)
+  let vals := #[first] ++ rest
+  if vals.any (fun v => v < 0 || v > 255) then
+    fail "byte value out of range"
+  pure (.byteArray ⟨vals.map (fun v => UInt8.ofNat v.toNat)⟩)
+
 def skipSpaceAndCheckLineEnd : Parser Bool := do
   skipHWs
   let c? ← peek?
@@ -1037,8 +1292,8 @@ def parseOptionalInstr : Parser (Option Directive) := do
   if (← skipSpaceAndCheckLineEnd) then
     pure none
   else
-    let i ← parseAlign <|> parseInstr
-    pure (some (Directive.instr i))
+    let d ← parseByteData <|> (Directive.instr <$> (parseAlign <|> parseInstr))
+    pure (some d)
 
 def checkLineEnd : Parser Unit := do
   if (← skipSpaceAndCheckLineEnd) then

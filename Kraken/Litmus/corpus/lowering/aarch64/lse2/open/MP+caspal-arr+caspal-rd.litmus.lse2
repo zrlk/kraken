@@ -1,0 +1,7 @@
+Test MP+caspal-arr+caspal-rd Allowed
+States 2
+1:X6=0; 1:X7=0;
+1:X6=1; 1:X7=2;
+No
+Condition exists (1:X6=1 /\ 1:X7=0 \/ 1:X6=0 /\ 1:X7=2)
+Observation MP+caspal-arr+caspal-rd Never 0 2

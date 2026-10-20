@@ -1,0 +1,33 @@
+AArch64 TicketLockRelaxed2
+(* Ticket lock (as ticketlock2.kl) with the spin on `owner` done by a plain
+   LDR instead of LDAR. The branch out of the spin loop gives only a control
+   dependency to the counter load, which does not order load-load on Arm,
+   so the critical section can read a stale counter: lost update.
+   Property checked: counter = 2 (forall). Expected: Sometimes (violated;
+   [counter]=1 reachable). *)
+# flags: -sym
+# expect: Sometimes
+# Proved reachable: Kraken.Promising.Reach.TicketlockRelaxed2.ticketlock_relaxed2_reachable (Kraken/Promising/ReachA64TicketlockRelaxed2.lean)
+{
+next=0; owner=0; counter=0;
+0:X0=next; 0:X1=owner; 0:X2=counter;
+1:X0=next; 1:X1=owner; 1:X2=counter;
+}
+threads { P0: worker done; P1: worker done; }
+code {
+worker:
+  MOV W6,#1
+  LDADDA W6,W3,[X0]
+spin:
+  LDR W4,[X1]
+  CMP W4,W3
+  B.NE spin
+  LDR W5,[X2]
+  ADD W5,W5,#1
+  STR W5,[X2]
+  ADD W4,W3,#1
+  STLR W4,[X1]
+  B done
+done:
+}
+forall [counter]=2

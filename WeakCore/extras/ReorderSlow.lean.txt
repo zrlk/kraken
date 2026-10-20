@@ -1,0 +1,19 @@
+/-
+# ReorderSlow — the full generated reordering check (gated; about 30 s native, 8 min interpreted)
+
+Every generated test of `Reorder.gen`, on both architectures, with and
+without the dependent store: 1152 programs, 1536 swaps.
+
+  * ARM: all 768 swaps sound.
+  * TSO: 92 add states; their kinds are exactly load→load, store→store,
+    load→store and every kind involving an RMW.  No store→load swap fails.
+-/
+import WeakCore.Reorder
+open WeakMem Reorder
+
+#guard
+  let s := summarise ((gen .arm true ++ gen .tso true).flatMap check)
+  s.total == 1536 && s.arm == 768 && s.armSound && s.tso == 768 && s.tsoSLSound &&
+  s.tsoUnsound.length == 92 &&
+  (s.tsoUnsound.map fun n => (n.splitOn ":").getLast!).eraseDups ==
+    ["LL", "LS", "LU", "UL", "SS", "SU", "US", "UU"]

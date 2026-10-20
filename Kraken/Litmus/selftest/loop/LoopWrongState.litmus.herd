@@ -1,0 +1,9 @@
+Test LoopWrongState Required
+States 1
+[x]=3;
+Loop Ok
+Witnesses
+Positive: 3 Negative: 0
+Condition forall ([x]=2)
+Observation LoopWrongState Always 3 0
+

@@ -4,6 +4,7 @@
   Root module that re-exports all AArch64 Kraken components.
 -/
 
+import Kraken.AArch64.Deps
 import Kraken.AArch64.Examples.Examples
 import Kraken.AArch64.OmniSemantics
 import Kraken.AArch64.Parser

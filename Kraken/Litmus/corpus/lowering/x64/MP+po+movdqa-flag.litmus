@@ -1,0 +1,10 @@
+X86_64 MP+po+movdqa-flag
+"MP: data store, then the 16-byte record as the flag (movdqa); reader: movdqa, then data"
+{
+__int128 rec; uint32_t x;
+0:xmm0=0x10000000000000001;
+}
+ P0                 | P1                 ;
+ movl $1,(x)        | movdqa (rec),%xmm1 ;
+ movdqa %xmm0,(rec) | movl (x),%eax      ;
+exists (1:xmm1=0x10000000000000001 /\ 1:rax=0)

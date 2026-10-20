@@ -1,0 +1,11 @@
+X86_64 SB+cmpxchg-fail+mfence
+"SB: failing lock cmpxchg as the fence on one side, mfence on the other"
+{
+}
+ P0                     | P1            ;
+ movl $1,(x)            | movl $1,(y)   ;
+ movl $5,%eax           | mfence        ;
+ movl $6,%ebx           | movl (x),%ecx ;
+ lock cmpxchgl %ebx,(z) |               ;
+ movl (y),%ecx          |               ;
+exists (0:rcx=0 /\ 1:rcx=0)

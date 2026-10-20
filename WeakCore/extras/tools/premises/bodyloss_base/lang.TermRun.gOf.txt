@@ -1,0 +1,12 @@
+CoreTerm.Prog : Type
+Promises.Knobs : Type
+TermRun.Cfg : Type
+TermRun.Cfg.boxFence : TermRun.Cfg → Bool
+TermRun.Cfg.lbase : TermRun.Cfg → Nat
+TermRun.Cfg.ths : TermRun.Cfg → Array TermRun.TTh
+TermRun.G : Type
+TermRun.TTh : Type
+TermRun.gOf : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → TermRun.Cfg → Nat → TermRun.G
+  := fun p k arch c i => { p := p, k := k, arch := arch, n := c.ths.size, i := i, lbase := c.lbase, boxFence := c.boxFence }
+WeakMem.AllocLabel : Type
+WeakMem.Arch : Type

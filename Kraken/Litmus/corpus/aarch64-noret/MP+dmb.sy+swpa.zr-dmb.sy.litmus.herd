@@ -1,0 +1,11 @@
+Test MP+dmb.sy+swpa.zr-dmb.sy Allowed
+States 3
+1:X7=0; [y]=2;
+1:X7=1; [y]=1;
+1:X7=1; [y]=2;
+No
+Witnesses
+Positive: 0 Negative: 3
+Condition exists ([y]=1 /\ 1:X7=0)
+Observation MP+dmb.sy+swpa.zr-dmb.sy Never 0 3
+

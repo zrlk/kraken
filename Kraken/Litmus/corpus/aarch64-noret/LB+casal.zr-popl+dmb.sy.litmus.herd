@@ -1,0 +1,11 @@
+Test LB+casal.zr-popl+dmb.sy Allowed
+States 3
+1:X0=0; [x]=0;
+1:X0=0; [x]=3;
+1:X0=1; [x]=0;
+No
+Witnesses
+Positive: 0 Negative: 6
+Condition exists ([x]=3 /\ 1:X0=1)
+Observation LB+casal.zr-popl+dmb.sy Never 0 6
+

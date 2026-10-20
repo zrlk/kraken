@@ -1,0 +1,19 @@
+AArch64 WRC+data+dmb.sy
+Generator=diycross7 (version 7.58+1)
+Prefetch=0:x=F,0:y=W,1:y=F,1:x=T
+Com=Rf Fr Rf
+Orig=Rfe DpDatadW Rfe DMB.SYdRR Fre
+Cycle=Rfe DpDatadW Rfe DMB.SYdRR Fre
+"Rfe DpDatadW Rfe DMB.SYdRR Fre"
+{
+ 0:X0=x; 0:X3=y;
+ 1:X0=x; 1:X3=y;
+ 2:X0=x;
+}
+ P0           | P1          | P2          ;
+ LDR W1,[X0]  | LDR W1,[X3] | MOV W1,#1   ;
+ EOR W2,W1,W1 | DMB SY      | STR W1,[X0] ;
+ ADD W2,W2,#1 | LDR W2,[X0] |             ;
+ STR W2,[X3]  |             |             ;
+
+exists (0:X1=1 /\ 1:X1=1 /\ 1:X2=0)

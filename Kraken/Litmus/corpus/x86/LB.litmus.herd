@@ -1,0 +1,11 @@
+Test LB Allowed
+States 3
+0:EAX=0; 1:EAX=0;
+0:EAX=0; 1:EAX=1;
+0:EAX=1; 1:EAX=0;
+No
+Witnesses
+Positive: 0 Negative: 3
+Condition exists (0:EAX=1 /\ 1:EAX=1)
+Observation LB Never 0 3
+

@@ -1,0 +1,69 @@
+X86_64 Spinlock2
+(* Test-and-test-and-set spinlock on x86-TSO.
+   Acquire: spin with plain loads until `lock` reads 0, then `xchg`
+   (implicitly locked) 1 into it; if the old value was 1 go back to
+   spinning. Critical section increments a shared counter. Release with a
+   plain store (correct under TSO: a store is never reordered with the
+   earlier loads and stores of the critical section).
+   The read-spin matters for the explorer: a bare `xchg` loop writes a
+   new message on every failed attempt, so the spinning thread's state
+   never repeats and the exploration does not terminate.
+   Two threads each increment once.
+   Property: counter = 2 in every final state.
+   Proved for every layout of the runner's image, the code verbatim
+   (`decls = {}`): `SpinAbs.x64_spin_counter_envG_verbatim`
+   (Promising/SLR/EnvG/X64SpinAbsPublic.lean). Proved from the runner's
+   exact configuration (declarations and initial memory included):
+   `SpinAbs.x64_spin_counter_envG_runner` (X64SpinAbsRunner.lean), with a
+   `.Concrete` instance.
+   Proved no fault at the runner's declarations (rule-level):
+   `SpinAbs.x64_spin_counter_envG_runner_noFault`
+   (Promising/SLR/EnvG/X64NoFaultDLocks.lean), with a `.Concrete` instance.
+   With symbol operands as registers: `SpinPublicG.x64_spin_counter_envG`
+   (Promising/SLR/EnvG/X64SpinPublicG.lean); pre-EnvG:
+   `X64SpinInv.x64_counter_spin` (Promising/SLR/X64SpinFinalX.lean).
+   The shared symbols are typed (`uint32_t`) so that the runner declares
+   them as sized locations at the width of the code's accesses (DECLS): the
+   runner's declarations then agree with the proofs'
+   locations. The code block and the verdict are unchanged.
+   Proved (fault freedom at the runner's declarations, MEMVALS):
+   `SpinAbs.x64_spin_counter_envG_runner_faultFree`
+   (Promising/SLR/EnvG/X64FaultFreeFixed.lean), with a `.Concrete` instance.
+   Proved (LIVESPINX2): promise-free deadlock-freedom on a valid layout
+   of the image (`[ValidLayout (layout spinImageV)]`):
+   `Live.SpinX64XchgPF.spin_xchg_live_pf : XchgSpinLivePF fuel`, at the
+   runner's layout `spin_xchg_live_pf_concrete` and from its start state
+   `spin_xchg_live_pf_runnerN`; one-shot form `spin_xchg_live_oneShot_pf`
+   (Promising/LiveSpinX64XchgPF.lean).
+   Proved (LIVESPINXSEM2): deadlock-freedom with promises on the
+   machine with semantic certification, every fuel, under `WeakFairSem ∧
+   MemFair` (x86 `MemFair` is a modelling assumption):
+   `Live.SpinX64SemXchgLive.spin_xchg_live_sem : XchgSpinLiveSem fuel`,
+   `spin_xchg_live_sem_concrete`, `spin_xchg_live_sem_runnerN`; one-shot
+   form `spin_xchg_live_oneShot_sem` (Promising/LiveSpinX64SemXchgLive.lean).
+   The `XchgSpinLive` (over `succs`, incomplete `certify`) stays
+   open (KNOWN_GAPS.md, "Liveness: spinlocks, x64 (LIVESPINX)").
+# flags: -sym -fuel 300
+# expect: Always
+*)
+{
+uint32_t lock=0; uint32_t counter=0;
+}
+threads { P0: worker done; P1: worker done; }
+code {
+worker:
+  movl (lock),%eax
+  testl %eax,%eax
+  jne worker
+  movl $1,%eax
+  xchgl %eax,(lock)
+  testl %eax,%eax
+  jne worker
+  movl (counter),%ecx
+  addl $1,%ecx
+  movl %ecx,(counter)
+  movl $0,(lock)
+  jmp done
+done:
+}
+forall [counter]=2

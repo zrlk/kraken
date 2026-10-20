@@ -1,0 +1,15 @@
+AArch64 LB+fdata-stxp-arr
+"STXP of a value with a false data dependency on the earlier load (array halves): no dependency, LB allowed"
+{
+uint64_t f[2];
+uint64_t x;
+0:X5=f; 0:X1=x; 1:X5=f; 1:X1=x;
+uint64_t 0:X0; uint64_t 1:X2;
+}
+P0                   | P1               ;
+LDR X0,[X1]          | LDR X2,[X5]      ;
+EOR X9,X0,X0         | DMB SY           ;
+ADD X9,X9,#1         | MOV X4,#1        ;
+LDXP X6,X7,[X5]         | STR X4,[X1]      ;
+STXP W8,X9,X9,[X5]   |                  ;
+exists (0:X0=1 /\ 1:X2=1)

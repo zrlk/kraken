@@ -1,0 +1,17 @@
+X86_64 MP-xchg+ponant+rmw-mfence
+Generator=diycross7 (version 7.58+1)
+Prefetch=0:x=F,0:y=W,1:y=F,1:x=T
+Com=Rf Fr
+Orig=PodWW NT Rfe Exch MFencedWR Fre
+Cycle=PodWWNaNT RfeNTNa Exch MFencedWR Fre
+"PodWW NT Rfe Exch MFencedWR Fre"
+{
+ 0:rax=y;
+}
+ P0                  | P1             ;
+ movl $1,(x)         | movl $2,%ebx   ;
+ movl $1,%ebx        | xchgl (y),%ebx ;
+ movntil %ebx,(%rax) | mfence         ;
+                     | movl (x),%ecx  ;
+
+exists ([y]=2 /\ 1:rbx=1 /\ 1:rcx=0)

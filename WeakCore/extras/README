@@ -1,0 +1,80 @@
+WeakCore/extras: standalone files not built as part of the WeakCore library.
+
+These are the non-library files of the WeakCore development: the run-only demo and benchmark
+files, the probes, the premise guard (tools/premises) and the check script check-promises.sh.
+Every Lean file is stored as `.lean.txt` so that lake does not glob or build it as part of
+the library; its `import` lines name the `WeakCore.*` modules.
+
+Files (72):
+  FlatHashMapSlow.lean.txt
+  HashMapLFSlow.lean.txt
+  RWLockSlow.lean.txt
+  ReorderSlow.lean.txt
+  Report.lean.txt
+  SyntaxTest.lean.txt
+  Tutorial.lean.txt
+  check-promises.sh
+  probes/TraitObject.lean.txt
+  probes/Upcast.lean.txt
+  tools/premises/CheckPremises.lean.txt
+  tools/premises/bodyloss.py
+  tools/premises/bodyloss_allow.spawn.txt
+  tools/premises/bodyloss_allow.txt
+  tools/premises/bodyloss_base/TermInit.InitShape.txt
+  tools/premises/bodyloss_base/TermMain.InitOK.txt
+  tools/premises/bodyloss_base/TermMain.ObligationsF.txt
+  tools/premises/bodyloss_base/TermMain.initOK_of.txt
+  tools/premises/bodyloss_base/TermMain.machine_tokens_mainF.txt
+  tools/premises/bodyloss_base/TermMain.reachable_typedF.txt
+  tools/premises/bodyloss_base/TermMain.token_unique_finalF.txt
+  tools/premises/bodyloss_base/TermMain.token_unique_netF.txt
+  tools/premises/bodyloss_base/TermSpawn.KidOK.txt
+  tools/premises/bodyloss_base/TermSpawn.StartOK.txt
+  tools/premises/bodyloss_base/TermSpawn.machine_tokens_mainS.txt
+  tools/premises/bodyloss_base/TermSpawn.startOK_of_initOK.txt
+  tools/premises/bodyloss_base/TermSpawn.startOK_spawnS.txt
+  tools/premises/bodyloss_base/lang.CoreTerm.Op.txt
+  tools/premises/bodyloss_base/lang.CoreTerm.checkOp.txt
+  tools/premises/bodyloss_base/lang.CoreTerm.tailCheck.txt
+  tools/premises/bodyloss_base/lang.CoreTyping.OpT.txt
+  tools/premises/bodyloss_base/lang.TermRun.Cfg.n.txt
+  tools/premises/bodyloss_base/lang.TermRun.Cfg.txt
+  tools/premises/bodyloss_base/lang.TermRun.evalOp.txt
+  tools/premises/bodyloss_base/lang.TermRun.freshLabel.txt
+  tools/premises/bodyloss_base/lang.TermRun.gOf.txt
+  tools/premises/bodyloss_base/lang.TermRun.touchesMem.txt
+  tools/premises/bodyloss_base/premises.md5
+  tools/premises/frozen/A9NoSpawn.stepsX_iff_steps_of_noSpawn.txt
+  tools/premises/frozen/A9SpawnFinal.startOKX_of_initOK.txt
+  tools/premises/frozen/A9SpawnFinal.startOKX_spawnS.txt
+  tools/premises/frozen/SpawnArmZ.machine_tokens_main_spawn.txt
+  tools/premises/frozen/SpawnArmZ.machine_tokens_main_spawn_init.txt
+  tools/premises/frozen/SpawnArmZ.reachable_typed_spawn.txt
+  tools/premises/frozen/SpawnArmZ.token_unique_final_spawn.txt
+  tools/premises/frozen/SpawnArmZ.token_unique_net_spawn.txt
+  tools/premises/frozen/TermInit.InitShape.txt
+  tools/premises/frozen/TermMain.InitOK.txt
+  tools/premises/frozen/TermMain.ObligationsF.txt
+  tools/premises/frozen/TermMain.initOK_of.txt
+  tools/premises/frozen/TermMain.machine_tokens_mainF.txt
+  tools/premises/frozen/TermMain.reachable_typedF.txt
+  tools/premises/frozen/TermMain.token_unique_finalF.txt
+  tools/premises/frozen/TermMain.token_unique_netF.txt
+  tools/premises/frozen/TermSpawn.KidOK.txt
+  tools/premises/frozen/TermSpawn.StartOK.txt
+  tools/premises/frozen/TermSpawn.machine_tokens_mainS.txt
+  tools/premises/frozen/TermSpawn.startOK_of_initOK.txt
+  tools/premises/frozen/TermSpawn.startOK_spawnS.txt
+  tools/premises/frozen/lang.CoreTerm.Op.txt
+  tools/premises/frozen/lang.CoreTerm.checkOp.txt
+  tools/premises/frozen/lang.CoreTerm.tailCheck.txt
+  tools/premises/frozen/lang.CoreTyping.OpT.txt
+  tools/premises/frozen/lang.TermRun.Cfg.n.txt
+  tools/premises/frozen/lang.TermRun.Cfg.txt
+  tools/premises/frozen/lang.TermRun.evalOp.txt
+  tools/premises/frozen/lang.TermRun.freshLabel.txt
+  tools/premises/frozen/lang.TermRun.gOf.txt
+  tools/premises/frozen/lang.TermRun.touchesMem.txt
+  tools/premises/guard.sh
+  tools/premises/lang_absent_ok.txt
+  tools/premises/premises.md5

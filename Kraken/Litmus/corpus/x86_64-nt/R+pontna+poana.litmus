@@ -1,0 +1,16 @@
+X86_64 R+pontna+poana
+Generator=diycross7 (version 7.58+1)
+Prefetch=0:x=F,0:y=W,1:y=F,1:x=T
+Com=Co Fr
+Orig=PodWW Coe PodWR Fre NT
+Cycle=PodWWNTNa CoeNaA PodWRANa FreNaNT
+"PodWW Coe PodWR Fre NT"
+{
+ 0:rax=x;
+}
+ P0                  | P1             ;
+ movl $1,%ebx        | movl $2,%ebx   ;
+ movntil %ebx,(%rax) | xchgl (y),%ebx ;
+ movl $1,(y)         | movl (x),%ecx  ;
+
+exists ([y]=2 /\ 1:rbx=1 /\ 1:rcx=0)

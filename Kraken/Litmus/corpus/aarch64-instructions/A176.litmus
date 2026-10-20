@@ -1,0 +1,16 @@
+AArch64 A176
+(*
+  Test reading the first cell of an integer array.
+  The trick allows enforcing alignement
+  constraint more stringent than
+  using type of smaller size.
+*)
+
+{
+  uint32_t x[2] = { 2, 1 };
+  0:X2=x;
+}
+
+P0;
+  LDR W0, [X2];
+forall (0:X0=2)

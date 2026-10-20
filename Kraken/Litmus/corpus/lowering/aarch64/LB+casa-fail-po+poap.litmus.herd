@@ -1,0 +1,11 @@
+Test LB+casa-fail-po+poap Allowed
+States 3
+0:X0=0; 1:X0=0;
+0:X0=0; 1:X0=1;
+0:X0=1; 1:X0=0;
+No
+Witnesses
+Positive: 0 Negative: 9
+Condition exists (0:X0=1 /\ 1:X0=1)
+Observation LB+casa-fail-po+poap Never 0 9
+

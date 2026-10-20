@@ -1,0 +1,12 @@
+Test SB+nt-sfences Allowed
+States 4
+0:rcx=0; 1:rcx=0;
+0:rcx=0; 1:rcx=1;
+0:rcx=1; 1:rcx=0;
+0:rcx=1; 1:rcx=1;
+Ok
+Witnesses
+Positive: 1 Negative: 3
+Condition exists (0:rcx=0 /\ 1:rcx=0)
+Observation SB+nt-sfences Sometimes 1 3
+

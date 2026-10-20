@@ -1,0 +1,12 @@
+Test MP+caspl+dmb.sy-wr10 Allowed
+States 4
+1:X0=0; 1:X1=0;
+1:X0=0; 1:X1=1;
+1:X0=1; 1:X1=0;
+1:X0=1; 1:X1=1;
+Ok
+Witnesses
+Positive: 2 Negative: 6
+Condition exists (1:X0=1 /\ 1:X1=0)
+Observation MP+caspl+dmb.sy-wr10 Sometimes 2 6
+

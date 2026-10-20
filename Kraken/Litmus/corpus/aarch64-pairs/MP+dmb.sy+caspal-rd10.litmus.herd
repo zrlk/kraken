@@ -1,0 +1,12 @@
+Test MP+dmb.sy+caspal-rd10 Allowed
+States 4
+0:X0=0; 0:X1=0;
+0:X0=0; 0:X1=1;
+0:X0=1; 0:X1=0;
+0:X0=1; 0:X1=1;
+Ok
+Witnesses
+Positive: 2 Negative: 6
+Condition exists (0:X0=1 /\ 0:X1=0)
+Observation MP+dmb.sy+caspal-rd10 Sometimes 2 6
+

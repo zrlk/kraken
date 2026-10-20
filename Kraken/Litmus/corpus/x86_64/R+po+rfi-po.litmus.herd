@@ -1,0 +1,13 @@
+Test R+po+rfi-po Allowed
+States 5
+1:rax=1; 1:rbx=1; [y]=1;
+1:rax=2; 1:rbx=0; [y]=1;
+1:rax=2; 1:rbx=0; [y]=2;
+1:rax=2; 1:rbx=1; [y]=1;
+1:rax=2; 1:rbx=1; [y]=2;
+Ok
+Witnesses
+Positive: 1 Negative: 4
+Condition exists ([y]=2 /\ 1:rax=2 /\ 1:rbx=0)
+Observation R+po+rfi-po Sometimes 1 4
+

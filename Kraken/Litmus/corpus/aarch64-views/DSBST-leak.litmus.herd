@@ -1,0 +1,12 @@
+Test DSBST-leak Allowed
+States 4
+0:X0=0; 0:X4=0;
+0:X0=0; 0:X4=1;
+0:X0=1; 0:X4=0;
+0:X0=1; 0:X4=1;
+Ok
+Witnesses
+Positive: 1 Negative: 3
+Condition exists (0:X0=1 /\ 0:X4=0)
+Observation DSBST-leak Sometimes 1 3
+

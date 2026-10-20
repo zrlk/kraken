@@ -1,0 +1,10 @@
+Test Treiber+cmpxchg+mov-addr Allowed
+States 2
+1:rax=d; 1:rcx=2;
+1:rax=n; 1:rcx=1;
+No
+Witnesses
+Positive: 0 Negative: 2
+Condition exists (1:rax=n /\ 1:rcx=0)
+Observation Treiber+cmpxchg+mov-addr Never 0 2
+

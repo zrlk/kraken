@@ -1,0 +1,14 @@
+AArch64 MP+dmb.sy+ldclr.zr-po
+"write; DMB SY; write || ldclr.zr; po; read"
+{
+
+0:X1=x; 0:X3=y;
+1:X1=y; 1:X3=x;
+}
+ P0          | P1                ;
+ MOV W0,#1   | MOV W0,#1         ;
+ STR W0,[X1] | LDCLR W0,WZR,[X1] ;
+ DMB SY      | LDR W7,[X3]       ;
+ MOV W2,#3   |                   ;
+ STR W2,[X3] |                   ;
+exists ([y]=2 /\ 1:X7=0)

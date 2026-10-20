@@ -1,0 +1,103 @@
+X86_64 SpscQueue
+(* Single-producer single-consumer ring buffer on x86-TSO with plain
+   loads and stores only (no locked instructions, no fences).
+   Ring of 2 slots `buf0`,`buf1`; `tail` is the producer's index, `head`
+   the consumer's (both count modulo 2 via `andl $1`).
+   Producer (P0): for v in 1,2,3: spin while (tail+1)&1 == head (full);
+   buf[tail] = v; tail = (tail+1)&1.
+   Consumer (P1): three times: spin while head == tail (empty);
+   v = buf[head]; head = (head+1)&1; values go to r12, r13, r14.
+   Correct on TSO: the producer's data store precedes its index store in
+   program order and stores are not reordered, and the consumer's index
+   load precedes its data load and loads are not reordered.
+   Slot addressing: the slots are consecutive symbols in the init block,
+   and the runner lays symbols out 0x100 bytes apart in that order, so
+   slot i is at buf0 + (i << 8) (rbx = buf0, index scaled with `shll $8`).
+   Threads are not interchangeable: no -sym.
+   Property: the consumer receives 1, 2, 3 in that order.
+   Proved: `x64_spsc_envG` (Promising/SLR/EnvG/X64SpscPublic.lean) for all
+   layouts, on the low 32 bits, with `(tail)`/`(head)` addressed through
+   rdi/rsi and empty private memories; both threads on the take route
+   (`ThreadRuleRXGS.ofSafelyEnvGTX`); concrete instance in X64SpscConcrete.lean.
+   Proved for every layout of the runner's image, the code verbatim
+   (`decls = {}`): `SpscAbs.x64_spsc_envG_verbatim`
+   (Promising/SLR/EnvG/X64SpscAbsPublic.lean). Proved from the runner's
+   exact configuration (declarations and initial memory included):
+   `SpscAbs.x64_spsc_envG_runner` (X64SpscAbsRunner.lean), with a
+   `.Concrete` instance.
+   Proved no fault at the runner's declarations (rule-level):
+   `SpscAbs.x64_spsc_envG_runner_noFault`
+   (Promising/SLR/EnvG/X64NoFaultDMp.lean), with a `.Concrete` instance.
+   The shared symbols are typed (`uint32_t`) so that the runner declares
+   them as sized locations at the width of the code's accesses (DECLS): the
+   runner's declarations then agree with the proofs'
+   locations. The code block and the verdict are unchanged.
+   Proved (fault freedom at the runner's declarations):
+   `SpscAbs.x64_spsc_envG_runner_faultFree`
+   (Promising/SLR/EnvG/MemValsX64Spsc.lean), with a `.Concrete` instance.
+# flags: -fuel 300
+# expect: Always
+*)
+{
+uint32_t buf0=0; uint32_t buf1=0; uint32_t head=0; uint32_t tail=0;
+0:rbx=buf0; 1:rbx=buf0;
+}
+threads { P0: producer pdone; P1: consumer cdone; }
+code {
+producer:
+  movl $1,%r8d
+produce:
+  movl (tail),%eax
+  movl %eax,%ecx
+  addl $1,%ecx
+  andl $1,%ecx
+pfull:
+  movl (head),%edx
+  cmpl %ecx,%edx
+  je pfull
+  movl %eax,%edx
+  shll $8,%edx
+  movl %r8d,(%rbx,%rdx,1)
+  movl %ecx,(tail)
+  addl $1,%r8d
+  cmpl $4,%r8d
+  jne produce
+  jmp pdone
+pdone:
+
+consumer:
+  movl (head),%eax
+cempty0:
+  movl (tail),%ecx
+  cmpl %eax,%ecx
+  je cempty0
+  movl %eax,%edx
+  shll $8,%edx
+  movl (%rbx,%rdx,1),%r12d
+  addl $1,%eax
+  andl $1,%eax
+  movl %eax,(head)
+cempty1:
+  movl (tail),%ecx
+  cmpl %eax,%ecx
+  je cempty1
+  movl %eax,%edx
+  shll $8,%edx
+  movl (%rbx,%rdx,1),%r13d
+  addl $1,%eax
+  andl $1,%eax
+  movl %eax,(head)
+cempty2:
+  movl (tail),%ecx
+  cmpl %eax,%ecx
+  je cempty2
+  movl %eax,%edx
+  shll $8,%edx
+  movl (%rbx,%rdx,1),%r14d
+  addl $1,%eax
+  andl $1,%eax
+  movl %eax,(head)
+  jmp cdone
+cdone:
+}
+forall (1:r12=1 /\ 1:r13=2 /\ 1:r14=3)

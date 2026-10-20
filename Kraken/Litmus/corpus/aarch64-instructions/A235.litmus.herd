@@ -1,0 +1,9 @@
+Test A235 Required
+States 1
+[x]=1;
+No
+Witnesses
+Positive: 0 Negative: 1
+Condition forall ([x]=0)
+Observation A235 Never 0 1
+

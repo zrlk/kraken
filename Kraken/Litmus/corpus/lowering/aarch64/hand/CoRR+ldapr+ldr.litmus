@@ -1,0 +1,12 @@
+AArch64 CoRR+ldapr+ldr
+"CoRR: LDAPR then LDR of x see writes in coherence order"
+{
+0:X1=x;
+1:X1=x;
+}
+ P0          | P1            ;
+ MOV W0,#1   | LDAPR W2,[X1] ;
+ STR W0,[X1] | LDR W3,[X1]   ;
+ MOV W0,#2   |               ;
+ STR W0,[X1] |               ;
+exists (1:X2=2 /\ 1:X3=1)

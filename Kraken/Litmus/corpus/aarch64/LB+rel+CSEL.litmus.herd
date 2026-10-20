@@ -1,0 +1,12 @@
+Test LB+rel+CSEL Allowed
+States 4
+0:X0=0; 1:X3=0;
+0:X0=0; 1:X3=1;
+0:X0=7; 1:X3=0;
+0:X0=7; 1:X3=1;
+Ok
+Witnesses
+Positive: 1 Negative: 3
+Condition exists (0:X0=7 /\ 1:X3=1)
+Observation LB+rel+CSEL Sometimes 1 3
+

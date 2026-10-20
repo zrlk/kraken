@@ -1,0 +1,12 @@
+Test 2+2W+cas.zr-dsb.ld+dmb.sy Allowed
+States 4
+[x]=0; [y]=1;
+[x]=0; [y]=2;
+[x]=3; [y]=1;
+[x]=3; [y]=2;
+Ok
+Witnesses
+Positive: 2 Negative: 6
+Condition exists ([x]=3 /\ [y]=2)
+Observation 2+2W+cas.zr-dsb.ld+dmb.sy Sometimes 2 6
+

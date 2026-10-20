@@ -1,0 +1,107 @@
+X86_64 ChaseLev2NoFence
+(* chaselev2.kl without the owner's mfence between its `bottom` store
+   and its `top` load in take (the thief keeps its mfence). This is the
+   classic store-buffering (SB/Dekker) bug of the Chase-Lev deque on TSO:
+   the owner's store bottom := 1 sits in its store buffer while the
+   thief's second steal reads bottom = 2, and the owner's load of `top`
+   reads 0 from before the thief's first locked cmpxchg. The owner sees
+   t < b and takes slot 1 without a CAS; the thief's second steal also
+   takes slot 1 by cmpxchg top 1 -> 2.
+   Property: as in chaselev2.kl (no duplicate, nothing lost).
+   Expected: Sometimes, with the duplicate outcome 0:r12=2, 1:r12=1,
+   1:r13=2. Threads have different roles: no -sym.
+# flags: -fuel 300
+# expect: Sometimes
+*)
+{
+uint32_t buf0=0; uint32_t buf1=0; uint64_t top=0; uint64_t bottom=0;
+0:rbx=buf0; 1:rbx=buf0;
+}
+threads { P0: owner odone; P1: thief tdone; }
+code {
+owner:
+  movq (bottom),%rax
+  movq %rax,%rdx
+  shlq $8,%rdx
+  movl $1,(%rbx,%rdx,1)
+  addq $1,%rax
+  movq %rax,(bottom)
+  movq (bottom),%rax
+  movq %rax,%rdx
+  shlq $8,%rdx
+  movl $2,(%rbx,%rdx,1)
+  addq $1,%rax
+  movq %rax,(bottom)
+take:
+  xorl %r12d,%r12d
+  movq (bottom),%rax
+  subq $1,%rax
+  movq %rax,(bottom)
+  movq (top),%rcx
+  movq %rax,%r10
+  addq $1,%r10
+  movq %rax,%rdx
+  shlq $8,%rdx
+  movl (%rbx,%rdx,1),%r8d
+  cmpq %rax,%rcx
+  jg take_empty
+  je take_last
+  movl %r8d,%r12d
+  jmp odone
+take_last:
+  movq %rcx,%rax
+  movq %rcx,%rsi
+  addq $1,%rsi
+  lock cmpxchgq %rsi,(top)
+  movq %r10,(bottom)
+  jne odone
+  movl %r8d,%r12d
+  jmp odone
+take_empty:
+  movq %r10,(bottom)
+  jmp odone
+odone:
+
+thief:
+  xorl %r12d,%r12d
+  movq (top),%rcx
+  mfence
+  movq (bottom),%rax
+  cmpq %rax,%rcx
+  jge steal2
+  movq %rcx,%rdx
+  shlq $8,%rdx
+  movl (%rbx,%rdx,1),%r8d
+  movq %rcx,%rax
+  movq %rcx,%rsi
+  addq $1,%rsi
+  lock cmpxchgq %rsi,(top)
+  jne steal2
+  movl %r8d,%r12d
+steal2:
+  xorl %r13d,%r13d
+  movq (top),%rcx
+  mfence
+  movq (bottom),%rax
+  cmpq %rax,%rcx
+  jge tdone
+  movq %rcx,%rdx
+  shlq $8,%rdx
+  movl (%rbx,%rdx,1),%r8d
+  movq %rcx,%rax
+  movq %rcx,%rsi
+  addq $1,%rsi
+  lock cmpxchgq %rsi,(top)
+  jne tdone
+  movl %r8d,%r13d
+  jmp tdone
+tdone:
+}
+forall (
+  ~(0:r12=1 /\ 1:r12=1) /\ ~(0:r12=1 /\ 1:r13=1) /\ ~(1:r12=1 /\ 1:r13=1) /\
+  ~(0:r12=2 /\ 1:r12=2) /\ ~(0:r12=2 /\ 1:r13=2) /\ ~(1:r12=2 /\ 1:r13=2) /\
+  ((0:r12=1 \/ 1:r12=1 \/ 1:r13=1) \/ ([top]=0 /\ ([bottom]=1 \/ [bottom]=2))) /\
+  ~((0:r12=1 \/ 1:r12=1 \/ 1:r13=1) /\ ([top]=0 /\ ([bottom]=1 \/ [bottom]=2))) /\
+  ((0:r12=2 \/ 1:r12=2 \/ 1:r13=2) \/ (([top]=0 \/ [top]=1) /\ [bottom]=2)) /\
+  ~((0:r12=2 \/ 1:r12=2 \/ 1:r13=2) /\ (([top]=0 \/ [top]=1) /\ [bottom]=2))
+)

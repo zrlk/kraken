@@ -1,0 +1,15 @@
+Test RWC+po+mfence Allowed
+States 7
+1:rax=0; 1:rbx=0; 2:rax=0;
+1:rax=0; 1:rbx=0; 2:rax=1;
+1:rax=0; 1:rbx=1; 2:rax=0;
+1:rax=0; 1:rbx=1; 2:rax=1;
+1:rax=1; 1:rbx=0; 2:rax=1;
+1:rax=1; 1:rbx=1; 2:rax=0;
+1:rax=1; 1:rbx=1; 2:rax=1;
+No
+Witnesses
+Positive: 0 Negative: 7
+Condition exists (1:rax=1 /\ 1:rbx=0 /\ 2:rax=0)
+Observation RWC+po+mfence Never 0 7
+

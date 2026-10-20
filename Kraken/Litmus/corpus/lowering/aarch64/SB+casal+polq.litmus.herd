@@ -1,0 +1,12 @@
+Test SB+casal+polq Allowed
+States 4
+0:X3=0; 1:X3=0;
+0:X3=0; 1:X3=1;
+0:X3=1; 1:X3=0;
+0:X3=1; 1:X3=1;
+Ok
+Witnesses
+Positive: 2 Negative: 6
+Condition exists (0:X3=0 /\ 1:X3=0)
+Observation SB+casal+polq Sometimes 2 6
+

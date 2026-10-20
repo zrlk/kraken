@@ -142,6 +142,20 @@ theorem List.allSome_map_some {α : Type} (l : List α) : List.allSome (l.map so
   rw [List.mapM_loop_id_some l []]
   simp
 
+/-- A list of options reads as `some` iff each option is `some`. -/
+theorem List.allSome_isSome_iff {α : Type} (l : List (Option α)) :
+    l.allSome.isSome = true ↔ ∀ o ∈ l, o.isSome = true := by
+  induction l with
+  | nil => simp [List.allSome]
+  | cons o l ih =>
+    cases o with
+    | none => simp [List.allSome]
+    | some a =>
+      simp only [List.allSome] at ih ⊢
+      simp only [List.mapM_cons, id, List.mem_cons, forall_eq_or_imp, Option.isSome_some,
+        true_and]
+      cases hl : List.mapM id l <;> simpa [hl] using ih
+
 /-- A list of options that reads as `some xs` is `xs` under `some`. -/
 theorem List.allSome_eq_map_some {α : Type} :
     ∀ {l : List (Option α)} {xs : List α}, l.allSome = some xs → l = xs.map some := by
@@ -217,3 +231,33 @@ theorem Mem.storeBytes_storeBytes {w} (m : Mem w) (a : BitVec w) (bs₁ bs₂ : 
     rw [ExtHashMap.getElem?_eq_none (fun hk => hnot₂ (hmem.mp hk))]
     rfl
 
+
+/-- A store leaves a byte outside its range as it was. -/
+theorem Mem.get?_storeBytes_of_not_mem {w} (m : Mem w) (a k : BitVec w) (bs : List UInt8)
+    (hk : ¬ k ∈ bs.At a) : (m.storeBytes a bs).get? k = m.get? k := by
+  simp only [Mem.storeBytes, ExtHashMap.get?_eq_getElem?, ExtHashMap.union_eq,
+    ExtHashMap.getElem?_union, ExtHashMap.getElem?_eq_none hk]
+  simp
+
+/-- A load of `k` bytes at `b` that starts at least `n` bytes above a store of
+`n` bytes at `a`, without wrapping around to it, reads what was there before:
+a store to a stack slot leaves the slots above it alone. -/
+theorem Mem.loadInt_storeInt_of_above {w} (m : Mem w) (a b : BitVec w) (n k : Nat) (v : Int)
+    (hlo : n ≤ (b - a).toNat) (hhi : (b - a).toNat + k ≤ 2 ^ w) :
+    (m.storeInt a n v).loadInt b k = m.loadInt b k := by
+  unfold Mem.loadInt Mem.loadBytes Mem.storeInt
+  congr 2
+  apply List.map_congr_left
+  intro i hi
+  rw [List.mem_range] at hi
+  apply Mem.get?_storeBytes_of_not_mem
+  rw [mem_At_iff, Int.toBytes_length]
+  rintro ⟨j, hj, hEq⟩
+  have h := congrArg (fun x => (x - a).toNat) hEq
+  have hr : b + BitVec.ofNat w i - a = (b - a) + BitVec.ofNat w i := by
+    rw [BitVec.sub_eq_add_neg, BitVec.sub_eq_add_neg, BitVec.add_assoc, BitVec.add_assoc,
+      BitVec.add_comm (BitVec.ofNat w i)]
+  rw [hr, BitVec.add_comm a, BitVec.add_sub_cancel, BitVec.toNat_add, BitVec.toNat_ofNat,
+    BitVec.toNat_ofNat, Nat.mod_eq_of_lt (a := i) (by omega),
+    Nat.mod_eq_of_lt (a := j) (by omega), Nat.mod_eq_of_lt (by omega)] at h
+  omega

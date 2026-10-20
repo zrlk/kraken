@@ -1,0 +1,34 @@
+AArch64 Spinlock3
+(* Test-and-set spinlock, Linux arm64 `arch_spin_lock` shape (Promising-ARM
+   PLDI'19 §7 "SLA"): LDAXR/STXR acquire loop, STLR release.
+   Three threads each take the lock once and increment a shared counter.
+   Property: no lost update, counter = 3 in every final state.
+   Expected: Always (mutual exclusion holds).
+   Open: no safety theorem. Its LL/SC acquire (`LDAXR`/`STXR`) is deferred
+   in the Stage 2/3 logic (Promising/EnvWP.md, "LL/SC"), so there is no
+   runner-exact theorem either
+   (LockFree/AArch64/README.md, "Typed headers and runner-exact theorems"). *)
+# flags: -sym
+# expect: Always
+{
+lock=0; counter=0;
+0:X0=lock; 0:X1=counter;
+1:X0=lock; 1:X1=counter;
+2:X0=lock; 2:X1=counter;
+}
+threads { P0: worker done; P1: worker done; P2: worker done; }
+code {
+worker:
+  LDAXR W2,[X0]
+  CBNZ W2,worker
+  MOV W3,#1
+  STXR W4,W3,[X0]
+  CBNZ W4,worker
+  LDR W5,[X1]
+  ADD W5,W5,#1
+  STR W5,[X1]
+  STLR WZR,[X0]
+  B done
+done:
+}
+forall [counter]=3

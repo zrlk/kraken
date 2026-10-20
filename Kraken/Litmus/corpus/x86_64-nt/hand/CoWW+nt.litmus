@@ -1,0 +1,11 @@
+X86_64 CoWW+nt
+"Coherence: an NT store and a later plain store to the same location"
+{
+ 0:rax=x;
+}
+ P0                  ;
+ movl $1,%ebx        ;
+ movntil %ebx,(%rax) ;
+ movl $2,(x)         ;
+
+exists ([x]=1)

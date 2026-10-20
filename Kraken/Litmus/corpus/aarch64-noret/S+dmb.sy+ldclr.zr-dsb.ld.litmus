@@ -1,0 +1,14 @@
+AArch64 S+dmb.sy+ldclr.zr-dsb.ld
+"write; DMB SY; write || ldclr.zr; dsb.ld; write"
+{
+
+0:X1=x; 0:X3=y;
+1:X1=y; 1:X3=x;
+}
+ P0          | P1                ;
+ MOV W0,#2   | MOV W0,#1         ;
+ STR W0,[X1] | LDCLR W0,WZR,[X1] ;
+ DMB SY      | DSB LD            ;
+ MOV W2,#3   | MOV W7,#1         ;
+ STR W2,[X3] | STR W7,[X3]       ;
+exists ([y]=2 /\ [x]=2)

@@ -1,0 +1,15 @@
+AArch64 A180
+(*
+Test A176 + indirection, should work
+*)
+
+{
+  int x[2] = {2, 1};
+  int *p = &x;
+  0:X2=p;
+}
+
+P0;
+  LDR X2,[X2] ;
+  LDR W0,[X2] ;
+forall (0:X0=2)

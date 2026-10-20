@@ -1,0 +1,66 @@
+X86_64 TreiberPushPop
+(* Treiber stack on x86-TSO, smallest instance: the x64 port of
+   `../AArch64/treiber_pp.kl`. Thread 0 writes data 1 into node n1 (the
+   4-byte word at n1) and pushes it: read `top`, link n1.next (the 8-byte
+   word at n1+8) to it, `lock cmpxchgq` `top` from the read value to n1,
+   retry on failure. Thread 1 pops: read `top` until non-empty, read the
+   node's `next`, `lock cmpxchgq` `top` from the read value to it, retry on
+   failure; then the node in r10 and its data word in r11d.
+   Property: the popper gets n1 with data 1 (the push's data and link are
+   visible to the popper).
+   Proved: `x64_treiber_pp_envG` (Promising/SLR/EnvG/X64TreiberPublic.lean),
+   on the x64 claim-conditional environment with failing release RMWs
+   (`ThreadRuleRXF.ofSafelyEnvGFCX`, X64RmwFailGhost.lean).
+   (Threads have different roles: do not use -sym.)
+   Proved for every layout of the runner's image, the code verbatim
+   (`decls = {}`): `TreiberAbs.x64_treiber_pp_envG_verbatim`
+   (Promising/SLR/EnvG/X64TreiberAbsPublic.lean). Proved from the runner's
+   exact configuration (declarations and initial memory included):
+   `TreiberAbs.x64_treiber_pp_envG_runner` (X64TreiberAbsRunner.lean), with
+   a `.Concrete` instance.
+   Proved no fault at the runner's declarations (rule-level):
+   `TreiberAbs.x64_treiber_pp_pusher_runner_noFault`
+   (Promising/SLR/EnvG/X64NoFaultDMp.lean), with a `.Concrete` instance.
+   The rule-level no-fault at the runner's declarations covers the pusher
+   only.
+   The shared symbols are typed (`uint64_t top`; `uint32_t n1`, the node's
+   4-byte value, its 8-byte `next` at `n1+8` undeclared) so that the runner
+   declares them as sized locations at the width of the code's accesses
+   (DECLS): the runner's declarations then agree with the proofs'
+   locations. The code block and the verdict are unchanged.
+   Proved (fault freedom at the runner's declarations, MEMVALS):
+   `TreiberAbs.x64_treiber_pp_envG_runner_faultFree`
+   (Promising/SLR/EnvG/MemValsTreiberPP.lean), with a `.Concrete` instance.
+# flags: -fuel 300
+# expect: Always
+*)
+{
+uint64_t top=0; uint32_t n1=0;
+0:rdi=top; 0:rbx=n1;
+1:rdi=top;
+}
+threads { P0: pusher pdone; P1: popper qdone; }
+code {
+pusher:
+  movl $1,(%rbx)
+push:
+  movq (%rdi),%rax
+  movq %rax,8(%rbx)
+  lock cmpxchgq %rbx,(%rdi)
+  jne push
+  jmp pdone
+pdone:
+  nop
+popper:
+  movq (%rdi),%rax
+  testq %rax,%rax
+  je popper
+  movq 8(%rax),%rcx
+  lock cmpxchgq %rcx,(%rdi)
+  jne popper
+  movq %rax,%r10
+  movl (%rax),%r11d
+  jmp qdone
+qdone:
+}
+forall (1:r10=n1 /\ 1:r11=1)

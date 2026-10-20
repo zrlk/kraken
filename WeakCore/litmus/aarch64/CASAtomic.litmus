@@ -1,0 +1,10 @@
+AArch64 CASAtomic
+{
+0:X14=x;
+1:X14=x;
+}
+ P0               | P1               ;
+ MOV W0,#0        | MOV W0,#0        ;
+ MOV W11,#1       | MOV W11,#2       ;
+ CAS W0,W11,[X14] | CAS W0,W11,[X14] ;
+exists (0:X0=0 /\ 1:X0=0)

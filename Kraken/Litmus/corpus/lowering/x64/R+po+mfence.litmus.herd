@@ -1,0 +1,11 @@
+Test R+po+mfence Allowed
+States 3
+1:rax=0; [y]=1;
+1:rax=1; [y]=1;
+1:rax=1; [y]=2;
+No
+Witnesses
+Positive: 0 Negative: 3
+Condition exists ([y]=2 /\ 1:rax=0)
+Observation R+po+mfence Never 0 3
+

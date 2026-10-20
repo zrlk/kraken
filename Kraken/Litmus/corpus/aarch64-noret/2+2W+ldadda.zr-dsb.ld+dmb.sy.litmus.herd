@@ -1,0 +1,12 @@
+Test 2+2W+ldadda.zr-dsb.ld+dmb.sy Allowed
+States 4
+[x]=2; [y]=1;
+[x]=2; [y]=2;
+[x]=3; [y]=1;
+[x]=3; [y]=2;
+Ok
+Witnesses
+Positive: 1 Negative: 3
+Condition exists ([x]=3 /\ [y]=2)
+Observation 2+2W+ldadda.zr-dsb.ld+dmb.sy Sometimes 1 3
+

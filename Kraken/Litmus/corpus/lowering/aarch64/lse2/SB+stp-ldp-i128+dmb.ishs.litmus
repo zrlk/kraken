@@ -1,0 +1,15 @@
+AArch64 SB+stp-ldp-i128+dmb.ishs
+"FEAT_LSE2: SB with STP; DMB ISH; LDP of the other 16-byte location on both sides"
+{
+__int128 x; __int128 y;
+0:X5=x; 0:X6=y;
+1:X5=y; 1:X6=x;
+uint64_t 0:X7; uint64_t 0:X8; uint64_t 1:X7; uint64_t 1:X8;
+}
+ P0             | P1             ;
+ MOV X0,#1      | MOV X0,#1      ;
+ MOV X1,#1      | MOV X1,#1      ;
+ STP X0,X1,[X5] | STP X0,X1,[X5] ;
+ DMB ISH        | DMB ISH        ;
+ LDP X7,X8,[X6] | LDP X7,X8,[X6] ;
+exists (0:X7=0 /\ 1:X7=0 \/ 0:X7=1 /\ 0:X8=0 \/ 1:X7=1 /\ 1:X8=0)

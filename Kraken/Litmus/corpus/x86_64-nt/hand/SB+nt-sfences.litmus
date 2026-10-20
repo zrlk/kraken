@@ -1,0 +1,12 @@
+X86_64 SB+nt-sfences
+"SB with NT stores and sfence: sfence does not order W->R"
+{
+ 0:rax=x; 1:rax=y;
+}
+ P0                  | P1                  ;
+ movl $1,%ebx        | movl $1,%ebx        ;
+ movntil %ebx,(%rax) | movntil %ebx,(%rax) ;
+ sfence              | sfence              ;
+ movl (y),%ecx       | movl (x),%ecx       ;
+
+exists (0:rcx=0 /\ 1:rcx=0)

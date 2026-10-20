@@ -45,3 +45,31 @@ establish.
 This now means that we are no longer beholden to using relative positions for
 the outer parts of the semantics (via the pair `Label × Nat`), we could simply
 use indices into the directive list to simplify the machinery.
+
+
+# Weak memory: where the model sits
+
+The Promising layer never changes how an instruction computes. The ISA
+interpreter (`Operation.interp`, CPS over `Effects`) consults `dmem` first and
+only emits a memory effect for an address it does not own. In a concurrent
+configuration the shared locations are simply absent from every thread's
+`dmem`, so each shared access arrives in `Kraken/Promising/Thread.lean` as a
+suspended effect with its continuation, exactly like an MMIO access arrives in
+`Kraken/Device.lean`. Private memory (a thread's stack) stays in `dmem` and
+behaves as it always has.
+
+Register dependencies cannot be read off the effect tree (register writes are
+not effects), so each ISA provides `Directive.deps : InstrDeps RegId`, a
+syntactic classification of the registers an instruction reads and writes,
+and the thread keeps a view per register. This is faithful to how Arm defines
+dependencies (syntactically: `EOR X1,X1,X1` keeps the dependency). Where herd
+is finer than "join the views of all inputs" — pick dependencies through
+`CSEL`, the comparand of a `CAS` — the adapter refines `deps` per state and
+the register views come in a read-ordering and a write-ordering flavour.
+
+The explorer (`Kraken/Promising/Machine.lean`) is the algorithm of §7 of the
+Promising-ARM/RISC-V paper (Pulte et al., PLDI 2019):
+stores are promised and fulfilled in one step by default, and a thread may
+additionally take a *certified* promise, found by running it alone to
+completion. `Step`/`Reachable` (`Kraken/Promising/Rel.lean`) are the
+relational reading, in the shape `Eventually` consumes.

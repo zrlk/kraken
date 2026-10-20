@@ -1,0 +1,11 @@
+Test R+pontna+mfence Allowed
+States 3
+1:rbx=0; [y]=1;
+1:rbx=1; [y]=1;
+1:rbx=1; [y]=2;
+No
+Witnesses
+Positive: 0 Negative: 3
+Condition exists ([y]=2 /\ 1:rbx=0)
+Observation R+pontna+mfence Never 0 3
+

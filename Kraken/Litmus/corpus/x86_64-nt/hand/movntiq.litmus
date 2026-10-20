@@ -1,0 +1,10 @@
+X86_64 movntiq
+"A 64-bit NT store"
+{
+ int64_t x; 0:rax=x;
+}
+ P0                  | P1            ;
+ movq $-1,%rbx       | movq (x),%rcx ;
+ movntiq %rbx,(%rax) |               ;
+
+exists (1:rcx=-1)

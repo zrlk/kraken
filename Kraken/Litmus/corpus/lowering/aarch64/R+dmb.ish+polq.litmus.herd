@@ -1,0 +1,12 @@
+Test R+dmb.ish+polq Allowed
+States 4
+1:X3=0; [y]=1;
+1:X3=0; [y]=2;
+1:X3=1; [y]=1;
+1:X3=1; [y]=2;
+Ok
+Witnesses
+Positive: 1 Negative: 3
+Condition exists ([y]=2 /\ 1:X3=0)
+Observation R+dmb.ish+polq Sometimes 1 3
+

@@ -1,0 +1,7 @@
+# bodyloss allowlist: M0 freeze vs pre-M0 freeze. Each entry is a deliberate M0 change.
+# renamed (bodies byte-identical): RunDRF/ThDRF -> RunScope/ThScope
+TermScope.RunDRF
+TermScope.ThDRF
+# gOf's stride is now `c.n` (was `c.ths.size`): gOf's own closure no longer reaches ths/TTh directly
+TermRun.Cfg.ths@lang.TermRun.gOf.txt
+TermRun.TTh@lang.TermRun.gOf.txt

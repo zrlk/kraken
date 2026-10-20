@@ -1,0 +1,41 @@
+X86_64 PublishMovups
+(* The record of `publish_movdqa.kl` published and read with `movups`:
+   torn reads are observable.
+
+   `movups` is not among the accesses the SDM guarantees to be atomic, so
+   Kraken models it as two 8-byte
+   single-copy-atomic accesses in address order, low word first. The record
+   is therefore declared as two 8-byte words, `uint64_t rec[2]`: a 16-byte
+   location would make the 8-byte pieces mixed-size accesses, which the
+   model reports instead of answering. For the same reason the reader uses
+   `movups` too: a `movdqa` (16-byte) load of two 8-byte locations would be
+   mixed-size. On hardware a `movdqa` reader can see the same tear.
+
+   P0 writes `{1, 1}` then `{2, 2}`; P1 reads the record once. Its low word
+   is read before its high word, so the reader can read the low word
+   before a store and the high word after it, e.g. low 0 and high 1
+   (`xmm2` = 0x10000000000000000), or low 1 and high 2. Even under SC the
+   interleaving `R.lo; W1.lo; W1.hi; R.hi` gives a torn record: Sometimes.
+
+   herd7 has no `movups`, so the verdict is argued here rather than checked
+   against herd.
+# flags: -fuel 300
+# expect: Sometimes
+# Proved reachable: Kraken.Promising.Reach.PublishMovups.publish_movups_reachable (Kraken/Promising/ReachX64PublishMovups.lean)
+*)
+{
+uint64_t rec[2];
+0:xmm0=0x10000000000000001; 0:xmm1=0x20000000000000002;
+}
+threads { P0: writer done; P1: reader done; }
+code {
+writer:
+  movups %xmm0,(rec)
+  movups %xmm1,(rec)
+  jmp done
+reader:
+  movups (rec),%xmm2
+  jmp done
+done:
+}
+exists (not (1:xmm2=0 \/ 1:xmm2=0x10000000000000001 \/ 1:xmm2=0x20000000000000002))

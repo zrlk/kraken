@@ -1,0 +1,19 @@
+Test WRW+WR+po+rfi-po Allowed
+States 11
+1:rax=0; 2:rax=1; 2:rbx=0; [y]=1;
+1:rax=0; 2:rax=1; 2:rbx=1; [y]=1;
+1:rax=0; 2:rax=2; 2:rbx=0; [y]=1;
+1:rax=0; 2:rax=2; 2:rbx=0; [y]=2;
+1:rax=0; 2:rax=2; 2:rbx=1; [y]=1;
+1:rax=0; 2:rax=2; 2:rbx=1; [y]=2;
+1:rax=1; 2:rax=1; 2:rbx=1; [y]=1;
+1:rax=1; 2:rax=2; 2:rbx=0; [y]=1;
+1:rax=1; 2:rax=2; 2:rbx=0; [y]=2;
+1:rax=1; 2:rax=2; 2:rbx=1; [y]=1;
+1:rax=1; 2:rax=2; 2:rbx=1; [y]=2;
+Ok
+Witnesses
+Positive: 1 Negative: 10
+Condition exists ([y]=2 /\ 1:rax=1 /\ 2:rax=2 /\ 2:rbx=0)
+Observation WRW+WR+po+rfi-po Sometimes 1 10
+

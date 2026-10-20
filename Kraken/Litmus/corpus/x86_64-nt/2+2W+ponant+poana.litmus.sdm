@@ -1,0 +1,12 @@
+Test 2+2W+ponant+poana Allowed
+States 4
+[x]=1; [y]=1; 1:rbx=0;
+[x]=1; [y]=2; 1:rbx=1;
+[x]=2; [y]=1; 1:rbx=0;
+[x]=2; [y]=2; 1:rbx=1;
+Ok
+Witnesses
+Positive: 1 Negative: 3
+Condition exists ([x]=2 /\ [y]=2 /\ 1:rbx=1)
+Observation 2+2W+ponant+poana Sometimes 1 3
+

@@ -1,0 +1,564 @@
+/-
+# Tutorial: building a spinlock on a weak memory model
+
+This file is meant to be read top to bottom, in an editor, with the `#eval`s
+live.  It builds one thing -- a spinlock -- and uses it as an excuse to explain
+the two ideas that make the rest of `Promises.lean` readable:
+
+  1. **memory is an append-only log of messages**, and reading is choosing one;
+  2. **a promise** is how a thread that runs in program order can still be
+     *observed* to run out of order.
+
+Everything here is already in `Promises.lean`; nothing is re-axiomatised.  What
+this file adds is order, small examples, and the reasons.  Where a step is a
+simplified version of something bigger, the bigger one is named so you can go
+and read it.
+
+The idea in §2 is not ours.  Promises are due to Kang, Hur, Lahav, Vafeiadis and
+Dreyer ("A promising semantics for relaxed-memory concurrency", POPL 2017), in
+the hardware-level form given by Pulte, Pichon-Pharabod, Kang, Lee and Hur
+("Promising-ARM/RISC-V", PLDI 2019).  Full citations are in `Promises.lean`'s
+header.
+
+Build:  LEAN_PATH=build lean Tutorial.lean
+-/
+
+import WeakCore.Promises
+
+namespace Tutorial
+
+open WeakMem Promises Std.Do
+
+set_option mvcgen.warning false
+
+/-! ## §1. Memory is an append-only log
+
+There is no "the value at address `a`".  There is a growing array of messages:
+
+```lean
+structure Msg where
+  loc  : Address   -- where
+  val  : Val       -- what
+  view : Ts        -- what the writer was publishing along with it
+```
+
+`Memory := Array Msg`, and a message's index in that array is its **timestamp**.
+The array only ever grows, so timestamps are unique and never reused.  A write
+is a `push`.  A read is a *choice*: of all the messages at `a`, which one is
+this thread allowed to see?
+
+That choice is the whole memory model.  It is narrowed by two things:
+
+* **coherence** -- per location, you may not read behind what you have already
+  read or written at that location;
+* **views** -- a bound, `Ts`, carried in the thread's `VState` and raised by
+  fences, dependencies, and acquire loads.
+
+`readable mem a t bound` is the predicate; it says the message at `t` is at `a`
+and is not *hidden* by a later write to `a` that the bound already forces you
+past.  Notice what it does **not** say: there is no requirement `t ≤ bound`.
+The bound is a floor, not a ceiling.  Reading the future is fine -- reading the
+past is what gets restricted. -/
+
+/-! > [!NOTE]
+> **This file checks itself.**  Every claim below that quotes an output is
+> followed by a `#guard` asserting it, so the file fails to *compile* if the
+> model stops doing what the prose says.  That is deliberate: the
+> alternative -- asserting the
+> expected outputs in `check-promises.sh` instead -- is a second hand-written
+> description of the same thing, and two descriptions drift.
+>
+> `check-promises.sh` therefore only *builds* this file.  The assertions live
+> next to the sentences they protect. -/
+
+/-- Substring test, for the guards that pin a claim rather than a whole line. -/
+private def hasSub (hay needle : String) : Bool := (hay.splitOn needle).length > 1
+
+private def valStr : Val → String
+  | .undef => "undef"
+  | .num n => toString n
+  | .loc a _ => s!"&{a.label}.{a.offset}"
+  | .null  => "null"
+
+/-- Render a memory as `name@timestamp=value`, which is how every example below
+    is displayed. -/
+private def memStr (nm : Address → String) (mem : Memory) : String :=
+  String.intercalate "  " ((List.range mem.size).map fun t =>
+    let m := mem[t]!
+    s!"{nm m.loc}@{t}={valStr m.val}")
+
+private def x : Address := ⟨0, 0⟩
+private def y : Address := ⟨1, 0⟩
+
+private def nm (a : Address) : String := if a = x then "x" else "y"
+
+-- Two locations, each written once, at timestamps 0 and 1.
+#eval memStr nm #[⟨x, Val.num 0, 0⟩, ⟨y, Val.num 0, 0⟩]
+#guard memStr nm #[⟨x, Val.num 0, 0⟩, ⟨y, Val.num 0, 0⟩] == "x@0=0  y@1=0"
+
+/-! ## §2. What a promise is
+
+This is the section the rest of the file depends on.
+
+### 2.1 The problem
+
+Take the classic *load buffering* shape.  Two threads:
+
+```
+  thread 0:  r0 := load y ;  store x 1
+  thread 1:  r1 := load x ;  store y 1
+```
+
+Can both loads return `1`?  On ARM, **yes** -- and that is not a curiosity, it
+is the behaviour that makes the whole file hard.  Each thread's store is
+independent of its load, so the hardware may commit the store first; each load
+then sees the other thread's store.
+
+Now try to produce that with a `do`-block.  A `do`-block runs in program order.
+Thread 0 *cannot* execute its store before its load, so thread 1's load has
+nothing to see, so thread 1's store never happens, so thread 0's load has
+nothing to see.  The outcome is unreachable.
+
+The stage-1 machine in `WeakMem.lean` solved this in the scheduler: an
+`issuable` relation let an agent run an instruction before an earlier one.  That
+works, but a program logic cannot see it -- there is no point in the program
+text where the reordering happens, so there is nothing to write a Hoare triple
+about.  The alternative was prototyped and
+deleted.
+
+### 2.2 The problem, measured
+
+`Knobs.promises` turns the mechanism off.  Same machine, same litmus test, one
+switch: -/
+
+-- With promises: four outcomes, including `[1, 1]` -- both loads see `1`.
+#eval outcomesOf { promises := true } WeakMem.lb
+#guard (outcomesOf { promises := true } WeakMem.lb).length == 4
+#guard (outcomesOf { promises := true } WeakMem.lb).contains [1, 1]
+
+-- Without: three.  `[1, 1]` is gone, and the model now forbids something the
+-- hardware allows, which is the unsound direction.
+#eval outcomesOf { promises := false } WeakMem.lb
+#guard (outcomesOf { promises := false } WeakMem.lb).length == 3
+#guard ((outcomesOf { promises := false } WeakMem.lb).contains [1, 1]) == false
+
+/-! ### 2.3 The idea
+
+A **promise** is a write published *early*.
+
+A thread may push a message into memory before reaching the instruction that
+writes it, recording that timestamp in `Thread.promises`.  A later store, on
+reaching that instruction, may **fulfil** the promise -- update the thread's
+state as if it had just written, but *without pushing a new message*, because
+the message is already there, sitting at a timestamp below everything issued
+since.
+
+So the thread runs strictly in program order, and the *observable order of its
+writes* is still free.  Program order is preserved; visibility order is not.
+That is exactly the split hardware makes.
+
+Three rules, and the third is the one that makes it honest:
+
+1. **Promise.** Append `⟨a, v, view⟩` to memory, record its timestamp in
+   `promises`.
+2. **Fulfil.** A store of the same `(a, v)` may take a recorded timestamp
+   instead of appending, and removes it from `promises`.
+3. **Discharge.** `Config.done` requires every thread's `promises` to be
+   **empty**.  A run in which a thread promised something it never wrote is not
+   a run at all -- it is discarded.
+
+Rule 3 is why a promise is not a lie.  A promise is a claim about the future,
+and the claim has to be made good before the execution counts.
+
+### 2.4 A promise, executed
+
+In the `do`-notation front end a promise is not a scheduler decision, it is a
+line of the program: `mpromise`.  Below is the same three-instruction program
+run twice.  The only difference is whether `y`'s write was promised first. -/
+
+def promiseRun (early : Bool) : Machine :=
+  let s0 : Machine :=
+    { mem := #[⟨x, Val.num 0, 0⟩, ⟨y, Val.num 0, 0⟩]
+      sizes := [1, 1], roots := [x, y]
+      -- One oracle entry per store.  `0` means "append"; `1` means "take the
+      -- first fulfillable promise instead".
+      oracle := if early then [0, 1] else [0, 0] }
+  let prog : M Unit := do
+    if early then mpromise y (Val.num 1) 0 else pure ()
+    mstore x (Val.num 1)      -- first in program order
+    mstore y (Val.num 1)      -- second in program order
+  (prog.run s0).2
+
+def promiseScenario (early : Bool) : String :=
+  let s := promiseRun early
+  s!"promised={early}: {memStr nm s.mem}   outstanding={s.promises}"
+
+/-- The timestamps at which `a` holds `1`.  The guards below are stated over
+    this rather than over the rendered string, because the claim is about
+    *where the writes landed* and a string match would also be satisfied by a
+    run that landed them somewhere else and then wrote again. -/
+private def onesAt (s : Machine) (a : Address) : List Ts :=
+  (List.range s.mem.size).filter fun t => s.mem[t]!.loc = a && s.mem[t]!.val = Val.num 1
+
+-- Program order wins: `x` gets timestamp 2, `y` gets 3.
+#eval promiseScenario false
+#guard onesAt (promiseRun false) x == [2]
+#guard onesAt (promiseRun false) y == [3]
+
+-- **The point.**  Same program, same order of execution -- and now `y`'s write
+-- sits at timestamp 2, *below* `x`'s at 3.  A thread that sees `y = 1` is no
+-- longer obliged to see `x = 1`.  Store→store reordering, as observed by
+-- somebody else, with nothing executed out of order.
+--
+-- `outstanding=[]` says the promise was made good, and rule 3 of §2.3 says a
+-- run in which it was *not* does not count.  On the multi-thread machine of §2
+-- that is `Config.done`; here it is `Machine.exhibits`, which a demo has to
+-- ask for.  It is not decoration -- §11.3's promised-writer rows are two runs
+-- with the *same* printed outcome that differ only in this bit.  See
+-- exercise 3.
+#eval promiseScenario true
+-- The claim, asserted: the store issued *second* landed *first*, and it landed
+-- exactly once -- a run that promised at 2 and then also appended at 4 would
+-- give `[2, 4]` here, and is the mistake exercise 1 produces on purpose.
+#guard onesAt (promiseRun true) y == [2]
+#guard onesAt (promiseRun true) x == [3]
+#guard (promiseRun true).promises == []
+#guard (promiseRun true).exhibits
+
+/-! ### 2.5 The two side conditions
+
+An unrestricted promise would let a thread fabricate any memory it liked, so
+fulfilment is guarded.  Both guards are in `fulfillable`, and between them they
+are the entire *forbidding* power of the mechanism.
+
+**Side condition 1 -- the view.**  `mstoreView s deps rel ≤ m.view`.  The
+message was promised with some view; the store now arriving must not be
+publishing *more* than the promise already published.  In practice this says a
+promised store may not sit behind a `dmb ishst` or carry a dependency -- which
+is precisely why `MP+dmb.st+po` stays forbidden while `MP+po+dmb.ld` does not.
+This is the one side condition that has been turned into a theorem about a
+whole program rather than a step: `fenced_writer_cannot_discharge` (§11.3).
+
+**Side condition 2 -- the ordering bound.**  `mstoreOb s a deps ≤ t`.  The
+store's timestamp may not be below anything that orders it: preceding fences
+(`vPreBase`), its dependencies, a preceding branch (`vCtrl`), or a preceding
+write to the same location (`coh a`).
+
+For an ordinary append this is free, because `t = mem.size` exceeds every
+timestamp in existence.  It only ever bites on a *fulfilment* -- which is
+exactly where it should.
+
+There is a third restriction, on the promise rather than the fulfilment: the
+view must be strictly below the promise's own timestamp.  You cannot publish
+something that has not happened yet.  `mpromise` checks it and is a no-op
+otherwise; try changing `0` to `9` in `promiseScenario` and watch the promise
+silently not happen.
+
+### 2.6 What to remember
+
+> A promise moves a write **earlier in memory** without moving it earlier in
+> the program.  Everything that forbids a relaxed behaviour on this machine is
+> either a view bound on a read, or side condition 2 on a fulfilment.
+
+Two consequences you will meet below, both of which look like noise until you
+know why they are there:
+
+* Theorems about the lock carry a hypothesis `s₀.promises = []`.  That is not
+  bookkeeping: with an outstanding promise, "my write is the latest write" is
+  false, because a promised message may be sitting anywhere.
+* `CasPost.append` -- the clause that says a successful CAS appended and nothing
+  lies above what it read -- is guarded by exactly that hypothesis.
+
+## §3. Compare-and-swap, and why atomicity is adjacency
+
+A lock needs one operation the plain load and store cannot provide: a read and
+a write that nothing gets between.
+
+In the timestamp model that is remarkably easy to say, and the ease is the
+finding.  A read-modify-write reads the message at `tr` and writes at `tw`, and
+atomicity is:
+
+```lean
+rmwAdjacent mem a tr tw = decide (tr < tw) && !betweenAt mem a tr tw
+```
+
+"No write to `a` lies between them."  One line, and it is the whole of
+atomicity.
+
+`mcas a cmp newv` compares, and on a match writes `newv` at an adjacent slot.
+On a mismatch it writes nothing and is an ordinary load.  Two details that read
+as arbitrary and are not:
+
+* **A CAS on a location never written fails.**  There is no message for the
+  write to be adjacent *to*.  Read as a rule about programs: a lock word must be
+  initialised before it can be taken.
+* **A failed CAS is still a read**, so it still moves the thread's views, and
+  its returned value is still a real value that was really in memory.
+
+The demo below is `casDemo` from §11 of `Promises.lean`.  Memory holds two
+writes to the lock word -- it was free, then somebody took it -- and this
+thread's views are still at the beginning, so coherence lets it see *either*.
+The oracle asks for the stale one in both rows.
+
+* `atomic=false` is a test-and-set written the obvious way: load, check, store.
+  It reads the stale `0`, concludes the lock is free, and **takes a lock
+  somebody else is holding**.  Nothing in the load rule is wrong; the bug is
+  that two operations were used where one was needed.
+* `atomic=true` is `mcas`, on the same memory, the same oracle and the same
+  views.  The stale timestamp is still *readable* -- it is still in
+  `readCands` -- but it yields no *outcome*, because a write after it would not
+  be adjacent.  The only outcome left reads the value that is really there. -/
+
+#eval casDemo
+-- The non-atomic row takes a lock somebody else holds; the atomic one cannot.
+#guard hasSub casDemo "atomic=false: read=WeakMem.Val.num 0, acquired=true"
+#guard hasSub casDemo "atomic=true: read=WeakMem.Val.num 1, acquired=false"
+
+/-! ## §4. The spinlock
+
+Here is the entire lock.  It is worth pausing on how little there is: -/
+
+/-- Take the lock: swap `0` for `1`.  `acq := true` so that whatever the
+    previous holder released is ordered before anything we now do. -/
+example : Address → M Bool := fun l => do
+  let (_, got) ← mcas l (Val.num 0) (Val.num 1) [] false true
+  pure got
+
+/-- Give it back, with release semantics so everything in the critical section
+    is ordered before the release is visible. -/
+example : Address → M Unit := fun l =>
+  mstore l (Val.num 0) [] true
+
+/-! Those are `Promises.acquire` and `Promises.release`, verbatim.
+
+**Nothing in the machine knows what a lock is.**  There is no lock in the state,
+no `holding` field, no primitive `acquire`.  There is a CAS and a store, and
+"the lock excludes" is a *theorem* about them -- which is the whole point of
+§11.1.
+
+This matters more than it looks.  A `Machine` field saying "thread 1 holds the
+lock" would be a rely condition with no mechanism behind it: it would assert
+exclusion rather than earn it, and any proof using it would be conditional on an
+assumption nothing discharges.
+
+A real spinlock spins, of course:
+
+```lean
+  repeat until acquire l
+```
+
+We do not write the loop, and the reason is honest rather than lazy: the loop's
+termination is a *liveness* property, and this model states safety only.  Every
+theorem below is about what happens once an `acquire` has returned `true`. -/
+
+/-! ## §5. Mutual exclusion, proved
+
+The claim: once the local thread's `acquire` returns `true`, a competing agent
+running the same protocol cannot also acquire.
+
+`Remote` stands for every other thread at
+once; `rcas` is Remote attempting the same CAS.  The argument has three steps,
+and they are worth naming before reading the proof:
+
+1. The successful acquire **appended** `1` to the lock word.  That is
+   `CasPost.append`, and it needs `promises = []` -- §2.6.
+2. So `1` is the **coherence-latest** value at the lock word: `LatestIs`.
+3. Remote's CAS compares against `0`.  To succeed it would have to read a
+   message holding `0` with nothing at that address above it -- but `1` is above
+   it.  `cas_cannot_match` closes it.
+
+Step 3 is the interesting one.  Remote is *not* prevented from reading the stale
+`0`: that message is still in memory and still readable.  It is prevented from
+*writing after* it.  Exclusion is a constraint on the write, not on the read. -/
+
+theorem lock_excludes_one_attempt (l : Address) (ra : RAddr) (s₀ : Machine)
+    (hra : ra.addr = l) (hp : s₀.promises = []) :
+    ⦃fun s => ⌜s = s₀⌝⦄
+    (do let got ← acquire l
+        let g ← rcas ra (Val.num 0) (Val.num 1)
+        pure (got, g))
+    ⦃⇓ r _s => ⌜r.1 = true → r.2 = false⌝⦄ := by
+  subst hra
+  mvcgen [acquire]
+  -- Two operations, so two postconditions and one intermediate state.
+  name_hyps Post hcas hrem
+  name_hyps Machine _ s1 ..
+  name_hyps Bool g
+  name_hyps Eq hA ..
+  subst hA
+  intro hgot
+  -- Step 1: the acquire appended.
+  obtain ⟨⟨mv, hmem⟩, _, _, _, _⟩ := hcas.append hgot hp
+  -- Step 2: so `1` is latest at the lock word.
+  have hlat : LatestIs s1.mem ra.addr (Val.num 1) := by
+    rw [hmem]; exact latestIs_push _ _ _ _
+  -- Step 3: Remote cannot match `0` against a latest `1`.
+  have hne : (Val.num 1 : Val) ≠ Val.num 0 := by simp
+  have hg : g = false := by
+    cases hb : g with
+    | false => rfl
+    | true =>
+      obtain ⟨tr, m, hm, hloc, hv, hbt⟩ := hrem.ok hb
+      exact (cas_cannot_match hlat hne hm hloc hv hbt).elim
+  exact hg
+
+-- No `sorry`: the tutorial's own theorem is checked, not asserted.  `#print
+-- axioms` is the only thing that can see a `sorry`, which is why the gate uses
+-- it too (`check-promises.sh` item 22).
+#print axioms lock_excludes_one_attempt
+
+/-! `Promises.lock_is_exclusive` is the same theorem with **two** remote
+attempts, and the second one costs one line:
+
+```lean
+  have hlat2 : LatestIs s2.mem ra.addr (Val.num 1) := by
+    rw [h1.fail hg1]; exact hlat1
+```
+
+`RcasPost.fail` says a failed attempt wrote nothing, so the invariant survives
+it untouched.  Repetition is free -- which is what makes it a *spin*lock rather
+than a one-shot.
+
+### The control
+
+Every "nobody else can do X" theorem is satisfied by an adversary that never
+does anything, so the theorem alone proves nothing.  `lockDemo` runs the same
+two remote attempts with the same oracle, differing only in whether the local
+thread acquired first: -/
+
+#eval lockDemo
+-- Row 1: with the lock free Remote's *first* attempt wins and its second loses,
+-- so exclusion is a property of the operation and not of who is running it.
+-- Row 2: with the lock held, both lose.
+#guard hasSub lockDemo "local-acquires=false: local=false, remote1=true, remote2=false"
+#guard hasSub lockDemo "local-acquires=true: local=true, remote1=false, remote2=false"
+
+/-! Read the first row carefully.  With the lock free, Remote's *first* attempt
+succeeds and its second fails.  So exclusion is not a privilege of the local
+agent -- it is a property of the operation, and the local thread in row two is
+just whoever got there first. -/
+
+/-! ## §6. From the lock word to the data
+
+§5 is a theorem about one word.  On its own it protects nothing: knowing that
+nobody else holds the lock says nothing about the array the lock is for.
+
+The step from "the environment cannot hold the lock" to "the environment cannot
+touch the data" needs an environment that *runs the protocol* -- one that tries
+the CAS and only writes if it won.  That is `renvLocked`, and its postcondition
+is one clause:
+
+```lean
+  quiet : LatestIs s₀.mem lk (Val.num 1) → s.mem = s₀.mem
+```
+
+If the lock is held, a disciplined environment does not merely leave the
+protected address alone -- it **does not touch memory at all**, because it never
+gets as far as choosing an address.  Stronger than a per-address statement, and
+easier to use.
+
+`Promises.lock_protects_data` then reads back what it wrote:
+
+```lean
+  acquire lk ; mstore a v ; renvLocked .. ; renvLocked .. ; mload a
+    ⊢ acquired → (stuck ∨ read = v)
+```
+
+Two hypotheses earn their place:
+
+* `hne : a ≠ lk` -- the critical section's own store must not be the thing that
+  releases the lock.  With the lock at offset 0 of the object this becomes a
+  theorem about offsets rather than a hypothesis; that is §17.
+* `hp : s₀.promises = []` -- §2.6 again, and now you can see where it bites:
+  without it, `hstore.append` is unavailable and "nothing at `a` lies above my
+  write" cannot be established.
+
+Compare this with `owned_load_reads_own_write` in §9, which proves the same
+conclusion from `a.label ∈ s.rdisowned` -- an *assumption* that the environment
+stays away, with no mechanism behind it.  Here the environment is stopped
+because it cannot win a CAS, and that is a theorem.  Same statement, one fewer
+thing to believe.
+
+And the control, which differs by one instruction -- the local thread still
+*looks* at the lock and still believes it holds it, it just does not win: -/
+
+#eval protectDemo
+-- The locked run reads back its own `7`; the run that only *looks* at the lock
+-- is clobbered and reads `0`.  Both must hold, or the control is vacuous.
+#guard hasSub protectDemo "local-locks=true: acquired=true, read=WeakMem.Val.num 7"
+#guard hasSub protectDemo "local-locks=false: acquired=true, read=WeakMem.Val.num 0"
+
+/-! ## §7. What the lock does not give you
+
+Worth stating, because it surprised us.
+
+A *primitive* atomic -- `mcas` on one word, `mcasPair` on two -- is atomic
+against **everybody**, including an observer that has never heard of your
+protocol.  A lock is atomic only against **participants**.  §17 measures this:
+a naive lock-free three-word update and a correct lock-based one expose the
+*identical* intermediate state to an observer that does not take the lock.
+
+So "3+ words must be derived" is not "costs more instructions".  It changes who
+the guarantee is against, which is a change to the *interface*.  Everything that
+reads a lock-protected object has to be rewritten to take the lock; nothing had
+to be rewritten to benefit from `CASP`.
+
+## §8. Exercises
+
+1. **Break a side condition.**  In `promiseRun`, insert `mfence .st`
+   *after* the store to `x` and before the store to `y`.  The result is sharper
+   than "it stops working": the store to `y` **appends at timestamp 4**, so
+   `y = 1` now exists at both 2 and 4, and the promise at 2 is left
+   `outstanding`.  Work out which of the two side conditions rejected the
+   fulfilment, and confirm it by computing `vRelSt` at that point.
+
+   Then say what the multi-thread machine would do with the resulting run.
+   (Rule 3 of §2.3.  This is also exercise 3.)
+
+   The program you have just written is `promisedWriter` in §11.3, and what
+   you observed is a theorem: `fenced_writer_cannot_discharge` says it has no
+   run *for any oracle*, so no amount of fiddling with the oracle list will
+   recover one.  Read the proof only after you have worked out which side
+   condition rejected the fulfilment; it is three steps and each is one field
+   of one `Post`.
+
+2. **Does the lock need its acquire?**  `acquire` passes `acq := true`.  Try
+   the proof of `lock_excludes_one_attempt` against a version that does not.
+   Does it still go through, and if so, what is the `acq` buying -- and which
+   theorem in §11.2 stops working without it?  (Hint: is exclusion a statement
+   about coherence or about ordering?)
+
+   When you have an answer, check it against §17's reader,
+   `sync_read_is_a_snapshot`.  That proof consumes exactly one clause of
+   `CasPost` that no earlier client needed, and the clause is named for the
+   flag.
+
+3. **A promise that is never fulfilled.**  Exercise 1 produced one by accident.
+   Check what `Machine.exhibits` says about that run, and convince yourself the
+   *memory* it printed is still perfectly real -- the promised message is
+   there, and a reader would read it.  That is the whole difficulty: rule 3 of
+   §2.3 cannot be a step, only a verdict on the finished run.
+
+   Then read §11.3's "The writer, reordered" rows, where two runs print the
+   same tearing outcome and only the verdict differs.  That pair is why this
+   check exists.
+
+4. **The stale read.**  In `lockDemo`'s second row, Remote fails both attempts
+   but *does* read something.  What does it read, and why is that not a bug?
+
+## Where to go next
+
+| You want | Read |
+|---|---|
+| The promise rules on the multi-thread machine | `Promises.lean` §2, `promiseSteps` |
+| Why promises beat a staged front end | `Promises.lean` §5 |
+| The lock, in full | `Promises.lean` §11.1, §11.2 |
+| Ordering without exclusion | `Promises.lean` §11.3, the seqlock |
+| A promise that cannot be kept, as a theorem | `Promises.lean` §11.3, `fenced_writer_cannot_discharge` |
+| Two-word atomics, and a reference model being wrong | `Promises.lean` §11.4, `cats/aarch64-pair.cat` |
+| What a lock costs that a primitive does not | `Promises.lean` §17 |
+| What the acquire buys, in one theorem | `Promises.lean` §17, `sync_read_is_a_snapshot` |
+| Why the writer's conclusion *is* the reader's hypothesis | `Promises.lean` §17, `sync_snapshot_after_write` |
+-/
+
+end Tutorial

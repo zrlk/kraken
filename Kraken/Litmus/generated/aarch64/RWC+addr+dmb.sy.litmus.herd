@@ -1,0 +1,15 @@
+Test RWC+addr+dmb.sy Allowed
+States 7
+0:X1=0; 0:X3=0; 1:X2=0;
+0:X1=0; 0:X3=0; 1:X2=1;
+0:X1=0; 0:X3=1; 1:X2=0;
+0:X1=0; 0:X3=1; 1:X2=1;
+0:X1=1; 0:X3=0; 1:X2=1;
+0:X1=1; 0:X3=1; 1:X2=0;
+0:X1=1; 0:X3=1; 1:X2=1;
+No
+Witnesses
+Positive: 0 Negative: 7
+Condition exists (0:X1=1 /\ 0:X3=0 /\ 1:X2=0)
+Observation RWC+addr+dmb.sy Never 0 7
+

@@ -1,0 +1,10 @@
+Test STXP-arr-2thr Allowed
+States 2
+1:X3=0; 1:X4=0;
+1:X3=1; 1:X4=2;
+No
+Witnesses
+Positive: 0 Negative: 67
+Condition exists (1:X3=1 /\ 1:X4=0)
+Observation STXP-arr-2thr Never 0 67
+

@@ -1,0 +1,7 @@
+X86_64 SB+mfence
+{ uint64_t x = 0; uint64_t y = 0; }
+ P0             | P1             ;
+ movq $1, (x)   | movq $1, (y)   ;
+ mfence         | mfence         ;
+ movq (y), %rax | movq (x), %rax ;
+exists (0:rax=0 /\ 1:rax=0)

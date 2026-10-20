@@ -1,0 +1,15 @@
+Test MP+dmb+addr-XCL-rfi-LDAR-addr Allowed
+States 7
+1:X0=0; 1:X5=0; 1:X7=1; 1:X10=0;
+1:X0=0; 1:X5=0; 1:X7=1; 1:X10=1;
+1:X0=0; 1:X5=1; 1:X7=0; 1:X10=0;
+1:X0=0; 1:X5=1; 1:X7=0; 1:X10=1;
+1:X0=1; 1:X5=0; 1:X7=1; 1:X10=0;
+1:X0=1; 1:X5=0; 1:X7=1; 1:X10=1;
+1:X0=1; 1:X5=1; 1:X7=0; 1:X10=1;
+No
+Witnesses
+Positive: 0 Negative: 7
+Condition exists (1:X0=1 /\ 1:X7=0 /\ 1:X5=1 /\ 1:X10=0)
+Observation MP+dmb+addr-XCL-rfi-LDAR-addr Never 0 7
+

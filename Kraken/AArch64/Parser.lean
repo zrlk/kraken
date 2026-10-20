@@ -1871,6 +1871,207 @@ def parseCondCompare
     pure ⟨w, mkReg src1W.reg src2 nzcv cond⟩
 
 -- ============================================================================
+-- Acquire/Release, Exclusive, Atomic and Barrier Instruction Parsing
+-- ============================================================================
+
+/--
+Parse the base-register-only memory operand of the acquire/release, exclusive
+and atomic instructions: `[Xn]`, `[Xn, #0]`, `[Xn, 0]` or `[SP]`. Any other
+addressing form is rejected.
+-/
+def parseBaseOnlyAddr : Parser (RegOrSp .W64) := do
+  skipHWs
+  let _ ← pchar '['
+  let base ← parseRegOrSp .W64
+  skipHWs
+  let c ← peek!
+  if c == ']' then do
+    skip
+    pure base
+  else if c == ',' then do
+    skip
+    skipHWs
+    let nextC ← peek!
+    if nextC == '#' || nextC.isDigit then do
+      let imm ← parseInt64
+      if imm != 0 then
+        fail s!"only base-register addressing [Xn] is allowed here (offset {imm.toInt} is not 0)"
+      skipHWs
+      let _ ← pchar ']'
+      pure base
+    else
+      fail "only base-register addressing [Xn] is allowed here"
+  else
+    fail s!"expected ',' or ']' after base register in memory operand, got {c}"
+
+/--
+Parse the transfer register of a sized memory instruction. `sz? = none` is the
+`W`/`X` form (the access size is the register width); `some sz` is a `B`/`H`
+form, which requires a `W` register.
+-/
+def parseSizedReg (sz? : Option MemWidth) : Parser ((w : RegWidth) × RegOrZr w × MemWidth) := do
+  let rW ← parseRegOrZrW
+  match sz? with
+  | none => pure ⟨rW.w, rW.reg, rW.w⟩
+  | some sz =>
+    let r ← checkWidth .W32 rW.w rW.reg
+    pure ⟨.W32, r, sz⟩
+
+/-- Parse `LDAR`/`LDAPR`/`LDXR`/`LDAXR` (+B/H): `ldar Rt, [Xn]`. -/
+def parseLdar (k : Kraken.LoadKind) (xcl : Bool) (sz? : Option MemWidth) : Parser Instr := do
+  let ⟨w, dst, sz⟩ ← parseSizedReg sz?
+  parseComma
+  let base ← parseBaseOnlyAddr
+  pure ⟨w, .LDAR k xcl sz dst base⟩
+
+/-- Parse `STLR` (+B/H): `stlr Rt, [Xn]`. -/
+def parseStlr (sz? : Option MemWidth) : Parser Instr := do
+  let ⟨w, src, sz⟩ ← parseSizedReg sz?
+  parseComma
+  let base ← parseBaseOnlyAddr
+  pure ⟨w, .STLR sz src base⟩
+
+/-- Parse `STXR`/`STLXR` (+B/H): `stxr Ws, Rt, [Xn]`. -/
+def parseStxr (k : Kraken.StoreKind) (sz? : Option MemWidth) : Parser Instr := do
+  let status ← parseRegOrZr .W32
+  parseComma
+  let ⟨w, src, sz⟩ ← parseSizedReg sz?
+  parseComma
+  let base ← parseBaseOnlyAddr
+  pure ⟨w, .STXR k sz status src base⟩
+
+/-- Parse the two-register atomics `CAS`, `SWP`, `LDADD`, ... (+B/H): `cas Rs, Rt, [Xn]`. -/
+def parseRmw (sz? : Option MemWidth)
+    (mk : {w : RegWidth} → MemWidth → RegOrZr w → RegOrZr w → RegOrSp .W64 → Operation w) : Parser Instr := do
+  let ⟨w, rs, sz⟩ ← parseSizedReg sz?
+  parseComma
+  let rt ← parseRegOrZr w
+  parseComma
+  let base ← parseBaseOnlyAddr
+  pure ⟨w, mk sz rs rt base⟩
+
+/-- Parse the no-result atomics `STADD`, `STCLR`, ... (+B/H): `stadd Rs, [Xn]`, i.e.
+the `LDADD` form with `Rt = XZR`/`WZR`. -/
+def parseStop (op : AtomicOp) (k : Kraken.RmwKind) (sz? : Option MemWidth) : Parser Instr := do
+  let ⟨w, rs, sz⟩ ← parseSizedReg sz?
+  parseComma
+  let base ← parseBaseOnlyAddr
+  pure ⟨w, .LDOP op k sz rs (.low .XZR w) base⟩
+
+/-- Parse `LDXP`/`LDAXP`: `ldxp Rt1, Rt2, [Xn]` (`W` or `X` registers). `Rt1 = Rt2` is
+CONSTRAINED UNPREDICTABLE and rejected. -/
+def parseLdxp (k : Kraken.LoadKind) : Parser Instr := do
+  let dst1W ← parseRegOrZrW
+  parseComma
+  let dst2 ← parseRegOrZr dst1W.w
+  parseComma
+  let base ← parseBaseOnlyAddr
+  if dst1W.reg == dst2 then
+    fail "ldxp/ldaxp: the two destination registers must differ"
+  pure ⟨dst1W.w, .LDXP k dst1W.reg dst2 base⟩
+
+/-- Parse `STXP`/`STLXP`: `stxp Ws, Rt1, Rt2, [Xn]` (`W` or `X` data registers). -/
+def parseStxp (k : Kraken.StoreKind) : Parser Instr := do
+  let status ← parseRegOrZr .W32
+  parseComma
+  let src1W ← parseRegOrZrW
+  parseComma
+  let src2 ← parseRegOrZr src1W.w
+  parseComma
+  let base ← parseBaseOnlyAddr
+  pure ⟨src1W.w, .STXP k status src1W.reg src2 base⟩
+
+/-- Check that `(r1, r2)` is a `CASP` register pair: `r1` is an even-numbered register
+and `r2` the next one (`XZR`/`WZR` after `X30`/`W30`). -/
+def checkCaspPair {w : RegWidth} (what : String) (r1 r2 : RegOrZr w) : Except String Unit :=
+  match r1, r2 with
+  | .low (.reg a) _, .low (.reg b) _ =>
+    if a.ctorIdx % 2 == 0 && b.ctorIdx == a.ctorIdx + 1 then .ok ()
+    else .error s!"casp: the {what} registers must be an even-numbered register and its successor"
+  | .low (.reg a) _, .low .XZR _ =>
+    if a.ctorIdx == 30 then .ok ()
+    else .error s!"casp: the {what} registers must be an even-numbered register and its successor"
+  | _, _ => .error s!"casp: the {what} registers must be an even-numbered register and its successor"
+
+/-- Parse `CASP`/`CASPA`/`CASPL`/`CASPAL`: `casp Rs, R(s+1), Rt, R(t+1), [Xn]`. -/
+def parseCasp (k : Kraken.RmwKind) : Parser Instr := do
+  let rs1W ← parseRegOrZrW
+  parseComma
+  let rs2 ← parseRegOrZr rs1W.w
+  parseComma
+  let rt1 ← parseRegOrZr rs1W.w
+  parseComma
+  let rt2 ← parseRegOrZr rs1W.w
+  parseComma
+  let base ← parseBaseOnlyAddr
+  liftExcept (checkCaspPair "comparand" rs1W.reg rs2)
+  liftExcept (checkCaspPair "new-value" rt1 rt2)
+  pure ⟨rs1W.w, .CASP k rs1W.reg rs2 rt1 rt2 base⟩
+
+/-- Strip a trailing `b`/`h` size suffix from a (lower-case) mnemonic. -/
+def splitSizeSuffix (mn : String) : String × Option MemWidth :=
+  if mn.endsWith "b" then (mn.dropEnd 1 |>.toString, some .W8)
+  else if mn.endsWith "h" then (mn.dropEnd 1 |>.toString, some .W16)
+  else (mn, none)
+
+/-- Strip a trailing `a`/`l`/`al` ordering suffix from a (lower-case) mnemonic. -/
+def splitRmwKindSuffix (mn : String) : String × Kraken.RmwKind :=
+  if mn.endsWith "al" then (mn.dropEnd 2 |>.toString, .acqRel)
+  else if mn.endsWith "a" then (mn.dropEnd 1 |>.toString, .acq)
+  else if mn.endsWith "l" then (mn.dropEnd 1 |>.toString, .rel)
+  else (mn, .plain)
+
+def parseAtomicOpName (s : String) : Option AtomicOp :=
+  match s with
+  | "add" => some .ADD | "clr" => some .CLR | "eor" => some .EOR | "set" => some .SET
+  | "smax" => some .SMAX | "smin" => some .SMIN | "umax" => some .UMAX | "umin" => some .UMIN
+  | _ => none
+
+/--
+Decode a read-modify-write mnemonic (`CAS`, `SWP`, `LD<op>`, `ST<op>` with the
+`A`/`L`/`AL` ordering and `B`/`H` size suffixes) into its parser, or `none` if
+`mn` is not one. `ST<op>` only exists with no suffix or `L`.
+-/
+def parseRmwMnemonic? (mn : String) : Option (Parser Instr) :=
+  let (mn, sz?) := splitSizeSuffix mn
+  let (mn, k) := splitRmwKindSuffix mn
+  if mn == "cas" then some (parseRmw sz? (.CAS k))
+  else if mn == "casp" then if sz?.isNone then some (parseCasp k) else none
+  else if mn == "swp" then some (parseRmw sz? (.SWP k))
+  else if mn.startsWith "ld" then
+    (parseAtomicOpName (mn.drop 2).toString).map fun op => parseRmw sz? (.LDOP op k)
+  else if mn.startsWith "st" then
+    match parseAtomicOpName (mn.drop 2).toString with
+    | some op => if op_allowed op k then some (parseStop op k sz?) else none
+    | none => none
+  else none
+where
+  op_allowed (op : AtomicOp) (k : Kraken.RmwKind) : Bool :=
+    (op matches .ADD | .CLR | .EOR | .SET) && (k matches .plain | .rel)
+
+/-- Map a `DMB`/`DSB` option to its barrier kind; the shareability domain is dropped. -/
+def parseBarrierOption (s : String) : Option Kraken.FenceKind :=
+  match s.toLower with
+  | "sy" | "ish" | "osh" | "nsh" => some .sy
+  | "ld" | "ishld" | "oshld" | "nshld" => some .ld
+  | "st" | "ishst" | "oshst" | "nshst" => some .st
+  | _ => none
+
+/-- Parse `DMB <option>` / `DSB <option>`. -/
+def parseBarrier (mk : Kraken.FenceKind → Operation .W64) : Parser Instr := do
+  skipHWs
+  let opt ← parseName
+  match parseBarrierOption opt with
+  | some k => pure ⟨.W64, mk k⟩
+  | none => fail s!"unknown barrier option: {opt}"
+
+/-- Parse `ISB` with its optional `SY` operand. -/
+def parseIsb : Parser Instr := do
+  let opt ← parseOptionalOperand (skipHWs *> parseName) "sy"
+  if opt.toLower != "sy" then fail s!"unknown isb option: {opt}"
+  pure ⟨.W64, .ISB⟩
+
+-- ============================================================================
 -- Instruction Parsing
 -- ============================================================================
 
@@ -2015,7 +2216,38 @@ def parseInstr : Parser Instr := do
 
   | "nop"   => pure ⟨.W64, .NOP⟩
 
+  | "ldar"   => parseLdar .acq false none
+  | "ldarb"  => parseLdar .acq false (some .W8)
+  | "ldarh"  => parseLdar .acq false (some .W16)
+  | "ldapr"  => parseLdar .acqPc false none
+  | "ldaprb" => parseLdar .acqPc false (some .W8)
+  | "ldaprh" => parseLdar .acqPc false (some .W16)
+  | "ldxr"   => parseLdar .plain true none
+  | "ldxrb"  => parseLdar .plain true (some .W8)
+  | "ldxrh"  => parseLdar .plain true (some .W16)
+  | "ldaxr"  => parseLdar .acq true none
+  | "ldaxrb" => parseLdar .acq true (some .W8)
+  | "ldaxrh" => parseLdar .acq true (some .W16)
+  | "stlr"   => parseStlr none
+  | "stlrb"  => parseStlr (some .W8)
+  | "stlrh"  => parseStlr (some .W16)
+  | "stxr"   => parseStxr .plain none
+  | "stxrb"  => parseStxr .plain (some .W8)
+  | "stxrh"  => parseStxr .plain (some .W16)
+  | "stlxr"  => parseStxr .rel none
+  | "stlxrb" => parseStxr .rel (some .W8)
+  | "stlxrh" => parseStxr .rel (some .W16)
+  | "ldxp"   => parseLdxp .plain
+  | "ldaxp"  => parseLdxp .acq
+  | "stxp"   => parseStxp .plain
+  | "stlxp"  => parseStxp .rel
+
+  | "dmb"   => parseBarrier .DMB
+  | "dsb"   => parseBarrier .DSB
+  | "isb"   => parseIsb
+
   | _ =>
+    if let some p := parseRmwMnemonic? mn then p else
     let condStr? :=
       if mn.startsWith "b." then some (mn.drop 2).toString
       else if mn.startsWith "b" && mn.length == 3 then some (mn.drop 1).toString

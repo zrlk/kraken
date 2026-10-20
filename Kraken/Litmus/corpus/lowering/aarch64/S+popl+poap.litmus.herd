@@ -1,0 +1,11 @@
+Test S+popl+poap Allowed
+States 3
+1:X1=0; [x]=1;
+1:X1=0; [x]=2;
+1:X1=1; [x]=1;
+No
+Witnesses
+Positive: 0 Negative: 3
+Condition exists ([x]=2 /\ 1:X1=1)
+Observation S+popl+poap Never 0 3
+

@@ -1,0 +1,13 @@
+AArch64 S+dmb.sy+casa.zr-po
+"write; DMB SY; write || casa.zr; po; write"
+{
+y=5; 
+0:X1=x; 0:X3=y;
+1:X1=y; 1:X3=x;
+}
+ P0           | P1               ;
+ MOV W0,#2    | MOV W4,#3        ;
+ STR W0,[X1]  | CASA WZR,W4,[X1] ;
+ DMB SY       | MOV W7,#1        ;
+ STR WZR,[X3] | STR W7,[X3]      ;
+exists ([y]=3 /\ [x]=2)

@@ -1,0 +1,17 @@
+Test WRW+2W Forbidden
+States 9
+1:rax=0; [x]=1; [y]=1;
+1:rax=0; [x]=1; [y]=2;
+1:rax=0; [x]=2; [y]=1;
+1:rax=0; [x]=2; [y]=2;
+1:rax=1; [x]=1; [y]=1;
+1:rax=1; [x]=2; [y]=1;
+1:rax=2; [x]=1; [y]=1;
+1:rax=2; [x]=1; [y]=2;
+1:rax=2; [x]=2; [y]=1;
+Ok
+Witnesses
+Positive: 9 Negative: 0
+Condition ~exists ([x]=2 /\ [y]=2 /\ 1:rax=2)
+Observation WRW+2W Never 0 9
+

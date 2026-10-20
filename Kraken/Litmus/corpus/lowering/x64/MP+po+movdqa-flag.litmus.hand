@@ -1,0 +1,8 @@
+Test MP+po+movdqa-flag Allowed
+States 3
+1:xmm1=0; 1:rax=0;
+1:xmm1=0; 1:rax=1;
+1:xmm1=18446744073709551617; 1:rax=1;
+No
+Condition exists (1:xmm1=0x10000000000000001 /\ 1:rax=0)
+Observation MP+po+movdqa-flag Never 0 3

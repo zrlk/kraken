@@ -1,0 +1,9 @@
+X86_64 IRIW+cmpxchgs
+"IRIW: the writes are lock cmpxchg 0->1; plain readers"
+{
+}
+ P0                     | P1            | P2                     | P3            ;
+ movl $0,%eax           | movl (x),%ecx | movl $0,%eax           | movl (y),%ecx ;
+ movl $1,%ebx           | movl (y),%edx | movl $1,%ebx           | movl (x),%edx ;
+ lock cmpxchgl %ebx,(x) |               | lock cmpxchgl %ebx,(y) |               ;
+exists (1:rcx=1 /\ 1:rdx=0 /\ 3:rcx=1 /\ 3:rdx=0)

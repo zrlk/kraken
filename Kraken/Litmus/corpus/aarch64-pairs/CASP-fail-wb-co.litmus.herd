@@ -1,0 +1,12 @@
+Test CASP-fail-wb-co Allowed
+States 4
+0:X0=0; 0:X1=0; t={1,2};
+0:X0=0; 0:X1=2; t={1,2};
+0:X0=1; 0:X1=0; t={1,2};
+0:X0=1; 0:X1=2; t={1,2};
+Ok
+Witnesses
+Positive: 2 Negative: 6
+Condition exists (0:X0=1 /\ 0:X1=2 /\ t={1,2})
+Observation CASP-fail-wb-co Sometimes 2 6
+

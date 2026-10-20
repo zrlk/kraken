@@ -1,0 +1,9 @@
+Test CASP-i128 Allowed
+States 1
+0:X6=1; 0:X7=2;
+Ok
+Witnesses
+Positive: 2 Negative: 0
+Condition exists (0:X6=1 /\ 0:X7=2)
+Observation CASP-i128 Always 2 0
+

@@ -1,0 +1,11 @@
+Test CASA-reg-MP Allowed
+States 3
+1:X0=0; [y]=0;
+1:X0=1; [y]=0;
+1:X0=1; [y]=2;
+No
+Witnesses
+Positive: 0 Negative: 6
+Condition exists ([y]=2 /\ 1:X0=0)
+Observation CASA-reg-MP Never 0 6
+

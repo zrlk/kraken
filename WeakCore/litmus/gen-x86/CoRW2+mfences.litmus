@@ -1,0 +1,13 @@
+X86_64 CoRW2+mfences
+"MFencesWW Rfe Fre"
+Cycle=Rfe Fre MFencesWW
+Generator=diycross7 (version 7.58)
+Com=Rf Fr
+Orig=MFencesWW Rfe Fre
+{
+}
+ P0          | P1            ;
+ movl $2,(x) | movl (x),%eax ;
+ mfence      |               ;
+ movl $1,(x) |               ;
+exists ([x]=1 /\ 1:rax=1)

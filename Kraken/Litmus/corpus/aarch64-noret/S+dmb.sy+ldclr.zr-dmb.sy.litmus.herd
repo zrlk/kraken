@@ -1,0 +1,11 @@
+Test S+dmb.sy+ldclr.zr-dmb.sy Allowed
+States 3
+[x]=1; [y]=2;
+[x]=1; [y]=3;
+[x]=2; [y]=3;
+No
+Witnesses
+Positive: 0 Negative: 3
+Condition exists ([y]=2 /\ [x]=2)
+Observation S+dmb.sy+ldclr.zr-dmb.sy Never 0 3
+

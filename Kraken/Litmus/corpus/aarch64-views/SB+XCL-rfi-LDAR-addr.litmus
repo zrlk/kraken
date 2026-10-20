@@ -1,0 +1,13 @@
+AArch64 SB+XCL-rfi-LDAR-addr
+{
+0:X2=x; 0:X4=y;
+1:X2=y; 1:X4=x;
+}
+ P0                  | P1                  ;
+ MOV W1,#1           | MOV W1,#1           ;
+ LDXR W0,[X2]        | LDXR W0,[X2]        ;
+ STXR W7,W1,[X2]     | STXR W7,W1,[X2]     ;
+ LDAR W5,[X2]        | LDAR W5,[X2]        ;
+ EOR W6,W5,W5        | EOR W6,W5,W5        ;
+ LDR W3,[X4,W6,SXTW] | LDR W3,[X4,W6,SXTW] ;
+exists (0:X7=0 /\ 1:X7=0 /\ 0:X5=1 /\ 1:X5=1 /\ 0:X3=0 /\ 1:X3=0)

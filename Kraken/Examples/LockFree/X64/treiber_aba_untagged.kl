@@ -1,0 +1,61 @@
+X86_64 TreiberABAUntagged
+(* The negative control for `treiber_aba_tagged.kl`: the same threads and
+   outcome with an untagged 8-byte head swung by `lock cmpxchgq`.
+
+   P0 pops once; P1 pops A, pops B and pushes A back (pops return 0 on an
+   empty stack). The ABA schedule: P0 reads head = A and A.next = B; P1
+   runs its three operations, leaving head = A again (A.next = 0); P0's CAS
+   compares head with A, succeeds, and installs B, which P1 has popped.
+   The outcome `0:r12=A /\ 0:r13=B /\ 1:r13=B` is that corruption (no
+   linearisation produces it, see the tagged file), and it is reachable
+   even under sequential consistency: Sometimes.
+# flags: -fuel 300
+# expect: Sometimes
+# Proved reachable: Kraken.Promising.Reach.TreiberAbaUntagged.treiber_aba_untagged_reachable (Kraken/Promising/ReachX64TreiberAbaUntagged.lean)
+*)
+{
+head=A; A=B; B=0;
+}
+threads { P0: p0 done; P1: p1 done; }
+code {
+p0:
+  movq (head),%rax
+  testq %rax,%rax
+  je p0
+  movq (%rax),%rbx
+  lock cmpxchgq %rbx,(head)
+  jne p0
+  movq %rax,%r12
+  movq %rbx,%r13
+  jmp done
+p1:
+p1pop1:
+  movq (head),%rax
+  movq $0,%r12
+  testq %rax,%rax
+  je p1pop2
+  movq (%rax),%rbx
+  lock cmpxchgq %rbx,(head)
+  jne p1pop1
+  movq %rax,%r12
+p1pop2:
+  movq (head),%rax
+  movq $0,%r13
+  testq %rax,%rax
+  je p1push
+  movq (%rax),%rbx
+  lock cmpxchgq %rbx,(head)
+  jne p1pop2
+  movq %rax,%r13
+p1push:
+  testq %r12,%r12
+  je done
+p1push1:
+  movq (head),%rax
+  movq %rax,(%r12)
+  lock cmpxchgq %r12,(head)
+  jne p1push1
+  jmp done
+done:
+}
+exists (0:r12=A /\ 0:r13=B /\ 1:r13=B)

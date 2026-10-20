@@ -1,0 +1,31 @@
+X86_64 MpInclEarly
+(* The negative check of `mp_incl.kl`: the writer increments the flag with
+   an unlocked `incl` *before* storing the data, so the reader can see the
+   flag set and still load the initial 0 from `d` (even under SC: the
+   increment, the reader's two loads, then the data store).
+# flags: -fuel 300
+# expect: Sometimes
+# Proved reachable: Kraken.Promising.Reach.MpInclEarly.mp_incl_early_reachable (Kraken/Promising/ReachX64MpInclEarly.lean)
+*)
+{
+d=0; f=0;
+0:rdi=f; 0:rsi=d;
+1:rdi=f; 1:rsi=d;
+}
+threads { P0: writer wdone; P1: reader rdone; }
+code {
+writer:
+  incl (%rdi)
+  movl $42,(%rsi)
+  jmp wdone
+wdone:
+  nop
+reader:
+  movl (%rdi),%eax
+  cmpl $0,%eax
+  je reader
+  movl (%rsi),%ebx
+  jmp rdone
+rdone:
+}
+exists (1:ebx=0)

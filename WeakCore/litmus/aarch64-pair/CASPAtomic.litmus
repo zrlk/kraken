@@ -1,0 +1,13 @@
+AArch64 CASPAtomic
+{
+uint64_t x[2];
+0:X14=x;
+1:X14=x;
+}
+ P0                       | P1                       ;
+ MOV X2,#0                | MOV X2,#0                ;
+ MOV X3,#0                | MOV X3,#0                ;
+ MOV X12,#1               | MOV X12,#2               ;
+ MOV X13,#1               | MOV X13,#2               ;
+ CASP X2,X3,X12,X13,[X14] | CASP X2,X3,X12,X13,[X14] ;
+exists (0:X2=0 /\ 0:X3=0 /\ 1:X2=0 /\ 1:X3=0)

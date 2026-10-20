@@ -1,0 +1,11 @@
+AArch64 WideOrderedRead
+{
+uint64_t x[2];
+0:X14=x;
+1:X14=x; 1:X15=x;
+}
+ P0                | P1              ;
+ MOV X12,#1        | LDR W6,[X14,#8] ;
+ MOV X13,#1        | DMB SY          ;
+ STP X12,X13,[X14] | LDR W7,[X15]    ;
+exists (1:X6=1 /\ 1:X7=0)

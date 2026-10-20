@@ -1,0 +1,18 @@
+AArch64 LB+data+poap
+Generator=diycross7 (version 7.58+1)
+Prefetch=0:x=F,0:y=W,1:y=F,1:x=W
+Com=Rf Rf
+Orig=DpDatadW Rfe A PodRW Rfe
+Cycle=DpDatadW RfePA PodRWAP Rfe
+"DpDatadW Rfe A PodRW Rfe"
+{
+ 0:X0=x; 0:X3=y;
+ 1:X0=x; 1:X3=y;
+}
+ P0           | P1           ;
+ LDR W1,[X0]  | LDAR W1,[X3] ;
+ EOR W2,W1,W1 | MOV W2,#1    ;
+ ADD W2,W2,#1 | STR W2,[X0]  ;
+ STR W2,[X3]  |              ;
+
+exists (0:X1=1 /\ 1:X1=1)

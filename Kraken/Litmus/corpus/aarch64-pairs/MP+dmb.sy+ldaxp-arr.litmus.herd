@@ -1,0 +1,11 @@
+Test MP+dmb.sy+ldaxp-arr Allowed
+States 3
+1:X3=0; 1:X5=0;
+1:X3=0; 1:X5=1;
+1:X3=1; 1:X5=1;
+No
+Witnesses
+Positive: 0 Negative: 3
+Condition exists (1:X3=1 /\ 1:X5=0)
+Observation MP+dmb.sy+ldaxp-arr Never 0 3
+

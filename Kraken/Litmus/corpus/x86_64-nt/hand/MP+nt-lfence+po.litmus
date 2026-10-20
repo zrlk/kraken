@@ -1,0 +1,12 @@
+X86_64 MP+nt-lfence+po
+"NT data, lfence, plain flag: lfence does not order the NT store"
+{
+ 0:rax=x;
+}
+ P0                  | P1            ;
+ movl $1,%ebx        | movl (y),%ebx ;
+ movntil %ebx,(%rax) | movl (x),%ecx ;
+ lfence              |               ;
+ movl $1,(y)         |               ;
+
+exists (1:rbx=1 /\ 1:rcx=0)

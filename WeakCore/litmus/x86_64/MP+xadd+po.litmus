@@ -1,0 +1,6 @@
+X86_64 MP+xadd+po
+{ uint64_t x = 0; uint64_t y = 0; }
+ P0                | P1             ;
+ movq $1, (x)      | movq (y), %rax ;
+ lock addq $1, (y) | movq (x), %rsi ;
+exists (1:rax=1 /\ 1:rsi=0)

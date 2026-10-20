@@ -1,0 +1,16 @@
+AArch64 CoRW2
+"PosWW Rfe Fre"
+Cycle=Rfe Fre PosWW
+Generator=diycross7 (version 7.58)
+Com=Rf Fr
+Orig=PosWW Rfe Fre
+{
+0:X1=x;
+1:X0=x;
+}
+ P0          | P1          ;
+ MOV W0,#2   | LDR W1,[X0] ;
+ STR W0,[X1] |             ;
+ MOV W2,#1   |             ;
+ STR W2,[X1] |             ;
+exists ([x]=1 /\ 1:X1=1)

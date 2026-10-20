@@ -1,0 +1,134 @@
+/-
+**The semantic twins: the `ReachableSem` twins of the X64 published theorems**
+. For each published theorem `n`
+of `Kraken/Examples/LockFree/THEOREMS.md` whose statement mentions
+`Reachable` or `Config.FaultFree`, `#sem_twin` (`ChainK/SemTwin.lean`) adds
+`n`'s twin over `ReachableSem` / `Config.FaultFreeSem` (named `semName n`),
+proved from the K clone `nK`. Listing: `Kraken/Examples/LockFree/SEM_TWINS.md`.
+-/
+import Kraken.Promising.SLR.ChainK.TwinsCloneX64c
+
+#sem_twin Kraken.Promising.SLR.X64SpinConcrete.x64_counter_2
+#sem_twin Kraken.Promising.SLR.X64SpinInv.x64_counter_spin
+#sem_twin Kraken.Promising.SLR.X64SpinPublic.x64_counter_public
+#sem_twin Kraken.Promising.X64.EnvG.CmpxPublic.x64_cmpx_counter_envG'
+#sem_twin Kraken.Promising.X64.EnvG.Concrete.mp_relay3_xchg_envG_concrete
+#sem_twin Kraken.Promising.X64.EnvG.Concrete.x64_mp_incl_envG_concrete
+#sem_twin Kraken.Promising.X64.EnvG.ConcreteTreiberX.x64_treiber_pp_envG_concrete
+#sem_twin Kraken.Promising.X64.EnvG.Dekker.x64_dekker_public
+#sem_twin Kraken.Promising.X64.EnvG.MpInc.x64_mp_incl_envG
+#sem_twin Kraken.Promising.X64.EnvG.MpIncV.x64_mp_incl_envGV
+#sem_twin Kraken.Promising.X64.EnvG.RelayX.mp_relay3_xchg_envG
+#sem_twin Kraken.Promising.X64.EnvG.SpinPublicG.x64_spin_counter_envG
+#sem_twin Kraken.Promising.X64.EnvG.SpscX.x64_spsc_envG
+#sem_twin Kraken.Promising.X64.EnvG.SpscX.x64_spsc_envG_concrete
+#sem_twin Kraken.Promising.X64.EnvG.TreiberX.x64_treiber_pp_envG
+#sem_twin Kraken.Promising.X64.EnvG.CmpxAbs.Concrete.x64_cmpx_counter_envG_runner_faultFree_concreteN
+#sem_twin Kraken.Promising.X64.EnvG.CmpxAbs.x64_cmpx_counter_envG_runner_faultFree
+#sem_twin Kraken.Promising.X64.EnvG.DekkerAbs.Concrete.x64_dekker_public_runner_faultFree_concrete
+#sem_twin Kraken.Promising.X64.EnvG.DekkerAbs.x64_dekker_public_runner_faultFree
+#sem_twin Kraken.Promising.X64.EnvG.MpInclAbs.Concrete.x64_mp_incl_envGV_runner_faultFree_concrete
+#sem_twin Kraken.Promising.X64.EnvG.MpInclAbs.x64_mp_incl_envGV_runner_faultFree
+#sem_twin Kraken.Promising.X64.EnvG.MsQueue3X.Concrete.x64_msqueue3_envG_runner_faultFree_concrete
+#sem_twin Kraken.Promising.X64.EnvG.MsQueueX.Concrete.x64_msqueue2_envG_runner_faultFree_concrete
+#sem_twin Kraken.Promising.X64.EnvG.MsQueueX.x64_msqueue2_envG_runner_faultFree
+#sem_twin Kraken.Promising.X64.EnvG.MsQueueX.x64_msqueue3_envG_runner_faultFree
+#sem_twin Kraken.Promising.X64.EnvG.RelayAbs.Concrete.mp_relay3_xchg_envG_runner_faultFree_concrete
+#sem_twin Kraken.Promising.X64.EnvG.RelayAbs.mp_relay3_xchg_envG_runner_faultFree
+#sem_twin Kraken.Promising.X64.EnvG.SpinAbs.Concrete.x64_spin_counter_envG_runner_faultFree_concreteN
+#sem_twin Kraken.Promising.X64.EnvG.SpinAbs.x64_spin_counter_envG_runner_faultFree
+#sem_twin Kraken.Promising.X64.EnvG.SpscAbs.Concrete.x64_spsc_envG_runner_faultFree_concrete
+#sem_twin Kraken.Promising.X64.EnvG.SpscAbs.x64_spsc_envG_runner_faultFree
+#sem_twin Kraken.Promising.X64.EnvG.TicketX.Concrete.ticket3_counter_envG_runner_faultFree_concreteN
+#sem_twin Kraken.Promising.X64.EnvG.TicketX.ticket3_counter_envG_runner_faultFree
+#sem_twin Kraken.Promising.X64.EnvG.TicketX2.Concrete.ticket2_counter_envG_runner_faultFree_concreteN
+#sem_twin Kraken.Promising.X64.EnvG.TicketX2.ticket2_counter_envG_runner_faultFree
+#sem_twin Kraken.Promising.X64.EnvG.Treiber2X.Concrete.x64_treiber2_envG_runner_faultFree_concrete
+#sem_twin Kraken.Promising.X64.EnvG.Treiber2X.x64_treiber2_envG_runner_faultFree
+#sem_twin Kraken.Promising.X64.EnvG.TreiberAbs.Concrete.x64_treiber_pp_envG_runner_faultFree_concrete
+#sem_twin Kraken.Promising.X64.EnvG.TreiberAbs.x64_treiber_pp_envG_runner_faultFree
+#sem_twin Kraken.Promising.X64.EnvG.VecABA.Concrete.x64_treiber_aba_tagged_runner_faultFree_concrete
+#sem_twin Kraken.Promising.X64.EnvG.VecABA.x64_treiber_aba_tagged_runner_faultFree
+#sem_twin Kraken.Promising.X64.EnvG.VecPublish.Concrete.x64_publish_movdqa_verbatim_concrete_faultFree
+#sem_twin Kraken.Promising.X64.EnvG.CmpxAbs.Concrete.x64_cmpx_counter_envG_runner_concrete2
+#sem_twin Kraken.Promising.X64.EnvG.CmpxAbs.Concrete.x64_cmpx_counter_envG_runner_concrete3
+#sem_twin Kraken.Promising.X64.EnvG.CmpxAbs.x64_cmpx_counter_envG_runner
+#sem_twin Kraken.Promising.X64.EnvG.DekkerAbs.Concrete.x64_dekker_public_runner_concrete
+#sem_twin Kraken.Promising.X64.EnvG.DekkerAbs.x64_dekker_public_runner
+#sem_twin Kraken.Promising.X64.EnvG.MpInclAbs.Concrete.x64_mp_incl_envGV_runner_concrete
+#sem_twin Kraken.Promising.X64.EnvG.MpInclAbs.x64_mp_incl_envGV_runner
+#sem_twin Kraken.Promising.X64.EnvG.MsQueue3X.Concrete.x64_msqueue3_envG_runner_concrete
+#sem_twin Kraken.Promising.X64.EnvG.MsQueue3X.x64_msqueue3_envG_runner
+#sem_twin Kraken.Promising.X64.EnvG.MsQueueX.Concrete.x64_msqueue2_envG_runner_concrete
+#sem_twin Kraken.Promising.X64.EnvG.MsQueueX.x64_msqueue2_envG_runner
+#sem_twin Kraken.Promising.X64.EnvG.RelayAbs.Concrete.mp_relay3_xchg_envG_runner_concrete
+#sem_twin Kraken.Promising.X64.EnvG.RelayAbs.mp_relay3_xchg_envG_runner
+#sem_twin Kraken.Promising.X64.EnvG.SpinAbs.Concrete.x64_spin_counter_envG_runner_concrete2
+#sem_twin Kraken.Promising.X64.EnvG.SpinAbs.Concrete.x64_spin_counter_envG_runner_concrete3
+#sem_twin Kraken.Promising.X64.EnvG.SpinAbs.x64_spin_counter_envG_runner
+#sem_twin Kraken.Promising.X64.EnvG.SpscAbs.Concrete.x64_spsc_envG_runner_concrete
+#sem_twin Kraken.Promising.X64.EnvG.SpscAbs.x64_spsc_envG_runner
+#sem_twin Kraken.Promising.X64.EnvG.TicketX.Concrete.ticket3_counter_envG_runner_concrete3
+#sem_twin Kraken.Promising.X64.EnvG.TicketX.ticket3_counter_envG_runner
+#sem_twin Kraken.Promising.X64.EnvG.TicketX2.Concrete.ticket2_counter_envG_runner_concrete2
+#sem_twin Kraken.Promising.X64.EnvG.TicketX2.ticket2_counter_envG_runner
+#sem_twin Kraken.Promising.X64.EnvG.Treiber2X.Concrete.x64_treiber2_envG_runner_concrete
+#sem_twin Kraken.Promising.X64.EnvG.Treiber2X.x64_treiber2_envG_runner
+#sem_twin Kraken.Promising.X64.EnvG.TreiberAbs.Concrete.x64_treiber_pp_envG_runner_concrete
+#sem_twin Kraken.Promising.X64.EnvG.TreiberAbs.x64_treiber_pp_envG_runner
+#sem_twin Kraken.Promising.X64.EnvG.VecABA.Concrete.x64_treiber_aba_tagged_runner_concrete
+#sem_twin Kraken.Promising.X64.EnvG.VecPublish.Concrete.x64_publish_movdqa_verbatim_concrete
+#sem_twin Kraken.Promising.X64.EnvG.CmpxAbs.Concrete.x64_cmpx_counter_envG_runner_safe_faultFree_concreteN
+#sem_twin Kraken.Promising.X64.EnvG.CmpxAbs.x64_cmpx_counter_envG_runner_safe_faultFree
+#sem_twin Kraken.Promising.X64.EnvG.DekkerAbs.Concrete.x64_dekker_public_runner_safe_faultFree_concrete
+#sem_twin Kraken.Promising.X64.EnvG.DekkerAbs.x64_dekker_public_runner_safe_faultFree
+#sem_twin Kraken.Promising.X64.EnvG.MpInclAbs.Concrete.x64_mp_incl_envGV_runner_safe_faultFree_concrete
+#sem_twin Kraken.Promising.X64.EnvG.MpInclAbs.x64_mp_incl_envGV_runner_safe_faultFree
+#sem_twin Kraken.Promising.X64.EnvG.MsQueue3X.Concrete.x64_msqueue3_envG_runner_safe_faultFree_concrete
+#sem_twin Kraken.Promising.X64.EnvG.MsQueue3X.x64_msqueue3_envG_runner_safe_faultFree
+#sem_twin Kraken.Promising.X64.EnvG.MsQueueX.Concrete.x64_msqueue2_envG_runner_safe_faultFree_concrete
+#sem_twin Kraken.Promising.X64.EnvG.MsQueueX.x64_msqueue2_envG_runner_safe_faultFree
+#sem_twin Kraken.Promising.X64.EnvG.RelayAbs.Concrete.mp_relay3_xchg_envG_runner_safe_faultFree_concrete
+#sem_twin Kraken.Promising.X64.EnvG.RelayAbs.mp_relay3_xchg_envG_runner_safe_faultFree
+#sem_twin Kraken.Promising.X64.EnvG.SpinAbs.Concrete.x64_spin_counter_envG_runner_safe_faultFree_concreteN
+#sem_twin Kraken.Promising.X64.EnvG.SpinAbs.x64_spin_counter_envG_runner_safe_faultFree
+#sem_twin Kraken.Promising.X64.EnvG.SpscAbs.Concrete.x64_spsc_envG_runner_safe_faultFree_concrete
+#sem_twin Kraken.Promising.X64.EnvG.SpscAbs.x64_spsc_envG_runner_safe_faultFree
+#sem_twin Kraken.Promising.X64.EnvG.TicketX.Concrete.ticket3_counter_envG_runner_safe_faultFree_concreteN
+#sem_twin Kraken.Promising.X64.EnvG.TicketX.ticket3_counter_envG_runner_safe_faultFree
+#sem_twin Kraken.Promising.X64.EnvG.TicketX2.Concrete.ticket2_counter_envG_runner_safe_faultFree_concreteN
+#sem_twin Kraken.Promising.X64.EnvG.TicketX2.ticket2_counter_envG_runner_safe_faultFree
+#sem_twin Kraken.Promising.X64.EnvG.Treiber2X.Concrete.x64_treiber2_envG_runner_safe_faultFree_concrete
+#sem_twin Kraken.Promising.X64.EnvG.Treiber2X.x64_treiber2_envG_runner_safe_faultFree
+#sem_twin Kraken.Promising.X64.EnvG.TreiberAbs.Concrete.x64_treiber_pp_envG_runner_safe_faultFree_concrete
+#sem_twin Kraken.Promising.X64.EnvG.TreiberAbs.x64_treiber_pp_envG_runner_safe_faultFree
+#sem_twin Kraken.Promising.X64.EnvG.VecABA.Concrete.x64_treiber_aba_tagged_runner_safe_faultFree_concrete
+#sem_twin Kraken.Promising.X64.EnvG.VecABA.x64_treiber_aba_tagged_runner_safe_faultFree
+#sem_twin Kraken.Promising.X64.EnvG.CmpxAbs.Concrete.x64_cmpx_counter_envG_verbatim_concrete2
+#sem_twin Kraken.Promising.X64.EnvG.CmpxAbs.Concrete.x64_cmpx_counter_envG_verbatim_concreteN
+#sem_twin Kraken.Promising.X64.EnvG.CmpxAbs.x64_cmpx_counter_envG_verbatim
+#sem_twin Kraken.Promising.X64.EnvG.DekkerAbs.Concrete.x64_dekker_public_verbatim_concrete
+#sem_twin Kraken.Promising.X64.EnvG.DekkerAbs.x64_dekker_public_verbatim
+#sem_twin Kraken.Promising.X64.EnvG.MpInclAbs.Concrete.x64_mp_incl_envGV_verbatim_concrete
+#sem_twin Kraken.Promising.X64.EnvG.MpInclAbs.x64_mp_incl_envGV_verbatim
+#sem_twin Kraken.Promising.X64.EnvG.MsQueue3X.Concrete.x64_msqueue3_envG_verbatim_concrete
+#sem_twin Kraken.Promising.X64.EnvG.MsQueue3X.x64_msqueue3_envG_verbatim
+#sem_twin Kraken.Promising.X64.EnvG.MsQueueX.Concrete.x64_msqueue2_envG_verbatim_concrete
+#sem_twin Kraken.Promising.X64.EnvG.MsQueueX.x64_msqueue2_envG_verbatim
+#sem_twin Kraken.Promising.X64.EnvG.RelayAbs.Concrete.mp_relay3_xchg_envG_verbatim_concrete
+#sem_twin Kraken.Promising.X64.EnvG.RelayAbs.mp_relay3_xchg_envG_verbatim
+#sem_twin Kraken.Promising.X64.EnvG.SpinAbs.Concrete.x64_spin_counter_envG_verbatim_concrete2
+#sem_twin Kraken.Promising.X64.EnvG.SpinAbs.Concrete.x64_spin_counter_envG_verbatim_concreteN
+#sem_twin Kraken.Promising.X64.EnvG.SpinAbs.x64_spin_counter_envG_verbatim
+#sem_twin Kraken.Promising.X64.EnvG.SpscAbs.Concrete.x64_spsc_envG_verbatim_concrete
+#sem_twin Kraken.Promising.X64.EnvG.SpscAbs.x64_spsc_envG_verbatim
+#sem_twin Kraken.Promising.X64.EnvG.TicketX.ticket3_counter_envG_verbatim
+#sem_twin Kraken.Promising.X64.EnvG.TicketX2.ticket2_counter_envG_verbatim
+#sem_twin Kraken.Promising.X64.EnvG.Treiber2X.Concrete.x64_treiber2_envG_verbatim_concrete
+#sem_twin Kraken.Promising.X64.EnvG.Treiber2X.x64_treiber2_envG_verbatim
+#sem_twin Kraken.Promising.X64.EnvG.TreiberAbs.Concrete.x64_treiber_pp_envG_verbatim_concrete
+#sem_twin Kraken.Promising.X64.EnvG.TreiberAbs.x64_treiber_pp_envG_verbatim
+#sem_twin Kraken.Promising.X64.EnvG.VecABA.x64_treiber_aba_tagged_never
+
+#print axioms Kraken.Promising.SLR.X64SpinConcrete.x64_counter_2_sem
+#print axioms Kraken.Promising.X64.EnvG.VecABA.x64_treiber_aba_tagged_never_sem

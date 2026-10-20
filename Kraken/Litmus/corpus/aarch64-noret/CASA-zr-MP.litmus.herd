@@ -1,0 +1,12 @@
+Test CASA-zr-MP Allowed
+States 4
+1:X0=0; [y]=0;
+1:X0=0; [y]=2;
+1:X0=1; [y]=0;
+1:X0=1; [y]=2;
+Ok
+Witnesses
+Positive: 2 Negative: 6
+Condition exists ([y]=2 /\ 1:X0=0)
+Observation CASA-zr-MP Sometimes 2 6
+

@@ -1,0 +1,12 @@
+AArch64 LB+datapair11
+{
+int64_t x; int64_t y[2];
+0:X1=x; 0:X2=y;
+1:X1=x; 1:X2=y;
+}
+ P0                      |  P1                      ;
+ LDR X0,[X1]             |  LDR X0,[X2,#8]          ;
+ MOV X9,#1               |  EOR X3,X0,X0            ;
+ STP X9,X0,[X2]          |  ADD X3,X3,#1            ;
+                         |  STR X3,[X1]             ;
+exists (0:X0=1 /\ 1:X0=1)

@@ -1,0 +1,12 @@
+CASPSolo allowed 1
+CASPAtomic forbidden 2
+CASPReadTear forbidden 2
+LB+casp allowed 4
+WRC+caspdata+addr forbidden 5
+WRC+caspdata+po allowed 6
+CASPOrderedRead forbidden 3
+CASPOrderedReadSwapped forbidden 3
+CASPFulfilSingles forbidden 3
+CASPWriteSolo allowed 1
+CASPWriteTear forbidden 2
+CASPWritePartial forbidden 2

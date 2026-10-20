@@ -1,0 +1,15 @@
+Test WRC+dmb.sy+addr Allowed
+States 7
+0:X1=0; 1:X1=0; 1:X4=0;
+0:X1=0; 1:X1=0; 1:X4=1;
+0:X1=0; 1:X1=1; 1:X4=0;
+0:X1=0; 1:X1=1; 1:X4=1;
+0:X1=1; 1:X1=0; 1:X4=0;
+0:X1=1; 1:X1=0; 1:X4=1;
+0:X1=1; 1:X1=1; 1:X4=1;
+No
+Witnesses
+Positive: 0 Negative: 7
+Condition exists (0:X1=1 /\ 1:X1=1 /\ 1:X4=0)
+Observation WRC+dmb.sy+addr Never 0 7
+
