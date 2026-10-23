@@ -15,6 +15,7 @@ theorem evalOp_V : OpV := by
   intro g env σs s s' t ws op h hs he
   cases op
   case spawn => simp [evalOp] at h
+  case ext => simp [evalOp] at h
   case atom => exact eo_atom h hs he
   case pair => exact eo_pair h hs he
   case add => exact eo_add h hs he

@@ -31,6 +31,9 @@ theorem solo_mem {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c c' :
   | prom a v w _ _ ih =>
     intro hm
     exact ih (by rw [(TermLiveProps.promise_ext _ _ a v w).get t (TermMem.lt_of_get hm)]; exact hm)
+  | ext hs _ ih =>
+    intro hm
+    exact ih (by rw [extSteps_mem hs]; exact hm)
 
 /-- (slot-level) A `WordOK` word at an offset of a segment is a word of a value of that segment. -/
 theorem wordOK_seg {E : TEnv} {T S : Ty} {b o : Nat} {us : List Acc} {w : Word}

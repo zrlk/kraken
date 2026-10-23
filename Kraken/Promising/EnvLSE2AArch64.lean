@@ -181,6 +181,7 @@ theorem allEnvLSE2_seq (hL : L.WF) {tid : Nat} {post : MachineState → (BitVec 
   induction e with
   | done a => intro g mem h henv; exact ⟨g, henv, h⟩
   | unimplemented msg => intro g mem h; exact h.elim
+  | syscall => intro g mem h; exact h.elim
   | unaligned_sp sp => intro g mem h; exact h.elim
   | nonmem_load dmem addr w ret ih =>
     intro g mem h henv

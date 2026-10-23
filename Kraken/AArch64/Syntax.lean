@@ -361,6 +361,14 @@ Operation of an atomic load-and-op instruction (FEAT_LSE):
 inductive AtomicOp | ADD | CLR | EOR | SET | SMAX | SMIN | UMAX | UMIN
   deriving Repr, BEq, DecidableEq, Hashable, Lean.ToExpr
 
+/--
+The system registers `MRS`/`MSR` may name. Only the EL0 software thread ID
+register `TPIDR_EL0` (the thread pointer of the AArch64 Linux ABI) is modelled:
+a private per-thread register, like a general register.
+-/
+inductive SysReg | TPIDR_EL0
+  deriving Repr, BEq, DecidableEq, Hashable, Lean.ToExpr
+
 inductive Operation : RegWidth → Type
   -- Loads and Stores.
   | LDR {w} (dst : RegOrZr w) (src : AddrOrLit) : Operation w
@@ -522,6 +530,15 @@ inductive Operation : RegWidth → Type
   --
   -- Misc.
   | NOP {w} : Operation w
+  --
+  -- System call and thread pointer (`Kraken/SYSCALL.md`). Appended after `NOP` so
+  -- that the derived `Hashable` of every earlier constructor is unchanged.
+  -- Supervisor call `SVC #imm` (`imm` a 16-bit immediate; Linux uses `#0`).
+  | SVC (imm : Nat) : Operation .W64
+  -- Move from a system register: `MRS Xt, <sysreg>`.
+  | MRS (dst : RegOrZr .W64) (sr : SysReg) : Operation .W64
+  -- Move to a system register: `MSR <sysreg>, Xt`.
+  | MSR (sr : SysReg) (src : RegOrZr .W64) : Operation .W64
   deriving Repr, DecidableEq, Hashable, Lean.ToExpr
 
 structure Instr where

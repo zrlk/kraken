@@ -79,6 +79,8 @@ partial def collect (e : Effects) (events : List String) : List Outcome :=
   match e with
   | .done (s, pc) => [{ st := s, pc, events := events.reverse }]
   | .unimplemented msg => [{ st := {}, pc := 0, events := (s!"unimplemented {msg}" :: events).reverse }]
+  | .syscall info _ =>
+    [{ st := {}, pc := 0, events := (s!"unimplemented {pendingSyscallMsg info.imm}" :: events).reverse }]
   | .unaligned_sp sp => [{ st := {}, pc := 0, events := (s!"unaligned_sp {sp.toNat}" :: events).reverse }]
   | .nonmem_load dmem addr w ret =>
     collect (ret (unmappedVal addr w) dmem) (s!"load {addr.toNat} {w}" :: events)
@@ -377,7 +379,26 @@ def ops : List Op := [
   x (.STXP .rel .W0 .X0 .X0 .X1),
   x (.CASP .plain .X0 .X1 .X2 .X3 .X4), x (.CASP .acq .W4 .W5 .W6 .W7 .X1), x (.CASP .rel .X30 .XZR .X2 .X3 .SP),
   x (.CASP .acqRel .X2 .X3 .X2 .X3 .X2),
-  x (.DMB .sy), x (.DMB .ld), x (.DMB .st), x (.DSB .sy), x (.DSB .st), x (.DSB .ld), x (.ISB)]
+  x (.DMB .sy), x (.DMB .ld), x (.DMB .st), x (.DSB .sy), x (.DSB .st), x (.DSB .ld), x (.ISB),
+  -- Thread pointer (`SVC` is in `haltOps`).
+  x (.MRS .X0 .TPIDR_EL0), x (.MRS .XZR .TPIDR_EL0), x (.MSR .TPIDR_EL0 .X1),
+  x (.MSR .TPIDR_EL0 .XZR)]
+
+/-- The system-call operations: they halt with the pending-system-call status
+(`MachineData.pendingSyscall`) before any effect, so the harness above, which
+compares final states, does not apply; instead every outcome is that halt and
+the deps are empty. -/
+def haltOps : List Op := [x (.SVC 0), x (.SVC 0xffff)]
+
+/-- info: [] -/
+#guard_msgs in
+#eval haltOps.flatMap fun ⟨_, op⟩ =>
+  let name := (ctorName op).toString
+  let outs := run op (baseline {})
+  (if outs.length == 1 && outs.all (fun o => o.events.length == 1 &&
+      o.events.all (·.startsWith "unimplemented pending system call")) then [] else
+    [s!"{name}: outcomes {outs.map (·.events)}"]) ++
+  (if (readSet op.deps).isEmpty && (writeSet op.deps).isEmpty then [] else [s!"{name}: non-empty deps"])
 
 /-! ## Results -/
 
@@ -460,7 +481,7 @@ open Lean in
 #eval show Elab.Command.CommandElabM Unit from do
   let env ← getEnv
   let some (.inductInfo info) := env.find? ``Operation | throwError "`Operation` not found"
-  let covered := ops.map fun ⟨_, op⟩ => ctorName op
+  let covered := (ops ++ haltOps).map fun ⟨_, op⟩ => ctorName op
   let missing := info.ctors.filter fun c => !covered.contains c
   logInfo m!"constructors not covered: {missing}"
 

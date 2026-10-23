@@ -132,6 +132,33 @@ theorem nfInv_prom {p : Prog} {k : Promises.Knobs} {arch : Arch} {j : Nat} {a : 
       · rw [hue]; exact Nat.le_of_lt htl
       · exact h u m (TermPtrStab.push_get_ne hu hue) hl hv
 
+/-- (IO1) An extern move keeps `NFInv` (one `()` binding, which names nothing; memory, promises and views
+unchanged). -/
+theorem nfInv_ext {p : Prog} {k : Promises.Knobs} {arch : Arch} {j : Nat} {a : AllocLabel} {t : Ts} {Eu Ea : TEnv}
+    {c c' : Cfg} (hJ : NFInv p k arch j a t Eu Ea c) (hs : c' ∈ extSteps c j) : NFInv p k arch j a t Eu Ea c' := by
+  obtain ⟨th, E, S, hth, hE, hm, hES, hR, ht, hbf, hfr, hL, hSC, hD, hC, hG, hLay, hsa, hpa0, hba, hBS, hA, hXa⟩ := hJ
+  obtain ⟨x1, a1, e1, evs, hterm, rfl⟩ := extSteps_thread hs hth
+  have hpw : ∀ w, w ∉ TermPtrRts.pubWords .unit [] := fun w hw => by simp [TermPtrRts.pubWords] at hw
+  refine ⟨_, E, S, set_self hth, TermTyped.ThInvE_emit hterm hE, by rw [gOf_ext hs]; exact hm, hES, ?_, ht, hbf,
+    by rw [extSteps_n hs]; exact hfr, ?_, hSC, ?_, hC, hG, hLay, hsa, hpa0, hba, hBS, hA, hXa⟩
+  · intro t' ht'
+    obtain ⟨hM, hRt⟩ := hR t' ht'
+    refine ⟨hM, ?_, hRt.2⟩
+    intro y rt ws hy w hw hn
+    rcases List.mem_cons.1 hy with h | h
+    · cases h; exact absurd hw (hpw w)
+    · exact hRt.1 y rt ws h w hw hn
+  · refine ⟨?_, hL.2⟩
+    intro y rt ws hy w hw l hn
+    rcases List.mem_cons.1 hy with h | h
+    · cases h; exact absurd hw (hpw w)
+    · exact hL.1 y rt ws h w hw l hn
+  · obtain ⟨hok, hσs, he, hstk⟩ := hD
+    rw [hterm] at hok he
+    simp only [TermScope.allOK, Bool.and_eq_true] at hok
+    exact ⟨hok.2, hσs, TermScope.envDRF_cons (fun _ => rfl)
+      (fun y hy hne => he y (TermScope.free_let_body hy hne)), hstk⟩
+
 theorem nfInv_thread {p : Prog} {k : Promises.Knobs} {arch : Arch} {j : Nat} {a : AllocLabel} {t : Ts}
     {c c' : Cfg} {Eu Ea : TEnv} [ProgRetIall p] [WrIniC] (hP : ProgT p) (hK : TermPtrRts.PtrRtsThreadGL p) (hFN : FootNCB p)
     (hk : k.storeDepRts = true)
@@ -304,6 +331,10 @@ theorem nfInv_run {p : Prog} {k : Promises.Knobs} {arch : Arch} {j : Nat} {a : A
     exact ih hc2 (fun c0 h0 => hsc c0 (.prom ad v w hw h0)) (TermViewInv.viewInv_prom hvI hw)
       (fun c0 h0 => hwin c0 (.prom ad v w hw h0))
       (nfInv_prom hJ)
+  | ext hs hrest ih =>
+    intro hc2 hsc hvI hwin hJ
+    exact ih hc2 (fun c0 h0 => hsc c0 (.ext hs h0)) (TermViewInv.viewInv_extS hvI hs)
+      (fun c0 h0 => hwin c0 (.ext hs h0)) (nfInv_ext hJ hs)
 
 /-- **NoFulPlRun**, conditional on K-2a (`PtrRtsThreadGL`) and `FootNC`: along the owner's solo run not
 publishing `a`, `tmin` stays an outstanding promise. -/
@@ -323,3 +354,4 @@ end NoFulRun
 end TermPtrKey
 
 #print axioms TermPtrKey.noFulPlRunGL_of
+#print axioms TermPtrKey.nfInv_ext

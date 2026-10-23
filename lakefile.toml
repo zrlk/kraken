@@ -51,3 +51,32 @@ root = "CheckerCompareX64"
 [[lean_lib]]
 name = "WeakCore"
 globs = ["WeakCore.*"]
+
+# scc: the WeakCore-to-assembler compiler (not a default target yet).
+[[lean_lib]]
+name = "Scc"
+globs = ["Scc.*"]
+
+# `scc` is a driver that runs `scc-x64` or `scc-arm` (no module may import
+# both emitters: Kraken's x64 and AArch64 syntaxes share names); building it
+# builds all three.
+[[lean_exe]]
+name = "scc"
+root = "Scc"
+needs = ["scc_x64", "scc_arm"]
+
+[[lean_exe]]
+name = "scc_x64"
+root = "Scc.MainX64"
+exeName = "scc-x64"
+
+[[lean_exe]]
+name = "scc_arm"
+root = "Scc.MainArm"
+exeName = "scc-arm"
+
+# The bridge spike: a Kraken run related to a WeakCore run on a two-thread
+# release/acquire program (not a default target).
+[[lean_lib]]
+name = "Spike"
+globs = ["Spike.*"]

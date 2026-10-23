@@ -23,6 +23,30 @@ open CoreLang CoreTerm Syntax
 
 namespace SyntaxTest
 
+/-- (E1) `spawn … : T`, `ThreadId` (compared by `if`) and the trusted externs. -/
+def e1Src : String := "
+def kid(a : ThreadId * U8) : Unit =
+  let (j, b) = a
+  let u = emit b
+  ret u
+
+def same(t : ThreadId) : Int =
+  let me = current ()
+  if me = t then ret 1 else ret 0
+
+def par(b : U8) : Int =
+  let me = current ()
+  let p = (me, b)
+  let t = spawn kid p : ThreadId * U8
+  let u = exitEv 0
+  tail same(t)
+"
+
+def e1Prog : Prog := match parseProg e1Src with | .ok p => p | .error _ => []
+
+#guard e1Prog.length == 3
+#guard checkProg e1Prog matches .ok _
+
 def corpus : List (String × Prog) :=
   [("mutexLib", mutexLib), ("seqLib", seqLib), ("queueLib Int", queueLib .int),
    ("polyQueueLib", polyQueueLib), ("claimLib Int", claimLib .int), ("pcLib", pcLib),
@@ -34,7 +58,8 @@ def corpus : List (String × Prog) :=
    ("HashMapOwn", HashMapOwn.ohmLib ++ HashMapOwn.oInstLib),
    ("HashMapLF", HashMapLF.lfLib ++ HashMapLF.lfProg),
    ("Freeze", Freeze.frzLib ++ Freeze.frzCLib), ("SubWord", SubWord.swLib),
-   ("FlatHashMap portable", FlatHashMap.ownLib false), ("FlatHashMap x64", FlatHashMap.ownLib true)]
+   ("FlatHashMap portable", FlatHashMap.ownLib false), ("FlatHashMap x64", FlatHashMap.ownLib true),
+   ("E1", e1Prog)]
 
 /-- The code blocks that do not round-trip, with what went wrong. -/
 def failures : List String :=

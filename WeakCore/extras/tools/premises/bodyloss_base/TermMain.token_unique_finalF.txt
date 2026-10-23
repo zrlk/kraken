@@ -1,3 +1,19 @@
+ROOT TermMain.token_unique_finalF : ∀ {p : CoreTerm.Prog} {k : Promises.Knobs} {arch : WeakMem.Arch} {Init : TermSound.Res} {c0 : TermRun.Cfg},
+  TermMain.ObligationsF p k arch Init (fun x => True) c0 →
+    k.storeDepRts = true →
+      TermMain.InitOK p k arch Init (fun x => True) c0 →
+        ∀ {c : TermRun.Cfg},
+          TermStep.Steps p k arch c0 c →
+            TermMain.AllNoProm c →
+              ∃ Eg Tot,
+                TermMain.FrameTie p k arch c Eg Tot ∧
+                  ∀ (i j n : Nat),
+                    i < c.ths.size →
+                      j < c.ths.size → 1 ≤ Tot i (TermSound.Key.rg n) → 1 ≤ Tot j (TermSound.Key.rg n) → i = j
+CoreLang.Arms : Type
+CoreLang.Arms.optArm : CoreLang.Arms
+CoreLang.Arms.ptrs : CoreLang.Arms → Nat
+CoreLang.Arms.wide : CoreLang.Arms → Nat
 CoreLang.Cap : Type
 CoreLang.Cap.pub : CoreLang.Cap
 CoreLang.Clause : Type
@@ -23,6 +39,7 @@ CoreLang.Idx.mentions : Nat → CoreLang.Idx → Bool
 CoreLang.Idx.smul : Nat → CoreLang.Idx → CoreLang.Idx
 CoreLang.Idx.sub : CoreLang.Idx → CoreLang.Idx → CoreLang.Idx
 CoreLang.Idx.var : Nat → CoreLang.Idx
+CoreLang.Info.arms : CoreLang.Info → CoreLang.Arms
 CoreLang.KEnv : Type
 CoreLang.KEnv.ask : CoreLang.KEnv → Nat → Bool → (CoreLang.Kind → Bool) → Bool
 CoreLang.Kind : Type
@@ -78,6 +95,10 @@ CoreLang.Ty.ownHead : CoreLang.Ty → Bool
   | CoreLang.Ty.ptr CoreLang.Mode.own τ => true
   | CoreLang.Ty.ptrOpt CoreLang.Mode.own τ => true
   | x => false
+CoreLang.Ty.payloadFree : CoreLang.Ty → Bool
+  := fun t =>
+  have a := (CoreLang.info CoreLang.Ty.top t).arms;
+  a == CoreLang.Arms.optArm || a.wide == 0 && a.ptrs == 0
 CoreLang.Ty.prod : CoreLang.Ty → CoreLang.Ty → CoreLang.Ty
 CoreLang.Ty.ptr : CoreLang.Mode → CoreLang.Ty → CoreLang.Ty
 CoreLang.Ty.ptrOpt : CoreLang.Mode → CoreLang.Ty → CoreLang.Ty
@@ -89,10 +110,12 @@ CoreLang.Ty.share : CoreLang.Idx → CoreLang.Ty
 CoreLang.Ty.shiftI : Nat → CoreLang.Ty → CoreLang.Ty
 CoreLang.Ty.sum : CoreLang.Ty → CoreLang.Ty → CoreLang.Ty
 CoreLang.Ty.tex : CoreLang.Kind → CoreLang.Ty → CoreLang.Ty
+CoreLang.Ty.tid : CoreLang.Ty
 CoreLang.Ty.tier : CoreLang.Ty → CoreLang.Tier
 CoreLang.Ty.tok : CoreLang.Idx → Option (CoreLang.Proto × CoreLang.Idx) → CoreLang.Ty
 CoreLang.Ty.tok2 : CoreLang.Idx → CoreLang.Proto2 → CoreLang.Idx → CoreLang.Idx → CoreLang.Ty
 CoreLang.Ty.tokE : CoreLang.Idx → CoreLang.ECounter → CoreLang.Idx → CoreLang.Ty
+CoreLang.Ty.top : CoreLang.Ctx
 CoreLang.Ty.tvar : Nat → CoreLang.Ty
 CoreLang.Ty.unguarded : Nat → CoreLang.Ty → Bool
 CoreLang.Ty.unit : CoreLang.Ty
@@ -101,7 +124,61 @@ CoreLang.Ty.word : CoreLang.Idx → CoreLang.Proto → CoreLang.Ty
 CoreLang.Ty.word2 : CoreLang.Idx → CoreLang.Proto2 → CoreLang.Ty
 CoreLang.Ty.wordFree : CoreLang.Ty → Bool
 CoreLang.Wd : Type
+CoreLang.info : CoreLang.Ctx → CoreLang.Ty → CoreLang.Info
+CoreLang.instDecidableEqArms : DecidableEq CoreLang.Arms
+CoreLang.instDecidableEqTier : DecidableEq CoreLang.Tier
+CoreLang.zeroArmP : (CoreLang.Ty → Bool) → CoreLang.IEnv → CoreLang.KEnv → CoreLang.Ty → Option Bool
+  eq_def ∀ (sel : CoreLang.Ty → Bool) (env : CoreLang.IEnv) (ke : CoreLang.KEnv) (x : CoreLang.Ty),
+  CoreLang.zeroArmP sel env ke x =
+    match x with
+    | a.sum b => CoreLang.zeroArmP sel env ke a <|> CoreLang.zeroArmP sel env ke b
+    | CoreLang.Ty.void => none
+    | t.refine ψ => Option.map (fun x => x && CoreLang.Pred.zeroHolds env ψ) (CoreLang.zeroArmP sel env ke t)
+    | t.iall => CoreLang.zeroArmP sel (none :: env) ke t
+    | t.iex => CoreLang.zeroArmP sel (some 0 :: env) ke t
+    | t.mu => CoreLang.zeroArmP sel env (none :: ke) t
+    | CoreLang.Ty.tex κ t => Option.map (fun x => false) (CoreLang.zeroArmP sel env (none :: ke) t)
+    | t => if sel t = true then some (CoreLang.zeroableIn env ke t) else none
 CoreLang.zeroableIn : CoreLang.IEnv → CoreLang.KEnv → CoreLang.Ty → Bool
+  eq_def ∀ (env : CoreLang.IEnv) (ke : CoreLang.KEnv) (x : CoreLang.Ty),
+  CoreLang.zeroableIn env ke x =
+    match x with
+    | CoreLang.Ty.unit => true
+    | CoreLang.Ty.void => false
+    | CoreLang.Ty.int => true
+    | CoreLang.Ty.intS i => CoreLang.Idx.evalIn env i == some 0
+    | CoreLang.Ty.fix sg w => true
+    | CoreLang.Ty.lanes sg w => true
+    | a.prod b => CoreLang.zeroableIn env ke a && CoreLang.zeroableIn env ke b
+    | a.sum b =>
+      match (a.sum b).tier with
+      | CoreLang.Tier.niche =>
+        (CoreLang.zeroArmP CoreLang.Ty.payloadFree env ke a <|> CoreLang.zeroArmP CoreLang.Ty.payloadFree env ke b) ==
+          some true
+      | CoreLang.Tier.wide =>
+        (CoreLang.zeroArmP (fun x => true) env ke a <|> CoreLang.zeroArmP (fun x => true) env ke b) == some true
+      | CoreLang.Tier.boxed => false
+    | σ.code τ => false
+    | CoreLang.Ty.tid => false
+    | CoreLang.Ty.array i t => CoreLang.zeroableIn env ke t
+    | CoreLang.Ty.ptr μ τ => false
+    | CoreLang.Ty.ptrOpt μ τ => true
+    | CoreLang.Ty.loc μ (CoreLang.Ty.array i τ) => CoreLang.Idx.evalIn env i == some 0
+    | CoreLang.Ty.loc μ τ => false
+    | CoreLang.Ty.word r P => false
+    | CoreLang.Ty.tok r st => false
+    | CoreLang.Ty.word2 r P => false
+    | CoreLang.Ty.tok2 r P i0 i1 => false
+    | CoreLang.Ty.epair r P => false
+    | CoreLang.Ty.tokE r P e => false
+    | CoreLang.Ty.share r => false
+    | CoreLang.Ty.cap s r => false
+    | CoreLang.Ty.tvar k => ke.ask k false fun x => x.zero
+    | t.mu => CoreLang.zeroableIn env (none :: ke) t
+    | CoreLang.Ty.tex κ τ => false
+    | t.iall => CoreLang.zeroableIn (none :: env) ke t
+    | t.iex => CoreLang.zeroableIn (some 0 :: env) ke t
+    | t.refine ψ => CoreLang.zeroableIn env ke t && CoreLang.Pred.zeroHolds env ψ
 CoreTerm.At : Type
 CoreTerm.At.var : String → CoreTerm.At
 CoreTerm.BitOp : Type
@@ -135,6 +212,7 @@ CoreTerm.Decl.retTy : CoreTerm.Decl → CoreLang.Ty
 CoreTerm.Decl.tparams : CoreTerm.Decl → List CoreLang.Kind
 CoreTerm.Expr : Type
 CoreTerm.Expr.let_ : String → CoreTerm.Op → CoreTerm.Expr → CoreTerm.Expr
+CoreTerm.ExtName : Type
 CoreTerm.FCmp : Type
 CoreTerm.FOp : Type
 CoreTerm.FOp1 : Type
@@ -545,6 +623,17 @@ TermMain.FgnPromCntG : TermCut.GEnv → TermRun.Cfg → Prop
                 Eg.sto m.loc.label = some cm →
                   TermPtrRts.NotSnd cm.ty m.loc.offset →
                     TermPtrRts.CntOK cm.ty m.loc.offset (TermMem.mw m) → TermMain.TgtOK Eg c i a'.label
+TermMain.FrameTie : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → TermRun.Cfg → TermCut.GEnv → (Nat → TermSound.Res) → Prop
+  := fun p k arch c Eg Tot =>
+  ∀ (i : Nat) (th : TermRun.TTh),
+    c.ths[i]? = some th →
+      ∃ S ρ η cx Rf Rs,
+        TermSound.CE η = TermCut.Cut Eg i S ∧
+          TermSound.EnvOK p η ∧
+            CoreTyping.Typed p cx th.term ∧
+              TermSound.FInvR ρ η th.σs (TermSound.ResumeR p th.stack Rs) cx th.env Rf ∧
+                Rf + Rs = Tot i ∧
+                  TermStep.MemInv (TermRun.gOf p k arch c i) (TermSound.CE η) (TermRun.stOf c.mem c.pairs th)
 TermMain.InitOK : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → TermSound.Res → (TermSound.Res → Prop) → TermRun.Cfg → Prop
   := fun p k arch Init MintOK c0 =>
   (∃ Eg Tot HP HS cr db,
@@ -566,8 +655,9 @@ TermMain.InitOK : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → TermSoun
                                   Eg.sto l = some cl → TermSound.LayT cl.ty) ∧
                                 c0.mem = #[] ∧
                                   TermViewInv.ViewInv c0 ∧
-                                    ∀ (i : Nat) (th : TermRun.TTh),
-                                      c0.ths[i]? = some th → th.vs.vWr ≤ Array.size c0.mem - 1) ∧
+                                    (∀ (i : Nat) (th : TermRun.TTh),
+                                        c0.ths[i]? = some th → th.vs.vWr ≤ Array.size c0.mem - 1) ∧
+                                      ∀ (i : Nat) (th : TermRun.TTh), c0.ths[i]? = some th → th.tidLbl = none) ∧
     TermMain.AllNoProm c0 ∧ TermLiveProps.CfgCoh c0
 TermMain.KeyNet : TermRun.Cfg →
   (Nat → TermSound.Res) →
@@ -585,7 +675,7 @@ TermMain.ObligationsF : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → Te
   {c0 : TermRun.Cfg},
   CoreTerm.checkProg p = Except.ok () →
     TermScope.ProgScopeOKW p = true →
-      TermScope.RunDRF c0 →
+      TermScope.RunScope c0 →
         TermCertScope.CertWinCN p k arch Init MintOK c0 →
           TermCertScope.CertWinPN p k arch Init MintOK c0 → TermMain.ObligationsF p k arch Init MintOK c0
 TermMain.OwnFreshZ : TermRun.Cfg → (Nat → TermSound.Res) → (Nat → TermSound.Res) → TermSound.Res → (Nat → WeakMem.Ts → TermSound.Res) → Prop
@@ -595,10 +685,8 @@ TermMain.OwnFreshZ : TermRun.Cfg → (Nat → TermSound.Res) → (Nat → TermSo
       thq.nalloc ≤ j →
         (∀ (n : Nat),
             n < c.ths.size →
-              (Tot n + HP n + TermSys.pSumAt c n (cr n))
-                  (TermSound.Key.own (TermRun.freshLabel c.lbase c.ths.size q j)) =
-                0) ∧
-          HS (TermSound.Key.own (TermRun.freshLabel c.lbase c.ths.size q j)) = 0
+              (Tot n + HP n + TermSys.pSumAt c n (cr n)) (TermSound.Key.own (TermRun.freshLabel c.lbase c.n q j)) = 0) ∧
+          HS (TermSound.Key.own (TermRun.freshLabel c.lbase c.n q j)) = 0
 TermMain.OwnKeyOwnG : TermRun.Cfg → TermCut.GEnv → (Nat → TermSound.Res) → Prop
   := fun c Eg Tot =>
   ∀ (j : Nat) (th : TermRun.TTh) (l : WeakMem.AllocLabel),
@@ -719,8 +807,7 @@ TermMain.SysInvN : CoreTerm.Prog →
                   c.ths[i]? = some th → TermStep.FpOK (TermCut.Cut Eg i S) (TermRun.stOf c.mem c.pairs th)) →
                 (∀ (i : Nat) (th : TermRun.TTh),
                     c.ths[i]? = some th →
-                      ∀ (j : Nat),
-                        th.nalloc ≤ j → TermSys.GFreshL Eg c th (TermRun.freshLabel c.lbase c.ths.size i j)) →
+                      ∀ (j : Nat), th.nalloc ≤ j → TermSys.GFreshL Eg c th (TermRun.freshLabel c.lbase c.n i j)) →
                   (∃ M,
                       MintOK M ∧
                         (TermSys.thSum c.ths.size fun i => Tot i + TermSys.pSumAt c i (cr i) + HP i) + HS ≤
@@ -901,19 +988,38 @@ TermMain.SysInvN : CoreTerm.Prog →
                                                                                                                         TermA4.wrapTop
                                                                                                                             cl.ty =
                                                                                                                           true) →
-                                                                                                                    TermMain.SysInvN
-                                                                                                                      p
-                                                                                                                      k
-                                                                                                                      arch
-                                                                                                                      Init
-                                                                                                                      MintOK
-                                                                                                                      c
-                                                                                                                      Eg
-                                                                                                                      Tot
-                                                                                                                      HP
-                                                                                                                      HS
-                                                                                                                      cr
-                                                                                                                      db
+                                                                                                                    TermSys.FreshU
+                                                                                                                        c.n
+                                                                                                                        Eg
+                                                                                                                        c
+                                                                                                                        Tot
+                                                                                                                        HP
+                                                                                                                        HS
+                                                                                                                        cr →
+                                                                                                                      (∀
+                                                                                                                          (i :
+                                                                                                                            Nat)
+                                                                                                                          (th :
+                                                                                                                            TermRun.TTh),
+                                                                                                                          c.ths[i]? =
+                                                                                                                              some
+                                                                                                                                th →
+                                                                                                                            TermMain.TidBox
+                                                                                                                              Eg
+                                                                                                                              th) →
+                                                                                                                        TermMain.SysInvN
+                                                                                                                          p
+                                                                                                                          k
+                                                                                                                          arch
+                                                                                                                          Init
+                                                                                                                          MintOK
+                                                                                                                          c
+                                                                                                                          Eg
+                                                                                                                          Tot
+                                                                                                                          HP
+                                                                                                                          HS
+                                                                                                                          cr
+                                                                                                                          db
 TermMain.TCtx : CoreTerm.Prog →
   Promises.Knobs →
     WeakMem.Arch →
@@ -948,7 +1054,7 @@ TermMain.TgtOK : TermCut.GEnv → TermRun.Cfg → Nat → WeakMem.AllocLabel →
   := fun Eg c i l =>
   (∃ f, Eg.pfr l = some f) ∨
     (∃ cl, Eg.sto l = some cl ∧ cl.owner = some i) ∨
-      (∃ B, Eg.box l = some B) ∨ ∃ n, l = TermRun.freshLabel c.lbase c.ths.size i n ∧ Eg.sto l = none
+      (∃ B, Eg.box l = some B) ∨ ∃ n, l = TermRun.freshLabel c.lbase c.n i n ∧ Eg.sto l = none
 TermMain.ThSysAt : CoreTerm.Prog →
   TermRun.G →
     WeakMem.Memory →
@@ -966,6 +1072,10 @@ TermMain.ThSysAt : CoreTerm.Prog →
         TermCut.MemHeldP (TermCut.Cut Eg g.i S) (TermRun.stOf mem pairs th) HP ∧
           TermCut.MemHeldS (TermCut.Cut Eg g.i S) (TermRun.stOf mem pairs th) HS ∧
             TermPlant.PromCrK (TermCut.Cut Eg g.i S) (TermRun.stOf mem pairs th) cr db
+TermMain.TidBox : TermCut.GEnv → TermRun.TTh → Prop
+  := fun Eg th =>
+  ∀ (l : WeakMem.AllocLabel),
+    th.tidLbl = some l → Eg.sto l = some { ty := CoreLang.Ty.unit, owner := none } ∧ Eg.pfr l = some 0
 TermMain.plantG : TermCut.GEnv → (WeakMem.AllocLabel → Option WeakMem.Ts) → (WeakMem.AllocLabel → Nat) → TermCut.GEnv
   := fun Eg P N =>
   { prog := Eg.prog, sto := Eg.sto,
@@ -982,7 +1092,7 @@ TermMain.plantG : TermCut.GEnv → (WeakMem.AllocLabel → Option WeakMem.Ts) �
 TermMain.thP : TermRun.TTh → Nat → TermRun.TTh
   := fun th n =>
   { term := th.term, env := th.env, σs := th.σs, stack := th.stack, vs := th.vs, promises := th.promises ++ [n],
-    nalloc := th.nalloc, undefs := th.undefs }
+    nalloc := th.nalloc, undefs := th.undefs, tidLbl := th.tidLbl }
 TermMem.BufOK : TermSound.TEnv → Nat → CoreLang.Ty → List TermRun.Word → Prop
   := fun η n T vals =>
   ∃ N e us,
@@ -1422,8 +1532,66 @@ TermPtrRts.cntIdx : CoreLang.Ty → List TermRun.Word → List Nat
     (TermPtrRts.pubWords S (List.mapIdx (fun i w => { val := w.val, view := w.view, rts := i + 1 }) ws))
 TermPtrRts.edgeB : TermPtrRts.Sto → TermRun.St → WeakMem.AllocLabel → WeakMem.Ts → Bool
   := fun sto s a t => decide (∃ m, s.mem[t]? = some m ∧ TermPtrRts.PlantEdge sto m a)
+TermPtrRts.mPub : CoreLang.Mode → Bool
+  := fun x =>
+  match x with
+  | CoreLang.Mode.pub => true
+  | x => false
+TermPtrRts.pubArm : CoreLang.Ty → Nat → List TermRun.Word → List TermRun.Word
+  eq_def ∀ (x : CoreLang.Ty) (x_1 : Nat) (x_2 : List TermRun.Word),
+  TermPtrRts.pubArm x x_1 x_2 =
+    match x, x_1, x_2 with
+    | a.sum b, j, p =>
+      if j < (TermRun.armsOf a).length then TermPtrRts.pubArm a j p
+      else TermPtrRts.pubArm b (j - (TermRun.armsOf a).length) p
+    | t.refine ψ, j, p => TermPtrRts.pubArm t j p
+    | t.iall, j, p => TermPtrRts.pubArm t j p
+    | t.iex, j, p => TermPtrRts.pubArm t j p
+    | t.mu, j, p => TermPtrRts.pubArm t j p
+    | CoreLang.Ty.tex κ t, j, p => TermPtrRts.pubArm t j p
+    | t, x, p => TermPtrRts.pubWords t p
 TermPtrRts.pubWords : CoreLang.Ty → List TermRun.Word → List TermRun.Word
-  := fun a a_1 => TermPtrRts.pubWords._mutual (PSum.inl ⟨a, a_1⟩)
+  eq_def ∀ (x : CoreLang.Ty) (x_1 : List TermRun.Word),
+  TermPtrRts.pubWords x x_1 =
+    match x, x_1 with
+    | a.prod b, ws =>
+      if TermPtrRts.sNo (a.prod b) = true then ws
+      else
+        match TermSound.wc a with
+        | some n => TermPtrRts.pubWords a (List.take n ws) ++ TermPtrRts.pubWords b (List.drop n ws)
+        | none => []
+    | a.sum b, ws =>
+      if TermPtrRts.sNo (a.sum b) = true then ws
+      else
+        if (a.sum b).tier = CoreLang.Tier.boxed then ws
+        else
+          match TermRun.decodeArm (a.sum b).tier (TermRun.armsOf (TermSound.lnorm (a.sum b))) ws with
+          | some (j, p) =>
+            if j < (TermRun.armsOf a).length then TermPtrRts.pubArm a j p
+            else TermPtrRts.pubArm b (j - (TermRun.armsOf a).length) p
+          | none => []
+    | t.refine ψ, ws => if TermPtrRts.sNo (t.refine ψ) = true then ws else TermPtrRts.pubWords t ws
+    | t.iall, ws => if TermPtrRts.sNo t.iall = true then ws else TermPtrRts.pubWords t ws
+    | t.iex, ws => if TermPtrRts.sNo t.iex = true then ws else TermPtrRts.pubWords t ws
+    | t.mu, ws => if TermPtrRts.sNo t.mu = true then ws else TermPtrRts.pubWords t ws
+    | CoreLang.Ty.tex κ t, ws => if TermPtrRts.sNo (CoreLang.Ty.tex κ t) = true then ws else TermPtrRts.pubWords t ws
+    | t, ws => if TermPtrRts.sNo t = true then ws else []
+TermPtrRts.sNo : CoreLang.Ty → Bool
+  eq_def ∀ (x : CoreLang.Ty),
+  TermPtrRts.sNo x =
+    match x with
+    | CoreLang.Ty.ptr μ τ => TermPtrRts.mPub μ
+    | CoreLang.Ty.ptrOpt μ τ => TermPtrRts.mPub μ
+    | CoreLang.Ty.loc μ τ => TermPtrRts.mPub μ
+    | a.prod b => TermPtrRts.sNo a && TermPtrRts.sNo b
+    | a.sum b => TermPtrRts.sNo a && TermPtrRts.sNo b
+    | t.refine ψ => TermPtrRts.sNo t
+    | t.iall => TermPtrRts.sNo t
+    | t.iex => TermPtrRts.sNo t
+    | t.mu => TermPtrRts.sNo t
+    | CoreLang.Ty.tex κ t => κ.noOwn && TermPtrRts.sNo t
+    | CoreLang.Ty.array i t => TermPtrRts.sNo t
+    | x => true
 TermPtrRts.tminG : TermCut.GEnv → TermRun.Cfg → Nat → WeakMem.AllocLabel → Option WeakMem.Ts
   := fun Eg c j a =>
   match c.ths[j]? with
@@ -1450,6 +1618,7 @@ TermRun.Cfg : Type
 TermRun.Cfg.boxFence : TermRun.Cfg → Bool
 TermRun.Cfg.lbase : TermRun.Cfg → Nat
 TermRun.Cfg.mem : TermRun.Cfg → WeakMem.Memory
+TermRun.Cfg.n : TermRun.Cfg → Nat
 TermRun.Cfg.pairs : TermRun.Cfg → List WeakMem.Ts
 TermRun.Cfg.ths : TermRun.Cfg → Array TermRun.TTh
 TermRun.Env : Type
@@ -1477,6 +1646,7 @@ TermRun.TTh.nalloc : TermRun.TTh → Nat
 TermRun.TTh.promises : TermRun.TTh → List WeakMem.Ts
 TermRun.TTh.stack : TermRun.TTh → List TermRun.Frame
 TermRun.TTh.term : TermRun.TTh → CoreTerm.Expr
+TermRun.TTh.tidLbl : TermRun.TTh → Option WeakMem.AllocLabel
 TermRun.TTh.undefs : TermRun.TTh → Nat
 TermRun.TTh.vs : TermRun.TTh → WeakMem.VState
 TermRun.TTh.σs : TermRun.TTh → List CoreLang.Ty
@@ -1524,13 +1694,13 @@ TermScope.ProgScopeOKW : CoreTerm.Prog → Bool
   := fun p => TermScope.ProgScopeOK p && TermScope.ProgWrapOK p
 TermScope.ProgWrapOK : CoreTerm.Prog → Bool
   := fun p => List.all p (TermScope.declWrapOK p)
-TermScope.RunDRF : TermRun.Cfg → Prop
-  := fun c => ∀ (i : Nat) (th : TermRun.TTh), c.ths[i]? = some th → TermScope.ThDRF th
-TermScope.ThDRF : TermRun.TTh → Prop
-  | TermScope.ThDRF.mk : ∀ {th : TermRun.TTh},
+TermScope.RunScope : TermRun.Cfg → Prop
+  := fun c => ∀ (i : Nat) (th : TermRun.TTh), c.ths[i]? = some th → TermScope.ThScope th
+TermScope.ThScope : TermRun.TTh → Prop
+  | TermScope.ThScope.mk : ∀ {th : TermRun.TTh},
   TermScope.allOK th.term = true →
     TermScope.AllDrf th.σs →
-      TermScope.EnvDRF th.env th.term → (∀ (f : TermRun.Frame), f ∈ th.stack → TermScope.FrDRF f) → TermScope.ThDRF th
+      TermScope.EnvDRF th.env th.term → (∀ (f : TermRun.Frame), f ∈ th.stack → TermScope.FrDRF f) → TermScope.ThScope th
 TermScope.allOK : CoreTerm.Expr → Bool
   eq_def ∀ (x : CoreTerm.Expr),
   TermScope.allOK x =
@@ -2029,6 +2199,7 @@ TermScope.opArgOK : CoreTerm.Op → Bool
   := fun x =>
   match x with
   | CoreTerm.Op.call f is a ts => ts.all TermScope.argOK
+  | CoreTerm.Op.spawn f a T ts => TermScope.wrapOK T && ts.all TermScope.argOK
   | CoreTerm.Op.packT a σ τ => TermScope.argOK σ && TermScope.wrapOK τ
   | op => (TermScope.opTys op).all TermScope.wrapOK
 TermScope.opAts : CoreTerm.Op → List CoreTerm.At
@@ -2057,6 +2228,8 @@ TermScope.opAts : CoreTerm.Op → List CoreTerm.At
   | CoreTerm.Op.packT a σ target => [a]
   | CoreTerm.Op.validate y => [CoreTerm.At.var y]
   | CoreTerm.Op.call f is a ts => [a]
+  | CoreTerm.Op.spawn f a T ts => [a]
+  | CoreTerm.Op.ext n a => [a]
   | CoreTerm.Op.borrow s t => [t]
   | CoreTerm.Op.endBorrow t => [t]
   | CoreTerm.Op.xchg a v => [a, v]
@@ -2114,6 +2287,7 @@ TermScope.opTys : CoreTerm.Op → List CoreLang.Ty
   | CoreTerm.Op.zero τ => [τ]
   | CoreTerm.Op.packT a σ τ => [σ, τ]
   | CoreTerm.Op.call f is a ts => ts
+  | CoreTerm.Op.spawn f a T ts => T :: ts
   | x => []
 TermScope.rcar : CoreLang.Ty → Bool
   := fun t => TermScope.rcarE [] t
@@ -2571,6 +2745,10 @@ TermSound.VR : (Nat → Nat) → TermSound.TEnv → CoreLang.Ty → TermSound.Sh
     match x, x_1, x_2 with
     | CoreLang.Ty.intS i, x, ws => List.map (fun x => x.val) ws = [WeakMem.Val.num (CoreTyping.ev ρ i)]
     | CoreLang.Ty.int, x, ws => ∃ n, List.map (fun x => x.val) ws = [WeakMem.Val.num n]
+    | CoreLang.Ty.tid, x, ws =>
+      ∃ l c,
+        List.map (fun x => x.val) ws = [WeakMem.Val.loc { label := l, offset := 0 } 0] ∧
+          η.sto l = some c ∧ c.ty = CoreLang.Ty.unit ∧ TermSound.ModeOK η.tid η.pfr η.seen CoreLang.Mode.pub l c ws
     | CoreLang.Ty.fix sg w, rt, ws =>
       rt = TermSound.Shp.fix sg w ∧ ∃ n, List.map (fun x => x.val) ws = [WeakMem.Val.num n] ∧ n < TermRun.pw2 w
     | CoreLang.Ty.lanes sg w, rt, ws =>
@@ -2680,6 +2858,8 @@ TermSound.VRR : (Nat → Nat) → TermSound.TEnv → CoreLang.Ty → TermSound.S
     | CoreLang.Ty.intS i, x, ws, R =>
       List.map (fun x => x.val) ws = [WeakMem.Val.num (CoreTyping.ev ρ i)] ∧ R = TermSound.Res.zero
     | CoreLang.Ty.int, x, ws, R => (∃ n, List.map (fun x => x.val) ws = [WeakMem.Val.num n]) ∧ R = TermSound.Res.zero
+    | CoreLang.Ty.tid, x, ws, R =>
+      TermSound.VR ρ η CoreLang.Ty.tid (TermSound.Shp.leaf (some 1)) ws ∧ R = TermSound.Res.zero
     | CoreLang.Ty.fix sg w, rt, ws, R =>
       (rt = TermSound.Shp.fix sg w ∧ ∃ n, List.map (fun x => x.val) ws = [WeakMem.Val.num n] ∧ n < TermRun.pw2 w) ∧
         R = TermSound.Res.zero
@@ -2882,6 +3062,7 @@ TermSound.ZRel : CoreLang.IEnv → CoreLang.Ty → CoreLang.Ty → Prop
     | CoreLang.Ty.unit, CoreLang.Ty.unit => True
     | CoreLang.Ty.void, CoreLang.Ty.void => True
     | CoreLang.Ty.int, CoreLang.Ty.int => True
+    | CoreLang.Ty.tid, CoreLang.Ty.tid => True
     | CoreLang.Ty.intS i, CoreLang.Ty.intS j => TermSound.IdxLe env i j
     | CoreLang.Ty.fix sg w, CoreLang.Ty.fix sg_1 w_1 => True
     | CoreLang.Ty.lanes sg w, CoreLang.Ty.lanes sg_1 w_1 => True
@@ -3737,6 +3918,21 @@ TermSys.BoxTopG : TermCut.GEnv → TermRun.Cfg → Prop
         ∃ t, t ≤ B.fr ∧ ¬t ∈ TermCut.allProms c ∧ TermStep.LatestP c.mem [] (fun x => t) { label := l, offset := o } w
 TermSys.FpOwnFree : TermCut.GEnv → TermRun.Cfg → Prop
   := fun Eg c => ∀ (i : Nat) (th : TermRun.TTh) (t : WeakMem.Ts), c.ths[i]? = some th → t ∈ Eg.fpOf i → ¬t ∈ th.promises
+TermSys.FreshU : Nat →
+  TermCut.GEnv →
+    TermRun.Cfg →
+      (Nat → TermSound.Res) → (Nat → TermSound.Res) → TermSound.Res → (Nat → WeakMem.Ts → TermSound.Res) → Prop
+  := fun N Eg c Tot HP HS cr =>
+  ∀ (q j : Nat),
+    c.ths.size ≤ q →
+      q < N →
+        TermSys.FreshX Eg c (TermRun.freshLabel c.lbase N q j) ∧
+          TermSys.OwnZ c Tot HP HS cr (TermRun.freshLabel c.lbase N q j)
+TermSys.FreshX : TermCut.GEnv → TermRun.Cfg → WeakMem.AllocLabel → Prop
+  := fun Eg c x =>
+  Eg.sto x = none ∧
+    Eg.box x = none ∧
+      Eg.ini x = 0 ∧ Eg.pfr x = none ∧ ∀ (t : Nat) (m : WeakMem.Msg), c.mem[t]? = some m → m.loc.label ≠ x
 TermSys.FrontierLe : TermCut.GEnv → Nat → Prop
   := fun Eg n =>
   ∀ (l : WeakMem.AllocLabel) (cl : TermSound.Cell) (f : WeakMem.Ts), Eg.sto l = some cl → Eg.pfr l = some f → f ≤ n
@@ -3750,6 +3946,12 @@ TermSys.GStoMg : TermCut.GEnv → Prop
   := fun Eg => ∀ (l : WeakMem.AllocLabel) (c : TermSound.Cell), Eg.sto l = some c → TermTv.mg c.ty = true
 TermSys.KeySum : Nat → (Nat → TermSound.Res) → TermSound.Res → TermSound.Key → Prop
   := fun N T HS k => (List.map (fun i => T i k) (List.range N)).sum + HS k ≤ 1
+TermSys.OwnZ : TermRun.Cfg →
+  (Nat → TermSound.Res) →
+    (Nat → TermSound.Res) → TermSound.Res → (Nat → WeakMem.Ts → TermSound.Res) → WeakMem.AllocLabel → Prop
+  := fun c Tot HP HS cr x =>
+  (∀ (n : Nat), n < c.ths.size → (Tot n + HP n + TermSys.pSumAt c n (cr n)) (TermSound.Key.own x) = 0) ∧
+    HS (TermSound.Key.own x) = 0
 TermSys.PromsDisj : TermRun.Cfg → Prop
   := fun c =>
   ∀ (i j : Nat) (thi thj : TermRun.TTh) (t : WeakMem.Ts),
@@ -3781,8 +3983,7 @@ TermSys.SysInvW : CoreTerm.Prog →
                   c.ths[i]? = some th → TermStep.FpOK (TermCut.Cut Eg i S) (TermRun.stOf c.mem c.pairs th)) →
                 (∀ (i : Nat) (th : TermRun.TTh),
                     c.ths[i]? = some th →
-                      ∀ (j : Nat),
-                        th.nalloc ≤ j → TermSys.GFreshL Eg c th (TermRun.freshLabel c.lbase c.ths.size i j)) →
+                      ∀ (j : Nat), th.nalloc ≤ j → TermSys.GFreshL Eg c th (TermRun.freshLabel c.lbase c.n i j)) →
                   (∃ M,
                       MintOK M ∧
                         (TermSys.thSum c.ths.size fun i => Tot i + TermSys.pSumAt c i (cr i) + HP i) + HS ≤
@@ -3799,7 +4000,8 @@ TermSys.SysInvW : CoreTerm.Prog →
                                       TermSys.FrontierLe Eg (Array.size c.mem) →
                                         (∀ (l : WeakMem.AllocLabel), Eg.rini l ≤ Eg.ini l) →
                                           TermCut.GBoxNamed Eg →
-                                            TermSys.SysInvW p k arch Init MintOK c Eg Tot HP HS cr db
+                                            TermSys.FreshU c.n Eg c Tot HP HS cr →
+                                              TermSys.SysInvW p k arch Init MintOK c Eg Tot HP HS cr db
 TermSys.ThSys : CoreTerm.Prog →
   TermRun.G →
     WeakMem.Memory →
@@ -3894,7 +4096,7 @@ TermTyped.PubWinSAN : CoreTerm.Prog → TermRun.G → WeakMem.Memory → List We
             TermStep.MemInv g (TermSound.CE η) (TermRun.stOf mem pairs th) →
               TermSound.Ext E1 (TermSound.CE η) →
                 TermTyped.IniAnch E1 (TermSound.CE η) →
-                  TermTyped.RiniMem E0 E1 (TermSound.CE η) (TermRun.stOf mem pairs th) →
+                  TermTyped.RiniMem E1 (TermSound.CE η) (TermRun.stOf mem pairs th) →
                     TermTyped.PubWinTN (TermSound.CE η) (TermRun.stOf mem pairs th) th
 TermTyped.PubWinTN : TermSound.TEnv → TermRun.St → TermRun.TTh → Prop
   := fun E s th =>
@@ -3917,8 +4119,8 @@ TermTyped.RiniCoh : TermSound.TEnv → TermRun.St → Prop
                   TermRun.accs e = some us →
                     E.rc m.loc.label * TermRun.nWords us ≤ m.loc.offset →
                       m.loc.offset < N * TermRun.nWords us → m.val = WeakMem.Val.undef
-TermTyped.RiniMem : TermSound.TEnv → TermSound.TEnv → TermSound.TEnv → TermRun.St → Prop
-  := fun E0 E1 E s =>
+TermTyped.RiniMem : TermSound.TEnv → TermSound.TEnv → TermRun.St → Prop
+  := fun E1 E s =>
   ∀ (l : WeakMem.AllocLabel) (c : TermSound.Cell) (N : Nat) (e : CoreLang.Ty) (us : List TermRun.Acc) (j : Nat),
     E.sto l = some c →
       c.owner = some E.tid →

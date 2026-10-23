@@ -63,6 +63,9 @@ structure Reg64s where
   X29 : UInt64 := 0
   X30 : UInt64 := 0
   SP : UInt64 := 0
+  /-- The thread pointer `TPIDR_EL0` (`MRS`/`MSR`): private to the thread like the
+  general registers, no memory event, initially 0 (`Kraken/SYSCALL.md`). -/
+  TPIDR_EL0 : UInt64 := 0
   deriving Repr, BEq, DecidableEq, Hashable, Lean.ToExpr
 
 @[kstep] def Reg64s.getXReg (s : Reg64s) (r : XReg) := match r with
@@ -165,6 +168,17 @@ instance (w : RegWidth) : NondetSupportingType w.type := .bitvec w
 instance : NondetSupportingType Bool := .bool
 instance : NondetSupportingType StatusFlags := .statusFlags
 
+/-- A system call (`SVC #imm`) as the instruction leaves it to the kernel: the
+immediate, the system-call number register `X8` and the argument registers
+`X0`–`X5`, in order. Kraken attaches no meaning to them; they are what a kernel
+model (a parameter of the certification semantics, see `Kraken/SYSCALL.md`)
+consults. -/
+structure SyscallInfo where
+  imm : Nat
+  num : BitVec 64
+  args : List (BitVec 64)
+  deriving Repr, BEq
+
 inductive Effects
   | done (a : MachineData × Int64)
   | unimplemented (msg : String)
@@ -212,6 +226,12 @@ inductive Effects
   -- otherwise write nothing; `ret` receives the old halves.
   | rmw_pair (k : Kraken.RmwKind) (dmem : DataMem) (addr : BitVec 64) {w : MemWidth}
       (cmp1 cmp2 new1 new2 : w.type) (ret : w.type → w.type → DataMem → Effects)
+  -- A system call (`MachineData.pendingSyscall`): `ret` continues after the
+  -- instruction with the kernel's result in `X0`. Every consumer of the
+  -- semantics treats it as the fault `unimplemented (pendingSyscallMsg info.imm)`
+  -- except the certification adapter (`Kraken.Promising.AArch64.toEvCert`),
+  -- which continues with each result a kernel-model parameter allows.
+  | syscall (info : SyscallInfo) (ret : BitVec 64 → Effects)
 export Effects (unimplemented nonmem_load nonmem_store undefined require_read_access require_write_access require_exec_access
   sync_load sync_store rmw fence sync_load_pair sync_store_pair rmw_pair)
 
@@ -676,6 +696,38 @@ def StatusFlags.ofNat (nzcv : Nat) : StatusFlags :=
     let mask : w.type := (maskOfLen (w := w) len) <<< pos
     let field : w.type := (src &&& maskOfLen (w := w) len) <<< pos
     (dst &&& ~~~mask) ||| field
+
+/-- The value of a system register (`MRS`). -/
+@[kstep] def Reg64s.getSysReg (s : Reg64s) : SysReg → BitVec 64
+  | .TPIDR_EL0 => s.TPIDR_EL0.toBitVec
+
+/-- Write a system register (`MSR`). -/
+@[kstep] def Reg64s.setSysReg (s : Reg64s) (sr : SysReg) (v : BitVec 64) : Reg64s :=
+  match sr with
+  | .TPIDR_EL0 => { s with TPIDR_EL0 := UInt64.ofBitVec v }
+
+/-- The message of the halt at a supervisor call (`pendingSyscall`). -/
+def pendingSyscallMsg (imm : Nat) : String := s!"pending system call: svc #{imm}"
+
+/-- **The system-call step: the extension point.** `SVC #imm` with the machine
+state `s` and the continuation `next` (the state after the instruction).
+
+The step is the effect `Effects.syscall` with the immediate, `X8` and
+`X0`–`X5`, continuing with `next` from `s` with the kernel's result in `X0`
+(every other register, the flags and the private memory unchanged). There is
+no kernel model in Kraken: every consumer but one treats the effect as the
+distinguished status `unimplemented (pendingSyscallMsg imm)`, with no memory
+effect. The sequential evaluator reports it as that error, the program logics
+can prove nothing past it, and the Promising adapter
+(`Kraken.Promising.AArch64.toEv`) makes it a fault with that message. The
+certification adapter (`toEvCert`) continues with every result a kernel-model
+parameter allows. A real step (trace events for `write`/`exit_group`, `clone`,
+`futex`) replaces this one definition. See `Kraken/SYSCALL.md`. -/
+def MachineData.pendingSyscall (s : MachineData) (imm : Nat) (next : MachineData → Effects) :
+    Effects :=
+  let x (r : XReg) : BitVec 64 := (s.regs.getXReg r).toBitVec
+  .syscall { imm, num := x .X8, args := [x .X0, x .X1, x .X2, x .X3, x .X4, x .X5] }
+    (fun r => next { s with regs := s.regs.setXReg .X0 r })
 
 set_option maxHeartbeats 1000000
 @[kstep] def Operation.interp [Labels]
@@ -1182,6 +1234,9 @@ set_option maxHeartbeats 1000000
   | .DSB k => fence (if k == .st then .stAll else k) (fun _unit => next s)
   | .ISB => fence .isb (fun _unit => next s)
   | .NOP => next s
+  | .SVC imm => s.pendingSyscall imm next
+  | .MRS dst sr => s.setRegOrZr dst (s.regs.getSysReg sr) next
+  | .MSR sr src => next { s with regs := s.regs.setSysReg sr (s.regs.getRegOrZr src) }
 
 @[kstep] def Instr.interp [Labels]
   (i : Instr) (s : MachineData) (p : Std.Rco Int64)
@@ -1249,6 +1304,7 @@ where
     | .fence _ ok => handleEffects (ok ())
     | .unaligned_sp sp => .error s!"SP={sp} (is not 16-byte aligned)"
     | @Effects.undefined _ t cont => handleEffects (cont (t.from_hash (hash s.1.regs)))
+    | .syscall info _ => .error (pendingSyscallMsg info.imm)
 
 def Directive.fakeSize (d : Directive) : Nat :=
   match d with
@@ -1504,3 +1560,34 @@ private def runPairTest {α} (prog : Program) (f : MachineData → α)
     .instr ⟨.W64, .LDXP .plain .X2 .X3 .X1⟩]
   (fun s => memAt s)
   (regs := { X1 := 0x108 })
+
+-- The thread pointer: `TPIDR_EL0` starts at 0; `MSR` sets it from X1 (0x100),
+-- `MRS` reads it back into X2, and a load through X2 reads the word 42.
+/-- info: Except.ok (0, 256, 256, 42) -/
+#guard_msgs in
+#eval runAtomicTest [
+    .instr ⟨.W64, .MRS .X4 .TPIDR_EL0⟩,
+    .instr ⟨.W64, .MSR .TPIDR_EL0 .X1⟩,
+    .instr ⟨.W64, .MRS .X2 .TPIDR_EL0⟩,
+    .instr ⟨.W64, .LDR .X3 (.addr { base := .X2, off := 0 })⟩]
+  (fun s => (s.regs.X4, s.regs.X2, s.regs.TPIDR_EL0, s.regs.X3))
+
+-- `MSR` from `XZR` clears it; `MRS` to `XZR` writes nothing.
+/-- info: Except.ok (0, 0) -/
+#guard_msgs in
+#eval runAtomicTest [
+    .instr ⟨.W64, .MSR .TPIDR_EL0 .X1⟩,
+    .instr ⟨.W64, .MRS .XZR .TPIDR_EL0⟩,
+    .instr ⟨.W64, .MSR .TPIDR_EL0 .XZR⟩,
+    .instr ⟨.W64, .MRS .X2 .TPIDR_EL0⟩]
+  (fun s => (s.regs.X2, s.regs.TPIDR_EL0))
+
+-- A supervisor call stops the sequential evaluator with the pending-system-call
+-- status (`MachineData.pendingSyscall`); nothing after it runs.
+/-- info: Except.error "pending system call: svc #0" -/
+#guard_msgs in
+#eval runAtomicTest [
+    .instr ⟨.W64, .ADD_e .X2 .X2 1⟩,
+    .instr ⟨.W64, .SVC 0⟩,
+    .instr ⟨.W64, .ADD_e .X2 .X2 1⟩]
+  (fun s => s.regs.X2)

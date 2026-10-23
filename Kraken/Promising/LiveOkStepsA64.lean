@@ -86,6 +86,7 @@ theorem toEv_total (ds : Decls) (e : Effects) : (toEv ds e).Total A tid iv := by
   induction e with
   | done a => exact .done _
   | unimplemented msg => exact .fault _
+  | syscall => exact .fault _
   | unaligned_sp sp => exact .fault _
   | nonmem_load dmem addr w ret ih => exact .access fun _ => .load fun _ => ih _ _
   | nonmem_store dmem addr v ret ih => exact .access fun _ => .store fun _ => ih _

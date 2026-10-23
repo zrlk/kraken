@@ -256,6 +256,7 @@ def opAts : Op → List At
   | .validate y => [.var y]
   | .call _ _ a _ => [a]
   | .spawn _ a _ _ => [a]
+  | .ext _ a => [a]
   | .borrow _ t => [t]
   | .endBorrow t => [t]
   | .xchg a v => [a, v]
@@ -814,12 +815,13 @@ theorem tstep_drf {g : G} {mem : WeakMem.Memory} {pairs : List WeakMem.Ts} {th :
     simp only [allOK, Bool.and_eq_true] at hok
     split at hr
     · split at hr
-      · simp only [List.mem_singleton] at hr
-        subst hr
-        split
-        · exact ⟨hok.1, hσ, envDRF_sub henv (fun z hz => by simp [freeB, hz]), hstk⟩
-        · exact ⟨hok.2, hσ, envDRF_sub henv (fun z hz => by simp [freeB, hz]), hstk⟩
-      · simp at hr
+      all_goals first
+        | (simp only [List.mem_singleton] at hr
+           subst hr
+           split <;> first
+             | exact ⟨hok.1, hσ, envDRF_sub henv (fun z hz => by simp [freeB, hz]), hstk⟩
+             | exact ⟨hok.2, hσ, envDRF_sub henv (fun z hz => by simp [freeB, hz]), hstk⟩)
+        | simp at hr
     · simp at hr
   · -- cas
     rename_i _ acq rel w e v t ok fail heq
@@ -1089,6 +1091,7 @@ theorem scope_termV {p : Prog} {cx : Cx} {t : Expr} {ρ : Nat → Nat} {η : TEn
     case mkTicket r N P v tk => simp [opOK] at hok
     case claim a tk => simp [opOK] at hok
     case spawn f a T ts => exact (hns trivial).elim
+    case ext n a => exact (hns trivial).elim
     all_goals exact .inl trivial
   | cas acq rel w e v t' ok fail =>
     refine .inl (fun ty hp => ?_)

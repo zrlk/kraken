@@ -24,7 +24,7 @@ Which Kraken event each row is: `Kraken/Promising/Lower/EventsA64.lean` and
     python3 Kraken/Litmus/litmus_tests.py --lse2 Kraken/Litmus/corpus/lowering/aarch64/lse2
     python3 Kraken/Litmus/litmus_tests.py --isa x64 Kraken/Litmus/corpus/lowering/x64
 
-Expected: 159/0/0, 12/0/0 and 43/0/0 (match/mismatch/unsupported). Together
+Expected: 159/0/0, 18/0/0 and 43/0/0 (match/mismatch/unsupported). Together
 they take about 10 s; every test takes under 0.2 s and under 80 MB, so there
 is no `slow.txt`. The two `open/` directories are outside the regression run
 (see below).

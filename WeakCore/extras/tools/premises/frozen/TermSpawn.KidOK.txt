@@ -70,6 +70,7 @@ CoreLang.Ty.refine : CoreLang.Ty → CoreLang.Pred → CoreLang.Ty
 CoreLang.Ty.share : CoreLang.Idx → CoreLang.Ty
 CoreLang.Ty.sum : CoreLang.Ty → CoreLang.Ty → CoreLang.Ty
 CoreLang.Ty.tex : CoreLang.Kind → CoreLang.Ty → CoreLang.Ty
+CoreLang.Ty.tid : CoreLang.Ty
 CoreLang.Ty.tier : CoreLang.Ty → CoreLang.Tier
 CoreLang.Ty.tok : CoreLang.Idx → Option (CoreLang.Proto × CoreLang.Idx) → CoreLang.Ty
 CoreLang.Ty.tok2 : CoreLang.Idx → CoreLang.Proto2 → CoreLang.Idx → CoreLang.Idx → CoreLang.Ty
@@ -489,6 +490,8 @@ TermSound.TEnv.box : TermSound.TEnv → WeakMem.AllocLabel → Option TermSound.
   := fun self => self.11
 TermSound.TEnv.fp : TermSound.TEnv → List WeakMem.Ts
   := fun self => self.15
+TermSound.TEnv.get : TermSound.TEnv → Nat → TermSound.Shp → List TermRun.Word → Prop
+  := fun η k => η.rels k
 TermSound.TEnv.ini : TermSound.TEnv → WeakMem.AllocLabel → Nat
   := fun self => self.7
 TermSound.TEnv.ins : Nat → CoreLang.Ty → TermSound.TEnv → TermSound.TEnv
@@ -547,6 +550,116 @@ TermSound.TEnv.wit : TermSound.TEnv → Nat → CoreLang.Ty
   := fun self => self.3
 TermSound.VEq : List TermRun.Word → List TermRun.Word → Prop
   := fun ws ws' => List.map (fun x => x.val) ws = List.map (fun x => x.val) ws'
+TermSound.VR : (Nat → Nat) → TermSound.TEnv → CoreLang.Ty → TermSound.Shp → List TermRun.Word → Prop
+  eq_def ∀ (ρ : Nat → Nat) (η : TermSound.TEnv) (x : CoreLang.Ty) (x_1 : TermSound.Shp) (x_2 : List TermRun.Word),
+  TermSound.VR ρ η x x_1 x_2 =
+    match x, x_1, x_2 with
+    | CoreLang.Ty.intS i, x, ws => List.map (fun x => x.val) ws = [WeakMem.Val.num (CoreTyping.ev ρ i)]
+    | CoreLang.Ty.int, x, ws => ∃ n, List.map (fun x => x.val) ws = [WeakMem.Val.num n]
+    | CoreLang.Ty.tid, x, ws =>
+      ∃ l c,
+        List.map (fun x => x.val) ws = [WeakMem.Val.loc { label := l, offset := 0 } 0] ∧
+          η.sto l = some c ∧ c.ty = CoreLang.Ty.unit ∧ TermSound.ModeOK η.tid η.pfr η.seen CoreLang.Mode.pub l c ws
+    | CoreLang.Ty.fix sg w, rt, ws =>
+      rt = TermSound.Shp.fix sg w ∧ ∃ n, List.map (fun x => x.val) ws = [WeakMem.Val.num n] ∧ n < TermRun.pw2 w
+    | CoreLang.Ty.lanes sg w, rt, ws =>
+      rt = TermSound.Shp.lanes sg w ∧ ∃ n, List.map (fun x => x.val) ws = [WeakMem.Val.num n]
+    | t.refine ψ, rt, ws => TermSound.VR ρ η t rt ws ∧ TermSound.IniR ρ (η.selIni t) ψ ws
+    | b.iex, rt, ws => ∃ n rb w, rt = TermSound.Shp.iex n rb ∧ TermSound.VR (TermSound.vcons w ρ) η b rb ws
+    | a.prod b, rt, ws =>
+      ∃ ra rb,
+        rt = ra.prod rb ∧
+          ∀ (n : Nat),
+            ra.wc = some n →
+              n ≤ ws.length ∧ TermSound.VR ρ η a ra (List.take n ws) ∧ TermSound.VR ρ η b rb (List.drop n ws)
+    | a.sum b, rt, ws =>
+      ∃ n Ra Rb,
+        rt = TermSound.Shp.sum n (Ra.sum Rb) ∧
+          (((Ra.sum Rb).tier = CoreLang.Tier.boxed ∧
+              ∃ x s B,
+                List.map (fun x => x.val) ws = [WeakMem.Val.loc x 0] ∧
+                  x.offset = 0 ∧
+                    η.box x.label = some B ∧
+                      n = some (s + 1) ∧
+                        (s ≤ B.tag ∧ (TermRun.armsOf (Ra.sum Rb))[B.tag - s]?.bind TermSound.wc = some B.pay.length) ∧
+                          ((η.seen x.label ∧ ∃ f, η.pfr x.label = some f ∧ B.fr ≤ f) ∨
+                              ∀ (w : TermRun.Word), w ∈ ws → B.fr ≤ w.view) ∧
+                            (B.tag - s < (TermRun.armsOf Ra).length →
+                                (TermRun.isBoxed Ra = true →
+                                    TermSound.VR ρ η a (TermSound.vsh s (TermSound.shp Ra)) ws) ∧
+                                  (TermRun.isBoxed Ra = false →
+                                    ∃ q,
+                                      TermRun.ofArm Ra (B.tag - s) B.pay = some q ∧
+                                        TermSound.ShapeC Ra q ∧
+                                          TermSound.wc Ra ≠ none ∧
+                                            TermSound.Valid Ra q ∧ TermSound.VR ρ η.unsee a (TermSound.shp Ra) q)) ∧
+                              ((TermRun.armsOf Ra).length ≤ B.tag - s →
+                                (TermRun.isBoxed Rb = true →
+                                    TermSound.VR ρ η b
+                                      (TermSound.vsh (s + (TermRun.armsOf Ra).length) (TermSound.shp Rb)) ws) ∧
+                                  (TermRun.isBoxed Rb = false →
+                                    ∃ q,
+                                      TermRun.ofArm Rb (B.tag - s - (TermRun.armsOf Ra).length) B.pay = some q ∧
+                                        TermSound.ShapeC Rb q ∧
+                                          TermSound.wc Rb ≠ none ∧
+                                            TermSound.Valid Rb q ∧ TermSound.VR ρ η.unsee b (TermSound.shp Rb) q))) ∨
+            ∃ j p,
+              TermRun.decodeArm (Ra.sum Rb).tier (TermRun.armsOf (Ra.sum Rb)) ws = some (j, p) ∧
+                (j < (TermRun.armsOf Ra).length →
+                    ∃ q, TermRun.ofArm Ra j p = some q ∧ TermSound.VR ρ η a (TermSound.shp Ra) q) ∧
+                  ((TermRun.armsOf Ra).length ≤ j →
+                    ∃ q,
+                      TermRun.ofArm Rb (j - (TermRun.armsOf Ra).length) p = some q ∧
+                        TermSound.VR ρ η b (TermSound.shp Rb) q))
+    | CoreLang.Ty.tvar k, rt, ws => ∃ ws', TermSound.WLe ws' ws ∧ η.get k rt ws'
+    | σ.code τ, rt, ws =>
+      ∃ i d,
+        List.map (fun x => x.val) ws = [WeakMem.Val.num i] ∧
+          η.prog[i]? = some d ∧
+            List.find? (fun x => x.name == d.name) η.prog = some d ∧
+              d.tparams = [] ∧
+                d.idx = [] ∧
+                  TermClose.cl ρ η.wit 0 0 σ = TermSound.clD d.argTy ∧
+                    TermClose.cl ρ η.wit 0 0 τ = TermSound.clD d.retTy
+    | CoreLang.Ty.ptr μ u, x, ws =>
+      ∃ a c,
+        List.map (fun x => x.val) ws = [WeakMem.Val.loc a 0] ∧
+          a.offset = 0 ∧
+            η.sto a.label = some c ∧
+              TermSound.Fd c.ty (TermClose.cl ρ η.wit 0 0 u) ∧
+                TermSound.ModeOK η.tid η.pfr η.seen μ a.label c ws ∧ TermRun.accs c.ty ≠ none
+    | CoreLang.Ty.loc μ u, x, ws =>
+      (List.map (fun x => x.val) ws = [WeakMem.Val.null] ∧
+          ∃ e, TermSound.Fd (CoreLang.Ty.array (CoreLang.Idx.lit 0) e) (TermClose.cl ρ η.wit 0 0 u)) ∨
+        ∃ a c U,
+          List.map (fun x => x.val) ws = [WeakMem.Val.loc a 0] ∧
+            η.sto a.label = some c ∧
+              TermSound.AtOff c.ty a.offset U ∧
+                TermSound.Fd U (TermClose.cl ρ η.wit 0 0 u) ∧
+                  TermSound.ModeOK η.tid η.pfr η.seen μ a.label c ws ∧
+                    TermSound.IniAt (TermSound.modeIni μ η.ini η.rini) c a U
+    | CoreLang.Ty.ptrOpt μ u, x, ws =>
+      List.map (fun x => x.val) ws = [WeakMem.Val.null] ∨
+        ∃ a c,
+          List.map (fun x => x.val) ws = [WeakMem.Val.loc a 0] ∧
+            a.offset = 0 ∧
+              η.sto a.label = some c ∧
+                TermSound.Fd c.ty (TermClose.cl ρ η.wit 0 0 u) ∧
+                  TermSound.ModeOK η.tid η.pfr η.seen μ a.label c ws ∧ TermRun.accs c.ty ≠ none
+    | CoreLang.Ty.void, x, x_3 => False
+    | CoreLang.Ty.tex κ b, rt, ws =>
+      ∃ n rb s, rt = TermSound.Shp.tex n rb ∧ TermClose.Clo s ∧ TermSound.WitOK κ s ∧ TermSound.VR ρ (η.push0 s) b rb ws
+    | b.mu, rt, ws => TermSound.VR ρ (η.push0 (TermClose.cl ρ η.wit 0 0 b.mu)) b rt ws
+    | b.iall, rt, ws => ∀ (n : Nat), TermSound.VR (TermSound.vcons n ρ) η b rt ws
+    | CoreLang.Ty.word r P, x, ws =>
+      CoreTerm.pwf P = true ∧
+        (P.ghost = false → ∃ n, List.map (fun x => x.val) ws = [WeakMem.Val.num n] ∧ TermSound.InP P n)
+    | CoreLang.Ty.word2 r P, x, ws =>
+      CoreTerm.pwf2 P = true ∧
+        ∃ n0 n1, List.map (fun x => x.val) ws = [WeakMem.Val.num n0, WeakMem.Val.num n1] ∧ TermSound.InP2 P n0 n1
+    | CoreLang.Ty.epair r P, x, ws =>
+      CoreTerm.pwfE P = true ∧ ∃ n0 n1, List.map (fun x => x.val) ws = [WeakMem.Val.num n0, WeakMem.Val.num n1]
+    | x, x_3, x_4 => True
 TermSound.VRR : (Nat → Nat) → TermSound.TEnv → CoreLang.Ty → TermSound.Shp → List TermRun.Word → TermSound.Res → Prop
   eq_def ∀ (ρ : Nat → Nat) (η : TermSound.TEnv) (x : CoreLang.Ty) (x_1 : TermSound.Shp) (x_2 : List TermRun.Word)
   (x_3 : TermSound.Res),
@@ -556,6 +669,8 @@ TermSound.VRR : (Nat → Nat) → TermSound.TEnv → CoreLang.Ty → TermSound.S
     | CoreLang.Ty.intS i, x, ws, R =>
       List.map (fun x => x.val) ws = [WeakMem.Val.num (CoreTyping.ev ρ i)] ∧ R = TermSound.Res.zero
     | CoreLang.Ty.int, x, ws, R => (∃ n, List.map (fun x => x.val) ws = [WeakMem.Val.num n]) ∧ R = TermSound.Res.zero
+    | CoreLang.Ty.tid, x, ws, R =>
+      TermSound.VR ρ η CoreLang.Ty.tid (TermSound.Shp.leaf (some 1)) ws ∧ R = TermSound.Res.zero
     | CoreLang.Ty.fix sg w, rt, ws, R =>
       (rt = TermSound.Shp.fix sg w ∧ ∃ n, List.map (fun x => x.val) ws = [WeakMem.Val.num n] ∧ n < TermRun.pw2 w) ∧
         R = TermSound.Res.zero

@@ -599,6 +599,11 @@ theorem solo_dead {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c c' 
   | refl => exact hd
   | thread hs _ ih => exact ih (threadSteps_dead hs hd)
   | prom _ _ _ _ _ ih => exact ih (promise_dead hd)
+  | ext hs _ ih =>
+      obtain ⟨th, hth, hd⟩ := hd
+      obtain ⟨th0, th', h0, h1, hst⟩ := extSteps_stOf hs
+      rw [hth] at h0; cases h0
+      exact ih ⟨th', h1, by rw [hst]; exact hd⟩
 
 /-- **A certified thread has no dead promise.** -/
 theorem certified_noDead {p : Prog} {k : Promises.Knobs} {arch : Arch} {c : Cfg} {i : Nat} {t : Ts}
@@ -1106,6 +1111,11 @@ theorem solo_deadO {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c c'
   | refl => exact hd
   | thread hs _ ih => exact ih (threadSteps_deadO hs hd)
   | prom _ _ _ _ _ ih => exact ih (promise_deadO hd)
+  | ext hs _ ih =>
+      obtain ⟨th, hth, hd⟩ := hd
+      obtain ⟨th0, th', h0, h1, hst⟩ := extSteps_stOf hs
+      rw [hth] at h0; cases h0
+      exact ih ⟨th', h1, by rw [hst]; exact hd⟩
 
 theorem certified_noDeadO {p : Prog} {k : Promises.Knobs} {arch : Arch} {c : Cfg} {i : Nat} {t : Ts}
     (hc : Certified p k arch c i) : ¬ DeadAtO k arch c i t := by
@@ -1345,7 +1355,7 @@ theorem stepRmw_read_at {k : Promises.Knobs} {arch : Arch} {mem mem' : Memory} {
           · dsimp only; rw [ite_t rfl, he]; exact hm
           · dsimp only; rw [ite_t rfl, ite_t rfl, he]; exact Nat.le_of_lt hadj
 
-/-- **Restricted by the `CAS` fix.**  This read `ReadAt mem' th' dst a`
+/-- **Restricted by the `CAS` fix (B6).**  This read `ReadAt mem' th' dst a`
     unconditionally until a successful non-acquire `CAS` stopped writing the
     value read's timestamp into `dst`; see `RmwReadAt`. -/
 theorem stepRmw_read {k : Promises.Knobs} {arch : Arch} {mem mem' : Memory} {pairs : List Ts}
@@ -2499,6 +2509,10 @@ promises are messages and not pair starts (stage A: `FreshL_promLt`,
 def PWF (c : Cfg) (i : Nat) : Prop :=
   (∀ q, q ∈ c.pairs → q < c.mem.size) ∧ ∀ t, t ∈ promsOf c i → t < c.mem.size ∧ t ∉ c.pairs
 
+/-- (IO1) The extern move keeps every thread's promises. -/
+theorem promsOf_ext {c c' : Cfg} {i : Nat} (h : c' ∈ extSteps c i) (j : Nat) : promsOf c' j = promsOf c j := by
+  unfold promsOf; rw [extSteps_promises h j]
+
 theorem promsOf_some {c : Cfg} {i : Nat} {th : TTh} (h : c.ths[i]? = some th) :
     promsOf c i = th.promises := by
   simp [promsOf, h]
@@ -2615,6 +2629,15 @@ theorem solo_fulfil {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c c
       obtain ⟨m, hm, c3, c4, th3, hs3, hst, hs4, hth3, hm3, ht3, hn4, hsw, hc, ho⟩ :=
         ih (promise_pwf hw) t (f5 t ht) hn
       exact ⟨m, memExt_back f1 (hw.2 t ht).1 hm, c3, c4, th3, .prom a v w hw0 hs3, hst, hs4, hth3,
+        hm3, ht3, hn4, hsw, hc, ho⟩
+  | @ext c0 c1 c2 hs hrest ih =>
+      intro hw t ht hn
+      have hp : promsOf c1 i = promsOf c0 i := promsOf_ext hs i
+      have hw1 : PWF c1 i := by
+        unfold PWF; rw [hp, extSteps_mem hs, extSteps_pairs hs]; exact hw
+      obtain ⟨m, hm, c3, c4, th3, hs3, hst, hs4, hth3, hm3, ht3, hn4, hsw, hc, ho⟩ :=
+        ih hw1 t (by rw [hp]; exact ht) hn
+      exact ⟨m, by rw [← extSteps_mem hs]; exact hm, c3, c4, th3, .ext hs hs3, hst, hs4, hth3,
         hm3, ht3, hn4, hsw, hc, ho⟩
 
 theorem noPromises_nil {c : Cfg} {i : Nat} (h : noPromises c i = true) : promsOf c i = [] := by
@@ -3104,6 +3127,11 @@ theorem solo_deadV {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c c'
   | refl => exact hd
   | thread hs _ ih => exact ih (threadSteps_deadV hs hd)
   | prom _ _ _ _ _ ih => exact ih (promise_deadV hd)
+  | ext hs _ ih =>
+      obtain ⟨th, hth, hd⟩ := hd
+      obtain ⟨th0, th', h0, h1, hst⟩ := extSteps_stOf hs
+      rw [hth] at h0; cases h0
+      exact ih ⟨th', h1, by rw [hst]; exact hd⟩
 
 theorem certified_noDeadV {p : Prog} {k : Promises.Knobs} {arch : Arch} {c : Cfg} {i : Nat} {t : Ts}
     (hc : Certified p k arch c i) : ¬ DeadAtV c i t := by
@@ -3619,12 +3647,20 @@ theorem winInv_prom {c0 c : Cfg} {i : Nat} {a : Address} {v : Val} {w : Ts}
       · exact Or.inr h3
     · exact Or.inl (Or.inr (by omega))
 
+/-- (IO1) The extern move keeps the window invariant (views, promises, memory unchanged). -/
+theorem winInv_ext {c0 c c' : Cfg} {i : Nat} (hw : WinInv c0 i c) (hs : c' ∈ extSteps c i) : WinInv c0 i c' := by
+  obtain ⟨th0, th, h0, hth, a1, a2, a3, a4, a5⟩ := hw
+  obtain ⟨th1, e, v, h1, h2⟩ := extSteps_self hs
+  rw [hth] at h1; cases h1
+  exact ⟨th0, _, h0, h2, a1, by rw [extSteps_mem hs]; exact a2, a3, a4, by rw [extSteps_mem hs]; exact a5⟩
+
 theorem solo_winInv {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c0 c c' : Cfg}
     (h : Solo p k arch i c c') (hw : WinInv c0 i c) : WinInv c0 i c' := by
   induction h with
   | refl => exact hw
   | thread hs _ ih => exact ih (winInv_thread hw hs)
   | prom _ _ _ _ _ ih => exact ih (winInv_prom hw)
+  | ext hs _ ih => exact ih (winInv_ext hw hs)
 
 /-- **(F2′ P3) The plant-to-publish window.**  Thread `i` plants a promise `B`
 (at index `cP.mem.size`, view `w < cP.mem.size`), runs solo to `c`, and
@@ -3672,6 +3708,7 @@ theorem solo_append {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c1 
   | refl => exact h2
   | thread hs _ ih => exact Solo.thread hs (ih h2)
   | prom a v w hw _ ih => exact Solo.prom a v w hw (ih h2)
+  | ext hs _ ih => exact Solo.ext hs (ih h2)
 
 theorem certified_of_solo {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c c2 : Cfg}
     (h : Solo p k arch i c c2) (hc : Certified p k arch c2 i) : Certified p k arch c i := by
@@ -3712,5 +3749,7 @@ theorem holder_abovePlaceholder {p : Prog} {k : Promises.Knobs} {arch : Arch} {i
 #print axioms winInv_prom
 #print axioms solo_winInv
 #print axioms plant_pub_window
+#print axioms TermFul.promsOf_ext
+#print axioms TermCert.winInv_ext
 
 end TermCert

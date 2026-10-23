@@ -503,6 +503,13 @@ if ! echo "$trun_out" | grep -q "'TermRun.freshLabel_inj' depends on axioms"; th
   fail=1
 fi
 
+# (IO1) new theorems of TermRun.lean (extern steps under outstanding promises): std axioms only
+for thm in TermRun.extSteps_elim TermRun.extSteps_intro TermRun.extSteps_frame TermRun.extSteps_shape TermRun.extSteps_thread TermRun.set_self TermRun.extSteps_mem TermRun.extSteps_pairs TermRun.extSteps_cap TermRun.extSteps_lbase TermRun.extSteps_boxFence TermRun.extSteps_size TermRun.extSteps_n TermRun.extSteps_ne TermRun.extSteps_self TermRun.extSteps_stOf TermRun.extSteps_promises TermRun.gOf_ext TermRun.set_get_cases TermRun.extSteps_nil TermRun.extSteps_noPromises; do
+  if ! echo "$trun_out" | grep -qE "'$thm' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
+    echo "FAIL: TermRun.lean: '#print axioms $thm' missing or non-standard axioms"
+    fail=1
+  fi
+done
 # (M0) new lemmas of TermRun.lean: std axioms only
 for thm in "TermRun.Cfg.size_le_n" "TermRun.Cfg.lt_n" "TermRun.Cfg.n_of_cap0"; do
   if ! echo "$trun_out" | grep -qE "'$thm' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
@@ -524,6 +531,13 @@ case "$b2_termspawnstep_out" in
     echo "FAIL: a TermSpawnStep.lean theorem has a sorry"
     fail=1 ;;
 esac
+# (IO1) new theorems of TermSpawnStep.lean (extern steps under outstanding promises): std axioms only
+for thm in TermSpawnStep.atSite_extSteps; do
+  if ! echo "$b2_termspawnstep_out" | grep -qE "'$thm' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
+    echo "FAIL: TermSpawnStep.lean: '#print axioms $thm' missing or non-standard axioms"
+    fail=1
+  fi
+done
 # (2b) TermSpawnStep: every #print axioms theorem, std axioms only.
 for thm in \
     "TermSpawnStep.StepsG.single" \
@@ -544,6 +558,8 @@ for thm in \
     "TermSpawnStep.tstep_spawn" \
     "TermSpawnStep.threadSteps_spawn" \
     "TermSpawnStep.promise_ths" \
+    "TermSpawnStep.solo_stuck" \
+    "TermSpawnStep.cert_stuck" \
     "TermSpawnStep.solo_site" \
     "TermSpawnStep.cert_site" \
     "TermSpawnStep.threadSteps_ths_ne" \
@@ -554,6 +570,49 @@ for thm in \
   thm_re=$(printf '%s' "$thm" | sed 's/[][\\.*^$?+(){}|]/\\&/g')  # names may contain ? ! etc.
   if ! echo "${b2_termspawnstep_out}" | grep -qE "'([^' ]*\.)?$thm_re' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
     echo "FAIL: TermSpawnStep.lean: '#print axioms $thm' missing or non-standard axioms"
+    fail=1
+  fi
+done
+
+# --- TermExtStep.lean -----------------------------------------------
+# (E1) Ext: the trusted extern configuration step.
+echo "building TermExtStep.lean ..."
+if ! b2_termextstep_out=$(leanb TermExtStep 2>&1); then
+  echo "$b2_termextstep_out"
+  echo 'FAIL: TermExtStep.lean does not compile.'
+  fail=1
+fi
+case "$b2_termextstep_out" in
+  *"declaration uses"*|*sorryAx*)
+    echo "FAIL: a TermExtStep.lean theorem has a sorry"
+    fail=1 ;;
+esac
+# (IO1) new theorems of TermExtStep.lean (extern steps under outstanding promises): std axioms only
+for thm in TermExtStep.extCfg_noPromises TermExtStep.Ext.ofNoProm; do
+  if ! echo "$b2_termextstep_out" | grep -qE "'$thm' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
+    echo "FAIL: TermExtStep.lean: '#print axioms $thm' missing or non-standard axioms"
+    fail=1
+  fi
+done
+# (E1) TermExtStep: every #print axioms theorem, std axioms only.
+for thm in \
+    "TermExtStep.Ext.elim" \
+    "TermExtStep.extCfg_mem" \
+    "TermExtStep.extCfg_pairs" \
+    "TermExtStep.extCfg_cap" \
+    "TermExtStep.extCfg_lbase" \
+    "TermExtStep.extCfg_size" \
+    "TermExtStep.extCfg_n" \
+    "TermExtStep.extCfg_trace" \
+    "TermExtStep.extCfg_ths_self" \
+    "TermExtStep.extCfg_ths_ne" \
+    "TermExtStep.Ext.frame" \
+    "TermExtStep.tstep_ext" \
+    "TermExtStep.threadSteps_ext" \
+    "TermExtStep.StepsE.ofStepsX"; do
+  thm_re=$(printf '%s' "$thm" | sed 's/[][\\.*^$?+(){}|]/\\&/g')  # names may contain ? ! etc.
+  if ! echo "${b2_termextstep_out}" | grep -qE "'([^' ]*\.)?$thm_re' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
+    echo "FAIL: TermExtStep.lean: '#print axioms $thm' missing or non-standard axioms"
     fail=1
   fi
 done
@@ -882,6 +941,30 @@ for thm in alloc_latest stepStore_promSub storeUnits_growsF storeUnits_wrF store
   fi
 done
 
+# --- TermTidLbl.lean ------------------------------------------------------------
+# (E2, R2z) every thread step keeps `tidLbl`.
+echo "building TermTidLbl.lean ..."
+if ! e2_termtidlbl_out=$(leanb TermTidLbl 2>&1); then
+  echo "$e2_termtidlbl_out"
+  echo 'FAIL: TermTidLbl.lean does not compile.'
+  fail=1
+fi
+case "$e2_termtidlbl_out" in
+  *"declaration uses"*|*sorryAx*)
+    echo "FAIL: a TermTidLbl.lean theorem has a sorry"
+    fail=1 ;;
+esac
+# (E2) TermTidLbl: every #print axioms theorem, std axioms only.
+for thm in \
+    "TermTidLbl.enter_tidLbl" \
+    "TermTidLbl.tstep_tidLbl"; do
+  thm_re=$(printf '%s' "$thm" | sed 's/[][\\.*^$?+(){}|]/\\&/g')  # names may contain ? ! etc.
+  if ! echo "${e2_termtidlbl_out}" | grep -qE "'([^' ]*\.)?$thm_re' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
+    echo "FAIL: TermTidLbl.lean: '#print axioms $thm' missing or non-standard axioms"
+    fail=1
+  fi
+done
+
 # --- TermArch.lean -----------------------------------------------------------
 # Menu 2a(a), condition (a) of the ARM reference-semantics decision:
 # every configuration reachable by TermRun's declarative `Step`
@@ -897,6 +980,13 @@ case "$tarch_out" in
     echo "FAIL: a TermArch.lean theorem has a sorry"
     fail=1 ;;
 esac
+# (IO1) new theorems of TermArch.lean (extern steps under outstanding promises): std axioms only
+for thm in TermArch.ths_some_tid TermArch.extSteps_sim; do
+  if ! echo "$tarch_out" | grep -qE "'$thm' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
+    echo "FAIL: TermArch.lean: '#print axioms $thm' missing or non-standard axioms"
+    fail=1
+  fi
+done
 for thm in tso_reach_subset_arm tso_final_subset_arm; do
   if ! echo "$tarch_out" | grep -q "'TermArch.$thm' depends on axioms"; then
     echo "FAIL: TermArch.lean's '#print axioms $thm' is missing."
@@ -1322,6 +1412,13 @@ case "$tvih_out" in
     echo "FAIL: a TermViewInvH.lean theorem has a sorry"
     fail=1 ;;
 esac
+# (IO1) new theorems of TermViewInvH.lean (extern steps under outstanding promises): std axioms only
+for thm in TermViewInv.viewInv_extS; do
+  if ! echo "$tvih_out" | grep -qE "'$thm' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
+    echo "FAIL: TermViewInvH.lean: '#print axioms $thm' missing or non-standard axioms"
+    fail=1
+  fi
+done
 for thm in viewInv_step viewInv_run envVR_of_run viewInv_init; do
   if ! echo "$tvih_out" | grep -qE "'TermViewInv.$thm' (depends on axioms|does not depend on any axioms)"; then
     echo "FAIL: TermViewInv.$thm missing or uses non-standard axioms"
@@ -1509,6 +1606,13 @@ case "$tcert_out" in
     echo "FAIL: a TermCert.lean theorem has a sorry"
     fail=1 ;;
 esac
+# (IO1) new theorems of TermCert.lean (extern steps under outstanding promises): std axioms only
+for thm in TermFul.promsOf_ext TermCert.winInv_ext; do
+  if ! echo "$tcert_out" | grep -qE "'$thm' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
+    echo "FAIL: TermCert.lean: '#print axioms $thm' missing or non-standard axioms"
+    fail=1
+  fi
+done
 for thm in stepStore_dead stepRmw_dead stepRmwPair_dead alloc_dead allocBuf_dead evalOp_dead tstep_dead solo_dead certified_noDead certified_promAbove certified_alloc_noProm tstep_deadO solo_deadO certified_obAbove certified_promAboveAll certified_promAboveTso loadUnits_read certified_notRead certified_loadStep; do
   if ! echo "$tcert_out" | grep -q "'TermCert.$thm' depends on axioms"; then
     echo "FAIL: TermCert.lean's '#print axioms $thm' is missing."
@@ -1684,6 +1788,13 @@ case "$ttyped_out" in
     echo "FAIL: a TermTyped.lean theorem has a sorry"
     fail=1 ;;
 esac
+# (IO1) new theorems of TermTyped.lean (extern steps under outstanding promises): std axioms only
+for thm in TermTyped.ThInvE_emit TermTyped.ThInvRE_emit TermTyped.ThInvM_emit TermTyped.InvAt_ext TermTyped.InvAtXR_ext; do
+  if ! echo "$ttyped_out" | grep -qE "'$thm' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
+    echo "FAIL: TermTyped.lean: '#print axioms $thm' missing or non-standard axioms"
+    fail=1
+  fi
+done
 for thm in certified_hinhW1 wordOK_locPub locPub_VR plant_typeFacts plant_hpl plant_hplCl certified_promAboveSt taken_promAbove PAx_of_step certified_next ThInvM_promise_tr solo_typedL solo_typedW solo_typedP certified_promTyped certified_promWordOK certified_noPairPromT certified_promWordT SWOne_holds wordOK_good pwf_of_inv certified_noPairPromS certified_promWordS certified_noPairPromP certified_promWordP scopeD_SW IniLoc_foot IniHeld_foot witP_run; do
   if ! echo "$ttyped_out" | grep -qE "'TermTyped.$thm' (depends on axioms|does not depend on any axioms)"; then
     echo "FAIL: TermTyped.lean's '#print axioms $thm' is missing."
@@ -2201,6 +2312,13 @@ case "$tk5p_out" in
     echo "FAIL: a TermK5P.lean theorem has a sorry"
     fail=1 ;;
 esac
+# (IO1) new theorems of TermK5P.lean (extern steps under outstanding promises): std axioms only
+for thm in TermK5P.soloNP_snocE TermK5P.pfrProv_ext; do
+  if ! echo "$tk5p_out" | grep -qE "'$thm' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
+    echo "FAIL: TermK5P.lean: '#print axioms $thm' missing or non-standard axioms"
+    fail=1
+  fi
+done
 for thm in soloNP_snocT soloNP_snocP pfrProvE_start tstep_footprintK tstep_footprintKQ pubZ_noBufInit pfrProv_thread pfrProv_prom; do
   if ! echo "$tk5p_out" | grep -qE "'TermK5P.$thm' (depends on axioms|does not depend on any axioms)"; then
     echo "FAIL: TermK5P.$thm missing or uses non-standard axioms"
@@ -2222,6 +2340,13 @@ case "$g277_termk5o_out" in
     echo "FAIL: a TermK5O.lean theorem has a sorry"
     fail=1 ;;
 esac
+# (IO1) new theorems of TermK5O.lean (extern steps under outstanding promises): std axioms only
+for thm in TermK5O.pfrProvO_ext; do
+  if ! echo "$g277_termk5o_out" | grep -qE "'$thm' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
+    echo "FAIL: TermK5O.lean: '#print axioms $thm' missing or non-standard axioms"
+    fail=1
+  fi
+done
 for thm in \
     TermK5O.pfrProvO_start \
     TermK5O.pubZO_noBufInit \
@@ -3327,6 +3452,13 @@ case "$tcsc_out" in
     echo "FAIL: a TermCertScope.lean theorem has a sorry"
     fail=1 ;;
 esac
+# (IO1) new theorems of TermCertScope.lean (extern steps under outstanding promises): std axioms only
+for thm in TermCertScope.drf_ext; do
+  if ! echo "$tcsc_out" | grep -qE "'$thm' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
+    echo "FAIL: TermCertScope.lean: '#print axioms $thm' missing or non-standard axioms"
+    fail=1
+  fi
+done
 for thm in solo_drf scopeD_of scopeAt_of certScopeC_of certScopeP_of certRunC_of certRunP_of; do
   if ! echo "$tcsc_out" | grep -qE "'TermCertScope.$thm' (depends on axioms|does not depend on any axioms)"; then
     echo "FAIL: TermCertScope.$thm missing or uses non-standard axioms"
@@ -3355,6 +3487,13 @@ case "$townx2_out" in
     echo "FAIL: a TermOwnX2.lean theorem has a sorry"
     fail=1 ;;
 esac
+# (IO1) new theorems of TermOwnX2.lean (extern steps under outstanding promises): std axioms only
+for thm in TermOwnX2.ownXLe_ext; do
+  if ! echo "$townx2_out" | grep -qE "'$thm' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
+    echo "FAIL: TermOwnX2.lean: '#print axioms $thm' missing or non-standard axioms"
+    fail=1
+  fi
+done
 for thm in anchR_gen anchStep_same wrHyp run_ind_win OwnXLe.mono OwnXLe.use_ne ownXLe_start ownXLe_start_pub valOfR_own_zero cellOKR_own_zero heldEntry_pfr_own_zero memHeldOn_pfr_own_zero memHeldS_own_zero memHeld_own_priv proj_own_le proj_own_le4 memHeld_priv_le cut_sto_ne stoNIE_cut stoNIE_efoot thInvRE_ext ownXLe_run exprPkg_cases ownXStepT_of_pkgs; do
   if ! echo "$townx2_out" | grep -qE "'TermOwnX2.$thm' (depends on axioms|does not depend on any axioms)"; then
     echo "FAIL: TermOwnX2.$thm missing or uses non-standard axioms"
@@ -4154,6 +4293,13 @@ case "$towng0_out" in
     echo "FAIL: a TermOwnG0.lean theorem has a sorry"
     fail=1 ;;
 esac
+# (IO1) new theorems of TermOwnG0.lean (extern steps under outstanding promises): std axioms only
+for thm in TermOwnG0.soloNP_snoc_ext; do
+  if ! echo "$towng0_out" | grep -qE "'$thm' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
+    echo "FAIL: TermOwnG0.lean: '#print axioms $thm' missing or non-standard axioms"
+    fail=1
+  fi
+done
 for thm in soloNP_snoc_thread soloNP_snoc_prom memT memB noFulT noFul winLe_cert g0WinT_of g0Win_of; do
   if ! echo "$towng0_out" | grep -qE "'TermOwnG0.$thm' (depends on axioms|does not depend on any axioms)"; then
     echo "FAIL: TermOwnG0.$thm missing or uses non-standard axioms"
@@ -4174,6 +4320,13 @@ case "$towng0p_out" in
     echo "FAIL: a TermOwnG0P.lean theorem has a sorry"
     fail=1 ;;
 esac
+# (IO1) new theorems of TermOwnG0P.lean (extern steps under outstanding promises): std axioms only
+for thm in TermOwnG0.invAtXRB_ext; do
+  if ! echo "$towng0p_out" | grep -qE "'$thm' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
+    echo "FAIL: TermOwnG0P.lean: '#print axioms $thm' missing or non-standard axioms"
+    fail=1
+  fi
+done
 for thm in soloNP_trans runNP_inv invAtXRB_prom solo_typedXRP PfrX_of g0WinT_ofP g0Win_ofP; do
   if ! echo "$towng0p_out" | grep -qE "'TermOwnG0.$thm' (depends on axioms|does not depend on any axioms)"; then
     echo "FAIL: TermOwnG0.$thm (TermOwnG0P) missing or uses non-standard axioms"
@@ -5621,6 +5774,13 @@ case "$k1a_termnofulrun_out" in
     echo "FAIL: a TermNoFulRun.lean theorem has a sorry"
     fail=1 ;;
 esac
+# (IO1) new theorems of TermNoFulRun.lean (extern steps under outstanding promises): std axioms only
+for thm in TermPtrKey.nfInv_ext; do
+  if ! echo "$k1a_termnofulrun_out" | grep -qE "'$thm' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
+    echo "FAIL: TermNoFulRun.lean: '#print axioms $thm' missing or non-standard axioms"
+    fail=1
+  fi
+done
 for thm in TermPtrKey.noFulPlRunGL_of; do
   if ! echo "$k1a_termnofulrun_out" | grep -qE "'$thm' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
     echo "FAIL: TermNoFulRun.lean: '#print axioms $thm' missing or non-standard axioms"
@@ -8185,6 +8345,13 @@ case "$tlm_out" in
     echo "FAIL: a TermLiveMach.lean theorem has a sorry"
     fail=1 ;;
 esac
+# (IO1) new theorems of TermLiveMach.lean (extern steps under outstanding promises): std axioms only
+for thm in TermLiveMach.extSteps_setTh; do
+  if ! echo "$tlm_out" | grep -qE "'$thm' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
+    echo "FAIL: TermLiveMach.lean: '#print axioms $thm' missing or non-standard axioms"
+    fail=1
+  fi
+done
 for thm in run_freeze_or_grow frozen_noraise frozen_stale_cas frozen_load_stale crash_sim class_run certB_sound promised_rmw_may_block; do
   if ! echo "$tlm_out" | grep -qE "'TermLiveMach.$thm' (depends on axioms|does not depend on any axioms)"; then
     echo "FAIL: TermLiveMach.lean's '#print axioms $thm' is missing."
@@ -8405,6 +8572,13 @@ case "$g266_spsim_out" in
     fail=1 ;;
 esac
 
+# (IO1) new theorems of TermSpawnSim.lean (extern steps under outstanding promises): std axioms only
+for thm in TermSpawnSim.extSteps_phantC; do
+  if ! echo "$g266_spsim_out" | grep -qE "'$thm' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
+    echo "FAIL: TermSpawnSim.lean: '#print axioms $thm' missing or non-standard axioms"
+    fail=1
+  fi
+done
 # --- TermSpawnPh.lean -----------------------------------------------------
 # Spawn: Phantom configuration phantC: SysInvW/InitOK transport.
 echo "building TermSpawnPh.lean ..."
@@ -8999,6 +9173,204 @@ for thm in \
   fi
 done
 
+# --- TermBox.lean ---------------------------------------------------------------
+# (E2, R2z) the ghost thread box `EgB` and its environment facts.
+echo "building TermBox.lean ..."
+if ! e2_termbox_out=$(leanb TermBox 2>&1); then
+  echo "$e2_termbox_out"
+  echo 'FAIL: TermBox.lean does not compile.'
+  fail=1
+fi
+case "$e2_termbox_out" in
+  *"declaration uses"*|*sorryAx*)
+    echo "FAIL: a TermBox.lean theorem has a sorry"
+    fail=1 ;;
+esac
+# (E2) TermBox: every #print axioms theorem, std axioms only.
+for thm in \
+    "TermBox.EgB_sto_ne" \
+    "TermBox.EgB_pfr_ne" \
+    "TermBox.cutSto_EgB_ne" \
+    "TermBox.cutSto_EgB_self" \
+    "TermBox.cutSto_fresh" \
+    "TermBox.cut_EgB" \
+    "TermBox.incl_box" \
+    "TermBox.thInvRE_box" \
+    "TermBox.thInvE_box"; do
+  thm_re=$(printf '%s' "$thm" | sed 's/[][\\.*^$?+(){}|]/\\&/g')  # names may contain ? ! etc.
+  if ! echo "${e2_termbox_out}" | grep -qE "'([^' ]*\.)?$thm_re' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
+    echo "FAIL: TermBox.lean: '#print axioms $thm' missing or non-standard axioms"
+    fail=1
+  fi
+done
+
+# --- TermBoxT.lean --------------------------------------------------------------
+# (E2, R2z) `thSys_box`: a thread invariant survives the box (one lemma per clause).
+echo "building TermBoxT.lean ..."
+if ! e2_termboxt_out=$(leanb TermBoxT 2>&1); then
+  echo "$e2_termboxt_out"
+  echo 'FAIL: TermBoxT.lean does not compile.'
+  fail=1
+fi
+case "$e2_termboxt_out" in
+  *"declaration uses"*|*sorryAx*)
+    echo "FAIL: a TermBoxT.lean theorem has a sorry"
+    fail=1 ;;
+esac
+# (E2) TermBoxT: every #print axioms theorem, std axioms only.
+for thm in \
+    "TermBox.thSys_box" \
+    "TermBox.boxE_sto_self" \
+    "TermBox.boxE_pfr_self" \
+    "TermBox.boxE_sto_ne" \
+    "TermBox.boxE_pfr_ne" \
+    "TermBox.boxE_rc" \
+    "TermBox.boxE_own_ne" \
+    "TermBox.boxE_sto_ne_of" \
+    "TermBox.incl_boxE" \
+    "TermBox.wordOK_boxE" \
+    "TermBox.pairOK_boxE" \
+    "TermBox.valOf_boxE" \
+    "TermBox.hiddenP_boxE" \
+    "TermBox.hiddenP_nomsg" \
+    "TermBox.memOKP_boxE" \
+    "TermBox.ownOKSF_boxE" \
+    "TermBox.privCoh_boxE" \
+    "TermBox.freshLP_boxE" \
+    "TermBox.seenLE_boxE" \
+    "TermBox.not_seen_of" \
+    "TermBox.ownHidP_boxE" \
+    "TermBox.pubDefP_boxE" \
+    "TermBox.ownPubV_boxE" \
+    "TermBox.segOf_unit" \
+    "TermBox.accs_unit" \
+    "TermBox.seenOwn_boxE" \
+    "TermBox.inh_boxE" \
+    "TermBox.pubCpl_boxE" \
+    "TermBox.pubPair_boxE" \
+    "TermBox.pubLive_boxE" \
+    "TermBox.pubMem_boxE" \
+    "TermBox.pubInv_boxE" \
+    "TermBox.boxInv_boxE" \
+    "TermBox.memInv_boxE" \
+    "TermBox.heldEntry_boxE" \
+    "TermBox.priv_boxE_iff" \
+    "TermBox.memHeldP_boxE" \
+    "TermBox.memHeldS_boxE" \
+    "TermBox.promCrK_boxE"; do
+  thm_re=$(printf '%s' "$thm" | sed 's/[][\\.*^$?+(){}|]/\\&/g')  # names may contain ? ! etc.
+  if ! echo "${e2_termboxt_out}" | grep -qE "'([^' ]*\.)?$thm_re' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
+    echo "FAIL: TermBoxT.lean: '#print axioms $thm' missing or non-standard axioms"
+    fail=1
+  fi
+done
+
+# --- TermSetTh.lean -------------------------------------------------------------
+# (E2, R2z) `sysInvN_setC`: in-place replacement of one thread.
+echo "building TermSetTh.lean ..."
+if ! e2_termsetth_out=$(leanb TermSetTh 2>&1); then
+  echo "$e2_termsetth_out"
+  echo 'FAIL: TermSetTh.lean does not compile.'
+  fail=1
+fi
+case "$e2_termsetth_out" in
+  *"declaration uses"*|*sorryAx*)
+    echo "FAIL: a TermSetTh.lean theorem has a sorry"
+    fail=1 ;;
+esac
+# (E2) TermSetTh: every #print axioms theorem, std axioms only.
+for thm in \
+    "TermSetTh.sysInvN_setC" \
+    "TermSetTh.gOf_setC" \
+    "TermSetTh.setC_get" \
+    "TermSetTh.setC_self" \
+    "TermSetTh.setC_other" \
+    "TermSetTh.Same.st" \
+    "TermSetTh.sc_get" \
+    "TermSetTh.setC_promises" \
+    "TermSetTh.allProms_setC" \
+    "TermSetTh.pSumAt_setC" \
+    "TermSetTh.promAtG_setC" \
+    "TermSetTh.tminG_setC"; do
+  thm_re=$(printf '%s' "$thm" | sed 's/[][\\.*^$?+(){}|]/\\&/g')  # names may contain ? ! etc.
+  if ! echo "${e2_termsetth_out}" | grep -qE "'([^' ]*\.)?$thm_re' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
+    echo "FAIL: TermSetTh.lean: '#print axioms $thm' missing or non-standard axioms"
+    fail=1
+  fi
+done
+
+# --- TermBoxG.lean --------------------------------------------------------------
+# (E2, R2z) `sysInvN_box`: the system invariant survives the box allocation.
+echo "building TermBoxG.lean ..."
+if ! e2_termboxg_out=$(leanb TermBoxG 2>&1); then
+  echo "$e2_termboxg_out"
+  echo 'FAIL: TermBoxG.lean does not compile.'
+  fail=1
+fi
+case "$e2_termboxg_out" in
+  *"declaration uses"*|*sorryAx*)
+    echo "FAIL: a TermBoxG.lean theorem has a sorry"
+    fail=1 ;;
+esac
+# (E2) TermBoxG: every #print axioms theorem, std axioms only.
+for thm in \
+    "TermBox.sysInvN_box" \
+    "TermBox.EgB_sto_cases" \
+    "TermBox.EgB_pfr_cases" \
+    "TermBox.thB_get" \
+    "TermBox.allProms_thB" \
+    "TermBox.pSumAt_thB" \
+    "TermBox.gfresh_box" \
+    "TermBox.tgtOK_box" \
+    "TermBox.pubE_box_sto" \
+    "TermBox.pubE_box_pfr" \
+    "TermBox.vis_boxE" \
+    "TermBox.predU_boxE_iff" \
+    "TermBox.visU_boxE_iff" \
+    "TermBox.promAt_boxE" \
+    "TermBox.fpAt_boxE" \
+    "TermBox.wordUnit_boxE_iff" \
+    "TermBox.valOfR_boxE" \
+    "TermBox.overT_boxE_iff" \
+    "TermBox.winG_boxE_iff" \
+    "TermBox.crItem_boxE" \
+    "TermBox.crItemQ_boxE" \
+    "TermBox.overCrE_boxE" \
+    "TermBox.plantEdge_box" \
+    "TermBox.tminOf_box" \
+    "TermBox.tminG_box" \
+    "TermBox.pfr_ne_none_box"; do
+  thm_re=$(printf '%s' "$thm" | sed 's/[][\\.*^$?+(){}|]/\\&/g')  # names may contain ? ! etc.
+  if ! echo "${e2_termboxg_out}" | grep -qE "'([^' ]*\.)?$thm_re' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
+    echo "FAIL: TermBoxG.lean: '#print axioms $thm' missing or non-standard axioms"
+    fail=1
+  fi
+done
+
+# --- TermBoxO.lean --------------------------------------------------------------
+# (E2, R2z) `OwnLive`/`ObsAll` survive the box.
+echo "building TermBoxO.lean ..."
+if ! e2_termboxo_out=$(leanb TermBoxO 2>&1); then
+  echo "$e2_termboxo_out"
+  echo 'FAIL: TermBoxO.lean does not compile.'
+  fail=1
+fi
+case "$e2_termboxo_out" in
+  *"declaration uses"*|*sorryAx*)
+    echo "FAIL: a TermBoxO.lean theorem has a sorry"
+    fail=1 ;;
+esac
+# (E2) TermBoxO: every #print axioms theorem, std axioms only.
+for thm in \
+    "TermBox.ownLive_box" \
+    "TermBox.obsAll_box"; do
+  thm_re=$(printf '%s' "$thm" | sed 's/[][\\.*^$?+(){}|]/\\&/g')  # names may contain ? ! etc.
+  if ! echo "${e2_termboxo_out}" | grep -qE "'([^' ]*\.)?$thm_re' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
+    echo "FAIL: TermBoxO.lean: '#print axioms $thm' missing or non-standard axioms"
+    fail=1
+  fi
+done
+
 # --- TermSpawnMidM0.lean ----------------------------------------------
 # (2b) spawn mid on M0.
 echo "building TermSpawnMidM0.lean ..."
@@ -9191,6 +9563,95 @@ for thm in \
   thm_re=$(printf '%s' "$thm" | sed 's/[][\\.*^$?+(){}|]/\\&/g')  # names may contain ? ! etc.
   if ! echo "${b2_spawnarmz_out}" | grep -qE "'([^' ]*\.)?$thm_re' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
     echo "FAIL: SpawnArmZ.lean: '#print axioms $thm' missing or non-standard axioms"
+    fail=1
+  fi
+done
+
+# (E2) TermSpawnMidM0: the new `spawnT_setC`.
+for thm in \
+    "spawnT_setC"; do
+  thm_re=$(printf '%s' "$thm" | sed 's/[][\\.*^$?+(){}|]/\\&/g')  # names may contain ? ! etc.
+  if ! echo "${b2_termspawnmidm0_out}" | grep -qE "'([^' ]*\.)?$thm_re' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
+    echo "FAIL: TermSpawnMidM0.lean: '#print axioms $thm' missing or non-standard axioms"
+    fail=1
+  fi
+done
+
+# --- TermExtMid.lean ------------------------------------------------------------
+# (E2b) `sysInvN_extStep`: SysInvN across an extern step (emit/exitEv/current).
+echo "building TermExtMid.lean ..."
+if ! e2_termextmid_out=$(leanb TermExtMid 2>&1); then
+  echo "$e2_termextmid_out"
+  echo 'FAIL: TermExtMid.lean does not compile.'
+  fail=1
+fi
+case "$e2_termextmid_out" in
+  *"declaration uses"*|*sorryAx*)
+    echo "FAIL: a TermExtMid.lean theorem has a sorry"
+    fail=1 ;;
+esac
+# (E2) TermExtMid: every #print axioms theorem, std axioms only.
+for thm in \
+    "TermExtMid.ext_of_site" \
+    "TermExtMid.vrr_unit" \
+    "TermExtMid.vr_unit" \
+    "TermExtMid.cutSto_box" \
+    "TermExtMid.ownLive_setC" \
+    "TermExtMid.obsAll_setC" \
+    "TermExtMid.names_tid" \
+    "TermExtMid.lay_tid" \
+    "TermExtMid.vr_tid" \
+    "TermExtMid.sysInvN_extSet" \
+    "TermExtMid.pubWords_unit" \
+    "TermExtMid.curCfg_some" \
+    "TermExtMid.curCfg_none" \
+    "TermExtMid.sysInvN_extStep"; do
+  thm_re=$(printf '%s' "$thm" | sed 's/[][\\.*^$?+(){}|]/\\&/g')  # names may contain ? ! etc.
+  if ! echo "${e2_termextmid_out}" | grep -qE "'([^' ]*\.)?$thm_re' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
+    echo "FAIL: TermExtMid.lean: '#print axioms $thm' missing or non-standard axioms"
+    fail=1
+  fi
+done
+
+# --- ExtArmZ.lean ---------------------------------------------------------------
+# (E2b) EM0 finals at `Spawn ∨ Ext`, leaf arms, runs.
+echo "building ExtArmZ.lean ..."
+if ! e2_extarmz_out=$(leanb ExtArmZ 2>&1); then
+  echo "$e2_extarmz_out"
+  echo 'FAIL: ExtArmZ.lean does not compile.'
+  fail=1
+fi
+case "$e2_extarmz_out" in
+  *"declaration uses"*|*sorryAx*)
+    echo "FAIL: a ExtArmZ.lean theorem has a sorry"
+    fail=1 ;;
+esac
+# (E2) ExtArmZ: every #print axioms theorem, std axioms only.
+for thm in \
+    "ExtArmZ.ext_shape" \
+    "ExtArmZ.viewInv_ext" \
+    "ExtArmZ.runScope_ext" \
+    "ExtArmZ.promViewLt_ext" \
+    "ExtArmZ.promPos_ext" \
+    "ExtArmZ.promNodup_ext" \
+    "ExtArmZ.spLeafArms_ext" \
+    "ExtArmZ.SpLeafArms.or" \
+    "ExtArmZ.spLeafArms_em0" \
+    "ExtArmZ.Ext.cap_eq" \
+    "ExtArmZ.stepsE_cap_eq" \
+    "ExtArmZ.step_trace" \
+    "ExtArmZ.spawn_trace" \
+    "ExtArmZ.trace_mono" \
+    "ExtArmZ.siteNoProm_ext" \
+    "ExtArmZ.site_noPromE" \
+    "ExtArmZ.spawnArmX_em0" \
+    "ExtArmZ.machine_tokens_main_em0" \
+    "ExtArmZ.token_unique_net_em0" \
+    "ExtArmZ.token_unique_final_em0" \
+    "ExtArmZ.reachable_typed_em0"; do
+  thm_re=$(printf '%s' "$thm" | sed 's/[][\\.*^$?+(){}|]/\\&/g')  # names may contain ? ! etc.
+  if ! echo "${e2_extarmz_out}" | grep -qE "'([^' ]*\.)?$thm_re' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
+    echo "FAIL: ExtArmZ.lean: '#print axioms $thm' missing or non-standard axioms"
     fail=1
   fi
 done
@@ -11875,10 +12336,10 @@ for thm in \
   fi
 done
 
-# --- TermC1*.lean (region c1) ------------------------------------------------
+# --- TermC1*.lean (G2, region c1) ---------------------------
 # Temporary parallel copies of checkW/drf/ModeOK/noOR/PubCpl/PlantEdge/PubWinTN under new names;
 # nothing switches.  TermC1Guards' #guard lines are the c1 guards and the 51-site census.
-# Deleted (with these modules) when the change is adopted.
+# Deleted (with these modules) when the new definitions replace the old ones.
 echo "building TermC1Defs.lean ..."
 if ! c1_termc1defs_out=$(leanb TermC1Defs 2>&1); then
   echo "$c1_termc1defs_out"
@@ -11961,6 +12422,574 @@ case "$c1_termc1guards_out" in
     fail=1 ;;
 esac
 
+
+# --- TermMicro.lean (stream G: the micro-step machine) ------------------------------
+# One memory event per machine step; TermRun is unchanged.  A new module that no final
+# imports, so it changes no premise.  Its #print axioms block is the list below.
+echo "building TermMicro.lean ..."
+if ! micro_out=$(leanb TermMicro 2>&1); then
+  echo "$micro_out"
+  echo 'FAIL: TermMicro.lean does not compile.'
+  fail=1
+fi
+case "$micro_out" in
+  *"declaration uses"*|*sorryAx*)
+    echo "FAIL: a TermMicro.lean theorem has a sorry"
+    fail=1 ;;
+esac
+for thm in \
+    "TermMicro.evalOp_eq" \
+    "TermMicro.tstep_plan" \
+    "TermMicro.tstep_eq_run" \
+    "TermMicro.certified_certifiedM" \
+    "TermMicro.step_sim" \
+    "TermMicro.steps_sim" \
+    "TermMicro.sysInvM_embed" \
+    "TermMicro.sysInvM_run"; do
+  thm_re=$(printf '%s' "$thm" | sed 's/[][\\.*^$?+(){}|]/\\&/g')
+  if ! echo "${micro_out}" | grep -qE "'([^' ]*\.)?$thm_re' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
+    echo "FAIL: TermMicro.lean: '#print axioms $thm' missing or non-standard axioms"
+    fail=1
+  fi
+done
+
+# --- TermPairLayout.lean (pair-layout invariant on reachable configurations) ------
+# A new module (imports only TermSpawnDefs) that no final imports, so it changes no
+# premise.  Its #print axioms block is the list below (11 exports).
+echo "building TermPairLayout.lean ..."
+if ! pair_out=$(leanb TermPairLayout 2>&1); then
+  echo "$pair_out"
+  echo 'FAIL: TermPairLayout.lean does not compile.'
+  fail=1
+fi
+case "$pair_out" in
+  *"declaration uses"*|*sorryAx*|*ofReduceBool*)
+    echo "FAIL: a TermPairLayout.lean theorem has a sorry or a native_decide"
+    fail=1 ;;
+esac
+for thm in \
+    "TermPairLayout.pairInv_runG" \
+    "TermPairLayout.pairStep_runG" \
+    "TermPairLayout.pairInv_reach_init" \
+    "TermPairLayout.pairInv_reach_initOK" \
+    "TermPairLayout.pairInv_reach_spawn" \
+    "TermPairLayout.pair_layout" \
+    "TermPairLayout.pairStep_step" \
+    "TermPairLayout.pairInv_runS" \
+    "TermPairLayout.pairStep_runS" \
+    "TermPairLayout.pairInv_of_initOK" \
+    "TermPairLayout.pairInv_spawnS"; do
+  thm_re=$(printf '%s' "$thm" | sed 's/[][\\.*^$?+(){}|]/\\&/g')
+  if ! echo "${pair_out}" | grep -qE "'([^' ]*\.)?$thm_re' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
+    echo "FAIL: TermPairLayout.lean: '#print axioms $thm' missing or non-standard axioms"
+    fail=1
+  fi
+done
+
+# --- TermMemTyped.lean ----------------------------------------------------------
+# TermMemTyped.
+echo "building TermMemTyped.lean ..."
+if ! kc_termmemtyped_out=$(leanb TermMemTyped 2>&1); then
+  echo "$kc_termmemtyped_out"
+  echo 'FAIL: TermMemTyped.lean does not compile.'
+  fail=1
+fi
+case "$kc_termmemtyped_out" in
+  *"declaration uses"*|*sorryAx*|*ofReduceBool*)
+    echo "FAIL: a TermMemTyped.lean theorem has a sorry or a native_decide"
+    fail=1 ;;
+esac
+# TermMemTyped: every #print axioms theorem, std axioms only.
+for thm in \
+    "TermMemTyped.memTyped_of_frameTie" \
+    "TermMemTyped.reachable_memTyped" \
+    "TermMemTyped.reachable_memTyped_init" \
+    "TermMemTyped.segOf_ref" \
+    "TermMemTyped.single_word" \
+    "TermMemTyped.ptrOpt_of_wordOK" \
+    "TermMemTyped.ptr_of_wordOK" \
+    "TermMemTyped.ptrTypedAt_of" \
+    "TermMemTyped.reachable_ptrTyped" \
+    "TermMemTyped.reachable_ptrTyped_init"; do
+  thm_re=$(printf '%s' "$thm" | sed 's/[][\\.*^$?+(){}|]/\\&/g')  # names may contain ? ! etc.
+  if ! echo "${kc_termmemtyped_out}" | grep -qE "'([^' ]*\.)?$thm_re' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
+    echo "FAIL: TermMemTyped.lean: '#print axioms $thm' missing or non-standard axioms"
+    fail=1
+  fi
+done
+
+# --- TermScopeStart.lean --------------------------------------------------------
+# TermScopeStart.
+echo "building TermScopeStart.lean ..."
+if ! kc_termscopestart_out=$(leanb TermScopeStart 2>&1); then
+  echo "$kc_termscopestart_out"
+  echo 'FAIL: TermScopeStart.lean does not compile.'
+  fail=1
+fi
+case "$kc_termscopestart_out" in
+  *"declaration uses"*|*sorryAx*|*ofReduceBool*)
+    echo "FAIL: a TermScopeStart.lean theorem has a sorry or a native_decide"
+    fail=1 ;;
+esac
+# TermScopeStart: every #print axioms theorem, std axioms only.
+for thm in \
+    "TermScopeStart.runScope_entry" \
+    "TermScopeStart.runScope_spawnS"; do
+  thm_re=$(printf '%s' "$thm" | sed 's/[][\\.*^$?+(){}|]/\\&/g')  # names may contain ? ! etc.
+  if ! echo "${kc_termscopestart_out}" | grep -qE "'([^' ]*\.)?$thm_re' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
+    echo "FAIL: TermScopeStart.lean: '#print axioms $thm' missing or non-standard axioms"
+    fail=1
+  fi
+done
+
+# --- TermScopeLib.lean ----------------------------------------------------------
+# TermScopeLib.
+echo "building TermScopeLib.lean ..."
+if ! kc_termscopelib_out=$(leanb TermScopeLib 2>&1); then
+  echo "$kc_termscopelib_out"
+  echo 'FAIL: TermScopeLib.lean does not compile.'
+  fail=1
+fi
+case "$kc_termscopelib_out" in
+  *"declaration uses"*|*sorryAx*|*ofReduceBool*)
+    echo "FAIL: a TermScopeLib.lean theorem has a sorry or a native_decide"
+    fail=1 ;;
+esac
+# TermScopeLib: every #print axioms theorem, std axioms only.
+for thm in \
+    "TermScopeLib.ok_of_accepts" \
+    "TermScopeLib.queue_int_checked" \
+    "TermScopeLib.queue_pay_checked" \
+    "TermScopeLib.queue_ptr_checked" \
+    "TermScopeLib.queue_int_scopeW" \
+    "TermScopeLib.queue_pay_scopeW" \
+    "TermScopeLib.queue_ptr_scopeW" \
+    "TermScopeLib.queue_int_runScope" \
+    "TermScopeLib.queue_pay_runScope" \
+    "TermScopeLib.queue_ptr_runScope" \
+    "TermScopeLib.fhm_lib_false_scope" \
+    "TermScopeLib.fhm_lib_true_scope" \
+    "TermScopeLib.fhm_inst_9_scope" \
+    "TermScopeLib.fhm_inst_20_scope" \
+    "TermScopeLib.fhm_own_false_scope" \
+    "TermScopeLib.fhm_own_true_scope" \
+    "TermScopeLib.fhm_lib_false_runScope" \
+    "TermScopeLib.fhm_lib_true_runScope" \
+    "TermScopeLib.fhm_inst_9_runScope" \
+    "TermScopeLib.fhm_inst_20_runScope" \
+    "TermScopeLib.fhm_own_false_runScope" \
+    "TermScopeLib.fhm_own_true_runScope"; do
+  thm_re=$(printf '%s' "$thm" | sed 's/[][\\.*^$?+(){}|]/\\&/g')  # names may contain ? ! etc.
+  if ! echo "${kc_termscopelib_out}" | grep -qE "'([^' ]*\.)?$thm_re' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
+    echo "FAIL: TermScopeLib.lean: '#print axioms $thm' missing or non-standard axioms"
+    fail=1
+  fi
+done
+
+# --- TermZeroS.lean -------------------------------------------------------------
+# TermZeroS.
+echo "building TermZeroS.lean ..."
+if ! kc_termzeros_out=$(leanb TermZeroS 2>&1); then
+  echo "$kc_termzeros_out"
+  echo 'FAIL: TermZeroS.lean does not compile.'
+  fail=1
+fi
+case "$kc_termzeros_out" in
+  *"declaration uses"*|*sorryAx*|*ofReduceBool*)
+    echo "FAIL: a TermZeroS.lean theorem has a sorry or a native_decide"
+    fail=1 ;;
+esac
+# TermZeroS: every #print axioms theorem, std axioms only.
+for thm in \
+    "TermZeroS.zeroPair_spec" \
+    "TermZeroS.zeroableIn_eq"; do
+  thm_re=$(printf '%s' "$thm" | sed 's/[][\\.*^$?+(){}|]/\\&/g')  # names may contain ? ! etc.
+  if ! echo "${kc_termzeros_out}" | grep -qE "'([^' ]*\.)?$thm_re' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
+    echo "FAIL: TermZeroS.lean: '#print axioms $thm' missing or non-standard axioms"
+    fail=1
+  fi
+done
+
+# --- TermScopeFHM.lean ----------------------------------------------------------
+# TermScopeFHM.
+echo "building TermScopeFHM.lean ..."
+if ! kc_termscopefhm_out=$(leanb TermScopeFHM 2>&1); then
+  echo "$kc_termscopefhm_out"
+  echo 'FAIL: TermScopeFHM.lean does not compile.'
+  fail=1
+fi
+case "$kc_termscopefhm_out" in
+  *"declaration uses"*|*sorryAx*|*ofReduceBool*)
+    echo "FAIL: a TermScopeFHM.lean theorem has a sorry or a native_decide"
+    fail=1 ;;
+esac
+# TermScopeFHM: every #print axioms theorem, std axioms only.
+for thm in \
+    "TermScopeFHM.fhm_lib_false_scopeW" \
+    "TermScopeFHM.fhm_lib_true_scopeW" \
+    "TermScopeFHM.fhm_inst_9_scopeW" \
+    "TermScopeFHM.fhm_inst_20_scopeW" \
+    "TermScopeFHM.fhm_own_false_scopeW" \
+    "TermScopeFHM.fhm_own_true_scopeW" \
+    "TermScopeFHM.fhm_lib_false_checked" \
+    "TermScopeFHM.fhm_lib_true_checked" \
+    "TermScopeFHM.fhm_inst_9_checked" \
+    "TermScopeFHM.fhm_inst_20_checked" \
+    "TermScopeFHM.fhm_own_false_checked" \
+    "TermScopeFHM.fhm_own_true_checked"; do
+  thm_re=$(printf '%s' "$thm" | sed 's/[][\\.*^$?+(){}|]/\\&/g')  # names may contain ? ! etc.
+  if ! echo "${kc_termscopefhm_out}" | grep -qE "'([^' ]*\.)?$thm_re' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
+    echo "FAIL: TermScopeFHM.lean: '#print axioms $thm' missing or non-standard axioms"
+    fail=1
+  fi
+done
+
+# --- G3a (region c1): publish-family helpers in TermStep, TermC1Rgn.lean ---
+# TermStep's publish helpers (tstepM_publish's proof now uses them; its statement is unchanged).
+for thm in \
+    "TermStep.tb_use" \
+    "TermStep.pubTyFacts" \
+    "TermStep.pubTyFactsBuf" \
+    "TermStep.ownPtr_inv" \
+    "TermStep.ownBuf_inv" \
+    "TermStep.Lay_ptr_remode" \
+    "TermStep.pubEnvAt_seen" \
+    "TermStep.pubCell_post"; do
+  thm_re=$(printf '%s' "$thm" | sed 's/[][\\.*^$?+(){}|]/\\&/g')
+  if ! echo "${tstep_out}" | grep -qE "'([^' ]*\.)?$thm_re' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
+    echo "FAIL: TermStep.lean: '#print axioms $thm' missing or non-standard axioms"
+    fail=1
+  fi
+done
+# TermC1Rgn: PubWinTN1e (certification window at every region, dead binders included); region and
+# intoRgn publish their cell (thread layer).  Nothing switches; deleted or
+# merged when the new definitions replace the old ones.
+echo "building TermC1Rgn.lean ..."
+if ! c1_termc1rgn_out=$(leanb TermC1Rgn 2>&1); then
+  echo "$c1_termc1rgn_out"
+  echo 'FAIL: TermC1Rgn.lean does not compile.'
+  fail=1
+fi
+case "$c1_termc1rgn_out" in
+  *"declaration uses"*|*sorryAx*|*ofReduceBool*)
+    echo "FAIL: a TermC1Rgn.lean theorem has a sorry"
+    fail=1 ;;
+esac
+for thm in \
+    "TermC1.PubWinTN1e.pub" \
+    "TermC1.PubWinTN1e.toN1" \
+    "TermC1.PubWinTN1e.rgn" \
+    "TermC1.PubWinTN1e.into" \
+    "TermC1.ThInvMFR1.toF" \
+    "TermC1.ModeOK1_rgn_seen" \
+    "TermC1.RgnPubT1.of" \
+    "TermC1.IntoPubT1.of" \
+    "TermC1.pwLab" \
+    "TermC1.pubStep1" \
+    "TermC1.tstepM_region1" \
+    "TermC1.ThInvMFI1.toF" \
+    "TermC1.tstepM_intoRgn1"; do
+  thm_re=$(printf '%s' "$thm" | sed 's/[][\\.*^$?+(){}|]/\\&/g')
+  if ! echo "${c1_termc1rgn_out}" | grep -qE "'([^' ]*\.)?$thm_re' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
+    echo "FAIL: TermC1Rgn.lean: '#print axioms $thm' missing or non-standard axioms"
+    fail=1
+  fi
+done
+
+
+# --- G3b (region c1): MR publish helpers in TermStep, TermC1RgnR.lean ---
+# TermStep: tstepMR_publish's proof now uses pubCellR_post; region_stepR follows from
+# region_stepRT (statements unchanged).
+for thm in \
+    "TermStep.pubCellR_post" \
+    "TermStep.region_stepRT"; do
+  thm_re=$(printf '%s' "$thm" | sed 's/[][\\.*^$?+(){}|]/\\&/g')
+  if ! echo "${tstep_out}" | grep -qE "'([^' ]*\.)?$thm_re' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
+    echo "FAIL: TermStep.lean: '#print axioms $thm' missing or non-standard axioms"
+    fail=1
+  fi
+done
+# TermC1RgnR: region and intoRgn publish their cell (resource and credit layers).  Nothing
+# switches; deleted or merged when the new definitions replace the old ones.
+echo "building TermC1RgnR.lean ..."
+if ! c1_termc1rgnr_out=$(leanb TermC1RgnR 2>&1); then
+  echo "$c1_termc1rgnr_out"
+  echo 'FAIL: TermC1RgnR.lean does not compile.'
+  fail=1
+fi
+case "$c1_termc1rgnr_out" in
+  *"declaration uses"*|*sorryAx*|*ofReduceBool*)
+    echo "FAIL: a TermC1RgnR.lean theorem has a sorry"
+    fail=1 ;;
+esac
+for thm in \
+    "TermC1.RgnLe1.of_le1" \
+    "TermC1.pubStepR1" \
+    "TermC1.tstepMR_region1" \
+    "TermC1.tstepMR_intoRgn1" \
+    "TermC1.tstepMC_region1_of" \
+    "TermC1.tstepMC_intoRgn1_of"; do
+  thm_re=$(printf '%s' "$thm" | sed 's/[][\\.*^$?+(){}|]/\\&/g')
+  if ! echo "${c1_termc1rgnr_out}" | grep -qE "'([^' ]*\.)?$thm_re' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
+    echo "FAIL: TermC1RgnR.lean: '#print axioms $thm' missing or non-standard axioms"
+    fail=1
+  fi
+done
+
+
+# --- G4 (region c1): mode-generic cell load/store in TermStep, TermC1Ld.lean ---
+# TermStep: the pub load/store lemmas are re-proved on mode-generic cell lemmas (statements unchanged).
+for thm in \
+    "TermStep.pubFr" \
+    "TermStep.ptr_view" \
+    "TermStep.loadCell_core" \
+    "TermStep.loadCell_step" \
+    "TermStep.tstepM_loadCell" \
+    "TermStep.tstepMR_loadCell" \
+    "TermStep.modeIni_ne_own" \
+    "TermStep.tstepM_storeCell" \
+    "TermStep.tstepMR_storeCell" \
+    "TermStep.tstepM_loadCellLoc" \
+    "TermStep.tstepMR_loadCellLoc" \
+    "TermStep.tstepM_storeCellLoc" \
+    "TermStep.tstepMR_storeCellLoc"; do
+  thm_re=$(printf '%s' "$thm" | sed 's/[][\\.*^$?+(){}|]/\\&/g')
+  if ! echo "${tstep_out}" | grep -qE "'([^' ]*\.)?$thm_re' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
+    echo "FAIL: TermStep.lean: '#print axioms $thm' missing or non-standard axioms"
+    fail=1
+  fi
+done
+# TermC1Ld: load/store at region cells, held to the pub clause (hypothesis hmo).
+# Nothing switches; deleted or merged when the new definitions replace the old ones.
+echo "building TermC1Ld.lean ..."
+if ! c1_termc1ld_out=$(leanb TermC1Ld 2>&1); then
+  echo "$c1_termc1ld_out"
+  echo 'FAIL: TermC1Ld.lean does not compile.'
+  fail=1
+fi
+case "$c1_termc1ld_out" in
+  *"declaration uses"*|*sorryAx*|*ofReduceBool*)
+    echo "FAIL: a TermC1Ld.lean theorem has a sorry"
+    fail=1 ;;
+esac
+for thm in \
+    "TermC1.arrFree_adapt" \
+    "TermC1.adapt_cl" \
+    "TermC1.rgnV" \
+    "TermC1.rgn_adaptT" \
+    "TermC1.rgn_adapt" \
+    "TermC1.rgnLoc_adaptL" \
+    "TermC1.accs_rgnSub" \
+    "TermC1.rgnLoc_adaptS" \
+    "TermC1.rgnLoad_facts" \
+    "TermC1.rgnSub" \
+    "TermC1.rgnStore_facts" \
+    "TermC1.tstepM_loadRgn1" \
+    "TermC1.tstepMR_loadRgn1" \
+    "TermC1.tstepMC_loadRgn1" \
+    "TermC1.tstepM_storeRgn1" \
+    "TermC1.tstepMR_storeRgn1" \
+    "TermC1.tstepMC_storeRgn1" \
+    "TermC1.tstepM_loadRgnLoc1" \
+    "TermC1.tstepMR_loadRgnLoc1" \
+    "TermC1.tstepMC_loadRgnLoc1" \
+    "TermC1.tstepM_storeRgnLoc1" \
+    "TermC1.tstepMR_storeRgnLoc1" \
+    "TermC1.tstepMC_storeRgnLoc1"; do
+  thm_re=$(printf '%s' "$thm" | sed 's/[][\\.*^$?+(){}|]/\\&/g')
+  if ! echo "${c1_termc1ld_out}" | grep -qE "'([^' ]*\.)?$thm_re' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
+    echo "FAIL: TermC1Ld.lean: '#print axioms $thm' missing or non-standard axioms"
+    fail=1
+  fi
+done
+
+
+# --- G5 (region c1, D-4): TermC1Ptr.lean, ModeOK1 facts for region pointer payloads ---
+# Nothing switches; deleted or merged when the new definitions replace the old ones.
+echo "building TermC1Ptr.lean ..."
+if ! c1_termc1ptr_out=$(leanb TermC1Ptr 2>&1); then
+  echo "$c1_termc1ptr_out"
+  echo 'FAIL: TermC1Ptr.lean does not compile.'
+  fail=1
+fi
+case "$c1_termc1ptr_out" in
+  *"declaration uses"*|*sorryAx*|*ofReduceBool*)
+    echo "FAIL: a TermC1Ptr.lean theorem has a sorry"
+    fail=1 ;;
+esac
+for thm in \
+    "TermC1.noOR1_ptr" \
+    "TermC1.noOR1_ptrOpt" \
+    "TermC1.noOR1_loc" \
+    "TermC1.ModeOK1_eq_pub" \
+    "TermC1.ModeOK1_pfr" \
+    "TermC1.ModeOK1_move" \
+    "TermC1.ModeOK1_moveL" \
+    "TermC1.ModeOK1_toPub"; do
+  thm_re=$(printf '%s' "$thm" | sed 's/[][\\.*^$?+(){}|]/\\&/g')
+  if ! echo "${c1_termc1ptr_out}" | grep -qE "'([^' ]*\.)?$thm_re' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
+    echo "FAIL: TermC1Ptr.lean: '#print axioms $thm' missing or non-standard axioms"
+    fail=1
+  fi
+done
+
+
+# --- G7 (region c1): TermPubSto helpers, TermC1Win.lean (seen half of the region window) ---
+# TermPubSto: pubSto_of_typed is re-proved on ownSto_of_use / ownBufSto_of_use (statement unchanged).
+# g286_termpubsto_out is set by the TermPubSto build above.
+for thm in \
+    "TermPubSto.ownSto_of_use" \
+    "TermPubSto.ownBufSto_of_use"; do
+  thm_re=$(printf '%s' "$thm" | sed 's/[][\\.*^$?+(){}|]/\\&/g')
+  if ! echo "${g286_termpubsto_out}" | grep -qE "'([^' ]*\.)?$thm_re' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
+    echo "FAIL: TermPubSto.lean: '#print axioms $thm' missing or non-standard axioms"
+    fail=1
+  fi
+done
+# TermC1Win: a typed region / intoRgn names an own store cell; NoHold at a seen one.  Nothing switches.
+echo "building TermC1Win.lean ..."
+if ! c1_termc1win_out=$(leanb TermC1Win 2>&1); then
+  echo "$c1_termc1win_out"
+  echo 'FAIL: TermC1Win.lean does not compile.'
+  fail=1
+fi
+case "$c1_termc1win_out" in
+  *"declaration uses"*|*sorryAx*|*ofReduceBool*)
+    echo "FAIL: a TermC1Win.lean theorem has a sorry"
+    fail=1 ;;
+esac
+for thm in \
+    "TermC1.rgnSto_of_typed" \
+    "TermC1.intoSto_of_typed" \
+    "TermC1.rgn_noHold_seen" \
+    "TermC1.into_noHold_seen"; do
+  thm_re=$(printf '%s' "$thm" | sed 's/[][\\.*^$?+(){}|]/\\&/g')
+  if ! echo "${c1_termc1win_out}" | grep -qE "'([^' ]*\.)?$thm_re' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
+    echo "FAIL: TermC1Win.lean: '#print axioms $thm' missing or non-standard axioms"
+    fail=1
+  fi
+done
+
+# TermC1Drf: drf1 survives closing (all witnesses drf1) and folding; drf implies drf1 (S4).  Nothing switches.
+echo "building TermC1Drf.lean ..."
+if ! c1_termc1drf_out=$(leanb TermC1Drf 2>&1); then
+  echo "$c1_termc1drf_out"
+  echo 'FAIL: TermC1Drf.lean does not compile.'
+  fail=1
+fi
+case "$c1_termc1drf_out" in
+  *"declaration uses"*|*sorryAx*|*ofReduceBool*)
+    echo "FAIL: a TermC1Drf.lean theorem has a sorry"
+    fail=1 ;;
+esac
+for thm in \
+    "TermC1.drfM_clM" \
+    "TermC1.drf1_clK_up" \
+    "TermC1.drf1_clK" \
+    "TermC1.drf1_cl" \
+    "TermC1.drf1_cl0K" \
+    "TermC1.drf1_cl0" \
+    "TermC1.drf1_cl_shift" \
+    "TermC1.drf1_unfold" \
+    "TermC1.drf1_Fd" \
+    "TermC1.drf1_of_drf"; do
+  thm_re=$(printf '%s' "$thm" | sed 's/[][\\.*^$?+(){}|]/\\&/g')
+  if ! echo "${c1_termc1drf_out}" | grep -qE "'([^' ]*\.)?$thm_re' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
+    echo "FAIL: TermC1Drf.lean: '#print axioms $thm' missing or non-standard axioms"
+    fail=1
+  fi
+done
+
+# TermC1Cnt: counted words with region references counted (mPub1/sNo1/pubWords1/cntIdx1); agreement off region references.  Nothing switches.
+echo "building TermC1Cnt.lean ..."
+if ! c1_termc1cnt_out=$(leanb TermC1Cnt 2>&1); then
+  echo "$c1_termc1cnt_out"
+  echo 'FAIL: TermC1Cnt.lean does not compile.'
+  fail=1
+fi
+case "$c1_termc1cnt_out" in
+  *"declaration uses"*|*sorryAx*|*ofReduceBool*)
+    echo "FAIL: a TermC1Cnt.lean theorem has a sorry"
+    fail=1 ;;
+esac
+for thm in \
+    "TermC1.mPub1_of_mPub" \
+    "TermC1.sNo1_of_sNo" \
+    "TermC1.sNo1_eq" \
+    "TermC1.pub1_eq" \
+    "TermC1.pubWords1_of_sNo1" \
+    "TermC1.sNo1_rgn" \
+    "TermC1.filterMap_tagIdx" \
+    "TermC1.cntIdx1_of_sNo1" \
+    "TermC1.cntIdx1_eq" \
+    "TermC1.pubWords1_adapt"; do
+  thm_re=$(printf '%s' "$thm" | sed 's/[][\\.*^$?+(){}|]/\\&/g')
+  if ! echo "${c1_termc1cnt_out}" | grep -qE "'([^' ]*\.)?$thm_re' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
+    echo "FAIL: TermC1Cnt.lean: '#print axioms $thm' missing or non-standard axioms"
+    fail=1
+  fi
+done
+
+# TermC1Pay: a region payload closes to a coupledOK, copyable, drf1 type at kind-respecting witnesses.  Nothing switches.
+echo "building TermC1Pay.lean ..."
+if ! c1_termc1pay_out=$(leanb TermC1Pay 2>&1); then
+  echo "$c1_termc1pay_out"
+  echo 'FAIL: TermC1Pay.lean does not compile.'
+  fail=1
+fi
+case "$c1_termc1pay_out" in
+  *"declaration uses"*|*sorryAx*|*ofReduceBool*)
+    echo "FAIL: a TermC1Pay.lean theorem has a sorry"
+    fail=1 ;;
+esac
+for thm in \
+    "TermC1.admits_wit" \
+    "TermC1.rgnPay_cl0" \
+    "TermC1.wit_of_ask" \
+    "TermC1.rgnPay_cl0_admits"; do
+  thm_re=$(printf '%s' "$thm" | sed 's/[][\\.*^$?+(){}|]/\\&/g')
+  if ! echo "${c1_termc1pay_out}" | grep -qE "'([^' ]*\.)?$thm_re' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
+    echo "FAIL: TermC1Pay.lean: '#print axioms $thm' missing or non-standard axioms"
+    fail=1
+  fi
+done
+
+# TermC1Wit: WitR1/WitOK1 (every witness drf1) and their preservation; closes the region-payload premise; PackTOK1 (the packT scope check).  Nothing switches.
+echo "building TermC1Wit.lean ..."
+if ! c1_termc1wit_out=$(leanb TermC1Wit 2>&1); then
+  echo "$c1_termc1wit_out"
+  echo 'FAIL: TermC1Wit.lean does not compile.'
+  fail=1
+fi
+case "$c1_termc1wit_out" in
+  *"declaration uses"*|*sorryAx*|*ofReduceBool*)
+    echo "FAIL: a TermC1Wit.lean theorem has a sorry"
+    fail=1 ;;
+esac
+for thm in \
+    "TermC1.ask_true_iff" \
+    "TermC1.WitR1_iff" \
+    "TermC1.WitR1_nil" \
+    "TermC1.WitR1_wit" \
+    "TermC1.mentions_lt" \
+    "TermC1.WitR1_occ" \
+    "TermC1.drf1_cl_frame" \
+    "TermC1.rgnPay_cl0_frame" \
+    "TermC1.subE_wit_call" \
+    "TermC1.WitR1_call" \
+    "TermC1.WitR1_pushT" \
+    "TermC1.noIallV_of_drf1" \
+    "TermC1.WitOK1_pack" \
+    "TermC1.opOK1_tys" \
+    "TermC1.allOK1_tail" \
+    "TermC1.PackTOK1.drf1" \
+    "TermC1.packTOK1_of_opOK1"; do
+  thm_re=$(printf '%s' "$thm" | sed 's/[][\\.*^$?+(){}|]/\\&/g')
+  if ! echo "${c1_termc1wit_out}" | grep -qE "'([^' ]*\.)?$thm_re' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
+    echo "FAIL: TermC1Wit.lean: '#print axioms $thm' missing or non-standard axioms"
+    fail=1
+  fi
+done
 
 # Premise-meaning guard: the transitive definition closure of every
 # user-facing final's statement (premises and conclusion: InitOK, ObligationsF,

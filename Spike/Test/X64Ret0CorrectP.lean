@@ -1,0 +1,45 @@
+/-
+**Oracle of `Spike/Lib/X64CorrectP.lean` on `ret0`**: `ret0_correct_parsed`
+(`Spike/Lib/X64Ret0Correct.lean`) restated through `correctX64P'`, without
+the hypothesis `PromShared`. Every argument is the hand proof's except
+`hps`, which `correctX64P'` discharges.
+-/
+import Spike.Lib.X64CorrectP
+import Spike.Lib.X64Ret0Correct
+
+namespace Spike.Test.X64Ret0CorrectP
+
+open CoreLang CoreTerm
+open Kraken Kraken.Promising Kraken.Promising.X64
+open Scc.Sem Scc.Sem.X64 Scc.Cert.Link Scc.Cert.Link.X64 Scc.Cert.WideX64
+open Spike.Lib.X64Consumer
+open Spike.Lib.Consumer1
+open Spike.Lib (Frag)
+open SccCode (ret0Λ ret0Cells ret0Secs)
+open Spike.Lib.Ret0Src
+open Spike.Lib.X64.Flow.Ret0.Correct
+open Spike.Lib.X64.Flow.Ret0.Inst (μ0 own)
+open Spike.Lib.X64.Flow.Ret0.Mem (ret0Exe ret0End ret0F)
+open Spike.Lib.X64 (At)
+
+/-- **`ret0_correct_parsed` without `PromShared`**. -/
+theorem ret0_correct_parsed' {B : Budget} {arch : WeakMem.Arch} {ls0 : Lsize} {inv : Frag isa} {rS : Range}
+    {Tk : State → Prop}
+    (hE : ∀ s c, At ret0Exe ret0End R0 ret0F entry0 s c → inv s c)
+    (hN : Nodes ret0Λ ret0Src μ0 (fun _ => True) ret0G own (IOf ret0Λ.static ls0 inv))
+    (hT : TakePath ret0Λ ret0Src μ0 (IOf ret0Λ.static ls0 inv) rS Tk)
+    (hA : AbortPath μ0 (IOf ret0Λ.static ls0 inv) (fun _ => False))
+    (htk0 : ¬ Tk ret0S0)
+    (hsvc : WriteNoProm ret0Λ (ret0P arch) ret0Src ret0G own (IOf ret0Λ.static ls0 inv) rS Tk μ0) :
+    Correct TPar (SrcSem.source (ret0P arch) ret0Src) ret0Λ B ret0Par := by
+  rw [← ret0_marksP] at hN hT hA hsvc
+  exact correctX64P' (lsize := ls0) (name := fun _ => "") SccCode.ret0Λ_image (ret0_ss ls0 _)
+    SccCode.ret0_wide ⟨rfl, rfl, hE _ _ ret0_entry⟩ ⟨_, ret0_loadP⟩ (ret0P_hooks arch) (ret0P_init arch) hN
+    (ret0_safe arch _) hT htk0 ret0_own0 hsvc (fun _ => trivial) SccCode.ret0Λ_wf ret0_G0
+    ret0_Gpl hA (fun h => h)
+
+/-- info: 'Spike.Test.X64Ret0CorrectP.ret0_correct_parsed'' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms ret0_correct_parsed'
+
+end Spike.Test.X64Ret0CorrectP

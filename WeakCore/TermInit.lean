@@ -64,6 +64,8 @@ structure InitShape (p : Prog) (c0 : Cfg) : Prop where
   /-- (D-B `LblSto` at the start) no argument word is a location. -/
   envNoLoc : ∀ (i : Nat) (th : TTh), c0.ths[i]? = some th →
     ∀ e ∈ th.env, ∀ w ∈ e.2.2, ∀ (a : WeakMem.Address) (g : Nat), w.val ≠ .loc a g
+  /-- (E2, stage 1) no start thread has a `ThreadId` box yet. -/
+  tid0 : ∀ (i : Nat) (th : TTh), c0.ths[i]? = some th → th.tidLbl = none
 
 
 theorem memInv_init {g : G} {p : Prog} {i : Nat} {th : TTh} (hp : th.promises = []) :

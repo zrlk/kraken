@@ -683,6 +683,22 @@ inductive FetchOp
 def FetchOp.name : FetchOp → String
   | .add => "add" | .or => "or" | .and => "and" | .xor => "xor"
 
+/-- (E1) The trusted extern steps: a closed set; every other extern is a model body. -/
+inductive ExtName
+  | emit     -- one output byte: `U8 → Unit`, event `out b`
+  | current  -- the running thread's id: `Unit → ThreadId`
+  | exitEv   -- the exit event: `Int → Unit`, event `exit (exitCode v)`
+  deriving DecidableEq, Repr
+
+/-- (E1) An extern's argument and result types. -/
+def ExtName.sig : ExtName → Ty × Ty
+  | .emit => (.fix false .w8, .unit)
+  | .current => (.unit, .tid)
+  | .exitEv => (.int, .unit)
+
+def ExtName.name : ExtName → String
+  | .emit => "emit" | .current => "current" | .exitEv => "exitEv"
+
 inductive Op
   | atom (a : At)
   | pair (a b : At)
@@ -743,7 +759,8 @@ inductive Op
   | mkTicket (r : String) (N P : Proto) (v : At) (tok : At)  -- a ticket lock: dispenser `Word[r, N]` and owner `Word[r, P]`, both at `v`
   | claim (a : At) (tok : At)               -- acquisition by observation: ticket `tok`, owner `a` seen at ticket − 1
   | fetch (o : FetchOp) (acq rel : Bool) (a v : At)  -- atomic `old ⊕ v` into a cell or protocol word; the old value
-  | spawn (f : String) (a : At) (T : Ty) (ts : List Ty := [])  -- start thread `f` on a copy of `a` at the checked type `T`: `Int` (the child's index); several args: a pair
+  | spawn (f : String) (a : At) (T : Ty) (ts : List Ty := [])  -- start thread `f` on a copy of `a` at the checked type `T`: `ThreadId` (the child's index); several args: a pair
+  | ext (n : ExtName) (a : At)              -- (E1) a trusted extern on `a : n.sig.1`, result `n.sig.2`: a configuration step (`TermExtStep.Ext`)
   deriving Repr
 
 inductive Expr
@@ -1229,11 +1246,18 @@ def plainIntT (t : Ty) : Bool :=
   | some none => true
   | _ => false
 
+/-- (E1) `ThreadId`. -/
+def tidOf : Ty → Bool
+  | .tid => true
+  | _ => false
+
 /-- `ifeq` on plain integers: both operands integers, at least one of unknown
-index.  Nothing can be recorded, so both branches see the context unchanged. -/
+index; or (E1) two `ThreadId`s.  Nothing can be recorded, so both branches see the
+context unchanged. -/
 def plainEq (cx : Cx) (a b : At) : Bool :=
   match cx.peek a, cx.peek b with
-  | .ok ta, .ok tb => (intOf ta).isSome && (intOf tb).isSome && (plainIntT ta || plainIntT tb)
+  | .ok ta, .ok tb =>
+      ((intOf ta).isSome && (intOf tb).isSome && (plainIntT ta || plainIntT tb)) || (tidOf ta && tidOf tb)
   | _, _ => false
 
 /-- An ordered observation `Saw(w, m)` of word `w` with `m + 1 = j`: what
@@ -2243,7 +2267,12 @@ def checkOp (p : Prog) (cx : Cx) (x : String) : Op → M Cx
       -- the child's frame invariant (`TvOK`) at its entry context: a closed, guarded, `∀`-free return type
       if !(TermClose.tb 0 rt && TermTv.mg rt && TermTv.noIallV rt) then
         throw "spawn: the callee's return type must be closed, guarded and without a value-position ∀"
-      cx.bind x .int
+      cx.bind x .tid
+  | .ext n a => do
+      -- (E1) A trusted extern step (`TermExtStep.Ext`): no memory, no fence; `emit`/`exitEv` record an event.
+      let (t, cx) ← cx.use a
+      if !sub cx t n.sig.1 then throw s!"{n.name}: the argument does not have the extern's type"
+      cx.bind x n.sig.2
 
 /-- The success context of a `cas` between holding states, given `shareMove`:
 bind `t`, and lend a read share (`+1`, by `acq`) or take one back (`-1`, by

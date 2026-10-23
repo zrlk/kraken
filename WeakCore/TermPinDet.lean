@@ -126,6 +126,8 @@ theorem vrr_kf : ∀ (t : Ty) (env : List Bool) (ρ ρ' : Nat → Nat) (η η' :
   | .void, _, _, _, _, _, _, _, _, _, _, _, _, _, hv, _ => by simp [VRR] at hv
   | .int, _, _, _, _, _, _, _, _, _, _, _, _, _, hv, hv' => by
       simp only [VRR] at hv hv'; rw [hv.2, hv'.2]
+  | .tid, _, _, _, _, _, _, _, _, _, _, _, _, _, hv, hv' => by
+      simp only [VRR] at hv hv'; rw [hv.2, hv'.2]
   | .intS _, _, _, _, _, _, _, _, _, _, _, _, _, _, hv, hv' => by
       simp only [VRR] at hv hv'; rw [hv.2, hv'.2]
   | .fix _ _, _, _, _, _, _, _, _, _, _, _, _, _, _, hv, hv' => by
@@ -214,6 +216,7 @@ theorem vrr_detW : ∀ (t : Ty) (env : List Bool) (ρ : Nat → Nat) (η η' : T
   | .unit, _, _, _, _, _, _, _, _, _, _, _, _, hv, hv' => by simp only [VRR] at hv hv'; rw [hv, hv']
   | .void, _, _, _, _, _, _, _, _, _, _, _, _, hv, _ => by simp [VRR] at hv
   | .int, _, _, _, _, _, _, _, _, _, _, _, _, hv, hv' => by simp only [VRR] at hv hv'; rw [hv.2, hv'.2]
+  | .tid, _, _, _, _, _, _, _, _, _, _, _, _, hv, hv' => by simp only [VRR] at hv hv'; rw [hv.2, hv'.2]
   | .intS _, _, _, _, _, _, _, _, _, _, _, _, _, hv, hv' => by simp only [VRR] at hv hv'; rw [hv.2, hv'.2]
   | .fix _ _, _, _, _, _, _, _, _, _, _, _, _, _, hv, hv' => by simp only [VRR] at hv hv'; rw [hv.2, hv'.2]
   | .lanes _ _, _, _, _, _, _, _, _, _, _, _, _, _, hv, hv' => by simp only [VRR] at hv hv'; rw [hv.2, hv'.2]
@@ -343,7 +346,7 @@ theorem noOR_of_noOwnIn : ∀ (t : Ty) (ke : KEnv), Ty.noOwnIn ke t = true → r
       simp only [Ty.noOwnIn, rgnFree, TermCut.noOR] at h1 h2 ⊢; exact noOR_of_noOwnIn t ke h1 h2
   | .refine t _, ke, h1, h2 => by
       simp only [Ty.noOwnIn, rgnFree, TermCut.noOR] at h1 h2 ⊢; exact noOR_of_noOwnIn t ke h1 h2
-  | .unit, _, _, _ | .int, _, _, _ | .intS _, _, _, _ | .fix _ _, _, _, _ | .lanes _ _, _, _, _
+  | .unit, _, _, _ | .int, _, _, _ | .tid, _, _, _ | .intS _, _, _, _ | .fix _ _, _, _, _ | .lanes _ _, _, _, _
   | .code _ _, _, _, _ | .void, _, _, _ | .tvar _, _, _, _ | .word _ _, _, _, _ | .word2 _ _, _, _, _
   | .epair _ _, _, _, _ | .cap _ _, _, _, _ | .tok _ _, _, _, _ | .tok2 _ _ _ _, _, _, _
   | .tokE _ _ _, _, _, _ | .share _, _, _, _ => rfl

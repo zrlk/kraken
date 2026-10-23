@@ -83,6 +83,7 @@ is weaker than herd (`Kraken/Litmus/KNOWN_GAPS.md`). `CASP` is `caspTree`. -/
 def toEv (ds : Decls) : Effects → EvTree MachineState
   | .done a => .done a
   | .unimplemented msg => .fault msg
+  | .syscall info _ => .fault (pendingSyscallMsg info.imm)
   | .unaligned_sp _ => .fault "unaligned sp"
   | .nonmem_load dmem addr w ret =>
     .access ds addr w.bytes fun l => .load .plain false l fun v => toEv ds (ret (v.setWidth w.bits) dmem)
@@ -134,6 +135,66 @@ def State.directive (s : State) : Option Directive :=
 def exec (s : State) : Option (EvTree State) :=
   if s.st.2 == s.endPc || s.directive.isNone then none
   else some <| (toEv s.decls (_root_.Executable.step s.exe s.st fun s' => .done s')).map fun st => { s with st }
+
+/-- `toEv` for certification (`execCert`): a system call, which `toEv` makes a
+fault, is a choice among `results info`, the value `x0` receives, each
+continuing after the instruction. The results are a parameter: Kraken knows no
+system call, the client supplies an over-approximation of what each call may
+return. An empty list is a dead end (`choose 0`), not a fault. -/
+def toEvCert (results : SyscallInfo → List (BitVec 64)) (ds : Decls) : Effects → EvTree MachineState
+  | .done a => .done a
+  | .unimplemented msg => .fault msg
+  | .syscall info ret =>
+    let rs := results info
+    .choose rs.length fun i => toEvCert results ds (ret rs[i])
+  | .unaligned_sp _ => .fault "unaligned sp"
+  | .nonmem_load dmem addr w ret =>
+    .access ds addr w.bytes fun l => .load .plain false l fun v => toEvCert results ds (ret (v.setWidth w.bits) dmem)
+  | @Effects.nonmem_store dmem addr w v ret =>
+    .access ds addr w.bytes fun l => .store .plain false l (v.setWidth 128) fun _ => toEvCert results ds (ret dmem)
+  | .sync_load k xcl dmem addr w ret =>
+    .access ds addr w.bytes fun l => .load k xcl l fun v => toEvCert results ds (ret (v.setWidth w.bits) dmem)
+  | @Effects.sync_store k xcl dmem addr w v ret =>
+    .access ds addr w.bytes fun l => .store k xcl l (v.setWidth 128) fun ok => toEvCert results ds (ret ok dmem)
+  | .rmw k noRet dmem addr w op ret =>
+    .access ds addr w.bytes fun l =>
+      .rmw k noRet l (fun old => (op (old.setWidth w.bits)).map (·.setWidth 128))
+        fun old => toEvCert results ds (ret (old.setWidth w.bits) dmem)
+  | .sync_load_pair k xcl dmem addr w ret =>
+    if pairIsOneLoc ds addr w then
+      .access ds addr (2 * w.bytes) fun l => .load k xcl l fun v =>
+        toEvCert results ds (ret (v.setWidth w.bits) ((v >>> w.bits).setWidth w.bits) dmem)
+    else
+      .access ds addr w.bytes fun l1 => .load k xcl l1 fun v1 =>
+        .access ds (addr + w.bytesv) w.bytes fun l2 => .load k false l2 fun v2 =>
+          toEvCert results ds (ret (v1.setWidth w.bits) (v2.setWidth w.bits) dmem)
+  | @Effects.sync_store_pair k xcl dmem addr w v1 v2 ret =>
+    if pairIsOneLoc ds addr w then
+      .access ds addr (2 * w.bytes) fun l =>
+        .store k xcl l ((v2.setWidth 128 <<< w.bits) ||| v1.setWidth 128) fun ok => toEvCert results ds (ret ok dmem)
+    else
+      .access ds addr w.bytes fun l1 => .store k xcl l1 (v1.setWidth 128) fun ok =>
+        if ok then
+          .access ds (addr + w.bytesv) w.bytes fun l2 => .store k false l2 (v2.setWidth 128) fun _ =>
+            toEvCert results ds (ret true dmem)
+        else toEvCert results ds (ret false dmem)
+  | @Effects.rmw_pair k dmem addr _ cmp1 cmp2 new1 new2 ret =>
+    caspTree ds k addr cmp1 cmp2 new1 new2 fun o1 o2 => toEvCert results ds (ret o1 o2 dmem)
+  | .fence k ok => .fence k fun _ => toEvCert results ds (ok ())
+  | @Effects.undefined _ inst ret =>
+    match inst with
+    | .bool => .choose 2 fun i => toEvCert results ds (ret (i.val == 1))
+    | .bitvec _ => .fault "undefined register value"
+    | .statusFlags => .fault "undefined flags"
+  | .require_read_access _ _ ok => toEvCert results ds (ok ())
+  | .require_write_access _ _ ok => toEvCert results ds (ok ())
+  | .require_exec_access _ ok => toEvCert results ds (ok ())
+
+/-- `exec` for certification only, with `toEvCert results`: same halting, and
+the same tree on every instruction other than a system call. -/
+def execCert (results : SyscallInfo → List (BitVec 64)) (s : State) : Option (EvTree State) :=
+  if s.st.2 == s.endPc || s.directive.isNone then none
+  else some <| (toEvCert results s.decls (_root_.Executable.step s.exe s.st fun s' => .done s')).map fun st => { s with st }
 
 /-- A thread state for a parsed program: laid out at `0x100000 * (tid + 1)`,
 4 bytes per instruction, halting after the last one; `showPc` prints the
@@ -401,6 +462,17 @@ def depsLSE2 (s : State) : InstrDeps RegId :=
 
 /-- The AArch64 ISA with FEAT_LSE2's single-copy-atomic 16-byte `LDP`/`STP`. -/
 def isaLSE2 : ISA := { isa with exec := execLSE2, deps := depsLSE2 }
+
+/-- `execLSE2` for certification only: `execCert results` on every instruction
+`isaLSE2` does not perform itself (a system call among them). -/
+def execLSE2Cert (results : SyscallInfo → List (BitVec 64)) (s : State) : Option (EvTree State) :=
+  if s.st.2 == s.endPc || s.directive.isNone then none
+  else match lse2Effects s with
+    | some e => some <| (toEv s.decls e).map fun st => { s with st }
+    | none =>
+      if s.isCaspX then
+        some <| (toEvCASP s.decls (_root_.Executable.step s.exe s.st fun s' => .done s')).map fun st => { s with st }
+      else execCert results s
 
 /-! The non-exclusive pair effects `lse2Effects` emits: one 16-byte access at
 a declared 16-byte location, two 8-byte accesses otherwise. -/

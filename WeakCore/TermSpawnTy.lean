@@ -59,7 +59,7 @@ structure SpawnPrem (p : Prog) (cx : Cx) (x f : String) (a : At) (T : Ty) (ts : 
   tsArg : ts.all TermScope.argOK = true
   rtc : ∃ rt, tailCheck p { vars := [("a", T, true)], ret := rt } f [] (.var "a") ts = .ok () ∧
     (TermClose.tb 0 rt && TermTv.mg rt && TermTv.noIallV rt) = true
-  bind : cx.bind x .int = .ok c'
+  bind : cx.bind x .tid = .ok c'
 
 theorem spawnPrem_of {p : Prog} {cx c' : Cx} {x f : String} {a : At} {T : Ty} {ts : List Ty}
     (h : OpT p cx x (.spawn f a T ts) c') : SpawnPrem p cx x f a T ts c' := by
@@ -114,12 +114,17 @@ theorem arg_of_site {p : Prog} {E : TEnv} {th : TTh} {x f : String} {a : At} {T 
     · unfold Lay at hl2 ⊢
       rw [e1] at hl2; rw [e0]; exact hl2
 
-/-- **The parent's continuation** (`spawnPar`: `x := num ths.size`, views raised by the barrier). -/
-theorem par_of_site {p : Prog} {E : TEnv} {th : TTh} {Tot : Res} {x f : String} {a : At} {T : Ty}
-    {ts : List Ty} {e : Expr} (c : Cfg) (hterm : th.term = .let_ x (.spawn f a T ts) e)
+/-- **The parent's continuation** (`spawnPar`: `x := loc ⟨L, 0⟩`, the kid's box `L`, a published unit cell
+at frontier `0` in `E` (E2, `TermBox`)): any `par` of that shape. -/
+theorem par_of_site {p : Prog} {E : TEnv} {th par : TTh} {Tot : Res} {x f : String} {a : At} {T : Ty}
+    {ts : List Ty} {e : Expr} {L : AllocLabel} (hterm : th.term = .let_ x (.spawn f a T ts) e)
+    (hpt : par.term = e) (hpe : par.env = (x, .tid, [cst (.loc ⟨L, 0⟩ 0)]) :: th.env) (hps : par.σs = th.σs)
+    (hpk : par.stack = th.stack) (hbx : E.sto L = some ⟨.unit, none⟩ ∧ E.pfr L = some 0)
     (hR : ThInvRE p E th Tot) (hE' : ThInvE p E th) :
-    ThInvRE p E (TermSpawnStep.spawnPar c th x e) Tot ∧ ThInvE p E (TermSpawnStep.spawnPar c th x e) := by
-  have hl : Lay th.σs .int .int [cst (.num c.ths.size)] := Lay_int _ rfl
+    ThInvRE p E par Tot ∧ ThInvE p E par := by
+  have hl : Lay th.σs .tid .tid [cst (.loc ⟨L, 0⟩ 0)] :=
+    ⟨fun us h => by simp [accs] at h; subst h; rfl, by first | rfl | simp [etok, close, substTs, skel],
+      by simp [wc, accs], trivial, by first | rfl | simp [etok, close, substTs, lyt]⟩
   constructor
   · obtain ⟨ρ, η, cx, Rf, Rs, hCE, hE, hT, htv, hi, hsum, hpw⟩ := hR
     have hT2 := hT.2
@@ -128,11 +133,16 @@ theorem par_of_site {p : Prog} {E : TEnv} {th : TTh} {Tot : Res} {x f : String} 
     have P := spawnPrem_of hop
     have hret : c'.ret = cx.ret := bind_ret P.bind
     have htv' := (bind_TvOK P.bind htv (by simp [tb]) (by simp [mg])).1
-    have hvr : VRR ρ η .int (shp .int) [cst (.num c.ths.size)] .zero := by simp [VRR, cst]; exact ⟨_, rfl⟩
+    have hs1 : η.sto L = some ⟨.unit, none⟩ := by rw [← CE_sto, hCE]; exact hbx.1
+    have hp1 : η.pfr L = some 0 := by rw [← CE_pfr, hCE]; exact hbx.2
+    have hvr : VRR ρ η .tid (shp .tid) [cst (.loc ⟨L, 0⟩ 0)] .zero :=
+      ⟨⟨L, ⟨.unit, none⟩, rfl, hs1, rfl, 0, hp1, .inr fun _ _ => Nat.zero_le _⟩, rfl⟩
     have hf := bindRZ P.bind hi (RLink_of hE.2.1 hE.2.2) hvr hl
-    refine ⟨ρ, η, c', Rf, Rs, hCE, hE, ⟨he, hck⟩, htv', by simpa [TermSpawnStep.spawnPar, withS] using hf, hsum, ?_⟩
+    refine ⟨ρ, η, c', Rf, Rs, hCE, hE, ⟨by rw [hpt]; exact he, by rw [hpt]; exact hck⟩, htv',
+      by rw [hps, hpk, hpe]; exact hf, hsum, ?_⟩
     intro fr rest hst ws
-    rw [hret]; exact hpw fr rest hst ws
+    rw [hpk] at hst
+    rw [hret, hps]; exact hpw fr rest hst ws
   · obtain ⟨ρ, η, cx, hCE, hE, hT, htv, hi, hpw⟩ := hE'
     rw [hterm] at hT
     cases hT with
@@ -141,10 +151,13 @@ theorem par_of_site {p : Prog} {E : TEnv} {th : TTh} {Tot : Res} {x f : String} 
       have P := spawnPrem_of hop
       have hret : c'.ret = cx.ret := bind_ret P.bind
       have htv' := (bind_TvOK P.bind htv (by simp [tb]) (by simp [mg])).1
-      have hvr : VR ρ η .int (shp .int) [cst (.num c.ths.size)] := by simp [VR, cst]; exact ⟨_, rfl⟩
-      refine ⟨ρ, η, c', hCE, hE, he, htv', by simpa [TermSpawnStep.spawnPar, withS] using bind_FInv P.bind hi hvr hl, ?_⟩
-      show RetPw th.σs th.stack c'.ret
-      rw [hret]; exact hpw
+      have hs1 : η.sto L = some ⟨.unit, none⟩ := by rw [← CE_sto, hCE]; exact hbx.1
+      have hp1 : η.pfr L = some 0 := by rw [← CE_pfr, hCE]; exact hbx.2
+      have hvr : VR ρ η .tid (shp .tid) [cst (.loc ⟨L, 0⟩ 0)] :=
+        ⟨L, ⟨.unit, none⟩, rfl, hs1, rfl, 0, hp1, .inr fun _ _ => Nat.zero_le _⟩
+      refine ⟨ρ, η, c', hCE, hE, by rw [hpt]; exact he, htv', by rw [hps, hpe, hpk]; exact bind_FInv P.bind hi hvr hl, ?_⟩
+      show RetPw par.σs par.stack c'.ret
+      rw [hret, hps, hpk]; exact hpw
 
 end TermSpawnMid
 

@@ -2071,6 +2071,41 @@ def parseIsb : Parser Instr := do
   if opt.toLower != "sy" then fail s!"unknown isb option: {opt}"
   pure ⟨.W64, .ISB⟩
 
+/-- Parse `SVC #imm16` (the `#` is optional, as in GNU `as`). -/
+def parseSvc : Parser Instr := do
+  let imm ← parseImmNat
+  if imm ≥ 65536 then fail s!"svc immediate {imm} out of range [0, 65535]"
+  pure ⟨.W64, .SVC imm⟩
+
+/-- Map a system register name to its `SysReg`. GNU `as` also accepts the
+generic encoding name, `s3_3_c13_c0_2` for `TPIDR_EL0`. -/
+def parseSysRegName (s : String) : Option SysReg :=
+  match s.toLower with
+  | "tpidr_el0" | "s3_3_c13_c0_2" => some .TPIDR_EL0
+  | _ => none
+
+/-- Parse a system register operand. -/
+def parseSysReg : Parser SysReg := do
+  skipHWs
+  let name ← parseName
+  match parseSysRegName name with
+  | some sr => pure sr
+  | none => fail s!"unsupported system register: {name}"
+
+/-- Parse `MRS Xt, <sysreg>` (a 64-bit register, `XZR` allowed). -/
+def parseMrs : Parser Instr := do
+  let dst ← parseRegOrZr .W64
+  parseComma
+  let sr ← parseSysReg
+  pure ⟨.W64, .MRS dst sr⟩
+
+/-- Parse `MSR <sysreg>, Xt` (a 64-bit register, `XZR` allowed). -/
+def parseMsr : Parser Instr := do
+  let sr ← parseSysReg
+  parseComma
+  let src ← parseRegOrZr .W64
+  pure ⟨.W64, .MSR sr src⟩
+
 -- ============================================================================
 -- Instruction Parsing
 -- ============================================================================
@@ -2245,6 +2280,10 @@ def parseInstr : Parser Instr := do
   | "dmb"   => parseBarrier .DMB
   | "dsb"   => parseBarrier .DSB
   | "isb"   => parseIsb
+
+  | "svc"   => parseSvc
+  | "mrs"   => parseMrs
+  | "msr"   => parseMsr
 
   | _ =>
     if let some p := parseRmwMnemonic? mn then p else

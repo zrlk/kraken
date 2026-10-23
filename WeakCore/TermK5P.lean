@@ -30,6 +30,7 @@ theorem soloNP_snocT {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {r 
   | refl => intro hs hn; exact .thread hs hn (.refl _)
   | thread hs1 hn1 _ ih => intro hs hn; exact .thread hs1 hn1 (ih hs hn)
   | prom a v w hw _ ih => intro hs hn; exact .prom a v w hw (ih hs hn)
+  | ext hs1 _ ih => intro hs hn; exact .ext hs1 (ih hs hn)
 
 theorem soloNP_snocP {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {r : AllocLabel} {c c0 : Cfg}
     {a : Address} {v : WeakMem.Val} {w : Ts} (h : SoloNP p k arch i r c c0) (hw : w < c0.mem.size) :
@@ -39,6 +40,7 @@ theorem soloNP_snocP {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {r 
   | refl => intro hw; exact .prom a v w hw (.refl _)
   | thread hs1 hn1 _ ih => intro hw; exact .thread hs1 hn1 (ih hw)
   | prom a1 v1 w1 hw1 _ ih => intro hw; exact .prom a1 v1 w1 hw1 (ih hw)
+  | ext hs1 _ ih => intro hw; exact .ext hs1 (ih hw)
 
 /-- (S1b) The start: nothing published yet. -/
 theorem pfrProvE_start (p : Prog) (k : Promises.Knobs) (arch : Arch) (j : Nat) (H : AllocLabel → Nat → Ts → Prop)
@@ -169,6 +171,25 @@ theorem pfrProv_thread {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat}
     rw [hini] at ho1
     exact hu N e us hT hus o ho1 ho2
 
+/-- (IO1) An extern move extends a `SoloNP` run (it is never a `publish`). -/
+theorem soloNP_snocE {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {r : AllocLabel} {c c0 c0' : Cfg}
+    (h : SoloNP p k arch i r c c0) (hs : c0' ∈ extSteps c0 i) : SoloNP p k arch i r c c0' := by
+  revert hs
+  induction h with
+  | refl => intro hs; exact .ext hs (.refl _)
+  | thread hs1 hn1 _ ih => intro hs; exact .thread hs1 hn1 (ih hs)
+  | prom a v w hw _ ih => intro hs; exact .prom a v w hw (ih hs)
+  | ext hs1 _ ih => intro hs; exact .ext hs1 (ih hs)
+
+/-- (IO1) An extern move keeps the publish provenance. -/
+theorem pfrProv_ext {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat}
+    {H : AllocLabel → Nat → Ts → Prop} {E0 E : TEnv} {st c0 c0' : Cfg}
+    (hP : PfrProvE p k arch i H E0 st c0 E) (hs : c0' ∈ extSteps c0 i) : PfrProvE p k arch i H E0 st c0' E := by
+  intro l c hc0 ho hp0
+  rcases hP l c hc0 ho hp0 with ⟨hn, hsolo⟩ | ⟨F, c1, th1, c1', hEF, hsolo, hth1, hpub, hs1, h1c, hu⟩
+  · exact .inl ⟨hn, soloNP_snocE hsolo hs⟩
+  · exact .inr ⟨F, c1, th1, c1', hEF, hsolo, hth1, hpub, hs1, solo_trans h1c (.ext hs (.refl _)), hu⟩
+
 /-- (S1b) **`PfrProvE` along a promise step** (the environment is kept). -/
 theorem pfrProv_prom {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat}
     {H : AllocLabel → Nat → Ts → Prop} {E0 E : TEnv} {st c0 : Cfg} {a : Address} {v : WeakMem.Val} {w : Ts}
@@ -183,6 +204,8 @@ end TermK5P
 
 #print axioms TermK5P.soloNP_snocT
 #print axioms TermK5P.soloNP_snocP
+#print axioms TermK5P.soloNP_snocE
+#print axioms TermK5P.pfrProv_ext
 #print axioms TermK5P.pfrProvE_start
 #print axioms TermK5P.tstep_footprintK
 #print axioms TermK5P.pubZ_noBufInit

@@ -66,8 +66,8 @@ theorem spawnCfg_size (c : Cfg) (i : Nat) (th : TTh) (x : String) (e : Expr)
 theorem spawnCfg_get {c : Cfg} {i : Nat} (hi : i < c.ths.size) (th : TTh) (x : String) (e : Expr)
     (f : String) (ts : List Ty) (T : Ty) (ws : List Word) (j : Nat) :
     (spawnCfg c i th x e f ts T ws).ths[j]? =
-      if j = c.ths.size then some (spawnKid c th f ts T ws)
-      else if i = j then some (spawnPar c th x e) else c.ths[j]? := by
+      if j = c.ths.size then some (spawnKid c i th f ts T ws)
+      else if i = j then some (spawnPar c i th x e) else c.ths[j]? := by
   simp only [spawnCfg, spawnT, Array.getElem?_push, Array.set!_eq_setIfInBounds,
     Array.size_setIfInBounds, Array.getElem?_setIfInBounds, hi, ↓reduceIte]
 

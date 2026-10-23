@@ -681,6 +681,10 @@ theorem sysInvN_spawnS {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res
   freshU := by
     rw [spawnS_n hth]
     exact TermFreshU.freshU_le (Nat.le_of_eq (spawnS_size hth).symm)
+  tidBox := by
+    intro i t hi l hl
+    obtain ⟨kd, -, rfl⟩ := spawnS_th hth hi
+    cases hl
 
 
 #print axioms TermSpawn.sysInvN_spawnS

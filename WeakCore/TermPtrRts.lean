@@ -76,6 +76,12 @@ theorem winLe_gen {c1 : Cfg} {t : Nat} {m : Msg}
     have hP1 := TermOwnG0.soloNP_snoc_prom hP a3 v w3 hw
     have h2 := ih hn hP1 _ (promise_inv (a := a3) (v := v) (w := w3) hth).2.1 (List.mem_append_left _ hB)
     exact h2
+  | ext hs hrest ih =>
+    rename_i c c3 c4
+    intro hn hP th hth hB
+    have hP1 := TermOwnG0.soloNP_snoc_ext hP c3 hs
+    obtain ⟨x1, a1, e1, evs, hterm, rfl⟩ := extSteps_thread hs hth
+    exact ih hn hP1 { th with term := e1, env := (x1, .unit, []) :: th.env } (set_self hth) hB
 
 end win
 
@@ -926,6 +932,12 @@ theorem labsIn_VR {G : AllocLabel → Prop} : ∀ (T : Ty) (ρ : Nat → Nat) (�
     obtain ⟨n, hn⟩ := hv
     have hm := locPub_mem_val hn hw
     rw [hx] at hm; simp at hm
+  | tid =>
+    intro ρ η R ws hrel hS hB hshp hwc hval hv w hw x g hx
+    obtain ⟨n, c, hn, h3, -⟩ := hv
+    have hm := locPub_mem_val hn hw
+    rw [hx] at hm; simp at hm; obtain ⟨rfl, -⟩ := hm
+    exact hS _ _ h3
   | fix sg wd =>
     intro ρ η R ws hrel hS hB hshp hwc hval hv w hw x g hx
     obtain ⟨-, n, hn, -⟩ := hv
@@ -1398,6 +1410,12 @@ theorem labsIn_VR_sNo {G : AllocLabel → Prop} : ∀ (T : Ty) (ρ : Nat → Nat
     obtain ⟨n, hn⟩ := hv
     have hm := locPub_mem_val hn hw
     rw [hx] at hm; simp at hm
+  | tid =>
+    intro ρ η R ws hrel hS hB hshp hsn hwc hval hv w hw x g hx
+    obtain ⟨n, c, hn, -, -, f, hf, -⟩ := hv
+    have hm := locPub_mem_val hn hw
+    rw [hx] at hm; simp at hm; obtain ⟨rfl, -⟩ := hm
+    exact hS _ _ hf
   | fix sg wd =>
     intro ρ η R ws hrel hS hB hshp hsn hwc hval hv w hw x g hx
     obtain ⟨-, n, hn, -⟩ := hv

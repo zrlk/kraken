@@ -301,6 +301,24 @@ theorem operation_dom (hI : StoreClosed I) [Labels] [AddressSize] {w : Width} (o
   cases op
   case xadd lock dst src => cases dst <;> dom_search
   case bswap dst => cases w <;> dom_search
+  -- `movfs` is `mov` at a segment-relative address: unfold the segment forms.
+  case movfs dst src =>
+    rcases src with (_ | a) | v <;> rcases dst with _ | b <;>
+      simp only [Operation.interp, Operand.interpSeg, RegOrMem.interpSeg, MachineData.setSeg] at h ⊢ <;>
+      repeat' first
+        | exact hk _ _ h hd
+        | refine load_dom hd (fun v s' g h hd => ?_) h
+        | refine store_dom hI hd (fun s' g h hd => ?_) h
+        | simp only [MachineData.setSeg] at h ⊢
+  -- `cmpfs` is `cmp` at a segment-relative address: unfold the segment forms.
+  case cmpfs x y =>
+    rcases y with (_ | b) | v <;> rcases x with _ | a <;>
+      simp only [Operation.interp, Operand.interpSeg, RegOrMem.interpSeg, MachineData.setSeg] at h ⊢ <;>
+      repeat' first
+        | exact hk _ _ h hd
+        | refine load_dom hd (fun v s' g h hd => ?_) h
+        | refine store_dom hI hd (fun s' g h hd => ?_) h
+        | simp only [MachineData.setSeg] at h ⊢
   all_goals dom_search
 
 set_option hygiene false in

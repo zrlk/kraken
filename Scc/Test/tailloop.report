@@ -1,0 +1,2 @@
+tailloop.w: 1 checked `+` site(s), 0 boundable by index facts
+tailloop.w:12:5: checked `+` (unbounded): acc1 = acc + iv in 'loop'

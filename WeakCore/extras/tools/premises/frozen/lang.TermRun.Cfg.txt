@@ -1,6 +1,7 @@
 TermRun.Cfg : Type
-  | TermRun.Cfg.mk : WeakMem.Memory → List WeakMem.Ts → Array TermRun.TTh → Nat → Bool → Nat → TermRun.Cfg
-  fields #[mem, pairs, ths, lbase, boxFence, cap]
+  | TermRun.Cfg.mk : WeakMem.Memory → List WeakMem.Ts → Array TermRun.TTh → Nat → Bool → Nat → List TermRun.Event → TermRun.Cfg
+  fields #[mem, pairs, ths, lbase, boxFence, cap, trace]
+TermRun.Event : Type
 TermRun.TTh : Type
 WeakMem.Memory : Type
 WeakMem.Ts : Type

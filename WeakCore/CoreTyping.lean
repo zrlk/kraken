@@ -640,7 +640,7 @@ theorem meqD_sound {cx : Cx} {d : Nat} {μ ν : Mode} (h : meqD cx d μ ν = tru
 theorem tyEq_sound (cx : Cx) : ∀ (d : Nat) (a b : Ty), tyEq cx d a b = true → TyEqS cx d a b := by
   intro d a b h
   induction a generalizing d b with
-  | unit | void | int | tvar _ | fix _ _ | lanes _ _ =>
+  | unit | void | int | tvar _ | fix _ _ | lanes _ _ | tid =>
       cases b <;> simp_all [tyEq] <;> first | exact .refl | skip
   | intS i =>
       cases b <;> simp [tyEq] at h
@@ -1531,7 +1531,10 @@ inductive OpT (p : Prog) : Cx → String → Op → Cx → Prop
       p.find f = .ok d → instantiate { vars := [("a", T, true)], ret := .unit } d [] ts = .ok (at_, rt) →
       tailCheck p { vars := [("a", T, true)], ret := rt } f [] (.var "a") ts = .ok () →
       (TermClose.tb 0 rt && TermTv.mg rt && TermTv.noIallV rt) = true →
-      c₁.bind x .int = .ok c' → OpT p cx x (.spawn f a T ts) c'
+      c₁.bind x .tid = .ok c' → OpT p cx x (.spawn f a T ts) c'
+  /-- (E1) A trusted extern (`checkOp`'s `.ext`): the argument at the extern's type. -/
+  | ext {cx c₁ c' : Cx} {x : String} {n : ExtName} {a : At} {t : Ty} :
+      cx.use a = .ok (t, c₁) → SubS c₁ t n.sig.1 → c₁.bind x n.sig.2 = .ok c' → OpT p cx x (.ext n a) c'
   /-- Lend a token or share: it is used up and recorded as lent. -/
   | borrow {cx c₁ c' : Cx} {x y : String} {c : Cap} {a : At} {t t' : Ty} {r : Idx} :
       varOf a = .ok y → cx.peek a = .ok t → lendOf cx c t = .ok r → cx.use a = .ok (t', c₁) →
@@ -1649,10 +1652,10 @@ inductive OpT (p : Prog) : Cx → String → Op → Cx → Prop
       LtI cx j (.smul q.2.lanes n) → LtI cx j (.smul q.2.lanes k) →
       cx.peek v = .ok tv → fixOf tv = some q → cx.bind x .unit = .ok c' → OpT p cx x (.stl b i v) c'
 
-/-- Both operands are integers, at least one of unknown index. -/
+/-- Both operands are integers, at least one of unknown index; or (E1) both are `ThreadId`s. -/
 def PlainEq (cx : Cx) (a b : At) : Prop :=
-  ∃ ta tb, cx.peek a = .ok ta ∧ cx.peek b = .ok tb ∧ (intOf ta).isSome ∧ (intOf tb).isSome ∧
-    (intOf ta = some none ∨ intOf tb = some none)
+  ∃ ta tb, cx.peek a = .ok ta ∧ cx.peek b = .ok tb ∧ (((intOf ta).isSome ∧ (intOf tb).isSome ∧
+    (intOf ta = some none ∨ intOf tb = some none)) ∨ (tidOf ta = true ∧ tidOf tb = true))
 
 theorem plainIntT_iff (t : Ty) : plainIntT t = true ↔ intOf t = some none := by
   unfold plainIntT; split <;> simp_all
@@ -1662,7 +1665,9 @@ theorem plainEq_sound {cx : Cx} {a b : At} (h : plainEq cx a b = true) : PlainEq
   split at h
   · rename_i ta tb ha hb
     simp only [Bool.and_eq_true, Bool.or_eq_true, plainIntT_iff] at h
-    exact ⟨ta, tb, ha, hb, h.1.1, h.1.2, h.2⟩
+    rcases h with h | h
+    · exact ⟨ta, tb, ha, hb, .inl ⟨h.1.1, h.1.2, h.2⟩⟩
+    · exact ⟨ta, tb, ha, hb, .inr h⟩
   · simp at h
 
 inductive Typed (p : Prog) : Cx → Expr → Prop
@@ -2504,6 +2509,15 @@ theorem checkOp_sound (p : Prog) (cx : Cx) (x : String) (op : Op) (cx' : Cx)
       obtain ⟨hD1, hD2⟩ := nor hb5
       obtain ⟨hK1, hK2⟩ := nor hb6
       exact .spawn h1 (sub_sound _ _ _ hsb) hb2 hW1 hW2 hT1 hT2 hD1 hD2 hK1 hK2 hd hi hc hb7 h
+  | ext n a =>
+      simp only [checkOp, bind_ok_iff] at h
+      obtain ⟨⟨t, c₁⟩, h1, h⟩ := h
+      dsimp only at h
+      generalize hsb : sub c₁ t n.sig.1 = sb at h
+      cases sb
+      · cases h
+      rw [if_neg (by decide)] at h
+      exact .ext h1 (sub_sound _ _ _ hsb) h
   | borrow c a =>
       simp only [checkOp, bind_ok_iff] at h
       obtain ⟨y, hy, t, ht, r, hr, ⟨t', c₁⟩, h1, h⟩ := h

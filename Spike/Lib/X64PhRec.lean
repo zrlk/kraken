@@ -1,0 +1,382 @@
+/-
+**The phase record of a runtime layout on x86-64** (`ph`, `okPc`, `μ`,
+`ownOf`, `own`, `Tk`, `K`): the phases, sites, marks and owned words of the
+runtime's thread start, read off the layout's code cells by A6's `phOf` and
+`okPcOf` (`Scc/Cert/Rt/PhasesX64.lean`) and the layout's four counters, and
+the instance's facts they give (`instOk`, `Spike/Lib/Rt/X64RtW.lean`'s
+`InstOk`). The x86-64 twin of `Spike/Lib/A64PhRec.lean`.
+
+- **The instance's facts** (`instOk`): the layout's executable, end and
+  labels; the owned words and the take's phase factor through `ph` of the pc
+  (`same`); a pc off the sites is off the marks' sites, with no take there
+  (`off`), given the take site at its label (`hsite`).
+- **The marks** (`marks_eq`): the canonical target's marks of a text whose
+  cells are the layout's.
+- **The frame condition's words** (`rtF_*`) and the first TCB's (`tcb_*`,
+  given `TcbSep`): unmapped at the entry, mapped, owned at no phase.
+- **From the placement check** (`site_ofPlaceOK`, `instOk_ofPlaceOK`): the
+  take site at its label, so the instance's facts, for an output passing
+  `placeOK`.
+- **Oracle**: at `ret0`'s layout the record's `ph`, `okPc`, `ownOf` and `μ`
+  are the hand ones (`Spike/Test/X64PhRec.lean`).
+-/
+import Spike.Lib.Rt.X64RtW
+import Spike.Lib.Rt.X64Layout
+import Spike.Lib.Rt.X64LayoutOfPlaceOK
+import Scc.Sem.LoadX64
+import Scc.Cert.Rt.PhasesX64
+
+namespace Spike.Lib.X64.PhRec
+
+open Kraken Kraken.Promising Kraken.Promising.X64
+open Scc.Sem (Marks Range)
+open Scc.Sem.X64 (pcOf codeLabel)
+open Spike.Lib.X64Consumer
+open Spike.Lib.X64.Rt (RuntimeLayout InstOk)
+open Spike.Lib.X64.Flow.Ret0 (TakeK)
+
+/-! ## The sites -/
+
+/-- **A value of a mapped list**: `f x` is in `l.mapM f` for `x ∈ l`. -/
+theorem mem_of_mapM {α β : Type} {f : α → Option β} :
+    ∀ {l : List α} {ss : List β}, l.mapM f = some ss → ∀ x ∈ l, ∀ b, f x = some b → b ∈ ss
+  | [], _, _, x, hx, _, _ => by cases hx
+  | y :: ys, ss, h, x, hx, b, hb => by
+    rw [List.mapM_cons] at h
+    cases hy : f y with
+    | none => rw [hy] at h; cases h
+    | some c =>
+      cases hys : ys.mapM f with
+      | none => rw [hy, hys] at h; cases h
+      | some cs =>
+        rw [hy, hys] at h
+        cases h
+        rcases List.mem_cons.mp hx with rfl | hx
+        · rw [hy] at hb; cases hb; exact List.mem_cons_self ..
+        · exact List.mem_cons_of_mem _ (mem_of_mapM hys x hx b hb)
+
+/-- **A site label's address is a site** of the cells. -/
+theorem site_mem {lo : Nat} {cells : List (Directive × Nat)} {Λ : Scc.Sem.Layout} {ss : List Nat}
+    (hs : Scc.Cert.Rt.X64.sitesOf lo cells Λ = some ss) {l : String} (hl : l ∈ Scc.Cert.Rt.X64.siteLabels Λ)
+    {a : Nat} (ha : codeLabel lo cells l = some a) : a ∈ ss :=
+  mem_of_mapM hs l hl a ha
+
+/-- **A pc off the sites** is none of the sites' label addresses. -/
+theorem ne_of_okPcOf {lo : Nat} {cells : List (Directive × Nat)} {Λ : Scc.Sem.Layout} {pc : Nat}
+    (h : Scc.Cert.Rt.X64.okPcOf lo cells Λ pc = true) {l : String} (hl : l ∈ Scc.Cert.Rt.X64.siteLabels Λ)
+    {a : Nat} (ha : codeLabel lo cells l = some a) : pc ≠ a := by
+  unfold Scc.Cert.Rt.X64.okPcOf at h
+  split at h
+  · next ss hs =>
+    rintro rfl
+    have hm := site_mem hs hl ha
+    simp only [Bool.not_eq_true', List.contains_eq_any_beq, List.any_eq_false, beq_iff_eq] at h
+    exact h _ hm rfl
+  · cases h
+
+section Rec
+
+variable (L : RuntimeLayout)
+
+/-! ## The record -/
+
+/-- **The phase index of a pc** (A6's `phOf`). -/
+def ph : Nat → Nat := Scc.Cert.Rt.X64.phOf L.Λ.code.lo L.prog
+
+/-- **The pcs off the sites** (A6's `okPcOf`). -/
+def okPc : Nat → Bool := Scc.Cert.Rt.X64.okPcOf L.Λ.code.lo L.prog L.Λ
+
+/-- **The program's marks**: the transfer sites at their fixed labels, the
+abort sites at the layout's labels, resolved in the cells. -/
+def μ : Marks where
+  site k := codeLabel L.Λ.code.lo L.prog k.label
+  abortAt k := codeLabel L.Λ.code.lo L.prog (L.Λ.abortLbl k)
+
+/-- **The owned words at a phase index**: the four counters
+`scc_rt_pinned_next`, `scc_rt_stack_lock`, `scc_rt_stack_free_n`,
+`scc_rt_stack_next` with their values by the index's bits. -/
+def ownOf (i : Nat) : List (Loc × Val) :=
+  [(⟨L.pnA, 8⟩, (if i % 2 = 1 then 0#64 else Spike.Lib.X64.Flow.Ret0.AllocTcb.tcbLen).setWidth 128),
+    (⟨L.lockA, 8⟩, (if i / 2 % 2 = 1 then 1#64 else 0#64).setWidth 128),
+    (⟨L.freeNA, 8⟩, (0#64).setWidth 128),
+    (⟨L.nextA, 8⟩, (if i / 4 % 2 = 1 then 0#64 else Spike.Lib.X64.Flow.Ret0.StackTake.size0).setWidth 128)]
+
+/-- **The words a state owns**, by its pc's phase. -/
+def own (s : State) : List (Loc × Val) := ownOf L (ph L (pcOf s))
+
+/-- **The take's phase**: past the take site. -/
+def Tk (s : State) : Prop := ph L (pcOf s) / 8 % 2 = 0
+
+/-- **The outside move**: the take at the take site's label. -/
+abbrev K (rS : Range) : State → State → Prop := TakeK (L.lab Spike.Lib.X64.Flow.Ret0.StackTake.siteL) rS
+
+/-! ## The instance's facts -/
+
+/-- The owned words and the take's phase factor through `ph` of the pc. -/
+theorem same : ∀ s s' : State, ph L (pcOf s') = ph L (pcOf s) → own L s' = own L s ∧ (Tk L s' ↔ Tk L s) := by
+  intro s s' h
+  unfold own Tk
+  rw [h]
+  exact ⟨rfl, Iff.rfl⟩
+
+/-- **A pc off the sites** is off the marks' sites, with no take there,
+given the take site at its label (`hsite`). -/
+theorem off {rS : Range}
+    (hsite : (μ L).site .take = some (L.lab Spike.Lib.X64.Flow.Ret0.StackTake.siteL).toBitVec.toNat) :
+    ∀ s : State, okPc L (pcOf s) = true → PcOff (μ L) s ∧ ∀ s', ¬ K L rS s s' := by
+  intro s h
+  have hp : PcOff (μ L) s :=
+    ⟨fun a ha => ne_of_okPcOf h (by simp [Scc.Cert.Rt.X64.siteLabels, Scc.Sem.XferKind.label]) ha,
+      fun a ha => ne_of_okPcOf h (by simp [Scc.Cert.Rt.X64.siteLabels, Scc.Sem.XferKind.label]) ha,
+      fun k a ha => ne_of_okPcOf h (by cases k <;> simp [Scc.Cert.Rt.X64.siteLabels]) ha⟩
+  exact ⟨hp, hp.not_take hsite⟩
+
+/-- **The instance's facts of the record**: the layout's executable, end
+and labels, `same` and `off`. -/
+theorem instOk {rS : Range}
+    (hsite : (μ L).site .take = some (L.lab Spike.Lib.X64.Flow.Ret0.StackTake.siteL).toBitVec.toNat) :
+    InstOk L.exe L.endPc L.prog L.lab (μ L) (own L) (Tk L) (K L rS) (okPc L) (ph L) :=
+  ⟨L.lays, rfl, rfl, same L, off L hsite⟩
+
+/-- **The canonical target's marks** of a text whose cells are the
+layout's (`hpa`, the loader's parse) are the record's. -/
+theorem marks_eq {asm : Scc.Sem.X64.Asm} (hpa : Scc.Sem.X64.cellsOf asm = some L.prog) :
+    Scc.Sem.Target.marks (Scc.Sem.X64.canonical 1) asm L.Λ = μ L := by
+  have hr := Scc.Sem.X64.resolve_of_parsed (Scc.Sem.X64.kernel 1) Scc.Sem.Entry.linux L.Λ hpa
+  unfold Scc.Sem.Target.marks μ
+  congr 1
+  · funext k; exact hr _
+  · funext k; exact hr _
+
+/-! ## The frame condition's words -/
+
+variable {L}
+
+/-- `scc_rt_pinned_next` is unmapped under the entry frame condition. -/
+theorem rtF_pn {m : MachineData} (h : Spike.Lib.X64.Rt.rtF L m) : Mem.loadInt m.dmem L.pnA 8 = none := h _ L.pn_mem
+
+/-- `scc_rt_stack_lock` is unmapped under the entry frame condition. -/
+theorem rtF_lock {m : MachineData} (h : Spike.Lib.X64.Rt.rtF L m) : Mem.loadInt m.dmem L.lockA 8 = none :=
+  h _ L.lock_mem
+
+/-- `scc_rt_stack_free_n` is unmapped under the entry frame condition. -/
+theorem rtF_freeN {m : MachineData} (h : Spike.Lib.X64.Rt.rtF L m) : Mem.loadInt m.dmem L.freeNA 8 = none :=
+  h _ L.freeN_mem
+
+/-- `scc_rt_stack_next` is unmapped under the entry frame condition. -/
+theorem rtF_next {m : MachineData} (h : Spike.Lib.X64.Rt.rtF L m) : Mem.loadInt m.dmem L.nextA 8 = none :=
+  h _ L.next_mem
+
+/-- The first TCB's header (`n0 = 0`) is unmapped under the entry frame
+condition. -/
+theorem rtF_hdr0 {m : MachineData} (h : Spike.Lib.X64.Rt.rtF L m) :
+    Mem.loadInt m.dmem (L.pinA + 0#64) 8 = none := by
+  rw [BitVec.add_zero]; exact h _ L.pin_mem
+
+/-! ## The first TCB's words
+
+The first TCB's header `pinA` and its six fields `pinA + 8 (j + 1)` are
+words of `rtWords`: mapped for writing, unmapped under the entry frame
+condition. They are owned at no phase when they are none of the four
+counters (`TcbSep`, a separation the record's layout does not state). -/
+
+/-- **The first TCB's words are off the counters.** -/
+def TcbSep (L : RuntimeLayout) : Prop :=
+  ∀ j < 7, L.pinA + BitVec.ofNat 64 (8 * j) ∉ [L.pnA, L.lockA, L.freeNA, L.nextA]
+
+/-- A word of the first TCB: its header or one of its six fields. -/
+theorem tcb_mem {a : BitVec 64} (ha : ∃ j < 7, a = L.pinA + BitVec.ofNat 64 (8 * j)) : a ∈ L.rtWords := by
+  obtain ⟨j, hj, rfl⟩ := ha
+  cases j with
+  | zero => simpa using L.pin_mem
+  | succ j => exact L.fld_mem (by omega)
+
+/-- **A TCB word is unmapped** under the entry frame condition. -/
+theorem rtF_tcb {m : MachineData} (h : Spike.Lib.X64.Rt.rtF L m) {a : BitVec 64}
+    (ha : ∃ j < 7, a = L.pinA + BitVec.ofNat 64 (8 * j)) : Mem.loadInt m.dmem a 8 = none :=
+  h _ (tcb_mem ha)
+
+/-- **A TCB word is mapped for writing** in the loaded kernel state. -/
+theorem mapped_tcb {a : BitVec 64} (ha : ∃ j < 7, a = L.pinA + BitVec.ofNat 64 (8 * j)) :
+    Scc.Sem.Kernel.mapped (K0 L.Λ) true ⟨a, 8⟩ = true :=
+  (L.words_mapped a (tcb_mem ha)).1
+
+/-- **A TCB word is owned at no phase**, the TCB off the counters. -/
+theorem tcb_not_own (hs : TcbSep L) {a : BitVec 64} (ha : ∃ j < 7, a = L.pinA + BitVec.ofNat 64 (8 * j)) :
+    ∀ i w, (⟨a, 8⟩, w) ∉ ownOf L i := by
+  obtain ⟨j, hj, rfl⟩ := ha
+  intro i w hm
+  apply hs j hj
+  simp only [ownOf, List.mem_cons, Prod.mk.injEq, Loc.mk.injEq, List.not_mem_nil, or_false] at hm
+  rcases hm with ⟨⟨h, -⟩, -⟩ | ⟨⟨h, -⟩, -⟩ | ⟨⟨h, -⟩, -⟩ | ⟨⟨h, -⟩, -⟩ <;> simp [h]
+
+end Rec
+
+/-! ## The take site at its label, from the placement check
+
+A code label's address is below the code's end (`le_codeEnd_of_codeLabel`),
+which every data symbol the loader places lies above (`symsOk`); a runtime
+word's symbol lies in a region of the link or in `.rodata`, both in the
+address space, so the code's end is in it (`codeEnd_lt`), and the take
+site's label is its `codeLabel` address unwrapped. -/
+
+section Place
+
+open Scc.Cert.PlaceOK Scc.Cert.PlaceOK.X64
+open Scc.Cert.Link.X64 (linkOf)
+
+/-- A code label's address is at most the code's end. -/
+theorem le_codeEnd_of_codeLabel {l : String} : ∀ {base : Nat} {cells : List (Directive × Nat)} {a : Nat},
+    codeLabel base cells l = some a → a ≤ Scc.Sem.X64.codeEnd base cells
+  | _, [], _, h => by cases h
+  | base, c :: cs, a, h => by
+    simp only [codeLabel, Scc.Sem.labelAddr] at h
+    split at h
+    · cases h; simp [Scc.Sem.X64.codeEnd]
+    · have := le_codeEnd_of_codeLabel (l := l) (base := base + c.2) (cells := cs) h
+      simp only [Scc.Sem.X64.codeEnd, List.map_cons, List.sum_cons] at this ⊢
+      omega
+
+/-- A data label's address is at most the section's end. -/
+theorem le_endAddr_of_labelsFrom {l : String} {a : Nat} (items : List Kraken.DataImage.Item) : ∀ {cur : Nat},
+    (l, a) ∈ Kraken.DataImage.labelsFrom cur items → a ≤ Kraken.DataImage.endAddr cur items := by
+  induction items with
+  | nil => intro _ h; cases h
+  | cons it is ih =>
+    intro cur h
+    cases it with
+    | label l' =>
+      simp only [Kraken.DataImage.labelsFrom, List.mem_cons, Prod.mk.injEq] at h
+      have he : Kraken.DataImage.endAddr cur (.label l' :: is) = Kraken.DataImage.endAddr cur is := by
+        simp [Kraken.DataImage.endAddr, Kraken.DataImage.addrAt, Kraken.DataImage.size]
+      rw [he]
+      rcases h with ⟨-, rfl⟩ | h
+      · exact Kraken.DataImage.le_addrAt _ _ _
+      · exact ih h
+    | _ =>
+      simp only [Kraken.DataImage.labelsFrom] at h
+      have := ih h
+      simpa [Kraken.DataImage.endAddr, Kraken.DataImage.addrAt] using this
+
+/-- **A placed symbol is in the address space**: a symbol of the link (in
+a region, `WF`) or of `.rodata` (in the image, `rodataFits`). -/
+theorem sym_le {Λ : Scc.Sem.Layout} {ro : List Kraken.DataImage.Item} (hwf : Λ.WF)
+    (hro : Scc.Sem.rodataFits Λ ro = true) {p : String × Nat} (hp : p ∈ Scc.Sem.loadSyms Λ ro) :
+    p.2 ≤ 2 ^ 64 := by
+  rcases List.mem_append.mp hp with hp | hp
+  · have hin := hwf.symIn p (List.mem_filter.mp hp).1
+    have hsp : ∀ r ∈ Λ.regions, r.contains p.2 → p.2 ≤ 2 ^ 64 := fun r hr hc => by
+      have := (hwf.inSpace r hr).2; simp only [Scc.Sem.Range.contains] at hc; omega
+    rcases hin with h | h | h | h
+    · exact hsp _ (by simp [Scc.Sem.Layout.regions]) h
+    · exact hsp _ (by simp [Scc.Sem.Layout.regions]) h
+    · exact hsp _ (by simp [Scc.Sem.Layout.regions]) h
+    · exact hsp _ (by simp [Scc.Sem.Layout.regions]) h
+  · have hle := le_endAddr_of_labelsFrom (l := p.1) (a := p.2) ro hp
+    have hne : ro.isEmpty = false := by
+      cases ro with
+      | nil => simp [Scc.Sem.rodataSyms, Kraken.DataImage.labelsFrom] at hp
+      | cons _ _ => rfl
+    simp only [Scc.Sem.rodataFits, hne, Bool.false_or, Bool.and_eq_true, decide_eq_true_eq] at hro
+    omega
+
+variable {pcfg : Scc.Cert.PlaceOK.Config} {o : Scc.Cert.PlaceOK.X64.Out} {Λ : Scc.Sem.Layout}
+  (h : placeOKAt pcfg Λ o = true)
+  (i : CoreTerm.Expr → String → Nat → Option Nat)
+include h
+
+/-- **The code's end is in the address space** of an output passing
+`placeOK`. -/
+theorem codeEnd_lt : Scc.Sem.X64.codeEnd (RuntimeLayout.ofPlaceOK h i).Λ.code.lo o.prog < 2 ^ 64 := by
+  have hl := loadOk_link_of_placeOKAt i h
+  have hw := rtWordsOk_link_of_placeOKAt i h
+  have hwf := wf_link_of_placeOKAt i h
+  simp only [Scc.Cert.Link.X64.loadOk, Bool.and_eq_true] at hl
+  obtain ⟨⟨⟨⟨⟨-, hro⟩, -⟩, -⟩, -⟩, hsy⟩ := hl
+  simp only [Scc.Cert.Rt.X64.rtWordsOk, Bool.and_eq_true, List.all_eq_true] at hw
+  obtain ⟨a, ha⟩ := Option.isSome_iff_exists.mp (hw.1 "scc_rt_pinned_next" (by decide))
+  unfold Scc.Cert.Rt.X64.symLab at ha
+  split at ha
+  · next a' hlk =>
+    obtain ⟨l1, l2, he, -⟩ := List.lookup_eq_some_iff.mp hlk
+    have hmem : ("scc_rt_pinned_next", a') ∈ l1 ++ ("scc_rt_pinned_next", a') :: l2 := by simp
+    rw [← he] at hmem
+    have hle := sym_le hwf hro hmem
+    simp only [Scc.Cert.Link.X64.symsOk, Bool.and_eq_true, List.all_eq_true, decide_eq_true_eq] at hsy
+    have := (hsy.1 _ hmem).1
+    exact Nat.lt_of_lt_of_le this hle
+  · cases ha
+
+/-- **The take site at its label** in the loaded thread of an output
+passing `placeOK`. -/
+theorem site_ofPlaceOK :
+    (μ (RuntimeLayout.ofPlaceOK h i)).site .take =
+      some ((RuntimeLayout.ofPlaceOK h i).lab Spike.Lib.X64.Flow.Ret0.StackTake.siteL).toBitVec.toNat := by
+  have h6 := phasesOk_of_placeOKAt h
+  unfold Scc.Cert.Rt.X64.phasesOk Scc.Cert.Rt.X64.phasesOkBy at h6
+  rw [Scc.Cert.Rt.X64.codeT_eq] at h6
+  split at h6
+  · next T ss hT hs =>
+    have hl : "scc_rt_take_site" ∈ Scc.Cert.Rt.X64.siteLabels (Λ) := by
+      simp [Scc.Cert.Rt.X64.siteLabels]
+    obtain ⟨a, ha⟩ : ∃ a, codeLabel (Λ).code.lo o.prog "scc_rt_take_site" = some a := by
+      unfold Scc.Cert.Rt.X64.sitesBy at hs
+      have : ∀ {l : List String} {ss : List Nat},
+          l.mapM (codeLabel (Λ).code.lo o.prog) = some ss →
+          ∀ x ∈ l, ∃ a, codeLabel (Λ).code.lo o.prog x = some a := by
+        intro l
+        induction l with
+        | nil => intro _ _ x hx; cases hx
+        | cons y ys ih =>
+          intro ss hm x hx
+          rw [List.mapM_cons] at hm
+          cases hy : codeLabel (Λ).code.lo o.prog y with
+          | none => rw [hy] at hm; cases hm
+          | some c =>
+            cases hys : ys.mapM (codeLabel (Λ).code.lo o.prog) with
+            | none => rw [hy, hys] at hm; cases hm
+            | some cs =>
+              rcases List.mem_cons.mp hx with rfl | hx
+              · exact ⟨c, hy⟩
+              · exact ih hys x hx
+      exact this hs _ hl
+    haveI : Kraken.Executable.ValidLayout (Scc.Sem.X64.threadAt Scc.Sem.Entry.linux (Λ).code.lo
+        o.prog (Scc.Sem.loadSyms (RuntimeLayout.ofPlaceOK h i).Λ o.secs.rodata)).exe :=
+      (RuntimeLayout.ofPlaceOK h i).valid
+    have hlab := Scc.Cert.Rt.X64.label_threadAt_of_codeLabel (E := Scc.Sem.Entry.linux)
+      (syms := Scc.Sem.loadSyms (RuntimeLayout.ofPlaceOK h i).Λ o.secs.rodata)
+          (by exact Spike.Lib.X64.Rt.RuntimeLayout.ofPlaceOK_above h i) ha
+    have hlt : a < 2 ^ 64 :=
+      Nat.lt_of_le_of_lt (le_codeEnd_of_codeLabel ha) (codeEnd_lt h i)
+    show codeLabel (Λ).code.lo o.prog "scc_rt_take_site" = _
+    rw [ha]
+    have hlab' : (RuntimeLayout.ofPlaceOK h i).lab Spike.Lib.X64.Flow.Ret0.StackTake.siteL = Int64.ofNat a := hlab
+    rw [hlab']
+    simp [Nat.mod_eq_of_lt hlt]
+  · cases h6
+
+/-- **The overflow abort path's phase check** at the record's
+`okPc`/`ph` and labels of an output passing `placeOK` (A7's `abortPhC`, every
+label it reads at its `codeLabel` address in the loaded thread). -/
+theorem abortPhOk_ofPlaceOK :
+    Spike.Lib.X64.StubW.abortPhOk (okPc (RuntimeLayout.ofPlaceOK h i)) (ph (RuntimeLayout.ofPlaceOK h i))
+      (RuntimeLayout.ofPlaceOK h i).lab = true := by
+  haveI : Kraken.Executable.ValidLayout (Scc.Sem.X64.threadAt Scc.Sem.Entry.linux (Λ).code.lo
+      o.prog (Scc.Sem.loadSyms (RuntimeLayout.ofPlaceOK h i).Λ o.secs.rodata)).exe :=
+    (RuntimeLayout.ofPlaceOK h i).valid
+  exact Spike.Lib.X64.StubW.abortPhOk_of_abortPhC (abortPh_of_placeOKAt h) fun _ _ ha =>
+    Scc.Cert.Rt.X64.label_threadAt_of_codeLabel (E := Scc.Sem.Entry.linux)
+      (syms := Scc.Sem.loadSyms (RuntimeLayout.ofPlaceOK h i).Λ o.secs.rodata)
+          (by exact Spike.Lib.X64.Rt.RuntimeLayout.ofPlaceOK_above h i) ha
+
+/-- **The record's instance's facts** of an output passing `placeOK`. -/
+theorem instOk_ofPlaceOK {rS : Range} :
+    InstOk (RuntimeLayout.ofPlaceOK h i).exe (RuntimeLayout.ofPlaceOK h i).endPc o.prog
+      (RuntimeLayout.ofPlaceOK h i).lab (μ (RuntimeLayout.ofPlaceOK h i)) (own (RuntimeLayout.ofPlaceOK h i))
+      (Tk (RuntimeLayout.ofPlaceOK h i)) (K (RuntimeLayout.ofPlaceOK h i) rS) (okPc (RuntimeLayout.ofPlaceOK h i))
+      (ph (RuntimeLayout.ofPlaceOK h i)) :=
+  instOk _ (site_ofPlaceOK h i)
+
+end Place
+
+end Spike.Lib.X64.PhRec

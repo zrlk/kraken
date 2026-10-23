@@ -1,0 +1,13 @@
+CoreLang.Ty : Type
+CoreLang.Ty.fix : Bool → CoreLang.Wd → CoreLang.Ty
+CoreLang.Ty.int : CoreLang.Ty
+CoreLang.Ty.tid : CoreLang.Ty
+CoreLang.Ty.unit : CoreLang.Ty
+CoreLang.Wd.w8 : CoreLang.Wd
+CoreTerm.ExtName : Type
+CoreTerm.ExtName.sig : CoreTerm.ExtName → CoreLang.Ty × CoreLang.Ty
+  := fun x =>
+  match x with
+  | CoreTerm.ExtName.emit => (CoreLang.Ty.fix false CoreLang.Wd.w8, CoreLang.Ty.unit)
+  | CoreTerm.ExtName.current => (CoreLang.Ty.unit, CoreLang.Ty.tid)
+  | CoreTerm.ExtName.exitEv => (CoreLang.Ty.int, CoreLang.Ty.unit)

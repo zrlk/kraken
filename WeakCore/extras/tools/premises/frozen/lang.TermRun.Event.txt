@@ -1,0 +1,3 @@
+TermRun.Event : Type
+  | TermRun.Event.out : Nat → TermRun.Event
+  | TermRun.Event.exit : Nat → TermRun.Event

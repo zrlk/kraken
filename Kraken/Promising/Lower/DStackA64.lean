@@ -323,7 +323,10 @@ theorem operation_dom [Labels] {w : RegWidth} {op : Operation w} {p : Std.Rco In
     (hj : ∀ pc s' g, (j₁ pc s').AllEnv env g P₁ → I s'.dmem → (j₂ pc s').AllEnv env g P₂)
     (h : (Operation.interp op p s k₁ j₁).AllEnv env g P₁) :
     (Operation.interp op p s k₂ j₂).AllEnv env g P₂ := by
-  cases op <;> dom_search
+  cases op
+  -- `SVC` halts (`MachineData.pendingSyscall`): nothing holds past it.
+  case SVC imm => simp only [Operation.interp, MachineData.pendingSyscall, Effects.AllEnv] at h
+  all_goals dom_search
 
 include hI in
 /-- **One directive keeps a `StoreClosed` property of `dmem`.** -/

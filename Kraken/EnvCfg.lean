@@ -471,6 +471,7 @@ theorem Effects.AllEnv.uncount {env : SharedEnv}
   induction e with
   | done a => exact fun g h => ⟨g.2, h⟩
   | unimplemented => exact fun _ h => h
+  | syscall => exact fun _ h => h
   | gp_unaligned => exact fun _ h => h
   | nonmem_load dmem addr w ret ih =>
     exact fun g h => ⟨h.1, fun v g' hs => ih _ _ (g', g.2 + 1) (h.2 v (g', g.2 + 1) ⟨hs, rfl⟩)⟩

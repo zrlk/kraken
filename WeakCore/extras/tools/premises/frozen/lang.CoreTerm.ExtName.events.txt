@@ -1,0 +1,20 @@
+CoreTerm.ExtName : Type
+CoreTerm.ExtName.events : CoreTerm.ExtName → List TermRun.Word → List TermRun.Event
+  := fun x x_1 =>
+  match x, x_1 with
+  | CoreTerm.ExtName.emit, [w] =>
+    match w.val with
+    | WeakMem.Val.num b => [TermRun.Event.out b]
+    | x => []
+  | CoreTerm.ExtName.exitEv, [w] =>
+    match w.val with
+    | WeakMem.Val.num v => [TermRun.Event.exit (TermRun.exitCode v)]
+    | x => []
+  | x, x_2 => []
+Promises.TVal.val : Promises.TVal → WeakMem.Val
+TermRun.Event : Type
+TermRun.Event.exit : Nat → TermRun.Event
+TermRun.Event.out : Nat → TermRun.Event
+TermRun.Word : Type
+TermRun.exitCode : Nat → Nat
+WeakMem.Val : Type

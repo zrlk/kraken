@@ -279,6 +279,7 @@ def fmtTy (n : Names) (p : Nat) (t : Ty) : String :=
   | _, .unit       => ty "Unit"
   | _, .void       => ty "Void"
   | _, .int        => ty "Int"
+  | _, .tid        => ty "ThreadId"
   | _, .fix sg w   => ty ((if sg then "I" else "U") ++ w.name)
   | _, .lanes sg w => ty ("Lanes" ++ (if sg then "I" else "U") ++ w.name)
   | _, .intS i     => ty "Int" ++ "(" ++ fmtIdx n 0 i ++ ")"
@@ -430,6 +431,7 @@ def fmtOp (n : Names) : Op → String
                             sp ++ fmtAtN n v ++ sp ++ kw "with" ++ sp ++ fmtAtN n tok
   | .claim a tok       => opn "claim" ++ sp ++ fmtAtN n a ++ sp ++ kw "with" ++ sp ++ fmtAtN n tok
   | .spawn f a _ _ => opn "spawn" ++ sp ++ ident f ++ sp ++ fmtAtN n a
+  | .ext e a => opn e.name ++ sp ++ fmtAtN n a
   | .fetch o acq rel a v => opn "fetch" ++ "_" ++ o.name ++ ord acq rel ++ sp ++ fmtAtN n a ++ sp ++ fmtAtN n v
   | .mkWord2 r P v0 v1 tok => opn "pair" ++ "_" ++ br (ident r) ++ "[" ++ fmtProto2 P n.protos2 ++ "]" ++ sp ++
                             "(" ++ fmtAtN n v0 ++ ", " ++ fmtAtN n v1 ++ ")" ++ sp ++ kw "with" ++ sp ++ fmtAtN n tok

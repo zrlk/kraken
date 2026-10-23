@@ -500,4 +500,212 @@ section broken
 
 end broken
 
+section syscall
+
+-- System call and `%fs`-relative moves (`Kraken/SYSCALL.md`).
+
+/-- info: [Directive.instr (regular Width.W64 Width.W64 Operation.syscall)] : List Directive -/
+#guard_msgs in
+#check parse("syscall")
+
+/--
+info: [Directive.instr
+    (regular Width.W64 Width.W64
+      (Operation.movfs ↑(low Reg64.rbx Width.W64)
+        ↑↑{ base := some (RegOrRip.reg Reg64.rax), idx := none, disp := ↑16 }))] : List Directive
+-/
+#guard_msgs in
+#check parse("movq %fs:16(%rax), %rbx")
+
+/--
+info: [Directive.instr
+    (regular Width.W64 Width.W64
+      (Operation.movfs ↑(low Reg64.rax Width.W64) ↑↑{ base := none, idx := none }))] : List Directive
+-/
+#guard_msgs in
+#check parse("movq %fs:0, %rax")
+
+/--
+info: [Directive.instr
+    (regular Width.W64 Width.W32
+      (Operation.movfs ↑(low Reg64.rdx Width.W32)
+        ↑↑{ base := some (RegOrRip.reg Reg64.rax), idx := some { reg := Reg64.rcx, scale := Width.W64 },
+              disp := ↑(-8) }))] : List Directive
+-/
+#guard_msgs in
+#check parse("mov %fs:-8(%rax,%rcx,8), %edx")
+
+/--
+info: [Directive.instr
+    (regular Width.W64 Width.W64
+      (Operation.movfs ↑{ base := none, idx := none, disp := ↑40 } ↑↑(low Reg64.rdi Width.W64)))] : List Directive
+-/
+#guard_msgs in
+#check parse("movq %rdi, %fs:0x28")
+
+/--
+info: [Directive.instr
+    (regular Width.W64 Width.W32
+      (Operation.movfs ↑{ base := some (RegOrRip.reg Reg64.rbx), idx := none, disp := ↑8 } ↑↑7))] : List Directive
+-/
+#guard_msgs in
+#check parse("movl $7, %fs:8(%rbx)")
+
+/--
+info: [Directive.instr
+    (regular Width.W64 Width.W64
+      (Operation.movfs ↑(low Reg64.rax Width.W64)
+        ↑↑{ base := none, idx := none, disp := ↑"tcb_off" }))] : List Directive
+-/
+#guard_msgs in
+#check parse("movq %fs:tcb_off, %rax")
+
+/-- error: line 1: can't have two memory operands -/
+#guard_msgs in
+#check parse("movq %fs:8(%rax), 8(%rbx)")
+
+/-- error: line 1: type error: w64 != w32 -/
+#guard_msgs in
+#check parse("movq %fs:8(%rax), %ebx")
+
+-- Plain `mov` is unchanged.
+/--
+info: [Directive.instr
+    (regular Width.W64 Width.W64
+      (Operation.mov ↑(low Reg64.rbx Width.W64)
+        ↑↑{ base := some (RegOrRip.reg Reg64.rax), idx := none, disp := ↑8 }))] : List Directive
+-/
+#guard_msgs in
+#check parse("movq 8(%rax), %rbx")
+
+-- The Intel printer puts the override in front of the bracket.
+/--
+info: Except.ok ["mov rbx, QWORD PTR fs:[rax+16]", "mov QWORD PTR fs:[0], rdi", "mov DWORD PTR fs:[rbx+rcx*4+8], 7",
+ "syscall"]
+-/
+#guard_msgs in
+#eval (Kraken.X64.Parser.parse
+  "movq %fs:16(%rax), %rbx\nmovq %rdi, %fs:0\nmovl $7, %fs:8(%rbx,%rcx,4)\nsyscall").map
+  (·.map toString)
+
+-- `ud2`; the unsuffixed `movzx`/`movsx` take a comma; the suffixed
+-- extensions take a memory source; `cmov<cc>` takes an operand-size suffix.
+/--
+info: Except.ok ["ud2", "movzx ebx, al", "movsx rcx, ax", "movzx eax, BYTE PTR [rdi+0]", "movzx edx, WORD PTR [rsi+rcx*2+2]",
+ "movsx rax, BYTE PTR [rdi+-1]", "movzx eax, al", "cmovne rbx, rax", "cmovl rcx, QWORD PTR [rdi+8]", "cmovl ebx, eax",
+ "cmovl ebx, eax", "cmovge bx, ax", "cmovne eax, DWORD PTR [rdi+0]"]
+-/
+#guard_msgs in
+#eval (Kraken.X64.Parser.parse ("ud2\nmovzx %al, %ebx\nmovsx %ax, %rcx\nmovzbl (%rdi), %eax\n" ++
+  "movzwl 2(%rsi,%rcx,2), %edx\nmovsbq -1(%rdi), %rax\nmovzbl %al, %eax\ncmovneq %rax, %rbx\n" ++
+  "cmovlq 8(%rdi), %rcx\ncmovl %eax, %ebx\ncmovll %eax, %ebx\ncmovgew %ax, %bx\ncmovnel (%rdi), %eax")).map
+  (·.map toString)
+
+/-- info: Except.error "line 1: type error: w64 != w32" -/
+#guard_msgs in
+#eval (Kraken.X64.Parser.parse "cmovneq %eax, %ebx").map (·.map toString)
+
+/-- info: Except.error "line 1: unknown condition code: xq" -/
+#guard_msgs in
+#eval (Kraken.X64.Parser.parse "cmovxq %rax, %rbx").map (·.map toString)
+
+end syscall
+
+section cmpfs
+
+-- `cmp` with a `%fs:` operand (`Operation.cmpfs`), either side; the plain
+-- `cmp` is unchanged.
+
+/--
+info: [Directive.instr
+    (regular Width.W64 Width.W64
+      (Operation.cmpfs ↑(low Reg64.rax Width.W64) ↑↑{ base := none, idx := none, disp := ↑8 }))] : List Directive
+-/
+#guard_msgs in
+#check parse("cmpq %fs:8, %rax")
+
+/--
+info: [Directive.instr
+    (regular Width.W64 Width.W64
+      (Operation.cmpfs ↑{ base := some (RegOrRip.reg Reg64.rbx), idx := none, disp := ↑16 }
+        ↑↑(low Reg64.rax Width.W64)))] : List Directive
+-/
+#guard_msgs in
+#check parse("cmpq %rax, %fs:16(%rbx)")
+
+/--
+info: [Directive.instr
+    (regular Width.W64 Width.W32
+      (Operation.cmpfs
+        ↑{ base := some (RegOrRip.reg Reg64.rbx), idx := some { reg := Reg64.rcx, scale := Width.W32 }, disp := ↑8 }
+        ↑↑7))] : List Directive
+-/
+#guard_msgs in
+#check parse("cmpl $7, %fs:8(%rbx,%rcx,4)")
+
+/--
+info: [Directive.instr
+    (regular Width.W64 Width.W64
+      (Operation.cmpfs ↑(low Reg64.rdx Width.W64)
+        ↑↑{ base := some (RegOrRip.reg Reg64.rax), idx := none, disp := ↑(-8) }))] : List Directive
+-/
+#guard_msgs in
+#check parse("cmp %fs:-8(%rax), %rdx")
+
+/-- error: line 1: can't have two memory operands -/
+#guard_msgs in
+#check parse("cmpq %fs:8(%rax), 8(%rbx)")
+
+/--
+info: [Directive.instr
+    (regular Width.W64 Width.W64
+      (Operation.cmp ↑(low Reg64.rbx Width.W64)
+        ↑↑{ base := some (RegOrRip.reg Reg64.rax), idx := none, disp := ↑8 }))] : List Directive
+-/
+#guard_msgs in
+#check parse("cmpq 8(%rax), %rbx")
+
+-- The Intel printer puts the override in front of the bracket.
+/-- info: Except.ok ["cmp r11, QWORD PTR fs:[8]", "cmp QWORD PTR fs:[rbx+16], rax", "cmp DWORD PTR fs:[rbx+rcx*4+8], 7"] -/
+#guard_msgs in
+#eval (Kraken.X64.Parser.parse "cmpq %fs:8, %r11\ncmpq %rax, %fs:16(%rbx)\ncmpl $7, %fs:8(%rbx,%rcx,4)").map
+  (·.map toString)
+
+end cmpfs
+
+section division
+
+-- Division, sign extension and population count.
+/--
+info: Except.ok ["div rcx", "div QWORD PTR [rdi+8]", "idiv rcx", "idiv DWORD PTR [rsp+0]", "div cl", "idiv bx", "div rcx",
+ "idiv ecx", "cqo", "cdq", "cwd", "cqo", "popcnt rax, rbx", "popcnt eax, DWORD PTR [rdi+0]", "popcnt ax, bx",
+ "popcnt rcx, rcx"]
+-/
+#guard_msgs in
+#eval (Kraken.X64.Parser.parse ("divq %rcx\ndivq 8(%rdi)\nidivq %rcx\nidivl (%rsp)\ndivb %cl\nidivw %bx\n" ++
+  "div %rcx\nidiv %ecx\ncqto\ncltd\ncwtd\ncqo\npopcntq %rbx, %rax\npopcntl (%rdi), %eax\npopcnt %bx, %ax\n" ++
+  "popcnt %rcx, %rcx")).map (·.map toString)
+
+/-- info: [Directive.instr (regular Width.W64 Width.W64 (Operation.div ↑(low Reg64.rcx Width.W64)))] : List Directive -/
+#guard_msgs in
+#check parse("divq %rcx")
+
+/-- info: [Directive.instr (regular Width.W64 Width.W64 Operation.cqo)] : List Directive -/
+#guard_msgs in
+#check parse("cqto")
+
+/-- info: Except.error "line 1: type error: w64 != w32" -/
+#guard_msgs in
+#eval (Kraken.X64.Parser.parse "divq %ecx").map (·.map toString)
+
+/-- info: Except.error "line 1: popcnt has no 8-bit form" -/
+#guard_msgs in
+#eval (Kraken.X64.Parser.parse "popcnt %al, %bl").map (·.map toString)
+
+/-- info: Except.error "line 1: missing type annotation" -/
+#guard_msgs in
+#eval (Kraken.X64.Parser.parse "div (%rdi)").map (·.map toString)
+
+end division
+
 end Tests

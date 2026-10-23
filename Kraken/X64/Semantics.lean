@@ -64,6 +64,11 @@ structure Reg64s where
   r13 : UInt64 := 0
   r14 : UInt64 := 0
   r15 : UInt64 := 0
+  /-- The `%fs` segment base, the thread pointer of the x86-64 Linux ABI (set by
+  `arch_prctl(ARCH_SET_FS)` or `clone(CLONE_SETTLS)`): private to the thread like
+  the general registers, not a `Reg64`, initially 0. A `%fs:` memory operand
+  (`Operation.movfs`) adds it to the effective address (`Kraken/SYSCALL.md`). -/
+  fsBase : UInt64 := 0
   deriving Repr, BEq, DecidableEq, Hashable, Hashable, Lean.ToExpr
 
 /-- The register file's own width is the literal 64: stating it as `BitVec 64`
@@ -297,6 +302,26 @@ instance (w : AvxWidth) : NondetSupportingType w.type := .avx_bitvec w
 instance : NondetSupportingType Bool := .bool
 instance : NondetSupportingType StatusFlags := .statusFlags
 
+/-- A system call (`syscall`) as the instruction leaves it to the kernel: the
+number register `rax`, the argument registers `rdi`, `rsi`, `rdx`, `r10`, `r8`,
+`r9` in order, and `nextPc`, the address of the next instruction (which the
+`SYSCALL` instruction itself writes to `rcx`). Kraken attaches no meaning to
+them; they are what a kernel model (a parameter of the certification
+semantics, see `Kraken/SYSCALL.md`) consults. -/
+structure SyscallInfo where
+  num : BitVec 64
+  args : List (BitVec 64)
+  nextPc : BitVec 64
+  deriving Repr, BEq
+
+/-- What a system call returns to the thread: `rax`, and the values of `rcx` and
+`r11`, which the `SYSCALL` instruction and the kernel clobber. -/
+structure SyscallRet where
+  rax : BitVec 64
+  rcx : BitVec 64
+  r11 : BitVec 64
+  deriving Repr, BEq
+
 inductive Effects
   | done (a : MachineData × Int64)
   | unimplemented (msg : String)
@@ -347,6 +372,12 @@ inductive Effects
   -- shaped like `rmw` (`Width` has no 16-byte case).
   | rmw16 (k : Kraken.RmwKind) (dmem : DataMem) (addr : BitVec 64)
       (op : BitVec 128 → Option (BitVec 128)) (ret : BitVec 128 → DataMem → Effects)
+  -- A system call (`MachineData.pendingSyscall`): `ret` continues after the
+  -- instruction with the kernel's `rax`, `rcx` and `r11`. Every consumer of the
+  -- semantics treats it as the fault `unimplemented pendingSyscallMsg` except
+  -- the certification adapter (`Kraken.Promising.X64.toEvCert`), which
+  -- continues with each result a kernel-model parameter allows.
+  | syscall (info : SyscallInfo) (ret : SyscallRet → Effects)
 export Effects (unimplemented nonmem_load nonmem_store undefined require_read_access require_write_access require_exec_access)
 
 -- the unused `Std.Rco Int64` argument and the unmodified `MachineData` return
@@ -597,6 +628,71 @@ def RelRegOrMem.interp [Labels] [AddressSize]
   | .rel c => ret (p.upper + c.interp p).toBitVec s
   | .reg r => ret (s.regs.get r) s
   | .mem a => s.load ((a.interp s.regs p).zeroExtend _) .W64 ret
+
+/-! Segment-relative operands (`%fs:`, `Operation.movfs`): the effective address
+at the address size, zero-extended to 64 bits, plus the segment base `seg`; the
+access is then the ordinary `load`/`store`. -/
+
+/-- The address of a memory operand under the segment base `seg`. -/
+@[kstep] def AddrExpr.interpSeg [Labels] [AddressSize] (a : AddrExpr) (seg : BitVec 64)
+    (s : Reg64s) (p : Std.Rco Int64) : BitVec 64 :=
+  seg + (a.interp s p).zeroExtend 64
+
+/-- `RegOrMem.interp` with a memory operand relative to the segment base `seg`. -/
+@[kstep] def RegOrMem.interpSeg {w} [Labels] [AddressSize]
+  (o : RegOrMem w) (seg : BitVec 64) (s : MachineData) (p : Std.Rco Int64)
+  (ret : w.type → MachineData → Effects) :=
+  match o with
+  | .reg r => ret (s.regs.get r) s
+  | .mem a => s.load (a.interpSeg seg s.regs p) w ret
+
+/-- `Operand.interp` with a memory operand relative to the segment base `seg`. -/
+@[kstep] def Operand.interpSeg {w} [Labels] [AddressSize]
+  (o : Operand w) (seg : BitVec 64) (s : MachineData) (p : Std.Rco Int64)
+  (ret : w.type → MachineData → Effects) :=
+  match o with
+  | .regOrMem rm => rm.interpSeg seg s p ret
+  | .imm v => ret ((v.interp p).toBitVec.truncate _) s
+
+/-- `MachineData.set` with a memory destination relative to the segment base `seg`. -/
+@[kstep] def MachineData.setSeg {w} [Labels] [AddressSize] (s : MachineData) (seg : BitVec 64)
+    (d : Dst w) (v : w.type) (p : Std.Rco Int64) (ret : MachineData → Effects) : Effects :=
+  match d with
+  | .reg r => ret (s.setReg r v)
+  | .mem a => s.store (a.interpSeg seg s.regs p) v ret
+
+/-- The message of the halt at a system call (`pendingSyscall`). -/
+def pendingSyscallMsg : String := "pending system call: syscall"
+
+/-- **The system-call step: the extension point.** `syscall` at `p` with the
+machine state `s` and the continuation `next` (the state after the
+instruction).
+
+The step is the effect `Effects.syscall` with `rax`, the argument registers and
+the next instruction's address, continuing with `next` from `s` with the
+kernel's `rax`, `rcx` and `r11` (every other register, the flags and the
+private memory unchanged). There is no kernel model in Kraken: every consumer
+but one treats the effect as the distinguished status
+`unimplemented pendingSyscallMsg`, with no memory effect. The sequential
+evaluator reports it as that error, the program logics can prove nothing past
+it, and the Promising adapter (`Kraken.Promising.X64.toEv`) makes it a fault
+with that message. The certification adapter (`toEvCert`) continues with every
+result a kernel-model parameter allows. A real step (trace events for
+`write`/`exit_group`, `clone`, `futex`, `arch_prctl`) replaces this one
+definition. See `Kraken/SYSCALL.md`. -/
+def MachineData.pendingSyscall (s : MachineData) (p : Std.Rco Int64) (next : MachineData → Effects) :
+    Effects :=
+  let g := s.regs.get64
+  .syscall { num := g .rax, args := [g .rdi, g .rsi, g .rdx, g .r10, g .r8, g .r9],
+             nextPc := p.upper.toBitVec }
+    (fun r => next { s with regs := ((s.regs.set64 .rax r.rax).set64 .rcx r.rcx).set64 .r11 r.r11 })
+
+/-- The message of the trap at `ud2`: the thread faults, with no effect. -/
+def ud2Msg : String := "ud2: undefined instruction"
+
+/-- The message of the divide error (#DE) of `div`/`idiv`: the thread faults,
+with no effect. -/
+def divErrorMsg : String := "#DE: divide error"
 
 structure StatusFlags.from_result.Remaining where
   cf : Bool
@@ -1012,6 +1108,71 @@ set_option maxHeartbeats 1000000
   | .sfence => .fence .st (fun _ => next s)
   | .movnti dst src =>
     s.storeNT ((dst.interp s.regs p).zeroExtend _) (s.regs.get src) next
+  | .syscall => s.pendingSyscall p next
+  | .movfs dst src =>
+    let seg := s.regs.fsBase.toBitVec
+    src.interpSeg seg s p (fun val s => s.setSeg seg dst val p next)
+  | .ud2 => .unimplemented ud2Msg
+  -- `DIV` (SDM vol. 2A): the unsigned dividend `rdx:rax` (`ax` at `W8`) by the
+  -- unsigned divisor `src`, truncating. A zero divisor, or a quotient that does
+  -- not fit in `w` bits, is a divide error (#DE): a fault before any write.
+  -- Otherwise the quotient goes to `rax` (`al`) and the remainder to `rdx`
+  -- (`ah`); `CF`, `OF`, `SF`, `ZF`, `AF` and `PF` are undefined.
+  | .div src =>
+    src.interp s p (fun b s =>
+    let n : Nat := if w == .W8 then (s.regs.get (.low .rax .W16)).toNat
+      else ((s.regs.get (.low .rdx w)) ++ (s.regs.get (.low .rax w))).toNat
+    let d := b.toNat
+    if d == 0 || n / d ≥ 2 ^ w.bits then .unimplemented divErrorMsg else
+    let q : w.type := .ofNat _ (n / d)
+    let r := n % d
+    let s := if w == .W8 then (s.setReg (.low .rax w) q).setReg .ah (.ofNat _ r)
+      else (s.setReg (.low .rax w) q).setReg (.low .rdx w) (.ofNat _ r)
+    undefined (λ cf => undefined (λ of => undefined (λ sf => undefined (λ zf =>
+    undefined (λ af => undefined (λ pf =>
+    next { s with status := { cf, pf, af, zf, sf, of } })))))))
+  -- `IDIV` (SDM vol. 2A): as `DIV`, signed: the quotient is truncated toward
+  -- zero (`Int.tdiv`), the remainder has the sign of the dividend
+  -- (`Int.tmod`), and a quotient outside `[-2^(w-1), 2^(w-1))` (in particular
+  -- the most negative dividend by -1) is a divide error.
+  | .idiv src =>
+    src.interp s p (fun b s =>
+    let n : Int := if w == .W8 then (s.regs.get (.low .rax .W16)).toInt
+      else ((s.regs.get (.low .rdx w)) ++ (s.regs.get (.low .rax w))).toInt
+    let d := b.toInt
+    let q := n.tdiv d
+    if d == 0 || q < -(2 ^ (w.bits - 1)) || q ≥ 2 ^ (w.bits - 1) then .unimplemented divErrorMsg else
+    let r := n.tmod d
+    let s := if w == .W8 then (s.setReg (.low .rax w) (.ofInt _ q)).setReg .ah (.ofInt _ r)
+      else (s.setReg (.low .rax w) (.ofInt _ q)).setReg (.low .rdx w) (.ofInt _ r)
+    undefined (λ cf => undefined (λ of => undefined (λ sf => undefined (λ zf =>
+    undefined (λ af => undefined (λ pf =>
+    next { s with status := { cf, pf, af, zf, sf, of } })))))))
+  -- `CWD`/`CDQ`/`CQO` (SDM vol. 2A): `rdx` at `w` is filled with the sign bit
+  -- of `rax` at `w`. No flag changes.
+  | .cqo =>
+    let a := s.regs.get (.low .rax w)
+    next (s.setReg (.low .rdx w) (if a.msb then BitVec.allOnes _ else 0))
+  -- `POPCNT` (SDM vol. 2B): `dst` gets the number of set bits of `src`
+  -- (`BitVec.cpop`); `ZF` is `src = 0` and `OF`, `SF`, `AF`, `CF` and `PF` are
+  -- cleared.
+  | .popcnt dst src =>
+    src.interp s p (fun a s =>
+    next { s with regs := s.regs.set dst a.cpop,
+                  status := { cf := false, zf := a == 0, of := false, sf := false, af := false,
+                              pf := false } })
+  -- `cmp` with a `%fs:` memory operand: the operands read as `movfs` reads its
+  -- source (the memory one at `fsBase` plus its address), the flags as `cmp`.
+  | .cmpfs a b =>
+    let seg := s.regs.fsBase.toBitVec
+    a.interpSeg seg s p (fun a s =>
+    b.interpSeg seg s p (fun b s =>
+    let v := a - b
+    let status := .from_result v {
+      cf := v.unsigned != a.unsigned - b.unsigned
+      af := (v.take 4).unsigned != (a.take 4).unsigned - (b.take 4).unsigned,
+      of := v.signed != a.signed - b.signed }
+    next { s with status }))
 
 -- AVX Operations Interpreter
 def AvxOperation.interp [Labels] [address_size : AddressSize]
@@ -1177,6 +1338,7 @@ where
     | .nonmem_store_avx _ _ addr _ _ => .error s!"Vector store at unmapped address {repr addr}"
     | .rmw16 _ _ addr _ _ => .error s!"16-byte read-modify-write at unmapped address {repr addr}"
     | @Effects.undefined _ t cont => handleEffects (cont (t.from_hash (hash s.1.regs)))
+    | .syscall _ _ => .error pendingSyscallMsg
 
 def Directive.fakeSize (hashOfProgram : UInt64) (d : Directive) : Nat :=
   match d with
@@ -1376,3 +1538,151 @@ private def tz {w : Width} (dst : Reg w) (src : RegOrMem w) : List Directive :=
 #guard (0#64).ctz == 64#64 && (0x80#64).ctz == 7#64 && (0x8000000000000000#64).ctz == 63#64 &&
     (0#16).ctz == 16#16
 example : (0#64).ctz = 64#64 ∧ (0x8000000000000000#64).ctz = 63#64 := by decide +kernel
+
+/-! The thread pointer and the system call. `fsBase` is the `%fs` segment base
+(initially 0); a `%fs:` operand (`movfs`) adds it to the effective address. The
+result is `rax` and the cell at `0x200`. -/
+
+private def runFs (body : List Directive) (fs rbx cell : UInt64) :
+    Except String (UInt64 × Option Int) :=
+  let exe := atomicsExe body
+  let start := (Executable.labels exe).label "main"
+  let data : MachineData := {
+    dmem := Mem.storeInt (Mem.storeInt {} 0x100 8 0x1337) 0x200 8 cell.toNat,
+    regs := { rsp := 0x100, rbx, fsBase := fs } }
+  (Executable.eval exe (data, start) (fun (_, pc) => pc = 0x1337)).map
+    (fun s => (s.1.regs.rax, Mem.loadInt s.1.dmem 0x200 8))
+
+-- `movq %fs:0x100, %rax` with `fsBase = 0x100`: the absolute form loads the cell.
+/-- info: Except.ok (5, some 5) -/
+#guard_msgs in
+#eval runFs [.instr (.regular .W64 .W64 (.movfs (.reg (.low .rax .W64))
+  (.mem ⟨none, none, .int64 0x100⟩)))] 0x100 0 5
+
+-- With `rbx = 0x10`, `fsBase = 0x200`: `movq $7, %fs:-0x10(%rbx)` stores to the
+-- cell (`0x200 + 0x10 - 0x10`), and `movq %fs:-0x90(%rbx,%rbx,8), %rax` loads it
+-- back (`0x200 + 0x10 + 0x80 - 0x90`).
+/-- info: Except.ok (7, some 7) -/
+#guard_msgs in
+#eval runFs [
+  .instr (.regular .W64 .W64 (.movfs (.mem ⟨some (.reg .rbx), none, .int64 (-0x10)⟩) (.imm (.int64 7)))),
+  .instr (.regular .W64 .W64 (.movfs (.reg (.low .rax .W64))
+    (.mem ⟨some (.reg .rbx), some ⟨.rbx, .W64⟩, .int64 (-0x90)⟩)))] 0x200 0x10 0
+
+-- With `fsBase = 0` a `%fs:` operand is the plain operand.
+/-- info: Except.ok (9, some 9) -/
+#guard_msgs in
+#eval runFs [.instr (.regular .W64 .W64 (.movfs (.reg (.low .rax .W64))
+  (.mem ⟨some (.reg .rbx), none, .int64 0⟩)))] 0 0x200 9
+
+-- A 32-bit `%fs:` store writes four bytes at `fsBase + disp`.
+/-- info: Except.ok (0, some 4294967295) -/
+#guard_msgs in
+#eval runFs [.instr (.regular .W64 .W32 (.movfs (.mem ⟨none, none, .int64 0x100⟩)
+  (.imm (.int64 (-1)))))] 0x100 0 0
+
+-- `cmpq %fs:0x100, %rbx` (`cmpfs`) with `fsBase = 0x100`, `rbx = 9` and the cell
+-- 7 compares 9 with the cell: above, so `seta %al` sets `al`.
+/-- info: Except.ok (1, some 7) -/
+#guard_msgs in
+#eval runFs [
+  .instr (.regular .W64 .W64 (.cmpfs (.reg (.low .rbx .W64)) (.regOrMem (.mem ⟨none, none, .int64 0x100⟩)))),
+  .instr (.regular .W64 .W8 (.setcc .a (.reg (.low .rax .W8))))] 0x100 9 7
+
+-- `cmpq $7, %fs:-0x10(%rbx)` with `rbx = 0x10`, `fsBase = 0x200`: the cell is
+-- 7, so `sete %al` sets `al`.
+/-- info: Except.ok (1, some 7) -/
+#guard_msgs in
+#eval runFs [
+  .instr (.regular .W64 .W64 (.cmpfs (.mem ⟨some (.reg .rbx), none, .int64 (-0x10)⟩) (.imm (.int64 7)))),
+  .instr (.regular .W64 .W8 (.setcc .z (.reg (.low .rax .W8))))] 0x200 0x10 7
+
+-- `syscall` stops the sequential evaluator with the pending-system-call status
+-- (`MachineData.pendingSyscall`); nothing after it runs.
+/-- info: Except.error "pending system call: syscall" -/
+#guard_msgs in
+#eval runFs [
+  .instr (.regular .W64 .W64 .syscall),
+  .instr (.regular .W64 .W64 (.mov (.reg (.low .rax .W64)) (.imm (.int64 1))))] 0 0 0
+
+-- `ud2` traps: the thread faults with `ud2Msg`.
+/-- info: Except.error "ud2: undefined instruction" -/
+#guard_msgs in
+#eval runFs [
+  .instr (.regular .W64 .W64 .ud2),
+  .instr (.regular .W64 .W64 (.mov (.reg (.low .rax .W64)) (.imm (.int64 1))))] 0 0 0
+
+/-! Division, sign extension and population count. The result is `rax` and
+`rdx` (`rax` and `ZF` for `popcnt`; the flags of `div`/`idiv` are undefined);
+`rcx` holds the divisor (or the `popcnt` source). -/
+
+private def runDiv (body : List Directive) (rax rdx rcx : UInt64) :
+    Except String (UInt64 × UInt64 × Bool) :=
+  let exe := atomicsExe body
+  let start := (Executable.labels exe).label "main"
+  let data : MachineData := {
+    dmem := Mem.storeInt {} 0x100 8 0x1337,
+    regs := { rsp := 0x100, rax, rdx, rcx } }
+  (Executable.eval exe (data, start) (fun (_, pc) => pc = 0x1337)).map
+    (fun s => (s.1.regs.rax, s.1.regs.rdx, s.1.status.zf))
+
+private def runDivR (body : List Directive) (rax rdx rcx : UInt64) : Except String (UInt64 × UInt64) :=
+  (runDiv body rax rdx rcx).map fun (a, d, _) => (a, d)
+
+private def i64 {w : Width} (op : Operation w) : Directive := .instr (.regular .W64 w op)
+private def rcxAt (w : Width) : RegOrMem w := .reg (.low .rcx w)
+
+-- `divq %rcx`: 100 / 7 = 14 remainder 2.
+/-- info: Except.ok (14, 2) -/
+#guard_msgs in
+#eval runDivR [i64 (.div (rcxAt .W64))] 100 0 7
+
+-- The dividend is `rdx:rax`: 2^64 / 2 = 2^63.
+/-- info: Except.ok (9223372036854775808, 0) -/
+#guard_msgs in
+#eval runDivR [i64 (.div (rcxAt .W64))] 0 1 2
+
+-- A quotient that does not fit (`rdx ≥ rcx`) and a zero divisor are divide errors.
+/-- info: [Except.error "#DE: divide error", Except.error "#DE: divide error"] -/
+#guard_msgs in
+#eval [runDivR [i64 (.div (rcxAt .W64))] 0 7 7, runDivR [i64 (.div (rcxAt .W64))] 5 0 0]
+
+-- `cqto; idivq %rcx`: -100 / 7 = -14 remainder -2 (truncating).
+/-- info: Except.ok (18446744073709551602, 18446744073709551614) -/
+#guard_msgs in
+#eval runDivR [i64 (.cqo (w := .W64)), i64 (.idiv (rcxAt .W64))] (-100 : Int64).toUInt64 0 7
+
+-- `cqto; idivq %rcx` with `rax = INT64_MIN`, `rcx = -1` is a divide error, and so
+-- is a zero divisor.
+/-- info: [Except.error "#DE: divide error", Except.error "#DE: divide error"] -/
+#guard_msgs in
+#eval [runDivR [i64 (.cqo (w := .W64)), i64 (.idiv (rcxAt .W64))] 0x8000000000000000 0 (-1 : Int64).toUInt64,
+  runDivR [i64 (.idiv (rcxAt .W64))] 1 0 0]
+
+-- `divb %cl`: `ax` = 356 by 10 gives `al` = 35, `ah` = 6; the rest of `rax` is kept.
+/-- info: Except.ok (1229782938247300643, 0) -/
+#guard_msgs in
+#eval runDivR [i64 (.div (rcxAt .W8))] 0x1111111111110164 0 10
+
+-- `idivb %cl`: `ax` = -7 by 2 gives `al` = -3, `ah` = -1.
+/-- info: Except.ok (65533, 0) -/
+#guard_msgs in
+#eval runDivR [i64 (.idiv (rcxAt .W8))] 0xfff9 0 2
+
+-- `divl %ecx`: `edx:eax` by `ecx`; the 32-bit writes clear the upper halves.
+/-- info: Except.ok (14, 2) -/
+#guard_msgs in
+#eval runDivR [i64 (.div (rcxAt .W32))] 0xffffffff00000064 0xffffffff00000000 7
+
+-- `cqto` and `cltd`: the sign of `rax` / `eax` fills `rdx` / `edx`.
+/-- info: [Except.ok (18446744073709551611, 18446744073709551615), Except.ok (2147483648, 4294967295), Except.ok (5, 0)] -/
+#guard_msgs in
+#eval [runDivR [i64 (.cqo (w := .W64))] (-5 : Int64).toUInt64 0 0,
+  runDivR [i64 (.cqo (w := .W32))] 0x80000000 0x1234567812345678 0,
+  runDivR [i64 (.cqo (w := .W64))] 5 7 0]
+
+-- `popcntq %rcx, %rax`: 16 bits set; `ZF` only for a zero source.
+/-- info: [Except.ok (16, 0, false), Except.ok (0, 0, true)] -/
+#guard_msgs in
+#eval [runDiv [i64 (.popcnt (.low .rax .W64) (rcxAt .W64))] 9 0 0xff00ff,
+  runDiv [i64 (.popcnt (.low .rax .W64) (rcxAt .W64))] 9 0 0]

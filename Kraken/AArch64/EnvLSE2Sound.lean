@@ -288,7 +288,10 @@ theorem operation_mono [Labels] {w : RegWidth} {op : Operation w} {p : Std.Rco I
     (hj : ∀ pc s' g, (j₁ pc s').AllEnvLSE2 D env g P₁ → (j₂ pc s').AllEnvLSE2 D env g P₂)
     (h : (Operation.interp op p s k₁ j₁).AllEnvLSE2 D env g P₁) :
     (Operation.interp op p s k₂ j₂).AllEnvLSE2 D env g P₂ := by
-  cases op <;> mono_search
+  cases op
+  -- `SVC` halts (`MachineData.pendingSyscall`): nothing holds past it.
+  case SVC imm => simp only [Operation.interp, MachineData.pendingSyscall, Effects.AllEnvLSE2] at h
+  all_goals mono_search
 
 /-- The FEAT_LSE2 reading of an aligned `LDP`/`STP` is monotone in its
 continuation. -/

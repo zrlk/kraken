@@ -107,6 +107,7 @@ theorem stepOK_disp {p : Prog} {g : G} {E : TEnv} {sto : Sto} {mem : Memory} {pa
     | fence => exact stepOK_op ht rfl (fun _ h => valB_fence h) r hr
     | zero => exact stepOK_op ht rfl (fun _ h => valB_zero h) r hr
     | spawn => exact stepOK_op ht rfl (fun _ h => by simp [evalOp] at h) r hr
+    | ext => exact stepOK_op ht rfl (fun _ h => by simp [evalOp] at h) r hr
     | call => exact stepOK_of_stepB_nil (stepB_call hp hP hI0 ht hr)
     | fnptr => exact stepOK_op ht rfl (fun _ h => valB_fnptr h) r hr
     | callc => exact stepOK_of_stepB_nil (stepB_callc hp hP hI0 ht hr)

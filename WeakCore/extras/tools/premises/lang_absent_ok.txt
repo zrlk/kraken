@@ -1,0 +1,13 @@
+# (IO1) roots added by IO1: absent (ABSENT text) when this CheckPremises runs on a pre-IO1 baseline
+TermRun.extCfg
+TermRun.curCfg
+TermRun.ExtNeedsNoProm
+TermRun.extSteps
+CoreTerm.ExtName.events
+CoreTerm.ExtName.res
+CoreTerm.ExtName.sig
+TermRun.exitCode
+TermRun.Event
+TermRun.Solo
+TermRun.Step
+TermRun.Certified

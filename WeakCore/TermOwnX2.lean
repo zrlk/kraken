@@ -56,6 +56,7 @@ theorem run_ind_win {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {Inv
       Certified p k arch c0' i → Inv c0')
     (hprom : ∀ c0 a v w, Solo p k arch i c c0 → Inv c0 → w < c0.mem.size →
       Certified p k arch (promise c0 i a v w) i → Inv (promise c0 i a v w))
+    (hext : ∀ c0 c0', Solo p k arch i c c0 → Inv c0 → c0' ∈ extSteps c0 i → Inv c0')
     (h0 : Inv c) {c2 : Cfg} (h : Solo p k arch i c c2) (hc2 : Certified p k arch c2 i) : Inv c2 ∧ Q c2 := by
   suffices key : ∀ c1, Solo p k arch i c c1 → Inv c1 → ∀ {c2}, Solo p k arch i c1 c2 → Certified p k arch c2 i →
       Inv c2 ∧ Q c2 from key c (.refl _) h0 h hc2
@@ -68,6 +69,7 @@ theorem run_ind_win {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {Inv
       (hstep _ _ hc1 hI (hQ _ hc1 hc0 hI) hs (certified_back hrest hc2)) hc2
   | prom a v w hw hrest ih =>
     exact ih (solo_trans hc1 (.prom a v w hw (.refl _))) (hprom _ a v w hc1 hI hw (certified_back hrest hc2)) hc2
+  | ext hs _ ih => exact ih (solo_trans hc1 (.ext hs (.refl _))) (hext _ _ hc1 hI hs) hc2
 
 /-! ## The invariant -/
 
@@ -327,6 +329,14 @@ theorem OwnXLe.mono {p : Prog} {k : Promises.Knobs} {arch : Arch} {E0 : TEnv} {i
   let ⟨th, E, Tot, HP, hth, hT, hm, hP, hb, hn, hs, hle, hx, hA⟩ := h
   ⟨th, E, Tot, HP, hth, hT, hm, hP, hb, hn, hs, Nat.le_trans hle hnm, hx, hA⟩
 
+/-- (IO1) An extern move keeps `OwnXLe` (resources, memory and the anchor unchanged). -/
+theorem ownXLe_ext {p : Prog} {k : Promises.Knobs} {arch : Arch} {E0 : TEnv} {i : Nat} {x : AllocLabel} {n : Nat}
+    {c c' : Cfg} (h : OwnXLe p k arch E0 i x n c) (hs : c' ∈ extSteps c i) : OwnXLe p k arch E0 i x n c' := by
+  obtain ⟨th, E, Tot, HP, hth, hT, hm, hP, hb, hn, hsx, hle, hx, hA⟩ := h
+  obtain ⟨x1, a1, e1, evs, hterm, rfl⟩ := extSteps_thread hs hth
+  exact ⟨_, E, Tot, HP, set_self hth, TermTyped.ThInvRE_emit hterm hT, by rw [gOf_ext hs]; exact hm, hP,
+    by rw [gOf_ext hs]; exact hb, hn, hsx, hle, hx, hA⟩
+
 /-- At `n = 0` the frame part carries no `own x`. -/
 theorem OwnXLe.rf_zero {p : Prog} {k : Promises.Knobs} {arch : Arch} {E0 : TEnv} {i : Nat} {x : AllocLabel} {c : Cfg}
     (h : OwnXLe p k arch E0 i x 0 c) :
@@ -547,7 +557,7 @@ theorem ownXLe_run {p : Prog} {k : Promises.Knobs} {arch : Arch} {E0 : TEnv} {i 
   (run_ind_win (Q := fun c0 => ScopeAt p i c0 ∧ NoHoldPubA p k arch E0 E0 i c0 ∧ TermViewInv.ViewInv c0)
     (fun c0 h1 h2 _ => ⟨(hQ c0 h1 h2).1, (hQ c0 h1 h2).2, TermViewInv.viewInv_solo hvI h1⟩)
     (fun c0 c0' _ hI hq hs hc => hT E0 c0 c0' hq.1 hq.2.1 hq.2.2 hI hs hc)
-    (fun c0 a v w _ hI hw hc => hPr E0 c0 a v w hI hw hc) h0 h hc2).1
+    (fun c0 a v w _ hI hw hc => hPr E0 c0 a v w hI hw hc) (fun _ _ _ hI hs => ownXLe_ext hI hs) h0 h hc2).1
 
 /-! ## Package split of the thread-step obligation (the packages deliver, `TermOwnK5` assembles) -/
 
@@ -601,6 +611,7 @@ theorem ownXStepT_of_pkgs {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat
 end TermOwnX2
 
 #print axioms TermOwnX2.run_ind_win
+#print axioms TermOwnX2.ownXLe_ext
 #print axioms TermOwnX2.OwnXLe.mono
 #print axioms TermOwnX2.anchR_gen
 #print axioms TermOwnX2.anchStep_same

@@ -1,1 +1,32 @@
-ABSENT
+CoreLang.Ty : Type
+CoreTerm.At : Type
+CoreTerm.Cx : Type
+CoreTerm.Cx.ret : CoreTerm.Cx → CoreLang.Ty
+CoreTerm.Cx.use : CoreTerm.Cx → CoreTerm.At → CoreTerm.M (CoreLang.Ty × CoreTerm.Cx)
+CoreTerm.Decl : Type
+CoreTerm.M : Type u_1 → Type u_1
+CoreTerm.Prog : Type
+CoreTerm.Prog.find : CoreTerm.Prog → String → CoreTerm.M CoreTerm.Decl
+CoreTerm.instantiate : CoreTerm.Cx → CoreTerm.Decl → List String → optParam (List CoreLang.Ty) [] → CoreTerm.M (CoreLang.Ty × CoreLang.Ty)
+CoreTerm.noDrop : CoreTerm.Cx → CoreTerm.M Unit
+CoreTerm.noLeak : CoreTerm.Cx → CoreLang.Ty → CoreTerm.M Unit
+CoreTerm.sub : CoreTerm.Cx → CoreLang.Ty → CoreLang.Ty → Bool
+CoreTerm.tailCheck : CoreTerm.Prog → CoreTerm.Cx → String → List String → CoreTerm.At → List CoreLang.Ty → CoreTerm.M Unit
+  := fun p cx f is a ts => do
+  let d ← p.find f
+  let __x ← CoreTerm.instantiate cx d is ts
+  match __x with
+    | (at_, rt) => do
+      let __x ← cx.use a
+      match __x with
+        | (t, cx) => do
+          CoreTerm.noLeak cx t
+          CoreTerm.noDrop cx
+          have __do_jp : Unit → CoreTerm.M Unit := fun __r =>
+            if (!CoreTerm.sub cx rt cx.ret) = true then
+              throw (toString "tail call " ++ toString f ++ toString ": return type mismatch")
+            else pure ()
+          if (!CoreTerm.sub cx t at_) = true then do
+              let __r ← throw (toString "tail call " ++ toString f ++ toString ": argument type mismatch")
+              __do_jp __r
+            else __do_jp ()

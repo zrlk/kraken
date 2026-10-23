@@ -117,6 +117,7 @@ theorem toEv_underDecls (ds : Decls) : ∀ eff : Effects, (toEv {} eff).underDec
   induction eff with
   | done _ => rfl
   | unimplemented _ => rfl
+  | syscall => rfl
   | gp_unaligned _ _ => rfl
   | nonmem_load dmem addr w ret ih =>
     simp only [EvTree.underDecls] at ih ⊢; simp only [toEv, EvTree.access_empty, EvTree.reresolve, ih]

@@ -55,6 +55,7 @@ def Effects.AllEnvLSE2 (D : SharedEnv.Layout) (env : SharedEnv) (g : env.State)
     (post : MachineState → env.State → Prop) : Effects → Prop
   | .done a => post a g
   | .unimplemented _ => False
+  | .syscall .. => False
   | .unaligned_sp .. => False
   | .nonmem_load dmem addr w ret =>
     env.ok (.load .plain false addr w.bytes) g ∧
@@ -118,6 +119,7 @@ theorem Effects.AllEnvLSE2.mono {D : SharedEnv.Layout} {env : SharedEnv}
   induction e with
   | done a => exact fun g h => hp _ _ h
   | unimplemented => exact fun _ h => h
+  | syscall => exact fun _ h => h
   | unaligned_sp => exact fun _ h => h
   | nonmem_load dmem addr w ret ih => exact fun g h => ⟨h.1, fun v g' hs => ih _ _ g' (h.2 v g' hs)⟩
   | nonmem_store dmem addr v ret ih => exact fun g h => ⟨h.1, fun b g' hs => ih _ g' (h.2 b g' hs)⟩
@@ -150,6 +152,7 @@ theorem Effects.allEnvLSE2_of_allEnv {D : SharedEnv.Layout} {env : SharedEnv}
   induction e with
   | done a => exact fun g h => h
   | unimplemented => exact fun _ h => h
+  | syscall => exact fun _ h => h
   | unaligned_sp => exact fun _ h => h
   | nonmem_load dmem addr w ret ih => exact fun g h => ⟨h.1, fun v g' hs => ih _ _ g' (h.2 v g' hs)⟩
   | nonmem_store dmem addr v ret ih => exact fun g h => ⟨h.1, fun b g' hs => ih _ g' (h.2 b g' hs)⟩

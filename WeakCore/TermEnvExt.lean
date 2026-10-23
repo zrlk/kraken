@@ -113,6 +113,7 @@ theorem tstep_env_ext {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {r : M
     split at h
     · split at h
       · rw [List.mem_singleton] at h; subst h; exact .inl rfl
+      · rw [List.mem_singleton] at h; subst h; exact .inl rfl
       · cases h
     · cases h
   | cas acq rel w e v t ok fail =>

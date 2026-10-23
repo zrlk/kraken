@@ -73,8 +73,8 @@ theorem gOf_phantC (p : Prog) (k : Promises.Knobs) (arch : Arch) (f0 : Frame) (c
 
 theorem cfg_ext {c d : Cfg} (hm : c.mem = d.mem) (hp : c.pairs = d.pairs) (hl : c.lbase = d.lbase)
     (hb : c.boxFence = d.boxFence) (hc : c.cap = d.cap) (hs : c.ths.size = d.ths.size)
-    (ht : ∀ j : Nat, c.ths[j]? = d.ths[j]?) : c = d := by
-  obtain ⟨_, _, ths, _, _, _⟩ := c; obtain ⟨_, _, ths', _, _, _⟩ := d
+    (ht : ∀ j : Nat, c.ths[j]? = d.ths[j]?) (htr : c.trace = d.trace) : c = d := by
+  obtain ⟨_, _, ths, _, _, _, _⟩ := c; obtain ⟨_, _, ths', _, _, _, _⟩ := d
   simp only at *; subst_vars
   have : ths = ths' := Array.ext_getElem? ht
   subst this; rfl
@@ -126,6 +126,45 @@ theorem promise_phantC (f0 : Frame) (c : Cfg) (i : Nat) (a : WeakMem.Address) (v
 theorem noPromises_phantC (f0 : Frame) (c : Cfg) (i : Nat) : noPromises (phantC f0 c) i = noPromises c i := by
   unfold noPromises; rw [phantC_get]; split <;> (try cases c.ths[i]?) <;> rfl
 
+/-- (IO1) The extern move commutes with the phantom frame (`app` touches only the stack). -/
+theorem extSteps_phantC {f0 : Frame} {c c' : Cfg} {i : Nat} (h : c' ∈ extSteps c i) :
+    phantC f0 c' ∈ extSteps (phantC f0 c) i := by
+  obtain ⟨th, x, n, a, e, rt, ws, hth, hterm, hn, hev, rfl⟩ := extSteps_elim h
+  by_cases hi : i = 0
+  · subst hi
+    have hth' : (phantC f0 c).ths[0]? = some (app f0 th) := by rw [phantC_get]; simp [hth]
+    have hm := extSteps_intro (n := n) (a := a) (x := x) (e := e) hth' hterm hn hev
+    have hc : ∀ (t : TTh) (tr : List Event), phantC f0 { c with ths := c.ths.set! 0 t, trace := tr } =
+        { phantC f0 c with ths := (phantC f0 c).ths.set! 0 (app f0 t), trace := tr } := by
+      intro t tr
+      apply cfg_ext <;> simp [phantC]
+      intro j; rw [Array.getElem?_setIfInBounds, Array.getElem?_modify, Array.getElem?_modify,
+        Array.getElem?_setIfInBounds]
+      by_cases hj : 0 = j <;> simp [hj]
+    have e1 : phantC f0 (extCfg c 0 th x n e ws) = extCfg (phantC f0 c) 0 (app f0 th) x n e ws := by
+      cases n with
+      | current => exact absurd (Or.inr rfl) hn
+      | emit => exact hc _ _
+      | exitEv => exact absurd (Or.inl rfl) hn
+    rw [e1]; exact hm
+  · have hth' : (phantC f0 c).ths[i]? = some th := by rw [phantC_get]; simp [hth, hi]
+    have hm := extSteps_intro hth' hterm hn hev
+    have hc : ∀ (t : TTh) (tr : List Event), phantC f0 { c with ths := c.ths.set! i t, trace := tr } =
+        { phantC f0 c with ths := (phantC f0 c).ths.set! i t, trace := tr } := by
+      intro t tr
+      apply cfg_ext <;> simp [phantC]
+      intro j; rw [Array.getElem?_setIfInBounds, Array.getElem?_modify, Array.getElem?_modify,
+        Array.getElem?_setIfInBounds]
+      by_cases hj : 0 = j
+      · subst hj; simp [hi]
+      · by_cases hij : i = j <;> simp [hj, hij]
+    have e1 : phantC f0 (extCfg c i th x n e ws) = extCfg (phantC f0 c) i th x n e ws := by
+      cases n with
+      | current => exact absurd (Or.inr rfl) hn
+      | emit => exact hc _ _
+      | exitEv => exact absurd (Or.inl rfl) hn
+    rw [e1]; exact hm
+
 theorem solo_phantC {p : Prog} {k : Promises.Knobs} {arch : Arch} {f0 : Frame} {i : Nat} {c c'' : Cfg}
     (h : Solo p k arch i c c'') : Solo p k arch i (phantC f0 c) (phantC f0 c'') := by
   induction h with
@@ -134,6 +173,7 @@ theorem solo_phantC {p : Prog} {k : Promises.Knobs} {arch : Arch} {f0 : Frame} {
   | prom a v w hw _ ih =>
     rw [promise_phantC] at ih
     exact .prom a v w (by simpa [phantC] using hw) ih
+  | ext hs _ ih => exact .ext (extSteps_phantC hs) ih
 
 theorem certified_phantC {p : Prog} {k : Promises.Knobs} {arch : Arch} {f0 : Frame} {c : Cfg} {i : Nat}
     (h : Certified p k arch c i) : Certified p k arch (phantC f0 c) i := by
@@ -155,3 +195,6 @@ theorem steps_phantC {p : Prog} {k : Promises.Knobs} {arch : Arch} {f0 : Frame} 
   | refl c => exact .refl _
   | step hs _ ih => exact .step (step_phantC hs) ih
 end TermSpawnSim
+
+-- (IO1)
+#print axioms TermSpawnSim.extSteps_phantC

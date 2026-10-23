@@ -266,7 +266,10 @@ theorem operation_mono [Labels] {w : RegWidth} {op : Operation w} {p : Std.Rco I
     (hj : ∀ pc s', (j₁ pc s').All P₁ → (j₂ pc s').All P₂)
     (h : (Operation.interp op p s k₁ j₁).All P₁) :
     (Operation.interp op p s k₂ j₂).All P₂ := by
-  cases op <;> mono_search
+  cases op
+  -- `SVC` halts (`MachineData.pendingSyscall`): nothing holds past it.
+  case SVC imm => simp only [Operation.interp, MachineData.pendingSyscall, Effects.All] at h
+  all_goals mono_search
 
 end InterpSound
 

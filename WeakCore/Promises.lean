@@ -30,7 +30,7 @@ order is preserved, so a `do`-notation front-end over this machine drives every
 rule -- which is what D4 needs.
 
 The point of the prototype is that this is checkable rather than arguable: the
-same `Litmus` values -- 89<!--@suite--> of them now -- with the same herd7-derived
+same `Litmus` values -- 102<!--@suite--> of them now -- with the same herd7-derived
 expectations, are re-run against this machine.  §4 additionally ablates each new
 rule, which is where the non-obvious content is.
 
@@ -747,7 +747,7 @@ fulfilment, so it produces exactly the schedules that executing the store now
 already produces.  This is what keeps IRIW cheap (its writers are a single
 store each, so they promise nothing).  The argument is a hand-wave until it is
 checked, so `Knobs.headPromise` turns the pruning off and §4 reports that the
-outcomes are unchanged on 50 of the 89<!--@suite--> tests -- the four it skips are the IRIW
+outcomes are unchanged on 50 of the 102<!--@suite--> tests -- the four it skips are the IRIW
 variants, whose cost is the whole reason the pruning exists and where the
 argument is anyway trivial.  See `generality` for why that exclusion is cheap.
 
@@ -819,6 +819,8 @@ def pairStores : List Instr → List (Address × Val × Val)
   | [] => []
   -- Constant new values only, as in `constStores`.
   | .rmwPair _ _ a _ _ (.const v0) (.const v1) _ _ _ :: rest => (a, v0, v1) :: pairStores rest
+  -- A plain wide store is a pair write too (B4): constant values only, as above.
+  | .storePair a (.const v0) (.const v1) _ _ :: rest => (a, v0, v1) :: pairStores rest
   | _ :: rest => pairStores rest
 
 /-- Does any thread store a register-valued expression?  If so the promise
@@ -918,18 +920,15 @@ def promiseSteps (k : Knobs) (c : Config) (i : Nat) : List Config :=
 identical -- it was already written against `readBoundOf` and `pairStraddles`,
 neither of which knows which machine it is in.
 
-The write side is **append-only**, and that is a restriction worth stating
-rather than hiding.  `stepStore` above may fulfil a promise instead of
-appending; `stepStorePair` may not.  Two reasons, and the second is the real
-one.  A wide store would have to discharge *two* promises at adjacent
-timestamps simultaneously, which is a new rule; and nothing exercises it,
-because no test in the suite promises a wide write.  Machinery with no test
-behind it is the thing this project keeps finding to be wrong (§6.11, §6.14),
-so it is not written.  If a wide store ever needs to be promised, item 1 of
-`check-promises.sh` is what will say so: the state sets would stop matching
-`WeakMem.lean`'s. -/
+The write side may append (`stepStorePair`) or fulfil a pair promise
+(`stepStorePairs`).  It was append-only until B4: a wide store
+could not be promised, so `LB` with `STP` writers came out forbidden here and
+allowed by herd7 (lse2, pair and stock cats), and the term machine inherited the
+gap.  Nothing in the suite promised a wide write, which is why item 1 of
+`check-promises.sh` never saw it; the `LB`/`MP` pair tests in `wideSuite` now
+do.  Fulfilment discharges *both* words at once, as `stepRmwPairAt`'s does. -/
 
-/-- A two-word plain store.  Append-only; see the section note. -/
+/-- A two-word plain store, appending.  `stepStorePairs` adds the fulfilment. -/
 def stepStorePair (mem : Memory) (pairs : List Ts) (th : Thread) (a : Address)
     (e0 e1 : Expr) (deps : List Reg) (rel : Bool) :
     Memory × List Ts × Thread :=
@@ -951,6 +950,52 @@ def stepStorePair (mem : Memory) (pairs : List Ts) (th : Thread) (a : Address)
              coh := fun b => if b = a0 then t0 else if b = a1 then t1 else vs.coh b
              vWr := max vs.vWr t1, mine := (t1 - 1) :: t1 :: vs.mine
              fwd := (t1 - 1, pairFwdOf th.regs e0 e1 deps) :: (t1, pairFwdOf th.regs e0 e1 deps) :: vs.fwd } })
+
+/-- **The wide store rule**: append (`stepStorePair`), or fulfil an outstanding pair
+    promise.  Fulfilment is `stepRmwPairAt`'s branch with `stepStore`'s side conditions:
+    `t0 ∈ pairs` (two adjacent single promises are not a pair; see `stepRmwPairAt`),
+    `t0` and `t0 + 1` both outstanding and both matching, and both erased together.
+    The committed thread is `stepStorePair`'s, at `t0, t0 + 1` instead of the fresh pair. -/
+def stepStorePairs (k : Knobs) (arch : Arch) (mem : Memory) (pairs : List Ts) (th : Thread)
+    (a : Address) (e0 e1 : Expr) (deps : List Reg) (rel : Bool) :
+    List (Memory × List Ts × Thread) :=
+  let vs := th.vs
+  let valOf : Expr → Val := fun e =>
+    match e with | .const c => c | .reg r => (th.regs r).val
+  let mview := max (storeMview th e0 deps rel) (storeMview th e1 deps rel)
+  let a0 := a
+  let a1 := a.next
+  let ob0 := storeOb k arch th a0 e0 deps
+  let ob1 := storeOb k arch th a1 e1 deps
+  let fulfilled := th.promises.filterMap fun t0 =>
+    let t1 := t0 + 1
+    match mem[t0]?, mem[t1]? with
+    | some m0, some m1 =>
+        if pairs.contains t0 && th.promises.contains t1 &&
+           m0.loc == a0 && m0.val == valOf e0 && mview ≤ m0.view &&
+           m1.loc == a1 && m1.val == valOf e1 && mview ≤ m1.view &&
+           ob0 < t0 && ob1 < t1 then
+          some (mem, pairs,
+            { th with
+              vs := { vs with
+                      coh := fun b => if b = a0 then t0 else if b = a1 then t1 else vs.coh b
+                      vWr := max vs.vWr t1, mine := (t1 - 1) :: t1 :: vs.mine
+                      fwd := (t1 - 1, pairFwdOf th.regs e0 e1 deps) :: (t1, pairFwdOf th.regs e0 e1 deps) :: vs.fwd }
+              promises := (th.promises.erase t0).erase t1 })
+        else none
+    | _, _ => none
+  stepStorePair mem pairs th a e0 e1 deps rel :: fulfilled
+
+/-- Is `t` a word of a registered pair write (its first or its second message)? -/
+def pairWord (pairs : List Ts) (t : Ts) : Bool := pairs.contains t || pairs.any (· + 1 == t)
+
+/-- (pair guard) **A single-word write never discharges a word of a pair.**  `th'` (the result of a
+    `stepStore` or `stepRmw` by `th`) keeps every outstanding promise of `th` that is a pair word.
+    The mirror of `CASPFulfilSingles` (see `stepRmwPairAt`): a pair promise is fulfilled by a pair
+    write, both words at once, or not at all.  Applied by `stepThread` as a filter, so the two
+    single-word rules (and every lemma about them) are unchanged. -/
+def keepsPairProms (pairs : List Ts) (th th' : Thread) : Bool :=
+  th.promises.all fun t => !pairWord pairs t || th'.promises.contains t
 
 /-- A two-word plain load.  Identical to `WeakMem.stepLoadPair` except for
     going through `readBoundOf`, which is how every read bound is spelled in
@@ -1009,8 +1054,8 @@ def stepThread (k : Knobs) (arch : Arch) (c : Config) (i : Nat) : List Config :=
       | .load dst a deps acq =>
           (stepLoad arch c.mem c.pairs th dst a deps acq).map (setTh c.mem)
       | .store a e deps rel =>
-          (stepStore k arch c.mem th a e deps rel).map fun (mem', th') =>
-            setTh mem' th'
+          ((stepStore k arch c.mem th a e deps rel).filter fun r => keepsPairProms c.pairs th r.2).map
+            fun (mem', th') => setTh mem' th'
       | .fence f => [setTh c.mem (stepFence th f)]
       | .branch r =>
           let vs := th.vs
@@ -1023,7 +1068,8 @@ def stepThread (k : Knobs) (arch : Arch) (c : Config) (i : Nat) : List Config :=
           let vs := th.vs
           [setTh c.mem { th with vs := { vs with vPreBase := max vs.vPreBase vs.vCtrl } }]
       | .rmw dst a kind newv deps acq rel =>
-          (stepRmw k arch c.mem c.pairs th dst a kind newv deps acq rel).map
+          ((stepRmw k arch c.mem c.pairs th dst a kind newv deps acq rel).filter
+              fun r => keepsPairProms c.pairs th r.2).map
             fun (mem', th') =>
             setTh mem' th'
       | .rmwPair d0 d1 a cmp0 cmp1 new0 new1 deps acq rel =>
@@ -1034,9 +1080,8 @@ def stepThread (k : Knobs) (arch : Arch) (c : Config) (i : Nat) : List Config :=
             { setTh mem' th' with pairs := pairs' }
       | .storePair a e0 e1 deps rel =>
           -- The other one, and the line that takes FEAT_LSE2.
-          let (mem', pairs', th') :=
-            stepStorePair c.mem c.pairs th a e0 e1 deps rel
-          [{ setTh mem' th' with pairs := pairs' }]
+          (stepStorePairs k arch c.mem c.pairs th a e0 e1 deps rel).map fun (mem', pairs', th') =>
+            { setTh mem' th' with pairs := pairs' }
       | .loadPair d0 d1 a deps acq =>
           (stepLoadPair arch c.mem c.pairs th d0 d1 a deps acq).map (setTh c.mem)
 
@@ -1217,9 +1262,13 @@ def say (b : Bool) : String := if b then "allowed" else "forbidden"
     replacement for out-of-order issue, nothing is gained or lost. -/
 def suiteReport (base : List Result) : String × Nat :=
   let lines := (suite.zip base).map fun (L, r) =>
-    let same := sameSet r.observed L.outcomes
+    -- `WeakMem.refGap`: WeakMem knowingly over-forbids these, so they are held to herd7's
+    -- verdict and state count (`r.agrees`) alone.
+    let gap := WeakMem.refGap.contains L.name
+    let same := gap || sameSet r.observed L.outcomes
     let tag := if r.agrees && same then "ok   " else "FAIL "
-    let note := if same then "" else "   (state set differs from WeakMem)"
+    let note := if gap then "   (refGap: checked against herd7 only)"
+      else if same then "" else "   (state set differs from WeakMem)"
     (r.agrees && same, s!"{tag} | [{archStr L.arch}] {L.name}{note}\n" ++
       s!"        model: {say r.modelAllows}   arch: {say r.archAllows}" ++
       s!"   states: {r.observed.length}")
@@ -1342,7 +1391,7 @@ itself is proved, this table is the testable shadow.
 
 Two deliberate differences from the stage-1 version.
 
-**It runs on all 89<!--@suite--> shapes, not the 20<!--@herd-x86--> `tso` ones.**  The extra 42 are ARM
+**It runs on all 102<!--@suite--> shapes, not the 20<!--@herd-x86--> `tso` ones.**  The extra 42 are ARM
 programs run under TSO rules, which is not a program anyone would write.  But a
 simulation theorem quantifies over every program in `Instr`, not over the ones
 we happened to write for x86 -- so those 40 are precisely the cases it would
@@ -1356,9 +1405,9 @@ check is vacuous -- the same discipline every other table here follows.
 
 Both guards are live rather than decorative.  Computing the table with the two
 architectures swapped -- asking whether `arm` stays inside `tso` -- reports all
-89<!--@suite--> shapes with 32<!--@slack--> escaping and none where `tso` is
+102<!--@suite--> shapes with 44<!--@slack--> escaping and none where `tso` is
 strictly weaker, which trips the escape assertion and the vacuity assertion at
-once.  Those 32<!--@slack--> are the shapes where ARM is genuinely the weaker
+once.  Those 44<!--@slack--> are the shapes where ARM is genuinely the weaker
 model, and they are the same ones counted in the `slack` column here.  (These
 numbers are measured, not estimated: the swapped computation is a five-line
 driver over the same `suite`.  They are also *marked*, which they were not
@@ -1420,7 +1469,7 @@ wrong in a different direction, so each is measured here rather than argued.
 1.  **It changes nothing observable.**  Every shape must reach the same set of
     states under `finalsCert` as under `finals`.  This is the claim that lets
     certification be added without re-validating anything against herd7: the
-    89<!--@suite--> shapes are the same shapes, and their verdicts are the
+    102<!--@suite--> shapes are the same shapes, and their verdicts are the
     same verdicts.
 
 2.  **It is not vacuous.**  If certification rejected no step anywhere, claim 1
@@ -1507,7 +1556,7 @@ def certRow (base : Result) (L : Litmus) : CertRow :=
 
 /-- Only the shapes certification touches are printed: on a shape it prunes
     nothing it also unsticks nothing, and 29 rows of "0, 0" would bury the
-    43<!--@certprune--> that say something. -/
+    56<!--@certprune--> that say something. -/
 def certReport (base : List Result) : String :=
   let rows := (base.zip suite).map fun (b, L) => certRow b L
   let changed := rows.filter fun r => !r.same
@@ -8233,7 +8282,7 @@ def pinDemo : String :=
 
 /-! ## 15. Architecture refinement: the relation, and the lemma it rests on
 
-§4.1 checks `behaviours arm ⊇ behaviours tso` by running 89<!--@suite--> shapes under both
+§4.1 checks `behaviours arm ⊇ behaviours tso` by running 102<!--@suite--> shapes under both
 rule sets and finding 0 escapes.  That is a gate, not a theorem, and this
 section is the first half of replacing it with one.  **It deliberately stops
 before the simulation**: the point is to fix the relation and discharge the
@@ -9708,6 +9757,70 @@ theorem stepStorePair_sim {ma mt : Memory} (hm : MemLe ma mt) {ta tt : Thread}
   rw [hm.1]
   exact storeThOf2_le h a (fwdOf_mono h e0 _) mt.size (mt.size + 1) h.promises
 
+/-- `stepStorePairs` relates: the append half is `stepStorePair_sim`; the fulfilment half is
+    `stepStore_sim`'s argument (same promised messages by `hp`, the `arm` bound below the `tso`
+    one), applied to both words, as in `stepRmwPairAt_sim`. -/
+theorem stepStorePairs_sim (k : Knobs) {ma mt : Memory} (hm : MemLe ma mt) {ta tt : Thread}
+    (h : ThreadLe ta tt) (hp : ∀ t ∈ tt.promises, ma[t]? = mt[t]?)
+    (pairs : List Ts) (a : Address) (e0 e1 : Expr) (deps : List Reg) (rel : Bool)
+    {mt' : Memory} {pt' : List Ts} {tt' : Thread}
+    (hin : (mt', pt', tt') ∈ stepStorePairs k .tso mt pairs tt a e0 e1 deps rel) :
+    ∃ q ∈ stepStorePairs k .arm ma pairs ta a e0 e1 deps rel,
+      MemLe q.1 mt' ∧ q.2.1 = pt' ∧ ThreadLe q.2.2 tt' := by
+  unfold stepStorePairs at hin
+  rcases List.mem_cons.1 hin with happ | hful
+  · rw [stepStorePair_eq] at happ
+    simp only [Prod.mk.injEq] at happ
+    obtain ⟨rfl, rfl, rfl⟩ := happ
+    obtain ⟨hmle, hthle⟩ := stepStorePair_sim hm h a e0 e1 deps rel
+    have hq : stepStorePair ma pairs ta a e0 e1 deps rel
+        ∈ stepStorePairs k .arm ma pairs ta a e0 e1 deps rel := by
+      unfold stepStorePairs
+      exact List.mem_cons.2 (Or.inl rfl)
+    refine ⟨_, hq, ?_⟩
+    rw [stepStorePair_eq]
+    exact ⟨hmle, by rw [hm.1], hthle⟩
+  · obtain ⟨t0, htp, hft⟩ := List.mem_filterMap.1 hful
+    dsimp only at hft
+    split at hft
+    · next m0 m1 hmt0 hmt1 =>
+        obtain ⟨hguard, htriple⟩ := of_ite_some hft
+        cases htriple
+        simp only [Bool.and_eq_true, decide_eq_true_eq, beq_iff_eq] at hguard
+        obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨hpc, hc⟩, hl0⟩, hv0⟩, hm0⟩, hl1⟩, hv1⟩, hm1⟩, hob0⟩, hob1⟩ := hguard
+        have htp1 : (t0 + 1) ∈ tt.promises := List.mem_of_elem_eq_true hc
+        have hma0 : ma[t0]? = some m0 := (hp t0 htp).trans hmt0
+        have hma1 : ma[t0 + 1]? = some m1 := (hp (t0 + 1) htp1).trans hmt1
+        have hmv := storePairMview_mono h e0 e1 deps rel
+        have hguard' :
+            (pairs.contains t0 && ta.promises.contains (t0 + 1) &&
+              (m0.loc == a) && (m0.val == storeValOf ta e0) &&
+              decide (storePairMview ta e0 e1 deps rel ≤ m0.view) &&
+              (m1.loc == a.next) && (m1.val == storeValOf ta e1) &&
+              decide (storePairMview ta e0 e1 deps rel ≤ m1.view) &&
+              decide (storeOb k .arm ta a e0 deps < t0) &&
+              decide (storeOb k .arm ta a.next e1 deps < t0 + 1)) = true := by
+          simp only [Bool.and_eq_true, decide_eq_true_eq, beq_iff_eq]
+          refine ⟨⟨⟨⟨⟨⟨⟨⟨⟨hpc, ?_⟩, hl0⟩, ?_⟩, Nat.le_trans hmv hm0⟩, hl1⟩, ?_⟩,
+            Nat.le_trans hmv hm1⟩, Nat.lt_of_le_of_lt (storeOb_arm_le_tso k h a e0 deps) hob0⟩,
+            Nat.lt_of_le_of_lt (storeOb_arm_le_tso k h a.next e1 deps) hob1⟩
+          · rw [h.promises]; exact hc
+          · rw [storeValOf_congr h e0]; exact hv0
+          · rw [storeValOf_congr h e1]; exact hv1
+        have hmem : ((ma : Memory), pairs,
+            storeThOf2 ta a (pairFwdOf ta.regs e0 e1 deps) t0 (t0 + 1)
+              ((ta.promises.erase t0).erase (t0 + 1)))
+            ∈ stepStorePairs k .arm ma pairs ta a e0 e1 deps rel := by
+          unfold stepStorePairs
+          refine List.mem_cons.2 (Or.inr (List.mem_filterMap.2 ⟨t0, ?_, ?_⟩))
+          · rw [h.promises]; exact htp
+          · dsimp only
+            rw [hma0, hma1]
+            exact ite_eq_left hguard'
+        exact ⟨_, hmem, hm, rfl,
+          storeThOf2_le h a (fwdOf_mono h e0 _) t0 (t0 + 1) (by rw [h.promises])⟩
+    · simp at hft
+
 theorem stepLoadPair_sim {ma mt : Memory} (hm : MemLe ma mt) {ta tt : Thread}
     (h : ThreadLe ta tt) (pairs : List Ts) (dst0 dst1 : Reg) (a : Address)
     (deps : List Reg) (acq : Bool)
@@ -9898,6 +10011,24 @@ theorem stepStorePair_ext (mem : Memory) (pairs : List Ts) (th : Thread) (a : Ad
           t ∈ th.promises := by
   rw [stepStorePair_eq]
   exact ⟨MemExt.trans (MemExt.push mem _) (MemExt.push _ _), fun _ ht => ht⟩
+
+theorem stepStorePairs_ext (k : Knobs) (arch : Arch) (mem : Memory) (pairs : List Ts)
+    (th : Thread) (a : Address) (e0 e1 : Expr) (deps : List Reg) (rel : Bool)
+    {mem' : Memory} {pairs' : List Ts} {th' : Thread}
+    (hin : (mem', pairs', th') ∈ stepStorePairs k arch mem pairs th a e0 e1 deps rel) :
+    MemExt mem mem' ∧ forall t, t ∈ th'.promises -> t ∈ th.promises := by
+  unfold stepStorePairs at hin
+  rcases List.mem_cons.1 hin with happ | hful
+  · have hx := stepStorePair_ext mem pairs th a e0 e1 deps rel
+    rw [← happ] at hx
+    exact hx
+  · obtain ⟨t0, _, hft⟩ := List.mem_filterMap.1 hful
+    dsimp only at hft
+    split at hft
+    · obtain ⟨_, htriple⟩ := of_ite_some hft
+      cases htriple
+      exact ⟨MemExt.refl mem, fun _ ht' => List.mem_of_mem_erase (List.mem_of_mem_erase ht')⟩
+    · simp at hft
 
 /-- The wide load's half.  It writes nothing, so there is no `MemExt` to state. -/
 theorem stepLoadPair_ext (arch : Arch) (mem : Memory) (pairs : List Ts) (th : Thread)
@@ -10238,6 +10369,13 @@ theorem setTh_sim {ca ct : Config} (hs : Sim ca ct) (i : Nat) (rest : List Instr
     rw [hea.get t hold.1, het.get t (by rw [← hs.le.mem.1]; exact hold.1)]
     exact hold.2
 
+/-- (pair guard) `keepsPairProms` reads only the two promise lists and `pairs`, which the simulation
+    keeps equal. -/
+theorem keepsPairProms_congr {pa pt : List Ts} {ta tt ta' tt' : Thread} (hp : pa = pt)
+    (h : ta.promises = tt.promises) (h' : ta'.promises = tt'.promises) :
+    keepsPairProms pa ta ta' = keepsPairProms pt tt tt' := by
+  unfold keepsPairProms; rw [hp, h, h']
+
 theorem stepThread_sim (k : Knobs) {ca ct : Config} (hs : Sim ca ct) (i : Nat)
     {ct' : Config} (hin : ct' ∈ stepThread k .tso ct i) :
     ∃ ca' ∈ stepThread k .arm ca i, Sim ca' ct' := by
@@ -10271,16 +10409,17 @@ theorem stepThread_sim (k : Knobs) {ca ct : Config} (hs : Sim ca ct) (i : Nat)
                 hs.le.pairs⟩
           . -- store
             next a e deps rel =>
-              simp only [List.mem_map] at hin
-              obtain ⟨⟨mt', tht⟩, hstep, hcfg⟩ := hin
+              simp only [List.mem_map, List.mem_filter] at hin
+              obtain ⟨⟨mt', tht⟩, ⟨hstep, hkeep⟩, hcfg⟩ := hin
               cases hcfg
               obtain ⟨⟨ma', tha⟩, hstepa, hmle, hthle⟩ :=
                 stepStore_sim k hs.le.mem hth hprom a e deps rel hstep
               have hmem :
                   ({ mem := ma', ths := ca.ths.set! i { tha with prog := rest },
                      pairs := ca.pairs } : Config) ∈ stepThread k .arm ca i := by
-                simp only [stepThread, hta, hproga, List.mem_map]
-                exact ⟨(ma', tha), hstepa, rfl⟩
+                simp only [stepThread, hta, hproga, List.mem_map, List.mem_filter]
+                exact ⟨(ma', tha), ⟨hstepa,
+                  (keepsPairProms_congr hs.le.pairs hth.promises hthle.promises).trans hkeep⟩, rfl⟩
               exact ⟨_, hmem, setTh_sim hs i rest hmle
                 (stepStore_ext k .arm ca.mem ta a e deps rel hstepa).1
                 (stepStore_ext k .tso ct.mem tt a e deps rel hstep).1
@@ -10354,8 +10493,8 @@ theorem stepThread_sim (k : Knobs) {ca ct : Config} (hs : Sim ca ct) (i : Nat)
               hisb htt (fun t htp => htp) hs.le.pairs⟩
           . -- rmw
             next dst a cmp newv deps acq rel =>
-              simp only [List.mem_map] at hin
-              obtain ⟨⟨mt', tht⟩, hstep, hcfg⟩ := hin
+              simp only [List.mem_map, List.mem_filter] at hin
+              obtain ⟨⟨mt', tht⟩, ⟨hstep, hkeep⟩, hcfg⟩ := hin
               cases hcfg
               obtain ⟨⟨ma', tha⟩, hstepa, hmle, hthle⟩ :=
                 stepRmw_sim k hs.le.mem hth hprom ca.pairs dst a cmp newv deps acq rel
@@ -10363,8 +10502,9 @@ theorem stepThread_sim (k : Knobs) {ca ct : Config} (hs : Sim ca ct) (i : Nat)
               have hmem :
                   ({ mem := ma', ths := ca.ths.set! i { tha with prog := rest },
                      pairs := ca.pairs } : Config) ∈ stepThread k .arm ca i := by
-                simp only [stepThread, hta, hproga, List.mem_map]
-                exact ⟨(ma', tha), hstepa, rfl⟩
+                simp only [stepThread, hta, hproga, List.mem_map, List.mem_filter]
+                exact ⟨(ma', tha), ⟨hstepa,
+                  (keepsPairProms_congr hs.le.pairs hth.promises hthle.promises).trans hkeep⟩, rfl⟩
               exact ⟨_, hmem, setTh_sim hs i rest hmle
                 (stepRmw_ext k .arm ca.mem ca.pairs ta dst a cmp newv deps acq rel hstepa).1
                 (stepRmw_ext k .tso ct.mem ct.pairs tt dst a cmp newv deps acq rel hstep).1
@@ -10393,32 +10533,25 @@ theorem stepThread_sim (k : Knobs) {ca ct : Config} (hs : Sim ca ct) (i : Nat)
                 (stepRmwPair_ext .tso ct.mem ct.pairs tt d0 d1 a cmp0 cmp1 new0 new1
                   deps acq rel hstep).2
                 hple⟩
-          . -- pair store
-            -- The only arm whose rule is a *function*: there is one successor,
-            -- not a list of them, so there is nothing to pick and `hin` is an
-            -- equation rather than a membership.  `stepStorePair_eq` is what
-            -- lets the `let`-pattern in `stepThread` reduce.
+          . -- pair store: the pair RMW's arm, with `stepStorePairs_sim`.
             next a e0 e1 deps rel =>
-              rw [stepStorePair_eq] at hin
-              simp only [List.mem_singleton] at hin
-              cases hin
-              obtain ⟨hmle, hthle⟩ := stepStorePair_sim hs.le.mem hth a e0 e1 deps rel
+              simp only [List.mem_map] at hin
+              obtain ⟨⟨mt', pt', tht⟩, hstep, hcfg⟩ := hin
+              cases hcfg
+              obtain ⟨⟨ma', pa', tha⟩, hstepa, hmle, hple, hthle⟩ :=
+                stepStorePairs_sim k hs.le.mem hth hprom ca.pairs a e0 e1 deps rel
+                  (by rw [hs.le.pairs]; exact hstep)
               have hmem :
-                  ({ mem := (ca.mem.push
-                               ⟨a, storeValOf ta e0, storePairMview ta e0 e1 deps rel⟩).push
-                               ⟨a.next, storeValOf ta e1, storePairMview ta e0 e1 deps rel⟩,
-                     ths := ca.ths.set! i
-                              { storeThOf2 ta a (pairFwdOf ta.regs e0 e1 deps) ca.mem.size
-                                  (ca.mem.size + 1) ta.promises with prog := rest },
-                     pairs := ca.pairs ++ [ca.mem.size] } : Config)
-                    ∈ stepThread k .arm ca i := by
-                simp only [stepThread, hta, hproga, stepStorePair_eq, List.mem_singleton]
+                  ({ mem := ma', ths := ca.ths.set! i { tha with prog := rest },
+                     pairs := pa' } : Config) ∈ stepThread k .arm ca i := by
+                simp only [stepThread, hta, hproga, List.mem_map]
+                exact ⟨(ma', pa', tha), hstepa, rfl⟩
               exact ⟨_, hmem, setTh_sim hs i rest hmle
-                (stepStorePair_ext ca.mem ca.pairs ta a e0 e1 deps rel).1
-                (stepStorePair_ext ct.mem ct.pairs tt a e0 e1 deps rel).1
+                (stepStorePairs_ext k .arm ca.mem ca.pairs ta a e0 e1 deps rel hstepa).1
+                (stepStorePairs_ext k .tso ct.mem ct.pairs tt a e0 e1 deps rel hstep).1
                 hthle htt
-                (stepStorePair_ext ct.mem ct.pairs tt a e0 e1 deps rel).2
-                (by rw [hs.le.pairs, hs.le.mem.1])⟩
+                (stepStorePairs_ext k .tso ct.mem ct.pairs tt a e0 e1 deps rel hstep).2
+                hple⟩
           . -- pair load
             next d0 d1 a deps acq =>
               simp only [List.mem_map] at hin
@@ -11736,7 +11869,7 @@ def reportIO : IO Unit := do
     "\n  simulation will cite: arm_reads_what_tso_reads and" ++
     "\n  arm_fulfils_what_tso_fulfils" ++
     "\n  storeMview takes no Arch argument at all, which discharges the" ++
-    "\n  counterexample the design note flagged: publication is" ++
+    "\n  candidate counterexample: publication is" ++
     "\n  architecture-blind, and the architecture only ever moves bounds" ++
     "\n  the simulation itself (step 3) is §16, and it is proved: see the" ++
     "\n  '#print axioms' line the build emits for tso_outcomes_subset_arm." ++

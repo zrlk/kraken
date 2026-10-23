@@ -1,0 +1,8 @@
+Test MP+dmb.ish-stp-i128+ldp-dmb.ishld Allowed
+States 3
+1:X3=0; 1:X7=0; 1:X8=0;
+1:X3=1; 1:X7=0; 1:X8=0;
+1:X3=1; 1:X7=1; 1:X8=2;
+No
+Condition exists (1:X7=1 /\ 1:X8=2 /\ 1:X3=0 \/ 1:X7=1 /\ 1:X8=0 \/ 1:X7=0 /\ 1:X8=2)
+Observation MP+dmb.ish-stp-i128+ldp-dmb.ishld Never 0 3

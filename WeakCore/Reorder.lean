@@ -176,7 +176,7 @@ def summarise (rows : List Row) : Summary :=
 
 def suiteSummary : Summary := summarise (suite.flatMap check)
 
--- ARM: all 28 swaps sound, and equivalences.  TSO: of 26, exactly these 22
+-- ARM: all 39 swaps sound (11 from `b4Tests`), and equivalences.  TSO: of 26, exactly these 22
 -- add states; the two store→load swaps are sound, and so are `SB+rfi-pos`'s
 -- two load→load swaps (the first load is forwarded from the thread's own
 -- store, so it orders nothing).  `SB+cmpxchg-fails` is locked in place: a
@@ -185,7 +185,7 @@ def suiteSummary : Summary := summarise (suite.flatMap check)
 -- and is locked in place on x86.
 #guard
   let s := suiteSummary
-  s.total == 54 && s.arm == 28 && s.armSound && s.armEquiv && s.tso == 26 && s.tsoSLSound &&
+  s.total == 65 && s.arm == 39 && s.armSound && s.armEquiv && s.tso == 26 && s.tsoSLSound &&
   s.tsoUnsound ==
     ["MP T0@0:SS", "MP T1@0:LL", "LB T0@0:LS", "LB T1@0:LS", "IRIW T2@0:LL", "IRIW T3@0:LL",
      "SB+cas T0@0:UL", "SB+cas T1@0:UL", "MP+cas+po T0@0:SU", "MP+cas+po T1@0:LL",

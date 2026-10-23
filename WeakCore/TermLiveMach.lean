@@ -686,6 +686,23 @@ theorem promise_setTh {c : Cfg} {i j : Nat} {x : TTh} (h : j ≠ i) (a : Address
   · rfl
   · exact setTh_comm h
 
+/-- (IO1) Another thread's extern move commutes with replacing thread `i`. -/
+theorem extSteps_setTh {c d : Cfg} {i j : Nat} {x : TTh} (h : j ≠ i) (hd : d ∈ extSteps c j) :
+    setTh d i x ∈ extSteps (setTh c i x) j := by
+  obtain ⟨th, y, n, a, e, rt, ws, hth, hterm, hn, hev, rfl⟩ := extSteps_elim hd
+  have hth' : (setTh c i x).ths[j]? = some th := by rw [setTh_get_ne h]; exact hth
+  have hm := extSteps_intro hth' hterm hn hev
+  have hc : ∀ (t : TTh) (tr : List Event), setTh { c with ths := c.ths.set! j t, trace := tr } i x =
+      { setTh c i x with ths := (setTh c i x).ths.set! j t, trace := tr } := by
+    intro t tr
+    simp only [setTh, Array.set!_eq_setIfInBounds, Array.setIfInBounds_comm _ _ h]
+  have e1 : setTh (extCfg c j th y n e ws) i x = extCfg (setTh c i x) j th y n e ws := by
+    cases n with
+    | current => exact absurd (Or.inr rfl) hn
+    | emit => exact hc _ _
+    | exitEv => exact absurd (Or.inl rfl) hn
+  rw [e1]; exact hm
+
 theorem noPromises_setTh {c : Cfg} {i j : Nat} {x : TTh} (h : j ≠ i) :
     noPromises (setTh c i x) j = noPromises c j := by
   unfold noPromises
@@ -699,6 +716,7 @@ theorem Solo_setTh {c d : Cfg} {i j : Nat} (x : TTh) (h : j ≠ i) (hs : Solo p 
       exact Solo.thread (by rw [threadSteps_setTh h]; exact List.mem_map_of_mem hs') ih
   | prom a v w hw _ ih =>
       exact Solo.prom a v w hw (by rw [promise_setTh h]; exact ih)
+  | ext hs' _ ih => exact Solo.ext (extSteps_setTh h hs') ih
 
 theorem Certified_setTh {c : Cfg} {i j : Nat} {x : TTh} (h : j ≠ i) :
     Certified p k arch (setTh c i x) j ↔ Certified p k arch c j := by
@@ -1127,5 +1145,6 @@ theorem promised_rmw_may_block {k : Promises.Knobs} {arch : Arch} {mem : Memory}
 #print axioms class_run
 #print axioms certB_sound
 #print axioms promised_rmw_may_block
+#print axioms TermLiveMach.extSteps_setTh
 
 end TermLiveMach

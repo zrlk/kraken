@@ -70,6 +70,7 @@ theorem Effects.AllEnv.vals {E : SharedEnv} {G : Loc → Val → Prop} {post : M
   induction ef with
   | done a => exact fun g h => h
   | unimplemented => exact fun _ h => h
+  | syscall => exact fun _ h => h
   | unaligned_sp => exact fun _ h => h
   | nonmem_load dmem addr w ret ih => exact fun g h => ⟨h.1, fun v g' h' => ih _ _ g' (h.2 v g' h'.1)⟩
   | nonmem_store dmem addr v ret ih => exact fun g h => ⟨h.1, fun b g' h' => ih _ g' (h.2 b g' h'.1)⟩
@@ -182,6 +183,7 @@ theorem Safely.of_vals_top {E : SharedEnv} {e : Kraken.Executable Directive}
     induction ef with
     | done a => exact fun g _ h => h
     | unimplemented => exact fun _ _ h => h
+    | syscall => exact fun _ _ h => h
     | unaligned_sp => exact fun _ _ h => h
     | nonmem_load dmem addr w ret ih => exact fun g _ h => ⟨h.1, fun v g' h' => ih _ _ g' _ (h.2 v g' (hs h'))⟩
     | nonmem_store dmem addr v ret ih => exact fun g _ h => ⟨h.1, fun b g' h' => ih _ g' _ (h.2 b g' (hs h'))⟩

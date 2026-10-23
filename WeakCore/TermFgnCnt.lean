@@ -72,7 +72,7 @@ theorem solo_typedXC {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c 
     (hwin : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → NoHoldPubA p k arch E0 E0 i c0)
     (h0 : InvAtXC p k arch i E0 n0 v0 na0 c) {c2 : Cfg} (h : Solo p k arch i c c2)
     (hc2 : Certified p k arch c2 i) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) : InvAtXC p k arch i E0 n0 v0 na0 c2 := by
-  refine (run_inv (c1 := c2) (P := fun c0 => Solo p k arch i c c0 ∧ InvAtXC p k arch i E0 n0 v0 na0 c0) ?_ ?_ h
+  refine (run_inv (c1 := c2) (P := fun c0 => Solo p k arch i c c0 ∧ InvAtXC p k arch i E0 n0 v0 na0 c0) ?_ ?_ ?_ h
     (.refl _) ⟨.refl _, h0⟩).2
   · rintro c0 c0' ⟨hc0, th, E, hth, hx, hTE, hm, hSC, hbo, hfb, hfr, hna, hfresh, hbx, hpr⟩ hs hrest
     have hc0' : Certified p k arch c0' i := certified_back hrest hc2
@@ -126,6 +126,11 @@ theorem solo_typedXC {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c 
     · rw [gOf_promise, hpi.2.2]
       exact MemInv_promSt hm
     · exact frRunA_prom hth hfr
+  · rintro c0 c0' ⟨hc0, th, E, hth, hx, hTE, hm, hSC, hbo, hfb, hfr, hna, hfresh, hbx, hpr⟩ hs _
+    obtain ⟨x1, a1, e1, evs, hterm, rfl⟩ := extSteps_thread hs hth
+    exact ⟨solo_trans hc0 (.ext hs (.refl _)), _, E, set_self hth, hx, TermTyped.ThInvE_emit hterm hTE,
+      by rw [gOf_ext hs]; exact hm, hSC, by rw [gOf_ext hs]; exact hbo, hfb, hfr, hna, by rw [gOf_ext hs]; exact hfresh,
+      by rw [gOf_ext hs]; exact hbx, by rw [gOf_ext hs]; exact hpr⟩
 
 /-- **A certified promise's pointer value at a single-word counted slot of a start cell** names, in an
 extension `E2` of the start `E0`, a frontier or a box; new cells, boxes and frontiers are tracked. -/

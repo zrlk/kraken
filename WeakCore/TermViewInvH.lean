@@ -92,6 +92,19 @@ theorem envVR_of_run {p : Prog} {k : Promises.Knobs} {arch : Arch} {Sp : Cfg →
       w.view ≤ w.rts :=
   fun _ _ _ w hev hw => (evalAt_V ((viewInv_run h0 hr).2 i th hth).1 hev w hw).1
 
+/-- (IO1) The extern move keeps `ViewInv` (the new binding's words are constants). -/
+theorem viewInv_extS {c c' : Cfg} {i : Nat} (hv : ViewInv c) (hs : c' ∈ extSteps c i) : ViewInv c' := by
+  obtain ⟨th, x, a, e, evs, hth, -, rfl⟩ := extSteps_shape hs
+  refine ⟨hv.1, fun j t hj => ?_⟩
+  rcases set_get_cases hj with ⟨rfl, rfl⟩ | ⟨-, hj'⟩
+  · obtain ⟨h1, h2, h3⟩ := hv.2 _ th hth
+    refine ⟨?_, h2, h3⟩
+    intro en hen
+    rcases List.mem_cons.1 hen with rfl | hen
+    · intro w hw; cases hw
+    · exact h1 en hen
+  · exact hv.2 j t hj'
+
 /-- `ViewInv` along a solo run. -/
 theorem viewInv_solo {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c c' : Cfg}
     (hv : ViewInv c) (h : Solo p k arch i c c') : ViewInv c' := by
@@ -99,6 +112,7 @@ theorem viewInv_solo {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c 
   | refl => exact hv
   | thread hs _ ih => exact ih (viewInv_thread hv hs)
   | prom a v w hw _ ih => exact ih (viewInv_prom hv hw)
+  | ext hs _ ih => exact ih (viewInv_extS hv hs)
 
 /-- `EnvVR` (unfolded) of thread `i` along a solo run from a `ViewInv` configuration. -/
 theorem envVR_solo {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c c' : Cfg}
@@ -126,3 +140,4 @@ end TermViewInv
 #print axioms TermViewInv.viewInv_run
 #print axioms TermViewInv.envVR_of_run
 #print axioms TermViewInv.viewInv_init
+#print axioms TermViewInv.viewInv_extS

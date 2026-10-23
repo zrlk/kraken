@@ -24,20 +24,26 @@ open WeakMem (Val Msg Memory Address VState Ts Arch AllocLabel)
 
 /-! ## The step -/
 
+/-- (E2) The child's box: a zero-word published cell at the parent's next fresh label. -/
+def tidLabel (c : Cfg) (i : Nat) (th : TTh) : AllocLabel := freshLabel c.lbase c.n i th.nalloc
+
 /-- The parent's post-barrier state (`dmb sy`). -/
 def spawnS (c : Cfg) (th : TTh) : St := fenceS (stOf c.mem c.pairs th) .sy
 
-/-- The parent after the spawn: post-barrier, continuing with `x := num ths.size` (the child's index). -/
-def spawnPar (c : Cfg) (th : TTh) (x : String) (e : Expr) : TTh :=
-  { withS th (spawnS c th) with term := e, env := (x, .int, [cst (.num c.ths.size)]) :: th.env }
+/-- The parent after the spawn: post-barrier, one more allocation (the child's box: machine-invisible
+but for `nalloc`; its cell is ghost), continuing with `x := loc (tidLabel ..)` (the child's `ThreadId`,
+a constant reference to its box). -/
+def spawnPar (c : Cfg) (i : Nat) (th : TTh) (x : String) (e : Expr) : TTh :=
+  { withS th (spawnS c th) with
+    nalloc := th.nalloc + 1,
+    term := e, env := (x, .tid, [cst (.loc ⟨tidLabel c i th, 0⟩ 0)]) :: th.env }
 
 /-- The child: `tail f [] (var a) ts` on the argument words bumped to the parent's post-barrier
 `vRelSt`, bound at the op's checked type `T` (A1's `kidTh` shape, `kd.ty = T`), at the parent's
 post-barrier views with `mine := []`; no stack, promises or allocations. -/
-def spawnKid (c : Cfg) (th : TTh) (f : String) (ts : List Ty) (T : Ty) (ws : List Word) : TTh :=
-  { term := .tail f [] (.var "a") ts,
-    env := [("a", T, ws.map (TermSpawn.bumpW (spawnS c th).vs.vRelSt))],
-    vs := { (spawnS c th).vs with mine := [] } }
+def spawnKid (c : Cfg) (i : Nat) (th : TTh) (f : String) (ts : List Ty) (T : Ty) (ws : List Word) : TTh :=
+  { term := .tail f [] (.var "a") ts, env := [("a", T, ws.map (TermSpawn.bumpW (spawnS c th).vs.vRelSt))],
+    vs := { (spawnS c th).vs with mine := [] }, tidLbl := some (tidLabel c i th) }
 
 /-- Replace thread `i` by `par` and append `kid`. -/
 def spawnT (c : Cfg) (i : Nat) (par kid : TTh) : Cfg := { c with ths := (c.ths.set! i par).push kid }
@@ -45,7 +51,7 @@ def spawnT (c : Cfg) (i : Nat) (par kid : TTh) : Cfg := { c with ths := (c.ths.s
 /-- The configuration after thread `i` (`th`, at `let x = spawn f a T ts in e`, argument words `ws`) spawns. -/
 def spawnCfg (c : Cfg) (i : Nat) (th : TTh) (x : String) (e : Expr) (f : String) (ts : List Ty)
     (T : Ty) (ws : List Word) : Cfg :=
-  spawnT c i (spawnPar c th x e) (spawnKid c th f ts T ws)
+  spawnT c i (spawnPar c i th x e) (spawnKid c i th f ts T ws)
 
 /-- **The spawn step** of thread `i` (v2 §2).  `cap`: the thread capacity (`Cfg.cap` after M0). -/
 inductive Spawn (p : Prog) (k : Promises.Knobs) (arch : Arch) (cap : Nat) : Cfg → Cfg → Prop
@@ -206,30 +212,62 @@ theorem promise_ths {c : Cfg} {i : Nat} {th : TTh} (hth : c.ths[i]? = some th) (
   simp only [promise, hth]
   simp [Array.set!, hi]
 
-/-- Along `Solo i`, a thread at a spawn site keeps its term and its promises only grow. -/
-theorem solo_site {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c c' : Cfg}
-    (h : Solo p k arch i c c') : ∀ th, c.ths[i]? = some th → AtSite th →
+/-- (E1) Along `Solo i`, a thread of a kind `Q` that promising keeps and that has no thread step
+and (IO1) no extern move (a spawn site) keeps its term and its promises only grow. -/
+theorem solo_stuck {p : Prog} {k : Promises.Knobs} {arch : Arch} {Q : TTh → Prop}
+    (hQ : ∀ th l, Q th → Q { th with promises := l })
+    (hS : ∀ th, Q th → ∀ c i, c.ths[i]? = some th → threadSteps p k arch c i = [])
+    (hE : ∀ th, Q th → ∀ c i, c.ths[i]? = some th → extSteps c i = [])
+    {i : Nat} {c c' : Cfg} (h : Solo p k arch i c c') : ∀ th, c.ths[i]? = some th → Q th →
       ∃ th', c'.ths[i]? = some th' ∧ th.promises <+: th'.promises := by
   induction h with
   | refl c => intro th hth _; exact ⟨th, hth, List.prefix_refl _⟩
   | thread hc _ ih =>
       intro th hth hs
-      obtain ⟨x, f, a, T, ts, e, he⟩ := hs
-      rw [threadSteps_spawn hth he] at hc
+      rw [hS th hs _ _ hth] at hc
       cases hc
   | prom a v w _ _ ih =>
       intro th hth hs
-      obtain ⟨th', h1, h2⟩ := ih _ (promise_ths hth a v w) hs
+      obtain ⟨th', h1, h2⟩ := ih _ (promise_ths hth a v w) (hQ _ _ hs)
       exact ⟨th', h1, (List.prefix_append _ _).trans h2⟩
+  | ext hc _ ih =>
+      intro th hth hs
+      rw [hE th hs _ _ hth] at hc
+      cases hc
 
-/-- **A certified thread at a spawn site has no promises.** -/
-theorem cert_site {p : Prog} {k : Promises.Knobs} {arch : Arch} {c : Cfg} {i : Nat} {th : TTh}
-    (hth : c.ths[i]? = some th) (hs : AtSite th) (hc : Certified p k arch c i) : th.promises = [] := by
+/-- (E1) **A certified thread of such a kind has no promises.** -/
+theorem cert_stuck {p : Prog} {k : Promises.Knobs} {arch : Arch} {Q : TTh → Prop}
+    (hQ : ∀ th l, Q th → Q { th with promises := l })
+    (hS : ∀ th, Q th → ∀ c i, c.ths[i]? = some th → threadSteps p k arch c i = [])
+    (hE : ∀ th, Q th → ∀ c i, c.ths[i]? = some th → extSteps c i = [])
+    {c : Cfg} {i : Nat} {th : TTh}
+    (hth : c.ths[i]? = some th) (hs : Q th) (hc : Certified p k arch c i) : th.promises = [] := by
   obtain ⟨c', hso, hnp⟩ := hc
-  obtain ⟨th', h1, h2⟩ := solo_site hso th hth hs
+  obtain ⟨th', h1, h2⟩ := solo_stuck hQ hS hE hso th hth hs
   simp [noPromises, h1] at hnp
   rw [hnp] at h2
   exact List.prefix_nil.1 h2
+
+/-- (IO1) A thread at a spawn site has no extern move. -/
+theorem atSite_extSteps {c : Cfg} {i : Nat} {th : TTh} (hth : c.ths[i]? = some th) (hs : AtSite th) :
+    extSteps c i = [] := by
+  obtain ⟨x, f, a, T, ts, e, he⟩ := hs
+  exact extSteps_nil hth (fun _ _ _ _ h => by rw [he] at h; cases h)
+
+/-- Along `Solo i`, a thread at a spawn site keeps its term and its promises only grow. -/
+theorem solo_site {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c c' : Cfg}
+    (h : Solo p k arch i c c') : ∀ th, c.ths[i]? = some th → AtSite th →
+      ∃ th', c'.ths[i]? = some th' ∧ th.promises <+: th'.promises :=
+  solo_stuck (Q := AtSite) (fun _ _ h => h)
+    (fun _ h _ _ hth => by obtain ⟨x, f, a, T, ts, e, he⟩ := h; exact threadSteps_spawn hth he)
+    (fun _ h _ _ hth => atSite_extSteps hth h) h
+
+/-- **A certified thread at a spawn site has no promises.** -/
+theorem cert_site {p : Prog} {k : Promises.Knobs} {arch : Arch} {c : Cfg} {i : Nat} {th : TTh}
+    (hth : c.ths[i]? = some th) (hs : AtSite th) (hc : Certified p k arch c i) : th.promises = [] :=
+  cert_stuck (Q := AtSite) (fun _ _ h => h)
+    (fun _ h _ _ hth => by obtain ⟨x, f, a, T, ts, e, he⟩ := h; exact threadSteps_spawn hth he)
+    (fun _ h _ _ hth => atSite_extSteps hth h) hth hs hc
 
 /-- The run invariant: every thread at a spawn site has no promises. -/
 def SiteNoProm (c : Cfg) : Prop := ∀ (i : Nat) (th : TTh), c.ths[i]? = some th → AtSite th → th.promises = []
@@ -309,6 +347,9 @@ end TermSpawnStep
 #print axioms TermSpawnStep.tstep_spawn
 #print axioms TermSpawnStep.threadSteps_spawn
 #print axioms TermSpawnStep.promise_ths
+#print axioms TermSpawnStep.solo_stuck
+#print axioms TermSpawnStep.cert_stuck
+#print axioms TermSpawnStep.atSite_extSteps
 #print axioms TermSpawnStep.solo_site
 #print axioms TermSpawnStep.cert_site
 #print axioms TermSpawnStep.threadSteps_ths_ne

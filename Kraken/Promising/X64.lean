@@ -84,6 +84,7 @@ part shared. -/
 def toEv (ds : Decls) : Effects → EvTree MachineState
   | .done a => .done a
   | .unimplemented msg => .fault msg
+  | .syscall .. => .fault pendingSyscallMsg
   | .gp_unaligned _ _ => .fault "unaligned access"
   | .nonmem_load dmem addr w ret =>
     .access ds addr w.bytes fun l => .load .plain false l fun v => toEv ds (ret (v.setWidth w.bits) dmem)
@@ -237,6 +238,63 @@ def State.directive (s : State) : Option Directive :=
 def exec (s : State) : Option (EvTree State) :=
   if s.st.2 == s.endPc || s.directive.isNone then none
   else some <| (toEv s.decls (_root_.Executable.step s.exe s.st fun s' => .done s')).map fun st => { s with st }
+
+/-- `toEv` for certification (`execCert`): a system call, which `toEv` makes a
+fault, is a choice among `results info`, the values `rax`, `rcx` and `r11` receive, each
+continuing after the instruction. The results are a parameter: Kraken knows no
+system call, the client supplies an over-approximation of what each call may
+return. An empty list is a dead end (`choose 0`), not a fault. -/
+def toEvCert (results : SyscallInfo → List SyscallRet) (ds : Decls) : Effects → EvTree MachineState
+  | .done a => .done a
+  | .unimplemented msg => .fault msg
+  | .syscall info ret =>
+    let rs := results info
+    .choose rs.length fun i => toEvCert results ds (ret rs[i])
+  | .gp_unaligned _ _ => .fault "unaligned access"
+  | .nonmem_load dmem addr w ret =>
+    .access ds addr w.bytes fun l => .load .plain false l fun v => toEvCert results ds (ret (v.setWidth w.bits) dmem)
+  | @Effects.nonmem_store dmem addr w v ret =>
+    .access ds addr w.bytes fun l => .store .plain false l (v.setWidth 128) fun _ => toEvCert results ds (ret dmem)
+  | .sync_load k xcl dmem addr w ret =>
+    .access ds addr w.bytes fun l => .load k xcl l fun v => toEvCert results ds (ret (v.setWidth w.bits) dmem)
+  | @Effects.sync_store k xcl dmem addr w v ret =>
+    .access ds addr w.bytes fun l => .store k xcl l (v.setWidth 128) fun ok => toEvCert results ds (ret ok dmem)
+  -- x86 has no `NoRet` atomics (herd's `NoRet` annotation is AArch64-only, and
+  -- every locked RMW is a full barrier under TSO anyway): `noRet := false`.
+  | .rmw k dmem addr w op ret =>
+    .access ds addr w.bytes fun l =>
+      .rmw k false l (fun old => (op (old.setWidth w.bits)).map (·.setWidth 128))
+        fun old => toEvCert results ds (ret (old.setWidth w.bits) dmem)
+  | .fence k ok => .fence k fun _ => toEvCert results ds (ok ())
+  | @Effects.undefined _ inst ret =>
+    match inst with
+    | .bool => .choose 2 fun i => toEvCert results ds (ret (i.val == 1))
+    | .bitvec _ => .fault "undefined register value"
+    | .avx_bitvec _ => .fault "undefined vector value"
+    | .statusFlags => .fault "undefined flags"
+  | .require_read_access _ _ ok => toEvCert results ds (ok ())
+  | .require_write_access _ _ ok => toEvCert results ds (ok ())
+  | .require_exec_access _ ok => toEvCert results ds (ok ())
+  | .require_read_access_avx _ _ _ ok => toEvCert results ds (ok ())
+  | .require_write_access_avx _ _ _ ok => toEvCert results ds (ok ())
+  | .nonmem_load_avx atomic dmem addr w ret =>
+    if atomic && w == .W128 then
+      .access ds addr 16 fun l => .load .plain false l fun v => toEvCert results ds (ret (v.setWidth w.bits) dmem)
+    else
+      loadPieces ds dmem addr (w.bytes / 8) fun bs => toEvCert results ds (ret (BitVec.ofInt w.bits (Int.ofBytes bs)) dmem)
+  | @Effects.nonmem_store_avx atomic dmem addr w v ret =>
+    if atomic && w == .W128 then
+      .access ds addr 16 fun l => .store .plain false l (v.setWidth 128) fun _ => toEvCert results ds (ret dmem)
+    else
+      storePieces ds addr (w.bytes / 8) (Int.toBytes w.bytes v.toInt) dmem fun dmem => toEvCert results ds (ret dmem)
+  | .rmw16 k dmem addr op ret =>
+    .access ds addr 16 fun l => .rmw k false l op fun old => toEvCert results ds (ret old dmem)
+
+/-- `exec` for certification only, with `toEvCert results`: same halting, and
+the same tree on every instruction other than a system call. -/
+def execCert (results : SyscallInfo → List SyscallRet) (s : State) : Option (EvTree State) :=
+  if s.st.2 == s.endPc || s.directive.isNone then none
+  else some <| (toEvCert results s.decls (_root_.Executable.step s.exe s.st fun s' => .done s')).map fun st => { s with st }
 
 /-- A thread state for a parsed program: laid out at `0x100000 * (tid + 1)`,
 one byte per instruction, halting after the last one. Symbolic data

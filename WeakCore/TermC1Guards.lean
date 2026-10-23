@@ -18,13 +18,13 @@ import WeakCore.TermRun
 import WeakCore.TermSmoke
 import WeakCore.Typestate
 
-/-! # TermC1Guards: region c1 guards as `#guard` lines.
+/-! # TermC1Guards: region c1 (G2) guards as `#guard` lines.
 
 Temporary parallel module: checks the new `TermC1.checkW1` / `TermC1.ProgScopeOKW1` only; nothing
-switches.  Deleted (or re-pointed) when the change is adopted.
+switches.  Deleted (or re-pointed) when the new definitions replace the old ones.
 
-* 24 negatives (12 `guards`, 10 `guards2`, 2 `guards3`) are rejected by `checkW1` with a `c1:` message;
-  20 of them are accepted by today's `TermScope.checkW` (recorded as `#guard`s, so the guards bite).
+* 23 negatives (11 `guards`, 10 `guards2`, 2 `guards3`) are rejected by `checkW1` with a `c1:` message;
+  19 of them are accepted by today's `TermScope.checkW` (recorded as `#guard`s, so the guards bite).
 * positives / controls are accepted by `checkW1`.
 * census: on the 51 accepted-program sites (every `#guard accepts (checkProg _)` and every
   `theorem _ : ProgT _`), `ProgScopeOKW p → ProgScopeOKW1 p` (superset, per program and per decl),
@@ -108,7 +108,7 @@ def guards : List (String × String × Decl) := [
   ("N1d tok payload, dead binder (e1: ok)", "+?", gd "n1" tokT ["q"] [("y", .atom (.lit 0))]),
   ("N2d cap pub payload, dead binder (e1: ok)", "+?", gd "n2" (.cap .pub (.var 0)) ["q"] [("y", .atom (.lit 0))]),
   ("N1 tok payload live (d used)", "-", gd "n1l" tokT ["q"] [("y", .atom (w "d"))]),
-  ("N2 cap pub payload live (d used)", "-", gd "n2l" (.cap .pub (.var 0)) ["q"] [("y", .atom (w "d"))]),
+  ("N2 cap pub payload live (d used) (ok: caps are inert in region memory)", "+", gd "n2l" (.cap .pub (.var 0)) ["q"] [("y", .atom (w "d"))]),
   ("N2s share payload live (d used)", "-", gd "n2s" (.share (.var 0)) ["q"] [("y", .atom (w "d"))]),
   ("N11 load tok payload under t0", "-", gd "n11" tokT ["q"] [("y", .load false (w "d"))]),
   ("N3 intoRgn of tok cell", "-", n3),
@@ -121,7 +121,7 @@ def guards : List (String × String × Decl) := [
   ("N10 store after t0 moved away", "-", gd "n10" .int [] [("pp", .pair (w "t0") (.lit 0)), ("u", .store false (w "d") (.lit 1) none)])
 ]
 
-/-- A region-cell load under the (sealed) lock token after an ordered observation of the word. -/
+/-- d6.4: a region-cell load under the (sealed) lock token after an ordered observation of the word. -/
 def tornD (acqW : Bool) (nm : String) : Decl where
   name := nm; idx := ["r"]; arg := "m"; argTy := cell mutexP .int; retTy := .unit
   body := lets [("t", .call "lock" ["r"] (v "m")), ("w", .fld 0 (v "m")), ("c", .load acqW (v "w")),
@@ -134,7 +134,7 @@ def tornFD : Decl where
                 ("d0", .fld 1 (v "m")), ("d", .load false (v "d0")), ("x", .load false (v "d")),
                 ("p", .pair (v "m") (v "t")), ("u2", .call "unlock" ["r"] (v "p"))] (.ret .unit)
 
-/-- seqP (monotone) writer: cas the even counter to odd (token), then an ordered observation of
+/-- d6.5: seqP (monotone) writer: cas the even counter to odd (token), then an ordered observation of
 the same word (`load acq w`, or `load w; fence ld`), then a region load; the token is then given back
 (`store rel w (c+2)`), so today's checkW accepts the whole decl and only monoSaw rejects it. -/
 def seqTD (fenceForm : Bool) (nm : String) : Decl where
@@ -170,10 +170,10 @@ def negs (l : List (String × String × Decl)) : List Decl :=
 #guard guards.all fun g => expOK [g.2.2] g
 #guard guards2.all fun g => expOK [g.2.2] g
 #guard guards3.all fun g => expOK (mutexLib ++ [g.2.2]) g
-#guard (negs guards).length + (negs guards2).length + (negs guards3).length == 24
--- 20 of the 24 negatives pass today's checkW (N11, N7, N9, N10 are already rejected).
+#guard (negs guards).length + (negs guards2).length + (negs guards3).length == 23
+-- 19 of the 23 negatives pass today's checkW (N11, N7, N9, N10 are already rejected).
 #guard ((negs guards ++ negs guards2).filter fun d => acc0 [d] d).length +
-       ((negs guards3).filter fun d => acc0 (mutexLib ++ [d]) d).length == 20
+       ((negs guards3).filter fun d => acc0 (mutexLib ++ [d]) d).length == 19
 #guard monotone mutexP == false && monotone seqP == true
 
 

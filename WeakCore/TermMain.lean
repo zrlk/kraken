@@ -85,6 +85,7 @@ import WeakCore.TermHWbRWrap
 import WeakCore.TermFgnNew
 import WeakCore.TermStoreCrZE
 import WeakCore.TermScopeWCk
+import WeakCore.TermTidLbl
 
 /-!
 # TermMain: a top-down skeleton of the first headline
@@ -1023,7 +1024,29 @@ theorem sysInv_threadRP (O : Obligations p k arch Sp Init MintOK c0 plantOf plan
       O.progT hFBP hRP (h.boxPlantSep hk),
     fun hk => TermFgnCnt.fgnCnt_thread O.promAlloc X Y ZC hS hPfrP (h.fgnCnt hk),
     TermPoolThread.field_of_poolInv hPI',
-    fun hk => O.plantIdxT X Y Z hS hKS hm hPfrP hPCc hk, (TermLiveProps.threadSteps_coh hc' h.cfgCoh).1, ?stoW, ?freshU⟩
+    fun hk => O.plantIdxT X Y Z hS hKS hm hPfrP hPCc hk, (TermLiveProps.threadSteps_coh hc' h.cfgCoh).1, ?stoW, ?freshU, ?tidBox⟩
+  case tidBox =>
+    intro j thj hj l hl
+    have hold : ∃ th0, c.ths[j]? = some th0 ∧ th0.tidLbl = some l := by
+      by_cases hji : j = i
+      · subst hji
+        rw [e3] at hj
+        cases hj
+        exact ⟨th, hth, by rw [← TermTidLbl.tstep_tidLbl hr]; exact hl⟩
+      · exact ⟨thj, by rw [← ho j hji]; exact hj, hl⟩
+    obtain ⟨th0, hth0, hl0⟩ := hold
+    obtain ⟨hs0, hp0⟩ := h.tidBox j th0 hth0 l hl0
+    have hnf : ¬ FreshIn (gOf p k arch c i) th.nalloc r.2.2.nalloc l := by
+      rintro ⟨q, hq1, -, hq⟩
+      have h0 : Eg.sto l = none := by rw [hq]; exact (h.fresh i th hth q hq1).1
+      rw [hs0] at h0; cases h0
+    have hp1 : (Cut Eg i S).pfr l = some 0 := hp0
+    refine ⟨by rw [TermOwnPub.EgT_sto_old hnf]; exact hs0, ?_⟩
+    rw [TermOwnPub.EgT_pfr]
+    rcases hF0.2.2.2.2.2.1 l with e | ⟨hn, -⟩ | ⟨-, hn, -⟩
+    · rw [e]; exact hp1
+    · rw [hp1] at hn; cases hn
+    · rw [hp1] at hn; cases hn
   case freshU =>
     have hU := TermFreshU.freshU_thread O.allocG O.promNodup X Y Z ZC hKS
       (TermFreshU.hD_thread (p := p) (k := k) (arch := arch) hi) h.freshU
@@ -1315,7 +1338,23 @@ theorem sysInv_promP (O : Obligations p k arch Sp Init MintOK c0 plantOf plantN)
     TermPoolThread.field_of_poolInv (TermPoolThread.poolProm PS X (O.plantSpec X).1 hPIp hacct hS hcrK),
     fun hk => O.plantIdxP X hacct hS hk (TermPtrRtsK.ptrGL_promW X hPL hacct hdb (h.ptrGL hk) (h.fgnCnt hk))
       (TermPtrRtsK.boxPlantSep_prom hth hPL h.plt (h.ptrGL hk).2.2.1 (TermPtrKey.ownKey_prom_le X hacct hdb)
-        h.payOwn h.boxPV h.boxFrOwn (h.boxPlantSep hk)), (TermLiveProps.promise_coh c j a v w h.cfgCoh).1, h.stoW, ?freshU⟩
+        h.payOwn h.boxPV h.boxFrOwn (h.boxPlantSep hk)), (TermLiveProps.promise_coh c j a v w h.cfgCoh).1, h.stoW, ?freshU, ?tidBox⟩
+  case tidBox =>
+    intro i thi hi l hl
+    have hold : ∃ th0, c.ths[i]? = some th0 ∧ th0.tidLbl = some l := by
+      by_cases hij : i = j
+      · subst hij
+        rw [hpj] at hi
+        cases hi
+        exact ⟨th, hth, hl⟩
+      · exact ⟨thi, by rw [← promise_other hth hij]; exact hi, hl⟩
+    obtain ⟨th0, hth0, hl0⟩ := hold
+    obtain ⟨hs0, hp0⟩ := h.tidBox i th0 hth0 l hl0
+    refine ⟨hs0, ?_⟩
+    simp only [EgP, GEnv.withFp, plantG]
+    rcases e : plantOf c Eg j a v w l with _ | f
+    · simp only [e]; exact hp0
+    · exact absurd (hspec l f e).1 (by rw [hp0]; exact Option.some_ne_none 0)
   case freshU =>
     rw [TermStep.promise_n]
     exact TermFreshU.freshU_prom (plantN := plantN) (fun X => (O.plantSpec X).1) O.promLoc X hacct hdb
@@ -1467,7 +1506,8 @@ def InitOK (p : Prog) (k : Promises.Knobs) (arch : Arch) (Init : Res) (MintOK : 
       OwnKeyOwnG c0 Eg Tot ∧ OwnPubG c0 Eg Tot HP HS ∧ StoNI Eg ∧
       (∀ l cl, Eg.sto l = some cl → TermA4.wrapTop cl.ty = true) ∧ TermPtrRts.LblSto Eg c0 ∧ (∀ l cl, Eg.sto l = some cl → TermSound.LayT cl.ty) ∧ c0.mem = #[] ∧
       TermViewInv.ViewInv c0 ∧
-      ∀ (i : Nat) (th : TTh), c0.ths[i]? = some th → th.vs.vWr ≤ c0.mem.size - 1) ∧ AllNoProm c0 ∧
+      (∀ (i : Nat) (th : TTh), c0.ths[i]? = some th → th.vs.vWr ≤ c0.mem.size - 1) ∧
+      ∀ (i : Nat) (th : TTh), c0.ths[i]? = some th → th.tidLbl = none) ∧ AllNoProm c0 ∧
     TermLiveProps.CfgCoh c0
 
 /-- (option (a)) Coherence views at an `InitShape` configuration are all `0`, so `CfgCoh`. -/
@@ -1500,7 +1540,7 @@ theorem initOK_of {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {Mi
       obtain ⟨-, hst, hw, -⟩ := hs.thr i th h
       obtain ⟨h1, h2, h3, h4, -, he⟩ := hs.vs0 i th h
       exact ⟨hst, ⟨Nat.le_of_eq h1, Nat.le_of_eq hw, Nat.le_of_eq h2, Nat.le_of_eq h3, Nat.le_of_eq h4⟩, he⟩,
-    fun i th h => by rw [(hs.thr i th h).2.2.1]; exact Nat.zero_le _⟩,
+    fun i th h => by rw [(hs.thr i th h).2.2.1]; exact Nat.zero_le _, hs.tid0⟩,
     fun i th h => (hs.thr i th h).1, cfgCoh_of_initShape hs⟩
 
 /-- **Headline 1, modulo `Obligations`.**  At every configuration reachable
@@ -1523,9 +1563,10 @@ theorem machine_tokens_main {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init 
       ∀ i th, c.ths[i]? = some th → ∃ S ρ η cx Rf Rs, CE η = Cut Eg i S ∧ EnvOK p η ∧ Typed p cx th.term ∧
         FInvR ρ η th.σs (ResumeR p th.stack Rs) cx th.env Rf ∧ Rf + Rs = Tot i ∧
         MemInv (gOf p k arch c i) (CE η) (stOf c.mem c.pairs th) := by
-  obtain ⟨⟨Eg0, T0, H0, S0, cr0, db0, hw0, hr0, hof0, hu0, hoc0, hbx0, hzw0, hko0, hop0, hni0, hsw0, hlb0, hly0, hmem0, -, hvl0⟩, hn0, hcc0⟩ := h0
+  obtain ⟨⟨Eg0, T0, H0, S0, cr0, db0, hw0, hr0, hof0, hu0, hoc0, hbx0, hzw0, hko0, hop0, hni0, hsw0, hlb0, hly0, hmem0, -, hvl0, htd0⟩, hn0, hcc0⟩ := h0
   obtain ⟨Eg, Tot, HP, HS, cr, db, hN⟩ := sysInv_run O ⟨_, _, _, _, _, _, TermMain.SysInvW.toN hw0 hn0 hr0 hof0 hu0 hoc0 hbx0 hko0 hop0 hni0 (TermUndefLow.undefLow_nil hmem0) (TermZwIni.zwIni_none hzw0) (TermPredHold.predHold_none hzw0) hvl0
-      (fun t m cl hm _ => by rw [hmem0] at hm; simp at hm) hmem0 hzw0 hlb0 hly0 hcc0 hsw0⟩ hr
+      (fun t m cl hm _ => by rw [hmem0] at hm; simp at hm) hmem0 hzw0 hlb0 hly0 hcc0 hsw0
+      (fun i th h l hl => by rw [htd0 i th h] at hl; cases hl)⟩ hr
   refine ⟨Eg, Tot, HP, HS, cr, db, hN, hN.knet,
     fun hn => ⟨hN.toW hn, fun i j n hi hj h1 h2 => (hN.toW hn).tokUniq hi hj h1 h2⟩, fun i th hth => ?_⟩
   obtain ⟨S, ρ, η, cx, Rf, Rs, hCE, -, hE, hT, -, hFI, hsum, -, hm, -⟩ := (hN.thr i th hth).env hN.clo

@@ -124,6 +124,10 @@ theorem solo_split {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {l : 
     rcases ih with h1 | ⟨c1, th1, c1', h1, hth1, hpa, hs1, hr1⟩
     · exact .inl (.prom a v w hw h1)
     · exact .inr ⟨c1, th1, c1', .prom a v w hw h1, hth1, hpa, hs1, hr1⟩
+  | ext hs hrest ih =>
+    rcases ih with h1 | ⟨c1, th1, c1', h1, hth1, hpa, hs1, hr1⟩
+    · exact .inl (.ext hs h1)
+    · exact .inr ⟨c1, th1, c1', .ext hs h1, hth1, hpa, hs1, hr1⟩
 
 /-- **No `bufInit` at an own cell after the run publishes it** (thread step, from `c'`; the promise
 step's form is `TermK5R.bufInitPubFR`). -/

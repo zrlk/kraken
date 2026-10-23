@@ -64,6 +64,7 @@ theorem Effects.AllEnv.refine {post₁ : MachineState → E₁.State → Prop} {
   induction e with
   | done a => exact fun g h => hp _ _ h
   | unimplemented => exact fun _ h => h
+  | syscall => exact fun _ h => h
   | gp_unaligned => exact fun _ h => h
   | nonmem_load dmem addr w ret ih => exact fun g h => one (fun v g' h => ih _ _ g' h) h
   | nonmem_store dmem addr v ret ih => exact fun g h => one (fun _ g' h => ih _ g' h) h

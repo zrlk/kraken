@@ -297,6 +297,30 @@ private theorem operation_sound {w} [Labels] [AddressSize] {P : MachineState →
   -- `xadd` branches on the destination's shape before any access (the
   -- register form writes `src` first); split it before the common search.
   case xadd lock dst src => cases dst <;> op_sound_search w hnext hjmp h
+  -- `movfs` is `mov` at a segment-relative address: unfold the segment forms.
+  case movfs dst src =>
+    rcases src with (_ | a) | v <;> rcases dst with _ | b <;>
+      simp only [Operation.interp, Operand.interpSeg, RegOrMem.interpSeg, MachineData.setSeg,
+        Effects.All] at h ⊢ <;>
+      rcases h with h | h <;>
+      repeat' first
+        | exact hnext _ h
+        | exact h.elim
+        | refine load_sound (fun v s' h => ?_) h
+        | refine store_sound (fun s' h => ?_) h
+        | simp only [MachineData.setSeg, Effects.All] at h ⊢
+  -- `cmpfs` is `cmp` at a segment-relative address: unfold the segment forms.
+  case cmpfs x y =>
+    rcases y with (_ | b) | v <;> rcases x with _ | a <;>
+      simp only [Operation.interp, Operand.interpSeg, RegOrMem.interpSeg, MachineData.setSeg,
+        Effects.All] at h ⊢ <;>
+      rcases h with h | h <;>
+      repeat' first
+        | exact hnext _ h
+        | exact h.elim
+        | refine load_sound (fun v s' h => ?_) h
+        | refine store_sound (fun s' h => ?_) h
+        | simp only [MachineData.setSeg, Effects.All] at h ⊢
   all_goals op_sound_search w hnext hjmp h
 
 end InterpSound

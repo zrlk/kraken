@@ -8,6 +8,7 @@ CoreLang.Wd : Type
 CoreTerm.At : Type
 CoreTerm.BitOp : Type
 CoreTerm.BitOp1 : Type
+CoreTerm.ExtName : Type
 CoreTerm.FCmp : Type
 CoreTerm.FOp : Type
 CoreTerm.FOp1 : Type
@@ -74,3 +75,4 @@ CoreTerm.Op : Type
   | CoreTerm.Op.claim : CoreTerm.At → CoreTerm.At → CoreTerm.Op
   | CoreTerm.Op.fetch : CoreTerm.FetchOp → Bool → Bool → CoreTerm.At → CoreTerm.At → CoreTerm.Op
   | CoreTerm.Op.spawn : String → CoreTerm.At → CoreLang.Ty → optParam (List CoreLang.Ty) [] → CoreTerm.Op
+  | CoreTerm.Op.ext : CoreTerm.ExtName → CoreTerm.At → CoreTerm.Op

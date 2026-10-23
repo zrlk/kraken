@@ -268,6 +268,39 @@ inductive Operation (w : Width)
   -- ordered store (SDM vol. 3A §8.2.2: ordered only by `sfence`, `mfence`,
   -- locked and serializing instructions, and per-location coherence).
   | movnti (dst : AddrExpr) (src : Reg w)
+  -- System call and thread pointer (`Kraken/SYSCALL.md`). Appended last so that
+  -- the derived `Hashable` of every earlier constructor is unchanged.
+  -- `syscall` (`w` is irrelevant; the parser uses `W64`).
+  | syscall
+  -- `mov` with a `%fs` segment override on its memory operand (exactly one of
+  -- `dst` and `src` is a memory operand): `movq %fs:disp(base,index,scale), reg`,
+  -- the store forms `movq reg, %fs:…` / `movq $imm, %fs:…`, and the absolute
+  -- `%fs:disp`. The effective address is the operand's address plus the
+  -- thread's `fsBase`; the access is then an ordinary load or store.
+  | movfs (_ : Dst w) (src : Operand w)
+  -- `ud2`: the guaranteed-undefined opcode (a trap; `w` is irrelevant, the
+  -- parser uses `W64`).
+  | ud2
+  -- Division (SDM vol. 2A `DIV`, `IDIV`): the dividend is `rdx:rax` (`ax` at
+  -- `W8`), the divisor `src`; the quotient goes to `rax` (`al`), the remainder
+  -- to `rdx` (`ah`). A zero divisor or a quotient out of range is a divide
+  -- error (#DE), a fault.
+  | div (src : RegOrMem w)
+  | idiv (src : RegOrMem w)
+  -- `cwd`/`cdq`/`cqo` (AT&T `cwtd`/`cltd`/`cqto`): `rdx` (at `w`) gets the
+  -- sign of `rax` (at `w`). The parser has no `W8` form.
+  | cqo
+  -- `popcnt r, r/m` (SDM vol. 2B `POPCNT`): the number of set bits of `src`.
+  -- There is no 8-bit form; the parser rejects one.
+  | popcnt (dst : Reg w) (src : RegOrMem w)
+  -- `cmp` with a `%fs` segment override on its memory operand (exactly one of
+  -- `a` and `b` is a memory operand): `cmpq %fs:disp(base,index,scale), reg`,
+  -- `cmpq reg, %fs:…`, `cmpq $imm, %fs:…`, and the absolute `%fs:disp`. The
+  -- effective address is the operand's address plus the thread's `fsBase`
+  -- (as `movfs`); the access is an ordinary load, the flags those of `cmp`.
+  -- Appended last so that the derived `Hashable` of every earlier constructor
+  -- is unchanged.
+  | cmpfs (a : RegOrMem w) (b : Operand w)
   deriving Repr, DecidableEq, Hashable, Lean.ToExpr
 
 -- The non-v* variants take SSE registers only.

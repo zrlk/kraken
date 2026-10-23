@@ -1,3 +1,7 @@
+CoreLang.Arms : Type
+CoreLang.Arms.optArm : CoreLang.Arms
+CoreLang.Arms.ptrs : CoreLang.Arms → Nat
+CoreLang.Arms.wide : CoreLang.Arms → Nat
 CoreLang.Cap : Type
 CoreLang.Cap.pub : CoreLang.Cap
 CoreLang.Clause : Type
@@ -23,6 +27,7 @@ CoreLang.Idx.mentions : Nat → CoreLang.Idx → Bool
 CoreLang.Idx.smul : Nat → CoreLang.Idx → CoreLang.Idx
 CoreLang.Idx.sub : CoreLang.Idx → CoreLang.Idx → CoreLang.Idx
 CoreLang.Idx.var : Nat → CoreLang.Idx
+CoreLang.Info.arms : CoreLang.Info → CoreLang.Arms
 CoreLang.KEnv : Type
 CoreLang.KEnv.ask : CoreLang.KEnv → Nat → Bool → (CoreLang.Kind → Bool) → Bool
 CoreLang.Kind : Type
@@ -76,6 +81,10 @@ CoreLang.Ty.ownHead : CoreLang.Ty → Bool
   | CoreLang.Ty.ptr CoreLang.Mode.own τ => true
   | CoreLang.Ty.ptrOpt CoreLang.Mode.own τ => true
   | x => false
+CoreLang.Ty.payloadFree : CoreLang.Ty → Bool
+  := fun t =>
+  have a := (CoreLang.info CoreLang.Ty.top t).arms;
+  a == CoreLang.Arms.optArm || a.wide == 0 && a.ptrs == 0
 CoreLang.Ty.prod : CoreLang.Ty → CoreLang.Ty → CoreLang.Ty
 CoreLang.Ty.ptr : CoreLang.Mode → CoreLang.Ty → CoreLang.Ty
 CoreLang.Ty.ptrOpt : CoreLang.Mode → CoreLang.Ty → CoreLang.Ty
@@ -87,10 +96,12 @@ CoreLang.Ty.share : CoreLang.Idx → CoreLang.Ty
 CoreLang.Ty.shiftI : Nat → CoreLang.Ty → CoreLang.Ty
 CoreLang.Ty.sum : CoreLang.Ty → CoreLang.Ty → CoreLang.Ty
 CoreLang.Ty.tex : CoreLang.Kind → CoreLang.Ty → CoreLang.Ty
+CoreLang.Ty.tid : CoreLang.Ty
 CoreLang.Ty.tier : CoreLang.Ty → CoreLang.Tier
 CoreLang.Ty.tok : CoreLang.Idx → Option (CoreLang.Proto × CoreLang.Idx) → CoreLang.Ty
 CoreLang.Ty.tok2 : CoreLang.Idx → CoreLang.Proto2 → CoreLang.Idx → CoreLang.Idx → CoreLang.Ty
 CoreLang.Ty.tokE : CoreLang.Idx → CoreLang.ECounter → CoreLang.Idx → CoreLang.Ty
+CoreLang.Ty.top : CoreLang.Ctx
 CoreLang.Ty.tvar : Nat → CoreLang.Ty
 CoreLang.Ty.unguarded : Nat → CoreLang.Ty → Bool
 CoreLang.Ty.unit : CoreLang.Ty
@@ -99,7 +110,61 @@ CoreLang.Ty.word : CoreLang.Idx → CoreLang.Proto → CoreLang.Ty
 CoreLang.Ty.word2 : CoreLang.Idx → CoreLang.Proto2 → CoreLang.Ty
 CoreLang.Ty.wordFree : CoreLang.Ty → Bool
 CoreLang.Wd : Type
+CoreLang.info : CoreLang.Ctx → CoreLang.Ty → CoreLang.Info
+CoreLang.instDecidableEqArms : DecidableEq CoreLang.Arms
+CoreLang.instDecidableEqTier : DecidableEq CoreLang.Tier
+CoreLang.zeroArmP : (CoreLang.Ty → Bool) → CoreLang.IEnv → CoreLang.KEnv → CoreLang.Ty → Option Bool
+  eq_def ∀ (sel : CoreLang.Ty → Bool) (env : CoreLang.IEnv) (ke : CoreLang.KEnv) (x : CoreLang.Ty),
+  CoreLang.zeroArmP sel env ke x =
+    match x with
+    | a.sum b => CoreLang.zeroArmP sel env ke a <|> CoreLang.zeroArmP sel env ke b
+    | CoreLang.Ty.void => none
+    | t.refine ψ => Option.map (fun x => x && CoreLang.Pred.zeroHolds env ψ) (CoreLang.zeroArmP sel env ke t)
+    | t.iall => CoreLang.zeroArmP sel (none :: env) ke t
+    | t.iex => CoreLang.zeroArmP sel (some 0 :: env) ke t
+    | t.mu => CoreLang.zeroArmP sel env (none :: ke) t
+    | CoreLang.Ty.tex κ t => Option.map (fun x => false) (CoreLang.zeroArmP sel env (none :: ke) t)
+    | t => if sel t = true then some (CoreLang.zeroableIn env ke t) else none
 CoreLang.zeroableIn : CoreLang.IEnv → CoreLang.KEnv → CoreLang.Ty → Bool
+  eq_def ∀ (env : CoreLang.IEnv) (ke : CoreLang.KEnv) (x : CoreLang.Ty),
+  CoreLang.zeroableIn env ke x =
+    match x with
+    | CoreLang.Ty.unit => true
+    | CoreLang.Ty.void => false
+    | CoreLang.Ty.int => true
+    | CoreLang.Ty.intS i => CoreLang.Idx.evalIn env i == some 0
+    | CoreLang.Ty.fix sg w => true
+    | CoreLang.Ty.lanes sg w => true
+    | a.prod b => CoreLang.zeroableIn env ke a && CoreLang.zeroableIn env ke b
+    | a.sum b =>
+      match (a.sum b).tier with
+      | CoreLang.Tier.niche =>
+        (CoreLang.zeroArmP CoreLang.Ty.payloadFree env ke a <|> CoreLang.zeroArmP CoreLang.Ty.payloadFree env ke b) ==
+          some true
+      | CoreLang.Tier.wide =>
+        (CoreLang.zeroArmP (fun x => true) env ke a <|> CoreLang.zeroArmP (fun x => true) env ke b) == some true
+      | CoreLang.Tier.boxed => false
+    | σ.code τ => false
+    | CoreLang.Ty.tid => false
+    | CoreLang.Ty.array i t => CoreLang.zeroableIn env ke t
+    | CoreLang.Ty.ptr μ τ => false
+    | CoreLang.Ty.ptrOpt μ τ => true
+    | CoreLang.Ty.loc μ (CoreLang.Ty.array i τ) => CoreLang.Idx.evalIn env i == some 0
+    | CoreLang.Ty.loc μ τ => false
+    | CoreLang.Ty.word r P => false
+    | CoreLang.Ty.tok r st => false
+    | CoreLang.Ty.word2 r P => false
+    | CoreLang.Ty.tok2 r P i0 i1 => false
+    | CoreLang.Ty.epair r P => false
+    | CoreLang.Ty.tokE r P e => false
+    | CoreLang.Ty.share r => false
+    | CoreLang.Ty.cap s r => false
+    | CoreLang.Ty.tvar k => ke.ask k false fun x => x.zero
+    | t.mu => CoreLang.zeroableIn env (none :: ke) t
+    | CoreLang.Ty.tex κ τ => false
+    | t.iall => CoreLang.zeroableIn (none :: env) ke t
+    | t.iex => CoreLang.zeroableIn (some 0 :: env) ke t
+    | t.refine ψ => CoreLang.zeroableIn env ke t && CoreLang.Pred.zeroHolds env ψ
 CoreTerm.At : Type
 CoreTerm.Cx : Type
 CoreTerm.Cx.bind : CoreTerm.Cx → String → CoreLang.Ty → CoreTerm.M CoreTerm.Cx
@@ -351,11 +416,69 @@ TermInit.InitShape : CoreTerm.Prog → TermRun.Cfg → Prop
                     e ∈ th.env →
                       ∀ (w : TermRun.Word),
                         w ∈ e.snd.snd → ∀ (a : WeakMem.Address) (g : Nat), w.val ≠ WeakMem.Val.loc a g) →
-              TermInit.InitShape p c0
+              (∀ (i : Nat) (th : TermRun.TTh), c0.ths[i]? = some th → th.tidLbl = none) → TermInit.InitShape p c0
 TermInit.S0 : WeakMem.AllocLabel → Prop
   := fun x => False
+TermPtrRts.mPub : CoreLang.Mode → Bool
+  := fun x =>
+  match x with
+  | CoreLang.Mode.pub => true
+  | x => false
+TermPtrRts.pubArm : CoreLang.Ty → Nat → List TermRun.Word → List TermRun.Word
+  eq_def ∀ (x : CoreLang.Ty) (x_1 : Nat) (x_2 : List TermRun.Word),
+  TermPtrRts.pubArm x x_1 x_2 =
+    match x, x_1, x_2 with
+    | a.sum b, j, p =>
+      if j < (TermRun.armsOf a).length then TermPtrRts.pubArm a j p
+      else TermPtrRts.pubArm b (j - (TermRun.armsOf a).length) p
+    | t.refine ψ, j, p => TermPtrRts.pubArm t j p
+    | t.iall, j, p => TermPtrRts.pubArm t j p
+    | t.iex, j, p => TermPtrRts.pubArm t j p
+    | t.mu, j, p => TermPtrRts.pubArm t j p
+    | CoreLang.Ty.tex κ t, j, p => TermPtrRts.pubArm t j p
+    | t, x, p => TermPtrRts.pubWords t p
 TermPtrRts.pubWords : CoreLang.Ty → List TermRun.Word → List TermRun.Word
-  := fun a a_1 => TermPtrRts.pubWords._mutual (PSum.inl ⟨a, a_1⟩)
+  eq_def ∀ (x : CoreLang.Ty) (x_1 : List TermRun.Word),
+  TermPtrRts.pubWords x x_1 =
+    match x, x_1 with
+    | a.prod b, ws =>
+      if TermPtrRts.sNo (a.prod b) = true then ws
+      else
+        match TermSound.wc a with
+        | some n => TermPtrRts.pubWords a (List.take n ws) ++ TermPtrRts.pubWords b (List.drop n ws)
+        | none => []
+    | a.sum b, ws =>
+      if TermPtrRts.sNo (a.sum b) = true then ws
+      else
+        if (a.sum b).tier = CoreLang.Tier.boxed then ws
+        else
+          match TermRun.decodeArm (a.sum b).tier (TermRun.armsOf (TermSound.lnorm (a.sum b))) ws with
+          | some (j, p) =>
+            if j < (TermRun.armsOf a).length then TermPtrRts.pubArm a j p
+            else TermPtrRts.pubArm b (j - (TermRun.armsOf a).length) p
+          | none => []
+    | t.refine ψ, ws => if TermPtrRts.sNo (t.refine ψ) = true then ws else TermPtrRts.pubWords t ws
+    | t.iall, ws => if TermPtrRts.sNo t.iall = true then ws else TermPtrRts.pubWords t ws
+    | t.iex, ws => if TermPtrRts.sNo t.iex = true then ws else TermPtrRts.pubWords t ws
+    | t.mu, ws => if TermPtrRts.sNo t.mu = true then ws else TermPtrRts.pubWords t ws
+    | CoreLang.Ty.tex κ t, ws => if TermPtrRts.sNo (CoreLang.Ty.tex κ t) = true then ws else TermPtrRts.pubWords t ws
+    | t, ws => if TermPtrRts.sNo t = true then ws else []
+TermPtrRts.sNo : CoreLang.Ty → Bool
+  eq_def ∀ (x : CoreLang.Ty),
+  TermPtrRts.sNo x =
+    match x with
+    | CoreLang.Ty.ptr μ τ => TermPtrRts.mPub μ
+    | CoreLang.Ty.ptrOpt μ τ => TermPtrRts.mPub μ
+    | CoreLang.Ty.loc μ τ => TermPtrRts.mPub μ
+    | a.prod b => TermPtrRts.sNo a && TermPtrRts.sNo b
+    | a.sum b => TermPtrRts.sNo a && TermPtrRts.sNo b
+    | t.refine ψ => TermPtrRts.sNo t
+    | t.iall => TermPtrRts.sNo t
+    | t.iex => TermPtrRts.sNo t
+    | t.mu => TermPtrRts.sNo t
+    | CoreLang.Ty.tex κ t => κ.noOwn && TermPtrRts.sNo t
+    | CoreLang.Ty.array i t => TermPtrRts.sNo t
+    | x => true
 TermRun.Acc : Type
 TermRun.ArmK : Type
 TermRun.ArmK.opt : TermRun.ArmK
@@ -377,6 +500,7 @@ TermRun.TTh.env : TermRun.TTh → TermRun.Env
 TermRun.TTh.promises : TermRun.TTh → List WeakMem.Ts
 TermRun.TTh.stack : TermRun.TTh → List TermRun.Frame
 TermRun.TTh.term : TermRun.TTh → CoreTerm.Expr
+TermRun.TTh.tidLbl : TermRun.TTh → Option WeakMem.AllocLabel
 TermRun.TTh.vs : TermRun.TTh → WeakMem.VState
 TermRun.TTh.σs : TermRun.TTh → List CoreLang.Ty
 TermRun.Word : Type
@@ -808,6 +932,7 @@ TermScope.opArgOK : CoreTerm.Op → Bool
   := fun x =>
   match x with
   | CoreTerm.Op.call f is a ts => ts.all TermScope.argOK
+  | CoreTerm.Op.spawn f a T ts => TermScope.wrapOK T && ts.all TermScope.argOK
   | CoreTerm.Op.packT a σ τ => TermScope.argOK σ && TermScope.wrapOK τ
   | op => (TermScope.opTys op).all TermScope.wrapOK
 TermScope.opTys : CoreTerm.Op → List CoreLang.Ty
@@ -822,6 +947,7 @@ TermScope.opTys : CoreTerm.Op → List CoreLang.Ty
   | CoreTerm.Op.zero τ => [τ]
   | CoreTerm.Op.packT a σ τ => [σ, τ]
   | CoreTerm.Op.call f is a ts => ts
+  | CoreTerm.Op.spawn f a T ts => T :: ts
   | x => []
 TermScope.rcar : CoreLang.Ty → Bool
   := fun t => TermScope.rcarE [] t
@@ -1233,6 +1359,10 @@ TermSound.VR : (Nat → Nat) → TermSound.TEnv → CoreLang.Ty → TermSound.Sh
     match x, x_1, x_2 with
     | CoreLang.Ty.intS i, x, ws => List.map (fun x => x.val) ws = [WeakMem.Val.num (CoreTyping.ev ρ i)]
     | CoreLang.Ty.int, x, ws => ∃ n, List.map (fun x => x.val) ws = [WeakMem.Val.num n]
+    | CoreLang.Ty.tid, x, ws =>
+      ∃ l c,
+        List.map (fun x => x.val) ws = [WeakMem.Val.loc { label := l, offset := 0 } 0] ∧
+          η.sto l = some c ∧ c.ty = CoreLang.Ty.unit ∧ TermSound.ModeOK η.tid η.pfr η.seen CoreLang.Mode.pub l c ws
     | CoreLang.Ty.fix sg w, rt, ws =>
       rt = TermSound.Shp.fix sg w ∧ ∃ n, List.map (fun x => x.val) ws = [WeakMem.Val.num n] ∧ n < TermRun.pw2 w
     | CoreLang.Ty.lanes sg w, rt, ws =>
@@ -1342,6 +1472,8 @@ TermSound.VRR : (Nat → Nat) → TermSound.TEnv → CoreLang.Ty → TermSound.S
     | CoreLang.Ty.intS i, x, ws, R =>
       List.map (fun x => x.val) ws = [WeakMem.Val.num (CoreTyping.ev ρ i)] ∧ R = TermSound.Res.zero
     | CoreLang.Ty.int, x, ws, R => (∃ n, List.map (fun x => x.val) ws = [WeakMem.Val.num n]) ∧ R = TermSound.Res.zero
+    | CoreLang.Ty.tid, x, ws, R =>
+      TermSound.VR ρ η CoreLang.Ty.tid (TermSound.Shp.leaf (some 1)) ws ∧ R = TermSound.Res.zero
     | CoreLang.Ty.fix sg w, rt, ws, R =>
       (rt = TermSound.Shp.fix sg w ∧ ∃ n, List.map (fun x => x.val) ws = [WeakMem.Val.num n] ∧ n < TermRun.pw2 w) ∧
         R = TermSound.Res.zero
@@ -1544,6 +1676,7 @@ TermSound.ZRel : CoreLang.IEnv → CoreLang.Ty → CoreLang.Ty → Prop
     | CoreLang.Ty.unit, CoreLang.Ty.unit => True
     | CoreLang.Ty.void, CoreLang.Ty.void => True
     | CoreLang.Ty.int, CoreLang.Ty.int => True
+    | CoreLang.Ty.tid, CoreLang.Ty.tid => True
     | CoreLang.Ty.intS i, CoreLang.Ty.intS j => TermSound.IdxLe env i j
     | CoreLang.Ty.fix sg w, CoreLang.Ty.fix sg_1 w_1 => True
     | CoreLang.Ty.lanes sg w, CoreLang.Ty.lanes sg_1 w_1 => True

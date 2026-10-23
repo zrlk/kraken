@@ -14,7 +14,8 @@ the only hypothesis on the cell is `CellAt st d sz`.
   `exec_<row>` gives `.access st.decls a 8 (fun l => <event at l>)`;
   `exec_<row>_agrees` adds `st.decls.AgreesAt a 8` and resolves it to the
   single event at `⟨a, 8⟩`; `exec_<row>_mapped` (address in `dmem`) is a
-  no-event step.
+  no-event step. `exec_ldr_sp`/`exec_str_sp`: `ldr`/`str` at `[sp, #i]`
+  (`sp` 16-aligned), mapped, no event.
   - loads: `exec_ldr` (plain), `exec_ldar` (kind `k`, exclusivity `xcl`:
     `ldar` is `.acq`, `ldapr` is `.acqPc`), one `.load`;
   - stores: `exec_str` (plain), `exec_stlr` (`.rel`), one non-exclusive
@@ -32,7 +33,7 @@ the only hypothesis on the cell is `CellAt st d sz`.
   as a pair), hence in one instruction step. `exec_casp16`: on a 16-aligned
   declared 16-byte location, one 16-byte RMW (`toEvCASP`).
 - **No-event rows** (`.done`): `exec_add_s`, `exec_add_e`, `exec_orr_s`
-  (`mov`), `exec_movz`, `exec_subs_s`, `exec_subs_e` (`cmp`), `exec_b`,
+  (`mov`), `exec_movz`, `exec_adds_s`, `exec_subs_s`, `exec_subs_e` (`cmp`), `exec_b`,
   `exec_bcond`, `exec_cbz`, `exec_cbnz`, `exec_bl`, `exec_blr`, `exec_br`,
   `exec_ret`.
 
@@ -210,6 +211,17 @@ theorem exec_ldr_mapped {dst : RegOrZr .W64} {n : XReg} {i : Int64}
       { st.st.1 with regs := st.st.1.regs.setRegOrZr dst (BitVec.ofInt 64 j) })) := by
   cell hc [ha, hdm]
 
+/-- **`ldr Xt, [sp, #i]`**, `sp` 16-aligned (the alignment check passes), the
+address mapped in `dmem`: no event. -/
+theorem exec_ldr_sp {dst : RegOrZr .W64} {i : Int64}
+    (hc : CellAt st (.instr ⟨.W64, .LDR dst (.addr ⟨.SP, .imm ⟨.int64 i, none⟩⟩)⟩) sz)
+    (hal : st.st.1.regs.SP.toBitVec % 16#64 = 0#64)
+    {a : BitVec 64} (ha : BitVec.ofInt 64 (st.st.1.regs.SP.toBitVec.toInt + i.toInt) = a)
+    {j : Int} (hdm : Mem.loadInt st.st.1.dmem a 8 = some j) :
+    isaLSE2.exec st = some (.done (after st sz
+      { st.st.1 with regs := st.st.1.regs.setRegOrZr dst (BitVec.ofInt 64 j) })) := by
+  cell hc [hal, ha, hdm]
+
 /-- **`ldar Xt, [Xn]` / `ldapr Xt, [Xn]`** (`k = .acq` / `.acqPc`; with
 `xcl` also `ldxr`/`ldaxr`), address unmapped: one 8-byte load of kind `k`. -/
 theorem exec_ldar {dst : RegOrZr .W64} {n : XReg} {k : LoadKind} {xcl : Bool}
@@ -266,6 +278,17 @@ theorem exec_str_mapped {src : RegOrZr .W64} {n : XReg} {i : Int64}
     isaLSE2.exec st = some (.done (after st sz
       { st.st.1 with dmem := Mem.storeInt st.st.1.dmem a 8 (st.st.1.regs.getRegOrZr src).toInt })) := by
   cell hc [ha, hdm]
+
+/-- **`str Xt, [sp, #i]`**, `sp` 16-aligned (the alignment check passes), the
+address mapped in `dmem`: no event, `dmem` updated. -/
+theorem exec_str_sp {src : RegOrZr .W64} {i : Int64}
+    (hc : CellAt st (.instr ⟨.W64, .STR src ⟨.SP, .imm ⟨.int64 i, none⟩⟩⟩) sz)
+    (hal : st.st.1.regs.SP.toBitVec % 16#64 = 0#64)
+    {a : BitVec 64} (ha : BitVec.ofInt 64 (st.st.1.regs.SP.toBitVec.toInt + i.toInt) = a)
+    {j : Int} (hdm : Mem.loadInt st.st.1.dmem a 8 = some j) :
+    isaLSE2.exec st = some (.done (after st sz
+      { st.st.1 with dmem := Mem.storeInt st.st.1.dmem a 8 (st.st.1.regs.getRegOrZr src).toInt })) := by
+  cell hc [hal, ha, hdm]
 
 /-- **`stlr Xt, [Xn]`**, address unmapped: one 8-byte release store. -/
 theorem exec_stlr {src : RegOrZr .W64} {n : XReg}
@@ -551,6 +574,17 @@ theorem exec_movz {dst : RegOrZr .W64} {imm : ConstExpr} {shift : MovShift .W64}
       { st.st.1 with regs := st.st.1.regs.setRegOrZr dst
                                (((BitVec.ofInt 64 (@ConstExpr.interp (_root_.Executable.labels st.exe) imm
                                    (rangeOf st sz)).toInt) &&& 0xFFFF#64) <<< shift.toNat) })) := by
+  cellR hc []
+
+/-- **`adds Xd, Xn, <shifted Xm>`**: no event; the sum, and its flags. -/
+theorem exec_adds_s {dst src1 : RegOrZr .W64} {src2 : ShiftRegExpr .W64}
+    (hc : CellAt st (.instr ⟨.W64, .ADDS_s dst src1 src2⟩) sz) :
+    isaLSE2.exec st = some (.done (after st sz
+      { st.st.1 with
+        status := StatusFlags.adds (st.st.1.regs.getRegOrZr src1 + src2.interp st.st.1.regs (rangeOf st sz))
+          (st.st.1.regs.getRegOrZr src1) (src2.interp st.st.1.regs (rangeOf st sz))
+        regs := st.st.1.regs.setRegOrZr dst
+          (st.st.1.regs.getRegOrZr src1 + src2.interp st.st.1.regs (rangeOf st sz)) })) := by
   cellR hc []
 
 /-- **`subs Xd, Xn, <shifted Xm>`** (`cmp Xn, Xm` is `subs xzr, Xn, Xm`): no

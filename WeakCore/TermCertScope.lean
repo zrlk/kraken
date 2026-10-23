@@ -56,6 +56,19 @@ theorem drf_prom {c : Cfg} {i : Nat} {a : Address} {v : WeakMem.Val} {w : Ts} (h
     · rw [TermStep.promise_other hji] at hj
       exact h0 j thj hj
 
+/-- (IO1) The extern move keeps `RunScope` (the continuation of a scoped `let`, one more binding). -/
+theorem drf_ext {c c' : Cfg} {i : Nat} (h0 : TermScope.RunScope c) (hs : c' ∈ extSteps c i) :
+    TermScope.RunScope c' := by
+  obtain ⟨th, x, a, e, evs, hth, hterm, rfl⟩ := extSteps_shape hs
+  intro j t hj
+  rcases set_get_cases hj with ⟨rfl, rfl⟩ | ⟨-, hj'⟩
+  · obtain ⟨hok, hσs, he, hstk⟩ := h0 _ th hth
+    rw [hterm] at hok he
+    simp only [TermScope.allOK, Bool.and_eq_true] at hok
+    exact ⟨hok.2, hσs, TermScope.envDRF_cons (fun _ => rfl)
+      (fun y hy hne => he y (TermScope.free_let_body hy hne)), hstk⟩
+  · exact h0 j t hj'
+
 /-- **`RunScope` along every solo run** of a checked program. -/
 theorem solo_drf {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c c1 : Cfg}
     (hp : ProgScopeOK p = true) (h : Solo p k arch i c c1) : RunScope c → RunScope c1 := by
@@ -63,6 +76,7 @@ theorem solo_drf {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c c1 :
   | refl => exact id
   | thread hs _ ih => exact fun h0 => ih (drf_thread hp h0 hs)
   | prom a v w _ _ ih => exact fun h0 => ih (drf_prom h0)
+  | ext hs _ ih => exact fun h0 => ih (drf_ext h0 hs)
 
 /-! ## From the frame-only alternative to the run scope -/
 
@@ -226,3 +240,4 @@ end TermCertScope
 #print axioms TermCertScope.certRunP_of
 #print axioms TermCertScope.certWinC_of_N
 #print axioms TermCertScope.certWinP_of_N
+#print axioms TermCertScope.drf_ext

@@ -1,7 +1,33 @@
 # bodyloss allowlist: M0 freeze vs pre-M0 freeze. Each entry is a deliberate M0 change.
 # renamed (bodies byte-identical): RunDRF/ThDRF -> RunScope/ThScope
-TermScope.RunDRF
-TermScope.ThDRF
+# (older base, replaced by IO1) TermScope.RunDRF
+# (older base, replaced by IO1) TermScope.ThDRF
 # gOf's stride is now `c.n` (was `c.ths.size`): gOf's own closure no longer reaches ths/TTh directly
-TermRun.Cfg.ths@lang.TermRun.gOf.txt
-TermRun.TTh@lang.TermRun.gOf.txt
+# (older base, replaced by IO1) TermRun.Cfg.ths@lang.TermRun.gOf.txt
+# (older base, replaced by IO1) TermRun.TTh@lang.TermRun.gOf.txt
+# (IO1) base = the installed post-E2 freeze. Moved from TermExtStep / the em0 closures into TermRun,
+# now frozen as lang roots (lang.TermRun.extCfg/curCfg/Event, lang.CoreTerm.ExtName.*):
+TermExtStep.curCfg@ExtArmZ.machine_tokens_main_em0.txt
+TermExtStep.extCfg@ExtArmZ.machine_tokens_main_em0.txt
+CoreTerm.ExtName.events@ExtArmZ.machine_tokens_main_em0.txt
+CoreTerm.ExtName.res@ExtArmZ.machine_tokens_main_em0.txt
+CoreTerm.ExtName.sig@ExtArmZ.machine_tokens_main_em0.txt
+TermRun.Event@ExtArmZ.machine_tokens_main_em0.txt
+TermExtStep.curCfg@ExtArmZ.reachable_typed_em0.txt
+TermExtStep.extCfg@ExtArmZ.reachable_typed_em0.txt
+CoreTerm.ExtName.events@ExtArmZ.reachable_typed_em0.txt
+CoreTerm.ExtName.res@ExtArmZ.reachable_typed_em0.txt
+CoreTerm.ExtName.sig@ExtArmZ.reachable_typed_em0.txt
+TermRun.Event@ExtArmZ.reachable_typed_em0.txt
+TermExtStep.curCfg@ExtArmZ.token_unique_final_em0.txt
+TermExtStep.extCfg@ExtArmZ.token_unique_final_em0.txt
+CoreTerm.ExtName.events@ExtArmZ.token_unique_final_em0.txt
+CoreTerm.ExtName.res@ExtArmZ.token_unique_final_em0.txt
+CoreTerm.ExtName.sig@ExtArmZ.token_unique_final_em0.txt
+TermRun.Event@ExtArmZ.token_unique_final_em0.txt
+TermExtStep.curCfg@ExtArmZ.token_unique_net_em0.txt
+TermExtStep.extCfg@ExtArmZ.token_unique_net_em0.txt
+CoreTerm.ExtName.events@ExtArmZ.token_unique_net_em0.txt
+CoreTerm.ExtName.res@ExtArmZ.token_unique_net_em0.txt
+CoreTerm.ExtName.sig@ExtArmZ.token_unique_net_em0.txt
+TermRun.Event@ExtArmZ.token_unique_net_em0.txt

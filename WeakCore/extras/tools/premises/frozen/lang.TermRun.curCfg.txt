@@ -1,0 +1,49 @@
+CoreLang.Ty : Type
+CoreLang.Ty.tid : CoreLang.Ty
+CoreTerm.Expr : Type
+TermRun.Cfg : Type
+TermRun.Cfg.boxFence : TermRun.Cfg → Bool
+TermRun.Cfg.cap : TermRun.Cfg → Nat
+TermRun.Cfg.lbase : TermRun.Cfg → Nat
+TermRun.Cfg.mem : TermRun.Cfg → WeakMem.Memory
+TermRun.Cfg.n : TermRun.Cfg → Nat
+TermRun.Cfg.pairs : TermRun.Cfg → List WeakMem.Ts
+TermRun.Cfg.ths : TermRun.Cfg → Array TermRun.TTh
+TermRun.Cfg.trace : TermRun.Cfg → List TermRun.Event
+TermRun.TTh : Type
+TermRun.TTh.env : TermRun.TTh → TermRun.Env
+TermRun.TTh.nalloc : TermRun.TTh → Nat
+TermRun.TTh.promises : TermRun.TTh → List WeakMem.Ts
+TermRun.TTh.stack : TermRun.TTh → List TermRun.Frame
+TermRun.TTh.tidLbl : TermRun.TTh → Option WeakMem.AllocLabel
+TermRun.TTh.undefs : TermRun.TTh → Nat
+TermRun.TTh.vs : TermRun.TTh → WeakMem.VState
+TermRun.TTh.σs : TermRun.TTh → List CoreLang.Ty
+TermRun.Word : Type
+TermRun.cst : WeakMem.Val → TermRun.Word
+TermRun.curCfg : TermRun.Cfg → Nat → TermRun.TTh → String → CoreTerm.Expr → TermRun.Cfg
+  := fun c i th x e =>
+  match th.tidLbl with
+  | some l =>
+    { mem := c.mem, pairs := c.pairs,
+      ths :=
+        c.ths.set! i
+          { term := e,
+            env := (x, CoreLang.Ty.tid, [TermRun.cst (WeakMem.Val.loc { label := l, offset := 0 } 0)]) :: th.env,
+            σs := th.σs, stack := th.stack, vs := th.vs, promises := th.promises, nalloc := th.nalloc,
+            undefs := th.undefs, tidLbl := th.tidLbl },
+      lbase := c.lbase, boxFence := c.boxFence, cap := c.cap, trace := c.trace }
+  | none =>
+    have l := TermRun.freshLabel c.lbase c.n i th.nalloc;
+    { mem := c.mem, pairs := c.pairs,
+      ths :=
+        c.ths.set! i
+          { term := e,
+            env := (x, CoreLang.Ty.tid, [TermRun.cst (WeakMem.Val.loc { label := l, offset := 0 } 0)]) :: th.env,
+            σs := th.σs, stack := th.stack, vs := th.vs, promises := th.promises, nalloc := th.nalloc + 1,
+            undefs := th.undefs, tidLbl := some l },
+      lbase := c.lbase, boxFence := c.boxFence, cap := c.cap, trace := c.trace }
+TermRun.freshLabel : Nat → Nat → Nat → Nat → WeakMem.AllocLabel
+WeakMem.AllocLabel : Type
+WeakMem.Offset : Type
+WeakMem.Val.loc : WeakMem.Address → Nat → WeakMem.Val

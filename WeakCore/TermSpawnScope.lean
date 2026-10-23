@@ -24,9 +24,9 @@ namespace TermSpawnScope
 open CoreLang CoreTerm TermRun TermScope TermSpawnStep TermViewInv TermInit
 
 /-- The parent after a spawn keeps `ThScope`. -/
-theorem thScope_spawnPar {c : Cfg} {th : TTh} {x f : String} {a : At} {T : Ty} {ts : List Ty}
+theorem thScope_spawnPar {c : Cfg} {i : Nat} {th : TTh} {x f : String} {a : At} {T : Ty} {ts : List Ty}
     {e : Expr} (h : ThScope th) (ht : th.term = .let_ x (.spawn f a T ts) e) :
-    ThScope (spawnPar c th x e) := by
+    ThScope (spawnPar c i th x e) := by
   have hok := h.ok
   rw [ht] at hok
   simp only [allOK, Bool.and_eq_true] at hok
@@ -34,8 +34,8 @@ theorem thScope_spawnPar {c : Cfg} {th : TTh} {x f : String} {a : At} {T : Ty} {
   exact h.env y (ht ▸ free_let_body hy hne)
 
 /-- The child of a spawn satisfies `ThScope` when its checked type and type arguments are `drf`. -/
-theorem thScope_spawnKid {c : Cfg} {th : TTh} {f : String} {ts : List Ty} {T : Ty} {ws : List Word}
-    (hT : drf T = true) (hts : ts.all drf = true) : ThScope (spawnKid c th f ts T ws) := by
+theorem thScope_spawnKid {c : Cfg} {i : Nat} {th : TTh} {f : String} {ts : List Ty} {T : Ty} {ws : List Word}
+    (hT : drf T = true) (hts : ts.all drf = true) : ThScope (spawnKid c i th f ts T ws) := by
   refine ⟨hts, fun σ hσ => by simp [spawnKid] at hσ, envDRF_all ?_, fun fr hf => by simp [spawnKid] at hf⟩
   intro en hen
   simp only [spawnKid, List.mem_singleton] at hen

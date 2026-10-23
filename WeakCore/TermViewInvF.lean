@@ -182,6 +182,7 @@ theorem tstep_V (hop : OpV) {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
     split at h
     · split at h
       · rw [List.mem_singleton] at h; subst h; exact ⟨hm, Nat.le_refl _, ht⟩
+      · rw [List.mem_singleton] at h; subst h; exact ⟨hm, Nat.le_refl _, ht⟩
       · cases h
     · cases h
   | cas acq rel w e v t ok fail =>

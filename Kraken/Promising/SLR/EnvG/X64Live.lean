@@ -56,6 +56,7 @@ theorem toEv_rmwLive (ds : Decls) (e : Effects) : (toEv ds e).RmwLive := by
   induction e with
   | done => trivial
   | unimplemented => trivial
+  | syscall => trivial
   | gp_unaligned => trivial
   | nonmem_load _ _ _ _ ih => exact access_live fun _ _ => ih _ _
   | nonmem_store _ _ _ _ ih => exact access_live fun _ _ => ih _

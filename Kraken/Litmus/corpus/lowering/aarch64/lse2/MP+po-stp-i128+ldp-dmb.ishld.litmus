@@ -1,0 +1,14 @@
+AArch64 MP+po-stp-i128+ldp-dmb.ishld
+"FEAT_LSE2: control for the pair flag: the writer has no DMB ISH, so the flag may be seen before the data, but the flag is never torn"
+{
+__int128 x; uint64_t y;
+0:X5=x; 0:X6=y;
+1:X5=x; 1:X6=y;
+uint64_t 1:X7; uint64_t 1:X8; uint64_t 1:X3;
+}
+ P0             | P1             ;
+ MOV X0,#1      | LDP X7,X8,[X5] ;
+ MOV X1,#2      | DMB ISHLD      ;
+ STR X0,[X6]    | LDR X3,[X6]    ;
+ STP X0,X1,[X5] |                ;
+exists (1:X7=1 /\ 1:X8=2 /\ 1:X3=0 \/ 1:X7=1 /\ 1:X8=0 \/ 1:X7=0 /\ 1:X8=2)

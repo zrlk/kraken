@@ -47,6 +47,7 @@ a state and memory satisfying `Q`. Total, like `Effects.All`. -/
 def _root_.Effects.AllMem (tid : Nat) (mem : Memory) (Q : MachineState → Memory → Prop) : Effects → Prop
   | .done a => Q a mem
   | .unimplemented _ => False
+  | .syscall .. => False
   | .unaligned_sp _ => False
   | .nonmem_load dmem addr w ret => (ret ((mem.finalVal (loc addr w.bytes)).setWidth w.bits) dmem).AllMem tid mem Q
   | @Effects.nonmem_store dmem addr w v ret =>
@@ -125,6 +126,7 @@ theorem _root_.Effects.allMem_sound {tid : Nat} {Q : MachineState → Memory →
   induction e with
   | done a => intro mem h; exact h
   | unimplemented msg => intro mem h; exact h.elim
+  | syscall => intro mem h; exact h.elim
   | unaligned_sp sp => intro mem h; exact h.elim
   | nonmem_load dmem addr w ret ih => intro mem h; exact ih _ _ mem h
   | nonmem_store dmem addr v ret ih => intro mem h; exact ⟨ih _ _ h, fun h => nomatch h⟩
@@ -167,6 +169,7 @@ theorem _root_.Effects.allMem_sound {tid : Nat} {Q : MachineState → Memory →
 def _root_.Effects.AllW (L : SharedLayout) (post : MachineState → Prop) : Effects → Prop
   | .done a => post a
   | .unimplemented _ => False
+  | .syscall .. => False
   | .unaligned_sp _ => False
   | .nonmem_load .. => False
   | .nonmem_store .. => False

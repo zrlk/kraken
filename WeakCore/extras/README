@@ -5,7 +5,7 @@ files, the probes, the premise guard (tools/premises) and the check script check
 Every Lean file is stored as `.lean.txt` so that lake does not glob or build it as part of
 the library; its `import` lines name the `WeakCore.*` modules.
 
-Files (72):
+Files (100):
   FlatHashMapSlow.lean.txt
   HashMapLFSlow.lean.txt
   RWLockSlow.lean.txt
@@ -20,6 +20,18 @@ Files (72):
   tools/premises/bodyloss.py
   tools/premises/bodyloss_allow.spawn.txt
   tools/premises/bodyloss_allow.txt
+  tools/premises/bodyloss_base/A9NoSpawn.stepsX_iff_steps_of_noSpawn.txt
+  tools/premises/bodyloss_base/A9SpawnFinal.startOKX_of_initOK.txt
+  tools/premises/bodyloss_base/A9SpawnFinal.startOKX_spawnS.txt
+  tools/premises/bodyloss_base/ExtArmZ.machine_tokens_main_em0.txt
+  tools/premises/bodyloss_base/ExtArmZ.reachable_typed_em0.txt
+  tools/premises/bodyloss_base/ExtArmZ.token_unique_final_em0.txt
+  tools/premises/bodyloss_base/ExtArmZ.token_unique_net_em0.txt
+  tools/premises/bodyloss_base/SpawnArmZ.machine_tokens_main_spawn.txt
+  tools/premises/bodyloss_base/SpawnArmZ.machine_tokens_main_spawn_init.txt
+  tools/premises/bodyloss_base/SpawnArmZ.reachable_typed_spawn.txt
+  tools/premises/bodyloss_base/SpawnArmZ.token_unique_final_spawn.txt
+  tools/premises/bodyloss_base/SpawnArmZ.token_unique_net_spawn.txt
   tools/premises/bodyloss_base/TermInit.InitShape.txt
   tools/premises/bodyloss_base/TermMain.InitOK.txt
   tools/premises/bodyloss_base/TermMain.ObligationsF.txt
@@ -47,6 +59,10 @@ Files (72):
   tools/premises/frozen/A9NoSpawn.stepsX_iff_steps_of_noSpawn.txt
   tools/premises/frozen/A9SpawnFinal.startOKX_of_initOK.txt
   tools/premises/frozen/A9SpawnFinal.startOKX_spawnS.txt
+  tools/premises/frozen/ExtArmZ.machine_tokens_main_em0.txt
+  tools/premises/frozen/ExtArmZ.reachable_typed_em0.txt
+  tools/premises/frozen/ExtArmZ.token_unique_final_em0.txt
+  tools/premises/frozen/ExtArmZ.token_unique_net_em0.txt
   tools/premises/frozen/SpawnArmZ.machine_tokens_main_spawn.txt
   tools/premises/frozen/SpawnArmZ.machine_tokens_main_spawn_init.txt
   tools/premises/frozen/SpawnArmZ.reachable_typed_spawn.txt
@@ -65,13 +81,25 @@ Files (72):
   tools/premises/frozen/TermSpawn.machine_tokens_mainS.txt
   tools/premises/frozen/TermSpawn.startOK_of_initOK.txt
   tools/premises/frozen/TermSpawn.startOK_spawnS.txt
+  tools/premises/frozen/lang.CoreTerm.ExtName.events.txt
+  tools/premises/frozen/lang.CoreTerm.ExtName.res.txt
+  tools/premises/frozen/lang.CoreTerm.ExtName.sig.txt
   tools/premises/frozen/lang.CoreTerm.Op.txt
   tools/premises/frozen/lang.CoreTerm.checkOp.txt
   tools/premises/frozen/lang.CoreTerm.tailCheck.txt
   tools/premises/frozen/lang.CoreTyping.OpT.txt
+  tools/premises/frozen/lang.TermRun.Certified.txt
   tools/premises/frozen/lang.TermRun.Cfg.n.txt
   tools/premises/frozen/lang.TermRun.Cfg.txt
+  tools/premises/frozen/lang.TermRun.Event.txt
+  tools/premises/frozen/lang.TermRun.ExtNeedsNoProm.txt
+  tools/premises/frozen/lang.TermRun.Solo.txt
+  tools/premises/frozen/lang.TermRun.Step.txt
+  tools/premises/frozen/lang.TermRun.curCfg.txt
   tools/premises/frozen/lang.TermRun.evalOp.txt
+  tools/premises/frozen/lang.TermRun.exitCode.txt
+  tools/premises/frozen/lang.TermRun.extCfg.txt
+  tools/premises/frozen/lang.TermRun.extSteps.txt
   tools/premises/frozen/lang.TermRun.freshLabel.txt
   tools/premises/frozen/lang.TermRun.gOf.txt
   tools/premises/frozen/lang.TermRun.touchesMem.txt

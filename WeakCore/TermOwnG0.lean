@@ -51,6 +51,7 @@ theorem soloNP_snoc_thread {c0 c : Cfg} (h : SoloNP p k arch i r c0 c) :
   | refl => exact fun c1 hs hn => .thread hs hn (.refl _)
   | thread hs' hn' _ ih => exact fun c1 hs hn => .thread hs' hn' (ih c1 hs hn)
   | prom a v w hw _ ih => exact fun c1 hs hn => .prom a v w hw (ih c1 hs hn)
+  | ext hs' _ ih => exact fun c1 hs hn => .ext hs' (ih c1 hs hn)
 
 theorem soloNP_snoc_prom {c0 c : Cfg} (h : SoloNP p k arch i r c0 c) :
     ∀ a v w, w < c.mem.size → SoloNP p k arch i r c0 (promise c i a v w) := by
@@ -58,6 +59,16 @@ theorem soloNP_snoc_prom {c0 c : Cfg} (h : SoloNP p k arch i r c0 c) :
   | refl => exact fun a v w hw => .prom a v w hw (.refl _)
   | thread hs' hn' _ ih => exact fun a v w hw => .thread hs' hn' (ih a v w hw)
   | prom a' v' w' hw' _ ih => exact fun a v w hw => .prom a' v' w' hw' (ih a v w hw)
+  | ext hs' _ ih => exact fun a v w hw => .ext hs' (ih a v w hw)
+
+/-- (IO1) An extern move extends a `SoloNP` run (it is never a `publish`). -/
+theorem soloNP_snoc_ext {c0 c : Cfg} (h : SoloNP p k arch i r c0 c) :
+    ∀ c1, c1 ∈ extSteps c i → SoloNP p k arch i r c0 c1 := by
+  induction h with
+  | refl => exact fun c1 hs => .ext hs (.refl _)
+  | thread hs' hn' _ ih => exact fun c1 hs => .thread hs' hn' (ih c1 hs)
+  | prom a v w hw _ ih => exact fun c1 hs => .prom a v w hw (ih c1 hs)
+  | ext hs' _ ih => exact fun c1 hs => .ext hs' (ih c1 hs)
 
 /-- Any message of the plant configuration stays in memory along a run from it. -/
 theorem memT {cP c : Cfg} {thP : TTh} {a0 : Address} {v0 : WeakMem.Val} {w : Ts} {t : Nat} {m : Msg}
@@ -141,6 +152,12 @@ theorem winLe_cert {cP : Cfg} {a0 : Address} {v0 : WeakMem.Val} {w : Ts} {t : Na
     have hP1 := soloNP_snoc_prom hP a v w' hw
     have h2 := ih hn hP1 _ (promise_inv (a := a) (v := v) (w := w') hth).2.1 (List.mem_append_left _ hB)
     exact h2
+  | ext hs hrest ih =>
+    rename_i c c1 c2
+    intro hn hP th hth hB
+    have hP1 := soloNP_snoc_ext hP c1 hs
+    obtain ⟨x1, a1, e1, evs, hterm, rfl⟩ := extSteps_thread hs hth
+    exact ih hn hP1 { th with term := e1, env := (x1, .unit, []) :: th.env } (set_self hth) hB
 
 /-- **G-0 at any planted root edge** `t` (`B` itself or an older outstanding promise of thread
 `i`) whose message `⟨b, .loc a' g, wt⟩` names `r`: the window `vWr ≤ wt`, from `PfrX`.  The
@@ -194,3 +211,4 @@ end TermOwnG0
 #print axioms TermOwnG0.winLe_cert
 #print axioms TermOwnG0.g0WinT_of
 #print axioms TermOwnG0.g0Win_of
+#print axioms TermOwnG0.soloNP_snoc_ext

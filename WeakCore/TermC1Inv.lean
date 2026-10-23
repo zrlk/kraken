@@ -1,10 +1,10 @@
 import WeakCore.TermC1Defs
 import WeakCore.TermPtrRtsDefs
 
-/-! # TermC1Inv: region c1, the invariant-side definitions under new names
+/-! # TermC1Inv: region c1, the invariant-side definitions under new names (G2)
 
 New definitions only, alongside the old ones; no existing definition, premise or theorem mentions them.
-Each is a parallel copy of the named original with the c1 change, deleted when the change is adopted.
+Each is a parallel copy of the named original with the c1 change, deleted when it replaces the original.
 
 | new | original | change |
 |---|---|---|
@@ -94,7 +94,7 @@ theorem noOR1_of_noOR : ∀ {t : Ty}, noOR t = true → noOR1 t = true
   | .iall t, h => by simp only [noOR] at h; simp only [noOR1]; exact noOR1_of_noOR h
   | .iex t, h => by simp only [noOR] at h; simp only [noOR1]; exact noOR1_of_noOR h
   | .refine t _, h => by simp only [noOR] at h; simp only [noOR1]; exact noOR1_of_noOR h
-  | .unit, _ | .void, _ | .int, _ | .intS _, _ | .fix _ _, _ | .lanes _ _, _ | .code _ _, _
+  | .unit, _ | .void, _ | .int, _ | .tid, _ | .intS _, _ | .fix _ _, _ | .lanes _ _, _ | .code _ _, _
   | .share _, _ | .cap _ _, _ | .word _ _, _ | .tok _ _, _ | .word2 _ _, _ | .tok2 _ _ _ _, _
   | .epair _ _, _ | .tokE _ _ _, _ | .tvar _, _ => by simp [noOR1]
 

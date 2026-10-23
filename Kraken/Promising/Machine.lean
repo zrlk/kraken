@@ -403,6 +403,150 @@ where
 
 end Explore
 
+/-! ## Certification with a different instruction semantics
+
+The machine above certifies promises with the ISA's own `exec`, under which a
+system call faults: no promise can be certified past one. The functions below
+are copies of `stepOne`, `certify`, `certifiedPromises`, `succsL`, `succsR`
+and `explore` that certify with another semantics `cexec` (an ISA's
+`execCert`, which branches over the possible results of a system call) and
+run the machine's own steps with `I.exec` as before, so that a thread still
+faults when it reaches a system call; only what it may promise changes.
+Certification is otherwise the same: a trace certifies once it has no
+outstanding promise.
+
+`cexec` must halt exactly where `I.exec` does (`Thread.halted` is computed
+with `I.exec`). A `CertCache` filled in this mode must not be used by the
+plain functions, nor the converse. No theorem is stated about this mode. -/
+
+section CertWith
+
+variable (A : Arch) {I : ISA} (cexec : I.State → Option (EvTree I.State))
+
+/-- `stepOne` with `cexec` in place of `I.exec`. -/
+def stepOneWith (t : Thread I) (tid : Nat) (mem : Memory) : Option (List (Except String (Outcome I))) := do
+  let tree ← cexec t.st
+  let d := I.deps t.st
+  let iv := instrViews t d
+  let ctx : Ctx := { views := t.views, prom := t.prom, mem, log := [.instr tid (I.showInstr t.st)] }
+  return (runTree A tid iv ctx tree).flatMap fun
+    | .error m => [.error m]
+    | .ok (st, c') => (finishInstr t d iv st c').map fun th =>
+        .ok { thread := th, mem := c'.mem, promisedNow := c'.promisedNow, log := c'.log }
+
+/-- `certify`, running the thread with `stepOneWith cexec`. -/
+def certifyWith (cache : CertCache I) (t : Thread I) (tid : Nat) (mem : Memory) (fuel : Nat) :
+    CertResult I × CertCache I :=
+  match cache[(t, tid, mem)]? with
+  | some r => (r, cache)
+  | none =>
+    let r := (go tid fuel ({}, {}) (t, mem, [], false)).2
+    (r, cache.insert (t, tid, mem) r)
+where
+  go (tid : Nat) : Nat → Std.HashSet (Thread I × Memory) × CertResult I →
+      Thread I × Memory × List (Msg × View) × Bool → Std.HashSet (Thread I × Memory) × CertResult I
+    | n, (visited, acc), (t, mem, ws, done) =>
+      if visited.contains (t, mem) then (visited, acc) else
+      let visited := visited.insert (t, mem)
+      -- a promise that can no longer be fulfilled: dead branch
+      if t.hasDeadPromise mem then (visited, acc) else
+      let (acc, done) :=
+        if !done && t.prom.isEmpty then ({ acc with certified := true, writes := acc.writes ++ ws }, true)
+        else (acc, done)
+      if t.halted then (visited, acc)
+      else
+        match n with
+        | 0 => (visited, { acc with boundHit := true })
+        | n + 1 =>
+          match stepOneWith A cexec t tid mem with
+          | none => (visited, acc)
+          | some outs =>
+            let (next, acc) := outs.foldl (init := ([], acc)) fun (next, acc) o =>
+              match o with
+              | .error m => (next, { acc with faults := acc.faults ++ [m] })
+              | .ok o =>
+                if done then ((o.thread, o.mem, [], true) :: next, { acc with writes := acc.writes ++ o.promisedNow })
+                else ((o.thread, o.mem, ws ++ o.promisedNow, false) :: next, acc)
+            next.foldl (go tid n) (visited, acc)
+
+/-- `certifiedPromises` with `certifyWith cexec`. -/
+def certifiedPromisesWith (cache : CertCache I) (c : Config I) (tid : Nat) (fuel : Nat) :
+    List (Config I × TraceEv) × CertResult I × CertCache I :=
+  match c.threads[tid]? with
+  | none => ([], {}, cache)
+  | some t =>
+    let (r, cache) := certifyWith A cexec cache t tid c.mem fuel
+    let ws := (r.writes.filter fun (_, ν) => ν ≤ c.mem.last).map (·.1) |>.eraseDups
+    let cs := ws.map fun w =>
+      let (mem', tnew) := c.mem.append { w with tid }
+      (c.withThread tid { t with prom := t.prom ++ [tnew] } mem', TraceEv.promise tid w.loc w.val tnew)
+    (cs, r, cache)
+
+/-- `succsL` with certification by `certifyWith cexec`; the instruction steps
+are `stepThread`'s, with `I.exec`. -/
+def succsLWith (cache : CertCache I) (c : Config I) (fuel : Nat) (maxPromises : Option Nat := none) :
+    List (Config I × List TraceEv) × Bool × List String × CertCache I :=
+  (List.range c.threads.size).foldl (init := ([], false, [], cache)) fun (next, bound, faults, cache) tid =>
+    let (next, bound, faults, cache) : List (Config I × List TraceEv) × Bool × List String × CertCache I :=
+      match stepThread A c tid with
+      | none => (next, bound, faults, cache)
+      | some outs => outs.foldl (init := (next, bound, faults, cache)) fun (next, bound, faults, cache) (o : Except String (Outcome I)) =>
+        match o with
+        | .error m => (next, bound, faults ++ [m], cache)
+        | .ok o =>
+          let c' := c.withThread tid o.thread o.mem
+          if o.thread.prom.isEmpty then ((c', o.log) :: next, bound, faults, cache)
+          else
+            let (r, cache) := certifyWith A cexec cache o.thread tid o.mem fuel
+            if r.certified then ((c', o.log) :: next, bound || r.boundHit, faults, cache)
+            else (next, bound || r.boundHit, faults, cache)
+    let (ps, r, cache) := certifiedPromisesWith A cexec cache c tid fuel
+    let ps := match maxPromises, c.threads[tid]? with
+      | some k, some t => if t.prom.length < k then ps else []
+      | _, _ => ps
+    (next.reverse ++ (ps.map fun (c', e) => (c', [e])), bound || r.boundHit, faults ++ r.faults, cache)
+
+/-- `succsR` with `succsLWith cexec`. -/
+def succsRWith (cache : CertCache I) (c : Config I) (o : ExploreOpts) :
+    List (Config I × List TraceEv) × Bool × List String × CertCache I :=
+  match localStep A c with
+  | some next => (next, false, [], cache)
+  | none =>
+    let (next, bound, faults, cache) := succsLWith A cexec cache c o.fuel o.maxPromises
+    let (next, faults) := next.foldr (init := ([], faults)) fun (c', ev) (next, faults) =>
+      match overlapFault c'.mem ev with
+      | some m => (next, m :: faults)
+      | none => ((c', ev) :: next, faults)
+    (next, bound, faults, cache)
+
+/-- `explore` with `succsRWith cexec`. -/
+partial def exploreWith {α : Type} [BEq α] [Hashable α] (c0 : Config I) (proj : Config I → α)
+    (o : ExploreOpts := {}) : ExploreResult α :=
+  let key (c : Config I) : Config I := if o.symmetric then c.canonical else c
+  let rec go (visited : Std.HashSet (Config I)) (parent : Std.HashMap (Config I) (Config I × List TraceEv))
+      (finals : Std.HashMap α (List TraceEv)) (cache : CertCache I) (front back : List (Config I))
+      (acc : ExploreResult α) : ExploreResult α :=
+    match front with
+    | [] =>
+      if back.isEmpty then { acc with finals := finals.toList.map (·.1), witnesses := finals.toList }
+      else go visited parent finals cache back.reverse [] acc
+    | c :: rest =>
+      if visited.contains (key c) then go visited parent finals cache rest back acc else
+      let visited := visited.insert (key c)
+      let acc := { acc with configs := acc.configs + 1 }
+      if c.final then
+        let x := proj c
+        let finals := if finals.contains x then finals else finals.insert x (explore.pathTo parent c)
+        go visited parent finals cache rest back acc
+      else
+      let (next, bound, faults, cache) := succsRWith A cexec cache c o
+      let parent := next.foldl (fun p (c', ev) => if visited.contains (key c') || p.contains c' then p else p.insert c' (c, ev)) parent
+      go visited parent finals cache rest (next.foldl (fun b (c', _) => c' :: b) back)
+        { acc with boundHit := acc.boundHit || bound, faults := acc.faults ++ faults }
+  go {} {} {} {} [c0] [] {}
+
+end CertWith
+
 /-! ## Printing traces -/
 
 /-- One line per event; `locName` names locations, `A` is the profile (so

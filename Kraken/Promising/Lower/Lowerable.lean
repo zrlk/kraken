@@ -47,6 +47,21 @@ reject exactly the forms above and nothing more. LL/SC is not otherwise
 restricted here (it is deferred in the logic, not a simulation finding).
 Labels and byte arrays are lowerable.
 
+The system-call and thread-pointer forms (`Kraken/SYSCALL.md`) are allowed and
+need no clause, because none of them has a memory event:
+- `MRS Xt, TPIDR_EL0` / `MSR TPIDR_EL0, Xt` are register moves between `Xt` and
+  the private register `Reg64s.TPIDR_EL0` (no effect but `done`; `Operation.deps`
+  gives them no address or data role in any access);
+- `SVC #imm` is `MachineData.pendingSyscall`: an `unimplemented` effect, which
+  the adapter makes a fault, so the thread has no event at or after it. The
+  system-call step that will replace it brings its own events (trace output,
+  thread creation, futex) and its own simulation obligations; this clause list
+  will have to be revisited then.
+On x64 (which has no twin predicate, see below) `syscall` and `ud2` are the
+same halt, and
+a `%fs:` move (`movfs`) is an ordinary load or store at `fsBase` plus the
+operand's address, mapped-first like `mov`.
+
 The predicates are `Bool` functions with `= true`, so `Program.WCLowerable p`
 is decided by `decide` on a concrete program. `Lower/LowerablePilots.lean`
 proves it, by `decide`, of every AArch64 pilot program: `pilot`
@@ -194,5 +209,22 @@ open Kraken.AArch64.Parser
     casalb w3, w1, [x0]
     ldaddalh w1, w2, [x0]
 ") : Program).map Directive.wcLowerableB
+
+-- The system-call and thread-pointer forms are lowerable.
+/-- info: [true, true, true, true] -/
+#guard_msgs in
+#eval (parseAArch64("
+    mrs x1, tpidr_el0
+    msr tpidr_el0, x1
+    svc #0
+    ldr x2, [x1, #16]
+") : Program).map Directive.wcLowerableB
+
+example : Program.WCLowerable parseAArch64("
+    msr tpidr_el0, x0
+    mrs x9, tpidr_el0
+    mov x8, #93
+    svc #0
+") := by decide
 
 end Tests

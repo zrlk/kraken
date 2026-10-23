@@ -1,0 +1,1 @@
+reject_homog.w:12:3: error: the shared cell type `Loc pub Ptr pub Int` holds a locative inline, which is not supported: its base and offset words live in different regions and a racing access could tear them (in 'main', binding 'ep')

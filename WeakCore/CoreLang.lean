@@ -474,6 +474,9 @@ inductive Ty
   | iex    (τ : Ty)                   -- ∃a. τ, binds an index variable
   | tex    (κ : Kind) (τ : Ty)        -- ∃(α : κ). τ, binds a type variable
   | refine (τ : Ty) (ψ : Pred)        -- { ν : τ | ψ }
+  | tid                              -- (E1) `ThreadId`: a sealed thread reference, one word (`Val.num` of the
+                                     -- thread's index); no introduction form (only `spawn` and `current`),
+                                     -- copyable, not Zeroable, compared by `ifeq`; a reference for the GC
   deriving DecidableEq, Repr
 
 namespace Ty
@@ -649,7 +652,7 @@ def combine (a b : Arms) : Arms :=
 (and a `Ptr?` arm's null), reserved even when there are none.  Reserving it
 keeps the tier stable under subsumption: `Ptr <: Ptr?` inside a sum adds a
 payload-free case, and must not push eight pointer arms over the budget and
-turn a one-word sum into a two-word one (T3b-2 finding F3). -/
+turn a one-word sum into a two-word one. -/
 def slots (a : Arms) : Nat := a.ptrs + 1
 
 /-- A lone non-sum type seen as a one-arm sum. -/
@@ -716,24 +719,25 @@ def info (ρ : Ctx) : Ty → Info
       -- An arm of unknown width (a type variable, say) leaves the tier open:
       -- instantiation may make the sum niche, wide or boxed.  So the width is
       -- unknown too, like the variable's own; guessing `1` (boxed) let an
-      -- admitted instance break every width-based check (T3b-2 finding F1).
+      -- admitted instance break every width-based check.
       if arms.maxW.isNone then ⟨none, arms⟩ else
       match arms.tier with
       | .wide => ⟨some (.lit 2), arms⟩
       | _     => ⟨some (.lit 1), arms⟩
   | code _ _   => Info.leaf (some (.lit 1))
+  | tid        => Info.leaf (some (.lit 1))   -- (E1) one word, a leaf (not a sum niche)
   -- An inline array has no static width, even at a literal extent: indices
   -- are erased at runtime, so a width that depended on one would let an index
-  -- instantiation change a layout the machine cannot see change (T3b-2
-  -- finding F4).  Nothing loads or stores an inline array by value anyway.
+  -- instantiation change a layout the machine cannot see change.
+  -- Nothing loads or stores an inline array by value anyway.
   | array _ _  => Info.leaf none
   | ptr _ _    => ⟨some (.lit 1), Arms.ptrArm⟩
   | ptrOpt _ _ => ⟨some (.lit 1), Arms.optArm⟩
   -- A `Loc` may be null (§7 row 15 (c): to a zero-length region), so as a sum
-  -- arm it is `Ptr?`-shaped: its null takes the payload-free slot, which F3
+  -- arm it is `Ptr?`-shaped: its null takes the payload-free slot, which `slots`
   -- already reserves, so no tier moves.  Every `Loc`, not only `Loc (Array …)`,
-  -- so that instantiating the pointee cannot change an arm's kind (T3b-2
-  -- finding F5: a null `Loc` could not be injected into a niche sum).
+  -- so that instantiating the pointee cannot change an arm's kind
+  -- (otherwise a null `Loc` could not be injected into a niche sum).
   | loc _ _    => ⟨some (.lit 1), Arms.optArm⟩
   | word _ P   => Info.leaf (some (.lit (if P.ghost then 0 else 1)))
   | tok _ _    => Info.leaf (some (.lit 0))
@@ -832,6 +836,7 @@ def zeroableIn (env : IEnv) (ke : KEnv) : Ty → Bool
       | .wide  => (zeroArmP (fun _ => true) env ke a <|> zeroArmP (fun _ => true) env ke b) == some true
       | .boxed => false
   | .code _ _   => false
+  | .tid        => false   -- (E1) sealed: `zero[ThreadId]` would forge thread 0
   | .array _ t  => zeroableIn env ke t
   | .ptr _ _    => false
   | .ptrOpt _ _ => true

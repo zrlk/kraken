@@ -165,6 +165,7 @@ theorem cl_shiftI {ρ ρ' : Nat → Nat} {c : Nat} (h : ∀ k, ρ' (if c ≤ k t
   | .unit, _, _ => rfl
   | .void, _, _ => rfl
   | .int, _, _ => rfl
+  | .tid, _, _ => rfl
   | .fix _ _, _, _ => rfl
   | .lanes _ _, _, _ => rfl
 
@@ -218,6 +219,7 @@ theorem cl_shiftT {W W' : Nat → Ty} {c : Nat} (h : ∀ k, W' (if c ≤ k then 
   | .unit, _, _ => rfl
   | .void, _, _ => rfl
   | .int, _, _ => rfl
+  | .tid, _, _ => rfl
   | .fix _ _, _, _ => rfl
   | .lanes _ _, _, _ => rfl
 
@@ -333,6 +335,7 @@ theorem cl_instT (W : Nat → Ty) : ∀ (t : Ty) (e f : Nat), cl ρ W e f (instT
   | .unit, _, _ => rfl
   | .void, _, _ => rfl
   | .int, _, _ => rfl
+  | .tid, _, _ => rfl
   | .fix _ _, _, _ => rfl
   | .lanes _ _, _, _ => rfl
 

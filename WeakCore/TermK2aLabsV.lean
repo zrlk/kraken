@@ -480,6 +480,12 @@ theorem labsV_VR_sNo {Q : AllocLabel → Ts → Prop} : ∀ (T : Ty) (ρ : Nat �
     obtain ⟨n, hn⟩ := hv
     have hm := locPub_mem_val hn hw
     rw [hx] at hm; simp at hm
+  | tid =>
+    intro ρ η R ws hrel hS hB hshp hsn hwc hval hv w hw x g hx
+    obtain ⟨n, c, hn, -, -, f, hf, hmo⟩ := hv
+    have hm := locPub_mem_val hn hw
+    rw [hx] at hm; simp at hm; obtain ⟨rfl, -⟩ := hm
+    exact hS _ _ _ hf (hmo.imp_right (· w hw))
   | fix sg wd =>
     intro ρ η R ws hrel hS hB hshp hsn hwc hval hv w hw x g hx
     obtain ⟨-, n, hn, -⟩ := hv

@@ -95,6 +95,7 @@ theorem vrr_zero_of_rcar : ∀ (t : Ty) (env : List Bool) (ρ : Nat → Nat) (η
   | .unit, _, _, _, _, _, _, _, _, _, hv => by simpa only [VRR] using hv
   | .void, _, _, _, _, _, _, _, _, _, hv => by simp [VRR] at hv
   | .int, _, _, _, _, _, _, _, _, _, hv => by simp only [VRR] at hv; exact hv.2
+  | .tid, _, _, _, _, _, _, _, _, _, hv => by simp only [VRR] at hv; exact hv.2
   | .intS _, _, _, _, _, _, _, _, _, _, hv => by simp only [VRR] at hv; exact hv.2
   | .fix _ _, _, _, _, _, _, _, _, _, _, hv => by simp only [VRR] at hv; exact hv.2
   | .lanes _ _, _, _, _, _, _, _, _, _, _, hv => by simp only [VRR] at hv; exact hv.2
@@ -198,6 +199,7 @@ theorem VR_VRR_rc : ∀ (t : Ty) (env : List Bool) (ρ : Nat → Nat) (η : TEnv
   | .void, _, _, _, _, _, _, _, _, _, _, hv => by simp [VR] at hv
   | .intS _, _, _, _, _, _, _, _, _, _, _, hv => by simp only [VR] at hv; simp only [VRR, and_true]; exact hv
   | .int, _, _, _, _, _, _, _, _, _, _, hv => by simp only [VR] at hv; simp only [VRR, and_true]; exact hv
+  | .tid, _, _, _, _, _, _, _, _, _, _, hv => by simp only [VR] at hv; simp only [VRR, and_true]; exact hv
   | .fix _ _, _, _, _, _, _, _, _, _, _, _, hv => by simp only [VR] at hv; simp only [VRR, and_true]; exact hv
   | .lanes _ _, _, _, _, _, _, _, _, _, _, _, hv => by simp only [VR] at hv; simp only [VRR, and_true]; exact hv
   | .code _ _, _, _, _, _, _, _, _, _, _, _, hv => by simp only [VR] at hv; simp only [VRR, and_true]; exact hv

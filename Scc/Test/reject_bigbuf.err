@@ -1,0 +1,1 @@
+reject_bigbuf.w:4:3: error: the buffer of 536870912 elements would take 4 GiB or more in a region, beyond the 32-bit byte offsets of its locatives (in 'main', binding 'b')

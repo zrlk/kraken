@@ -85,6 +85,7 @@ CoreLang.zeroableIn : CoreLang.IEnv → CoreLang.KEnv → CoreLang.Ty → Bool
         (CoreLang.zeroArmP (fun x => true) env ke a <|> CoreLang.zeroArmP (fun x => true) env ke b) == some true
       | CoreLang.Tier.boxed => false
     | σ.code τ => false
+    | CoreLang.Ty.tid => false
     | CoreLang.Ty.array i t => CoreLang.zeroableIn env ke t
     | CoreLang.Ty.ptr μ τ => false
     | CoreLang.Ty.ptrOpt μ τ => true
@@ -111,6 +112,7 @@ CoreTerm.Decl : Type
 CoreTerm.Decl.argTy : CoreTerm.Decl → CoreLang.Ty
 CoreTerm.Decl.name : CoreTerm.Decl → String
 CoreTerm.Decl.retTy : CoreTerm.Decl → CoreLang.Ty
+CoreTerm.ExtName : Type
 CoreTerm.FCmp : Type
 CoreTerm.FOp : Type
 CoreTerm.FOp1 : Type
@@ -459,6 +461,7 @@ TermRun.evalOp : TermRun.G →
         (TermRun.lookupE env y))
   | CoreTerm.Op.call f is a ts => []
   | CoreTerm.Op.spawn f a T ts => []
+  | CoreTerm.Op.ext n a => []
   | CoreTerm.Op.borrow c t => [(s, CoreLang.Ty.cap c (CoreLang.Idx.lit 0), [])]
   | CoreTerm.Op.freeze t => [(s, CoreLang.Ty.cap CoreLang.Cap.frz (CoreLang.Idx.lit 0), [])]
   | CoreTerm.Op.cvt sg w a =>

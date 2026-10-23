@@ -119,6 +119,11 @@ theorem sysInvN_phantC {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res
     SysInvN p k arch Init MintOK (phantC f0 c) Eg Tot HP HS cr db := by
   have hg : ∀ i, gOf p k arch (phantC f0 c) i = gOf p k arch c i := gOf_phantC p k arch f0 c
   constructor
+  case tidBox =>
+    intro i th hi l hl
+    obtain ⟨th0, hc, rfl⟩ := phantC_some_iff.1 hi
+    refine h.tidBox i th0 hc l ?_
+    unfold appIf at hl; split at hl <;> simpa [app] using hl
   case thr =>
     intro i th hi
     obtain ⟨th0, hc, rfl⟩ := phantC_some_iff.1 hi
@@ -314,10 +319,10 @@ theorem initOK_phantC {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res}
       ThSys p (gOf p k arch c 0) c.mem c.pairs th Eg (Tot 0) (HP 0) HS (cr 0) (db 0) →
       ThSys p (gOf p k arch c 0) c.mem c.pairs (app f0 th) Eg (Tot 0) (HP 0) HS (cr 0) (db 0)) :
     InitOK p k arch Init MintOK (phantC f0 c) := by
-  obtain ⟨⟨Eg, Tot, HP, HS, cr, db, hw, ⟨rc, hrc⟩, hof, hu, hoc, hbx, hpf, hko, hop, hni, hsw, hlb, hly, hmem, ⟨hmv, hvt⟩, hvl⟩, hnp, hcc⟩ := h
+  obtain ⟨⟨Eg, Tot, HP, HS, cr, db, hw, ⟨rc, hrc⟩, hof, hu, hoc, hbx, hpf, hko, hop, hni, hsw, hlb, hly, hmem, ⟨hmv, hvt⟩, hvl, htd⟩, hnp, hcc⟩ := h
   refine ⟨⟨Eg, Tot, HP, HS, cr, db, sysInvW_phantC hw (fun th h0 => hA _ _ _ _ _ _ th h0 (hw.thr 0 th h0)),
     ⟨rc, by simpa only [RidOK, phantC_size', phantC_n, pSumAt_phantC] using hrc⟩, ?_, hu, ?_, hbx, hpf, ?_, ?_, hni, hsw, lblSto_phantC hlb hfe, hly, hmem,
-    ⟨hmv, ?_⟩, ?_⟩, ?_, ?_⟩
+    ⟨hmv, ?_⟩, ?_, ?_⟩, ?_, ?_⟩
   · intro q thq j hq hj; obtain ⟨th0, h0, -, -, hn, -⟩ := ph_get hq
     have := hof q th0 j h0 (hn ▸ hj)
     simpa only [phantC_size', phantC_n, pSumAt_phantC, phantC_lbase] using this
@@ -337,6 +342,9 @@ theorem initOK_phantC {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res}
       · rw [hfe]; intro e he; cases he
     · exact ht
   · intro i th hi; obtain ⟨th0, h0, -, hv, -⟩ := ph_get hi; rw [hv]; exact hvl i th0 h0
+  · intro i th hi
+    obtain ⟨th0, h0, rfl⟩ := phantC_some_iff.1 hi
+    unfold appIf; split <;> simpa [app] using htd i th0 h0
   · intro i th hi; obtain ⟨th0, h0, hp, -⟩ := ph_get hi; rw [hp]; exact hnp i th0 h0
   · intro i th hi; obtain ⟨th0, h0, -, hv, -⟩ := ph_get hi; rw [hv]; exact hcc i th0 h0
 end TermSpawnSim

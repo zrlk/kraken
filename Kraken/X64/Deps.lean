@@ -230,6 +230,29 @@ private def depsCore {w} : Operation w → InstrDeps RegId
   | .mfence | .lfence | .sfence => {}
   -- as `mov %src, (dst)`
   | .movnti dst src => move (w := w) (.mem dst) (.reg src)
+  -- `syscall` halts the thread (`MachineData.pendingSyscall`): no register yet.
+  | .syscall => {}
+  -- `mov` with a `%fs:` memory operand: the dependencies of `mov`. The segment
+  -- base `fsBase` is not a `RegId`, so the address registers are the operand's
+  -- base and index only (it is no event's data, and the access is the event).
+  | .movfs dst src => match src with
+    | .regOrMem rm => move dst rm
+    | .imm _ => { addrRegs := dst.addrRegs, defs := dst.reg? }
+  -- `ud2` faults before any effect.
+  | .ud2 => {}
+  -- `div`/`idiv` read the dividend `rdx:rax` and the divisor and write the
+  -- quotient, the remainder and the (undefined) flags; whether they fault
+  -- depends on the same registers.
+  | .div src | .idiv src =>
+    { addrRegs := src.addrRegs, dataRegs := [.r .rax, .r .rdx] ++ src.reg?,
+      defs := [.r .rax, .r .rdx, .rflags] }
+  | .cqo => { dataRegs := [.r .rax], defs := [.r .rdx] }
+  | .popcnt dst src =>
+    { addrRegs := src.addrRegs, dataRegs := src.reg?, defs := [RegId.ofReg dst, .rflags] }
+  -- `cmp` with a `%fs:` memory operand: the dependencies of `cmp` (`fsBase` is
+  -- not a `RegId`; see `movfs`).
+  | .cmpfs a b =>
+    { addrRegs := a.addrRegs ++ b.addrRegs, dataRegs := a.reg? ++ b.reg?, defs := [.rflags] }
 
 /-- The syntactic dependencies of one operation; see the file comment. -/
 def deps {w} (op : Operation w) : InstrDeps RegId := mergePartial w (depsCore op)

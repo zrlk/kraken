@@ -57,6 +57,7 @@ def Effects.AllEnv (env : SharedEnv) (g : env.State) (post : MachineState → en
     Effects → Prop
   | .done a => post a g
   | .unimplemented _ => False
+  | .syscall .. => False
   | .gp_unaligned .. => False
   | .nonmem_load dmem addr w ret =>
     env.ok (.load .plain false addr w.bytes) g ∧
@@ -152,6 +153,7 @@ theorem Effects.AllEnv.mono {env : SharedEnv} {post₁ post₂ : MachineState �
   induction e with
   | done a => exact fun g h => hp _ _ h
   | unimplemented => exact fun _ h => h
+  | syscall => exact fun _ h => h
   | gp_unaligned => exact fun _ h => h
   | nonmem_load dmem addr w ret ih => exact fun g h => ⟨h.1, fun v g' hs => ih _ _ g' (h.2 v g' hs)⟩
   | nonmem_store dmem addr v ret ih => exact fun g h => ⟨h.1, fun b g' hs => ih _ g' (h.2 b g' hs)⟩
@@ -181,6 +183,7 @@ theorem Effects.allEnv_none_iff {post : MachineState → Prop} (e : Effects) :
   induction e with
   | done a => exact Iff.rfl
   | unimplemented => exact Iff.rfl
+  | syscall => exact Iff.rfl
   | gp_unaligned => exact Iff.rfl
   | fence k ok ih =>
     exact ⟨fun h => (ih ()).mp (h.2 () trivial), fun h => ⟨trivial, fun _ _ => (ih ()).mpr h⟩⟩

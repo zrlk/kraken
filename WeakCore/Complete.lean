@@ -306,7 +306,7 @@ theorem tyEq_complete {cx : Cx} {d : Nat} {a b : Ty} (h : TyEqA cx d a b) : tyEq
 theorem tyEqA_of (cx : Cx) : ∀ (d : Nat) (a b : Ty), tyEq cx d a b = true → TyEqA cx d a b := by
   intro d a b h
   induction a generalizing d b with
-  | unit | void | int | tvar _ | fix _ _ | lanes _ _ =>
+  | unit | void | int | tvar _ | fix _ _ | lanes _ _ | tid =>
       cases b <;> simp_all [tyEq] <;> first | exact .refl | skip
   | intS i =>
       cases b <;> simp [tyEq] at h
@@ -765,7 +765,10 @@ inductive OpTA (p : Prog) : Cx → String → Op → Cx → Prop
       p.find f = .ok d → instantiate { vars := [("a", T, true)], ret := .unit } d [] ts = .ok (at_, rt) →
       tailCheck p { vars := [("a", T, true)], ret := rt } f [] (.var "a") ts = .ok () →
       (TermClose.tb 0 rt && TermTv.mg rt && TermTv.noIallV rt) = true →
-      c₁.bind x .int = .ok c' → OpTA p cx x (.spawn f a T ts) c'
+      c₁.bind x .tid = .ok c' → OpTA p cx x (.spawn f a T ts) c'
+  /-- (E1) `OpT.ext` with the checker's subsumption (`SubA`). -/
+  | ext {cx c₁ c' : Cx} {x : String} {n : ExtName} {a : At} {t : Ty} :
+      cx.use a = .ok (t, c₁) → SubA c₁ t n.sig.1 → c₁.bind x n.sig.2 = .ok c' → OpTA p cx x (.ext n a) c'
   | borrow {cx c₁ c' : Cx} {x y : String} {c : Cap} {a : At} {t t' : Ty} {r : Idx} :
       varOf a = .ok y → cx.peek a = .ok t → lendOf cx c t = .ok r → cx.use a = .ok (t', c₁) →
       { c₁ with lent := y :: c₁.lent }.bind x (.cap c r) = .ok c' → OpTA p cx x (.borrow c a) c'
@@ -1153,6 +1156,15 @@ theorem checkOp_alg (p : Prog) (cx : Cx) (x : String) (op : Op) (cx' : Cx)
       obtain ⟨hD1, hD2⟩ := nor hb5
       obtain ⟨hK1, hK2⟩ := nor hb6
       exact .spawn h1 (subA_of _ _ _ hsb) hb2 hW1 hW2 hT1 hT2 hD1 hD2 hK1 hK2 hd hi hc hb7 h
+  | ext n a =>
+      simp only [checkOp, bind_ok_iff] at h
+      obtain ⟨⟨t, c₁⟩, h1, h⟩ := h
+      dsimp only at h
+      generalize hsb : sub c₁ t n.sig.1 = sb at h
+      cases sb
+      · cases h
+      rw [if_neg (by decide)] at h
+      exact .ext h1 (subA_of _ _ _ hsb) h
   | atom a =>
       simp only [checkOp, bind_ok_iff] at h
       obtain ⟨⟨t, c₁⟩, h1, h2⟩ := h

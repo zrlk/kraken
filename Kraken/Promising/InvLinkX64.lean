@@ -478,6 +478,24 @@ theorem operation_isim [Labels] [AddressSize] {w : Width} (op : Operation w) (p 
   cases op
   case xadd lock dst src => cases dst <;> isim_search
   case bswap dst => cases w <;> isim_search
+  -- `movfs` is `mov` at a segment-relative address: unfold the segment forms.
+  case movfs dst src =>
+    rcases src with (_ | a) | v <;> rcases dst with _ | b <;>
+      simp only [Operation.interp, Operand.interpSeg, RegOrMem.interpSeg, MachineData.setSeg] at h ⊢ <;>
+      repeat' first
+        | exact hk _ hs h
+        | refine load_isim (fun v s hs h => ?_) hs h
+        | refine store_isim (fun s hs h => ?_) hs h
+        | simp only [MachineData.setSeg] at h ⊢
+  -- `cmpfs` is `cmp` at a segment-relative address: unfold the segment forms.
+  case cmpfs x y =>
+    rcases y with (_ | b) | v <;> rcases x with _ | a <;>
+      simp only [Operation.interp, Operand.interpSeg, RegOrMem.interpSeg, MachineData.setSeg] at h ⊢ <;>
+      repeat' first
+        | exact hk _ hs h
+        | refine load_isim (fun v s hs h => ?_) hs h
+        | refine store_isim (fun s hs h => ?_) hs h
+        | simp only [MachineData.setSeg] at h ⊢
   all_goals isim_search
 
 set_option hygiene false in

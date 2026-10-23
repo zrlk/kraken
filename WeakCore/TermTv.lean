@@ -1055,6 +1055,11 @@ theorem instantiate_mg {p : Prog} {cx : Cx} {d : Decl} {is : List String} {ts : 
 
 /-! ## §3 Every operation rule preserves `TvOK` -/
 
+/-- (E1) An extern's result type is closed and guarded. -/
+theorem extSig_tb (n : ExtName) (k : Nat) : tb k n.sig.2 = true := by cases n <;> simp [ExtName.sig, tb]
+
+theorem extSig_mg (n : ExtName) : mg n.sig.2 = true := by cases n <;> simp [ExtName.sig, mg]
+
 theorem OpT_TvOK {p : Prog} (hP : ProgT p) {cx c' : Cx} {x : String} {op : Op}
     (h : OpT p cx x op c') (hv : TvOK cx) : TvOK c' := by
   cases h with
@@ -1241,6 +1246,7 @@ theorem OpT_TvOK {p : Prog} (hP : ProgT p) {cx c' : Cx} {x : String} {op : Op}
       exact (bind_TvOK hb (push_TvOK x (push_TvOK (x ++ "_d") hv)) (by simp [tb]) (by simp [mg])).1
   | nameI _ hb => exact (bind_TvOK hb (push_TvOK x hv) (by simp [tb]) (by simp [mg])).1
   | spawn hu _ _ _ _ _ _ _ _ _ _ _ _ _ _ hb => exact (bind_TvOK hb (use_TvOK hu hv).1 (by simp [tb]) (by simp [mg])).1
+  | ext hu _ hb => exact (bind_TvOK hb (use_TvOK hu hv).1 (extSig_tb _ _) (extSig_mg _)).1
   | xchgAt hp hbuf _ _ _ _ hu _ hb =>
       have hu' := tb_bufOf (peek_tb hv hp) hbuf
       obtain ⟨h1, -, hk⟩ := use_TvOK hu hv

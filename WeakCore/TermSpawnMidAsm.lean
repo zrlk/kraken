@@ -32,7 +32,10 @@ theorem sysInvN_spawnMid {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : R
     -- the step's shape (the `spawnPar`/`spawnKid`, `TermSpawnMidBridge`)
     (hpar : par.vs = (fenceS (stOf c.mem c.pairs th) .sy).vs ∧ par.promises = [] ∧ par.nalloc = th.nalloc ∧
       par.undefs = th.undefs)
-    (hPenv : ∃ (x : String) (n : Nat), par.env = (x, .int, [cst (.num n)]) :: th.env ∧ par.stack = th.stack)
+    (hPenv : ∃ (x : String) (w0 : Word), par.env = (x, .tid, [w0]) :: th.env ∧ par.stack = th.stack ∧
+      ∀ w ∈ TermPtrRts.pubWords .tid [w0], ∀ l, TermPtrRts.Names l w → Eg.pfr l ≠ none ∨ Eg.box l ≠ none)
+    -- (E2) the parent keeps its box, the kid's is published (`TermBox`)
+    (hTBp : TidBox Eg par) (hTBk : TidBox Eg kid)
     (hK : KidShape par kid f ts t ws)
     -- the typing rule's content (OpT.spawn; the argument at the bound type `t := T`)
     (hKE : KidEntryOK p t f ts)
@@ -74,8 +77,8 @@ theorem sysInvN_spawnMid {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : R
   have hLbl : k.storeDepRts = true →
       TermPtrRts.ThLbl (EgK Eg c) par ∧ TermPtrRts.ThLbl (EgK Eg c) kid := by
     intro hk
-    obtain ⟨x, n, he, hs⟩ := hPenv
-    refine ⟨thLbl_par (hN.ptrGL hk).2.1 hth he hs, ?_⟩
+    obtain ⟨x, w0, he, hs, hw0⟩ := hPenv
+    refine ⟨thLbl_par (hN.ptrGL hk).2.1 hth he hs hw0, ?_⟩
     obtain ⟨S, hRE, hE, hM, hP, hS, hC⟩ := hN.thr i th hth
     obtain ⟨hvr, hlay⟩ := hArg S ⟨hRE, hE, hM, hP, hS, hC⟩
     have hSL : SeenLE (Cut Eg i S) par.vs.vRelSt := by
@@ -150,7 +153,13 @@ theorem sysInvN_spawnMid {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : R
     plantIdx := fun hk => plantIdx_spawnT hOL hth hnp hpp hkp (hN.plantIdx hk)
     cfgCoh := cfgCoh_spawnT hth hv hK hN.cfgCoh
     stoW := eSw
-    freshU := TermFreshU.freshU_spawnT hth hpp' hkp hFU }, TermSpawnRunX.ownLive_spawnT hOL, TermSpawnRunX.obsAll_spawnT hObs⟩
+    freshU := TermFreshU.freshU_spawnT hth hpp' hkp hFU
+    tidBox := by
+      intro j tj hj
+      rcases spawnT_get_cases hi hj with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ | ⟨-, -, hj'⟩
+      · exact hTBp
+      · exact hTBk
+      · exact hN.tidBox j tj hj' }, TermSpawnRunX.ownLive_spawnT hOL, TermSpawnRunX.obsAll_spawnT hObs⟩
 
 end TermSpawnMid
 

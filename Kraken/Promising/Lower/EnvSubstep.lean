@@ -35,6 +35,7 @@ theorem Effects.AllEnv.substep {E : SharedEnv} {st : (a : SharedAccess) → E.St
   induction ef with
   | done a => exact fun g h => h
   | unimplemented => exact fun _ h => h
+  | syscall => exact fun _ h => h
   | unaligned_sp => exact fun _ h => h
   | nonmem_load dmem addr w ret ih => exact fun g h => ⟨h.1, fun v g' h' => ih _ _ g' (h.2 v g' (hst _ _ _ _ h'))⟩
   | nonmem_store dmem addr v ret ih => exact fun g h => ⟨h.1, fun b g' h' => ih _ g' (h.2 b g' (hst _ _ _ _ h'))⟩

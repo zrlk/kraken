@@ -113,9 +113,11 @@ empty stacks** (in particular every `TermInit.InitShape` configuration; there `i
 `InitOK` directly, unchanged). -/
 theorem initOK_of_old {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {MintOK : Res → Prop}
     {c0 : Cfg} (hst : ∀ (i : Nat) (th : TTh), c0.ths[i]? = some th → th.stack = []) (hn : c0.n ≤ c0.ths.size)
-    (h : InitOKOld p k arch Init MintOK c0) : InitOK p k arch Init MintOK c0 := by
-  obtain ⟨⟨Eg, Tot, HP, HS, cr, db, hW, hrest⟩, hnp, hcoh⟩ := h
-  exact ⟨⟨Eg, Tot, HP, HS, cr, db, sysInvW_of_old hst hn hW, hrest⟩, hnp, hcoh⟩
+    (h : InitOKOld p k arch Init MintOK c0) (htd : ∀ (i : Nat) (th : TTh), c0.ths[i]? = some th → th.tidLbl = none) : InitOK p k arch Init MintOK c0 := by
+  obtain ⟨⟨Eg, Tot, HP, HS, cr, db, hW, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15⟩,
+    hnp, hcoh⟩ := h
+  exact ⟨⟨Eg, Tot, HP, HS, cr, db, sysInvW_of_old hst hn hW, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12,
+    h13, h14, h15, htd⟩, hnp, hcoh⟩
 
 end TermMain
 

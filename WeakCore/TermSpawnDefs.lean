@@ -25,10 +25,11 @@ def StartOK (p : Prog) (k : Promises.Knobs) (arch : Arch) (Init : Res) (MintOK :
 theorem startOK_of_initOK {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {MintOK : Res → Prop}
     {c0 : Cfg} (h0 : InitOK p k arch Init MintOK c0) : StartOK p k arch Init MintOK c0 := by
   have hpw := pwf0_of_initOK h0
-  obtain ⟨⟨Eg0, T0, H0, S0, cr0, db0, hw0, hr0, hof0, hu0, hoc0, hbx0, hzw0, hko0, hop0, hni0, hsw0, hlb0, hly0, hmem0, hvi, hvl0⟩, hn0, hcc⟩ := h0
+  obtain ⟨⟨Eg0, T0, H0, S0, cr0, db0, hw0, hr0, hof0, hu0, hoc0, hbx0, hzw0, hko0, hop0, hni0, hsw0, hlb0, hly0, hmem0, hvi, hvl0, htd0⟩, hn0, hcc⟩ := h0
   refine ⟨⟨_, _, _, _, _, _, TermMain.SysInvW.toN hw0 hn0 hr0 hof0 hu0 hoc0 hbx0 hko0 hop0 hni0 (TermUndefLow.undefLow_nil hmem0)
     (TermZwIni.zwIni_none hzw0) (TermPredHold.predHold_none hzw0) hvl0
-      (fun t m cl hm _ => by rw [hmem0] at hm; simp at hm) hmem0 hzw0 hlb0 hly0 hcc hsw0⟩, hn0, hvi, hpw⟩
+      (fun t m cl hm _ => by rw [hmem0] at hm; simp at hm) hmem0 hzw0 hlb0 hly0 hcc hsw0
+      (fun i th h l hl => by rw [htd0 i th h] at hl; cases hl)⟩, hn0, hvi, hpw⟩
 
 theorem toObligationsS {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {c0 : Cfg}
     (O : ObligationsF p k arch Init (fun _ => True) c0) (hk : k.storeDepRts = true)

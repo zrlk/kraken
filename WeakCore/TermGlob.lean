@@ -90,6 +90,7 @@ theorem solo_trans {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c c1
   | refl => exact h2
   | thread hs _ ih => exact .thread hs (ih h2)
   | prom a v w hw _ ih => exact .prom a v w hw (ih h2)
+  | ext hs _ ih => exact .ext hs (ih h2)
 
 /-- Every configuration on a run into a certified configuration is certified. -/
 theorem certified_back {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c c1 : Cfg}

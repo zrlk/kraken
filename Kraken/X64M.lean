@@ -346,6 +346,17 @@ def Operation.interpM {w} (i : Operation w) (p : Std.Rco Int64) : MachineM Unit 
   | .mul .. | .imul1 .. | .imul .. | .test .. | .and .. | .or .. | .xor ..
   | .shl .. | .shr .. | .sar .. | .shld .. | .shrd ..
   | .rol .. | .ror .. | .rcl .. | .rcr .. | .tzcnt .. => throw .undefinedFlags
+  -- The system call halts (`MachineData.pendingSyscall`); `%fs:` moves are not
+  -- re-encoded straightline yet. Both throw, so a run through them claims nothing.
+  | .syscall => throw (.unimplemented pendingSyscallMsg)
+  | .movfs .. => throw (.unimplemented "%fs: moves not modeled straightline")
+  | .ud2 => throw (.unimplemented ud2Msg)
+  -- `div`/`idiv` leave every status flag undefined; `cqo` and `popcnt` are not
+  -- re-encoded straightline yet.
+  | .div .. | .idiv .. => throw .undefinedFlags
+  | .cqo => throw (.unimplemented "cqo not modeled straightline")
+  | .popcnt .. => throw (.unimplemented "popcnt not modeled straightline")
+  | .cmpfs .. => throw (.unimplemented "%fs: compares not modeled straightline")
 
 end InterpM
 

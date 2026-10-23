@@ -1,8 +1,8 @@
 import WeakCore.TermC1Inv
 
-/-! # TermC1Lem: region c1, small facts about the new definitions
+/-! # TermC1Lem: region c1 (D-1), small facts about the new definitions (G2)
 
-* `noMonoSaw_not_tornLic`: no `monoSaw` entry ⇒ no `TornLic`, at every region/word/state.
+* `noMonoSaw_not_tornLic` (d6.5): no `monoSaw` entry ⇒ no `TornLic`, at every region/word/state.
 * `rgnOpOK1_load` / `rgnOpOK1_store`: what an admitted region-cell load/store witnesses; the store's
   `HoldsSealed` is the `storeCap → storeRgn` reroute premise (`holdsSealed_sound`, CoreTyping L1125).
 * `noRes_of_not_affine` (g1): a copyable type carries no resource (`TermCut.noRes`), so region stores
@@ -14,7 +14,7 @@ namespace TermC1
 
 open CoreLang CoreTerm CoreTyping TermCut
 
-/-- Without an ordered observation of a monotone word in scope, no torn read is licensed. -/
+/-- (d6.5) Without an ordered observation of a monotone word in scope, no torn read is licensed. -/
 theorem noMonoSaw_not_tornLic {cx : Cx} (h : cx.saws.any (monoSaw cx) = false) (r : Idx) (w : String)
     (s : Idx) : ¬ TornLic cx r w s := by
   intro ⟨hmem, t, b, r', P, hf, hw, _, hm, _⟩
@@ -22,7 +22,7 @@ theorem noMonoSaw_not_tornLic {cx : Cx} (h : cx.saws.any (monoSaw cx) = false) (
   apply hx
   simp only [monoSaw, hf, hw, hm, Bool.true_and]
 
-/-- (i1) An admitted region-cell load: a tok/share witness and no licensed torn read. -/
+/-- (i1, d6.5) An admitted region-cell load: a tok/share witness and no licensed torn read. -/
 theorem rgnOpOK1_load {cx : Cx} {acq : Bool} {a : At} {r : Idx} {u : Ty}
     (h : rgnOpOK1 cx (.load acq a) = true) (hc : rgnCellAt cx a = some (r, u)) :
     (cx.hasTok r = true ∨ cx.hasShare r = true) ∧ ∀ q w s, ¬ TornLic cx q w s := by
@@ -80,7 +80,7 @@ theorem noRes_of_affine_false {ke : KEnv} {t : Ty} (h : affine ke t = false) : n
 /-- (g1) A `rgnPay` payload carries no resource. -/
 theorem noRes_of_rgnPay {ke : KEnv} {u : Ty} (h : rgnPay ke u = true) : noRes u = true := by
   simp only [rgnPay, Bool.and_eq_true, Bool.not_eq_true'] at h
-  exact noRes_of_affine_false h.1.2
+  exact noRes_of_affine_false h.2
 
 /-- On a `noOwnIn` cell type, `adapt r` is the identity. -/
 theorem adapt_noOwn : ∀ (u : Ty) {ke : KEnv} {r : Idx}, Ty.noOwnIn ke u = true → adapt r u = u := by

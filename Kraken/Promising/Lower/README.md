@@ -525,6 +525,50 @@ From the one-spec-per-fragment layer, the non-leaf call rules and the pilots:
 - **Smaller items.** The AArch64 kit starts at `addrOf 0` of a whole text (no
   runner images); per-program spec bodies duplicated by fragment specs
   (`Alloc.push_spec`, `MsqPilot.enq_spec`, `PilotX.push_specX`, …) could go.
+- **16-byte units on AArch64: remaining work.** What exists: the event rows
+  on `isaLSE2` for a 16-aligned `ldp`/`stp`/`casp` on a declared 16-byte
+  location (`exec_ldp_lse2`, `exec_casp16`, [EventsA64](EventsA64.lean);
+  `instrSemInf_ldp_lse2`, `instrSemInf_stp_lse2`, `instrSemInf_casp16`,
+  [EventsA64Pair](EventsA64Pair.lean)), the predicate
+  `Program.WCLowerable16` ([Lowerable16](Lowerable16.lean): clause 1
+  dropped, `CASP` and the pair exclusives still out), the FEAT_LSE2 litmus
+  tests of the lowering's pair forms (`corpus/lowering/aarch64/lse2/`), and
+  the one-thread route (the FEAT_LSE2 environment logic and
+  `env_link_halt_lse2`; example `pairRelAcq_promising`,
+  `Kraken/AArch64/Examples/EnvLSE2Lowered.lean`). Not built, about
+  2300–3100 lines in all, with no existing statement changing (all parallel
+  additions):
+  1. *The lowering kit natively on `isaLSE2` with declared locations.* The
+     kit is proved on `isa` with `decls = {}` (`LowerCore.StartC.decls`, the
+     `QA64` invariants of `SLR/EnvG/A64Link.lean`) and moved to `isaLSE2`
+     only for pair-free texts (`hfree`, `NoLSE2Pairs`). With `decls = {}`
+     even `isaLSE2` splits a pair into two 8-byte accesses, and the
+     declarations bridge (`SLR/EnvG/A64DeclsBridge.lean`) requires that no
+     pair merges, so an atomic 16-byte unit needs a new link family: an LSE2
+     copy of `exec_treeJLive_of_instrStepEnv'` for `instrStepEnvLSE2`, LSE2
+     versions of the `A64Link`/`A64LinkR`/`A64RmwFail` links with
+     `decls = declsOf L`, `DirsPhase1F` for `interpLSE2`, and
+     `SharedEnv.LSE2Disc` for `EnvGCAdj` and `relPure` (so existing triples
+     lift through `env_lse2_lift_spec`). The ISA-generic layers
+     (`RuleLink`, `theorem1FChain`, `ISA.LawfulState isaLSE2`) carry over.
+     The x64 16-byte route (`SLR/EnvG/X64VecDecls*.lean`) is the model.
+     About 1100–1400 lines.
+  2. *Kit assembly:* `LowerCore16`/`LowerThread16` (`isaLSE2`, `declsOf L`)
+     and `lower16_promising` (frameless) and `_vals`, plus one pilot
+     instance. About 400–600 lines.
+  3. *`caspal`:* `Effects.AllEnvLSE2` covers only `ldp`/`stp`; a `CASP` is
+     still `caspTree` there. A new judgment with its soundness and one-thread
+     link, a `vcgen` spec for `caspal` at a 16-byte location, the failing
+     compare through the failing-RMW route, and a `WCLowerable16` clause for
+     `caspal` (`RmwKind.acqRel` only, as clause 2). About 700–1000 lines.
+  4. The (A4) item of `LSE2Transfer.lean` (pairs that do not merge) is not
+     on this path: an atomic unit is exactly the merging case, where `isa`
+     and `isaLSE2` disagree.
+
+  Acquire and release pairs: Kraken has no `LDIAPP`/`STILP`; the lowering is
+  `ldp; dmb ishld` and `dmb ish; stp`. On the WeakCore side, B4 (an LSE2 pair
+  store cannot fulfil a promise) and B5 (no pair promise) above still stand
+  between the two models.
 
 ## 10. File index
 

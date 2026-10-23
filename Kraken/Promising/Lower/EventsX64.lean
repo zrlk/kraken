@@ -33,7 +33,7 @@ on the cell is `CellAt st d sz`. All rows are 64-bit (`Instr.regular .W64
   **two** 8-byte events, lower address first, both pieces unmapped and within
   one cache line.
 - **No-event rows** (`.done`): `exec_mov_rr`, `exec_mov_ri`, `exec_lea`,
-  `exec_add_rr`, `exec_cmp_rr`, `exec_jmp_label`, `exec_jcc`, `exec_jmp_reg`.
+  `exec_add_rr` (`exec_add_flags` with the flags, `addFlags_cf` the carry), `exec_cmp_rr`, `exec_jmp_label`, `exec_jcc`, `exec_jmp_reg`.
 - **Calls** (`call`, `ret` touch the stack, `X64/Semantics.lean` `.call`/`.ret`):
   `exec_call_label`, `exec_call_reg`, `exec_ret` with the stack slot mapped in
   `dmem` (`[rsp-8, rsp)` for `call`, `[rsp, rsp+8)` for `ret`): **no event**.
@@ -110,6 +110,18 @@ abbrev jumpTo (st : State) (s' : MachineData) (pc : Int64) : State := { st with 
 the cell. -/
 abbrev eaddr (st : State) (sz : Nat) (m : AddrExpr) : BitVec 64 :=
   (@AddrExpr.interp (_root_.Executable.labels st.exe) ⟨.W64⟩ m st.st.1.regs (rangeOf st sz)).zeroExtend 64
+
+/-- The effective address of `o(%r)`: the base register plus the
+displacement. -/
+theorem eaddr_reg_disp (st : State) (sz : Nat) (r : Reg64) (o : Int64) :
+    eaddr st sz { base := some (.reg r), idx := none, disp := .int64 o } =
+      BitVec.ofInt 64 ((st.st.1.regs.get64 r).toInt + o.toInt) := by
+  simp [eaddr, AddrExpr.interp, ConstExpr.interp, BitVec.toAddressSize, BitVec.take]
+
+/-- The effective address of `0(%r)` (`(%r)`): the base register. -/
+theorem eaddr_reg (st : State) (sz : Nat) (r : Reg64) :
+    eaddr st sz { base := some (.reg r), idx := none, disp := .int64 0 } = st.st.1.regs.get64 r := by
+  simp [eaddr, AddrExpr.interp, ConstExpr.interp, BitVec.toAddressSize, BitVec.take]
 
 /-- A 64-bit, 64-bit-addressed instruction. -/
 abbrev op64 (o : Operation .W64) : Directive := .instr (.regular .W64 .W64 o)
@@ -383,6 +395,32 @@ theorem exec_add_rr {d s : Reg .W64} (hc : CellAt st (op64 (.add (.reg d) (.reg 
     ∃ fl, isa.exec st = some (.done (after st sz
       { st.st.1 with regs := st.st.1.regs.set d (st.st.1.regs.get s + st.st.1.regs.get d), status := fl })) :=
   ⟨_, by cell hc []⟩
+
+/-- The flags `add` sets for the 64-bit sum of `a` (source) and `b`
+(destination). -/
+def addFlags (a b : BitVec 64) : StatusFlags :=
+  .from_result (a + b) {
+    cf := (a + b).unsigned != a.unsigned + b.unsigned,
+    af := ((a + b).take 4).unsigned != (a.take 4).unsigned + (b.take 4).unsigned,
+    of := (a + b).signed != a.signed + b.signed }
+
+/-- `add`'s carry: the unsigned sum does not fit in 64 bits. -/
+theorem addFlags_cf (a b : BitVec 64) : (addFlags a b).cf = decide (2 ^ 64 ≤ a.toNat + b.toNat) := by
+  simp [addFlags, StatusFlags.from_result, BitVec.unsigned, BitVec.toNat_add]
+  have ha := a.isLt
+  have hb := b.isLt
+  rw [Bool.eq_iff_iff]
+  simp only [bne_iff_ne, ne_eq, decide_eq_true_eq]
+  omega
+
+/-- **`add r64, r64'`** with its flags (`exec_add_rr` leaves them
+existential): no event; `d := s + d`, the flags `addFlags s d`. -/
+theorem exec_add_flags {d s : Reg .W64} (hc : CellAt st (op64 (.add (.reg d) (.reg s))) sz) :
+    isa.exec st = some (.done (after st sz
+      { st.st.1 with
+        regs := st.st.1.regs.set d (st.st.1.regs.get s + st.st.1.regs.get d)
+        status := addFlags (st.st.1.regs.get s) (st.st.1.regs.get d) })) := by
+  cell hc [addFlags]
 
 /-- **`cmp r64, r64'`**: no event; only the flags change. -/
 theorem exec_cmp_rr {a b : Reg .W64} (hc : CellAt st (op64 (.cmp (.reg a) (.reg b))) sz) :

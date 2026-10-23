@@ -29,7 +29,7 @@ theorem noOR_of_aff : ∀ (T : Ty) (ke : KEnv), Ty.affineIn ke T = false → rgn
       simp only [Ty.affineIn, rgnFree, noOR] at h1 h2 ⊢; exact noOR_of_aff t ke h1 h2
   | .refine t _, ke, h1, h2 => by
       simp only [Ty.affineIn, rgnFree, noOR] at h1 h2 ⊢; exact noOR_of_aff t ke h1 h2
-  | .intS _, _, _, _ | .int, _, _, _ | .fix _ _, _, _, _ | .lanes _ _, _, _, _ | .unit, _, _, _
+  | .intS _, _, _, _ | .int, _, _, _ | .tid, _, _, _ | .fix _ _, _, _, _ | .lanes _ _, _, _, _ | .unit, _, _, _
   | .void, _, _, _ | .share _, _, _, _ | .cap _ _, _, _, _ | .word _ _, _, _, _ | .tok _ _, _, _, _
   | .word2 _ _, _, _, _ | .tok2 _ _ _ _, _, _, _ | .epair _ _, _, _, _ | .tokE _ _ _, _, _, _
   | .tvar _, _, _, _ | .code _ _, _, _, _ => by simp [noOR]

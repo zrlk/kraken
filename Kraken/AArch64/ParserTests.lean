@@ -2920,4 +2920,76 @@ section error_reporting
 
 end error_reporting
 
+-- ============================================================================
+-- System call and thread pointer (SVC, MRS/MSR TPIDR_EL0)
+-- ============================================================================
+
+section syscall
+
+/-- info: [Directive.instr { operation_size := RegWidth.W64, operation := Operation.SVC 0 }] : List Directive -/
+#guard_msgs in
+#check parseAArch64("svc #0")
+
+/-- info: [Directive.instr { operation_size := RegWidth.W64, operation := Operation.SVC 65535 }] : List Directive -/
+#guard_msgs in
+#check parseAArch64("SVC 0xffff")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W64,
+      operation := Operation.MRS (↑↑XReg.X1 RegWidth.W64) SysReg.TPIDR_EL0 }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("mrs x1, tpidr_el0")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W64,
+      operation := Operation.MRS (↑↑XReg.X30 RegWidth.W64) SysReg.TPIDR_EL0 }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("MRS X30, TPIDR_EL0")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W64,
+      operation := Operation.MRS (↑XRegOrXzr.XZR RegWidth.W64) SysReg.TPIDR_EL0 }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("mrs xzr, s3_3_c13_c0_2")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W64,
+      operation := Operation.MSR SysReg.TPIDR_EL0 (↑↑XReg.X2 RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("msr tpidr_el0, x2")
+
+/--
+info: [Directive.instr
+    { operation_size := RegWidth.W64,
+      operation := Operation.MSR SysReg.TPIDR_EL0 (↑XRegOrXzr.XZR RegWidth.W64) }] : List Directive
+-/
+#guard_msgs in
+#check parseAArch64("msr TPIDR_EL0, xzr")
+
+/-- error: line 1: svc immediate 65536 out of range [0, 65535] -/
+#guard_msgs in
+#check parseAArch64("svc #65536")
+
+/-- error: line 1: expected w64 register, got w32 -/
+#guard_msgs in
+#check parseAArch64("mrs w1, tpidr_el0")
+
+/-- error: line 1: unsupported system register: tpidr_el1 -/
+#guard_msgs in
+#check parseAArch64("msr tpidr_el1, x1")
+
+/-- error: line 1: unknown register or xzr: sp -/
+#guard_msgs in
+#check parseAArch64("mrs sp, tpidr_el0")
+
+end syscall
+
 end Tests

@@ -97,6 +97,7 @@ partial def collect (e : Effects) (events : List String) : List Outcome :=
   match e with
   | .done (s, pc) => [{ st := s, pc, events := events.reverse }]
   | .unimplemented msg => [{ st := {}, pc := 0, events := (s!"unimplemented {msg}" :: events).reverse }]
+  | .syscall .. => [{ st := {}, pc := 0, events := (s!"unimplemented {pendingSyscallMsg}" :: events).reverse }]
   | .gp_unaligned addr w => [{ st := {}, pc := 0, events := (s!"gp_unaligned {addr.toNat} {w}" :: events).reverse }]
   | .nonmem_load dmem addr w ret =>
     collect (ret (unmappedVal addr w) dmem) (s!"load {addr.toNat} {w}" :: events)
@@ -334,7 +335,16 @@ def ops : List Op := [
   x (.cmpxchg true (mem (m .rdi)) .bl), x (.cmpxchg false (R .cx) .bx), x (.cmpxchg false (R .al) .ah),
   x (.cmpxchg false (R .rax) .rbx),
   x (.mfence (w := .W64)), x (.lfence (w := .W64)), x (.sfence (w := .W64)),
-  x (.movnti (m .rdi) .rax), x (.movnti (mi .rdi .rcx .W32) .ebx), x (.movnti (m .rax) .eax)]
+  x (.movnti (m .rdi) .rax), x (.movnti (mi .rdi .rcx .W32) .ebx), x (.movnti (m .rax) .eax),
+  -- `%fs:` moves (`syscall` is in `haltOps`).
+  x (.movfs (R .rax) (OM (m .rdi))), x (.movfs (R .eax) (OM (mi .rdi .rcx .W32 8))), x (.movfs (R .rax) (OM mabs)),
+  x (.movfs (mem (m .rdi)) (OR .rax)), x (.movfs (w := .W64) (mem (m .rdi 4)) (I 7)), x (.movfs (R .rax) (OR .rbx)),
+  -- `%fs:` compares.
+  x (.cmpfs (R .rax) (OM (m .rdi))), x (.cmpfs (R .eax) (OM (mi .rdi .rcx .W32 8))), x (.cmpfs (R .rax) (OM mabs)),
+  x (.cmpfs (mem (m .rdi)) (OR .rax)), x (.cmpfs (w := .W64) (mem (m .rdi 4)) (I 7)), x (.cmpfs (R .rax) (OR .rbx)),
+  -- Sign extension and population count (`div`/`idiv` are in `divOps`).
+  x (.cqo (w := .W64)), x (.cqo (w := .W32)), x (.cqo (w := .W16)),
+  x (.popcnt .rax (R .rbx)), x (.popcnt .eax (mem (m .rdi))), x (.popcnt .ax (R .bx)), x (.popcnt .rcx (R .rcx))]
 
 /-! ### Vector operations
 
@@ -403,6 +413,43 @@ def cas16Equal (lock : Bool) (s : MachineData) : List Outcome :=
   let acc := s.regs.get64 .rdx ++ s.regs.get64 .rax
   runAvx (.cmpxchg16b (w := .W128) lock (m .rsp)) { s with dmem := Mem.storeInt s.dmem a 16 acc.toInt }
 
+/-- The division operations, each with whether it is signed. A divide error
+(#DE) is a fault, so they run from states where none occurs: `divPrep` first
+sets the high half of the dividend from `rax` (zero for `div`, the sign of
+`rax` for `idiv`; at `W8`, `ah` from `al`), a register the operation reads and
+writes, so the comparison with the unprepared state stays exact. The divisors
+below are nonzero in every state drawn. -/
+def divOps : List (Op × Bool) :=
+  [true, false].flatMap fun signed =>
+    let mk {w} (src : RegOrMem w) : Op := x (if signed then .idiv src else .div src)
+    [mk (R .rcx), mk (w := .W64) (mem (m .rdi)), mk (R .rax), mk (R .ecx), mk (w := .W32) (mem (mi .rdi .rcx .W32 8)),
+      mk (R .cx), mk (R .cl), mk (w := .W8) (mem (m .rsi))].map (·, signed)
+
+def divPrep (w : Width) (signed : Bool) (s : MachineData) : MachineData :=
+  if w == .W8 then
+    let al : BitVec 8 := s.regs.get (.low .rax .W8)
+    s.setReg (.low .rax .W16) (if signed then al.signExtend 16 else al.zeroExtend 16)
+  else
+    let a := s.regs.get (.low .rax w)
+    s.setReg (.low .rdx w) (if signed && a.msb then BitVec.allOnes _ else 0)
+
+/-- The system-call operations and `ud2`: they halt with the pending-system-call
+status (`MachineData.pendingSyscall`), or fault (`ud2Msg`), before any effect,
+so the harness above, which compares final states, does not apply; instead
+every outcome is that halt and the deps are empty. -/
+def haltOps : List Op := [x (.syscall (w := .W64)), x (.syscall (w := .W32)), x (.ud2 (w := .W64))]
+
+/-- info: [] -/
+#guard_msgs in
+#eval haltOps.flatMap fun ⟨_, op⟩ =>
+  let name := (ctorName op).toString
+  let outs := run op (baseline {})
+  (if outs.length == 1 && outs.all (fun o => o.events.length == 1 &&
+      o.events.all fun e => e.startsWith "unimplemented pending system call" ||
+        e == "unimplemented " ++ ud2Msg) then [] else
+    [s!"{name}: outcomes {outs.map (·.events)}"]) ++
+  (if (readSet op.deps).isEmpty && (writeSet op.deps).isEmpty then [] else [s!"{name}: non-empty deps"])
+
 /-! ## Results -/
 
 /-- All violations over all operations, deduplicated and sorted. -/
@@ -411,6 +458,10 @@ def violations : List String :=
   let (mem, g) := initMem g
   let (v, g) := ops.foldl (init := (([] : List String), g)) fun (acc, g) (⟨_, op⟩ : Op) =>
     let (v, g) := checkOpWith (ctorName op).toString op op.deps mem g
+    (acc ++ v, g)
+  let (v, g) := divOps.foldl (init := (v, g)) fun (acc, g) ((⟨w, op⟩, signed) : Op × Bool) =>
+    let (v, g) := checkWith (ctorName op).toString (fun s => run op (divPrep w signed s)) op.deps mem g
+      (perturbed := gprReadIds)
     (acc ++ v, g)
   let (v, g) := avxOps.foldl (init := (v, g)) fun (acc, g) (⟨_, op⟩ : AvxOp) =>
     let (v, g) := checkWith (avxCtorName op).toString (runAvx op) op.deps mem g
@@ -461,7 +512,8 @@ open Lean in
   let env ← getEnv
   let some (.inductInfo info) := env.find? ``Operation | throwError "`Operation` not found"
   let some (.inductInfo avxInfo) := env.find? ``AvxOperation | throwError "`AvxOperation` not found"
-  let covered := ops.map (fun ⟨_, op⟩ => ctorName op) ++ avxOps.map (fun ⟨_, op⟩ => avxCtorName op)
+  let covered := (ops ++ haltOps ++ divOps.map (·.1)).map (fun ⟨_, op⟩ => ctorName op) ++
+    avxOps.map (fun ⟨_, op⟩ => avxCtorName op)
   let missing := (info.ctors ++ avxInfo.ctors).filter fun c => !covered.contains c
   logInfo m!"constructors not covered: {missing}"
 

@@ -1,0 +1,18 @@
+AArch64 MPcaspdmbldstp
+{
+uint64_t x[2];
+uint64_t y[2];
+0:X14=x; 0:X15=y;
+1:X14=y; 1:X15=x;
+}
+ P0                       | P1              ;
+ MOV X2,#0                | LDP X6,X7,[X14] ;
+ MOV X3,#0                | DMB SY          ;
+ MOV X12,#1               | LDR W5,[X15]    ;
+ MOV X13,#1               |                 ;
+ CASP X2,X3,X12,X13,[X14] |                 ;
+ DMB LD                   |                 ;
+ MOV X12,#1               |                 ;
+ MOV X13,#1               |                 ;
+ STP X12,X13,[X15]        |                 ;
+exists (1:X6=1 /\ 1:X5=0)

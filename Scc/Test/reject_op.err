@@ -1,0 +1,1 @@
+reject_op.w:6:3: error: a fetch-op (`fetch`) is not in the accepted fragment (in 'main', binding 'old')

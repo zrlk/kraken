@@ -1,0 +1,2 @@
+TermRun.exitCode : Nat → Nat
+  := fun v => v % 256

@@ -28,6 +28,7 @@ inductive SoloNP (p : Prog) (k : Promises.Knobs) (arch : Arch) (i : Nat) (r : Al
       SoloNP p k arch i r c' c'' → SoloNP p k arch i r c c''
   | prom {c c''} (a v w) : w < c.mem.size → SoloNP p k arch i r (promise c i a v w) c'' →
       SoloNP p k arch i r c c''
+  | ext {c c' c''} : c' ∈ extSteps c i → SoloNP p k arch i r c' c'' → SoloNP p k arch i r c c''
 
 theorem SoloNP.toSolo {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {r : AllocLabel} {c c' : Cfg}
     (h : SoloNP p k arch i r c c') : Solo p k arch i c c' := by
@@ -35,6 +36,7 @@ theorem SoloNP.toSolo {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {r
   | refl => exact .refl _
   | thread hs _ _ ih => exact .thread hs ih
   | prom a v w hw _ ih => exact .prom a v w hw ih
+  | ext hs _ ih => exact .ext hs ih
 
 /-- **The G-0 contract** for the planting promise `promise cP i a0 v0 w` with root `r`: before a
 `publish` naming `r`, every certified configuration of the run has `vWr ≤ w`. -/

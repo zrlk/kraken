@@ -1,17 +1,18 @@
 import WeakCore.TermScope
 import WeakCore.TermWrapDefs
 
-/-! # TermC1Defs: region c1, the language-side definitions under new names
+/-! # TermC1Defs: region c1, the language-side definitions under new names (G2)
 
 New definitions only, alongside the old ones; nothing here is used by any existing definition, premise
-or theorem.  When the change is adopted the old names are redirected to these and the
+or theorem.  When the new definitions replace the old ones, the old names are redirected to these and the
 parallel copies are deleted.
 
 * `drf1` (T1): `drf` with the region arms by plain recursion (`.ptr _ t`, `.ptrOpt _ t`, `.loc μ t`).
 * `opOK1`/`allOK1`/`ProgScopeOK1` (T2): `opOK`/`allOK`/`ProgScopeOK` with `drf1`, `.intoRgn` admitted
   (h2) and the `region` binder unrestricted (b1).
-* `capFree`, `rgnPay` (g1): a live region payload is coupled, copyable and capability-free.
-* `monoSaw`, `rgnCellAt`, `rgnOpOK1` (i1): region-cell loads only with a tok/share witness and no
+* `rgnPay` (g1): a live region payload is coupled and copyable.  Capabilities are not excluded: they
+  license no region-cell access (`VR .cap` is `True`, `VRR .cap` gives `R = 0`).
+* `monoSaw`, `rgnCellAt`, `rgnOpOK1` (i1, d6.5): region-cell loads only with a tok/share witness and no
   ordered observation of a monotone word in scope; stores only with the sealed token and a copyable
   cell type; `xchg`/`fetch` banned (and `cas` in `checkW1`).
 * `checkW1` (T3): `TermScope.checkW` (TermWrapDefs L32–246) copied with exactly four insertions
@@ -67,15 +68,8 @@ def allOK1 : Expr → Bool
 /-- (T2, c1) `ProgScopeOK` over `drf1`/`allOK1`. -/
 def ProgScopeOK1 (p : Prog) : Bool := p.all fun d => drf1 d.argTy && drf1 d.retTy && allOK1 d.body
 
-/-- (g1) No capability component (outside nothing: also under references). -/
-def capFree : Ty → Bool
-  | .cap _ _ => false
-  | .prod a b | .sum a b | .code a b => capFree a && capFree b
-  | .array _ t | .ptr _ t | .ptrOpt _ t | .loc _ t | .mu t | .tex _ t | .iall t | .iex t | .refine t _ => capFree t
-  | _ => true
-
-/-- (g1) A live region payload: coupled, copyable, capability-free. -/
-def rgnPay (ke : KEnv) (u : Ty) : Bool := Ty.coupledOKIn ke u && !affine ke u && capFree u
+/-- (g1) A live region payload: coupled, copyable. -/
+def rgnPay (ke : KEnv) (u : Ty) : Bool := Ty.coupledOKIn ke u && !affine ke u
 
 /-- The region and cell type of a region-cell reference (not a protocol word). -/
 def rgnCellAt (cx : Cx) (a : At) : Option (Idx × Ty) :=
@@ -83,7 +77,7 @@ def rgnCellAt (cx : Cx) (a : At) : Option (Idx × Ty) :=
   | .ok t => if (wordOf t).isNone then (match cellOf t with | some (.rgn r, u) => some (r, u) | _ => none) else none
   | .error _ => none
 
-/-- An ordered observation of a monotone protocol word: `TornLic`'s saws/find/wordOf/monotone
+/-- (d6.5) An ordered observation of a monotone protocol word: `TornLic`'s saws/find/wordOf/monotone
 conjuncts (CoreTyping L1186–89).  Its absence refutes `TornLic cx r w s` for every `r`, `w`, `s`
 (`TermC1.noMonoSaw_not_tornLic`). -/
 def monoSaw (cx : Cx) : String × Idx × Bool → Bool
@@ -93,7 +87,7 @@ def monoSaw (cx : Cx) : String × Idx × Bool → Bool
       | none => false
     | .error _ => false
 
-/-- (i1) Region-cell accesses, positive form: a load only with a tok/share witness and no
+/-- (i1, d6.5) Region-cell accesses, positive form: a load only with a tok/share witness and no
 `monoSaw`; a store only with the sealed token and a copyable cell type; `xchg`/`fetch` banned. -/
 def rgnOpOK1 (cx : Cx) : Op → Bool
   | .load _ a => match rgnCellAt cx a with
@@ -107,16 +101,16 @@ def rgnOpOK1 (cx : Cx) : Op → Bool
   | _ => true
 
 /-- (T3, c1) `TermScope.checkW` (TermWrapDefs L32–246, 34 self-references renamed) with four insertions, each marked `-- c1`.
-Parallel copy: deleted when the change is adopted, where `checkW` takes this text. -/
+Parallel copy: deleted when `checkW` takes this text. -/
 def checkW1 (p : Prog) (cx : Cx) : Expr → M Unit
   | .let_ x op e => do
       if !opArgOK op then throw "A1: a type argument or witness carries a key"
-      -- c1 (i1; h2/g1 at intoRgn)
+      -- c1 (i1, d6.5; h2/g1 at intoRgn)
       if !rgnOpOK1 cx op then throw "c1: region-cell access outside tok/share load or sealed-tok store"
       match op with
       | .intoRgn _ a0 =>
           match cx.peek a0 with
-          | .ok (.ptr .own u0) => if !rgnPay cx.ke u0 then throw "c1: intoRgn payload not coupled/copyable/cap-free"
+          | .ok (.ptr .own u0) => if !rgnPay cx.ke u0 then throw "c1: intoRgn payload not coupled/copyable"
           | .ok _ => throw "c1: intoRgn buffer form is outside c1"
           | .error _ => pure ()
       | _ => pure ()
@@ -159,7 +153,7 @@ def checkW1 (p : Prog) (cx : Cx) : Expr → M Unit
             throw "region: the cell type is not shareable (rows 16, 17): an own reference inside a region must be moved in with intoRgn"
           -- c1 (e1; g1 for a live binder)
           if !Ty.coupledOKIn cx.ke u then throw "c1 (e1): region payload not coupledOK"
-          if freeB pn e && !rgnPay cx.ke u then throw "c1: live region payload not copyable/cap-free"
+          if freeB pn e && !rgnPay cx.ke u then throw "c1: live region payload not copyable"
           let cx := cx.push rn
           let cx ← cx.bind pn (.ptr (.rgn (.var 0)) (u.shiftI 0))
           let cx ← cx.bind tn (.tok (.var 0) none)

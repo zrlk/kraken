@@ -64,6 +64,7 @@ CoreLang.Ty.sharedOKIn : CoreLang.KEnv → CoreLang.Ty → Bool
 CoreLang.Ty.substT : Nat → CoreLang.Ty → CoreLang.Ty → CoreLang.Ty
 CoreLang.Ty.sum : CoreLang.Ty → CoreLang.Ty → CoreLang.Ty
 CoreLang.Ty.tex : CoreLang.Kind → CoreLang.Ty → CoreLang.Ty
+CoreLang.Ty.tid : CoreLang.Ty
 CoreLang.Ty.tier : CoreLang.Ty → CoreLang.Tier
 CoreLang.Ty.tok : CoreLang.Idx → Option (CoreLang.Proto × CoreLang.Idx) → CoreLang.Ty
 CoreLang.Ty.tok2 : CoreLang.Idx → CoreLang.Proto2 → CoreLang.Idx → CoreLang.Idx → CoreLang.Ty
@@ -111,6 +112,7 @@ CoreLang.zeroableIn : CoreLang.IEnv → CoreLang.KEnv → CoreLang.Ty → Bool
         (CoreLang.zeroArmP (fun x => true) env ke a <|> CoreLang.zeroArmP (fun x => true) env ke b) == some true
       | CoreLang.Tier.boxed => false
     | σ.code τ => false
+    | CoreLang.Ty.tid => false
     | CoreLang.Ty.array i t => CoreLang.zeroableIn env ke t
     | CoreLang.Ty.ptr μ τ => false
     | CoreLang.Ty.ptrOpt μ τ => true
@@ -158,6 +160,8 @@ CoreTerm.Decl.argTy : CoreTerm.Decl → CoreLang.Ty
 CoreTerm.Decl.idx : CoreTerm.Decl → List String
 CoreTerm.Decl.retTy : CoreTerm.Decl → CoreLang.Ty
 CoreTerm.Decl.tparams : CoreTerm.Decl → List CoreLang.Kind
+CoreTerm.ExtName : Type
+CoreTerm.ExtName.sig : CoreTerm.ExtName → CoreLang.Ty × CoreLang.Ty
 CoreTerm.FCmp : Type
 CoreTerm.FOp : Type
 CoreTerm.FOp1 : Type
@@ -179,6 +183,7 @@ CoreTerm.Op.callc : CoreTerm.At → CoreTerm.At → CoreTerm.Op
 CoreTerm.Op.claim : CoreTerm.At → CoreTerm.At → CoreTerm.Op
 CoreTerm.Op.cvt : Bool → CoreLang.Wd → CoreTerm.At → CoreTerm.Op
 CoreTerm.Op.endBorrow : CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.ext : CoreTerm.ExtName → CoreTerm.At → CoreTerm.Op
 CoreTerm.Op.fcmp : CoreTerm.FCmp → CoreTerm.At → CoreTerm.At → CoreTerm.Op
 CoreTerm.Op.fence : CoreTerm.Fence → CoreTerm.Op
 CoreTerm.Op.fetch : CoreTerm.FetchOp → Bool → Bool → CoreTerm.At → CoreTerm.At → CoreTerm.Op
@@ -738,8 +743,11 @@ CoreTyping.OpT : CoreTerm.Prog → CoreTerm.Cx → String → CoreTerm.Op → Co
                             CoreTerm.tailCheck p { vars := [("a", T, true)], ret := rt } f [] (CoreTerm.At.var "a") ts =
                                 Except.ok () →
                               (TermClose.tb 0 rt && TermTv.mg rt && TermTv.noIallV rt) = true →
-                                c₁.bind x CoreLang.Ty.int = Except.ok c' →
+                                c₁.bind x CoreLang.Ty.tid = Except.ok c' →
                                   CoreTyping.OpT p cx x (CoreTerm.Op.spawn f a T ts) c'
+  | CoreTyping.OpT.ext : ∀ {p : CoreTerm.Prog} {cx c₁ c' : CoreTerm.Cx} {x : String} {n : CoreTerm.ExtName} {a : CoreTerm.At} {t : CoreLang.Ty},
+  cx.use a = Except.ok (t, c₁) →
+    CoreTyping.SubS c₁ t n.sig.fst → c₁.bind x n.sig.snd = Except.ok c' → CoreTyping.OpT p cx x (CoreTerm.Op.ext n a) c'
   | CoreTyping.OpT.borrow : ∀ {p : CoreTerm.Prog} {cx c₁ c' : CoreTerm.Cx} {x y : String} {c : CoreLang.Cap} {a : CoreTerm.At} {t t' : CoreLang.Ty}
   {r : CoreLang.Idx},
   CoreTerm.varOf a = Except.ok y →

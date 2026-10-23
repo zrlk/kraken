@@ -45,6 +45,7 @@ theorem Effects.AllEnv.toCAdj {A : Arch} {tid : Nat} {pl : Plan}
   induction ef with
   | done a => exact fun g h => h
   | unimplemented => exact fun _ h => h
+  | syscall => exact fun _ h => h
   | unaligned_sp => exact fun _ h => h
   | nonmem_load dmem addr w ret ih =>
     exact fun g h => ⟨envGC_ok_toCAdj h.1, fun v g' h' => ih _ _ g' (h.2 v g' (hs h'))⟩

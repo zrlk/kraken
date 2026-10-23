@@ -74,6 +74,7 @@ piece by piece, any other access at its width; on every branch. -/
 def _root_.Effects.DeclsAgree (ds : Decls) : Effects → Prop
   | .done _ => True
   | .unimplemented _ => True
+  | .syscall .. => True
   | .gp_unaligned _ _ => True
   | .nonmem_load _ addr w ret => ds.AgreesAt addr w.bytes ∧ ∀ v d, (ret v d).DeclsAgree ds
   | @Effects.nonmem_store _ addr w _ ret => ds.AgreesAt addr w.bytes ∧ ∀ d, (ret d).DeclsAgree ds
@@ -121,6 +122,7 @@ theorem toEv_eq_of_declsAgree {ds : Decls} : ∀ eff : Effects, eff.DeclsAgree d
   induction eff with
   | done _ => intro _; rfl
   | unimplemented _ => intro _; rfl
+  | syscall => intro _; rfl
   | gp_unaligned _ _ => intro _; rfl
   | nonmem_load dmem addr w ret ih =>
     intro h
@@ -205,6 +207,7 @@ theorem declsAgree_empty : ∀ eff : Effects, eff.DeclsAgree {} := by
   induction eff with
   | done _ => trivial
   | unimplemented _ => trivial
+  | syscall => trivial
   | gp_unaligned _ _ => trivial
   | nonmem_load _ _ _ _ ih => exact ⟨rfl, fun v d => ih v d⟩
   | nonmem_store _ _ _ _ ih => exact ⟨rfl, fun d => ih d⟩

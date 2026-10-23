@@ -1,0 +1,37 @@
+import Spike.Lib.LowerX64.Correct
+import Spike.Test.Cert.X64Hello1Cert
+
+/-!
+# The closed x86-64 compiler theorem does not reach `hello1`'s certificate
+
+`x64_scc_correctE_text_closed` takes a one-declaration program `[d]` that is
+`Accepted0` and whose output passes `placeOK`. `hello1.w`'s generated
+certificate (`Spike/Test/Cert/X64Hello1Cert.lean`) proves neither: its
+source has three declarations (`print`, `rodata`, `main`), it is outside
+`Accepted0` (`prog_not_accepted`), and `placeOK` of its output is `false`
+(`prog_not_placeOK`, A11: the setup block's tail has no `MainCode`). So the
+theorem is not applicable there; these checks keep that visible until the
+fragment grows.
+-/
+
+namespace Spike.Lib.LowerX64.Hello1Test
+
+/-- `hello1`'s source is not of the theorem's shape `[d]`. -/
+example : SccCertificate.prog_src.length = 3 := by decide +kernel
+
+/-- **No program of the theorem's shape is `hello1`'s source.** -/
+example : ∀ d : CoreTerm.Decl, SccCertificate.prog_src ≠ [d] := by
+  intro d h
+  have h3 : SccCertificate.prog_src.length = 3 := by decide +kernel
+  rw [h] at h3
+  simp at h3
+
+/-- **`Accepted0` fails** on `hello1`'s source. -/
+example : Scc.Lower.Accepted0 SccCertificate.prog_src ≠ true := by
+  rw [SccCertificate.prog_not_accepted]; decide
+
+/-- **`placeOK` fails** on `hello1`'s output at its configuration. -/
+example : Scc.Cert.PlaceOK.X64.placeOK SccCertificate.placeCfg SccCertificate.out ≠ true := by
+  rw [SccCertificate.prog_not_placeOK]; decide
+
+end Spike.Lib.LowerX64.Hello1Test

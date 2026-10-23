@@ -197,7 +197,7 @@ theorem solo_typedXH {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c 
       ∀ l o τ, (c1.mem.size ≤ τ ∨ (τ ∈ th1.promises ∧ ∃ m, c1.mem[τ]? = some m ∧ m.loc = ⟨l, o⟩)) → H l o τ := by
       exact fun _ _ _ _ _ _ _ _ _ => trivial) :
     InvAtXHZ Z p k arch i E0 n0 v0 pb c2 H := by
-  refine (run_inv (c1 := c2) (P := fun c0 => Solo p k arch i c c0 ∧ InvAtXHZ Z p k arch i E0 n0 v0 pb c0 H) ?_ ?_ h
+  refine (run_inv (c1 := c2) (P := fun c0 => Solo p k arch i c c0 ∧ InvAtXHZ Z p k arch i E0 n0 v0 pb c0 H) ?_ ?_ ?_ h
     (.refl _) ⟨.refl _, h0⟩).2
   · rintro c0 c0' ⟨hc0, th, E, hth, hx, hTE, hm, hSC, hbo, hfb, hfr, hB, hIL, hIH⟩ hs hrest
     have hc0' : Certified p k arch c0' i := certified_back hrest hc2
@@ -238,6 +238,10 @@ theorem solo_typedXH {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c 
     · exact frRunA_prom hth hfr
     · rw [(promise_inv (a := a) (v := v) (w := w) hth).2.2]
       exact HoldB_promSt hB (MemInv_promLt hm)
+  · rintro c0 c0' ⟨hc0, th, E, hth, hx, hTE, hm, hSC, hbo, hfb, hfr, hB, hIL, hIH⟩ hs _
+    obtain ⟨x1, a1, e1, evs, hterm, rfl⟩ := extSteps_thread hs hth
+    exact ⟨solo_trans hc0 (.ext hs (.refl _)), _, E, set_self hth, hx, TermTyped.ThInvE_emit hterm hTE,
+      by rw [gOf_ext hs]; exact hm, hSC, by rw [gOf_ext hs]; exact hbo, hfb, hfr, hB, hIL, hIH⟩
 
 /-- (S1b) `InvAtXHZ` with the run's publish provenance `PfrProvE` from the run start `st`. -/
 def InvAtXHP (Z : AllocLabel → Prop) (p : Prog) (k : Promises.Knobs) (arch : Arch) (i : Nat) (E0 : TEnv)
@@ -290,7 +294,7 @@ theorem solo_typedXHP {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c
       ∀ l o τ, (c1.mem.size ≤ τ ∨ (τ ∈ th1.promises ∧ ∃ m, c1.mem[τ]? = some m ∧ m.loc = ⟨l, o⟩)) → H l o τ := by
       exact fun _ _ _ _ _ _ _ _ _ => trivial) :
     InvAtXHP Z p k arch i E0 n0 v0 pb st c2 H := by
-  refine (run_inv (c1 := c2) (P := fun c0 => Solo p k arch i c c0 ∧ InvAtXHP Z p k arch i E0 n0 v0 pb st c0 H) ?_ ?_ h
+  refine (run_inv (c1 := c2) (P := fun c0 => Solo p k arch i c c0 ∧ InvAtXHP Z p k arch i E0 n0 v0 pb st c0 H) ?_ ?_ ?_ h
     (.refl _) ⟨.refl _, h0⟩).2
   · rintro c0 c0' ⟨hc0, th, E, hth, hx, hTE, hm, hSC, hbo, hfb, hfr, hB, hIL, hIH, hPV, hPO⟩ hs hrest
     have hc0' : Certified p k arch c0' i := certified_back hrest hc2
@@ -346,6 +350,11 @@ theorem solo_typedXHP {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c
     · exact frRunA_prom hth hfr
     · rw [(promise_inv (a := a) (v := v) (w := w) hth).2.2]
       exact HoldB_promSt hB (MemInv_promLt hm)
+  · rintro c0 c0' ⟨hc0, th, E, hth, hx, hTE, hm, hSC, hbo, hfb, hfr, hB, hIL, hIH, hPV, hPO⟩ hs _
+    obtain ⟨x1, a1, e1, evs, hterm, rfl⟩ := extSteps_thread hs hth
+    exact ⟨solo_trans hc0 (.ext hs (.refl _)), _, E, set_self hth, hx, TermTyped.ThInvE_emit hterm hTE,
+      by rw [gOf_ext hs]; exact hm, hSC, by rw [gOf_ext hs]; exact hbo, hfb, hfr, hB, hIL, hIH,
+      TermK5P.pfrProv_ext hPV hs, TermK5O.pfrProvO_ext hPO hs⟩
 
 
 theorem certified_promTypedXH {p : Prog} {k : Promises.Knobs} {arch : Arch} {c : Cfg} {i : Nat} {E0 : TEnv}

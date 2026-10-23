@@ -3,6 +3,7 @@ import WeakCore.TermSpawnMain
 import WeakCore.SpawnFinalX
 import WeakCore.SpawnArmZ
 import WeakCore.SpawnNoSpawn
+import WeakCore.ExtArmZ
 /-!
 # CheckPremises — freeze the MEANING of the finals' premises (mechanism sketch)
 
@@ -51,7 +52,12 @@ def langRoots : List Name :=
    -- (M0) the machine's label striping: the `cap` field, `Cfg.n`, `gOf`'s stride, `freshLabel`
    `TermRun.Cfg, `TermRun.Cfg.n, `TermRun.gOf, `TermRun.freshLabel,
    -- POR: the silent-step test's `spawn` arm
-   `TermRun.touchesMem]
+   `TermRun.touchesMem,
+   -- (IO1) the extern step and its run layer, moved into / living in TermRun
+   -- (a stop module): the extern successor, its gate, the run relations and the event/exit text
+   `TermRun.extCfg, `TermRun.curCfg, `TermRun.ExtNeedsNoProm, `TermRun.extSteps,
+   `CoreTerm.ExtName.events, `CoreTerm.ExtName.res, `CoreTerm.ExtName.sig, `TermRun.exitCode,
+   `TermRun.Event, `TermRun.Solo, `TermRun.Step, `TermRun.Certified]
 
 /-- Stop rule for a constant: stop module, unless forced. -/
 def stopC (env : Environment) (force : List Name) (n : Name) : Bool :=
@@ -246,4 +252,7 @@ end CheckPremises
    -- StartOKX routes (as TermSpawn.startOK_of_initOK / startOK_spawnS are rooted)
    ``A9SpawnFinal.startOKX_of_initOK,
    -- (StartOKX/ObligationsFX/TCtxX/PCtxX/CertWin*X enter through these finals' closures; not rooted separately)
-   ``A9SpawnFinal.startOKX_spawnS, ``A9NoSpawn.stepsX_iff_steps_of_noSpawn]
+   ``A9SpawnFinal.startOKX_spawnS, ``A9NoSpawn.stepsX_iff_steps_of_noSpawn,
+   -- (E2, EM0) at `Sp := Spawn p k arch c0.cap ∨ Ext p k arch` (ExtArmZ; from InitOK)
+   ``ExtArmZ.machine_tokens_main_em0, ``ExtArmZ.token_unique_net_em0, ``ExtArmZ.token_unique_final_em0,
+   ``ExtArmZ.reachable_typed_em0]

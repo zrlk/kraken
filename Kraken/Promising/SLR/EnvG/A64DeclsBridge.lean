@@ -85,6 +85,7 @@ performs it as two accesses, as `toEv {}` does. -/
 def Effects.NoPairMerge (ds : Kraken.Promising.Decls) : Effects → Prop
   | .done _ => True
   | .unimplemented _ => True
+  | .syscall .. => True
   | .unaligned_sp _ => True
   | .nonmem_load _ _ _ ret => ∀ v d, (ret v d).NoPairMerge ds
   | .nonmem_store _ _ _ ret => ∀ d, (ret d).NoPairMerge ds
@@ -107,6 +108,7 @@ static form, independent of the declarations. -/
 def Effects.NoPairs : Effects → Prop
   | .done _ => True
   | .unimplemented _ => True
+  | .syscall .. => True
   | .unaligned_sp _ => True
   | .nonmem_load _ _ _ ret => ∀ v d, (ret v d).NoPairs
   | .nonmem_store _ _ _ ret => ∀ d, (ret d).NoPairs
@@ -129,6 +131,7 @@ theorem Effects.NoPairMerge.of_noPairs (ds : Kraken.Promising.Decls) :
   induction eff with
   | done _ => exact id
   | unimplemented _ => exact id
+  | syscall => exact id
   | unaligned_sp _ => exact id
   | nonmem_load _ _ _ _ ih => exact fun h v d => ih v d (h v d)
   | nonmem_store _ _ _ _ ih => exact fun h d => ih d (h d)
@@ -403,6 +406,7 @@ theorem toEv_reresolve (ds : Decls) : ∀ eff : Effects, eff.NoPairMerge ds →
   induction eff with
   | done _ => exact fun _ => rfl
   | unimplemented _ => exact fun _ => rfl
+  | syscall => exact fun _ => rfl
   | unaligned_sp _ => exact fun _ => rfl
   | nonmem_load dmem addr w ret ih =>
     intro h

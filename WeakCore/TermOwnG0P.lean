@@ -32,6 +32,7 @@ theorem soloNP_trans {c c' c'' : Cfg} (h1 : SoloNP p k arch i r c c') (h2 : Solo
   | refl => exact h2
   | thread hs hn _ ih => exact .thread hs hn (ih h2)
   | prom a v w hw _ ih => exact .prom a v w hw (ih h2)
+  | ext hs _ ih => exact .ext hs (ih h2)
 
 /-- `run_inv` over `SoloNP r`: the thread step carries the guard `¬ PubAt th r`. -/
 theorem runNP_inv {c1 : Cfg} {P : Cfg → Prop}
@@ -39,12 +40,14 @@ theorem runNP_inv {c1 : Cfg} {P : Cfg → Prop}
       SoloNP p k arch i r c0' c1 → P c0')
     (hprom : ∀ c0 a v w, P c0 → w < c0.mem.size → SoloNP p k arch i r (promise c0 i a v w) c1 →
       P (promise c0 i a v w))
+    (hext : ∀ c0 c0', P c0 → c0' ∈ extSteps c0 i → SoloNP p k arch i r c0' c1 → P c0')
     {c c2 : Cfg} (h : SoloNP p k arch i r c c2) (h2 : SoloNP p k arch i r c2 c1) (h0 : P c) : P c2 := by
   revert h0 h2
   induction h with
   | refl => exact fun _ h0 => h0
   | thread hs hn hrest ih => exact fun h2 h0 => ih h2 (hstep _ _ h0 hs hn (soloNP_trans hrest h2))
   | prom a v w hw hrest ih => exact fun h2 h0 => ih h2 (hprom _ a v w h0 hw (soloNP_trans hrest h2))
+  | ext hs hrest ih => exact fun h2 h0 => ih h2 (hext _ _ h0 hs (soloNP_trans hrest h2))
 
 -- COPY of TermTyped.InvAtXR_prom
 theorem invAtXRB_prom {E0 : TEnv} {n0 v0 : Nat} {mem0 : Memory} {P0 : List Ts} {l : AllocLabel} {cl : Cell}
@@ -58,6 +61,16 @@ theorem invAtXRB_prom {E0 : TEnv} {n0 v0 : Nat} {mem0 : Memory} {P0 : List Ts} {
   · rw [gOf_promise, (promise_inv (a := a) (v := v) (w := w) hth).2.2]
     exact MemInv_promSt hm
   · exact frRunA_prom hth hfr
+
+/-- (IO1) An extern move keeps `InvAtXRB` (environment and `vWr` unchanged). -/
+theorem invAtXRB_ext {E0 : TEnv} {n0 v0 : Nat} {mem0 : Memory} {P0 : List Ts} {l : AllocLabel} {cl : Cell}
+    {c0 c0' : Cfg} {th : TTh} {E : TEnv} (hth : c0.ths[i]? = some th)
+    (h : InvAtXRB p k arch i E0 n0 v0 mem0 P0 l cl c0 th E) (hs : c0' ∈ extSteps c0 i) :
+    ∃ th', c0'.ths[i]? = some th' ∧ InvAtXRB p k arch i E0 n0 v0 mem0 P0 l cl c0' th' E := by
+  obtain ⟨hx, hTE, hm, hSC, hbo, hfb, hfr, hrh⟩ := h
+  obtain ⟨x1, a1, e1, evs, hterm, rfl⟩ := extSteps_thread hs hth
+  exact ⟨_, set_self hth, hx, TermTyped.ThInvE_emit hterm hTE, by rw [gOf_ext hs]; exact hm, hSC,
+    by rw [gOf_ext hs]; exact hbo, hfb, hfr, hrh⟩
 
 -- COPY of TermTyped.solo_typedXR
 /-- **The typed run before `publish r`, with the unplanted frontier**: along `SoloNP r` from `c`,
@@ -75,7 +88,7 @@ theorem solo_typedXRP {cP c : Cfg} {E0 : TEnv} {n0 v0 : Nat} {thP : TTh} {l : Al
       E.pfr r = none := by
   refine (runNP_inv (c1 := c2)
     (P := fun c0 => SoloNP p k arch i r c c0 ∧ ∃ th E, c0.ths[i]? = some th ∧
-      InvAtXRB p k arch i E0 n0 v0 cP.mem thP.promises l cl c0 th E ∧ E.pfr r = none) ?_ ?_ h
+      InvAtXRB p k arch i E0 n0 v0 cP.mem thP.promises l cl c0 th E ∧ E.pfr r = none) ?_ ?_ ?_ h
     (.refl _) ⟨.refl _, h0⟩).2
   · rintro c0 c0' ⟨hc0N, th, E, hth, ⟨hx, hTE, hm, hSC, hbo, hfb, hfr, hrh⟩, hpf0⟩ hs hnp hrest
     have hc0 := hc0N.toSolo
@@ -131,6 +144,9 @@ theorem solo_typedXRP {cP c : Cfg} {E0 : TEnv} {n0 v0 : Nat} {thP : TTh} {l : Al
   · rintro c0 a v w ⟨hc0N, th, E, hth, hB, hpf0⟩ hw _
     obtain ⟨th', hth', hB'⟩ := invAtXRB_prom (a := a) (v := v) (w := w) hth hB
     exact ⟨soloNP_trans hc0N (.prom a v w hw (.refl _)), th', E, hth', hB', hpf0⟩
+  · rintro c0 c0' ⟨hc0N, th, E, hth, hB, hpf0⟩ hs _
+    obtain ⟨th', hth', hB'⟩ := invAtXRB_ext hth hB hs
+    exact ⟨soloNP_trans hc0N (.ext hs (.refl _)), th', E, hth', hB', hpf0⟩
 
 /-- **`PfrX` discharged**: from a start witness at the plant with no frontier at `r`. -/
 theorem PfrX_of {cP : Cfg} {thP : TTh} {a0 : Address} {v0 : WeakMem.Val} {w : Ts} {E0 : TEnv} {n0 vw : Nat}
@@ -195,6 +211,7 @@ end TermOwnG0
 
 #print axioms TermOwnG0.soloNP_trans
 #print axioms TermOwnG0.runNP_inv
+#print axioms TermOwnG0.invAtXRB_ext
 #print axioms TermOwnG0.invAtXRB_prom
 #print axioms TermOwnG0.solo_typedXRP
 #print axioms TermOwnG0.PfrX_of

@@ -60,6 +60,7 @@ CoreLang.Ty.sensitiveIn : CoreLang.KEnv → CoreLang.Ty → Bool
 CoreLang.Ty.sharedOKIn : CoreLang.KEnv → CoreLang.Ty → Bool
 CoreLang.Ty.substT : Nat → CoreLang.Ty → CoreLang.Ty → CoreLang.Ty
 CoreLang.Ty.sum : CoreLang.Ty → CoreLang.Ty → CoreLang.Ty
+CoreLang.Ty.tid : CoreLang.Ty
 CoreLang.Ty.tier : CoreLang.Ty → CoreLang.Tier
 CoreLang.Ty.tok : CoreLang.Idx → Option (CoreLang.Proto × CoreLang.Idx) → CoreLang.Ty
 CoreLang.Ty.tok2 : CoreLang.Idx → CoreLang.Proto2 → CoreLang.Idx → CoreLang.Idx → CoreLang.Ty
@@ -111,6 +112,7 @@ CoreLang.zeroableIn : CoreLang.IEnv → CoreLang.KEnv → CoreLang.Ty → Bool
         (CoreLang.zeroArmP (fun x => true) env ke a <|> CoreLang.zeroArmP (fun x => true) env ke b) == some true
       | CoreLang.Tier.boxed => false
     | σ.code τ => false
+    | CoreLang.Ty.tid => false
     | CoreLang.Ty.array i t => CoreLang.zeroableIn env ke t
     | CoreLang.Ty.ptr μ τ => false
     | CoreLang.Ty.ptrOpt μ τ => true
@@ -165,6 +167,9 @@ CoreTerm.Decl.argTy : CoreTerm.Decl → CoreLang.Ty
 CoreTerm.Decl.idx : CoreTerm.Decl → List String
 CoreTerm.Decl.retTy : CoreTerm.Decl → CoreLang.Ty
 CoreTerm.Decl.tparams : CoreTerm.Decl → List CoreLang.Kind
+CoreTerm.ExtName : Type
+CoreTerm.ExtName.name : CoreTerm.ExtName → String
+CoreTerm.ExtName.sig : CoreTerm.ExtName → CoreLang.Ty × CoreLang.Ty
 CoreTerm.FCmp : Type
 CoreTerm.FOp : Type
 CoreTerm.FOp1 : Type
@@ -1454,7 +1459,7 @@ CoreTerm.checkOp : CoreTerm.Prog → CoreTerm.Cx → String → CoreTerm.Op → 
                     match __x with
                       | (fst, rt) => do
                         CoreTerm.tailCheck p { vars := [("a", T, true)], ret := rt } f [] (CoreTerm.At.var "a") ts
-                        have __do_jp : Unit → CoreTerm.M CoreTerm.Cx := fun __r => cx.bind x CoreLang.Ty.int
+                        have __do_jp : Unit → CoreTerm.M CoreTerm.Cx := fun __r => cx.bind x CoreLang.Ty.tid
                         if (!(TermClose.tb 0 rt && TermTv.mg rt && TermTv.noIallV rt)) = true then do
                             let __r ←
                               throw
@@ -1486,6 +1491,15 @@ CoreTerm.checkOp : CoreTerm.Prog → CoreTerm.Cx → String → CoreTerm.Op → 
           else __do_jp ();
         if (!CoreTerm.sub cx t T) = true then do
           let __r ← throw "spawn: the argument does not have the stated type"
+          __do_jp __r
+        else __do_jp ()
+  | CoreTerm.Op.ext n a => do
+    let __x ← cx.use a
+    match __x with
+      | (t, cx) =>
+        have __do_jp := fun __r => cx.bind x n.sig.snd;
+        if (!CoreTerm.sub cx t n.sig.fst) = true then do
+          let __r ← throw (toString n.name ++ toString ": the argument does not have the extern's type")
           __do_jp __r
         else __do_jp ()
 CoreTerm.classify2M : CoreTerm.Cx → CoreLang.Proto2 → CoreLang.Idx → CoreLang.Idx → CoreTerm.M (Nat × CoreTerm.Lin × CoreTerm.Lin)

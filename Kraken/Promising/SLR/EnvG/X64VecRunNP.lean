@@ -349,6 +349,24 @@ theorem operation_jsimNP [Labels] [AddressSize] {w : Width} (op : Operation w) (
   cases op
   case xadd lock dst src => cases dst <;> jsim_searchNP
   case bswap dst => cases w <;> jsim_searchNP
+  -- `movfs` is `mov` at a segment-relative address: unfold the segment forms.
+  case movfs dst src =>
+    rcases src with (_ | a) | v <;> rcases dst with _ | b <;>
+      simp only [Operation.interp, Operand.interpSeg, RegOrMem.interpSeg, MachineData.setSeg] at h ⊢ <;>
+      repeat' first
+        | exact hk _ _ h
+        | refine load_jsimNP J (fun v s g h => ?_) h
+        | refine store_jsimNP J (fun s g h => ?_) h
+        | simp only [MachineData.setSeg] at h ⊢
+  -- `cmpfs` is `cmp` at a segment-relative address: unfold the segment forms.
+  case cmpfs x y =>
+    rcases y with (_ | b) | v <;> rcases x with _ | a <;>
+      simp only [Operation.interp, Operand.interpSeg, RegOrMem.interpSeg, MachineData.setSeg] at h ⊢ <;>
+      repeat' first
+        | exact hk _ _ h
+        | refine load_jsimNP J (fun v s g h => ?_) h
+        | refine store_jsimNP J (fun s g h => ?_) h
+        | simp only [MachineData.setSeg] at h ⊢
   all_goals jsim_searchNP
 
 theorem avxOperation_jsimNP [Labels] [AddressSize] {w : AvxWidth} (op : AvxOperation w) (hnp : op.NoPieces)

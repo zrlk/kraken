@@ -102,9 +102,19 @@ theorem pfrProvO_prom {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat}
   · exact .inl (soloNP_snocP hsolo hw)
   · exact .inr ⟨c1, th1, c1', hsolo, hth1, hpub, hs1, solo_trans h1c (.prom a v w hw (.refl _)), hu⟩
 
+/-- (IO1) An extern move keeps the post-publish provenance. -/
+theorem pfrProvO_ext {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat}
+    {H : AllocLabel → Nat → Ts → Prop} {E0 E : TEnv} {st c0 c0' : Cfg}
+    (hP : PfrProvO p k arch i H E0 st c0 E) (hs : c0' ∈ extSteps c0 i) : PfrProvO p k arch i H E0 st c0' E := by
+  intro l c f hc0 ho hf0
+  rcases hP l c f hc0 ho hf0 with hsolo | ⟨c1, th1, c1', hsolo, hth1, hpub, hs1, h1c, hu⟩
+  · exact .inl (soloNP_snocE hsolo hs)
+  · exact .inr ⟨c1, th1, c1', hsolo, hth1, hpub, hs1, solo_trans h1c (.ext hs (.refl _)), hu⟩
+
 end TermK5O
 
 #print axioms TermK5O.pfrProvO_start
+#print axioms TermK5O.pfrProvO_ext
 #print axioms TermK5O.pubZO_noBufInit
 #print axioms TermK5O.pubZO_snoc
 #print axioms TermK5O.pfrProvO_thread

@@ -325,7 +325,8 @@ def keywords : List String :=
    "endBorrow", "xchg", "fnptr", "callc", "nameI", "bits", "bit1", "vmatch", "zero", "freeze",
    "cvt", "toInt", "asLanes", "fop", "fcmp", "fop1", "lane", "setLane", "ldl", "stl", "ldlw",
    "stlw", "unpack", "region", "openPub", "type", "proto", "exists", "forall", "mu",
-   "mkWord2", "ldp", "stp", "casp", "mkEPair", "mkTicket", "claim", "fetch"]
+   "mkWord2", "ldp", "stp", "casp", "mkEPair", "mkTicket", "claim", "fetch",
+   "spawn", "emit", "current", "exitEv"]
 
 def validName (s : String) : Bool :=
   match s.toList with
@@ -645,6 +646,7 @@ partial def pTyAtom (env : Env) (sc : Sc) : P Ty := do
       bump; let t ← pTy env sc; expectSym "|"; let ψ ← pPred sc; expectSym "}"; pure (.refine t ψ)
   | .id "Unit" => bump; pure .unit
   | .id "Void" => bump; pure .void
+  | .id "ThreadId" => bump; pure .tid
   | .id "Int" =>
       bump
       if ← eatSym "[" then let i ← pIdx sc; expectSym "]"; pure (.intS i) else pure .int
@@ -877,6 +879,14 @@ def pOp (env : Env) (sc : Sc) : P Op := do
     | "fcmp" => bump; let o ← pWordOf fcmpNames "a comparison"; pure (.fcmp o (← a1) (← a1))
     | "fop1" => bump; let o ← pWordOf fop1Names "a unary fixed-width operation"; pure (.fop1 o (← a1))
     | "lane" => bump; pure (.lane (← a1) (← a1))
+    | "spawn" =>
+        -- (E1) `spawn f[ts] a : T`: the child's entry `f`, its type arguments, the argument and its checked type
+        bump; let f ← pName
+        let ts ← if ← eatSym "[" then do let ts ← sepBy (pTy env sc) ","; expectSym "]"; pure ts else pure []
+        let a ← a1; expectSym ":"; pure (.spawn f a (← pTy env sc) ts)
+    | "emit" => bump; pure (.ext .emit (← a1))
+    | "current" => bump; pure (.ext .current (← a1))
+    | "exitEv" => bump; pure (.ext .exitEv (← a1))
     | "setLane" => bump; pure (.setLane (← a1) (← a1) (← a1))
     | "ldl" => bump; pure (.ldl (← a1) (← a1))
     | "stl" => bump; pure (.stl (← a1) (← a1) (← a1))
@@ -1173,7 +1183,7 @@ def showEC (env : Env) : ECounter → String
   | .pair P => showProto2 env P
 
 partial def showTy (env : Env) (sc : Sc) (p : Nat) : Ty → String
-  | .unit => "Unit" | .void => "Void" | .int => "Int"
+  | .unit => "Unit" | .void => "Void" | .int => "Int" | .tid => "ThreadId"
   | .intS i => "Int[" ++ showIdx sc 0 i ++ "]"
   | .fix sg w => fixName sg w
   | .lanes sg w => "Lanes" ++ fixName sg w
@@ -1243,7 +1253,10 @@ def showOp (env : Env) (sc : Sc) : Op → String
   | .mkTicket r N P v t => "mkTicket " ++ nameStr r ++ " " ++ showProto env N ++ " " ++ showProto env P ++ " " ++
       showAt v ++ " " ++ showAt t
   | .claim a t => "claim " ++ showAt a ++ " with " ++ showAt t
-  | .spawn f a _ _ => "spawn " ++ f ++ " " ++ showAt a
+  | .spawn f a T ts => "spawn " ++ nameStr f ++
+      (if ts.isEmpty then "" else "[" ++ ", ".intercalate (ts.map (showTy env sc 0)) ++ "]") ++
+      " " ++ showAt a ++ " : " ++ showTy env sc 0 T
+  | .ext n a => n.name ++ " " ++ showAt a
   | .fetch o acq rel a v => "fetch " ++ nameOf fetchNames o ++ " " ++ (if acq then "acq " else "") ++
       (if rel then "rel " else "") ++ showAt a ++ " " ++ showAt v
   | .mkWord2 r P v0 v1 t => "mkWord2 " ++ nameStr r ++ " " ++ showProto2 env P ++ " (" ++ showAt v0 ++ ", " ++

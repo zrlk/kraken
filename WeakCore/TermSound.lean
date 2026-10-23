@@ -1412,6 +1412,8 @@ stage.  (The runtime side is a shape, not a type: see §2a.) -/
 def VR (ρ : Nat → Nat) (η : TEnv) : Ty → Shp → List Word → Prop
   | .intS i, _, ws => ws.map (·.val) = [.num (ev ρ i)]
   | .int, _, ws => ∃ n, ws.map (·.val) = [.num n]
+  | .tid, _, ws => ∃ l c, ws.map (·.val) = [.loc ⟨l, 0⟩ 0] ∧ η.sto l = some c ∧ c.ty = .unit ∧
+      ModeOK η.tid η.pfr η.seen .pub l c ws
   | .fix sg w, rt, ws => rt = .fix sg w ∧ ∃ n, ws.map (·.val) = [.num n] ∧ n < pw2 w
   | .lanes sg w, rt, ws => rt = .lanes sg w ∧ ∃ n, ws.map (·.val) = [.num n]
   | .refine t ψ, rt, ws => VR ρ η t rt ws ∧ IniR ρ (η.selIni t) ψ ws
@@ -1535,6 +1537,7 @@ def VRR (ρ : Nat → Nat) (η : TEnv) : Ty → Shp → List Word → Res → Pr
   | .unit, _, _, R => R = .zero
   | .intS i, _, ws, R => ws.map (·.val) = [.num (ev ρ i)] ∧ R = .zero
   | .int, _, ws, R => (∃ n, ws.map (·.val) = [.num n]) ∧ R = .zero
+  | .tid, _, ws, R => VR ρ η .tid (.leaf (some 1)) ws ∧ R = .zero
   | .fix sg w, rt, ws, R => (rt = .fix sg w ∧ ∃ n, ws.map (·.val) = [.num n] ∧ n < pw2 w) ∧ R = .zero
   | .lanes sg w, rt, ws, R => (rt = .lanes sg w ∧ ∃ n, ws.map (·.val) = [.num n]) ∧ R = .zero
   | .refine t ψ, rt, ws, R => VRR ρ η t rt ws R ∧ IniR ρ (η.selIni t) ψ ws
@@ -1651,7 +1654,7 @@ theorem VRR_VR : ∀ (t : Ty) {ρ : Nat → Nat} {η : TEnv} {rt : Shp} {ws : Li
   | iall b ih =>
       intro ρ η rt ws R hl h; simp only [VRR] at h; simp only [VR]; exact fun n => ih hl (h n)
   | void => intro ρ η rt ws R _ h; simp only [VRR] at h
-  | intS | int | fix | lanes | code | ptr | loc | ptrOpt | word | word2 | epair =>
+  | intS | int | tid | fix | lanes | code | ptr | loc | ptrOpt | word | word2 | epair =>
       intro ρ η rt ws R _ h; simp only [VRR] at h; simp only [VR]; exact h.1
   | unit | cap | tok | tok2 | tokE | share | array => intro ρ η rt ws R _ _; simp [VR]
 
@@ -1829,6 +1832,11 @@ theorem VR_up {ρ : Nat → Nat} {η : TEnv} : ∀ (t : Ty) (rt : Shp) (ws ws' :
       · exact Or.inl ⟨e.vals.symm.trans hn.1, hn.2⟩
       · exact Or.inr ⟨a, c, U, e.vals.symm.trans h1, h3, h4, hF,
           ModeOK_mono (fun _ _ x => x) (fun _ x => x) (WLe_view e h1) h5, h6⟩
+  | tid =>
+      intro rt ws ws' e hv; simp only [VR] at hv ⊢
+      obtain ⟨l, c, h1, h2, h3, h5⟩ := hv
+      exact ⟨l, c, e.vals.symm.trans h1, h2, h3,
+        ModeOK_mono (fun _ _ x => x) (fun _ x => x) (WLe_view e h1) h5⟩
   | _ => intro rt ws ws' e hv; simp only [VR] at hv ⊢ <;> first | exact hv | (rw [← e.vals]; exact hv)
 
 /-- Words without pointers: `VR` reads only their values. -/
@@ -1844,6 +1852,7 @@ theorem VR_shift (η : TEnv) : ∀ (t : Ty) (c w : Nat) (ρ : Nat → Nat) (rt :
     VR (vins c w ρ) η (t.shiftI c) rt ws ↔ VR ρ η t rt ws
   | .intS i, c, w, ρ, _, _ => by simp [Ty.shiftI, VR, ev_shift]
   | .int, _, _, _, _, _ => by simp [Ty.shiftI, VR]
+  | .tid, _, _, _, _, _ => by simp [Ty.shiftI, VR]
   | .fix _ _, _, _, _, _, _ => by simp [Ty.shiftI, VR]
   | .lanes _ _, _, _, _, _, _ => by simp [Ty.shiftI, VR]
   | .refine t ψ, c, w, ρ, rt, ws => by
@@ -2076,6 +2085,7 @@ theorem VR_instT (w : Idx) (η : TEnv) :
       VR ρ η (instT [w] d t) rt ws ↔ VR (vins d (ev (fun k => ρ (k + d)) w) ρ) η t rt ws
   | .intS i, d, ρ, _, _ => by simp [instT, VR, ev_instI]
   | .int, _, _, _, _ => by simp [instT, VR]
+  | .tid, _, _, _, _ => by simp [instT, VR]
   | .fix _ _, _, _, _, _ => by simp [instT, VR]
   | .lanes _ _, _, _, _, _ => by simp [instT, VR]
   | .refine t ψ, d, ρ, rt, ws => by
@@ -2148,6 +2158,7 @@ theorem VR_shiftTU : ∀ (t : Ty) (c : Nat) (η : TEnv) (R : Shp → List Word �
         simp [Ty.shiftT, h, VR, TEnv.get, TEnv.insR, h1]
   | .intS i, _, _, _, _, _, _, _, _ => by simp [Ty.shiftT, VR]
   | .int, _, _, _, _, _, _, _, _ => by simp [Ty.shiftT, VR]
+  | .tid, _, _, _, _, _, _, _, _ => by simp only [Ty.shiftT, VR, TEnv.insR_sto, TEnv.insR_tid, TEnv.insR_pfr, TEnv.insR_seen]
   | .fix _ _, _, _, _, _, _, _, _, _ => by simp [Ty.shiftT, VR]
   | .lanes _ _, _, _, _, _, _, _, _, _ => by simp [Ty.shiftT, VR]
   | .refine t ψ, c, η, R, s, UR, ρ, rt, ws => by
@@ -2278,6 +2289,12 @@ theorem VR_relsG : ∀ (t : Ty) (c : Nat) (η₁ η₂ : TEnv) (ρ : Nat → Nat
       · simp only [TEnv.push0, TEnv.ins, TEnv.insR, hw]
   | .intS _, _, _, _, _, _, _, _, _, _, _, _ => by simp [VR]
   | .int, _, _, _, _, _, _, _, _, _, _, _ => by simp [VR]
+  | .tid, _, η₁, η₂, _, _, _, _, _, _, _, hp => by
+      have e1 : η₁.sto = η₂.sto := by have h := congrArg TEnv.sto hp; exact h
+      have e2 : η₁.tid = η₂.tid := by have h := congrArg TEnv.tid hp; exact h
+      have e3 : η₁.seen = η₂.seen := by have h := congrArg TEnv.seen hp; exact h
+      have e4 : η₁.pfr = η₂.pfr := by have h := congrArg TEnv.pfr hp; exact h
+      simp only [VR, e1, e2, e3, e4]
   | .fix _ _, _, _, _, _, _, _, _, _, _, _, _ => by simp [VR]
   | .lanes _ _, _, _, _, _, _, _, _, _, _, _, _ => by simp [VR]
   | .unit, _, _, _, _, _, _, _, _, _, _, _ => by simp [VR]
@@ -2393,6 +2410,10 @@ theorem VR_mono : ∀ (t : Ty) (η₁ η₂ : TEnv) (ρ : Nat → Nat) (rt : Shp
           IniAt_mono (modeIni_le hi hri μ) h6⟩
   | .intS _, _, _, _, _, _, _, _, _, _, _, _, _, hP, hS, hBx, hv, hri => by simpa only [VR] using hv
   | .int, _, _, _, _, _, _, _, _, _, _, _, _, hP, hS, hBx, hv, hri => by simpa only [VR] using hv
+  | .tid, _, _, _, _, _, _, _, _, _, ht, hs, _, hP, hS, _, hv, _ => by
+        simp only [VR] at hv ⊢
+        obtain ⟨l, c, h1, h2, h3, h5⟩ := hv
+        exact ⟨l, c, h1, hs _ _ h2, h3, ht ▸ ModeOK_mono hP hS (fun _ x => x) h5⟩
   | .fix _ _, _, _, _, _, _, _, _, _, _, _, _, _, hP, hS, hBx, hv, hri => by simpa only [VR] using hv
   | .lanes _ _, _, _, _, _, _, _, _, _, _, _, _, _, hP, hS, hBx, hv, hri => by simpa only [VR] using hv
   | .unit, _, _, _, _, _, _, _, _, _, _, _, _, hP, hS, hBx, _, hri => by simp [VR]
@@ -2634,6 +2655,10 @@ theorem VR_unsee (V : WeakMem.Ts) : ∀ (t : Ty) (η₁ η₂ : TEnv) (ρ : Nat 
           IniAt_mono (modeIni_le hi hri μ) h6⟩
   | .intS _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, hBx, _, hv, hri => by simpa only [VR] using hv
   | .int, _, _, _, _, _, _, _, _, _, _, _, _, _, _, hBx, _, hv, hri => by simpa only [VR] using hv
+  | .tid, _, _, _, _, _, _, _, _, _, ht, hs, _, hP, hS, _, hL, hv, _ => by
+        simp only [VR] at hv ⊢
+        obtain ⟨l, c, h1, h2, h3, h5⟩ := hv
+        exact ⟨l, c, h1, hs _ _ h2, h3, ht ▸ ModeOK_unsee hP hS h1 hL h5⟩
   | .fix _ _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, hBx, _, hv, hri => by simpa only [VR] using hv
   | .lanes _ _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, hBx, _, hv, hri => by simpa only [VR] using hv
   | .unit, _, _, _, _, _, _, _, _, _, _, _, _, _, _, hBx, _, _, hri => by simp [VR]
@@ -2734,6 +2759,7 @@ theorem VR_close {η : TEnv} (hc : Coh η) (ρ₀ : Nat → Nat) :
   | .intS i, P, d, ρ, ρ', S, ws, hρ, hρ' => by
       simp only [cl, VR, ev_clI hρ hρ']
   | .int, _, _, _, _, _, _, _, _ => by simp [cl, VR]
+  | .tid, _, _, _, _, _, _, _, _ => by simp only [cl, VR, pre_sto, pre_tid, pre_pfr, pre_seen, CE_sto, CE_tid, CE_pfr, CE_seen]
   | .fix _ _, _, _, _, _, _, _, _, _ => by simp [cl, VR]
   | .lanes _ _, _, _, _, _, _, _, _, _ => by simp [cl, VR]
   | .refine t ψ, P, d, ρ, ρ', S, ws, hρ, hρ' => by
@@ -2929,6 +2955,11 @@ theorem VRR_up {ρ : Nat → Nat} {η : TEnv} : ∀ (t : Ty) (rt : Shp) (ws ws' 
       · exact ⟨Or.inl ⟨e.vals.symm.trans hn.1, hn.2⟩, hR.trans (ownW_vals e.vals)⟩
       · exact ⟨Or.inr ⟨a, c, U, e.vals.symm.trans h1, h3, h4, hF,
           ModeOK_mono (fun _ _ x => x) (fun _ x => x) (WLe_view e h1) h5, h6⟩, hR.trans (ownW_vals e.vals)⟩
+  | tid =>
+      intro rt ws ws' R e hv; simp only [VRR, VR] at hv ⊢
+      obtain ⟨⟨l, c, h1, h2, h3, h5⟩, hR⟩ := hv
+      exact ⟨⟨l, c, e.vals.symm.trans h1, h2, h3,
+        ModeOK_mono (fun _ _ x => x) (fun _ x => x) (WLe_view e h1) h5⟩, hR⟩
   | _ => intro rt ws ws' R e hv; simp only [VRR] at hv ⊢ <;> first | exact hv | (rw [← e.vals]; exact hv)
 
 
@@ -2936,6 +2967,7 @@ theorem VRR_shift (η : TEnv) : ∀ (t : Ty) (c w : Nat) (ρ : Nat → Nat) (rt 
     VRR (vins c w ρ) η (t.shiftI c) rt ws R ↔ VRR ρ η t rt ws R
   | .intS i, c, w, ρ, _, _, _ => by simp [Ty.shiftI, VRR, ev_shift]
   | .int, _, _, _, _, _, _ => by simp [Ty.shiftI, VRR]
+  | .tid, _, _, _, _, _, _ => by simp [Ty.shiftI, VRR, VR]
   | .fix _ _, _, _, _, _, _, _ => by simp [Ty.shiftI, VRR]
   | .lanes _ _, _, _, _, _, _, _ => by simp [Ty.shiftI, VRR]
   | .refine t ψ, c, w, ρ, rt, ws, R => by
@@ -2993,6 +3025,7 @@ theorem VRR_instT (w : Idx) (η : TEnv) :
       VRR ρ η (instT [w] d t) rt ws R ↔ VRR (vins d (ev (fun k => ρ (k + d)) w) ρ) η t rt ws R
   | .intS i, d, ρ, _, _, _ => by simp [instT, VRR, ev_instI]
   | .int, _, _, _, _, _ => by simp [instT, VRR]
+  | .tid, _, _, _, _, _ => by simp [instT, VRR, VR]
   | .fix _ _, _, _, _, _, _ => by simp [instT, VRR]
   | .lanes _ _, _, _, _, _, _ => by simp [instT, VRR]
   | .refine t ψ, d, ρ, rt, ws, R => by
@@ -3065,6 +3098,7 @@ theorem VRR_shiftTU : ∀ (t : Ty) (c : Nat) (η : TEnv) (R : Shp → List Word 
         simp [Ty.shiftT, h, VRR, TEnv.insR, h1]
   | .intS i, _, _, _, _, _, _, _, _, _, _, _ => by simp [Ty.shiftT, VRR]
   | .int, _, _, _, _, _, _, _, _, _, _, _ => by simp [Ty.shiftT, VRR]
+  | .tid, _, _, _, _, _, _, _, _, _, _, _ => by simp only [Ty.shiftT, VRR, VR, TEnv.insR_sto, TEnv.insR_tid, TEnv.insR_pfr, TEnv.insR_seen]
   | .fix _ _, _, _, _, _, _, _, _, _, _, _, _ => by simp [Ty.shiftT, VRR]
   | .lanes _ _, _, _, _, _, _, _, _, _, _, _, _ => by simp [Ty.shiftT, VRR]
   | .refine t ψ, c, η, R, s, UR, RR, URR, ρ, rt, ws, X => by
@@ -3203,6 +3237,10 @@ theorem VRR_mono : ∀ (t : Ty) (η₁ η₂ : TEnv) (ρ : Nat → Nat) (rt : Sh
       exact fun n => VRR_mono b η₁ η₂ (vcons n ρ) rt ws X hr hur hw hp ht hs hi hP hS hBx (hv n)
   | .intS _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, hv, hri => by simpa only [VRR] using hv
   | .int, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, hv, hri => by simpa only [VRR] using hv
+  | .tid, _, _, _, _, _, _, _, _, _, _, ht, hs, _, hP, hS, _, hv, _ => by
+        simp only [VRR, VR] at hv ⊢
+        obtain ⟨⟨l, c, h1, h2, h3, h5⟩, hR⟩ := hv
+        exact ⟨⟨l, c, h1, hs _ _ h2, h3, ht ▸ ModeOK_mono hP hS (fun _ x => x) h5⟩, hR⟩
   | .fix _ _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, hv, hri => by simpa only [VRR] using hv
   | .lanes _ _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, hv, hri => by simpa only [VRR] using hv
   | .unit, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, hv, hri => by simpa only [VRR] using hv
@@ -3254,6 +3292,7 @@ theorem VRR_close {η : TEnv} (hc : Coh η) (hr : CohR η) (ρ₀ : Nat → Nat)
   | .intS i, P, d, ρ, ρ', S, ws, X, hρ, hρ' => by
       simp only [cl, VRR, ev_clI hρ hρ']
   | .int, _, _, _, _, _, _, _, _, _ => by simp [cl, VRR]
+  | .tid, _, _, _, _, _, _, _, _, _ => by simp only [cl, VRR, VR, pre_sto, pre_tid, pre_pfr, pre_seen, CE_sto, CE_tid, CE_pfr, CE_seen]
   | .fix _ _, _, _, _, _, _, _, _, _, _ => by simp [cl, VRR]
   | .lanes _ _, _, _, _, _, _, _, _, _, _ => by simp [cl, VRR]
   | .refine t ψ, P, d, ρ, ρ', S, ws, X, hρ, hρ' => by
@@ -3464,6 +3503,7 @@ theorem VRR_copy_zero : ∀ (t : Ty) (ke : KEnv) (ρ : Nat → Nat) (η : TEnv) 
   | .void, _, _, _, _, _, _, _, _, _, hv => by simp [VRR] at hv
   | .intS _, _, _, _, _, _, _, _, _, _, hv => by simp only [VRR] at hv; exact hv.2
   | .int, _, _, _, _, _, _, _, _, _, hv => by simp only [VRR] at hv; exact hv.2
+  | .tid, _, _, _, _, _, _, _, _, _, hv => by simp only [VRR] at hv; exact hv.2
   | .fix _ _, _, _, _, _, _, _, _, _, _, hv => by simp only [VRR] at hv; exact hv.2
   | .lanes _ _, _, _, _, _, _, _, _, _, _, hv => by simp only [VRR] at hv; exact hv.2
   | .code _ _, _, _, _, _, _, _, _, _, _, hv => by simp only [VRR] at hv; exact hv.2
@@ -3797,6 +3837,12 @@ theorem VRR_relsG : ∀ (t : Ty) (c : Nat) (η₁ η₂ : TEnv) (ρ : Nat → Na
       · simp only [TEnv.push0, TEnv.ins, TEnv.insR, hw]
   | .intS _, _, _, _, _, _, _, _, _, _, _, _, _ => by simp [VRR]
   | .int, _, _, _, _, _, _, _, _, _, _, _, _ => by simp [VRR]
+  | .tid, _, η₁, η₂, _, _, _, _, _, _, _, _, hp => by
+      have e1 : η₁.sto = η₂.sto := by have h := congrArg TEnv.sto hp; exact h
+      have e2 : η₁.tid = η₂.tid := by have h := congrArg TEnv.tid hp; exact h
+      have e3 : η₁.seen = η₂.seen := by have h := congrArg TEnv.seen hp; exact h
+      have e4 : η₁.pfr = η₂.pfr := by have h := congrArg TEnv.pfr hp; exact h
+      simp only [VRR, VR, e1, e2, e3, e4]
   | .fix _ _, _, _, _, _, _, _, _, _, _, _, _, _ => by simp [VRR]
   | .lanes _ _, _, _, _, _, _, _, _, _, _, _, _, _ => by simp [VRR]
   | .unit, _, _, _, _, _, _, _, _, _, _, _, _ => by simp [VRR]
@@ -4040,7 +4086,7 @@ theorem accs_width : ∀ (t : Ty) (us : List Acc), accs t = some us →
       subst h; subst hw; simp [Idx.closed] at hk; subst hk; rfl
   | array i t _ => intro us h; simp [accs] at h
   | tvar _ => intro us h; simp [accs] at h
-  | unit | void | tok _ _ | tok2 _ _ _ _ | tokE _ _ _ | share _ | cap _ _ | int | intS _ | code _ _ | ptr _ _ | ptrOpt _ _
+  | unit | void | tok _ _ | tok2 _ _ _ _ | tokE _ _ _ | share _ | cap _ _ | int | tid | intS _ | code _ _ | ptr _ _ | ptrOpt _ _
     | loc _ _ | fix _ _ | lanes _ _ =>
       intro us h w k hw hk
       simp [accs, info, Info.leaf] at h hw
@@ -4151,6 +4197,9 @@ theorem countT_shiftI : ∀ (t : Ty) (c k : Nat), (t.shiftI c).countT k = t.coun
   | .int, c, k => by
       have h := tyMentions_shiftI (.int) c k
       first | rfl | (simp only [Ty.shiftI] at h ⊢ <;> simp only [Ty.countT, h])
+  | .tid, c, k => by
+      have h := tyMentions_shiftI (.int) c k
+      first | rfl | (simp only [Ty.shiftI] at h ⊢ <;> simp only [Ty.countT, h])
   | .intS i, c, k => by
       have h := tyMentions_shiftI (.intS i) c k
       first | rfl | (simp only [Ty.shiftI] at h ⊢ <;> simp only [Ty.countT, h])
@@ -4222,6 +4271,9 @@ theorem countI_shiftI : ∀ (t : Ty) (c k : Nat), k < c → (t.shiftI c).countI 
       have h := idxMentions_shiftI (.void) c k hk
       first | rfl | (simp only [Ty.shiftI] at h ⊢ <;> simp only [Ty.countI, h])
   | .int, c, k, hk => by
+      have h := idxMentions_shiftI (.int) c k hk
+      first | rfl | (simp only [Ty.shiftI] at h ⊢ <;> simp only [Ty.countI, h])
+  | .tid, c, k, hk => by
       have h := idxMentions_shiftI (.int) c k hk
       first | rfl | (simp only [Ty.shiftI] at h ⊢ <;> simp only [Ty.countI, h])
   | .intS i, c, k, hk => by
@@ -4464,6 +4516,9 @@ theorem shp_shiftI : ∀ (t : Ty) (c : Nat), shp (t.shiftI c) = shp t
       have h := wc_shiftI (.void) c
       first | rfl | (simp only [Ty.shiftI] at h ⊢ <;> simp only [shp, h])
   | .int, c => by
+      have h := wc_shiftI (.int) c
+      first | rfl | (simp only [Ty.shiftI] at h ⊢ <;> simp only [shp, h])
+  | .tid, c => by
       have h := wc_shiftI (.int) c
       first | rfl | (simp only [Ty.shiftI] at h ⊢ <;> simp only [shp, h])
   | .intS i, c => by
@@ -6586,6 +6641,7 @@ def ZRel (env : IEnv) : Ty → Ty → Prop
   | .unit, .unit => True
   | .void, .void => True
   | .int, .int => True
+  | .tid, .tid => True
   | .intS i, .intS j => IdxLe env i j
   | .fix _ _, .fix _ _ => True
   | .lanes _ _, .lanes _ _ => True
@@ -9846,6 +9902,32 @@ theorem atom_int {ρ : Nat → Nat} {η : TEnv} {σs : List Ty} {cx : Cx} {env :
   obtain ⟨w, rfl, hw⟩ := map_singleton hn
   exact ⟨rt, w, n, he, hw⟩
 
+/-- (E1) A `ThreadId` atom: one `num` word. -/
+theorem atom_tid {ρ : Nat → Nat} {η : TEnv} {σs : List Ty} {cx : Cx} {env : Env} {a : At} {t : Ty}
+    (hv : VarsOK ρ η σs cx.vars env) (h : cx.peek a = .ok t) (ht : tidOf t = true) :
+    ∃ rt w l, evalAt env a = some (rt, [w]) ∧ w.val = .loc ⟨l, 0⟩ 0 := by
+  obtain ⟨rt, ws, he, hiv, -⟩ := peek_VR hv h
+  have e : t = .tid := by cases t <;> simp [tidOf] at ht ⊢
+  subst e
+  simp only [VR] at hiv
+  obtain ⟨l, c, hn, -⟩ := hiv
+  obtain ⟨w, rfl, hw⟩ := map_singleton hn
+  exact ⟨rt, w, l, he, hw⟩
+
+/-- (E1) Both operands of a fact-free `ifeq` (`PlainEq`: integers, or `ThreadId`s) are one `num` word. -/
+theorem atom_plainEq {ρ : Nat → Nat} {η : TEnv} {σs : List Ty} {cx : Cx} {env : Env} {a b : At}
+    (hv : VarsOK ρ η σs cx.vars env) (hpe : PlainEq cx a b) :
+    ((∃ rt w n, evalAt env a = some (rt, [w]) ∧ w.val = .num n) ∧
+      (∃ rt w n, evalAt env b = some (rt, [w]) ∧ w.val = .num n)) ∨
+    ((∃ rt w l, evalAt env a = some (rt, [w]) ∧ w.val = .loc ⟨l, 0⟩ 0) ∧
+      (∃ rt w l, evalAt env b = some (rt, [w]) ∧ w.val = .loc ⟨l, 0⟩ 0)) := by
+  obtain ⟨ta, tb, hpa, hpb, hab⟩ := hpe
+  rcases hab with ⟨hsa, hsb, -⟩ | ⟨hta, htb⟩
+  · obtain ⟨oa, hoa⟩ := Option.isSome_iff_exists.1 hsa
+    obtain ⟨ob, hob⟩ := Option.isSome_iff_exists.1 hsb
+    exact Or.inl ⟨atom_int hv hpa hoa, atom_int hv hpb hob⟩
+  · exact Or.inr ⟨atom_tid hv hpa hta, atom_tid hv hpb htb⟩
+
 theorem fixOf_eq {t : Ty} {q : Bool × Wd} (h : fixOf t = some q) : t = .fix q.1 q.2 := by
   cases t <;> simp [fixOf] at h; subst h; rfl
 
@@ -10121,6 +10203,7 @@ theorem VR_substTs (σs : List Ty) (η : TEnv) (ρ₀ : Nat → Nat) :
         VR_substTs σs η ρ₀ b P (d + 1) (vcons v ρ) rt ws (fun k => by rw [← Nat.add_assoc, vcons_succ]; exact hρ k)
   | .intS _, _, _, _, _, _, _ => by simp [substTs, VR]
   | .int, _, _, _, _, _, _ => by simp [substTs, VR]
+  | .tid, _, _, _, _, _, _ => by simp only [substTs, VR, pre_sto, pre_tid, pre_pfr, pre_seen, subE_sto, subE_tid, subE_pfr, subE_seen]
   | .fix _ _, _, _, _, _, _, _ => by simp [substTs, VR]
   | .lanes _ _, _, _, _, _, _, _ => by simp [substTs, VR]
 
@@ -10530,25 +10613,25 @@ theorem noCx_pres {K : TEnv → List Word → Prop} {cx c' : Cx} {i j : Idx} {ρ
 and whichever branch it takes is well typed in a context the run witnesses. -/
 theorem ifeq_step {K : TEnv → List Word → Prop} {p : Prog} {cx : Cx} {a b : At} {yes no : Expr} {ρ : Nat → Nat} {η : TEnv} {σs : List Ty}
     {env : Env} (hT : Typed p cx (.ifeq a b yes no)) (hi : FInv ρ η σs K cx env) (htv : TvOK cx) :
-    ∃ ra wa rb wb n m, evalAt env a = some (ra, [wa]) ∧ evalAt env b = some (rb, [wb]) ∧
+    (∃ ra wa rb wb n m, evalAt env a = some (ra, [wa]) ∧ evalAt env b = some (rb, [wb]) ∧
       wa.val = .num n ∧ wb.val = .num m ∧
       (n = m → ∃ ρ' cy, Typed p cy yes ∧ TvOK cy ∧ skel cy.ret = skel cx.ret ∧ FInv ρ' η σs K cy env) ∧
-      (n ≠ m → ∃ ρ' cn, Typed p cn no ∧ TvOK cn ∧ skel cn.ret = skel cx.ret ∧ FInv ρ' η σs K cn env) := by
+      (n ≠ m → ∃ ρ' cn, Typed p cn no ∧ TvOK cn ∧ skel cn.ret = skel cx.ret ∧ FInv ρ' η σs K cn env)) ∨
+    (∃ ra wa rb wb la lb, evalAt env a = some (ra, [wa]) ∧ evalAt env b = some (rb, [wb]) ∧
+      wa.val = .loc ⟨la, 0⟩ 0 ∧ wb.val = .loc ⟨lb, 0⟩ 0 ∧ Typed p cx yes ∧ Typed p cx no) := by
   cases hT with
   | ifeqPlain hpe hy hn =>
-      obtain ⟨ta, tb, hpa, hpb, hsa, hsb, -⟩ := hpe
-      obtain ⟨oa, hoa⟩ := Option.isSome_iff_exists.1 hsa
-      obtain ⟨ob, hob⟩ := Option.isSome_iff_exists.1 hsb
-      obtain ⟨ra, wa, n, hea, hwa⟩ := atom_int hi.2.1 hpa hoa
-      obtain ⟨rb, wb, m, heb, hwb⟩ := atom_int hi.2.1 hpb hob
-      exact ⟨ra, wa, rb, wb, n, m, hea, heb, hwa, hwb, fun _ => ⟨ρ, cx, hy, htv, rfl, hi⟩,
-        fun _ => ⟨ρ, cx, hn, htv, rfl, hi⟩⟩
+      rcases atom_plainEq hi.2.1 hpe with ⟨⟨ra, wa, n, hea, hwa⟩, ⟨rb, wb, m, heb, hwb⟩⟩ |
+          ⟨⟨ra, wa, la, hea, hwa⟩, ⟨rb, wb, lb, heb, hwb⟩⟩
+      · exact Or.inl ⟨ra, wa, rb, wb, n, m, hea, heb, hwa, hwb, fun _ => ⟨ρ, cx, hy, htv, rfl, hi⟩,
+          fun _ => ⟨ρ, cx, hn, htv, rfl, hi⟩⟩
+      · exact Or.inr ⟨ra, wa, rb, wb, la, lb, hea, heb, hwa, hwb, hy, hn⟩
   | ifeq hia hib hy hnc hn =>
       rename_i c' i j
       obtain ⟨ta, hpa, hta⟩ := hia; obtain ⟨tb, hpb, htb⟩ := hib
       obtain ⟨ra, wa, hea, hwa, -⟩ := atom_num hi.2.1 hpa hta
       obtain ⟨rb, wb, heb, hwb, -⟩ := atom_num hi.2.1 hpb htb
-      refine ⟨ra, wa, rb, wb, _, _, hea, heb, hwa, hwb, fun _ => ⟨ρ, cx, hy, htv, rfl, hi⟩, fun hne => ?_⟩
+      refine Or.inl ⟨ra, wa, rb, wb, _, _, hea, heb, hwa, hwb, fun _ => ⟨ρ, cx, hy, htv, rfl, hi⟩, fun hne => ?_⟩
       obtain ⟨ρ', h'⟩ := noCx_pres hnc hi hne
       exact ⟨ρ', c', hn, NoCx_TvOK hnc htv, NoCx_retSk hnc, h'⟩
   | ifeqRec hia hib hrec hy hnc hn =>
@@ -10556,7 +10639,7 @@ theorem ifeq_step {K : TEnv → List Word → Prop} {p : Prog} {cx : Cx} {a b : 
       obtain ⟨ta, hpa, hta⟩ := hia; obtain ⟨tb, hpb, htb⟩ := hib
       obtain ⟨ra, wa, hea, hwa, -⟩ := atom_num hi.2.1 hpa hta
       obtain ⟨rb, wb, heb, hwb, -⟩ := atom_num hi.2.1 hpb htb
-      refine ⟨ra, wa, rb, wb, _, _, hea, heb, hwa, hwb, fun heq => ?_, fun hne => ?_⟩
+      refine Or.inl ⟨ra, wa, rb, wb, _, _, hea, heb, hwa, hwb, fun heq => ?_, fun hne => ?_⟩
       · refine ⟨ρ, _, hy, htv, rfl, Sat_cons hi.1 ?_, hi.2⟩
         rcases hrec with ⟨h1, h2⟩ | ⟨h1, h2⟩
         · have e1 := h1 ρ hi.1; have e2 := h2 ρ hi.1; simp only [ev] at e1; omega
@@ -10568,7 +10651,7 @@ theorem ifeq_step {K : TEnv → List Word → Prop} {p : Prog} {cx : Cx} {a b : 
       obtain ⟨ta, hpa, hta⟩ := hia; obtain ⟨tb, hpb, htb⟩ := hib
       obtain ⟨ra, wa, hea, hwa, -⟩ := atom_num hi.2.1 hpa hta
       obtain ⟨rb, wb, heb, hwb, -⟩ := atom_num hi.2.1 hpb htb
-      refine ⟨ra, wa, rb, wb, _, _, hea, heb, hwa, hwb, fun heq => ?_, fun hne => ?_⟩
+      refine Or.inl ⟨ra, wa, rb, wb, _, _, hea, heb, hwa, hwb, fun heq => ?_, fun hne => ?_⟩
       · refine ⟨ρ, _, hy, htv, rfl, Sat_cons hi.1 ?_, hi.2⟩
         obtain ⟨hs, hz⟩ := hz
         simp only [ev]
@@ -11308,7 +11391,7 @@ theorem VR_VRR : ∀ (t : Ty) {ρ : Nat → Nat} {η : TEnv} {rt : Shp} {ws : Li
       by_cases hw : Word2Holds P (ws.map (·.val))
       · exact ⟨_, by simp only [VRR]; exact ⟨h, Or.inl ⟨hw, rfl⟩⟩⟩
       · exact ⟨_, by simp only [VRR]; exact ⟨h, Or.inr ⟨hw, rfl⟩⟩⟩
-  | intS | int | fix | lanes | code | epair =>
+  | intS | int | tid | fix | lanes | code | epair =>
       intro ρ η rt ws _ _ h; simp only [VR] at h; exact ⟨_, by simp only [VRR]; exact ⟨h, rfl⟩⟩
   | ptr | loc | ptrOpt =>
       intro ρ η rt ws _ _ h; simp only [VR] at h; exact ⟨_, by simp only [VRR]; exact ⟨h, rfl⟩⟩
@@ -11391,7 +11474,17 @@ theorem tstep_ifeq {p : Prog} {g : G} {mem : WeakMem.Memory} {pairs : List WeakM
     (hE : EnvOK p η) (htv : TvOK cx) (hpw : RetPw th.σs th.stack cx.ret) (hPS : PwSkel) :
     tstep g mem pairs th ≠ [] ∧ ∀ r ∈ tstep g mem pairs th, ThInvE p (CE η) r.2.2 := by
   rw [hterm] at hT
-  obtain ⟨ra, wa, rb, wb, n, m, hea, heb, hwa, hwb, hy, hn⟩ := ifeq_step hT hi htv
+  rcases ifeq_step hT hi htv with ⟨ra, wa, rb, wb, n, m, hea, heb, hwa, hwb, hy, hn⟩ |
+      ⟨ra, wa, rb, wb, la, lb, hea, heb, hwa, hwb, hy, hn⟩
+  rotate_left
+  · simp only [tstep, hterm, hea, heb, hwa, hwb]
+    refine ⟨by simp, ?_⟩
+    intro r hr
+    simp only [List.mem_singleton] at hr
+    subst hr
+    by_cases h : la = lb
+    · exact ⟨ρ, η, cx, rfl, hE, by simpa [h] using hy, htv, hi, retPw_skel hPS hpw (skel_subst_eq rfl th.σs 0 0 0)⟩
+    · exact ⟨ρ, η, cx, rfl, hE, by simpa [h] using hn, htv, hi, retPw_skel hPS hpw (skel_subst_eq rfl th.σs 0 0 0)⟩
   simp only [tstep, hterm, hea, heb, hwa, hwb]
   refine ⟨by simp, ?_⟩
   intro r hr
@@ -12000,6 +12093,7 @@ theorem VR_instTs (us : List Idx) (η : TEnv) :
       VR ρ η (instT us d t) rt ws ↔ VR (vinsL d (us.map (ev (fun k => ρ (k + d)))) ρ) η t rt ws
   | .intS i, d, ρ, _, _ => by simp [instT, VR, ev_instIs]
   | .int, _, _, _, _ => by simp [instT, VR]
+  | .tid, _, _, _, _ => by simp [instT, VR]
   | .fix _ _, _, _, _, _ => by simp [instT, VR]
   | .lanes _ _, _, _, _, _ => by simp [instT, VR]
   | .refine t ψ, d, ρ, rt, ws => by
@@ -12192,6 +12286,7 @@ theorem VRR_substTs (σs : List Ty) (η : TEnv) (ρ₀ : Nat → Nat) :
         VRR_substTs σs η ρ₀ b P (d + 1) (vcons v ρ) rt ws X (fun k => by rw [← Nat.add_assoc, vcons_succ]; exact hρ k)
   | .intS _, _, _, _, _, _, _, _ => by simp [substTs, VRR]
   | .int, _, _, _, _, _, _, _ => by simp [substTs, VRR]
+  | .tid, _, _, _, _, _, _, _ => by simp only [substTs, VRR, VR, pre_sto, pre_tid, pre_pfr, pre_seen, subE_sto, subE_tid, subE_pfr, subE_seen]
   | .fix _ _, _, _, _, _, _, _, _ => by simp [substTs, VRR]
   | .lanes _ _, _, _, _, _, _, _, _ => by simp [substTs, VRR]
 
@@ -12580,25 +12675,25 @@ theorem noCx_presR {cx c' : Cx} {i j : Idx} {ρ : Nat → Nat} {η : TEnv} {σs 
 and whichever branch it takes is well typed in a context the run witnesses. -/
 theorem ifeq_stepR {p : Prog} {cx : Cx} {a b : At} {yes no : Expr} {ρ : Nat → Nat} {η : TEnv} {σs : List Ty}
     {env : Env} (hT : TermA4.CkW p η.wit cx (.ifeq a b yes no)) {K : TEnv → Nat → List Word → Res → Prop} {Rf : Res} (hi : FInvR ρ η σs K cx env Rf) (htv : TvOK cx) :
-    ∃ ra wa rb wb n m, evalAt env a = some (ra, [wa]) ∧ evalAt env b = some (rb, [wb]) ∧
+    (∃ ra wa rb wb n m, evalAt env a = some (ra, [wa]) ∧ evalAt env b = some (rb, [wb]) ∧
       wa.val = .num n ∧ wb.val = .num m ∧
       (n = m → ∃ ρ' cy, TypedK p η cy yes ∧ TvOK cy ∧ skel cy.ret = skel cx.ret ∧ FInvR ρ' η σs K cy env Rf) ∧
-      (n ≠ m → ∃ ρ' cn, TypedK p η cn no ∧ TvOK cn ∧ skel cn.ret = skel cx.ret ∧ FInvR ρ' η σs K cn env Rf) := by
+      (n ≠ m → ∃ ρ' cn, TypedK p η cn no ∧ TvOK cn ∧ skel cn.ret = skel cx.ret ∧ FInvR ρ' η σs K cn env Rf)) ∨
+    (∃ ra wa rb wb la lb, evalAt env a = some (ra, [wa]) ∧ evalAt env b = some (rb, [wb]) ∧
+      wa.val = .loc ⟨la, 0⟩ 0 ∧ wb.val = .loc ⟨lb, 0⟩ 0 ∧ TypedK p η cx yes ∧ TypedK p η cx no) := by
   cases TermA4.CkW_inv_ifeq hT with
   | ifeqPlain hpe hy hn =>
-      obtain ⟨ta, tb, hpa, hpb, hsa, hsb, -⟩ := hpe
-      obtain ⟨oa, hoa⟩ := Option.isSome_iff_exists.1 hsa
-      obtain ⟨ob, hob⟩ := Option.isSome_iff_exists.1 hsb
-      obtain ⟨ra, wa, n, hea, hwa⟩ := atom_int hi.1.2.1 hpa hoa
-      obtain ⟨rb, wb, m, heb, hwb⟩ := atom_int hi.1.2.1 hpb hob
-      exact ⟨ra, wa, rb, wb, n, m, hea, heb, hwa, hwb, fun _ => ⟨ρ, cx, hy.tk, htv, rfl, hi⟩,
-        fun _ => ⟨ρ, cx, hn.tk, htv, rfl, hi⟩⟩
+      rcases atom_plainEq hi.1.2.1 hpe with ⟨⟨ra, wa, n, hea, hwa⟩, ⟨rb, wb, m, heb, hwb⟩⟩ |
+          ⟨⟨ra, wa, la, hea, hwa⟩, ⟨rb, wb, lb, heb, hwb⟩⟩
+      · exact Or.inl ⟨ra, wa, rb, wb, n, m, hea, heb, hwa, hwb, fun _ => ⟨ρ, cx, hy.tk, htv, rfl, hi⟩,
+          fun _ => ⟨ρ, cx, hn.tk, htv, rfl, hi⟩⟩
+      · exact Or.inr ⟨ra, wa, rb, wb, la, lb, hea, heb, hwa, hwb, hy.tk, hn.tk⟩
   | ifeq hia hib hy hnc hn =>
       rename_i c' i j
       obtain ⟨ta, hpa, hta⟩ := hia; obtain ⟨tb, hpb, htb⟩ := hib
       obtain ⟨ra, wa, hea, hwa, -⟩ := atom_num hi.1.2.1 hpa hta
       obtain ⟨rb, wb, heb, hwb, -⟩ := atom_num hi.1.2.1 hpb htb
-      refine ⟨ra, wa, rb, wb, _, _, hea, heb, hwa, hwb, fun _ => ⟨ρ, cx, hy.tk, htv, rfl, hi⟩, fun hne => ?_⟩
+      refine Or.inl ⟨ra, wa, rb, wb, _, _, hea, heb, hwa, hwb, fun _ => ⟨ρ, cx, hy.tk, htv, rfl, hi⟩, fun hne => ?_⟩
       obtain ⟨ρ', h'⟩ := noCx_presR hnc hi hne
       exact ⟨ρ', c', hn.tk, NoCx_TvOK hnc htv, NoCx_retSk hnc, h'⟩
   | ifeqRec hia hib hrec hy hnc hn =>
@@ -12606,7 +12701,7 @@ theorem ifeq_stepR {p : Prog} {cx : Cx} {a b : At} {yes no : Expr} {ρ : Nat →
       obtain ⟨ta, hpa, hta⟩ := hia; obtain ⟨tb, hpb, htb⟩ := hib
       obtain ⟨ra, wa, hea, hwa, -⟩ := atom_num hi.1.2.1 hpa hta
       obtain ⟨rb, wb, heb, hwb, -⟩ := atom_num hi.1.2.1 hpb htb
-      refine ⟨ra, wa, rb, wb, _, _, hea, heb, hwa, hwb, fun heq => ?_, fun hne => ?_⟩
+      refine Or.inl ⟨ra, wa, rb, wb, _, _, hea, heb, hwa, hwb, fun heq => ?_, fun hne => ?_⟩
       · refine ⟨ρ, _, hy.tk, htv, rfl, ⟨Sat_cons hi.1.1 ?_, hi.1.2⟩, hi.2.1, hi.2.2⟩
         rcases hrec with ⟨h1, h2⟩ | ⟨h1, h2⟩
         · have e1 := h1 ρ hi.1.1; have e2 := h2 ρ hi.1.1; simp only [ev] at e1; omega
@@ -12618,7 +12713,7 @@ theorem ifeq_stepR {p : Prog} {cx : Cx} {a b : At} {yes no : Expr} {ρ : Nat →
       obtain ⟨ta, hpa, hta⟩ := hia; obtain ⟨tb, hpb, htb⟩ := hib
       obtain ⟨ra, wa, hea, hwa, -⟩ := atom_num hi.1.2.1 hpa hta
       obtain ⟨rb, wb, heb, hwb, -⟩ := atom_num hi.1.2.1 hpb htb
-      refine ⟨ra, wa, rb, wb, _, _, hea, heb, hwa, hwb, fun heq => ?_, fun hne => ?_⟩
+      refine Or.inl ⟨ra, wa, rb, wb, _, _, hea, heb, hwa, hwb, fun heq => ?_, fun hne => ?_⟩
       · refine ⟨ρ, _, hy.tk, htv, rfl, ⟨Sat_cons hi.1.1 ?_, hi.1.2⟩, hi.2.1, hi.2.2⟩
         obtain ⟨hs, hz⟩ := hz
         simp only [ev]
@@ -12864,7 +12959,17 @@ theorem tstep_ifeqR {p : Prog} {g : G} {mem : WeakMem.Memory} {pairs : List Weak
     tstep g mem pairs th ≠ [] ∧ ∀ r ∈ tstep g mem pairs th, ThInvRE p (CE η) r.2.2 (Rf + Rs) := by
   have _ := hT
   rw [hterm] at hCk
-  obtain ⟨ra, wa, rb, wb, n, m, hea, heb, hwa, hwb, hy, hn⟩ := ifeq_stepR hCk hi htv
+  rcases ifeq_stepR hCk hi htv with ⟨ra, wa, rb, wb, n, m, hea, heb, hwa, hwb, hy, hn⟩ |
+      ⟨ra, wa, rb, wb, la, lb, hea, heb, hwa, hwb, hy, hn⟩
+  rotate_left
+  · simp only [tstep, hterm, hea, heb, hwa, hwb]
+    refine ⟨by simp, ?_⟩
+    intro r hr
+    simp only [List.mem_singleton] at hr
+    subst hr
+    by_cases h : la = lb
+    · exact ⟨ρ, η, cx, Rf, Rs, rfl, hE, by simpa [h] using hy, htv, hi, rfl, retPw_skel hPS hpw (skel_subst_eq rfl th.σs 0 0 0)⟩
+    · exact ⟨ρ, η, cx, Rf, Rs, rfl, hE, by simpa [h] using hn, htv, hi, rfl, retPw_skel hPS hpw (skel_subst_eq rfl th.σs 0 0 0)⟩
   simp only [tstep, hterm, hea, heb, hwa, hwb]
   refine ⟨by simp, ?_⟩
   intro r hr
@@ -14973,6 +15078,7 @@ theorem VRR_instTs (us : List Idx) (η : TEnv) :
       VRR ρ η (instT us d t) rt ws R ↔ VRR (vinsL d (us.map (ev (fun k => ρ (k + d)))) ρ) η t rt ws R
   | .intS i, d, ρ, _, _, _ => by simp [instT, VRR, ev_instIs]
   | .int, _, _, _, _, _ => by simp [instT, VRR]
+  | .tid, _, _, _, _, _ => by simp [instT, VRR, VR]
   | .fix _ _, _, _, _, _, _ => by simp [instT, VRR]
   | .lanes _ _, _, _, _, _, _ => by simp [instT, VRR]
   | .refine t ψ, d, ρ, rt, ws, R => by
@@ -15525,6 +15631,13 @@ theorem VR_ren0 (w1 w2 : Word) (x1 x2 : WeakMem.Address) (B1 B2 : Box)
       exact fun n => ih η (vcons n ρ) R s1 s2 ht hr hR hb1 hb2 hs hi hri hm (h n)
   | void => intros; simp_all [VR]
   | int => intro η ρ R s1 s2 _ _ _ _ _ _ _ _ _ h; simp [VR, h1] at h
+  | tid =>
+      intro η ρ R s1 s2 _ _ _ _ _ hs _ _ _ h
+      simp only [VR] at h
+      obtain ⟨l, c, he, hc, -⟩ := h
+      simp only [List.map_cons, List.map_nil, h1, List.cons.injEq] at he
+      have hl : x1.label = l := by cases he.1; rfl
+      rw [hl, hc] at hs; cases hs
   | intS => intro η ρ R s1 s2 _ _ _ _ _ _ _ _ _ h; simp [VR, h1] at h
   | code => intro η ρ R s1 s2 _ _ _ _ _ _ _ _ _ h; simp [VR, h1] at h
   | tvar k => intro η ρ R s1 s2 _ hr _ _ _ _ _ _ _ h; simp only [VR, TEnv.get] at h; obtain ⟨_, _, h⟩ := h; exact absurd h (hr _ _ _)

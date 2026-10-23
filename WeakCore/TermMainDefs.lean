@@ -148,6 +148,10 @@ def MsgWordsG (Eg : GEnv) (c : Cfg) : Prop :=
   ∀ (t : Nat) (m : Msg) (cl : Cell), c.mem[t]? = some m → Eg.sto m.loc.label = some cl →
     TermStep.InWords cl.ty m.loc.offset
 
+/-- (E2) A thread's box, once it has one, is a published zero-word cell. -/
+def TidBox (Eg : GEnv) (th : TTh) : Prop :=
+  ∀ l, th.tidLbl = some l → Eg.sto l = some ⟨.unit, none⟩ ∧ Eg.pfr l = some 0
+
 /-- **`SysInvW` with net key bounds** (the invariant carried along runs). -/
 structure SysInvN (p : Prog) (k : Promises.Knobs) (arch : Arch) (Init : Res) (MintOK : Res → Prop)
     (c : Cfg) (Eg : GEnv) (Tot HP : Nat → Res) (HS : Res) (cr db : Nat → Ts → Res) : Prop where
@@ -282,6 +286,8 @@ structure SysInvN (p : Prog) (k : Promises.Knobs) (arch : Arch) (Init : Res) (Mi
   stoW : ∀ l cl, Eg.sto l = some cl → TermA4.wrapTop cl.ty = true
   /-- (2b, freshU) unborn stripes are fresh and unowned (`TermFreshU`); vacuous when `n ≤ ths.size`. -/
   freshU : FreshU c.n Eg c Tot HP HS cr
+  /-- (E2) every thread's `ThreadId` box, once allocated, is a published zero-word cell (`TidBox`). -/
+  tidBox : ∀ (i : Nat) (th : TTh), c.ths[i]? = some th → TidBox Eg th
 
 def SysInvNx (p : Prog) (k : Promises.Knobs) (arch : Arch) (Init : Res) (MintOK : Res → Prop) (c : Cfg) : Prop :=
   ∃ (Eg : GEnv) (Tot HP : Nat → Res) (HS : Res) (cr db : Nat → Ts → Res),
@@ -350,8 +356,10 @@ theorem SysInvW.toN (h : SysInvW p k arch Init MintOK c Eg Tot HP HS cr db) (hn 
     (hvl : ∀ (i : Nat) (th : TTh), c.ths[i]? = some th → th.vs.vWr ≤ c.mem.size - 1)
     (hmw : MsgWordsG Eg c) (hmem0 : c.mem = #[]) (hpf0 : ∀ l, Eg.pfr l = none)
     (hlb : TermPtrRts.LblSto Eg c) (hly : ∀ l cl, Eg.sto l = some cl → LayT cl.ty)
-    (hcc : TermLiveProps.CfgCoh c) (hsw : (∀ l cl, Eg.sto l = some cl → TermA4.wrapTop cl.ty = true)) :
+    (hcc : TermLiveProps.CfgCoh c) (hsw : (∀ l cl, Eg.sto l = some cl → TermA4.wrapTop cl.ty = true))
+    (htb : ∀ (i : Nat) (th : TTh), c.ths[i]? = some th → TidBox Eg th) :
     SysInvN p k arch Init MintOK c Eg Tot HP HS cr db where
+  tidBox := htb
   thr := h.thr
   held := h.held
   clo := h.clo

@@ -1,0 +1,1 @@
+reject_literal.w:3:3: error: the literal 18446744073709551616 does not fit in 64 bits (in 'main')

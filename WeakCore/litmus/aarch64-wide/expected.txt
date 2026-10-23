@@ -4,3 +4,16 @@ WidePairReadSwapped forbidden 2
 WideOrderedRead forbidden 3
 WideOrderedReadSwapped forbidden 3
 WidePlainPairRead allowed 4
+LBldpstp allowed 4
+LBldrstp allowed 4
+LBldrstpstr allowed 4
+LBdmbldstp forbidden 3
+LBdmbldstpone allowed 4
+LBdmbldstpstr allowed 4
+MPstrstp allowed 4
+MPstrdmbldstp allowed 4
+MPstrdmbldstr allowed 4
+MPstrisbstr allowed 4
+MPcaspdmbldstp allowed 4
+MPswpdmbldstr allowed 4
+GOneCaspSingle allowed 4

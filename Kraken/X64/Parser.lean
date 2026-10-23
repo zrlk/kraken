@@ -148,8 +148,9 @@ def parseHexOrDec : Parser Int := do
     let c ← peek!
     if c == '0' then do
       skip
-      let c2 ← peek!
-      if c2 == 'x' || c2 == 'X' then do
+      -- `peek?`: a `0` may end the line (`movq %rax, %fs:0`).
+      let c2 ← peek?
+      if c2 == some 'x' || c2 == some 'X' then do
         skip
         let digits ← many1 hexDigit
         pure (digits.foldl (fun acc d => acc * 16 + hexVal d) 0)
@@ -674,6 +675,65 @@ def mkXchg {w} (a b : RegOrMem w) : Parser (Operation w) :=
   | m, .reg r => pure (.xchg r m)
   | _, _ => fail "xchg needs a register operand"
 
+/-- Run `p` without consuming input: whether it succeeds. -/
+def succeeds {α} (p : Parser α) : Parser Bool := fun it =>
+  match p it with
+  | .success _ _ => .success it true
+  | .error _ _ => .success it false
+
+/-- The rest of the current line, without consuming it. -/
+def peekRestOfLine : Parser String := fun it =>
+  match (many (satisfy fun c => c != '\n')) it with
+  | .success _ cs => .success it (String.ofList cs.toList)
+  | .error p e => .error p e
+
+/-- A `%fs`-relative memory operand: `%fs:` and a memory operand
+(`%fs:disp(base,index,scale)`), or the absolute `%fs:disp` / `%fs:sym`. -/
+def parseFsMemory : Parser (Width × AddrExpr) := do
+  skipHWs
+  let _ ← pstring "%fs:" <|> pstring "%FS:"
+  skipHWs
+  attempt parseMemory <|> (do
+    let disp ← (do let i ← parseInt; pure (ConstExpr.int64 (Int64.ofInt i))) <|> parseLabel
+    pure (.W64, { base := none, idx := none, disp }))
+
+/-- `mov` with a `%fs:` memory operand (`Operation.movfs`), as the source (the
+destination is then a register) or as the destination (the source a register or
+an immediate). `op_w` is the width of the mnemonic's suffix, if any. Fails on a
+`mov` without a `%fs:` operand. -/
+def parseMovFs (op_w : Option Width) : Parser Instr := do
+  let fsOperand : Parser (MaybeAddrWidth × MaybeOpWidth Operand) := do
+    let (w, m) ← parseFsMemory
+    pure (some w, ⟨ .none, .mem m ⟩)
+  let fsMem : Parser (MaybeAddrWidth × MaybeOpWidth RegOrMem) := do
+    let (w, m) ← parseFsMemory
+    pure (some w, ⟨ .none, .mem m ⟩)
+  if (← succeeds (skipHWs *> (pstring "%fs:" <|> pstring "%FS:"))) then
+    commaSeparated op_w fsOperand parseRegOrMem .movfs
+  else
+    commaSeparated op_w parseOperand fsMem .movfs
+
+/-- `cmp` with a `%fs:` memory operand (`Operation.cmpfs`), as either operand
+(the other a register, or an immediate first operand). `op_w` is the width of
+the mnemonic's suffix, if any. Fails on a `cmp` without a `%fs:` operand. -/
+def parseCmpFs (op_w : Option Width) : Parser Instr := do
+  let fsOperand : Parser (MaybeAddrWidth × MaybeOpWidth Operand) := do
+    let (w, m) ← parseFsMemory
+    pure (some w, ⟨ .none, .mem m ⟩)
+  let fsMem : Parser (MaybeAddrWidth × MaybeOpWidth RegOrMem) := do
+    let (w, m) ← parseFsMemory
+    pure (some w, ⟨ .none, .mem m ⟩)
+  if (← succeeds (skipHWs *> (pstring "%fs:" <|> pstring "%FS:"))) then
+    commaSeparated op_w fsOperand parseRegOrMem .cmpfs
+  else
+    commaSeparated op_w parseOperand fsMem .cmpfs
+
+/-- Whether the rest of the line has a `%fs:` operand (a `mov` with one is
+`parseMovFs`, a `cmp` with one `parseCmpFs`). -/
+def lineHasFs : Parser Bool := do
+  let rest ← peekRestOfLine
+  pure (1 < ((rest.toLower).splitOn "%fs:").length)
+
 /-- Parse an instruction mnemonic and its operands.
     AT&T syntax: src, dst (reversed from Intel). -/
 partial def parseInstr : Parser Instr := do
@@ -793,6 +853,22 @@ partial def parseInstr : Parser Instr := do
     let ( addr_w, src ) ← parseRegOrMemAO w
     pure (toInstr addr_w (.mul src))
 
+  -- Division: `div`/`idiv` with a register (width from the register) or a
+  -- suffixed mnemonic.
+  | "div" | "idiv" =>
+    let ( addr_w, src) ← parseRegOrMem
+    let ⟨ _w, src ⟩ ← assertW src
+    pure (toInstr addr_w (if mn == "div" then .div src else .idiv src))
+
+  | "divq" | "divl" | "divw" | "divb" | "idivq" | "idivl" | "idivw" | "idivb" =>
+    let w ← instrWidth mn
+    let ( addr_w, src ) ← parseRegOrMemAO w
+    pure (toInstr addr_w (if mn.startsWith "i" then .idiv src else .div src))
+
+  | "cqto" | "cqo" => pure (toInstr .none (w := .W64) .cqo)
+  | "cltd" | "cdq" => pure (toInstr .none (w := .W32) .cqo)
+  | "cwtd" | "cwd" => pure (toInstr .none (w := .W16) .cqo)
+
   | "mulx" =>
     -- Per Intel SDM: MULX dest1 and dest2 must be registers
     -- mulxq src, lo, hi (AT&T: src → rdx*src, result in lo:hi)
@@ -893,23 +969,35 @@ partial def parseInstr : Parser Instr := do
     let ( addr_w, dst ) ← parseRegOrMemAO w
     pure (toInstr addr_w (.dec dst))
 
-  | "mov" | "movabs" =>
+  | "mov" =>
+    if (← lineHasFs) then parseMovFs .none
+    else commaSeparated .none parseOperand parseRegOrMem .mov
+
+  | "movabs" =>
     commaSeparated .none parseOperand parseRegOrMem .mov
 
-  | "movq" | "movl" | "movw" | "movb"
+  | "movq" | "movl" | "movw" | "movb" =>
+    let w ← instrWidth mn
+    if (← lineHasFs) then parseMovFs w
+    else commaSeparated w parseOperand parseRegOrMem .mov
+
   | "movabsq" | "movabsl" | "movabsw" | "movabsb" =>
     let w ← instrWidth mn
     commaSeparated w parseOperand parseRegOrMem .mov
 
+  -- System call (`Kraken/SYSCALL.md`).
+  | "syscall" => pure (toInstr .none (w := .W64) .syscall)
+  | "ud2" => pure (toInstr .none (w := .W64) .ud2)
+
   | "movsx" =>
     -- Must be a register otherwise lacking type info
-    let ⟨ _w_src, src ⟩ ← parseRegW
+    let ⟨ _w_src, src ⟩ ← parseRegW; parseComma
     let ⟨ _w_dst, dst ⟩ ← parseRegW
     pure (toInstr .none (.movsx (.reg dst) (.reg src)))
 
   | "movzx" =>
     -- Must be a register otherwise lacking type info
-    let ⟨ _w_src, src ⟩ ← parseRegW
+    let ⟨ _w_src, src ⟩ ← parseRegW; parseComma
     let ⟨ _w_dst, dst ⟩ ← parseRegW
     pure (toInstr .none (.movzx (.reg dst) (.reg src)))
 
@@ -917,9 +1005,10 @@ partial def parseInstr : Parser Instr := do
     let w_dst ← instrWidth mn
     let c_src ← String.Pos.Raw.get? mn (.mk (mn.length - 2))
     let w_src ← Char.toWidth c_src
-    let src ← parseRegO w_src; parseComma
+    -- The source may be memory; the suffix gives its width.
+    let (addr_w, src) ← parseRegOrMemAO w_src; parseComma
     let dst ← parseRegO w_dst
-    pure (toInstr .none (.movsx (.reg dst) (.reg src)))
+    pure (toInstr addr_w (.movsx (.reg dst) src))
 
   | "movslq" =>
     -- `movsxd`: the source may be memory (a jump table entry, say)
@@ -931,9 +1020,10 @@ partial def parseInstr : Parser Instr := do
     let w_dst ← instrWidth mn
     let c_src ← String.Pos.Raw.get? mn (.mk (mn.length - 2))
     let w_src ← Char.toWidth c_src
-    let src ← parseRegO w_src; parseComma
+    -- The source may be memory; the suffix gives its width.
+    let (addr_w, src) ← parseRegOrMemAO w_src; parseComma
     let dst ← parseRegO w_dst
-    pure (toInstr .none (.movzx (.reg dst) (.reg src)))
+    pure (toInstr addr_w (.movzx (.reg dst) src))
 
   | "lea" =>
     let ( addr_w, src ) ← parseMemory; parseComma
@@ -1052,11 +1142,13 @@ partial def parseInstr : Parser Instr := do
 
   -- Compare - 64-bit
   | "cmp" => do
-    commaSeparated .none parseOperand parseRegOrMem .cmp
+    if (← lineHasFs) then parseCmpFs .none
+    else commaSeparated .none parseOperand parseRegOrMem .cmp
 
   | "cmpq" | "cmpl" | "cmpw" | "cmpb" => do
     let w ← instrWidth mn
-    commaSeparated w parseOperand parseRegOrMem .cmp
+    if (← lineHasFs) then parseCmpFs w
+    else commaSeparated w parseOperand parseRegOrMem .cmp
 
   -- Test (sets flags based on AND without storing result)
   | "test" =>
@@ -1171,6 +1263,15 @@ partial def parseInstr : Parser Instr := do
     | .regular _ .W8 _ => fail "tzcnt has no 8-bit form"
     | i => pure i
 
+  | "popcnt" | "popcntq" | "popcntl" | "popcntw" =>
+    let i ← if mn == "popcnt" then commaSeparated .none parseRegOrMem parseRegA .popcnt
+      else do
+        let w ← instrWidth mn
+        commaSeparated w parseRegOrMem parseRegA .popcnt
+    match i with
+    | .regular _ .W8 _ => fail "popcnt has no 8-bit form"
+    | i => pure i
+
   -- Stack operations
   | "push" =>
     let ( addr_w, src ) ← parseOperand
@@ -1227,8 +1328,22 @@ partial def parseInstr : Parser Instr := do
       -- handle cmovzb and the like? how many are there? we could conceivably
       -- just ignore it on the basis that the assembler will bail if there is
       -- something inconsistent like .cmovzb %rax %rbx
-      let cc ← parseCondCode (mn.drop 4)
-      commaSeparated .none parseRegOrMem parseRegA (.cmovcc cc)
+      -- A trailing operand-size suffix (`cmovneq`) is accepted when the
+      -- rest is a condition code; the suffix then fixes the width.
+      let cs := (mn.drop 4).copy.toList
+      let base := String.ofList cs.dropLast
+      let plain ← succeeds (parseCondCode (mn.drop 4))
+      let sized ← succeeds (parseCondCode base.toSlice)
+      let w? : Option Width := if plain || !sized then none else
+        match cs.getLast? with
+        | some 'q' => some .W64 | some 'l' => some .W32 | some 'w' => some .W16 | _ => none
+      match w? with
+      | some w =>
+        let cc ← parseCondCode base.toSlice
+        commaSeparated (some w) parseRegOrMem parseRegA (.cmovcc cc)
+      | none =>
+        let cc ← parseCondCode (mn.drop 4)
+        commaSeparated .none parseRegOrMem parseRegA (.cmovcc cc)
     else
       fail s!"unsupported instruction: {mnemonic}"
 

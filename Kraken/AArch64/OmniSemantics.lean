@@ -9,6 +9,7 @@ import Kraken.OmniSemantics
 @[kstep] def Effects.All (post : MachineState → Prop) : Effects → Prop
   | .done a => post a
   | .unimplemented _ => False
+  | .syscall .. => False
   | .unaligned_sp .. => False
   | .nonmem_load .. => False
   | .nonmem_store .. => False

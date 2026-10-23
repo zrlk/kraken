@@ -1,0 +1,12 @@
+AArch64 LBldrstpstr
+{
+uint64_t z[2];
+0:X14=x; 0:X15=z;
+1:X14=z; 1:X15=x;
+}
+ P0                | P1           ;
+ LDR W6,[X14]      | LDR W7,[X14] ;
+ MOV X12,#1        | MOV W8,#1    ;
+ MOV X13,#1        | STR W8,[X15] ;
+ STP X12,X13,[X15] |              ;
+exists (0:X6=1 /\ 1:X7=1)

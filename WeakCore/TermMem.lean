@@ -2106,6 +2106,10 @@ theorem VRR_unsee (V : WeakMem.Ts) : ∀ (t : Ty) (η₁ η₂ : TEnv) (ρ : Nat
       exact fun n => VRR_unsee V b η₁ η₂ (vcons n ρ) rt ws X hr hur hw hp ht hs hi hP hS hBx hL (hv n)
   | .intS _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, hv, hri => by simpa only [VRR] using hv
   | .int, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, hv, hri => by simpa only [VRR] using hv
+  | .tid, _, _, _, _, _, _, _, _, _, _, ht, hs, _, hP, hS, _, hL, hv, _ => by
+        simp only [VRR, VR] at hv ⊢
+        obtain ⟨⟨l, c, h1, h2, h3, h5⟩, hR⟩ := hv
+        exact ⟨⟨l, c, h1, hs _ _ h2, h3, ht ▸ ModeOK_unsee hP hS h1 hL h5⟩, hR⟩
   | .fix _ _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, hv, hri => by simpa only [VRR] using hv
   | .lanes _ _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, hv, hri => by simpa only [VRR] using hv
   | .unit, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, hv, hri => by simpa only [VRR] using hv
@@ -2203,6 +2207,7 @@ theorem VR_VRR_copy : ∀ (t : Ty) (ke : KEnv) (ρ : Nat → Nat) (η : TEnv) (r
   | .void, _, _, _, _, _, _, _, _, _, hv => by simp [VR] at hv
   | .intS _, _, _, _, _, _, _, _, _, _, hv => by simp only [VR] at hv; simp only [VRR, and_true]; exact hv
   | .int, _, _, _, _, _, _, _, _, _, hv => by simp only [VR] at hv; simp only [VRR, and_true]; exact hv
+  | .tid, _, _, _, _, _, _, _, _, _, hv => by simp only [VR] at hv; simp only [VRR, and_true]; exact hv
   | .fix _ _, _, _, _, _, _, _, _, _, _, hv => by simp only [VR] at hv; simp only [VRR, and_true]; exact hv
   | .lanes _ _, _, _, _, _, _, _, _, _, _, hv => by simp only [VR] at hv; simp only [VRR, and_true]; exact hv
   | .code _ _, _, _, _, _, _, _, _, _, _, hv => by simp only [VR] at hv; simp only [VRR, and_true]; exact hv

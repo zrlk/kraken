@@ -1,0 +1,1 @@
+reject_sig.w:2:1: error: a sum type is not in the accepted fragment (in the signature of 'pick')

@@ -110,10 +110,12 @@ theorem thLbl_kid {p : Prog} {Eg : GEnv} {c : Cfg} {i : Nat} {S : AllocLabel →
   obtain ⟨a0, g, hva, rfl⟩ := hnm
   exact hl w hw a0 g hva
 
-/-- **The parent's labels** after a spawn: its env is `th.env` plus a numeric binding, its stack `th.stack`. -/
-theorem thLbl_par {Eg : GEnv} {c : Cfg} {i : Nat} {th par : TTh} {x : String} {n : Nat}
+/-- **The parent's labels** after a spawn: its env is `th.env` plus a `ThreadId` binding `w` (E2: its box,
+whose label has a frontier), its stack `th.stack`. -/
+theorem thLbl_par {Eg : GEnv} {c : Cfg} {i : Nat} {th par : TTh} {x : String} {w0 : Word}
     (hL : TermPtrRts.LblSto Eg c) (hth : c.ths[i]? = some th)
-    (henv : par.env = (x, .int, [cst (.num n)]) :: th.env) (hst : par.stack = th.stack) :
+    (henv : par.env = (x, .tid, [w0]) :: th.env) (hst : par.stack = th.stack)
+    (hw0 : ∀ w ∈ TermPtrRts.pubWords .tid [w0], ∀ l, TermPtrRts.Names l w → Eg.pfr l ≠ none ∨ Eg.box l ≠ none) :
     TermPtrRts.ThLbl (EgK Eg c) par := by
   obtain ⟨h1, h2⟩ := hL i th hth
   have hs : ∀ l f, Eg.pfr l = some f → (EgK Eg c).pfr l = some f := fun _ _ h => h
@@ -122,10 +124,7 @@ theorem thLbl_par {Eg : GEnv} {c : Cfg} {i : Nat} {th par : TTh} {x : String} {n
   · rw [henv]
     refine TermPtrRts.envLbl_cons (TermPtrRts.envLbl_mono hs hb h1) ?_
     intro w hw l hn
-    obtain ⟨a', g, hv, -⟩ := hn
-    simp [TermPtrRts.pubWords, TermPtrRts.sNo] at hw
-    subst hw
-    cases hv
+    exact hw0 w hw l hn
   · rw [hst] at hfr
     exact TermPtrRts.envLbl_mono hs hb (h2 fr hfr)
 

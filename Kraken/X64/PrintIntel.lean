@@ -178,6 +178,37 @@ def Operation.toStr {w} (op : Operation w) (addr_w : Width := .W64) : String := 
   | .lfence => "lfence"
   | .sfence => "sfence"
   | .movnti dst src => s!"movnti {(RegOrMem.mem dst : RegOrMem w).toStr addr_w}, {src}"
+  | .syscall => "syscall"
+  | .movfs dst src =>
+    -- The `%fs` override goes in front of the bracket: `QWORD PTR fs:[rbx+8]`.
+    let fs (s : String) : String := match s.splitOn "PTR [" with
+      | [pre, post] => pre ++ "PTR fs:[" ++ post
+      | _ => s
+    let srcStr := match src with
+      | .regOrMem (.mem _) => fs (src.toStr addr_w)
+      | _ => src.toStr addr_w
+    let dstStr := match dst with
+      | .mem _ => fs (dst.toStr addr_w)
+      | _ => dst.toStr addr_w
+    s!"mov {dstStr}, {srcStr}"
+  | .ud2 => "ud2"
+  | .div src => s!"div {src.toStr addr_w}"
+  | .idiv src => s!"idiv {src.toStr addr_w}"
+  | .cqo => match w with
+    | .W16 => "cwd" | .W32 => "cdq" | _ => "cqo"
+  | .popcnt dst src => s!"popcnt {dst}, {src.toStr addr_w}"
+  | .cmpfs a b =>
+    -- The `%fs` override goes in front of the bracket, as for `movfs`.
+    let fs (s : String) : String := match s.splitOn "PTR [" with
+      | [pre, post] => pre ++ "PTR fs:[" ++ post
+      | _ => s
+    let aStr := match a with
+      | .mem _ => fs (a.toStr addr_w)
+      | _ => a.toStr addr_w
+    let bStr := match b with
+      | .regOrMem (.mem _) => fs (b.toStr addr_w)
+      | _ => b.toStr addr_w
+    s!"cmp {aStr}, {bStr}"
 instance {w} : ToString (Operation w) where toString op := op.toStr
 
 def AvxOperation.toStr {w} (op : AvxOperation w) (addr_w : Width := .W64) : String := match op with

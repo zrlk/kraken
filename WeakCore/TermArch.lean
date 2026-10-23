@@ -31,6 +31,7 @@ Steps ("Menu 2a(a)"):
      reachability.
 -/
 import WeakCore.TermRun
+import WeakCore.TermTidLbl
 
 namespace TermArch
 open CoreLang CoreTerm TermRun
@@ -654,6 +655,7 @@ theorem evalOp_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool)
     ∃ ra ∈ evalOp ⟨p, k, .arm, n, i, lbase, bf, fun _ => False, fun _ => True⟩ ea σs sa op , ResLe O ra rt := by
   cases op with
   | spawn => simp [evalOp] at hin
+  | ext => simp [evalOp] at hin
   | atom a =>
       simp only [evalOp, ol] at hin ⊢
       ev a => t wt wa hw
@@ -1264,15 +1266,15 @@ theorem tstep_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool)
     (h : StLe O (stOf ma pairs ta) (stOf mt pairs tt)) (ht : TThLe ta tt)
     {r : Memory × List Ts × TTh} (hin : r ∈ tstep ⟨p, k, .tso, n, i, lbase, bf, fun _ => False, fun _ => True⟩ mt pairs tt) :
     ∃ ra ∈ tstep ⟨p, k, .arm, n, i, lbase, bf, fun _ => False, fun _ => True⟩ ma pairs ta, RLe O ra r := by
-  obtain ⟨term, ea, σs, stka, vsa, pr, na, ua⟩ := ta
-  obtain ⟨term', et, σs', stkt, vst, pr', nt, ut⟩ := tt
+  obtain ⟨term, ea, σs, stka, vsa, pr, na, ua, tla⟩ := ta
+  obtain ⟨term', et, σs', stkt, vst, pr', nt, ut, tlt⟩ := tt
   obtain ⟨hterm, he, hσ, hstk, hvs, hpr, hna, hua⟩ := ht
   simp only at hterm hσ hpr hna hua he hstk hvs
   subst hterm hσ hpr hna hua
   have same : ∀ {e : Expr} {ea' et' : Env} {σs'' : List Ty} {fa ft : List Frame},
       EnvLe ea' et' → StackLe fa ft →
-      RLe O (ma, pairs, ⟨e, ea', σs'', fa, vsa, pr, na, ua⟩)
-        (mt, pairs, ⟨e, et', σs'', ft, vst, pr, na, ua⟩) :=
+      RLe O (ma, pairs, ⟨e, ea', σs'', fa, vsa, pr, na, ua, tla⟩)
+        (mt, pairs, ⟨e, et', σs'', ft, vst, pr, na, ua, tlt⟩) :=
     fun hE hS => ⟨h.mem, rfl, ⟨rfl, hE, rfl, hS, hvs, rfl, rfl, rfl⟩, h.agree, h.other⟩
   cases term with
   | let_ x op e =>
@@ -1396,9 +1398,7 @@ theorem tstep_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool)
       generalize y1.val = V1 at hin ⊢
       generalize y2.val = V2 at hin ⊢
       cases V1 <;> cases V2 <;> try (simp at hin; done)
-      simp only [List.mem_singleton] at hin; subst hin
-      pick
-      exact same he hstk
+      all_goals (simp only [List.mem_singleton] at hin; subst hin; pick; exact same he hstk)
   | cas acq rel w e v t ok fail =>
       simp only [tstep] at hin ⊢
       ev w => t1 w1 wa1 hw1
@@ -1505,11 +1505,22 @@ theorem StackLe.refl : ∀ s : List Frame, StackLe s s
 theorem TThLe.refl (t : TTh) : TThLe t t :=
   ⟨rfl, EnvLe.refl _, rfl, StackLe.refl _, Promises.VLe.refl _, rfl, rfl, rfl⟩
 
+/-- (IO1) Threads pairwise `TThLe`, with the same `ThreadId` box label (the extern moves agree). -/
 def ThsLe (A B : Array TTh) : Prop :=
-  A.size = B.size ∧ ∀ (j : Nat) (ta tt : TTh), A[j]? = some ta → B[j]? = some tt → TThLe ta tt
+  A.size = B.size ∧ ∀ (j : Nat) (ta tt : TTh), A[j]? = some ta → B[j]? = some tt →
+    TThLe ta tt ∧ ta.tidLbl = tt.tidLbl
 
 theorem ThsLe.refl (A : Array TTh) : ThsLe A A :=
-  ⟨rfl, fun _ _ _ ha hb => by rw [ha] at hb; cases hb; exact TThLe.refl _⟩
+  ⟨rfl, fun _ _ _ ha hb => by rw [ha] at hb; cases hb; exact ⟨TThLe.refl _, rfl⟩⟩
+
+theorem ths_some_tid {A B : Array TTh} (h : ThsLe A B) {j : Nat} {tt : TTh} (hb : B[j]? = some tt) :
+    ∃ ta, A[j]? = some ta ∧ TThLe ta tt ∧ ta.tidLbl = tt.tidLbl := by
+  have hj : j < B.size := by
+    rcases Nat.lt_or_ge j B.size with hj | hj
+    · exact hj
+    · rw [Array.getElem?_eq_none hj] at hb; cases hb
+  have hja : j < A.size := h.1 ▸ hj
+  exact ⟨A[j], Array.getElem?_eq_getElem hja, h.2 j _ _ (Array.getElem?_eq_getElem hja) hb⟩
 
 theorem ths_some {A B : Array TTh} (h : ThsLe A B) {j : Nat} {tt : TTh} (hb : B[j]? = some tt) :
     ∃ ta, A[j]? = some ta ∧ TThLe ta tt := by
@@ -1518,15 +1529,15 @@ theorem ths_some {A B : Array TTh} (h : ThsLe A B) {j : Nat} {tt : TTh} (hb : B[
     · exact hj
     · rw [Array.getElem?_eq_none hj] at hb; cases hb
   have hja : j < A.size := h.1 ▸ hj
-  exact ⟨A[j], Array.getElem?_eq_getElem hja, h.2 j _ _ (Array.getElem?_eq_getElem hja) hb⟩
+  exact ⟨A[j], Array.getElem?_eq_getElem hja, (h.2 j _ _ (Array.getElem?_eq_getElem hja) hb).1⟩
 
 theorem ths_none {A B : Array TTh} (h : ThsLe A B) {j : Nat} (hb : B[j]? = none) : A[j]? = none := by
   rcases Nat.lt_or_ge j B.size with hj | hj
   · rw [Array.getElem?_eq_getElem hj] at hb; cases hb
   · exact Array.getElem?_eq_none (h.1 ▸ hj)
 
-theorem thsLe_set {A B : Array TTh} (h : ThsLe A B) (j : Nat) {ta tt : TTh} (ht : TThLe ta tt) :
-    ThsLe (A.set! j ta) (B.set! j tt) := by
+theorem thsLe_set {A B : Array TTh} (h : ThsLe A B) (j : Nat) {ta tt : TTh} (ht : TThLe ta tt)
+    (htl : ta.tidLbl = tt.tidLbl) : ThsLe (A.set! j ta) (B.set! j tt) := by
   refine ⟨by simp [Array.set!, h.1], ?_⟩
   intro l xa xt hxa hxt
   simp only [Array.set!, Array.getElem?_setIfInBounds] at hxa hxt
@@ -1535,7 +1546,7 @@ theorem thsLe_set {A B : Array TTh} (h : ThsLe A B) (j : Nat) {ta tt : TTh} (ht 
     by_cases hja : j < A.size
     · have hjb : j < B.size := h.1 ▸ hja
       simp only [hja, hjb, ↓reduceIte, Option.some.injEq] at hxa hxt
-      subst hxa hxt; exact ht
+      subst hxa hxt; exact ⟨ht, htl⟩
     · simp [hja] at hxa
   · simp only [hjl, ↓reduceIte] at hxa hxt; exact h.2 l xa xt hxa hxt
 
@@ -1576,7 +1587,7 @@ theorem threadSteps_sim (p : Prog) (k : Promises.Knobs) {ca ct c' : Cfg} (h : Cf
   unfold threadSteps at hin ⊢
   rcases hb : ct.ths[i]? with _ | tt
   · rw [hb] at hin; simp at hin
-  obtain ⟨ta, ha, hta⟩ := ths_some h.ths hb
+  obtain ⟨ta, ha, hta, htl⟩ := ths_some_tid h.ths hb
   rw [hb] at hin; rw [ha]
   simp only [List.mem_map] at hin ⊢
   obtain ⟨⟨mem, pairs, th'⟩, hr, rfl⟩ := hin
@@ -1588,7 +1599,8 @@ theorem threadSteps_sim (p : Prog) (k : Promises.Knobs) {ca ct c' : Cfg} (h : Cf
   obtain ⟨⟨ma', pa', ta'⟩, hra, hR⟩ := tstep_sim p k ct.n i ct.lbase ct.boxFence ct.pairs hs hta hr
   obtain ⟨hm, hp, ht', hag1, hag2⟩ := hR
   refine ⟨_, ⟨(ma', pa', ta'), hra, rfl⟩, ?_⟩
-  refine ⟨hm, hp, thsLe_set h.ths i ht', rfl, rfl, ?_, h.cap⟩
+  refine ⟨hm, hp, thsLe_set h.ths i ht'
+    (by rw [TermTidLbl.tstep_tidLbl hra, TermTidLbl.tstep_tidLbl hr]; exact htl), rfl, rfl, ?_, h.cap⟩
   intro t ht
   rcases allP_set (c := ct) (i := i) (th := th') rfl ht with ht | ht
   · exact hag1 t ht
@@ -1599,10 +1611,10 @@ theorem promise_sim {ca ct : Cfg} (h : CfgLe ca ct) (i : Nat) (a : Address) (v :
   unfold promise
   rcases hb : ct.ths[i]? with _ | tt
   · rw [ths_none h.ths hb]; exact h
-  obtain ⟨ta, ha, hta⟩ := ths_some h.ths hb
+  obtain ⟨ta, ha, hta, htl⟩ := ths_some_tid h.ths hb
   simp only [ha]
   have hsz := h.mem.1
-  refine ⟨Promises.Sim.MemLe.push h.mem rfl rfl (Nat.le_refl _), h.pairs, thsLe_set h.ths i ?_,
+  refine ⟨Promises.Sim.MemLe.push h.mem rfl rfl (Nat.le_refl _), h.pairs, thsLe_set h.ths i ?_ htl,
     h.lbase, h.boxFence, ?_, h.cap⟩
   · exact ⟨hta.term, hta.env, hta.σs, hta.stack, hta.vs, by simp [hta.promises, hsz],
       hta.nalloc, hta.undefs⟩
@@ -1624,6 +1636,28 @@ theorem noPromises_congr {A B : Cfg} (h : ThsLe A.ths B.ths) (i : Nat) :
   · rw [ths_none h hb]
   · obtain ⟨ta, ha, hta⟩ := ths_some h hb; rw [ha]; simp [hta.promises]
 
+/-- (IO1) The extern move is simulated: the same binding (a `()` or the box word), the trace aside. -/
+theorem extSteps_sim {ca ct c' : Cfg} (h : CfgLe ca ct) (i : Nat) (hin : c' ∈ extSteps ct i) :
+    ∃ ca' ∈ extSteps ca i, CfgLe ca' c' := by
+  obtain ⟨tt, x, n, a, e, rt, ws, hb, hterm, hn, hev, rfl⟩ := extSteps_elim hin
+  obtain ⟨ta, ha, hta, htl⟩ := ths_some_tid h.ths hb
+  have hterm' : ta.term = .let_ x (.ext n a) e := hta.term.trans hterm
+  have hn' : ¬ ExtNeedsNoProm n ta := hn
+  obtain ⟨wa, hqa, -⟩ := evalAt_tso hta.env hev
+  refine ⟨_, extSteps_intro ha hterm' hn' hqa, ?_⟩
+  have hagree : ∀ th' : TTh, th'.promises = tt.promises → Agree ca.mem ct.mem (allP { ct with ths := ct.ths.set! i th' }) :=
+    fun th' hp t ht => by
+      rcases allP_set (c := ct) (i := i) (th := th') rfl ht with ht | ht
+      · rw [hp] at ht; exact h.agree t (mem_allP hb ht)
+      · exact h.agree t ht
+  have hle : ∀ v, TThLe { ta with term := e, env := v :: ta.env } { tt with term := e, env := v :: tt.env } :=
+    fun v => ⟨rfl, ⟨rfl, rfl, WsLe.refl _, hta.env⟩, hta.σs, hta.stack, hta.vs, hta.promises, hta.nalloc, hta.undefs⟩
+  cases n with
+  | emit =>
+    exact ⟨h.mem, h.pairs, thsLe_set h.ths i (hle _) htl, h.lbase, h.boxFence, hagree _ rfl, h.cap⟩
+  | exitEv => exact absurd (Or.inl rfl) hn
+  | current => exact absurd (Or.inr rfl) hn
+
 theorem Solo_sim (p : Prog) (k : Promises.Knobs) (i : Nat) {ct ct' : Cfg}
     (hs : Solo p k .tso i ct ct') :
     ∀ {ca}, CfgLe ca ct → ∃ ca', Solo p k .arm i ca ca' ∧ CfgLe ca' ct' := by
@@ -1638,6 +1672,11 @@ theorem Solo_sim (p : Prog) (k : Promises.Knobs) (i : Nat) {ct ct' : Cfg}
       intro ca h
       obtain ⟨ca2, h2, hl2⟩ := ih (promise_sim h i a v w)
       exact ⟨ca2, .prom a v w (by rw [h.mem.1]; exact hw) h2, hl2⟩
+  | ext hin _ ih =>
+      intro ca h
+      obtain ⟨ca1, h1, hl⟩ := extSteps_sim h i hin
+      obtain ⟨ca2, h2, hl2⟩ := ih hl
+      exact ⟨ca2, .ext h1 h2, hl2⟩
 
 theorem Certified_sim {p : Prog} {k : Promises.Knobs} {i : Nat} {ca ct : Cfg} (h : CfgLe ca ct)
     (hc : Certified p k .tso ct i) : Certified p k .arm ca i := by
@@ -1674,7 +1713,7 @@ theorem final_congr {ca ct : Cfg} (h : CfgLe ca ct) : ca.final = ct.final := by
       (isDone ca.ths[j] && ca.ths[j].promises.isEmpty) =
         (isDone ct.ths[j] && ct.ths[j].promises.isEmpty) := by
     intro j ha hb
-    have hl := h.ths.2 j _ _ (Array.getElem?_eq_getElem ha) (Array.getElem?_eq_getElem hb)
+    have hl := (h.ths.2 j _ _ (Array.getElem?_eq_getElem ha) (Array.getElem?_eq_getElem hb)).1
     rw [isDone_congr hl, hl.promises]
   have hs : ca.ths.size = ct.ths.size := h.ths.1
   unfold Cfg.final
@@ -1709,3 +1748,5 @@ end TermArch
 
 #print axioms TermArch.tso_reach_subset_arm
 #print axioms TermArch.tso_final_subset_arm
+#print axioms TermArch.ths_some_tid
+#print axioms TermArch.extSteps_sim

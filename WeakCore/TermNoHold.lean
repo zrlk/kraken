@@ -83,6 +83,7 @@ theorem gOf_solo {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c c' :
   | refl => rfl
   | thread hs _ ih => exact ih.trans (TermTyped.gOf_thread hs)
   | prom _ _ _ _ _ ih => exact ih.trans gOf_promise
+  | ext hs _ ih => exact ih.trans (gOf_ext hs)
 
 /-- **The tied typed run with the new labels** (`solo_typedX` plus
 `FreshRun`): along `Solo` from `c`, at every certified configuration reached,
@@ -100,7 +101,7 @@ theorem solo_typedXF {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c 
       ∀ l o τ, (c1.mem.size ≤ τ ∨ (τ ∈ th1.promises ∧ ∃ m, c1.mem[τ]? = some m ∧ m.loc = ⟨l, o⟩)) → H l o τ := by
       exact fun _ _ _ _ _ _ _ _ _ => trivial) :
     InvAtXFZ Z p k arch i E0 n0 v0 na0 c2 H (Ea := Ea) (Eu := Eu) := by
-  refine (run_inv (c1 := c2) (P := fun c0 => Solo p k arch i c c0 ∧ InvAtXFZ Z p k arch i E0 n0 v0 na0 c0 H (Ea := Ea) (Eu := Eu)) ?_ ?_ h
+  refine (run_inv (c1 := c2) (P := fun c0 => Solo p k arch i c c0 ∧ InvAtXFZ Z p k arch i E0 n0 v0 na0 c0 H (Ea := Ea) (Eu := Eu)) ?_ ?_ ?_ h
     (.refl _) ⟨.refl _, h0⟩).2
   · rintro c0 c0' ⟨hc0, th, E, hth, hx, hTE, hm, hSC, hbo, hfb, hfr, hna, hfresh, hIL, hIH⟩ hs hrest
     have hc0' : Certified p k arch c0' i := certified_back hrest hc2
@@ -140,6 +141,10 @@ theorem solo_typedXF {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c 
     · rw [gOf_promise, hpi.2.2]
       exact MemInv_promSt hm
     · exact frRunA_prom hth hfr
+  · rintro c0 c0' ⟨hc0, th, E, hth, hx, hTE, hm, hSC, hbo, hfb, hfr, hna, hfresh, hIL, hIH⟩ hs _
+    obtain ⟨x1, a1, e1, evs, hterm, rfl⟩ := extSteps_thread hs hth
+    exact ⟨solo_trans hc0 (.ext hs (.refl _)), _, E, set_self hth, hx, TermTyped.ThInvE_emit hterm hTE,
+      by rw [gOf_ext hs]; exact hm, hSC, by rw [gOf_ext hs]; exact hbo, hfb, hfr, hna, by rw [gOf_ext hs]; exact hfresh, hIL, hIH⟩
 
 /-- (S1b) `InvAtXFZ` with the run's publish provenance `PfrProvE` from the run start `st`. -/
 def InvAtXFP (Z : AllocLabel → Prop) (p : Prog) (k : Promises.Knobs) (arch : Arch) (i : Nat) (E0 : TEnv)
@@ -308,7 +313,7 @@ theorem solo_typedXFP {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c
       ∀ l o τ, (c1.mem.size ≤ τ ∨ (τ ∈ th1.promises ∧ ∃ m, c1.mem[τ]? = some m ∧ m.loc = ⟨l, o⟩)) → H l o τ := by
       exact fun _ _ _ _ _ _ _ _ _ => trivial) :
     InvAtXFP Z p k arch i E0 n0 v0 na0 st c2 H := by
-  refine (run_inv (c1 := c2) (P := fun c0 => Solo p k arch i c c0 ∧ InvAtXFP Z p k arch i E0 n0 v0 na0 st c0 H) ?_ ?_ h
+  refine (run_inv (c1 := c2) (P := fun c0 => Solo p k arch i c c0 ∧ InvAtXFP Z p k arch i E0 n0 v0 na0 st c0 H) ?_ ?_ ?_ h
     (.refl _) ⟨.refl _, h0⟩).2
   · rintro c0 c0' ⟨hc0, th, E, hth, hx, hTE, hm, hSC, hbo, hfb, hfr, hna, hfresh, hIL, hIH, hPV, hPO⟩ hs hrest
     have hc0' : Certified p k arch c0' i := certified_back hrest hc2
@@ -332,6 +337,11 @@ theorem solo_typedXFP {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c
       xfz_prom (a := a) (v := v) (w := w) hth hx hTE hm hSC hbo hfb hfr hna hfresh hIL hIH
     exact ⟨solo_trans hc0 (.prom a v w hw (.refl _)), th', E, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12,
       TermK5P.pfrProv_prom hPV hw, TermK5O.pfrProvO_prom hPO hw⟩
+  · rintro c0 c0' ⟨hc0, th, E, hth, hx, hTE, hm, hSC, hbo, hfb, hfr, hna, hfresh, hIL, hIH, hPV, hPO⟩ hs _
+    obtain ⟨x1, a1, e1, evs, hterm, rfl⟩ := extSteps_thread hs hth
+    exact ⟨solo_trans hc0 (.ext hs (.refl _)), _, E, set_self hth, hx, TermTyped.ThInvE_emit hterm hTE,
+      by rw [gOf_ext hs]; exact hm, hSC, by rw [gOf_ext hs]; exact hbo, hfb, hfr, hna, by rw [gOf_ext hs]; exact hfresh, hIL, hIH,
+      TermK5P.pfrProv_ext hPV hs, TermK5O.pfrProvO_ext hPO hs⟩
 
 /-- **`certified_promLoc`**: an outstanding promise of a certified thread
 lies at a cell of the start environment `E0` or at one of the thread's labels

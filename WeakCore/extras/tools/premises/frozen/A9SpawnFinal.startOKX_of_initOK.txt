@@ -104,6 +104,7 @@ CoreLang.Ty.share : CoreLang.Idx → CoreLang.Ty
 CoreLang.Ty.shiftI : Nat → CoreLang.Ty → CoreLang.Ty
 CoreLang.Ty.sum : CoreLang.Ty → CoreLang.Ty → CoreLang.Ty
 CoreLang.Ty.tex : CoreLang.Kind → CoreLang.Ty → CoreLang.Ty
+CoreLang.Ty.tid : CoreLang.Ty
 CoreLang.Ty.tier : CoreLang.Ty → CoreLang.Tier
 CoreLang.Ty.tok : CoreLang.Idx → Option (CoreLang.Proto × CoreLang.Idx) → CoreLang.Ty
 CoreLang.Ty.tok2 : CoreLang.Idx → CoreLang.Proto2 → CoreLang.Idx → CoreLang.Idx → CoreLang.Ty
@@ -152,6 +153,7 @@ CoreLang.zeroableIn : CoreLang.IEnv → CoreLang.KEnv → CoreLang.Ty → Bool
         (CoreLang.zeroArmP (fun x => true) env ke a <|> CoreLang.zeroArmP (fun x => true) env ke b) == some true
       | CoreLang.Tier.boxed => false
     | σ.code τ => false
+    | CoreLang.Ty.tid => false
     | CoreLang.Ty.array i t => CoreLang.zeroableIn env ke t
     | CoreLang.Ty.ptr μ τ => false
     | CoreLang.Ty.ptrOpt μ τ => true
@@ -586,8 +588,9 @@ TermMain.InitOK : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → TermSoun
                                   Eg.sto l = some cl → TermSound.LayT cl.ty) ∧
                                 c0.mem = #[] ∧
                                   TermViewInv.ViewInv c0 ∧
-                                    ∀ (i : Nat) (th : TermRun.TTh),
-                                      c0.ths[i]? = some th → th.vs.vWr ≤ Array.size c0.mem - 1) ∧
+                                    (∀ (i : Nat) (th : TermRun.TTh),
+                                        c0.ths[i]? = some th → th.vs.vWr ≤ Array.size c0.mem - 1) ∧
+                                      ∀ (i : Nat) (th : TermRun.TTh), c0.ths[i]? = some th → th.tidLbl = none) ∧
     TermMain.AllNoProm c0 ∧ TermLiveProps.CfgCoh c0
 TermMain.KeyNet : TermRun.Cfg →
   (Nat → TermSound.Res) →
@@ -894,24 +897,39 @@ TermMain.SysInvN : CoreTerm.Prog →
                                                                                                                         HP
                                                                                                                         HS
                                                                                                                         cr →
-                                                                                                                      TermMain.SysInvN
-                                                                                                                        p
-                                                                                                                        k
-                                                                                                                        arch
-                                                                                                                        Init
-                                                                                                                        MintOK
-                                                                                                                        c
-                                                                                                                        Eg
-                                                                                                                        Tot
-                                                                                                                        HP
-                                                                                                                        HS
-                                                                                                                        cr
-                                                                                                                        db
+                                                                                                                      (∀
+                                                                                                                          (i :
+                                                                                                                            Nat)
+                                                                                                                          (th :
+                                                                                                                            TermRun.TTh),
+                                                                                                                          c.ths[i]? =
+                                                                                                                              some
+                                                                                                                                th →
+                                                                                                                            TermMain.TidBox
+                                                                                                                              Eg
+                                                                                                                              th) →
+                                                                                                                        TermMain.SysInvN
+                                                                                                                          p
+                                                                                                                          k
+                                                                                                                          arch
+                                                                                                                          Init
+                                                                                                                          MintOK
+                                                                                                                          c
+                                                                                                                          Eg
+                                                                                                                          Tot
+                                                                                                                          HP
+                                                                                                                          HS
+                                                                                                                          cr
+                                                                                                                          db
 TermMain.TgtOK : TermCut.GEnv → TermRun.Cfg → Nat → WeakMem.AllocLabel → Prop
   := fun Eg c i l =>
   (∃ f, Eg.pfr l = some f) ∨
     (∃ cl, Eg.sto l = some cl ∧ cl.owner = some i) ∨
       (∃ B, Eg.box l = some B) ∨ ∃ n, l = TermRun.freshLabel c.lbase c.n i n ∧ Eg.sto l = none
+TermMain.TidBox : TermCut.GEnv → TermRun.TTh → Prop
+  := fun Eg th =>
+  ∀ (l : WeakMem.AllocLabel),
+    th.tidLbl = some l → Eg.sto l = some { ty := CoreLang.Ty.unit, owner := none } ∧ Eg.pfr l = some 0
 TermMem.BufOK : TermSound.TEnv → Nat → CoreLang.Ty → List TermRun.Word → Prop
   := fun η n T vals =>
   ∃ N e us,
@@ -1438,6 +1456,7 @@ TermRun.TTh.nalloc : TermRun.TTh → Nat
 TermRun.TTh.promises : TermRun.TTh → List WeakMem.Ts
 TermRun.TTh.stack : TermRun.TTh → List TermRun.Frame
 TermRun.TTh.term : TermRun.TTh → CoreTerm.Expr
+TermRun.TTh.tidLbl : TermRun.TTh → Option WeakMem.AllocLabel
 TermRun.TTh.vs : TermRun.TTh → WeakMem.VState
 TermRun.TTh.σs : TermRun.TTh → List CoreLang.Ty
 TermRun.Word : Type
@@ -2346,6 +2365,10 @@ TermSound.VR : (Nat → Nat) → TermSound.TEnv → CoreLang.Ty → TermSound.Sh
     match x, x_1, x_2 with
     | CoreLang.Ty.intS i, x, ws => List.map (fun x => x.val) ws = [WeakMem.Val.num (CoreTyping.ev ρ i)]
     | CoreLang.Ty.int, x, ws => ∃ n, List.map (fun x => x.val) ws = [WeakMem.Val.num n]
+    | CoreLang.Ty.tid, x, ws =>
+      ∃ l c,
+        List.map (fun x => x.val) ws = [WeakMem.Val.loc { label := l, offset := 0 } 0] ∧
+          η.sto l = some c ∧ c.ty = CoreLang.Ty.unit ∧ TermSound.ModeOK η.tid η.pfr η.seen CoreLang.Mode.pub l c ws
     | CoreLang.Ty.fix sg w, rt, ws =>
       rt = TermSound.Shp.fix sg w ∧ ∃ n, List.map (fun x => x.val) ws = [WeakMem.Val.num n] ∧ n < TermRun.pw2 w
     | CoreLang.Ty.lanes sg w, rt, ws =>
@@ -2455,6 +2478,8 @@ TermSound.VRR : (Nat → Nat) → TermSound.TEnv → CoreLang.Ty → TermSound.S
     | CoreLang.Ty.intS i, x, ws, R =>
       List.map (fun x => x.val) ws = [WeakMem.Val.num (CoreTyping.ev ρ i)] ∧ R = TermSound.Res.zero
     | CoreLang.Ty.int, x, ws, R => (∃ n, List.map (fun x => x.val) ws = [WeakMem.Val.num n]) ∧ R = TermSound.Res.zero
+    | CoreLang.Ty.tid, x, ws, R =>
+      TermSound.VR ρ η CoreLang.Ty.tid (TermSound.Shp.leaf (some 1)) ws ∧ R = TermSound.Res.zero
     | CoreLang.Ty.fix sg w, rt, ws, R =>
       (rt = TermSound.Shp.fix sg w ∧ ∃ n, List.map (fun x => x.val) ws = [WeakMem.Val.num n] ∧ n < TermRun.pw2 w) ∧
         R = TermSound.Res.zero
@@ -2657,6 +2682,7 @@ TermSound.ZRel : CoreLang.IEnv → CoreLang.Ty → CoreLang.Ty → Prop
     | CoreLang.Ty.unit, CoreLang.Ty.unit => True
     | CoreLang.Ty.void, CoreLang.Ty.void => True
     | CoreLang.Ty.int, CoreLang.Ty.int => True
+    | CoreLang.Ty.tid, CoreLang.Ty.tid => True
     | CoreLang.Ty.intS i, CoreLang.Ty.intS j => TermSound.IdxLe env i j
     | CoreLang.Ty.fix sg w, CoreLang.Ty.fix sg_1 w_1 => True
     | CoreLang.Ty.lanes sg w, CoreLang.Ty.lanes sg_1 w_1 => True

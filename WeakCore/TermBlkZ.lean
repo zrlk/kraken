@@ -347,6 +347,7 @@ theorem VRR_own_zero (l : Nat) : ∀ (t : Ty) (ke : KEnv) (η : TEnv) (ρ : Nat 
       exact VRR_own_zero l b ke η (vcons 0 ρ) rt ws X hn hr hur (hv 0)
   | .intS _, _, _, _, _, _, _, _, _, _, hv => by simp only [VRR] at hv; rw [hv.2]; rfl
   | .int, _, _, _, _, _, _, _, _, _, hv => by simp only [VRR] at hv; rw [hv.2]; rfl
+  | .tid, _, _, _, _, _, _, _, _, _, hv => by simp only [VRR] at hv; rw [hv.2]; rfl
   | .fix _ _, _, _, _, _, _, _, _, _, _, hv => by simp only [VRR] at hv; rw [hv.2]; rfl
   | .lanes _ _, _, _, _, _, _, _, _, _, _, hv => by simp only [VRR] at hv; rw [hv.2]; rfl
   | .unit, _, _, _, _, _, _, _, _, _, hv => by simp only [VRR] at hv; rw [hv]; rfl

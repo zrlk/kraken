@@ -251,6 +251,15 @@ theorem locPubV_VR : ∀ (T : Ty) (ke : KEnv) (ρ : Nat → Nat) (η : TEnv) (ws
     obtain ⟨n, hn⟩ := hv
     have hm := locPub_mem_val hn hw
     rw [hx] at hm; simp at hm
+  | tid =>
+    intro ke ρ η ws hrel hno hrf hlen hval hv w hw x g hx
+    obtain ⟨n, c, hn, hs, -, hmo⟩ := hv
+    have hm := locPub_mem_val hn hw
+    rw [hx] at hm
+    simp only [List.mem_singleton, Val.loc.injEq] at hm
+    obtain ⟨rfl, -⟩ := hm
+    obtain ⟨f, hf, hS⟩ := hmo
+    exact Or.inl ⟨c, f, hs, hf, hS.imp id (fun h => h w hw)⟩
   | fix sg wd =>
     intro ke ρ η ws hrel hno hrf hlen hval hv w hw x g hx
     obtain ⟨-, n, hn, -⟩ := hv

@@ -227,6 +227,15 @@ def deps {w} : Operation w → InstrDeps RegId
   | .DMB _ => {}
   | .DSB _ => {}
   | .ISB => {}
+  -- `SVC` halts the thread (`MachineData.pendingSyscall`): it reads and writes no
+  -- register yet. The system-call step will read `X8` and `X0`–`X5` and write `X0`.
+  | .SVC _ => {}
+  -- `TPIDR_EL0` is not a `RegId` (it is never an address or data register of a
+  -- memory event): `MRS` defines `Xt` from no tracked register, `MSR` reads `Xt`
+  -- and defines no tracked register. A dependency carried through `TPIDR_EL0` is
+  -- therefore dropped, which only weakens the memory model's ordering.
+  | .MRS dst _ => alu dst.regs []
+  | .MSR _ src => alu [] src.regs
 
 end Operation
 

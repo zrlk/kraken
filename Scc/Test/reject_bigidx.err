@@ -1,0 +1,1 @@
+reject_bigidx.w:2:1: error: the index literal 18446744073709551616 does not fit in 64 bits (in the signature of 'first')

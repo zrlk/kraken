@@ -1,18 +1,30 @@
+CoreLang.Arms : Type
+CoreLang.Arms.optArm : CoreLang.Arms
+CoreLang.Arms.ptrs : CoreLang.Arms → Nat
+CoreLang.Arms.wide : CoreLang.Arms → Nat
 CoreLang.Cap : Type
 CoreLang.Cap.frz : CoreLang.Cap
 CoreLang.ECounter : Type
+CoreLang.IEnv : Type
 CoreLang.Idx : Type
+CoreLang.Idx.evalIn : CoreLang.IEnv → CoreLang.Idx → Option Nat
 CoreLang.Idx.lit : Nat → CoreLang.Idx
+CoreLang.Info.arms : CoreLang.Info → CoreLang.Arms
+CoreLang.KEnv : Type
+CoreLang.KEnv.ask : CoreLang.KEnv → Nat → Bool → (CoreLang.Kind → Bool) → Bool
 CoreLang.Kind : Type
+CoreLang.Kind.zero : CoreLang.Kind → Bool
 CoreLang.Mode : Type
 CoreLang.Mode.own : CoreLang.Mode
 CoreLang.Mode.pub : CoreLang.Mode
 CoreLang.Mode.rgn : CoreLang.Idx → CoreLang.Mode
 CoreLang.Pred : Type
 CoreLang.Pred.ini : CoreLang.Idx → CoreLang.Pred
+CoreLang.Pred.zeroHolds : CoreLang.IEnv → CoreLang.Pred → Bool
 CoreLang.Proto : Type
 CoreLang.Proto.ghost : CoreLang.Proto → Bool
 CoreLang.Proto2 : Type
+CoreLang.Tier : Type
 CoreLang.Ty : Type
 CoreLang.Ty.array : CoreLang.Idx → CoreLang.Ty → CoreLang.Ty
 CoreLang.Ty.cap : CoreLang.Cap → CoreLang.Idx → CoreLang.Ty
@@ -22,18 +34,77 @@ CoreLang.Ty.fix : Bool → CoreLang.Wd → CoreLang.Ty
 CoreLang.Ty.int : CoreLang.Ty
 CoreLang.Ty.lanes : Bool → CoreLang.Wd → CoreLang.Ty
 CoreLang.Ty.loc : CoreLang.Mode → CoreLang.Ty → CoreLang.Ty
+CoreLang.Ty.payloadFree : CoreLang.Ty → Bool
+  := fun t =>
+  have a := (CoreLang.info CoreLang.Ty.top t).arms;
+  a == CoreLang.Arms.optArm || a.wide == 0 && a.ptrs == 0
 CoreLang.Ty.prod : CoreLang.Ty → CoreLang.Ty → CoreLang.Ty
 CoreLang.Ty.ptr : CoreLang.Mode → CoreLang.Ty → CoreLang.Ty
 CoreLang.Ty.ptrOpt : CoreLang.Mode → CoreLang.Ty → CoreLang.Ty
 CoreLang.Ty.refine : CoreLang.Ty → CoreLang.Pred → CoreLang.Ty
 CoreLang.Ty.sum : CoreLang.Ty → CoreLang.Ty → CoreLang.Ty
+CoreLang.Ty.tier : CoreLang.Ty → CoreLang.Tier
 CoreLang.Ty.tok : CoreLang.Idx → Option (CoreLang.Proto × CoreLang.Idx) → CoreLang.Ty
+CoreLang.Ty.top : CoreLang.Ctx
 CoreLang.Ty.unit : CoreLang.Ty
 CoreLang.Ty.word : CoreLang.Idx → CoreLang.Proto → CoreLang.Ty
 CoreLang.Ty.word2 : CoreLang.Idx → CoreLang.Proto2 → CoreLang.Ty
 CoreLang.Wd : Type
 CoreLang.Wd.lanes : CoreLang.Wd → Nat
+CoreLang.info : CoreLang.Ctx → CoreLang.Ty → CoreLang.Info
+CoreLang.instDecidableEqArms : DecidableEq CoreLang.Arms
+CoreLang.zeroArmP : (CoreLang.Ty → Bool) → CoreLang.IEnv → CoreLang.KEnv → CoreLang.Ty → Option Bool
+  eq_def ∀ (sel : CoreLang.Ty → Bool) (env : CoreLang.IEnv) (ke : CoreLang.KEnv) (x : CoreLang.Ty),
+  CoreLang.zeroArmP sel env ke x =
+    match x with
+    | a.sum b => CoreLang.zeroArmP sel env ke a <|> CoreLang.zeroArmP sel env ke b
+    | CoreLang.Ty.void => none
+    | t.refine ψ => Option.map (fun x => x && CoreLang.Pred.zeroHolds env ψ) (CoreLang.zeroArmP sel env ke t)
+    | t.iall => CoreLang.zeroArmP sel (none :: env) ke t
+    | t.iex => CoreLang.zeroArmP sel (some 0 :: env) ke t
+    | t.mu => CoreLang.zeroArmP sel env (none :: ke) t
+    | CoreLang.Ty.tex κ t => Option.map (fun x => false) (CoreLang.zeroArmP sel env (none :: ke) t)
+    | t => if sel t = true then some (CoreLang.zeroableIn env ke t) else none
 CoreLang.zeroableIn : CoreLang.IEnv → CoreLang.KEnv → CoreLang.Ty → Bool
+  eq_def ∀ (env : CoreLang.IEnv) (ke : CoreLang.KEnv) (x : CoreLang.Ty),
+  CoreLang.zeroableIn env ke x =
+    match x with
+    | CoreLang.Ty.unit => true
+    | CoreLang.Ty.void => false
+    | CoreLang.Ty.int => true
+    | CoreLang.Ty.intS i => CoreLang.Idx.evalIn env i == some 0
+    | CoreLang.Ty.fix sg w => true
+    | CoreLang.Ty.lanes sg w => true
+    | a.prod b => CoreLang.zeroableIn env ke a && CoreLang.zeroableIn env ke b
+    | a.sum b =>
+      match (a.sum b).tier with
+      | CoreLang.Tier.niche =>
+        (CoreLang.zeroArmP CoreLang.Ty.payloadFree env ke a <|> CoreLang.zeroArmP CoreLang.Ty.payloadFree env ke b) ==
+          some true
+      | CoreLang.Tier.wide =>
+        (CoreLang.zeroArmP (fun x => true) env ke a <|> CoreLang.zeroArmP (fun x => true) env ke b) == some true
+      | CoreLang.Tier.boxed => false
+    | σ.code τ => false
+    | CoreLang.Ty.tid => false
+    | CoreLang.Ty.array i t => CoreLang.zeroableIn env ke t
+    | CoreLang.Ty.ptr μ τ => false
+    | CoreLang.Ty.ptrOpt μ τ => true
+    | CoreLang.Ty.loc μ (CoreLang.Ty.array i τ) => CoreLang.Idx.evalIn env i == some 0
+    | CoreLang.Ty.loc μ τ => false
+    | CoreLang.Ty.word r P => false
+    | CoreLang.Ty.tok r st => false
+    | CoreLang.Ty.word2 r P => false
+    | CoreLang.Ty.tok2 r P i0 i1 => false
+    | CoreLang.Ty.epair r P => false
+    | CoreLang.Ty.tokE r P e => false
+    | CoreLang.Ty.share r => false
+    | CoreLang.Ty.cap s r => false
+    | CoreLang.Ty.tvar k => ke.ask k false fun x => x.zero
+    | t.mu => CoreLang.zeroableIn env (none :: ke) t
+    | CoreLang.Ty.tex κ τ => false
+    | t.iall => CoreLang.zeroableIn (none :: env) ke t
+    | t.iex => CoreLang.zeroableIn (some 0 :: env) ke t
+    | t.refine ψ => CoreLang.zeroableIn env ke t && CoreLang.Pred.zeroHolds env ψ
 CoreTerm.At : Type
 CoreTerm.BitOp : Type
 CoreTerm.BitOp1 : Type
@@ -41,6 +112,7 @@ CoreTerm.Decl : Type
 CoreTerm.Decl.argTy : CoreTerm.Decl → CoreLang.Ty
 CoreTerm.Decl.name : CoreTerm.Decl → String
 CoreTerm.Decl.retTy : CoreTerm.Decl → CoreLang.Ty
+CoreTerm.ExtName : Type
 CoreTerm.FCmp : Type
 CoreTerm.FOp : Type
 CoreTerm.FOp1 : Type
@@ -388,6 +460,8 @@ TermRun.evalOp : TermRun.G →
           | (t, ws) => (s, t, ws))
         (TermRun.lookupE env y))
   | CoreTerm.Op.call f is a ts => []
+  | CoreTerm.Op.spawn f a T ts => []
+  | CoreTerm.Op.ext n a => []
   | CoreTerm.Op.borrow c t => [(s, CoreLang.Ty.cap c (CoreLang.Idx.lit 0), [])]
   | CoreTerm.Op.freeze t => [(s, CoreLang.Ty.cap CoreLang.Cap.frz (CoreLang.Idx.lit 0), [])]
   | CoreTerm.Op.cvt sg w a =>

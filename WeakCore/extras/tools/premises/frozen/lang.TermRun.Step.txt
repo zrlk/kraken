@@ -1,0 +1,22 @@
+CoreTerm.Prog : Type
+Promises.Knobs : Type
+TermRun.Certified : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → TermRun.Cfg → Nat → Prop
+TermRun.Cfg : Type
+TermRun.Cfg.mem : TermRun.Cfg → WeakMem.Memory
+TermRun.Cfg.ths : TermRun.Cfg → Array TermRun.TTh
+TermRun.Step : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → TermRun.Cfg → TermRun.Cfg → Prop
+  | TermRun.Step.thread : ∀ {p : CoreTerm.Prog} {k : Promises.Knobs} {arch : WeakMem.Arch} {c c' : TermRun.Cfg} (i : Nat),
+  c' ∈ TermRun.threadSteps p k arch c i → TermRun.Certified p k arch c' i → TermRun.Step p k arch c c'
+  | TermRun.Step.prom : ∀ {p : CoreTerm.Prog} {k : Promises.Knobs} {arch : WeakMem.Arch} {c : TermRun.Cfg} (i : Nat) (a : WeakMem.Address)
+  (v : WeakMem.Val) (w : WeakMem.Ts),
+  i < c.ths.size →
+    w < Array.size c.mem →
+      TermRun.Certified p k arch (TermRun.promise c i a v w) i → TermRun.Step p k arch c (TermRun.promise c i a v w)
+TermRun.TTh : Type
+TermRun.promise : TermRun.Cfg → Nat → WeakMem.Address → WeakMem.Val → WeakMem.Ts → TermRun.Cfg
+TermRun.threadSteps : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → TermRun.Cfg → Nat → List TermRun.Cfg
+WeakMem.Address : Type
+WeakMem.Arch : Type
+WeakMem.Msg : Type
+WeakMem.Ts : Type
+WeakMem.Val : Type

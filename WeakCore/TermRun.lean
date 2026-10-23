@@ -321,7 +321,7 @@ theorem armsOf_sizeOf : ∀ (t x : Ty), x ∈ armsOf t → sizeOf x ≤ sizeOf t
   | .prod _ _, x, h | .unit, x, h | .int, x, h | .intS _, x, h | .fix _ _, x, h | .lanes _ _, x, h | .code _ _, x, h
   | .array _ _, x, h | .ptr _ _, x, h | .ptrOpt _ _, x, h | .loc _ _, x, h | .word _ _, x, h
   | .tok _ _, x, h | .word2 _ _, x, h | .tok2 _ _ _ _, x, h | .share _, x, h | .cap _ _, x, h
-  | .epair _ _, x, h | .tokE _ _ _, x, h
+  | .epair _ _, x, h | .tokE _ _ _, x, h | .tid, x, h
   | .tvar _, x, h => by
       simp [armsOf] at h; subst h; exact Nat.le_refl _
 
@@ -419,6 +419,8 @@ structure TTh where
   promises : List Ts := []
   nalloc   : Nat := 0
   undefs   : Nat := 0
+  /-- (E2) the thread's own `ThreadId` box, once allocated: by `spawn` for a child, lazily by `current()` otherwise -/
+  tidLbl   : Option AllocLabel := none
 
 /-- What a step needs to know about its surroundings. -/
 structure G where
@@ -794,6 +796,8 @@ def evalOp (g : G) (env : Env) (σs : List Ty) (s : St) : Op → List (St × Ty 
   | .call .. => []
   -- a spawn is a configuration step (`TermSpawnStep.StepX.spawn`), not a thread step.
   | .spawn .. => []
+  -- (E1) an extern is a configuration step (`TermExtStep.Ext`), not a thread step.
+  | .ext .. => []
   -- Capabilities are zero-width: lending and taking back are no-ops at runtime.
   | .borrow c _ => [(s, .cap c (.lit 0), [])]
   | .freeze _ => [(s, .cap .frz (.lit 0), [])]
@@ -1172,6 +1176,7 @@ def tstep (g : G) (mem : Memory) (pairs : List Ts) (th : TTh) :
       | some (_, [x]), some (_, [y]) =>
           match x.val, y.val with
           | .num n, .num m => same { th with term := if n == m then yes else no }
+          | .loc a _, .loc b _ => same { th with term := if a.label == b.label then yes else no }
           | _, _ => []
       | _, _ => []
   -- The new value goes in as a store's does (`dataE`, register 1): a pointer
@@ -1229,6 +1234,27 @@ every step the stepping thread must be *certified*: alone, it can reach a
 state with no outstanding promises (Promises §2.4, thread-local because other
 threads only raise views). -/
 
+/-- (E1) An observable event of the machine: one output byte, or the exit code. -/
+inductive Event
+  | out (b : Nat)
+  | exit (n : Nat)
+  deriving DecidableEq, Repr
+
+/-- (E1) The exit event's code: `v % 256`, as `exit_group`'s status `v & 0xff`.
+The future `exitAt` (`main`'s `ret`) must use this same function. -/
+def exitCode (v : Nat) : Nat := v % 256
+
+/-- (E1) The words an extern step binds: `current` the thread's index, the others `()`. -/
+def _root_.CoreTerm.ExtName.res : ExtName → Nat → List Word
+  | .current, i => [cst (.num i)]
+  | _, _ => []
+
+/-- (E1) The events an extern step appends, from its argument words. -/
+def _root_.CoreTerm.ExtName.events : ExtName → List Word → List Event
+  | .emit, [w] => match w.val with | .num b => [.out b] | _ => []
+  | .exitEv, [w] => match w.val with | .num v => [.exit (exitCode v)] | _ => []
+  | _, _ => []
+
 structure Cfg where
   mem   : Memory
   pairs : List Ts := []
@@ -1239,6 +1265,8 @@ structure Cfg where
   boxFence : Bool := true
   /-- (M0) thread capacity: labels are striped by `Cfg.n`; `0` (the default) is today's machine -/
   cap : Nat := 0
+  /-- (E1) the observable events so far, oldest first (`TermExtStep.Ext` appends) -/
+  trace : List Event := []
 
 /-- (M0) The label stripe width `max cap ths.size`: constant along runs (no step changes `cap` or
 `ths.size`); `ths.size` when `cap = 0`. -/
@@ -1268,6 +1296,43 @@ def promise (c : Cfg) (i : Nat) (a : Address) (v : Val) (w : Ts) : Cfg :=
       { c with mem := c.mem.push ⟨a, v, w⟩
                ths := c.ths.set! i { th with promises := th.promises ++ [c.mem.size] } }
 
+/-- (E2) `current()`: the thread's box (a constant reference), allocated on first use; the allocation is
+machine-invisible but for `nalloc` (no view, no fence; the cell is ghost). -/
+def curCfg (c : Cfg) (i : Nat) (th : TTh) (x : String) (e : Expr) : Cfg :=
+  match th.tidLbl with
+  | some l => { c with ths := c.ths.set! i { th with term := e, env := (x, .tid, [cst (.loc ⟨l, 0⟩ 0)]) :: th.env } }
+  | none =>
+    let l := freshLabel c.lbase c.n i th.nalloc
+    { c with ths := c.ths.set! i { th with
+        nalloc := th.nalloc + 1, tidLbl := some l, term := e,
+        env := (x, .tid, [cst (.loc ⟨l, 0⟩ 0)]) :: th.env } }
+
+/-- The configuration after thread `i` (`th`, at `let x = ext n a in e`, argument words `ws`) takes the
+extern step: (E2) `current` is `curCfg`; `emit`/`exitEv` bind `()` and append their events to the trace. -/
+def extCfg (c : Cfg) (i : Nat) (th : TTh) (x : String) (n : ExtName) (e : Expr) (ws : List Word) : Cfg :=
+  match n with
+  | .current => curCfg c i th x e
+  | _ => { c with ths := c.ths.set! i { th with term := e, env := (x, n.sig.2, n.res i) :: th.env },
+                  trace := c.trace ++ n.events ws }
+
+/-- (IO1) The extern calls that need an empty promise set: `exitEv` and `current()` (T2 rev: the certificate-side
+typing invariants carry no `ThreadId` box facts). The single local switch of IO1 PLAN §2; `th` is kept so the
+switch can depend on the thread again. -/
+def ExtNeedsNoProm (n : ExtName) (th : TTh) : Prop := n = .exitEv ∨ n = .current
+
+instance (n : ExtName) (th : TTh) : Decidable (ExtNeedsNoProm n th) := by unfold ExtNeedsNoProm; infer_instance
+
+/-- (IO1) The uncertified extern move of thread `i`, as a certificate may take it: none for the calls of
+`ExtNeedsNoProm`; otherwise `extCfg`. -/
+def extSteps (c : Cfg) (i : Nat) : List Cfg :=
+  match c.ths[i]? with
+  | some th => match th.term with
+    | .let_ x (.ext n a) e =>
+        if ExtNeedsNoProm n th then [] else
+        match evalAt th.env a with | some (_, ws) => [extCfg c i th x n e ws] | none => []
+    | _ => []
+  | none => []
+
 /-- Steps of thread `i` alone, promises included. -/
 inductive Solo (p : Prog) (k : Promises.Knobs) (arch : Arch) (i : Nat) : Cfg → Cfg → Prop
   | refl (c) : Solo p k arch i c c
@@ -1275,8 +1340,166 @@ inductive Solo (p : Prog) (k : Promises.Knobs) (arch : Arch) (i : Nat) : Cfg →
       Solo p k arch i c c''
   | prom {c c''} (a v w) : w < c.mem.size → Solo p k arch i (promise c i a v w) c'' →
       Solo p k arch i c c''
+  | ext {c c' c''} : c' ∈ extSteps c i → Solo p k arch i c' c'' → Solo p k arch i c c''
+
+/-- (IO1) Elimination form of `extSteps`. -/
+theorem extSteps_elim {c c' : Cfg} {i : Nat} (h : c' ∈ extSteps c i) :
+    ∃ th x n a e rt ws, c.ths[i]? = some th ∧ th.term = .let_ x (.ext n a) e ∧ ¬ ExtNeedsNoProm n th ∧
+      evalAt th.env a = some (rt, ws) ∧ c' = extCfg c i th x n e ws := by
+  unfold extSteps at h
+  cases hth : c.ths[i]? with
+  | none => rw [hth] at h; simp at h
+  | some th =>
+    rw [hth] at h
+    simp only at h
+    split at h
+    · rename_i x n a e hterm
+      by_cases hn : ExtNeedsNoProm n th
+      · simp [hn] at h
+      · simp only [hn, ↓reduceIte] at h
+        cases hev : evalAt th.env a with
+        | none => rw [hev] at h; simp at h
+        | some r =>
+          obtain ⟨rt, ws⟩ := r
+          rw [hev] at h
+          simp only [List.mem_singleton] at h
+          exact ⟨th, x, n, a, e, rt, ws, rfl, hterm, hn, hev, h⟩
+    · simp at h
+
+/-- (IO1) Introduction form of `extSteps`. -/
+theorem extSteps_intro {c : Cfg} {i : Nat} {th : TTh} {x : String} {n : ExtName} {a : At} {e : Expr} {rt : Ty}
+    {ws : List Word} (hth : c.ths[i]? = some th) (hterm : th.term = .let_ x (.ext n a) e)
+    (hn : ¬ ExtNeedsNoProm n th) (hev : evalAt th.env a = some (rt, ws)) : extCfg c i th x n e ws ∈ extSteps c i := by
+  unfold extSteps
+  simp only [hth, hterm, hn, ↓reduceIte, hev, List.mem_singleton]
+
+/-- (IO1) An uncertified extern move only rewrites thread `i`'s term and extends its environment by one
+binding, and extends the trace. -/
+theorem extSteps_frame {c c' : Cfg} {i : Nat} (h : c' ∈ extSteps c i) :
+    ∃ th e v evs, c.ths[i]? = some th ∧
+      c' = { c with ths := c.ths.set! i { th with term := e, env := v :: th.env }, trace := c.trace ++ evs } := by
+  obtain ⟨th, x, n, a, e, rt, ws, hth, -, hn, -, rfl⟩ := extSteps_elim h
+  cases n with
+  | emit => exact ⟨th, e, _, _, hth, rfl⟩
+  | exitEv => exact absurd (Or.inl rfl) hn
+  | current => exact absurd (Or.inr rfl) hn
+
+/-- (IO1) The shape of an uncertified extern move: an `emit`, binding `()`. -/
+theorem extSteps_shape {c c' : Cfg} {i : Nat} (h : c' ∈ extSteps c i) :
+    ∃ th x a e evs, c.ths[i]? = some th ∧ th.term = .let_ x (.ext .emit a) e ∧
+      c' = { c with ths := c.ths.set! i { th with term := e, env := (x, .unit, []) :: th.env },
+                    trace := c.trace ++ evs } := by
+  obtain ⟨th, x, n, a, e, rt, ws, hth, hterm, hn, -, rfl⟩ := extSteps_elim h
+  cases n with
+  | emit => exact ⟨th, x, a, e, _, hth, hterm, rfl⟩
+  | exitEv => exact absurd (Or.inl rfl) hn
+  | current => exact absurd (Or.inr rfl) hn
+
+/-- (IO1) `extSteps_shape` at a known thread `i`. -/
+theorem extSteps_thread {c c' : Cfg} {i : Nat} {th : TTh} (h : c' ∈ extSteps c i) (hth : c.ths[i]? = some th) :
+    ∃ x a e evs, th.term = .let_ x (.ext .emit a) e ∧
+      c' = { c with ths := c.ths.set! i { th with term := e, env := (x, .unit, []) :: th.env },
+                    trace := c.trace ++ evs } := by
+  obtain ⟨th0, x, a, e, evs, h0, hterm, rfl⟩ := extSteps_shape h
+  rw [hth] at h0; cases h0
+  exact ⟨x, a, e, evs, hterm, rfl⟩
+
+/-- Thread `i` after replacing it. -/
+theorem set_self {c : Cfg} {i : Nat} {th t : TTh} {tr : List Event} (hth : c.ths[i]? = some th) :
+    ({ c with ths := c.ths.set! i t, trace := tr } : Cfg).ths[i]? = some t := by
+  have hi : i < c.ths.size := by
+    rcases Nat.lt_or_ge i c.ths.size with h | h
+    · exact h
+    · simp [Array.getElem?_eq_none h] at hth
+  simp [Array.set!, hi]
+
+theorem extSteps_mem {c c' : Cfg} {i : Nat} (h : c' ∈ extSteps c i) : c'.mem = c.mem := by
+  obtain ⟨_, _, _, _, _, rfl⟩ := extSteps_frame h; rfl
+
+theorem extSteps_pairs {c c' : Cfg} {i : Nat} (h : c' ∈ extSteps c i) : c'.pairs = c.pairs := by
+  obtain ⟨_, _, _, _, _, rfl⟩ := extSteps_frame h; rfl
+
+theorem extSteps_cap {c c' : Cfg} {i : Nat} (h : c' ∈ extSteps c i) : c'.cap = c.cap := by
+  obtain ⟨_, _, _, _, _, rfl⟩ := extSteps_frame h; rfl
+
+theorem extSteps_lbase {c c' : Cfg} {i : Nat} (h : c' ∈ extSteps c i) : c'.lbase = c.lbase := by
+  obtain ⟨_, _, _, _, _, rfl⟩ := extSteps_frame h; rfl
+
+theorem extSteps_boxFence {c c' : Cfg} {i : Nat} (h : c' ∈ extSteps c i) : c'.boxFence = c.boxFence := by
+  obtain ⟨_, _, _, _, _, rfl⟩ := extSteps_frame h; rfl
+
+theorem extSteps_size {c c' : Cfg} {i : Nat} (h : c' ∈ extSteps c i) : c'.ths.size = c.ths.size := by
+  obtain ⟨_, _, _, _, _, rfl⟩ := extSteps_frame h; simp
+
+theorem extSteps_n {c c' : Cfg} {i : Nat} (h : c' ∈ extSteps c i) : c'.n = c.n := by
+  simp [Cfg.n, extSteps_cap h, extSteps_size h]
+
+/-- The other threads are untouched. -/
+theorem extSteps_ne {c c' : Cfg} {i j : Nat} (h : c' ∈ extSteps c i) (hj : j ≠ i) : c'.ths[j]? = c.ths[j]? := by
+  obtain ⟨_, _, _, _, _, rfl⟩ := extSteps_frame h; simp [Array.set!, Ne.symm hj]
+
+/-- Thread `i` before and after. -/
+theorem extSteps_self {c c' : Cfg} {i : Nat} (h : c' ∈ extSteps c i) :
+    ∃ th e v, c.ths[i]? = some th ∧ c'.ths[i]? = some { th with term := e, env := v :: th.env } := by
+  obtain ⟨th, e, v, _, hth, rfl⟩ := extSteps_frame h
+  have hi : i < c.ths.size := by
+    rcases Nat.lt_or_ge i c.ths.size with h | h
+    · exact h
+    · simp [Array.getElem?_eq_none h] at hth
+  exact ⟨th, e, v, hth, by simp [Array.set!, hi]⟩
+
+/-- Thread `i`'s machine state (`stOf`) is unchanged. -/
+theorem extSteps_stOf {c c' : Cfg} {i : Nat} (h : c' ∈ extSteps c i) :
+    ∃ th th', c.ths[i]? = some th ∧ c'.ths[i]? = some th' ∧ stOf c'.mem c'.pairs th' = stOf c.mem c.pairs th := by
+  obtain ⟨th, e, v, h1, h2⟩ := extSteps_self h
+  exact ⟨th, _, h1, h2, by rw [extSteps_mem h, extSteps_pairs h]; rfl⟩
+
+/-- Every thread keeps its promises (and the rest of its state but term and environment). -/
+theorem extSteps_promises {c c' : Cfg} {i : Nat} (h : c' ∈ extSteps c i) (j : Nat) :
+    c'.ths[j]?.map (·.promises) = c.ths[j]?.map (·.promises) := by
+  by_cases hj : j = i
+  · subst hj
+    obtain ⟨th, e, v, h1, h2⟩ := extSteps_self h
+    simp [h1, h2]
+  · rw [extSteps_ne h hj]
+
+/-- (IO1) `gOf` is unchanged by an extern move. -/
+theorem gOf_ext {p : Prog} {k : Promises.Knobs} {arch : Arch} {c c' : Cfg} {i j : Nat} (h : c' ∈ extSteps c i) :
+    gOf p k arch c' j = gOf p k arch c j := by
+  simp only [gOf, extSteps_n h, extSteps_lbase h, extSteps_boxFence h]
+
+/-- (IO1) Reading a thread of `xs.set! i y`. -/
+theorem set_get_cases {xs : Array TTh} {i j : Nat} {y t : TTh} (h : (xs.set! i y)[j]? = some t) :
+    (j = i ∧ t = y) ∨ (j ≠ i ∧ xs[j]? = some t) := by
+  simp only [Array.set!, Array.getElem?_setIfInBounds] at h
+  by_cases hji : i = j
+  · subst hji
+    by_cases hi : i < xs.size
+    · simp only [hi, ↓reduceIte, Option.some.injEq] at h
+      exact .inl ⟨rfl, h.symm⟩
+    · simp [hi] at h
+  · simp only [hji, ↓reduceIte] at h
+    exact .inr ⟨Ne.symm hji, h⟩
+
+/-- (IO1) A thread not at an extern call has no extern move. -/
+theorem extSteps_nil {c : Cfg} {i : Nat} {th : TTh} (hth : c.ths[i]? = some th)
+    (h : ∀ x n a e, th.term ≠ .let_ x (.ext n a) e) : extSteps c i = [] := by
+  cases hc : extSteps c i with
+  | nil => rfl
+  | cons c' l =>
+    obtain ⟨th', x, n, a, e, -, -, h1, h2, -⟩ := extSteps_elim (c' := c') (hc ▸ List.mem_cons_self ..)
+    rw [hth] at h1
+    cases h1
+    exact absurd h2 (h x n a e)
 
 def noPromises (c : Cfg) (i : Nat) : Bool := (c.ths[i]?.map (·.promises.isEmpty)).getD true
+
+theorem extSteps_noPromises {c c' : Cfg} {i : Nat} (h : c' ∈ extSteps c i) (j : Nat) :
+    noPromises c' j = noPromises c j := by
+  have := extSteps_promises h j
+  unfold noPromises
+  cases h1 : c'.ths[j]? <;> cases h2 : c.ths[j]? <;> simp_all
+
 
 def Certified (p : Prog) (k : Promises.Knobs) (arch : Arch) (c : Cfg) (i : Nat) : Prop :=
   ∃ c', Solo p k arch i c c' ∧ noPromises c' i = true
@@ -1346,7 +1569,7 @@ def touchesMem (th : TTh) : Bool :=
   match th.term with
   | .let_ _ op _ =>
       match op with
-      | .load .. | .store .. | .xchg .. | .fetch .. | .xchgAt .. | .loadAt .. | .xchgAtF .. | .loadAtF .. | .ldl .. | .stl .. | .ldlw .. | .stlw .. | .new _ | .publish _ | .intoRgn .. | .fence _ | .newBuf .. | .bufInit .. | .ldp .. | .stp .. | .spawn .. => true
+      | .load .. | .store .. | .xchg .. | .fetch .. | .xchgAt .. | .loadAt .. | .xchgAtF .. | .loadAtF .. | .ldl .. | .stl .. | .ldlw .. | .stlw .. | .new _ | .publish _ | .intoRgn .. | .fence _ | .newBuf .. | .bufInit .. | .ldp .. | .stp .. | .spawn .. | .ext .. => true
       -- an injection allocates when the source or the sum is boxed
       | .inl τ a | .inr τ a =>
           boxedAt a || isBoxed τ ||
@@ -1392,7 +1615,7 @@ in memory (the only ones it can matter at). -/
 deriving instance Hashable for WeakMem.Address, Val
 deriving instance BEq, Hashable for Promises.TVal, Msg
 deriving instance Hashable for Idx, Mode, Cap, Pred, Atom, Kind, Clause, Proto, Rel2, Clause2, Proto2, ECounter, Wd, Ty
-deriving instance Hashable for At, Fence, FOp, FCmp, FOp1, BitOp, BitOp1, FetchOp
+deriving instance Hashable for At, Fence, FOp, FCmp, FOp1, BitOp, BitOp1, FetchOp, ExtName
 deriving instance BEq, Hashable for Op, Expr
 
 /-- A thread's part of the key.  `coh` is read at the given addresses only. -/
@@ -1568,3 +1791,24 @@ end TermSpawn
 #print axioms TermRun.Cfg.size_le_n
 #print axioms TermRun.Cfg.lt_n
 #print axioms TermRun.Cfg.n_of_cap0
+#print axioms TermRun.extSteps_elim
+#print axioms TermRun.extSteps_intro
+#print axioms TermRun.extSteps_frame
+#print axioms TermRun.extSteps_shape
+#print axioms TermRun.extSteps_thread
+#print axioms TermRun.set_self
+#print axioms TermRun.extSteps_mem
+#print axioms TermRun.extSteps_pairs
+#print axioms TermRun.extSteps_cap
+#print axioms TermRun.extSteps_lbase
+#print axioms TermRun.extSteps_boxFence
+#print axioms TermRun.extSteps_size
+#print axioms TermRun.extSteps_n
+#print axioms TermRun.extSteps_ne
+#print axioms TermRun.extSteps_self
+#print axioms TermRun.extSteps_stOf
+#print axioms TermRun.extSteps_promises
+#print axioms TermRun.gOf_ext
+#print axioms TermRun.set_get_cases
+#print axioms TermRun.extSteps_nil
+#print axioms TermRun.extSteps_noPromises
