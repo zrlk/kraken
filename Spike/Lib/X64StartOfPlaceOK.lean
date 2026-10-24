@@ -366,8 +366,9 @@ theorem hpc_ofPlaceOKE (E : Scc.Sem.Entry) :
   haveI : Kraken.Executable.ValidLayout (Scc.Sem.X64.threadAt E (Λ).code.lo
       o.prog (Scc.Sem.loadSyms (RuntimeLayout.ofPlaceOK h i).Λ o.secs.rodata)).exe :=
     (RuntimeLayout.ofPlaceOK h i).valid
-  (Scc.Cert.Rt.X64.label_threadAt_of_codeLabel (E := E)
-    (syms := Scc.Sem.loadSyms (Ly).Λ o.secs.rodata) (by exact Spike.Lib.X64.Rt.RuntimeLayout.ofPlaceOK_above h i)
+  (Scc.Cert.Rt.X64.label_threadAt_of_codeLabel_below (E := E)
+    (syms := Scc.Sem.loadSyms (Ly).Λ o.secs.rodata) 
+      (by exact Spike.Lib.X64.Rt.RuntimeLayout.ofPlaceOK_below h i (start_link_of_placeOKAt (i := i) h))
         (start_link_of_placeOKAt (i := i) h)).symm
 
 /-- **The loaded thread is at `_start`** (A1). -/
@@ -391,9 +392,9 @@ theorem hph0_ofPlaceOK : ph Ly ((Ly).lab "_start").toBitVec.toNat = 13 := by
   have hf := Scc.Cert.Rt.X64.factOk_of_rtPhOk (rtPh_of_placeOKAt h) (f := .ph "_start" 0 13)
     (by simp [Spike.Lib.X64.Rt.rtPhTab, Spike.Lib.X64.Rt.startPhTab])
   have := Spike.Lib.X64.Rt.PhOfTab.ph_of_factOk (lab := (Ly).lab) (fun _ _ ha =>
-    Scc.Cert.Rt.X64.label_threadAt_of_codeLabel (E := Scc.Sem.Entry.linux)
+    Scc.Cert.Rt.X64.label_threadAt_of_codeLabel_below (E := Scc.Sem.Entry.linux)
       (syms := Scc.Sem.loadSyms (RuntimeLayout.ofPlaceOK h i).Λ o.secs.rodata)
-          (by exact Spike.Lib.X64.Rt.RuntimeLayout.ofPlaceOK_above h i) ha) hf
+          (by exact Spike.Lib.X64.Rt.RuntimeLayout.ofPlaceOK_below h i ha) ha) hf
   simp at this
   exact this
 

@@ -81,7 +81,8 @@ variable {cfg : Config} {o : Scc.Cert.PlaceOK.A64.Out}
 
 /-- **A row of the table of an output passing `placeOK` passes `blkPh`**
 at its label's address in the canonical loader's thread (`lab`, any entry
-state and data symbols), with the program's sites and phases and any dead
+state, any data symbols none of those below the code named like a code
+label: `hs`, `Link.A64.noClash`'s first half), with the program's sites and phases and any dead
 set holding its crossings. -/
 theorem blkPh_of_placeOK {Λ : Scc.Sem.Layout} (h : placeOKAt cfg Λ o = true) {g : Scc.Cert.Rt.A64.OGrp}
     (hg : g ∈ o.place.blocks)
@@ -89,7 +90,7 @@ theorem blkPh_of_placeOK {Λ : Scc.Sem.Layout} (h : placeOKAt cfg Λ o = true) {
     {lab : Label → Int64}
     (hl : (_root_.Executable.labels
       (Scc.Sem.A64.threadAt E Λ.code.lo o.prog syms).exe).label = lab)
-    (hs : ∀ p ∈ syms, Λ.code.lo ≤ p.2) {ra : Int64} {dead : Nat → Bool}
+    (hs : ∀ p ∈ Scc.Sem.symsBelow Λ.code.lo syms, Scc.Cert.Link.A64.codeOf Λ.code.lo o.prog p.1 = none) {ra : Int64} {dead : Nat → Bool}
     (hd : ∀ t ∈ crossOf lab (Scc.Cert.Rt.A64.phOf Λ.code.lo o.prog)
       (lab g.l + Int64.ofNat (4 * b.k)) ra b.blk, dead t = true) :
     blkPh (Scc.Cert.Rt.A64.okPcOf Λ.code.lo o.prog Λ)
@@ -106,7 +107,7 @@ theorem blkPh_of_rowIn_placeOK {Λ : Scc.Sem.Layout}
     {lab : Label → Int64}
     (hl : (_root_.Executable.labels
       (Scc.Sem.A64.threadAt E Λ.code.lo o.prog syms).exe).label = lab)
-    (hs : ∀ p ∈ syms, Λ.code.lo ≤ p.2) {ra : Int64} {dead : Nat → Bool}
+    (hs : ∀ p ∈ Scc.Sem.symsBelow Λ.code.lo syms, Scc.Cert.Link.A64.codeOf Λ.code.lo o.prog p.1 = none) {ra : Int64} {dead : Nat → Bool}
     (hd : ∀ t ∈ crossOf lab (Scc.Cert.Rt.A64.phOf Λ.code.lo o.prog)
       (lab l + Int64.ofNat (4 * b.k)) ra b.blk, dead t = true) :
     blkPh (Scc.Cert.Rt.A64.okPcOf Λ.code.lo o.prog Λ)
@@ -128,7 +129,7 @@ theorem blkPh_of_rowAt_placeOK {Λ : Scc.Sem.Layout}
     {lab : Label → Int64}
     (hl : (_root_.Executable.labels
       (Scc.Sem.A64.threadAt E Λ.code.lo o.prog syms).exe).label = lab)
-    (hs : ∀ p ∈ syms, Λ.code.lo ≤ p.2) {ra : Int64} {dead : Nat → Bool}
+    (hs : ∀ p ∈ Scc.Sem.symsBelow Λ.code.lo syms, Scc.Cert.Link.A64.codeOf Λ.code.lo o.prog p.1 = none) {ra : Int64} {dead : Nat → Bool}
     (hd : ∀ t ∈ crossOf lab (Scc.Cert.Rt.A64.phOf Λ.code.lo o.prog)
       (lab l + Int64.ofNat (4 * k)) ra blk, dead t = true) :
     blkPh (Scc.Cert.Rt.A64.okPcOf Λ.code.lo o.prog Λ)

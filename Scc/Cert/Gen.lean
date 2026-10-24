@@ -33,8 +33,8 @@ exist yet (see the docstring it carries, `docstring`):
    `Scc/Cert/OutStageA64.lean`, `OutStageX64.lean`, the lowering's itself in
    two, the depth limit and the lowering at it, `Scc/Cert/LowerStage.lean`),
    and decides the
-   components on the literal in separate declarations (A1, A2, A4 and A7;
-   A3; A5; A6; A8; A9 where the ISA checks it; A11), or, for
+   components on the literal in separate declarations (A1 to A8, A9
+   where the ISA checks it, A11; each its own kernel check), or, for
    `Placement.fails`, the one failing component (`prog_not_placeOK`), with
    the loader's parse of the embedded text checked against that output by
    evaluation (`parsesTo`); for an accepted program, `prog_cert_ready`, the
@@ -123,6 +123,19 @@ structure Isa where
   /-- Whether the ISA's `placeOK` checks A9 (the lowered code blocks):
   `placeOK_of` then takes its proof after A8's. -/
   a9 : Bool := false
+  /-- Whether A9 is proved by its keyed form (`a9_of_fast`, `Scc/Cert/A9StageA64.lean`,
+  `Scc/Cert/A9StageX64.lean`)
+  instead of by the kernel's evaluation of `a9` itself. -/
+  a9fast : Bool := false
+  /-- Whether `emitted_eq` is checked in stages (`emitItemsMaps_of_stages`:
+  the emitter's checks, each function, and the rest, each a kernel check on
+  literals) instead of by one definitional equality. -/
+  emitStaged : Bool := false
+  /-- Whether the emitter numbers local labels across functions (x64: each
+  function's check takes the number its predecessor's leaves, `emitFuncs`,
+  chained by `emitFuncs_cons`) instead of by the function's index
+  (AArch64: `emitFuncAt` on `zipIdx`, chained by `mapM_ok_cons`). -/
+  emitCounter : Bool := false
 
 def isaOf : Arch → Isa
   | .x64 => {
@@ -130,7 +143,8 @@ def isaOf : Arch → Isa
       place := "Scc.Cert.OutStageX64", placeNs := "Scc.Cert.PlaceOK.X64", staged := true
       emit := "Scc.Emit.X64", safepoint := "(String × List Int × List Int)"
       lower := "Scc.Lower.X64", link := "Scc.Cert.Link.X64"
-      predicate := "Scc.Emit.X64.ProgramWCLowerable prog", a9 := true
+      predicate := "Scc.Emit.X64.ProgramWCLowerable prog", a9 := true, a9fast := true, emitStaged := true
+      emitCounter := true
       predicateDoc := "`Scc.Emit.X64.ProgramWCLowerable` (`Scc/Emit/X64Lowerable.lean`: \
         every memory RMW is locked, no `movnti`)"
       dropped := "the assembler directive lines (sections, symbols, data, the stack-map \
@@ -140,7 +154,7 @@ def isaOf : Arch → Isa
       place := "Scc.Cert.OutStageA64", placeNs := "Scc.Cert.PlaceOK.A64", staged := true
       emit := "Scc.Emit.A64", safepoint := "Scc.Emit.A64.Safepoint"
       lower := "Scc.Lower.A64", link := "Scc.Cert.Link.A64"
-      predicate := "prog.WCLowerable", cover := true, a9 := true
+      predicate := "prog.WCLowerable", cover := true, a9 := true, a9fast := true, emitStaged := true
       predicateDoc := "Kraken's `Program.WCLowerable` (`Kraken/Promising/Lower/Lowerable.lean`: \
         the AArch64 forms a WeakCore lowering may emit)"
       dropped := "the assembler directive lines (sections, symbols, data, the stack-map \
@@ -169,6 +183,9 @@ structure Placement where
   the file makes, and the kernel decides that statement either way (a wrong
   value gives a file that does not check). -/
   fails : Option Nat := none
+  /-- The number of functions of the lowered IR: with `Isa.emitStaged`, one
+  emitter check per function (`emitStage`). -/
+  funcs : Nat := 0
 
 /-- The programs with a release theorem (`Spike/Test/Ret0Release{A64,X64}.lean`):
 their certificate's docstring points at it (`docstring`). -/
@@ -197,7 +214,7 @@ def docstring (cfg : Config) (name srcHash asmHash : String) (sized : Bool := fa
       "\n   `prog_cert_ready` states acceptance and placement together." else ""
   let stagedText := if isa.staged then
       s!" in three\n   kernel steps (`lowered_eq`, the lowering, from `frames_eq` and `ir_eq`; `emitted_eq`, \
-        the emitter on the\n   literal IR; the rest on literals: `{isa.placeNs}.ofEmitted_of_stages`,\n   \
+        the emitter on the\n   literal IR{if isa.emitStaged then ", from its checks, each function\n   and the rest" else ""}; the rest on literals: `{isa.placeNs}.ofEmitted_of_stages`,\n   \
         `Scc/Cert/OutStage{if cfg.arch == .arm then "A64" else "X64"}.lean`)" else ""
   let coverItem := if isa.cover then "" else "
 * that the block table covers every instruction: `placeOK` checks the rows
@@ -218,8 +235,8 @@ def docstring (cfg : Config) (name srcHash asmHash : String) (sized : Bool := fa
    `outLit`)"
     | none =>
       "`prog_placeOK` proves `placeOK` of it at `placeCfg` (decided on
-   `outLit` in separate declarations, A1, A2, A4 and A7; A3; A5; A6; A8;
-   A9 where the ISA checks it; A11, combined by `placeOK_of`)"
+   `outLit` in separate declarations, A1 to A8, A9 where the ISA checks
+   it, A11, combined by `placeOK_of`)"
   let placeText := s!"`out` is `scc`'s output for
    `prog_src` as the placement check reads it (`{isa.placeNs}.Out.ofEmitted`
    of `{isa.lower}.lowerAll config prog_src`{sizedOut}), `out_eq` proves it
@@ -269,13 +286,28 @@ What it does not establish:
   on AArch64 the lowering emits no sub-word store);{coverItem}{relationItem}
 -/"
 
+/-- The labels `sizes_ok` checks in one kernel run (`sizesPart`). -/
+def sizesChunk : Nat := 64
+
 /-- The size table part of an x64 certificate, if any (`render`). The
 kernel checks the linear `sizesOkFast`, which implies `sizesOk`
-(`Scc.Cert.X64.sizesOk_of_fast`). -/
+(`Scc.Cert.X64.sizesOk_of_fast`), in pieces (`sizesOkFast_of_chunks`): the
+walk over the program on literals, then the listed labels' offsets,
+`sizesChunk` labels per kernel run, chained by `offsAll_drop`. -/
 def sizesPart : Option (List Nat × List (String × Nat)) → String
   | none => ""
   | some (sizes, offs) =>
     let offsT := ", ".intercalate (offs.map fun (l, o) => s!"({quoteLine l}, {o})")
+    let c := sizesChunk
+    let k := (offs.length + c - 1) / c
+    let chunks := String.join ((List.range k).map fun i => s!"
+/-- The listed labels {c * i} to {c * i + c - 1} are at their offsets (kernel-checked). -/
+theorem sizes_offs_{i} :
+    ((labelOffs.drop {c * i}).take {c}).all (Scc.Cert.X64.offOk walkLit.1) = true := by
+  decide +kernel
+")
+    let chain := String.join ((List.range k).map (s!"Scc.Cert.X64.offsAll_drop {c} sizes_offs_{·} <|\n    ")) ++
+      "by decide +kernel"
     s!"
 /-- The length of every instruction of `prog`, in text order, as GNU `as`
 assembled `asm` (untrusted). -/
@@ -285,9 +317,150 @@ def sizes : List Nat := {sizes}
 (untrusted). -/
 def labelOffs : List (String × Nat) := [{offsT}]
 
-/-- The size table is consistent with `prog` laid out from 0 (kernel-checked). -/
+/-- The walk over `prog` and `sizes` from 0, at elaboration time. -/
+def walkVal : Option (List (String × Nat) × Nat) := Scc.Cert.X64.sizeWalk (Int64.ofNat 0) prog sizes 0
+
+/-- The walk's labels with their offsets and its end offset, as a literal
+(untrusted, checked by `walk_eq`). -/
+def walkLit : List (String × Nat) × Nat := (scc_lit% walkVal).get!
+
+/-- The walk gives `walkLit`: every size positive, every `nopalign` aligned
+(kernel-checked). -/
+theorem walk_eq : Scc.Cert.X64.sizeWalk (Int64.ofNat 0) prog sizes 0 = some walkLit := by kernel_rfl
+
+/-- The code ends below `2 ^ 64` (kernel-checked). -/
+theorem sizes_end : walkLit.2 < 2 ^ 64 := by decide +kernel
+{chunks}
+/-- Every listed label is at its offset (`sizes_offs_i`, chained). -/
+theorem sizes_offs : (labelOffs.drop 0).all (Scc.Cert.X64.offOk walkLit.1) = true :=
+  {chain}
+
+/-- The size table is consistent with `prog` laid out from 0 (kernel-checked,
+in the pieces above). -/
 theorem sizes_ok : Scc.Cert.X64.sizesOk 0 prog sizes labelOffs = true :=
-  Scc.Cert.X64.sizesOk_of_fast (by decide +kernel)
+  Scc.Cert.X64.sizesOk_of_fast (Scc.Cert.X64.sizesOkFast_of_chunks walk_eq sizes_end sizes_offs)
+"
+
+/-- The pre-check part of a staged `emitted_eq` (`emitStage`). -/
+def emitStagePre (e : String) : String := s!"/-- The emitter's checks and argument areas on the literal IR, at
+elaboration time. -/
+def areasVal : Option (List (Scc.IR.Sym × Nat)) := ({e}.emitPre loweredLit.1).toOption
+
+/-- The argument areas, as a literal (untrusted, checked by `pre_eq`). -/
+def areasLit : List (Scc.IR.Sym × Nat) := (scc_lit% areasVal).get!
+
+/-- The emitter's checks pass and give `areasLit` (kernel-checked). -/
+theorem pre_eq : {e}.emitPre loweredLit.1 = .ok areasLit := by kernel_rfl
+"
+
+/-- A staged `emitted_eq` where the emitter numbers local labels across
+functions (`Isa.emitCounter`, x64): function `i`'s check (`emit_eq_i`)
+starts at the number function `i - 1`'s literal leaves, and `emitFuncs_cons`
+chains them. -/
+def emitStageCounter (isa : Isa) (n : Nat) : String :=
+  let e := isa.emit
+  let r := s!"(List {e}.Item × Nat × List {isa.safepoint})"
+  let start (i : Nat) := if i == 0 then "0" else s!"emitLit_{i - 1}.2.1"
+  let funcs := String.join ((List.range n).map fun i => s!"
+/-- Function {i}'s items, next label number and safepoints, at elaboration
+time. -/
+def emitVal_{i} : Option {r} :=
+  ({e}.emitFuncAt loweredLit.1 areasLit loweredLit.1.funcs[{i}]! {start i}).toOption
+
+/-- Function {i}'s items, next label number and safepoints, as a literal
+(untrusted, checked by `emit_eq_{i}`). -/
+def emitLit_{i} : {r} :=
+  (scc_lit% emitVal_{i}).get!
+
+/-- The emitter gives `emitLit_{i}` on function {i} (kernel-checked). -/
+theorem emit_eq_{i} :
+    {e}.emitFuncAt loweredLit.1 areasLit loweredLit.1.funcs[{i}]! {start i} = .ok emitLit_{i} := by
+  kernel_rfl
+")
+  let lits := ",\n    ".intercalate ((List.range n).map fun i => s!"(emitLit_{i}.1, emitLit_{i}.2.2)")
+  let fns := ",\n    ".intercalate ((List.range n).map (s!"loweredLit.1.funcs[{·}]!"))
+  let chain := String.join ((List.range n).map (s!"{e}.emitFuncs_cons emit_eq_{·} <|\n    ")) ++ "rfl"
+  emitStagePre e ++ s!"
+/-- The functions of the literal IR (kernel-checked). -/
+theorem fns_eq : loweredLit.1.funcs = [
+    {fns}] := by kernel_rfl
+{funcs}
+/-- The functions' items and safepoints, in order. -/
+def emitLits : List (List {e}.Item × List {isa.safepoint}) := [
+    {lits}]
+
+/-- The emitter gives each function's literal (`emit_eq_i`, chained). -/
+theorem funcs_eq : {e}.emitFuncs loweredLit.1 areasLit loweredLit.1.funcs 0 = .ok emitLits := by
+  rw [fns_eq]
+  exact {chain}
+
+/-- The rest of the emitter gives `emittedLit` from the functions' literals
+(kernel-checked). -/
+theorem post_eq : {e}.emitPost loweredLit.1 emitLits = .ok emittedLit := by kernel_rfl
+
+/-- The emitter gives `emittedLit` on the literal IR (`emitItemsMaps_of_stages`:
+the stages above). -/
+theorem emitted_eq : {e}.emitItemsMaps loweredLit.1 = .ok emittedLit :=
+  {e}.emitItemsMaps_of_stages pre_eq funcs_eq post_eq
+"
+
+/-- `emitted_eq` (staged `out_eq`): by one kernel run of the emitter, or,
+with `Isa.emitStaged`, from the emitter's stages (`emitItemsMaps_of_stages`):
+its checks (`pre_eq`, giving the argument areas `areasLit`), each of the `n`
+functions (`emit_eq_i`, giving `emitLit_i`), chained over the functions
+(`funcs_eq`), and the rest (`post_eq`), each a kernel check on literals, so
+that the kernel keeps one function's terms alive at a time. With
+`Isa.emitCounter` the functions' checks are `emitStageCounter`'s. -/
+def emitStage (isa : Isa) (n : Nat) : String :=
+  if !isa.emitStaged then s!"/-- The emitter gives `emittedLit` on the literal IR (kernel-checked: the
+kernel runs the emitter, here). -/
+theorem emitted_eq : {isa.emit}.emitItemsMaps loweredLit.1 = .ok emittedLit := by kernel_rfl
+" else
+  let e := isa.emit
+  if isa.emitCounter then emitStageCounter isa n else
+  let r := s!"(List {e}.Item × List {isa.safepoint})"
+  let fn (i : Nat) := s!"(loweredLit.1.funcs[{i}]!, {i})"
+  let funcs := String.join ((List.range n).map fun i => s!"
+/-- Function {i}'s items and safepoints, at elaboration time. -/
+def emitVal_{i} : Option {r} :=
+  ({e}.emitFuncAt loweredLit.1 areasLit {fn i}).toOption
+
+/-- Function {i}'s items and safepoints, as a literal (untrusted, checked by
+`emit_eq_{i}`). -/
+def emitLit_{i} : {r} :=
+  (scc_lit% emitVal_{i}).get!
+
+/-- The emitter gives `emitLit_{i}` on function {i} (kernel-checked). -/
+theorem emit_eq_{i} :
+    {e}.emitFuncAt loweredLit.1 areasLit {fn i} = .ok emitLit_{i} := by
+  kernel_rfl
+")
+  let lits := ",\n    ".intercalate ((List.range n).map (s!"emitLit_{·}"))
+  let fns := ",\n    ".intercalate ((List.range n).map fn)
+  let chain := String.join ((List.range n).map (s!"Scc.Cert.OutLit.mapM_ok_cons emit_eq_{·} <|\n    ")) ++ "rfl"
+  emitStagePre e ++ s!"
+/-- The functions of the literal IR, with their indices (kernel-checked). -/
+theorem zip_eq : loweredLit.1.funcs.zipIdx = [
+    {fns}] := by kernel_rfl
+{funcs}
+/-- The functions' items and safepoints, in order. -/
+def emitLits : List {r} := [
+    {lits}]
+
+/-- The emitter gives each function's literal (`emit_eq_i`, chained). -/
+theorem funcs_eq : loweredLit.1.funcs.zipIdx.mapM ({e}.emitFuncAt loweredLit.1 areasLit) =
+    .ok emitLits := by
+  rw [zip_eq]
+  exact {chain}
+
+/-- The rest of the emitter gives `emittedLit` from the functions' literals
+(kernel-checked). -/
+theorem post_eq : {e}.emitPost loweredLit.1 emitLits = .ok emittedLit := by kernel_rfl
+
+/-- The emitter gives `emittedLit` on the literal IR (`emitItemsMaps_of_stages`:
+the stages above). -/
+theorem emitted_eq : {e}.emitItemsMaps loweredLit.1 = .ok emittedLit :=
+  {e}.emitItemsMaps_of_stages pre_eq funcs_eq post_eq
 "
 
 /-- The acceptance and placement part of a certificate (`render`): the
@@ -302,10 +475,10 @@ def placePart (cfg : Config) (prog : CoreTerm.Prog) (pl : Placement) (sized : Bo
   let can := "placeCfg"
   let es := ", ".intercalate (pl.entries.map quoteLine)
   let t := s!"({ns}.tablesOf {can} outLit)"
+  let a9Pf := if isa.a9fast then s!"\n  {ns}.a9_of_fast (by decide +kernel)" else " by\n  decide +kernel"
   let a9Thm := if isa.a9 then s!"
 /-- A9 of `outLit`: the lowered code blocks (kernel-checked). -/
-theorem prog_placeOK_9 : {ns}.a9 outLit {t} = true := by
-  decide +kernel
+theorem prog_placeOK_9 : {ns}.a9 outLit {t} = true :={a9Pf}
 " else ""
   let a9Arg := if isa.a9 then " prog_placeOK_9" else ""
   let outEq := if isa.staged then s!"
@@ -343,10 +516,7 @@ the lowering above). -/
 theorem lowered_eq : {ns}.lowered1 config prog_src = some loweredLit :=
   {ns}.lowered1_of_stages frames_eq ir_eq
 
-/-- The emitter gives `emittedLit` on the literal IR (kernel-checked: the
-kernel runs the emitter, here). -/
-theorem emitted_eq : {isa.emit}.emitItemsMaps loweredLit.1 = .ok emittedLit := by kernel_rfl
-
+{emitStage isa pl.funcs}
 /-- `out` is `outLit` (kernel-checked in three steps, `ofEmitted_of_stages`:
 the lowering and the emitter above, and here the stack need table, the
 `.text` filter and the block table on the literals; the decisions below
@@ -369,9 +539,21 @@ theorem prog_accepted : Scc.Lower.Accepted0 prog_src = true := by decide +kernel
 theorem prog_not_accepted : Scc.Lower.Accepted0 prog_src = false := by decide +kernel
 "
   let positive := s!"
-/-- A1, A2, A4 and A7 of `outLit` (kernel-checked). -/
-theorem prog_placeOK_1 : ({ns}.a1 outLit {t} && {ns}.a2 outLit {t} &&
-    {ns}.a4 {can} outLit {t} && {ns}.a7 outLit {t}) = true := by
+/-- A1 of `outLit` (kernel-checked; each component is its own declaration,
+so that the kernel keeps one component's terms alive at a time). -/
+theorem prog_placeOK_1 : {ns}.a1 outLit {t} = true := by
+  decide +kernel
+
+/-- A2 of `outLit` (kernel-checked). -/
+theorem prog_placeOK_2 : {ns}.a2 outLit {t} = true := by
+  decide +kernel
+
+/-- A4 of `outLit` (kernel-checked). -/
+theorem prog_placeOK_4 : {ns}.a4 {can} outLit {t} = true := by
+  decide +kernel
+
+/-- A7 of `outLit` (kernel-checked). -/
+theorem prog_placeOK_7 : {ns}.a7 outLit {t} = true := by
   decide +kernel
 
 /-- A3 of `outLit`: the block table at its places (kernel-checked). -/
@@ -396,11 +578,9 @@ theorem prog_placeOK_11 : {ns}.a11 outLit {t} = true := by
 
 /-- **`placeOK` of `scc`'s output** for `prog_src`. -/
 theorem prog_placeOK : {ns}.placeOK {can} out = true := by
-  have h1 := prog_placeOK_1
-  simp only [Bool.and_eq_true] at h1
   rw [out_eq]
-  exact {ns}.placeOK_of h1.1.1.1 h1.1.1.2 prog_placeOK_3 h1.1.2 prog_placeOK_5 prog_placeOK_6 h1.2
-    prog_placeOK_8{a9Arg} prog_placeOK_11
+  exact {ns}.placeOK_of prog_placeOK_1 prog_placeOK_2 prog_placeOK_3 prog_placeOK_4 prog_placeOK_5
+    prog_placeOK_6 prog_placeOK_7 prog_placeOK_8{a9Arg} prog_placeOK_11
 "
   let negative (n : Nat) : String :=
     let cfgArg := if n == 4 then s!" {can}" else ""

@@ -42,8 +42,8 @@ variable {pcfg : Scc.Cert.PlaceOK.Config} {o : Scc.Cert.PlaceOK.X64.Out} {Λ : S
 theorem lab_ofPlaceOK : ∀ l a, codeLabel (RuntimeLayout.ofPlaceOK h i).Λ.code.lo o.prog l = some a →
     (RuntimeLayout.ofPlaceOK h i).lab l = Int64.ofNat a := by
   intro _ _ ha
-  exact @Scc.Cert.Rt.X64.label_threadAt_of_codeLabel Scc.Sem.Entry.linux _ _ _ (RuntimeLayout.ofPlaceOK h i).valid
-    _ _ (by exact Spike.Lib.X64.Rt.RuntimeLayout.ofPlaceOK_above h i) ha
+  exact @Scc.Cert.Rt.X64.label_threadAt_of_codeLabel_below Scc.Sem.Entry.linux _ _ _ (RuntimeLayout.ofPlaceOK h i).valid
+    _ _ (by exact Spike.Lib.X64.Rt.RuntimeLayout.ofPlaceOK_below h i ha) ha
 
 /-- A fact of `startPhTab` passes its check at the record. -/
 theorem startFact_ofPlaceOK {f : Scc.Cert.Rt.X64.PhFact} (hf : f ∈ startPhTab) :

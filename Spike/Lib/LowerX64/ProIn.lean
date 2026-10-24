@@ -41,7 +41,7 @@ variable {p : Prog} {lbl : WeakMem.AllocLabel → Option Nat} {ms : MemSide isa}
 
 /-- `prologue_body_seg` from `proInC`. -/
 theorem prologue_body_seg_of {fr : Scc.Emit.X64.Frame} (h1 : fr.size ≤ 2 ^ 31)
-    (hp : Lays exe cells) (hend : endPc = endOf exe cells) {fn entry : String} {zl zf z1 z2 zs : Nat}
+    {kp : Nat} (hp : Lays exe cells kp) (hend : endPc = endOf exe cells kp) {fn entry : String} {zl zf z1 z2 zs : Nat}
     (hin : proInC cells fr fn entry zl zf z1 z2 zs = true)
     (hF : FStable R F) (hR : R.OK) (hlo : R.lo ≤ -8 - (fr.size : Int)) (hhi : 8 ≤ R.hi)
     {J : AS → Ctl → Prop} {fp ra : BitVec 64} {c0 : Ctl} {t : Expr} {s : SEnv}

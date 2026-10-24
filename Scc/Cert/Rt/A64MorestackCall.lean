@@ -126,8 +126,8 @@ address, at the ghost `g'` the moved frame belongs to, given the calls to
 docstring). -/
 theorem seg_ms_call {γ : Sort _} {Rg : γ → Region} {Fg : γ → MachineData → Prop} {a b : γ → BitVec 64}
     {nC nX : γ → ND} {kc : Int} {ra' : BitVec 64}
-    {prog : List Directive} [Kraken.Executable.ValidLayout exe] (hp : Lays exe prog)
-    (hend : endPc = endOf exe prog) (hprog : morestackIn prog = true)
+    {prog : List Directive} [Kraken.Executable.ValidLayout exe] {kp : Nat} (hp : Lays exe prog kp)
+    (hend : endPc = endOf exe prog kp) (hprog : morestackIn prog = true)
     (hR : ∀ g, (Rg g).OK) (hFg : ∀ g, FStable (Rg g) (Fg g))
     (hlo : ∀ g, (Rg g).lo ≤ kc - 16) (hhi : ∀ g, 0 ≤ (Rg g).hi)
     (hkc : kc ≤ -16) (hk16 : kc % 16 = 0) (hal : ∀ g, (Rg g).base.toNat % 16 = 0)

@@ -45,9 +45,9 @@ variable {pcfg : Scc.Cert.PlaceOK.Config} {o : Scc.Cert.PlaceOK.A64.Out} {Λ : S
 /-- **The record's labels agree with `codeOf`** where it resolves. -/
 theorem hlab_ofPlaceOK : ∀ l a, codeOf (RuntimeLayout.ofPlaceOK h i).Λ.code.lo o.prog l = some a →
     (RuntimeLayout.ofPlaceOK h i).lab l = Int64.ofNat a := fun _ _ ha =>
-  Scc.Cert.Rt.A64.label_threadAt_of_codeOf (E := Scc.Sem.Entry.linux)
+  Scc.Cert.Rt.A64.label_threadAt_of_codeOf_below (E := Scc.Sem.Entry.linux)
     (syms := Scc.Sem.loadSyms (RuntimeLayout.ofPlaceOK h i).Λ o.secs.rodata)
-    (Spike.Lib.A64.Rt.RuntimeLayout.ofPlaceOK_above h i) ha
+    (Spike.Lib.A64.Rt.RuntimeLayout.ofPlaceOK_below h i ha) ha
 
 /-- **The switch's phase facts** of a program passing the table. -/
 theorem swPh_ofPlaceOK {mc : Option MainCode}

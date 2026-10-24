@@ -147,7 +147,7 @@ its facts (`hJc`, `hC0`), the thread pointer `tp` (`htp`) whose limit word
 is mapped (`hmr`) and unmapped in private memory under the frame condition
 (`hun`), in any 8-aligned region holding the frame below the saved `%rbp`
 with 8-aligned bounds. -/
-theorem proW_sfacts {ms : MemSide isa} (hI : InstOk exe endPc cells lab μ own Tk K okPc ph)
+theorem proW_sfacts {ms : MemSide isa} {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp)
     {fn sc entry : Label} {Z : Int64} {L : Label} {zl zf z1 z2 zs : Nat}
     (hin : prologueIn cells fn sc entry Z 8 L zl zf z1 z2 zs [] = true)
     {J : AS → Ctl → Prop} {c0 : Ctl} (hC0 : CFacts Λ lbl c0) (hJc : ∀ σ c, J σ c → c = c0) {tp : UInt64}
@@ -192,7 +192,7 @@ theorem proW_sfacts {ms : MemSide isa} (hI : InstOk exe endPc cells lab μ own T
 (`proInC`) with its phase facts (`hph`), every control of its invariant
 reached from `c0` by a local run (`hJr`) and `Quiet` there (`hQ`), the
 thread pointer `tp` (`htp`, `hmr`, `hun`). -/
-theorem proW_body0 {ms : MemSide isa} (hI : InstOk exe endPc cells lab μ own Tk K okPc ph)
+theorem proW_body0 {ms : MemSide isa} {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp)
     {fr : Scc.Emit.X64.Frame} (h1 : fr.size ≤ 2 ^ 31) {fn entry : Label} {zl zf z1 z2 zs : Nat}
     (hin : proInC cells fr fn entry zl zf z1 z2 zs = true) {J : AS → Ctl → Prop} {c0 : Ctl} {p : Prog}
     (hC0 : CFacts Λ lbl c0) (hJr : ∀ σ c, J σ c → LocalRun p c0 c) (hQ : ∀ c, LocalRun p c0 c → Quiet c)

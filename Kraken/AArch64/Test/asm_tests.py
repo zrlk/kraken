@@ -191,13 +191,17 @@ def find_elan_lld() -> Optional[str]:
                 return str(lld_path)
     return None
 
+# The tests use LSE (casp, ...) and later forms; GNU as and clang default to
+# armv8-a and refuse them ("selected processor does not support").
+MARCH = "-march=armv8.4-a"
+
 def get_assembler() -> Optional[List[str]]:
     as_bin = find_tool(["aarch64-linux-gnu-as", "aarch64-none-elf-as"])
     if as_bin:
-        return [as_bin]
+        return [as_bin, MARCH]
     clang_bin = find_tool(["clang", "clang-19", "clang-18", "clang-17", "clang-16"])
     if clang_bin:
-        return [clang_bin, "--target=aarch64-linux-gnu", "-c"]
+        return [clang_bin, "--target=aarch64-linux-gnu", MARCH, "-c"]
     return None
 
 def get_linker() -> Optional[List[str]]:
@@ -236,7 +240,7 @@ def compile_test_binary(asm_path: Path, tmp_dir: Path) -> Tuple[Optional[Path], 
 def run_real_aarch64_qemu(bin_file: Path, qemu_bin: str, init_regs: Dict[str, int]) -> Tuple[Optional[ExecutionState], Optional[str]]:
     raw_input = struct.pack("<31Q", *[init_regs[f"x{i}"] for i in range(31)])
     try:
-        res = subprocess.run([qemu_bin, str(bin_file)], input=raw_input, check=True, capture_output=True, timeout=TIMEOUT_SECONDS)
+        res = subprocess.run([qemu_bin, "-cpu", "max", str(bin_file)], input=raw_input, check=True, capture_output=True, timeout=TIMEOUT_SECONDS)
         return parse_raw_state(res.stdout), None
     except subprocess.CalledProcessError as e:
         err = (e.stderr or b"").decode(errors="replace").strip()

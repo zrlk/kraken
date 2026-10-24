@@ -83,32 +83,95 @@ labels resolved in `prog`. -/
 def imageIn (prog : Program) (secs : DataSecs) (Λ : Scc.Sem.Layout) : Bool :=
   imageOk Λ secs (codeOf Λ.code.lo prog)
 
+/-- A name `codeOf` does not resolve labels no cell of the program. -/
+theorem ne_label_of_codeOf {x : String} : ∀ {lo : Nat} {prog : Program}, codeOf lo prog x = none →
+    ∀ d ∈ prog, d ≠ .label x
+  | _, [], _ => by simp
+  | lo, d :: ds, h => by
+    simp only [codeOf, labelAddr] at h
+    split at h
+    · cases h
+    · next hne =>
+      intro d' hd'
+      rcases List.mem_cons.mp hd' with rfl | hd'
+      · rintro rfl; exact hne rfl
+      · exact ne_label_of_codeOf (lo := lo + d.fakeSize) h d' hd'
+
+/-- **No name clash among the placed data symbols**: no data symbol
+below the code is named like a code label of `prog` (the loader places it
+before the code, where it would shadow the label), and the placed symbols'
+names are distinct (a symbol below and one above the code of one name, or a
+`.rodata` label named like a `.data` symbol, would resolve to the first). -/
+def noClash (lo : Nat) (prog : Program) (syms : List (String × Nat)) : Bool :=
+  (symsBelow lo syms).all (fun p => (codeOf lo prog p.1).isNone) && Link.nodupB (syms.map (·.1))
+
 /-- **The canonical loader's checks** of `Λ` against the parsed text, but
 the entry state's (`Scc.Sem.A64.target`): the `.rodata` image fits,
 `Λ.symbols` agrees with it, every `.quad` label resolves, every data symbol
-is above the code; and the loaded thread's cells are a valid layout. -/
+is outside the code; the loaded thread's cells are a valid layout, the
+data symbols placed around the code (`Rt.A64.symsAround`) with no name
+clash (`noClash`); the code's end in the address space. -/
 def loadOk (Λ : Scc.Sem.Layout) (prog : Program) (secs : DataSecs) : Bool :=
   let ro := secs.rodata
   let code (l : String) : Option Nat := (codeOf Λ.code.lo prog l).orElse fun _ => Λ.symbols.lookup l
   let syms := loadSyms Λ ro
   rodataFits Λ ro && symsAgree Λ ro && quadsResolve Λ ro code &&
     symsAbove Λ.code.lo (codeEnd Λ.code.lo prog) syms &&
-    prog.all (fun d => Kraken.Executable.cellOk (d, d.fakeSize)) && Rt.A64.symsOk Λ.code.lo prog syms
+    prog.all (fun d => Kraken.Executable.cellOk (d, d.fakeSize)) && Rt.A64.symsAround Λ.code.lo prog syms &&
+    noClash Λ.code.lo prog syms && decide (codeEnd Λ.code.lo prog < 2 ^ 64)
+
+/-- The data symbols pass `symsAround` when the checks pass. -/
+theorem symsAround_of_loadOk {Λ : Scc.Sem.Layout} {prog : Program} {secs : DataSecs}
+    (h : loadOk Λ prog secs = true) : Rt.A64.symsAround Λ.code.lo prog (loadSyms Λ secs.rodata) = true := by
+  simp only [loadOk, Bool.and_eq_true] at h
+  exact h.1.1.2
+
+/-- The code's end is in the address space when the checks pass. -/
+theorem codeEnd_lt_of_loadOk {Λ : Scc.Sem.Layout} {prog : Program} {secs : DataSecs}
+    (h : loadOk Λ prog secs = true) : codeEnd Λ.code.lo prog < 2 ^ 64 := by
+  simp only [loadOk, Bool.and_eq_true, decide_eq_true_eq] at h
+  exact h.2
 
 /-- **The loaded thread's layout is valid** when the checks pass. -/
 theorem validLayout_of_loadOk {Λ : Scc.Sem.Layout} {prog : Program} {secs : DataSecs}
     (h : loadOk Λ prog secs = true) (E : Entry) :
     Kraken.Executable.ValidLayout (threadAt E Λ.code.lo prog (loadSyms Λ secs.rodata)).exe := by
   simp only [loadOk, Bool.and_eq_true] at h
-  exact Rt.A64.validLayout_threadAt h.1.2 h.2
+  exact Rt.A64.validLayout_threadAt_below h.1.1.1.2 h.1.1.2
 
-/-- **No data symbol below the code** when the checks pass (`symsOk`): the
-premise of `Rt.A64.lays_threadAt`, `Rt.A64.endPc_threadAt` and
-`Rt.A64.label_threadAt_of_codeOf`. -/
-theorem above_of_loadOk {Λ : Scc.Sem.Layout} {prog : Program} {secs : DataSecs}
-    (h : loadOk Λ prog secs = true) : ∀ p ∈ loadSyms Λ secs.rodata, Λ.code.lo ≤ p.2 := by
-  simp only [loadOk, Bool.and_eq_true] at h
-  exact Rt.A64.above_of_symsOk h.2
+/-- **No data symbol below the code is named like a code label** when the
+checks pass (`noClash`): the premise of `Rt.A64.label_threadAt_of_codeOf_below`. -/
+theorem below_ne_of_loadOk {Λ : Scc.Sem.Layout} {prog : Program} {secs : DataSecs}
+    (h : loadOk Λ prog secs = true) {l : String} {a : Nat} (ha : codeOf Λ.code.lo prog l = some a) :
+    ∀ p ∈ symsBelow Λ.code.lo (loadSyms Λ secs.rodata), p.1 ≠ l := by
+  simp only [loadOk, noClash, Bool.and_eq_true, List.all_eq_true] at h
+  intro p hp he
+  have := h.1.2.1 p hp
+  rw [he, ha] at this
+  cases this
+
+/-- **No data symbol below the code is named like a cell of the program**
+when the checks pass (`noClash`): the premise of `Rt.A64.lays_threadAt_below`. -/
+theorem below_lab_of_loadOk {Λ : Scc.Sem.Layout} {prog : Program} {secs : DataSecs}
+    (h : loadOk Λ prog secs = true) :
+    ∀ p ∈ symsBelow Λ.code.lo (loadSyms Λ secs.rodata), ∀ d ∈ prog, d ≠ .label p.1 := by
+  simp only [loadOk, noClash, Bool.and_eq_true, List.all_eq_true] at h
+  intro p hp
+  exact ne_label_of_codeOf (Option.isNone_iff_eq_none.mp (h.1.2.1 p hp))
+
+/-- The placed data symbols' names are distinct when the checks pass. -/
+theorem names_nodup_of_loadOk {Λ : Scc.Sem.Layout} {prog : Program} {secs : DataSecs}
+    (h : loadOk Λ prog secs = true) : ((loadSyms Λ secs.rodata).map (·.1)).Nodup := by
+  simp only [loadOk, noClash, Bool.and_eq_true] at h
+  exact Link.nodupB_nodup h.1.2.2
+
+/-- **The canonical loader's thread lays out the program after the data
+symbols below the code** when the checks pass. -/
+theorem lays_of_loadOk {Λ : Scc.Sem.Layout} {prog : Program} {secs : DataSecs}
+    (h : loadOk Λ prog secs = true) (E : Entry) :
+    Rt.A64.Lays (threadAt E Λ.code.lo prog (loadSyms Λ secs.rodata)).exe prog
+      (Rt.A64.belowLen Λ.code.lo (loadSyms Λ secs.rodata)) :=
+  Rt.A64.lays_threadAt_below _ _ _ _ (below_lab_of_loadOk h)
 
 /-- The code labels the canonical loader resolves the `.rodata` quads
 with: `prog`'s, else `Λ`'s symbols. -/
@@ -125,7 +188,7 @@ theorem loadParsed_of_loadOk {H : Scc.Sem.Hooks isaLSE2} {E : Entry}
     loadParsed H E Λ prog secs = some (loadProg H E Λ prog (loadSyms Λ secs.rodata)
       (imageMem Λ ++ wordsMem (rodataWords Λ secs.rodata (quadCode Λ prog)))) := by
   simp only [loadOk, Bool.and_eq_true] at h
-  obtain ⟨⟨⟨⟨⟨h1, h2⟩, h3⟩, h4⟩, -⟩, -⟩ := h
+  obtain ⟨⟨⟨⟨⟨⟨⟨h1, h2⟩, h3⟩, h4⟩, -⟩, -⟩, -⟩, -⟩ := h
   simp only [codeOf] at h3
   unfold loadParsed
   simp only [h1, h2, h3, h4, hE, Bool.and_self, ↓reduceIte]

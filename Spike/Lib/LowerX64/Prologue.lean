@@ -156,7 +156,8 @@ layout of cells with `prologueIn` at the frame `fr.size`: from the
 function's label (`%rsp` at 0, region `R`) to the body's node at its entry
 (region `rbR R`), the ghosts `fp`/`ra` the entry's `%rbp` and top cell. -/
 theorem prologue_body_seg {fr : Scc.Emit.X64.Frame} (h1 : fr.size ≤ 2 ^ 31)
-    (hp : Lays exe cells) (hend : endPc = endOf exe cells) {fn sc entry : Label} {lim : Int64} {L : Label}
+    {kp : Nat} (hp : Lays exe cells kp)
+        (hend : endPc = endOf exe cells kp) {fn sc entry : Label} {lim : Int64} {L : Label}
     {zl zf z1 z2 zs : Nat}
     (hin : prologueIn cells fn sc entry (Int64.ofInt fr.size) lim L zl zf z1 z2 zs [] = true)
     (hF : FStable R F) (hR : R.OK) (hlo : R.lo ≤ -8 - (fr.size : Int)) (hhi : 8 ≤ R.hi)

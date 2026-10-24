@@ -60,28 +60,28 @@ private theorem off0 (a : Int64) : a + Int64.ofNat 0 = a := by
   rw [show Int64.ofNat 0 = 0 by decide, Int64.add_zero]
 
 /-- **The layout of `wc_printL`** (`seg_printL`'s `hcode`). -/
-theorem code_printL (hp : Lays exe cells) (hend : endPc = endOf exe cells) (h : printLIn cells = true)
+theorem code_printL {kp : Nat} (hp : Lays exe cells kp) (hend : endPc = endOf exe cells kp) (h : printLIn cells = true)
     (c0 : Ctl) (rbp0 ra : BitVec 64) : Code c0 rbp0 ra exe endPc := by
   simp only [printLIn, Bool.and_eq_true, and_assoc] at h
   obtain ⟨h0, h1, h2, h3, h4, h5, hm, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18, h19, h20, h21, h22, -⟩ := h
   exact ⟨code_field hp hend h0 (off0 _), code_field hp hend h1 (off0 _), code_field hp hend h2 rfl, code_field hp hend h3 rfl, code_field hp hend h4 (off0 _), code_field hp hend h5 rfl, code_field hp hend hm rfl, code_field hp hend h6 rfl, code_field hp hend h7 rfl, code_field hp hend h8 rfl, code_field hp hend h9 rfl, code_field hp hend h10 (off0 _), code_field hp hend h11 (off0 _), code_field hp hend h12 rfl, code_field hp hend h13 (off0 _), code_field hp hend h14 rfl, code_field hp hend h15 rfl, code_field hp hend h16 rfl, code_field hp hend h17 (off0 _), code_field hp hend h18 (off0 _), code_field hp hend h19 rfl, code_field hp hend h20 (off0 _), code_field hp hend h21 (off0 _), code_field hp hend h22 (off0 _)⟩
 
 /-- `.chk` 4 bytes behind `wc_printL` (`seg_printL`'s `hchk`). -/
-theorem chk_printL (hp : Lays exe cells) (h : printLIn cells = true) :
+theorem chk_printL {kp : Nat} (hp : Lays exe cells kp) (h : printLIn cells = true) :
     (_root_.Executable.labels exe).label ".Lwc_printL.chk" =
       (_root_.Executable.labels exe).label "wc_printL" + 4 := by
   simp only [printLIn, Bool.and_eq_true, and_assoc] at h
   rw [label_labelGapB hp h.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1]; rfl
 
 /-- `.entry` 53 bytes behind `.chk` (`seg_printL`'s `hentry`). -/
-theorem entry_printL (hp : Lays exe cells) (h : printLIn cells = true) :
+theorem entry_printL {kp : Nat} (hp : Lays exe cells kp) (h : printLIn cells = true) :
     (_root_.Executable.labels exe).label ".Lwc_printL.entry" =
       (_root_.Executable.labels exe).label ".Lwc_printL.chk" + 53 := by
   simp only [printLIn, Bool.and_eq_true, and_assoc] at h
   rw [label_labelGapB hp h.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1]; rfl
 
 /-- `.x19` 18 bytes behind `.stk` (`hms_printL`'s `hx19`). -/
-theorem x19_printL (hp : Lays exe cells) (h : printLIn cells = true) :
+theorem x19_printL {kp : Nat} (hp : Lays exe cells kp) (h : printLIn cells = true) :
     (_root_.Executable.labels exe).label ".Lwc_printL.x19" =
       (_root_.Executable.labels exe).label ".Lwc_printL.stk" + 18 := by
   simp only [printLIn, Bool.and_eq_true, and_assoc] at h

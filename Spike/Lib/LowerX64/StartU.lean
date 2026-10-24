@@ -130,7 +130,7 @@ open Spike.Lib.X64.Rt.MainU in
 states inside `SFacts … Dt`, the user function's interface there (`hU`);
 the premises otherwise `swUW_gen`'s. -/
 theorem swUW_gen_dt {p : Prog} {lbl' : WeakMem.AllocLabel → Option Nat} {ms : MemSide isa} {Dt : State → Prop}
-    (hI : InstOk exe endPc cells lab μ own Tk K okPc ph)
+    {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp)
     (hin : Spike.Lib.X64.Flow.Ret0.startTailIn cells = true) {mc : MainCode}
     (hmain : Spike.Lib.X64.Rt.mainUIn cells mc = true) {Post : Ctl → BitVec 64 → Prop} {c0 : Ctl}
     (hC0 : CFacts Λ lbl c0) (hPost : ∀ c v, Post c v → CFacts Λ lbl c) (hph : MainPh okPc ph lab mc)
@@ -209,7 +209,7 @@ theorem userCallW_sw {d : Decl} (hd : Scc.Lower.Accepted0 [d] = true) {fr : Scc.
     {fn entry : Label} {zl zf z1 z2 zs : Nat} (hf : FrameOk fr) (h1 : fr.size ≤ 2 ^ 31)
     (hpro : proInC cells fr fn entry zl zf z1 z2 zs = true) (hr : lower0 [(d.arg, .unit, [])] 0 d.body = some r)
     (hbody : bodyIn cells fr entry 0 r.insts r.ret = true)
-    (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {Dt : State → Prop}
+    {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp) {Dt : State → Prop}
     {lbl : Lbl} {ms : MemSide isa} {Z : Int64} {D L : Int} {tcb top : BitVec 64} {ra : BitVec 64}
     (hD : (fr.size : Int) + 48 ≤ D) (hD8 : D % 8 = 0)
     (htop : top.toNat % 8 = 0) (hok : (swR top (-L) 0).OK) (hL : 8 + 8 + Z.toInt + 8 + D ≤ L) (hL8 : L % 8 = 0)

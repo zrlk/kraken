@@ -53,8 +53,8 @@ set_option linter.unusedSimpArgs false in
 cells `cells` with `printIn cells = true`, given its write system call. -/
 theorem seg_print_of {p : Prog} {lbl : WeakMem.AllocLabel → Option Nat} {ms : MemSide isa}
     {exe : _root_.Executable} {endPc : Int64} {R : Region} {m0 : MachineData} {c0 : Ctl} {rbp0 ra : BitVec 64}
-    {cells : List (Directive × Nat)} [Kraken.Executable.ValidLayout exe] (hp : Lays exe cells)
-    (hend : endPc = endOf exe cells) (hprog : printIn cells = true)
+    {cells : List (Directive × Nat)} [Kraken.Executable.ValidLayout exe] {kp : Nat} (hp : Lays exe cells kp)
+    (hend : endPc = endOf exe cells kp) (hprog : printIn cells = true)
     (hR : R.OK) (hlo : R.lo ≤ -40) (hhi : 16 ≤ R.hi)
     (hsys : Seg p lbl ms (At exe endPc R (DFrame R m0) (N (_root_.Executable.labels exe).label c0 rbp0 ra .sys))
       (At exe endPc R (DFrame R m0) (N (_root_.Executable.labels exe).label c0 rbp0 ra .n5))) :

@@ -7,7 +7,8 @@ immediate table, gives its `RuntimeLayout`. The x86-64 twin of
 
 - **`RuntimeLayout.ofPlaceOK`**: the canonical loader's thread at the Linux
   entry state, its code cells and the link with the immediates; the layout
-  from A2 (`lays_threadAt`, `validLayout_of_loadOk`), the six words at their
+  from A2 (`lays_of_loadOk` after the `belowLen` cells of the data symbols
+  below the code, `validLayout_of_loadOk`), the six words at their
   labels and their side conditions from A8 (`lab_link_of_placeOKAt`,
   `wordsOk_of_rtWordsOk` and `Rt.X64.words_*_of_wordsOk`).
 - **Oracle checks**: at `ret0`, the record is the hand one's (`ret0L`) in
@@ -36,7 +37,8 @@ def ofPlaceOK {pcfg : Scc.Cert.PlaceOK.Config} {o : Scc.Cert.PlaceOK.X64.Out} {�
   { exe := (Scc.Sem.X64.threadAt Scc.Sem.Entry.linux Λ.code.lo o.prog (Scc.Sem.loadSyms Λ o.secs.rodata)).exe
     prog := o.prog
     Λ := Λ
-    lays := lays_threadAt _ _ _ _ (above_of_loadOk (loadOk_link_of_placeOKAt i h))
+    pfx := belowLen Λ.code.lo (Scc.Sem.loadSyms Λ o.secs.rodata)
+    lays := lays_of_loadOk (loadOk_link_of_placeOKAt i h) _
     valid := validLayout_of_loadOk (loadOk_link_of_placeOKAt i h) _
     pinA := A "scc_rt_pinned"
     pnA := A "scc_rt_pinned_next"
@@ -59,13 +61,16 @@ def ofPlaceOK {pcfg : Scc.Cert.PlaceOK.Config} {o : Scc.Cert.PlaceOK.X64.Out} {�
     stacks_al := Scc.Cert.Rt.X64.stacks_al_of_wordsOk hw
     stacks_sub := Scc.Cert.Rt.X64.stacks_sub_of_wordsOk hw }
 
-/-- **No data symbol of `ofPlaceOK` is below the code** (A2's `symsOk`):
-the premise of the loader's label lemmas. -/
-theorem ofPlaceOK_above {pcfg : Scc.Cert.PlaceOK.Config} {o : Scc.Cert.PlaceOK.X64.Out} {Λ : Scc.Sem.Layout}
+/-- **No data symbol of `ofPlaceOK` below the code is named like a code
+label** (A2's `noClash`): the premise of the loader's label lemma
+`Scc.Cert.Rt.X64.label_threadAt_of_codeLabel_below`. -/
+theorem ofPlaceOK_below {pcfg : Scc.Cert.PlaceOK.Config} {o : Scc.Cert.PlaceOK.X64.Out} {Λ : Scc.Sem.Layout}
     (h : placeOKAt pcfg Λ o = true)
-    (i : CoreTerm.Expr → String → Nat → Option Nat) :
-    ∀ p ∈ Scc.Sem.loadSyms (ofPlaceOK h i).Λ o.secs.rodata, (ofPlaceOK h i).Λ.code.lo ≤ p.2 :=
-  above_of_loadOk (loadOk_link_of_placeOKAt i h)
+    (i : CoreTerm.Expr → String → Nat → Option Nat) {l : String} {a : Nat}
+    (ha : Scc.Sem.X64.codeLabel (ofPlaceOK h i).Λ.code.lo o.prog l = some a) :
+    ∀ p ∈ Scc.Sem.symsBelow (ofPlaceOK h i).Λ.code.lo (Scc.Sem.loadSyms (ofPlaceOK h i).Λ o.secs.rodata),
+      p.1 ≠ l :=
+  below_ne_of_loadOk (loadOk_link_of_placeOKAt i h) ha
 
 /-- The words of `ofPlaceOK` are 8-aligned. -/
 theorem ofPlaceOK_words_al {pcfg : Scc.Cert.PlaceOK.Config} {o : Scc.Cert.PlaceOK.X64.Out} {Λ : Scc.Sem.Layout}

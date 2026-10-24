@@ -190,7 +190,7 @@ of a program `prog` with `printIn prog = true` (`hello1_print` for
 (`hsvc`); its block nodes' states lie in `W`, none moved by `K` (`hW`).
 `Scc.Cert.Rt.A64.Print.seg_print_of` with `seg_printW`. -/
 theorem seg_print_ofW {W : Frag isaLSE2} {K : State → State → Prop} {prog : List Directive}
-    (hp : Lays exe prog) (hend : endPc = endOf exe prog) (hprog : printIn prog = true)
+    {kp : Nat} (hp : Lays exe prog kp) (hend : endPc = endOf exe prog kp) (hprog : printIn prog = true)
     (hF : FStable R F) (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -48) (hhi : 0 ≤ R.hi)
     (hW : PrintW c0 x29 ra W K exe endPc R F)
     (hsvc : SegW W K p lbl ms

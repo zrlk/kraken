@@ -27,7 +27,8 @@ theorem ovfBlk_eq_lb : ovfBlk = Spike.Lib.X64.Abort.Local.lb := by decide
 label `l` in laid-out cells, every state of the executable has `Local.lb`
 at `l`'s address. -/
 theorem ovfCode_codeAt {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe]
-    {cells : List (Directive × Nat)} (hp : Lays exe cells) {endPc : Int64} (hend : endPc = endOf exe cells)
+    {cells : List (Directive × Nat)} {kp : Nat} (hp : Lays exe cells kp) {endPc : Int64}
+        (hend : endPc = endOf exe cells kp)
     {l : Label} (h : blockAtB cells l 0 ovfBlk = true) :
     ∀ s : State, s.exe = exe → s.endPc = endPc →
       CodeAt s ((_root_.Executable.labels exe).label l) Spike.Lib.X64.Abort.Local.lb :=

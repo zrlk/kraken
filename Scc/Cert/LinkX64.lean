@@ -27,8 +27,10 @@ layout of an x64 listing and check it in the kernel, besides
   `Entry.clear`), the size table's (`SizeCheck`) by a linear walk
   (`sizeOkC`, `sizeCheck_of_sizeOkC`: `SizeCheck` itself is quadratic in
   the kernel) with the label offsets in the code's order (`sizeOkL`,
-  `sizeOkC_of_sizeOkL`: no string lookups), and the data symbols placeable (`symsOk`), so that the
-  loaded thread's cells are a valid layout (`validLayout_of_loadOk`); with
+  `sizeOkC_of_sizeOkL`: no string lookups), and the data symbols placed
+  around the code (`symsAround`) with no name clash (`noClash`), so that the
+  loaded thread's cells are a valid layout (`validLayout_of_loadOk`) and lay
+  out the code after the cells below it (`lays_of_loadOk`); with
   the entry state's check, the canonical load of the parsed text is the
   loaded configuration (`loadParsed_of_loadOk`), and with the parse
   equations the canonical target's load of the text is (`load_of_loadOk`);
@@ -465,15 +467,173 @@ theorem validLayout_threadAt {E : Entry} {base : Nat} {cells : List (Directive �
 symbols. -/
 theorem lays_threadAt (E : Entry) (base : Nat) (cells : List (Directive × Nat)) (syms : List (String × Nat))
     (h : ∀ p ∈ syms, base ≤ p.2) : Scc.Cert.Rt.X64.Lays (threadAt E base cells syms).exe cells :=
-  ⟨_, by rw [threadAt_exe_of_above h]⟩
+  .of_append (by rw [threadAt_exe_of_above h])
 
 /-- **The canonical loader's thread halts at the end of its code cells.** -/
 theorem endPc_threadAt (E : Entry) (base : Nat) (cells : List (Directive × Nat)) (syms : List (String × Nat))
     (h : ∀ p ∈ syms, base ≤ p.2) :
     (threadAt E base cells syms).endPc = Scc.Cert.Rt.X64.endOf (threadAt E base cells syms).exe cells := by
   rw [threadAt_exe_of_above h]
-  simp only [threadAt, Scc.Cert.Rt.X64.endOf, codeEnd]
+  simp only [threadAt, Scc.Cert.Rt.X64.endOf, codeEnd, List.take_zero, List.map_nil, List.sum_nil,
+    Nat.zero_add]
   rw [Int64.ofNat_add]
+
+/-! ### Data symbols below the code -/
+
+/-- The number of cells the canonical loader places before the code: the
+label and padding cells of the data symbols below it (`placeBelow`); the
+prefix length of `lays_threadAt_below`. -/
+def belowLen (base : Nat) (syms : List (String × Nat)) : Nat :=
+  (placeBelow (Directive.byteArray (.mk #[])) Directive.label base syms).length
+
+/-- The canonical loader's cells: those below the code, the code cells, then
+those above it. -/
+theorem threadAt_exe_cells (E : Entry) (base : Nat) (cells : List (Directive × Nat)) (syms : List (String × Nat)) :
+    (threadAt E base cells syms).exe.2 = placeBelow (.byteArray (.mk #[])) .label base syms ++
+      (cells ++ placeSyms (.byteArray (.mk #[])) .label (codeEnd base cells) (symsFrom base syms)) := by
+  simp only [threadAt, List.append_assoc]
+
+/-- With no data symbol below the code, no cell is placed before it. -/
+theorem belowLen_of_above {base : Nat} {syms : List (String × Nat)} (h : ∀ p ∈ syms, base ≤ p.2) :
+    belowLen base syms = 0 := by
+  rw [belowLen, PlaceSyms.placeBelow_of_above _ _ h, List.length_nil]
+
+/-- **The canonical loader's thread lays out its code cells after the cells
+below the code**, when no data symbol below the code is named like a label
+of the code. -/
+theorem lays_threadAt_below (E : Entry) (base : Nat) (cells : List (Directive × Nat)) (syms : List (String × Nat))
+    (hlab : ∀ p ∈ symsBelow base syms, ∀ c ∈ cells, c.1 ≠ .label p.1) :
+    Scc.Cert.Rt.X64.Lays (threadAt E base cells syms).exe cells (belowLen base syms) := by
+  refine ⟨_, _, by rw [threadAt_exe_cells, ← List.append_assoc], rfl, ?_⟩
+  intro c hc l hl d hd hdl
+  rcases (PlaceSyms.placeBelow_spec _ _ base syms).1 c hc with ⟨h, -⟩ | ⟨p, hp, rfl⟩
+  · rw [h] at hl; cases hl
+  · obtain rfl : p.1 = l := by simpa using hl
+    exact hlab p hp d hd hdl
+
+/-- **The canonical loader's thread halts at the end of its code cells**,
+the cells below the code before them. -/
+theorem endPc_threadAt_below (E : Entry) (base : Nat) (cells : List (Directive × Nat)) (syms : List (String × Nat)) :
+    (threadAt E base cells syms).endPc =
+      Scc.Cert.Rt.X64.endOf (threadAt E base cells syms).exe cells (belowLen base syms) := by
+  have hB := (PlaceSyms.placeBelow_spec (Directive.byteArray (.mk #[])) Directive.label base syms).2
+  rw [Scc.Cert.Rt.X64.endOf, threadAt_exe_cells, belowLen, List.take_left]
+  simp only [threadAt, codeEnd]
+  rw [← Int64.ofNat_add]
+  congr 1
+  omega
+
+/-- **The data symbols the canonical loader can place around the code**:
+each below the start of the code or at or above its end, all below the
+start of the executable plus `2⁶⁴`, the code too (the cells fit,
+`validLayout_threadAt_below`). Two symbols may share an address. -/
+def symsAround (base : Nat) (cells : List (Directive × Nat)) (syms : List (String × Nat)) : Bool :=
+  decide (codeEnd base cells < exeStart base syms + 2 ^ 64) &&
+  syms.all (fun p => (decide (p.2 < base) || decide (codeEnd base cells ≤ p.2)) &&
+    decide (p.2 < exeStart base syms + 2 ^ 64))
+
+/-- The data symbols `symsAround` passes are outside the code. -/
+theorem out_of_symsAround {base : Nat} {cells : List (Directive × Nat)} {syms : List (String × Nat)}
+    (h : symsAround base cells syms = true) : ∀ p ∈ syms, p.2 < base ∨ codeEnd base cells ≤ p.2 := by
+  intro p hp
+  simp only [symsAround, Bool.and_eq_true, decide_eq_true_eq, List.all_eq_true] at h
+  simpa only [Bool.or_eq_true, decide_eq_true_eq] using (h.2 p hp).1
+
+/-- The data symbols `symsOk` passes (all above the code) pass `symsAround`
+when the code cells fit the address space (as `SizeCheck` checks). -/
+theorem symsAround_of_symsOk {base : Nat} {cells : List (Directive × Nat)} {syms : List (String × Nat)}
+    (hw : (cells.map (·.2)).sum < 2 ^ 64) (h : symsOk base cells syms = true) :
+    symsAround base cells syms = true := by
+  have he := PlaceSyms.exeStart_of_above (above_of_symsOk h)
+  have hc := codeEnd_lt_of_symsOk h
+  simp only [symsOk, Bool.and_eq_true, decide_eq_true_eq, List.all_eq_true] at h
+  simp only [symsAround, he, Bool.and_eq_true, decide_eq_true_eq, List.all_eq_true, Bool.or_eq_true]
+  refine ⟨?_, fun p hp => ?_⟩
+  · have hce : codeEnd base cells = base + (cells.map (·.2)).sum := rfl
+    omega
+  · have := h.1 p hp
+    exact ⟨.inr (Nat.le_of_lt this.1), this.2⟩
+
+/-- Cells a valid layout may begin with: padding and labels (`padOk`),
+taking the executable's start to the start of the rest. -/
+theorem validLayout_prepend {s : Nat} {pre rest : List (Directive × Nat)}
+    (hv : Kraken.Executable.ValidLayout (Int64.ofNat (s + (pre.map (·.2)).sum), rest))
+    (hpre : ∀ c ∈ pre, padOk c = true) (hw : ((pre ++ rest).map (·.2)).sum < 2 ^ 64) :
+    Kraken.Executable.ValidLayout (Int64.ofNat s, pre ++ rest) := by
+  have hpre' : ∀ {j : Nat} {c : Directive × Nat}, pre[j]? = some c → padOk c = true :=
+    fun h => hpre _ (List.mem_of_getElem? h)
+  refine ⟨fun i l z h => ?_, fun i d z h hd => ?_, hw, fun i aw w n pd z h hn => ?_⟩
+  · rcases Nat.lt_or_ge i pre.length with hi | hi
+    · rw [List.getElem?_append_left hi] at h
+      simpa [padOk] using hpre' h
+    · rw [List.getElem?_append_right hi] at h
+      exact hv.label_size _ l z h
+  · rcases Nat.lt_or_ge i pre.length with hi | hi
+    · rw [List.getElem?_append_left hi] at h
+      have := hpre' h
+      cases d with
+      | label l => exact absurd rfl (hd l)
+      | byteArray => simpa [padOk] using this
+      | instr => simp [padOk] at this
+    · rw [List.getElem?_append_right hi] at h
+      exact hv.instr_size _ d z h hd
+  · rcases Nat.lt_or_ge i pre.length with hi | hi
+    · rw [List.getElem?_append_left hi] at h
+      have := hpre' h
+      simp [padOk] at this
+    · rw [List.getElem?_append_right hi] at h
+      have := hv.align_addr _ aw w n pd z h hn
+      have he : Kraken.Executable.addrOf (Int64.ofNat s, pre ++ rest) (i + 1) =
+          Kraken.Executable.addrOf (Int64.ofNat (s + (pre.map (·.2)).sum), rest) (i - pre.length + 1) := by
+        simp only [Kraken.Executable.addrOf, Kraken.Executable.sizeBefore]
+        rw [show i + 1 = pre.length + (i - pre.length + 1) by omega, List.take_length_add_append,
+          List.map_append, List.sum_append]
+        apply Int64.toBitVec_inj.mp
+        simp only [Int64.toBitVec_add, Int64.toBitVec_ofNat', ← BitVec.ofNat_add, Nat.add_assoc]
+      rw [he]; exact this
+
+/-- The padding and label cells the canonical loader places (`placeBelow`,
+`placeSyms`) are `padOk`. -/
+private theorem padOk_of_place {P : String × Nat → Prop} {c : Directive × Nat}
+    (h : (c.1 = Directive.byteArray (.mk #[]) ∧ 0 < c.2) ∨ ∃ p, P p ∧ c = (Directive.label p.1, 0)) :
+    padOk c = true := by
+  rcases h with ⟨h1, h2⟩ | ⟨p, -, rfl⟩
+  · obtain ⟨d, z⟩ := c
+    simp only at h1 h2
+    subst h1
+    simpa [padOk] using h2
+  · simp [padOk]
+
+/-- **The canonical loader's thread has a valid layout** when its size
+table checks at its base (`SizeCheck`) and its data symbols pass
+`symsAround` (some may lie below the code). -/
+theorem validLayout_threadAt_below {E : Entry} {base : Nat} {cells : List (Directive × Nat)}
+    {syms : List (String × Nat)} {offs : List (String × Nat)}
+    (hsz : SizeCheck (Int64.ofNat base) cells offs = true) (hsyms : symsAround base cells syms = true) :
+    Kraken.Executable.ValidLayout (threadAt E base cells syms).exe := by
+  simp only [symsAround, Bool.and_eq_true, decide_eq_true_eq, List.all_eq_true] at hsyms
+  obtain ⟨hfit, hab⟩ := hsyms
+  obtain ⟨hB1, hB2⟩ := PlaceSyms.placeBelow_spec (Directive.byteArray (.mk #[])) Directive.label base syms
+  obtain ⟨hA1, hA2⟩ := PlaceSyms.placeSyms_spec (Directive.byteArray (.mk #[])) Directive.label
+    (codeEnd base cells) (symsFrom base syms)
+  have hA := hA2 (exeStart base syms + 2 ^ 64 - 1) (by omega) (fun p hp => by
+    have := (hab p (PlaceSyms.mem_symsFrom.mp hp).1).2; omega)
+  have hle := PlaceSyms.exeStart_le base syms
+  have hv := validLayout_of_sizeCheck hsz
+  have hexe : (threadAt E base cells syms).exe = (Int64.ofNat (exeStart base syms),
+      placeBelow (.byteArray (.mk #[])) .label base syms ++
+        (cells ++ placeSyms (.byteArray (.mk #[])) .label (codeEnd base cells) (symsFrom base syms))) := by
+    simp only [threadAt, List.append_assoc]
+  rw [hexe]
+  have hce : codeEnd base cells = base + (cells.map (·.2)).sum := rfl
+  have hv2 := validLayout_append hv (fun c hc => padOk_of_place (hA1 c hc)) (by
+    rw [List.map_append, List.sum_append]
+    omega)
+  have hT : exeStart base syms + ((placeBelow (Directive.byteArray (.mk #[])) Directive.label base syms).map
+      (·.2)).sum = base := by omega
+  refine validLayout_prepend (by rw [hT]; exact hv2) (fun c hc => padOk_of_place (hB1 c hc)) ?_
+  rw [List.map_append, List.map_append, List.sum_append, List.sum_append]
+  omega
 
 /-- A dormant slot has the loaded thread's executable and end address. -/
 theorem dormantAt_exe (E : Entry) (base : Nat) (cells : List (Directive × Nat)) (syms : List (String × Nat)) :
@@ -563,20 +723,43 @@ theorem quadsResolve_of_quadsOkL {Λ : Scc.Sem.Layout} {cells : List (Directive 
     | some _ => simp
   · simp at h
 
+/-- A name `codeLabel` does not resolve labels no cell of the code. -/
+theorem ne_label_of_codeLabel {x : String} : ∀ {lo : Nat} {cells : List (Directive × Nat)},
+    codeLabel lo cells x = none → ∀ c ∈ cells, c.1 ≠ .label x
+  | _, [], _ => by simp
+  | lo, c :: cs, h => by
+    simp only [codeLabel, labelAddr] at h
+    split at h
+    · cases h
+    · next hne =>
+      intro c' hc'
+      rcases List.mem_cons.mp hc' with rfl | hc'
+      · intro he; exact hne (by simp [he, labelName])
+      · exact ne_label_of_codeLabel (lo := lo + c.2) h c' hc'
+
+/-- **No name clash among the placed data symbols**: no data symbol
+below the code is named like a code label of `cells` (the loader places it
+before the code, where it would shadow the label), and the placed symbols'
+names are distinct (a symbol below and one above the code of one name, or a
+`.rodata` label named like a `.data` symbol, would resolve to the first). -/
+def noClash (lo : Nat) (cells : List (Directive × Nat)) (syms : List (String × Nat)) : Bool :=
+  (symsBelow lo syms).all (fun p => (codeLabel lo cells p.1).isNone) && Link.nodupB (syms.map (·.1))
+
 /-- **The canonical loader's checks** of `Λ` against the parsed text, but
 the entry state's (`Scc.Sem.X64.target`): the size table (`sizeOkL`, at the
 code's base, with the label offsets `offs` in the code's order), the
 `.rodata` image fits, `Λ.symbols` agrees with it, every `.quad` label
 resolves (`quadsOkL`: a code label, in code order), every data symbol
-is above the code; and the data symbols placeable (`symsOk`), so that the
-loaded thread's cells are a valid layout. -/
+is outside the code; the data symbols placed around the code
+(`symsAround`), so that the loaded thread's cells are a valid layout, with
+no name clash (`noClash`); the code's end in the address space. -/
 def loadOk (Λ : Scc.Sem.Layout) (cells : List (Directive × Nat)) (secs : DataSecs)
     (offs : List (String × Nat)) : Bool :=
   let ro := secs.rodata
   let syms := loadSyms Λ ro
   sizeOkL (Int64.ofNat Λ.code.lo) cells offs && rodataFits Λ ro && symsAgree Λ ro &&
     quadsOkL (Int64.ofNat Λ.code.lo) cells ro && symsAbove Λ.code.lo (codeEnd Λ.code.lo cells) syms &&
-    symsOk Λ.code.lo cells syms
+    symsAround Λ.code.lo cells syms && noClash Λ.code.lo cells syms && decide (codeEnd Λ.code.lo cells < 2 ^ 64)
 
 /-- `loadOk` from its parts, each decided in its own declaration by a
 generated file (the kernel's cache is per declaration, so its memory is the
@@ -588,27 +771,69 @@ theorem loadOk_of {Λ : Scc.Sem.Layout} {cells : List (Directive × Nat)} {secs 
     (hq : quadsOkL (Int64.ofNat Λ.code.lo) cells secs.rodata = true)
     (hr : (rodataFits Λ secs.rodata && symsAgree Λ secs.rodata &&
       symsAbove Λ.code.lo (codeEnd Λ.code.lo cells) (loadSyms Λ secs.rodata) &&
-      symsOk Λ.code.lo cells (loadSyms Λ secs.rodata)) = true) :
+      symsAround Λ.code.lo cells (loadSyms Λ secs.rodata) && noClash Λ.code.lo cells (loadSyms Λ secs.rodata) &&
+      decide (codeEnd Λ.code.lo cells < 2 ^ 64)) = true) :
     loadOk Λ cells secs offs = true := by
   simp only [Bool.and_eq_true] at hr
-  obtain ⟨⟨⟨h1, h2⟩, h3⟩, h4⟩ := hr
-  simp only [loadOk, sizeOkL, hw, hl, hq, h1, h2, h3, h4, Bool.and_self]
+  obtain ⟨⟨⟨⟨⟨h1, h2⟩, h3⟩, h4⟩, h5⟩, h6⟩ := hr
+  simp only [loadOk, sizeOkL, hw, hl, hq, h1, h2, h3, h4, h5, h6, Bool.and_self]
+
+/-- The data symbols pass `symsAround` when the checks pass. -/
+theorem symsAround_of_loadOk {Λ : Scc.Sem.Layout} {cells : List (Directive × Nat)} {secs : DataSecs}
+    {offs : List (String × Nat)} (h : loadOk Λ cells secs offs = true) :
+    symsAround Λ.code.lo cells (loadSyms Λ secs.rodata) = true := by
+  simp only [loadOk, Bool.and_eq_true] at h
+  exact h.1.1.2
+
+/-- The code's end is in the address space when the checks pass. -/
+theorem codeEnd_lt_of_loadOk {Λ : Scc.Sem.Layout} {cells : List (Directive × Nat)} {secs : DataSecs}
+    {offs : List (String × Nat)} (h : loadOk Λ cells secs offs = true) : codeEnd Λ.code.lo cells < 2 ^ 64 := by
+  simp only [loadOk, Bool.and_eq_true, decide_eq_true_eq] at h
+  exact h.2
 
 /-- **The loaded thread's layout is valid** when the checks pass. -/
 theorem validLayout_of_loadOk {Λ : Scc.Sem.Layout} {cells : List (Directive × Nat)} {secs : DataSecs}
     {offs : List (String × Nat)} (h : loadOk Λ cells secs offs = true) (E : Entry) :
     Kraken.Executable.ValidLayout (threadAt E Λ.code.lo cells (loadSyms Λ secs.rodata)).exe := by
   simp only [loadOk, Bool.and_eq_true] at h
-  exact validLayout_threadAt (sizeCheck_of_sizeOkC (sizeOkC_of_sizeOkL h.1.1.1.1.1)) h.2
+  exact validLayout_threadAt_below (sizeCheck_of_sizeOkC (sizeOkC_of_sizeOkL h.1.1.1.1.1.1.1)) h.1.1.2
 
-/-- **No data symbol below the code** when the checks pass (`symsOk`): the
-premise of `lays_threadAt`, `endPc_threadAt` and
-`Rt.X64.label_threadAt_of_codeLabel`. -/
-theorem above_of_loadOk {Λ : Scc.Sem.Layout} {cells : List (Directive × Nat)} {secs : DataSecs}
+/-- **No data symbol below the code is named like a code label** when the
+checks pass (`noClash`): the premise of
+`Rt.X64.label_threadAt_of_codeLabel_below`. -/
+theorem below_ne_of_loadOk {Λ : Scc.Sem.Layout} {cells : List (Directive × Nat)} {secs : DataSecs}
+    {offs : List (String × Nat)} (h : loadOk Λ cells secs offs = true) {l : String} {a : Nat}
+    (ha : codeLabel Λ.code.lo cells l = some a) :
+    ∀ p ∈ symsBelow Λ.code.lo (loadSyms Λ secs.rodata), p.1 ≠ l := by
+  simp only [loadOk, noClash, Bool.and_eq_true, List.all_eq_true] at h
+  intro p hp he
+  have := h.1.2.1 p hp
+  rw [he, ha] at this
+  cases this
+
+/-- **No data symbol below the code is named like a cell of the code** when
+the checks pass (`noClash`): the premise of `lays_threadAt_below`. -/
+theorem below_lab_of_loadOk {Λ : Scc.Sem.Layout} {cells : List (Directive × Nat)} {secs : DataSecs}
     {offs : List (String × Nat)} (h : loadOk Λ cells secs offs = true) :
-    ∀ p ∈ loadSyms Λ secs.rodata, Λ.code.lo ≤ p.2 := by
-  simp only [loadOk, Bool.and_eq_true] at h
-  exact above_of_symsOk h.2
+    ∀ p ∈ symsBelow Λ.code.lo (loadSyms Λ secs.rodata), ∀ c ∈ cells, c.1 ≠ .label p.1 := by
+  simp only [loadOk, noClash, Bool.and_eq_true, List.all_eq_true] at h
+  intro p hp
+  exact ne_label_of_codeLabel (Option.isNone_iff_eq_none.mp (h.1.2.1 p hp))
+
+/-- The placed data symbols' names are distinct when the checks pass. -/
+theorem names_nodup_of_loadOk {Λ : Scc.Sem.Layout} {cells : List (Directive × Nat)} {secs : DataSecs}
+    {offs : List (String × Nat)} (h : loadOk Λ cells secs offs = true) :
+    ((loadSyms Λ secs.rodata).map (·.1)).Nodup := by
+  simp only [loadOk, noClash, Bool.and_eq_true] at h
+  exact Link.nodupB_nodup h.1.2.2
+
+/-- **The canonical loader's thread lays out the code cells after the data
+symbols below the code** when the checks pass. -/
+theorem lays_of_loadOk {Λ : Scc.Sem.Layout} {cells : List (Directive × Nat)} {secs : DataSecs}
+    {offs : List (String × Nat)} (h : loadOk Λ cells secs offs = true) (E : Entry) :
+    Scc.Cert.Rt.X64.Lays (threadAt E Λ.code.lo cells (loadSyms Λ secs.rodata)).exe cells
+      (belowLen Λ.code.lo (loadSyms Λ secs.rodata)) :=
+  lays_threadAt_below _ _ _ _ (below_lab_of_loadOk h)
 
 /-- **The canonical load of the parsed text** when the loader's checks pass
 (`loadOk`) and the entry state's (`Entry.clear`): the code cells' thread
@@ -620,7 +845,7 @@ theorem loadParsed_of_loadOk {H : Hooks isa} {E : Entry} {Λ : Scc.Sem.Layout}
     loadParsed H E Λ cells secs offs = some (loadProg H E Λ cells (loadSyms Λ secs.rodata)
       (imageMem Λ ++ wordsMem (rodataWords Λ secs.rodata (quadCode Λ cells)))) := by
   simp only [loadOk, Bool.and_eq_true] at h
-  obtain ⟨⟨⟨⟨⟨h0, h1⟩, h2⟩, h3⟩, h4⟩, -⟩ := h
+  obtain ⟨⟨⟨⟨⟨⟨⟨h0, h1⟩, h2⟩, h3⟩, h4⟩, -⟩, -⟩, -⟩ := h
   have h0' := sizeCheck_of_sizeOkC (sizeOkC_of_sizeOkL h0)
   have h3' : quadsResolve Λ secs.rodata
       (fun l => (codeLabel Λ.code.lo cells l).orElse fun _ => Λ.symbols.lookup l) = true :=

@@ -68,8 +68,8 @@ entry to its return, for any region holding its frame of 176, the saved
 `%rbp` and the return address, and any frame condition implying `F0`,
 given: room for the TCB below `2^17` (`hn`), the header word's facts
 (`hhdr`), and the counter's add's (`htcb`). -/
-theorem allocTcb_segW {W : Frag isa} {K : State → State → Prop} (hp : Lays exe cells)
-    (hend : endPc = endOf exe cells) (hin : AllocTcb.allocTcbIn cells = true)
+theorem allocTcb_segW {W : Frag isa} {K : State → State → Prop} {kp : Nat} (hp : Lays exe cells kp)
+    (hend : endPc = endOf exe cells kp) (hin : AllocTcb.allocTcbIn cells = true)
     (hF : FStable R F) (hR : R.OK) (hlo : R.lo ≤ -184) (hhi : 8 ≤ R.hi)
     (hFF : ∀ m, F m → F0 m) (q : TcbG) (hn : q.n0.toNat + 80 ≤ 131072)
     (hhdr : StOk ms F0 (pinA (_root_.Executable.labels exe).label + q.n0) (AllocTcb.hdr0 ||| 1#64 <<< 36))
@@ -310,8 +310,8 @@ move**: `stack_take_seg` with the take site the kernel's take of `rS`
 private memory (`StackM`). Given the node obligations (`hW`), the region's
 cells off `rS` (`hRS`), every aligned word of `rS` off the region (`hout`),
 and the frame condition kept by the take (`hFt`). -/
-theorem stackTake_segW {W : Frag isa} {rS : Scc.Sem.Range} (hp : Lays exe cells)
-    (hend : endPc = endOf exe cells) (hin : StackTake.stackTakeIn cells = true)
+theorem stackTake_segW {W : Frag isa} {rS : Scc.Sem.Range} {kp : Nat} (hp : Lays exe cells kp)
+    (hend : endPc = endOf exe cells kp) (hin : StackTake.stackTakeIn cells = true)
     (hF : FStable R F) (hR : R.OK) (hlo : R.lo ≤ -200) (hhi : 8 ≤ R.hi)
     (hFF : ∀ m, F m → F0 m) (q : TakeG) (hk : q.k0.toNat + 16384 ≤ 536870912)
     (htk : TakeOk ms F0 exe endPc q.k0)
@@ -618,8 +618,8 @@ return the stack range `rS` is in private memory (`StackM`). Given the node
 obligations (`hW`), the region's cells off `rS` (`hRS`), every aligned word
 of `rS` off the region (`hout`), and the frame condition kept by the take
 (`hFt`). -/
-theorem threadInit_segW {W : Frag isa} {rS : Scc.Sem.Range} (hp : Lays exe cells)
-    (hend : endPc = endOf exe cells) (hin : ThreadInit.threadInitIn cells = true)
+theorem threadInit_segW {W : Frag isa} {rS : Scc.Sem.Range} {kp : Nat} (hp : Lays exe cells kp)
+    (hend : endPc = endOf exe cells kp) (hin : ThreadInit.threadInitIn cells = true)
     (hst : StackTake.stackTakeIn cells = true)
     (hF : FStable R F) (hR : R.OK) (hlo : R.lo ≤ -248) (hhi : 8 ≤ R.hi)
     (hFF : ∀ m, F m → F0 m) (q : TiG) (hk : q.k0.toNat + 16384 ≤ 536870912)
@@ -849,8 +849,8 @@ variable {p : Prog} {lbl : WeakMem.AllocLabel → Option Nat} {ms : MemSide isa}
 
 /-- **`scc_rt_start` from `.x1` to the switch, inside `W`**
 (`start_x1_sw_seg`, its states' obligations `hfs`, `hsys`, `hsw`). -/
-theorem startX1Sw_segW {W : Frag isa} {K : State → State → Prop} (hp : Lays exe cells)
-    (hend : endPc = endOf exe cells) (hin : startTailIn cells = true)
+theorem startX1Sw_segW {W : Frag isa} {K : State → State → Prop} {kp : Nat} (hp : Lays exe cells kp)
+    (hend : endPc = endOf exe cells kp) (hin : startTailIn cells = true)
     (hK : ms.K = some Scc.Sem.X64.abi) (hF : FStable R F) (hR : R.OK) (hlo : R.lo ≤ -48) (hhi : 0 ≤ R.hi)
     (n0 k0 : BitVec 64) (c0 : Ctl)
     (hfs : BlkW W K exe endPc R F (startN3 (_root_.Executable.labels exe).label n0 k0 c0) startFs)
@@ -904,8 +904,8 @@ outside move** (`start_x0_x1_seg` then `start_x1_sw_seg`, their states'
 obligations `hW`, with `thread_init_segW` at the call): from `.x1` on the
 stack range `rS` is in private memory (`StackM`). Given the take's facts at
 the region (`hRS`, `hfit`, `hout`, `hFt`). -/
-theorem startX0Sw_segW {W : Frag isa} {rS : Scc.Sem.Range} (hp : Lays exe cells)
-    (hend : endPc = endOf exe cells) (hin : startCall2In cells = true)
+theorem startX0Sw_segW {W : Frag isa} {rS : Scc.Sem.Range} {kp : Nat} (hp : Lays exe cells kp)
+    (hend : endPc = endOf exe cells kp) (hin : startCall2In cells = true)
     (htail : startTailIn cells = true) (hti : ThreadInit.threadInitIn cells = true)
     (hst : StackTake.stackTakeIn cells = true)
     (hK : ms.K = some Scc.Sem.X64.abi) (hF : FStable R F) (hR : R.OK)
@@ -1013,8 +1013,8 @@ theorem startX0Sw_segW {W : Frag isa} {rS : Scc.Sem.Range} (hp : Lays exe cells)
 /-- **`scc_rt_start` up to `.x0` inside `W`** (`start_x0_seg`, its states'
 obligations `hW`). The call of `scc_rt_alloc_tcb` asks no closure under `K`
 of it (`call_nd_FWK` with `KC := False`): no outside move is in it. -/
-theorem startX0_segW {W : Frag isa} {K : State → State → Prop} (hp : Lays exe cells)
-    (hend : endPc = endOf exe cells) (hin : startCallIn cells = true)
+theorem startX0_segW {W : Frag isa} {K : State → State → Prop} {kp : Nat} (hp : Lays exe cells kp)
+    (hend : endPc = endOf exe cells kp) (hin : startCallIn cells = true)
     (hstart : startIn cells = true) (hat : AllocTcb.allocTcbIn cells = true)
     (hK : ms.K = some Scc.Sem.X64.abi) (hF : FStable R F) (hR : R.OK)
     (hlo : R.lo ≤ -232) (hhi : 0 ≤ R.hi) (n0 : BitVec 64) (c0 : Ctl) (hn : n0.toNat + 80 ≤ 131072)
@@ -1150,7 +1150,7 @@ frame, the return address it pushes and the user function's `D` (`hL`).
 The new stack's cells hold values at the switch since the stack range is in
 private memory then (`hFS`) and the new region lies in it (`hsub`). -/
 theorem startSwitchU_segW {W : Frag isa} {K : State → State → Prop} {rS : Scc.Sem.Range}
-    (hp : Lays exe cells) (hend : endPc = endOf exe cells) (hin : startTailIn cells = true)
+    {kp : Nat} (hp : Lays exe cells kp) (hend : endPc = endOf exe cells kp) (hin : startTailIn cells = true)
     {mc : MainCode} (hmain : mainUIn cells mc = true) (hZ : 0 ≤ mc.Z.toInt) (hZ8 : mc.Z.toInt % 8 = 0)
     (hps : ∀ q ∈ mc.ps, Spike.Lib.offOk (-8 - mc.Z.toInt) 0 (-8 + q.2.1.toInt) = true)
     (hk : Spike.Lib.offOk (-8 - mc.Z.toInt) 0 (-8 + mc.k.toInt) = true)
@@ -1262,8 +1262,8 @@ variable {p : Prog} {lbl : WeakMem.AllocLabel → Option Nat} {ms : MemSide isa}
 `scc_rt_main` parametric** (hand `start_segW`): `startX0_segW`, then
 `startX0Sw_segW`, then `startSwitchU_segW`, in any valid layout of any
 cells with the runtime's code checks and `scc_rt_main`'s (`hmain`). -/
-theorem startU_segW {W : Frag isa} {rS : Scc.Sem.Range} (hp : Lays exe cells)
-    (hend : endPc = endOf exe cells) (hcall : startCallIn cells = true) (hstart : startIn cells = true)
+theorem startU_segW {W : Frag isa} {rS : Scc.Sem.Range} {kp : Nat} (hp : Lays exe cells kp)
+    (hend : endPc = endOf exe cells kp) (hcall : startCallIn cells = true) (hstart : startIn cells = true)
     (hat : AllocTcb.allocTcbIn cells = true) (hcall2 : startCall2In cells = true)
     (htail : startTailIn cells = true) (hti : ThreadInit.threadInitIn cells = true)
     (hst : StackTake.stackTakeIn cells = true)

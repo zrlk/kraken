@@ -150,8 +150,8 @@ given the limit word's facts for its frame and the callee's room `ZU`, the
 user function's interface `hU`, and that the `exit_group` there off an abort
 site is `main`'s exit for every control and value `Post` relates (`hexit`). The call asks no
 closure under `K` of the callee (`call_nd_FWK` with `KC := False`). -/
-theorem mainU_segW {W : Frag isaLSE2} {K : State → State → Prop} (hp : Lays exe prog)
-    (hend : endPc = endOf exe prog) {mc : MainCode} (hin : mainUIn prog mc = true)
+theorem mainU_segW {W : Frag isaLSE2} {K : State → State → Prop} {kp : Nat} (hp : Lays exe prog kp)
+    (hend : endPc = endOf exe prog kp) {mc : MainCode} (hin : mainUIn prog mc = true)
     (h16 : mc.Z.toInt % 16 = 0) (hZ : 16 ≤ mc.Z.toInt)
     (hk : Spike.Lib.offOk (-mc.Z.toInt) 0 (-mc.Z.toInt + mc.k.toInt) = true)
     {D : Int} (hD0 : 0 ≤ D) (hD8 : D % 8 = 0) {ZU : Int64} {Post : Ctl → BitVec 64 → Prop}

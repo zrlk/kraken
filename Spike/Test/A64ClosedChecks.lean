@@ -14,15 +14,18 @@ Sanity and refutation checks of the closed AArch64 theorem
 - **The premises are decided**: `prog_accepted` and `prog_placeOK` are
   kernel-checked; `hpa` is the certificate's executed `#guard` (re-run
   here), the documented trust boundary.
-- **The layout is the model link, not the real one**: the conclusion's
-  `Λ` is the link at the placement configuration's bases (code at
-  `0x400000`). The bases of a real link differ (`clang`/`lld`: text at
-  `0x210370`; GNU `ld`: `_start` at `0x401000`); at bases copied from the
-  `lld` link of this text `placeOK` fails (`lld_not_placeOK`), and in every
-  model link `scc_rt_pinned_next` is 16 bytes after `scc_rt_heap_use`,
-  where both real links put it `0x20010` bytes after (the model takes the
-  heap, pinned and pool `.zero`s out of the `.bss` walk). So no
-  configuration's link has the real symbol addresses for this text.
+- **This theorem's layout is the model link**: the conclusion's `Λ` is the
+  link at the placement configuration's bases (code at `0x400000`). The
+  bases of a real link differ (`clang`/`lld`: text at `0x210370`; GNU `ld`:
+  `_start` at `0x401000`); at bases copied from the `lld` link of this text
+  `placeOK` fails (`lld_not_placeOK`), and in every model link
+  `scc_rt_pinned_next` is 16 bytes after `scc_rt_heap_use`, where both real
+  links put it `0x20010` bytes after (the model takes the heap, pinned and
+  pool `.zero`s out of the `.bss` walk). So no configuration's model link
+  has the real symbol addresses for this text. The real `ld.lld` link is
+  covered by the placement check at the layout read off the executable
+  instead (`placeOKAt`): `Spike/Test/Ret0LinkedA64.lean`'s
+  `ret0_linked_correct` is the release theorem at that layout.
 - **Immediates**: the conclusion's `Λ.imms` is `immsOf d`, read off the
   source; the placement check does not read it.
 -/

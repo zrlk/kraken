@@ -283,8 +283,8 @@ program `prog` with `morestackIn prog = true`, given its calls to
 `scc_rt_grow` and `scc_rt_stack_release`: from its entry on the old stack to
 its return on the new one, at the moved frame record `v`. -/
 theorem seg_morestack {F : MachineData → Prop} {F' : BitVec 64 → MachineData → Prop}
-    {prog : List Directive} [Kraken.Executable.ValidLayout exe] (hp : Lays exe prog)
-    (hend : endPc = endOf exe prog) (hprog : morestackIn prog = true)
+    {prog : List Directive} [Kraken.Executable.ValidLayout exe] {kp : Nat} (hp : Lays exe prog kp)
+    (hend : endPc = endOf exe prog kp) (hprog : morestackIn prog = true)
     (hF : FStable R F) (hF'R : ∀ v, FStable R (F' v)) (hF'' : ∀ v, FStable (swR v 0 16) (F' v))
     (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -16) (hhi : 0 ≤ R.hi)
     (hgrow : Seg p lbl ms (At exe endPc R F (nGrow (_root_.Executable.labels exe).label R c0 ra need))

@@ -36,7 +36,7 @@ the lowering's environments' immediates, `hImm`), given the prologue's
 states inside `W` (`hWp`) and the body's blocks' (`InBody`) at its nodes
 (`hWb`) and pending stores (`hWs`). -/
 theorem fn0_seg {cx : FnCtx} (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) (h16 : cx.frame % 16 = 0)
-    (hp : Lays exe prog) (hend : endPc = endOf exe prog) {fn entry : Label}
+    {kp : Nat} (hp : Lays exe prog kp) (hend : endPc = endOf exe prog kp) {fn entry : Label}
     (hpro : proInC prog cx fn entry = true)
     {e : Expr} {env : Scc.Lower.Env} {n : Nat} {r : Res} (hr : lower0 env n e = some r) (hfr : Fresh env n)
     (hbody : bodyIn prog cx entry 0 r.insts r.ret = true)

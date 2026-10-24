@@ -68,9 +68,9 @@ theorem abortAt_eq (k : Scc.Sem.AbortKind) :
 `codeOf` address (below `2 ^ 64`, `codeEnd_lt`). -/
 theorem lab_toNat {l : String} {a : Nat} (ha : codeOf Λ.code.lo o.prog l = some a) :
     ((RuntimeLayout.ofPlaceOK h i).lab l).toBitVec.toNat = a := by
-  have hlab := Scc.Cert.Rt.A64.label_threadAt_of_codeOf (E := Scc.Sem.Entry.linux)
+  have hlab := Scc.Cert.Rt.A64.label_threadAt_of_codeOf_below (E := Scc.Sem.Entry.linux)
     (syms := Scc.Sem.loadSyms (RuntimeLayout.ofPlaceOK h i).Λ o.secs.rodata)
-    (Spike.Lib.A64.Rt.RuntimeLayout.ofPlaceOK_above h i) ha
+    (Spike.Lib.A64.Rt.RuntimeLayout.ofPlaceOK_below h i ha) ha
   have hlt : a < 2 ^ 64 :=
     Nat.lt_of_le_of_lt (Spike.Lib.A64.PhRec.le_codeEnd_of_codeOf ha) (Spike.Lib.A64.PhRec.codeEnd_lt h i)
   have hlab' : (RuntimeLayout.ofPlaceOK h i).lab l = Int64.ofNat a := hlab

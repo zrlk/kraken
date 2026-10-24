@@ -46,4 +46,12 @@ private def itemsLit : List Kraken.DataImage.Item := scc_lit% items
 
 example : items = itemsLit := rfl
 
+/-- `mapM` on a cons from `g` on the head and `mapM` on the tail: a
+certificate chains its per-function emitter checks with it
+(`Scc.Emit.A64.emitItemsMaps_of_stages`). -/
+theorem mapM_ok_cons {α β ε : Type} {g : α → Except ε β} {x : α} {xs : List α} {y : β}
+    {ys : List β} (h : g x = .ok y) (t : xs.mapM g = .ok ys) : (x :: xs).mapM g = .ok (y :: ys) := by
+  rw [List.mapM_cons, h, t]
+  rfl
+
 end Scc.Cert.OutLit

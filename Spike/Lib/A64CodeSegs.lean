@@ -38,7 +38,7 @@ section Code
 variable {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe] {prog : List Directive} {endPc : Int64}
 
 /-- A block's code at a given address, from `blockAt`. -/
-theorem code_of (hp : Lays exe prog) (hend : endPc = endOf exe prog) {l : Label} {k : Nat} {b : List Directive}
+theorem code_of {kp : Nat} (hp : Lays exe prog kp) (hend : endPc = endOf exe prog kp) {l : Label} {k : Nat} {b : List Directive}
     (h : blockAt prog l k b = true) {q : Int64}
     (e : (_root_.Executable.labels exe).label l + Int64.ofNat (4 * k) = q) :
     ∀ s : State, s.exe = exe → s.endPc = endPc → CodeAt s q b :=
@@ -78,8 +78,8 @@ variable {p : Prog} {lbl : WeakMem.AllocLabel → Option Nat} {ms : MemSide isaL
 /-- **The prologue is one segment** in any valid layout of a program with
 `prologueIn`: `prologue_seg` from the function's label. Its states lie in
 `W`, none moved by `K` (`hW`, `ProW` at the function's label). -/
-theorem prologue_seg_ofW {W : Frag isaLSE2} {K : State → State → Prop} (hp : Lays exe prog)
-    (hend : endPc = endOf exe prog) {fn sc entry : Label}
+theorem prologue_seg_ofW {W : Frag isaLSE2} {K : State → State → Prop} {kp : Nat} (hp : Lays exe prog kp)
+    (hend : endPc = endOf exe prog kp) {fn sc entry : Label}
     {Z lim : Int64} {L : Label} {ps : List (XReg × Int64)} (hin : prologueIn prog fn sc entry Z lim L ps = true)
     {J : AS → Ctl → Prop} {nb : ND} (h16 : Z.toInt % 16 = 0) (hZ : 16 ≤ Z.toInt) (hF : FStable R F)
     (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -Z.toInt) (hhi : 0 ≤ R.hi)
@@ -112,7 +112,7 @@ theorem prologue_seg_ofW {W : Frag isaLSE2} {K : State → State → Prop} (hp :
 
 /-- **The prologue is one segment** in any valid layout of a program with
 `prologueIn`: `prologue_seg` from the function's label. -/
-theorem prologue_seg_of (hp : Lays exe prog) (hend : endPc = endOf exe prog) {fn sc entry : Label}
+theorem prologue_seg_of {kp : Nat} (hp : Lays exe prog kp) (hend : endPc = endOf exe prog kp) {fn sc entry : Label}
     {Z lim : Int64} {L : Label} {ps : List (XReg × Int64)} (hin : prologueIn prog fn sc entry Z lim L ps = true)
     {J : AS → Ctl → Prop} {nb : ND} (h16 : Z.toInt % 16 = 0) (hZ : 16 ≤ Z.toInt) (hF : FStable R F)
     (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -Z.toInt) (hhi : 0 ≤ R.hi)
@@ -148,8 +148,8 @@ variable {p : Prog} {lbl : WeakMem.AllocLabel → Option Nat} {ms : MemSide isaL
 /-- **The `exit_group` tail does not return** in any valid layout of a
 program with `exitIn`: `exitTail_seg` from a node at its label. Its states
 lie in `W`, none moved by `K` (`hW`, `ExitW`). At the `svc`, `hok` is given `x0` unchanged from the entry. -/
-theorem exitTail_seg_ofW {W : Frag isaLSE2} {K : State → State → Prop} (hp : Lays exe prog)
-    (hend : endPc = endOf exe prog) {l : Label} {k : Int64}
+theorem exitTail_seg_ofW {W : Frag isaLSE2} {K : State → State → Prop} {kp : Nat} (hp : Lays exe prog kp)
+    (hend : endPc = endOf exe prog kp) {l : Label} {k : Int64}
     (hin : exitIn prog l k = true) {n : ND} {Q : Frag isaLSE2} (hpc : n.pc = (_root_.Executable.labels exe).label l)
     (hK : ms.K = some Scc.Sem.A64.abi) (hF : FStable R F) (hR : R.OK) (hal : R.base.toNat % 16 = 0) {lo hi : Int}
     (hlo : R.lo ≤ lo) (hhi : hi ≤ R.hi) (hk : Spike.Lib.offOk lo hi (n.o.sp + k.toInt) = true)
@@ -164,7 +164,7 @@ theorem exitTail_seg_ofW {W : Frag isaLSE2} {K : State → State → Prop} (hp :
 
 /-- **The `exit_group` tail does not return** in any valid layout of a
 program with `exitIn`: `exitTail_seg` from a node at its label. -/
-theorem exitTail_seg_of (hp : Lays exe prog) (hend : endPc = endOf exe prog) {l : Label} {k : Int64}
+theorem exitTail_seg_of {kp : Nat} (hp : Lays exe prog kp) (hend : endPc = endOf exe prog kp) {l : Label} {k : Int64}
     (hin : exitIn prog l k = true) {n : ND} {Q : Frag isaLSE2} (hpc : n.pc = (_root_.Executable.labels exe).label l)
     (hK : ms.K = some Scc.Sem.A64.abi) (hF : FStable R F) (hR : R.OK) (hal : R.base.toNat % 16 = 0) {lo hi : Int}
     (hlo : R.lo ≤ lo) (hhi : hi ≤ R.hi) (hk : Spike.Lib.offOk lo hi (n.o.sp + k.toInt) = true)
@@ -265,8 +265,8 @@ theorem StartW.triv {exe : _root_.Executable} {endPc : Int64} {R : Spike.Lib.Reg
 layout of a program with `startIn`: from the entry (`sp` at offset 0) to a
 node at the call whose obligation holds of `startS`. Its states lie in `W`,
 none moved by `K` (`hW`, `StartW`). -/
-theorem start_seg_ofW {W : Frag isaLSE2} {K : State → State → Prop} (hp : Lays exe prog)
-    (hend : endPc = endOf exe prog) (hin : startIn prog = true)
+theorem start_seg_ofW {W : Frag isaLSE2} {K : State → State → Prop} {kp : Nat} (hp : Lays exe prog kp)
+    (hend : endPc = endOf exe prog kp) (hin : startIn prog = true)
     (hK : ms.K = some Scc.Sem.A64.abi) (hF : FStable R F) (hR : R.OK) (hal : R.base.toNat % 16 = 0)
     (hlo : R.lo ≤ -48) (hhi : 0 ≤ R.hi) {J : AS → Ctl → Prop} {nC : ND}
     (hpc : nC.pc = (_root_.Executable.labels exe).label startE + Int64.ofNat (4 * 9))
@@ -327,7 +327,7 @@ theorem start_seg_ofW {W : Frag isaLSE2} {K : State → State → Prop} (hp : La
 /-- **`scc_rt_start` up to its first call is one segment** in any valid
 layout of a program with `startIn`: from the entry (`sp` at offset 0) to a
 node at the call whose obligation holds of `startS`. -/
-theorem start_seg_of (hp : Lays exe prog) (hend : endPc = endOf exe prog) (hin : startIn prog = true)
+theorem start_seg_of {kp : Nat} (hp : Lays exe prog kp) (hend : endPc = endOf exe prog kp) (hin : startIn prog = true)
     (hK : ms.K = some Scc.Sem.A64.abi) (hF : FStable R F) (hR : R.OK) (hal : R.base.toNat % 16 = 0)
     (hlo : R.lo ≤ -48) (hhi : 0 ≤ R.hi) {J : AS → Ctl → Prop} {nC : ND}
     (hpc : nC.pc = (_root_.Executable.labels exe).label startE + Int64.ofNat (4 * 9))

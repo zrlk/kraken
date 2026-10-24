@@ -46,7 +46,7 @@ layout of a program with `prologueIn` at the frame `cx.frame`: from the
 function's label (`sp` at 0) to the body's node at its entry, the ghosts
 `fp`/`ra` the entry's `x29`/`x30`. -/
 theorem prologue_body_seg {cx : FnCtx} (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) (h16 : cx.frame % 16 = 0)
-    (hp : Lays exe prog) (hend : endPc = endOf exe prog) {fn sc entry : Label} {lim : Int64} {L : Label}
+    {kp : Nat} (hp : Lays exe prog kp) (hend : endPc = endOf exe prog kp) {fn sc entry : Label} {lim : Int64} {L : Label}
     (hin : prologueIn prog fn sc entry (Int64.ofInt cx.frame) lim L [] = true)
     (hF : FStable R F) (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -(cx.frame : Int))
     (hhi : 0 ≤ R.hi) {J : AS → Ctl → Prop} {fp ra : BitVec 64} {c0 : Ctl} {t : Expr} {s : SEnv}

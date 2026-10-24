@@ -16,11 +16,13 @@ crossings takes `fun _ => false` (`crossOf … = []`).
 - **`blkPh_of_rowPhOk`**: a row passing `Rt.X64.rowPhOk` at its group's
   address passes `blkPh`;
 - **`blkPh_of_placeOK`**, **`blkPh_of_rowIn_placeOK`**, **`blkPh_of_rowAt_placeOK`**: every row of the
-  table of an output passing `placeOK` but a site's `nop`, at its label's
-  address plus its byte offset in the canonical loader's thread (any entry
-  state, the loader's data symbols), the row named by its label
+  table of an output passing `placeOKAt` at any layout `Λ` but a site's
+  `nop`, at its label's address plus its byte offset in the canonical
+  loader's thread (any entry state, the loader's data symbols, on either
+  side of the code: A2's `noClash` keeps those below it off the code
+  labels, `label_of_placeOKAt`), the row named by its label
   (`Rt.X64.rowIn`), or by its label, byte offset and cells at any static
-  offsets (`rowAt`).
+  offsets (`rowAt`). None assumes every symbol above the code.
 
 Where x86-64 differs from AArch64: a row's pc is its label's address plus
 its byte offset (`b.off`), each instruction's the sizes of the cells before

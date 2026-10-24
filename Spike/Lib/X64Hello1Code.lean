@@ -2840,7 +2840,9 @@ theorem hello1Λ_quads : quadsOkL (Int64.ofNat hello1Λ.code.lo) hello1Cells hel
 
 theorem hello1Λ_syms : (Scc.Sem.rodataFits hello1Λ hello1Secs.rodata && Scc.Sem.symsAgree hello1Λ hello1Secs.rodata &&
     Scc.Sem.symsAbove hello1Λ.code.lo (Scc.Sem.X64.codeEnd hello1Λ.code.lo hello1Cells) (Scc.Sem.loadSyms hello1Λ hello1Secs.rodata) &&
-    symsOk hello1Λ.code.lo hello1Cells (Scc.Sem.loadSyms hello1Λ hello1Secs.rodata)) = true := by decide +kernel
+    symsAround hello1Λ.code.lo hello1Cells (Scc.Sem.loadSyms hello1Λ hello1Secs.rodata) &&
+    noClash hello1Λ.code.lo hello1Cells (Scc.Sem.loadSyms hello1Λ hello1Secs.rodata) &&
+    decide (Scc.Sem.X64.codeEnd hello1Λ.code.lo hello1Cells < 2 ^ 64)) = true := by decide +kernel
 
 theorem hello1Λ_load : loadOk hello1Λ hello1Cells hello1Secs hello1Asm.labelOffs = true :=
   loadOk_of hello1Λ_size hello1Λ_labels hello1Λ_quads hello1Λ_syms

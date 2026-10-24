@@ -58,8 +58,8 @@ private theorem labelAddr_spec {l : String} : ∀ {prog : Program} {base a : Nat
       · simp only [List.map_cons, List.take_succ_cons, List.sum_cons]; omega
 
 /-- **A code label at its `codeOf` address** in the canonical loader's
-thread, for any data symbols none below the code (`above_of_symsOk`,
-`Link.A64.above_of_loadOk`). -/
+thread, for any data symbols none below the code (`above_of_symsOk`; the
+loader's, with symbols below the code: `label_threadAt_of_codeOf_below`). -/
 theorem label_threadAt_of_codeOf {E : Entry} {base : Nat} {prog : Program} {syms : List (String × Nat)}
     {l : String} {a : Nat} (hs : ∀ p ∈ syms, base ≤ p.2) (h : codeOf base prog l = some a) :
     (_root_.Executable.labels (threadAt E base prog syms).exe).label l = Int64.ofNat a := by
@@ -78,6 +78,43 @@ theorem label_threadAt_of_codeOf {E : Entry} {base : Nat} {prog : Program} {syms
   unfold Kraken.Executable.addrOf Kraken.Executable.sizeBefore
   rw [htake, threadAt_exe_of_above hs]
   rw [← Int64.ofNat_add, h3]
+
+/-- **A code label at its `codeOf` address** in the canonical loader's
+thread, the data symbols below the code before it (`lays_threadAt_below`):
+no data symbol below the code is named `l`. -/
+theorem label_threadAt_of_codeOf_below {E : Entry} {base : Nat} {prog : Program} {syms : List (String × Nat)}
+    {l : String} {a : Nat} (hs : ∀ p ∈ symsBelow base syms, p.1 ≠ l) (h : codeOf base prog l = some a) :
+    (_root_.Executable.labels (threadAt E base prog syms).exe).label l = Int64.ofNat a := by
+  obtain ⟨n, h1, h2, h3⟩ := labelAddr_spec h
+  have hn : n < (prog.map fun d => (d, d.fakeSize)).length := by
+    rcases Nat.lt_or_ge n (prog.map fun d => (d, d.fakeSize)).length with hc | hc
+    · exact hc
+    · rw [List.getElem?_eq_none hc] at h1; cases h1
+  have hcells := threadAt_exe_cells E base prog syms
+  generalize hB : placeBelow (Directive.byteArray (.mk #[])) Directive.label base syms = B at hcells
+  have htake : (threadAt E base prog syms).exe.2.take (B.length + n) =
+      B ++ (prog.map fun d => (d, d.fakeSize)).take n := by
+    rw [hcells, List.take_add, List.take_left, List.drop_left, List.take_append_of_le_length (Nat.le_of_lt hn)]
+  rw [Kraken.Executable.label_addrOf _ l (B.length + n)
+    (by rw [hcells, List.getElem?_append_right (by omega), Nat.add_sub_cancel_left,
+          List.getElem?_append_left hn]; exact h1)
+    (by
+      rw [htake]
+      intro dz hdz
+      rcases List.mem_append.mp hdz with hdz | hdz
+      · rw [← hB] at hdz
+        rcases (Scc.Cert.PlaceSyms.placeBelow_spec _ _ base syms).1 dz hdz with ⟨he, -⟩ | ⟨p, hp, rfl⟩
+        · rw [he]; simp
+        · intro he; exact hs p hp (by simpa using he)
+      · exact h2 dz hdz)]
+  have hBs := (Scc.Cert.PlaceSyms.placeBelow_spec (Directive.byteArray (.mk #[])) Directive.label base syms).2
+  rw [hB] at hBs
+  unfold Kraken.Executable.addrOf Kraken.Executable.sizeBefore
+  rw [htake, List.map_append, List.sum_append]
+  show Int64.ofNat (exeStart base syms) + _ = _
+  rw [← Int64.ofNat_add, ← h3]
+  congr 1
+  omega
 
 /-! ## The phase table -/
 

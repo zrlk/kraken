@@ -171,7 +171,10 @@ theorem label_labIn {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe
     (hp : Lays exe cells) {base : Nat} (hb : exe.1 = Int64.ofNat base) {l : Label}
     (hl : (labelIdx cells l).isSome = true) :
     labOf exe l = labIn base cells l := by
-  obtain ⟨ext, he⟩ := hp
+  obtain ⟨pre, ext, he, hpre, -⟩ := hp
+  rw [List.length_eq_zero_iff] at hpre
+  subst hpre
+  rw [List.nil_append] at he
   obtain ⟨n, hn⟩ := Option.isSome_iff_exists.mp hl
   unfold labIn
   rw [hn]

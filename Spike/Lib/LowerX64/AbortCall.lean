@@ -84,7 +84,7 @@ the abort call's 40 bytes below it, and the frame record (`hlo`, `hhi`),
 `rS` in the pool, not wrapping and off it (`hsub`, `hfit`, `hFO`). -/
 theorem hab_of {i : Expr → String → Nat → Option Nat} {T : Expr → Prop} {p : Prog} {c0 : Ctl}
     {fr : Scc.Emit.X64.Frame} (hf : FrameOk fr)
-    (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {Dt : State → Prop} {lbl : Lbl}
+    {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp) {Dt : State → Prop} {lbl : Lbl}
     {ms : MemSide isa}
     (hab : (∃ x a b e, T (.let_ x (.add a b) e)) → blockAtB cells (ovfL fr) 0 ovfBlk = true ∧
       blkPh okPc ph (fun _ => false) lab (lab (ovfL fr) + Int64.ofNat 0) 0 Abort.Local.lb = true)
@@ -169,7 +169,7 @@ theorem userCallW_main {d : Decl} (hd : Scc.Lower.Accepted0 [d] = true) {fr : Sc
     {fn entry : Label} {zl zf z1 z2 zs : Nat} (hf : FrameOk fr) (h1 : fr.size ≤ 2 ^ 31)
     (hpro : proInC cells fr fn entry zl zf z1 z2 zs = true) (hr : lower0 [(d.arg, .unit, [])] 0 d.body = some r)
     (hbody : bodyIn cells fr entry 0 r.insts r.ret = true)
-    (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {Dt : State → Prop}
+    {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp) {Dt : State → Prop}
     {lbl : Lbl} {ms : MemSide isa} {R : Region} {F : MachineData → Prop} {Z : Int64} {D : Int}
     {tp : UInt64} {ra : BitVec 64} (hR8 : R.base.toNat % 8 = 0) (hZ8 : Z.toInt % 8 = 0)
     (hD : (fr.size : Int) + 48 ≤ D) (hD8 : D % 8 = 0)

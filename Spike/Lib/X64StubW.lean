@@ -103,7 +103,8 @@ variable {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe] {endPc : 
 `hFO`): its code (`hb`), its phase check without dead targets (`hph`), no
 `ret` (`hnr`), the source control `c0` about to overflow at every state
 (`hJ`, `hc`) and placed at every memory of the frame condition (`hpl`). -/
-theorem blkW_ovf (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {n : ND} {blk : List (Directive × Nat)}
+theorem blkW_ovf {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp) {n : ND} {blk : List
+    (Directive × Nat)}
     {lo hi : Int} {l : Label} {off : Nat} {c0 : Ctl} {Dt : State → Prop}
     (hb : blockAtB cells l off blk = true) (he : lab l + Int64.ofNat off = n.pc) (hok : okBlk lo hi n.o blk = true)
     (hR : R.OK) (hR8 : R.base.toNat % 8 = 0) (hlo : R.lo ≤ lo) (hhi : hi ≤ R.hi) (hl : R.lo % 8 = 0)
@@ -126,7 +127,7 @@ theorem blkW_ovf (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {n : ND} 
 /-- **A single instruction without an event (`SI`) of the abort path
 inside `SFacts`**, after the take (`nodeW_postO`): off the sites (`hok`),
 its next pc in its phase (`hph`), the source control as in `blkW_ovf`. -/
-theorem nodeW_si_ovf (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {n : ND} {si : SI} {l : Label}
+theorem nodeW_si_ovf {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp) {n : ND} {si : SI} {l : Label}
     {off z : Nat} {p : Int64} {c0 : Ctl} {Dt : State → Prop}
     (hb : blockAtB cells l off [(si.toDir, z)] = true) (he : lab l + Int64.ofNat off = p) (hp : n.pc = p)
     (hok : okPc p.toBitVec.toNat = true) (hph : ph (p + Int64.ofNat z).toBitVec.toNat = ph p.toBitVec.toNat)
@@ -209,7 +210,7 @@ memory of the frame condition (`hpl`). The exit call is the overflow's
 abort site: off the release and take sites (`hrel`, `htk`), no other
 kind's (`hk`), no outside move (`hKex`), the memory side's abort
 (`hms`). The write tail `Dt` holds at the `write` (`hwr`). -/
-theorem stubW_sfacts (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {c0 : Ctl} {Dt : State → Prop}
+theorem stubW_sfacts {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp) {c0 : Ctl} {Dt : State → Prop}
     (hprog : Scc.Cert.Rt.X64.Abort.abortIn cells = true)
     (hsysIn : blockAtB cells Abort.overflow.entry 34 [(op64 .syscall, 2)] = true)
     (hphs : abortPhOk okPc ph lab = true)

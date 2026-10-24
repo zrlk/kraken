@@ -49,9 +49,9 @@ theorem ph_of_rtPh {l : String} {off v : Nat} (hf : .ph l off v ∈ Spike.Lib.X6
       o.prog (Scc.Sem.loadSyms (RuntimeLayout.ofPlaceOK h i).Λ o.secs.rodata)).exe :=
     (RuntimeLayout.ofPlaceOK h i).valid
   exact Spike.Lib.X64.Rt.PhOfTab.ph_of_factOk (lab := (Ly).lab) (fun _ _ ha =>
-    Scc.Cert.Rt.X64.label_threadAt_of_codeLabel (E := Scc.Sem.Entry.linux)
+    Scc.Cert.Rt.X64.label_threadAt_of_codeLabel_below (E := Scc.Sem.Entry.linux)
       (syms := Scc.Sem.loadSyms (RuntimeLayout.ofPlaceOK h i).Λ o.secs.rodata)
-          (by exact Spike.Lib.X64.Rt.RuntimeLayout.ofPlaceOK_above h i) ha)
+          (by exact Spike.Lib.X64.Rt.RuntimeLayout.ofPlaceOK_below h i ha) ha)
     (Scc.Cert.Rt.X64.factOk_of_rtPhOk (rtPh_of_placeOKAt h) hf)
 
 /-- **The counter's `lock xadd` in `scc_rt_alloc_tcb`** is at phase `13`. -/

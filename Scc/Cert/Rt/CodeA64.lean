@@ -344,8 +344,8 @@ theorem blockAt_of_blocksIn {prog : List Directive} {gs : List Grp} (h : blocksI
 /-- **The code of every block of a checked table**, at its label plus four
 bytes per instruction before it. -/
 theorem codeAt_of_blocksIn {exe : Executable} [Executable.ValidLayout exe] {prog : List Directive}
-    (hp : Lays exe prog) {st : State} (he : st.exe = exe)
-    (hend : st.endPc = endOf exe prog) {gs : List Grp} (h : blocksIn prog gs)
+    {kp : Nat} (hp : Lays exe prog kp) {st : State} (he : st.exe = exe)
+    (hend : st.endPc = endOf exe prog kp) {gs : List Grp} (h : blocksIn prog gs)
     {g : Grp} (hg : g ∈ gs) {k : Nat} {b : List Directive} (hb : (k, b) ∈ g.bs) :
     CodeAt st ((_root_.Executable.labels exe).label g.l + Int64.ofNat (4 * k)) b :=
   codeAt_blockAt hp he hend (blockAt_of_blocksIn h hg hb)

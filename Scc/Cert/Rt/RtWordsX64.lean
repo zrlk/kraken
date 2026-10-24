@@ -17,8 +17,10 @@ check's component A8) and derives them:
   the canonical loader places (`symsOk`), the only one named `x` and no
   code label of that name, is at `a` in the loaded thread's executable:
   `placeSyms` lays the symbols out in address order, after the code cells,
-  with padding up to each. `symLab` decides the premises for a name;
-  `label_of_rtWordsOk` gives each word's label.
+  with padding up to each; `label_threadAt_of_sym_around` the same for
+  symbols on both sides of the code (`symsAround`). `symLab` decides
+  the premises for a name; `label_of_rtWordsOk` gives each word's label at
+  any layout passing A2 (`loadOk`).
 - **The side conditions** (`*_of_wordsOk`): the words (`rtWords`: the
   counters, the first TCB's header and its six fields) lie below `2 ^ 32`,
   8-aligned, clear of the entry stack and of the stack pool, mapped for
@@ -78,18 +80,9 @@ private theorem symStep_fold : ∀ (L : List (String × Nat)) (cells : List (Dir
     · simpa only [List.foldl_cons, symStep, hmax] using h4
 
 /-- A name `codeLabel` does not resolve labels no cell. -/
-theorem ne_label_of_codeLabel {x : String} : ∀ {lo : Nat} {cells : List (Directive × Nat)},
-    codeLabel lo cells x = none → ∀ c ∈ cells, c.1 ≠ .label x
-  | _, [], _ => by simp
-  | lo, c :: cs, h => by
-    simp only [codeLabel, labelAddr] at h
-    split at h
-    · cases h
-    · next hne =>
-      intro c' hc'
-      rcases List.mem_cons.mp hc' with rfl | hc'
-      · intro he; exact hne (by simp [he, labelName])
-      · exact ne_label_of_codeLabel (lo := lo + c.2) h c' hc'
+theorem ne_label_of_codeLabel {x : String} {lo : Nat} {cells : List (Directive × Nat)}
+    (h : codeLabel lo cells x = none) : ∀ c ∈ cells, c.1 ≠ .label x :=
+  Link.X64.ne_label_of_codeLabel h
 
 /-- **A data symbol at its label** in the canonical loader's thread: a
 symbol `(x, a)` the loader places (`symsOk`), the only symbol named `x`
@@ -172,9 +165,75 @@ def symLab (base : Nat) (cells : List (Directive × Nat)) (syms : List (String �
   | some a => if (codeLabel base cells x).isNone && syms.all (fun p => p.1 != x || p.2 == a) then some a else none
   | none => none
 
-/-- **A decided data symbol at its label** in the canonical loader's thread. -/
+/-- **A data symbol at its label, around the code**: in the canonical
+loader's thread with data symbols on both sides of the code (`symsAround`),
+a symbol `(x, a)`, the only address of `x` (`hone`), no cell the label `x`
+(`hcode`), labels `a`. -/
+theorem label_threadAt_of_sym_around {E : Entry} {base : Nat} {cells : List (Directive × Nat)}
+    {syms : List (String × Nat)} {x : String} {a : Nat} (hsyms : symsAround base cells syms = true)
+    (hmem : (x, a) ∈ syms) (hone : ∀ p ∈ syms, p.1 = x → p.2 = a) (hcode : ∀ c ∈ cells, c.1 ≠ .label x) :
+    (_root_.Executable.labels (threadAt E base cells syms).exe).label x = Int64.ofNat a := by
+  have hpad : ∀ y, (Directive.byteArray (.mk #[]) : Directive) ≠ .label y := fun _ h => by cases h
+  have hlbl : ∀ y z, (Directive.label y : Directive) = .label z → y = z := fun _ _ h => by cases h; rfl
+  have hcells := threadAt_exe_cells E base cells syms
+  have hBs := (Scc.Cert.PlaceSyms.placeBelow_spec (Directive.byteArray (.mk #[])) Directive.label base syms)
+  rcases out_of_symsAround hsyms (x, a) hmem with hlo | hhi
+  · -- below the code: among the cells before it
+    have hmB : (x, a) ∈ symsBelow base syms := Scc.Cert.PlaceSyms.mem_symsBelow.mpr ⟨hmem, hlo⟩
+    obtain ⟨pre, post, he, hpre, hsum⟩ := Scc.Cert.PlaceSyms.placeBelow_label _ _ hpad hlbl hmB
+      (fun p hp hpx => hone p (Scc.Cert.PlaceSyms.mem_symsBelow.mp hp).1 hpx)
+    rw [he] at hcells
+    have hl := Kraken.Executable.label_addrOf (threadAt E base cells syms).exe x pre.length
+      (by rw [hcells, List.append_assoc, List.getElem?_append_right (by omega)]; simp)
+      (by rw [hcells, List.append_assoc, List.take_left]; exact hpre)
+    rw [hl]
+    unfold Kraken.Executable.addrOf Kraken.Executable.sizeBefore
+    rw [hcells, List.append_assoc, List.take_left]
+    show Int64.ofNat (exeStart base syms) + _ = _
+    rw [← Int64.ofNat_add]
+    congr 1
+    omega
+  · -- above the code: among the cells after it
+    have hmF : (x, a) ∈ symsFrom base syms := Scc.Cert.PlaceSyms.mem_symsFrom.mpr ⟨hmem, by
+      simp only [codeEnd] at hhi; omega⟩
+    obtain ⟨pre, post, he, hpre, hsum⟩ := Scc.Cert.PlaceSyms.placeSyms_label _ _ hpad hlbl hmF hhi
+      (fun p hp hpx => hone p (Scc.Cert.PlaceSyms.mem_symsFrom.mp hp).1 hpx)
+    rw [he] at hcells
+    generalize hB : placeBelow (Directive.byteArray (.mk #[])) Directive.label base syms = B at hcells hBs
+    have hidx : B.length + (cells.length + pre.length) = (B ++ cells ++ pre).length := by
+      simp
+    replace hcells : (threadAt E base cells syms).exe.2 = (B ++ cells ++ pre) ++ (Directive.label x, 0) :: post := by
+      rw [hcells]; simp
+    have hl := Kraken.Executable.label_addrOf (threadAt E base cells syms).exe x (B.length + (cells.length + pre.length))
+      (by rw [hcells, hidx, List.getElem?_append_right (Nat.le_refl _)]; simp)
+      (by
+        rw [hcells, hidx, List.take_left]
+        intro dz hdz
+        simp only [List.mem_append] at hdz
+        rcases hdz with (hdz | hdz) | hdz
+        · rcases hBs.1 dz hdz with ⟨h, -⟩ | ⟨p, hp, rfl⟩
+          · rw [h]; exact hpad x
+          · intro hpx
+            have := hone p (Scc.Cert.PlaceSyms.mem_symsBelow.mp hp).1 (hlbl _ _ hpx)
+            have := (Scc.Cert.PlaceSyms.mem_symsBelow.mp hp).2
+            simp only [codeEnd] at hhi
+            omega
+        · exact hcode dz hdz
+        · exact hpre dz hdz)
+    rw [hl]
+    unfold Kraken.Executable.addrOf Kraken.Executable.sizeBefore
+    rw [hcells, hidx, List.take_left]
+    simp only [List.map_append, List.sum_append]
+    show Int64.ofNat (exeStart base syms) + _ = _
+    rw [← Int64.ofNat_add]
+    congr 1
+    simp only [codeEnd] at hsum
+    omega
+
+/-- **A decided data symbol at its label** in the canonical loader's thread,
+the data symbols around the code (`symsAround`). -/
 theorem label_threadAt_of_symLab {E : Entry} {base : Nat} {cells : List (Directive × Nat)}
-    {syms : List (String × Nat)} {x : String} {a : Nat} (hsyms : symsOk base cells syms = true)
+    {syms : List (String × Nat)} {x : String} {a : Nat} (hsyms : symsAround base cells syms = true)
     (h : symLab base cells syms x = some a) :
     (_root_.Executable.labels (threadAt E base cells syms).exe).label x = Int64.ofNat a := by
   unfold symLab at h
@@ -186,7 +245,8 @@ theorem label_threadAt_of_symLab {E : Entry} {base : Nat} {cells : List (Directi
       simp only [Bool.and_eq_true, Option.isNone_iff_eq_none, List.all_eq_true, Bool.or_eq_true,
         bne_iff_ne, ne_eq, beq_iff_eq] at hc
       obtain ⟨l1, l2, he, -⟩ := List.lookup_eq_some_iff.mp hl
-      refine label_threadAt_of_sym hsyms (by rw [he]; simp) (fun p hp hpx => ?_) (ne_label_of_codeLabel hc.1)
+      refine label_threadAt_of_sym_around hsyms (by rw [he]; simp) (fun p hp hpx => ?_)
+        (ne_label_of_codeLabel hc.1)
       rcases hc.2 p hp with h | h
       · exact absurd hpx h
       · exact h
@@ -260,9 +320,8 @@ theorem label_of_rtWordsOk (hl : loadOk Λ cells secs offs = true) (h : rtWordsO
     ((_root_.Executable.labels (threadAt E Λ.code.lo cells (loadSyms Λ secs.rodata)).exe).label x).toBitVec =
       rtA Λ cells secs x := by
   simp only [rtWordsOk, Bool.and_eq_true, List.all_eq_true] at h
-  simp only [loadOk, Bool.and_eq_true] at hl
   obtain ⟨a, ha⟩ := Option.isSome_iff_exists.mp (h.1 x hx)
-  rw [label_threadAt_of_symLab hl.2 ha, rtA, ha]
+  rw [label_threadAt_of_symLab (symsAround_of_loadOk hl) ha, rtA, ha]
   simp
 
 /-- The words' side conditions, the pool's and the first stack's. -/

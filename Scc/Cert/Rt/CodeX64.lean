@@ -345,8 +345,8 @@ theorem blockAt_of_blocksIn {cells : List (Directive × Nat)} {gs : List Grp} (h
 /-- **The code of every block of a checked table**, at its label plus its
 offset. -/
 theorem codeAt_of_blocksIn {exe : _root_.Executable} [Executable.ValidLayout exe]
-    {cells : List (Directive × Nat)} (hp : Lays exe cells) {st : State} (he : st.exe = exe)
-    (hend : st.endPc = endOf exe cells) {gs : List Grp} (h : blocksIn cells gs)
+    {cells : List (Directive × Nat)} {kp : Nat} (hp : Lays exe cells kp) {st : State} (he : st.exe = exe)
+    (hend : st.endPc = endOf exe cells kp) {gs : List Grp} (h : blocksIn cells gs)
     {g : Grp} (hg : g ∈ gs) {k off : Nat} {b : List (Directive × Nat)} (hb : (k, off, b) ∈ g.bs) :
     Spike.Lib.X64.CodeAt st ((_root_.Executable.labels exe).label g.l + Int64.ofNat off) b :=
   codeAt_blockAt_lays hp he hend (blockAt_of_blocksIn h hg hb)
@@ -412,8 +412,8 @@ def labelGapB (cells : List (Directive × Nat)) (a b : Label) (off : Nat) : Bool
 
 /-- A block found by `blockAtB` is code at `label l + off`. -/
 theorem codeAt_blockAtB {exe : _root_.Executable} [Executable.ValidLayout exe]
-    {cells : List (Directive × Nat)} (hp : Lays exe cells) {st : State} (he : st.exe = exe)
-    (hend : st.endPc = endOf exe cells) {l : Label} {off : Nat} {b : List (Directive × Nat)}
+    {cells : List (Directive × Nat)} {kp : Nat} (hp : Lays exe cells kp) {st : State} (he : st.exe = exe)
+    (hend : st.endPc = endOf exe cells kp) {l : Label} {off : Nat} {b : List (Directive × Nat)}
     (h : blockAtB cells l off b = true) :
     Spike.Lib.X64.CodeAt st ((_root_.Executable.labels exe).label l + Int64.ofNat off) b := by
   obtain ⟨k, hk⟩ := blockAt_of_blockAtB h
@@ -422,7 +422,7 @@ theorem codeAt_blockAtB {exe : _root_.Executable} [Executable.ValidLayout exe]
 /-- A field of a Spike `Code` from `blockAtB`: the block's code at
 `label l + off`, in every state of the executable. -/
 theorem code_field {exe : _root_.Executable} [Executable.ValidLayout exe] {cells : List (Directive × Nat)}
-    (hp : Lays exe cells) {endPc : Int64} (hend : endPc = endOf exe cells)
+    {kp : Nat} (hp : Lays exe cells kp) {endPc : Int64} (hend : endPc = endOf exe cells kp)
     {l : Label} {off : Nat} {b : List (Directive × Nat)} (h : blockAtB cells l off b = true) {q : Int64}
     (e : (_root_.Executable.labels exe).label l + Int64.ofNat off = q) :
     ∀ s : State, s.exe = exe → s.endPc = endPc → Spike.Lib.X64.CodeAt s q b :=
@@ -430,7 +430,7 @@ theorem code_field {exe : _root_.Executable} [Executable.ValidLayout exe] {cells
 
 /-- The distance between two labels from `labelGapB`. -/
 theorem label_labelGapB {exe : _root_.Executable} [Executable.ValidLayout exe]
-    {cells : List (Directive × Nat)} (hp : Lays exe cells) {a b : Label} {off : Nat}
+    {cells : List (Directive × Nat)} {kp : Nat} (hp : Lays exe cells kp) {a b : Label} {off : Nat}
     (h : labelGapB cells a b off = true) :
     (_root_.Executable.labels exe).label b = (_root_.Executable.labels exe).label a + Int64.ofNat off :=
   label_labelGap_lays hp h

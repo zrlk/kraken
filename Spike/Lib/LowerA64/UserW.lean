@@ -123,7 +123,7 @@ consumer's facts** (`mainUW_gen`'s `pro`, for any frame `Z`): its code
 its facts (`hJc`, `hC0`), the thread pointer `tp` (`htp`) whose limit word
 is mapped (`hmr`) and unmapped in private memory under the frame condition
 (`hun`), in any 16-aligned region holding the frame with 8-aligned bounds. -/
-theorem proW_sfacts {ms : MemSide isaLSE2} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph)
+theorem proW_sfacts {ms : MemSide isaLSE2} {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
     {fn sc entry : Label} {Z : Int64} {L : Label} (hin : prologueIn prog fn sc entry Z 8 L [] = true)
     {J : AS → Ctl → Prop} {c0 : Ctl} (hC0 : CFacts Λ lbl c0) (hJc : ∀ σ c, J σ c → c = c0) {tp : UInt64}
     (htp : ∀ σ c, J σ c → σ.regs.TPIDR_EL0 = tp) (hph : ProPh okPc ph lab sc Z L [])
@@ -159,7 +159,7 @@ theorem proW_sfacts {ms : MemSide isaLSE2} (hI : InstOk exe endPc prog lab μ ow
 (`proInC`) with its phase facts (`hph`), every control of its invariant
 reached from `c0` by a local run (`hJr`) and `Quiet` there (`hQ`), the
 thread pointer `tp` (`htp`, `hmr`, `hun`). -/
-theorem proW_body0 {ms : MemSide isaLSE2} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph) {cx : FnCtx}
+theorem proW_body0 {ms : MemSide isaLSE2} {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp) {cx : FnCtx}
     (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) (h16 : cx.frame % 16 = 0) {fn entry : Label}
     (hin : proInC prog cx fn entry = true) {J : AS → Ctl → Prop} {c0 : Ctl} {p : Prog}
     (hC0 : CFacts Λ lbl c0) (hJr : ∀ σ c, J σ c → LocalRun p c0 c) (hQ : ∀ c, LocalRun p c0 c → Quiet c)

@@ -777,7 +777,7 @@ variable {p : Prog} {lbl : WeakMem.AllocLabel → Option Nat} {ms : MemSide isa}
 `entry`. Its states lie in `W`, none moved by
 `K` (`hW`, `XProW` at the function's label). -/
 theorem prologue_seg_ofW {W : Frag isa} {K : State → State → Prop}
-    (hp : Lays exe cells) (hend : endPc = endOf exe cells) {fn sc entry : Label}
+    {kp : Nat} (hp : Lays exe cells kp) (hend : endPc = endOf exe cells kp) {fn sc entry : Label}
     {Z lim : Int64} {L : Label} {zl zf z1 z2 zs : Nat} {ps : List (Reg64 × Int64 × Nat)}
     (hin : prologueIn cells fn sc entry Z lim L zl zf z1 z2 zs ps = true)
     {J : AS → Ctl → Prop} {nb : ND} (hZ : 0 ≤ Z.toInt) (hF : FStable R F) (hR : R.OK)
@@ -812,7 +812,7 @@ theorem prologue_seg_ofW {W : Frag isa} {K : State → State → Prop}
 /-- **The prologue is one segment** in any valid layout of cells with
 `prologueIn`: `xPrologue_seg` from the function's label to a node at
 `entry`. -/
-theorem prologue_seg_of (hp : Lays exe cells) (hend : endPc = endOf exe cells) {fn sc entry : Label}
+theorem prologue_seg_of {kp : Nat} (hp : Lays exe cells kp) (hend : endPc = endOf exe cells kp) {fn sc entry : Label}
     {Z lim : Int64} {L : Label} {zl zf z1 z2 zs : Nat} {ps : List (Reg64 × Int64 × Nat)}
     (hin : prologueIn cells fn sc entry Z lim L zl zf z1 z2 zs ps = true)
     {J : AS → Ctl → Prop} {nb : ND} (hZ : 0 ≤ Z.toInt) (hF : FStable R F) (hR : R.OK)
@@ -835,7 +835,7 @@ theorem prologue_seg_of (hp : Lays exe cells) (hend : endPc = endOf exe cells) {
 with `exitIn`: `xExitTail_seg` from a node at its label. Its states lie in `W`, none
 moved by `K` (`hW`, `XExitW`). -/
 theorem exitTail_seg_ofW {W : Frag isa} {K : State → State → Prop}
-    (hp : Lays exe cells) (hend : endPc = endOf exe cells) {l : Label} {k : Int64}
+    {kp : Nat} (hp : Lays exe cells kp) (hend : endPc = endOf exe cells kp) {l : Label} {k : Int64}
     {z0 z1 z2 : Nat} (hin : exitIn cells l k z0 z1 z2 = true) {n : ND} {Q : Frag isa} {sp b : Int}
     (hpc : n.pc = (_root_.Executable.labels exe).label l) (hno : n.o = ⟨sp, [(.rbp, b)]⟩)
     (hK : ms.K = some Scc.Sem.X64.abi) (hF : FStable R F) (hR : R.OK) {lo hi : Int}
@@ -852,7 +852,7 @@ theorem exitTail_seg_ofW {W : Frag isa} {K : State → State → Prop}
 
 /-- **The `exit_group` tail does not return** in any valid layout of cells
 with `exitIn`: `xExitTail_seg` from a node at its label. -/
-theorem exitTail_seg_of (hp : Lays exe cells) (hend : endPc = endOf exe cells) {l : Label} {k : Int64}
+theorem exitTail_seg_of {kp : Nat} (hp : Lays exe cells kp) (hend : endPc = endOf exe cells kp) {l : Label} {k : Int64}
     {z0 z1 z2 : Nat} (hin : exitIn cells l k z0 z1 z2 = true) {n : ND} {Q : Frag isa} {sp b : Int}
     (hpc : n.pc = (_root_.Executable.labels exe).label l) (hno : n.o = ⟨sp, [(.rbp, b)]⟩)
     (hK : ms.K = some Scc.Sem.X64.abi) (hF : FStable R F) (hR : R.OK) {lo hi : Int}
@@ -867,7 +867,7 @@ theorem exitTail_seg_of (hp : Lays exe cells) (hend : endPc = endOf exe cells) {
 layout of cells with `startIn`: `start_seg`. Its states lie in `W`, none moved by `K`
 (`hW`, `XStartW`). -/
 theorem start_seg_ofW {W : Frag isa} {K : State → State → Prop}
-    (hp : Lays exe cells) (hend : endPc = endOf exe cells) (hin : startIn cells = true)
+    {kp : Nat} (hp : Lays exe cells kp) (hend : endPc = endOf exe cells kp) (hin : startIn cells = true)
     (hK : ms.K = some Scc.Sem.X64.abi) (hF : FStable R F) (hR : R.OK)
     (hlo : R.lo ≤ -40) (hhi : 0 ≤ R.hi) {J : AS → Ctl → Prop} {nC : ND}
     (hpc : nC.pc = (_root_.Executable.labels exe).label startE + 7 + 34 + 2)
@@ -884,7 +884,8 @@ theorem start_seg_ofW {W : Frag isa} {K : State → State → Prop}
 
 /-- **`scc_rt_start` up to its first call is one segment** in any valid
 layout of cells with `startIn`: `start_seg`. -/
-theorem start_seg_of (hp : Lays exe cells) (hend : endPc = endOf exe cells) (hin : startIn cells = true)
+theorem start_seg_of {kp : Nat} (hp : Lays exe cells kp) (hend : endPc = endOf exe cells kp)
+    (hin : startIn cells = true)
     (hK : ms.K = some Scc.Sem.X64.abi) (hF : FStable R F) (hR : R.OK)
     (hlo : R.lo ≤ -40) (hhi : 0 ≤ R.hi) {J : AS → Ctl → Prop} {nC : ND}
     (hpc : nC.pc = (_root_.Executable.labels exe).label startE + 7 + 34 + 2)

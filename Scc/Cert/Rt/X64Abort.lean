@@ -96,7 +96,7 @@ variable {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe] {cells : 
   {endPc : Int64} {c0 : Ctl}
 
 /-- A stub's `Code` from `stubIn`. -/
-theorem code_stub (hp : Lays exe cells) (hend : endPc = endOf exe cells)
+theorem code_stub {kp : Nat} (hp : Lays exe cells kp) (hend : endPc = endOf exe cells kp)
     {st : Stub} {x1 : List (Directive × Nat)} (h : stubIn cells st x1 = true) : Code st c0 x1 exe endPc := by
   simp only [stubIn, Bool.and_eq_true, and_assoc] at h
   obtain ⟨h0, h1, h2, hs, h5, hx, hg, hg'⟩ := h
@@ -111,7 +111,7 @@ theorem code_stub (hp : Lays exe cells) (hend : endPc = endOf exe cells)
   · exact code_field hp hend hs rfl
 
 /-- The dispatcher's `Code` from `dispIn`. -/
-theorem code_disp (hp : Lays exe cells) (hend : endPc = endOf exe cells)
+theorem code_disp {kp : Nat} (hp : Lays exe cells kp) (hend : endPc = endOf exe cells kp)
     (h : dispIn cells = true) : Disp.Code c0 exe endPc := by
   simp only [dispIn, Bool.and_eq_true, and_assoc] at h
   obtain ⟨he, h1, i1, g1, h2, i2, g2, h3, i3, g3, h4, i4, g4, h5, i5, g5, hg⟩ := h
@@ -135,7 +135,7 @@ theorem code_disp (hp : Lays exe cells) (hend : endPc = endOf exe cells)
   · rw [label_labelGapB hp hg]; rfl
 
 /-- The tail's `Code` from `mainIn`. -/
-theorem code_main (hp : Lays exe cells) (hend : endPc = endOf exe cells)
+theorem code_main {kp : Nat} (hp : Lays exe cells kp) (hend : endPc = endOf exe cells kp)
     {ret : BitVec 64} (h : mainIn cells = true) : MainTail.Code c0 ret exe endPc := by
   simp only [mainIn, Bool.and_eq_true] at h
   exact ⟨code_field hp hend h.1 (off0 _), code_field hp hend h.2 rfl⟩
@@ -151,7 +151,7 @@ variable {p : Prog} {lbl : WeakMem.AllocLabel → Option Nat} {ms : MemSide isa}
   {R : Region} {m0 : MachineData} {c0 : Ctl} {Q : Frag isa}
 
 /-- The stubs' code from `abortIn`. -/
-theorem code_stubs (hp : Lays exe cells) (hend : endPc = endOf exe cells)
+theorem code_stubs {kp : Nat} (hp : Lays exe cells kp) (hend : endPc = endOf exe cells kp)
     (hprog : abortIn cells = true) (x : Disp.DX) : Code x.stub c0 x.x1 exe endPc := by
   simp only [abortIn, Bool.and_eq_true, and_assoc] at hprog
   cases x
@@ -163,7 +163,7 @@ theorem code_stubs (hp : Lays exe cells) (hend : endPc = endOf exe cells)
 
 /-- **An abort stub does not return** in any valid layout of code cells
 with `abortIn cells = true`, given its `write` call. -/
-theorem seg_stub_of (hp : Lays exe cells) (hend : endPc = endOf exe cells)
+theorem seg_stub_of {kp : Nat} (hp : Lays exe cells kp) (hend : endPc = endOf exe cells kp)
     (hprog : abortIn cells = true) (hR : R.OK) (hlo : R.lo ≤ -24) (hhi : 16 ≤ R.hi)
     (hK : ms.K = some Scc.Sem.X64.abi) (x : Disp.DX)
     (hsys : Seg p lbl ms (At exe endPc R (DFrame R m0) (N (_root_.Executable.labels exe).label x.stub c0 .sys))
@@ -182,7 +182,7 @@ theorem seg_stub_of (hp : Lays exe cells) (hend : endPc = endOf exe cells)
 /-- **`scc_rt_abort` does not return** in any valid layout of code cells
 with `abortIn cells = true`: from its entry with a code in `[1, 5]`, given
 the stubs' `write` calls. -/
-theorem seg_abort_of (hp : Lays exe cells) (hend : endPc = endOf exe cells)
+theorem seg_abort_of {kp : Nat} (hp : Lays exe cells kp) (hend : endPc = endOf exe cells kp)
     (hprog : abortIn cells = true) (hR : R.OK) (hlo : R.lo ≤ -24) (hhi : 16 ≤ R.hi)
     (hK : ms.K = some Scc.Sem.X64.abi)
     (hsys : ∀ x : Disp.DX,
@@ -198,8 +198,8 @@ theorem seg_abort_of (hp : Lays exe cells) (hend : endPc = endOf exe cells)
 /-- **The tail of `scc_rt_main` does not return** in any valid layout of
 code cells with `mainIn cells = true`: from `.x3` with `ret` in `%rax`,
 through `exit_group(ret)`. Given that the exit is `main`'s (`hmain`). -/
-theorem seg_main_tail_of {ret : BitVec 64} (hp : Lays exe cells)
-    (hend : endPc = endOf exe cells) (hprog : mainIn cells = true) (hR : R.OK)
+theorem seg_main_tail_of {ret : BitVec 64} {kp : Nat} (hp : Lays exe cells kp)
+    (hend : endPc = endOf exe cells kp) (hprog : mainIn cells = true) (hR : R.OK)
     (hlo : R.lo ≤ -72) (hhi : 16 ≤ R.hi) (hK : ms.K = some Scc.Sem.X64.abi)
     (hmain : ∀ s c,
       At exe endPc R (DFrame R m0) (MainTail.MN.nd (_root_.Executable.labels exe).label c0 ret .ex) s c →

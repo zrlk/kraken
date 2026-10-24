@@ -138,7 +138,7 @@ slots and the exit value's in the frame (`hps`, `hk`), the limit word
 `limA g.tp` mapped (`hmr`) and unmapped in private memory under the frame
 condition (`hun`), `rS` in the pool (`hsub`) and not wrapping (`hfit`), and
 the frame condition giving the words of `rS` off the region (`hFO`). -/
-theorem mainUW_gen {ms : MemSide isa} (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {mc : MainCode}
+theorem mainUW_gen {ms : MemSide isa} {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp) {mc : MainCode}
     (hin : mainUIn cells mc = true) {Post : Ctl → BitVec 64 → Prop} {g : MainG} (hC0 : CFacts Λ lbl g.c0)
     (hPost : ∀ c v, Post c v → CFacts Λ lbl c) (hph : MainPh okPc ph lab mc)
     {R : Region} {F : MachineData → Prop} (hR : R.OK) (hR8 : R.base.toNat % 8 = 0)
@@ -205,7 +205,7 @@ phase facts (`hph`, `hsw`), the frame's facts (`hZ` to `hk`), the limit word
 of the TCB `tcb` mapped (`hmr`), `rS` in the pool (`hsub`) and not wrapping
 (`hfit`), and the user function's interface (`hU`, `SwUW.user`). -/
 theorem swUW_gen {p : Prog} {lbl' : WeakMem.AllocLabel → Option Nat} {ms : MemSide isa}
-    (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) (hin : startTailIn cells = true) {mc : MainCode}
+    {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp) (hin : startTailIn cells = true) {mc : MainCode}
     (hmain : mainUIn cells mc = true) {Post : Ctl → BitVec 64 → Prop} {c0 : Ctl} (hC0 : CFacts Λ lbl c0)
     (hPost : ∀ c v, Post c v → CFacts Λ lbl c) (hph : MainPh okPc ph lab mc) (hsw : SwPh okPc ph lab)
     {R : Region} {F : MachineData → Prop} {tcb top : BitVec 64} {L : Int} {D : Int} {ZU : Int64}

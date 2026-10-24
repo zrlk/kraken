@@ -18,3 +18,5 @@ add x22, sp, #16
 caspal w16, w17, w18, w19, [x22]
 ldp w20, w21, [sp, #16]
 add sp, sp, #32
+// x22 held a stack address, which differs between QEMU and Kraken
+mov x22, xzr

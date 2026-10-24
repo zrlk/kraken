@@ -110,7 +110,7 @@ theorem entry_atXE {E : Entry} (hE : E.Ok (RuntimeLayout.ofPlaceOK h i).Λ)
       (Spike.Lib.X64.Rt.entryN0 (RuntimeLayout.ofPlaceOK h i).lab Spike.Lib.X64Consumer.c0)
       (Scc.Sem.X64.threadAt E (RuntimeLayout.ofPlaceOK h i).Λ.code.lo o.prog
         (Scc.Sem.loadSyms (RuntimeLayout.ofPlaceOK h i).Λ o.secs.rodata)) Spike.Lib.X64Consumer.c0 := by
-  refine ⟨rfl, Scc.Cert.Link.X64.endPc_threadAt _ _ _ _ (RuntimeLayout.ofPlaceOK_above h i), rfl, hpc,
+  refine ⟨rfl, Scc.Cert.Link.X64.endPc_threadAt_below _ _ _ _, rfl, hpc,
     ⟨{ rsp := UInt64.ofNat E.sp }, _, _, fun k =>
       BitVec.ofInt 64 ((Mem.loadInt E.stackMem ((entryR E).addr k) 8).getD 0)⟩,
     ⟨rfl, rfl, rfl, ?_, ?_⟩, Spike.Lib.X64.Rt.rtF_stackMem _ hE rfl, rfl⟩

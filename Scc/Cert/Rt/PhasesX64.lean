@@ -25,7 +25,10 @@ checked: a target in another phase is a crossing (`crossOf`,
 
 `label_threadAt_of_codeLabel` (generic) puts a code label of the cells at
 its `codeLabel` address in the canonical loader's thread, for any data
-symbols none below the code giving a valid layout.
+symbols none below the code giving a valid layout;
+`label_threadAt_of_codeLabel_below` for data symbols on both sides of the
+code, none below it named like the label; `label_of_loadOk` for the
+loader's symbols at any layout passing A2 (`Link.X64.loadOk`).
 
 Where x86-64 differs from AArch64: offsets are in bytes (a range's bound is
 a label plus a byte count; a row's pcs are its group's address plus the
@@ -72,9 +75,9 @@ private theorem labelAddr_spec {l : String} : ∀ {cells : List (Directive × Na
       · simp only [List.take_succ_cons, List.map_cons, List.sum_cons]; omega
 
 /-- **A code label at its `codeLabel` address** in the canonical loader's
-thread, for any data symbols none below the code
-(`Link.X64.above_of_symsOk`, `Link.X64.above_of_loadOk`) giving a valid
-layout. -/
+thread, for any data symbols none below the code (`Link.X64.above_of_symsOk`)
+giving a valid layout; the loader's, with symbols below the code:
+`label_threadAt_of_codeLabel_below`. -/
 theorem label_threadAt_of_codeLabel {E : Entry} {base : Nat} {cells : List (Directive × Nat)}
     {syms : List (String × Nat)} [Kraken.Executable.ValidLayout (threadAt E base cells syms).exe]
     {l : String} {a : Nat} (hs : ∀ p ∈ syms, base ≤ p.2) (h : codeLabel base cells l = some a) :
@@ -97,6 +100,59 @@ theorem label_threadAt_of_codeLabel {E : Entry} {base : Nat} {cells : List (Dire
   unfold Kraken.Executable.addrOf Kraken.Executable.sizeBefore
   rw [htake, Link.X64.threadAt_exe_of_above hs]
   rw [← Int64.ofNat_add, h3]
+
+/-- **A code label at its `codeLabel` address** in the canonical loader's
+thread, the data symbols below the code before it
+(`Link.X64.lays_threadAt_below`): no data symbol below the code is named
+`l`, and the layout is valid (`Link.X64.validLayout_threadAt_below`). -/
+theorem label_threadAt_of_codeLabel_below {E : Entry} {base : Nat} {cells : List (Directive × Nat)}
+    {syms : List (String × Nat)} [Kraken.Executable.ValidLayout (threadAt E base cells syms).exe]
+    {l : String} {a : Nat} (hs : ∀ p ∈ symsBelow base syms, p.1 ≠ l) (h : codeLabel base cells l = some a) :
+    (_root_.Executable.labels (threadAt E base cells syms).exe).label l = Int64.ofNat a := by
+  obtain ⟨n, z, h1, h2, h3⟩ := labelAddr_spec h
+  have hn : n < cells.length := by
+    rcases Nat.lt_or_ge n cells.length with hc | hc
+    · exact hc
+    · rw [List.getElem?_eq_none hc] at h1; cases h1
+  have hcells := Link.X64.threadAt_exe_cells E base cells syms
+  generalize hB : placeBelow (Directive.byteArray (.mk #[])) Directive.label base syms = B at hcells
+  have hz' : (threadAt E base cells syms).exe.2[B.length + n]? = some (.label l, z) := by
+    rw [hcells, List.getElem?_append_right (by omega), Nat.add_sub_cancel_left, List.getElem?_append_left hn, h1]
+  have hz0 := Kraken.Executable.ValidLayout.label_size _ l z hz'
+  subst hz0
+  have htake : (threadAt E base cells syms).exe.2.take (B.length + n) = B ++ cells.take n := by
+    rw [hcells, List.take_add, List.take_left, List.drop_left, List.take_append_of_le_length (Nat.le_of_lt hn)]
+  rw [Kraken.Executable.label_addrOf _ l (B.length + n) hz'
+    (by
+      rw [htake]
+      intro c hc
+      rcases List.mem_append.mp hc with hc | hc
+      · rw [← hB] at hc
+        rcases (Scc.Cert.PlaceSyms.placeBelow_spec _ _ base syms).1 c hc with ⟨he, -⟩ | ⟨p, hp, rfl⟩
+        · rw [he]; simp
+        · intro he; exact hs p hp (by simpa using he)
+      · exact h2 c hc)]
+  have hBs := (Scc.Cert.PlaceSyms.placeBelow_spec (Directive.byteArray (.mk #[])) Directive.label base syms).2
+  rw [hB] at hBs
+  unfold Kraken.Executable.addrOf Kraken.Executable.sizeBefore
+  rw [htake, List.map_append, List.sum_append]
+  show Int64.ofNat (exeStart base syms) + _ = _
+  rw [← Int64.ofNat_add, ← h3]
+  congr 1
+  omega
+
+/-- **A code label at its `codeLabel` address** in the canonical loader's
+thread at any layout `Λ` passing the loader's checks (`Link.X64.loadOk`,
+the placement check's A2), its data symbols on either side of the code:
+A2's `noClash` keeps every symbol below the code off `l`'s name, and its
+`symsAround` makes the layout valid. -/
+theorem label_of_loadOk {E : Entry} {Λ : Scc.Sem.Layout} {cells : List (Directive × Nat)} {secs : DataSecs}
+    {offs : List (String × Nat)} (h : Link.X64.loadOk Λ cells secs offs = true) {l : String} {a : Nat}
+    (ha : codeLabel Λ.code.lo cells l = some a) :
+    (_root_.Executable.labels (threadAt E Λ.code.lo cells (loadSyms Λ secs.rodata)).exe).label l =
+      Int64.ofNat a :=
+  have := Link.X64.validLayout_of_loadOk h E
+  label_threadAt_of_codeLabel_below (Link.X64.below_ne_of_loadOk h ha) ha
 
 /-! ## The phase table -/
 

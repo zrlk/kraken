@@ -1,5 +1,6 @@
 import Scc.Cert.OutLitX64
 import Scc.Cert.LowerStage
+import Scc.Cert.A9StageX64
 
 /-!
 # `out = outLit` in three kernel steps (x86-64, `scc --cert`)
@@ -15,7 +16,8 @@ literals:
 * `lowered1 cfg p = some (ir, setup)`: the lowering (`lowerIR`) gives the
   IR `ir`;
 * `emitItemsMaps ir = .ok (items, sps)`: the emitter, run on the literal
-  `ir`.
+  `ir` (itself checked in stages, `Scc.Emit.X64.emitItemsMaps_of_stages`:
+  the emitter's checks, each function, and the rest).
 
 A certificate states `ir`, `items` and `sps` as literals (`scc_lit%`,
 untrusted), checks the two equations, and then `ofStage … = outLit` (the

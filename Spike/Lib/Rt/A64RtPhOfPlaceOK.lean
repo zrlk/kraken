@@ -68,14 +68,16 @@ variable {cfg : Scc.Cert.PlaceOK.Config} {o : Scc.Cert.PlaceOK.A64.Out}
 
 /-- **`RtNodesOk` of an output passing `placeOK`**: any groups of its
 table, at its sites and phases, its labels in the canonical loader's
-thread (`hl`, any entry state and data symbols), any return points, the
+thread (`hl`, any entry state, any data symbols none of those below the
+code named like a code label: `hs`), any return points, the
 dead targets those off each row's entry's phase. -/
 theorem rtNodesOk_of_placeOK {Λ : Scc.Sem.Layout} (h : placeOKAt cfg Λ o = true) {E : Scc.Sem.Entry} {syms : List
     (String × Nat)}
     {lab : Label → Int64}
     (hl : (_root_.Executable.labels
       (Scc.Sem.A64.threadAt E Λ.code.lo o.prog syms).exe).label = lab)
-    (hs : ∀ p ∈ syms, Λ.code.lo ≤ p.2) (ra : Label → Int64) {gs : List OGrp} (hgs : ∀ g ∈ gs, g ∈ o.place.blocks) :
+    (hs : ∀ p ∈ Scc.Sem.symsBelow Λ.code.lo syms, Scc.Cert.Link.A64.codeOf Λ.code.lo o.prog p.1 = none)
+    (ra : Label → Int64) {gs : List OGrp} (hgs : ∀ g ∈ gs, g ∈ o.place.blocks) :
     RtNodesOk (Scc.Cert.Rt.A64.okPcOf Λ.code.lo o.prog Λ)
       (Scc.Cert.Rt.A64.phOf Λ.code.lo o.prog)
       (offPh (Scc.Cert.Rt.A64.phOf Λ.code.lo o.prog) lab) lab ra gs := by

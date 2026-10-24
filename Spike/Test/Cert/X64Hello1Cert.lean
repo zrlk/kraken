@@ -44,7 +44,8 @@ What the file establishes:
    of `Scc.Lower.X64.lowerAll config prog_src`, at `sizes` and `labelOffs`), `out_eq` proves it
    equal to the literal `outLit` (its value, computed at elaboration time) in three
    kernel steps (`lowered_eq`, the lowering, from `frames_eq` and `ir_eq`; `emitted_eq`, the emitter on the
-   literal IR; the rest on literals: `Scc.Cert.PlaceOK.X64.ofEmitted_of_stages`,
+   literal IR, from its checks, each function
+   and the rest; the rest on literals: `Scc.Cert.PlaceOK.X64.ofEmitted_of_stages`,
    `Scc/Cert/OutStageX64.lean`),
    and `prog_not_placeOK` proves `placeOK` of it `false` at `placeCfg`:
    its component A11 fails (`prog_placeOK_11`, decided on
@@ -1664,9 +1665,46 @@ def sizes : List Nat := [2, 4, 5, 2, 1, 3, 4, 7, 4, 7, 4, 7, 7, 5, 2, 4, 7, 7, 5
 (untrusted). -/
 def labelOffs : List (String × Nat) := [("_start", 0), ("scc_rt_start", 13), (".Lscc_rt_start.entry", 21), (".Lscc_rt_start.x0", 87), (".Lscc_rt_start.x1", 100), ("scc_rt_main", 140), (".Lscc_rt_main.chk", 144), (".Lscc_rt_main.entry", 171), (".Lscc_rt_main.x2", 176), (".Lscc_rt_main.x3", 217), (".Lscc_rt_main.stk", 238), (".Lscc_rt_main.x4", 256), ("scc_rt_alloc", 266), (".Lscc_rt_alloc.entry", 289), (".Lscc_rt_alloc.cnt", 307), (".Lscc_rt_alloc.slow", 368), (".Lscc_rt_alloc.spin", 386), (".Lscc_rt_alloc.full", 388), (".Lscc_rt_alloc.x5", 400), (".Lscc_rt_alloc.ok", 402), ("scc_rt_alloc_tcb", 629), (".Lscc_rt_alloc_tcb.entry", 648), (".Lscc_rt_alloc_tcb.len", 670), (".Lscc_rt_alloc_tcb.full", 870), (".Lscc_rt_alloc_tcb.x6", 882), (".Lscc_rt_alloc_tcb.ok", 884), ("scc_rt_thread_reserve", 1084), (".Lscc_rt_thread_reserve.entry", 1092), (".Lscc_rt_thread_reserve.full", 1159), (".Lscc_rt_thread_reserve.x7", 1171), (".Lscc_rt_thread_reserve.ok", 1173), ("scc_rt_thread_init", 1182), (".Lscc_rt_thread_init.entry", 1194), (".Lscc_rt_thread_init.x8", 1206), ("scc_rt_stack_take", 1332), (".Lscc_rt_stack_take.entry", 1347), (".Lscc_rt_stack_take.cls5", 1393), (".Lscc_rt_stack_take.clsnext6", 1408), (".Lscc_rt_stack_take.clsdone7", 1497), (".Lscc_rt_stack_take.spin14", 1562), (".Lscc_rt_stack_take.locked15", 1598), (".Lscc_rt_stack_take.pop", 1627), (".Lscc_rt_stack_take.bump", 1739), (".Lscc_rt_stack_take.full", 1849), (".Lscc_rt_stack_take.x9", 1861), (".Lscc_rt_stack_take.ok", 1863), (".Lscc_rt_stack_take.taken", 1903), ("scc_rt_take_site", 1914), ("scc_rt_stack_release", 1927), (".Lscc_rt_stack_release.entry", 1946), ("scc_rt_release_site", 1954), (".Lscc_rt_stack_release.cls4", 2001), (".Lscc_rt_stack_release.clsnext5", 2016), (".Lscc_rt_stack_release.clsdone6", 2105), (".Lscc_rt_stack_release.spin13", 2170), (".Lscc_rt_stack_release.locked14", 2206), ("scc_rt_grow", 2332), (".Lscc_rt_grow.entry", 2351), (".Lscc_rt_grow.dbl", 2471), (".Lscc_rt_grow.dbl2", 2486), (".Lscc_rt_grow.cap", 2506), (".Lscc_rt_grow.full", 2524), (".Lscc_rt_grow.x10", 2536), (".Lscc_rt_grow.take", 2538), (".Lscc_rt_grow.x11", 2547), (".Lscc_rt_grow.copy", 2591), (".Lscc_rt_grow.copy1", 2606), (".Lscc_rt_grow.walk0", 2663), (".Lscc_rt_grow.walk", 2780), (".Lscc_rt_grow.walk1", 2819), (".Lscc_rt_grow.walk2", 2841), (".Lscc_rt_grow.bs", 2948), (".Lscc_rt_grow.bs1", 2973), (".Lscc_rt_grow.bs2", 3132), (".Lscc_rt_grow.bslo", 3153), (".Lscc_rt_grow.bshi", 3182), (".Lscc_rt_grow.found", 3201), (".Lscc_rt_grow.fix", 3301), (".Lscc_rt_grow.fix1", 3326), (".Lscc_rt_grow.fix2", 3402), (".Lscc_rt_grow.fix3", 3420), (".Lscc_rt_grow.skip", 3481), (".Lscc_rt_grow.next", 3534), (".Lscc_rt_grow.done", 3553), ("scc_rt_print", 3630), (".Lscc_rt_print.entry", 3646), (".Lscc_rt_print.loop", 3648), (".Lscc_rt_print.write", 3670), (".Lscc_rt_print.chk2", 3714), (".Lscc_rt_print.chk3", 3732), (".Lscc_rt_print.adv", 3750), (".Lscc_rt_print.fail", 3785), (".Lscc_rt_print.x12", 3797), (".Lscc_rt_print.done", 3799), ("scc_rt_park", 3804), (".Lscc_rt_park.entry", 3812), (".Lscc_rt_park.wait", 3862), (".Lscc_rt_park.done", 3954), ("scc_rt_unpark", 3959), (".Lscc_rt_unpark.entry", 3971), (".Lscc_rt_unpark.wake", 4008), (".Lscc_rt_unpark.done", 4081), ("scc_rt_abort", 4086), (".Lscc_rt_abort.entry", 4098), (".Lscc_rt_abort.is0", 4116), (".Lscc_rt_abort.next1", 4122), (".Lscc_rt_abort.is2", 4140), (".Lscc_rt_abort.next3", 4149), (".Lscc_rt_abort.is4", 4167), (".Lscc_rt_abort.next5", 4176), (".Lscc_rt_abort.is6", 4194), (".Lscc_rt_abort.next7", 4203), (".Lscc_rt_abort.is8", 4221), (".Lscc_rt_abort.next9", 4230), ("scc_rt_abort_overflow", 4232), (".Lscc_rt_abort_overflow.entry", 4240), ("scc_rt_abort_overflow_exit", 4292), ("scc_rt_abort_heap", 4300), (".Lscc_rt_abort_heap.entry", 4308), ("scc_rt_abort_heap_exit", 4360), ("scc_rt_abort_stack", 4368), (".Lscc_rt_abort_stack.entry", 4376), ("scc_rt_abort_stack_exit", 4428), ("scc_rt_abort_write", 4436), (".Lscc_rt_abort_write.entry", 4444), ("scc_rt_abort_write_exit", 4496), ("scc_rt_abort_threads", 4504), (".Lscc_rt_abort_threads.entry", 4512), ("scc_rt_abort_threads_exit", 4564), ("wc_rodata", 4572), (".Lwc_rodata.chk", 4576), (".Lwc_rodata.entry", 4599), (".Lwc_rodata.x13", 4625), (".Lwc_rodata.stk", 4717), (".Lwc_rodata.x14", 4735), ("wc_main", 4748), (".Lwc_main.chk", 4752), (".Lwc_main.entry", 4795), (".Lwc_main.x15", 4882), (".Lwc_main.stk", 4894), (".Lwc_main.x16", 4912), ("scc_rt_morestack", 4925)]
 
-/-- The size table is consistent with `prog` laid out from 0 (kernel-checked). -/
+/-- The walk over `prog` and `sizes` from 0, at elaboration time. -/
+def walkVal : Option (List (String × Nat) × Nat) := Scc.Cert.X64.sizeWalk (Int64.ofNat 0) prog sizes 0
+
+/-- The walk's labels with their offsets and its end offset, as a literal
+(untrusted, checked by `walk_eq`). -/
+def walkLit : List (String × Nat) × Nat := (scc_lit% walkVal).get!
+
+/-- The walk gives `walkLit`: every size positive, every `nopalign` aligned
+(kernel-checked). -/
+theorem walk_eq : Scc.Cert.X64.sizeWalk (Int64.ofNat 0) prog sizes 0 = some walkLit := by kernel_rfl
+
+/-- The code ends below `2 ^ 64` (kernel-checked). -/
+theorem sizes_end : walkLit.2 < 2 ^ 64 := by decide +kernel
+
+/-- The listed labels 0 to 63 are at their offsets (kernel-checked). -/
+theorem sizes_offs_0 :
+    ((labelOffs.drop 0).take 64).all (Scc.Cert.X64.offOk walkLit.1) = true := by
+  decide +kernel
+
+/-- The listed labels 64 to 127 are at their offsets (kernel-checked). -/
+theorem sizes_offs_1 :
+    ((labelOffs.drop 64).take 64).all (Scc.Cert.X64.offOk walkLit.1) = true := by
+  decide +kernel
+
+/-- The listed labels 128 to 191 are at their offsets (kernel-checked). -/
+theorem sizes_offs_2 :
+    ((labelOffs.drop 128).take 64).all (Scc.Cert.X64.offOk walkLit.1) = true := by
+  decide +kernel
+
+/-- Every listed label is at its offset (`sizes_offs_i`, chained). -/
+theorem sizes_offs : (labelOffs.drop 0).all (Scc.Cert.X64.offOk walkLit.1) = true :=
+  Scc.Cert.X64.offsAll_drop 64 sizes_offs_0 <|
+    Scc.Cert.X64.offsAll_drop 64 sizes_offs_1 <|
+    Scc.Cert.X64.offsAll_drop 64 sizes_offs_2 <|
+    by decide +kernel
+
+/-- The size table is consistent with `prog` laid out from 0 (kernel-checked,
+in the pieces above). -/
 theorem sizes_ok : Scc.Cert.X64.sizesOk 0 prog sizes labelOffs = true :=
-  Scc.Cert.X64.sizesOk_of_fast (by decide +kernel)
+  Scc.Cert.X64.sizesOk_of_fast (Scc.Cert.X64.sizesOkFast_of_chunks walk_eq sizes_end sizes_offs)
 
 /-! ## Acceptance and placement -/
 
@@ -1851,9 +1889,395 @@ the lowering above). -/
 theorem lowered_eq : Scc.Cert.PlaceOK.X64.lowered1 config prog_src = some loweredLit :=
   Scc.Cert.PlaceOK.X64.lowered1_of_stages frames_eq ir_eq
 
-/-- The emitter gives `emittedLit` on the literal IR (kernel-checked: the
-kernel runs the emitter, here). -/
-theorem emitted_eq : Scc.Emit.X64.emitItemsMaps loweredLit.1 = .ok emittedLit := by kernel_rfl
+/-- The emitter's checks and argument areas on the literal IR, at
+elaboration time. -/
+def areasVal : Option (List (Scc.IR.Sym × Nat)) := (Scc.Emit.X64.emitPre loweredLit.1).toOption
+
+/-- The argument areas, as a literal (untrusted, checked by `pre_eq`). -/
+def areasLit : List (Scc.IR.Sym × Nat) := (scc_lit% areasVal).get!
+
+/-- The emitter's checks pass and give `areasLit` (kernel-checked). -/
+theorem pre_eq : Scc.Emit.X64.emitPre loweredLit.1 = .ok areasLit := by kernel_rfl
+
+/-- The functions of the literal IR (kernel-checked). -/
+theorem fns_eq : loweredLit.1.funcs = [
+    loweredLit.1.funcs[0]!,
+    loweredLit.1.funcs[1]!,
+    loweredLit.1.funcs[2]!,
+    loweredLit.1.funcs[3]!,
+    loweredLit.1.funcs[4]!,
+    loweredLit.1.funcs[5]!,
+    loweredLit.1.funcs[6]!,
+    loweredLit.1.funcs[7]!,
+    loweredLit.1.funcs[8]!,
+    loweredLit.1.funcs[9]!,
+    loweredLit.1.funcs[10]!,
+    loweredLit.1.funcs[11]!,
+    loweredLit.1.funcs[12]!,
+    loweredLit.1.funcs[13]!,
+    loweredLit.1.funcs[14]!,
+    loweredLit.1.funcs[15]!,
+    loweredLit.1.funcs[16]!,
+    loweredLit.1.funcs[17]!,
+    loweredLit.1.funcs[18]!,
+    loweredLit.1.funcs[19]!] := by kernel_rfl
+
+/-- Function 0's items, next label number and safepoints, at elaboration
+time. -/
+def emitVal_0 : Option (List Scc.Emit.X64.Item × Nat × List (String × List Int × List Int)) :=
+  (Scc.Emit.X64.emitFuncAt loweredLit.1 areasLit loweredLit.1.funcs[0]! 0).toOption
+
+/-- Function 0's items, next label number and safepoints, as a literal
+(untrusted, checked by `emit_eq_0`). -/
+def emitLit_0 : (List Scc.Emit.X64.Item × Nat × List (String × List Int × List Int)) :=
+  (scc_lit% emitVal_0).get!
+
+/-- The emitter gives `emitLit_0` on function 0 (kernel-checked). -/
+theorem emit_eq_0 :
+    Scc.Emit.X64.emitFuncAt loweredLit.1 areasLit loweredLit.1.funcs[0]! 0 = .ok emitLit_0 := by
+  kernel_rfl
+
+/-- Function 1's items, next label number and safepoints, at elaboration
+time. -/
+def emitVal_1 : Option (List Scc.Emit.X64.Item × Nat × List (String × List Int × List Int)) :=
+  (Scc.Emit.X64.emitFuncAt loweredLit.1 areasLit loweredLit.1.funcs[1]! emitLit_0.2.1).toOption
+
+/-- Function 1's items, next label number and safepoints, as a literal
+(untrusted, checked by `emit_eq_1`). -/
+def emitLit_1 : (List Scc.Emit.X64.Item × Nat × List (String × List Int × List Int)) :=
+  (scc_lit% emitVal_1).get!
+
+/-- The emitter gives `emitLit_1` on function 1 (kernel-checked). -/
+theorem emit_eq_1 :
+    Scc.Emit.X64.emitFuncAt loweredLit.1 areasLit loweredLit.1.funcs[1]! emitLit_0.2.1 = .ok emitLit_1 := by
+  kernel_rfl
+
+/-- Function 2's items, next label number and safepoints, at elaboration
+time. -/
+def emitVal_2 : Option (List Scc.Emit.X64.Item × Nat × List (String × List Int × List Int)) :=
+  (Scc.Emit.X64.emitFuncAt loweredLit.1 areasLit loweredLit.1.funcs[2]! emitLit_1.2.1).toOption
+
+/-- Function 2's items, next label number and safepoints, as a literal
+(untrusted, checked by `emit_eq_2`). -/
+def emitLit_2 : (List Scc.Emit.X64.Item × Nat × List (String × List Int × List Int)) :=
+  (scc_lit% emitVal_2).get!
+
+/-- The emitter gives `emitLit_2` on function 2 (kernel-checked). -/
+theorem emit_eq_2 :
+    Scc.Emit.X64.emitFuncAt loweredLit.1 areasLit loweredLit.1.funcs[2]! emitLit_1.2.1 = .ok emitLit_2 := by
+  kernel_rfl
+
+/-- Function 3's items, next label number and safepoints, at elaboration
+time. -/
+def emitVal_3 : Option (List Scc.Emit.X64.Item × Nat × List (String × List Int × List Int)) :=
+  (Scc.Emit.X64.emitFuncAt loweredLit.1 areasLit loweredLit.1.funcs[3]! emitLit_2.2.1).toOption
+
+/-- Function 3's items, next label number and safepoints, as a literal
+(untrusted, checked by `emit_eq_3`). -/
+def emitLit_3 : (List Scc.Emit.X64.Item × Nat × List (String × List Int × List Int)) :=
+  (scc_lit% emitVal_3).get!
+
+/-- The emitter gives `emitLit_3` on function 3 (kernel-checked). -/
+theorem emit_eq_3 :
+    Scc.Emit.X64.emitFuncAt loweredLit.1 areasLit loweredLit.1.funcs[3]! emitLit_2.2.1 = .ok emitLit_3 := by
+  kernel_rfl
+
+/-- Function 4's items, next label number and safepoints, at elaboration
+time. -/
+def emitVal_4 : Option (List Scc.Emit.X64.Item × Nat × List (String × List Int × List Int)) :=
+  (Scc.Emit.X64.emitFuncAt loweredLit.1 areasLit loweredLit.1.funcs[4]! emitLit_3.2.1).toOption
+
+/-- Function 4's items, next label number and safepoints, as a literal
+(untrusted, checked by `emit_eq_4`). -/
+def emitLit_4 : (List Scc.Emit.X64.Item × Nat × List (String × List Int × List Int)) :=
+  (scc_lit% emitVal_4).get!
+
+/-- The emitter gives `emitLit_4` on function 4 (kernel-checked). -/
+theorem emit_eq_4 :
+    Scc.Emit.X64.emitFuncAt loweredLit.1 areasLit loweredLit.1.funcs[4]! emitLit_3.2.1 = .ok emitLit_4 := by
+  kernel_rfl
+
+/-- Function 5's items, next label number and safepoints, at elaboration
+time. -/
+def emitVal_5 : Option (List Scc.Emit.X64.Item × Nat × List (String × List Int × List Int)) :=
+  (Scc.Emit.X64.emitFuncAt loweredLit.1 areasLit loweredLit.1.funcs[5]! emitLit_4.2.1).toOption
+
+/-- Function 5's items, next label number and safepoints, as a literal
+(untrusted, checked by `emit_eq_5`). -/
+def emitLit_5 : (List Scc.Emit.X64.Item × Nat × List (String × List Int × List Int)) :=
+  (scc_lit% emitVal_5).get!
+
+/-- The emitter gives `emitLit_5` on function 5 (kernel-checked). -/
+theorem emit_eq_5 :
+    Scc.Emit.X64.emitFuncAt loweredLit.1 areasLit loweredLit.1.funcs[5]! emitLit_4.2.1 = .ok emitLit_5 := by
+  kernel_rfl
+
+/-- Function 6's items, next label number and safepoints, at elaboration
+time. -/
+def emitVal_6 : Option (List Scc.Emit.X64.Item × Nat × List (String × List Int × List Int)) :=
+  (Scc.Emit.X64.emitFuncAt loweredLit.1 areasLit loweredLit.1.funcs[6]! emitLit_5.2.1).toOption
+
+/-- Function 6's items, next label number and safepoints, as a literal
+(untrusted, checked by `emit_eq_6`). -/
+def emitLit_6 : (List Scc.Emit.X64.Item × Nat × List (String × List Int × List Int)) :=
+  (scc_lit% emitVal_6).get!
+
+/-- The emitter gives `emitLit_6` on function 6 (kernel-checked). -/
+theorem emit_eq_6 :
+    Scc.Emit.X64.emitFuncAt loweredLit.1 areasLit loweredLit.1.funcs[6]! emitLit_5.2.1 = .ok emitLit_6 := by
+  kernel_rfl
+
+/-- Function 7's items, next label number and safepoints, at elaboration
+time. -/
+def emitVal_7 : Option (List Scc.Emit.X64.Item × Nat × List (String × List Int × List Int)) :=
+  (Scc.Emit.X64.emitFuncAt loweredLit.1 areasLit loweredLit.1.funcs[7]! emitLit_6.2.1).toOption
+
+/-- Function 7's items, next label number and safepoints, as a literal
+(untrusted, checked by `emit_eq_7`). -/
+def emitLit_7 : (List Scc.Emit.X64.Item × Nat × List (String × List Int × List Int)) :=
+  (scc_lit% emitVal_7).get!
+
+/-- The emitter gives `emitLit_7` on function 7 (kernel-checked). -/
+theorem emit_eq_7 :
+    Scc.Emit.X64.emitFuncAt loweredLit.1 areasLit loweredLit.1.funcs[7]! emitLit_6.2.1 = .ok emitLit_7 := by
+  kernel_rfl
+
+/-- Function 8's items, next label number and safepoints, at elaboration
+time. -/
+def emitVal_8 : Option (List Scc.Emit.X64.Item × Nat × List (String × List Int × List Int)) :=
+  (Scc.Emit.X64.emitFuncAt loweredLit.1 areasLit loweredLit.1.funcs[8]! emitLit_7.2.1).toOption
+
+/-- Function 8's items, next label number and safepoints, as a literal
+(untrusted, checked by `emit_eq_8`). -/
+def emitLit_8 : (List Scc.Emit.X64.Item × Nat × List (String × List Int × List Int)) :=
+  (scc_lit% emitVal_8).get!
+
+/-- The emitter gives `emitLit_8` on function 8 (kernel-checked). -/
+theorem emit_eq_8 :
+    Scc.Emit.X64.emitFuncAt loweredLit.1 areasLit loweredLit.1.funcs[8]! emitLit_7.2.1 = .ok emitLit_8 := by
+  kernel_rfl
+
+/-- Function 9's items, next label number and safepoints, at elaboration
+time. -/
+def emitVal_9 : Option (List Scc.Emit.X64.Item × Nat × List (String × List Int × List Int)) :=
+  (Scc.Emit.X64.emitFuncAt loweredLit.1 areasLit loweredLit.1.funcs[9]! emitLit_8.2.1).toOption
+
+/-- Function 9's items, next label number and safepoints, as a literal
+(untrusted, checked by `emit_eq_9`). -/
+def emitLit_9 : (List Scc.Emit.X64.Item × Nat × List (String × List Int × List Int)) :=
+  (scc_lit% emitVal_9).get!
+
+/-- The emitter gives `emitLit_9` on function 9 (kernel-checked). -/
+theorem emit_eq_9 :
+    Scc.Emit.X64.emitFuncAt loweredLit.1 areasLit loweredLit.1.funcs[9]! emitLit_8.2.1 = .ok emitLit_9 := by
+  kernel_rfl
+
+/-- Function 10's items, next label number and safepoints, at elaboration
+time. -/
+def emitVal_10 : Option (List Scc.Emit.X64.Item × Nat × List (String × List Int × List Int)) :=
+  (Scc.Emit.X64.emitFuncAt loweredLit.1 areasLit loweredLit.1.funcs[10]! emitLit_9.2.1).toOption
+
+/-- Function 10's items, next label number and safepoints, as a literal
+(untrusted, checked by `emit_eq_10`). -/
+def emitLit_10 : (List Scc.Emit.X64.Item × Nat × List (String × List Int × List Int)) :=
+  (scc_lit% emitVal_10).get!
+
+/-- The emitter gives `emitLit_10` on function 10 (kernel-checked). -/
+theorem emit_eq_10 :
+    Scc.Emit.X64.emitFuncAt loweredLit.1 areasLit loweredLit.1.funcs[10]! emitLit_9.2.1 = .ok emitLit_10 := by
+  kernel_rfl
+
+/-- Function 11's items, next label number and safepoints, at elaboration
+time. -/
+def emitVal_11 : Option (List Scc.Emit.X64.Item × Nat × List (String × List Int × List Int)) :=
+  (Scc.Emit.X64.emitFuncAt loweredLit.1 areasLit loweredLit.1.funcs[11]! emitLit_10.2.1).toOption
+
+/-- Function 11's items, next label number and safepoints, as a literal
+(untrusted, checked by `emit_eq_11`). -/
+def emitLit_11 : (List Scc.Emit.X64.Item × Nat × List (String × List Int × List Int)) :=
+  (scc_lit% emitVal_11).get!
+
+/-- The emitter gives `emitLit_11` on function 11 (kernel-checked). -/
+theorem emit_eq_11 :
+    Scc.Emit.X64.emitFuncAt loweredLit.1 areasLit loweredLit.1.funcs[11]! emitLit_10.2.1 = .ok emitLit_11 := by
+  kernel_rfl
+
+/-- Function 12's items, next label number and safepoints, at elaboration
+time. -/
+def emitVal_12 : Option (List Scc.Emit.X64.Item × Nat × List (String × List Int × List Int)) :=
+  (Scc.Emit.X64.emitFuncAt loweredLit.1 areasLit loweredLit.1.funcs[12]! emitLit_11.2.1).toOption
+
+/-- Function 12's items, next label number and safepoints, as a literal
+(untrusted, checked by `emit_eq_12`). -/
+def emitLit_12 : (List Scc.Emit.X64.Item × Nat × List (String × List Int × List Int)) :=
+  (scc_lit% emitVal_12).get!
+
+/-- The emitter gives `emitLit_12` on function 12 (kernel-checked). -/
+theorem emit_eq_12 :
+    Scc.Emit.X64.emitFuncAt loweredLit.1 areasLit loweredLit.1.funcs[12]! emitLit_11.2.1 = .ok emitLit_12 := by
+  kernel_rfl
+
+/-- Function 13's items, next label number and safepoints, at elaboration
+time. -/
+def emitVal_13 : Option (List Scc.Emit.X64.Item × Nat × List (String × List Int × List Int)) :=
+  (Scc.Emit.X64.emitFuncAt loweredLit.1 areasLit loweredLit.1.funcs[13]! emitLit_12.2.1).toOption
+
+/-- Function 13's items, next label number and safepoints, as a literal
+(untrusted, checked by `emit_eq_13`). -/
+def emitLit_13 : (List Scc.Emit.X64.Item × Nat × List (String × List Int × List Int)) :=
+  (scc_lit% emitVal_13).get!
+
+/-- The emitter gives `emitLit_13` on function 13 (kernel-checked). -/
+theorem emit_eq_13 :
+    Scc.Emit.X64.emitFuncAt loweredLit.1 areasLit loweredLit.1.funcs[13]! emitLit_12.2.1 = .ok emitLit_13 := by
+  kernel_rfl
+
+/-- Function 14's items, next label number and safepoints, at elaboration
+time. -/
+def emitVal_14 : Option (List Scc.Emit.X64.Item × Nat × List (String × List Int × List Int)) :=
+  (Scc.Emit.X64.emitFuncAt loweredLit.1 areasLit loweredLit.1.funcs[14]! emitLit_13.2.1).toOption
+
+/-- Function 14's items, next label number and safepoints, as a literal
+(untrusted, checked by `emit_eq_14`). -/
+def emitLit_14 : (List Scc.Emit.X64.Item × Nat × List (String × List Int × List Int)) :=
+  (scc_lit% emitVal_14).get!
+
+/-- The emitter gives `emitLit_14` on function 14 (kernel-checked). -/
+theorem emit_eq_14 :
+    Scc.Emit.X64.emitFuncAt loweredLit.1 areasLit loweredLit.1.funcs[14]! emitLit_13.2.1 = .ok emitLit_14 := by
+  kernel_rfl
+
+/-- Function 15's items, next label number and safepoints, at elaboration
+time. -/
+def emitVal_15 : Option (List Scc.Emit.X64.Item × Nat × List (String × List Int × List Int)) :=
+  (Scc.Emit.X64.emitFuncAt loweredLit.1 areasLit loweredLit.1.funcs[15]! emitLit_14.2.1).toOption
+
+/-- Function 15's items, next label number and safepoints, as a literal
+(untrusted, checked by `emit_eq_15`). -/
+def emitLit_15 : (List Scc.Emit.X64.Item × Nat × List (String × List Int × List Int)) :=
+  (scc_lit% emitVal_15).get!
+
+/-- The emitter gives `emitLit_15` on function 15 (kernel-checked). -/
+theorem emit_eq_15 :
+    Scc.Emit.X64.emitFuncAt loweredLit.1 areasLit loweredLit.1.funcs[15]! emitLit_14.2.1 = .ok emitLit_15 := by
+  kernel_rfl
+
+/-- Function 16's items, next label number and safepoints, at elaboration
+time. -/
+def emitVal_16 : Option (List Scc.Emit.X64.Item × Nat × List (String × List Int × List Int)) :=
+  (Scc.Emit.X64.emitFuncAt loweredLit.1 areasLit loweredLit.1.funcs[16]! emitLit_15.2.1).toOption
+
+/-- Function 16's items, next label number and safepoints, as a literal
+(untrusted, checked by `emit_eq_16`). -/
+def emitLit_16 : (List Scc.Emit.X64.Item × Nat × List (String × List Int × List Int)) :=
+  (scc_lit% emitVal_16).get!
+
+/-- The emitter gives `emitLit_16` on function 16 (kernel-checked). -/
+theorem emit_eq_16 :
+    Scc.Emit.X64.emitFuncAt loweredLit.1 areasLit loweredLit.1.funcs[16]! emitLit_15.2.1 = .ok emitLit_16 := by
+  kernel_rfl
+
+/-- Function 17's items, next label number and safepoints, at elaboration
+time. -/
+def emitVal_17 : Option (List Scc.Emit.X64.Item × Nat × List (String × List Int × List Int)) :=
+  (Scc.Emit.X64.emitFuncAt loweredLit.1 areasLit loweredLit.1.funcs[17]! emitLit_16.2.1).toOption
+
+/-- Function 17's items, next label number and safepoints, as a literal
+(untrusted, checked by `emit_eq_17`). -/
+def emitLit_17 : (List Scc.Emit.X64.Item × Nat × List (String × List Int × List Int)) :=
+  (scc_lit% emitVal_17).get!
+
+/-- The emitter gives `emitLit_17` on function 17 (kernel-checked). -/
+theorem emit_eq_17 :
+    Scc.Emit.X64.emitFuncAt loweredLit.1 areasLit loweredLit.1.funcs[17]! emitLit_16.2.1 = .ok emitLit_17 := by
+  kernel_rfl
+
+/-- Function 18's items, next label number and safepoints, at elaboration
+time. -/
+def emitVal_18 : Option (List Scc.Emit.X64.Item × Nat × List (String × List Int × List Int)) :=
+  (Scc.Emit.X64.emitFuncAt loweredLit.1 areasLit loweredLit.1.funcs[18]! emitLit_17.2.1).toOption
+
+/-- Function 18's items, next label number and safepoints, as a literal
+(untrusted, checked by `emit_eq_18`). -/
+def emitLit_18 : (List Scc.Emit.X64.Item × Nat × List (String × List Int × List Int)) :=
+  (scc_lit% emitVal_18).get!
+
+/-- The emitter gives `emitLit_18` on function 18 (kernel-checked). -/
+theorem emit_eq_18 :
+    Scc.Emit.X64.emitFuncAt loweredLit.1 areasLit loweredLit.1.funcs[18]! emitLit_17.2.1 = .ok emitLit_18 := by
+  kernel_rfl
+
+/-- Function 19's items, next label number and safepoints, at elaboration
+time. -/
+def emitVal_19 : Option (List Scc.Emit.X64.Item × Nat × List (String × List Int × List Int)) :=
+  (Scc.Emit.X64.emitFuncAt loweredLit.1 areasLit loweredLit.1.funcs[19]! emitLit_18.2.1).toOption
+
+/-- Function 19's items, next label number and safepoints, as a literal
+(untrusted, checked by `emit_eq_19`). -/
+def emitLit_19 : (List Scc.Emit.X64.Item × Nat × List (String × List Int × List Int)) :=
+  (scc_lit% emitVal_19).get!
+
+/-- The emitter gives `emitLit_19` on function 19 (kernel-checked). -/
+theorem emit_eq_19 :
+    Scc.Emit.X64.emitFuncAt loweredLit.1 areasLit loweredLit.1.funcs[19]! emitLit_18.2.1 = .ok emitLit_19 := by
+  kernel_rfl
+
+/-- The functions' items and safepoints, in order. -/
+def emitLits : List (List Scc.Emit.X64.Item × List (String × List Int × List Int)) := [
+    (emitLit_0.1, emitLit_0.2.2),
+    (emitLit_1.1, emitLit_1.2.2),
+    (emitLit_2.1, emitLit_2.2.2),
+    (emitLit_3.1, emitLit_3.2.2),
+    (emitLit_4.1, emitLit_4.2.2),
+    (emitLit_5.1, emitLit_5.2.2),
+    (emitLit_6.1, emitLit_6.2.2),
+    (emitLit_7.1, emitLit_7.2.2),
+    (emitLit_8.1, emitLit_8.2.2),
+    (emitLit_9.1, emitLit_9.2.2),
+    (emitLit_10.1, emitLit_10.2.2),
+    (emitLit_11.1, emitLit_11.2.2),
+    (emitLit_12.1, emitLit_12.2.2),
+    (emitLit_13.1, emitLit_13.2.2),
+    (emitLit_14.1, emitLit_14.2.2),
+    (emitLit_15.1, emitLit_15.2.2),
+    (emitLit_16.1, emitLit_16.2.2),
+    (emitLit_17.1, emitLit_17.2.2),
+    (emitLit_18.1, emitLit_18.2.2),
+    (emitLit_19.1, emitLit_19.2.2)]
+
+/-- The emitter gives each function's literal (`emit_eq_i`, chained). -/
+theorem funcs_eq : Scc.Emit.X64.emitFuncs loweredLit.1 areasLit loweredLit.1.funcs 0 = .ok emitLits := by
+  rw [fns_eq]
+  exact Scc.Emit.X64.emitFuncs_cons emit_eq_0 <|
+    Scc.Emit.X64.emitFuncs_cons emit_eq_1 <|
+    Scc.Emit.X64.emitFuncs_cons emit_eq_2 <|
+    Scc.Emit.X64.emitFuncs_cons emit_eq_3 <|
+    Scc.Emit.X64.emitFuncs_cons emit_eq_4 <|
+    Scc.Emit.X64.emitFuncs_cons emit_eq_5 <|
+    Scc.Emit.X64.emitFuncs_cons emit_eq_6 <|
+    Scc.Emit.X64.emitFuncs_cons emit_eq_7 <|
+    Scc.Emit.X64.emitFuncs_cons emit_eq_8 <|
+    Scc.Emit.X64.emitFuncs_cons emit_eq_9 <|
+    Scc.Emit.X64.emitFuncs_cons emit_eq_10 <|
+    Scc.Emit.X64.emitFuncs_cons emit_eq_11 <|
+    Scc.Emit.X64.emitFuncs_cons emit_eq_12 <|
+    Scc.Emit.X64.emitFuncs_cons emit_eq_13 <|
+    Scc.Emit.X64.emitFuncs_cons emit_eq_14 <|
+    Scc.Emit.X64.emitFuncs_cons emit_eq_15 <|
+    Scc.Emit.X64.emitFuncs_cons emit_eq_16 <|
+    Scc.Emit.X64.emitFuncs_cons emit_eq_17 <|
+    Scc.Emit.X64.emitFuncs_cons emit_eq_18 <|
+    Scc.Emit.X64.emitFuncs_cons emit_eq_19 <|
+    rfl
+
+/-- The rest of the emitter gives `emittedLit` from the functions' literals
+(kernel-checked). -/
+theorem post_eq : Scc.Emit.X64.emitPost loweredLit.1 emitLits = .ok emittedLit := by kernel_rfl
+
+/-- The emitter gives `emittedLit` on the literal IR (`emitItemsMaps_of_stages`:
+the stages above). -/
+theorem emitted_eq : Scc.Emit.X64.emitItemsMaps loweredLit.1 = .ok emittedLit :=
+  Scc.Emit.X64.emitItemsMaps_of_stages pre_eq funcs_eq post_eq
 
 /-- `out` is `outLit` (kernel-checked in three steps, `ofEmitted_of_stages`:
 the lowering and the emitter above, and here the stack need table, the

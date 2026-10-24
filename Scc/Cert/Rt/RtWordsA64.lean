@@ -71,18 +71,9 @@ private theorem symStep_fold : ∀ (L : List (String × Nat)) (cells : List (Dir
     · simpa only [List.foldl_cons, symStep, hmax] using h4
 
 /-- A name `codeOf` does not resolve labels no cell of the program. -/
-theorem ne_label_of_codeOf {x : String} : ∀ {lo : Nat} {prog : Program}, codeOf lo prog x = none →
-    ∀ d ∈ prog, d ≠ .label x
-  | _, [], _ => by simp
-  | lo, d :: ds, h => by
-    simp only [codeOf, labelAddr] at h
-    split at h
-    · cases h
-    · next hne =>
-      intro d' hd'
-      rcases List.mem_cons.mp hd' with rfl | hd'
-      · rintro rfl; exact hne rfl
-      · exact ne_label_of_codeOf (lo := lo + d.fakeSize) h d' hd'
+theorem ne_label_of_codeOf {x : String} {lo : Nat} {prog : Program} (h : codeOf lo prog x = none) :
+    ∀ d ∈ prog, d ≠ .label x :=
+  Link.A64.ne_label_of_codeOf h
 
 /-- **A data symbol at its label** in the canonical loader's thread: a
 symbol `(x, a)` the loader places (`symsOk`), the only symbol named `x`
@@ -162,6 +153,75 @@ theorem label_threadAt_of_sym {E : Entry} {base : Nat} {prog : Program} {syms : 
   simp only [pad]
   omega
 
+/-- **A data symbol at its label, around the code**: in the canonical
+loader's thread with data symbols on both sides of the code (`symsAround`),
+a symbol `(x, a)`, the only address of `x` (`hone`), no cell of the program
+the label `x` (`hcode`), labels `a`. -/
+theorem label_threadAt_of_sym_around {E : Entry} {base : Nat} {prog : Program} {syms : List (String × Nat)}
+    {x : String} {a : Nat} (hsyms : symsAround base prog syms = true) (hmem : (x, a) ∈ syms)
+    (hone : ∀ p ∈ syms, p.1 = x → p.2 = a) (hcode : ∀ d ∈ prog, d ≠ .label x) :
+    (_root_.Executable.labels (threadAt E base prog syms).exe).label x = Int64.ofNat a := by
+  have hpad : ∀ y, (Directive.byteArray (.mk #[]) : Directive) ≠ .label y := fun _ h => by cases h
+  have hlbl : ∀ y z, (Directive.label y : Directive) = .label z → y = z := fun _ _ h => by cases h; rfl
+  have hcells := threadAt_exe_cells E base prog syms
+  have hBs := (Scc.Cert.PlaceSyms.placeBelow_spec (Directive.byteArray (.mk #[])) Directive.label base syms)
+  have hlen : (prog.map (fun d => (d, d.fakeSize))).length = prog.length := List.length_map _
+  rcases out_of_symsAround hsyms (x, a) hmem with hlo | hhi
+  · -- below the code: among the cells before it
+    have hmB : (x, a) ∈ symsBelow base syms := Scc.Cert.PlaceSyms.mem_symsBelow.mpr ⟨hmem, hlo⟩
+    obtain ⟨pre, post, he, hpre, hsum⟩ := Scc.Cert.PlaceSyms.placeBelow_label _ _ hpad hlbl hmB
+      (fun p hp hpx => hone p (Scc.Cert.PlaceSyms.mem_symsBelow.mp hp).1 hpx)
+    rw [he] at hcells
+    have hl := Kraken.Executable.label_addrOf (threadAt E base prog syms).exe x pre.length
+      (by rw [hcells, List.append_assoc, List.getElem?_append_right (by omega)]; simp)
+      (by rw [hcells, List.append_assoc, List.take_left]; exact hpre)
+    rw [hl]
+    unfold Kraken.Executable.addrOf Kraken.Executable.sizeBefore
+    rw [hcells, List.append_assoc, List.take_left]
+    show Int64.ofNat (exeStart base syms) + _ = _
+    rw [← Int64.ofNat_add]
+    congr 1
+    omega
+  · -- above the code: among the cells after it
+    have hmF : (x, a) ∈ symsFrom base syms := Scc.Cert.PlaceSyms.mem_symsFrom.mpr ⟨hmem, by
+      simp only [codeEnd] at hhi; omega⟩
+    obtain ⟨pre, post, he, hpre, hsum⟩ := Scc.Cert.PlaceSyms.placeSyms_label _ _ hpad hlbl hmF hhi
+      (fun p hp hpx => hone p (Scc.Cert.PlaceSyms.mem_symsFrom.mp hp).1 hpx)
+    rw [he] at hcells
+    generalize hB : placeBelow (Directive.byteArray (.mk #[])) Directive.label base syms = B at hcells hBs
+    have hidx : B.length + (prog.length + pre.length) = (B ++ prog.map (fun d => (d, d.fakeSize)) ++ pre).length := by
+      simp
+    replace hcells : (threadAt E base prog syms).exe.2 =
+        (B ++ prog.map (fun d => (d, d.fakeSize)) ++ pre) ++ (Directive.label x, 0) :: post := by
+      rw [hcells]; simp
+    have hl := Kraken.Executable.label_addrOf (threadAt E base prog syms).exe x (B.length + (prog.length + pre.length))
+      (by rw [hcells, hidx, List.getElem?_append_right (Nat.le_refl _)]; simp)
+      (by
+        rw [hcells, hidx, List.take_left]
+        intro dz hdz
+        simp only [List.mem_append, List.mem_map] at hdz
+        rcases hdz with (hdz | ⟨d, hd, rfl⟩) | hdz
+        · rcases hBs.1 dz hdz with ⟨h, -⟩ | ⟨p, hp, rfl⟩
+          · rw [h]; exact hpad x
+          · intro hpx
+            have := hone p (Scc.Cert.PlaceSyms.mem_symsBelow.mp hp).1 (hlbl _ _ hpx)
+            have := (Scc.Cert.PlaceSyms.mem_symsBelow.mp hp).2
+            simp only [codeEnd] at hhi
+            omega
+        · exact hcode d hd
+        · exact hpre dz hdz)
+    rw [hl]
+    unfold Kraken.Executable.addrOf Kraken.Executable.sizeBefore
+    rw [hcells, hidx, List.take_left]
+    simp only [List.map_append, List.sum_append, List.map_map]
+    show Int64.ofNat (exeStart base syms) + _ = _
+    rw [← Int64.ofNat_add]
+    congr 1
+    have : (prog.map ((·.2) ∘ fun d => (d, d.fakeSize))) = prog.map Directive.fakeSize := rfl
+    rw [this]
+    simp only [codeEnd] at hsum
+    omega
+
 /-- **A data symbol's address, decided**: the address `syms` lists for
 `x`, when `x` names no other address and no code label of `prog`. -/
 def symLab (base : Nat) (prog : Program) (syms : List (String × Nat)) (x : String) : Option Nat :=
@@ -169,9 +229,10 @@ def symLab (base : Nat) (prog : Program) (syms : List (String × Nat)) (x : Stri
   | some a => if (codeOf base prog x).isNone && syms.all (fun p => p.1 != x || p.2 == a) then some a else none
   | none => none
 
-/-- **A decided data symbol at its label** in the canonical loader's thread. -/
+/-- **A decided data symbol at its label** in the canonical loader's thread,
+the data symbols around the code (`symsAround`). -/
 theorem label_threadAt_of_symLab {E : Entry} {base : Nat} {prog : Program} {syms : List (String × Nat)}
-    {x : String} {a : Nat} (hsyms : symsOk base prog syms = true) (h : symLab base prog syms x = some a) :
+    {x : String} {a : Nat} (hsyms : symsAround base prog syms = true) (h : symLab base prog syms x = some a) :
     (_root_.Executable.labels (threadAt E base prog syms).exe).label x = Int64.ofNat a := by
   unfold symLab at h
   split at h
@@ -182,7 +243,7 @@ theorem label_threadAt_of_symLab {E : Entry} {base : Nat} {prog : Program} {syms
       simp only [Bool.and_eq_true, Option.isNone_iff_eq_none, List.all_eq_true, Bool.or_eq_true,
         bne_iff_ne, ne_eq, beq_iff_eq] at hc
       obtain ⟨l1, l2, he, -⟩ := List.lookup_eq_some_iff.mp hl
-      refine label_threadAt_of_sym hsyms (by rw [he]; simp) (fun p hp hpx => ?_) (ne_label_of_codeOf hc.1)
+      refine label_threadAt_of_sym_around hsyms (by rw [he]; simp) (fun p hp hpx => ?_) (ne_label_of_codeOf hc.1)
       rcases hc.2 p hp with h | h
       · exact absurd hpx h
       · exact h
@@ -256,9 +317,8 @@ theorem label_of_rtWordsOk (hl : loadOk Λ prog secs = true) (h : rtWordsOk Λ p
     ((_root_.Executable.labels (threadAt E Λ.code.lo prog (loadSyms Λ secs.rodata)).exe).label x).toBitVec =
       rtA Λ prog secs x := by
   simp only [rtWordsOk, Bool.and_eq_true, List.all_eq_true] at h
-  simp only [loadOk, Bool.and_eq_true] at hl
   obtain ⟨a, ha⟩ := Option.isSome_iff_exists.mp (h.1 x hx)
-  rw [label_threadAt_of_symLab hl.2 ha, rtA, ha]
+  rw [label_threadAt_of_symLab (symsAround_of_loadOk hl) ha, rtA, ha]
   simp
 
 /-- The words' side conditions, the pool's and the first stack's. -/

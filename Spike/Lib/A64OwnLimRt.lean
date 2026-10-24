@@ -196,6 +196,7 @@ theorem label_labIn {exe : _root_.Executable} [hv : Kraken.Executable.ValidLayou
   next n hn =>
     obtain ⟨hpn, hfirst⟩ := labelIdx_spec hn
     obtain ⟨z, hz⟩ := getElem?_fst hp hpn
+    rw [Nat.zero_add] at hz
     have hz0 := hv.label_size n l z hz
     subst hz0
     have hnl : n ≤ prog.length := by
@@ -203,6 +204,7 @@ theorem label_labIn {exe : _root_.Executable} [hv : Kraken.Executable.ValidLayou
       · exact Nat.le_of_lt hc
       · rw [List.getElem?_eq_none hc] at hpn; cases hpn
     have htake := hp.take_fst hnl
+    rw [List.drop_zero] at htake
     have hfirst' : ∀ dz ∈ exe.2.take n, dz.1 ≠ Directive.label l := by
       intro dz hdz
       apply hfirst

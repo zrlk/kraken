@@ -79,52 +79,79 @@ theorem labelIdx_spec : ∀ {prog : List Directive} {l : Label} {n : Nat}, label
 
 /-! ## Layouts of a program -/
 
-/-- **`exe` lays out `prog`**: its cells begin with `prog`'s directives (any
-sizes), and no later cell is an instruction (the canonical loader's label
-and padding cells for the data symbols, `Scc.Sem.A64.threadAt`). -/
-structure Lays (exe : Executable) (prog : List Directive) : Prop where
-  pre : (exe.2.take prog.length).map (·.1) = prog
-  rest : ∀ c ∈ exe.2.drop prog.length, ∀ i, c.1 ≠ .instr i
+/-- **`exe` lays out `prog` after `k` cells**: its cells from the `k`-th
+on begin with `prog`'s directives (any sizes), and no later cell is an
+instruction (the canonical loader's label and padding cells for the data
+symbols, `Scc.Sem.A64.threadAt`); no label among the first `k` cells (those
+of the data symbols below the code) is one of `prog`'s. With `k = 0` (the
+default), `prog`'s cells are the first. -/
+structure Lays (exe : Executable) (prog : List Directive) (k : Nat := 0) : Prop where
+  pre : ((exe.2.drop k).take prog.length).map (·.1) = prog
+  rest : ∀ c ∈ exe.2.drop (prog.length + k), ∀ i, c.1 ≠ .instr i
+  head : ∀ c ∈ exe.2.take k, ∀ l, c.1 = .label l → Directive.label l ∉ prog
 
-/-- The end of `prog`'s cells in `exe`: where a thread running `prog` halts. -/
-def endOf (exe : Executable) (prog : List Directive) : Int64 :=
-  exe.1 + .ofNat ((exe.2.take prog.length).map (·.2)).sum
+/-- The end of `prog`'s cells in `exe`, after `k` cells: where a thread
+running `prog` halts. -/
+def endOf (exe : Executable) (prog : List Directive) (k : Nat := 0) : Int64 :=
+  exe.1 + .ofNat ((exe.2.take (prog.length + k)).map (·.2)).sum
 
 /-- An executable of `prog` alone lays it out. -/
 theorem Lays.of_eq {exe : Executable} {prog : List Directive} (hp : exe.2.map (·.1) = prog) : Lays exe prog where
-  pre := by rw [← hp, List.length_map, List.take_length]
-  rest := by intro c hc; rw [← hp, List.length_map, List.drop_length] at hc; simp at hc
+  pre := by rw [List.drop_zero, ← hp, List.length_map, List.take_length]
+  rest := by intro c hc; subst hp; simp at hc
+  head := by simp
 
 /-- In an executable of `prog` alone, `prog` ends at the end of the cells. -/
 theorem endOf_of_eq {exe : Executable} {prog : List Directive} (hp : exe.2.map (·.1) = prog) :
     endOf exe prog = exe.1 + .ofNat (exe.2.map (·.2)).sum := by
-  rw [endOf, ← hp, List.length_map, List.take_length]
+  subst hp
+  simp [endOf]
 
-/-- The first `n ≤ prog.length` cells are `prog`'s first `n` directives. -/
-theorem Lays.take_fst {exe : Executable} {prog : List Directive} (hp : Lays exe prog) {n : Nat}
-    (hn : n ≤ prog.length) : (exe.2.take n).map (·.1) = prog.take n := by
+/-- The `n ≤ prog.length` cells after the first `k` are `prog`'s first `n`
+directives. -/
+theorem Lays.take_fst {exe : Executable} {prog : List Directive} {k : Nat} (hp : Lays exe prog k) {n : Nat}
+    (hn : n ≤ prog.length) : ((exe.2.drop k).take n).map (·.1) = prog.take n := by
   conv => rhs; rw [← hp.pre]
   rw [List.map_take, List.map_take, List.take_take, Nat.min_eq_left hn]
 
-/-- The directives of the cells: `prog`, then no instruction. -/
-theorem Lays.fst_eq {exe : Executable} {prog : List Directive} (hp : Lays exe prog) :
-    exe.2.map (·.1) = prog ++ (exe.2.drop prog.length).map (·.1) := by
-  conv => lhs; rw [← List.take_append_drop prog.length exe.2]
-  rw [List.map_append, hp.pre]
+/-- The directives of the cells after the first `k`: `prog`, then no
+instruction. -/
+theorem Lays.fst_eq {exe : Executable} {prog : List Directive} {k : Nat} (hp : Lays exe prog k) :
+    (exe.2.drop k).map (·.1) = prog ++ (exe.2.drop (prog.length + k)).map (·.1) := by
+  conv => lhs; rw [← List.take_append_drop prog.length (exe.2.drop k)]
+  rw [List.map_append, hp.pre, List.drop_drop, Nat.add_comm k]
 
 /-- The executable's view of the directive list. -/
-theorem getElem?_fst {exe : Executable} {prog : List Directive} (hp : Lays exe prog) {n : Nat}
-    {d : Directive} (h : prog[n]? = some d) : ∃ z, exe.2[n]? = some (d, z) := by
+theorem getElem?_fst {exe : Executable} {prog : List Directive} {k : Nat} (hp : Lays exe prog k) {n : Nat}
+    {d : Directive} (h : prog[n]? = some d) : ∃ z, exe.2[k + n]? = some (d, z) := by
   have hn : n < prog.length := by
     rcases Nat.lt_or_ge n prog.length with hc | hc
     · exact hc
     · rw [List.getElem?_eq_none hc] at h; cases h
-  have h' : (exe.2.map (·.1))[n]? = some d := by
+  have h' : ((exe.2.drop k).map (·.1))[n]? = some d := by
     rw [hp.fst_eq, List.getElem?_append_left hn, h]
-  rw [List.getElem?_map] at h'
-  cases hx : exe.2[n]? with
+  rw [List.getElem?_map, List.getElem?_drop] at h'
+  cases hx : exe.2[k + n]? with
   | none => rw [hx] at h'; cases h'
   | some x => rw [hx] at h'; exact ⟨x.2, by cases h'; rfl⟩
+
+/-- **The first occurrence of a label of `prog`** in the executable is its
+first in `prog`: no cell before it, among the first `k` or `prog`'s, is that
+label. -/
+theorem Lays.first {exe : Executable} {prog : List Directive} {k : Nat} (hp : Lays exe prog k) {l : Label}
+    {n : Nat} (hn : prog[n]? = some (.label l)) (hf : ∀ d ∈ prog.take n, d ≠ .label l) :
+    ∀ dz ∈ exe.2.take (k + n), dz.1 ≠ Directive.label l := by
+  have hnl : n ≤ prog.length := by
+    rcases Nat.lt_or_ge n prog.length with hc | hc
+    · exact Nat.le_of_lt hc
+    · rw [List.getElem?_eq_none hc] at hn; cases hn
+  intro dz hdz
+  rw [List.take_add, List.mem_append] at hdz
+  rcases hdz with hdz | hdz
+  · exact fun he => hp.head dz hdz l he (List.mem_of_getElem? hn)
+  · apply hf
+    rw [← hp.take_fst hnl]
+    exact List.mem_map_of_mem hdz
 
 /-- No cell of `exe` after `prog`'s is an instruction. -/
 theorem takeWhile_append_noIns : ∀ (a t : List Directive), (∀ d ∈ t, isIns d = false) →
@@ -166,8 +193,8 @@ theorem isLabel_of_isIns {d : Directive} (h : isIns d = true) : d.isLabel = fals
 
 /-- **A run of instructions at `pc`** in a layout of `prog` is code there
 (`CodeAt.of_codeAt` with the end address at the end of `prog`'s cells). -/
-theorem codeAt_of_lays {st : State} [hv : Executable.ValidLayout st.exe] {prog : List Directive}
-    (hp : Lays st.exe prog) (hend : st.endPc = endOf st.exe prog) {pc : Int64} {ds : List Directive}
+theorem codeAt_of_lays {st : State} [hv : Executable.ValidLayout st.exe] {prog : List Directive} {k : Nat}
+    (hp : Lays st.exe prog k) (hend : st.endPc = endOf st.exe prog k) {pc : Int64} {ds : List Directive}
     {rest : List (Directive × Nat)} (h : Kraken.Executable.codeAt st.exe pc = ds.map (·, 4) ++ rest)
     (hds : ∀ d ∈ ds, isIns d = true) : CodeAt st pc ds := by
   intro j d hd
@@ -182,13 +209,13 @@ theorem codeAt_of_lays {st : State} [hv : Executable.ValidLayout st.exe] {prog :
   cases d with
   | instr i =>
     exact Kraken.Promising.Lower.A64.cellAt_of_codeAt_instr (st := { st with st := (st.st.1, pc + .ofNat (4 * j)) })
-      hv (List.take_append_drop prog.length st.exe.2).symm hp.rest hend hseg
+      hv (List.take_append_drop (prog.length + k) st.exe.2).symm hp.rest hend hseg
   | _ => simp [isIns] at hi
 
 /-- **The run after a label is code there.** -/
-theorem codeAt_run {exe : Executable} [hv : Executable.ValidLayout exe] {prog : List Directive}
-    (hp : Lays exe prog) {st : State} (he : st.exe = exe)
-    (hend : st.endPc = endOf exe prog) {l : Label} (hl : (labelIdx prog l).isSome) :
+theorem codeAt_run {exe : Executable} [hv : Executable.ValidLayout exe] {prog : List Directive} {k : Nat}
+    (hp : Lays exe prog k) {st : State} (he : st.exe = exe)
+    (hend : st.endPc = endOf exe prog k) {l : Label} (hl : (labelIdx prog l).isSome) :
     CodeAt st ((_root_.Executable.labels exe).label l) (run prog l) := by
   obtain ⟨n, hn⟩ := Option.isSome_iff_exists.mp hl
   obtain ⟨hpn, hfirst⟩ := labelIdx_spec hn
@@ -197,18 +224,14 @@ theorem codeAt_run {exe : Executable} [hv : Executable.ValidLayout exe] {prog : 
     rcases Nat.lt_or_ge n prog.length with hc | hc
     · exact hc
     · rw [List.getElem?_eq_none hc] at hpn; cases hpn
-  have hfirst' : ∀ dz ∈ exe.2.take n, dz.1 ≠ Directive.label l := by
-    intro dz hdz
-    apply hfirst
-    rw [← hp.take_fst (Nat.le_of_lt hnl)]
-    exact List.mem_map_of_mem hdz
-  have hcode := Kraken.Executable.codeAt_label exe hz hfirst'
+  have hcode := Kraken.Executable.codeAt_label exe hz (hp.first hpn hfirst)
+  rw [show k + n + 1 = k + (n + 1) by omega, ← List.drop_drop] at hcode
   simp only [run, hn]
   -- the cells after the label: the run, 4 bytes each, then the rest
-  have h4 : ∀ c ∈ exe.2.drop (n + 1), isIns c.1 = true → c.2 = 4 := by
+  have h4 : ∀ c ∈ (exe.2.drop k).drop (n + 1), isIns c.1 = true → c.2 = 4 := by
     intro c hc hi
     obtain ⟨i, hi'⟩ := List.getElem?_of_mem hc
-    rw [List.getElem?_drop] at hi'
+    rw [List.getElem?_drop, List.getElem?_drop] at hi'
     obtain ⟨d, z⟩ := c
     cases d with
     | instr ins => exact hv.instr_size _ ins z hi'
@@ -230,14 +253,14 @@ theorem codeAt_run {exe : Executable} [hv : Executable.ValidLayout exe] {prog : 
     rw [hsplit] at hcode
     simp only [List.map_cons, List.cons_append, List.dropWhile_cons, hdl] at hcode
     subst he
-    refine codeAt_of_lays hp hend (rest := st.exe.2.drop (n + 1) |>.dropWhile (fun c => isIns c.1)) ?_
+    refine codeAt_of_lays hp hend (rest := (st.exe.2.drop k).drop (n + 1) |>.dropWhile (fun c => isIns c.1)) ?_
       hRi
     simpa using hcode
 
 /-- **A block of the run after a label is code at its address.** -/
-theorem codeAt_blockAt {exe : Executable} [Executable.ValidLayout exe] {prog : List Directive}
-    (hp : Lays exe prog) {st : State} (he : st.exe = exe)
-    (hend : st.endPc = endOf exe prog) {l : Label} {k : Nat} {b : List Directive}
+theorem codeAt_blockAt {exe : Executable} [Executable.ValidLayout exe] {prog : List Directive} {p : Nat}
+    (hp : Lays exe prog p) {st : State} (he : st.exe = exe)
+    (hend : st.endPc = endOf exe prog p) {l : Label} {k : Nat} {b : List Directive}
     (h : blockAt prog l k b = true) :
     CodeAt st ((_root_.Executable.labels exe).label l + Int64.ofNat (4 * k)) b := by
   simp only [blockAt, Bool.and_eq_true, decide_eq_true_eq] at h
@@ -245,8 +268,8 @@ theorem codeAt_blockAt {exe : Executable} [Executable.ValidLayout exe] {prog : L
   rwa [h.2] at this
 
 /-- **The distance between two labels.** -/
-theorem label_labelGap {exe : Executable} [hv : Executable.ValidLayout exe] {prog : List Directive}
-    (hp : Lays exe prog) {a b : Label} {n : Nat} (h : labelGap prog a b n = true) :
+theorem label_labelGap {exe : Executable} [hv : Executable.ValidLayout exe] {prog : List Directive} {k : Nat}
+    (hp : Lays exe prog k) {a b : Label} {n : Nat} (h : labelGap prog a b n = true) :
     (_root_.Executable.labels exe).label b = (_root_.Executable.labels exe).label a + Int64.ofNat (4 * n) := by
   unfold labelGap at h
   split at h
@@ -257,26 +280,19 @@ theorem label_labelGap {exe : Executable} [hv : Executable.ValidLayout exe] {pro
     obtain ⟨hpj, hfj⟩ := labelIdx_spec hj
     obtain ⟨zi, hzi⟩ := getElem?_fst hp hpi
     obtain ⟨zj, hzj⟩ := getElem?_fst hp hpj
-    have hzi0 := hv.label_size i a zi hzi
+    have hzi0 := hv.label_size _ a zi hzi
     have hzj0 := hv.label_size _ b zj hzj
     subst hzi0 hzj0
-    have first (l : Label) (m : Nat) (hm : m ≤ prog.length) (hf : ∀ d ∈ prog.take m, d ≠ .label l) :
-        ∀ dz ∈ exe.2.take m, dz.1 ≠ Directive.label l := by
-      intro dz hdz
-      apply hf
-      rw [← hp.take_fst hm]
-      exact List.mem_map_of_mem hdz
-    have hlen (k : Nat) (l : Label) (h : prog[k]? = some (.label l)) : k ≤ prog.length := by
-      rcases Nat.lt_or_ge k prog.length with hc | hc
-      · exact Nat.le_of_lt hc
-      · rw [List.getElem?_eq_none hc] at h; cases h
-    rw [Kraken.Executable.label_addrOf exe a i hzi (first a i (hlen _ _ hpi) hfi),
-      Kraken.Executable.label_addrOf exe b _ hzj (first b _ (hlen _ _ hpj) hfj)]
+    rw [Kraken.Executable.label_addrOf exe a _ hzi (hp.first hpi hfi),
+      Kraken.Executable.label_addrOf exe b _ hzj (hp.first hpj hfj)]
     -- past the label (0 bytes), then `m` instructions (4 bytes each)
-    have step : ∀ m, m ≤ n → Kraken.Executable.addrOf exe (i + 1 + m) = Kraken.Executable.addrOf exe i + Int64.ofNat (4 * m) := by
+    have step : ∀ m, m ≤ n →
+        Kraken.Executable.addrOf exe (k + (i + 1 + m)) = Kraken.Executable.addrOf exe (k + i) + Int64.ofNat (4 * m) := by
       intro m
       induction m with
-      | zero => intro _; simpa using Kraken.Executable.addrOf_succ exe hzi
+      | zero =>
+        intro _
+        rw [show k + (i + 1 + 0) = k + i + 1 by omega, Kraken.Executable.addrOf_succ exe hzi]
       | succ m ih =>
         intro hm
         have hpm : prog[i + 1 + m]? ∈ ((prog.drop (i + 1)).take n).map some := by
@@ -297,7 +313,7 @@ theorem label_labelGap {exe : Executable} [hv : Executable.ValidLayout exe] {pro
         | instr ins =>
           have hz4 := hv.instr_size _ ins z hz
           subst hz4
-          rw [show i + 1 + (m + 1) = (i + 1 + m) + 1 by omega, Kraken.Executable.addrOf_succ exe hz,
+          rw [show k + (i + 1 + (m + 1)) = k + (i + 1 + m) + 1 by omega, Kraken.Executable.addrOf_succ exe hz,
             ih (by omega), Int64.add_assoc, ← Int64.ofNat_add, show 4 * (m + 1) = 4 * m + 4 by omega]
         | _ => simp [isIns] at hdi
     exact step n (Nat.le_refl n)
@@ -350,16 +366,17 @@ theorem lays_threadAt (E : Entry) (base : Nat) (prog : Program) (syms : List (St
     (h : ∀ p ∈ syms, base ≤ p.2) : Lays (threadAt E base prog syms).exe prog where
   pre := by rw [threadAt_exe_of_above h]; simp [Function.comp_def]
   rest := by
-    rw [threadAt_exe_of_above h]
+    rw [threadAt_exe_of_above h, Nat.add_zero]
     simp only [List.drop_left' (List.length_map _)]
     exact placeSyms_noIns _ _
+  head := by simp
 
 /-- **The canonical loader's thread halts at the end of its program.** -/
 theorem endPc_threadAt (E : Entry) (base : Nat) (prog : Program) (syms : List (String × Nat))
     (h : ∀ p ∈ syms, base ≤ p.2) :
     (threadAt E base prog syms).endPc = endOf (threadAt E base prog syms).exe prog := by
   rw [threadAt_exe_of_above h]
-  simp only [threadAt, endOf, codeEnd, List.take_left' (List.length_map _), List.map_map]
+  simp only [threadAt, endOf, codeEnd, Nat.add_zero, List.take_left' (List.length_map _), List.map_map]
   rw [Int64.ofNat_add]
   rfl
 
@@ -467,6 +484,134 @@ theorem validLayout_threadAt {E : Entry} {base : Nat} {prog : Program} {syms : L
     have : (prog.map ((·.2) ∘ fun d => (d, d.fakeSize))) = prog.map Directive.fakeSize := rfl
     rw [this]
     simp only [codeEnd] at h3 h4
+    omega
+
+/-! ### Data symbols below the code -/
+
+/-- The number of cells the canonical loader places before the code: the
+label and padding cells of the data symbols below it (`placeBelow`); the
+prefix length of `lays_threadAt_below`. -/
+def belowLen (base : Nat) (syms : List (String × Nat)) : Nat :=
+  (placeBelow (Directive.byteArray (.mk #[])) Directive.label base syms).length
+
+/-- The canonical loader's cells: those below the code, the program's, then
+those above it. -/
+theorem threadAt_exe_cells (E : Entry) (base : Nat) (prog : Program) (syms : List (String × Nat)) :
+    (threadAt E base prog syms).exe.2 = placeBelow (.byteArray (.mk #[])) .label base syms ++
+      (prog.map (fun d => (d, d.fakeSize)) ++
+        placeSyms (.byteArray (.mk #[])) .label (codeEnd base prog) (symsFrom base syms)) := by
+  simp only [threadAt, List.append_assoc]
+
+/-- **The canonical loader's thread lays out its program after the cells
+below the code**, when no data symbol below the code is named like a label
+of the program. -/
+theorem lays_threadAt_below (E : Entry) (base : Nat) (prog : Program) (syms : List (String × Nat))
+    (hlab : ∀ p ∈ symsBelow base syms, ∀ d ∈ prog, d ≠ .label p.1) :
+    Lays (threadAt E base prog syms).exe prog (belowLen base syms) where
+  pre := by
+    rw [threadAt_exe_cells, belowLen, List.drop_left, List.take_left' (List.length_map _)]
+    simp [Function.comp_def]
+  rest := by
+    intro c hc i
+    rw [threadAt_exe_cells, belowLen, Nat.add_comm, ← List.drop_drop, List.drop_left,
+      List.drop_left' (List.length_map _)] at hc
+    exact placeSyms_noIns _ _ c hc i
+  head := by
+    intro c hc l hl
+    rw [threadAt_exe_cells, belowLen, List.take_left] at hc
+    rcases (PlaceSyms.placeBelow_spec _ _ base syms).1 c hc with ⟨h, -⟩ | ⟨p, hp, rfl⟩
+    · rw [h] at hl; cases hl
+    · obtain rfl : p.1 = l := by simpa using hl
+      exact fun hm => hlab p hp _ hm rfl
+
+/-- **The canonical loader's thread halts at the end of its program**, the
+cells below the code before it. -/
+theorem endPc_threadAt_below (E : Entry) (base : Nat) (prog : Program) (syms : List (String × Nat)) :
+    (threadAt E base prog syms).endPc = endOf (threadAt E base prog syms).exe prog (belowLen base syms) := by
+  have hB := (PlaceSyms.placeBelow_spec (Directive.byteArray (.mk #[])) Directive.label base syms).2
+  rw [endOf, threadAt_exe_cells, belowLen, Nat.add_comm, List.take_add, List.take_left, List.drop_left,
+    List.take_left' (List.length_map _)]
+  simp only [threadAt, codeEnd, List.map_append, List.sum_append, List.map_map]
+  rw [← Int64.ofNat_add]
+  congr 1
+  have : (prog.map ((·.2) ∘ fun d => (d, d.fakeSize))) = prog.map Directive.fakeSize := rfl
+  rw [this]
+  omega
+
+/-- **The data symbols the canonical loader can place around the code**:
+each below the start of the code or at or above its end, all below the
+start of the executable plus `2⁶⁴`, the code too (the cells fit,
+`validLayout_threadAt_below`). Two symbols may share an address. -/
+def symsAround (base : Nat) (prog : Program) (syms : List (String × Nat)) : Bool :=
+  decide (codeEnd base prog < exeStart base syms + 2 ^ 64) &&
+  syms.all (fun p => (decide (p.2 < base) || decide (codeEnd base prog ≤ p.2)) &&
+    decide (p.2 < exeStart base syms + 2 ^ 64))
+
+/-- The data symbols `symsAround` passes are outside the code. -/
+theorem out_of_symsAround {base : Nat} {prog : Program} {syms : List (String × Nat)}
+    (h : symsAround base prog syms = true) : ∀ p ∈ syms, p.2 < base ∨ codeEnd base prog ≤ p.2 := by
+  intro p hp
+  simp only [symsAround, Bool.and_eq_true, decide_eq_true_eq, List.all_eq_true] at h
+  simpa only [Bool.or_eq_true, decide_eq_true_eq] using (h.2 p hp).1
+
+/-- With no data symbol below the code, no cell is placed before it. -/
+theorem belowLen_of_above {base : Nat} {syms : List (String × Nat)} (h : ∀ p ∈ syms, base ≤ p.2) :
+    belowLen base syms = 0 := by
+  rw [belowLen, PlaceSyms.placeBelow_of_above _ _ h, List.length_nil]
+
+/-- The data symbols `symsOk` passes (all above the code) pass `symsAround`. -/
+theorem symsAround_of_symsOk {base : Nat} {prog : Program} {syms : List (String × Nat)}
+    (h : symsOk base prog syms = true) : symsAround base prog syms = true := by
+  have he := PlaceSyms.exeStart_of_above (above_of_symsOk h)
+  simp only [symsOk, Bool.and_eq_true, decide_eq_true_eq, List.all_eq_true] at h
+  simp only [symsAround, he, Bool.and_eq_true, decide_eq_true_eq, List.all_eq_true, Bool.or_eq_true]
+  refine ⟨by simp only [codeEnd]; omega, fun p hp => ?_⟩
+  have := h.1.2 p hp
+  exact ⟨.inr (Nat.le_of_lt this.1), this.2⟩
+
+/-- The cells `placeBelow` and `placeSyms` place are valid. -/
+private theorem cellOk_of_place {c : Directive × Nat} {P : Prop}
+    (h : (c.1 = Directive.byteArray (.mk #[]) ∧ 0 < c.2) ∨ ∃ p, P ∧ c = (Directive.label (Prod.fst (α := String) (β := Nat) p), 0)) :
+    Kraken.Executable.cellOk c = true := by
+  rcases h with ⟨h, hz⟩ | ⟨p, -, rfl⟩
+  · obtain ⟨d, z⟩ := c
+    simp only at h hz
+    subst h
+    simp [Kraken.Executable.cellOk, hz]
+  · simp [Kraken.Executable.cellOk]
+
+/-- **The canonical loader's thread has a valid layout** when its program
+has no empty data directive and its data symbols pass `symsAround`. -/
+theorem validLayout_threadAt_below {E : Entry} {base : Nat} {prog : Program} {syms : List (String × Nat)}
+    (hcode : prog.all (fun d => Kraken.Executable.cellOk (d, d.fakeSize)) = true)
+    (hsyms : symsAround base prog syms = true) :
+    Kraken.Executable.ValidLayout (threadAt E base prog syms).exe := by
+  simp only [symsAround, Bool.and_eq_true, decide_eq_true_eq, List.all_eq_true] at hsyms
+  obtain ⟨hfit, hab⟩ := hsyms
+  obtain ⟨hB1, hB2⟩ := PlaceSyms.placeBelow_spec (Directive.byteArray (.mk #[])) Directive.label base syms
+  obtain ⟨hA1, hA2⟩ := PlaceSyms.placeSyms_spec (Directive.byteArray (.mk #[])) Directive.label
+    (codeEnd base prog) (symsFrom base syms)
+  have hA := hA2 (exeStart base syms + 2 ^ 64 - 1) (by omega) (fun p hp => by
+    have := (hab p (PlaceSyms.mem_symsFrom.mp hp).1).2; omega)
+  refine Kraken.Executable.validLayout_of_cellsOk _ ?_ ?_
+  · rw [threadAt_exe_cells, List.all_append, List.all_append]
+    simp only [Bool.and_eq_true, List.all_eq_true]
+    refine ⟨fun c hc => ?_, fun c hc => ?_, fun c hc => ?_⟩
+    · rcases hB1 c hc with h | ⟨p, hp, he⟩
+      · exact cellOk_of_place (P := True) (.inl h)
+      · exact cellOk_of_place (P := True) (.inr ⟨p, trivial, he⟩)
+    · obtain ⟨d, hd, rfl⟩ := List.mem_map.mp hc
+      exact List.all_eq_true.mp hcode d hd
+    · rcases hA1 c hc with h | ⟨p, hp, he⟩
+      · exact cellOk_of_place (P := True) (.inl h)
+      · exact cellOk_of_place (P := True) (.inr ⟨p, trivial, he⟩)
+  · rw [threadAt_exe_cells, List.map_append, List.map_append, List.sum_append, List.sum_append, List.map_map]
+    have : (prog.map ((·.2) ∘ fun d => (d, d.fakeSize))) = prog.map Directive.fakeSize := rfl
+    rw [this]
+    generalize ((placeSyms (Directive.byteArray (.mk #[])) Directive.label (codeEnd base prog)
+      (symsFrom base syms)).map (·.2)).sum = S at hA ⊢
+    simp only [codeEnd] at hA hfit
+    have := PlaceSyms.exeStart_le base syms
     omega
 
 end Loaded

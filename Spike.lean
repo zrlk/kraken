@@ -67,8 +67,14 @@ certificate: three declarations, not `Accepted0`, `placeOK` false; x64: `Spike.T
 `Spike.Test.Ret0ReleaseA64`, `Spike.Test.Ret0ReleaseX64` (the release theorems: `ret0.w`'s text is
 `CorrectE` at every admissible entry state, at any layout `Λ` passing `placeOKAt` (`ret0_correct`), given the parse
 check `hpa`; on AArch64 also at the certificate's layout (`ret0_correct_tables`)),
+`Spike.Test.A64StaticImmsOverride`, `Spike.Test.X64StaticImmsOverride` (the release layout's override of `static` and
+`imms` changes nothing the target reads: loader, labels, marks, `InLayout`, `Entry.Ok`, `WF`, `placeOKAt`),
 `Spike.Test.Ret0LinkedX64` (the x64 release theorem at the layout read off the GNU-`ld` executable linked
-from the certificate's text: `placeOKAt` decided there),
+from the certificate's text: `placeOKAt` decided there), `Spike.Test.Ret0LinkedA64` (the AArch64 twin at
+the `ld.lld` executable linked from the certificate's text, `.rodata` below the code: `placeOKAt` decided there),
+`Spike.Test.Hello1LinkedA64` (`hello1.w`, uncertified, at its `ld.lld` executable: placement only, A1–A9 and
+`codeFills` hold and A11 fails there, so `placeOKAt` is false; A2 refuses a `.rodata` label named like a code label
+below the code, `noClash`),
 `Spike.Test.A64SccNegative`, `Spike.Test.X64SccNegative` (release checks at `ret0`'s certificate: the theorem's
 layout loads the listing and its run exits 42; the listing with `40` made `41` parses to the corrupted program, which
 fails A9, so `placeOK` is false; `Spike/Gen/drift.sh` checks the generated files against scc's output),

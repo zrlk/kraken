@@ -57,9 +57,9 @@ theorem lab_toNat {l : String} {a : Nat} (ha : codeLabel (Λ).code.lo o.prog l =
   haveI : Kraken.Executable.ValidLayout (Scc.Sem.X64.threadAt Scc.Sem.Entry.linux (Λ).code.lo
       o.prog (Scc.Sem.loadSyms (RuntimeLayout.ofPlaceOK h i).Λ o.secs.rodata)).exe :=
     (RuntimeLayout.ofPlaceOK h i).valid
-  have hlab := Scc.Cert.Rt.X64.label_threadAt_of_codeLabel (E := Scc.Sem.Entry.linux)
+  have hlab := Scc.Cert.Rt.X64.label_threadAt_of_codeLabel_below (E := Scc.Sem.Entry.linux)
     (syms := Scc.Sem.loadSyms (RuntimeLayout.ofPlaceOK h i).Λ o.secs.rodata)
-        (by exact Spike.Lib.X64.Rt.RuntimeLayout.ofPlaceOK_above h i) ha
+        (by exact Spike.Lib.X64.Rt.RuntimeLayout.ofPlaceOK_below h i ha) ha
   have hlt : a < 2 ^ 64 :=
     Nat.lt_of_le_of_lt (Spike.Lib.X64.PhRec.le_codeEnd_of_codeLabel ha) (Spike.Lib.X64.PhRec.codeEnd_lt h i)
   have hlab' : (RuntimeLayout.ofPlaceOK h i).lab l = Int64.ofNat a := hlab

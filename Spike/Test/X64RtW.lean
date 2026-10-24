@@ -211,4 +211,18 @@ example {n : ND} {z : Nat} {l : Label} {off : Nat} {p : Int64}
 
 end Node
 
+/-- **Code at a loaded thread with data symbols below the code**: the
+generic code lemmas take the prefix (`belowLen`) of the canonical loader's
+thread, from `lays_threadAt_below` and `endPc_threadAt_below`. -/
+example (E : Scc.Sem.Entry) (base : Nat) (syms : List (String × Nat))
+    (hlab : ∀ p ∈ Scc.Sem.symsBelow base syms, ∀ c ∈ ret0Cells, c.1 ≠ .label p.1)
+    [Kraken.Executable.ValidLayout (Scc.Sem.X64.threadAt E base ret0Cells syms).exe] {st : State}
+    (he : st.exe = (Scc.Sem.X64.threadAt E base ret0Cells syms).exe)
+    (hend : st.endPc = (Scc.Sem.X64.threadAt E base ret0Cells syms).endPc) {l : Label} {off : Nat}
+    {b : List (Directive × Nat)} (h : blockAtB ret0Cells l off b = true) :
+    CodeAt st ((_root_.Executable.labels (Scc.Sem.X64.threadAt E base ret0Cells syms).exe).label l
+      + Int64.ofNat off) b :=
+  Scc.Cert.Rt.X64.codeAt_blockAtB (Scc.Cert.Link.X64.lays_threadAt_below E base ret0Cells syms hlab) he
+    (hend.trans (Scc.Cert.Link.X64.endPc_threadAt_below E base ret0Cells syms)) h
+
 end Spike.Lib.X64.Rt.Test

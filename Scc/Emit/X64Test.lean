@@ -503,9 +503,9 @@ info: items 137: instr 84, label 14, directive 33, comment 1, blank 5, raw 0
 #guard_msgs in
 #eval IO.println (summary (emitItems helloIR))
 
--- `allOpsIR`
+-- `allOpsIR` (one of its functions has a zero-byte frame: its `subq $0, %rsp` is counted)
 /--
-info: items 637: instr 539, label 36, directive 47, comment 7, blank 8, raw 0
+info: items 638: instr 540, label 36, directive 47, comment 7, blank 8, raw 0
   round trip: ok
   meaning: ok
 -/

@@ -28,8 +28,8 @@ abbrev printLRet (lab : Label → Int64) : BitVec 64 :=
 /-- **`wc_printL`'s `hms`**, given the calls to `scc_rt_grow` and
 `scc_rt_stack_release` (`seg_ms_call`). -/
 theorem hms_printL {γ : Sort _} {Rg : γ → Region} {Fg : γ → MachineData → Prop} {fp : γ → BitVec 64}
-    {prog : List Directive} [Kraken.Executable.ValidLayout exe] (hp : Lays exe prog)
-    (hend : endPc = endOf exe prog) (hprog : morestackIn prog = true)
+    {prog : List Directive} [Kraken.Executable.ValidLayout exe] {kp : Nat} (hp : Lays exe prog kp)
+    (hend : endPc = endOf exe prog kp) (hprog : morestackIn prog = true)
     (hR : ∀ g, (Rg g).OK) (hF : ∀ g, FStable (Rg g) (Fg g)) (hal : ∀ g, (Rg g).base.toNat % 16 = 0)
     (hlo : ∀ g, (Rg g).lo ≤ -160) (hhi : ∀ g, 0 ≤ (Rg g).hi)
     (hsp : (_root_.Executable.labels exe).label ".L21_wc_printL.sp_check" =

@@ -64,14 +64,14 @@ private theorem gaps (h : printLIn prog = true) :
   exact h.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2
 
 /-- `.stack_check` at `wc_printL` (`seg_printL`'s `hcheck`). -/
-theorem check_printL (hp : Lays exe prog) (h : printLIn prog = true) :
+theorem check_printL {kp : Nat} (hp : Lays exe prog kp) (h : printLIn prog = true) :
     (_root_.Executable.labels exe).label ".L21_wc_printL.stack_check" =
       (_root_.Executable.labels exe).label "wc_printL" := by
   rw [label_labelGap hp (gaps h).1, add0]
 
 set_option linter.unusedSimpArgs false in
 /-- `.0_entry` 14 instructions behind `wc_printL` (`seg_printL`'s `hentry`). -/
-theorem entry_printL (hp : Lays exe prog) (h : printLIn prog = true) :
+theorem entry_printL {kp : Nat} (hp : Lays exe prog kp) (h : printLIn prog = true) :
     (_root_.Executable.labels exe).label ".L21_wc_printL.0_entry" =
       (_root_.Executable.labels exe).label "wc_printL" + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4
         + 4 := by
@@ -79,7 +79,7 @@ theorem entry_printL (hp : Lays exe prog) (h : printLIn prog = true) :
 
 set_option linter.unusedSimpArgs false in
 /-- `.sp_check` 14 instructions behind `.stack_grow`. -/
-theorem spGap_printL (hp : Lays exe prog) (h : printLIn prog = true) :
+theorem spGap_printL {kp : Nat} (hp : Lays exe prog kp) (h : printLIn prog = true) :
     (_root_.Executable.labels exe).label ".L21_wc_printL.sp_check" =
       (_root_.Executable.labels exe).label ".L21_wc_printL.stack_grow" + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4
         + 4 + 4 + 4 + 4 + 4 := by
@@ -87,7 +87,7 @@ theorem spGap_printL (hp : Lays exe prog) (h : printLIn prog = true) :
 
 set_option linter.unusedSimpArgs false in
 /-- **The layout of `wc_printL`** (`seg_printL`'s `hcode`). -/
-theorem code_printL (hp : Lays exe prog) (hend : endPc = endOf exe prog) (h : printLIn prog = true)
+theorem code_printL {kp : Nat} (hp : Lays exe prog kp) (hend : endPc = endOf exe prog kp) (h : printLIn prog = true)
     (c0 : Ctl) (x29 ra : BitVec 64) : Code c0 x29 ra exe endPc := by
   have hc := check_printL hp h
   simp only [printLIn, Bool.and_eq_true, and_assoc] at h
@@ -114,7 +114,7 @@ theorem code_printL (hp : Lays exe prog) (hend : endPc = endOf exe prog) (h : pr
   · exact code_field hp hend h18 (by simp only [N, add4, add0])
 
 /-- `.sp_check` at the grow stub's return address (`hms_printL`'s `hsp`). -/
-theorem sp_printL (hp : Lays exe prog) (h : printLIn prog = true) :
+theorem sp_printL {kp : Nat} (hp : Lays exe prog kp) (h : printLIn prog = true) :
     (_root_.Executable.labels exe).label ".L21_wc_printL.sp_check" =
       Int64.ofBitVec (Scc.Cert.Rt.A64.Morestack.printLRet (_root_.Executable.labels exe).label) := by
   rw [spGap_printL hp h]

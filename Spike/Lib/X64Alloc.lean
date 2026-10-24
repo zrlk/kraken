@@ -595,8 +595,9 @@ return or its heap abort, in any valid layout of cells holding its code
 (`seg_alloc` is the frame condition `DFrame R m0`): the counter and every
 header the code may store are unmapped in private memory in every memory of
 `F` (`hmem`); its nodes' states lie in `W`, none moved by `K` (`hW`). -/
-theorem seg_allocW {W : Frag isa} {K : State → State → Prop} {F : MachineData → Prop} (hp : Lays exe cells)
-    (hend : endPc = endOf exe cells) (hin : allocIn cells = true) (hF : FStable R F) (hR : R.OK)
+theorem seg_allocW {W : Frag isa} {K : State → State → Prop} {F : MachineData → Prop} {kp : Nat}
+    (hp : Lays exe cells kp)
+    (hend : endPc = endOf exe cells kp) (hin : allocIn cells = true) (hF : FStable R F) (hR : R.OK)
     (hlo : R.lo ≤ -160) (hhi : 8 ≤ R.hi) (hq : q.OK ms (_root_.Executable.labels exe).label)
     (hmem : ∀ a : BitVec 64,
       (a = BitVec.ofNat 64 ms.ctr ∨ ∃ o, o + ms.units q.n q.τ ≤ ms.cells ∧ a.toNat = q.hdrAt ms o) →
@@ -878,7 +879,7 @@ for a call satisfying `Call.OK`, with the counter and every header the code
 may store outside the frame and unmapped in private memory (`hmem`). The
 return is into the allocation's continuation (`hxa`: every state at `Ea`
 for a fresh label is one `ms.xa` continues in). -/
-theorem seg_alloc (hp : Lays exe cells) (hend : endPc = endOf exe cells) (hin : allocIn cells = true)
+theorem seg_alloc {kp : Nat} (hp : Lays exe cells kp) (hend : endPc = endOf exe cells kp) (hin : allocIn cells = true)
     (hR : R.OK) (hlo : R.lo ≤ -160) (hhi : 8 ≤ R.hi) (hq : q.OK ms (_root_.Executable.labels exe).label)
     (hmem : ∀ a : BitVec 64,
       (a = BitVec.ofNat 64 ms.ctr ∨ ∃ o, o + ms.units q.n q.τ ≤ ms.cells ∧ a.toNat = q.hdrAt ms o) →

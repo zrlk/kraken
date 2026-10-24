@@ -136,7 +136,7 @@ variable {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe] {endPc : 
 /-- **A label address pair** `adrp x9, L; add x9, x9, :lo12:L` at `l`, `k`
 before the take: both nodes inside `SFacts`, each off the sites, in its next
 pc's phase and not in the take's phase. -/
-theorem pairW_pre (hI : InstOk exe endPc prog lab μ own Tk K okPc ph) {L l : Label} {k : Nat} {sp : Int} {n : ND}
+theorem pairW_pre {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp) {L l : Label} {k : Nat} {sp : Int} {n : ND}
     (hb1 : blockAt prog l k [(SI.adrp .X9 L).toDir] = true)
     (hb2 : blockAt prog l (k + 1) [(SI.addLo12 .X9 .X9 L).toDir] = true)
     (hp : n.pc = lab l + Int64.ofNat (4 * k)) (hC : ∀ σ c, n.J σ c → CFacts Λ lbl c)
@@ -168,7 +168,7 @@ theorem takeW_gen {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe] 
     {prog : List Directive} {lab : Label → Int64} {μ : Marks} {own : Own} {Tk : State → Prop}
     {K : State → State → Prop} {okPc : Nat → Bool} {ph : Nat → Nat} {Λ : Scc.Sem.Layout} {rS : Range} {lbl : Lbl}
     {ownOf : Nat → List (Loc × Val)} {ra : Label → Int64} {c0 : Ctl} {F : MachineData → Prop}
-    (hI : InstOk exe endPc prog lab μ own Tk K okPc ph) (hown : ∀ s, own s = ownOf (ph (pcOf s)))
+    {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp) (hown : ∀ s, own s = ownOf (ph (pcOf s)))
     (hin : stackTakeIn prog = true) (hC0 : CFacts Λ lbl c0)
     {R : Region} (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -208) (hhi : 0 ≤ R.hi) (q : TakeG)
     (hq : q.c0 = c0) (hra : q.g.ra = (ra siteL).toBitVec) (hph : TakePh okPc ph Tk ownOf μ lab ra)

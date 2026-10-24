@@ -18,10 +18,14 @@ the layout:
 - `E.sp < 2 ^ 63`: the stack pointer is a user address.
 
 The four conjuncts are fixed constants, not a computed need of the program.
-Trusted (release note): Linux's initial stack pointer is 16-aligned, below
-`2 ^ 63`, at least `2 ^ 32 + 65536`, with at least 64 KiB of mapped zero
-bytes below it; a certificate decides `Entry.Ok` at one witness (e.g.
-`⟨⟨2 ^ 32, 65536⟩⟩`).
+Trusted (release note): Linux starts a static executable with its stack
+pointer 16-aligned and below `2 ^ 63`, with at least 64 KiB of mapped zero
+bytes below it, disjoint from the code, `.rodata` and the data regions; so
+its entry state satisfies `Entry.Ok`. `Entry.Ok` admits any stack inside
+`2 ^ 64` disjoint from the code, `.rodata` and the data regions, above or
+below them. That the quantifier is inhabited is a separate, proved fact: a
+layout ending at or below `2 ^ 32` admits the witness `⟨⟨2 ^ 32, 65536⟩⟩`
+(`Entry.ok_witness`).
 -/
 import Scc.Sem.Target
 

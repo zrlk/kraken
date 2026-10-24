@@ -135,7 +135,7 @@ theorem off {rS : Range}
 and labels, `same` and `off`. -/
 theorem instOk {rS : Range}
     (hsite : (μ L).site .take = some (L.lab Spike.Lib.X64.Flow.Ret0.StackTake.siteL).toBitVec.toNat) :
-    InstOk L.exe L.endPc L.prog L.lab (μ L) (own L) (Tk L) (K L rS) (okPc L) (ph L) :=
+    InstOk L.exe L.endPc L.prog L.lab (μ L) (own L) (Tk L) (K L rS) (okPc L) (ph L) L.pfx :=
   ⟨L.lays, rfl, rfl, same L, off L hsite⟩
 
 /-- **The canonical target's marks** of a text whose cells are the
@@ -215,10 +215,8 @@ end Rec
 /-! ## The take site at its label, from the placement check
 
 A code label's address is below the code's end (`le_codeEnd_of_codeLabel`),
-which every data symbol the loader places lies above (`symsOk`); a runtime
-word's symbol lies in a region of the link or in `.rodata`, both in the
-address space, so the code's end is in it (`codeEnd_lt`), and the take
-site's label is its `codeLabel` address unwrapped. -/
+which is in the address space (A2's `codeEnd_lt_of_loadOk`: `codeEnd_lt`),
+and the take site's label is its `codeLabel` address unwrapped. -/
 
 section Place
 
@@ -287,25 +285,8 @@ include h
 
 /-- **The code's end is in the address space** of an output passing
 `placeOK`. -/
-theorem codeEnd_lt : Scc.Sem.X64.codeEnd (RuntimeLayout.ofPlaceOK h i).Λ.code.lo o.prog < 2 ^ 64 := by
-  have hl := loadOk_link_of_placeOKAt i h
-  have hw := rtWordsOk_link_of_placeOKAt i h
-  have hwf := wf_link_of_placeOKAt i h
-  simp only [Scc.Cert.Link.X64.loadOk, Bool.and_eq_true] at hl
-  obtain ⟨⟨⟨⟨⟨-, hro⟩, -⟩, -⟩, -⟩, hsy⟩ := hl
-  simp only [Scc.Cert.Rt.X64.rtWordsOk, Bool.and_eq_true, List.all_eq_true] at hw
-  obtain ⟨a, ha⟩ := Option.isSome_iff_exists.mp (hw.1 "scc_rt_pinned_next" (by decide))
-  unfold Scc.Cert.Rt.X64.symLab at ha
-  split at ha
-  · next a' hlk =>
-    obtain ⟨l1, l2, he, -⟩ := List.lookup_eq_some_iff.mp hlk
-    have hmem : ("scc_rt_pinned_next", a') ∈ l1 ++ ("scc_rt_pinned_next", a') :: l2 := by simp
-    rw [← he] at hmem
-    have hle := sym_le hwf hro hmem
-    simp only [Scc.Cert.Link.X64.symsOk, Bool.and_eq_true, List.all_eq_true, decide_eq_true_eq] at hsy
-    have := (hsy.1 _ hmem).1
-    exact Nat.lt_of_lt_of_le this hle
-  · cases ha
+theorem codeEnd_lt : Scc.Sem.X64.codeEnd (RuntimeLayout.ofPlaceOK h i).Λ.code.lo o.prog < 2 ^ 64 :=
+  Scc.Cert.Link.X64.codeEnd_lt_of_loadOk (loadOk_link_of_placeOKAt i h)
 
 /-- **The take site at its label** in the loaded thread of an output
 passing `placeOK`. -/
@@ -343,9 +324,9 @@ theorem site_ofPlaceOK :
     haveI : Kraken.Executable.ValidLayout (Scc.Sem.X64.threadAt Scc.Sem.Entry.linux (Λ).code.lo
         o.prog (Scc.Sem.loadSyms (RuntimeLayout.ofPlaceOK h i).Λ o.secs.rodata)).exe :=
       (RuntimeLayout.ofPlaceOK h i).valid
-    have hlab := Scc.Cert.Rt.X64.label_threadAt_of_codeLabel (E := Scc.Sem.Entry.linux)
+    have hlab := Scc.Cert.Rt.X64.label_threadAt_of_codeLabel_below (E := Scc.Sem.Entry.linux)
       (syms := Scc.Sem.loadSyms (RuntimeLayout.ofPlaceOK h i).Λ o.secs.rodata)
-          (by exact Spike.Lib.X64.Rt.RuntimeLayout.ofPlaceOK_above h i) ha
+          (by exact Spike.Lib.X64.Rt.RuntimeLayout.ofPlaceOK_below h i ha) ha
     have hlt : a < 2 ^ 64 :=
       Nat.lt_of_le_of_lt (le_codeEnd_of_codeLabel ha) (codeEnd_lt h i)
     show codeLabel (Λ).code.lo o.prog "scc_rt_take_site" = _
@@ -365,16 +346,16 @@ theorem abortPhOk_ofPlaceOK :
       o.prog (Scc.Sem.loadSyms (RuntimeLayout.ofPlaceOK h i).Λ o.secs.rodata)).exe :=
     (RuntimeLayout.ofPlaceOK h i).valid
   exact Spike.Lib.X64.StubW.abortPhOk_of_abortPhC (abortPh_of_placeOKAt h) fun _ _ ha =>
-    Scc.Cert.Rt.X64.label_threadAt_of_codeLabel (E := Scc.Sem.Entry.linux)
+    Scc.Cert.Rt.X64.label_threadAt_of_codeLabel_below (E := Scc.Sem.Entry.linux)
       (syms := Scc.Sem.loadSyms (RuntimeLayout.ofPlaceOK h i).Λ o.secs.rodata)
-          (by exact Spike.Lib.X64.Rt.RuntimeLayout.ofPlaceOK_above h i) ha
+          (by exact Spike.Lib.X64.Rt.RuntimeLayout.ofPlaceOK_below h i ha) ha
 
 /-- **The record's instance's facts** of an output passing `placeOK`. -/
 theorem instOk_ofPlaceOK {rS : Range} :
     InstOk (RuntimeLayout.ofPlaceOK h i).exe (RuntimeLayout.ofPlaceOK h i).endPc o.prog
       (RuntimeLayout.ofPlaceOK h i).lab (μ (RuntimeLayout.ofPlaceOK h i)) (own (RuntimeLayout.ofPlaceOK h i))
       (Tk (RuntimeLayout.ofPlaceOK h i)) (K (RuntimeLayout.ofPlaceOK h i) rS) (okPc (RuntimeLayout.ofPlaceOK h i))
-      (ph (RuntimeLayout.ofPlaceOK h i)) :=
+      (ph (RuntimeLayout.ofPlaceOK h i)) (RuntimeLayout.ofPlaceOK h i).pfx :=
   instOk _ (site_ofPlaceOK h i)
 
 end Place

@@ -42,9 +42,9 @@ phase factoring through `ph` of the pc; an off-site pc (`okPc`) off the
 marks' sites, with no outside move. -/
 structure InstOk (exe : _root_.Executable) (endPc : Int64) (cells : List (Directive × Nat))
     (lab : Label → Int64) (μ : Marks) (own : Own) (Tk : State → Prop) (K : State → State → Prop)
-    (okPc : Nat → Bool) (ph : Nat → Nat) : Prop where
-  lays : Lays exe cells
-  endOk : endPc = endOf exe cells
+    (okPc : Nat → Bool) (ph : Nat → Nat) (kp : Nat := 0) : Prop where
+  lays : Lays exe cells kp
+  endOk : endPc = endOf exe cells kp
   labOk : (_root_.Executable.labels exe).label = lab
   same : ∀ s s' : State, ph (pcOf s') = ph (pcOf s) → own s' = own s ∧ (Tk s' ↔ Tk s)
   off : ∀ s : State, okPc (pcOf s) = true → PcOff μ s ∧ ∀ s', ¬ K s s'
@@ -56,7 +56,7 @@ variable {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe] {endPc : 
   {K : State → State → Prop} {okPc : Nat → Bool} {ph : Nat → Nat} {Λ : Scc.Sem.Layout} {rS : Range} {lbl : Lbl}
 
 /-- A block of the cells at its label, in the loaded thread. -/
-theorem codeOf (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {l : Label} {off : Nat}
+theorem codeOf {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp) {l : Label} {off : Nat}
     {b : List (Directive × Nat)} (hb : blockAtB cells l off b = true) {s : State} (hs : s.exe = exe)
     (hn : s.endPc = endPc) : CodeAt s (lab l + Int64.ofNat off) b :=
   code_field hI.lays hI.endOk hb (by rw [hI.labOk]) s hs hn
@@ -115,7 +115,8 @@ theorem stackOff_callee {R : Region} (hR : R.OK) (hb : R.base.toNat % 8 = 0) (hl
 at the node (`hC`), the phase check (`hph`), every `ret` returning to `ra`
 (`hret`), its dead targets never reached (`hdead`), and its entry not in
 the take's phase (`hT`). -/
-theorem blkW_pre (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {R : Region} {F : MachineData → Prop}
+theorem blkW_pre {kp : Nat}
+    (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp) {R : Region} {F : MachineData → Prop}
     {n : ND} {blk : List (Directive × Nat)} {lo hi : Int} {dead : Nat → Bool} {ra : Int64} {l : Label}
     {off : Nat} (hb : blockAtB cells l off blk = true) (he : lab l + Int64.ofNat off = n.pc)
     (hok : okBlk lo hi n.o blk = true) (hR : R.OK) (hlo : R.lo ≤ lo) (hhi : hi ≤ R.hi)
@@ -139,7 +140,8 @@ theorem blkW_pre (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {R : Regi
 /-- **A covered block after the take** is inside `SFacts`: as `blkW_pre`
 without the entry's phase, its frame condition also `StackM rS` (kept by
 the region's writes, `hSM`) and `rS` in the pool (`hsub`). -/
-theorem blkW_post (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {R : Region} {F : MachineData → Prop}
+theorem blkW_post {kp : Nat}
+    (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp) {R : Region} {F : MachineData → Prop}
     {n : ND} {blk : List (Directive × Nat)} {lo hi : Int} {dead : Nat → Bool} {ra : Int64} {l : Label}
     {off : Nat} (hb : blockAtB cells l off blk = true) (he : lab l + Int64.ofNat off = n.pc)
     (hok : okBlk lo hi n.o blk = true) (hR : R.OK) (hlo : R.lo ≤ lo) (hhi : hi ≤ R.hi)
@@ -165,7 +167,8 @@ theorem blkW_post (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {R : Reg
 /-- **A covered block after the switch**, in an 8-aligned region whose
 frame condition gives the words of `rS` off it (`hFO`): as `blkW_post`,
 `rS` not wrapping (`hfit`). -/
-theorem blkW_postO (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {R : Region} {F : MachineData → Prop}
+theorem blkW_postO {kp : Nat}
+    (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp) {R : Region} {F : MachineData → Prop}
     {n : ND} {blk : List (Directive × Nat)} {lo hi : Int} {dead : Nat → Bool} {ra : Int64} {l : Label}
     {off : Nat} (hb : blockAtB cells l off blk = true) (he : lab l + Int64.ofNat off = n.pc)
     (hok : okBlk lo hi n.o blk = true) (hR : R.OK) (hlo : R.lo ≤ lo) (hhi : hi ≤ R.hi)
@@ -192,7 +195,8 @@ theorem blkW_postO (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {R : Re
 /-- **A row before the take** inside `SFacts`, its phase check from
 `RtNodesOk` (`hN`; the row not a site's `nop`, `hs`), its cover at the row's
 offsets (A5). -/
-theorem blkW_pre_row (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {dead : Label → Nat → Nat → Bool}
+theorem blkW_pre_row {kp : Nat}
+    (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp) {dead : Label → Nat → Nat → Bool}
     {ra : Label → Int64} {gs : List OGrp} (hN : RtNodesOk okPc ph dead lab ra gs) {g : OGrp} (hg : g ∈ gs)
     {b : OBlk} (hbm : b ∈ g.bs) (hs : b.blk ≠ siteBlk) {R : Region} {F : MachineData → Prop} {n : ND}
     (hb : blockAtB cells g.l b.off b.blk = true) (he : lab g.l + Int64.ofNat b.off = n.pc) (ho : n.o = b.o)
@@ -207,7 +211,8 @@ theorem blkW_pre_row (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {dead
   blkW_pre hI hb he (ho ▸ hok) hR hlo hhi hC (hN.row hg hbm hs) hret hdead hT
 
 /-- **A row after the take** inside `SFacts`, as `blkW_post`. -/
-theorem blkW_post_row (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {dead : Label → Nat → Nat → Bool}
+theorem blkW_post_row {kp : Nat}
+    (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp) {dead : Label → Nat → Nat → Bool}
     {ra : Label → Int64} {gs : List OGrp} (hN : RtNodesOk okPc ph dead lab ra gs) {g : OGrp} (hg : g ∈ gs)
     {b : OBlk} (hbm : b ∈ g.bs) (hs : b.blk ≠ siteBlk) {R : Region} {F : MachineData → Prop} {n : ND}
     (hb : blockAtB cells g.l b.off b.blk = true) (he : lab g.l + Int64.ofNat b.off = n.pc) (ho : n.o = b.o)
@@ -223,7 +228,8 @@ theorem blkW_post_row (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {dea
 
 /-- **A row after the switch, the words of `rS` off its region from the
 frame condition**, as `blkW_postO`. -/
-theorem blkW_postO_row (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {dead : Label → Nat → Nat → Bool}
+theorem blkW_postO_row {kp : Nat}
+    (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp) {dead : Label → Nat → Nat → Bool}
     {ra : Label → Int64} {gs : List OGrp} (hN : RtNodesOk okPc ph dead lab ra gs) {g : OGrp} (hg : g ∈ gs)
     {b : OBlk} (hbm : b ∈ g.bs) (hs : b.blk ≠ siteBlk) {R : Region} {F : MachineData → Prop} {n : ND}
     (hb : blockAtB cells g.l b.off b.blk = true) (he : lab g.l + Int64.ofNat b.off = n.pc) (ho : n.o = b.o)
@@ -253,7 +259,8 @@ variable {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe] {endPc : 
   {R : Region} {F : MachineData → Prop}
 
 /-- An instruction of the cells at its label, in the loaded thread. -/
-theorem cellOf (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {l : Label} {off z : Nat} {d : Directive}
+theorem cellOf {kp : Nat}
+    (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp) {l : Label} {off z : Nat} {d : Directive}
     {p : Int64} (hb : blockAtB cells l off [(d, z)] = true) (he : lab l + Int64.ofNat off = p) {s : State}
     (hs : s.exe = exe) (hn : s.endPc = endPc) (hpc : s.st.2 = p) : CellAt s d z :=
   (codeOf hI hb hs hn).cell0 rfl rfl (hpc.trans he.symm)
@@ -261,7 +268,7 @@ theorem cellOf (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {l : Label}
 omit [Kraken.Executable.ValidLayout exe] in
 /-- Past an instruction of `z` bytes at `p` whose next pc has its phase, a
 state owns what it owns and is in the take's phase iff it is. -/
-theorem next_same (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {s : State} {p : Int64} {z : Nat}
+theorem next_same {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp) {s : State} {p : Int64} {z : Nat}
     (hpc : s.st.2 = p) (hph : ph (p + Int64.ofNat z).toBitVec.toNat = ph p.toBitVec.toNat) :
     ∀ m, own (after s z m) = own s ∧ (Tk (after s z m) ↔ Tk s) :=
   fun _ => hI.same _ _ (by
@@ -298,7 +305,8 @@ omit [Kraken.Executable.ValidLayout exe] in
 /-- **A node before the take**, at `p` off the sites (`hok`), not in the
 take's phase (`hT`): its states are inside `SFacts` given it with `PcOff`
 and the range owned in the take's phase. -/
-theorem nodeW_pre (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {n : ND} {p : Int64} (hp : n.pc = p)
+theorem nodeW_pre {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp) {n : ND} {p : Int64}
+    (hp : n.pc = p)
     (hok : okPc p.toBitVec.toNat = true) (hT : ∀ s : State, pcOf s = p.toBitVec.toNat → ¬ Tk s)
     (h : ∀ s c σ, s.exe = exe → s.endPc = endPc → s.decls = {} → s.st.2 = p → Abs R n.o s.st.1 σ →
       F s.st.1 → n.J σ c → PcOff μ s → (Tk s → Owned Λ rS s) → SFacts Λ μ own rS Tk lbl s c) :
@@ -312,7 +320,8 @@ theorem nodeW_pre (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {n : ND}
 omit [Kraken.Executable.ValidLayout exe] in
 /-- **A node after the take**, at `p` off the sites: as `nodeW_pre`, its
 frame condition also `StackM rS` and `rS` in the pool (`hsub`). -/
-theorem nodeW_post (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {n : ND} {p : Int64} (hp : n.pc = p)
+theorem nodeW_post {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp) {n : ND} {p : Int64}
+    (hp : n.pc = p)
     (hok : okPc p.toBitVec.toNat = true) (hsub : rS.Sub Λ.stackPool)
     (h : ∀ s c σ, s.exe = exe → s.endPc = endPc → s.decls = {} → s.st.2 = p → Abs R n.o s.st.1 σ →
       F s.st.1 → n.J σ c → PcOff μ s → (Tk s → Owned Λ rS s) → SFacts Λ μ own rS Tk lbl s c) :
@@ -328,7 +337,8 @@ theorem nodeW_post (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {n : ND
 omit [Kraken.Executable.ValidLayout exe] in
 /-- **A node after the switch**, in an 8-aligned region whose frame
 condition gives the words of `rS` off it (`hFO`): as `nodeW_post`. -/
-theorem nodeW_postO (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {n : ND} {p : Int64} (hp : n.pc = p)
+theorem nodeW_postO {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp) {n : ND} {p : Int64}
+    (hp : n.pc = p)
     (hok : okPc p.toBitVec.toNat = true)
     (hR : R.OK) (hb : R.base.toNat % 8 = 0) (hl : R.lo % 8 = 0) (hh : R.hi % 8 = 0)
     (hsub : rS.Sub Λ.stackPool) (hFO : ∀ m, F m → StackOff rS R m)
@@ -344,7 +354,7 @@ theorem nodeW_postO (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {n : N
 
 /-- **A node at a single instruction without an event** (`SI`) before the
 take, its next pc in its phase. -/
-theorem nodeW_si_pre (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {n : ND} {si : SI} {z : Nat}
+theorem nodeW_si_pre {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp) {n : ND} {si : SI} {z : Nat}
     {l : Label} {off : Nat} {p : Int64} (hb : blockAtB cells l off [(si.toDir, z)] = true)
     (he : lab l + Int64.ofNat off = p) (hp : n.pc = p)
     (hC : ∀ σ c, n.J σ c → CFacts Λ lbl c) (hok : okPc p.toBitVec.toNat = true)
@@ -356,7 +366,7 @@ theorem nodeW_si_pre (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {n : 
 
 /-- **A node at a single instruction without an event** (`SI`) after the
 take, its next pc in its phase. -/
-theorem nodeW_si_post (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {n : ND} {si : SI} {z : Nat}
+theorem nodeW_si_post {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp) {n : ND} {si : SI} {z : Nat}
     {l : Label} {off : Nat} {p : Int64} (hb : blockAtB cells l off [(si.toDir, z)] = true)
     (he : lab l + Int64.ofNat off = p) (hp : n.pc = p)
     (hC : ∀ σ c, n.J σ c → CFacts Λ lbl c) (hok : okPc p.toBitVec.toNat = true)
@@ -367,7 +377,7 @@ theorem nodeW_si_post (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {n :
 
 /-- **A node at an instruction with undefined flags** (`FI`) before the
 take, its next pc in its phase. -/
-theorem nodeW_fi_pre (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {n : ND} {fi : FI} {z : Nat}
+theorem nodeW_fi_pre {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp) {n : ND} {fi : FI} {z : Nat}
     {l : Label} {off : Nat} {p : Int64} (hb : blockAtB cells l off [(fi.toDir, z)] = true)
     (he : lab l + Int64.ofNat off = p) (hp : n.pc = p)
     (hC : ∀ σ c, n.J σ c → CFacts Λ lbl c) (hok : okPc p.toBitVec.toNat = true)
@@ -379,7 +389,7 @@ theorem nodeW_fi_pre (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {n : 
 
 /-- **A node at `andq $k, %rsp`** (`z` bytes) before the take, its next pc
 in its phase: as `nodeW_fi_pre`, at `andRsp` (`_start`'s alignment). -/
-theorem nodeW_and_pre (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {n : ND} {k : Int64} {z : Nat}
+theorem nodeW_and_pre {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp) {n : ND} {k : Int64} {z : Nat}
     {l : Label} {off : Nat} {p : Int64} (hb : blockAtB cells l off [(andRsp k, z)] = true)
     (he : lab l + Int64.ofNat off = p) (hp : n.pc = p)
     (hC : ∀ σ c, n.J σ c → CFacts Λ lbl c) (hok : okPc p.toBitVec.toNat = true)
@@ -394,7 +404,7 @@ theorem nodeW_and_pre (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {n :
 
 /-- **A node at an instruction with undefined flags** (`FI`) after the
 switch, as `nodeW_postO`, its next pc in its phase. -/
-theorem nodeW_fi_postO (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {n : ND} {fi : FI} {z : Nat}
+theorem nodeW_fi_postO {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp) {n : ND} {fi : FI} {z : Nat}
     {l : Label} {off : Nat} {p : Int64} (hb : blockAtB cells l off [(fi.toDir, z)] = true)
     (he : lab l + Int64.ofNat off = p) (hp : n.pc = p)
     (hC : ∀ σ c, n.J σ c → CFacts Λ lbl c) (hok : okPc p.toBitVec.toNat = true)
@@ -407,7 +417,7 @@ theorem nodeW_fi_postO (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {n 
 
 /-- **A node at a register operation** after the take, the range in private
 memory, its next pc in its phase. -/
-theorem nodeW_reg_post (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {n : ND} {w : Width}
+theorem nodeW_reg_post {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp) {n : ND} {w : Width}
     {op : Operation w} {z : Nat} {l : Label} {off : Nat} {p : Int64}
     (hop : RegOnly op = true) (hb : blockAtB cells l off [(.instr (.regular .W64 w op), z)] = true)
     (he : lab l + Int64.ofNat off = p) (hp : n.pc = p)
@@ -421,7 +431,8 @@ theorem nodeW_reg_post (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {n 
 
 /-- **A node at a `syscall`** (`z` bytes) before the take, its next pc in
 its phase, its `%rax` not `write`'s number (`hnr`). -/
-theorem nodeW_syscall_pre (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {n : ND} {z : Nat} {l : Label}
+theorem nodeW_syscall_pre {kp : Nat}
+    (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp) {n : ND} {z : Nat} {l : Label}
     {off : Nat} {p : Int64} (hb : blockAtB cells l off [(Kraken.Promising.Lower.X64.op64 .syscall, z)] = true)
     (he : lab l + Int64.ofNat off = p) (hp : n.pc = p)
     (hC : ∀ σ c, n.J σ c → CFacts Λ lbl c) (hok : okPc p.toBitVec.toNat = true)
@@ -435,7 +446,8 @@ theorem nodeW_syscall_pre (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) 
 
 /-- **A node at a `syscall`** (`z` bytes) after the take, its next pc in
 its phase, its `%rax` not `write`'s number (`hnr`). -/
-theorem nodeW_syscall_post (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {n : ND} {z : Nat} {l : Label}
+theorem nodeW_syscall_post {kp : Nat}
+    (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp) {n : ND} {z : Nat} {l : Label}
     {off : Nat} {p : Int64} (hb : blockAtB cells l off [(Kraken.Promising.Lower.X64.op64 .syscall, z)] = true)
     (he : lab l + Int64.ofNat off = p) (hp : n.pc = p)
     (hC : ∀ σ c, n.J σ c → CFacts Λ lbl c) (hok : okPc p.toBitVec.toNat = true)
@@ -449,7 +461,8 @@ theorem nodeW_syscall_post (hI : InstOk exe endPc cells lab μ own Tk K okPc ph)
 /-- **A node at a `syscall`** (`z` bytes) after the switch, as
 `nodeW_postO`, its next pc in its phase, its `%rax` not `write`'s number
 (`hnr`). -/
-theorem nodeW_syscall_postO (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {n : ND} {z : Nat} {l : Label}
+theorem nodeW_syscall_postO {kp : Nat}
+    (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp) {n : ND} {z : Nat} {l : Label}
     {off : Nat} {p : Int64} (hb : blockAtB cells l off [(Kraken.Promising.Lower.X64.op64 .syscall, z)] = true)
     (he : lab l + Int64.ofNat off = p) (hp : n.pc = p)
     (hC : ∀ σ c, n.J σ c → CFacts Λ lbl c) (hok : okPc p.toBitVec.toNat = true)
@@ -465,7 +478,7 @@ theorem nodeW_syscall_postO (hI : InstOk exe endPc cells lab μ own Tk K okPc ph
 /-- **A node at a store** `movq %r, k(%b)` to a mapped word `a` (`hmw`)
 unmapped in private memory under the frame condition (`hun`), owned at no
 phase (`hno`), before the take, its next pc in its phase. -/
-theorem nodeW_st_pre (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {ownOf : Nat → List (Loc × Val)}
+theorem nodeW_st_pre {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp) {ownOf : Nat → List (Loc × Val)}
     (hown : ∀ s, own s = ownOf (ph (pcOf s))) {n : ND} {b r : Reg64} {k : Int64} {z : Nat} {l : Label}
     {off : Nat} {p : Int64} {a : BitVec 64} (hb : blockAtB cells l off [(stDir b k r, z)] = true)
     (he : lab l + Int64.ofNat off = p) (hp : n.pc = p)
@@ -486,7 +499,8 @@ theorem nodeW_st_pre (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {ownO
     exact sfacts_ev (hC σ c hJ) hP hc (by intro w w' h; cases h) hex hT' hown' htk hO
 
 /-- **A node at a store** after the take, as `nodeW_st_pre`. -/
-theorem nodeW_st_post (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {ownOf : Nat → List (Loc × Val)}
+theorem nodeW_st_post {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp) {ownOf : Nat → List
+    (Loc × Val)}
     (hown : ∀ s, own s = ownOf (ph (pcOf s))) {n : ND} {b r : Reg64} {k : Int64} {z : Nat} {l : Label}
     {off : Nat} {p : Int64} {a : BitVec 64} (hb : blockAtB cells l off [(stDir b k r, z)] = true)
     (he : lab l + Int64.ofNat off = p) (hp : n.pc = p)
@@ -509,7 +523,8 @@ theorem nodeW_st_post (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {own
 /-- **A node at a load `movq k(%b), %r`** of a mapped word `a` (`hmr`)
 unmapped in private memory under the frame condition (`hun`), before the
 take, its next pc in its phase. -/
-theorem nodeW_ld_pre (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {n : ND} {b r : Reg64} {k : Int64}
+theorem nodeW_ld_pre {kp : Nat}
+    (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp) {n : ND} {b r : Reg64} {k : Int64}
     {z : Nat} {l : Label} {off : Nat} {p : Int64} {a : BitVec 64}
     (hb : blockAtB cells l off [(ldDir b k r, z)] = true) (he : lab l + Int64.ofNat off = p) (hp : n.pc = p)
     (hC : ∀ σ c, n.J σ c → CFacts Λ lbl c) (hok : okPc p.toBitVec.toNat = true)
@@ -530,7 +545,8 @@ theorem nodeW_ld_pre (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {n : 
 /-- **A node at a thread-pointer load `movq %fs:k, %d`** of a mapped word
 `a` (`hmr`) unmapped in private memory under the frame condition (`hun`),
 after the switch, as `nodeW_postO`, its next pc in its phase. -/
-theorem nodeW_fsld_postO (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {n : ND} {d : Reg64} {k : Int64}
+theorem nodeW_fsld_postO {kp : Nat}
+    (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp) {n : ND} {d : Reg64} {k : Int64}
     {z : Nat} {l : Label} {off : Nat} {p : Int64} {a : BitVec 64}
     (hb : blockAtB cells l off [(fsDir d k, z)] = true) (he : lab l + Int64.ofNat off = p) (hp : n.pc = p)
     (hC : ∀ σ c, n.J σ c → CFacts Λ lbl c) (hok : okPc p.toBitVec.toNat = true)
@@ -555,7 +571,8 @@ theorem nodeW_fsld_postO (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {
 /-- **A node at an owned counter's `lock xaddq %r, k(%b)`** before the
 take, its next pc before it too: the counter's word `a` (`ha`), owned at
 `p` (`hin`), updated to the sum at the next pc (`hupd`). -/
-theorem nodeW_xadd_pre (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {ownOf : Nat → List (Loc × Val)}
+theorem nodeW_xadd_pre {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp) {ownOf : Nat → List
+    (Loc × Val)}
     (hown : ∀ s, own s = ownOf (ph (pcOf s))) {n : ND} {b r : Reg64} {k : Int64} {z : Nat} {l : Label}
     {off : Nat} {p : Int64} {a : BitVec 64} (hb : blockAtB cells l off [(xaddDir b k r, z)] = true)
     (he : lab l + Int64.ofNat off = p) (hp : n.pc = p)
@@ -590,7 +607,8 @@ theorem nodeW_xadd_pre (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {ow
 /-- **A node at an owned word's `xchgq %r, k(%b)`** before the take, its
 next pc before it too: the word `a` (`ha`), owned at `p` (`hin`), set to
 `%r` at the next pc (`hupd`). -/
-theorem nodeW_xchg_pre (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {ownOf : Nat → List (Loc × Val)}
+theorem nodeW_xchg_pre {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp) {ownOf : Nat → List
+    (Loc × Val)}
     (hown : ∀ s, own s = ownOf (ph (pcOf s))) {n : ND} {b r : Reg64} {k : Int64} {z : Nat} {l : Label}
     {off : Nat} {p : Int64} {a : BitVec 64} (hb : blockAtB cells l off [(xchgDir b k r, z)] = true)
     (he : lab l + Int64.ofNat off = p) (hp : n.pc = p)
@@ -622,7 +640,8 @@ theorem nodeW_xchg_pre (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {ow
 /-- **A node at an owned word's plain store `movq %r, k(%b)`** before the
 take, its next pc before it too: the word `a` (`ha`), owned at `p` (`hin`),
 set to `%r` at the next pc (`hupd`). The lock's release on the bump path. -/
-theorem nodeW_stown_pre (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {ownOf : Nat → List (Loc × Val)}
+theorem nodeW_stown_pre {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp) {ownOf : Nat → List
+    (Loc × Val)}
     (hown : ∀ s, own s = ownOf (ph (pcOf s))) {n : ND} {b r : Reg64} {k : Int64} {z : Nat} {l : Label}
     {off : Nat} {p : Int64} {a : BitVec 64} (hb : blockAtB cells l off [(stDir b k r, z)] = true)
     (he : lab l + Int64.ofNat off = p) (hp : n.pc = p)

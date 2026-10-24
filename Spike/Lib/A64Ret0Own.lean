@@ -30,6 +30,11 @@ noncomputable def ret0_own (exe : _root_.Executable) (tcb : BitVec 64) (rS : Ran
 /-- **`ret0`'s layout check** at its link's code address. -/
 theorem ret0_layoutOk : layoutOk SccCode.ret0Λ.code.lo SccCode.ret0Prog = true := by decide +kernel
 
+/-- `ret0`'s symbols all lie at or above its code (by `decide +kernel`). -/
+theorem ret0_above :
+    ∀ p ∈ Scc.Sem.loadSyms SccCode.ret0Λ SccCode.ret0Secs.rodata, SccCode.ret0Λ.code.lo ≤ p.2 := by
+  decide +kernel
+
 /-- **`ret0`'s layout facts in the loaded thread** (`hpre`, `hpost` of
 `limPath`), any entry state. -/
 theorem ret0_pre_post (E : Scc.Sem.Entry) :
@@ -38,7 +43,7 @@ theorem ret0_pre_post (E : Scc.Sem.Entry) :
     preStore (labOf exe) (limPc (labOf exe)).toBitVec.toNat = true ∧
       preStore (labOf exe) (limPc (labOf exe) + Int64.ofNat 4).toBitVec.toNat = false :=
   have := Scc.Cert.Link.A64.validLayout_of_loadOk SccCode.ret0Λ_load E
-  pre_post_of_layoutOk (Scc.Cert.Rt.A64.lays_threadAt _ _ _ _ (Scc.Cert.Link.A64.above_of_loadOk SccCode.ret0Λ_load)) rfl ret0_layoutOk
+  pre_post_of_layoutOk (Scc.Cert.Rt.A64.lays_threadAt _ _ _ _ ret0_above) rfl ret0_layoutOk
 
 /-- **`ret0`'s loaded thread owns nothing** (`hown0` of `correctK`), any
 entry state. -/
@@ -47,7 +52,7 @@ theorem ret0_own0 (E : Scc.Sem.Entry) (tcb : BitVec 64) (rS : Range) :
       (Scc.Sem.loadSyms SccCode.ret0Λ SccCode.ret0Secs.rodata)
     ret0_own s0.exe tcb rS s0 = [] :=
   have := Scc.Cert.Link.A64.validLayout_of_loadOk SccCode.ret0Λ_load E
-  ownLim_of_not (not_lim_of_layoutOk (Scc.Cert.Rt.A64.lays_threadAt _ _ _ _ (Scc.Cert.Link.A64.above_of_loadOk SccCode.ret0Λ_load)) rfl ret0_layoutOk (by decide +kernel) rfl rfl)
+  ownLim_of_not (not_lim_of_layoutOk (Scc.Cert.Rt.A64.lays_threadAt _ _ _ _ ret0_above) rfl ret0_layoutOk (by decide +kernel) rfl rfl)
 
 /-- **`ret0`'s owned words at load** (`OwnInit`, `hown0` of `correctK`):
 none, so any initial memory `tm`. -/

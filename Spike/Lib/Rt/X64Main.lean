@@ -181,8 +181,8 @@ callee's room `ZU`, the user function's interface `hU`, and that the
 `exit_group` there off an abort site is `main`'s exit for every control and
 value `Post` relates (`hexit`). The call asks no closure under `K` of the
 callee (`call_nd_FWK` with `KC := False`). -/
-theorem mainU_segW {W : Frag isa} {K : State → State → Prop} (hp : Lays exe cells)
-    (hend : endPc = endOf exe cells) {mc : MainCode} (hin : mainUIn cells mc = true)
+theorem mainU_segW {W : Frag isa} {K : State → State → Prop} {kp : Nat} (hp : Lays exe cells kp)
+    (hend : endPc = endOf exe cells kp) {mc : MainCode} (hin : mainUIn cells mc = true)
     (hZ : 0 ≤ mc.Z.toInt) (hZ8 : mc.Z.toInt % 8 = 0)
     (hps : ∀ q ∈ mc.ps, Spike.Lib.offOk (-8 - mc.Z.toInt) 0 (-8 + q.2.1.toInt) = true)
     (hk : Spike.Lib.offOk (-8 - mc.Z.toInt) 0 (-8 + mc.k.toInt) = true)

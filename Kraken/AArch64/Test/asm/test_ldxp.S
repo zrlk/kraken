@@ -13,3 +13,5 @@ add x9, sp, #16
 ldxp w10, w11, [x9]
 ldaxp w12, w13, [x9]
 add sp, sp, #32
+// x9 held a stack address, which differs between QEMU and Kraken
+mov x9, xzr

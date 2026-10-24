@@ -163,6 +163,33 @@ theorem sizesOk_of_fast {base : Nat} {prog : _root_.Program} {sizes : List Nat}
       simp [hk, Kraken.Executable.sizeBefore, psum]
   · simp at h
 
+/-- A listed label `(L, off)` is at offset `off` in the walk's labels `ls`
+(`sizesOkFast`'s label part). -/
+def offOk (ls : List (String × Nat)) (lo : String × Nat) : Bool := ls.lookup lo.1 == some lo.2
+
+/-- `offOk` on `offs` from position `a` on, from its piece of `c` labels
+there and the rest: a certificate checks each piece in its own kernel run
+(`sizesOkFast_of_chunks`). -/
+theorem offsAll_drop {ls offs : List (String × Nat)} {a : Nat} (c : Nat)
+    (h1 : ((offs.drop a).take c).all (offOk ls) = true) (h2 : (offs.drop (a + c)).all (offOk ls) = true) :
+    (offs.drop a).all (offOk ls) = true := by
+  rw [← List.take_append_drop c (offs.drop a), List.all_append, h1, List.drop_drop, h2]
+  rfl
+
+/-- **`sizesOkFast` in pieces**: the walk gives the labels `ls` and the end
+offset `n` (a kernel check on literals), `n` is below `2 ^ 64`, and every
+listed label is at its offset in `ls` (`offOk`, in `offsAll_drop`'s pieces). -/
+theorem sizesOkFast_of_chunks {base : Nat} {prog : _root_.Program} {sizes : List Nat}
+    {offs ls : List (String × Nat)} {n : Nat} (hw : sizeWalk (Int64.ofNat base) prog sizes 0 = some (ls, n))
+    (hn : n < 2 ^ 64) (ho : (offs.drop 0).all (offOk ls) = true) :
+    sizesOkFast base prog sizes offs = true := by
+  unfold sizesOkFast
+  rw [hw]
+  simp only [List.drop_zero, List.all_eq_true, offOk] at ho
+  simp only [hn, decide_true, Bool.true_and, List.all_eq_true]
+  intro ⟨L, off⟩ hm
+  exact ho _ hm
+
 end Fast
 
 /-- The pipeline of `scc --arch x64` on a source text. -/

@@ -100,7 +100,7 @@ theorem tcbW_gen {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe] {
     {prog : List Directive} {lab : Label → Int64} {μ : Marks} {own : Own} {Tk : State → Prop}
     {K : State → State → Prop} {okPc : Nat → Bool} {ph : Nat → Nat} {Λ : Scc.Sem.Layout} {rS : Range} {lbl : Lbl}
     {ownOf : Nat → List (Loc × Val)} {ra : Label → Int64} {c0 : Ctl} {F : MachineData → Prop}
-    (hI : InstOk exe endPc prog lab μ own Tk K okPc ph) (hown : ∀ s, own s = ownOf (ph (pcOf s)))
+    {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp) (hown : ∀ s, own s = ownOf (ph (pcOf s)))
     (hin : allocTcbIn prog = true) (hC0 : CFacts Λ lbl c0)
     {R : Region} (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -192) (hhi : 0 ≤ R.hi) (q : TcbG)
     (hq : q.c0 = c0) (hra : q.g.ra = (ra okL).toBitVec) (hph : TcbPh okPc ph Tk ownOf lab ra q.n0)

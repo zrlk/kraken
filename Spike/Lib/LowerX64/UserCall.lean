@@ -151,7 +151,7 @@ theorem userCallW_of_fn {d : Decl} (hd : Scc.Lower.Accepted0 [d] = true) {fr : S
     {fn entry : Label} {zl zf z1 z2 zs : Nat} (hf : FrameOk fr) (h1 : fr.size ≤ 2 ^ 31)
     (hpro : proInC cells fr fn entry zl zf z1 z2 zs = true) (hr : lower0 [(d.arg, .unit, [])] 0 d.body = some r)
     (hbody : bodyIn cells fr entry 0 r.insts r.ret = true)
-    (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) {Dt : State → Prop}
+    {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp) {Dt : State → Prop}
     {lbl : Lbl} {ms : MemSide isa} {R : Region} {F : MachineData → Prop} {Z : Int64} {D : Int}
     {tp : UInt64} {ra : BitVec 64} (hR8 : R.base.toNat % 8 = 0) (hZ8 : Z.toInt % 8 = 0)
     (hD : 8 + (fr.size : Int) ≤ D) (hD8 : D % 8 = 0)

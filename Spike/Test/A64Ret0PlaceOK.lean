@@ -1,4 +1,5 @@
 import Scc.Cert.PlaceOKA64
+import Scc.Cert.A9StageA64
 import Spike.Lib.A64Ret0Code
 import Spike.Lib.A64Hello1Code
 import Spike.Test.A64Ret0Offs
@@ -12,10 +13,11 @@ import Spike.Lib.Hello1Src
 /-!
 # `PlaceOK` against the hand checks of `ret0.w` and `hello1.w`
 
-One kernel decision of `PlaceOK` (`Scc/Cert/PlaceOKA64.lean`) for
-`ret0.w`, `ret0_placeOK` (one decision shares the reductions of the program
-its parts would repeat; `placeOK_of` combines parts decided apart, for
-larger programs), and each of the hand checks of
+`PlaceOK` (`Scc/Cert/PlaceOKA64.lean`) for `ret0.w`, `ret0_placeOK`, its
+components decided apart and combined by `placeOK_of`, A9 by its keyed fast
+form (`a9_of_fast`, `Scc/Cert/A9StageA64.lean`): one decision of the whole
+would share the reductions of the program, but A9's String comparisons in it
+peak at about 3.7 GB, against about 1.4 GB split; and each of the hand checks of
 `Spike/Lib/A64Ret0Code.lean` re-derived from it by an extraction lemma, at
 the hand statement: the components cover the hand facts, and the facts
 follow without another decision.
@@ -43,9 +45,12 @@ def ret0Place : PlaceData :=
   { blocks := withEvs (ofGrps ret0T ret0Offs) ret0Evs, need := ret0Need, tail := .bare,
     ir := some (Scc.Lower.A64.lowerAll { arch := .arm } Spike.Lib.Ret0Src.ret0Src).low.ir }
 
-/-- **`ret0.w`'s `PlaceOK`**, one kernel decision. The output is written out, so that the extraction
-lemmas' `o.prog` reduces to `ret0Prog` by projection. -/
-theorem ret0_placeOK : placeOK Config.canonical ⟨ret0Prog, ret0Secs, [], ret0Place⟩ = true := by decide +kernel
+/-- **`ret0.w`'s `PlaceOK`**, a kernel decision per component, A9 by `a9_of_fast`. The output is
+written out, so that the extraction lemmas' `o.prog` reduces to `ret0Prog` by projection. -/
+theorem ret0_placeOK : placeOK Config.canonical ⟨ret0Prog, ret0Secs, [], ret0Place⟩ = true :=
+  placeOK_of (by decide +kernel) (by decide +kernel) (by decide +kernel) (by decide +kernel)
+    (by decide +kernel) (by decide +kernel) (by decide +kernel) (by decide +kernel)
+    (a9_of_fast (by decide +kernel)) (by decide +kernel)
 
 example : ret0Λ.WF := (wf_link_of_placeOK ret0Imms ret0_placeOK :)
 example : abortsIn ret0Prog ret0Λ = true := (abortsIn_link_of_placeOK ret0Imms ret0_placeOK :)

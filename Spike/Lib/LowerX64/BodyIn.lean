@@ -36,7 +36,7 @@ variable {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe] {cells : 
   {endPc : Int64}
 
 /-- **`blkAt` gives the block's code** at its sizes. -/
-theorem blkAt_code (hp : Lays exe cells) (hend : endPc = endOf exe cells) {l : String} {off : Nat}
+theorem blkAt_code {kp : Nat} (hp : Lays exe cells kp) (hend : endPc = endOf exe cells kp) {l : String} {off : Nat}
     {ds : List Directive} (h : blkAt cells l off ds = true) :
     (sizesAt cells l off ds.length).length = ds.length ∧
       CdOf exe endPc ((_root_.Executable.labels exe).label l + Int64.ofNat off)
@@ -45,7 +45,7 @@ theorem blkAt_code (hp : Lays exe cells) (hend : endPc = endOf exe cells) {l : S
   exact ⟨h.1, code_field hp hend h.2 rfl⟩
 
 /-- **`bodyIn` gives the body's code** in any valid layout of `cells`. -/
-theorem bodyCode_of (hp : Lays exe cells) (hend : endPc = endOf exe cells) {fr : Scc.Emit.X64.Frame}
+theorem bodyCode_of {kp : Nat} (hp : Lays exe cells kp) (hend : endPc = endOf exe cells kp) {fr : Scc.Emit.X64.Frame}
     {l : String} :
     ∀ (is : List Scc.IR.Inst) (off : Nat) (ws : List Scc.IR.Operand), bodyIn cells fr l off is ws = true →
       BodyCode fr (CdOf exe endPc) ((_root_.Executable.labels exe).label l + Int64.ofNat off) is ws := by
@@ -92,7 +92,7 @@ def CdIn (exe : _root_.Executable) (endPc : Int64) (l : String) (S : List (Nat �
 
 /-- **`bodyIn` gives the body's code with its blocks' offsets**: `BodyCode`
 at every block of `bodyBlks` among `S`'s. -/
-theorem bodyCode_in (hp : Lays exe cells) (hend : endPc = endOf exe cells) {fr : Scc.Emit.X64.Frame}
+theorem bodyCode_in {kp : Nat} (hp : Lays exe cells kp) (hend : endPc = endOf exe cells kp) {fr : Scc.Emit.X64.Frame}
     {l : String} {S : List (Nat × List (Directive × Nat))} :
     ∀ (is : List Scc.IR.Inst) (off : Nat) (ws : List Scc.IR.Operand), bodyIn cells fr l off is ws = true →
       (∀ x ∈ bodyBlks cells fr l off is ws, x ∈ S) →
@@ -138,7 +138,8 @@ theorem bodyCode_in (hp : Lays exe cells) (hend : endPc = endOf exe cells) {fr :
     all_goals simp [bodyIn] at h
 
 /-- **`bodyIn` gives the body's code at its blocks** (`InBody`). -/
-theorem bodyCode_inBody (hp : Lays exe cells) (hend : endPc = endOf exe cells) {fr : Scc.Emit.X64.Frame}
+theorem bodyCode_inBody {kp : Nat} (hp : Lays exe cells kp)
+    (hend : endPc = endOf exe cells kp) {fr : Scc.Emit.X64.Frame}
     {l : String} {is : List Scc.IR.Inst} {ws : List Scc.IR.Operand} (h : bodyIn cells fr l 0 is ws = true) :
     BodyCode fr (CdIn exe endPc l (bodyBlks cells fr l 0 is ws)) ((_root_.Executable.labels exe).label l) is ws := by
   have := bodyCode_in (S := bodyBlks cells fr l 0 is ws) hp hend is 0 ws h fun _ hx => hx

@@ -35,7 +35,7 @@ variable {p : Prog} {lbl : WeakMem.AllocLabel → Option Nat} {ms : MemSide isaL
 
 /-- `prologue_body_seg` from `proInC`. -/
 theorem prologue_body_seg_of {cx : FnCtx} (hf : FrameOk cx) (h1 : cx.frame ≤ 4095)
-    (h16 : cx.frame % 16 = 0) (hp : Lays exe prog) (hend : endPc = endOf exe prog) {fn entry : Label}
+    (h16 : cx.frame % 16 = 0) {kp : Nat} (hp : Lays exe prog kp) (hend : endPc = endOf exe prog kp) {fn entry : Label}
     (hin : proInC prog cx fn entry = true)
     (hF : FStable R F) (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -(cx.frame : Int))
     (hhi : 0 ≤ R.hi) {J : AS → Ctl → Prop} {fp ra : BitVec 64} {c0 : Ctl} {t : Expr} {s : SEnv}

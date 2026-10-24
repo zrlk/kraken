@@ -162,7 +162,7 @@ def dataRegion (Λ : Layout) (a : Nat) : Prop :=
 /-- **Well-formed layout**: regions in the address space, 16-aligned and
 pairwise disjoint, above address `0`; the abort stubs at distinct labels;
 the image in `data`, word-aligned, of 64-bit values; each data symbol in a
-data region, above the code, under its own name. `Λ` has no code address: the abort sites are
+data region, outside the code (below or above it), under its own name. `Λ` has no code address: the abort sites are
 labels, which the target resolves (as are the transfer sites, whose labels
 are fixed, `XferKind.label`). -/
 structure WF (Λ : Layout) : Prop where

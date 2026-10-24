@@ -52,10 +52,18 @@ abbrev ret0Exe : _root_.Executable :=
 /-- Its end address. -/
 abbrev ret0End : Int64 := endOf ret0Exe ret0Cells
 
+/-- `ret0`'s symbols all lie at or above its code (by `decide +kernel`):
+static-link-only, at `ret0`'s link `SccCode.ret0Λ`, for the instance's lemmas
+that take no prefix (a layout with data symbols below the code goes through
+`RuntimeLayout.ofPlaceOK`, `pfx := belowLen`). -/
+theorem ret0_above :
+    ∀ p ∈ Scc.Sem.loadSyms SccCode.ret0Λ SccCode.ret0Secs.rodata, SccCode.ret0Λ.code.lo ≤ p.2 := by
+  decide +kernel
+
 instance : Kraken.Executable.ValidLayout ret0Exe :=
   Scc.Cert.Link.X64.validLayout_of_loadOk SccCode.ret0Λ_load _
 
-theorem ret0_lays : Lays ret0Exe ret0Cells := Scc.Cert.Link.X64.lays_threadAt _ _ _ _ (Scc.Cert.Link.X64.above_of_loadOk SccCode.ret0Λ_load)
+theorem ret0_lays : Lays ret0Exe ret0Cells := Scc.Cert.Link.X64.lays_threadAt _ _ _ _ ret0_above
 
 /-- **A label's address from its first cell** in a valid layout. -/
 theorem label_idx {e : _root_.Executable} [hv : Kraken.Executable.ValidLayout e] {l : Label} {n : Nat}
@@ -83,7 +91,7 @@ theorem ret0Exe_cells : ret0Exe.2 = ret0Cells' := by
   unfold ret0Cells'
   rw [← placeSyms_eq _ _ _ ret0Syms_perm ret0Syms_sorted]
   show (Scc.Sem.X64.threadAt _ _ _ _).exe.2 = _
-  rw [Scc.Cert.Link.X64.threadAt_exe_of_above (Scc.Cert.Link.X64.above_of_loadOk SccCode.ret0Λ_load)]
+  rw [Scc.Cert.Link.X64.threadAt_exe_of_above ret0_above]
 
 /-- **The label `l` is at `a`** in the loaded thread (decided on
 `ret0Cells'`). -/

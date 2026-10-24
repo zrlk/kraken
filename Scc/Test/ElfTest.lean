@@ -8,7 +8,10 @@ with the regions of their own last in `.bss` (`x.s`, `a.s`), and linked
 statically: `x` for x86-64 (GNU `as`, `ld -static`), `a` for AArch64
 (`clang -c`, `ld.lld -static` with `ins.ld`, which places `.rodata` after
 `.text`), and `a_def`, `a.s` linked by `ld.lld` with its default script,
-which places `.rodata` below `.text`. `x.s` and `a.s` are scc's listings of
+which places `.rodata` (and its symbol `scc_stackmap`) below `.text`, and `a_bid`, `a.s` linked by `ld.lld
+--build-id` with `bid.ld` (`ins.ld`, `.text` 16-aligned after the note),
+which adds the linker's build-id note `.note.gnu.build-id` in the read-only
+`PT_LOAD` before the code. `x.s` and `a.s` are scc's listings of
 `ret0` with the three regions' blocks moved to the end of `.bss`, each with
 `.type` and `.size`, and `.data` 16-aligned, as the reader expects of the
 emitter. `Scc/Test/elf.sh` rebuilds the executables and checks the reader
@@ -28,6 +31,12 @@ def x64 : Layout × String := scc_elf_layout% "Scc/Test/elf/x"
 
 /-- The AArch64 executable's layout and digest. -/
 def a64 : Layout × String := scc_elf_layout% "Scc/Test/elf/a"
+
+/-- The AArch64 executable linked by `ld.lld`'s default script, `.rodata` below the code: its layout and digest. -/
+def a64def : Layout × String := scc_elf_layout% "Scc/Test/elf/a_def"
+
+/-- The AArch64 executable with a build-id note: its layout and digest. -/
+def a64bid : Layout × String := scc_elf_layout% "Scc/Test/elf/a_bid"
 
 #guard x64.2 == "7db9ce573ee918cae04f6004bf334ba09930d7b945f6bac9cfd531efccc3ba09"
 #guard x64.1.code == ⟨0x401000, 0x1238⟩
@@ -58,6 +67,26 @@ def a64 : Layout × String := scc_elf_layout% "Scc/Test/elf/a"
 #guard a64.1.symbols.length == 16
 #guard Link.wfB a64.1
 
+-- `.rodata` below the code is accepted since the loaders place data symbols on both sides of it
+-- (`refuseBelowCode` off): `a_def`'s layout is `a`'s with `.rodata` and the code swapped.
+#guard !refuseBelowCode
+#guard a64def.1.rodata == ⟨0x200158, 0x1b8⟩
+#guard a64def.1.code == ⟨0x210310, 0x1298⟩
+#guard a64def.1.rodata.lo + a64def.1.rodata.size ≤ a64def.1.code.lo
+#guard a64def.1.image.map (·.2) == a64.1.image.map (·.2)
+#guard a64def.1.symbols.map (·.1) == a64.1.symbols.map (·.1)
+#guard Link.wfB a64def.1
+
+-- The build-id note is no part of the layout: `a_bid`'s is `a`'s, moved by the note's size (rounded).
+#guard a64bid.2 == "b702fe61274fd2f657d4e877141db94fcea183b39d9d585fc2e4ef8f0d9fa761"
+#guard a64bid.1.code == ⟨0x2101f0, 0x1298⟩
+#guard a64bid.1.rodata == ⟨0x221488, 0x1b8⟩
+#guard a64bid.1.heap.size == a64.1.heap.size && a64bid.1.pinned.size == a64.1.pinned.size
+#guard a64bid.1.stackPool.size == a64.1.stackPool.size && a64bid.1.data.size == a64.1.data.size
+#guard a64bid.1.image.map (·.2) == a64.1.image.map (·.2)
+#guard a64bid.1.symbols.map (·.1) == a64.1.symbols.map (·.1)
+#guard Link.wfB a64bid.1
+
 -- The two ISAs' images agree: the same `.data` bytes, at different bases.
 #guard x64.1.image.map (·.2) == a64.1.image.map (·.2)
 
@@ -80,11 +109,15 @@ def verdict (f : String) (p : ByteArray → Except String ByteArray) : IO Unit :
   | .ok _ => IO.println "accepted"
   | .error e => IO.println e
 
--- `ld.lld`'s default script puts `.rodata` below the code: refused while the loaders place data
--- symbols after it (`refuseBelowCode`).
-/-- info: data symbol scc_stackmap below the code -/
+-- `ld.lld`'s default script puts `.rodata` below the code: accepted (`refuseBelowCode` off).
+/-- info: accepted -/
 #guard_msgs in
 #eval verdict "Scc/Test/elf/a_def" pure
+
+-- A `.rodata` symbol inside the code is still refused.
+/-- info: data symbol scc_stackmap inside the code -/
+#guard_msgs in
+#eval verdict "Scc/Test/elf/a_def" fun b => do return put64 b ((← entryOf b "scc_stackmap") + 8) 0x210314
 
 /-- info: accepted -/
 #guard_msgs in
@@ -141,8 +174,9 @@ def verdict (f : String) (p : ByteArray → Except String ByteArray) : IO Unit :
 #guard_msgs in
 #eval verdict "Scc/Test/elf/x" fun b => do return put64 b ((← entryOf b "scc_rt_msg1") + 8) 0x401004
 
--- A data symbol below the code.
-/-- info: data symbol scc_rt_msg1 below the code -/
+-- A `.data` symbol moved below the code: no longer refused for being below it, but outside every data
+-- region, so the layout is not well-formed.
+/-- info: the layout is not well-formed (wfB) -/
 #guard_msgs in
 #eval verdict "Scc/Test/elf/a" fun b => do return put64 b ((← entryOf b "scc_rt_msg1") + 8) 0x200000
 
@@ -150,5 +184,86 @@ def verdict (f : String) (p : ByteArray → Except String ByteArray) : IO Unit :
 /-- info: data symbol scc_rt_msg1 at or above the heap arena -/
 #guard_msgs in
 #eval verdict "Scc/Test/elf/x" fun b => do return put64 b ((← entryOf b "scc_rt_msg1") + 8) 0x4842e8
+
+/-! ### The build-id note -/
+
+/-- The offset of section header `i`. -/
+def shdrOf (b : ByteArray) (i : Nat) : Except String Nat := do return (← header b).shoff + 64 * i
+
+/-- The index of section `n`. -/
+def secIdx (b : ByteArray) (n : String) : Except String Nat := do
+  let some (i, _) ← secNamed? (← sections b (← header b)) n | throw s!"no {n}"
+  return i
+
+/-- info: accepted -/
+#guard_msgs in
+#eval verdict "Scc/Test/elf/a_bid" pure
+
+-- The note's `PT_LOAD` (the second program header) mapped `R+X`.
+/-- info: .note.gnu.build-id: its PT_LOAD has flags 5, not 4 -/
+#guard_msgs in
+#eval verdict "Scc/Test/elf/a_bid" fun b => pure (b.set! (64 + 56 + 4) 5)
+
+-- The note writable (`SHF_WRITE | SHF_ALLOC`).
+/-- info: .note.gnu.build-id: unexpected type or flags -/
+#guard_msgs in
+#eval verdict "Scc/Test/elf/a_bid" fun b => do
+  return put64 b ((← shdrOf b (← secIdx b ".note.gnu.build-id")) + 8) 3
+
+-- The note executable (`SHF_EXECINSTR | SHF_ALLOC`).
+/-- info: .note.gnu.build-id: unexpected type or flags -/
+#guard_msgs in
+#eval verdict "Scc/Test/elf/a_bid" fun b => do
+  return put64 b ((← shdrOf b (← secIdx b ".note.gnu.build-id")) + 8) 6
+
+-- The note not an `SHT_NOTE` (`SHT_PROGBITS`).
+/-- info: .note.gnu.build-id: unexpected type or flags -/
+#guard_msgs in
+#eval verdict "Scc/Test/elf/a_bid" fun b => do
+  return b.set! ((← shdrOf b (← secIdx b ".note.gnu.build-id")) + 4) 1
+
+-- The note moved onto `.rodata` (its address and file offset both `.rodata`'s).
+/-- info: .note.gnu.build-id overlaps the code, the data or a region -/
+#guard_msgs in
+#eval verdict "Scc/Test/elf/a_bid" fun b => do
+  let o ← shdrOf b (← secIdx b ".note.gnu.build-id")
+  return put64 (put64 b (o + 16) 0x221488) (o + 24) 0x1488
+
+-- The note's address moved without its file bytes.
+/-- info: .note.gnu.build-id is not mapped from its file bytes -/
+#guard_msgs in
+#eval verdict "Scc/Test/elf/a_bid" fun b => do
+  return put64 b ((← shdrOf b (← secIdx b ".note.gnu.build-id")) + 16) 0x2001c4
+
+-- The note outside every `PT_LOAD`.
+/-- info: .note.gnu.build-id is not inside a PT_LOAD -/
+#guard_msgs in
+#eval verdict "Scc/Test/elf/a_bid" fun b => do
+  return put64 b ((← shdrOf b (← secIdx b ".note.gnu.build-id")) + 16) 0x100000
+
+-- A symbol in the note's section (`scc_rt_msg1`'s section index set to it).
+/-- info: symbol scc_rt_msg1 in .note.gnu.build-id -/
+#guard_msgs in
+#eval verdict "Scc/Test/elf/a_bid" fun b => do
+  let i ← secIdx b ".note.gnu.build-id"
+  let e ← entryOf b "scc_rt_msg1"
+  return (b.set! (e + 6) (UInt8.ofNat i)).set! (e + 7) 0
+
+-- A symbol of another section (`scc_rt_msg1`, of `.data`) whose address lies inside the note.
+/-- info: symbol scc_rt_msg1 in .note.gnu.build-id -/
+#guard_msgs in
+#eval verdict "Scc/Test/elf/a_bid" fun b => do return put64 b ((← entryOf b "scc_rt_msg1") + 8) 0x2001d0
+
+-- Another mapped note is still refused.
+/-- info: unexpected mapped section .note.gnu.build-iX -/
+#guard_msgs in
+#eval verdict "Scc/Test/elf/a_bid" fun b => do
+  let h ← header b
+  let secs ← sections b h
+  let (_, strs) ← secNamed secs ".shstrtab"
+  let some k := (List.range strs.size).find? fun k =>
+    (b.extract (strs.offset + k) (strs.offset + k + 18)).data.toList == ".note.gnu.build-id".toUTF8.data.toList
+    | throw "no name"
+  return b.set! (strs.offset + k + 17) 'X'.toNat.toUInt8
 
 end Scc.Test.Elf

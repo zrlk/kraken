@@ -29,7 +29,7 @@ section Code
 variable {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe] {prog : List Directive} {endPc : Int64}
 
 /-- **`bodyIn` gives the body's code** in any valid layout of `prog`. -/
-theorem bodyCode_of (hp : Lays exe prog) (hend : endPc = endOf exe prog) {cx : FnCtx} {l : Label} :
+theorem bodyCode_of {kp : Nat} (hp : Lays exe prog kp) (hend : endPc = endOf exe prog kp) {cx : FnCtx} {l : Label} :
     ∀ (is : List Scc.IR.Inst) (k : Nat) (ws : List Scc.IR.Operand), bodyIn prog cx l k is ws = true →
       BodyCode cx (CdOf exe endPc) ((_root_.Executable.labels exe).label l + Int64.ofNat (4 * k)) is ws := by
   intro is
@@ -68,7 +68,7 @@ def CdIn (exe : _root_.Executable) (endPc : Int64) (l : Label) (S : List (Nat ×
 
 /-- **`bodyIn` gives the body's code with its blocks' offsets**: `BodyCode`
 at every block of `bodyBlks` among `S`'s. -/
-theorem bodyCode_in (hp : Lays exe prog) (hend : endPc = endOf exe prog) {cx : FnCtx} {l : Label}
+theorem bodyCode_in {kp : Nat} (hp : Lays exe prog kp) (hend : endPc = endOf exe prog kp) {cx : FnCtx} {l : Label}
     {S : List (Nat × List Directive)} :
     ∀ (is : List Scc.IR.Inst) (k : Nat) (ws : List Scc.IR.Operand), bodyIn prog cx l k is ws = true →
       (∀ x ∈ bodyBlks cx k is ws, x ∈ S) →
@@ -103,7 +103,7 @@ theorem bodyCode_in (hp : Lays exe prog) (hend : endPc = endOf exe prog) {cx : F
     all_goals simp [bodyIn] at h
 
 /-- **`bodyIn` gives the body's code at its blocks** (`InBody`). -/
-theorem bodyCode_inBody (hp : Lays exe prog) (hend : endPc = endOf exe prog) {cx : FnCtx} {l : Label}
+theorem bodyCode_inBody {kp : Nat} (hp : Lays exe prog kp) (hend : endPc = endOf exe prog kp) {cx : FnCtx} {l : Label}
     {is : List Scc.IR.Inst} {ws : List Scc.IR.Operand} (h : bodyIn prog cx l 0 is ws = true) :
     BodyCode cx (CdIn exe endPc l (bodyBlks cx 0 is ws)) ((_root_.Executable.labels exe).label l) is ws := by
   have := bodyCode_in (S := bodyBlks cx 0 is ws) hp hend is 0 ws h fun _ hx => hx

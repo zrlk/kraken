@@ -2655,7 +2655,9 @@ theorem ret0Λ_quads : quadsOkL (Int64.ofNat ret0Λ.code.lo) ret0Cells ret0Secs.
 
 theorem ret0Λ_syms : (Scc.Sem.rodataFits ret0Λ ret0Secs.rodata && Scc.Sem.symsAgree ret0Λ ret0Secs.rodata &&
     Scc.Sem.symsAbove ret0Λ.code.lo (Scc.Sem.X64.codeEnd ret0Λ.code.lo ret0Cells) (Scc.Sem.loadSyms ret0Λ ret0Secs.rodata) &&
-    symsOk ret0Λ.code.lo ret0Cells (Scc.Sem.loadSyms ret0Λ ret0Secs.rodata)) = true := by decide +kernel
+    symsAround ret0Λ.code.lo ret0Cells (Scc.Sem.loadSyms ret0Λ ret0Secs.rodata) &&
+    noClash ret0Λ.code.lo ret0Cells (Scc.Sem.loadSyms ret0Λ ret0Secs.rodata) &&
+    decide (Scc.Sem.X64.codeEnd ret0Λ.code.lo ret0Cells < 2 ^ 64)) = true := by decide +kernel
 
 theorem ret0Λ_load : loadOk ret0Λ ret0Cells ret0Secs ret0Asm.labelOffs = true :=
   loadOk_of ret0Λ_size ret0Λ_labels ret0Λ_quads ret0Λ_syms

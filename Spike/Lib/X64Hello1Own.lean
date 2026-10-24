@@ -35,6 +35,14 @@ noncomputable def hello1_own (exe : _root_.Executable) (tcb : BitVec 64) (rS : R
 /-- **`hello1`'s layout check** at its link's code address. -/
 theorem hello1_layoutOk : layoutOk SccCode.hello1Λ.code.lo SccCode.hello1Cells = true := by decide +kernel
 
+/-- `hello1`'s symbols all lie at or above its code (by `decide +kernel`):
+static-link-only, at `hello1`'s link `SccCode.hello1Λ`, for the instance's lemmas
+that take no prefix (a layout with data symbols below the code goes through
+`RuntimeLayout.ofPlaceOK`, `pfx := belowLen`). -/
+theorem hello1_above :
+    ∀ p ∈ Scc.Sem.loadSyms SccCode.hello1Λ SccCode.hello1Secs.rodata, SccCode.hello1Λ.code.lo ≤ p.2 := by
+  decide +kernel
+
 /-- **`hello1`'s layout facts in the loaded thread** (`hpre`, `hpost` of
 `limPath`), any entry state. -/
 theorem hello1_pre_post (E : Scc.Sem.Entry) :
@@ -43,7 +51,7 @@ theorem hello1_pre_post (E : Scc.Sem.Entry) :
     preStore (labOf exe) (limPc (labOf exe)).toBitVec.toNat = true ∧
       preStore (labOf exe) (limPc (labOf exe) + Int64.ofNat 4).toBitVec.toNat = false :=
   have := Scc.Cert.Link.X64.validLayout_of_loadOk SccCode.hello1Λ_load E
-  pre_post_of_layoutOk (Scc.Cert.Link.X64.lays_threadAt _ _ _ _ (Scc.Cert.Link.X64.above_of_loadOk SccCode.hello1Λ_load)) rfl hello1_layoutOk
+  pre_post_of_layoutOk (Scc.Cert.Link.X64.lays_threadAt _ _ _ _ hello1_above) rfl hello1_layoutOk
 
 /-- **`hello1`'s loaded thread owns nothing** (`hown0` of `correctK`), any
 entry state. -/
@@ -52,7 +60,7 @@ theorem hello1_own0 (E : Scc.Sem.Entry) (tcb : BitVec 64) (rS : Range) :
       (Scc.Sem.loadSyms SccCode.hello1Λ SccCode.hello1Secs.rodata)
     hello1_own s0.exe tcb rS s0 = [] :=
   have := Scc.Cert.Link.X64.validLayout_of_loadOk SccCode.hello1Λ_load E
-  ownLim_of_not (not_lim_of_layoutOk (Scc.Cert.Link.X64.lays_threadAt _ _ _ _ (Scc.Cert.Link.X64.above_of_loadOk SccCode.hello1Λ_load)) rfl hello1_layoutOk
+  ownLim_of_not (not_lim_of_layoutOk (Scc.Cert.Link.X64.lays_threadAt _ _ _ _ hello1_above) rfl hello1_layoutOk
     (by decide +kernel) rfl rfl)
 
 /-- **`hello1`'s owned words at load** (`OwnInit`, `hown0` of `correctK`):

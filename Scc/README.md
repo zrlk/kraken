@@ -8,8 +8,8 @@ calls, no libc.
 > only through a certificate (`Scc/Test/certify.sh`).  A compiler theorem
 > covers the single-declaration fragment `Accepted0` at any layout that passes
 > the placement check, and one program, `Scc/Test/ret0.w`, is certified end to
-> end at its linked x86-64 executable (`Scc/RELEASE.md`).  Any other output
-> should be treated as untrusted.
+> end at its linked AArch64 and x86-64 executables (`Scc/RELEASE.md`).  Any
+> other output should be treated as untrusted.
 
 ## Usage
 
@@ -27,6 +27,19 @@ standard streams and exit status.  Keep the three together (name all three
 targets: `lake build scc` alone does not rebuild stale `scc-x64`/`scc-arm`);
 `scc-x64` and `scc-arm` take the same options (and refuse an `--arch` other
 than their own).
+
+**Memory and time.**  One module, `WeakCore/TermStep.lean`, needs about
+6.5 GB of memory to build, even with `LEAN_NUM_THREADS=1` (about 3 minutes);
+under a 4 GB per-process cap it is killed, so a build from a fresh checkout
+needs more than 4 GB.  Every other module builds in less (the next largest,
+`WeakCore/TermPlant.lean`, needs about 4.2 GB).  Measured on a fresh clone
+with lake's default parallelism on 64 cores: `lake build scc scc_x64
+scc_arm` takes about 40 s (144 jobs) and `lake build
+Spike.Test.Ret0LinkedX64` about 18 minutes (743 jobs).  A parallel build
+runs several Lean processes at once; to bound the total, build serially
+(`LEAN_NUM_THREADS=1` with lake restricted to one CPU, since lake runs one
+job per available CPU, e.g. `LEAN_NUM_THREADS=1 taskset -c 0 lake build Scc
+Spike`; about 33 minutes for the last 242 of 1151 modules, on one core).
 
 | option | meaning |
 |---|---|
@@ -47,18 +60,21 @@ Exit status: 0 success; 1 an error in the program, reported as
 `file:line:col: error: message`; 2 a usage error or an option that is not
 implemented.
 
-Building and running an x64 program:
+Building and running a program, from the repository root, with the output
+in a temporary directory: AArch64 (`qemu-aarch64` on an x86-64 host),
 
 ```
-scc hello.w && as -o hello.o hello.s && ld -static -o hello hello.o && ./hello
+T=$(mktemp -d)
+.lake/build/bin/scc --arch arm -o $T/hello.s Scc/Test/hello.w
+clang --target=aarch64-linux-gnu -march=armv8.4-a -nostdlib -static -fuse-ld=lld -o $T/hello $T/hello.s
+qemu-aarch64 -cpu max $T/hello
 ```
 
-AArch64:
+and x64:
 
 ```
-scc --arch arm hello.w
-clang --target=aarch64-linux-gnu -march=armv8.4-a -nostdlib -static -fuse-ld=lld -o hello hello.s
-qemu-aarch64 -cpu max ./hello
+.lake/build/bin/scc -o $T/hello.s Scc/Test/hello.w
+as -o $T/hello.o $T/hello.s && ld -static -o $T/hello $T/hello.o && $T/hello
 ```
 
 ## Certificates
@@ -94,7 +110,9 @@ what it does not; in short, it
   (`prog_placeOK`, `Scc/Cert/PlaceOK*.lean`): the kernel runs the lowering
   and the emitter and checks the result equal to a literal (`out_eq`, in
   three steps: `lowered_eq`, `emitted_eq` and the rest,
-  `Scc/Cert/OutStage{A64,X64}.lean`), and decides `placeOK`'s parts on that
+  `Scc/Cert/OutStage{A64,X64}.lean`; `emitted_eq` itself from the emitter's
+  checks, each function and the rest, `emitItemsMaps_of_stages`),
+  and decides `placeOK`'s parts on that
   literal; the loader's parse of the embedded text is checked against the
   same output by evaluation (`parsesTo`, a `#guard`).  For an accepted
   program `prog_cert_ready` states acceptance and placement together.
@@ -406,14 +424,22 @@ no program has a raw instruction line, and proves
 `Scc/Test/ElfTest.lean` (built by `lake build Scc`) reads the layout of
 `ret0` linked statically for each architecture (`Scc/Test/elf/`) with
 `scc_elf_layout%` (`Scc/Cert/Elf.lean`), checks it field by field and with
-`wfB`, and checks the reader's refusals: `ld.lld`'s default placement of
-`.rodata` below the code, and byte-patched files (truncated, wrong machine,
-the code not executable, overlapping or empty or missing regions, a region
-outside `.bss`'s zero-filled tail, a data symbol inside or below the code
-or past the start of the heap arena).  `Scc/Test/elf.sh [--relink]` compares the reader with `readelf` on
+`wfB`, including `ld.lld`'s default placement of `.rodata` below the code
+(`a_def`, accepted) and its build-id note (`a_bid`, accepted), and checks
+the reader's refusals on byte-patched files: truncated, wrong machine, the
+entry point off `.text`'s start, the code not executable, overlapping or
+empty or missing regions, a region outside `.bss`'s zero-filled tail, a
+data symbol inside the code or past the start of the heap arena, a `.data`
+symbol below the code (outside every data region: `wfB`), and a build-id
+note that is executable, writable, not a note, in an executable or no
+`PT_LOAD`, off its file bytes, overlapping `.rodata`, or with a symbol in
+it.  `Scc/Test/elf.sh [--relink]` compares the reader with `readelf` on
 the same files, after relinking them with `--relink`.
+`Scc/Test/textalign.sh` links every program `scc --arch arm` accepts as
+`run.sh` does and checks that `.text` and the entry point are 16-aligned
+(the emitter's opening `.p2align 4`; `wfB` refuses anything else).
 
-`Scc/Test/certify.sh [--arch x64|arm] [--instantiate] [--elf EXE] PROG.w`
+`Scc/Test/certify.sh [--arch x64|arm] [--instantiate] [--elf EXE] [-v|--verbose] PROG.w`
 certifies after the link.  It compiles `PROG.w` with `--cert` (checking the
 certificate's `sha256sum` digests) and links it with `run.sh`'s commands
 (`as` and `ld -static` on x64; clang with lld on arm).
@@ -432,17 +458,44 @@ exit status are:
 - 10, `placement decided`;
 - 3, `not certifiable` (outside the fragment, e.g. non-tail recursion, or a
   placement component fails);
-- 4, `not yet supported` (`.rodata` below the code; every arm executable
-  for now);
 - 1, `failed` (scc, the link, or the reader refuses, e.g. a truncated
   executable or a zero-size heap symbol).
 
 `T.post.lean` combines the components with `placeOKAt_of`, and with
-`--instantiate` applies `Spike.Lib.LowerX64.x64_scc_correctE_text_closedAt` at
-the executable's layout.  On x64,
-`ret0` gives `placement decided` in about 50 s and 1.5 GB.
-`Scc/Test/certify_test.sh` checks each of these verdicts once: x64 `ret0`,
-two damaged copies of it, `deeprec.w`, and arm `ret0`.
+`--instantiate` applies the compiler theorem at the executable's layout:
+`Spike.Lib.LowerX64.x64_scc_correctE_text_closedAt` on x64,
+`Spike.Lib.LowerA64.a64_scc_correctE_text_closedAt` on arm.  On x64,
+`ret0` gives `certified` with `--instantiate` in about 50 s and 1.3 GB.  On
+arm, `ret0` (`ld.lld`'s default link, `.rodata` below the code) gives
+`certified` with `--instantiate` in about 53 s and 1.4 GB.  Without
+`--instantiate` both give `placement decided`.
+
+Before compiling, `certify.sh` builds what it needs with `lake build`: scc
+and the certificate modules, and with `--instantiate` the compiler theorem's
+module.  For each build it prints one line naming the targets, how long a
+first run on a fresh checkout takes, and the build log,
+`.lake/certify/ARCH/T/build.log`, which collects the build output.  When a
+build fails, it prints the log's last 20 lines, then the `failed` verdict
+with the log's path.  Measured on a fresh clone with nothing built, with
+lake's default parallelism on 64 cores: for x64 `ret0` with `--instantiate`,
+about 15 minutes for scc and the certificate modules, 3 minutes for the
+theorem, then the 50 s check; arm afterwards, about 4 + 3 minutes of builds
+(the shared modules are built by then).  The scc and certificate build
+includes `WeakCore/TermStep.lean`, whose memory is noted above.  Build
+`Spike.Test.Ret0LinkedX64` (and `Spike.Test.Ret0LinkedA64`) first to see the
+build's progress directly.
+
+`-v` (`--verbose`) prints each command to standard error before it runs, as
+`+ cd DIR && CMD` with absolute paths, and `# wrote PATH (purpose)` for each
+Lean file the script generates (`T.elf.lean`, `T.post.lean`,
+`T.diag.lean`).  Running the printed commands by hand, in order, repeats the
+run; the last, `lake env lean .../T.post.lean`, is the kernel check.  Apart
+from that the output, verdict and exit status are the same.
+`Scc/Test/certify_test.sh` checks each of these verdicts: x64 `ret0` (with
+and without `--instantiate`), two damaged copies of it, `deeprec.w`, and
+arm `ret0` (with and without `--instantiate`), and `-v` on x64 `ret0` (the
+trace names scc and `lake env lean`; the verdict and status match the run
+without `-v`).
 
 `Scc/Test/StackTest.lean` (built by `lake build Scc`) holds an IR-level
 program with the real runtime whose frames hold stack addresses

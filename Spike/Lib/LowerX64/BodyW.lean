@@ -205,7 +205,7 @@ pair in its cells (`hJ`): `blkW_postO` at `c0` (its facts `hC0`), the
 block placed by `bodyIn` (`hbody`), its phase check `bodyPhOk` with no dead
 target and the return address `ra` (`hph`), the controls a local run from
 `c0` reaches `Quiet` (`hQ`). -/
-theorem blkW_body0 (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) (hf : FrameOk fr)
+theorem blkW_body0 {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp) (hf : FrameOk fr)
     (h1 : fr.size ≤ 2 ^ 31) (hbody : bodyIn cells fr l 0 is ws = true)
     (hph : bodyPhOk okPc ph (fun _ => false) lab cells fr l is ws (Int64.ofBitVec ra) = true)
     (hR : R.OK) (hR8 : R.base.toNat % 8 = 0) (hlo : R.lo ≤ -(fr.size : Int)) (hhi : 16 ≤ R.hi)
@@ -262,7 +262,7 @@ theorem blkW_body0 (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) (hf : F
   exact ⟨⟨hQ c (hJ σ c hJn).1, hW⟩, hK⟩
 
 /-- **`fn0_seg`'s `hWb`**: the body's blocks at its nodes inside `BodyW0`. -/
-theorem hWb_of (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) (hf : FrameOk fr)
+theorem hWb_of {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp) (hf : FrameOk fr)
     (h1 : fr.size ≤ 2 ^ 31) (hbody : bodyIn cells fr l 0 is ws = true)
     (hph : bodyPhOk okPc ph (fun _ => false) lab cells fr l is ws (Int64.ofBitVec ra) = true)
     (hR : R.OK) (hR8 : R.base.toNat % 8 = 0) (hlo : R.lo ≤ -(fr.size : Int)) (hhi : 16 ≤ R.hi)
@@ -276,7 +276,7 @@ theorem hWb_of (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) (hf : Frame
 
 /-- **`fn0_seg`'s `hWs`**: the body's blocks at its pending stores inside
 `BodyW0`. -/
-theorem hWs_of (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) (hf : FrameOk fr)
+theorem hWs_of {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp) (hf : FrameOk fr)
     (h1 : fr.size ≤ 2 ^ 31) (hbody : bodyIn cells fr l 0 is ws = true)
     (hph : bodyPhOk okPc ph (fun _ => false) lab cells fr l is ws (Int64.ofBitVec ra) = true)
     (hR : R.OK) (hR8 : R.base.toNat % 8 = 0) (hlo : R.lo ≤ -(fr.size : Int)) (hhi : 16 ≤ R.hi)

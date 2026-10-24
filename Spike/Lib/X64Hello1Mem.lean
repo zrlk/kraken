@@ -45,10 +45,18 @@ noncomputable abbrev hello1Exe : _root_.Executable :=
 /-- Its end address. -/
 noncomputable abbrev hello1End : Int64 := endOf hello1Exe hello1Cells
 
+/-- `hello1`'s symbols all lie at or above its code (by `decide +kernel`):
+static-link-only, at `hello1`'s link `SccCode.hello1Λ`, for the instance's lemmas
+that take no prefix (a layout with data symbols below the code goes through
+`RuntimeLayout.ofPlaceOK`, `pfx := belowLen`). -/
+theorem hello1_above :
+    ∀ p ∈ Scc.Sem.loadSyms SccCode.hello1Λ SccCode.hello1Secs.rodata, SccCode.hello1Λ.code.lo ≤ p.2 := by
+  decide +kernel
+
 instance : Kraken.Executable.ValidLayout hello1Exe :=
   Scc.Cert.Link.X64.validLayout_of_loadOk SccCode.hello1Λ_load _
 
-theorem hello1_lays : Lays hello1Exe hello1Cells := Scc.Cert.Link.X64.lays_threadAt _ _ _ _ (Scc.Cert.Link.X64.above_of_loadOk SccCode.hello1Λ_load)
+theorem hello1_lays : Lays hello1Exe hello1Cells := Scc.Cert.Link.X64.lays_threadAt _ _ _ _ hello1_above
 
 /-- The loader's data symbols in address order, by insertion sort. -/
 noncomputable def hello1Syms : List (String × Nat) := symSort (Scc.Sem.loadSyms hello1Λ hello1Secs.rodata)
@@ -67,7 +75,7 @@ theorem hello1Exe_cells : hello1Exe.2 = hello1Cells' := by
   unfold hello1Cells'
   rw [← placeSyms_eq _ _ _ hello1Syms_perm hello1Syms_sorted]
   show (Scc.Sem.X64.threadAt _ _ _ _).exe.2 = _
-  rw [Scc.Cert.Link.X64.threadAt_exe_of_above (Scc.Cert.Link.X64.above_of_loadOk SccCode.hello1Λ_load)]
+  rw [Scc.Cert.Link.X64.threadAt_exe_of_above hello1_above]
 
 /-- **The label `l` is at `a`** in the loaded thread (decided on
 `hello1Cells'`). -/

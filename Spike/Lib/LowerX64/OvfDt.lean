@@ -178,7 +178,8 @@ omit [Kraken.Executable.ValidLayout exe] in
 off-site pcs of the path's phase check (`abortPhOk`: the `write` call's
 `phOne`, `Abort.x2`'s `blkPh`), whose `PcOff` the instance gives; the exit
 call is off the release and take sites (`hrel`, `htk`). -/
-theorem ovfDt_noSite (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) (hphs : abortPhOk okPc ph lab = true)
+theorem ovfDt_noSite {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp)
+    (hphs : abortPhOk okPc ph lab = true)
     (hrel : ∀ a, μ.site .release = some a → (lab Abort.overflow.exit).toBitVec.toNat ≠ a)
     (htk : ∀ a, μ.site .take = some a → (lab Abort.overflow.exit).toBitVec.toNat ≠ a) :
     ∀ s, OvfDt exe endPc lab s → Kernel.siteAt abi μ s = none := by
@@ -212,7 +213,7 @@ theorem ovfDt_noSite (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) (hphs
 /-- **The consumer's closed tail at the overflow stub**: `WrIn` at `OvfDt`
 (`hW`), and `OvfDt` closed under certification (`ovfDt_step`, the stub's
 code from `abortIn`, off the sites by `ovfDt_noSite`). -/
-theorem tailNoFul_ovf (hI : InstOk exe endPc cells lab μ own Tk K okPc ph)
+theorem tailNoFul_ovf {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp)
     (hprog : Scc.Cert.Rt.X64.Abort.abortIn cells = true) (hphs : abortPhOk okPc ph lab = true)
     (hrel : ∀ a, μ.site .release = some a → (lab Abort.overflow.exit).toBitVec.toNat ≠ a)
     (htk : ∀ a, μ.site .take = some a → (lab Abort.overflow.exit).toBitVec.toNat ≠ a)

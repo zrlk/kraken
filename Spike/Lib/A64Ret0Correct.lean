@@ -223,7 +223,7 @@ set_option maxRecDepth 100000 in
 /-- **The loaded thread is at the entry node**, with the source at `main`'s
 start (`hst`, given a fragment holding the entry node). -/
 theorem ret0_entry : At ret0Exe ret0End R0 ret0F entry0 ret0S0 c0 := by
-  refine ⟨rfl, Scc.Cert.Rt.A64.endPc_threadAt _ _ _ _ (Scc.Cert.Link.A64.above_of_loadOk SccCode.ret0Λ_load), rfl, ?_, ⟨ret0S0.st.1.regs, ret0S0.st.1.status, fun k =>
+  refine ⟨rfl, Scc.Cert.Rt.A64.endPc_threadAt _ _ _ _ (by decide +kernel), rfl, ?_, ⟨ret0S0.st.1.regs, ret0S0.st.1.status, fun k =>
     BitVec.ofInt 64 ((Mem.loadInt ret0S0.st.1.dmem (R0.addr k) 8).getD 0)⟩, ⟨rfl, rfl, ?_, ?_⟩, ret0F_s0, rfl⟩
   · exact (by decide +kernel : Int64.ofNat 4194304 = labT "_start")
   · intro r k hr

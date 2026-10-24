@@ -41,10 +41,18 @@ The layout (`ElfLayout`, then `ElfLayout.toLayout`):
 - `static` places nothing (the fallback), the abort labels are
   `Link.abortName`, and the other fields have their defaults.
 
+The one other mapped section the reader accepts is the linker's build-id
+note, `.note.gnu.build-id` (`ld.lld`'s default, `--build-id`): it is no part
+of the layout, and is accepted only as an `SHT_NOTE` section mapped
+read-only (`SHF_ALLOC`, neither `SHF_WRITE` nor `SHF_EXECINSTR`), inside a
+`PT_LOAD` mapped `R` only, from its file bytes, disjoint from the code,
+`.rodata`, `.data`, `.bss` and the regions, and with no symbol in it or
+defined in it (`buildIdNote`).
+
 Fail closed: the reader refuses a file whose entry point is not the start
 of `.text`, a file with a section it does not know that
-is mapped (`SHF_ALLOC`), a dynamic or relocation section, a program header
-other than `PT_LOAD`, `PT_PHDR`, `PT_NOTE`, `PT_GNU_STACK` and
+is mapped (`SHF_ALLOC`), a build-id note that is not as above, a dynamic or
+relocation section, a program header other than `PT_LOAD`, `PT_PHDR`, `PT_NOTE`, `PT_GNU_STACK` and
 `PT_GNU_PROPERTY`, an executable stack, overlapping `PT_LOAD`s, a `PT_LOAD`
 both writable and executable, more than one writable `PT_LOAD`; a data symbol
 (of `.data`, `.bss` or `.rodata`) inside the code, or, while
@@ -64,10 +72,12 @@ namespace Scc.Cert.Elf
 
 open Scc.Sem
 
-/-- For now (until the layout lemmas take symbols below the code), a data
-symbol below the code is refused: the
-loaders place data symbols after the code (`placeSyms`, `symsAbove`). -/
-def refuseBelowCode : Bool := true
+/-- Whether a data symbol below the code is refused. Off: the loaders
+place data symbols on both sides of the code (`placeBelow`,
+`cellsAround`), and the placement check's loader check accepts them
+(`Link.A64.loadOk`'s and `Link.X64.loadOk`'s `symsAround` and `noClash`);
+one inside the code is still refused (`Link.containsB code`, `symsAbove`). -/
+def refuseBelowCode : Bool := false
 
 /-! ## Little-endian fields -/
 
@@ -183,10 +193,11 @@ structure Shdr where
   entsize : Nat
   deriving Repr, DecidableEq
 
-/-- `SHT_PROGBITS`, `SHT_SYMTAB`, `SHT_STRTAB`, `SHT_NOBITS`. -/
+/-- `SHT_PROGBITS`, `SHT_SYMTAB`, `SHT_STRTAB`, `SHT_NOTE`, `SHT_NOBITS`. -/
 def shtProgbits : Nat := 1
 def shtSymtab : Nat := 2
 def shtStrtab : Nat := 3
+def shtNote : Nat := 7
 def shtNobits : Nat := 8
 
 /-- `SHF_WRITE`, `SHF_ALLOC`, `SHF_EXECINSTR`. -/
@@ -292,6 +303,9 @@ def secNamed (secs : Array Shdr) (n : String) : Except String (Nat × Shdr) := d
 tables and notes a static link writes. -/
 def knownAlloc : List String := [".text", ".rodata", ".data", ".bss"]
 
+/-- The linker's build-id note, the one other mapped section accepted. -/
+def buildIdName : String := ".note.gnu.build-id"
+
 /-- The program header types the reader accepts: `PT_NULL`, `PT_LOAD`,
 `PT_NOTE`, `PT_PHDR`, `PT_GNU_STACK`, `PT_GNU_PROPERTY`. -/
 def knownPt : List Nat := [0, 1, 4, 6, 0x6474e551, 0x6474e553]
@@ -317,6 +331,23 @@ def region (syms : List Sym) (bss : Nat) (tail : Range) (n : String) : Except St
   unless within r tail do throw s!"{n} is not in the zero-filled tail of the writable PT_LOAD"
   return r
 
+/-- The build-id note `s` (section `i`), if any, checked: an `SHT_NOTE`
+section mapped read-only, inside a `PT_LOAD` mapped `R` only from its file
+bytes, disjoint from each of `others` (the code, `.rodata`, `.data`, `.bss`
+and the regions), with no symbol of `syms` in its section or at an address
+in it. It is no part of the layout. -/
+def buildIdNote (loads : List Phdr) (others : List Range) (syms : List Sym) :
+    Option (Nat × Shdr) → Except String Unit
+  | none => pure ()
+  | some (i, s) => do
+    unless s.type = shtNote ∧ s.flags % 8 = shfAlloc do throw s!"{buildIdName}: unexpected type or flags"
+    let p ← loadOf loads buildIdName s.range pfR
+    unless s.offset + p.vaddr = p.offset + s.addr do throw s!"{buildIdName} is not mapped from its file bytes"
+    unless others.all (Link.disjB s.range) do throw s!"{buildIdName} overlaps the code, the data or a region"
+    for y in syms do
+      if y.shndx = i ∨ (y.shndx ≠ 0 ∧ Link.containsB s.range y.value) then
+        throw s!"symbol {y.name} in {buildIdName}"
+
 /-- The linker's symbols, not data symbols. -/
 def linkerSyms : List String := ["__bss_start", "_edata", "_end"]
 
@@ -338,7 +369,7 @@ def elfParts (b : ByteArray) : Except String ElfLayout := do
       unless Link.disjB p.mem q.mem do throw "overlapping PT_LOADs"
   let secs ← sections b h
   for s in secs do
-    if s.flags / shfAlloc % 2 = 1 ∧ !knownAlloc.contains s.name then
+    if s.flags / shfAlloc % 2 = 1 ∧ !knownAlloc.contains s.name ∧ s.name != buildIdName then
       throw s!"unexpected mapped section {s.name}"
     if [4, 5, 6, 9, 11].contains s.type then throw s!"unexpected dynamic or relocation section {s.name}"
   -- the code
@@ -377,6 +408,8 @@ def elfParts (b : ByteArray) : Except String ElfLayout := do
   let data : Range := ⟨dsec.addr, heap.lo - dsec.addr⟩
   unless Link.disjB rodata data ∧ Link.disjB rodata heap ∧ Link.disjB rodata pinned ∧
       Link.disjB rodata pool ∧ Link.disjB rodata code do throw ".rodata overlaps a region"
+  buildIdNote loads [code, rodata, dsec.range, bss.range, data, heap, pinned, pool] syms
+    (← secNamed? secs buildIdName)
   let image := (Link.addBytes [] dsec.addr ((← dsec.bytes b).data.toList.map (·.toNat))).filter (·.2 ≠ 0)
   -- the symbols
   let regionSyms := [Link.heapSym, Link.pinnedSym, Link.poolSym]

@@ -49,7 +49,7 @@ def hello1Asm : String := "\
   \t.arch armv8.4-a\n\
   \t.text\n\
   \t.globl _start\n\
-  \t.p2align 2\n\
+  \t.p2align 4\n\
   _start:\n\
   \tb scc_rt_start\n\
   \t.p2align 2\n\

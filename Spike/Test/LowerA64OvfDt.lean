@@ -63,13 +63,13 @@ set_option maxRecDepth 100000
 
 /-- **Satisfiable**: the tail holds at the two `movz` and at the exit call. -/
 example (m : MachineData) : OvfDt ret0Exe ret0End labT (at0 m (Abort.pcSvc labT Abort.overflow + 4 + 4)) :=
-  ⟨rfl, Scc.Cert.Rt.A64.endPc_threadAt _ _ _ _ (Scc.Cert.Link.A64.above_of_loadOk SccCode.ret0Λ_load), .inr (.inr (.inl rfl))⟩
+  ⟨rfl, Scc.Cert.Rt.A64.endPc_threadAt _ _ _ _ (by decide +kernel), .inr (.inr (.inl rfl))⟩
 
 example (m : MachineData) : OvfDt ret0Exe ret0End labT (at0 m (Abort.pcSvc labT Abort.overflow + 4 + 4 + 4)) :=
-  ⟨rfl, Scc.Cert.Rt.A64.endPc_threadAt _ _ _ _ (Scc.Cert.Link.A64.above_of_loadOk SccCode.ret0Λ_load), .inr (.inr (.inr (.inl rfl)))⟩
+  ⟨rfl, Scc.Cert.Rt.A64.endPc_threadAt _ _ _ _ (by decide +kernel), .inr (.inr (.inr (.inl rfl)))⟩
 
 example (m : MachineData) (h8 : m.regs.X8 = 94) : OvfDt ret0Exe ret0End labT (at0 m (labT Abort.overflow.exit)) :=
-  ⟨rfl, Scc.Cert.Rt.A64.endPc_threadAt _ _ _ _ (Scc.Cert.Link.A64.above_of_loadOk SccCode.ret0Λ_load), .inr (.inr (.inr (.inr ⟨rfl, h8⟩)))⟩
+  ⟨rfl, Scc.Cert.Rt.A64.endPc_threadAt _ _ _ _ (by decide +kernel), .inr (.inr (.inr (.inr ⟨rfl, h8⟩)))⟩
 
 /-- The machine data at the stub's `write` on `ret0`'s entry stack: `x0 = 2`,
 `x8 = 64`, `sp` 48 bytes below the entry stack's top. -/
@@ -84,7 +84,7 @@ theorem ret0_svc_at :
     At ret0Exe ret0End Spike.Lib.A64.Flow.Ret0.Correct.R0 (fun _ => True)
       (Abort.N labT Abort.overflow Spike.Lib.A64Consumer.c0 .svc) (at0 mSvc (Abort.pcSvc labT Abort.overflow))
       Spike.Lib.A64Consumer.c0 := by
-  refine ⟨rfl, Scc.Cert.Rt.A64.endPc_threadAt _ _ _ _ (Scc.Cert.Link.A64.above_of_loadOk SccCode.ret0Λ_load), rfl, rfl, ⟨mSvc.regs, mSvc.status, fun k =>
+  refine ⟨rfl, Scc.Cert.Rt.A64.endPc_threadAt _ _ _ _ (by decide +kernel), rfl, rfl, ⟨mSvc.regs, mSvc.status, fun k =>
     BitVec.ofInt 64 ((Mem.loadInt mSvc.dmem (Spike.Lib.A64.Flow.Ret0.Correct.R0.addr k) 8).getD 0)⟩,
     ⟨rfl, rfl, ?_, ?_⟩, trivial, rfl, rfl, rfl⟩
   · intro r k hr

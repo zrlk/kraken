@@ -233,8 +233,8 @@ theorem ph_pin {l : String} {k v : Nat} (hp : (l, k, v) ∈ Scc.Cert.Rt.A64.phPi
     ph Ly ((Ly).lab l + Int64.ofNat (4 * k)).toBitVec.toNat = v := by
   obtain ⟨a, ha, hph⟩ := pin_of_placeOKAt h hp
   have hlab : (Ly).lab l = Int64.ofNat a :=
-    Scc.Cert.Rt.A64.label_threadAt_of_codeOf (E := Scc.Sem.Entry.linux)
-      (syms := Scc.Sem.loadSyms (Ly).Λ o.secs.rodata) (Spike.Lib.A64.Rt.RuntimeLayout.ofPlaceOK_above h i) ha
+    Scc.Cert.Rt.A64.label_threadAt_of_codeOf_below (E := Scc.Sem.Entry.linux)
+      (syms := Scc.Sem.loadSyms (Ly).Λ o.secs.rodata) (Spike.Lib.A64.Rt.RuntimeLayout.ofPlaceOK_below h i ha) ha
   rw [hlab]
   have : (Int64.ofNat a + Int64.ofNat (4 * k)).toBitVec.toNat = (a + 4 * k) % 2 ^ 64 := by
     simp only [Int64.toBitVec_add, Int64.toBitVec_ofNat', BitVec.toNat_add, BitVec.toNat_ofNat]
@@ -329,8 +329,8 @@ abbrev S0OfE (E : Scc.Sem.Entry) (L : RuntimeLayout) (prog : Program) (secs : Sc
 
 /-- **The loaded thread is at `_start`** (A1), at any entry state `E`. -/
 theorem hpc_ofPlaceOKE (E : Scc.Sem.Entry) : (S0OfE E Ly o.prog o.secs).st.2 = (Ly).lab "_start" :=
-  (Scc.Cert.Rt.A64.label_threadAt_of_codeOf (E := E)
-    (syms := Scc.Sem.loadSyms (Ly).Λ o.secs.rodata) (Spike.Lib.A64.Rt.RuntimeLayout.ofPlaceOK_above h i)
+  (Scc.Cert.Rt.A64.label_threadAt_of_codeOf_below (E := E)
+    (syms := Scc.Sem.loadSyms (Ly).Λ o.secs.rodata) (Spike.Lib.A64.Rt.RuntimeLayout.ofPlaceOK_below h i (start_link_of_placeOKAt i h))
         (start_link_of_placeOKAt i h)).symm
 
 /-- **The loaded thread is at `_start`** (A1). -/

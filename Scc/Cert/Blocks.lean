@@ -1221,7 +1221,9 @@ theorem {pfx}Λ_quads : quadsOkL (Int64.ofNat {pfx}Λ.code.lo) {pfx}Cells {pfx}S
 
 theorem {pfx}Λ_syms : (Scc.Sem.rodataFits {pfx}Λ {pfx}Secs.rodata && Scc.Sem.symsAgree {pfx}Λ {pfx}Secs.rodata &&
     Scc.Sem.symsAbove {pfx}Λ.code.lo (Scc.Sem.X64.codeEnd {pfx}Λ.code.lo {pfx}Cells) (Scc.Sem.loadSyms {pfx}Λ {pfx}Secs.rodata) &&
-    symsOk {pfx}Λ.code.lo {pfx}Cells (Scc.Sem.loadSyms {pfx}Λ {pfx}Secs.rodata)) = true := by decide +kernel
+    symsAround {pfx}Λ.code.lo {pfx}Cells (Scc.Sem.loadSyms {pfx}Λ {pfx}Secs.rodata) &&
+    noClash {pfx}Λ.code.lo {pfx}Cells (Scc.Sem.loadSyms {pfx}Λ {pfx}Secs.rodata) &&
+    decide (Scc.Sem.X64.codeEnd {pfx}Λ.code.lo {pfx}Cells < 2 ^ 64)) = true := by decide +kernel
 
 theorem {pfx}Λ_load : loadOk {pfx}Λ {pfx}Cells {pfx}Secs {pfx}Asm.labelOffs = true :=
   loadOk_of {pfx}Λ_size {pfx}Λ_labels {pfx}Λ_quads {pfx}Λ_syms

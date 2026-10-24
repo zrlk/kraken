@@ -820,13 +820,14 @@ theorem rowPhOk_of_placeOKAt (h : placeOKAt cfg Λ o = true) {g : Rt.X64.OGrp} (
   Rt.X64.rowPhOk_of_phasesOk (a6_of h) hg hb hs
 
 /-- **A6**: a row's group label at its address in the loaded thread, with
-the loader's data symbols (the layout valid by A2). -/
+the loader's data symbols around the code (the layout valid and no symbol
+below the code named like the label by A2). -/
 theorem label_of_placeOKAt (h : placeOKAt cfg Λ o = true) {E : Entry} {l : String} {a : Nat}
     (ha : codeLabel Λ.code.lo o.prog l = some a) :
     (_root_.Executable.labels (threadAt E Λ.code.lo o.prog (loadSyms Λ o.secs.rodata)).exe).label l =
       Int64.ofNat a :=
   have := validLayout_of_placeOKAt h E
-  Rt.X64.label_threadAt_of_codeLabel (above_of_loadOk (loadOk_of_placeOKAt h)) ha
+  Rt.X64.label_threadAt_of_codeLabel_below (below_ne_of_loadOk (loadOk_of_placeOKAt h) ha) ha
 
 /-- **A6**: the sites are distinct. -/
 theorem sites_nodup_of_placeOKAt (h : placeOKAt cfg Λ o = true) :

@@ -79,7 +79,7 @@ the write tail at the stub's `write` (`hwr`); in a 16-aligned region with
 `hhi`), `rS` in the pool, not wrapping and off it (`hsub`, `hfit`, `hFO`). -/
 theorem hab_of {i : Expr → String → Nat → Option Nat} {T : Expr → Prop} {p : Prog} {c0 : Ctl} {cx : FnCtx}
     (hf : FrameOk cx) (h16 : cx.frame % 16 = 0)
-    (hI : InstOk exe endPc prog lab μ own Tk K okPc ph) {Dt : State → Prop} {lbl : Lbl}
+    {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp) {Dt : State → Prop} {lbl : Lbl}
     {ms : MemSide isaLSE2}
     (hab : (∃ x a b e, T (.let_ x (.add a b) e)) →
       blockAt prog (cx.local "abort_overflow") 0 ovfBlk = true ∧
@@ -159,7 +159,7 @@ theorem userCallW_main {d : Decl} (hd : Scc.Lower.Accepted0 [d] = true) {cx : Fn
     {fn entry : Label} (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) (h16 : cx.frame % 16 = 0)
     (hpro : proInC prog cx fn entry = true) (hr : Scc.Lower.Inv.lower0 [(d.arg, .unit, [])] 0 d.body = some r)
     (hbody : bodyIn prog cx entry 0 r.insts r.ret = true)
-    (hI : InstOk exe endPc prog lab μ own Tk K okPc ph) {Dt : State → Prop}
+    {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp) {Dt : State → Prop}
     {lbl : Lbl} {ms : MemSide isaLSE2} {R : Region} {F : MachineData → Prop} {Z : Int64} {D : Int}
     {tp : UInt64} {ra : BitVec 64} (hD : (cx.frame : Int) + 48 ≤ D) (hD8 : D % 8 = 0)
     (hphB : bodyPhOk okPc ph (fun _ => false) lab cx entry r.insts r.ret (Int64.ofBitVec ra) = true)

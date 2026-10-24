@@ -34,9 +34,9 @@ theorem lab_ofPlaceOK {pcfg : Scc.Cert.PlaceOK.Config} {o : Scc.Cert.PlaceOK.A64
     (i : CoreTerm.Expr → String → Nat → Option Nat) :
     ∀ l a, codeOf Λ.code.lo o.prog l = some a →
       (RuntimeLayout.ofPlaceOK h i).lab l = Int64.ofNat a :=
-  fun _ _ ha => Scc.Cert.Rt.A64.label_threadAt_of_codeOf (E := Scc.Sem.Entry.linux)
+  fun _ _ ha => Scc.Cert.Rt.A64.label_threadAt_of_codeOf_below (E := Scc.Sem.Entry.linux)
     (syms := Scc.Sem.loadSyms (RuntimeLayout.ofPlaceOK h i).Λ o.secs.rodata)
-    (Spike.Lib.A64.Rt.RuntimeLayout.ofPlaceOK_above h i) ha
+    (Spike.Lib.A64.Rt.RuntimeLayout.ofPlaceOK_below h i ha) ha
 
 /-- **`main`'s code and phase facts from `PlaceOK`** (B1, P5, B2): on an
 `Accepted0` program that lowers and emits, whose output passes `PlaceOK`,

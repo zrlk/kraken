@@ -58,7 +58,7 @@ abbrev ret0End : Int64 := endOf ret0Exe ret0Prog
 instance : Kraken.Executable.ValidLayout ret0Exe :=
   Scc.Cert.Link.A64.validLayout_of_loadOk SccCode.ret0Λ_load _
 
-theorem ret0_lays : Lays ret0Exe ret0Prog := Scc.Cert.Rt.A64.lays_threadAt _ _ _ _ (Scc.Cert.Link.A64.above_of_loadOk SccCode.ret0Λ_load)
+theorem ret0_lays : Lays ret0Exe ret0Prog := Scc.Cert.Rt.A64.lays_threadAt _ _ _ _ (by decide +kernel)
 
 /-- The index of the first cell `label l`. -/
 def labelIdx : List (Directive × Nat) → Label → Option Nat
@@ -107,7 +107,7 @@ theorem ret0Exe_cells : ret0Exe.2 = ret0Cells' := by
   unfold ret0Cells'
   rw [← placeSyms_eq _ _ _ ret0Syms_perm ret0Syms_sorted]
   show (Scc.Sem.A64.threadAt _ _ _ _).exe.2 = _
-  rw [Scc.Cert.Rt.A64.threadAt_exe_of_above (Scc.Cert.Link.A64.above_of_loadOk SccCode.ret0Λ_load)]
+  rw [Scc.Cert.Rt.A64.threadAt_exe_of_above (by decide +kernel)]
 
 /-- **The label `l` is at `a`** in the loaded thread (decided on
 `ret0Cells'`). -/

@@ -148,7 +148,7 @@ def labelName : Directive → Option String
 
 /-- The program of a text's `.text` sections (Kraken's parser, directive
 lines dropped; AArch64 instructions are 4 bytes, so `.p2align 2` pads
-nothing). -/
+nothing, and the `.p2align 4` opening `.text` is at offset 0). -/
 def textProgram (asm : String) : Except String Program :=
   Kraken.AArch64.Parser.parse (Kraken.AArch64.Parser.stripDirectives (textSection asm))
 

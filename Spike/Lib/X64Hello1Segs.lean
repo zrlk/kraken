@@ -211,7 +211,7 @@ given node of `Scc.Cert.Rt.X64.Print.seg_print_of`); its block nodes'
 states lie in `W`, none moved by `K` (`hW`). `seg_print_of` with
 `seg_printW`. -/
 theorem seg_print_ofW {W : Frag isa} {K : State → State → Prop} {cells : List (Directive × Nat)}
-    (hp : Lays exe cells) (hend : endPc = endOf exe cells) (hprog : printIn cells = true)
+    {kp : Nat} (hp : Lays exe cells kp) (hend : endPc = endOf exe cells kp) (hprog : printIn cells = true)
     (hF : FStable R F) (hR : R.OK) (hlo : R.lo ≤ -40) (hhi : 16 ≤ R.hi)
     (hW : PrintW c0 rbp0 ra W K exe endPc R F)
     (hsys : SegW W K p lbl ms (At exe endPc R F (N (_root_.Executable.labels exe).label c0 rbp0 ra .sys))

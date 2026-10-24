@@ -236,7 +236,7 @@ def run (arch : Arch) (emit : Lower.Lowered → Except String Lower.Listing) (ar
         { accepted := Lower.Accepted0 c.prog, hasNeed := lst.need.isSome,
           entries := Lower.threadEntries low.ir,
           budget := o.cfg.layout.stackBytes - IR.Tcb.headroom,
-          fails := o.certFails }
+          fails := o.certFails, funcs := low.ir.funcs.length }
       match ← (IO.FS.writeFile cf (Cert.Gen.render o.cfg name src asm sizesT c.prog pl)).toBaseIO with
       | .ok () => pure ()
       | .error e => err s!"scc: cannot write {cf}: {e}"; return 2

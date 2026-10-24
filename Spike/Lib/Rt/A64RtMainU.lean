@@ -123,7 +123,7 @@ private theorem hnr {blk : List Directive} (hb : noRetBlk blk = true) {n : ND} {
 /-- **A node at a register operation of the flow's class** (`Flow.RegOnly`,
 which also writes `sp`, as the switch `mov sp, x9` does) after the take:
 as `nodeW_reg_post`. -/
-theorem nodeW_flowReg_post (hI : InstOk exe endPc prog lab μ own Tk K okPc ph) {R : Region}
+theorem nodeW_flowReg_post {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp) {R : Region}
     {F : MachineData → Prop} {n : ND} {w : RegWidth} {op : Operation w} {l : Label} {k : Nat} {p : Int64}
     (hop : Flow.RegOnly op = true) (hb : blockAt prog l k [.instr ⟨w, op⟩] = true)
     (he : lab l + Int64.ofNat (4 * k) = p) (hp : n.pc = p)
@@ -145,7 +145,7 @@ program with its code (`hin`), in any 16-aligned region holding its frame of
 memory under the frame condition (`hun`), `rS` in the pool (`hsub`) and not
 wrapping (`hfit`), and the frame condition giving the words of `rS` off the
 region (`hFO`). -/
-theorem mainUW_gen {ms : MemSide isaLSE2} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph) {mc : MainCode}
+theorem mainUW_gen {ms : MemSide isaLSE2} {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp) {mc : MainCode}
     (hin : mainUIn prog mc = true) {Post : Ctl → BitVec 64 → Prop} {g : MainG} (hC0 : CFacts Λ lbl g.c0)
     (hPost : ∀ c v, Post c v → CFacts Λ lbl c) (hph : MainPh okPc ph lab mc)
     {R : Region} {F : MachineData → Prop} (hR : R.OK) (hal : R.base.toNat % 16 = 0)
@@ -200,7 +200,7 @@ region of depth `L` (holding `scc_rt_main`'s frame, 8-aligned) at its top
 mapped (`hmr`), `rS` in the pool (`hsub`) and not wrapping (`hfit`), and the
 user function's interface (`hU`). -/
 theorem swUW_gen {p : Prog} {lbl' : WeakMem.AllocLabel → Option Nat} {ms : MemSide isaLSE2}
-    (hI : InstOk exe endPc prog lab μ own Tk K okPc ph) (hin : startTailIn prog = true) {mc : MainCode}
+    {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp) (hin : startTailIn prog = true) {mc : MainCode}
     (hmain : mainUIn prog mc = true) {Post : Ctl → BitVec 64 → Prop} {c0 : Ctl} (hC0 : CFacts Λ lbl c0)
     (hPost : ∀ c v, Post c v → CFacts Λ lbl c) (hph : MainPh okPc ph lab mc) (hsw : SwPh okPc ph lab)
     {R : Region} {F : MachineData → Prop} {tcb top : BitVec 64} {L : Int} {D : Int} {ZU : Int64}

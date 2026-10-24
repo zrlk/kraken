@@ -27,7 +27,7 @@ def morestackIn (cells : List (Directive × Nat)) : Bool :=
 /-- **The layout of `scc_rt_morestack`** in any valid layout `exe` of code
 cells `cells` with `morestackIn cells = true`. -/
 theorem code_morestack {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe] {endPc : Int64}
-    {cells : List (Directive × Nat)} (hp : Lays exe cells) (hend : endPc = endOf exe cells)
+    {cells : List (Directive × Nat)} {kp : Nat} (hp : Lays exe cells kp) (hend : endPc = endOf exe cells kp)
     (h : morestackIn cells = true) : Code exe endPc := by
   simp only [morestackIn, Bool.and_eq_true, and_assoc] at h
   obtain ⟨h0, h1, h2, h3, h4⟩ := h

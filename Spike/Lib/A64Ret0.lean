@@ -990,8 +990,8 @@ theorem seg_oneW {W : Frag isaLSE2} {K : State → State → Prop} {P : Frag isa
 (`StackTake.labIn`), inside `W`: from a node there to node `n'` two
 instructions on, with `sp` at offset `sp` and no register offsets; both
 instructions' states in `W` and not moved by `K` (`hW0`, `hW1`). -/
-theorem labPair_segW {W : Frag isaLSE2} {K : State → State → Prop} {prog : List Directive} (hp : Lays exe prog)
-    (hend : endPc = endOf exe prog)
+theorem labPair_segW {W : Frag isaLSE2} {K : State → State → Prop} {prog : List Directive} {kp : Nat} (hp : Lays exe prog kp)
+    (hend : endPc = endOf exe prog kp)
     {l L : Label} {k : Nat} (hin : StackTake.labIn prog l k L = true) (hF : FStable R F) {sp : Int}
     {P : AS → Ctl → Prop} {n' : ND}
     (hpc : n'.pc = (_root_.Executable.labels exe).label l + Int64.ofNat (4 * (k + 1 + 1)))
@@ -1015,7 +1015,7 @@ theorem labPair_segW {W : Frag isaLSE2} {K : State → State → Prop} {prog : L
 /-- **A label's address** `adrp x9, L; add x9, x9, :lo12:L` at `l`, `k`
 (`StackTake.labIn`): from a node there to node `n'` two instructions on,
 with `sp` at offset `sp` and no register offsets. -/
-theorem labPair_seg {prog : List Directive} (hp : Lays exe prog) (hend : endPc = endOf exe prog)
+theorem labPair_seg {prog : List Directive} {kp : Nat} (hp : Lays exe prog kp) (hend : endPc = endOf exe prog kp)
     {l L : Label} {k : Nat} (hin : StackTake.labIn prog l k L = true) (hF : FStable R F) {sp : Int}
     {P : AS → Ctl → Prop} {n' : ND}
     (hpc : n'.pc = (_root_.Executable.labels exe).label l + Int64.ofNat (4 * (k + 1 + 1)))

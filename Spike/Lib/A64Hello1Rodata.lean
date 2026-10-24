@@ -74,7 +74,7 @@ variable {p : Prog} {lbl : WeakMem.AllocLabel → Option Nat} {ms : MemSide isaL
 of a program `prog` with `allocIn prog = true` (`hello1_alloc` for
 `hello1Prog`): `seg_allocW` with its code from the checks. -/
 theorem seg_alloc_ofW {W : Frag isaLSE2} {K : State → State → Prop} {prog : List Directive}
-    (hp : Lays exe prog) (hend : endPc = endOf exe prog) (hprog : allocIn prog = true)
+    {kp : Nat} (hp : Lays exe prog kp) (hend : endPc = endOf exe prog kp) (hprog : allocIn prog = true)
     (hF : FStable R F) (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -160) (hhi : 0 ≤ R.hi)
     (hq : q.OK ms (_root_.Executable.labels exe).label)
     (hmem : ∀ a : BitVec 64,

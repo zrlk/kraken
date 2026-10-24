@@ -164,7 +164,7 @@ theorem takeW_gen {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe] 
     {cells : List (Directive × Nat)} {lab : Label → Int64} {μ : Marks} {own : Own} {Tk : State → Prop}
     {K : State → State → Prop} {okPc : Nat → Bool} {ph : Nat → Nat} {Λ : Scc.Sem.Layout} {rS : Range} {lbl : Lbl}
     {ownOf : Nat → List (Loc × Val)} {ra : Label → Int64} {c0 : Ctl} {F : MachineData → Prop}
-    (hI : InstOk exe endPc cells lab μ own Tk K okPc ph) (hown : ∀ s, own s = ownOf (ph (pcOf s)))
+    {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp) (hown : ∀ s, own s = ownOf (ph (pcOf s)))
     (hin : stackTakeIn cells = true) (hC0 : CFacts Λ lbl c0)
     {R : Region} (hR : R.OK) (hlo : R.lo ≤ -200) (hhi : 8 ≤ R.hi) (q : TakeG)
     (hq : q.c0 = c0) (hra : q.g.ra = (ra siteL).toBitVec) (hph : TakePh okPc ph Tk ownOf μ lab ra)

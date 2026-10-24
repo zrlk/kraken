@@ -62,14 +62,15 @@ theorem ret0_pcs :
 
 /-- **Satisfiable**: the tail holds at the two moves and at the exit call. -/
 example (m : MachineData) : OvfDt ret0Exe ret0End labT (at0 m (labT Abort.overflow.entry + 40)) :=
-  ⟨rfl, Scc.Cert.Link.X64.endPc_threadAt _ _ _ _ (Scc.Cert.Link.X64.above_of_loadOk SccCode.ret0Λ_load), .inr (.inr (.inl rfl))⟩
+  ⟨rfl, Scc.Cert.Link.X64.endPc_threadAt _ _ _ _ Spike.Lib.X64.Flow.Ret0.Own.ret0_above, .inr (.inr (.inl rfl))⟩
 
 example (m : MachineData) : OvfDt ret0Exe ret0End labT (at0 m (labT Abort.overflow.entry + 47)) :=
-  ⟨rfl, Scc.Cert.Link.X64.endPc_threadAt _ _ _ _ (Scc.Cert.Link.X64.above_of_loadOk SccCode.ret0Λ_load), .inr (.inr (.inr (.inl rfl)))⟩
+  ⟨rfl, Scc.Cert.Link.X64.endPc_threadAt _ _ _ _ Spike.Lib.X64.Flow.Ret0.Own.ret0_above, .inr (.inr (.inr (.inl rfl)))⟩
 
 example (m : MachineData) (h : m.regs.get64 .rax = 231) :
     OvfDt ret0Exe ret0End labT (at0 m (labT Abort.overflow.exit)) :=
-  ⟨rfl, Scc.Cert.Link.X64.endPc_threadAt _ _ _ _ (Scc.Cert.Link.X64.above_of_loadOk SccCode.ret0Λ_load), .inr (.inr (.inr (.inr ⟨rfl, h⟩)))⟩
+  ⟨rfl, Scc.Cert.Link.X64.endPc_threadAt _ _ _ _ Spike.Lib.X64.Flow.Ret0.Own.ret0_above, .inr (.inr (.inr (.inr ⟨rfl,
+      h⟩)))⟩
 
 /-- The stub's frame on `ret0`'s entry stack: `[-24, 16)` from 32 bytes
 below the entry stack's top. -/
@@ -96,7 +97,8 @@ node holds at `mSys` in the frame `Rs`, so the state is in the tail. -/
 theorem ret0_sys_at :
     At ret0Exe ret0End Rs (fun _ => True) (Abort.N labT Abort.overflow Spike.Lib.X64Consumer.c0 .sys)
       (at0 mSys (Abort.pcSys labT Abort.overflow)) Spike.Lib.X64Consumer.c0 := by
-  refine ⟨rfl, Scc.Cert.Link.X64.endPc_threadAt _ _ _ _ (Scc.Cert.Link.X64.above_of_loadOk SccCode.ret0Λ_load), rfl, rfl, ⟨mSys.regs, mSys.zmms, mSys.status, fun k =>
+  refine ⟨rfl, Scc.Cert.Link.X64.endPc_threadAt _ _ _ _ Spike.Lib.X64.Flow.Ret0.Own.ret0_above, rfl, rfl, ⟨mSys.regs,
+      mSys.zmms, mSys.status, fun k =>
     BitVec.ofInt 64 ((Mem.loadInt mSys.dmem (Rs.addr k) 8).getD 0)⟩,
     ⟨rfl, rfl, rfl, ?_, ?_⟩, trivial, rfl, rfl, rfl⟩
   · intro r k hr

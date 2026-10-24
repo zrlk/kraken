@@ -44,8 +44,8 @@ from its entry to its return, for any region holding its frame of 192 and
 any frame condition implying `F0`, given: room for the TCB below `2^17`
 (`hn`), the header word's facts (`hhdr`), and the counter's add's
 (`htcb`). -/
-theorem allocTcb_segW {W : Frag isaLSE2} {K : State → State → Prop} {prog : List Directive} (hp : Lays exe prog)
-    (hend : endPc = endOf exe prog) (hin : AllocTcb.allocTcbIn prog = true)
+theorem allocTcb_segW {W : Frag isaLSE2} {K : State → State → Prop} {prog : List Directive} {kp : Nat} (hp : Lays exe prog kp)
+    (hend : endPc = endOf exe prog kp) (hin : AllocTcb.allocTcbIn prog = true)
     (hF : FStable R F) (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -192) (hhi : 0 ≤ R.hi)
     (hFF : ∀ m, F m → F0 m) (q : TcbG) (hn : q.n0.toNat + 80 ≤ 131072)
     (hhdr : StOk ms F0 exe endPc (pinA (_root_.Executable.labels exe).label + q.n0) (AllocTcb.hdr0 ||| 1#64 <<< 36))
@@ -176,8 +176,8 @@ move**: `stack_take_seg` with the take site the kernel's take of `rS`
 private memory (`StackM`). Given the node obligations (`hW`), the region's
 cells off `rS` (`hRS`), every aligned word of `rS` off the region (`hout`),
 and the frame condition kept by the take (`hFt`). -/
-theorem stackTake_segW {W : Frag isaLSE2} {rS : Scc.Sem.Range} {prog : List Directive} (hp : Lays exe prog)
-    (hend : endPc = endOf exe prog) (hin : StackTake.stackTakeIn prog = true)
+theorem stackTake_segW {W : Frag isaLSE2} {rS : Scc.Sem.Range} {prog : List Directive} {kp : Nat} (hp : Lays exe prog kp)
+    (hend : endPc = endOf exe prog kp) (hin : StackTake.stackTakeIn prog = true)
     (hF : FStable R F) (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -208) (hhi : 0 ≤ R.hi)
     (hFF : ∀ m, F m → F0 m) (q : TakeG) (hk : q.k0.toNat + 16384 ≤ 536870912)
     (htk : TakeOk ms F0 exe endPc q.k0)
@@ -456,8 +456,8 @@ return the stack range `rS` is in private memory (`StackM`). Given the node
 obligations (`hW`), the region's cells off `rS` (`hRS`), every aligned word
 of `rS` off the region (`hout`), and the frame condition kept by the take
 (`hFt`). -/
-theorem threadInit_segW {W : Frag isaLSE2} {rS : Scc.Sem.Range} {prog : List Directive} (hp : Lays exe prog)
-    (hend : endPc = endOf exe prog) (hin : ThreadInit.threadInitIn prog = true) (hsp : tiSpIn prog = true)
+theorem threadInit_segW {W : Frag isaLSE2} {rS : Scc.Sem.Range} {prog : List Directive} {kp : Nat} (hp : Lays exe prog kp)
+    (hend : endPc = endOf exe prog kp) (hin : ThreadInit.threadInitIn prog = true) (hsp : tiSpIn prog = true)
     (hst : StackTake.stackTakeIn prog = true)
     (hF : FStable R F) (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -256) (hhi : 0 ≤ R.hi)
     (hFF : ∀ m, F m → F0 m) (q : TiG) (hk : q.k0.toNat + 16384 ≤ 536870912)
@@ -700,8 +700,8 @@ variable {p : Prog} {lbl : WeakMem.AllocLabel → Option Nat} {ms : MemSide isaL
 
 /-- **`_start` inside `W`** (hand `entry_segW`), in any valid layout of any
 program with `_start`'s branch (`hin`). -/
-theorem entry_segW' {W : Frag isaLSE2} {K : State → State → Prop} {prog : List Directive} (hp : Lays exe prog)
-    (hend : endPc = endOf exe prog) (hin : blockAt prog "_start" 0 entryB = true) (hF : FStable R F) (hR : R.OK)
+theorem entry_segW' {W : Frag isaLSE2} {K : State → State → Prop} {prog : List Directive} {kp : Nat} (hp : Lays exe prog kp)
+    (hend : endPc = endOf exe prog kp) (hin : blockAt prog "_start" 0 entryB = true) (hF : FStable R F) (hR : R.OK)
     (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ 0) (hhi : 0 ≤ R.hi) (c0 : Ctl)
     (hW : BlkW W K exe endPc R F (entryN (_root_.Executable.labels exe).label c0) entryB) :
     SegW W K p lbl ms (At exe endPc R F (entryN (_root_.Executable.labels exe).label c0))
@@ -715,8 +715,8 @@ theorem entry_segW' {W : Frag isaLSE2} {K : State → State → Prop} {prog : Li
 /-- **`scc_rt_start` up to `.sp2` inside `W`** (`start_sp2_seg`, its states'
 obligations `hW`). The call of `scc_rt_alloc_tcb` asks no closure under `K`
 of it (`call_nd_FWK` with `KC := False`): no outside move is in it. -/
-theorem startSp2_segW {W : Frag isaLSE2} {K : State → State → Prop} {prog : List Directive} (hp : Lays exe prog)
-    (hend : endPc = endOf exe prog) (hin : startCallIn prog = true) (hstart : startIn prog = true)
+theorem startSp2_segW {W : Frag isaLSE2} {K : State → State → Prop} {prog : List Directive} {kp : Nat} (hp : Lays exe prog kp)
+    (hend : endPc = endOf exe prog kp) (hin : startCallIn prog = true) (hstart : startIn prog = true)
     (hat : AllocTcb.allocTcbIn prog = true)
     (hK : ms.K = some Scc.Sem.A64.abi) (hF : FStable R F) (hR : R.OK) (hal : R.base.toNat % 16 = 0)
     (hlo : R.lo ≤ -240) (hhi : 0 ≤ R.hi) (n0 : BitVec 64) (c0 : Ctl) (hn : n0.toNat + 80 ≤ 131072)
@@ -772,8 +772,8 @@ outside move** (`start_sp2_sw_seg`, its states' obligations `hW`, with
 `thread_init_segW` at the call): at the switch the stack range `rS` is in
 private memory (`StackM`). Given the take's facts at the region (`hRS`,
 `hfit`, `hout`, `hFt`). -/
-theorem startSp2Sw_segW {W : Frag isaLSE2} {rS : Scc.Sem.Range} {prog : List Directive} (hp : Lays exe prog)
-    (hend : endPc = endOf exe prog) (hin : startTailIn prog = true) (hti : ThreadInit.threadInitIn prog = true)
+theorem startSp2Sw_segW {W : Frag isaLSE2} {rS : Scc.Sem.Range} {prog : List Directive} {kp : Nat} (hp : Lays exe prog kp)
+    (hend : endPc = endOf exe prog kp) (hin : startTailIn prog = true) (hti : ThreadInit.threadInitIn prog = true)
     (hsp : tiSpIn prog = true) (hst : StackTake.stackTakeIn prog = true)
     (hF : FStable R F) (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -304) (hhi : 0 ≤ R.hi)
     (n0 k0 : BitVec 64) (c0 : Ctl) (hk : k0.toNat + 16384 ≤ 536870912)
@@ -929,7 +929,7 @@ then `mainU_segW`. The new stack's cells hold values at the switch since the
 stack range is in private memory then (`hFS`) and the new region lies in it
 (`hsub`). -/
 theorem startSwitchU_segW {W : Frag isaLSE2} {K : State → State → Prop} {rS : Scc.Sem.Range}
-    {prog : List Directive} (hp : Lays exe prog) (hend : endPc = endOf exe prog) (hin : startTailIn prog = true)
+    {prog : List Directive} {kp : Nat} (hp : Lays exe prog kp) (hend : endPc = endOf exe prog kp) (hin : startTailIn prog = true)
     {mc : MainCode} (hmain : mainUIn prog mc = true) (hZ16 : mc.Z.toInt % 16 = 0) (hZ : 16 ≤ mc.Z.toInt)
     (hk : Spike.Lib.offOk (-mc.Z.toInt) 0 (-mc.Z.toInt + mc.k.toInt) = true)
     {D : Int} (hD0 : 0 ≤ D) (hD8 : D % 8 = 0) {ZU : Int64} {Post : Ctl → BitVec 64 → Prop} {L : Int}
@@ -1014,8 +1014,8 @@ variable {p : Prog} {lbl : WeakMem.AllocLabel → Option Nat} {ms : MemSide isaL
 `scc_rt_main` parametric** (hand `start_segW`): `startSp2_segW`, then
 `startSp2Sw_segW`, then `startSwitchU_segW`, in any valid layout of any
 program with the runtime's code checks and `scc_rt_main`'s (`hmain`). -/
-theorem startU_segW {W : Frag isaLSE2} {rS : Scc.Sem.Range} {prog : List Directive} (hp : Lays exe prog)
-    (hend : endPc = endOf exe prog) (hcall : startCallIn prog = true) (hstart : startIn prog = true)
+theorem startU_segW {W : Frag isaLSE2} {rS : Scc.Sem.Range} {prog : List Directive} {kp : Nat} (hp : Lays exe prog kp)
+    (hend : endPc = endOf exe prog kp) (hcall : startCallIn prog = true) (hstart : startIn prog = true)
     (hat : AllocTcb.allocTcbIn prog = true) (htail : startTailIn prog = true)
     (hti : ThreadInit.threadInitIn prog = true) (hsp : tiSpIn prog = true)
     (hst : StackTake.stackTakeIn prog = true)

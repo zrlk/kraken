@@ -159,8 +159,8 @@ local notation "Ly" => RuntimeLayout.ofPlaceOK h i
 
 /-- **The record's labels agree with `codeLabel`** where it resolves. -/
 theorem hlab_ofPlaceOK : ∀ l a, codeLabel (Ly).Λ.code.lo (Ly).prog l = some a → (Ly).lab l = Int64.ofNat a :=
-  fun _ _ ha => @Scc.Cert.Rt.X64.label_threadAt_of_codeLabel Scc.Sem.Entry.linux _ _ _ (Ly).valid _ _
-      (by exact Spike.Lib.X64.Rt.RuntimeLayout.ofPlaceOK_above h i) ha
+  fun _ _ ha => @Scc.Cert.Rt.X64.label_threadAt_of_codeLabel_below Scc.Sem.Entry.linux _ _ _ (Ly).valid _ _
+      (by exact Spike.Lib.X64.Rt.RuntimeLayout.ofPlaceOK_below h i ha) ha
 
 /-- **The switch's phase facts** at an output passing `placeOK` (A6). -/
 theorem swPh_ofPlaceOK : SwPh (okPc (Ly)) (ph (Ly)) (Ly).lab :=

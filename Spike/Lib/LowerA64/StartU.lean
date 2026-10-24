@@ -121,7 +121,7 @@ open Spike.Lib.A64.Rt.MainU in
 states inside `SFacts … Dt`, the user function's interface there (`hU`);
 the premises otherwise `swUW_gen`'s. -/
 theorem swUW_gen_dt {p : Prog} {lbl' : WeakMem.AllocLabel → Option Nat} {ms : MemSide isaLSE2} {Dt : State → Prop}
-    (hI : InstOk exe endPc prog lab μ own Tk K okPc ph) (hin : Spike.Lib.A64.Flow.Ret0.startTailIn prog = true)
+    {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp) (hin : Spike.Lib.A64.Flow.Ret0.startTailIn prog = true)
     {mc : MainCode} (hmain : Spike.Lib.A64.Rt.mainUIn prog mc = true) {Post : Ctl → BitVec 64 → Prop} {c0 : Ctl}
     (hC0 : CFacts Λ lbl c0) (hPost : ∀ c v, Post c v → CFacts Λ lbl c) (hph : MainPh okPc ph lab mc)
     (hsw : SwPh okPc ph lab)
@@ -180,7 +180,7 @@ theorem userCallW_sw {d : Decl} (hd : Scc.Lower.Accepted0 [d] = true) {cx : FnCt
     {fn entry : Label} (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) (h16 : cx.frame % 16 = 0)
     (hpro : proInC prog cx fn entry = true) (hr : Scc.Lower.Inv.lower0 [(d.arg, .unit, [])] 0 d.body = some r)
     (hbody : bodyIn prog cx entry 0 r.insts r.ret = true)
-    (hI : InstOk exe endPc prog lab μ own Tk K okPc ph) {Dt : State → Prop}
+    {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp) {Dt : State → Prop}
     {lbl : Lbl} {ms : MemSide isaLSE2} {Z : Int64} {D L : Int} {tcb top : BitVec 64} {ra : BitVec 64}
     (hD : (cx.frame : Int) + 48 ≤ D) (hD8 : D % 8 = 0)
     (htop : top.toNat % 16 = 0) (hok : (swR top (-L) 0).OK) (hL : Z.toInt + D ≤ L) (hL8 : L % 8 = 0)

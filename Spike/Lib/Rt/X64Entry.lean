@@ -92,8 +92,8 @@ layout of any cells with `_start`'s code (`hin`): `xorl %ebp, %ebp`,
 (`hFK`) and `R`'s cells (`hKR`). The callee's segment is `hS`, for every
 frame condition `F'` stable in the callee's region, kept by `K` and
 implying `F`. -/
-theorem entry_segW' {W : Frag isa} {K : State → State → Prop} (hp : Lays exe cells)
-    (hend : endPc = endOf exe cells) (hin : Code.Start.entryIn cells = true)
+theorem entry_segW' {W : Frag isa} {K : State → State → Prop} {kp : Nat} (hp : Lays exe cells kp)
+    (hend : endPc = endOf exe cells kp) (hin : Code.Start.entryIn cells = true)
     (hF : FStable R F) (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -8 + -296) (hhi : 0 ≤ R.hi)
     (hFK : KStable K F)
     (hKR : ∀ s s', K s s' → F s.st.1 → ∀ k, R.Off k →

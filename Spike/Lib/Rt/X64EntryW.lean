@@ -31,7 +31,7 @@ given `_start`'s code (`hin`) and its phase facts: the `xorl`'s and the
 `andq`'s pcs off the sites (`hok0`, `hok2`), their next pcs in their phase
 (`hph0`, `hph2`), the call's block's phase check (`hblk`), and none of the
 three pcs in the take's phase (`hT0`, `hT2`, `hT6`). -/
-theorem entryW_of_instOk (hI : InstOk exe endPc cells lab μ own Tk K okPc ph)
+theorem entryW_of_instOk {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp)
     (hin : Code.Start.entryIn cells = true) {R : Region} {F : MachineData → Prop} (hR : R.OK) (hlo : R.lo ≤ -8)
     (hhi : 0 ≤ R.hi) {c0 : Ctl} (hC0 : CFacts Λ lbl c0)
     (hok0 : okPc (lab "_start" + Int64.ofNat 0).toBitVec.toNat = true)

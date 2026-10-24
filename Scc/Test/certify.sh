@@ -4,7 +4,20 @@
 # and check, in the kernel, the placement check at that layout and (with
 # --instantiate) the compiler theorem at it.
 #
-# Usage: Scc/Test/certify.sh [--arch x64|arm] [--instantiate] [--elf EXE] PROG.w
+# Usage: Scc/Test/certify.sh [--arch x64|arm] [--instantiate] [--elf EXE] [-v|--verbose] PROG.w
+#
+# First it builds what it needs (`lake build`: scc and the certificate
+# modules, and with --instantiate the compiler theorem's module), printing
+# one line per build; on a fresh checkout that is most of the package and
+# takes long (the line says how long). The build output is appended to
+# .lake/certify/ARCH/T/build.log; a failed build's verdict names it, after
+# its last lines.
+#
+# -v, --verbose: print every command the script runs to standard error, before
+# it runs, as a shell line to rerun by hand (`+ cd DIR && CMD ...`, absolute
+# paths), and `# wrote PATH (...)` for each Lean file it generates (rerun with
+# `lake env lean PATH` from the package root). Otherwise the same: outputs,
+# verdict and exit status.
 #
 # Steps, in the work directory .lake/certify/ARCH/T/ (T = PROG's base name):
 #   1. `scc --arch ARCH --cert T.cert.lean -o T.s PROG.w`; the certificate's
@@ -35,21 +48,20 @@
 #   3  not certifiable: outside the certified fragment (non-tail recursion:
 #      no stack need table; or not `Scc.Lower.Accepted0`), or a component AN
 #      of `placeOKAt` fails at the executable's layout;
-#   4  not yet supported: the reader refuses the linker's placement of
-#      `.rodata` below the code (`Scc.Cert.Elf.refuseBelowCode`; ld.lld's
-#      default, so every arm executable for now);
 #   1  failed: scc, the assembler, the linker or the reader fails (a damaged
 #      executable), or T.post.lean does not check for another reason;
 #   2  usage.
 set -u
 
-ARCH=x64; INST=0; ELF=""; SRC=""
+ARCH=x64; INST=0; ELF=""; SRC=""; VERBOSE=0
+USAGE="usage: $0 [--arch x64|arm] [--instantiate] [--elf EXE] [-v|--verbose] PROG.w"
 while [ $# -gt 0 ]; do
   case "$1" in
     --arch) ARCH="${2:-}"; shift 2 ;;
     --instantiate) INST=1; shift ;;
     --elf) ELF="${2:-}"; shift 2 ;;
-    -*) echo "usage: $0 [--arch x64|arm] [--instantiate] [--elf EXE] PROG.w" >&2; exit 2 ;;
+    -v|--verbose) VERBOSE=1; shift ;;
+    -*) echo "$USAGE" >&2; exit 2 ;;
     *) [ -z "$SRC" ] || { echo "$0: more than one program" >&2; exit 2; }; SRC="$1"; shift ;;
   esac
 done
@@ -58,7 +70,7 @@ case "$ARCH" in
   arm) NS=Scc.Cert.PlaceOK.A64 ;;
   *) echo "unknown arch $ARCH" >&2; exit 2 ;;
 esac
-[ -n "$SRC" ] && [ -f "$SRC" ] || { echo "usage: $0 [--arch x64|arm] [--instantiate] [--elf EXE] PROG.w" >&2; exit 2; }
+[ -n "$SRC" ] && [ -f "$SRC" ] || { echo "$USAGE" >&2; exit 2; }
 if [ -n "$ELF" ]; then [ -f "$ELF" ] || { echo "$0: no file $ELF" >&2; exit 2; }; ELF=$(cd "$(dirname "$ELF")" && pwd)/$(basename "$ELF"); fi
 
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
@@ -74,24 +86,49 @@ verdict() {  # status, text
   exit "$1"
 }
 
+# -v: the command about to run, in directory $1, as a shell line on stderr.
+show() {
+  [ $VERBOSE = 1 ] || return 0
+  local d=$1; shift
+  { printf '+ cd %q &&' "$d"; printf ' %q' "$@"; echo; } >&2
+}
+# -v: a Lean file the script wrote ($1) and what it is for ($2).
+wrote() { [ $VERBOSE = 1 ] && echo "# wrote $1 ($2)" >&2; return 0; }
+
+rm -rf "$WORK"; mkdir -p "$WORK"; cd "$WORK" || exit 1
+show "$ROOT" mkdir -p "$WORK"
+BLOG="$WORK/build.log"
+# Build targets $3... ($1: what, $2: the time a fresh checkout takes); on
+# failure the verdict names the log, after its last lines.
+build() {
+  local what=$1 time=$2; shift 2
+  echo "certify: building $what (lake build $*; a first run on a fresh checkout takes $time); log: $BLOG"
+  show "$ROOT" $LAKE build "$@"
+  (cd "$ROOT" && $LAKE build "$@") >>"$BLOG" 2>&1 && return 0
+  tail -n 20 "$BLOG"
+  return 1
+}
+
 if [ "$ARCH" = x64 ]; then CERT_MODS="Scc.Cert.X64 Scc.Cert.OutStageX64 Scc.Cert.E2EX64"
 else CERT_MODS="Scc.Cert.Arm Scc.Cert.OutStageA64 Scc.Cert.E2EA64"; fi
-(cd "$ROOT" && $LAKE build scc scc_x64 scc_arm Scc.Cert.Elf Scc.Cert.SrcTerm $CERT_MODS) >/dev/null 2>&1 \
-  || verdict 1 "failed: lake build scc"
+build "scc and the certificate modules" "about 15 minutes on 64 cores" scc scc_x64 scc_arm Scc.Cert.Elf Scc.Cert.SrcTerm $CERT_MODS \
+  || verdict 1 "failed: lake build scc (log: $BLOG)"
 if [ $INST = 1 ]; then
   if [ "$ARCH" = x64 ]; then THM_MOD=Spike.Lib.LowerX64.Correct; else THM_MOD=Spike.Lib.LowerA64.Correct; fi
-  (cd "$ROOT" && $LAKE build "$THM_MOD") >/dev/null 2>&1 || verdict 1 "failed: lake build $THM_MOD"
+  build "the compiler theorem" "about 3 minutes" "$THM_MOD" || verdict 1 "failed: lake build $THM_MOD (log: $BLOG)"
 fi
-rm -rf "$WORK"; mkdir -p "$WORK"; cd "$WORK" || exit 1
+show "$WORK" cp "$SRCABS" "$T.w"
 cp "$SRCABS" "$T.w"
 
 # 1. Compile, with the certificate.
+show "$WORK" "$SCC" --arch "$ARCH" --cert "$T.cert.lean" -o "$T.s" "$T.w"
 "$SCC" --arch "$ARCH" --cert "$T.cert.lean" -o "$T.s" "$T.w" >"$T.scc.out" 2>"$T.scc.err" \
   || verdict 1 "failed: scc: $(head -c 2000 "$T.scc.err")"
 OUTSIDE="-- outside the certified fragment: no stack need table (non-tail recursion)"
 if grep -qxF -- "$OUTSIDE" "$T.cert.lean"; then
   verdict 3 "not certifiable: outside the certified fragment (no stack need table: non-tail recursion)"
 fi
+show "$WORK" sha256sum "$T.w" "$T.s"
 hs=$(sha256sum "$T.w" | cut -d' ' -f1); ha=$(sha256sum "$T.s" | cut -d' ' -f1)
 if [ "$(grep -c "^-- SHA-256 (UTF-8): \($hs\|$ha\)\$" "$T.cert.lean")" != 2 ]; then
   verdict 1 "failed: the certificate's digests differ from sha256sum"
@@ -102,14 +139,18 @@ fi
 
 # 2. Assemble and link (run.sh's commands), or take the given executable.
 if [ -n "$ELF" ]; then
+  show "$WORK" cp "$ELF" "$T"
   cp "$ELF" "$T"
 elif [ "$ARCH" = x64 ]; then
+  show "$WORK" as -o "$T.o" "$T.s"; show "$WORK" ld -static -o "$T" "$T.o"
   { as -o "$T.o" "$T.s" && ld -static -o "$T" "$T.o"; } 2>"$T.link.err" \
     || verdict 1 "failed: assemble/link: $(head -c 2000 "$T.link.err")"
 else
+  show "$WORK" clang --target=aarch64-linux-gnu -march=armv8.4-a -nostdlib -static -fuse-ld=lld -o "$T" "$T.s"
   clang --target=aarch64-linux-gnu -march=armv8.4-a -nostdlib -static -fuse-ld=lld -o "$T" "$T.s" 2>"$T.link.err" \
     || verdict 1 "failed: assemble/link: $(head -c 2000 "$T.link.err")"
 fi
+show "$WORK" sha256sum "$T"
 he=$(sha256sum "$T" | cut -d' ' -f1)
 
 # 3. The reader, by evaluation.
@@ -120,13 +161,11 @@ import Scc.Cert.Elf
   | .error e => IO.println s!"certify-elf: refused: {e}"
   | .ok _ => IO.println "certify-elf: ok"
 EOF
+wrote "$WORK/$T.elf.lean" "the ELF reader on $T, by evaluation: prints certify-elf: ok or the refusal"
+show "$ROOT" "$LAKE" env lean "$WORK/$T.elf.lean"
 r=$(cd "$ROOT" && "$LAKE" env lean "$WORK/$T.elf.lean" 2>&1 | sed -n 's/^certify-elf: //p' | head -n 1)
 case "$r" in
   ok) ;;
-  "refused: data symbol "*" below the code")
-    verdict 4 "not yet supported: rodata below code (the reader ${r#refused: }; the linker's placement)" ;;
-  "refused: unexpected mapped section .note.gnu.build-id")
-    verdict 4 "not yet supported: build-id note (the reader ${r#refused: }; the linker's default)" ;;
   refused:*) verdict 1 "failed: the ELF reader refuses $T: ${r#refused: }" ;;
   *) verdict 1 "failed: the ELF reader could not be run" ;;
 esac
@@ -148,7 +187,7 @@ L="⟨elf.1⟩"
   if [ $INST = 1 ]; then echo "import $THM_MOD"; fi
   # The certificate up to its decisions at the static link (they are not
   # needed: the decisions below are at the executable's layout).
-  sed -e '/^\/-- A1, A2, A4 and A7 of `outLit`/,$d' "$T.cert.lean"
+  sed -e '/^\/-- A1 of `outLit`/,$d' "$T.cert.lean"
   cat <<EOF
 /-! ## After the link
 
@@ -192,8 +231,8 @@ theorem prog_placeOKAt_8 : $NS.a8 outLit $L = true := by
   decide +kernel
 
 /-- A9 of \`outLit\` at the executable's layout (kernel-checked). -/
-theorem prog_placeOKAt_9 : $NS.a9 outLit $L = true := by
-  decide +kernel
+theorem prog_placeOKAt_9 : $NS.a9 outLit $L = true :=
+  $NS.a9_of_fast (by decide +kernel)
 
 /-- A11 of \`outLit\` at the executable's layout (kernel-checked). -/
 theorem prog_placeOKAt_11 : $NS.a11 outLit $L = true := by
@@ -238,8 +277,12 @@ EOF
   echo
   echo "end SccCertificate"
 } >"$T.post.lean"
+if [ $INST = 1 ]; then
+  wrote "$WORK/$T.post.lean" "the certificate at the executable's layout: placeOKAt and the compiler theorem"
+else wrote "$WORK/$T.post.lean" "the certificate at the executable's layout: placeOKAt"; fi
 
 rm -f post.rss
+show "$ROOT" "$LAKE" env lean "$WORK/$T.post.lean"
 if (cd "$ROOT" && "$ROOT/Scc/Test/rssanon.sh" "$WORK/post.rss" "$LAKE" env lean "$WORK/$T.post.lean") \
     >"$T.post.out" 2>&1; then
   secs=""; ra=""; [ -f post.rss ] && IFS=: read -r secs ra <post.rss
@@ -269,6 +312,8 @@ def elf : Scc.Sem.Layout × String := scc_elf_layout% "$REL/$T"
 end SccCertificate
 EOF
 } >"$T.diag.lean"
+wrote "$WORK/$T.diag.lean" "the first component of placeOKAt that fails, by evaluation: prints certify-diag: aN"
+show "$ROOT" "$LAKE" env lean "$WORK/$T.diag.lean"
 an=$(cd "$ROOT" && "$LAKE" env lean "$WORK/$T.diag.lean" 2>&1 | sed -n 's/^certify-diag: //p' | head -n 1)
 case "$an" in
   a[0-9]*) verdict 3 "not certifiable: placeOKAt fails at the executable's layout (component ${an^^}; diagnostic by evaluation)" ;;

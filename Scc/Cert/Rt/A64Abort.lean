@@ -95,7 +95,7 @@ variable {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe] {prog : L
 
 set_option linter.unusedSimpArgs false in
 /-- A stub's `Code` from `stubIn`. -/
-theorem code_stub (hp : Lays exe prog) (hend : endPc = endOf exe prog)
+theorem code_stub {kp : Nat} (hp : Lays exe prog kp) (hend : endPc = endOf exe prog kp)
     {st : Stub} {b1 : List Directive} (h : stubIn prog st b1 = true) : Code st c0 b1 exe endPc := by
   simp only [stubIn, Bool.and_eq_true, and_assoc] at h
   obtain ⟨h0, h1, h1b, h2, hs, h5, hx, hg, hg'⟩ := h
@@ -112,7 +112,7 @@ theorem code_stub (hp : Lays exe prog) (hend : endPc = endOf exe prog)
 
 set_option linter.unusedSimpArgs false in
 /-- The dispatcher's `Code` from `dispIn`. -/
-theorem code_disp (hp : Lays exe prog) (hend : endPc = endOf exe prog)
+theorem code_disp {kp : Nat} (hp : Lays exe prog kp) (hend : endPc = endOf exe prog kp)
     (h : dispIn prog = true) : Disp.Code c0 exe endPc := by
   simp only [dispIn, Bool.and_eq_true, and_assoc] at h
   obtain ⟨he, h1, i1, g1, h2, i2, g2, h3, i3, g3, h4, i4, g4, h5, i5, g5, hg⟩ := h
@@ -137,7 +137,7 @@ theorem code_disp (hp : Lays exe prog) (hend : endPc = endOf exe prog)
 
 set_option linter.unusedSimpArgs false in
 /-- The tail's `Code` from `mainIn`. -/
-theorem code_main (hp : Lays exe prog) (hend : endPc = endOf exe prog)
+theorem code_main {kp : Nat} (hp : Lays exe prog kp) (hend : endPc = endOf exe prog kp)
     {ret : BitVec 64} (h : mainIn prog = true) : MainTail.Code c0 ret exe endPc := by
   simp only [mainIn, Bool.and_eq_true] at h
   exact ⟨code_field hp hend h.1 (by simp only [MainTail.MN.nd, add4, add0]),
@@ -145,7 +145,7 @@ theorem code_main (hp : Lays exe prog) (hend : endPc = endOf exe prog)
 
 set_option linter.unusedSimpArgs false in
 /-- The tail's `Code` from `mainIn0`. -/
-theorem code_main0 (hp : Lays exe prog) (hend : endPc = endOf exe prog)
+theorem code_main0 {kp : Nat} (hp : Lays exe prog kp) (hend : endPc = endOf exe prog kp)
     {ret : BitVec 64} (h : mainIn0 prog = true) : MainTail0.Code c0 ret exe endPc := by
   simp only [mainIn0, Bool.and_eq_true] at h
   exact ⟨code_field hp hend h.1 (by simp only [MainTail0.MN.nd, add4, add0]),
@@ -162,7 +162,7 @@ variable {p : Prog} {lbl : WeakMem.AllocLabel → Option Nat} {ms : MemSide isaL
   {R : Region} {m0 : MachineData} {c0 : Ctl} {Q : Frag isaLSE2}
 
 /-- The stubs' code from `abortIn`. -/
-theorem code_stubs (hp : Lays exe prog) (hend : endPc = endOf exe prog)
+theorem code_stubs {kp : Nat} (hp : Lays exe prog kp) (hend : endPc = endOf exe prog kp)
     (hprog : abortIn prog = true) (x : Disp.DX) : Code x.stub c0 x.b1 exe endPc := by
   simp only [abortIn, Bool.and_eq_true, and_assoc] at hprog
   cases x
@@ -174,7 +174,7 @@ theorem code_stubs (hp : Lays exe prog) (hend : endPc = endOf exe prog)
 
 /-- **An abort stub does not return** in any valid layout of a program with
 `abortIn prog = true`, given its `write` call. -/
-theorem seg_stub_of (hp : Lays exe prog) (hend : endPc = endOf exe prog)
+theorem seg_stub_of {kp : Nat} (hp : Lays exe prog kp) (hend : endPc = endOf exe prog kp)
     (hprog : abortIn prog = true) (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -48) (hhi : 0 ≤ R.hi)
     (hK : ms.K = some Scc.Sem.A64.abi) (x : Disp.DX)
     (hsvc : Seg p lbl ms (At exe endPc R (DFrame R m0) (N (_root_.Executable.labels exe).label x.stub c0 .svc))
@@ -193,7 +193,7 @@ theorem seg_stub_of (hp : Lays exe prog) (hend : endPc = endOf exe prog)
 /-- **`scc_rt_abort` does not return** in any valid layout of a program with
 `abortIn prog = true`: from its entry with a code in `[1, 5]`, given the
 stubs' `write` calls. -/
-theorem seg_abort_of (hp : Lays exe prog) (hend : endPc = endOf exe prog)
+theorem seg_abort_of {kp : Nat} (hp : Lays exe prog kp) (hend : endPc = endOf exe prog kp)
     (hprog : abortIn prog = true) (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -48) (hhi : 0 ≤ R.hi)
     (hK : ms.K = some Scc.Sem.A64.abi)
     (hsvc : ∀ x : Disp.DX,
@@ -210,8 +210,8 @@ theorem seg_abort_of (hp : Lays exe prog) (hend : endPc = endOf exe prog)
 program with `mainIn prog = true` (after a setup block): from the return of
 `wc_main` with `ret` in `x0`, through `exit_group(ret)`. Given that the exit
 is `main`'s (`hmain`). -/
-theorem seg_main_tail_of {ret : BitVec 64} (hp : Lays exe prog)
-    (hend : endPc = endOf exe prog) (hm : mainIn prog = true) (hR : R.OK)
+theorem seg_main_tail_of {ret : BitVec 64} {kp : Nat} (hp : Lays exe prog kp)
+    (hend : endPc = endOf exe prog kp) (hm : mainIn prog = true) (hR : R.OK)
     (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -80) (hhi : 0 ≤ R.hi) (hK : ms.K = some Scc.Sem.A64.abi)
     (hmain : ∀ s c,
       At exe endPc R (DFrame R m0) (MainTail.MN.nd (_root_.Executable.labels exe).label c0 ret .ex) s c →
@@ -224,8 +224,8 @@ theorem seg_main_tail_of {ret : BitVec 64} (hp : Lays exe prog)
 program with `mainIn0 prog = true` (without a setup block): from the return
 of `wc_main` with `ret` in `x0`, through `exit_group(ret)`. Given that the
 exit is `main`'s (`hmain`). -/
-theorem seg_main_tail0_of {ret : BitVec 64} (hp : Lays exe prog)
-    (hend : endPc = endOf exe prog) (hm : mainIn0 prog = true) (hR : R.OK)
+theorem seg_main_tail0_of {ret : BitVec 64} {kp : Nat} (hp : Lays exe prog kp)
+    (hend : endPc = endOf exe prog kp) (hm : mainIn0 prog = true) (hR : R.OK)
     (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -48) (hhi : 0 ≤ R.hi) (hK : ms.K = some Scc.Sem.A64.abi)
     (hmain : ∀ s c,
       At exe endPc R (DFrame R m0) (MainTail0.MN.nd (_root_.Executable.labels exe).label c0 ret .ex) s c →

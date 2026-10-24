@@ -91,7 +91,9 @@ theorem corrupt_quads : quadsOkL (Int64.ofNat ret0Λ.code.lo) corruptCells ret0S
 
 theorem corrupt_syms : (Scc.Sem.rodataFits ret0Λ ret0Secs.rodata && Scc.Sem.symsAgree ret0Λ ret0Secs.rodata &&
     Scc.Sem.symsAbove ret0Λ.code.lo (Scc.Sem.X64.codeEnd ret0Λ.code.lo corruptCells) (Scc.Sem.loadSyms ret0Λ ret0Secs.rodata) &&
-    symsOk ret0Λ.code.lo corruptCells (Scc.Sem.loadSyms ret0Λ ret0Secs.rodata)) = true := by decide +kernel
+    symsAround ret0Λ.code.lo corruptCells (Scc.Sem.loadSyms ret0Λ ret0Secs.rodata) &&
+    noClash ret0Λ.code.lo corruptCells (Scc.Sem.loadSyms ret0Λ ret0Secs.rodata) &&
+    decide (Scc.Sem.X64.codeEnd ret0Λ.code.lo corruptCells < 2 ^ 64)) = true := by decide +kernel
 
 /-- The canonical loader's checks pass on the corrupted program. -/
 theorem corrupt_load : loadOk ret0Λ corruptCells ret0Secs corruptAsm.labelOffs = true :=

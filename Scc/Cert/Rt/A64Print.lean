@@ -61,7 +61,7 @@ theorem add0 (a : Int64) : a + Int64.ofNat (4 * 0) = a := by
 /-- A field of `Code` from `blockAt`: the block's code at `label + 4k`, in
 every state of the executable. -/
 theorem code_field {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe] {prog : List Directive}
-    (hp : Lays exe prog) {endPc : Int64} (hend : endPc = endOf exe prog)
+    {kp : Nat} (hp : Lays exe prog kp) {endPc : Int64} (hend : endPc = endOf exe prog kp)
     {l : Label} {k : Nat} {b : List Directive} (h : blockAt prog l k b = true) {q : Int64}
     (e : (_root_.Executable.labels exe).label l + Int64.ofNat (4 * k) = q) :
     ∀ s : State, s.exe = exe → s.endPc = endPc → CodeAt s q b :=
@@ -72,8 +72,8 @@ set_option linter.unusedSimpArgs false in
 `prog` with `printIn prog = true`, given its write system call. -/
 theorem seg_print_of {p : Prog} {lbl : WeakMem.AllocLabel → Option Nat} {ms : MemSide isaLSE2}
     {exe : _root_.Executable} {endPc : Int64} {R : Region} {m0 : MachineData} {c0 : Ctl} {x29 ra : BitVec 64}
-    {prog : List Directive} [Kraken.Executable.ValidLayout exe] (hp : Lays exe prog)
-    (hend : endPc = endOf exe prog) (hprog : printIn prog = true)
+    {prog : List Directive} [Kraken.Executable.ValidLayout exe] {kp : Nat} (hp : Lays exe prog kp)
+    (hend : endPc = endOf exe prog kp) (hprog : printIn prog = true)
     (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -48) (hhi : 0 ≤ R.hi)
     (hsvc : Seg p lbl ms (At exe endPc R (DFrame R m0) (N (_root_.Executable.labels exe).label c0 x29 ra .svc))
       (At exe endPc R (DFrame R m0) (N (_root_.Executable.labels exe).label c0 x29 ra .n5))) :

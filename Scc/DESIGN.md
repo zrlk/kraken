@@ -116,13 +116,14 @@ abort, with the abort kind of the part of `B` the source crosses".
   `Layout.WF`: the five regions in the address space, never containing
   address 0 (`null`; `pos`, so a placed base is positive, `WF.lo_pos`), 16-aligned, pairwise disjoint; the stubs at distinct
   labels; every data symbol in a data region (`Layout.dataRegion`: data,
-  heap, pool or pinned; `symIn`), above the code (`symAbove`, hence never
-  in `code`, `WF.sym_not_code`), with distinct names (`symNodup`). Rejected
+  heap, pool or pinned; `symIn`), below or above the code (`symAbove`,
+  hence never in `code`, `WF.sym_not_code`), with distinct names
+  (`symNodup`). Rejected
   examples `Holes.not_correct_sym_in_code` (a symbol on the text image),
-  `not_correct_sym_dup`; accepted `symbols_wf`. `symAbove` is stronger
-  than "not in the code": it is what the loaders need (they lay the
-  symbols' label cells out after the code and refuse otherwise,
-  `symsAbove`), and a static link puts the text below the data; with it
+  `not_correct_sym_dup`; accepted `symbols_wf`. `symAbove` is what the
+  loaders need (they lay the label cells of the symbols below the code out
+  before it and of the others after it, and refuse one inside it,
+  `symsAbove`); with it
   and model code that fits in `Λ.code` the loaders' check refuses no
   well-formed layout. Thread control blocks are in `pinned`, which is
   shared (`Layout.shared`: data, heap or pinned; other threads read and
@@ -927,12 +928,16 @@ Where the implementation is more specific than the list above:
   before `.clone`), which on hardware orders every earlier access before
   every later one, and so excludes the load-buffering and message-passing
   shapes across the call that the dead end removes from the model.
-- The loader `T.load`: that GNU `as`/`ld` and the Linux loader place the text
-  and the image as `Λ` says and map the regions (K10, K11), and the data
-  symbols at `Λ.symbols`; that the `.text` sections (`textSection`) are the
-  code and the data sections' contents are `Λ.image`; that Kraken's
-  assembly parser, used by certificates to re-read the emitted text, agrees
-  with GNU `as` on the forms the emitter uses; and the process entry state
+- The loader `T.load`: that the Linux loader maps the executable as its
+  program headers say, and that the layout `Λ` read from the executable
+  (`Scc.Cert.Elf`) is where it puts the text, the image, the regions (K10,
+  K11) and the data symbols (those below the code where `placeBelow` puts
+  them), and that it starts the thread at `e_entry`, the start of `.text`;
+  that the `.text` sections (`textSection`) are the code and the data
+  sections' contents are `Λ.image`; that Kraken's assembly parser, used by
+  certificates to re-read the emitted text, agrees with the assembler (GNU
+  `as` on x86-64, `clang`'s integrated assembler on AArch64) on the forms
+  the emitter uses; and the process entry state
   `Entry.linux` (`Scc/Sem/Target.lean`): the stack pointer at the top of a
   64 KiB zero-filled initial stack in the main thread's private memory, every
   other register zero, nothing else mapped privately. Linux gives at least
@@ -945,6 +950,16 @@ Where the implementation is more specific than the list above:
   `A64.load_clear`, `X64.load_clear`), so a certificate checks it by
   evaluation. It is a loader check, not part of `Layout.WF`, because the
   entry state is the target's, not the layout's.
+  The release statement quantifies over every `E` with `Entry.Ok`
+  (`Scc/Sem/CorrectE.lean`): a stack inside `2 ^ 64`, disjoint from the code,
+  `.rodata` and the data regions, `sp` 16-aligned and below `2 ^ 63`, at
+  least 64 KiB; for a layout ending below it, `Entry.linux` is one.
+- The ELF layout reader `Scc.Cert.Elf` (evaluated by the elaborator): the
+  checks it makes are listed in its module doc; it accepts the linker's
+  build-id note, checked as in `Scc.Cert.Elf.buildIdNote`, which is no part
+  of the layout, and (`refuseBelowCode := false`) data symbols below the
+  code, which `wfB` and the placement check's A2 (`symsAround`, `noClash`)
+  then constrain.
 - For results transferred through `R` (not for `Correct` itself): WeakCore's
   `CertWinCN`/`CertWinPN` and `storeDepRts = true`, the hypotheses of its
   token-soundness theorems.
@@ -1145,10 +1160,12 @@ and are to be reopened at the trigger given:
 36. `Layout.symbols`: data symbol addresses by assembler name, a new field of
     the statement's `Layout` (`static` is keyed by source labels and cannot
     place runtime symbols such as the heap arena or the stack pool). The
-    loader puts a label cell for each after the code (`placeSyms`) and
-    refuses a text whose code would reach past the lowest symbol
-    (`symsAbove`). `Layout.WF` now constrains them (§1.1: in a data region,
-    above the code, distinct names); a lemma `symsAbove_of_wf` (WF and the
+    loader puts a label cell for each symbol below the code before it
+    (`placeBelow`, the executable starting at the lowest, `exeStart`) and
+    for each other one after the code (`placeSyms`), and refuses a text
+    with a symbol inside its code `[lo, fin)` (`symsAbove`). `Layout.WF`
+    constrains them (§1.1: in a data region, below or above the code,
+    distinct names); a lemma `symsAbove_of_wf` (WF and the
     model code within `Λ.code` give the check) belongs next to `symsAbove`
     in `Target.lean`, not added here while the sized loader changes it.
 37. The entry state is a parameter of the loader (`Entry`), fixed for the
@@ -1331,8 +1348,9 @@ there. Status of each hook:
    `Kernel.stackRangeOf`, the held range (`KState.held`) the thread's `sp`
    is on (§2.6).
 9. **Loader** (`threadAt`, `loadProg`, `target`). Not hooks. Resolved:
-   data symbols are placed as label cells after the code at their
-   `Λ.symbols` addresses (`placeSyms`; x64 as `X64.mkState`'s `syms`), so
+   data symbols are placed as label cells at their `Λ.symbols` addresses,
+   before the code for those below it (`placeBelow`) and after it for the
+   others (`placeSyms`; x64 as `X64.mkState`'s `syms`), so
    x64 `leaq sym(%rip)` and AArch64 `adrp` + `add :lo12:` give the symbol's
    address and a load from it reads the image word (`#guard_msgs` tests
    `dataRef` in both target files); the entry state is `Entry` (§4; tests
@@ -1474,8 +1492,11 @@ needed: Kraken's executable is a list of `(directive, size)` cells, and
   included.
 
 AArch64 needs none of this: every instruction is 4 bytes in Kraken and in
-the binary (the text's only alignment directive, `.p2align 2`, pads
-nothing); its loader keeps Kraken's 4-byte layout.
+the binary (the text's alignment directives, `.p2align 4` at the start of
+`.text` and `.p2align 2` before each function, pad nothing; the
+`.p2align 4` makes `.text` 16-aligned in the object file, so `ld.lld`
+starts the code on the 16-byte boundary `wfB` requires whatever `.rodata`
+below it ends on); its loader keeps Kraken's 4-byte layout.
 
 **`.rodata`** (both ISAs). The loader reads the text's data sections
 (`Scc.Sem.dataSections`) and builds the `.rodata` image itself

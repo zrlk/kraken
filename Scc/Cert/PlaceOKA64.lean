@@ -587,12 +587,21 @@ theorem rowPhOk_of_placeOKAt (h : placeOKAt cfg Λ o = true) {g : Rt.A64.OGrp} (
   Rt.A64.rowPhOk_of_phasesOk (a6_of h) hg hb
 
 /-- **A6**: a row's group label at its address in the loaded thread, for
-any data symbols none below the code (the loader's, `above_of_loadOk`). -/
+any data symbols none of those below the code named like a code label
+(`Link.A64.noClash`'s first half; none below the code at all:
+`below_none_of_above`). -/
 theorem label_of_placeOKAt {E : Entry} {syms : List (String × Nat)} {l : String} {a : Nat}
-    (hs : ∀ p ∈ syms, Λ.code.lo ≤ p.2)
+    (hs : ∀ p ∈ symsBelow Λ.code.lo syms, codeOf Λ.code.lo o.prog p.1 = none)
     (ha : codeOf Λ.code.lo o.prog l = some a) :
     (_root_.Executable.labels (threadAt E Λ.code.lo o.prog syms).exe).label l = Int64.ofNat a :=
-  Rt.A64.label_threadAt_of_codeOf hs ha
+  Rt.A64.label_threadAt_of_codeOf_below (fun p hp hl => by
+    have := hs p hp; rw [hl, ha] at this; cases this) ha
+
+/-- Data symbols none below the code satisfy `label_of_placeOKAt`'s premise
+(the static link's, say). -/
+theorem below_none_of_above {lo : Nat} {prog : Program} {syms : List (String × Nat)}
+    (hs : ∀ p ∈ syms, lo ≤ p.2) : ∀ p ∈ symsBelow lo syms, codeOf lo prog p.1 = none := by
+  rw [Scc.Cert.PlaceSyms.symsBelow_of_above hs]; simp
 
 /-- **A6**: the sites are distinct (`Rt.A64.marksOkT`). -/
 theorem sites_nodup_of_placeOKAt (h : placeOKAt cfg Λ o = true) :
@@ -948,7 +957,7 @@ theorem rowPhOk_of_placeOK (h : placeOK cfg o = true) {g : Rt.A64.OGrp} (hg : g 
 
 /-- `label_of_placeOKAt` at the static link. -/
 theorem label_of_placeOK {E : Entry} {syms : List (String × Nat)} {l : String} {a : Nat}
-    (hs : ∀ p ∈ syms, (tablesOf cfg o).Λ.code.lo ≤ p.2)
+    (hs : ∀ p ∈ symsBelow (tablesOf cfg o).Λ.code.lo syms, codeOf (tablesOf cfg o).Λ.code.lo o.prog p.1 = none)
     (ha : codeOf (tablesOf cfg o).Λ.code.lo o.prog l = some a) :
     (_root_.Executable.labels (threadAt E (tablesOf cfg o).Λ.code.lo o.prog syms).exe).label l = Int64.ofNat a :=
   label_of_placeOKAt (Λ := (tablesOf cfg o).Λ) hs ha

@@ -48,7 +48,7 @@ noncomputable abbrev hello1End : Int64 := endOf hello1Exe hello1Prog
 instance : Kraken.Executable.ValidLayout hello1Exe :=
   Scc.Cert.Link.A64.validLayout_of_loadOk SccCode.hello1Λ_load _
 
-theorem hello1_lays : Lays hello1Exe hello1Prog := Scc.Cert.Rt.A64.lays_threadAt _ _ _ _ (Scc.Cert.Link.A64.above_of_loadOk SccCode.hello1Λ_load)
+theorem hello1_lays : Lays hello1Exe hello1Prog := Scc.Cert.Rt.A64.lays_threadAt _ _ _ _ (by decide +kernel)
 
 /-- The loader's data symbols in address order, by insertion sort. -/
 noncomputable def hello1Syms : List (String × Nat) := symSort (Scc.Sem.loadSyms hello1Λ hello1Secs.rodata)
@@ -68,7 +68,7 @@ theorem hello1Exe_cells : hello1Exe.2 = hello1Cells' := by
   unfold hello1Cells'
   rw [← placeSyms_eq _ _ _ hello1Syms_perm hello1Syms_sorted]
   show (Scc.Sem.A64.threadAt _ _ _ _).exe.2 = _
-  rw [Scc.Cert.Rt.A64.threadAt_exe_of_above (Scc.Cert.Link.A64.above_of_loadOk SccCode.hello1Λ_load)]
+  rw [Scc.Cert.Rt.A64.threadAt_exe_of_above (by decide +kernel)]
 
 /-- **The label `l` is at `a`** in the loaded thread (decided on
 `hello1Cells'`). -/

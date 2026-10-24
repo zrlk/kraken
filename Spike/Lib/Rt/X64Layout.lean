@@ -86,8 +86,11 @@ structure RuntimeLayout where
   prog : List (Directive × Nat)
   /-- The static link. -/
   Λ : Scc.Sem.Layout
-  /-- The executable lays out the cells. -/
-  lays : Lays exe prog
+  /-- The number of cells before the code: the data symbols below it
+  (`Scc.Cert.Link.X64.belowLen`; `0` when none is). -/
+  pfx : Nat := 0
+  /-- The executable lays out the cells after `pfx` cells. -/
+  lays : Lays exe prog pfx
   /-- The executable's cells are a valid layout. -/
   valid : Kraken.Executable.ValidLayout exe
   /-- `scc_rt_pinned`. -/
@@ -134,7 +137,7 @@ attribute [instance] RuntimeLayout.valid
 abbrev lab : Label → Int64 := (_root_.Executable.labels L.exe).label
 
 /-- Where a thread running the cells halts. -/
-abbrev endPc : Int64 := endOf L.exe L.prog
+abbrev endPc : Int64 := endOf L.exe L.prog L.pfx
 
 /-- The stack pool. -/
 abbrev pool : Scc.Sem.Range := L.Λ.stackPool
