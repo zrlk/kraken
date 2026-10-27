@@ -331,6 +331,21 @@ local macro "run_avx" : tactic =>
     ⦃ Q; E ⦄ :=
   ⟨fun _ hq => Program.wp_single fun _ _ _ _ hn _ => by run_avx; exact hn _ hq⟩
 
+@[spec] public theorem mulps_reg_spec {w : AvxWidth} (asz : Width) (dst src : AvxReg w) :
+    ⦃ fun s => Q () { s with zmms := (s.zmms.setLegacy dst
+        (BitVec.packedBinOp 32 (sseBinOp (· * ·)) (s.zmms.get dst) (s.zmms.get src))) } ⦄
+      (Directive.instr (.avx asz w (.mulps (.avx dst) (.avx src))))
+    ⦃ Q; E ⦄ :=
+  ⟨fun _ hq => Program.wp_single fun _ _ _ _ hn _ => by
+    run_avx; simp only [MachineData.setAvxLegacy, MachineData.setAvxLegacyReg]; exact hn _ hq⟩
+
+@[spec] public theorem xorps_reg_spec {w : AvxWidth} (asz : Width) (dst src : AvxReg w) :
+    ⦃ fun s => Q () { s with zmms := s.zmms.setLegacy dst (s.zmms.get dst ^^^ s.zmms.get src) } ⦄
+      (Directive.instr (.avx asz w (.xorps (.avx dst) (.avx src))))
+    ⦃ Q; E ⦄ :=
+  ⟨fun _ hq => Program.wp_single fun _ _ _ _ hn _ => by
+    run_avx; simp only [MachineData.setAvxLegacy, MachineData.setAvxLegacyReg]; exact hn _ hq⟩
+
 @[spec] public theorem vaddps_reg_spec {w : AvxWidth} (asz : Width) (dst src1 src2 : AvxReg w) :
     ⦃ fun s => Q () { s with zmms := (s.zmms.set dst
         (BitVec.packedBinOp 32 (sseBinOp (· + ·)) (s.zmms.get src1) (s.zmms.get src2))) } ⦄

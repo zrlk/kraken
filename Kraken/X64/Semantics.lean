@@ -810,6 +810,14 @@ match i with
     src.interp s p (checkAlign := true) (fun a s =>
     dst.interp s p (fun b s =>
       s.setAvxLegacy dst (BitVec.packedBinOp 32 (sseBinOp (· + ·)) b a) p next))
+  | .mulps dst src =>
+    src.interp s p (checkAlign := true) (fun a s =>
+    dst.interp s p (fun b s =>
+      s.setAvxLegacy dst (BitVec.packedBinOp 32 (sseBinOp (· * ·)) b a) p next))
+  | .xorps dst src =>
+    src.interp s p (checkAlign := true) (fun a s =>
+    dst.interp s p (fun b s =>
+      s.setAvxLegacy dst (b ^^^ a) p next))
   | .vmovaps dst src =>
     src.interp s p (checkAlign := true)
       (fun val s => s.setAvx dst val p (checkAlign := true) next)

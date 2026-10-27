@@ -319,14 +319,16 @@ def parseLabel : Parser ConstExpr := do
   let n ← parseLabelRaw
   pure (.label n)
 
-/-- Parse a symbolic constant: a label, optionally offset by a constant, e.g.
-  `sym`, `sym+8`, `.L0-4`. -/
+/-- Parse a symbolic constant: a label, optionally offset by a constant or by
+  another label, e.g. `sym`, `sym+8`, `.L0-4`, `.Lhere-.Lloop` (the assembler
+  folds a difference of labels to a constant). -/
 def parseSymExpr : Parser ConstExpr := do
   let l ← parseLabel
   (attempt do
     skipHWs
     let op ← pchar '+' <|> pchar '-'
-    let i ← parseInt64Raw
+    skipHWs
+    let i ← parseInt64Raw <|> parseLabel
     pure (if op == '+' then .add l i else .sub l i)
   ) <|> pure l
 
@@ -358,7 +360,8 @@ def parseMemory : Parser (Width × AddrExpr) := do
     let disp := disp?.getD (.int64 0)
 
     skipHWs
-    let (w1, base) ← parseRegOrRipW
+    -- The base register is optional, as in `-0x40(,%ecx,4)`.
+    let base? ← optional parseRegOrRipW
     -- Check for index register
     let idx ← (do
       skipHWs
@@ -387,14 +390,19 @@ def parseMemory : Parser (Width × AddrExpr) := do
     let _ ← pchar ')'
     -- Some adapters between the parsed components and the expected dependent
     -- pairs:
-    let w ← match w1, idx with
-      | w1, .some (w2, _) =>
+    -- Without a base, the index register gives the address width.
+    let w ← match base?, idx with
+      | .some (w1, _), .some (w2, _) =>
         if w1 ≠ w2 then
           fail "type mismatch in memory addressing operands: base ({w1}) and index ({w2}) have different widths"
         else
           .pure w1
-      | w1, .none =>
+      | .some (w1, _), .none =>
         .pure w1
+      | .none, .some (w2, _) =>
+        .pure w2
+      | .none, .none =>
+        fail "memory operand needs a base or an index register"
     let idx := Option.map (fun (_, idx) => ⟨idx, scale⟩) idx
 
     -- Handle rip-relative addressing (like parseRelRegOrMem below). For a %rip
@@ -402,9 +410,10 @@ def parseMemory : Parser (Width × AddrExpr) := do
     -- numeric displacement is already relative to it (`8(%rip)`), but a
     -- symbolic one names the target itself (`sym(%rip)`), so we subtract that
     -- address, as `as` does when encoding it.
+    let base := Option.map Prod.snd base?
     let disp := match base, disp with
-      | .rip, .int64 _ => disp
-      | .rip, _ => .sub disp .after_current_instruction
+      | some .rip, .int64 _ => disp
+      | some .rip, _ => .sub disp .after_current_instruction
       | _, _ => disp
 
     pure (w, { base, idx, disp })
@@ -462,6 +471,9 @@ def parseAvxRegOrMem: Parser (MaybeAddrWidth × MaybeAvxOpWidth AvxRegOrMem) := 
 
 def parseRelRegOrMem: Parser (MaybeAddrWidth × RelRegOrMem) := do
   skipHWs
+  -- GNU's `*` marks an indirect target (a register or a memory operand); it
+  -- may be omitted, with a warning from `as`.
+  let star ← (do let _ ← pchar '*'; skipHWs; pure true) <|> pure false
   (do
     let ⟨ w, r ⟩ ← parseRegW
     if h: w = .W64 then
@@ -472,6 +484,7 @@ def parseRelRegOrMem: Parser (MaybeAddrWidth × RelRegOrMem) := do
     -- FIXME: allow more cases in the syntax; for now, we only parse labels, and
     -- assume that all jumps are relative, in that this seems to be the behavior
     -- of the assembler
+    if star then fail "expected an indirect target after `*`"
     let e ← parseLabel
     pure (.none, (.rel (.sub e .after_current_instruction)))
   ) <|> (do
@@ -893,6 +906,12 @@ def parseInstr : Parser Instr := do
   | "subps" =>
     commaSeparatedAvx .none parseAvxRegOrMem parseAvxRegOrMem .subps
 
+  | "mulps" =>
+    commaSeparatedAvx .none parseAvxRegOrMem parseAvxRegOrMem .mulps
+
+  | "xorps" =>
+    commaSeparatedAvx .none parseAvxRegOrMem parseAvxRegOrMem .xorps
+
   | "vmovaps" =>
     commaSeparatedAvx .none parseAvxRegOrMem parseAvxRegOrMem .vmovaps
 
@@ -1182,6 +1201,18 @@ def parseAlign : Parser Instr := do
   ) <|> pure none
   pure (toInstr .none (w := .W64) (.nopalign alignment.toNat pad))
 
+/-- Parse a `.byte` data directive: comma-separated byte values, decimal or
+hex. The bytes become one data cell. -/
+def parseByteData : Parser Directive := do
+  let _ ← pstring ".byte"
+  skipHWs
+  let first ← parseHexOrDec
+  let rest ← many (attempt do parseComma; parseHexOrDec)
+  let vals := #[first] ++ rest
+  if vals.any (fun v => v < 0 || v > 255) then
+    fail "byte value out of range"
+  pure (.byteArray ⟨vals.map (fun v => UInt8.ofNat v.toNat)⟩)
+
 def skipSpaceAndCheckLineEnd : Parser Bool := do
   skipHWs
   let c? ← peek?
@@ -1199,8 +1230,8 @@ def parseOptionalInstr : Parser (Option Directive) := do
   if (← skipSpaceAndCheckLineEnd) then
     pure none
   else
-    let i ← parseAlign <|> parseInstr
-    pure (some (Directive.instr i))
+    let d ← parseByteData <|> (Directive.instr <$> (parseAlign <|> parseInstr))
+    pure (some d)
 
 def checkLineEnd : Parser Unit := do
   if (← skipSpaceAndCheckLineEnd) then

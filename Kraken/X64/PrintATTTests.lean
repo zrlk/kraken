@@ -53,11 +53,16 @@ def corpus : List String := [
   -- control flow
   "foo:\n  jmp foo", "je foo", "jne .L1", "jb foo", "jae foo", "ja foo", "jbe foo",
   "jl foo", "jle foo", "call foo", "call %rax", "jmp %rax",
-  "jmp 8(%rax)", "call (%rsp)", "ret", "nop", "nop 5", ".align 16", ".align 16, 0x90",
+  "jmp 8(%rax)", "call (%rsp)", "jmp *%rax", "jmp *8(%rdi)", "call *(%rsp)", "ret", "nop", "nop 5", ".align 16", ".align 16, 0x90",
   "a:\nb: ret\n\nc:",
   -- AVX
   "movups %xmm0, %xmm1", "vmovups (%rsp), %ymm2", "vmovups %zmm31, 64(%rsp)",
-  "movaps %xmm3, %xmm4", "addps (%rax), %xmm5", "subps %xmm6, %xmm7"
+  "movaps %xmm3, %xmm4", "addps (%rax), %xmm5", "subps %xmm6, %xmm7",
+  "mulps %xmm6, %xmm7", "mulps 16(%rsp), %xmm1", "xorps %xmm0, %xmm0", "xorps mask(%rip), %xmm2",
+  -- a memory operand without a base, and a difference of labels
+  "lea -0x40(,%ecx,4), %rcx", "movq 8(,%rax,8), %rbx", "a:\nb:\n  subq $b-a, %rcx",
+  -- data
+  ".byte 0, 0x80, 255"
 ]
 
 /-- info: [] -/
