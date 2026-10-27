@@ -150,6 +150,26 @@ local macro "run_step" : tactic =>
   run_step
   exact hn _ hpre
 
+@[spec] public theorem lea_reg_disp_spec (rd b : Reg64) (d : Int64) :
+    ⦃ fun s => Q () { s with regs := s.regs.set64 rd (s.regs.get64 b + BitVec.ofInt 64 d.toInt) } ⦄
+      (Directive.instr (.regular .W64 .W64 (.lea (.low rd .W64)
+        { base := some (.reg b), idx := none, disp := .int64 d })))
+    ⦃ Q; E ⦄ := by
+  refine ⟨fun s hpre => ?_⟩
+  refine Program.wp_single fun _ _ _ _ hn _ => ?_
+  run_step
+  rw [AddrExpr.zeroExtend_interp_base_disp]
+  exact hn _ hpre
+
+@[spec] public theorem nopalign_spec (asz osz : Width) (n : Nat) (pad : Option Nat) :
+    ⦃ fun s => Q () s ⦄ (Directive.instr (.regular asz osz (.nopalign n pad))) ⦃ Q; E ⦄ :=
+  ⟨fun _ hq => Program.wp_single fun _ _ _ _ hn _ => by run_step; exact hn _ hq⟩
+
+/-- Data is never run: a block that reaches it must be unreachable. -/
+@[spec] public theorem byteArray_spec (bs : ByteArray) :
+    ⦃ fun _ => False ⦄ (Directive.byteArray bs) ⦃ Q; E ⦄ :=
+  ⟨fun _ h => h.elim⟩
+
 @[spec] public theorem mulx_reg_spec (asz : Width) (hi lo rs : Reg64) :
     ⦃ fun s =>
         let v := (s.regs.get64 rs).unsigned * (s.regs.get64 .rdx).unsigned
@@ -497,6 +517,64 @@ local macro "run_avx" : tactic =>
     ⦃ Q; E ⦄ :=
   ⟨fun _ hq => Program.wp_single fun _ _ _ _ hn _ => by
     run_avx; simp only [MachineData.setAvxLegacy, MachineData.setAvxLegacyReg]; exact hn _ hq⟩
+
+@[spec] public theorem movaps_load_disp_spec (x : AvxReg .W128) (b : Reg64) (d : Int64) :
+    ⦃ fun s =>
+        let a := s.regs.get64 b + BitVec.ofInt 64 d.toInt
+        isAligned 16 a = true ∧ (Mem.loadInt s.dmem a 16).isSome = true
+          ∧ Q () { s with zmms := s.zmms.setLegacy x (BitVec.ofInt 128 (Mem.loadInt s.dmem a 16).get!) } ⦄
+      (Directive.instr (.avx .W64 .W128
+          (.movaps (.avx x) (.mem ⟨some (.reg b), none, .int64 d⟩))))
+    ⦃ Q; E ⦄ := by
+  refine ⟨fun s ⟨hal, hsome, hq⟩ => ?_⟩
+  obtain ⟨v, hv⟩ := Option.isSome_iff_exists.mp hsome
+  refine Program.wp_single fun _ _ _ _ hn _ => ?_
+  simp only [Directive.interp, Instr.interp, AvxOperation.interp, AvxRegOrMem.interp,
+    MachineData.setAvxLegacy, MachineData.setAvxLegacyReg, MachineData.loadAvx,
+    AddrExpr.zeroExtend_interp_base_disp, hal, hv, AvxWidth.bytes, Bool.not_true, Bool.and_false,
+    Bool.false_eq_true, ite_false, Effects.All]
+  exact hn _ (by rwa [hv, Option.get!_some] at hq)
+
+@[spec] public theorem movaps_store_disp_spec (x : AvxReg .W128) (b : Reg64) (d : Int64) :
+    ⦃ fun s =>
+        let a := s.regs.get64 b + BitVec.ofInt 64 d.toInt
+        isAligned 16 a = true ∧ (Mem.loadInt s.dmem a 16).isSome = true
+          ∧ Q () { s with dmem := Mem.storeInt s.dmem a 16 (s.zmms.get x).toInt } ⦄
+      (Directive.instr (.avx .W64 .W128
+          (.movaps (.mem ⟨some (.reg b), none, .int64 d⟩) (.avx x))))
+    ⦃ Q; E ⦄ := by
+  refine ⟨fun s ⟨hal, hsome, hq⟩ => ?_⟩
+  obtain ⟨v, hv⟩ := Option.isSome_iff_exists.mp hsome
+  refine Program.wp_single fun _ _ _ _ hn _ => ?_
+  simp only [Directive.interp, Instr.interp, AvxOperation.interp, AvxRegOrMem.interp,
+    MachineData.setAvxLegacy, MachineData.storeAvx,
+    AddrExpr.zeroExtend_interp_base_disp, hal, hv, AvxWidth.bytes, Bool.not_true, Bool.and_false,
+    Bool.false_eq_true, ite_false, Effects.All]
+  exact hn _ hq
+
+@[spec] public theorem xorps_load_rip_label_spec (x : AvxReg .W128) (l : Label) :
+    ⦃ fun s =>
+        let a := (label l).toBitVec
+        isAligned 16 a = true ∧ (Mem.loadInt s.dmem a 16).isSome = true
+          ∧ Q () { s with zmms := (s.zmms.setLegacy x
+              (s.zmms.get x ^^^ BitVec.ofInt 128 (Mem.loadInt s.dmem a 16).get!)) } ⦄
+      (Directive.instr (.avx .W64 .W128 (.xorps (.avx x)
+        (.mem { base := some .rip, idx := none, disp := .sub (.label l) .after_current_instruction }))))
+    ⦃ Q; E ⦄ := by
+  refine ⟨fun s ⟨hal, hsome, hq⟩ => ?_⟩
+  obtain ⟨v, hv⟩ := Option.isSome_iff_exists.mp hsome
+  refine Program.wp_single fun _ _ _ _ hn _ => ?_
+  simp only [Directive.interp, Instr.interp, AvxOperation.interp, AvxRegOrMem.interp,
+    MachineData.setAvxLegacy, MachineData.setAvxLegacyReg, MachineData.loadAvx,
+    AddrExpr.interp, ConstExpr.interp, Int.add_zero]
+  rw [show BitVec.zeroExtend 64 (BitVec.ofInt Width.W64.bits
+      (Embeds.embedding.endAddr.toInt + (label l - Embeds.embedding.endAddr).toInt)) = (label l).toBitVec by
+    simp only [Int64.toInt, BitVec.ofInt_add, BitVec.ofInt_toInt, Int64.toBitVec_sub]
+    show BitVec.setWidth 64 _ = _
+    rw [BitVec.setWidth_eq, BitVec.add_comm, BitVec.sub_add_cancel]]
+  simp only [hal, hv, AvxWidth.bytes, Bool.not_true, Bool.and_false,
+    Bool.false_eq_true, ite_false, Effects.All]
+  exact hn _ (by rwa [hv, Option.get!_some] at hq)
 
 @[spec] public theorem xorps_reg_spec {w : AvxWidth} (asz : Width) (dst src : AvxReg w) :
     ⦃ fun s => Q () { s with zmms := s.zmms.setLegacy dst (s.zmms.get dst ^^^ s.zmms.get src) } ⦄
