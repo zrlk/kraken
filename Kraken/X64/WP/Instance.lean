@@ -335,6 +335,81 @@ local macro "run_step" : tactic =>
     Width.bytes, hv, Effects.All]
   exact hn _ (by rwa [hv, Option.get!_some] at hq)
 
+@[spec] public theorem mov_store_reg32_spec (b : Reg64) (d : Int64) (rs : Reg64) :
+    ⦃ fun s => (Mem.loadInt s.dmem (s.regs.get64 b + BitVec.ofInt 64 d.toInt) 4).isSome = true
+        ∧ Q () { s with
+            dmem := Mem.storeInt s.dmem (s.regs.get64 b + BitVec.ofInt 64 d.toInt) 4
+              ((s.regs.get64 rs).take 32).toInt } ⦄
+      (Directive.instr (.regular .W64 .W32
+          (.mov (.mem ⟨some (.reg b), none, .int64 d⟩) (.regOrMem (.reg (.low rs .W32))))))
+    ⦃ Q; E ⦄ := by
+  refine ⟨fun s ⟨hmapped, hpre⟩ => ?_⟩
+  obtain ⟨i, hload⟩ := Option.isSome_iff_exists.mp hmapped
+  refine Program.wp_single fun _ _ _ _ hn _ => ?_
+  simp only [Directive.interp, Instr.interp, Operation.interp, Operand.interp,
+    RegOrMem.interp, MachineData.set, MachineData.store, Reg64s.get_low_W32,
+    AddrExpr.zeroExtend_interp_base_disp, Width.bytes, hload, Effects.All, ite_true]
+  exact hn _ hpre
+
+@[spec] public theorem mov_load_reg32_spec (r b : Reg64) (d : Int64) :
+    ⦃ fun s => (Mem.loadInt s.dmem (s.regs.get64 b + BitVec.ofInt 64 d.toInt) 4).isSome = true
+        ∧ Q () { s with regs := (s.regs.set64 r ((BitVec.ofInt 32
+              (Mem.loadInt s.dmem (s.regs.get64 b + BitVec.ofInt 64 d.toInt) 4).get!).zeroExtend 64)) } ⦄
+      (Directive.instr (.regular .W64 .W32
+          (.mov (.reg (.low r .W32)) (.regOrMem (.mem ⟨some (.reg b), none, .int64 d⟩)))))
+    ⦃ Q; E ⦄ := by
+  refine ⟨fun s ⟨hmapped, hpre⟩ => ?_⟩
+  obtain ⟨i, hload⟩ := Option.isSome_iff_exists.mp hmapped
+  refine Program.wp_single fun _ _ _ _ hn _ => ?_
+  simp only [Directive.interp, Instr.interp, Operation.interp, Operand.interp,
+    RegOrMem.interp, MachineData.load, MachineData.set, MachineData.setReg, Reg64s.set_low_W32,
+    AddrExpr.zeroExtend_interp_base_disp, Width.bytes, hload, Effects.All, ite_true]
+  exact hn _ (by rwa [hload, Option.get!_some] at hpre)
+
+@[spec] public theorem cmp_mem32_imm_spec (b : Reg64) (d : Int64) (i : Int64) :
+    ⦃ fun s => (Mem.loadInt s.dmem (s.regs.get64 b + BitVec.ofInt 64 d.toInt) 4).isSome = true
+        ∧ Q () { s with status := (StatusFlags.ofSub (BitVec.ofInt 32
+              (Mem.loadInt s.dmem (s.regs.get64 b + BitVec.ofInt 64 d.toInt) 4).get!)
+              (i.toBitVec.truncate 32)) } ⦄
+      (Directive.instr (.regular .W64 .W32
+          (.cmp (.mem ⟨some (.reg b), none, .int64 d⟩) (.imm (.int64 i)))))
+    ⦃ Q; E ⦄ := by
+  refine ⟨fun s ⟨hmapped, hpre⟩ => ?_⟩
+  obtain ⟨v, hload⟩ := Option.isSome_iff_exists.mp hmapped
+  refine Program.wp_single fun _ _ _ _ hn _ => ?_
+  simp only [Directive.interp, Instr.interp, Operation.interp, Operand.interp,
+    RegOrMem.interp, ConstExpr.interp, MachineData.load,
+    AddrExpr.zeroExtend_interp_base_disp, Width.bytes, hload, Effects.All, ite_true]
+  exact hn _ (by rwa [hload, Option.get!_some] at hpre)
+
+@[spec] public theorem mov_store_byte_imm_spec (b : Reg64) (d : Int64) (i : Int64) :
+    ⦃ fun s => (Mem.loadInt s.dmem (s.regs.get64 b + BitVec.ofInt 64 d.toInt) 1).isSome = true
+        ∧ Q () { s with
+            dmem := Mem.storeInt s.dmem (s.regs.get64 b + BitVec.ofInt 64 d.toInt) 1
+              (i.toBitVec.truncate 8).toInt } ⦄
+      (Directive.instr (.regular .W64 .W8
+          (.mov (.mem ⟨some (.reg b), none, .int64 d⟩) (.imm (.int64 i)))))
+    ⦃ Q; E ⦄ := by
+  refine ⟨fun s ⟨hmapped, hpre⟩ => ?_⟩
+  obtain ⟨v, hload⟩ := Option.isSome_iff_exists.mp hmapped
+  refine Program.wp_single fun _ _ _ _ hn _ => ?_
+  simp only [Directive.interp, Instr.interp, Operation.interp, Operand.interp, ConstExpr.interp,
+    MachineData.set, MachineData.store,
+    AddrExpr.zeroExtend_interp_base_disp, Width.bytes, hload, Effects.All]
+  exact hn _ hpre
+
+@[spec] public theorem and_reg8_imm_spec (asz : Width) (r : Reg64) (i : Int64) :
+    ⦃ fun s =>
+        let v := (s.regs.get64 r).take 8 &&& i.toBitVec.truncate 8
+        ∀ af : Bool,
+          Q () { s with regs := s.regs.set (.low r .W8) v, status := StatusFlags.ofLogic v af } ⦄
+      (Directive.instr (.regular asz .W8 (.and (.reg (.low r .W8)) (.imm (.int64 i)))))
+    ⦃ Q; E ⦄ :=
+  ⟨fun _ hq => Program.wp_single fun _ _ _ _ hn _ => by
+    simp only [Directive.interp, Instr.interp, Operation.interp, Operand.interp, RegOrMem.interp,
+      ConstExpr.interp, MachineData.set, MachineData.setReg, Reg64s.get_low_W8, Effects.All]
+    exact fun af => hn _ (hq af)⟩
+
 @[spec] public theorem dec_reg_spec (asz : Width) (r : Reg64) :
     ⦃ fun s =>
         let a := s.regs.get64 r
