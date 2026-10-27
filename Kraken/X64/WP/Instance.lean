@@ -307,6 +307,34 @@ local macro "run_step" : tactic =>
       MachineData.set, MachineData.setReg, Reg64s.get_low_W32, Reg64s.set_low_W32, Effects.All]
     exact fun af => hn _ (hq af)⟩
 
+@[spec] public theorem cmp_reg32_imm_spec (asz : Width) (r : Reg64) (i : Int64) :
+    ⦃ fun s =>
+        Q () { s with status := StatusFlags.ofSub ((s.regs.get64 r).take 32) (i.toBitVec.truncate 32) } ⦄
+      (Directive.instr (.regular asz .W32 (.cmp (.reg (.low r .W32)) (.imm (.int64 i)))))
+    ⦃ Q; E ⦄ :=
+  ⟨fun _ hq => Program.wp_single fun _ _ _ _ hn _ => by
+    simp only [Directive.interp, Instr.interp, Operation.interp, Operand.interp, RegOrMem.interp,
+      ConstExpr.interp, Reg64s.get_low_W32, Effects.All]
+    exact hn _ hq⟩
+
+/-- `movslq disp(b, i, 4), rd`: a 4-byte load, sign-extended. -/
+@[spec] public theorem movsx_load_sib4_spec (rd b i : Reg64) (d : Int64) :
+    ⦃ fun s =>
+        let a := s.regs.get64 b + s.regs.get64 i * 4 + BitVec.ofInt 64 d.toInt
+        (Mem.loadInt s.dmem a 4).isSome = true
+          ∧ Q () { s with regs := (s.regs.set64 rd
+              ((BitVec.ofInt 32 (Mem.loadInt s.dmem a 4).get!).signExtend 64)) } ⦄
+      (Directive.instr (.regular .W64 .W64
+          (.movsx (w' := .W32) (.reg (.low rd .W64)) (.mem ⟨some (.reg b), some ⟨i, .W32⟩, .int64 d⟩))))
+    ⦃ Q; E ⦄ := by
+  refine ⟨fun s ⟨hsome, hq⟩ => ?_⟩
+  obtain ⟨v, hv⟩ := Option.isSome_iff_exists.mp hsome
+  refine Program.wp_single fun _ _ _ _ hn _ => ?_
+  simp only [Directive.interp, Instr.interp, Operation.interp, RegOrMem.interp, MachineData.load,
+    MachineData.set, MachineData.setReg, Reg64s.set_low_W64, AddrExpr.zeroExtend_interp_sib4,
+    Width.bytes, hv, Effects.All]
+  exact hn _ (by rwa [hv, Option.get!_some] at hq)
+
 @[spec] public theorem dec_reg_spec (asz : Width) (r : Reg64) :
     ⦃ fun s =>
         let a := s.regs.get64 r
