@@ -34,8 +34,11 @@ open Spike.Lib.Hello1RodataSrc (τ8)
 /-- The program. -/
 local notation "P1" => Spike.Test.Hello1MainSrc.hello1o
 
-/-- `ld`'s layout of the linked executable. -/
-local notation "Le" => Spike.Test.Hello1LinkedX64.Λe
+variable {Λx : Scc.Sem.Layout}
+
+set_option hygiene false in
+/-- The layout: any layout at which the placement check passes (`h`). -/
+local notation "Le" => Λx
 
 /-- The compiler's output for the program at the certificate's sizes and label offsets. -/
 local notation "OX" =>

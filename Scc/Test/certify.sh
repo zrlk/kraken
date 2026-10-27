@@ -67,6 +67,29 @@
 # program found exceeds the bound; one with `maxAdds0` checked `+`s has a
 # frame of 4064 bytes, evidence that the fallback is rarely taken, not a
 # proof that it is never needed).
+#
+# hello1 (the registry of programs outside `Scc.Lower.Accepted1` with a
+# proved theorem; it has one entry): when PROG.w is `Scc/Test/hello1.w` byte
+# for byte and T.s is the text that theorem is about byte for byte
+# (`Scc/Test/elf/hello1x64/hello1.s`, `Scc/Test/elf/hello1a64/hello1.s`, the
+# checked-in certificate's `asm`), the theorem instantiated is
+# `Spike.Lib.LowerX64.hello1_finalC_gen` (arm: `Spike.Lib.LowerA64.hello1_finalCA_gen`)
+# at the executable's layout, with the stack witness
+# `hello1_ok_witness_of_placeOKAt` (arm: `hello1_ok_witness_of_placeOKAtA`)
+# there, so that its entry quantifier is not vacuous, and the code filling the
+# executable's code region (`codeFills`, `e2eOk`). That theorem is about the
+# checked-in program (`Spike.Test.Hello1MainSrc.hello1o`) and the checked-in
+# certificate (`Spike.Test.Cert.X64Hello1Cert`, `Spike.Test.Cert.A64Hello1Cert`):
+# T.post.lean imports them and never this run's certificate. Its parse premise
+# `hpa` is checked by evaluation (`#guard`), its budget is `allocCells`
+# (4194304 cells), and the `.text` bytes of the executable are not compared
+# with the assembler's encoding of `asm`. Its build (`lake build
+# Spike.Test.X64Hello1FinalC`, arm `Spike.Test.A64Hello1FinalCA`, with
+# LEAN_NUM_THREADS=1) took, measured on a checkout with nothing under Spike
+# built: x64 47 minutes (1323 jobs, peak RssAnon 4.0 GiB: leave 4.5 GiB free),
+# then arm 31 more minutes (peak RssAnon 3.1 GiB; alone, at most the sum). Another program
+# outside `Accepted1`, or hello1.w with another text, is not certifiable
+# (exit 3: no proved theorem).
 set -u
 
 ARCH=x64; INST=0; ELF=""; SRC=""; VERBOSE=0
@@ -114,13 +137,14 @@ wrote() { [ $VERBOSE = 1 ] && echo "# wrote $1 ($2)" >&2; return 0; }
 rm -rf "$WORK"; mkdir -p "$WORK"; cd "$WORK" || exit 1
 show "$ROOT" mkdir -p "$WORK"
 BLOG="$WORK/build.log"
+BENV=""
 # Build targets $3... ($1: what, $2: the time a fresh checkout takes); on
 # failure the verdict names the log, after its last lines.
 build() {
   local what=$1 time=$2; shift 2
   echo "certify: building $what (lake build $*; a first run on a fresh checkout takes $time); log: $BLOG"
-  show "$ROOT" $LAKE build "$@"
-  (cd "$ROOT" && $LAKE build "$@") >>"$BLOG" 2>&1 && return 0
+  show "$ROOT" ${BENV:+env $BENV} $LAKE build "$@"
+  (cd "$ROOT" && ${BENV:+env $BENV} $LAKE build "$@") >>"$BLOG" 2>&1 && return 0
   tail -n 20 "$BLOG"
   return 1
 }
@@ -129,7 +153,8 @@ if [ "$ARCH" = x64 ]; then CERT_MODS="Scc.Cert.X64 Scc.Cert.OutStageX64 Scc.Cert
 else CERT_MODS="Scc.Cert.Arm Scc.Cert.OutStageA64 Scc.Cert.E2EA64"; fi
 build "scc and the certificate modules" "about 15 minutes on 64 cores" scc scc_x64 scc_arm Scc.Cert.Elf Scc.Cert.SrcTerm $CERT_MODS \
   || verdict 1 "failed: lake build scc (log: $BLOG)"
-if [ $INST = 1 ]; then
+# (hello1.w builds its own theorem's module instead, below.)
+if [ $INST = 1 ] && ! cmp -s "$SRCABS" "$ROOT/Scc/Test/hello1.w"; then
   if [ "$ARCH" = x64 ]; then THM_MOD=Spike.Lib.LowerX64.Correct1; else THM_MOD=Spike.Lib.LowerA64.Correct1; fi
   build "the compiler theorem" "about 3 minutes" "$THM_MOD" || verdict 1 "failed: lake build $THM_MOD (log: $BLOG)"
 fi
@@ -156,10 +181,65 @@ fi
 # `Accepted0` (`prog_accepted`), which needs no such bound.
 ACC="prog_accepted1"; ACCP="Scc.Lower.Accepted1"; IMMS="Scc.Lower.imms1Of prog_src"; HFR=""
 PATHN="closedAt1"
+HELLO1=0
 if ! grep -q "^theorem $ACC : $ACCP prog_src = true" "$T.cert.lean"; then
-  verdict 3 "not certifiable: outside the certified fragment (not $ACCP)"
+  # The registry (see the header): `Scc/Test/hello1.w`, byte for byte.
+  show "$WORK" cmp "$T.w" "$ROOT/Scc/Test/hello1.w"
+  if cmp -s "$T.w" "$ROOT/Scc/Test/hello1.w"; then
+    HELLO1=1
+  else
+    # `Scc.Lower.Accepted2` by evaluation, for the message only (untrusted).
+    build "the fragment check" "seconds" Scc.Frontend Scc.Lower.Spec2 \
+      || verdict 1 "failed: lake build Scc.Lower.Spec2 (log: $BLOG)"
+    cat >"$T.acc2.lean" <<EOF
+import Scc.Frontend
+import Scc.Lower.Spec2
+#eval show IO Unit from do
+  match Scc.Frontend.run (← IO.FS.readFile "$REL/$T.w") with
+  | .ok c => IO.println s!"certify-acc2: {Scc.Lower.Accepted2 c.prog}"
+  | .error _ => IO.println "certify-acc2: false"
+EOF
+    wrote "$WORK/$T.acc2.lean" "Scc.Lower.Accepted2 of the program, by evaluation: prints certify-acc2: true or false"
+    show "$ROOT" "$LAKE" env lean "$WORK/$T.acc2.lean"
+    r=$(cd "$ROOT" && "$LAKE" env lean "$WORK/$T.acc2.lean" 2>&1 | sed -n 's/^certify-acc2: //p' | head -n 1)
+    if [ "$r" = true ]; then
+      verdict 3 "not certifiable: outside the certified fragment (Accepted2 programs other than \
+Scc/Test/hello1.w have no proved theorem: no proved theorem for this program/text)"
+    fi
+    verdict 3 "not certifiable: outside the certified fragment (not $ACCP; no proved theorem for this program/text)"
+  fi
 fi
-if [ "$ARCH" = x64 ] && [ $INST = 1 ]; then
+if [ $HELLO1 = 1 ]; then
+  # hello1's theorem is about the checked-in text: T.s must be it, byte for byte.
+  if [ "$ARCH" = x64 ]; then H1ISA=x64; else H1ISA=a64; fi
+  H1S="Scc/Test/elf/hello1$H1ISA/hello1.s"
+  show "$WORK" cmp "$T.s" "$ROOT/$H1S"
+  cmp -s "$T.s" "$ROOT/$H1S" \
+    || verdict 3 "not certifiable: no proved theorem for this program/text \
+($T.s is not $H1S, the text of hello1's theorem)"
+  if [ "$ARCH" = x64 ]; then
+    H1CERT=Spike.Test.Cert.X64Hello1Cert; H1MOD=Spike.Test.X64Hello1FinalC
+    H1COLD="47 minutes; 4.5 GiB free"
+    H1GEN=Spike.Lib.LowerX64.hello1_finalC_gen; H1WIT=Spike.Lib.LowerX64.hello1_ok_witness_of_placeOKAt
+    H1EQ=Spike.Lib.LowerX64.hello1_out_eq; H1LAY=Spike.Lib.LowerX64.lay2
+    H1HPA="Scc.Cert.Link.X64.parsesTo ⟨asm, sizes, labelOffs⟩ outLit.prog outLit.secs"
+  else
+    H1CERT=Spike.Test.Cert.A64Hello1Cert; H1MOD=Spike.Test.A64Hello1FinalCA
+    H1COLD="31 minutes after x64's, at most 78 alone"
+    H1GEN=Spike.Lib.LowerA64.hello1_finalCA_gen; H1WIT=Spike.Lib.LowerA64.hello1_ok_witness_of_placeOKAtA
+    H1EQ=Spike.Lib.LowerA64.hello1_out_eqA; H1LAY=Spike.Lib.LowerA64.lay2
+    H1HPA="Scc.Cert.Link.A64.parsesTo asm outLit.prog outLit.secs"
+  fi
+  if [ $INST = 1 ]; then
+    BENV="LEAN_NUM_THREADS=1"
+    build "hello1's theorem" "$H1COLD" "$H1MOD" || verdict 1 "failed: lake build $H1MOD (log: $BLOG)"
+    BENV=""
+  else
+    build "hello1's certificate" "about a minute" "$H1CERT" || verdict 1 "failed: lake build $H1CERT (log: $BLOG)"
+  fi
+  PATHN="hello1 (registry): ${H1GEN##*.}"
+fi
+if [ "$ARCH" = x64 ] && [ $INST = 1 ] && [ $HELLO1 = 0 ]; then
   # `MainFrame1Ok` by evaluation, to choose the theorem (untrusted: the
   # kernel decides it below, `prog_mainFrame1`).
   {
@@ -265,10 +345,28 @@ theorem prog_placeOKAt_12 : $NS.a12 outLit $L = true :=
   $NS.a12_of_split prog_placeOKAt_12c prog_placeOKAt_12p
 "
 A12ARG=" prog_placeOKAt_12"
+CODEFILLS="(by decide +kernel)"
+[ $HELLO1 = 1 ] && CODEFILLS="prog_codeFills"
 {
   echo "import Scc.Cert.Elf"
   echo "import $E2E_MOD"
-  if [ $INST = 1 ]; then
+  if [ $HELLO1 = 1 ]; then
+    if [ $INST = 1 ]; then echo "import $H1MOD"; else echo "import $H1CERT"; fi
+    cat <<EOF
+
+-- certify.sh: theorem path: $PATHN. The theorem is about the checked-in program and
+-- certificate ($H1CERT, imported). This run's certificate is not pasted here, on purpose:
+-- its \`sizes\` and \`labelOffs\` are not the theorem's (T.s is the theorem's text: \`cmp\`).
+
+namespace SccCertificate
+
+-- This run's text is the theorem's \`asm\`, verbatim (evaluation).
+/-- info: true -/
+#guard_msgs in
+#eval do IO.println ((← IO.FS.readFile "$REL/$T.s") == asm)
+
+EOF
+  elif [ $INST = 1 ]; then
     echo "import $THM_MOD"
     echo
     echo "-- certify.sh: theorem path: $PATHN (on x64 chosen by evaluating MainFrame1Ok,"
@@ -276,7 +374,7 @@ A12ARG=" prog_placeOKAt_12"
   fi
   # The certificate up to its decisions at the static link (they are not
   # needed: the decisions below are at the executable's layout).
-  sed -e '/^\/-- A1 of `outLit`/,$d' "$T.cert.lean"
+  [ $HELLO1 = 1 ] || sed -e '/^\/-- A1 of `outLit`/,$d' "$T.cert.lean"
   cat <<EOF
 /-! ## After the link
 
@@ -292,11 +390,20 @@ def elf : Scc.Sem.Layout × String := scc_elf_layout% "$REL/$T"
 
 -- The file read is the executable linked (evaluation, not a proof).
 #guard elf.2 == "$he"
+EOF
+  if [ $HELLO1 = 1 ]; then cat <<EOF
+
+/-- \`outLit\`'s code fills the executable's code region (kernel-checked). -/
+theorem prog_codeFills : $E2E.codeFills outLit elf.1 = true := by
+  decide +kernel
+EOF
+  fi
+  cat <<EOF
 
 /-- The code the canonical loader lays out from \`outLit\` ends where the
 executable's code region does (kernel-checked). -/
 theorem prog_codeEnd : $CODEEND elf.1.code.lo outLit.prog = elf.1.code.lo + elf.1.code.size :=
-  $E2E.codeEnd_eq_of_codeFills (o := outLit) (Λ := elf.1) (by decide +kernel)
+  $E2E.codeEnd_eq_of_codeFills (o := outLit) (Λ := elf.1) $CODEFILLS
 
 /-- A1, A2, A4 and A7 of \`outLit\` at the executable's layout (kernel-checked). -/
 theorem prog_placeOKAt_1 : ($NS.a1 outLit $L && $NS.$A2 outLit $L &&
@@ -335,12 +442,61 @@ theorem prog_placeOKAt : $NS.placeOKAt placeCfg elf.1 out = true := by
   exact $NS.placeOKAt_of
     h1.1.1.1 $A2PF prog_placeOKAt_3 h1.1.2 prog_placeOKAt_5 prog_placeOKAt_6 h1.2 prog_placeOKAt_8
     prog_placeOKAt_9 prog_placeOKAt_11$A12ARG
+EOF
+  if [ $HELLO1 = 1 ]; then cat <<EOF
+
+/-- **The end-to-end guard at the executable's layout**: \`placeOKAt\` and the code
+filling the executable's code region. -/
+theorem prog_e2eOk : $E2E.e2eOk placeCfg elf.1 outLit = true := by
+  have h := prog_placeOKAt
+  rw [out_eq] at h
+  simp only [$E2E.e2eOk, h, prog_codeFills, Bool.and_self]
+EOF
+    if [ $INST = 1 ]; then cat <<EOF
+
+/-- **The entry quantifier is not vacuous** at the executable's layout: the 64 KiB
+stack at \`2 ^ 32\` is admissible (\`${H1WIT##*.}\`). -/
+theorem prog_ok_witness :
+    Scc.Sem.Entry.Ok ⟨⟨2 ^ 32, 65536⟩⟩ ($H1LAY elf.1 Spike.Test.Hello1MainSrc.hello1o) :=
+  $H1WIT elf.1 ($H1EQ ▸ prog_placeOKAt)
+
+-- \`hpa\`, by compiled evaluation: the theorem's parse premise (the trust boundary).
+#guard $H1HPA
+
+/-- **hello1's theorem at the executable's layout** (\`${H1GEN##*.}\`): \`asm\` is
+correct at every admissible entry state, at the layout read from the executable,
+for every memory model and every budget of \`allocCells\` cells, given the loader's
+parse of \`asm\` (\`hpa\`, the \`#guard\` above). -/
+theorem prog_correct_linked
+    (hpa : $H1HPA = true)
+    {B : Scc.Sem.Budget} (hB : B.cells = Scc.Cert.PlaceOK.allocCells) {arch : WeakMem.Arch} :
+    $CORRECTE 1
+      (Scc.Sem.SrcSem.source (Scc.Sem.SrcSem.srcP1o arch Spike.Test.Hello1MainSrc.hello1o)
+        Spike.Test.Hello1MainSrc.hello1o)
+      ($H1LAY elf.1 Spike.Test.Hello1MainSrc.hello1o) B $TEXT :=
+  $H1GEN elf.1 ($H1EQ ▸ prog_placeOKAt) hpa hB
+
+/--
+info: 'SccCertificate.prog_correct_linked' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms prog_correct_linked
+
+/--
+info: 'SccCertificate.prog_ok_witness' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms prog_ok_witness
+EOF
+    fi
+  else cat <<EOF
 
 /-- **Acceptance and placement at the executable's layout.** -/
 theorem prog_linked_ready : $ACCP prog_src = true ∧ $NS.placeOKAt placeCfg elf.1 out = true :=
   ⟨$ACC, prog_placeOKAt⟩
 EOF
-  if [ $INST = 1 ]; then cat <<EOF
+  fi
+  if [ $INST = 1 ] && [ $HELLO1 = 0 ]; then cat <<EOF
 
 /-- \`prog_src\`'s one declaration. -/
 abbrev main : CoreTerm.Decl := prog_src.head (by decide)
@@ -385,6 +541,12 @@ if (cd "$ROOT" && "$ROOT/Scc/Test/rssanon.sh" "$WORK/post.rss" "$LAKE" env lean 
     >"$T.post.out" 2>&1; then
   secs=""; ra=""; [ -f post.rss ] && IFS=: read -r secs ra <post.rss
   m=""; [ -n "$ra" ] && m=", $((ra / 1024)) MB RssAnon peak"; [ -n "$secs" ] && m=" (${secs} s$m)"
+  if [ $INST = 1 ] && [ $HELLO1 = 1 ]; then
+    if [ -n "$ELF" ]; then X="the executable $ELF (--elf)"; else X="the executable $REL/$T (run.sh's link)"; fi
+    verdict 0 "certified$m: $T.post.lean: ${H1GEN##*.} at the layout of $X, hello1 only \
+(registry: Scc/Test/hello1.w and $H1S byte for byte); hpa by evaluation; budget hB: 4194304 cells \
+(allocCells); the .text bytes are not compared with the encoding of asm"
+  fi
   if [ $INST = 1 ]; then verdict 0 "certified$m: $T.post.lean"
   else verdict 10 "placement decided$m (not certified: the theorem is not instantiated; --instantiate): $T.post.lean"; fi
 fi
@@ -392,6 +554,8 @@ fi
 # 5. It does not check: is it `placeOKAt` that fails, and at which component?
 {
   echo "import Scc.Cert.Elf"
+  if [ $HELLO1 = 1 ]; then echo "import $H1CERT"; echo; echo "namespace SccCertificate"; echo
+    echo "#eval do IO.println s!\"certify-text: {(← IO.FS.readFile \"$REL/$T.s\") == asm}\""; else
   sed -e '/^\/-- `out` as a literal/,$d' "$T.cert.lean" | awk '
     function flush() { if (nd) printf "%s", doc; doc = ""; nd = 0 }
     skip && /^[ \t]/ { next }
@@ -401,6 +565,7 @@ fi
     /^\/--/ { flush(); doc = $0 "\n"; nd = 1; if ($0 !~ /-\/[ \t]*$/) indoc = 1; next }
     { flush(); print }
     END { flush() }'
+  fi
   cat <<EOF
 def elf : Scc.Sem.Layout × String := scc_elf_layout% "$REL/$T"
 #eval IO.println (match Scc.Cert.PlaceOK.Checks.firstFail ($NS.checks placeCfg) (fun _ => $L) out with
@@ -412,7 +577,11 @@ EOF
 } >"$T.diag.lean"
 wrote "$WORK/$T.diag.lean" "the first component of placeOKAt that fails, by evaluation: prints certify-diag: aN"
 show "$ROOT" "$LAKE" env lean "$WORK/$T.diag.lean"
-an=$(cd "$ROOT" && "$LAKE" env lean "$WORK/$T.diag.lean" 2>&1 | sed -n 's/^certify-diag: //p' | head -n 1)
+dout=$(cd "$ROOT" && "$LAKE" env lean "$WORK/$T.diag.lean" 2>&1)
+an=$(printf '%s\n' "$dout" | sed -n 's/^certify-diag: //p' | head -n 1)
+if [ $HELLO1 = 1 ] && [ "$(printf '%s\n' "$dout" | sed -n 's/^certify-text: //p' | head -n 1)" != true ]; then
+  verdict 3 "not certifiable: no proved theorem for this program/text ($T.s is not the checked-in asm)"
+fi
 case "$an" in
   a[0-9]*) verdict 3 "not certifiable: placeOKAt fails at the executable's layout (component ${an^^}; diagnostic by evaluation)" ;;
   *) verdict 1 "failed: $T.post.lean does not check (placeOKAt: ${an:-?}): $(grep -m1 -A3 'error' "$T.post.out" | head -c 2000)" ;;

@@ -109,7 +109,8 @@ theorem hello1_final (H : Hello1Holes)
     {B : Scc.Sem.Budget} (hB : B.cells = Scc.Cert.PlaceOK.allocCells) {arch : WeakMem.Arch} :
     CorrectE 1 (Scc.Sem.SrcSem.source (Scc.Sem.SrcSem.srcP1o arch P1) P1) (lay2 Le P1) B
       ⟨SccCertificate.asm, SccCertificate.sizes, SccCertificate.labelOffs⟩ :=
-  hello1_of_closedAt2 (in2X_hello1 H) (SccCertificate.out_eq ▸ hpa) hB
+  hello1_of_closedAt2 (hello1_out_eq ▸ Spike.Test.Hello1LinkedX64.hello1_placeOKAt) (in2X_hello1 H)
+    (SccCertificate.out_eq ▸ hpa) hB
 
 -- `hpa`, by compiled evaluation: exactly `hello1_final`'s hypothesis.
 #guard Scc.Cert.Link.X64.parsesTo ⟨SccCertificate.asm, SccCertificate.sizes, SccCertificate.labelOffs⟩

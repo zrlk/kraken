@@ -170,8 +170,11 @@ end Assembled
 /-- The program. -/
 local notation "P1A" => Spike.Test.Hello1MainSrc.hello1o
 
-/-- `ld`'s layout of the linked executable. -/
-local notation "LeA" => Spike.Test.Hello1LinkedA64.Λe
+variable {Λx : Scc.Sem.Layout}
+
+set_option hygiene false in
+/-- The layout: any layout at which the placement check passes (`h`). -/
+local notation "LeA" => Λx
 
 set_option hygiene false in
 /-- The runtime's layout of `hello1o`'s output at the theorem's immediates. -/
@@ -186,7 +189,7 @@ set_option hygiene false in
 local notation "ArH" => Spike.Lib.A64.Rt.arOf (lay2 LeA P1A)
 
 /-- **`hello1`'s `H1OpenA.hAW`** at every placement check of `hello1o`'s
-output at `ld`'s layout and every start frame condition `FE`
+output at any layout passing it and every start frame condition `FE`
 (`hAW_H1OpenA` at `hello1_htyA`, `hello1_hTnA`). -/
 theorem hello1_hAWA
     (h' : placeOKAt SccCertificate.placeCfg (lay2 LeA P1A)

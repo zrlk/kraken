@@ -360,8 +360,11 @@ end Generic
 /-- The program. -/
 local notation "P1" => Spike.Test.Hello1MainSrc.hello1o
 
-/-- `ld`'s layout of the linked executable. -/
-local notation "Le" => Spike.Test.Hello1LinkedX64.Λe
+variable {Λx : Scc.Sem.Layout}
+
+set_option hygiene false in
+/-- The layout: any layout at which the placement check passes (`h`). -/
+local notation "Le" => Λx
 
 open Spike.Test.Hello1MainSrc (hello1_main_compiled2 hello1_main_find hello1_main_noCallee hello1_main_noXchg
   hello1_main_noNewBuf)

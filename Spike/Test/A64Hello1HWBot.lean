@@ -165,8 +165,11 @@ end Assembled
 /-- The program. -/
 local notation "P1A" => Spike.Test.Hello1MainSrc.hello1o
 
-/-- `ld`'s layout of the linked executable. -/
-local notation "LeA" => Spike.Test.Hello1LinkedA64.Λe
+variable {Λx : Scc.Sem.Layout}
+
+set_option hygiene false in
+/-- The layout: any layout at which the placement check passes (`h`). -/
+local notation "LeA" => Λx
 
 /-- The compiler's output for the program. -/
 local notation "OA" => Out.ofEmitted (Scc.Lower.A64.lowerAll SccCertificate.config P1A)

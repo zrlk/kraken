@@ -3,7 +3,7 @@
 # the exit status with WeakCore's own machine.
 #
 # Usage: Scc/Test/diff.sh [--arch x64|arm] [--arm-run qemu|native|auto] [-n N] [--seed S]
-#                         [--place K] [--place-check]
+#                         [--place K] [--place-check] [--narrow]
 #
 # Scc.Test.Gen writes programs 0 .. N-1 of stream S (well-typed,
 # single-threaded, in scc's accepted fragment) and their reference outcomes
@@ -34,11 +34,15 @@
 # (default 3584) keeps its certificate files in the work directory for
 # profiling, listed in kept.txt; --keep keeps every program's.
 #
+# --narrow generates no function of more than six argument words (see
+# Scc.Test.Gen.program), so that the PlaceOK sample is not all stack-passed
+# argument spills; tools/diff_place.sh pins both samples' outcomes.
+#
 # Environment: LAKE (default `lake`) is the lake command.  Arm binaries run
 # under qemu-aarch64 or natively (--arm-run; see Scc/Test/armrun.sh).
 set -u
 
-ARCH=x64; N=100; SEED=1; PLACE=0; PLACE_CHECK=0; KEEP_MB=3584; KEEP_ALL=0
+ARCH=x64; N=100; SEED=1; PLACE=0; PLACE_CHECK=0; KEEP_MB=3584; KEEP_ALL=0; NARROW=false
 while [ $# -gt 0 ]; do
   case "$1" in
     --arch) ARCH="$2"; shift 2 ;;
@@ -49,8 +53,9 @@ while [ $# -gt 0 ]; do
     --place-check) PLACE_CHECK=1; shift ;;
     --keep-mb) KEEP_MB="$2"; shift 2 ;;
     --keep) KEEP_ALL=1; shift ;;
+    --narrow) NARROW=true; shift ;;
     *) echo "usage: $0 [--arch x64|arm] [--arm-run qemu|native|auto] [-n N] [--seed S] [--place K] [--place-check]"
-       echo "       [--keep-mb MB] [--keep]" >&2
+       echo "       [--keep-mb MB] [--keep] [--narrow]" >&2
        exit 2 ;;
   esac
 done
@@ -71,7 +76,8 @@ rm -rf "$WORK"; mkdir -p "$WORK"; cd "$WORK" || exit 1
 
 # Generate the programs and the reference outcomes (`#eval`: WeakCore already
 # defines the root `main`, so the driver cannot be run with `lean --run`).
-printf 'import Scc.Test.Gen\n#eval Scc.Test.Gen.batch "%s" %s %s\n' "$WORK" "$N" "$SEED" >gen_driver.lean
+printf 'import Scc.Test.Gen\n#eval Scc.Test.Gen.batch "%s" %s %s (narrow := %s)\n' "$WORK" "$N" "$SEED" "$NARROW" \
+  >gen_driver.lean
 (cd "$ROOT" && $LAKE env lean "$WORK/gen_driver.lean") || { echo "FAIL: generator"; exit 1; }
 
 link() {

@@ -35,8 +35,11 @@ open Spike.Lib.X64.WriteAb (Ab)
 /-- The program. -/
 local notation "P1" => Spike.Test.Hello1MainSrc.hello1o
 
-/-- `ld`'s layout of the linked executable. -/
-local notation "Le" => Spike.Test.Hello1LinkedX64.Λe
+variable {Λx : Scc.Sem.Layout}
+
+set_option hygiene false in
+/-- The layout: any layout at which the placement check passes (`h`). -/
+local notation "Le" => Λx
 
 /-- `hello1o`'s `main`. -/
 local notation "MD" => Spike.Test.Hello1MainSrc.mainD
@@ -103,7 +106,7 @@ local notation "CD" g:max => CdCLE OP (Spike.Lib.X64.PhRec.okPc LY) (Spike.Lib.X
 
 /-- **`MainPreUL`'s `PrintCallC` conjunct at `hello1o`, at a current placement `L0`,
 `ls`** (`printCallC_instAI`
-at the record's instance `instOk_ofPlaceOK` at `imms2Me Λe P1`, `main`'s code
+at the record's instance `instOk_ofPlaceOK` at `imms2Me Le P1`, `main`'s code
 `fnCode2OfP`, the region `rbR RC`): at every callee frame of `main`'s call,
 every return address and `G0` along which the controls are `FrOk2`; the placed labels
 inside the heap (`hrg`). -/
@@ -148,7 +151,7 @@ theorem hello1_printCallCL {L0 : Lbl} {ls : Lsize} {Dt : State → Prop} (J : In
     (fun _ _ hc => by rw [hello1_okPc]; exact CdCLE.toCdCL hc)
     (fun _ _ _ _ hb => ⟨(hBl0 _ _ _ _ hb).1.1, BlC2L.posOff (hBl0 _ _ _ _ hb)⟩)
     rfl rfl (by rw [hsp.1]) hrg
-    (by show ∀ r ∈ (Le).rodata :: (Le).regions, r.lo + r.size ≤ 2 ^ 32; decide +kernel)
+    (below32_of_placeOKAt h)
     (by simp) (fun _ _ => ⟨fun _ => False, FramesPlacedInI.nil _⟩) hG0F (fun _ _ _ _ h => h)
     (fun x is a e ht => by
       rcases hello1_main_tails (ht _ hello1_main_compiled2) with h' | h' | h' | h' <;> cases h'
@@ -164,7 +167,7 @@ theorem hello1_printCallCL {L0 : Lbl} {ls : Lsize} {Dt : State → Prop} (J : In
 
 /-- **`MainPreUL`'s `PrintCallCH` conjunct at `hello1o`, at a current placement `L0`,
 `ls`** (`printCallCH_instAI`
-at the record's instance `instOk_ofPlaceOK` at `imms2Me Λe P1`, `main`'s code
+at the record's instance `instOk_ofPlaceOK` at `imms2Me Le P1`, `main`'s code
 `fnCode2OfP`, the region `rbR RC`): at every callee frame of `main`'s call,
 every return address and `G0` along which the controls are `FrOk2`; the placed labels
 inside the heap (`hrg`). -/
@@ -209,7 +212,7 @@ theorem hello1_printCallCHL {L0 : Lbl} {ls : Lsize} {Dt : State → Prop} (J : I
     (fun _ _ hc => by rw [hello1_okPc]; exact CdCLE.toCdCL hc)
     (fun _ _ _ _ hb => ⟨(hBl0 _ _ _ _ hb).1.1, BlC2L.posOff (hBl0 _ _ _ _ hb)⟩)
     rfl rfl (by rw [hsp.1]) hrg
-    (by show ∀ r ∈ (Le).rodata :: (Le).regions, r.lo + r.size ≤ 2 ^ 32; decide +kernel)
+    (below32_of_placeOKAt h)
     (by simp) (fun _ _ => ⟨fun _ => False, FramesPlacedInI.nil _⟩) hG0F (fun _ _ _ _ h => h)
     (fun x is a e ht => by
       rcases hello1_main_tails (ht _ hello1_main_compiled2) with h' | h' | h' | h' <;> cases h'

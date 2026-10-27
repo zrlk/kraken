@@ -5,10 +5,11 @@ import Scc.Cert.E2EA64
 /-!
 # `hello1.w` on AArch64 at the linked executable's layout
 
-`hello1.w` is outside `Accepted0` (`SccCertificate.prog_not_accepted`) and
-`certify.sh` does not certify it. Its correctness theorem `hello1_finalCA`
-(`Spike/Test/A64Hello1FinalCA.lean`) is stated at this file's layout `Λe` and
-uses the placement facts below.
+`hello1.w` is outside `Accepted0` (`SccCertificate.prog_not_accepted`). Its
+correctness theorem `hello1_finalCA_gen` (`Spike/Test/A64Hello1FinalCA.lean`)
+holds at any layout passing the placement check; `hello1_finalCA` is it at
+this file's layout `Λe`, using the placement facts below. `certify.sh`
+instantiates `hello1_finalCA_gen` at a fresh build's layout.
 
 `Scc/Test/elf/hello1a64/hello1` is `hello1.w`'s certificate text
 (`SccCertificate.asm`, written verbatim to `hello1.s` next to it, checked

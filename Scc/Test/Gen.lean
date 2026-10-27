@@ -69,6 +69,8 @@ structure GS where
   rng : UInt64
   fresh : Nat := 0
   lines : Array String := #[]
+  /-- no function of more than six argument words (`gw`, `w·x`): see `program` -/
+  narrow : Bool := false
 
 abbrev GM := StateM GS
 
@@ -196,7 +198,7 @@ def plainInt (cx : Ctx) : GM (Option String) := do
 /-- The nine argument words of `gw`, bound to a fresh name: three locatives
 and three plain `Int`s from scope (`none` if there are none). -/
 def gwArg (ind : Nat) (cx : Ctx) : GM (Option String) := do
-  if cx.locs.isEmpty || !cx.gwOk then return none
+  if cx.locs.isEmpty || !cx.gwOk || (← get).narrow then return none
   let some a ← plainInt cx | return none
   let some b ← plainInt cx | return none
   let some c ← plainInt cx | return none
@@ -687,8 +689,9 @@ def gwBlk : GM Unit := do
 
 /-- The whole program text. -/
 def genProgram : GM Unit := do
+  let narrow := (← get).narrow
   glBlk
-  gwBlk
+  if !narrow then gwBlk
   let nh ← below 4
   for j in [0:nh] do helper j
   let nl ← below 4
@@ -708,6 +711,9 @@ def genProgram : GM Unit := do
     else if kd == 2 then
       cdBlk s!"c{j}" hs
       loops := loops.push (s!"c{j}", .cd, deep)
+    else if narrow then
+      loopBlk s!"l{j}" hs
+      loops := loops.push (s!"l{j}", .tailU, deep)
     else
       wideBlk s!"w{j}" hs
       loops := loops.push (s!"w{j}", .tailU, deep)
@@ -717,9 +723,14 @@ def genProgram : GM Unit := do
   emit 2 s!"let {v0} = {l0}"
   block 2 false 3 (({ helpers := nh, loops } : Ctx).addInt v0 (some ⟨[], l0⟩))
 
-/-- The `k`-th program of stream `seed`. -/
-def program (seed k : Nat) : String :=
-  let s0 : GS := { rng := (seed * 1000003 + k).toUInt64 * 0x2545F4914F6CDD1D + 1 }
+/-- The `k`-th program of stream `seed`.  With `narrow`, no function takes
+more than six argument words: `gw` is neither defined nor called and a wide
+tail loop pair (`w·`, `w·x`) is a plain tail loop instead.  Such functions
+spill stack-passed arguments, which `placeOK` does not certify yet (x64's
+`fnOk1` `spills`), so `diff.sh --narrow` samples certifiable programs.  The
+default stream is unchanged. -/
+def program (seed k : Nat) (narrow : Bool := false) : String :=
+  let s0 : GS := { rng := (seed * 1000003 + k).toUInt64 * 0x2545F4914F6CDD1D + 1, narrow }
   let ((), s) := genProgram.run s0
   s!"-- generated: seed {seed}, program {k}\n" ++ "\n".intercalate s.lines.toList ++ "\n"
 
@@ -734,8 +745,8 @@ def progName (k : Nat) : String :=
 `dir/ref.txt` with one line per program: `NAME CODE OUTCOME`, where `CODE` is
 the exit status the binary must produce (`-` for none: rejected, stuck, or out
 of fuel or of work, see `RefEval.workBudget`).  Prints a summary. -/
-def batch (dir : String) (n seed : Nat) (fuel : Nat := 5_000_000) (work : Nat := RefEval.workBudget) :
-    IO Unit := do
+def batch (dir : String) (n seed : Nat) (fuel : Nat := 5_000_000) (work : Nat := RefEval.workBudget)
+    (narrow : Bool := false) : IO Unit := do
   IO.FS.createDirAll dir
   let mut out := #[]
   let mut rejected := 0
@@ -743,7 +754,7 @@ def batch (dir : String) (n seed : Nat) (fuel : Nat := 5_000_000) (work : Nat :=
   let mut noVerdict := 0
   for k in [0:n] do
     let name := progName k
-    let src := program seed k
+    let src := program seed k narrow
     IO.FS.writeFile s!"{dir}/{name}.w" src
     match Frontend.run src with
     | .error ds =>
@@ -756,7 +767,9 @@ def batch (dir : String) (n seed : Nat) (fuel : Nat := 5_000_000) (work : Nat :=
         if o.code.isNone then noVerdict := noVerdict + 1
         out := out.push s!"{name} {code} {o.render}"
   IO.FS.writeFile s!"{dir}/ref.txt" ("\n".intercalate out.toList ++ "\n")
-  IO.println s!"generated {n} programs (seed {seed}): {rejected} rejected, {ovf} overflow aborts, {noVerdict} without a verdict"
+  let kind := if narrow then " narrow" else ""
+  IO.println s!"generated {n}{kind} programs (seed {seed}): {rejected} rejected, {ovf} overflow aborts, \
+    {noVerdict} without a verdict"
 
 end Scc.Test.Gen
 
@@ -770,5 +783,15 @@ namespace Scc.Test.Gen
 #guard match Frontend.run (program 25 256) with
   | .ok c => (RefEval.runProg c.prog .arm 5_000_000 matches .work _)
   | .error _ => false
+
+-- `narrow` leaves the default stream byte-identical: the hash of programs
+-- 0 … 39 of streams 11 and 70, as before `narrow` existed.
+#guard (List.range 40).foldl (fun h k => mixHash h (program 11 k).hash) 7 = 448067727662517775
+#guard (List.range 40).foldl (fun h k => mixHash h (program 70 k).hash) 7 = 13625200795582986081
+
+-- Narrow programs pass the frontend and have no function of more than six argument words.
+#guard (List.range 20).all fun k =>
+  let p := program 11 k (narrow := true)
+  (Frontend.run p).toBool && !(p.splitOn "gw(").length > 1 && !(p.splitOn "x(a :").length > 1
 
 end Scc.Test.Gen

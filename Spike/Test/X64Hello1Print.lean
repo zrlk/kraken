@@ -4,7 +4,7 @@
 (compiled block `1`), from `printCallC_instAI`, `printCallCH_instAI`
 (`Spike/Lib/LowerX64/PrintCallInstAI.lean`) at the record of the placement
 check: the world `W2At`/`MSAt` and the code facts `fnCode2OfPMe` both at the
-theorem's immediates `imms2Me Λe P1`.
+theorem's immediates `imms2Me Le P1`.
 
 Discharged at `hello1o`: the continuation of `main`'s one `print` call is
 `ret 0`, free of `ZBad` (`hNoS`); the tables agree (one table); `main`'s
@@ -48,8 +48,11 @@ open Spike.Lib.X64.WriteAb (Ab)
 /-- The program. -/
 local notation "P1" => Spike.Test.Hello1MainSrc.hello1o
 
-/-- `ld`'s layout of the linked executable. -/
-local notation "Le" => Spike.Test.Hello1LinkedX64.Λe
+variable {Λx : Scc.Sem.Layout}
+
+set_option hygiene false in
+/-- The layout: any layout at which the placement check passes (`h`). -/
+local notation "Le" => Λx
 
 /-- `hello1o`'s `main`. -/
 local notation "MD" => Spike.Test.Hello1MainSrc.mainD
@@ -145,7 +148,7 @@ theorem hello1_okPc : Spike.Lib.X64.PhRec.okPc (Ly) = Spike.Lib.X64.PhRec.okPc (
   rw [e3]
 
 /-- **`MainPreU`'s `PrintCallC` conjunct at `hello1o`** (`printCallC_instAI`
-at the record's instance `instOk_ofPlaceOK` at `imms2Me Λe P1`, `main`'s code
+at the record's instance `instOk_ofPlaceOK` at `imms2Me Le P1`, `main`'s code
 `fnCode2OfP`, the region `rbR RC`): at every callee frame of `main`'s call,
 every return address and `G0` along which the controls are `FrOk2`. -/
 theorem hello1_printCallC {Dt : State → Prop} (J : InvS) (L D : Int) (v : BitVec 64) (F' : MachineData → Prop)
@@ -187,7 +190,7 @@ theorem hello1_printCallC {Dt : State → Prop} (J : InvS) (L D : Int) (v : BitV
     (fun _ _ hc => by rw [hello1_okPc]; exact CdCLE.toCdCL hc)
     (fun _ _ _ _ hb => ⟨(hBl0 _ _ _ _ hb).1.1, BlC2L.posOff (hBl0 _ _ _ _ hb)⟩)
     rfl rfl (by rw [hsp.1]) (fun _ _ hb => by cases hb)
-    (by show ∀ r ∈ (Le).rodata :: (Le).regions, r.lo + r.size ≤ 2 ^ 32; decide +kernel)
+    (below32_of_placeOKAt h)
     (by simp) (fun _ _ => ⟨fun _ => False, FramesPlacedInI.nil _⟩) hG0F (fun _ _ _ _ h => h)
     (fun x is a e ht => by
       rcases hello1_main_tails (ht _ hello1_main_compiled2) with h' | h' | h' | h' <;> cases h'
@@ -202,7 +205,7 @@ theorem hello1_printCallC {Dt : State → Prop} (J : InvS) (L D : Int) (v : BitV
     (fun _ _ _ hb => (hBl0 _ _ _ _ hb).1) hDtP hAb
 
 /-- **`MainPreU`'s `PrintCallCH` conjunct at `hello1o`** (`printCallCH_instAI`
-at the record's instance `instOk_ofPlaceOK` at `imms2Me Λe P1`, `main`'s code
+at the record's instance `instOk_ofPlaceOK` at `imms2Me Le P1`, `main`'s code
 `fnCode2OfP`, the region `rbR RC`): at every callee frame of `main`'s call,
 every return address and `G0` along which the controls are `FrOk2`. -/
 theorem hello1_printCallCH {Dt : State → Prop} (J : InvS) (L D : Int) (v : BitVec 64) (F' : MachineData → Prop)
@@ -244,7 +247,7 @@ theorem hello1_printCallCH {Dt : State → Prop} (J : InvS) (L D : Int) (v : Bit
     (fun _ _ hc => by rw [hello1_okPc]; exact CdCLE.toCdCL hc)
     (fun _ _ _ _ hb => ⟨(hBl0 _ _ _ _ hb).1.1, BlC2L.posOff (hBl0 _ _ _ _ hb)⟩)
     rfl rfl (by rw [hsp.1]) (fun _ _ hb => by cases hb)
-    (by show ∀ r ∈ (Le).rodata :: (Le).regions, r.lo + r.size ≤ 2 ^ 32; decide +kernel)
+    (below32_of_placeOKAt h)
     (by simp) (fun _ _ => ⟨fun _ => False, FramesPlacedInI.nil _⟩) hG0F (fun _ _ _ _ h => h)
     (fun x is a e ht => by
       rcases hello1_main_tails (ht _ hello1_main_compiled2) with h' | h' | h' | h' <;> cases h'

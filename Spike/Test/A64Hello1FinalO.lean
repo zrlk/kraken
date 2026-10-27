@@ -7,7 +7,8 @@ the points after `rodata`'s allocation, `TrNb`, plan b1) and `OpenAHA`
 (`hello1_finalAW_ofT`, `Spike/Test/A64Hello1FinalT.lean`); `hpa` moved to the compiler's output
 `out` by the kernel-checked `SccCertificate.out_eq`.
 
-- `hello1_finalA'`: the statement.
+- `hello1_finalA'`: the statement, at `ld`'s layout `Λe` (`hello1_finalA'_gen` there).
+- `hello1_finalA'_gen`: the statement at any layout passing the placement check.
 -/
 import Spike.Test.A64Hello1FinalT
 import Spike.Test.A64Hello1ResL
@@ -30,6 +31,28 @@ local notation "LeA" => Spike.Test.Hello1LinkedA64.Λe
 /-- The compiler's output for the program. -/
 local notation "OA" => Out.ofEmitted (Scc.Lower.A64.lowerAll SccCertificate.config P1A)
 
+set_option hygiene false in
+/-- The layout: any layout at which the placement check passes (`hΛ`). -/
+local notation "LgA" => Λx
+
+/-- **`hello1_finalA'` at any layout passing the placement check** (`hΛ`, at the compiler's
+output): the same open list and parse `hpa` (`hello1_finalAW_ofT`). -/
+theorem hello1_finalA'_gen {Λx : Scc.Sem.Layout}
+    (hΛ : placeOKAt SccCertificate.placeCfg LgA OA = true)
+    (H1 : ∀ E : Entry, E.Ok (lay2 LgA P1A) → ∀ h' : placeOKAt SccCertificate.placeCfg (lay2 LgA P1A) OA = true,
+      H1LandAWT h' E (fnCode2OfPMe Spike.Lib.LowerNode.hello1o_accepted2 h' LgA)
+        (CxOkH h' Spike.Lib.LowerNode.hello1o_accepted2) (BotH h') (fun _ => True)
+        (fun j => TrNb (Spike.Lib.LowerNode.TailAt2 P1A j)))
+    (HA : ∀ E : Entry, E.Ok (lay2 LgA P1A) → ∀ h' : placeOKAt SccCertificate.placeCfg (lay2 LgA P1A) OA = true,
+      OpenAHA h' Spike.Lib.LowerNode.hello1o_accepted2 E (ElH h' Spike.Lib.LowerNode.hello1o_accepted2)
+        (fun _ => True))
+    (hpa : Scc.Cert.Link.A64.parsesTo SccCertificate.asm SccCertificate.outLit.prog
+      SccCertificate.outLit.secs = true)
+    {B : Scc.Sem.Budget} (hB : B.cells = Scc.Cert.PlaceOK.allocCells) {arch : WeakMem.Arch} :
+    CorrectE 1 (Scc.Sem.SrcSem.source (Scc.Sem.SrcSem.srcP1o arch P1A) P1A) (lay2 LgA P1A) B
+      SccCertificate.asm :=
+  hello1_finalAW_ofT hΛ H1 HA (SccCertificate.out_eq ▸ hpa) hB
+
 /-- **`hello1`'s AArch64 statement, `hello1_finalA`'s conclusion and
 `hpa`**, from the open list: the landings' remaining premises `H1LandAWT`
 at `Tr := TrNb (TailAt2 P1A j)` (`hAW`, `hTr`, `hresL`, `hresS`, `hbot`) and the
@@ -49,11 +72,14 @@ theorem hello1_finalA'
     {B : Scc.Sem.Budget} (hB : B.cells = Scc.Cert.PlaceOK.allocCells) {arch : WeakMem.Arch} :
     CorrectE 1 (Scc.Sem.SrcSem.source (Scc.Sem.SrcSem.srcP1o arch P1A) P1A) (lay2 LeA P1A) B
       SccCertificate.asm :=
-  hello1_finalAW_ofT H1 HA (SccCertificate.out_eq ▸ hpa) hB
+  hello1_finalA'_gen (hello1_out_eqA ▸ Spike.Test.Hello1LinkedA64.hello1_placeOKAt) H1 HA hpa hB
 
 end Spike.Lib.LowerA64
 
 -- No axioms beyond Lean's.
+
+/-- info: 'Spike.Lib.LowerA64.hello1_finalA'_gen' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in #print axioms Spike.Lib.LowerA64.hello1_finalA'_gen
 
 /-- info: 'Spike.Lib.LowerA64.hello1_finalA'' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms Spike.Lib.LowerA64.hello1_finalA'

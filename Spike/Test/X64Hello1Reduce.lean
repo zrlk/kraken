@@ -33,18 +33,24 @@ local notation "P1" => Spike.Test.Hello1MainSrc.hello1o
 /-- `ld`'s layout of the linked executable. -/
 local notation "Le" => Spike.Test.Hello1LinkedX64.Λe
 
+variable {Λx : Scc.Sem.Layout}
+
+set_option hygiene false in
+/-- The layout of the generic lemmas: any layout at which the placement check passes (`h`). -/
+local notation "Lg" => Λx
+
 /-- The compiler's output for the program at the certificate's sizes and label offsets. -/
 local notation "OX" =>
   Out.ofEmitted (Scc.Lower.X64.lowerAll SccCertificate.config P1) SccCertificate.sizes SccCertificate.labelOffs
 
 /-- **`main`'s targets' check at every placement** (`hTg_of_tgOkB` at
 `hello1_tgOkB`, the code predicate `CdCLE` itself). -/
-theorem hello1_mainTg (h : placeOKAt SccCertificate.placeCfg (lay2 Le P1) OX = true) : MainTg h :=
+theorem hello1_mainTg (h : placeOKAt SccCertificate.placeCfg (lay2 Lg P1) OX = true) : MainTg h :=
   hTg_of_tgOkB hello1_tgOkB (fun _ _ hc => hc) _
 
 /-- **`main`'s call's open premises at every placement** (`hello1_mainPreUT`
 at each choice of the bounds; the aborts' tails `fun _ => True`). -/
-theorem hello1_mainOpenU (h : placeOKAt SccCertificate.placeCfg (lay2 Le P1) OX = true) (E : Entry)
+theorem hello1_mainOpenU (h : placeOKAt SccCertificate.placeCfg (lay2 Lg P1) OX = true) (E : Entry)
     (El : Lbl → Lsize → WeakMem.AllocLabel → Nat → Nat → FragS isa) : MainOpenU h E El (fun _ => True) :=
   fun _ _ _ _ _ _ _ _ _ hB J _ =>
     hello1_mainPreUT h hB J (fun _ _ _ _ _ _ _ _ _ => trivial) (fun _ _ _ _ _ _ => trivial) (hello1_mainTg h)

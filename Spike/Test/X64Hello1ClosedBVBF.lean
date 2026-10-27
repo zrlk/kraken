@@ -142,13 +142,19 @@ end Assembled
 /-- The program. -/
 local notation "P1" => Spike.Test.Hello1MainSrc.hello1o
 
-/-- `ld`'s layout of the linked executable. -/
-local notation "Le" => Spike.Test.Hello1LinkedX64.Λe
+variable {Λx : Scc.Sem.Layout}
+
+set_option hygiene false in
+/-- The layout: any layout at which the placement check passes (`h`). -/
+local notation "Le" => Λx
 
 /-- **`hello1`'s x86-64 statement at `WordsNone ∧ rtF`, the holes named**:
 from `OpenBVBF` (`H1InW`, `hS`, `hU`) at every admissible entry state and
 placement, and the parse `hpa` (`x64_scc_correctE_text_closedAt2_atW`). -/
 theorem hello1_of_closedBVBF
+    (h0 : placeOKAt SccCertificate.placeCfg Le
+      (Out.ofEmitted (Scc.Lower.X64.lowerAll SccCertificate.config Spike.Test.Hello1MainSrc.hello1o)
+        SccCertificate.sizes SccCertificate.labelOffs) = true)
     (H : ∀ E : Entry, E.Ok (lay2 Le P1) →
       ∀ h' : placeOKAt SccCertificate.placeCfg (lay2 Le P1)
         (Out.ofEmitted (Scc.Lower.X64.lowerAll SccCertificate.config P1)
@@ -162,7 +168,7 @@ theorem hello1_of_closedBVBF
       { Le with static := fun _ => none, imms := Spike.Lib.LowerNode.imms2Me Le P1 } B
       ⟨SccCertificate.asm, SccCertificate.sizes, SccCertificate.labelOffs⟩ :=
   x64_scc_correctE_text_closedAt2_atW Spike.Lib.LowerNode.hello1o_accepted2 (by decide)
-    (hello1_out_eq ▸ Spike.Test.Hello1LinkedX64.hello1_placeOKAt) (by decide)
+    h0 (by decide)
     (fun E hE h' => in2XW_ofBVBF h' Spike.Lib.LowerNode.hello1o_accepted2 hello1_hty.choose_spec
       (by decide) hE (H E hE h')) (hello1_out_eq ▸ hpa) hB
 

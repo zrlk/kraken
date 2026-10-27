@@ -126,14 +126,19 @@ end Assembled
 /-- The program. -/
 local notation "P1A" => Spike.Test.Hello1MainSrc.hello1o
 
-/-- `ld`'s layout of the linked executable. -/
-local notation "LeA" => Spike.Test.Hello1LinkedA64.Λe
+variable {Λx : Scc.Sem.Layout}
+
+set_option hygiene false in
+/-- The layout: any layout at which the placement check passes (`h`). -/
+local notation "LeA" => Λx
 
 /-- **`hello1`'s AArch64 statement, the holes named**: at every admissible
 entry state and placement, the landings' segments `H1InA`, the setup call's
 open premises `OpenSA` (its `hS` by `hello1_hSA`) and `main`'s call
 `HUBVA`; and the parse `hpa`. -/
 theorem hello1_of_closedBVBA
+    (h0 : placeOKAt SccCertificate.placeCfg LeA
+      (Out.ofEmitted (Scc.Lower.A64.lowerAll SccCertificate.config P1A)) = true)
     (H : ∀ E : Entry, E.Ok (lay2 LeA P1A) →
       ∀ h' : placeOKAt SccCertificate.placeCfg (lay2 LeA P1A)
         (Out.ofEmitted (Scc.Lower.A64.lowerAll SccCertificate.config P1A)) = true,
@@ -146,7 +151,7 @@ theorem hello1_of_closedBVBA
       (Scc.Sem.SrcSem.source (Scc.Sem.SrcSem.srcP1o arch P1A) P1A)
       { LeA with static := fun _ => none, imms := Spike.Lib.LowerNode.imms2Me LeA P1A } B
       SccCertificate.asm :=
-  hello1_of_closedAt2A (fun E hE h' => by
+  hello1_of_closedAt2A h0 (fun E hE h' => by
     obtain ⟨El, Dt, H1, hO, hU⟩ := H E hE h'
     exact in2A_ofBVB h' Spike.Lib.LowerNode.hello1o_accepted2 hello1_htyA.choose_spec (by decide) hE
       ⟨El, Dt, H1, hello1_hSA h' hO, hU⟩) hpa hB

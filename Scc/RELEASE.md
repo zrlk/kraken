@@ -14,22 +14,28 @@ output extern `print` and returns 0. Compiled by `scc` to the assembler text
 `CorrectE` with respect to the program's WeakCore semantics with output, on
 the kernel-model target with one thread slot, at **every** admissible entry
 state, for every memory model `arch` and every budget `B` whose heap-cell
-count is the allocator's (`Spike.Lib.LowerA64.hello1_finalCA`,
-`Spike.Lib.LowerX64.hello1_finalC`).
+count is the allocator's, at **every layout at which the compiler's output
+passes the placement check** (`Spike.Lib.LowerA64.hello1_finalCA_gen`,
+`Spike.Lib.LowerX64.hello1_finalC_gen`), and in particular at the layouts of
+the checked-in executables (`hello1_finalCA`, `hello1_finalC`).
 
 > [!IMPORTANT]
-> hello1's theorems are stated at **one layout**: `Λe`, read by the ELF
-> reader from the executables checked in under
-> `Scc/Test/elf/hello1a64/hello1` and `Scc/Test/elf/hello1x64/hello1`, each
-> pinned by its SHA-256. A fresh build of `hello1.w` is **not** certified:
-> `Scc/Test/certify.sh` covers only `Accepted0`/`Accepted1` programs, and
-> `hello1.w` is in neither. The executables' sources (`hello1.s`, which is the
-> certificate's `asm` verbatim) and their link commands are alongside, and
-> `Scc/Test/elf.sh --relink-check` reproduces both executables byte for byte.
+> The theorems are about **one program text**: the checked-in certificate's
+> `asm` for `hello1.w` (`Scc/Test/elf/hello1{a64,x64}/hello1.s`). The layout
+> is free: `hello1_finalCA_gen` / `hello1_finalC_gen` hold at any layout `Λ`
+> with `placeOKAt … Λ … = true`. `Scc/Test/certify.sh --instantiate
+> Scc/Test/hello1.w` certifies a fresh build at its own link: it checks that
+> scc's text is that `asm` byte for byte, reads the executable's layout, and
+> instantiates the `_gen` theorem there (§4). Another program outside
+> `Accepted1`, or `hello1.w` compiled to another text, is not certifiable.
 
-The only premises of the two theorems are `hpa`, the certificate's compiled
-parse `#guard`, and `hB`, which fixes the budget's heap-cell count (§1). The
-placement check at `Λe` and every correctness step are kernel-checked.
+The closed forms `hello1_finalCA` / `hello1_finalC` are the `_gen` theorems
+at `Λe`, the layout read from the executables checked in under
+`Scc/Test/elf/hello1a64/hello1` and `Scc/Test/elf/hello1x64/hello1` (pinned
+by SHA-256); their only premises are `hpa`, the certificate's compiled parse
+`#guard`, and `hB`, which fixes the budget's heap-cell count (§1). The `_gen`
+forms add the placement premise `hΛ`. The placement check and every
+correctness step are kernel-checked.
 
 ### `ret0.w`
 
@@ -146,6 +152,36 @@ same conclusion from the allocator's per-allocation premises, and
 The placement check at `Λe` is `hello1_placeOKAt : A64.placeOKAt placeCfg
 Λe out = true` / `hello1_placeOKAt : X64.placeOKAt placeCfg Λe out = true`
 (`Spike/Test/Hello1Linked{A64,X64}.lean`, §2).
+
+### `hello1` at every layout passing the placement check
+
+The closed statements above are the following at `Λe` (same files; `OA` /
+`OX` is the certificate's compiled output):
+
+```lean
+theorem hello1_finalCA_gen (Λ : Scc.Sem.Layout)
+    (hΛ : placeOKAt SccCertificate.placeCfg Λ OA = true)
+    (hpa : Scc.Cert.Link.A64.parsesTo SccCertificate.asm SccCertificate.outLit.prog
+      SccCertificate.outLit.secs = true)
+    {B : Scc.Sem.Budget} (hB : B.cells = Scc.Cert.PlaceOK.allocCells) {arch : WeakMem.Arch} :
+    CorrectE 1 (Scc.Sem.SrcSem.source (Scc.Sem.SrcSem.srcP1o arch P1A) P1A) (lay2 Λ P1A) B
+      SccCertificate.asm
+```
+
+```lean
+theorem hello1_finalC_gen (Λ : Scc.Sem.Layout)
+    (hΛ : placeOKAt SccCertificate.placeCfg Λ OX = true)
+    (hpa : Scc.Cert.Link.X64.parsesTo ⟨SccCertificate.asm, SccCertificate.sizes, SccCertificate.labelOffs⟩
+      SccCertificate.outLit.prog SccCertificate.outLit.secs = true)
+    {B : Scc.Sem.Budget} (hB : B.cells = Scc.Cert.PlaceOK.allocCells) {arch : WeakMem.Arch} :
+    CorrectE 1 (Scc.Sem.SrcSem.source (Scc.Sem.SrcSem.srcP1o arch P1) P1) (lay2 Λ P1) B
+      ⟨SccCertificate.asm, SccCertificate.sizes, SccCertificate.labelOffs⟩
+```
+
+Their entry quantifier is not vacuous: `hello1_ok_witness_of_placeOKAtA` /
+`hello1_ok_witness_of_placeOKAt` give, at any layout passing the check, an
+admissible entry state (a 64 KiB stack at `2 ^ 32`). `certify.sh` uses both
+(§2, §4).
 
 ### The fragment-generic statements (open)
 
@@ -398,8 +434,11 @@ decided at the layout of the binary actually linked.
 
 For `ret0` (and any `Accepted0`/`Accepted1` program), `Scc/Test/certify.sh
 [--arch arm] --instantiate PROG.w` performs steps 1–5 on a fresh build and
-`run.sh` link and prints **certified** (§4). For `hello1` there is no such
-script: the chain above holds for the checked-in executables only.
+`run.sh` link and prints **certified** (§4). For `hello1.w` it does the
+same with `hello1_finalCA_gen` / `hello1_finalC_gen` in place of the
+fragment theorem, after checking that the fresh text is the checked-in
+certificate's `asm` byte for byte (by evaluation, on every run); the
+certificate and program it imports are the checked-in ones, never the run's.
 
 What this chain still trusts is in §3.
 
@@ -573,9 +612,9 @@ as -o $T/ret0.o $T/ret0.s && ld -static -o $T/ret0 $T/ret0.o
 $T/ret0; echo $?                      # 42
 ```
 
-**Certifying a fresh build** (`Accepted0`/`Accepted1` programs only). The
-last line is the verdict, followed by time and peak RssAnon of the checking
-Lean process:
+**Certifying a fresh build** (`Accepted0`/`Accepted1` programs, and
+`hello1.w`). The last line is the verdict, followed by time and peak RssAnon
+of the checking Lean process:
 
 | Command | Verdict |
 |---|---|
@@ -583,10 +622,17 @@ Lean process:
 | `Scc/Test/certify.sh --arch x64 --instantiate Scc/Test/ret0.w` | **certified** (59 s, 2052 MB) |
 | `Scc/Test/certify.sh --arch arm --instantiate Spike/Gen/frame0.w` | **certified** (63 s, 2010 MB) |
 | `Scc/Test/certify.sh --arch x64 --instantiate Spike/Gen/frame0.w` | **certified** (57 s, 2057 MB) |
+| `Scc/Test/certify.sh --arch arm --instantiate Scc/Test/hello1.w` | **certified** (41 s, 1971 MB) |
+| `Scc/Test/certify.sh --arch x64 --instantiate Scc/Test/hello1.w` | **certified** (33 s, 1977 MB) |
+
+For `hello1.w`, the first run builds `Spike.Test.X64Hello1FinalC` /
+`Spike.Test.A64Hello1FinalCA` if they are not built (on a checkout with
+nothing under `Spike` built: about 47 minutes for x86-64, then 31 for
+AArch64, with `LEAN_NUM_THREADS=1`; peak about 4 GiB).
 
 `certify.sh -v` prints every command it runs and the Lean files it writes,
-so a run can be repeated by hand. On `hello1.w` it answers **not
-certifiable** (outside `Accepted1`).
+so a run can be repeated by hand. Any other program outside `Accepted1`,
+or `hello1.w` compiled to a different text, is **not certifiable**.
 
 **Tests.**
 
@@ -597,7 +643,11 @@ certifiable** (outside `Accepted1`).
 - `Scc/Test/blocks.sh --check`: 38 passed; `Spike/Gen/drift.sh`: clean;
   `Scc/Test/elf.sh`: ok; `Scc/Test/elf.sh --relink-check`: ok;
   `Scc/Test/textalign.sh`: ok (19 programs).
-- `Scc/Test/certify_test.sh`: all passed (including `-v`).
+- `Scc/Test/certify_test.sh`: all passed (including `-v`, `hello1.w` on
+  both ISAs at its `run.sh` link and at a moved link, and refusals of other
+  programs outside `Accepted1`).
+- `tools/diff_place.sh`: the placement samples of `diff.sh` match their
+  pinned outcomes on both ISAs.
 - `Kraken/AArch64/Test/asm_tests.py`: 66/66; `Kraken/X64/Test/asm_tests.py`:
   63/63.
 - `Scc/Test/diff.sh -n 300`, each ISA: 300/300 agree with the reference
@@ -609,13 +659,13 @@ certifiable** (outside `Accepted1`).
 
 In this release `ret0.w` is certified at linked binaries and by `certify.sh
 --instantiate` on a fresh build, `frame0.w` by `certify.sh --instantiate`,
-and `hello1.w` at its two checked-in executables.
+and `hello1.w` at every layout passing the placement check, by `certify.sh
+--instantiate` on a fresh build, and at its two checked-in executables.
 
-- **`hello1` is certified at one layout.** Its theorems are stated at `Λe`,
-  read from `Scc/Test/elf/hello1{a64,x64}/hello1` and pinned by SHA-256. A
-  fresh build of `hello1.w`, or a link with another toolchain or command, is
-  not certified, even if `elf.sh --relink-check` would reproduce it; the
-  theorem covers the pinned files.
+- **`hello1`'s theorems are about one text.** They cover the checked-in
+  certificate's `asm`; `certify.sh` certifies a build only when scc produces
+  exactly that text. A change to scc that changes hello1's output makes
+  `hello1.w` not certifiable until the theorems are redone.
 - **The `Accepted2` statements are open.** `Closed2Stmt`/`Closed2StmtA` are
   stated, and proved only from the segment obligations `Closed2In`/
   `Closed2InA`, which are not proved for the fragment (§1). `hello1` is
@@ -623,9 +673,10 @@ and `hello1.w` at its two checked-in executables.
 - **`certify.sh` covers `Accepted0` and `Accepted1`.** It instantiates
   `a64_scc_correctE_text_closedAt1` on AArch64 and
   `x64_scc_correctE_text_closedAt1` (or `…_closedAt` for an `Accepted0`
-  program whose `main` frame exceeds 4096 bytes) on x86-64. Anything that
-  allocates, prints, spawns or recurses is outside it; scc's output for such
-  programs is uncertified.
+  program whose `main` frame exceeds 4096 bytes) on x86-64, and
+  `hello1_finalCA_gen` / `hello1_finalC_gen` for `hello1.w`. Anything else
+  that allocates, prints, spawns or recurses is outside it; scc's output for
+  such programs is uncertified.
 - **Placement check A12.** Functions with more than 6 (x86-64) or 8
   (AArch64) flattened parameter words are refused (the emitter's
   stack-passed parameters are not modelled), and so are programs whose

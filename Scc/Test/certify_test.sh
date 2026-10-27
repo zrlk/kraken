@@ -8,7 +8,8 @@
 # default link: `.rodata` below the code, a build-id note; certified with
 # --instantiate, placement decided without), and -v on x64 `ret0` (the
 # command trace names scc and `lake env lean`; the verdict, up to time and
-# memory, and the status are those without -v).  `lake` from `$LAKE`, default
+# memory, and the status are those without -v), and hello1 on both ISAs (the
+# registry; cases below).  `lake` from `$LAKE`, default
 # `lake`.  Prints one line per case and exits 1 when a case differs.
 set -u
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
@@ -78,6 +79,33 @@ run 1 "failed: the ELF reader refuses ret0: scc_rt_heap has size 0" --elf "$ROOT
 run 3 "not certifiable" Scc/Test/deeprec.w
 run 10 "placement decided" --arch arm Scc/Test/ret0.w
 run 0 "certified" --arch arm --instantiate Scc/Test/ret0.w
+
+# hello1 (the registry), both ISAs: certified at run.sh's link and at a link moved by the
+# linker (--elf); exit 3 naming the component at a link above 4 GiB (A1); exit 3 for another
+# Accepted2 program (`hello1L.w`, the registry message) and for hello1.w with one byte changed
+# (`13` -> `12`: no proved theorem).
+sed 's/let n = 13/let n = 12/' Scc/Test/hello1.w >"$N/hello1.w"
+cmp -s Scc/Test/hello1.w "$N/hello1.w" && { echo "FAIL hello1 variant: unchanged"; fails=$((fails+1)); }
+for a in x64 arm; do
+  s=Scc/Test/elf/hello1${a/arm/a64}/hello1.s
+  if [ $a = x64 ]; then
+    as -o "$N/h1.o" "$s" && ld -static -Ttext-segment=0x800000 -o "$N/h1_${a}_moved" "$N/h1.o" \
+      && ld -static -Ttext-segment=0x100000000 -o "$N/h1_${a}_high" "$N/h1.o"
+  else
+    for b in moved:0x800000 high:0x100000000; do
+      clang --target=aarch64-linux-gnu -march=armv8.4-a -nostdlib -static -fuse-ld=lld \
+        -Wl,--image-base=${b#*:} -o "$N/h1_${a}_${b%%:*}" "$s"
+    done
+  fi
+  run 0 "certified" --arch $a --instantiate Scc/Test/hello1.w
+  run 0 "certified" --arch $a --instantiate --elf "$ROOT/$N/h1_${a}_moved" Scc/Test/hello1.w
+  run 3 "not certifiable: placeOKAt fails at the executable's layout (component A1" \
+    --arch $a --instantiate --elf "$ROOT/$N/h1_${a}_high" Scc/Test/hello1.w
+  run 3 "not certifiable: outside the certified fragment (Accepted2 programs other than Scc/Test/hello1.w" \
+    --arch $a --instantiate Scc/Test/hello1L.w
+  run 3 "not certifiable: outside the certified fragment (not Scc.Lower.Accepted1; no proved theorem" \
+    --arch $a --instantiate "$N/hello1.w"
+done
 
 # -v on x64 ret0: the `+ cd DIR && CMD` trace on stderr names scc and `lake env lean`; the
 # verdict line (time and memory masked) and the exit status are those of the run without -v.

@@ -13,19 +13,23 @@ import Spike.Test.X64Hello1Closed2
 
 namespace Spike.Lib.LowerX64
 
+variable {Λx : Scc.Sem.Layout}
+
 open Kraken.Promising Kraken.Promising.X64
 open Scc.Sem Scc.Sem.X64
 open Scc.Cert.PlaceOK Scc.Cert.PlaceOK.X64
 
 /-- **`hello1` from its segment obligations**: `hello1o` is `Accepted2`
 (`hello1o_accepted2`) with `mainRetOk` and `CfgNeedOk` by `decide`, its
-output the certificate's (`hello1_out_eq`) passing the placement check at
-`ld`'s layout `Λe` (`hello1_placeOKAt`); left, `In2X` at every admissible
+output passing the placement check at the layout (`h0`); left, `In2X` at every admissible
 entry state (`H`) and the parse `hpa` (the certificate's compiled `#guard`). -/
 theorem hello1_of_closedAt2
-    (H : ∀ E : Entry, E.Ok (lay2 Spike.Test.Hello1LinkedX64.Λe Spike.Test.Hello1MainSrc.hello1o) →
+    (h0 : placeOKAt SccCertificate.placeCfg Λx
+      (Out.ofEmitted (Scc.Lower.X64.lowerAll SccCertificate.config Spike.Test.Hello1MainSrc.hello1o)
+        SccCertificate.sizes SccCertificate.labelOffs) = true)
+    (H : ∀ E : Entry, E.Ok (lay2 Λx Spike.Test.Hello1MainSrc.hello1o) →
       ∀ h' : placeOKAt SccCertificate.placeCfg
-        (lay2 Spike.Test.Hello1LinkedX64.Λe Spike.Test.Hello1MainSrc.hello1o)
+        (lay2 Λx Spike.Test.Hello1MainSrc.hello1o)
         (Out.ofEmitted (Scc.Lower.X64.lowerAll SccCertificate.config Spike.Test.Hello1MainSrc.hello1o)
           SccCertificate.sizes SccCertificate.labelOffs) = true,
       In2X h' E)
@@ -35,12 +39,12 @@ theorem hello1_of_closedAt2
     Scc.Sem.X64.CorrectE 1
       (Scc.Sem.SrcSem.source (Scc.Sem.SrcSem.srcP1o arch Spike.Test.Hello1MainSrc.hello1o)
         Spike.Test.Hello1MainSrc.hello1o)
-      { Spike.Test.Hello1LinkedX64.Λe with
+      { Λx with
         static := fun _ => none, imms := Spike.Lib.LowerNode.imms2Me
-          Spike.Test.Hello1LinkedX64.Λe Spike.Test.Hello1MainSrc.hello1o } B
+          Λx Spike.Test.Hello1MainSrc.hello1o } B
       ⟨SccCertificate.asm, SccCertificate.sizes, SccCertificate.labelOffs⟩ :=
   x64_scc_correctE_text_closedAt2_at Spike.Lib.LowerNode.hello1o_accepted2 (by decide)
-    (hello1_out_eq ▸ Spike.Test.Hello1LinkedX64.hello1_placeOKAt) (by decide) H (hello1_out_eq ▸ hpa) hB
+    h0 (by decide) H (hello1_out_eq ▸ hpa) hB
 
 /--
 info: 'Spike.Lib.LowerX64.hello1_of_closedAt2' depends on axioms: [propext, Classical.choice, Quot.sound]

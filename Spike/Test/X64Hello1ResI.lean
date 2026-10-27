@@ -246,8 +246,11 @@ open Spike.Lib.X64.Rt (rtF)
 /-- The program. -/
 local notation "P1" => Spike.Test.Hello1MainSrc.hello1o
 
-/-- `ld`'s layout of the linked executable. -/
-local notation "Le" => Spike.Test.Hello1LinkedX64.Λe
+variable {Λx : Scc.Sem.Layout}
+
+set_option hygiene false in
+/-- The layout: any layout at which the placement check passes (`h`). -/
+local notation "Le" => Λx
 
 /-- The compiler's output for the program at the certificate's sizes and label offsets. -/
 local notation "OX" =>
@@ -322,6 +325,9 @@ omit h in
 statement from the bottom keys' exits `hW` and the allocator's `W2`
 instance at the setup frame `OpenAWF`. -/
 theorem hello1_finalT
+    (h0 : placeOKAt SccCertificate.placeCfg Le
+      (Out.ofEmitted (Scc.Lower.X64.lowerAll SccCertificate.config Spike.Test.Hello1MainSrc.hello1o)
+        SccCertificate.sizes SccCertificate.labelOffs) = true)
     (hW : ∀ E : Entry, E.Ok (lay2 Le P1) → ∀ h : placeOKAt SccCertificate.placeCfg (lay2 Le P1) OX = true,
       ∀ J : InvS, (∀ L ls, Reach (ArH) (fun _ => none) (fun _ => 0) L ls →
         ∀ s c fs, StartsSX h E (WNF) (ElR) (fun _ => True) (ab2 P1 (LyH).lab) L ls s c fs → J L ls s c fs) →
@@ -337,7 +343,7 @@ theorem hello1_finalT
     {B : Scc.Sem.Budget} (hB : B.cells = Scc.Cert.PlaceOK.allocCells) {arch : WeakMem.Arch} :
     CorrectE 1 (Scc.Sem.SrcSem.source (Scc.Sem.SrcSem.srcP1o arch P1) P1) (lay2 Le P1) B
       ⟨SccCertificate.asm, SccCertificate.sizes, SccCertificate.labelOffs⟩ :=
-  hello1_final' (fun E hE h => hello1_restXT h (hW E hE h)) HA hpa hB
+  hello1_final'_gen h0 (fun E hE h => hello1_restXT h (hW E hE h)) HA hpa hB
 
 /-- **`hello1`'s `H1RestXWT` closed** at `TrNb (TailAt2 P1 j)`:
 `hello1_restXT` at the bottom keys' exits `hello1_hWBot`. -/
@@ -350,6 +356,9 @@ omit h in
 /-- **`hello1`'s x86-64 statement from `OpenAWF` alone**: `hello1_finalT`
 at the bottom keys' exits `hello1_hWBot`. -/
 theorem hello1_finalTW
+    (h0 : placeOKAt SccCertificate.placeCfg Le
+      (Out.ofEmitted (Scc.Lower.X64.lowerAll SccCertificate.config Spike.Test.Hello1MainSrc.hello1o)
+        SccCertificate.sizes SccCertificate.labelOffs) = true)
     (HA : ∀ E : Entry, E.Ok (lay2 Le P1) → ∀ h : placeOKAt SccCertificate.placeCfg (lay2 Le P1) OX = true,
       OpenAWF h hello1o_accepted2 E (ElH h) (fun _ => True))
     (hpa : Scc.Cert.Link.X64.parsesTo ⟨SccCertificate.asm, SccCertificate.sizes, SccCertificate.labelOffs⟩
@@ -357,7 +366,7 @@ theorem hello1_finalTW
     {B : Scc.Sem.Budget} (hB : B.cells = Scc.Cert.PlaceOK.allocCells) {arch : WeakMem.Arch} :
     CorrectE 1 (Scc.Sem.SrcSem.source (Scc.Sem.SrcSem.srcP1o arch P1) P1) (lay2 Le P1) B
       ⟨SccCertificate.asm, SccCertificate.sizes, SccCertificate.labelOffs⟩ :=
-  hello1_finalT (fun _ _ h => hello1_hWBot h) HA hpa hB
+  hello1_finalT h0 (fun _ _ h => hello1_hWBot h) HA hpa hB
 
 end Hello1R
 

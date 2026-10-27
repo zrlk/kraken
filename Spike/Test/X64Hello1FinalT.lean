@@ -36,8 +36,11 @@ open Spike.Lib (FragS)
 /-- The program. -/
 local notation "P1" => Spike.Test.Hello1MainSrc.hello1o
 
-/-- `ld`'s layout of the linked executable. -/
-local notation "Le" => Spike.Test.Hello1LinkedX64.Λe
+variable {Λx : Scc.Sem.Layout}
+
+set_option hygiene false in
+/-- The layout: any layout at which the placement check passes (`h`). -/
+local notation "Le" => Λx
 
 /-- The compiler's output for the program at the certificate's sizes and label offsets. -/
 local notation "OX" =>
@@ -59,7 +62,11 @@ theorem hello1_h1OpenXWT {E : Entry} (h : placeOKAt SccCertificate.placeCfg (lay
 (`hello1_of_closedBVBF`: `H1InW` by `h1InW_ofLandT` at
 `hello1_h1OpenXWT`, `HSBVF` by `hello1_hSF_ofPre` at `openPF_of_openAWF`,
 `HUBVF` by `hello1_hUBVF`), at any restriction `Tr`. -/
-theorem hello1_finalW_ofT {Tr : Nat → Expr → Prop}
+theorem hello1_finalW_ofT
+    (h0 : placeOKAt SccCertificate.placeCfg Le
+      (Out.ofEmitted (Scc.Lower.X64.lowerAll SccCertificate.config Spike.Test.Hello1MainSrc.hello1o)
+        SccCertificate.sizes SccCertificate.labelOffs) = true)
+    {Tr : Nat → Expr → Prop}
     (HR : ∀ E : Entry, E.Ok (lay2 Le P1) → ∀ h : placeOKAt SccCertificate.placeCfg (lay2 Le P1) OX = true,
       H1RestXWT h E (fnCode2OfPMe Spike.Lib.LowerNode.hello1o_accepted2 h Le)
         (CxOkH h Spike.Lib.LowerNode.hello1o_accepted2) (BotH h) (fun _ => True) Tr)
@@ -72,7 +79,7 @@ theorem hello1_finalW_ofT {Tr : Nat → Expr → Prop}
       (Scc.Sem.SrcSem.source (Scc.Sem.SrcSem.srcP1o arch P1) P1)
       { Le with static := fun _ => none, imms := Spike.Lib.LowerNode.imms2Me Le P1 } B
       ⟨SccCertificate.asm, SccCertificate.sizes, SccCertificate.labelOffs⟩ :=
-  hello1_of_closedBVBF (fun E hE h => ⟨ElH h, fun _ => True,
+  hello1_of_closedBVBF h0 (fun E hE h => ⟨ElH h, fun _ => True,
     h1InW_ofLandT h (hello1_h1OpenXWT h (HR E hE h)).choose_spec,
     hello1_hSF_ofPre h (openPF_of_openAWF h _ hello1_hty.choose_spec (HA E hE h)),
     hello1_hUBVF h E _⟩) hpa hB

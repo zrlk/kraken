@@ -127,13 +127,18 @@ end Assembled
 /-- The program. -/
 local notation "P1A" => Spike.Test.Hello1MainSrc.hello1o
 
-/-- `ld`'s layout of the linked executable. -/
-local notation "LeA" => Spike.Test.Hello1LinkedA64.Λe
+variable {Λx : Scc.Sem.Layout}
+
+set_option hygiene false in
+/-- The layout: any layout at which the placement check passes (`h`). -/
+local notation "LeA" => Λx
 
 /-- **`hello1`'s AArch64 statement at `WordsNone ∧ rtF`, the holes named**:
 from `OpenBVBFA` (`H1InAW`, `hS`, `hU`) at every admissible entry state and
 placement, and the parse `hpa` (`a64_scc_correctE_text_closedAt2_atW`). -/
 theorem hello1_of_closedBVBFA
+    (h0 : placeOKAt SccCertificate.placeCfg LeA
+      (Out.ofEmitted (Scc.Lower.A64.lowerAll SccCertificate.config P1A)) = true)
     (H : ∀ E : Entry, E.Ok (lay2 LeA P1A) →
       ∀ h' : placeOKAt SccCertificate.placeCfg (lay2 LeA P1A)
         (Out.ofEmitted (Scc.Lower.A64.lowerAll SccCertificate.config P1A)) = true,
@@ -145,7 +150,7 @@ theorem hello1_of_closedBVBFA
       { LeA with static := fun _ => none, imms := Spike.Lib.LowerNode.imms2Me LeA P1A } B
       SccCertificate.asm :=
   a64_scc_correctE_text_closedAt2_atW Spike.Lib.LowerNode.hello1o_accepted2 (by decide)
-    (hello1_out_eqA ▸ Spike.Test.Hello1LinkedA64.hello1_placeOKAt) (by decide)
+    h0 (by decide)
     (fun E hE h' => in2AW_ofBVBF h' Spike.Lib.LowerNode.hello1o_accepted2 hello1_htyA.choose_spec
       (by decide) hE (H E hE h')) (hello1_out_eqA ▸ hpa) hB
 
@@ -154,6 +159,8 @@ closed** (`hello1_of_closedBVBFA` at `hello1_hUBVFA`, the write tail
 `fun _ => True`): from the landings' segments `H1InAW` and the setup call
 `HSBVFA` at some landings' states, and the parse `hpa`. -/
 theorem hello1_of_closedBVBFAU
+    (h0 : placeOKAt SccCertificate.placeCfg LeA
+      (Out.ofEmitted (Scc.Lower.A64.lowerAll SccCertificate.config P1A)) = true)
     (H : ∀ E : Entry, E.Ok (lay2 LeA P1A) →
       ∀ h' : placeOKAt SccCertificate.placeCfg (lay2 LeA P1A)
         (Out.ofEmitted (Scc.Lower.A64.lowerAll SccCertificate.config P1A)) = true,
@@ -165,7 +172,7 @@ theorem hello1_of_closedBVBFAU
       (Scc.Sem.SrcSem.source (Scc.Sem.SrcSem.srcP1o arch P1A) P1A)
       { LeA with static := fun _ => none, imms := Spike.Lib.LowerNode.imms2Me LeA P1A } B
       SccCertificate.asm :=
-  hello1_of_closedBVBFA (fun E hE h' =>
+  hello1_of_closedBVBFA h0 (fun E hE h' =>
     let ⟨El, H1, hS⟩ := H E hE h'
     ⟨El, fun _ => True, H1, hS, hello1_hUBVFA h' E El⟩) hpa hB
 

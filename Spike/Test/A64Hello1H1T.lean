@@ -151,8 +151,11 @@ open Spike.Lib.LowerNode (hello1o_accepted2)
 /-- The program. -/
 local notation "P1A" => Spike.Test.Hello1MainSrc.hello1o
 
-/-- `ld`'s layout of the linked executable. -/
-local notation "LeA" => Spike.Test.Hello1LinkedA64.Λe
+variable {Λx : Scc.Sem.Layout}
+
+set_option hygiene false in
+/-- The layout: any layout at which the placement check passes (`h`). -/
+local notation "LeA" => Λx
 
 /-- The compiler's output for the program. -/
 local notation "OA" => Out.ofEmitted (Scc.Lower.A64.lowerAll SccCertificate.config P1A)
@@ -226,6 +229,7 @@ omit h in
 statement from the bottom keys' exits `hW` and the allocator's `W2`
 instance at the setup frame `OpenAHA`. -/
 theorem hello1_finalTA
+    (h0 : placeOKAt SccCertificate.placeCfg LeA OA = true)
     (hW : ∀ E : Entry, E.Ok (lay2 LeA P1A) → ∀ h : placeOKAt SccCertificate.placeCfg (lay2 LeA P1A) OA = true,
       ∀ J : InvS, (∀ L ls, Reach (ArH) (fun _ => none) (fun _ => 0) L ls →
         ∀ s c fs, StartsSA h E (WNF) (ElR) (fun _ => True) (ab2 P1A (LyH).lab) L ls s c fs → J L ls s c fs) →
@@ -241,7 +245,7 @@ theorem hello1_finalTA
     {B : Scc.Sem.Budget} (hB : B.cells = Scc.Cert.PlaceOK.allocCells) {arch : WeakMem.Arch} :
     CorrectE 1 (Scc.Sem.SrcSem.source (Scc.Sem.SrcSem.srcP1o arch P1A) P1A) (lay2 LeA P1A) B
       SccCertificate.asm :=
-  hello1_finalA' (fun E hE h => hello1_landAWT h (hW E hE h)) HA hpa hB
+  hello1_finalA'_gen h0 (fun E hE h => hello1_landAWT h (hW E hE h)) HA hpa hB
 
 /-- **`hello1`'s `H1LandAWT` closed** at `TrNb (TailAt2 P1A j)`:
 `hello1_landAWT` at the bottom keys' exits `hello1_hWBotA`. -/
@@ -254,6 +258,7 @@ omit h in
 /-- **`hello1`'s AArch64 statement from `OpenAHA` alone**: `hello1_finalTA`
 at the bottom keys' exits `hello1_hWBotA`. -/
 theorem hello1_finalTWA
+    (h0 : placeOKAt SccCertificate.placeCfg LeA OA = true)
     (HA : ∀ E : Entry, E.Ok (lay2 LeA P1A) → ∀ h : placeOKAt SccCertificate.placeCfg (lay2 LeA P1A) OA = true,
       OpenAHA h hello1o_accepted2 E (ElH h hello1o_accepted2) (fun _ => True))
     (hpa : Scc.Cert.Link.A64.parsesTo SccCertificate.asm SccCertificate.outLit.prog
@@ -261,7 +266,7 @@ theorem hello1_finalTWA
     {B : Scc.Sem.Budget} (hB : B.cells = Scc.Cert.PlaceOK.allocCells) {arch : WeakMem.Arch} :
     CorrectE 1 (Scc.Sem.SrcSem.source (Scc.Sem.SrcSem.srcP1o arch P1A) P1A) (lay2 LeA P1A) B
       SccCertificate.asm :=
-  hello1_finalTA (fun _ _ h => hello1_hWBotA h) HA hpa hB
+  hello1_finalTA h0 (fun _ _ h => hello1_hWBotA h) HA hpa hB
 
 end Hello1
 

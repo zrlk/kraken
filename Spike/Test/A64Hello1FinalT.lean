@@ -28,8 +28,11 @@ open Spike.Lib (FragS)
 /-- The program. -/
 local notation "P1A" => Spike.Test.Hello1MainSrc.hello1o
 
-/-- `ld`'s layout of the linked executable. -/
-local notation "LeA" => Spike.Test.Hello1LinkedA64.Λe
+variable {Λx : Scc.Sem.Layout}
+
+set_option hygiene false in
+/-- The layout: any layout at which the placement check passes (`h`). -/
+local notation "LeA" => Λx
 
 /-- The compiler's output for the program. -/
 local notation "OA" => Out.ofEmitted (Scc.Lower.A64.lowerAll SccCertificate.config P1A)
@@ -40,7 +43,9 @@ walk restriction `Tr` and the allocator's `W2` instance**
 and `hello1_hAbQA`, `HSBVFA` by `hello1_hSFA_ofPreH` at
 `openPHA_of_openAHA`): `hello1_finalA`'s conclusion, the parse `hpa` at
 the certificate's output `out`. -/
-theorem hello1_finalAW_ofT {Tr : Nat → Expr → Prop}
+theorem hello1_finalAW_ofT
+    (h0 : placeOKAt SccCertificate.placeCfg LeA OA = true)
+    {Tr : Nat → Expr → Prop}
     (H1 : ∀ E : Entry, E.Ok (lay2 LeA P1A) → ∀ h' : placeOKAt SccCertificate.placeCfg (lay2 LeA P1A) OA = true,
       H1LandAWT h' E (fnCode2OfPMe Spike.Lib.LowerNode.hello1o_accepted2 h' LeA)
         (CxOkH h' Spike.Lib.LowerNode.hello1o_accepted2) (BotH h') (fun _ => True) Tr)
@@ -51,7 +56,7 @@ theorem hello1_finalAW_ofT {Tr : Nat → Expr → Prop}
     {B : Scc.Sem.Budget} (hB : B.cells = Scc.Cert.PlaceOK.allocCells) {arch : WeakMem.Arch} :
     CorrectE 1 (Scc.Sem.SrcSem.source (Scc.Sem.SrcSem.srcP1o arch P1A) P1A) (lay2 LeA P1A) B
       SccCertificate.asm :=
-  hello1_of_closedBVBFAU (fun E hE h' => ⟨ElH h' Spike.Lib.LowerNode.hello1o_accepted2,
+  hello1_of_closedBVBFAU h0 (fun E hE h' => ⟨ElH h' Spike.Lib.LowerNode.hello1o_accepted2,
     h1InAW_ofLandT h' (H1 E hE h') hello1_hTnA
       (fun J _ _ _ _ _ _ _ _ _ => hello1_hAbQA h' rfl Spike.Lib.LowerNode.hello1o_accepted2
         hello1_htyA.choose_spec (fun _ _ _ _ _ _ => trivial) J _ _),

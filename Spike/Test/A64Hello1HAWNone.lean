@@ -191,8 +191,11 @@ end Assembled
 /-- The program. -/
 local notation "P1A" => Spike.Test.Hello1MainSrc.hello1o
 
-/-- `ld`'s layout of the linked executable. -/
-local notation "LeA" => Spike.Test.Hello1LinkedA64.Λe
+variable {Λx : Scc.Sem.Layout}
+
+set_option hygiene false in
+/-- The layout: any layout at which the placement check passes (`h`). -/
+local notation "LeA" => Λx
 
 /-- **`hello1`'s allocator `W2` instance at the landings' contexts from the
 per-allocation premises** (`cxLB_hAW_noneA` at `hello1_htyA`,

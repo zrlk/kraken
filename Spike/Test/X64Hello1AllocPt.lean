@@ -131,8 +131,11 @@ theorem hello1_hacc : ∃ us, TermRun.accs (TermRun.close [] τ8) = some us := �
 
 open Scc.Cert.PlaceOK Scc.Cert.PlaceOK.X64
 
-/-- `ld`'s layout of the linked executable. -/
-local notation "Le" => Spike.Test.Hello1LinkedX64.Λe
+variable {Λx : Scc.Sem.Layout}
+
+set_option hygiene false in
+/-- The layout: any layout at which the placement check passes (`h`). -/
+local notation "Le" => Λx
 
 /-- The compiler's output. -/
 local notation "OX" =>

@@ -541,8 +541,11 @@ end Assembled
 /-- The program. -/
 local notation "P1" => Spike.Test.Hello1MainSrc.hello1o
 
-/-- `ld`'s layout of the linked executable. -/
-local notation "Le" => Spike.Test.Hello1LinkedX64.Λe
+variable {Λx : Scc.Sem.Layout}
+
+set_option hygiene false in
+/-- The layout: any layout at which the placement check passes (`h`). -/
+local notation "Le" => Λx
 
 /-- **`hello1o`'s setup block takes `Unit`.** -/
 theorem hello1_hu : ∀ dr, (P1).find? (·.name == "rodata") = some dr → dr.argTy = .unit := by

@@ -5,10 +5,11 @@ import Scc.Cert.E2EX64
 /-!
 # `hello1.w` on x86-64 at the linked executable's layout
 
-`hello1.w` is outside `Accepted0` (`SccCertificate.prog_not_accepted`) and
-`certify.sh` does not certify it. Its correctness theorem `hello1_finalC`
-(`Spike/Test/X64Hello1FinalC.lean`) is stated at this file's layout `Λe` and
-uses the placement facts below. The x86-64 twin of
+`hello1.w` is outside `Accepted0` (`SccCertificate.prog_not_accepted`). Its
+correctness theorem `hello1_finalC_gen` (`Spike/Test/X64Hello1FinalC.lean`)
+holds at any layout passing the placement check; `hello1_finalC` is it at
+this file's layout `Λe`, using the placement facts below. `certify.sh`
+instantiates `hello1_finalC_gen` at a fresh build's layout. The x86-64 twin of
 `Spike/Test/Hello1LinkedA64.lean`.
 
 `Scc/Test/elf/hello1x64/hello1` is `hello1.w`'s certificate text
