@@ -137,6 +137,19 @@ local macro "run_step" : tactic =>
   run_step
   exact hn _ hpre
 
+@[spec] public theorem sub_reg_imm_label_sub_spec (asz : Width) (r : Reg64) (l₁ l₂ : Label) :
+    ⦃ fun s =>
+        let b := s.regs.get64 r
+        let a := BitVec.setWidth 64 (label l₁ - label l₂).toBitVec
+        Q () { s with regs := s.regs.set64 r (b - a), status := StatusFlags.ofSub b a } ⦄
+      (Directive.instr (.regular asz .W64
+        (.sub (.reg (.low r .W64)) (.imm (.sub (.label l₁) (.label l₂))))))
+    ⦃ Q; E ⦄ := by
+  refine ⟨fun s hpre => ?_⟩
+  refine Program.wp_single fun _ _ _ _ hn _ => ?_
+  run_step
+  exact hn _ hpre
+
 @[spec] public theorem mulx_reg_spec (asz : Width) (hi lo rs : Reg64) :
     ⦃ fun s =>
         let v := (s.regs.get64 rs).unsigned * (s.regs.get64 .rdx).unsigned
