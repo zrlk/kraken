@@ -72,7 +72,7 @@ variable [Host] [FunDecls] {Q : Unit → MachineData → Prop} {E : Int64 → Ma
   refine ⟨fun s hpre => ?_⟩
   refine Program.wp_single fun _ _ _ _ hn _ => ?_
   simp only [Directive.interp, Instr.interp, Operation.interp, Operand.interp, ConstExpr.interp,
-    MachineData.set, MachineData.setReg, Reg64s.set_low_W64, Effects.All, ite_true]
+    MachineData.set, MachineData.setReg, Reg64s.set_low_W64, Effects.All]
   exact hn _ hpre
 
 @[spec] public theorem mov_store_reg_spec (b : Reg64) (d : Int64) (rs : Reg64) :
@@ -148,6 +148,32 @@ local macro "run_step" : tactic =>
   refine ⟨fun s hpre => ?_⟩
   refine Program.wp_single fun _ _ _ _ hn _ => ?_
   run_step
+  exact hn _ hpre
+
+omit [Host] [FunDecls] in
+/-- The address a `disp(,index,4)` operand computes at 32-bit address size
+(the `0x67` prefix), zero-extended: four times the low half of the index plus
+the displacement, wrapped to 32 bits. -/
+public theorem AddrExpr.zeroExtend_interp_index32_4 [L : Labels] (i : Reg64) (d : Int64)
+    (regs : Reg64s) (rng : Std.Rco Int64) :
+    ((AddrExpr.interp (address_size := .mk .W32)
+        (a := ⟨none, some ⟨i, .W32⟩, .int64 d⟩) regs rng).zeroExtend 64)
+      = ((regs.get64 i).take 32 * 4 + BitVec.ofInt 32 d.toInt).zeroExtend 64 := by
+  simp only [AddrExpr.interp, ConstExpr.interp, BitVec.toAddressSize]
+  congr 1
+  have hsigned : ∀ x : BitVec 32, x.signed = x.toInt := fun _ => rfl
+  rw [hsigned, Int.zero_add, BitVec.ofInt_add, BitVec.ofInt_mul, BitVec.ofInt_toInt]
+  rfl
+
+@[spec] public theorem lea_index32_4_spec (r i : Reg64) (d : Int64) :
+    ⦃ fun s => Q () { s with regs := (s.regs.set64 r
+        (((s.regs.get64 i).take 32 * 4 + BitVec.ofInt 32 d.toInt).zeroExtend 64)) } ⦄
+      (Directive.instr (.regular .W32 .W64 (.lea (.low r .W64) ⟨none, some ⟨i, .W32⟩, .int64 d⟩)))
+    ⦃ Q; E ⦄ := by
+  refine ⟨fun s hpre => ?_⟩
+  refine Program.wp_single fun _ _ _ _ hn _ => ?_
+  run_step
+  rw [AddrExpr.zeroExtend_interp_index32_4]
   exact hn _ hpre
 
 @[spec] public theorem lea_reg_disp_spec (rd b : Reg64) (d : Int64) :
@@ -392,7 +418,7 @@ local macro "run_step" : tactic =>
   refine Program.wp_single fun _ _ _ _ hn _ => ?_
   simp only [Directive.interp, Instr.interp, Operation.interp, Operand.interp,
     RegOrMem.interp, MachineData.set, MachineData.store, Reg64s.get_low_W32,
-    AddrExpr.zeroExtend_interp_base_disp, Width.bytes, hload, Effects.All, ite_true]
+    AddrExpr.zeroExtend_interp_base_disp, Width.bytes, hload, Effects.All]
   exact hn _ hpre
 
 @[spec] public theorem mov_load_reg32_spec (r b : Reg64) (d : Int64) :
@@ -407,7 +433,7 @@ local macro "run_step" : tactic =>
   refine Program.wp_single fun _ _ _ _ hn _ => ?_
   simp only [Directive.interp, Instr.interp, Operation.interp, Operand.interp,
     RegOrMem.interp, MachineData.load, MachineData.set, MachineData.setReg, Reg64s.set_low_W32,
-    AddrExpr.zeroExtend_interp_base_disp, Width.bytes, hload, Effects.All, ite_true]
+    AddrExpr.zeroExtend_interp_base_disp, Width.bytes, hload, Effects.All]
   exact hn _ (by rwa [hload, Option.get!_some] at hpre)
 
 @[spec] public theorem cmp_mem32_imm_spec (b : Reg64) (d : Int64) (i : Int64) :
@@ -423,7 +449,7 @@ local macro "run_step" : tactic =>
   refine Program.wp_single fun _ _ _ _ hn _ => ?_
   simp only [Directive.interp, Instr.interp, Operation.interp, Operand.interp,
     RegOrMem.interp, ConstExpr.interp, MachineData.load,
-    AddrExpr.zeroExtend_interp_base_disp, Width.bytes, hload, Effects.All, ite_true]
+    AddrExpr.zeroExtend_interp_base_disp, Width.bytes, hload, Effects.All]
   exact hn _ (by rwa [hload, Option.get!_some] at hpre)
 
 @[spec] public theorem mov_store_byte_imm_spec (b : Reg64) (d : Int64) (i : Int64) :
@@ -623,6 +649,24 @@ local macro "run_avx" : tactic =>
     AddrExpr.zeroExtend_interp_sib1, hal, hv, AvxWidth.bytes, Bool.not_true, Bool.and_false,
     Bool.false_eq_true, ite_false, Effects.All]
   exact hn _ hq
+
+@[spec] public theorem mulps_load_sib1_spec (x : AvxReg .W128) (b i : Reg64) (d : Int64) :
+    ⦃ fun s =>
+        let a := s.regs.get64 b + s.regs.get64 i + BitVec.ofInt 64 d.toInt
+        isAligned 16 a = true ∧ (Mem.loadInt s.dmem a 16).isSome = true
+          ∧ Q () { s with zmms := (s.zmms.setLegacy x (BitVec.packedBinOp 32 (sseBinOp (· * ·))
+              (s.zmms.get x) (BitVec.ofInt 128 (Mem.loadInt s.dmem a 16).get!))) } ⦄
+      (Directive.instr (.avx .W64 .W128
+          (.mulps (.avx x) (.mem ⟨some (.reg b), some ⟨i, .W8⟩, .int64 d⟩))))
+    ⦃ Q; E ⦄ := by
+  refine ⟨fun s ⟨hal, hsome, hq⟩ => ?_⟩
+  obtain ⟨v, hv⟩ := Option.isSome_iff_exists.mp hsome
+  refine Program.wp_single fun _ _ _ _ hn _ => ?_
+  simp only [Directive.interp, Instr.interp, AvxOperation.interp, AvxRegOrMem.interp,
+    MachineData.setAvxLegacy, MachineData.setAvxLegacyReg, MachineData.loadAvx,
+    AddrExpr.zeroExtend_interp_sib1, hal, hv, AvxWidth.bytes, Bool.not_true, Bool.and_false,
+    Bool.false_eq_true, ite_false, Effects.All]
+  exact hn _ (by rwa [hv, Option.get!_some] at hq)
 
 @[spec] public theorem movaps_reg_spec {w : AvxWidth} (asz : Width) (dst src : AvxReg w) :
     ⦃ fun s => Q () { s with zmms := s.zmms.setLegacy dst (s.zmms.get src) } ⦄
