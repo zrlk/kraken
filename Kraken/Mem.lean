@@ -1,5 +1,9 @@
-import Kraken.ToBytes
-import Std.Data.ExtHashMap
+module
+
+public import Kraken.ToBytes
+public import Std.Data.ExtHashMap
+
+public section
 
 /-!
 # Kraken Memory Access
@@ -37,16 +41,16 @@ def Mem.storeInt {w} (m : Mem w) (a : BitVec w) (n : Nat) (v : Int) : Mem w :=
   storeBytes m a (Int.toBytes n v)
 
 
-def UInt64.At {w} (val : UInt64) (a : BitVec w) : Mem w :=
+@[expose] def UInt64.At {w} (val : UInt64) (a : BitVec w) : Mem w :=
   val.toBytes.At a
 
-def UInt32.At {w} (val : UInt32) (a : BitVec w) : Mem w :=
+@[expose] def UInt32.At {w} (val : UInt32) (a : BitVec w) : Mem w :=
   val.toBytes.At a
 
-def UInt16.At {w} (val : UInt16) (a : BitVec w) : Mem w :=
+@[expose] def UInt16.At {w} (val : UInt16) (a : BitVec w) : Mem w :=
   val.toBytes.At a
 
-def UInt8.At {w} (val : UInt8) (a : BitVec w) : Mem w :=
+@[expose] def UInt8.At {w} (val : UInt8) (a : BitVec w) : Mem w :=
   val.toBytes.At a
 
 
@@ -142,20 +146,6 @@ theorem List.allSome_map_some {α : Type} (l : List α) : List.allSome (l.map so
   rw [List.mapM_loop_id_some l []]
   simp
 
-/-- A list of options reads as `some` iff each option is `some`. -/
-theorem List.allSome_isSome_iff {α : Type} (l : List (Option α)) :
-    l.allSome.isSome = true ↔ ∀ o ∈ l, o.isSome = true := by
-  induction l with
-  | nil => simp [List.allSome]
-  | cons o l ih =>
-    cases o with
-    | none => simp [List.allSome]
-    | some a =>
-      simp only [List.allSome] at ih ⊢
-      simp only [List.mapM_cons, id, List.mem_cons, forall_eq_or_imp, Option.isSome_some,
-        true_and]
-      cases hl : List.mapM id l <;> simpa [hl] using ih
-
 /-- A list of options that reads as `some xs` is `xs` under `some`. -/
 theorem List.allSome_eq_map_some {α : Type} :
     ∀ {l : List (Option α)} {xs : List α}, l.allSome = some xs → l = xs.map some := by
@@ -232,32 +222,43 @@ theorem Mem.storeBytes_storeBytes {w} (m : Mem w) (a : BitVec w) (bs₁ bs₂ : 
     rfl
 
 
-/-- A store leaves a byte outside its range as it was. -/
-theorem Mem.get?_storeBytes_of_not_mem {w} (m : Mem w) (a k : BitVec w) (bs : List UInt8)
-    (hk : ¬ k ∈ bs.At a) : (m.storeBytes a bs).get? k = m.get? k := by
-  simp only [Mem.storeBytes, ExtHashMap.get?_eq_getElem?, ExtHashMap.union_eq,
-    ExtHashMap.getElem?_union, ExtHashMap.getElem?_eq_none hk]
-  simp
+/-- A load of one byte reads the map at the address. -/
+theorem Mem.loadInt_one {w} (m : Mem w) (a : BitVec w) :
+    m.loadInt a 1 = (m.get? a).map (fun b => (b.toNat : Int)) := by
+  simp only [Mem.loadInt, Mem.loadBytes, List.range_one, List.map_cons, List.map_nil,
+    BitVec.ofNat_eq_ofNat, BitVec.add_zero, List.allSome, List.mapM_cons, List.mapM_nil, id]
+  cases m.get? a <;> simp [Int.ofBytes]
 
-/-- A load of `k` bytes at `b` that starts at least `n` bytes above a store of
-`n` bytes at `a`, without wrapping around to it, reads what was there before:
-a store to a stack slot leaves the slots above it alone. -/
-theorem Mem.loadInt_storeInt_of_above {w} (m : Mem w) (a b : BitVec w) (n k : Nat) (v : Int)
-    (hlo : n ≤ (b - a).toNat) (hhi : (b - a).toNat + k ≤ 2 ^ w) :
-    (m.storeInt a n v).loadInt b k = m.loadInt b k := by
-  unfold Mem.loadInt Mem.loadBytes Mem.storeInt
-  congr 2
-  apply List.map_congr_left
-  intro i hi
-  rw [List.mem_range] at hi
-  apply Mem.get?_storeBytes_of_not_mem
-  rw [mem_At_iff, Int.toBytes_length]
-  rintro ⟨j, hj, hEq⟩
-  have h := congrArg (fun x => (x - a).toNat) hEq
-  have hr : b + BitVec.ofNat w i - a = (b - a) + BitVec.ofNat w i := by
-    rw [BitVec.sub_eq_add_neg, BitVec.sub_eq_add_neg, BitVec.add_assoc, BitVec.add_assoc,
-      BitVec.add_comm (BitVec.ofNat w i)]
-  rw [hr, BitVec.add_comm a, BitVec.add_sub_cancel, BitVec.toNat_add, BitVec.toNat_ofNat,
-    BitVec.toNat_ofNat, Nat.mod_eq_of_lt (a := i) (by omega),
-    Nat.mod_eq_of_lt (a := j) (by omega), Nat.mod_eq_of_lt (by omega)] at h
-  omega
+/-- A store of one byte writes the map at the address. -/
+theorem Mem.get?_storeInt_one {w} (m : Mem w) (a b : BitVec w) (v : Int) :
+    (m.storeInt a 1 v).get? b = if b = a then some (v.take 8).toNat.toUInt8 else m.get? b := by
+  rw [Mem.storeInt, Mem.storeBytes, get?_eq_getElem?, ExtHashMap.union_eq,
+    ExtHashMap.getElem?_union]
+  have hAt : ((Int.toBytes 1 v).At a)[b]? = if b = a then some (v.take 8).toNat.toUInt8 else none := by
+    rw [← get?_eq_getElem?]
+    simp only [Int.toBytes, List.At, List.mapIdx_cons, List.mapIdx_nil, BitVec.ofNat_eq_ofNat,
+      BitVec.add_zero]
+    by_cases h : b = a
+    · subst h; simp
+    · simp [h, Ne.symm h]
+  rw [hAt]
+  by_cases h : b = a <;> simp [h, ← get?_eq_getElem?]
+
+/-- A load reads only the bytes it covers. -/
+theorem Mem.loadInt_congr {w} {m m' : Mem w} {a : BitVec w} {n : Nat}
+    (h : ∀ i < n, m.get? (a + .ofNat w i) = m'.get? (a + .ofNat w i)) :
+    m.loadInt a n = m'.loadInt a n := by
+  simp only [Mem.loadInt, Mem.loadBytes]
+  rw [List.map_congr_left (fun i hi => h i (List.mem_range.mp hi))]
+
+/-- A byte outside a store keeps its value. -/
+theorem Mem.get?_storeInt_of_ne {w} (m : Mem w) (a b : BitVec w) (n : Nat) (v : Int)
+    (h : ∀ i < n, b ≠ a + .ofNat w i) : (m.storeInt a n v).get? b = m.get? b := by
+  rw [Mem.storeInt, Mem.storeBytes, get?_eq_getElem?, ExtHashMap.union_eq,
+    ExtHashMap.getElem?_union]
+  have hnot : b ∉ (Int.toBytes n v).At a := by
+    rw [mem_At_iff, Int.toBytes_length]
+    rintro ⟨i, hi, rfl⟩
+    exact h i hi rfl
+  rw [ExtHashMap.getElem?_eq_none hnot, ← get?_eq_getElem?]
+  rfl
