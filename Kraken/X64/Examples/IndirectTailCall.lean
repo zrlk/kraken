@@ -2,6 +2,8 @@ module
 
 public import Kraken.StateCfg
 import Kraken.X64.Parser
+-- `retAddr_iff_pushRa` unfolds `Mem.loadInt` and `Mem.storeInt`.
+import all Kraken.Mem
 
 /-!
 # An indirect tail call through a code pointer in memory
@@ -153,5 +155,64 @@ theorem invoke_handler [Host] [FunDecls] [Embeds invoke_body] [Embeds handler_bo
       (fun _ _ t u => u.regs.get64 .rsp = t.regs.get64 .rsp + 8 ∧ u.dmem = t.dmem
         ∧ u.regs.get64 .rax = 42) :=
   invoke_spec handler_runsTo
+
+/-! ## The old preconditions
+
+The old specifications took any entry state `t` with `t.retAddr = some ra`.
+Such a state is exactly a push of `ra` (`retAddr_iff_pushRa`), so the
+statements above give back the old ones. -/
+
+/-- A state whose return address is `ra` is the push of `ra` onto the state
+with the stack pointer 8 higher: storing the bytes already there changes
+nothing. -/
+theorem retAddr_iff_pushRa (t : MachineData) (ra : Int64) :
+    t.retAddr = some ra ↔ ∃ s : MachineData, t = s.pushRa ra := by
+  constructor
+  · intro h
+    obtain ⟨v, hv, hra⟩ : ∃ v, Mem.loadInt t.dmem (t.regs.get64 .rsp) 8 = some v
+        ∧ Int64.ofBitVec (BitVec.ofInt 64 v) = ra := by
+      unfold MachineData.retAddr at h
+      cases hl : Mem.loadInt t.dmem (t.regs.get64 .rsp) 8 with
+      | none => rw [hl] at h; simp at h
+      | some v => rw [hl] at h; exact ⟨v, rfl, by simpa using h⟩
+    obtain ⟨bs, hbs, rfl⟩ := Option.map_eq_some_iff.mp hv
+    have hlen : bs.length = 8 := by
+      have := congrArg List.length (List.allSome_eq_map_some hbs)
+      simpa using this.symm
+    have hbytes : Int.toBytes 8 ra.toBitVec.toInt = bs := by
+      rw [← hra, Int64.toBitVec_ofBitVec, BitVec.toInt_ofInt,
+        show ((2 : Nat) ^ 64 : Nat) = (256 : Nat) ^ 8 from rfl]
+      exact Int.toBytes_bmod_ofBytes 8 bs hlen
+    have hstore : Mem.storeInt t.dmem (t.regs.get64 .rsp) 8 ra.toBitVec.toInt = t.dmem := by
+      rw [Mem.storeInt, hbytes]
+      exact Mem.storeBytes_of_loadBytes _ _ _ (by omega) (hlen ▸ hbs)
+    refine ⟨{ t with regs := t.regs.set64 .rsp (t.regs.get64 .rsp + 8#64) }, ?_⟩
+    have hregs : (t.regs.set64 .rsp (t.regs.get64 .rsp + 8#64)).set64 .rsp
+        ((t.regs.set64 .rsp (t.regs.get64 .rsp + 8#64)).get64 .rsp - 8#64) = t.regs := by
+      obtain ⟨⟩ := t.regs
+      simp [Reg64s.set64, Reg64s.get64]
+    obtain ⟨regs, zmms, status, dmem⟩ := t
+    simp only [MachineData.pushRa, MachineData.mk.injEq] at hregs hstore ⊢
+    refine ⟨hregs.symm, trivial, trivial, ?_⟩
+    simpa only [Reg64s.set64, Reg64s.get64, UInt64.toBitVec_ofBitVec, BitVec.add_sub_cancel] using
+      hstore.symm
+  · rintro ⟨s, rfl⟩
+    exact MachineData.retAddr_pushRa s ra
+
+/-- `handler_runsTo` with the old precondition. -/
+theorem handler_runsTo_retAddr [Host] [FunDecls] [Embeds handler_body] :
+    RunsTo (label "handler") (α := Unit)
+      (fun _ ra t => t.retAddr = some ra)
+      (fun _ _ t u => u.regs.get64 .rsp = t.regs.get64 .rsp + 8 ∧ u.dmem = t.dmem
+        ∧ u.regs.get64 .rax = 42) :=
+  fun x ra t h => handler_runsTo x ra t ((retAddr_iff_pushRa t ra).mp h)
+
+/-- `invoke_handler` with the old precondition. -/
+theorem invoke_handler_retAddr [Host] [FunDecls] [Embeds invoke_body] [Embeds handler_body] :
+    RunsTo (label "invoke") (α := Unit)
+      (fun _ ra t => fnPtr t = some (label "handler") ∧ t.retAddr = some ra)
+      (fun _ _ t u => u.regs.get64 .rsp = t.regs.get64 .rsp + 8 ∧ u.dmem = t.dmem
+        ∧ u.regs.get64 .rax = 42) :=
+  invoke_spec handler_runsTo_retAddr
 
 end Kraken.Examples.IndirectTailCall

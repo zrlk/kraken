@@ -222,6 +222,28 @@ theorem Mem.storeBytes_storeBytes {w} (m : Mem w) (a : BitVec w) (bs₁ bs₂ : 
     rfl
 
 
+/-- Storing the bytes a load just read leaves memory unchanged. -/
+theorem Mem.storeBytes_of_loadBytes {w} (m : Mem w) (a : BitVec w) (bs : List UInt8)
+    (hw : bs.length ≤ 2 ^ w) (h : m.loadBytes a bs.length = some bs) :
+    m.storeBytes a bs = m := by
+  have hl := List.allSome_eq_map_some h
+  apply ExtHashMap.ext_getElem?
+  intro k
+  simp only [Mem.storeBytes, ExtHashMap.union_eq, ExtHashMap.getElem?_union]
+  cases hk : (bs.At a)[k]? with
+  | none => rfl
+  | some x =>
+    rw [get?_At bs a k hw] at hk
+    obtain ⟨hlt, hx⟩ := List.getElem?_eq_some_iff.mp hk
+    have hi := congrArg (fun l => l[(k - a).toNat]?) hl
+    simp only [List.getElem?_map, List.getElem?_range hlt, Option.map_some,
+      List.getElem?_eq_getElem hlt, hx] at hi
+    have hka : a + BitVec.ofNat w (k - a).toNat = k := by
+      rw [BitVec.ofNat_toNat, BitVec.setWidth_eq, BitVec.add_comm, BitVec.sub_add_cancel]
+    rw [hka, get?_eq_getElem?] at hi
+    rw [Option.some.inj hi]
+    rfl
+
 /-- A load of one byte reads the map at the address. -/
 theorem Mem.loadInt_one {w} (m : Mem w) (a : BitVec w) :
     m.loadInt a 1 = (m.get? a).map (fun b => (b.toNat : Int)) := by
