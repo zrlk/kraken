@@ -75,12 +75,27 @@ theorem spawnT_setC {c : Cfg} {i : Nat} {th1 par kid : TTh} :
   unfold spawnT TermSetTh.setC
   simp only [e]
 
-/-- **The spawn arm** (the `SpawnArmX`): `SysInvN` across a `Spawn` step at the run's capacity `cap = c.cap`
-(`steps_cap`).  (E2) The parent first takes its next label `tidLabel` as the kid's box (`TermBox.sysInvN_box`:
-`nalloc + 1`, `E_g` gains the published unit cell), then spawns (`sysInvN_spawn_M0` at the boxed configuration).
-`hTy` is the spawn typing rule's kid entry (OpT.spawn); the argument and the parent's continuation are typed
-from the site thread's invariant (`arg_of_site`, `par_of_site`). -/
-theorem sysInvN_spawnStep {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {MintOK : Res → Prop}
+/-- (S) **The parent's own box at a spawn** (the one place (S) uses `Spawn`'s `th.promises = []`):
+boxing thread `i`'s next fresh label `l` as its own `tidLbl` keeps `SysInvN`/`OwnLive`/`ObsAll`. -/
+theorem spawnPar_box_fresh {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {MintOK : Res → Prop}
+    {c : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {i : Nat} {th : TTh}
+    {l : AllocLabel} (hN : SysInvN p k arch Init MintOK c Eg Tot HP HS cr db) (hOL : OwnLive Eg c)
+    (hObs : ObsAll Eg c) (hth : c.ths[i]? = some th) (hnp : th.promises = [])
+    (hl : l = freshLabel c.lbase c.n i th.nalloc) :
+    SysInvN p k arch Init MintOK (TermSetTh.setC c i (TermBox.thB th (some l)) c.trace) (TermBox.EgB Eg l)
+        Tot HP HS cr db ∧
+      OwnLive (TermBox.EgB Eg l) (TermSetTh.setC c i (TermBox.thB th (some l)) c.trace) ∧
+      ObsAll (TermBox.EgB Eg l) (TermSetTh.setC c i (TermBox.thB th (some l)) c.trace) := by
+  have hB := TermBox.sysInvN_box (tl := some l) hN hOL hth hnp hl (.inr rfl)
+  have hG := hN.fresh i th hth th.nalloc (Nat.le_refl _)
+  rw [← hl] at hG
+  exact ⟨hB, TermBox.ownLive_box hOL, TermBox.obsAll_box hG.1 hG.2.2.2.1
+    (fun t m ht he => by have := hG.2.2.2.2 t m ht he; rw [hnp] at this; cases this) hObs⟩
+
+/-- **The spawn arm with the witness frame**: `sysInvN_spawnStep`, and the post witness only grows the store
+typing (the box cells, at fresh labels) and keeps `ini`, and every existing thread's frame total and debits
+(`extZ`/`extZT`). -/
+theorem sysInvN_spawnStepW {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {MintOK : Res → Prop}
     {cap : Nat} {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res}
     (hN : SysInvN p k arch Init MintOK c Eg Tot HP HS cr db) (hOL : OwnLive Eg c) (hObs : ObsAll Eg c)
     (hS : TermSpawnStep.Spawn p k arch cap c c') (hc : c.cap = cap)
@@ -88,12 +103,18 @@ theorem sysInvN_spawnStep {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : 
       c.ths[i]? = some th → th.term = .let_ x (.spawn f a T ts) e → evalAt th.env a = some (rt, ws) →
       KidEntryOK p T f ts) :
     ∃ (Eg' : GEnv) (Tot' HP' : Nat → Res) (HS' : Res) (cr' db' : Nat → Ts → Res),
-      SysInvN p k arch Init MintOK c' Eg' Tot' HP' HS' cr' db' ∧ OwnLive Eg' c' ∧ ObsAll Eg' c' := by
+      SysInvN p k arch Init MintOK c' Eg' Tot' HP' HS' cr' db' ∧ OwnLive Eg' c' ∧ ObsAll Eg' c' ∧
+      (∀ l cl, Eg.sto l = some cl → Eg'.sto l = some cl) ∧ (∀ l, Eg.ini l ≤ Eg'.ini l) ∧
+        ∀ j, j < c.ths.size → Tot' j = Tot j ∧ db' j = db j := by
   obtain ⟨i, x, f, a, T, ts, e, th, rt, ws, hth, hterm, hnp, hlt, hev, rfl⟩ := TermSpawnStep.Spawn.elim hS
   have hKE := hTy i x f a T ts e th rt ws hth hterm hev
   have hl : TermSpawnStep.tidLabel c i th = freshLabel c.lbase c.n i th.nalloc := rfl
   have hB := TermBox.sysInvN_box (tl := th.tidLbl) hN hOL hth hnp hl (.inl rfl)
   have hG := hN.fresh i th hth th.nalloc (Nat.le_refl _)
+  have hsto0 : ∀ l cl, Eg.sto l = some cl → (TermBox.EgB Eg (TermSpawnStep.tidLabel c i th)).sto l = some cl :=
+    fun l cl h0 => by
+      have hne : l ≠ TermSpawnStep.tidLabel c i th := fun e0 => by rw [e0, hl, hG.1] at h0; cases h0
+      rw [TermBox.EgB_sto_ne hne]; exact h0
   have hOL1 := TermBox.ownLive_box (i := i) (th' := TermBox.thB th th.tidLbl) (tr := c.trace)
     (l := TermSpawnStep.tidLabel c i th) hOL
   have hObs1 := TermBox.obsAll_box (i := i) (th' := TermBox.thB th th.tidLbl) (tr := c.trace) hG.1 hG.2.2.2.1
@@ -117,20 +138,100 @@ theorem sysInvN_spawnStep {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : 
       simp [cst, Promises.TVal.mk0] at hva; exact hva.1.symm
     subst e1
     simp
-  have hTBp : TidBox (TermBox.EgB Eg (TermSpawnStep.tidLabel c i th)) (TermSpawnStep.spawnPar c i th x e) :=
-    fun l' hl' => hB.tidBox i _ hth1 l' (by rw [hptl] at hl'; exact hl')
   have hTBk : TidBox (TermBox.EgB Eg (TermSpawnStep.tidLabel c i th)) (TermSpawnStep.spawnKid c i th f ts T ws) := by
     intro l' hl'
     have e1 : TermSpawnStep.tidLabel c i th = l' := Option.some.inj hl'
     subst e1
     exact ⟨TermBox.EgB_sto_self, TermBox.EgB_pfr_self⟩
   unfold TermSpawnStep.spawnCfg
-  rw [← spawnT_setC (th1 := TermBox.thB th th.tidLbl)]
-  exact ⟨_, _, _, _, _, _, sysInvN_spawn_M0 hB hOL1 hObs1 hth1 hnp hcap ⟨by rw [hv]; rfl, hpp.trans hnp, hna, hun⟩
-    ⟨x, _, hpe, hpk, hw0⟩ hTBp hTBk (TermSpawnMidZ.spawnKid_shape c i th x e f ts T ws) hKE
-    (fun S hS => arg_of_site hS.2.1 hterm hev)
-    (fun S hS => par_of_site hterm hpt hpe hps hpk
-      ⟨by rw [Cut_sto]; exact TermBox.cutSto_EgB_self, TermBox.EgB_pfr_self⟩ hS.1 hS.2.1)⟩
+  rcases Option.eq_none_or_eq_some th.tidLbl with htl | ⟨l0, htl⟩
+  · -- (S) a boxless parent: a second box, its own, at slot `nalloc + 1`
+    have hn0 : 0 < c.n := by
+      have := Nat.le_max_left c.cap c.ths.size
+      unfold Cfg.n; omega
+    have hne : TermSpawnStep.tidLabel c i th ≠ freshLabel c.lbase c.n i (th.nalloc + 1) := fun e =>
+      by have := TermStep.freshLabel_inj_k hn0 e; omega
+    obtain ⟨hB2, hOL2, hObs2⟩ := spawnPar_box_fresh (l := freshLabel c.lbase c.n i (th.nalloc + 1)) hB hOL1 hObs1
+      hth1 hnp (by rw [TermSetTh.setC_n]; rfl)
+    have hth2 := TermSetTh.setC_self (th' := TermBox.thB (TermBox.thB th th.tidLbl)
+      (some (freshLabel c.lbase c.n i (th.nalloc + 1)))) (tr := (TermSetTh.setC c i (TermBox.thB th th.tidLbl) c.trace).trace) hth1
+    have hcap2 : (TermSetTh.setC (TermSetTh.setC c i (TermBox.thB th th.tidLbl) c.trace) i
+        (TermBox.thB (TermBox.thB th th.tidLbl) (some (freshLabel c.lbase c.n i (th.nalloc + 1))))
+        (TermSetTh.setC c i (TermBox.thB th th.tidLbl) c.trace).trace).ths.size <
+        (TermSetTh.setC (TermSetTh.setC c i (TermBox.thB th th.tidLbl) c.trace) i
+        (TermBox.thB (TermBox.thB th th.tidLbl) (some (freshLabel c.lbase c.n i (th.nalloc + 1))))
+        (TermSetTh.setC c i (TermBox.thB th th.tidLbl) c.trace).trace).cap := by
+      rw [TermSetTh.setC_size]; exact hcap
+    have hTBp2 : TidBox (TermBox.EgB (TermBox.EgB Eg (TermSpawnStep.tidLabel c i th))
+        (freshLabel c.lbase c.n i (th.nalloc + 1))) (TermSpawnStep.spawnPar c i th x e) := by
+      intro l' hl'
+      rw [hptl, htl] at hl'
+      obtain rfl : freshLabel c.lbase c.n i (th.nalloc + 1) = l' := Option.some.inj hl'
+      exact ⟨TermBox.EgB_sto_self, TermBox.EgB_pfr_self⟩
+    have hTBk2 : TidBox (TermBox.EgB (TermBox.EgB Eg (TermSpawnStep.tidLabel c i th))
+        (freshLabel c.lbase c.n i (th.nalloc + 1))) (TermSpawnStep.spawnKid c i th f ts T ws) := by
+      intro l' hl'
+      obtain rfl : TermSpawnStep.tidLabel c i th = l' := Option.some.inj hl'
+      exact ⟨(TermBox.EgB_sto_ne hne).trans TermBox.EgB_sto_self, (TermBox.EgB_pfr_ne hne).trans TermBox.EgB_pfr_self⟩
+    have hw02 : ∀ w ∈ TermPtrRts.pubWords .tid [cst (.loc ⟨TermSpawnStep.tidLabel c i th, 0⟩ 0)], ∀ l,
+        TermPtrRts.Names l w → (TermBox.EgB (TermBox.EgB Eg (TermSpawnStep.tidLabel c i th))
+          (freshLabel c.lbase c.n i (th.nalloc + 1))).pfr l ≠ none ∨
+        (TermBox.EgB (TermBox.EgB Eg (TermSpawnStep.tidLabel c i th))
+          (freshLabel c.lbase c.n i (th.nalloc + 1))).box l ≠ none := fun w hw l hn => by
+      rcases hw0 w hw l hn with h | h
+      · exact .inl (TermBox.pfr_ne_none_box h)
+      · exact .inr h
+    rw [← spawnT_setC (th1 := TermBox.thB th th.tidLbl)]
+    rw [← spawnT_setC (c := TermSetTh.setC c i (TermBox.thB th th.tidLbl) c.trace)
+      (th1 := TermBox.thB (TermBox.thB th th.tidLbl) (some (freshLabel c.lbase c.n i (th.nalloc + 1))))]
+    have hsto1 : ∀ l cl, Eg.sto l = some cl → (TermBox.EgB (TermBox.EgB Eg (TermSpawnStep.tidLabel c i th))
+        (freshLabel c.lbase c.n i (th.nalloc + 1))).sto l = some cl := fun l cl h0 => by
+      have hne1 : l ≠ freshLabel c.lbase c.n i (th.nalloc + 1) := fun e0 => by
+        rw [e0, (hN.fresh i th hth (th.nalloc + 1) (Nat.le_succ _)).1] at h0; cases h0
+      rw [TermBox.EgB_sto_ne hne1]; exact hsto0 l cl h0
+    have hM := (sysInvN_spawn_M0 hB2 hOL2 hObs2 hth2 hnp hcap2
+      ⟨by rw [hv]; rfl, hpp.trans hnp, by rw [hna, htl]; rfl, hun⟩
+      ⟨x, _, hpe, hpk, hw02⟩ hTBp2 hTBk2 (TermSpawnMidZ.spawnKid_shape c i th x e f ts T ws) hKE
+      (fun S hS => arg_of_site hS.2.1 hterm hev)
+      (fun S hS => par_of_site hterm hpt hpe hps hpk
+        ⟨by rw [Cut_sto, TermBox.cutSto_EgB_ne hne]; exact TermBox.cutSto_EgB_self,
+          (TermBox.EgB_pfr_ne hne).trans TermBox.EgB_pfr_self⟩ hS.1 hS.2.1))
+    obtain ⟨A, B, C⟩ := hM
+    exact ⟨_, _, _, _, _, _, A, B, C, hsto1, fun _ => Nat.le_refl _,
+      fun j hj => ⟨TermSpawnGlobM.extZ_lt (by simp only [TermSetTh.setC_size]; exact hj),
+      TermSpawnGlobM.extZT_lt (by simp only [TermSetTh.setC_size]; exact hj)⟩⟩
+  · have hTBp : TidBox (TermBox.EgB Eg (TermSpawnStep.tidLabel c i th)) (TermSpawnStep.spawnPar c i th x e) :=
+      fun l' hl' => hB.tidBox i _ hth1 l' (by
+        show th.tidLbl = some l'
+        rw [hptl, htl] at hl'; rw [htl]; exact hl')
+    rw [← spawnT_setC (th1 := TermBox.thB th th.tidLbl)]
+    have hM := (sysInvN_spawn_M0 hB hOL1 hObs1 hth1 hnp hcap
+      ⟨by rw [hv]; rfl, hpp.trans hnp, by rw [hna, htl]; rfl, hun⟩
+      ⟨x, _, hpe, hpk, hw0⟩ hTBp hTBk (TermSpawnMidZ.spawnKid_shape c i th x e f ts T ws) hKE
+      (fun S hS => arg_of_site hS.2.1 hterm hev)
+      (fun S hS => par_of_site hterm hpt hpe hps hpk
+        ⟨by rw [Cut_sto]; exact TermBox.cutSto_EgB_self, TermBox.EgB_pfr_self⟩ hS.1 hS.2.1))
+    obtain ⟨A, B, C⟩ := hM
+    exact ⟨_, _, _, _, _, _, A, B, C, hsto0, fun _ => Nat.le_refl _,
+      fun j hj => ⟨TermSpawnGlobM.extZ_lt (by simp only [TermSetTh.setC_size]; exact hj),
+      TermSpawnGlobM.extZT_lt (by simp only [TermSetTh.setC_size]; exact hj)⟩⟩
+
+/-- **The spawn arm** (the `SpawnArmX`): `SysInvN` across a `Spawn` step at the run's capacity `cap = c.cap`
+(`steps_cap`).  (E2) The parent first takes its next label `tidLabel` as the kid's box (`TermBox.sysInvN_box`:
+`nalloc + 1`, `E_g` gains the published unit cell), then spawns (`sysInvN_spawn_M0` at the boxed configuration).
+`hTy` is the spawn typing rule's kid entry (OpT.spawn); the argument and the parent's continuation are typed
+from the site thread's invariant (`arg_of_site`, `par_of_site`). -/
+theorem sysInvN_spawnStep {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {MintOK : Res → Prop}
+    {cap : Nat} {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res}
+    (hN : SysInvN p k arch Init MintOK c Eg Tot HP HS cr db) (hOL : OwnLive Eg c) (hObs : ObsAll Eg c)
+    (hS : TermSpawnStep.Spawn p k arch cap c c') (hc : c.cap = cap)
+    (hTy : ∀ (i : Nat) (x f : String) (a : At) (T : Ty) (ts : List Ty) (e : Expr) (th : TTh) (rt : Ty) (ws : List Word),
+      c.ths[i]? = some th → th.term = .let_ x (.spawn f a T ts) e → evalAt th.env a = some (rt, ws) →
+      KidEntryOK p T f ts) :
+    ∃ (Eg' : GEnv) (Tot' HP' : Nat → Res) (HS' : Res) (cr' db' : Nat → Ts → Res),
+      SysInvN p k arch Init MintOK c' Eg' Tot' HP' HS' cr' db' ∧ OwnLive Eg' c' ∧ ObsAll Eg' c' :=
+  let ⟨Eg', Tot', HP', HS', cr', db', h1, h2, h3, _⟩ := sysInvN_spawnStepW hN hOL hObs hS hc hTy
+  ⟨Eg', Tot', HP', HS', cr', db', h1, h2, h3⟩
 
 
 /-- **The spawn typing content from the invariant** (`hTy` of `sysInvN_spawnStep`): inverting `OpT.spawn`
@@ -173,7 +274,9 @@ end TermSpawnMid
 
 #print axioms TermSpawnMid.spawnT_n
 #print axioms TermSpawnMid.sysInvN_spawn_M0
+#print axioms TermSpawnMid.spawnPar_box_fresh
 #print axioms TermSpawnMid.sysInvN_spawnStep
+#print axioms TermSpawnMid.sysInvN_spawnStepW
 #print axioms TermSpawnMid.spawnTy_of_sysInvN
 #print axioms TermSpawnMid.sysInvN_spawnArm
 #print axioms TermSpawnMid.StepsG.cap_eq

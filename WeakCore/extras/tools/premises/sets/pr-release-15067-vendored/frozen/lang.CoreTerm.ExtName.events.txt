@@ -1,0 +1,35 @@
+CoreLang.Mo : Type
+CoreLang.RegAcc : Type
+CoreLang.Wd : Type
+CoreTerm.ExtName : Type
+CoreTerm.ExtName.events : CoreTerm.ExtName → List TermRun.Word → List TermRun.Word → List TermRun.Event
+  := fun x x_1 x_2 =>
+  match x, x_1, x_2 with
+  | CoreTerm.ExtName.emit, [w], x =>
+    match w.val with
+    | WeakMem.Val.num b => [TermRun.Event.out b]
+    | x => []
+  | CoreTerm.ExtName.exitEv, [w], x =>
+    match w.val with
+    | WeakMem.Val.num v => [TermRun.Event.exit (TermRun.exitCode v)]
+    | x => []
+  | CoreTerm.ExtName.mmioR w acc mo, [r], [head, v] =>
+    [TermRun.Event.mmioR (TermRun.wordNum r) w mo (TermRun.wordNum v)]
+  | CoreTerm.ExtName.mmioW w acc mo, [r, v], x => [TermRun.Event.mmioW (TermRun.wordNum r) w mo (TermRun.wordNum v)]
+  | CoreTerm.ExtName.devWrite w, [r, v], x => [TermRun.Event.devWrite (TermRun.wordNum r) w (TermRun.wordNum v)]
+  | CoreTerm.ExtName.devIrq, [l], x => [TermRun.Event.irq (TermRun.wordNum l)]
+  | CoreTerm.ExtName.devOut w, [v], x => [TermRun.Event.devOut w (TermRun.wordNum v)]
+  | x, x_3, x_4 => []
+Promises.TVal.val : Promises.TVal → WeakMem.Val
+TermRun.Event : Type
+TermRun.Event.devOut : CoreLang.Wd → Nat → TermRun.Event
+TermRun.Event.devWrite : Nat → CoreLang.Wd → Nat → TermRun.Event
+TermRun.Event.exit : Nat → TermRun.Event
+TermRun.Event.irq : Nat → TermRun.Event
+TermRun.Event.mmioR : Nat → CoreLang.Wd → CoreLang.Mo → Nat → TermRun.Event
+TermRun.Event.mmioW : Nat → CoreLang.Wd → CoreLang.Mo → Nat → TermRun.Event
+TermRun.Event.out : Nat → TermRun.Event
+TermRun.Word : Type
+TermRun.exitCode : Nat → Nat
+TermRun.wordNum : TermRun.Word → Nat
+WeakMem.Val : Type

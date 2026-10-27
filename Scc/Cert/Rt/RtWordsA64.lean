@@ -1,5 +1,6 @@
 import Scc.Cert.LinkA64
 import Scc.Sem.Kernel
+import Scc.Cert.PlaceOK
 
 /-!
 # The runtime's data words in the canonical AArch64 link
@@ -23,7 +24,9 @@ text (`rtWordsOk`, the placement check's component A8) and derives them:
   8-aligned, clear of the entry stack and of the stack pool, mapped for
   reading and writing at load time (`Kernel.KState.init`) with their bytes
   in `.data` or the pinned region; the pool fits the address space below the
-  entry stack; the first stack is 16-aligned and inside the pool.
+  entry stack; the first stack is 16-aligned and inside the pool; each
+  word is off the allocator's counter at `heapUseOf` (`ctrSepOk`;
+  `ctrSep_of_rtWordsOk`).
 -/
 
 namespace Scc.Cert.Rt.A64
@@ -298,6 +301,14 @@ def wordsOk (Λ : Scc.Sem.Layout) (pinA pnA stacksA nextA lockA freeNA : BitVec 
     decide (Λ.stackPool.lo ≤ stacksA.toNat ∧ stacksA.toNat + 16384 ≤ Λ.stackPool.lo + Λ.stackPool.size) &&
     decide ((rtWords pinA pnA nextA lockA freeNA).Pairwise WordSep)
 
+/-- **The words are off the allocator's counter** (`scc_rt_heap_use`, at
+`heapUseOf`): each word's 8 bytes disjoint from the counter's. -/
+def ctrSepOk (Λ : Scc.Sem.Layout) (prog : Program) (secs : DataSecs) : Bool :=
+  (rtWords (rtA Λ prog secs "scc_rt_pinned") (rtA Λ prog secs "scc_rt_pinned_next")
+      (rtA Λ prog secs "scc_rt_stack_next") (rtA Λ prog secs "scc_rt_stack_lock")
+      (rtA Λ prog secs "scc_rt_stack_free_n")).all
+    fun a => decide (WordSep a (BitVec.ofNat 64 (Scc.Cert.PlaceOK.heapUseOf Λ)))
+
 /-- **The runtime's words** (A8): each name of `rtNames` a data symbol of
 the link at a decided address (`symLab`), the words at those addresses
 passing `wordsOk`. -/
@@ -305,7 +316,8 @@ def rtWordsOk (Λ : Scc.Sem.Layout) (prog : Program) (secs : DataSecs) : Bool :=
   rtNames.all (fun x => (symLab Λ.code.lo prog (loadSyms Λ secs.rodata) x).isSome) &&
     wordsOk Λ (rtA Λ prog secs "scc_rt_pinned") (rtA Λ prog secs "scc_rt_pinned_next")
       (rtA Λ prog secs "scc_rt_stacks") (rtA Λ prog secs "scc_rt_stack_next")
-      (rtA Λ prog secs "scc_rt_stack_lock") (rtA Λ prog secs "scc_rt_stack_free_n")
+      (rtA Λ prog secs "scc_rt_stack_lock") (rtA Λ prog secs "scc_rt_stack_free_n") &&
+    ctrSepOk Λ prog secs
 
 section Extract
 
@@ -317,7 +329,7 @@ theorem label_of_rtWordsOk (hl : loadOk Λ prog secs = true) (h : rtWordsOk Λ p
     ((_root_.Executable.labels (threadAt E Λ.code.lo prog (loadSyms Λ secs.rodata)).exe).label x).toBitVec =
       rtA Λ prog secs x := by
   simp only [rtWordsOk, Bool.and_eq_true, List.all_eq_true] at h
-  obtain ⟨a, ha⟩ := Option.isSome_iff_exists.mp (h.1 x hx)
+  obtain ⟨a, ha⟩ := Option.isSome_iff_exists.mp (h.1.1 x hx)
   rw [label_threadAt_of_symLab (symsAround_of_loadOk hl) ha, rtA, ha]
   simp
 
@@ -326,7 +338,15 @@ theorem wordsOk_of_rtWordsOk (h : rtWordsOk Λ prog secs = true) :
     wordsOk Λ (rtA Λ prog secs "scc_rt_pinned") (rtA Λ prog secs "scc_rt_pinned_next")
       (rtA Λ prog secs "scc_rt_stacks") (rtA Λ prog secs "scc_rt_stack_next")
       (rtA Λ prog secs "scc_rt_stack_lock") (rtA Λ prog secs "scc_rt_stack_free_n") = true := by
-  simp only [rtWordsOk, Bool.and_eq_true] at h; exact h.2
+  simp only [rtWordsOk, Bool.and_eq_true] at h; exact h.1.2
+
+/-- **The words are off the allocator's counter** (A8, `ctrSepOk`). -/
+theorem ctrSep_of_rtWordsOk (h : rtWordsOk Λ prog secs = true) :
+    ∀ a ∈ rtWords (rtA Λ prog secs "scc_rt_pinned") (rtA Λ prog secs "scc_rt_pinned_next")
+      (rtA Λ prog secs "scc_rt_stack_next") (rtA Λ prog secs "scc_rt_stack_lock")
+      (rtA Λ prog secs "scc_rt_stack_free_n"),
+      WordSep a (BitVec.ofNat 64 (Scc.Cert.PlaceOK.heapUseOf Λ)) := by
+  simp only [rtWordsOk, ctrSepOk, Bool.and_eq_true, List.all_eq_true, decide_eq_true_eq] at h; exact h.2
 
 end Extract
 

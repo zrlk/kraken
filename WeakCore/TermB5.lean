@@ -1071,7 +1071,7 @@ theorem promNoTwoOK_thread (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetI
     have hwin := fun c1 h1 h2 => ((hrun X S hS).2 c1 h1 h2).2
     have htp : t ∈ TermFul.promsOf c' k' := by rw [TermFul.promsOf_some X.e3]; exact ht
     obtain ⟨c1, c2, th1, th2, ρ1, η1, cx1, E2, -, -, -, -, -, -, hx1, hE, hT, htv, hi, hmi, hscope, hpa, -, -, -, -, -,
-      -, -, hsw, -⟩ := certified_promTypedX (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hsc (by first | exact TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw | exact TermViewInv.viewInv_run hV0 X.run | exact TermViewInv.viewInv_thread (TermViewInv.viewInv_run hV0 X.run) X.hc') hwin hX X.cert htp hm
+      -, -, hsw, -⟩ := certified_promTypedX (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hsc (by first | exact TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw | exact TermViewInv.viewInv_run hV0 X.run | exact TermViewInv.viewInv_thread (TermViewInv.viewInv_run hV0 X.run) X.hc') hwin hX (TermTyped.tidAt_mono hAP.2 (TermTyped.tidAt_thread X.hc' (TermMain.tidAt_cut X.inv k' S))) X.cert htp hm
     obtain ⟨cl1, o1, U, us, j1, hcl1, h1o, hus, hj, ho⟩ :=
       SWOne_holds p _ _ _ _ ρ1 η1 cx1 _ _ hE hT htv hi hmi (TermTyped.scopeD_SW hscope hsw) hpa hsw
     rw [hx1.2.2.2.2.1 _ _ hsto'] at hcl1

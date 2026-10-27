@@ -1,9 +1,1 @@
-CoreTerm.ExtName : Type
-CoreTerm.ExtName.res : CoreTerm.ExtName → Nat → List TermRun.Word
-  := fun x x_1 =>
-  match x, x_1 with
-  | CoreTerm.ExtName.current, i => [TermRun.cst (WeakMem.Val.num i)]
-  | x, x_2 => []
-TermRun.Word : Type
-TermRun.cst : WeakMem.Val → TermRun.Word
-WeakMem.Val.num : Nat → WeakMem.Val
+ABSENT

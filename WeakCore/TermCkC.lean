@@ -21,7 +21,7 @@ theorem rw_shiftI : ∀ (t : Ty) (c : Nat) (env : List Bool),
   | sum a b iha ihb =>
       intro c env; obtain ⟨a1, a2⟩ := iha c env; obtain ⟨b1, b2⟩ := ihb c env
       refine ⟨?_, ?_⟩ <;> simp only [Ty.shiftI, rcarE, wrapOKE, a1, a2, b1, b2]
-  | code a b iha ihb =>
+  | code a b _ iha ihb =>
       intro c env; obtain ⟨-, a2⟩ := iha c env; obtain ⟨-, b2⟩ := ihb c env
       refine ⟨?_, ?_⟩ <;> simp only [Ty.shiftI, rcarE, wrapOKE, a2, b2]
   | array i t ih =>

@@ -1,0 +1,11 @@
+CoreLang.Wd : Type
+CoreTerm.ExtName : Type
+CoreTerm.ExtName.deviceOnly : CoreTerm.ExtName → Bool
+  := fun x =>
+  match x with
+  | CoreTerm.ExtName.devRecv w => true
+  | CoreTerm.ExtName.devWrite w => true
+  | CoreTerm.ExtName.devChoice w => true
+  | CoreTerm.ExtName.devIrq => true
+  | CoreTerm.ExtName.devOut w => true
+  | x => false

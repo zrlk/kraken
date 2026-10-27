@@ -1,4 +1,4 @@
-# (IO1) roots added by IO1: absent (ABSENT text) when this CheckPremises runs on a pre-IO1 baseline
+# roots added by the extern-step relaxation: absent (ABSENT text) when this CheckPremises runs on an older baseline
 TermRun.extCfg
 TermRun.curCfg
 TermRun.ExtNeedsNoProm
@@ -11,3 +11,7 @@ TermRun.Event
 TermRun.Solo
 TermRun.Step
 TermRun.Certified
+# (C+S) the pending guard item's roots: absent when this CheckPremises runs on an older baseline
+TermRun.promise
+TermRun.threadSteps
+TermRun.noPromises

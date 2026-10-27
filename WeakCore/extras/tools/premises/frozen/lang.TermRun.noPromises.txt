@@ -1,0 +1,7 @@
+TermRun.Cfg : Type
+TermRun.Cfg.ths : TermRun.Cfg → Array TermRun.TTh
+TermRun.TTh : Type
+TermRun.TTh.promises : TermRun.TTh → List WeakMem.Ts
+TermRun.noPromises : TermRun.Cfg → Nat → Bool
+  := fun c i => (Option.map (fun x => x.promises.isEmpty) c.ths[i]?).getD true
+WeakMem.Ts : Type

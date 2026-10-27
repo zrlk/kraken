@@ -1,0 +1,5 @@
+# (per-toolchain sets) premise sets by toolchain and module layout: <set dir> TAB <the full first line of `lean --version`> (exact match, commit hash included) TAB <module layout: source|vendored>
+# the layout is written by CheckPremises (premises.out/.layout): vendored when the checked modules are named WeakCore.<M>, else source; derived-instance names differ between the layouts (the source layout adds a `_<module>` suffix, the vendored layout none), so the layout is part of the key
+# a non-default set (sets/<name>) is added here in the same change that freezes it (one approval; see guard.sh)
+.	Lean (version 4.34.0, x86_64-unknown-linux-gnu, commit 293d5d0c0c3f3dded4688b3ccd6a33939ac5102b, Release)	source
+sets/pr-release-15067-vendored	Lean (version 4.35.0-pre, x86_64-unknown-linux-gnu, commit d0d716161618bd9fbd0bf2d9b8bbb9b48cccd7dd, Release)	vendored

@@ -5,7 +5,7 @@ import Spike.Lib.Ret0Src
 # Tests of the lowering's two kernel steps (`Scc/Cert/LowerStage.lean`)
 
 At `ret0.w`'s source (`Spike.Lib.Ret0Src.ret0Src`) on both ISAs: the depth
-limit `frames1` and the lowering at it `ir1` hold as kernel checks, and
+limit `frames1` and the lowering `ir1` hold as kernel checks, and
 `lowerIR_of_stages` gives `lowerIR`'s IR and setup flag from them, the same
 value the one-step check computes.
 -/
@@ -34,10 +34,10 @@ stages. -/
 theorem lowerIR_ret0_x64 :
     (match Scc.Lower.lowerIR cfgX64 Spike.Lib.Ret0Src.ret0Src with
       | .ok l => some (l.ir, l.checked.entry.arg == .setupTid)
-      | .error _ => none) = ir1 cfgX64 Spike.Lib.Ret0Src.ret0Src frX64 := by
-  cases h : ir1 cfgX64 Spike.Lib.Ret0Src.ret0Src frX64 with
+      | .error _ => none) = ir1 cfgX64 Spike.Lib.Ret0Src.ret0Src := by
+  cases h : ir1 cfgX64 Spike.Lib.Ret0Src.ret0Src with
   | none =>
-    have : (ir1 cfgX64 Spike.Lib.Ret0Src.ret0Src frX64).isSome = true := by decide +kernel
+    have : (ir1 cfgX64 Spike.Lib.Ret0Src.ret0Src).isSome = true := by decide +kernel
     simp [h] at this
   | some r => exact lowerIR_of_stages framesX64 h
 
@@ -45,15 +45,15 @@ theorem lowerIR_ret0_x64 :
 theorem lowerIR_ret0_a64 :
     (match Scc.Lower.lowerIR cfgA64 Spike.Lib.Ret0Src.ret0Src with
       | .ok l => some (l.ir, l.checked.entry.arg == .setupTid)
-      | .error _ => none) = ir1 cfgA64 Spike.Lib.Ret0Src.ret0Src frA64 := by
-  cases h : ir1 cfgA64 Spike.Lib.Ret0Src.ret0Src frA64 with
+      | .error _ => none) = ir1 cfgA64 Spike.Lib.Ret0Src.ret0Src := by
+  cases h : ir1 cfgA64 Spike.Lib.Ret0Src.ret0Src with
   | none =>
-    have : (ir1 cfgA64 Spike.Lib.Ret0Src.ret0Src frA64).isSome = true := by decide +kernel
+    have : (ir1 cfgA64 Spike.Lib.Ret0Src.ret0Src).isSome = true := by decide +kernel
     simp [h] at this
   | some r => exact lowerIR_of_stages framesA64 h
 
 -- `ret0` has no setup block, and the depth limit is positive.
-#guard ((ir1 cfgX64 Spike.Lib.Ret0Src.ret0Src frX64).map (·.2)) == some false
+#guard ((ir1 cfgX64 Spike.Lib.Ret0Src.ret0Src).map (·.2)) == some false
 #guard 0 < frX64 && 0 < frA64
 
 /-- info: 'Scc.Test.LowerStage.lowerIR_ret0_x64' depends on axioms: [propext, Classical.choice, Quot.sound] -/

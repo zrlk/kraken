@@ -94,9 +94,9 @@ theorem noOR1_of_noOR : ∀ {t : Ty}, noOR t = true → noOR1 t = true
   | .iall t, h => by simp only [noOR] at h; simp only [noOR1]; exact noOR1_of_noOR h
   | .iex t, h => by simp only [noOR] at h; simp only [noOR1]; exact noOR1_of_noOR h
   | .refine t _, h => by simp only [noOR] at h; simp only [noOR1]; exact noOR1_of_noOR h
-  | .unit, _ | .void, _ | .int, _ | .tid, _ | .intS _, _ | .fix _ _, _ | .lanes _ _, _ | .code _ _, _
+  | .unit, _ | .void, _ | .int, _ | .tid, _ | .intS _, _ | .fix _ _, _ | .lanes _ _, _ | .code _ _ _, _
   | .share _, _ | .cap _ _, _ | .word _ _, _ | .tok _ _, _ | .word2 _ _, _ | .tok2 _ _ _ _, _
-  | .epair _ _, _ | .tokE _ _ _, _ | .tvar _, _ => by simp [noOR1]
+  | .epair _ _, _ | .tokE _ _ _, _ | .tvar _, _ | .opq _, _ => by simp [noOR1]
 
 /-- `PlantEdge` implies `PlantEdge1`. -/
 theorem PlantEdge1_of_PlantEdge {sto : Sto} {m : Msg} {a : AllocLabel} (h : PlantEdge sto m a) :

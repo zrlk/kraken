@@ -26,7 +26,7 @@ theorem correctA64 {B : Budget} {asm : String} {prog : Program} {secs : DataSecs
     (hd : dataSections asm = some secs) (himg : imageOk Λ secs code = true)
     (hss : Scc.Sem.StaticSyms Λ secs code lsize name) (hw : wideIn prog = true)
     (hst : I Λ.static lsize (threadAt Entry.linux Λ.code.lo prog (loadSyms Λ secs.rodata)) c0)
-    (hload : ∃ t0, T.load asm Λ = some t0) (hP : P.hooks = SrcSem.SrcHooks.none) (hinit : P.init (s0 P.cap))
+    (hload : ∃ t0, T.load asm Λ = some t0) (hP : HookOK P p) (hinit : P.init (s0 P.cap))
     (hN : Nodes Λ p (T.marks asm Λ) rd G own I) (hsafe : SrcSafe P p I)
     {rS : Range} {Tk : State → Prop} (hT : TakePath Λ p (T.marks asm Λ) I rS Tk)
     (htk0 : ¬ Tk (threadAt Entry.linux Λ.code.lo prog (loadSyms Λ secs.rodata)))
@@ -60,7 +60,7 @@ theorem correctA64P {B : Budget} {prog : Program} {secs : DataSecs} {code : Stri
     {lsize : Lsize} {name : WeakMem.AllocLabel → String} (himg : imageOk Λ secs code = true)
     (hss : Scc.Sem.StaticSyms Λ secs code lsize name) (hw : wideIn prog = true)
     (hst : I Λ.static lsize (threadAt Entry.linux Λ.code.lo prog (loadSyms Λ secs.rodata)) c0)
-    (hload : ∃ t0, TPar.load (prog, secs) Λ = some t0) (hP : P.hooks = SrcSem.SrcHooks.none) (hinit : P.init (s0 P.cap))
+    (hload : ∃ t0, TPar.load (prog, secs) Λ = some t0) (hP : HookOK P p) (hinit : P.init (s0 P.cap))
     (hN : Nodes Λ p (TPar.marks (prog, secs) Λ) rd G own I) (hsafe : SrcSafe P p I)
     {rS : Range} {Tk : State → Prop} (hT : TakePath Λ p (TPar.marks (prog, secs) Λ) I rS Tk)
     (htk0 : ¬ Tk (threadAt Entry.linux Λ.code.lo prog (loadSyms Λ secs.rodata)))
@@ -86,7 +86,7 @@ theorem correctA64PE {E : Entry} {B : Budget} {prog : Program} {secs : DataSecs}
     {lsize : Lsize} {name : WeakMem.AllocLabel → String} (himg : imageOk Λ secs code = true)
     (hss : Scc.Sem.StaticSyms Λ secs code lsize name) (hw : wideIn prog = true)
     (hst : I Λ.static lsize (threadAt E Λ.code.lo prog (loadSyms Λ secs.rodata)) c0)
-    (hload : ∃ t0, (TParE E).load (prog, secs) Λ = some t0) (hP : P.hooks = SrcSem.SrcHooks.none) (hinit : P.init
+    (hload : ∃ t0, (TParE E).load (prog, secs) Λ = some t0) (hP : HookOK P p) (hinit : P.init
         (s0 P.cap))
     (hN : Nodes Λ p ((TParE E).marks (prog, secs) Λ) rd G own I) (hsafe : SrcSafe P p I)
     {rS : Range} {Tk : State → Prop} (hT : TakePath Λ p ((TParE E).marks (prog, secs) Λ) I rS Tk)

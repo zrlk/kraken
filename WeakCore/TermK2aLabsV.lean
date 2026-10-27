@@ -475,6 +475,11 @@ theorem labsV_VR_sNo {Q : AllocLabel → Ts → Prop} : ∀ (T : Ty) (ρ : Nat �
     intro ρ η R ws hrel hS hB hshp hsn hwc hval hv w hw x g hx
     have hm := locPub_mem_val hv hw
     rw [hx] at hm; simp at hm
+  | opq _ =>
+    intro ρ η R ws hrel hS hB hshp hsn hwc hval hv w hw x g hx
+    obtain ⟨n, hn⟩ := hv
+    have hm := locPub_mem_val hn hw
+    rw [hx] at hm; simp at hm
   | int =>
     intro ρ η R ws hrel hS hB hshp hsn hwc hval hv w hw x g hx
     obtain ⟨n, hn⟩ := hv

@@ -21,6 +21,8 @@ CoreLang.Clause2.o1 : CoreLang.Clause2 → Nat
 CoreLang.Clause2.rel : CoreLang.Clause2 → CoreLang.Rel2
 CoreLang.Clause2.s0 : CoreLang.Clause2 → Nat
 CoreLang.Clause2.s1 : CoreLang.Clause2 → Nat
+CoreLang.CodeKind : Type
+CoreLang.CodeKind.plain : CoreLang.CodeKind
 CoreLang.ECounter : Type
 CoreLang.ECounter.pair : CoreLang.Proto2 → CoreLang.ECounter
 CoreLang.ECounter.word : CoreLang.Proto → CoreLang.ECounter
@@ -45,6 +47,7 @@ CoreLang.Kind.zero : CoreLang.Kind → Bool
 CoreLang.Mode : Type
 CoreLang.Mode.pub : CoreLang.Mode
 CoreLang.Mode.rgn : CoreLang.Idx → CoreLang.Mode
+CoreLang.Opq : Type
 CoreLang.Pred : Type
 CoreLang.Pred.and : CoreLang.Pred → CoreLang.Pred → CoreLang.Pred
 CoreLang.Pred.eq : CoreLang.Idx → CoreLang.Idx → CoreLang.Pred
@@ -69,7 +72,7 @@ CoreLang.Ty.affine : CoreLang.Ty → Bool
 CoreLang.Ty.arrFree : CoreLang.Ty → Bool
 CoreLang.Ty.array : CoreLang.Idx → CoreLang.Ty → CoreLang.Ty
 CoreLang.Ty.cap : CoreLang.Cap → CoreLang.Idx → CoreLang.Ty
-CoreLang.Ty.code : CoreLang.Ty → CoreLang.Ty → CoreLang.Ty
+CoreLang.Ty.code : CoreLang.Ty → CoreLang.Ty → CoreLang.CodeKind → CoreLang.Ty
 CoreLang.Ty.coupledOK : CoreLang.Ty → Bool
 CoreLang.Ty.coupledOKIn : CoreLang.KEnv → CoreLang.Ty → Bool
 CoreLang.Ty.epair : CoreLang.Idx → CoreLang.ECounter → CoreLang.Ty
@@ -82,6 +85,7 @@ CoreLang.Ty.loc : CoreLang.Mode → CoreLang.Ty → CoreLang.Ty
 CoreLang.Ty.mu : CoreLang.Ty → CoreLang.Ty
 CoreLang.Ty.noOwn : CoreLang.Ty → Bool
 CoreLang.Ty.noOwnIn : CoreLang.KEnv → CoreLang.Ty → Bool
+CoreLang.Ty.opq : CoreLang.Opq → CoreLang.Ty
 CoreLang.Ty.ownHead : CoreLang.Ty → Bool
   := fun x =>
   match x with
@@ -152,8 +156,9 @@ CoreLang.zeroableIn : CoreLang.IEnv → CoreLang.KEnv → CoreLang.Ty → Bool
       | CoreLang.Tier.wide =>
         (CoreLang.zeroArmP (fun x => true) env ke a <|> CoreLang.zeroArmP (fun x => true) env ke b) == some true
       | CoreLang.Tier.boxed => false
-    | σ.code τ => false
+    | σ.code τ k => false
     | CoreLang.Ty.tid => false
+    | CoreLang.Ty.opq o => false
     | CoreLang.Ty.array i t => CoreLang.zeroableIn env ke t
     | CoreLang.Ty.ptr μ τ => false
     | CoreLang.Ty.ptrOpt μ τ => true
@@ -308,7 +313,7 @@ TermClose.cl : (Nat → Nat) → (Nat → CoreLang.Ty) → Nat → Nat → CoreL
     | CoreLang.Ty.intS i => CoreLang.Ty.intS (TermClose.clI ρ d i)
     | a.prod b => (TermClose.cl ρ W c d a).prod (TermClose.cl ρ W c d b)
     | a.sum b => (TermClose.cl ρ W c d a).sum (TermClose.cl ρ W c d b)
-    | a.code b => (TermClose.cl ρ W c d a).code (TermClose.cl ρ W c d b)
+    | a.code b k => (TermClose.cl ρ W c d a).code (TermClose.cl ρ W c d b) k
     | CoreLang.Ty.array i t => CoreLang.Ty.array (TermClose.clI ρ d i) (TermClose.cl ρ W c d t)
     | CoreLang.Ty.ptr μ t => CoreLang.Ty.ptr (TermClose.clM ρ d μ) (TermClose.cl ρ W c d t)
     | CoreLang.Ty.ptrOpt μ t => CoreLang.Ty.ptrOpt (TermClose.clM ρ d μ) (TermClose.cl ρ W c d t)
@@ -374,7 +379,7 @@ TermClose.tb : Nat → CoreLang.Ty → Bool
     | CoreLang.Ty.tvar k => decide (k < c)
     | a.prod b => TermClose.tb c a && TermClose.tb c b
     | a.sum b => TermClose.tb c a && TermClose.tb c b
-    | a.code b => TermClose.tb c a && TermClose.tb c b
+    | a.code b k => TermClose.tb c a && TermClose.tb c b
     | CoreLang.Ty.array i t => TermClose.tb c t
     | CoreLang.Ty.ptr μ t => TermClose.tb c t
     | CoreLang.Ty.ptrOpt μ t => TermClose.tb c t
@@ -1942,7 +1947,7 @@ TermScope.wrapOKE : List Bool → CoreLang.Ty → Bool
     | CoreLang.Ty.tex κ t => !TermScope.rcarE (false :: env) t && TermScope.wrapOKE (false :: env) t
     | t.mu => TermScope.wrapOKE (TermScope.rcarE (false :: env) t :: env) t
     | a.prod b => TermScope.wrapOKE env a && TermScope.wrapOKE env b
-    | a.code b => TermScope.wrapOKE env a && TermScope.wrapOKE env b
+    | a.code b k => TermScope.wrapOKE env a && TermScope.wrapOKE env b
     | CoreLang.Ty.array i t => TermScope.wrapOKE env t
     | CoreLang.Ty.ptr μ t => TermScope.wrapOKE env t
     | CoreLang.Ty.ptrOpt μ t => TermScope.wrapOKE env t
@@ -2365,6 +2370,7 @@ TermSound.VR : (Nat → Nat) → TermSound.TEnv → CoreLang.Ty → TermSound.Sh
     match x, x_1, x_2 with
     | CoreLang.Ty.intS i, x, ws => List.map (fun x => x.val) ws = [WeakMem.Val.num (CoreTyping.ev ρ i)]
     | CoreLang.Ty.int, x, ws => ∃ n, List.map (fun x => x.val) ws = [WeakMem.Val.num n]
+    | CoreLang.Ty.opq o, x, ws => ∃ n, List.map (fun x => x.val) ws = [WeakMem.Val.num n]
     | CoreLang.Ty.tid, x, ws =>
       ∃ l c,
         List.map (fun x => x.val) ws = [WeakMem.Val.loc { label := l, offset := 0 } 0] ∧
@@ -2421,7 +2427,7 @@ TermSound.VR : (Nat → Nat) → TermSound.TEnv → CoreLang.Ty → TermSound.Sh
                       TermRun.ofArm Rb (j - (TermRun.armsOf Ra).length) p = some q ∧
                         TermSound.VR ρ η b (TermSound.shp Rb) q))
     | CoreLang.Ty.tvar k, rt, ws => ∃ ws', TermSound.WLe ws' ws ∧ η.get k rt ws'
-    | σ.code τ, rt, ws =>
+    | σ.code τ k, rt, ws =>
       ∃ i d,
         List.map (fun x => x.val) ws = [WeakMem.Val.num i] ∧
           η.prog[i]? = some d ∧
@@ -2478,6 +2484,8 @@ TermSound.VRR : (Nat → Nat) → TermSound.TEnv → CoreLang.Ty → TermSound.S
     | CoreLang.Ty.intS i, x, ws, R =>
       List.map (fun x => x.val) ws = [WeakMem.Val.num (CoreTyping.ev ρ i)] ∧ R = TermSound.Res.zero
     | CoreLang.Ty.int, x, ws, R => (∃ n, List.map (fun x => x.val) ws = [WeakMem.Val.num n]) ∧ R = TermSound.Res.zero
+    | CoreLang.Ty.opq o, x, ws, R =>
+      TermSound.VR ρ η (CoreLang.Ty.opq o) (TermSound.Shp.leaf (some 1)) ws ∧ R = TermSound.Res.zero
     | CoreLang.Ty.tid, x, ws, R =>
       TermSound.VR ρ η CoreLang.Ty.tid (TermSound.Shp.leaf (some 1)) ws ∧ R = TermSound.Res.zero
     | CoreLang.Ty.fix sg w, rt, ws, R =>
@@ -2537,7 +2545,7 @@ TermSound.VRR : (Nat → Nat) → TermSound.TEnv → CoreLang.Ty → TermSound.S
                       TermRun.ofArm Rb (j - (TermRun.armsOf Ra).length) p = some q ∧
                         TermSound.VRR ρ η b (TermSound.shp Rb) q R))
     | CoreLang.Ty.tvar k, rt, ws, R => ∃ ws', TermSound.WLe ws' ws ∧ η.rrs k rt ws' R
-    | σ.code τ, x, ws, R =>
+    | σ.code τ k, x, ws, R =>
       (∃ i d,
           List.map (fun x => x.val) ws = [WeakMem.Val.num i] ∧
             η.prog[i]? = some d ∧
@@ -2683,12 +2691,13 @@ TermSound.ZRel : CoreLang.IEnv → CoreLang.Ty → CoreLang.Ty → Prop
     | CoreLang.Ty.void, CoreLang.Ty.void => True
     | CoreLang.Ty.int, CoreLang.Ty.int => True
     | CoreLang.Ty.tid, CoreLang.Ty.tid => True
+    | CoreLang.Ty.opq o, CoreLang.Ty.opq o_1 => True
     | CoreLang.Ty.intS i, CoreLang.Ty.intS j => TermSound.IdxLe env i j
     | CoreLang.Ty.fix sg w, CoreLang.Ty.fix sg_1 w_1 => True
     | CoreLang.Ty.lanes sg w, CoreLang.Ty.lanes sg_1 w_1 => True
     | a.prod b, a'.prod b' => TermSound.ZRel env a a' ∧ TermSound.ZRel env b b'
     | a.sum b, a'.sum b' => TermSound.ZRel env a a' ∧ TermSound.ZRel env b b'
-    | σ.code τ, σ_1.code τ_1 => True
+    | σ.code τ k, σ_1.code τ_1 k_1 => True
     | CoreLang.Ty.array i t, CoreLang.Ty.array j u => TermSound.IdxLe env i j ∧ TermSound.ZRel env t u
     | CoreLang.Ty.ptr μ τ, CoreLang.Ty.ptr μ_1 τ_1 => True
     | CoreLang.Ty.ptrOpt μ τ, CoreLang.Ty.ptrOpt μ_1 τ_1 => True
@@ -2727,7 +2736,7 @@ TermSound.er : CoreLang.Ty → CoreLang.Ty
     | CoreLang.Ty.share r => CoreLang.Ty.unit
     | a.prod b => (TermSound.er a).prod (TermSound.er b)
     | a.sum b => (TermSound.er a).sum (TermSound.er b)
-    | σ.code τ => CoreLang.Ty.unit.code CoreLang.Ty.unit
+    | σ.code τ k => CoreLang.Ty.unit.code CoreLang.Ty.unit CoreLang.CodeKind.plain
     | CoreLang.Ty.array i t => CoreLang.Ty.array i (TermSound.er t)
     | CoreLang.Ty.ptr μ τ => CoreLang.Ty.ptr μ CoreLang.Ty.unit
     | CoreLang.Ty.ptrOpt μ τ => CoreLang.Ty.ptrOpt μ CoreLang.Ty.unit
@@ -2749,7 +2758,7 @@ TermSound.etok : CoreLang.Ty → CoreLang.Ty
     | CoreLang.Ty.share r => CoreLang.Ty.unit
     | a.prod b => (TermSound.etok a).prod (TermSound.etok b)
     | a.sum b => (TermSound.etok a).sum (TermSound.etok b)
-    | a.code b => (TermSound.etok a).code (TermSound.etok b)
+    | a.code b k => (TermSound.etok a).code (TermSound.etok b) k
     | CoreLang.Ty.array i t => CoreLang.Ty.array i (TermSound.etok t)
     | CoreLang.Ty.ptr μ t => CoreLang.Ty.ptr μ (TermSound.etok t)
     | CoreLang.Ty.ptrOpt μ t => CoreLang.Ty.ptrOpt μ (TermSound.etok t)
@@ -2796,7 +2805,7 @@ TermSound.lnorm : CoreLang.Ty → CoreLang.Ty
     | CoreLang.Ty.intS i => CoreLang.Ty.int
     | a.prod b => (TermSound.lnorm a).prod (TermSound.lnorm b)
     | a.sum b => (TermSound.lnorm a).sum (TermSound.lnorm b)
-    | σ.code τ => CoreLang.Ty.unit.code CoreLang.Ty.unit
+    | σ.code τ k => CoreLang.Ty.unit.code CoreLang.Ty.unit CoreLang.CodeKind.plain
     | CoreLang.Ty.array i τ => CoreLang.Ty.array (CoreLang.Idx.lit 0) CoreLang.Ty.unit
     | CoreLang.Ty.ptr μ τ => CoreLang.Ty.ptrOpt CoreLang.Mode.pub CoreLang.Ty.unit
     | CoreLang.Ty.ptrOpt μ τ => CoreLang.Ty.ptrOpt CoreLang.Mode.pub CoreLang.Ty.unit
@@ -2824,7 +2833,7 @@ TermSound.lyt : Nat → CoreLang.Ty → CoreLang.Ty
     | CoreLang.Ty.intS i => CoreLang.Ty.intS (TermSound.idxC d i)
     | a.prod b => (TermSound.lyt d a).prod (TermSound.lyt d b)
     | a.sum b => (TermSound.lyt d a).sum (TermSound.lyt d b)
-    | a.code b => (TermSound.lyt d a).code (TermSound.lyt d b)
+    | a.code b k => (TermSound.lyt d a).code (TermSound.lyt d b) k
     | CoreLang.Ty.array i t => CoreLang.Ty.array (TermSound.idxC d i) (TermSound.lyt d t)
     | CoreLang.Ty.ptr μ t => CoreLang.Ty.ptr (TermSound.modeC d μ) (TermSound.lyt d t)
     | CoreLang.Ty.ptrOpt μ t => CoreLang.Ty.ptrOpt (TermSound.modeC d μ) (TermSound.lyt d t)
@@ -2907,7 +2916,7 @@ TermSound.shp : CoreLang.Ty → TermSound.Shp
     | t.mu => TermSound.shp t
     | t.iall => TermSound.shp t
     | a.sum b => TermSound.Shp.sum (TermSound.wc (a.sum b)) (TermSound.lnorm (a.sum b))
-    | σ.code τ => TermSound.Shp.code CoreLang.Ty.unit CoreLang.Ty.unit
+    | σ.code τ k => TermSound.Shp.code CoreLang.Ty.unit CoreLang.Ty.unit
     | CoreLang.Ty.tex κ b => TermSound.Shp.tex (TermSound.wc (CoreLang.Ty.tex κ b)) (TermSound.shp b)
     | t => TermSound.Shp.leaf (TermSound.wc t)
 TermSound.sig : CoreLang.Ty → CoreLang.Ty
@@ -2919,7 +2928,7 @@ TermSound.skel : CoreLang.Ty → CoreLang.Ty
     | CoreLang.Ty.intS i => CoreLang.Ty.int
     | a.prod b => (TermSound.skel a).prod (TermSound.skel b)
     | a.sum b => (TermSound.skel a).sum (TermSound.skel b)
-    | a.code b => (TermSound.skel a).code (TermSound.skel b)
+    | a.code b k => (TermSound.skel a).code (TermSound.skel b) k
     | CoreLang.Ty.array i t => CoreLang.Ty.array (CoreLang.Idx.lit 0) (TermSound.skel t)
     | CoreLang.Ty.ptr μ t => CoreLang.Ty.ptr (TermSound.skelM μ) (TermSound.skel t)
     | CoreLang.Ty.ptrOpt μ t => CoreLang.Ty.ptrOpt (TermSound.skelM μ) (TermSound.skel t)
@@ -3637,7 +3646,7 @@ TermTv.mg : CoreLang.Ty → Bool
     | t.mu => !CoreLang.Ty.unguarded 0 t && TermTv.mg t
     | a.prod b => TermTv.mg a && TermTv.mg b
     | a.sum b => TermTv.mg a && TermTv.mg b
-    | a.code b => TermTv.mg a && TermTv.mg b
+    | a.code b k => TermTv.mg a && TermTv.mg b
     | CoreLang.Ty.array i t => TermTv.mg t
     | CoreLang.Ty.ptr μ t => TermTv.mg t
     | CoreLang.Ty.ptrOpt μ t => TermTv.mg t

@@ -1,5 +1,6 @@
 import WeakCore.Syntax
 import Scc.Lower.Obj
+import Scc.PrintModel
 
 /-!
 # scc frontend: parsing, type checking, and the accepted fragment
@@ -23,9 +24,13 @@ does, scc reads:
   `printOwnSig` (the same with an owned slice, which the call consumes, so a
   program may print without `publish`): it writes the first `n` bytes of the
   slice to standard output.  Its body is ignored.
-* Calls of `park` and `unpark` are the runtime's `park`/`unpark` when they have
-  the signatures `parkSig` and `unparkSig` (`ThreadId` is stubbed as
-  `Ptr pub Void`, as in WeakCore's hello-world draft).
+* The block `printL` is the output extern's loop when it is textually
+  `printLoopD` (`Scc/PrintModel.lean`, `declIs`): the `emit` loop of the
+  extern's WeakCore model, which `print`'s model body (`printExtD`) tail-calls.
+  Like the extern's body it is not checked or compiled (`externOf` lists it
+  with the extern, so the lowering skips it), and no compiled block may call,
+  tail-call or spawn it (`modelDiags`).  Any other block named `printL` is an
+  ordinary block.
 
 ## The accepted fragment
 
@@ -35,10 +40,12 @@ Terms: `let`, `let (x, y) =`, `unpack` (index and type existentials), `if`,
 plain/release `store` (without a token), `fence`, `pack` (both kinds), calls,
 `xchg` (also `xchg b[i]`), `nameI`, `zero`, the fixed-width family (`cvt`, `toInt`,
 `asLanes`, `fop`, `fcmp`, `fop1`, `lane`, `setLane`, `bits` other than
-`msb16`, `bit1`), and `spawn`.  Types: `Unit`, `Void`, `Int`, `Int[i]`,
-fixed-width and lanes words, products, `Ptr`/`Loc` with mode `own` or `pub`,
-arrays of one-word elements, refinements, index existentials and type
-existentials of those.  Everything else is rejected with the construct named.
+`msb16`, `bit1`), `spawn`, and the machine externs `park` and `unpark`
+(the runtime's `park`/`unpark`).  Types: `Unit`, `Void`, `Int`, `Int[i]`,
+`ThreadId`, fixed-width and lanes words, products, `Ptr`/`Loc` with mode `own`
+or `pub`, arrays of one-word elements, refinements, index existentials and
+type existentials of those.  Declarations: plain blocks (no `device` or
+`restricted` declarations).  Everything else is rejected with the construct named.
 
 ## Static checks beyond the fragment
 
@@ -234,24 +241,23 @@ def printOwnSig : Option Ty :=
 
 #guard printOwnSig == (Syntax.parseTy printOwnSigText {} ["m"]).toOption
 
-/-- The stubbed `ThreadId`. -/
-def tidTy : Ty := .ptr .pub .void
-
 /-- Which extern a block is, if any. -/
 inductive Extern
-  | print | park | unpark
+  | print
   deriving Repr, BEq, DecidableEq, Inhabited
 
-/-- `some e` if block `d` is the extern `e` (name and signature match). -/
+/-- `some e` if block `d` is the extern `e` (name and signature match), or,
+for `.print`, the extern's loop (textually `printLoopD`; see the module
+docstring). -/
 def externOf (d : Decl) : Option Extern :=
   if d.name == "print" && d.idx.length == 1 && d.tparams.isEmpty &&
       (some d.argTy == printSig || some d.argTy == printOwnSig) &&
       d.retTy == .unit then some .print
-  else if d.name == "park" && d.idx.isEmpty && d.tparams.isEmpty && d.argTy == .unit &&
-      d.retTy == .unit then some .park
-  else if d.name == "unpark" && d.idx.isEmpty && d.tparams.isEmpty && d.argTy == tidTy &&
-      d.retTy == .unit then some .unpark
+  else if d.name == "printL" && declIs d printLoopD then some .print
   else none
+
+/-- Is block `d` the output extern's loop (`printLoopD`, textually)? -/
+def isPrintLoop (d : Decl) : Bool := d.name == "printL" && declIs d printLoopD
 
 /-- The externs among the program's blocks. -/
 def externs (p : Prog) : List (String × Extern) :=
@@ -300,7 +306,8 @@ def tyBad : Ty → Option String
   | .tex _ t => tyBad t
   | .tvar _ => none
   | .sum _ _ => some "a sum type"
-  | .code _ _ => some "a code pointer type"
+  | .code _ _ _ => some "a code pointer type"
+  | .opq _ => some "a device type"
   | .ptrOpt _ _ => some "a nullable pointer type"
   | .share _ => some "a read share"
   | .cap _ _ => some "a capability"
@@ -308,7 +315,7 @@ def tyBad : Ty → Option String
   | .tok _ _ | .tok2 _ _ _ _ | .tokE _ _ _ => some "a region token"
   | .mu _ => some "a recursive type"
   | .iall _ => some "an index universal"
-  | .tid => some "a thread id"
+  | .tid => none
 
 /-- `none` if operation `op` is in the fragment, else the offending construct. -/
 def opBad : Op → Option String
@@ -332,6 +339,7 @@ def opBad : Op → Option String
   | .fold _ _ => some "`fold`"
   | .intoRgn _ _ => some "`intoRgn`"
   | .mkWord .. => some "`mkWord`"
+  | .ext .park _ | .ext .unpark _ => none
   | .ext .. => some "an extern call"
   | .validate _ => some "`validate`"
   | .borrow _ _ => some "`borrow`"
@@ -397,7 +405,7 @@ fragment's types: singletons, arrays, refinements and what contains them). -/
 def tyBig : Ty → Option Nat
   | .intS i => idxBig i
   | .array i t => idxBig i <|> tyBig t
-  | .prod a b | .sum a b | .code a b => tyBig a <|> tyBig b
+  | .prod a b | .sum a b | .code a b _ => tyBig a <|> tyBig b
   | .ptr _ t | .ptrOpt _ t | .loc _ t => tyBig t
   | .mu t | .iall t | .iex t | .tex _ t => tyBig t
   | .refine t ψ => tyBig t <|> predBig ψ
@@ -475,9 +483,10 @@ def codeDiags (src : String) (p : Prog) : List Diag :=
 inductive EntryArg
   /-- `main(a : Unit)` -/
   | unit
-  /-- `main(a : Ptr pub Void)`: the main thread's `ThreadId`. -/
+  /-- `main(a : ThreadId)` (or the older stub `Ptr pub Void`): the main
+  thread's `ThreadId`. -/
   | tid
-  /-- `main(a : S * Ptr pub Void)`, with `S` the result of the setup block
+  /-- `main(a : S * ThreadId)` (or `S * Ptr pub Void`), with `S` the result of the setup block
   `rodata(u : Unit) : S`, run as code before `main` (static data by the
   heap-bytes route). -/
   | setupTid
@@ -502,14 +511,14 @@ def entryOf (src : String) (p : Prog) : Except Diag Entry := do
     | _ => throw (bad "'main' must return Int (the exit status) or Unit")
   let arg ← match d.argTy with
     | .unit => pure EntryArg.unit
-    | .ptr .pub .void => pure .tid
-    | .prod s (.ptr .pub .void) =>
+    | .ptr .pub .void | .tid => pure .tid
+    | .prod s (.ptr .pub .void) | .prod s .tid =>
         match p.find? (·.name == "rodata") with
         | some r =>
             if r.tparams.isEmpty && r.idx.isEmpty && r.argTy == .unit && r.retTy == s then pure .setupTid
-            else throw (bad "'main(a : S * Ptr pub Void)' needs a setup block 'rodata(u : Unit) : S'")
-        | none => throw (bad "'main(a : S * Ptr pub Void)' needs a setup block 'rodata(u : Unit) : S'")
-    | _ => throw (bad "'main' must take Unit, Ptr pub Void (its ThreadId), or S * Ptr pub Void")
+            else throw (bad "'main(a : S * ThreadId)' needs a setup block 'rodata(u : Unit) : S'")
+        | none => throw (bad "'main(a : S * ThreadId)' needs a setup block 'rodata(u : Unit) : S'")
+    | _ => throw (bad "'main' must take Unit, ThreadId, or S * ThreadId")
   pure ⟨arg, retInt⟩
 
 /-- All fragment diagnostics of a program. -/
@@ -521,8 +530,52 @@ def acceptDiags (src : String) (p : Prog) : List Diag :=
       | none => tyBigDiag src d.name [] s!"in the signature of '{d.name}'" [d.argTy, d.retTy]
     let tps := if d.tparams.isEmpty then [] else
       [diagAt src d.name [] s!"type parameters are not in the accepted fragment (block '{d.name}')"]
+    -- A device declaration may call device externs, which the backend does not implement.
+    let dev := if d.kind == .device then
+      [diagAt src d.name [] s!"a device declaration is not in the accepted fragment (block '{d.name}')"]
+      else []
+    -- A restricted declaration's fuel and stack budgets are not checked or
+    -- lowered by scc yet; refuse it here rather than rely on WeakCore's checker.
+    let rst := match d.kind with
+      | .restricted _ _ =>
+          [diagAt src d.name [] s!"a restricted declaration is not in the accepted fragment (block '{d.name}')"]
+      | _ => []
     -- An extern's body is replaced by the runtime; it is not compiled.
-    if ext.any (·.1 == d.name) then sig else sig ++ tps ++ exprDiags src d.name d.body
+    if ext.any (·.1 == d.name) then dev ++ rst ++ sig else dev ++ rst ++ sig ++ tps ++ exprDiags src d.name d.body
+
+/-- The blocks a body calls, tail-calls, spawns or names as a code value
+(`fnptr`), in every sub-term (whether or not the fragment admits it). -/
+def reachedE : Expr → List String
+  | .let_ _ op e =>
+      (match op with
+       | .call f .. | .spawn f .. | .fnptr f => [f]
+       | _ => []) ++ reachedE e
+  | .split _ _ _ e => reachedE e
+  | .unpack _ _ _ e => reachedE e
+  | .unpackT _ _ _ e => reachedE e
+  | .region _ _ _ _ e => reachedE e
+  | .openPub _ _ _ _ e => reachedE e
+  | .case _ _ e₁ _ e₂ => reachedE e₁ ++ reachedE e₂
+  | .ifnull _ e₁ _ e₂ => reachedE e₁ ++ reachedE e₂
+  | .parity _ _ e₁ e₂ => reachedE e₁ ++ reachedE e₂
+  | .ifeq _ _ e₁ e₂ => reachedE e₁ ++ reachedE e₂
+  | .cas _ _ _ _ _ _ e₁ e₂ => reachedE e₁ ++ reachedE e₂
+  | .casp _ _ _ _ _ _ _ _ e₁ e₂ => reachedE e₁ ++ reachedE e₂
+  | .ret _ => []
+  | .tail f .. => [f]
+
+/-- **The extern's loop is reached only through the extern**: a compiled
+block that calls, tail-calls, spawns or takes a code value of the loop
+(`isPrintLoop`, anywhere in its body: `reachedE`) is refused,
+since the loop is not compiled (the lowering would read the call as the
+extern's). -/
+def modelDiags (src : String) (p : Prog) : List Diag :=
+  let ext := externs p
+  let loops := (p.filter isPrintLoop).map (·.name)
+  p.flatMap fun d =>
+    if ext.any (·.1 == d.name) then [] else
+    ((reachedE d.body).filter loops.contains).eraseDups.map fun f =>
+      diagAt src d.name [] s!"the output extern's loop '{f}' may be reached only from the extern (in '{d.name}')"
 
 /-- The stack-pointer no-escape check: a no-op on the fragment (see the module
 docstring), kept as the place where the check goes. -/
@@ -535,7 +588,7 @@ a buffer, its element type. -/
 def sharedCells : Ty → List Ty
   | .ptr μ u | .ptrOpt μ u | .loc μ u =>
       (if μ == .pub then [elem u] else []) ++ sharedCells u
-  | .prod a b | .sum a b | .code a b => sharedCells a ++ sharedCells b
+  | .prod a b | .sum a b | .code a b _ => sharedCells a ++ sharedCells b
   | .array _ u => sharedCells u
   | .mu t | .iall t | .iex t | .tex _ t | .refine t _ => sharedCells t
   | _ => []
@@ -668,7 +721,7 @@ structure Checked where
 def run (src : String) : Except (List Diag) Checked := do
   let p ← (parse src).mapError ([·])
   (typecheck src p).mapError ([·])
-  let ds := acceptDiags src p ++ stackNoEscape p
+  let ds := acceptDiags src p ++ modelDiags src p ++ stackNoEscape p
   if !ds.isEmpty then throw ds
   let hs := regionHomog src p
   if !hs.isEmpty then throw hs

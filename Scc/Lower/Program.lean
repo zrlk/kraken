@@ -6,9 +6,9 @@ import Scc.Lower.Runtime
 `lowerProgram` turns a program that passed the frontend into an IR
 `Program`: one function per compiled code block (externs excluded), the
 runtime functions, one thread trampoline per block that is spawned, and the
-runtime's data.  Calls of code blocks carry the thread's depth counter,
-bounded by `stackBudget` so that a deep recursion aborts before the stack
-reaches its cap.
+runtime's data.  A deep recursion takes the stack abort in the grow
+routine when a frame no longer fits under the stack cap; `stackBudget`
+gives the depth up to which it never does (the certificate's `B.frames`).
 -/
 
 open CoreLang CoreTerm
@@ -23,11 +23,11 @@ def spawnedE : Expr → List String
   | .ifeq _ _ e₁ e₂ => spawnedE e₁ ++ spawnedE e₂
   | _ => []
 
-/-- Lower a checked program for configuration `cfg`, the calls of code blocks
-with the depth counter `frames` (`Ctx.frames`); also return the placement
+/-- Lower a checked program for configuration `cfg` (the calls of code
+blocks plain calls, without a depth counter); also return the placement
 traces of the compiled code blocks (`lowerDeclMarks`), by IR function name,
 in the order of `c.prog`. -/
-def lowerWithMarks (cfg : Config) (c : Frontend.Checked) (frames : Option Nat) :
+def lowerWithMarks (cfg : Config) (c : Frontend.Checked) :
     Except String (Program × List (Sym × Array (Node × Point))) := do
   -- An object never exceeds the arena, so an arena below `2^32` bytes keeps
   -- each region of every object within the 32-bit byte offsets of a
@@ -36,7 +36,7 @@ def lowerWithMarks (cfg : Config) (c : Frontend.Checked) (frames : Option Nat) :
     throw s!"the heap arena of {cfg.layout.heapBytes} bytes is 4 GiB or more: locative offsets are 32-bit byte offsets"
   let p := c.prog
   let compiled := p.filter fun d => !(c.externs.any (·.1 == d.name))
-  let userMarks ← compiled.mapM fun d => lowerDeclMarks p c.externs d cfg.layout.obj frames
+  let userMarks ← compiled.mapM fun d => lowerDeclMarks p c.externs d cfg.layout.obj
   let user := userMarks.map (·.1)
   let spawned := (p.flatMap fun d => spawnedE d.body).eraseDups
   let thr ← spawned.mapM fun f => do
@@ -63,21 +63,23 @@ def lowerWithMarks (cfg : Config) (c : Frontend.Checked) (frames : Option Nat) :
           growth := some { grow := Names.grow, release := Names.stackRelease } },
         userMarks.map fun (f, ms) => (f.name, ms))
 
-/-- Lower a checked program for configuration `cfg`, the calls of code blocks
-with the depth counter `frames` (`Ctx.frames`): `lowerWithMarks` without the
-placement traces. -/
-def lowerWith (cfg : Config) (c : Frontend.Checked) (frames : Option Nat) :
-    Except String Program :=
-  (·.1) <$> lowerWithMarks cfg c frames
+/-- Lower a checked program for configuration `cfg`: `lowerWithMarks`
+without the placement traces. -/
+def lowerWith (cfg : Config) (c : Frontend.Checked) : Except String Program :=
+  (·.1) <$> lowerWithMarks cfg c
 
 /-! ## The stack depth limit
 
 A thread's stack grows by doubling up to `Layout.stackCapBytes`; a frame
-that does not fit then takes the abort outcome inside the grow routine.  The
-depth counter (`Tcb.depth`, `Ctx.frames`) bounds the calls of code blocks a
-thread is in by `F`, chosen so that the cap is never reached: with the
-counter at most `F`, the grow routine always finds a range of at most the
-cap, and the only stack abort is the counter's (`AbortKind.stack`).
+that does not fit then takes the stack abort outcome (`AbortKind.stack`)
+inside the grow routine, the only stack abort: there is no depth counter.
+`stackBudget` is the budget number `F` (the certificate's `B.frames`),
+chosen so that the cap is not reached within it: with at most `F` calls of
+code blocks live, the grow routine always finds a range of at most the cap,
+so a thread within `F` frames never aborts on the stack.  A deeper thread
+may run past `F` frames before it aborts (smaller frames fit longer), which
+the statement allows: `AbortJustified`'s `stack` case asks only that some
+step leave the depth above `B.frames`, not the exact crossing.
 
 Why `F` below suffices (`stackBudget`):
 
@@ -85,7 +87,7 @@ Why `F` below suffices (`stackBudget`):
   the trampolines (`scc_rt_main`, `scc_rt_thr_*`).  The runtime functions
   run in `Tcb.headroom` below the limit without a check, so they never ask
   for more stack.
-* With the counter at `c ≤ F`, the live frames are one trampoline frame
+* With `c ≤ F` calls of code blocks live, the live frames are one trampoline frame
   (at most `T` bytes) and `c + 1` code block frames (at most `Fr` bytes
   each): the entry block's frame is not counted (the setup block `rodata`
   returns before the entry block is called), and a tail call replaces its
@@ -101,9 +103,8 @@ Why `F` below suffices (`stackBudget`):
   at most the cap by the choice of `F`.
 
 The frame sizes are the emitters' (`frameBytes`, checked against them in
-`Scc/Emit/X64Test.lean` and `Scc/Emit/A64Test.lean`).  The counter's
-immediate changes no register or call, so the frames are measured on a
-lowering with `frames = some 0`. -/
+`Scc/Emit/X64Test.lean` and `Scc/Emit/A64Test.lean`), measured on the
+program's lowering. -/
 
 /-- The IR registers of a function: its parameters and the registers of its
 instructions and terminators, without duplicates (the emitters' slots,
@@ -190,7 +191,7 @@ def StackBudget.ok (b : StackBudget) : Bool :=
 largest code block frame and `T` the largest frame of the other
 stack-checked functions (the trampolines). -/
 def stackBudget (cfg : Config) (c : Frontend.Checked) : Except String StackBudget := do
-  let p ← lowerWith cfg c (some 0)
+  let p ← lowerWith cfg c
   let areas := StackMap.argAreas p (argRegCount cfg.arch)
   let user := c.prog.filterMap fun d =>
     if c.externs.any (·.1 == d.name) then none else some (Names.user d.name)
@@ -211,8 +212,9 @@ def stackBudget (cfg : Config) (c : Frontend.Checked) : Except String StackBudge
 (`Scc.Cert.Blocks.code`): `{pfx}Frames`, with a `#guard` that the budget
 holds (`StackBudget.ok`, its numbers as literals). -/
 def StackBudget.render (b : StackBudget) (pfx : String) : String :=
-  s!"/-- **The stack depth limit**: the most calls of code blocks a thread is
-in (`Tcb.depth`); a call past it takes the stack abort outcome.  The frames,
+  s!"/-- **The stack depth limit**: the calls of code blocks a thread can be
+in without a stack abort (the statement's `B.frames`); the stack abort is the
+grow routine's, when a frame no longer fits under the cap.  The frames,
 the largest of {b.frameBytes} bytes, with {b.reserve} bytes of trampoline frame, entry
 frame and grow stub and {b.slack} bytes of headroom and grow slack, fit in the
 stack cap of {b.cap} bytes (`Scc.Lower.stackBudget`). -/
@@ -310,18 +312,19 @@ theorem {pfx}Need_ok : {m}.needOk {code} {pfx}Need {budget} [{es}] = true := by
   decide +kernel
 "
 
-/-- Lower a checked program for configuration `cfg`: `lowerWith` with the
-depth limit of `stackBudget`. -/
+/-- Lower a checked program for configuration `cfg`: `lowerWith`, where the
+stack budget (`stackBudget`) holds. -/
 def lowerProgram (cfg : Config) (c : Frontend.Checked) : Except String Program := do
-  lowerWith cfg c (some (← stackBudget cfg c).frames)
+  let _ ← stackBudget cfg c
+  lowerWith cfg c
 
 /-- The placement traces of the compiled code blocks (`lowerDeclMarks`), by
 IR function name: the lowering `lowerProgram` runs, again. -/
 def lowerMarks (cfg : Config) (c : Frontend.Checked) :
     Except String (List (Sym × Array (Node × Point))) := do
-  let fr := (← stackBudget cfg c).frames
+  let _ ← stackBudget cfg c
   (c.prog.filter fun d => !(c.externs.any (·.1 == d.name))).mapM fun d => do
-    let (f, ms) ← lowerDeclMarks c.prog c.externs d cfg.layout.obj (some fr)
+    let (f, ms) ← lowerDeclMarks c.prog c.externs d cfg.layout.obj
     pure (f.name, ms)
 
 end Scc.Lower

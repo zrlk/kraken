@@ -214,14 +214,16 @@ theorem plant_vWr {c : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db
     (hLay : ∀ l cl, sto l = some cl → LayT cl.ty) (hsa : ∃ cl, E1.sto l = some cl) (hpa : E1.pfr l ≠ none)
     (hba : E1.box l = none)
     (hBS : ∀ t', TermPtrRts.tminOf sto (stOf (promise c j a v w).mem (promise c j a v w).pairs { th with promises := th.promises ++ [c.mem.size] }) l = some t' →
-      TermPtrRts.BoxSep E1 t' l (promise c j a v w).mem) :
+      TermPtrRts.BoxSep E1 t' l (promise c j a v w).mem)
+    (hTA1 : TermTyped.TidAt j (promise c j a v w) E1)
+    (hNa1 : ∀ th', (promise c j a v w).ths[j]? = some th' → th'.tidLbl ≠ some l) :
     th.vs.vWr ≤ w := by
   have hpi := promise_inv (a := a) (v := v) (w := w) X.hth
   have hth1 := hpi.2.1
   have hNo := hNP j l (promise c j a v w) _ E1 sto c.mem.size hk hs1
     (fun c2 hs hc => hCSP X c2 hs hc) (TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw)
     E0u E1 hwin hAn
-    (by obtain ⟨_, η, _, rfl, -⟩ := hT1; exact Ext_refl (Coh_CE η) (CohR_CE η)) hth1 hT1 hm1 hR1 ht1 hbf hfr hL hSC hps hD
+    (by obtain ⟨_, η, _, rfl, -⟩ := hT1; exact Ext_refl (Coh_CE η) (CohR_CE η)) hTA1 hNa1 hth1 hT1 hm1 hR1 ht1 hbf hfr hL hSC hps hD
     hC hG hLay hsa hpa hba hBS
   have h1 : (promise c j a v w).mem[c.mem.size]? = some ⟨a, v, w⟩ := by
     rw [hpi.1, Array.getElem?_push]; simp

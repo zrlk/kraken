@@ -1,0 +1,22 @@
+#!/bin/bash
+# sce [options] root.u|prog.w — the UnElab front end (USER_TEXTS §3).
+#
+# Runs Sce.lean under `lean` with the native library of a check-promises build (WM_BUILD, default
+# $BUILD or ./build, which must hold Sce.lean's imports' oleans and libwm.so).  The arguments travel in
+# SCE_ARGC / SCE_ARG_1..n (see Sce.lean for why it is not `lean --run`).  About 12 s of the run is loading.
+D="$(cd "$(dirname "$0")/.." && pwd)"
+B="${WM_BUILD:-${BUILD:-build}}"
+L="${WM_LEAN:-${LEAN:-$HOME/.elan/bin/lean}}"
+if [ ! -f "$B/libwm.so" ]; then
+  echo "sce: cannot read $B/libwm.so: no build (run check-promises.sh, or set WM_BUILD)" >&2
+  exit 4
+fi
+export SCE_ARGC=$#
+i=1
+for a in "$@"; do
+  export "SCE_ARG_$i=$a"
+  i=$((i + 1))
+done
+# --live-proof builds its instance file with the same lean against the same build (Sce.lean).
+export SCE_LEAN="$L"
+LEAN_PATH="$B" exec "$L" --load-dynlib="$B/libwm.so" "$D/Sce.lean"

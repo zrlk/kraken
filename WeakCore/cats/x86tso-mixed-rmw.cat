@@ -1,29 +1,32 @@
 "x86 TSO Mixed rmw"
-(* Contains material from herdtools7's bundled cat models (CeCILL-B); see LICENSE-herdtools7.txt. *)
 
-(* Derived from herd7's bundled x86tso-mixed.cat (CeCILL-B); see
-   LICENSE-herdtools7.txt. *)
+(* Uses herd7's bundled x86tso-mixed.cat by `include' only and contains none
+   of its text; this file's own content is ours. *)
 
 (*
- * herd7's bundled x86tso-mixed.cat with ONE disjunct added, marked (+).
+ * herd7's bundled x86tso-mixed.cat plus ONE axiom: read-modify-write order
+ * joins ordered-before.
  *
  * Why.  herd7 does not place an RMW's internal read and write in program
  * order (`empty rmw & po' is satisfied on x86 and on aarch64).  In the stock
- * file `rmw' therefore appears in exactly one place -- the atomicity axiom,
+ * model `rmw' therefore appears in exactly one place -- the atomicity axiom,
  * which only forbids an *intervening* write -- and never in `ob'.  So two
  * concurrent XCHGs on one location may each read the other's value
  * (0:rbx=2 with 1:rbx=1), which is not linearizable and is not x86.
  * Verified against stock: SWPAtomic64 yields 3 states, including that one.
  *
- * The repair is transcribed, not invented.  This model is structured exactly
+ * The repair is transcribed, not invented.  The stock model is structured
  * like aarch64's (obs / lob / ob, with `irreflexive ob as external'), and
  * aarch64 puts rmw into lob via aob: in aarch64hwreqs.cat, `aob'
  * (atomic-ordered-before) contains rmw between explicit memory events, and
  * `aob' is one of the disjuncts of the recursive `lob'.
  *
- * So `aob <= lob' there, and we add the same disjunct to `lob' here, under
- * the same axiom (`irreflexive ob as external').  Same relation name, same
- * containment, same axiom shape.
+ * So `aob <= lob' there, and we want `rmw <= lob' here, under the same axiom
+ * shape.  Since the stock `lob' and `ob' are both transitive closures and
+ * `lob <= ob', adding `rmw' as a disjunct of `lob' gives exactly the closure
+ * `(ob | rmw)+'; requiring that to be irreflexive is the repaired
+ * `irreflexive ob as external' (and implies the stock one, which the
+ * included file still checks).
  *
  * herdtools ships the identical rule in another TSO model too --
  * riscv-tso-defs.cat has `and r8 = rmw' among its ppo rules, feeding
@@ -33,36 +36,13 @@
  *
  *     W1 ->rfe R0 ->rmw W0 ->rfe R1 ->rmw W1
  *
- * is then an ob cycle here, exactly as it is on aarch64.
+ * is then a cycle of the closure below, exactly as it is an ob cycle on
+ * aarch64.
  *)
 
-include "x86fences.cat"
-include "cos.cat"
+include "x86tso-mixed.cat"
 
-(* Coherence-after *)
-let ca = fr | co
+(* Ordered-before with read-modify-write order added (cf. aarch64 aob <= lob). *)
+let ob-rmw = (ob | rmw)+
 
-(* Observed-by *)
-let obs = rfe | fre | coe
-
-(* Locally-ordered-before *)
-let rec lob = po \ ([W]; po; [R])
-        | [W]; po; [MFENCE]; po; [R]
-        | [W]; po; [R & X]
-        | [W & X]; po; [R]
-        | rmw                          (* (+) cf. aarch64 aob <= lob *)
-        | lob; lob
-
-(* Ordered-before *)
-let rec ob = obs; si
-        | lob
-        | ob; ob
-
-(* Internal visibility requirement *)
-acyclic po-loc | ca | rf as internal
-
-(* Atomicity requirement *)
-empty rmw & (fre;coe) as atomic
-
-(* External visibility requirement *)
-irreflexive ob as external
+irreflexive ob-rmw as external-rmw

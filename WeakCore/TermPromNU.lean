@@ -63,7 +63,7 @@ theorem promNU_prom {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {
   · subst hqj
     have ht' : t ∈ TermFul.promsOf (promise c q a v w) q := by
       rw [TermFul.promsOf_some hq]; exact ht
-    exact (certified_promNotUndefX (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hsc (by first | exact TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw | exact TermViewInv.viewInv_run hV0 X.run | exact TermViewInv.viewInv_thread (TermViewInv.viewInv_run hV0 X.run) X.hc') hwin hX X.cert ht' hmt).1
+    exact (certified_promNotUndefX (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hsc (by first | exact TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw | exact TermViewInv.viewInv_run hV0 X.run | exact TermViewInv.viewInv_thread (TermViewInv.viewInv_run hV0 X.run) X.hc') hwin hX (TermMain.tidAt_cutP X.inv q S0) X.cert ht' hmt).1
   · rw [promise_other X.hth hqj] at hq
     have hlt : t < c.mem.size := X.inv.plt q thq t hq ht
     rw [hpi.1] at hmt

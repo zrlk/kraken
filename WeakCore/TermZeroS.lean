@@ -39,10 +39,12 @@ def zeroPair : Ty → (IEnv → KEnv → Bool) × ((Ty → Bool) → IEnv → KE
         | .wide  => ((zeroPair a).2 (fun _ => true) env ke <|> (zeroPair b).2 (fun _ => true) env ke) == some true
         | .boxed => false
       (z, fun sel env ke => (zeroPair a).2 sel env ke <|> (zeroPair b).2 sel env ke)
-  | .code a b => let z := fun _ _ => false
-      (z, fun sel env ke => if sel (.code a b) then some (z env ke) else none)
+  | .code a b k => let z := fun _ _ => false
+      (z, fun sel env ke => if sel (.code a b k) then some (z env ke) else none)
   | .tid => let z := fun _ _ => false
       (z, fun sel env ke => if sel .tid then some (z env ke) else none)
+  | .opq o => let z := fun _ _ => false
+      (z, fun sel env ke => if sel (.opq o) then some (z env ke) else none)
   | .array i t => let z := fun env ke => (zeroPair t).1 env ke
       (z, fun sel env ke => if sel (.array i t) then some (z env ke) else none)
   | .ptr μ t => let z := fun _ _ => false

@@ -8302,7 +8302,7 @@ recorded as checked rather than believed.
 
 **The relation.**  Carry the two runs side by side with ARM's views *below*
 TSO's: memory equal on `loc` and `val` with ARM's per-message `view` ≤ TSO's,
-registers equal on `val` and `rts` with `view` ≤, programs and promise sets
+registers equal on `val` with `rts` and `view` ≤, programs and promise sets
 equal, and every component of `VState` pointwise ≤.
 
 **Why that works, in one sentence per direction.**  Lowering a bound never
@@ -8442,12 +8442,17 @@ theorem VLe.acqV {v w : VState} (h : VLe v w) (pairs : List Ts) (t : Ts) {mv mv'
       Nat.le_trans (Nat.le_of_eq (by unfold extTs; rw [h.mine])) (Nat.le_max_right _ _)⟩
   · rw [h1, h2]; exact hle
 
-/-- A register.  `val` and `rts` are **equal**, not related: the two runs pick
-    the same timestamps, so what was read and from where are the same; only the
-    *view* inherited from the message can differ, and only downward. -/
+/-- A register.  `val` is **equal**: the two runs pick the same timestamps, so
+    what was read and from where are the same.  `rts` and the *view* inherited
+    from the message may differ, and only downward: a load sets `rts` to the
+    timestamp it read on both sides (equal), but a word can also carry a lower
+    `rts` from a spawn's argument bump (`TermSpawn.bumpW`, to the parent's
+    `vRelSt`, which is lower on ARM).  Every consumer of `rts` -- `depRts` in a
+    load's `depBound` and in `storeOb`, `ctrlRts` -- is monotone, so `≤` is
+    enough (`depRts_mono`). -/
 structure TValLe (x y : TVal) : Prop where
   val : x.val = y.val
-  rts : x.rts = y.rts
+  rts : x.rts ≤ y.rts
   view : x.view ≤ y.view
 
 structure ThreadLe (ta tt : Thread) : Prop where
@@ -8457,7 +8462,7 @@ structure ThreadLe (ta tt : Thread) : Prop where
   vs : VLe ta.vs tt.vs
 
 theorem ThreadLe.refl (th : Thread) : ThreadLe th th :=
-  ⟨rfl, rfl, fun _ => ⟨rfl, rfl, Nat.le_refl _⟩, VLe.refl _⟩
+  ⟨rfl, rfl, fun _ => ⟨rfl, Nat.le_refl _, Nat.le_refl _⟩, VLe.refl _⟩
 
 /-- Memory: same length, same addresses, same values, ARM's views lower.
 
@@ -8521,9 +8526,10 @@ theorem fence_moves_the_state :
 
 /-! ### The dependency joins
 
-Two `foldl`s, and they are consumed asymmetrically: `depView` only has to be
-monotone, `depRts` has to be *equal*, because a store's ordering bound reads
-timestamps and the two runs agree on those exactly.
+Two `foldl`s, and both only have to be monotone: `depView` in the registers'
+views, `depRts` in their read timestamps.  A store's ordering bound reads
+timestamps, and `TValLe` relates those by `≤` (ARM's no higher), which is
+enough because a smaller bound only allows more (`depRts_mono`).
 
 > One tooling note, because it cost real time and will cost it again.  **`omega`
 > does not see through `max` when the implicit type argument is `Ts`.**  It
@@ -8562,13 +8568,18 @@ theorem depRts_congr {ra rt : Reg → TVal} (h : ∀ r, (ra r).rts = (rt r).rts)
     (foldl_max_mono _ _ (fun r => Nat.le_of_eq (h r)) deps 0 0 (Nat.le_refl _))
     (foldl_max_mono _ _ (fun r => Nat.le_of_eq (h r).symm) deps 0 0 (Nat.le_refl _))
 
+/-- `depRts` is monotone in the registers' `rts`. -/
+theorem depRts_mono {ra rt : Reg → TVal} (h : ∀ r, (ra r).rts ≤ (rt r).rts)
+    (deps : List Reg) : depRts ra deps ≤ depRts rt deps :=
+  foldl_max_mono _ _ h deps 0 0 (Nat.le_refl _)
+
 /-- A load's bound is monotone for the same reason a store's is, and it needs
-    *both* of the previous two lemmas: `TValLe` relaxes `view` and pins `rts`,
-    and `depBound` joins them, so the join is monotone. -/
+    *both* `depView_mono` and `depRts_mono`: `TValLe` relates `view` and `rts`
+    by `≤`, and `depBound` joins them, so the join is monotone. -/
 theorem depBound_mono {ra rt : Reg → TVal} (hv : ∀ r, (ra r).view ≤ (rt r).view)
-    (hr : ∀ r, (ra r).rts = (rt r).rts) (deps : List Reg) :
+    (hr : ∀ r, (ra r).rts ≤ (rt r).rts) (deps : List Reg) :
     depBound ra deps ≤ depBound rt deps :=
-  le_max_le (depView_mono hv deps) (Nat.le_of_eq (depRts_congr hr deps))
+  le_max_le (depView_mono hv deps) (depRts_mono hr deps)
 
 /-! ### The architecture-sensitive quantities are monotone
 
@@ -8628,17 +8639,15 @@ private def storeDepOf (k : Knobs) (th : Thread) (e : Expr) (deps : List Reg) : 
 
 /-- **Where the asymmetry of §15's relation is paid for.**
 
-    On the `rts` branch the two runs must agree *exactly* -- a store's bound
-    reads timestamps, and `TValLe` pins those -- while on the `view` branch mere
-    monotonicity is enough.  Both branches land in `≤`, but for different
-    reasons, and that is why `TValLe` could not have been "`≤` on all three
-    fields". -/
+    A store's bound reads timestamps on the `rts` branch and views on the
+    `view` branch; `TValLe` relates both by `≤` (only `val` is equal), and
+    both `depRts` and `depView` are monotone, so both branches land in `≤`. -/
 private theorem storeDepOf_mono (k : Knobs) {ta tt : Thread} (h : ThreadLe ta tt)
     (e : Expr) (deps : List Reg) : storeDepOf k ta e deps ≤ storeDepOf k tt e deps := by
   unfold storeDepOf
   cases hk : k.storeDepRts
   · exact depView_mono (fun r => (h.regs r).view) _
-  · exact Nat.le_of_eq (depRts_congr (fun r => (h.regs r).rts) _)
+  · exact (depRts_mono (fun r => (h.regs r).rts) _)
 
 /-- `storeOb` at `arm`: the guard is `false && _`, so the extra `max` against
     `vRd`/`vWr` is gone by `rfl`, whatever the knob says. -/
@@ -8664,7 +8673,7 @@ private theorem storeOb_base_le (k : Knobs) (arch : Arch) (th : Thread) (a : Add
 
 /-- The store side.  `storeOb` differs by a `max` against `vRd`/`vWr` under
     TSO, so ARM's is smaller; the dependency terms move the right way because
-    `rts` is equal and `view` is monotone. -/
+    `depRts` and `depView` are monotone in `rts` and `view`. -/
 theorem storeOb_arm_le_tso (k : Knobs) {ta tt : Thread} (h : ThreadLe ta tt)
     (a : Address) (e : Expr) (deps : List Reg) :
     storeOb k .arm ta a e deps ≤ storeOb k .tso tt a e deps := by
@@ -8913,7 +8922,7 @@ theorem stepLoad_sim {ma mt : Memory} (hm : MemLe ma mt) {ta tt : Thread}
     · intro r
       by_cases hr : r = dst
       · simp only [hr, ite_true]
-        exact ⟨hval, rfl, hview⟩
+        exact ⟨hval, Nat.le_refl _, hview⟩
       · simp only [hr, ite_false]
         exact h.regs r
     · refine ⟨?_, ?_, h.vs.vWr, h.vs.vCtrl, ?_, h.vs.vRelSt, (by first | exact h.vs.mine | simp [h.vs.mine] | simp_all), h.vs.fwd⟩
@@ -9166,9 +9175,9 @@ theorem rmwDst_le (kind : RmwKind) (acq : Bool)
   | cas c =>
       simp only [hval]
       split
-      · exact ⟨rfl, rfl, Nat.le_refl _⟩
-      · exact ⟨rfl, rfl, hview⟩
-  | _ => exact ⟨hval, rfl, hview⟩
+      · exact ⟨rfl, Nat.le_refl _, Nat.le_refl _⟩
+      · exact ⟨rfl, Nat.le_refl _, hview⟩
+  | _ => exact ⟨hval, Nat.le_refl _, hview⟩
 
 /-! ### The RMW -/
 
@@ -9198,7 +9207,7 @@ theorem rmwDTs_mono (k : Knobs) {ta tt : Thread} (h : ThreadLe ta tt) (deps : Li
       <= (if k.storeDepRts then depRts tt.regs deps else depView tt.regs deps) := by
   cases hk : k.storeDepRts
   · exact depView_mono (fun r => (h.regs r).view) deps
-  · exact Nat.le_of_eq (depRts_congr (fun r => (h.regs r).rts) deps)
+  · exact (depRts_mono (fun r => (h.regs r).rts) deps)
 
 /-- Related threads store the same value: `TValLe` keeps register values equal. -/
 theorem rmwNewVal_congr {ta tt : Thread} (h : ThreadLe ta tt) (e : Expr) :
@@ -9471,11 +9480,11 @@ theorem readThOf2_le {ta tt : Thread} (h : ThreadLe ta tt) (pairs : List Ts)
   . intro r
     by_cases hr0 : r = dst0
     . simp only [hr0, ite_true]
-      exact ⟨h0, rfl, hw0⟩
+      exact ⟨h0, Nat.le_refl _, hw0⟩
     . simp only [hr0, ite_false]
       by_cases hr1 : r = dst1
       . simp only [hr1, ite_true]
-        exact ⟨h1, rfl, hw1⟩
+        exact ⟨h1, Nat.le_refl _, hw1⟩
       . simp only [hr1, ite_false]
         exact h.regs r
   . intro b
@@ -9574,7 +9583,7 @@ theorem stepRmwPairAt_sim {ma mt : Memory} (hm : MemLe ma mt) {ta tt : Thread}
           (if acq then max tt.vs.vPreBase (max (acqV tt.vs pairs t0 mt[t0]!.view) (acqV tt.vs pairs t1 mt[t1]!.view)) else tt.vs.vPreBase)
           (depRts tt.regs (new1.writeDeps (new0.writeDeps deps))) tt.vs.vCtrl (max (tt.vs.coh a) t0) :=
     rmwBaseAt_mono hrth.vs.vPreBase
-      (Nat.le_of_eq (depRts_congr (fun r => (h.regs r).rts) (new1.writeDeps (new0.writeDeps deps)))) h.vs.vCtrl
+      ((depRts_mono (fun r => (h.regs r).rts) (new1.writeDeps (new0.writeDeps deps)))) h.vs.vCtrl
       (le_max_le (h.vs.coh a) (Nat.le_refl t0))
   split at hbody
   . simp at hbody
@@ -10466,7 +10475,7 @@ theorem stepThread_sim (k : Knobs) {ca ct : Config} (hs : Sim ca ct) (i : Nat)
                 refine le_max_le hth.vs.vCtrl ?_
                 cases hk : k.ctrlRts
                 . exact (hth.regs r).view
-                . exact Nat.le_of_eq (hth.regs r).rts
+                . exact (hth.regs r).rts
               exact ⟨_, hmem, setTh_sim hs i rest hs.le.mem (MemExt.refl _) (MemExt.refl _)
                 hbr htt (fun t htp => htp) hs.le.pairs⟩
           . -- isb

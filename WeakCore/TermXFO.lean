@@ -105,7 +105,7 @@ theorem solo_typedXFO {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c
     {n0 v0 na0 : Nat} {Z : AllocLabel → Prop} {H : AllocLabel → Nat → Ts → Prop} [ProgRetIall p] [WrIniC] (hP : ProgT p)
     (hsc : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → ScopeAt p i c0) (hvI : TermViewInv.ViewInv c)
     (hwin : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → NoHoldPubA p k arch Eu Ea i c0)
-    {st : Cfg} (h0 : InvAtXFO Z p k arch i E0 n0 v0 na0 st c H (Ea := Ea) (Eu := Eu)) {c2 : Cfg} (h : Solo p k arch i c c2)
+    {st : Cfg} (h0 : InvAtXFO Z p k arch i E0 n0 v0 na0 st c H (Ea := Ea) (Eu := Eu)) (hTA : TermTyped.TidAt i c E0) {c2 : Cfg} (h : Solo p k arch i c c2)
     (hc2 : Certified p k arch c2 i)
     (hrl : ∀ l, E0.rini l ≤ E0.ini l)
     (hZo : ∀ c1 th1 c1' c3 th3 l cl f, TermOwnG0Defs.SoloNP p k arch i l st c1 → c1.ths[i]? = some th1 →
@@ -138,10 +138,14 @@ theorem solo_typedXFO {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c
     exact ⟨solo_trans hc0 (.prom a v w hw (.refl _)), th', E, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12,
       TermK5O.pfrProvO_prom hPO hw⟩
   · rintro c0 c0' ⟨hc0, th, E, hth, hx, hTE, hm, hSC, hbo, hfb, hfr, hna, hfresh, hIL, hIH, hPO⟩ hs _
-    obtain ⟨x1, a1, e1, evs, hterm, rfl⟩ := extSteps_thread hs hth
-    exact ⟨solo_trans hc0 (.ext hs (.refl _)), _, E, set_self hth, hx, TermTyped.ThInvE_emit hterm hTE,
-      by rw [gOf_ext hs]; exact hm, hSC, by rw [gOf_ext hs]; exact hbo, hfb, hfr, hna, by rw [gOf_ext hs]; exact hfresh, hIL, hIH,
-      TermK5O.pfrProvO_ext hPO hs⟩
+    rcases TermTyped.extSteps_res hs hth with ⟨x1, n1, a1, e1, rt1, ws1, rs1, hterm, hn1, hev1, hrs1, rfl⟩ | ⟨x1, a1, e1, lb, hterm, htl, rfl⟩
+    · exact ⟨solo_trans hc0 (.ext hs (.refl _)), _, E, set_self hth, hx, TermTyped.ThInvE_ext hn1 hterm hev1 hrs1 hTE,
+        by rw [gOf_ext hs]; exact hm, hSC, by rw [gOf_ext hs]; exact hbo, hfb, hfr, hna, by rw [gOf_ext hs]; exact hfresh, hIL, hIH,
+        TermK5O.pfrProvO_ext hPO hs⟩
+    · obtain ⟨hbs, hbp⟩ := TermTyped.tidBox_ext hx (TermTyped.tidAt_solo hc0 hTA th hth lb htl)
+      exact ⟨solo_trans hc0 (.ext hs (.refl _)), _, E, set_self (tr := c0.trace) hth, hx, TermTyped.ThInvE_cur hterm hbs hbp hTE,
+        by rw [gOf_ext hs]; exact hm, hSC, by rw [gOf_ext hs]; exact hbo, hfb, hfr, hna, by rw [gOf_ext hs]; exact hfresh, hIL, hIH,
+        TermK5O.pfrProvO_ext hPO hs⟩
 
 /-- **A certified thread's promise, with the post-publish provenance at the fulfilling
 configuration**: the value is defined (`certified_promNotUndefX`), the fulfilling configuration `c2`
@@ -152,7 +156,7 @@ theorem certified_promNotUndefXO {p : Prog} {k : Promises.Knobs} {arch : Arch} {
     (hP : ProgT p)
     (hsc : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → ScopeAt p i c0) (hvI : TermViewInv.ViewInv c)
     (hwin : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → NoHoldPubA p k arch Eu Ea i c0)
-    {st : Cfg} (h0 : InvAtXFO Z p k arch i E0 n0 v0 na0 st c H (Ea := Ea) (Eu := Eu)) (hc : Certified p k arch c i)
+    {st : Cfg} (h0 : InvAtXFO Z p k arch i E0 n0 v0 na0 st c H (Ea := Ea) (Eu := Eu)) (hTA : TermTyped.TidAt i c E0) (hc : Certified p k arch c i)
     (hrl : ∀ l, E0.rini l ≤ E0.ini l)
     (hZo : ∀ c1 th1 c1' c3 th3 l cl f, TermOwnG0Defs.SoloNP p k arch i l st c1 → c1.ths[i]? = some th1 →
       TermOwnG0Defs.PubAt th1 l → c1' ∈ threadSteps p k arch c1 i → Solo p k arch i c1' c3 →
@@ -170,12 +174,12 @@ theorem certified_promNotUndefXO {p : Prog} {k : Promises.Knobs} {arch : Arch} {
       (∀ cl, E0.sto m.loc.label = some cl → WordOK E2 cl.ty m.loc.offset (mw m)) ∧
       FrBound E0 n0 v0 E2 ∧ IniLoc Z E0 E2 ∧ IniHeld H E0 E2 th2.vs.vWr ∧
       TermK5O.PfrProvO p k arch i H E0 st c2 E2 := by
-  have hnu := (certified_promNotUndefX hP hsc hvI hwin h0.toZ hc ht hm hPS hSub hSig hZr hHr).1
+  have hnu := (certified_promNotUndefX hP hsc hvI hwin h0.toZ hTA hc ht hm hPS hSub hSig hZr hHr).1
   obtain ⟨c1, c2, th1, th2, -, -, -, -, h1, -, h2, hc2, -, hth2, -, -, -, -, -, -, -, -, -, -, -, -, hm2, -, hn2, -⟩ :=
-    certified_promTypedX hP hsc hvI hwin h0.toZ hc ht hm hPS hSub hSig hZr hHr
+    certified_promTypedX hP hsc hvI hwin h0.toZ hTA hc ht hm hPS hSub hSig hZr hHr
   have h12 : Solo p k arch i c c2 := solo_trans h1 (.thread h2 (.refl _))
   obtain ⟨th2', E2, hth2', hx2, hT2, hm2i, -, -, hfb2, -, -, -, hIL2, hIH2, hPO2⟩ :=
-    solo_typedXFO hP hsc hvI hwin h0 h12 hc2 hrl hZo hPS hSub hSig hZr hHr
+    solo_typedXFO hP hsc hvI hwin h0 hTA h12 hc2 hrl hZo hPS hSub hSig hZr hHr
   rw [hth2] at hth2'
   cases hth2'
   refine ⟨hnu, c2, th2, E2, h12, hc2, hth2, hx2, hT2, hm2i, fun cl hcl => ?_, hfb2, hIL2, hIH2, hPO2⟩

@@ -41,7 +41,7 @@ theorem noBufF_noKey [WrIniC] {p : Prog} {k : Promises.Knobs} {arch : Arch} {Ini
   intro c1 h1 hc1 th1 hth1
   obtain ⟨S, hS⟩ := X.inv.thr j th X.hth
   obtain ⟨th2, hth2, h⟩ := ownXLe0_prom_noOwnUse hP (winQP hsc hw X hS) (TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw)
-    (ownXLe_start_le X.inv X.hth hS hsto hin (Nat.le_of_eq hk0)) X.hw h1 hc1 hPS hSub hSig
+    (ownXLe_start_le X.inv X.hth hS hsto hin (Nat.le_of_eq hk0)) (TermMain.tidAt_cut X.inv j S) X.hw h1 hc1 hPS hSub hSig
   obtain rfl : th2 = th1 := Option.some.inj (hth2.symm.trans hth1)
   exact not_bufInitOn h
 
@@ -58,7 +58,7 @@ theorem noBufT_noKey [WrIniC] {p : Prog} {k : Promises.Knobs} {arch : Arch} {Ini
   intro c1 h1 hc1 th1 hth1
   obtain ⟨S, hS⟩ := X.inv.thr i th X.hth
   obtain ⟨th2, hth2, h⟩ := ownXLe0_run_noOwnUse hP (winQC hsc hw X hS) (TermViewInv.viewInv_run hV0 X.run)
-    (ownXLe_start_le X.inv X.hth hS hsto hin (Nat.le_of_eq hk0)) (.thread X.hc' h1) hc1 hPS hSub hSig
+    (ownXLe_start_le X.inv X.hth hS hsto hin (Nat.le_of_eq hk0)) (TermMain.tidAt_cut X.inv i S) (.thread X.hc' h1) hc1 hPS hSub hSig
   obtain rfl : th2 = th1 := Option.some.inj (hth2.symm.trans hth1)
   exact not_bufInitOn h
 
@@ -145,7 +145,7 @@ theorem noBufT_pub [WrIniC] {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init 
   obtain ⟨y1, a1, e1, rt1, ws1, ad1, hterm1, hea1, hws1, hx1⟩ := hpub
   obtain ⟨S, hS⟩ := X.inv.thr i th X.hth
   obtain ⟨th3, hth3, h⟩ := ownXLe_pub_noOwnUse hP (winQC hsc hw X hS) (TermViewInv.viewInv_run hV0 X.run) (ownXLe_start X.inv X.hth hS hsto hin)
-    (.thread X.hc' h1) hs hth1 hterm1 hea1 hws1 hx1 h2 hc2 hPS hSub hSig
+    (TermMain.tidAt_cut X.inv i S) (.thread X.hc' h1) hs hth1 hterm1 hea1 hws1 hx1 h2 hc2 hPS hSub hSig
   obtain rfl : th3 = th2 := Option.some.inj (hth3.symm.trans hth2)
   exact not_bufInitOn h
 

@@ -135,6 +135,8 @@ theorem sNo_substTs_sub {cx : Cx} {t u : Ty} (h : SubS cx t u) :
       simp only [substTs, sNo, Bool.and_eq_true] at hu ⊢
       exact ⟨iha σs c d hu.1, ihb σs c d hu.2⟩
   | cap _ _ => intros; simp [substTs, sNo]
+  | codeR _ _ => intros; simp [substTs, sNo]
+  | codeRR _ _ _ _ => intros; simp [substTs, sNo]
 
 theorem mPub_clM (ρ : Nat → Nat) (d : Nat) (μ : Mode) : mPub (clM ρ d μ) = mPub μ := by
   cases μ <;> rfl

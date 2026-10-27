@@ -22,10 +22,9 @@ peak at about 3.7 GB, against about 1.4 GB split; and each of the hand checks of
 the hand statement: the components cover the hand facts, and the facts
 follow without another decision.
 
-`hello1.w` fails `PlaceOK` (`hello1_placeOK`): its `scc_rt_main` tail is
-after a setup block, for which A11 has no `MainCode` yet. Its other
-components are decided in one declaration (`hello1_parts`), and the hand
-checks of `Spike/Lib/A64Hello1Code.lean` re-derived from them.
+`hello1.w`'s components and hand checks are in
+`Spike/Test/A64Hello1PlaceOK.lean` (one file each keeps the kernel's peak
+under 4 GB).
 
 The block table of the placement data is the hand table `ret0T`
 (`hello1T`) with the static offsets the analyser gives its blocks
@@ -45,12 +44,13 @@ def ret0Place : PlaceData :=
   { blocks := withEvs (ofGrps ret0T ret0Offs) ret0Evs, need := ret0Need, tail := .bare,
     ir := some (Scc.Lower.A64.lowerAll { arch := .arm } Spike.Lib.Ret0Src.ret0Src).low.ir }
 
+set_option maxHeartbeats 800000 in
 /-- **`ret0.w`'s `PlaceOK`**, a kernel decision per component, A9 by `a9_of_fast`. The output is
 written out, so that the extraction lemmas' `o.prog` reduces to `ret0Prog` by projection. -/
 theorem ret0_placeOK : placeOK Config.canonical ⟨ret0Prog, ret0Secs, [], ret0Place⟩ = true :=
   placeOK_of (by decide +kernel) (by decide +kernel) (by decide +kernel) (by decide +kernel)
     (by decide +kernel) (by decide +kernel) (by decide +kernel) (by decide +kernel)
-    (a9_of_fast (by decide +kernel)) (by decide +kernel)
+    (a9_of_fast (by decide +kernel)) (by decide +kernel) (by decide +kernel)
 
 example : ret0Λ.WF := (wf_link_of_placeOK ret0Imms ret0_placeOK :)
 example : abortsIn ret0Prog ret0Λ = true := (abortsIn_link_of_placeOK ret0Imms ret0_placeOK :)
@@ -199,78 +199,6 @@ example : okBlk (-80) 0 SO.entry Ret0.startMain = true :=
 
 end Blocks
 
-/-! ## hello1 -/
-
-/-- `hello1.w`'s placement data: its block table with its offsets, stack need and `scc_rt_main`'s tail. -/
-def hello1Place : PlaceData :=
-  { blocks := withEvs (ofGrps hello1T hello1Offs) hello1Evs, need := hello1Need, tail := .setup,
-    ir := some (Scc.Lower.A64.lowerAll { arch := .arm } Spike.Lib.Hello1Src.hello1Src).low.ir }
-
-/-- `hello1.w`'s output. Written out, so that the components' `o.prog` reduces to `hello1Prog` by
-projection. -/
-abbrev hello1O : Out := ⟨hello1Prog, hello1Secs, [], hello1Place⟩
-
-/-- **`hello1.w` fails `PlaceOK`**: `scc_rt_main`'s tail is after a setup block (`.setup`), for which A11
-has no `MainCode` yet (`mcOf .setup = none`), so A11 is `false` by evaluation. -/
-theorem hello1_placeOK : placeOK Config.canonical hello1O = false :=
-  placeOK_eq_false_of_a11 rfl
-
-/-- `hello1.w`'s components other than A11 (A9 is `true`), one kernel decision. -/
-theorem hello1_parts : (a1 hello1O (tablesOf Config.canonical hello1O) &&
-    a2 hello1O (tablesOf Config.canonical hello1O) &&
-    a3 hello1O (tablesOf Config.canonical hello1O) && a4 Config.canonical hello1O (tablesOf Config.canonical hello1O) &&
-    a5 hello1O (tablesOf Config.canonical hello1O) && a6 hello1O (tablesOf Config.canonical hello1O) &&
-    a7 hello1O (tablesOf Config.canonical hello1O) && a8 hello1O (tablesOf Config.canonical hello1O)) = true := by
-  decide +kernel
-
-private theorem hello1_a1 : (PlaceOK.a1 (tablesOf Config.canonical hello1O) &&
-    Scc.Cert.PlaceOK.layoutOk hello1O.secs (tablesOf Config.canonical hello1O).Λ) = true := by
-  have h := hello1_parts; simp only [Bool.and_eq_true] at h
-  exact (Bool.and_eq_true_iff.mp (Bool.and_eq_true_iff.mp
-    (h.1.1.1.1.1.1.1 : (((PlaceOK.a1 _ && _) && _) && _) = true)).1).1
-private theorem hello1_a2 : (loadOk (linkOf hello1Prog hello1Secs) hello1Prog hello1Secs &&
-    abortsIn hello1Prog (linkOf hello1Prog hello1Secs) && imageIn hello1Prog hello1Secs (linkOf hello1Prog hello1Secs))
-      = true := by
-  have h := hello1_parts; simp only [Bool.and_eq_true] at h; exact h.1.1.1.1.1.1.2
-private theorem hello1_a3 :
-    (decide (blocksIn hello1Prog (toGrps hello1Place.blocks)) && coverOk hello1Prog hello1Place.blocks) = true := by
-  have h := hello1_parts; simp only [Bool.and_eq_true] at h; exact h.1.1.1.1.1.2
-private theorem hello1_a4 : (Scc.Cert.WideA64.wideIn hello1Prog &&
-    Scc.Cert.NeedA64.needOk hello1Prog hello1Need 12288 ["scc_rt_main"]) = true := by
-  have h := hello1_parts; simp only [Bool.and_eq_true] at h; exact h.1.1.1.1.2
-private theorem hello1_a7 : rtIn hello1Prog (RtIn.rtTab RtIn.mainGrps1) = true := by
-  have h := hello1_parts; simp only [Bool.and_eq_true] at h
-  exact (Bool.and_eq_true_iff.mp (h.1.2 : (rtIn hello1Prog (RtIn.rtTab RtIn.mainGrps1) && _) = true)).1
-
-example : hello1Λ.WF := by
-  have h := hello1_a1; simp only [Bool.and_eq_true] at h; exact Scc.Cert.PlaceOK.wf_withImms (wf_of_a1 h.1) _
-example : abortsIn hello1Prog hello1Λ = true := by
-  have h := hello1_a2; simp only [Bool.and_eq_true] at h
-  exact (abortsIn_withImms (linkOf hello1Prog hello1Secs) hello1Imms hello1Prog).trans h.1.2
-example : imageIn hello1Prog hello1Secs hello1Λ = true := by
-  have h := hello1_a2; simp only [Bool.and_eq_true] at h
-  exact (imageIn_withImms (linkOf hello1Prog hello1Secs) hello1Imms hello1Prog hello1Secs).trans h.2
-example : loadOk hello1Λ hello1Prog hello1Secs = true := by
-  have h := hello1_a2; simp only [Bool.and_eq_true] at h
-  exact (loadOk_withImms (linkOf hello1Prog hello1Secs) hello1Imms hello1Prog hello1Secs).trans h.1.1
-example : Scc.Sem.Entry.linux.clear hello1Λ = true := by
-  have h := hello1_a1; simp only [Bool.and_eq_true] at h
-  exact (clear_withImms (linkOf hello1Prog hello1Secs) hello1Imms).trans
-    (Scc.Cert.PlaceOK.clear_of_below32 (Scc.Cert.PlaceOK.below32_of_layoutOk h.2))
-example : Scc.Cert.WideA64.wideIn hello1Prog = true := by
-  have h := hello1_a4; simp only [Bool.and_eq_true] at h; exact h.1
-example : blocksIn hello1Prog hello1T := by
-  have h := hello1_a3
-  simp only [Bool.and_eq_true, decide_eq_true_eq, hello1Place, toGrps_withEvs, toGrps_ofGrps] at h
-  exact h.1
-example : coverOk hello1Prog hello1Place.blocks = true := by
-  have h := hello1_a3; simp only [Bool.and_eq_true] at h; exact h.2
-example : Scc.Cert.Rt.A64.Abort.abortIn hello1Prog = true := RtIn.abortIn_of_rtIn hello1_a7
-example : Scc.Cert.Rt.A64.Print.printIn hello1Prog = true := RtIn.printIn_of_rtIn hello1_a7
-example : Scc.Cert.Rt.A64.Abort.mainIn hello1Prog = true := RtIn.mainIn_of_rtIn hello1_a7
-example : Scc.Cert.NeedA64.needOk hello1Prog hello1Need 12288 ["scc_rt_main"] = true := by
-  have h := hello1_a4; simp only [Bool.and_eq_true] at h; exact h.2
-
 /-! ## A wrong table is rejected
 
 Each part decides `false` on a wrong table, so `PlaceOK` does: its
@@ -303,10 +231,6 @@ example : placeOK Config.canonical
 /-- An output without its IR fails A9. -/
 example : placeOK Config.canonical ⟨ret0Prog, ret0Secs, [], { ret0Place with ir := none }⟩ = false :=
   placeOK_eq_false_of_a9 rfl
-
-/-- `ret0.w`'s IR against `hello1.w`'s listing fails A9 (`main`'s code block is not there). -/
-example : placeOK Config.canonical ⟨hello1Prog, hello1Secs, [], { hello1Place with ir := ret0Place.ir }⟩ = false :=
-  placeOK_eq_false_of_a9 (by decide +kernel)
 
 /-- The wrong tail shape fails A7. -/
 example : placeOK Config.canonical ⟨ret0Prog, ret0Secs, [], { ret0Place with tail := .setup }⟩ = false :=
@@ -402,7 +326,7 @@ example :
 /-- `scc_rt_main` at a `MainCode` other than its own (another frame size) fails A11. -/
 example : a11 ⟨ret0Prog, ret0Secs, [], ret0Place⟩ (tablesOf Config.canonical ⟨ret0Prog, ret0Secs, [], ret0Place⟩)
     = true ∧ Spike.Lib.A64.Rt.rtCodeOk ret0Prog { Spike.Lib.A64.Rt.bareMC with Z := 64 } = false :=
-  ⟨a11_of_parts rfl (rtCodeOk_bare_of_placeOK ret0_placeOK) (mainPh_of_placeOK ret0_placeOK rfl), by decide +kernel⟩
+  ⟨a11_of_parts rfl (rtCodeOk_bare_of_placeOK ret0_placeOK rfl) (mainPh_of_placeOK ret0_placeOK rfl), by decide +kernel⟩
 
 /-- A6's runtime phase facts (`rtPhOk` at `rtPhTab none`) and A11's
 `scc_rt_main` facts (`mainPhTab`) hold on `ret0.w`; a wrong `scc_rt_main`

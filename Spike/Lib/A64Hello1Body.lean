@@ -19,6 +19,7 @@ discharged by the output row once the source extern lands.
 -/
 import Spike.Lib.A64Hello1Segs
 import Spike.Lib.A64Ret0
+import Spike.Lib.Rt.A64WcRa
 
 namespace Spike.Lib.A64.Flow.Hello1
 
@@ -26,6 +27,7 @@ open CoreLang CoreTerm
 open Kraken Kraken.AArch64.Parser Kraken.Promising Kraken.Promising.AArch64 Kraken.Promising.Lower.A64
 open Spike.Lib Spike.Lib.A64.Flow
 open Spike.Lib.A64.Flow.Ret0 (CallerCells blkW_mono LimOk)
+open Spike.Lib.A64.Rt (WcRa)
 open Scc.Cert.Rt.A64 (Lays endOf blockAt label_labelGap labelGap)
 open Scc.Cert.Rt.A64.Print (printIn)
 
@@ -169,14 +171,16 @@ the caller's node `x` (pc the saved return address, `hra`; offsets
 local run of the source of every state with `x0 = 0`, `x29`/`x30` the saved
 record and the frame's words as the block left them (`hedge`). `print`'s
 write system call is a given segment for every frame condition the call
-hands it (`hsvc`; discharged by the output row once the source extern
+hands it, which also keeps the saved return address `x.pc` at `-8` of `R`
+(`WcRa`; `hsvc`, discharged by the output row once the source extern
 lands). Its states lie in `W`, none moved by `K` (`hW`). -/
 theorem hello1_wc_body_segW {W : Frag isaLSE2} {K : State → State → Prop}
     (hp : Lays exe SccCode.hello1Prog) (hend : endPc = endOf exe SccCode.hello1Prog)
     (hF : FStable R F) (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -144) (hhi : 0 ≤ R.hi)
     {J : AS → Ctl → Prop} {x : ND} (ho : x.o = ⟨0, []⟩)
     (hW : WcBody1W W K exe endPc R F J) (hra : ∀ σ c, J σ c → x.pc = Int64.ofBitVec (σ.slot (-8)))
-    (hsvc : ∀ F' : MachineData → Prop, FStable (pR R) F' → (∀ m, F' m → F m ∧ CallerCells R (-96) (-48) 0 m) →
+    (hsvc : ∀ F' : MachineData → Prop, FStable (pR R) F' →
+      (∀ m, F' m → (F m ∧ CallerCells R (-96) (-48) 0 m) ∧ WcRa R x.pc m) →
       ∀ g : PG, g.2.2 = ((_root_.Executable.labels exe).label ".L19_wc_main.sp4").toBitVec →
       SegW W K p lbl ms (At exe endPc (pR R) F' (Print.N (_root_.Executable.labels exe).label g.1 g.2.1 g.2.2 .svc))
         (At exe endPc (pR R) F' (Print.N (_root_.Executable.labels exe).label g.1 g.2.1 g.2.2 .n5)))
@@ -207,14 +211,25 @@ theorem hello1_wc_body_segW {W : Frag isaLSE2} {K : State → State → Prop}
       hR hal hF (by show R.lo ≤ -96 + -48; omega) (by decide) (by show (-96 : Int) < R.hi; omega) (by decide)
       (by show (-96 : Int) % 16 = 0; decide) (by decide) (by decide) (fun h => h.elim) (fun h => h.elim)
       (fun _ h _ => h)
-      (fun R' F' hR' hal' hlo' hhi' hF' _ hFF hR'e hcc g hg _ => by
+      (fun R' F' hR' hal' hlo' hhi' hF' _ hFF hR'e hcc g hg hK => by
         subst hR'e
         obtain ⟨σC, c, ⟨σ0, -, hσ⟩, ⟨-, -, h30⟩⟩ := hg
         have hg2 : g.2.2 = (lab ".L19_wc_main.sp4").toBitVec := by
           rw [← h30]; show σC.regs.X30.toBitVec = _; rw [hσ]; exact hX30 σ0
+        -- the saved return address: the word at `-8`, off `print`'s region, as at the call
+        have hra' : ∀ m, F' m → WcRa R x.pc m := fun m hm => by
+          obtain ⟨mC, σC', c', hA, ⟨σ0', hJ0', hσ'⟩, -, hkept⟩ := hK m hm
+          have hoff : R.Off (-8) := ⟨by decide, by omega, by omega⟩
+          have hn : ¬ (R.callee (wN lab J .call).o.sp (-48) 0).Off (-8 - (wN lab J .call).o.sp) := by
+            simp only [Region.Off, Region.callee, wN]; omega
+          obtain ⟨j, hj, hv⟩ := hA.slot _ hoff
+          refine ⟨j, (hkept _ hoff hn).trans hj, ?_⟩
+          rw [hv, hσ', wcC_eq, wcSl_eq, (wcSl_rec σ0').2]
+          exact (hra σ0' c' hJ0').symm
         exact (seg_print_ofW hp hend SccCode.hello1_print hF' hR' hal' hlo' hhi'
           (printW_mono (hW.print g hg2) fun m h => ⟨hFF m h, hcc m h⟩)
-          (hsvc F' hF' (fun m h => ⟨hFF m h, hcc m h⟩) g hg2)).mono_post fun _ _ ⟨y, h⟩ => ⟨y, h, trivial⟩)
+          (hsvc F' hF' (fun m h => ⟨⟨hFF m h, hcc m h⟩, hra' m h⟩) g hg2)).mono_post
+          fun _ _ ⟨y, h⟩ => ⟨y, h, trivial⟩)
       (fun _ => rfl) ?_ ?_
     · rintro σC c -
       exact ⟨(c, σC.regs.X29.toBitVec, σC.regs.X30.toBitVec), rfl, rfl, rfl, rfl⟩
@@ -288,7 +303,8 @@ theorem hello1_wc_segW {W : Frag isaLSE2} {K : State → State → Prop}
     (hW : Wc1W W K exe endPc R F ms J0)
     (hlim : ∀ σ c, J0 σ c → LimOk ms F exe endPc (tcbA σ.regs 8) (σ.regs.SP.toBitVec - (96 : Int64).toBitVec))
     (hra : ∀ σ c, J0 σ c → x.pc = Int64.ofBitVec σ.regs.X30.toBitVec)
-    (hsvc : ∀ F' : MachineData → Prop, FStable (pR R) F' → (∀ m, F' m → F m ∧ CallerCells R (-96) (-48) 0 m) →
+    (hsvc : ∀ F' : MachineData → Prop, FStable (pR R) F' →
+      (∀ m, F' m → (F m ∧ CallerCells R (-96) (-48) 0 m) ∧ WcRa R x.pc m) →
       ∀ g : PG, g.2.2 = ((_root_.Executable.labels exe).label ".L19_wc_main.sp4").toBitVec →
       SegW W K p lbl ms (At exe endPc (pR R) F' (Print.N (_root_.Executable.labels exe).label g.1 g.2.1 g.2.2 .svc))
         (At exe endPc (pR R) F' (Print.N (_root_.Executable.labels exe).label g.1 g.2.1 g.2.2 .n5)))

@@ -1,0 +1,8 @@
+Promises.TVal.val : Promises.TVal → WeakMem.Val
+TermRun.Word : Type
+TermRun.wordNum : TermRun.Word → Nat
+  := fun w =>
+  match w.val with
+  | WeakMem.Val.num n => n
+  | x => 0
+WeakMem.Val : Type

@@ -1,0 +1,10 @@
+CoreLang.Mo : Type
+CoreLang.RegAcc : Type
+CoreLang.Wd : Type
+CoreTerm.ExtName : Type
+CoreTerm.ExtName.pure : CoreTerm.ExtName → Bool
+  := fun x =>
+  match x with
+  | CoreTerm.ExtName.mmioR w CoreLang.RegAcc.ro mo => true
+  | CoreTerm.ExtName.regAt n w acc stride taken k => true
+  | x => false

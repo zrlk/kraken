@@ -174,7 +174,7 @@ theorem cl_congr : ∀ (u : Ty) (c d : Nat) (ρ ρ' : Nat → Nat) (W W' : Nat �
     cl ρ W c d u = cl ρ' W' c d u := by
   intro u
   induction u with
-  | unit | void | int | tid | fix | lanes => intros; rfl
+  | unit | void | int | tid | opq | fix | lanes => intros; rfl
   | intS i =>
       intro c d ρ ρ' W W' hI hT
       simp only [cl]; rw [clI_congr i d (fun j hj => hI j (by simp [Ty.idxMentions, hj]))]
@@ -188,7 +188,7 @@ theorem cl_congr : ∀ (u : Ty) (c d : Nat) (ρ ρ' : Nat → Nat) (W W' : Nat �
       simp only [cl]
       rw [iha c d ρ ρ' W W' (fun j hj => hI j (by simp [Ty.idxMentions, hj])) (fun j hj => hT j (by simp [Ty.tyMentions, hj])),
         ihb c d ρ ρ' W W' (fun j hj => hI j (by simp [Ty.idxMentions, hj])) (fun j hj => hT j (by simp [Ty.tyMentions, hj]))]
-  | code a b iha ihb =>
+  | code a b _ iha ihb =>
       intro c d ρ ρ' W W' hI hT
       simp only [cl]
       rw [iha c d ρ ρ' W W' (fun j hj => hI j (by simp [Ty.idxMentions, hj])) (fun j hj => hT j (by simp [Ty.tyMentions, hj])),
@@ -351,7 +351,7 @@ theorem VR_congr : ∀ (t : Ty) (ρ ρ' : Nat → Nat) (η η' : TEnv) (rt : Shp
     CE η = CE η' → VR ρ η t rt ws → VR ρ' η' t rt ws := by
   intro t
   induction t with
-  | unit | void | int | fix | lanes | share | cap | word | tok | word2 | tok2 | epair | tokE | array =>
+  | unit | void | int | fix | lanes | share | cap | word | tok | word2 | tok2 | epair | tokE | array | opq =>
       intro ρ ρ' η η' rt ws hI hT hE h; exact h
   | tid =>
       intro ρ ρ' η η' rt ws hI hT hE h
@@ -598,7 +598,7 @@ theorem ST_ment : ∀ (t : Ty) (L : Bool) (k j : Nat), ST L k t j = true → t.t
     rcases h with h | h
     · exact ih _ _ _ h
     · exact h.1
-  | unit | void | int | tid | intS | fix | lanes | sum | code | array | ptr | ptrOpt | loc | share | cap | word | tok | word2 | tok2 | epair | tokE | tvar =>
+  | unit | void | int | tid | opq | intS | fix | lanes | sum | code | array | ptr | ptrOpt | loc | share | cap | word | tok | word2 | tok2 | epair | tokE | tvar =>
     intro L k j h; simp only [ST] at h; rcases edge_any h with hm | ⟨h0, hw, h⟩; · exact hm
     simp_all
   | iall b ih =>
@@ -633,7 +633,7 @@ theorem SI_ment : ∀ (t : Ty) (L : Bool) (k j : Nat), SI L k t j = true → t.i
     rcases h with h | h
     · exact ih _ _ _ h
     · exact h.1
-  | unit | void | int | tid | intS | fix | lanes | sum | code | array | ptr | ptrOpt | loc | share | cap | word | tok | word2 | tok2 | epair | tokE | tvar =>
+  | unit | void | int | tid | opq | intS | fix | lanes | sum | code | array | ptr | ptrOpt | loc | share | cap | word | tok | word2 | tok2 | epair | tokE | tvar =>
     intro L k j h; simp only [SI] at h; rcases edge_any h with hm | ⟨h0, hw, h⟩; · exact hm
     simp_all
   | iall b ih =>
@@ -677,7 +677,7 @@ theorem ST_two : ∀ (t : Ty) (k j : Nat), ST true k t j = true → ST false k t
     · have := countT_pos b (j + 1) (ST_ment _ _ _ _ h2); have := countT_pos b 0 (ST_ment _ _ _ _ h1)
       simp only [m1, ↓reduceIte]; omega
     · have := ih k 0 h1 h2; simp only [m1, ↓reduceIte]; omega
-  | unit | void | int | tid | intS | fix | lanes | sum | code | array | ptr | ptrOpt | loc | share | cap | word | tok | word2 | tok2 | epair | tokE | tvar =>
+  | unit | void | int | tid | opq | intS | fix | lanes | sum | code | array | ptr | ptrOpt | loc | share | cap | word | tok | word2 | tok2 | epair | tokE | tvar =>
     intro k j h1 h2; simp only [ST] at h1 h2; obtain ⟨h0, hw, h1, h2⟩ := edge_TF h1 h2
     simp_all
   | iall b ih =>
@@ -720,7 +720,7 @@ theorem SI_two : ∀ (t : Ty) (k j : Nat), SI true k t j = true → SI false k t
     · have := countI_pos b j (SI_ment _ _ _ _ h2); have := countT_pos b 0 (ST_ment _ _ _ _ h1)
       simp only [m1, ↓reduceIte]; omega
     · have := ST_two b k 0 h1 h2; simp only [m1, ↓reduceIte]; omega
-  | unit | void | int | tid | intS | fix | lanes | sum | code | array | ptr | ptrOpt | loc | share | cap | word | tok | word2 | tok2 | epair | tokE | tvar =>
+  | unit | void | int | tid | opq | intS | fix | lanes | sum | code | array | ptr | ptrOpt | loc | share | cap | word | tok | word2 | tok2 | epair | tokE | tvar =>
     intro k j h1 h2; simp only [SI] at h1 h2; obtain ⟨h0, hw, h1, h2⟩ := edge_TF h1 h2
     simp_all
   | iall b ih =>
@@ -1004,7 +1004,7 @@ theorem tear_gen : ∀ (t : Ty) (ke : KEnv) (k : Nat) (us : List Acc) (ρ1 ρ2 �
         (fun j hj => hI2 j (by rw [hSI]; exact hj)))
       (fun j hj => hT1 j (by rw [hST]; exact hj)) (fun j hj => hT2 j (by rw [hST]; exact hj))
       hE1 hE2 (h1 n) (h2 n)
-  | unit | void | int | tid | intS | fix | lanes | sum | code | array | ptr | ptrOpt | loc | share | cap
+  | unit | void | int | tid | opq | intS | fix | lanes | sum | code | array | ptr | ptrOpt | loc | share | cap
     | word | tok | word2 | tok2 | epair | tokE | tvar =>
     intro ke k us ρ1 ρ2 ρ η1 η2 η ws1 ws2 hok hu hb l1 l2 hI1 hI2 hT1 hT2 hE1 hE2 h1 h2
     refine tear_wrap hu l1 l2 hI1 hI2 hT1 hT2 hE1 hE2 h1 h2 (fun h0 hw => ?_)
@@ -1120,7 +1120,7 @@ theorem Valid_gen : ∀ (t : Ty) (k : Nat) (us : List Acc) (ws1 ws2 : List Word)
   | refine b ψ ih =>
     intro k us ws1 ws2 hu hb l1 l2 h1 h2
     exact ih k us ws1 ws2 (by simpa [accs] using hu) hb l1 l2 h1 h2
-  | unit | void | int | tid | intS | fix | lanes | sum | code | array | ptr | ptrOpt | loc | share | cap
+  | unit | void | int | tid | opq | intS | fix | lanes | sum | code | array | ptr | ptrOpt | loc | share | cap
     | word | tok | word2 | tok2 | epair | tokE | tvar =>
     intro k us ws1 ws2 hu hb l1 l2 h1 h2
     refine Valid_wrap l1 l2 h1 h2 (fun h0 hw => ?_)
@@ -1217,7 +1217,7 @@ theorem VRR_congr : ∀ (t : Ty) (ρ ρ' : Nat → Nat) (η η' : TEnv) (rt : Sh
     CE η = CE η' → VRR ρ η t rt ws R → VRR ρ' η' t rt ws R := by
   intro t
   induction t with
-  | unit | void | int | fix | lanes | cap | epair | array =>
+  | unit | void | int | fix | lanes | cap | epair | array | opq =>
       intro ρ ρ' η η' rt ws R hI hT hE h; exact h
   | tid =>
       intro ρ ρ' η η' rt ws R hI hT hE h
@@ -1521,7 +1521,7 @@ theorem MT_ment : ∀ (t : Ty) (L : Bool) (sel : Nat → Bool) (j : Nat), MT L s
   | iall b ih =>
     intro L sel j h; simp only [MT] at h; rcases edgeU_any h with hm | ⟨_, h⟩; · exact hm
     exact ih _ _ _ h
-  | unit | void | int | tid | intS | fix | lanes | sum | code | array | ptr | ptrOpt | loc | share | cap
+  | unit | void | int | tid | opq | intS | fix | lanes | sum | code | array | ptr | ptrOpt | loc | share | cap
     | word | tok | word2 | tok2 | epair | tokE | tvar =>
     intro L sel j h; simp only [MT] at h; rcases edgeU_any h with hm | ⟨_, h⟩; · exact hm
     simp_all
@@ -1557,7 +1557,7 @@ theorem MI_ment : ∀ (t : Ty) (L : Bool) (sel : Nat → Bool) (j : Nat), MI L s
   | iall b ih =>
     intro L sel j h; simp only [MI] at h; rcases edgeU_any h with hm | ⟨_, h⟩; · exact hm
     exact ih _ _ _ h
-  | unit | void | int | tid | intS | fix | lanes | sum | code | array | ptr | ptrOpt | loc | share | cap
+  | unit | void | int | tid | opq | intS | fix | lanes | sum | code | array | ptr | ptrOpt | loc | share | cap
     | word | tok | word2 | tok2 | epair | tokE | tvar =>
     intro L sel j h; simp only [MI] at h; rcases edgeU_any h with hm | ⟨_, h⟩; · exact hm
     simp_all
@@ -1599,7 +1599,7 @@ theorem MT_two : ∀ (t : Ty) (sel : Nat → Bool) (j : Nat), MT true sel t j = 
   | iall b ih =>
     intro sel j h1 h2; simp only [MT] at h1 h2; obtain ⟨_, h1, h2⟩ := edgeU_TF h1 h2
     exact ih _ j h1 h2
-  | unit | void | int | tid | intS | fix | lanes | sum | code | array | ptr | ptrOpt | loc | share | cap
+  | unit | void | int | tid | opq | intS | fix | lanes | sum | code | array | ptr | ptrOpt | loc | share | cap
     | word | tok | word2 | tok2 | epair | tokE | tvar =>
     intro sel j h1 h2; simp only [MT] at h1 h2; obtain ⟨_, h1, h2⟩ := edgeU_TF h1 h2
     simp_all
@@ -1646,7 +1646,7 @@ theorem MI_two : ∀ (t : Ty) (sel : Nat → Bool) (j : Nat), MI true sel t j = 
   | iall b ih =>
     intro sel j h1 h2; simp only [MI] at h1 h2; obtain ⟨_, h1, h2⟩ := edgeU_TF h1 h2
     exact ih _ (j + 1) h1 h2
-  | unit | void | int | tid | intS | fix | lanes | sum | code | array | ptr | ptrOpt | loc | share | cap
+  | unit | void | int | tid | opq | intS | fix | lanes | sum | code | array | ptr | ptrOpt | loc | share | cap
     | word | tok | word2 | tok2 | epair | tokE | tvar =>
     intro sel j h1 h2; simp only [MI] at h1 h2; obtain ⟨_, h1, h2⟩ := edgeU_TF h1 h2
     simp_all
@@ -1677,7 +1677,7 @@ theorem MT_const : ∀ (t : Ty) (L c : Bool) (j : Nat),
   | mu b ih =>
     intro L c j; simp only [MT, edgeU, ih, Ty.tyMentions]
     split <;> cases c <;> cases L <;> cases b.tyMentions (j + 1) <;> simp
-  | unit | void | int | tid | intS | fix | lanes | sum | code | array | ptr | ptrOpt | loc | share | cap
+  | unit | void | int | tid | opq | intS | fix | lanes | sum | code | array | ptr | ptrOpt | loc | share | cap
     | word | tok | word2 | tok2 | epair | tokE | tvar =>
     intro L c j; simp only [MT, edgeU]; split <;> rfl
 
@@ -1696,7 +1696,7 @@ theorem MI_const : ∀ (t : Ty) (L c : Bool) (j : Nat),
   | mu b ih =>
     intro L c j; simp only [MI, edgeU, ih, MT_const, Ty.idxMentions]
     split <;> cases c <;> cases L <;> cases b.idxMentions j <;> simp
-  | unit | void | int | tid | intS | fix | lanes | sum | code | array | ptr | ptrOpt | loc | share | cap
+  | unit | void | int | tid | opq | intS | fix | lanes | sum | code | array | ptr | ptrOpt | loc | share | cap
     | word | tok | word2 | tok2 | epair | tokE | tvar =>
     intro L c j; simp only [MI, edgeU]; split <;> rfl
 
@@ -2020,7 +2020,7 @@ theorem mixR_gen : ∀ (t : Ty) (ke : KEnv) (us : List Acc) (sel : Nat → Bool)
       hE1 hE2 hc1 hc2 (h1 n) (h2 n)
     rw [z1, z2, Res.zero_add] at hle
     rw [← Res_le_zero hle]; exact hv
-  | unit | void | int | tid | intS | fix | lanes | sum | code | array | ptr | ptrOpt | loc | share | cap
+  | unit | void | int | tid | opq | intS | fix | lanes | sum | code | array | ptr | ptrOpt | loc | share | cap
     | word | tok | word2 | tok2 | epair | tokE | tvar =>
     intro ke us sel ρ1 ρ2 ρ η1 η2 η ws1 ws2 R1 R2 hok hia hu l1 l2 hI1 hI2 hT1 hT2 hE1 hE2 hc1 hc2 h1 h2
     refine mix_wrap hu l1 l2 hI1 hI2 hT1 hT2 hE1 hE2 h1 h2 (fun hn => ?_)
@@ -2103,7 +2103,7 @@ theorem Valid_mixGen : ∀ (t : Ty) (us : List Acc) (sel : Nat → Bool) (ws1 ws
   | refine b ψ ih =>
     intro us sel ws1 ws2 hu l1 l2 h1 h2
     exact ih us sel ws1 ws2 (by simpa [accs] using hu) l1 l2 h1 h2
-  | unit | void | int | tid | intS | fix | lanes | sum | code | array | ptr | ptrOpt | loc | share | cap
+  | unit | void | int | tid | opq | intS | fix | lanes | sum | code | array | ptr | ptrOpt | loc | share | cap
     | word | tok | word2 | tok2 | epair | tokE | tvar =>
     intro us sel ws1 ws2 hu l1 l2 h1 h2
     have hl : us.length ≤ 1 := by

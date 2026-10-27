@@ -54,7 +54,7 @@ The only runtime of an scc binary (`--host linux`, `--gc none`):
 * `scc_rt_park()` / `scc_rt_unpark(t)`: a permit word in the TCB with a futex
   (`FUTEX_WAIT_PRIVATE` / `FUTEX_WAKE_PRIVATE`).  `park` consumes the permit if
   set, else waits while it is 0, then consumes it; it may return spuriously,
-  which WeakCore's `park` (a model body that returns at once) allows.
+  which WeakCore's `park` allows (a return without a permit is a spurious wake).
 * `scc_rt_abort(k)`: dispatches on the `AbortKind` code to
   `scc_rt_abort_<kind>()`, which writes the kind's message to fd 2 and exits
   with status `abortExitCode` (101); one `exit_group` site per kind, the

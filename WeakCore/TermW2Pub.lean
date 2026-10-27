@@ -49,7 +49,7 @@ theorem pubWordW_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] 
   have ZC := Z.toC Rf Rs (HP i + HS) (cr i) (db i)
   have hlt : t < c'.mem.size := TermPlant.lt_size_of_some hm
   obtain ⟨-, c2, th2, E2, h2, hc2, hth2, hx2, -, hm2, hw2, hfb2, hIL2, hIH2, hPO2⟩ :=
-    TermXFO.certified_promNotUndefXO (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hsc (by first | exact TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw | exact TermViewInv.viewInv_run hV0 X.run | exact TermViewInv.viewInv_thread (TermViewInv.viewInv_run hV0 X.run) X.hc') hwin h0X X.cert hrlE
+    TermXFO.certified_promNotUndefXO (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hsc (by first | exact TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw | exact TermViewInv.viewInv_run hV0 X.run | exact TermViewInv.viewInv_thread (TermViewInv.viewInv_run hV0 X.run) X.hc') hwin h0X (TermTyped.tidAt_mono hAP.2 (TermTyped.tidAt_thread X.hc' (TermMain.tidAt_cut X.inv i S))) X.cert hrlE
       (hbtr X Y Z hPfrP) ht' hm (hbp X) hHrT
   obtain ⟨-, hTr, -, hnT, hrT⟩ := hmE.2.2.2.2.2.2.2.2.1.2.2.1 l cl f hcl' hf
   have hnS := noOwn_seg hseg hnT

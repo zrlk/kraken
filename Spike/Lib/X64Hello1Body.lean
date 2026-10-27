@@ -24,6 +24,7 @@ discharged by the output row once the source extern lands.
 import Spike.Lib.X64Hello1Segs
 import Spike.Lib.X64Ret0
 import Spike.Lib.X64Flags
+import Spike.Lib.Rt.X64WcRa
 
 namespace Spike.Lib.X64.Flow.Hello1
 
@@ -31,6 +32,7 @@ open CoreLang CoreTerm
 open Kraken Kraken.Promising Kraken.Promising.X64 Kraken.Promising.Lower Kraken.Promising.Lower.X64
 open Kraken.X64.Parser Spike.Lib Spike.Lib.X64 Spike.Lib.X64.Flow
 open Spike.Lib.X64.Flow.Ret0 (CallerCells blkW_mono)
+open Spike.Lib.X64.Rt (WcRa WcFp)
 open Scc.Cert.Rt.X64 (Lays endOf blockAtB labelGapB code_field label_labelGapB)
 
 set_option linter.unusedSimpArgs false
@@ -239,9 +241,10 @@ theorem hello1_wc_body_segW {W : Frag isa} {K : State → State → Prop}
     (hF : FStable R F) (hR : R.OK) (hlo : R.lo ≤ -144) (hhi : 8 ≤ R.hi)
     {J : AS → Ctl → Prop} {x : ND} (ho : SO.le x.o ⟨8, []⟩ = true)
     (hW : WcBody1W W K exe endPc R F J) (hra : ∀ σ c, J σ c → x.pc = Int64.ofBitVec (σ.slot 0))
+    {fp : BitVec 64} (hfp : ∀ σ c, J σ c → σ.slot (-8) = fp)
     (hsys : ∀ F' : MachineData → Prop, FStable (pR R) F' →
-      (∀ m, F' m → F m ∧ CallerCells R (-96 - 8) (-40) 16 m) →
-      ∀ g : PG, g.2.2 = ((_root_.Executable.labels exe).label ".Lwc_main.x15").toBitVec →
+      (∀ m, F' m → (F m ∧ CallerCells R (-96 - 8) (-40) 16 m) ∧ WcRa R x.pc m ∧ WcFp R fp m) →
+      ∀ g : PG, g.2.2 = ((_root_.Executable.labels exe).label ".Lwc_main.x15").toBitVec → g.2.1 = R.addr (-8) →
       SegW W K p lbl ms (At exe endPc (pR R) F' (Print.N (_root_.Executable.labels exe).label g.1 g.2.1 g.2.2 .sys))
         (At exe endPc (pR R) F' (Print.N (_root_.Executable.labels exe).label g.1 g.2.1 g.2.2 .n5)))
     (hedge : ∀ σ c, J σ c → σ.regs.get64 .rbp = R.addr (-8) → ∀ σ' : AS,
@@ -283,14 +286,30 @@ theorem hello1_wc_body_segW {W : Frag isa} {K : State → State → Prop}
       (by show (-96 : Int) - 8 + 16 ≤ R.hi; omega) (by show ((-96 : Int) - 8) % 8 = 0; decide) (by decide)
       (by decide) (fun h => h.elim)
       (fun h => h.elim) (fun _ h _ => h)
-      (fun R' F' hR' hlo' hhi' hF' _ hFF hR'e hcc g hg _ => by
+      (fun R' F' hR' hlo' hhi' hF' _ hFF hR'e hcc g hg hab => by
         subst hR'e
-        obtain ⟨σC, c, ⟨σ0, fl, -, hσ⟩, ⟨-, -, h8⟩⟩ := hg
+        obtain ⟨σC, c, ⟨σ0, fl, hJ0, hσ⟩, ⟨-, hb, h8⟩⟩ := hg
         have hg2 : g.2.2 = (lab ".Lwc_main.x15").toBitVec := by
           rw [← h8]; show σC.slot (-96 - 8 + 8) = _; rw [hσ]; exact wcC_ra lab σ0 fl e15
+        -- `print`'s saved `%rbp`: `wc_main`'s, at offset `-8`
+        have hg1 : g.2.1 = R.addr (-8) := by
+          rw [← hb]; show σC.regs.get64 .rbp = _; rw [hσ, wcC_rbp]; exact hJ0.2
+        -- the return address, at offset `0`, outside `print`'s region: as at the call
+        -- and the saved `%rbp`, at offset `-8`
+        have hwr : ∀ m, F' m → WcRa R x.pc m ∧ WcFp R fp m := fun m hm => by
+          obtain ⟨mC, σC', c', hA, ⟨σ0', fl', hJ0', hσ'⟩, -, hkept⟩ := hab m hm
+          obtain ⟨j, hj, hv⟩ := hA.slot 0 ⟨by decide, by omega, by omega⟩
+          obtain ⟨j8, hj8, hv8⟩ := hA.slot (-8) ⟨by decide, by omega, by omega⟩
+          refine ⟨⟨j, ?_, ?_⟩, ⟨j8, ?_, ?_⟩⟩
+          · rw [hkept 0 ⟨by decide, by omega, by omega⟩ (by simp only [Region.Off, Region.callee, wN]; omega), hj]
+          · rw [hv, hσ', wcC_slot, (wcSl_rec lab σ0').2]; exact (hra σ0' c' hJ0'.1).symm
+          · rw [hkept (-8) ⟨by decide, by omega, by omega⟩ (by simp only [Region.Off, Region.callee, wN]; omega),
+              hj8]
+          · rw [hv8, hσ', wcC_slot, (wcSl_rec lab σ0').1]; exact hfp σ0' c' hJ0'.1
         exact (seg_print_ofW hp hend SccCode.hello1_print hF' hR' hlo' hhi'
           (printW_mono (hW.print g hg2) fun m h => ⟨hFF m h, hcc m h⟩)
-          (hsys F' hF' (fun m h => ⟨hFF m h, hcc m h⟩) g hg2)).mono_post fun _ _ ⟨y, h⟩ => ⟨y, h, trivial⟩)
+          (hsys F' hF' (fun m h => ⟨⟨hFF m h, hcc m h⟩, hwr m h⟩) g hg2 hg1)).mono_post
+          fun _ _ ⟨y, h⟩ => ⟨y, h, trivial⟩)
       (fun _ => rfl) ?_ ?_
     · rintro σC c -
       exact ⟨(c, σC.regs.rbp.toBitVec, σC.slot (-96)), rfl, rfl, rfl, rfl⟩
@@ -373,9 +392,10 @@ theorem hello1_wc_segW {W : Frag isa} {K : State → State → Prop}
     (hlim : ∀ σ c, J0 σ c → Ret0.LimOk ms F (σ.regs.fsBase.toBitVec + (8 : Int64).toBitVec)
       (σ.regs.rsp.toBitVec - 8#64 - (80 : Int64).toBitVec))
     (hra : ∀ σ c, J0 σ c → x.pc = Int64.ofBitVec (σ.slot 0))
+    {fp : BitVec 64} (hfp : ∀ σ c, J0 σ c → σ.regs.rbp.toBitVec = fp)
     (hsys : ∀ F' : MachineData → Prop, FStable (pR R) F' →
-      (∀ m, F' m → F m ∧ CallerCells R (-96 - 8) (-40) 16 m) →
-      ∀ g : PG, g.2.2 = ((_root_.Executable.labels exe).label ".Lwc_main.x15").toBitVec →
+      (∀ m, F' m → (F m ∧ CallerCells R (-96 - 8) (-40) 16 m) ∧ WcRa R x.pc m ∧ WcFp R fp m) →
+      ∀ g : PG, g.2.2 = ((_root_.Executable.labels exe).label ".Lwc_main.x15").toBitVec → g.2.1 = R.addr (-8) →
       SegW W K p lbl ms (At exe endPc (pR R) F' (Print.N (_root_.Executable.labels exe).label g.1 g.2.1 g.2.2 .sys))
         (At exe endPc (pR R) F' (Print.N (_root_.Executable.labels exe).label g.1 g.2.1 g.2.2 .n5)))
     (hedge : ∀ σ c, wcJ J0 σ c → σ.regs.get64 .rbp = R.addr (-8) → ∀ σ' : AS,
@@ -387,7 +407,8 @@ theorem hello1_wc_segW {W : Frag isa} {K : State → State → Prop}
       (fun s c => ∃ y, At exe endPc R F (wX (_root_.Executable.labels exe).label (wcJ J0) x y) s c) := by
   refine SegW.seq (hello1_wc_prologue_segW hp hend
     (nb := ⟨(_root_.Executable.labels exe).label ".Lwc_main.entry", oB, wcJ J0⟩) hF hR (by omega) (by omega) rfl
-    (by show SO.le oB (oF 80) = true; decide) hW.pro ?_) (hello1_wc_body_segW hp hend hF hR hlo hhi ho hW.body ?_ hsys hedge)
+    (by show SO.le oB (oF 80) = true; decide) hW.pro ?_)
+    (hello1_wc_body_segW hp hend hF hR hlo hhi ho hW.body ?_ ?_ hsys hedge)
   · intro σ c hJ
     have hl := hlim σ c hJ
     refine ⟨hl.rt, hl.mp, hl.unmapped, fun v hv => ⟨hl.room v hv, fun σ' hr hs => ⟨σ, hJ, ?_⟩⟩⟩
@@ -395,6 +416,8 @@ theorem hello1_wc_segW {W : Frag isa} {K : State → State → Prop}
     simp [xStSlots, xS1, upd_apply, xFrRegs, hdRegs, Reg64s.set64, Reg64s.get64]
   · rintro σ c ⟨σe, hJ, h0, -⟩
     rw [h0]; exact hra σe c hJ
+  · rintro σ c ⟨σe, hJ, -, h8, -⟩
+    rw [h8]; exact hfp σe c hJ
 
 end WcFn
 

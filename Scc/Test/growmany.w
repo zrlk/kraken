@@ -4,12 +4,6 @@
 -- spawns the workers recursively and, on the way back, waits for each cell
 -- (acquire load, parking in between) and adds the sums.
 -- Exit status: 16 * 50005000 mod 256 = 128.
-def park(u : Unit) : Unit =
-  ret ()
-
-def unpark(t : Ptr pub Void) : Unit =
-  ret ()
-
 def sum(n : U64) : Int =
   let z = cvt U64 0
   let c = fcmp eq n z
@@ -23,23 +17,23 @@ def sum(n : U64) : Int =
     let s = r + iv
     ret s
 
-def worker(a : Ptr pub Int * Ptr pub Void) : Unit =
+def worker(a : Ptr pub Int * ThreadId) : Unit =
   let (d, me) = a
   let n = cvt U64 10000
   let r = sum(n)
   let s = store rel d r
-  let w = unpark(me)
+  let w = unpark me
   ret ()
 
 def wait(d : Ptr pub Int) : Int =
   let x = load acq d
   if x = 0 then
-    let p = park(())
+    let p = park ()
     tail wait(d)
   else
     ret x
 
-def spawnAll(a : U64 * Ptr pub Void) : Int =
+def spawnAll(a : U64 * ThreadId) : Int =
   let (k, me) = a
   let z = cvt U64 0
   let c = fcmp eq k z
@@ -59,7 +53,7 @@ def spawnAll(a : U64 * Ptr pub Void) : Int =
     let s = r + v
     ret s
 
-def main(me : Ptr pub Void) : Int =
+def main(me : ThreadId) : Int =
   let n = cvt U64 16
   let a = (n, me)
   let r = spawnAll(a)

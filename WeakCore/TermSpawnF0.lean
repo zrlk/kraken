@@ -60,6 +60,8 @@ theorem SubS_facts {a b : Ty} (h : SubS c a b) : SubS c' a b := by
   | prod _ _ h1 h2 => exact .prod h1 h2
   | sum _ _ h1 h2 => exact .sum h1 h2
   | cap h1 h2 => exact .cap h1 (IEq_facts hf h2)
+  | codeR h1 h2 => exact .codeR (TyEqS_facts hf h1) (TyEqS_facts hf h2)
+  | codeRR h1 h2 h3 h4 => exact .codeRR h1 h2 (TyEqS_facts hf h3) (TyEqS_facts hf h4)
 end facts
 
 theorem noIallV_TyEqS {c : Cx} {d : Nat} {a b : Ty} (h : TyEqS c d a b) : noIallV a = noIallV b := by
@@ -75,6 +77,8 @@ theorem noIallV_of_SubS {c : Cx} {a b : Ty} (h : SubS c a b) (hb : noIallV b = t
   | prod _ _ ih1 ih2 => simp only [noIallV, Bool.and_eq_true] at hb ⊢; exact ⟨ih1 hb.1, ih2 hb.2⟩
   | sum _ _ ih1 ih2 => simp only [noIallV, Bool.and_eq_true] at hb ⊢; exact ⟨ih1 hb.1, ih2 hb.2⟩
   | cap => rfl
+  | codeR h1 h2 | codeRR _ _ h1 h2 =>
+      first | rfl | (simp only [noIallV, Bool.and_eq_true] at hb ⊢; rw [noIallV_TyEqS h1, noIallV_TyEqS h2]; exact hb)
 
 theorem instantiate_nil {cx : Cx} {d : Decl} {ts : List Ty} {at_ rt : Ty}
     (h : instantiate cx d [] ts = .ok (at_, rt)) : rt = substTs ts.reverse 0 0 (instT [] 0 d.retTy) := by
@@ -147,7 +151,9 @@ theorem sub_norm {cx cx' : Cx} (h : ∀ i, cx.norm i = cx'.norm i) :
     intro d μ ν; cases μ <;> cases ν <;> simp [meqD, ieqD, he]
   intro a
   induction a <;> intro b <;> cases b <;> (try simp_all [sub, ieqD])
-  all_goals (rename_i _ ψ1 _ _ ψ2; cases ψ1 <;> cases ψ2 <;> simp_all [sub])
+  all_goals first
+    | (rename_i _ ψ1 _ _ ψ2; cases ψ1 <;> cases ψ2 <;> simp_all [sub])
+    | (rename_i k1 _ _ _ _ k2; cases k1 <;> cases k2 <;> simp only [sub, ht])
 
 /-- (spawn-site checker rule) **`checkW` of the setup's tail call at its callee's declared return type.** -/
 theorem checkW_tail_retype {p : Prog} {cx : Cx} {f : String} {a : At} {ts : List Ty} {d : Decl}
@@ -215,7 +221,7 @@ theorem wf_shiftT (t : Ty) : ∀ (c nt ni : Nat), t.wf nt ni = true → (t.shift
     intro c nt ni h; simp only [Ty.wf, Ty.shiftT, Bool.and_eq_true] at h ⊢; exact ⟨iha _ _ _ h.1, ihb _ _ _ h.2⟩
   | sum a b iha ihb =>
     intro c nt ni h; simp only [Ty.wf, Ty.shiftT, Bool.and_eq_true] at h ⊢; exact ⟨iha _ _ _ h.1, ihb _ _ _ h.2⟩
-  | code a b iha ihb =>
+  | code a b _ iha ihb =>
     intro c nt ni h; simp only [Ty.wf, Ty.shiftT, Bool.and_eq_true] at h ⊢; exact ⟨iha _ _ _ h.1, ihb _ _ _ h.2⟩
   | array i t ih =>
     intro c nt ni h; simp only [Ty.wf, Ty.shiftT, Bool.and_eq_true] at h ⊢; exact ⟨h.1, ih _ _ _ h.2⟩
@@ -240,7 +246,7 @@ theorem substTs_tb (t : Ty) : ∀ (σs : List Ty) (c d : Nat), tb c t = true →
     intro σs c d h; simp only [tb, Bool.and_eq_true] at h; simp only [substTs]; rw [iha σs c d h.1, ihb σs c d h.2]
   | sum a b iha ihb =>
     intro σs c d h; simp only [tb, Bool.and_eq_true] at h; simp only [substTs]; rw [iha σs c d h.1, ihb σs c d h.2]
-  | code a b iha ihb =>
+  | code a b _ iha ihb =>
     intro σs c d h; simp only [tb, Bool.and_eq_true] at h; simp only [substTs]; rw [iha σs c d h.1, ihb σs c d h.2]
   | array i t ih => intro σs c d h; simp only [tb] at h; simp only [substTs]; rw [ih σs c d h]
   | ptr μ t ih => intro σs c d h; simp only [tb] at h; simp only [substTs]; rw [ih σs c d h]

@@ -93,7 +93,7 @@ it (`core_ins`: off the transfer sites by the node obligations), and so do a
 system call's certification step (`core_sys`) and the take site's
 (`core_site`, by `TakePath.site`'s local run); a certified promise from
 `Pre` lands in it (`pre_core_promise`). -/
-theorem promShared_a64 {μ : Marks} {rd : TermRun.Word → Prop} (hP : P.hooks = SrcSem.SrcHooks.none)
+theorem promShared_a64 {μ : Marks} {rd : TermRun.Word → Prop} (hP : HookOK P p)
     (hN : Nodes Λ p μ rd G own I) (hS : SrcMem P p) (hsafe : SrcSafe P p I) (hrd : ∀ w, rd w) (hwf : Λ.WF)
     (hGpl : ∀ a v, Λ.heap.contains a ∨ Λ.data.contains a → G (wordLoc a) v) (hT : TakePath Λ p μ I rS Tk) :
     PromShared Λ P p G own I rS Tk μ :=

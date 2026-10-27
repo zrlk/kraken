@@ -68,6 +68,7 @@ import Spike.Lib.X64StartOfPlaceOK
 import Spike.Lib.X64PhPinsOfPlaceOK
 import Scc.Sem.CorrectEX64
 import Spike.Lib.Rt.X64RtStartU
+import Spike.Lib.LowerX64.TailBare
 
 namespace Spike.Lib.LowerX64
 
@@ -224,7 +225,8 @@ theorem x64_lower_correctE (hd : Scc.Lower.Accepted0 [d] = true) {em : Scc.Lower
   obtain ⟨fr, r, entry, zl, zf, z1, z2, zs, hr, hf, h4, h16, hpro, hbody, hphB, hphP, hab⟩ :=
     mainPh_ofPlaceOK hd hlow h (immsOf d)
   have hpc := Spike.Lib.X64.PhRec.hpc_ofPlaceOKE h (immsOf d) E
-  have hS := x64_start_segW h (immsOf d) hd hf h4 h16 hpro hr hbody
+  have htl := tail_bare_of_accepted0 hd hlow sizes labelOffs
+  have hS := x64_start_segW h (immsOf d) hd htl hf h4 h16 hpro hr hbody
     (Dt := OvfDt (Ly h).exe (Ly h).endPc (Ly h).lab) (rd := fun _ => True) (G := G0 h)
     (hs' ▸ rtFree_ofPlaceOK h _) hE hphB hphP Ret0.Inst.cfacts_c0 hab rfl
     (fun _ _ hlo hhi _ _ _ hA => ovfDt_of_at hlo hhi hA)
@@ -234,12 +236,12 @@ theorem x64_lower_correctE (hd : Scc.Lower.Accepted0 [d] = true) {em : Scc.Lower
     (hownN_of_ph h _ (by rw [hphN_ofPlaceOK h _]))
     (hroomM_ofPlaceOK h _)
     (hroomU_ofPlaceOK h _ (Int.natCast_nonneg _) (by omega))
-    (Spike.Lib.X64.Rt.PhRecOf.mainPh_bare_ofPlaceOK h _) (Spike.Lib.X64.Rt.PhRecOf.swPh_ofPlaceOK h _)
+    (Spike.Lib.X64.Rt.PhRecOf.mainPh_bare_ofPlaceOK h _ htl) (Spike.Lib.X64.Rt.PhRecOf.swPh_ofPlaceOK h _)
     (hgen fr h4)
   obtain ⟨inv, hP, hN, hT, hA, hWr⟩ :=
     Spike.Lib.X64Consumer.inst_of_segW
       (Spike.Lib.X64.Rt.entry_segW_take (Ly h) hE
-        (Spike.Lib.X64.Rt.rtCodeIn_of_ok (rtCodeOk_bare_of_placeOKAt h)).start0
+        (Spike.Lib.X64.Rt.rtCodeIn_of_ok (rtCodeOk_bare_of_placeOKAt h htl)).start0
         (Spike.Lib.X64.Rt.rS0_sub (Ly h)) _
         (Spike.Lib.X64.Rt.entryW_ofPlaceOK h _ (Spike.Lib.X64.Rt.entryR_ok hE)
           (by show (-65536 : Int) ≤ -8; decide) (by show (0 : Int) ≤ 0; decide)
@@ -247,7 +249,7 @@ theorem x64_lower_correctE (hd : Scc.Lower.Accepted0 [d] = true) {em : Scc.Lower
       (Spike.Lib.X64.PhRec.site_ofPlaceOK h _) (fun _ _ h => h)
   have hI := Spike.Lib.X64.PhRec.instOk_ofPlaceOK h (immsOf d) (rS := Spike.Lib.X64.Rt.rS0 (Ly h))
   exact Spike.Lib.X64Consumer.correctX64PE' (lsize := fun _ => 0) (name := fun _ => "") hss0 hss
-    (wideIn_of_placeOKAt h) ⟨rfl, rfl, hP _ _ (entry_atXE h _ hE hpc)⟩ hload (Spike.Lib.srcP1_hooks arch)
+    (wideIn_of_placeOKAt h) ⟨rfl, rfl, hP _ _ (entry_atXE h _ hE hpc)⟩ hload (.none (Spike.Lib.srcP1_hooks arch))
     (Spike.Lib.srcP1_init arch) hN (Spike.Lib.X64Consumer.safe_of_accepted0 hd arch _) hT
     (htk0_ofPlaceOK h _ (hph0_of h _ hpc (hph0_ofPlaceOK h _)))
     (hown0_ofPlaceOKE h _ hE.1 (hph0_of h _ hpc (hph0_ofPlaceOK h _)))
@@ -416,8 +418,9 @@ are inside the run's facts given the switch's and `scc_rt_main`'s
 obligations, in `_start`'s callee region `EC E` (`ec_facts`: it does not
 wrap, holds `scc_rt_start`'s frames, and the first stack's words are out of
 it), at the first stack `rS0` (`rS0_eq_lab`, `rS0_sub`) and `c0`'s facts
-(`cfacts_c0`). This is the compiler theorem's `hgen`. -/
-theorem hgen_ofPlaceOK {Λ : Scc.Sem.Layout} (h : placeOKAt pcfg Λ (O) = true) :
+(`cfacts_c0`), on a bare tail (`hs`, `tail_bare_of_accepted0`). This is
+the compiler theorem's `hgen`. -/
+theorem hgen_ofPlaceOK {Λ : Scc.Sem.Layout} (h : placeOKAt pcfg Λ (O) = true) (hs : (O).place.tail = .bare) :
     ∀ E : Entry, E.Ok (Ly h).Λ → ∀ fr : Scc.Emit.X64.Frame, fr.size ≤ 4096 →
       ∀ F' : MachineData → Prop, FStable (EC E) F' → KStable (KS h) F' → (∀ m, F' m → rtF (Ly h) m) →
       SwUW (WS h (Ly h).Λ.static) (KS h) [d] (Ly h).Λ.static (Ly h).exe (Ly h).endPc (EC E)
@@ -430,7 +433,7 @@ theorem hgen_ofPlaceOK {Λ : Scc.Sem.Layout} (h : placeOKAt pcfg Λ (O) = true) 
           ((fr.size : Int) + 48) (Int64.ofInt fr.size) (UPost [d] (Ly h).Λ.static Spike.Lib.X64Consumer.c0) :=
   fun E hE _ _ _ _ _ hFF hs3 =>
     have hEC := ec_facts _ hE (Spike.Lib.X64.Rt.rS0_sub _)
-    Spike.Lib.X64.Rt.startAllUW_gen h (immsOf d) Ret0.Inst.cfacts_c0 hEC.1 hEC.2.1 hEC.2.2.1 hFF rfl
+    Spike.Lib.X64.Rt.startAllUW_gen h (immsOf d) hs Ret0.Inst.cfacts_c0 hEC.1 hEC.2.1 hEC.2.2.1 hFF rfl
       (rS0_eq_lab _) (Spike.Lib.X64.Rt.rS0_sub _) hEC.2.2.2.2 hs3
 
 /-- **The x86-64 compiler theorem at every admissible entry state, closed**:
@@ -443,7 +446,8 @@ theorem x64_scc_correctE_closed (hd : Scc.Lower.Accepted0 [d] = true) (h : place
     ∀ E : Entry, E.Ok { (tablesOf pcfg (O)).Λ with imms := immsOf d } →
       Scc.Sem.Correct (TParE E) (Scc.Sem.SrcSem.source (Spike.Lib.srcP1 arch) [d])
         { (tablesOf pcfg (O)).Λ with imms := immsOf d } B ((O).prog, (O).secs, (O).labelOffs) :=
-  x64_scc_correctE hd h (hgen_ofPlaceOK (atTables h))
+  have ⟨_, hlow⟩ := lowerAll?_ok_of_placeOK (atTables h)
+  x64_scc_correctE hd h (hgen_ofPlaceOK (atTables h) (tail_bare_of_accepted0 hd hlow sizes labelOffs))
 
 /-- **The x86-64 compiler theorem on the text, at every admissible entry
 state, closed** (`Scc.Sem.X64.CorrectE`): `x64_scc_correctE_text` with its
@@ -454,7 +458,8 @@ theorem x64_scc_correctE_text_closed (hd : Scc.Lower.Accepted0 [d] = true) (h : 
     {B : Scc.Sem.Budget} {arch : WeakMem.Arch} :
     Scc.Sem.X64.CorrectE 1 (Scc.Sem.SrcSem.source (Spike.Lib.srcP1 arch) [d])
       { (tablesOf pcfg (O)).Λ with imms := immsOf d } B ⟨text, sizes, labelOffs⟩ :=
-  x64_scc_correctE_text hd h hpa (hgen_ofPlaceOK (atTables h))
+  have ⟨_, hlow⟩ := lowerAll?_ok_of_placeOK (atTables h)
+  x64_scc_correctE_text hd h hpa (hgen_ofPlaceOK (atTables h) (tail_bare_of_accepted0 hd hlow sizes labelOffs))
 
 /-- **The x86-64 compiler theorem at any layout, closed**: for a program
 `[d]` that `scc` accepts (`hd`) and whose output passes the placement check
@@ -475,7 +480,8 @@ theorem x64_scc_correctE_closedAt (Λ : Scc.Sem.Layout) (hd : Scc.Lower.Accepted
     (Scc.Cert.PlaceOK.X64.placeOKAt_static pcfg Λ (O) (fun _ => none) Λ.imms).trans h
   fun E hE =>
     have ⟨_, hlow⟩ := lowerAll?_ok_of_placeOK h
-    x64_lower_correctE hd hlow h' (fun _ => rfl) hE (hgen_ofPlaceOK h' E hE)
+    x64_lower_correctE hd hlow h' (fun _ => rfl) hE
+      (hgen_ofPlaceOK h' (tail_bare_of_accepted0 hd hlow sizes labelOffs) E hE)
 
 /-- **The x86-64 compiler theorem on the text, at any layout, closed**
 (`Scc.Sem.X64.CorrectE`): for a program `[d]` that `scc` accepts (`hd`),

@@ -330,7 +330,7 @@ theorem pf_prom {c : Cfg} {i : Nat} {a : Address} {v : WeakMem.Val} {w : Ts} (h0
 
 /-- An uncertified extern move keeps `RunPF`: it only advances thread `i` past its `let`. -/
 theorem pf_ext {c c' : Cfg} {i : Nat} (h0 : RunPF c) (hc : c' ∈ extSteps c i) : RunPF c' := by
-  obtain ⟨th, x, n, a, e, rt, ws, hth, ht, -, -, rfl⟩ := extSteps_elim hc
+  obtain ⟨th, x, n, a, e, rt, ws, rs, hth, ht, -, -, -, rfl⟩ := extSteps_elim hc
   have hT := h0 i th hth
   have hok := hT.term
   rw [ht] at hok
@@ -342,7 +342,7 @@ theorem pf_ext {c c' : Cfg} {i : Nat} (h0 : RunPF c) (hc : c' ∈ extSteps c i) 
     have hi : j < c.ths.size := (Array.getElem?_eq_some_iff.mp hth).1
     split at hj <;> (try split at hj) <;> simp [Array.set!, hi] at hj <;> subst hj <;>
       exact ⟨hok.2, hT.stk⟩
-  · have e' : (extCfg c i th x n e ws).ths[j]? = c.ths[j]? := by
+  · have e' : (extCfg c i th x n e ws rs).ths[j]? = c.ths[j]? := by
       unfold extCfg curCfg; split <;> (try split) <;> simp [Array.set!, Ne.symm hji]
     rw [e'] at hj
     exact h0 j thj hj

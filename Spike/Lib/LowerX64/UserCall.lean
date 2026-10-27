@@ -163,6 +163,7 @@ theorem userCallW_of_fn {d : Decl} (hd : Scc.Lower.Accepted0 [d] = true) {fr : S
     (hsub : rS.Sub Λ.stackPool) (hfit : rS.lo + rS.size ≤ 2 ^ 64)
     (hFO : ∀ m, F m → CallerCells R (-8 - Z.toInt - 8 - 0) (-D) 8 m →
       StackOff rS (R.callee (-8 - Z.toInt - 8 - 0) (-D) 8) m)
+    (hK : ms.K = some Scc.Sem.X64.abi)
     (hab : ∀ F' : MachineData → Prop, (R.callee (-8 - Z.toInt - 8 - 0) (-D) 8).OK →
       (R.callee (-8 - Z.toInt - 8 - 0) (-D) 8).base.toNat % 8 = 0 →
       FStable (R.callee (-8 - Z.toInt - 8 - 0) (-D) 8) F' →
@@ -225,7 +226,7 @@ theorem userCallW_of_fn {d : Decl} (hd : Scc.Lower.Accepted0 [d] = true) {fr : S
       rw [ha]
       refine ⟨⟨hlim'.rt, hlim'.mp, hlim'.unmapped, fun v hv => ?_⟩, hfp, hra0, fun _ => nj_start hfind hu, .refl _⟩
       rw [hsp]; exact hlim'.room v hv)
-  have hlag := (bodyW0_lag hseg).mono_W (W' := fun s c => SFacts Λ μ own rS Tk lbl s c Dt)
+  have hlag := (bodyW0_lag hK hseg).mono_W (W' := fun s c => SFacts Λ μ own rS Tk lbl s c Dt)
     fun s c h => SFacts.dt_mono h fun _ h => h.elim
   refine (SegW.seq_left (Q := Lag [d] (· = Spike.Lib.X64Consumer.c0) (At exe endPc (rbR Rc) F'
       (abortN (immsOf d) (InWalk d) [d] lbl fr (_root_.Executable.labels exe).label g.fp g.ra

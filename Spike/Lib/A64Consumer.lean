@@ -74,9 +74,10 @@ Contents:
 
 - `WriteNoProm`: no outstanding promise at a `write`. At the other calls a
   certified thread with promises has a kernel step after which it is
-  certified (`Kernel.sys_progress`, `Kernel.prom_nil_of_exit`); at a
-  `write` the certification (`Kernel.writeTree`, the buffer in one step)
-  and the kernel (one byte per step, the count `wr`) differ. The consumers'
+  certified (`Kernel.sys_progress`, `Kernel.prom_nil_of_exit`); a
+  certified thread at a `write` has none (`Kernel.prom_nil_of_write`: the
+  certification has no branch there), so this follows from `Pre`'s
+  certification (not yet derived here). The consumers'
   programs reach a `write` only on the abort path, after which only private
   stores and `exit_group` follow; the discharge is per program (open: once
   for all accepted programs).
@@ -193,12 +194,14 @@ abbrev Own := State → List (Loc × Val)
 model, with the runtime words each state owns (`own`); the runtime
 accesses to the locations mapped in the loaded kernel state and, for
 writing, in a shared region (`mp`); the abort sites at the marks' resolved
-abort sites (`abortAt`); and the placed pairs under the layout (`pl`). -/
+abort sites (`abortAt`); the placed pairs under the layout (`pl`); and the
+output's byte step `bo` (default: none). -/
 def msOf (Λ : Scc.Sem.Layout) (μ : Marks) (rd : TermRun.Word → Prop) (G : Loc → Val → Prop) (own : Own)
-    (lbl : Lbl) (lsize : Lsize) : MemSide isaLSE2 :=
+    (lbl : Lbl) (lsize : Lsize) (bo : State → Nat → Ctl → (Ctl → Prop) → Prop := fun _ _ _ _ => False) :
+    MemSide isaLSE2 :=
   MemSide.ofLabels rd lbl lsize (some abi) G (own := own)
     (mp := fun L w => Kernel.mapped (K0 Λ) w L = true ∧ (w = true → LocIn Λ.shared L))
-    (abortAt := fun s => ∃ k a, μ.abortAt k = some a ∧ pcOf s = a) (pl := Placed Λ lbl)
+    (abortAt := fun s => ∃ k a, μ.abortAt k = some a ∧ pcOf s = a) (pl := Placed Λ lbl) (bo := bo)
 
 /-- **The node obligations** on the fragment `I` (read side `rd`, runtime
 memory's value invariant `G`, marks `μ`, layout `Λ`): `out`, every pair
@@ -529,10 +532,11 @@ theorem wr_one {Λ : Scc.Sem.Layout} {x : Kernel.KState} {j : Nat} {hl : List (N
   subst h; rfl
 
 /-- **An `Out` row at an `svc` cell is `Out.sys`**: the instruction's own
-tree there is a fault (`exec_svc`). -/
+tree there is a fault (`exec_svc`), and no abort is justified there
+(`ms.we`, so not `Out.emit`: `Out.we_of_emit`). -/
 theorem out_sys {p : Prog} {lbl : Lbl} {ms : MemSide isaLSE2} {X : Frag isaLSE2} {s : State} {c : Ctl}
     {imm sz : Nat} (hc : Kraken.Promising.Lower.A64.CellAt s (.instr ⟨.W64, .SVC imm⟩) sz)
-    (h : Out p lbl ms X s c) :
+    (h : Out p lbl ms X s c) (hwe : ∀ c1, ¬ ms.we s c1) :
     ∃ K call, ms.K = some K ∧ K.atSys s = true ∧ Kernel.decode K.nrs (K.nr s) (K.arg s) = some call ∧
       SysOk p ms s c call ∧ ∀ s' ∈ Kernel.certSuccs K s call, ∃ c', LocalRun p c c' ∧ X s' c' := by
   have hex := Kraken.Promising.Lower.A64.exec_svc hc
@@ -549,6 +553,8 @@ theorem out_sys {p : Prog} {lbl : Lbl} {ms : MemSide isaLSE2} {X : Frag isaLSE2}
   | xchgStore _ _ _ _ _ _ _ _ _ _ _ _ he => rw [hex] at he; cases he
   | ctrRmw _ _ _ _ _ _ _ _ _ _ he => rw [hex] at he; cases he
   | alloc _ _ _ _ _ _ _ _ _ _ _ _ he => rw [hex] at he; cases he
+  | emit K buf n Pw Qw _ _ _ h0 _ hr hq =>
+    exact absurd (Out.we_of_emit K buf n Pw Qw h0 hr hq) fun ⟨c1, h⟩ => hwe c1 h
 
 variable {Λ : Scc.Sem.Layout} {I : Inv} {μ : Marks} {rd : TermRun.Word → Prop} {G : Loc → Val → Prop} {own : Own}
 
@@ -567,7 +573,7 @@ theorem Nodes.sysOk (hN : Nodes Λ p μ rd G own I) {rS : Range} {Tk : State →
     ∃ call, Kernel.decode abi.nrs (abi.nr s) (abi.arg s) = some call ∧ call ≠ .exit ∧
       (∀ st tl, call ≠ .clone st tl) ∧ ∀ fd buf n, call = .write fd buf n → fd ≠ 1 := by
   obtain ⟨imm, sz, hc⟩ := hN.svc _ _ _ _ hI hs
-  obtain ⟨K, call, hK, -, hd, ⟨hnx, hcl, hfd, -⟩, -⟩ := out_sys hc (hN.out _ _ _ _ hI (hT.off_sys hI hs))
+  obtain ⟨K, call, hK, -, hd, ⟨hnx, hcl, hfd, -⟩, -⟩ := out_sys hc (hN.out _ _ _ _ hI (hT.off_sys hI hs)) (fun _ h => False.elim h)
   cases hK
   exact ⟨call, hd, hnx, hcl, hfd⟩
 
@@ -580,7 +586,7 @@ theorem Nodes.exit (hN : Nodes Λ p μ rd G own I) {rS : Range} {Tk : State → 
     ∃ c', LocalRun p c c' ∧ Placed Λ lbl s c' ∧ ∀ (s0 : TermRun.Cfg) (th : TermRun.TTh), s0.ths[0]? = some th →
       th.term = c'.term → th.env = c'.env → th.stack = [] → mainExit s0 = [.exit (Kernel.exitCode v)] := by
   obtain ⟨imm, sz, hc⟩ := hN.svc _ _ _ _ hI hs
-  obtain ⟨K, call, hK, -, hd, ⟨-, -, -, hex⟩, -⟩ := out_sys hc (hN.out _ _ _ _ hI (hT.off_sys hI hs))
+  obtain ⟨K, call, hK, -, hd, ⟨-, -, -, hex⟩, -⟩ := out_sys hc (hN.out _ _ _ _ hI (hT.off_sys hI hs)) (fun _ h => False.elim h)
   cases hK
   obtain rfl : call = .exitGroup v := Option.some.inj (hd.symm.trans hcall)
   exact hex v rfl (fun ⟨k, a, ha, hpc⟩ => hoff k a ha hpc)
@@ -588,7 +594,7 @@ theorem Nodes.exit (hN : Nodes Λ p μ rd G own I) {rS : Range} {Tk : State → 
 /-- **A local run lands in `Pre`**: the target thread replaced by `u` (its
 `write` count 0), the source thread by the run's end, the hold the run's
 (`holdInv_run`). -/
-theorem pre_local (hP : P.hooks = SrcSem.SrcHooks.none) (hN : Nodes Λ p μ rd G own I) {t' : T.M.Cfg}
+theorem pre_local (hP : HookOK P p) (hN : Nodes Λ p μ rd G own I) {t' : T.M.Cfg}
     {s : TermRun.Cfg} {u : Thread isaLSE2} {th0 : TermRun.TTh} {lbl : Lbl} {lsize : Lsize}
     {ts : Nat → Option Nat} {c c' : Ctl} {rS : Range} {Tk : State → Prop} {hl : List (Nat × Range)}
     {pm : _root_.Mem 64} (hth : t'.1.threads = #[u]) (hk : t'.2 = KS E Λ 0 hl pm) (hz : ∀ a, Kernel.byte pm a = 0)
@@ -779,7 +785,7 @@ theorem wr_le {t : T.M.Cfg} {th : Thread isaLSE2} {j : Nat} {hl : List (Nat × R
 
 /-- **The steps before the exit**: every step from `Pre` is matched by a
 source run with its observable events, landing in `R`. -/
-theorem pre_step (hP : P.hooks = SrcSem.SrcHooks.none) (hN : Nodes Λ p μ rd G own I) (hS : SrcMem P p)
+theorem pre_step (hP : HookOK P p) (hN : Nodes Λ p μ rd G own I) (hS : SrcMem P p)
     (hsafe : SrcSafe P p I) {rS : Range} {Tk : State → Prop} (hT : TakePath Λ p μ I rS Tk)
     (hps : PromShared Λ P p G own I rS Tk μ) (hrd : ∀ w, rd w) (hwf : Λ.WF)
     (hGpl : ∀ a v, Λ.heap.contains a ∨ Λ.data.contains a → G (wordLoc a) v)
@@ -1007,7 +1013,7 @@ theorem pre_step (hP : P.hooks = SrcSem.SrcHooks.none) (hN : Nodes Λ p μ rd G 
       rw [hust]; exact hcall
     · -- a return
       obtain ⟨K, call', hK, -, hd', -, hx'⟩ := out_sys (Classical.choose_spec (Classical.choose_spec
-        (hN.svc _ _ _ _ hI hsys'))) (hN.out _ _ _ _ hI (hT.off_sys hI hsys'))
+        (hN.svc _ _ _ _ hI hsys'))) (hN.out _ _ _ _ hI (hT.off_sys hI hsys')) (fun _ h => False.elim h)
       cases hK
       obtain rfl : call = call' := Option.some.inj (hcall.symm.trans hd')
       obtain ⟨c', hlr, hI'⟩ := hx' _ hsu
@@ -1053,6 +1059,7 @@ theorem pre_step (hP : P.hooks = SrcSem.SrcHooks.none) (hN : Nodes Λ p μ rd G 
           exit_off hs (List.mem_singleton_self _) k a ha ⟨th, ht1, hpc⟩
         obtain ⟨c', hlr, hpl, hexit⟩ := hN.exit hT hI hsys' hoff hcall
         have hrun := hlr.run_source hP h0 rfl rfl hσ hst hp (hN.noRet _ _ _ _ hI)
+          (hP.noExit hreach)
         have hlt : 0 < s.ths.size := by rw [hs0]; exact Nat.zero_lt_one
         rw [hexit _ { th0 with term := c'.term, env := c'.env } (by simp [hlt]) rfl rfl hst] at hrun
         refine ⟨_, hrun, .inr ⟨th, { th0 with term := c'.term, env := c'.env }, j, lbl, lsize, ts, hl, pm, _, hth,
@@ -1063,7 +1070,7 @@ theorem pre_step (hP : P.hooks = SrcSem.SrcHooks.none) (hN : Nodes Λ p μ rd G 
 
 /-- **Every step from `R` is matched**: from `Pre` by `pre_step`; after the
 exit no thread steps. -/
-theorem r_step (hP : P.hooks = SrcSem.SrcHooks.none) (hN : Nodes Λ p μ rd G own I) (hS : SrcMem P p)
+theorem r_step (hP : HookOK P p) (hN : Nodes Λ p μ rd G own I) (hS : SrcMem P p)
     (hsafe : SrcSafe P p I) {rS : Range} {Tk : State → Prop} (hT : TakePath Λ p μ I rS Tk)
     (hps : PromShared Λ P p G own I rS Tk μ) (hrd : ∀ w, rd w) (hwf : Λ.WF)
     (hGpl : ∀ a v, Λ.heap.contains a ∨ Λ.data.contains a → G (wordLoc a) v)
@@ -1129,7 +1136,7 @@ theorem pre_core_promise {rS : Range} {Tk : State → Prop} {t : T.M.Cfg} {s : T
 instruction case without the kernel state, under outstanding promises
 (`ExtRows.out_memP`, `ExtRows.out_localP`): a write appends a message to a
 shared region of a `G` value or fulfils a promise of one. -/
-theorem core_step (hP : P.hooks = SrcSem.SrcHooks.none) (hN : Nodes Λ p μ rd G own I) (hS : SrcMem P p)
+theorem core_step (hP : HookOK P p) (hN : Nodes Λ p μ rd G own I) (hS : SrcMem P p)
     (hsafe : SrcSafe P p I) (hrd : ∀ w, rd w) (hwf : Λ.WF)
     (hGpl : ∀ a v, Λ.heap.contains a ∨ Λ.data.contains a → G (wordLoc a) v)
     {th : Thread isaLSE2} {mem : Memory} {s : TermRun.Cfg} {outs : List (Except String (Outcome isaLSE2))}
@@ -1276,7 +1283,7 @@ theorem core_step (hP : P.hooks = SrcSem.SrcHooks.none) (hN : Nodes Λ p μ rd G
 source run with no event: the thread resumes in a state `certSuccs` lists
 (`Inv1.certSys`), memory and promises unchanged, paired past `Out.sys`'s
 local run. -/
-theorem core_sys (hP : P.hooks = SrcSem.SrcHooks.none) (hN : Nodes Λ p μ rd G own I) {rS : Range}
+theorem core_sys (hP : HookOK P p) (hN : Nodes Λ p μ rd G own I) {rS : Range}
     {Tk : State → Prop} (hT : TakePath Λ p μ I rS Tk) {th : Thread isaLSE2} {mem : Memory} {s : TermRun.Cfg}
     {outs : List (Except String (Outcome isaLSE2))} {o : Outcome isaLSE2} {x : Kernel.KState}
     (h : PreCore Λ P p G own I th mem s) (hsi : Kernel.siteAt abi μ th.st = none) (hs : abi.atSys th.st = true)
@@ -1286,7 +1293,7 @@ theorem core_sys (hP : P.hooks = SrcSem.SrcHooks.none) (hN : Nodes Λ p μ rd G 
     tr, hreach⟩ := h
   have h0 : s.ths[0]? = some th0 := by rw [hs0]; rfl
   obtain ⟨imm, sz, hc⟩ := hN.svc _ _ _ _ hI hs
-  obtain ⟨K, call, hK, -, hdc, ⟨-, hcl, -, -⟩, hx⟩ := out_sys hc (hN.out _ _ _ _ hI (hT.off_sys hI hs))
+  obtain ⟨K, call, hK, -, hdc, ⟨-, hcl, -, -⟩, hx⟩ := out_sys hc (hN.out _ _ _ _ hI (hT.off_sys hI hs)) (fun _ h => False.elim h)
   cases hK
   obtain ⟨hm, hpr, hsu, hinv'⟩ := hinv.certSysSolo hsi hs hdc hcl hso ho
   obtain ⟨c', hlr, hI'⟩ := hx _ hsu
@@ -1309,7 +1316,7 @@ release site), where the step is the solo take (`Kernel.certSem_step_take_out`)
 to the state past the `nop` with the solo configuration's pool bytes on the
 range, which `TakePath.site`'s local run pairs for any pool bytes; memory
 and promises unchanged, the words owned by `Nodes.ownTake`. -/
-theorem core_site (hP : P.hooks = SrcSem.SrcHooks.none) (hN : Nodes Λ p μ rd G own I) {rS : Range}
+theorem core_site (hP : HookOK P p) (hN : Nodes Λ p μ rd G own I) {rS : Range}
     {Tk : State → Prop} (hT : TakePath Λ p μ I rS Tk) {th : Thread isaLSE2} {mem : Memory} {s : TermRun.Cfg}
     {outs : List (Except String (Outcome isaLSE2))} {o : Outcome isaLSE2} {x : Kernel.KState}
     (h : PreCore Λ P p G own I th mem s) (hsi : Kernel.siteAt abi μ th.st ≠ none)
@@ -1335,7 +1342,7 @@ theorem core_site (hP : P.hooks = SrcSem.SrcHooks.none) (hN : Nodes Λ p μ rd G
 
 /-- **Every instruction step off a system call and off the transfer sites
 keeps `PreCore`** (the form of `stepG_of`'s `hins`), by `core_step`. -/
-theorem core_ins (hP : P.hooks = SrcSem.SrcHooks.none) (hN : Nodes Λ p μ rd G own I) (hS : SrcMem P p)
+theorem core_ins (hP : HookOK P p) (hN : Nodes Λ p μ rd G own I) (hS : SrcMem P p)
     (hsafe : SrcSafe P p I) (hrd : ∀ w, rd w) (hwf : Λ.WF)
     (hGpl : ∀ a v, Λ.heap.contains a ∨ Λ.data.contains a → G (wordLoc a) v) :
     ∀ th mem s outs o, PreCore Λ P p G own I th mem s → Kernel.siteAt abi μ th.st = none →
@@ -1361,7 +1368,7 @@ theorem stepSim {A : Type} {ld : A → Scc.Sem.Layout → Option T.M.Cfg}
     (himg : imageOk Λ secs code = true)
     (hss : Scc.Sem.StaticSyms Λ secs code lsize name) (hw : wideIn prog = true)
     (hst : I Λ.static lsize (threadAt E Λ.code.lo prog (loadSyms Λ secs.rodata)) c0)
-    (hP : P.hooks = SrcSem.SrcHooks.none) (hinit : P.init (s0 P.cap)) (hN : Nodes Λ p ((TOn A ld rs).marks asm Λ) rd G own I)
+    (hP : HookOK P p) (hinit : P.init (s0 P.cap)) (hN : Nodes Λ p ((TOn A ld rs).marks asm Λ) rd G own I)
     (hS : SrcMem P p) (hsafe : SrcSafe P p I) {rS : Range} {Tk : State → Prop}
     (hT : TakePath Λ p ((TOn A ld rs).marks asm Λ) I rS Tk)
     (htk0 : ¬ Tk (threadAt E Λ.code.lo prog (loadSyms Λ secs.rodata)))
@@ -1456,7 +1463,7 @@ theorem components_one (hwf : Λ.WF) {t : T.M.Cfg} {s : TermRun.Cfg} {th : Threa
   · intro j tt _ hj
     obtain ⟨rfl, -⟩ := get_one hth hj
     exact ⟨0, by rw [hs0]; exact Nat.zero_lt_one, rfl⟩
-  · intro i th' j tt hi hj htt d e hd x ty ws hx k wd wp hwd hwp
+  · intro i th' j tt hi hj htt d e hd x ty ws hx k wd wp hwd hwp _hxf
     obtain ⟨rfl, rfl⟩ := hs1 hi
     simp only [wit, ite_true, Option.some.injEq] at hj
     subst hj
@@ -1469,7 +1476,7 @@ theorem components_one (hwf : Λ.WF) {t : T.M.Cfg} {s : TermRun.Cfg} {th : Threa
       cases (show th'.env = e from Option.some.inj hd)
       exact hrep x ty ws hx k wd wp hwd hwp
     · simp [hd0] at hwp
-  · intro i th' hi d e xs hd hxs x hx ty ws hl k hk
+  · intro i th' hi d e xs hd hxs _hxf x hx ty ws hl k hk
     obtain ⟨rfl, rfl⟩ := hs1 hi
     rw [hfe] at hd
     rw [hff] at hxs
@@ -1509,10 +1516,10 @@ theorem r_components (hN : Nodes Λ p μ rd G own I) (hwf : Λ.WF) {rS : Range} 
 /-- **No promise at a `write`** in `Pre`: an open hypothesis. At every other
 supported call a certified thread with promises has a kernel step after
 which it is certified (`Kernel.sys_progress`; none is certified at `exit` or
-`exit_group`, `Kernel.prom_nil_of_exit`). A `write` is not covered: its
-certification (`Kernel.writeTree`) loads the buffer in one step where the
-kernel moves one byte per step, and with bytes out (`wr > 0`) the solo
-configuration (count 0) is not the real one. The consumers' programs reach a
+`exit_group`, `Kernel.prom_nil_of_exit`). At a `write` the certification
+has no branch, so a certified thread there has no promise
+(`Kernel.prom_nil_of_write`); deriving this hypothesis from that is not yet
+done here. The consumers' programs reach a
 `write` only on the abort path, after which only private stores and
 `exit_group` follow, so no promise is outstanding there; the discharge is
 per program (once for all accepted programs: an open item). A fragment with
@@ -1790,7 +1797,7 @@ theorem correctKOn {B : Budget} {A : Type} {ld : A → Scc.Sem.Layout → Option
     (himg : imageOk Λ secs code = true)
     (hss : Scc.Sem.StaticSyms Λ secs code lsize name) (hw : wideIn prog = true)
     (hst : I Λ.static lsize (threadAt E Λ.code.lo prog (loadSyms Λ secs.rodata)) c0)
-    (hload : ∃ t0, (TOn A ld rs).load asm Λ = some t0) (hP : P.hooks = SrcSem.SrcHooks.none) (hinit : P.init (s0 P.cap))
+    (hload : ∃ t0, (TOn A ld rs).load asm Λ = some t0) (hP : HookOK P p) (hinit : P.init (s0 P.cap))
     (hN : Nodes Λ p ((TOn A ld rs).marks asm Λ) rd G own I) (hS : SrcMem P p) (hsafe : SrcSafe P p I)
     {rS : Range} {Tk : State → Prop} (hT : TakePath Λ p ((TOn A ld rs).marks asm Λ) I rS Tk)
     (htk0 : ¬ Tk (threadAt E Λ.code.lo prog (loadSyms Λ secs.rodata)))
@@ -1825,7 +1832,7 @@ theorem correctK {B : Budget} {asm : String} {prog : Program} {secs : DataSecs} 
     (hd : dataSections asm = some secs) (himg : imageOk Λ secs code = true)
     (hss : Scc.Sem.StaticSyms Λ secs code lsize name) (hw : wideIn prog = true)
     (hst : I Λ.static lsize (threadAt Entry.linux Λ.code.lo prog (loadSyms Λ secs.rodata)) c0)
-    (hload : ∃ t0, T.load asm Λ = some t0) (hP : P.hooks = SrcSem.SrcHooks.none) (hinit : P.init (s0 P.cap))
+    (hload : ∃ t0, T.load asm Λ = some t0) (hP : HookOK P p) (hinit : P.init (s0 P.cap))
     (hN : Nodes Λ p (T.marks asm Λ) rd G own I) (hS : SrcMem P p) (hsafe : SrcSafe P p I)
     {rS : Range} {Tk : State → Prop} (hT : TakePath Λ p (T.marks asm Λ) I rS Tk)
     (htk0 : ¬ Tk (threadAt Entry.linux Λ.code.lo prog (loadSyms Λ secs.rodata)))

@@ -1,16 +1,18 @@
 import Scc.Cert.Rt.RtPassA64
 import Scc.Cert.Rt.A64Abort
+import Scc.Cert.Rt.A64AllocIn
 
 /-!
 # The runtime's code in one pass
 
-The runtime's code checks, `Print.printIn` (`scc_rt_print`),
-`Abort.abortIn` (the abort stubs and `scc_rt_abort`) and the tail of
-`scc_rt_main` (`Abort.mainIn0`, `Abort.mainIn`), as groups of fixed code
-(`RGrp`) in program order (`rtTab`), checked by one pass (`rtIn`,
-`Scc/Cert/Rt/RtPassA64.lean`) instead of a search per label. The groups
-are the checks' facts, regrouped by label: `printIn_of_rtIn`,
-`abortIn_of_rtIn`, `mainIn0_of_rtIn`, `mainIn_of_rtIn` give the checks back.
+The runtime's code checks, `Flow.allocIn` (`scc_rt_alloc`),
+`Print.printIn` (`scc_rt_print`), `Abort.abortIn` (the abort stubs and
+`scc_rt_abort`) and the tail of `scc_rt_main` (`Abort.mainIn0`,
+`Abort.mainIn`), as groups of fixed code (`RGrp`) in program order
+(`rtTab`), checked by one pass (`rtIn`, `Scc/Cert/Rt/RtPassA64.lean`)
+instead of a search per label. The groups are the checks' facts, regrouped
+by label: `allocIn_of_rtIn`, `printIn_of_rtIn`, `abortIn_of_rtIn`,
+`mainIn0_of_rtIn`, `mainIn_of_rtIn` give the checks back.
 -/
 
 namespace Scc.Cert.Rt.A64.RtIn
@@ -26,6 +28,26 @@ def mainGrps0 : List RGrp :=
 /-- The tail of `scc_rt_main` after a setup block (`Abort.mainIn`). -/
 def mainGrps1 : List RGrp :=
   [⟨".L1_scc_rt_main.sp1", [(0, Spike.Lib.A64.Abort.MainTail.m0), (3, [Spike.Lib.A64.Flow.svcDir])], none⟩]
+
+/-! ## `scc_rt_alloc` -/
+
+section Alloc
+
+open Spike.Lib.A64.Alloc
+
+/-- `scc_rt_alloc`'s blocks and single instructions and its prologue's
+fall-through (`Flow.allocIn`). -/
+def allocGrps : List RGrp := [
+  ⟨"scc_rt_alloc", [(0, b0)], some (7, ".L2_scc_rt_alloc.0_entry")⟩,
+  ⟨".L2_scc_rt_alloc.0_entry", [(0, b1), (4, b2)], none⟩,
+  ⟨".L2_scc_rt_alloc.1_cnt", [(0, [iAdrpC.toDir]), (1, [iAddC.toDir]), (2, b3), (5, [iRmw]), (6, b4), (15, b5)],
+    none⟩,
+  ⟨".L2_scc_rt_alloc.2_slow", [(0, b6), (4, b7)], none⟩,
+  ⟨".L2_scc_rt_alloc.4_full", [(0, b9)], none⟩,
+  ⟨".L2_scc_rt_alloc.5_ok", [(0, b11), (8, [iAdrpH.toDir]), (9, [iAddH.toDir]), (10, b12), (41, [iHdr]),
+    (42, b13), (54, [iRet.toDir])], none⟩]
+
+end Alloc
 
 /-! ## `scc_rt_print` -/
 
@@ -85,9 +107,9 @@ end Abort
 /-! ## The table -/
 
 /-- **The runtime's fixed code**, in program order: `scc_rt_main`'s tail
-(`main`: `mainGrps0` or `mainGrps1`), `scc_rt_print`, `scc_rt_abort` and
-the stubs. -/
-def rtTab (main : List RGrp) : List RGrp := main ++ printGrps ++ abortGrps
+(`main`: `mainGrps0` or `mainGrps1`), `scc_rt_alloc`, `scc_rt_print`,
+`scc_rt_abort` and the stubs. -/
+def rtTab (main : List RGrp) : List RGrp := main ++ allocGrps ++ printGrps ++ abortGrps
 
 /-! ## The checks from the pass -/
 
@@ -96,12 +118,19 @@ section Of
 variable {prog : List Directive} {main : List RGrp}
 
 theorem rtAll_parts (h : rtIn prog (rtTab main) = true) :
-    RtAll prog main ∧ RtAll prog printGrps ∧ RtAll prog abortGrps := by
+    RtAll prog main ∧ RtAll prog printGrps ∧ RtAll prog abortGrps ∧ RtAll prog allocGrps := by
   have h := rtIn_sound h
   unfold rtTab at h
   obtain ⟨h12, h3⟩ := RtAll.append h
-  obtain ⟨h1, h2⟩ := RtAll.append h12
-  exact ⟨h1, h2, h3⟩
+  obtain ⟨h1a, h2⟩ := RtAll.append h12
+  obtain ⟨h1, ha⟩ := RtAll.append h1a
+  exact ⟨h1, h2, h3, ha⟩
+
+/-- **`scc_rt_alloc`'s code** from the pass. -/
+theorem allocIn_of_rtIn (h : rtIn prog (rtTab main) = true) : Flow.allocIn prog = true := by
+  have h := (rtAll_parts h).2.2.2
+  simp only [allocGrps, RtAll, BsOk, GapAt, and_true] at h
+  simp only [Flow.allocIn, h, Bool.and_self]
 
 open Spike.Lib.A64.Print in
 /-- **`scc_rt_print`'s code** from the pass. -/
@@ -120,7 +149,7 @@ theorem stubIn_of {st : Stub} {b1 : List Directive} {rest : List RGrp}
 open Spike.Lib.A64.Abort in
 /-- **The stubs' and `scc_rt_abort`'s code** from the pass. -/
 theorem abortIn_of_rtIn (h : rtIn prog (rtTab main) = true) : Abort.abortIn prog = true := by
-  have h := (rtAll_parts h).2.2
+  have h := (rtAll_parts h).2.2.1
   unfold abortGrps at h
   simp only [List.append_assoc] at h
   obtain ⟨hd, h⟩ := RtAll.append h

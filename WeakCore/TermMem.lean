@@ -2072,7 +2072,7 @@ theorem VRR_unsee (V : WeakMem.Ts) : ∀ (t : Ty) (η₁ η₂ : TEnv) (ρ : Nat
           exact ⟨q, hq, VRR_unsee V a η₁ η₂ ρ _ _ _ hr hur hw hp ht hs hi hP hS hBx (LocAbove_ofArm hq hLp) hv⟩
         · obtain ⟨q, hq, hv⟩ := h3 hj
           exact ⟨q, hq, VRR_unsee V b η₁ η₂ ρ _ _ _ hr hur hw hp ht hs hi hP hS hBx (LocAbove_ofArm hq hLp) hv⟩
-  | .code a b, η₁, η₂, ρ, rt, ws, X, _, _, hw, hp, _, _, _, _, _, hBx, _, hv, hri => by
+  | .code a b _, η₁, η₂, ρ, rt, ws, X, _, _, hw, hp, _, _, _, _, _, hBx, _, hv, hri => by
       simp only [VRR] at hv ⊢; rw [← hw, ← hp]; exact hv
   | .tex κ b, η₁, η₂, ρ, rt, ws, X, hr, hur, hw, hp, ht, hs, hi, hP, hS, hBx, hL, hv, hri => by
       simp only [VRR] at hv ⊢
@@ -2106,6 +2106,7 @@ theorem VRR_unsee (V : WeakMem.Ts) : ∀ (t : Ty) (η₁ η₂ : TEnv) (ρ : Nat
       exact fun n => VRR_unsee V b η₁ η₂ (vcons n ρ) rt ws X hr hur hw hp ht hs hi hP hS hBx hL (hv n)
   | .intS _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, hv, hri => by simpa only [VRR] using hv
   | .int, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, hv, hri => by simpa only [VRR] using hv
+  | .opq _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, hv, _ => by simp only [VRR, VR] at hv ⊢; exact hv
   | .tid, _, _, _, _, _, _, _, _, _, _, ht, hs, _, hP, hS, _, hL, hv, _ => by
         simp only [VRR, VR] at hv ⊢
         obtain ⟨⟨l, c, h1, h2, h3, h5⟩, hR⟩ := hv
@@ -2207,10 +2208,11 @@ theorem VR_VRR_copy : ∀ (t : Ty) (ke : KEnv) (ρ : Nat → Nat) (η : TEnv) (r
   | .void, _, _, _, _, _, _, _, _, _, hv => by simp [VR] at hv
   | .intS _, _, _, _, _, _, _, _, _, _, hv => by simp only [VR] at hv; simp only [VRR, and_true]; exact hv
   | .int, _, _, _, _, _, _, _, _, _, hv => by simp only [VR] at hv; simp only [VRR, and_true]; exact hv
+  | .opq _, _, _, _, _, _, _, _, _, _, hv => by simp only [VR] at hv; simp only [VRR, VR, and_true]; exact hv
   | .tid, _, _, _, _, _, _, _, _, _, hv => by simp only [VR] at hv; simp only [VRR, and_true]; exact hv
   | .fix _ _, _, _, _, _, _, _, _, _, _, hv => by simp only [VR] at hv; simp only [VRR, and_true]; exact hv
   | .lanes _ _, _, _, _, _, _, _, _, _, _, hv => by simp only [VR] at hv; simp only [VRR, and_true]; exact hv
-  | .code _ _, _, _, _, _, _, _, _, _, _, hv => by simp only [VR] at hv; simp only [VRR, and_true]; exact hv
+  | .code _ _ _, _, _, _, _, _, _, _, _, _, hv => by simp only [VR] at hv; simp only [VRR, and_true]; exact hv
   | .ptr μ _, _, _, _, _, _, ha, _, _, _, hv => by
       simp only [VR] at hv; simp only [VRR]; refine ⟨hv, ?_⟩; cases μ <;> simp_all [Ty.affineIn]
   | .ptrOpt μ _, _, _, _, _, _, ha, _, _, _, hv => by

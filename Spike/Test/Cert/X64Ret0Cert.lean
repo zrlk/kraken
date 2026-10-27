@@ -39,6 +39,8 @@ What the file establishes:
    the kernel does not run the frontend's parser, so the decisions below are
    about this term.
 6. *Acceptance, by `decide +kernel`:* `prog_accepted` proves that `prog_src` is in the fragment the first compiler theorem covers (`Scc.Lower.Accepted0`).
+   `prog_accepted1` proves that it is in the fragment the x86-64 compiler
+   theorem covers (`Scc.Lower.Accepted1`, `x64_scc_correctE_text_closedAt1`).
 7. *Placement, by `decide +kernel`:* `out` is `scc`'s output for
    `prog_src` as the placement check reads it (`Scc.Cert.PlaceOK.X64.Out.ofEmitted`
    of `Scc.Lower.X64.lowerAll config prog_src`, at `sizes` and `labelOffs`), `out_eq` proves it
@@ -48,8 +50,8 @@ What the file establishes:
    and the rest; the rest on literals: `Scc.Cert.PlaceOK.X64.ofEmitted_of_stages`,
    `Scc/Cert/OutStageX64.lean`),
    and `prog_placeOK` proves `placeOK` of it at `placeCfg` (decided on
-   `outLit` in separate declarations, A1 to A8, A9 where the ISA checks
-   it, A11, combined by `placeOK_of`): the canonical configuration with the program's thread
+   `outLit` in separate declarations, A1 to A8, A9 and A12 where the ISA
+   checks them, A11, combined by `placeOK_of`): the canonical configuration with the program's thread
    entries and their stack budget. The
    loader's parse of `asm` is `out`'s code and data sections (`parsesTo`, by
    evaluation: the trust boundary).
@@ -1620,6 +1622,10 @@ def prog_src : CoreTerm.Prog :=
 (kernel-checked). -/
 theorem prog_accepted : Scc.Lower.Accepted0 prog_src = true := by decide +kernel
 
+/-- `prog_src` is in the fragment the x86-64 compiler theorem covers
+(`x64_scc_correctE_text_closedAt1`; kernel-checked). -/
+theorem prog_accepted1 : Scc.Lower.Accepted1 prog_src = true := by decide +kernel
+
 /-- `scc`'s output for `prog_src` as the placement check reads it: the
 lowering and the emission (`Scc.Lower.X64.lowerAll`) with the placement data
 computed from them. -/
@@ -1653,19 +1659,19 @@ def emittedVal : Option (List Scc.Emit.X64.Item × List (String × List Int × L
 `emitted_eq`). -/
 def emittedLit : List Scc.Emit.X64.Item × List (String × List Int × List Int) := (scc_lit% emittedVal).get!
 
-/-- The lowering's depth limit, at elaboration time. -/
+/-- The stack budget's depth limit, at elaboration time. -/
 def framesVal : Option Nat := Scc.Cert.LowerStage.frames1 config prog_src
 
 /-- The depth limit as a literal (untrusted, checked by `frames_eq`). -/
 def framesLit : Nat := (scc_lit% framesVal).get!
 
 /-- The budget gives the depth limit `framesLit` (kernel-checked: the kernel
-runs the lowering at depth limit 0, here). -/
+runs the lowering for the frames, here). -/
 theorem frames_eq : Scc.Cert.LowerStage.frames1 config prog_src = some framesLit := by kernel_rfl
 
-/-- The lowering at `framesLit` gives `loweredLit` (kernel-checked: the
-kernel runs the lowering, here). -/
-theorem ir_eq : Scc.Cert.LowerStage.ir1 config prog_src framesLit = some loweredLit := by kernel_rfl
+/-- The lowering gives `loweredLit` (kernel-checked: the kernel runs the
+lowering, here). -/
+theorem ir_eq : Scc.Cert.LowerStage.ir1 config prog_src = some loweredLit := by kernel_rfl
 
 /-- The lowering gives `loweredLit` (`lowered1_of_stages`: the budget and
 the lowering above). -/
@@ -2070,16 +2076,16 @@ theorem prog_placeOK_7 : Scc.Cert.PlaceOK.X64.a7 outLit (Scc.Cert.PlaceOK.X64.ta
   decide +kernel
 
 /-- A3 of `outLit`: the block table at its places (kernel-checked). -/
-theorem prog_placeOK_3 : Scc.Cert.PlaceOK.X64.a3 outLit (Scc.Cert.PlaceOK.X64.tablesOf placeCfg outLit) = true := by
-  decide +kernel
+theorem prog_placeOK_3 : Scc.Cert.PlaceOK.X64.a3 outLit (Scc.Cert.PlaceOK.X64.tablesOf placeCfg outLit) = true :=
+  Scc.Cert.PlaceOK.X64.a3_of_parts (by decide +kernel) (by decide +kernel)
 
 /-- A5 of `outLit`: the block table covered at its offsets (kernel-checked). -/
 theorem prog_placeOK_5 : Scc.Cert.PlaceOK.X64.a5 outLit (Scc.Cert.PlaceOK.X64.tablesOf placeCfg outLit) = true := by
   decide +kernel
 
 /-- A6 of `outLit`: the block table in its phases (kernel-checked). -/
-theorem prog_placeOK_6 : Scc.Cert.PlaceOK.X64.a6 outLit (Scc.Cert.PlaceOK.X64.tablesOf placeCfg outLit) = true := by
-  decide +kernel
+theorem prog_placeOK_6 : Scc.Cert.PlaceOK.X64.a6 outLit (Scc.Cert.PlaceOK.X64.tablesOf placeCfg outLit) = true :=
+  Scc.Cert.PlaceOK.X64.a6_of_parts (by decide +kernel) (by decide +kernel)
 
 /-- A8 of `outLit`: the runtime's data words (kernel-checked). -/
 theorem prog_placeOK_8 : Scc.Cert.PlaceOK.X64.a8 outLit (Scc.Cert.PlaceOK.X64.tablesOf placeCfg outLit) = true := by
@@ -2093,11 +2099,23 @@ theorem prog_placeOK_9 : Scc.Cert.PlaceOK.X64.a9 outLit (Scc.Cert.PlaceOK.X64.ta
 theorem prog_placeOK_11 : Scc.Cert.PlaceOK.X64.a11 outLit (Scc.Cert.PlaceOK.X64.tablesOf placeCfg outLit) = true := by
   decide +kernel
 
+/-- A12's code part of `outLit` (kernel-checked). -/
+theorem prog_placeOK_12c : Scc.Cert.PlaceOK.X64.a12code outLit = true := by
+  decide +kernel
+
+/-- A12's phase part of `outLit` (kernel-checked). -/
+theorem prog_placeOK_12p : Scc.Cert.PlaceOK.X64.a12ph outLit (Scc.Cert.PlaceOK.X64.tablesOf placeCfg outLit) = true := by
+  decide +kernel
+
+/-- A12 of `outLit`: the code of every user function (kernel-checked). -/
+theorem prog_placeOK_12 : Scc.Cert.PlaceOK.X64.a12 outLit (Scc.Cert.PlaceOK.X64.tablesOf placeCfg outLit) = true :=
+  Scc.Cert.PlaceOK.X64.a12_of_split prog_placeOK_12c prog_placeOK_12p
+
 /-- **`placeOK` of `scc`'s output** for `prog_src`. -/
 theorem prog_placeOK : Scc.Cert.PlaceOK.X64.placeOK placeCfg out = true := by
   rw [out_eq]
   exact Scc.Cert.PlaceOK.X64.placeOK_of prog_placeOK_1 prog_placeOK_2 prog_placeOK_3 prog_placeOK_4 prog_placeOK_5
-    prog_placeOK_6 prog_placeOK_7 prog_placeOK_8 prog_placeOK_9 prog_placeOK_11
+    prog_placeOK_6 prog_placeOK_7 prog_placeOK_8 prog_placeOK_9 prog_placeOK_11 prog_placeOK_12
 
 /-- **Acceptance and placement** of `prog_src`'s compilation. -/
 theorem prog_cert_ready : Scc.Lower.Accepted0 prog_src = true ∧ Scc.Cert.PlaceOK.X64.placeOK placeCfg out = true :=

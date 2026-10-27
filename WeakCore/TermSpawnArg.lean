@@ -32,7 +32,7 @@ theorem noOR_of_aff : ∀ (T : Ty) (ke : KEnv), Ty.affineIn ke T = false → rgn
   | .intS _, _, _, _ | .int, _, _, _ | .tid, _, _, _ | .fix _ _, _, _, _ | .lanes _ _, _, _, _ | .unit, _, _, _
   | .void, _, _, _ | .share _, _, _, _ | .cap _ _, _, _, _ | .word _ _, _, _, _ | .tok _ _, _, _, _
   | .word2 _ _, _, _, _ | .tok2 _ _ _ _, _, _, _ | .epair _ _, _, _, _ | .tokE _ _ _, _, _, _
-  | .tvar _, _, _, _ | .code _ _, _, _, _ => by simp [noOR]
+  | .tvar _, _, _, _ | .code _ _ _, _, _, _ | .opq _, _, _, _ => by simp [noOR]
 
 theorem WLe_bumpS (V : Ts) : ∀ ws : List Word, WLe ws (ws.map (bumpW V))
   | [] => WLe_refl []

@@ -1,6 +1,7 @@
 import Scc.Config
 import Scc.Frontend
 import Scc.Lower.Spec
+import Scc.Lower.Spec1
 import Scc.Cert.Gen
 import Scc.Cert.Blocks
 import Scc.Cert.Place
@@ -233,10 +234,11 @@ def run (arch : Arch) (emit : Lower.Lowered → Except String Lower.Listing) (ar
       let sizesT := sizes.map fun (s, offs) => (s, Cert.Blocks.textOrder asm offs)
       -- acceptance, and the stack need's configuration as the code check has it
       let pl : Cert.Gen.Placement :=
-        { accepted := Lower.Accepted0 c.prog, hasNeed := lst.need.isSome,
+        { accepted := Lower.Accepted0 c.prog, accepted1 := Lower.Accepted1 c.prog && c.prog.length == 1, hasNeed := lst.need.isSome,
           entries := Lower.threadEntries low.ir,
           budget := o.cfg.layout.stackBytes - IR.Tcb.headroom,
-          fails := o.certFails, funcs := low.ir.funcs.length }
+          fails := o.certFails, funcs := low.ir.funcs.length, parts := lst.parts,
+          checked := low.ir.funcs.map (·.checkStack) }
       match ← (IO.FS.writeFile cf (Cert.Gen.render o.cfg name src asm sizesT c.prog pl)).toBaseIO with
       | .ok () => pure ()
       | .error e => err s!"scc: cannot write {cf}: {e}"; return 2

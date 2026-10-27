@@ -17,10 +17,11 @@ types, the tables and the nine components.
   only) and the placement data `place` (of the ISA's type `D`).
 * **The tables** are computed from the output (`tablesOf`, the ISA's), not
   emitted: the static link `Λ` first (`Tables.Λ`, `linkTables`).
-* **The components** `Checks`: ten `Bool`s A1–A9 and A11 over the output
-  and its tables; `Checks.ok` their conjunction, which is `PlaceOK`. Each
-  component is used only through its projection (`Checks.a1_of_ok` …
-  `a9_of_ok`, `a11_of_ok`) and
+* **The components** `Checks`: eleven `Bool`s A1–A9, A11 and A12 over the
+  output and its tables (A12 `true` unless the ISA sets it); `Checks.ok`
+  their conjunction, which is `PlaceOK`. Each component is used only through
+  its projection (`Checks.a1_of_ok` … `a9_of_ok`, `a11_of_ok`, `a12_of_ok`)
+  and
   the ISA's extraction lemma from it to a `Prop`.
 * **A1, the static link**, is ISA-generic: `Link.wfB` of `Λ`, sound by
   `Link.wfB_sound` (`wf_of_a1`).
@@ -61,7 +62,7 @@ the static link at the configuration's bases. -/
 def linkTables (cfg : Config) (secs : DataSecs) (code : String → Option Nat) : Tables :=
   ⟨Link.link cfg.bases secs code⟩
 
-/-- **The ten components** of `PlaceOK` over an output type `O` and its
+/-- **The eleven components** of `PlaceOK` over an output type `O` and its
 tables `T`, each a `Bool`:
 
 * A1 the static link well-formed; A2 the loader's agreement; A3 the code at
@@ -69,7 +70,8 @@ tables `T`, each a `Bool`:
 * A5 the static offsets of every node; A6 the phases, dead targets and
   returns of every node; A7 the marks at their pcs; A8 the runtime's data
   words; A9 the placement data against the program; A11 the runtime's fixed
-  code. -/
+  code; A12 the code of every user function (`true` by default: an ISA
+  without that check). -/
 structure Checks (O T : Type) where
   a1 : O → T → Bool
   a2 : O → T → Bool
@@ -81,12 +83,13 @@ structure Checks (O T : Type) where
   a8 : O → T → Bool
   a9 : O → T → Bool
   a11 : O → T → Bool
+  a12 : O → T → Bool := fun _ _ => true
 
-/-- **`PlaceOK`**: the ten components at the output and its tables. -/
+/-- **`PlaceOK`**: the eleven components at the output and its tables. -/
 def Checks.ok {O T : Type} (C : Checks O T) (tablesOf : O → T) (o : O) : Bool :=
   let t := tablesOf o
   C.a1 o t && C.a2 o t && C.a3 o t && C.a4 o t && C.a5 o t && C.a6 o t && C.a7 o t && C.a8 o t && C.a9 o t &&
-    C.a11 o t
+    C.a11 o t && C.a12 o t
 
 section Proj
 
@@ -96,10 +99,10 @@ private theorem parts (h : C.ok tablesOf o = true) :
     C.a1 o (tablesOf o) = true ∧ C.a2 o (tablesOf o) = true ∧ C.a3 o (tablesOf o) = true ∧
     C.a4 o (tablesOf o) = true ∧ C.a5 o (tablesOf o) = true ∧ C.a6 o (tablesOf o) = true ∧
     C.a7 o (tablesOf o) = true ∧ C.a8 o (tablesOf o) = true ∧ C.a9 o (tablesOf o) = true ∧
-    C.a11 o (tablesOf o) = true := by
+    C.a11 o (tablesOf o) = true ∧ C.a12 o (tablesOf o) = true := by
   simp only [Checks.ok, Bool.and_eq_true] at h
-  obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨h1, h2⟩, h3⟩, h4⟩, h5⟩, h6⟩, h7⟩, h8⟩, h9⟩, h11⟩ := h
-  exact ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h11⟩
+  obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨h1, h2⟩, h3⟩, h4⟩, h5⟩, h6⟩, h7⟩, h8⟩, h9⟩, h11⟩, h12⟩ := h
+  exact ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h11, h12⟩
 
 theorem Checks.a1_of_ok (h : C.ok tablesOf o = true) : C.a1 o (tablesOf o) = true := (parts h).1
 theorem Checks.a2_of_ok (h : C.ok tablesOf o = true) : C.a2 o (tablesOf o) = true := (parts h).2.1
@@ -115,7 +118,9 @@ theorem Checks.a8_of_ok (h : C.ok tablesOf o = true) : C.a8 o (tablesOf o) = tru
 theorem Checks.a9_of_ok (h : C.ok tablesOf o = true) : C.a9 o (tablesOf o) = true :=
   (parts h).2.2.2.2.2.2.2.2.1
 theorem Checks.a11_of_ok (h : C.ok tablesOf o = true) : C.a11 o (tablesOf o) = true :=
-  (parts h).2.2.2.2.2.2.2.2.2
+  (parts h).2.2.2.2.2.2.2.2.2.1
+theorem Checks.a12_of_ok (h : C.ok tablesOf o = true) : C.a12 o (tablesOf o) = true :=
+  (parts h).2.2.2.2.2.2.2.2.2.2
 
 /-- **`PlaceOK` from its components**, each decided on its own (a
 certificate may decide its components in separate declarations or files,
@@ -123,8 +128,9 @@ and combine them here without another decision). -/
 theorem Checks.ok_of (h1 : C.a1 o (tablesOf o) = true) (h2 : C.a2 o (tablesOf o) = true)
     (h3 : C.a3 o (tablesOf o) = true) (h4 : C.a4 o (tablesOf o) = true) (h5 : C.a5 o (tablesOf o) = true)
     (h6 : C.a6 o (tablesOf o) = true) (h7 : C.a7 o (tablesOf o) = true) (h8 : C.a8 o (tablesOf o) = true)
-    (h9 : C.a9 o (tablesOf o) = true) (h11 : C.a11 o (tablesOf o) = true) : C.ok tablesOf o = true := by
-  simp only [Checks.ok, h1, h2, h3, h4, h5, h6, h7, h8, h9, h11, Bool.and_self]
+    (h9 : C.a9 o (tablesOf o) = true) (h11 : C.a11 o (tablesOf o) = true) (h12 : C.a12 o (tablesOf o) = true) :
+    C.ok tablesOf o = true := by
+  simp only [Checks.ok, h1, h2, h3, h4, h5, h6, h7, h8, h9, h11, h12, Bool.and_self]
 
 end Proj
 
@@ -135,7 +141,7 @@ proved from it, and a certificate that states a failure decides it again
 def Checks.firstFail {O T : Type} (C : Checks O T) (tablesOf : O → T) (o : O) : Option Nat :=
   let t := tablesOf o
   ([(1, C.a1 o t), (2, C.a2 o t), (3, C.a3 o t), (4, C.a4 o t), (5, C.a5 o t), (6, C.a6 o t),
-    (7, C.a7 o t), (8, C.a8 o t), (9, C.a9 o t), (11, C.a11 o t)].find? (!·.2)).map (·.1)
+    (7, C.a7 o t), (8, C.a8 o t), (9, C.a9 o t), (11, C.a11 o t), (12, C.a12 o t)].find? (!·.2)).map (·.1)
 
 /-! ## A1: the static link -/
 
@@ -190,6 +196,37 @@ of their own tied to the output (`regionsTied`), the layout below `2 ^ 32`
 (`below32`), the standard abort labels (`abortStd`). -/
 def layoutOk (secs : DataSecs) (Λ : Layout) : Bool :=
   Link.disjB Λ.rodata Λ.stackPool && regionsTied secs Λ && below32 Λ && abortStd Λ
+
+/-- **The allocator's arena in 16-byte cells**: the limit `scc_rt_alloc`
+compares its counter with, the constant of the runtime's fixed code that A7
+checks (`allocIn`: AArch64 `movz x10, #64, lsl #16`, x86-64
+`movq $4194304, %rcx`; tied to that code by `PlaceOK.A64.allocCells_eq_lit` and
+`PlaceOK.X64.allocCells_eq_lit`). -/
+def allocCells : Nat := 4194304
+
+/-- The allocator's counter (`scc_rt_heap_use`, in cells). -/
+def heapUseSym : String := "scc_rt_heap_use"
+
+/-- The allocator's counter's address in the link's symbols (0 if not
+listed). -/
+def heapUseOf (Λ : Layout) : Nat := (Λ.symbols.lookup heapUseSym).getD 0
+
+/-- **The heap arena holds the allocator's cells** (A8): `16 * allocCells`
+bytes from the arena's base lie in `Λ.heap`, so an allocation the
+allocator accepts stays in the arena. -/
+def heapSizeOk (Λ : Layout) : Bool := decide (16 * allocCells ≤ Λ.heap.size)
+
+theorem heapSize_of_heapSizeOk {Λ : Layout} (h : heapSizeOk Λ = true) : 16 * allocCells ≤ Λ.heap.size :=
+  of_decide_eq_true h
+
+/-- **The static data below the heap**: `.data` ends at or below the heap's
+start, so the counter word (in `.data`) is below every word the allocator
+stores (its header at `heap + 16 o + 8·n·m`). -/
+def dataBelowHeap (Λ : Layout) : Bool := decide (Λ.data.lo + Λ.data.size ≤ Λ.heap.lo)
+
+theorem dataBelow_of_dataBelowHeap {Λ : Layout} (h : dataBelowHeap Λ = true) :
+    Λ.data.lo + Λ.data.size ≤ Λ.heap.lo :=
+  of_decide_eq_true h
 
 section LayoutOk
 

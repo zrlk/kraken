@@ -105,15 +105,21 @@ what it does not; in short, it
 * reads the source as a term (`prog_src`, checked against the frontend by a
   `#guard`) and proves by `decide +kernel` that it is in the fragment the
   first compiler theorem covers (`prog_accepted`, `Scc.Lower.Accepted0`) or
-  that it is not (`prog_not_accepted`);
+  that it is not (`prog_not_accepted`), and, when it holds, that it is in
+  the fragment of the compiler theorems over `Scc.Lower.Accepted1`
+  (`prog_accepted1`);
 * proves the placement check `placeOK` of `scc`'s output for `prog_src`
   (`prog_placeOK`, `Scc/Cert/PlaceOK*.lean`): the kernel runs the lowering
   and the emitter and checks the result equal to a literal (`out_eq`, in
   three steps: `lowered_eq`, `emitted_eq` and the rest,
   `Scc/Cert/OutStage{A64,X64}.lean`; `emitted_eq` itself from the emitter's
-  checks, each function and the rest, `emitItemsMaps_of_stages`),
+  checks, each function and the rest, `emitItemsMaps_of_stages`; on AArch64
+  in four, the block table its own stage, `blocks_eq` and `ofStage_eq_B`),
   and decides `placeOK`'s parts on that
-  literal; the loader's parse of the embedded text is checked against the
+  literal, each its own declaration (A9 by its keyed form `a9_of_fast` on
+  both ISAs, A2 by `a2_of_fast` on AArch64, and A12, the code of every user
+  function, from its two keyed parts, `a12_of_split`,
+  `Scc/Cert/A12Stage{A64,X64}.lean`, on both ISAs); the loader's parse of the embedded text is checked against the
   same output by evaluation (`parsesTo`, a `#guard`).  For an accepted
   program `prog_cert_ready` states acceptance and placement together.
 
@@ -123,7 +129,7 @@ marked `-- outside the certified fragment` (`renderOutside`).
 
 `scc --check c.lean` (or `lake env lean c.lean` in the Kraken package, after
 `lake build Scc`) checks a certificate; the test programs' certificates
-check in 40 to 70 s, with a Lean process of 2 to 3.5 GB.
+check in about 50 to 105 s, with a Lean process of 2 to 3.5 GB.
 
 **What a check trusts.**  The Lean kernel, for every `theorem`; the Lean
 compiler and interpreter, for the `#guard`s (reproducibility, the source
@@ -463,11 +469,19 @@ exit status are:
 
 `T.post.lean` combines the components with `placeOKAt_of`, and with
 `--instantiate` applies the compiler theorem at the executable's layout:
-`Spike.Lib.LowerX64.x64_scc_correctE_text_closedAt` on x64,
-`Spike.Lib.LowerA64.a64_scc_correctE_text_closedAt` on arm.  On x64,
-`ret0` gives `certified` with `--instantiate` in about 50 s and 1.3 GB.  On
+`Spike.Lib.LowerA64.a64_scc_correctE_text_closedAt1` on arm and
+`Spike.Lib.LowerX64.x64_scc_correctE_text_closedAt1` on x64 (fragment
+`Scc.Lower.Accepted1`, `prog_accepted1`: every `Accepted0` program, and
+main-only call-free programs with saturating `-` and `if` on `Int` atoms,
+e.g. `ifsub1`).  On x64 that theorem also takes `main`'s frame bound
+(`Spike.Lib.LowerX64.MainFrame1Ok`, at most 4096 bytes: `prog_mainFrame1`,
+by `decide +kernel` in `T.post.lean`); a program whose frame exceeds it
+takes `Spike.Lib.LowerX64.x64_scc_correctE_text_closedAt` (fragment
+`Scc.Lower.Accepted0`, `prog_accepted`) if it is in `Accepted0`, and is not
+certifiable otherwise.  On x64,
+`ret0` gives `certified` with `--instantiate` in about 60 s and 1.3 GB.  On
 arm, `ret0` (`ld.lld`'s default link, `.rodata` below the code) gives
-`certified` with `--instantiate` in about 53 s and 1.4 GB.  Without
+`certified` with `--instantiate` in about 55 s and 1.3 GB.  Without
 `--instantiate` both give `placement decided`.
 
 Before compiling, `certify.sh` builds what it needs with `lake build`: scc

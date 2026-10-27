@@ -19,6 +19,12 @@ open Scc.Cert.Rt.A64 (blockAt)
 /-- The stack-limit branch's target in the emitted prologue. -/
 def proL (c : FnCtx) : Label := c.local (if c.maps then "stack_grow" else "abort_stack")
 
+/-- **The stub's first instruction** the emitter places at `proL c`: with
+growth the grow stub's `sub sp, sp, #80` (its save area), without it the
+stack abort's load of its code into `x0`. -/
+def stkHead (c : FnCtx) : List Directive :=
+  (directives (if c.maps then addImm spW64 spW64 (-80) else movImm .X0 Scc.IR.AbortKind.stack.code)).take 1
+
 /-- **The emitted prologue of `c`'s function is in `prog`**, `fn` its
 label and `entry` its body's first label. -/
 def proInC (prog : List Directive) (c : FnCtx) (fn entry : Label) : Bool :=

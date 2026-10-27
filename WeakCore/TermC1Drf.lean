@@ -36,7 +36,7 @@ theorem drf1_clK {ρ : Nat → Nat} {W : Nat → Ty} (t : Ty) :
       by_cases h : j < c
       · simp [cl, h, drf1]
       · simp only [cl, h, ↓reduceIte]; exact hW j (by omega) (by simp [Ty.tyMentions])
-  | prod a b iha ihb | sum a b iha ihb | code a b iha ihb =>
+  | prod a b iha ihb | sum a b iha ihb | code a b _ iha ihb =>
       intro c d hW h; simp only [drf1, Bool.and_eq_true] at h
       simp only [cl, drf1, Bool.and_eq_true]
       exact ⟨iha c d (fun k hk hm => hW k hk (by simp [Ty.tyMentions, hm])) h.1,
@@ -84,7 +84,7 @@ theorem drf1_cl_shift {ρ : Nat → Nat} {W W₁ : Nat → Ty} (h0 : drf1 (W₁ 
           have e : k - c = (k - (c + 1)) + 1 := by omega
           simp only [h1, h3, ↓reduceIte] at h ⊢
           rw [e, hs]; exact h
-  | prod a b iha ihb | sum a b iha ihb | code a b iha ihb =>
+  | prod a b iha ihb | sum a b iha ihb | code a b _ iha ihb =>
       intro c d h; simp only [cl, drf1, Bool.and_eq_true] at h ⊢; exact ⟨iha c d h.1, ihb c d h.2⟩
   | loc μ t ih =>
       intro c d h; simp only [cl, drf1, Bool.and_eq_true] at h ⊢; exact ⟨h.1, ih c d h.2⟩
@@ -124,7 +124,7 @@ theorem drf1_Fd {T U : Ty} (h : Fd T U) (hU : drf1 U = true) : drf1 T = true := 
 theorem drf1_of_drf : ∀ t : Ty, drf t = true → drf1 t = true := by
   intro t
   induction t with
-  | prod a b iha ihb | sum a b iha ihb | code a b iha ihb =>
+  | prod a b iha ihb | sum a b iha ihb | code a b _ iha ihb =>
       intro h; simp only [drf, drf1, Bool.and_eq_true] at h ⊢; exact ⟨iha h.1, ihb h.2⟩
   | ptr μ t ih => intro h; simp only [drf, drf1, Bool.and_eq_true] at h ⊢; exact ih h.2
   | ptrOpt μ t ih => intro h; simp only [drf, drf1, Bool.and_eq_true] at h ⊢; exact ih h.2

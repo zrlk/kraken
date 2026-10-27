@@ -34,7 +34,7 @@ theorem ret0_correct_parsed' {B : Budget} {arch : WeakMem.Arch} {ls0 : Lsize} {i
     Correct TPar (SrcSem.source (ret0P arch) ret0Src) ret0Λ B (ret0Prog, ret0Secs) := by
   rw [← ret0_marksP] at hN hT hA hsvc
   exact correctA64P' (lsize := ls0) (name := fun _ => "") SccCode.ret0Λ_image (ret0_ss ls0 _)
-    SccCode.ret0_wide ⟨rfl, rfl, hE _ _ ret0_entry⟩ ⟨_, ret0_loadP⟩ (ret0P_hooks arch) (ret0P_init arch) hN
+    SccCode.ret0_wide ⟨rfl, rfl, hE _ _ ret0_entry⟩ ⟨_, ret0_loadP⟩ (.none (ret0P_hooks arch)) (ret0P_init arch) hN
     (ret0_safe arch _) hT htk0 ret0_own0 hsvc (fun _ => trivial) SccCode.ret0Λ_wf ret0_G0
     ret0_Gpl hA (fun h => h)
 

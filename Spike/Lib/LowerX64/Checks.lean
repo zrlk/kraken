@@ -35,6 +35,10 @@ open Scc.Cert.Rt.X64 (blockAtB after cellRun dropBytes)
 /-- The stack-limit branch's target in the emitted prologue. -/
 def proL (fr : Scc.Emit.X64.Frame) : String := labelOf fr.fn "stk"
 
+/-- **The grow stub's first cell** the emitter places at `proL` with growth:
+`pushq %rdi` (the first argument register's save), at its cell size. -/
+def stkHead : List (Directive × Nat) := [(i64 (.push (or_ .rdi)), 1)]
+
 /-- **The emitted prologue of `fr`'s function is in `cells`**, `fn` its
 label and `entry` its body's first label, at the cells' sizes `zl zf z1 z2
 zs`. -/

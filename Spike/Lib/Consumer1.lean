@@ -32,6 +32,7 @@ Contents:
 - `reach_run`, `run_one`, `set_one`, `touches_mono`, `sub_contains`,
   `shared_not_pool`, `overlaps_contains`, `word_off_pool`,
   `stepOneWith_eq`: small lemmas.
+- `SrcRd`, `SrcRd.of_all`: the source's reads satisfy a read predicate.
 -/
 import Spike.Lib.ExtRows
 import Spike.Lib.SrcRun
@@ -91,17 +92,16 @@ variable {P : SrcSem.SrcParams} {p : Prog}
 /-- **A thread step of thread 0 with no promise after it, `main` not
 returned before or after it, is a step of the source instance with no
 event** (certified by the empty solo run). -/
-theorem src_step_of_threadSteps (hP : P.hooks = SrcSem.SrcHooks.none) {c c' : TermRun.Cfg} {th' : TermRun.TTh}
+theorem src_step_of_threadSteps (hP : HookOK P p) {c c' : TermRun.Cfg} {th' : TermRun.TTh}
     (hm : c' ∈ TermRun.threadSteps p P.k P.arch c 0) (h0 : c'.ths[0]? = some th') (hp : th'.promises = [])
     (hx : mainExit c = []) (hx' : mainExit c' = []) : (SrcSem.source P p).step 0 c [] c' := by
-  refine ⟨hx, .inl (.inl ⟨hm, ⟨_, .refl _, ?_⟩⟩), ?_⟩
-  · simp [TermRun.noPromises, h0, hp]
-  · simp [SrcSem.srcObs, hP, SrcSem.SrcHooks.none, hx, hx', SrcSem.cutAtExit]
+  have hs : SrcSem.StepBy p P.k P.arch 0 c c' := .inl ⟨hm, ⟨_, .refl _, by simp [TermRun.noPromises, h0, hp]⟩⟩
+  exact ⟨hx, .inl hs, (obs_nil (hP.trace_stepBy hs) hx hx').symm⟩
 
 /-- **The source store of the store row** is a step of thread 0 of the
 source instance with no event, pushing the message, when its continuation
 is not at `ret`. -/
-theorem src_store_step (hP : P.hooks = SrcSem.SrcHooks.none) (hS : SrcMem P p) {c : TermRun.Cfg}
+theorem src_store_step (hP : HookOK P p) (hS : SrcMem P p) {c : TermRun.Cfg}
     {th : TermRun.TTh} {x : String} {a b : At} {e : Expr} {ty tb : Ty} {pw wb : TermRun.Word}
     {sa : WeakMem.Address} (h0 : c.ths[0]? = some th) (hp : th.promises = [])
     (ht : th.term = .let_ x (.store true a b none) e) (hea : TermRun.evalAt th.env a = some (ty, [pw]))
@@ -123,7 +123,7 @@ theorem src_store_step (hP : P.hooks = SrcSem.SrcHooks.none) (hS : SrcMem P p) {
 /-- **The source load of the load row** is a step of thread 0 of the source
 instance with no event, reading the latest message, when its continuation
 is not at `ret`. -/
-theorem src_load_step (hP : P.hooks = SrcSem.SrcHooks.none) (hS : SrcMem P p) {c : TermRun.Cfg}
+theorem src_load_step (hP : HookOK P p) (hS : SrcMem P p) {c : TermRun.Cfg}
     {th : TermRun.TTh} {x : String} {a : At} {e : Expr} {ty : Ty} {pw : TermRun.Word} {sa : WeakMem.Address}
     {j : Nat} {m : WeakMem.Msg} (h0 : c.ths[0]? = some th) (hp : th.promises = [])
     (ht : th.term = .let_ x (.load true a) e) (hea : TermRun.evalAt th.env a = some (ty, [pw]))
@@ -144,7 +144,7 @@ thread 0 of the source instance with no event (`SrcMem.src_swap_step_cfg`):
 it reads the latest message `j` at `sa` and appends `v`'s word there,
 binding the old word; the thread has no promise and its continuation is not
 at `ret`. -/
-theorem src_swap_step (hP : P.hooks = SrcSem.SrcHooks.none) {c : TermRun.Cfg} {th : TermRun.TTh} {x : String}
+theorem src_swap_step (hP : HookOK P p) {c : TermRun.Cfg} {th : TermRun.TTh} {x : String}
     {sa : WeakMem.Address} {u : Ty} {v : At} {e : Expr} {tv : Ty} {wv : TermRun.Word} {j : Nat} {m : WeakMem.Msg}
     (h0 : c.ths[0]? = some th) (hp : th.promises = []) (hs : XchgSite ⟨th.term, th.env, none⟩ x sa u v e)
     (hev : TermRun.evalAt th.env v = some (tv, [wv])) (hj : MemRel.SLatest c.mem sa j) (hm : c.mem[j]? = some m)
@@ -473,6 +473,21 @@ theorem reach_run {P : SrcSem.SrcParams} {p : Prog} {tr es : List Ev} {s s' : Te
     (h : (SrcSem.source P p).Reach tr s) (hr : (SrcSem.source P p).Run s es s') :
     (SrcSem.source P p).Reach (tr ++ es) s' :=
   let ⟨s0, hi, h0⟩ := h; ⟨s0, hi, h0.trans hr⟩
+
+/-- **The source's reads satisfy `rd`**: every message of a reachable
+one-thread configuration with no promise outstanding, represented by some
+value (`ValRep`), read as a word satisfies `rd` (e.g. `IsNum`, from the
+source's memory holding numbers). -/
+def SrcRd (P : SrcSem.SrcParams) (p : Prog) (rd : TermRun.Word → Prop) : Prop :=
+  ∀ (tr : List Ev) (s : TermRun.Cfg) (th : TermRun.TTh) (k : Nat) (m : WeakMem.Msg)
+    (lbl : WeakMem.AllocLabel → Option Nat) (x : Nat),
+    (SrcSem.source P p).Reach tr s → s.ths = #[th] → th.promises = [] → s.mem[k]? = some m →
+    ValRep lbl m.val x → rd ⟨m.val, m.view, k⟩
+
+/-- `SrcRd` for an `rd` admitting every word. -/
+theorem SrcRd.of_all {P : SrcSem.SrcParams} {p : Prog} {rd : TermRun.Word → Prop} (h : ∀ w, rd w) :
+    SrcRd P p rd :=
+  fun _ _ _ _ _ _ _ _ _ _ _ _ => h _
 
 /-- One source step with no event is a run with no event. -/
 theorem run_one {P : SrcSem.SrcParams} {p : Prog} {s s' : TermRun.Cfg} (h : (SrcSem.source P p).step 0 s [] s') :

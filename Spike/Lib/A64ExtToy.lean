@@ -516,7 +516,7 @@ theorem components {t : T.M.Cfg} {s : TermRun.Cfg} {th : Thread isaLSE2} (hth : 
   · intro k' m' _ ⟨l, b, _, hb, _⟩; cases hb
   · intro _ k' m' _ ⟨l, b, _, hb, _⟩; cases hb
   · intro i th j tt _ _ _ d e _ x ty ws _ k wd pl _ hpl; cases hpl
-  · intro i th' hth' d e xs he _ x _ ty ws hl k hk
+  · intro i th' hth' d e xs he _ _ x _ ty ws hl k hk
     exfalso
     have hth0 : th'.env = [("a", .unit, [])] ∧ th'.stack = [] := by
       rcases hs with rfl | rfl

@@ -60,19 +60,12 @@ def hello1O : Out :=
 #guard hello1O.place.need == SccCode.hello1Need
 #guard decide (hello1O.place.tail = .setup)
 
--- The computed placement data passes `PlaceOK` on `ret0.w`, and on
--- `hello1.w` every component but A11 (no `MainCode` after a setup block yet)
+-- The computed placement data passes `PlaceOK` on `ret0.w` and on `hello1.w`
+-- (A11 through its setup tail)
 -- (evaluated; the kernel's decisions are `Spike/Test/X64Ret0PlaceOKE.lean`
 -- and `Spike/Test/X64Hello1PlaceOKE.lean`).
 #guard placeOK Scc.Cert.PlaceOK.Config.canonical ret0O
-#guard !placeOK Scc.Cert.PlaceOK.Config.canonical hello1O
-#guard !a11 hello1O (tablesOf Scc.Cert.PlaceOK.Config.canonical hello1O)
-#guard a1 hello1O (tablesOf Scc.Cert.PlaceOK.Config.canonical hello1O) &&
-  a2 hello1O (tablesOf Scc.Cert.PlaceOK.Config.canonical hello1O) &&
-  a3 hello1O (tablesOf Scc.Cert.PlaceOK.Config.canonical hello1O) &&
-  a4 Scc.Cert.PlaceOK.Config.canonical hello1O (tablesOf Scc.Cert.PlaceOK.Config.canonical hello1O) &&
-  a5 hello1O (tablesOf Scc.Cert.PlaceOK.Config.canonical hello1O) &&
-  a7 hello1O (tablesOf Scc.Cert.PlaceOK.Config.canonical hello1O) &&
-  a8 hello1O (tablesOf Scc.Cert.PlaceOK.Config.canonical hello1O)
+#guard placeOK Scc.Cert.PlaceOK.Config.canonical hello1O
+#guard a11 hello1O (tablesOf Scc.Cert.PlaceOK.Config.canonical hello1O)
 
 end Spike.Test.X64PlaceData

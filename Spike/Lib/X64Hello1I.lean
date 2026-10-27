@@ -522,7 +522,8 @@ open Scc.Cert.Rt.X64 (Lays endOf)
 
 /-- **`hello1_main_post_segW`'s source and frame facts** for a caller's
 state `m0`, `σC` at `wc_rodata`'s call: `MainPostP` but its states inside
-`W` (`hW`, the instance's node obligations). -/
+`W` (`hW`, the instance's node obligations).
+VACUOUS at .x13 at `rodata`'s source: see X64Hello1RodataSetupG (`hand_x13_empty`). -/
 structure Hello1PostSrc (W : Frag isa) (K : State → State → Prop) (p : Prog) (lbl : WeakMem.AllocLabel → Option Nat)
     (ms : MemSide isa) (exe : _root_.Executable) (endPc : Int64) (R : Region) (F : MachineData → Prop)
     (m0 : MachineData) (σC : AS) (Jp J1 J2 J3 J4 Jr Jw : AS → Ctl → Prop) : Prop where
@@ -556,8 +557,11 @@ structure Hello1PostSrc (W : Frag isa) (K : State → State → Prop) (p : Prog)
   hlimW : ∀ σx c, Jr σx c → LimOk ms F (σx.regs.fsBase.toBitVec + (8 : Int64).toBitVec)
       (σx.regs.rsp.toBitVec - 8#64 - 8#64 - (80 : Int64).toBitVec)
   hsvc : ∀ F' : MachineData → Prop, FStable (pR (wR R)) F' →
-      (∀ m, F' m → (F m ∧ CallerCells R (-80) (-144) 8 m) ∧ CallerCells (wR R) (-96 - 8) (-40) 16 m) →
+      (∀ m, F' m → ((F m ∧ CallerCells R (-80) (-144) 8 m) ∧ CallerCells (wR R) (-96 - 8) (-40) 16 m) ∧
+        Spike.Lib.X64.Rt.WcRa (wR R) ((_root_.Executable.labels exe).label ".Lscc_rt_main.x3") m ∧
+        Spike.Lib.X64.Rt.WcFp (wR R) (R.addr (-8)) m) →
       ∀ g' : PG, g'.2.2 = ((_root_.Executable.labels exe).label ".Lwc_main.x15").toBitVec →
+      g'.2.1 = (wR R).addr (-8) →
       SegW W K p lbl ms
         (At exe endPc (pR (wR R)) F' (Print.N (_root_.Executable.labels exe).label g'.1 g'.2.1 g'.2.2 .sys))
         (At exe endPc (pR (wR R)) F' (Print.N (_root_.Executable.labels exe).label g'.1 g'.2.1 g'.2.2 .n5))
@@ -615,7 +619,8 @@ variable {p : Prog} {lbl : WeakMem.AllocLabel → Option Nat} {ms : MemSide isa}
 
 /-- **`hello1_main_segW` from the source facts**: the layout's premises,
 the states inside `W` before (`hW`) and after (`hWp`) `wc_rodata`'s
-allocation, and `Hello1Src`. -/
+allocation, and `Hello1Src`.
+VACUOUS at .x13 at `rodata`'s source: see X64Hello1RodataSetupG (`hand_x13_empty`). -/
 theorem hello1_main_segW_src {W : Frag isa} {K : State → State → Prop}
     (hp : Lays exe SccCode.hello1Cells) (hend : endPc = endOf exe SccCode.hello1Cells)
     (hF : FStable R F) (hR : R.OK) (hlo : R.lo ≤ -288) (hhi : 8 ≤ R.hi)

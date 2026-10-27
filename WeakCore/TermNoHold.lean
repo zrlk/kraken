@@ -93,7 +93,7 @@ theorem solo_typedXF {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c 
     {n0 v0 na0 : Nat} {Z : AllocLabel → Prop} {H : AllocLabel → Nat → Ts → Prop} [ProgRetIall p] [WrIniC] (hP : ProgT p)
     (hsc : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → ScopeAt p i c0) (hvI : TermViewInv.ViewInv c)
     (hwin : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → NoHoldPubA p k arch Eu Ea i c0)
-    (h0 : InvAtXFZ Z p k arch i E0 n0 v0 na0 c H (Ea := Ea) (Eu := Eu)) {c2 : Cfg} (h : Solo p k arch i c c2)
+    (h0 : InvAtXFZ Z p k arch i E0 n0 v0 na0 c H (Ea := Ea) (Eu := Eu)) (hTA : TermTyped.TidAt i c E0) {c2 : Cfg} (h : Solo p k arch i c c2)
     (hc2 : Certified p k arch c2 i)
     (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) (hZr : ∀ c1, Solo p k arch i c c1 → Certified p k arch c1 i → ∀ th1, c1.ths[i]? = some th1 →
       ∀ l, BufInitOn th1 l → ¬ Z l := by exact fun _ _ _ _ _ _ _ h => h)
@@ -142,9 +142,12 @@ theorem solo_typedXF {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c 
       exact MemInv_promSt hm
     · exact frRunA_prom hth hfr
   · rintro c0 c0' ⟨hc0, th, E, hth, hx, hTE, hm, hSC, hbo, hfb, hfr, hna, hfresh, hIL, hIH⟩ hs _
-    obtain ⟨x1, a1, e1, evs, hterm, rfl⟩ := extSteps_thread hs hth
-    exact ⟨solo_trans hc0 (.ext hs (.refl _)), _, E, set_self hth, hx, TermTyped.ThInvE_emit hterm hTE,
-      by rw [gOf_ext hs]; exact hm, hSC, by rw [gOf_ext hs]; exact hbo, hfb, hfr, hna, by rw [gOf_ext hs]; exact hfresh, hIL, hIH⟩
+    rcases TermTyped.extSteps_res hs hth with ⟨x1, n1, a1, e1, rt1, ws1, rs1, hterm, hn1, hev1, hrs1, rfl⟩ | ⟨x1, a1, e1, lb, hterm, htl, rfl⟩
+    · exact ⟨solo_trans hc0 (.ext hs (.refl _)), _, E, set_self hth, hx, TermTyped.ThInvE_ext hn1 hterm hev1 hrs1 hTE,
+        by rw [gOf_ext hs]; exact hm, hSC, by rw [gOf_ext hs]; exact hbo, hfb, hfr, hna, by rw [gOf_ext hs]; exact hfresh, hIL, hIH⟩
+    · obtain ⟨hbs, hbp⟩ := TermTyped.tidBox_ext hx (TermTyped.tidAt_solo hc0 hTA th hth lb htl)
+      exact ⟨solo_trans hc0 (.ext hs (.refl _)), _, E, set_self (tr := c0.trace) hth, hx, TermTyped.ThInvE_cur hterm hbs hbp hTE,
+        by rw [gOf_ext hs]; exact hm, hSC, by rw [gOf_ext hs]; exact hbo, hfb, hfr, hna, by rw [gOf_ext hs]; exact hfresh, hIL, hIH⟩
 
 /-- (S1b) `InvAtXFZ` with the run's publish provenance `PfrProvE` from the run start `st`. -/
 def InvAtXFP (Z : AllocLabel → Prop) (p : Prog) (k : Promises.Knobs) (arch : Arch) (i : Nat) (E0 : TEnv)
@@ -300,7 +303,7 @@ theorem solo_typedXFP {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c
     {n0 v0 na0 : Nat} {Z : AllocLabel → Prop} {H : AllocLabel → Nat → Ts → Prop} [ProgRetIall p] [WrIniC] (hP : ProgT p)
     (hsc : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → ScopeAt p i c0) (hvI : TermViewInv.ViewInv c)
     (hwin : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → NoHoldPubA p k arch E0 E0 i c0)
-    {st : Cfg} (h0 : InvAtXFP Z p k arch i E0 n0 v0 na0 st c H) {c2 : Cfg} (h : Solo p k arch i c c2)
+    {st : Cfg} (h0 : InvAtXFP Z p k arch i E0 n0 v0 na0 st c H) (hTA : TermTyped.TidAt i c E0) {c2 : Cfg} (h : Solo p k arch i c c2)
     (hc2 : Certified p k arch c2 i)
     (hrl : ∀ l, E0.rini l ≤ E0.ini l)
     (hZp : ∀ c1 th1 c1' c3 th3 l cl, TermOwnG0Defs.SoloNP p k arch i l st c1 → c1.ths[i]? = some th1 →
@@ -338,10 +341,14 @@ theorem solo_typedXFP {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c
     exact ⟨solo_trans hc0 (.prom a v w hw (.refl _)), th', E, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12,
       TermK5P.pfrProv_prom hPV hw, TermK5O.pfrProvO_prom hPO hw⟩
   · rintro c0 c0' ⟨hc0, th, E, hth, hx, hTE, hm, hSC, hbo, hfb, hfr, hna, hfresh, hIL, hIH, hPV, hPO⟩ hs _
-    obtain ⟨x1, a1, e1, evs, hterm, rfl⟩ := extSteps_thread hs hth
-    exact ⟨solo_trans hc0 (.ext hs (.refl _)), _, E, set_self hth, hx, TermTyped.ThInvE_emit hterm hTE,
-      by rw [gOf_ext hs]; exact hm, hSC, by rw [gOf_ext hs]; exact hbo, hfb, hfr, hna, by rw [gOf_ext hs]; exact hfresh, hIL, hIH,
-      TermK5P.pfrProv_ext hPV hs, TermK5O.pfrProvO_ext hPO hs⟩
+    rcases TermTyped.extSteps_res hs hth with ⟨x1, n1, a1, e1, rt1, ws1, rs1, hterm, hn1, hev1, hrs1, rfl⟩ | ⟨x1, a1, e1, lb, hterm, htl, rfl⟩
+    · exact ⟨solo_trans hc0 (.ext hs (.refl _)), _, E, set_self hth, hx, TermTyped.ThInvE_ext hn1 hterm hev1 hrs1 hTE,
+        by rw [gOf_ext hs]; exact hm, hSC, by rw [gOf_ext hs]; exact hbo, hfb, hfr, hna, by rw [gOf_ext hs]; exact hfresh, hIL, hIH,
+        TermK5P.pfrProv_ext hPV hs, TermK5O.pfrProvO_ext hPO hs⟩
+    · obtain ⟨hbs, hbp⟩ := TermTyped.tidBox_ext hx (TermTyped.tidAt_solo hc0 hTA th hth lb htl)
+      exact ⟨solo_trans hc0 (.ext hs (.refl _)), _, E, set_self (tr := c0.trace) hth, hx, TermTyped.ThInvE_cur hterm hbs hbp hTE,
+        by rw [gOf_ext hs]; exact hm, hSC, by rw [gOf_ext hs]; exact hbo, hfb, hfr, hna, by rw [gOf_ext hs]; exact hfresh, hIL, hIH,
+        TermK5P.pfrProv_ext hPV hs, TermK5O.pfrProvO_ext hPO hs⟩
 
 /-- **`certified_promLoc`**: an outstanding promise of a certified thread
 lies at a cell of the start environment `E0` or at one of the thread's labels
@@ -354,7 +361,7 @@ theorem certified_promLoc {p : Prog} {k : Promises.Knobs} {arch : Arch} {c : Cfg
     {n0 v0 na0 : Nat} [ProgRetIall p] [WrIniC] (hP : ProgT p)
     (hsc : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → ScopeAt p i c0) (hvI : TermViewInv.ViewInv c)
     (hwin : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → NoHoldPubA p k arch Eu Ea i c0)
-    (h0 : InvAtXF p k arch i E0 n0 v0 na0 c (Ea := Ea) (Eu := Eu)) (hc : Certified p k arch c i)
+    (h0 : InvAtXF p k arch i E0 n0 v0 na0 c (Ea := Ea) (Eu := Eu)) (hTA : TermTyped.TidAt i c E0) (hc : Certified p k arch c i)
     {t : Ts} {m : Msg} (ht : t ∈ TermFul.promsOf c i) (hm : c.mem[t]? = some m) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) :
     (∃ cl, E0.sto m.loc.label = some cl) ∨ ∃ j, na0 ≤ j ∧ m.loc.label = freshLabel c.lbase c.n i j := by
   obtain ⟨m', hm', c1, c2, th1, h1, h2, hc2, hth1, -, -, -, hsw⟩ := certified_fulfilC hc (pwf_of_inv h0.toInvAt) ht
@@ -362,7 +369,7 @@ theorem certified_promLoc {p : Prog} {k : Promises.Knobs} {arch : Arch} {c : Cfg
   cases hm'
   have hc1 : Certified p k arch c1 i := certified_back (.thread h2 (.refl _)) hc2
   obtain ⟨th1', E1, hth1', -, ⟨ρ, η, cx, rfl, hE, hT, htv, hi, -⟩, hmi1, -, -, -, -, -, hfresh, -, -⟩ :=
-    solo_typedXF hP hsc hvI hwin h0 h1 hc1 hPS hSub hSig
+    solo_typedXF hP hsc hvI hwin h0 hTA h1 hc1 hPS hSub hSig
   rw [hth1] at hth1'
   cases hth1'
   have hscope := hsc c1 h1 hc1 th1 hth1 (TermTyped.not_spawnT_of_steps hth1 h2) ρ η cx hE hT htv hi
@@ -417,7 +424,7 @@ theorem promLocP (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [Wr
     rw [hpi.1]; exact Array.getElem?_push_size
   have h := certified_promLoc hP (fun c1 h1 h2 => (hrun X S hS c1 h1 h2).1) (by first | exact TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw | exact TermViewInv.viewInv_run hV0 X.run | exact TermViewInv.viewInv_thread (TermViewInv.viewInv_run hV0 X.run) X.hc')
     (fun c1 h1 h2 => (hrun X S hS c1 h1 h2).2)
-    h0 X.cert ht hmt
+    h0 (TermMain.tidAt_cutP X.inv j S) X.cert ht hmt
   simp only [promise_lbase, TermStep.promise_n, TermStep.promise_size] at h
   exact h hPS hSub hSig
 
@@ -441,7 +448,7 @@ theorem promLocT (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [Wr
   have hc : Certified p k arch c i := by
     obtain ⟨c'', hs, hn⟩ := X.cert
     exact ⟨c'', .thread X.hc' hs, hn⟩
-  exact certified_promLoc hP (fun c1 h1 h2 => (hrun S hS c1 h1 h2).1) (by first | exact TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw | exact TermViewInv.viewInv_run hV0 X.run | exact TermViewInv.viewInv_thread (TermViewInv.viewInv_run hV0 X.run) X.hc') (fun c1 h1 h2 => (hrun S hS c1 h1 h2).2) h0 hc
+  exact certified_promLoc hP (fun c1 h1 h2 => (hrun S hS c1 h1 h2).1) (by first | exact TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw | exact TermViewInv.viewInv_run hV0 X.run | exact TermViewInv.viewInv_thread (TermViewInv.viewInv_run hV0 X.run) X.hc') (fun c1 h1 h2 => (hrun S hS c1 h1 h2).2) h0 (TermMain.tidAt_cut X.inv i S) hc
     (by rw [TermFul.promsOf_some X.hth]; exact ht) hm hPS hSub hSig
 
 /-- The run-level premise of `promLocP` (scope and `NoHoldPub` along the
@@ -520,7 +527,7 @@ theorem certified_promPredE {p : Prog} {k : Promises.Knobs} {arch : Arch} {c : C
     {n0 v0 na0 : Nat} [ProgRetIall p] [WrIniC] (hP : ProgT p) (hstep : StepPredNum p)
     (hsc : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → ScopeAt p i c0) (hvI : TermViewInv.ViewInv c)
     (hwin : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → NoHoldPubA p k arch E0 E0 i c0)
-    (h0 : InvAtXF p k arch i E0 n0 v0 na0 c) (hc : Certified p k arch c i)
+    (h0 : InvAtXF p k arch i E0 n0 v0 na0 c) (hTA : TermTyped.TidAt i c E0) (hc : Certified p k arch c i)
     {t : Ts} {m : Msg} (ht : t ∈ TermFul.promsOf c i) (hm : c.mem[t]? = some m) (hIW : IniWr E0 m.loc)
     {n : Nat} {P : Proto} (hW : WordAt E0 m.loc n P) (hep : P.epoch = true) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) :
     ∃ w, PredAt c.mem m.loc t w ∧ ∃ k, w.val = .num k := by
@@ -529,7 +536,7 @@ theorem certified_promPredE {p : Prog} {k : Promises.Knobs} {arch : Arch} {c : C
   rw [hm] at hm'
   cases hm'
   have hc1 : Certified p k arch c1 i := certified_back (.thread h2 (.refl _)) hc2
-  obtain ⟨th1', E1, hth1', hx1, ⟨ρ, η, cx, rfl, hE, hT, htv, hi, hrp⟩, hmi1, -⟩ := solo_typedXF hP hsc hvI hwin h0 h1 hc1 hPS hSub hSig
+  obtain ⟨th1', E1, hth1', hx1, ⟨ρ, η, cx, rfl, hE, hT, htv, hi, hrp⟩, hmi1, -⟩ := solo_typedXF hP hsc hvI hwin h0 hTA h1 hc1 hPS hSub hSig
   rw [hth1] at hth1'
   cases hth1'
   have hscope := hsc c1 h1 hc1 th1 hth1 (TermTyped.not_spawnT_of_steps hth1 h2) ρ η cx hE hT htv hi
@@ -579,7 +586,7 @@ theorem promPredT {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {Mi
     obtain ⟨c'', hs, hn⟩ := X.cert
     exact ⟨c'', .thread X.hc' hs, hn⟩
   exact certified_promPredE hP hstep (fun c1 h1 h2 => (hrun S' hS' c1 h1 h2).1) (by first | exact TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw | exact TermViewInv.viewInv_run hV0 X.run | exact TermViewInv.viewInv_thread (TermViewInv.viewInv_run hV0 X.run) X.hc')
-    (fun c1 h1 h2 => (hrun S' hS' c1 h1 h2).2) h0 hc
+    (fun c1 h1 h2 => (hrun S' hS' c1 h1 h2).2) h0 (TermMain.tidAt_cut X.inv i S') hc
     (by rw [TermFul.promsOf_some X.hth]; exact ht) hm hIW hW hep hPS hSub hSig
 
 #print axioms certified_promPredE

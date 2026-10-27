@@ -1,0 +1,294 @@
+/-
+# SceTest — `sce`'s pipeline on an in-memory file system (UnElab M3a)
+
+`SceRun.run` is pure, so the whole command is tested here without I/O: every exit code (0 1 2 3 4 6), the
+messages of `SceText` verbatim, import lookup (`-I`, the importer's directory), cycles and
+duplicates with their notes, the `ret f(args)` lint as a warning (exit 0), `--print-elab`, `--emit-unit`,
+`--check-only`, `-o`, `--help`, the `.w` mode as a normaliser (idempotent), determinism, and EM0 (
+`EM0Prelude.u` then `em0.u`) through `sce` to exactly the elaborated program.  `tools/test-sce.sh` runs the real
+command (`tools/sce`) end to end.
+-/
+import WeakCore.SceRun
+import WeakCore.USyntaxTest
+
+namespace SceTest
+open CoreLang CoreTerm Syntax UnElab USyntax SceRun
+
+def files : List (String × String) := [
+  ("EM0Prelude.u", USyntaxTest.preludeU),
+  ("em0.u", USyntaxTest.em0U),
+  ("lib/Q.u", "def inc(x : Int) : Int =\n  ret (x + 1)\n"),
+  ("a.u", "import Q\ndef main(u : Unit) : Int =\n  tail inc(41)\n"),
+  ("bad.u", "def f(x : Int) : Int =\n  ret (x +\n"),
+  ("chk.u", "def f(x : Int) : Int =\n  let y = load acq x\n  ret y\n"),
+  ("miss.u", "import Nope\ndef f(x : Int) : Int =\n  ret x\n"),
+  ("A.u", "import B\ndef fa(x : Int) : Int =\n  ret x\n"),
+  ("B.u", "import A\ndef fb(x : Int) : Int =\n  ret x\n"),
+  ("dup.u", "import Q\ndef inc(x : Int) : Int =\n  ret x\n"),
+  ("lint.u", "def g(x : Int) : Int =\n  ret x\ndef f(x : Int) : Int =\n  ret g(x)\n"),
+  ("p.w", "def f(x : Int) : Int =\n  ret x\n"),
+  ("i/Q.i", "def inc(x : Int) : Int\n"),
+  ("s.w", "def f(x : Word[0, Mutex] + Unit) : Unit =\n  ret ()\n"),
+  ("s.u", "def f(x : Word[0, Mutex] + Unit) : Unit =\n  ret ()\n"),
+  ("pbad.w", "def f(x : Int) : Int =\n  let y = load acq x\n  ret y\n"),
+  ("live.u", "scenario Spin = { setup = init(()) ; threads = [spin(()), setter(())] ; depth = 60 ; live = 0 }\nscenario Stuck = { setup = init(()) ; threads = [spin(())] ; depth = 60 ; live = 1 }\ndef init(u : Unit) : Ptr pub Int =\n  let z = zero[Int]\n  let o = new z\n  let c = publish o\n  ret c\nlive[Spin] def spin(c : Ptr pub Int) : Int =\n  let d = load acq c\n  if d = 1 then\n    ret 0\n  else\n    tail spin(c)\nlive def setter(c : Ptr pub Int) : Unit =\n  let d = store rel c 1\n  ret ()\ndef bump(c : Ptr pub Int) : Unit =\n  let d = load acq c\n  let e = d + 1\n  let u = store rel c e\n  tail bump(c)\n"),
+  ("nos.u", "live[T] def f(x : Int) : Int =\n  ret x\n"),
+  ("warn.u", "scenario W = { setup = g(1) ; threads = [g(2)] ; live = 0 }\ndef g(x : Int) : Int =\n  ret x\n"),
+  ("live.w", "def g(x : Int) : Int =\n  ret x\n"),
+  ("ep.u", "live def f{r}(w : Ptr pub Word[r, <k! ; 0->0+1 ; robust, epoch>]) : Unit =\n  ret ()\n"),
+  ("mx.u", "live def g{r}(w : Ptr pub Word[r, Mutex]) : Unit =\n  ret ()\n"),
+  ("kid.u", "scenario K = { setup = init(()) ; threads = [h(())] ; depth = 20 ; live = 0 }\ndef init(u : Unit) : Ptr pub Int =\n  let z = zero[Int]\n  let o = new z\n  let c = publish o\n  ret c\nlive[K] def h(x : Int) : Int =\n  ret x\n"),
+  ("cert1.u", "scenario S = { setup = init(()) ; threads = [spin(()), setter(())] ; depth = 60 ; live = 0 ; cert = 20000 }\nscenario U = { setup = init(()) ; threads = [spin(())] ; depth = 60 ; cert = 5 }\ndef init(u : Unit) : Ptr pub Int =\n  let z = zero[Int]\n  let o = new z\n  let c = publish o\n  ret c\nlive[S] def spin(c : Ptr pub Int) : Int =\n  let d = load acq c\n  if d = 1 then\n    ret 0\n  else\n    tail spin(c)\nlive def setter(c : Ptr pub Int) : Unit =\n  let d = store rel c 1\n  ret ()\n"),
+  ("cert2.u", "scenario S = { setup = init(()) ; threads = [spin(()), setter(())] ; depth = 60 ; cert = 3 }\ndef init(u : Unit) : Ptr pub Int =\n  let z = zero[Int]\n  let o = new z\n  let c = publish o\n  ret c\nlive[S] def spin(c : Ptr pub Int) : Int =\n  let d = load acq c\n  if d = 1 then\n    ret 0\n  else\n    tail spin(c)\nlive def setter(c : Ptr pub Int) : Unit =\n  let d = store rel c 1\n  ret ()\n"),
+  ("cert3.u", "scenario S = { setup = init(()) ; threads = [spin(()), setter(())] ; depth = 60 ; promises = 1 ; cert = 100 }\ndef init(u : Unit) : Ptr pub Int =\n  let z = zero[Int]\n  let o = new z\n  let c = publish o\n  ret c\nlive[S] def spin(c : Ptr pub Int) : Int =\n  let d = load acq c\n  if d = 1 then\n    ret 0\n  else\n    tail spin(c)\nlive def setter(c : Ptr pub Int) : Unit =\n  let d = store rel c 1\n  ret ()\n"),
+  ("cert4.u", "scenario S = { setup = init(()) ; threads = [spin(())] ; depth = 60 ; live = 1 ; cert = 100 }\ndef init(u : Unit) : Ptr pub Int =\n  let z = zero[Int]\n  let o = new z\n  let c = publish o\n  ret c\nlive[S] def spin(c : Ptr pub Int) : Int =\n  let d = load acq c\n  if d = 1 then\n    ret 0\n  else\n    tail spin(c)\nlive def setter(c : Ptr pub Int) : Unit =\n  let d = store rel c 1\n  ret ()\n")]
+
+def fsOf (fl : List (String × String)) : FS := fun f => match fl.find? (·.1 == f) with
+  | some (_, s) => .ok s
+  | none => .error s!"no such file ({f})"
+
+def fs : FS := fsOf files
+
+def usageTail : String := SceText.usageError
+
+/-! ## Exit 0 -/
+
+#guard run ["-I", "lib", "a.u"] fs == { stdout := "-- sce: from a.u\ndef inc(x : Int) : Int =\n  let «%0» = x + 1\n  ret «%0»\n\ndef main(u : Unit) : Int =\n  tail inc(41)\n" }
+#guard run ["--print-elab", "-I", "lib", "a.u"] fs == { stdout := "-- sce: from a.u\ndef inc(x : Int) : Int =\n  let «%0» = x + 1  -- 2:7\n  ret «%0»  -- 2:3\n\ndef main(u : Unit) : Int =\n  tail inc(41)  -- 3:3\n" }
+#guard run ["--emit-unit", "-I", "lib", "a.u"] fs == { stdout := "-- sce: from a.u\ndef main(u : Unit) : Int =\n  tail inc(41)\n" }
+#guard run ["--check-only", "-I", "lib", "a.u"] fs == {}
+#guard run ["-I", "lib", "a.u", "-o", "out.w"] fs == { write := some ("out.w", (run ["-I", "lib", "a.u"] fs).stdout) }
+-- the lint is a warning: exit 0, the program is emitted
+#guard run ["lint.u"] fs == { stdout := "-- sce: from lint.u\ndef g(x : Int) : Int =\n  ret x\n\ndef f(x : Int) : Int =\n  let «%0» = g(x)\n  ret «%0»\n", stderr := "lint.u:4:3: warning: in f: `ret g(…)` returns after a call (a stack frame per call): did you mean `tail g(args)`?\n4 |   ret g(x)\n  |   ^~~~~~~~\n4 |   ret g(x)\n  |       ^~~~ suggested: tail g(x)\n" }
+#guard run ["p.w"] fs == { stdout := "-- sce: from p.w\ndef f(x : Int) : Int =\n  ret x\n" }
+-- `--help`: the usage text, a blank line, the slogan; exit 0
+#guard run ["--help"] fs == { stdout := SceText.help }
+#guard ((run ["--help"] fs).stdout.splitOn "\n").reverse.take 3 == ["", "Share and enjoy!", ""]
+
+/-! ## Exit 1, 2, 3 -/
+
+#guard run ["bad.u"] fs == { stderr := "bad.u:3:1: expected an operand, found the end of the input\n3 | \n  | ^\n", code := 1 }
+#guard run ["chk.u"] fs == { stderr := "chk.u:2:11: in f: load needs a reference\n2 |   let y = load acq x\n  |           ^~~~~~~~~~\n", code := 2 }
+#guard run ["pbad.w"] fs == { stderr := "pbad.w:1:5: in f: load needs a reference\n1 | def f(x : Int) : Int =\n  |     ^\n", code := 2 }
+#guard run ["miss.u"] fs == { stderr := "miss.u:1:1: cannot find import Nope (searched: .)\n1 | import Nope\n  | ^~~~~~~~~~~\n", code := 3 }
+#guard run ["-I", "lib", "-I", "x", "miss.u"] fs == { stderr := "miss.u:1:1: cannot find import Nope (searched: ., lib, x)\n1 | import Nope\n  | ^~~~~~~~~~~\n", code := 3 }
+#guard run ["A.u"] fs == { stderr := "B.u:1:1: import cycle: A -> B -> A\n1 | import A\n  | ^~~~~~~~\nA.u:1:1: note: A imports B here\n1 | import B\n  | ^~~~~~~~\n", code := 3 }
+#guard run ["-I", "lib", "dup.u"] fs == { stderr := "dup.u:2:5: in inc: duplicate definition of inc\n2 | def inc(x : Int) : Int =\n  |     ^~~\nlib/Q.u:1:5: note: first defined here\n1 | def inc(x : Int) : Int =\n  |     ^~~\n", code := 3 }
+-- an interface without an implementation: no program to emit (3); `--check-only` checks against it (0)
+#guard run ["-I", "i", "a.u"] fs == { stderr := "a.u:1:1: cannot emit: import Q has an interface (Q.i) but no implementation (Q.u); use --check-only to check against interfaces alone\n1 | import Q\n  | ^~~~~~~~\n", code := 3 }
+#guard run ["--check-only", "-I", "i", "a.u"] fs == {}
+-- the scope check (A1: no key-carrying sum), placed on the block, in both modes
+#guard run ["s.w"] fs == { stderr := "s.w:1:5: in f: scope error: wrapOK\n1 | def f(x : Word[0, Mutex] + Unit) : Unit =\n  |     ^\n", code := 2 }
+#guard run ["s.u"] fs == { stderr := "s.u:1:5: in f: scope error: wrapOK\n1 | def f(x : Word[0, Mutex] + Unit) : Unit =\n  |     ^\n", code := 2 }
+-- the first failing stage decides: a parse error (1) before a missing import (3)
+#guard (run ["x.u"] (fsOf [("x.u", "import Nope\ndef f(x : Int) : Int =\n  ret (x +\n")])).code == 1
+
+/-! ## Exit 4 -/
+
+#guard run ["--bogus", "a.u"] fs == { stderr := "sce: unknown option --bogus\n" ++ usageTail, code := 4 }
+#guard run [] fs == { stderr := usageTail, code := 4 }
+#guard run ["a.u", "b.u"] fs == { stderr := usageTail, code := 4 }
+#guard run ["nofile.u"] fs == { stderr := "sce: cannot read nofile.u: no such file (nofile.u)\n", code := 4 }
+#guard usageTail.startsWith "usage: sce [options] FILE.u|FILE.w\n  -I DIR"
+
+/-! ## The live stage (mode A) -/
+
+-- the root scenario named by live[Spin] runs (Stuck is not named); its report goes to stderr; exit 0
+#guard run ["--check-only", "live.u"] fs ==
+  { stderr := "live.u:1:10: scenario Spin: scenario start: setup init(), threads spin(), setter()\n  bounded search: promise-free runs only, 10 configurations, search complete\n  verdict: no fair livelock found\n  thread 0 spin(…): results {0}\n  thread 1 setter(…): results {()}\nlive def spin: PROVED (under the standard obligations)\nlive[Spin] def spin: PROVED (under the standard obligations)\nlive def setter: PROVED (under the standard obligations)\n" }
+-- --live=N: every root scenario runs, expecting N; a mismatch is exit 5 and blocks the emission
+#guard run ["--live=1", "live.u"] fs ==
+  { stderr := "live.u:1:10: scenario Spin: scenario start: setup init(), threads spin(), setter()\n  bounded search: promise-free runs only, 10 configurations, search complete\n  verdict: no fair livelock found\n  thread 0 spin(…): results {0}\n  thread 1 setter(…): results {()}\nlive.u:2:10: scenario Stuck: scenario start: setup init(), threads spin()\n  bounded search: promise-free runs only, 4 configurations, search complete\n  verdict: 1 fair livelock: {thread 0 spin} of 3 configurations\n  thread 0 spin(…): results none\n  livelock kind 1 (×1, sizes 3):\n    thread 0 [spins] at live.u:13:5\n     13 |     tail spin(c)\n        |     ^~~~~~~~~~~~\nlive.u:1:10: live: expected 1 fair livelock(s), found 0\n1 | scenario Spin = { setup = init(()) ; threads = [spin(()), setter(())] ; depth = 60 ; live = 0 }\n  |          ^~~~\nlive def spin: PROVED (under the standard obligations)\nlive[Spin] def spin: PROVED (under the standard obligations)\nlive def setter: PROVED (under the standard obligations)\n",
+    code := 5 }
+-- --threads: the scenario from the command line alone (it has no source position); a livelock is placed in the source
+#guard run ["--check-only", "--threads={init}{_}{[]}{[(spin, _, [])]}", "--live=0", "live.u"] fs ==
+  { stderr := "scenario --threads: scenario start: setup init(), threads spin()\n  bounded search: promise-free runs only, 4 configurations, search complete\n  verdict: 1 fair livelock: {thread 0 spin} of 3 configurations\n  thread 0 spin(…): results none\n  livelock kind 1 (×1, sizes 3):\n    thread 0 [spins] at live.u:13:5\n     13 |     tail spin(c)\n        |     ^~~~~~~~~~~~\nlive: expected 0 fair livelock(s), found 1\nlive def spin: PROVED (under the standard obligations)\nlive[Spin] def spin: PROVED (under the standard obligations)\nlive def setter: PROVED (under the standard obligations)\n",
+    code := 5 }
+-- --live-strict: a cut search is exit 5
+#guard run ["--check-only", "--live-strict", "--threads={init}{_}{[]}{[(bump, _, [])]}", "--depth=20", "live.u"] fs ==
+  { stderr := "scenario --threads: scenario start: setup init(), threads bump()\n  bounded search: promise-free runs only, 21 configurations, CUT OFF (depth bound)\n  verdict: no fair livelock found\n  thread 0 bump(…): results none\nlive: search cut off (depth bound) and --live-strict is set\nlive def spin: PROVED (under the standard obligations)\nlive[Spin] def spin: PROVED (under the standard obligations)\nlive def setter: PROVED (under the standard obligations)\n",
+    code := 5 }
+-- a setup that does not complete within the depth
+#guard run ["--check-only", "--depth=1", "live.u"] fs ==
+  { stderr := "live.u:1:10: scenario Spin: scenario start: setup init(), threads spin(), setter()\nlive.u:1:10: live: setup init did not complete\n1 | scenario Spin = { setup = init(()) ; threads = [spin(()), setter(())] ; depth = 60 ; live = 0 }\n  |          ^~~~\nlive def spin: PROVED (under the standard obligations)\nlive[Spin] def spin: PROVED (under the standard obligations)\nlive def setter: PROVED (under the standard obligations)\n",
+    code := 5 }
+-- --final with --watch: a mismatch
+#guard run ["--check-only", "--final={[[0]]}", "--watch={[(c, 0, 0)]}", "live.u"] fs ==
+  { stderr := "live.u:1:10: scenario Spin: scenario start: setup init(), threads spin(), setter()\n  bounded search: promise-free runs only, 10 configurations, search complete\n  verdict: no fair livelock found\n  thread 0 spin(…): results {0}\n  thread 1 setter(…): results {()}\n  final states, 1 distinct (thread results; memory):\n    spin setter c\n    0    ()     1\nlive.u:1:10: live: final outcomes [[0, 1]], expected [[0]]\n1 | scenario Spin = { setup = init(()) ; threads = [spin(()), setter(())] ; depth = 60 ; live = 0 }\n  |          ^~~~\nlive def spin: PROVED (under the standard obligations)\nlive[Spin] def spin: PROVED (under the standard obligations)\nlive def setter: PROVED (under the standard obligations)\n",
+    code := 5 }
+-- --final with --watch: a match
+#guard run ["--check-only", "--final={[[0, 1]]}", "--watch={[(c, 0, 0)]}", "live.u"] fs ==
+  { stderr := "live.u:1:10: scenario Spin: scenario start: setup init(), threads spin(), setter()\n  bounded search: promise-free runs only, 10 configurations, search complete\n  verdict: no fair livelock found\n  thread 0 spin(…): results {0}\n  thread 1 setter(…): results {()}\n  final states, 1 distinct (thread results; memory):\n    spin setter c\n    0    ()     1\nlive def spin: PROVED (under the standard obligations)\nlive[Spin] def spin: PROVED (under the standard obligations)\nlive def setter: PROVED (under the standard obligations)\n" }
+-- live[T] naming no scenario
+#guard run ["nos.u"] fs ==
+  { stderr := "nos.u:1:13: in f: live: live[T] names no scenario T\n1 | live[T] def f(x : Int) : Int =\n  |             ^\nlive def f: PROVED (under the standard obligations)\n",
+    code := 5 }
+-- a scenario thread with no live annotation: a warning; a scenario no live[S] names does not run
+#guard run ["warn.u"] fs ==
+  { stdout := "-- sce: from warn.u\ndef g(x : Int) : Int =\n  ret x\n",
+    stderr := "warn.u:1:10: warning: scenario names g, which has no live annotation\n1 | scenario W = { setup = g(1) ; threads = [g(2)] ; live = 0 }\n  |          ^\n" }
+-- the .w mode runs --threads (there are no scenarios)
+#guard run ["--threads={g}{Int}{[3]}{[(g, _, [])]}", "live.w"] fs ==
+  { stdout := "-- sce: from live.w\ndef g(x : Int) : Int =\n  ret x\n",
+    stderr := "scenario --threads: scenario start: setup g(3), threads g()\n  bounded search: promise-free runs only, 2 configurations, search complete\n  verdict: no fair livelock found\n  thread 0 g(…): results {3}\n" }
+-- option values that do not read: exit 4
+#guard run ["--threads={init}{_}", "live.u"] fs ==
+  { stderr := "sce: --threads: expected {f}{argTy}{args}{thr}\n",
+    code := 4 }
+#guard run ["--final=zz", "live.u"] fs ==
+  { stderr := "sce: --final: expected {[[n, …], …]}\n",
+    code := 4 }
+-- a thread naming no block
+#guard run ["--check-only", "--threads={init}{_}{[]}{[(nope, _, [])]}", "live.u"] fs ==
+  { stderr := "live: scenario --threads names no block nope\nlive def spin: PROVED (under the standard obligations)\nlive[Spin] def spin: PROVED (under the standard obligations)\nlive def setter: PROVED (under the standard obligations)\n",
+    code := 5 }
+-- literal arguments that do not fit the signature (a thread; the setup)
+#guard run ["--check-only", "--threads={init}{_}{[]}{[(spin, _, [5])]}", "live.u"] fs ==
+  { stderr := "scenario --threads: scenario start: setup init(), threads spin(5)\nlive: spin takes 1 literal argument(s) here, the signature needs 0\nlive def spin: PROVED (under the standard obligations)\nlive[Spin] def spin: PROVED (under the standard obligations)\nlive def setter: PROVED (under the standard obligations)\n",
+    code := 5 }
+#guard run ["--check-only", "--threads={init}{_}{[1]}{[(spin, _, [])]}", "live.u"] fs ==
+  { stderr := "live: init takes 1 literal argument(s) here, the signature needs 0\nlive def spin: PROVED (under the standard obligations)\nlive[Spin] def spin: PROVED (under the standard obligations)\nlive def setter: PROVED (under the standard obligations)\n",
+    code := 5 }
+#guard run ["--watch=[(c, 0)]", "live.u"] fs ==
+  { stderr := "sce: --watch: expected {[(x, n, n), …]}\n",
+    code := 4 }
+
+-- no scenarios: nothing printed, exit 0 (also with --live=N)
+#guard run ["--check-only", "--live=1", "-I", "lib", "a.u"] fs == {}
+
+-- the report agrees with `Doc.threads` on the same program and threads: the configuration count and the verdict
+-- (both start from the spawn, `TermSpawn.spawnS`: `Doc.spawnStart`, `SceLive.runSpecT`)
+def liveProg : Prog := match parseProg (run ["live.u"] fs).stdout {} with | .ok q => q | .error _ => []
+def ptrTy : Ty := ((liveProg.find? (·.name == "spin")).map (·.argTy)).getD .unit
+def verdictOf (r : Result) (k : Nat) : String :=
+  match ((r.stderr.splitOn "\n").filter (·.startsWith "  verdict: "))[k]? with
+  | some l => (l.drop 11).toString
+  | none => "?"
+def has (s t : String) : Bool := (s.splitOn t).length > 1
+#guard liveProg.length == 4
+#guard let o := Doc.threads liveProg "init" .unit [] [("spin", ptrTy, []), ("setter", ptrTy, [])] (depth := 60) (live := some 0)
+  o.err.isNone && has o.tex "10 configurations" && has o.tex (verdictOf (run ["--check-only", "live.u"] fs) 0) &&
+    verdictOf (run ["--check-only", "live.u"] fs) 0 != "?"
+#guard let o := Doc.threads liveProg "init" .unit [] [("spin", ptrTy, [])] (depth := 60) (live := some 1)
+  let v := verdictOf (run ["--live=1", "live.u"] fs) 1
+  -- (`Doc.threads` also reports that there is no final state)
+  o.err == some "no final state" && has o.tex "4 configurations" && has o.tex v && has v "1 fair livelock"
+
+/-! ## The liveness instance (M3d): every `live` def; `--live-proof` -/
+
+-- a robust (epoch) protocol: the instance holds (a passing scenario instance has its own line: live.u above)
+#guard run ["--check-only", "ep.u"] fs == { stderr := "live def f: PROVED (under the standard obligations)\n" }
+-- Mutex is not robust: no instance, exit 5 (with or without --live-proof; no instance file)
+#guard run ["--check-only", "mx.u"] fs ==
+  { stderr := "mx.u:1:10: in g: live: live def g: no instance: protocol Mutex is neither robust nor an epoch counter (the held branch is not proved yet)\n1 | live def g{r}(w : Ptr pub Word[r, Mutex]) : Unit =\n  |          ^\n",
+    code := 5 }
+#guard run ["--live-proof", "mx.u"] fs == run ["mx.u"] fs
+-- a thread outside the kid shapes: the search still runs; exit 5; the main instance still gets its PROVED line
+#guard run ["--check-only", "kid.u"] fs ==
+  { stderr := "kid.u:1:10: scenario K: scenario start: setup init(), threads h()\n  bounded search: promise-free runs only, 2 configurations, search complete\n  verdict: no fair livelock found\n  thread 0 h(…): results {ℓ0}\nkid.u:7:13: in h: live: live[K] def h: no scenario instance: thread h's argument type Int is not the setup's result, a pair of it and the literals, or the literals alone\n7 | live[K] def h(x : Int) : Int =\n  |             ^\nlive def h: PROVED (under the standard obligations)\n",
+    code := 5 }
+-- --check-only --live-proof: a usage error
+#guard run ["--check-only", "--live-proof", "ep.u"] fs ==
+  { stderr := "sce: --check-only: --live-proof emits a file\n" ++ usageTail, code := 4 }
+-- --live-proof with exit 5 elsewhere: the instances that hold are still built (the main one; not the refused one)
+#guard let r := run ["--live-proof", "kid.u"] fs
+  r.code == 5 && r.proved == ["live def h: PROVED (under the standard obligations)"] &&
+  match r.proof with
+  | some (_, t) => has t "theorem «live_h» : SceProof.MainInst prog" && !has t "«kids_h»"
+  | none => false
+-- nothing proved: nothing written
+#guard (run ["--live-proof", "mx.u"] fs).proof == none
+-- --live-proof: the run is unchanged except that the PROVED lines wait for the instance file (`Result.proved`,
+-- printed by `Sce.lean` once it builds; `tools/test-sce.sh` builds one)
+#guard let r := run ["--live-proof", "ep.u"] fs
+  { r with proof := none, proved := [] } == { run ["ep.u"] fs with stderr := "" } &&
+  r.proved == ["live def f: PROVED (under the standard obligations)"] &&
+  match r.proof with
+  | some (f, t) => f == "ep.live.lean" && t.startsWith (SceText.proofHeader "ep" ++ "\nimport SceProof\n") &&
+      has t "theorem «live_f» : SceProof.MainInst prog := SceProof.mainInst prog robust_main\n"
+  | none => false
+#guard match (run ["--live-proof", "live.u"] fs).proof with
+  | some (f, t) => f == "live.live.lean" && has t "theorem «live_spin_Spin» : SceProof.ScenInst prog «kids_spin»" &&
+      has t "theorem «live_setter» : SceProof.MainInst prog" && !has t "«kids_setter»"
+  | none => false
+#guard (run ["--live-proof", "lib/sub/x.u"] (fsOf [("lib/sub/x.u", "live def f(x : Int) : Int =\n  ret x\n")])).proof.map (·.1) ==
+  some "lib/sub/x.live.lean"
+
+/-! ## Certificates: mode A's lines and refusals; `--live-proof`'s files -/
+
+-- an accepted certificate: three continuation lines after the verdict; `cert = N` on a scenario that does not run
+-- is a warning; a budget too small, promises, an expected livelock: exit 5 at the scenario (§1c–§1e)
+#guard run ["--check-only", "cert1.u"] fs ==
+  { stdout := "", stderr := "cert1.u:1:10: scenario S: scenario start: setup init(), threads spin(), setter()\n  bounded search: promise-free runs only, 10 configurations, search complete\n  verdict: no fair livelock found\n  no fair livelock: certificate checked for promise-free runs (compiled evaluation)\n  final states: exhaustive: certificate checked for promise-free runs (compiled evaluation)\n  every fair run reaches a final state: certificate checked for promise-free runs (compiled evaluation)\n  thread 0 spin(…): results {0}\n  thread 1 setter(…): results {()}\ncert1.u:2:10: warning: scenario U has cert = 5 but does not run\n2 | scenario U = { setup = init(()) ; threads = [spin(())] ; depth = 60 ; cert = 5 }\n  |          ^\nlive def spin: PROVED (under the standard obligations)\nlive[S] def spin: PROVED (under the standard obligations)\nlive def setter: PROVED (under the standard obligations)\n" }
+#guard run ["--check-only", "cert2.u"] fs ==
+  { stdout := "", stderr := "cert2.u:1:10: scenario S: scenario start: setup init(), threads spin(), setter()\n  bounded search: promise-free runs only, 10 configurations, search complete\n  verdict: no fair livelock found\n  thread 0 spin(…): results {0}\n  thread 1 setter(…): results {()}\ncert2.u:1:10: live: certificate not produced (more than 3 configurations)\n1 | scenario S = { setup = init(()) ; threads = [spin(()), setter(())] ; depth = 60 ; cert = 3 }\n  |          ^\nlive def spin: PROVED (under the standard obligations)\nlive[S] def spin: PROVED (under the standard obligations)\nlive def setter: PROVED (under the standard obligations)\n",
+    code := 5 }
+#guard run ["--check-only", "cert3.u"] fs ==
+  { stdout := "", stderr := "cert3.u:1:10: scenario S: scenario start: setup init(), threads spin(), setter()\n  bounded search: promises ≤ 1, 15 configurations, search complete\n  verdict: no fair livelock found\n  thread 0 spin(…): results {0}\n  thread 1 setter(…): results {()}\ncert3.u:1:10: live: cert needs promises = 0 (certificates cover promise-free runs)\n1 | scenario S = { setup = init(()) ; threads = [spin(()), setter(())] ; depth = 60 ; promises = 1 ; cert = 100 }\n  |          ^\nlive def spin: PROVED (under the standard obligations)\nlive[S] def spin: PROVED (under the standard obligations)\nlive def setter: PROVED (under the standard obligations)\n",
+    code := 5 }
+#guard run ["--check-only", "cert4.u"] fs ==
+  { stdout := "", stderr := "cert4.u:1:10: scenario S: scenario start: setup init(), threads spin()\n  bounded search: promise-free runs only, 4 configurations, search complete\n  verdict: 1 fair livelock: {thread 0 spin} of 3 configurations\n  thread 0 spin(…): results none\n  livelock kind 1 (×1, sizes 3):\n    thread 0 [spins] at cert4.u:12:5\n     12 |     tail spin(c)\n        |     ^~~~~~~~~~~~\ncert4.u:1:10: live: cert needs live = 0 (this run expects 1 livelocks)\n1 | scenario S = { setup = init(()) ; threads = [spin(())] ; depth = 60 ; live = 1 ; cert = 100 }\n  |          ^\nlive def spin: PROVED (under the standard obligations)\nlive[S] def spin: PROVED (under the standard obligations)\nlive def setter: PROVED (under the standard obligations)\n",
+    code := 5 }
+#guard run ["--check-only", "--live-cert=3", "live.u"] fs ==
+  { stdout := "", stderr := "live.u:1:10: scenario Spin: scenario start: setup init(), threads spin(), setter()\n  bounded search: promise-free runs only, 10 configurations, search complete\n  verdict: no fair livelock found\n  thread 0 spin(…): results {0}\n  thread 1 setter(…): results {()}\nlive.u:1:10: live: certificate not produced (more than 3 configurations)\n1 | scenario Spin = { setup = init(()) ; threads = [spin(()), setter(())] ; depth = 60 ; live = 0 }\n  |          ^~~~\nlive def spin: PROVED (under the standard obligations)\nlive[Spin] def spin: PROVED (under the standard obligations)\nlive def setter: PROVED (under the standard obligations)\n",
+    code := 5 }
+#guard run ["--check-only", "--live-cert", "--live=0", "--threads={init}{_}{[]}{[(spin, _, []), (setter, _, [])]}", "live.u"] fs ==
+  { stdout := "", stderr := "scenario --threads: scenario start: setup init(), threads spin(), setter()\n  bounded search: promise-free runs only, 10 configurations, search complete\n  verdict: no fair livelock found\n  no fair livelock: certificate checked for promise-free runs (compiled evaluation)\n  final states: exhaustive: certificate checked for promise-free runs (compiled evaluation)\n  every fair run reaches a final state: certificate checked for promise-free runs (compiled evaluation)\n  thread 0 spin(…): results {0}\n  thread 1 setter(…): results {()}\nlive def spin: PROVED (under the standard obligations)\nlive[Spin] def spin: PROVED (under the standard obligations)\nlive def setter: PROVED (under the standard obligations)\n" }
+-- the option refusals (exit 4)
+#guard (run ["--live-cert", "--live=1", "--threads={init}{_}{[]}{[(spin, _, [])]}", "live.u"] fs) ==
+  { stderr := SceText.certOptThreads ++ "\n" ++ usageTail, code := 4 }
+#guard (run ["--live-cert", "--promises=1", "live.u"] fs) == { stderr := SceText.certOptPromises ++ "\n" ++ usageTail, code := 4 }
+-- --live-cert acts only on live = 0: with --live=1 nothing changes
+#guard run ["--live-cert", "--live=1", "live.u"] fs == run ["--live=1", "live.u"] fs
+-- no certificate requested: no certificate field
+#guard (run ["--live-proof", "live.u"] fs).cert == none
+-- --live-proof: the files of the eligible scenario (`Sce.lean` writes and builds them; `tools/test-sce.sh` does)
+#guard let r := run ["--live-proof", "cert1.u"] fs
+  r.code == 0 && !has r.stderr "PROVED" && has r.stderr "scenario U has cert = 5 but does not run" &&
+  match r.cert with
+  | some (d, prog, [(s, proved, fl)]) =>
+      d == "cert1.cert" && s == "S" && has prog "#guard SceRun.recheck text {} [] prog == none" &&
+      proved == [SceText.certProvedLivelock "S" none false, SceText.certProvedFinals "S", SceText.certProvedTerminates "S"] &&
+      fl.map (·.1) == ["S/start.lean", "S/cert.lean", "S/c0.lean", "S/s0.lean", "S/main.lean"] &&
+      (match fl.getLast? with
+       | some (_, t) => has t "theorem «no_livelock» : NoLivelockFairAt prog ([] : List Nat) kids cs" &&
+           has t "theorem «terminates» : TerminatesAt prog kids cs"
+       | none => false)
+  | _ => false
+-- the command-line scenario's directory is `threads`; its lines say `live[--threads]`
+#guard match (run ["--live-proof", "--live-cert", "--live=0", "--threads={init}{_}{[]}{[(spin, _, []), (setter, _, [])]}",
+    "live.u"] fs).cert with
+  | some (d, _, [(s, proved, _)]) => d == "live.cert" && s == "threads" && proved.all (·.startsWith "live[--threads]: ")
+  | _ => false
+-- a refused or failed scenario gets no files
+#guard (run ["--live-proof", "cert2.u"] fs).cert == none
+
+/-! ## Exit 6 (the re-check of an emitted program; reached through the test hook) -/
+
+#guard run ["-I", "lib", "a.u"] fs (· ++ "garbage(") == { stderr := "sce: internal error (a bug in sce): the emitted program does not re-parse/re-check: 8:1: expected 'def', found 'garbage'\n", code := 6 }
+#guard (run ["-I", "lib", "a.u"] fs (fun t => t.replace "x + 1" "x + 2")).stderr ==
+  "sce: internal error (a bug in sce): the emitted program does not re-parse/re-check: the emitted program re-parses to a different program\n"
+#guard (run ["p.w"] fs (· ++ "def g(x : Int) : Int =\n  ret x\n")).code == 6
+
+/-! ## EM0 through `sce`; the `.w` mode normalises; determinism -/
+
+def em0Out : Result := run ["em0.u"] fs
+
+#guard em0Out.code == 0 && em0Out.stderr.isEmpty && em0Out.stdout.startsWith "-- sce: from em0.u\n"
+#guard match parseProg em0Out.stdout with
+  | .ok q => q.length == (USyntaxTest.preludeP ++ USyntaxTest.em0P).length &&
+      (q.zip (USyntaxTest.preludeP ++ USyntaxTest.em0P)).all fun (a, b) => sameDecl a b
+  | .error _ => false
+-- `sce em0.w` reprints the same program (the header names its input)
+def em0W : Result := run ["em0.w"] (fsOf [("em0.w", em0Out.stdout)])
+#guard em0W.code == 0 && (em0W.stdout.drop "-- sce: from em0.w".length).toString ==
+  (em0Out.stdout.drop "-- sce: from em0.u".length).toString
+#guard run ["em0.u"] fs == em0Out
+#guard run ["--check-only", "em0.u"] fs == {}
+
+/-! ## The files `Sce.lean` reads -/
+
+#guard probes ["-I", "lib", "a.u"] fs == ["a.u", "Q.i", "Q.u", "lib/Q.i", "lib/Q.u"]
+#guard probes ["--help"] fs == []
+
+end SceTest

@@ -1,7 +1,6 @@
 -- Unbounded non-tail recursion: the stack doubles towards the per-thread
--- cap, and the stack depth counter (`Tcb.depth`) takes the abort outcome at
--- the program's limit, before a frame no longer fits in the cap (status 101,
--- the stack message on standard error).
+-- cap, and the frame that no longer fits in the cap takes the abort outcome
+-- in the grow routine (status 101, the stack message on standard error).
 def down(n : U64) : Int =
   let one = cvt U64 1
   let m = fop add n one

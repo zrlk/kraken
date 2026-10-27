@@ -29,7 +29,7 @@ open CoreLang CoreTerm TermScope
 def drf1 : Ty → Bool
   | .prod a b => drf1 a && drf1 b
   | .sum a b => drf1 a && drf1 b
-  | .code a b => drf1 a && drf1 b
+  | .code a b _ => drf1 a && drf1 b
   | .array _ t => drf1 t
   | .ptr _ t => drf1 t
   | .ptrOpt _ t => drf1 t

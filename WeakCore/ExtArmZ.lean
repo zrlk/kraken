@@ -21,44 +21,122 @@ open WeakMem (Msg Memory Address VState Ts Arch AllocLabel)
 section
 variable {p : Prog} {k : Promises.Knobs} {arch : Arch}
 
+theorem wake_all {c : Cfg} {i : Nat} {v : Ts} {n : ExtName} {ws : List Word} {Q : TTh → Prop}
+    (hQ : ∀ th u, Q th → Q { th with permit := some u }) (h : ∀ (j : Nat) (t : TTh), c.ths[j]? = some t → Q t) :
+    ∀ (j : Nat) (t : TTh), (wake c i v n ws).ths[j]? = some t → Q t := by
+  intro j t hj
+  rcases wake_get c i v n ws j with e | ⟨th, u, h1, h2⟩
+  · rw [e] at hj; exact h j t hj
+  · rw [h2] at hj; cases hj; exact hQ th u (h j th h1)
+
+theorem viewInv_wake {c : Cfg} {i : Nat} {v : Ts} {n : ExtName} {ws : List Word} (hv : TermViewInv.ViewInv c) :
+    TermViewInv.ViewInv (wake c i v n ws) := by
+  refine ⟨by rw [wake_mem]; exact hv.1, ?_⟩
+  rw [wake_mem]; exact wake_all (fun _ _ h => h) hv.2
+
+theorem runScope_wake {c : Cfg} {i : Nat} {v : Ts} {n : ExtName} {ws : List Word} (hd : TermScope.RunScope c) :
+    TermScope.RunScope (wake c i v n ws) :=
+  wake_all (Q := TermScope.ThScope) (fun _ _ h => ⟨h.ok, h.σs, h.env, h.stk⟩) hd
+
+theorem promViewLt_wake {c : Cfg} {i : Nat} {v : Ts} {n : ExtName} {ws : List Word} (hc : TermPlantF.PromViewLt c) :
+    TermPlantF.PromViewLt (wake c i v n ws) := by
+  intro j t q hj hq
+  rw [wake_mem]
+  exact wake_all (Q := fun t => ∀ q ∈ t.promises, ∃ m : Msg, c.mem[q]? = some m ∧ m.view < q) (fun _ _ h => h)
+    (fun j t hj q hq => hc j t q hj hq) j t hj q hq
+
+theorem promPos_wake {c : Cfg} {i : Nat} {v : Ts} {n : ExtName} {ws : List Word} (hc : TermPlantAtPos.PromPos c) :
+    TermPlantAtPos.PromPos (wake c i v n ws) :=
+  wake_all (Q := fun t => ∀ q ∈ t.promises, 0 < q) (fun _ _ h => h) hc
+
+theorem promNodup_wake {c : Cfg} {i : Nat} {v : Ts} {n : ExtName} {ws : List Word} (hc : TermBal.PromNodupI c) :
+    TermBal.PromNodupI (wake c i v n ws) := by
+  have hp : ∀ j, TermFul.promsOf (wake c i v n ws) j = TermFul.promsOf c j := by
+    intro j
+    unfold TermFul.promsOf
+    rcases wake_get c i v n ws j with e | ⟨th, u, h1, h2⟩
+    · rw [e]
+    · rw [h1, h2]; rfl
+  refine ⟨?_, wake_all (Q := fun t => t.promises.Nodup) (fun _ _ h => h) hc.2⟩
+  rcases hc.1 with h0 | hW
+  · exact .inl (by rw [wake_size]; exact h0)
+  · refine .inr fun j => ?_
+    obtain ⟨h1, h2⟩ := hW j
+    refine ⟨by rw [wake_pairs, wake_mem]; exact h1, fun t ht => ?_⟩
+    rw [hp] at ht; rw [wake_mem, wake_pairs]; exact h2 t ht
+
+theorem siteNoProm_wake {c : Cfg} {i : Nat} {v : Ts} {n : ExtName} {ws : List Word} (h0 : TermSpawnStep.SiteNoProm c) :
+    TermSpawnStep.SiteNoProm (wake c i v n ws) :=
+  wake_all (Q := fun t => TermSpawnStep.AtSite t → t.promises = []) (fun _ _ h hs => h hs) h0
+
+/-- An extern step replaces thread `i` (certified there), then `unpark`'s wake sets at most one permit. -/
 theorem ext_shape {c c' : Cfg} (h : Ext p k arch c c') :
-    ∃ (i : Nat) (th th' : TTh) (tr : List Event), c.ths[i]? = some th ∧ Certified p k arch c' i ∧
-      th'.promises = th.promises ∧ th'.vs = th.vs ∧ th'.stack = th.stack ∧ th'.σs = th.σs ∧
+    ∃ (i : Nat) (th th' : TTh) (tr : List Event) (wn : ExtName) (wws : List Word) (wv : Ts), c.ths[i]? = some th ∧
+      Certified p k arch (TermSetTh.setC c i th' tr) i ∧
+      th'.promises = th.promises ∧ th'.vs = { th.vs with vRd := th'.vs.vRd, vPreBase := th'.vs.vPreBase } ∧
+      (TermViewInv.VSB c.mem.size th.vs → TermViewInv.VSB c.mem.size th'.vs) ∧ th'.stack = th.stack ∧ th'.σs = th.σs ∧
       (∃ (x : String) (n : ExtName) (a : At) (e : Expr) (ws : List Word), th.term = .let_ x (.ext n a) e ∧
         th'.term = e ∧ th'.env = (x, n.sig.2, ws) :: th.env ∧ (∀ w ∈ ws, w.view = 0 ∧ w.rts = 0) ∧
         (ExtNeedsNoProm n th → th.promises = [])) ∧
-      c' = TermSetTh.setC c i th' tr := by
-  obtain ⟨i, x, n, a, e, th, rt, ws, hth, hterm, hnp, -, hcert, rfl⟩ := h.elim
-  cases n with
-  | emit =>
-    exact ⟨i, th, { th with term := e, env := (x, ExtName.emit.sig.2, []) :: th.env }, _, hth, hcert, rfl, rfl, rfl, rfl,
-      ⟨x, .emit, a, e, [], hterm, rfl, rfl, by simp, hnp⟩, rfl⟩
-  | exitEv =>
-    exact ⟨i, th, { th with term := e, env := (x, ExtName.exitEv.sig.2, []) :: th.env }, _, hth, hcert, rfl, rfl, rfl, rfl,
-      ⟨x, .exitEv, a, e, [], hterm, rfl, rfl, by simp, hnp⟩, rfl⟩
-  | current =>
-    show ∃ (i' : Nat) (th0 th' : TTh) (tr : List Event), _ ∧ _ ∧ _ ∧ _ ∧ _ ∧ _ ∧ _ ∧ curCfg c i th x e = _
+      c' = wake (TermSetTh.setC c i th' tr) i wv wn wws := by
+  obtain ⟨i, x, n, a, e, th, rt, ws, rs, hth, hterm, hnp, -, hadm, hcert, rfl⟩ := h.elim
+  have hrs := (mem_resultsL n i ws c.trace rs).2 hadm
+  by_cases hc : n = .current
+  · subst hc
+    have hw : ∀ c0 : Cfg, wake c0 i (relView th.vs) .current ws = c0 :=
+      fun c0 => wake_of_ne c0 i _ ws (by intro h; cases h)
+    have hx : extCfg c i th x .current e ws rs = curCfg c i th x e := rfl
+    rw [hx] at hcert
+    rw [hw, hx]
     cases htl : th.tidLbl with
     | some l =>
-      exact ⟨i, th, { th with term := e, env := (x, ExtName.current.sig.2, [cst (.loc ⟨l, 0⟩ 0)]) :: th.env }, _,
-        hth, hcert, rfl, rfl, rfl, rfl,
-        ⟨x, .current, a, e, [cst (.loc ⟨l, 0⟩ 0)], hterm, rfl, rfl, by simp [cst, Promises.TVal.mk0], hnp⟩,
-        curCfg_some htl⟩
+      refine ⟨i, th, { th with term := e, env := (x, ExtName.current.sig.2, [cst (.loc ⟨l, 0⟩ 0)]) :: th.env },
+        c.trace, .current, ws, relView th.vs, hth, by rw [← curCfg_some htl]; exact hcert, rfl, rfl, id, rfl, rfl,
+        ⟨x, .current, a, e, [cst (.loc ⟨l, 0⟩ 0)], hterm, rfl, rfl, by simp [cst, Promises.TVal.mk0], hnp⟩, ?_⟩
+      rw [hw]; exact curCfg_some htl
     | none =>
+      have hcc : curCfg c i th x e = TermSetTh.setC c i
+          { th with nalloc := th.nalloc + 1, tidLbl := some (freshLabel c.lbase c.n i th.nalloc), term := e,
+                    env := (x, .tid, [cst (.loc ⟨freshLabel c.lbase c.n i th.nalloc, 0⟩ 0)]) :: th.env } c.trace := by
+        unfold curCfg; rw [htl]; rfl
       refine ⟨i, th,
         { th with nalloc := th.nalloc + 1, tidLbl := some (freshLabel c.lbase c.n i th.nalloc), term := e,
                   env := (x, .tid, [cst (.loc ⟨freshLabel c.lbase c.n i th.nalloc, 0⟩ 0)]) :: th.env },
-        c.trace, hth, hcert, rfl, rfl, rfl, rfl,
+        c.trace, .current, ws, relView th.vs, hth, by rw [← hcc]; exact hcert, rfl, rfl, id, rfl, rfl,
         ⟨x, .current, a, e, [cst (.loc ⟨freshLabel c.lbase c.n i th.nalloc, 0⟩ 0)], hterm, rfl, rfl,
           by simp [cst, Promises.TVal.mk0], hnp⟩, ?_⟩
-      unfold curCfg; rw [htl]; rfl
+      rw [hw]; exact hcc
+  · have hcfg : extCfg c i th x n e ws rs = TermSetTh.setC c i
+        { th with term := e, env := (x, n.sig.2, rs) :: th.env, vs := if n = .park then parkVs c.mem.size th else th.vs,
+                  permit := if n = .park then none else th.permit }
+        (c.trace ++ n.events ws rs) := by
+      cases n <;> first | exact absurd rfl hc | rfl
+    have hvs : (if n = .park then parkVs c.mem.size th else th.vs) =
+        { th.vs with vRd := (if n = .park then parkVs c.mem.size th else th.vs).vRd,
+                     vPreBase := (if n = .park then parkVs c.mem.size th else th.vs).vPreBase } := by
+      split
+      · unfold parkVs; split <;> rfl
+      · rfl
+    rw [hcfg] at hcert ⊢
+    generalize hT : ({ th with term := e, env := (x, n.sig.2, rs) :: th.env,
+                               vs := (if n = .park then parkVs c.mem.size th else th.vs),
+                               permit := (if n = .park then none else th.permit) } : TTh) = th1 at hcert ⊢
+    generalize hR : c.trace ++ n.events ws rs = tr1 at hcert ⊢
+    refine ⟨i, th, th1, tr1, n, ws, relView th.vs, hth, hcert, by rw [← hT], by rw [← hT]; exact hvs,
+      fun h => by rw [← hT]; exact TermViewInv.parkVs_vsb_if n h, by rw [← hT], by rw [← hT],
+      ⟨x, n, a, e, rs, hterm, by rw [← hT], by rw [← hT], ?_, hnp⟩, rfl⟩
+    intro w hw
+    obtain ⟨m, rfl⟩ := TermRun.resultsL_num hc hrs w hw
+    simp [cst, Promises.TVal.mk0]
 
 theorem viewInv_ext {c c' : Cfg} (h : Ext p k arch c c') (hv : TermViewInv.ViewInv c) : TermViewInv.ViewInv c' := by
-  obtain ⟨i, th, th', tr, hth, -, -, hvs, hst, -, ⟨x, n, a, e, ws, -, -, henv, hws, -⟩, rfl⟩ := ext_shape h
+  obtain ⟨i, th, th', tr, wn, wws, wv, hth, -, -, -, hvsb, hst, -, ⟨x, n, a, e, ws, -, -, henv, hws, -⟩, rfl⟩ :=
+    ext_shape h
+  refine viewInv_wake ?_
   refine ⟨hv.1, fun j t hj => ?_⟩
   rcases TermSetTh.setC_get hth hj with ⟨rfl, rfl⟩ | ⟨-, hj'⟩
   · obtain ⟨h1, h2, h3⟩ := hv.2 _ th hth
-    refine ⟨?_, by rw [hst]; exact h2, by rw [hvs]; exact h3⟩
+    refine ⟨?_, by rw [hst]; exact h2, hvsb h3⟩
     rw [henv]
     intro en hen
     rcases List.mem_cons.1 hen with rfl | hen
@@ -69,7 +147,9 @@ theorem viewInv_ext {c c' : Cfg} (h : Ext p k arch c c') (hv : TermViewInv.ViewI
   · exact hv.2 j t hj'
 
 theorem runScope_ext {c c' : Cfg} (h : Ext p k arch c c') (hd : TermScope.RunScope c) : TermScope.RunScope c' := by
-  obtain ⟨i, th, th', tr, hth, -, -, -, hst, hσ, ⟨x, n, a, e, ws, hterm, hte, henv, -⟩, rfl⟩ := ext_shape h
+  obtain ⟨i, th, th', tr, wn, wws, wv, hth, -, -, -, -, hst, hσ, ⟨x, n, a, e, ws, hterm, hte, henv, -⟩, rfl⟩ :=
+    ext_shape h
+  refine runScope_wake ?_
   intro j t hj
   rcases TermSetTh.setC_get hth hj with ⟨rfl, rfl⟩ | ⟨-, hj'⟩
   · obtain ⟨hok, hσs, he, hstk⟩ := hd _ th hth
@@ -83,7 +163,8 @@ theorem runScope_ext {c c' : Cfg} (h : Ext p k arch c c') (hd : TermScope.RunSco
 
 theorem promViewLt_ext {c c' : Cfg} (h : Ext p k arch c c') (hc : TermPlantF.PromViewLt c) :
     TermPlantF.PromViewLt c' := by
-  obtain ⟨i, th, th', tr, hth, -, hp, -, -, -, -, rfl⟩ := ext_shape h
+  obtain ⟨i, th, th', tr, wn, wws, wv, hth, -, hp, -, -, -, -, -, rfl⟩ := ext_shape h
+  refine promViewLt_wake ?_
   intro j t q hj hq
   rcases TermSetTh.setC_get hth hj with ⟨rfl, rfl⟩ | ⟨-, hj'⟩
   · rw [hp] at hq; exact hc _ th q hth hq
@@ -91,7 +172,8 @@ theorem promViewLt_ext {c c' : Cfg} (h : Ext p k arch c c') (hc : TermPlantF.Pro
 
 theorem promPos_ext {c c' : Cfg} (h : Ext p k arch c c') (hc : TermPlantAtPos.PromPos c) :
     TermPlantAtPos.PromPos c' := by
-  obtain ⟨i, th, th', tr, hth, -, hp, -, -, -, -, rfl⟩ := ext_shape h
+  obtain ⟨i, th, th', tr, wn, wws, wv, hth, -, hp, -, -, -, -, -, rfl⟩ := ext_shape h
+  refine promPos_wake ?_
   intro j t hj q hq
   rcases TermSetTh.setC_get hth hj with ⟨rfl, rfl⟩ | ⟨-, hj'⟩
   · rw [hp] at hq; exact hc _ th hth q hq
@@ -99,7 +181,8 @@ theorem promPos_ext {c c' : Cfg} (h : Ext p k arch c c') (hc : TermPlantAtPos.Pr
 
 theorem promNodup_ext {c c' : Cfg} (h : Ext p k arch c c') (hc : TermBal.PromNodupI c) :
     TermBal.PromNodupI c' := by
-  obtain ⟨i, th, th', tr, hth, -, hp, -, -, -, -, rfl⟩ := ext_shape h
+  obtain ⟨i, th, th', tr, wn, wws, wv, hth, -, hp, -, -, -, -, -, rfl⟩ := ext_shape h
+  refine promNodup_wake ?_
   refine ⟨?_, fun j t hj => ?_⟩
   · rcases hc.1 with h0 | hW
     · exact .inl (by rw [TermSetTh.setC_size]; exact h0)
@@ -167,11 +250,12 @@ theorem trace_mono {cap : Nat} {c0 c : Cfg} (h : StepsE p k arch cap c0 c) : c0.
     (fun _ _ hs e => hs.elim (fun h => by rw [spawn_trace h]; exact e)
       (fun h => e.trans (Ext.frame h).2.2.2.2.2)) h (List.prefix_refl _)
 
-/-- An extern step keeps `SiteNoProm`: (IO1) if the stepping thread lands at a spawn site, it is certified
+/-- An extern step keeps `SiteNoProm`: if the stepping thread lands at a spawn site, it is certified
 there, so it has no promises (`cert_site`). -/
 theorem siteNoProm_ext {c c' : Cfg} (h : Ext p k arch c c') (h0 : TermSpawnStep.SiteNoProm c) :
     TermSpawnStep.SiteNoProm c' := by
-  obtain ⟨i, th, th', tr, hth, hcert, -, -, -, -, -, rfl⟩ := ext_shape h
+  obtain ⟨i, th, th', tr, wn, wws, wv, hth, hcert, -, -, -, -, -, -, rfl⟩ := ext_shape h
+  refine siteNoProm_wake ?_
   intro j t hj hs
   rcases TermSetTh.setC_get hth hj with ⟨rfl, rfl⟩ | ⟨-, hj'⟩
   · exact TermSpawnStep.cert_site hj hs hcert

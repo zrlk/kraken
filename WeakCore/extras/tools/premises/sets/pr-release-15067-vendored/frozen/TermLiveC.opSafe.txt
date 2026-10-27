@@ -1,0 +1,38 @@
+CoreLang.Mode : Type
+CoreLang.Ty : Type
+CoreLang.Wd : Type
+CoreTerm.At : Type
+CoreTerm.BitOp : Type
+CoreTerm.BitOp1 : Type
+CoreTerm.FCmp : Type
+CoreTerm.FOp : Type
+CoreTerm.FOp1 : Type
+CoreTerm.Fence : Type
+CoreTerm.Op : Type
+TermLiveC.opSafe : CoreTerm.Op → Bool
+  := fun x =>
+  match x with
+  | CoreTerm.Op.atom a => true
+  | CoreTerm.Op.pair a b => true
+  | CoreTerm.Op.inl other a => true
+  | CoreTerm.Op.inr other a => true
+  | CoreTerm.Op.add a b => true
+  | CoreTerm.Op.sub a b => true
+  | CoreTerm.Op.new a => true
+  | CoreTerm.Op.null μ target => true
+  | CoreTerm.Op.fold a target => true
+  | CoreTerm.Op.fld i a => true
+  | CoreTerm.Op.load acq a => true
+  | CoreTerm.Op.store rel a v tok => true
+  | CoreTerm.Op.fence f => true
+  | CoreTerm.Op.validate x => true
+  | CoreTerm.Op.bits o a b => true
+  | CoreTerm.Op.bit1 o a => true
+  | CoreTerm.Op.zero τ => true
+  | CoreTerm.Op.cvt sg w a => true
+  | CoreTerm.Op.toInt a => true
+  | CoreTerm.Op.asLanes sg w a => true
+  | CoreTerm.Op.fop o a b => true
+  | CoreTerm.Op.fcmp o a b => true
+  | CoreTerm.Op.fop1 o a => true
+  | x => false

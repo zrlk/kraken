@@ -46,7 +46,7 @@ program annotation has an `iall`, so no runtime type does. -/
 def drf : Ty → Bool
   | .prod a b => drf a && drf b
   | .sum a b => drf a && drf b
-  | .code a b => drf a && drf b
+  | .code a b _ => drf a && drf b
   | .array _ t => drf t
   | .ptr μ t => drfM μ && drf t
   | .ptrOpt μ t => drfM μ && drf t
@@ -82,7 +82,7 @@ def wrapOKE (env : List Bool) : Ty → Bool
   | .iex t | .refine t _ => !rcarE env t && wrapOKE env t
   | .tex _ t => !rcarE (false :: env) t && wrapOKE (false :: env) t
   | .mu t => wrapOKE (rcarE (false :: env) t :: env) t
-  | .prod a b | .code a b => wrapOKE env a && wrapOKE env b
+  | .prod a b | .code a b _ => wrapOKE env a && wrapOKE env b
   | .array _ t | .ptr _ t | .ptrOpt _ t | .loc _ t | .iall t => wrapOKE env t
   | _ => true
 
@@ -101,7 +101,7 @@ def tb (c : Nat) : Ty → Bool
   | .tvar k      => k < c
   | .prod a b    => tb c a && tb c b
   | .sum a b     => tb c a && tb c b
-  | .code a b    => tb c a && tb c b
+  | .code a b _  => tb c a && tb c b
   | .array _ t   => tb c t
   | .ptr _ t     => tb c t
   | .ptrOpt _ t  => tb c t
@@ -123,7 +123,7 @@ def mg : Ty → Bool
   | .mu t        => !t.unguarded 0 && mg t
   | .prod a b    => mg a && mg b
   | .sum a b     => mg a && mg b
-  | .code a b    => mg a && mg b
+  | .code a b _  => mg a && mg b
   | .array _ t   => mg t
   | .ptr _ t     => mg t
   | .ptrOpt _ t  => mg t
@@ -683,21 +683,58 @@ inductive FetchOp
 def FetchOp.name : FetchOp → String
   | .add => "add" | .or => "or" | .and => "and" | .xor => "xor"
 
-/-- (E1) The trusted extern steps: a closed set; every other extern is a model body. -/
+/-- (E1) The trusted extern steps: a closed set; every other extern is a model body.
+The device-stream arms. -/
 inductive ExtName
-  | emit     -- one output byte: `U8 → Unit`, event `out b`
-  | current  -- the running thread's id: `Unit → ThreadId`
-  | exitEv   -- the exit event: `Int → Unit`, event `exit (exitCode v)`
+  | emit | current | exitEv
+  | park | unpark                                   -- (D4) machine externs; were prelude `ret ()` bodies
+  | mmioR (w : Wd) (acc : RegAcc) (mo : Mo)            -- register read: an event; value = the device's last write
+  | mmioW (w : Wd) (acc : RegAcc) (mo : Mo)            -- register write: an event
+  | regAt (n : Nat) (w : Wd) (acc : RegAcc) (stride : Nat) (taken : List Nat) (k : Nat)   -- static split: (reg k, rest)
+  | devRecv (w : Wd) | devWrite (w : Wd) | devChoice (w : Wd) | devIrq | devOut (w : Wd)   -- device decls only
   deriving DecidableEq, Repr
-
-/-- (E1) An extern's argument and result types. -/
 def ExtName.sig : ExtName → Ty × Ty
   | .emit => (.fix false .w8, .unit)
   | .current => (.unit, .tid)
   | .exitEv => (.int, .unit)
+  | .park => (.unit, .unit)
+  | .unpark => (.tid, .unit)
+  | .mmioR w acc _ => (.opq (.reg w acc), .prod (.opq (.reg w acc)) (.fix false w))
+  | .mmioW w acc _ => (.prod (.opq (.reg w acc)) (.fix false w), .opq (.reg w acc))
+  | .regAt n w acc st tk k => (.opq (.blk n w acc st tk), .prod (.opq (.reg w acc)) (.opq (.blk n w acc st (k :: tk))))
+  | .devRecv w => (.opq (.reg w .wo), .fix false w)
+  | .devWrite w => (.prod (.opq (.reg w .ro)) (.fix false w), .unit)
+  | .devChoice w => (.unit, .fix false w)
+  | .devIrq => (.opq .irq, .unit)
+  | .devOut w => (.fix false w, .unit)
+/-- Admissible names (the `.ext` typing arm requires `n.ok`): access and ordering agree; a split index is fresh and in range; the stride is a multiple of the register width in bytes (so every split handle is aligned when the base is, user). -/
+def ExtName.ok : ExtName → Bool
+  | .mmioR _ acc mo => acc.canRead && mo != .rel
+  | .mmioW _ acc mo => acc.canWrite && mo != .acq
+  | .regAt n w _ st tk k => k < n && !tk.contains k && Wd.bits w / 8 ≤ st && st % (Wd.bits w / 8) = 0   -- in range, fresh, width fits and divides the stride
+  | _ => true
+/-- Device-only externs: callable from a `device` decl only (`checkDecl`). -/
+def ExtName.deviceOnly : ExtName → Bool
+  | .devRecv _ | .devWrite _ | .devChoice _ | .devIrq | .devOut _ => true
+  | _ => false
+/-- (rev 2o, E5 correction) Externs a READ-ONLY restricted body may use: see T6. -/
+def ExtName.pure : ExtName → Bool
+  | .mmioR _ .ro _ => true
+  | .regAt .. => true
+  | _ => false
 
+def _root_.CoreLang.RegAcc.name : RegAcc → String | .ro => "ro" | .wo => "wo" | .rw => "rw"
+def _root_.CoreLang.Mo.name : Mo → String | .plain => "plain" | .rel => "rel" | .acq => "acq"
+
+/-- The surface spelling of an extern (the parser's arm, `Syntax.lean`). -/
 def ExtName.name : ExtName → String
   | .emit => "emit" | .current => "current" | .exitEv => "exitEv"
+  | .park => "park" | .unpark => "unpark"
+  | .mmioR w acc mo => s!"mmioRead[{w.bits}, {acc.name}, {mo.name}]"
+  | .mmioW w acc mo => s!"mmioWrite[{w.bits}, {acc.name}, {mo.name}]"
+  | .regAt n w acc st tk k => s!"regAt[{n}, {w.bits}, {acc.name}, {st}, {tk}, {k}]"
+  | .devRecv w => s!"devRecv[{w.bits}]" | .devWrite w => s!"devWrite[{w.bits}]"
+  | .devChoice w => s!"devChoice[{w.bits}]" | .devIrq => "devIrq" | .devOut w => s!"devOut[{w.bits}]"
 
 inductive Op
   | atom (a : At)
@@ -784,6 +821,8 @@ def lets : List (String × Op) → Expr → Expr
   | [], e => e
   | (x, op) :: rest, e => .let_ x op (lets rest e)
 
+inductive DeclKind | plain | device | restricted (fuel stack : Nat) deriving DecidableEq, Repr
+
 structure Decl where
   name  : String
   tparams : List Kind := [] -- prenex type parameters, outermost first (§3.11, row 18)
@@ -792,6 +831,7 @@ structure Decl where
   argTy : Ty
   retTy : Ty
   body  : Expr
+  kind : DeclKind := .plain   -- `device`: may call device-only externs; `restricted`: REFUSED by this bundle's checker
 
 abbrev Prog := List Decl
 
@@ -924,7 +964,7 @@ def instT (us : List Idx) (d : Nat) : Ty → Ty
   | .intS i       => .intS (instI us d i)
   | .prod a b     => .prod (instT us d a) (instT us d b)
   | .sum a b      => .sum (instT us d a) (instT us d b)
-  | .code a b     => .code (instT us d a) (instT us d b)
+  | .code a b k   => .code (instT us d a) (instT us d b) k
   | .array i t    => .array (instI us d i) (instT us d t)
   | .ptr μ t      => .ptr (instM us d μ) (instT us d t)
   | .ptrOpt μ t   => .ptrOpt (instM us d μ) (instT us d t)
@@ -985,7 +1025,7 @@ by value, which a client of the package can never hold. -/
 def _root_.CoreLang.Ty.guardT (k : Nat) : Ty → Bool
   | .tvar j      => j != k
   | .ptr _ _ | .ptrOpt _ _ | .loc _ _ => true
-  | .code a b    => a.guardT k && b.guardT k
+  | .code a b _  => a.guardT k && b.guardT k
   | .prod a b    => a.guardT k && b.guardT k
   | .sum a b     => a.guardT k && b.guardT k
   | .array _ t   => t.guardT k
@@ -1200,7 +1240,7 @@ def tyEq (cx : Cx) : Nat → Ty → Ty → Bool
   | d, .intS i, .intS j => ieqD cx d i j
   | d, .prod a b, .prod a' b' => tyEq cx d a a' && tyEq cx d b b'
   | d, .sum a b, .sum a' b' => tyEq cx d a a' && tyEq cx d b b'
-  | d, .code a b, .code a' b' => tyEq cx d a a' && tyEq cx d b b'
+  | d, .code a b k, .code a' b' k' => k == k' && tyEq cx d a a' && tyEq cx d b b'
   | d, .array i t, .array j u => ieqD cx d i j && tyEq cx d t u
   | d, .ptr μ t, .ptr ν u => meqD cx d μ ν && tyEq cx d t u
   | d, .ptrOpt μ t, .ptrOpt ν u => meqD cx d μ ν && tyEq cx d t u
@@ -1238,6 +1278,10 @@ def sub (cx : Cx) (σ τ : Ty) : Bool :=
   | .prod a b, .prod a' b' => sub cx a a' && sub cx b b'
   | .sum a b, .sum a' b' => sub cx a a' && sub cx b b'
   | .cap c r, .cap c' s => c.le c' && ieqD cx 0 r s
+  -- (M1, T1) a restricted function is a plain function, and fits a larger budget slot
+  | .code a b (.restricted _ _), .code a' b' .plain => tyEq cx 0 a a' && tyEq cx 0 b b'
+  | .code a b (.restricted f s), .code a' b' (.restricted f' s') =>
+      decide (f ≤ f') && decide (s ≤ s') && tyEq cx 0 a a' && tyEq cx 0 b b'
   | _, _ => false
 
 /-- An integer type of unknown index (`Int`). -/
@@ -1436,7 +1480,7 @@ def substTs (σs : List Ty) (c d : Nat) : Ty → Ty
                       | none   => .tvar (k - σs.length)
   | .prod a b    => .prod (substTs σs c d a) (substTs σs c d b)
   | .sum a b     => .sum (substTs σs c d a) (substTs σs c d b)
-  | .code a b    => .code (substTs σs c d a) (substTs σs c d b)
+  | .code a b k  => .code (substTs σs c d a) (substTs σs c d b) k
   | .array i t   => .array i (substTs σs c d t)
   | .ptr μ t     => .ptr μ (substTs σs c d t)
   | .ptrOpt μ t  => .ptrOpt μ (substTs σs c d t)
@@ -1518,7 +1562,7 @@ def lendOf (cx : Cx) (c : Cap) : Ty → M Idx
   | _ => throw "borrow needs a token or a read share"
 
 def codeOf : Ty → Option (Ty × Ty)
-  | .code σ τ => some (σ, τ)
+  | .code σ τ _ => some (σ, τ)
   | _ => none
 
 def varOf : At → M String
@@ -2130,7 +2174,7 @@ def checkOp (p : Prog) (cx : Cx) (x : String) : Op → M Cx
       let d ← p.find f
       if !(d.tparams.isEmpty && d.idx.isEmpty) then
         throw s!"fnptr {f}: only a monomorphic code block has a code pointer"
-      cx.bind x (.code d.argTy d.retTy)
+      cx.bind x (.code d.argTy d.retTy (match d.kind with | .restricted f s => .restricted f s | _ => .plain))
   | .callc f a => do
       let tf ← cx.peek f
       match codeOf tf with
@@ -2271,6 +2315,7 @@ def checkOp (p : Prog) (cx : Cx) (x : String) : Op → M Cx
   | .ext n a => do
       -- (E1) A trusted extern step (`TermExtStep.Ext`): no memory, no fence; `emit`/`exitEv` record an event.
       let (t, cx) ← cx.use a
+      if !n.ok then throw s!"{n.name}: inadmissible extern"
       if !sub cx t n.sig.1 then throw s!"{n.name}: the argument does not have the extern's type"
       cx.bind x n.sig.2
 
@@ -2498,6 +2543,43 @@ def check (p : Prog) (cx : Cx) : Expr → M Unit
       if !sub cx t cx.ret then throw "ret: the value does not have the return type"
   | .tail f is a ts => tailCheck p cx f is a ts
 
+/-- (T6) The pointee types a device decl's argument hands to the device: through pointers, nullable pointers and LOCATIVES
+(`Loc (rgn r) Desc`, buffers), inside pairs, sums, arrays, refinements, binders and `mu`. (`cap`/`share`/`tok`/`word` values
+name no cell by themselves; `code` captures nothing.) -/
+def devCells : Ty → List Ty
+  | .ptr _ t | .ptrOpt _ t | .loc _ t => [t]
+  | .prod a b | .sum a b => devCells a ++ devCells b
+  | .array _ t | .refine t _ | .iex t | .iall t | .tex _ t | .mu t => devCells t
+  | _ => []
+/-- A cell the device may hold: plain bits (`bitsIn`), or a protocol-governed word (the slot/ring words it moves only by
+`cas`/token stores). Pointer-containing cells fail `bitsIn`, so nested pointees need no recursion. -/
+def devCellOK : Ty → Bool
+  | .refine t _ => devCellOK t
+  | .word .. | .word2 .. | .epair .. => true
+  | t => bitsIn t
+/-- (T6) No device-only extern, and no use of a device decl (call, tail, spawn, `fnptr`), anywhere in `e`; `isDev f` =
+`(p.find? (·.name = f)).map (·.kind = .device)`. Every `Expr` form, nested branches included. -/
+def exprNoDevOnly (isDev : String → Bool) : Expr → Bool
+  | .let_ _ (.ext n _) e => !n.deviceOnly && exprNoDevOnly isDev e
+  | .let_ _ (.call f _ _ _) e | .let_ _ (.fnptr f) e | .let_ _ (.spawn f _ _ _) e => !isDev f && exprNoDevOnly isDev e
+  | .let_ _ _ e | .split _ _ _ e | .unpack _ _ _ e | .unpackT _ _ _ e | .region _ _ _ _ e | .openPub _ _ _ _ e =>
+      exprNoDevOnly isDev e
+  | .case _ _ e₁ _ e₂ | .ifnull _ e₁ _ e₂ | .parity _ _ e₁ e₂ | .ifeq _ _ e₁ e₂ =>
+      exprNoDevOnly isDev e₁ && exprNoDevOnly isDev e₂
+  | .cas _ _ _ _ _ _ ok fail | .casp _ _ _ _ _ _ _ _ ok fail => exprNoDevOnly isDev ok && exprNoDevOnly isDev fail
+  | .ret _ => true
+  | .tail f _ _ _ => !isDev f
+/-- (T6) No `fnptr` of a device decl anywhere, in EVERY decl: a device decl could otherwise hand a code value of
+itself to a CPU thread (`spawn`, a store), which would then `callc` device externs. -/
+def exprNoDevFnptr (isDev : String → Bool) : Expr → Bool
+  | .let_ _ (.fnptr f) e => !isDev f && exprNoDevFnptr isDev e
+  | .let_ _ _ e | .split _ _ _ e | .unpack _ _ _ e | .unpackT _ _ _ e | .region _ _ _ _ e | .openPub _ _ _ _ e =>
+      exprNoDevFnptr isDev e
+  | .case _ _ e₁ _ e₂ | .ifnull _ e₁ _ e₂ | .parity _ _ e₁ e₂ | .ifeq _ _ e₁ e₂ =>
+      exprNoDevFnptr isDev e₁ && exprNoDevFnptr isDev e₂
+  | .cas _ _ _ _ _ _ ok fail | .casp _ _ _ _ _ _ _ _ ok fail => exprNoDevFnptr isDev ok && exprNoDevFnptr isDev fail
+  | .ret _ | .tail .. => true
+
 def checkDecl (p : Prog) (d : Decl) : M Unit := do
   let nt := d.tparams.length
   if !d.argTy.wf nt d.idx.length || !d.retTy.wf nt d.idx.length then
@@ -2506,6 +2588,18 @@ def checkDecl (p : Prog) (d : Decl) : M Unit := do
     throw s!"{d.name}: a second-class capability may be passed, not returned or stored"
   check p { inames := d.idx.reverse, vars := [(d.arg, d.argTy, true)], ret := d.retTy,
             ke := d.tparams.reverse.map some } d.body
+  -- the kind rules; no rule mentions a decl by name (`isDev` is by KIND)
+  let isDev : String → Bool := fun f => ((p.find? (·.name == f)).map (·.kind == .device)).getD false
+  if d.kind == .device && !(devCells d.argTy).all devCellOK then
+    throw s!"{d.name}: a device function may only be given cells of plain bits, protocol words or word pairs"
+  if d.kind != .device && !exprNoDevOnly isDev d.body then
+    throw s!"{d.name}: device externs and device functions may be used only inside a device function"
+  if !exprNoDevFnptr isDev d.body then
+    throw s!"{d.name}: a device function cannot be taken as a value"
+  match d.kind with
+  | .restricted _ _ =>
+      throw s!"{d.name}: restricted functions are not supported yet (fuel and stack budgets are not checked)"
+  | _ => pure ()
 
 def checkProg (p : Prog) : M Unit := p.forM (checkDecl p)
 
@@ -3306,7 +3400,7 @@ def cloK : Kind := { share := true, noOwn := true }
 
 /-- `∃(E : {share, noOwn}). Code(Int × Ptr pub E, Int) × Ptr pub E`. -/
 def cloT (κ : Kind := cloK) : Ty :=
-  .tex κ (.prod (.code (.prod .int (.ptr .pub (.tvar 0))) .int) (.ptr .pub (.tvar 0)))
+  .tex κ (.prod (.code (.prod .int (.ptr .pub (.tvar 0))) .int .plain) (.ptr .pub (.tvar 0)))
 
 #guard cloT.coupledOK && cloT.words == some 2
 
@@ -3355,7 +3449,7 @@ def peekCloD : Decl :=
 -- Bare in a code type is not guarded here: the client could never supply an `E`.
 #guard rejects (checkDecl cloLib { mkCloD with
     body := lets [("f", .fnptr "addEnv"), ("c", .packT (v "f") (.prod .int (.ptr .pub .int))
-      (.tex {} (.code (.tvar 0) .int)))] (.ret (.lit 0)) }) "only under a reference"
+      (.tex {} (.code (.tvar 0) .int .plain)))] (.ret (.lit 0)) }) "only under a reference"
 -- The variable must be guarded: `∃E. E × Int` would have a witness-dependent layout.
 #guard rejects (checkDecl cloLib { mkCloD with
     body := lets [("p", .pair (.lit 1) (.lit 2)), ("c", .packT (v "p") .int (.tex {} (.prod (.tvar 0) .int)))]

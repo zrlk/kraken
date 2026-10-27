@@ -1,0 +1,29 @@
+CoreLang.Ty : Type
+CoreTerm.At : Type
+CoreTerm.Expr : Type
+CoreTerm.ExtName : Type
+CoreTerm.ExtName.deviceOnly : CoreTerm.ExtName → Bool
+CoreTerm.Op : Type
+CoreTerm.exprNoDevOnly : (String → Bool) → CoreTerm.Expr → Bool
+  eq_def ∀ (isDev : String → Bool) (x : CoreTerm.Expr),
+  CoreTerm.exprNoDevOnly isDev x =
+    match x with
+    | CoreTerm.Expr.let_ x (CoreTerm.Op.ext n a) e => !n.deviceOnly && CoreTerm.exprNoDevOnly isDev e
+    | CoreTerm.Expr.let_ x (CoreTerm.Op.call f is a ts) e => !isDev f && CoreTerm.exprNoDevOnly isDev e
+    | CoreTerm.Expr.let_ x (CoreTerm.Op.fnptr f) e => !isDev f && CoreTerm.exprNoDevOnly isDev e
+    | CoreTerm.Expr.let_ x (CoreTerm.Op.spawn f a T ts) e => !isDev f && CoreTerm.exprNoDevOnly isDev e
+    | CoreTerm.Expr.let_ x op e => CoreTerm.exprNoDevOnly isDev e
+    | CoreTerm.Expr.split a x y e => CoreTerm.exprNoDevOnly isDev e
+    | CoreTerm.Expr.unpack a i x e => CoreTerm.exprNoDevOnly isDev e
+    | CoreTerm.Expr.unpackT a α x e => CoreTerm.exprNoDevOnly isDev e
+    | CoreTerm.Expr.region a r p t e => CoreTerm.exprNoDevOnly isDev e
+    | CoreTerm.Expr.openPub a r p c e => CoreTerm.exprNoDevOnly isDev e
+    | CoreTerm.Expr.case a x e₁ y e₂ => CoreTerm.exprNoDevOnly isDev e₁ && CoreTerm.exprNoDevOnly isDev e₂
+    | CoreTerm.Expr.ifnull a e₁ x e₂ => CoreTerm.exprNoDevOnly isDev e₁ && CoreTerm.exprNoDevOnly isDev e₂
+    | CoreTerm.Expr.parity a k e₁ e₂ => CoreTerm.exprNoDevOnly isDev e₁ && CoreTerm.exprNoDevOnly isDev e₂
+    | CoreTerm.Expr.ifeq a b e₁ e₂ => CoreTerm.exprNoDevOnly isDev e₁ && CoreTerm.exprNoDevOnly isDev e₂
+    | CoreTerm.Expr.cas acq rel w e v t ok fail => CoreTerm.exprNoDevOnly isDev ok && CoreTerm.exprNoDevOnly isDev fail
+    | CoreTerm.Expr.casp acq rel w e0 e1 v0 v1 t ok fail =>
+      CoreTerm.exprNoDevOnly isDev ok && CoreTerm.exprNoDevOnly isDev fail
+    | CoreTerm.Expr.ret a => true
+    | CoreTerm.Expr.tail f is a ts => !isDev f

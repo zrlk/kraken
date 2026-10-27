@@ -15,14 +15,17 @@ checked table holding the function's facts (`…_of_tab`), and from
 - `tiPh_ofPlaceOK`: `scc_rt_thread_init`'s (`TiPh`), returning to `.x1`;
   the table names its pcs after the call from `.entry` + 12, `.x7` by
   A11's gap (`threadInitIn`); its prologue and call before the take
-  (phase `12`);
+  (phase `12`); `tiPhAt_ofPlaceOK` the same whatever the tail, its return
+  point at `tiOf` of the tail (`TiPhAt`: `.x7`, or `.x8` after a setup
+  block);
 - `tcbPh_ofPlaceOK`, `takePh_ofPlaceOK`: `scc_rt_alloc_tcb`'s (`TcbPh`,
   returning to `.Lscc_rt_start.x0`, the header at `scc_rt_pinned`) and
   `scc_rt_stack_take`'s (`TakePh`, returning to `.x7` = `.entry` + 12),
   their phases at the pcs before the take and at the atomic accesses' ends
   (A6's `tkPhTab`, `ph_tk`), the owned counters distinct and the TCB off
   them (A8, `counters_ne`, `tcbSep`), the take site none of the other sites
-  (`take_ne`);
+  (`take_ne`); `takePhAt_ofPlaceOK` the same whatever the tail, returning
+  to `tiOf` of the tail;
 - `rodata_stackPool_disjoint_ofPlaceOK`: the `.rodata` range off the stack
   pool (A1's `layoutOk`, `rodata_stackPool_of_placeOKAt`), the take's premise.
 -/
@@ -31,6 +34,7 @@ import Spike.Lib.Rt.X64RtPhTab
 import Spike.Lib.Rt.X64RtCode
 import Spike.Lib.X64PhRec
 import Spike.Lib.Rt.X64RtMainU
+import Spike.Lib.Rt.X64RtCodeSetup
 
 namespace Spike.Lib.X64.Rt.PhRecOf
 
@@ -87,15 +91,17 @@ theorem mainPh_of_tab {mc : MainCode} (hsub : ∀ f ∈ mainPhTab mc, f ∈ tab)
     ex := blkPh_of_factOk hlab (ra_none L) hn (hf _ (by simp [mainPhTab]))
     svc := step_of_factOk hlab (hf (.step mc.sp0 (mc.ze0 + mc.ze1 + mc.ze2) 2) (by simp [mainPhTab])) }
 
-open Spike.Lib.X64.Rt.Ti (TiPh stPcs preTkPcs) in
+open Spike.Lib.X64.Rt.Ti (TiPhAt stPcsAt preTkPcs) in
 open Spike.Lib.X64.Flow.Ret0.ThreadInit in
-/-- **`scc_rt_thread_init`'s phase facts** of a checked table holding
-`tiPhTab`, returning to `.x1`, with `.x7` at `.entry` + 12 (`hx7`). -/
-theorem tiPh_of_tab (hsub : ∀ f ∈ tiPhTab, f ∈ tab) (hx7 : L.lab x7L = L.lab entryL + Int64.ofNat 12) :
-    TiPh (okPc L) (ph L) (Tk L) L.lab (fun _ => L.lab Code.Start.x1L) := by
+/-- **`scc_rt_thread_init`'s phase facts with its return point at `x`** of
+a checked table holding `tiPhTab` (its rows are named from `.entry`, so the
+table is the same whatever the program numbers the return point),
+returning to `.x1`, with `x` at `.entry` + 12 (`hx7`). -/
+theorem tiPhAt_of_tab (x : Label) (hsub : ∀ f ∈ tiPhTab, f ∈ tab) (hx7 : L.lab x = L.lab entryL + Int64.ofNat 12) :
+    TiPhAt (okPc L) (ph L) (Tk L) L.lab (fun _ => L.lab Code.Start.x1L) x := by
   have hf : ∀ f ∈ tiPhTab, _ := fun f hf => factOk_of_rtPhOk hrt (hsub f hf)
   have hn := dead_none L
-  have e7 : ∀ o, L.lab x7L + Int64.ofNat o = L.lab entryL + Int64.ofNat (12 + o) := fun o => by
+  have e7 : ∀ o, L.lab x + Int64.ofNat o = L.lab entryL + Int64.ofNat (12 + o) := fun o => by
     rw [hx7, Spike.Lib.X64.Flow.ofNat_add']
   have h12 : ∀ p ∈ preTkPcs L.lab, ph L p.toBitVec.toNat = 12 := by
     intro p hp
@@ -133,7 +139,7 @@ theorem tiPh_of_tab (hsub : ∀ f ∈ tiPhTab, f ∈ tab) (hx7 : L.lab x7L = L.l
         hn (hf (.blk Code.Ti.entryL (12 + 117) Code.Ti.tiRet (some (Code.Start.x1L, 0)) none) (by simp [tiPhTab]))
     st := by
       intro pz hp
-      simp only [stPcs, List.mem_cons, List.not_mem_nil, or_false] at hp
+      simp only [stPcsAt, List.mem_cons, List.not_mem_nil, or_false] at hp
       rcases hp with rfl | rfl | rfl | rfl | rfl | rfl
       · rw [e7]; exact step_of_factOk hlab (hf (.step Code.Ti.entryL (12 + 48) 3) (by simp [tiPhTab]))
       · rw [e7]; exact step_of_factOk hlab (hf (.step Code.Ti.entryL (12 + 59) 4) (by simp [tiPhTab]))
@@ -143,6 +149,14 @@ theorem tiPh_of_tab (hsub : ∀ f ∈ tiPhTab, f ∈ tab) (hx7 : L.lab x7L = L.l
       · rw [e7]; exact step_of_factOk hlab (hf (.step Code.Ti.entryL (12 + 113) 4) (by simp [tiPhTab]))
     noTk := fun p hp s hs hT => by
       unfold Tk at hT; rw [hs, h12 p hp] at hT; cases hT }
+
+open Spike.Lib.X64.Rt.Ti (TiPh) in
+open Spike.Lib.X64.Flow.Ret0.ThreadInit in
+/-- **`scc_rt_thread_init`'s phase facts** of a checked table holding
+`tiPhTab`, returning to `.x1`, with `.x7` at `.entry` + 12 (`hx7`). -/
+theorem tiPh_of_tab (hsub : ∀ f ∈ tiPhTab, f ∈ tab) (hx7 : L.lab x7L = L.lab entryL + Int64.ofNat 12) :
+    TiPh (okPc L) (ph L) (Tk L) L.lab (fun _ => L.lab Code.Start.x1L) :=
+  (tiPhAt_of_tab L hlab hrt x7L hsub hx7).toTiPh
 
 end Tab
 
@@ -173,19 +187,34 @@ theorem mainPh_ofPlaceOK {mc : MainCode} (hs : mcOf o.place.tail = some mc) :
     MainPh (okPc (Ly)) (ph (Ly)) (Ly).lab mc :=
   mainPh_of_tab (Ly) (hlab_ofPlaceOK h i) (mainPh_of_placeOKAt h hs) fun _ hf => hf
 
-/-- **`scc_rt_main`'s phase facts at `bareMC`**, today's only tail. -/
-theorem mainPh_bare_ofPlaceOK : MainPh (okPc (Ly)) (ph (Ly)) (Ly).lab Spike.Lib.X64.Rt.bareMC :=
-  mainPh_ofPlaceOK h i (by rw [tail_of_placeOKAt h]; rfl)
+/-- **`scc_rt_main`'s phase facts at `bareMC`**, on a bare tail. -/
+theorem mainPh_bare_ofPlaceOK (hs : o.place.tail = .bare) :
+    MainPh (okPc (Ly)) (ph (Ly)) (Ly).lab Spike.Lib.X64.Rt.bareMC :=
+  mainPh_ofPlaceOK h i (by rw [hs]; rfl)
 
 open Spike.Lib.X64.Rt.Ti (TiPh) in
 /-- **`scc_rt_thread_init`'s phase facts** at an output passing `placeOK`,
 returning to `.x1` (A6; `.x7`'s gap from A11). -/
-theorem tiPh_ofPlaceOK : TiPh (okPc (Ly)) (ph (Ly)) (Tk (Ly)) (Ly).lab (fun _ => (Ly).lab Code.Start.x1L) := by
-  have hin := (Spike.Lib.X64.Rt.rtCodeIn_of_ok (rtCodeOk_bare_of_placeOKAt h)).ti
+theorem tiPh_ofPlaceOK (hs : o.place.tail = .bare) :
+    TiPh (okPc (Ly)) (ph (Ly)) (Tk (Ly)) (Ly).lab (fun _ => (Ly).lab Code.Start.x1L) := by
+  have hin := (Spike.Lib.X64.Rt.rtCodeIn_of_ok (rtCodeOk_bare_of_placeOKAt h hs)).ti
   simp only [Spike.Lib.X64.Flow.Ret0.ThreadInit.threadInitIn, Bool.and_eq_true] at hin
   exact tiPh_of_tab (Ly) (hlab_ofPlaceOK h i) (rtPh_of_placeOKAt h)
     (fun _ hf => by simp only [rtPhTab, List.mem_append]; simp [hf])
     (Scc.Cert.Rt.X64.label_labelGapB (Ly).lays hin.1.1.1.1.1.1.1.1.2)
+
+open Spike.Lib.X64.Rt.Ti (TiPhAt) in
+/-- **`scc_rt_thread_init`'s phase facts at an output passing `placeOK`,
+whatever the tail**, its return point at `tiOf` of the tail (`.x7` or
+`.x8`; A6, and the gap from A11's `threadInitInAt_of_placeOKAt`), returning
+to `.x1`. At a bare tail it is `tiPh_ofPlaceOK` (`TiPhAt.toTiPh`). -/
+theorem tiPhAt_ofPlaceOK :
+    TiPhAt (okPc (Ly)) (ph (Ly)) (Tk (Ly)) (Ly).lab (fun _ => (Ly).lab Code.Start.x1L)
+      (Spike.Lib.X64.Rt.tiOf o.place.tail) :=
+  tiPhAt_of_tab (Ly) (hlab_ofPlaceOK h i) (rtPh_of_placeOKAt h) _
+    (fun _ hf => by simp only [rtPhTab, List.mem_append]; simp [hf])
+    (Scc.Cert.Rt.X64.label_labelGapB (Ly).lays
+      (Spike.Lib.X64.Rt.gap_of_threadInitInAt (Spike.Lib.X64.Rt.threadInitInAt_of_placeOKAt h)))
 
 
 /-! ## The phase indices, the words and the sites
@@ -402,20 +431,21 @@ theorem take_ne {y : String}
 open Spike.Lib.X64.Rt.Take (TakePh takePcs siPcs) in
 open Spike.Lib.X64.Flow.Ret0.StackTake in
 open Spike.Lib.X64.PhRec (ownOf μ) in
-/-- **`scc_rt_stack_take`'s phase facts** at an output passing `placeOK`
-(A6, A8, the sites distinct), returning to `scc_rt_thread_init`'s `.x7`
-(`.entry` + 12, A11's gap). -/
-theorem takePh_ofPlaceOK :
-    TakePh (okPc (Ly)) (ph (Ly)) (Tk (Ly)) (ownOf (Ly)) (μ (Ly)) (Ly).lab (fun _ => (Ly).lab Code.Ti.x7L) := by
+/-- **`scc_rt_stack_take`'s phase facts at an output passing `placeOK`,
+whatever the tail** (A6, A8, the sites distinct), returning to
+`scc_rt_thread_init`'s return point `tiOf` of the tail (`.x7` or `.x8`,
+`.entry` + 12, A11's gap). -/
+theorem takePhAt_ofPlaceOK :
+    TakePh (okPc (Ly)) (ph (Ly)) (Tk (Ly)) (ownOf (Ly)) (μ (Ly)) (Ly).lab
+      (fun _ => (Ly).lab (Spike.Lib.X64.Rt.tiOf o.place.tail)) := by
   have hrt : rtPhOk (Ly).Λ.code.lo (Ly).prog (Ly).Λ (rtPhTab none) = true := rtPh_of_placeOKAt h
   have hf : ∀ f ∈ takePhTab, _ := fun f hf => factOk_of_rtPhOk hrt (f := f)
     (by simp only [rtPhTab, List.mem_append]; simp [hf])
   have hl := hlab_ofPlaceOK h i
   have hn := dead_none (Ly)
-  have hin := (Spike.Lib.X64.Rt.rtCodeIn_of_ok (rtCodeOk_bare_of_placeOKAt h)).ti
-  simp only [Spike.Lib.X64.Flow.Ret0.ThreadInit.threadInitIn, Bool.and_eq_true] at hin
-  have hx7 : (Ly).lab Code.Ti.x7L = (Ly).lab Code.Ti.entryL + Int64.ofNat 12 :=
-    Scc.Cert.Rt.X64.label_labelGapB (Ly).lays hin.1.1.1.1.1.1.1.1.2
+  have hx7 : (Ly).lab (Spike.Lib.X64.Rt.tiOf o.place.tail) = (Ly).lab Code.Ti.entryL + Int64.ofNat 12 :=
+    Scc.Cert.Rt.X64.label_labelGapB (Ly).lays
+      (Spike.Lib.X64.Rt.gap_of_threadInitInAt (Spike.Lib.X64.Rt.threadInitInAt_of_placeOKAt h))
   have hlk : Spike.Lib.X64.Flow.Ret0.lockA (Ly).lab = (Ly).lockA := (Ly).lab_lock
   have hnx : Spike.Lib.X64.Flow.Ret0.nextA (Ly).lab = (Ly).nextA := (Ly).lab_next
   obtain ⟨c1, c2, c3, c4, c5, c6⟩ := counters_ne h i
@@ -544,6 +574,15 @@ theorem takePh_ofPlaceOK :
     siteAt := Spike.Lib.X64.PhRec.site_ofPlaceOK h i
     siteOwn := by rw [ht8, ht0]; rfl
     tk1 := fun s hs => by unfold Tk; rw [hs, ht0] }
+
+open Spike.Lib.X64.Rt.Take (TakePh) in
+open Spike.Lib.X64.PhRec (ownOf μ) in
+/-- **`scc_rt_stack_take`'s phase facts** at an output passing `placeOK`
+(A6, A8, the sites distinct), returning to `scc_rt_thread_init`'s `.x7`
+(`.entry` + 12, A11's gap). -/
+theorem takePh_ofPlaceOK (hs : o.place.tail = .bare) :
+    TakePh (okPc (Ly)) (ph (Ly)) (Tk (Ly)) (ownOf (Ly)) (μ (Ly)) (Ly).lab (fun _ => (Ly).lab Code.Ti.x7L) := by
+  have h' := takePhAt_ofPlaceOK h i; rw [hs] at h'; exact h'
 
 end Place
 

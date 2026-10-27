@@ -153,7 +153,11 @@ theorem nfInv_pre {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {Mi
     TermGranW.granuleWP_of _ hGW, hinv.stoLay hk, ⟨cl, cutSto_own hsto hown⟩,
     by rw [Cut_pfr, hf]; exact Option.some_ne_none f, by rw [Cut_box]; exact hba, ?_, TermTyped.anchR_start hm (hinv.riniCoh i th S hth)
       (fun l cl f hs hp => hinv.frlt l cl f (cutSto_sub hs) hp),
-    by obtain ⟨_, η, _, hCE, -⟩ := id hT; have e : CE η = Cut Eg i S := hCE; rw [← e]; exact Ext_refl (Coh_CE η) (CohR_CE η)⟩
+    by obtain ⟨_, η, _, hCE, -⟩ := id hT; have e : CE η = Cut Eg i S := hCE; rw [← e]; exact Ext_refl (Coh_CE η) (CohR_CE η),
+    TermMain.tidAt_cut hinv i S, fun th2 hth2 hl2 => by
+      rw [hth] at hth2; cases hth2
+      have hb := (hinv.tidBox i th hth l hl2).1
+      rw [hsto] at hb; cases hb; simp at hown⟩
   intro t' ht' lb B hB o w hw hN f' hf'
   rw [Cut_box] at hB
   rw [Cut_pfr] at hf'
@@ -169,8 +173,8 @@ theorem noFul_ofNF {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {l : 
     (hwin : ∀ c2, Solo p k arch i c1 c2 → Certified p k arch c2 i → TermTyped.NoHoldPubA p k arch Eu Ea i c2) :
     ∀ c2 th2, TermOwnG0Defs.SoloNP p k arch i l c1 c2 → Certified p k arch c2 i → c2.ths[i]? = some th2 →
       t ∈ th2.promises := by
-  obtain ⟨th, E, S, hth, hE, hm, hES, hR, ht, hbf, hfr, hL, hSC, hD, hC, hG, hLay, hsa, hpa, hba, hBS, hA, hXa⟩ := hJ
-  exact hNP i l c1 th E S t hk hES hsc hvI Eu Ea hwin hA hXa hth hE hm hR ht hbf hfr hL hSC hps hD hC hG hLay hsa hpa hba hBS
+  obtain ⟨th, E, S, hth, hE, hm, hES, hR, ht, hbf, hfr, hL, hSC, hD, hC, hG, hLay, hsa, hpa, hba, hBS, hA, hXa, hTA, hNa⟩ := hJ
+  exact hNP i l c1 th E S t hk hES hsc hvI Eu Ea hwin hA hXa hTA hNa hth hE hm hR ht hbf hfr hL hSC hps hD hC hG hLay hsa hpa hba hBS
 
 /-- (D-B) **The start of the owner's solo run at the pre-state**: `NoFulPlRunGL` (the run, v3d) at
 `(c, Cut Eg i S, Eg.sto)`, every start fact from `SysInvN` (`ptrGL`, `granW`, `stoLay`, `fresh`, `clo`,

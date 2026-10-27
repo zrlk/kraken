@@ -1,0 +1,15 @@
+CoreTerm.Prog : Type
+Promises.Knobs : Type
+TermRun.Cfg : Type
+TermRun.certB : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → Nat → TermRun.Cfg → Nat → Bool
+  eq_def ∀ (p : CoreTerm.Prog) (k : Promises.Knobs) (arch : WeakMem.Arch) (x : Nat) (x_1 : TermRun.Cfg) (x_2 : Nat),
+  TermRun.certB p k arch x x_1 x_2 =
+    match x, x_1, x_2 with
+    | 0, c, i => TermRun.noPromises c i
+    | f.succ, c, i =>
+      (TermRun.noPromises c i || (TermRun.threadSteps p k arch c i).any fun c' => TermRun.certB p k arch f c' i) ||
+        (TermRun.extSteps c i).any fun c' => TermRun.certB p k arch f c' i
+TermRun.extSteps : TermRun.Cfg → Nat → List TermRun.Cfg
+TermRun.noPromises : TermRun.Cfg → Nat → Bool
+TermRun.threadSteps : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → TermRun.Cfg → Nat → List TermRun.Cfg
+WeakMem.Arch : Type

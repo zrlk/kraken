@@ -181,7 +181,7 @@ theorem sum_map_wd {L : List Ts} {f : Ts → Res} {n : Nat} (h : ∀ t ∈ L, f 
     simp only [List.map_cons, Res.sum_cons, Res.add_apply]
     rw [h t (List.mem_cons_self ..), ih (fun t' ht' => h t' (List.mem_cons_of_mem _ ht'))]
 
-/-- (U3, fix b; named fact, D2 probing) **`wd` debits are covered.** (1) Each
+/-- (U3, fix b; named fact) **`wd` debits are covered.** (1) Each
 idle thread's outstanding `wd n` debits are covered by its frame (an outstanding
 init holder still holds the region's one word, consumed only by the `bufInit`
 fulfilling it). (2) At a plain store to a unit holding an initialised visible

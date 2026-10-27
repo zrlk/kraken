@@ -57,7 +57,7 @@ local notation "UP" d:max lbl:max => UPost [d] lbl Spike.Lib.A64Consumer.c0
 /-- **The loaded thread's run is one segment inside `SFacts … Dt`** (P4),
 the take of the first stack its outside move, for an output passing
 `placeOK` (`h`, at the immediates `i`) whose source is one `Accepted0`
-`main` (`hd`) lowered to `r` (`hr`) at the context `cx` with its code in
+`main` (`hd`; so a bare tail, `hs`) lowered to `r` (`hr`) at the context `cx` with its code in
 the program (`hpro`, `hbody`): from `_start`'s entry on the entry stack
 (`entryR`, the runtime's words unloaded, `rtF`), to any `Q`.
 
@@ -72,7 +72,8 @@ lowering's, `immsOf d`, which the abort label's invariant records), the
 write tail (`hwr`, for a 16-aligned region holding the stub's frame:
 `ovfDt_of_at` at `Dt := OvfDt`), the runtime memory invariant at the runtime's words (`hG*`,
 `hown*`, `hroom*`) and the labels off the words (`hfree`). -/
-theorem a64_start_segW {d : Decl} (hd : Scc.Lower.Accepted0 [d] = true) {cx : FnCtx} {r : Scc.Lower.Inv.Res}
+theorem a64_start_segW {d : Decl} (hd : Scc.Lower.Accepted0 [d] = true) (hs : o.place.tail = .bare) {cx : FnCtx}
+    {r : Scc.Lower.Inv.Res}
     {entry : Label} (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) (h16 : cx.frame % 16 = 0)
     (hpro : proInC o.prog cx bareMC.fn entry = true)
     (hr : Scc.Lower.Inv.lower0 [(d.arg, .unit, [])] 0 d.body = some r)
@@ -126,7 +127,7 @@ theorem a64_start_segW {d : Decl} (hd : Scc.Lower.Accepted0 [d] = true) {cx : Fn
     {Q : Frag isaLSE2} :
     SegW (WS lbl Dt) (K (Ly) (Spike.Lib.A64.Rt.rS0 (Ly))) [d] lbl (MS rd G lbl lsize)
       (At (Ly).exe (Ly).endPc (entryR E) (rtF (Ly)) (Ret0.entryN (Ly).lab Spike.Lib.A64Consumer.c0)) Q := by
-  have hrc := Spike.Lib.A64.Rt.rtCodeIn_of_ok (rtCodeOk_bare_of_placeOKAt h)
+  have hrc := Spike.Lib.A64.Rt.rtCodeIn_of_ok (rtCodeOk_bare_of_placeOKAt h hs)
   have hsub := Spike.Lib.A64.Rt.rS0_sub (Ly)
   have hfit := Spike.Lib.A64.Rt.fitS_of_sub (Ly) hsub
   have hI := Spike.Lib.A64.PhRec.instOk_ofPlaceOK h i (rS := Spike.Lib.A64.Rt.rS0 (Ly))

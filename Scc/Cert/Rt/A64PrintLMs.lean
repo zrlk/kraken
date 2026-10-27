@@ -31,7 +31,7 @@ theorem hms_printL {γ : Sort _} {Rg : γ → Region} {Fg : γ → MachineData �
     {prog : List Directive} [Kraken.Executable.ValidLayout exe] {kp : Nat} (hp : Lays exe prog kp)
     (hend : endPc = endOf exe prog kp) (hprog : morestackIn prog = true)
     (hR : ∀ g, (Rg g).OK) (hF : ∀ g, FStable (Rg g) (Fg g)) (hal : ∀ g, (Rg g).base.toNat % 16 = 0)
-    (hlo : ∀ g, (Rg g).lo ≤ -160) (hhi : ∀ g, 0 ≤ (Rg g).hi)
+    (hlo : ∀ g, (Rg g).lo ≤ -128) (hhi : ∀ g, 0 ≤ (Rg g).hi)
     (hsp : (_root_.Executable.labels exe).label ".L21_wc_printL.sp_check" =
       Int64.ofBitVec (printLRet (_root_.Executable.labels exe).label))
     (hgrow : ∀ g need, Seg p lbl ms

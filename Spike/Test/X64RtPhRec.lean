@@ -6,6 +6,7 @@ The twin of the ARM record instance.
 -/
 import Spike.Lib.Rt.X64RtPhRec
 import Spike.Test.X64Ret0PlaceOK
+import Spike.Test.X64Hello1PlaceOKE
 
 namespace Spike.Lib.X64.Rt.PhRecOfTest
 
@@ -22,6 +23,14 @@ example := mainPh_bare_ofPlaceOK (atTables ret0_placeOK) SccCode.ret0Imms
 
 /-- **`scc_rt_thread_init`'s phase facts at `ret0.x`'s record.** -/
 example := tiPh_ofPlaceOK (atTables ret0_placeOK) SccCode.ret0Imms
+
+/-- The same at any tail (`TiPhAt` at `tiOf`), at `ret0.x`'s record (`.x7`)
+and at `hello1.w`'s (after a setup block, `.x8`); `scc_rt_stack_take`'s
+returning there. -/
+example := tiPhAt_ofPlaceOK (atTables ret0_placeOK) SccCode.ret0Imms
+example := tiPhAt_ofPlaceOK (atTables Spike.Test.X64Hello1PlaceOKE.hello1_placeOK) SccCode.hello1Imms
+example := takePhAt_ofPlaceOK (atTables Spike.Test.X64Hello1PlaceOKE.hello1_placeOK) SccCode.hello1Imms
+example : tiOf Spike.Test.X64Hello1PlaceOKE.hello1O.place.tail = ".Lscc_rt_thread_init.x8" := by decide +kernel
 
 /-- The record's labels at `ret0.x`. -/
 example := hlab_ofPlaceOK (atTables ret0_placeOK) SccCode.ret0Imms

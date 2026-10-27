@@ -15,7 +15,7 @@ externs.
   functions, as `lowerWithMarks` builds them;
 * `checkedOf_accepted0`: the frontend's checked program of an `Accepted0`
   program (entry `main(Unit) : Int`, no externs);
-* `lowerWithMarks_accepted0`: the whole-program statement, at any `frames`;
+* `lowerWithMarks_accepted0`: the whole-program statement;
 * `lowerIR_accepted0`: the same for `lowerIR` (what `lowerAll` lowers);
   the statement on `lowerAll`'s IR is per ISA (`Scc/Lower/InvA64.lean`,
   `lowerAll_accepted0_a64`), as the two ISAs' emitters cannot be imported
@@ -77,13 +77,13 @@ theorem checkedOf_accepted0 {d : Decl} (hd : Accepted0 [d] = true) :
 functions, then `func0 main r` for the body's closed form `r`; the trace of
 `main` is `marks0`. -/
 theorem lowerWithMarks_accepted0 (cfg : Config) {d : Decl} (hd : Accepted0 [d] = true)
-    (frames : Option Nat) (hheap : cfg.layout.heapBytes < 2 ^ 32) {rt : List Func}
+    (hheap : cfg.layout.heapBytes < 2 ^ 32) {rt : List Func}
     (hrt : rtFuncs cfg.layout ⟨.unit, true⟩ 0 = .ok rt) :
     ∃ r, lower0 [(d.arg, .unit, [])] 0 d.body = some r ∧
-      lowerWithMarks cfg { prog := [d], entry := ⟨.unit, true⟩, externs := [], adds := [] } frames =
+      lowerWithMarks cfg { prog := [d], entry := ⟨.unit, true⟩, externs := [], adds := [] } =
         .ok (progOf cfg.layout rt [func0 (Names.user "main") r], [(Names.user "main", marks0 d)]) := by
   obtain ⟨hn, -, -, -, -, hbody⟩ := accepted0_decl hd
-  obtain ⟨r, hr, hl⟩ := lowerDeclMarks_accepted0 [d] [] cfg.layout.obj frames hd
+  obtain ⟨r, hr, hl⟩ := lowerDeclMarks_accepted0 [d] [] cfg.layout.obj none hd
   refine ⟨r, hr, ?_⟩
   have hsp : spawnedE d.body = [] := spawnedE_body0 _ _ hbody
   have hh : ¬ (cfg.layout.heapBytes ≥ 2 ^ 32) := by omega
@@ -97,8 +97,8 @@ theorem lowerWithMarks_accepted0 (cfg : Config) {d : Decl} (hd : Accepted0 [d] =
 `lowerWithMarks_accepted0`: its runtime functions exist and the arena is
 below 4 GiB. -/
 theorem lowerWithMarks_accepted0_ok (cfg : Config) {d : Decl} (hd : Accepted0 [d] = true)
-    (frames : Option Nat) {x : IR.Program × List (Sym × Array (Node × Point))}
-    (h : lowerWithMarks cfg { prog := [d], entry := ⟨.unit, true⟩, externs := [], adds := [] } frames =
+    {x : IR.Program × List (Sym × Array (Node × Point))}
+    (h : lowerWithMarks cfg { prog := [d], entry := ⟨.unit, true⟩, externs := [], adds := [] } =
       .ok x) :
     ∃ r rt, lower0 [(d.arg, .unit, [])] 0 d.body = some r ∧
       rtFuncs cfg.layout ⟨.unit, true⟩ 0 = .ok rt ∧
@@ -112,7 +112,7 @@ theorem lowerWithMarks_accepted0_ok (cfg : Config) {d : Decl} (hd : Accepted0 [d
   | error e =>
     exfalso
     obtain ⟨hn, -, -, -, -, hbody⟩ := accepted0_decl hd
-    obtain ⟨r, -, hl⟩ := lowerDeclMarks_accepted0 [d] [] cfg.layout.obj frames hd
+    obtain ⟨r, -, hl⟩ := lowerDeclMarks_accepted0 [d] [] cfg.layout.obj none hd
     have hsp : spawnedE d.body = [] := spawnedE_body0 _ _ hbody
     have hh : ¬ (cfg.layout.heapBytes ≥ 2 ^ 32) := by omega
     unfold rtFuncs at hrt
@@ -121,7 +121,7 @@ theorem lowerWithMarks_accepted0_ok (cfg : Config) {d : Decl} (hd : Accepted0 [d
       List.append_nil, List.eraseDups_nil, hrt, bind, Except.bind, pure, Except.pure, hn] at h
     cases h
   | ok rt =>
-    obtain ⟨r, hr, hl⟩ := lowerWithMarks_accepted0 cfg hd frames hheap hrt
+    obtain ⟨r, hr, hl⟩ := lowerWithMarks_accepted0 cfg hd hheap hrt
     rw [hl] at h
     cases h
     exact ⟨r, rt, hr, rfl, rfl⟩
@@ -141,11 +141,10 @@ theorem lowerIR_accepted0 (cfg : Config) {d : Decl} (hd : Accepted0 [d] = true)
   | error e => rw [hb] at hl; cases hl
   | ok b =>
     rw [hb] at hl
-    cases hw : lowerWithMarks cfg { prog := [d], entry := ⟨.unit, true⟩, externs := [], adds := [] }
-        (some b.frames) with
+    cases hw : lowerWithMarks cfg { prog := [d], entry := ⟨.unit, true⟩, externs := [], adds := [] } with
     | error e => simp only [hw] at hl; cases hl
     | ok x =>
-      obtain ⟨r, rt, hr, hrt, rfl⟩ := lowerWithMarks_accepted0_ok cfg hd _ hw
+      obtain ⟨r, rt, hr, hrt, rfl⟩ := lowerWithMarks_accepted0_ok cfg hd hw
       simp only [hw] at hl
       cases hl
       exact ⟨r, rt, hr, hrt, rfl, rfl⟩

@@ -2393,7 +2393,7 @@ theorem privSlot_any (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p]
     have ht' : t ∈ TermFul.promsOf (promise c j a v w) j := by
       rw [TermFul.promsOf_some hpi.2.1]; exact ht
     have hmt : (promise c j a v w).mem[t]? = some m := by rw [hpi.1]; exact hm
-    exact (certified_promNotUndefX (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hsc (by first | exact TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw | exact TermViewInv.viewInv_run hV0 X.run | exact TermViewInv.viewInv_thread (TermViewInv.viewInv_run hV0 X.run) X.hc') hwin hX X.cert ht' hmt).1
+    exact (certified_promNotUndefX (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hsc (by first | exact TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw | exact TermViewInv.viewInv_run hV0 X.run | exact TermViewInv.viewInv_thread (TermViewInv.viewInv_run hV0 X.run) X.hc') hwin hX (TermMain.tidAt_cutP X.inv j S0) X.cert ht' hmt).1
   -- the word is below the planted count, hence in the buffer and held by a promise
   have hPsto : (TermPlantF.cutP Eg j).sto l = some cl := cutSto_own hcl ho
   have hNp : i < NpZ (TermPlantF.cutP Eg j) (stOf c.mem c.pairs th) l * nWords us := by

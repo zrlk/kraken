@@ -40,10 +40,12 @@ mutual
 types with no value width (`array`, type variables). -/
 def regE : Ty → Option (Nat × Nat × Nat)
   | .unit | .void | .tok _ _ | .tok2 _ _ _ _ | .tokE _ _ _ | .share _ | .cap _ _ => some (0, 0, 0)
-  | .int | .intS _ | .fix _ _ | .lanes _ _ | .code _ _ => some (1, 0, 0)
+  | .int | .intS _ | .fix _ _ | .lanes _ _ | .code _ _ _ => some (1, 0, 0)
   | .word _ P => some (if P.ghost then (0, 0, 0) else (1, 0, 0))
   | .word2 _ _ | .epair _ _ => some (2, 0, 0)
   | .ptr _ _ | .ptrOpt _ _ | .tid => some (0, 1, 0)
+  -- Device handles have no layout: the front end refuses device types.
+  | .opq _ => none
   | .loc _ _ => some (1, 1, 1)
   | .prod a b => do
       let (na, ma, ea) ← regE a
@@ -110,7 +112,7 @@ the fragment's types. -/
 def slots : Ty → Nat → Nat → Option (List (Bool × Nat))
   | .unit, _, _ | .void, _, _ => some []
   | .int, s, _ | .intS _, s, _ | .fix _ _, s, _ | .lanes _ _, s, _ => some [(false, s)]
-  | .ptr _ _, _, r => some [(true, r)]
+  | .ptr _ _, _, r | .tid, _, r => some [(true, r)]
   | .loc _ _, s, r => some [(true, r), (false, s)]
   | .prod a b, s, r => do
       let la ← slots a s r
@@ -261,7 +263,7 @@ def place (o : ObjLayout) : Ty → Nat → Nat → Option (List MemUnit × Nat �
   | .unit, s, r | .void, s, r => some ([], s, r)
   | .int, s, r | .intS _, s, r | .fix _ _, s, r | .lanes _ _, s, r =>
       some ([{ trace := false, idx := s }], s + 1, r)
-  | .ptr _ _, s, r => some ([{ trace := true, idx := r }], s, r + 1)
+  | .ptr _ _, s, r | .tid, s, r => some ([{ trace := true, idx := r }], s, r + 1)
   | .loc _ _, s, r => some ([{ trace := true, idx := r }, { trace := false, idx := s }], s + 1, r + 1)
   | .prod a b, s, r => do
       let (ua, s1, r1) ← place o a s r

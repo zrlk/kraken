@@ -23,7 +23,7 @@ theorem rw_ext : ∀ (t : Ty) (e1 e2 : List Bool), (∀ k, e1.getD k false = e2.
   | sum a b iha ihb =>
       intro e1 e2 h; obtain ⟨a1, a2⟩ := iha e1 e2 h; obtain ⟨b1, b2⟩ := ihb e1 e2 h
       refine ⟨?_, ?_⟩ <;> simp only [rcarE, wrapOKE, a1, a2, b1, b2]
-  | code a b iha ihb =>
+  | code a b _ iha ihb =>
       intro e1 e2 h; obtain ⟨-, a2⟩ := iha e1 e2 h; obtain ⟨-, b2⟩ := ihb e1 e2 h
       refine ⟨?_, ?_⟩ <;> simp only [rcarE, wrapOKE, a2, b2]
   | array i t ih => intro e1 e2 h; obtain ⟨-, h2⟩ := ih e1 e2 h; refine ⟨?_, ?_⟩ <;> simp only [rcarE, wrapOKE, h2]
@@ -78,7 +78,7 @@ theorem rw_shiftT : ∀ (t : Ty) (c : Nat) (env : List Bool), env.length = c →
   | sum a b iha ihb =>
       intro c env hl; obtain ⟨a1, a2⟩ := iha c env hl; obtain ⟨b1, b2⟩ := ihb c env hl
       refine ⟨?_, ?_⟩ <;> simp only [Ty.shiftT, rcarE, wrapOKE, a1, a2, b1, b2]
-  | code a b iha ihb =>
+  | code a b _ iha ihb =>
       intro c env hl; obtain ⟨-, a2⟩ := iha c env hl; obtain ⟨-, b2⟩ := ihb c env hl
       refine ⟨?_, ?_⟩ <;> simp only [Ty.shiftT, rcarE, wrapOKE, a2, b2]
   | array i t ih =>

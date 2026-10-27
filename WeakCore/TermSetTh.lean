@@ -38,23 +38,28 @@ theorem setC_other {j : Nat} (h : j ≠ i) : (setC c i th' tr).ths[j]? = c.ths[j
 
 end
 
-/-- What the replacement keeps. -/
+/-- What the replacement keeps ((D4) every view but `vRd`/`vPreBase`, which `park` may raise). -/
 structure Same (th th' : TTh) : Prop where
   p : th'.promises = th.promises
-  v : th'.vs = th.vs
+  v : th'.vs = { th.vs with vRd := th'.vs.vRd, vPreBase := th'.vs.vPreBase }
   n : th'.nalloc = th.nalloc
   u : th'.undefs = th.undefs
 
-theorem Same.st {th th' : TTh} (h : Same th th') (m : Memory) (ps : List Ts) : stOf m ps th' = stOf m ps th := by
-  simp [stOf, h.p, h.v, h.n, h.u]
+/-- The state after the replacement: `th`'s, but for `vRd`/`vPreBase`. -/
+def stV (m : Memory) (ps : List Ts) (th th' : TTh) : St :=
+  { stOf m ps th with vs := { th.vs with vRd := th'.vs.vRd, vPreBase := th'.vs.vPreBase } }
+
+theorem Same.st {th th' : TTh} (h : Same th th') (m : Memory) (ps : List Ts) : stOf m ps th' = stV m ps th th' := by
+  unfold stV stOf; rw [h.p, h.n, h.u]; exact congrArg (fun v => (⟨m, ps, v, th.promises, th.nalloc, th.undefs⟩ : St)) h.v
 
 section
 variable {c : Cfg} {i : Nat} {th th' : TTh} {tr : List Event}
 
 theorem sc_get (hth : c.ths[i]? = some th) (hs : Same th th') {j : Nat} {t : TTh}
     (h : (setC c i th' tr).ths[j]? = some t) :
-    ∃ t0, c.ths[j]? = some t0 ∧ t.promises = t0.promises ∧ t.vs = t0.vs ∧ t.nalloc = t0.nalloc ∧
-      ∀ m ps, stOf m ps t = stOf m ps t0 := by
+    ∃ t0, c.ths[j]? = some t0 ∧ t.promises = t0.promises ∧
+      t.vs = { t0.vs with vRd := t.vs.vRd, vPreBase := t.vs.vPreBase } ∧ t.nalloc = t0.nalloc ∧
+      ∀ m ps, stOf m ps t = stV m ps t0 t := by
   rcases setC_get hth h with ⟨rfl, rfl⟩ | ⟨-, h⟩
   · exact ⟨th, hth, hs.p, hs.v, hs.n, hs.st⟩
   · exact ⟨t, h, rfl, rfl, rfl, fun _ _ => rfl⟩
@@ -79,7 +84,7 @@ theorem pSumAt_setC (hth : c.ths[i]? = some th) (hs : Same th th') (j : Nat) (f 
     pSumAt (setC c i th' tr) j f = pSumAt c j f := by
   unfold pSumAt
   by_cases hji : j = i
-  · subst hji; rw [setC_self hth, hth]; dsimp only; rw [setC_mem, setC_pairs, hs.st]
+  · subst hji; rw [setC_self hth, hth]; dsimp only; rw [setC_mem, setC_pairs, hs.st]; rfl
   · rw [setC_other hji]; rfl
 
 theorem promAtG_setC (hth : c.ths[i]? = some th) (hp : th'.promises = th.promises) (Eg : GEnv) (a : Address) :
@@ -90,7 +95,7 @@ theorem tminG_setC (hth : c.ths[i]? = some th) (hs : Same th th') (Eg : GEnv) (j
     TermPtrRts.tminG Eg (setC c i th' tr) j a = TermPtrRts.tminG Eg c j a := by
   unfold TermPtrRts.tminG
   by_cases hji : j = i
-  · subst hji; rw [setC_self hth, hth]; dsimp only; rw [setC_mem, setC_pairs, hs.st]
+  · subst hji; rw [setC_self hth, hth]; dsimp only; rw [setC_mem, setC_pairs, hs.st]; rfl
   · rw [setC_other hji]; rfl
 
 end

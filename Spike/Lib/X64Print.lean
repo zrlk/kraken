@@ -121,7 +121,8 @@ def N : PN → ND
   | .loop => ⟨lab ".Lscc_rt_print.loop", oI, JI c0 rbp0 ra⟩
   | .n3 => ⟨lab ".Lscc_rt_print.loop" + 20, oI, JI c0 rbp0 ra⟩
   | .write => ⟨lab ".Lscc_rt_print.write", oI, JI c0 rbp0 ra⟩
-  | .sys => ⟨pcSys lab, oI, fun σ c => JI c0 rbp0 ra σ c ∧ σ.regs.get64 .rdi = 1⟩
+  | .sys => ⟨pcSys lab, oI, fun σ c =>
+    JI c0 rbp0 ra σ c ∧ σ.regs.get64 .rdi = 1 ∧ σ.regs.get64 .rax = 1⟩
   | .n5 => ⟨lab ".Lscc_rt_print.write" + 22, oI, JI c0 rbp0 ra⟩
   | .n6 => ⟨lab ".Lscc_rt_print.write" + 42, oI, JI c0 rbp0 ra⟩
   | .chk2 => ⟨lab ".Lscc_rt_print.chk2", oI, JI c0 rbp0 ra⟩

@@ -195,7 +195,7 @@ inductive TyEqA (cx : Cx) : Nat → Ty → Ty → Prop
   | intS {d i j} : IEqA cx d i j → TyEqA cx d (.intS i) (.intS j)
   | prod {d a b a' b'} : TyEqA cx d a a' → TyEqA cx d b b' → TyEqA cx d (.prod a b) (.prod a' b')
   | sum {d a b a' b'} : TyEqA cx d a a' → TyEqA cx d b b' → TyEqA cx d (.sum a b) (.sum a' b')
-  | code {d a b a' b'} : TyEqA cx d a a' → TyEqA cx d b b' → TyEqA cx d (.code a b) (.code a' b')
+  | code {d a b a' b' k} : TyEqA cx d a a' → TyEqA cx d b b' → TyEqA cx d (.code a b k) (.code a' b' k)
   | array {d i j t u} : IEqA cx d i j → TyEqA cx d t u → TyEqA cx d (.array i t) (.array j u)
   | ptr {d μ ν t u} : MEqA cx d μ ν → TyEqA cx d t u → TyEqA cx d (.ptr μ t) (.ptr ν u)
   | ptrOpt {d μ ν t u} : MEqA cx d μ ν → TyEqA cx d t u → TyEqA cx d (.ptrOpt μ t) (.ptrOpt ν u)
@@ -229,6 +229,12 @@ inductive SubA (cx : Cx) : Ty → Ty → Prop
   | prod {a b a' b'} : SubA cx a a' → SubA cx b b' → SubA cx (.prod a b) (.prod a' b')
   | sum {a b a' b'} : SubA cx a a' → SubA cx b b' → SubA cx (.sum a b) (.sum a' b')
   | cap {c c' r s} : c.le c' = true → IEqA cx 0 r s → SubA cx (.cap c r) (.cap c' s)
+  /-- (M1, T1) A restricted function is a plain function. -/
+  | codeR {a b a' b' f s} : TyEqA cx 0 a a' → TyEqA cx 0 b b' →
+      SubA cx (.code a b (.restricted f s)) (.code a' b' .plain)
+  /-- (M1, T1) A restricted function fits a larger budget slot. -/
+  | codeRR {a b a' b' f s f' s'} : f ≤ f' → s ≤ s' → TyEqA cx 0 a a' → TyEqA cx 0 b b' →
+      SubA cx (.code a b (.restricted f s)) (.code a' b' (.restricted f' s'))
 
 theorem ieqA_iff {cx : Cx} {d : Nat} {i j : Idx} : IEqA cx d i j ↔ ieqD cx d i j = true := by
   unfold IEqA ieqD; simp
@@ -256,7 +262,7 @@ theorem tyEq_refl (cx : Cx) : ∀ (a : Ty) (d : Nat), tyEq cx d a a = true := by
   | intS i => intro d; simp [tyEq, ieqD]
   | prod a b iha ihb => intro d; simp [tyEq, iha, ihb]
   | sum a b iha ihb => intro d; simp [tyEq, iha, ihb]
-  | code a b iha ihb => intro d; simp [tyEq, iha, ihb]
+  | code a b _ iha ihb => intro d; simp [tyEq, iha, ihb]
   | array i t ih => intro d; simp [tyEq, ieqD, ih]
   | ptr μ t ih => intro d; cases μ <;> simp [tyEq, meqD, ieqD, ih]
   | ptrOpt μ t ih => intro d; cases μ <;> simp [tyEq, meqD, ieqD, ih]
@@ -306,7 +312,7 @@ theorem tyEq_complete {cx : Cx} {d : Nat} {a b : Ty} (h : TyEqA cx d a b) : tyEq
 theorem tyEqA_of (cx : Cx) : ∀ (d : Nat) (a b : Ty), tyEq cx d a b = true → TyEqA cx d a b := by
   intro d a b h
   induction a generalizing d b with
-  | unit | void | int | tvar _ | fix _ _ | lanes _ _ | tid =>
+  | unit | void | int | tvar _ | fix _ _ | lanes _ _ | tid | opq _ =>
       cases b <;> simp_all [tyEq] <;> first | exact .refl | skip
   | intS i =>
       cases b <;> simp [tyEq] at h
@@ -317,9 +323,10 @@ theorem tyEqA_of (cx : Cx) : ∀ (d : Nat) (a b : Ty), tyEq cx d a b = true → 
   | sum a₁ a₂ ih₁ ih₂ =>
       cases b <;> simp [tyEq] at h
       exact .sum (ih₁ _ _ h.1) (ih₂ _ _ h.2)
-  | code a₁ a₂ ih₁ ih₂ =>
+  | code a₁ a₂ k ih₁ ih₂ =>
       cases b <;> simp [tyEq] at h
-      exact .code (ih₁ _ _ h.1) (ih₂ _ _ h.2)
+      obtain ⟨⟨rfl, h1⟩, h2⟩ := h
+      exact .code (ih₁ _ _ h1) (ih₂ _ _ h2)
   | array i t ih =>
       cases b <;> simp [tyEq] at h
       exact .array (ieqA_iff.2 h.1) (ih _ _ h.2)
@@ -406,6 +413,8 @@ theorem sub_complete {cx : Cx} {σ τ : Ty} (h : SubA cx σ τ) : sub cx σ τ =
   | prod _ _ ih1 ih2 => unfold sub; simp [ih1, ih2]
   | sum _ _ ih1 ih2 => unfold sub; simp [ih1, ih2]
   | cap h1 h2 => unfold sub; simp [h1, ieqA_iff.1 h2]
+  | codeR h1 h2 => unfold sub; simp [tyEq_complete h1, tyEq_complete h2]
+  | codeRR h1 h2 h3 h4 => unfold sub; simp [h1, h2, tyEq_complete h3, tyEq_complete h4]
 
 theorem subA_of (cx : Cx) : ∀ (σ τ : Ty), sub cx σ τ = true → SubA cx σ τ := by
   intro σ
@@ -484,6 +493,17 @@ theorem subA_of (cx : Cx) : ∀ (σ τ : Ty), sub cx σ τ = true → SubA cx σ
       · exact .eq (tyEqA_of cx 0 _ _ h)
       · cases τ <;> simp at h
         exact .cap h.1 (ieqA_iff.2 h.2)
+  | code a b k _ _ =>
+      intro τ h
+      unfold sub at h
+      simp only [Bool.or_eq_true] at h
+      rcases h with h | h
+      · exact .eq (tyEqA_of cx 0 _ _ h)
+      · cases τ <;> (try simp at h)
+        rename_i a' b' k'
+        cases k <;> cases k' <;> simp at h
+        · exact .codeR (tyEqA_of cx 0 _ _ h.1) (tyEqA_of cx 0 _ _ h.2)
+        · exact .codeRR h.1.1.1 h.1.1.2 (tyEqA_of cx 0 _ _ h.1.2) (tyEqA_of cx 0 _ _ h.2)
   | _ =>
       intro τ h
       unfold sub at h
@@ -768,7 +788,8 @@ inductive OpTA (p : Prog) : Cx → String → Op → Cx → Prop
       c₁.bind x .tid = .ok c' → OpTA p cx x (.spawn f a T ts) c'
   /-- (E1) `OpT.ext` with the checker's subsumption (`SubA`). -/
   | ext {cx c₁ c' : Cx} {x : String} {n : ExtName} {a : At} {t : Ty} :
-      cx.use a = .ok (t, c₁) → SubA c₁ t n.sig.1 → c₁.bind x n.sig.2 = .ok c' → OpTA p cx x (.ext n a) c'
+      cx.use a = .ok (t, c₁) → n.ok = true → SubA c₁ t n.sig.1 → c₁.bind x n.sig.2 = .ok c' →
+      OpTA p cx x (.ext n a) c'
   | borrow {cx c₁ c' : Cx} {x y : String} {c : Cap} {a : At} {t t' : Ty} {r : Idx} :
       varOf a = .ok y → cx.peek a = .ok t → lendOf cx c t = .ok r → cx.use a = .ok (t', c₁) →
       { c₁ with lent := y :: c₁.lent }.bind x (.cap c r) = .ok c' → OpTA p cx x (.borrow c a) c'
@@ -783,7 +804,8 @@ inductive OpTA (p : Prog) : Cx → String → Op → Cx → Prop
       (SubA c₁ tv u ∨ SubA c₁ tv o) → c₁.bind x o = .ok c' → OpTA p cx x (.xchg a v) c'
   | fnptr {cx c' : Cx} {x f : String} {d : Decl} :
       p.find f = .ok d → d.tparams = [] → d.idx = [] →
-      cx.bind x (.code d.argTy d.retTy) = .ok c' → OpTA p cx x (.fnptr f) c'
+      cx.bind x (.code d.argTy d.retTy (match d.kind with | .restricted f s => .restricted f s | _ => .plain)) = .ok c' →
+      OpTA p cx x (.fnptr f) c'
   | callc {cx c₁ c' : Cx} {x : String} {f a : At} {tf σ τ t : Ty} :
       cx.peek f = .ok tf → codeOf tf = some (σ, τ) → cx.use a = .ok (t, c₁) → noLeak c₁ t = .ok () →
       SubA c₁ t σ → c₁.bind x τ = .ok c' → OpTA p cx x (.callc f a) c'
@@ -1060,19 +1082,37 @@ theorem check_complete {p : Prog} {cx : Cx} {e : Expr} (h : TypedA p cx e) : che
   -- `casCell`'s acq/rel side condition: the `if` either contradicts it or is skipped.
   all_goals (split <;> simp_all)
 
+/-- (M1, T6) The kind rules `checkDecl` runs after the body check, as a proposition:
+a device function's cells are device cells, device externs and device functions occur
+only inside a device function, no device function is taken as a value, and the
+decl is not restricted (restricted decls are refused). -/
+def DeclKindA (p : Prog) (d : Decl) : Prop :=
+  (d.kind == .device && !(devCells d.argTy).all devCellOK) = false ∧
+  (d.kind != .device &&
+    !exprNoDevOnly (fun f => ((p.find? (·.name == f)).map (·.kind == .device)).getD false) d.body) = false ∧
+  exprNoDevFnptr (fun f => ((p.find? (·.name == f)).map (·.kind == .device)).getD false) d.body = true ∧
+  ∀ f s, d.kind ≠ .restricted f s
+
 /-- A code block in the algorithmic judgement: `DeclT` with `TypedA`. -/
 def DeclTA (p : Prog) (d : Decl) : Prop :=
   d.argTy.wf d.tparams.length d.idx.length = true ∧ d.retTy.wf d.tparams.length d.idx.length = true ∧
   d.argTy.scTop = true ∧ d.retTy.secondClass = false ∧
-  TypedA p (declCx d) d.body
+  TypedA p (declCx d) d.body ∧ DeclKindA p d
 
 def ProgTA (p : Prog) : Prop := ∀ d ∈ p, DeclTA p d
 
 theorem checkDecl_complete {p : Prog} {d : Decl} (h : DeclTA p d) : checkDecl p d = .ok () := by
-  obtain ⟨h1, h2, h3, h4, h5⟩ := h
+  obtain ⟨h1, h2, h3, h4, h5, k1, k2, k3, k4⟩ := h
   have := check_complete h5
-  simp [checkDecl, h1, h2, h3, h4, declCx] at this ⊢
-  exact this
+  simp only [declCx] at this
+  unfold checkDecl
+  simp only [h1, h2, h3, h4, Bool.not_true, Bool.or_false,
+    if_false, Bool.false_eq_true, ite_false]
+  simp only [this, k1, k2, k3, Bool.not_true, Bool.false_eq_true, ite_false, if_false, bind, Except.bind,
+    pure, Except.pure]
+  all_goals (cases hk : d.kind with
+    | restricted f s => exact absurd hk (k4 f s)
+    | _ => rfl)
 
 theorem forM_ok_all {α : Type} (f : α → M Unit) :
     ∀ l : List α, (∀ a ∈ l, f a = .ok ()) → l.forM f = .ok ()
@@ -1160,11 +1200,15 @@ theorem checkOp_alg (p : Prog) (cx : Cx) (x : String) (op : Op) (cx' : Cx)
       simp only [checkOp, bind_ok_iff] at h
       obtain ⟨⟨t, c₁⟩, h1, h⟩ := h
       dsimp only at h
+      generalize hok : n.ok = ok at h
+      cases ok
+      · cases h
+      rw [if_neg (by decide)] at h
       generalize hsb : sub c₁ t n.sig.1 = sb at h
       cases sb
       · cases h
       rw [if_neg (by decide)] at h
-      exact .ext h1 (subA_of _ _ _ hsb) h
+      exact .ext h1 hok (subA_of _ _ _ hsb) h
   | atom a =>
       simp only [checkOp, bind_ok_iff] at h
       obtain ⟨⟨t, c₁⟩, h1, h2⟩ := h
@@ -2478,7 +2522,23 @@ theorem checkDecl_alg {p : Prog} {d : Decl} (h : checkDecl p d = .ok ()) : DeclT
     · simp at h
     · rename_i hsc
       simp at hwf hsc
-      exact ⟨hwf.1, hwf.2, hsc.1, hsc.2, check_alg p d.body _ h⟩
+      -- (M1, T6) the kind rules run after `check`
+      simp only [bind_ok_iff] at h
+      obtain ⟨u, hb, h⟩ := h
+      cases u
+      refine ⟨hwf.1, hwf.2, hsc.1, hsc.2, check_alg p d.body _ hb, ?_⟩
+      revert h
+      generalize hc1 : (d.kind == .device && !(devCells d.argTy).all devCellOK) = c1
+      generalize hc2 : (d.kind != .device &&
+        !exprNoDevOnly (fun f => ((p.find? (·.name == f)).map (·.kind == .device)).getD false) d.body) = c2
+      generalize hc3 : exprNoDevFnptr (fun f => ((p.find? (·.name == f)).map (·.kind == .device)).getD false)
+        d.body = c3
+      intro h
+      cases c1 <;> cases c2 <;> cases c3 <;> simp [bind_ok_iff, throw, throwThe, MonadExceptOf.throw] at h
+      refine ⟨hc1, hc2, hc3, ?_⟩
+      intro f s hk
+      rw [hk] at h
+      simp [throw, throwThe, MonadExceptOf.throw] at h
 
 /-- **The algorithmic judgement is exactly the checker.** -/
 theorem checkProg_iff {p : Prog} : checkProg p = .ok () ↔ ProgTA p :=

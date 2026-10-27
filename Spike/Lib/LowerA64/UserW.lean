@@ -13,9 +13,10 @@ instance's facts (`InstOk`, `Spike/Lib/Rt/A64RtW.lean`).
 - `ProPh`: the prologue's phase facts (its blocks' `blkPh` at their pcs, no
   dead target, no `ret`; the limit's load off the sites and in its next
   pc's phase), as `MainPh`'s prologue part (`Spike/Lib/Rt/A64RtMainU.lean`).
-- `proW_sfacts`: a stack-checked prologue without saved registers
-  (`prologueIn`, the limit at offset 8 of the TCB) inside the consumer's
-  facts, every control of its invariant `c0` (as `mainUW_gen`'s `pro`).
+- `proW_sfactsP`: a stack-checked prologue with saved registers `ps` at
+  cells of the frame (`prologueIn`, the limit at offset 8 of the TCB)
+  inside the consumer's facts, every control of its invariant `c0`;
+  `proW_sfacts`: without saved registers (as `mainUW_gen`'s `pro`).
 - `proW_body0`: `fn0_seg`'s `hWp` inside `BodyW0`, the invariant's
   controls reached from `c0` by local runs, the thread pointer `tp`.
 -/
@@ -106,6 +107,10 @@ structure ProPh (okPc : Nat → Bool) (ph : Nat → Nat) (lab : Label → Int64)
 theorem frameSet_nil_noRet (Z : Int64) : noRetBlk (frameSet Z []) = true := by
   simp [noRetBlk, frameSet, frSetup, spStr, A64.Flow.classify, A64.Flow.RegOnly]
 
+/-- The frame's set-up with saved registers `ps` has no `ret`. -/
+theorem frameSet_noRet (Z : Int64) (ps : List (XReg × Int64)) : noRetBlk (frameSet Z ps) = true := by
+  simp [noRetBlk, frameSet, frSetup, spStr, A64.Flow.classify, A64.Flow.RegOnly]
+
 private theorem hnr' {lab : Label → Int64} {blk : List Directive} (hb : noRetBlk blk = true) {n : ND}
     {ra' : Int64} : ∀ σ c, n.J σ c → ∀ k (hk : k < blk.length) r, A64.Flow.classify blk[k] = some (A64.Flow.AI.ret r) →
       Int64.ofInt ((A64.Flow.arun lab (blk.take k) ⟨n.pc, n.o, σ⟩).σ.regs.getRegOrZr r).signed = ra' :=
@@ -117,16 +122,18 @@ variable {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe] {endPc : 
   {lab : Label → Int64} {μ : Marks} {own : Own} {Tk : State → Prop} {K : State → State → Prop}
   {okPc : Nat → Bool} {ph : Nat → Nat} {Λ : Scc.Sem.Layout} {rS : Range} {lbl : Lbl}
 
-/-- **A stack-checked prologue without saved registers is inside the
-consumer's facts** (`mainUW_gen`'s `pro`, for any frame `Z`): its code
-(`hin`), its phase facts (`hph`), every control of its invariant `c0` with
+/-- **A stack-checked prologue is inside the consumer's facts** (for any
+frame `Z`): its code (`hin`) with its saved registers `ps` at cells of the
+frame (`hps`), its phase facts (`hph`), every control of its invariant `c0` with
 its facts (`hJc`, `hC0`), the thread pointer `tp` (`htp`) whose limit word
 is mapped (`hmr`) and unmapped in private memory under the frame condition
 (`hun`), in any 16-aligned region holding the frame with 8-aligned bounds. -/
-theorem proW_sfacts {ms : MemSide isaLSE2} {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
-    {fn sc entry : Label} {Z : Int64} {L : Label} (hin : prologueIn prog fn sc entry Z 8 L [] = true)
+theorem proW_sfactsP {ms : MemSide isaLSE2} {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
+    {fn sc entry : Label} {Z : Int64} {L : Label} {ps : List (XReg × Int64)}
+    (hin : prologueIn prog fn sc entry Z 8 L ps = true)
+    (hps : ∀ q ∈ ps, offOk (-Z.toInt) 0 (-Z.toInt + q.2.toInt) = true)
     {J : AS → Ctl → Prop} {c0 : Ctl} (hC0 : CFacts Λ lbl c0) (hJc : ∀ σ c, J σ c → c = c0) {tp : UInt64}
-    (htp : ∀ σ c, J σ c → σ.regs.TPIDR_EL0 = tp) (hph : ProPh okPc ph lab sc Z L [])
+    (htp : ∀ σ c, J σ c → σ.regs.TPIDR_EL0 = tp) (hph : ProPh okPc ph lab sc Z L ps)
     {R : Region} {F : MachineData → Prop} (hR : R.OK) (hal : R.base.toNat % 16 = 0)
     (hlo : R.lo ≤ -Z.toInt) (hhi : 0 ≤ R.hi) (hl : R.lo % 8 = 0) (hh : R.hi % 8 = 0)
     (h16 : Z.toInt % 16 = 0) (hZ : 16 ≤ Z.toInt)
@@ -134,7 +141,7 @@ theorem proW_sfacts {ms : MemSide isaLSE2} {kp : Nat} (hI : InstOk exe endPc pro
     (hun : ∀ m, F m → Mem.loadInt m.dmem (limA tp) 8 = none)
     (hsub : rS.Sub Λ.stackPool) (hfit : rS.lo + rS.size ≤ 2 ^ 64) (hFO : ∀ m, F m → StackOff rS R m) :
     ProW (fun s c => SFacts Λ μ own rS Tk lbl s c) K exe endPc R F ms ((_root_.Executable.labels exe).label fn)
-      Z 8 L [] J := by
+      Z 8 L ps J := by
   have h := hin
   simp only [prologueIn, Bool.and_eq_true] at h
   obtain ⟨⟨⟨⟨⟨hgap, bHd⟩, bLd⟩, bBr⟩, bFr⟩, -⟩ := h
@@ -151,9 +158,25 @@ theorem proW_sfacts {ms : MemSide isaLSE2} {kp : Nat} (hI : InstOk exe endPc pro
   · exact blkW_postO hI bBr (by rw [esc, ofNat4_zero, pc3]; rfl) (chkBr_ok _ _ _ _) hR hal hlo hhi
       (fun _ _ ⟨_, _, hJ, _⟩ => hJc _ _ hJ ▸ hC0) hph.br (hnr' (chkBr_noRet _)) (fun _ _ _ => rfl) hl hh hsub hfit hFO
   · exact blkW_postO hI bFr (by rw [esc, ofNat4_zero, pc5]; rfl)
-      (frameSet_ok (lo := -Z.toInt) (hi := 0) h16 hZ (by omega) (Int.le_refl _) (by simp)) hR hal hlo hhi
-      (fun _ _ ⟨_, _, hJ, _⟩ => hJc _ _ hJ ▸ hC0) hph.fr (hnr' (frameSet_nil_noRet _)) (fun _ _ _ => rfl) hl hh
+      (frameSet_ok (lo := -Z.toInt) (hi := 0) h16 hZ (by omega) (Int.le_refl _) hps) hR hal hlo hhi
+      (fun _ _ ⟨_, _, hJ, _⟩ => hJc _ _ hJ ▸ hC0) hph.fr (hnr' (frameSet_noRet _ _)) (fun _ _ _ => rfl) hl hh
       hsub hfit hFO
+
+/-- **A stack-checked prologue without saved registers is inside the
+consumer's facts** (`mainUW_gen`'s `pro`): `proW_sfactsP` at `ps := []`. -/
+theorem proW_sfacts {ms : MemSide isaLSE2} {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
+    {fn sc entry : Label} {Z : Int64} {L : Label} (hin : prologueIn prog fn sc entry Z 8 L [] = true)
+    {J : AS → Ctl → Prop} {c0 : Ctl} (hC0 : CFacts Λ lbl c0) (hJc : ∀ σ c, J σ c → c = c0) {tp : UInt64}
+    (htp : ∀ σ c, J σ c → σ.regs.TPIDR_EL0 = tp) (hph : ProPh okPc ph lab sc Z L [])
+    {R : Region} {F : MachineData → Prop} (hR : R.OK) (hal : R.base.toNat % 16 = 0)
+    (hlo : R.lo ≤ -Z.toInt) (hhi : 0 ≤ R.hi) (hl : R.lo % 8 = 0) (hh : R.hi % 8 = 0)
+    (h16 : Z.toInt % 16 = 0) (hZ : 16 ≤ Z.toInt)
+    (hmr : Scc.Sem.Kernel.mapped (Spike.Lib.A64Consumer.K0 Λ) false ⟨limA tp, 8⟩ = true)
+    (hun : ∀ m, F m → Mem.loadInt m.dmem (limA tp) 8 = none)
+    (hsub : rS.Sub Λ.stackPool) (hfit : rS.lo + rS.size ≤ 2 ^ 64) (hFO : ∀ m, F m → StackOff rS R m) :
+    ProW (fun s c => SFacts Λ μ own rS Tk lbl s c) K exe endPc R F ms ((_root_.Executable.labels exe).label fn)
+      Z 8 L [] J :=
+  proW_sfactsP hI hin (by simp) hC0 hJc htp hph hR hal hlo hhi hl hh h16 hZ hmr hun hsub hfit hFO
 
 /-- **`fn0_seg`'s `hWp` inside `BodyW0`**: a user function's prologue
 (`proInC`) with its phase facts (`hph`), every control of its invariant

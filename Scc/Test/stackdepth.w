@@ -1,8 +1,8 @@
 -- Unbounded recursion mixing tail and non-tail calls: `up` calls `hop`
--- (counted by the stack depth counter, `Tcb.depth`) and `hop` tail calls `up`
--- (not counted).  The counter reaches the program's limit before the stack
--- reaches its cap, and the call past the limit takes the abort outcome
--- (status 101, the stack message on standard error).
+-- (a frame that stays live) and `hop` tail calls `up` (its frame replaced).
+-- The stack doubles towards the per-thread cap, and the frame that no longer
+-- fits takes the abort outcome in the grow routine (status 101, the stack
+-- message on standard error).
 def up(n : U64) : Int =
   let one = cvt U64 1
   let m = fop add n one

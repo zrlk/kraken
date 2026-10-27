@@ -1,0 +1,25 @@
+CoreLang.Ty : Type
+CoreTerm.At : Type
+CoreTerm.Expr : Type
+CoreTerm.Op : Type
+CoreTerm.exprNoDevFnptr : (String → Bool) → CoreTerm.Expr → Bool
+  eq_def ∀ (isDev : String → Bool) (x : CoreTerm.Expr),
+  CoreTerm.exprNoDevFnptr isDev x =
+    match x with
+    | CoreTerm.Expr.let_ x (CoreTerm.Op.fnptr f) e => !isDev f && CoreTerm.exprNoDevFnptr isDev e
+    | CoreTerm.Expr.let_ x op e => CoreTerm.exprNoDevFnptr isDev e
+    | CoreTerm.Expr.split a x y e => CoreTerm.exprNoDevFnptr isDev e
+    | CoreTerm.Expr.unpack a i x e => CoreTerm.exprNoDevFnptr isDev e
+    | CoreTerm.Expr.unpackT a α x e => CoreTerm.exprNoDevFnptr isDev e
+    | CoreTerm.Expr.region a r p t e => CoreTerm.exprNoDevFnptr isDev e
+    | CoreTerm.Expr.openPub a r p c e => CoreTerm.exprNoDevFnptr isDev e
+    | CoreTerm.Expr.case a x e₁ y e₂ => CoreTerm.exprNoDevFnptr isDev e₁ && CoreTerm.exprNoDevFnptr isDev e₂
+    | CoreTerm.Expr.ifnull a e₁ x e₂ => CoreTerm.exprNoDevFnptr isDev e₁ && CoreTerm.exprNoDevFnptr isDev e₂
+    | CoreTerm.Expr.parity a k e₁ e₂ => CoreTerm.exprNoDevFnptr isDev e₁ && CoreTerm.exprNoDevFnptr isDev e₂
+    | CoreTerm.Expr.ifeq a b e₁ e₂ => CoreTerm.exprNoDevFnptr isDev e₁ && CoreTerm.exprNoDevFnptr isDev e₂
+    | CoreTerm.Expr.cas acq rel w e v t ok fail =>
+      CoreTerm.exprNoDevFnptr isDev ok && CoreTerm.exprNoDevFnptr isDev fail
+    | CoreTerm.Expr.casp acq rel w e0 e1 v0 v1 t ok fail =>
+      CoreTerm.exprNoDevFnptr isDev ok && CoreTerm.exprNoDevFnptr isDev fail
+    | CoreTerm.Expr.ret a => true
+    | CoreTerm.Expr.tail f is a ts => true

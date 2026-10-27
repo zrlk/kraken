@@ -476,8 +476,8 @@ def byPlacement (before after : String) : String :=
 
 -- `Scc/Test/hello.w`
 #guard summary helloItems == byPlacement
-  "items 2277: instr 1791, label 225, directive 229, comment 3, blank 29, raw 0\n  round trip: ok\n  meaning: ok"
-  "items 2285: instr 1799, label 225, directive 229, comment 3, blank 29, raw 0\n  round trip: ok\n  meaning: ok"
+  "items 2248: instr 1766, label 222, directive 228, comment 3, blank 29, raw 0\n  round trip: ok\n  meaning: ok"
+  "items 2256: instr 1774, label 222, directive 228, comment 3, blank 29, raw 0\n  round trip: ok\n  meaning: ok"
 
 -- `Scc/Test/handoff.w`
 #guard summary handoffItems == byPlacement
@@ -491,8 +491,8 @@ def byPlacement (before after : String) : String :=
 
 -- `Scc/Test/tailloop.w`
 #guard summary tailloopItems == byPlacement
-  "items 1523: instr 1167, label 163, directive 169, comment 1, blank 23, raw 0\n  round trip: ok\n  meaning: ok"
-  "items 1531: instr 1175, label 163, directive 169, comment 1, blank 23, raw 0\n  round trip: ok\n  meaning: ok"
+  "items 1494: instr 1142, label 160, directive 168, comment 1, blank 23, raw 0\n  round trip: ok\n  meaning: ok"
+  "items 1502: instr 1150, label 160, directive 168, comment 1, blank 23, raw 0\n  round trip: ok\n  meaning: ok"
 
 -- `helloIR`
 /--

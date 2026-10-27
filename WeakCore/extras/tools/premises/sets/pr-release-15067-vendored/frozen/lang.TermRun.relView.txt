@@ -1,0 +1,7 @@
+TermRun.relView : WeakMem.VState → WeakMem.Ts
+  := fun vs => max vs.vRelSt (max vs.vRd vs.vWr)
+WeakMem.Ts : Type
+WeakMem.VState : Type
+WeakMem.VState.vRd : WeakMem.VState → WeakMem.Ts
+WeakMem.VState.vRelSt : WeakMem.VState → WeakMem.Ts
+WeakMem.VState.vWr : WeakMem.VState → WeakMem.Ts

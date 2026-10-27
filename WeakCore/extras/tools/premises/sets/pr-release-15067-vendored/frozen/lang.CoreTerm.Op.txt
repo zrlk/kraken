@@ -1,0 +1,78 @@
+CoreLang.Cap : Type
+CoreLang.ECounter : Type
+CoreLang.Mode : Type
+CoreLang.Proto : Type
+CoreLang.Proto2 : Type
+CoreLang.Ty : Type
+CoreLang.Wd : Type
+CoreTerm.At : Type
+CoreTerm.BitOp : Type
+CoreTerm.BitOp1 : Type
+CoreTerm.ExtName : Type
+CoreTerm.FCmp : Type
+CoreTerm.FOp : Type
+CoreTerm.FOp1 : Type
+CoreTerm.Fence : Type
+CoreTerm.FetchOp : Type
+CoreTerm.Op : Type
+  | CoreTerm.Op.atom : CoreTerm.At → CoreTerm.Op
+  | CoreTerm.Op.pair : CoreTerm.At → CoreTerm.At → CoreTerm.Op
+  | CoreTerm.Op.inl : CoreLang.Ty → CoreTerm.At → CoreTerm.Op
+  | CoreTerm.Op.inr : CoreLang.Ty → CoreTerm.At → CoreTerm.Op
+  | CoreTerm.Op.add : CoreTerm.At → CoreTerm.At → CoreTerm.Op
+  | CoreTerm.Op.sub : CoreTerm.At → CoreTerm.At → CoreTerm.Op
+  | CoreTerm.Op.new : CoreTerm.At → CoreTerm.Op
+  | CoreTerm.Op.null : CoreLang.Mode → CoreLang.Ty → CoreTerm.Op
+  | CoreTerm.Op.fold : CoreTerm.At → CoreLang.Ty → CoreTerm.Op
+  | CoreTerm.Op.publish : CoreTerm.At → CoreTerm.Op
+  | CoreTerm.Op.intoRgn : String → CoreTerm.At → CoreTerm.Op
+  | CoreTerm.Op.newBuf : CoreTerm.At → CoreLang.Ty → CoreTerm.Op
+  | CoreTerm.Op.idx : CoreTerm.At → CoreTerm.At → CoreTerm.Op
+  | CoreTerm.Op.bufInit : CoreTerm.At → CoreTerm.At → CoreTerm.At → CoreTerm.Op
+  | CoreTerm.Op.fld : Nat → CoreTerm.At → CoreTerm.Op
+  | CoreTerm.Op.load : Bool → CoreTerm.At → CoreTerm.Op
+  | CoreTerm.Op.store : Bool → CoreTerm.At → CoreTerm.At → Option CoreTerm.At → CoreTerm.Op
+  | CoreTerm.Op.fence : CoreTerm.Fence → CoreTerm.Op
+  | CoreTerm.Op.mkWord : String → CoreLang.Proto → CoreTerm.At → CoreTerm.At → CoreTerm.Op
+  | CoreTerm.Op.pack : CoreTerm.At → String → CoreLang.Ty → CoreTerm.Op
+  | CoreTerm.Op.packT : CoreTerm.At → CoreLang.Ty → CoreLang.Ty → CoreTerm.Op
+  | CoreTerm.Op.validate : String → CoreTerm.Op
+  | CoreTerm.Op.call : String → List String → CoreTerm.At → optParam (List CoreLang.Ty) [] → CoreTerm.Op
+  | CoreTerm.Op.borrow : CoreLang.Cap → CoreTerm.At → CoreTerm.Op
+  | CoreTerm.Op.endBorrow : CoreTerm.At → CoreTerm.Op
+  | CoreTerm.Op.xchg : CoreTerm.At → CoreTerm.At → CoreTerm.Op
+  | CoreTerm.Op.fnptr : String → CoreTerm.Op
+  | CoreTerm.Op.callc : CoreTerm.At → CoreTerm.At → CoreTerm.Op
+  | CoreTerm.Op.rem : CoreTerm.At → CoreTerm.At → CoreTerm.Op
+  | CoreTerm.Op.nameI : CoreTerm.At → CoreTerm.Op
+  | CoreTerm.Op.xchgAt : CoreTerm.At → CoreTerm.At → CoreTerm.At → CoreTerm.Op
+  | CoreTerm.Op.loadAt : CoreTerm.At → CoreTerm.At → CoreTerm.Op
+  | CoreTerm.Op.bits : CoreTerm.BitOp → CoreTerm.At → CoreTerm.At → CoreTerm.Op
+  | CoreTerm.Op.bit1 : CoreTerm.BitOp1 → CoreTerm.At → CoreTerm.Op
+  | CoreTerm.Op.vmatch : CoreTerm.At → CoreTerm.At → CoreTerm.At → CoreTerm.Op
+  | CoreTerm.Op.band : CoreTerm.At → CoreTerm.At → CoreTerm.Op
+  | CoreTerm.Op.zero : CoreLang.Ty → CoreTerm.Op
+  | CoreTerm.Op.loadAtF : CoreTerm.At → CoreTerm.At → List Nat → CoreTerm.Op
+  | CoreTerm.Op.xchgAtF : CoreTerm.At → CoreTerm.At → List Nat → CoreTerm.At → CoreTerm.Op
+  | CoreTerm.Op.freeze : CoreTerm.At → CoreTerm.Op
+  | CoreTerm.Op.cvt : Bool → CoreLang.Wd → CoreTerm.At → CoreTerm.Op
+  | CoreTerm.Op.toInt : CoreTerm.At → CoreTerm.Op
+  | CoreTerm.Op.asLanes : Bool → CoreLang.Wd → CoreTerm.At → CoreTerm.Op
+  | CoreTerm.Op.fop : CoreTerm.FOp → CoreTerm.At → CoreTerm.At → CoreTerm.Op
+  | CoreTerm.Op.fcmp : CoreTerm.FCmp → CoreTerm.At → CoreTerm.At → CoreTerm.Op
+  | CoreTerm.Op.fop1 : CoreTerm.FOp1 → CoreTerm.At → CoreTerm.Op
+  | CoreTerm.Op.lane : CoreTerm.At → CoreTerm.At → CoreTerm.Op
+  | CoreTerm.Op.setLane : CoreTerm.At → CoreTerm.At → CoreTerm.At → CoreTerm.Op
+  | CoreTerm.Op.ldl : CoreTerm.At → CoreTerm.At → CoreTerm.Op
+  | CoreTerm.Op.stl : CoreTerm.At → CoreTerm.At → CoreTerm.At → CoreTerm.Op
+  | CoreTerm.Op.ldlw : CoreTerm.At → CoreTerm.At → CoreTerm.At → CoreTerm.Op
+  | CoreTerm.Op.stlw : CoreTerm.At → CoreTerm.At → CoreTerm.At → CoreTerm.At → CoreTerm.Op
+  | CoreTerm.Op.mkWord2 : String → CoreLang.Proto2 → CoreTerm.At → CoreTerm.At → CoreTerm.At → CoreTerm.Op
+  | CoreTerm.Op.ldp : Bool → CoreTerm.At → String → String → CoreTerm.Op
+  | CoreTerm.Op.stp : Bool → CoreTerm.At → CoreTerm.At → CoreTerm.At → CoreTerm.At → CoreTerm.Op
+  | CoreTerm.Op.mkEPair : String → CoreLang.ECounter → CoreTerm.At → CoreTerm.At → CoreTerm.Op
+  | CoreTerm.Op.mkTicket : String → CoreLang.Proto → CoreLang.Proto → CoreTerm.At → CoreTerm.At → CoreTerm.Op
+  | CoreTerm.Op.claim : CoreTerm.At → CoreTerm.At → CoreTerm.Op
+  | CoreTerm.Op.fetch : CoreTerm.FetchOp → Bool → Bool → CoreTerm.At → CoreTerm.At → CoreTerm.Op
+  | CoreTerm.Op.spawn : String → CoreTerm.At → CoreLang.Ty → optParam (List CoreLang.Ty) [] → CoreTerm.Op
+  | CoreTerm.Op.ext : CoreTerm.ExtName → CoreTerm.At → CoreTerm.Op

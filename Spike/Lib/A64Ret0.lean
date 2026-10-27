@@ -531,6 +531,33 @@ theorem ownStlr_nd {n : ND} {t b : XReg} {A : BitVec 64}
     Seg p lbl ms (At exe endPc R F n) (Next exe endPc R F N E) :=
   (ownStlr_ndW hcode NodeW.triv hedge).toSeg
 
+/-- **A node at an own word's plain store** `str Xt, [Xn, #i]`: the address
+is the word's `A` and the value is one runtime memory may hold there
+(`StOk`); the abstract state is unchanged and the source stutters. The own
+map's update (the word's new value at the next pc) is the consumer's
+`OwnTree` obligation, not the segment's. Inside `W`, not moved by `K` (`hW`). -/
+theorem ownStr_ndW {W : Frag isaLSE2} {K : State → State → Prop} {n : ND} {t b : XReg} {i : Int64} {A : BitVec 64}
+    (hcode : ∀ s : State, s.exe = exe → s.endPc = endPc → CodeAt s n.pc [strDir t b i])
+    (hW : NodeW W K exe endPc R F n)
+    (hedge : ∀ m σ c, Abs R n.o m σ → F m → n.J σ c →
+      rAddr σ.regs b i = A ∧ StOk ms F exe endPc A (σ.regs.getRegOrZr (.low (.reg t) .W64)) ∧
+      Lands N E ⟨n.pc + Int64.ofNat 4, n.o, σ⟩ c) :
+    SegW W K p lbl ms (At exe endPc R F n) (Next exe endPc R F N E) :=
+  rtst_ndW hcode hW fun m σ c hA hD hJ => by
+    obtain ⟨ha, hS, hL⟩ := hedge m σ c hA hD hJ
+    subst ha
+    exact ⟨hS.rt, hS.mp, hS.G, hS.unmapped m hD, c, .refl c, hL⟩
+
+/-- **A node at an own word's plain store** `str Xt, [Xn, #i]`: `ownStr_ndW`
+inside the trivial predicate. -/
+theorem ownStr_nd {n : ND} {t b : XReg} {i : Int64} {A : BitVec 64}
+    (hcode : ∀ s : State, s.exe = exe → s.endPc = endPc → CodeAt s n.pc [strDir t b i])
+    (hedge : ∀ m σ c, Abs R n.o m σ → F m → n.J σ c →
+      rAddr σ.regs b i = A ∧ StOk ms F exe endPc A (σ.regs.getRegOrZr (.low (.reg t) .W64)) ∧
+      Lands N E ⟨n.pc + Int64.ofNat 4, n.o, σ⟩ c) :
+    Seg p lbl ms (At exe endPc R F n) (Next exe endPc R F N E) :=
+  (ownStr_ndW hcode NodeW.triv hedge).toSeg
+
 end OwnNodes
 
 /-- `scc_rt_alloc_tcb`'s internal nodes: one per block or single
@@ -2542,17 +2569,17 @@ def startNC2 (tcb : BitVec 64) (c0 : Ctl) : ND := ⟨lab ThreadInit.fnL, Abort.o
 def startN3 (tcb top : BitVec 64) (c0 : Ctl) : ND := ⟨lab sp3L, Abort.oI, fun σ c =>
   c = c0 ∧ σ.regs.X0.toBitVec = top ∧ σ.slot (-32) = tcb⟩
 
-/-- At `msr tpidr_el0, x10`. -/
+/-- At `msr tpidr_el0, x10`; `x0` the TCB too (`scc_rt_main`'s argument). -/
 def startN4 (tcb top : BitVec 64) (c0 : Ctl) : ND := ⟨lab sp3L + Int64.ofNat (4 * 4), Abort.oI, fun σ c =>
-  c = c0 ∧ σ.regs.X9.toBitVec = top ∧ σ.regs.X10.toBitVec = tcb⟩
+  c = c0 ∧ σ.regs.X9.toBitVec = top ∧ σ.regs.X10.toBitVec = tcb ∧ σ.regs.X0.toBitVec = tcb⟩
 
 /-- At the switch `add sp, x9, #0`. -/
 def startN5 (tcb top : BitVec 64) (c0 : Ctl) : ND := ⟨lab sp3L + Int64.ofNat (4 * 5), Abort.oI, fun σ c =>
-  c = c0 ∧ σ.regs.X9.toBitVec = top ∧ σ.regs.TPIDR_EL0 = UInt64.ofBitVec tcb⟩
+  c = c0 ∧ σ.regs.X9.toBitVec = top ∧ σ.regs.TPIDR_EL0 = UInt64.ofBitVec tcb ∧ σ.regs.X0.toBitVec = tcb⟩
 
 /-- **After the switch**: `sp` the new stack's top, at offset 0 of the new region. -/
 def startN6 (tcb top : BitVec 64) (c0 : Ctl) : ND := ⟨lab sp3L + Int64.ofNat (4 * 6), SO.entry, fun σ c =>
-  c = c0 ∧ σ.regs.SP.toBitVec = top ∧ σ.regs.TPIDR_EL0 = UInt64.ofBitVec tcb⟩
+  c = c0 ∧ σ.regs.SP.toBitVec = top ∧ σ.regs.TPIDR_EL0 = UInt64.ofBitVec tcb ∧ σ.regs.X0.toBitVec = tcb⟩
 
 end Tail
 
@@ -2590,11 +2617,12 @@ theorem start_switch_seg (hp : Lays exe SccCode.ret0Prog) (hend : endPc = endOf 
   let a := limA (UInt64.ofBitVec tcb)
   refine sw_seq (lo := -80) (hi := 0) (F' := swF top a) (n' := startN6 lab tcb top c0)
     (sw_nd rfl (code_of hp hend hin.1.2 rfl) (ofNat4_succ' _ 5).symm rfl fun m σ c _ hD hJ => ?_) fun v hv hR => ?_
-  · obtain ⟨rfl, h9, htp⟩ := hJ
-    obtain ⟨hsp, -, htp'⟩ := swStep (startN5 lab tcb top c).o ((startN5 lab tcb top c).pc + Int64.ofNat 4) σ
+  · obtain ⟨rfl, h9, htp, hx0⟩ := hJ
+    obtain ⟨hsp, hx, htp'⟩ := swStep (startN5 lab tcb top c).o ((startN5 lab tcb top c).pc + Int64.ofNat 4) σ
     rw [hsp, h9]
     obtain ⟨sl, hsl⟩ := hmap m hD
-    exact ⟨h16, hok, ⟨rfl, hlimM.unmapped m hD⟩, sl, hsl, c, .refl c, rfl, hsp.trans h9, htp'.trans htp⟩
+    exact ⟨h16, hok, ⟨rfl, hlimM.unmapped m hD⟩, sl, hsl, c, .refl c, rfl, hsp.trans h9, htp'.trans htp,
+      (congrArg _ hx).trans hx0⟩
   · let g : MainG := ⟨top, UInt64.ofBitVec tcb, c0⟩
     have hF2 : FStable (swR v (-80) 0) (swF top a v) := swF_stable hfit hout
     refine Seg.seq (Q := At exe endPc (swR v (-80) 0) (swF top a v) (mainN0 lab g))
@@ -2606,7 +2634,7 @@ theorem start_switch_seg (hp : Lays exe SccCode.ret0Prog) (hend : endPc = endOf 
     · dsimp only [startN6, mainN0]; rw [startMain_run]
     · dsimp only [startN6, mainN0]; rw [startMain_run]; rfl
     · dsimp only [startN6, mainN0] at hJ ⊢; rw [startMain_run]
-      obtain ⟨rfl, hsp, htp⟩ := hJ
+      obtain ⟨rfl, hsp, htp, -⟩ := hJ
       refine ⟨rfl, ?_, ?_⟩ <;> simp_all [setXReg_TPIDR, Reg64s.setXReg_SP] <;> rfl
 
 /-- **`scc_rt_start` from `.sp2` to the switch**: `.sp2`'s block, the call
@@ -2677,12 +2705,12 @@ theorem start_sp2_sw_seg (hp : Lays exe SccCode.ret0Prog) (hend : endPc = endOf 
     · dsimp only [startN3, startN4]; rw [startSw0_run]; rfl
     · dsimp only [startN3, startN4] at hJ ⊢; rw [startSw0_run]
       obtain ⟨rfl, h0, h32⟩ := hJ
-      refine ⟨rfl, ?_, ?_⟩ <;> simp [Spike.Lib.upd_apply, h0, h32]
+      refine ⟨rfl, ?_, ?_, ?_⟩ <;> simp [Spike.Lib.upd_apply, h0, h32]
   · -- `msr tpidr_el0, x10`
     refine seg_one (si_nd (si := .msr .X10) hF (code_of hp hend hin.1.1.2 rfl) fun σ c hJ =>
       ⟨c, .refl c, .inl ⟨(), (ofNat4_succ' _ 4).symm, rfl, ?_⟩⟩)
-    obtain ⟨rfl, h9, h10⟩ := hJ
-    refine ⟨rfl, h9, ?_⟩
+    obtain ⟨rfl, h9, h10, hx0⟩ := hJ
+    refine ⟨rfl, h9, ?_, hx0⟩
     show UInt64.ofBitVec (σ.regs.getRegOrZr (.low (.reg .X10) .W64)) = _
     rw [Spike.Lib.A64.Alloc.getRegOrZr_x]; exact congrArg UInt64.ofBitVec h10
 
@@ -3025,12 +3053,12 @@ theorem start_switch_segW {W : Frag isaLSE2} {K : State → State → Prop} {rS 
   refine sw_seqW (lo := -80) (hi := 0) (F' := swFS rS top a) (n' := startN6 lab tcb top c0)
     (sw_ndW rfl (code_of hp hend hin.1.2 rfl) (ofNat4_succ' _ 5).symm rfl hW.sw fun m σ c _ hD hJ => ?_)
     fun v hv hR => ?_
-  · obtain ⟨rfl, h9, htp⟩ := hJ
-    obtain ⟨hsp, -, htp'⟩ := swStep (startN5 lab tcb top c).o ((startN5 lab tcb top c).pc + Int64.ofNat 4) σ
+  · obtain ⟨rfl, h9, htp, hx0⟩ := hJ
+    obtain ⟨hsp, hx, htp'⟩ := swStep (startN5 lab tcb top c).o ((startN5 lab tcb top c).pc + Int64.ofNat 4) σ
     rw [hsp, h9]
     obtain ⟨sl, hsl⟩ := hmap m hD
     exact ⟨h16, hok, ⟨⟨rfl, hlimM.unmapped m hD⟩, (hFS m hD).off⟩, sl, hsl, c, .refl c, rfl, hsp.trans h9,
-      htp'.trans htp⟩
+      htp'.trans htp, (congrArg _ hx).trans hx0⟩
   · let g : MainG := ⟨top, UInt64.ofBitVec tcb, c0⟩
     have hF2 : FStable (swR v (-80) 0) (swFS rS top a v) := fun m m' h hd =>
       ⟨swF_stable hfit hout m m' h.1 hd, stackOff_stable hfitS m m' h.2 hd⟩
@@ -3044,7 +3072,7 @@ theorem start_switch_segW {W : Frag isaLSE2} {K : State → State → Prop} {rS 
     · dsimp only [startN6, mainN0]; rw [startMain_run]
     · dsimp only [startN6, mainN0]; rw [startMain_run]; rfl
     · dsimp only [startN6, mainN0] at hJ ⊢; rw [startMain_run]
-      obtain ⟨rfl, hsp, htp⟩ := hJ
+      obtain ⟨rfl, hsp, htp, -⟩ := hJ
       refine ⟨rfl, ?_, ?_⟩ <;> simp_all [setXReg_TPIDR, Reg64s.setXReg_SP] <;> rfl
 
 /-- **`scc_rt_start` from `.sp2` to the switch, inside `W`, the take its
@@ -3149,12 +3177,12 @@ theorem start_sp2_sw_segW {W : Frag isaLSE2} {rS : Scc.Sem.Range} (hp : Lays exe
     · dsimp only [startN3, startN4]; rw [startSw0_run]; rfl
     · dsimp only [startN3, startN4] at hJ ⊢; rw [startSw0_run]
       obtain ⟨rfl, h0, h32⟩ := hJ
-      refine ⟨rfl, ?_, ?_⟩ <;> simp [Spike.Lib.upd_apply, h0, h32]
+      refine ⟨rfl, ?_, ?_, ?_⟩ <;> simp [Spike.Lib.upd_apply, h0, h32]
   · -- `msr tpidr_el0, x10`
     refine seg_oneW (si_ndW (si := .msr .X10) hF2 (code_of hp hend hin.1.1.2 rfl) hW.msr fun σ c hJ =>
       ⟨c, .refl c, .inl ⟨(), (ofNat4_succ' _ 4).symm, rfl, ?_⟩⟩)
-    obtain ⟨rfl, h9, h10⟩ := hJ
-    refine ⟨rfl, h9, ?_⟩
+    obtain ⟨rfl, h9, h10, hx0⟩ := hJ
+    refine ⟨rfl, h9, ?_, hx0⟩
     show UInt64.ofBitVec (σ.regs.getRegOrZr (.low (.reg .X10) .W64)) = _
     rw [Spike.Lib.A64.Alloc.getRegOrZr_x]; exact congrArg UInt64.ofBitVec h10
 

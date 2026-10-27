@@ -39,7 +39,7 @@ theorem rw_tb : ∀ (t : Ty) (c : Nat) (e1 e2 : List Bool), tb c t = true →
       intro c e1 e2 ht h; simp only [tb, Bool.and_eq_true] at ht
       obtain ⟨a1, a2⟩ := iha c e1 e2 ht.1 h; obtain ⟨b1, b2⟩ := ihb c e1 e2 ht.2 h
       refine ⟨?_, ?_⟩ <;> simp only [rcarE, wrapOKE, a1, a2, b1, b2]
-  | code a b iha ihb =>
+  | code a b _ iha ihb =>
       intro c e1 e2 ht h; simp only [tb, Bool.and_eq_true] at ht
       obtain ⟨-, a2⟩ := iha c e1 e2 ht.1 h; obtain ⟨-, b2⟩ := ihb c e1 e2 ht.2 h
       refine ⟨?_, ?_⟩ <;> simp only [rcarE, wrapOKE, a2, b2]
@@ -180,7 +180,7 @@ theorem wrap_cl_ge (hs : ∀ k, W' (k + 1) = W k) (hWc : ∀ k, tb 0 (W k) = tru
   | prod a b iha ihb =>
       intro c d env hl h; simp only [cl, wrapOKE, Bool.and_eq_true] at h ⊢
       exact ⟨iha c d env hl h.1, ihb c d env hl h.2⟩
-  | code a b iha ihb =>
+  | code a b _ iha ihb =>
       intro c d env hl h; simp only [cl, wrapOKE, Bool.and_eq_true] at h ⊢
       exact ⟨iha c d env hl h.1, ihb c d env hl h.2⟩
   | sum a b iha ihb =>

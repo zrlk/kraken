@@ -46,6 +46,7 @@ step facts to runs.
 -/
 import WeakCore.TermLiveProps
 import WeakCore.TermLive
+import WeakCore.TermExtStep
 
 namespace TermLiveMach
 open CoreLang CoreTerm TermRun TermLiveProps
@@ -234,7 +235,8 @@ def robust_tokenFree (sys : LSys) (Setting : Cfg → Prop) (Mentioned : Proto �
   ∀ (r : LRun sys.L), sys.Run r → r.cfg 0 = c₀ → ∀ m b n P, ¬ hv.heldAt (r.cfg m) b n P
 
 /-- The converse half the explorer's verdicts rely on (C): a live thread that
-keeps trying a word held by a crashed holder is stuck on it. -/
+keeps trying a word held by a crashed holder is stuck on it.
+Superseded by `TermLiveC.forced_wait_held_thm`; likely false once promises are allowed. -/
 def forced_wait_is_livelock (sys : LSys) (Setting : Cfg → Prop) (hv : HoldView) : Prop :=
   ∀ c₀, Setting c₀ →
   ∀ (r : LRun sys.L) (D : Nat → Option Nat) i b n P h m n₀, sys.Run r → r.cfg 0 = c₀ →
@@ -686,21 +688,24 @@ theorem promise_setTh {c : Cfg} {i j : Nat} {x : TTh} (h : j ≠ i) (a : Address
   · rfl
   · exact setTh_comm h
 
-/-- (IO1) Another thread's extern move commutes with replacing thread `i`. -/
+/-- Another thread's extern move commutes with replacing thread `i`. -/
 theorem extSteps_setTh {c d : Cfg} {i j : Nat} {x : TTh} (h : j ≠ i) (hd : d ∈ extSteps c j) :
     setTh d i x ∈ extSteps (setTh c i x) j := by
-  obtain ⟨th, y, n, a, e, rt, ws, hth, hterm, hn, hev, rfl⟩ := extSteps_elim hd
+  obtain ⟨th, y, n, a, e, rt, ws, rs, hth, hterm, hn, hev, hrs, rfl⟩ := extSteps_elim hd
   have hth' : (setTh c i x).ths[j]? = some th := by rw [setTh_get_ne h]; exact hth
-  have hm := extSteps_intro hth' hterm hn hev
+  have hm := extSteps_intro (rs := rs) hth' hterm hn hev hrs
   have hc : ∀ (t : TTh) (tr : List Event), setTh { c with ths := c.ths.set! j t, trace := tr } i x =
       { setTh c i x with ths := (setTh c i x).ths.set! j t, trace := tr } := by
     intro t tr
     simp only [setTh, Array.set!_eq_setIfInBounds, Array.setIfInBounds_comm _ _ h]
-  have e1 : setTh (extCfg c j th y n e ws) i x = extCfg (setTh c i x) j th y n e ws := by
+  have e1 : setTh (extCfg c j th y n e ws rs) i x = extCfg (setTh c i x) j th y n e ws rs := by
     cases n with
-    | current => exact absurd (Or.inr rfl) hn
-    | emit => exact hc _ _
+    | current =>
+      cases hl : th.tidLbl with
+      | none => exact absurd (Or.inr (Or.inl ⟨rfl, hl⟩)) hn
+      | some l => simp only [extCfg, curCfg, hl]; exact hc _ c.trace
     | exitEv => exact absurd (Or.inl rfl) hn
+    | _ => exact hc _ _
   rw [e1]; exact hm
 
 theorem noPromises_setTh {c : Cfg} {i j : Nat} {x : TTh} (h : j ≠ i) :
@@ -1043,10 +1048,55 @@ theorem certB_sound {p : Prog} {k : Promises.Knobs} {arch : Arch} :
   | 0, c, i, h => ⟨c, Solo.refl _, by simpa [certB] using h⟩
   | f + 1, c, i, h => by
       simp only [certB, Bool.or_eq_true, List.any_eq_true] at h
-      rcases h with h | ⟨c', hc', hcert⟩
+      rcases h with (h | ⟨c', hc', hcert⟩) | ⟨c', hc', hcert⟩
       · exact ⟨c, Solo.refl _, h⟩
       · obtain ⟨d, hs, hd⟩ := certB_sound f c' i hcert
         exact ⟨d, Solo.thread hc' hs, hd⟩
+      · obtain ⟨d, hs, hd⟩ := certB_sound f c' i hcert
+        exact ⟨d, Solo.ext hc' hs, hd⟩
+
+/-- (M1) The explorer's result lists are admitted (`devChoice`: the bounded value set `b.io`, masked). -/
+theorem extRs_admits {b : Bounds} {n : ExtName} {i : Nat} {ws : List Word} {tr : List Event} {rs : List Word}
+    (h : rs ∈ extRs b n i ws tr) : n.Admits i ws tr rs := by
+  unfold extRs at h
+  split at h
+  · simp only [List.mem_map, List.mem_filter] at h
+    obtain ⟨v, ⟨-, hv⟩, rfl⟩ := h
+    exact ⟨v, by simpa using hv, rfl⟩
+  · exact (mem_resultsL _ _ _ _ _).1 h
+
+/-- (F2) An extern move the explorer offers is a machine extern step. -/
+theorem extSuccs_sound {p : Prog} {k : Promises.Knobs} {arch : Arch} {b : Bounds} {c c' : Cfg} {i : Nat}
+    (h : c' ∈ extSuccs p k arch b c i) : TermExtStep.Ext p k arch c c' := by
+  unfold extSuccs at h
+  cases hth : c.ths[i]? with
+  | none => simp [hth] at h
+  | some th =>
+    simp only [hth] at h
+    cases hterm : th.term with
+    | let_ x op e =>
+      simp only [hterm] at h
+      cases op with
+      | ext n a =>
+        simp only at h
+        split at h
+        · simp at h
+        · rename_i hg
+          cases hev : evalAt th.env a with
+          | none => simp [hev] at h
+          | some rw =>
+            obtain ⟨rt, ws⟩ := rw
+            rw [hev] at h
+            dsimp only at h
+            obtain ⟨rs, hm1, rfl⟩ := List.mem_map.mp h
+            obtain ⟨hm, hc⟩ := List.mem_filter.mp hm1
+            refine TermExtStep.Ext.mk i x n a e th rt ws rs hth hterm (fun hn => ?_) hev (extRs_admits hm)
+              (certB_sound _ _ _ hc)
+            cases hp : th.promises with
+            | nil => rfl
+            | cons t ts => exact absurd (by simp [hp, decide_eq_true hn]) hg
+      | _ => simp at h
+    | _ => simp [hterm] at h
 
 /-- **Open: the explorer's half of the bridge.**  Every fair livelock
 `TermLive.analyse` reports on `exploreG` (with `crashCfg` edges for thread `i`)
@@ -1144,6 +1194,7 @@ theorem promised_rmw_may_block {k : Promises.Knobs} {arch : Arch} {mem : Memory}
 #print axioms crash_sim
 #print axioms class_run
 #print axioms certB_sound
+#print axioms extSuccs_sound
 #print axioms promised_rmw_may_block
 #print axioms TermLiveMach.extSteps_setTh
 

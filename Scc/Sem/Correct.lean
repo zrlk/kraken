@@ -42,7 +42,9 @@ between target and source configurations with five properties.
    `Witness` satisfying `Components`: the thread map, the layout injection
    of source labels into address ranges, the value representation (on
    memory messages, timestamp by timestamp, and on register environments),
-   and the stack-map clause. `R` may say more (views, promise sets, runtime
+   and the stack-map clause. The register-environment clauses exempt a
+   frame running the output extern's uncompiled model (`ExternFrame`),
+   whose locals `scc_rt_print` does not keep. `R` may say more (views, promise sets, runtime
    invariants); these are what every user of the statement can rely on.
 
 Usable consequences: `Sim.transfer` (an invariant of every reachable source
@@ -77,6 +79,7 @@ whose source stays within `B`; so `scc` prints `B` with each program.
 -/
 import Scc.Sem.Ext
 import Scc.Sem.SrcExt
+import Scc.PrintModel
 
 namespace Scc.Sem
 
@@ -416,6 +419,44 @@ continuation's, less the variable the callee's result is bound to. -/
 def frameFv (th : TermRun.TTh) : List (List String) :=
   exprFv th.term :: th.stack.map fun f => (exprFv f.body).filter (· != f.x)
 
+/-- A term followed down through `let`, `split` and both arms of `ifeq`:
+the term itself and every term a thread running it reaches without a call
+or a return (`TermRun.tstep` continues a `let` and a `split` with the body,
+an `ifeq` with one arm). Any other constructor is a leaf, but a `ret` leaf is
+left out: the models return only `()`, which reads no variable (`env_total`
+asks nothing of it), and a `ret ()` is not the extern's own (any block may
+return `()`). Used only on the two bodies of `externModelTerms`, built from
+these constructors, `ret` and `tail`. -/
+def modelTerms : CoreTerm.Expr → List CoreTerm.Expr
+  | e@(.let_ _ _ b) => e :: modelTerms b
+  | e@(.split _ _ _ b) => e :: modelTerms b
+  | e@(.ifeq _ _ y n) => e :: (modelTerms y ++ modelTerms n)
+  | .ret _ => []
+  | e => [e]
+
+/-- **The output extern's model terms**: exactly the terms of the two model
+bodies, `Scc.Frontend.printBody` (`print{m}`) and `Scc.Frontend.printLBody`
+(its loop `printL{i, d}`, which `Frontend.externOf` fixes textually,
+`declIs`), less their `ret ()` leaves. A thread running the extern is at
+one of these terms until it returns: a `tail` to `printL` enters
+`printLBody`, the `emit` step continues with the `let`'s body, and neither
+body calls. The list is closed: another extern's model is
+not on it until it is added here. -/
+def externModelTerms : List CoreTerm.Expr :=
+  modelTerms Scc.Frontend.printBody ++ modelTerms Scc.Frontend.printLBody
+
+/-- **Frame `d` of `th` runs the output extern's model**: it is the current
+frame (`d = 0`; the model bodies make no call, so no suspended frame is one
+of theirs) and its term is one of `externModelTerms`. scc does not compile
+the model: the runtime's `scc_rt_print` stands for it, emitting a slice with
+multi-byte `write`s, and the model's locals (byte and word counters, the
+loaded word) have no target counterpart while such a `write` is under way.
+`Components` therefore exempts these frames from `env_rep` and `env_total`
+only; every other clause, `env_imm` included, holds for them as for any
+frame. -/
+def ExternFrame (th : TermRun.TTh) (d : Nat) : Prop :=
+  d = 0 ∧ th.term ∈ externModelTerms
+
 /-- Every number in the register environments of thread `i` (every frame)
 fits in 64 bits. A `+` on plain `Int` whose result does not is the
 `Int`-overflow abort. -/
@@ -717,14 +758,20 @@ structure Components (M : ExtMachine) (Λ : Layout) (w : Witness M) (t : M.Cfg) 
       ∃ tt, t.1.threads[m'.tid]? = some tt ∧ k' ∈ tt.prom
   /-- Value representation on register environments: each placed word of
   each frame of each source thread is represented at its place in the
-  related target thread ... -/
+  related target thread, except in a frame running the output extern's
+  uncompiled model (`ExternFrame`) ... -/
   env_rep : ∀ i th j tt, s.ths[i]? = some th → w.thr i = some j → t.1.threads[j]? = some tt →
     ∀ d e, (frameEnvs th)[d]? = some e → ∀ x ty ws, TermRun.lookupE e x = some (ty, ws) →
-    ∀ k wd wp, ws[k]? = some wd → w.env i d x k = some wp → WordPlaceRep M w.lbl tt.st wp wd.val
+    ∀ k wd wp, ws[k]? = some wd → w.env i d x k = some wp → ¬ ExternFrame th d →
+    WordPlaceRep M w.lbl tt.st wp wd.val
   /-- ... and every word of every variable a frame still reads (`frameFv`)
-  is placed: `env` may drop only dead variables. -/
+  is placed: `env` may drop only dead variables. A frame running the output
+  extern's model (`ExternFrame`) is exempt from both: `scc_rt_print` stands
+  for it, and during a multi-byte `write` the model's locals have no target
+  counterpart. -/
   env_total : ∀ i th, s.ths[i]? = some th → ∀ d e xs, (frameEnvs th)[d]? = some e → (frameFv th)[d]? = some xs →
-    ∀ x ∈ xs, ∀ ty ws, TermRun.lookupE e x = some (ty, ws) → ∀ k < ws.length, ∃ pl, w.env i d x k = some pl
+    ¬ ExternFrame th d → ∀ x ∈ xs, ∀ ty ws, TermRun.lookupE e x = some (ty, ws) →
+    ∀ k < ws.length, ∃ pl, w.env i d x k = some pl
   /-- Stack map: each thread's current stack range is in the pool ... -/
   stack_pool : ∀ j rg, M.stackRange t j = some rg → rg.Sub Λ.stackPool
   /-- ... ranges of distinct threads are disjoint ... -/
@@ -802,14 +849,20 @@ structure ComponentsAll (M : ExtMachine) (Λ : Layout) (w : Witness M) (t : M.Cf
     ∃ k, k < s.mem.size ∧ w.ts k = some k'
   /-- Value representation on register environments: each placed word of
   each frame of each source thread is represented at its place in the
-  related target thread ... -/
+  related target thread, except in a frame running the output extern's
+  uncompiled model (`ExternFrame`) ... -/
   env_rep : ∀ i th j tt, s.ths[i]? = some th → w.thr i = some j → t.1.threads[j]? = some tt →
     ∀ d e, (frameEnvs th)[d]? = some e → ∀ x ty ws, TermRun.lookupE e x = some (ty, ws) →
-    ∀ k wd wp, ws[k]? = some wd → w.env i d x k = some wp → WordPlaceRep M w.lbl tt.st wp wd.val
+    ∀ k wd wp, ws[k]? = some wd → w.env i d x k = some wp → ¬ ExternFrame th d →
+    WordPlaceRep M w.lbl tt.st wp wd.val
   /-- ... and every word of every variable a frame still reads (`frameFv`)
-  is placed: `env` may drop only dead variables. -/
+  is placed: `env` may drop only dead variables. A frame running the output
+  extern's model (`ExternFrame`) is exempt from both: `scc_rt_print` stands
+  for it, and during a multi-byte `write` the model's locals have no target
+  counterpart. -/
   env_total : ∀ i th, s.ths[i]? = some th → ∀ d e xs, (frameEnvs th)[d]? = some e → (frameFv th)[d]? = some xs →
-    ∀ x ∈ xs, ∀ ty ws, TermRun.lookupE e x = some (ty, ws) → ∀ k < ws.length, ∃ pl, w.env i d x k = some pl
+    ¬ ExternFrame th d → ∀ x ∈ xs, ∀ ty ws, TermRun.lookupE e x = some (ty, ws) →
+    ∀ k < ws.length, ∃ pl, w.env i d x k = some pl
   /-- Stack map: each thread's current stack range is in the pool ... -/
   stack_pool : ∀ j rg, M.stackRange t j = some rg → rg.Sub Λ.stackPool
   /-- ... ranges of distinct threads are disjoint ... -/
@@ -935,12 +988,17 @@ def InLayout (Λ : Layout) {M : ExtMachine} (t : M.Cfg) : Prop :=
 /-- **An abort of kind `k` is justified** at the reachable source
 configuration `s`, for source thread `i`, after the target trace `tr`:
 
-* `overflow`, `heap`, `stack`, `threads`: some step of thread `i` from `s`
+* `overflow`, `heap`, `threads`: some step of thread `i` from `s`
   **crosses** the budget part of kind `k` (`Budget.Part`): the part holds at
   `s` and fails after the step. So a part already exceeded at `s` (say a
   big number in a dead variable of another thread) justifies nothing
   (`AbortJustified.part_before`); the overflow part looks only at thread
   `i`'s own frames.
+* `stack`: some step of thread `i` from `s` leaves its depth above
+  `B.frames`. Unlike the other kinds the abort need not happen at the
+  crossing: the runtime has no depth counter, and aborts when a frame does
+  not fit under the stack cap, which the layout places at or beyond
+  `B.frames` frames (`AbortJustified.stack_part_after`).
 * `threads` also: the kernel refused an earlier `clone`
   (`Ev.cloneErr ∈ tr`; the runtime aborts with `threads` when `clone`
   fails).
@@ -949,6 +1007,9 @@ def AbortJustified (B : Budget) (S : SrcSem) (tr : List Ev) (s : S.Cfg) (i : Nat
   | .writeErr => Ev.writeErr ∈ tr
   | .threads => Ev.cloneErr ∈ tr ∨
       ∃ es s', S.step i s es s' ∧ B.Part .threads i (S.core s) ∧ ¬ B.Part .threads i (S.core s')
+  -- The stack abort is the grow routine's, at the byte cap; it may come
+  -- later than the crossing of `B.frames`, so only the far side is required.
+  | .stack => ∃ es s', S.step i s es s' ∧ ¬ B.Part .stack i (S.core s')
   | k => ∃ es s', S.step i s es s' ∧ B.Part k i (S.core s) ∧ ¬ B.Part k i (S.core s')
 
 /-- An abort justified by the environment: a refused `write` for
@@ -958,29 +1019,40 @@ def EnvJustified (tr : List Ev) : AbortKind → Prop
   | .threads => Ev.cloneErr ∈ tr
   | _ => False
 
-/-- A budget abort not justified by the environment is justified only by a
-step that crosses the part: the part holds before the step and fails after
-it. -/
+/-- A budget abort other than `stack` not justified by the environment is
+justified only by a step that crosses the part: the part holds before the
+step and fails after it. -/
 theorem AbortJustified.crossing {B : Budget} {S : SrcSem} {tr : List Ev} {s : S.Cfg} {i : Nat}
-    {k : AbortKind} (hk : ¬ EnvJustified tr k) (h : AbortJustified B S tr s i k) :
+    {k : AbortKind} (hs : k ≠ .stack) (hk : ¬ EnvJustified tr k) (h : AbortJustified B S tr s i k) :
     ∃ es s', S.step i s es s' ∧ B.Part k i (S.core s) ∧ ¬ B.Part k i (S.core s') := by
   cases k with
   | writeErr => exact absurd h hk
   | threads => exact h.resolve_left hk
+  | stack => exact absurd rfl hs
   | _ => exact h
 
-/-- **Justification is not inherited**: if the budget part of kind `k` already
-fails at `s`, no abort of kind `k` is justified at `s` by the source. -/
-theorem AbortJustified.part_before {B : Budget} {S : SrcSem} {tr : List Ev} {s : S.Cfg} {i : Nat}
-    {k : AbortKind} (hk : ¬ EnvJustified tr k) (h : AbortJustified B S tr s i k) : B.Part k i (S.core s) :=
-  (h.crossing hk).choose_spec.choose_spec.2.1
+/-- **A justified `stack` abort**: some step of thread `i` from `s` leaves
+the stack part (its depth above `B.frames`), whether or not it held at
+`s`. -/
+theorem AbortJustified.stack_part_after {B : Budget} {S : SrcSem} {tr : List Ev} {s : S.Cfg} {i : Nat}
+    (h : AbortJustified B S tr s i .stack) : ∃ es s', S.step i s es s' ∧ ¬ B.Part .stack i (S.core s') :=
+  h
 
-/-- In particular, an abort of a budget kind is never justified at a source
-configuration that is already outside the budget part for that thread,
-unless the environment justifies it. -/
+/-- **Justification is not inherited**: if the budget part of kind `k`
+(not `stack`) already fails at `s`, no abort of kind `k` is justified at `s`
+by the source. -/
+theorem AbortJustified.part_before {B : Budget} {S : SrcSem} {tr : List Ev} {s : S.Cfg} {i : Nat}
+    {k : AbortKind} (hs : k ≠ .stack) (hk : ¬ EnvJustified tr k) (h : AbortJustified B S tr s i k) :
+    B.Part k i (S.core s) :=
+  (h.crossing hs hk).choose_spec.choose_spec.2.1
+
+/-- In particular, an abort of a budget kind other than `stack` is never
+justified at a source configuration that is already outside the budget part
+for that thread, unless the environment justifies it. -/
 theorem AbortJustified.not_of_not_part {B : Budget} {S : SrcSem} {tr : List Ev} {s : S.Cfg} {i : Nat}
-    {k : AbortKind} (hk : ¬ EnvJustified tr k) (hp : ¬ B.Part k i (S.core s)) : ¬ AbortJustified B S tr s i k :=
-  fun h => hp (h.part_before hk)
+    {k : AbortKind} (hs : k ≠ .stack) (hk : ¬ EnvJustified tr k) (hp : ¬ B.Part k i (S.core s)) :
+    ¬ AbortJustified B S tr s i k :=
+  fun h => hp (h.part_before hs hk)
 
 /-- **A refused `clone` justifies a `threads` abort**, whatever the source
 does. -/

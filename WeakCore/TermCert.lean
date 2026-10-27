@@ -601,9 +601,9 @@ theorem solo_dead {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c c' 
   | prom _ _ _ _ _ ih => exact ih (promise_dead hd)
   | ext hs _ ih =>
       obtain ⟨th, hth, hd⟩ := hd
-      obtain ⟨th0, th', h0, h1, hst⟩ := extSteps_stOf hs
+      obtain ⟨th0, th', h0, h1, hst, hv⟩ := extSteps_vle hs
       rw [hth] at h0; cases h0
-      exact ih ⟨th', h1, by rw [hst]; exact hd⟩
+      exact ih ⟨th', h1, by rw [hst]; exact DeadM.mono hd (MemExt.rfl' _) hd.1 fun _ _ hle => Nat.le_trans hle (hv.coh _)⟩
 
 /-- **A certified thread has no dead promise.** -/
 theorem certified_noDead {p : Prog} {k : Promises.Knobs} {arch : Arch} {c : Cfg} {i : Nat} {t : Ts}
@@ -1113,9 +1113,9 @@ theorem solo_deadO {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c c'
   | prom _ _ _ _ _ ih => exact ih (promise_deadO hd)
   | ext hs _ ih =>
       obtain ⟨th, hth, hd⟩ := hd
-      obtain ⟨th0, th', h0, h1, hst⟩ := extSteps_stOf hs
+      obtain ⟨th0, th', h0, h1, hst, hv⟩ := extSteps_vle hs
       rw [hth] at h0; cases h0
-      exact ih ⟨th', h1, by rw [hst]; exact hd⟩
+      exact ih ⟨th', h1, by rw [hst]; exact DeadOM.mono hd (MemExt.rfl' _) hd.1 ⟨hv.vPreBase, hv.vCtrl, hv.vRd, hv.vWr⟩⟩
 
 theorem certified_noDeadO {p : Prog} {k : Promises.Knobs} {arch : Arch} {c : Cfg} {i : Nat} {t : Ts}
     (hc : Certified p k arch c i) : ¬ DeadAtO k arch c i t := by
@@ -2509,7 +2509,7 @@ promises are messages and not pair starts (stage A: `FreshL_promLt`,
 def PWF (c : Cfg) (i : Nat) : Prop :=
   (∀ q, q ∈ c.pairs → q < c.mem.size) ∧ ∀ t, t ∈ promsOf c i → t < c.mem.size ∧ t ∉ c.pairs
 
-/-- (IO1) The extern move keeps every thread's promises. -/
+/-- The extern move keeps every thread's promises. -/
 theorem promsOf_ext {c c' : Cfg} {i : Nat} (h : c' ∈ extSteps c i) (j : Nat) : promsOf c' j = promsOf c j := by
   unfold promsOf; rw [extSteps_promises h j]
 
@@ -3129,9 +3129,9 @@ theorem solo_deadV {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c c'
   | prom _ _ _ _ _ ih => exact ih (promise_deadV hd)
   | ext hs _ ih =>
       obtain ⟨th, hth, hd⟩ := hd
-      obtain ⟨th0, th', h0, h1, hst⟩ := extSteps_stOf hs
+      obtain ⟨th0, th', h0, h1, hst, hv⟩ := extSteps_vle hs
       rw [hth] at h0; cases h0
-      exact ih ⟨th', h1, by rw [hst]; exact hd⟩
+      exact ih ⟨th', h1, by rw [hst]; exact DeadVM.mono hd (MemExt.rfl' _) hd.1 hv.vRelSt⟩
 
 theorem certified_noDeadV {p : Prog} {k : Promises.Knobs} {arch : Arch} {c : Cfg} {i : Nat} {t : Ts}
     (hc : Certified p k arch c i) : ¬ DeadAtV c i t := by
@@ -3647,12 +3647,21 @@ theorem winInv_prom {c0 c : Cfg} {i : Nat} {a : Address} {v : Val} {w : Ts}
       · exact Or.inr h3
     · exact Or.inl (Or.inr (by omega))
 
-/-- (IO1) The extern move keeps the window invariant (views, promises, memory unchanged). -/
+/-- The extern move keeps the window invariant (views, promises, memory unchanged). -/
 theorem winInv_ext {c0 c c' : Cfg} {i : Nat} (hw : WinInv c0 i c) (hs : c' ∈ extSteps c i) : WinInv c0 i c' := by
   obtain ⟨th0, th, h0, hth, a1, a2, a3, a4, a5⟩ := hw
-  obtain ⟨th1, e, v, h1, h2⟩ := extSteps_self hs
+  obtain ⟨th1, e, v, w, b, h1, h2⟩ := extSteps_self hs
   rw [hth] at h1; cases h1
-  exact ⟨th0, _, h0, h2, a1, by rw [extSteps_mem hs]; exact a2, a3, a4, by rw [extSteps_mem hs]; exact a5⟩
+  obtain ⟨th2, th3, h3, h4, -, hv⟩ := extSteps_vle hs
+  rw [hth] at h3; cases h3
+  rw [h2] at h4; cases h4
+  refine ⟨th0, _, h0, h2, Nat.le_trans a1 hv.vWr, by rw [extSteps_mem hs]; exact a2, a3,
+    fun t ht1 ht2 => Nat.le_trans (a4 t ht1 ht2) hv.vWr, ?_⟩
+  rw [extSteps_mem hs]
+  intro t ht1 ht2
+  rcases a5 t ht1 ht2 with h5 | h5
+  · exact Or.inl h5
+  · exact Or.inr (Nat.le_trans h5 hv.vWr)
 
 theorem solo_winInv {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c0 c c' : Cfg}
     (h : Solo p k arch i c c') (hw : WinInv c0 i c) : WinInv c0 i c' := by

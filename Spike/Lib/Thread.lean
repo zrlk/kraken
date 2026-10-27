@@ -273,6 +273,7 @@ theorem step {tid : Nat} {t : Thread I} {mem : Memory} {q : Thread I × Memory} 
     | ctrRmw _ _ _ _ _ _ _ _ _ _ hex hrt => exact hrt.elim
     | rtRmw _ _ _ _ _ hex hrt => exact hrt.elim
     | alloc s' B x a τ e ta ws k _ _ _ hex ht => exact absurd ht (hR.noAlloc _ _ hi _ _ _ _)
+    | emit K _ _ _ _ hK => nomatch hK
   · exact absurd h (no_threadStep A (hR.fin _ _ hf))
 
 /-- **The reader certifies only with no promise.** -/
@@ -414,6 +415,7 @@ theorem sim_step_seg {c c' : Config I} {s : TermRun.Cfg} {tid : Nat} (hRel : Rel
         | ctrRmw _ _ _ _ _ _ _ _ _ _ hex hrt => exact hrt.elim
         | rtRmw _ _ _ _ _ hex hrt => exact hrt.elim
         | alloc s' B x a τ e ta ws k _ _ _ hex ht => exact absurd ht (hR.noAlloc _ _ hi _ _ _ _)
+        | emit K _ _ _ _ hK => nomatch hK
       · exact absurd hts (no_threadStep A (hR.fin _ _ hf))
     | n + 2, ht, _, _ => simp at ht
   · rw [hc] at ht
@@ -504,6 +506,7 @@ theorem rspecS : RSpec A F v1 (KPh Inv Fin) where
       | ctrRmw _ _ _ _ _ _ _ _ _ _ hex hrt => exact hrt.elim
       | rtRmw _ _ _ _ _ hex hrt => exact hrt.elim
       | alloc s' B x a τ e ta ws k _ _ _ hex ht => exact absurd ht (hR.noAlloc _ _ hi _ _ _ _)
+      | emit K _ _ _ _ hK => nomatch hK
     · have hex : I.exec t.st = none := hR.fin _ _ hf
       simp [stepOne, hex] at hs'
   can {c t0 t1} hc hM hp hP hh := by
@@ -523,6 +526,7 @@ theorem rspecS : RSpec A F v1 (KPh Inv Fin) where
       | ctrRmw _ _ _ _ _ _ _ _ _ _ hex hrt => exact hrt.elim
       | rtRmw _ _ _ _ _ hex hrt => exact hrt.elim
       | alloc s' B x a τ e ta ws k _ _ _ hex ht => exact absurd ht (hR.noAlloc _ _ hi _ _ _ _)
+      | emit K _ _ _ _ hK => nomatch hK
     · simp [Thread.halted, hR.fin _ _ hf] at hh
 
 variable {rv : I.State → I.RegId → BitVec 64} {pl : I.State → BitVec 64 → Option (BitVec 64)} {rF rR : I.RegId}

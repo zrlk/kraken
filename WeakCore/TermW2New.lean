@@ -176,7 +176,7 @@ theorem promWordNew_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall 
     (fun l => X.inv.rle l) (X.inv.riniCoh _ _ _ X.hth)
     (fun l cl f hs hp => X.inv.frlt l cl f (cutSto_sub hs) hp) (IniZK Eg Tot HP j) (TermTyped.WitP c.mem th.promises)
   obtain ⟨thF, EF, hthF, hxF, hTEF, hmF, hSCF, hboF, hfbFH, hfrF, hBF, hILF, hIHF, hPVF, hPOF⟩ :=
-    TermIni.solo_typedXHP (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hsc (by first | exact TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw | exact TermViewInv.viewInv_run hV0 X.run | exact TermViewInv.viewInv_thread (TermViewInv.viewInv_run hV0 X.run) X.hc') hwin hXH hsF hcF (fun l => X.inv.rle l) (hbr X S0) (hbp X) (TermTyped.witP_run X.hth hm.2.2.1 (TermCert.winInv_prom (TermCert.winInv_refl X.hth)))
+    TermIni.solo_typedXHP (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hsc (by first | exact TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw | exact TermViewInv.viewInv_run hV0 X.run | exact TermViewInv.viewInv_thread (TermViewInv.viewInv_run hV0 X.run) X.hc') hwin hXH (TermMain.tidAt_cutP X.inv j S0) hsF hcF (fun l => X.inv.rle l) (hbr X S0) (hbp X) (TermTyped.witP_run X.hth hm.2.2.1 (TermCert.winInv_prom (TermCert.winInv_refl X.hth)))
   have hfbF : FrBound (Cut Eg j S0) (promise c j a v w).mem.size th.vs.vWr EF := by
     have e : (promise c j a v w).mem.size = c.mem.size + 1 := by rw [hpi.1, Array.size_push]
     rw [e]; exact hfbFH
@@ -193,7 +193,7 @@ theorem promWordNew_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall 
     intro u mu hu hmu hL
     have hu' : u ∈ TermFul.promsOf (promise c j a v w) j := by rw [TermFul.promsOf_some hpi.2.1]; exact hu
     have hmu' : (promise c j a v w).mem[u]? = some mu := by rw [hpi.1]; exact hmu
-    have hnu := (certified_promNotUndefX (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hsc (by first | exact TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw | exact TermViewInv.viewInv_run hV0 X.run | exact TermViewInv.viewInv_thread (TermViewInv.viewInv_run hV0 X.run) X.hc') hwin hX X.cert hu' hmu').1
+    have hnu := (certified_promNotUndefX (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hsc (by first | exact TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw | exact TermViewInv.viewInv_run hV0 X.run | exact TermViewInv.viewInv_thread (TermViewInv.viewInv_run hV0 X.run) X.hc') hwin hX (TermMain.tidAt_cutP X.inv j S0) X.cert hu' hmu').1
     have hsto : EF.sto mu.loc.label = some cl := by rw [hL]; exact hxF.2.2.2.2.1 _ _ hcl0
     rcases hmF.1.1 u mu cl (by show u ∉ thF.promises; rw [hnoP]; exact List.not_mem_nil) (solo_mem hsF hmu')
       hsto with h | h

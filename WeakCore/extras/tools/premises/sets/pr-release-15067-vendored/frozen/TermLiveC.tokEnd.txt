@@ -1,0 +1,7 @@
+CoreTerm.At : Type
+CoreTerm.Op : Type
+TermLiveC.tokEnd : String → String → CoreTerm.Op → Bool
+  := fun a tk x =>
+  match x with
+  | CoreTerm.Op.store rel (CoreTerm.At.var a') v (some (CoreTerm.At.var t')) => a' == a && t' == tk
+  | x => false

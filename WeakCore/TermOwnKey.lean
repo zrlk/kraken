@@ -141,7 +141,7 @@ theorem VRR_ownL : ∀ (T : Ty) {ρ : Nat → Nat} {η : TEnv} {rt : Shp} {ws : 
       subst h; cases st <;> simp at h0
   | unit => intro ρ η rt ws R l hO h h0; simp only [VRR] at h; subst h; exact absurd rfl h0
   | void => intro ρ η rt ws R l hO h h0; simp only [VRR] at h
-  | int | tid => intro ρ η rt ws R l hO h h0; simp only [VRR] at h; rw [h.2] at h0; exact absurd rfl h0
+  | int | opq _ | tid => intro ρ η rt ws R l hO h h0; simp only [VRR] at h; rw [h.2] at h0; exact absurd rfl h0
   | intS i => intro ρ η rt ws R l hO h h0; simp only [VRR] at h; rw [h.2] at h0; exact absurd rfl h0
   | fix sg w => intro ρ η rt ws R l hO h h0; simp only [VRR] at h; rw [h.2] at h0; exact absurd rfl h0
   | lanes sg w => intro ρ η rt ws R l hO h h0; simp only [VRR] at h; rw [h.2] at h0; exact absurd rfl h0

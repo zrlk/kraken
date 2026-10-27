@@ -1,9 +1,10 @@
 CoreLang.Ty : Type
 CoreTerm.Expr : Type
 CoreTerm.ExtName : Type
-CoreTerm.ExtName.events : CoreTerm.ExtName → List TermRun.Word → List TermRun.Event
-CoreTerm.ExtName.res : CoreTerm.ExtName → Nat → List TermRun.Word
+CoreTerm.ExtName.events : CoreTerm.ExtName → List TermRun.Word → List TermRun.Word → List TermRun.Event
+CoreTerm.ExtName.park : CoreTerm.ExtName
 CoreTerm.ExtName.sig : CoreTerm.ExtName → CoreLang.Ty × CoreLang.Ty
+CoreTerm.instDecidableEqExtName : DecidableEq CoreTerm.ExtName
 TermRun.Cfg : Type
 TermRun.Cfg.boxFence : TermRun.Cfg → Bool
 TermRun.Cfg.cap : TermRun.Cfg → Nat
@@ -16,6 +17,7 @@ TermRun.Event : Type
 TermRun.TTh : Type
 TermRun.TTh.env : TermRun.TTh → TermRun.Env
 TermRun.TTh.nalloc : TermRun.TTh → Nat
+TermRun.TTh.permit : TermRun.TTh → Option WeakMem.Ts
 TermRun.TTh.promises : TermRun.TTh → List WeakMem.Ts
 TermRun.TTh.stack : TermRun.TTh → List TermRun.Frame
 TermRun.TTh.tidLbl : TermRun.TTh → Option WeakMem.AllocLabel
@@ -24,14 +26,21 @@ TermRun.TTh.vs : TermRun.TTh → WeakMem.VState
 TermRun.TTh.σs : TermRun.TTh → List CoreLang.Ty
 TermRun.Word : Type
 TermRun.curCfg : TermRun.Cfg → Nat → TermRun.TTh → String → CoreTerm.Expr → TermRun.Cfg
-TermRun.extCfg : TermRun.Cfg → Nat → TermRun.TTh → String → CoreTerm.ExtName → CoreTerm.Expr → List TermRun.Word → TermRun.Cfg
-  := fun c i th x n e ws =>
+TermRun.extCfg : TermRun.Cfg →
+  Nat → TermRun.TTh → String → CoreTerm.ExtName → CoreTerm.Expr → List TermRun.Word → List TermRun.Word → TermRun.Cfg
+  := fun c i th x n e ws rs =>
   match n with
   | CoreTerm.ExtName.current => TermRun.curCfg c i th x e
   | x_1 =>
     { mem := c.mem, pairs := c.pairs,
       ths :=
         c.ths.set! i
-          { term := e, env := (x, n.sig.snd, n.res i) :: th.env, σs := th.σs, stack := th.stack, vs := th.vs,
-            promises := th.promises, nalloc := th.nalloc, undefs := th.undefs, tidLbl := th.tidLbl },
-      lbase := c.lbase, boxFence := c.boxFence, cap := c.cap, trace := c.trace ++ n.events ws }
+          { term := e, env := (x, n.sig.snd, rs) :: th.env, σs := th.σs, stack := th.stack,
+            vs := if n = CoreTerm.ExtName.park then TermRun.parkVs (Array.size c.mem) th else th.vs,
+            promises := th.promises, nalloc := th.nalloc, undefs := th.undefs, tidLbl := th.tidLbl,
+            permit := if n = CoreTerm.ExtName.park then none else th.permit },
+      lbase := c.lbase, boxFence := c.boxFence, cap := c.cap, trace := c.trace ++ n.events ws rs }
+TermRun.parkVs : Nat → TermRun.TTh → WeakMem.VState
+WeakMem.Msg : Type
+WeakMem.Ts : Type
+WeakMem.VState : Type

@@ -246,6 +246,11 @@ theorem locPubV_VR : ∀ (T : Ty) (ke : KEnv) (ρ : Nat → Nat) (η : TEnv) (ws
     intro ke ρ η ws hrel hno hrf hlen hval hv w hw x g hx
     have hm := locPub_mem_val hv hw
     rw [hx] at hm; simp at hm
+  | opq _ =>
+    intro ke ρ η ws hrel hno hrf hlen hval hv w hw x g hx
+    obtain ⟨n, hn⟩ := hv
+    have hm := locPub_mem_val hn hw
+    rw [hx] at hm; simp at hm
   | int =>
     intro ke ρ η ws hrel hno hrf hlen hval hv w hw x g hx
     obtain ⟨n, hn⟩ := hv
@@ -420,7 +425,7 @@ theorem promAlloc_val (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p
   have hsc := fun c1 h1 h2 => ((hrun X S hS).2 c1 h1 h2).1
   have hwin := fun c1 h1 h2 => ((hrun X S hS).2 c1 h1 h2).2
   have htp : t ∈ TermFul.promsOf c' i := by rw [TermFul.promsOf_some X.e3]; exact ht
-  obtain ⟨c2, th2, E2, -, -, -, hx2, -, hm2, hok, hfb2⟩ := certified_promWordX (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hsc (by first | exact TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw | exact TermViewInv.viewInv_run hV0 X.run | exact TermViewInv.viewInv_thread (TermViewInv.viewInv_run hV0 X.run) X.hc') hwin hX X.cert htp hm
+  obtain ⟨c2, th2, E2, -, -, -, hx2, -, hm2, hok, hfb2⟩ := certified_promWordX (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hsc (by first | exact TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw | exact TermViewInv.viewInv_run hV0 X.run | exact TermViewInv.viewInv_thread (TermViewInv.viewInv_run hV0 X.run) X.hc') hwin hX (TermTyped.tidAt_mono hAP.2 (TermTyped.tidAt_thread X.hc' (TermMain.tidAt_cut X.inv i S))) X.cert htp hm
   rcases hok cm hcm with hu | hw
   · rw [hv] at hu; cases hu
   rcases wordOK_locPubV hw hno hrf hv with ⟨c3, f, hs3, hf3, hle⟩ | ⟨B, hB⟩
@@ -468,7 +473,7 @@ theorem promAlloc_loc (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p
   have hsc := fun c1 h1 h2 => ((hrun X S hS).2 c1 h1 h2).1
   have hwin := fun c1 h1 h2 => ((hrun X S hS).2 c1 h1 h2).2
   have htp : t ∈ TermFul.promsOf c' i := by rw [TermFul.promsOf_some X.e3]; exact ht
-  have hloc := TermNoHold.certified_promLoc (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hsc (by first | exact TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw | exact TermViewInv.viewInv_run hV0 X.run | exact TermViewInv.viewInv_thread (TermViewInv.viewInv_run hV0 X.run) X.hc') hwin hx0 X.cert htp hm
+  have hloc := TermNoHold.certified_promLoc (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hsc (by first | exact TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw | exact TermViewInv.viewInv_run hV0 X.run | exact TermViewInv.viewInv_thread (TermViewInv.viewInv_run hV0 X.run) X.hc') hwin hx0 (TermTyped.tidAt_mono hAP.2 (TermTyped.tidAt_thread X.hc' (TermMain.tidAt_cut X.inv i S))) X.cert htp hm
   rw [hL] at hloc
   have hsL : ∃ cl, E'.sto L = some cl := by
     rcases hloc with ⟨cl, hcl⟩ | ⟨jj, hjj, hlj⟩
@@ -501,7 +506,7 @@ theorem promAlloc_loc (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p
     obtain ⟨thx, E, hthx, hx, hTEx, hmx, hSCx, hbox, hfb, hfr, -, -, -, hIH0⟩ := hx0
     exact ⟨thx, E, hthx, hx, hTEx, hmx, hSCx, hbox, hfb, hfr, fun _ _ _ h => h.elim, hIH0⟩
   obtain ⟨c1, c2, th1, th2, ρ1, η1, cx1, E2, -, -, -, -, -, -, hx1, hE, hTy, htv, hi, hmi, hscope, hpa1, -, -, -, -, -,
-    -, -, hsw, -⟩ := certified_promTypedX (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hsc (by first | exact TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw | exact TermViewInv.viewInv_run hV0 X.run | exact TermViewInv.viewInv_thread (TermViewInv.viewInv_run hV0 X.run) X.hc') hwin hX X.cert htp hm
+    -, -, hsw, -⟩ := certified_promTypedX (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hsc (by first | exact TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw | exact TermViewInv.viewInv_run hV0 X.run | exact TermViewInv.viewInv_thread (TermViewInv.viewInv_run hV0 X.run) X.hc') hwin hX (TermTyped.tidAt_mono hAP.2 (TermTyped.tidAt_thread X.hc' (TermMain.tidAt_cut X.inv i S))) X.cert htp hm
   obtain ⟨cl1, o1, U, us, j1, hcl1, h1o, hus, hj, ho⟩ :=
     SWOne_holds p _ _ _ _ ρ1 η1 cx1 _ _ hE hTy htv hi hmi (TermTyped.scopeD_SW hscope hsw) hpa1 hsw
   rw [hx1.2.2.2.2.1 _ _ (by rw [hL]; exact hT)] at hcl1

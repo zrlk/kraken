@@ -5,14 +5,17 @@ files, the probes, the premise guard (tools/premises) and the check script check
 Every Lean file is stored as `.lean.txt` so that lake does not glob or build it as part of
 the library; its `import` lines name the `WeakCore.*` modules.
 
-Files (100):
+Files (288):
   FlatHashMapSlow.lean.txt
   HashMapLFSlow.lean.txt
   RWLockSlow.lean.txt
   ReorderSlow.lean.txt
   Report.lean.txt
+  Sce.lean.txt
+  SceTest.lean.txt
   SyntaxTest.lean.txt
   Tutorial.lean.txt
+  UElabTest.lean.txt
   check-promises.sh
   probes/TraitObject.lean.txt
   probes/Upcast.lean.txt
@@ -56,6 +59,7 @@ Files (100):
   tools/premises/bodyloss_base/lang.TermRun.gOf.txt
   tools/premises/bodyloss_base/lang.TermRun.touchesMem.txt
   tools/premises/bodyloss_base/premises.md5
+  tools/premises/crossset.py
   tools/premises/frozen/A9NoSpawn.stepsX_iff_steps_of_noSpawn.txt
   tools/premises/frozen/A9SpawnFinal.startOKX_of_initOK.txt
   tools/premises/frozen/A9SpawnFinal.startOKX_spawnS.txt
@@ -63,12 +67,38 @@ Files (100):
   tools/premises/frozen/ExtArmZ.reachable_typed_em0.txt
   tools/premises/frozen/ExtArmZ.token_unique_final_em0.txt
   tools/premises/frozen/ExtArmZ.token_unique_net_em0.txt
+  tools/premises/frozen/SceProof.MainInst.txt
+  tools/premises/frozen/SceProof.ScenInst.txt
+  tools/premises/frozen/SceProof.mainInst.txt
+  tools/premises/frozen/SceProof.scenInst.txt
   tools/premises/frozen/SpawnArmZ.machine_tokens_main_spawn.txt
   tools/premises/frozen/SpawnArmZ.machine_tokens_main_spawn_init.txt
   tools/premises/frozen/SpawnArmZ.reachable_typed_spawn.txt
   tools/premises/frozen/SpawnArmZ.token_unique_final_spawn.txt
   tools/premises/frozen/SpawnArmZ.token_unique_net_spawn.txt
   tools/premises/frozen/TermInit.InitShape.txt
+  tools/premises/frozen/TermLiveC.TokPath.txt
+  tools/premises/frozen/TermLiveC.TokPathCall.txt
+  tools/premises/frozen/TermLiveC.callEnd.txt
+  tools/premises/frozen/TermLiveC.forced_wait_held_thm.txt
+  tools/premises/frozen/TermLiveC.forced_wait_in_critical_section.txt
+  tools/premises/frozen/TermLiveC.forced_wait_in_critical_section_call.txt
+  tools/premises/frozen/TermLiveC.mutex_forced_wait_in_critical_section.txt
+  tools/premises/frozen/TermLiveC.mutex_incr_forced_wait_in_critical_section.txt
+  tools/premises/frozen/TermLiveC.noUseOf.txt
+  tools/premises/frozen/TermLiveC.opSafe.txt
+  tools/premises/frozen/TermLiveC.pathStep.txt
+  tools/premises/frozen/TermLiveC.seqlock_forced_wait_in_critical_section.txt
+  tools/premises/frozen/TermLiveC.tokEnd.txt
+  tools/premises/frozen/TermLiveCert.cfgCoh_scenario.txt
+  tools/premises/frozen/TermLiveCert.no_livelock_of_check.txt
+  tools/premises/frozen/TermLiveCert.no_livelock_of_check_fair.txt
+  tools/premises/frozen/TermLiveCert.outcome_of_check.txt
+  tools/premises/frozen/TermLiveCert.reach_of_check.txt
+  tools/premises/frozen/TermLiveCert.terminates_of_check.txt
+  tools/premises/frozen/TermLiveL3.no_induced_livelock_robust2_scenario.txt
+  tools/premises/frozen/TermLiveL3.no_induced_livelock_robust2_thm.txt
+  tools/premises/frozen/TermLiveL3.robust_touchedFree_thm.txt
   tools/premises/frozen/TermMain.InitOK.txt
   tools/premises/frozen/TermMain.ObligationsF.txt
   tools/premises/frozen/TermMain.initOK_of.txt
@@ -76,33 +106,191 @@ Files (100):
   tools/premises/frozen/TermMain.reachable_typedF.txt
   tools/premises/frozen/TermMain.token_unique_finalF.txt
   tools/premises/frozen/TermMain.token_unique_netF.txt
+  tools/premises/frozen/TermProgress.progress_main.txt
+  tools/premises/frozen/TermProgress.progress_main_cfg.txt
+  tools/premises/frozen/TermProgress.stuck_sharp.txt
   tools/premises/frozen/TermSpawn.KidOK.txt
   tools/premises/frozen/TermSpawn.StartOK.txt
   tools/premises/frozen/TermSpawn.machine_tokens_mainS.txt
   tools/premises/frozen/TermSpawn.startOK_of_initOK.txt
   tools/premises/frozen/TermSpawn.startOK_spawnS.txt
+  tools/premises/frozen/lang.CoreTerm.ExtName.Admits.txt
+  tools/premises/frozen/lang.CoreTerm.ExtName.deviceOnly.txt
   tools/premises/frozen/lang.CoreTerm.ExtName.events.txt
+  tools/premises/frozen/lang.CoreTerm.ExtName.isChoice.txt
+  tools/premises/frozen/lang.CoreTerm.ExtName.ok.txt
+  tools/premises/frozen/lang.CoreTerm.ExtName.pure.txt
   tools/premises/frozen/lang.CoreTerm.ExtName.res.txt
+  tools/premises/frozen/lang.CoreTerm.ExtName.resultsL.txt
   tools/premises/frozen/lang.CoreTerm.ExtName.sig.txt
   tools/premises/frozen/lang.CoreTerm.Op.txt
   tools/premises/frozen/lang.CoreTerm.checkOp.txt
+  tools/premises/frozen/lang.CoreTerm.devCellOK.txt
+  tools/premises/frozen/lang.CoreTerm.devCells.txt
+  tools/premises/frozen/lang.CoreTerm.exprNoDevFnptr.txt
+  tools/premises/frozen/lang.CoreTerm.exprNoDevOnly.txt
   tools/premises/frozen/lang.CoreTerm.tailCheck.txt
   tools/premises/frozen/lang.CoreTyping.OpT.txt
+  tools/premises/frozen/lang.TermLiveCert.ScriptedRun.txt
+  tools/premises/frozen/lang.TermLiveL3.SpuriousWake.txt
+  tools/premises/frozen/lang.TermProgress.ExtBy.txt
   tools/premises/frozen/lang.TermRun.Certified.txt
   tools/premises/frozen/lang.TermRun.Cfg.n.txt
   tools/premises/frozen/lang.TermRun.Cfg.txt
+  tools/premises/frozen/lang.TermRun.Event.observable.txt
   tools/premises/frozen/lang.TermRun.Event.txt
+  tools/premises/frozen/lang.TermRun.ExtEnabled.txt
   tools/premises/frozen/lang.TermRun.ExtNeedsNoProm.txt
   tools/premises/frozen/lang.TermRun.Solo.txt
   tools/premises/frozen/lang.TermRun.Step.txt
+  tools/premises/frozen/lang.TermRun.atChoiceCutB.txt
+  tools/premises/frozen/lang.TermRun.certB.txt
+  tools/premises/frozen/lang.TermRun.certCut.txt
   tools/premises/frozen/lang.TermRun.curCfg.txt
   tools/premises/frozen/lang.TermRun.evalOp.txt
   tools/premises/frozen/lang.TermRun.exitCode.txt
   tools/premises/frozen/lang.TermRun.extCfg.txt
+  tools/premises/frozen/lang.TermRun.extCut.txt
+  tools/premises/frozen/lang.TermRun.extRs.txt
   tools/premises/frozen/lang.TermRun.extSteps.txt
+  tools/premises/frozen/lang.TermRun.extSuccs.txt
   tools/premises/frozen/lang.TermRun.freshLabel.txt
   tools/premises/frozen/lang.TermRun.gOf.txt
+  tools/premises/frozen/lang.TermRun.lastDevWrite.txt
+  tools/premises/frozen/lang.TermRun.lastMmioW.txt
+  tools/premises/frozen/lang.TermRun.noPromises.txt
+  tools/premises/frozen/lang.TermRun.nodeTrunc.txt
+  tools/premises/frozen/lang.TermRun.obsTrace.txt
+  tools/premises/frozen/lang.TermRun.parkVs.txt
+  tools/premises/frozen/lang.TermRun.promise.txt
+  tools/premises/frozen/lang.TermRun.relView.txt
+  tools/premises/frozen/lang.TermRun.setPermit.txt
+  tools/premises/frozen/lang.TermRun.successorsAll.txt
+  tools/premises/frozen/lang.TermRun.thrOfTid.txt
+  tools/premises/frozen/lang.TermRun.threadSteps.txt
   tools/premises/frozen/lang.TermRun.touchesMem.txt
+  tools/premises/frozen/lang.TermRun.wake.txt
+  tools/premises/frozen/lang.TermRun.wakeCut.txt
+  tools/premises/frozen/lang.TermRun.wakeSuccs.txt
+  tools/premises/frozen/lang.TermRun.wordNum.txt
   tools/premises/guard.sh
   tools/premises/lang_absent_ok.txt
   tools/premises/premises.md5
+  tools/premises/sets/pr-release-15067-vendored/crossset.spec
+  tools/premises/sets/pr-release-15067-vendored/frozen/A9NoSpawn.stepsX_iff_steps_of_noSpawn.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/A9SpawnFinal.startOKX_of_initOK.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/A9SpawnFinal.startOKX_spawnS.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/ExtArmZ.machine_tokens_main_em0.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/ExtArmZ.reachable_typed_em0.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/ExtArmZ.token_unique_final_em0.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/ExtArmZ.token_unique_net_em0.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/SceProof.MainInst.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/SceProof.ScenInst.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/SceProof.mainInst.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/SceProof.scenInst.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/SpawnArmZ.machine_tokens_main_spawn.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/SpawnArmZ.machine_tokens_main_spawn_init.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/SpawnArmZ.reachable_typed_spawn.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/SpawnArmZ.token_unique_final_spawn.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/SpawnArmZ.token_unique_net_spawn.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/TermInit.InitShape.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/TermLiveC.TokPath.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/TermLiveC.TokPathCall.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/TermLiveC.callEnd.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/TermLiveC.forced_wait_held_thm.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/TermLiveC.forced_wait_in_critical_section.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/TermLiveC.forced_wait_in_critical_section_call.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/TermLiveC.mutex_forced_wait_in_critical_section.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/TermLiveC.mutex_incr_forced_wait_in_critical_section.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/TermLiveC.noUseOf.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/TermLiveC.opSafe.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/TermLiveC.pathStep.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/TermLiveC.seqlock_forced_wait_in_critical_section.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/TermLiveC.tokEnd.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/TermLiveCert.cfgCoh_scenario.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/TermLiveCert.no_livelock_of_check.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/TermLiveCert.no_livelock_of_check_fair.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/TermLiveCert.outcome_of_check.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/TermLiveCert.reach_of_check.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/TermLiveCert.terminates_of_check.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/TermLiveL3.no_induced_livelock_robust2_scenario.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/TermLiveL3.no_induced_livelock_robust2_thm.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/TermLiveL3.robust_touchedFree_thm.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/TermMain.InitOK.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/TermMain.ObligationsF.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/TermMain.initOK_of.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/TermMain.machine_tokens_mainF.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/TermMain.reachable_typedF.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/TermMain.token_unique_finalF.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/TermMain.token_unique_netF.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/TermProgress.progress_main.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/TermProgress.progress_main_cfg.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/TermProgress.stuck_sharp.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/TermSpawn.KidOK.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/TermSpawn.StartOK.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/TermSpawn.machine_tokens_mainS.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/TermSpawn.startOK_of_initOK.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/TermSpawn.startOK_spawnS.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.CoreTerm.ExtName.Admits.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.CoreTerm.ExtName.deviceOnly.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.CoreTerm.ExtName.events.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.CoreTerm.ExtName.isChoice.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.CoreTerm.ExtName.ok.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.CoreTerm.ExtName.pure.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.CoreTerm.ExtName.res.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.CoreTerm.ExtName.resultsL.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.CoreTerm.ExtName.sig.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.CoreTerm.Op.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.CoreTerm.checkOp.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.CoreTerm.devCellOK.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.CoreTerm.devCells.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.CoreTerm.exprNoDevFnptr.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.CoreTerm.exprNoDevOnly.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.CoreTerm.tailCheck.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.CoreTyping.OpT.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.TermLiveCert.ScriptedRun.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.TermLiveL3.SpuriousWake.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.TermProgress.ExtBy.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.TermRun.Certified.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.TermRun.Cfg.n.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.TermRun.Cfg.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.TermRun.Event.observable.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.TermRun.Event.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.TermRun.ExtEnabled.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.TermRun.ExtNeedsNoProm.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.TermRun.Solo.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.TermRun.Step.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.TermRun.atChoiceCutB.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.TermRun.certB.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.TermRun.certCut.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.TermRun.curCfg.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.TermRun.evalOp.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.TermRun.exitCode.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.TermRun.extCfg.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.TermRun.extCut.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.TermRun.extRs.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.TermRun.extSteps.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.TermRun.extSuccs.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.TermRun.freshLabel.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.TermRun.gOf.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.TermRun.lastDevWrite.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.TermRun.lastMmioW.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.TermRun.noPromises.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.TermRun.nodeTrunc.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.TermRun.obsTrace.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.TermRun.parkVs.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.TermRun.promise.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.TermRun.relView.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.TermRun.setPermit.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.TermRun.successorsAll.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.TermRun.thrOfTid.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.TermRun.threadSteps.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.TermRun.touchesMem.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.TermRun.wake.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.TermRun.wakeCut.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.TermRun.wakeSuccs.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.TermRun.wordNum.txt
+  tools/premises/sets/pr-release-15067-vendored/premises.md5
+  tools/premises/sets/toolchains.txt
+  tools/sce
+  tools/test-sce.sh

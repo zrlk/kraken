@@ -2472,6 +2472,7 @@ theorem SysInvW.publish_ownZero {p : Prog} {k : Promises.Knobs} {arch : Arch} {I
 
 /-- (F2′ P2) **Under `SysInvW`, after publishing `x`'s own handle no own-mode
 use reaches `x` along the certifying run** (`TermTyped.publish_noOwnUse`). -/
+-- (C) restricted to certificate runs with no boxed current(), the pre-C coverage; the finals use the anchored X-chain
 theorem SysInvW.publish_noOwnUse {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res}
     {MintOK : Res → Prop} {c : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res}
     (h : SysInvW p k arch Init MintOK c Eg Tot HP HS cr db) [ProgRetIall p] [TermA4.ProgCkWC p] (hP : ProgT p) {i : Nat} {c1 : Cfg}
@@ -2486,7 +2487,8 @@ theorem SysInvW.publish_noOwnUse {p : Prog} {k : Promises.Knobs} {arch : Arch} {
       TermTyped.OwnSide p (gOf p k arch c0 i) c0.mem c0.pairs th)
     (hprom : ∀ c0 th a v w, Solo p k arch i c1 c0 → w < c0.mem.size → Certified p k arch (promise c0 i a v w) i →
       c0.ths[i]? = some th → TermTyped.PromSide p (gOf p k arch c0 i) c0.mem c0.pairs th a v w)
-    {c2 : Cfg} (h12 : Solo p k arch i c1 c2) (hc2 : Certified p k arch c2 i) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) :
+    {c2 : Cfg} (h12 : Solo p k arch i c1 c2) (hc2 : Certified p k arch c2 i) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig)
+    (hnb : TermTyped.NoBoxedCur p k arch i c1) :
     ∃ th, c2.ths[i]? = some th ∧ ∃ ρ η cx Rf Rs, EnvOK p η ∧ Typed p cx th.term ∧
       FInvR ρ η th.σs (ResumeR p th.stack Rs) cx th.env Rf ∧
       ∀ a t c₁ rt ws ad' g, cx.use a = .ok (t, c₁) →
@@ -2494,7 +2496,7 @@ theorem SysInvW.publish_noOwnUse {p : Prog} {k : Promises.Knobs} {arch : Arch} {
         evalAt th.env a = some (rt, ws) → ws.map (·.val) = [.loc ad' g] → ad'.label ≠ ad.label := by
   obtain ⟨E, hT, hm, hH, hC⟩ := h.thInvMC hth
   exact TermTyped.publish_noOwnUse hP hs hth hterm hea hws rfl hT hm hH hC
-    (h.own_thread (arr_lt hth) ad.label) hside0 hn hbf hside hprom h12 hc2 hPS hSub hSig
+    (h.own_thread (arr_lt hth) ad.label) hside0 hn hbf hside hprom h12 hc2 hPS hSub hSig hnb
 
 #print axioms SysInvW.publish_ownZero
 #print axioms SysInvW.publish_noOwnUse

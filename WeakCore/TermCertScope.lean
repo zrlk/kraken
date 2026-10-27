@@ -56,18 +56,18 @@ theorem drf_prom {c : Cfg} {i : Nat} {a : Address} {v : WeakMem.Val} {w : Ts} (h
     · rw [TermStep.promise_other hji] at hj
       exact h0 j thj hj
 
-/-- (IO1) The extern move keeps `RunScope` (the continuation of a scoped `let`, one more binding). -/
+/-- The extern move keeps `RunScope` (the continuation of a scoped `let`, one more binding). -/
 theorem drf_ext {c c' : Cfg} {i : Nat} (h0 : TermScope.RunScope c) (hs : c' ∈ extSteps c i) :
     TermScope.RunScope c' := by
-  obtain ⟨th, x, a, e, evs, hth, hterm, rfl⟩ := extSteps_shape hs
-  intro j t hj
-  rcases set_get_cases hj with ⟨rfl, rfl⟩ | ⟨-, hj'⟩
-  · obtain ⟨hok, hσs, he, hstk⟩ := h0 _ th hth
-    rw [hterm] at hok he
-    simp only [TermScope.allOK, Bool.and_eq_true] at hok
-    exact ⟨hok.2, hσs, TermScope.envDRF_cons (fun _ => rfl)
-      (fun y hy hne => he y (TermScope.free_let_body hy hne)), hstk⟩
-  · exact h0 j t hj'
+  rcases extSteps_shape hs with ⟨th, hth, ⟨x, n, a, e, evs, rs, hterm, -, -, rfl⟩ | ⟨x, a, e, l, hterm, -, rfl⟩⟩ <;>
+  · intro j t hj
+    rcases set_get_cases hj with ⟨rfl, rfl⟩ | ⟨-, hj'⟩
+    · obtain ⟨hok, hσs, he, hstk⟩ := h0 _ th hth
+      rw [hterm] at hok he
+      simp only [TermScope.allOK, Bool.and_eq_true] at hok
+      exact ⟨hok.2, hσs, TermScope.envDRF_cons (fun _ => by first | rfl | (cases n <;> rfl))
+        (fun y hy hne => he y (TermScope.free_let_body hy hne)), hstk⟩
+    · exact h0 j t hj'
 
 /-- **`RunScope` along every solo run** of a checked program. -/
 theorem solo_drf {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c c1 : Cfg}

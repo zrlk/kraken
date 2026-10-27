@@ -86,7 +86,7 @@ theorem components_load {n : Nat} {E : Entry} {Λ : Layout} {prog : _root_.Progr
   mem_onto _ _ _ h := absurd h.choose_spec.choose_spec.1 not_live_start
   pre_alloc _ _ _ _ h := absurd h.choose_spec.choose_spec.1 not_live_start
   env_rep _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ he := nomatch he
-  env_total i th hth d e xs he hxs x _ ty ws hws k hk := by
+  env_total i th hth d e xs he hxs _hxf x _ ty ws hws k hk := by
     exfalso
     obtain ⟨-, rfl⟩ := SrcStart.start_ths hth
     match d, he with

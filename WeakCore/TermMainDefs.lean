@@ -898,6 +898,32 @@ theorem sum_updD_le {c : Cfg} {cr : Nat → Ts → Res} {i : Nat} {cr' δ : Ts �
   have := hle ns
   omega
 
+-- COPY (C) of TermExtMid.cutSto_box (TermExtMid imports this file).
+private theorem cutSto_boxD {Eg : GEnv} {l : AllocLabel} {j : Nat} (hs : Eg.sto l = some ⟨.unit, none⟩)
+    (hp : Eg.pfr l = some 0) : cutSto Eg j l = some ⟨.unit, none⟩ := by
+  unfold cutSto GEnv.InCut GEnv.Shared
+  rw [ite_eq_left_of_eq_true _ _ (eq_true ⟨_, hs, Or.inr ⟨0, hp⟩⟩), hs]
+
+/-- (C) `TidAt` at a cut from `TidBox` of thread `j`. -/
+theorem tidAt_cutG {Eg : GEnv} {c : Cfg} {j : Nat} (h : ∀ th, c.ths[j]? = some th → TidBox Eg th)
+    (S : AllocLabel → Prop) : TermTyped.TidAt j c (Cut Eg j S) := fun th hth l hl =>
+  let hb := h th hth l hl
+  ⟨cutSto_boxD hb.1 hb.2, hb.2⟩
+
+/-- (C) **The anchored run's box facts from `SysInvN`**: thread `j`'s box (`TidBox`) is a `unit` cell of
+any cut of `Eg` at `j`, at frontier `0` (`TermTyped.TidAt`). -/
+theorem tidAt_cut {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {MintOK : Res → Prop} {c : Cfg}
+    {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res}
+    (h : SysInvN p k arch Init MintOK c Eg Tot HP HS cr db) (j : Nat) (S : AllocLabel → Prop) :
+    TermTyped.TidAt j c (Cut Eg j S) := tidAt_cutG (h.tidBox j) S
+
+/-- (C) `tidAt_cut` after thread `j`'s promise step. -/
+theorem tidAt_cutP {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {MintOK : Res → Prop} {c : Cfg}
+    {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res}
+    (h : SysInvN p k arch Init MintOK c Eg Tot HP HS cr db) (j : Nat) (S : AllocLabel → Prop) {a : Address}
+    {v : WeakMem.Val} {w : Ts} : TermTyped.TidAt j (promise c j a v w) (Cut Eg j S) :=
+  TermTyped.tidAt_prom (tidAt_cut h j S)
+
 end TermMain
 
 #print axioms TermMain.CrShift_zero

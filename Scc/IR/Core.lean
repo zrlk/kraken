@@ -238,10 +238,11 @@ def badMask : Nat := 48
 result for a spawned one).  A `ThreadId` is the TCB's address; the index is
 kept here for the runtime. -/
 def index : Nat := 56
-/-- The thread's depth counter: the calls of code blocks it is in (each
-`let x = f(a)` adds one while `f` runs; tail calls and runtime calls none),
-0 when the thread starts (the pinned region is zero-filled and never
-reused).  Only the owning thread accesses it (`Lower.callBlock`). -/
+/-- Unused: the word of the removed stack depth counter (the stack abort is
+the grow routine's, at the stack cap; `Lower.stackBudget`).  Kept this
+release so that `size` and the pinned block do not move; it goes with the
+next layout change.  Nothing reads or writes it; it is 0 (the pinned region
+is zero-filled and never reused). -/
 def depth : Nat := 64
 /-- The size of a TCB in bytes (a spawned thread's argument words follow). -/
 def size : Nat := 72

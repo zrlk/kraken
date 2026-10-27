@@ -19,16 +19,23 @@
 # `ret0x64/ret0.s` (the x86-64 `ret0` certificate's text,
 # `Spike/Test/Ret0LinkedX64.lean`), `frame0x64/frame0` from
 # `frame0x64/frame0.s` (the x86-64 `frame0` certificate's text,
-# `Spike/Test/Frame0LinkedX64.lean`), `ret0x64lld/ret0` from
+# `Spike/Test/Frame0LinkedX64.lean`), `call1x64/call1` from
+# `call1x64/call1.s` (the x86-64 `call1` certificate's text,
+# `Spike/Test/Call1LinkedX64.lean`), `hello1x64/hello1` from
+# `hello1x64/hello1.s` (the x86-64 `hello1` certificate's text, linked the
+# same way, `Spike/Test/Hello1LinkedX64.lean`), `ret0x64lld/ret0` from
 # `ret0x64lld/ret0.s` (the x86-64 `ret0` text again, linked by `ld.lld
 # -static`, `.rodata` below the code; `Spike/Test/Ret0LldX64.lean`), `ret0a64/ret0` from `ret0a64/ret0.s`
 # (the AArch64 `ret0` certificate's text, linked as `run.sh` links it,
 # `Spike/Test/Ret0LinkedA64.lean`), and `hello1a64/hello1` from
 # `hello1a64/hello1.s` (the AArch64 `hello1` certificate's text, linked the
-# same way, `Spike/Test/Hello1LinkedA64.lean`); the digests in `ElfTest.lean`,
+# same way, `Spike/Test/Hello1LinkedA64.lean`), and `call1a64/call1` from
+# `call1a64/call1.s` (the AArch64 `call1` certificate's text, linked the same
+# way, `Spike/Test/Call1LinkedA64.lean`); the digests in `ElfTest.lean`,
 # `Ret0LinkedX64.lean`, `Frame0LinkedX64.lean`, `Ret0LldX64.lean`,
-# `Ret0LinkedA64.lean` and `Hello1LinkedA64.lean` then need updating if the
-# tools changed. Exits 1 on a mismatch.
+# `Ret0LinkedA64.lean`, `Hello1LinkedA64.lean`, `Call1LinkedA64.lean` and
+# `Call1LinkedX64.lean`, `Hello1LinkedX64.lean` then
+# need updating if the tools changed. Exits 1 on a mismatch.
 set -eu
 LAKE=${LAKE:-lake}
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
@@ -38,11 +45,12 @@ TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 # The fixtures, the tools each needs, and its recorded command
 # (`link F OUT`: write fixture F under the directory OUT).
-FIXTURES="x a a_def a_bid ret0x64/ret0 ret0a64/ret0 hello1a64/hello1 frame0x64/frame0 ret0x64lld/ret0"
+FIXTURES="x a a_def a_bid ret0x64/ret0 ret0a64/ret0 hello1a64/hello1 call1a64/call1 frame0x64/frame0 call1x64/call1"
+FIXTURES="$FIXTURES ret0x64lld/ret0 hello1x64/hello1"
 tools() {
   case "$1" in
-    x|ret0x64/ret0|frame0x64/frame0) echo "as ld" ;;
-    a|a_def|a_bid|ret0a64/ret0|hello1a64/hello1) echo "clang ld.lld" ;;
+    x|ret0x64/ret0|frame0x64/frame0|call1x64/call1|hello1x64/hello1) echo "as ld" ;;
+    a|a_def|a_bid|ret0a64/ret0|hello1a64/hello1|call1a64/call1) echo "clang ld.lld" ;;
     ret0x64lld/ret0) echo "as ld.lld" ;;
   esac
 }
@@ -59,6 +67,10 @@ link() {
        ld -static -o "$2/ret0x64/ret0" "$TMP/ret0.o" ;;
     frame0x64/frame0) mkdir -p "$2/frame0x64" && as -o "$TMP/frame0.o" "$D/frame0x64/frame0.s" &&
        ld -static -o "$2/frame0x64/frame0" "$TMP/frame0.o" ;;
+    call1x64/call1) mkdir -p "$2/call1x64" && as -o "$TMP/call1.o" "$D/call1x64/call1.s" &&
+       ld -static -o "$2/call1x64/call1" "$TMP/call1.o" ;;
+    hello1x64/hello1) mkdir -p "$2/hello1x64" && as -o "$TMP/hello1.o" "$D/hello1x64/hello1.s" &&
+       ld -static -o "$2/hello1x64/hello1" "$TMP/hello1.o" ;;
     ret0x64lld/ret0) mkdir -p "$2/ret0x64lld" && as -o "$TMP/ret0.o" "$D/ret0x64lld/ret0.s" &&
        ld.lld -static -o "$2/ret0x64lld/ret0" "$TMP/ret0.o" ;;
     ret0a64/ret0) mkdir -p "$2/ret0a64" &&
@@ -67,6 +79,9 @@ link() {
     hello1a64/hello1) mkdir -p "$2/hello1a64" &&
        clang --target=aarch64-linux-gnu -march=armv8.4-a -nostdlib -static -fuse-ld=lld \
          -o "$2/hello1a64/hello1" "$D/hello1a64/hello1.s" ;;
+    call1a64/call1) mkdir -p "$2/call1a64" &&
+       clang --target=aarch64-linux-gnu -march=armv8.4-a -nostdlib -static -fuse-ld=lld \
+         -o "$2/call1a64/call1" "$D/call1a64/call1.s" ;;
   esac
 }
 if [ "${1:-}" = --relink ]; then

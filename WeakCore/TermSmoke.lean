@@ -29,8 +29,10 @@ structure Setup where
   nalloc : Nat
   res : List Word
 
-def runSetup (p : Prog) (f : String) (ts : List Ty) (argTy : Ty) (arg : List Word)
-    (depth : Nat := 60) : Option Setup := do
+/-- The setup run's final configuration and its result words (`none`: it did not return within `depth`, or a
+load returned undef).  `runSetup` is this, summarised; the real spawn (`TermSpawn.spawnS`) starts from the `Cfg`. -/
+def runSetupCfg (p : Prog) (f : String) (ts : List Ty) (argTy : Ty) (arg : List Word)
+    (depth : Nat := 60) : Option (Cfg × List Word) := do
   let c : Cfg := { mem := #[], ths := #[{ term := .tail f [] (v "a") ts, env := [("a", argTy, arg)] }] }
   let fin ← (explore p Promises.Knobs.all .arm { maxP := 0 } depth c).head?
   let th ← fin.ths[0]?
@@ -38,6 +40,12 @@ def runSetup (p : Prog) (f : String) (ts : List Ty) (argTy : Ty) (arg : List Wor
     | .ret a => (evalAt th.env a).map (·.2)
     | _ => none
   if th.undefs > 0 then none
+  pure (fin, res)
+
+def runSetup (p : Prog) (f : String) (ts : List Ty) (argTy : Ty) (arg : List Word)
+    (depth : Nat := 60) : Option Setup := do
+  let (fin, res) ← runSetupCfg p f ts argTy arg depth
+  let th ← fin.ths[0]?
   pure ⟨fin.mem, fin.pairs, th.vs, th.nalloc, res⟩
 
 /-- Spawn threads after a setup: they inherit its view (spawn synchronises). -/

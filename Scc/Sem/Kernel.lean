@@ -40,11 +40,11 @@ reads and writes the registers this file names and adds no behaviour.
   `exec` but at a supported system call, a choice among the states the
   kernel model may resume the thread in); `CertAfter`: the calling thread is
   certified under `certExec` after a kernel step.
-- `soloExec`, `certSem` (with `solo`, `soloHeld`, `writeTree`, `siteAt`,
-  `svcDeps`, `certDeps`): certification as the solo projection of the
-  kernel step: at a transfer site and at a supported system call, the
-  states `xferStep` and `sysStep` of the thread run alone may leave it in,
-  with the kernel's register dependencies at a system call; `clone` ends a
+- `soloExec`, `certSem` (with `solo`, `soloHeld`, `siteAt`, `svcDeps`,
+  `certDeps`): certification as the solo projection of the kernel step: at
+  a transfer site and at a supported system call, the states `xferStep` and
+  `sysStep` of the thread run alone may leave it in, with the kernel's
+  register dependencies at a system call; `clone` and `write` end a
   certifying run (no branch).
 - `hooks`: the extension hooks of the canonical targets. A kernel step
   (`sys`, `spawn`) requires `CertAfter`, and certification
@@ -57,7 +57,7 @@ Sanity lemmas: `fault_of_unsupported`, `fault_clone_full`, `sys_cloneErr`, `sys_
 step returns is one `certExec` allows, but the parent's stack-range erasure
 at `clone`; the certification step matching a return is
 `certSem_step_of_sysStep`, `Scc/Sem/CertStep.lean`; `certSem` has no step
-at `clone`),
+at `clone` and `write`),
 `xfer_det`, `xfer_take`, `take_bytes`, `release_bytes`,
 `release_take_handoff`, `step_at_take`, `fault_of_unmapped`,
 `unmappedAt_of_root`; per ISA the target files check a
@@ -694,10 +694,10 @@ sites are plain `nop`s to it. `soloExec` is instead the kernel's own step
 of the thread run alone (`solo`): at a transfer site and at a system call
 the instruction is a choice among the states the thread may resume in after
 `xferStep`, `sysStep` or `spawnStep` of the configuration with only that
-thread's state, the kernel state `x` of the step, and no shared write; at a
-`write` the bytes the kernel would read from shared memory are loads of
-the calling thread (`writeTree`). Its register dependencies at a system
-call are the kernel's (`svcDeps`: the result registers, no input). -/
+thread's state, the kernel state `x` of the step, and no shared write; at
+`clone` and `write` there is no choice (a certifying run ends there). Its
+register dependencies at a system call are the kernel's (`svcDeps`: the
+result registers, no input). -/
 
 /-- The register dependencies of the kernel's return (`retThread`): the
 result registers written, with no register input. -/
@@ -734,20 +734,6 @@ def stOf (tid : Nat) (c : Config I × KState) : Option I.State := (c.1.threads[t
 /-- A choice among the states `ss`, with no event. -/
 def leaves (ss : List I.State) : EvTree I.State := .choose ss.length fun i => .done ss[i]
 
-/-- **The first `k` bytes of `write(…, buf, …)` then the return of `k`**:
-for each byte not in the thread's private memory, the plain load of the
-8-byte word holding it (`readByte`); then the state `Abi.ret s k`. -/
-def writeTree (s : I.State) (buf k : Nat) : EvTree I.State :=
-  go 0 k
-where
-  go (i : Nat) : Nat → EvTree I.State
-    | 0 => .done (K.ret s (BitVec.ofNat 64 k))
-    | m + 1 =>
-      let a := buf + i
-      match (K.dmem s).loadBytes (BitVec.ofNat 64 a) 1 with
-      | some [_] => go (i + 1) m
-      | _ => .load .plain false ⟨BitVec.ofNat 64 (a - a % 8), 8⟩ fun _ => go (i + 1) m
-
 /-- The transfer site of the code marks `μ` at state `s`, if any. -/
 def siteAt (μ : Marks) (s : I.State) : Option XferKind :=
   if μ.site .take = some (K.pc s) then some .take
@@ -759,15 +745,16 @@ kernel state `x`:
 
 - at a transfer site of kind `k`, the state `xferStep k` leaves the thread
   in (no branch if it takes no step);
-- at a supported system call other than `clone`, the states `sysStep`
-  (`.ret`) leaves it in; at `write(…, buf, n)` also `writeTree` of each
-  count `1 … n`;
-- at `clone`, no branch: like `exit_group`, `clone` ends a
-  certifying run, so no promise is certified across it. The kernel step
-  itself is unchanged (`spawnStep`, and `sysStep`'s refusals, each with
-  `CertAfter`); only certification stops there. This is what makes
-  `soloExec` independent of the ranges the thread holds (`soloHeld none`
-  reads them only at `clone`);
+- at a supported system call other than `clone` and `write`, the states
+  `sysStep` (`.ret`) leaves it in;
+- at `clone` and at `write`, no branch:
+  like `exit_group`, they end a certifying run, so no promise is certified
+  across them, and a thread certified at a `write` has none outstanding
+  (`prom_nil_of_write`). The kernel step itself is unchanged (`spawnStep`,
+  and `sysStep`'s bytes, returns and refusals, each with `CertAfter`); only
+  certification stops there. This is what makes `soloExec` independent of
+  the ranges the thread holds (`soloHeld none` reads them only at `clone`)
+  and of a `write`'s progress record;
 - elsewhere the ISA's `exec`. -/
 def soloExec (A : Arch) (μ : Marks) (x : KState) (tid : Nat) (s : I.State) : Option (EvTree I.State) :=
   match siteAt K μ s with
@@ -779,11 +766,7 @@ def soloExec (A : Arch) (μ : Marks) (x : KState) (tid : Nat) (s : I.State) : Op
       rs.filterMap fun r => (sysStep K A tid c (.ret r)).bind fun (_, c') => stOf tid c'
     match decode K.nrs (K.nr s) (K.arg s) with
     | some (.clone _ _) => some (leaves [])
-    | some (.write fd buf n) =>
-      let rs := rets (results (.write fd buf n))
-      let ws := (List.range n).map fun k => writeTree K s buf (k + 1)
-      some (.choose (rs.length + ws.length) fun i =>
-        if h : i.val < rs.length then .done rs[i.val] else (ws[i.val - rs.length]?).getD (.fault ""))
+    | some (.write _ _ _) => some (leaves [])
     | some call => some (leaves (rets (results call)))
     | none => I.exec s
   else I.exec s
@@ -1101,7 +1084,7 @@ returning `r` to thread `tid` from a call other than `exit` and
 (`sysStep_ret_shape`). For `write` this needs the invariant that at most
 `n` bytes are out (`wr ≤ n`), which the byte steps keep (they need
 `wr < n`). The certification step itself is `certSem_step_of_sysStep`
-(`Scc/Sem/CertStep.lean`). -/
+(`Scc/Sem/CertStep.lean`), for calls other than `clone` and `write`. -/
 theorem sysStep_ret_mem {A : Arch} {tid : Nat} {c c' : Config I × KState} {r : BitVec 64} {es : List Ev}
     {t : Thread I} {call : Call} (ht : c.1.threads[tid]? = some t) (hc : callOf K t = some call)
     (h : sysStep K A tid c (.ret r) = some (es, c'))

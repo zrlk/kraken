@@ -19,7 +19,7 @@ theorem wf_of_tb (t : Ty) : ∀ {nt c ni : Nat}, t.wf nt ni = true → tb c t = 
   | tvar k => intro nt c ni h1 h2; simpa [Ty.wf, tb] using h2
   | prod a b iha ihb => intro nt c ni h1 h2; simp only [Ty.wf, tb, Bool.and_eq_true] at h1 h2 ⊢; exact ⟨iha h1.1 h2.1, ihb h1.2 h2.2⟩
   | sum a b iha ihb => intro nt c ni h1 h2; simp only [Ty.wf, tb, Bool.and_eq_true] at h1 h2 ⊢; exact ⟨iha h1.1 h2.1, ihb h1.2 h2.2⟩
-  | code a b iha ihb => intro nt c ni h1 h2; simp only [Ty.wf, tb, Bool.and_eq_true] at h1 h2 ⊢; exact ⟨iha h1.1 h2.1, ihb h1.2 h2.2⟩
+  | code a b _ iha ihb => intro nt c ni h1 h2; simp only [Ty.wf, tb, Bool.and_eq_true] at h1 h2 ⊢; exact ⟨iha h1.1 h2.1, ihb h1.2 h2.2⟩
   | array _ t ih => intro nt c ni h1 h2; simp only [Ty.wf, tb, Bool.and_eq_true] at h1 h2 ⊢; exact ⟨h1.1, ih h1.2 h2⟩
   | ptr _ t ih => intro nt c ni h1 h2; simp only [Ty.wf, tb, Bool.and_eq_true] at h1 h2 ⊢; exact ⟨h1.1, ih h1.2 h2⟩
   | ptrOpt _ t ih => intro nt c ni h1 h2; simp only [Ty.wf, tb, Bool.and_eq_true] at h1 h2 ⊢; exact ⟨h1.1, ih h1.2 h2⟩

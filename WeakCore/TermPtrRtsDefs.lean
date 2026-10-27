@@ -152,7 +152,7 @@ theorem tyMentions_substT_unit : ∀ (t : Ty) (k j : Nat), j < k →
         · simp [h1, h2]
   | prod a b iha ihb => intro k j h; simp only [Ty.substT, Ty.tyMentions, iha k j h, ihb k j h]
   | sum a b iha ihb => intro k j h; simp only [Ty.substT, Ty.tyMentions, iha k j h, ihb k j h]
-  | code a b iha ihb => intro k j h; simp only [Ty.substT, Ty.tyMentions, iha k j h, ihb k j h]
+  | code a b _ iha ihb => intro k j h; simp only [Ty.substT, Ty.tyMentions, iha k j h, ihb k j h]
   | array i t ih => intro k j h; simp only [Ty.substT, Ty.tyMentions, ih k j h]
   | ptr μ t ih => intro k j h; simp only [Ty.substT, Ty.tyMentions, ih k j h]
   | ptrOpt μ t ih => intro k j h; simp only [Ty.substT, Ty.tyMentions, ih k j h]
@@ -176,7 +176,7 @@ theorem idxMentions_substT_unit : ∀ (t : Ty) (k j : Nat),
       · split <;> rfl
   | prod a b iha ihb => intro k j; simp only [Ty.substT, Ty.idxMentions, iha, ihb]
   | sum a b iha ihb => intro k j; simp only [Ty.substT, Ty.idxMentions, iha, ihb]
-  | code a b iha ihb => intro k j; simp only [Ty.substT, Ty.idxMentions, iha, ihb]
+  | code a b _ iha ihb => intro k j; simp only [Ty.substT, Ty.idxMentions, iha, ihb]
   | array i t ih => intro k j; simp only [Ty.substT, Ty.idxMentions, ih]
   | ptr μ t ih => intro k j; simp only [Ty.substT, Ty.idxMentions, ih]
   | ptrOpt μ t ih => intro k j; simp only [Ty.substT, Ty.idxMentions, ih]
@@ -211,7 +211,7 @@ theorem countT_substT_unit : ∀ (t : Ty) (k j : Nat), j < k →
       simp only [Ty.substT, shiftT_unit, Ty.countT, ih (k + 1) (j + 1) (by omega), ih (k + 1) 0 (by omega),
         tyMentions_substT_unit t (k + 1) (j + 1) (by omega)]
   | sum a b _ _ => intro k j h; simp only [Ty.countT]; rw [← tyMentions_substT_unit (.sum a b) k j h]; simp only [Ty.substT, Ty.countT]; rfl
-  | code a b _ _ => intro k j h; simp only [Ty.countT]; rw [← tyMentions_substT_unit (.code a b) k j h]; simp only [Ty.substT, Ty.countT]; rfl
+  | code a b kd _ _ => intro k j h; simp only [Ty.countT]; rw [← tyMentions_substT_unit (.code a b kd) k j h]; simp only [Ty.substT, Ty.countT]; rfl
   | array i t _ => intro k j h; simp only [Ty.countT]; rw [← tyMentions_substT_unit (.array i t) k j h]; simp only [Ty.substT, Ty.countT]; rfl
   | ptr μ t _ => intro k j h; simp only [Ty.countT]; rw [← tyMentions_substT_unit (.ptr μ t) k j h]; simp only [Ty.substT, Ty.countT]; rfl
   | ptrOpt μ t _ => intro k j h; simp only [Ty.countT]; rw [← tyMentions_substT_unit (.ptrOpt μ t) k j h]; simp only [Ty.substT, Ty.countT]; rfl
@@ -238,7 +238,7 @@ theorem countI_substT_unit : ∀ (t : Ty) (k j : Nat),
       simp only [Ty.substT, shiftT_unit, Ty.countI, ih, idxMentions_substT_unit,
         countT_substT_unit t (k + 1) 0 (by omega)]
   | sum a b _ _ => intro k j; simp only [Ty.countI]; rw [← idxMentions_substT_unit (.sum a b) k j]; simp only [Ty.substT, Ty.countI]; rfl
-  | code a b _ _ => intro k j; simp only [Ty.countI]; rw [← idxMentions_substT_unit (.code a b) k j]; simp only [Ty.substT, Ty.countI]; rfl
+  | code a b kd _ _ => intro k j; simp only [Ty.countI]; rw [← idxMentions_substT_unit (.code a b kd) k j]; simp only [Ty.substT, Ty.countI]; rfl
   | array i t _ => intro k j; simp only [Ty.countI]; rw [← idxMentions_substT_unit (.array i t) k j]; simp only [Ty.substT, Ty.countI]; rfl
   | ptr μ t _ => intro k j; simp only [Ty.countI]; rw [← idxMentions_substT_unit (.ptr μ t) k j]; simp only [Ty.substT, Ty.countI]; rfl
   | ptrOpt μ t _ => intro k j; simp only [Ty.countI]; rw [← idxMentions_substT_unit (.ptrOpt μ t) k j]; simp only [Ty.substT, Ty.countI]; rfl

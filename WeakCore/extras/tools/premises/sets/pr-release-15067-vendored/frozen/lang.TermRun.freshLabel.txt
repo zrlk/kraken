@@ -1,0 +1,3 @@
+TermRun.freshLabel : Nat → Nat → Nat → Nat → WeakMem.AllocLabel
+  := fun base n i k => base + i + n * k
+WeakMem.AllocLabel : Type

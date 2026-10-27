@@ -310,13 +310,13 @@ None is in the fragment, and neither emitter has a pair access yet: A64
     `index` 56 and **`depth`** 64 (`Tcb.size` = 72).
   - `badMask` is reserved for the loaded-value barrier's bad-bit mask. It is
     0 under `gc none` and nothing reads it.
-  - `depth` is the thread's stack depth counter: the calls of code blocks it
-    is in. A call `let x = f(a)` of a code block loads it, aborts `stack` if
-    the new depth would exceed the program's limit (`Lower.stackBudget`,
-    chosen so that the stack never reaches `stackCapBytes`), and stores the
-    new depth before the call and the old one after it; tail calls and
-    runtime calls do not count. Only the owning thread accesses it; it
-    starts at 0 because the pinned region is zero-filled and never reused.
+  - `depth` is unused: it was the thread's stack depth counter, now removed.
+    The only stack abort is the grow routine's, when a frame does not fit
+    under `stackCapBytes`; `Lower.stackBudget` gives the depth (`B.frames`)
+    within which that never happens. The word is kept this release so that
+    `Tcb.size` and the pinned block do not move, and goes with the next
+    layout change. Nothing accesses it; it is 0 because the pinned region is
+    zero-filled and never reused.
 - **Spawn arguments.** A spawned thread's argument words follow the fields
   by region: scalars from byte 72, trace words as the TCB's trace region
   (`Term.tcbLayout`). The child's trampoline reads them back from there.

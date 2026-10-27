@@ -53,8 +53,9 @@ are `si_nd`. The counter and the headers are outside the frame and outside
 the thread's private memory (`hmem`).
 
 `seg_allocW` is the segment inside a predicate `W` (one obligation per
-node, `AllocW`) for any frame condition no write inside the frame breaks;
-`seg_alloc` is it inside the trivial predicate at `DFrame R m0`.
+node, `AllocW`) for any frame condition no write inside the frame breaks
+(`seg_allocW_at` from any node); `seg_alloc` is it inside the trivial
+predicate at `DFrame R m0`.
 -/
 import Spike.Lib.A64AllocNodes
 import Kraken.AArch64.Parser
@@ -414,11 +415,13 @@ def E (lbl : WeakMem.AllocLabel → Option Nat) : AX → ND
 /-- **The allocation's continuation** at the fresh label `l`, base `b`:
 the return to `ra` past the source's allocation step, `x` bound to `l`'s
 locative, `x0 = b` the base for the counter's old value (`alloc_nd`; the
-words `w` are the allocation's). -/
-def Ea (l : WeakMem.AllocLabel) (b _w : Nat) : ND :=
+words `w` are the allocation's, `q.n` elements of the element type's
+words). -/
+def Ea (l : WeakMem.AllocLabel) (b w : Nat) : ND :=
   ⟨Int64.ofBitVec q.ra, oE, fun σ c => ∃ (ini old : Nat), c = allocCtl q.c0 q.x q.τ q.e q.n l ini ∧
     σ.regs.X0.toNat = b ∧ b = ms.heap + 16 * old + ms.off q.n q.τ ∧ old + ms.units q.n q.τ ≤ ms.cells ∧
-    σ.regs.X29.toBitVec = q.x29 ∧ σ.regs.X30.toBitVec = q.ra⟩
+    σ.regs.X29.toBitVec = q.x29 ∧ σ.regs.X30.toBitVec = q.ra ∧
+    ∃ us, TermRun.accs (TermRun.close [] q.τ) = some us ∧ w = q.n * TermRun.nWords us⟩
 
 /-- **The code**: every block and single instruction at its node's pc. -/
 structure Code (exe : _root_.Executable) (endPc : Int64) : Prop where
@@ -510,13 +513,9 @@ macro "anode " b:ident ok:ident f:ident : tactic =>
   `(tactic| refine seg_ndW (by simp [$b:ident]) $ok hF hR hal hlo hhi
     (fun s he hn => hcode.$f s he hn) hW.$f fun σ c hJ => ⟨c, .refl c, ?_⟩)
 
-/-- **`scc_rt_alloc` is one segment inside `W`** from its entry to its
-return or its heap abort, for every frame condition `F` no write inside the
-frame breaks (`seg_alloc` is the frame condition `DFrame R m0`): the counter
-and every header the code may store are unmapped in private memory in every
-memory of `F` (`hmem`); its nodes'
-states lie in `W`, none moved by `K` (`hW`). -/
-theorem seg_allocW {W : Frag isaLSE2} {K : State → State → Prop} {F : MachineData → Prop} (hF : FStable R F)
+/-- **`scc_rt_alloc` is one segment inside `W` from any of its nodes `i0`**
+to its return or its heap abort (`seg_allocW` from its entry). -/
+theorem seg_allocW_at {W : Frag isaLSE2} {K : State → State → Prop} {F : MachineData → Prop} (hF : FStable R F)
     (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -160) (hhi : 0 ≤ R.hi)
     (hq : q.OK ms (_root_.Executable.labels exe).label) (hcode : Code ms q exe endPc)
     (hentry : (_root_.Executable.labels exe).label ".L2_scc_rt_alloc.0_entry" =
@@ -526,10 +525,10 @@ theorem seg_allocW {W : Frag isaLSE2} {K : State → State → Prop} {F : Machin
       ∀ m, F m → Mem.loadInt m.dmem a 8 = none)
     (hxa : ∀ l b w s c, lbl l = none →
       At exe endPc R F (Ea ms q l b w) s c → ms.xa l b w s c)
-    (hW : AllocW ms q W K exe endPc R F) :
-    SegW W K p lbl ms (At exe endPc R F (N (_root_.Executable.labels exe).label ms q .e))
+    (hW : AllocW ms q W K exe endPc R F) (i0 : AN) :
+    SegW W K p lbl ms (At exe endPc R F (N (_root_.Executable.labels exe).label ms q i0))
       (fun s c => ∃ x, At exe endPc R F (E (_root_.Executable.labels exe).label ms q lbl x) s c) := by
-  refine fn_segW (N := N _ ms q) (E := E _ ms q lbl) (fun i => ?_) AN.e
+  refine fn_segW (N := N _ ms q) (E := E _ ms q lbl) (fun i => ?_) i0
   cases i
   case e =>
     anode b0 b0_ok e; rw [N, b0_run]
@@ -678,8 +677,30 @@ theorem seg_allocW {W : Frag isaLSE2} {K : State → State → Prop} {F : Machin
       rw [h0, base8_toNat (by omega) (by omega) (mOf_lt _) (by rw [hq.heap]; exact hq.room), hq.heap, hk, hq.off]
     obtain ⟨us, hus⟩ := hq.accs
     refine ⟨σ.regs.X0.toBitVec, q.x, q.a, q.τ, q.e, q.ta, q.ws, q.n, TermRun.cst (.num o.toNat), o.toNat, us, hq.term,
-      hq.ev, hq.num, rfl, rfl, hA, hus, fun l ini _ => ⟨?_, rfl, ini, o.toNat, rfl, rfl, hA, hle, h29, h30⟩⟩
+      hq.ev, hq.num, rfl, rfl, hA, hle, hus, fun l ini _ =>
+      ⟨?_, rfl, ini, o.toNat, rfl, rfl, hA, hle, h29, h30, us, hus, rfl⟩⟩
     simp [Ea, iRet, AI.tgt, Reg64s.getXReg, h30]
+
+/-- **`scc_rt_alloc` is one segment inside `W`** from its entry to its
+return or its heap abort, for every frame condition `F` no write inside the
+frame breaks (`seg_alloc` is the frame condition `DFrame R m0`): the counter
+and every header the code may store are unmapped in private memory in every
+memory of `F` (`hmem`); its nodes'
+states lie in `W`, none moved by `K` (`hW`). -/
+theorem seg_allocW {W : Frag isaLSE2} {K : State → State → Prop} {F : MachineData → Prop} (hF : FStable R F)
+    (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -160) (hhi : 0 ≤ R.hi)
+    (hq : q.OK ms (_root_.Executable.labels exe).label) (hcode : Code ms q exe endPc)
+    (hentry : (_root_.Executable.labels exe).label ".L2_scc_rt_alloc.0_entry" =
+      (_root_.Executable.labels exe).label "scc_rt_alloc" + 4 + 4 + 4 + 4 + 4 + 4 + 4)
+    (hmem : ∀ a : BitVec 64,
+      (a = BitVec.ofNat 64 ms.ctr ∨ ∃ o, o + ms.units q.n q.τ ≤ ms.cells ∧ a.toNat = q.hdrAt ms o) →
+      ∀ m, F m → Mem.loadInt m.dmem a 8 = none)
+    (hxa : ∀ l b w s c, lbl l = none →
+      At exe endPc R F (Ea ms q l b w) s c → ms.xa l b w s c)
+    (hW : AllocW ms q W K exe endPc R F) :
+    SegW W K p lbl ms (At exe endPc R F (N (_root_.Executable.labels exe).label ms q .e))
+      (fun s c => ∃ x, At exe endPc R F (E (_root_.Executable.labels exe).label ms q lbl x) s c) :=
+  seg_allocW_at hF hR hal hlo hhi hq hcode hentry hmem hxa hW .e
 
 /-- **`scc_rt_alloc` is one segment** from its entry to its return (the
 source's allocation step taken, `x` bound at the base the code returns) or

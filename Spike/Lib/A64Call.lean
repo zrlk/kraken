@@ -72,6 +72,35 @@ outside. -/
 noncomputable def leave (R' : Region) (kc : Int) (σC σx : AS) : AS :=
   { regs := σx.regs, status := σx.status, slot := fun k => if R'.Off (k - kc) then σx.slot (k - kc) else σC.slot k }
 
+/-- **The caller's abstract state after the callee returns** (`leave`): a
+callee's state `σx` in its region `R.callee kc lo' hi'` at offsets `o`, the
+caller's cells outside it as in `mC`, which `σC` abstracts, give the
+caller's state in `R` at the callee's `sp` shifted by `kc`. -/
+theorem abs_leave {R : Region} {kc lo' hi' : Int} {o oC : SO} {m mC : MachineData} {σC σx : AS}
+    (hAx : Abs (R.callee kc lo' hi') o m σx) (hAC : Abs R oC mC σC)
+    (hDF : ∀ k, R.Off k → ¬ (R.callee kc lo' hi').Off (k - kc) →
+      Mem.loadInt m.dmem (R.addr k) 8 = Mem.loadInt mC.dmem (R.addr k) 8) :
+    Abs R ⟨kc + o.sp, []⟩ m (leave (R.callee kc lo' hi') kc σC σx) := by
+  refine ⟨hAx.regs, hAx.status, ?_, fun k hk => ?_⟩
+  · intro r k' hr
+    rcases r with y | _
+    · cases hr
+    · simp only [SO.get, Option.some.injEq] at hr
+      subst hr
+      have := hAx.so .SP _ rfl
+      simp only [leave] at this ⊢
+      rw [this, Region.callee_addr]
+  · by_cases hin : (R.callee kc lo' hi').Off (k - kc)
+    · obtain ⟨j, hj, hv⟩ := hAx.slot _ hin
+      refine ⟨j, ?_, ?_⟩
+      · rw [Region.callee_addr, show kc + (k - kc) = k by omega] at hj; exact hj
+      · simp only [leave]; rw [ite_eq_left hin]; exact hv
+    · obtain ⟨j, hj, hv⟩ := hAC.slot k hk
+      refine ⟨j, ?_, ?_⟩
+      · rw [hDF k hk hin]
+        exact hj
+      · simp only [leave]; rw [ite_eq_right hin]; exact hv
+
 /-- **A call node**: the callee's specification (`hcallee`, for every region
 holding its frame `[lo', hi')` and every frame condition) is a given node
 of the caller, from the call node `nC` to the caller's nodes. -/
@@ -227,26 +256,7 @@ theorem call_nd_FWK {KC : Prop} {W : Frag isaLSE2} {K : State → State → Prop
       rintro s c ⟨x, ⟨he, hn, hdc, hpc, σx, hAx, ⟨hD, hDF, hAC, hJC, hJE⟩, hJx⟩, hM⟩
       obtain ⟨mC, σC, cC, g⟩ := G
       simp only at hDF hAC hJC hJE hJx hAx hpc
-      have hAR : Abs R ⟨kc + (Ex g x).o.sp, []⟩ s.st.1 (leave R' kc σC σx) := by
-        refine ⟨hAx.regs, hAx.status, ?_, fun k hk => ?_⟩
-        · intro r k' hr
-          rcases r with y | _
-          · cases hr
-          · simp only [SO.get, Option.some.injEq] at hr
-            subst hr
-            have := hAx.so .SP _ rfl
-            simp only [leave] at this ⊢
-            rw [this, Region.callee_addr]
-        · by_cases hin : R'.Off (k - kc)
-          · obtain ⟨j, hj, hv⟩ := hAx.slot _ hin
-            refine ⟨j, ?_, ?_⟩
-            · rw [Region.callee_addr, show kc + (k - kc) = k by omega] at hj; exact hj
-            · simp only [leave]; rw [ite_eq_left hin]; exact hv
-          · obtain ⟨j, hj, hv⟩ := hAC.slot k hk
-            refine ⟨j, ?_, ?_⟩
-            · rw [hDF k hk hin]
-              exact hj
-            · simp only [leave]; rw [ite_eq_right hin]; exact hv
+      have hAR : Abs R ⟨kc + (Ex g x).o.sp, []⟩ s.st.1 (leave R' kc σC σx) := abs_leave hAx hAC hDF
       have hL := hret g x σC cC σx c (leave R' kc σC σx) hJC hJE hJx rfl rfl
         (fun k _ hn => by simp only [leave]; exact ite_eq_right hn)
       have hs : s = { s with st := (s.st.1, (Ex g x).pc) } := by rw [← hpc]; rfl

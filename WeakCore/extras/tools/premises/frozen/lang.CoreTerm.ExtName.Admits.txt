@@ -1,0 +1,27 @@
+CoreLang.Mo : Type
+CoreLang.RegAcc : Type
+CoreLang.Wd : Type
+CoreLang.Wd.bits : CoreLang.Wd → Nat
+CoreTerm.ExtName : Type
+CoreTerm.ExtName.Admits : CoreTerm.ExtName → Nat → List TermRun.Word → List TermRun.Event → List TermRun.Word → Prop
+  := fun x x_1 x_2 x_3 x_4 =>
+  match x, x_1, x_2, x_3, x_4 with
+  | CoreTerm.ExtName.current, i, x, x_5, rs => rs = [TermRun.cst (WeakMem.Val.num i)]
+  | CoreTerm.ExtName.mmioR w acc mo, x, [r], tr, rs =>
+    rs =
+      [TermRun.cst (WeakMem.Val.num (TermRun.wordNum r)),
+        TermRun.cst (WeakMem.Val.num (TermRun.lastDevWrite tr (TermRun.wordNum r) % 2 ^ w.bits))]
+  | CoreTerm.ExtName.mmioW w acc mo, x, [r, head], x_5, rs => rs = [TermRun.cst (WeakMem.Val.num (TermRun.wordNum r))]
+  | CoreTerm.ExtName.regAt n w acc st taken k, x, [b], x_5, rs =>
+    rs = [TermRun.cst (WeakMem.Val.num (TermRun.wordNum b + k * st)), TermRun.cst (WeakMem.Val.num (TermRun.wordNum b))]
+  | CoreTerm.ExtName.devRecv w, x, [r], tr, rs =>
+    rs = [TermRun.cst (WeakMem.Val.num (TermRun.lastMmioW tr (TermRun.wordNum r) % 2 ^ w.bits))]
+  | CoreTerm.ExtName.devChoice w, x, x_5, x_6, rs => ∃ v, v < 2 ^ w.bits ∧ rs = [TermRun.cst (WeakMem.Val.num v)]
+  | x, x_5, x_6, x_7, rs => rs = []
+TermRun.Event : Type
+TermRun.Word : Type
+TermRun.cst : WeakMem.Val → TermRun.Word
+TermRun.lastDevWrite : List TermRun.Event → Nat → Nat
+TermRun.lastMmioW : List TermRun.Event → Nat → Nat
+TermRun.wordNum : TermRun.Word → Nat
+WeakMem.Val.num : Nat → WeakMem.Val

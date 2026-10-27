@@ -49,10 +49,13 @@ theorem ret0_part9 : a9 ret0L (tablesOf Config.canonical ret0L) = true := by dec
 /-- A11 of `ret0.w`'s output: the runtime's fixed code. -/
 theorem ret0_part11 : a11 ret0L (tablesOf Config.canonical ret0L) = true := by decide +kernel
 
+/-- A12 of `ret0.w`'s output: the code of every user function. -/
+theorem ret0_part12 : a12 ret0L (tablesOf Config.canonical ret0L) = true := by decide +kernel
+
 /-- **`ret0.w`'s `PlaceOK` on scc's own output.** -/
 theorem ret0_placeOK : placeOK Config.canonical ret0O = true := by
   rw [ret0_out_eq]
   exact placeOK_of ret0_part1 ret0_part2 ret0_part3 ret0_part4 ret0_part5 ret0_part6 ret0_part7 ret0_part8
-    ret0_part9 ret0_part11
+    ret0_part9 ret0_part11 ret0_part12
 
 end Spike.Test.A64Ret0PlaceOKE

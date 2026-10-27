@@ -62,7 +62,7 @@ def cl (ρ : Nat → Nat) (W : Nat → Ty) (c d : Nat) : Ty → Ty
   | .intS i      => .intS (clI ρ d i)
   | .prod a b    => .prod (cl ρ W c d a) (cl ρ W c d b)
   | .sum a b     => .sum (cl ρ W c d a) (cl ρ W c d b)
-  | .code a b    => .code (cl ρ W c d a) (cl ρ W c d b)
+  | .code a b k  => .code (cl ρ W c d a) (cl ρ W c d b) k
   | .array i t   => .array (clI ρ d i) (cl ρ W c d t)
   | .ptr μ t     => .ptr (clM ρ d μ) (cl ρ W c d t)
   | .ptrOpt μ t  => .ptrOpt (clM ρ d μ) (cl ρ W c d t)
@@ -136,7 +136,7 @@ theorem cl_shiftI {ρ ρ' : Nat → Nat} {c : Nat} (h : ∀ k, ρ' (if c ≤ k t
   | .intS i, e, d => by simp [Ty.shiftI, cl, clI_shift h d]
   | .prod a b, e, d => by simp [Ty.shiftI, cl, cl_shiftI h W a e d, cl_shiftI h W b e d]
   | .sum a b, e, d => by simp [Ty.shiftI, cl, cl_shiftI h W a e d, cl_shiftI h W b e d]
-  | .code a b, e, d => by simp [Ty.shiftI, cl, cl_shiftI h W a e d, cl_shiftI h W b e d]
+  | .code a b _, e, d => by simp [Ty.shiftI, cl, cl_shiftI h W a e d, cl_shiftI h W b e d]
   | .array i t, e, d => by simp [Ty.shiftI, cl, clI_shift h d, cl_shiftI h W t e d]
   | .ptr μ t, e, d => by simp [Ty.shiftI, cl, clM_shift h d, cl_shiftI h W t e d]
   | .ptrOpt μ t, e, d => by simp [Ty.shiftI, cl, clM_shift h d, cl_shiftI h W t e d]
@@ -166,6 +166,7 @@ theorem cl_shiftI {ρ ρ' : Nat → Nat} {c : Nat} (h : ∀ k, ρ' (if c ≤ k t
   | .void, _, _ => rfl
   | .int, _, _ => rfl
   | .tid, _, _ => rfl
+  | .opq _, _, _ => rfl
   | .fix _ _, _, _ => rfl
   | .lanes _ _, _, _ => rfl
 
@@ -191,7 +192,7 @@ theorem cl_shiftT {W W' : Nat → Ty} {c : Nat} (h : ∀ k, W' (if c ≤ k then 
           simp [cl, h1, h2, ee]
   | .prod a b, e, d => by simp [Ty.shiftT, cl, cl_shiftT h ρ a e d, cl_shiftT h ρ b e d]
   | .sum a b, e, d => by simp [Ty.shiftT, cl, cl_shiftT h ρ a e d, cl_shiftT h ρ b e d]
-  | .code a b, e, d => by simp [Ty.shiftT, cl, cl_shiftT h ρ a e d, cl_shiftT h ρ b e d]
+  | .code a b _, e, d => by simp [Ty.shiftT, cl, cl_shiftT h ρ a e d, cl_shiftT h ρ b e d]
   | .array i t, e, d => by simp [Ty.shiftT, cl, cl_shiftT h ρ t e d]
   | .ptr μ t, e, d => by simp [Ty.shiftT, cl, cl_shiftT h ρ t e d]
   | .ptrOpt μ t, e, d => by simp [Ty.shiftT, cl, cl_shiftT h ρ t e d]
@@ -220,6 +221,7 @@ theorem cl_shiftT {W W' : Nat → Ty} {c : Nat} (h : ∀ k, W' (if c ≤ k then 
   | .void, _, _ => rfl
   | .int, _, _ => rfl
   | .tid, _, _ => rfl
+  | .opq _, _, _ => rfl
   | .fix _ _, _, _ => rfl
   | .lanes _ _, _, _ => rfl
 
@@ -307,7 +309,7 @@ theorem cl_instT (W : Nat → Ty) : ∀ (t : Ty) (e f : Nat), cl ρ W e f (instT
   | .intS i, e, f => by simp [instT, cl, clI_instI h1 h2 h3 f]
   | .prod a b, e, f => by simp [instT, cl, cl_instT W a e f, cl_instT W b e f]
   | .sum a b, e, f => by simp [instT, cl, cl_instT W a e f, cl_instT W b e f]
-  | .code a b, e, f => by simp [instT, cl, cl_instT W a e f, cl_instT W b e f]
+  | .code a b _, e, f => by simp [instT, cl, cl_instT W a e f, cl_instT W b e f]
   | .array i t, e, f => by simp [instT, cl, clI_instI h1 h2 h3 f, cl_instT W t e f]
   | .ptr μ t, e, f => by simp [instT, cl, clM_instM h1 h2 h3 f, cl_instT W t e f]
   | .ptrOpt μ t, e, f => by simp [instT, cl, clM_instM h1 h2 h3 f, cl_instT W t e f]
@@ -336,6 +338,7 @@ theorem cl_instT (W : Nat → Ty) : ∀ (t : Ty) (e f : Nat), cl ρ W e f (instT
   | .void, _, _ => rfl
   | .int, _, _ => rfl
   | .tid, _, _ => rfl
+  | .opq _, _, _ => rfl
   | .fix _ _, _, _ => rfl
   | .lanes _ _, _, _ => rfl
 
@@ -410,7 +413,7 @@ def sbI (n c : Nat) : Ty → Ty
   | .intS i      => .intS (sbIdx n c i)
   | .prod a b    => .prod (sbI n c a) (sbI n c b)
   | .sum a b     => .sum (sbI n c a) (sbI n c b)
-  | .code a b    => .code (sbI n c a) (sbI n c b)
+  | .code a b k  => .code (sbI n c a) (sbI n c b) k
   | .array i t   => .array (sbIdx n c i) (sbI n c t)
   | .ptr μ t     => .ptr (sbM n c μ) (sbI n c t)
   | .ptrOpt μ t  => .ptrOpt (sbM n c μ) (sbI n c t)
@@ -435,7 +438,7 @@ def sbT (n c : Nat) : Ty → Ty
   | .tvar k      => if c ≤ k then .tvar (k + n) else .tvar k
   | .prod a b    => .prod (sbT n c a) (sbT n c b)
   | .sum a b     => .sum (sbT n c a) (sbT n c b)
-  | .code a b    => .code (sbT n c a) (sbT n c b)
+  | .code a b k  => .code (sbT n c a) (sbT n c b) k
   | .array i t   => .array i (sbT n c t)
   | .ptr μ t     => .ptr μ (sbT n c t)
   | .ptrOpt μ t  => .ptrOpt μ (sbT n c t)
@@ -691,7 +694,7 @@ theorem tb_mono (t : Ty) : ∀ {c c' : Nat}, tb c t = true → c ≤ c' → tb c
   | tex κ t ih => intro c c' h hc; simp only [tb] at h ⊢; exact ih h (by omega)
   | prod a b iha ihb => intro c c' h hc; simp only [tb, Bool.and_eq_true] at h ⊢; exact ⟨iha h.1 hc, ihb h.2 hc⟩
   | sum a b iha ihb => intro c c' h hc; simp only [tb, Bool.and_eq_true] at h ⊢; exact ⟨iha h.1 hc, ihb h.2 hc⟩
-  | code a b iha ihb => intro c c' h hc; simp only [tb, Bool.and_eq_true] at h ⊢; exact ⟨iha h.1 hc, ihb h.2 hc⟩
+  | code a b _ iha ihb => intro c c' h hc; simp only [tb, Bool.and_eq_true] at h ⊢; exact ⟨iha h.1 hc, ihb h.2 hc⟩
   | array _ t ih => intro c c' h hc; simp only [tb] at h ⊢; exact ih h hc
   | ptr _ t ih => intro c c' h hc; simp only [tb] at h ⊢; exact ih h hc
   | ptrOpt _ t ih => intro c c' h hc; simp only [tb] at h ⊢; exact ih h hc
@@ -708,7 +711,7 @@ theorem tb_shiftT (t : Ty) : ∀ {c c' : Nat}, tb c t = true → c ≤ c' → t.
   | tex κ t ih => intro c c' h hc; simp only [tb] at h; simp [Ty.shiftT, ih h (by omega : c + 1 ≤ c' + 1)]
   | prod a b iha ihb => intro c c' h hc; simp only [tb, Bool.and_eq_true] at h; simp [Ty.shiftT, iha h.1 hc, ihb h.2 hc]
   | sum a b iha ihb => intro c c' h hc; simp only [tb, Bool.and_eq_true] at h; simp [Ty.shiftT, iha h.1 hc, ihb h.2 hc]
-  | code a b iha ihb => intro c c' h hc; simp only [tb, Bool.and_eq_true] at h; simp [Ty.shiftT, iha h.1 hc, ihb h.2 hc]
+  | code a b _ iha ihb => intro c c' h hc; simp only [tb, Bool.and_eq_true] at h; simp [Ty.shiftT, iha h.1 hc, ihb h.2 hc]
   | array _ t ih => intro c c' h hc; simp only [tb] at h; simp [Ty.shiftT, ih h hc]
   | ptr _ t ih => intro c c' h hc; simp only [tb] at h; simp [Ty.shiftT, ih h hc]
   | ptrOpt _ t ih => intro c c' h hc; simp only [tb] at h; simp [Ty.shiftT, ih h hc]

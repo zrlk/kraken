@@ -131,7 +131,7 @@ theorem VR_transferS : ∀ (t : Ty) (η₁ η₂ : TEnv) (ρ : Nat → Nat) (rt 
           exact ⟨q, hq, VR_transferS a η₁ η₂ ρ _ _ hn.1 hr hur hw hp hs hi hri hP hS hBx hv⟩
         · obtain ⟨q, hq, hv⟩ := h3 hj
           exact ⟨q, hq, VR_transferS b η₁ η₂ ρ _ _ hn.2 hr hur hw hp hs hi hri hP hS hBx hv⟩
-  | .code a b, η₁, η₂, ρ, rt, ws, _, _, _, hw, hp, _, _, _, _, _, _, hv => by
+  | .code a b _, η₁, η₂, ρ, rt, ws, _, _, _, hw, hp, _, _, _, _, _, _, hv => by
       simp only [VR] at hv ⊢; rw [← hw, ← hp]; exact hv
   | .tex κ b, η₁, η₂, ρ, rt, ws, hn, hr, hur, hw, hp, hs, hi, hri, hP, hS, hBx, hv => by
       simp only [noOR] at hn
@@ -161,6 +161,7 @@ theorem VR_transferS : ∀ (t : Ty) (η₁ η₂ : TEnv) (ρ : Nat → Nat) (rt 
       · obtain ⟨f, hf⟩ := ModeOK_pub_pfr h5
         exact Or.inr ⟨a, c, U, h1, hs _ _ _ h3 hf, h4, hw ▸ hF, ModeOK_pub_move hP hS h5, IniAt_mono hi h6⟩
   | .intS _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, hv => by simpa only [VR] using hv
+  | .opq _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, hv => by simpa only [VR] using hv
   | .int, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, hv => by simpa only [VR] using hv
   | .tid, _, _, _, _, _, _, _, _, _, _, hs, _, _, hP, hS, _, hv => by
       simp only [VR] at hv ⊢
@@ -371,7 +372,7 @@ theorem VR_transferL (L : AllocLabel → Prop) : ∀ (t : Ty) (η₁ η₂ : TEn
           exact ⟨q, hq, VR_transferL L a η₁ η₂ ρ _ _ hn.1 (LabIn_ofArm hq hLp) hcl hr hur hw hp hs hi hri hP hS hBx hv⟩
         · obtain ⟨q, hq, hv⟩ := h3 hj
           exact ⟨q, hq, VR_transferL L b η₁ η₂ ρ _ _ hn.2 (LabIn_ofArm hq hLp) hcl hr hur hw hp hs hi hri hP hS hBx hv⟩
-  | .code a b, η₁, η₂, ρ, rt, ws, _, _, _, _, _, hw, hp, _, _, _, _, _, _, hv => by
+  | .code a b _, η₁, η₂, ρ, rt, ws, _, _, _, _, _, hw, hp, _, _, _, _, _, _, hv => by
       simp only [VR] at hv ⊢; rw [← hw, ← hp]; exact hv
   | .tex κ b, η₁, η₂, ρ, rt, ws, hn, hL, hcl, hr, hur, hw, hp, hs, hi, hri, hP, hS, hBx, hv => by
       simp only [noOR] at hn
@@ -408,6 +409,7 @@ theorem VR_transferL (L : AllocLabel → Prop) : ∀ (t : Ty) (η₁ η₂ : TEn
         · exact Or.inl h7
         · exact Or.inr ⟨us, j, o, h7, Nat.lt_of_lt_of_le h8 (hi _ hLa), h9, h10⟩
   | .intS _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, hv => by simpa only [VR] using hv
+  | .opq _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, hv => by simpa only [VR] using hv
   | .int, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, hv => by simpa only [VR] using hv
   | .tid, _, _, _, _, _, _, hL, _, _, _, _, _, hs, _, _, hP, hS, _, hv => by
       simp only [VR] at hv ⊢
@@ -491,7 +493,7 @@ theorem VRR_transferS : ∀ (t : Ty) (η₁ η₂ : TEnv) (ρ : Nat → Nat) (rt
           exact ⟨q, hq, VRR_transferS a η₁ η₂ ρ _ _ _ hn.1 hr hur hw hp hs hi hri hP hS hBx hv⟩
         · obtain ⟨q, hq, hv⟩ := h3 hj
           exact ⟨q, hq, VRR_transferS b η₁ η₂ ρ _ _ _ hn.2 hr hur hw hp hs hi hri hP hS hBx hv⟩
-  | .code a b, η₁, η₂, ρ, rt, ws, X, _, _, _, hw, hp, _, _, _, _, _, _, hv => by
+  | .code a b _, η₁, η₂, ρ, rt, ws, X, _, _, _, hw, hp, _, _, _, _, _, _, hv => by
       simp only [VRR] at hv ⊢; rw [← hw, ← hp]; exact hv
   | .tex κ b, η₁, η₂, ρ, rt, ws, X, hn, hr, hur, hw, hp, hs, hi, hri, hP, hS, hBx, hv => by
       simp only [noOR] at hn
@@ -533,6 +535,7 @@ theorem VRR_transferS : ∀ (t : Ty) (η₁ η₂ : TEnv) (ρ : Nat → Nat) (rt
       simp only [VRR] at hv ⊢
       exact fun n => VRR_transferS b η₁ η₂ (vcons n ρ) rt ws X hn hr hur hw hp hs hi hri hP hS hBx (hv n)
   | .intS _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, hv => by simpa only [VRR] using hv
+  | .opq _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, hv => by simp only [VRR, VR] at hv ⊢; exact hv
   | .int, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, hv => by simpa only [VRR] using hv
   | .tid, _, _, _, _, _, _, _, _, _, _, _, hs, _, _, hP, hS, _, hv => by
       simp only [VRR, VR] at hv ⊢
@@ -580,7 +583,7 @@ theorem noOR_of : ∀ (T : Ty) (ke : KEnv), Ty.noOwnIn ke T = true → rgnFree T
   | .intS _, _, _, _ | .int, _, _, _ | .tid, _, _, _ | .fix _ _, _, _, _ | .lanes _ _, _, _, _ | .unit, _, _, _
   | .void, _, _, _ | .share _, _, _, _ | .cap _ _, _, _, _ | .word _ _, _, _, _ | .tok _ _, _, _, _
   | .word2 _ _, _, _, _ | .tok2 _ _ _ _, _, _, _ | .epair _ _, _, _, _ | .tokE _ _ _, _, _, _
-  | .tvar _, _, _, _ | .code _ _, _, _, _ => by simp [noOR]
+  | .tvar _, _, _, _ | .code _ _ _, _, _, _ | .opq _, _, _, _ => by simp [noOR]
 
 /-! ## S7e (3) Wrappers: memory values (read at `CE η.unsee`) -/
 
@@ -1248,7 +1251,7 @@ theorem VRR_noRes : ∀ (t : Ty) {ρ : Nat → Nat} {η : TEnv} {rt : Shp} {ws :
       intro ρ η rt ws R _ ht _; simp [noRes] at ht
   | void => intro ρ η rt ws R _ _ h; simp only [VRR] at h
   | unit | array _ _ | cap _ _ => intro ρ η rt ws R _ _ h; simp only [VRR] at h; exact h
-  | intS _ | int | tid | fix _ _ | lanes _ _ | code _ _ | epair _ _ =>
+  | intS _ | int | opq _ | tid | fix _ _ | lanes _ _ | code _ _ | epair _ _ =>
       intro ρ η rt ws R _ _ h; simp only [VRR] at h; exact h.2
   | ptr μ _ | loc μ _ | ptrOpt μ _ =>
       intro ρ η rt ws R _ ht h; simp only [VRR] at h; rw [h.2]

@@ -1,0 +1,15 @@
+TermRun.Bounds : Type
+TermRun.Bounds.maxP : TermRun.Bounds → Nat
+TermRun.Cfg : Type
+TermRun.Cfg.ths : TermRun.Cfg → Array TermRun.TTh
+TermRun.TTh : Type
+TermRun.TTh.promises : TermRun.TTh → List WeakMem.Ts
+TermRun.Trunc : Type
+TermRun.atChoiceCutB : TermRun.Bounds → TermRun.TTh → Bool
+TermRun.atSpawnB : TermRun.TTh → Bool
+TermRun.isDone : TermRun.TTh → Bool
+TermRun.nodeTrunc : Bool → Bool → TermRun.Bounds → TermRun.Cfg → TermRun.Trunc
+  := fun promOn spawnOff b c =>
+  { maxP := c.ths.any fun th => !TermRun.isDone th && (!promOn || decide (b.maxP ≤ th.promises.length)),
+    spawn := spawnOff && c.ths.any TermRun.atSpawnB, io := c.ths.any (TermRun.atChoiceCutB b) }
+WeakMem.Ts : Type

@@ -2,18 +2,12 @@
 -- plain store, then sets the flag with a release store and unparks main;
 -- main waits for the flag with an acquire load (parking in between) and then
 -- reads the payload.  Exit status: the payload, 42.
-def park(u : Unit) : Unit =
-  ret ()
-
-def unpark(t : Ptr pub Void) : Unit =
-  ret ()
-
-def worker(a : (Ptr pub Int * Ptr pub Int) * Ptr pub Void) : Unit =
+def worker(a : (Ptr pub Int * Ptr pub Int) * ThreadId) : Unit =
   let (cells, me) = a
   let (d, f) = cells
   let s1 = store d 42
   let s2 = store rel f 1
-  let w = unpark(me)
+  let w = unpark me
   ret ()
 
 def wait(a : Ptr pub Int * Ptr pub Int) : Int =
@@ -23,10 +17,10 @@ def wait(a : Ptr pub Int * Ptr pub Int) : Int =
     let v = load d
     ret v
   else
-    let p = park(())
+    let p = park ()
     tail wait(a)
 
-def main(me : Ptr pub Void) : Int =
+def main(me : ThreadId) : Int =
   let z = zero[Int]
   let d0 = new z
   let d = publish d0

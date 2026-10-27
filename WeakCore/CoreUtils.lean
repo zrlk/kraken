@@ -280,12 +280,16 @@ def fmtTy (n : Names) (p : Nat) (t : Ty) : String :=
   | _, .void       => ty "Void"
   | _, .int        => ty "Int"
   | _, .tid        => ty "ThreadId"
+  | _, .opq (.reg w a) => ty "Reg" ++ "[" ++ toString w.bits ++ ", " ++ a.name ++ "]"
+  | _, .opq (.blk m w a st tk) => ty "Blk" ++ "[" ++ toString m ++ ", " ++ toString w.bits ++ ", " ++ a.name ++ ", stride " ++ toString st ++ (if tk.isEmpty then "" else "; " ++ " ".intercalate (tk.map toString)) ++ "]"
+  | _, .opq .bus   => ty "Bus"
+  | _, .opq .irq   => ty "Irq"
   | _, .fix sg w   => ty ((if sg then "I" else "U") ++ w.name)
   | _, .lanes sg w => ty ("Lanes" ++ (if sg then "I" else "U") ++ w.name)
   | _, .intS i     => ty "Int" ++ "(" ++ fmtIdx n 0 i ++ ")"
   | p, .prod a b   => paren (p > 2) (fmtTy n 3 a ++ " \\times " ++ fmtTy n 2 b)
   | p, .sum a b    => paren (p > 1) (fmtTy n 2 a ++ " + " ++ fmtTy n 1 b)
-  | p, .code a b   => paren (p > 3) (ty "Code" ++ "\\," ++ fmtTy n 4 a ++ "\\," ++ fmtTy n 4 b)
+  | p, .code a b k => paren (p > 3) (ty "Code" ++ "\\," ++ fmtTy n 4 a ++ "\\," ++ fmtTy n 4 b ++ (match k with | .plain => "" | .restricted f s => "\\,\\md{restricted}_{" ++ toString f ++ "," ++ toString s ++ "}"))
   | p, .array i t  => paren (p > 3) (ty "Array" ++ "_" ++ br (fmtIdx n 0 i) ++ "\\," ++ fmtTy n 3 t)
   | p, .ptr μ t    => paren (p > 3) (ty "Ptr" ++ "_" ++ br (fmtMode n μ) ++ "\\," ++ fmtTy n 3 t)
   | p, .ptrOpt μ t => paren (p > 3) (ty "Ptr?" ++ "_" ++ br (fmtMode n μ) ++ "\\," ++ fmtTy n 3 t)

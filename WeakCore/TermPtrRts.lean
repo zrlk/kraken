@@ -80,8 +80,13 @@ theorem winLe_gen {c1 : Cfg} {t : Nat} {m : Msg}
     rename_i c c3 c4
     intro hn hP th hth hB
     have hP1 := TermOwnG0.soloNP_snoc_ext hP c3 hs
-    obtain ⟨x1, a1, e1, evs, hterm, rfl⟩ := extSteps_thread hs hth
-    exact ih hn hP1 { th with term := e1, env := (x1, .unit, []) :: th.env } (set_self hth) hB
+    rcases extSteps_thread hs hth with ⟨x1, n1, a1, e1, evs, rs1, hterm, -, -, rfl⟩ | ⟨x1, a1, e1, lb, hterm, htl, rfl⟩
+    · have h2 := ih hn hP1 _ (set_self hth) hB
+      by_cases hk : n1 = .park
+      · subst hk; unfold parkVs at h2; simp only [↓reduceIte] at h2; split at h2 <;> exact h2
+      · simp only [hk, ↓reduceIte] at h2; exact h2
+    · exact ih hn hP1 { th with term := e1, env := (x1, .tid, [cst (.loc ⟨lb, 0⟩ 0)]) :: th.env }
+        (set_self (tr := c.trace) hth) hB
 
 end win
 
@@ -927,6 +932,11 @@ theorem labsIn_VR {G : AllocLabel → Prop} : ∀ (T : Ty) (ρ : Nat → Nat) (�
     intro ρ η R ws hrel hS hB hshp hwc hval hv w hw x g hx
     have hm := locPub_mem_val hv hw
     rw [hx] at hm; simp at hm
+  | opq _ =>
+    intro ρ η R ws hrel hS hB hshp hwc hval hv w hw x g hx
+    obtain ⟨n, hn⟩ := hv
+    have hm := locPub_mem_val hn hw
+    rw [hx] at hm; simp at hm
   | int =>
     intro ρ η R ws hrel hS hB hshp hwc hval hv w hw x g hx
     obtain ⟨n, hn⟩ := hv
@@ -1404,6 +1414,11 @@ theorem labsIn_VR_sNo {G : AllocLabel → Prop} : ∀ (T : Ty) (ρ : Nat → Nat
   | intS i =>
     intro ρ η R ws hrel hS hB hshp hsn hwc hval hv w hw x g hx
     have hm := locPub_mem_val hv hw
+    rw [hx] at hm; simp at hm
+  | opq _ =>
+    intro ρ η R ws hrel hS hB hshp hsn hwc hval hv w hw x g hx
+    obtain ⟨n, hn⟩ := hv
+    have hm := locPub_mem_val hn hw
     rw [hx] at hm; simp at hm
   | int =>
     intro ρ η R ws hrel hS hB hshp hsn hwc hval hv w hw x g hx

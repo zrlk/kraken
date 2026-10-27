@@ -10,7 +10,7 @@ import WeakCore.TermExtStep
   `current` binds the thread's box word `loc ⟨l, 0⟩`, first allocating the box (`TermBox.sysInvN_box`,
   `tidLbl := some (freshLabel …)`) when the thread has none (`curCfg_none`).
 
-(IO1) `Ext` needs `th.promises = []` only for `ExtNeedsNoProm` (`exitEv`, `current()`); `emit` goes through
+ `Ext` needs `th.promises = []` only for `ExtNeedsNoProm` (`exitEv`, `current()`); `emit` goes through
 `sysInvN_extSet`, which never reads promises. Only the first-use `current()` arm uses the empty promise set
 (`TermBox.sysInvN_box`).
 -/
@@ -37,7 +37,7 @@ theorem ext_of_site {p : Prog} {E : TEnv} {th th' : TTh} {Tot : Res} {x : String
     rw [hterm] at hT2
     obtain ⟨c', -, hop, he, hck, -⟩ := TermA4.CkW_let hT2
     cases hop with
-    | ext hu hsub hb =>
+    | ext hu _ hsub hb =>
       have hret : c'.ret = cx.ret := (bind_ret hb).trans (use_ret hu)
       have htv1 := use_TvOK hu htv
       have htv' := (bind_TvOK hb htv1.1 (by cases n <;> simp [ExtName.sig, tb]) hmg).1
@@ -54,7 +54,7 @@ theorem ext_of_site {p : Prog} {E : TEnv} {th th' : TTh} {Tot : Res} {x : String
     | let_ hop he =>
       rename_i c'
       cases hop with
-      | ext hu hsub hb =>
+      | ext hu _ hsub hb =>
         have hret : c'.ret = cx.ret := (bind_ret hb).trans (use_ret hu)
         have htv1 := use_TvOK hu htv
         have htv' := (bind_TvOK hb htv1.1 (by cases n <;> simp [ExtName.sig, tb]) hmg).1
@@ -142,6 +142,73 @@ theorem sysInvN_extSet {i : Nat} {th : TTh} {x : String} {n : ExtName} {a : At} 
     · cases h; exact absurd ho (hrts w hw a0 cl hn hs)
     · exact hR1 y rt ws1 h w hw hn
 
+/-- (M1) The results of a non-`current` extern are numeric: they name no cell. -/
+theorem noNames_res {n : ExtName} {i : Nat} {ws rs : List Word} {tr : List Event} (hn : n ≠ .current)
+    (hrs : rs ∈ n.resultsL i ws tr) : ∀ w ∈ TermPtrRts.pubWords n.sig.2 rs, ∀ a, ¬ TermPtrRts.Names a w := by
+  intro w hw a hna
+  rw [TermPtrRts.pubWords_of_sNo (by cases n <;> first | rfl | exact absurd rfl hn)] at hw
+  obtain ⟨m, rfl⟩ := TermRun.resultsL_num hn hrs w hw
+  obtain ⟨a', g, hva, -⟩ := hna
+  simp [cst, Promises.TVal.mk0] at hva
+
+/-- (M1) **A non-`current` extern continuation** (`x := rs`, any permit) as a thread replacement. -/
+theorem sysInvN_extRes {i : Nat} {th : TTh} {x : String} {n : ExtName} {a : At} {e : Expr} {rt : Ty}
+    {ws rs : List Word} (hN : SysInvN p k arch Init MintOK c Eg Tot HP HS cr db) (hth : c.ths[i]? = some th)
+    (hterm : th.term = .let_ x (.ext n a) e) (hn : n ≠ .current) (hev : evalAt th.env a = some (rt, ws))
+    (hrs : rs ∈ n.resultsL i ws c.trace) {vr vp : Ts} (pm : Option Ts) (tr : List Event) :
+    SysInvN p k arch Init MintOK
+      (TermSetTh.setC c i { th with term := e, env := (x, n.sig.2, rs) :: th.env,
+                                    vs := { th.vs with vRd := vr, vPreBase := vp }, permit := pm } tr)
+      Eg Tot HP HS cr db := by
+  obtain ⟨S, hRE, hE, hrest⟩ := hN.thr i th hth
+  have hnn := noNames_res hn hrs
+  refine TermSetTh.sysInvN_setC hN hth ⟨rfl, rfl, rfl, rfl⟩
+    ⟨S, TermTyped.ThInvRE_ext hn hterm hev hrs hRE, TermTyped.ThInvE_ext hn hterm hev hrs hE, hrest⟩ ?_ ?_
+    (hN.tidBox i th hth)
+  · intro hk
+    obtain ⟨hL1, hL2⟩ := (hN.ptrGL hk).2.1 i th hth
+    refine ⟨?_, hL2⟩
+    intro y rt' ws1 hm
+    rcases List.mem_cons.1 hm with h | h
+    · cases h; intro w hw l hl; exact absurd hl (hnn w hw l)
+    · exact hL1 y rt' ws1 h
+  · intro hk t a0 cl hs ho hR0
+    obtain ⟨hR1, hR2⟩ := hR0
+    refine ⟨?_, hR2⟩
+    intro y rt' ws1 hm w hw hna
+    rcases List.mem_cons.1 hm with h | h
+    · cases h; exact absurd hna (hnn w hw a0)
+    · exact hR1 y rt' ws1 h w hw hna
+
+/-- (D4) `wake` is the identity or sets one existing thread's permit. -/
+theorem wake_cases (c : Cfg) (i : Nat) (v : Ts) (n : ExtName) (ws : List Word) :
+    wake c i v n ws = c ∨ ∃ j t u, c.ths[j]? = some t ∧
+      wake c i v n ws = TermSetTh.setC c j { t with permit := some u } c.trace := by
+  rcases wake_eq c i v n ws with h | ⟨j, t, u, h1, h2⟩
+  · exact .inl h
+  · exact .inr ⟨j, t, u, h1, h2⟩
+
+theorem sysInvN_wake {i : Nat} {v : Ts} {n : ExtName} {ws : List Word}
+    (hN : SysInvN p k arch Init MintOK c Eg Tot HP HS cr db) :
+    SysInvN p k arch Init MintOK (wake c i v n ws) Eg Tot HP HS cr db := by
+  rcases wake_cases c i v n ws with h | ⟨j, t, _u, ht, h⟩
+  · rw [h]; exact hN
+  · rw [h]
+    exact TermSetTh.sysInvN_setC hN ht ⟨rfl, rfl, rfl, rfl⟩ (hN.thr j t ht) (fun hk => (hN.ptrGL hk).2.1 j t ht)
+      (fun _ _ _ _ _ _ h => h) (hN.tidBox j t ht)
+
+theorem ownLive_wake {i : Nat} {v : Ts} {n : ExtName} {ws : List Word} (h : OwnLive Eg c) :
+    OwnLive Eg (wake c i v n ws) := by
+  rcases wake_cases c i v n ws with e | ⟨j, t, _u, -, e⟩ <;> rw [e]
+  · exact h
+  · exact ownLive_setC h
+
+theorem obsAll_wake {i : Nat} {v : Ts} {n : ExtName} {ws : List Word} (h : ObsAll Eg c) :
+    ObsAll Eg (wake c i v n ws) := by
+  rcases wake_cases c i v n ws with e | ⟨j, t, _u, -, e⟩ <;> rw [e]
+  · exact h
+  · exact obsAll_setC h
+
 end
 
 section
@@ -177,27 +244,43 @@ theorem curCfg_none {c : Cfg} {i : Nat} {th : TTh} {x : String} {e : Expr} {l : 
   simp only [e]
   rfl
 
-/-- **The extern arm**: `SysInvN` (with `OwnLive`, `ObsAll`) across an `Ext` step.  `emit`/`exitEv` bind `()`;
-`current` binds the thread's box word, first allocating the box (`TermBox.sysInvN_box`) if it has none. -/
-theorem sysInvN_extStep {c' : Cfg}
+/-- **The extern arm with the witness frame**: `sysInvN_extStep`, and the post witness only grows the store
+typing (the box cell, at a fresh label) and keeps `ini`, every frame total and every debit. -/
+theorem sysInvN_extStepW {c' : Cfg}
     (hN : SysInvN p k arch Init MintOK c Eg Tot HP HS cr db) (hOL : OwnLive Eg c) (hObs : ObsAll Eg c)
     (hX : Ext p k arch c c') :
     ∃ (Eg' : GEnv) (Tot' HP' : Nat → Res) (HS' : Res) (cr' db' : Nat → Ts → Res),
-      SysInvN p k arch Init MintOK c' Eg' Tot' HP' HS' cr' db' ∧ OwnLive Eg' c' ∧ ObsAll Eg' c' := by
-  obtain ⟨i, x, n, a, e, th, rt, ws, hth, hterm, hnp, hev, -, rfl⟩ := hX.elim
-  cases n with
-  | emit =>
-    exact ⟨_, _, _, _, _, _, sysInvN_extSet hN hth hterm (fun _ _ _ _ => ⟨vr_unit, vrr_unit⟩) (Lay_unitT _)
-      (fun w hw => (pubWords_unit hw).elim) (fun w hw => (pubWords_unit hw).elim) _,
-      ownLive_setC hOL, obsAll_setC hObs⟩
-  | exitEv =>
-    exact ⟨_, _, _, _, _, _, sysInvN_extSet hN hth hterm (fun _ _ _ _ => ⟨vr_unit, vrr_unit⟩) (Lay_unitT _)
-      (fun w hw => (pubWords_unit hw).elim) (fun w hw => (pubWords_unit hw).elim) _,
-      ownLive_setC hOL, obsAll_setC hObs⟩
-  | current =>
+      SysInvN p k arch Init MintOK c' Eg' Tot' HP' HS' cr' db' ∧ OwnLive Eg' c' ∧ ObsAll Eg' c' ∧
+      (∀ l cl, Eg.sto l = some cl → Eg'.sto l = some cl) ∧ (∀ l, Eg.ini l ≤ Eg'.ini l) ∧
+        ∀ j, j < c.ths.size → Tot' j = Tot j ∧ db' j = db j := by
+  obtain ⟨i, x, n, a, e, th, rt, ws, rs, hth, hterm, hnp, hev, hadm, -, rfl⟩ := hX.elim
+  have hrs := (mem_resultsL n i ws c.trace rs).2 hadm
+  suffices H : ∃ (Eg' : GEnv) (Tot' HP' : Nat → Res) (HS' : Res) (cr' db' : Nat → Ts → Res),
+      SysInvN p k arch Init MintOK (extCfg c i th x n e ws rs) Eg' Tot' HP' HS' cr' db' ∧
+        OwnLive Eg' (extCfg c i th x n e ws rs) ∧ ObsAll Eg' (extCfg c i th x n e ws rs) ∧
+        (∀ l cl, Eg.sto l = some cl → Eg'.sto l = some cl) ∧ (∀ l, Eg.ini l ≤ Eg'.ini l) ∧
+        ∀ j, j < c.ths.size → Tot' j = Tot j ∧ db' j = db j by
+    obtain ⟨Eg', Tot', HP', HS', cr', db', h1, h2, h3, h4, h5, h6⟩ := H
+    exact ⟨Eg', Tot', HP', HS', cr', db', sysInvN_wake h1, ownLive_wake h2, obsAll_wake h3, h4, h5, h6⟩
+  by_cases hc : n = .current
+  rotate_left
+  · have hcfg : extCfg c i th x n e ws rs = TermSetTh.setC c i
+        { th with term := e, env := (x, n.sig.2, rs) :: th.env,
+                  vs := { th.vs with vRd := (if n = .park then parkVs c.mem.size th else th.vs).vRd,
+                                     vPreBase := (if n = .park then parkVs c.mem.size th else th.vs).vPreBase },
+                  permit := if n = .park then none else th.permit }
+        (c.trace ++ n.events ws rs) := by
+      cases n <;> first | exact absurd rfl hc | rfl | skip
+      cases hp : th.permit <;> simp [extCfg, TermSetTh.setC, parkVs, hp]
+    rw [hcfg]
+    exact ⟨_, _, _, _, _, _, sysInvN_extRes hN hth hterm hc hev hrs _ _, ownLive_setC hOL, obsAll_setC hObs,
+      fun _ _ h => h, fun _ => Nat.le_refl _, fun _ _ => ⟨rfl, rfl⟩⟩
+  · subst hc
     show ∃ (Eg' : GEnv) (Tot' HP' : Nat → Res) (HS' : Res) (cr' db' : Nat → Ts → Res),
       SysInvN p k arch Init MintOK (curCfg c i th x e) Eg' Tot' HP' HS' cr' db' ∧
-        OwnLive Eg' (curCfg c i th x e) ∧ ObsAll Eg' (curCfg c i th x e)
+        OwnLive Eg' (curCfg c i th x e) ∧ ObsAll Eg' (curCfg c i th x e) ∧
+        (∀ l cl, Eg.sto l = some cl → Eg'.sto l = some cl) ∧ (∀ l, Eg.ini l ≤ Eg'.ini l) ∧
+        ∀ j, j < c.ths.size → Tot' j = Tot j ∧ db' j = db j
     cases htl : th.tidLbl with
     | some l =>
       obtain ⟨hs, hp⟩ := hN.tidBox i th hth l htl
@@ -209,9 +292,9 @@ theorem sysInvN_extStep {c' : Cfg}
         (fun w hw l' hn => by rw [names_tid hw hn]; exact .inl (by rw [hp]; simp))
         (fun w hw a0 cl hn hs' => by
           rw [names_tid hw hn, hs] at hs'; cases hs'; simp) _,
-        ownLive_setC hOL, obsAll_setC hObs⟩
+        ownLive_setC hOL, obsAll_setC hObs, fun _ _ h => h, fun _ => Nat.le_refl _, fun _ _ => ⟨rfl, rfl⟩⟩
     | none =>
-      have hnp : th.promises = [] := hnp (.inr rfl)
+      have hnp : th.promises = [] := hnp (.inr (.inl ⟨rfl, htl⟩))
       obtain ⟨L, hL⟩ : ∃ L, L = freshLabel c.lbase c.n i th.nalloc := ⟨_, rfl⟩
       have hB := TermBox.sysInvN_box (tl := some L) hN hOL hth hnp hL (.inr rfl)
       have hG := hN.fresh i th hth th.nalloc (Nat.le_refl _)
@@ -231,7 +314,21 @@ theorem sysInvN_extStep {c' : Cfg}
         (fun w hw l' hn => by rw [names_tid hw hn]; exact .inl (by rw [hp]; simp))
         (fun w hw a0 cl hn hs' => by
           rw [names_tid hw hn, hs] at hs'; cases hs'; simp) _,
-        ownLive_setC hOL1, obsAll_setC hObs1⟩
+        ownLive_setC hOL1, obsAll_setC hObs1,
+        fun l0 cl h0 => by
+          have hne : l0 ≠ L := fun e0 => by rw [e0, hL, hG.1] at h0; cases h0
+          rw [TermBox.EgB_sto_ne hne]; exact h0,
+        fun _ => Nat.le_refl _, fun _ _ => ⟨rfl, rfl⟩⟩
+
+/-- **The extern arm**: `SysInvN` (with `OwnLive`, `ObsAll`) across an `Ext` step.  `emit`/`exitEv` bind `()`;
+`current` binds the thread's box word, first allocating the box (`TermBox.sysInvN_box`) if it has none. -/
+theorem sysInvN_extStep {c' : Cfg}
+    (hN : SysInvN p k arch Init MintOK c Eg Tot HP HS cr db) (hOL : OwnLive Eg c) (hObs : ObsAll Eg c)
+    (hX : Ext p k arch c c') :
+    ∃ (Eg' : GEnv) (Tot' HP' : Nat → Res) (HS' : Res) (cr' db' : Nat → Ts → Res),
+      SysInvN p k arch Init MintOK c' Eg' Tot' HP' HS' cr' db' ∧ OwnLive Eg' c' ∧ ObsAll Eg' c' :=
+  let ⟨Eg', Tot', HP', HS', cr', db', h1, h2, h3, _⟩ := sysInvN_extStepW hN hOL hObs hX
+  ⟨Eg', Tot', HP', HS', cr', db', h1, h2, h3⟩
 
 end
 
@@ -251,3 +348,4 @@ end TermExtMid
 #print axioms TermExtMid.curCfg_some
 #print axioms TermExtMid.curCfg_none
 #print axioms TermExtMid.sysInvN_extStep
+#print axioms TermExtMid.sysInvN_extStepW

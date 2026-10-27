@@ -240,6 +240,18 @@ theorem plantIdx_prom (hV0 : TermViewInv.ViewInvR p k arch Sp c0) {c : Cfg} {Eg 
         rw [Cut_pfr] at hf'
         exact hBP' lb B hB o w0 hw j _ l cl f' t' hpi.2.1 hsto hown hf' hkey
           (by rw [TermPtrRts.tminG_eq hpi.2.1]; exact ht') hN)
+      (TermTyped.tidAt_prom (TermMain.tidAt_cutG (Eg := EgP Eg (TermPlantF.plantOf c Eg j a v w) N j c.mem.size)
+        (fun th2 hth2 lb hlb => by
+          obtain ⟨hs2, hp2⟩ := X.inv.tidBox j th2 hth2 lb hlb
+          refine ⟨hs2, ?_⟩
+          show (match TermPlantF.plantOf c Eg j a v w lb with | some f => some f | none => Eg.pfr lb) = some 0
+          cases hq : TermPlantF.plantOf c Eg j a v w lb with
+          | none => exact hp2
+          | some f2 => rw [(hspec lb f2 hq).1] at hp2; cases hp2) S1))
+      (fun th2 hth2 hl2 => by
+        rw [hpi.2.1] at hth2; cases hth2
+        have hb := (X.inv.tidBox j th X.hth l hl2).1
+        rw [hsto0] at hb; cases hb; simp at hown)
     have hcs : (Cut Eg j S).sto l = some cl := cutSto_own hsto0 hown
     exact TermPlantAtI.idxBody_plant htm hmemP rfl rfl hv
       (fun u m hu hm2 hl => TermPlantAtI.priv_le_coh hm (hU S) hcs hown hp0 hu hm2 hl)

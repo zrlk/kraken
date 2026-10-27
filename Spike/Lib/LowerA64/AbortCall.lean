@@ -185,7 +185,7 @@ theorem userCallW_main {d : Decl} (hd : Scc.Lower.Accepted0 [d] = true) {cx : Fn
       ∀ c s c', At exe endPc R' F' (A64.Abort.N lab A64.Abort.overflow c .svc) s c' → Dt s) :
     Spike.Lib.A64.Rt.UserCallW (fun s c => SFacts Λ μ own rS Tk lbl s c Dt) K [d] lbl ms exe endPc R F fn Z D
       (Int64.ofInt cx.frame) (UPost [d] lbl Spike.Lib.A64Consumer.c0) ra Spike.Lib.A64Consumer.c0 tp :=
-  userCallW_of_fn hd hf h1 h16 hpro hr hbody hI hD hD8 hphB hphP hC0 hmr hun hsub hfit hFO
+  userCallW_of_fn hd hf h1 h16 hpro hr hbody hI hD hD8 hphB hphP hC0 hmr hun hsub hfit hFO hK
     fun F' hR0 hal0 hF' hFF _ _ =>
       hab_of hf h16 hI
         (fun ⟨_, _, _, _, hT⟩ => hab (Spike.Lib.LowerNode.insts_ne_of_add_suffix hr hT)) hprog hphs hC0 himm

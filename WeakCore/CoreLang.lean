@@ -443,6 +443,26 @@ theorem bits_pos (w : Wd) : 0 < w.bits := by cases w <;> decide
 theorem lanes_pos (w : Wd) : 0 < w.lanes := by cases w <;> decide
 end Wd
 
+inductive RegAcc | ro | wo | rw deriving DecidableEq, Repr       -- register access (`Acc` is taken: TermRun.Acc, core Acc)
+inductive Mo  | plain | rel | acq deriving DecidableEq, Repr      -- ordering mode of a register access
+/-- A sealed one-word value (`Val.num`): a register, a register block with its already-split indices, a bus address, an
+interrupt line. No introduction form in the language: only the start argument and `regAt` introduce them. -/
+inductive Opq
+  | reg (w : Wd) (acc : RegAcc)
+  | blk (n : Nat) (w : Wd) (acc : RegAcc) (stride : Nat) (taken : List Nat)   -- `n` registers of width `w`, one every
+                                                                             -- `stride` bytes (`Wd.bits w / 8 ≤ stride`)
+  | bus
+  | irq
+  deriving DecidableEq, Repr
+/-- Read-pure registers are copyable; everything else is affine (exclusive rights). -/
+def Opq.copyable : Opq → Bool
+  | .reg _ .ro => true
+  | _ => false
+def RegAcc.canRead  : RegAcc → Bool | .ro | .rw => true | .wo => false
+def RegAcc.canWrite : RegAcc → Bool | .wo | .rw => true | .ro => false
+/-- The kind flag of a `code` value: plain, or restricted with its fuel and stack budgets (decision E). -/
+inductive CodeKind | plain | restricted (fuel stack : Nat) deriving DecidableEq, Repr
+
 inductive Ty
   | unit
   | void                              -- §7 row 13: no introduction form
@@ -452,7 +472,9 @@ inductive Ty
   | lanes  (sg : Bool) (w : Wd)       -- one 64-bit word of `64/w` lanes of `fix sg w`, little-endian
   | prod   (σ τ : Ty)
   | sum    (σ τ : Ty)
-  | code   (σ τ : Ty)                 -- bare code pointer, captures nothing
+  | code   (σ τ : Ty) (k : CodeKind)   -- bare code pointer, captures nothing; `k`: restricted budgets. NO default: a
+                                        -- defaulted field is silently matched as its default in patterns; every
+                                        -- site is edited explicitly (`_` in patterns, `.plain` in terms)
   | array  (i : Idx) (τ : Ty)
   | ptr    (μ : Mode) (τ : Ty)        -- base of an allocation
   | ptrOpt (μ : Mode) (τ : Ty)        -- nullable
@@ -477,6 +499,7 @@ inductive Ty
   | tid                              -- (E1) `ThreadId`: a sealed thread reference, one word (`Val.num` of the
                                      -- thread's index); no introduction form (only `spawn` and `current`),
                                      -- copyable, not Zeroable, compared by `ifeq`; a reference for the GC
+  | opq    (o : Opq)                              -- a sealed one-word value; see `Opq`
   deriving DecidableEq, Repr
 
 namespace Ty
@@ -486,7 +509,7 @@ def shiftT (c : Nat) : Ty → Ty
   | tvar k       => if k ≥ c then tvar (k + 1) else tvar k
   | prod a b     => prod (a.shiftT c) (b.shiftT c)
   | sum a b      => sum (a.shiftT c) (b.shiftT c)
-  | code a b     => code (a.shiftT c) (b.shiftT c)
+  | code a b k   => code (a.shiftT c) (b.shiftT c) k
   | array i t    => array i (t.shiftT c)
   | ptr μ t      => ptr μ (t.shiftT c)
   | ptrOpt μ t   => ptrOpt μ (t.shiftT c)
@@ -503,7 +526,7 @@ def shiftI (c : Nat) : Ty → Ty
   | intS i       => intS (i.shift c)
   | prod a b     => prod (a.shiftI c) (b.shiftI c)
   | sum a b      => sum (a.shiftI c) (b.shiftI c)
-  | code a b     => code (a.shiftI c) (b.shiftI c)
+  | code a b k   => code (a.shiftI c) (b.shiftI c) k
   | array i t    => array (i.shift c) (t.shiftI c)
   | ptr μ t      => ptr (μ.shift c) (t.shiftI c)
   | ptrOpt μ t   => ptrOpt (μ.shift c) (t.shiftI c)
@@ -527,7 +550,7 @@ def idxMentions (k : Nat) : Ty → Bool
   | intS i       => i.mentions k
   | prod a b     => a.idxMentions k || b.idxMentions k
   | sum a b      => a.idxMentions k || b.idxMentions k
-  | code a b     => a.idxMentions k || b.idxMentions k
+  | code a b _   => a.idxMentions k || b.idxMentions k
   | array i t    => i.mentions k || t.idxMentions k
   | ptr μ t      => μ.mentions k || t.idxMentions k
   | ptrOpt μ t   => μ.mentions k || t.idxMentions k
@@ -551,7 +574,7 @@ def tyMentions (k : Nat) : Ty → Bool
   | tvar k'      => k' == k
   | prod a b     => a.tyMentions k || b.tyMentions k
   | sum a b      => a.tyMentions k || b.tyMentions k
-  | code a b     => a.tyMentions k || b.tyMentions k
+  | code a b _   => a.tyMentions k || b.tyMentions k
   | array _ t    => t.tyMentions k
   | ptr _ t      => t.tyMentions k
   | ptrOpt _ t   => t.tyMentions k
@@ -575,7 +598,7 @@ def unguarded (d : Nat) : Ty → Bool
   | ptr _ _      => false
   | ptrOpt _ _   => false
   | loc _ _      => false
-  | code _ _     => false
+  | code _ _ _   => false
   | prod a b     => a.unguarded d || b.unguarded d
   | sum a b      => a.unguarded d || b.unguarded d
   | array _ t    => t.unguarded d
@@ -593,7 +616,7 @@ def wf (nt ni : Nat) : Ty → Bool
   | intS i       => i.inScope ni
   | prod a b     => a.wf nt ni && b.wf nt ni
   | sum a b      => a.wf nt ni && b.wf nt ni
-  | code a b     => a.wf nt ni && b.wf nt ni
+  | code a b _   => a.wf nt ni && b.wf nt ni
   | array i t    => i.inScope ni && t.wf nt ni
   | ptr μ t      => μ.inScope ni && t.wf nt ni
   | ptrOpt μ t   => μ.inScope ni && t.wf nt ni
@@ -724,8 +747,9 @@ def info (ρ : Ctx) : Ty → Info
       match arms.tier with
       | .wide => ⟨some (.lit 2), arms⟩
       | _     => ⟨some (.lit 1), arms⟩
-  | code _ _   => Info.leaf (some (.lit 1))
+  | code _ _ _ => Info.leaf (some (.lit 1))
   | tid        => Info.leaf (some (.lit 1))   -- (E1) one word, a leaf (not a sum niche)
+  | opq _      => Info.leaf (some (.lit 1))   -- (M1) one word, a leaf
   -- An inline array has no static width, even at a literal extent: indices
   -- are erased at runtime, so a width that depended on one would let an index
   -- instantiation change a layout the machine cannot see change.
@@ -835,8 +859,9 @@ def zeroableIn (env : IEnv) (ke : KEnv) : Ty → Bool
       | .niche => (zeroArmP Ty.payloadFree env ke a <|> zeroArmP Ty.payloadFree env ke b) == some true
       | .wide  => (zeroArmP (fun _ => true) env ke a <|> zeroArmP (fun _ => true) env ke b) == some true
       | .boxed => false
-  | .code _ _   => false
+  | .code _ _ _ => false
   | .tid        => false   -- (E1) sealed: `zero[ThreadId]` would forge thread 0
+  | .opq _      => false   -- (M1) sealed: `zero[Reg]` would forge register 0
   | .array _ t  => zeroableIn env ke t
   | .ptr _ _    => false
   | .ptrOpt _ _ => true
@@ -1059,6 +1084,7 @@ def affineIn (ke : KEnv) : Ty → Bool
   | tex κ t       => affineIn (some κ :: ke) t
   | refine t _    => affineIn ke t
   | mu t          => affineIn (none :: ke) t
+  | opq o         => !o.copyable
   | tvar k        => !ke.ask k true (·.copy)
   | _             => false
 
@@ -1073,7 +1099,7 @@ def secondClass : Ty → Bool
   | cap s _      => s.second
   | prod a b     => a.secondClass || b.secondClass
   | sum a b      => a.secondClass || b.secondClass
-  | code _ b     => b.secondClass
+  | code _ b _   => b.secondClass
   | array _ t    => t.secondClass
   | ptr _ t      => t.secondClass
   | ptrOpt _ t   => t.secondClass
@@ -1130,7 +1156,7 @@ def sharedOKIn (ke : KEnv) : Ty → Bool
   | loc (.rgn _) t    => sharedOKIn ke t
   | prod a b      => sharedOKIn ke a && sharedOKIn ke b
   | sum a b       => sharedOKIn ke a && sharedOKIn ke b
-  | code a b      => sharedOKIn ke a && sharedOKIn ke b
+  | code a b _    => sharedOKIn ke a && sharedOKIn ke b
   | array _ t     => sharedOKIn ke t
   | mu t          => sharedOKIn (none :: ke) t
   | tex κ t       => sharedOKIn (some κ :: ke) t
@@ -1277,12 +1303,12 @@ to call, and `α` occurs only under `Ptr`, which the term layer's `guardT`
 requires of a package it will open. -/
 def arrow (μ : Mode) (σ τ : Ty) : Ty :=
   .tex (Kind.closure μ)
-    (.prod (.code (.prod (σ.shiftT 0) (.ptr μ (.tvar 0))) (τ.shiftT 0)) (.ptr μ (.tvar 0)))
+    (.prod (.code (.prod (σ.shiftT 0) (.ptr μ (.tvar 0))) (τ.shiftT 0) .plain) (.ptr μ (.tvar 0)))
 
 /-- §3.9's "non-capturing case `α = 1`": the arrow's body with the witness
 instantiated to `1`. -/
 def arrowNoCapture (μ : Mode) (σ τ : Ty) : Ty :=
-  .prod (.code (.prod σ (.ptr μ .unit)) τ) (.ptr μ .unit)
+  .prod (.code (.prod σ (.ptr μ .unit)) τ .plain) (.ptr μ .unit)
 
 /-- The **region arrow**, for an environment in some region, lent with a
 capability `s`:
@@ -1305,7 +1331,7 @@ def arrowRgn (s : Cap) (σ τ : Ty) : Ty :=
     (.iex (.prod
       (.prod (.code (.iex (.prod (.prod ((σ.shiftT 0).shiftI 0 |>.shiftI 0) (.cap s (.var 0)))
                                  (.ptr (.rgn (.var 0)) (.tvar 0))))
-                    ((τ.shiftT 0).shiftI 0))
+                    ((τ.shiftT 0).shiftI 0) .plain)
              (.ptr (.rgn (.var 0)) (.tvar 0)))
       (.cap s (.var 0))))
 
@@ -1411,7 +1437,7 @@ def lowerI (c : Nat) : Ty → Ty
   | intS i       => intS (i.lower c)
   | prod a b     => prod (a.lowerI c) (b.lowerI c)
   | sum a b      => sum (a.lowerI c) (b.lowerI c)
-  | code a b     => code (a.lowerI c) (b.lowerI c)
+  | code a b k   => code (a.lowerI c) (b.lowerI c) k
   | array i t    => array (i.lower c) (t.lowerI c)
   | ptr μ t      => ptr (μ.lower c) (t.lowerI c)
   | ptrOpt μ t   => ptrOpt (μ.lower c) (t.lowerI c)
@@ -1436,7 +1462,7 @@ def lowerT (c : Nat) : Ty → Ty
   | tvar k       => if k > c then tvar (k - 1) else tvar k
   | prod a b     => prod (a.lowerT c) (b.lowerT c)
   | sum a b      => sum (a.lowerT c) (b.lowerT c)
-  | code a b     => code (a.lowerT c) (b.lowerT c)
+  | code a b k   => code (a.lowerT c) (b.lowerT c) k
   | array i t    => array i (t.lowerT c)
   | ptr μ t      => ptr μ (t.lowerT c)
   | ptrOpt μ t   => ptrOpt μ (t.lowerT c)
@@ -1453,7 +1479,7 @@ def substT (j : Nat) (s : Ty) : Ty → Ty
   | tvar k       => if k == j then s else if k > j then tvar (k - 1) else tvar k
   | prod a b     => prod (substT j s a) (substT j s b)
   | sum a b      => sum (substT j s a) (substT j s b)
-  | code a b     => code (substT j s a) (substT j s b)
+  | code a b k   => code (substT j s a) (substT j s b) k
   | array i t    => array i (substT j s t)
   | ptr μ t      => ptr μ (substT j s t)
   | ptrOpt μ t   => ptrOpt μ (substT j s t)
@@ -1590,7 +1616,7 @@ is marked `-- §7 finding N` and states what the function computes. -/
 #guard int.words = some 1
 #guard (intS (lit 7)).words = some 1
 #guard (prod int int).words = some 2
-#guard (code int int).words = some 1
+#guard (code int int .plain).words = some 1
 #guard (array (lit 4) (prod int int)).words = none          -- F4: an inline array has no width
 #guard (ptr .own (prod int int)).words = some 1
 #guard (ptrOpt .own int).words = some 1
@@ -1614,13 +1640,13 @@ is marked `-- §7 finding N` and states what the function computes. -/
 #guard (arrowRgn .bor int int).secondClass             -- holds a `bor`: passed, never kept
 #guard (arrowRgn .bor int int).scTop                   -- so it may be an argument
 #guard !(arrowRgn .pub int int).secondClass            -- a `pub` one is first-class
-#guard !(Ty.code (arrowRgn .bor int int) int).secondClass   -- taking one holds none
+#guard !(Ty.code (arrowRgn .bor int int) int .plain).secondClass   -- taking one holds none
 -- What stays second-class: a capability as a value, anywhere it could be kept.
 #guard (cap .bor (lit 0)).secondClass
 #guard (prod int (cap .rd (lit 0))).secondClass
 #guard (ptr .own (cap .bor (lit 0))).secondClass
 #guard !(ptr .own (cap .bor (lit 0))).scTop
-#guard (code int (cap .bor (lit 0))).secondClass              -- a result stays conservative
+#guard (code int (cap .bor (lit 0)) .plain).secondClass              -- a result stays conservative
 #guard !(cap .pub (lit 0)).secondClass                        -- `pub` is first-class
 
 -- §2: index quantification is erased, but only when the width does not
@@ -1685,7 +1711,7 @@ is marked `-- §7 finding N` and states what the function computes. -/
 
 -- §3.8's view-sensitivity table
 #guard !int.sensitive
-#guard !(code int int).sensitive
+#guard !(code int int .plain).sensitive
 #guard !(ptr .own (buf .own (ptr .own int) (lit 4) (lit 2))).sensitive
 #guard !(buf .own int (lit 4) (lit 2)).sensitive              -- `Zeroable` elements
 #guard (buf .own (ptr .own int) (lit 4) (lit 2)).sensitive    -- otherwise
@@ -1698,7 +1724,7 @@ is marked `-- §7 finding N` and states what the function computes. -/
 -- §3.9: the arrow is well-formed.  (Before 24f the code took `σ × α`, and it was
 -- well-formed only because `Code` counts as a guard; now `α` is under `Ptr`.)
 #guard (arrow .own int int).kind.isSome
-#guard (code (prod int (tvar 0)) int).tyMentions 0          -- §7 finding 3
+#guard (code (prod int (tvar 0)) int .plain).tyMentions 0          -- §7 finding 3
 
 -- §3.5's representation rule, applied to packages
 #guard (slice .own int).coupledOK
@@ -1726,7 +1752,7 @@ is marked `-- §7 finding N` and states what the function computes. -/
 #guard (ptr .own (ptr .pub int)).kind.isSome
 -- A region is not a way round row 17: `own` directly behind `pub` is still out.
 #guard (ptr .pub (prod (word (lit 0) mutexP) (ptr .own int))).kind = none
-#guard (ptr .pub (code (ptr .own int) int)).kind.isSome      -- code reaches no data
+#guard (ptr .pub (code (ptr .own int) int .plain)).kind.isSome      -- code reaches no data
 -- ...so an `own` closure cannot be shared, and a `pub` one can.
 #guard (ptr .pub (arrow .own int int)).kind = none
 #guard (ptr .pub (arrow .pub int int)).kind.isSome
@@ -1901,5 +1927,14 @@ def coversInstances (κ : Kind) (b σ : Ty) : Bool :=
   let κ := { κ with noWord := κ'.noWord }
   genericBodies.all fun b => instanceSamples.all fun σ =>
     !κ.admits σ || !b.wordFreeIn [some κ] || (Ty.substT 0 σ b).wordFree
+
+/-- Any bit pattern is a value: what a device may write into a cell (decision H). -/
+def bitsIn : Ty → Bool
+  | .unit => true
+  | .fix _ _ => true
+  | .lanes _ _ => true
+  | .prod a b => bitsIn a && bitsIn b
+  | .array _ t => bitsIn t
+  | _ => false
 
 end CoreLang

@@ -2979,8 +2979,9 @@ theorem hello1Need_ok : Scc.Cert.NeedA64.needOk hello1Prog hello1Need 12288 ["sc
 
 /-! ## The layout -/
 
-/-- **The stack depth limit**: the most calls of code blocks a thread is
-in (`Tcb.depth`); a call past it takes the stack abort outcome.  The frames,
+/-- **The stack depth limit**: the calls of code blocks a thread can be
+in without a stack abort (the statement's `B.frames`); the stack abort is the
+grow routine's, when a frame no longer fits under the cap.  The frames,
 the largest of 96 bytes, with 272 bytes of trampoline frame, entry
 frame and grow stub and 4352 bytes of headroom and grow slack, fit in the
 stack cap of 67108864 bytes (`Scc.Lower.stackBudget`). -/

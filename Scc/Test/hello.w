@@ -5,15 +5,9 @@
 -- waits with an acquire load and `park`, then returns 0.
 --
 -- Provisional forms (see Scc/Frontend.lean): `spawn{f}(a)` is the spawn;
--- `print`, `park` and `unpark` with these signatures are the runtime's
--- externs, and their bodies here are WeakCore models that are not compiled.
--- `ThreadId` is stubbed as `Ptr pub Void`.
-
-def park(u : Unit) : Unit =
-  ret ()
-
-def unpark(t : Ptr pub Void) : Unit =
-  ret ()
+-- `print` with this signature is the runtime's output extern, and its body
+-- here is a WeakCore model that is not compiled.  `park`, `unpark` and
+-- `ThreadId` are WeakCore's own.
 
 def spin(n : Int) : Void =
   tail spin(n)
@@ -131,13 +125,13 @@ def rodata(u : Unit) : exists q. ({Loc pub Array[q] LanesU8 | ini >= q} * Int[q]
   let sl = pack sl0 at m : exists a. ({Loc pub Array[a] LanesU8 | ini >= a} * Int[a]) * Int
   ret sl
 
-def worker(a : ((exists q. ({Loc pub Array[q] LanesU8 | ini >= q} * Int[q]) * Int) * Ptr pub Int) * Ptr pub Void) : Unit =
+def worker(a : ((exists q. ({Loc pub Array[q] LanesU8 | ini >= q} * Int[q]) * Int) * Ptr pub Int) * ThreadId) : Unit =
   let (slc, j) = a
   let (sl0, c) = slc
   let <q, sl> = unpack sl0
   let u = print{q}(sl)
   let d = store rel c 1
-  let w = unpark(j)
+  let w = unpark j
   ret ()
 
 def waitLoop(c : Ptr pub Int) : Int =
@@ -145,10 +139,10 @@ def waitLoop(c : Ptr pub Int) : Int =
   if d = 1 then
     ret 0
   else
-    let p = park(())
+    let p = park ()
     tail waitLoop(c)
 
-def main(a : (exists q. ({Loc pub Array[q] LanesU8 | ini >= q} * Int[q]) * Int) * Ptr pub Void) : Int =
+def main(a : (exists q. ({Loc pub Array[q] LanesU8 | ini >= q} * Int[q]) * Int) * ThreadId) : Int =
   let (sl, me) = a
   let z = zero[Int]
   let o = new z

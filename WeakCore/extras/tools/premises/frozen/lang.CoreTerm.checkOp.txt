@@ -8,6 +8,9 @@ CoreLang.Clause : Type
 CoreLang.Clause.holds : CoreLang.Clause → Bool
 CoreLang.Clause2 : Type
 CoreLang.Clause2.holds : CoreLang.Clause2 → Bool
+CoreLang.CodeKind : Type
+CoreLang.CodeKind.plain : CoreLang.CodeKind
+CoreLang.CodeKind.restricted : Nat → Nat → CoreLang.CodeKind
 CoreLang.ECounter : Type
 CoreLang.IEnv : Type
 CoreLang.Idx : Type
@@ -26,6 +29,7 @@ CoreLang.Mode : Type
 CoreLang.Mode.own : CoreLang.Mode
 CoreLang.Mode.pub : CoreLang.Mode
 CoreLang.Mode.rgn : CoreLang.Idx → CoreLang.Mode
+CoreLang.Opq : Type
 CoreLang.Pred : Type
 CoreLang.Pred.ini : CoreLang.Idx → CoreLang.Pred
 CoreLang.Pred.zeroHolds : CoreLang.IEnv → CoreLang.Pred → Bool
@@ -39,7 +43,7 @@ CoreLang.Ty : Type
 CoreLang.Ty.arrFree : CoreLang.Ty → Bool
 CoreLang.Ty.array : CoreLang.Idx → CoreLang.Ty → CoreLang.Ty
 CoreLang.Ty.cap : CoreLang.Cap → CoreLang.Idx → CoreLang.Ty
-CoreLang.Ty.code : CoreLang.Ty → CoreLang.Ty → CoreLang.Ty
+CoreLang.Ty.code : CoreLang.Ty → CoreLang.Ty → CoreLang.CodeKind → CoreLang.Ty
 CoreLang.Ty.epair : CoreLang.Idx → CoreLang.ECounter → CoreLang.Ty
 CoreLang.Ty.fix : Bool → CoreLang.Wd → CoreLang.Ty
 CoreLang.Ty.guardT : Nat → CoreLang.Ty → Bool
@@ -111,8 +115,9 @@ CoreLang.zeroableIn : CoreLang.IEnv → CoreLang.KEnv → CoreLang.Ty → Bool
       | CoreLang.Tier.wide =>
         (CoreLang.zeroArmP (fun x => true) env ke a <|> CoreLang.zeroArmP (fun x => true) env ke b) == some true
       | CoreLang.Tier.boxed => false
-    | σ.code τ => false
+    | σ.code τ k => false
     | CoreLang.Ty.tid => false
+    | CoreLang.Ty.opq o => false
     | CoreLang.Ty.array i t => CoreLang.zeroableIn env ke t
     | CoreLang.Ty.ptr μ τ => false
     | CoreLang.Ty.ptrOpt μ τ => true
@@ -165,10 +170,13 @@ CoreTerm.Cx.vars : CoreTerm.Cx → List (String × CoreLang.Ty × Bool)
 CoreTerm.Decl : Type
 CoreTerm.Decl.argTy : CoreTerm.Decl → CoreLang.Ty
 CoreTerm.Decl.idx : CoreTerm.Decl → List String
+CoreTerm.Decl.kind : CoreTerm.Decl → CoreTerm.DeclKind
 CoreTerm.Decl.retTy : CoreTerm.Decl → CoreLang.Ty
 CoreTerm.Decl.tparams : CoreTerm.Decl → List CoreLang.Kind
+CoreTerm.DeclKind : Type
 CoreTerm.ExtName : Type
 CoreTerm.ExtName.name : CoreTerm.ExtName → String
+CoreTerm.ExtName.ok : CoreTerm.ExtName → Bool
 CoreTerm.ExtName.sig : CoreTerm.ExtName → CoreLang.Ty × CoreLang.Ty
 CoreTerm.FCmp : Type
 CoreTerm.FOp : Type
@@ -1196,7 +1204,12 @@ CoreTerm.checkOp : CoreTerm.Prog → CoreTerm.Cx → String → CoreTerm.Op → 
             else __do_jp ()
   | CoreTerm.Op.fnptr f => do
     let d ← p.find f
-    have __do_jp : Unit → CoreTerm.M CoreTerm.Cx := fun __r => cx.bind x (d.argTy.code d.retTy)
+    have __do_jp : Unit → CoreTerm.M CoreTerm.Cx := fun __r =>
+      cx.bind x
+        (d.argTy.code d.retTy
+          (match d.kind with
+          | CoreTerm.DeclKind.restricted f s => CoreLang.CodeKind.restricted f s
+          | x => CoreLang.CodeKind.plain))
     if (!(d.tparams.isEmpty && d.idx.isEmpty)) = true then do
         let __r ←
           throw (toString "fnptr " ++ toString f ++ toString ": only a monomorphic code block has a code pointer")
@@ -1497,9 +1510,14 @@ CoreTerm.checkOp : CoreTerm.Prog → CoreTerm.Cx → String → CoreTerm.Op → 
     let __x ← cx.use a
     match __x with
       | (t, cx) =>
-        have __do_jp := fun __r => cx.bind x n.sig.snd;
-        if (!CoreTerm.sub cx t n.sig.fst) = true then do
-          let __r ← throw (toString n.name ++ toString ": the argument does not have the extern's type")
+        have __do_jp := fun __r =>
+          have __do_jp := fun __r => cx.bind x n.sig.snd;
+          if (!CoreTerm.sub cx t n.sig.fst) = true then do
+            let __r ← throw (toString n.name ++ toString ": the argument does not have the extern's type")
+            __do_jp __r
+          else __do_jp ();
+        if (!n.ok) = true then do
+          let __r ← throw (toString n.name ++ toString ": inadmissible extern")
           __do_jp __r
         else __do_jp ()
 CoreTerm.classify2M : CoreTerm.Cx → CoreLang.Proto2 → CoreLang.Idx → CoreLang.Idx → CoreTerm.M (Nat × CoreTerm.Lin × CoreTerm.Lin)
@@ -1549,7 +1567,7 @@ TermClose.tb : Nat → CoreLang.Ty → Bool
     | CoreLang.Ty.tvar k => decide (k < c)
     | a.prod b => TermClose.tb c a && TermClose.tb c b
     | a.sum b => TermClose.tb c a && TermClose.tb c b
-    | a.code b => TermClose.tb c a && TermClose.tb c b
+    | a.code b k => TermClose.tb c a && TermClose.tb c b
     | CoreLang.Ty.array i t => TermClose.tb c t
     | CoreLang.Ty.ptr μ t => TermClose.tb c t
     | CoreLang.Ty.ptrOpt μ t => TermClose.tb c t
@@ -1568,7 +1586,7 @@ TermScope.drf : CoreLang.Ty → Bool
     match x with
     | a.prod b => TermScope.drf a && TermScope.drf b
     | a.sum b => TermScope.drf a && TermScope.drf b
-    | a.code b => TermScope.drf a && TermScope.drf b
+    | a.code b k => TermScope.drf a && TermScope.drf b
     | CoreLang.Ty.array i t => TermScope.drf t
     | CoreLang.Ty.ptr μ t => TermScope.drfM μ && TermScope.drf t
     | CoreLang.Ty.ptrOpt μ t => TermScope.drfM μ && TermScope.drf t
@@ -1617,7 +1635,7 @@ TermScope.wrapOKE : List Bool → CoreLang.Ty → Bool
     | CoreLang.Ty.tex κ t => !TermScope.rcarE (false :: env) t && TermScope.wrapOKE (false :: env) t
     | t.mu => TermScope.wrapOKE (TermScope.rcarE (false :: env) t :: env) t
     | a.prod b => TermScope.wrapOKE env a && TermScope.wrapOKE env b
-    | a.code b => TermScope.wrapOKE env a && TermScope.wrapOKE env b
+    | a.code b k => TermScope.wrapOKE env a && TermScope.wrapOKE env b
     | CoreLang.Ty.array i t => TermScope.wrapOKE env t
     | CoreLang.Ty.ptr μ t => TermScope.wrapOKE env t
     | CoreLang.Ty.ptrOpt μ t => TermScope.wrapOKE env t
@@ -1631,7 +1649,7 @@ TermTv.mg : CoreLang.Ty → Bool
     | t.mu => !CoreLang.Ty.unguarded 0 t && TermTv.mg t
     | a.prod b => TermTv.mg a && TermTv.mg b
     | a.sum b => TermTv.mg a && TermTv.mg b
-    | a.code b => TermTv.mg a && TermTv.mg b
+    | a.code b k => TermTv.mg a && TermTv.mg b
     | CoreLang.Ty.array i t => TermTv.mg t
     | CoreLang.Ty.ptr μ t => TermTv.mg t
     | CoreLang.Ty.ptrOpt μ t => TermTv.mg t

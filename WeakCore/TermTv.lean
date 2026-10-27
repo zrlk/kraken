@@ -34,7 +34,7 @@ theorem tb_of_wf (t : Ty) : ∀ {nt ni : Nat}, t.wf nt ni = true → tb nt t = t
   | tvar k => intro nt ni h; simpa [Ty.wf, tb] using h
   | prod a b iha ihb => intro nt ni h; simp only [Ty.wf, tb, Bool.and_eq_true] at h ⊢; exact ⟨iha h.1, ihb h.2⟩
   | sum a b iha ihb => intro nt ni h; simp only [Ty.wf, tb, Bool.and_eq_true] at h ⊢; exact ⟨iha h.1, ihb h.2⟩
-  | code a b iha ihb => intro nt ni h; simp only [Ty.wf, tb, Bool.and_eq_true] at h ⊢; exact ⟨iha h.1, ihb h.2⟩
+  | code a b _ iha ihb => intro nt ni h; simp only [Ty.wf, tb, Bool.and_eq_true] at h ⊢; exact ⟨iha h.1, ihb h.2⟩
   | array i t ih => intro nt ni h; simp only [Ty.wf, tb, Bool.and_eq_true] at h ⊢; exact ih h.2
   | ptr μ t ih => intro nt ni h; simp only [Ty.wf, tb, Bool.and_eq_true] at h ⊢; exact ih h.2
   | ptrOpt μ t ih => intro nt ni h; simp only [Ty.wf, tb, Bool.and_eq_true] at h ⊢; exact ih h.2
@@ -54,7 +54,7 @@ theorem guardT_of_tb (t : Ty) : ∀ {c k : Nat}, tb c t = true → c ≤ k → t
       intro c k h hk; simp only [tb, Ty.guardT, Bool.and_eq_true] at h ⊢; exact ⟨iha h.1 hk, ihb h.2 hk⟩
   | sum a b iha ihb =>
       intro c k h hk; simp only [tb, Ty.guardT, Bool.and_eq_true] at h ⊢; exact ⟨iha h.1 hk, ihb h.2 hk⟩
-  | code a b iha ihb =>
+  | code a b _ iha ihb =>
       intro c k h hk; simp only [tb, Ty.guardT, Bool.and_eq_true] at h ⊢; exact ⟨iha h.1 hk, ihb h.2 hk⟩
   | array _ t ih => intro c k h hk; simp only [tb, Ty.guardT] at h ⊢; exact ih h hk
   | mu t ih => intro c k h hk; simp only [tb, Ty.guardT] at h ⊢; exact ih h (by omega)
@@ -106,7 +106,7 @@ theorem tb_shiftT_up (t : Ty) : ∀ (k c : Nat), tb c t = true → tb (c + 1) (t
       intro k c h; simp only [tb, Ty.shiftT, Bool.and_eq_true] at h ⊢; exact ⟨iha k c h.1, ihb k c h.2⟩
   | sum a b iha ihb =>
       intro k c h; simp only [tb, Ty.shiftT, Bool.and_eq_true] at h ⊢; exact ⟨iha k c h.1, ihb k c h.2⟩
-  | code a b iha ihb =>
+  | code a b _ iha ihb =>
       intro k c h; simp only [tb, Ty.shiftT, Bool.and_eq_true] at h ⊢; exact ⟨iha k c h.1, ihb k c h.2⟩
   | array _ t ih => intro k c h; simp only [tb, Ty.shiftT] at h ⊢; exact ih k c h
   | ptr _ t ih => intro k c h; simp only [tb, Ty.shiftT] at h ⊢; exact ih k c h
@@ -143,7 +143,7 @@ theorem tb_substT (t : Ty) : ∀ (j c : Nat) (s : Ty), j ≤ c → tb c s = true
   | sum a b iha ihb =>
       intro j c s hj hs h; simp only [tb, Ty.substT, Bool.and_eq_true] at h ⊢
       exact ⟨iha j c s hj hs h.1, ihb j c s hj hs h.2⟩
-  | code a b iha ihb =>
+  | code a b _ iha ihb =>
       intro j c s hj hs h; simp only [tb, Ty.substT, Bool.and_eq_true] at h ⊢
       exact ⟨iha j c s hj hs h.1, ihb j c s hj hs h.2⟩
   | array _ t ih => intro j c s hj hs h; simp only [tb, Ty.substT] at h ⊢; exact ih j c s hj hs h
@@ -192,7 +192,7 @@ theorem tb_substTs {σs : List Ty} {m : Nat} (hσ : ∀ σ ∈ σs, tb m σ = tr
       intro c d h; simp only [tb, substTs, Bool.and_eq_true] at h ⊢; exact ⟨iha c d h.1, ihb c d h.2⟩
   | sum a b iha ihb =>
       intro c d h; simp only [tb, substTs, Bool.and_eq_true] at h ⊢; exact ⟨iha c d h.1, ihb c d h.2⟩
-  | code a b iha ihb =>
+  | code a b _ iha ihb =>
       intro c d h; simp only [tb, substTs, Bool.and_eq_true] at h ⊢; exact ⟨iha c d h.1, ihb c d h.2⟩
   | array _ t ih => intro c d h; simp only [tb, substTs] at h ⊢; exact ih c d h
   | ptr _ t ih => intro c d h; simp only [tb, substTs] at h ⊢; exact ih c d h
@@ -225,7 +225,7 @@ theorem tb_cellOf {c : Nat} {t u : Ty} {μ : Mode} (h : tb c t = true) (e : cell
 theorem tb_codeOf {c : Nat} {t σ τ : Ty} (h : tb c t = true) (e : codeOf t = some (σ, τ)) :
     tb c σ = true ∧ tb c τ = true := by
   cases t with
-  | code a b =>
+  | code a b _ =>
       simp only [codeOf, Option.some.injEq, Prod.mk.injEq] at e; obtain ⟨rfl, rfl⟩ := e
       simpa [tb] using h
   | _ => simp [codeOf] at e
@@ -299,7 +299,7 @@ theorem mg_of_wf (t : Ty) : ∀ {nt ni : Nat}, t.wf nt ni = true → mg t = true
   induction t with
   | prod a b iha ihb => intro nt ni h; simp only [Ty.wf, mg, Bool.and_eq_true] at h ⊢; exact ⟨iha h.1, ihb h.2⟩
   | sum a b iha ihb => intro nt ni h; simp only [Ty.wf, mg, Bool.and_eq_true] at h ⊢; exact ⟨iha h.1, ihb h.2⟩
-  | code a b iha ihb => intro nt ni h; simp only [Ty.wf, mg, Bool.and_eq_true] at h ⊢; exact ⟨iha h.1, ihb h.2⟩
+  | code a b _ iha ihb => intro nt ni h; simp only [Ty.wf, mg, Bool.and_eq_true] at h ⊢; exact ⟨iha h.1, ihb h.2⟩
   | array i t ih => intro nt ni h; simp only [Ty.wf, mg, Bool.and_eq_true] at h ⊢; exact ih h.2
   | ptr μ t ih => intro nt ni h; simp only [Ty.wf, mg, Bool.and_eq_true] at h ⊢; exact ih h.2
   | ptrOpt μ t ih => intro nt ni h; simp only [Ty.wf, mg, Bool.and_eq_true] at h ⊢; exact ih h.2
@@ -493,7 +493,7 @@ theorem mg_substT (t : Ty) : ∀ (j : Nat) (s : Ty), mg s = true → mg t = true
       intro j s hs h; simp only [mg, Ty.substT, Bool.and_eq_true] at h ⊢; exact ⟨iha j s hs h.1, ihb j s hs h.2⟩
   | sum a b iha ihb =>
       intro j s hs h; simp only [mg, Ty.substT, Bool.and_eq_true] at h ⊢; exact ⟨iha j s hs h.1, ihb j s hs h.2⟩
-  | code a b iha ihb =>
+  | code a b _ iha ihb =>
       intro j s hs h; simp only [mg, Ty.substT, Bool.and_eq_true] at h ⊢; exact ⟨iha j s hs h.1, ihb j s hs h.2⟩
   | array _ t ih => intro j s hs h; simp only [mg, Ty.substT] at h ⊢; exact ih j s hs h
   | ptr _ t ih => intro j s hs h; simp only [mg, Ty.substT] at h ⊢; exact ih j s hs h
@@ -535,7 +535,7 @@ theorem mg_substTs {σs : List Ty} (hσ : ∀ σ ∈ σs, mg σ = true) (t : Ty)
       intro c d h; simp only [mg, substTs, Bool.and_eq_true] at h ⊢; exact ⟨iha c d h.1, ihb c d h.2⟩
   | sum a b iha ihb =>
       intro c d h; simp only [mg, substTs, Bool.and_eq_true] at h ⊢; exact ⟨iha c d h.1, ihb c d h.2⟩
-  | code a b iha ihb =>
+  | code a b _ iha ihb =>
       intro c d h; simp only [mg, substTs, Bool.and_eq_true] at h ⊢; exact ⟨iha c d h.1, ihb c d h.2⟩
   | array _ t ih => intro c d h; simp only [mg, substTs] at h ⊢; exact ih c d h
   | ptr _ t ih => intro c d h; simp only [mg, substTs] at h ⊢; exact ih c d h
@@ -592,7 +592,7 @@ theorem mg_cl {ρ : Nat → Nat} {W : Nat → Ty} (hW : ∀ k, tb 0 (W k) = true
   | tvar k => intro c d _; simp only [cl]; split <;> simp [mg, hm]
   | prod a b iha ihb => intro c d h; simp only [mg, cl, Bool.and_eq_true] at h ⊢; exact ⟨iha c d h.1, ihb c d h.2⟩
   | sum a b iha ihb => intro c d h; simp only [mg, cl, Bool.and_eq_true] at h ⊢; exact ⟨iha c d h.1, ihb c d h.2⟩
-  | code a b iha ihb => intro c d h; simp only [mg, cl, Bool.and_eq_true] at h ⊢; exact ⟨iha c d h.1, ihb c d h.2⟩
+  | code a b _ iha ihb => intro c d h; simp only [mg, cl, Bool.and_eq_true] at h ⊢; exact ⟨iha c d h.1, ihb c d h.2⟩
   | array _ t ih => intro c d h; simp only [mg, cl] at h ⊢; exact ih c d h
   | ptr _ t ih => intro c d h; simp only [mg, cl] at h ⊢; exact ih c d h
   | ptrOpt _ t ih => intro c d h; simp only [mg, cl] at h ⊢; exact ih c d h
@@ -614,7 +614,7 @@ theorem mg_cellOf {t u : Ty} {μ : Mode} (h : mg t = true) (e : cellOf t = some 
 
 theorem mg_codeOf {t σ τ : Ty} (h : mg t = true) (e : codeOf t = some (σ, τ)) : mg σ = true ∧ mg τ = true := by
   cases t with
-  | code a b =>
+  | code a b _ =>
       simp only [codeOf, Option.some.injEq, Prod.mk.injEq] at e; obtain ⟨rfl, rfl⟩ := e
       simpa [mg] using h
   | _ => simp [codeOf] at e
@@ -1246,7 +1246,7 @@ theorem OpT_TvOK {p : Prog} (hP : ProgT p) {cx c' : Cx} {x : String} {op : Op}
       exact (bind_TvOK hb (push_TvOK x (push_TvOK (x ++ "_d") hv)) (by simp [tb]) (by simp [mg])).1
   | nameI _ hb => exact (bind_TvOK hb (push_TvOK x hv) (by simp [tb]) (by simp [mg])).1
   | spawn hu _ _ _ _ _ _ _ _ _ _ _ _ _ _ hb => exact (bind_TvOK hb (use_TvOK hu hv).1 (by simp [tb]) (by simp [mg])).1
-  | ext hu _ hb => exact (bind_TvOK hb (use_TvOK hu hv).1 (extSig_tb _ _) (extSig_mg _)).1
+  | ext hu _ _ hb => exact (bind_TvOK hb (use_TvOK hu hv).1 (extSig_tb _ _) (extSig_mg _)).1
   | xchgAt hp hbuf _ _ _ _ hu _ hb =>
       have hu' := tb_bufOf (peek_tb hv hp) hbuf
       obtain ⟨h1, -, hk⟩ := use_TvOK hu hv

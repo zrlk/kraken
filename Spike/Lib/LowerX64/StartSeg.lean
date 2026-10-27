@@ -99,7 +99,7 @@ theorem ec_facts (L : RuntimeLayout) {E : Scc.Sem.Entry} (hE : E.Ok L.Λ) {rS : 
 /-- **The run from `scc_rt_start` is one segment inside `SFacts … Dt`**
 (P4), the take of the first stack its outside move, for an output passing
 `placeOK` (`h`, at the immediates `i`) whose source is one `Accepted0`
-`main` (`hd`) lowered to `r` (`hr`) at the frame `fr` with its code in the
+`main` (`hd`; so a bare tail, `hs`) lowered to `r` (`hr`) at the frame `fr` with its code in the
 program (`hpro`, `hbody`): from `scc_rt_start`'s entry in the callee region
 of `_start`'s call, for every frame condition `F'` stable there, kept by
 the take and implying the runtime's words unloaded (`rtF`), to any `Q`.
@@ -114,8 +114,9 @@ label's invariant records), the write tail (`hwr`, for a region holding the
 stub's frame: `ovfDt_of_at` at `Dt := OvfDt`), the runtime memory invariant at the
 runtime's words (`hG*`, `hown*`, `hroom*`) and the labels off the words
 (`hfree`). -/
-theorem x64_start_segW {d : Decl} (hd : Scc.Lower.Accepted0 [d] = true) {fr : Scc.Emit.X64.Frame} {r : Res}
-    {entry : Label} {zl zf z1 z2 zs : Nat} (hf : FrameOk fr) (h4 : fr.size ≤ 4096) (h16 : fr.size % 16 = 0)
+theorem x64_start_segW {d : Decl} (hd : Scc.Lower.Accepted0 [d] = true) (hs : o.place.tail = .bare)
+    {fr : Scc.Emit.X64.Frame} {r : Res} {entry : Label} {zl zf z1 z2 zs : Nat} (hf : FrameOk fr)
+    (h4 : fr.size ≤ 4096) (h16 : fr.size % 16 = 0)
     (hpro : proInC o.prog fr bareMC.fn entry zl zf z1 z2 zs = true)
     (hr : lower0 [(d.arg, .unit, [])] 0 d.body = some r)
     (hbody : bodyIn o.prog fr entry 0 r.insts r.ret = true)
@@ -165,7 +166,7 @@ theorem x64_start_segW {d : Decl} (hd : Scc.Lower.Accepted0 [d] = true) {fr : Sc
       SegW (WS lbl Dt) (K (Ly) (Spike.Lib.X64.Rt.rS0 (Ly))) [d] lbl (MS rd G lbl lsize)
         (At (Ly).exe (Ly).endPc (EC E) F' (startN0 (Ly).lab Spike.Lib.X64Consumer.c0)) Q := by
   intro F' hF' hK' hFF Q
-  have hrc := Spike.Lib.X64.Rt.rtCodeIn_of_ok (rtCodeOk_bare_of_placeOKAt h)
+  have hrc := Spike.Lib.X64.Rt.rtCodeIn_of_ok (rtCodeOk_bare_of_placeOKAt h hs)
   have hsub := Spike.Lib.X64.Rt.rS0_sub (Ly)
   have hfit := Spike.Lib.X64.Rt.fitS_of_sub (Ly) hsub
   have hI := Spike.Lib.X64.PhRec.instOk_ofPlaceOK h i (rS := Spike.Lib.X64.Rt.rS0 (Ly))

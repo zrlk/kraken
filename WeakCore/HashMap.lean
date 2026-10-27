@@ -61,7 +61,7 @@ def TblIn (μ : Mode) : Ty := .iex (.prod (.intS c1) (.prod (buf μ SK c1 c1) (b
 /-- The table by value, columns own (HashMapOwn). -/
 def Tbl : Ty := TblIn .own
 def LimT : Ty := .iex (.intS (.var 0))
-def Fns : Ty := .prod (.code K .int) (.code (.prod K K) bool)
+def Fns : Ty := .prod (.code K .int .plain) (.code (.prod K K) bool .plain)
 /-- The table, `(lim, full)`, and the functions. -/
 def MapTIn (μ : Mode) : Ty := .prod (TblIn μ) (.prod (.prod LimT LimT) Fns)
 def MapT : Ty := MapTIn .own
@@ -143,7 +143,7 @@ with its own `rem`.  Terminates because `lim` keeps a slot empty. -/
 def probeD : Decl where
   name := "probe"; tparams := [κK, κV]; idx := ["r", "m"]; arg := "a"
   argTy := .prod (.cap .rd (.var 1)) (.prod (buf (.rgn (.var 1)) SK c1 c1)
-    (.prod (.intS c1) (.prod K (.prod (.code (.prod K K) bool) .int))))
+    (.prod (.intS c1) (.prod K (.prod (.code (.prod K K) bool .plain) .int))))
   retTy := .sum .int .int
   body := .split (v "a") "c" "a1" (.split (v "a1") "kb" "a2" (.split (v "a2") "cv" "a3"
     (.split (v "a3") "k" "a4" (.split (v "a4") "eq" "pos"

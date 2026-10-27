@@ -1,0 +1,40 @@
+CoreLang.Mo : Type
+CoreLang.Opq.blk : Nat → CoreLang.Wd → CoreLang.RegAcc → Nat → List Nat → CoreLang.Opq
+CoreLang.Opq.irq : CoreLang.Opq
+CoreLang.Opq.reg : CoreLang.Wd → CoreLang.RegAcc → CoreLang.Opq
+CoreLang.RegAcc : Type
+CoreLang.RegAcc.ro : CoreLang.RegAcc
+CoreLang.RegAcc.wo : CoreLang.RegAcc
+CoreLang.Ty : Type
+CoreLang.Ty.fix : Bool → CoreLang.Wd → CoreLang.Ty
+CoreLang.Ty.int : CoreLang.Ty
+CoreLang.Ty.opq : CoreLang.Opq → CoreLang.Ty
+CoreLang.Ty.prod : CoreLang.Ty → CoreLang.Ty → CoreLang.Ty
+CoreLang.Ty.tid : CoreLang.Ty
+CoreLang.Ty.unit : CoreLang.Ty
+CoreLang.Wd : Type
+CoreLang.Wd.w8 : CoreLang.Wd
+CoreTerm.ExtName : Type
+CoreTerm.ExtName.sig : CoreTerm.ExtName → CoreLang.Ty × CoreLang.Ty
+  := fun x =>
+  match x with
+  | CoreTerm.ExtName.emit => (CoreLang.Ty.fix false CoreLang.Wd.w8, CoreLang.Ty.unit)
+  | CoreTerm.ExtName.current => (CoreLang.Ty.unit, CoreLang.Ty.tid)
+  | CoreTerm.ExtName.exitEv => (CoreLang.Ty.int, CoreLang.Ty.unit)
+  | CoreTerm.ExtName.park => (CoreLang.Ty.unit, CoreLang.Ty.unit)
+  | CoreTerm.ExtName.unpark => (CoreLang.Ty.tid, CoreLang.Ty.unit)
+  | CoreTerm.ExtName.mmioR w acc mo =>
+    (CoreLang.Ty.opq (CoreLang.Opq.reg w acc),
+      (CoreLang.Ty.opq (CoreLang.Opq.reg w acc)).prod (CoreLang.Ty.fix false w))
+  | CoreTerm.ExtName.mmioW w acc mo =>
+    ((CoreLang.Ty.opq (CoreLang.Opq.reg w acc)).prod (CoreLang.Ty.fix false w),
+      CoreLang.Ty.opq (CoreLang.Opq.reg w acc))
+  | CoreTerm.ExtName.regAt n w acc st tk k =>
+    (CoreLang.Ty.opq (CoreLang.Opq.blk n w acc st tk),
+      (CoreLang.Ty.opq (CoreLang.Opq.reg w acc)).prod (CoreLang.Ty.opq (CoreLang.Opq.blk n w acc st (k :: tk))))
+  | CoreTerm.ExtName.devRecv w => (CoreLang.Ty.opq (CoreLang.Opq.reg w CoreLang.RegAcc.wo), CoreLang.Ty.fix false w)
+  | CoreTerm.ExtName.devWrite w =>
+    ((CoreLang.Ty.opq (CoreLang.Opq.reg w CoreLang.RegAcc.ro)).prod (CoreLang.Ty.fix false w), CoreLang.Ty.unit)
+  | CoreTerm.ExtName.devChoice w => (CoreLang.Ty.unit, CoreLang.Ty.fix false w)
+  | CoreTerm.ExtName.devIrq => (CoreLang.Ty.opq CoreLang.Opq.irq, CoreLang.Ty.unit)
+  | CoreTerm.ExtName.devOut w => (CoreLang.Ty.fix false w, CoreLang.Ty.unit)

@@ -118,36 +118,51 @@ theorem frame_ge16 {cx : FnCtx} (hf : FrameOk cx) : 16 ≤ cx.frame := by
   have := le_align16 (8 * cx.slots.length + 16)
   unfold FrameOk at hf; omega
 
+/-! ## A block's edge -/
+
+/-- **A block's edge** at node `n` (`seg_ndW`'s obligations on the block's
+closed form): the block is not empty and covered from the node's offsets
+for cells in `[lo, hi)`, and from every state of the node's invariant its
+abstract run (labels `lab`) lands at an internal node of `N` or an exit of
+`E`, after a local run of the source. -/
+def BlkEdge (p : Prog) (lab : Label → Int64) (lo hi : Int) (n : ND) (blk : List Directive) {ι κ : Sort _}
+    (N : ι → ND) (E : κ → ND) : Prop :=
+  blk ≠ [] ∧ okBlk lo hi n.o blk = true ∧
+    ∀ σ c, n.J σ c → ∃ c', LocalRun p c c' ∧ Lands N E (arun lab blk ⟨n.pc, n.o, σ⟩) c'
+
+/-- **A block's edge is one segment** (`seg_ndW`). -/
+theorem BlkEdge.seg {lbl : WeakMem.AllocLabel → Option Nat} {ms : MemSide isaLSE2} {exe : _root_.Executable}
+    {endPc : Int64} {R : Region} {F : MachineData → Prop} {W : Frag isaLSE2} {K : State → State → Prop}
+    {lo hi : Int} {n : ND} {blk : List Directive} {ι κ : Sort _} {N : ι → ND} {E : κ → ND}
+    (h : BlkEdge p (_root_.Executable.labels exe).label lo hi n blk N E)
+    (hF : FStable R F) (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ lo) (hhi : hi ≤ R.hi)
+    (hcode : ∀ s : State, s.exe = exe → s.endPc = endPc → CodeAt s n.pc blk)
+    (hW : BlkW W K exe endPc R F n blk) :
+    SegW W K p lbl ms (At exe endPc R F n) (Next exe endPc R F N E) :=
+  seg_ndW h.1 h.2.1 hF hR hal hlo hhi hcode hW h.2.2
+
 section Segs
 
 variable {lbl : WeakMem.AllocLabel → Option Nat} {c0 : Ctl} {ms : MemSide isaLSE2}
   {exe : _root_.Executable} {endPc : Int64} {R : Region} {F : MachineData → Prop}
   {W : Frag isaLSE2} {K : State → State → Prop}
 
-/-- **The checked `+`'s block is one segment**: from the node at
-`let x = a + b` (operands placed at `pa`, `pb`, loaded into `x9`, `x10`) to
-the pending store after the block, or, on carry, to the overflow abort
-label. `x`'s IR register `d` has a cell no other placed operand has. -/
-theorem add_seg {cx : FnCtx} (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) (h16 : cx.frame % 16 = 0)
+/-- **The checked `+`'s edge** (`add_seg`'s block, at the labels `lab`). -/
+theorem add_edge {cx : FnCtx} (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) (h16 : cx.frame % 16 = 0)
     {pa pb : Scc.IR.Operand} {la lb : List Item} (ha : cx.getOp .X9 pa = .ok la) (hb : cx.getOp .X10 pb = .ok lb)
-    {d : Scc.IR.Reg} {off : Int} (hd : cx.slotOff d = .ok off) {pc : Int64}
-    (hcode : ∀ s : State, s.exe = exe → s.endPc = endPc →
-      CodeAt s pc (directives (la ++ lb ++ addChecked .X9 .X9 .X10 (cx.local "abort_overflow"))))
-    (hF : FStable R F) (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -(cx.frame : Int))
-    (hhi : 0 ≤ R.hi) {fp ra : BitVec 64} {x : String} {a b : At} {e : Expr} {s : SEnv} {ta tb : Ty}
+    {d : Scc.IR.Reg} {off : Int} (hd : cx.slotOff d = .ok off) {pc : Int64} (lab : Label → Int64)
+    {fp ra : BitVec 64} {x : String} {a b : At} {e : Expr} {s : SEnv} {ta tb : Ty}
     (hsa : sevalAt s a = some (ta, [.one pa])) (hsb : sevalAt s b = some (tb, [.one pb]))
     (hfr : ∀ q ∈ s, ∀ pl ∈ q.2.2, ∀ o ∈ pl.opds, ∀ r, o = .reg r → r ≠ d)
     (htot : ∀ y ∈ Scc.Sem.exprFv (.let_ x (.add a b) e), (lookupS s y).isSome)
     {i : Expr → String → Nat → Option Nat} {T : Expr → Prop} (himm : ImmIn i s (.let_ x (.add a b) e))
-    (hT : T (.let_ x (.add a b) e))
-    (hW : BlkW W K exe endPc R F (bodyN p lbl cx fp ra c0 pc (.let_ x (.add a b) e) s)
-      (directives (la ++ lb ++ addChecked .X9 .X9 .X10 (cx.local "abort_overflow")))) :
-    SegW W K p lbl ms (At exe endPc R F (bodyN p lbl cx fp ra c0 pc (.let_ x (.add a b) e) s))
-      (Next exe endPc R F
-        (fun _ : Unit => pendN p lbl cx fp ra c0
-          (pc + Int64.ofNat (4 * (directives (la ++ lb ++ addChecked .X9 .X9 .X10 (cx.local "abort_overflow"))).length))
-          e ((x, .int, [.one (.reg d)]) :: s) (off - cx.frame))
-        (fun _ : Unit => abortN i T p lbl cx (_root_.Executable.labels exe).label fp ra c0)) := by
+    (hT : T (.let_ x (.add a b) e)) :
+    BlkEdge p lab (-(cx.frame : Int)) 0 (bodyN p lbl cx fp ra c0 pc (.let_ x (.add a b) e) s)
+      (directives (la ++ lb ++ addChecked .X9 .X9 .X10 (cx.local "abort_overflow")))
+      (fun _ : Unit => pendN p lbl cx fp ra c0
+        (pc + Int64.ofNat (4 * (directives (la ++ lb ++ addChecked .X9 .X9 .X10 (cx.local "abort_overflow"))).length))
+        e ((x, .int, [.one (.reg d)]) :: s) (off - cx.frame))
+      (fun _ : Unit => abortN i T p lbl cx lab fp ra c0) := by
   have hne : directives (la ++ lb ++ addChecked .X9 .X9 .X10 (cx.local "abort_overflow")) ≠ [] := by
     simp [directives_append, directives_addChecked]
   have hok : okBlk (-(cx.frame : Int)) 0 (oF cx)
@@ -156,10 +171,10 @@ theorem add_seg {cx : FnCtx} (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) (h16 : c
     rw [directives_append, directives_append, List.append_assoc, okBlk_getOp hf h1 h16 ha,
       okBlk_getOp hf h1 h16 hb]
     exact okBlk_addChecked _
-  refine seg_ndW hne hok hF hR hal hlo hhi hcode hW fun σ c ⟨hJ, hfj, hc0⟩ => ?_
+  refine ⟨hne, hok, fun σ c ⟨hJ, hfj, hc0⟩ => ?_⟩
   show ∃ c', LocalRun p c c' ∧ Lands _ _ (arun _ _ ⟨pc, ⟨-(cx.frame : Int), []⟩, σ⟩) c'
   obtain ⟨-, va, vb, hva, hvb, hpc, hso, h9, hsl⟩ :=
-    add_block hf h1 h16 ha hb (cx.local "abort_overflow") (_root_.Executable.labels exe).label pc σ
+    add_block hf h1 h16 ha hb (cx.local "abort_overflow") lab pc σ
   by_cases hlt : va.toNat + vb.toNat < 2 ^ 64
   · refine ⟨c, .refl c, .inl ⟨(), ?_, ?_, ?_, ?_, hc0⟩⟩
     · show pc + _ = _
@@ -184,19 +199,40 @@ theorem add_seg {cx : FnCtx} (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) (h16 : c
     · show AbJ i T lbl cx fp ra _ c1
       rw [AbJ, hsl]; exact ⟨⟨s, hab, ht ▸ himm, ht ▸ hT⟩, hfj⟩
 
-/-- **The store `str x9, [sp, #off]` of a checked `+`'s result is one
-segment**: from the pending store to the next node. -/
-theorem store_seg {cx : FnCtx} (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) (h16 : cx.frame % 16 = 0) {d : Scc.IR.Reg}
-    {off : Int}
-    (hd : cx.slotOff d = .ok off) {pc : Int64}
+/-- **The checked `+`'s block is one segment**: from the node at
+`let x = a + b` (operands placed at `pa`, `pb`, loaded into `x9`, `x10`) to
+the pending store after the block, or, on carry, to the overflow abort
+label. `x`'s IR register `d` has a cell no other placed operand has. -/
+theorem add_seg {cx : FnCtx} (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) (h16 : cx.frame % 16 = 0)
+    {pa pb : Scc.IR.Operand} {la lb : List Item} (ha : cx.getOp .X9 pa = .ok la) (hb : cx.getOp .X10 pb = .ok lb)
+    {d : Scc.IR.Reg} {off : Int} (hd : cx.slotOff d = .ok off) {pc : Int64}
     (hcode : ∀ s : State, s.exe = exe → s.endPc = endPc →
-      CodeAt s pc (directives [ins (.STR (rz .W64 .X9) ⟨spW64, .imm ⟨i64 off, none⟩⟩)]))
+      CodeAt s pc (directives (la ++ lb ++ addChecked .X9 .X9 .X10 (cx.local "abort_overflow"))))
     (hF : FStable R F) (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -(cx.frame : Int))
-    (hhi : 0 ≤ R.hi) {fp ra : BitVec 64} {t : Expr} {s : SEnv}
-    (hW : BlkW W K exe endPc R F (pendN p lbl cx fp ra c0 pc t s (off - cx.frame))
-      (directives [ins (.STR (rz .W64 .X9) ⟨spW64, .imm ⟨i64 off, none⟩⟩)])) :
-    SegW W K p lbl ms (At exe endPc R F (pendN p lbl cx fp ra c0 pc t s (off - cx.frame)))
-      (At exe endPc R F (bodyN p lbl cx fp ra c0 (pc + 4) t s)) := by
+    (hhi : 0 ≤ R.hi) {fp ra : BitVec 64} {x : String} {a b : At} {e : Expr} {s : SEnv} {ta tb : Ty}
+    (hsa : sevalAt s a = some (ta, [.one pa])) (hsb : sevalAt s b = some (tb, [.one pb]))
+    (hfr : ∀ q ∈ s, ∀ pl ∈ q.2.2, ∀ o ∈ pl.opds, ∀ r, o = .reg r → r ≠ d)
+    (htot : ∀ y ∈ Scc.Sem.exprFv (.let_ x (.add a b) e), (lookupS s y).isSome)
+    {i : Expr → String → Nat → Option Nat} {T : Expr → Prop} (himm : ImmIn i s (.let_ x (.add a b) e))
+    (hT : T (.let_ x (.add a b) e))
+    (hW : BlkW W K exe endPc R F (bodyN p lbl cx fp ra c0 pc (.let_ x (.add a b) e) s)
+      (directives (la ++ lb ++ addChecked .X9 .X9 .X10 (cx.local "abort_overflow")))) :
+    SegW W K p lbl ms (At exe endPc R F (bodyN p lbl cx fp ra c0 pc (.let_ x (.add a b) e) s))
+      (Next exe endPc R F
+        (fun _ : Unit => pendN p lbl cx fp ra c0
+          (pc + Int64.ofNat (4 * (directives (la ++ lb ++ addChecked .X9 .X9 .X10 (cx.local "abort_overflow"))).length))
+          e ((x, .int, [.one (.reg d)]) :: s) (off - cx.frame))
+        (fun _ : Unit => abortN i T p lbl cx (_root_.Executable.labels exe).label fp ra c0)) :=
+  (add_edge hf h1 h16 ha hb hd _ hsa hsb hfr htot himm hT).seg hF hR hal hlo hhi hcode hW
+
+/-- **The store `str x9, [sp, #off]`'s edge** (`store_seg`'s block, at the
+labels `lab`). -/
+theorem store_edge {cx : FnCtx} (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) (h16 : cx.frame % 16 = 0)
+    {d : Scc.IR.Reg} {off : Int}
+    (hd : cx.slotOff d = .ok off) {pc : Int64} (lab : Label → Int64) {fp ra : BitVec 64} {t : Expr} {s : SEnv} :
+    BlkEdge p lab (-(cx.frame : Int)) 0 (pendN p lbl cx fp ra c0 pc t s (off - cx.frame))
+      (directives [ins (.STR (rz .W64 .X9) ⟨spW64, .imm ⟨i64 off, none⟩⟩)])
+      (fun _ : Unit => bodyN p lbl cx fp ra c0 (pc + 4) t s) (fun e : Empty => e.elim) := by
   obtain ⟨h0, h8, hle⟩ := slotOff_bounds hf hd
   have ho : (Int64.ofInt off).toInt = off := toInt_ofInt_small (by omega) (by omega)
   have hds : directives [ins (.STR (rz .W64 .X9) ⟨spW64, .imm ⟨i64 off, none⟩⟩)] =
@@ -209,12 +245,7 @@ theorem store_seg {cx : FnCtx} (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) (h16 :
     subst hq
     simp only [oF, ho, offOk, decide_eq_true_eq]
     omega
-  have one : ∀ {P : Frag isaLSE2} {n : ND},
-      SegW W K p lbl ms P (Next exe endPc R F (fun _ : Unit => n) (fun e : Empty => e.elim)) →
-      SegW W K p lbl ms P (At exe endPc R F n) := fun h =>
-    h.mono_post fun _ _ h => h.elim (fun ⟨_, h⟩ => h) fun ⟨e, _⟩ => e.elim
-  refine one (seg_ndW (by rw [hds]; simp) hok hF hR hal hlo hhi hcode hW fun σ c ⟨hJ, hfj, hc0⟩ =>
-    ⟨c, .refl c, .inl ⟨(), ?_, ?_, ?_, ?_, hc0⟩⟩)
+  refine ⟨by rw [hds]; simp, hok, fun σ c ⟨hJ, hfj, hc0⟩ => ⟨c, .refl c, .inl ⟨(), ?_, ?_, ?_, ?_, hc0⟩⟩⟩
   all_goals simp only [hds, List.map_cons, List.map_nil, arun, List.foldl, pendN, oF] at *
   all_goals rw [dstep_spStr]
   · rfl
@@ -228,18 +259,29 @@ theorem store_seg {cx : FnCtx} (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) (h16 :
     show upd σ.slot _ _ (-16) = fp ∧ upd σ.slot _ _ (-8) = ra
     simp only [upd_apply, hk1, hk2, ↓reduceIte, h16', h8', and_self]
 
-/-- **`ret a` is one segment**: from the node at `ret a` (`a` placed at
-`pa`) through the load of `pa` into `x0` and the epilogue to the saved return
-address. -/
-theorem ret_seg {cx : FnCtx} (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) (h16 : cx.frame % 16 = 0)
-    {pa : Scc.IR.Operand} {l : List Item} (ha : cx.getOp .X0 pa = .ok l) {pc : Int64}
-    (hcode : ∀ s : State, s.exe = exe → s.endPc = endPc → CodeAt s pc (directives (l ++ cx.leave ++ [ret])))
+/-- **The store `str x9, [sp, #off]` of a checked `+`'s result is one
+segment**: from the pending store to the next node. -/
+theorem store_seg {cx : FnCtx} (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) (h16 : cx.frame % 16 = 0) {d : Scc.IR.Reg}
+    {off : Int}
+    (hd : cx.slotOff d = .ok off) {pc : Int64}
+    (hcode : ∀ s : State, s.exe = exe → s.endPc = endPc →
+      CodeAt s pc (directives [ins (.STR (rz .W64 .X9) ⟨spW64, .imm ⟨i64 off, none⟩⟩)]))
     (hF : FStable R F) (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -(cx.frame : Int))
-    (hhi : 0 ≤ R.hi) {fp ra : BitVec 64} {a : At} {s : SEnv} {t : Ty}
-    (hsa : sevalAt s a = some (t, [.one pa]))
-    (hW : BlkW W K exe endPc R F (bodyN p lbl cx fp ra c0 pc (.ret a) s) (directives (l ++ cx.leave ++ [ret]))) :
-    SegW W K p lbl ms (At exe endPc R F (bodyN p lbl cx fp ra c0 pc (.ret a) s))
-      (At exe endPc R F (retN p lbl fp ra c0)) := by
+    (hhi : 0 ≤ R.hi) {fp ra : BitVec 64} {t : Expr} {s : SEnv}
+    (hW : BlkW W K exe endPc R F (pendN p lbl cx fp ra c0 pc t s (off - cx.frame))
+      (directives [ins (.STR (rz .W64 .X9) ⟨spW64, .imm ⟨i64 off, none⟩⟩)])) :
+    SegW W K p lbl ms (At exe endPc R F (pendN p lbl cx fp ra c0 pc t s (off - cx.frame)))
+      (At exe endPc R F (bodyN p lbl cx fp ra c0 (pc + 4) t s)) :=
+  ((store_edge hf h1 h16 hd _).seg hF hR hal hlo hhi hcode hW).mono_post fun _ _ h =>
+    h.elim (fun ⟨_, h⟩ => h) fun ⟨e, _⟩ => e.elim
+
+/-- **`ret a`'s edge** (`ret_seg`'s block, at the labels `lab`). -/
+theorem ret_edge {cx : FnCtx} (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) (h16 : cx.frame % 16 = 0)
+    {pa : Scc.IR.Operand} {l : List Item} (ha : cx.getOp .X0 pa = .ok l) {pc : Int64} (lab : Label → Int64)
+    {fp ra : BitVec 64} {a : At} {s : SEnv} {t : Ty}
+    (hsa : sevalAt s a = some (t, [.one pa])) :
+    BlkEdge p lab (-(cx.frame : Int)) 0 (bodyN p lbl cx fp ra c0 pc (.ret a) s) (directives (l ++ cx.leave ++ [ret]))
+      (fun _ : Unit => retN p lbl fp ra c0) (fun e : Empty => e.elim) := by
   have hge := frame_ge16 hf
   have hF64 : (Int64.ofInt cx.frame).toInt = cx.frame := toInt_ofInt_small (by omega) (by omega)
   have hds := directives_leave hf h1 l
@@ -248,15 +290,11 @@ theorem ret_seg {cx : FnCtx} (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) (h16 : c
     rw [hds, okBlk_getOp hf h1 h16 ha]
     have := okBlk_epi (F := Int64.ofInt cx.frame) (by rw [hF64]; omega) (by rw [hF64]; omega)
     rwa [hF64] at this
-  have one : ∀ {P : Frag isaLSE2} {n : ND},
-      SegW W K p lbl ms P (Next exe endPc R F (fun _ : Unit => n) (fun e : Empty => e.elim)) →
-      SegW W K p lbl ms P (At exe endPc R F n) := fun h =>
-    h.mono_post fun _ _ h => h.elim (fun ⟨_, h⟩ => h) fun ⟨e, _⟩ => e.elim
-  refine one (seg_ndW (by rw [hds]; simp [epi]) hok hF hR hal hlo hhi hcode hW fun σ c ⟨hJ, hfj, hc0⟩ => ?_)
+  refine ⟨by rw [hds]; simp [epi], hok, fun σ c ⟨hJ, hfj, hc0⟩ => ?_⟩
   obtain ⟨c1, hr, hj, hnum⟩ := hJ
   obtain ⟨ws, he, hw⟩ := hj.2.2.evalAt (Spike.Lib.Form.opdVal_imm _ _) hsa
   have hwn := hnum.evalAt hsa he
-  obtain ⟨v, hv, hrun⟩ := arun_getOp hf h1 ha (_root_.Executable.labels exe).label pc σ
+  obtain ⟨v, hv, hrun⟩ := arun_getOp hf h1 ha lab pc σ
   match ws, hw with
   | [w], ⟨⟨v', hv', hrep⟩, _⟩ =>
   rw [hv] at hv'
@@ -264,7 +302,7 @@ theorem ret_seg {cx : FnCtx} (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) (h16 : c
   refine ⟨c1, hr, .inl ⟨(), ?_⟩⟩
   show Hit (retN p lbl fp ra c0) (arun _ (directives (l ++ cx.leave ++ [ret])) ⟨pc, ⟨-(cx.frame : Int), []⟩, σ⟩) c1
   rw [hds, arun_append, hrun]
-  obtain ⟨hpc, hso, hsl, -, h29, h30, hr0⟩ := arun_epi (_root_.Executable.labels exe).label
+  obtain ⟨hpc, hso, hsl, -, h29, h30, hr0⟩ := arun_epi lab
     (pc + Int64.ofNat (4 * (directives l).length)) (-(cx.frame : Int)) { σ with regs := σ.regs.setXReg .X0 v }
     (Int64.ofInt cx.frame)
   have h8 : (Int64.ofInt cx.frame - 8).toInt = cx.frame - 8 := by
@@ -284,6 +322,21 @@ theorem ret_seg {cx : FnCtx} (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) (h16 : c
     rw [this]; simpa using hrep
   · rw [h29]; exact hfp
   · rw [h30]; exact hra
+
+/-- **`ret a` is one segment**: from the node at `ret a` (`a` placed at
+`pa`) through the load of `pa` into `x0` and the epilogue to the saved return
+address. -/
+theorem ret_seg {cx : FnCtx} (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) (h16 : cx.frame % 16 = 0)
+    {pa : Scc.IR.Operand} {l : List Item} (ha : cx.getOp .X0 pa = .ok l) {pc : Int64}
+    (hcode : ∀ s : State, s.exe = exe → s.endPc = endPc → CodeAt s pc (directives (l ++ cx.leave ++ [ret])))
+    (hF : FStable R F) (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -(cx.frame : Int))
+    (hhi : 0 ≤ R.hi) {fp ra : BitVec 64} {a : At} {s : SEnv} {t : Ty}
+    (hsa : sevalAt s a = some (t, [.one pa]))
+    (hW : BlkW W K exe endPc R F (bodyN p lbl cx fp ra c0 pc (.ret a) s) (directives (l ++ cx.leave ++ [ret]))) :
+    SegW W K p lbl ms (At exe endPc R F (bodyN p lbl cx fp ra c0 pc (.ret a) s))
+      (At exe endPc R F (retN p lbl fp ra c0)) :=
+  ((ret_edge hf h1 h16 ha _ hsa).seg hF hR hal hlo hhi hcode hW).mono_post fun _ _ h =>
+    h.elim (fun ⟨_, h⟩ => h) fun ⟨e, _⟩ => e.elim
 
 end Segs
 

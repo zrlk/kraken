@@ -123,24 +123,37 @@ end Rd
 address (`-48`), its frame of 160 below, the return address cell above. -/
 abbrev aR (R : Region) : Region := R.callee (-48) (-160) 8
 
+/-- **The allocator's call context in `wc_rodata`'s region `R`** at the
+memory `m`: some caller's state `mC`, `σC` at the call node (`rN .call` at
+the invariant `Jc`) whose entry into the allocator is at `q`'s entry, the
+caller's cells outside the allocator's region as at the call
+(`call_nd_FWK`'s callee frame condition). -/
+def RdCtx (ms : MemSide isa) (lab : Label → Int64) (R : Region) (Jc : AS → Ctl → Prop) (q : Call)
+    (m : MachineData) : Prop :=
+  ∃ mC σC c, Abs R ⟨-48, []⟩ mC σC ∧ (rN lab R Jc .call).J σC c ∧ (Alloc.N lab ms q .e).J (enter (-48) σC) c ∧
+    CKept R (-48) (-160) 8 mC m
+
 /-- **`wc_rodata`'s states up to the allocator's return inside `W`**, none
 moved by `K`: its prologue's, the entry block's, and the allocator's in its
-region (for every call returning to `.x13`, the caller's cells outside it
-holding values). -/
+region (for every call with its premises returning to `.x13`, the caller's cells outside it
+holding values, in the call's context `RdCtx` at the call node's invariant
+`Jc`, the source possibly advanced from `J0` in the entry block). -/
 structure RdPreW (W : Frag isa) (K : State → State → Prop) (exe : _root_.Executable) (endPc : Int64)
-    (R : Region) (F : MachineData → Prop) (ms : MemSide isa) (J0 : AS → Ctl → Prop) : Prop where
+    (R : Region) (F : MachineData → Prop) (ms : MemSide isa) (J0 Jc : AS → Ctl → Prop) : Prop where
   pro : XProW W K exe endPc R F ms ((_root_.Executable.labels exe).label "wc_rodata") 32 8
     ".Lwc_rodata.stk" 5 9 3 2 4 [] J0
   e : BlkW W K exe endPc R F (rN (_root_.Executable.labels exe).label R J0 .e) rdE
-  alloc : ∀ q : Call, q.ra = ((_root_.Executable.labels exe).label ".Lwc_rodata.x13").toBitVec →
-    AllocW ms q W K exe endPc (aR R) (fun m => F m ∧ CallerCells R (-48) (-160) 8 m)
+  alloc : ∀ q : Call, q.OK ms (_root_.Executable.labels exe).label →
+    q.ra = ((_root_.Executable.labels exe).label ".Lwc_rodata.x13").toBitVec →
+    AllocW ms q W K exe endPc (aR R)
+      (fun m => F m ∧ CallerCells R (-48) (-160) 8 m ∧ RdCtx ms (_root_.Executable.labels exe).label R Jc q m)
 
 /-- `wc_rodata` up to the allocator's return is inside the trivial
 predicate, with no outside moves. -/
 theorem RdPreW.triv {exe : _root_.Executable} {endPc : Int64} {R : Region} {F : MachineData → Prop}
-    {ms : MemSide isa} {J0 : AS → Ctl → Prop} :
-    RdPreW (fun _ _ => True) (fun _ _ => False) exe endPc R F ms J0 :=
-  ⟨XProW.triv, BlkW.triv, fun q _ => Alloc.AllocW.triv ms q⟩
+    {ms : MemSide isa} {J0 Jc : AS → Ctl → Prop} :
+    RdPreW (fun _ _ => True) (fun _ _ => False) exe endPc R F ms J0 Jc :=
+  ⟨XProW.triv, BlkW.triv, fun q _ _ => Alloc.AllocW.triv ms q⟩
 
 section RdFn
 
@@ -159,11 +172,12 @@ private memory under `F` (`hmem`); an allocation of a fresh label lands in
 `ms.xa` (`hxa`, for every frame condition the call hands the allocator:
 with its states, the caller's at the call and its cells outside the
 allocator's region, as `at_leave` needs). Its states lie in `W`, none moved
-by `K` (`hW`). -/
+by `K` (`hW`).
+VACUOUS at the entry at `rodata`'s source (`hq` at `rdC0`): see X64Hello1RodataSetupG (`rdC0_not_call`). -/
 theorem hello1_rodata_pre_segW {W : Frag isa} {K : State → State → Prop}
     (hp : Lays exe SccCode.hello1Cells) (hend : endPc = endOf exe SccCode.hello1Cells)
     (hF : FStable R F) (hR : R.OK) (hlo : R.lo ≤ -208) (hhi : 8 ≤ R.hi)
-    {J0 : AS → Ctl → Prop} (hW : RdPreW W K exe endPc R F ms J0)
+    {J0 : AS → Ctl → Prop} (hW : RdPreW W K exe endPc R F ms J0 J0)
     (hlim : ∀ σ c, J0 σ c → LimOk ms F (σ.regs.fsBase.toBitVec + (8 : Int64).toBitVec)
       (σ.regs.rsp.toBitVec - 8#64 - (32 : Int64).toBitVec))
     (hq : ∀ σ c, J0 σ c → ∃ q : Call, q.OK ms (_root_.Executable.labels exe).label ∧ q.c0 = c ∧
@@ -225,7 +239,7 @@ theorem hello1_rodata_pre_segW {W : Frag isa} {K : State → State → Prop}
         exact (Alloc.seg_allocW hp hend Alloc.hello1_allocIn hF' hR' hlo' hhi' g.2
           (fun a ha m hm => hmem g.1 g.2 a ha m (hFF m hm))
           (hxa g F' hFF hkeep)
-          (allocW_mono (hW.alloc g.1 hr) fun m h => ⟨hFF m h, hcc m h⟩)).mono_post
+          (allocW_mono (hW.alloc g.1 g.2 hr) fun m h => ⟨hFF m h, hcc m h, hkeep m h⟩)).mono_post
           fun _ _ ⟨y, h⟩ => ⟨y, h, trivial⟩)
       (fun _ => rfl) ?_ ?_
     · rintro σC c ⟨⟨σe, hJe, -, -⟩, -, h0, h1, h2, -⟩
@@ -382,7 +396,8 @@ exchanges: at each load the source is at an exchange site of the word
 control in between; at the return, `x`'s invariant holds after a local run
 of every state with `%rax` the base, `%rdx = 0`, `%rcx = 2`, `%rsi = 13`,
 `%rbp` the saved `%rbp` and `%rsp` past the return address (`hedge`). Its
-states lie in `W`, none moved by `K` (`hW`). -/
+states lie in `W`, none moved by `K` (`hW`).
+VACUOUS at .x13 at `rodata`'s source: see X64Hello1RodataSetupG (`hand_x13_empty`). -/
 theorem hello1_rodata_post_segW {W : Frag isa} {K : State → State → Prop}
     (hp : Lays exe SccCode.hello1Cells) (hend : endPc = endOf exe SccCode.hello1Cells)
     (hF : FStable R F) (hR : R.OK) (hlo : R.lo ≤ -40) (hhi : 8 ≤ R.hi)

@@ -1,5 +1,6 @@
 import Scc.Cert.LinkX64
 import Scc.Sem.Kernel
+import Scc.Cert.PlaceOK
 
 /-!
 # The runtime's data words in the canonical x86-64 link
@@ -28,7 +29,8 @@ check's component A8) and derives them:
   in `.data` or the pinned region; the pool fits the address space below the
   entry stack; the first stack is 16-aligned and inside the pool; the words
   are pairwise disjoint (`WordSep`; `words_disj_of_wordsOk`), so the TCB's
-  are none of the counters (`tcbSep_of_wordsOk`).
+  are none of the counters (`tcbSep_of_wordsOk`); each word is off the
+  allocator's counter at `heapUseOf` (`ctrSepOk`; `ctrSep_of_rtWordsOk`).
 
 Where x86-64 differs from AArch64: the program is a list of sized cells, a
 code label's address the sum of the sizes before it (`codeLabel` in place
@@ -301,6 +303,14 @@ def wordsOk (Λ : Scc.Sem.Layout) (pinA pnA stacksA nextA lockA freeNA : BitVec 
     decide (Λ.stackPool.lo ≤ stacksA.toNat ∧ stacksA.toNat + 16384 ≤ Λ.stackPool.lo + Λ.stackPool.size) &&
     decide ((rtWords pinA pnA nextA lockA freeNA).Pairwise WordSep)
 
+/-- **The words are off the allocator's counter** (`scc_rt_heap_use`, at
+`heapUseOf`): each word's 8 bytes disjoint from the counter's. -/
+def ctrSepOk (Λ : Scc.Sem.Layout) (cells : List (Directive × Nat)) (secs : DataSecs) : Bool :=
+  (rtWords (rtA Λ cells secs "scc_rt_pinned") (rtA Λ cells secs "scc_rt_pinned_next")
+      (rtA Λ cells secs "scc_rt_stack_next") (rtA Λ cells secs "scc_rt_stack_lock")
+      (rtA Λ cells secs "scc_rt_stack_free_n")).all
+    fun a => decide (WordSep a (BitVec.ofNat 64 (Scc.Cert.PlaceOK.heapUseOf Λ)))
+
 /-- **The runtime's words** (A8): each name of `rtNames` a data symbol of
 the link at a decided address (`symLab`), the words at those addresses
 passing `wordsOk`. -/
@@ -308,7 +318,8 @@ def rtWordsOk (Λ : Scc.Sem.Layout) (cells : List (Directive × Nat)) (secs : Da
   rtNames.all (fun x => (symLab Λ.code.lo cells (loadSyms Λ secs.rodata) x).isSome) &&
     wordsOk Λ (rtA Λ cells secs "scc_rt_pinned") (rtA Λ cells secs "scc_rt_pinned_next")
       (rtA Λ cells secs "scc_rt_stacks") (rtA Λ cells secs "scc_rt_stack_next")
-      (rtA Λ cells secs "scc_rt_stack_lock") (rtA Λ cells secs "scc_rt_stack_free_n")
+      (rtA Λ cells secs "scc_rt_stack_lock") (rtA Λ cells secs "scc_rt_stack_free_n") &&
+    ctrSepOk Λ cells secs
 
 section Extract
 
@@ -320,7 +331,7 @@ theorem label_of_rtWordsOk (hl : loadOk Λ cells secs offs = true) (h : rtWordsO
     ((_root_.Executable.labels (threadAt E Λ.code.lo cells (loadSyms Λ secs.rodata)).exe).label x).toBitVec =
       rtA Λ cells secs x := by
   simp only [rtWordsOk, Bool.and_eq_true, List.all_eq_true] at h
-  obtain ⟨a, ha⟩ := Option.isSome_iff_exists.mp (h.1 x hx)
+  obtain ⟨a, ha⟩ := Option.isSome_iff_exists.mp (h.1.1 x hx)
   rw [label_threadAt_of_symLab (symsAround_of_loadOk hl) ha, rtA, ha]
   simp
 
@@ -329,7 +340,15 @@ theorem wordsOk_of_rtWordsOk (h : rtWordsOk Λ cells secs = true) :
     wordsOk Λ (rtA Λ cells secs "scc_rt_pinned") (rtA Λ cells secs "scc_rt_pinned_next")
       (rtA Λ cells secs "scc_rt_stacks") (rtA Λ cells secs "scc_rt_stack_next")
       (rtA Λ cells secs "scc_rt_stack_lock") (rtA Λ cells secs "scc_rt_stack_free_n") = true := by
-  simp only [rtWordsOk, Bool.and_eq_true] at h; exact h.2
+  simp only [rtWordsOk, Bool.and_eq_true] at h; exact h.1.2
+
+/-- **The words are off the allocator's counter** (A8, `ctrSepOk`). -/
+theorem ctrSep_of_rtWordsOk (h : rtWordsOk Λ cells secs = true) :
+    ∀ a ∈ rtWords (rtA Λ cells secs "scc_rt_pinned") (rtA Λ cells secs "scc_rt_pinned_next")
+      (rtA Λ cells secs "scc_rt_stack_next") (rtA Λ cells secs "scc_rt_stack_lock")
+      (rtA Λ cells secs "scc_rt_stack_free_n"),
+      WordSep a (BitVec.ofNat 64 (Scc.Cert.PlaceOK.heapUseOf Λ)) := by
+  simp only [rtWordsOk, ctrSepOk, Bool.and_eq_true, List.all_eq_true, decide_eq_true_eq] at h; exact h.2
 
 end Extract
 

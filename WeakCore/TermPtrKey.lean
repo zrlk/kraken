@@ -481,7 +481,7 @@ theorem promAlloc_locS {p : Prog} {k : Promises.Knobs} {arch : Arch} {j : Nat} {
     (hr : r ∈ tstep (gOf p k arch c j) c.mem c.pairs th)
     (hF : Foot (gOf p k arch c j) E E' (stOf c.mem c.pairs th) (stOf r.1 r.2.1 r.2.2))
     (hE' : ThInvE p E' r.2.2) (hm' : MemInv (gOf p k arch c j) E' (stOf r.1 r.2.1 r.2.2))
-    (hA : AnchR Eu Ea E' (stOf r.1 r.2.1 r.2.2)) (hxa : Ea = E' ∨ Ext Ea E')
+    (hA : AnchR Eu Ea E' (stOf r.1 r.2.1 r.2.2)) (hxa : Ea = E' ∨ Ext Ea E') (hTA : TermTyped.TidAt j c' E')
     {t : Ts} {m : Msg} (ht : t ∈ r.2.2.promises) (hmt : r.1[t]? = some m) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) :
     ¬ FreshIn (gOf p k arch c j) th.nalloc r.2.2.nalloc m.loc.label := by
   intro hF0
@@ -496,7 +496,7 @@ theorem promAlloc_locS {p : Prog} {k : Promises.Knobs} {arch : Arch} {j : Nat} {
   have hx0 := TermNoHold.InvAtXF_ofA (p := p) (k := k) (arch := arch) e3 hE' (by rw [hg, hst]; exact hm')
     (StoClo_EFoot hF.1 hSC) hbo (by rw [hst]; exact hA) hxa
   have htp : t ∈ TermFul.promsOf c' j := by rw [TermFul.promsOf_some e3]; exact ht
-  have hloc := TermNoHold.certified_promLoc (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hscR hvIR hwinR hx0 hc' htp hm1
+  have hloc := TermNoHold.certified_promLoc (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hscR hvIR hwinR hx0 hTA hc' htp hm1
   have hb := hF.2 _ hF0
   obtain ⟨j0, -, hj0, hl0⟩ := hF0
   have hsL : ∃ cl, E'.sto m.loc.label = some cl := by
@@ -521,7 +521,7 @@ theorem promAlloc_locS {p : Prog} {k : Promises.Knobs} {arch : Arch} {j : Nat} {
     obtain ⟨thx, E0, hthx, hx, hTEx, hmx, hSCx, hbox, hfb, hfr, -, -, -, hIH0⟩ := hx0
     exact ⟨thx, E0, hthx, hx, hTEx, hmx, hSCx, hbox, hfb, hfr, fun _ _ _ h => h.elim, hIH0⟩
   obtain ⟨c1, c2, th1, th2, ρ1, η1, cx1, E2, -, -, -, -, -, -, hx1, hE, hTy, htv, hi, hmi, hscope, hpa1, -, -, -, -, -,
-    -, -, hsw, -⟩ := certified_promTypedX (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hscR hvIR hwinR hX hc' htp hm1
+    -, -, hsw, -⟩ := certified_promTypedX (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hscR hvIR hwinR hX hTA hc' htp hm1
   obtain ⟨cl1, o1, U, us, j1, hcl1, h1o, hus, hj, ho⟩ :=
     SWOne_holds p _ _ _ _ ρ1 η1 cx1 _ _ hE hTy htv hi hmi (TermTyped.scopeD_SW hscope hsw) hpa1 hsw
   rw [hx1.2.2.2.2.1 _ _ hT] at hcl1

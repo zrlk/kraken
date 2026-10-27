@@ -171,7 +171,7 @@ theorem pfrProv_thread {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat}
     rw [hini] at ho1
     exact hu N e us hT hus o ho1 ho2
 
-/-- (IO1) An extern move extends a `SoloNP` run (it is never a `publish`). -/
+/-- An extern move extends a `SoloNP` run (it is never a `publish`). -/
 theorem soloNP_snocE {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {r : AllocLabel} {c c0 c0' : Cfg}
     (h : SoloNP p k arch i r c c0) (hs : c0' ∈ extSteps c0 i) : SoloNP p k arch i r c c0' := by
   revert hs
@@ -181,7 +181,7 @@ theorem soloNP_snocE {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {r 
   | prom a v w hw _ ih => intro hs; exact .prom a v w hw (ih hs)
   | ext hs1 _ ih => intro hs; exact .ext hs1 (ih hs)
 
-/-- (IO1) An extern move keeps the publish provenance. -/
+/-- An extern move keeps the publish provenance. -/
 theorem pfrProv_ext {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat}
     {H : AllocLabel → Nat → Ts → Prop} {E0 E : TEnv} {st c0 c0' : Cfg}
     (hP : PfrProvE p k arch i H E0 st c0 E) (hs : c0' ∈ extSteps c0 i) : PfrProvE p k arch i H E0 st c0' E := by

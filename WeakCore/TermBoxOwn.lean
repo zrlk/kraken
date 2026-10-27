@@ -98,7 +98,7 @@ theorem vr_boxPay : ∀ (t : Ty) (η : TEnv) (ρ : Nat → Nat) (s : Nat) (ws : 
           rw [← hS]; exact tier_lnorm (.sum a b)
         rw [htl] at hd; simp [decodeArm] at hd
   | .intS _, _, _, _, _, hs, _, _ | .int, _, _, _, _, hs, _, _ | .fix _ _, _, _, _, _, hs, _, _
-  | .lanes _ _, _, _, _, _, hs, _, _ | .prod _ _, _, _, _, _, hs, _, _ | .code _ _, _, _, _, _, hs, _, _
+  | .lanes _ _, _, _, _, _, hs, _, _ | .prod _ _, _, _, _, _, hs, _, _ | .code _ _ _, _, _, _, _, hs, _, _
   | .tvar _, _, _, _, _, hs, _, _ | .ptr _ _, _, _, _, _, hs, _, _ | .ptrOpt _ _, _, _, _, _, hs, _, _
   | .loc _ _, _, _, _, _, hs, _, _ | .unit, _, _, _, _, hs, _, _ | .void, _, _, _, _, hs, _, _
   | .array _ _, _, _, _, _, hs, _, _ | .share _, _, _, _, _, hs, _, _ | .cap _ _, _, _, _, _, hs, _, _

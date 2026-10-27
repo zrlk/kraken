@@ -2790,6 +2790,13 @@ theorem swStep (o : SO) (fall : Int64) (σ : AS) :
   constructor <;> simp [AI.step, regRes, Operation.interp, Operand.interp, RegOrMem.interp, MachineData.set,
     MachineData.setReg, Reg64s.set, Reg64s.set64, Reg64s.get_low64]
 
+/-- **The switch keeps `%rdi`** (`scc_rt_main`'s argument). -/
+theorem swStep_rdi (o : SO) (fall : Int64) (σ : AS) :
+    (AI.step o fall (.reg .W64 (.mov (.reg (.low .rsp .W64)) (.regOrMem (.reg (.low .rax .W64))))) σ).regs.rdi =
+      σ.regs.rdi := by
+  simp [AI.step, regRes, Operation.interp, Operand.interp, RegOrMem.interp, MachineData.set,
+    MachineData.setReg, Reg64s.set, Reg64s.set64, Reg64s.get_low64]
+
 /-- **The frame condition after the switch** to the region based at `v`:
 `v` is the new stack's top and the limit word `a` is not thread-private
 memory. -/
@@ -2820,21 +2827,22 @@ def startN4 (tcb top : BitVec 64) (c0 : Ctl) : ND := ⟨lab x1L + Int64.ofNat 18
 def startN5 (tcb top : BitVec 64) (c0 : Ctl) : ND := ⟨lab x1L + Int64.ofNat 20, oS, fun σ c =>
   c = c0 ∧ σ.regs.fsBase = tpOf tcb ∧ σ.slot (-40) = top ∧ σ.slot (-32) = tcb⟩
 
-/-- **At the switch** `movq %rax, %rsp`: `%rax` the top. -/
+/-- **At the switch** `movq %rax, %rsp`: `%rax` the top; `%rdi` the TCB
+(`scc_rt_main`'s argument). -/
 def startN6 (tcb top : BitVec 64) (c0 : Ctl) : ND := ⟨lab x1L + Int64.ofNat 28, oS, fun σ c =>
-  c = c0 ∧ σ.regs.rax.toBitVec = top ∧ σ.regs.fsBase = tpOf tcb⟩
+  c = c0 ∧ σ.regs.rax.toBitVec = top ∧ σ.regs.fsBase = tpOf tcb ∧ σ.regs.rdi.toBitVec = tcb⟩
 
 /-- **After the switch**: `%rsp` the new stack's top, at offset 0 of the new region. -/
 def startN7 (tcb top : BitVec 64) (c0 : Ctl) : ND := ⟨lab x1L + Int64.ofNat 31, SO.entry, fun σ c =>
-  c = c0 ∧ σ.regs.rsp.toBitVec = top ∧ σ.regs.fsBase = tpOf tcb⟩
+  c = c0 ∧ σ.regs.rsp.toBitVec = top ∧ σ.regs.fsBase = tpOf tcb ∧ σ.regs.rdi.toBitVec = tcb⟩
 
 /-- **At the call of `scc_rt_main`**, after `xorl %ebp, %ebp`. -/
 def startN8 (tcb top : BitVec 64) (c0 : Ctl) : ND := ⟨lab x1L + Int64.ofNat 33, SO.entry, fun σ c =>
-  c = c0 ∧ σ.regs.rsp.toBitVec = top ∧ σ.regs.fsBase = tpOf tcb⟩
+  c = c0 ∧ σ.regs.rsp.toBitVec = top ∧ σ.regs.fsBase = tpOf tcb ∧ σ.regs.rdi.toBitVec = tcb⟩
 
 /-- **The call node of `scc_rt_main`**: the return address pushed below the top. -/
 def startNM (tcb top : BitVec 64) (c0 : Ctl) : ND := ⟨lab "scc_rt_main", ⟨-8, []⟩, fun σ c =>
-  c = c0 ∧ σ.regs.rsp.toBitVec = top - 8#64 ∧ σ.regs.fsBase = tpOf tcb⟩
+  c = c0 ∧ σ.regs.rsp.toBitVec = top - 8#64 ∧ σ.regs.fsBase = tpOf tcb ∧ σ.regs.rdi.toBitVec = tcb⟩
 
 end Tail
 
@@ -2873,14 +2881,16 @@ theorem start_switch_seg (hp : Lays exe SccCode.ret0Cells) (hend : endPc = endOf
   let a := limA (tpOf tcb)
   refine sw_seq (lo := -80) (hi := 0) (F' := swF top a) (n' := startN7 lab tcb top c0)
     (sw_nd rfl (code_field hp hend hin.1.1.2 rfl) (ofNat_add' _ 28 3) rfl fun m σ c _ hD hJ => ?_) fun v hv => ?_
-  · obtain ⟨rfl, hax, htp⟩ := hJ
+  · obtain ⟨rfl, hax, htp, hdi⟩ := hJ
     obtain ⟨hsp, htp'⟩ := swStep (startN6 lab tcb top c).o ((startN6 lab tcb top c).pc + Int64.ofNat 3) σ
+    have hdi' := (congrArg UInt64.toBitVec
+      (swStep_rdi (startN6 lab tcb top c).o ((startN6 lab tcb top c).pc + Int64.ofNat 3) σ)).trans hdi
     have hsp2 : (AI.step (startN6 lab tcb top c).o ((startN6 lab tcb top c).pc + Int64.ofNat 3)
         (.reg .W64 (.mov (.reg (.low .rsp .W64)) (.regOrMem (.reg (.low .rax .W64))))) σ).regs.get64 .rsp = top := by
       show (UInt64.toBitVec _) = _; rw [hsp]; exact hax
     rw [hsp2]
     obtain ⟨sl, hsl⟩ := hmap m hD
-    exact ⟨hok, ⟨rfl, hlimM.unmapped m hD⟩, sl, hsl, c, .refl c, rfl, by rw [hsp]; exact hax, htp'.trans htp⟩
+    exact ⟨hok, ⟨rfl, hlimM.unmapped m hD⟩, sl, hsl, c, .refl c, rfl, by rw [hsp]; exact hax, htp'.trans htp, hdi'⟩
   · have hF2 : FStable (swR v (-80) 0) (swF top a v) := swF_stable hfit hout
     refine (Seg.seq (Q := At exe endPc (swR v (-80) 0) (swF top a v) (startN8 lab tcb top c0))
       (seg_one (flag_nd (n := startN7 lab tcb top c0) (fi := .xor_rr32_self .rbp) rfl hF2
@@ -2899,18 +2909,19 @@ theorem start_switch_seg (hp : Lays exe SccCode.ret0Cells) (hend : endPc = endOf
           ⟨top - 8#64, tpOf tcb, c0⟩
           ⟨hlimM.rt, hlimM.mp, fun _ h => (hFF _ h).2, hlimM.room⟩
           ⟨hlimW.rt, hlimW.mp, fun _ h => (hFF _ h).2, hlimW.room⟩ fun s hAt => hexit _ _ s hAt)
-        (fun _ => rfl) (fun σC c hJ => ⟨(), rfl, hJ⟩) fun _ x => x.elim))).mono_post
+        (fun _ => rfl) (fun σC c hJ => ⟨(), rfl, hJ.1, hJ.2.1, hJ.2.2.1⟩) fun _ x => x.elim))).mono_post
       fun _ _ h => h.elim (fun ⟨e, _⟩ => e.elim) fun ⟨e, _⟩ => e.elim
     · dsimp only [startN7, startN8] at hJ ⊢
-      obtain ⟨rfl, hsp, htp⟩ := hJ
-      exact ⟨rfl, hsp, htp⟩
+      obtain ⟨rfl, hsp, htp, hdi⟩ := hJ
+      exact ⟨rfl, hsp, htp, hdi⟩
     · dsimp only [startN8, startNM]; rw [startMain_run]
     · dsimp only [startN8, startNM]; rw [startMain_run]; rfl
     · dsimp only [startN8, startNM] at hJ ⊢; rw [startMain_run]
-      obtain ⟨rfl, hsp, htp⟩ := hJ
-      refine ⟨rfl, ?_, ?_⟩
+      obtain ⟨rfl, hsp, htp, hdi⟩ := hJ
+      refine ⟨rfl, ?_, ?_, ?_⟩
       · simp [Reg64s.set64, Reg64s.get64, hsp]
       · simp [Reg64s.set64, htp]
+      · simp [Reg64s.set64, hdi]
 
 /-- **`scc_rt_start` from `.x1` to the switch**: `.x1`'s block,
 `arch_prctl(ARCH_SET_FS, tcb)` (`archSetFs_nd`) and the block after it. -/
@@ -2953,9 +2964,10 @@ theorem start_x1_sw_seg (hp : Lays exe SccCode.ret0Cells) (hend : endPc = endOf 
     · dsimp only [startN5, startN6]; rw [startSw_run]; rfl
     · dsimp only [startN5, startN6] at hJ ⊢; rw [startSw_run]
       obtain ⟨rfl, htp, h40, h32⟩ := hJ
-      refine ⟨rfl, ?_, ?_⟩
+      refine ⟨rfl, ?_, ?_, ?_⟩
       · simp [Reg64s.set64, Reg64s.get64, upd_apply, h40]; rfl
       · simp only [Reg64s.set64]; exact htp
+      · simp [Reg64s.set64, Reg64s.get64, upd_apply, h32]; rfl
 
 /-- **`scc_rt_start` never returns**: in any valid layout of `ret0Cells`,
 from its entry, a segment to any fragment. The chain is S1, the call of
@@ -3359,15 +3371,17 @@ theorem start_switch_segW {W : Frag isa} {K : State → State → Prop} {rS : Sc
   refine sw_seqW (lo := -80) (hi := 0) (F' := swFS rS top a) (n' := startN7 lab tcb top c0)
     (sw_ndW rfl (code_field hp hend hin.1.1.2 rfl) (ofNat_add' _ 28 3) rfl hW.sw fun m σ c _ hD hJ => ?_)
     fun v hv => ?_
-  · obtain ⟨rfl, hax, htp⟩ := hJ
+  · obtain ⟨rfl, hax, htp, hdi⟩ := hJ
     obtain ⟨hsp, htp'⟩ := swStep (startN6 lab tcb top c).o ((startN6 lab tcb top c).pc + Int64.ofNat 3) σ
+    have hdi' := (congrArg UInt64.toBitVec
+      (swStep_rdi (startN6 lab tcb top c).o ((startN6 lab tcb top c).pc + Int64.ofNat 3) σ)).trans hdi
     have hsp2 : (AI.step (startN6 lab tcb top c).o ((startN6 lab tcb top c).pc + Int64.ofNat 3)
         (.reg .W64 (.mov (.reg (.low .rsp .W64)) (.regOrMem (.reg (.low .rax .W64))))) σ).regs.get64 .rsp = top := by
       show (UInt64.toBitVec _) = _; rw [hsp]; exact hax
     rw [hsp2]
     obtain ⟨sl, hsl⟩ := hmap m hD
     exact ⟨hok, ⟨⟨rfl, hlimM.unmapped m hD⟩, (hFS m hD).off⟩, sl, hsl, c, .refl c, rfl, by rw [hsp]; exact hax,
-      htp'.trans htp⟩
+      htp'.trans htp, hdi'⟩
   · have hF2 : FStable (swR v (-80) 0) (swFS rS top a v) := fun m m' h hd =>
       ⟨swF_stable hfit hout m m' h.1 hd, stackOff_stable hfitS m m' h.2 hd⟩
     refine (SegW.seq (Q := At exe endPc (swR v (-80) 0) (swFS rS top a v) (startN8 lab tcb top c0))
@@ -3391,18 +3405,19 @@ theorem start_switch_segW {W : Frag isa} {K : State → State → Prop} {rS : Sc
             ⟨hlimM.rt, hlimM.mp, fun _ h => (hFF _ h).1.2, hlimM.room⟩
             ⟨hlimW.rt, hlimW.mp, fun _ h => (hFF _ h).1.2, hlimW.room⟩ (fun s hAt => hexit _ _ s hAt)
             ((hW.main v).mono fun m h => ⟨hFF m h, hcc m h⟩))
-        (fun _ => rfl) (fun σC c hJ => ⟨(), rfl, hJ⟩) fun _ x => x.elim))).mono_post
+        (fun _ => rfl) (fun σC c hJ => ⟨(), rfl, hJ.1, hJ.2.1, hJ.2.2.1⟩) fun _ x => x.elim))).mono_post
       fun _ _ h => h.elim (fun ⟨e, _⟩ => e.elim) fun ⟨e, _⟩ => e.elim
     · dsimp only [startN7, startN8] at hJ ⊢
-      obtain ⟨rfl, hsp, htp⟩ := hJ
-      exact ⟨rfl, hsp, htp⟩
+      obtain ⟨rfl, hsp, htp, hdi⟩ := hJ
+      exact ⟨rfl, hsp, htp, hdi⟩
     · dsimp only [startN8, startNM]; rw [startMain_run]
     · dsimp only [startN8, startNM]; rw [startMain_run]; rfl
     · dsimp only [startN8, startNM] at hJ ⊢; rw [startMain_run]
-      obtain ⟨rfl, hsp, htp⟩ := hJ
-      refine ⟨rfl, ?_, ?_⟩
+      obtain ⟨rfl, hsp, htp, hdi⟩ := hJ
+      refine ⟨rfl, ?_, ?_, ?_⟩
       · simp [Reg64s.set64, Reg64s.get64, hsp]
       · simp [Reg64s.set64, htp]
+      · simp [Reg64s.set64, hdi]
 
 /-- **`scc_rt_start` from `.x1` to the switch, inside `W`**
 (`start_x1_sw_seg`, its states' obligations `hfs`, `hsys`, `hsw`). -/
@@ -3453,9 +3468,10 @@ theorem start_x1_sw_segW {W : Frag isa} {K : State → State → Prop} (hp : Lay
     · dsimp only [startN5, startN6]; rw [startSw_run]; rfl
     · dsimp only [startN5, startN6] at hJ ⊢; rw [startSw_run]
       obtain ⟨rfl, htp, h40, h32⟩ := hJ
-      refine ⟨rfl, ?_, ?_⟩
+      refine ⟨rfl, ?_, ?_, ?_⟩
       · simp [Reg64s.set64, Reg64s.get64, upd_apply, h40]; rfl
       · simp only [Reg64s.set64]; exact htp
+      · simp [Reg64s.set64, Reg64s.get64, upd_apply, h32]; rfl
 
 /-- **`scc_rt_start` from `.x0` to the switch, inside `W`, the take its
 outside move** (`start_x0_x1_seg` then `start_x1_sw_seg`, their states'

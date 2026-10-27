@@ -281,7 +281,7 @@ theorem shared_shiftT : ∀ (t : Ty) (c : Nat) (ke : KEnv) (x : Option Kind), c 
   induction t with
   | prod a b iha ihb => intro c ke x hc; simp only [Ty.shiftT, Ty.sharedOKIn, iha c ke x hc, ihb c ke x hc]
   | sum a b iha ihb => intro c ke x hc; simp only [Ty.shiftT, Ty.sharedOKIn, iha c ke x hc, ihb c ke x hc]
-  | code a b iha ihb => intro c ke x hc; simp only [Ty.shiftT, Ty.sharedOKIn, iha c ke x hc, ihb c ke x hc]
+  | code a b _ iha ihb => intro c ke x hc; simp only [Ty.shiftT, Ty.sharedOKIn, iha c ke x hc, ihb c ke x hc]
   | array i t ih => intro c ke x hc; simp only [Ty.shiftT, Ty.sharedOKIn, ih c ke x hc]
   | ptr μ t ih => intro c ke x hc; cases μ <;> simp only [Ty.shiftT, Ty.sharedOKIn, ih c ke x hc, coupled_shiftT t c ke x hc, noOwn_shiftT t c ke x hc]
   | ptrOpt μ t ih => intro c ke x hc; cases μ <;> simp only [Ty.shiftT, Ty.sharedOKIn, ih c ke x hc, coupled_shiftT t c ke x hc, noOwn_shiftT t c ke x hc]
@@ -530,7 +530,7 @@ theorem shared_shiftI : ∀ (t : Ty) (c : Nat) (ke : KEnv),
   induction t with
   | prod a b iha ihb => intro c ke; simp only [Ty.shiftI, Ty.sharedOKIn, iha, ihb]
   | sum a b iha ihb => intro c ke; simp only [Ty.shiftI, Ty.sharedOKIn, iha, ihb]
-  | code a b iha ihb => intro c ke; simp only [Ty.shiftI, Ty.sharedOKIn, iha, ihb]
+  | code a b _ iha ihb => intro c ke; simp only [Ty.shiftI, Ty.sharedOKIn, iha, ihb]
   | array i t ih => intro c ke; simp only [Ty.shiftI, Ty.sharedOKIn, ih]
   | ptr μ t ih => intro c ke; cases μ <;> simp only [Ty.shiftI, Mode.shift, Ty.sharedOKIn, ih, coupled_shiftI, noOwn_shiftI]
   | ptrOpt μ t ih => intro c ke; cases μ <;> simp only [Ty.shiftI, Mode.shift, Ty.sharedOKIn, ih, coupled_shiftI, noOwn_shiftI]
@@ -1035,7 +1035,7 @@ theorem shared_subst {keC : KEnv} {kd : List Kind} {σs : List Ty} (h : Adm keC 
   | sum a b iha ihb =>
       intro ke₀ d hg; simp only [Ty.sharedOKIn, Bool.and_eq_true] at hg
       simp only [substTs, Ty.sharedOKIn, iha ke₀ d hg.1, ihb ke₀ d hg.2, Bool.and_self]
-  | code a b iha ihb =>
+  | code a b _ iha ihb =>
       intro ke₀ d hg; simp only [Ty.sharedOKIn, Bool.and_eq_true] at hg
       simp only [substTs, Ty.sharedOKIn, iha ke₀ d hg.1, ihb ke₀ d hg.2, Bool.and_self]
   | array i t ih => intro ke₀ d hg; simp only [Ty.sharedOKIn] at hg; simp only [substTs, Ty.sharedOKIn, ih ke₀ d hg]

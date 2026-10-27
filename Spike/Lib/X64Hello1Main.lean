@@ -119,6 +119,7 @@ structure MainPreW (W : Frag isa) (K : State → State → Prop) (exe : _root_.E
   call : BlkW W K exe endPc R F (mN0 (_root_.Executable.labels exe).label R J) mB0
   rd : ∀ m0 σC, RdPreW W K exe endPc (mR R) (mF R F m0 σC) ms
     (mRdJ0 (mNC (_root_.Executable.labels exe).label R J).J σC)
+    (mRdJ0 (mNC (_root_.Executable.labels exe).label R J).J σC)
 
 /-- `scc_rt_main` up to the allocator's return is inside the trivial
 predicate, with no outside moves. -/
@@ -148,7 +149,8 @@ inside `W`** in any valid layout of `hello1Cells`: from its entry
 state there. The limit word's facts hold for both frames (`hlimM`,
 `hlimR`); the source at the entry is at `wc_rodata`'s allocation (`hq`);
 `hmem`, `hxa` as for `hello1_rodata_pre_segW`, for every caller's state
-at the call. Its states lie in `W`, none moved by `K` (`hW`). -/
+at the call. Its states lie in `W`, none moved by `K` (`hW`).
+VACUOUS at the entry at `rodata`'s source (`hq` at `rdC0`): see X64Hello1RodataSetupG (`rdC0_not_call`). -/
 theorem hello1_main_pre_segW {W : Frag isa} {K : State → State → Prop}
     (hp : Lays exe SccCode.hello1Cells) (hend : endPc = endOf exe SccCode.hello1Cells)
     (hF : FStable R F) (hR : R.OK) (hlo : R.lo ≤ -288) (hhi : 8 ≤ R.hi)
@@ -321,7 +323,8 @@ of `wc_main` (`call_nd_FWK`, `hello1_wc_segW` from `wJ0` to `.x3`, of
 invariant `Jw`: `hlimW`, `hsvc`, `hedgeW` as there; `hedgeW` for every
 call), and the `exit_group` tail (`%rbp` at the saved `%rbp`, `hbpw`;
 `hok`). The only exit is `print`'s abort. Its states lie in `W`, none moved
-by `K` (`hW`). -/
+by `K` (`hW`).
+VACUOUS at .x13 at `rodata`'s source: see X64Hello1RodataSetupG (`hand_x13_empty`). -/
 theorem hello1_main_post_segW {W : Frag isa} {K : State → State → Prop}
     (hp : Lays exe SccCode.hello1Cells) (hend : endPc = endOf exe SccCode.hello1Cells)
     (hF : FStable R F) (hR : R.OK) (hlo : R.lo ≤ -288) (hhi : 8 ≤ R.hi)
@@ -357,8 +360,11 @@ theorem hello1_main_post_segW {W : Frag isa} {K : State → State → Prop}
     (hlimW : ∀ σx c, Jr σx c → LimOk ms F (σx.regs.fsBase.toBitVec + (8 : Int64).toBitVec)
       (σx.regs.rsp.toBitVec - 8#64 - 8#64 - (80 : Int64).toBitVec))
     (hsvc : ∀ F' : MachineData → Prop, FStable (pR (wR R)) F' →
-      (∀ m, F' m → (F m ∧ CallerCells R (-80) (-144) 8 m) ∧ CallerCells (wR R) (-96 - 8) (-40) 16 m) →
+      (∀ m, F' m → ((F m ∧ CallerCells R (-80) (-144) 8 m) ∧ CallerCells (wR R) (-96 - 8) (-40) 16 m) ∧
+        Spike.Lib.X64.Rt.WcRa (wR R) ((_root_.Executable.labels exe).label ".Lscc_rt_main.x3") m ∧
+        Spike.Lib.X64.Rt.WcFp (wR R) (R.addr (-8)) m) →
       ∀ g' : PG, g'.2.2 = ((_root_.Executable.labels exe).label ".Lwc_main.x15").toBitVec →
+      g'.2.1 = (wR R).addr (-8) →
       SegW W K p lbl ms
         (At exe endPc (pR (wR R)) F' (Print.N (_root_.Executable.labels exe).label g'.1 g'.2.1 g'.2.2 .sys))
         (At exe endPc (pR (wR R)) F' (Print.N (_root_.Executable.labels exe).label g'.1 g'.2.1 g'.2.2 .n5)))
@@ -426,9 +432,10 @@ theorem hello1_main_post_segW {W : Frag isa} {K : State → State → Prop}
         (fun R' F' hR' hlo' hhi' hF' _ hFF hR'e hcc g _ _ => by
           subst hR'e
           refine (hello1_wc_segW hp hend hF' hR' hlo' hhi' (x := wXr lab Jw) rfl
-            ((hW.wc g).mono fun m h => ⟨hFF m h, hcc m h⟩) ?_ ?_
-            (fun F'' hF'' hFF'' g' hg' => hsvc F'' hF''
-              (fun m h => ⟨⟨hFF m (hFF'' m h).1, hcc m (hFF'' m h).1⟩, (hFF'' m h).2⟩) g' hg')
+            ((hW.wc g).mono fun m h => ⟨hFF m h, hcc m h⟩) ?_ ?_ (fp := R.addr (-8)) ?_
+            (fun F'' hF'' hFF'' g' hg' hg1 => hsvc F'' hF''
+              (fun m h => ⟨⟨⟨hFF m (hFF'' m h).1.1, hcc m (hFF'' m h).1.1⟩, (hFF'' m h).1.2⟩, (hFF'' m h).2⟩)
+              g' hg' hg1)
             (hedgeW g)).mono_post fun _ _ ⟨y, h⟩ => ⟨y, h, trivial⟩
           · rintro σ c ⟨rfl, -, σx, hJr, -, -, -, -, -, hsp, hfs, -, -⟩
             have h := (hlimW σx _ hJr).mono (F' := F') hFF
@@ -436,7 +443,11 @@ theorem hello1_main_post_segW {W : Frag isa} {K : State → State → Prop}
             rw [hfs, hsp]; exact h
           · rintro σ c ⟨rfl, -, σx, -, -, -, -, -, -, -, -, -, h80⟩
             show lab ".Lscc_rt_main.x3" = Int64.ofBitVec (g.1.slot (-80 + 0))
-            rw [show (-80 : Int) + 0 = -80 by decide, h80, int64_ofBitVec_toBitVec])
+            rw [show (-80 : Int) + 0 = -80 by decide, h80, int64_ofBitVec_toBitVec]
+          · rintro σ c ⟨rfl, -, σx, hJr, -, -, -, -, -, -, -, hbp, -⟩
+            show g.1.regs.get64 .rbp = _
+            simp only [Reg64s.get64] at hbpr ⊢
+            rw [hbp]; exact hbpr σx _ hJr)
         (fun _ => rfl) ?_ ?_
       · intro σC' c hJ
         exact ⟨(σC', c), rfl, rfl, rfl, hJ⟩
@@ -582,8 +593,11 @@ structure MainPostP (W : Frag isa) (K : State → State → Prop) (p : Prog) (lb
   hlimW : ∀ σx c, Jr σx c → LimOk ms F (σx.regs.fsBase.toBitVec + (8 : Int64).toBitVec)
       (σx.regs.rsp.toBitVec - 8#64 - 8#64 - (80 : Int64).toBitVec)
   hsvc : ∀ F' : MachineData → Prop, FStable (pR (wR R)) F' →
-      (∀ m, F' m → (F m ∧ CallerCells R (-80) (-144) 8 m) ∧ CallerCells (wR R) (-96 - 8) (-40) 16 m) →
+      (∀ m, F' m → ((F m ∧ CallerCells R (-80) (-144) 8 m) ∧ CallerCells (wR R) (-96 - 8) (-40) 16 m) ∧
+        Spike.Lib.X64.Rt.WcRa (wR R) ((_root_.Executable.labels exe).label ".Lscc_rt_main.x3") m ∧
+        Spike.Lib.X64.Rt.WcFp (wR R) (R.addr (-8)) m) →
       ∀ g' : PG, g'.2.2 = ((_root_.Executable.labels exe).label ".Lwc_main.x15").toBitVec →
+      g'.2.1 = (wR R).addr (-8) →
       SegW W K p lbl ms
         (At exe endPc (pR (wR R)) F' (Print.N (_root_.Executable.labels exe).label g'.1 g'.2.1 g'.2.2 .sys))
         (At exe endPc (pR (wR R)) F' (Print.N (_root_.Executable.labels exe).label g'.1 g'.2.1 g'.2.2 .n5))
@@ -613,7 +627,8 @@ return at `.x13` continuing by `hret` into `hello1_main_post_segW`, of
 premises `hP`). Second, from `.x13`'s states (of `Jp`) to `print`'s abort:
 the states an allocation of a fresh label continues in. The allocation's
 continuation `ms.xa` stays the instance's: it holds `.x13`'s states
-(`hpost`), which every landing is (`hJp`, `hello1_main_hxa_of_post`). -/
+(`hpost`), which every landing is (`hJp`, `hello1_main_hxa_of_post`).
+VACUOUS at .x13 at `rodata`'s source: see X64Hello1RodataSetupG (`hand_x13_empty`). -/
 theorem hello1_main_segW {W : Frag isa} {K : State → State → Prop}
     (hp : Lays exe SccCode.hello1Cells) (hend : endPc = endOf exe SccCode.hello1Cells)
     (hF : FStable R F) (hR : R.OK) (hlo : R.lo ≤ -288) (hhi : 8 ≤ R.hi)

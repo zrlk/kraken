@@ -1658,7 +1658,7 @@ references and code signatures (`TermScope.drf` without its region half). -/
 def niDeep : Ty → Bool
   | .prod a b => niDeep a && niDeep b
   | .sum a b => niDeep a && niDeep b
-  | .code a b => niDeep a && niDeep b
+  | .code a b _ => niDeep a && niDeep b
   | .array _ t => niDeep t
   | .ptr _ t => niDeep t
   | .ptrOpt _ t => niDeep t

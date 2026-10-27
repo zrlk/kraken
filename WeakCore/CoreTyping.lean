@@ -600,7 +600,7 @@ inductive TyEqS (cx : Cx) : Nat → Ty → Ty → Prop
   | intS {d i j} : IEq cx d i j → TyEqS cx d (.intS i) (.intS j)
   | prod {d a b a' b'} : TyEqS cx d a a' → TyEqS cx d b b' → TyEqS cx d (.prod a b) (.prod a' b')
   | sum {d a b a' b'} : TyEqS cx d a a' → TyEqS cx d b b' → TyEqS cx d (.sum a b) (.sum a' b')
-  | code {d a b a' b'} : TyEqS cx d a a' → TyEqS cx d b b' → TyEqS cx d (.code a b) (.code a' b')
+  | code {d a b a' b' k} : TyEqS cx d a a' → TyEqS cx d b b' → TyEqS cx d (.code a b k) (.code a' b' k)
   | array {d i j t u} : IEq cx d i j → TyEqS cx d t u → TyEqS cx d (.array i t) (.array j u)
   | ptr {d μ ν t u} : MEq cx d μ ν → TyEqS cx d t u → TyEqS cx d (.ptr μ t) (.ptr ν u)
   | ptrOpt {d μ ν t u} : MEq cx d μ ν → TyEqS cx d t u → TyEqS cx d (.ptrOpt μ t) (.ptrOpt ν u)
@@ -640,7 +640,7 @@ theorem meqD_sound {cx : Cx} {d : Nat} {μ ν : Mode} (h : meqD cx d μ ν = tru
 theorem tyEq_sound (cx : Cx) : ∀ (d : Nat) (a b : Ty), tyEq cx d a b = true → TyEqS cx d a b := by
   intro d a b h
   induction a generalizing d b with
-  | unit | void | int | tvar _ | fix _ _ | lanes _ _ | tid =>
+  | unit | void | int | tvar _ | fix _ _ | lanes _ _ | tid | opq _ =>
       cases b <;> simp_all [tyEq] <;> first | exact .refl | skip
   | intS i =>
       cases b <;> simp [tyEq] at h
@@ -651,9 +651,10 @@ theorem tyEq_sound (cx : Cx) : ∀ (d : Nat) (a b : Ty), tyEq cx d a b = true �
   | sum a₁ a₂ ih₁ ih₂ =>
       cases b <;> simp [tyEq] at h
       exact .sum (ih₁ _ _ h.1) (ih₂ _ _ h.2)
-  | code a₁ a₂ ih₁ ih₂ =>
+  | code a₁ a₂ k ih₁ ih₂ =>
       cases b <;> simp [tyEq] at h
-      exact .code (ih₁ _ _ h.1) (ih₂ _ _ h.2)
+      obtain ⟨⟨rfl, h1⟩, h2⟩ := h
+      exact .code (ih₁ _ _ h1) (ih₂ _ _ h2)
   | array i t ih =>
       cases b <;> simp [tyEq] at h
       exact .array (ieqD_sound h.1) (ih _ _ h.2)
@@ -819,6 +820,12 @@ inductive SubS (cx : Cx) : Ty → Ty → Prop
   | sum {a b a' b'} : SubS cx a a' → SubS cx b b' → SubS cx (.sum a b) (.sum a' b')
   /-- A stronger capability is a weaker one: `pub ≤ bor ≤ rd`. -/
   | cap {c c' r s} : c.le c' = true → IEq cx 0 r s → SubS cx (.cap c r) (.cap c' s)
+  /-- (M1, T1) A restricted function is a plain function. -/
+  | codeR {a b a' b' f s} : TyEqS cx 0 a a' → TyEqS cx 0 b b' →
+      SubS cx (.code a b (.restricted f s)) (.code a' b' .plain)
+  /-- (M1, T1) A restricted function fits a larger budget slot. -/
+  | codeRR {a b a' b' f s f' s'} : f ≤ f' → s ≤ s' → TyEqS cx 0 a a' → TyEqS cx 0 b b' →
+      SubS cx (.code a b (.restricted f s)) (.code a' b' (.restricted f' s'))
 
 theorem sub_sound (cx : Cx) : ∀ (σ τ : Ty), sub cx σ τ = true → SubS cx σ τ := by
   intro σ
@@ -897,6 +904,17 @@ theorem sub_sound (cx : Cx) : ∀ (σ τ : Ty), sub cx σ τ = true → SubS cx 
       · exact .eq (tyEq_sound cx 0 _ _ h)
       · cases τ <;> simp at h
         exact .cap h.1 (ieqD_sound h.2)
+  | code a b k _ _ =>
+      intro τ h
+      unfold sub at h
+      simp only [Bool.or_eq_true] at h
+      rcases h with h | h
+      · exact .eq (tyEq_sound cx 0 _ _ h)
+      · cases τ <;> (try simp at h)
+        rename_i a' b' k'
+        cases k <;> cases k' <;> simp at h
+        · exact .codeR (tyEq_sound cx 0 _ _ h.1) (tyEq_sound cx 0 _ _ h.2)
+        · exact .codeRR h.1.1.1 h.1.1.2 (tyEq_sound cx 0 _ _ h.1.2) (tyEq_sound cx 0 _ _ h.2)
   | _ =>
       intro τ h
       unfold sub at h
@@ -1534,7 +1552,8 @@ inductive OpT (p : Prog) : Cx → String → Op → Cx → Prop
       c₁.bind x .tid = .ok c' → OpT p cx x (.spawn f a T ts) c'
   /-- (E1) A trusted extern (`checkOp`'s `.ext`): the argument at the extern's type. -/
   | ext {cx c₁ c' : Cx} {x : String} {n : ExtName} {a : At} {t : Ty} :
-      cx.use a = .ok (t, c₁) → SubS c₁ t n.sig.1 → c₁.bind x n.sig.2 = .ok c' → OpT p cx x (.ext n a) c'
+      cx.use a = .ok (t, c₁) → n.ok = true → SubS c₁ t n.sig.1 → c₁.bind x n.sig.2 = .ok c' →
+      OpT p cx x (.ext n a) c'
   /-- Lend a token or share: it is used up and recorded as lent. -/
   | borrow {cx c₁ c' : Cx} {x y : String} {c : Cap} {a : At} {t t' : Ty} {r : Idx} :
       varOf a = .ok y → cx.peek a = .ok t → lendOf cx c t = .ok r → cx.use a = .ok (t', c₁) →
@@ -1553,7 +1572,8 @@ inductive OpT (p : Prog) : Cx → String → Op → Cx → Prop
   /-- A monomorphic code block as a value. -/
   | fnptr {cx c' : Cx} {x f : String} {d : Decl} :
       p.find f = .ok d → d.tparams = [] → d.idx = [] →
-      cx.bind x (.code d.argTy d.retTy) = .ok c' → OpT p cx x (.fnptr f) c'
+      cx.bind x (.code d.argTy d.retTy (match d.kind with | .restricted f s => .restricted f s | _ => .plain)) = .ok c' →
+      OpT p cx x (.fnptr f) c'
   /-- A call through a code value: `call`'s rule at the value's signature. -/
   | callc {cx c₁ c' : Cx} {x : String} {f a : At} {tf σ τ t : Ty} :
       cx.peek f = .ok tf → codeOf tf = some (σ, τ) → cx.use a = .ok (t, c₁) → NoLeak c₁ t →
@@ -2513,11 +2533,15 @@ theorem checkOp_sound (p : Prog) (cx : Cx) (x : String) (op : Op) (cx' : Cx)
       simp only [checkOp, bind_ok_iff] at h
       obtain ⟨⟨t, c₁⟩, h1, h⟩ := h
       dsimp only at h
+      generalize hok : n.ok = ok at h
+      cases ok
+      · cases h
+      rw [if_neg (by decide)] at h
       generalize hsb : sub c₁ t n.sig.1 = sb at h
       cases sb
       · cases h
       rw [if_neg (by decide)] at h
-      exact .ext h1 (sub_sound _ _ _ hsb) h
+      exact .ext h1 hok (sub_sound _ _ _ hsb) h
   | borrow c a =>
       simp only [checkOp, bind_ok_iff] at h
       obtain ⟨y, hy, t, ht, r, hr, ⟨t', c₁⟩, h1, h⟩ := h
@@ -3260,7 +3284,11 @@ theorem checkDecl_sound (p : Prog) (d : Decl) (h : checkDecl p d = .ok ()) : Dec
     · simp at h
     · rename_i hsc
       simp at hwf hsc
-      exact ⟨hwf.1, hwf.2, hsc.1, hsc.2, check_sound p d.body _ h⟩
+      -- (M1, T6) the kind rules run after `check`
+      simp only [bind_ok_iff] at h
+      obtain ⟨u, h1, -⟩ := h
+      cases u
+      exact ⟨hwf.1, hwf.2, hsc.1, hsc.2, check_sound p d.body _ h1⟩
 
 theorem forM_ok {α : Type} (f : α → M Unit) : ∀ (l : List α), l.forM f = .ok () → ∀ a ∈ l, f a = .ok ()
   | [], _, a, ha => by simp at ha

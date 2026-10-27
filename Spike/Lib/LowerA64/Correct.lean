@@ -57,6 +57,7 @@ import Spike.Lib.A64StartOfPlaceOK
 import Spike.Lib.A64Ret0Correct
 import Scc.Sem.CorrectEA64
 import Spike.Lib.Rt.A64RtStartU
+import Spike.Lib.LowerA64.TailBare
 
 namespace Spike.Lib.LowerA64
 
@@ -224,14 +225,15 @@ theorem a64_lower_correctE (hd : Scc.Lower.Accepted0 [d] = true) {em : Scc.Lower
       (fun _ => 0) (fun _ => "") :=
     Scc.Sem.StaticSyms.of_none hs
   have hs' : (Ly h).Λ.static = fun _ => none := funext hs
-  have hseg := a64_start_segW h (immsOf d) hd hf h1 h16 hpro hr hbody
+  have htl := tail_bare_of_accepted0 hd hlow
+  have hseg := a64_start_segW h (immsOf d) hd htl hf h1 h16 hpro hr hbody
     (Dt := OvfDt (Ly h).exe (Ly h).endPc (Ly h).lab) (rd := fun _ => True) (G := G0 h) (hs' ▸ rtFree_ofPlaceOK h _) hE
     hphB hphP Ret0.Inst.cfacts_c0 hab rfl
     (fun _ _ hal hlo hhi _ _ _ hA => ovfDt_of_at hal hlo hhi hA)
     (hGh_ofPlaceOK h _) (hGf_ofPlaceOK h _) (hGt_ofPlaceOK h _) (hownT_ofPlaceOK h _) (hG1_ofPlaceOK h _)
     (hG0_ofPlaceOK h _) (hGn_ofPlaceOK h _) (hownL_ofPlaceOK h _) (hownF_ofPlaceOK h _) (hownN_ofPlaceOK h _)
     (hroomM_ofPlaceOK h _) (hroomU_ofPlaceOK h _ (Int.natCast_nonneg _) (by omega))
-    (Spike.Lib.A64.PhRec.hmph_ofPlaceOK h _)
+    (Spike.Lib.A64.PhRec.hmph_ofPlaceOK h _ htl)
     (Spike.Lib.A64.PhRec.hsw_ofPlaceOK h _)
     (Spike.Lib.A64.Rt.entryW_ofPlaceOK h _ (Spike.Lib.A64.Rt.entryR_ok hE) (Spike.Lib.A64.Rt.entryR_al hE)
       (by show (-65536 : Int) ≤ 0; decide) (by show (0 : Int) ≤ 0; decide) Ret0.Inst.cfacts_c0) (hgen cx h1)
@@ -241,7 +243,7 @@ theorem a64_lower_correctE (hd : Scc.Lower.Accepted0 [d] = true) {em : Scc.Lower
   have hI := Spike.Lib.A64.PhRec.instOk_ofPlaceOK h (immsOf d) (rS := Spike.Lib.A64.Rt.rS0 (Ly h))
   exact Spike.Lib.A64Consumer.correctA64PE' (lsize := fun _ => 0) (name := fun _ => "") hss0 hss
     (wideIn_of_placeOKAt h) ⟨rfl, rfl, hP _ _ (entry_atE h _ hE (Spike.Lib.A64.PhRec.hpc_ofPlaceOKE h _ E))⟩
-    hload (Spike.Lib.srcP1_hooks arch)
+    hload (.none (Spike.Lib.srcP1_hooks arch))
     (Spike.Lib.srcP1_init arch) hN (Spike.Lib.A64Consumer.safe_of_accepted0 hd arch _) hT
     (Spike.Lib.A64.PhRec.htk0_of_pc h _ (Spike.Lib.A64.PhRec.hpc_ofPlaceOKE h _ E))
     (Spike.Lib.A64.PhRec.hown0_of_pcE h _ hE.1 (Spike.Lib.A64.PhRec.hpc_ofPlaceOKE h _ E))

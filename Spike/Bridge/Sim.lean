@@ -715,7 +715,7 @@ theorem components_of (hf0 : rv st0 rF = F) (hfW : rv sW rF = F) (hone : v1.toNa
     · rcases Nat.lt_or_ge (k' - 1) t.1.mem.msgs.size with h | h
       · omega
       · simp [Array.getElem?_eq_none h] at hg
-  · intro i th j tt hth hthr htt d e he x ty ws hlk k wd pl' hwd henv
+  · intro i th j tt hth hthr htt d e he x ty ws hlk k wd pl' hwd henv _hxf
     simp only [witness] at hthr
     split at hthr
     case isFalse => cases hthr
@@ -774,7 +774,7 @@ theorem components_of (hf0 : rv st0 rF = F) (hfW : rv sW rF = F) (hone : v1.toNa
           cases hwd
           refine ⟨v.toNat, by simp [placeVal, ExtMachine.ofBase, hr, Nat.mod_eq_of_lt hlt], ?_⟩
           simp [ValRep, hw, hlt]
-  · intro i th hth d e xs he _ x _ ty ws hlk k hk
+  · intro i th hth d e xs he _ _ x _ ty ws hlk k hk
     rw [hs] at hth
     have hfr : ∀ th : TermRun.TTh, th.stack = [] → (frameEnvs th)[d]? = some e → d = 0 ∧ e = th.env := by
       intro th hst h

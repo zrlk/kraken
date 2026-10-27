@@ -50,7 +50,7 @@ example {rd : TermRun.Word → Prop} {G : Loc → Val → Prop} :=
       (lsize := fun _ => 0)
 
 /-- The runtime main's and the switch's phase records at `ret0`'s placed output. -/
-example := hmph_ofPlaceOK (Scc.Cert.PlaceOK.A64.atTables ret0_placeOK) ret0Imms
+example := hmph_ofPlaceOK (Scc.Cert.PlaceOK.A64.atTables ret0_placeOK) ret0Imms rfl
 example := hsw_ofPlaceOK (Scc.Cert.PlaceOK.A64.atTables ret0_placeOK) ret0Imms
 
 /-- The loaded thread at `ret0P`: at `_start`, not in the take's phase, its

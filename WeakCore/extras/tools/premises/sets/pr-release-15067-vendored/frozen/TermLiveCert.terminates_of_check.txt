@@ -1,0 +1,1030 @@
+ROOT TermLiveCert.terminates_of_check : ∀ {p : CoreTerm.Prog} {k : Promises.Knobs} {arch : WeakMem.Arch} {V : List Nat} {c0 : TermRun.Cfg}
+  {ct : TermLiveCert.Cert},
+  TermLiveCert.check p k arch [] V ct c0 = true →
+    TermLiveCert.noStuckB p k arch V ct = true →
+      TermLiveProps.CfgCoh c0 →
+        ∀ (r : TermLiveMach.LRun (TermLiveL3.machineE p k arch).L),
+          (TermLiveL3.machineE p k arch).Run r →
+            r.cfg 0 = c0 →
+              TermLiveCert.PromiseFreeRun r →
+                TermLiveCert.ScriptedRun V r →
+                  (TermLiveCert.FairS (TermLiveL3.machineE p k arch) r fun x => none) → ∃ n, (r.cfg n).final = true
+CoreLang.Cap : Type
+CoreLang.ECounter : Type
+CoreLang.Mode : Type
+CoreLang.Proto : Type
+CoreLang.Proto2 : Type
+CoreLang.Ty : Type
+CoreLang.Ty.tid : CoreLang.Ty
+CoreLang.Wd : Type
+CoreLang.instDecidableEqCap : DecidableEq CoreLang.Cap
+CoreLang.instDecidableEqECounter : DecidableEq CoreLang.ECounter
+CoreLang.instDecidableEqMode : DecidableEq CoreLang.Mode
+CoreLang.instDecidableEqProto : DecidableEq CoreLang.Proto
+CoreLang.instDecidableEqProto2 : DecidableEq CoreLang.Proto2
+CoreLang.instDecidableEqTy : DecidableEq CoreLang.Ty
+CoreLang.instDecidableEqWd : DecidableEq CoreLang.Wd
+CoreTerm.At : Type
+CoreTerm.At.var : String → CoreTerm.At
+CoreTerm.BitOp : Type
+CoreTerm.BitOp1 : Type
+CoreTerm.Expr : Type
+CoreTerm.Expr.cas : Bool → Bool → CoreTerm.At → CoreTerm.At → CoreTerm.At → String → CoreTerm.Expr → CoreTerm.Expr → CoreTerm.Expr
+CoreTerm.Expr.case : CoreTerm.At → String → CoreTerm.Expr → String → CoreTerm.Expr → CoreTerm.Expr
+CoreTerm.Expr.casp : Bool →
+  Bool →
+    CoreTerm.At →
+      CoreTerm.At → CoreTerm.At → CoreTerm.At → CoreTerm.At → String → CoreTerm.Expr → CoreTerm.Expr → CoreTerm.Expr
+CoreTerm.Expr.ctorIdx : CoreTerm.Expr → Nat
+CoreTerm.Expr.ifeq : CoreTerm.At → CoreTerm.At → CoreTerm.Expr → CoreTerm.Expr → CoreTerm.Expr
+CoreTerm.Expr.ifnull : CoreTerm.At → CoreTerm.Expr → String → CoreTerm.Expr → CoreTerm.Expr
+CoreTerm.Expr.let_ : String → CoreTerm.Op → CoreTerm.Expr → CoreTerm.Expr
+CoreTerm.Expr.openPub : CoreTerm.At → String → String → String → CoreTerm.Expr → CoreTerm.Expr
+CoreTerm.Expr.parity : CoreTerm.At → String → CoreTerm.Expr → CoreTerm.Expr → CoreTerm.Expr
+CoreTerm.Expr.region : CoreTerm.At → String → String → String → CoreTerm.Expr → CoreTerm.Expr
+CoreTerm.Expr.ret : CoreTerm.At → CoreTerm.Expr
+CoreTerm.Expr.split : CoreTerm.At → String → String → CoreTerm.Expr → CoreTerm.Expr
+CoreTerm.Expr.tail : String → List String → CoreTerm.At → optParam (List CoreLang.Ty) [] → CoreTerm.Expr
+CoreTerm.Expr.unpack : CoreTerm.At → String → String → CoreTerm.Expr → CoreTerm.Expr
+CoreTerm.Expr.unpackT : CoreTerm.At → String → String → CoreTerm.Expr → CoreTerm.Expr
+CoreTerm.ExtName : Type
+CoreTerm.ExtName.Admits : CoreTerm.ExtName → Nat → List TermRun.Word → List TermRun.Event → List TermRun.Word → Prop
+CoreTerm.ExtName.devChoice : CoreLang.Wd → CoreTerm.ExtName
+CoreTerm.ExtName.park : CoreTerm.ExtName
+CoreTerm.ExtName.sig : CoreTerm.ExtName → CoreLang.Ty × CoreLang.Ty
+CoreTerm.FCmp : Type
+CoreTerm.FOp : Type
+CoreTerm.FOp1 : Type
+CoreTerm.Fence : Type
+CoreTerm.FetchOp : Type
+CoreTerm.Op : Type
+CoreTerm.Op.add : CoreTerm.At → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.asLanes : Bool → CoreLang.Wd → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.atom : CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.band : CoreTerm.At → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.bit1 : CoreTerm.BitOp1 → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.bits : CoreTerm.BitOp → CoreTerm.At → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.borrow : CoreLang.Cap → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.bufInit : CoreTerm.At → CoreTerm.At → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.call : String → List String → CoreTerm.At → optParam (List CoreLang.Ty) [] → CoreTerm.Op
+CoreTerm.Op.callc : CoreTerm.At → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.claim : CoreTerm.At → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.ctorIdx : CoreTerm.Op → Nat
+CoreTerm.Op.cvt : Bool → CoreLang.Wd → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.endBorrow : CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.ext : CoreTerm.ExtName → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.fcmp : CoreTerm.FCmp → CoreTerm.At → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.fence : CoreTerm.Fence → CoreTerm.Op
+CoreTerm.Op.fetch : CoreTerm.FetchOp → Bool → Bool → CoreTerm.At → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.fld : Nat → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.fnptr : String → CoreTerm.Op
+CoreTerm.Op.fold : CoreTerm.At → CoreLang.Ty → CoreTerm.Op
+CoreTerm.Op.fop : CoreTerm.FOp → CoreTerm.At → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.fop1 : CoreTerm.FOp1 → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.freeze : CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.idx : CoreTerm.At → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.inl : CoreLang.Ty → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.inr : CoreLang.Ty → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.intoRgn : String → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.lane : CoreTerm.At → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.ldl : CoreTerm.At → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.ldlw : CoreTerm.At → CoreTerm.At → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.ldp : Bool → CoreTerm.At → String → String → CoreTerm.Op
+CoreTerm.Op.load : Bool → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.loadAt : CoreTerm.At → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.loadAtF : CoreTerm.At → CoreTerm.At → List Nat → CoreTerm.Op
+CoreTerm.Op.mkEPair : String → CoreLang.ECounter → CoreTerm.At → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.mkTicket : String → CoreLang.Proto → CoreLang.Proto → CoreTerm.At → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.mkWord : String → CoreLang.Proto → CoreTerm.At → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.mkWord2 : String → CoreLang.Proto2 → CoreTerm.At → CoreTerm.At → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.nameI : CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.new : CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.newBuf : CoreTerm.At → CoreLang.Ty → CoreTerm.Op
+CoreTerm.Op.null : CoreLang.Mode → CoreLang.Ty → CoreTerm.Op
+CoreTerm.Op.pack : CoreTerm.At → String → CoreLang.Ty → CoreTerm.Op
+CoreTerm.Op.packT : CoreTerm.At → CoreLang.Ty → CoreLang.Ty → CoreTerm.Op
+CoreTerm.Op.pair : CoreTerm.At → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.publish : CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.rem : CoreTerm.At → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.setLane : CoreTerm.At → CoreTerm.At → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.spawn : String → CoreTerm.At → CoreLang.Ty → optParam (List CoreLang.Ty) [] → CoreTerm.Op
+CoreTerm.Op.stl : CoreTerm.At → CoreTerm.At → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.stlw : CoreTerm.At → CoreTerm.At → CoreTerm.At → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.store : Bool → CoreTerm.At → CoreTerm.At → Option CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.stp : Bool → CoreTerm.At → CoreTerm.At → CoreTerm.At → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.sub : CoreTerm.At → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.toInt : CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.validate : String → CoreTerm.Op
+CoreTerm.Op.vmatch : CoreTerm.At → CoreTerm.At → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.xchg : CoreTerm.At → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.xchgAt : CoreTerm.At → CoreTerm.At → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.xchgAtF : CoreTerm.At → CoreTerm.At → List Nat → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.zero : CoreLang.Ty → CoreTerm.Op
+CoreTerm.Prog : Type
+CoreTerm.instDecidableEqAt : DecidableEq CoreTerm.At
+CoreTerm.instDecidableEqBitOp : DecidableEq CoreTerm.BitOp
+CoreTerm.instDecidableEqBitOp1 : DecidableEq CoreTerm.BitOp1
+CoreTerm.instDecidableEqExtName : DecidableEq CoreTerm.ExtName
+CoreTerm.instDecidableEqFCmp : DecidableEq CoreTerm.FCmp
+CoreTerm.instDecidableEqFOp : DecidableEq CoreTerm.FOp
+CoreTerm.instDecidableEqFOp1 : DecidableEq CoreTerm.FOp1
+CoreTerm.instDecidableEqFence : DecidableEq CoreTerm.Fence
+CoreTerm.instDecidableEqFetchOp : DecidableEq CoreTerm.FetchOp
+Promises.Knobs : Type
+Promises.TVal : Type
+Promises.TVal.rts : Promises.TVal → WeakMem.Ts
+Promises.TVal.val : Promises.TVal → WeakMem.Val
+Promises.TVal.view : Promises.TVal → WeakMem.Ts
+TermLive.instInhabitedCfg : Inhabited TermRun.Cfg
+  := { default := { mem := #[], ths := #[] } }
+TermLiveCert.Cert : Type
+  | TermLiveCert.Cert.mk : Array TermRun.Cfg →
+  Array (Array (List Nat)) → Array Nat → Array TermLiveCert.Just → Array (List Nat) → TermLiveCert.Cert
+TermLiveCert.Cert.envs : TermLiveCert.Cert → Array (List Nat)
+  := fun self => self.5
+TermLiveCert.Cert.js : TermLiveCert.Cert → Nat → TermLiveCert.Just
+  := fun ct v => ct.just[ct.rk v]?.getD TermLiveCert.Just.noSpin
+TermLiveCert.Cert.just : TermLiveCert.Cert → Array TermLiveCert.Just
+  := fun self => self.4
+TermLiveCert.Cert.me : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → TermLiveCert.Cert → Nat → List (TermRun.Cfg × Nat)
+  := fun p k arch ct v => (TermLiveCert.envsPF p k arch (ct.nd v)).zip (ct.te v)
+TermLiveCert.Cert.mt : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → List Nat → TermLiveCert.Cert → Nat → Nat → List (TermRun.Cfg × Nat)
+  := fun p k arch V ct v i => (TermLiveCert.movesPF p k arch V (ct.nd v) i).zip (ct.tg v i)
+TermLiveCert.Cert.nd : TermLiveCert.Cert → Nat → TermRun.Cfg
+  := fun ct v => TermLiveCert.canon (ct.nodes[v]?.getD default)
+TermLiveCert.Cert.nodeOK : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → List Nat → List Nat → TermLiveCert.Cert → Nat → Bool
+  := fun p k arch X V ct v =>
+  have c := ct.nd v;
+  (TermLiveCert.pfB c && decide (ct.rk v < ct.just.size) &&
+        (List.range c.ths.size).all fun i =>
+          decide ((TermLiveCert.movesPF p k arch V c i).length = (ct.tg v i).length) &&
+            (TermLiveCert.Cert.mt p k arch V ct v i).all fun x =>
+              match x with
+              | (e, w) =>
+                decide (w < ct.nodes.size) && decide (TermRun.cfgKey e = TermRun.cfgKey (ct.nodes[w]?.getD default)) &&
+                    (!(TermLiveCert.Cert.quiet p k arch X V ct v && TermLiveCert.Cert.quiet p k arch X V ct w) ||
+                      decide (ct.rk w ≤ ct.rk v) &&
+                        (!decide (ct.rk w = ct.rk v) ||
+                          decide (ct.js v ≠ TermLiveCert.Just.noSpin) &&
+                            decide (ct.js v ≠ TermLiveCert.Just.unfair i))) &&
+                  (!TermLiveCert.Cert.quiet p k arch X V ct v ||
+                    match ct.js v with
+                    | TermLiveCert.Just.noSpin => true
+                    | TermLiveCert.Just.unfair i => !X.contains i && !(TermLiveCert.movesPF p k arch V c i).isEmpty)) &&
+      decide ((TermLiveCert.envsPF p k arch c).length = (ct.te v).length) &&
+    (TermLiveCert.Cert.me p k arch ct v).all fun x =>
+      match x with
+      | (e, w) =>
+        decide (w < ct.nodes.size) && decide (TermRun.cfgKey e = TermRun.cfgKey (ct.nodes[w]?.getD default)) &&
+            (!(TermLiveCert.Cert.quiet p k arch X V ct v && TermLiveCert.Cert.quiet p k arch X V ct w) ||
+              decide (ct.rk w ≤ ct.rk v)) &&
+          (!TermLiveCert.Cert.quiet p k arch X V ct v ||
+            match ct.js v with
+            | TermLiveCert.Just.noSpin => true
+            | TermLiveCert.Just.unfair i => !X.contains i && !(TermLiveCert.movesPF p k arch V c i).isEmpty)
+TermLiveCert.Cert.nodes : TermLiveCert.Cert → Array TermRun.Cfg
+  := fun self => self.1
+TermLiveCert.Cert.quiet : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → List Nat → List Nat → TermLiveCert.Cert → Nat → Bool
+  := fun p k arch X V ct v =>
+  (List.range (ct.nd v).ths.size).all fun i =>
+    X.contains i || (TermLiveCert.movesPF p k arch V (ct.nd v) i).all fun e => !TermLiveCert.progB (ct.nd v) e i
+TermLiveCert.Cert.rank : TermLiveCert.Cert → Array Nat
+  := fun self => self.3
+TermLiveCert.Cert.rk : TermLiveCert.Cert → Nat → Nat
+  := fun ct v => ct.rank[v]?.getD 0
+TermLiveCert.Cert.succ : TermLiveCert.Cert → Array (Array (List Nat))
+  := fun self => self.2
+TermLiveCert.Cert.te : TermLiveCert.Cert → Nat → List Nat
+  := fun ct v => ct.envs[v]?.getD []
+TermLiveCert.Cert.tg : TermLiveCert.Cert → Nat → Nat → List Nat
+  := fun ct v i => (ct.succ[v]?.getD #[])[i]?.getD []
+TermLiveCert.FairS : (sys : TermLiveMach.LSys) → TermLiveMach.LRun sys.L → (Nat → Option Nat) → Prop
+  | TermLiveCert.FairS.mk : ∀ {sys : TermLiveMach.LSys} {r : TermLiveMach.LRun sys.L} {D : Nat → Option Nat},
+  (∀ (i : Nat),
+      TermLiveCert.LiveS r D i →
+        (TermLiveMach.Ev fun n => ∃ c', sys.S (r.cfg n) (sys.thr i) c') →
+          TermLiveMach.Often fun n => r.lbl n = some (sys.thr i)) →
+    (∀ (i : Nat),
+        TermLiveCert.LiveS r D i →
+          (TermLiveMach.Often fun n => ∃ c', sys.S (r.cfg n) (sys.thr i) c' ∧ TermLiveMach.Progress (r.cfg n) c' i) →
+            TermLiveMach.Often fun n =>
+              r.lbl n = some (sys.thr i) ∧ TermLiveMach.Progress (r.cfg n) (r.cfg (n + 1)) i) →
+      TermLiveCert.FairS sys r D
+TermLiveCert.Just : Type
+  | TermLiveCert.Just.noSpin : TermLiveCert.Just
+  | TermLiveCert.Just.unfair : Nat → TermLiveCert.Just
+TermLiveCert.Just.noSpin : TermLiveCert.Just
+TermLiveCert.Just.unfair : Nat → TermLiveCert.Just
+TermLiveCert.LiveS : {L : Type} → TermLiveMach.LRun L → (Nat → Option Nat) → Nat → Prop
+  := fun {L} r D i => (∃ n, i < (r.cfg n).ths.size) ∧ D i = none
+TermLiveCert.PromiseFreeRun : {p : CoreTerm.Prog} →
+  {k : Promises.Knobs} → {arch : WeakMem.Arch} → TermLiveMach.LRun (TermLiveL3.machineE p k arch).L → Prop
+  := fun {p} {k} {arch} r => ∀ (n i : Nat), r.lbl n ≠ some (i, TermLiveL3.Lbl.prom)
+TermLiveCert.ScriptedRun : {p : CoreTerm.Prog} →
+  {k : Promises.Knobs} → {arch : WeakMem.Arch} → List Nat → TermLiveMach.LRun (TermLiveL3.machineE p k arch).L → Prop
+  := fun {p} {k} {arch} V r =>
+  ∀ (n i : Nat) (th : TermRun.TTh) (x : String) (w : CoreLang.Wd) (a : CoreTerm.At) (e : CoreTerm.Expr),
+    r.lbl n = some (i, TermLiveL3.Lbl.thr) →
+      (r.cfg n).ths[i]? = some th →
+        th.term = CoreTerm.Expr.let_ x (CoreTerm.Op.ext (CoreTerm.ExtName.devChoice w) a) e →
+          ∃ v,
+            v ∈ V ∧
+              ((r.cfg (n + 1)).ths[i]?.bind fun x => List.head? x.env) =
+                some (x, (CoreTerm.ExtName.devChoice w).sig.snd, [TermRun.cst (WeakMem.Val.num v)])
+TermLiveCert.canon : TermRun.Cfg → TermRun.Cfg
+  := fun c =>
+  { mem := c.mem, pairs := c.pairs,
+    ths :=
+      Array.map
+        (fun th =>
+          { term := th.term, env := th.env, σs := th.σs, stack := th.stack,
+            vs :=
+              have __src := th.vs;
+              { coh := fun b => if b ∈ TermLiveCert.locs c then th.vs.coh b else 0, vRd := __src.vRd, vWr := __src.vWr,
+                vCtrl := __src.vCtrl, vPreBase := __src.vPreBase, vRelSt := __src.vRelSt, mine := __src.mine,
+                fwd := __src.fwd },
+            promises := th.promises, nalloc := th.nalloc, undefs := th.undefs, tidLbl := th.tidLbl,
+            permit := th.permit })
+        c.ths,
+    lbase := c.lbase, boxFence := c.boxFence, cap := c.cap, trace := c.trace }
+TermLiveCert.check : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → List Nat → List Nat → TermLiveCert.Cert → TermRun.Cfg → Bool
+  := fun p k arch X V ct c0 =>
+  decide (0 < ct.nodes.size) && decide (ct.succ.size = ct.nodes.size) && decide (ct.rank.size = ct.nodes.size) &&
+      decide (TermRun.cfgKey c0 = TermRun.cfgKey (ct.nodes[0]?.getD default)) &&
+    (List.range ct.nodes.size).all (TermLiveCert.Cert.nodeOK p k arch X V ct)
+TermLiveCert.envsPF : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → TermRun.Cfg → List TermRun.Cfg
+  := fun p k arch c => List.flatMap (TermLiveCert.wakesPF p k arch c) (List.range c.ths.size)
+TermLiveCert.instDecidableEqCfgKey : DecidableEq TermRun.CfgKey
+  := TermLiveCert.instDecidableEqCfgKey.decEq
+TermLiveCert.instDecidableEqCfgKey.decEq : (x x_1 : TermRun.CfgKey) → Decidable (x = x_1)
+  := fun x x_1 =>
+  match x, x_1 with
+  | { mem := a, pairs := a_1, ths := a_2, trace := a_3, lbase := a_4, boxFence := a_5, cap := a_6 },
+    { mem := b, pairs := b_1, ths := b_2, trace := b_3, lbase := b_4, boxFence := b_5, cap := b_6 } =>
+    if h : a = b then
+      h ▸
+        if h : a_1 = b_1 then
+          h ▸
+            if h : a_2 = b_2 then
+              h ▸
+                if h : a_3 = b_3 then
+                  h ▸
+                    if h : a_4 = b_4 then
+                      h ▸ if h : a_5 = b_5 then h ▸ if h : a_6 = b_6 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
+                    else isFalse ⋯
+                else isFalse ⋯
+            else isFalse ⋯
+        else isFalse ⋯
+    else isFalse ⋯
+TermLiveCert.instDecidableEqExpr : DecidableEq CoreTerm.Expr
+  := TermLiveCert.instDecidableEqExpr.decEq
+TermLiveCert.instDecidableEqExpr.decEq : (x x_1 : CoreTerm.Expr) → Decidable (x = x_1)
+  eq_def ∀ (x x_1 : CoreTerm.Expr),
+  TermLiveCert.instDecidableEqExpr.decEq x x_1 =
+    match decEq x.ctorIdx x_1.ctorIdx with
+    | { decide := true, reflects_decide := h } =>
+      match x, x_1, h with
+      | CoreTerm.Expr.let_ a a_1 a_2, CoreTerm.Expr.let_ b b_1 b_2, ⋯ =>
+        if h : a = b then
+          h ▸
+            if h : a_1 = b_1 then
+              h ▸
+                have inst := TermLiveCert.instDecidableEqExpr.decEq a_2 b_2;
+                if h : a_2 = b_2 then
+                  h ▸
+                    have inst := TermLiveCert.instDecidableEqExpr.decEq a_2 a_2;
+                    isTrue ⋯
+                else isFalse ⋯
+            else isFalse ⋯
+        else isFalse ⋯
+      | CoreTerm.Expr.split a a_1 a_2 a_3, CoreTerm.Expr.split b b_1 b_2 b_3, ⋯ =>
+        if h : a = b then
+          h ▸
+            if h : a_1 = b_1 then
+              h ▸
+                if h : a_2 = b_2 then
+                  h ▸
+                    have inst := TermLiveCert.instDecidableEqExpr.decEq a_3 b_3;
+                    if h : a_3 = b_3 then
+                      h ▸
+                        have inst := TermLiveCert.instDecidableEqExpr.decEq a_3 a_3;
+                        isTrue ⋯
+                    else isFalse ⋯
+                else isFalse ⋯
+            else isFalse ⋯
+        else isFalse ⋯
+      | CoreTerm.Expr.unpack a a_1 a_2 a_3, CoreTerm.Expr.unpack b b_1 b_2 b_3, ⋯ =>
+        if h : a = b then
+          h ▸
+            if h : a_1 = b_1 then
+              h ▸
+                if h : a_2 = b_2 then
+                  h ▸
+                    have inst := TermLiveCert.instDecidableEqExpr.decEq a_3 b_3;
+                    if h : a_3 = b_3 then
+                      h ▸
+                        have inst := TermLiveCert.instDecidableEqExpr.decEq a_3 a_3;
+                        isTrue ⋯
+                    else isFalse ⋯
+                else isFalse ⋯
+            else isFalse ⋯
+        else isFalse ⋯
+      | CoreTerm.Expr.unpackT a a_1 a_2 a_3, CoreTerm.Expr.unpackT b b_1 b_2 b_3, ⋯ =>
+        if h : a = b then
+          h ▸
+            if h : a_1 = b_1 then
+              h ▸
+                if h : a_2 = b_2 then
+                  h ▸
+                    have inst := TermLiveCert.instDecidableEqExpr.decEq a_3 b_3;
+                    if h : a_3 = b_3 then
+                      h ▸
+                        have inst := TermLiveCert.instDecidableEqExpr.decEq a_3 a_3;
+                        isTrue ⋯
+                    else isFalse ⋯
+                else isFalse ⋯
+            else isFalse ⋯
+        else isFalse ⋯
+      | CoreTerm.Expr.region a a_1 a_2 a_3 a_4, CoreTerm.Expr.region b b_1 b_2 b_3 b_4, ⋯ =>
+        if h : a = b then
+          h ▸
+            if h : a_1 = b_1 then
+              h ▸
+                if h : a_2 = b_2 then
+                  h ▸
+                    if h : a_3 = b_3 then
+                      h ▸
+                        have inst := TermLiveCert.instDecidableEqExpr.decEq a_4 b_4;
+                        if h : a_4 = b_4 then
+                          h ▸
+                            have inst := TermLiveCert.instDecidableEqExpr.decEq a_4 a_4;
+                            isTrue ⋯
+                        else isFalse ⋯
+                    else isFalse ⋯
+                else isFalse ⋯
+            else isFalse ⋯
+        else isFalse ⋯
+      | CoreTerm.Expr.openPub a a_1 a_2 a_3 a_4, CoreTerm.Expr.openPub b b_1 b_2 b_3 b_4, ⋯ =>
+        if h : a = b then
+          h ▸
+            if h : a_1 = b_1 then
+              h ▸
+                if h : a_2 = b_2 then
+                  h ▸
+                    if h : a_3 = b_3 then
+                      h ▸
+                        have inst := TermLiveCert.instDecidableEqExpr.decEq a_4 b_4;
+                        if h : a_4 = b_4 then
+                          h ▸
+                            have inst := TermLiveCert.instDecidableEqExpr.decEq a_4 a_4;
+                            isTrue ⋯
+                        else isFalse ⋯
+                    else isFalse ⋯
+                else isFalse ⋯
+            else isFalse ⋯
+        else isFalse ⋯
+      | CoreTerm.Expr.case a a_1 a_2 a_3 a_4, CoreTerm.Expr.case b b_1 b_2 b_3 b_4, ⋯ =>
+        if h : a = b then
+          h ▸
+            if h : a_1 = b_1 then
+              h ▸
+                have inst := TermLiveCert.instDecidableEqExpr.decEq a_2 b_2;
+                if h : a_2 = b_2 then
+                  h ▸
+                    have inst := TermLiveCert.instDecidableEqExpr.decEq a_2 a_2;
+                    if h : a_3 = b_3 then
+                      h ▸
+                        have inst := TermLiveCert.instDecidableEqExpr.decEq a_4 b_4;
+                        if h : a_4 = b_4 then
+                          h ▸
+                            have inst := TermLiveCert.instDecidableEqExpr.decEq a_4 a_4;
+                            isTrue ⋯
+                        else isFalse ⋯
+                    else isFalse ⋯
+                else isFalse ⋯
+            else isFalse ⋯
+        else isFalse ⋯
+      | CoreTerm.Expr.ifnull a a_1 a_2 a_3, CoreTerm.Expr.ifnull b b_1 b_2 b_3, ⋯ =>
+        if h : a = b then
+          h ▸
+            have inst := TermLiveCert.instDecidableEqExpr.decEq a_1 b_1;
+            if h : a_1 = b_1 then
+              h ▸
+                have inst := TermLiveCert.instDecidableEqExpr.decEq a_1 a_1;
+                if h : a_2 = b_2 then
+                  h ▸
+                    have inst := TermLiveCert.instDecidableEqExpr.decEq a_3 b_3;
+                    if h : a_3 = b_3 then
+                      h ▸
+                        have inst := TermLiveCert.instDecidableEqExpr.decEq a_3 a_3;
+                        isTrue ⋯
+                    else isFalse ⋯
+                else isFalse ⋯
+            else isFalse ⋯
+        else isFalse ⋯
+      | CoreTerm.Expr.parity a a_1 a_2 a_3, CoreTerm.Expr.parity b b_1 b_2 b_3, ⋯ =>
+        if h : a = b then
+          h ▸
+            if h : a_1 = b_1 then
+              h ▸
+                have inst := TermLiveCert.instDecidableEqExpr.decEq a_2 b_2;
+                if h : a_2 = b_2 then
+                  h ▸
+                    have inst := TermLiveCert.instDecidableEqExpr.decEq a_2 a_2;
+                    have inst := TermLiveCert.instDecidableEqExpr.decEq a_3 b_3;
+                    if h : a_3 = b_3 then
+                      h ▸
+                        have inst := TermLiveCert.instDecidableEqExpr.decEq a_3 a_3;
+                        isTrue ⋯
+                    else isFalse ⋯
+                else isFalse ⋯
+            else isFalse ⋯
+        else isFalse ⋯
+      | CoreTerm.Expr.ifeq a a_1 a_2 a_3, CoreTerm.Expr.ifeq b b_1 b_2 b_3, ⋯ =>
+        if h : a = b then
+          h ▸
+            if h : a_1 = b_1 then
+              h ▸
+                have inst := TermLiveCert.instDecidableEqExpr.decEq a_2 b_2;
+                if h : a_2 = b_2 then
+                  h ▸
+                    have inst := TermLiveCert.instDecidableEqExpr.decEq a_2 a_2;
+                    have inst := TermLiveCert.instDecidableEqExpr.decEq a_3 b_3;
+                    if h : a_3 = b_3 then
+                      h ▸
+                        have inst := TermLiveCert.instDecidableEqExpr.decEq a_3 a_3;
+                        isTrue ⋯
+                    else isFalse ⋯
+                else isFalse ⋯
+            else isFalse ⋯
+        else isFalse ⋯
+      | CoreTerm.Expr.cas a a_1 a_2 a_3 a_4 a_5 a_6 a_7, CoreTerm.Expr.cas b b_1 b_2 b_3 b_4 b_5 b_6 b_7, ⋯ =>
+        if h : a = b then
+          h ▸
+            if h : a_1 = b_1 then
+              h ▸
+                if h : a_2 = b_2 then
+                  h ▸
+                    if h : a_3 = b_3 then
+                      h ▸
+                        if h : a_4 = b_4 then
+                          h ▸
+                            if h : a_5 = b_5 then
+                              h ▸
+                                have inst := TermLiveCert.instDecidableEqExpr.decEq a_6 b_6;
+                                if h : a_6 = b_6 then
+                                  h ▸
+                                    have inst := TermLiveCert.instDecidableEqExpr.decEq a_6 a_6;
+                                    have inst := TermLiveCert.instDecidableEqExpr.decEq a_7 b_7;
+                                    if h : a_7 = b_7 then
+                                      h ▸
+                                        have inst := TermLiveCert.instDecidableEqExpr.decEq a_7 a_7;
+                                        isTrue ⋯
+                                    else isFalse ⋯
+                                else isFalse ⋯
+                            else isFalse ⋯
+                        else isFalse ⋯
+                    else isFalse ⋯
+                else isFalse ⋯
+            else isFalse ⋯
+        else isFalse ⋯
+      | CoreTerm.Expr.casp a a_1 a_2 a_3 a_4 a_5 a_6 a_7 a_8 a_9,
+        CoreTerm.Expr.casp b b_1 b_2 b_3 b_4 b_5 b_6 b_7 b_8 b_9, ⋯ =>
+        if h : a = b then
+          h ▸
+            if h : a_1 = b_1 then
+              h ▸
+                if h : a_2 = b_2 then
+                  h ▸
+                    if h : a_3 = b_3 then
+                      h ▸
+                        if h : a_4 = b_4 then
+                          h ▸
+                            if h : a_5 = b_5 then
+                              h ▸
+                                if h : a_6 = b_6 then
+                                  h ▸
+                                    if h : a_7 = b_7 then
+                                      h ▸
+                                        have inst := TermLiveCert.instDecidableEqExpr.decEq a_8 b_8;
+                                        if h : a_8 = b_8 then
+                                          h ▸
+                                            have inst := TermLiveCert.instDecidableEqExpr.decEq a_8 a_8;
+                                            have inst := TermLiveCert.instDecidableEqExpr.decEq a_9 b_9;
+                                            if h : a_9 = b_9 then
+                                              h ▸
+                                                have inst := TermLiveCert.instDecidableEqExpr.decEq a_9 a_9;
+                                                isTrue ⋯
+                                            else isFalse ⋯
+                                        else isFalse ⋯
+                                    else isFalse ⋯
+                                else isFalse ⋯
+                            else isFalse ⋯
+                        else isFalse ⋯
+                    else isFalse ⋯
+                else isFalse ⋯
+            else isFalse ⋯
+        else isFalse ⋯
+      | CoreTerm.Expr.ret a, CoreTerm.Expr.ret b, ⋯ => if h : a = b then h ▸ isTrue ⋯ else isFalse ⋯
+      | CoreTerm.Expr.tail a a_1 a_2 a_3, CoreTerm.Expr.tail b b_1 b_2 b_3, ⋯ =>
+        if h : a = b then
+          h ▸
+            if h : a_1 = b_1 then
+              h ▸ if h : a_2 = b_2 then h ▸ if h : a_3 = b_3 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
+            else isFalse ⋯
+        else isFalse ⋯
+    | { decide := false, reflects_decide := h } => isFalse ⋯
+TermLiveCert.instDecidableEqJust : DecidableEq TermLiveCert.Just
+  := TermLiveCert.instDecidableEqJust.decEq
+TermLiveCert.instDecidableEqJust.decEq : (x x_1 : TermLiveCert.Just) → Decidable (x = x_1)
+  := fun x x_1 =>
+  match x, x_1 with
+  | TermLiveCert.Just.noSpin, TermLiveCert.Just.noSpin => isTrue ⋯
+  | TermLiveCert.Just.noSpin, TermLiveCert.Just.unfair i => isFalse ⋯
+  | TermLiveCert.Just.unfair i, TermLiveCert.Just.noSpin => isFalse ⋯
+  | TermLiveCert.Just.unfair a, TermLiveCert.Just.unfair b => if h : a = b then h ▸ isTrue ⋯ else isFalse ⋯
+TermLiveCert.instDecidableEqMsg : DecidableEq WeakMem.Msg
+  := TermLiveCert.instDecidableEqMsg.decEq
+TermLiveCert.instDecidableEqMsg.decEq : (x x_1 : WeakMem.Msg) → Decidable (x = x_1)
+  := fun x x_1 =>
+  match x, x_1 with
+  | { loc := a, val := a_1, view := a_2 }, { loc := b, val := b_1, view := b_2 } =>
+    if h : a = b then h ▸ if h : a_1 = b_1 then h ▸ if h : a_2 = b_2 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
+    else isFalse ⋯
+TermLiveCert.instDecidableEqOp : DecidableEq CoreTerm.Op
+  := TermLiveCert.instDecidableEqOp.decEq
+TermLiveCert.instDecidableEqOp.decEq : (x x_1 : CoreTerm.Op) → Decidable (x = x_1)
+  := fun x x_1 =>
+  match decEq x.ctorIdx x_1.ctorIdx with
+  | { decide := true, reflects_decide := h } =>
+    match x, x_1, h with
+    | CoreTerm.Op.atom a, CoreTerm.Op.atom b, ⋯ => if h : a = b then h ▸ isTrue ⋯ else isFalse ⋯
+    | CoreTerm.Op.pair a a_1, CoreTerm.Op.pair b b_1, ⋯ =>
+      if h : a = b then h ▸ if h : a_1 = b_1 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
+    | CoreTerm.Op.inl a a_1, CoreTerm.Op.inl b b_1, ⋯ =>
+      if h : a = b then h ▸ if h : a_1 = b_1 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
+    | CoreTerm.Op.inr a a_1, CoreTerm.Op.inr b b_1, ⋯ =>
+      if h : a = b then h ▸ if h : a_1 = b_1 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
+    | CoreTerm.Op.add a a_1, CoreTerm.Op.add b b_1, ⋯ =>
+      if h : a = b then h ▸ if h : a_1 = b_1 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
+    | CoreTerm.Op.sub a a_1, CoreTerm.Op.sub b b_1, ⋯ =>
+      if h : a = b then h ▸ if h : a_1 = b_1 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
+    | CoreTerm.Op.new a, CoreTerm.Op.new b, ⋯ => if h : a = b then h ▸ isTrue ⋯ else isFalse ⋯
+    | CoreTerm.Op.null a a_1, CoreTerm.Op.null b b_1, ⋯ =>
+      if h : a = b then h ▸ if h : a_1 = b_1 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
+    | CoreTerm.Op.fold a a_1, CoreTerm.Op.fold b b_1, ⋯ =>
+      if h : a = b then h ▸ if h : a_1 = b_1 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
+    | CoreTerm.Op.publish a, CoreTerm.Op.publish b, ⋯ => if h : a = b then h ▸ isTrue ⋯ else isFalse ⋯
+    | CoreTerm.Op.intoRgn a a_1, CoreTerm.Op.intoRgn b b_1, ⋯ =>
+      if h : a = b then h ▸ if h : a_1 = b_1 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
+    | CoreTerm.Op.newBuf a a_1, CoreTerm.Op.newBuf b b_1, ⋯ =>
+      if h : a = b then h ▸ if h : a_1 = b_1 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
+    | CoreTerm.Op.idx a a_1, CoreTerm.Op.idx b b_1, ⋯ =>
+      if h : a = b then h ▸ if h : a_1 = b_1 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
+    | CoreTerm.Op.bufInit a a_1 a_2, CoreTerm.Op.bufInit b b_1 b_2, ⋯ =>
+      if h : a = b then h ▸ if h : a_1 = b_1 then h ▸ if h : a_2 = b_2 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
+      else isFalse ⋯
+    | CoreTerm.Op.fld a a_1, CoreTerm.Op.fld b b_1, ⋯ =>
+      if h : a = b then h ▸ if h : a_1 = b_1 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
+    | CoreTerm.Op.load a a_1, CoreTerm.Op.load b b_1, ⋯ =>
+      if h : a = b then h ▸ if h : a_1 = b_1 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
+    | CoreTerm.Op.store a a_1 a_2 a_3, CoreTerm.Op.store b b_1 b_2 b_3, ⋯ =>
+      if h : a = b then
+        h ▸
+          if h : a_1 = b_1 then
+            h ▸ if h : a_2 = b_2 then h ▸ if h : a_3 = b_3 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
+          else isFalse ⋯
+      else isFalse ⋯
+    | CoreTerm.Op.fence a, CoreTerm.Op.fence b, ⋯ => if h : a = b then h ▸ isTrue ⋯ else isFalse ⋯
+    | CoreTerm.Op.mkWord a a_1 a_2 a_3, CoreTerm.Op.mkWord b b_1 b_2 b_3, ⋯ =>
+      if h : a = b then
+        h ▸
+          if h : a_1 = b_1 then
+            h ▸ if h : a_2 = b_2 then h ▸ if h : a_3 = b_3 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
+          else isFalse ⋯
+      else isFalse ⋯
+    | CoreTerm.Op.pack a a_1 a_2, CoreTerm.Op.pack b b_1 b_2, ⋯ =>
+      if h : a = b then h ▸ if h : a_1 = b_1 then h ▸ if h : a_2 = b_2 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
+      else isFalse ⋯
+    | CoreTerm.Op.packT a a_1 a_2, CoreTerm.Op.packT b b_1 b_2, ⋯ =>
+      if h : a = b then h ▸ if h : a_1 = b_1 then h ▸ if h : a_2 = b_2 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
+      else isFalse ⋯
+    | CoreTerm.Op.validate a, CoreTerm.Op.validate b, ⋯ => if h : a = b then h ▸ isTrue ⋯ else isFalse ⋯
+    | CoreTerm.Op.call a a_1 a_2 a_3, CoreTerm.Op.call b b_1 b_2 b_3, ⋯ =>
+      if h : a = b then
+        h ▸
+          if h : a_1 = b_1 then
+            h ▸ if h : a_2 = b_2 then h ▸ if h : a_3 = b_3 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
+          else isFalse ⋯
+      else isFalse ⋯
+    | CoreTerm.Op.borrow a a_1, CoreTerm.Op.borrow b b_1, ⋯ =>
+      if h : a = b then h ▸ if h : a_1 = b_1 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
+    | CoreTerm.Op.endBorrow a, CoreTerm.Op.endBorrow b, ⋯ => if h : a = b then h ▸ isTrue ⋯ else isFalse ⋯
+    | CoreTerm.Op.xchg a a_1, CoreTerm.Op.xchg b b_1, ⋯ =>
+      if h : a = b then h ▸ if h : a_1 = b_1 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
+    | CoreTerm.Op.fnptr a, CoreTerm.Op.fnptr b, ⋯ => if h : a = b then h ▸ isTrue ⋯ else isFalse ⋯
+    | CoreTerm.Op.callc a a_1, CoreTerm.Op.callc b b_1, ⋯ =>
+      if h : a = b then h ▸ if h : a_1 = b_1 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
+    | CoreTerm.Op.rem a a_1, CoreTerm.Op.rem b b_1, ⋯ =>
+      if h : a = b then h ▸ if h : a_1 = b_1 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
+    | CoreTerm.Op.nameI a, CoreTerm.Op.nameI b, ⋯ => if h : a = b then h ▸ isTrue ⋯ else isFalse ⋯
+    | CoreTerm.Op.xchgAt a a_1 a_2, CoreTerm.Op.xchgAt b b_1 b_2, ⋯ =>
+      if h : a = b then h ▸ if h : a_1 = b_1 then h ▸ if h : a_2 = b_2 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
+      else isFalse ⋯
+    | CoreTerm.Op.loadAt a a_1, CoreTerm.Op.loadAt b b_1, ⋯ =>
+      if h : a = b then h ▸ if h : a_1 = b_1 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
+    | CoreTerm.Op.bits a a_1 a_2, CoreTerm.Op.bits b b_1 b_2, ⋯ =>
+      if h : a = b then h ▸ if h : a_1 = b_1 then h ▸ if h : a_2 = b_2 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
+      else isFalse ⋯
+    | CoreTerm.Op.bit1 a a_1, CoreTerm.Op.bit1 b b_1, ⋯ =>
+      if h : a = b then h ▸ if h : a_1 = b_1 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
+    | CoreTerm.Op.vmatch a a_1 a_2, CoreTerm.Op.vmatch b b_1 b_2, ⋯ =>
+      if h : a = b then h ▸ if h : a_1 = b_1 then h ▸ if h : a_2 = b_2 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
+      else isFalse ⋯
+    | CoreTerm.Op.band a a_1, CoreTerm.Op.band b b_1, ⋯ =>
+      if h : a = b then h ▸ if h : a_1 = b_1 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
+    | CoreTerm.Op.zero a, CoreTerm.Op.zero b, ⋯ => if h : a = b then h ▸ isTrue ⋯ else isFalse ⋯
+    | CoreTerm.Op.loadAtF a a_1 a_2, CoreTerm.Op.loadAtF b b_1 b_2, ⋯ =>
+      if h : a = b then h ▸ if h : a_1 = b_1 then h ▸ if h : a_2 = b_2 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
+      else isFalse ⋯
+    | CoreTerm.Op.xchgAtF a a_1 a_2 a_3, CoreTerm.Op.xchgAtF b b_1 b_2 b_3, ⋯ =>
+      if h : a = b then
+        h ▸
+          if h : a_1 = b_1 then
+            h ▸ if h : a_2 = b_2 then h ▸ if h : a_3 = b_3 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
+          else isFalse ⋯
+      else isFalse ⋯
+    | CoreTerm.Op.freeze a, CoreTerm.Op.freeze b, ⋯ => if h : a = b then h ▸ isTrue ⋯ else isFalse ⋯
+    | CoreTerm.Op.cvt a a_1 a_2, CoreTerm.Op.cvt b b_1 b_2, ⋯ =>
+      if h : a = b then h ▸ if h : a_1 = b_1 then h ▸ if h : a_2 = b_2 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
+      else isFalse ⋯
+    | CoreTerm.Op.toInt a, CoreTerm.Op.toInt b, ⋯ => if h : a = b then h ▸ isTrue ⋯ else isFalse ⋯
+    | CoreTerm.Op.asLanes a a_1 a_2, CoreTerm.Op.asLanes b b_1 b_2, ⋯ =>
+      if h : a = b then h ▸ if h : a_1 = b_1 then h ▸ if h : a_2 = b_2 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
+      else isFalse ⋯
+    | CoreTerm.Op.fop a a_1 a_2, CoreTerm.Op.fop b b_1 b_2, ⋯ =>
+      if h : a = b then h ▸ if h : a_1 = b_1 then h ▸ if h : a_2 = b_2 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
+      else isFalse ⋯
+    | CoreTerm.Op.fcmp a a_1 a_2, CoreTerm.Op.fcmp b b_1 b_2, ⋯ =>
+      if h : a = b then h ▸ if h : a_1 = b_1 then h ▸ if h : a_2 = b_2 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
+      else isFalse ⋯
+    | CoreTerm.Op.fop1 a a_1, CoreTerm.Op.fop1 b b_1, ⋯ =>
+      if h : a = b then h ▸ if h : a_1 = b_1 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
+    | CoreTerm.Op.lane a a_1, CoreTerm.Op.lane b b_1, ⋯ =>
+      if h : a = b then h ▸ if h : a_1 = b_1 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
+    | CoreTerm.Op.setLane a a_1 a_2, CoreTerm.Op.setLane b b_1 b_2, ⋯ =>
+      if h : a = b then h ▸ if h : a_1 = b_1 then h ▸ if h : a_2 = b_2 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
+      else isFalse ⋯
+    | CoreTerm.Op.ldl a a_1, CoreTerm.Op.ldl b b_1, ⋯ =>
+      if h : a = b then h ▸ if h : a_1 = b_1 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
+    | CoreTerm.Op.stl a a_1 a_2, CoreTerm.Op.stl b b_1 b_2, ⋯ =>
+      if h : a = b then h ▸ if h : a_1 = b_1 then h ▸ if h : a_2 = b_2 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
+      else isFalse ⋯
+    | CoreTerm.Op.ldlw a a_1 a_2, CoreTerm.Op.ldlw b b_1 b_2, ⋯ =>
+      if h : a = b then h ▸ if h : a_1 = b_1 then h ▸ if h : a_2 = b_2 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
+      else isFalse ⋯
+    | CoreTerm.Op.stlw a a_1 a_2 a_3, CoreTerm.Op.stlw b b_1 b_2 b_3, ⋯ =>
+      if h : a = b then
+        h ▸
+          if h : a_1 = b_1 then
+            h ▸ if h : a_2 = b_2 then h ▸ if h : a_3 = b_3 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
+          else isFalse ⋯
+      else isFalse ⋯
+    | CoreTerm.Op.mkWord2 a a_1 a_2 a_3 a_4, CoreTerm.Op.mkWord2 b b_1 b_2 b_3 b_4, ⋯ =>
+      if h : a = b then
+        h ▸
+          if h : a_1 = b_1 then
+            h ▸
+              if h : a_2 = b_2 then
+                h ▸ if h : a_3 = b_3 then h ▸ if h : a_4 = b_4 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
+              else isFalse ⋯
+          else isFalse ⋯
+      else isFalse ⋯
+    | CoreTerm.Op.ldp a a_1 a_2 a_3, CoreTerm.Op.ldp b b_1 b_2 b_3, ⋯ =>
+      if h : a = b then
+        h ▸
+          if h : a_1 = b_1 then
+            h ▸ if h : a_2 = b_2 then h ▸ if h : a_3 = b_3 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
+          else isFalse ⋯
+      else isFalse ⋯
+    | CoreTerm.Op.stp a a_1 a_2 a_3 a_4, CoreTerm.Op.stp b b_1 b_2 b_3 b_4, ⋯ =>
+      if h : a = b then
+        h ▸
+          if h : a_1 = b_1 then
+            h ▸
+              if h : a_2 = b_2 then
+                h ▸ if h : a_3 = b_3 then h ▸ if h : a_4 = b_4 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
+              else isFalse ⋯
+          else isFalse ⋯
+      else isFalse ⋯
+    | CoreTerm.Op.mkEPair a a_1 a_2 a_3, CoreTerm.Op.mkEPair b b_1 b_2 b_3, ⋯ =>
+      if h : a = b then
+        h ▸
+          if h : a_1 = b_1 then
+            h ▸ if h : a_2 = b_2 then h ▸ if h : a_3 = b_3 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
+          else isFalse ⋯
+      else isFalse ⋯
+    | CoreTerm.Op.mkTicket a a_1 a_2 a_3 a_4, CoreTerm.Op.mkTicket b b_1 b_2 b_3 b_4, ⋯ =>
+      if h : a = b then
+        h ▸
+          if h : a_1 = b_1 then
+            h ▸
+              if h : a_2 = b_2 then
+                h ▸ if h : a_3 = b_3 then h ▸ if h : a_4 = b_4 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
+              else isFalse ⋯
+          else isFalse ⋯
+      else isFalse ⋯
+    | CoreTerm.Op.claim a a_1, CoreTerm.Op.claim b b_1, ⋯ =>
+      if h : a = b then h ▸ if h : a_1 = b_1 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
+    | CoreTerm.Op.fetch a a_1 a_2 a_3 a_4, CoreTerm.Op.fetch b b_1 b_2 b_3 b_4, ⋯ =>
+      if h : a = b then
+        h ▸
+          if h : a_1 = b_1 then
+            h ▸
+              if h : a_2 = b_2 then
+                h ▸ if h : a_3 = b_3 then h ▸ if h : a_4 = b_4 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
+              else isFalse ⋯
+          else isFalse ⋯
+      else isFalse ⋯
+    | CoreTerm.Op.spawn a a_1 a_2 a_3, CoreTerm.Op.spawn b b_1 b_2 b_3, ⋯ =>
+      if h : a = b then
+        h ▸
+          if h : a_1 = b_1 then
+            h ▸ if h : a_2 = b_2 then h ▸ if h : a_3 = b_3 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
+          else isFalse ⋯
+      else isFalse ⋯
+    | CoreTerm.Op.ext a a_1, CoreTerm.Op.ext b b_1, ⋯ =>
+      if h : a = b then h ▸ if h : a_1 = b_1 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
+  | { decide := false, reflects_decide := h } => isFalse ⋯
+TermLiveCert.instDecidableEqTVal : DecidableEq Promises.TVal
+  := TermLiveCert.instDecidableEqTVal.decEq
+TermLiveCert.instDecidableEqTVal.decEq : (x x_1 : Promises.TVal) → Decidable (x = x_1)
+  := fun x x_1 =>
+  match x, x_1 with
+  | { val := a, view := a_1, rts := a_2 }, { val := b, view := b_1, rts := b_2 } =>
+    if h : a = b then h ▸ if h : a_1 = b_1 then h ▸ if h : a_2 = b_2 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
+    else isFalse ⋯
+TermLiveCert.instDecidableEqThKey : DecidableEq TermRun.ThKey
+  := TermLiveCert.instDecidableEqThKey.decEq
+TermLiveCert.instDecidableEqThKey.decEq : (x x_1 : TermRun.ThKey) → Decidable (x = x_1)
+  := fun x x_1 =>
+  match x, x_1 with
+  |
+  { term := a, env := a_1, σs := a_2, stack := a_3, coh := a_4, views := a_5, promises := a_6, nalloc := a_7,
+      undefs := a_8, tidLbl := a_9, permit := a_10, mine := a_11, fwd := a_12 },
+    { term := b, env := b_1, σs := b_2, stack := b_3, coh := b_4, views := b_5, promises := b_6, nalloc := b_7,
+      undefs := b_8, tidLbl := b_9, permit := b_10, mine := b_11, fwd := b_12 } =>
+    if h : a = b then
+      h ▸
+        if h : a_1 = b_1 then
+          h ▸
+            if h : a_2 = b_2 then
+              h ▸
+                if h : a_3 = b_3 then
+                  h ▸
+                    if h : a_4 = b_4 then
+                      h ▸
+                        if h : a_5 = b_5 then
+                          h ▸
+                            if h : a_6 = b_6 then
+                              h ▸
+                                if h : a_7 = b_7 then
+                                  h ▸
+                                    if h : a_8 = b_8 then
+                                      h ▸
+                                        if h : a_9 = b_9 then
+                                          h ▸
+                                            if h : a_10 = b_10 then
+                                              h ▸
+                                                if h : a_11 = b_11 then
+                                                  h ▸ if h : a_12 = b_12 then h ▸ isTrue ⋯ else isFalse ⋯
+                                                else isFalse ⋯
+                                            else isFalse ⋯
+                                        else isFalse ⋯
+                                    else isFalse ⋯
+                                else isFalse ⋯
+                            else isFalse ⋯
+                        else isFalse ⋯
+                    else isFalse ⋯
+                else isFalse ⋯
+            else isFalse ⋯
+        else isFalse ⋯
+    else isFalse ⋯
+TermLiveCert.locs : TermRun.Cfg → List WeakMem.Address
+  := fun c => (List.map (fun x => x.loc) c.mem.toList).eraseDups
+TermLiveCert.movesPF : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → List Nat → TermRun.Cfg → Nat → List TermRun.Cfg
+  := fun p k arch V c i =>
+  TermRun.threadSteps p k arch c i ++ TermRun.extSuccs p k arch { solo := 0, io := V } c i ++
+    TermSpawnSuccs.spawnSuccsAt c i
+TermLiveCert.noStuckB : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → List Nat → TermLiveCert.Cert → Bool
+  := fun p k arch V ct =>
+  (List.range ct.nodes.size).all fun v =>
+    (ct.nd v).final ||
+      (List.range (ct.nd v).ths.size).any fun i => !(TermLiveCert.movesPF p k arch V (ct.nd v) i).isEmpty
+TermLiveCert.pfB : TermRun.Cfg → Bool
+  := fun c => c.ths.all fun th => th.promises.isEmpty
+TermLiveCert.progB : TermRun.Cfg → TermRun.Cfg → Nat → Bool
+  := fun c c' i =>
+  decide (Array.size c.mem < Array.size c'.mem) ||
+    (TermLiveCert.locs c').any fun b => decide (TermLiveMach.cohOf c i b < TermLiveMach.cohOf c' i b)
+TermLiveCert.wakesPF : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → TermRun.Cfg → Nat → List TermRun.Cfg
+  := fun p k arch c i => TermRun.wakeSuccs p k arch { solo := 0 } c i
+TermLiveL3.Lbl : Type
+  | TermLiveL3.Lbl.thr : TermLiveL3.Lbl
+  | TermLiveL3.Lbl.prom : TermLiveL3.Lbl
+  | TermLiveL3.Lbl.env : TermLiveL3.Lbl
+TermLiveL3.Lbl.prom : TermLiveL3.Lbl
+TermLiveL3.Lbl.thr : TermLiveL3.Lbl
+TermLiveL3.SpuriousWake : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → TermRun.Cfg → Nat → TermRun.Cfg → Prop
+  := fun p k arch c i c' =>
+  ∃ x a e th rt ws,
+    c.ths[i]? = some th ∧
+      th.term = CoreTerm.Expr.let_ x (CoreTerm.Op.ext CoreTerm.ExtName.park a) e ∧
+        th.permit = none ∧
+          TermRun.evalAt th.env a = some (rt, ws) ∧
+            TermRun.Certified p k arch (TermRun.extCfg c i th x CoreTerm.ExtName.park e ws []) i ∧
+              c' = TermRun.extCfg c i th x CoreTerm.ExtName.park e ws []
+TermLiveL3.machineE : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → TermLiveMach.LSys
+  := fun p k arch =>
+  { L := Nat × TermLiveL3.Lbl, S := TermLiveL3.mstepE p k arch, actor := fun l => some l.fst,
+    thr := fun i => (i, TermLiveL3.Lbl.thr) }
+TermLiveL3.mstepE : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → TermRun.Cfg → Nat × TermLiveL3.Lbl → TermRun.Cfg → Prop
+  := fun p k arch c x x_1 =>
+  match x, x_1 with
+  | (i, TermLiveL3.Lbl.thr), c' =>
+    c' ∈ TermRun.threadSteps p k arch c i ∧ TermRun.Certified p k arch c' i ∨
+      TermProgress.SpawnBy c.cap c i c' ∨ TermProgress.ExtBy p k arch c i c'
+  | (i, TermLiveL3.Lbl.prom), c' =>
+    ∃ a v w,
+      i < c.ths.size ∧
+        w < Array.size c.mem ∧ TermRun.Certified p k arch (TermRun.promise c i a v w) i ∧ c' = TermRun.promise c i a v w
+  | (i, TermLiveL3.Lbl.env), c' => TermLiveL3.SpuriousWake p k arch c i c'
+TermLiveMach.Ev : (Nat → Prop) → Prop
+  := fun P => ∃ n, ∀ (m : Nat), n ≤ m → P m
+TermLiveMach.LRun : Type → Type
+  | TermLiveMach.LRun.mk : {L : Type} → (Nat → TermRun.Cfg) → (Nat → Option L) → TermLiveMach.LRun L
+TermLiveMach.LRun.cfg : {L : Type} → TermLiveMach.LRun L → Nat → TermRun.Cfg
+  := fun L self => self.1
+TermLiveMach.LRun.lbl : {L : Type} → TermLiveMach.LRun L → Nat → Option L
+  := fun L self => self.2
+TermLiveMach.LSys : Type 1
+  | TermLiveMach.LSys.mk : (L : Type) → (TermRun.Cfg → L → TermRun.Cfg → Prop) → (L → Option Nat) → (Nat → L) → TermLiveMach.LSys
+TermLiveMach.LSys.L : TermLiveMach.LSys → Type
+  := fun self => self.1
+TermLiveMach.LSys.Move : (sys : TermLiveMach.LSys) → TermRun.Cfg → Option sys.L → TermRun.Cfg → Prop
+  := fun sys x x_1 x_2 =>
+  match x, x_1, x_2 with
+  | c, none, c' => c' = c
+  | c, some l, c' => sys.S c l c'
+TermLiveMach.LSys.Run : (sys : TermLiveMach.LSys) → TermLiveMach.LRun sys.L → Prop
+  := fun sys r => ∀ (n : Nat), sys.Move (r.cfg n) (r.lbl n) (r.cfg (n + 1))
+TermLiveMach.LSys.S : (self : TermLiveMach.LSys) → TermRun.Cfg → self.L → TermRun.Cfg → Prop
+  := fun self => self.2
+TermLiveMach.LSys.thr : (self : TermLiveMach.LSys) → Nat → self.L
+  := fun self => self.4
+TermLiveMach.Often : (Nat → Prop) → Prop
+  := fun P => ∀ (n : Nat), ∃ m, n ≤ m ∧ P m
+TermLiveMach.Progress : TermRun.Cfg → TermRun.Cfg → Nat → Prop
+  := fun c c' i => Array.size c.mem < Array.size c'.mem ∨ ∃ b, TermLiveMach.cohOf c i b < TermLiveMach.cohOf c' i b
+TermLiveMach.cohOf : TermRun.Cfg → Nat → WeakMem.Address → Nat
+  := fun c i b => (Option.map (fun x => x.vs.coh b) c.ths[i]?).getD 0
+TermLiveProps.CfgCoh : TermRun.Cfg → Prop
+  := fun c => ∀ (i : Nat) (th : TermRun.TTh), c.ths[i]? = some th → TermLiveProps.CohAt c.mem th.vs
+TermLiveProps.CohAt : WeakMem.Memory → WeakMem.VState → Prop
+  := fun mem vs => ∀ (b : WeakMem.Address), vs.coh b = 0 ∨ ∃ m, mem[vs.coh b]? = some m ∧ m.loc = b
+TermProgress.ExtBy : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → TermRun.Cfg → Nat → TermRun.Cfg → Prop
+  := fun p k arch c i c' =>
+  ∃ x n a e th rt ws rs,
+    c.ths[i]? = some th ∧
+      th.term = CoreTerm.Expr.let_ x (CoreTerm.Op.ext n a) e ∧
+        (TermRun.ExtNeedsNoProm n th → th.promises = []) ∧
+          TermRun.ExtEnabled n th ∧
+            TermRun.evalAt th.env a = some (rt, ws) ∧
+              n.Admits i ws c.trace rs ∧
+                TermRun.Certified p k arch (TermRun.extCfg c i th x n e ws rs) i ∧
+                  c' = TermRun.wake (TermRun.extCfg c i th x n e ws rs) i (TermRun.relView th.vs) n ws
+TermProgress.SpawnBy : Nat → TermRun.Cfg → Nat → TermRun.Cfg → Prop
+  := fun cap c i c' =>
+  ∃ x f a T ts e th rt ws,
+    c.ths[i]? = some th ∧
+      th.term = CoreTerm.Expr.let_ x (CoreTerm.Op.spawn f a T ts) e ∧
+        th.promises = [] ∧
+          c.ths.size < cap ∧ TermRun.evalAt th.env a = some (rt, ws) ∧ c' = TermSpawnStep.spawnCfg c i th x e f ts T ws
+TermRun.Certified : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → TermRun.Cfg → Nat → Prop
+TermRun.Cfg : Type
+TermRun.Cfg.boxFence : TermRun.Cfg → Bool
+TermRun.Cfg.cap : TermRun.Cfg → Nat
+TermRun.Cfg.final : TermRun.Cfg → Bool
+TermRun.Cfg.lbase : TermRun.Cfg → Nat
+TermRun.Cfg.mem : TermRun.Cfg → WeakMem.Memory
+TermRun.Cfg.n : TermRun.Cfg → Nat
+TermRun.Cfg.pairs : TermRun.Cfg → List WeakMem.Ts
+TermRun.Cfg.ths : TermRun.Cfg → Array TermRun.TTh
+TermRun.Cfg.trace : TermRun.Cfg → List TermRun.Event
+TermRun.CfgKey : Type
+TermRun.Env : Type
+TermRun.Event : Type
+TermRun.ExtEnabled : CoreTerm.ExtName → TermRun.TTh → Prop
+TermRun.ExtNeedsNoProm : CoreTerm.ExtName → TermRun.TTh → Prop
+TermRun.Frame : Type
+TermRun.St : Type
+TermRun.St.vs : TermRun.St → WeakMem.VState
+TermRun.TTh : Type
+TermRun.TTh.env : TermRun.TTh → TermRun.Env
+TermRun.TTh.nalloc : TermRun.TTh → Nat
+TermRun.TTh.permit : TermRun.TTh → Option WeakMem.Ts
+TermRun.TTh.promises : TermRun.TTh → List WeakMem.Ts
+TermRun.TTh.stack : TermRun.TTh → List TermRun.Frame
+TermRun.TTh.term : TermRun.TTh → CoreTerm.Expr
+TermRun.TTh.tidLbl : TermRun.TTh → Option WeakMem.AllocLabel
+TermRun.TTh.undefs : TermRun.TTh → Nat
+TermRun.TTh.vs : TermRun.TTh → WeakMem.VState
+TermRun.TTh.σs : TermRun.TTh → List CoreLang.Ty
+TermRun.ThKey : Type
+TermRun.Word : Type
+TermRun.cfgKey : TermRun.Cfg → TermRun.CfgKey
+TermRun.cst : WeakMem.Val → TermRun.Word
+TermRun.evalAt : TermRun.Env → CoreTerm.At → Option (CoreLang.Ty × List TermRun.Word)
+TermRun.extCfg : TermRun.Cfg →
+  Nat → TermRun.TTh → String → CoreTerm.ExtName → CoreTerm.Expr → List TermRun.Word → List TermRun.Word → TermRun.Cfg
+TermRun.extSuccs : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → TermRun.Bounds → TermRun.Cfg → Nat → List TermRun.Cfg
+TermRun.fenceS : TermRun.St → WeakMem.Fence → TermRun.St
+TermRun.freshLabel : Nat → Nat → Nat → Nat → WeakMem.AllocLabel
+TermRun.instDecidableEqEvent : DecidableEq TermRun.Event
+TermRun.promise : TermRun.Cfg → Nat → WeakMem.Address → WeakMem.Val → WeakMem.Ts → TermRun.Cfg
+TermRun.relView : WeakMem.VState → WeakMem.Ts
+TermRun.stOf : WeakMem.Memory → List WeakMem.Ts → TermRun.TTh → TermRun.St
+TermRun.threadSteps : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → TermRun.Cfg → Nat → List TermRun.Cfg
+TermRun.wake : TermRun.Cfg → Nat → WeakMem.Ts → CoreTerm.ExtName → List TermRun.Word → TermRun.Cfg
+TermRun.wakeSuccs : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → TermRun.Bounds → TermRun.Cfg → Nat → List TermRun.Cfg
+TermRun.withS : TermRun.TTh → TermRun.St → TermRun.TTh
+TermSpawn.bumpW : WeakMem.Ts → TermRun.Word → TermRun.Word
+  := fun V w => { val := w.val, view := max w.view V, rts := max w.rts V }
+TermSpawnStep.spawnCfg : TermRun.Cfg →
+  Nat → TermRun.TTh → String → CoreTerm.Expr → String → List CoreLang.Ty → CoreLang.Ty → List TermRun.Word → TermRun.Cfg
+  := fun c i th x e f ts T ws =>
+  TermSpawnStep.spawnT c i (TermSpawnStep.spawnPar c i th x e) (TermSpawnStep.spawnKid c i th f ts T ws)
+TermSpawnStep.spawnKid : TermRun.Cfg → Nat → TermRun.TTh → String → List CoreLang.Ty → CoreLang.Ty → List TermRun.Word → TermRun.TTh
+  := fun c i th f ts T ws =>
+  { term := CoreTerm.Expr.tail f [] (CoreTerm.At.var "a") ts,
+    env := [("a", T, List.map (TermSpawn.bumpW (TermSpawnStep.spawnS c th).vs.vRelSt) ws)],
+    vs :=
+      have __src := (TermSpawnStep.spawnS c th).vs;
+      { coh := __src.coh, vRd := __src.vRd, vWr := __src.vWr, vCtrl := __src.vCtrl, vPreBase := __src.vPreBase,
+        vRelSt := __src.vRelSt, fwd := __src.fwd },
+    tidLbl := some (TermSpawnStep.tidLabel c i th) }
+TermSpawnStep.spawnPar : TermRun.Cfg → Nat → TermRun.TTh → String → CoreTerm.Expr → TermRun.TTh
+  := fun c i th x e =>
+  have __src := TermRun.withS th (TermSpawnStep.spawnS c th);
+  { term := e,
+    env :=
+      (x, CoreLang.Ty.tid, [TermRun.cst (WeakMem.Val.loc { label := TermSpawnStep.tidLabel c i th, offset := 0 } 0)]) ::
+        th.env,
+    σs := __src.σs, stack := __src.stack, vs := __src.vs, promises := __src.promises,
+    nalloc := th.nalloc + if th.tidLbl = none then 2 else 1, undefs := __src.undefs,
+    tidLbl := th.tidLbl.orElse fun x => some (TermRun.freshLabel c.lbase c.n i (th.nalloc + 1)),
+    permit := __src.permit }
+TermSpawnStep.spawnS : TermRun.Cfg → TermRun.TTh → TermRun.St
+  := fun c th => TermRun.fenceS (TermRun.stOf c.mem c.pairs th) WeakMem.Fence.sy
+TermSpawnStep.spawnT : TermRun.Cfg → Nat → TermRun.TTh → TermRun.TTh → TermRun.Cfg
+  := fun c i par kid =>
+  { mem := c.mem, pairs := c.pairs, ths := (c.ths.set! i par).push kid, lbase := c.lbase, boxFence := c.boxFence,
+    cap := c.cap, trace := c.trace }
+TermSpawnStep.tidLabel : TermRun.Cfg → Nat → TermRun.TTh → WeakMem.AllocLabel
+  := fun c i th => TermRun.freshLabel c.lbase c.n i th.nalloc
+TermSpawnSuccs.spawnSuccsAt : TermRun.Cfg → Nat → List TermRun.Cfg
+  := fun c i =>
+  match c.ths[i]? with
+  | some th =>
+    match th.term with
+    | CoreTerm.Expr.let_ x (CoreTerm.Op.spawn f a T ts) e =>
+      if (th.promises.isEmpty && decide (c.ths.size < c.cap)) = true then
+        match TermRun.evalAt th.env a with
+        | some (fst, ws) => [TermSpawnStep.spawnCfg c i th x e f ts T ws]
+        | none => []
+      else []
+    | x => []
+  | none => []
+WeakMem.Address : Type
+WeakMem.AllocLabel : Type
+WeakMem.Arch : Type
+WeakMem.Fence.sy : WeakMem.Fence
+WeakMem.Memory : Type
+WeakMem.Msg : Type
+WeakMem.Msg.loc : WeakMem.Msg → WeakMem.Address
+WeakMem.Offset : Type
+WeakMem.Ts : Type
+WeakMem.VState : Type
+WeakMem.VState.coh : WeakMem.VState → WeakMem.Address → WeakMem.Ts
+WeakMem.VState.fwd : WeakMem.VState → List (WeakMem.Ts × WeakMem.Ts)
+WeakMem.VState.mine : WeakMem.VState → List WeakMem.Ts
+WeakMem.VState.vCtrl : WeakMem.VState → WeakMem.Ts
+WeakMem.VState.vPreBase : WeakMem.VState → WeakMem.Ts
+WeakMem.VState.vRd : WeakMem.VState → WeakMem.Ts
+WeakMem.VState.vRelSt : WeakMem.VState → WeakMem.Ts
+WeakMem.VState.vWr : WeakMem.VState → WeakMem.Ts
+WeakMem.Val : Type
+WeakMem.Val.loc : WeakMem.Address → Nat → WeakMem.Val
+WeakMem.Val.num : Nat → WeakMem.Val
+WeakMem.instDecidableEqAddress : DecidableEq WeakMem.Address
+WeakMem.instDecidableEqVal : DecidableEq WeakMem.Val

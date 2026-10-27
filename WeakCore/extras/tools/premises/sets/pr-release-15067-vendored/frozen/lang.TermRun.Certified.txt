@@ -1,0 +1,8 @@
+CoreTerm.Prog : Type
+Promises.Knobs : Type
+TermRun.Certified : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → TermRun.Cfg → Nat → Prop
+  := fun p k arch c i => ∃ c', TermRun.Solo p k arch i c c' ∧ TermRun.noPromises c' i = true
+TermRun.Cfg : Type
+TermRun.Solo : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → Nat → TermRun.Cfg → TermRun.Cfg → Prop
+TermRun.noPromises : TermRun.Cfg → Nat → Bool
+WeakMem.Arch : Type

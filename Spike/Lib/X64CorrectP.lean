@@ -30,7 +30,7 @@ it (`core_ins`: off the transfer sites by the node obligations), and so do a
 system call's certification step (`core_sys`) and the take site's
 (`core_site`, by `TakePath.site`'s local run); a certified promise from
 `Pre` lands in it (`pre_core_promise`). -/
-theorem promShared_x64 {μ : Marks} {rd : TermRun.Word → Prop} (hP : P.hooks = SrcSem.SrcHooks.none)
+theorem promShared_x64 {μ : Marks} {rd : TermRun.Word → Prop} (hP : HookOK P p)
     (hN : Nodes Λ p μ rd G own I) (hS : SrcMem P p) (hsafe : SrcSafe P p I) (hrd : ∀ w, rd w) (hwf : Λ.WF)
     (hGpl : ∀ a v, Λ.heap.contains a ∨ Λ.data.contains a → G (wordLoc a) v) (hT : TakePath Λ p μ I rS Tk) :
     PromShared Λ P p G own I rS Tk μ :=
@@ -61,7 +61,7 @@ theorem correctX64' {B : Budget} {asm : Asm} {cells : List (Directive × Nat)} {
     (hpa : cellsOf asm = some cells) (hd : dataSections asm.text = some secs) (himg : imageOk Λ secs code = true)
     (hss : Scc.Sem.StaticSyms Λ secs code lsize name) (hw : wideIn (cells.map (·.1)) = true)
     (hst : I Λ.static lsize (threadAt Entry.linux Λ.code.lo cells (loadSyms Λ secs.rodata)) c0)
-    (hload : ∃ t0, T.load asm Λ = some t0) (hP : P.hooks = SrcSem.SrcHooks.none) (hinit : P.init (s0 P.cap))
+    (hload : ∃ t0, T.load asm Λ = some t0) (hP : HookOK P p) (hinit : P.init (s0 P.cap))
     (hN : Nodes Λ p (T.marks asm Λ) rd G own I) (hsafe : SrcSafe P p I)
     {rS : Range} {Tk : State → Prop} (hT : TakePath Λ p (T.marks asm Λ) I rS Tk)
     (htk0 : ¬ Tk (threadAt Entry.linux Λ.code.lo cells (loadSyms Λ secs.rodata)))
@@ -85,7 +85,7 @@ theorem correctX64P' {B : Budget} {cells : List (Directive × Nat)} {secs : Data
     (himg : imageOk Λ secs code = true)
     (hss : Scc.Sem.StaticSyms Λ secs code lsize name) (hw : wideIn (cells.map (·.1)) = true)
     (hst : I Λ.static lsize (threadAt Entry.linux Λ.code.lo cells (loadSyms Λ secs.rodata)) c0)
-    (hload : ∃ t0, TPar.load (cells, secs, offs) Λ = some t0) (hP : P.hooks = SrcSem.SrcHooks.none)
+    (hload : ∃ t0, TPar.load (cells, secs, offs) Λ = some t0) (hP : HookOK P p)
     (hinit : P.init (s0 P.cap))
     (hN : Nodes Λ p (TPar.marks (cells, secs, offs) Λ) rd G own I) (hsafe : SrcSafe P p I)
     {rS : Range} {Tk : State → Prop} (hT : TakePath Λ p (TPar.marks (cells, secs, offs) Λ) I rS Tk)
@@ -111,7 +111,7 @@ theorem correctX64PE' {E : Entry} {B : Budget} {cells : List (Directive × Nat)}
     (himg : imageOk Λ secs code = true)
     (hss : Scc.Sem.StaticSyms Λ secs code lsize name) (hw : wideIn (cells.map (·.1)) = true)
     (hst : I Λ.static lsize (threadAt E Λ.code.lo cells (loadSyms Λ secs.rodata)) c0)
-    (hload : ∃ t0, (TParE E).load (cells, secs, offs) Λ = some t0) (hP : P.hooks = SrcSem.SrcHooks.none)
+    (hload : ∃ t0, (TParE E).load (cells, secs, offs) Λ = some t0) (hP : HookOK P p)
     (hinit : P.init (s0 P.cap))
     (hN : Nodes Λ p ((TParE E).marks (cells, secs, offs) Λ) rd G own I) (hsafe : SrcSafe P p I)
     {rS : Range} {Tk : State → Prop} (hT : TakePath Λ p ((TParE E).marks (cells, secs, offs) Λ) I rS Tk)

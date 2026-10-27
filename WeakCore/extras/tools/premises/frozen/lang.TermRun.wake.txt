@@ -1,0 +1,14 @@
+CoreTerm.ExtName : Type
+TermRun.Cfg : Type
+TermRun.Word : Type
+TermRun.setPermit : TermRun.Cfg → Nat → WeakMem.Ts → TermRun.Cfg
+TermRun.thrOfTid : TermRun.Cfg → TermRun.Word → Option Nat
+TermRun.wake : TermRun.Cfg → Nat → WeakMem.Ts → CoreTerm.ExtName → List TermRun.Word → TermRun.Cfg
+  := fun c i v n ws =>
+  match n, ws with
+  | CoreTerm.ExtName.unpark, [t] =>
+    match TermRun.thrOfTid c t with
+    | some j => TermRun.setPermit c j (if j = i then 0 else v)
+    | none => c
+  | x, x_1 => c
+WeakMem.Ts : Type

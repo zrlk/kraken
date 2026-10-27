@@ -329,13 +329,17 @@ theorem OwnXLe.mono {p : Prog} {k : Promises.Knobs} {arch : Arch} {E0 : TEnv} {i
   let ⟨th, E, Tot, HP, hth, hT, hm, hP, hb, hn, hs, hle, hx, hA⟩ := h
   ⟨th, E, Tot, HP, hth, hT, hm, hP, hb, hn, hs, Nat.le_trans hle hnm, hx, hA⟩
 
-/-- (IO1) An extern move keeps `OwnXLe` (resources, memory and the anchor unchanged). -/
+/-- An extern move keeps `OwnXLe` (resources, memory and the anchor unchanged). -/
 theorem ownXLe_ext {p : Prog} {k : Promises.Knobs} {arch : Arch} {E0 : TEnv} {i : Nat} {x : AllocLabel} {n : Nat}
-    {c c' : Cfg} (h : OwnXLe p k arch E0 i x n c) (hs : c' ∈ extSteps c i) : OwnXLe p k arch E0 i x n c' := by
+    {c c' : Cfg} (h : OwnXLe p k arch E0 i x n c) (hs : c' ∈ extSteps c i) (hTA : TermTyped.TidAt i c E0) :
+    OwnXLe p k arch E0 i x n c' := by
   obtain ⟨th, E, Tot, HP, hth, hT, hm, hP, hb, hn, hsx, hle, hx, hA⟩ := h
-  obtain ⟨x1, a1, e1, evs, hterm, rfl⟩ := extSteps_thread hs hth
-  exact ⟨_, E, Tot, HP, set_self hth, TermTyped.ThInvRE_emit hterm hT, by rw [gOf_ext hs]; exact hm, hP,
-    by rw [gOf_ext hs]; exact hb, hn, hsx, hle, hx, hA⟩
+  rcases TermTyped.extSteps_res hs hth with ⟨x1, n1, a1, e1, rt1, ws1, rs1, hterm, hn1, hev1, hrs1, rfl⟩ | ⟨x1, a1, e1, lb, hterm, htl, rfl⟩
+  · exact ⟨_, E, Tot, HP, set_self hth, TermTyped.ThInvRE_ext hn1 hterm hev1 hrs1 hT, by rw [gOf_ext hs]; exact hm, hP,
+      by rw [gOf_ext hs]; exact hb, hn, hsx, hle, hx, hA⟩
+  · obtain ⟨hbs, hbp⟩ := TermTyped.tidBox_ext hx (hTA th hth lb htl)
+    exact ⟨_, E, Tot, HP, set_self (tr := c.trace) hth, TermTyped.ThInvRE_cur hterm hbs hbp hT,
+      by rw [gOf_ext hs]; exact hm, hP, by rw [gOf_ext hs]; exact hb, hn, hsx, hle, hx, hA⟩
 
 /-- At `n = 0` the frame part carries no `own x`. -/
 theorem OwnXLe.rf_zero {p : Prog} {k : Promises.Knobs} {arch : Arch} {E0 : TEnv} {i : Nat} {x : AllocLabel} {c : Cfg}
@@ -552,12 +556,12 @@ theorem ownXLe_run {p : Prog} {k : Promises.Knobs} {arch : Arch} {E0 : TEnv} {i 
     {c c2 : Cfg} (hT : OwnXStepT p k arch i x n) (hPr : OwnXStepP p k arch i x n)
     (hQ : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → ScopeAt p i c0 ∧ NoHoldPubA p k arch E0 E0 i c0)
     (hvI : TermViewInv.ViewInv c)
-    (h0 : OwnXLe p k arch E0 i x n c) (h : Solo p k arch i c c2) (hc2 : Certified p k arch c2 i) :
+    (h0 : OwnXLe p k arch E0 i x n c) (hTA : TermTyped.TidAt i c E0) (h : Solo p k arch i c c2) (hc2 : Certified p k arch c2 i) :
     OwnXLe p k arch E0 i x n c2 :=
   (run_ind_win (Q := fun c0 => ScopeAt p i c0 ∧ NoHoldPubA p k arch E0 E0 i c0 ∧ TermViewInv.ViewInv c0)
     (fun c0 h1 h2 _ => ⟨(hQ c0 h1 h2).1, (hQ c0 h1 h2).2, TermViewInv.viewInv_solo hvI h1⟩)
     (fun c0 c0' _ hI hq hs hc => hT E0 c0 c0' hq.1 hq.2.1 hq.2.2 hI hs hc)
-    (fun c0 a v w _ hI hw hc => hPr E0 c0 a v w hI hw hc) (fun _ _ _ hI hs => ownXLe_ext hI hs) h0 h hc2).1
+    (fun c0 a v w _ hI hw hc => hPr E0 c0 a v w hI hw hc) (fun _ _ h1 hI hs => ownXLe_ext hI hs (TermTyped.tidAt_solo h1 hTA)) h0 h hc2).1
 
 /-! ## Package split of the thread-step obligation (the packages deliver, `TermOwnK5` assembles) -/
 

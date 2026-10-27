@@ -61,8 +61,8 @@ theorem src_reach_exit42 (arch : WeakMem.Arch) :
     (SrcSem.source (srcP1 arch) SccCertificate.prog_src).Reach [.exit 42] sEnd := by
   refine ⟨{ SrcSem.mainStart with cap := 1 }, rfl, ?_⟩
   have h := (start_run (p := SccCertificate.prog_src) (d := mainD) rfl rfl).run_source
-    (P := srcP1 arch) (srcP1_hooks arch) (s := { SrcSem.mainStart with cap := 1 }) (th := th0)
-    rfl rfl rfl rfl rfl rfl (fun _ h => by cases h)
+    (P := srcP1 arch) (.none (srcP1_hooks arch)) (s := { SrcSem.mainStart with cap := 1 }) (th := th0)
+    rfl rfl rfl rfl rfl rfl (fun _ h => by cases h) (fun _ h => by rw [srcP1_hooks] at h; cases h)
   have e : ({ ({ SrcSem.mainStart with cap := 1 } : TermRun.Cfg) with
       ths := ({ SrcSem.mainStart with cap := 1 } : TermRun.Cfg).ths.set! 0
         { th0 with term := .ret (.var "y"), env := exitEnv (mainEnv mainD) } } : TermRun.Cfg) = sEnd := rfl

@@ -1,0 +1,8 @@
+CoreLang.Wd : Type
+TermRun.Event : Type
+TermRun.Event.observable : TermRun.Event → Bool
+  := fun x =>
+  match x with
+  | TermRun.Event.devWrite reg w v => false
+  | TermRun.Event.irq line => false
+  | x => true

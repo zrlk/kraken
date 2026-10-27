@@ -5,12 +5,14 @@
 - `lower0_fv`: every free variable of a lowered body is bound in the
   lowering's environment;
 - `Fresh`: the environment's registers are none of the rest of the
-  lowering's destinations (`Fresh.atom`, `Fresh.add`, `Fresh.ofEnv`);
+  lowering's destinations (`Fresh.atom`, `Fresh.add`, `Fresh.ofEnv`,
+  `Fresh.mono`);
 - `ofEnv_cons`, `isSome_lookupS_ofEnv`: `ofEnv` on a cons and on a bound
   name.
 
-The same statements as `Spike/Lib/LowerA64/Body.lean`'s, which an x86-64
-module cannot import (the two ISAs' syntax modules do not load together).
+Shared by `Spike/Lib/LowerA64/Body.lean` (and `Body1.lean`) and
+`Spike/Lib/LowerX64/Body.lean`: kept free of either ISA's syntax modules,
+which do not load together.
 -/
 import Spike.Lib.LowerNode
 
@@ -106,6 +108,10 @@ theorem lower0_fv :
 a destination `regName y k`, `k ≥ n`, of the rest of the lowering. -/
 def Fresh (env : Scc.Lower.Env) (n : Nat) : Prop :=
   ∀ v ∈ env, ∀ o ∈ v.2.2, ∀ r, o = .reg r → ∀ y k, n ≤ k → r ≠ Scc.Lower.Inv.regName y k
+
+/-- Freshness from a counter holds from any later one. -/
+theorem Fresh.mono {env : Scc.Lower.Env} {n m : Nat} (h : Fresh env n) (hm : n ≤ m) : Fresh env m :=
+  fun v hv o ho r hr y k hk => h v hv o ho r hr y k (by omega)
 
 theorem Fresh.atom {env : Scc.Lower.Env} {n : Nat} (h : Fresh env n) {a : At} {t : Ty} {ws : List Scc.IR.Operand}
     (ha : atomV env a = some (t, ws)) (x : String) : Fresh ((x, t, ws) :: env) n := by

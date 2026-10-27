@@ -81,10 +81,34 @@ def hello1Tab : List (Label × Nat) :=
     (".L19_wc_main.stack_check", 4199108), (".L19_wc_main.0_entry", 4199164), (".L19_wc_main.sp4", 4199248),
     (".L19_wc_main.stack_grow", 4199268), (".L19_wc_main.sp_check", 4199324)]
 
+/-- The table's check of one entry: a label of the program at its `labIn` address. -/
+noncomputable def tabChk (p : Label × Nat) : Bool :=
+  labOk hello1Prog p.1 && labIn hello1Λ.code.lo hello1Prog p.1 == Int64.ofNat p.2
+
+/-- The table's `i`-th chunk of eleven entries. One kernel check per chunk:
+the whole table in one `decide +kernel` peaks near 4 GB, a chunk of eleven
+under 3 GB. -/
+def tabChunk (i : Nat) : List (Label × Nat) := (hello1Tab.drop (i * 11)).take 11
+
+theorem tab_ok0 : (tabChunk 0).all tabChk = true := by decide +kernel
+theorem tab_ok1 : (tabChunk 1).all tabChk = true := by decide +kernel
+theorem tab_ok2 : (tabChunk 2).all tabChk = true := by decide +kernel
+theorem tab_ok3 : (tabChunk 3).all tabChk = true := by decide +kernel
+theorem tab_ok4 : (tabChunk 4).all tabChk = true := by decide +kernel
+theorem tab_ok5 : (tabChunk 5).all tabChk = true := by decide +kernel
+theorem tab_ok6 : (tabChunk 6).all tabChk = true := by decide +kernel
+theorem tab_ok7 : (tabChunk 7).all tabChk = true := by decide +kernel
+
 /-- Each is a label of the program at its `labIn` address. -/
 theorem hello1Tab_ok :
     hello1Tab.all (fun p => labOk hello1Prog p.1 && labIn hello1Λ.code.lo hello1Prog p.1 == Int64.ofNat p.2)
-    = true := by decide +kernel
+    = true := by
+  have hs : hello1Tab = tabChunk 0 ++ tabChunk 1 ++ tabChunk 2 ++ tabChunk 3 ++ tabChunk 4 ++ tabChunk 5 ++
+      tabChunk 6 ++ tabChunk 7 := by decide
+  show hello1Tab.all tabChk = true
+  rw [hs]
+  simp only [List.all_append, tab_ok0, tab_ok1, tab_ok2, tab_ok3, tab_ok4, tab_ok5, tab_ok6, tab_ok7,
+    Bool.and_self]
 
 /-- **The loaded thread's labels**, the table's first. -/
 noncomputable def labT (l : Label) : Int64 :=
@@ -510,7 +534,8 @@ open Scc.Cert.Rt.A64 (Lays endOf)
 
 /-- **`hello1_main_post_segW`'s source and frame facts** for a caller's
 state `m0`, `σC` at `wc_rodata`'s call: `MainPostP` but its states inside
-`W` (`hW`, the instance's node obligations). -/
+`W` (`hW`, the instance's node obligations).
+VACUOUS at .sp0 at `rodata`'s source: see A64Hello1RodataSetupG (`hand_sp0_empty`). -/
 structure Hello1PostSrc (W : Frag isaLSE2) (K : State → State → Prop) (p : Prog)
     (lbl : WeakMem.AllocLabel → Option Nat) (ms : MemSide isaLSE2) (exe : _root_.Executable) (endPc : Int64)
     (R : Region) (F : MachineData → Prop) (m0 : MachineData) (σC : AS) (Jp J1 J2 J3 J4 Jr Jw : AS → Ctl → Prop) :
@@ -542,7 +567,8 @@ structure Hello1PostSrc (W : Frag isaLSE2) (K : State → State → Prop) (p : P
       ∃ c', LocalRun p c c' ∧ Jr σ' c'
   hlimW : ∀ σx c, Jr σx c → LimOk ms F exe endPc (tcbA σx.regs 8) (σx.regs.SP.toBitVec - (96 : Int64).toBitVec)
   hsvc : ∀ F' : MachineData → Prop, FStable (pR (wR R)) F' →
-      (∀ m, F' m → (F m ∧ CallerCells R (-80) (-144) 0 m) ∧ CallerCells (wR R) (-96) (-48) 0 m) →
+      (∀ m, F' m → ((F m ∧ CallerCells R (-80) (-144) 0 m) ∧ CallerCells (wR R) (-96) (-48) 0 m) ∧
+        Spike.Lib.A64.Rt.WcRa (wR R) ((_root_.Executable.labels exe).label ".L1_scc_rt_main.sp1") m) →
       ∀ g' : PG, g'.2.2 = ((_root_.Executable.labels exe).label ".L19_wc_main.sp4").toBitVec →
       SegW W K p lbl ms
         (At exe endPc (pR (wR R)) F' (Print.N (_root_.Executable.labels exe).label g'.1 g'.2.1 g'.2.2 .svc))
@@ -597,7 +623,8 @@ variable {p : Prog} {lbl : WeakMem.AllocLabel → Option Nat} {ms : MemSide isaL
 
 /-- **`hello1_main_segW` from the source facts**: the layout's premises,
 the states inside `W` before (`hW`) and after (`hWp`) `wc_rodata`'s
-allocation, and `Hello1Src`. -/
+allocation, and `Hello1Src`.
+VACUOUS at .sp0 at `rodata`'s source: see A64Hello1RodataSetupG (`hand_sp0_empty`). -/
 theorem hello1_main_segW_src {W : Frag isaLSE2} {K : State → State → Prop}
     (hp : Lays exe SccCode.hello1Prog) (hend : endPc = endOf exe SccCode.hello1Prog)
     (hF : FStable R F) (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -288) (hhi : 0 ≤ R.hi)

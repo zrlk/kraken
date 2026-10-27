@@ -300,9 +300,10 @@ theorem hsw_ofPlaceOK : Spike.Lib.A64.Rt.MainU.SwPh (okPc Ly) (ph Ly) (Ly).lab :
 /-- **`scc_rt_main`'s phase facts at `bareMC`** of an output passing
 `placeOK` (A6's table and A11's `mainPhTab` at the bare tail,
 `mainPh_ofPlaceOK`). -/
-theorem hmph_ofPlaceOK : Spike.Lib.A64.Rt.MainU.MainPh (okPc Ly) (ph Ly) (Ly).lab Spike.Lib.A64.Rt.bareMC := by
+theorem hmph_ofPlaceOK (hs : o.place.tail = .bare) :
+    Spike.Lib.A64.Rt.MainU.MainPh (okPc Ly) (ph Ly) (Ly).lab Spike.Lib.A64.Rt.bareMC := by
   refine Spike.Lib.A64.Rt.PhRecOf.mainPh_ofPlaceOK h i ?_
-  have hm := mainPh_of_placeOKAt h (mc := Spike.Lib.A64.Rt.bareMC) (by rw [tail_of_placeOKAt h]; rfl)
+  have hm := mainPh_of_placeOKAt h (mc := Spike.Lib.A64.Rt.bareMC) (by rw [hs]; rfl)
   have hr := rtPh_of_placeOKAt h
   have he : Spike.Lib.A64.Rt.rtPhTab (some Spike.Lib.A64.Rt.bareMC) =
       Spike.Lib.A64.Rt.rtPhTab none ++ Spike.Lib.A64.Rt.mainPhTab Spike.Lib.A64.Rt.bareMC := by

@@ -453,7 +453,7 @@ theorem niDeep_of_drf : ∀ t : Ty, TermScope.drf t = true → TermPlant.niDeep 
     intro h; simp only [TermScope.drf, TermPlant.niDeep, Bool.and_eq_true] at h ⊢; exact ⟨iha h.1, ihb h.2⟩
   | sum a b iha ihb =>
     intro h; simp only [TermScope.drf, TermPlant.niDeep, Bool.and_eq_true] at h ⊢; exact ⟨iha h.1, ihb h.2⟩
-  | code a b iha ihb =>
+  | code a b _ iha ihb =>
     intro h; simp only [TermScope.drf, TermPlant.niDeep, Bool.and_eq_true] at h ⊢; exact ⟨iha h.1, ihb h.2⟩
   | array i t ih => intro h; exact ih h
   | ptr μ t ih => intro h; simp only [TermScope.drf, TermPlant.niDeep, Bool.and_eq_true] at h ⊢; exact ih h.2
@@ -821,10 +821,10 @@ theorem stepAtCrS (O : Obligations p k arch Sp Init MintOK c0 plantOf plantN) {c
       (O.bufInitHeld X Y))).2 r X.hr hpa ⟨O.plantFulfil X Y, rfl⟩
 #print axioms TermMain.stepAtCrS
 
-/-- (dedup) **The thread-step master** of `sysInv_threadR` and `TermSpawn.sysInvO_threadR`: the
-post-step `SysInvN` at `EgT ..`, plus any property `Post` of the post-step environment that follows
-from the step's context (`TCtx`, `EnvAt`, the stepper's `TOut` at `crS`, `hPub`, `PfrG`, `EFoot`). -/
-theorem sysInv_threadRP (O : Obligations p k arch Sp Init MintOK c0 plantOf plantN)
+/-- **`sysInv_threadRP` with the witness frame**: as `sysInv_threadRP`, and every other
+existing thread `j ≠ i` keeps its frame bound `Tot j` and its debits `db j` (the post witness is
+`upd Tot i _`/`upd db i _`).  Used by `TermLiveC.sysInvO_mstepE_ext`. -/
+theorem sysInv_threadRPW (O : Obligations p k arch Sp Init MintOK c0 plantOf plantN)
     (PS : TermPoolStaging.PoolStaging p k arch Sp Init MintOK c0 plantOf plantN)
     (hFN : TermPoolThread.FgnNewT p k arch Sp Init MintOK c0) {c c' : Cfg} {Eg : GEnv}
     {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {i : Nat}
@@ -844,7 +844,8 @@ theorem sysInv_threadRP (O : Obligations p k arch Sp Init MintOK c0 plantOf plan
       EFoot (gOf p k arch c i) (Cut Eg i S) E' (stOf c.mem c.pairs th) (stOf r.1 r.2.1 r.2.2) →
       Post (EgT Eg (gOf p k arch c i) th.nalloc r.2.2.nalloc E' c')) :
     ∃ (Eg' : GEnv) (Tot' HP' : Nat → Res) (HS' : Res) (cr' db' : Nat → Ts → Res),
-      SysInvN p k arch Init MintOK c' Eg' Tot' HP' HS' cr' db' ∧ Post Eg' := by
+      SysInvN p k arch Init MintOK c' Eg' Tot' HP' HS' cr' db' ∧ Post Eg' ∧
+        ∀ j, j ≠ i → j < c.ths.size → Tot' j = Tot j ∧ db' j = db j := by
   obtain ⟨th, r, hth, hr, e1, e2, e3, ho⟩ := threadSteps_upd hc'
   have X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r :=
     ⟨hrun, h, hth, hr, hc', e1, e2, e3, ho, hcert⟩
@@ -995,7 +996,8 @@ theorem sysInv_threadRP (O : Obligations p k arch Sp Init MintOK c0 plantOf plan
   have hPCc : TermPtrKey.PubConsumeC th C := TermPubCons.pubCons_iff.1 hPubC
   suffices hSys : SysInvN p k arch Init MintOK c' (EgT Eg (gOf p k arch c i) th.nalloc r.2.2.nalloc E' c')
       (upd Tot i Tot') (upd HP i HP') HS' cr2 (upd db i db') from
-    ⟨_, _, _, _, _, _, hSys, hPost th r S ρ η cx Rf Rs E' Tot' HP' HS' C F cr' db' δ X Y Z hPub hPfrP hS hF0⟩
+    ⟨_, _, _, _, _, _, hSys, hPost th r S ρ η cx Rf Rs E' Tot' HP' HS' C F cr' db' δ X Y Z hPub hPfrP hS hF0,
+      fun _ hj0 _ => ⟨upd_other _ _ hj0, upd_other _ _ hj0⟩⟩
   refine ⟨?thr, held', ?clo, ?cmg, shty', proms', fpok_of proms' fpfree' plt' (O.fpokVisT X Y ZC),
     O.freshT X Y ZC, (TermPoolStaging.PoolInv.old hPI').1, (TermPoolStaging.PoolInv.old hPI').2.1, ?bf, O.boxtopT X Y ZC hS hPfrP, PromsDisj_thread h.disj hth e3 ho hsub,
     fpfree', plt',
@@ -1174,6 +1176,34 @@ theorem sysInv_threadRP (O : Obligations p k arch Sp Init MintOK c0 plantOf plan
         exact (TermCert.tstep_appUp hr).2.1 t _ (Array.getElem?_eq_getElem ht)) hF0 hfr
       (TermPredHoldP.hIL_of_efoot hF0 hfr) (by rw [← hCE]; exact hm)
       (TermPredStoreFree.ownPredStoreFree_of O.scope O.seenFacts h.predHold X hF0 hBiO1)
+/-- (dedup) **The thread-step master** of `sysInv_threadR` and `TermSpawn.sysInvO_threadR`: the
+post-step `SysInvN` at `EgT ..`, plus any property `Post` of the post-step environment that follows
+from the step's context (`TCtx`, `EnvAt`, the stepper's `TOut` at `crS`, `hPub`, `PfrG`, `EFoot`).
+(A wrapper of `sysInv_threadRPW`.) -/
+theorem sysInv_threadRP (O : Obligations p k arch Sp Init MintOK c0 plantOf plantN)
+    (PS : TermPoolStaging.PoolStaging p k arch Sp Init MintOK c0 plantOf plantN)
+    (hFN : TermPoolThread.FgnNewT p k arch Sp Init MintOK c0) {c c' : Cfg} {Eg : GEnv}
+    {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {i : Nat}
+    (hrun : TermSpawnStep.StepsG p k arch Sp c0 c) (h : SysInvN p k arch Init MintOK c Eg Tot HP HS cr db)
+    (hc' : c' ∈ threadSteps p k arch c i) (hcert : Certified p k arch c' i)
+    {pl : Nat → Ts → Res} (hPI : TermPoolStaging.PoolInv Init MintOK c Eg Tot HP HS cr db pl)
+    (Post : GEnv → Prop)
+    (hPost : ∀ (th : TTh) (r : Memory × List Ts × TTh) S ρ η cx Rf Rs E' Tot' HP' HS' C F cr' db' δ,
+      TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r →
+      EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
+      TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs
+        (HP i + HS) (TermPoolResplit.crR cr pl i (TermHbiPOf.QS Eg c i S th r) i) (db i) δ →
+      (∀ l, TermOwnG0Defs.PubAt th l → ∀ t,
+        TermPoolResplit.crR cr pl i (TermHbiPOf.QS Eg c i S th r) i t = cr i t) →
+      PfrG { gOf p k arch c i with pf := fun l => TermOwnG0Defs.PubAt th l } (CE η) E' →
+      ThSysAt p (gOf p k arch c i) c.mem c.pairs th Eg (Tot i) (HP i) HS (cr i) (db i) S →
+      EFoot (gOf p k arch c i) (Cut Eg i S) E' (stOf c.mem c.pairs th) (stOf r.1 r.2.1 r.2.2) →
+      Post (EgT Eg (gOf p k arch c i) th.nalloc r.2.2.nalloc E' c')) :
+    ∃ (Eg' : GEnv) (Tot' HP' : Nat → Res) (HS' : Res) (cr' db' : Nat → Ts → Res),
+      SysInvN p k arch Init MintOK c' Eg' Tot' HP' HS' cr' db' ∧ Post Eg' :=
+  let ⟨Eg', Tot', HP', HS', cr', db', hS, hP, _⟩ := sysInv_threadRPW O PS hFN hrun h hc' hcert hPI Post hPost
+  ⟨Eg', Tot', HP', HS', cr', db', hS, hP⟩
+#print axioms TermMain.sysInv_threadRPW
 /-- (R4 route (a‴)+(A)) **`SysInvN` across a thread step**, with the pre-step `SysInvN`/`PoolInv`
 at `(cr, pl)` and the stepper run at `crS = cr i + plQ` (`TermHbiPOf.stepCrQ_of`): its pool part at
 `i`'s discharged, frontier-guarded promises moves into the stepper's credits.  `hFN` is F1T's `hNew`
@@ -1220,9 +1250,10 @@ theorem sysInv_thread (O : Obligations p k arch Sp Init MintOK c0 plantOf plantN
   exact sysInv_threadR O PS hFN hrun h hc' hcert hPI
 #print axioms TermMain.sysInv_thread
 
-/-- **`SysInvN` across a promise step, carrying a side fact `Q` of the post-step ghost
-environment**: master of `sysInv_prom` (`Q` trivial) and `TermSpawn.sysInvO_prom` (`OwnLive`/`ObsAll`). -/
-theorem sysInv_promP (O : Obligations p k arch Sp Init MintOK c0 plantOf plantN)
+/-- **`sysInv_promP` with the witness frame**: as `sysInv_promP`, and every other existing
+thread `j' ≠ j` keeps its frame bound and its debits (the post witness is `Tot`/`upd db j _`).
+Used by `TermLiveC.sysInvO_mstepE_ext`. -/
+theorem sysInv_promPW (O : Obligations p k arch Sp Init MintOK c0 plantOf plantN)
     (PS : TermPoolStaging.PoolStaging p k arch Sp Init MintOK c0 plantOf plantN) {c : Cfg} {Eg : GEnv}
     {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {j : Nat} {a : Address} {v : WeakMem.Val} {w : Ts}
     (hrun : TermSpawnStep.StepsG p k arch Sp c0 c) (h : SysInvN p k arch Init MintOK c Eg Tot HP HS cr db)
@@ -1231,7 +1262,8 @@ theorem sysInv_promP (O : Obligations p k arch Sp Init MintOK c0 plantOf plantN)
     (hQ : ∀ th, c.ths[j]? = some th → PCtxX p k arch Sp Init MintOK c0 c Eg Tot HP HS cr db j th a v w →
       Q (EgP Eg (plantOf c Eg j a v w) (plantN c Eg j a v w) j c.mem.size)) :
     ∃ (Eg' : GEnv) (Tot' HP' : Nat → Res) (HS' : Res) (cr' db' : Nat → Ts → Res),
-      SysInvN p k arch Init MintOK (promise c j a v w) Eg' Tot' HP' HS' cr' db' ∧ Q Eg' := by
+      SysInvN p k arch Init MintOK (promise c j a v w) Eg' Tot' HP' HS' cr' db' ∧ Q Eg' ∧
+        ∀ j', j' ≠ j → j' < c.ths.size → Tot' j' = Tot j' ∧ db' j' = db j' := by
   obtain ⟨th, hth⟩ : ∃ th, c.ths[j]? = some th := ⟨c.ths[j], Array.getElem?_eq_getElem hj⟩
   have X : PCtxX p k arch Sp Init MintOK c0 c Eg Tot HP HS cr db j th a v w := ⟨hrun, h, hth, hw, hcert⟩
   obtain ⟨epc, hpj, -⟩ := promise_inv (a := a) (v := v) (w := w) hth
@@ -1306,7 +1338,7 @@ theorem sysInv_promP (O : Obligations p k arch Sp Init MintOK c0 plantOf plantN)
     exact MemHeldG_of_S (by rw [hmem]; rfl) shty' (proms' j _ hpj) hS''
   suffices hSys : SysInvN p k arch Init MintOK (promise c j a v w)
       (EgP Eg (plantOf c Eg j a v w) (plantN c Eg j a v w) j c.mem.size) Tot (upd HP j HP') HS' (upd cr j cr') (upd db j db') by
-    exact ⟨_, _, _, _, _, _, hSys, hQ th hth X⟩
+    exact ⟨_, _, _, _, _, _, hSys, hQ th hth X, fun _ hj0 _ => ⟨rfl, upd_other _ _ hj0⟩⟩
   refine ⟨?thr, held', h.clo, h.cmg, shty', proms', fpok_of proms' fpfree' plt' (O.fpokVisP X), O.freshP X, TermBal.balP_proof X hacct,
     TermBal.knetP_proof X hacct, ?bf, O.boxtopP X, PromsDisj_promise h.disj h.plt hth, fpfree', plt',
     VWrLe_promise h.vwr hth, ?frle, fun l => Nat.le_trans (h.rle l) (plantG_ini_le _ _ _ l), TermZwIniP.zwIni_prom h.zwIni (O.plantSpec X).2.1 _ _,
@@ -1437,6 +1469,23 @@ theorem sysInv_promP (O : Obligations p k arch Sp Init MintOK c0 plantOf plantN)
       simp only [e, Option.some.injEq] at hp
       subst hp
       exact (hspec l f' e).2.2.1
+#print axioms TermMain.sysInv_promPW
+
+/-- **`SysInvN` across a promise step, carrying a side fact `Q` of the post-step ghost
+environment**: master of `sysInv_prom` (`Q` trivial) and `TermSpawn.sysInvO_prom` (`OwnLive`/`ObsAll`).
+(A wrapper of `sysInv_promPW`.) -/
+theorem sysInv_promP (O : Obligations p k arch Sp Init MintOK c0 plantOf plantN)
+    (PS : TermPoolStaging.PoolStaging p k arch Sp Init MintOK c0 plantOf plantN) {c : Cfg} {Eg : GEnv}
+    {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {j : Nat} {a : Address} {v : WeakMem.Val} {w : Ts}
+    (hrun : TermSpawnStep.StepsG p k arch Sp c0 c) (h : SysInvN p k arch Init MintOK c Eg Tot HP HS cr db)
+    (hj : j < c.ths.size) (hw : w < c.mem.size) (hcert : Certified p k arch (promise c j a v w) j)
+    (Q : GEnv → Prop)
+    (hQ : ∀ th, c.ths[j]? = some th → PCtxX p k arch Sp Init MintOK c0 c Eg Tot HP HS cr db j th a v w →
+      Q (EgP Eg (plantOf c Eg j a v w) (plantN c Eg j a v w) j c.mem.size)) :
+    ∃ (Eg' : GEnv) (Tot' HP' : Nat → Res) (HS' : Res) (cr' db' : Nat → Ts → Res),
+      SysInvN p k arch Init MintOK (promise c j a v w) Eg' Tot' HP' HS' cr' db' ∧ Q Eg' :=
+  let ⟨Eg', Tot', HP', HS', cr', db', hS, hQ', _⟩ := sysInv_promPW O PS hrun h hj hw hcert Q hQ
+  ⟨Eg', Tot', HP', HS', cr', db', hS, hQ'⟩
 #print axioms TermMain.sysInv_promP
 
 /-- **`SysInvN` across a promise step**: the promiser's part from

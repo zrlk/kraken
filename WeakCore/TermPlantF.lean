@@ -48,7 +48,7 @@ theorem noBoxProm_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p]
   have h0 := InvAtXF_ofA (p := p) (k := k) (arch := arch) (Ea := Cut Eg i S) X.e3 hRE.thInvE (by rw [hg, hst]; exact hm')
     (StoClo_EFoot hF hSC0) hbo (by rw [hst]; exact hAP.1) (.inr hAP.2)
   have hloc := certified_promLoc (hPS := hPS) (hSub := hSub) (hSig := hSig) hP (fun c1 h1 h2 => ((hrun X S hS).2 c1 h1 h2).1) (by first | exact TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw | exact TermViewInv.viewInv_run hV0 X.run | exact TermViewInv.viewInv_thread (TermViewInv.viewInv_run hV0 X.run) X.hc') (fun c1 h1 h2 => ((hrun X S hS).2 c1 h1 h2).2)
-    h0 X.cert (by rw [TermFul.promsOf_some X.e3]; exact ht) hm
+    h0 (TermTyped.tidAt_mono hAP.2 (TermTyped.tidAt_thread X.hc' (TermMain.tidAt_cut X.inv i S))) X.cert (by rw [TermFul.promsOf_some X.e3]; exact ht) hm
   intro hl
   rw [hl] at hloc
   rcases hloc with ⟨cl, hcl⟩ | ⟨jj, hjj, hlj⟩
@@ -167,7 +167,7 @@ theorem promNoTwoP_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p
   have hsc := fun c1 h1 h2 => (hrun X S hS_S c1 h1 h2).1
   have hwin := fun c1 h1 h2 => (hrun X S hS_S c1 h1 h2).2
   obtain ⟨c1, c2, th1, th2, ρ, η, cx, E2, -, -, -, -, -, -, hx1, hE, hT, htv, hi, hmi, hscope, hpa, -, -, -, -, -,
-    -, -, hsw, -⟩ := certified_promTypedX (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hsc (by first | exact TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw | exact TermViewInv.viewInv_run hV0 X.run | exact TermViewInv.viewInv_thread (TermViewInv.viewInv_run hV0 X.run) X.hc') hwin hX X.cert ht hmt
+    -, -, hsw, -⟩ := certified_promTypedX (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hsc (by first | exact TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw | exact TermViewInv.viewInv_run hV0 X.run | exact TermViewInv.viewInv_thread (TermViewInv.viewInv_run hV0 X.run) X.hc') hwin hX (TermMain.tidAt_cutP X.inv j S) X.cert ht hmt
   obtain ⟨cl1, o1, U, us, j1, hcl1, h1o, hus, hj, ho⟩ :=
     SWOne_holds p _ _ _ _ ρ η cx _ _ hE hT htv hi hmi (TermTyped.scopeD_SW hscope hsw) hpa hsw
   have e : (Cut Eg j S).sto a.label = some cl := hcut
@@ -267,7 +267,7 @@ theorem plant_facts (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] 
   have hca' : (Cut Eg j S).sto m.loc.label = some ca := by rw [hl']; exact hca
   have hcl' : (Cut Eg j S).sto a'.label = some cl := by rw [hal]; exact hcl
   obtain ⟨h1, h2, h3, h4, h5⟩ := plant_typeFacts (hPS := hPS) (hSub := hSub) (hSig := hSig) hP (fun c1 h1 h2 => (hrun X S hS_S c1 h1 h2).1) (by first | exact TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw | exact TermViewInv.viewInv_run hV0 X.run | exact TermViewInv.viewInv_thread (TermViewInv.viewInv_run hV0 X.run) X.hc')
-    (fun c1 h1 h2 => (hrun X S hS_S c1 h1 h2).2) hX X.cert ht' hmt' hca' hno hrf hv hcl'
+    (fun c1 h1 h2 => (hrun X S hS_S c1 h1 h2).2) hX (TermMain.tidAt_cutP X.inv j S) X.cert ht' hmt' hca' hno hrf hv hcl'
   exact ⟨cl, cutSto_sub hcl, hown, hnone, h1, h2, h3, h4, h5⟩
 
 /-- **P2 `plantSpec`** for `plantOf`: a planted label had no frontier, is an
@@ -955,7 +955,7 @@ theorem plantInh_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] 
     (Z := IniZK Eg Tot HP j) (hZp := hbr X S0) (hZr := hbp X) hP
     (fun c1 h1 h2 => (hrun X S0 hS_S0 c1 h1 h2).1) (by first | exact TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw | exact TermViewInv.viewInv_run hV0 X.run | exact TermViewInv.viewInv_thread (TermViewInv.viewInv_run hV0 X.run) X.hc') (fun c1 h1 h2 => (hrun X S0 hS_S0 c1 h1 h2).2) X.hth hTE hm hSC X.inv.bf
     (fun l => X.inv.rle l)
-    hsolo hc''
+    (TermMain.tidAt_cut X.inv j S0) hsolo hc''
     (fun l1 h => by obtain ⟨cl2, hc2, ho2, -⟩ := hLc l1 h; exact ⟨cl2, hc2, ho2⟩)
     (fun l1 h => by obtain ⟨-, -, -, hn1⟩ := hLc l1 h; exact hn1)
     (fun l1 hl1 u hu m hm hl a' g hv cl2 hc2 ho2 hn2 => by
@@ -1478,7 +1478,7 @@ theorem promIniGen (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [
   cases hm'
   have hc1 : Certified p k arch c1 j := certified_back (.thread h2 (.refl _)) hc2
   obtain ⟨th1', E1, hth1', hx1, ⟨ρ, η, cx, rfl, hE, hT, htv, hi, -⟩, hmi1, -, -, hfb1, -, -, -, hIL1, hIH1, hPV1, hPO1⟩ :=
-    solo_typedXFP (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hsc (by first | exact TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw | exact TermViewInv.viewInv_run hV0 X.run | exact TermViewInv.viewInv_thread (TermViewInv.viewInv_run hV0 X.run) X.hc') hwin h0 h1 hc1 (fun l => X.inv.rle l) (hbr X S0) (hbp X) (TermTyped.witP_run X.hth hm.2.2.1 (TermCert.winInv_prom (TermCert.winInv_refl X.hth)))
+    solo_typedXFP (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hsc (by first | exact TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw | exact TermViewInv.viewInv_run hV0 X.run | exact TermViewInv.viewInv_thread (TermViewInv.viewInv_run hV0 X.run) X.hc') hwin h0 (TermMain.tidAt_cutP X.inv j S0) h1 hc1 (fun l => X.inv.rle l) (hbr X S0) (hbp X) (TermTyped.witP_run X.hth hm.2.2.1 (TermCert.winInv_prom (TermCert.winInv_refl X.hth)))
   rw [hth1] at hth1'
   cases hth1'
   have hscope := hsc c1 h1 hc1 th1 hth1 (TermTyped.not_spawnT_of_steps hth1 h2) ρ η cx hE hT htv hi
@@ -1578,7 +1578,7 @@ theorem promWordGen (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] 
     (fun l => X.inv.rle l) (X.inv.riniCoh _ _ _ X.hth)
     (fun l cl f hs hp => X.inv.frlt l cl f (cutSto_sub hs) hp) (IniZK Eg Tot HP j) (TermTyped.WitP c.mem th.promises)
   obtain ⟨-, c2, th2, E2, h2, hc2, hth2, hx2, -, hm2, hw2, hfb2H, hB2, hIL2, hIH2, hPV2, hPO2⟩ :=
-    TermIni.certified_promNotUndefXHP (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hsc (by first | exact TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw | exact TermViewInv.viewInv_run hV0 X.run | exact TermViewInv.viewInv_thread (TermViewInv.viewInv_run hV0 X.run) X.hc') hwin hXH X.cert (fun l => X.inv.rle l) (hbr X S0) ht hmt (hbp X) (TermTyped.witP_run X.hth hm.2.2.1 (TermCert.winInv_prom (TermCert.winInv_refl X.hth)))
+    TermIni.certified_promNotUndefXHP (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hsc (by first | exact TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw | exact TermViewInv.viewInv_run hV0 X.run | exact TermViewInv.viewInv_thread (TermViewInv.viewInv_run hV0 X.run) X.hc') hwin hXH (TermMain.tidAt_cutP X.inv j S0) X.cert (fun l => X.inv.rle l) (hbr X S0) ht hmt (hbp X) (TermTyped.witP_run X.hth hm.2.2.1 (TermCert.winInv_prom (TermCert.winInv_refl X.hth)))
   have hfb2 : FrBound (Cut Eg j S0) (promise c j a v w).mem.size th.vs.vWr E2 := by
     have e : (promise c j a v w).mem.size = c.mem.size + 1 := by rw [hpi.1, Array.size_push]
     rw [e]; exact hfb2H
@@ -1991,7 +1991,7 @@ theorem pubPromOK_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p]
     cases hm''
     have hc1 : Certified p k arch c1 i := certified_back (.thread h2 (.refl _)) hc2
     obtain ⟨th1', E1, hth1', hx1, ⟨ρ1, η1, cx1, rfl, hE1, hT1, htv1, hi1, -⟩, hmi1, -, -, hfb1, -, -, -, hIL1, hIH1, hPO1⟩ :=
-      TermXFO.solo_typedXFO (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hsc (by first | exact TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw | exact TermViewInv.viewInv_run hV0 X.run | exact TermViewInv.viewInv_thread (TermViewInv.viewInv_run hV0 X.run) X.hc') hwin h0X h1 hc1 hrlE (hbtr X Y Z hPfrP)
+      TermXFO.solo_typedXFO (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hsc (by first | exact TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw | exact TermViewInv.viewInv_run hV0 X.run | exact TermViewInv.viewInv_thread (TermViewInv.viewInv_run hV0 X.run) X.hc') hwin h0X (TermTyped.tidAt_mono hAP.2 (TermTyped.tidAt_thread X.hc' (TermMain.tidAt_cut X.inv i S))) h1 hc1 hrlE (hbtr X Y Z hPfrP)
         (hbp X) hHrT
     rw [hth1] at hth1'
     cases hth1'
@@ -2013,7 +2013,7 @@ theorem pubPromOK_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p]
   refine ⟨hI, ?_⟩
   · -- WordOK
     obtain ⟨-, c2, th2, E2, h2, hc2, hth2, hx2, -, hm2, hw2, hfb2, hIL2, hIH2, hPO2⟩ :=
-      TermXFO.certified_promNotUndefXO (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hsc (by first | exact TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw | exact TermViewInv.viewInv_run hV0 X.run | exact TermViewInv.viewInv_thread (TermViewInv.viewInv_run hV0 X.run) X.hc') hwin h0X X.cert hrlE
+      TermXFO.certified_promNotUndefXO (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hsc (by first | exact TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw | exact TermViewInv.viewInv_run hV0 X.run | exact TermViewInv.viewInv_thread (TermViewInv.viewInv_run hV0 X.run) X.hc') hwin h0X (TermTyped.tidAt_mono hAP.2 (TermTyped.tidAt_thread X.hc' (TermMain.tidAt_cut X.inv i S))) X.cert hrlE
         (hbtr X Y Z hPfrP) ht' hm (hbp X) hHrT
     obtain ⟨-, -, -, hnT, hrT⟩ := hmE.2.2.2.2.2.2.2.2.1.2.2.1 l cl f hcl' hf
     obtain ⟨b, S', ws, o', w0, hseg, ⟨hv, hshp⟩, hw0, hle, hbo⟩ := hw2 cl (by rw [hl]; exact hcl')

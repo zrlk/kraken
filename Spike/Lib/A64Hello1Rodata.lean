@@ -23,6 +23,7 @@ inside `W`, in any valid layout of `hello1Prog`
 -/
 import Spike.Lib.A64Hello1Body
 import Spike.Lib.A64Alloc
+import Scc.Cert.Rt.A64AllocIn
 
 namespace Spike.Lib.A64.Flow
 
@@ -40,55 +41,19 @@ section Alloc
 open Scc.Cert.Rt.A64.Print (code_field add4 add0)
 open Spike.Lib.A64.Alloc
 
-/-- **The code of `scc_rt_alloc` in `prog`**: its blocks and single
-instructions at their labels and offsets, and the prologue's fall-through. -/
-def allocIn (prog : List Directive) : Bool :=
-  blockAt prog "scc_rt_alloc" 0 b0 &&
-  blockAt prog ".L2_scc_rt_alloc.0_entry" 0 b1 &&
-  blockAt prog ".L2_scc_rt_alloc.0_entry" 4 b2 &&
-  blockAt prog ".L2_scc_rt_alloc.1_cnt" 0 [iAdrpC.toDir] &&
-  blockAt prog ".L2_scc_rt_alloc.1_cnt" 1 [iAddC.toDir] &&
-  blockAt prog ".L2_scc_rt_alloc.1_cnt" 2 b3 &&
-  blockAt prog ".L2_scc_rt_alloc.1_cnt" 5 [iRmw] &&
-  blockAt prog ".L2_scc_rt_alloc.1_cnt" 6 b4 &&
-  blockAt prog ".L2_scc_rt_alloc.1_cnt" 15 b5 &&
-  blockAt prog ".L2_scc_rt_alloc.2_slow" 0 b6 &&
-  blockAt prog ".L2_scc_rt_alloc.2_slow" 4 b7 &&
-  blockAt prog ".L2_scc_rt_alloc.4_full" 0 b9 &&
-  blockAt prog ".L2_scc_rt_alloc.5_ok" 0 b11 &&
-  blockAt prog ".L2_scc_rt_alloc.5_ok" 8 [iAdrpH.toDir] &&
-  blockAt prog ".L2_scc_rt_alloc.5_ok" 9 [iAddH.toDir] &&
-  blockAt prog ".L2_scc_rt_alloc.5_ok" 10 b12 &&
-  blockAt prog ".L2_scc_rt_alloc.5_ok" 41 [iHdr] &&
-  blockAt prog ".L2_scc_rt_alloc.5_ok" 42 b13 &&
-  blockAt prog ".L2_scc_rt_alloc.5_ok" 54 [iRet.toDir] &&
-  labelGap prog "scc_rt_alloc" ".L2_scc_rt_alloc.0_entry" 7
-
 theorem hello1_alloc : allocIn SccCode.hello1Prog = true := by decide +kernel
 
 variable {p : Prog} {lbl : WeakMem.AllocLabel → Option Nat} {ms : MemSide isaLSE2}
   {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe] {endPc : Int64}
   {R : Spike.Lib.Region} {F : MachineData → Prop} {q : Call}
 
-/-- **`scc_rt_alloc` is one segment inside `W`** in any valid layout `exe`
-of a program `prog` with `allocIn prog = true` (`hello1_alloc` for
-`hello1Prog`): `seg_allocW` with its code from the checks. -/
-theorem seg_alloc_ofW {W : Frag isaLSE2} {K : State → State → Prop} {prog : List Directive}
-    {kp : Nat} (hp : Lays exe prog kp) (hend : endPc = endOf exe prog kp) (hprog : allocIn prog = true)
-    (hF : FStable R F) (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -160) (hhi : 0 ≤ R.hi)
-    (hq : q.OK ms (_root_.Executable.labels exe).label)
-    (hmem : ∀ a : BitVec 64,
-      (a = BitVec.ofNat 64 ms.ctr ∨ ∃ o, o + ms.units q.n q.τ ≤ ms.cells ∧ a.toNat = q.hdrAt ms o) →
-      ∀ m, F m → Mem.loadInt m.dmem a 8 = none)
-    (hxa : ∀ l b w s c, lbl l = none →
-      At exe endPc R F (Ea ms q l b w) s c → ms.xa l b w s c)
-    (hW : AllocW ms q W K exe endPc R F) :
-    SegW W K p lbl ms (At exe endPc R F (N (_root_.Executable.labels exe).label ms q .e))
-      (fun s c => ∃ x, At exe endPc R F (E (_root_.Executable.labels exe).label ms q lbl x) s c) := by
+/-- **`scc_rt_alloc`'s code** for the call `q` in any valid layout `exe` of a
+program `prog` with `allocIn prog = true`. -/
+theorem alloc_code {prog : List Directive} {kp : Nat} (hp : Lays exe prog kp) (hend : endPc = endOf exe prog kp)
+    (hprog : allocIn prog = true) : Code ms q exe endPc := by
   simp only [allocIn, Bool.and_eq_true, and_assoc] at hprog
   obtain ⟨h0, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18, hgap⟩ := hprog
-  refine seg_allocW hF hR hal hlo hhi hq ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
-    (by rw [label_labelGap hp hgap]; simp only [add4, add0]) hmem hxa hW
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · exact code_field hp hend h0 (by simp only [N, add4, add0])
   · exact code_field hp hend h1 (by simp only [N, add4, add0])
   · exact code_field hp hend h2 (by simp only [N, add4, add0])
@@ -108,6 +73,45 @@ theorem seg_alloc_ofW {W : Frag isaLSE2} {K : State → State → Prop} {prog : 
   · exact code_field hp hend h16 (by simp only [N, add4, add0])
   · exact code_field hp hend h17 (by simp only [N, add4, add0])
   · exact code_field hp hend h18 (by simp only [N, add4, add0])
+
+/-- **`scc_rt_alloc` is one segment inside `W` from any of its nodes `i0`**
+in any valid layout `exe` of a program `prog` with `allocIn prog = true`
+(`hello1_alloc` for `hello1Prog`): `seg_allocW_at` with its code from the
+checks. -/
+theorem seg_alloc_ofW_at {W : Frag isaLSE2} {K : State → State → Prop} {prog : List Directive}
+    {kp : Nat} (hp : Lays exe prog kp) (hend : endPc = endOf exe prog kp) (hprog : allocIn prog = true)
+    (hF : FStable R F) (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -160) (hhi : 0 ≤ R.hi)
+    (hq : q.OK ms (_root_.Executable.labels exe).label)
+    (hmem : ∀ a : BitVec 64,
+      (a = BitVec.ofNat 64 ms.ctr ∨ ∃ o, o + ms.units q.n q.τ ≤ ms.cells ∧ a.toNat = q.hdrAt ms o) →
+      ∀ m, F m → Mem.loadInt m.dmem a 8 = none)
+    (hxa : ∀ l b w s c, lbl l = none →
+      At exe endPc R F (Ea ms q l b w) s c → ms.xa l b w s c)
+    (hW : AllocW ms q W K exe endPc R F) (i0 : AN) :
+    SegW W K p lbl ms (At exe endPc R F (N (_root_.Executable.labels exe).label ms q i0))
+      (fun s c => ∃ x, At exe endPc R F (E (_root_.Executable.labels exe).label ms q lbl x) s c) := by
+  have hcode := alloc_code (ms := ms) (q := q) hp hend hprog
+  simp only [allocIn, Bool.and_eq_true, and_assoc] at hprog
+  obtain ⟨-, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, hgap⟩ := hprog
+  exact seg_allocW_at hF hR hal hlo hhi hq hcode (by rw [label_labelGap hp hgap]; simp only [add4, add0]) hmem hxa
+    hW i0
+
+/-- **`scc_rt_alloc` is one segment inside `W`** in any valid layout `exe`
+of a program `prog` with `allocIn prog = true` (`hello1_alloc` for
+`hello1Prog`): `seg_alloc_ofW_at` from its entry. -/
+theorem seg_alloc_ofW {W : Frag isaLSE2} {K : State → State → Prop} {prog : List Directive}
+    {kp : Nat} (hp : Lays exe prog kp) (hend : endPc = endOf exe prog kp) (hprog : allocIn prog = true)
+    (hF : FStable R F) (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -160) (hhi : 0 ≤ R.hi)
+    (hq : q.OK ms (_root_.Executable.labels exe).label)
+    (hmem : ∀ a : BitVec 64,
+      (a = BitVec.ofNat 64 ms.ctr ∨ ∃ o, o + ms.units q.n q.τ ≤ ms.cells ∧ a.toNat = q.hdrAt ms o) →
+      ∀ m, F m → Mem.loadInt m.dmem a 8 = none)
+    (hxa : ∀ l b w s c, lbl l = none →
+      At exe endPc R F (Ea ms q l b w) s c → ms.xa l b w s c)
+    (hW : AllocW ms q W K exe endPc R F) :
+    SegW W K p lbl ms (At exe endPc R F (N (_root_.Executable.labels exe).label ms q .e))
+      (fun s c => ∃ x, At exe endPc R F (E (_root_.Executable.labels exe).label ms q lbl x) s c) :=
+  seg_alloc_ofW_at hp hend hprog hF hR hal hlo hhi hq hmem hxa hW .e
 
 omit [Kraken.Executable.ValidLayout exe] in
 /-- The allocator's obligations under a weaker frame condition hold under a
@@ -183,24 +187,37 @@ end Rd
 /-- The allocator's region at the call. -/
 abbrev aR (R : Region) : Region := R.callee (-48) (-160) 0
 
+/-- **The allocator's call context in `wc_rodata`'s region `R`** at the
+memory `m`: some caller's state `mC`, `σC` at the call node (`rN .call` at
+the invariant `Jc`) whose entry into the allocator is at `q`'s entry, the
+caller's cells outside the allocator's region as at the call
+(`call_nd_FWK`'s callee frame condition). -/
+def RdCtx (ms : MemSide isaLSE2) (lab : Label → Int64) (R : Region) (Jc : AS → Ctl → Prop) (q : Call)
+    (m : MachineData) : Prop :=
+  ∃ mC σC c, Abs R ⟨-48, []⟩ mC σC ∧ (rN lab Jc .call).J σC c ∧ (Alloc.N lab ms q .e).J (enter (-48) σC) c ∧
+    CKept R (-48) (-160) 0 mC m
+
 /-- **`wc_rodata`'s states up to the allocator's return inside `W`**, none
 moved by `K`: its prologue's, the entry block's, and the allocator's in its
-region (for every call returning to `.sp0`, the caller's cells outside it
-holding values). -/
+region (for every call with its premises returning to `.sp0`, the caller's cells outside it
+holding values, in the call's context `RdCtx` at the call node's invariant
+`Jc`, the source possibly advanced from `J0` in the entry block). -/
 structure RdPreW (W : Frag isaLSE2) (K : State → State → Prop) (exe : _root_.Executable) (endPc : Int64)
-    (R : Region) (F : MachineData → Prop) (ms : MemSide isaLSE2) (J0 : AS → Ctl → Prop) : Prop where
+    (R : Region) (F : MachineData → Prop) (ms : MemSide isaLSE2) (J0 Jc : AS → Ctl → Prop) : Prop where
   pro : ProW W K exe endPc R F ms ((_root_.Executable.labels exe).label "wc_rodata") 48 8
     ".L18_wc_rodata.stack_grow" [] J0
   e : BlkW W K exe endPc R F (rN (_root_.Executable.labels exe).label J0 .e) rdE
-  alloc : ∀ q : Call, q.ra = ((_root_.Executable.labels exe).label ".L18_wc_rodata.sp0").toBitVec →
-    AllocW ms q W K exe endPc (aR R) (fun m => F m ∧ CallerCells R (-48) (-160) 0 m)
+  alloc : ∀ q : Call, q.OK ms (_root_.Executable.labels exe).label →
+    q.ra = ((_root_.Executable.labels exe).label ".L18_wc_rodata.sp0").toBitVec →
+    AllocW ms q W K exe endPc (aR R)
+      (fun m => F m ∧ CallerCells R (-48) (-160) 0 m ∧ RdCtx ms (_root_.Executable.labels exe).label R Jc q m)
 
 /-- `wc_rodata` up to the allocator's return is inside the trivial
 predicate, with no outside moves. -/
 theorem RdPreW.triv {exe : _root_.Executable} {endPc : Int64} {R : Region} {F : MachineData → Prop}
-    {ms : MemSide isaLSE2} {J0 : AS → Ctl → Prop} :
-    RdPreW (fun _ _ => True) (fun _ _ => False) exe endPc R F ms J0 :=
-  ⟨ProW.triv, BlkW.triv, fun q _ => Alloc.AllocW.triv ms q⟩
+    {ms : MemSide isaLSE2} {J0 Jc : AS → Ctl → Prop} :
+    RdPreW (fun _ _ => True) (fun _ _ => False) exe endPc R F ms J0 Jc :=
+  ⟨ProW.triv, BlkW.triv, fun q _ _ => Alloc.AllocW.triv ms q⟩
 
 section RdFn
 
@@ -218,11 +235,12 @@ headers it may store are unmapped in private memory under `F`
 (`hmem`); an allocation of a fresh label lands in `ms.xa` (`hxa`, for every frame
 condition the call hands the allocator: with its states, the caller's at
 the call and its cells outside the allocator's region, as `at_leave`
-needs). Its states lie in `W`, none moved by `K` (`hW`). -/
+needs). Its states lie in `W`, none moved by `K` (`hW`).
+VACUOUS at the entry at `rodata`'s source (`hq` at `rdC0`): see A64Hello1RodataSetupG (`rdC0_not_call`). -/
 theorem hello1_rodata_pre_segW {W : Frag isaLSE2} {K : State → State → Prop}
     (hp : Lays exe SccCode.hello1Prog) (hend : endPc = endOf exe SccCode.hello1Prog)
     (hF : FStable R F) (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -208) (hhi : 0 ≤ R.hi)
-    {J0 : AS → Ctl → Prop} (hW : RdPreW W K exe endPc R F ms J0)
+    {J0 : AS → Ctl → Prop} (hW : RdPreW W K exe endPc R F ms J0 J0)
     (hlim : ∀ σ c, J0 σ c → LimOk ms F exe endPc (tcbA σ.regs 8) (σ.regs.SP.toBitVec - (48 : Int64).toBitVec))
     (hq : ∀ σ c, J0 σ c → ∃ q : Call, q.OK ms (_root_.Executable.labels exe).label ∧ q.c0 = c ∧
       q.h = 257#64 ∧ q.k = 2#64 ∧ q.u ms = 3#64)
@@ -279,7 +297,8 @@ theorem hello1_rodata_pre_segW {W : Frag isaLSE2} {K : State → State → Prop}
         exact (seg_alloc_ofW hp hend hello1_alloc hF' hR' hal' hlo' hhi' g.2
           (fun a ha m hm => hmem g.1 g.2 a ha m (hFF m hm))
           (hxa g F' hFF hkeep)
-          (allocW_mono (hW.alloc g.1 hra) fun m h => ⟨hFF m h, hcc m h⟩)).mono_post
+          (allocW_mono (hW.alloc g.1 g.2 hra) fun m h =>
+            ⟨hFF m h, hcc m h, hkeep m h⟩)).mono_post
           fun _ _ ⟨y, h⟩ => ⟨y, h, trivial⟩)
       (fun _ => rfl) ?_ ?_
     · rintro σC c ⟨⟨σe, hJe, -, -⟩, h0, h1, h2, -⟩
@@ -434,7 +453,8 @@ word (`h1`, `h3`) and at each store it holds it and stores the built word
 control in between; at the return, `x`'s invariant holds after a local
 run of every state with `x0` the base, `x1 = 0`, `x2 = 2`, `x3 = 13` and
 `x29`/`x30` the saved record (`hedge`). Its states lie in `W`, none moved
-by `K` (`hW`). -/
+by `K` (`hW`).
+VACUOUS at .sp0 at `rodata`'s source: see A64Hello1RodataSetupG (`hand_sp0_empty`). -/
 theorem hello1_rodata_post_segW {W : Frag isaLSE2} {K : State → State → Prop}
     (hp : Lays exe SccCode.hello1Prog) (hend : endPc = endOf exe SccCode.hello1Prog)
     (hF : FStable R F) (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -48) (hhi : 0 ≤ R.hi)

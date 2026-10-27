@@ -88,6 +88,24 @@ theorem frame0_placeOKAt_9 : X64.a9 outLit ⟨Λe⟩ = true := by
 theorem frame0_placeOKAt_11 : X64.a11 outLit ⟨Λe⟩ = true := by
   decide +kernel
 
+/-- A12's code part of `outLit` (kernel-checked; `Scc/Cert/A12StageX64.lean`). -/
+theorem frame0_placeOKAt_12c : X64.a12code outLit = true := by
+  decide +kernel
+
+/-- A12's phase part of `outLit` at `Λe` (kernel-checked). -/
+theorem frame0_placeOKAt_12p : X64.a12ph outLit ⟨Λe⟩ = true := by
+  decide +kernel
+
+/-- A12 of `outLit` at `Λe`: the code of every stack-checked function. -/
+theorem frame0_placeOKAt_12 : X64.a12 outLit ⟨Λe⟩ = true :=
+  X64.a12_of_split frame0_placeOKAt_12c frame0_placeOKAt_12p
+
+-- A12 numbers each function's local labels `.Lf.xN` from the IR (`starts`,
+-- prefix sums of `fnLabs`); that is the emitter's numbering (evaluation).
+#guard match outLit.place.ir with
+  | some ir => Scc.Cert.Code1X64.startsOk ir
+  | none => false
+
 /-- **`placeOKAt` of the zero-frame program's output at the executable's
 layout**, from its components (`placeOKAt_of`). -/
 theorem frame0_placeOKAt : X64.placeOKAt placeCfg Λe out = true := by
@@ -95,7 +113,7 @@ theorem frame0_placeOKAt : X64.placeOKAt placeCfg Λe out = true := by
   simp only [Bool.and_eq_true] at h1
   rw [out_eq]
   exact X64.placeOKAt_of h1.1.1.1 h1.1.1.2 frame0_placeOKAt_3 h1.1.2 frame0_placeOKAt_5 frame0_placeOKAt_6 h1.2
-    frame0_placeOKAt_8 frame0_placeOKAt_9 frame0_placeOKAt_11
+    frame0_placeOKAt_8 frame0_placeOKAt_9 frame0_placeOKAt_11 frame0_placeOKAt_12
 
 /--
 info: 'Spike.Test.Frame0LinkedX64.frame0_placeOKAt' depends on axioms: [propext, Classical.choice, Quot.sound]

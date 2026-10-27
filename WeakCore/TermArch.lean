@@ -9,7 +9,8 @@ litmus programs to `TermRun` terms.
 some `c'` is reachable from `c0` by `Step p k .arm` with `CfgLe c' c`: the same
 terms, frames, runtime types, memory locations and values, promises,
 allocation counters and `undef` counts.  Only *views* differ -- in words,
-thread view states and messages -- and they are lower on ARM.  So final
+thread view states and messages -- and words' read timestamps (`rts`: a spawn
+bumps its argument words to the parent's `vRelSt`), and they are lower on ARM.  So final
 configurations, and every observation made of values, coincide.
 
 The statement is about the declarative machine `Step`.  The bounded explorer
@@ -43,7 +44,7 @@ open Promises.Sim (MemExt)
 
 ARM on the left, TSO on the right, as in `Promises.Sim`. -/
 
-theorem tvle_refl (w : Word) : TValLe w w := ⟨rfl, rfl, Nat.le_refl _⟩
+theorem tvle_refl (w : Word) : TValLe w w := ⟨rfl, Nat.le_refl _, Nat.le_refl _⟩
 
 /-- Word lists: same length, pointwise `TValLe`. -/
 def WsLe : List Word → List Word → Prop
@@ -428,19 +429,30 @@ theorem numOf_congr : ∀ {wa wt : List Word}, WsLe wa wt → numOf wa = numOf w
 theorem addrOf_congr {x y : Word} (h : TValLe x y) : addrOf x = addrOf y := by
   unfold addrOf; rw [h.val]
 
-theorem tval_eta {x y : Word} (h : TValLe x y) : x = { y with view := x.view } := by
-  obtain ⟨hv, hr, _⟩ := h
-  cases x; cases y; simp only at hv hr; subst hv; subst hr; rfl
+theorem tval_eta {x y : Word} (h : TValLe x y) : x = { y with view := x.view, rts := x.rts } := by
+  obtain ⟨hv, _, _⟩ := h
+  cases x; cases y; simp only at hv; subst hv; rfl
 
 theorem tvle_low {y : Word} {v : Ts} (hv : v ≤ y.view) : TValLe { y with view := v } y :=
-  ⟨rfl, rfl, hv⟩
+  ⟨rfl, Nat.le_refl _, hv⟩
+
+theorem tvle_low2 {y : Word} {v r : Ts} (hv : v ≤ y.view) (hr : r ≤ y.rts) :
+    TValLe { y with view := v, rts := r } y :=
+  ⟨rfl, hr, hv⟩
 
 theorem wsle_single_low {wa : List Word} {y : Word} (h : WsLe wa [y]) :
-    ∃ v, v ≤ y.view ∧ wa = [{ y with view := v }] := by
+    ∃ v r, v ≤ y.view ∧ r ≤ y.rts ∧ wa = [{ y with view := v, rts := r }] := by
   obtain ⟨x, rfl, hx⟩ := wsle_single h
-  exact ⟨x.view, hx.view, by rw [← tval_eta hx]⟩
+  exact ⟨x.view, x.rts, hx.view, hx.rts, by rw [← tval_eta hx]⟩
 
 theorem addrOf_low (y : Word) (v : Ts) : addrOf { y with view := v } = addrOf y := rfl
+theorem addrOf_low2 (y : Word) (v r : Ts) : addrOf { y with view := v, rts := r } = addrOf y := rfl
+theorem numOf_low2 (y : Word) (v r : Ts) : numOf [{ y with view := v, rts := r }] = numOf [y] := rfl
+theorem addW_low21 (y z : Word) (v r : Ts) : addW { y with view := v, rts := r } z = addW y z := rfl
+theorem addW_low22 (y z : Word) (v r : Ts) : addW z { y with view := v, rts := r } = addW z y := rfl
+theorem subW_low21 (y z : Word) (v r : Ts) : subW { y with view := v, rts := r } z = subW y z := rfl
+theorem subW_low22 (y z : Word) (v r : Ts) : subW z { y with view := v, rts := r } = subW z y := rfl
+theorem dataE_low2 (r0 : WeakMem.Reg) (y : Word) (v r : Ts) : dataE r0 { y with view := v, rts := r } = dataE r0 y := rfl
 theorem numOf_low (y : Word) (v : Ts) : numOf [{ y with view := v }] = numOf [y] := rfl
 theorem addW_low1 (y z : Word) (v : Ts) : addW { y with view := v } z = addW y z := rfl
 theorem addW_low2 (y z : Word) (v : Ts) : addW z { y with view := v } = addW z y := rfl
@@ -460,14 +472,14 @@ macro "ev " a:term:max " => " t:ident wt:ident wa:ident hw:ident : tactic =>
     simp only [hq, hqa, Option.bind_eq_bind, Option.bind_some] at hin ⊢
     clear hq hqa))
 
-/- `one wt wa hw => y x hxy`: the TSO words are a single word `y` (other shapes
+/- `one wt wa hw => y x hxy r hr`: the TSO words are a single word `y` (other shapes
 are refuted from `hin`), so the ARM words are `[x]` with `TValLe x y`. -/
 set_option hygiene false in
-macro "one " wt:ident wa:ident hw:ident " => " y:ident x:ident hxy:ident : tactic =>
+macro "one " wt:ident _wa:ident hw:ident " => " y:ident x:ident hxy:ident r:ident hr:ident : tactic =>
   `(tactic| (
     rcases $wt:ident with _ | ⟨$y, _ | ⟨_, _⟩⟩ <;> (try (simp at hin; done))
-    obtain ⟨$x, $hxy, rfl⟩ := wsle_single_low $hw
-    try simp only [addrOf_low, numOf_low, dataE_low, addW_low1, addW_low2, subW_low1, subW_low2] at hin ⊢))
+    obtain ⟨$x, $r, $hxy, $hr, rfl⟩ := wsle_single_low $hw
+    try simp only [addrOf_low2, numOf_low2, dataE_low2, addW_low21, addW_low22, subW_low21, subW_low22] at hin ⊢))
 
 /- `opt e => pat`: case on the option `e` (the TSO side's), refuting `none`
 from `hin` and rewriting `some pat` into both `hin` and the goal. -/
@@ -490,7 +502,7 @@ theorem decodeArm_sim (tr : Tier) (as : List Ty) {wa wt : List Word} (hw : WsLe 
   cases tr with
   | niche =>
       rcases wt with _ | ⟨y, _ | ⟨_, _⟩⟩ <;> try (simp [decodeArm] at hd; done)
-      obtain ⟨v, hv, rfl⟩ := wsle_single_low hw
+      obtain ⟨v, rr, hv, hrr, rfl⟩ := wsle_single_low hw
       simp only [decodeArm] at hd ⊢
       generalize y.val = V at hd ⊢
       cases V with
@@ -505,8 +517,8 @@ theorem decodeArm_sim (tr : Tier) (as : List Ty) {wa wt : List Word} (hw : WsLe 
               obtain ⟨j', ty⟩ := q
               simp [hl] at hd
               obtain ⟨rfl, rfl⟩ := hd
-              exact ⟨[{ val := .loc a 0, view := v, rts := y.rts }], by simp [hl],
-                wsle_one ⟨rfl, rfl, hv⟩⟩
+              exact ⟨[{ val := .loc a 0, view := v, rts := rr }], by simp,
+                wsle_one ⟨rfl, hrr, hv⟩⟩
   | wide =>
       rcases wt with _ | ⟨y0, _ | ⟨y1, _ | ⟨_, _⟩⟩⟩ <;> try (simp [decodeArm] at hd; done)
       obtain ⟨x0, wa', rfl, hx0, hw'⟩ := wsle_cons hw
@@ -541,7 +553,7 @@ theorem encodeArm_sim (tr : Tier) (as : List Ty) (j : Nat) {pa pt : List Word} (
           simp only [hl, Option.bind_some] at he ⊢
           rcases pt with _ | ⟨y, _ | ⟨_, _⟩⟩
           · obtain rfl := wsle_nil hp; exact ⟨qt, he, WsLe.refl _⟩
-          · obtain ⟨v, hv, rfl⟩ := wsle_single_low hp
+          · obtain ⟨v, rr, hv, hrr, rfl⟩ := wsle_single_low hp
             generalize armK arm = K at he ⊢
             cases K <;> (try simp only at he ⊢) <;> first
               | (simp at he; done)
@@ -549,7 +561,7 @@ theorem encodeArm_sim (tr : Tier) (as : List Ty) (j : Nat) {pa pt : List Word} (
                  cases V <;> first
                    | (simp at he; done)
                    | exact ⟨qt, he, WsLe.refl _⟩
-                   | (simp at he; subst he; exact ⟨_, rfl, wsle_one ⟨rfl, rfl, hv⟩⟩))
+                   | (simp at he; subst he; exact ⟨_, rfl, wsle_one ⟨rfl, hrr, hv⟩⟩))
           · generalize armK arm = K at he
             cases K <;> simp at he
   | wide =>
@@ -567,17 +579,17 @@ theorem asArm_sim (t : Ty) {wa wt : List Word} (hw : WsLe wa wt) {j : Nat} {pt :
   unfold asArm at hd ⊢
   by_cases hs : sumHead t = true
   · simp only [hs, ↓reduceIte] at hd ⊢; exact decodeArm_sim _ _ hw hd
-  · simp only [hs, ↓reduceIte] at hd ⊢; cases hd; exact ⟨wa, rfl, hw⟩
+  · simp only [hs] at hd ⊢; cases hd; exact ⟨wa, rfl, hw⟩
 
 theorem ofArm_sim (t : Ty) (j : Nat) {pa pt : List Word} (hp : WsLe pa pt) {qt : List Word}
     (he : ofArm t j pt = some qt) : ∃ qa, ofArm t j pa = some qa ∧ WsLe qa qt := by
   unfold ofArm at he ⊢
   by_cases hs : sumHead t = true
   · simp only [hs, ↓reduceIte] at he ⊢; exact encodeArm_sim _ _ _ hp he
-  · simp only [hs, ↓reduceIte] at he ⊢
+  · simp only [hs] at he ⊢
     by_cases hj : (j == 0) = true
     · simp only [hj, ↓reduceIte] at he ⊢; cases he; exact ⟨pa, rfl, hp⟩
-    · simp only [hj, ↓reduceIte] at he; cases he
+    · simp only [hj] at he; cases he
 
 theorem projM_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool)
     {sa st : St} (h : StLe O sa st) (t : Ty) {wa wt : List Word} (hw : WsLe wa wt)
@@ -588,16 +600,16 @@ theorem projM_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool)
   by_cases hb : isBoxed t = true
   · simp only [hb, ↓reduceIte] at hin ⊢
     rcases wt with _ | ⟨y, _ | ⟨_, _⟩⟩ <;> try (simp at hin; done)
-    obtain ⟨v, hv, rfl⟩ := wsle_single_low hw
-    simp only [addrOf_low] at hin ⊢
+    obtain ⟨v, rr, hv, hrr, rfl⟩ := wsle_single_low hw
+    simp only [addrOf_low2] at hin ⊢
     cases ha : addrOf y with
     | none => simp [ha] at hin
     | some b =>
         simp only [ha, List.mem_flatMap] at hin ⊢
         obtain ⟨⟨s1, tw⟩, hl, hrest⟩ := hin
-        obtain ⟨sa1, twa, hl', h1, htw⟩ := loadUnits_sim (tvle_low hv) b false [.one] 0 h hl
+        obtain ⟨sa1, twa, hl', h1, htw⟩ := loadUnits_sim (tvle_low2 hv hrr) b false [.one] 0 h hl
         rcases tw with _ | ⟨tag, _ | ⟨_, _⟩⟩ <;> try (simp at hrest; done)
-        obtain ⟨vt, hvt, rfl⟩ := wsle_single_low htw
+        obtain ⟨vt, rt0, hvt, hrt0, rfl⟩ := wsle_single_low htw
         rcases hV : tag.val with _ | jj | ⟨_, _⟩ | _ <;> try (simp [hV] at hrest; done)
         simp only [hV] at hrest
         cases hu : (armsOf t)[jj]?.bind accs with
@@ -605,11 +617,11 @@ theorem projM_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool)
         | some us =>
             simp only [hu, List.mem_map] at hrest
             obtain ⟨⟨s2, pl⟩, hl2, rfl⟩ := hrest
-            obtain ⟨sa2, pla, hl2', h2, hpl⟩ := loadUnits_sim (tvle_low hv) b false us 1 h1 hl2
-            refine ⟨(sa2, jj, pla), ⟨(sa1, [{ tag with view := vt }]), hl', ?_⟩, h2, rfl, hpl⟩
+            obtain ⟨sa2, pla, hl2', h2, hpl⟩ := loadUnits_sim (tvle_low2 hv hrr) b false us 1 h1 hl2
+            refine ⟨(sa2, jj, pla), ⟨(sa1, [{ tag with view := vt, rts := rt0 }]), hl', ?_⟩, h2, rfl, hpl⟩
             simp only [hV, hu, List.mem_map]
             exact ⟨(sa2, pla), hl2', rfl⟩
-  · simp only [hb, ↓reduceIte] at hin ⊢
+  · simp only [hb] at hin ⊢
     simp only [ol] at hin ⊢
     cases hd : asArm t wt with
     | none => simp [hd] at hin
@@ -638,7 +650,7 @@ theorem injM_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool)
         cases bf
         · exact hst'
         · exact fenceS_sim hst' _
-  · simp only [hb, ↓reduceIte] at hin ⊢
+  · simp only [hb] at hin ⊢
     simp only [ol] at hin ⊢
     cases he : ofArm t j pt with
     | none => simp [he] at hin
@@ -671,15 +683,15 @@ theorem evalOp_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool)
       simp only [evalOp, ol] at hin ⊢
       ev a => t wt wa hw
       ev b => u ut ua hu
-      one wt wa hw => y v hv
-      one ut ua hu => y' v' hv'
+      one wt wa hw => y v hv rv hrv
+      one ut ua hu => y' v' hv' rv' hrv'
       fin_same
   | sub a b =>
       simp only [evalOp, ol] at hin ⊢
       ev a => t wt wa hw
       ev b => u ut ua hu
-      one wt wa hw => y v hv
-      one ut ua hu => y' v' hv'
+      one wt wa hw => y v hv rv hrv
+      one ut ua hu => y' v' hv' rv' hrv'
       fin_same
   | null μ τ => simp only [evalOp] at hin ⊢; fin_same
   | fold a τ =>
@@ -712,7 +724,7 @@ theorem evalOp_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool)
   | mkWord r P v tok =>
       by_cases hg : P.ghost = true
       · simp only [evalOp, hg] at hin ⊢; fin_same
-      · simp only [evalOp, hg, ↓reduceIte, ol] at hin ⊢
+      · simp only [evalOp, hg, ol] at hin ⊢
         ev v => t wt wa hw
         simp at hin; subst hin
         exact ⟨(sa, _, wa), by simp, h, rfl, hw⟩
@@ -725,26 +737,26 @@ theorem evalOp_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool)
   | ldp acq a n0 n1 =>
       simp only [evalOp] at hin ⊢
       ev a => t wt wa hw
-      one wt wa hw => y v hv
+      one wt wa hw => y v hv rv hrv
       cases hp : pairRef t
       · simp [hp] at hin
       simp only [hp, ↓reduceIte] at hin ⊢
       opt (addrOf y) => b
       simp only [List.mem_map] at hin ⊢
       obtain ⟨⟨st', wt'⟩, hl, rfl⟩ := hin
-      obtain ⟨sa', wa', hl', hst', hw'⟩ := loadUnits_sim (tvle_low hv) b acq [.two] 0 h hl
+      obtain ⟨sa', wa', hl', hst', hw'⟩ := loadUnits_sim (tvle_low2 hv hrv) b acq [.two] 0 h hl
       exact ⟨_, ⟨(sa', wa'), hl', rfl⟩, hst', rfl, hw'⟩
   | stp rel a v0 v1 tok =>
       simp only [evalOp] at hin ⊢
       ev a => t wt wa hw
       ev v0 => u0 ut0 ua0 hu0
       ev v1 => u1 ut1 ua1 hu1
-      one wt wa hw => y v hv
+      one wt wa hw => y v hv rv hrv
       opt (word2Of t) => ⟨r, P⟩
       opt (addrOf y) => b
       simp only [List.mem_map] at hin ⊢
       obtain ⟨st', hs, rfl⟩ := hin
-      obtain ⟨sa', hs', hst'⟩ := storeUnits_sim k (tvle_low hv) b rel [.two] (ua0 ++ ua1) (ut0 ++ ut1) 0 h
+      obtain ⟨sa', hs', hst'⟩ := storeUnits_sim k (tvle_low2 hv hrv) b rel [.two] (ua0 ++ ua1) (ut0 ++ ut1) 0 h
         (WsLe.append hu0 hu1) hs
       exact ⟨_, ⟨sa', hs', rfl⟩, hst', rfl, trivial⟩
   | mkEPair r P v0 v1 =>
@@ -921,7 +933,7 @@ theorem evalOp_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool)
   | fld j a =>
       simp only [evalOp, ol] at hin ⊢
       ev a => t wt wa hw
-      one wt wa hw => y v hv
+      one wt wa hw => y v hv rv hrv
       opt (cellOf t) => ⟨μ, u⟩
       generalize unfold1 u = U at hin ⊢
       cases U <;> try (simp at hin; done)
@@ -932,17 +944,17 @@ theorem evalOp_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool)
       by_cases hj : j = 0
       · subst hj
         simp at hin; subst hin
-        exact ⟨(sa, _, [{ val := .loc (offs b 0) gg, view := v, rts := y.rts }]), by simp, h, rfl,
-          ⟨rfl, rfl, hv⟩, trivial⟩
+        exact ⟨(sa, _, [{ val := .loc (offs b 0) gg, view := v, rts := rv }]), by simp, h, rfl,
+          ⟨rfl, hrv, hv⟩, trivial⟩
       · simp only [beq_iff_eq, hj, ↓reduceIte] at hin ⊢
         opt (accs c1) => us
         simp at hin; subst hin
-        exact ⟨(sa, _, [{ val := .loc (offs b (nWords us)) gg, view := v, rts := y.rts }]),
-          by simp [hj], h, rfl, ⟨rfl, rfl, hv⟩, trivial⟩
+        exact ⟨(sa, _, [{ val := .loc (offs b (nWords us)) gg, view := v, rts := rv }]),
+          by simp, h, rfl, ⟨rfl, hrv, hv⟩, trivial⟩
   | idx b i =>
       simp only [evalOp, ol] at hin ⊢
       ev b => t wt wa hw
-      one wt wa hw => y v hv
+      one wt wa hw => y v hv rv hrv
       ev i => u ut ua hu
       rw [numOf_congr hu]
       opt (numOf ut) => j
@@ -952,13 +964,13 @@ theorem evalOp_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool)
       cases V <;> try (simp at hin; done)
       rename_i aa gg
       simp at hin; subst hin
-      exact ⟨(sa, _, [{ val := .loc (offs aa (j * nWords us)) gg, view := v, rts := y.rts }]),
-        by simp, h, rfl, ⟨rfl, rfl, hv⟩, trivial⟩
+      exact ⟨(sa, _, [{ val := .loc (offs aa (j * nWords us)) gg, view := v, rts := rv }]),
+        by simp, h, rfl, ⟨rfl, hrv, hv⟩, trivial⟩
   | loadAt b i =>
       simp only [evalOp] at hin ⊢
       ev b => t wt wa hw
       ev i => u ut ua hu
-      one wt wa hw => y v hv
+      one wt wa hw => y v hv rv hrv
       rw [numOf_congr hu]
       opt (bufElem t) => ⟨μ, c⟩
       opt (numOf ut) => j
@@ -966,14 +978,14 @@ theorem evalOp_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool)
       opt (accs c) => us
       simp only [List.mem_map] at hin ⊢
       obtain ⟨⟨s1, old⟩, hl, rfl⟩ := hin
-      obtain ⟨sa1, olda, hl', h1, hwo⟩ := loadUnits_sim (tvle_low hv) _ false us 0 h hl
+      obtain ⟨sa1, olda, hl', h1, hwo⟩ := loadUnits_sim (tvle_low2 hv hrv) _ false us 0 h hl
       exact ⟨_, ⟨(sa1, olda), hl', rfl⟩, h1, rfl, hwo⟩
   | xchgAt b i x =>
       simp only [evalOp] at hin ⊢
       ev b => t wt wa hw
       ev i => u ut ua hu
       ev x => r xt xa hx
-      one wt wa hw => y v hv
+      one wt wa hw => y v hv rv hrv
       rw [numOf_congr hu]
       opt (bufElem t) => ⟨μ, c⟩
       opt (numOf ut) => j
@@ -981,14 +993,14 @@ theorem evalOp_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool)
       opt (accs c) => us
       simp only [List.mem_flatMap, List.mem_map] at hin ⊢
       obtain ⟨⟨s1, old⟩, hl, s2, hs, rfl⟩ := hin
-      obtain ⟨sa1, olda, hl', h1, hwo⟩ := loadUnits_sim (tvle_low hv) _ false us 0 h hl
-      obtain ⟨sa2, hs', h2⟩ := storeUnits_sim k (tvle_low hv) _ false us xa xt 0 h1 hx hs
+      obtain ⟨sa1, olda, hl', h1, hwo⟩ := loadUnits_sim (tvle_low2 hv hrv) _ false us 0 h hl
+      obtain ⟨sa2, hs', h2⟩ := storeUnits_sim k (tvle_low2 hv hrv) _ false us xa xt 0 h1 hx hs
       exact ⟨_, ⟨(sa1, olda), hl', sa2, hs', rfl⟩, h2, rfl, hwo⟩
   | loadAtF b i q =>
       simp only [evalOp] at hin ⊢
       ev b => t wt wa hw
       ev i => u ut ua hu
-      one wt wa hw => y v hv
+      one wt wa hw => y v hv rv hrv
       rw [numOf_congr hu]
       opt (bufElem t) => ⟨μ, c⟩
       opt (numOf ut) => j
@@ -998,14 +1010,14 @@ theorem evalOp_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool)
       opt (accs cc) => cs
       simp only [List.mem_map] at hin ⊢
       obtain ⟨⟨s1, old⟩, hl, rfl⟩ := hin
-      obtain ⟨sa1, olda, hl', h1, hwo⟩ := loadUnits_sim (tvle_low hv) _ false cs 0 h hl
+      obtain ⟨sa1, olda, hl', h1, hwo⟩ := loadUnits_sim (tvle_low2 hv hrv) _ false cs 0 h hl
       exact ⟨_, ⟨(sa1, olda), hl', rfl⟩, h1, rfl, hwo⟩
   | xchgAtF b i q x =>
       simp only [evalOp] at hin ⊢
       ev b => t wt wa hw
       ev i => u ut ua hu
       ev x => r xt xa hx
-      one wt wa hw => y v hv
+      one wt wa hw => y v hv rv hrv
       rw [numOf_congr hu]
       opt (bufElem t) => ⟨μ, c⟩
       opt (numOf ut) => j
@@ -1015,14 +1027,14 @@ theorem evalOp_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool)
       opt (accs cc) => cs
       simp only [List.mem_flatMap, List.mem_map] at hin ⊢
       obtain ⟨⟨s1, old⟩, hl, s2, hs, rfl⟩ := hin
-      obtain ⟨sa1, olda, hl', h1, hwo⟩ := loadUnits_sim (tvle_low hv) _ false cs 0 h hl
-      obtain ⟨sa2, hs', h2⟩ := storeUnits_sim k (tvle_low hv) _ false cs xa xt 0 h1 hx hs
+      obtain ⟨sa1, olda, hl', h1, hwo⟩ := loadUnits_sim (tvle_low2 hv hrv) _ false cs 0 h hl
+      obtain ⟨sa2, hs', h2⟩ := storeUnits_sim k (tvle_low2 hv hrv) _ false cs xa xt 0 h1 hx hs
       exact ⟨_, ⟨(sa1, olda), hl', sa2, hs', rfl⟩, h2, rfl, hwo⟩
   | ldl b i =>
       simp only [evalOp] at hin ⊢
       ev b => t wt wa hw
       ev i => u ut ua hu
-      one wt wa hw => y v hv
+      one wt wa hw => y v hv rv hrv
       rw [numOf_congr hu]
       opt (bufElem t) => ⟨μ, c⟩
       opt (numOf ut) => j
@@ -1030,7 +1042,7 @@ theorem evalOp_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool)
       opt (lanesOf c) => ⟨sg, w⟩
       simp only [List.mem_filterMap] at hin ⊢
       obtain ⟨⟨s1, old⟩, hl, hf⟩ := hin
-      obtain ⟨sa1, olda, hl', h1, hwo⟩ := loadUnits_sim (tvle_low hv) _ false [.one] 0 h hl
+      obtain ⟨sa1, olda, hl', h1, hwo⟩ := loadUnits_sim (tvle_low2 hv hrv) _ false [.one] 0 h hl
       rw [← numOf_congr hwo] at hf
       cases hx : numOf olda with
       | none => simp [hx] at hf
@@ -1042,7 +1054,7 @@ theorem evalOp_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool)
       ev b => t wt wa hw
       ev wi => u ut ua hu
       ev jl => r jt ja hj
-      one wt wa hw => y v hv
+      one wt wa hw => y v hv rv hrv
       rw [numOf_congr hu, numOf_congr hj]
       opt (bufElem t) => ⟨μ, c⟩
       opt (numOf ut) => ii
@@ -1051,7 +1063,7 @@ theorem evalOp_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool)
       opt (lanesOf c) => ⟨sg, w⟩
       simp only [List.mem_filterMap] at hin ⊢
       obtain ⟨⟨s1, old⟩, hl, hf⟩ := hin
-      obtain ⟨sa1, olda, hl', h1, hwo⟩ := loadUnits_sim (tvle_low hv) _ false [.one] 0 h hl
+      obtain ⟨sa1, olda, hl', h1, hwo⟩ := loadUnits_sim (tvle_low2 hv hrv) _ false [.one] 0 h hl
       rw [← numOf_congr hwo] at hf
       cases hx : numOf olda with
       | none => simp [hx] at hf
@@ -1063,7 +1075,7 @@ theorem evalOp_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool)
       ev b => t wt wa hw
       ev i => u ut ua hu
       ev x => r xt xa hx
-      one wt wa hw => y v hv
+      one wt wa hw => y v hv rv hrv
       rw [numOf_congr hu, numOf_congr hx]
       opt (bufElem t) => ⟨μ, c⟩
       opt (numOf ut) => j
@@ -1072,7 +1084,7 @@ theorem evalOp_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool)
       opt (lanesOf c) => ⟨sg, w⟩
       simp only [List.mem_flatMap] at hin ⊢
       obtain ⟨⟨s1, old⟩, hl, hs⟩ := hin
-      obtain ⟨sa1, olda, hl', h1, hwo⟩ := loadUnits_sim (tvle_low hv) _ false [.one] 0 h hl
+      obtain ⟨sa1, olda, hl', h1, hwo⟩ := loadUnits_sim (tvle_low2 hv hrv) _ false [.one] 0 h hl
       rw [← numOf_congr hwo] at hs
       cases hn : numOf olda with
       | none => simp [hn] at hs
@@ -1080,7 +1092,7 @@ theorem evalOp_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool)
           simp only [hn, List.mem_map] at hs
           obtain ⟨s2, hs2, rfl⟩ := hs
           obtain ⟨sa2, hs2', h2⟩ :=
-            storeUnits_sim k (tvle_low hv) _ false [.one] _ _ 0 h1 (WsLe.refl _) hs2
+            storeUnits_sim k (tvle_low2 hv hrv) _ false [.one] _ _ 0 h1 (WsLe.refl _) hs2
           exact ⟨(sa2, .unit, []), ⟨(sa1, olda), hl', by simp only [hn, List.mem_map]; exact ⟨sa2, hs2', rfl⟩⟩,
             h2, rfl, trivial⟩
   | stlw b wi jl x =>
@@ -1089,7 +1101,7 @@ theorem evalOp_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool)
       ev wi => u ut ua hu
       ev jl => r jt ja hj
       ev x => q xt xa hx
-      one wt wa hw => y v hv
+      one wt wa hw => y v hv rv hrv
       rw [numOf_congr hu, numOf_congr hj, numOf_congr hx]
       opt (bufElem t) => ⟨μ, c⟩
       opt (numOf ut) => ii
@@ -1099,7 +1111,7 @@ theorem evalOp_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool)
       opt (lanesOf c) => ⟨sg, w⟩
       simp only [List.mem_flatMap] at hin ⊢
       obtain ⟨⟨s1, old⟩, hl, hs⟩ := hin
-      obtain ⟨sa1, olda, hl', h1, hwo⟩ := loadUnits_sim (tvle_low hv) _ false [.one] 0 h hl
+      obtain ⟨sa1, olda, hl', h1, hwo⟩ := loadUnits_sim (tvle_low2 hv hrv) _ false [.one] 0 h hl
       rw [← numOf_congr hwo] at hs
       cases hn : numOf olda with
       | none => simp [hn] at hs
@@ -1107,7 +1119,7 @@ theorem evalOp_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool)
           simp only [hn, List.mem_map] at hs
           obtain ⟨s2, hs2, rfl⟩ := hs
           obtain ⟨sa2, hs2', h2⟩ :=
-            storeUnits_sim k (tvle_low hv) _ false [.one] _ _ 0 h1 (WsLe.refl _) hs2
+            storeUnits_sim k (tvle_low2 hv hrv) _ false [.one] _ _ 0 h1 (WsLe.refl _) hs2
           exact ⟨(sa2, .unit, []), ⟨(sa1, olda), hl', by simp only [hn, List.mem_map]; exact ⟨sa2, hs2', rfl⟩⟩,
             h2, rfl, trivial⟩
   | bufInit b i x =>
@@ -1115,7 +1127,7 @@ theorem evalOp_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool)
       ev b => t wt wa hw
       ev i => u ut ua hu
       ev x => r xt xa hx
-      one wt wa hw => y v hv
+      one wt wa hw => y v hv rv hrv
       rw [numOf_congr hu]
       opt (bufElem t) => ⟨μ, c⟩
       opt (numOf ut) => j
@@ -1124,8 +1136,8 @@ theorem evalOp_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool)
       split at hin
       · simp only [List.mem_map] at hin ⊢
         obtain ⟨st', hs, rfl⟩ := hin
-        obtain ⟨sa', hs', hst'⟩ := storeUnits_sim k (tvle_low hv) _ false _ xa xt 0 h hx hs
-        exact ⟨_, ⟨sa', hs', rfl⟩, hst', rfl, tvle_low hv, trivial⟩
+        obtain ⟨sa', hs', hst'⟩ := storeUnits_sim k (tvle_low2 hv hrv) _ false _ xa xt 0 h hx hs
+        exact ⟨_, ⟨sa', hs', rfl⟩, hst', rfl, tvle_low2 hv hrv, trivial⟩
       · simp at hin
   | newBuf m τ =>
       simp only [evalOp, ol] at hin ⊢
@@ -1144,50 +1156,50 @@ theorem evalOp_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool)
   | load acq a =>
       simp only [evalOp] at hin ⊢
       ev a => t wt wa hw
-      one wt wa hw => y v hv
+      one wt wa hw => y v hv rv hrv
       opt (cellOf t) => ⟨μ, u⟩
       opt (addrOf y) => b
       opt (accs u) => us
       simp only [List.mem_map] at hin ⊢
       obtain ⟨⟨st', wt'⟩, hl, rfl⟩ := hin
-      obtain ⟨sa', wa', hl', hst', hw'⟩ := loadUnits_sim (tvle_low hv) b acq us 0 h hl
+      obtain ⟨sa', wa', hl', hst', hw'⟩ := loadUnits_sim (tvle_low2 hv hrv) b acq us 0 h hl
       exact ⟨_, ⟨(sa', wa'), hl', rfl⟩, hst', rfl, hw'⟩
   | store rel a x tok =>
       simp only [evalOp] at hin ⊢
       ev a => t wt wa hw
       ev x => u ut ua hu
-      one wt wa hw => y v hv
+      one wt wa hw => y v hv rv hrv
       opt (cellOf t) => ⟨μ, c⟩
       opt (addrOf y) => b
       opt (accs c) => us
       simp only [List.mem_map] at hin ⊢
       obtain ⟨st', hs, rfl⟩ := hin
-      obtain ⟨sa', hs', hst'⟩ := storeUnits_sim k (tvle_low hv) b rel us ua ut 0 h hu hs
+      obtain ⟨sa', hs', hst'⟩ := storeUnits_sim k (tvle_low2 hv hrv) b rel us ua ut 0 h hu hs
       exact ⟨_, ⟨sa', hs', rfl⟩, hst', rfl, trivial⟩
   | xchg a x =>
       simp only [evalOp] at hin ⊢
       ev a => t wt wa hw
       ev x => u ut ua hu
-      one wt wa hw => y v hv
+      one wt wa hw => y v hv rv hrv
       opt (cellOf t) => ⟨μ, c⟩
       opt (addrOf y) => b
       opt (accs c) => us
       simp only [List.mem_flatMap, List.mem_map] at hin ⊢
       obtain ⟨⟨s1, old⟩, hl, s2, hs, rfl⟩ := hin
-      obtain ⟨sa1, olda, hl', h1, hwo⟩ := loadUnits_sim (tvle_low hv) b false us 0 h hl
-      obtain ⟨sa2, hs', h2⟩ := storeUnits_sim k (tvle_low hv) b false us ua ut 0 h1 hu hs
+      obtain ⟨sa1, olda, hl', h1, hwo⟩ := loadUnits_sim (tvle_low2 hv hrv) b false us 0 h hl
+      obtain ⟨sa2, hs', h2⟩ := storeUnits_sim k (tvle_low2 hv hrv) b false us ua ut 0 h1 hu hs
       exact ⟨_, ⟨(sa1, olda), hl', sa2, hs', rfl⟩, h2, rfl, hwo⟩
   | fetch o acq rel a v =>
       simp only [evalOp] at hin ⊢
       ev a => t wt wa hw
       ev v => u ut ua hu
-      one wt wa hw => pw v1 hv1
-      one ut ua hu => nw v3 hv3
+      one wt wa hw => pw v1 hv1 rv1 hrv1
+      one ut ua hu => nw v3 hv3 rv3 hrv3
       opt (addrOf pw) => b
       simp only [List.mem_map, h.pairs] at hin ⊢
       obtain ⟨⟨mt', tt'⟩, hr, rfl⟩ := hin
       obtain ⟨⟨qm, qth⟩, hq, hmq, htq⟩ := Promises.Sim.stepRmw_sim k h.mem
-        (mth_le h (tvle_low hv1) (tvle_low hv3) (tvle_low hv3)) (fun t ht => (h.agree t ht).2)
+        (mth_le h (tvle_low2 hv1 hrv1) (tvle_low2 hv3 hrv3) (tvle_low2 hv3 hrv3)) (fun t ht => (h.agree t ht).2)
         st.pairs 1 b o.kind (dataE 1 nw) [0] acq rel hr
       have hea := Promises.Sim.stepRmw_ext k .arm _ _ _ _ _ _ _ _ _ _ hq
       have het := Promises.Sim.stepRmw_ext k .tso _ _ _ _ _ _ _ _ _ _ hr
@@ -1226,7 +1238,58 @@ def StackLe : List Frame → List Frame → Prop
   | fa :: sa, ft :: st => FrameLe fa ft ∧ StackLe sa st
   | _, _ => False
 
-/-- A thread: the same term, frames and types; words, views lower. -/
+/-- (D4) Permits: both absent, or both present with ARM's view lower. -/
+abbrev PermLe (a b : Option Ts) : Prop := Option.Rel (· ≤ ·) a b
+
+theorem PermLe.refl : ∀ o : Option Ts, PermLe o o
+  | none => .none
+  | some v => .some (Nat.le_refl v)
+
+theorem PermLe.getD {a b : Option Ts} (h : PermLe a b) : a.getD 0 ≤ b.getD 0 := by
+  cases h with
+  | none => exact Nat.le_refl _
+  | some h => exact h
+
+theorem permLe_park {a b : Option Ts} (h : PermLe a b) (n : ExtName) :
+    PermLe (if n = .park then none else a) (if n = .park then none else b) := by
+  split
+  · exact .none
+  · exact h
+
+/-- (D4) The release view an `unpark` publishes is monotone in the view state. -/
+theorem relView_le {va vt : VState} (h : VLe va vt) : relView va ≤ relView vt := by
+  have h1 : va.vRd ≤ vt.vRd := h.vRd
+  have h2 : va.vWr ≤ vt.vWr := h.vWr
+  have h3 : va.vRelSt ≤ vt.vRelSt := h.vRelSt
+  unfold relView
+  exact Nat.max_le.2 ⟨Nat.le_trans h3 (Nat.le_max_left _ _), Nat.le_trans (Nat.max_le.2
+    ⟨Nat.le_trans h1 (Nat.le_max_left _ _), Nat.le_trans h2 (Nat.le_max_right _ _)⟩) (Nat.le_max_right _ _)⟩
+
+/-- (D4) `park`'s acquire is monotone in the view and the permit (the same memory size). -/
+theorem parkVs_le {na nt : Nat} {ta tt : TTh} (hn : na = nt) (hv : VLe ta.vs tt.vs)
+    (hp : PermLe ta.permit tt.permit) : VLe (parkVs na ta) (parkVs nt tt) := by
+  subst hn
+  unfold parkVs
+  generalize ta.permit = pa at hp ⊢
+  generalize tt.permit = pt at hp ⊢
+  cases hp with
+  | none => exact hv
+  | some hab =>
+    have h1 : ta.vs.vRd ≤ tt.vs.vRd := hv.vRd
+    have h2 : ta.vs.vPreBase ≤ tt.vs.vPreBase := hv.vPreBase
+    have h3 := Nat.le_min.2 ⟨Nat.le_trans (Nat.min_le_left _ na) hab, Nat.min_le_right _ na⟩
+    refine ⟨hv.coh, ?_, hv.vWr, hv.vCtrl, ?_, hv.vRelSt, hv.mine, hv.fwd⟩
+    · exact Nat.max_le.2 ⟨Nat.le_trans h1 (Nat.le_max_left _ _), Nat.le_trans h3 (Nat.le_max_right _ _)⟩
+    · exact Nat.max_le.2 ⟨Nat.le_trans h2 (Nat.le_max_left _ _), Nat.le_trans h3 (Nat.le_max_right _ _)⟩
+
+theorem parkVs_le_if {na nt : Nat} {ta tt : TTh} (hn : na = nt) (hv : VLe ta.vs tt.vs)
+    (hp : PermLe ta.permit tt.permit) (n : ExtName) :
+    VLe (if n = .park then parkVs na ta else ta.vs) (if n = .park then parkVs nt tt else tt.vs) := by
+  split
+  · exact parkVs_le hn hv hp
+  · exact hv
+
+/-- A thread: the same term, frames and types; words' views and `rts`, and view state, lower. -/
 structure TThLe (ta tt : TTh) : Prop where
   term     : ta.term = tt.term
   env      : EnvLe ta.env tt.env
@@ -1236,6 +1299,8 @@ structure TThLe (ta tt : TTh) : Prop where
   promises : ta.promises = tt.promises
   nalloc   : ta.nalloc = tt.nalloc
   undefs   : ta.undefs = tt.undefs
+  /-- (D4) the park permit: both absent, or both present with a lower view -/
+  permit   : PermLe ta.permit tt.permit
 
 /-- A `tstep` result (memory, pairs, thread), with the agreement invariant. -/
 def RLe (O : List Ts) (ra rt : Memory × List Ts × TTh) : Prop :=
@@ -1266,16 +1331,16 @@ theorem tstep_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool)
     (h : StLe O (stOf ma pairs ta) (stOf mt pairs tt)) (ht : TThLe ta tt)
     {r : Memory × List Ts × TTh} (hin : r ∈ tstep ⟨p, k, .tso, n, i, lbase, bf, fun _ => False, fun _ => True⟩ mt pairs tt) :
     ∃ ra ∈ tstep ⟨p, k, .arm, n, i, lbase, bf, fun _ => False, fun _ => True⟩ ma pairs ta, RLe O ra r := by
-  obtain ⟨term, ea, σs, stka, vsa, pr, na, ua, tla⟩ := ta
-  obtain ⟨term', et, σs', stkt, vst, pr', nt, ut, tlt⟩ := tt
-  obtain ⟨hterm, he, hσ, hstk, hvs, hpr, hna, hua⟩ := ht
-  simp only at hterm hσ hpr hna hua he hstk hvs
+  obtain ⟨term, ea, σs, stka, vsa, pr, na, ua, tla, pma⟩ := ta
+  obtain ⟨term', et, σs', stkt, vst, pr', nt, ut, tlt, pmt⟩ := tt
+  obtain ⟨hterm, he, hσ, hstk, hvs, hpr, hna, hua, hpm⟩ := ht
+  simp only at hterm hσ hpr hna hua he hstk hvs hpm
   subst hterm hσ hpr hna hua
   have same : ∀ {e : Expr} {ea' et' : Env} {σs'' : List Ty} {fa ft : List Frame},
       EnvLe ea' et' → StackLe fa ft →
-      RLe O (ma, pairs, ⟨e, ea', σs'', fa, vsa, pr, na, ua, tla⟩)
-        (mt, pairs, ⟨e, et', σs'', ft, vst, pr, na, ua, tlt⟩) :=
-    fun hE hS => ⟨h.mem, rfl, ⟨rfl, hE, rfl, hS, hvs, rfl, rfl, rfl⟩, h.agree, h.other⟩
+      RLe O (ma, pairs, ⟨e, ea', σs'', fa, vsa, pr, na, ua, tla, pma⟩)
+        (mt, pairs, ⟨e, et', σs'', ft, vst, pr, na, ua, tlt, pmt⟩) :=
+    fun hE hS => ⟨h.mem, rfl, ⟨rfl, hE, rfl, hS, hvs, rfl, rfl, rfl, hpm⟩, h.agree, h.other⟩
   cases term with
   | let_ x op e =>
       cases op
@@ -1286,11 +1351,11 @@ theorem tstep_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool)
         simp at hin; subst hin
         pick
         exact ⟨h.mem, rfl, ⟨rfl, ⟨rfl, rfl, hw, trivial⟩, rfl, ⟨⟨rfl, rfl, he, rfl, rfl⟩, hstk⟩, hvs,
-          rfl, rfl, rfl⟩, h.agree, h.other⟩
+          rfl, rfl, rfl, hpm⟩, h.agree, h.other⟩
       case callc f a =>
         simp only [tstep] at hin ⊢
         ev f => tf wt wa hw
-        one wt wa hw => y v hv
+        one wt wa hw => y v hv rv hrv
         generalize y.val = V at hin ⊢
         cases V <;> try (simp at hin; done)
         rename_i ii
@@ -1301,7 +1366,7 @@ theorem tstep_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool)
         simp at hin; subst hin
         pick
         exact ⟨h.mem, rfl, ⟨rfl, ⟨rfl, rfl, hu, trivial⟩, rfl, ⟨⟨rfl, rfl, he, rfl, rfl⟩, hstk⟩, hvs,
-          rfl, rfl, rfl⟩, h.agree, h.other⟩
+          rfl, rfl, rfl, hpm⟩, h.agree, h.other⟩
       all_goals
         simp only [tstep, List.mem_map] at hin ⊢
         obtain ⟨⟨s', t, ws⟩, hev, rfl⟩ := hin
@@ -1309,7 +1374,7 @@ theorem tstep_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool)
         refine ⟨_, ⟨(sa', ta', wa'), hev', rfl⟩, ?_⟩
         simp only at htt; subst htt
         exact ⟨hs.mem, hs.pairs, ⟨rfl, ⟨rfl, rfl, hws, he⟩, rfl, hstk, hs.vs, hs.promises, hs.nalloc,
-          hs.undefs⟩, hs.agree, hs.other⟩
+          hs.undefs, hpm⟩, hs.agree, hs.other⟩
   | split a x y e =>
       simp only [tstep] at hin ⊢
       ev a => t wt wa hw
@@ -1342,12 +1407,12 @@ theorem tstep_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool)
       all_goals first
         | (simp at hin; subst hin; pick
            exact ⟨hs.mem, hs.pairs, ⟨rfl, ⟨rfl, rfl, trivial, ⟨rfl, rfl, hw, he⟩⟩, rfl, hstk, hs.vs, hs.promises,
-             hs.nalloc, hs.undefs⟩, hs.agree, hs.other⟩)
+             hs.nalloc, hs.undefs, hpm⟩, hs.agree, hs.other⟩)
         | (rename_i t' ψ
            cases t' <;> try (simp at hin; done)
            simp at hin; subst hin; pick
            exact ⟨hs.mem, hs.pairs, ⟨rfl, ⟨rfl, rfl, trivial, ⟨rfl, rfl, hw, he⟩⟩, rfl, hstk, hs.vs, hs.promises,
-             hs.nalloc, hs.undefs⟩, hs.agree, hs.other⟩)
+             hs.nalloc, hs.undefs, hpm⟩, hs.agree, hs.other⟩)
   | openPub a w pn cn e =>
       simp only [tstep] at hin ⊢
       ev a => t wt wa hw
@@ -1366,24 +1431,24 @@ theorem tstep_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool)
       obtain ⟨⟨sa2, qa⟩, hij', h2, hq⟩ := injM_sim p k n i lbase bf h1 _ _ hpl hij
       refine ⟨_, ⟨(sa1, ja, pla), hpr', (sa2, qa), hij', rfl⟩, ?_⟩
       exact ⟨h2.mem, h2.pairs, ⟨rfl, ⟨rfl, rfl, hq, he⟩, rfl, hstk, h2.vs, h2.promises, h2.nalloc,
-        h2.undefs⟩, h2.agree, h2.other⟩
+        h2.undefs, hpm⟩, h2.agree, h2.other⟩
   | ifnull a e₁ y e₂ =>
       simp only [tstep] at hin ⊢
       ev a => t wt wa hw
       cases t <;> try (simp at hin; done)
-      one wt wa hw => yy v hv
+      one wt wa hw => yy v hv rv hrv
       rcases hV : yy.val with _ | nn | ⟨aa, gg⟩ | _ <;> simp only [hV] at hin ⊢ <;>
         try (simp at hin; done)
       · simp at hin; subst hin
         pick
-        exact same ⟨rfl, rfl, wsle_one ⟨by simp [hV], rfl, hv⟩, he⟩ hstk
+        exact same ⟨rfl, rfl, wsle_one ⟨by simp [hV], hrv, hv⟩, he⟩ hstk
       · simp at hin; subst hin
         pick
         exact same he hstk
   | parity a w ev' od =>
       simp only [tstep] at hin ⊢
       ev a => t wt wa hw
-      one wt wa hw => yy v hv
+      one wt wa hw => yy v hv rv hrv
       generalize yy.val = V at hin ⊢
       cases V <;> try (simp at hin; done)
       simp only [List.mem_singleton] at hin; subst hin
@@ -1393,8 +1458,8 @@ theorem tstep_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool)
       simp only [tstep] at hin ⊢
       ev a => t wt wa hw
       ev b => u ut ua hu
-      one wt wa hw => y1 v1 hv1
-      one ut ua hu => y2 v2 hv2
+      one wt wa hw => y1 v1 hv1 rv1 hrv1
+      one ut ua hu => y2 v2 hv2 rv2 hrv2
       generalize y1.val = V1 at hin ⊢
       generalize y2.val = V2 at hin ⊢
       cases V1 <;> cases V2 <;> try (simp at hin; done)
@@ -1404,14 +1469,14 @@ theorem tstep_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool)
       ev w => t1 w1 wa1 hw1
       ev e => t2 w2 wa2 hw2
       ev v => t3 w3 wa3 hw3
-      one w1 wa1 hw1 => pw v1 hv1
-      one w2 wa2 hw2 => ew v2 hv2
-      one w3 wa3 hw3 => nw v3 hv3
+      one w1 wa1 hw1 => pw v1 hv1 rv1 hrv1
+      one w2 wa2 hw2 => ew v2 hv2 rv2 hrv2
+      one w3 wa3 hw3 => nw v3 hv3 rv3 hrv3
       opt (addrOf pw) => b
       simp only [List.mem_map] at hin ⊢
       obtain ⟨⟨mt', tt'⟩, hr, rfl⟩ := hin
       obtain ⟨⟨qm, qth⟩, hq, hmq, htq⟩ := Promises.Sim.stepRmw_sim k h.mem
-        (mth_le h (tvle_low hv1) (tvle_low hv3) (tvle_low hv3)) (fun t ht => (h.agree t ht).2)
+        (mth_le h (tvle_low2 hv1 hrv1) (tvle_low2 hv3 hrv3) (tvle_low2 hv3 hrv3)) (fun t ht => (h.agree t ht).2)
         pairs 1 b (.cas ew.val) (dataE 1 nw) [0] acq rel hr
       have hea := Promises.Sim.stepRmw_ext k .arm _ _ _ _ _ _ _ _ _ _ hq
       have het := Promises.Sim.stepRmw_ext k .tso _ _ _ _ _ _ _ _ _ _ hr
@@ -1424,10 +1489,10 @@ theorem tstep_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool)
       simp only [hrd, hcu]
       by_cases hc : ((tt'.regs 1).val == ew.val) = true
       · simp only [hc, ↓reduceIte]
-        exact ⟨hmq, rfl, ⟨rfl, ⟨rfl, rfl, trivial, he⟩, rfl, hstk, htq.vs, htq.promises, rfl, rfl⟩,
+        exact ⟨hmq, rfl, ⟨rfl, ⟨rfl, rfl, trivial, he⟩, rfl, hstk, htq.vs, htq.promises, rfl, rfl, hpm⟩,
           hag, hot⟩
-      · simp only [hc, ↓reduceIte]
-        exact ⟨hmq, rfl, ⟨rfl, he, rfl, hstk, htq.vs, htq.promises, rfl, rfl⟩, hag, hot⟩
+      · simp only [hc]
+        exact ⟨hmq, rfl, ⟨rfl, he, rfl, hstk, htq.vs, htq.promises, rfl, rfl, hpm⟩, hag, hot⟩
   | casp acq rel w e0 e1 v0 v1 t ok fail =>
       simp only [tstep] at hin ⊢
       ev w => t1 w1 wa1 hw1
@@ -1435,16 +1500,16 @@ theorem tstep_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool)
       ev e1 => t3 w3 wa3 hw3
       ev v0 => t4 w4 wa4 hw4
       ev v1 => t5 w5 wa5 hw5
-      one w1 wa1 hw1 => pw v1 hv1
-      one w2 wa2 hw2 => x0 v2 hv2
-      one w3 wa3 hw3 => x1 v3 hv3
-      one w4 wa4 hw4 => n0 v4 hv4
-      one w5 wa5 hw5 => n1 v5 hv5
+      one w1 wa1 hw1 => pw v1 hv1 rv1 hrv1
+      one w2 wa2 hw2 => x0 v2 hv2 rv2 hrv2
+      one w3 wa3 hw3 => x1 v3 hv3 rv3 hrv3
+      one w4 wa4 hw4 => n0 v4 hv4 rv4 hrv4
+      one w5 wa5 hw5 => n1 v5 hv5 rv5 hrv5
       opt (addrOf pw) => b
       simp only [List.mem_map] at hin ⊢
       obtain ⟨⟨mt', pt', tt'⟩, hr, rfl⟩ := hin
       obtain ⟨⟨qm, qp, qth⟩, hq, hmq, hpq, htq⟩ := Promises.Sim.stepRmwPair_sim h.mem
-        (mth_le h (tvle_low hv1) (tvle_low hv4) (tvle_low hv5)) (fun t ht => (h.agree t ht).2)
+        (mth_le h (tvle_low2 hv1 hrv1) (tvle_low2 hv4 hrv4) (tvle_low2 hv5 hrv5)) (fun t ht => (h.agree t ht).2)
         pairs 1 2 b x0.val x1.val (dataE 1 n0) (dataE 2 n1) [0] acq rel hr
       have hea := Promises.Sim.stepRmwPair_ext .arm _ _ _ _ _ _ _ _ _ _ _ _ _ hq
       have het := Promises.Sim.stepRmwPair_ext .tso _ _ _ _ _ _ _ _ _ _ _ _ _ hr
@@ -1459,10 +1524,10 @@ theorem tstep_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool)
       simp only [hrd0, hrd1, hcu]
       by_cases hc : ((tt'.regs 1).val == x0.val && (tt'.regs 2).val == x1.val) = true
       · simp only [hc, ↓reduceIte]
-        exact ⟨hmq, rfl, ⟨rfl, ⟨rfl, rfl, trivial, he⟩, rfl, hstk, htq.vs, htq.promises, rfl, rfl⟩,
+        exact ⟨hmq, rfl, ⟨rfl, ⟨rfl, rfl, trivial, he⟩, rfl, hstk, htq.vs, htq.promises, rfl, rfl, hpm⟩,
           hag, hot⟩
-      · simp only [hc, ↓reduceIte]
-        exact ⟨hmq, rfl, ⟨rfl, he, rfl, hstk, htq.vs, htq.promises, rfl, rfl⟩, hag, hot⟩
+      · simp only [hc]
+        exact ⟨hmq, rfl, ⟨rfl, he, rfl, hstk, htq.vs, htq.promises, rfl, rfl, hpm⟩, hag, hot⟩
   | ret a =>
       simp only [tstep] at hin ⊢
       rcases stkt with _ | ⟨ft, rt'⟩
@@ -1503,9 +1568,9 @@ theorem StackLe.refl : ∀ s : List Frame, StackLe s s
   | f :: s => ⟨⟨rfl, rfl, EnvLe.refl f.env, rfl, rfl⟩, StackLe.refl s⟩
 
 theorem TThLe.refl (t : TTh) : TThLe t t :=
-  ⟨rfl, EnvLe.refl _, rfl, StackLe.refl _, Promises.VLe.refl _, rfl, rfl, rfl⟩
+  ⟨rfl, EnvLe.refl _, rfl, StackLe.refl _, Promises.VLe.refl _, rfl, rfl, rfl, PermLe.refl _⟩
 
-/-- (IO1) Threads pairwise `TThLe`, with the same `ThreadId` box label (the extern moves agree). -/
+/-- Threads pairwise `TThLe`, with the same `ThreadId` box label (the extern moves agree). -/
 def ThsLe (A B : Array TTh) : Prop :=
   A.size = B.size ∧ ∀ (j : Nat) (ta tt : TTh), A[j]? = some ta → B[j]? = some tt →
     TThLe ta tt ∧ ta.tidLbl = tt.tidLbl
@@ -1577,9 +1642,11 @@ structure CfgLe (ca ct : Cfg) : Prop where
   boxFence : ca.boxFence = ct.boxFence
   agree    : Agree ca.mem ct.mem (allP ct)
   cap      : ca.cap = ct.cap
+  /-- (M1) the same trace: extern results read it (`resultsL`) -/
+  trace    : ca.trace = ct.trace
 
 theorem CfgLe.refl (c : Cfg) (hwf : ∀ t ∈ allP c, t < c.mem.size) : CfgLe c c :=
-  ⟨Promises.Sim.MemLe.refl _, rfl, ThsLe.refl _, rfl, rfl, fun t ht => ⟨hwf t ht, rfl⟩, rfl⟩
+  ⟨Promises.Sim.MemLe.refl _, rfl, ThsLe.refl _, rfl, rfl, fun t ht => ⟨hwf t ht, rfl⟩, rfl, rfl⟩
 
 theorem threadSteps_sim (p : Prog) (k : Promises.Knobs) {ca ct c' : Cfg} (h : CfgLe ca ct)
     (i : Nat) (hin : c' ∈ threadSteps p k .tso ct i) :
@@ -1600,7 +1667,7 @@ theorem threadSteps_sim (p : Prog) (k : Promises.Knobs) {ca ct c' : Cfg} (h : Cf
   obtain ⟨hm, hp, ht', hag1, hag2⟩ := hR
   refine ⟨_, ⟨(ma', pa', ta'), hra, rfl⟩, ?_⟩
   refine ⟨hm, hp, thsLe_set h.ths i ht'
-    (by rw [TermTidLbl.tstep_tidLbl hra, TermTidLbl.tstep_tidLbl hr]; exact htl), rfl, rfl, ?_, h.cap⟩
+    (by rw [TermTidLbl.tstep_tidLbl hra, TermTidLbl.tstep_tidLbl hr]; exact htl), rfl, rfl, ?_, h.cap, h.trace⟩
   intro t ht
   rcases allP_set (c := ct) (i := i) (th := th') rfl ht with ht | ht
   · exact hag1 t ht
@@ -1615,9 +1682,9 @@ theorem promise_sim {ca ct : Cfg} (h : CfgLe ca ct) (i : Nat) (a : Address) (v :
   simp only [ha]
   have hsz := h.mem.1
   refine ⟨Promises.Sim.MemLe.push h.mem rfl rfl (Nat.le_refl _), h.pairs, thsLe_set h.ths i ?_ htl,
-    h.lbase, h.boxFence, ?_, h.cap⟩
+    h.lbase, h.boxFence, ?_, h.cap, h.trace⟩
   · exact ⟨hta.term, hta.env, hta.σs, hta.stack, hta.vs, by simp [hta.promises, hsz],
-      hta.nalloc, hta.undefs⟩
+      hta.nalloc, hta.undefs, hta.permit⟩
   · intro t ht
     rcases allP_set (c := ct) (i := i) rfl ht with ht | ht
     · rcases List.mem_append.mp ht with ht | ht
@@ -1636,27 +1703,140 @@ theorem noPromises_congr {A B : Cfg} (h : ThsLe A.ths B.ths) (i : Nat) :
   · rw [ths_none h hb]
   · obtain ⟨ta, ha, hta⟩ := ths_some h hb; rw [ha]; simp [hta.promises]
 
-/-- (IO1) The extern move is simulated: the same binding (a `()` or the box word), the trace aside. -/
+/-- An extern call's events read only the argument values (and the results). -/
+theorem events_congr (n : ExtName) {wa wt : List Word} (hw : WsLe wa wt) (rs : List Word) :
+    n.events wa rs = n.events wt rs := by
+  match wa, wt, hw with
+  | [], [], _ => rfl
+  | [x], [y], hw =>
+      have hv : x.val = y.val := hw.1.val
+      have hn : wordNum x = wordNum y := by simp only [wordNum, hv]
+      cases n <;> (try rcases rs with _ | ⟨r1, _ | ⟨r2, _ | ⟨r3, rs⟩⟩⟩) <;>
+        first | rfl | simp only [CoreTerm.ExtName.events, hv, hn]
+  | [x1, x2], [y1, y2], hw =>
+      have hn1 : wordNum x1 = wordNum y1 := by simp only [wordNum, hw.1.val]
+      have hn2 : wordNum x2 = wordNum y2 := by simp only [wordNum, hw.2.1.val]
+      cases n <;> (try rcases rs with _ | ⟨r1, _ | ⟨r2, _ | ⟨r3, rs⟩⟩⟩) <;>
+        first | rfl | simp only [CoreTerm.ExtName.events, hn1, hn2]
+  | _ :: _ :: _ :: _, _ :: _ :: _ :: _, _ =>
+      cases n <;> (try rcases rs with _ | ⟨r1, _ | ⟨r2, _ | ⟨r3, rs⟩⟩⟩) <;> rfl
+
+/-- (M1) An extern call's admitted results read only the argument values (and the trace). -/
+theorem resultsL_congr (n : ExtName) (i : Nat) {wa wt : List Word} (hw : WsLe wa wt) (tr : List Event) :
+    n.resultsL i wa tr = n.resultsL i wt tr := by
+  match wa, wt, hw with
+  | [], [], _ => rfl
+  | [x], [y], hw =>
+      have hn : wordNum x = wordNum y := by simp only [wordNum, hw.1.val]
+      cases n <;> first | rfl | simp only [CoreTerm.ExtName.resultsL, hn]
+  | [x1, x2], [y1, y2], hw =>
+      have hn1 : wordNum x1 = wordNum y1 := by simp only [wordNum, hw.1.val]
+      cases n <;> first | rfl | simp only [CoreTerm.ExtName.resultsL, hn1]
+  | _ :: _ :: _ :: _, _ :: _ :: _ :: _, _ => cases n <;> rfl
+
+/-- **`extCfg` simulates, for every call**: the same binding (the results `rs`), and
+traces that grow alike (`events_congr`).  Shared by `extSteps_sim` (certificates) and
+`TermArchE.Ext_sim` (the `Ext` step, whose `ExtNeedsNoProm` calls `extSteps` excludes). -/
+theorem extCfg_sim {ca ct : Cfg} (h : CfgLe ca ct) {i : Nat} {ta tt : TTh} (hb : ct.ths[i]? = some tt)
+    (hta : TThLe ta tt) (htl : ta.tidLbl = tt.tidLbl) (x : String) (n : ExtName) (e : Expr)
+    {wa wt : List Word} (hw : WsLe wa wt) (rs : List Word) :
+    CfgLe (extCfg ca i ta x n e wa rs) (extCfg ct i tt x n e wt rs) ∧
+      (ca.trace = ct.trace → (extCfg ca i ta x n e wa rs).trace = (extCfg ct i tt x n e wt rs).trace) := by
+  have hagree : ∀ th' : TTh, th'.promises = tt.promises →
+      Agree ca.mem ct.mem (allP { ct with ths := ct.ths.set! i th' }) := fun th' hp t ht => by
+    rcases allP_set (c := ct) (i := i) (th := th') rfl ht with ht | ht
+    · rw [hp] at ht; exact h.agree t (mem_allP hb ht)
+    · exact h.agree t ht
+  have hn : ca.n = ct.n := by simp only [Cfg.n, h.ths.1, h.cap]
+  suffices hs : CfgLe (extCfg ca i ta x n e wa rs) (extCfg ct i tt x n e wt rs) from ⟨hs, fun _ => hs.trace⟩
+  cases n
+  case current =>
+      cases hl : tt.tidLbl with
+      | some l =>
+          have hla : ta.tidLbl = some l := htl.trans hl
+          simp only [extCfg, curCfg, hl, hla]
+          exact ⟨h.mem, h.pairs, thsLe_set h.ths i
+            ⟨rfl, ⟨rfl, rfl, WsLe.refl _, hta.env⟩, hta.σs, hta.stack, hta.vs, hta.promises, hta.nalloc,
+              hta.undefs, hta.permit⟩ rfl, h.lbase, h.boxFence, hagree _ rfl, h.cap, h.trace⟩
+      | none =>
+          have hla : ta.tidLbl = none := htl.trans hl
+          simp only [extCfg, curCfg, hl, hla, h.lbase, hn, hta.nalloc]
+          exact ⟨h.mem, h.pairs, thsLe_set h.ths i
+            ⟨rfl, ⟨rfl, rfl, WsLe.refl _, hta.env⟩, hta.σs, hta.stack, hta.vs, hta.promises, rfl,
+              hta.undefs, hta.permit⟩ rfl, rfl, h.boxFence, hagree _ rfl, h.cap, h.trace⟩
+  all_goals
+    refine ⟨h.mem, h.pairs, thsLe_set h.ths i
+        ⟨rfl, ⟨rfl, rfl, WsLe.refl _, hta.env⟩, hta.σs, hta.stack,
+          by dsimp only; first | exact hta.vs | exact parkVs_le h.mem.1 hta.vs hta.permit | exact parkVs_le_if h.mem.1 hta.vs hta.permit _,
+          hta.promises, hta.nalloc, hta.undefs,
+          by dsimp only; first | exact hta.permit | exact .none | exact permLe_park hta.permit _⟩ htl, h.lbase, h.boxFence, hagree _ rfl, h.cap, ?_⟩
+    show ca.trace ++ _ = ct.trace ++ _
+    rw [h.trace, events_congr _ hw]
+
+/-- (D4) `thrOfTid` reads only the word's value and the threads' box labels. -/
+theorem thrOfTid_congr {ca ct : Cfg} (h : ThsLe ca.ths ct.ths) {x y : Word} (hv : x.val = y.val) :
+    TermRun.thrOfTid ca x = TermRun.thrOfTid ct y := by
+  have hj : ∀ j : Nat, (ca.ths[j]?.bind TTh.tidLbl) = (ct.ths[j]?.bind TTh.tidLbl) := by
+    intro j
+    rcases hb : ct.ths[j]? with _ | tt
+    · rw [ths_none h hb]
+    · obtain ⟨ta, ha, -, htl⟩ := ths_some_tid h hb
+      rw [ha]; exact htl
+  unfold TermRun.thrOfTid
+  rw [hv]
+  split
+  · rw [h.1]
+    congr 1
+    funext j
+    exact congrArg (fun o => o == _) (hj j)
+  · rfl
+
+/-- (D4) Setting one permit is simulated (with a lower view). -/
+theorem setPermit_sim {ca ct : Cfg} (h : CfgLe ca ct) (j : Nat) {va vt : Ts} (hv : va ≤ vt) :
+    CfgLe (setPermit ca j va) (setPermit ct j vt) := by
+  unfold setPermit
+  rcases hb : ct.ths[j]? with _ | tt
+  · rw [ths_none h.ths hb]; exact h
+  · obtain ⟨ta, ha, hta, htl⟩ := ths_some_tid h.ths hb
+    rw [ha]
+    refine ⟨h.mem, h.pairs, thsLe_set h.ths j
+      ⟨hta.term, hta.env, hta.σs, hta.stack, hta.vs, hta.promises, hta.nalloc, hta.undefs,
+        .some (Nat.max_le.2 ⟨Nat.le_trans hta.permit.getD (Nat.le_max_left _ _),
+          Nat.le_trans hv (Nat.le_max_right _ _)⟩)⟩ htl,
+      h.lbase, h.boxFence, fun t ht => ?_, h.cap, h.trace⟩
+    rcases allP_set (c := ct) (i := j) (th := { tt with permit := some (max (tt.permit.getD 0) vt) }) rfl ht
+      with ht | ht
+    · exact h.agree t (mem_allP hb ht)
+    · exact h.agree t ht
+
+/-- (D4) `wake` is simulated (the woken thread is found from the word's value; ARM's release view lower). -/
+theorem wake_sim {ca ct : Cfg} (h : CfgLe ca ct) (i : Nat) {va vt : Ts} (hv : va ≤ vt) (n : ExtName)
+    {wa wt : List Word} (hw : WsLe wa wt) : CfgLe (wake ca i va n wa) (wake ct i vt n wt) := by
+  cases n
+  case unpark =>
+    rcases wt with _ | ⟨y, _ | ⟨y2, wt⟩⟩
+    · rw [wsle_nil hw]; exact h
+    · obtain ⟨x, rfl, hx⟩ := wsle_single hw
+      have e := thrOfTid_congr h.ths hx.val
+      simp only [wake, e]
+      split
+      · exact setPermit_sim h _ (by split; exact Nat.le_refl _; exact hv)
+      · exact h
+    · obtain ⟨x, wa', rfl, -, hw'⟩ := wsle_cons hw
+      obtain ⟨x2, wa'', rfl, -, -⟩ := wsle_cons hw'
+      exact h
+  all_goals exact h
+
+/-- The extern move is simulated: the same binding (a `()` or the box word), the trace aside. -/
 theorem extSteps_sim {ca ct c' : Cfg} (h : CfgLe ca ct) (i : Nat) (hin : c' ∈ extSteps ct i) :
     ∃ ca' ∈ extSteps ca i, CfgLe ca' c' := by
-  obtain ⟨tt, x, n, a, e, rt, ws, hb, hterm, hn, hev, rfl⟩ := extSteps_elim hin
+  obtain ⟨tt, x, n, a, e, rt, ws, rs, hb, hterm, hn, hev, hrs, rfl⟩ := extSteps_elim hin
   obtain ⟨ta, ha, hta, htl⟩ := ths_some_tid h.ths hb
   have hterm' : ta.term = .let_ x (.ext n a) e := hta.term.trans hterm
-  have hn' : ¬ ExtNeedsNoProm n ta := hn
-  obtain ⟨wa, hqa, -⟩ := evalAt_tso hta.env hev
-  refine ⟨_, extSteps_intro ha hterm' hn' hqa, ?_⟩
-  have hagree : ∀ th' : TTh, th'.promises = tt.promises → Agree ca.mem ct.mem (allP { ct with ths := ct.ths.set! i th' }) :=
-    fun th' hp t ht => by
-      rcases allP_set (c := ct) (i := i) (th := th') rfl ht with ht | ht
-      · rw [hp] at ht; exact h.agree t (mem_allP hb ht)
-      · exact h.agree t ht
-  have hle : ∀ v, TThLe { ta with term := e, env := v :: ta.env } { tt with term := e, env := v :: tt.env } :=
-    fun v => ⟨rfl, ⟨rfl, rfl, WsLe.refl _, hta.env⟩, hta.σs, hta.stack, hta.vs, hta.promises, hta.nalloc, hta.undefs⟩
-  cases n with
-  | emit =>
-    exact ⟨h.mem, h.pairs, thsLe_set h.ths i (hle _) htl, h.lbase, h.boxFence, hagree _ rfl, h.cap⟩
-  | exitEv => exact absurd (Or.inl rfl) hn
-  | current => exact absurd (Or.inr rfl) hn
+  have hn' : ¬ ExtNeedsNoProm n ta := by simpa only [ExtNeedsNoProm, htl] using hn
+  obtain ⟨wa, hqa, hw⟩ := evalAt_tso hta.env hev
+  have hrs' : rs ∈ n.resultsL i wa ca.trace := by rw [resultsL_congr n i hw, h.trace]; exact hrs
+  exact ⟨_, extSteps_intro ha hterm' hn' hqa hrs', (extCfg_sim h hb hta htl x n e hw rs).1⟩
 
 theorem Solo_sim (p : Prog) (k : Promises.Knobs) (i : Nat) {ct ct' : Cfg}
     (hs : Solo p k .tso i ct ct') :
@@ -1750,3 +1930,5 @@ end TermArch
 #print axioms TermArch.tso_final_subset_arm
 #print axioms TermArch.ths_some_tid
 #print axioms TermArch.extSteps_sim
+#print axioms TermArch.events_congr
+#print axioms TermArch.extCfg_sim

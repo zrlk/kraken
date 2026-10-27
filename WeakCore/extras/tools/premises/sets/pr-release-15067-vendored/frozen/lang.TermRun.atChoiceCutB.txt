@@ -1,0 +1,16 @@
+CoreLang.Wd : Type
+CoreLang.Wd.bits : CoreLang.Wd → Nat
+CoreTerm.At : Type
+CoreTerm.Expr : Type
+TermRun.Bounds : Type
+TermRun.Bounds.io : TermRun.Bounds → List Nat
+TermRun.TTh : Type
+TermRun.TTh.promises : TermRun.TTh → List WeakMem.Ts
+TermRun.TTh.term : TermRun.TTh → CoreTerm.Expr
+TermRun.atChoiceCutB : TermRun.Bounds → TermRun.TTh → Bool
+  := fun b th =>
+  match th.term with
+  | CoreTerm.Expr.let_ x (CoreTerm.Op.ext (CoreTerm.ExtName.devChoice w) a) e =>
+    th.promises.isEmpty && (List.filter (fun x => decide (x < 2 ^ w.bits)) b.io).isEmpty
+  | x => false
+WeakMem.Ts : Type

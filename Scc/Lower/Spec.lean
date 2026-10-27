@@ -15,9 +15,9 @@ emitters). This module holds the half the two share:
   The frontend's own checks (parse, type check, fragment diagnostics) are not
   repeated: `scc` runs them before (`Scc.Cli.run`), and the theorem's
   hypotheses take their place;
-* `lowerIR cfg p`: the lowering to the IR (`lowerWithMarks` with the depth
-  limit of `stackBudget`, as `lowerProgram`), with its placement trace and
-  the budget, in one record `Lowered`; the command line calls it and then the
+* `lowerIR cfg p`: the lowering to the IR (`lowerWithMarks`, where the
+  stack budget `stackBudget` holds, as `lowerProgram`), with its placement
+  trace and the budget, in one record `Lowered`; the command line calls it and then the
   ISA's emission (`Scc.Cli.run`), so that `scc` and `lowerAll` are the same
   code;
 * `Listing`: what the command line needs of an ISA's emission besides the
@@ -47,8 +47,8 @@ def checkedOf (p : Prog) : Except String Frontend.Checked := do
 /-! ## The lowering to the IR -/
 
 /-- **A program lowered to the IR**: the checked program, the stack depth
-limit (`stackBudget`), the IR program (`lowerWith` at that limit, as
-`lowerProgram`) and the placement traces of its compiled code blocks (as
+limit (`stackBudget`, the statement's `B.frames`), the IR program
+(`lowerWith`, as `lowerProgram`) and the placement traces of its compiled code blocks (as
 `lowerMarks`). -/
 structure Lowered where
   checked : Frontend.Checked
@@ -65,7 +65,7 @@ instance : Inhabited Lowered :=
 def lowerIR (cfg : Config) (p : Prog) : Except String Lowered := do
   let c ← checkedOf p
   let budget ← stackBudget cfg c
-  let (ir, marks) ← lowerWithMarks cfg c (some budget.frames)
+  let (ir, marks) ← lowerWithMarks cfg c
   pure { checked := c, budget, ir, marks }
 
 /-- `lowerIR`'s IR program is `lowerProgram`'s. -/
@@ -84,6 +84,14 @@ structure Listing where
   text : String
   places : Option (Except String (List Cert.Place.FnPlace)) := none
   need : Option (List (Sym × Nat × Nat))
+  /-- The number of functions the placement check's block table splits the
+  instruction list into (AArch64, `Scc.Cert.PlaceOK.A64.Data.splitFns`; 0 if
+  not known): a certificate checks each one's blocks in its own declaration.
+  Not trusted, and it fails closed: the certificate's `split_parts` states
+  that the functions' literal is exactly this many elements, so a count too
+  small or too large fails that kernel check, and with it `blocks_eq` and
+  `out_eq`; nothing is certified. -/
+  parts : Nat := 0
 
 /-! ## Reading the emitter's lines
 

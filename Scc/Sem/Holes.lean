@@ -491,7 +491,7 @@ theorem components_doneCfg (M : ExtMachine) (st : M.I.State) (x : M.X)
   · simp [wThr, Witness.empty]
   · simp [wThr, Witness.empty]
   · simp [wThr, Witness.empty]
-  · intro i th hth d e xs he hxs y hy
+  · intro i th hth d e xs he hxs _hxf y hy
     have hi : i = 0 := by
       have := (Array.getElem?_eq_some_iff.mp hth).1
       simp [doneCfg] at this
@@ -814,7 +814,7 @@ theorem components_live_stores (M : ExtMachine) (st : M.I.State) (x : M.X) (r : 
     rcases k' with _ | _ | _ | k' <;> simp at h
     · exact ⟨1, by simp [skipSrcL, skipSrc], by simp [wLive, wBoth]⟩
     · exact ⟨2, by simp [skipSrcL, skipSrc], by simp [wLive, wBoth]⟩
-  · intro i th j tt hth hthr htt d e he y ty ws hl k wd pl hwd hpl
+  · intro i th j tt hth hthr htt d e he y ty ws hl k wd pl hwd hpl _hxf
     simp only [wLive] at hpl hthr
     split at hpl
     · rename_i hc
@@ -836,7 +836,7 @@ theorem components_live_stores (M : ExtMachine) (st : M.I.State) (x : M.X) (r : 
       exact ⟨64, by simp [placeVal, Thread.init, h64],
         by simp [ValRep, TermRun.cst, Promises.TVal.mk0, wordAddr, wLive, wBoth]⟩
     · simp at hpl
-  · intro i th hth d e xs he hxs y hy ty ws hl k hk
+  · intro i th hth d e xs he hxs _hxf y hy ty ws hl k hk
     have hi : i = 0 := by
       have := (Array.getElem?_eq_some_iff.mp hth).1
       simp [skipSrcL] at this
@@ -1049,6 +1049,19 @@ theorem not_components_fulfilled_no_preimage (M : ExtMachine) (st : M.I.State) (
 /-- A source thread at `ret x` with `x = 5`. -/
 def fiveTh : TermRun.TTh := { term := .ret (.var "x"), env := [("x", .int, [TermRun.cst (.num 5)])] }
 
+/-- `fiveTh` does not run the output extern's model (`ret x`). -/
+theorem not_externFrame_fiveTh : ¬ ExternFrame fiveTh 0 := by
+  simp [ExternFrame, externModelTerms, modelTerms, Scc.Frontend.printBody, Scc.Frontend.printLBody,
+    Scc.Frontend.printAdv, Scc.Frontend.printNext, fiveTh]
+
+/-- A thread at `ret ()` does not run the output extern's model, whatever
+its frames: the model bodies' `ret ()` leaves are not `externModelTerms`, so
+a user block returning `()` keeps `env_rep` and `env_total`. -/
+theorem not_externFrame_ret (th : TermRun.TTh) (d : Nat) (a : CoreTerm.At) (h : th.term = .ret a) :
+    ¬ ExternFrame th d := by
+  simp [ExternFrame, externModelTerms, modelTerms, Scc.Frontend.printBody, Scc.Frontend.printLBody,
+    Scc.Frontend.printAdv, Scc.Frontend.printNext, h]
+
 /-- The source configuration with that thread and empty memory. -/
 def fiveCfg : TermRun.Cfg := { mem := #[], ths := #[fiveTh] }
 
@@ -1088,7 +1101,7 @@ theorem components_env_placed (M : ExtMachine) (st : M.I.State) (x : M.X) (r : M
   · simp [fiveCfg]
   · simp [wEnv, Witness.empty]
   · simp [Config.init, Kraken.Promising.Memory.get?]
-  · intro i th j tt hth hthr htt d e he y ty ws hl k wd pl hwd hpl
+  · intro i th j tt hth hthr htt d e he y ty ws hl k wd pl hwd hpl _hxf
     simp only [wEnv] at hpl hthr
     split at hpl
     · rename_i hc
@@ -1109,7 +1122,7 @@ theorem components_env_placed (M : ExtMachine) (st : M.I.State) (x : M.X) (r : M
       subst hwd
       exact ⟨5, by simp [placeVal, Thread.init, h5], by simp [ValRep, TermRun.cst, Promises.TVal.mk0]⟩
     · simp at hpl
-  · intro i th hth d e xs he hxs y hy ty ws hl k hk
+  · intro i th hth d e xs he hxs _hxf y hy ty ws hl k hk
     have hi : i = 0 := by
       have := (Array.getElem?_eq_some_iff.mp hth).1
       simp [fiveCfg] at this
@@ -1153,13 +1166,14 @@ theorem not_components_empty_env (M : ExtMachine) (st : M.I.State) (x : M.X)
       ¬ ∃ w, Components M trivLayout w (Config.init [st] [], x) fiveCfg := by
   refine ⟨rfl, ?_⟩
   rintro ⟨w, hc⟩
-  obtain ⟨pl, hpl⟩ := hc.env_total 0 fiveTh rfl 0 fiveTh.env ["x"] rfl rfl "x" (by simp) .int
+  obtain ⟨pl, hpl⟩ := hc.env_total 0 fiveTh rfl 0 fiveTh.env ["x"] rfl rfl
+    not_externFrame_fiveTh "x" (by simp) .int
     [TermRun.cst (.num 5)] rfl 0 (by simp)
   obtain ⟨j, hj, hjlt⟩ := hc.thr_total 0 (by simp [fiveCfg])
   have hj0 : j = 0 := by simp [Config.init] at hjlt; omega
   subst hj0
   have hwp := hc.env_rep 0 fiveTh 0 (Thread.init st) rfl hj (by simp [Config.init]) 0 fiveTh.env
-    rfl "x" .int [TermRun.cst (.num 5)] rfl 0 (TermRun.cst (.num 5)) pl rfl hpl
+    rfl "x" .int [TermRun.cst (.num 5)] rfl 0 (TermRun.cst (.num 5)) pl rfl hpl not_externFrame_fiveTh
   cases pl with
   | one pl =>
     obtain ⟨v, hv, hrep⟩ := hwp
@@ -1221,7 +1235,7 @@ theorem components_env_imm (M : ExtMachine) (st : M.I.State) (x : M.X)
   · simp [fiveCfg]
   · simp [wImm, Witness.empty]
   · simp [Config.init, Kraken.Promising.Memory.get?]
-  · intro i th j tt hth hthr htt d e he y ty ws hl k wd pl hwd hpl
+  · intro i th j tt hth hthr htt d e he y ty ws hl k wd pl hwd hpl _hxf
     simp only [wImm] at hpl hthr
     split at hpl
     · rename_i hc
@@ -1238,7 +1252,7 @@ theorem components_env_imm (M : ExtMachine) (st : M.I.State) (x : M.X)
       subst hwd
       simp [WordPlaceRep, ValRep, TermRun.cst, Promises.TVal.mk0]
     · simp at hpl
-  · intro i th hth d e xs he hxs y hy ty ws hl k hk
+  · intro i th hth d e xs he hxs _hxf y hy ty ws hl k hk
     have hi : i = 0 := by
       have := (Array.getElem?_eq_some_iff.mp hth).1
       simp [fiveCfg] at this
@@ -1290,13 +1304,14 @@ theorem not_components_imm_table (M : ExtMachine) (st : M.I.State) (x : M.X)
     (hny : ¬ (n = 5 ∧ y = "x")) :
     ¬ ∃ w, Components M (immLayout n y) w (Config.init [st] [], x) fiveCfg := by
   rintro ⟨w, hc⟩
-  obtain ⟨pl, hpl⟩ := hc.env_total 0 fiveTh rfl 0 fiveTh.env ["x"] rfl rfl "x" (by simp) .int
+  obtain ⟨pl, hpl⟩ := hc.env_total 0 fiveTh rfl 0 fiveTh.env ["x"] rfl rfl
+    not_externFrame_fiveTh "x" (by simp) .int
     [TermRun.cst (.num 5)] rfl 0 (by simp)
   obtain ⟨j, hj, hjlt⟩ := hc.thr_total 0 (by simp [fiveCfg])
   have hj0 : j = 0 := by simp [Config.init] at hjlt; omega
   subst hj0
   have hwp := hc.env_rep 0 fiveTh 0 (Thread.init st) rfl hj (by simp [Config.init]) 0 fiveTh.env
-    rfl "x" .int [TermRun.cst (.num 5)] rfl 0 (TermRun.cst (.num 5)) pl rfl hpl
+    rfl "x" .int [TermRun.cst (.num 5)] rfl 0 (TermRun.cst (.num 5)) pl rfl hpl not_externFrame_fiveTh
   cases pl with
   | one pl =>
     obtain ⟨v, hv, hrep⟩ := hwp
@@ -1339,6 +1354,11 @@ reads the outer `x` (`ret x`). -/
 def casTh : TermRun.TTh :=
   { fiveTh with term := .cas false false .unit .unit .unit "x" (.ret .unit) (.ret (.var "x")) }
 
+/-- `casTh` does not run the output extern's model (a `cas`). -/
+theorem not_externFrame_casTh : ¬ ExternFrame casTh 0 := by
+  simp [ExternFrame, externModelTerms, modelTerms, Scc.Frontend.printBody, Scc.Frontend.printLBody,
+    Scc.Frontend.printAdv, Scc.Frontend.printNext, casTh]
+
 /-- The source configuration with that thread and empty memory. -/
 def casCfg : TermRun.Cfg := { mem := #[], ths := #[casTh] }
 
@@ -1354,13 +1374,14 @@ theorem not_components_cas_fail (M : ExtMachine) (st : M.I.State) (x : M.X)
     exprFv casTh.term = ["x"] ∧ ¬ ∃ w, Components M trivLayout w (Config.init [st] [], x) casCfg := by
   refine ⟨rfl, ?_⟩
   rintro ⟨w, hc⟩
-  obtain ⟨pl, hpl⟩ := hc.env_total 0 casTh rfl 0 casTh.env ["x"] rfl rfl "x" (by simp) .int
+  obtain ⟨pl, hpl⟩ := hc.env_total 0 casTh rfl 0 casTh.env ["x"] rfl rfl
+    not_externFrame_casTh "x" (by simp) .int
     [TermRun.cst (.num 5)] rfl 0 (by simp)
   obtain ⟨j, hj, hjlt⟩ := hc.thr_total 0 (by simp [casCfg])
   have hj0 : j = 0 := by simp [Config.init] at hjlt; omega
   subst hj0
   have hwp := hc.env_rep 0 casTh 0 (Thread.init st) rfl hj (by simp [Config.init]) 0 casTh.env
-    rfl "x" .int [TermRun.cst (.num 5)] rfl 0 (TermRun.cst (.num 5)) pl rfl hpl
+    rfl "x" .int [TermRun.cst (.num 5)] rfl 0 (TermRun.cst (.num 5)) pl rfl hpl not_externFrame_casTh
   cases pl with
   | one pl =>
     obtain ⟨v, hv, hrep⟩ := hwp
@@ -1382,6 +1403,11 @@ theorem not_components_cas_fail (M : ExtMachine) (st : M.I.State) (x : M.X)
 /-- A source thread at `ret p`, `p` the locative `b[1]`: word 1 of label 0. -/
 def locTh : TermRun.TTh :=
   { term := .ret (.var "p"), env := [("p", .loc .own .int, [TermRun.cst (.loc ⟨0, 1⟩ 0)])] }
+
+/-- `locTh` does not run the output extern's model (`ret p`). -/
+theorem not_externFrame_locTh : ¬ ExternFrame locTh 0 := by
+  simp [ExternFrame, externModelTerms, modelTerms, Scc.Frontend.printBody, Scc.Frontend.printLBody,
+    Scc.Frontend.printAdv, Scc.Frontend.printNext, locTh]
 
 /-- `skipSrc` with the thread `locTh`: label 0 is live. -/
 def skipSrcLoc : TermRun.Cfg := { skipSrc with ths := #[locTh] }
@@ -1452,7 +1478,7 @@ theorem components_loc_base_off (M : ExtMachine) (st : M.I.State) (x : M.X) (r :
     rcases k' with _ | _ | _ | k' <;> simp at h
     · exact ⟨1, by simp [skipSrcLoc, skipSrc], by simp [wLoc, wBoth]⟩
     · exact ⟨2, by simp [skipSrcLoc, skipSrc], by simp [wLoc, wBoth]⟩
-  · intro i th j tt hth hthr htt d e he y ty ws hl k wd pl hwd hpl
+  · intro i th j tt hth hthr htt d e he y ty ws hl k wd pl hwd hpl _hxf
     simp only [wLoc] at hpl hthr
     split at hpl
     · rename_i hc
@@ -1474,7 +1500,7 @@ theorem components_loc_base_off (M : ExtMachine) (st : M.I.State) (x : M.X) (r :
       exact ⟨64, 8, by simp [placeVal, Thread.init, h64], rfl,
         by simp [LocRep, TermRun.cst, Promises.TVal.mk0, wLoc, wBoth]⟩
     · simp at hpl
-  · intro i th hth d e xs he hxs y hy ty ws hl k hk
+  · intro i th hth d e xs he hxs _hxf y hy ty ws hl k hk
     have hi : i = 0 := by
       have := (Array.getElem?_eq_some_iff.mp hth).1
       simp [skipSrcLoc] at this
@@ -1513,7 +1539,7 @@ theorem env_rep_locTh {M : ExtMachine} {st : M.I.State} {x : M.X} {w : Witness M
     (hj : w.thr 0 = some 0) {wp : WordPlace M.I.RegId} (hp : w.env 0 0 "p" 0 = some wp) :
     WordPlaceRep M w.lbl st wp (.loc ⟨0, 1⟩ 0) :=
   hc.env_rep 0 locTh 0 (Thread.init st) rfl hj (by simp [Config.init]) 0 locTh.env rfl "p" _ _ rfl 0
-    (TermRun.cst (.loc ⟨0, 1⟩ 0)) wp rfl hp
+    (TermRun.cst (.loc ⟨0, 1⟩ 0)) wp rfl hp not_externFrame_locTh
 
 /-- **Rejected: `b[1]` as `(b + 8, 0)`.** With label 0 at 64, a witness
 that keeps `p = b[1]` as the derived address 72 in a register fails

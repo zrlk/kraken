@@ -1,0 +1,1125 @@
+CoreLang.Arms : Type
+CoreLang.Arms.optArm : CoreLang.Arms
+CoreLang.Arms.ptrs : CoreLang.Arms → Nat
+CoreLang.Arms.wide : CoreLang.Arms → Nat
+CoreLang.Cap : Type
+CoreLang.Cap.frz : CoreLang.Cap
+CoreLang.Clause : Type
+CoreLang.Clause.holds : CoreLang.Clause → Bool
+CoreLang.Clause2 : Type
+CoreLang.Clause2.holds : CoreLang.Clause2 → Bool
+CoreLang.CodeKind : Type
+CoreLang.CodeKind.plain : CoreLang.CodeKind
+CoreLang.CodeKind.restricted : Nat → Nat → CoreLang.CodeKind
+CoreLang.ECounter : Type
+CoreLang.IEnv : Type
+CoreLang.Idx : Type
+CoreLang.Idx.add : CoreLang.Idx → CoreLang.Idx → CoreLang.Idx
+CoreLang.Idx.evalIn : CoreLang.IEnv → CoreLang.Idx → Option Nat
+CoreLang.Idx.lit : Nat → CoreLang.Idx
+CoreLang.Idx.shift : Nat → CoreLang.Idx → CoreLang.Idx
+CoreLang.Idx.smul : Nat → CoreLang.Idx → CoreLang.Idx
+CoreLang.Idx.var : Nat → CoreLang.Idx
+CoreLang.Info.arms : CoreLang.Info → CoreLang.Arms
+CoreLang.KEnv : Type
+CoreLang.KEnv.ask : CoreLang.KEnv → Nat → Bool → (CoreLang.Kind → Bool) → Bool
+CoreLang.Kind : Type
+CoreLang.Kind.zero : CoreLang.Kind → Bool
+CoreLang.Mode : Type
+CoreLang.Mode.own : CoreLang.Mode
+CoreLang.Mode.pub : CoreLang.Mode
+CoreLang.Mode.rgn : CoreLang.Idx → CoreLang.Mode
+CoreLang.Opq : Type
+CoreLang.Pred : Type
+CoreLang.Pred.ini : CoreLang.Idx → CoreLang.Pred
+CoreLang.Pred.zeroHolds : CoreLang.IEnv → CoreLang.Pred → Bool
+CoreLang.Proto : Type
+CoreLang.Proto.clauses : CoreLang.Proto → List CoreLang.Clause
+CoreLang.Proto.epoch : CoreLang.Proto → Bool
+CoreLang.Proto.ghost : CoreLang.Proto → Bool
+CoreLang.Proto.ticket : CoreLang.Proto → Bool
+CoreLang.Proto2 : Type
+CoreLang.Proto2.clauses : CoreLang.Proto2 → List CoreLang.Clause2
+CoreLang.Tier : Type
+CoreLang.Ty : Type
+CoreLang.Ty.arrFree : CoreLang.Ty → Bool
+CoreLang.Ty.array : CoreLang.Idx → CoreLang.Ty → CoreLang.Ty
+CoreLang.Ty.cap : CoreLang.Cap → CoreLang.Idx → CoreLang.Ty
+CoreLang.Ty.code : CoreLang.Ty → CoreLang.Ty → CoreLang.CodeKind → CoreLang.Ty
+CoreLang.Ty.epair : CoreLang.Idx → CoreLang.ECounter → CoreLang.Ty
+CoreLang.Ty.fix : Bool → CoreLang.Wd → CoreLang.Ty
+CoreLang.Ty.guardT : Nat → CoreLang.Ty → Bool
+CoreLang.Ty.iex : CoreLang.Ty → CoreLang.Ty
+CoreLang.Ty.int : CoreLang.Ty
+CoreLang.Ty.intS : CoreLang.Idx → CoreLang.Ty
+CoreLang.Ty.lanes : Bool → CoreLang.Wd → CoreLang.Ty
+CoreLang.Ty.loc : CoreLang.Mode → CoreLang.Ty → CoreLang.Ty
+CoreLang.Ty.payloadFree : CoreLang.Ty → Bool
+  := fun t =>
+  have a := (CoreLang.info CoreLang.Ty.top t).arms;
+  a == CoreLang.Arms.optArm || a.wide == 0 && a.ptrs == 0
+CoreLang.Ty.prod : CoreLang.Ty → CoreLang.Ty → CoreLang.Ty
+CoreLang.Ty.ptr : CoreLang.Mode → CoreLang.Ty → CoreLang.Ty
+CoreLang.Ty.ptrOpt : CoreLang.Mode → CoreLang.Ty → CoreLang.Ty
+CoreLang.Ty.refine : CoreLang.Ty → CoreLang.Pred → CoreLang.Ty
+CoreLang.Ty.secondClass : CoreLang.Ty → Bool
+CoreLang.Ty.sensitiveIn : CoreLang.KEnv → CoreLang.Ty → Bool
+CoreLang.Ty.sharedOKIn : CoreLang.KEnv → CoreLang.Ty → Bool
+CoreLang.Ty.substT : Nat → CoreLang.Ty → CoreLang.Ty → CoreLang.Ty
+CoreLang.Ty.sum : CoreLang.Ty → CoreLang.Ty → CoreLang.Ty
+CoreLang.Ty.tex : CoreLang.Kind → CoreLang.Ty → CoreLang.Ty
+CoreLang.Ty.tid : CoreLang.Ty
+CoreLang.Ty.tier : CoreLang.Ty → CoreLang.Tier
+CoreLang.Ty.tok : CoreLang.Idx → Option (CoreLang.Proto × CoreLang.Idx) → CoreLang.Ty
+CoreLang.Ty.tok2 : CoreLang.Idx → CoreLang.Proto2 → CoreLang.Idx → CoreLang.Idx → CoreLang.Ty
+CoreLang.Ty.tokE : CoreLang.Idx → CoreLang.ECounter → CoreLang.Idx → CoreLang.Ty
+CoreLang.Ty.top : CoreLang.Ctx
+CoreLang.Ty.unguarded : Nat → CoreLang.Ty → Bool
+CoreLang.Ty.unit : CoreLang.Ty
+CoreLang.Ty.wf : Nat → Nat → CoreLang.Ty → Bool
+CoreLang.Ty.word : CoreLang.Idx → CoreLang.Proto → CoreLang.Ty
+CoreLang.Ty.word2 : CoreLang.Idx → CoreLang.Proto2 → CoreLang.Ty
+CoreLang.Ty.wordFreeIn : CoreLang.KEnv → CoreLang.Ty → Bool
+CoreLang.Wd : Type
+CoreLang.Wd.lanes : CoreLang.Wd → Nat
+CoreLang.info : CoreLang.Ctx → CoreLang.Ty → CoreLang.Info
+CoreLang.instDecidableEqArms : DecidableEq CoreLang.Arms
+CoreLang.zeroArmP : (CoreLang.Ty → Bool) → CoreLang.IEnv → CoreLang.KEnv → CoreLang.Ty → Option Bool
+  eq_def ∀ (sel : CoreLang.Ty → Bool) (env : CoreLang.IEnv) (ke : CoreLang.KEnv) (x : CoreLang.Ty),
+  CoreLang.zeroArmP sel env ke x =
+    match x with
+    | a.sum b => CoreLang.zeroArmP sel env ke a <|> CoreLang.zeroArmP sel env ke b
+    | CoreLang.Ty.void => none
+    | t.refine ψ => Option.map (fun x => x && CoreLang.Pred.zeroHolds env ψ) (CoreLang.zeroArmP sel env ke t)
+    | t.iall => CoreLang.zeroArmP sel (none :: env) ke t
+    | t.iex => CoreLang.zeroArmP sel (some 0 :: env) ke t
+    | t.mu => CoreLang.zeroArmP sel env (none :: ke) t
+    | CoreLang.Ty.tex κ t => Option.map (fun x => false) (CoreLang.zeroArmP sel env (none :: ke) t)
+    | t => if sel t = true then some (CoreLang.zeroableIn env ke t) else none
+CoreLang.zeroableIn : CoreLang.IEnv → CoreLang.KEnv → CoreLang.Ty → Bool
+  eq_def ∀ (env : CoreLang.IEnv) (ke : CoreLang.KEnv) (x : CoreLang.Ty),
+  CoreLang.zeroableIn env ke x =
+    match x with
+    | CoreLang.Ty.unit => true
+    | CoreLang.Ty.void => false
+    | CoreLang.Ty.int => true
+    | CoreLang.Ty.intS i => CoreLang.Idx.evalIn env i == some 0
+    | CoreLang.Ty.fix sg w => true
+    | CoreLang.Ty.lanes sg w => true
+    | a.prod b => CoreLang.zeroableIn env ke a && CoreLang.zeroableIn env ke b
+    | a.sum b =>
+      match (a.sum b).tier with
+      | CoreLang.Tier.niche =>
+        (CoreLang.zeroArmP CoreLang.Ty.payloadFree env ke a <|> CoreLang.zeroArmP CoreLang.Ty.payloadFree env ke b) ==
+          some true
+      | CoreLang.Tier.wide =>
+        (CoreLang.zeroArmP (fun x => true) env ke a <|> CoreLang.zeroArmP (fun x => true) env ke b) == some true
+      | CoreLang.Tier.boxed => false
+    | σ.code τ k => false
+    | CoreLang.Ty.tid => false
+    | CoreLang.Ty.opq o => false
+    | CoreLang.Ty.array i t => CoreLang.zeroableIn env ke t
+    | CoreLang.Ty.ptr μ τ => false
+    | CoreLang.Ty.ptrOpt μ τ => true
+    | CoreLang.Ty.loc μ (CoreLang.Ty.array i τ) => CoreLang.Idx.evalIn env i == some 0
+    | CoreLang.Ty.loc μ τ => false
+    | CoreLang.Ty.word r P => false
+    | CoreLang.Ty.tok r st => false
+    | CoreLang.Ty.word2 r P => false
+    | CoreLang.Ty.tok2 r P i0 i1 => false
+    | CoreLang.Ty.epair r P => false
+    | CoreLang.Ty.tokE r P e => false
+    | CoreLang.Ty.share r => false
+    | CoreLang.Ty.cap s r => false
+    | CoreLang.Ty.tvar k => ke.ask k false fun x => x.zero
+    | t.mu => CoreLang.zeroableIn env (none :: ke) t
+    | CoreLang.Ty.tex κ τ => false
+    | t.iall => CoreLang.zeroableIn (none :: env) ke t
+    | t.iex => CoreLang.zeroableIn (some 0 :: env) ke t
+    | t.refine ψ => CoreLang.zeroableIn env ke t && CoreLang.Pred.zeroHolds env ψ
+CoreTerm.At : Type
+CoreTerm.At.var : String → CoreTerm.At
+CoreTerm.BitOp : Type
+CoreTerm.BitOp1 : Type
+CoreTerm.Cx : Type
+CoreTerm.Cx.bind : CoreTerm.Cx → String → CoreLang.Ty → CoreTerm.M CoreTerm.Cx
+CoreTerm.Cx.endCx : CoreTerm.Cx → String → CoreTerm.Cx
+CoreTerm.Cx.facts : CoreTerm.Cx → CoreTerm.Facts
+CoreTerm.Cx.idx : CoreTerm.Cx → String → CoreTerm.M CoreLang.Idx
+CoreTerm.Cx.inames : CoreTerm.Cx → List String
+CoreTerm.Cx.ke : CoreTerm.Cx → CoreLang.KEnv
+CoreTerm.Cx.lent : CoreTerm.Cx → List String
+CoreTerm.Cx.opaqueOK : CoreTerm.Cx → CoreLang.Ty → Bool
+CoreTerm.Cx.opq : CoreTerm.Cx → List Nat
+CoreTerm.Cx.peek : CoreTerm.Cx → CoreTerm.At → CoreTerm.M CoreLang.Ty
+CoreTerm.Cx.push : CoreTerm.Cx → String → CoreTerm.Cx
+CoreTerm.Cx.ret : CoreTerm.Cx → CoreLang.Ty
+CoreTerm.Cx.saws : CoreTerm.Cx → List (String × CoreLang.Idx × Bool)
+CoreTerm.Cx.sealedR : CoreTerm.Cx → CoreLang.Idx → Bool
+CoreTerm.Cx.torn : CoreTerm.Cx → List CoreTerm.Torn
+CoreTerm.Cx.unsealed : CoreTerm.Cx → List CoreLang.Idx
+CoreTerm.Cx.use : CoreTerm.Cx → CoreTerm.At → CoreTerm.M (CoreLang.Ty × CoreTerm.Cx)
+CoreTerm.Cx.vars : CoreTerm.Cx → List (String × CoreLang.Ty × Bool)
+CoreTerm.Decl : Type
+CoreTerm.Decl.argTy : CoreTerm.Decl → CoreLang.Ty
+CoreTerm.Decl.idx : CoreTerm.Decl → List String
+CoreTerm.Decl.kind : CoreTerm.Decl → CoreTerm.DeclKind
+CoreTerm.Decl.retTy : CoreTerm.Decl → CoreLang.Ty
+CoreTerm.Decl.tparams : CoreTerm.Decl → List CoreLang.Kind
+CoreTerm.DeclKind : Type
+CoreTerm.ExtName : Type
+CoreTerm.ExtName.ok : CoreTerm.ExtName → Bool
+CoreTerm.ExtName.sig : CoreTerm.ExtName → CoreLang.Ty × CoreLang.Ty
+CoreTerm.FCmp : Type
+CoreTerm.FOp : Type
+CoreTerm.FOp1 : Type
+CoreTerm.Fence : Type
+CoreTerm.FetchOp : Type
+CoreTerm.FetchOp.add : CoreTerm.FetchOp
+CoreTerm.M : Type u_1 → Type u_1
+CoreTerm.Op : Type
+CoreTerm.Op.add : CoreTerm.At → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.asLanes : Bool → CoreLang.Wd → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.atom : CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.band : CoreTerm.At → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.bit1 : CoreTerm.BitOp1 → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.bits : CoreTerm.BitOp → CoreTerm.At → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.borrow : CoreLang.Cap → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.bufInit : CoreTerm.At → CoreTerm.At → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.call : String → List String → CoreTerm.At → optParam (List CoreLang.Ty) [] → CoreTerm.Op
+CoreTerm.Op.callc : CoreTerm.At → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.claim : CoreTerm.At → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.cvt : Bool → CoreLang.Wd → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.endBorrow : CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.ext : CoreTerm.ExtName → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.fcmp : CoreTerm.FCmp → CoreTerm.At → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.fence : CoreTerm.Fence → CoreTerm.Op
+CoreTerm.Op.fetch : CoreTerm.FetchOp → Bool → Bool → CoreTerm.At → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.fld : Nat → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.fnptr : String → CoreTerm.Op
+CoreTerm.Op.fold : CoreTerm.At → CoreLang.Ty → CoreTerm.Op
+CoreTerm.Op.fop : CoreTerm.FOp → CoreTerm.At → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.fop1 : CoreTerm.FOp1 → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.freeze : CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.idx : CoreTerm.At → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.inl : CoreLang.Ty → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.inr : CoreLang.Ty → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.intoRgn : String → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.lane : CoreTerm.At → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.ldl : CoreTerm.At → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.ldlw : CoreTerm.At → CoreTerm.At → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.ldp : Bool → CoreTerm.At → String → String → CoreTerm.Op
+CoreTerm.Op.load : Bool → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.loadAt : CoreTerm.At → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.loadAtF : CoreTerm.At → CoreTerm.At → List Nat → CoreTerm.Op
+CoreTerm.Op.mkEPair : String → CoreLang.ECounter → CoreTerm.At → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.mkTicket : String → CoreLang.Proto → CoreLang.Proto → CoreTerm.At → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.mkWord : String → CoreLang.Proto → CoreTerm.At → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.mkWord2 : String → CoreLang.Proto2 → CoreTerm.At → CoreTerm.At → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.nameI : CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.new : CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.newBuf : CoreTerm.At → CoreLang.Ty → CoreTerm.Op
+CoreTerm.Op.null : CoreLang.Mode → CoreLang.Ty → CoreTerm.Op
+CoreTerm.Op.pack : CoreTerm.At → String → CoreLang.Ty → CoreTerm.Op
+CoreTerm.Op.packT : CoreTerm.At → CoreLang.Ty → CoreLang.Ty → CoreTerm.Op
+CoreTerm.Op.pair : CoreTerm.At → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.publish : CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.rem : CoreTerm.At → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.setLane : CoreTerm.At → CoreTerm.At → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.spawn : String → CoreTerm.At → CoreLang.Ty → optParam (List CoreLang.Ty) [] → CoreTerm.Op
+CoreTerm.Op.stl : CoreTerm.At → CoreTerm.At → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.stlw : CoreTerm.At → CoreTerm.At → CoreTerm.At → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.store : Bool → CoreTerm.At → CoreTerm.At → Option CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.stp : Bool → CoreTerm.At → CoreTerm.At → CoreTerm.At → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.sub : CoreTerm.At → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.toInt : CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.validate : String → CoreTerm.Op
+CoreTerm.Op.vmatch : CoreTerm.At → CoreTerm.At → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.xchg : CoreTerm.At → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.xchgAt : CoreTerm.At → CoreTerm.At → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.xchgAtF : CoreTerm.At → CoreTerm.At → List Nat → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.zero : CoreLang.Ty → CoreTerm.Op
+CoreTerm.Phase : Type
+CoreTerm.Phase.opn : CoreTerm.Phase
+CoreTerm.Phase.rechecked : CoreLang.Idx → CoreTerm.Phase
+CoreTerm.Prog : Type
+CoreTerm.Prog.find : CoreTerm.Prog → String → CoreTerm.M CoreTerm.Decl
+CoreTerm.Torn : Type
+CoreTerm.Torn.s : CoreTerm.Torn → CoreLang.Idx
+CoreTerm.Torn.ty : CoreTerm.Torn → CoreLang.Ty
+CoreTerm.Torn.x : CoreTerm.Torn → String
+CoreTerm.Torn.φ : CoreTerm.Torn → CoreTerm.Phase
+CoreTerm.adapt : CoreLang.Idx → CoreLang.Ty → CoreLang.Ty
+CoreTerm.admitsIn : CoreTerm.Cx → CoreLang.Kind → CoreLang.Ty → Bool
+CoreTerm.affine : CoreLang.KEnv → CoreLang.Ty → Bool
+CoreTerm.bufOf : CoreLang.Ty → Option (CoreLang.Mode × CoreLang.Idx × CoreLang.Ty × CoreLang.Idx)
+CoreTerm.cellOf : CoreLang.Ty → Option (CoreLang.Mode × CoreLang.Ty)
+CoreTerm.codeOf : CoreLang.Ty → Option (CoreLang.Ty × CoreLang.Ty)
+CoreTerm.compTy : CoreLang.Ty → List Nat → Option CoreLang.Ty
+CoreTerm.cvtSrc : CoreLang.Ty → Bool
+CoreTerm.fetchEpochTy : CoreLang.Idx → CoreLang.Proto → CoreLang.Ty
+CoreTerm.fetchOK : CoreLang.Proto → Nat → Bool
+CoreTerm.fixOf : CoreLang.Ty → Option (Bool × CoreLang.Wd)
+CoreTerm.instT : List CoreLang.Idx → Nat → CoreLang.Ty → CoreLang.Ty
+CoreTerm.instantiate : CoreTerm.Cx → CoreTerm.Decl → List String → optParam (List CoreLang.Ty) [] → CoreTerm.M (CoreLang.Ty × CoreLang.Ty)
+CoreTerm.intOf : CoreLang.Ty → Option (Option CoreLang.Idx)
+CoreTerm.lanesOf : CoreLang.Ty → Option (Bool × CoreLang.Wd)
+CoreTerm.lendOf : CoreTerm.Cx → CoreLang.Cap → CoreLang.Ty → CoreTerm.M CoreLang.Idx
+CoreTerm.pairRef : CoreLang.Ty → Bool
+CoreTerm.pwf : CoreLang.Proto → Bool
+CoreTerm.pwf2 : CoreLang.Proto2 → Bool
+CoreTerm.pwfE : CoreLang.ECounter → Bool
+CoreTerm.rgnCellOK : CoreLang.KEnv → CoreLang.Ty → Bool
+CoreTerm.tailCheck : CoreTerm.Prog → CoreTerm.Cx → String → List String → CoreTerm.At → List CoreLang.Ty → CoreTerm.M Unit
+CoreTerm.toIntSrc : CoreLang.Ty → Bool
+CoreTerm.unfold1 : CoreLang.Ty → CoreLang.Ty
+CoreTerm.varOf : CoreTerm.At → CoreTerm.M String
+CoreTerm.word2Of : CoreLang.Ty → Option (CoreLang.Idx × CoreLang.Proto2)
+CoreTerm.wordOf : CoreLang.Ty → Option (CoreLang.Idx × CoreLang.Proto)
+CoreTyping.Ent : CoreTerm.Cx → (CoreTyping.Val → Prop) → Prop
+CoreTyping.EqI : CoreTerm.Cx → CoreLang.Idx → CoreLang.Idx → Prop
+CoreTyping.FoldOK : CoreTerm.Cx → CoreLang.Ty → CoreLang.Ty → Prop
+CoreTyping.HasCap : CoreTerm.Cx → CoreLang.Idx → Bool → Prop
+CoreTyping.HasShare : CoreTerm.Cx → CoreLang.Idx → Prop
+CoreTyping.HasTok : CoreTerm.Cx → CoreLang.Idx → Prop
+CoreTyping.HoldsSealed : CoreTerm.Cx → CoreLang.Idx → Prop
+CoreTyping.InState : CoreTerm.Cx → CoreLang.Proto → CoreLang.Idx → Nat → CoreLang.Idx → Prop
+CoreTyping.InState2 : CoreTerm.Cx → CoreLang.Proto2 → CoreLang.Idx → CoreLang.Idx → Nat → CoreLang.Idx → CoreLang.Idx → Prop
+CoreTyping.IntIdx : CoreTerm.Cx → CoreTerm.At → CoreLang.Idx → Prop
+CoreTyping.LtI : CoreTerm.Cx → CoreLang.Idx → CoreLang.Idx → Prop
+CoreTyping.NoLeak : CoreTerm.Cx → CoreLang.Ty → Prop
+CoreTyping.OpT : CoreTerm.Prog → CoreTerm.Cx → String → CoreTerm.Op → CoreTerm.Cx → Prop
+  | CoreTyping.OpT.atom : ∀ {p : CoreTerm.Prog} {cx c₁ c' : CoreTerm.Cx} {x : String} {a : CoreTerm.At} {t : CoreLang.Ty},
+  cx.use a = Except.ok (t, c₁) → c₁.bind x t = Except.ok c' → CoreTyping.OpT p cx x (CoreTerm.Op.atom a) c'
+  | CoreTyping.OpT.pair : ∀ {p : CoreTerm.Prog} {cx c₁ c₂ c' : CoreTerm.Cx} {x : String} {a b : CoreTerm.At} {t u : CoreLang.Ty},
+  cx.use a = Except.ok (t, c₁) →
+    c₁.use b = Except.ok (u, c₂) → c₂.bind x (t.prod u) = Except.ok c' → CoreTyping.OpT p cx x (CoreTerm.Op.pair a b) c'
+  | CoreTyping.OpT.inl : ∀ {p : CoreTerm.Prog} {cx c₁ c' : CoreTerm.Cx} {x : String} {a : CoreTerm.At} {t τ : CoreLang.Ty},
+  CoreLang.Ty.wf (List.length cx.ke) 0 τ = true →
+    cx.use a = Except.ok (t, c₁) → c₁.bind x (t.sum τ) = Except.ok c' → CoreTyping.OpT p cx x (CoreTerm.Op.inl τ a) c'
+  | CoreTyping.OpT.inr : ∀ {p : CoreTerm.Prog} {cx c₁ c' : CoreTerm.Cx} {x : String} {a : CoreTerm.At} {t τ : CoreLang.Ty},
+  CoreLang.Ty.wf (List.length cx.ke) 0 τ = true →
+    cx.use a = Except.ok (t, c₁) → c₁.bind x (τ.sum t) = Except.ok c' → CoreTyping.OpT p cx x (CoreTerm.Op.inr τ a) c'
+  | CoreTyping.OpT.addS : ∀ {p : CoreTerm.Prog} {cx c' : CoreTerm.Cx} {x : String} {a b : CoreTerm.At} {t u : CoreLang.Ty} {i j : CoreLang.Idx},
+  cx.peek a = Except.ok t →
+    cx.peek b = Except.ok u →
+      CoreTerm.intOf t = some (some i) →
+        CoreTerm.intOf u = some (some j) →
+          cx.bind x (CoreLang.Ty.intS (i.add j)) = Except.ok c' → CoreTyping.OpT p cx x (CoreTerm.Op.add a b) c'
+  | CoreTyping.OpT.addI : ∀ {p : CoreTerm.Prog} {cx c' : CoreTerm.Cx} {x : String} {a b : CoreTerm.At} {t u : CoreLang.Ty}
+  {o o' : Option CoreLang.Idx},
+  cx.peek a = Except.ok t →
+    cx.peek b = Except.ok u →
+      CoreTerm.intOf t = some o →
+        CoreTerm.intOf u = some o' →
+          cx.bind x CoreLang.Ty.int = Except.ok c' → CoreTyping.OpT p cx x (CoreTerm.Op.add a b) c'
+  | CoreTyping.OpT.subS : ∀ {p : CoreTerm.Prog} {cx c' : CoreTerm.Cx} {x : String} {a b : CoreTerm.At} {t u : CoreLang.Ty} {i j d : CoreLang.Idx},
+  cx.peek a = Except.ok t →
+    cx.peek b = Except.ok u →
+      CoreTerm.intOf t = some (some i) →
+        CoreTerm.intOf u = some (some j) →
+          (CoreTyping.Ent cx fun ρ => CoreTyping.ev ρ d + CoreTyping.ev ρ j = CoreTyping.ev ρ i) →
+            cx.bind x (CoreLang.Ty.intS d) = Except.ok c' → CoreTyping.OpT p cx x (CoreTerm.Op.sub a b) c'
+  | CoreTyping.OpT.new : ∀ {p : CoreTerm.Prog} {cx c₁ c' : CoreTerm.Cx} {x : String} {a : CoreTerm.At} {t : CoreLang.Ty},
+  cx.use a = Except.ok (t, c₁) →
+    t.secondClass = false →
+      c₁.bind x (CoreLang.Ty.ptr CoreLang.Mode.own t) = Except.ok c' → CoreTyping.OpT p cx x (CoreTerm.Op.new a) c'
+  | CoreTyping.OpT.publish : ∀ {p : CoreTerm.Prog} {cx c₁ c' : CoreTerm.Cx} {x : String} {a : CoreTerm.At} {u : CoreLang.Ty},
+  cx.use a = Except.ok (CoreLang.Ty.ptr CoreLang.Mode.own u, c₁) →
+    CoreLang.Ty.sharedOKIn c₁.ke (CoreLang.Ty.ptr CoreLang.Mode.pub u) = true →
+      c₁.bind x (CoreLang.Ty.ptr CoreLang.Mode.pub u) = Except.ok c' → CoreTyping.OpT p cx x (CoreTerm.Op.publish a) c'
+  | CoreTyping.OpT.publishBuf : ∀ {p : CoreTerm.Prog} {cx c₁ c' : CoreTerm.Cx} {x : String} {a : CoreTerm.At} {n k : CoreLang.Idx} {u : CoreLang.Ty},
+  cx.use a = Except.ok ((CoreLang.Ty.loc CoreLang.Mode.own (CoreLang.Ty.array n u)).refine (CoreLang.Pred.ini k), c₁) →
+    CoreLang.Ty.sharedOKIn c₁.ke (CoreLang.Ty.loc CoreLang.Mode.pub (CoreLang.Ty.array n u)) = true →
+      c₁.bind x ((CoreLang.Ty.loc CoreLang.Mode.pub (CoreLang.Ty.array n u)).refine (CoreLang.Pred.ini k)) =
+          Except.ok c' →
+        CoreTyping.OpT p cx x (CoreTerm.Op.publish a) c'
+  | CoreTyping.OpT.intoRgn : ∀ {p : CoreTerm.Prog} {cx c₁ c' : CoreTerm.Cx} {x rn : String} {a : CoreTerm.At} {r : CoreLang.Idx} {u : CoreLang.Ty},
+  cx.idx rn = Except.ok r →
+    cx.use a = Except.ok (CoreLang.Ty.ptr CoreLang.Mode.own u, c₁) →
+      CoreTerm.rgnCellOK c₁.ke u = true →
+        c₁.bind x (CoreLang.Ty.ptr (CoreLang.Mode.rgn r) u) = Except.ok c' →
+          CoreTyping.OpT p cx x (CoreTerm.Op.intoRgn rn a) c'
+  | CoreTyping.OpT.intoRgnBuf : ∀ {p : CoreTerm.Prog} {cx c₁ c' : CoreTerm.Cx} {x rn : String} {a : CoreTerm.At} {r n k : CoreLang.Idx}
+  {u : CoreLang.Ty},
+  cx.idx rn = Except.ok r →
+    cx.use a =
+        Except.ok ((CoreLang.Ty.loc CoreLang.Mode.own (CoreLang.Ty.array n u)).refine (CoreLang.Pred.ini k), c₁) →
+      CoreTerm.rgnCellOK c₁.ke (CoreLang.Ty.array n u) = true →
+        c₁.bind x ((CoreLang.Ty.loc (CoreLang.Mode.rgn r) (CoreLang.Ty.array n u)).refine (CoreLang.Pred.ini k)) =
+            Except.ok c' →
+          CoreTyping.OpT p cx x (CoreTerm.Op.intoRgn rn a) c'
+  | CoreTyping.OpT.newBuf : ∀ {p : CoreTerm.Prog} {cx c' : CoreTerm.Cx} {x : String} {n : CoreTerm.At} {τ : CoreLang.Ty} {k : CoreLang.Idx},
+  CoreLang.Ty.wf (List.length cx.ke) cx.inames.length τ = true →
+    τ.secondClass = false →
+      cx.opaqueOK τ = true →
+        τ.arrFree = true →
+          CoreTyping.IntIdx cx n k →
+            cx.bind x
+                  ((CoreLang.Ty.loc CoreLang.Mode.own (CoreLang.Ty.array k τ)).refine
+                    (CoreLang.Pred.ini (if CoreLang.zeroableIn [] cx.ke τ = true then k else CoreLang.Idx.lit 0))) =
+                Except.ok c' →
+              CoreTyping.OpT p cx x (CoreTerm.Op.newBuf n τ) c'
+  | CoreTyping.OpT.idxOwn : ∀ {p : CoreTerm.Prog} {cx c₁ c' : CoreTerm.Cx} {x : String} {b i : CoreTerm.At} {t t' u : CoreLang.Ty}
+  {n k j : CoreLang.Idx},
+  cx.peek b = Except.ok t →
+    CoreTerm.bufOf t = some (CoreLang.Mode.own, n, u, k) →
+      CoreTyping.IntIdx cx i j →
+        CoreTyping.LtI cx j n →
+          CoreTyping.LtI cx j k →
+            cx.opaqueOK u = true →
+              cx.use b = Except.ok (t', c₁) →
+                c₁.bind x (CoreLang.Ty.loc CoreLang.Mode.own u) = Except.ok c' →
+                  CoreTyping.OpT p cx x (CoreTerm.Op.idx b i) c'
+  | CoreTyping.OpT.idxShared : ∀ {p : CoreTerm.Prog} {cx c' : CoreTerm.Cx} {x : String} {b i : CoreTerm.At} {t u : CoreLang.Ty} {μ : CoreLang.Mode}
+  {n k j : CoreLang.Idx},
+  cx.peek b = Except.ok t →
+    CoreTerm.bufOf t = some (μ, n, u, k) →
+      μ ≠ CoreLang.Mode.own →
+        CoreTyping.IntIdx cx i j →
+          CoreTyping.LtI cx j n →
+            CoreTyping.LtI cx j k →
+              cx.opaqueOK u = true →
+                cx.bind x (CoreLang.Ty.loc μ u) = Except.ok c' → CoreTyping.OpT p cx x (CoreTerm.Op.idx b i) c'
+  | CoreTyping.OpT.bufInit : ∀ {p : CoreTerm.Prog} {cx c₁ c₂ c' : CoreTerm.Cx} {x : String} {b i v : CoreTerm.At} {t tv u : CoreLang.Ty}
+  {n k j : CoreLang.Idx},
+  cx.use b = Except.ok (t, c₁) →
+    CoreTerm.bufOf t = some (CoreLang.Mode.own, n, u, k) →
+      CoreTyping.IntIdx c₁ i j →
+        CoreTyping.EqI c₁ j k →
+          CoreTyping.LtI c₁ k n →
+            c₁.use v = Except.ok (tv, c₂) →
+              CoreTyping.SubS c₂ tv u →
+                c₂.bind x
+                      ((CoreLang.Ty.loc CoreLang.Mode.own (CoreLang.Ty.array n u)).refine
+                        (CoreLang.Pred.ini (k.add (CoreLang.Idx.lit 1)))) =
+                    Except.ok c' →
+                  CoreTyping.OpT p cx x (CoreTerm.Op.bufInit b i v) c'
+  | CoreTyping.OpT.null : ∀ {p : CoreTerm.Prog} {cx c' : CoreTerm.Cx} {x : String} {μ : CoreLang.Mode} {τ : CoreLang.Ty},
+  CoreLang.Ty.wf (List.length cx.ke) cx.inames.length (CoreLang.Ty.ptrOpt μ τ) = true →
+    cx.bind x (CoreLang.Ty.ptrOpt μ τ) = Except.ok c' → CoreTyping.OpT p cx x (CoreTerm.Op.null μ τ) c'
+  | CoreTyping.OpT.fold : ∀ {p : CoreTerm.Prog} {cx c₁ c' : CoreTerm.Cx} {x : String} {a : CoreTerm.At} {t τ : CoreLang.Ty},
+  CoreLang.Ty.wf (List.length cx.ke) cx.inames.length τ = true →
+    cx.use a = Except.ok (t, c₁) →
+      CoreTyping.FoldOK c₁ t τ → c₁.bind x τ = Except.ok c' → CoreTyping.OpT p cx x (CoreTerm.Op.fold a τ) c'
+  | CoreTyping.OpT.fldOwn : ∀ {p : CoreTerm.Prog} {cx c₁ c' : CoreTerm.Cx} {x : String} {i : Nat} {a : CoreTerm.At} {t t' u c1 c2 : CoreLang.Ty},
+  cx.peek a = Except.ok t →
+    CoreTerm.cellOf t = some (CoreLang.Mode.own, u) →
+      CoreTerm.unfold1 u = c1.prod c2 →
+        (i ≠ 0 → cx.opaqueOK c1 = true) →
+          cx.use a = Except.ok (t', c₁) →
+            c₁.bind x (CoreLang.Ty.loc CoreLang.Mode.own (if (i == 0) = true then c1 else c2)) = Except.ok c' →
+              CoreTyping.OpT p cx x (CoreTerm.Op.fld i a) c'
+  | CoreTyping.OpT.fldShared : ∀ {p : CoreTerm.Prog} {cx c' : CoreTerm.Cx} {x : String} {i : Nat} {a : CoreTerm.At} {t u c1 c2 : CoreLang.Ty}
+  {μ : CoreLang.Mode},
+  cx.peek a = Except.ok t →
+    CoreTerm.cellOf t = some (μ, u) →
+      μ ≠ CoreLang.Mode.own →
+        CoreTerm.unfold1 u = c1.prod c2 →
+          (i ≠ 0 → cx.opaqueOK c1 = true) →
+            cx.bind x (CoreLang.Ty.loc μ (if (i == 0) = true then c1 else c2)) = Except.ok c' →
+              CoreTyping.OpT p cx x (CoreTerm.Op.fld i a) c'
+  | CoreTyping.OpT.loadWord : ∀ {p : CoreTerm.Prog} {cx c' : CoreTerm.Cx} {x w : String} {acq : Bool} {t : CoreLang.Ty}
+  {rP : CoreLang.Idx × CoreLang.Proto},
+  cx.peek (CoreTerm.At.var w) = Except.ok t →
+    CoreTerm.wordOf t = some rP →
+      rP.snd.ghost = false →
+        (CoreTyping.observeCx cx x w acq).bind x (CoreLang.Ty.intS (CoreLang.Idx.var 0)) = Except.ok c' →
+          CoreTyping.OpT p cx x (CoreTerm.Op.load acq (CoreTerm.At.var w)) c'
+  | CoreTyping.OpT.loadOwn : ∀ {p : CoreTerm.Prog} {cx c' : CoreTerm.Cx} {x : String} {acq : Bool} {a : CoreTerm.At} {t u : CoreLang.Ty},
+  cx.peek a = Except.ok t →
+    CoreTerm.wordOf t = none →
+      CoreTerm.cellOf t = some (CoreLang.Mode.own, u) →
+        CoreTerm.affine cx.ke u = false → cx.bind x u = Except.ok c' → CoreTyping.OpT p cx x (CoreTerm.Op.load acq a) c'
+  | CoreTyping.OpT.loadPub : ∀ {p : CoreTerm.Prog} {cx c' : CoreTerm.Cx} {x : String} {acq : Bool} {a : CoreTerm.At} {t u : CoreLang.Ty},
+  cx.peek a = Except.ok t →
+    CoreTerm.wordOf t = none →
+      CoreTerm.cellOf t = some (CoreLang.Mode.pub, u) →
+        CoreTerm.affine cx.ke u = false →
+          (CoreLang.Ty.sensitiveIn cx.ke u = true → acq = true) →
+            cx.bind x u = Except.ok c' → CoreTyping.OpT p cx x (CoreTerm.Op.load acq a) c'
+  | CoreTyping.OpT.loadRgn : ∀ {p : CoreTerm.Prog} {cx c' : CoreTerm.Cx} {x : String} {acq : Bool} {a : CoreTerm.At} {t u : CoreLang.Ty}
+  {r : CoreLang.Idx},
+  cx.peek a = Except.ok t →
+    CoreTerm.wordOf t = none →
+      CoreTerm.cellOf t = some (CoreLang.Mode.rgn r, u) →
+        CoreTyping.HasTok cx r ∨ CoreTyping.HasShare cx r →
+          CoreTerm.affine cx.ke (CoreTerm.adapt r u) = false →
+            cx.bind x (CoreTerm.adapt r u) = Except.ok c' → CoreTyping.OpT p cx x (CoreTerm.Op.load acq a) c'
+  | CoreTyping.OpT.loadCap : ∀ {p : CoreTerm.Prog} {cx c' : CoreTerm.Cx} {x : String} {acq : Bool} {a : CoreTerm.At} {t u : CoreLang.Ty}
+  {r : CoreLang.Idx},
+  cx.peek a = Except.ok t →
+    CoreTerm.wordOf t = none →
+      CoreTerm.cellOf t = some (CoreLang.Mode.rgn r, u) →
+        CoreTyping.HasCap cx r false →
+          (CoreLang.Ty.sensitiveIn cx.ke (CoreTerm.adapt r u) = true → acq = true) →
+            CoreTerm.affine cx.ke (CoreTerm.adapt r u) = false →
+              cx.bind x (CoreTerm.adapt r u) = Except.ok c' → CoreTyping.OpT p cx x (CoreTerm.Op.load acq a) c'
+  | CoreTyping.OpT.loadTorn : ∀ {p : CoreTerm.Prog} {cx : CoreTerm.Cx} {x w : String} {acq : Bool} {a : CoreTerm.At} {t u : CoreLang.Ty}
+  {r s : CoreLang.Idx},
+  cx.peek a = Except.ok t →
+    CoreTerm.wordOf t = none →
+      CoreTerm.cellOf t = some (CoreLang.Mode.rgn r, u) →
+        CoreTyping.TornLic cx r w s →
+          (cx.vars.any fun x_1 => x_1.fst == x) = false →
+            (cx.torn.any fun x_1 => x_1.x == x) = false →
+              CoreTyping.OpT p cx x (CoreTerm.Op.load acq a)
+                { inames := cx.inames, facts := cx.facts, vars := cx.vars, saws := cx.saws,
+                  torn := { x := x, ty := CoreTerm.adapt r u, w := w, s := s, φ := CoreTerm.Phase.opn } :: cx.torn,
+                  unsealed := cx.unsealed, ke := cx.ke, opq := cx.opq, lent := cx.lent, ret := cx.ret }
+  | CoreTyping.OpT.storeWordGive : ∀ {p : CoreTerm.Prog} {cx c₁ c' : CoreTerm.Cx} {x : String} {rel : Bool} {a v tk : CoreTerm.At} {t : CoreLang.Ty}
+  {r r' i j k k' : CoreLang.Idx} {P : CoreLang.Proto} {c c₂ : Nat} {cl cl' : CoreLang.Clause},
+  cx.peek a = Except.ok t →
+    CoreTerm.wordOf t = some (r, P) →
+      cx.use tk = Except.ok (CoreLang.Ty.tok r' (some (P, i)), c₁) →
+        CoreTyping.EqI c₁ r r' →
+          CoreTyping.IntIdx c₁ v j →
+            CoreTyping.InState c₁ P i c k →
+              P.clauses[c]? = some cl →
+                CoreTyping.InState c₁ P j c₂ k' →
+                  P.clauses[c₂]? = some cl' →
+                    cl.holds = false →
+                      CoreTyping.Step c₁ P c k c₂ k' →
+                        cl'.holds = true →
+                          (P.ghost = false → rel = true) →
+                            c₁.bind x CoreLang.Ty.unit = Except.ok c' →
+                              CoreTyping.OpT p cx x (CoreTerm.Op.store rel a v (some tk)) c'
+  | CoreTyping.OpT.storeWordKeep : ∀ {p : CoreTerm.Prog} {cx c₁ c' : CoreTerm.Cx} {x : String} {rel : Bool} {a v tk : CoreTerm.At} {t : CoreLang.Ty}
+  {r r' i j k k' : CoreLang.Idx} {P : CoreLang.Proto} {c c₂ : Nat} {cl cl' : CoreLang.Clause},
+  cx.peek a = Except.ok t →
+    CoreTerm.wordOf t = some (r, P) →
+      cx.use tk = Except.ok (CoreLang.Ty.tok r' (some (P, i)), c₁) →
+        CoreTyping.EqI c₁ r r' →
+          CoreTyping.IntIdx c₁ v j →
+            CoreTyping.InState c₁ P i c k →
+              P.clauses[c]? = some cl →
+                CoreTyping.InState c₁ P j c₂ k' →
+                  P.clauses[c₂]? = some cl' →
+                    cl.holds = false →
+                      CoreTyping.Step c₁ P c k c₂ k' →
+                        cl'.holds = false →
+                          P.ticket = false →
+                            c₁.bind x (CoreLang.Ty.tok r' (some (P, j))) = Except.ok c' →
+                              CoreTyping.OpT p cx x (CoreTerm.Op.store rel a v (some tk)) c'
+  | CoreTyping.OpT.storeWordHand : ∀ {p : CoreTerm.Prog} {cx c₁ c' : CoreTerm.Cx} {x : String} {rel : Bool} {a v tk : CoreTerm.At} {t : CoreLang.Ty}
+  {r r' i j k k' : CoreLang.Idx} {P : CoreLang.Proto} {c c₂ : Nat} {cl cl' : CoreLang.Clause},
+  cx.peek a = Except.ok t →
+    CoreTerm.wordOf t = some (r, P) →
+      cx.use tk = Except.ok (CoreLang.Ty.tok r' (some (P, i)), c₁) →
+        CoreTyping.EqI c₁ r r' →
+          CoreTyping.IntIdx c₁ v j →
+            CoreTyping.InState c₁ P i c k →
+              P.clauses[c]? = some cl →
+                CoreTyping.InState c₁ P j c₂ k' →
+                  P.clauses[c₂]? = some cl' →
+                    cl.holds = false →
+                      CoreTyping.Step c₁ P c k c₂ k' →
+                        cl'.holds = false →
+                          P.ticket = true →
+                            rel = true →
+                              c₁.bind x CoreLang.Ty.unit = Except.ok c' →
+                                CoreTyping.OpT p cx x (CoreTerm.Op.store rel a v (some tk)) c'
+  | CoreTyping.OpT.storeOwn : ∀ {p : CoreTerm.Prog} {cx c₁ c' : CoreTerm.Cx} {x : String} {rel : Bool} {a v : CoreTerm.At} {tok : Option CoreTerm.At}
+  {t u tv : CoreLang.Ty},
+  cx.peek a = Except.ok t →
+    CoreTerm.wordOf t = none →
+      CoreTerm.cellOf t = some (CoreLang.Mode.own, u) →
+        CoreLang.Ty.wordFreeIn cx.ke u = true →
+          cx.use v = Except.ok (tv, c₁) →
+            CoreTyping.SubS c₁ tv u →
+              c₁.bind x CoreLang.Ty.unit = Except.ok c' → CoreTyping.OpT p cx x (CoreTerm.Op.store rel a v tok) c'
+  | CoreTyping.OpT.storePub : ∀ {p : CoreTerm.Prog} {cx c₁ c' : CoreTerm.Cx} {x : String} {rel : Bool} {a v : CoreTerm.At} {tok : Option CoreTerm.At}
+  {t u tv : CoreLang.Ty},
+  cx.peek a = Except.ok t →
+    CoreTerm.wordOf t = none →
+      CoreTerm.cellOf t = some (CoreLang.Mode.pub, u) →
+        CoreLang.Ty.wordFreeIn cx.ke u = true →
+          cx.use v = Except.ok (tv, c₁) →
+            CoreTyping.SubS c₁ tv u →
+              (CoreLang.Ty.sensitiveIn c₁.ke u = true → rel = true) →
+                c₁.bind x CoreLang.Ty.unit = Except.ok c' → CoreTyping.OpT p cx x (CoreTerm.Op.store rel a v tok) c'
+  | CoreTyping.OpT.storeRgn : ∀ {p : CoreTerm.Prog} {cx c₁ c' : CoreTerm.Cx} {x : String} {rel : Bool} {a v : CoreTerm.At} {tok : Option CoreTerm.At}
+  {t u tv : CoreLang.Ty} {r : CoreLang.Idx},
+  cx.peek a = Except.ok t →
+    CoreTerm.wordOf t = none →
+      CoreTerm.cellOf t = some (CoreLang.Mode.rgn r, u) →
+        CoreLang.Ty.wordFreeIn cx.ke u = true →
+          cx.use v = Except.ok (tv, c₁) →
+            CoreTyping.HoldsSealed c₁ r →
+              CoreTyping.SubS c₁ tv u ∨ CoreTyping.SubS c₁ tv (CoreTerm.adapt r u) →
+                c₁.bind x CoreLang.Ty.unit = Except.ok c' → CoreTyping.OpT p cx x (CoreTerm.Op.store rel a v tok) c'
+  | CoreTyping.OpT.storeCap : ∀ {p : CoreTerm.Prog} {cx c₁ c' : CoreTerm.Cx} {x : String} {rel : Bool} {a v : CoreTerm.At} {tok : Option CoreTerm.At}
+  {t u tv : CoreLang.Ty} {r : CoreLang.Idx},
+  cx.peek a = Except.ok t →
+    CoreTerm.wordOf t = none →
+      CoreTerm.cellOf t = some (CoreLang.Mode.rgn r, u) →
+        CoreLang.Ty.wordFreeIn cx.ke u = true →
+          cx.use v = Except.ok (tv, c₁) →
+            CoreTyping.HasCap c₁ r true →
+              (CoreLang.Ty.sensitiveIn c₁.ke u = true → rel = true) →
+                CoreTyping.SubS c₁ tv u ∨ CoreTyping.SubS c₁ tv (CoreTerm.adapt r u) →
+                  c₁.bind x CoreLang.Ty.unit = Except.ok c' → CoreTyping.OpT p cx x (CoreTerm.Op.store rel a v tok) c'
+  | CoreTyping.OpT.fence : ∀ {p : CoreTerm.Prog} {cx c' : CoreTerm.Cx} {x : String} {f : CoreTerm.Fence},
+  (CoreTyping.fenceCx cx f).bind x CoreLang.Ty.unit = Except.ok c' → CoreTyping.OpT p cx x (CoreTerm.Op.fence f) c'
+  | CoreTyping.OpT.mkWord : ∀ {p : CoreTerm.Prog} {cx c₁ c' : CoreTerm.Cx} {x rn : String} {P : CoreLang.Proto} {v tk : CoreTerm.At}
+  {r r' j k : CoreLang.Idx} {c : Nat} {cl : CoreLang.Clause},
+  cx.idx rn = Except.ok r →
+    CoreTerm.pwf P = true →
+      cx.use tk = Except.ok (CoreLang.Ty.tok r' none, c₁) →
+        CoreTyping.EqI c₁ r r' →
+          CoreTyping.IntIdx c₁ v j →
+            CoreTyping.InState c₁ P j c k →
+              P.clauses[c]? = some cl →
+                P.ghost = false →
+                  cl.holds = true →
+                    c₁.bind x (CoreLang.Ty.word r P) = Except.ok c' →
+                      CoreTyping.OpT p cx x (CoreTerm.Op.mkWord rn P v tk) c'
+  | CoreTyping.OpT.mkWordGhost : ∀ {p : CoreTerm.Prog} {cx c₁ c' : CoreTerm.Cx} {x rn : String} {P : CoreLang.Proto} {v tk : CoreTerm.At}
+  {r r' j k : CoreLang.Idx} {c : Nat} {cl : CoreLang.Clause},
+  cx.idx rn = Except.ok r →
+    CoreTerm.pwf P = true →
+      cx.use tk = Except.ok (CoreLang.Ty.tok r' none, c₁) →
+        CoreTyping.EqI c₁ r r' →
+          CoreTyping.IntIdx c₁ v j →
+            CoreTyping.InState c₁ P j c k →
+              P.clauses[c]? = some cl →
+                P.ghost = true →
+                  cl.holds = false →
+                    c₁.bind x ((CoreLang.Ty.word r P).prod (CoreLang.Ty.tok r (some (P, j)))) = Except.ok c' →
+                      CoreTyping.OpT p cx x (CoreTerm.Op.mkWord rn P v tk) c'
+  | CoreTyping.OpT.mkWord2 : ∀ {p : CoreTerm.Prog} {cx c₁ c' : CoreTerm.Cx} {x rn : String} {P : CoreLang.Proto2} {v0 v1 tk : CoreTerm.At}
+  {r r' j0 j1 k0 k1 : CoreLang.Idx} {c : Nat} {cl : CoreLang.Clause2},
+  cx.idx rn = Except.ok r →
+    CoreTerm.pwf2 P = true →
+      cx.use tk = Except.ok (CoreLang.Ty.tok r' none, c₁) →
+        CoreTyping.EqI c₁ r r' →
+          CoreTyping.IntIdx c₁ v0 j0 →
+            CoreTyping.IntIdx c₁ v1 j1 →
+              CoreTyping.InState2 c₁ P j0 j1 c k0 k1 →
+                P.clauses[c]? = some cl →
+                  cl.holds = true →
+                    c₁.bind x (CoreLang.Ty.word2 r P) = Except.ok c' →
+                      CoreTyping.OpT p cx x (CoreTerm.Op.mkWord2 rn P v0 v1 tk) c'
+  | CoreTyping.OpT.ldp : ∀ {p : CoreTerm.Prog} {cx c' : CoreTerm.Cx} {x w n0 n1 : String} {acq : Bool} {t : CoreLang.Ty},
+  cx.peek (CoreTerm.At.var w) = Except.ok t →
+    CoreTerm.pairRef t = true →
+      ((cx.push n0).push n1).bind x
+            ((CoreLang.Ty.intS (CoreLang.Idx.var 1)).prod (CoreLang.Ty.intS (CoreLang.Idx.var 0))) =
+          Except.ok c' →
+        CoreTyping.OpT p cx x (CoreTerm.Op.ldp acq (CoreTerm.At.var w) n0 n1) c'
+  | CoreTyping.OpT.mkEPair : ∀ {p : CoreTerm.Prog} {cx c' : CoreTerm.Cx} {x rn : String} {P : CoreLang.ECounter} {v0 v1 : CoreTerm.At}
+  {r j0 j1 : CoreLang.Idx},
+  cx.idx rn = Except.ok r →
+    CoreTerm.pwfE P = true →
+      CoreTyping.IntIdx cx v0 j0 →
+        CoreTyping.IntIdx cx v1 j1 →
+          cx.bind x (CoreLang.Ty.epair r P) = Except.ok c' → CoreTyping.OpT p cx x (CoreTerm.Op.mkEPair rn P v0 v1) c'
+  | CoreTyping.OpT.mkTicket : ∀ {p : CoreTerm.Prog} {cx c₁ c' : CoreTerm.Cx} {x rn : String} {N P : CoreLang.Proto} {v tk : CoreTerm.At}
+  {r r' j : CoreLang.Idx},
+  cx.idx rn = Except.ok r →
+    CoreTerm.pwf N = true →
+      N.epoch = true →
+        CoreTerm.pwf P = true →
+          P.ticket = true →
+            cx.use tk = Except.ok (CoreLang.Ty.tok r' none, c₁) →
+              CoreTyping.EqI c₁ r r' →
+                CoreTyping.IntIdx c₁ v j →
+                  c₁.bind x ((CoreLang.Ty.word r N).prod (CoreLang.Ty.word r P)) = Except.ok c' →
+                    CoreTyping.OpT p cx x (CoreTerm.Op.mkTicket rn N P v tk) c'
+  | CoreTyping.OpT.claim : ∀ {p : CoreTerm.Prog} {cx c₁ c' : CoreTerm.Cx} {x w : String} {tk : CoreTerm.At} {t : CoreLang.Ty}
+  {rP : CoreLang.Idx × CoreLang.Proto} {Q : CoreLang.ECounter} {r' j m : CoreLang.Idx},
+  cx.peek (CoreTerm.At.var w) = Except.ok t →
+    CoreTerm.wordOf t = some rP →
+      rP.snd.ticket = true →
+        cx.use tk = Except.ok (CoreLang.Ty.tokE r' Q j, c₁) →
+          CoreTyping.EqI c₁ rP.fst r' →
+            (w, m, true) ∈ c₁.saws →
+              CoreTyping.EqI c₁ (m.add (CoreLang.Idx.lit 1)) j →
+                c₁.bind x (CoreLang.Ty.tok rP.fst (some (rP.snd, m))) = Except.ok c' →
+                  CoreTyping.OpT p cx x (CoreTerm.Op.claim (CoreTerm.At.var w) tk) c'
+  | CoreTyping.OpT.fetchCell : ∀ {p : CoreTerm.Prog} {cx c₁ c' : CoreTerm.Cx} {x : String} {o : CoreTerm.FetchOp} {acq rel : Bool} {a v : CoreTerm.At}
+  {tw tv : CoreLang.Ty},
+  cx.peek a = Except.ok tw →
+    CoreTerm.wordOf tw = none →
+      (CoreTerm.cellOf tw = some (CoreLang.Mode.pub, CoreLang.Ty.int) ∨
+          ∃ r, CoreTerm.cellOf tw = some (CoreLang.Mode.rgn r, CoreLang.Ty.int) ∧ CoreTyping.HasCap cx r true) →
+        cx.use v = Except.ok (tv, c₁) →
+          CoreTyping.SubS c₁ tv CoreLang.Ty.int →
+            c₁.bind x CoreLang.Ty.int = Except.ok c' → CoreTyping.OpT p cx x (CoreTerm.Op.fetch o acq rel a v) c'
+  | CoreTyping.OpT.fetchEpoch : ∀ {p : CoreTerm.Prog} {cx c' : CoreTerm.Cx} {x : String} {acq rel : Bool} {a v : CoreTerm.At} {tw : CoreLang.Ty}
+  {r j : CoreLang.Idx} {P : CoreLang.Proto},
+  cx.peek a = Except.ok tw →
+    CoreTerm.wordOf tw = some (r, P) →
+      P.epoch = true →
+        acq = true →
+          CoreTyping.IntIdx cx v j →
+            CoreTyping.EqI cx j (CoreLang.Idx.lit 1) →
+              cx.bind x (CoreTerm.fetchEpochTy r P) = Except.ok c' →
+                CoreTyping.OpT p cx x (CoreTerm.Op.fetch CoreTerm.FetchOp.add acq rel a v) c'
+  | CoreTyping.OpT.fetchShare : ∀ {p : CoreTerm.Prog} {cx c' : CoreTerm.Cx} {x : String} {acq rel : Bool} {a v : CoreTerm.At} {tw : CoreLang.Ty}
+  {r j : CoreLang.Idx} {P : CoreLang.Proto} {d : Nat},
+  cx.peek a = Except.ok tw →
+    CoreTerm.wordOf tw = some (r, P) →
+      P.epoch = false →
+        CoreTyping.IntIdx cx v j →
+          CoreTyping.EqI cx j (CoreLang.Idx.lit d) →
+            CoreTerm.fetchOK P d = true →
+              cx.bind x CoreLang.Ty.int = Except.ok c' →
+                CoreTyping.OpT p cx x (CoreTerm.Op.fetch CoreTerm.FetchOp.add acq rel a v) c'
+  | CoreTyping.OpT.stpGive : ∀ {p : CoreTerm.Prog} {cx c₁ c' : CoreTerm.Cx} {x : String} {rel : Bool} {a v0 v1 tk : CoreTerm.At} {t : CoreLang.Ty}
+  {r r' i0 i1 j0 j1 k0 k1 k0' k1' : CoreLang.Idx} {P : CoreLang.Proto2} {c c₂ : Nat} {cl cl' : CoreLang.Clause2},
+  cx.peek a = Except.ok t →
+    CoreTerm.word2Of t = some (r, P) →
+      cx.use tk = Except.ok (CoreLang.Ty.tok2 r' P i0 i1, c₁) →
+        CoreTyping.EqI c₁ r r' →
+          CoreTyping.IntIdx c₁ v0 j0 →
+            CoreTyping.IntIdx c₁ v1 j1 →
+              CoreTyping.InState2 c₁ P i0 i1 c k0 k1 →
+                P.clauses[c]? = some cl →
+                  CoreTyping.InState2 c₁ P j0 j1 c₂ k0' k1' →
+                    P.clauses[c₂]? = some cl' →
+                      cl.holds = false →
+                        CoreTyping.Step2 c₁ P c k0 k1 c₂ k0' k1' →
+                          cl'.holds = true →
+                            rel = true →
+                              c₁.bind x CoreLang.Ty.unit = Except.ok c' →
+                                CoreTyping.OpT p cx x (CoreTerm.Op.stp rel a v0 v1 tk) c'
+  | CoreTyping.OpT.stpKeep : ∀ {p : CoreTerm.Prog} {cx c₁ c' : CoreTerm.Cx} {x : String} {rel : Bool} {a v0 v1 tk : CoreTerm.At} {t : CoreLang.Ty}
+  {r r' i0 i1 j0 j1 k0 k1 k0' k1' : CoreLang.Idx} {P : CoreLang.Proto2} {c c₂ : Nat} {cl cl' : CoreLang.Clause2},
+  cx.peek a = Except.ok t →
+    CoreTerm.word2Of t = some (r, P) →
+      cx.use tk = Except.ok (CoreLang.Ty.tok2 r' P i0 i1, c₁) →
+        CoreTyping.EqI c₁ r r' →
+          CoreTyping.IntIdx c₁ v0 j0 →
+            CoreTyping.IntIdx c₁ v1 j1 →
+              CoreTyping.InState2 c₁ P i0 i1 c k0 k1 →
+                P.clauses[c]? = some cl →
+                  CoreTyping.InState2 c₁ P j0 j1 c₂ k0' k1' →
+                    P.clauses[c₂]? = some cl' →
+                      cl.holds = false →
+                        CoreTyping.Step2 c₁ P c k0 k1 c₂ k0' k1' →
+                          cl'.holds = false →
+                            c₁.bind x (CoreLang.Ty.tok2 r' P j0 j1) = Except.ok c' →
+                              CoreTyping.OpT p cx x (CoreTerm.Op.stp rel a v0 v1 tk) c'
+  | CoreTyping.OpT.pack : ∀ {p : CoreTerm.Prog} {cx c₁ c' : CoreTerm.Cx} {x wn : String} {a : CoreTerm.At} {w : CoreLang.Idx}
+  {body t : CoreLang.Ty},
+  cx.idx wn = Except.ok w →
+    CoreLang.Ty.wf (List.length cx.ke) cx.inames.length body.iex = true →
+      cx.use a = Except.ok (t, c₁) →
+        CoreTyping.NoLeak c₁ t →
+          CoreTyping.SubS c₁ t (CoreTerm.instT [w] 0 body) →
+            c₁.bind x body.iex = Except.ok c' → CoreTyping.OpT p cx x (CoreTerm.Op.pack a wn body.iex) c'
+  | CoreTyping.OpT.packT : ∀ {p : CoreTerm.Prog} {cx c₁ c' : CoreTerm.Cx} {x : String} {a : CoreTerm.At} {σ body t : CoreLang.Ty}
+  {κ : CoreLang.Kind},
+  CoreLang.Ty.guardT 0 body = true →
+    CoreLang.Ty.wf (List.length cx.ke) 0 (CoreLang.Ty.tex κ body) = true →
+      CoreTerm.admitsIn cx κ σ = true →
+        cx.use a = Except.ok (t, c₁) →
+          CoreTyping.NoLeak c₁ t →
+            CoreTyping.SubS c₁ t (CoreLang.Ty.substT 0 σ body) →
+              c₁.bind x (CoreLang.Ty.tex κ body) = Except.ok c' →
+                CoreTyping.OpT p cx x (CoreTerm.Op.packT a σ (CoreLang.Ty.tex κ body)) c'
+  | CoreTyping.OpT.validate : ∀ {p : CoreTerm.Prog} {cx c' : CoreTerm.Cx} {x y : String} {tn : CoreTerm.Torn} {v : CoreLang.Idx},
+  List.find? (fun x => x.x == y) cx.torn = some tn →
+    tn.φ = CoreTerm.Phase.rechecked v →
+      CoreTyping.EqI cx v tn.s →
+        CoreTerm.affine cx.ke tn.ty = false →
+          cx.bind x tn.ty = Except.ok c' → CoreTyping.OpT p cx x (CoreTerm.Op.validate y) c'
+  | CoreTyping.OpT.call : ∀ {p : CoreTerm.Prog} {cx c₁ c' : CoreTerm.Cx} {x f : String} {is : List String} {a : CoreTerm.At}
+  {ts : List CoreLang.Ty} {d : CoreTerm.Decl} {at_ rt t : CoreLang.Ty},
+  p.find f = Except.ok d →
+    CoreTerm.instantiate cx d is ts = Except.ok (at_, rt) →
+      cx.use a = Except.ok (t, c₁) →
+        CoreTyping.NoLeak c₁ t →
+          CoreTyping.SubS c₁ t at_ → c₁.bind x rt = Except.ok c' → CoreTyping.OpT p cx x (CoreTerm.Op.call f is a ts) c'
+  | CoreTyping.OpT.spawn : ∀ {p : CoreTerm.Prog} {cx c₁ c' : CoreTerm.Cx} {x f : String} {a : CoreTerm.At} {T : CoreLang.Ty}
+  {ts : List CoreLang.Ty} {t : CoreLang.Ty} {d : CoreTerm.Decl} {at_ rt : CoreLang.Ty},
+  cx.use a = Except.ok (t, c₁) →
+    CoreTyping.SubS c₁ t T →
+      (CoreTerm.affine c₁.ke t || CoreTerm.affine c₁.ke T) = false →
+        CoreLang.Ty.wf (List.length c₁.ke) 0 T = true →
+          (ts.all fun x => CoreLang.Ty.wf (List.length c₁.ke) 0 x) = true →
+            TermClose.tb 0 T = true →
+              ts.all (TermClose.tb 0) = true →
+                TermScope.drf T = true →
+                  ts.all TermScope.drf = true →
+                    TermScope.wrapOK T = true →
+                      ts.all TermScope.argOK = true →
+                        p.find f = Except.ok d →
+                          CoreTerm.instantiate { vars := [("a", T, true)], ret := CoreLang.Ty.unit } d [] ts =
+                              Except.ok (at_, rt) →
+                            CoreTerm.tailCheck p { vars := [("a", T, true)], ret := rt } f [] (CoreTerm.At.var "a") ts =
+                                Except.ok () →
+                              (TermClose.tb 0 rt && TermTv.mg rt && TermTv.noIallV rt) = true →
+                                c₁.bind x CoreLang.Ty.tid = Except.ok c' →
+                                  CoreTyping.OpT p cx x (CoreTerm.Op.spawn f a T ts) c'
+  | CoreTyping.OpT.ext : ∀ {p : CoreTerm.Prog} {cx c₁ c' : CoreTerm.Cx} {x : String} {n : CoreTerm.ExtName} {a : CoreTerm.At} {t : CoreLang.Ty},
+  cx.use a = Except.ok (t, c₁) →
+    n.ok = true →
+      CoreTyping.SubS c₁ t n.sig.fst →
+        c₁.bind x n.sig.snd = Except.ok c' → CoreTyping.OpT p cx x (CoreTerm.Op.ext n a) c'
+  | CoreTyping.OpT.borrow : ∀ {p : CoreTerm.Prog} {cx c₁ c' : CoreTerm.Cx} {x y : String} {c : CoreLang.Cap} {a : CoreTerm.At} {t t' : CoreLang.Ty}
+  {r : CoreLang.Idx},
+  CoreTerm.varOf a = Except.ok y →
+    cx.peek a = Except.ok t →
+      CoreTerm.lendOf cx c t = Except.ok r →
+        cx.use a = Except.ok (t', c₁) →
+          { inames := c₁.inames, facts := c₁.facts, vars := c₁.vars, saws := c₁.saws, torn := c₁.torn,
+                    unsealed := c₁.unsealed, ke := c₁.ke, opq := c₁.opq, lent := y :: c₁.lent, ret := c₁.ret }.bind
+                x (CoreLang.Ty.cap c r) =
+              Except.ok c' →
+            CoreTyping.OpT p cx x (CoreTerm.Op.borrow c a) c'
+  | CoreTyping.OpT.freeze : ∀ {p : CoreTerm.Prog} {cx c₁ c' : CoreTerm.Cx} {x : String} {a : CoreTerm.At} {r : CoreLang.Idx},
+  cx.use a = Except.ok (CoreLang.Ty.tok r none, c₁) →
+    c₁.sealedR r = true →
+      c₁.bind x (CoreLang.Ty.cap CoreLang.Cap.frz r) = Except.ok c' → CoreTyping.OpT p cx x (CoreTerm.Op.freeze a) c'
+  | CoreTyping.OpT.endBorrow : ∀ {p : CoreTerm.Prog} {cx c' : CoreTerm.Cx} {x y : String} {a : CoreTerm.At},
+  CoreTerm.varOf a = Except.ok y →
+    cx.lent.contains y = true →
+      (cx.endCx y).bind x CoreLang.Ty.unit = Except.ok c' → CoreTyping.OpT p cx x (CoreTerm.Op.endBorrow a) c'
+  | CoreTyping.OpT.xchg : ∀ {p : CoreTerm.Prog} {cx c₁ c' : CoreTerm.Cx} {x : String} {a v : CoreTerm.At} {t u o tv : CoreLang.Ty},
+  cx.peek a = Except.ok t →
+    CoreTyping.XchgCell cx t u o →
+      cx.use v = Except.ok (tv, c₁) →
+        CoreTyping.SubS c₁ tv u ∨ CoreTyping.SubS c₁ tv o →
+          c₁.bind x o = Except.ok c' → CoreTyping.OpT p cx x (CoreTerm.Op.xchg a v) c'
+  | CoreTyping.OpT.fnptr : ∀ {p : CoreTerm.Prog} {cx c' : CoreTerm.Cx} {x f : String} {d : CoreTerm.Decl},
+  p.find f = Except.ok d →
+    d.tparams = [] →
+      d.idx = [] →
+        cx.bind x
+              (d.argTy.code d.retTy
+                (match d.kind with
+                | CoreTerm.DeclKind.restricted f s => CoreLang.CodeKind.restricted f s
+                | x => CoreLang.CodeKind.plain)) =
+            Except.ok c' →
+          CoreTyping.OpT p cx x (CoreTerm.Op.fnptr f) c'
+  | CoreTyping.OpT.callc : ∀ {p : CoreTerm.Prog} {cx c₁ c' : CoreTerm.Cx} {x : String} {f a : CoreTerm.At} {tf σ τ t : CoreLang.Ty},
+  cx.peek f = Except.ok tf →
+    CoreTerm.codeOf tf = some (σ, τ) →
+      cx.use a = Except.ok (t, c₁) →
+        CoreTyping.NoLeak c₁ t →
+          CoreTyping.SubS c₁ t σ → c₁.bind x τ = Except.ok c' → CoreTyping.OpT p cx x (CoreTerm.Op.callc f a) c'
+  | CoreTyping.OpT.rem : ∀ {p : CoreTerm.Prog} {cx c' : CoreTerm.Cx} {x : String} {a n : CoreTerm.At} {ta : CoreLang.Ty}
+  {o : Option CoreLang.Idx} {j : CoreLang.Idx} {v : Nat},
+  cx.peek a = Except.ok ta →
+    CoreTerm.intOf ta = some o →
+      CoreTyping.IntIdx cx n j →
+        CoreTyping.EqI cx j ((CoreLang.Idx.var v).add (CoreLang.Idx.lit 1)) →
+          (let __src := (cx.push (x ++ "_d")).push x;
+                  { inames := __src.inames,
+                    facts :=
+                      (v + 2, (CoreLang.Idx.var 0).add (CoreLang.Idx.var 1)) :: ((cx.push (x ++ "_d")).push x).facts,
+                    vars := __src.vars, saws := __src.saws, torn := __src.torn, unsealed := __src.unsealed,
+                    ke := __src.ke, opq := __src.opq, lent := __src.lent, ret := __src.ret }).bind
+                x (CoreLang.Ty.intS (CoreLang.Idx.var 0)) =
+              Except.ok c' →
+            CoreTyping.OpT p cx x (CoreTerm.Op.rem a n) c'
+  | CoreTyping.OpT.nameI : ∀ {p : CoreTerm.Prog} {cx c' : CoreTerm.Cx} {x : String} {a : CoreTerm.At} {j : CoreLang.Idx},
+  CoreTyping.IntIdx cx a j →
+    (let __src := cx.push x;
+            { inames := __src.inames, facts := (0, CoreLang.Idx.shift 0 j) :: (cx.push x).facts, vars := __src.vars,
+              saws := __src.saws, torn := __src.torn, unsealed := __src.unsealed, ke := __src.ke, opq := __src.opq,
+              lent := __src.lent, ret := __src.ret }).bind
+          x (CoreLang.Ty.intS (CoreLang.Idx.var 0)) =
+        Except.ok c' →
+      CoreTyping.OpT p cx x (CoreTerm.Op.nameI a) c'
+  | CoreTyping.OpT.xchgAt : ∀ {p : CoreTerm.Prog} {cx c₁ c' : CoreTerm.Cx} {x : String} {b i v : CoreTerm.At} {t tv u : CoreLang.Ty}
+  {n k j : CoreLang.Idx},
+  cx.peek b = Except.ok t →
+    CoreTerm.bufOf t = some (CoreLang.Mode.own, n, u, k) →
+      CoreLang.Ty.wordFreeIn cx.ke u = true →
+        CoreTyping.IntIdx cx i j →
+          CoreTyping.LtI cx j n →
+            CoreTyping.LtI cx j k →
+              cx.use v = Except.ok (tv, c₁) →
+                CoreTyping.SubS c₁ tv u →
+                  c₁.bind x u = Except.ok c' → CoreTyping.OpT p cx x (CoreTerm.Op.xchgAt b i v) c'
+  | CoreTyping.OpT.loadAt : ∀ {p : CoreTerm.Prog} {cx c' : CoreTerm.Cx} {x : String} {b i : CoreTerm.At} {t u : CoreLang.Ty} {n k j : CoreLang.Idx},
+  cx.peek b = Except.ok t →
+    CoreTerm.bufOf t = some (CoreLang.Mode.own, n, u, k) →
+      CoreTyping.IntIdx cx i j →
+        CoreTyping.LtI cx j n →
+          CoreTyping.LtI cx j k →
+            CoreTerm.affine cx.ke u = false →
+              cx.bind x u = Except.ok c' → CoreTyping.OpT p cx x (CoreTerm.Op.loadAt b i) c'
+  | CoreTyping.OpT.bits : ∀ {p : CoreTerm.Prog} {cx c' : CoreTerm.Cx} {x : String} {o : CoreTerm.BitOp} {a b : CoreTerm.At} {ta tb : CoreLang.Ty}
+  {oa ob : Option CoreLang.Idx},
+  cx.peek a = Except.ok ta →
+    cx.peek b = Except.ok tb →
+      CoreTerm.intOf ta = some oa →
+        CoreTerm.intOf tb = some ob →
+          cx.bind x CoreLang.Ty.int = Except.ok c' → CoreTyping.OpT p cx x (CoreTerm.Op.bits o a b) c'
+  | CoreTyping.OpT.bit1 : ∀ {p : CoreTerm.Prog} {cx c' : CoreTerm.Cx} {x : String} {o : CoreTerm.BitOp1} {a : CoreTerm.At} {ta : CoreLang.Ty}
+  {oa : Option CoreLang.Idx},
+  cx.peek a = Except.ok ta →
+    CoreTerm.intOf ta = some oa →
+      cx.bind x CoreLang.Ty.int = Except.ok c' → CoreTyping.OpT p cx x (CoreTerm.Op.bit1 o a) c'
+  | CoreTyping.OpT.vmatch : ∀ {p : CoreTerm.Prog} {cx c' : CoreTerm.Cx} {x : String} {lo hi b : CoreTerm.At} {t1 t2 t3 : CoreLang.Ty}
+  {o1 o2 o3 : Option CoreLang.Idx},
+  cx.peek lo = Except.ok t1 →
+    cx.peek hi = Except.ok t2 →
+      cx.peek b = Except.ok t3 →
+        CoreTerm.intOf t1 = some o1 →
+          CoreTerm.intOf t2 = some o2 →
+            CoreTerm.intOf t3 = some o3 →
+              cx.bind x CoreLang.Ty.int = Except.ok c' → CoreTyping.OpT p cx x (CoreTerm.Op.vmatch lo hi b) c'
+  | CoreTyping.OpT.band : ∀ {p : CoreTerm.Prog} {cx c' : CoreTerm.Cx} {x : String} {a m : CoreTerm.At} {ta : CoreLang.Ty}
+  {o : Option CoreLang.Idx} {j : CoreLang.Idx} {v : Nat},
+  cx.peek a = Except.ok ta →
+    CoreTerm.intOf ta = some o →
+      CoreTyping.IntIdx cx m j →
+        CoreTyping.EqI cx j (CoreLang.Idx.var v) →
+          (let __src := (cx.push (x ++ "_d")).push x;
+                  { inames := __src.inames,
+                    facts :=
+                      (v + 2, (CoreLang.Idx.var 0).add (CoreLang.Idx.var 1)) :: ((cx.push (x ++ "_d")).push x).facts,
+                    vars := __src.vars, saws := __src.saws, torn := __src.torn, unsealed := __src.unsealed,
+                    ke := __src.ke, opq := __src.opq, lent := __src.lent, ret := __src.ret }).bind
+                x (CoreLang.Ty.intS (CoreLang.Idx.var 0)) =
+              Except.ok c' →
+            CoreTyping.OpT p cx x (CoreTerm.Op.band a m) c'
+  | CoreTyping.OpT.zero : ∀ {p : CoreTerm.Prog} {cx c' : CoreTerm.Cx} {x : String} {τ : CoreLang.Ty},
+  CoreLang.Ty.wf (List.length cx.ke) cx.inames.length τ = true →
+    τ.secondClass = false →
+      CoreLang.zeroableIn [] cx.ke τ = true → cx.bind x τ = Except.ok c' → CoreTyping.OpT p cx x (CoreTerm.Op.zero τ) c'
+  | CoreTyping.OpT.xchgAtF : ∀ {p : CoreTerm.Prog} {cx c₁ c' : CoreTerm.Cx} {x : String} {b i v : CoreTerm.At} {q : List Nat}
+  {t tv u c : CoreLang.Ty} {n k j : CoreLang.Idx},
+  cx.peek b = Except.ok t →
+    CoreTerm.bufOf t = some (CoreLang.Mode.own, n, u, k) →
+      CoreTerm.compTy u q = some c →
+        cx.opaqueOK u = true →
+          CoreLang.Ty.wordFreeIn cx.ke c = true →
+            CoreTyping.IntIdx cx i j →
+              CoreTyping.LtI cx j n →
+                CoreTyping.LtI cx j k →
+                  cx.use v = Except.ok (tv, c₁) →
+                    CoreTyping.SubS c₁ tv c →
+                      c₁.bind x c = Except.ok c' → CoreTyping.OpT p cx x (CoreTerm.Op.xchgAtF b i q v) c'
+  | CoreTyping.OpT.loadAtF : ∀ {p : CoreTerm.Prog} {cx c' : CoreTerm.Cx} {x : String} {b i : CoreTerm.At} {q : List Nat} {t u c : CoreLang.Ty}
+  {n k j : CoreLang.Idx},
+  cx.peek b = Except.ok t →
+    CoreTerm.bufOf t = some (CoreLang.Mode.own, n, u, k) →
+      CoreTerm.compTy u q = some c →
+        cx.opaqueOK u = true →
+          CoreTyping.IntIdx cx i j →
+            CoreTyping.LtI cx j n →
+              CoreTyping.LtI cx j k →
+                CoreTerm.affine cx.ke c = false →
+                  cx.bind x c = Except.ok c' → CoreTyping.OpT p cx x (CoreTerm.Op.loadAtF b i q) c'
+  | CoreTyping.OpT.cvt : ∀ {p : CoreTerm.Prog} {cx c' : CoreTerm.Cx} {x : String} {sg : Bool} {w : CoreLang.Wd} {a : CoreTerm.At}
+  {ta : CoreLang.Ty},
+  cx.peek a = Except.ok ta →
+    CoreTerm.cvtSrc ta = true →
+      cx.bind x (CoreLang.Ty.fix sg w) = Except.ok c' → CoreTyping.OpT p cx x (CoreTerm.Op.cvt sg w a) c'
+  | CoreTyping.OpT.toInt : ∀ {p : CoreTerm.Prog} {cx c' : CoreTerm.Cx} {x : String} {a : CoreTerm.At} {ta : CoreLang.Ty},
+  cx.peek a = Except.ok ta →
+    CoreTerm.toIntSrc ta = true →
+      cx.bind x CoreLang.Ty.int = Except.ok c' → CoreTyping.OpT p cx x (CoreTerm.Op.toInt a) c'
+  | CoreTyping.OpT.asLanes : ∀ {p : CoreTerm.Prog} {cx c' : CoreTerm.Cx} {x : String} {sg : Bool} {w : CoreLang.Wd} {a : CoreTerm.At}
+  {ta : CoreLang.Ty},
+  cx.peek a = Except.ok ta →
+    (CoreTerm.intOf ta).isSome = true →
+      cx.bind x (CoreLang.Ty.lanes sg w) = Except.ok c' → CoreTyping.OpT p cx x (CoreTerm.Op.asLanes sg w a) c'
+  | CoreTyping.OpT.fop : ∀ {p : CoreTerm.Prog} {cx c' : CoreTerm.Cx} {x : String} {o : CoreTerm.FOp} {a b : CoreTerm.At} {ta tb : CoreLang.Ty}
+  {q : Bool × CoreLang.Wd},
+  cx.peek a = Except.ok ta →
+    cx.peek b = Except.ok tb →
+      CoreTerm.fixOf ta = some q →
+        CoreTerm.fixOf tb = some q →
+          cx.bind x (CoreLang.Ty.fix q.fst q.snd) = Except.ok c' → CoreTyping.OpT p cx x (CoreTerm.Op.fop o a b) c'
+  | CoreTyping.OpT.fcmp : ∀ {p : CoreTerm.Prog} {cx c' : CoreTerm.Cx} {x : String} {o : CoreTerm.FCmp} {a b : CoreTerm.At} {ta tb : CoreLang.Ty}
+  {q : Bool × CoreLang.Wd},
+  cx.peek a = Except.ok ta →
+    cx.peek b = Except.ok tb →
+      CoreTerm.fixOf ta = some q →
+        CoreTerm.fixOf tb = some q →
+          cx.bind x CoreLang.Ty.int = Except.ok c' → CoreTyping.OpT p cx x (CoreTerm.Op.fcmp o a b) c'
+  | CoreTyping.OpT.fop1 : ∀ {p : CoreTerm.Prog} {cx c' : CoreTerm.Cx} {x : String} {o : CoreTerm.FOp1} {a : CoreTerm.At} {ta : CoreLang.Ty}
+  {q : Bool × CoreLang.Wd},
+  cx.peek a = Except.ok ta →
+    CoreTerm.fixOf ta = some q →
+      cx.bind x (CoreLang.Ty.fix q.fst q.snd) = Except.ok c' → CoreTyping.OpT p cx x (CoreTerm.Op.fop1 o a) c'
+  | CoreTyping.OpT.lane : ∀ {p : CoreTerm.Prog} {cx c' : CoreTerm.Cx} {x : String} {a j : CoreTerm.At} {ta tj : CoreLang.Ty}
+  {q : Bool × CoreLang.Wd},
+  cx.peek a = Except.ok ta →
+    CoreTerm.lanesOf ta = some q →
+      cx.peek j = Except.ok tj →
+        (CoreTerm.intOf tj).isSome = true →
+          cx.bind x (CoreLang.Ty.fix q.fst q.snd) = Except.ok c' → CoreTyping.OpT p cx x (CoreTerm.Op.lane a j) c'
+  | CoreTyping.OpT.setLane : ∀ {p : CoreTerm.Prog} {cx c' : CoreTerm.Cx} {x : String} {a j v : CoreTerm.At} {ta tj tv : CoreLang.Ty}
+  {q : Bool × CoreLang.Wd},
+  cx.peek a = Except.ok ta →
+    CoreTerm.lanesOf ta = some q →
+      cx.peek j = Except.ok tj →
+        (CoreTerm.intOf tj).isSome = true →
+          cx.peek v = Except.ok tv →
+            CoreTerm.fixOf tv = some q →
+              cx.bind x (CoreLang.Ty.lanes q.fst q.snd) = Except.ok c' →
+                CoreTyping.OpT p cx x (CoreTerm.Op.setLane a j v) c'
+  | CoreTyping.OpT.ldlw : ∀ {p : CoreTerm.Prog} {cx c' : CoreTerm.Cx} {x : String} {b wi j : CoreTerm.At} {t u tj : CoreLang.Ty}
+  {n k jw : CoreLang.Idx} {q : Bool × CoreLang.Wd},
+  cx.peek b = Except.ok t →
+    CoreTerm.bufOf t = some (CoreLang.Mode.own, n, u, k) →
+      CoreTerm.lanesOf u = some q →
+        CoreTyping.IntIdx cx wi jw →
+          CoreTyping.LtI cx jw n →
+            CoreTyping.LtI cx jw k →
+              cx.peek j = Except.ok tj →
+                (CoreTerm.intOf tj).isSome = true →
+                  cx.bind x (CoreLang.Ty.fix q.fst q.snd) = Except.ok c' →
+                    CoreTyping.OpT p cx x (CoreTerm.Op.ldlw b wi j) c'
+  | CoreTyping.OpT.stlw : ∀ {p : CoreTerm.Prog} {cx c' : CoreTerm.Cx} {x : String} {b wi j v : CoreTerm.At} {t u tj tv : CoreLang.Ty}
+  {n k jw : CoreLang.Idx} {q : Bool × CoreLang.Wd},
+  cx.peek b = Except.ok t →
+    CoreTerm.bufOf t = some (CoreLang.Mode.own, n, u, k) →
+      CoreTerm.lanesOf u = some q →
+        CoreTyping.IntIdx cx wi jw →
+          CoreTyping.LtI cx jw n →
+            CoreTyping.LtI cx jw k →
+              cx.peek j = Except.ok tj →
+                (CoreTerm.intOf tj).isSome = true →
+                  cx.peek v = Except.ok tv →
+                    CoreTerm.fixOf tv = some q →
+                      cx.bind x CoreLang.Ty.unit = Except.ok c' → CoreTyping.OpT p cx x (CoreTerm.Op.stlw b wi j v) c'
+  | CoreTyping.OpT.ldl : ∀ {p : CoreTerm.Prog} {cx c' : CoreTerm.Cx} {x : String} {b i : CoreTerm.At} {t u : CoreLang.Ty} {n k j : CoreLang.Idx}
+  {q : Bool × CoreLang.Wd},
+  cx.peek b = Except.ok t →
+    CoreTerm.bufOf t = some (CoreLang.Mode.own, n, u, k) →
+      CoreTerm.lanesOf u = some q →
+        CoreTyping.IntIdx cx i j →
+          CoreTyping.LtI cx j (CoreLang.Idx.smul q.snd.lanes n) →
+            CoreTyping.LtI cx j (CoreLang.Idx.smul q.snd.lanes k) →
+              cx.bind x (CoreLang.Ty.fix q.fst q.snd) = Except.ok c' → CoreTyping.OpT p cx x (CoreTerm.Op.ldl b i) c'
+  | CoreTyping.OpT.stl : ∀ {p : CoreTerm.Prog} {cx c' : CoreTerm.Cx} {x : String} {b i v : CoreTerm.At} {t u tv : CoreLang.Ty}
+  {n k j : CoreLang.Idx} {q : Bool × CoreLang.Wd},
+  cx.peek b = Except.ok t →
+    CoreTerm.bufOf t = some (CoreLang.Mode.own, n, u, k) →
+      CoreTerm.lanesOf u = some q →
+        CoreTyping.IntIdx cx i j →
+          CoreTyping.LtI cx j (CoreLang.Idx.smul q.snd.lanes n) →
+            CoreTyping.LtI cx j (CoreLang.Idx.smul q.snd.lanes k) →
+              cx.peek v = Except.ok tv →
+                CoreTerm.fixOf tv = some q →
+                  cx.bind x CoreLang.Ty.unit = Except.ok c' → CoreTyping.OpT p cx x (CoreTerm.Op.stl b i v) c'
+CoreTyping.Step : CoreTerm.Cx → CoreLang.Proto → Nat → CoreLang.Idx → Nat → CoreLang.Idx → Prop
+CoreTyping.Step2 : CoreTerm.Cx → CoreLang.Proto2 → Nat → CoreLang.Idx → CoreLang.Idx → Nat → CoreLang.Idx → CoreLang.Idx → Prop
+CoreTyping.SubS : CoreTerm.Cx → CoreLang.Ty → CoreLang.Ty → Prop
+CoreTyping.TornLic : CoreTerm.Cx → CoreLang.Idx → String → CoreLang.Idx → Prop
+CoreTyping.Val : Type
+CoreTyping.XchgCell : CoreTerm.Cx → CoreLang.Ty → CoreLang.Ty → CoreLang.Ty → Prop
+CoreTyping.ev : CoreTyping.Val → CoreLang.Idx → Nat
+CoreTyping.fenceCx : CoreTerm.Cx → CoreTerm.Fence → CoreTerm.Cx
+CoreTyping.observeCx : CoreTerm.Cx → String → String → Bool → CoreTerm.Cx
+TermClose.tb : Nat → CoreLang.Ty → Bool
+  eq_def ∀ (c : Nat) (x : CoreLang.Ty),
+  TermClose.tb c x =
+    match x with
+    | CoreLang.Ty.tvar k => decide (k < c)
+    | a.prod b => TermClose.tb c a && TermClose.tb c b
+    | a.sum b => TermClose.tb c a && TermClose.tb c b
+    | a.code b k => TermClose.tb c a && TermClose.tb c b
+    | CoreLang.Ty.array i t => TermClose.tb c t
+    | CoreLang.Ty.ptr μ t => TermClose.tb c t
+    | CoreLang.Ty.ptrOpt μ t => TermClose.tb c t
+    | CoreLang.Ty.loc μ t => TermClose.tb c t
+    | t.mu => TermClose.tb (c + 1) t
+    | CoreLang.Ty.tex κ t => TermClose.tb (c + 1) t
+    | t.iall => TermClose.tb c t
+    | t.iex => TermClose.tb c t
+    | t.refine ψ => TermClose.tb c t
+    | x => true
+TermScope.argOK : CoreLang.Ty → Bool
+  := fun t => TermScope.wrapOK t && !TermScope.rcar t
+TermScope.drf : CoreLang.Ty → Bool
+  eq_def ∀ (x : CoreLang.Ty),
+  TermScope.drf x =
+    match x with
+    | a.prod b => TermScope.drf a && TermScope.drf b
+    | a.sum b => TermScope.drf a && TermScope.drf b
+    | a.code b k => TermScope.drf a && TermScope.drf b
+    | CoreLang.Ty.array i t => TermScope.drf t
+    | CoreLang.Ty.ptr μ t => TermScope.drfM μ && TermScope.drf t
+    | CoreLang.Ty.ptrOpt μ t => TermScope.drfM μ && TermScope.drf t
+    | CoreLang.Ty.loc μ t => TermScope.drfM μ && TermScope.drf t
+    | t.mu => TermScope.drf t
+    | CoreLang.Ty.tex κ t => TermScope.drf t
+    | τ.iall => false
+    | t.iex => TermScope.drf t
+    | t.refine ψ => TermScope.drf t
+    | x => true
+TermScope.drfM : CoreLang.Mode → Bool
+  := fun x =>
+  match x with
+  | CoreLang.Mode.rgn r => false
+  | x => true
+TermScope.rcar : CoreLang.Ty → Bool
+  := fun t => TermScope.rcarE [] t
+TermScope.rcarE : List Bool → CoreLang.Ty → Bool
+  eq_def ∀ (env : List Bool) (x : CoreLang.Ty),
+  TermScope.rcarE env x =
+    match x with
+    | CoreLang.Ty.word r P => true
+    | CoreLang.Ty.word2 r P => true
+    | CoreLang.Ty.tok r st => true
+    | CoreLang.Ty.tok2 r P i0 i1 => true
+    | CoreLang.Ty.tokE r P e => true
+    | CoreLang.Ty.share r => true
+    | a.prod b => TermScope.rcarE env a || TermScope.rcarE env b
+    | a.sum b => TermScope.rcarE env a || TermScope.rcarE env b
+    | CoreLang.Ty.tvar k => env.getD k false
+    | t.mu => TermScope.rcarE (TermScope.rcarE (false :: env) t :: env) t
+    | CoreLang.Ty.tex κ t => TermScope.rcarE (false :: env) t
+    | t.iall => TermScope.rcarE env t
+    | t.iex => TermScope.rcarE env t
+    | t.refine ψ => TermScope.rcarE env t
+    | x => false
+TermScope.wrapOK : CoreLang.Ty → Bool
+  := fun t => TermScope.wrapOKE [] t
+TermScope.wrapOKE : List Bool → CoreLang.Ty → Bool
+  eq_def ∀ (env : List Bool) (x : CoreLang.Ty),
+  TermScope.wrapOKE env x =
+    match x with
+    | a.sum b => !TermScope.rcarE env a && !TermScope.rcarE env b && TermScope.wrapOKE env a && TermScope.wrapOKE env b
+    | t.iex => !TermScope.rcarE env t && TermScope.wrapOKE env t
+    | t.refine ψ => !TermScope.rcarE env t && TermScope.wrapOKE env t
+    | CoreLang.Ty.tex κ t => !TermScope.rcarE (false :: env) t && TermScope.wrapOKE (false :: env) t
+    | t.mu => TermScope.wrapOKE (TermScope.rcarE (false :: env) t :: env) t
+    | a.prod b => TermScope.wrapOKE env a && TermScope.wrapOKE env b
+    | a.code b k => TermScope.wrapOKE env a && TermScope.wrapOKE env b
+    | CoreLang.Ty.array i t => TermScope.wrapOKE env t
+    | CoreLang.Ty.ptr μ t => TermScope.wrapOKE env t
+    | CoreLang.Ty.ptrOpt μ t => TermScope.wrapOKE env t
+    | CoreLang.Ty.loc μ t => TermScope.wrapOKE env t
+    | t.iall => TermScope.wrapOKE env t
+    | x => true
+TermTv.mg : CoreLang.Ty → Bool
+  eq_def ∀ (x : CoreLang.Ty),
+  TermTv.mg x =
+    match x with
+    | t.mu => !CoreLang.Ty.unguarded 0 t && TermTv.mg t
+    | a.prod b => TermTv.mg a && TermTv.mg b
+    | a.sum b => TermTv.mg a && TermTv.mg b
+    | a.code b k => TermTv.mg a && TermTv.mg b
+    | CoreLang.Ty.array i t => TermTv.mg t
+    | CoreLang.Ty.ptr μ t => TermTv.mg t
+    | CoreLang.Ty.ptrOpt μ t => TermTv.mg t
+    | CoreLang.Ty.loc μ t => TermTv.mg t
+    | CoreLang.Ty.tex κ t => TermTv.mg t
+    | t.iall => TermTv.mg t
+    | t.iex => TermTv.mg t
+    | t.refine ψ => TermTv.mg t
+    | x => true
+TermTv.noIallV : CoreLang.Ty → Bool
+  eq_def ∀ (x : CoreLang.Ty),
+  TermTv.noIallV x =
+    match x with
+    | τ.iall => false
+    | a.prod b => TermTv.noIallV a && TermTv.noIallV b
+    | a.sum b => TermTv.noIallV a && TermTv.noIallV b
+    | CoreLang.Ty.array i t => TermTv.noIallV t
+    | t.mu => TermTv.noIallV t
+    | CoreLang.Ty.tex κ t => TermTv.noIallV t
+    | t.iex => TermTv.noIallV t
+    | t.refine ψ => TermTv.noIallV t
+    | x => true

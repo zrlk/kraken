@@ -11,9 +11,10 @@ all computed by scc's pipeline and `placeDataOf`, with no table as an input.
 the kernel compares through `Frontend.printSig`/`printOwnSig`). The
 output is written out as a literal (`hello1L`, equal to it by
 `hello1_out_eq`, `Spike/Test/A64Hello1PlaceOKELit.lean`), and the
-components are decided on the literal one declaration each. A11 fails: the
-setup block's tail has no `MainCode` yet, so `PlaceOK` is `false`
-(`hello1_placeOK`).
+components are decided on the literal one declaration each. A11 holds: the
+setup block's tail is checked against `setupMC` (`Spike/Lib/Rt/A64CodeInSetup.lean`),
+so `PlaceOK` is `true` (`hello1_placeOK`). `hello1.w` is outside `Accepted0`, so
+this is placement only, with no correctness claim.
 
 The source program is a term (`Spike.Lib.Hello1Src.hello1Src`), checked
 against the frontend's reading of `Scc/Test/hello1.w` by `#guard`: the
@@ -37,13 +38,18 @@ theorem hello1_part8 : a8 hello1L (tablesOf Config.canonical hello1L) = true := 
 /-- A9 (no `func0`-shaped function: `wc_main` calls). -/
 theorem hello1_part9 : a9 hello1L (tablesOf Config.canonical hello1L) = true := by decide +kernel
 
-/-- A11 of `hello1.w`'s output fails: `scc_rt_main`'s tail is after a setup
-block, and A11 has no `MainCode` for it yet. -/
-theorem hello1_part11 : a11 hello1L (tablesOf Config.canonical hello1L) = false := by decide +kernel
+/-- A11 of `hello1.w`'s output: `scc_rt_main`'s tail is after a setup
+block, matched by `setupOk`. -/
+theorem hello1_part11 : a11 hello1L (tablesOf Config.canonical hello1L) = true := by decide +kernel
 
-/-- **`hello1.w`'s `PlaceOK` on scc's own output is `false`** (A11). -/
-theorem hello1_placeOK : placeOK Config.canonical hello1O = false := by
+/-- A12 of `hello1.w`'s output: the code and phases of every stack-checked
+function. -/
+theorem hello1_part12 : a12 hello1L (tablesOf Config.canonical hello1L) = true := by decide +kernel
+
+/-- **`hello1.w`'s `PlaceOK` on scc's own output holds.** -/
+theorem hello1_placeOK : placeOK Config.canonical hello1O = true := by
   rw [hello1_out_eq]
-  exact placeOK_eq_false_of_a11 hello1_part11
+  exact placeOK_of hello1_part1 hello1_part2 hello1_part3 hello1_part4 hello1_part5 hello1_part6
+    hello1_part7 hello1_part8 hello1_part9 hello1_part11 hello1_part12
 
 end Spike.Test.A64Hello1PlaceOKE

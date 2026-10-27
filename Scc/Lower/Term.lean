@@ -28,8 +28,8 @@ Arguments and results are passed flattened, one IR argument per word (at most
 stack, `IR.Core`'s calling convention; every `tail` stays a jump, the
 emitters size argument areas so that it fits, `IR.StackMap.argAreas`).  A
 spawned block takes at most
-`maxSpawnArgs` words.  The provisional externs (`print`, `park`, `unpark`) and
-`spawn` call the runtime (`Scc.Lower.Runtime`).
+`maxSpawnArgs` words.  The output extern `print`, the machine externs `park`
+and `unpark`, and `spawn` call the runtime (`Scc.Lower.Runtime`).
 
 Every register that holds a word of a typed value is recorded by kind
 (`markWords`): trace words in `Func.heapRegs`, the stack maps' heap lists,
@@ -132,10 +132,12 @@ structure Ctx where
   fn : String
   /-- The object header's configuration. -/
   obj : ObjLayout := {}
-  /-- The stack depth limit (`stackBudget`): with `some n`, a call of a
-  code block bumps the thread's depth counter (`Tcb.depth`) around the call
-  and aborts with `AbortKind.stack` when the new depth would exceed `n`
-  (`callBlock`); `none` lowers calls without the counter. -/
+  /-- The removed stack depth counter, kept until its proofs go: the
+  program lowering (`lowerWithMarks`) always lowers with `none`, a plain call
+  per call of a code block.  With `some n` (no longer used), a call of a
+  code block bumps the thread's depth word (`Tcb.depth`) around the call and
+  aborts with `AbortKind.stack` when the new depth would exceed `n`
+  (`callBlock`). -/
   frames : Option Nat := none
 
 /-- Words of a value of type `t` (`Obj.valWords`: a locative is two). -/
@@ -407,8 +409,6 @@ def callBlock (cx : Ctx) (f : String) (args : List Operand) (nres : Nat) : B (Li
           emit (.call [] Names.print [s, .reg k])
           pure []
       | _ => throw "print: unexpected argument shape"
-  | some (_, .park) => emit (.call [] Names.park []); pure []
-  | some (_, .unpark) => emit (.call [] Names.unpark args); pure []
   | none =>
       if args.length > maxArgs then
         throw s!"call of '{f}': {args.length} argument words (at most {maxArgs})"
@@ -646,7 +646,7 @@ def lowerOp (cx : Ctx) (env : Env) (x : String) : Op → B (Ty × List Operand)
       pure (d.retTy, ← callBlock cx f ws n)
   | .spawn f a T _ => do
       let (_, ws) ← evalAt env a
-      pure (Frontend.tidTy, [← spawn cx.obj f T ws])
+      pure (.tid, [← spawn cx.obj f T ws])
   | .cvt sg w a => do
       let (t, ws) ← evalAt env a
       pure (.fix sg w, [← cvt t w (← one ws "cvt")])
@@ -680,6 +680,11 @@ def lowerOp (cx : Ctx) (env : Env) (x : String) : Op → B (Ty × List Operand)
       let d ← fresh x
       emit (.un (bit1Op o) d (← evalOne env a "bit1"))
       pure (.int, [.reg d])
+  -- The machine externs `park ()` / `unpark t`: the runtime's park/unpark.
+  | .ext .park _ => do emit (.call [] Names.park []); pure (.unit, [])
+  | .ext .unpark a => do
+      let (_, ws) ← evalAt env a
+      emit (.call [] Names.unpark ws); pure (.unit, [])
   | op => throw s!"operation not in the accepted fragment: {repr op}"
 
 /-! ## Terms -/

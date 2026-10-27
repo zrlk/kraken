@@ -31,7 +31,7 @@ exist yet (see the docstring it carries, `docstring`):
    check `out = outLit` against the literal `outLit` (`scc_lit%`,
    `Scc/Cert/OutLit.lean`; in three steps on literals,
    `Scc/Cert/OutStageA64.lean`, `OutStageX64.lean`, the lowering's itself in
-   two, the depth limit and the lowering at it, `Scc/Cert/LowerStage.lean`),
+   two, the depth limit and the lowering, `Scc/Cert/LowerStage.lean`),
    and decides the
    components on the literal in separate declarations (A1 to A8, A9
    where the ISA checks it, A11; each its own kernel check), or, for
@@ -123,10 +123,29 @@ structure Isa where
   /-- Whether the ISA's `placeOK` checks A9 (the lowered code blocks):
   `placeOK_of` then takes its proof after A8's. -/
   a9 : Bool := false
+  /-- Whether the ISA's `placeOK` checks A12 (the code of every user
+  function): `placeOK_of` then takes its proof after A11's. -/
+  a12 : Bool := false
   /-- Whether A9 is proved by its keyed form (`a9_of_fast`, `Scc/Cert/A9StageA64.lean`,
   `Scc/Cert/A9StageX64.lean`)
-  instead of by the kernel's evaluation of `a9` itself. -/
+  instead of by the kernel's evaluation of `a9` itself; with `a12`, A12 is
+  proved from its two keyed parts (`a12_of_split`,
+  `Scc/Cert/A12StageA64.lean`, `Scc/Cert/A12StageX64.lean`), each its own
+  declaration. -/
   a9fast : Bool := false
+  /-- Whether A2 is proved by its keyed form (`a2_of_fast`,
+  `Scc/Cert/A2StageA64.lean`) instead of by the kernel's evaluation of `a2`
+  itself. -/
+  a2fast : Bool := false
+  /-- Whether the block table is its own stage of `out_eq` (`blocks_eq`, on a
+  literal, then `ofStage_eq_B`) instead of a part of the last step. -/
+  blocksStaged : Bool := false
+  /-- Whether the block table is its own stage of `out_eq` split per function
+  on a large listing only (`Placement.parts` not 0), and part of the last
+  step otherwise (`blocksStaged` is for every listing). -/
+  blocksStagedLarge : Bool := false
+  /-- The namespace of the block table's groups (`OGrp`). -/
+  rt : String := ""
   /-- Whether `emitted_eq` is checked in stages (`emitItemsMaps_of_stages`:
   the emitter's checks, each function, and the rest, each a kernel check on
   literals) instead of by one definitional equality. -/
@@ -143,8 +162,8 @@ def isaOf : Arch → Isa
       place := "Scc.Cert.OutStageX64", placeNs := "Scc.Cert.PlaceOK.X64", staged := true
       emit := "Scc.Emit.X64", safepoint := "(String × List Int × List Int)"
       lower := "Scc.Lower.X64", link := "Scc.Cert.Link.X64"
-      predicate := "Scc.Emit.X64.ProgramWCLowerable prog", a9 := true, a9fast := true, emitStaged := true
-      emitCounter := true
+      predicate := "Scc.Emit.X64.ProgramWCLowerable prog", a9 := true, a9fast := true, a12 := true
+      emitStaged := true, emitCounter := true, blocksStagedLarge := true, rt := "Scc.Cert.Rt.X64"
       predicateDoc := "`Scc.Emit.X64.ProgramWCLowerable` (`Scc/Emit/X64Lowerable.lean`: \
         every memory RMW is locked, no `movnti`)"
       dropped := "the assembler directive lines (sections, symbols, data, the stack-map \
@@ -154,7 +173,8 @@ def isaOf : Arch → Isa
       place := "Scc.Cert.OutStageA64", placeNs := "Scc.Cert.PlaceOK.A64", staged := true
       emit := "Scc.Emit.A64", safepoint := "Scc.Emit.A64.Safepoint"
       lower := "Scc.Lower.A64", link := "Scc.Cert.Link.A64"
-      predicate := "prog.WCLowerable", cover := true, a9 := true, a9fast := true, emitStaged := true
+      predicate := "prog.WCLowerable", cover := true, a9 := true, a9fast := true, a12 := true
+      emitStaged := true, blocksStaged := true, a2fast := true, rt := "Scc.Cert.Rt.A64"
       predicateDoc := "Kraken's `Program.WCLowerable` (`Kraken/Promising/Lower/Lowerable.lean`: \
         the AArch64 forms a WeakCore lowering may emit)"
       dropped := "the assembler directive lines (sections, symbols, data, the stack-map \
@@ -169,6 +189,12 @@ recursion, and then `placeOK`'s A4 cannot hold: `renderOutside`), the thread ent
 the headroom), as the code check has them. -/
 structure Placement where
   accepted : Bool := false
+  /-- Whether the program is in the fragment the compiler theorems over
+  `Scc.Lower.Accepted1` cover (`a64_scc_correctE_text_closedAt1`,
+  `x64_scc_correctE_text_closedAt1`: a one-declaration program in
+  `Accepted1`; `scc --cert` sets it so): the file then also proves
+  `Accepted1` of it (`prog_accepted1`). -/
+  accepted1 : Bool := false
   hasNeed : Bool := false
   entries : List String := ["scc_rt_main"]
   budget : Nat := 12288
@@ -186,6 +212,16 @@ structure Placement where
   /-- The number of functions of the lowered IR: with `Isa.emitStaged`, one
   emitter check per function (`emitStage`). -/
   funcs : Nat := 0
+  /-- The number of functions the block table splits the instruction list
+  into (`Scc.Lower.Listing.parts`): with `Isa.blocksStaged`, one block check
+  per function (`blocksStage`); 0, one check for all. -/
+  parts : Nat := 0
+  /-- Whether each function of the lowered IR is stack-checked
+  (`Scc.IR.Func.checkStack`), in order: with A12 per function
+  (`a12PerFn`), a run of functions that are not is one range check
+  (`a12Skip`) instead of a check per function. Not a trusted input: a wrong
+  value gives a file that does not check. Empty: every function checked. -/
+  checked : List Bool := []
 
 /-- The programs with a release theorem (`Spike/Test/Ret0Release{A64,X64}.lean`):
 their certificate's docstring points at it (`docstring`). -/
@@ -209,9 +245,21 @@ def docstring (cfg : Config) (name srcHash asmHash : String) (sized : Bool := fa
       "`prog_accepted` proves that `prog_src` is in the fragment the first compiler theorem covers (`Scc.Lower.Accepted0`)."
     else
       "`prog_not_accepted` proves that `prog_src` is outside the fragment the first compiler theorem covers (`Scc.Lower.Accepted0`)."
+  let acc1 := pl.accepted1
+  -- The compiler theorem over `Accepted1` on this ISA; on x64 it also takes
+  -- `main`'s frame bound (`MainFrame1Ok`), which the file does not decide.
+  let isaName := if cfg.arch == .arm then "AArch64" else "x86-64"
+  let thm1 := if cfg.arch == .arm then "a64_scc_correctE_text_closedAt1" else "x64_scc_correctE_text_closedAt1"
+  let acceptedText := if acc1 then acceptedText ++ s!"
+   `prog_accepted1` proves that it is in the fragment the {isaName} compiler
+   theorem covers (`Scc.Lower.Accepted1`, `{thm1}`)." else acceptedText
   let sizedOut := if sized then ", at `sizes` and `labelOffs`" else ""
-  let readyText := if accepted && pl.fails.isNone then
-      "\n   `prog_cert_ready` states acceptance and placement together." else ""
+  let readyText := if pl.fails.isSome then ""
+    else if accepted then "\n   `prog_cert_ready` states acceptance and placement together."
+    else if acc1 then s!"\n   Placement holds; `prog_src` is outside `Accepted0` and in `Accepted1`: the\n   \
+      {isaName} compiler theorem over `Accepted1` covers it."
+    else "\n   Placement holds; `prog_src` is outside `Accepted0`, so no correctness claim\n   \
+      (uncertified)."
   let stagedText := if isa.staged then
       s!" in three\n   kernel steps (`lowered_eq`, the lowering, from `frames_eq` and `ir_eq`; `emitted_eq`, \
         the emitter on the\n   literal IR{if isa.emitStaged then ", from its checks, each function\n   and the rest" else ""}; the rest on literals: `{isa.placeNs}.ofEmitted_of_stages`,\n   \
@@ -219,7 +267,13 @@ def docstring (cfg : Config) (name srcHash asmHash : String) (sized : Bool := fa
   let coverItem := if isa.cover then "" else "
 * that the block table covers every instruction: `placeOK` checks the rows
   the table has;"
-  let relationItem := if !(accepted && pl.fails.isNone) then "
+  let frame1 := if cfg.arch == .arm then "" else " and on `main`'s frame bound
+  (`Spike.Lib.LowerX64.MainFrame1Ok`, decided after the link)"
+  let relationItem := if !accepted && acc1 && pl.fails.isNone then s!"
+* the relation between the behaviour of `asm` and the WeakCore semantics of
+  `source`: that is the {isaName} compiler theorem over `Accepted1`
+  (`{thm1}`), given this file's decisions{frame1}."
+    else if !(accepted && pl.fails.isNone) then "
 * any relation between the behaviour of `asm` and the WeakCore semantics of
   `source`." else if releaseNames.contains name then "
 * the relation between the behaviour of `asm` and the WeakCore semantics of
@@ -234,7 +288,10 @@ def docstring (cfg : Config) (name srcHash asmHash : String) (sized : Bool := fa
    its component A{n} fails (`prog_placeOK_{n}`, decided on
    `outLit`)"
     | none =>
-      "`prog_placeOK` proves `placeOK` of it at `placeCfg` (decided on
+      if isa.a12 then "`prog_placeOK` proves `placeOK` of it at `placeCfg` (decided on
+   `outLit` in separate declarations, A1 to A8, A9 and A12 where the ISA
+   checks them, A11, combined by `placeOK_of`)"
+      else "`prog_placeOK` proves `placeOK` of it at `placeCfg` (decided on
    `outLit` in separate declarations, A1 to A8, A9 where the ISA checks
    it, A11, combined by `placeOK_of`)"
   let placeText := s!"`out` is `scc`'s output for
@@ -463,6 +520,141 @@ theorem emitted_eq : {e}.emitItemsMaps loweredLit.1 = .ok emittedLit :=
   {e}.emitItemsMaps_of_stages pre_eq funcs_eq post_eq
 "
 
+/-- The block table's stage of `out_eq` (`Isa.blocksStaged`): `blocks_eq`,
+the items' block table as `blocksLit`, which is `outLit`'s own (so that
+`out_eq` compares the table with itself, not with a second literal). With
+`n` functions (`Placement.parts`, not 0) the items' functions are a literal
+(`split_eq`), each function's groups a slice of `blocksLit` checked by a
+kernel run of their own (`grps_eq_i`), chained by `mapM_some_cons` and
+`blocksOfStage_of_split` (`Scc/Cert/OutStageA64.lean`,
+`Scc/Cert/OutStageX64.lean`), so that the kernel keeps one function's offsets
+fixpoint alive at a time; with `n = 0`, one check for all. `rt` is the
+groups' namespace, `pre` the arguments before the IR (x86-64: the sizes). -/
+def blocksStage (ns rt pre : String) (n : Nat) : String :=
+  let g := s!"List {rt}.OGrp"
+  let f := s!"(String × List {ns}.Data.It)"
+  let at_ := s!"{pre}loweredLit.1 emittedLit.1"
+  let lit := s!"
+/-- The block table: `outLit`'s (checked by `blocks_eq`). -/
+def blocksLit : {g} := outLit.place.blocks
+"
+  if n == 0 then s!"{lit}
+/-- The items give the block table `blocksLit` (kernel-checked: the offsets
+fixpoint of every function, here). -/
+theorem blocks_eq : {ns}.blocksOfStage {at_} = some blocksLit := by kernel_rfl
+" else
+  let off (i : Nat) := if i == 0 then "0" else " + ".intercalate ((List.range i).map (s!"grpsLen_{·}"))
+  let fns := String.join ((List.range n).map fun i => s!"
+/-- The number of function {i}'s block groups, at elaboration time. -/
+def grpsLenVal_{i} : Nat := (({ns}.grpsOf splitLit[{i}]!).getD []).length
+
+/-- The number of function {i}'s block groups (untrusted, checked by
+`grps_eq_{i}`). -/
+def grpsLen_{i} : Nat := scc_lit% grpsLenVal_{i}
+
+/-- Function {i}'s block groups: their slice of `blocksLit`. -/
+def grpsLit_{i} : {g} := (blocksLit.drop ({off i})).take grpsLen_{i}
+
+/-- Function {i}'s block groups are `grpsLit_{i}` (kernel-checked: its offsets
+fixpoint). -/
+theorem grps_eq_{i} : {ns}.grpsOf splitLit[{i}]! = some grpsLit_{i} := by kernel_rfl
+")
+  let lits := ", ".intercalate ((List.range n).map (s!"grpsLit_{·}"))
+  let elems := ",\n    ".intercalate ((List.range n).map (s!"splitLit[{·}]!"))
+  let chain := String.join ((List.range n).map (s!"{ns}.mapM_some_cons grps_eq_{·} <|\n    ")) ++ "rfl"
+  s!"{lit}
+/-- The functions of the literal items, at elaboration time. -/
+def splitVal : List {f} := {ns}.splitStage {at_}
+
+/-- The functions of the literal items, as a literal (untrusted, checked by
+`split_eq`). -/
+def splitLit : List {f} := scc_lit% splitVal
+
+/-- The literal is its {n} functions (kernel-checked). -/
+theorem split_parts : splitLit = [
+    {elems}] := by kernel_rfl
+
+/-- The items' functions are `splitLit` (kernel-checked). -/
+theorem split_eq : {ns}.splitStage {at_} = splitLit := by kernel_rfl
+{fns}
+/-- The slices are all of `blocksLit` (kernel-checked). -/
+theorem grps_flat : [{lits}].flatten = blocksLit := by kernel_rfl
+
+/-- The items give the block table `blocksLit` (the functions' checks above,
+chained). -/
+theorem blocks_eq : {ns}.blocksOfStage {at_} = some blocksLit := by
+  rw [← grps_flat]
+  exact {ns}.blocksOfStage_of_split split_eq <| by
+    rw [split_parts]
+    exact {chain}
+"
+
+/-- The runs of `checked`: each with its first function, its end and
+whether its functions are stack-checked (a run of stack-checked functions
+is one function long). -/
+def a12Runs (checked : List Bool) : List (Nat × Nat × Bool) :=
+  (checked.zipIdx.foldl (fun acc (c, i) => match acc with
+    | (k, _, false) :: rest => if c then (i, i + 1, true) :: acc else (k, i + 1, false) :: rest
+    | _ => (i, i + 1, c) :: acc) []).reverse
+
+/-- A12 one function at a time (`Scc/Cert/A12StageA64.lean`,
+`Scc/Cert/A12StageX64.lean`), for a large listing: A12's tables at `t` as a
+literal (`a12TabsLit`, checked once by `prog_placeOK{sfx}_12t`), then for
+each of the IR's `n` stack-checked functions its code conjunct
+(`prog_placeOK{sfx}_12c_i`) and its phase conjunct
+(`prog_placeOK{sfx}_12p_i`), each its own kernel check on the literal
+tables, and for each run of functions that are not stack-checked one range
+check (`prog_placeOK{sfx}_12s_i`, `a12Skip`) for both parts, chained by
+`a12From_cons` and `a12codeFrom_skip`/`a12phFrom_skip` to a decided end; `a12_of_tabs` gives
+`prog_placeOK{sfx}_12`. `checked` is each function's `checkStack` (empty:
+all). The literal's name is `a12TabsLit{sfx}` (`sfx` is `At` in
+`Scc/Test/certify.sh`'s file). -/
+def a12PerFn (ns t sfx : String) (n : Nat) (checked : List Bool := []) : String :=
+  let tl := s!"a12TabsLit{sfx}"
+  let runs := a12Runs (if checked.length == n then checked else List.replicate n true)
+  let each := String.join (runs.map fun (i, j, c) => if c then s!"
+/-- A12's code conjunct of function {i} (kernel-checked). -/
+theorem prog_placeOK{sfx}_12c_{i} : {ns}.a12codeAtL outLit {tl} {i} = true := by
+  decide +kernel
+
+/-- A12's phase conjunct of function {i} (kernel-checked). -/
+theorem prog_placeOK{sfx}_12p_{i} : {ns}.a12phAtL outLit {tl} {i} = true := by
+  decide +kernel
+" else s!"
+/-- Functions {i} to {j - 1} are not stack-checked (kernel-checked). -/
+theorem prog_placeOK{sfx}_12s_{i} : {ns}.a12Skip outLit {i} {j} = true := by
+  decide +kernel
+")
+  let chain (p skip : String) := String.join (runs.map fun (i, _, c) =>
+    if c then s!"{ns}.a12From_cons rfl prog_placeOK{sfx}_12{p}_{i} <|\n    "
+    else s!"{ns}.{skip} prog_placeOK{sfx}_12s_{i} <|\n    ")
+  s!"
+/-- A12's tables, at elaboration time. -/
+def a12TabsVal{sfx} : Option {ns}.A12Tabs := {ns}.a12Tabs outLit {t}
+
+/-- A12's tables as a literal (untrusted, checked by `prog_placeOK{sfx}_12t`). -/
+def {tl} : {ns}.A12Tabs := (scc_lit% a12TabsVal{sfx}).get!
+
+/-- `{tl}` is A12's tables (kernel-checked). -/
+theorem prog_placeOK{sfx}_12t : {ns}.a12TabsOk outLit {t} {tl} = true := by
+  decide +kernel
+{each}
+/-- No function after the {n} above, for the code part (kernel-checked). -/
+theorem prog_placeOK{sfx}_12c_end : {ns}.a12From outLit ({ns}.code12L outLit {tl}) {n} = true := by
+  decide +kernel
+
+/-- No function after the {n} above, for the phase part (kernel-checked). -/
+theorem prog_placeOK{sfx}_12p_end : {ns}.a12From outLit ({ns}.ph12O outLit {tl}) {n} = true := by
+  decide +kernel
+
+/-- A12 of `outLit`: the code of every user function (its functions' checks,
+chained). -/
+theorem prog_placeOK{sfx}_12 : {ns}.a12 outLit {t} = true :=
+  {ns}.a12_of_tabs prog_placeOK{sfx}_12t
+    ({chain "c" "a12codeFrom_skip"}prog_placeOK{sfx}_12c_end)
+    ({chain "p" "a12phFrom_skip"}prog_placeOK{sfx}_12p_end)
+"
+
 /-- The acceptance and placement part of a certificate (`render`): the
 source program as a term, its acceptance, `out`, the parse check, the
 placement decisions and, for an accepted program, `prog_cert_ready`. -/
@@ -470,17 +662,67 @@ def placePart (cfg : Config) (prog : CoreTerm.Prog) (pl : Placement) (sized : Bo
   let accepted := pl.accepted
   let isa := isaOf cfg.arch
   let ns := isa.placeNs
+  let accept1 := if pl.accepted1 then s!"
+/-- `prog_src` is in the fragment the {if cfg.arch == .arm then "AArch64" else "x86-64"} compiler theorem covers
+(`{if cfg.arch == .arm then "a64" else "x64"}_scc_correctE_text_closedAt1`; kernel-checked). -/
+theorem prog_accepted1 : Scc.Lower.Accepted1 prog_src = true := by decide +kernel
+" else ""
   let outArgs := if sized then " sizes labelOffs" else ""
   let asmArg := if sized then "⟨asm, sizes, labelOffs⟩" else "asm"
   let can := "placeCfg"
   let es := ", ".intercalate (pl.entries.map quoteLine)
   let t := s!"({ns}.tablesOf {can} outLit)"
-  let a9Pf := if isa.a9fast then s!"\n  {ns}.a9_of_fast (by decide +kernel)" else " by\n  decide +kernel"
+  -- With the keyed forms, A9 and A12's two parts are three declarations
+  -- (`Scc/Cert/A12StageA64.lean`): the kernel's memory is held per
+  -- declaration, so the peak is the largest of the three, not their sum.
+  let split := isa.a9 && isa.a9fast && isa.a12
+  let a9Pf :=
+    if isa.a9fast then s!"\n  {ns}.a9_of_fast (by decide +kernel)" else " by\n  decide +kernel"
   let a9Thm := if isa.a9 then s!"
 /-- A9 of `outLit`: the lowered code blocks (kernel-checked). -/
 theorem prog_placeOK_9 : {ns}.a9 outLit {t} = true :={a9Pf}
 " else ""
   let a9Arg := if isa.a9 then " prog_placeOK_9" else ""
+  let a2Pf := if isa.a2fast then s!"\n  {ns}.a2_of_fast (by decide +kernel)" else " by\n  decide +kernel"
+  let a12Parts := if split then s!"
+/-- A12's code part of `outLit` (kernel-checked). -/
+theorem prog_placeOK_12c : {ns}.a12code outLit = true := by
+  decide +kernel
+
+/-- A12's phase part of `outLit` (kernel-checked). -/
+theorem prog_placeOK_12p : {ns}.a12ph outLit {t} = true := by
+  decide +kernel
+" else ""
+  let a12Pf := if split then s!"\n  {ns}.a12_of_split prog_placeOK_12c prog_placeOK_12p" else " by\n  decide +kernel"
+  -- A12 per function on a listing whose block table is split (`blocksStage`): on one
+  -- whose block table is one check (x86-64), that check is the peak, and A12 per
+  -- function only adds time
+  let perFn := split && isa.blocksStaged && pl.parts != 0 && pl.funcs != 0
+  let a12Thm := if isa.a12 then
+    if perFn then a12PerFn ns t "" pl.funcs pl.checked else s!"{a12Parts}
+/-- A12 of `outLit`: the code of every user function (kernel-checked). -/
+theorem prog_placeOK_12 : {ns}.a12 outLit {t} = true :={a12Pf}
+" else ""
+  let a12Arg := if isa.a12 then " prog_placeOK_12" else ""
+  let blocksSt := isa.blocksStaged || (isa.blocksStagedLarge && pl.parts != 0)
+  let outLast := if blocksSt then s!"{blocksStage ns isa.rt (if sized then "sizes " else "") pl.parts}
+/-- `out` is `outLit` (kernel-checked in four steps, `ofEmitted_of_stages`
+and `ofStage_eq_B`: the lowering, the emitter and the block table above,
+and here the stack need table and the `.text` filter on the literals; the
+decisions below read `outLit`). -/
+theorem out_eq : out = outLit := by
+  rw [show out = _ from {ns}.ofEmitted_of_stages{outArgs} (ir := loweredLit.1) (setup := loweredLit.2)
+    (items := emittedLit.1) (sps := emittedLit.2) lowered_eq emitted_eq, {ns}.ofStage_eq_B blocks_eq]
+  kernel_rfl
+" else s!"
+/-- `out` is `outLit` (kernel-checked in three steps, `ofEmitted_of_stages`:
+the lowering and the emitter above, and here the stack need table, the
+`.text` filter and the block table on the literals; the decisions below
+read `outLit`). -/
+theorem out_eq : out = outLit := by
+  rw [show out = _ from {ns}.ofEmitted_of_stages{outArgs} lowered_eq emitted_eq]
+  kernel_rfl
+"
   let outEq := if isa.staged then s!"
 /-- The lowering of `prog_src`, at elaboration time. -/
 def loweredVal : Option (Scc.IR.Program × Bool) := {ns}.lowered1 config prog_src
@@ -497,34 +739,26 @@ def emittedVal : Option (List {isa.emit}.Item × List {isa.safepoint}) :=
 `emitted_eq`). -/
 def emittedLit : List {isa.emit}.Item × List {isa.safepoint} := (scc_lit% emittedVal).get!
 
-/-- The lowering's depth limit, at elaboration time. -/
+/-- The stack budget's depth limit, at elaboration time. -/
 def framesVal : Option Nat := Scc.Cert.LowerStage.frames1 config prog_src
 
 /-- The depth limit as a literal (untrusted, checked by `frames_eq`). -/
 def framesLit : Nat := (scc_lit% framesVal).get!
 
 /-- The budget gives the depth limit `framesLit` (kernel-checked: the kernel
-runs the lowering at depth limit 0, here). -/
+runs the lowering for the frames, here). -/
 theorem frames_eq : Scc.Cert.LowerStage.frames1 config prog_src = some framesLit := by kernel_rfl
 
-/-- The lowering at `framesLit` gives `loweredLit` (kernel-checked: the
-kernel runs the lowering, here). -/
-theorem ir_eq : Scc.Cert.LowerStage.ir1 config prog_src framesLit = some loweredLit := by kernel_rfl
+/-- The lowering gives `loweredLit` (kernel-checked: the kernel runs the
+lowering, here). -/
+theorem ir_eq : Scc.Cert.LowerStage.ir1 config prog_src = some loweredLit := by kernel_rfl
 
 /-- The lowering gives `loweredLit` (`lowered1_of_stages`: the budget and
 the lowering above). -/
 theorem lowered_eq : {ns}.lowered1 config prog_src = some loweredLit :=
   {ns}.lowered1_of_stages frames_eq ir_eq
 
-{emitStage isa pl.funcs}
-/-- `out` is `outLit` (kernel-checked in three steps, `ofEmitted_of_stages`:
-the lowering and the emitter above, and here the stack need table, the
-`.text` filter and the block table on the literals; the decisions below
-read `outLit`). -/
-theorem out_eq : out = outLit := by
-  rw [show out = _ from {ns}.ofEmitted_of_stages{outArgs} lowered_eq emitted_eq]
-  kernel_rfl
-" else "
+{emitStage isa pl.funcs}{outLast}" else "
 /-- `out` is `outLit` (kernel-checked: the kernel runs the lowering once,
 here, and the decisions below read the literal). -/
 theorem out_eq : out = outLit := by kernel_rfl
@@ -545,8 +779,7 @@ theorem prog_placeOK_1 : {ns}.a1 outLit {t} = true := by
   decide +kernel
 
 /-- A2 of `outLit` (kernel-checked). -/
-theorem prog_placeOK_2 : {ns}.a2 outLit {t} = true := by
-  decide +kernel
+theorem prog_placeOK_2 : {ns}.a2 outLit {t} = true :={a2Pf}
 
 /-- A4 of `outLit` (kernel-checked). -/
 theorem prog_placeOK_4 : {ns}.a4 {can} outLit {t} = true := by
@@ -557,16 +790,16 @@ theorem prog_placeOK_7 : {ns}.a7 outLit {t} = true := by
   decide +kernel
 
 /-- A3 of `outLit`: the block table at its places (kernel-checked). -/
-theorem prog_placeOK_3 : {ns}.a3 outLit {t} = true := by
-  decide +kernel
+theorem prog_placeOK_3 : {ns}.a3 outLit {t} = true :=
+  {ns}.a3_of_parts (by decide +kernel) (by decide +kernel)
 
 /-- A5 of `outLit`: the block table covered at its offsets (kernel-checked). -/
 theorem prog_placeOK_5 : {ns}.a5 outLit {t} = true := by
   decide +kernel
 
 /-- A6 of `outLit`: the block table in its phases (kernel-checked). -/
-theorem prog_placeOK_6 : {ns}.a6 outLit {t} = true := by
-  decide +kernel
+theorem prog_placeOK_6 : {ns}.a6 outLit {t} = true :=
+  {ns}.a6_of_parts (by decide +kernel) (by decide +kernel)
 
 /-- A8 of `outLit`: the runtime's data words (kernel-checked). -/
 theorem prog_placeOK_8 : {ns}.a8 outLit {t} = true := by
@@ -575,12 +808,12 @@ theorem prog_placeOK_8 : {ns}.a8 outLit {t} = true := by
 /-- A11 of `outLit`: the runtime's fixed code (kernel-checked). -/
 theorem prog_placeOK_11 : {ns}.a11 outLit {t} = true := by
   decide +kernel
-
+{a12Thm}
 /-- **`placeOK` of `scc`'s output** for `prog_src`. -/
 theorem prog_placeOK : {ns}.placeOK {can} out = true := by
   rw [out_eq]
   exact {ns}.placeOK_of prog_placeOK_1 prog_placeOK_2 prog_placeOK_3 prog_placeOK_4 prog_placeOK_5
-    prog_placeOK_6 prog_placeOK_7 prog_placeOK_8{a9Arg} prog_placeOK_11
+    prog_placeOK_6 prog_placeOK_7 prog_placeOK_8{a9Arg} prog_placeOK_11{a12Arg}
 "
   let negative (n : Nat) : String :=
     let cfgArg := if n == 4 then s!" {can}" else ""
@@ -620,7 +853,7 @@ def prog_src : CoreTerm.Prog :=
 
 -- The frontend reads `source` as `prog_src` (evaluation, not a proof).
 #guard Scc.Cert.SrcTerm.reads source prog_src
-{accept}
+{accept}{accept1}
 /-- `scc`'s output for `prog_src` as the placement check reads it: the
 lowering and the emission (`{isa.lower}.lowerAll`) with the placement data
 computed from them. -/
@@ -660,6 +893,18 @@ def source : String := {quote src}
 
 end SccCertificate
 "
+
+/-- The listings' size, in lines, from which a certificate checks the block
+table one function at a time (`blocksStage`): the literal of the functions
+that this needs costs about 2 s, which on a listing of little more than the
+runtime (about 1500 lines) outweighs what it saves; on larger ones the
+single check's memory grows with the whole program. -/
+def blocksSplitMin : Nat := 2000
+
+/-- `pl` with the block table checked per function only on a listing of at
+least `blocksSplitMin` lines. -/
+def blocksParts (asm : String) (pl : Placement) : Placement :=
+  if (asm.splitOn "\n").length ≥ blocksSplitMin then pl else { pl with parts := 0 }
 
 /-- The certificate for a compilation of `src` (file name `name`) to `asm`
 under `cfg`, of the program `prog` the frontend read from `src`, in the
@@ -705,7 +950,7 @@ def prog : _root_.Program := {isa.reparse} asm
 
 /-- `prog` satisfies the lowerability predicate (kernel-checked). -/
 theorem lowerable : {isa.predicate} := by decide +kernel
-{sizesPart sizes}{placePart cfg prog pl sizes.isSome}
+{sizesPart sizes}{placePart cfg prog (blocksParts asm pl) sizes.isSome}
 -- Placeholder for the future correctness statement (not stated yet):
 -- theorem correct : Scc.Correct config source prog
 

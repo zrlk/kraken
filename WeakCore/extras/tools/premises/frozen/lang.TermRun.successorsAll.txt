@@ -1,0 +1,44 @@
+CoreTerm.Prog : Type
+Promises.Knobs : Type
+Promises.Knobs.promises : Promises.Knobs → Bool
+TermRun.Bounds : Type
+TermRun.Bounds.maxP : TermRun.Bounds → Nat
+TermRun.Bounds.solo : TermRun.Bounds → Nat
+TermRun.Cfg : Type
+TermRun.Cfg.mem : TermRun.Cfg → WeakMem.Memory
+TermRun.Cfg.ths : TermRun.Cfg → Array TermRun.TTh
+TermRun.TTh : Type
+TermRun.TTh.promises : TermRun.TTh → List WeakMem.Ts
+TermRun.certB : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → Nat → TermRun.Cfg → Nat → Bool
+TermRun.extSuccs : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → TermRun.Bounds → TermRun.Cfg → Nat → List TermRun.Cfg
+TermRun.isDone : TermRun.TTh → Bool
+TermRun.promise : TermRun.Cfg → Nat → WeakMem.Address → WeakMem.Val → WeakMem.Ts → TermRun.Cfg
+TermRun.soloWrites : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → Nat → Nat → TermRun.Cfg → List (WeakMem.Address × WeakMem.Val)
+TermRun.successorsAll : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → TermRun.Bounds → TermRun.Cfg → List TermRun.Cfg
+  := fun p k arch b c =>
+  List.flatMap
+    (fun i =>
+      have ts := List.filter (fun c' => TermRun.certB p k arch b.solo c' i) (TermRun.threadSteps p k arch c i);
+      have ps :=
+        match c.ths[i]? with
+        | some th =>
+          if (k.promises && decide (th.promises.length < b.maxP) && !TermRun.isDone th) = true then
+            List.filter (fun c' => TermRun.certB p k arch b.solo c' i)
+              (List.flatMap
+                (fun x =>
+                  match x with
+                  | (a, v) => List.map (fun w => TermRun.promise c i a v w) (List.range (Array.size c.mem)))
+                (TermRun.soloWrites p k arch i b.solo c).eraseDups)
+          else []
+        | none => [];
+      ts ++ ps ++ TermRun.extSuccs p k arch b c i ++ TermRun.wakeSuccs p k arch b c i)
+    (List.range c.ths.size)
+TermRun.threadSteps : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → TermRun.Cfg → Nat → List TermRun.Cfg
+TermRun.wakeSuccs : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → TermRun.Bounds → TermRun.Cfg → Nat → List TermRun.Cfg
+WeakMem.Address : Type
+WeakMem.Arch : Type
+WeakMem.Msg : Type
+WeakMem.Ts : Type
+WeakMem.Val : Type
+WeakMem.instDecidableEqAddress : DecidableEq WeakMem.Address
+WeakMem.instDecidableEqVal : DecidableEq WeakMem.Val

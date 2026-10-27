@@ -96,7 +96,7 @@ end M0
 /-- (M0) The explorer at the start's capacity, `extra` moves labelled `Cfg.n`. -/
 def exploreGXC (p : Prog) (k : Promises.Knobs) (arch : Arch) (b : Bounds) (fuel : Nat) (c : Cfg)
     (extra : Cfg → List Cfg := fun _ => []) : Graph :=
-  exploreGP (successorsLX p k arch b c.cap) (·.n) fuel c extra
+  exploreGP (successorsLXT p k arch b c.cap) (·.n) fuel c extra
 
 /-- The spawn demo at capacity `n`, read off the start configuration. -/
 def spGraphC (n : Nat) : Graph :=

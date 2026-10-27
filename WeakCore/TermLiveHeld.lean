@@ -216,14 +216,13 @@ theorem tstep_fetch_new {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
 
 /-! ## The word at the operand's address -/
 
-/-- A reference to a non-ghost word of region `r` and protocol `P` points at a
-`WordAt` of region `ev ρ r` and protocol `P`: any `WordAt` at that address is
-this one. -/
-theorem word_link {ρ : Nat → Nat} {η : TEnv} {σs : List Ty} {cx : Cx} {env : Env} {a : At} {t : Ty}
-    {r : Idx} {P : Proto} {rt : Ty} {pw : Word} {A : Address} {n : Nat} {Pb : Proto}
+/-- (pair gate) A reference to a non-ghost word of region `r` points at a word unit of region `ev ρ r` in its cell
+(the first half of `word_link`). -/
+theorem word_cell {ρ : Nat → Nat} {η : TEnv} {σs : List Ty} {cx : Cx} {env : Env} {a : At} {t : Ty}
+    {r : Idx} {P : Proto} {rt : Ty} {pw : Word} {A : Address}
     (hv : VarsOK ρ η σs cx.vars env) (hpk : cx.peek a = .ok t) (hwd : wordOf t = some (r, P))
-    (hg : P.ghost = false) (hea : evalAt env a = some (rt, [pw])) (hA : addrOf pw = some A)
-    (hw : WordAt (CE η) A n Pb) : n = ev ρ r ∧ Pb = P := by
+    (hg : P.ghost = false) (hea : evalAt env a = some (rt, [pw])) (hA : addrOf pw = some A) :
+    ∃ c, η.sto A.label = some c ∧ AtOff c.ty A.offset (.word (.lit (ev ρ r)) P) := by
   obtain ⟨μ, hteq⟩ := wordOf_cases hwd
   have hcell : cellOf t = some (μ, .word r P) := by rcases hteq with rfl | rfl <;> simp [cellOf]
   obtain ⟨rt', ws, hea', hvr, -⟩ := peek_VR hv hpk
@@ -235,7 +234,17 @@ theorem word_link {ρ : Nat → Nat} {η : TEnv} {σs : List Ty} {cx : Cx} {env 
     simp only [addrOf, hws] at hA
     cases hA; rfl
   subst hA'
-  have hat' : AtOff c.ty A.offset (.word (.lit (ev ρ r)) P) := by simpa only [cl, clI_zero] using hat
+  exact ⟨c, hsto, by simpa only [cl, clI_zero] using hat⟩
+
+/-- A reference to a non-ghost word of region `r` and protocol `P` points at a
+`WordAt` of region `ev ρ r` and protocol `P`: any `WordAt` at that address is
+this one. -/
+theorem word_link {ρ : Nat → Nat} {η : TEnv} {σs : List Ty} {cx : Cx} {env : Env} {a : At} {t : Ty}
+    {r : Idx} {P : Proto} {rt : Ty} {pw : Word} {A : Address} {n : Nat} {Pb : Proto}
+    (hv : VarsOK ρ η σs cx.vars env) (hpk : cx.peek a = .ok t) (hwd : wordOf t = some (r, P))
+    (hg : P.ghost = false) (hea : evalAt env a = some (rt, [pw])) (hA : addrOf pw = some A)
+    (hw : WordAt (CE η) A n Pb) : n = ev ρ r ∧ Pb = P := by
+  obtain ⟨c, hsto, hat'⟩ := word_cell hv hpk hwd hg hea hA
   obtain ⟨c', hc', hatb, hgb⟩ := hw
   change η.sto A.label = some c' at hc'
   rw [hsto] at hc'
@@ -295,20 +304,17 @@ theorem holds_not_heldV {P : Proto} (hpwf : pwf P = true) {v : WeakMem.Val} (h :
 
 /-! ## C1 per operation -/
 
-/-- **Word store.**  A store on a protocol word that appends at a `WordAt` of
-region `n` was made by a thread whose frame holds `rg n` (the `tok` operand). -/
-theorem store_word_step {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
-    {cx c' : Cx} {ρ : Nat → Nat} {η : TEnv} {K : TEnv → Nat → List Word → Res → Prop} {Rf : Res}
+/-- (pair gate) Where a word `store` appends: at the word's own unit `A`, and the word is non-ghost (a ghost word's
+store appends nothing).  Factored out of `store_word_step`. -/
+theorem store_word_loc {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
+    {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {K : TEnv → Nat → List Word → Res → Prop} {Rf : Res}
     {x : String} {rel : Bool} {a v : At} {tok : Option At} {e : Expr} {tw : Ty} {r0 : Idx} {P0 : Proto}
-    (hterm : th.term = .let_ x (.store rel a v tok) e) (hop : OpT p cx x (.store rel a v tok) c')
+    (hterm : th.term = .let_ x (.store rel a v tok) e)
     (hpk : cx.peek a = .ok tw) (hwd : wordOf tw = some (r0, P0))
     (hi : FInvR ρ η th.σs K cx th.env Rf) (hE : EnvOK p η) (htv : TvOK cx)
     {r : Memory × List Ts × TTh} (hr : r ∈ tstep g mem pairs th) {t : Ts} {m : Msg}
-    (hn : NewAt mem r.1 t m) {n : Nat} {P : Proto} (hw : WordAt (CE η) m.loc n P) :
-    1 ≤ Rf (.rg n) := by
-  obtain ⟨tk, r', i, c₁, rfl, hu, hrr⟩ := store_word_tok hop hpk hwd
-  obtain ⟨hle, hsat⟩ := tok_frame hi hE.2.2 hu
-  have he : ev ρ r0 = ev ρ r' := hrr ρ hsat
+    (hn : NewAt mem r.1 t m) :
+    ∃ rt pw A, evalAt th.env a = some (rt, [pw]) ∧ addrOf pw = some A ∧ P0.ghost = false ∧ m.loc = A := by
   obtain ⟨rt, pw, A, μr, ru, us, j, hea, hA, hcr, hus, hloc, hj⟩ := tstep_store_new hterm hr hn
   have hi0 := hi.1
   obtain ⟨μ, hteq⟩ := wordOf_cases hwd
@@ -327,15 +333,51 @@ theorem store_word_step {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th 
       · cases i <;> simp at hi'
       · cases i <;> simp at hi'
     subst hj0
-    have hmA : m.loc = A := by rw [hloc]; exact TermLiveProps.offs_zero A
-    rw [hmA] at hw
-    obtain ⟨rfl, -⟩ := word_link hi0.2.1 hpk hwd hg hea hA hw
-    rw [he]
-    exact hle
+    exact ⟨rt, pw, A, hea, hA, rfl, by rw [hloc]; exact TermLiveProps.offs_zero A⟩
   · have hus0 : us = [] := by simpa [cl, accs, hg] using hlr
     subst hus0
     exfalso
     rcases hj with ⟨i, hi', -⟩ | ⟨i, hi', -⟩ | ⟨jj, -, i, hi', -⟩ <;> simp at hi'
+
+/-- **Word store.**  A store on a protocol word that appends at a `WordAt` of
+region `n` was made by a thread whose frame holds `rg n` (the `tok` operand). -/
+theorem store_word_step {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
+    {cx c' : Cx} {ρ : Nat → Nat} {η : TEnv} {K : TEnv → Nat → List Word → Res → Prop} {Rf : Res}
+    {x : String} {rel : Bool} {a v : At} {tok : Option At} {e : Expr} {tw : Ty} {r0 : Idx} {P0 : Proto}
+    (hterm : th.term = .let_ x (.store rel a v tok) e) (hop : OpT p cx x (.store rel a v tok) c')
+    (hpk : cx.peek a = .ok tw) (hwd : wordOf tw = some (r0, P0))
+    (hi : FInvR ρ η th.σs K cx th.env Rf) (hE : EnvOK p η) (htv : TvOK cx)
+    {r : Memory × List Ts × TTh} (hr : r ∈ tstep g mem pairs th) {t : Ts} {m : Msg}
+    (hn : NewAt mem r.1 t m) {n : Nat} {P : Proto} (hw : WordAt (CE η) m.loc n P) :
+    1 ≤ Rf (.rg n) := by
+  obtain ⟨tk, r', i, c₁, rfl, hu, hrr⟩ := store_word_tok hop hpk hwd
+  obtain ⟨hle, hsat⟩ := tok_frame hi hE.2.2 hu
+  have he : ev ρ r0 = ev ρ r' := hrr ρ hsat
+  obtain ⟨rt, pw, A, hea, hA, hg, hmA⟩ := store_word_loc hterm hpk hwd hi hE htv hr hn
+  rw [hmA] at hw
+  obtain ⟨rfl, -⟩ := word_link hi.1.2.1 hpk hwd hg hea hA hw
+  rw [he]
+  exact hle
+
+
+/-- (pair gate) A `cas` on an epoch counter (`cas_word_inv`'s epoch branch): the word is non-ghost and has no held
+state.  Factored out of `cas_word_step`. -/
+theorem cas_word_epoch {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
+    {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {K : TEnv → List Word → Prop}
+    {acq rel : Bool} {w e v : At} {x : String} {ok fail : Expr} {tw : Ty} {r0 : Idx} {P0 : Proto}
+    (hpk : cx.peek w = .ok tw) (hwd : wordOf tw = some (r0, P0))
+    (hi : FInv ρ η th.σs K cx th.env) (hE : EnvOK p η) (htv : TvOK cx)
+    (hm : MemInv g (CE η) (stOf mem pairs th)) (hsc : StepScope cx (.cas acq rel w e v x ok fail))
+    (hep : P0.epoch = true) : P0.ghost = false ∧ NoHeld P0 := by
+  rcases hsc tw hpk with ⟨μ, r1, P1, hteq, hμ⟩ | ⟨u, -, hnw⟩
+  · have hpwf1 := wordRef_pwf hpk hteq hμ hi hE htv hm
+    have hP : P1 = P0 := by
+      rcases hteq with rfl | rfl <;> simp only [wordOf, Option.some.injEq, Prod.mk.injEq] at hwd <;>
+        exact hwd.2
+    subst hP
+    exact epoch_facts hpwf1 hep
+  · rw [hwd] at hnw
+    cases hnw
 
 /-- **Word `cas`.**  A `cas` on a protocol word that appends at a `WordAt` of
 protocol `P` overwrote a holding value of `P` (it read the expected value,
@@ -364,17 +406,27 @@ theorem cas_word_step {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : 
     rw [hcl] at hcl0
     cases hcl0
     exact ⟨wd, hpred, hg, ev ρ i, c, _, ev ρ k, by rw [hwv, hwv2], hcl, hh, hent ρ hsat⟩
-  · rcases hsc tw hpk with ⟨μ, r1, P1, hteq, hμ⟩ | ⟨u, -, hnw⟩
-    · have hpwf1 := wordRef_pwf hpk hteq hμ hi hE htv hm
-      have hP : P1 = P0 := by
-        rcases hteq with rfl | rfl <;> simp only [wordOf, Option.some.injEq, Prod.mk.injEq] at hwd <;>
-          exact hwd.2
-      subst hP
-      obtain ⟨hg, hno⟩ := epoch_facts hpwf1 hep
-      obtain ⟨-, rfl⟩ := word_link hi.2.1 hpk hwd hg hea hA hw
-      exact Or.inr hno
-    · rw [hwd] at hnw
-      cases hnw
+  · obtain ⟨hg, hno⟩ := cas_word_epoch hpk hwd hi hE htv hm hsc hep
+    obtain ⟨-, rfl⟩ := word_link hi.2.1 hpk hwd hg hea hA hw
+    exact Or.inr hno
+
+/-- (pair gate) A fetch on a protocol word: the word is non-ghost and has no held state (`fetchOK`, or an epoch
+counter).  Factored out of `fetch_word_step`. -/
+theorem fetch_word_facts {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
+    {cx c' : Cx} {ρ : Nat → Nat} {η : TEnv} {K : TEnv → List Word → Prop}
+    {x : String} {o : FetchOp} {acq rel : Bool} {a v : At} {e : Expr} {tw : Ty} {r0 : Idx} {P0 : Proto}
+    (hop : OpT p cx x (.fetch o acq rel a v) c')
+    (hpk : cx.peek a = .ok tw) (hwd : wordOf tw = some (r0, P0))
+    (hi : FInv ρ η th.σs K cx th.env) (hE : EnvOK p η) (htv : TvOK cx)
+    (hm : MemInv g (CE η) (stOf mem pairs th)) (hsc : StepScope cx (.let_ x (.fetch o acq rel a v) e)) :
+    P0.ghost = false ∧ NoHeld P0 := by
+  rcases fetch_word_inv hop hpk hwd with ⟨d, hd⟩ | hep
+  · exact fetchOK_facts hd
+  · obtain ⟨μ, u, hteq, hμ⟩ := hsc tw hpk
+    obtain ⟨μ', hteq'⟩ := wordOf_cases hwd
+    have hμ' : μ' = .own ∨ μ' = .pub := by
+      rcases hteq' with rfl | rfl <;> rcases hteq with h | h <;> cases h <;> exact hμ
+    exact epoch_facts (wordRef_pwf hpk hteq' hμ' hi hE htv hm) hep
 
 /-- **Word `fetch`.**  A fetch on a protocol word appends only at a word whose
 protocol has no held state (`fetchOK`, or an epoch counter). -/
@@ -389,16 +441,10 @@ theorem fetch_word_step {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th 
     (hn : NewAt mem r.1 t m) {n : Nat} {P : Proto} (hw : WordAt (CE η) m.loc n P) :
     NoHeld P := by
   obtain ⟨rt, pw, hea, hA⟩ := tstep_fetch_new hterm hr hn
-  have hfacts : P0.ghost = false ∧ NoHeld P0 := by
-    rcases fetch_word_inv hop hpk hwd with ⟨d, hd⟩ | hep
-    · exact fetchOK_facts hd
-    · obtain ⟨μ, u, hteq, hμ⟩ := hsc tw hpk
-      obtain ⟨μ', hteq'⟩ := wordOf_cases hwd
-      have hμ' : μ' = .own ∨ μ' = .pub := by
-        rcases hteq' with rfl | rfl <;> rcases hteq with h | h <;> cases h <;> exact hμ
-      exact epoch_facts (wordRef_pwf hpk hteq' hμ' hi hE htv hm) hep
+  have hfacts : P0.ghost = false ∧ NoHeld P0 := fetch_word_facts hop hpk hwd hi hE htv hm hsc
   obtain ⟨-, rfl⟩ := word_link hi.2.1 hpk hwd hfacts.1 hea hA hw
   exact hfacts.2
+
 
 /-! ## C1 -/
 
@@ -416,6 +462,28 @@ def WordOp (cx : Cx) : Expr → Prop
 def IniU (η : TEnv) (A : Address) (n : Nat) (P : Proto) : Prop :=
   ∀ c, η.sto A.label = some c → IniAt η.ini c A (.word (.lit n) P)
 
+/-- (pair gate) The core of `wd_held`: memory's held part holds `wd n` when an initialised unit `U` with words
+(not an array) sits at `A` in its cell, and every reading of `U` carries `wd n`.  Shared by the word instance
+`wd_held` and the pair instance (`TermLiveC2.wd2_held`). -/
+theorem wd_held_core {η : TEnv} {s : St} {H : Res} {A : Address} {n : Nat} {U : Ty} {c : Cell}
+    (hH : MemHeld (CE η) s H) (hsto : η.sto A.label = some c) (hat : AtOff c.ty A.offset U)
+    (hini : IniAt η.ini c A U) (hna : ∀ N e, U ≠ .array (.lit N) e) (hz : ∃ us, accs U = some us ∧ nWords us ≠ 0)
+    (hkey : ∀ ρ E ws R, VRR ρ E U (shp U) ws R → Res.one (.wd n) ≤ R) :
+    1 ≤ H (.wd n) := by
+  obtain ⟨R0, H0, rfl, hent0, -⟩ := MemHeld_focus hH A.label
+  obtain ⟨vals0, -, hC0⟩ := hent0.2 c hsto
+  obtain ⟨b, oS, S, wS, Rsg, Rrc, -, hbo, hatS, hwS, hbw, hR0, ⟨hvs, -⟩, -⟩ :=
+    (own_segR hC0 hat hini hna).resolve_right (fun ⟨_, _, _, _, _, _, _, hz0⟩ => by
+      obtain ⟨us, hus, hne⟩ := hz
+      exact hne (hz0 us hus))
+  have hsl : ((vals0.drop b).take wS).length = wS := by
+    simp only [List.length_take, List.length_drop]; omega
+  obtain ⟨n1, Rq, Rr2, -, -, hRs, hRq0, -⟩ := VRR_at (CE η).unsee hatS hvs (by rw [hsl]; exact hwS)
+  have h := hkey _ _ _ _ hRq0 (.wd n)
+  subst hR0 hRs
+  simp only [Res.add_apply, Res.one, ite_true] at h ⊢
+  omega
+
 /-- **(W1, memory half)** Memory's held part holds the word key of every
 initialised non-epoch word unit: the unit's reading is a `VRR .word` value,
 which carries `wd n` whether it holds or not. -/
@@ -423,19 +491,12 @@ theorem wd_held {η : TEnv} {s : St} {H : Res} {A : Address} {n : Nat} {P : Prot
     (hH : MemHeld (CE η) s H) (hw : WordAt (CE η) A n P) (hini : IniU η A n P) (hep : P.epoch = false) :
     1 ≤ H (.wd n) := by
   obtain ⟨c, hsto, hat, hg⟩ := hw
-  change η.sto A.label = some c at hsto
-  obtain ⟨R0, H0, rfl, hent0, -⟩ := MemHeld_focus hH A.label
-  obtain ⟨vals0, -, hC0⟩ := hent0.2 c hsto
-  have hna : ∀ N e, Ty.word (.lit n) P ≠ .array (.lit N) e := fun N e h => by cases h
-  obtain ⟨b, oS, S, wS, Rsg, Rrc, -, hbo, hatS, hwS, hbw, hR0, ⟨hvs, -⟩, -⟩ := (own_segR hC0 hat (hini c hsto) hna).resolve_right (fun ⟨_, _, _, _, _, _, _, hz⟩ => by have h := hz _ (by simp [accs, hg] : accs (Ty.word (.lit n) P) = some [.one]); simp [nWords, Acc.size] at h)
-  have hsl : ((vals0.drop b).take wS).length = wS := by
-    simp only [List.length_take, List.length_drop]; omega
-  obtain ⟨n1, Rq, Rr2, -, -, hRs, hRq0, -⟩ := VRR_at (CE η).unsee hatS hvs (by rw [hsl]; exact hwS)
-  have h := wdW_le_VRR_word hRq0 (.wd n)
-  rw [wdW_nepoch hep] at h
-  subst hR0 hRs
-  simp only [Res.add_apply, Res.one, ite_true] at h ⊢
-  omega
+  exact wd_held_core hH hsto hat (hini c hsto) (fun N e h => by cases h)
+    ⟨_, (by simp [accs, hg] : accs (Ty.word (.lit n) P) = some [.one]), by simp [nWords, Acc.size]⟩
+    (fun _ _ _ _ h => by
+      have h1 := wdW_le_VRR_word h
+      rwa [wdW_nepoch hep] at h1)
+
 
 /-- **`wholecell_two_carriers`.**  A thread whose frame holds (under `Rf`) a
 value of a cell's whole type `T`, at an address whose cell has an initialised
@@ -485,87 +546,6 @@ def NonWordFootT (g : G) (mem : Memory) (pairs : List Ts) (th : TTh) (cx : Cx) (
   ¬ WordOp cx th.term → ∀ r ∈ tstep g mem pairs th, ∀ t m, NewAt mem r.1 t m → ∀ n P,
     WordAt E m.loc n P → P.epoch = false → 1 ≤ Rf (.wd n)
 
-/-- **`NonWordFootT` at `storeOwn`** (frame half of `wholecell_two_carriers`):
-an own whole-cell store that appends at a non-epoch `WordAt` of region `n` is
-made by a thread whose frame carries `wd n` — the stored value has a word of
-region `n` at the unit's offset. -/
-theorem storeOwn_wd_frame {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
-    {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {K : TEnv → Nat → List Word → Res → Prop} {Rf : Res}
-    {x : String} {rel : Bool} {a v : At} {tok : Option At} {u : Ty} {e : Expr}
-    (hterm : th.term = .let_ x (.store rel a v tok) e)
-    (hpk : cx.peek a = .ok (.ptr .own u)) (hnw : wordOf (Ty.ptr .own u) = none)
-    (hT : Typed p cx th.term) (hi : FInvR ρ η th.σs K cx th.env Rf)
-    (hE : EnvOK p η) (htv : TvOK cx)
-    {r : Memory × List Ts × TTh} (hr : r ∈ tstep g mem pairs th) {t : Ts} {m : Msg}
-    (hn : NewAt mem r.1 t m) {n : Nat} {P : Proto} (hw : WordAt (CE η) m.loc n P) (hep : P.epoch = false) :
-    1 ≤ Rf (.wd n) := by
-  have hterm0 := hterm
-  rw [hterm] at hT
-  cases hT with
-  | let_ hop he =>
-  rename_i c'
-  cases hop with
-  | storeWordGive hp hw => exfalso; rw [hpk] at hp; cases hp; rw [hnw] at hw; cases hw
-  | storeWordKeep hp hw => exfalso; rw [hpk] at hp; cases hp; rw [hnw] at hw; cases hw
-  | storeWordHand hp hw => exfalso; rw [hpk] at hp; cases hp; rw [hnw] at hw; cases hw
-  | storePub hp _ hc => exfalso; rw [hpk] at hp; cases hp; simp [cellOf] at hc
-  | storeRgn hp _ hc => exfalso; rw [hpk] at hp; cases hp; simp [cellOf] at hc
-  | storeCap hp _ hc => exfalso; rw [hpk] at hp; cases hp; simp [cellOf] at hc
-  | storeOwn hp _ hc hwf hu hsub hb =>
-  obtain ⟨t0, u', tv, c₁, hp, hc, hu, hsub⟩ : ∃ t0 u' tv c₁, cx.peek a = .ok t0 ∧
-      cellOf t0 = some (.own, u') ∧ cx.use v = .ok (tv, c₁) ∧ SubS c₁ tv u' :=
-    ⟨_, _, _, _, hp, hc, hu, hsub⟩
-  rw [hpk] at hp; cases hp
-  simp only [cellOf, Option.some.injEq, Prod.mk.injEq, true_and] at hc; subst hc
-  have hi0 := hi.1
-  have hotv : cx.opaqueOK tv = true :=
-    peek_opaqueOK htv (use_inv (ρ := ρ) (η := η) (σs := th.σs) (env := th.env) hu).1
-  have ho : cx.opaqueOK u = true := sub_opaqueOK hsub hotv
-  have htb : tb cx.ke.length u = true := tb_cellOf (peek_tb htv hpk) (rfl : cellOf (.ptr .own u) = some (.own, u))
-  obtain ⟨lab, c, pw, ru, hea, hpw, hsto, hcty, hacc, hown, hsku, hsig⟩ := ownPtr_view hi0 hpk htv ho
-  obtain ⟨rv, wsv, Rv, Rr, hev, hvv, hlv, hvrv, hi1, hle⟩ := useR hu hi hE.2.2
-  have hsat : Sat c₁.facts ρ := hi1.1.1
-  have hsigu : sig (close th.σs u) = sig (cl ρ η.wit 0 0 u) :=
-    sig_WitL hi0.2.2.2.1 ρ ho (lt_of_guardT htb hi0.2.2.2.2.1)
-  have hwcu : wc (cl ρ η.wit 0 0 u) ≠ none := by
-    rw [← wc_of_sig hsigu]; exact (Lay_canon hsub hlv).2.2.2.1
-  obtain ⟨us, hus⟩ : ∃ us, accs ru = some us := by
-    have : wc ru ≠ none := by rw [wc_of_sig hsig]; exact hwcu
-    cases h : accs ru with
-    | none => simp [wc, h] at this
-    | some us => exact ⟨us, rfl⟩
-  obtain ⟨-, hlen⟩ := ownStoreVal hE.2.1 hi0.2.2.2.1 hi0.2.2.2.2.1 hsat hsub ho htb hvv hlv hsig hus
-  have hus' : wc c.ty = some (nWords us) := by rw [(Fd_lay hcty).2.1, ← wc_of_sig hsig]; simp [wc, hus]
-  have hvR : VRR (fun _ => 0) (CE (CE η)) c.ty (shp c.ty) wsv Rv := by
-    obtain ⟨hs, -⟩ := Lay_canon hsub hlv
-    have hvu : VRR ρ η u (shp (close th.σs u)) wsv Rv := by rw [← hs]; exact VRR_sub hsat hsub _ _ _ hvrv
-    have hvc : VRR (fun _ => 0) (CE η) (cl ρ η.wit 0 0 u) (shp (cl ρ η.wit 0 0 u)) wsv Rv := by
-      rw [← shp_of_sig hsigu]
-      exact (VRR_close hE.2.1 hE.2.2 ρ u [] 0 ρ (fun _ => 0) (shp (close th.σs u)) wsv Rv (fun k => rfl)
-        (fun k hk => absurd hk (Nat.not_lt_zero _))).1 hvu
-    rw [(Fd_lay hcty).1]
-    exact (Fd_VRR η hcty).2 hvc
-  obtain ⟨rt', pw', A, μr, ru', us', j, hea', hA, -, -, hloc, -⟩ := tstep_store_new hterm0 hr hn
-  rw [hea] at hea'
-  simp only [Option.some.injEq, Prod.mk.injEq, List.cons.injEq, and_true] at hea'
-  obtain ⟨-, rfl⟩ := hea'
-  have hlab : m.loc.label = lab := by
-    simp only [addrOf, hpw, Option.some.injEq] at hA
-    subst hA
-    rw [hloc]
-    rfl
-  obtain ⟨c0, hs0, hat0, -⟩ := hw
-  change η.sto m.loc.label = some c0 at hs0
-  rw [hlab, hsto] at hs0
-  cases hs0
-  have hwc : wc c.ty = some wsv.length := by rw [hus', hlen]
-  obtain ⟨n1, Rq, Rr2, -, -, hRv, hRq, -⟩ := VRR_at (CE η) hat0 hvR hwc
-  have h := wdW_le_VRR_word hRq (.wd n)
-  rw [wdW_nepoch hep] at h
-  have h2 := hle (.wd n)
-  subst hRv
-  simp only [Res.add_apply, Res.one, ite_true] at h h2
-  omega
 
 
 /-! ## `NonWordFootT`, per operation -/
@@ -681,10 +661,208 @@ theorem keep_no_new {mem mem' : Memory} (h : mem' = mem) {t : Ts} {m : Msg} (hn 
   have h2 := hn.2
   rw [hn.1] at h2
   cases h2
+/-! ### Word-key units (pair gate) -/
 
-/-- **`NonWordFootT` at `storeLoc`** (an own locative): the stored value has
-a word of region `n` at the unit's offset within the component. -/
-theorem storeLoc_wd_frame {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
+/-- (pair gate) `A` is one of the two units of a protocol pair of region `n` in its cell. -/
+def PairUnit (E : TEnv) (A : Address) (n : Nat) : Prop :=
+  ∃ c o P, E.sto A.label = some c ∧ AtOff c.ty o (.word2 (.lit n) P) ∧ o ≤ A.offset ∧ A.offset < o + 2
+
+/-- (pair gate) A unit whose readings carry the word key `wd n`: a non-epoch word unit, or a pair unit. -/
+def WdAt (E : TEnv) (A : Address) (n : Nat) : Prop :=
+  (∃ P, WordAt E A n P ∧ P.epoch = false) ∨ PairUnit E A n
+
+/-- (pair gate) A word unit or a pair unit (of region `n`). -/
+def WUnit (E : TEnv) (A : Address) (n : Nat) : Prop :=
+  (∃ P, WordAt E A n P) ∨ PairUnit E A n
+
+theorem WdAt.unit {E : TEnv} {A : Address} {n : Nat} (h : WdAt E A n) : WUnit E A n := by
+  rcases h with ⟨P, hw, -⟩ | h
+  · exact Or.inl ⟨P, hw⟩
+  · exact Or.inr h
+
+/-- (pair gate) `wd_frame_whole` for every word-key unit. -/
+theorem wd_frame_wholeG {η E' : TEnv} {Rf Rv Rr : Res} {c : Cell} {ws : List Word} {ρ₀ : Nat → Nat}
+    {A : Address} {n : Nat}
+    (hsto : η.sto A.label = some c) (hv : VRR ρ₀ (CE E') c.ty (shp c.ty) ws Rv)
+    (hwc : wc c.ty = some ws.length) (hle : Rv + Rr ≤ Rf)
+    (hw : WdAt (CE η) A n) : 1 ≤ Rf (.wd n) := by
+  rcases hw with ⟨P, hw, hep⟩ | ⟨c0, o2, P, hs0, hat0, -, -⟩
+  · exact wd_frame_whole hsto hv hwc hle hw hep
+  · change η.sto A.label = some c0 at hs0
+    rw [hsto] at hs0
+    cases hs0
+    obtain ⟨n1, Rq, Rr2, -, -, hRv, hRq, -⟩ := VRR_at E' hat0 hv hwc
+    have h := wd_le_VRR_word2 hRq (.wd n)
+    have h2 := hle (.wd n)
+    subst hRv
+    simp only [Res.add_apply, Res.one, ite_true] at h h2
+    omega
+
+/-- (pair gate) `wd_frame_comp` for every word-key unit. -/
+theorem wd_frame_compG {η E' : TEnv} {Rf Rv Rr : Res} {lab : AllocLabel} {c : Cell} {o j : Nat} {U : Ty}
+    {ws : List Word} {ρ₀ : Nat → Nat} {A : Address} {n : Nat}
+    (hsto : η.sto lab = some c) (hat : AtOff c.ty o U)
+    (hv : VRR ρ₀ (CE E') U (shp U) ws Rv) (hwc : wc U = some ws.length) (hle : Rv + Rr ≤ Rf)
+    (hA : A.label = lab) (hoff : A.offset = o + j) (hj : j < ws.length)
+    (hw : WdAt (CE η) A n) : 1 ≤ Rf (.wd n) := by
+  rcases hw with ⟨P, hw, hep⟩ | ⟨c', o2, P, hs', hat', ho1, ho2⟩
+  · exact wd_frame_comp hsto hat hv hwc hle hA hoff hj hw hep
+  · change η.sto A.label = some c' at hs'
+    rw [hA, hsto] at hs'
+    cases hs'
+    obtain ⟨us, hus, hus'⟩ : ∃ us, accs U = some us ∧ nWords us = ws.length := by
+      cases h : accs U with
+      | none => simp [wc, h] at hwc
+      | some us => exact ⟨us, rfl, by simpa [wc, h] using hwc⟩
+    have h2w : nWords [Acc.two] = 2 := by simp [nWords, Acc.size]
+    have k1 : o2 ≤ o + j := by rw [← hoff]; exact ho1
+    have k2 : o + j < o2 + 2 := by rw [← hoff]; exact ho2
+    rcases AtOff_nest (Solid_word2 _ P) accs_word2 hat hus hat' with h | h | ⟨-, h⟩
+    · omega
+    · omega
+    · obtain ⟨n1, Rq, Rr2, -, -, hRv, hRq, -⟩ := VRR_at E' h hv hwc
+      have h1 := wd_le_VRR_word2 hRq (.wd n)
+      have h2 := hle (.wd n)
+      subst hRv
+      simp only [Res.add_apply, Res.one, ite_true] at h1 h2
+      omega
+
+/-- (pair gate) `solid_no_word` for word and pair units (a solid leaf other than a word or a pair). -/
+theorem solid_no_wordG {η : TEnv} {lab : AllocLabel} {c : Cell} {o j : Nat} {U : Ty} {us : List Acc}
+    {A : Address} {n : Nat}
+    (hsto : η.sto lab = some c) (hat : AtOff c.ty o U) (hS : Solid U) (hne : ∀ r P, U ≠ .word r P)
+    (hne2 : ∀ r P, U ≠ .word2 r P)
+    (hus : accs U = some us) (hA : A.label = lab) (hoff : A.offset = o + j) (hj : j < nWords us)
+    (hw : WUnit (CE η) A n) : False := by
+  rcases hw with ⟨P, hw⟩ | ⟨c', o2, P, hs', hat', ho1, ho2⟩
+  · exact solid_no_word hsto hat hS hne hus hA hoff hj hw
+  · change η.sto A.label = some c' at hs'
+    rw [hA, hsto] at hs'
+    cases hs'
+    have h2w : nWords [Acc.two] = 2 := by simp [nWords, Acc.size]
+    have k1 : o2 ≤ o + j := by rw [← hoff]; exact ho1
+    have k2 : o + j < o2 + 2 := by rw [← hoff]; exact ho2
+    rcases AtOff_nest (Solid_word2 _ P) accs_word2 hat hus hat' with h | h | ⟨-, h⟩
+    · omega
+    · omega
+    · obtain ⟨-, e⟩ := AtOff_solid hS (fun t h => by cases h) h
+      exact hne2 _ _ e.symm
+
+/-- (pair gate) `dwf_no_word` for word and pair units. -/
+theorem dwf_no_wordG {η : TEnv} {lab : AllocLabel} {c : Cell} {o j : Nat} {U : Ty} {us : List Acc}
+    {A : Address} {n : Nat}
+    (hsto : η.sto lab = some c) (hat : AtOff c.ty o U) (hdw : dwf U = true)
+    (hus : accs U = some us) (hA : A.label = lab) (hoff : A.offset = o + j) (hj : j < nWords us)
+    (hw : WUnit (CE η) A n) : False := by
+  rcases hw with ⟨P, hw⟩ | ⟨c', o2, P, hs', hat', ho1, ho2⟩
+  · exact dwf_no_word hsto hat hdw hus hA hoff hj hw
+  · change η.sto A.label = some c' at hs'
+    rw [hA, hsto] at hs'
+    cases hs'
+    have k1 : o2 ≤ o + j := by rw [← hoff]; exact ho1
+    have k2 : o + j < o2 + 2 := by rw [← hoff]; exact ho2
+    rcases AtOff_wordFree_disj2 hat hdw hus hat' with h | h <;> omega
+
+/-- (pair gate) `grows_no_word` for word and pair units. -/
+theorem grows_no_wordG {η : TEnv} {mem mem' : Memory} {lbl : AllocLabel} (hg : GrowsAt mem mem' lbl)
+    (hnone : η.sto lbl = none) {t : Ts} {m : Msg} (hn : NewAt mem mem' t m) {n : Nat}
+    (hw : WUnit (CE η) m.loc n) : False := by
+  rcases hw with ⟨P, hw⟩ | ⟨c, -, -, hs, -⟩
+  · exact grows_no_word hg hnone hn hw
+  · have hl := hg.2.2 t m (size_le_of_none hn.1) hn.2
+    change η.sto m.loc.label = some c at hs
+    rw [hl, hnone] at hs
+    cases hs
+
+/-- (pair gate) `storeOwn_wd_frame` for every word-key unit (`WdAt`: a non-epoch word unit or either unit of a protocol
+pair); `storeOwn_wd_frame` is its word instance. -/
+theorem storeOwn_wd_frameG {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
+    {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {K : TEnv → Nat → List Word → Res → Prop} {Rf : Res}
+    {x : String} {rel : Bool} {a v : At} {tok : Option At} {u : Ty} {e : Expr}
+    (hterm : th.term = .let_ x (.store rel a v tok) e)
+    (hpk : cx.peek a = .ok (.ptr .own u)) (hnw : wordOf (Ty.ptr .own u) = none)
+    (hT : Typed p cx th.term) (hi : FInvR ρ η th.σs K cx th.env Rf)
+    (hE : EnvOK p η) (htv : TvOK cx)
+    {r : Memory × List Ts × TTh} (hr : r ∈ tstep g mem pairs th) {t : Ts} {m : Msg}
+    (hn : NewAt mem r.1 t m) {n : Nat} (hw : WdAt (CE η) m.loc n) :
+    1 ≤ Rf (.wd n) := by
+  have hterm0 := hterm
+  rw [hterm] at hT
+  cases hT with
+  | let_ hop he =>
+  rename_i c'
+  cases hop with
+  | storeWordGive hp hw => exfalso; rw [hpk] at hp; cases hp; rw [hnw] at hw; cases hw
+  | storeWordKeep hp hw => exfalso; rw [hpk] at hp; cases hp; rw [hnw] at hw; cases hw
+  | storeWordHand hp hw => exfalso; rw [hpk] at hp; cases hp; rw [hnw] at hw; cases hw
+  | storePub hp _ hc => exfalso; rw [hpk] at hp; cases hp; simp [cellOf] at hc
+  | storeRgn hp _ hc => exfalso; rw [hpk] at hp; cases hp; simp [cellOf] at hc
+  | storeCap hp _ hc => exfalso; rw [hpk] at hp; cases hp; simp [cellOf] at hc
+  | storeOwn hp _ hc hwf hu hsub hb =>
+  obtain ⟨t0, u', tv, c₁, hp, hc, hu, hsub⟩ : ∃ t0 u' tv c₁, cx.peek a = .ok t0 ∧
+      cellOf t0 = some (.own, u') ∧ cx.use v = .ok (tv, c₁) ∧ SubS c₁ tv u' :=
+    ⟨_, _, _, _, hp, hc, hu, hsub⟩
+  rw [hpk] at hp; cases hp
+  simp only [cellOf, Option.some.injEq, Prod.mk.injEq, true_and] at hc; subst hc
+  have hi0 := hi.1
+  have hotv : cx.opaqueOK tv = true :=
+    peek_opaqueOK htv (use_inv (ρ := ρ) (η := η) (σs := th.σs) (env := th.env) hu).1
+  have ho : cx.opaqueOK u = true := sub_opaqueOK hsub hotv
+  have htb : tb cx.ke.length u = true := tb_cellOf (peek_tb htv hpk) (rfl : cellOf (.ptr .own u) = some (.own, u))
+  obtain ⟨lab, c, pw, ru, hea, hpw, hsto, hcty, hacc, hown, hsku, hsig⟩ := ownPtr_view hi0 hpk htv ho
+  obtain ⟨rv, wsv, Rv, Rr, hev, hvv, hlv, hvrv, hi1, hle⟩ := useR hu hi hE.2.2
+  have hsat : Sat c₁.facts ρ := hi1.1.1
+  have hsigu : sig (close th.σs u) = sig (cl ρ η.wit 0 0 u) :=
+    sig_WitL hi0.2.2.2.1 ρ ho (lt_of_guardT htb hi0.2.2.2.2.1)
+  have hwcu : wc (cl ρ η.wit 0 0 u) ≠ none := by
+    rw [← wc_of_sig hsigu]; exact (Lay_canon hsub hlv).2.2.2.1
+  obtain ⟨us, hus⟩ : ∃ us, accs ru = some us := by
+    have : wc ru ≠ none := by rw [wc_of_sig hsig]; exact hwcu
+    cases h : accs ru with
+    | none => simp [wc, h] at this
+    | some us => exact ⟨us, rfl⟩
+  obtain ⟨-, hlen⟩ := ownStoreVal hE.2.1 hi0.2.2.2.1 hi0.2.2.2.2.1 hsat hsub ho htb hvv hlv hsig hus
+  have hus' : wc c.ty = some (nWords us) := by rw [(Fd_lay hcty).2.1, ← wc_of_sig hsig]; simp [wc, hus]
+  have hvR : VRR (fun _ => 0) (CE (CE η)) c.ty (shp c.ty) wsv Rv := by
+    obtain ⟨hs, -⟩ := Lay_canon hsub hlv
+    have hvu : VRR ρ η u (shp (close th.σs u)) wsv Rv := by rw [← hs]; exact VRR_sub hsat hsub _ _ _ hvrv
+    have hvc : VRR (fun _ => 0) (CE η) (cl ρ η.wit 0 0 u) (shp (cl ρ η.wit 0 0 u)) wsv Rv := by
+      rw [← shp_of_sig hsigu]
+      exact (VRR_close hE.2.1 hE.2.2 ρ u [] 0 ρ (fun _ => 0) (shp (close th.σs u)) wsv Rv (fun k => rfl)
+        (fun k hk => absurd hk (Nat.not_lt_zero _))).1 hvu
+    rw [(Fd_lay hcty).1]
+    exact (Fd_VRR η hcty).2 hvc
+  obtain ⟨rt', pw', A, μr, ru', us', j, hea', hA, -, -, hloc, -⟩ := tstep_store_new hterm0 hr hn
+  rw [hea] at hea'
+  simp only [Option.some.injEq, Prod.mk.injEq, List.cons.injEq, and_true] at hea'
+  obtain ⟨-, rfl⟩ := hea'
+  have hlab : m.loc.label = lab := by
+    simp only [addrOf, hpw, Option.some.injEq] at hA
+    subst hA
+    rw [hloc]
+    rfl
+  exact wd_frame_wholeG (by rw [hlab]; exact hsto) hvR (by rw [hus', hlen]) hle hw
+
+/-- **`NonWordFootT` at `storeOwn`** (frame half of `wholecell_two_carriers`):
+an own whole-cell store that appends at a non-epoch `WordAt` of region `n` is
+made by a thread whose frame carries `wd n` — the stored value has a word of
+region `n` at the unit's offset. -/
+theorem storeOwn_wd_frame {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
+    {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {K : TEnv → Nat → List Word → Res → Prop} {Rf : Res}
+    {x : String} {rel : Bool} {a v : At} {tok : Option At} {u : Ty} {e : Expr}
+    (hterm : th.term = .let_ x (.store rel a v tok) e)
+    (hpk : cx.peek a = .ok (.ptr .own u)) (hnw : wordOf (Ty.ptr .own u) = none)
+    (hT : Typed p cx th.term) (hi : FInvR ρ η th.σs K cx th.env Rf)
+    (hE : EnvOK p η) (htv : TvOK cx)
+    {r : Memory × List Ts × TTh} (hr : r ∈ tstep g mem pairs th) {t : Ts} {m : Msg}
+    (hn : NewAt mem r.1 t m) {n : Nat} {P : Proto} (hw : WordAt (CE η) m.loc n P) (hep : P.epoch = false) :
+    1 ≤ Rf (.wd n) :=
+  storeOwn_wd_frameG hterm hpk hnw hT hi hE htv hr hn (Or.inl ⟨P, hw, hep⟩)
+
+
+/-- (pair gate) `storeLoc_wd_frame` for every word-key unit (`WdAt`: a non-epoch word unit or either unit of a protocol
+pair); `storeLoc_wd_frame` is its word instance. -/
+theorem storeLoc_wd_frameG {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
     {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {K : TEnv → Nat → List Word → Res → Prop} {Rf : Res}
     {x : String} {rel : Bool} {a v : At} {tok : Option At} {u : Ty} {e : Expr}
     (hterm : th.term = .let_ x (.store rel a v tok) e)
@@ -692,7 +870,7 @@ theorem storeLoc_wd_frame {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {t
     (hT : Typed p cx th.term) (hi : FInvR ρ η th.σs K cx th.env Rf)
     (hE : EnvOK p η) (htv : TvOK cx)
     {r : Memory × List Ts × TTh} (hr : r ∈ tstep g mem pairs th) {t : Ts} {m : Msg}
-    (hn : NewAt mem r.1 t m) {n : Nat} {P : Proto} (hw : WordAt (CE η) m.loc n P) (hep : P.epoch = false) :
+    (hn : NewAt mem r.1 t m) {n : Nat} (hw : WdAt (CE η) m.loc n) :
     1 ≤ Rf (.wd n) := by
   rw [hterm] at hT
   cases hT with
@@ -739,11 +917,27 @@ theorem storeLoc_wd_frame {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {t
   rw [key, List.mem_map] at hr
   obtain ⟨s', hs', rfl⟩ := hr
   obtain ⟨jj, hjj, hloc⟩ := storeUnits_new_loc hs' rfl hn
-  exact wd_frame_comp hsto hat hvalR.1 (by rw [hwU, hlen]) hle (by rw [hloc]; rfl) (by rw [hloc]; rfl)
-    (by rw [hlen]; exact hjj) hw hep
+  exact wd_frame_compG hsto hat hvalR.1 (by rw [hwU, hlen]) hle (by rw [hloc]; rfl) (by rw [hloc]; rfl)
+    (by rw [hlen]; exact hjj) hw
 
-/-- **`NonWordFootT` at `storePub`** (a pub pointer, whole cell). -/
-theorem storePub_wd_frame {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
+/-- **`NonWordFootT` at `storeLoc`** (an own locative): the stored value has
+a word of region `n` at the unit's offset within the component. -/
+theorem storeLoc_wd_frame {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
+    {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {K : TEnv → Nat → List Word → Res → Prop} {Rf : Res}
+    {x : String} {rel : Bool} {a v : At} {tok : Option At} {u : Ty} {e : Expr}
+    (hterm : th.term = .let_ x (.store rel a v tok) e)
+    (hpk : cx.peek a = .ok (.loc .own u)) (hnw : wordOf (Ty.loc .own u) = none)
+    (hT : Typed p cx th.term) (hi : FInvR ρ η th.σs K cx th.env Rf)
+    (hE : EnvOK p η) (htv : TvOK cx)
+    {r : Memory × List Ts × TTh} (hr : r ∈ tstep g mem pairs th) {t : Ts} {m : Msg}
+    (hn : NewAt mem r.1 t m) {n : Nat} {P : Proto} (hw : WordAt (CE η) m.loc n P) (hep : P.epoch = false) :
+    1 ≤ Rf (.wd n) :=
+  storeLoc_wd_frameG hterm hpk hnw hT hi hE htv hr hn (Or.inl ⟨P, hw, hep⟩)
+
+
+/-- (pair gate) `storePub_wd_frame` for every word-key unit (`WdAt`: a non-epoch word unit or either unit of a protocol
+pair); `storePub_wd_frame` is its word instance. -/
+theorem storePub_wd_frameG {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
     {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {K : TEnv → Nat → List Word → Res → Prop} {Rf : Res}
     {x : String} {rel : Bool} {a v : At} {tok : Option At} {u : Ty} {e : Expr}
     (hterm : th.term = .let_ x (.store rel a v tok) e)
@@ -751,7 +945,7 @@ theorem storePub_wd_frame {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {t
     (hT : Typed p cx th.term) (hi : FInvR ρ η th.σs K cx th.env Rf)
     (hE : EnvOK p η) (htv : TvOK cx)
     {r : Memory × List Ts × TTh} (hr : r ∈ tstep g mem pairs th) {t : Ts} {m : Msg}
-    (hn : NewAt mem r.1 t m) {n : Nat} {P : Proto} (hw : WordAt (CE η) m.loc n P) (hep : P.epoch = false) :
+    (hn : NewAt mem r.1 t m) {n : Nat} (hw : WdAt (CE η) m.loc n) :
     1 ≤ Rf (.wd n) := by
   rw [hterm] at hT
   cases hT with
@@ -807,10 +1001,25 @@ theorem storePub_wd_frame {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {t
   obtain ⟨s', hs', rfl⟩ := hr
   obtain ⟨jj, -, hloc⟩ := storeUnits_new_loc hs' rfl hn
   have hl : m.loc.label = lab := by rw [hloc]; rfl
-  exact wd_frame_whole (by rw [hl]; exact hsto) hvR (by rw [hus', hlen]) hle hw hep
+  exact wd_frame_wholeG (by rw [hl]; exact hsto) hvR (by rw [hus', hlen]) hle hw
 
-/-- **`NonWordFootT` at `storePub` through a pub locative.** -/
-theorem storePubLoc_wd_frame {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
+/-- **`NonWordFootT` at `storePub`** (a pub pointer, whole cell). -/
+theorem storePub_wd_frame {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
+    {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {K : TEnv → Nat → List Word → Res → Prop} {Rf : Res}
+    {x : String} {rel : Bool} {a v : At} {tok : Option At} {u : Ty} {e : Expr}
+    (hterm : th.term = .let_ x (.store rel a v tok) e)
+    (hpk : cx.peek a = .ok (.ptr .pub u)) (hnw : wordOf (Ty.ptr .pub u) = none)
+    (hT : Typed p cx th.term) (hi : FInvR ρ η th.σs K cx th.env Rf)
+    (hE : EnvOK p η) (htv : TvOK cx)
+    {r : Memory × List Ts × TTh} (hr : r ∈ tstep g mem pairs th) {t : Ts} {m : Msg}
+    (hn : NewAt mem r.1 t m) {n : Nat} {P : Proto} (hw : WordAt (CE η) m.loc n P) (hep : P.epoch = false) :
+    1 ≤ Rf (.wd n) :=
+  storePub_wd_frameG hterm hpk hnw hT hi hE htv hr hn (Or.inl ⟨P, hw, hep⟩)
+
+
+/-- (pair gate) `storePubLoc_wd_frame` for every word-key unit (`WdAt`: a non-epoch word unit or either unit of a protocol
+pair); `storePubLoc_wd_frame` is its word instance. -/
+theorem storePubLoc_wd_frameG {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
     {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {K : TEnv → Nat → List Word → Res → Prop} {Rf : Res}
     {x : String} {rel : Bool} {a v : At} {tok : Option At} {u : Ty} {e : Expr}
     (hterm : th.term = .let_ x (.store rel a v tok) e)
@@ -818,7 +1027,7 @@ theorem storePubLoc_wd_frame {p : Prog} {g : G} {mem : Memory} {pairs : List Ts}
     (hT : Typed p cx th.term) (hi : FInvR ρ η th.σs K cx th.env Rf)
     (hE : EnvOK p η) (htv : TvOK cx)
     {r : Memory × List Ts × TTh} (hr : r ∈ tstep g mem pairs th) {t : Ts} {m : Msg}
-    (hn : NewAt mem r.1 t m) {n : Nat} {P : Proto} (hw : WordAt (CE η) m.loc n P) (hep : P.epoch = false) :
+    (hn : NewAt mem r.1 t m) {n : Nat} (hw : WdAt (CE η) m.loc n) :
     1 ≤ Rf (.wd n) := by
   rw [hterm] at hT
   cases hT with
@@ -877,8 +1086,22 @@ theorem storePubLoc_wd_frame {p : Prog} {g : G} {mem : Memory} {pairs : List Ts}
   rw [key, List.mem_map] at hr
   obtain ⟨s', hs', rfl⟩ := hr
   obtain ⟨jj, hjj, hloc⟩ := storeUnits_new_loc hs' rfl hn
-  exact wd_frame_comp hsto hat hvalR.1 (by rw [hwU, hlen]) hle (by rw [hloc]; rfl) (by rw [hloc]; rfl)
-    (by rw [hlen]; exact hjj) hw hep
+  exact wd_frame_compG hsto hat hvalR.1 (by rw [hwU, hlen]) hle (by rw [hloc]; rfl) (by rw [hloc]; rfl)
+    (by rw [hlen]; exact hjj) hw
+
+/-- **`NonWordFootT` at `storePub` through a pub locative.** -/
+theorem storePubLoc_wd_frame {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
+    {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {K : TEnv → Nat → List Word → Res → Prop} {Rf : Res}
+    {x : String} {rel : Bool} {a v : At} {tok : Option At} {u : Ty} {e : Expr}
+    (hterm : th.term = .let_ x (.store rel a v tok) e)
+    (hpk : cx.peek a = .ok (.loc .pub u)) (hnw : wordOf (Ty.loc .pub u) = none)
+    (hT : Typed p cx th.term) (hi : FInvR ρ η th.σs K cx th.env Rf)
+    (hE : EnvOK p η) (htv : TvOK cx)
+    {r : Memory × List Ts × TTh} (hr : r ∈ tstep g mem pairs th) {t : Ts} {m : Msg}
+    (hn : NewAt mem r.1 t m) {n : Nat} {P : Proto} (hw : WordAt (CE η) m.loc n P) (hep : P.epoch = false) :
+    1 ≤ Rf (.wd n) :=
+  storePubLoc_wd_frameG hterm hpk hnw hT hi hE htv hr hn (Or.inl ⟨P, hw, hep⟩)
+
 
 
 /-- The messages an exchange (`loadUnits` then `storeUnits`) appends lie
@@ -896,8 +1119,9 @@ theorem xchg_new_loc {k : Promises.Knobs} {arch : Arch} {pw : Word} {a : Address
   have hs1 : s1.mem = mem := by rw [← hsm]; exact (loadUnits_frame _ _ _ _ h1).1
   exact storeUnits_new_loc hs2 hs1 hn
 
-/-- **`NonWordFootT` at `xchg` on an own pointer** (whole cell). -/
-theorem xchgOwn_wd_frame {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
+/-- (pair gate) `xchgOwn_wd_frame` for every word-key unit (`WdAt`: a non-epoch word unit or either unit of a protocol
+pair); `xchgOwn_wd_frame` is its word instance. -/
+theorem xchgOwn_wd_frameG {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
     {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {K : TEnv → Nat → List Word → Res → Prop} {Rf : Res}
     {x : String} {a v : At} {u : Ty} {e : Expr}
     (hterm : th.term = .let_ x (.xchg a v) e)
@@ -905,7 +1129,7 @@ theorem xchgOwn_wd_frame {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th
     (hT : Typed p cx th.term) (hi : FInvR ρ η th.σs K cx th.env Rf)
     (hE : EnvOK p η) (htv : TvOK cx)
     {r : Memory × List Ts × TTh} (hr : r ∈ tstep g mem pairs th) {t : Ts} {m : Msg}
-    (hn : NewAt mem r.1 t m) {n : Nat} {P : Proto} (hw : WordAt (CE η) m.loc n P) (hep : P.epoch = false) :
+    (hn : NewAt mem r.1 t m) {n : Nat} (hw : WdAt (CE η) m.loc n) :
     1 ≤ Rf (.wd n) := by
   rw [hterm] at hT
   cases hT with
@@ -959,10 +1183,25 @@ theorem xchgOwn_wd_frame {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th
   obtain ⟨r1, hr1, rfl⟩ := hr
   obtain ⟨jj, -, hloc⟩ := xchg_new_loc (T := fun _ => ru) rfl hr1 hn
   have hl : m.loc.label = lab := by rw [hloc]; rfl
-  exact wd_frame_whole (by rw [hl]; exact hsto) hvR (by rw [hus', hlen]) hle hw hep
+  exact wd_frame_wholeG (by rw [hl]; exact hsto) hvR (by rw [hus', hlen]) hle hw
 
-/-- **`NonWordFootT` at `xchg` on an own locative** (a component). -/
-theorem xchgLoc_wd_frame {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
+/-- **`NonWordFootT` at `xchg` on an own pointer** (whole cell). -/
+theorem xchgOwn_wd_frame {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
+    {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {K : TEnv → Nat → List Word → Res → Prop} {Rf : Res}
+    {x : String} {a v : At} {u : Ty} {e : Expr}
+    (hterm : th.term = .let_ x (.xchg a v) e)
+    (hpk : cx.peek a = .ok (.ptr .own u))
+    (hT : Typed p cx th.term) (hi : FInvR ρ η th.σs K cx th.env Rf)
+    (hE : EnvOK p η) (htv : TvOK cx)
+    {r : Memory × List Ts × TTh} (hr : r ∈ tstep g mem pairs th) {t : Ts} {m : Msg}
+    (hn : NewAt mem r.1 t m) {n : Nat} {P : Proto} (hw : WordAt (CE η) m.loc n P) (hep : P.epoch = false) :
+    1 ≤ Rf (.wd n) :=
+  xchgOwn_wd_frameG hterm hpk hT hi hE htv hr hn (Or.inl ⟨P, hw, hep⟩)
+
+
+/-- (pair gate) `xchgLoc_wd_frame` for every word-key unit (`WdAt`: a non-epoch word unit or either unit of a protocol
+pair); `xchgLoc_wd_frame` is its word instance. -/
+theorem xchgLoc_wd_frameG {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
     {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {K : TEnv → Nat → List Word → Res → Prop} {Rf : Res}
     {x : String} {a v : At} {u : Ty} {e : Expr}
     (hterm : th.term = .let_ x (.xchg a v) e)
@@ -970,7 +1209,7 @@ theorem xchgLoc_wd_frame {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th
     (hT : Typed p cx th.term) (hi : FInvR ρ η th.σs K cx th.env Rf)
     (hE : EnvOK p η) (htv : TvOK cx)
     {r : Memory × List Ts × TTh} (hr : r ∈ tstep g mem pairs th) {t : Ts} {m : Msg}
-    (hn : NewAt mem r.1 t m) {n : Nat} {P : Proto} (hw : WordAt (CE η) m.loc n P) (hep : P.epoch = false) :
+    (hn : NewAt mem r.1 t m) {n : Nat} (hw : WdAt (CE η) m.loc n) :
     1 ≤ Rf (.wd n) := by
   rw [hterm] at hT
   cases hT with
@@ -1016,18 +1255,33 @@ theorem xchgLoc_wd_frame {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th
   rw [key, List.mem_map] at hr
   obtain ⟨r1, hr1, rfl⟩ := hr
   obtain ⟨jj, hjj, hloc⟩ := xchg_new_loc (T := fun _ => ru) rfl hr1 hn
-  exact wd_frame_comp hsto hat hvalR.1 (by rw [hwU, hlen]) hle (by rw [hloc]; rfl) (by rw [hloc]; rfl)
-    (by rw [hlen]; exact hjj) hw hep
+  exact wd_frame_compG hsto hat hvalR.1 (by rw [hwU, hlen]) hle (by rw [hloc]; rfl) (by rw [hloc]; rfl)
+    (by rw [hlen]; exact hjj) hw
 
-/-- **`NonWordFootT` at `xchgAt`** (a slot of an own buffer). -/
-theorem xchgAt_wd_frame {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
+/-- **`NonWordFootT` at `xchg` on an own locative** (a component). -/
+theorem xchgLoc_wd_frame {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
+    {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {K : TEnv → Nat → List Word → Res → Prop} {Rf : Res}
+    {x : String} {a v : At} {u : Ty} {e : Expr}
+    (hterm : th.term = .let_ x (.xchg a v) e)
+    (hpk : cx.peek a = .ok (.loc .own u))
+    (hT : Typed p cx th.term) (hi : FInvR ρ η th.σs K cx th.env Rf)
+    (hE : EnvOK p η) (htv : TvOK cx)
+    {r : Memory × List Ts × TTh} (hr : r ∈ tstep g mem pairs th) {t : Ts} {m : Msg}
+    (hn : NewAt mem r.1 t m) {n : Nat} {P : Proto} (hw : WordAt (CE η) m.loc n P) (hep : P.epoch = false) :
+    1 ≤ Rf (.wd n) :=
+  xchgLoc_wd_frameG hterm hpk hT hi hE htv hr hn (Or.inl ⟨P, hw, hep⟩)
+
+
+/-- (pair gate) `xchgAt_wd_frame` for every word-key unit (`WdAt`: a non-epoch word unit or either unit of a protocol
+pair); `xchgAt_wd_frame` is its word instance. -/
+theorem xchgAt_wd_frameG {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
     {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {K : TEnv → Nat → List Word → Res → Prop} {Rf : Res}
     {x : String} {b i v : At} {e : Expr}
     (hterm : th.term = .let_ x (.xchgAt b i v) e)
     (hT : Typed p cx th.term) (hi : FInvR ρ η th.σs K cx th.env Rf)
     (hE : EnvOK p η) (htv : TvOK cx)
     {r : Memory × List Ts × TTh} (hr : r ∈ tstep g mem pairs th) {t : Ts} {m : Msg}
-    (hn : NewAt mem r.1 t m) {n : Nat} {P : Proto} (hw : WordAt (CE η) m.loc n P) (hep : P.epoch = false) :
+    (hn : NewAt mem r.1 t m) {n : Nat} (hw : WdAt (CE η) m.loc n) :
     1 ≤ Rf (.wd n) := by
   rw [hterm] at hT
   cases hT with
@@ -1058,18 +1312,32 @@ theorem xchgAt_wd_frame {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th 
   rw [key, List.mem_map] at hr
   obtain ⟨r1, hr1, rfl⟩ := hr
   obtain ⟨jj, hjj, hloc⟩ := xchg_new_loc (T := fun _ => ur) rfl hr1 hn
-  exact wd_frame_comp hsto hat hvalR.1 (by rw [hwU, hlen]) hle (by rw [hloc]; rfl) (by rw [hloc]; rfl)
-    (by rw [hlen]; exact hjj) hw hep
+  exact wd_frame_compG hsto hat hvalR.1 (by rw [hwU, hlen]) hle (by rw [hloc]; rfl) (by rw [hloc]; rfl)
+    (by rw [hlen]; exact hjj) hw
 
-/-- **`NonWordFootT` at `xchgAtF`** (a field of a slot of an own buffer). -/
-theorem xchgAtF_wd_frame {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
+/-- **`NonWordFootT` at `xchgAt`** (a slot of an own buffer). -/
+theorem xchgAt_wd_frame {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
+    {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {K : TEnv → Nat → List Word → Res → Prop} {Rf : Res}
+    {x : String} {b i v : At} {e : Expr}
+    (hterm : th.term = .let_ x (.xchgAt b i v) e)
+    (hT : Typed p cx th.term) (hi : FInvR ρ η th.σs K cx th.env Rf)
+    (hE : EnvOK p η) (htv : TvOK cx)
+    {r : Memory × List Ts × TTh} (hr : r ∈ tstep g mem pairs th) {t : Ts} {m : Msg}
+    (hn : NewAt mem r.1 t m) {n : Nat} {P : Proto} (hw : WordAt (CE η) m.loc n P) (hep : P.epoch = false) :
+    1 ≤ Rf (.wd n) :=
+  xchgAt_wd_frameG hterm hT hi hE htv hr hn (Or.inl ⟨P, hw, hep⟩)
+
+
+/-- (pair gate) `xchgAtF_wd_frame` for every word-key unit (`WdAt`: a non-epoch word unit or either unit of a protocol
+pair); `xchgAtF_wd_frame` is its word instance. -/
+theorem xchgAtF_wd_frameG {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
     {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {K : TEnv → Nat → List Word → Res → Prop} {Rf : Res}
     {x : String} {b i v : At} {q : List Nat} {e : Expr}
     (hterm : th.term = .let_ x (.xchgAtF b i q v) e)
     (hT : Typed p cx th.term) (hi : FInvR ρ η th.σs K cx th.env Rf)
     (hE : EnvOK p η) (htv : TvOK cx)
     {r : Memory × List Ts × TTh} (hr : r ∈ tstep g mem pairs th) {t : Ts} {m : Msg}
-    (hn : NewAt mem r.1 t m) {n : Nat} {P : Proto} (hw : WordAt (CE η) m.loc n P) (hep : P.epoch = false) :
+    (hn : NewAt mem r.1 t m) {n : Nat} (hw : WdAt (CE η) m.loc n) :
     1 ≤ Rf (.wd n) := by
   rw [hterm] at hT
   cases hT with
@@ -1114,19 +1382,33 @@ theorem xchgAtF_wd_frame {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th
   rw [key, List.mem_map] at hr
   obtain ⟨r1, hr1, rfl⟩ := hr
   obtain ⟨jj, hjj, hloc⟩ := xchg_new_loc (T := fun _ => cR) rfl hr1 hn
-  exact wd_frame_comp hsto hat' hvalR.1 (by rw [hwU, hlen]) hle (by rw [hloc]; rfl) (by rw [hloc]; rfl)
-    (by rw [hlen]; exact hjj) hw hep
+  exact wd_frame_compG hsto hat' hvalR.1 (by rw [hwU, hlen]) hle (by rw [hloc]; rfl) (by rw [hloc]; rfl)
+    (by rw [hlen]; exact hjj) hw
+
+/-- **`NonWordFootT` at `xchgAtF`** (a field of a slot of an own buffer). -/
+theorem xchgAtF_wd_frame {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
+    {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {K : TEnv → Nat → List Word → Res → Prop} {Rf : Res}
+    {x : String} {b i v : At} {q : List Nat} {e : Expr}
+    (hterm : th.term = .let_ x (.xchgAtF b i q v) e)
+    (hT : Typed p cx th.term) (hi : FInvR ρ η th.σs K cx th.env Rf)
+    (hE : EnvOK p η) (htv : TvOK cx)
+    {r : Memory × List Ts × TTh} (hr : r ∈ tstep g mem pairs th) {t : Ts} {m : Msg}
+    (hn : NewAt mem r.1 t m) {n : Nat} {P : Proto} (hw : WordAt (CE η) m.loc n P) (hep : P.epoch = false) :
+    1 ≤ Rf (.wd n) :=
+  xchgAtF_wd_frameG hterm hT hi hE htv hr hn (Or.inl ⟨P, hw, hep⟩)
 
 
-/-- **`NonWordFootT` at `bufInit`** (a slot of an own buffer). -/
-theorem bufInit_wd_frame {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
+
+/-- (pair gate) `bufInit_wd_frame` for every word-key unit (`WdAt`: a non-epoch word unit or either unit of a protocol
+pair); `bufInit_wd_frame` is its word instance. -/
+theorem bufInit_wd_frameG {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
     {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {K : TEnv → Nat → List Word → Res → Prop} {Rf : Res}
     {x : String} {b i v : At} {e : Expr}
     (hterm : th.term = .let_ x (.bufInit b i v) e)
     (hT : Typed p cx th.term) (hi : FInvR ρ η th.σs K cx th.env Rf)
     (hE : EnvOK p η) (htv : TvOK cx)
     {r : Memory × List Ts × TTh} (hr : r ∈ tstep g mem pairs th) {t : Ts} {m : Msg}
-    (hn : NewAt mem r.1 t m) {n : Nat} {P : Proto} (hw : WordAt (CE η) m.loc n P) (hep : P.epoch = false) :
+    (hn : NewAt mem r.1 t m) {n : Nat} (hw : WdAt (CE η) m.loc n) :
     1 ≤ Rf (.wd n) := by
   rw [hterm] at hT
   cases hT with
@@ -1209,8 +1491,40 @@ theorem bufInit_wd_frame {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th
     have h2 := hle2 q
     simp only [Res.add_apply] at h1 h2 ⊢
     omega
-  exact wd_frame_comp (j := jj) hsto hslot hvalR.1 (by rw [hwe, hlen]) hle (by rw [hloc]; rfl)
-    (by rw [hloc, hn0]; simp only [offs, Nat.add_zero]) (by rw [hlen]; exact hjj) hw hep
+  exact wd_frame_compG (j := jj) hsto hslot hvalR.1 (by rw [hwe, hlen]) hle (by rw [hloc]; rfl)
+    (by rw [hloc, hn0]; simp only [offs, Nat.add_zero]) (by rw [hlen]; exact hjj) hw
+
+/-- **`NonWordFootT` at `bufInit`** (a slot of an own buffer). -/
+theorem bufInit_wd_frame {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
+    {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {K : TEnv → Nat → List Word → Res → Prop} {Rf : Res}
+    {x : String} {b i v : At} {e : Expr}
+    (hterm : th.term = .let_ x (.bufInit b i v) e)
+    (hT : Typed p cx th.term) (hi : FInvR ρ η th.σs K cx th.env Rf)
+    (hE : EnvOK p η) (htv : TvOK cx)
+    {r : Memory × List Ts × TTh} (hr : r ∈ tstep g mem pairs th) {t : Ts} {m : Msg}
+    (hn : NewAt mem r.1 t m) {n : Nat} {P : Proto} (hw : WordAt (CE η) m.loc n P) (hep : P.epoch = false) :
+    1 ≤ Rf (.wd n) :=
+  bufInit_wd_frameG hterm hT hi hE htv hr hn (Or.inl ⟨P, hw, hep⟩)
+
+
+/-- (pair gate) `casCell_no_wordAt` for every word unit or pair unit (`WUnit`); `casCell_no_wordAt` is its word instance. -/
+theorem casCell_no_wordAtG {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
+    {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {K : TEnv → List Word → Prop}
+    {acq rel : Bool} {w e v : At} {x : String} {ok fail : Expr} {tw u : Ty} {μ : Mode}
+    (hterm : th.term = .cas acq rel w e v x ok fail)
+    (hpk : cx.peek w = .ok tw) (hcw : cellOf tw = some (μ, u)) (hone : u.rawWords = some 1)
+    (haff : affine cx.ke u = false)
+    (hi : FInv ρ η th.σs K cx th.env) (hE : EnvOK p η) (htv : TvOK cx)
+    {r : Memory × List Ts × TTh} (hr : r ∈ tstep g mem pairs th) {t : Ts} {m : Msg}
+    (hn : NewAt mem r.1 t m) {n : Nat} (hw : WUnit (CE η) m.loc n) : False := by
+  obtain ⟨tw', pw', te, ew, tv, nw, hea', -, -, haddr, -, -⟩ := tstep_cas_new hterm hr hn
+  obtain ⟨rt, pw, ad, c, hea, hpw, hsto, hat, -, hdw⟩ :=
+    plainTarget hi hE hpk hcw hone haff (tb_cellOf (peek_tb htv hpk) hcw)
+  rw [hea] at hea'
+  simp only [Option.some.injEq, Prod.mk.injEq, List.cons.injEq, and_true] at hea'
+  obtain ⟨-, rfl⟩ := hea'
+  have hl : m.loc = ad := by simp only [addrOf, hpw, Option.some.injEq] at haddr; exact haddr.symm
+  exact dwf_no_wordG (j := 0) hsto hat hdw (accs_cl_one hone) (by simp [hl]) (by simp [hl]) (by simp [nW_one]) hw
 
 /-- **`NonWordFootT` at `casCell`** (type disjointness): a one-word
 non-affine cell component is deeply word-free (`plainTarget`), so the RMW
@@ -1223,25 +1537,19 @@ theorem casCell_no_wordAt {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {t
     (haff : affine cx.ke u = false)
     (hi : FInv ρ η th.σs K cx th.env) (hE : EnvOK p η) (htv : TvOK cx)
     {r : Memory × List Ts × TTh} (hr : r ∈ tstep g mem pairs th) {t : Ts} {m : Msg}
-    (hn : NewAt mem r.1 t m) {n : Nat} {P : Proto} (hw : WordAt (CE η) m.loc n P) : False := by
-  obtain ⟨tw', pw', te, ew, tv, nw, hea', -, -, haddr, -, -⟩ := tstep_cas_new hterm hr hn
-  obtain ⟨rt, pw, ad, c, hea, hpw, hsto, hat, -, hdw⟩ :=
-    plainTarget hi hE hpk hcw hone haff (tb_cellOf (peek_tb htv hpk) hcw)
-  rw [hea] at hea'
-  simp only [Option.some.injEq, Prod.mk.injEq, List.cons.injEq, and_true] at hea'
-  obtain ⟨-, rfl⟩ := hea'
-  have hl : m.loc = ad := by simp only [addrOf, hpw, Option.some.injEq] at haddr; exact haddr.symm
-  exact dwf_no_word (j := 0) hsto hat hdw (accs_cl_one hone) (by simp [hl]) (by simp [hl]) (by simp [nW_one]) hw
+    (hn : NewAt mem r.1 t m) {n : Nat} {P : Proto} (hw : WordAt (CE η) m.loc n P) : False :=
+  casCell_no_wordAtG hterm hpk hcw hone haff hi hE htv hr hn (Or.inl ⟨P, hw⟩)
 
-/-- **`NonWordFootT` at `fetchCell`** (type disjointness): an `Int` cell. -/
-theorem fetchCell_no_wordAt {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
+
+/-- (pair gate) `fetchCell_no_wordAt` for every word unit or pair unit (`WUnit`); `fetchCell_no_wordAt` is its word instance. -/
+theorem fetchCell_no_wordAtG {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
     {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {K : TEnv → List Word → Prop}
     {x : String} {o : FetchOp} {acq rel : Bool} {a v : At} {e : Expr} {tw : Ty} {μ : Mode}
     (hterm : th.term = .let_ x (.fetch o acq rel a v) e)
     (hpk : cx.peek a = .ok tw) (hcw : cellOf tw = some (μ, .int))
     (hi : FInv ρ η th.σs K cx th.env) (hE : EnvOK p η) (htv : TvOK cx)
     {r : Memory × List Ts × TTh} (hr : r ∈ tstep g mem pairs th) {t : Ts} {m : Msg}
-    (hn : NewAt mem r.1 t m) {n : Nat} {P : Proto} (hw : WordAt (CE η) m.loc n P) : False := by
+    (hn : NewAt mem r.1 t m) {n : Nat} (hw : WUnit (CE η) m.loc n) : False := by
   obtain ⟨rt', pw', hea', haddr⟩ := tstep_fetch_new hterm hr hn
   have hone : Ty.int.rawWords = some 1 := by first | rfl | simp [Ty.rawWords]
   have haff : affine cx.ke .int = false := by first | rfl | simp [affine]
@@ -1251,19 +1559,31 @@ theorem fetchCell_no_wordAt {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} 
   simp only [Option.some.injEq, Prod.mk.injEq, List.cons.injEq, and_true] at hea'
   obtain ⟨-, rfl⟩ := hea'
   have hl : m.loc = ad := by simp only [addrOf, hpw, Option.some.injEq] at haddr; exact haddr.symm
-  exact dwf_no_word (j := 0) hsto hat hdw (accs_cl_one hone) (by simp [hl]) (by simp [hl]) (by simp [nW_one]) hw
+  exact dwf_no_wordG (j := 0) hsto hat hdw (accs_cl_one hone) (by simp [hl]) (by simp [hl]) (by simp [nW_one]) hw
+
+/-- **`NonWordFootT` at `fetchCell`** (type disjointness): an `Int` cell. -/
+theorem fetchCell_no_wordAt {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
+    {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {K : TEnv → List Word → Prop}
+    {x : String} {o : FetchOp} {acq rel : Bool} {a v : At} {e : Expr} {tw : Ty} {μ : Mode}
+    (hterm : th.term = .let_ x (.fetch o acq rel a v) e)
+    (hpk : cx.peek a = .ok tw) (hcw : cellOf tw = some (μ, .int))
+    (hi : FInv ρ η th.σs K cx th.env) (hE : EnvOK p η) (htv : TvOK cx)
+    {r : Memory × List Ts × TTh} (hr : r ∈ tstep g mem pairs th) {t : Ts} {m : Msg}
+    (hn : NewAt mem r.1 t m) {n : Nat} {P : Proto} (hw : WordAt (CE η) m.loc n P) : False :=
+  fetchCell_no_wordAtG hterm hpk hcw hi hE htv hr hn (Or.inl ⟨P, hw⟩)
+
 
 theorem Solid_lanes (sg : Bool) (w : Wd) : Solid (.lanes sg w) :=
   ⟨(fun _ _ h => by cases h), (fun _ _ h => by cases h), (fun _ h => by cases h)⟩
 
-/-- **`NonWordFootT` at `stl`** (type disjointness): a lane word. -/
-theorem stl_no_wordAt {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
+/-- (pair gate) `stl_no_wordAt` for every word unit or pair unit (`WUnit`); `stl_no_wordAt` is its word instance. -/
+theorem stl_no_wordAtG {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
     {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {K : TEnv → Nat → List Word → Res → Prop} {Rf : Res}
     {x : String} {b i v : At} {e : Expr}
     (hterm : th.term = .let_ x (.stl b i v) e)
     (hT : Typed p cx th.term) (hi : FInvR ρ η th.σs K cx th.env Rf) (htv : TvOK cx)
     {r : Memory × List Ts × TTh} (hr : r ∈ tstep g mem pairs th) {t : Ts} {m : Msg}
-    (hn : NewAt mem r.1 t m) {n : Nat} {P : Proto} (hw : WordAt (CE η) m.loc n P) : False := by
+    (hn : NewAt mem r.1 t m) {n : Nat} (hw : WUnit (CE η) m.loc n) : False := by
   rw [hterm] at hT
   cases hT with
   | let_ hop he =>
@@ -1325,17 +1645,28 @@ theorem stl_no_wordAt {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : 
   have hs1 : s1.mem = mem := (loadUnits_frame _ _ _ _ h1).1
   obtain ⟨jj, hjj, hloc⟩ := storeUnits_new_loc hs2 hs1 hn
   have hat' : AtOff c.ty (offs ad (ev ρ j / w.lanes)).offset (.lanes sg w) := by simpa only [cl] using hat
-  exact solid_no_word hsto hat' (Solid_lanes sg w) (fun _ _ h => by cases h)
+  exact solid_no_wordG hsto hat' (Solid_lanes sg w) (fun _ _ h => by cases h) (fun _ _ h => by cases h)
     (by simp [accs] : accs (Ty.lanes sg w) = some [.one]) (by rw [hloc]; rfl) (by rw [hloc]; rfl) hjj hw
 
-/-- **`NonWordFootT` at `stlw`** (type disjointness): a lane word. -/
-theorem stlw_no_wordAt {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
+/-- **`NonWordFootT` at `stl`** (type disjointness): a lane word. -/
+theorem stl_no_wordAt {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
+    {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {K : TEnv → Nat → List Word → Res → Prop} {Rf : Res}
+    {x : String} {b i v : At} {e : Expr}
+    (hterm : th.term = .let_ x (.stl b i v) e)
+    (hT : Typed p cx th.term) (hi : FInvR ρ η th.σs K cx th.env Rf) (htv : TvOK cx)
+    {r : Memory × List Ts × TTh} (hr : r ∈ tstep g mem pairs th) {t : Ts} {m : Msg}
+    (hn : NewAt mem r.1 t m) {n : Nat} {P : Proto} (hw : WordAt (CE η) m.loc n P) : False :=
+  stl_no_wordAtG hterm hT hi htv hr hn (Or.inl ⟨P, hw⟩)
+
+
+/-- (pair gate) `stlw_no_wordAt` for every word unit or pair unit (`WUnit`); `stlw_no_wordAt` is its word instance. -/
+theorem stlw_no_wordAtG {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
     {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {K : TEnv → Nat → List Word → Res → Prop} {Rf : Res}
     {x : String} {b wi jl v : At} {e : Expr}
     (hterm : th.term = .let_ x (.stlw b wi jl v) e)
     (hT : Typed p cx th.term) (hi : FInvR ρ η th.σs K cx th.env Rf) (htv : TvOK cx)
     {r : Memory × List Ts × TTh} (hr : r ∈ tstep g mem pairs th) {t : Ts} {m : Msg}
-    (hn : NewAt mem r.1 t m) {n : Nat} {P : Proto} (hw : WordAt (CE η) m.loc n P) : False := by
+    (hn : NewAt mem r.1 t m) {n : Nat} (hw : WUnit (CE η) m.loc n) : False := by
   rw [hterm] at hT
   cases hT with
   | let_ hop he =>
@@ -1397,8 +1728,19 @@ theorem stlw_no_wordAt {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th :
   have hs1 : s1.mem = mem := (loadUnits_frame _ _ _ _ h1).1
   obtain ⟨jj, hjj, hloc⟩ := storeUnits_new_loc hs2 hs1 hn
   have hat' : AtOff c.ty (offs ad (ev ρ jw)).offset (.lanes sg w) := by simpa only [cl] using hat
-  exact solid_no_word hsto hat' (Solid_lanes sg w) (fun _ _ h => by cases h)
+  exact solid_no_wordG hsto hat' (Solid_lanes sg w) (fun _ _ h => by cases h) (fun _ _ h => by cases h)
     (by simp [accs] : accs (Ty.lanes sg w) = some [.one]) (by rw [hloc]; rfl) (by rw [hloc]; rfl) hjj hw
+
+/-- **`NonWordFootT` at `stlw`** (type disjointness): a lane word. -/
+theorem stlw_no_wordAt {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
+    {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {K : TEnv → Nat → List Word → Res → Prop} {Rf : Res}
+    {x : String} {b wi jl v : At} {e : Expr}
+    (hterm : th.term = .let_ x (.stlw b wi jl v) e)
+    (hT : Typed p cx th.term) (hi : FInvR ρ η th.σs K cx th.env Rf) (htv : TvOK cx)
+    {r : Memory × List Ts × TTh} (hr : r ∈ tstep g mem pairs th) {t : Ts} {m : Msg}
+    (hn : NewAt mem r.1 t m) {n : Nat} {P : Proto} (hw : WordAt (CE η) m.loc n P) : False :=
+  stlw_no_wordAtG hterm hT hi htv hr hn (Or.inl ⟨P, hw⟩)
+
 
 
 /-! ### Steps that append only at a fresh label -/
@@ -1549,19 +1891,27 @@ theorem tstep_new_label {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {r :
        obtain ⟨x, hx, y, hy, rfl⟩ := h
        exact injM_new_label (projM_frame hx) hpl hy hn)
 
+/-- (pair gate) `fresh_no_word` for every word unit or pair unit (`WUnit`); `fresh_no_word` is its word instance. -/
+theorem fresh_no_wordG {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {η : TEnv}
+    {r : Memory × List Ts × TTh} (hm : MemInv g (CE η) (stOf mem pairs th))
+    (hA : ¬ AppTerm th.term) (hr : r ∈ tstep g mem pairs th) {t : Ts} {m : Msg} (hn : NewAt mem r.1 t m)
+    {n : Nat} (hw : WUnit (CE η) m.loc n) : False := by
+  have hl := tstep_new_label hA hm.2.2.1 hr hn
+  have hnone := (hm.2.2.2.1.1 th.nalloc (Nat.le_refl _)).1
+  obtain ⟨c, hs⟩ : ∃ c, η.sto m.loc.label = some c := by
+    rcases hw with ⟨P, c, hs, -, -⟩ | ⟨c, -, -, hs, -⟩ <;> exact ⟨c, hs⟩
+  change η.sto _ = none at hnone
+  rw [hl, hnone] at hs
+  cases hs
+
 /-- Outside `AppTerm`, a step never appends at a `WordAt` (the fresh label is
 outside Σ, `FreshLP`). -/
 theorem fresh_no_word {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {η : TEnv}
     {r : Memory × List Ts × TTh} (hm : MemInv g (CE η) (stOf mem pairs th))
     (hA : ¬ AppTerm th.term) (hr : r ∈ tstep g mem pairs th) {t : Ts} {m : Msg} (hn : NewAt mem r.1 t m)
-    {n : Nat} {P : Proto} (hw : WordAt (CE η) m.loc n P) : False := by
-  have hl := tstep_new_label hA hm.2.2.1 hr hn
-  have hnone := (hm.2.2.2.1.1 th.nalloc (Nat.le_refl _)).1
-  obtain ⟨c, hs, -, -⟩ := hw
-  change η.sto m.loc.label = some c at hs
-  change η.sto _ = none at hnone
-  rw [hl, hnone] at hs
-  cases hs
+    {n : Nat} {P : Proto} (hw : WordAt (CE η) m.loc n P) : False :=
+  fresh_no_wordG hm hA hr hn (Or.inl ⟨P, hw⟩)
+
 
 /-- **C1, the dichotomy.**  A thread step that appends at an initialised
 non-ghost protocol word `m.loc` (region `n`, protocol `P`) either was made by a
@@ -1785,6 +2135,50 @@ theorem tstep_stp_new {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
     · simp at hin
   · simp at hin
 
+/-- (pair gate) A `casp` that appends pushes `A` then `A.next` at the end of memory, over the expected pair read
+at `A`, `A.next`; the new message is one of the two.  The step facts behind `tstep_casp_new` (and, for pairs,
+`tstep_casp_shape`). -/
+theorem tstep_casp_push {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {E : TEnv}
+    {acq rel : Bool} {w e0 e1 v0 v1 : At} {x : String} {ok fail : Expr}
+    (hterm : th.term = .casp acq rel w e0 e1 v0 v1 x ok fail) (hm : MemInv g E (stOf mem pairs th))
+    {r : Memory × List Ts × TTh} (hr : r ∈ tstep g mem pairs th) {t : Ts} {m : Msg}
+    (hn : NewAt mem r.1 t m) :
+    ∃ tw pw te0 x0 te1 x1 A t0 t1 m0 m1 u0 u1 mv, evalAt th.env w = some (tw, [pw]) ∧
+      evalAt th.env e0 = some (te0, [x0]) ∧ evalAt th.env e1 = some (te1, [x1]) ∧ addrOf pw = some A ∧
+      r.1 = (mem.push ⟨A, u0, mv⟩).push ⟨A.next, u1, mv⟩ ∧
+      mem[t0]? = some m0 ∧ m0.loc = A ∧ mem[t1]? = some m1 ∧ m1.loc = A.next ∧
+      m0.val = x0.val ∧ m1.val = x1.val ∧
+      WeakMem.rmwAdjacent mem A t0 mem.size = true ∧ WeakMem.rmwAdjacent mem A.next t1 (mem.size + 1) = true ∧
+      ((m = ⟨A, u0, mv⟩ ∧ t = mem.size) ∨ (m = ⟨A.next, u1, mv⟩ ∧ t = mem.size + 1)) := by
+  obtain ⟨h0, h1⟩ := hn
+  simp only [tstep, hterm] at hr
+  split at hr
+  · rename_i tw pw te0 x0 te1 x1 tv0 n0 tv1 n1 hw he0 he1 hv0 hv1
+    split at hr
+    · rename_i b hb
+      rw [List.mem_map] at hr
+      obtain ⟨⟨mem', pairs', th'⟩, hin, rfl⟩ := hr
+      obtain ⟨t0, t1, m0, m1, hm0, hl0, hm1, hl1, -, -, hcase⟩ :=
+        stepRmwPair_mem hin (by decide) (MemInv_nopair hm)
+      rcases hcase with ⟨-, rfl, -⟩ | ⟨hs0, hs1, mv, rfl, -, hadj0, hadj1⟩
+      · simp only at h1; rw [h0] at h1; cases h1
+      · refine ⟨tw, pw, te0, x0, te1, x1, b, t0, t1, m0, m1, _, _, mv, hw, he0, he1, hb, rfl, hm0, hl0, hm1, hl1,
+          hs0, hs1, hadj0, hadj1, ?_⟩
+        simp only at h1
+        rw [Array.getElem?_push, Array.size_push] at h1
+        split at h1
+        · rename_i hts
+          cases h1
+          exact Or.inr ⟨rfl, hts⟩
+        · rw [Array.getElem?_push] at h1
+          split at h1
+          · rename_i hts
+            cases h1
+            exact Or.inl ⟨rfl, hts⟩
+          · rw [h0] at h1; cases h1
+    · simp at hr
+  · simp at hr
+
 /-- A `casp` appends at its pair's first word `A` (over the expected pair read
 at `A`, `A.next`), and at `A.next`. -/
 theorem tstep_casp_new {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {E : TEnv}
@@ -1796,58 +2190,39 @@ theorem tstep_casp_new {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {E : 
       evalAt th.env e1 = some (te1, [x1]) ∧ addrOf pw = some A ∧
       ((m.loc = A ∧ ∃ wd0 wd1, PredAt r.1 A t wd0 ∧ PredAt r.1 A.next (t + 1) wd1 ∧
           wd0.val = x0.val ∧ wd1.val = x1.val) ∨ m.loc = A.next) := by
-  obtain ⟨h0, h1⟩ := hn
-  simp only [tstep, hterm] at hr
-  split at hr
-  · rename_i tw pw te0 x0 te1 x1 tv0 n0 tv1 n1 hw he0 he1 hv0 hv1
-    split at hr
-    · rename_i b hb
-      rw [List.mem_map] at hr
-      obtain ⟨⟨mem', pairs', th'⟩, hin, rfl⟩ := hr
-      obtain ⟨t0, t1, m0, m1, hm0, hl0, hm1, hl1, -, -, hcase⟩ :=
-        stepRmwPair_mem hin (by decide) (MemInv_nopair hm)
-      refine ⟨tw, pw, te0, x0, te1, x1, b, hw, he0, he1, hb, ?_⟩
-      rcases hcase with ⟨-, rfl, -⟩ | ⟨hs0, hs1, mv, rfl, -, hadj0, hadj1⟩
-      · simp only at h1; rw [h0] at h1; cases h1
-      · simp only at h1
-        obtain ⟨hlt0, hbt0⟩ := rmwAdjacent_spec hadj0
-        obtain ⟨-, hbt1⟩ := rmwAdjacent_spec hadj1
-        have ht1 : t1 < mem.size := lt_of_get hm1
-        rw [Array.getElem?_push, Array.size_push] at h1
-        split at h1
-        · cases h1
-          exact Or.inr rfl
-        · rw [Array.getElem?_push] at h1
-          split at h1
-          · rename_i hts
-            subst hts
-            cases h1
-            refine Or.inl ⟨rfl, mw m0, mw m1, ⟨t0, m0, hlt0, ?_, hl0, rfl, ?_⟩,
-              ⟨t1, m1, Nat.lt_succ_of_lt ht1, ?_, hl1, rfl, ?_⟩, hs0, hs1⟩
-            · simp only [Array.getElem?_push, Array.size_push, Nat.ne_of_lt hlt0,
-                Nat.ne_of_lt (Nat.lt_succ_of_lt hlt0), ite_false]
-              exact hm0
-            · intro t' m' h1' h2' h3'
-              simp only [Array.getElem?_push, Array.size_push, Nat.ne_of_lt h2',
-                Nat.ne_of_lt (Nat.lt_succ_of_lt h2'), ite_false] at h3'
-              exact hbt0 t' m' h1' h2' h3'
-            · simp only [Array.getElem?_push, Array.size_push, Nat.ne_of_lt ht1,
-                Nat.ne_of_lt (Nat.lt_succ_of_lt ht1), ite_false]
-              exact hm1
-            · intro t' m' h1' h2' h3'
-              rcases Nat.lt_or_ge t' mem.size with hlt | hge
-              · simp only [Array.getElem?_push, Array.size_push, Nat.ne_of_lt hlt,
-                  Nat.ne_of_lt (Nat.lt_succ_of_lt hlt), ite_false] at h3'
-                exact hbt1 t' m' h1' (Nat.lt_succ_of_lt hlt) h3'
-              · have he : t' = mem.size := Nat.le_antisymm (Nat.le_of_lt_succ h2') hge
-                subst he
-                simp only [Array.getElem?_push, Array.size_push, Nat.ne_of_lt (Nat.lt_succ_self _),
-                  ite_false, ite_true, Option.some.injEq] at h3'
-                subst h3'
-                exact fun h => WeakMem.Address.next_ne b h.symm
-          · rw [h0] at h1; cases h1
-    · simp at hr
-  · simp at hr
+  obtain ⟨tw, pw, te0, x0, te1, x1, b, t0, t1, m0, m1, u0, u1, mv, hw, he0, he1, hb, hr1, hm0, hl0, hm1, hl1,
+    hs0, hs1, hadj0, hadj1, hnew⟩ := tstep_casp_push hterm hm hr hn
+  refine ⟨tw, pw, te0, x0, te1, x1, b, hw, he0, he1, hb, ?_⟩
+  rcases hnew with ⟨rfl, rfl⟩ | ⟨rfl, -⟩
+  · obtain ⟨hlt0, hbt0⟩ := rmwAdjacent_spec hadj0
+    obtain ⟨-, hbt1⟩ := rmwAdjacent_spec hadj1
+    have ht1 : t1 < mem.size := lt_of_get hm1
+    rw [hr1]
+    refine Or.inl ⟨rfl, mw m0, mw m1, ⟨t0, m0, hlt0, ?_, hl0, rfl, ?_⟩,
+      ⟨t1, m1, Nat.lt_succ_of_lt ht1, ?_, hl1, rfl, ?_⟩, hs0, hs1⟩
+    · simp only [Array.getElem?_push, Array.size_push, Nat.ne_of_lt hlt0,
+        Nat.ne_of_lt (Nat.lt_succ_of_lt hlt0), ite_false]
+      exact hm0
+    · intro t' m' h1' h2' h3'
+      simp only [Array.getElem?_push, Array.size_push, Nat.ne_of_lt h2',
+        Nat.ne_of_lt (Nat.lt_succ_of_lt h2'), ite_false] at h3'
+      exact hbt0 t' m' h1' h2' h3'
+    · simp only [Array.getElem?_push, Array.size_push, Nat.ne_of_lt ht1,
+        Nat.ne_of_lt (Nat.lt_succ_of_lt ht1), ite_false]
+      exact hm1
+    · intro t' m' h1' h2' h3'
+      rcases Nat.lt_or_ge t' mem.size with hlt | hge
+      · simp only [Array.getElem?_push, Array.size_push, Nat.ne_of_lt hlt,
+          Nat.ne_of_lt (Nat.lt_succ_of_lt hlt), ite_false] at h3'
+        exact hbt1 t' m' h1' (Nat.lt_succ_of_lt hlt) h3'
+      · have he : t' = mem.size := Nat.le_antisymm (Nat.le_of_lt_succ h2') hge
+        subst he
+        simp only [Array.getElem?_push, Array.size_push, Nat.ne_of_lt (Nat.lt_succ_self _),
+          ite_false, ite_true, Option.some.injEq] at h3'
+        subst h3'
+        exact fun h => WeakMem.Address.next_ne b h.symm
+  · exact Or.inr rfl
+
 
 /-- A reference to a pair of region `r` and protocol `P` points at a pair of
 region `ev ρ r` and protocol `P` in its cell. -/
@@ -2059,16 +2434,15 @@ theorem casp_no_wordAt {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
     rcases AtOff_word_word2 hg hat' hat with h | h <;> omega
 
 
-/-- **`NonWordFootT` at `casp` on an epoch pair** (`caspE`; type
-disjointness): an epoch pair is a leaf, so its two words hold no `WordAt`. -/
-theorem caspE_no_wordAt {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
+/-- (pair gate) `caspE_no_wordAt` for every word unit or pair unit (`WUnit`); `caspE_no_wordAt` is its word instance. -/
+theorem caspE_no_wordAtG {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
     {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {K : TEnv → List Word → Prop}
     {acq rel : Bool} {w e0 e1 v0 v1 : At} {x : String} {ok fail : Expr} {tw : Ty} {r0 : Idx} {P0 : ECounter}
     (hterm : th.term = .casp acq rel w e0 e1 v0 v1 x ok fail)
     (hpk : cx.peek w = .ok tw) (hwd : epairOf tw = some (r0, P0))
     (hi : FInv ρ η th.σs K cx th.env) (hm : MemInv g (CE η) (stOf mem pairs th))
     {r : Memory × List Ts × TTh} (hr : r ∈ tstep g mem pairs th) {t : Ts} {m : Msg}
-    (hn : NewAt mem r.1 t m) {n : Nat} {P : Proto} (hw : WordAt (CE η) m.loc n P) : False := by
+    (hn : NewAt mem r.1 t m) {n : Nat} (hw : WUnit (CE η) m.loc n) : False := by
   obtain ⟨tw', pw, te0, x0, te1, x1, A, hea, -, -, hA, hcase⟩ := tstep_casp_new hterm hm hr hn
   have hcell : ∃ μ, cellOf tw = some (μ, .epair r0 P0) := by
     unfold epairOf at hwd
@@ -2088,10 +2462,23 @@ theorem caspE_no_wordAt {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
     ⟨(fun _ _ h => by cases h), (fun _ _ h => by cases h), (fun _ h => by cases h)⟩
   have hus : accs (.epair (.lit (ev ρ r0)) P0) = some [.two] := by simp [accs]
   rcases hcase with ⟨hl, -⟩ | hl
-  · exact solid_no_word (j := 0) hsto hat hS (fun _ _ h => by cases h) hus (by rw [hl]) (by rw [hl]; rfl)
+  · exact solid_no_wordG (j := 0) hsto hat hS (fun _ _ h => by cases h) (fun _ _ h => by cases h) hus (by rw [hl]) (by rw [hl]; rfl)
       (by simp [nWords, Acc.size]) hw
-  · exact solid_no_word (j := 1) hsto hat hS (fun _ _ h => by cases h) hus (by rw [hl]; rfl)
+  · exact solid_no_wordG (j := 1) hsto hat hS (fun _ _ h => by cases h) (fun _ _ h => by cases h) hus (by rw [hl]; rfl)
       (by rw [hl]; rfl) (by simp [nWords, Acc.size]) hw
+
+/-- **`NonWordFootT` at `casp` on an epoch pair** (`caspE`; type
+disjointness): an epoch pair is a leaf, so its two words hold no `WordAt`. -/
+theorem caspE_no_wordAt {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
+    {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {K : TEnv → List Word → Prop}
+    {acq rel : Bool} {w e0 e1 v0 v1 : At} {x : String} {ok fail : Expr} {tw : Ty} {r0 : Idx} {P0 : ECounter}
+    (hterm : th.term = .casp acq rel w e0 e1 v0 v1 x ok fail)
+    (hpk : cx.peek w = .ok tw) (hwd : epairOf tw = some (r0, P0))
+    (hi : FInv ρ η th.σs K cx th.env) (hm : MemInv g (CE η) (stOf mem pairs th))
+    {r : Memory × List Ts × TTh} (hr : r ∈ tstep g mem pairs th) {t : Ts} {m : Msg}
+    (hn : NewAt mem r.1 t m) {n : Nat} {P : Proto} (hw : WordAt (CE η) m.loc n P) : False :=
+  caspE_no_wordAtG hterm hpk hwd hi hm hr hn (Or.inl ⟨P, hw⟩)
+
 
 /-! ## Gap 1 at `storeOwn`, closed by W1 -/
 
@@ -2176,6 +2563,67 @@ theorem held_word_changes_only_by_holder_sum {p : Prog} {g : G} {mem : Memory} {
 
 /-! ## `NonWordFootT` discharged -/
 
+/-- (pair gate) **The word-key footprint**: `nonWordFootT_of`'s case analysis for every word-key unit (`WdAt`), for
+a term that addresses neither a word (`WordOp`) nor a pair (`Word2Op`). -/
+theorem nonWdFootT_of {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
+    {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {Rf Rs : Res}
+    (hT : Typed p cx th.term) (hCk : TermA4.CkW p η.wit cx th.term) (hi : FInvR ρ η th.σs (ResumeR p th.stack Rs) cx th.env Rf)
+    (hE : EnvOK p η) (htv : TvOK cx) (hm : MemInv g (CE η) (stOf mem pairs th))
+    (hsc : StepScope cx th.term ∨ StepScopeR th.σs cx th.term) :
+    ¬ WordOp cx th.term → ¬ Word2Op cx th.term → ∀ r ∈ tstep g mem pairs th, ∀ t m, NewAt mem r.1 t m →
+      ∀ n, WdAt (CE η) m.loc n → 1 ≤ Rf (.wd n) := by
+  intro hnw hnw2 r hr t m hn n hw
+  by_cases hA : AppTerm th.term
+  rotate_left
+  · exact (fresh_no_wordG hm hA hr hn hw.unit).elim
+  by_cases hR : StepScopeR th.σs cx th.term
+  · exact (keep_no_new (frame_keep hR hT hCk hi hE htv hm r hr).1 hn).elim
+  have hsc' := hsc.resolve_right hR
+  have hT0 := hT
+  generalize ht : th.term = t0 at hT0 hsc' hA hnw hnw2
+  cases hT0 with
+  | let_ hop _ =>
+    cases hop with
+    | storeWordGive hpk hw' | storeWordKeep hpk hw' | storeWordHand hpk hw' =>
+        exact (hnw (by simp only [WordOp]; exact ⟨_, _, hpk, hw'⟩)).elim
+    | storeRgn hpk _ hc | storeCap hpk _ hc => exact absurd hc (hsc' _ hpk _ _)
+    | storeOwn hpk hnw' hc =>
+        rcases cell_cases hc with rfl | rfl
+        · exact storeOwn_wd_frameG ht hpk hnw' hT hi hE htv hr hn hw
+        · exact storeLoc_wd_frameG ht hpk hnw' hT hi hE htv hr hn hw
+    | storePub hpk hnw' hc =>
+        rcases cell_cases hc with rfl | rfl
+        · exact storePub_wd_frameG ht hpk hnw' hT hi hE htv hr hn hw
+        · exact storePubLoc_wd_frameG ht hpk hnw' hT hi hE htv hr hn hw
+    | fetchCell hpk _ hc =>
+        rcases hc with hc | ⟨_, hc, _⟩ <;> exact (fetchCell_no_wordAtG ht hpk hc hi.1 hE htv hr hn hw.unit).elim
+    | fetchEpoch hpk hw' | fetchShare hpk hw' =>
+        exact (hnw (by simp only [WordOp]; exact ⟨_, _, hpk, hw'⟩)).elim
+    | xchg hpk hx =>
+        cases hx with
+        | own _ hc =>
+            rcases cell_cases hc with rfl | rfl
+            · exact xchgOwn_wd_frameG ht hpk hT hi hE htv hr hn hw
+            · exact xchgLoc_wd_frameG ht hpk hT hi hE htv hr hn hw
+        | rgn _ hc => exact absurd hc (hsc' _ hpk _ _)
+    | xchgAt => exact xchgAt_wd_frameG ht hT hi hE htv hr hn hw
+    | xchgAtF => exact xchgAtF_wd_frameG ht hT hi hE htv hr hn hw
+    | bufInit => exact bufInit_wd_frameG ht hT hi hE htv hr hn hw
+    | stl => exact (stl_no_wordAtG ht hT hi htv hr hn hw.unit).elim
+    | stlw => exact (stlw_no_wordAtG ht hT hi htv hr hn hw.unit).elim
+    | stpGive hpk hwd | stpKeep hpk hwd =>
+        exact (hnw2 (by simp only [Word2Op]; exact ⟨_, _, hpk, hwd⟩)).elim
+    | _ => exact (show False from hA).elim
+  | casCell hpk _ hc hone haff =>
+      rcases hc with hc | ⟨_, hc, _⟩ <;>
+        exact (casCell_no_wordAtG ht hpk hc hone haff hi.1 hE htv hr hn hw.unit).elim
+  | casShare hpk hw' | casTake hpk hw' | casEpoch hpk hw' =>
+      exact (hnw (by simp only [WordOp]; exact ⟨_, _, hpk, hw'⟩)).elim
+  | caspMove hpk hwd | caspTake hpk hwd | caspBump hpk hwd =>
+      exact (hnw2 (by simp only [Word2Op]; exact ⟨_, _, hpk, hwd⟩)).elim
+  | caspE hpk _ hE2 => exact (caspE_no_wordAtG ht hpk hE2 hi.1 hm hr hn hw.unit).elim
+  | _ => exact (show False from hA).elim
+
 /-- **`NonWordFootT` holds for every typed, in-scope thread.**  A step outside
 `AppTerm` appends only at the fresh label (`fresh_no_word`); a frame-only term
 keeps memory (`frame_keep`); the whole-cell and component ops carry `wd n` in
@@ -2189,55 +2637,21 @@ theorem nonWordFootT_of {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th 
     (hsc : StepScope cx th.term ∨ StepScopeR th.σs cx th.term) :
     NonWordFootT g mem pairs th cx (CE η) Rf := by
   intro hnw r hr t m hn n P hw hep
-  by_cases hA : AppTerm th.term
-  rotate_left
-  · exact (fresh_no_word hm hA hr hn hw).elim
-  by_cases hR : StepScopeR th.σs cx th.term
-  · exact (keep_no_new (frame_keep hR hT hCk hi hE htv hm r hr).1 hn).elim
-  have hsc' := hsc.resolve_right hR
-  have hT0 := hT
-  generalize ht : th.term = t0 at hT0 hsc' hA hnw
-  cases hT0 with
-  | let_ hop _ =>
-    cases hop with
-    | storeWordGive hpk hw' | storeWordKeep hpk hw' | storeWordHand hpk hw' =>
-        exact (hnw (by simp only [WordOp]; exact ⟨_, _, hpk, hw'⟩)).elim
-    | storeRgn hpk _ hc | storeCap hpk _ hc => exact absurd hc (hsc' _ hpk _ _)
-    | storeOwn hpk hnw' hc =>
-        rcases cell_cases hc with rfl | rfl
-        · exact storeOwn_wd_frame ht hpk hnw' hT hi hE htv hr hn hw hep
-        · exact storeLoc_wd_frame ht hpk hnw' hT hi hE htv hr hn hw hep
-    | storePub hpk hnw' hc =>
-        rcases cell_cases hc with rfl | rfl
-        · exact storePub_wd_frame ht hpk hnw' hT hi hE htv hr hn hw hep
-        · exact storePubLoc_wd_frame ht hpk hnw' hT hi hE htv hr hn hw hep
-    | fetchCell hpk _ hc =>
-        rcases hc with hc | ⟨_, hc, _⟩ <;> exact (fetchCell_no_wordAt ht hpk hc hi.1 hE htv hr hn hw).elim
-    | fetchEpoch hpk hw' | fetchShare hpk hw' =>
-        exact (hnw (by simp only [WordOp]; exact ⟨_, _, hpk, hw'⟩)).elim
-    | xchg hpk hx =>
-        cases hx with
-        | own _ hc =>
-            rcases cell_cases hc with rfl | rfl
-            · exact xchgOwn_wd_frame ht hpk hT hi hE htv hr hn hw hep
-            · exact xchgLoc_wd_frame ht hpk hT hi hE htv hr hn hw hep
-        | rgn _ hc => exact absurd hc (hsc' _ hpk _ _)
-    | xchgAt => exact xchgAt_wd_frame ht hT hi hE htv hr hn hw hep
-    | xchgAtF => exact xchgAtF_wd_frame ht hT hi hE htv hr hn hw hep
-    | bufInit => exact bufInit_wd_frame ht hT hi hE htv hr hn hw hep
-    | stl => exact (stl_no_wordAt ht hT hi htv hr hn hw).elim
-    | stlw => exact (stlw_no_wordAt ht hT hi htv hr hn hw).elim
-    | stpGive hpk hwd | stpKeep hpk hwd => exact (stp_no_wordAt ht hpk hwd hi.1 hr hn hw).elim
-    | _ => exact (show False from hA).elim
-  | casCell hpk _ hc hone haff =>
-      rcases hc with hc | ⟨_, hc, _⟩ <;>
-        exact (casCell_no_wordAt ht hpk hc hone haff hi.1 hE htv hr hn hw).elim
-  | casShare hpk hw' | casTake hpk hw' | casEpoch hpk hw' =>
-      exact (hnw (by simp only [WordOp]; exact ⟨_, _, hpk, hw'⟩)).elim
-  | caspMove hpk hwd | caspTake hpk hwd | caspBump hpk hwd =>
+  by_cases h2 : Word2Op cx th.term
+  · generalize ht : th.term = t0 at h2
+    cases t0 with
+    | let_ x op e =>
+      cases op with
+      | stp rel a v0 v1 tk =>
+        obtain ⟨tw, ⟨r0, P0⟩, hpk, hwd⟩ := h2
+        exact (stp_no_wordAt ht hpk hwd hi.1 hr hn hw).elim
+      | _ => exact h2.elim
+    | casp acq rel w e0 e1 v0 v1 x ok fail =>
+      obtain ⟨tw, ⟨r0, P0⟩, hpk, hwd⟩ := h2
       exact (casp_no_wordAt ht hpk hwd hi.1 hm hr hn hw).elim
-  | caspE hpk _ hE2 => exact (caspE_no_wordAt ht hpk hE2 hi.1 hm hr hn hw).elim
-  | _ => exact (show False from hA).elim
+    | _ => exact h2.elim
+  · exact nonWdFootT_of hT hCk hi hE htv hm hsc hnw h2 r hr t m hn n (Or.inl ⟨P, hw, hep⟩)
+
 
 /-! ## C1 without the footprint hypothesis -/
 
@@ -2358,3 +2772,30 @@ end TermLiveHeld
 #print axioms TermLiveHeld.held_enter_needs_token_noFoot
 #print axioms TermLiveHeld.held_word_changes_only_by_holder_noFoot
 #print axioms TermLiveHeld.held_word_changes_only_by_holder_sum_noFoot
+#print axioms TermLiveHeld.word_cell
+#print axioms TermLiveHeld.store_word_loc
+#print axioms TermLiveHeld.fetch_word_facts
+#print axioms TermLiveHeld.cas_word_epoch
+#print axioms TermLiveHeld.wd_frame_wholeG
+#print axioms TermLiveHeld.wd_frame_compG
+#print axioms TermLiveHeld.solid_no_wordG
+#print axioms TermLiveHeld.dwf_no_wordG
+#print axioms TermLiveHeld.grows_no_wordG
+#print axioms TermLiveHeld.storeLoc_wd_frameG
+#print axioms TermLiveHeld.storePub_wd_frameG
+#print axioms TermLiveHeld.storePubLoc_wd_frameG
+#print axioms TermLiveHeld.xchgOwn_wd_frameG
+#print axioms TermLiveHeld.xchgLoc_wd_frameG
+#print axioms TermLiveHeld.xchgAt_wd_frameG
+#print axioms TermLiveHeld.xchgAtF_wd_frameG
+#print axioms TermLiveHeld.bufInit_wd_frameG
+#print axioms TermLiveHeld.storeOwn_wd_frameG
+#print axioms TermLiveHeld.casCell_no_wordAtG
+#print axioms TermLiveHeld.fetchCell_no_wordAtG
+#print axioms TermLiveHeld.stl_no_wordAtG
+#print axioms TermLiveHeld.stlw_no_wordAtG
+#print axioms TermLiveHeld.caspE_no_wordAtG
+#print axioms TermLiveHeld.fresh_no_wordG
+#print axioms TermLiveHeld.nonWdFootT_of
+#print axioms TermLiveHeld.wd_held_core
+#print axioms TermLiveHeld.tstep_casp_push

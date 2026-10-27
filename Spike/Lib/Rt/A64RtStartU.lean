@@ -7,7 +7,7 @@ passing `placeOK` whose program passes the decided phase table
 entry's five nodes, the call block, `scc_rt_alloc_tcb` by `tcbW_gen`), from
 `.sp2` to the switch (`Sp2W`: the block, `scc_rt_thread_init` by `tiW_gen`, the
 block before the switch and the `msr`), and from the switch on as given
-(`SwUW`).
+(`SwUW`). The first two alone: `startSp_gen`.
 
 - **The code**: the placed program's checks (`rtCodeIn_of_ok`): `startIn`,
   `startCallIn`, `startTailIn` and the callees'.
@@ -24,7 +24,7 @@ block before the switch and the `msr`), and from the switch on as given
 - **Oracle**: at `ret0`'s placed record (`Spike/Test/A64RtStartU.lean`).
 -/
 import Spike.Lib.Rt.A64RtPhRec
-import Spike.Lib.Rt.A64RtCode
+import Spike.Lib.Rt.A64RtCodeSetup
 import Spike.Lib.A64StubFacts
 
 namespace Spike.Lib.A64.Rt
@@ -154,32 +154,25 @@ local notation "Ly" => RuntimeLayout.ofPlaceOK h i
 
 set_option maxHeartbeats 1600000 in
 open StartU PhRecOf PhOfTab in
-/-- **`scc_rt_start`'s states are inside `SFacts … Dt`** at the record of an
-output passing `placeOK` (`h`, at the immediates `i`) whose program passes
-the table (`hrt`), at any write tail `Dt`, in any region holding its frame and
-its callees' below (`hR` … `hhi`), with the source control `c0` (`hC0`, its
-facts), the frame condition giving the runtime's words unloaded (`hFr`), the
-first TCB (`hn0`) and the first stack `rS` (`hrS`) in the pool (`hsub`) kept
-by the writes of the three regions (`hSM`, `hSMi`, `hSMt`), and the switch's
-and `scc_rt_main`'s obligations (`hs3`). -/
-theorem startAllUW_gen
+/-- **`scc_rt_start`'s states up to the switch are inside `SFacts … Dt`**
+(`Sp0W`, `Sp2W`): `startAllUW_gen` without the switch's and `scc_rt_main`'s
+obligations. -/
+theorem startSp_gen
     (hrt : Scc.Cert.Rt.A64.rtPhOk (Ly).Λ.code.lo o.prog (Ly).Λ (rtPhTab none) = true)
-    {p : Prog} {lbl : Lbl} {ms : MemSide isaLSE2} {rS : Range} {Dt : State → Prop} {c0 : Ctl} {R : Region}
-    {F : MachineData → Prop} {n0 k0 : BitVec 64} {L : Int} {mc : MainCode} {D : Int} {ZU : Int64}
-    {Post : Ctl → BitVec 64 → Prop}
+    {lbl : Lbl} {rS : Range} {Dt : State → Prop} {c0 : Ctl} {R : Region}
+    {F : MachineData → Prop} {n0 k0 : BitVec 64}
     (hC0 : CFacts (Ly).Λ lbl c0) (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -304)
     (hhi : 0 ≤ R.hi) (hFr : ∀ m, F m → rtF (Ly) m) (hn0 : n0 = 0#64)
     (hrS : rS = ⟨(stacksA (Ly).lab + k0).toNat, 16384⟩) (hsub : rS.Sub (Ly).Λ.stackPool)
     (hSM : FStable R (StackM rS)) (hSMi : FStable (R.callee Abort.oI.sp (-256) 0) (StackM rS))
-    (hSMt : FStable ((R.callee Abort.oI.sp (-256) 0).callee Ret0.ThreadInit.oI.sp (-208) 0) (StackM rS))
-    (hs3 : SwUW (fun s c => SFacts (Ly).Λ (PhRec.μ (Ly)) (PhRec.own (Ly)) rS (PhRec.Tk (Ly)) lbl s c Dt)
-      (PhRec.K (Ly) rS) p lbl (Ly).exe (Ly).endPc R (fun m => F m ∧ StackM rS m) ms rS
-      (pinA (Ly).lab + n0 + 8#64) (stacksA (Ly).lab + k0 + 16384#64) c0 L mc D ZU Post) :
-    StartAllUW (fun s c => SFacts (Ly).Λ (PhRec.μ (Ly)) (PhRec.own (Ly)) rS (PhRec.Tk (Ly)) lbl s c Dt)
-      (PhRec.K (Ly) rS) p lbl (Ly).exe (Ly).endPc R F ms rS n0 k0 c0 L mc D ZU Post := by
+    (hSMt : FStable ((R.callee Abort.oI.sp (-256) 0).callee Ret0.ThreadInit.oI.sp (-208) 0) (StackM rS)) :
+    Ret0.Sp0W (fun s c => SFacts (Ly).Λ (PhRec.μ (Ly)) (PhRec.own (Ly)) rS (PhRec.Tk (Ly)) lbl s c Dt)
+        (PhRec.K (Ly) rS) (Ly).exe (Ly).endPc R F n0 c0 ∧
+      Ret0.Sp2W (fun s c => SFacts (Ly).Λ (PhRec.μ (Ly)) (PhRec.own (Ly)) rS (PhRec.Tk (Ly)) lbl s c Dt)
+        (PhRec.K (Ly) rS) (Ly).exe (Ly).endPc R F rS n0 k0 c0 := by
   subst hn0
   have hI := PhRec.instOk_ofPlaceOK h i (rS := rS)
-  have hrc := rtCodeIn_of_ok (rtCodeOk_bare_of_placeOKAt h)
+  have hrc := rtCode0_of_placeOKAt h
   have hl := hlab_ofPlaceOK h i
   have hf : ∀ f ∈ startPhTab, _ := fun f hf => Scc.Cert.Rt.A64.factOk_of_rtPhOk (f := f) hrt
     (by simp [rtPhTab, hf])
@@ -204,7 +197,7 @@ theorem startAllUW_gen
   have htl := hrc.tail
   simp only [Ret0.startTailIn, Bool.and_eq_true] at htl
   obtain ⟨⟨⟨⟨⟨t0, -⟩, t2⟩, t3⟩, -⟩, -⟩ := htl
-  refine ⟨⟨⟨?_, ?_, ?_, ?_, ?_⟩, ?_, fun g hg j => ?_⟩, ⟨?_, fun g hg j => ?_, ?_, ?_⟩, hs3⟩
+  refine ⟨⟨⟨?_, ?_, ?_, ?_, ?_⟩, ?_, fun g hg j => ?_⟩, ⟨?_, fun g hg j => ?_, ?_, ?_⟩⟩
   · -- The frame's setup.
     exact blkW_wmono hW (blkW_pre (dead := fun _ => false) (ra := 0) hI cb0 (ofNat4_zero _) Abort.b0_ok hR hal
       (by omega) (by omega) (fun _ _ hJ => hJ ▸ hC0)
@@ -284,6 +277,32 @@ theorem startAllUW_gen
     have hs := step_of_factOk hl (hf (.step Code.Start.sp3L 4) (by simp [startPhTab]))
     exact nodeW_wmono hW (nodeW_si_post (si := SI.msr .X10) (p := (Ly).lab Ret0.sp3L + Int64.ofNat (4 * 4))
       hI t3 rfl rfl (fun _ _ hJ => hJ.1 ▸ hC0) hs.1 hs.2 hsub)
+
+/-- **`scc_rt_start`'s states are inside `SFacts … Dt`** at the record of an
+output passing `placeOK` (`h`, at the immediates `i`) whose program passes
+the table (`hrt`), at any write tail `Dt`, in any region holding its frame and
+its callees' below (`hR` … `hhi`), with the source control `c0` (`hC0`, its
+facts), the frame condition giving the runtime's words unloaded (`hFr`), the
+first TCB (`hn0`) and the first stack `rS` (`hrS`) in the pool (`hsub`) kept
+by the writes of the three regions (`hSM`, `hSMi`, `hSMt`), and the switch's
+and `scc_rt_main`'s obligations (`hs3`). -/
+theorem startAllUW_gen
+    (hrt : Scc.Cert.Rt.A64.rtPhOk (Ly).Λ.code.lo o.prog (Ly).Λ (rtPhTab none) = true)
+    {p : Prog} {lbl : Lbl} {ms : MemSide isaLSE2} {rS : Range} {Dt : State → Prop} {c0 : Ctl} {R : Region}
+    {F : MachineData → Prop} {n0 k0 : BitVec 64} {L : Int} {mc : MainCode} {D : Int} {ZU : Int64}
+    {Post : Ctl → BitVec 64 → Prop}
+    (hC0 : CFacts (Ly).Λ lbl c0) (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -304)
+    (hhi : 0 ≤ R.hi) (hFr : ∀ m, F m → rtF (Ly) m) (hn0 : n0 = 0#64)
+    (hrS : rS = ⟨(stacksA (Ly).lab + k0).toNat, 16384⟩) (hsub : rS.Sub (Ly).Λ.stackPool)
+    (hSM : FStable R (StackM rS)) (hSMi : FStable (R.callee Abort.oI.sp (-256) 0) (StackM rS))
+    (hSMt : FStable ((R.callee Abort.oI.sp (-256) 0).callee Ret0.ThreadInit.oI.sp (-208) 0) (StackM rS))
+    (hs3 : SwUW (fun s c => SFacts (Ly).Λ (PhRec.μ (Ly)) (PhRec.own (Ly)) rS (PhRec.Tk (Ly)) lbl s c Dt)
+      (PhRec.K (Ly) rS) p lbl (Ly).exe (Ly).endPc R (fun m => F m ∧ StackM rS m) ms rS
+      (pinA (Ly).lab + n0 + 8#64) (stacksA (Ly).lab + k0 + 16384#64) c0 L mc D ZU Post) :
+    StartAllUW (fun s c => SFacts (Ly).Λ (PhRec.μ (Ly)) (PhRec.own (Ly)) rS (PhRec.Tk (Ly)) lbl s c Dt)
+      (PhRec.K (Ly) rS) p lbl (Ly).exe (Ly).endPc R F ms rS n0 k0 c0 L mc D ZU Post := by
+  have h' := startSp_gen h i hrt hC0 hR hal hlo hhi hFr hn0 hrS hsub hSM hSMi hSMt (Dt := Dt)
+  exact ⟨h'.1, h'.2, hs3⟩
 
 end Start
 

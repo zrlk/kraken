@@ -48,6 +48,7 @@ def NoFulPlRunGL (p : Prog) (k : Promises.Knobs) (arch : Arch) : Prop :=
     (∀ c0, Solo p k arch j c1 c0 → Certified p k arch c0 j → ScopeAt p j c0) → TermViewInv.ViewInv c1 →
     ∀ Eu Ea : TEnv, (∀ c0, Solo p k arch j c1 c0 → Certified p k arch c0 j → NoHoldPubA p k arch Eu Ea j c0) →
     AnchR Eu Ea E1 (stOf c1.mem c1.pairs th1) → Ext Ea E1 →
+    TermTyped.TidAt j c1 Ea → (∀ th, c1.ths[j]? = some th → th.tidLbl ≠ some a) →
     c1.ths[j]? = some th1 → ThInvE p E1 th1 → MemInv (gOf p k arch c1 j) E1 (stOf c1.mem c1.pairs th1) →
     TermPtrRts.PtrRtsE sto (stOf c1.mem c1.pairs th1) th1 a →
     TermPtrRts.tminOf sto (stOf c1.mem c1.pairs th1) a = some t →
@@ -74,12 +75,26 @@ def NFInv (p : Prog) (k : Promises.Knobs) (arch : Arch) (j : Nat) (a : AllocLabe
     TermPtrRts.GranuleWP S c.mem c.pairs th.promises ∧ (∀ l cl, S l = some cl → LayT cl.ty) ∧
     (∃ cl, E.sto a = some cl) ∧ E.pfr a ≠ none ∧ E.box a = none ∧
     (∀ t', TermPtrRts.tminOf S (stOf c.mem c.pairs th) a = some t' → TermPtrRts.BoxSep E t' a c.mem) ∧
-    AnchR Eu Ea E (stOf c.mem c.pairs th) ∧ Ext Ea E
+    AnchR Eu Ea E (stOf c.mem c.pairs th) ∧ Ext Ea E ∧
+    -- (C) the thread's box label (anchored) and `a` is not it
+    TermTyped.TidAt j c Ea ∧ (∀ th', c.ths[j]? = some th' → th'.tidLbl ≠ some a)
+
+/-- (C) The box word names only its label (copy of `TermExtMid.names_tid`). -/
+private theorem names_tidN {L a : AllocLabel} {w : Word} (hw : w ∈ TermPtrRts.pubWords .tid [cst (.loc ⟨L, 0⟩ 0)])
+    (hn : TermPtrRts.Names a w) : a = L := by
+  obtain ⟨a', g, hva, rfl⟩ := hn
+  have hw' : w = cst (.loc ⟨L, 0⟩ 0) := by
+    simp [TermPtrRts.pubWords, TermPtrRts.sNo] at hw; exact hw
+  subst hw'
+  have e1 : a' = ⟨L, 0⟩ := by
+    simp [cst, Promises.TVal.mk0] at hva; exact hva.1.symm
+  subst e1
+  rfl
 
 theorem nfInv_prom {p : Prog} {k : Promises.Knobs} {arch : Arch} {j : Nat} {a : AllocLabel} {t : Ts} {Eu Ea : TEnv} {c : Cfg}
     {ad : Address} {v : WeakMem.Val} {w : Ts} (hJ : NFInv p k arch j a t Eu Ea c) :
     NFInv p k arch j a t Eu Ea (promise c j ad v w) := by
-  obtain ⟨th, E, S, hth, hE, hm, hES, hR, ht, hbf, hfr, hL, hSC, hD, hC, hG, hLay, hsa, hpa0, hba, hBS, hA, hXa⟩ := hJ
+  obtain ⟨th, E, S, hth, hE, hm, hES, hR, ht, hbf, hfr, hL, hSC, hD, hC, hG, hLay, hsa, hpa0, hba, hBS, hA, hXa, hTA, hNa⟩ := hJ
   have e := promise_inv (a := ad) (v := v) (w := w) hth
   have hlt : ∀ u ∈ th.promises, u < c.mem.size := hm.2.2.1
   have htm : TermPtrRts.tminOf S (promSt (stOf c.mem c.pairs th) ad v w) a = some t :=
@@ -88,7 +103,8 @@ theorem nfInv_prom {p : Prog} {k : Promises.Knobs} {arch : Arch} {j : Nat} {a : 
   have hbf' : (promise c j ad v w).boxFence = c.boxFence := by unfold promise; split <;> rfl
   have hlb : (promise c j ad v w).lbase = c.lbase := by unfold promise; split <;> rfl
   refine ⟨{ th with promises := th.promises ++ [c.mem.size] }, E, S, e.2.1, hE, ?_, hES, ?_, ?_,
-    hbf'.trans hbf, ?_, hL, hSC, ⟨hD.ok, hD.σs, hD.env, hD.stk⟩, ?_, ?_, ?_, hsa, hpa0, hba, ?_, anchR_prom hth hA, hXa⟩
+    hbf'.trans hbf, ?_, hL, hSC, ⟨hD.ok, hD.σs, hD.env, hD.stk⟩, ?_, ?_, ?_, hsa, hpa0, hba, ?_, anchR_prom hth hA, hXa,
+    TermTyped.tidAt_prom hTA, fun th2 hth2 => by rw [e.2.1] at hth2; cases hth2; exact hNa th hth⟩
   · rw [TermTyped.gOf_promise, e.2.2]; exact MemInv_promSt hm
   · rw [e.2.2]
     intro t' ht'
@@ -132,32 +148,74 @@ theorem nfInv_prom {p : Prog} {k : Promises.Knobs} {arch : Arch} {j : Nat} {a : 
       · rw [hue]; exact Nat.le_of_lt htl
       · exact h u m (TermPtrStab.push_get_ne hu hue) hl hv
 
-/-- (IO1) An extern move keeps `NFInv` (one `()` binding, which names nothing; memory, promises and views
+/-- An extern move keeps `NFInv` (one `()` binding, which names nothing; memory, promises and views
 unchanged). -/
 theorem nfInv_ext {p : Prog} {k : Promises.Knobs} {arch : Arch} {j : Nat} {a : AllocLabel} {t : Ts} {Eu Ea : TEnv}
     {c c' : Cfg} (hJ : NFInv p k arch j a t Eu Ea c) (hs : c' ∈ extSteps c j) : NFInv p k arch j a t Eu Ea c' := by
-  obtain ⟨th, E, S, hth, hE, hm, hES, hR, ht, hbf, hfr, hL, hSC, hD, hC, hG, hLay, hsa, hpa0, hba, hBS, hA, hXa⟩ := hJ
-  obtain ⟨x1, a1, e1, evs, hterm, rfl⟩ := extSteps_thread hs hth
-  have hpw : ∀ w, w ∉ TermPtrRts.pubWords .unit [] := fun w hw => by simp [TermPtrRts.pubWords] at hw
-  refine ⟨_, E, S, set_self hth, TermTyped.ThInvE_emit hterm hE, by rw [gOf_ext hs]; exact hm, hES, ?_, ht, hbf,
-    by rw [extSteps_n hs]; exact hfr, ?_, hSC, ?_, hC, hG, hLay, hsa, hpa0, hba, hBS, hA, hXa⟩
+  obtain ⟨th, E, S, hth, hE, hm, hES, hR, ht, hbf, hfr, hL, hSC, hD, hC, hG, hLay, hsa, hpa0, hba, hBS, hA, hXa, hTA, hNa⟩ := hJ
+  have hTA' : TermTyped.TidAt j c' Ea := TermTyped.tidAt_solo (p := p) (k := k) (arch := arch) (.ext hs (.refl _)) hTA
+  rcases TermTyped.extSteps_res hs hth with ⟨x1, n1, a1, e1, rt1, ws1, rs1, hterm, hn1, hev1, hrs1, rfl⟩ | ⟨x1, a1, e1, lb, hterm, htl, rfl⟩
+  rotate_left
+  · -- (C) `current()` with a box `lb`: binds the box word, which names only `lb ≠ a`
+    have hbx := TermTyped.tidBox_ext hXa (hTA th hth lb htl)
+    refine ⟨_, E, S, set_self (tr := c.trace) hth, TermTyped.ThInvE_cur hterm hbx.1 hbx.2 hE,
+      by rw [gOf_ext hs]; exact hm, hES, ?_, ht, hbf,
+      by rw [extSteps_n hs]; exact hfr, ?_, hSC, ?_, hC, hG, hLay, hsa, hpa0, hba, hBS, hA, hXa, hTA', ?_⟩
+    · intro t' ht'
+      obtain ⟨hM, hRt⟩ := hR t' ht'
+      refine ⟨hM, ?_, hRt.2⟩
+      intro y rt ws hy w hw hn
+      rcases List.mem_cons.1 hy with h | h
+      · cases h
+        have e := names_tidN hw hn
+        subst e
+        exact absurd htl (hNa th hth)
+      · exact hRt.1 y rt ws h w hw hn
+    · refine ⟨?_, hL.2⟩
+      intro y rt ws hy w hw l hn
+      rcases List.mem_cons.1 hy with h | h
+      · cases h
+        rw [names_tidN hw hn]
+        exact .inl (by show E.pfr lb ≠ none; rw [hbx.2]; exact Option.some_ne_none 0)
+      · exact hL.1 y rt ws h w hw l hn
+    · obtain ⟨hok, hσs, he, hstk⟩ := hD
+      rw [hterm] at hok he
+      simp only [TermScope.allOK, Bool.and_eq_true] at hok
+      exact ⟨hok.2, hσs, TermScope.envDRF_cons (fun _ => by first | rfl | (cases n1 <;> rfl))
+        (fun y hy hne => he y (TermScope.free_let_body hy hne)), hstk⟩
+    · intro th2 hth2
+      rw [set_self (tr := c.trace) hth] at hth2
+      cases hth2
+      exact hNa th hth
+  have hpw : ∀ w, w ∈ TermPtrRts.pubWords n1.sig.2 rs1 → ∀ a, ¬ TermPtrRts.Names a w := by
+    intro w hw a hn
+    rw [TermPtrRts.pubWords_of_sNo (by cases n1 <;> rfl)] at hw
+    obtain ⟨m, rfl⟩ := TermRun.resultsL_num hn1 hrs1 w hw
+    obtain ⟨a', g, hva, -⟩ := hn
+    simp [cst, Promises.TVal.mk0] at hva
+  refine ⟨_, E, S, set_self hth, TermTyped.ThInvE_ext hn1 hterm hev1 hrs1 hE, by rw [gOf_ext hs]; exact hm, hES, ?_, ht, hbf,
+    by rw [extSteps_n hs]; exact hfr, ?_, hSC, ?_, hC, hG, hLay, hsa, hpa0, hba, hBS, hA, hXa, hTA', ?_⟩
   · intro t' ht'
     obtain ⟨hM, hRt⟩ := hR t' ht'
     refine ⟨hM, ?_, hRt.2⟩
     intro y rt ws hy w hw hn
     rcases List.mem_cons.1 hy with h | h
-    · cases h; exact absurd hw (hpw w)
+    · cases h; exact absurd hn (hpw w hw _)
     · exact hRt.1 y rt ws h w hw hn
   · refine ⟨?_, hL.2⟩
     intro y rt ws hy w hw l hn
     rcases List.mem_cons.1 hy with h | h
-    · cases h; exact absurd hw (hpw w)
+    · cases h; exact absurd hn (hpw w hw _)
     · exact hL.1 y rt ws h w hw l hn
   · obtain ⟨hok, hσs, he, hstk⟩ := hD
     rw [hterm] at hok he
     simp only [TermScope.allOK, Bool.and_eq_true] at hok
-    exact ⟨hok.2, hσs, TermScope.envDRF_cons (fun _ => rfl)
+    exact ⟨hok.2, hσs, TermScope.envDRF_cons (fun _ => by first | rfl | (cases n1 <;> rfl))
       (fun y hy hne => he y (TermScope.free_let_body hy hne)), hstk⟩
+  · intro th2 hth2
+    rw [set_self hth] at hth2
+    cases hth2
+    exact hNa th hth
 
 theorem nfInv_thread {p : Prog} {k : Promises.Knobs} {arch : Arch} {j : Nat} {a : AllocLabel} {t : Ts}
     {c c' : Cfg} {Eu Ea : TEnv} [ProgRetIall p] [WrIniC] (hP : ProgT p) (hK : TermPtrRts.PtrRtsThreadGL p) (hFN : FootNCB p)
@@ -169,7 +227,7 @@ theorem nfInv_thread {p : Prog} {k : Promises.Knobs} {arch : Arch} {j : Nat} {a 
     (hwinR : ∀ c0, Solo p k arch j c' c0 → Certified p k arch c0 j → NoHoldPubA p k arch Eu Ea j c0) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) :
     NFInv p k arch j a t Eu Ea c' := by
   classical
-  obtain ⟨th, E, S, hth, hE, hm, hES, hR, ht, hbf, hfr, hL, hSC, hD, hC, hG, hLay, hsa, hpa0, hba, hBS, hA, hXa⟩ := hJ
+  obtain ⟨th, E, S, hth, hE, hm, hES, hR, ht, hbf, hfr, hL, hSC, hD, hC, hG, hLay, hsa, hpa0, hba, hBS, hA, hXa, hTA, hNa⟩ := hJ
   obtain ⟨th', r, hth', hr, e1, e2, e3, hpa⟩ := taken_promAbove hs hc'
   rw [hth] at hth'
   cases hth'
@@ -207,7 +265,7 @@ theorem nfInv_thread {p : Prog} {k : Promises.Knobs} {arch : Arch} {j : Nat} {a 
     · simp only [S', hf, ↓reduceIte]; exact h
   have hNF : ∀ u ∈ r.2.2.promises, ∀ m, r.1[u]? = some m → S m.loc.label = none → S' m.loc.label = none := by
     intro u hu m hmu hS
-    have hnf := promAlloc_locS (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hs hc' hscR (TermViewInv.viewInv_thread hvI hs) hwinR hth hm hSC hbf e1 e2 e3 hr hF hE' hm' hA' (.inr hXa') hu hmu
+    have hnf := promAlloc_locS (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hs hc' hscR (TermViewInv.viewInv_thread hvI hs) hwinR hth hm hSC hbf e1 e2 e3 hr hF hE' hm' hA' (.inr hXa') (TermTyped.tidAt_mono hXa' (TermTyped.tidAt_thread hs hTA)) hu hmu
     simp only [S', hnf, ↓reduceIte]; exact hS
   have h4 : ∀ l cl, S' l = some cl → S l = none → (CE η).sto l = none ∧ E'.sto l = some cl := by
     intro l cl h hS
@@ -263,7 +321,9 @@ theorem nfInv_thread {p : Prog} {k : Promises.Knobs} {arch : Arch} {j : Nat} {a 
     hE hm hR (hnp th hth) hr hF hE' hpa hNF hL (hsc th hth (TermTyped.not_spawnT_of_steps hth hs)) hD hps (fun t' h => hC t' h) hG hfrS hLay hNC hNC4
     rfl hP hfa hba hB1 hPf (fun _ _ => hE) (fun t' h => hBS t' h)
   refine ⟨r.2.2, E', S', e3, hE', ?_, h2, ?_, ?_, hlb.2.trans hbf, ?_, hL', StoClo_EFoot hF.1 hSC,
-    TermScope.tstep_drf hps hD hr, fun t' h => ?_, ?_, hLay', ?_, by rw [hpeq]; exact hpa0, ?_, ?_, (by rw [e1, e2]; exact hA'), hXa'⟩
+    TermScope.tstep_drf hps hD hr, fun t' h => ?_, ?_, hLay', ?_, by rw [hpeq]; exact hpa0, ?_, ?_, (by rw [e1, e2]; exact hA'), hXa',
+    TermTyped.tidAt_thread hs hTA, fun th2 hth2 => by
+      rw [e3] at hth2; cases hth2; rw [TermTidLbl.tstep_tidLbl hr]; exact hNa th hth⟩
   · rw [TermTyped.gOf_thread hs, e1, e2]; exact hm'
   · rw [e1, e2]; exact hR'
   · rw [e1, e2]; exact htm t ht
@@ -304,7 +364,7 @@ theorem nfInv_thread {p : Prog} {k : Promises.Knobs} {arch : Arch} {j : Nat} {a 
           rw [hl]; exact hql
         have hin := (hm.2.2.2.1.1 q hq1).2.1 u m hu0 hml
         have hin' := TermPtrRtsThr.alloc_noFulfil hr (Nat.lt_of_le_of_lt hq1 hq2) u hin hul
-        exact promAlloc_locS (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hs hc' hscR (TermViewInv.viewInv_thread hvI hs) hwinR hth hm hSC hbf e1 e2 e3 hr hF hE' hm' hA' (.inr hXa') hin' hu
+        exact promAlloc_locS (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hs hc' hscR (TermViewInv.viewInv_thread hvI hs) hwinR hth hm hSC hbf e1 e2 e3 hr hF hE' hm' hA' (.inr hXa') (TermTyped.tidAt_mono hXa' (TermTyped.tidAt_thread hs hTA)) hin' hu
           ⟨q, hq1, hq2, hml⟩
       · exact Nat.le_trans (Nat.le_of_lt hlt0) (Nat.le_of_not_lt hul)
 
@@ -340,11 +400,11 @@ theorem nfInv_run {p : Prog} {k : Promises.Knobs} {arch : Arch} {j : Nat} {a : A
 publishing `a`, `tmin` stays an outstanding promise. -/
 theorem noFulPlRunGL_of {p : Prog} {k : Promises.Knobs} {arch : Arch} [ProgRetIall p] [WrIniC] (hP : ProgT p)
     (hK : TermPtrRts.PtrRtsThreadGL p) (hFN : FootNCB p) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) : NoFulPlRunGL p k arch := by
-  intro j a c1 th1 E1 sto t hk hES hsc hvI Eu Ea hwin hA1 hXa1 hth1 hE1 hm1 hR1 ht1 hbf hfr hL1 hSC1 hps hD1 hC1 hG1 hLay1 hsa hpa hba
+  intro j a c1 th1 E1 sto t hk hES hsc hvI Eu Ea hwin hA1 hXa1 hTA1 hNa1 hth1 hE1 hm1 hR1 ht1 hbf hfr hL1 hSC1 hps hD1 hC1 hG1 hLay1 hsa hpa hba
     hBS c2 th2 hrun hc2 hth2
   obtain ⟨th, E, S, hth, -, -, -, -, ht, -⟩ :=
     nfInv_run (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hK hFN hk hps hrun hc2 hsc hvI hwin
-      ⟨th1, E1, sto, hth1, hE1, hm1, hES, hR1, ht1, hbf, hfr, hL1, hSC1, hD1, hC1, hG1, hLay1, hsa, hpa, hba, hBS, hA1, hXa1⟩
+      ⟨th1, E1, sto, hth1, hE1, hm1, hES, hR1, ht1, hbf, hfr, hL1, hSC1, hD1, hC1, hG1, hLay1, hsa, hpa, hba, hBS, hA1, hXa1, hTA1, hNa1⟩
   rw [hth2] at hth
   cases hth
   exact (TermPtrRts.tminOf_spec ht).1

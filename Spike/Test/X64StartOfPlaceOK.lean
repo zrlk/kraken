@@ -26,6 +26,7 @@ example : limW ret0P = Spike.Lib.X64.Flow.Ret0.Correct.limW ∧ limV ret0P = Spi
 example := G0_ofPlaceOK (atTables ret0_placeOK) ret0Imms
 example := limInit_ofPlaceOK (atTables ret0_placeOK) ret0Imms
 example := hroomM_ofPlaceOK (atTables ret0_placeOK) ret0Imms
+example := g16_ofPlaceOK (atTables ret0_placeOK) ret0Imms
 example {frame : Int} (h0 : 0 ≤ frame) (h1 : frame ≤ 4096) := hroomU_ofPlaceOK (atTables ret0_placeOK) ret0Imms h0 h1
 example := hGf_ofPlaceOK (atTables ret0_placeOK) ret0Imms
 

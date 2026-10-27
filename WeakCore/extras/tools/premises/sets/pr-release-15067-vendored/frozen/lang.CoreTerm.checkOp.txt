@@ -1,0 +1,1674 @@
+CoreLang.Arms : Type
+CoreLang.Arms.optArm : CoreLang.Arms
+CoreLang.Arms.ptrs : CoreLang.Arms → Nat
+CoreLang.Arms.wide : CoreLang.Arms → Nat
+CoreLang.Cap : Type
+CoreLang.Cap.frz : CoreLang.Cap
+CoreLang.Clause : Type
+CoreLang.Clause.holds : CoreLang.Clause → Bool
+CoreLang.Clause2 : Type
+CoreLang.Clause2.holds : CoreLang.Clause2 → Bool
+CoreLang.CodeKind : Type
+CoreLang.CodeKind.plain : CoreLang.CodeKind
+CoreLang.CodeKind.restricted : Nat → Nat → CoreLang.CodeKind
+CoreLang.ECounter : Type
+CoreLang.IEnv : Type
+CoreLang.Idx : Type
+CoreLang.Idx.add : CoreLang.Idx → CoreLang.Idx → CoreLang.Idx
+CoreLang.Idx.evalIn : CoreLang.IEnv → CoreLang.Idx → Option Nat
+CoreLang.Idx.lit : Nat → CoreLang.Idx
+CoreLang.Idx.shift : Nat → CoreLang.Idx → CoreLang.Idx
+CoreLang.Idx.smul : Nat → CoreLang.Idx → CoreLang.Idx
+CoreLang.Idx.var : Nat → CoreLang.Idx
+CoreLang.Info.arms : CoreLang.Info → CoreLang.Arms
+CoreLang.KEnv : Type
+CoreLang.KEnv.ask : CoreLang.KEnv → Nat → Bool → (CoreLang.Kind → Bool) → Bool
+CoreLang.Kind : Type
+CoreLang.Kind.zero : CoreLang.Kind → Bool
+CoreLang.Mode : Type
+CoreLang.Mode.own : CoreLang.Mode
+CoreLang.Mode.pub : CoreLang.Mode
+CoreLang.Mode.rgn : CoreLang.Idx → CoreLang.Mode
+CoreLang.Opq : Type
+CoreLang.Pred : Type
+CoreLang.Pred.ini : CoreLang.Idx → CoreLang.Pred
+CoreLang.Pred.zeroHolds : CoreLang.IEnv → CoreLang.Pred → Bool
+CoreLang.Proto : Type
+CoreLang.Proto.epoch : CoreLang.Proto → Bool
+CoreLang.Proto.ghost : CoreLang.Proto → Bool
+CoreLang.Proto.ticket : CoreLang.Proto → Bool
+CoreLang.Proto2 : Type
+CoreLang.Tier : Type
+CoreLang.Ty : Type
+CoreLang.Ty.arrFree : CoreLang.Ty → Bool
+CoreLang.Ty.array : CoreLang.Idx → CoreLang.Ty → CoreLang.Ty
+CoreLang.Ty.cap : CoreLang.Cap → CoreLang.Idx → CoreLang.Ty
+CoreLang.Ty.code : CoreLang.Ty → CoreLang.Ty → CoreLang.CodeKind → CoreLang.Ty
+CoreLang.Ty.epair : CoreLang.Idx → CoreLang.ECounter → CoreLang.Ty
+CoreLang.Ty.fix : Bool → CoreLang.Wd → CoreLang.Ty
+CoreLang.Ty.guardT : Nat → CoreLang.Ty → Bool
+CoreLang.Ty.int : CoreLang.Ty
+CoreLang.Ty.intS : CoreLang.Idx → CoreLang.Ty
+CoreLang.Ty.lanes : Bool → CoreLang.Wd → CoreLang.Ty
+CoreLang.Ty.loc : CoreLang.Mode → CoreLang.Ty → CoreLang.Ty
+CoreLang.Ty.payloadFree : CoreLang.Ty → Bool
+  := fun t =>
+  have a := (CoreLang.info CoreLang.Ty.top t).arms;
+  a == CoreLang.Arms.optArm || a.wide == 0 && a.ptrs == 0
+CoreLang.Ty.prod : CoreLang.Ty → CoreLang.Ty → CoreLang.Ty
+CoreLang.Ty.ptr : CoreLang.Mode → CoreLang.Ty → CoreLang.Ty
+CoreLang.Ty.ptrOpt : CoreLang.Mode → CoreLang.Ty → CoreLang.Ty
+CoreLang.Ty.refine : CoreLang.Ty → CoreLang.Pred → CoreLang.Ty
+CoreLang.Ty.secondClass : CoreLang.Ty → Bool
+CoreLang.Ty.sensitiveIn : CoreLang.KEnv → CoreLang.Ty → Bool
+CoreLang.Ty.sharedOKIn : CoreLang.KEnv → CoreLang.Ty → Bool
+CoreLang.Ty.substT : Nat → CoreLang.Ty → CoreLang.Ty → CoreLang.Ty
+CoreLang.Ty.sum : CoreLang.Ty → CoreLang.Ty → CoreLang.Ty
+CoreLang.Ty.tid : CoreLang.Ty
+CoreLang.Ty.tier : CoreLang.Ty → CoreLang.Tier
+CoreLang.Ty.tok : CoreLang.Idx → Option (CoreLang.Proto × CoreLang.Idx) → CoreLang.Ty
+CoreLang.Ty.tok2 : CoreLang.Idx → CoreLang.Proto2 → CoreLang.Idx → CoreLang.Idx → CoreLang.Ty
+CoreLang.Ty.top : CoreLang.Ctx
+CoreLang.Ty.unguarded : Nat → CoreLang.Ty → Bool
+CoreLang.Ty.unit : CoreLang.Ty
+CoreLang.Ty.wf : Nat → Nat → CoreLang.Ty → Bool
+CoreLang.Ty.word : CoreLang.Idx → CoreLang.Proto → CoreLang.Ty
+CoreLang.Ty.word2 : CoreLang.Idx → CoreLang.Proto2 → CoreLang.Ty
+CoreLang.Ty.wordFreeIn : CoreLang.KEnv → CoreLang.Ty → Bool
+CoreLang.Wd : Type
+CoreLang.Wd.lanes : CoreLang.Wd → Nat
+CoreLang.info : CoreLang.Ctx → CoreLang.Ty → CoreLang.Info
+CoreLang.instDecidableEqArms : DecidableEq CoreLang.Arms
+CoreLang.instDecidableEqMode : DecidableEq CoreLang.Mode
+CoreLang.instDecidableEqProto : DecidableEq CoreLang.Proto
+CoreLang.instDecidableEqProto2 : DecidableEq CoreLang.Proto2
+CoreLang.instDecidableEqTy : DecidableEq CoreLang.Ty
+CoreLang.instDecidableEqWd : DecidableEq CoreLang.Wd
+CoreLang.zeroArmP : (CoreLang.Ty → Bool) → CoreLang.IEnv → CoreLang.KEnv → CoreLang.Ty → Option Bool
+  eq_def ∀ (sel : CoreLang.Ty → Bool) (env : CoreLang.IEnv) (ke : CoreLang.KEnv) (x : CoreLang.Ty),
+  CoreLang.zeroArmP sel env ke x =
+    match x with
+    | a.sum b => CoreLang.zeroArmP sel env ke a <|> CoreLang.zeroArmP sel env ke b
+    | CoreLang.Ty.void => none
+    | t.refine ψ => Option.map (fun x => x && CoreLang.Pred.zeroHolds env ψ) (CoreLang.zeroArmP sel env ke t)
+    | t.iall => CoreLang.zeroArmP sel (none :: env) ke t
+    | t.iex => CoreLang.zeroArmP sel (some 0 :: env) ke t
+    | t.mu => CoreLang.zeroArmP sel env (none :: ke) t
+    | CoreLang.Ty.tex κ t => Option.map (fun x => false) (CoreLang.zeroArmP sel env (none :: ke) t)
+    | t => if sel t = true then some (CoreLang.zeroableIn env ke t) else none
+CoreLang.zeroableIn : CoreLang.IEnv → CoreLang.KEnv → CoreLang.Ty → Bool
+  eq_def ∀ (env : CoreLang.IEnv) (ke : CoreLang.KEnv) (x : CoreLang.Ty),
+  CoreLang.zeroableIn env ke x =
+    match x with
+    | CoreLang.Ty.unit => true
+    | CoreLang.Ty.void => false
+    | CoreLang.Ty.int => true
+    | CoreLang.Ty.intS i => CoreLang.Idx.evalIn env i == some 0
+    | CoreLang.Ty.fix sg w => true
+    | CoreLang.Ty.lanes sg w => true
+    | a.prod b => CoreLang.zeroableIn env ke a && CoreLang.zeroableIn env ke b
+    | a.sum b =>
+      match (a.sum b).tier with
+      | CoreLang.Tier.niche =>
+        (CoreLang.zeroArmP CoreLang.Ty.payloadFree env ke a <|> CoreLang.zeroArmP CoreLang.Ty.payloadFree env ke b) ==
+          some true
+      | CoreLang.Tier.wide =>
+        (CoreLang.zeroArmP (fun x => true) env ke a <|> CoreLang.zeroArmP (fun x => true) env ke b) == some true
+      | CoreLang.Tier.boxed => false
+    | σ.code τ k => false
+    | CoreLang.Ty.tid => false
+    | CoreLang.Ty.opq o => false
+    | CoreLang.Ty.array i t => CoreLang.zeroableIn env ke t
+    | CoreLang.Ty.ptr μ τ => false
+    | CoreLang.Ty.ptrOpt μ τ => true
+    | CoreLang.Ty.loc μ (CoreLang.Ty.array i τ) => CoreLang.Idx.evalIn env i == some 0
+    | CoreLang.Ty.loc μ τ => false
+    | CoreLang.Ty.word r P => false
+    | CoreLang.Ty.tok r st => false
+    | CoreLang.Ty.word2 r P => false
+    | CoreLang.Ty.tok2 r P i0 i1 => false
+    | CoreLang.Ty.epair r P => false
+    | CoreLang.Ty.tokE r P e => false
+    | CoreLang.Ty.share r => false
+    | CoreLang.Ty.cap s r => false
+    | CoreLang.Ty.tvar k => ke.ask k false fun x => x.zero
+    | t.mu => CoreLang.zeroableIn env (none :: ke) t
+    | CoreLang.Ty.tex κ τ => false
+    | t.iall => CoreLang.zeroableIn (none :: env) ke t
+    | t.iex => CoreLang.zeroableIn (some 0 :: env) ke t
+    | t.refine ψ => CoreLang.zeroableIn env ke t && CoreLang.Pred.zeroHolds env ψ
+CoreTerm.At : Type
+CoreTerm.At.var : String → CoreTerm.At
+CoreTerm.BitOp : Type
+CoreTerm.BitOp1 : Type
+CoreTerm.Cx : Type
+CoreTerm.Cx.bind : CoreTerm.Cx → String → CoreLang.Ty → CoreTerm.M CoreTerm.Cx
+CoreTerm.Cx.constIdx : CoreTerm.Cx → CoreLang.Idx → CoreTerm.M Nat
+CoreTerm.Cx.endCx : CoreTerm.Cx → String → CoreTerm.Cx
+CoreTerm.Cx.eqI : CoreTerm.Cx → CoreLang.Idx → CoreLang.Idx → Bool
+CoreTerm.Cx.facts : CoreTerm.Cx → CoreTerm.Facts
+CoreTerm.Cx.hasCap : CoreTerm.Cx → CoreLang.Idx → Bool → Bool
+CoreTerm.Cx.hasShare : CoreTerm.Cx → CoreLang.Idx → Bool
+CoreTerm.Cx.hasTok : CoreTerm.Cx → CoreLang.Idx → Bool
+CoreTerm.Cx.idx : CoreTerm.Cx → String → CoreTerm.M CoreLang.Idx
+CoreTerm.Cx.inames : CoreTerm.Cx → List String
+CoreTerm.Cx.ke : CoreTerm.Cx → CoreLang.KEnv
+CoreTerm.Cx.lent : CoreTerm.Cx → List String
+CoreTerm.Cx.ltI : CoreTerm.Cx → CoreLang.Idx → CoreLang.Idx → Bool
+CoreTerm.Cx.norm : CoreTerm.Cx → CoreLang.Idx → Option CoreTerm.Lin
+CoreTerm.Cx.opaqueOK : CoreTerm.Cx → CoreLang.Ty → Bool
+CoreTerm.Cx.opq : CoreTerm.Cx → List Nat
+CoreTerm.Cx.peek : CoreTerm.Cx → CoreTerm.At → CoreTerm.M CoreLang.Ty
+CoreTerm.Cx.push : CoreTerm.Cx → String → CoreTerm.Cx
+CoreTerm.Cx.ret : CoreTerm.Cx → CoreLang.Ty
+CoreTerm.Cx.saws : CoreTerm.Cx → List (String × CoreLang.Idx × Bool)
+CoreTerm.Cx.sealedR : CoreTerm.Cx → CoreLang.Idx → Bool
+CoreTerm.Cx.torn : CoreTerm.Cx → List CoreTerm.Torn
+CoreTerm.Cx.unsealed : CoreTerm.Cx → List CoreLang.Idx
+CoreTerm.Cx.use : CoreTerm.Cx → CoreTerm.At → CoreTerm.M (CoreLang.Ty × CoreTerm.Cx)
+CoreTerm.Cx.vars : CoreTerm.Cx → List (String × CoreLang.Ty × Bool)
+CoreTerm.Decl : Type
+CoreTerm.Decl.argTy : CoreTerm.Decl → CoreLang.Ty
+CoreTerm.Decl.idx : CoreTerm.Decl → List String
+CoreTerm.Decl.kind : CoreTerm.Decl → CoreTerm.DeclKind
+CoreTerm.Decl.retTy : CoreTerm.Decl → CoreLang.Ty
+CoreTerm.Decl.tparams : CoreTerm.Decl → List CoreLang.Kind
+CoreTerm.DeclKind : Type
+CoreTerm.ExtName : Type
+CoreTerm.ExtName.name : CoreTerm.ExtName → String
+CoreTerm.ExtName.ok : CoreTerm.ExtName → Bool
+CoreTerm.ExtName.sig : CoreTerm.ExtName → CoreLang.Ty × CoreLang.Ty
+CoreTerm.FCmp : Type
+CoreTerm.FOp : Type
+CoreTerm.FOp1 : Type
+CoreTerm.Fence : Type
+CoreTerm.Fence.ld : CoreTerm.Fence
+CoreTerm.Fence.st : CoreTerm.Fence
+CoreTerm.FetchOp : Type
+CoreTerm.FetchOp.add : CoreTerm.FetchOp
+CoreTerm.Lin : Type
+CoreTerm.Lin.asVar? : CoreTerm.Lin → Option Nat
+CoreTerm.Lin.diff : CoreTerm.Lin → CoreTerm.Lin → CoreTerm.Lin
+CoreTerm.Lin.leB : CoreTerm.Lin → CoreTerm.Lin → Bool
+CoreTerm.Lin.succVar? : CoreTerm.Lin → Option Nat
+CoreTerm.Lin.toIdx : CoreTerm.Lin → CoreLang.Idx
+CoreTerm.M : Type u_1 → Type u_1
+CoreTerm.Op : Type
+CoreTerm.Phase : Type
+CoreTerm.Phase.fenced : CoreTerm.Phase
+CoreTerm.Phase.opn : CoreTerm.Phase
+CoreTerm.Phase.rechecked : CoreLang.Idx → CoreTerm.Phase
+CoreTerm.Prog : Type
+CoreTerm.Prog.find : CoreTerm.Prog → String → CoreTerm.M CoreTerm.Decl
+CoreTerm.Torn : Type
+CoreTerm.Torn.s : CoreTerm.Torn → CoreLang.Idx
+CoreTerm.Torn.ty : CoreTerm.Torn → CoreLang.Ty
+CoreTerm.Torn.w : CoreTerm.Torn → String
+CoreTerm.Torn.x : CoreTerm.Torn → String
+CoreTerm.Torn.φ : CoreTerm.Torn → CoreTerm.Phase
+CoreTerm.adapt : CoreLang.Idx → CoreLang.Ty → CoreLang.Ty
+CoreTerm.admitsIn : CoreTerm.Cx → CoreLang.Kind → CoreLang.Ty → Bool
+CoreTerm.affine : CoreLang.KEnv → CoreLang.Ty → Bool
+CoreTerm.bufOf : CoreLang.Ty → Option (CoreLang.Mode × CoreLang.Idx × CoreLang.Ty × CoreLang.Idx)
+CoreTerm.casCellTy : CoreTerm.Cx → CoreLang.Ty → CoreTerm.M CoreLang.Ty
+CoreTerm.cellOf : CoreLang.Ty → Option (CoreLang.Mode × CoreLang.Ty)
+CoreTerm.checkOp : CoreTerm.Prog → CoreTerm.Cx → String → CoreTerm.Op → CoreTerm.M CoreTerm.Cx
+  := fun p cx x x_1 =>
+  match x_1 with
+  | CoreTerm.Op.atom a => do
+    let __x ← cx.use a
+    match __x with
+      | (t, cx) => cx.bind x t
+  | CoreTerm.Op.pair a b => do
+    let __x ← cx.use a
+    match __x with
+      | (t, cx) => do
+        let __x ← cx.use b
+        match __x with
+          | (u, cx) => cx.bind x (t.prod u)
+  | CoreTerm.Op.inl τ a =>
+    have __do_jp := fun __r => do
+      let __x ← cx.use a
+      match __x with
+        | (t, cx) => cx.bind x (t.sum τ);
+    if (!CoreLang.Ty.wf (List.length cx.ke) 0 τ) = true then do
+      let __r ← throw "inl: the other arm must be closed"
+      __do_jp __r
+    else __do_jp ()
+  | CoreTerm.Op.inr τ a =>
+    have __do_jp := fun __r => do
+      let __x ← cx.use a
+      match __x with
+        | (t, cx) => cx.bind x (τ.sum t);
+    if (!CoreLang.Ty.wf (List.length cx.ke) 0 τ) = true then do
+      let __r ← throw "inr: the other arm must be closed"
+      __do_jp __r
+    else __do_jp ()
+  | CoreTerm.Op.add a b => do
+    let t ← cx.peek a
+    let u ← cx.peek b
+    match CoreTerm.intOf t, CoreTerm.intOf u with
+      | some (some i), some (some j) => cx.bind x (CoreLang.Ty.intS (i.add j))
+      | some val, some val_1 => cx.bind x CoreLang.Ty.int
+      | x, x_2 => throw "add needs integers"
+  | CoreTerm.Op.sub a b => do
+    let t ← cx.peek a
+    let u ← cx.peek b
+    match CoreTerm.intOf t, CoreTerm.intOf u with
+      | some (some i), some (some j) =>
+        match cx.norm i, cx.norm j with
+        | some ni, some nj =>
+          if nj.leB ni = true then cx.bind x (CoreLang.Ty.intS (ni.diff nj).toIdx)
+          else throw "sub: the difference is not provably nonnegative"
+        | x, x_2 => throw "sub: index outside the decidable fragment"
+      | x, x_2 => throw "sub needs integers of known value"
+  | CoreTerm.Op.new a => do
+    let __x ← cx.use a
+    match __x with
+      | (t, cx) =>
+        have __do_jp := fun __r => cx.bind x (CoreLang.Ty.ptr CoreLang.Mode.own t);
+        if t.secondClass = true then do
+          let __r ← throw "new: a second-class capability cannot be stored"
+          __do_jp __r
+        else __do_jp ()
+  | CoreTerm.Op.publish a => do
+    let __x ← cx.use a
+    match __x with
+      | (t, cx) =>
+        match t with
+        | CoreLang.Ty.ptr CoreLang.Mode.own u =>
+          if CoreLang.Ty.sharedOKIn cx.ke (CoreLang.Ty.ptr CoreLang.Mode.pub u) = true then
+            cx.bind x (CoreLang.Ty.ptr CoreLang.Mode.pub u)
+          else throw "publish: the target is not shareable (rows 16, 17)"
+        | (CoreLang.Ty.loc CoreLang.Mode.own (CoreLang.Ty.array n u)).refine (CoreLang.Pred.ini k) =>
+          if CoreLang.Ty.sharedOKIn cx.ke (CoreLang.Ty.loc CoreLang.Mode.pub (CoreLang.Ty.array n u)) = true then
+            cx.bind x ((CoreLang.Ty.loc CoreLang.Mode.pub (CoreLang.Ty.array n u)).refine (CoreLang.Pred.ini k))
+          else throw "publish: the target is not shareable (rows 16, 17)"
+        | x => throw "publish needs an own reference"
+  | CoreTerm.Op.intoRgn rn a => do
+    let r ← cx.idx rn
+    let __x ← cx.use a
+    match __x with
+      | (t, cx) =>
+        match t with
+        | CoreLang.Ty.ptr CoreLang.Mode.own u =>
+          if CoreTerm.rgnCellOK cx.ke u = true then cx.bind x (CoreLang.Ty.ptr (CoreLang.Mode.rgn r) u)
+          else throw "intoRgn: the target is not shareable (rows 16, 17): build it inside the region"
+        | (CoreLang.Ty.loc CoreLang.Mode.own (CoreLang.Ty.array n u)).refine (CoreLang.Pred.ini k) =>
+          if CoreTerm.rgnCellOK cx.ke (CoreLang.Ty.array n u) = true then
+            cx.bind x ((CoreLang.Ty.loc (CoreLang.Mode.rgn r) (CoreLang.Ty.array n u)).refine (CoreLang.Pred.ini k))
+          else throw "intoRgn: the target is not shareable (rows 16, 17): build it inside the region"
+        | x => throw "intoRgn needs an own reference or an own buffer"
+  | CoreTerm.Op.newBuf n τ =>
+    have __do_jp := fun __r =>
+      have __do_jp := fun __r =>
+        have __do_jp := fun __r =>
+          have __do_jp := fun __r => do
+            let k ← CoreTerm.intIdx cx n
+            have ini : CoreLang.Idx := if CoreLang.zeroableIn [] cx.ke τ = true then k else CoreLang.Idx.lit 0
+            cx.bind x ((CoreLang.Ty.loc CoreLang.Mode.own (CoreLang.Ty.array k τ)).refine (CoreLang.Pred.ini ini));
+          if (!τ.arrFree) = true then do
+            let __r ← throw "newBuf: a slot cannot hold an array by value (an array lives behind a Loc)"
+            __do_jp __r
+          else __do_jp ();
+        if (!cx.opaqueOK τ) = true then do
+          let __r ← throw "newBuf: the slots' layout depends on an unpacked type"
+          __do_jp __r
+        else __do_jp ();
+      if τ.secondClass = true then do
+        let __r ← throw "newBuf: a second-class capability cannot be stored"
+        __do_jp __r
+      else __do_jp ();
+    if (!CoreLang.Ty.wf (List.length cx.ke) cx.inames.length τ) = true then do
+      let __r ← throw "newBuf: the element type is not well formed"
+      __do_jp __r
+    else __do_jp ()
+  | CoreTerm.Op.idx b i => do
+    let t ← cx.peek b
+    have __do_jp : CoreLang.Mode × CoreLang.Idx × CoreLang.Ty × CoreLang.Idx → CoreTerm.M CoreTerm.Cx := fun __x =>
+      match __x with
+      | (μ, n, u, k) => do
+        let j ← CoreTerm.intIdx cx i
+        have __do_jp : Unit → CoreTerm.M CoreTerm.Cx := fun __r =>
+          have __do_jp := fun __r =>
+            have __do_jp := fun __r =>
+              have __do_jp := fun cx => cx.bind x (CoreLang.Ty.loc μ u);
+              if (μ == CoreLang.Mode.own) = true then do
+                let cx ← (fun x => x.snd) <$> cx.use b
+                __do_jp cx
+              else do
+                let cx ← pure cx
+                __do_jp cx;
+            if (!cx.opaqueOK u) = true then do
+              let __r ← throw "idx: the slots' layout depends on an unpacked type"
+              __do_jp __r
+            else __do_jp ();
+          if (!cx.ltI j k) = true then do
+            let __r ← throw "idx: the slot is not provably initialised"
+            __do_jp __r
+          else __do_jp ()
+        if (!cx.ltI j n) = true then do
+            let __r ← throw "idx: the index is not provably below the capacity"
+            __do_jp __r
+          else __do_jp ()
+    match CoreTerm.bufOf t with
+      | some c => do
+        let __x ← pure c
+        __do_jp __x
+      | none => do
+        let __x ← throw "idx needs a buffer"
+        __do_jp __x
+  | CoreTerm.Op.bufInit b i v => do
+    let __x ← cx.use b
+    match __x with
+      | (t, cx) =>
+        have __do_jp := fun __x =>
+          match __x with
+          | (n, u, k) => do
+            let j ← CoreTerm.intIdx cx i
+            have __do_jp : Unit → CoreTerm.M CoreTerm.Cx := fun __r =>
+              have __do_jp := fun __r => do
+                let __x ← cx.use v
+                match __x with
+                  | (tv, cx) =>
+                    have __do_jp := fun __r =>
+                      cx.bind x
+                        ((CoreLang.Ty.loc CoreLang.Mode.own (CoreLang.Ty.array n u)).refine
+                          (CoreLang.Pred.ini (k.add (CoreLang.Idx.lit 1))));
+                    if (!CoreTerm.sub cx tv u) = true then do
+                      let __r ← throw "bufInit: the value does not have the element type"
+                      __do_jp __r
+                    else __do_jp ();
+              if (!cx.ltI k n) = true then do
+                let __r ← throw "bufInit: the buffer is full"
+                __do_jp __r
+              else __do_jp ()
+            if (!cx.eqI j k) = true then do
+                let __r ← throw "bufInit: the slot is not the next uninitialised one"
+                __do_jp __r
+              else __do_jp ();
+        match CoreTerm.bufOf t with
+        | some (CoreLang.Mode.own, n, u, k) => do
+          let __x ← pure (n, u, k)
+          __do_jp __x
+        | some val => do
+          let __x ← throw "bufInit needs an own buffer"
+          __do_jp __x
+        | none => do
+          let __x ← throw "bufInit needs a buffer"
+          __do_jp __x
+  | CoreTerm.Op.null μ τ =>
+    have t := CoreLang.Ty.ptrOpt μ τ;
+    have __do_jp := fun __r => cx.bind x t;
+    if (!CoreLang.Ty.wf (List.length cx.ke) cx.inames.length t) = true then do
+      let __r ← throw "null: the target is not well formed"
+      __do_jp __r
+    else __do_jp ()
+  | CoreTerm.Op.fold a τ =>
+    have __do_jp := fun __r => do
+      let __x ← cx.use a
+      match __x with
+        | (t, cx) =>
+          if CoreTerm.foldOk cx t τ = true then cx.bind x τ
+          else throw "fold: the reference's target is not one unrolling of the μ-type";
+    if (!CoreLang.Ty.wf (List.length cx.ke) cx.inames.length τ) = true then do
+      let __r ← throw "fold: the target is not well formed"
+      __do_jp __r
+    else __do_jp ()
+  | CoreTerm.Op.fld i a => do
+    let t ← cx.peek a
+    have __do_jp : CoreLang.Mode × CoreLang.Ty → CoreTerm.M CoreTerm.Cx := fun __x =>
+      match __x with
+      | (μ, u) =>
+        have __do_jp := fun __x =>
+          match __x with
+          | (c1, c2) =>
+            have __do_jp := fun __r =>
+              have __do_jp := fun cx => cx.bind x (CoreLang.Ty.loc μ (if (i == 0) = true then c1 else c2));
+              if (μ == CoreLang.Mode.own) = true then do
+                let cx ← (fun x => x.snd) <$> cx.use a
+                __do_jp cx
+              else do
+                let cx ← pure cx
+                __do_jp cx;
+            if (!(i == 0 || cx.opaqueOK c1)) = true then do
+              let __r ← throw "fld: the field's offset depends on an unpacked type"
+              __do_jp __r
+            else __do_jp ();
+        match CoreTerm.unfold1 u with
+        | c1.prod c2 => do
+          let __x ← pure (c1, c2)
+          __do_jp __x
+        | x => do
+          let __x ← throw "fld needs a reference to a pair"
+          __do_jp __x
+    match CoreTerm.cellOf t with
+      | some c => do
+        let __x ← pure c
+        __do_jp __x
+      | none => do
+        let __x ← throw "fld needs a reference"
+        __do_jp __x
+  | CoreTerm.Op.load acq a => do
+    let t ← cx.peek a
+    match CoreTerm.wordOf t, a with
+      | some (fst, P), CoreTerm.At.var w =>
+        have __do_jp := fun __r =>
+          have cx := cx.push x;
+          have n := CoreLang.Idx.var 0;
+          have cx :=
+            { inames := cx.inames, facts := cx.facts, vars := cx.vars, saws := (w, n, acq) :: cx.saws,
+              torn :=
+                List.map
+                  (fun tn =>
+                    if (tn.w == w && tn.φ == CoreTerm.Phase.fenced) = true then
+                      { x := tn.x, ty := tn.ty, w := tn.w, s := tn.s, φ := CoreTerm.Phase.rechecked n }
+                    else tn)
+                  cx.torn,
+              unsealed := cx.unsealed, ke := cx.ke, opq := cx.opq, lent := cx.lent, ret := cx.ret };
+          cx.bind x (CoreLang.Ty.intS n);
+        if P.ghost = true then do
+          let __r ← throw "a ghost word has no runtime value to load"
+          __do_jp __r
+        else __do_jp ()
+      | some val, x => throw "a protocol word must be named by a variable"
+      | none, x_2 =>
+        match CoreTerm.cellOf t with
+        | none => throw "load needs a reference"
+        | some (CoreLang.Mode.own, u) =>
+          if CoreTerm.affine cx.ke u = true then throw "load would duplicate an affine value" else cx.bind x u
+        | some (CoreLang.Mode.pub, u) =>
+          if CoreTerm.affine cx.ke u = true then throw "load would duplicate an affine value"
+          else
+            if (CoreLang.Ty.sensitiveIn cx.ke u && !acq) = true then
+              throw "load: a view-sensitive type needs acq (§3.8)"
+            else cx.bind x u
+        | some (CoreLang.Mode.rgn r, u) =>
+          have u' := CoreTerm.adapt r u;
+          if (cx.hasTok r || cx.hasShare r) = true then
+            if CoreTerm.affine cx.ke u' = true then throw "load would duplicate an affine value" else cx.bind x u'
+          else
+            if cx.hasCap r false = true then
+              if (CoreLang.Ty.sensitiveIn cx.ke u' && !acq) = true then
+                throw "load under a capability: a view-sensitive type needs acq (§3.8)"
+              else
+                if CoreTerm.affine cx.ke u' = true then throw "load would duplicate an affine value" else cx.bind x u'
+            else do
+              let __x ← CoreTerm.tornLicence cx r
+              match __x with
+                | (w, s) =>
+                  have __do_jp := fun __r =>
+                    pure
+                      { inames := cx.inames, facts := cx.facts, vars := cx.vars, saws := cx.saws,
+                        torn := { x := x, ty := u', w := w, s := s, φ := CoreTerm.Phase.opn } :: cx.torn,
+                        unsealed := cx.unsealed, ke := cx.ke, opq := cx.opq, lent := cx.lent, ret := cx.ret };
+                  if ((cx.vars.any fun x_3 => x_3.fst == x) || cx.torn.any fun x_3 => x_3.x == x) = true then do
+                    let __r ← throw (toString x ++ toString " is already bound (no shadowing)")
+                    __do_jp __r
+                  else __do_jp ()
+  | CoreTerm.Op.store rel a v tok => do
+    let t ← cx.peek a
+    match CoreTerm.wordOf t with
+      | some (r, P) =>
+        have __do_jp := fun tk => do
+          let __x ← cx.use tk
+          match __x with
+            | (tt, cx) =>
+              have __do_jp := fun __x =>
+                match __x with
+                | (r', i) => do
+                  let j ← CoreTerm.intIdx cx v
+                  let __x ← CoreTerm.classifyM cx P i
+                  match __x with
+                    | (c, k) => do
+                      let __x ← CoreTerm.classifyM cx P j
+                      match __x with
+                        | (c', k') => do
+                          let cl ← CoreTerm.clauseM P c
+                          let cl' ← CoreTerm.clauseM P c'
+                          have __do_jp : Unit → CoreTerm.M CoreTerm.Cx := fun __r =>
+                            have __do_jp := fun __r =>
+                              if cl'.holds = true then
+                                have __do_jp := fun __r => cx.bind x CoreLang.Ty.unit;
+                                if (!rel && !P.ghost) = true then do
+                                  let __r ← throw "giving the region back needs rel"
+                                  __do_jp __r
+                                else __do_jp ()
+                              else
+                                if P.ticket = true then
+                                  have __do_jp := fun __r => cx.bind x CoreLang.Ty.unit;
+                                  if (!rel) = true then do
+                                    let __r ← throw "handing the lock on needs rel"
+                                    __do_jp __r
+                                  else __do_jp ()
+                                else cx.bind x (CoreLang.Ty.tok r' (some (P, j)));
+                            if (!CoreTerm.pstep P c k c' k') = true then do
+                              let __r ← throw "not a transition of the protocol"
+                              __do_jp __r
+                            else __do_jp ()
+                          if cl.holds = true then do
+                              let __r ← throw "store from a shared state: use cas"
+                              __do_jp __r
+                            else __do_jp ();
+              match tt with
+              | CoreLang.Ty.tok r' (some (Q, i)) =>
+                if (!cx.eqI r r') = true then do
+                  let __x ← throw "the token is for another region"
+                  __do_jp __x
+                else
+                  if (Q != P) = true then do
+                    let __x ← throw "the token is for another protocol"
+                    __do_jp __x
+                  else do
+                    let __x ← pure (r', i)
+                    __do_jp __x
+              | x => do
+                let __x ← throw "a store to a protocol word needs a taken token"
+                __do_jp __x;
+        match tok with
+        | some tk => do
+          let tk ← pure tk
+          __do_jp tk
+        | none => do
+          let tk ← throw "a store to a protocol word needs the region's token"
+          __do_jp tk
+      | none =>
+        match CoreTerm.cellOf t with
+        | none => throw "store needs a reference"
+        | some (μ, u) =>
+          have __do_jp := fun __r => do
+            let __x ← cx.use v
+            match __x with
+              | (tv, cx) =>
+                match μ with
+                | CoreLang.Mode.own =>
+                  if CoreTerm.sub cx tv u = true then cx.bind x CoreLang.Ty.unit
+                  else throw "store: the value does not have the cell's type"
+                | CoreLang.Mode.pub =>
+                  if (!CoreTerm.sub cx tv u) = true then throw "store: the value does not have the cell's type"
+                  else
+                    if (CoreLang.Ty.sensitiveIn cx.ke u && !rel) = true then
+                      throw "store: a view-sensitive type needs rel (§3.8)"
+                    else cx.bind x CoreLang.Ty.unit
+                | CoreLang.Mode.rgn r =>
+                  if cx.hasTok r = true then
+                    if (!cx.sealedR r) = true then
+                      throw "store into a region taken from an observable state before fence st (§4.4 rule 7)"
+                    else
+                      if (CoreTerm.sub cx tv u || CoreTerm.sub cx tv (CoreTerm.adapt r u)) = true then
+                        cx.bind x CoreLang.Ty.unit
+                      else throw "store: the value does not have the cell's type"
+                  else
+                    if cx.hasCap r true = true then
+                      if (CoreLang.Ty.sensitiveIn cx.ke u && !rel) = true then
+                        throw "store under a capability: a view-sensitive type needs rel (§3.8)"
+                      else
+                        if (CoreTerm.sub cx tv u || CoreTerm.sub cx tv (CoreTerm.adapt r u)) = true then
+                          cx.bind x CoreLang.Ty.unit
+                        else throw "store: the value does not have the cell's type"
+                    else throw "store into a region without its token";
+          if (!CoreLang.Ty.wordFreeIn cx.ke u) = true then do
+            let __r ← throw CoreTerm.wordCellMsg
+            __do_jp __r
+          else __do_jp ()
+  | CoreTerm.Op.fence f =>
+    have cx :=
+      if (f != CoreTerm.Fence.st) = true then
+        { inames := cx.inames, facts := cx.facts, vars := cx.vars,
+          saws :=
+            List.map
+              (fun x =>
+                match x with
+                | (w, s, snd) => (w, s, true))
+              cx.saws,
+          torn :=
+            List.map (fun tn => { x := tn.x, ty := tn.ty, w := tn.w, s := tn.s, φ := CoreTerm.phaseFence tn.φ })
+              cx.torn,
+          unsealed := cx.unsealed, ke := cx.ke, opq := cx.opq, lent := cx.lent, ret := cx.ret }
+      else cx;
+    have cx :=
+      if (f != CoreTerm.Fence.ld) = true then
+        { inames := cx.inames, facts := cx.facts, vars := cx.vars, saws := cx.saws, torn := cx.torn, ke := cx.ke,
+          opq := cx.opq, lent := cx.lent, ret := cx.ret }
+      else cx;
+    cx.bind x CoreLang.Ty.unit
+  | CoreTerm.Op.mkWord rn P v tk => do
+    let r ← cx.idx rn
+    have __do_jp : Unit → CoreTerm.M CoreTerm.Cx := fun __r => do
+      let __x ← cx.use tk
+      match __x with
+        | (tt, cx) =>
+          have __do_jp := fun __r => do
+            let j ← CoreTerm.intIdx cx v
+            let __x ← CoreTerm.classifyM cx P j
+            match __x with
+              | (c, snd) => do
+                let cl ← CoreTerm.clauseM P c
+                if P.ghost = true then
+                    have __do_jp := fun __r =>
+                      cx.bind x ((CoreLang.Ty.word r P).prod (CoreLang.Ty.tok r (some (P, j))));
+                    if cl.holds = true then do
+                      let __r ← throw "a ghost word is born in a state that does not hold its region"
+                      __do_jp __r
+                    else __do_jp ()
+                  else
+                    have __do_jp := fun __r => cx.bind x (CoreLang.Ty.word r P);
+                    if (!cl.holds) = true then do
+                      let __r ← throw "a word is born in a state that holds its region"
+                      __do_jp __r
+                    else __do_jp ();
+          match tt with
+          | CoreLang.Ty.tok r' none =>
+            if (!cx.eqI r r') = true then do
+              let __r ← throw "the token is for another region"
+              __do_jp __r
+            else __do_jp ()
+          | CoreLang.Ty.tok r (some val) => do
+            let __r ← throw "a word is born from a fresh region token, not a taken one"
+            __do_jp __r
+          | x => do
+            let __r ← throw "mkWord needs a region token"
+            __do_jp __r
+    if (!CoreTerm.pwf P) = true then do
+        let __r ←
+          throw
+              "the protocol is not well formed (states overlap, a move names no state, a lending state does not hold, a robust/norepeat/epoch claim fails, or a recovery target is not held -> shared)"
+        __do_jp __r
+      else __do_jp ()
+  | CoreTerm.Op.mkWord2 rn P v0 v1 tk => do
+    let r ← cx.idx rn
+    have __do_jp : Unit → CoreTerm.M CoreTerm.Cx := fun __r => do
+      let __x ← cx.use tk
+      match __x with
+        | (tt, cx) =>
+          have __do_jp := fun __r => do
+            let j0 ← CoreTerm.intIdx cx v0
+            let j1 ← CoreTerm.intIdx cx v1
+            let __x ← CoreTerm.classify2M cx P j0 j1
+            match __x with
+              | (c, fst, snd) => do
+                let cl ← CoreTerm.clause2M P c
+                have __do_jp : Unit → CoreTerm.M CoreTerm.Cx := fun __r => cx.bind x (CoreLang.Ty.word2 r P)
+                if (!cl.holds) = true then do
+                    let __r ← throw "a pair is born in a state that holds its region"
+                    __do_jp __r
+                  else __do_jp ();
+          match tt with
+          | CoreLang.Ty.tok r' none =>
+            if (!cx.eqI r r') = true then do
+              let __r ← throw "the token is for another region"
+              __do_jp __r
+            else __do_jp ()
+          | CoreLang.Ty.tok r (some val) => do
+            let __r ← throw "a pair is born from a fresh region token, not a taken one"
+            __do_jp __r
+          | x => do
+            let __r ← throw "mkWord2 needs a region token"
+            __do_jp __r
+    if (!CoreTerm.pwf2 P) = true then do
+        let __r ←
+          throw
+              "the pair protocol is not well formed (states overlap, a move names no state, or a robust/epoch claim fails)"
+        __do_jp __r
+      else __do_jp ()
+  | CoreTerm.Op.ldp acq a n0 n1 => do
+    let t ← cx.peek a
+    if CoreTerm.pairRef t = true then
+        match a with
+        | CoreTerm.At.var x_2 =>
+          have cx := (cx.push n0).push n1;
+          cx.bind x ((CoreLang.Ty.intS (CoreLang.Idx.var 1)).prod (CoreLang.Ty.intS (CoreLang.Idx.var 0)))
+        | x => throw "a protocol pair must be named by a variable"
+      else throw "ldp needs a reference to a protocol pair"
+  | CoreTerm.Op.stp rel a v0 v1 tok => do
+    let t ← cx.peek a
+    match CoreTerm.word2Of t with
+      | none => throw "stp needs a reference to a protocol pair"
+      | some (r, P) => do
+        let __x ← cx.use tok
+        match __x with
+          | (tt, cx) =>
+            have __do_jp := fun __x =>
+              match __x with
+              | (r', i0, i1) => do
+                let j0 ← CoreTerm.intIdx cx v0
+                let j1 ← CoreTerm.intIdx cx v1
+                let __x ← CoreTerm.classify2M cx P i0 i1
+                match __x with
+                  | (c, k0, k1) => do
+                    let __x ← CoreTerm.classify2M cx P j0 j1
+                    match __x with
+                      | (c', k0', k1') => do
+                        let cl ← CoreTerm.clause2M P c
+                        let cl' ← CoreTerm.clause2M P c'
+                        have __do_jp : Unit → CoreTerm.M CoreTerm.Cx := fun __r =>
+                          have __do_jp := fun __r =>
+                            if cl'.holds = true then
+                              have __do_jp := fun __r => cx.bind x CoreLang.Ty.unit;
+                              if (!rel) = true then do
+                                let __r ← throw "giving the region back needs rel"
+                                __do_jp __r
+                              else __do_jp ()
+                            else cx.bind x (CoreLang.Ty.tok2 r' P j0 j1);
+                          if (!CoreTerm.pstep2 P c k0 k1 c' k0' k1') = true then do
+                            let __r ← throw "not a transition of the pair protocol"
+                            __do_jp __r
+                          else __do_jp ()
+                        if cl.holds = true then do
+                            let __r ← throw "stp from a shared state: use casp"
+                            __do_jp __r
+                          else __do_jp ();
+            match tt with
+            | CoreLang.Ty.tok2 r' Q i0 i1 =>
+              if (!cx.eqI r r') = true then do
+                let __x ← throw "the token is for another region"
+                __do_jp __x
+              else
+                if (Q != P) = true then do
+                  let __x ← throw "the token is for another protocol"
+                  __do_jp __x
+                else do
+                  let __x ← pure (r', i0, i1)
+                  __do_jp __x
+            | x => do
+              let __x ← throw "a store to a protocol pair needs its taken token"
+              __do_jp __x
+  | CoreTerm.Op.mkEPair rn P v0 v1 => do
+    let r ← cx.idx rn
+    have __do_jp : Unit → CoreTerm.M CoreTerm.Cx := fun __r => do
+      let _ ← CoreTerm.intIdx cx v0
+      let _ ← CoreTerm.intIdx cx v1
+      cx.bind x (CoreLang.Ty.epair r P)
+    if (!CoreTerm.pwfE P) = true then do
+        let __r ← throw "mkEPair needs a well-formed epoch protocol"
+        __do_jp __r
+      else __do_jp ()
+  | CoreTerm.Op.mkTicket rn N P v tk => do
+    let r ← cx.idx rn
+    have __do_jp : Unit → CoreTerm.M CoreTerm.Cx := fun __r =>
+      have __do_jp := fun __r => do
+        let __x ← cx.use tk
+        match __x with
+          | (tt, cx) =>
+            have __do_jp := fun __r => do
+              let _ ← CoreTerm.intIdx cx v
+              cx.bind x ((CoreLang.Ty.word r N).prod (CoreLang.Ty.word r P));
+            match tt with
+            | CoreLang.Ty.tok r' none =>
+              if (!cx.eqI r r') = true then do
+                let __r ← throw "the token is for another region"
+                __do_jp __r
+              else __do_jp ()
+            | CoreLang.Ty.tok r (some val) => do
+              let __r ← throw "a ticket lock is born from a fresh region token, not a taken one"
+              __do_jp __r
+            | x => do
+              let __r ← throw "mkTicket needs a region token"
+              __do_jp __r;
+      if (!(CoreTerm.pwf P && P.ticket)) = true then do
+        let __r ← throw "mkTicket needs a ticket protocol for its owner"
+        __do_jp __r
+      else __do_jp ()
+    if (!(CoreTerm.pwf N && N.epoch)) = true then do
+        let __r ← throw "mkTicket needs an epoch counter for its dispenser"
+        __do_jp __r
+      else __do_jp ()
+  | CoreTerm.Op.claim a tk => do
+    let t ← cx.peek a
+    match CoreTerm.wordOf t, a with
+      | some (r, P), CoreTerm.At.var w =>
+        have __do_jp := fun __r => do
+          let __x ← cx.use tk
+          match __x with
+            | (tt, cx) =>
+              have __do_jp := fun j =>
+                match CoreTerm.sawFor cx w j with
+                | some m => cx.bind x (CoreLang.Ty.tok r (some (P, m)))
+                | none => throw "claim: no ordered observation of the owner at ticket - 1 (load acq, or fence ld)";
+              match tt with
+              | CoreLang.Ty.tokE r' P j =>
+                if (!cx.eqI r r') = true then do
+                  let j ← throw "the ticket is for another region"
+                  __do_jp j
+                else do
+                  let j ← pure j
+                  __do_jp j
+              | x => do
+                let j ← throw "claim needs a ticket (the dispenser's epoch token)"
+                __do_jp j;
+        if (!P.ticket) = true then do
+          let __r ← throw "claim needs the owner word of a ticket lock"
+          __do_jp __r
+        else __do_jp ()
+      | some val, x => throw "a protocol word must be named by a variable"
+      | none, x => throw "claim needs a reference to a protocol word"
+  | CoreTerm.Op.fetch o acq rel a v => do
+    let tw ← cx.peek a
+    match CoreTerm.wordOf tw with
+      | none => do
+        let u ← CoreTerm.casCellTy cx tw
+        have __do_jp : Unit → CoreTerm.M CoreTerm.Cx := fun __r => do
+          let __x ← cx.use v
+          match __x with
+            | (tv, cx) =>
+              have __do_jp := fun __r => cx.bind x CoreLang.Ty.int;
+              if (!CoreTerm.sub cx tv CoreLang.Ty.int) = true then do
+                let __r ← throw "fetch: the operand is not an Int"
+                __do_jp __r
+              else __do_jp ()
+        if (u != CoreLang.Ty.int) = true then do
+            let __r ← throw "fetch needs an Int cell or a protocol word"
+            __do_jp __r
+          else __do_jp ()
+      | some (r, P) =>
+        have __do_jp := fun __r => do
+          let j ← CoreTerm.intIdx cx v
+          if P.epoch = true then
+              have __do_jp := fun __r =>
+                have __do_jp := fun __r => cx.bind x (CoreTerm.fetchEpochTy r P);
+                if (!cx.eqI j (CoreLang.Idx.lit 1)) = true then do
+                  let __r ← throw "an epoch counter advances by 1"
+                  __do_jp __r
+                else __do_jp ();
+              if (!acq) = true then do
+                let __r ← throw "entering an epoch needs acq"
+                __do_jp __r
+              else __do_jp ()
+            else do
+              let d ← cx.constIdx j
+              have __do_jp : Unit → CoreTerm.M CoreTerm.Cx := fun __r =>
+                have __do_jp := fun __r => cx.bind x CoreLang.Ty.int;
+                if (!CoreTerm.fetchOK P d) = true then do
+                  let __r ←
+                    throw "fetch: not a +d move between shared states from every family of the protocol (or it lends)"
+                  __do_jp __r
+                else __do_jp ()
+              if (!cx.eqI j (CoreLang.Idx.lit d)) = true then do
+                  let __r ← throw "fetch on a protocol word: the operand must be a known constant"
+                  __do_jp __r
+                else __do_jp ();
+        if (o != CoreTerm.FetchOp.add) = true then do
+          let __r ← throw "a fetch on a protocol word must be add: a protocol's moves are increments"
+          __do_jp __r
+        else __do_jp ()
+  | CoreTerm.Op.pack a wn τ => do
+    let w ← cx.idx wn
+    have __do_jp : CoreLang.Ty → CoreTerm.M CoreTerm.Cx := fun body =>
+      have __do_jp := fun __r => do
+        let __x ← cx.use a
+        match __x with
+          | (t, cx) => do
+            CoreTerm.noLeak cx t
+            if CoreTerm.sub cx t (CoreTerm.instT [w] 0 body) = true then cx.bind x τ
+              else throw "pack: the value does not match the target at the witness";
+      if (!CoreLang.Ty.wf (List.length cx.ke) cx.inames.length τ) = true then do
+        let __r ← throw "pack: the target must be well formed in the index scope"
+        __do_jp __r
+      else __do_jp ()
+    match τ with
+      | b.iex => do
+        let body ← pure b
+        __do_jp body
+      | x => do
+        let body ← throw "pack targets an index existential"
+        __do_jp body
+  | CoreTerm.Op.packT a σ τ =>
+    match τ with
+    | CoreLang.Ty.tex κ body =>
+      have __do_jp := fun __r =>
+        have __do_jp := fun __r =>
+          have __do_jp := fun __r => do
+            let __x ← cx.use a
+            match __x with
+              | (t, cx) => do
+                CoreTerm.noLeak cx t
+                if CoreTerm.sub cx t (CoreLang.Ty.substT 0 σ body) = true then cx.bind x τ
+                  else throw "pack: the value does not match the target at the witness";
+          if (!CoreTerm.admitsIn cx κ σ) = true then do
+            let __r ← throw "pack: the witness does not have the variable's kind"
+            __do_jp __r
+          else __do_jp ();
+        if (!CoreLang.Ty.wf (List.length cx.ke) 0 τ) = true then do
+          let __r ← throw "pack: the target must be closed"
+          __do_jp __r
+        else __do_jp ();
+      if (!CoreLang.Ty.guardT 0 body) = true then do
+        let __r ← throw "pack: the package's variable must occur only under a reference"
+        __do_jp __r
+      else __do_jp ()
+    | x => throw "pack at a type targets a type existential"
+  | CoreTerm.Op.validate y =>
+    match List.find? (fun x => x.x == y) cx.torn with
+    | none => throw (toString y ++ toString " is not a torn read")
+    | some tn =>
+      match tn.φ with
+      | CoreTerm.Phase.rechecked v =>
+        if (!cx.eqI v tn.s) = true then throw "validate: the re-check is not known to equal the observed state"
+        else
+          if CoreTerm.affine cx.ke tn.ty = true then throw "validate would duplicate an affine value"
+          else cx.bind x tn.ty
+      | CoreTerm.Phase.fenced => throw "validate: the word was not re-read after the fence"
+      | CoreTerm.Phase.opn => throw "validate: no fence ld between the torn read and the re-check"
+  | CoreTerm.Op.call f is a ts => do
+    let d ← p.find f
+    let __x ← CoreTerm.instantiate cx d is ts
+    match __x with
+      | (at_, rt) => do
+        let __x ← cx.use a
+        match __x with
+          | (t, cx) => do
+            CoreTerm.noLeak cx t
+            have __do_jp : Unit → CoreTerm.M CoreTerm.Cx := fun __r => cx.bind x rt
+            if (!CoreTerm.sub cx t at_) = true then do
+                let __r ← throw (toString "call " ++ toString f ++ toString ": argument type mismatch")
+                __do_jp __r
+              else __do_jp ()
+  | CoreTerm.Op.borrow c a => do
+    let y ← CoreTerm.varOf a
+    let t ← cx.peek a
+    let r ← CoreTerm.lendOf cx c t
+    let __x ← cx.use a
+    match __x with
+      | (fst, c₁) =>
+        { inames := c₁.inames, facts := c₁.facts, vars := c₁.vars, saws := c₁.saws, torn := c₁.torn,
+              unsealed := c₁.unsealed, ke := c₁.ke, opq := c₁.opq, lent := y :: c₁.lent, ret := c₁.ret }.bind
+          x (CoreLang.Ty.cap c r)
+  | CoreTerm.Op.cvt sg w a => do
+    let ta ← cx.peek a
+    have __do_jp : Unit → CoreTerm.M CoreTerm.Cx := fun __r => cx.bind x (CoreLang.Ty.fix sg w)
+    if (!CoreTerm.cvtSrc ta) = true then do
+        let __r ← throw "cvt needs an integer"
+        __do_jp __r
+      else __do_jp ()
+  | CoreTerm.Op.toInt a => do
+    let ta ← cx.peek a
+    have __do_jp : Unit → CoreTerm.M CoreTerm.Cx := fun __r => cx.bind x CoreLang.Ty.int
+    if (!CoreTerm.toIntSrc ta) = true then do
+        let __r ← throw "toInt needs an unsigned fix or a lanes word (a signed one: cvt it, or test fcmp lt first)"
+        __do_jp __r
+      else __do_jp ()
+  | CoreTerm.Op.asLanes sg w a => do
+    let ta ← cx.peek a
+    have __do_jp : Unit → CoreTerm.M CoreTerm.Cx := fun __r => cx.bind x (CoreLang.Ty.lanes sg w)
+    if (CoreTerm.intOf ta).isNone = true then do
+        let __r ← throw "asLanes needs an Int"
+        __do_jp __r
+      else __do_jp ()
+  | CoreTerm.Op.fop o a b => do
+    let ta ← cx.peek a
+    let tb ← cx.peek b
+    match CoreTerm.fixOf ta with
+      | none => throw "fop needs fixed-width integers"
+      | some p =>
+        have __do_jp := fun __r => cx.bind x (CoreLang.Ty.fix p.fst p.snd);
+        if (CoreTerm.fixOf tb != some p) = true then do
+          let __r ← throw "fop: the operands have different fixed-width types"
+          __do_jp __r
+        else __do_jp ()
+  | CoreTerm.Op.fcmp o a b => do
+    let ta ← cx.peek a
+    let tb ← cx.peek b
+    match CoreTerm.fixOf ta with
+      | none => throw "fcmp needs fixed-width integers"
+      | some p =>
+        have __do_jp := fun __r => cx.bind x CoreLang.Ty.int;
+        if (CoreTerm.fixOf tb != some p) = true then do
+          let __r ← throw "fcmp: the operands have different fixed-width types"
+          __do_jp __r
+        else __do_jp ()
+  | CoreTerm.Op.fop1 o a => do
+    let ta ← cx.peek a
+    match CoreTerm.fixOf ta with
+      | none => throw "fop1 needs a fixed-width integer"
+      | some p => cx.bind x (CoreLang.Ty.fix p.fst p.snd)
+  | CoreTerm.Op.lane a j => do
+    let ta ← cx.peek a
+    match CoreTerm.lanesOf ta with
+      | none => throw "lane needs a lanes word"
+      | some p => do
+        let tj ← cx.peek j
+        have __do_jp : Unit → CoreTerm.M CoreTerm.Cx := fun __r => cx.bind x (CoreLang.Ty.fix p.fst p.snd)
+        if (CoreTerm.intOf tj).isNone = true then do
+            let __r ← throw "lane: the lane number must be an Int"
+            __do_jp __r
+          else __do_jp ()
+  | CoreTerm.Op.setLane a j v => do
+    let ta ← cx.peek a
+    match CoreTerm.lanesOf ta with
+      | none => throw "setLane needs a lanes word"
+      | some p => do
+        let tj ← cx.peek j
+        have __do_jp : Unit → CoreTerm.M CoreTerm.Cx := fun __r => do
+          let tv ← cx.peek v
+          have __do_jp : Unit → CoreTerm.M CoreTerm.Cx := fun __r => cx.bind x (CoreLang.Ty.lanes p.fst p.snd)
+          if (CoreTerm.fixOf tv != some p) = true then do
+              let __r ← throw "setLane: the value is not the lane's type"
+              __do_jp __r
+            else __do_jp ()
+        if (CoreTerm.intOf tj).isNone = true then do
+            let __r ← throw "setLane: the lane number must be an Int"
+            __do_jp __r
+          else __do_jp ()
+  | CoreTerm.Op.ldlw b wi j => do
+    let t ← cx.peek b
+    match CoreTerm.bufOf t with
+      | none => throw "ldlw needs a buffer"
+      | some (μ, n, u, k) =>
+        have __do_jp := fun __r =>
+          match CoreTerm.lanesOf u with
+          | none => throw "ldlw needs a buffer of lanes"
+          | some p => do
+            let jw ← CoreTerm.intIdx cx wi
+            have __do_jp : Unit → CoreTerm.M CoreTerm.Cx := fun __r =>
+              have __do_jp := fun __r => do
+                let tj ← cx.peek j
+                have __do_jp : Unit → CoreTerm.M CoreTerm.Cx := fun __r => cx.bind x (CoreLang.Ty.fix p.fst p.snd)
+                if (CoreTerm.intOf tj).isNone = true then do
+                    let __r ← throw "ldlw: the lane number must be an Int"
+                    __do_jp __r
+                  else __do_jp ();
+              if (!cx.ltI jw k) = true then do
+                let __r ← throw "ldlw: the word is not provably initialised"
+                __do_jp __r
+              else __do_jp ()
+            if (!cx.ltI jw n) = true then do
+                let __r ← throw "ldlw: the word is not provably below the capacity"
+                __do_jp __r
+              else __do_jp ();
+        if (μ != CoreLang.Mode.own) = true then do
+          let __r ← throw "ldlw works on own buffers; use idx, load and lane on a shared one"
+          __do_jp __r
+        else __do_jp ()
+  | CoreTerm.Op.stlw b wi j v => do
+    let t ← cx.peek b
+    match CoreTerm.bufOf t with
+      | none => throw "stlw needs a buffer"
+      | some (μ, n, u, k) =>
+        have __do_jp := fun __r =>
+          match CoreTerm.lanesOf u with
+          | none => throw "stlw needs a buffer of lanes"
+          | some p => do
+            let jw ← CoreTerm.intIdx cx wi
+            have __do_jp : Unit → CoreTerm.M CoreTerm.Cx := fun __r =>
+              have __do_jp := fun __r => do
+                let tj ← cx.peek j
+                have __do_jp : Unit → CoreTerm.M CoreTerm.Cx := fun __r => do
+                  let tv ← cx.peek v
+                  have __do_jp : Unit → CoreTerm.M CoreTerm.Cx := fun __r => cx.bind x CoreLang.Ty.unit
+                  if (CoreTerm.fixOf tv != some p) = true then do
+                      let __r ← throw "stlw: the value is not the lane's type"
+                      __do_jp __r
+                    else __do_jp ()
+                if (CoreTerm.intOf tj).isNone = true then do
+                    let __r ← throw "stlw: the lane number must be an Int"
+                    __do_jp __r
+                  else __do_jp ();
+              if (!cx.ltI jw k) = true then do
+                let __r ← throw "stlw: the word is not provably initialised"
+                __do_jp __r
+              else __do_jp ()
+            if (!cx.ltI jw n) = true then do
+                let __r ← throw "stlw: the word is not provably below the capacity"
+                __do_jp __r
+              else __do_jp ();
+        if (μ != CoreLang.Mode.own) = true then do
+          let __r ← throw "stlw works on own buffers only: a sub-word store never touches memory another thread can see"
+          __do_jp __r
+        else __do_jp ()
+  | CoreTerm.Op.ldl b i => do
+    let t ← cx.peek b
+    match CoreTerm.bufOf t with
+      | none => throw "ldl needs a buffer"
+      | some (μ, n, u, k) =>
+        have __do_jp := fun __r =>
+          match CoreTerm.lanesOf u with
+          | none => throw "ldl needs a buffer of lanes"
+          | some p => do
+            let j ← CoreTerm.intIdx cx i
+            have __do_jp : Unit → CoreTerm.M CoreTerm.Cx := fun __r =>
+              have __do_jp := fun __r => cx.bind x (CoreLang.Ty.fix p.fst p.snd);
+              if (!cx.ltI j (CoreLang.Idx.smul p.snd.lanes k)) = true then do
+                let __r ← throw "ldl: the lane is not provably initialised"
+                __do_jp __r
+              else __do_jp ()
+            if (!cx.ltI j (CoreLang.Idx.smul p.snd.lanes n)) = true then do
+                let __r ← throw "ldl: the lane is not provably below the capacity"
+                __do_jp __r
+              else __do_jp ();
+        if (μ != CoreLang.Mode.own) = true then do
+          let __r ← throw "ldl works on own buffers; use idx, load and lane on a shared one"
+          __do_jp __r
+        else __do_jp ()
+  | CoreTerm.Op.stl b i v => do
+    let t ← cx.peek b
+    match CoreTerm.bufOf t with
+      | none => throw "stl needs a buffer"
+      | some (μ, n, u, k) =>
+        have __do_jp := fun __r =>
+          match CoreTerm.lanesOf u with
+          | none => throw "stl needs a buffer of lanes"
+          | some p => do
+            let j ← CoreTerm.intIdx cx i
+            have __do_jp : Unit → CoreTerm.M CoreTerm.Cx := fun __r =>
+              have __do_jp := fun __r => do
+                let tv ← cx.peek v
+                have __do_jp : Unit → CoreTerm.M CoreTerm.Cx := fun __r => cx.bind x CoreLang.Ty.unit
+                if (CoreTerm.fixOf tv != some p) = true then do
+                    let __r ← throw "stl: the value is not the lane's type"
+                    __do_jp __r
+                  else __do_jp ();
+              if (!cx.ltI j (CoreLang.Idx.smul p.snd.lanes k)) = true then do
+                let __r ← throw "stl: the lane is not provably initialised"
+                __do_jp __r
+              else __do_jp ()
+            if (!cx.ltI j (CoreLang.Idx.smul p.snd.lanes n)) = true then do
+                let __r ← throw "stl: the lane is not provably below the capacity"
+                __do_jp __r
+              else __do_jp ();
+        if (μ != CoreLang.Mode.own) = true then do
+          let __r ← throw "stl works on own buffers only: a sub-word store never touches memory another thread can see"
+          __do_jp __r
+        else __do_jp ()
+  | CoreTerm.Op.freeze a => do
+    let __x ← cx.use a
+    match __x with
+      | (tt, cx) =>
+        match tt with
+        | CoreLang.Ty.tok r none =>
+          have __do_jp := fun __r => cx.bind x (CoreLang.Ty.cap CoreLang.Cap.frz r);
+          if (!cx.sealedR r) = true then do
+            let __r ← throw "freeze: the region is waiting for fence st (§4.4 rule 7)"
+            __do_jp __r
+          else __do_jp ()
+        | CoreLang.Ty.tok r (some val) => throw "freeze needs a fresh region token, not a taken one"
+        | x => throw "freeze needs a region token"
+  | CoreTerm.Op.endBorrow a => do
+    let y ← CoreTerm.varOf a
+    have __do_jp : Unit → CoreTerm.M CoreTerm.Cx := fun __r => (cx.endCx y).bind x CoreLang.Ty.unit
+    if (!cx.lent.contains y) = true then do
+        let __r ← throw "endBorrow: nothing is lent from this variable"
+        __do_jp __r
+      else __do_jp ()
+  | CoreTerm.Op.xchg a v => do
+    let t ← cx.peek a
+    let __x ← CoreTerm.xchgCell cx t
+    match __x with
+      | (u, o) => do
+        let __x ← cx.use v
+        match __x with
+          | (tv, cx) =>
+            have __do_jp := fun __r => cx.bind x o;
+            if (!(CoreTerm.sub cx tv u || CoreTerm.sub cx tv o)) = true then do
+              let __r ← throw "xchg: the value does not have the cell's type"
+              __do_jp __r
+            else __do_jp ()
+  | CoreTerm.Op.fnptr f => do
+    let d ← p.find f
+    have __do_jp : Unit → CoreTerm.M CoreTerm.Cx := fun __r =>
+      cx.bind x
+        (d.argTy.code d.retTy
+          (match d.kind with
+          | CoreTerm.DeclKind.restricted f s => CoreLang.CodeKind.restricted f s
+          | x => CoreLang.CodeKind.plain))
+    if (!(d.tparams.isEmpty && d.idx.isEmpty)) = true then do
+        let __r ←
+          throw (toString "fnptr " ++ toString f ++ toString ": only a monomorphic code block has a code pointer")
+        __do_jp __r
+      else __do_jp ()
+  | CoreTerm.Op.callc f a => do
+    let tf ← cx.peek f
+    match CoreTerm.codeOf tf with
+      | some (σ, τ) => do
+        let __x ← cx.use a
+        match __x with
+          | (t, cx) => do
+            CoreTerm.noLeak cx t
+            have __do_jp : Unit → CoreTerm.M CoreTerm.Cx := fun __r => cx.bind x τ
+            if (!CoreTerm.sub cx t σ) = true then do
+                let __r ← throw "callc: argument type mismatch"
+                __do_jp __r
+              else __do_jp ()
+      | none => throw "callc needs a code value"
+  | CoreTerm.Op.rem a n => do
+    let ta ← cx.peek a
+    have __do_jp : Unit → CoreTerm.M CoreTerm.Cx := fun __r => do
+      let j ← CoreTerm.intIdx cx n
+      match (cx.norm j).bind CoreTerm.Lin.succVar? with
+        | none => throw "rem: the modulus must be v + 1 for an undetermined index variable v"
+        | some v =>
+          have c := (cx.push (x ++ "_d")).push x;
+          { inames := c.inames, facts := (v + 2, (CoreLang.Idx.var 0).add (CoreLang.Idx.var 1)) :: c.facts,
+                vars := c.vars, saws := c.saws, torn := c.torn, unsealed := c.unsealed, ke := c.ke, opq := c.opq,
+                lent := c.lent, ret := c.ret }.bind
+            x (CoreLang.Ty.intS (CoreLang.Idx.var 0))
+    if (CoreTerm.intOf ta).isNone = true then do
+        let __r ← throw "rem needs an integer"
+        __do_jp __r
+      else __do_jp ()
+  | CoreTerm.Op.nameI a => do
+    let j ← CoreTerm.intIdx cx a
+    have c : CoreTerm.Cx := cx.push x
+    { inames := c.inames, facts := (0, CoreLang.Idx.shift 0 j) :: c.facts, vars := c.vars, saws := c.saws,
+            torn := c.torn, unsealed := c.unsealed, ke := c.ke, opq := c.opq, lent := c.lent, ret := c.ret }.bind
+        x (CoreLang.Ty.intS (CoreLang.Idx.var 0))
+  | CoreTerm.Op.xchgAt b i v => do
+    let t ← cx.peek b
+    have __do_jp : CoreLang.Idx × CoreLang.Ty × CoreLang.Idx → CoreTerm.M CoreTerm.Cx := fun __x =>
+      match __x with
+      | (n, u, k) =>
+        have __do_jp := fun __r => do
+          let j ← CoreTerm.intIdx cx i
+          have __do_jp : Unit → CoreTerm.M CoreTerm.Cx := fun __r =>
+            have __do_jp := fun __r => do
+              let __x ← cx.use v
+              match __x with
+                | (tv, cx) =>
+                  have __do_jp := fun __r => cx.bind x u;
+                  if (!CoreTerm.sub cx tv u) = true then do
+                    let __r ← throw "xchgAt: the value does not have the element type"
+                    __do_jp __r
+                  else __do_jp ();
+            if (!cx.ltI j k) = true then do
+              let __r ← throw "xchgAt: the slot is not provably initialised"
+              __do_jp __r
+            else __do_jp ()
+          if (!cx.ltI j n) = true then do
+              let __r ← throw "xchgAt: the index is not provably below the capacity"
+              __do_jp __r
+            else __do_jp ();
+        if (!CoreLang.Ty.wordFreeIn cx.ke u) = true then do
+          let __r ← throw CoreTerm.wordCellMsg
+          __do_jp __r
+        else __do_jp ()
+    match CoreTerm.bufOf t with
+      | some (CoreLang.Mode.own, n, u, k) => do
+        let __x ← pure (n, u, k)
+        __do_jp __x
+      | some val => do
+        let __x ← throw "xchgAt works on own buffers; use idx on a shared one"
+        __do_jp __x
+      | none => do
+        let __x ← throw "xchgAt needs a buffer"
+        __do_jp __x
+  | CoreTerm.Op.loadAt b i => do
+    let t ← cx.peek b
+    have __do_jp : CoreLang.Idx × CoreLang.Ty × CoreLang.Idx → CoreTerm.M CoreTerm.Cx := fun __x =>
+      match __x with
+      | (n, u, k) => do
+        let j ← CoreTerm.intIdx cx i
+        have __do_jp : Unit → CoreTerm.M CoreTerm.Cx := fun __r =>
+          have __do_jp := fun __r =>
+            have __do_jp := fun __r => cx.bind x u;
+            if CoreTerm.affine cx.ke u = true then do
+              let __r ← throw "loadAt would duplicate an affine value: use xchgAt"
+              __do_jp __r
+            else __do_jp ();
+          if (!cx.ltI j k) = true then do
+            let __r ← throw "loadAt: the slot is not provably initialised"
+            __do_jp __r
+          else __do_jp ()
+        if (!cx.ltI j n) = true then do
+            let __r ← throw "loadAt: the index is not provably below the capacity"
+            __do_jp __r
+          else __do_jp ()
+    match CoreTerm.bufOf t with
+      | some (CoreLang.Mode.own, n, u, k) => do
+        let __x ← pure (n, u, k)
+        __do_jp __x
+      | some val => do
+        let __x ← throw "loadAt works on own buffers; use idx on a shared one"
+        __do_jp __x
+      | none => do
+        let __x ← throw "loadAt needs a buffer"
+        __do_jp __x
+  | CoreTerm.Op.bits o a b => do
+    let ta ← cx.peek a
+    let tb ← cx.peek b
+    match CoreTerm.intOf ta, CoreTerm.intOf tb with
+      | some val, some val_1 => cx.bind x CoreLang.Ty.int
+      | x, x_2 => throw "bits needs integers"
+  | CoreTerm.Op.bit1 o a => do
+    let ta ← cx.peek a
+    match CoreTerm.intOf ta with
+      | some val => cx.bind x CoreLang.Ty.int
+      | none => throw "bit1 needs an integer"
+  | CoreTerm.Op.vmatch lo hi b => do
+    let t1 ← cx.peek lo
+    let t2 ← cx.peek hi
+    let t3 ← cx.peek b
+    match CoreTerm.intOf t1, CoreTerm.intOf t2, CoreTerm.intOf t3 with
+      | some val, some val_1, some val_2 => cx.bind x CoreLang.Ty.int
+      | x, x_2, x_3 => throw "vmatch needs integers"
+  | CoreTerm.Op.band a m => do
+    let ta ← cx.peek a
+    have __do_jp : Unit → CoreTerm.M CoreTerm.Cx := fun __r => do
+      let j ← CoreTerm.intIdx cx m
+      match (cx.norm j).bind CoreTerm.Lin.asVar? with
+        | none => throw "band: the mask must be an undetermined index variable"
+        | some v =>
+          have c := (cx.push (x ++ "_d")).push x;
+          { inames := c.inames, facts := (v + 2, (CoreLang.Idx.var 0).add (CoreLang.Idx.var 1)) :: c.facts,
+                vars := c.vars, saws := c.saws, torn := c.torn, unsealed := c.unsealed, ke := c.ke, opq := c.opq,
+                lent := c.lent, ret := c.ret }.bind
+            x (CoreLang.Ty.intS (CoreLang.Idx.var 0))
+    if (CoreTerm.intOf ta).isNone = true then do
+        let __r ← throw "band needs an integer"
+        __do_jp __r
+      else __do_jp ()
+  | CoreTerm.Op.zero τ =>
+    have __do_jp := fun __r =>
+      have __do_jp := fun __r =>
+        have __do_jp := fun __r => cx.bind x τ;
+        if (!CoreLang.zeroableIn [] cx.ke τ) = true then do
+          let __r ← throw "zero: the type is not Zeroable"
+          __do_jp __r
+        else __do_jp ();
+      if τ.secondClass = true then do
+        let __r ← throw "zero: a second-class capability has no zero"
+        __do_jp __r
+      else __do_jp ();
+    if (!CoreLang.Ty.wf (List.length cx.ke) cx.inames.length τ) = true then do
+      let __r ← throw "zero: the type is not well formed"
+      __do_jp __r
+    else __do_jp ()
+  | CoreTerm.Op.loadAtF b i p => do
+    let t ← cx.peek b
+    have __do_jp : CoreLang.Idx × CoreLang.Ty × CoreLang.Idx → CoreTerm.M CoreTerm.Cx := fun __x =>
+      match __x with
+      | (n, u, k) =>
+        match CoreTerm.compTy u p with
+        | none => throw "loadAtF: bad field path"
+        | some c =>
+          have __do_jp := fun __r => do
+            let j ← CoreTerm.intIdx cx i
+            have __do_jp : Unit → CoreTerm.M CoreTerm.Cx := fun __r =>
+              have __do_jp := fun __r =>
+                have __do_jp := fun __r => cx.bind x c;
+                if CoreTerm.affine cx.ke c = true then do
+                  let __r ← throw "loadAtF would duplicate an affine value: use xchgAtF"
+                  __do_jp __r
+                else __do_jp ();
+              if (!cx.ltI j k) = true then do
+                let __r ← throw "loadAtF: the slot is not provably initialised"
+                __do_jp __r
+              else __do_jp ()
+            if (!cx.ltI j n) = true then do
+                let __r ← throw "loadAtF: the index is not provably below the capacity"
+                __do_jp __r
+              else __do_jp ();
+          if (!cx.opaqueOK u) = true then do
+            let __r ← throw "loadAtF: the slots' layout depends on an unpacked type"
+            __do_jp __r
+          else __do_jp ()
+    match CoreTerm.bufOf t with
+      | some (CoreLang.Mode.own, n, u, k) => do
+        let __x ← pure (n, u, k)
+        __do_jp __x
+      | some val => do
+        let __x ← throw "loadAtF works on own buffers"
+        __do_jp __x
+      | none => do
+        let __x ← throw "loadAtF needs a buffer"
+        __do_jp __x
+  | CoreTerm.Op.xchgAtF b i p v => do
+    let t ← cx.peek b
+    have __do_jp : CoreLang.Idx × CoreLang.Ty × CoreLang.Idx → CoreTerm.M CoreTerm.Cx := fun __x =>
+      match __x with
+      | (n, u, k) =>
+        match CoreTerm.compTy u p with
+        | none => throw "xchgAtF: bad field path"
+        | some c =>
+          have __do_jp := fun __r =>
+            have __do_jp := fun __r => do
+              let j ← CoreTerm.intIdx cx i
+              have __do_jp : Unit → CoreTerm.M CoreTerm.Cx := fun __r =>
+                have __do_jp := fun __r => do
+                  let __x ← cx.use v
+                  match __x with
+                    | (tv, cx) =>
+                      have __do_jp := fun __r => cx.bind x c;
+                      if (!CoreTerm.sub cx tv c) = true then do
+                        let __r ← throw "xchgAtF: the value does not have the component type"
+                        __do_jp __r
+                      else __do_jp ();
+                if (!cx.ltI j k) = true then do
+                  let __r ← throw "xchgAtF: the slot is not provably initialised"
+                  __do_jp __r
+                else __do_jp ()
+              if (!cx.ltI j n) = true then do
+                  let __r ← throw "xchgAtF: the index is not provably below the capacity"
+                  __do_jp __r
+                else __do_jp ();
+            if (!CoreLang.Ty.wordFreeIn cx.ke c) = true then do
+              let __r ← throw CoreTerm.wordCellMsg
+              __do_jp __r
+            else __do_jp ();
+          if (!cx.opaqueOK u) = true then do
+            let __r ← throw "xchgAtF: the slots' layout depends on an unpacked type"
+            __do_jp __r
+          else __do_jp ()
+    match CoreTerm.bufOf t with
+      | some (CoreLang.Mode.own, n, u, k) => do
+        let __x ← pure (n, u, k)
+        __do_jp __x
+      | some val => do
+        let __x ← throw "xchgAtF works on own buffers"
+        __do_jp __x
+      | none => do
+        let __x ← throw "xchgAtF needs a buffer"
+        __do_jp __x
+  | CoreTerm.Op.spawn f a T ts => do
+    let __x ← cx.use a
+    match __x with
+      | (t, cx) =>
+        have __do_jp := fun __r =>
+          have __do_jp := fun __r =>
+            have __do_jp := fun __r =>
+              have __do_jp := fun __r =>
+                have __do_jp := fun __r =>
+                  have __do_jp := fun __r => do
+                    let d ← p.find f
+                    let __x ← CoreTerm.instantiate { vars := [("a", T, true)], ret := CoreLang.Ty.unit } d [] ts
+                    match __x with
+                      | (fst, rt) => do
+                        CoreTerm.tailCheck p { vars := [("a", T, true)], ret := rt } f [] (CoreTerm.At.var "a") ts
+                        have __do_jp : Unit → CoreTerm.M CoreTerm.Cx := fun __r => cx.bind x CoreLang.Ty.tid
+                        if (!(TermClose.tb 0 rt && TermTv.mg rt && TermTv.noIallV rt)) = true then do
+                            let __r ←
+                              throw
+                                  "spawn: the callee's return type must be closed, guarded and without a value-position ∀"
+                            __do_jp __r
+                          else __do_jp ();
+                  if (!TermScope.wrapOK T || !ts.all TermScope.argOK) = true then do
+                    let __r ← throw "spawn: a key-carrying wrapper or type argument may not cross to the child"
+                    __do_jp __r
+                  else __do_jp ();
+                if (!TermScope.drf T || !ts.all TermScope.drf) = true then do
+                  let __r ← throw "spawn: no region type may cross to the child"
+                  __do_jp __r
+                else __do_jp ();
+              if (!TermClose.tb 0 T || !ts.all (TermClose.tb 0)) = true then do
+                let __r ← throw "spawn: the argument type and type arguments must be closed"
+                __do_jp __r
+              else __do_jp ();
+            if
+                (!CoreLang.Ty.wf (List.length cx.ke) 0 T || !ts.all fun x => CoreLang.Ty.wf (List.length cx.ke) 0 x) =
+                  true then
+              do
+              let __r ← throw "spawn: the argument type and type arguments must be index-closed"
+              __do_jp __r
+            else __do_jp ();
+          if (CoreTerm.affine cx.ke t || CoreTerm.affine cx.ke T) = true then do
+            let __r ← throw "spawn: the argument must be copyable (v1 passes no ownership)"
+            __do_jp __r
+          else __do_jp ();
+        if (!CoreTerm.sub cx t T) = true then do
+          let __r ← throw "spawn: the argument does not have the stated type"
+          __do_jp __r
+        else __do_jp ()
+  | CoreTerm.Op.ext n a => do
+    let __x ← cx.use a
+    match __x with
+      | (t, cx) =>
+        have __do_jp := fun __r =>
+          have __do_jp := fun __r => cx.bind x n.sig.snd;
+          if (!CoreTerm.sub cx t n.sig.fst) = true then do
+            let __r ← throw (toString n.name ++ toString ": the argument does not have the extern's type")
+            __do_jp __r
+          else __do_jp ();
+        if (!n.ok) = true then do
+          let __r ← throw (toString n.name ++ toString ": inadmissible extern")
+          __do_jp __r
+        else __do_jp ()
+CoreTerm.classify2M : CoreTerm.Cx → CoreLang.Proto2 → CoreLang.Idx → CoreLang.Idx → CoreTerm.M (Nat × CoreTerm.Lin × CoreTerm.Lin)
+CoreTerm.classifyM : CoreTerm.Cx → CoreLang.Proto → CoreLang.Idx → CoreTerm.M (Nat × CoreTerm.Lin)
+CoreTerm.clause2M : CoreLang.Proto2 → Nat → CoreTerm.M CoreLang.Clause2
+CoreTerm.clauseM : CoreLang.Proto → Nat → CoreTerm.M CoreLang.Clause
+CoreTerm.codeOf : CoreLang.Ty → Option (CoreLang.Ty × CoreLang.Ty)
+CoreTerm.compTy : CoreLang.Ty → List Nat → Option CoreLang.Ty
+CoreTerm.cvtSrc : CoreLang.Ty → Bool
+CoreTerm.fetchEpochTy : CoreLang.Idx → CoreLang.Proto → CoreLang.Ty
+CoreTerm.fetchOK : CoreLang.Proto → Nat → Bool
+CoreTerm.fixOf : CoreLang.Ty → Option (Bool × CoreLang.Wd)
+CoreTerm.foldOk : CoreTerm.Cx → CoreLang.Ty → CoreLang.Ty → Bool
+CoreTerm.instDecidableEqFence : DecidableEq CoreTerm.Fence
+CoreTerm.instDecidableEqFetchOp : DecidableEq CoreTerm.FetchOp
+CoreTerm.instDecidableEqPhase : DecidableEq CoreTerm.Phase
+CoreTerm.instT : List CoreLang.Idx → Nat → CoreLang.Ty → CoreLang.Ty
+CoreTerm.instantiate : CoreTerm.Cx → CoreTerm.Decl → List String → optParam (List CoreLang.Ty) [] → CoreTerm.M (CoreLang.Ty × CoreLang.Ty)
+CoreTerm.intIdx : CoreTerm.Cx → CoreTerm.At → CoreTerm.M CoreLang.Idx
+CoreTerm.intOf : CoreLang.Ty → Option (Option CoreLang.Idx)
+CoreTerm.lanesOf : CoreLang.Ty → Option (Bool × CoreLang.Wd)
+CoreTerm.lendOf : CoreTerm.Cx → CoreLang.Cap → CoreLang.Ty → CoreTerm.M CoreLang.Idx
+CoreTerm.noLeak : CoreTerm.Cx → CoreLang.Ty → CoreTerm.M Unit
+CoreTerm.pairRef : CoreLang.Ty → Bool
+CoreTerm.phaseFence : CoreTerm.Phase → CoreTerm.Phase
+CoreTerm.pstep : CoreLang.Proto → Nat → CoreTerm.Lin → Nat → CoreTerm.Lin → Bool
+CoreTerm.pstep2 : CoreLang.Proto2 → Nat → CoreTerm.Lin → CoreTerm.Lin → Nat → CoreTerm.Lin → CoreTerm.Lin → Bool
+CoreTerm.pwf : CoreLang.Proto → Bool
+CoreTerm.pwf2 : CoreLang.Proto2 → Bool
+CoreTerm.pwfE : CoreLang.ECounter → Bool
+CoreTerm.rgnCellOK : CoreLang.KEnv → CoreLang.Ty → Bool
+CoreTerm.sawFor : CoreTerm.Cx → String → CoreLang.Idx → Option CoreLang.Idx
+CoreTerm.sub : CoreTerm.Cx → CoreLang.Ty → CoreLang.Ty → Bool
+CoreTerm.tailCheck : CoreTerm.Prog → CoreTerm.Cx → String → List String → CoreTerm.At → List CoreLang.Ty → CoreTerm.M Unit
+CoreTerm.toIntSrc : CoreLang.Ty → Bool
+CoreTerm.tornLicence : CoreTerm.Cx → CoreLang.Idx → CoreTerm.M (String × CoreLang.Idx)
+CoreTerm.unfold1 : CoreLang.Ty → CoreLang.Ty
+CoreTerm.varOf : CoreTerm.At → CoreTerm.M String
+CoreTerm.word2Of : CoreLang.Ty → Option (CoreLang.Idx × CoreLang.Proto2)
+CoreTerm.wordCellMsg : String
+CoreTerm.wordOf : CoreLang.Ty → Option (CoreLang.Idx × CoreLang.Proto)
+CoreTerm.xchgCell : CoreTerm.Cx → CoreLang.Ty → CoreTerm.M (CoreLang.Ty × CoreLang.Ty)
+TermClose.tb : Nat → CoreLang.Ty → Bool
+  eq_def ∀ (c : Nat) (x : CoreLang.Ty),
+  TermClose.tb c x =
+    match x with
+    | CoreLang.Ty.tvar k => decide (k < c)
+    | a.prod b => TermClose.tb c a && TermClose.tb c b
+    | a.sum b => TermClose.tb c a && TermClose.tb c b
+    | a.code b k => TermClose.tb c a && TermClose.tb c b
+    | CoreLang.Ty.array i t => TermClose.tb c t
+    | CoreLang.Ty.ptr μ t => TermClose.tb c t
+    | CoreLang.Ty.ptrOpt μ t => TermClose.tb c t
+    | CoreLang.Ty.loc μ t => TermClose.tb c t
+    | t.mu => TermClose.tb (c + 1) t
+    | CoreLang.Ty.tex κ t => TermClose.tb (c + 1) t
+    | t.iall => TermClose.tb c t
+    | t.iex => TermClose.tb c t
+    | t.refine ψ => TermClose.tb c t
+    | x => true
+TermScope.argOK : CoreLang.Ty → Bool
+  := fun t => TermScope.wrapOK t && !TermScope.rcar t
+TermScope.drf : CoreLang.Ty → Bool
+  eq_def ∀ (x : CoreLang.Ty),
+  TermScope.drf x =
+    match x with
+    | a.prod b => TermScope.drf a && TermScope.drf b
+    | a.sum b => TermScope.drf a && TermScope.drf b
+    | a.code b k => TermScope.drf a && TermScope.drf b
+    | CoreLang.Ty.array i t => TermScope.drf t
+    | CoreLang.Ty.ptr μ t => TermScope.drfM μ && TermScope.drf t
+    | CoreLang.Ty.ptrOpt μ t => TermScope.drfM μ && TermScope.drf t
+    | CoreLang.Ty.loc μ t => TermScope.drfM μ && TermScope.drf t
+    | t.mu => TermScope.drf t
+    | CoreLang.Ty.tex κ t => TermScope.drf t
+    | τ.iall => false
+    | t.iex => TermScope.drf t
+    | t.refine ψ => TermScope.drf t
+    | x => true
+TermScope.drfM : CoreLang.Mode → Bool
+  := fun x =>
+  match x with
+  | CoreLang.Mode.rgn r => false
+  | x => true
+TermScope.rcar : CoreLang.Ty → Bool
+  := fun t => TermScope.rcarE [] t
+TermScope.rcarE : List Bool → CoreLang.Ty → Bool
+  eq_def ∀ (env : List Bool) (x : CoreLang.Ty),
+  TermScope.rcarE env x =
+    match x with
+    | CoreLang.Ty.word r P => true
+    | CoreLang.Ty.word2 r P => true
+    | CoreLang.Ty.tok r st => true
+    | CoreLang.Ty.tok2 r P i0 i1 => true
+    | CoreLang.Ty.tokE r P e => true
+    | CoreLang.Ty.share r => true
+    | a.prod b => TermScope.rcarE env a || TermScope.rcarE env b
+    | a.sum b => TermScope.rcarE env a || TermScope.rcarE env b
+    | CoreLang.Ty.tvar k => env.getD k false
+    | t.mu => TermScope.rcarE (TermScope.rcarE (false :: env) t :: env) t
+    | CoreLang.Ty.tex κ t => TermScope.rcarE (false :: env) t
+    | t.iall => TermScope.rcarE env t
+    | t.iex => TermScope.rcarE env t
+    | t.refine ψ => TermScope.rcarE env t
+    | x => false
+TermScope.wrapOK : CoreLang.Ty → Bool
+  := fun t => TermScope.wrapOKE [] t
+TermScope.wrapOKE : List Bool → CoreLang.Ty → Bool
+  eq_def ∀ (env : List Bool) (x : CoreLang.Ty),
+  TermScope.wrapOKE env x =
+    match x with
+    | a.sum b => !TermScope.rcarE env a && !TermScope.rcarE env b && TermScope.wrapOKE env a && TermScope.wrapOKE env b
+    | t.iex => !TermScope.rcarE env t && TermScope.wrapOKE env t
+    | t.refine ψ => !TermScope.rcarE env t && TermScope.wrapOKE env t
+    | CoreLang.Ty.tex κ t => !TermScope.rcarE (false :: env) t && TermScope.wrapOKE (false :: env) t
+    | t.mu => TermScope.wrapOKE (TermScope.rcarE (false :: env) t :: env) t
+    | a.prod b => TermScope.wrapOKE env a && TermScope.wrapOKE env b
+    | a.code b k => TermScope.wrapOKE env a && TermScope.wrapOKE env b
+    | CoreLang.Ty.array i t => TermScope.wrapOKE env t
+    | CoreLang.Ty.ptr μ t => TermScope.wrapOKE env t
+    | CoreLang.Ty.ptrOpt μ t => TermScope.wrapOKE env t
+    | CoreLang.Ty.loc μ t => TermScope.wrapOKE env t
+    | t.iall => TermScope.wrapOKE env t
+    | x => true
+TermTv.mg : CoreLang.Ty → Bool
+  eq_def ∀ (x : CoreLang.Ty),
+  TermTv.mg x =
+    match x with
+    | t.mu => !CoreLang.Ty.unguarded 0 t && TermTv.mg t
+    | a.prod b => TermTv.mg a && TermTv.mg b
+    | a.sum b => TermTv.mg a && TermTv.mg b
+    | a.code b k => TermTv.mg a && TermTv.mg b
+    | CoreLang.Ty.array i t => TermTv.mg t
+    | CoreLang.Ty.ptr μ t => TermTv.mg t
+    | CoreLang.Ty.ptrOpt μ t => TermTv.mg t
+    | CoreLang.Ty.loc μ t => TermTv.mg t
+    | CoreLang.Ty.tex κ t => TermTv.mg t
+    | t.iall => TermTv.mg t
+    | t.iex => TermTv.mg t
+    | t.refine ψ => TermTv.mg t
+    | x => true
+TermTv.noIallV : CoreLang.Ty → Bool
+  eq_def ∀ (x : CoreLang.Ty),
+  TermTv.noIallV x =
+    match x with
+    | τ.iall => false
+    | a.prod b => TermTv.noIallV a && TermTv.noIallV b
+    | a.sum b => TermTv.noIallV a && TermTv.noIallV b
+    | CoreLang.Ty.array i t => TermTv.noIallV t
+    | t.mu => TermTv.noIallV t
+    | CoreLang.Ty.tex κ t => TermTv.noIallV t
+    | t.iex => TermTv.noIallV t
+    | t.refine ψ => TermTv.noIallV t
+    | x => true

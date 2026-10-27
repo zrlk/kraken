@@ -32,20 +32,14 @@ def printLIn (prog : List Directive) : Bool :=
   blockAt prog ".L21_wc_printL.stack_check" 5 b2 &&
   blockAt prog ".L21_wc_printL.0_entry" 0 b3 &&
   blockAt prog ".L21_wc_printL.0_entry" 17 b4 &&
-  blockAt prog ".L21_wc_printL.0_entry" 22 b5 &&
-  blockAt prog ".L21_wc_printL.0_entry" 32 b6 &&
-  blockAt prog ".L21_wc_printL.1_deep9" 0 b7 &&
-  blockAt prog ".L21_wc_printL.2_call10" 0 b8 &&
-  blockAt prog ".L21_wc_printL.2_call10" 3 b9 &&
-  blockAt prog ".L21_wc_printL.sp12" 0 b10 &&
-  blockAt prog ".L21_wc_printL.sp12" 6 b11 &&
-  blockAt prog ".L21_wc_printL.sp12" 10 b12 &&
-  blockAt prog ".L21_wc_printL.3_then12" 0 b13 &&
-  blockAt prog ".L21_wc_printL.4_else13" 0 b14 &&
-  blockAt prog ".L21_wc_printL.4_else13" 9 b15 &&
-  blockAt prog ".L21_wc_printL.stack_grow" 0 b16 &&
-  blockAt prog ".L21_wc_printL.sp_check" 0 b17 &&
-  blockAt prog ".L21_wc_printL.abort_overflow" 0 b18 &&
+  blockAt prog ".L21_wc_printL.sp5" 0 b5 &&
+  blockAt prog ".L21_wc_printL.sp5" 5 b6 &&
+  blockAt prog ".L21_wc_printL.1_then6" 0 b7 &&
+  blockAt prog ".L21_wc_printL.2_else7" 0 b8 &&
+  blockAt prog ".L21_wc_printL.2_else7" 9 b9 &&
+  blockAt prog ".L21_wc_printL.stack_grow" 0 b10 &&
+  blockAt prog ".L21_wc_printL.sp_check" 0 b11 &&
+  blockAt prog ".L21_wc_printL.abort_overflow" 0 b12 &&
   labelGap prog "wc_printL" ".L21_wc_printL.stack_check" 0 &&
   labelGap prog ".L21_wc_printL.stack_check" ".L21_wc_printL.0_entry" 14 &&
   labelGap prog ".L21_wc_printL.stack_grow" ".L21_wc_printL.sp_check" 14
@@ -61,7 +55,7 @@ private theorem gaps (h : printLIn prog = true) :
     labelGap prog ".L21_wc_printL.stack_check" ".L21_wc_printL.0_entry" 14 = true ∧
     labelGap prog ".L21_wc_printL.stack_grow" ".L21_wc_printL.sp_check" 14 = true := by
   simp only [printLIn, Bool.and_eq_true, and_assoc] at h
-  exact h.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2
+  exact h.2.2.2.2.2.2.2.2.2.2.2.2.2
 
 /-- `.stack_check` at `wc_printL` (`seg_printL`'s `hcheck`). -/
 theorem check_printL {kp : Nat} (hp : Lays exe prog kp) (h : printLIn prog = true) :
@@ -91,8 +85,8 @@ theorem code_printL {kp : Nat} (hp : Lays exe prog kp) (hend : endPc = endOf exe
     (c0 : Ctl) (x29 ra : BitVec 64) : Code c0 x29 ra exe endPc := by
   have hc := check_printL hp h
   simp only [printLIn, Bool.and_eq_true, and_assoc] at h
-  obtain ⟨h0, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18, -⟩ := h
-  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  obtain ⟨h0, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, -⟩ := h
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · exact code_field hp hend h0 (by simp only [N, hc, add4, add0])
   · exact code_field hp hend h1 (by simp only [N, hc, add4, add0])
   · exact code_field hp hend h2 (by simp only [N, hc, add4, add0])
@@ -106,12 +100,6 @@ theorem code_printL {kp : Nat} (hp : Lays exe prog kp) (hend : endPc = endOf exe
   · exact code_field hp hend h10 (by simp only [N, add4, add0])
   · exact code_field hp hend h11 (by simp only [N, add4, add0])
   · exact code_field hp hend h12 (by simp only [N, add4, add0])
-  · exact code_field hp hend h13 (by simp only [N, add4, add0])
-  · exact code_field hp hend h14 (by simp only [N, add4, add0])
-  · exact code_field hp hend h15 (by simp only [N, add4, add0])
-  · exact code_field hp hend h16 (by simp only [N, add4, add0])
-  · exact code_field hp hend h17 (by simp only [N, add4, add0])
-  · exact code_field hp hend h18 (by simp only [N, add4, add0])
 
 /-- `.sp_check` at the grow stub's return address (`hms_printL`'s `hsp`). -/
 theorem sp_printL {kp : Nat} (hp : Lays exe prog kp) (h : printLIn prog = true) :

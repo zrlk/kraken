@@ -326,7 +326,8 @@ def keywords : List String :=
    "cvt", "toInt", "asLanes", "fop", "fcmp", "fop1", "lane", "setLane", "ldl", "stl", "ldlw",
    "stlw", "unpack", "region", "openPub", "type", "proto", "exists", "forall", "mu",
    "mkWord2", "ldp", "stp", "casp", "mkEPair", "mkTicket", "claim", "fetch",
-   "spawn", "emit", "current", "exitEv"]
+   "spawn", "emit", "current", "exitEv",
+   "park", "unpark", "mmioRead", "mmioWrite", "regAt", "devRecv", "devWrite", "devChoice", "devIrq", "devOut"]
 
 def validName (s : String) : Bool :=
   match s.toList with
@@ -607,6 +608,40 @@ def fixOfName (s : String) : Option (Bool × Wd) :=
 
 def fixName (sg : Bool) (w : Wd) : String := (if sg then "I" else "U") ++ w.name
 
+/-- (M1) A register width in bits. -/
+def pWd : P Wd := do
+  match (← cur).tk with
+  | .num 8 => bump; pure .w8
+  | .num 16 => bump; pure .w16
+  | .num 32 => bump; pure .w32
+  | .num 64 => bump; pure .w64
+  | t => failP s!"expected a register width (8, 16, 32, 64), found {t.show}"
+
+/-- (M1) A register access: `ro`, `wo`, `rw`. -/
+def pAcc : P RegAcc := do
+  match (← cur).tk with
+  | .id "ro" => bump; pure .ro
+  | .id "wo" => bump; pure .wo
+  | .id "rw" => bump; pure .rw
+  | t => failP s!"expected a register access (ro, wo, rw), found {t.show}"
+
+/-- (M1) An ordering mode: `plain`, `rel`, `acq`. -/
+def pMo : P Mo := do
+  match (← cur).tk with
+  | .id "plain" => bump; pure .plain
+  | .id "rel" => bump; pure .rel
+  | .id "acq" => bump; pure .acq
+  | t => failP s!"expected an ordering mode (plain, rel, acq), found {t.show}"
+
+/-- (M1) Numbers up to the symbol `s` (not consumed). -/
+partial def pNatsTill (s : String) : P (List Nat) := do
+  if ← isSym s then pure [] else
+    let n ← pNat
+    return n :: (← pNatsTill s)
+
+/-- (M1) A width in brackets: `[32]`. -/
+def pWdB : P Wd := do expectSym "["; let w ← pWd; expectSym "]"; pure w
+
 mutual
 partial def pTy (env : Env) (sc : Sc) : P Ty := do
   match (← cur).tk with
@@ -647,12 +682,25 @@ partial def pTyAtom (env : Env) (sc : Sc) : P Ty := do
   | .id "Unit" => bump; pure .unit
   | .id "Void" => bump; pure .void
   | .id "ThreadId" => bump; pure .tid
+  | .id "Reg" =>
+      bump; expectSym "["; let w ← pWd; expectSym ","; let acc ← pAcc; expectSym "]"; pure (.opq (.reg w acc))
+  | .id "Blk" =>
+      bump; expectSym "["; let n ← pNat; expectSym ","; let w ← pWd; expectSym ","; let acc ← pAcc
+      let st ← if ← eatSym "," then do expectKw "stride"; pNat else pure (Wd.bits w / 8)
+      let tk ← if ← eatSym ";" then pNatsTill "]" else pure []
+      expectSym "]"; pure (.opq (.blk n w acc st tk))
+  | .id "Bus" => bump; pure (.opq .bus)
+  | .id "Irq" => bump; pure (.opq .irq)
   | .id "Int" =>
       bump
       if ← eatSym "[" then let i ← pIdx sc; expectSym "]"; pure (.intS i) else pure .int
   | .id "Code" =>
-      bump; expectSym "("; let a ← pTy env sc; expectSym ","; let b ← pTy env sc; expectSym ")"
-      pure (.code a b)
+      bump; expectSym "("; let a ← pTy env sc; expectSym ","; let b ← pTy env sc
+      let k ← if ← eatSym ";" then do
+          expectKw "restricted"; let f ← pNat; let s ← pNat; pure (CodeKind.restricted f s)
+        else pure CodeKind.plain
+      expectSym ")"
+      pure (.code a b k)
   | .id "Word" =>
       bump; expectSym "["; let r ← pIdx sc; expectSym ","; let P ← pProto env; expectSym "]"
       pure (.word r P)
@@ -887,6 +935,24 @@ def pOp (env : Env) (sc : Sc) : P Op := do
     | "emit" => bump; pure (.ext .emit (← a1))
     | "current" => bump; pure (.ext .current (← a1))
     | "exitEv" => bump; pure (.ext .exitEv (← a1))
+    | "park" => bump; pure (.ext .park (← a1))
+    | "unpark" => bump; pure (.ext .unpark (← a1))
+    | "mmioRead" =>
+        bump; expectSym "["; let w ← pWd; expectSym ","; let acc ← pAcc; expectSym ","; let mo ← pMo; expectSym "]"
+        pure (.ext (.mmioR w acc mo) (← a1))
+    | "mmioWrite" =>
+        bump; expectSym "["; let w ← pWd; expectSym ","; let acc ← pAcc; expectSym ","; let mo ← pMo; expectSym "]"
+        pure (.ext (.mmioW w acc mo) (← a1))
+    | "regAt" =>
+        bump; expectSym "["; let k ← pNat; expectKw "of"
+        match ← pTyAtom env sc with
+        | .opq (.blk n w acc st tk) => expectSym "]"; pure (.ext (.regAt n w acc st tk k) (← a1))
+        | _ => failP "regAt: expected a block type `Blk[…]` after `of`"
+    | "devRecv" => bump; let w ← pWdB; pure (.ext (.devRecv w) (← a1))
+    | "devWrite" => bump; let w ← pWdB; pure (.ext (.devWrite w) (← a1))
+    | "devChoice" => bump; let w ← pWdB; pure (.ext (.devChoice w) (← a1))
+    | "devIrq" => bump; pure (.ext .devIrq (← a1))
+    | "devOut" => bump; let w ← pWdB; pure (.ext (.devOut w) (← a1))
     | "setLane" => bump; pure (.setLane (← a1) (← a1) (← a1))
     | "ldl" => bump; pure (.ldl (← a1) (← a1))
     | "stl" => bump; pure (.stl (← a1) (← a1) (← a1))
@@ -1021,6 +1087,12 @@ partial def pExpr (env : Env) (sc : Sc) : P Expr := do
 /-! ### Code blocks and programs -/
 
 def pDecl (env : Env) : P Decl := do
+  -- (M1, T6) the decl kind: `device def`, `restricted[fuel N, stack K] def` (the checker refuses the latter)
+  let kind ← if ← eatKw "device" then pure DeclKind.device
+    else if ← eatKw "restricted" then do
+      expectSym "["; expectKw "fuel"; let f ← pNat; expectSym ","; expectKw "stack"; let s ← pNat; expectSym "]"
+      pure (DeclKind.restricted f s)
+    else pure DeclKind.plain
   expectKw "def"
   let name ← pName
   let tps ← if ← eatSym "[" then do
@@ -1037,9 +1109,9 @@ def pDecl (env : Env) : P Decl := do
   expectSym "="
   -- The signature, for the body's scope (and its own recursive calls).
   let sig : Decl := { name, tparams := tps.map (·.2), idx, arg := x, argTy := at_, retTy := rt,
-                      body := Scope.hole }
+                      body := Scope.hole, kind }
   let body ← pExpr { env with lib := sig :: env.lib } { sc with cx := some (Scope.start sig) }
-  pure { name, tparams := tps.map (·.2), idx, arg := x, argTy := at_, retTy := rt, body }
+  pure { name, tparams := tps.map (·.2), idx, arg := x, argTy := at_, retTy := rt, body, kind }
 
 /-- Code blocks, with `type N = τ` and `proto N = P` naming things for what follows. -/
 partial def pProg (env : Env) (acc : List Decl) : P (List Decl × Env) := do
@@ -1184,12 +1256,18 @@ def showEC (env : Env) : ECounter → String
 
 partial def showTy (env : Env) (sc : Sc) (p : Nat) : Ty → String
   | .unit => "Unit" | .void => "Void" | .int => "Int" | .tid => "ThreadId"
+  | .opq (.reg w acc) => s!"Reg[{w.bits}, {acc.name}]"
+  | .opq (.blk n w acc st tk) => s!"Blk[{n}, {w.bits}, {acc.name}" ++
+      (if st == Wd.bits w / 8 then "" else s!", stride {st}") ++
+      (if tk.isEmpty then "" else "; " ++ " ".intercalate (tk.map toString)) ++ "]"
+  | .opq .bus => "Bus" | .opq .irq => "Irq"
   | .intS i => "Int[" ++ showIdx sc 0 i ++ "]"
   | .fix sg w => fixName sg w
   | .lanes sg w => "Lanes" ++ fixName sg w
   | .prod a b => paren (p > 2) (showTy env sc 3 a ++ " * " ++ showTy env sc 2 b)
   | .sum a b => paren (p > 1) (showTy env sc 2 a ++ " + " ++ showTy env sc 1 b)
-  | .code a b => "Code(" ++ showTy env sc 0 a ++ ", " ++ showTy env sc 0 b ++ ")"
+  | .code a b k => "Code(" ++ showTy env sc 0 a ++ ", " ++ showTy env sc 0 b ++
+      (match k with | .plain => "" | .restricted f s => s!"; restricted {f} {s}") ++ ")"
   | .array i t => paren (p > 3) ("Array[" ++ showIdx sc 0 i ++ "] " ++ showTy env sc 3 t)
   | .ptr μ t => paren (p > 3) ("Ptr" ++ showMode sc μ ++ " " ++ showTy env sc 3 t)
   | .ptrOpt μ t => paren (p > 3) ("Ptr?" ++ showMode sc μ ++ " " ++ showTy env sc 3 t)
@@ -1256,6 +1334,8 @@ def showOp (env : Env) (sc : Sc) : Op → String
   | .spawn f a T ts => "spawn " ++ nameStr f ++
       (if ts.isEmpty then "" else "[" ++ ", ".intercalate (ts.map (showTy env sc 0)) ++ "]") ++
       " " ++ showAt a ++ " : " ++ showTy env sc 0 T
+  | .ext (.regAt n w acc st tk k) a =>
+      "regAt[" ++ toString k ++ " of " ++ showTy env sc 0 (.opq (.blk n w acc st tk)) ++ "] " ++ showAt a
   | .ext n a => n.name ++ " " ++ showAt a
   | .fetch o acq rel a v => "fetch " ++ nameOf fetchNames o ++ " " ++ (if acq then "acq " else "") ++
       (if rel then "rel " else "") ++ showAt a ++ " " ++ showAt v
@@ -1368,7 +1448,9 @@ def declSc (d : Decl) : Sc × List String :=
 def showDecl (d : Decl) (env : Env := {}) : String :=
   let (sc, tns) := declSc d
   let tps := (tns.zip d.tparams).map fun (a, κ) => if κ == {} then a else a ++ " : " ++ showKind κ
-  let head := "def " ++ nameStr d.name ++
+  let head := (match d.kind with
+      | .plain => "" | .device => "device " | .restricted f s => s!"restricted[fuel {f}, stack {s}] ") ++
+    "def " ++ nameStr d.name ++
     (if tps.isEmpty then "" else "[" ++ ", ".intercalate tps ++ "]") ++
     (if d.idx.isEmpty then "" else "{" ++ ", ".intercalate (d.idx.map nameStr) ++ "}") ++
     "(" ++ nameStr d.arg ++ " : " ++ showTy env sc 0 d.argTy ++ ") : " ++ showTy env sc 0 d.retTy ++ " ="
@@ -1390,7 +1472,7 @@ def showExpr (e : Expr) (env : Env := {}) (idx : List String := []) : String :=
 def sameExpr (a b : Expr) : Bool := toString (repr a) == toString (repr b)
 def sameOp (a b : Op) : Bool := toString (repr a) == toString (repr b)
 def sameDecl (a b : Decl) : Bool :=
-  a.name == b.name && a.tparams == b.tparams && a.idx == b.idx && a.arg == b.arg &&
+  a.name == b.name && a.kind == b.kind && a.tparams == b.tparams && a.idx == b.idx && a.arg == b.arg &&
   a.argTy == b.argTy && a.retTy == b.retTy && sameExpr a.body b.body
 
 /-- `parse (show d) = d`. -/
@@ -1415,6 +1497,18 @@ def roundTripReport (d : Decl) (env : Env := {}) : String :=
 #guard (parseTy "∃a. Ptr pub (Word[a, Seq] × Ptr[a] (Int × Int))").toOption == some (seqLock pay)
 #guard (parseTy "Word[0, <2k!, 2k+1 ; 0->1, 1->0+1>]").toOption == some (.word (.lit 0) seqP)
 #guard (parseTy "mu t. Int * Ptr? pub t").toOption == some (.mu (.prod .int (.ptrOpt .pub (.tvar 0))))
+-- (M1) the device surface: types print and reparse to themselves
+#guard ["Reg[32, rw]", "Blk[16, 32, rw]", "Blk[16, 32, rw, stride 8; 0 3]", "Bus", "Irq",
+    "Code(Int, Unit; restricted 64 8)", "Code(Int, Unit)"].all fun s =>
+  match parseTy s with | .ok t => (parseTy (showType t)).toOption == some t | .error _ => false
+#guard match parseDecl "device def f(x : Reg[32, rw]) : Unit = ret ()" with
+  | .ok d => d.kind == .device && roundTrips d | .error _ => false
+#guard match parseDecl "restricted[fuel 64, stack 8] def g(x : Int) : Unit = ret ()" with
+  | .ok d => d.kind == .restricted 64 8 && roundTrips d | .error _ => false
+#guard match parseDecl "device def h(b : Blk[16, 32, rw, stride 8; 0 3]) : Unit = let r = regAt[1 of Blk[16, 32, rw, stride 8; 0 3]] b let v = mmioRead[32, rw, acq] r let u = park v ret ()" with
+  | .ok d => roundTrips d | .error _ => false
+-- `regAt` admissibility: index 3 is already taken in `Blk[16, 32, rw, stride 8; 0 3]` (refused); 1 is fresh
+#guard (ExtName.regAt 16 .w32 .rw 8 [0, 3] 3).ok == false && (ExtName.regAt 16 .w32 .rw 8 [0, 3] 1).ok
 #guard (parseTy "{Int | 2*3 + 1 <= 7 && true}").toOption ==
   some (.refine .int (.and (.le (.add (.smul 2 (.lit 3)) (.lit 1)) (.lit 7)) .tt))
 #guard (parseTy "U8 * LanesI16").toOption == some (.prod (.fix false .w8) (.lanes true .w16))

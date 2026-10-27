@@ -28,7 +28,9 @@
 #      instead (a file linked otherwise, or a damaged one for the tests).
 #   3. The ELF layout reader (`Scc.Cert.Elf.elfParts`) on T, by evaluation,
 #      for its refusal, if any, in a few seconds.
-#   4. T.post.lean: the certificate without its decisions at the static link
+#   4. T.post.lean (with --instantiate its header comment, and a line of
+#      output before the verdict, name the theorem's path, below): the
+#      certificate without its decisions at the static link
 #      (`prog_placeOK*`, `prog_cert_ready`), then the layout of T as a literal
 #      (`scc_elf_layout%`, with the executable's SHA-256 checked by `#guard`),
 #      `placeOKAt` at it decided component by component (`decide +kernel`) and,
@@ -46,11 +48,25 @@
 #   10 placement decided: acceptance and `placeOKAt` at the executable's
 #      layout check, the theorem is not instantiated (no --instantiate);
 #   3  not certifiable: outside the certified fragment (non-tail recursion:
-#      no stack need table; or not `Scc.Lower.Accepted0`), or a component AN
+#      no stack need table; or not `Scc.Lower.Accepted1`; on x64 with
+#      --instantiate, `main`'s frame above 4096 bytes and not
+#      `Scc.Lower.Accepted0`), or a component AN
 #      of `placeOKAt` fails at the executable's layout;
 #   1  failed: scc, the assembler, the linker or the reader fails (a damaged
 #      executable), or T.post.lean does not check for another reason;
 #   2  usage.
+#
+# The theorem instantiated: on arm `a64_scc_correctE_text_closedAt1`
+# (fragment `Scc.Lower.Accepted1`, `prog_accepted1`). On x64
+# `x64_scc_correctE_text_closedAt1` (`prog_accepted1`) when `main`'s frame is
+# at most 4096 bytes (`Spike.Lib.LowerX64.MainFrame1Ok`: evaluated to choose,
+# untrusted, then `prog_mainFrame1` by `decide +kernel`), else, for an
+# `Scc.Lower.Accepted0` program, `x64_scc_correctE_text_closedAt`
+# (`prog_accepted`). CERTIFY_X64_FRAGMENT=0 in the environment takes the
+# latter for every `Accepted0` program (a test of that path: no `Accepted0`
+# program found exceeds the bound; one with `maxAdds0` checked `+`s has a
+# frame of 4064 bytes, evidence that the fallback is rarely taken, not a
+# proof that it is never needed).
 set -u
 
 ARCH=x64; INST=0; ELF=""; SRC=""; VERBOSE=0
@@ -114,7 +130,7 @@ else CERT_MODS="Scc.Cert.Arm Scc.Cert.OutStageA64 Scc.Cert.E2EA64"; fi
 build "scc and the certificate modules" "about 15 minutes on 64 cores" scc scc_x64 scc_arm Scc.Cert.Elf Scc.Cert.SrcTerm $CERT_MODS \
   || verdict 1 "failed: lake build scc (log: $BLOG)"
 if [ $INST = 1 ]; then
-  if [ "$ARCH" = x64 ]; then THM_MOD=Spike.Lib.LowerX64.Correct; else THM_MOD=Spike.Lib.LowerA64.Correct; fi
+  if [ "$ARCH" = x64 ]; then THM_MOD=Spike.Lib.LowerX64.Correct1; else THM_MOD=Spike.Lib.LowerA64.Correct1; fi
   build "the compiler theorem" "about 3 minutes" "$THM_MOD" || verdict 1 "failed: lake build $THM_MOD (log: $BLOG)"
 fi
 show "$WORK" cp "$SRCABS" "$T.w"
@@ -133,9 +149,51 @@ hs=$(sha256sum "$T.w" | cut -d' ' -f1); ha=$(sha256sum "$T.s" | cut -d' ' -f1)
 if [ "$(grep -c "^-- SHA-256 (UTF-8): \($hs\|$ha\)\$" "$T.cert.lean")" != 2 ]; then
   verdict 1 "failed: the certificate's digests differ from sha256sum"
 fi
-if grep -q '^theorem prog_not_accepted' "$T.cert.lean"; then
-  verdict 3 "not certifiable: outside the certified fragment (not Scc.Lower.Accepted0)"
+# The fragment: `Scc.Lower.Accepted1` (`prog_accepted1`, which every
+# `Accepted0` program has: `Scc.Lower.accepted1_of_accepted0`). On x64 the
+# theorem over it also needs `main`'s frame within 4096 bytes
+# (`MainFrame1Ok`); without it an `Accepted0` program takes the theorem over
+# `Accepted0` (`prog_accepted`), which needs no such bound.
+ACC="prog_accepted1"; ACCP="Scc.Lower.Accepted1"; IMMS="Scc.Lower.imms1Of prog_src"; HFR=""
+PATHN="closedAt1"
+if ! grep -q "^theorem $ACC : $ACCP prog_src = true" "$T.cert.lean"; then
+  verdict 3 "not certifiable: outside the certified fragment (not $ACCP)"
 fi
+if [ "$ARCH" = x64 ] && [ $INST = 1 ]; then
+  # `MainFrame1Ok` by evaluation, to choose the theorem (untrusted: the
+  # kernel decides it below, `prog_mainFrame1`).
+  {
+    echo "import Scc.Frontend"
+    echo "import Spike.Lib.LowerX64.MainCode1"
+    grep '^def config : Scc.Config :=' "$T.cert.lean"
+    cat <<EOF
+#eval show IO Unit from do
+  match Scc.Frontend.run (← IO.FS.readFile "$REL/$T.w") with
+  | .ok c => match c.prog with
+    | [d] => IO.println s!"certify-frame1: {Spike.Lib.LowerX64.MainFrame1Ok config d}"
+    | _ => IO.println "certify-frame1: false"
+  | .error _ => IO.println "certify-frame1: false"
+EOF
+  } >"$T.frame1.lean"
+  wrote "$WORK/$T.frame1.lean" "MainFrame1Ok of main, by evaluation: prints certify-frame1: true or false"
+  show "$ROOT" "$LAKE" env lean "$WORK/$T.frame1.lean"
+  r=$(cd "$ROOT" && "$LAKE" env lean "$WORK/$T.frame1.lean" 2>&1 | sed -n 's/^certify-frame1: //p' | head -n 1)
+  [ "${CERTIFY_X64_FRAGMENT:-}" = 0 ] && [ "$r" = true ] && r=false
+  case "$r" in
+    true) HFR=" prog_mainFrame1"; PATHN="closedAt1+MainFrame1Ok" ;;
+    false)
+      if grep -q "^theorem prog_accepted : Scc.Lower.Accepted0 prog_src = true" "$T.cert.lean"; then
+        ACC="prog_accepted"; ACCP="Scc.Lower.Accepted0"; IMMS="Spike.Lib.LowerNode.immsOf main"
+        PATHN="closedAt fallback"
+      else
+        verdict 3 "not certifiable: main's frame exceeds 4096 bytes (not MainFrame1Ok) and not Scc.Lower.Accepted0"
+      fi ;;
+    *) verdict 1 "failed: MainFrame1Ok could not be evaluated" ;;
+  esac
+fi
+# The theorem's path, on stdout and in T.post.lean's header (chosen by
+# evaluation, untrusted: the kernel checks the theorem instantiated).
+[ $INST = 1 ] && echo "certify: $T ($ARCH): theorem: $PATHN"
 
 # 2. Assemble and link (run.sh's commands), or take the given executable.
 if [ -n "$ELF" ]; then
@@ -174,17 +232,48 @@ esac
 if [ "$ARCH" = x64 ]; then
   HPA="Scc.Cert.Link.X64.parsesTo ⟨asm, sizes, labelOffs⟩ out.prog out.secs"; TEXT="⟨asm, sizes, labelOffs⟩"
   CORRECTE="Scc.Sem.X64.CorrectE"; THM="Spike.Lib.LowerX64.x64_scc_correctE_text_closedAt"
+  [ "$ACC" = prog_accepted1 ] && THM="Spike.Lib.LowerX64.x64_scc_correctE_text_closedAt1"
   CODEEND="Scc.Sem.X64.codeEnd"; E2E="Scc.Cert.E2E.X64"; E2E_MOD="Scc.Cert.E2EX64"
 else
   CODEEND="Scc.Sem.A64.codeEnd"; E2E="Scc.Cert.E2E.A64"; E2E_MOD="Scc.Cert.E2EA64"
   HPA="Scc.Cert.Link.A64.parsesTo asm out.prog out.secs"; TEXT="asm"
-  CORRECTE="Scc.Sem.A64.CorrectE"; THM="Spike.Lib.LowerA64.a64_scc_correctE_text_closedAt"
+  CORRECTE="Scc.Sem.A64.CorrectE"; THM="Spike.Lib.LowerA64.a64_scc_correctE_text_closedAt1"
 fi
 L="⟨elf.1⟩"
+# On both ISAs A9 is by its keyed form and A12 (the code of every user
+# function) by its two keyed parts, each its own declaration
+# (`Scc/Cert/A12StageA64.lean`, `Scc/Cert/A12StageX64.lean`: the kernel's
+# peak is the largest of them).
+A9PF="
+  $NS.a9_of_fast (by decide +kernel)"
+A2="a2"; A2PF="h1.1.1.2"
+if [ "$ARCH" = arm ]; then
+  # A2 by its keyed form (`a2fast`, `Scc/Cert/A2StageA64.lean`).
+  A2="a2fast"; A2PF="($NS.a2_of_fast h1.1.1.2)"
+fi
+A12THM="
+/-- A12's code part of \`outLit\` (kernel-checked). -/
+theorem prog_placeOKAt_12c : $NS.a12code outLit = true := by
+  decide +kernel
+
+/-- A12's phase part of \`outLit\` at the executable's layout (kernel-checked). -/
+theorem prog_placeOKAt_12p : $NS.a12ph outLit $L = true := by
+  decide +kernel
+
+/-- A12 of \`outLit\` at the executable's layout. -/
+theorem prog_placeOKAt_12 : $NS.a12 outLit $L = true :=
+  $NS.a12_of_split prog_placeOKAt_12c prog_placeOKAt_12p
+"
+A12ARG=" prog_placeOKAt_12"
 {
   echo "import Scc.Cert.Elf"
   echo "import $E2E_MOD"
-  if [ $INST = 1 ]; then echo "import $THM_MOD"; fi
+  if [ $INST = 1 ]; then
+    echo "import $THM_MOD"
+    echo
+    echo "-- certify.sh: theorem path: $PATHN (on x64 chosen by evaluating MainFrame1Ok,"
+    echo "-- untrusted; the kernel checks the theorem instantiated, \`prog_correct_linked\`)."
+  fi
   # The certificate up to its decisions at the static link (they are not
   # needed: the decisions below are at the executable's layout).
   sed -e '/^\/-- A1 of `outLit`/,$d' "$T.cert.lean"
@@ -210,33 +299,32 @@ theorem prog_codeEnd : $CODEEND elf.1.code.lo outLit.prog = elf.1.code.lo + elf.
   $E2E.codeEnd_eq_of_codeFills (o := outLit) (Λ := elf.1) (by decide +kernel)
 
 /-- A1, A2, A4 and A7 of \`outLit\` at the executable's layout (kernel-checked). -/
-theorem prog_placeOKAt_1 : ($NS.a1 outLit $L && $NS.a2 outLit $L &&
+theorem prog_placeOKAt_1 : ($NS.a1 outLit $L && $NS.$A2 outLit $L &&
     $NS.a4 placeCfg outLit $L && $NS.a7 outLit $L) = true := by
   decide +kernel
 
 /-- A3 of \`outLit\` at the executable's layout (kernel-checked). -/
-theorem prog_placeOKAt_3 : $NS.a3 outLit $L = true := by
-  decide +kernel
+theorem prog_placeOKAt_3 : $NS.a3 outLit $L = true :=
+  $NS.a3_of_partsAt (by decide +kernel) (by decide +kernel)
 
 /-- A5 of \`outLit\` at the executable's layout (kernel-checked). -/
 theorem prog_placeOKAt_5 : $NS.a5 outLit $L = true := by
   decide +kernel
 
 /-- A6 of \`outLit\` at the executable's layout (kernel-checked). -/
-theorem prog_placeOKAt_6 : $NS.a6 outLit $L = true := by
-  decide +kernel
+theorem prog_placeOKAt_6 : $NS.a6 outLit $L = true :=
+  $NS.a6_of_partsAt (by decide +kernel) (by decide +kernel)
 
 /-- A8 of \`outLit\` at the executable's layout (kernel-checked). -/
 theorem prog_placeOKAt_8 : $NS.a8 outLit $L = true := by
   decide +kernel
 
-/-- A9 of \`outLit\` at the executable's layout (kernel-checked). -/
-theorem prog_placeOKAt_9 : $NS.a9 outLit $L = true :=
-  $NS.a9_of_fast (by decide +kernel)
-
 /-- A11 of \`outLit\` at the executable's layout (kernel-checked). -/
 theorem prog_placeOKAt_11 : $NS.a11 outLit $L = true := by
   decide +kernel
+$A12THM
+/-- A9 of \`outLit\` at the executable's layout (kernel-checked). -/
+theorem prog_placeOKAt_9 : $NS.a9 outLit $L = true :=$A9PF
 
 /-- **\`placeOKAt\` of \`scc\`'s output at the executable's layout**, from its
 components (\`placeOKAt_of\`). -/
@@ -245,27 +333,37 @@ theorem prog_placeOKAt : $NS.placeOKAt placeCfg elf.1 out = true := by
   simp only [Bool.and_eq_true] at h1
   rw [out_eq]
   exact $NS.placeOKAt_of
-    h1.1.1.1 h1.1.1.2 prog_placeOKAt_3 h1.1.2 prog_placeOKAt_5 prog_placeOKAt_6 h1.2 prog_placeOKAt_8
-    prog_placeOKAt_9 prog_placeOKAt_11
+    h1.1.1.1 $A2PF prog_placeOKAt_3 h1.1.2 prog_placeOKAt_5 prog_placeOKAt_6 h1.2 prog_placeOKAt_8
+    prog_placeOKAt_9 prog_placeOKAt_11$A12ARG
 
 /-- **Acceptance and placement at the executable's layout.** -/
-theorem prog_linked_ready : Scc.Lower.Accepted0 prog_src = true ∧ $NS.placeOKAt placeCfg elf.1 out = true :=
-  ⟨prog_accepted, prog_placeOKAt⟩
+theorem prog_linked_ready : $ACCP prog_src = true ∧ $NS.placeOKAt placeCfg elf.1 out = true :=
+  ⟨$ACC, prog_placeOKAt⟩
 EOF
   if [ $INST = 1 ]; then cat <<EOF
 
 /-- \`prog_src\`'s one declaration. -/
 abbrev main : CoreTerm.Decl := prog_src.head (by decide)
+EOF
+    if [ -n "$HFR" ]; then cat <<EOF
+
+/-- \`main\`'s frame is at most 4096 bytes, the reach of the stack check's
+probe (\`Spike.Lib.LowerX64.MainFrame1Ok\`; kernel-checked). -/
+theorem prog_mainFrame1 : Spike.Lib.LowerX64.MainFrame1Ok config main = true := by
+  decide +kernel
+EOF
+    fi
+    cat <<EOF
 
 /-- **The compiler theorem at the executable's layout**: \`asm\` is correct
 at every admissible entry state, at the layout read from the executable
-(with \`main\`'s immediates), for every budget and memory model, given the
+(with the lowering's immediates), for every budget and memory model, given the
 loader's parse of \`asm\` (\`hpa\`, the \`#guard\` above: the trust boundary). -/
 theorem prog_correct_linked (B : Scc.Sem.Budget) (arch : WeakMem.Arch)
     (hpa : $HPA = true) :
     $CORRECTE 1 (Scc.Sem.SrcSem.source (Spike.Lib.srcP1 arch) prog_src)
-      { elf.1 with static := fun _ => none, imms := Spike.Lib.LowerNode.immsOf main } B $TEXT :=
-  $THM (cfg := config) (pcfg := placeCfg) elf.1 prog_accepted prog_placeOKAt hpa
+      { elf.1 with static := fun _ => none, imms := $IMMS } B $TEXT :=
+  $THM (cfg := config) (pcfg := placeCfg) elf.1 $ACC prog_placeOKAt$HFR hpa
 
 /--
 info: 'SccCertificate.prog_correct_linked' depends on axioms: [propext, Classical.choice, Quot.sound]

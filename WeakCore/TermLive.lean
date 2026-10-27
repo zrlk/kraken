@@ -94,7 +94,56 @@ def successorsL (p : Prog) (k : Promises.Knobs) (arch : Arch) (b : Bounds) (c : 
                   fun c' => certB p k arch b.solo c' i).map fun c' => (i, false, c')
             else []
         | none => []
-      ts ++ ps
+      -- (F2) the extern moves (`successorsAll`'s `extSuccs`), labelled as thread moves
+      let es := (extSuccs p k arch b c i).map fun c' => (i, true, c')
+      -- (D4) the spurious wakes (`successorsAll`'s `wakeSuccs`), environment moves: unforced, like promises
+      let ws := (wakeSuccs p k arch b c i).map fun c' => (i, false, c')
+      ts ++ ps ++ es ++ ws
+
+/-- `successorsL`, with the truncations its bounds caused (as `TermRun.successorsAllT`), and the
+node's (`nodeTrunc`; spawn sites count iff `spawnOff`). -/
+def successorsLT (p : Prog) (k : Promises.Knobs) (arch : Arch) (b : Bounds) (spawnOff : Bool)
+    (c : Cfg) : List (Nat × Bool × Cfg) × Trunc :=
+  let silent := (List.range c.ths.size).find? fun i =>
+    match c.ths[i]? with
+    | some th => !isDone th && !touchesMem th && !(threadSteps p k arch c i).isEmpty
+    | none => false
+  let nt := nodeTrunc true spawnOff b c
+  match silent with
+  | some i => ((threadSteps p k arch c i).map fun c' => (i, true, c'), nt)
+  | none =>
+    let rs := (List.range c.ths.size).map fun i =>
+      let ts := (threadSteps p k arch c i).partition fun c' => certB p k arch b.solo c' i
+      let ps : List Cfg × List Cfg × Bool :=
+        match c.ths[i]? with
+        | some th =>
+            if th.promises.length < b.maxP && !isDone th then
+              let q := ((soloWrites p k arch i b.solo c).eraseDups.flatMap fun (a, v) =>
+                (List.range c.mem.size).map fun w => promise c i a v w).partition
+                  fun c' => certB p k arch b.solo c' i
+              (q.1, q.2, candCut p k arch i b.solo c)
+            else ([], [], false)
+        | none => ([], [], false)
+      ((ts.1.map fun c' => (i, true, c')) ++ (ps.1.map fun c' => (i, false, c')) ++
+          ((extSuccs p k arch b c i).map fun c' => (i, true, c')) ++
+          (wakeSuccs p k arch b c i).map fun c' => (i, false, c'),
+        ({ cert := (ts.2 ++ ps.2.1).any (fun c' => certCut p k arch b.solo c' i) ||
+              extCut p k arch b c i ||
+              wakeCut p k arch b c i
+           cand := ps.2.2 } : Trunc))
+    (rs.flatMap (·.1), rs.foldl (fun t r => t.or r.2) nt)
+
+/-- The flags change nothing else: `successorsLT` offers exactly `successorsL`'s moves. -/
+theorem successorsLT_fst (p : Prog) (k : Promises.Knobs) (arch : Arch) (b : Bounds) (s : Bool)
+    (c : Cfg) : (successorsLT p k arch b s c).1 = successorsL p k arch b c := by
+  simp only [successorsLT, successorsL]
+  split
+  · rfl
+  · simp only [List.flatMap_map]
+    congr 1
+    funext i
+    simp only [List.partition_eq_filter_filter]
+    split <;> (try split) <;> simp_all
 
 /-- Thread `i` stops here: its term becomes a `ret` of nothing, which `resWs`
 reads as no result (`-` in the table).  Not while it has a promise out: a
@@ -108,18 +157,21 @@ def crashCfg (c : Cfg) (i : Nat) : Option Cfg :=
 
 /-- The explored graph.  `edges[v]` lists `(thread, isThreadStep, target)`;
 an `extra` move (a crash) is labelled with the thread count and `false`.
-`expanded[v]` is false only for a node the depth bound left unexpanded. -/
+`expanded[v]` is false only for a node the depth bound left unexpanded.
+`why` is every truncation the search hit; `cut` is `why.isCut`. -/
 structure Graph where
   nodes    : Array Cfg
   edges    : Array (List (Nat × Bool × Nat))
   expanded : Array Bool
   cut      : Bool
+  why      : Trunc := {}
 
 /-- `exploreM`, keeping the graph, for a successor function `succ` (labelled
 moves) and the label `xl d` of `extra` moves at `d`.  Breadth-first over
 configuration keys, `fuel` layers deep. -/
-def exploreGP (succ : Cfg → List (Nat × Bool × Cfg)) (xl : Cfg → Nat) (fuel : Nat) (c : Cfg)
+def exploreGP (succ : Cfg → List (Nat × Bool × Cfg) × Trunc) (xl : Cfg → Nat) (fuel : Nat) (c : Cfg)
     (extra : Cfg → List Cfg := fun _ => []) : Graph := Id.run do
+  let mut tr : Trunc := {}
   let mut ids : Std.HashMap CfgKey Nat := Std.HashMap.emptyWithCapacity.insert (cfgKey c) 0
   let mut nodes : Array Cfg := #[c]
   let mut edges : Array (List (Nat × Bool × Nat)) := #[[]]
@@ -132,7 +184,9 @@ def exploreGP (succ : Cfg → List (Nat × Bool × Cfg)) (xl : Cfg → Nat) (fue
       let d := nodes[v]!
       expanded := expanded.set! v true
       if d.final then continue
-      let moves := succ d ++ (extra d).map fun e => (xl d, false, e)
+      let (sm, t) := succ d
+      tr := tr.or t
+      let moves := sm ++ (extra d).map fun e => (xl d, false, e)
       let mut es : List (Nat × Bool × Nat) := []
       for (i, t, e) in moves do
         let key := cfgKey e
@@ -149,13 +203,15 @@ def exploreGP (succ : Cfg → List (Nat × Bool × Cfg)) (xl : Cfg → Nat) (fue
         es := (i, t, w) :: es
       edges := edges.set! v es
     frontier := next
-  return ⟨nodes, edges, expanded, !frontier.isEmpty⟩
+  let all := { tr with depth := !frontier.isEmpty }
+  return ⟨nodes, edges, expanded, all.isCut, all⟩
 
-/-- `exploreM`, keeping the graph: `exploreGP` on `successorsL`, an `extra` move
-(a crash) labelled with the thread count. -/
+/-- `exploreM`, keeping the graph: `exploreGP` on `successorsL` (`successorsLT`; this explorer
+has no spawn moves, so a spawn site is a truncation), an `extra` move (a crash) labelled with the
+thread count. -/
 def exploreG (p : Prog) (k : Promises.Knobs) (arch : Arch) (b : Bounds) (fuel : Nat) (c : Cfg)
     (extra : Cfg → List Cfg := fun _ => []) : Graph :=
-  exploreGP (successorsL p k arch b) (fun d => d.ths.size) fuel c extra
+  exploreGP (successorsLT p k arch b true) (fun d => d.ths.size) fuel c extra
 
 /-- The `Explored` view of a graph: what `exploreM` would have returned. -/
 def Graph.toExplored (g : Graph) : Explored :=
@@ -226,6 +282,8 @@ structure Live where
   stuck     : Nat
   nodes     : Nat
   cut       : Bool
+  /-- every truncation the search hit (`cut` is `why.isCut`) -/
+  why       : Trunc := {}
   deriving Repr
 
 /-- The terminal classes of the thread-step graph. -/
@@ -259,7 +317,7 @@ def analyse (g : Graph) : Live := Id.run do
         let blocked := ths.filter fun i => !stepping.contains i && !done.contains i
         let promised := cfg.ths.any fun th => !th.promises.isEmpty
         lls := ⟨(members[c]!).length, stepping, done, blocked, promised⟩ :: lls
-  return ⟨lls.reverse, stuck, n, g.cut⟩
+  return ⟨lls.reverse, stuck, n, g.cut, g.why⟩
 
 /-- The livelocks grouped by kind (who spins, who finished, who is blocked,
 whether a promise is out), each with its count and class sizes. -/
@@ -286,7 +344,7 @@ def Live.describe (l : Live) : String :=
        | [k] => s!" of {plural k "configuration"}"
        | ks => s!" of {ks.foldl min (ks.headD 0)} to {ks.foldl max 0} configurations")
   match l.livelocks, l.stuck with
-  | [], 0 => "every fair run terminates"
+  | [], 0 => "no fair livelock found"
   | lls, s =>
     (if lls.isEmpty then "" else
       plural lls.length "fair livelock" ++ ": " ++ "; ".intercalate (l.kinds.map one)) ++
@@ -295,7 +353,7 @@ def Live.describe (l : Live) : String :=
 
 /-! ## Pinned: the mutex, with and without a crash
 
-Two threads increment under `mutexLib`'s mutex: every fair run terminates.
+Two threads increment under `mutexLib`'s mutex: no fair livelock found.
 If thread 0 may stop anywhere, the classes in which it stopped while holding
 the lock are fair livelocks of thread 1's spin --- and nothing else is. -/
 

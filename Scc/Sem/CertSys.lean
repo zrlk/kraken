@@ -19,11 +19,10 @@
   certifying run certifies after the kernel step, whose kernel state and
   memory are the ones before it (`CertAfter`).
 
-`write` is not covered: its `writeTree` branches load the buffer's bytes in
-one certification step where the kernel transfers them in one step each, and
-a `write` with bytes out returns from a configuration the solo one is not
-(`soloExec` resets the count to 0). Consumers rule out promises at a `write`
-instead (`WriteNoProm` in `Spike/Lib/A64Consumer.lean`).
+`write`, like `clone`, ends a certifying run: `soloExec` has
+no branch there, so a thread certified at a `write` has no outstanding
+promise (`prom_nil_of_write`), and the kernel's `write` steps need no
+certification converse.
 -/
 import Scc.Sem.CertStep
 
@@ -140,6 +139,27 @@ theorem prom_nil_of_exit {A : Arch} {μ : Marks} {x : KState} {tid : Nat} {t : T
       rcases hx with rfl | ⟨v, rfl⟩ <;> intro _ _ h <;> cases h
     obtain ⟨r, hrm, -⟩ := certSem_step_sys_ret hs ha hd hnw hcl hso ho
     rcases hx with rfl | ⟨v, rfl⟩ <;> simp [results] at hrm
+
+/-- **No outstanding promise is certified at a `write`**: the certifying
+run would start with a step at the call, and `certSem` has none there
+(`soloExec`: a `write` ends a certifying run). -/
+theorem prom_nil_of_write {A : Arch} {μ : Marks} {x : KState} {tid : Nat} {t : Thread I} {mem : Memory}
+    {fd buf n : Nat} (hs : siteAt K μ t.st = none) (ha : K.atSys t.st = true)
+    (hd : decode K.nrs (K.nr t.st) (K.arg t.st) = some (.write fd buf n))
+    (hcert : CertOkC A (certSem K A μ x tid) tid t mem) : t.prom = [] := by
+  obtain ⟨tf, mf, hrun, hpf⟩ := hcert
+  cases hrun with
+  | refl => exact hpf
+  | step hst _ =>
+    obtain ⟨outs, o, hso, ho, rfl⟩ := hst
+    obtain ⟨tree, st, c', hex, hr, -, -⟩ := stepOneWith_runOut A hso ho
+    have hex' : (certSem K A μ x tid).exec t.st = some (leaves []) := by
+      change soloExec K A μ x tid t.st = _
+      simp only [soloExec, hs, ha, ite_true, hd]
+    rw [hex'] at hex
+    cases hex
+    obtain ⟨i, -⟩ := (Lower.run_choose_iff A tid _).mp hr
+    exact i.elim0
 
 /-- **A return at a call other than `write`, `clone`, `exit` and
 `exit_group` emits no event.** -/

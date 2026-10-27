@@ -1,0 +1,16 @@
+CoreLang.ECounter : Type
+CoreLang.Idx : Type
+CoreLang.Pred : Type
+CoreLang.Proto : Type
+CoreLang.Proto2 : Type
+CoreLang.Ty : Type
+CoreLang.bitsIn : CoreLang.Ty → Bool
+CoreTerm.devCellOK : CoreLang.Ty → Bool
+  eq_def ∀ (x : CoreLang.Ty),
+  CoreTerm.devCellOK x =
+    match x with
+    | t.refine ψ => CoreTerm.devCellOK t
+    | CoreLang.Ty.word r P => true
+    | CoreLang.Ty.word2 r P => true
+    | CoreLang.Ty.epair r P => true
+    | t => CoreLang.bitsIn t

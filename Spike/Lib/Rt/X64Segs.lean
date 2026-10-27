@@ -895,9 +895,10 @@ theorem startX1Sw_segW {W : Frag isa} {K : State → State → Prop} {kp : Nat} 
     · dsimp only [startN5, startN6]; rw [startSw_run]; rfl
     · dsimp only [startN5, startN6] at hJ ⊢; rw [startSw_run]
       obtain ⟨rfl, htp, h40, h32⟩ := hJ
-      refine ⟨rfl, ?_, ?_⟩
+      refine ⟨rfl, ?_, ?_, ?_⟩
       · simp [Reg64s.set64, Reg64s.get64, upd_apply, h40]; rfl
       · simp only [Reg64s.set64]; exact htp
+      · simp [Reg64s.set64, Reg64s.get64, upd_apply, h32]; rfl
 
 /-- **`scc_rt_start` from `.x0` to the switch, inside `W`, the take its
 outside move** (`start_x0_x1_seg` then `start_x1_sw_seg`, their states'
@@ -1187,15 +1188,17 @@ theorem startSwitchU_segW {W : Frag isa} {K : State → State → Prop} {rS : Sc
   refine sw_seqW (lo := -L) (hi := 0) (F' := swFSL L rS top a) (n' := startN7 lab tcb top c0)
     (sw_ndW rfl (code_field hp hend hin.1.1.2 rfl) (ofNat_add' _ 28 3) rfl hW.sw fun m σ c _ hD hJ => ?_)
     fun v hv => ?_
-  · obtain ⟨rfl, hax, htp⟩ := hJ
+  · obtain ⟨rfl, hax, htp, hdi⟩ := hJ
     obtain ⟨hsp, htp'⟩ := swStep (startN6 lab tcb top c).o ((startN6 lab tcb top c).pc + Int64.ofNat 3) σ
+    have hdi' := (congrArg UInt64.toBitVec
+      (swStep_rdi (startN6 lab tcb top c).o ((startN6 lab tcb top c).pc + Int64.ofNat 3) σ)).trans hdi
     have hsp2 : (AI.step (startN6 lab tcb top c).o ((startN6 lab tcb top c).pc + Int64.ofNat 3)
         (.reg .W64 (.mov (.reg (.low .rsp .W64)) (.regOrMem (.reg (.low .rax .W64))))) σ).regs.get64 .rsp = top := by
       show (UInt64.toBitVec _) = _; rw [hsp]; exact hax
     rw [hsp2]
     obtain ⟨sl, hsl⟩ := hmap m hD
     exact ⟨hok, ⟨⟨rfl, hlimM.unmapped m hD⟩, (hFS m hD).off⟩, sl, hsl, c, .refl c, rfl, by rw [hsp]; exact hax,
-      htp'.trans htp⟩
+      htp'.trans htp, hdi'⟩
   · have hF2 : FStable (swR v (-L) 0) (swFSL L rS top a v) := fun m m' h hd =>
       ⟨swF_stableL hfit hout m m' h.1 hd, stackOff_stable hfitS m m' h.2 hd⟩
     let g : MainG := ⟨top - 8#64, tpOf tcb, c0⟩
@@ -1222,18 +1225,19 @@ theorem startSwitchU_segW {W : Frag isa} {K : State → State → Prop} {rS : Sc
             (hW.user v F' fun m h => ⟨hFF m h, hcc m h⟩)
             (fun s c x hP hAt => hexit _ _ s c x hP hAt)
             ((hW.main v).mono fun m h => ⟨hFF m h, hcc m h⟩))
-        (fun _ => rfl) (fun σC c hJ => ⟨(), rfl, hJ⟩) fun _ x => x.elim))).mono_post
+        (fun _ => rfl) (fun σC c hJ => ⟨(), rfl, hJ.1, hJ.2.1, hJ.2.2.1⟩) fun _ x => x.elim))).mono_post
       fun _ _ h => h.elim (fun ⟨e, _⟩ => e.elim) fun ⟨e, _⟩ => e.elim
     · dsimp only [startN7, startN8] at hJ ⊢
-      obtain ⟨rfl, hsp, htp⟩ := hJ
-      exact ⟨rfl, hsp, htp⟩
+      obtain ⟨rfl, hsp, htp, hdi⟩ := hJ
+      exact ⟨rfl, hsp, htp, hdi⟩
     · dsimp only [startN8, startNM]; rw [startMain_run]
     · dsimp only [startN8, startNM]; rw [startMain_run]; rfl
     · dsimp only [startN8, startNM] at hJ ⊢; rw [startMain_run]
-      obtain ⟨rfl, hsp, htp⟩ := hJ
-      refine ⟨rfl, ?_, ?_⟩
+      obtain ⟨rfl, hsp, htp, hdi⟩ := hJ
+      refine ⟨rfl, ?_, ?_, ?_⟩
       · simp [Reg64s.set64, Reg64s.get64, hsp]
       · simp [Reg64s.set64, htp]
+      · simp [Reg64s.set64, hdi]
 
 end SwitchU
 

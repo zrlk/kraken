@@ -203,7 +203,7 @@ theorem prom_oneAt (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [
   have hmt : (promise c j a v w).mem[c.mem.size]? = some ⟨a, v, w⟩ := by
     rw [hpi.1]; exact Array.getElem?_push_size
   obtain ⟨c1, c2, th1, th2, ρ1, η1, cx1, E2, -, -, -, -, -, -, hx1, hE, hT, htv, hi, hmi, hscope, hpa, -, -, -, -, -,
-    -, -, hsw, -⟩ := certified_promTypedX (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hsc (by first | exact TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw | exact TermViewInv.viewInv_run hV0 X.run | exact TermViewInv.viewInv_thread (TermViewInv.viewInv_run hV0 X.run) X.hc') hwin hX X.cert ht hmt
+    -, -, hsw, -⟩ := certified_promTypedX (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hsc (by first | exact TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw | exact TermViewInv.viewInv_run hV0 X.run | exact TermViewInv.viewInv_thread (TermViewInv.viewInv_run hV0 X.run) X.hc') hwin hX (TermMain.tidAt_cutP X.inv j S0) X.cert ht hmt
   obtain ⟨cl1, o1, U, us, j1, hcl1, h1o, hus, hj, ho⟩ :=
     SWOne_holds p _ _ _ _ ρ1 η1 cx1 _ _ hE hT htv hi hmi (TermTyped.scopeD_SW hscope hsw) hpa hsw
   rw [hx1.2.2.2.2.1 _ _ hcl0] at hcl1

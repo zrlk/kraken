@@ -1,0 +1,18 @@
+CoreLang.Mo : Type
+CoreLang.Mo.acq : CoreLang.Mo
+CoreLang.Mo.rel : CoreLang.Mo
+CoreLang.RegAcc : Type
+CoreLang.RegAcc.canRead : CoreLang.RegAcc → Bool
+CoreLang.RegAcc.canWrite : CoreLang.RegAcc → Bool
+CoreLang.Wd : Type
+CoreLang.Wd.bits : CoreLang.Wd → Nat
+CoreLang.instDecidableEqMo : DecidableEq CoreLang.Mo
+CoreTerm.ExtName : Type
+CoreTerm.ExtName.ok : CoreTerm.ExtName → Bool
+  := fun x =>
+  match x with
+  | CoreTerm.ExtName.mmioR w acc mo => acc.canRead && mo != CoreLang.Mo.rel
+  | CoreTerm.ExtName.mmioW w acc mo => acc.canWrite && mo != CoreLang.Mo.acq
+  | CoreTerm.ExtName.regAt n w acc st tk k =>
+    decide (k < n) && !tk.contains k && decide (w.bits / 8 ≤ st) && decide (st % (w.bits / 8) = 0)
+  | x => true

@@ -62,15 +62,18 @@ theorem invAtXRB_prom {E0 : TEnv} {n0 v0 : Nat} {mem0 : Memory} {P0 : List Ts} {
     exact MemInv_promSt hm
   · exact frRunA_prom hth hfr
 
-/-- (IO1) An extern move keeps `InvAtXRB` (environment and `vWr` unchanged). -/
+/-- An extern move keeps `InvAtXRB` (environment and `vWr` unchanged). -/
 theorem invAtXRB_ext {E0 : TEnv} {n0 v0 : Nat} {mem0 : Memory} {P0 : List Ts} {l : AllocLabel} {cl : Cell}
     {c0 c0' : Cfg} {th : TTh} {E : TEnv} (hth : c0.ths[i]? = some th)
-    (h : InvAtXRB p k arch i E0 n0 v0 mem0 P0 l cl c0 th E) (hs : c0' ∈ extSteps c0 i) :
+    (h : InvAtXRB p k arch i E0 n0 v0 mem0 P0 l cl c0 th E) (hs : c0' ∈ extSteps c0 i) (hTA : TermTyped.TidAt i c0 E0) :
     ∃ th', c0'.ths[i]? = some th' ∧ InvAtXRB p k arch i E0 n0 v0 mem0 P0 l cl c0' th' E := by
   obtain ⟨hx, hTE, hm, hSC, hbo, hfb, hfr, hrh⟩ := h
-  obtain ⟨x1, a1, e1, evs, hterm, rfl⟩ := extSteps_thread hs hth
-  exact ⟨_, set_self hth, hx, TermTyped.ThInvE_emit hterm hTE, by rw [gOf_ext hs]; exact hm, hSC,
-    by rw [gOf_ext hs]; exact hbo, hfb, hfr, hrh⟩
+  rcases TermTyped.extSteps_res hs hth with ⟨x1, n1, a1, e1, rt1, ws1, rs1, hterm, hn1, hev1, hrs1, rfl⟩ | ⟨x1, a1, e1, lb, hterm, htl, rfl⟩
+  · exact ⟨_, set_self hth, hx, TermTyped.ThInvE_ext hn1 hterm hev1 hrs1 hTE, by rw [gOf_ext hs]; exact hm, hSC,
+      by rw [gOf_ext hs]; exact hbo, hfb, hfr, hrh⟩
+  · obtain ⟨hbs, hbp⟩ := TermTyped.tidBox_ext hx (hTA th hth lb htl)
+    exact ⟨_, set_self (tr := c0.trace) hth, hx, TermTyped.ThInvE_cur hterm hbs hbp hTE, by rw [gOf_ext hs]; exact hm, hSC,
+      by rw [gOf_ext hs]; exact hbo, hfb, hfr, hrh⟩
 
 -- COPY of TermTyped.solo_typedXR
 /-- **The typed run before `publish r`, with the unplanted frontier**: along `SoloNP r` from `c`,
@@ -82,7 +85,7 @@ theorem solo_typedXRP {cP c : Cfg} {E0 : TEnv} {n0 v0 : Nat} {thP : TTh} {l : Al
     (hthP : cP.ths[i]? = some thP) (hpl : ∀ t, t ∈ thP.promises → t < cP.mem.size)
     (hcl : E0.sto l = some cl) (hcr : E0.sto r = some cr) (hW : WinInv cP i c)
     (h0 : ∃ th E, c.ths[i]? = some th ∧ InvAtXRB p k arch i E0 n0 v0 cP.mem thP.promises l cl c th E ∧
-      E.pfr r = none)
+      E.pfr r = none) (hTA : TermTyped.TidAt i c E0)
     {c2 : Cfg} (h : SoloNP p k arch i r c c2) (hc2 : Certified p k arch c2 i) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) :
     ∃ th E, c2.ths[i]? = some th ∧ InvAtXRB p k arch i E0 n0 v0 cP.mem thP.promises l cl c2 th E ∧
       E.pfr r = none := by
@@ -145,7 +148,7 @@ theorem solo_typedXRP {cP c : Cfg} {E0 : TEnv} {n0 v0 : Nat} {thP : TTh} {l : Al
     obtain ⟨th', hth', hB'⟩ := invAtXRB_prom (a := a) (v := v) (w := w) hth hB
     exact ⟨soloNP_trans hc0N (.prom a v w hw (.refl _)), th', E, hth', hB', hpf0⟩
   · rintro c0 c0' ⟨hc0N, th, E, hth, hB, hpf0⟩ hs _
-    obtain ⟨th', hth', hB'⟩ := invAtXRB_ext hth hB hs
+    obtain ⟨th', hth', hB'⟩ := invAtXRB_ext hth hB hs (TermTyped.tidAt_solo hc0N.toSolo hTA)
     exact ⟨soloNP_trans hc0N (.ext hs (.refl _)), th', E, hth', hB', hpf0⟩
 
 /-- **`PfrX` discharged**: from a start witness at the plant with no frontier at `r`. -/
@@ -157,10 +160,11 @@ theorem PfrX_of {cP : Cfg} {thP : TTh} {a0 : Address} {v0 : WeakMem.Val} {w : Ts
     (hthP : cP.ths[i]? = some thP) (hpl : ∀ t, t ∈ thP.promises → t < cP.mem.size)
     (hcl : E0.sto l = some cl) (hcr : E0.sto r = some cr) (hW : WinInv cP i (promise cP i a0 v0 w))
     (h0P : ∃ th E, (promise cP i a0 v0 w).ths[i]? = some th ∧
-      InvAtXRB p k arch i E0 n0 vw cP.mem thP.promises l cl (promise cP i a0 v0 w) th E ∧ E.pfr r = none) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) :
+      InvAtXRB p k arch i E0 n0 vw cP.mem thP.promises l cl (promise cP i a0 v0 w) th E ∧ E.pfr r = none) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig)
+    (hTA : TermTyped.TidAt i cP E0) :
     PfrX p k arch cP i a0 v0 w r E0 n0 vw cP.mem thP.promises l cl := by
   intro c th hs hc hth
-  obtain ⟨th', E, hth', hB, hpf⟩ := solo_typedXRP hP hsc hvI hwin hthP hpl hcl hcr hW h0P hs hc hPS hSub hSig
+  obtain ⟨th', E, hth', hB, hpf⟩ := solo_typedXRP hP hsc hvI hwin hthP hpl hcl hcr hW h0P (TermTyped.tidAt_prom hTA) hs hc hPS hSub hSig
   rw [hth] at hth'
   cases hth'
   exact ⟨E, hB, hpf⟩
@@ -178,9 +182,9 @@ theorem g0WinT_ofP {cP : Cfg} {thP : TTh} {a0 b a' : Address} {v0 : WeakMem.Val}
       InvAtXRB p k arch i E0 n0 vw cP.mem thP.promises l cl (promise cP i a0 v0 w) th E ∧ E.pfr r = none)
     (hmt : (promise cP i a0 v0 w).mem[t]? = some ⟨b, .loc a' g, wt⟩) (ha : a'.label = r)
     (hca : E0.sto b.label = some ca) (hno : Ty.noOwnIn [] ca.ty = true) (hrf : rgnFree ca.ty = true)
-    (hcr : E0.sto r = some cr) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) :
+    (hcr : E0.sto r = some cr) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) (hTA : TermTyped.TidAt i cP E0) :
     G0WinW p k arch cP i a0 v0 w r wt := by
-  have hPfr := PfrX_of (n0 := n0) (vw := vw) hP hsc hvI hwin hthP hpl hcl hcr hW h0P hPS hSub hSig
+  have hPfr := PfrX_of (n0 := n0) (vw := vw) hP hsc hvI hwin hthP hpl hcl hcr hW h0P hPS hSub hSig hTA
   intro c th hs hc hth
   obtain ⟨c', hrun, hn⟩ := hc
   have hNo := fun c th hs hc hth => noFulT (p := p) (k := k) (arch := arch) hthP hmt ha
@@ -200,10 +204,10 @@ theorem g0Win_ofP {cP : Cfg} {thP : TTh} {a0 a' : Address} {g : Nat} {w : Ts} {E
       E.pfr r = none)
     (ha : a'.label = r)
     (hca : E0.sto a0.label = some ca) (hno : Ty.noOwnIn [] ca.ty = true) (hrf : rgnFree ca.ty = true)
-    (hcr : E0.sto r = some cr) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) :
+    (hcr : E0.sto r = some cr) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) (hTA : TermTyped.TidAt i cP E0) :
     G0Win p k arch cP i a0 (.loc a' g) w r :=
   g0WinT_ofP (g := g) (wt := w) (t := cP.mem.size) hP hsc hvI hwin hthP hpl hcl hW h0P
-    (by simp only [promise, hthP, Array.getElem?_push_size]) ha hca hno hrf hcr hPS hSub hSig
+    (by simp only [promise, hthP, Array.getElem?_push_size]) ha hca hno hrf hcr hPS hSub hSig hTA
 
 end
 

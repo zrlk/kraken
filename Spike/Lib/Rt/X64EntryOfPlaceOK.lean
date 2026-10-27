@@ -2,7 +2,7 @@
 **`_start` at an output passing `placeOK`** (x86-64): `entry_segW'`'s
 obligations (`EntryW`) and then `_start`'s segment, with no premise left
 but the source's facts at `c0` and the callee's segment. The code check is
-A11's (`rtCodeOk_bare_of_placeOKAt`, `RtCodeIn.start0`); the phase facts are
+A11's on either tail (`rtCode0_of_placeOKAt`, `RtCodeIn0.start0`); the phase facts are
 A6's (`rtPh_of_placeOKAt`, `startPhTab`): `_start`'s steps off the sites and
 in their phase, the call's block's phase check, and the phase index `13`
 at its three pcs, which is not the take's (`Tk`: `13 / 8 % 2 = 1`).
@@ -15,6 +15,7 @@ at its three pcs, which is not the take's (`Tk`: `13 / 8 % 2 = 1`).
 -/
 import Spike.Lib.Rt.X64EntryW
 import Spike.Lib.Rt.X64RtCode
+import Spike.Lib.Rt.X64RtCodeSetup
 import Spike.Lib.Rt.X64RtPhOfTab
 import Spike.Lib.X64PhRec
 import Spike.Lib.X64StubFacts
@@ -85,7 +86,7 @@ theorem entryW_ofPlaceOK {rS : Range} {lbl : Lbl} {Dt : State → Prop} {R : Reg
   have hp6 := ph_of_factOk hl (startFact_ofPlaceOK h i (f := .ph "_start" 6 13)
     (by simp only [startPhTab, List.mem_cons, true_or, or_true]))
   exact (entryW_of_instOk (Spike.Lib.X64.PhRec.instOk_ofPlaceOK h i)
-    (rtCodeIn_of_ok (rtCodeOk_bare_of_placeOKAt h)).start0 hR hlo hhi hC0 hs0.1 hs0.2 hs2.1 hs2.2 hb
+    (rtCode0_of_placeOKAt h).start0 hR hlo hhi hC0 hs0.1 hs0.2 hs2.1 hs2.2 hb
     (not_tk_13 hp0) (not_tk_13 hp2) (not_tk_13 hp6)).mono fun _ _ hS => hS.dt_mono fun _ h => h.elim
 
 /-- **`_start` as one segment at an output passing `placeOK`**: from
@@ -100,7 +101,7 @@ theorem entry_segW_ofPlaceOK {p : Prog} {lbl : Lbl} {ms : MemSide isa} {Dt : Sta
         (At (Ly).exe (Ly).endPc ((entryR E).callee (-8) (-296) 8) F' (Ret0.startN0 (Ly).lab c0)) Q') :
     SegW (fun s c => SFacts (Ly).Λ (μ (Ly)) (own (Ly)) (rS0 (Ly)) (Tk (Ly)) lbl s c Dt) (K (Ly) (rS0 (Ly))) p lbl ms
       (At (Ly).exe (Ly).endPc (entryR E) (rtF (Ly)) (entryN0 (Ly).lab c0)) Q :=
-  entry_segW_take (Ly) hE (rtCodeIn_of_ok (rtCodeOk_bare_of_placeOKAt h)).start0 (rS0_sub (Ly)) c0
+  entry_segW_take (Ly) hE (rtCode0_of_placeOKAt h).start0 (rS0_sub (Ly)) c0
     (entryW_ofPlaceOK h i (entryR_ok hE) (by show (-65536 : Int) ≤ -8; decide) (by show (0 : Int) ≤ 0; decide) hC0) hS
 
 end Place

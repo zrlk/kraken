@@ -169,7 +169,7 @@ def skel : Ty → Ty
   | .intS _ => .int
   | .prod a b => .prod (skel a) (skel b)
   | .sum a b => .sum (skel a) (skel b)
-  | .code a b => .code (skel a) (skel b)
+  | .code a b k => .code (skel a) (skel b) k
   | .array _ t => .array (.lit 0) (skel t)
   | .ptr μ t => .ptr (skelM μ) (skel t)
   | .ptrOpt μ t => .ptrOpt (skelM μ) (skel t)
@@ -201,7 +201,7 @@ def er : Ty → Ty
   | .tok _ _ | .tok2 _ _ _ _ | .tokE _ _ _ | .share _ => .unit
   | .prod a b => .prod (er a) (er b)
   | .sum a b => .sum (er a) (er b)
-  | .code _ _ => .code .unit .unit   -- (T3c-5a-4) a code value is one word; its signature is static
+  | .code _ _ _ => .code .unit .unit .plain   -- (T3c-5a-4) a code value is one word; its signature is static
   | .array i t => .array i (er t)
   | .ptr μ _ => .ptr μ .unit
   | .ptrOpt μ _ => .ptrOpt μ .unit
@@ -228,7 +228,7 @@ def etok : Ty → Ty
   | .tok _ _ | .tok2 _ _ _ _ | .tokE _ _ _ | .share _ => .unit
   | .prod a b => .prod (etok a) (etok b)
   | .sum a b => .sum (etok a) (etok b)
-  | .code a b => .code (etok a) (etok b)
+  | .code a b k => .code (etok a) (etok b) k
   | .array i t => .array i (etok t)
   | .ptr μ t => .ptr μ (etok t)
   | .ptrOpt μ t => .ptrOpt μ (etok t)
@@ -245,7 +245,7 @@ def lnorm : Ty → Ty
   | .intS _ => .int
   | .prod a b => .prod (lnorm a) (lnorm b)
   | .sum a b => .sum (lnorm a) (lnorm b)
-  | .code _ _ => .code .unit .unit   -- one word; the signature is static (T3c-5a-4)
+  | .code _ _ _ => .code .unit .unit .plain   -- one word; the signature is static (T3c-5a-4)
   | .array _ _ => .array (.lit 0) .unit
   | .ptr _ _ => .ptrOpt .pub .unit
   | .ptrOpt _ _ => .ptrOpt .pub .unit
@@ -511,7 +511,7 @@ def shp : Ty → Shp
   | .mu t => shp t         -- likewise `μ` (T3c-5a): its layout is its body's (`accs`)
   | .iall t => shp t       -- likewise `∀` (T3c-5f): indices are erased
   | .sum a b => .sum (wc (.sum a b)) (lnorm (.sum a b))
-  | .code _ _ => .code .unit .unit
+  | .code _ _ _ => .code .unit .unit
   | .tex κ b => .tex (wc (.tex κ b)) (shp b)
   | t => .leaf (wc t)
 
@@ -1412,6 +1412,7 @@ stage.  (The runtime side is a shape, not a type: see §2a.) -/
 def VR (ρ : Nat → Nat) (η : TEnv) : Ty → Shp → List Word → Prop
   | .intS i, _, ws => ws.map (·.val) = [.num (ev ρ i)]
   | .int, _, ws => ∃ n, ws.map (·.val) = [.num n]
+  | .opq _, _, ws => ∃ n, ws.map (·.val) = [.num n]
   | .tid, _, ws => ∃ l c, ws.map (·.val) = [.loc ⟨l, 0⟩ 0] ∧ η.sto l = some c ∧ c.ty = .unit ∧
       ModeOK η.tid η.pfr η.seen .pub l c ws
   | .fix sg w, rt, ws => rt = .fix sg w ∧ ∃ n, ws.map (·.val) = [.num n] ∧ n < pw2 w
@@ -1440,7 +1441,7 @@ def VR (ρ : Nat → Nat) (η : TEnv) : Ty → Shp → List Word → Prop
         (j < (armsOf Ra).length → ∃ q, ofArm Ra j p = some q ∧ VR ρ η a (shp Ra) q) ∧
         ((armsOf Ra).length ≤ j → ∃ q, ofArm Rb (j - (armsOf Ra).length) p = some q ∧ VR ρ η b (shp Rb) q))
   | .tvar k, rt, ws => ∃ ws', WLe ws' ws ∧ η.get k rt ws'
-  | .code σ τ, rt, ws => ∃ i d, ws.map (·.val) = [.num i] ∧ η.prog[i]? = some d ∧
+  | .code σ τ _, rt, ws => ∃ i d, ws.map (·.val) = [.num i] ∧ η.prog[i]? = some d ∧
       η.prog.find? (·.name == d.name) = some d ∧ d.tparams = [] ∧ d.idx = [] ∧
       cl ρ η.wit 0 0 σ = clD d.argTy ∧ cl ρ η.wit 0 0 τ = clD d.retTy
   -- T3c-3: a reference's cell is in Σ, holds exactly the closure of the target
@@ -1537,6 +1538,7 @@ def VRR (ρ : Nat → Nat) (η : TEnv) : Ty → Shp → List Word → Res → Pr
   | .unit, _, _, R => R = .zero
   | .intS i, _, ws, R => ws.map (·.val) = [.num (ev ρ i)] ∧ R = .zero
   | .int, _, ws, R => (∃ n, ws.map (·.val) = [.num n]) ∧ R = .zero
+  | .opq o, _, ws, R => VR ρ η (.opq o) (.leaf (some 1)) ws ∧ R = .zero
   | .tid, _, ws, R => VR ρ η .tid (.leaf (some 1)) ws ∧ R = .zero
   | .fix sg w, rt, ws, R => (rt = .fix sg w ∧ ∃ n, ws.map (·.val) = [.num n] ∧ n < pw2 w) ∧ R = .zero
   | .lanes sg w, rt, ws, R => (rt = .lanes sg w ∧ ∃ n, ws.map (·.val) = [.num n]) ∧ R = .zero
@@ -1562,7 +1564,7 @@ def VRR (ρ : Nat → Nat) (η : TEnv) : Ty → Shp → List Word → Res → Pr
         (j < (armsOf Ra).length → ∃ q, ofArm Ra j p = some q ∧ VRR ρ η a (shp Ra) q R) ∧
         ((armsOf Ra).length ≤ j → ∃ q, ofArm Rb (j - (armsOf Ra).length) p = some q ∧ VRR ρ η b (shp Rb) q R))
   | .tvar k, rt, ws, R => ∃ ws', WLe ws' ws ∧ η.rrs k rt ws' R
-  | .code σ τ, _, ws, R => (∃ i d, ws.map (·.val) = [.num i] ∧ η.prog[i]? = some d ∧
+  | .code σ τ _, _, ws, R => (∃ i d, ws.map (·.val) = [.num i] ∧ η.prog[i]? = some d ∧
       η.prog.find? (·.name == d.name) = some d ∧ d.tparams = [] ∧ d.idx = [] ∧
       cl ρ η.wit 0 0 σ = clD d.argTy ∧ cl ρ η.wit 0 0 τ = clD d.retTy) ∧ R = .zero
   | .ptr μ u, _, ws, R => (∃ a c, ws.map (·.val) = [.loc a 0] ∧ a.offset = 0 ∧ η.sto a.label = some c ∧
@@ -1654,7 +1656,7 @@ theorem VRR_VR : ∀ (t : Ty) {ρ : Nat → Nat} {η : TEnv} {rt : Shp} {ws : Li
   | iall b ih =>
       intro ρ η rt ws R hl h; simp only [VRR] at h; simp only [VR]; exact fun n => ih hl (h n)
   | void => intro ρ η rt ws R _ h; simp only [VRR] at h
-  | intS | int | tid | fix | lanes | code | ptr | loc | ptrOpt | word | word2 | epair =>
+  | intS | int | opq _ | tid | fix | lanes | code | ptr | loc | ptrOpt | word | word2 | epair =>
       intro ρ η rt ws R _ h; simp only [VRR] at h; simp only [VR]; exact h.1
   | unit | cap | tok | tok2 | tokE | share | array => intro ρ η rt ws R _ _; simp [VR]
 
@@ -1852,6 +1854,7 @@ theorem VR_shift (η : TEnv) : ∀ (t : Ty) (c w : Nat) (ρ : Nat → Nat) (rt :
     VR (vins c w ρ) η (t.shiftI c) rt ws ↔ VR ρ η t rt ws
   | .intS i, c, w, ρ, _, _ => by simp [Ty.shiftI, VR, ev_shift]
   | .int, _, _, _, _, _ => by simp [Ty.shiftI, VR]
+  | .opq _, _, _, _, _, _ => by simp [Ty.shiftI, VR]
   | .tid, _, _, _, _, _ => by simp [Ty.shiftI, VR]
   | .fix _ _, _, _, _, _, _ => by simp [Ty.shiftI, VR]
   | .lanes _ _, _, _, _, _, _ => by simp [Ty.shiftI, VR]
@@ -1874,7 +1877,7 @@ theorem VR_shift (η : TEnv) : ∀ (t : Ty) (c w : Nat) (ρ : Nat → Nat) (rt :
   | .sum a b, c, w, ρ, rt, ws => by
       simp only [Ty.shiftI, VR, VR_shift η a c w ρ, VR_shift η b c w ρ, VR_shift η.unsee a c w ρ,
         VR_shift η.unsee b c w ρ]
-  | .code a b, c, w, ρ, rt, ws => by
+  | .code a b _, c, w, ρ, rt, ws => by
       simp only [Ty.shiftI, VR, cl_vins]
   | .array _ _, _, _, _, _, _ => by simp [Ty.shiftI, VR]
   | .ptr _ _, _, _, _, _, _ => by simp only [Ty.shiftI, VR, cl_vins, ModeOK_shift]
@@ -1914,7 +1917,7 @@ theorem VR_intS {ρ : Nat → Nat} {η : TEnv} : ∀ {t : Ty} {rt : Shp} {i : Id
   | .void, _, _, _, h, _ => by simp [intOf] at h
   | .prod _ _, _, _, _, h, _ => by simp [intOf] at h
   | .sum _ _, _, _, _, h, _ => by simp [intOf] at h
-  | .code _ _, _, _, _, h, _ => by simp [intOf] at h
+  | .code _ _ _, _, _, _, h, _ => by simp [intOf] at h
   | .array _ _, _, _, _, h, _ => by simp [intOf] at h
   | .ptr _ _, _, _, _, h, _ => by simp [intOf] at h
   | .ptrOpt _ _, _, _, _, h, _ => by simp [intOf] at h
@@ -1943,7 +1946,7 @@ theorem VR_int {ρ : Nat → Nat} {η : TEnv} : ∀ {t : Ty} {rt : Shp} {o : Opt
   | .void, _, _, _, h, _ => by simp [intOf] at h
   | .prod _ _, _, _, _, h, _ => by simp [intOf] at h
   | .sum _ _, _, _, _, h, _ => by simp [intOf] at h
-  | .code _ _, _, _, _, h, _ => by simp [intOf] at h
+  | .code _ _ _, _, _, _, h, _ => by simp [intOf] at h
   | .array _ _, _, _, _, h, _ => by simp [intOf] at h
   | .ptr _ _, _, _, _, h, _ => by simp [intOf] at h
   | .ptrOpt _ _, _, _, _, h, _ => by simp [intOf] at h
@@ -2076,6 +2079,14 @@ theorem VR_sub {cx : Cx} {η : TEnv} {ρ : Nat → Nat} (hs : Sat cx.facts ρ) {
       · refine ⟨n, Ra, Rb, hr, Or.inr ⟨j, p, hd, fun hj => ?_, fun hj => ?_⟩⟩
         · obtain ⟨q, hq, hv⟩ := h1 hj; exact ⟨q, hq, iha _ _ hv⟩
         · obtain ⟨q, hq, hv⟩ := h2 hj; exact ⟨q, hq, ihb _ _ hv⟩
+  | codeR h1 h2 =>
+      intro rt ws hv
+      have e := VR_tyEq (TyEqS.code (k := .plain) h1 h2) (η := η) ρ rt ws (fun _ => hs)
+      simp only [VR, VR] at hv e ⊢; exact e.1 hv
+  | codeRR _ _ h1 h2 =>
+      intro rt ws hv
+      have e := VR_tyEq (TyEqS.code (k := .plain) h1 h2) (η := η) ρ rt ws (fun _ => hs)
+      simp only [VR, VR] at hv e ⊢; exact e.1 hv
   | cap => intros; simp [VR]
 
 /-- **Index instantiation.**  `VR` at `t[w/d]` is `VR` at `t` with `w`'s value
@@ -2085,6 +2096,7 @@ theorem VR_instT (w : Idx) (η : TEnv) :
       VR ρ η (instT [w] d t) rt ws ↔ VR (vins d (ev (fun k => ρ (k + d)) w) ρ) η t rt ws
   | .intS i, d, ρ, _, _ => by simp [instT, VR, ev_instI]
   | .int, _, _, _, _ => by simp [instT, VR]
+  | .opq _, _, _, _, _ => by simp [instT, VR]
   | .tid, _, _, _, _ => by simp [instT, VR]
   | .fix _ _, _, _, _, _ => by simp [instT, VR]
   | .lanes _ _, _, _, _, _ => by simp [instT, VR]
@@ -2108,7 +2120,7 @@ theorem VR_instT (w : Idx) (η : TEnv) :
   | .sum a b, d, ρ, rt, ws => by
       simp only [instT, VR, VR_instT w η a d ρ, VR_instT w η b d ρ, VR_instT w η.unsee a d ρ,
         VR_instT w η.unsee b d ρ]
-  | .code a b, d, ρ, rt, ws => by
+  | .code a b _, d, ρ, rt, ws => by
       simp only [instT, VR, cl_inst1]
   | .array _ _, _, _, _, _ => by simp [instT, VR]
   | .ptr _ _, _, _, _, _ => by simp only [instT, VR, cl_inst1, ModeOK_inst]
@@ -2158,6 +2170,7 @@ theorem VR_shiftTU : ∀ (t : Ty) (c : Nat) (η : TEnv) (R : Shp → List Word �
         simp [Ty.shiftT, h, VR, TEnv.get, TEnv.insR, h1]
   | .intS i, _, _, _, _, _, _, _, _ => by simp [Ty.shiftT, VR]
   | .int, _, _, _, _, _, _, _, _ => by simp [Ty.shiftT, VR]
+  | .opq _, _, _, _, _, _, _, _, _ => by simp only [Ty.shiftT, VR]
   | .tid, _, _, _, _, _, _, _, _ => by simp only [Ty.shiftT, VR, TEnv.insR_sto, TEnv.insR_tid, TEnv.insR_pfr, TEnv.insR_seen]
   | .fix _ _, _, _, _, _, _, _, _, _ => by simp [Ty.shiftT, VR]
   | .lanes _ _, _, _, _, _, _, _, _, _ => by simp [Ty.shiftT, VR]
@@ -2172,7 +2185,7 @@ theorem VR_shiftTU : ∀ (t : Ty) (c : Nat) (η : TEnv) (R : Shp → List Word �
   | .sum a b, c, η, R, s, UR, ρ, rt, ws => by
       simp only [Ty.shiftT, VR, VR_shiftTU a c η R s UR ρ, VR_shiftTU b c η R s UR ρ, unsee_insR,
         VR_shiftTU a c η.unsee UR s UR ρ, VR_shiftTU b c η.unsee UR s UR ρ, TEnv.insR_box, TEnv.insR_tid, TEnv.insR_seen, TEnv.insR_pfr]
-  | .code a b, c, η, R, s, UR, ρ, rt, ws => by
+  | .code a b _, c, η, R, s, UR, ρ, rt, ws => by
       simp only [Ty.shiftT, VR, cl_insR, TEnv.insR_prog]
   | .tex κ b, c, η, R, s, UR, ρ, rt, ws => by
       simp only [Ty.shiftT, VR]
@@ -2268,7 +2281,7 @@ theorem VR_relsG : ∀ (t : Ty) (c : Nat) (η₁ η₂ : TEnv) (ρ : Nat → Nat
       have e3 : η₁.seen = η₂.seen := by have h := congrArg TEnv.seen hp; exact h
       have e4 : η₁.pfr = η₂.pfr := by have h := congrArg TEnv.pfr hp; exact h
       simp only [VR, ha, hb, ha', hb', e1, e2, e3, e4]
-  | .code a b, _, η₁, η₂, ρ, rt, ws, _, _, _, hw, hp => by
+  | .code a b _, _, η₁, η₂, ρ, rt, ws, _, _, _, hw, hp => by
       have e : η₁.prog = η₂.prog := by have h := congrArg TEnv.prog hp; exact h
       simp only [VR, hw, e]
   | .tex κ b, c, η₁, η₂, ρ, rt, ws, hg, hr, hur, hw, hp => by
@@ -2289,6 +2302,7 @@ theorem VR_relsG : ∀ (t : Ty) (c : Nat) (η₁ η₂ : TEnv) (ρ : Nat → Nat
       · simp only [TEnv.push0, TEnv.ins, TEnv.insR, hw]
   | .intS _, _, _, _, _, _, _, _, _, _, _, _ => by simp [VR]
   | .int, _, _, _, _, _, _, _, _, _, _, _ => by simp [VR]
+  | .opq _, _, _, _, _, _, _, _, _, _, _, _ => by simp only [VR]
   | .tid, _, η₁, η₂, _, _, _, _, _, _, _, hp => by
       have e1 : η₁.sto = η₂.sto := by have h := congrArg TEnv.sto hp; exact h
       have e2 : η₁.tid = η₂.tid := by have h := congrArg TEnv.tid hp; exact h
@@ -2385,7 +2399,7 @@ theorem VR_mono : ∀ (t : Ty) (η₁ η₂ : TEnv) (ρ : Nat → Nat) (rt : Shp
       · refine ⟨n, Ra, Rb, h1, Or.inr ⟨j, p, hd, fun hj => ?_, fun hj => ?_⟩⟩
         · obtain ⟨q, hq, hv⟩ := h2 hj; exact ⟨q, hq, VR_mono a η₁ η₂ ρ _ _ hr hur hw hp ht hs hi hP hS hBx hv⟩
         · obtain ⟨q, hq, hv⟩ := h3 hj; exact ⟨q, hq, VR_mono b η₁ η₂ ρ _ _ hr hur hw hp ht hs hi hP hS hBx hv⟩
-  | .code a b, η₁, η₂, ρ, rt, ws, _, _, hw, hp, _, _, _, hP, hS, hBx, hv, hri => by
+  | .code a b _, η₁, η₂, ρ, rt, ws, _, _, hw, hp, _, _, _, hP, hS, hBx, hv, hri => by
       simp only [VR] at hv ⊢; rw [← hw, ← hp]; exact hv
   | .tex κ b, η₁, η₂, ρ, rt, ws, hr, hur, hw, hp, ht, hs, hi, hP, hS, hBx, hv, hri => by
       simp only [VR] at hv ⊢
@@ -2410,6 +2424,7 @@ theorem VR_mono : ∀ (t : Ty) (η₁ η₂ : TEnv) (ρ : Nat → Nat) (rt : Shp
           IniAt_mono (modeIni_le hi hri μ) h6⟩
   | .intS _, _, _, _, _, _, _, _, _, _, _, _, _, hP, hS, hBx, hv, hri => by simpa only [VR] using hv
   | .int, _, _, _, _, _, _, _, _, _, _, _, _, hP, hS, hBx, hv, hri => by simpa only [VR] using hv
+  | .opq _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, hv, _ => by simp only [VR] at hv ⊢; exact hv
   | .tid, _, _, _, _, _, _, _, _, _, ht, hs, _, hP, hS, _, hv, _ => by
         simp only [VR] at hv ⊢
         obtain ⟨l, c, h1, h2, h3, h5⟩ := hv
@@ -2630,7 +2645,7 @@ theorem VR_unsee (V : WeakMem.Ts) : ∀ (t : Ty) (η₁ η₂ : TEnv) (ρ : Nat 
           exact ⟨q, hq, VR_unsee V a η₁ η₂ ρ _ _ hr hur hw hp ht hs hi hP hS hBx (LocAbove_ofArm hq hLp) hv⟩
         · obtain ⟨q, hq, hv⟩ := h3 hj
           exact ⟨q, hq, VR_unsee V b η₁ η₂ ρ _ _ hr hur hw hp ht hs hi hP hS hBx (LocAbove_ofArm hq hLp) hv⟩
-  | .code a b, η₁, η₂, ρ, rt, ws, _, _, hw, hp, _, _, _, _, _, hBx, _, hv, hri => by
+  | .code a b _, η₁, η₂, ρ, rt, ws, _, _, hw, hp, _, _, _, _, _, hBx, _, hv, hri => by
       simp only [VR] at hv ⊢; rw [← hw, ← hp]; exact hv
   | .tex κ b, η₁, η₂, ρ, rt, ws, hr, hur, hw, hp, ht, hs, hi, hP, hS, hBx, hL, hv, hri => by
       simp only [VR] at hv ⊢
@@ -2655,6 +2670,7 @@ theorem VR_unsee (V : WeakMem.Ts) : ∀ (t : Ty) (η₁ η₂ : TEnv) (ρ : Nat 
           IniAt_mono (modeIni_le hi hri μ) h6⟩
   | .intS _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, hBx, _, hv, hri => by simpa only [VR] using hv
   | .int, _, _, _, _, _, _, _, _, _, _, _, _, _, _, hBx, _, hv, hri => by simpa only [VR] using hv
+  | .opq _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, hv, _ => by simp only [VR] at hv ⊢; exact hv
   | .tid, _, _, _, _, _, _, _, _, _, ht, hs, _, hP, hS, _, hL, hv, _ => by
         simp only [VR] at hv ⊢
         obtain ⟨l, c, h1, h2, h3, h5⟩ := hv
@@ -2759,6 +2775,7 @@ theorem VR_close {η : TEnv} (hc : Coh η) (ρ₀ : Nat → Nat) :
   | .intS i, P, d, ρ, ρ', S, ws, hρ, hρ' => by
       simp only [cl, VR, ev_clI hρ hρ']
   | .int, _, _, _, _, _, _, _, _ => by simp [cl, VR]
+  | .opq _, _, _, _, _, _, _, _, _ => by simp only [cl, VR]
   | .tid, _, _, _, _, _, _, _, _ => by simp only [cl, VR, pre_sto, pre_tid, pre_pfr, pre_seen, CE_sto, CE_tid, CE_pfr, CE_seen]
   | .fix _ _, _, _, _, _, _, _, _, _ => by simp [cl, VR]
   | .lanes _ _, _, _, _, _, _, _, _, _ => by simp [cl, VR]
@@ -2791,7 +2808,7 @@ theorem VR_close {η : TEnv} (hc : Coh η) (ρ₀ : Nat → Nat) :
           VR ρ' (TEnv.pre P (CE η.unsee)) (cl ρ₀ η.wit P.length d b) S ws :=
         fun S ws => VR_close hc.unsee ρ₀ b P d ρ ρ' S ws hρ hρ'
       simp only [cl, VR, pre_box, pre_tid, pre_seen, pre_pfr, CE_box, CE_tid, CE_seen, CE_pfr, unsee_pre, CE_unsee, ha, hb, hau, hbu]
-  | .code a b, P, d, ρ, ρ', S, ws, hρ, hρ' => by
+  | .code a b _, P, d, ρ, ρ', S, ws, hρ, hρ' => by
       have hcl := cl_CE hc ρ₀ P d ρ ρ' hρ hρ'
       simp only [cl, VR, hcl, pre_prog, CE_prog]
   | .tex κ b, P, d, ρ, ρ', S, ws, hρ, hρ' => by
@@ -2960,6 +2977,9 @@ theorem VRR_up {ρ : Nat → Nat} {η : TEnv} : ∀ (t : Ty) (rt : Shp) (ws ws' 
       obtain ⟨⟨l, c, h1, h2, h3, h5⟩, hR⟩ := hv
       exact ⟨⟨l, c, e.vals.symm.trans h1, h2, h3,
         ModeOK_mono (fun _ _ x => x) (fun _ x => x) (WLe_view e h1) h5⟩, hR⟩
+  | opq _ =>
+      intro rt ws ws' R e hv; simp only [VRR, VR] at hv ⊢
+      obtain ⟨⟨n, hn⟩, hR⟩ := hv; exact ⟨⟨n, e.vals.symm.trans hn⟩, hR⟩
   | _ => intro rt ws ws' R e hv; simp only [VRR] at hv ⊢ <;> first | exact hv | (rw [← e.vals]; exact hv)
 
 
@@ -2967,6 +2987,7 @@ theorem VRR_shift (η : TEnv) : ∀ (t : Ty) (c w : Nat) (ρ : Nat → Nat) (rt 
     VRR (vins c w ρ) η (t.shiftI c) rt ws R ↔ VRR ρ η t rt ws R
   | .intS i, c, w, ρ, _, _, _ => by simp [Ty.shiftI, VRR, ev_shift]
   | .int, _, _, _, _, _, _ => by simp [Ty.shiftI, VRR]
+  | .opq _, _, _, _, _, _, _ => by simp [Ty.shiftI, VRR, VR]
   | .tid, _, _, _, _, _, _ => by simp [Ty.shiftI, VRR, VR]
   | .fix _ _, _, _, _, _, _, _ => by simp [Ty.shiftI, VRR]
   | .lanes _ _, _, _, _, _, _, _ => by simp [Ty.shiftI, VRR]
@@ -2989,7 +3010,7 @@ theorem VRR_shift (η : TEnv) : ∀ (t : Ty) (c w : Nat) (ρ : Nat → Nat) (rt 
   | .sum a b, c, w, ρ, rt, ws, R => by
       simp only [Ty.shiftI, VRR, VRR_shift η a c w ρ, VRR_shift η b c w ρ, VRR_shift η.unsee a c w ρ,
         VRR_shift η.unsee b c w ρ]
-  | .code a b, c, w, ρ, rt, ws, R => by
+  | .code a b _, c, w, ρ, rt, ws, R => by
       simp only [Ty.shiftI, VRR, cl_vins]
   | .array _ _, _, _, _, _, _, _ => by simp [Ty.shiftI, VRR]
   | .ptr _ _, _, _, _, _, _, _ => by simp only [Ty.shiftI, VRR, cl_vins, ModeOK_shift, ownW_shift]
@@ -3025,6 +3046,7 @@ theorem VRR_instT (w : Idx) (η : TEnv) :
       VRR ρ η (instT [w] d t) rt ws R ↔ VRR (vins d (ev (fun k => ρ (k + d)) w) ρ) η t rt ws R
   | .intS i, d, ρ, _, _, _ => by simp [instT, VRR, ev_instI]
   | .int, _, _, _, _, _ => by simp [instT, VRR]
+  | .opq _, _, _, _, _, _ => by simp [instT, VRR, VR]
   | .tid, _, _, _, _, _ => by simp [instT, VRR, VR]
   | .fix _ _, _, _, _, _, _ => by simp [instT, VRR]
   | .lanes _ _, _, _, _, _, _ => by simp [instT, VRR]
@@ -3048,7 +3070,7 @@ theorem VRR_instT (w : Idx) (η : TEnv) :
   | .sum a b, d, ρ, rt, ws, R => by
       simp only [instT, VRR, VRR_instT w η a d ρ, VRR_instT w η b d ρ, VRR_instT w η.unsee a d ρ,
         VRR_instT w η.unsee b d ρ]
-  | .code a b, d, ρ, rt, ws, R => by
+  | .code a b _, d, ρ, rt, ws, R => by
       simp only [instT, VRR, cl_inst1]
   | .array _ _, _, _, _, _, _ => by simp [instT, VRR]
   | .ptr _ _, _, _, _, _, _ => by simp only [instT, VRR, cl_inst1, ModeOK_inst, ownW_inst]
@@ -3098,6 +3120,7 @@ theorem VRR_shiftTU : ∀ (t : Ty) (c : Nat) (η : TEnv) (R : Shp → List Word 
         simp [Ty.shiftT, h, VRR, TEnv.insR, h1]
   | .intS i, _, _, _, _, _, _, _, _, _, _, _ => by simp [Ty.shiftT, VRR]
   | .int, _, _, _, _, _, _, _, _, _, _, _ => by simp [Ty.shiftT, VRR]
+  | .opq _, _, _, _, _, _, _, _, _, _, _, _ => by simp only [Ty.shiftT, VRR, VR]
   | .tid, _, _, _, _, _, _, _, _, _, _, _ => by simp only [Ty.shiftT, VRR, VR, TEnv.insR_sto, TEnv.insR_tid, TEnv.insR_pfr, TEnv.insR_seen]
   | .fix _ _, _, _, _, _, _, _, _, _, _, _, _ => by simp [Ty.shiftT, VRR]
   | .lanes _ _, _, _, _, _, _, _, _, _, _, _, _ => by simp [Ty.shiftT, VRR]
@@ -3113,7 +3136,7 @@ theorem VRR_shiftTU : ∀ (t : Ty) (c : Nat) (η : TEnv) (R : Shp → List Word 
       simp only [Ty.shiftT, VRR, VRR_shiftTU a c η R s UR RR URR ρ, VRR_shiftTU b c η R s UR RR URR ρ, unsee_insR,
         VRR_shiftTU a c η.unsee UR s UR URR URR ρ, VRR_shiftTU b c η.unsee UR s UR URR URR ρ, TEnv.insR_box,
         TEnv.insR_tid, TEnv.insR_seen, TEnv.insR_pfr]
-  | .code a b, c, η, R, s, UR, RR, URR, ρ, rt, ws, X => by
+  | .code a b _, c, η, R, s, UR, RR, URR, ρ, rt, ws, X => by
       simp only [Ty.shiftT, VRR, cl_insR, TEnv.insR_prog]
   | .tex κ b, c, η, R, s, UR, RR, URR, ρ, rt, ws, X => by
       simp only [Ty.shiftT, VRR]
@@ -3203,7 +3226,7 @@ theorem VRR_mono : ∀ (t : Ty) (η₁ η₂ : TEnv) (ρ : Nat → Nat) (rt : Sh
       · refine ⟨n, Ra, Rb, h1, Or.inr ⟨j, p, hd, fun hj => ?_, fun hj => ?_⟩⟩
         · obtain ⟨q, hq, hv⟩ := h2 hj; exact ⟨q, hq, VRR_mono a η₁ η₂ ρ _ _ _ hr hur hw hp ht hs hi hP hS hBx hv⟩
         · obtain ⟨q, hq, hv⟩ := h3 hj; exact ⟨q, hq, VRR_mono b η₁ η₂ ρ _ _ _ hr hur hw hp ht hs hi hP hS hBx hv⟩
-  | .code a b, η₁, η₂, ρ, rt, ws, X, _, _, hw, hp, _, _, _, hP, hS, hBx, hv, hri => by
+  | .code a b _, η₁, η₂, ρ, rt, ws, X, _, _, hw, hp, _, _, _, hP, hS, hBx, hv, hri => by
       simp only [VRR] at hv ⊢; rw [← hw, ← hp]; exact hv
   | .tex κ b, η₁, η₂, ρ, rt, ws, X, hr, hur, hw, hp, ht, hs, hi, hP, hS, hBx, hv, hri => by
       simp only [VRR] at hv ⊢
@@ -3237,6 +3260,7 @@ theorem VRR_mono : ∀ (t : Ty) (η₁ η₂ : TEnv) (ρ : Nat → Nat) (rt : Sh
       exact fun n => VRR_mono b η₁ η₂ (vcons n ρ) rt ws X hr hur hw hp ht hs hi hP hS hBx (hv n)
   | .intS _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, hv, hri => by simpa only [VRR] using hv
   | .int, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, hv, hri => by simpa only [VRR] using hv
+  | .opq _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, hv, _ => by simp only [VRR, VR] at hv ⊢; exact hv
   | .tid, _, _, _, _, _, _, _, _, _, _, ht, hs, _, hP, hS, _, hv, _ => by
         simp only [VRR, VR] at hv ⊢
         obtain ⟨⟨l, c, h1, h2, h3, h5⟩, hR⟩ := hv
@@ -3292,6 +3316,7 @@ theorem VRR_close {η : TEnv} (hc : Coh η) (hr : CohR η) (ρ₀ : Nat → Nat)
   | .intS i, P, d, ρ, ρ', S, ws, X, hρ, hρ' => by
       simp only [cl, VRR, ev_clI hρ hρ']
   | .int, _, _, _, _, _, _, _, _, _ => by simp [cl, VRR]
+  | .opq _, _, _, _, _, _, _, _, _, _ => by simp only [cl, VRR, VR]
   | .tid, _, _, _, _, _, _, _, _, _ => by simp only [cl, VRR, VR, pre_sto, pre_tid, pre_pfr, pre_seen, CE_sto, CE_tid, CE_pfr, CE_seen]
   | .fix _ _, _, _, _, _, _, _, _, _, _ => by simp [cl, VRR]
   | .lanes _ _, _, _, _, _, _, _, _, _, _ => by simp [cl, VRR]
@@ -3327,7 +3352,7 @@ theorem VRR_close {η : TEnv} (hc : Coh η) (hr : CohR η) (ρ₀ : Nat → Nat)
           VRR ρ' (TEnv.pre P (CE η.unsee)) (cl ρ₀ η.wit P.length d b) S ws X :=
         fun S ws X => VRR_close hc.unsee hr.unsee ρ₀ b P d ρ ρ' S ws X hρ hρ'
       simp only [cl, VRR, pre_box, pre_tid, pre_seen, pre_pfr, CE_box, CE_tid, CE_seen, CE_pfr, unsee_pre, CE_unsee, ha, hb, hau, hbu]
-  | .code a b, P, d, ρ, ρ', S, ws, X, hρ, hρ' => by
+  | .code a b _, P, d, ρ, ρ', S, ws, X, hρ, hρ' => by
       have hcl := cl_CE hc ρ₀ P d ρ ρ' hρ hρ'
       simp only [cl, VRR, hcl, pre_prog, CE_prog]
   | .tex κ b, P, d, ρ, ρ', S, ws, X, hρ, hρ' => by
@@ -3503,10 +3528,11 @@ theorem VRR_copy_zero : ∀ (t : Ty) (ke : KEnv) (ρ : Nat → Nat) (η : TEnv) 
   | .void, _, _, _, _, _, _, _, _, _, hv => by simp [VRR] at hv
   | .intS _, _, _, _, _, _, _, _, _, _, hv => by simp only [VRR] at hv; exact hv.2
   | .int, _, _, _, _, _, _, _, _, _, hv => by simp only [VRR] at hv; exact hv.2
+  | .opq _, _, _, _, _, _, _, _, _, _, hv => by simp only [VRR] at hv; exact hv.2
   | .tid, _, _, _, _, _, _, _, _, _, hv => by simp only [VRR] at hv; exact hv.2
   | .fix _ _, _, _, _, _, _, _, _, _, _, hv => by simp only [VRR] at hv; exact hv.2
   | .lanes _ _, _, _, _, _, _, _, _, _, _, hv => by simp only [VRR] at hv; exact hv.2
-  | .code _ _, _, _, _, _, _, _, _, _, _, hv => by simp only [VRR] at hv; exact hv.2
+  | .code _ _ _, _, _, _, _, _, _, _, _, _, hv => by simp only [VRR] at hv; exact hv.2
   | .ptr μ _, _, _, _, _, _, _, ha, _, _, hv => by
       simp only [VRR] at hv; rw [hv.2]; cases μ <;> simp_all [Ty.affineIn]
   | .ptrOpt μ _, _, _, _, _, _, _, ha, _, _, hv => by
@@ -3773,6 +3799,14 @@ theorem VRR_sub {cx : Cx} {η : TEnv} {ρ : Nat → Nat} (hs : Sat cx.facts ρ) 
       · refine ⟨n, Ra, Rb, hr, Or.inr ⟨j, p, hd, fun hj => ?_, fun hj => ?_⟩⟩
         · obtain ⟨q, hq, hv⟩ := h1 hj; exact ⟨q, hq, iha _ _ _ hv⟩
         · obtain ⟨q, hq, hv⟩ := h2 hj; exact ⟨q, hq, ihb _ _ _ hv⟩
+  | codeR h1 h2 =>
+      intro rt ws R hv
+      have e := VRR_tyEq (TyEqS.code (k := .plain) h1 h2) (η := η) ρ rt ws R (fun _ => hs)
+      simp only [VRR, VR] at hv e ⊢; exact e.1 hv
+  | codeRR _ _ h1 h2 =>
+      intro rt ws R hv
+      have e := VRR_tyEq (TyEqS.code (k := .plain) h1 h2) (η := η) ρ rt ws R (fun _ => hs)
+      simp only [VRR, VR] at hv e ⊢; exact e.1 hv
   | cap => intro rt ws R hv; simpa [VRR] using hv
 
 theorem VRR_relsG : ∀ (t : Ty) (c : Nat) (η₁ η₂ : TEnv) (ρ : Nat → Nat) (rt : Shp) (ws : List Word) (R : Res),
@@ -3815,7 +3849,7 @@ theorem VRR_relsG : ∀ (t : Ty) (c : Nat) (η₁ η₂ : TEnv) (ρ : Nat → Na
       have e3 : η₁.seen = η₂.seen := by have h := congrArg TEnv.seen hp; exact h
       have e4 : η₁.pfr = η₂.pfr := by have h := congrArg TEnv.pfr hp; exact h
       simp only [VRR, ha, hb, ha', hb', e1, e2, e3, e4]
-  | .code a b, _, η₁, η₂, ρ, rt, ws, R, _, _, _, hw, hp => by
+  | .code a b _, _, η₁, η₂, ρ, rt, ws, R, _, _, _, hw, hp => by
       have e : η₁.prog = η₂.prog := by have h := congrArg TEnv.prog hp; exact h
       simp only [VRR, hw, e]
   | .tex κ b, c, η₁, η₂, ρ, rt, ws, R, hg, hr, hur, hw, hp => by
@@ -3837,6 +3871,7 @@ theorem VRR_relsG : ∀ (t : Ty) (c : Nat) (η₁ η₂ : TEnv) (ρ : Nat → Na
       · simp only [TEnv.push0, TEnv.ins, TEnv.insR, hw]
   | .intS _, _, _, _, _, _, _, _, _, _, _, _, _ => by simp [VRR]
   | .int, _, _, _, _, _, _, _, _, _, _, _, _ => by simp [VRR]
+  | .opq _, _, _, _, _, _, _, _, _, _, _, _, _ => by simp only [VRR, VR]
   | .tid, _, η₁, η₂, _, _, _, _, _, _, _, _, hp => by
       have e1 : η₁.sto = η₂.sto := by have h := congrArg TEnv.sto hp; exact h
       have e2 : η₁.tid = η₂.tid := by have h := congrArg TEnv.tid hp; exact h
@@ -4086,7 +4121,7 @@ theorem accs_width : ∀ (t : Ty) (us : List Acc), accs t = some us →
       subst h; subst hw; simp [Idx.closed] at hk; subst hk; rfl
   | array i t _ => intro us h; simp [accs] at h
   | tvar _ => intro us h; simp [accs] at h
-  | unit | void | tok _ _ | tok2 _ _ _ _ | tokE _ _ _ | share _ | cap _ _ | int | tid | intS _ | code _ _ | ptr _ _ | ptrOpt _ _
+  | unit | void | tok _ _ | tok2 _ _ _ _ | tokE _ _ _ | share _ | cap _ _ | int | opq _ | tid | intS _ | code _ _ _ | ptr _ _ | ptrOpt _ _
     | loc _ _ | fix _ _ | lanes _ _ =>
       intro us h w k hw hk
       simp [accs, info, Info.leaf] at h hw
@@ -4156,7 +4191,7 @@ theorem idxMentions_shiftI : ∀ (t : Ty) (c k : Nat), k < c → (t.shiftI c).id
   | intS i => intro c k hk; simp only [Ty.shiftI, Ty.idxMentions, mentions_shift c k hk]
   | prod a b iha ihb => intro c k hk; simp only [Ty.shiftI, Ty.idxMentions, iha c k hk, ihb c k hk]
   | sum a b iha ihb => intro c k hk; simp only [Ty.shiftI, Ty.idxMentions, iha c k hk, ihb c k hk]
-  | code a b iha ihb => intro c k hk; simp only [Ty.shiftI, Ty.idxMentions, iha c k hk, ihb c k hk]
+  | code a b _ iha ihb => intro c k hk; simp only [Ty.shiftI, Ty.idxMentions, iha c k hk, ihb c k hk]
   | array i t ih => intro c k hk; simp only [Ty.shiftI, Ty.idxMentions, ih c k hk, mentions_shift c k hk]
   | ptr μ t ih => intro c k hk; simp only [Ty.shiftI, Ty.idxMentions, ih c k hk, mode_mentions_shift c k hk]
   | ptrOpt μ t ih => intro c k hk; simp only [Ty.shiftI, Ty.idxMentions, ih c k hk, mode_mentions_shift c k hk]
@@ -4197,6 +4232,7 @@ theorem countT_shiftI : ∀ (t : Ty) (c k : Nat), (t.shiftI c).countT k = t.coun
   | .int, c, k => by
       have h := tyMentions_shiftI (.int) c k
       first | rfl | (simp only [Ty.shiftI] at h ⊢ <;> simp only [Ty.countT, h])
+  | .opq o, c, k => by have h := tyMentions_shiftI (.int) c k; first | rfl | (simp only [Ty.shiftI] at h ⊢ <;> simp only [Ty.countT, h])
   | .tid, c, k => by
       have h := tyMentions_shiftI (.int) c k
       first | rfl | (simp only [Ty.shiftI] at h ⊢ <;> simp only [Ty.countT, h])
@@ -4212,8 +4248,8 @@ theorem countT_shiftI : ∀ (t : Ty) (c k : Nat), (t.shiftI c).countT k = t.coun
   | .sum a b, c, k => by
       have h := tyMentions_shiftI (.sum a b) c k
       first | rfl | (simp only [Ty.shiftI] at h ⊢ <;> simp only [Ty.countT, h])
-  | .code a b, c, k => by
-      have h := tyMentions_shiftI (.code a b) c k
+  | .code a b kc, c, k => by
+      have h := tyMentions_shiftI (.code a b kc) c k
       first | rfl | (simp only [Ty.shiftI] at h ⊢ <;> simp only [Ty.countT, h])
   | .array i t, c, k => by
       have h := tyMentions_shiftI (.array i t) c k
@@ -4273,6 +4309,7 @@ theorem countI_shiftI : ∀ (t : Ty) (c k : Nat), k < c → (t.shiftI c).countI 
   | .int, c, k, hk => by
       have h := idxMentions_shiftI (.int) c k hk
       first | rfl | (simp only [Ty.shiftI] at h ⊢ <;> simp only [Ty.countI, h])
+  | .opq o, c, k, hk => by have h := idxMentions_shiftI (.int) c k hk; first | rfl | (simp only [Ty.shiftI] at h ⊢ <;> simp only [Ty.countI, h])
   | .tid, c, k, hk => by
       have h := idxMentions_shiftI (.int) c k hk
       first | rfl | (simp only [Ty.shiftI] at h ⊢ <;> simp only [Ty.countI, h])
@@ -4288,8 +4325,8 @@ theorem countI_shiftI : ∀ (t : Ty) (c k : Nat), k < c → (t.shiftI c).countI 
   | .sum a b, c, k, hk => by
       have h := idxMentions_shiftI (.sum a b) c k hk
       first | rfl | (simp only [Ty.shiftI] at h ⊢ <;> simp only [Ty.countI, h])
-  | .code a b, c, k, hk => by
-      have h := idxMentions_shiftI (.code a b) c k hk
+  | .code a b kc, c, k, hk => by
+      have h := idxMentions_shiftI (.code a b kc) c k hk
       first | rfl | (simp only [Ty.shiftI] at h ⊢ <;> simp only [Ty.countI, h])
   | .array i t, c, k, hk => by
       have h := idxMentions_shiftI (.array i t) c k hk
@@ -4449,7 +4486,7 @@ theorem skel_shiftI : ∀ (t : Ty) (c : Nat), skel (t.shiftI c) = skel t := by
   induction t with
   | prod a b iha ihb => intro c; simp only [Ty.shiftI, skel, iha, ihb]
   | sum a b iha ihb => intro c; simp only [Ty.shiftI, skel, iha, ihb]
-  | code a b iha ihb => intro c; simp only [Ty.shiftI, skel, iha, ihb]
+  | code a b _ iha ihb => intro c; simp only [Ty.shiftI, skel, iha, ihb]
   | array i t ih => intro c; simp only [Ty.shiftI, skel, ih]
   | ptr μ t ih => intro c; simp only [Ty.shiftI, skel, ih, skelM_shift]
   | ptrOpt μ t ih => intro c; simp only [Ty.shiftI, skel, ih, skelM_shift]
@@ -4470,7 +4507,7 @@ theorem skel_idem : ∀ t : Ty, skel (skel t) = skel t := by
   induction t with
   | prod a b iha ihb => simp only [skel, iha, ihb]
   | sum a b iha ihb => simp only [skel, iha, ihb]
-  | code a b iha ihb => simp only [skel, iha, ihb]
+  | code a b _ iha ihb => simp only [skel, iha, ihb]
   | array i t ih => simp only [skel, ih]
   | ptr μ t ih => simp only [skel, ih, skelM_idem]
   | ptrOpt μ t ih => simp only [skel, ih, skelM_idem]
@@ -4518,6 +4555,7 @@ theorem shp_shiftI : ∀ (t : Ty) (c : Nat), shp (t.shiftI c) = shp t
   | .int, c => by
       have h := wc_shiftI (.int) c
       first | rfl | (simp only [Ty.shiftI] at h ⊢ <;> simp only [shp, h])
+  | .opq o, c => by have h := wc_shiftI (.int) c; first | rfl | (simp only [Ty.shiftI] at h ⊢ <;> simp only [shp, h])
   | .tid, c => by
       have h := wc_shiftI (.int) c
       first | rfl | (simp only [Ty.shiftI] at h ⊢ <;> simp only [shp, h])
@@ -4528,7 +4566,7 @@ theorem shp_shiftI : ∀ (t : Ty) (c : Nat), shp (t.shiftI c) = shp t
       have h := wc_shiftI (.sum a b) c
       simp only [Ty.shiftI] at h ⊢
       simp only [shp, h, lnorm, lnorm_shiftI]
-  | .code a b, c => by simp only [Ty.shiftI, shp, sig_shiftI]
+  | .code a b _, c => by simp only [Ty.shiftI, shp, sig_shiftI]
   | .array i t, c => by
       have h := wc_shiftI (.array i t) c
       first | rfl | (simp only [Ty.shiftI] at h ⊢ <;> simp only [shp, h])
@@ -4599,7 +4637,7 @@ def substS (σs : List Ty) (c : Nat) : Ty → Ty
                       | none   => .tvar (k - σs.length)
   | .prod a b    => .prod (substS σs c a) (substS σs c b)
   | .sum a b     => .sum (substS σs c a) (substS σs c b)
-  | .code a b    => .code (substS σs c a) (substS σs c b)
+  | .code a b k  => .code (substS σs c a) (substS σs c b) k
   | .array i t   => .array i (substS σs c t)
   | .ptr μ t     => .ptr μ (substS σs c t)
   | .ptrOpt μ t  => .ptrOpt μ (substS σs c t)
@@ -4638,7 +4676,7 @@ theorem info_skel : ∀ (t : Ty) (ρ : Ctx), info ρ (skel t) = info ρ t := by
   | ptrOpt μ t _ => intro ρ; rfl
   | loc μ t _ => intro ρ; rfl
   | array i t _ => intro ρ; rfl
-  | code a b _ _ => intro ρ; rfl
+  | code a b _ _ _ => intro ρ; rfl
   | _ => intro ρ; rfl
 
 theorem skel_shiftIN : ∀ (d : Nat) (t : Ty), skel (shiftIN d t) = skel t
@@ -4650,7 +4688,7 @@ theorem skel_instT (us : List Idx) : ∀ (t : Ty) (d : Nat), skel (instT us d t)
   induction t with
   | prod a b iha ihb => intro d; simp only [instT, skel, iha, ihb]
   | sum a b iha ihb => intro d; simp only [instT, skel, iha, ihb]
-  | code a b iha ihb => intro d; simp only [instT, skel, iha, ihb]
+  | code a b _ iha ihb => intro d; simp only [instT, skel, iha, ihb]
   | array i t ih => intro d; simp only [instT, skel, ih]
   | ptr μ t ih => intro d; simp only [instT, skel, ih, skelM_inst]
   | ptrOpt μ t ih => intro d; simp only [instT, skel, ih, skelM_inst]
@@ -4668,7 +4706,7 @@ theorem skel_shiftT : ∀ (t : Ty) (c : Nat), skel (t.shiftT c) = (skel t).shift
   | tvar k => intro c; by_cases h : k ≥ c <;> simp [Ty.shiftT, skel, h]
   | prod a b iha ihb => intro c; simp only [Ty.shiftT, skel, iha, ihb]
   | sum a b iha ihb => intro c; simp only [Ty.shiftT, skel, iha, ihb]
-  | code a b iha ihb => intro c; simp only [Ty.shiftT, skel, iha, ihb]
+  | code a b _ iha ihb => intro c; simp only [Ty.shiftT, skel, iha, ihb]
   | array i t ih => intro c; simp only [Ty.shiftT, skel, ih]
   | ptr μ t ih => intro c; simp only [Ty.shiftT, skel, ih]
   | ptrOpt μ t ih => intro c; simp only [Ty.shiftT, skel, ih]
@@ -4700,7 +4738,7 @@ theorem skel_substTs (σs : List Ty) : ∀ (t : Ty) (c d : Nat),
         | some σ => simp [skel_shiftIN, skel_shiftTN]
   | prod a b iha ihb => intro c d; simp only [substTs, skel, substS, iha, ihb]
   | sum a b iha ihb => intro c d; simp only [substTs, skel, substS, iha, ihb]
-  | code a b iha ihb => intro c d; simp only [substTs, skel, substS, iha, ihb]
+  | code a b _ iha ihb => intro c d; simp only [substTs, skel, substS, iha, ihb]
   | array i t ih => intro c d; simp only [substTs, skel, substS, ih]
   | ptr μ t ih => intro c d; simp only [substTs, skel, substS, ih]
   | ptrOpt μ t ih => intro c d; simp only [substTs, skel, substS, ih]
@@ -4735,7 +4773,7 @@ theorem er_shiftT : ∀ (t : Ty) (c : Nat), er (t.shiftT c) = er t := by
   | tvar k => intro c; by_cases h : k ≥ c <;> simp [Ty.shiftT, er, h]
   | prod a b iha ihb => intro c; simp only [Ty.shiftT, er, iha, ihb]
   | sum a b iha ihb => intro c; simp only [Ty.shiftT, er, iha, ihb]
-  | code a b iha ihb => intro c; simp only [Ty.shiftT, er, iha, ihb]
+  | code a b _ iha ihb => intro c; simp only [Ty.shiftT, er, iha, ihb]
   | array i t ih => intro c; simp only [Ty.shiftT, er, ih]
   | ptr μ t _ => intro c; rfl
   | ptrOpt μ t _ => intro c; rfl
@@ -4795,7 +4833,7 @@ theorem sig_pack (σs : List Ty) : ∀ (t : Ty) (c d : Nat) (s : Ty), t.guardT c
       simp only [Ty.guardT, Bool.and_eq_true] at hg
       simp only [Ty.substT, substTs, sig, skel, er] at iha ihb ⊢
       rw [iha c d s hg.1, ihb c d s hg.2]
-  | code a b iha ihb =>
+  | code a b _ iha ihb =>
       intro c d s _
       simp only [Ty.substT, substTs, sig, skel, er]
   | array i t ih =>
@@ -4862,7 +4900,7 @@ theorem substTs_substT_unit (σs : List Ty) : ∀ (t : Ty) (c d : Nat),
         | some σ => rfl
   | prod a b iha ihb => intro c d; simp only [Ty.substT, substTs, iha, ihb]
   | sum a b iha ihb => intro c d; simp only [Ty.substT, substTs, iha, ihb]
-  | code a b iha ihb => intro c d; simp only [Ty.substT, substTs, iha, ihb]
+  | code a b _ iha ihb => intro c d; simp only [Ty.substT, substTs, iha, ihb]
   | array i t ih => intro c d; simp only [Ty.substT, substTs, ih]
   | ptr μ t ih => intro c d; simp only [Ty.substT, substTs, ih]
   | ptrOpt μ t ih => intro c d; simp only [Ty.substT, substTs, ih]
@@ -4899,7 +4937,7 @@ theorem skel_substT_unit : ∀ (t : Ty) (j : Nat), skel (Ty.substT j .unit t) = 
       · by_cases h2 : k > j <;> simp [Ty.substT, skel, h1, h2]
   | prod a b iha ihb => intro j; simp only [Ty.substT, skel, iha, ihb]
   | sum a b iha ihb => intro j; simp only [Ty.substT, skel, iha, ihb]
-  | code a b iha ihb => intro j; simp only [Ty.substT, skel, iha, ihb]
+  | code a b _ iha ihb => intro j; simp only [Ty.substT, skel, iha, ihb]
   | array i t ih => intro j; simp only [Ty.substT, skel, ih]
   | ptr μ t ih => intro j; simp only [Ty.substT, skel, ih]
   | ptrOpt μ t ih => intro j; simp only [Ty.substT, skel, ih]
@@ -4956,7 +4994,7 @@ theorem substT_shiftT : ∀ (t : Ty) (c : Nat) (s : Ty), Ty.substT c s (t.shiftT
         simp [Ty.shiftT, Ty.substT, h, h1, h2]
   | prod a b iha ihb => intro c s; simp only [Ty.shiftT, Ty.substT, iha, ihb]
   | sum a b iha ihb => intro c s; simp only [Ty.shiftT, Ty.substT, iha, ihb]
-  | code a b iha ihb => intro c s; simp only [Ty.shiftT, Ty.substT, iha, ihb]
+  | code a b _ iha ihb => intro c s; simp only [Ty.shiftT, Ty.substT, iha, ihb]
   | array _ t ih => intro c s; simp only [Ty.shiftT, Ty.substT, ih]
   | ptr _ t ih => intro c s; simp only [Ty.shiftT, Ty.substT, ih]
   | ptrOpt _ t ih => intro c s; simp only [Ty.shiftT, Ty.substT, ih]
@@ -4998,7 +5036,7 @@ theorem substT_substS_unit (τs : List Ty) : ∀ (u : Ty) (c : Nat),
             exact congrArg Ty.tvar (by omega)
   | prod a b iha ihb => intro c; simp only [substS, Ty.substT, iha, ihb]
   | sum a b iha ihb => intro c; simp only [substS, Ty.substT, iha, ihb]
-  | code a b iha ihb => intro c; simp only [substS, Ty.substT, iha, ihb]
+  | code a b _ iha ihb => intro c; simp only [substS, Ty.substT, iha, ihb]
   | array i t ih => intro c; simp only [substS, Ty.substT, ih]
   | ptr μ t ih => intro c; simp only [substS, Ty.substT, ih]
   | ptrOpt μ t ih => intro c; simp only [substS, Ty.substT, ih]
@@ -5034,7 +5072,7 @@ theorem substTs_cons_shiftT (s : Ty) (σs : List Ty) : ∀ (t : Ty) (c d : Nat),
         simp [Ty.shiftT, substTs, h, h1]
   | prod a b iha ihb => intro c d; simp only [Ty.shiftT, substTs, iha, ihb]
   | sum a b iha ihb => intro c d; simp only [Ty.shiftT, substTs, iha, ihb]
-  | code a b iha ihb => intro c d; simp only [Ty.shiftT, substTs, iha, ihb]
+  | code a b _ iha ihb => intro c d; simp only [Ty.shiftT, substTs, iha, ihb]
   | array i t ih => intro c d; simp only [Ty.shiftT, substTs, ih]
   | ptr μ t ih => intro c d; simp only [Ty.shiftT, substTs, ih]
   | ptrOpt μ t ih => intro c d; simp only [Ty.shiftT, substTs, ih]
@@ -5142,7 +5180,7 @@ theorem shp_skel : ∀ t : Ty, shp (skel t) = shp t := by
       have e := wc_skel (.sum a b)
       have el := lnorm_skel (.sum a b)
       simp only [skel] at e el ⊢; simp only [shp, e, el]
-  | code a b _ _ => simp only [skel, shp, sig_skel]
+  | code a b _ _ _ => simp only [skel, shp, sig_skel]
   | array i t _ => have e := wc_skel (.array i t); simp only [skel] at e ⊢; simp only [shp, e]
   | ptr μ t _ => have e := wc_skel (.ptr μ t); simp only [skel] at e ⊢; simp only [shp, e]
   | ptrOpt μ t _ => have e := wc_skel (.ptrOpt μ t); simp only [skel] at e ⊢; simp only [shp, e]
@@ -5301,6 +5339,8 @@ theorem lnorm_sub {cx : Cx} {σ τ : Ty} (h : SubS cx σ τ) : ∀ (σs : List T
   | nonNull => intro σs c d; rfl
   | prod _ _ iha ihb => intro σs c d; simp only [substTs, lnorm, iha σs c d, ihb σs c d]
   | sum _ _ iha ihb => intro σs c d; simp only [substTs, lnorm, iha σs c d, ihb σs c d]
+  | codeR _ _ => intro σs c d; rfl
+  | codeRR _ _ _ _ => intro σs c d; rfl
   | cap => intro σs c d; rfl
 
 /-- **Subsumption keeps layouts** (after any type substitution): every `SubS`
@@ -5329,6 +5369,8 @@ theorem info_sub {cx : Cx} {σ τ : Ty} (h : SubS cx σ τ) : ∀ (σs : List Ty
       intro σs c d
       simp only [substTs, info_sum]
       exact InfoEqU.sum (iha σs c d) (ihb σs c d)
+  | codeR _ _ => intro σs c d; exact InfoEqU.refl _
+  | codeRR _ _ _ _ => intro σs c d; exact InfoEqU.refl _
   | cap => intro σs c d; exact InfoEqU.refl _
 
 /-- **Subsumption keeps shapes** (after any type substitution). -/
@@ -5353,6 +5395,8 @@ theorem shp_sub {cx : Cx} {σ τ : Ty} (h : SubS cx σ τ) : ∀ (σs : List Ty)
       congr 1
       simp only [wc, accs, Ty.tier, e]
       rfl
+  | codeR _ _ => intro σs c d; rfl
+  | codeRR _ _ _ _ => intro σs c d; rfl
   | cap => intro σs c d; rfl
 
 theorem wc_sub {cx : Cx} {σ τ : Ty} (h : SubS cx σ τ) (σs : List Ty) (c d : Nat) :
@@ -6289,7 +6333,7 @@ theorem shp_er : ∀ t : Ty, shp (er t) = shp t := by
   | sum a b _ _ =>
       have e := wc_er (.sum a b); have el := lnorm_er (.sum a b)
       simp only [er] at e el ⊢; simp only [shp, e, el]
-  | code a b _ _ => simp only [er, shp, sig_er]
+  | code a b _ _ _ => simp only [er, shp, sig_er]
   | iex t ih => have e := wc_er (.iex t); simp only [er] at e ⊢; simp only [shp, e, ih]
   | tex κ t ih => have e := wc_er (.tex κ t); simp only [er] at e ⊢; simp only [shp, e, ih]
   | refine t ψ ih => simp only [er, shp, ih]
@@ -6404,7 +6448,7 @@ theorem shp_etok : ∀ t : Ty, shp (etok t) = shp t := by
   | sum a b _ _ =>
       have e := wc_etok (.sum a b); have el := lnorm_etok (.sum a b)
       simp only [etok] at e el ⊢; simp only [shp, e, el]
-  | code a b _ _ => simp only [etok, shp]
+  | code a b _ _ _ => simp only [etok, shp]
   | refine t ψ ih => simp only [etok, shp, ih]
   | array i t _ => have e := wc_etok (.array i t); simp only [etok] at e ⊢; simp only [shp, e]
   | ptr μ t _ => have e := wc_etok (.ptr μ t); simp only [etok] at e ⊢; simp only [shp, e]
@@ -6492,7 +6536,7 @@ theorem sig_close_cl (σs : List Ty) (ρ : Nat → Nat) (W : Nat → Ty) :
       have e2 := ihb c d (fun k hk => H k (by simp [Ty.guardT, hk]))
       simp only [sig] at e1 e2
       simp only [substTs, cl, sig, skel, er, e1, e2]
-  | code a b iha ihb =>
+  | code a b _ iha ihb =>
       intro c d H
       have e1 := iha c d (fun k hk => H k (by simp [Ty.guardT, hk]))
       have e2 := ihb c d (fun k hk => H k (by simp [Ty.guardT, hk]))
@@ -6552,7 +6596,7 @@ theorem guardT_of_wf : ∀ (t : Ty) (nt ni k : Nat), t.wf nt ni = true → nt �
   | sum a b iha ihb =>
       intro nt ni k h hk; simp only [Ty.wf, Bool.and_eq_true] at h
       simp only [Ty.guardT, iha nt ni k h.1 hk, ihb nt ni k h.2 hk, Bool.and_self]
-  | code a b iha ihb =>
+  | code a b _ iha ihb =>
       intro nt ni k h hk; simp only [Ty.wf, Bool.and_eq_true] at h
       simp only [Ty.guardT, iha nt ni k h.1 hk, ihb nt ni k h.2 hk, Bool.and_self]
   | array i t ih =>
@@ -6642,12 +6686,13 @@ def ZRel (env : IEnv) : Ty → Ty → Prop
   | .void, .void => True
   | .int, .int => True
   | .tid, .tid => True
+  | .opq _, .opq _ => True
   | .intS i, .intS j => IdxLe env i j
   | .fix _ _, .fix _ _ => True
   | .lanes _ _, .lanes _ _ => True
   | .prod a b, .prod a' b' => ZRel env a a' ∧ ZRel env b b'
   | .sum a b, .sum a' b' => ZRel env a a' ∧ ZRel env b b'
-  | .code _ _, .code _ _ => True
+  | .code _ _ _, .code _ _ _ => True
   | .array i t, .array j u => IdxLe env i j ∧ ZRel env t u
   | .ptr _ _, .ptr _ _ => True
   | .ptrOpt _ _, .ptrOpt _ _ => True
@@ -6761,7 +6806,7 @@ theorem cl_shiftI_id (ρ : Nat → Nat) : ∀ (t : Ty) (e f c : Nat), f ≤ c �
   | intS i => intro e f c hf; simp [cl, Ty.shiftI, clI_shift_id hf]
   | prod a b iha ihb => intro e f c hf; simp [cl, Ty.shiftI, iha e f c hf, ihb e f c hf]
   | sum a b iha ihb => intro e f c hf; simp [cl, Ty.shiftI, iha e f c hf, ihb e f c hf]
-  | code a b iha ihb => intro e f c hf; simp [cl, Ty.shiftI, iha e f c hf, ihb e f c hf]
+  | code a b _ iha ihb => intro e f c hf; simp [cl, Ty.shiftI, iha e f c hf, ihb e f c hf]
   | array i t ih => intro e f c hf; simp [cl, Ty.shiftI, ih e f c hf, clI_shift_id hf]
   | ptr μ t ih => intro e f c hf; simp [cl, Ty.shiftI, ih e f c hf, clM_shift_id hf]
   | ptrOpt μ t ih => intro e f c hf; simp [cl, Ty.shiftI, ih e f c hf, clM_shift_id hf]
@@ -7009,17 +7054,17 @@ theorem zrel_WitL {σs : List Ty} {W : Nat → Ty} {opq : List Nat} (h : WitL σ
     have hl := hr k hk
     exact ⟨σs[k], List.getElem?_eq_getElem hl, (h.2.1 k σs[k] (List.getElem?_eq_getElem hl)).1 hm⟩
 
-theorem skel_eq_code {rt a b : Ty} (h : skel rt = .code a b) :
-    ∃ ra rb, rt = .code ra rb ∧ skel ra = a ∧ skel rb = b := by
+theorem skel_eq_code {rt a b : Ty} {k : CodeKind} (h : skel rt = .code a b k) :
+    ∃ ra rb, rt = .code ra rb k ∧ skel ra = a ∧ skel rb = b := by
   cases rt with
-  | code ra rb => simp only [skel, Ty.code.injEq] at h; exact ⟨ra, rb, rfl, h.1, h.2⟩
+  | code ra rb kr => simp only [skel, Ty.code.injEq] at h; obtain ⟨h1, h2, rfl⟩ := h; exact ⟨ra, rb, rfl, h1, h2⟩
   | refine t ψ => rcases rf_cases (skel t) with e | ⟨u, e⟩ <;> simp [skel, e] at h
   | _ => simp [skel] at h
 
-theorem eskel_eq_code {rt a b : Ty} (h : etok (skel rt) = .code a b) :
-    ∃ ra rb, rt = .code ra rb ∧ etok (skel ra) = a ∧ etok (skel rb) = b := by
+theorem eskel_eq_code {rt a b : Ty} {k : CodeKind} (h : etok (skel rt) = .code a b k) :
+    ∃ ra rb, rt = .code ra rb k ∧ etok (skel ra) = a ∧ etok (skel rb) = b := by
   cases rt with
-  | code ra rb => simp only [skel, etok, Ty.code.injEq] at h; exact ⟨ra, rb, rfl, h.1, h.2⟩
+  | code ra rb kr => simp only [skel, etok, Ty.code.injEq] at h; obtain ⟨h1, h2, rfl⟩ := h; exact ⟨ra, rb, rfl, h1, h2⟩
   | refine t ψ => rcases rf_cases (skel t) with e | ⟨u, e⟩ <;> simp [skel, etok, e] at h
   | _ => simp [skel, etok] at h
 
@@ -7053,6 +7098,8 @@ theorem sub_arms {cx : Cx} {σ τ : Ty} (h : SubS cx σ τ) : ∀ (σs : List Ty
       intro σs c d
       simp only [substTs, armsOf, sumHead]
       exact ⟨(iha σs c d).1.append (ihb σs c d).1, by trivial⟩
+  | codeR _ _ => intro σs c d; exact ⟨.cons (ArmLe.of_info rfl) .nil, rfl⟩
+  | codeRR _ _ _ _ => intro σs c d; exact ⟨.cons (ArmLe.of_info rfl) .nil, rfl⟩
   | cap => intro σs c d; exact ⟨.cons (ArmLe.of_info rfl) .nil, rfl⟩
 
 /-- **Subsumption keeps runtime validity** (after any type substitution). -/
@@ -7077,6 +7124,8 @@ theorem Valid_sub {cx : Cx} {σ τ : Ty} (h : SubS cx σ τ) : ∀ (σs : List T
       exact SumV_mono (info_sub (SubS.sum ha hb) σs c d).tier (sub_arms ha σs c d).1 (sub_arms hb σs c d).1
         (sub_arms ha σs c d).2 (sub_arms hb σs c d).2 (info_sub ha σs c d).tier (info_sub hb σs c d).tier
         (wc_sub ha σs c d) (wc_sub hb σs c d) (iha σs c d) (ihb σs c d) hv
+  | codeR _ _ => intro σs c d ws _; first | trivial | simp [substTs, Valid]
+  | codeRR _ _ _ _ => intro σs c d ws _; first | trivial | simp [substTs, Valid]
   | cap => intro σs c d ws _; trivial
 
 theorem ShapeC_len {rt : Ty} {ws : List Word} {n : Nat} (hs : ShapeC rt ws) (hn : wc rt = some n) :
@@ -7150,7 +7199,7 @@ def lyt (d : Nat) : Ty → Ty
   | .intS i => .intS (idxC d i)
   | .prod a b => .prod (lyt d a) (lyt d b)
   | .sum a b => .sum (lyt d a) (lyt d b)
-  | .code a b => .code (lyt d a) (lyt d b)
+  | .code a b k => .code (lyt d a) (lyt d b) k
   | .array i t => .array (idxC d i) (lyt d t)
   | .ptr μ t => .ptr (modeC d μ) (lyt d t)
   | .ptrOpt μ t => .ptrOpt (modeC d μ) (lyt d t)
@@ -7283,7 +7332,7 @@ theorem etok_lyt : ∀ (t : Ty) (d : Nat), etok (lyt d t) = lyt d (etok t) := by
   induction t with
   | prod a b iha ihb => intro d; simp only [etok, lyt, iha, ihb]
   | sum a b iha ihb => intro d; simp only [etok, lyt, iha, ihb]
-  | code a b iha ihb => intro d; simp only [etok, lyt, iha, ihb]
+  | code a b _ iha ihb => intro d; simp only [etok, lyt, iha, ihb]
   | array i t ih => intro d; simp only [etok, lyt, ih]
   | ptr μ t ih => intro d; simp only [etok, lyt, ih]
   | ptrOpt μ t ih => intro d; simp only [etok, lyt, ih]
@@ -7464,7 +7513,7 @@ theorem lyt_shiftI_gap : ∀ (t : Ty) (e D : Nat), e ≤ D → (∀ k, e ≤ k �
       intro e D he hI
       simp only [Ty.shiftI, lyt, iha e D he (fun k h1 h2 => (orF (hI k h1 h2)).1),
         ihb e D he (fun k h1 h2 => (orF (hI k h1 h2)).2)]
-  | code a b iha ihb =>
+  | code a b _ iha ihb =>
       intro e D he hI
       simp only [Ty.shiftI, lyt, iha e D he (fun k h1 h2 => (orF (hI k h1 h2)).1),
         ihb e D he (fun k h1 h2 => (orF (hI k h1 h2)).2)]
@@ -7629,7 +7678,7 @@ theorem lyt_gap2 : ∀ (t : Ty) (e D : Nat), e ≤ D → (∀ k, e ≤ k → k <
       intro e D he hI
       simp only [lyt, iha e D he (fun k h1 h2 => (orF (hI k h1 h2)).1),
         ihb e D he (fun k h1 h2 => (orF (hI k h1 h2)).2)]
-  | code a b iha ihb =>
+  | code a b _ iha ihb =>
       intro e D he hI
       simp only [lyt, iha e D he (fun k h1 h2 => (orF (hI k h1 h2)).1),
         ihb e D he (fun k h1 h2 => (orF (hI k h1 h2)).2)]
@@ -8359,7 +8408,7 @@ theorem idxMentions_cl (ρ : Nat → Nat) (W : Nat → Ty) (hW : ∀ j m, (W j).
       rcases h with h | h
       · exact ⟨(iha c d k h).1, Or.inl (iha c d k h).2⟩
       · exact ⟨(ihb c d k h).1, Or.inr (ihb c d k h).2⟩
-  | code a b iha ihb =>
+  | code a b _ iha ihb =>
       intro c d k; simp only [cl, Ty.idxMentions, Bool.or_eq_true]; intro h
       rcases h with h | h
       · exact ⟨(iha c d k h).1, Or.inl (iha c d k h).2⟩
@@ -8419,7 +8468,7 @@ theorem tyMentions_cl (ρ : Nat → Nat) (W : Nat → Ty) (hW : ∀ j m, (W j).t
       rcases h with h | h
       · exact ⟨(iha c d k h).1, Or.inl (iha c d k h).2⟩
       · exact ⟨(ihb c d k h).1, Or.inr (ihb c d k h).2⟩
-  | code a b iha ihb =>
+  | code a b _ iha ihb =>
       intro c d k; simp only [cl, Ty.tyMentions, Bool.or_eq_true]; intro h
       rcases h with h | h
       · exact ⟨(iha c d k h).1, Or.inl (iha c d k h).2⟩
@@ -8450,7 +8499,7 @@ theorem tb_tyMentions : ∀ (t : Ty) (c k : Nat), tb c t = true → c ≤ k → 
   | tvar j => intro c k h hk; simp [tb] at h; simp [Ty.tyMentions]; omega
   | prod a b iha ihb => intro c k h hk; simp only [tb, Bool.and_eq_true] at h; simp [Ty.tyMentions, iha c k h.1 hk, ihb c k h.2 hk]
   | sum a b iha ihb => intro c k h hk; simp only [tb, Bool.and_eq_true] at h; simp [Ty.tyMentions, iha c k h.1 hk, ihb c k h.2 hk]
-  | code a b iha ihb => intro c k h hk; simp only [tb, Bool.and_eq_true] at h; simp [Ty.tyMentions, iha c k h.1 hk, ihb c k h.2 hk]
+  | code a b _ iha ihb => intro c k h hk; simp only [tb, Bool.and_eq_true] at h; simp [Ty.tyMentions, iha c k h.1 hk, ihb c k h.2 hk]
   | array i t ih => intro c k h hk; simp only [tb] at h; simp [Ty.tyMentions, ih c k h hk]
   | ptr μ t ih => intro c k h hk; simp only [tb] at h; simp [Ty.tyMentions, ih c k h hk]
   | ptrOpt μ t ih => intro c k h hk; simp only [tb] at h; simp [Ty.tyMentions, ih c k h hk]
@@ -8506,7 +8555,7 @@ theorem countT_cl (ρ : Nat → Nat) (W : Nat → Ty) (hW : ∀ j m, (W j).tyMen
       · simp [cl, hj]
       · simp only [cl, hj, ↓reduceIte]; rw [countT_zero _ k (hW _ _)]; omega
   | sum a b _ _ => intro c d k h; exact leaf _ c d k (by simp only [cl, Ty.countT] <;> rfl) (by simp only [Ty.countT] <;> rfl)
-  | code a b _ _ => intro c d k h; exact leaf _ c d k (by simp only [cl, Ty.countT] <;> rfl) (by simp only [Ty.countT] <;> rfl)
+  | code a b _ _ _ => intro c d k h; exact leaf _ c d k (by simp only [cl, Ty.countT] <;> rfl) (by simp only [Ty.countT] <;> rfl)
   | array i t _ => intro c d k h; exact leaf _ c d k (by simp only [cl, Ty.countT] <;> rfl) (by simp only [Ty.countT] <;> rfl)
   | ptr μ t _ => intro c d k h; exact leaf _ c d k (by simp only [cl, Ty.countT] <;> rfl) (by simp only [Ty.countT] <;> rfl)
   | ptrOpt μ t _ => intro c d k h; exact leaf _ c d k (by simp only [cl, Ty.countT] <;> rfl) (by simp only [Ty.countT] <;> rfl)
@@ -8559,7 +8608,7 @@ theorem countI_cl (ρ : Nat → Nat) (W : Nat → Ty) (hWT : ∀ j m, (W j).tyMe
   | share r => intro c d k h; exact leaf _ c d k (by simp only [cl, Ty.countI] <;> rfl) (by simp only [Ty.countI] <;> rfl)
   | cap s r => intro c d k h; exact leaf _ c d k (by simp only [cl, Ty.countI] <;> rfl) (by simp only [Ty.countI] <;> rfl)
   | sum a b _ _ => intro c d k h; exact leaf _ c d k (by simp only [cl, Ty.countI] <;> rfl) (by simp only [Ty.countI] <;> rfl)
-  | code a b _ _ => intro c d k h; exact leaf _ c d k (by simp only [cl, Ty.countI] <;> rfl) (by simp only [Ty.countI] <;> rfl)
+  | code a b _ _ _ => intro c d k h; exact leaf _ c d k (by simp only [cl, Ty.countI] <;> rfl) (by simp only [Ty.countI] <;> rfl)
   | array i t _ => intro c d k h; exact leaf _ c d k (by simp only [cl, Ty.countI] <;> rfl) (by simp only [Ty.countI] <;> rfl)
   | ptr μ t _ => intro c d k h; exact leaf _ c d k (by simp only [cl, Ty.countI] <;> rfl) (by simp only [Ty.countI] <;> rfl)
   | ptrOpt μ t _ => intro c d k h; exact leaf _ c d k (by simp only [cl, Ty.countI] <;> rfl) (by simp only [Ty.countI] <;> rfl)
@@ -10169,7 +10218,7 @@ theorem VR_substTs (σs : List Ty) (η : TEnv) (ρ₀ : Nat → Nat) :
       have hau := fun rt ws => VR_substTs σs η.unsee ρ₀ a P d ρ rt ws hρ
       have hbu := fun rt ws => VR_substTs σs η.unsee ρ₀ b P d ρ rt ws hρ
       simp only [substTs, VR, pre_box, pre_tid, pre_seen, pre_pfr, subE_box, subE_tid, subE_seen, subE_pfr, unsee_pre, subE_unsee, ha, hb, hau, hbu]
-  | .code a b, P, d, ρ, rt, ws, hρ => by
+  | .code a b _, P, d, ρ, rt, ws, hρ => by
       simp only [substTs, VR, pre_prog, subE_prog, cl_subE σs η ρ₀ P d ρ hρ]
   | .tex κ b, P, d, ρ, rt, ws, hρ => by
       simp only [substTs, VR]
@@ -10203,6 +10252,7 @@ theorem VR_substTs (σs : List Ty) (η : TEnv) (ρ₀ : Nat → Nat) :
         VR_substTs σs η ρ₀ b P (d + 1) (vcons v ρ) rt ws (fun k => by rw [← Nat.add_assoc, vcons_succ]; exact hρ k)
   | .intS _, _, _, _, _, _, _ => by simp [substTs, VR]
   | .int, _, _, _, _, _, _ => by simp [substTs, VR]
+  | .opq _, _, _, _, _, _, _ => by simp [substTs, VR]
   | .tid, _, _, _, _, _, _ => by simp only [substTs, VR, pre_sto, pre_tid, pre_pfr, pre_seen, subE_sto, subE_tid, subE_pfr, subE_seen]
   | .fix _ _, _, _, _, _, _, _ => by simp [substTs, VR]
   | .lanes _ _, _, _, _, _, _, _ => by simp [substTs, VR]
@@ -11391,7 +11441,7 @@ theorem VR_VRR : ∀ (t : Ty) {ρ : Nat → Nat} {η : TEnv} {rt : Shp} {ws : Li
       by_cases hw : Word2Holds P (ws.map (·.val))
       · exact ⟨_, by simp only [VRR]; exact ⟨h, Or.inl ⟨hw, rfl⟩⟩⟩
       · exact ⟨_, by simp only [VRR]; exact ⟨h, Or.inr ⟨hw, rfl⟩⟩⟩
-  | intS | int | tid | fix | lanes | code | epair =>
+  | intS | int | opq _ | tid | fix | lanes | code | epair =>
       intro ρ η rt ws _ _ h; simp only [VR] at h; exact ⟨_, by simp only [VRR]; exact ⟨h, rfl⟩⟩
   | ptr | loc | ptrOpt =>
       intro ρ η rt ws _ _ h; simp only [VR] at h; exact ⟨_, by simp only [VRR]; exact ⟨h, rfl⟩⟩
@@ -11716,7 +11766,7 @@ def TvB : Nat → Ty → Prop
   | n, .tvar k => k < n
   | n, .prod a b => TvB n a ∧ TvB n b
   | n, .sum a b => TvB n a ∧ TvB n b
-  | n, .code a b => TvB n a ∧ TvB n b
+  | n, .code a b _ => TvB n a ∧ TvB n b
   | n, .array _ t => TvB n t
   | n, .ptr _ t => TvB n t
   | n, .ptrOpt _ t => TvB n t
@@ -11737,7 +11787,7 @@ theorem TvB_skel : ∀ (t : Ty) (nt ni : Nat), t.wf nt ni = true → TvB nt (ske
   | refine t ψ ih => intro nt ni h; simp only [Ty.wf, Bool.and_eq_true] at h; exact TvB_rf (ih nt ni h.2)
   | prod a b iha ihb => intro nt ni h; simp only [Ty.wf, Bool.and_eq_true] at h; exact ⟨iha _ _ h.1, ihb _ _ h.2⟩
   | sum a b iha ihb => intro nt ni h; simp only [Ty.wf, Bool.and_eq_true] at h; exact ⟨iha _ _ h.1, ihb _ _ h.2⟩
-  | code a b iha ihb => intro nt ni h; simp only [Ty.wf, Bool.and_eq_true] at h; exact ⟨iha _ _ h.1, ihb _ _ h.2⟩
+  | code a b _ iha ihb => intro nt ni h; simp only [Ty.wf, Bool.and_eq_true] at h; exact ⟨iha _ _ h.1, ihb _ _ h.2⟩
   | array _ t ih => intro nt ni h; simp only [Ty.wf, Bool.and_eq_true] at h; exact ih _ _ h.2
   | ptr _ t ih => intro nt ni h; simp only [Ty.wf, Bool.and_eq_true] at h; exact ih _ _ h.2
   | ptrOpt _ t ih => intro nt ni h; simp only [Ty.wf, Bool.and_eq_true] at h; exact ih _ _ h.2
@@ -11959,7 +12009,7 @@ theorem TvB_of_wf : ∀ (t : Ty) (nt ni : Nat), t.wf nt ni = true → TvB nt t :
   | refine t ψ ih => intro nt ni h; simp only [Ty.wf, Bool.and_eq_true] at h; exact ih nt ni h.2
   | prod a b iha ihb => intro nt ni h; simp only [Ty.wf, Bool.and_eq_true] at h; exact ⟨iha _ _ h.1, ihb _ _ h.2⟩
   | sum a b iha ihb => intro nt ni h; simp only [Ty.wf, Bool.and_eq_true] at h; exact ⟨iha _ _ h.1, ihb _ _ h.2⟩
-  | code a b iha ihb => intro nt ni h; simp only [Ty.wf, Bool.and_eq_true] at h; exact ⟨iha _ _ h.1, ihb _ _ h.2⟩
+  | code a b _ iha ihb => intro nt ni h; simp only [Ty.wf, Bool.and_eq_true] at h; exact ⟨iha _ _ h.1, ihb _ _ h.2⟩
   | array _ t ih => intro nt ni h; simp only [Ty.wf, Bool.and_eq_true] at h; exact ih _ _ h.2
   | ptr _ t ih => intro nt ni h; simp only [Ty.wf, Bool.and_eq_true] at h; exact ih _ _ h.2
   | ptrOpt _ t ih => intro nt ni h; simp only [Ty.wf, Bool.and_eq_true] at h; exact ih _ _ h.2
@@ -12093,6 +12143,7 @@ theorem VR_instTs (us : List Idx) (η : TEnv) :
       VR ρ η (instT us d t) rt ws ↔ VR (vinsL d (us.map (ev (fun k => ρ (k + d)))) ρ) η t rt ws
   | .intS i, d, ρ, _, _ => by simp [instT, VR, ev_instIs]
   | .int, _, _, _, _ => by simp [instT, VR]
+  | .opq _, _, _, _, _ => by simp [instT, VR]
   | .tid, _, _, _, _ => by simp [instT, VR]
   | .fix _ _, _, _, _, _ => by simp [instT, VR]
   | .lanes _ _, _, _, _, _ => by simp [instT, VR]
@@ -12116,7 +12167,7 @@ theorem VR_instTs (us : List Idx) (η : TEnv) :
   | .sum a b, d, ρ, rt, ws => by
       simp only [instT, VR, VR_instTs us η a d ρ, VR_instTs us η b d ρ, VR_instTs us η.unsee a d ρ,
         VR_instTs us η.unsee b d ρ]
-  | .code a b, d, ρ, rt, ws => by
+  | .code a b _, d, ρ, rt, ws => by
       simp only [instT, VR, cl_instTs]
   | .array _ _, _, _, _, _ => by simp [instT, VR]
   | .ptr _ _, _, _, _, _ => by simp only [instT, VR, cl_instTs, ModeOK_inst]
@@ -12249,7 +12300,7 @@ theorem VRR_substTs (σs : List Ty) (η : TEnv) (ρ₀ : Nat → Nat) :
       have hau := fun rt ws X => VRR_substTs σs η.unsee ρ₀ a P d ρ rt ws X hρ
       have hbu := fun rt ws X => VRR_substTs σs η.unsee ρ₀ b P d ρ rt ws X hρ
       simp only [substTs, VRR, pre_box, pre_tid, pre_seen, pre_pfr, subE_box, subE_tid, subE_seen, subE_pfr, unsee_pre, subE_unsee, ha, hb, hau, hbu]
-  | .code a b, P, d, ρ, rt, ws, X, hρ => by
+  | .code a b _, P, d, ρ, rt, ws, X, hρ => by
       simp only [substTs, VRR, pre_prog, subE_prog, cl_subE σs η ρ₀ P d ρ hρ]
   | .tex κ b, P, d, ρ, rt, ws, X, hρ => by
       simp only [substTs, VRR]
@@ -12286,6 +12337,7 @@ theorem VRR_substTs (σs : List Ty) (η : TEnv) (ρ₀ : Nat → Nat) :
         VRR_substTs σs η ρ₀ b P (d + 1) (vcons v ρ) rt ws X (fun k => by rw [← Nat.add_assoc, vcons_succ]; exact hρ k)
   | .intS _, _, _, _, _, _, _, _ => by simp [substTs, VRR]
   | .int, _, _, _, _, _, _, _ => by simp [substTs, VRR]
+  | .opq _, _, _, _, _, _, _, _ => by simp [substTs, VRR, VR]
   | .tid, _, _, _, _, _, _, _ => by simp only [substTs, VRR, VR, pre_sto, pre_tid, pre_pfr, pre_seen, subE_sto, subE_tid, subE_pfr, subE_seen]
   | .fix _ _, _, _, _, _, _, _, _ => by simp [substTs, VRR]
   | .lanes _ _, _, _, _, _, _, _, _ => by simp [substTs, VRR]
@@ -13755,7 +13807,7 @@ theorem idxMentions_shiftT : ∀ (t : Ty) (c k : Nat), (t.shiftT c).idxMentions 
   induction t with
   | prod a b iha ihb => intro c k; simp only [Ty.shiftT, Ty.idxMentions, iha, ihb]
   | sum a b iha ihb => intro c k; simp only [Ty.shiftT, Ty.idxMentions, iha, ihb]
-  | code a b iha ihb => intro c k; simp only [Ty.shiftT, Ty.idxMentions, iha, ihb]
+  | code a b _ iha ihb => intro c k; simp only [Ty.shiftT, Ty.idxMentions, iha, ihb]
   | array i t ih => intro c k; simp only [Ty.shiftT, Ty.idxMentions, ih]
   | ptr μ t ih => intro c k; simp only [Ty.shiftT, Ty.idxMentions, ih]
   | ptrOpt μ t ih => intro c k; simp only [Ty.shiftT, Ty.idxMentions, ih]
@@ -13773,7 +13825,7 @@ theorem tyMentions_shiftT : ∀ (t : Ty) (c k : Nat), k < c → (t.shiftT c).tyM
   induction t with
   | prod a b iha ihb => intro c k h; simp only [Ty.shiftT, Ty.tyMentions, iha c k h, ihb c k h]
   | sum a b iha ihb => intro c k h; simp only [Ty.shiftT, Ty.tyMentions, iha c k h, ihb c k h]
-  | code a b iha ihb => intro c k h; simp only [Ty.shiftT, Ty.tyMentions, iha c k h, ihb c k h]
+  | code a b _ iha ihb => intro c k h; simp only [Ty.shiftT, Ty.tyMentions, iha c k h, ihb c k h]
   | array i t ih => intro c k h; simp only [Ty.shiftT, Ty.tyMentions, ih c k h]
   | ptr μ t ih => intro c k h; simp only [Ty.shiftT, Ty.tyMentions, ih c k h]
   | ptrOpt μ t ih => intro c k h; simp only [Ty.shiftT, Ty.tyMentions, ih c k h]
@@ -13809,7 +13861,7 @@ theorem countT_shiftT : ∀ (t : Ty) (c k : Nat), k < c → (t.shiftT c).countT 
         simp [Ty.shiftT, hj, Ty.countT, Ty.tyMentions, h1, h2]
       · simp [Ty.shiftT, hj]
   | sum a b _ _ => intro c k h; have e := tyMentions_shiftT (.sum a b) c k h; simp only [Ty.shiftT] at e ⊢; simp only [Ty.countT, e]
-  | code a b _ _ => intro c k h; have e := tyMentions_shiftT (.code a b) c k h; simp only [Ty.shiftT] at e ⊢; simp only [Ty.countT, e]
+  | code a b kc _ _ => intro c k h; have e := tyMentions_shiftT (.code a b kc) c k h; simp only [Ty.shiftT] at e ⊢; simp only [Ty.countT, e]
   | array i t _ => intro c k h; have e := tyMentions_shiftT (.array i t) c k h; simp only [Ty.shiftT] at e ⊢; simp only [Ty.countT, e]
   | ptr μ t _ => intro c k h; have e := tyMentions_shiftT (.ptr μ t) c k h; simp only [Ty.shiftT] at e ⊢; simp only [Ty.countT, e]
   | ptrOpt μ t _ => intro c k h; have e := tyMentions_shiftT (.ptrOpt μ t) c k h; simp only [Ty.shiftT] at e ⊢; simp only [Ty.countT, e]
@@ -13829,7 +13881,7 @@ theorem countI_shiftT : ∀ (t : Ty) (c k : Nat), (t.shiftT c).countI k = t.coun
   | iex t ih => intro c k; simp only [Ty.shiftT, Ty.countI, ih]
   | tvar j => intro c k; simp only [Ty.shiftT]; split <;> rfl
   | sum a b _ _ => intro c k; have e := idxMentions_shiftT (.sum a b) c k; simp only [Ty.shiftT] at e ⊢; simp only [Ty.countI, e]
-  | code a b _ _ => intro c k; have e := idxMentions_shiftT (.code a b) c k; simp only [Ty.shiftT] at e ⊢; simp only [Ty.countI, e]
+  | code a b kc _ _ => intro c k; have e := idxMentions_shiftT (.code a b kc) c k; simp only [Ty.shiftT] at e ⊢; simp only [Ty.countI, e]
   | array i t _ => intro c k; have e := idxMentions_shiftT (.array i t) c k; simp only [Ty.shiftT] at e ⊢; simp only [Ty.countI, e]
   | ptr μ t _ => intro c k; have e := idxMentions_shiftT (.ptr μ t) c k; simp only [Ty.shiftT] at e ⊢; simp only [Ty.countI, e]
   | ptrOpt μ t _ => intro c k; have e := idxMentions_shiftT (.ptrOpt μ t) c k; simp only [Ty.shiftT] at e ⊢; simp only [Ty.countI, e]
@@ -13895,7 +13947,7 @@ theorem ty_shiftI_self : ∀ (t : Ty) (c : Nat), (t.shiftI c).idxMentions c = fa
   | intS i => intro c; simp only [Ty.shiftI, Ty.idxMentions, idx_shift_self]
   | prod a b iha ihb => intro c; simp only [Ty.shiftI, Ty.idxMentions, iha, ihb]; rfl
   | sum a b iha ihb => intro c; simp only [Ty.shiftI, Ty.idxMentions, iha, ihb]; rfl
-  | code a b iha ihb => intro c; simp only [Ty.shiftI, Ty.idxMentions, iha, ihb]; rfl
+  | code a b _ iha ihb => intro c; simp only [Ty.shiftI, Ty.idxMentions, iha, ihb]; rfl
   | array i t ih => intro c; simp only [Ty.shiftI, Ty.idxMentions, idx_shift_self, ih]; rfl
   | ptr μ t ih => intro c; simp only [Ty.shiftI, Ty.idxMentions, mode_shift_self, ih]; rfl
   | ptrOpt μ t ih => intro c; simp only [Ty.shiftI, Ty.idxMentions, mode_shift_self, ih]; rfl
@@ -13923,7 +13975,7 @@ theorem ty_shiftI_succ : ∀ (t : Ty) (c k : Nat), k ≥ c → (t.shiftI c).idxM
   | intS i => intro c k hk; simp only [Ty.shiftI, Ty.idxMentions, idx_shift_succ c k hk]
   | prod a b iha ihb => intro c k hk; simp only [Ty.shiftI, Ty.idxMentions, iha c k hk, ihb c k hk]
   | sum a b iha ihb => intro c k hk; simp only [Ty.shiftI, Ty.idxMentions, iha c k hk, ihb c k hk]
-  | code a b iha ihb => intro c k hk; simp only [Ty.shiftI, Ty.idxMentions, iha c k hk, ihb c k hk]
+  | code a b _ iha ihb => intro c k hk; simp only [Ty.shiftI, Ty.idxMentions, iha c k hk, ihb c k hk]
   | array i t ih => intro c k hk; simp only [Ty.shiftI, Ty.idxMentions, idx_shift_succ c k hk, ih c k hk]
   | ptr μ t ih => intro c k hk; simp only [Ty.shiftI, Ty.idxMentions, mode_shift_succ c k hk, ih c k hk]
   | ptrOpt μ t ih => intro c k hk; simp only [Ty.shiftI, Ty.idxMentions, mode_shift_succ c k hk, ih c k hk]
@@ -13951,7 +14003,7 @@ theorem idxMentions_subst (σs : List Ty) : ∀ (t : Ty) (c d k : Nat), k < d �
   induction t with
   | prod a b iha ihb => intro c d k h; simp only [substTs, Ty.idxMentions, iha c d k h, ihb c d k h]
   | sum a b iha ihb => intro c d k h; simp only [substTs, Ty.idxMentions, iha c d k h, ihb c d k h]
-  | code a b iha ihb => intro c d k h; simp only [substTs, Ty.idxMentions, iha c d k h, ihb c d k h]
+  | code a b _ iha ihb => intro c d k h; simp only [substTs, Ty.idxMentions, iha c d k h, ihb c d k h]
   | array i t ih => intro c d k h; simp only [substTs, Ty.idxMentions, ih c d k h]
   | ptr μ t ih => intro c d k h; simp only [substTs, Ty.idxMentions, ih c d k h]
   | ptrOpt μ t ih => intro c d k h; simp only [substTs, Ty.idxMentions, ih c d k h]
@@ -13985,7 +14037,7 @@ theorem ty_shiftT_self : ∀ (t : Ty) (c : Nat), (t.shiftT c).tyMentions c = fal
         simp only [Ty.tyMentions]; exact beq_false_of_ne this
   | prod a b iha ihb => intro c; simp only [Ty.shiftT, Ty.tyMentions, iha, ihb]; rfl
   | sum a b iha ihb => intro c; simp only [Ty.shiftT, Ty.tyMentions, iha, ihb]; rfl
-  | code a b iha ihb => intro c; simp only [Ty.shiftT, Ty.tyMentions, iha, ihb]; rfl
+  | code a b _ iha ihb => intro c; simp only [Ty.shiftT, Ty.tyMentions, iha, ihb]; rfl
   | array i t ih => intro c; simp only [Ty.shiftT, Ty.tyMentions, ih]
   | ptr μ t ih => intro c; simp only [Ty.shiftT, Ty.tyMentions, ih]
   | ptrOpt μ t ih => intro c; simp only [Ty.shiftT, Ty.tyMentions, ih]
@@ -14013,7 +14065,7 @@ theorem ty_shiftT_succ : ∀ (t : Ty) (c k : Nat), k ≥ c → (t.shiftT c).tyMe
         rw [beq_false_of_ne (by omega : j ≠ k + 1), beq_false_of_ne (by omega : j ≠ k)]
   | prod a b iha ihb => intro c k hk; simp only [Ty.shiftT, Ty.tyMentions, iha c k hk, ihb c k hk]
   | sum a b iha ihb => intro c k hk; simp only [Ty.shiftT, Ty.tyMentions, iha c k hk, ihb c k hk]
-  | code a b iha ihb => intro c k hk; simp only [Ty.shiftT, Ty.tyMentions, iha c k hk, ihb c k hk]
+  | code a b _ iha ihb => intro c k hk; simp only [Ty.shiftT, Ty.tyMentions, iha c k hk, ihb c k hk]
   | array i t ih => intro c k hk; simp only [Ty.shiftT, Ty.tyMentions, ih c k hk]
   | ptr μ t ih => intro c k hk; simp only [Ty.shiftT, Ty.tyMentions, ih c k hk]
   | ptrOpt μ t ih => intro c k hk; simp only [Ty.shiftT, Ty.tyMentions, ih c k hk]
@@ -14042,7 +14094,7 @@ theorem tyMentions_subst (σs : List Ty) : ∀ (t : Ty) (c d k : Nat), k < c →
   induction t with
   | prod a b iha ihb => intro c d k h; simp only [substTs, Ty.tyMentions, iha c d k h, ihb c d k h]
   | sum a b iha ihb => intro c d k h; simp only [substTs, Ty.tyMentions, iha c d k h, ihb c d k h]
-  | code a b iha ihb => intro c d k h; simp only [substTs, Ty.tyMentions, iha c d k h, ihb c d k h]
+  | code a b _ iha ihb => intro c d k h; simp only [substTs, Ty.tyMentions, iha c d k h, ihb c d k h]
   | array i t ih => intro c d k h; simp only [substTs, Ty.tyMentions, ih c d k h]
   | ptr μ t ih => intro c d k h; simp only [substTs, Ty.tyMentions, ih c d k h]
   | ptrOpt μ t ih => intro c d k h; simp only [substTs, Ty.tyMentions, ih c d k h]
@@ -14097,7 +14149,7 @@ theorem countT_subst (σs : List Ty) : ∀ (t : Ty) (c d k : Nat), k < c →
             simp only [Ty.tyMentions]; exact beq_false_of_ne (by omega)
           simp [Ty.countT, e1, e2]
   | sum a b _ _ => intro c d k h; have e := tyMentions_subst σs (.sum a b) c d k h; simp only [substTs] at e ⊢; simp only [Ty.countT, e]
-  | code a b _ _ => intro c d k h; have e := tyMentions_subst σs (.code a b) c d k h; simp only [substTs] at e ⊢; simp only [Ty.countT, e]
+  | code a b kc _ _ => intro c d k h; have e := tyMentions_subst σs (.code a b kc) c d k h; simp only [substTs] at e ⊢; simp only [Ty.countT, e]
   | array i t _ => intro c d k h; have e := tyMentions_subst σs (.array i t) c d k h; simp only [substTs] at e ⊢; simp only [Ty.countT, e]
   | ptr μ t _ => intro c d k h; have e := tyMentions_subst σs (.ptr μ t) c d k h; simp only [substTs] at e ⊢; simp only [Ty.countT, e]
   | ptrOpt μ t _ => intro c d k h; have e := tyMentions_subst σs (.ptrOpt μ t) c d k h; simp only [substTs] at e ⊢; simp only [Ty.countT, e]
@@ -14125,7 +14177,7 @@ theorem countI_subst (σs : List Ty) : ∀ (t : Ty) (c d k : Nat), k < d →
         · rw [countI_zero _ k (idxMentions_shiftIN d _ k h)]; rfl
         · rfl
   | sum a b _ _ => intro c d k h; have e := idxMentions_subst σs (.sum a b) c d k h; simp only [substTs] at e ⊢; simp only [Ty.countI, e]
-  | code a b _ _ => intro c d k h; have e := idxMentions_subst σs (.code a b) c d k h; simp only [substTs] at e ⊢; simp only [Ty.countI, e]
+  | code a b kc _ _ => intro c d k h; have e := idxMentions_subst σs (.code a b kc) c d k h; simp only [substTs] at e ⊢; simp only [Ty.countI, e]
   | array i t _ => intro c d k h; have e := idxMentions_subst σs (.array i t) c d k h; simp only [substTs] at e ⊢; simp only [Ty.countI, e]
   | ptr μ t _ => intro c d k h; have e := idxMentions_subst σs (.ptr μ t) c d k h; simp only [substTs] at e ⊢; simp only [Ty.countI, e]
   | ptrOpt μ t _ => intro c d k h; have e := idxMentions_subst σs (.ptrOpt μ t) c d k h; simp only [substTs] at e ⊢; simp only [Ty.countI, e]
@@ -14175,7 +14227,7 @@ theorem idxMentions_cl_eq (ρ : Nat → Nat) (W : Nat → Ty) (hW : ∀ j m, (W 
   induction t with
   | prod a b iha ihb => intro c d k h; simp only [cl, Ty.idxMentions, iha c d k h, ihb c d k h]
   | sum a b iha ihb => intro c d k h; simp only [cl, Ty.idxMentions, iha c d k h, ihb c d k h]
-  | code a b iha ihb => intro c d k h; simp only [cl, Ty.idxMentions, iha c d k h, ihb c d k h]
+  | code a b _ iha ihb => intro c d k h; simp only [cl, Ty.idxMentions, iha c d k h, ihb c d k h]
   | array i t ih => intro c d k h; simp only [cl, Ty.idxMentions, ih c d k h, clI_mentions_eq ρ d k h]
   | ptr μ t ih => intro c d k h; simp only [cl, Ty.idxMentions, ih c d k h, clM_mentions_eq ρ d k h]
   | ptrOpt μ t ih => intro c d k h; simp only [cl, Ty.idxMentions, ih c d k h, clM_mentions_eq ρ d k h]
@@ -14211,7 +14263,7 @@ theorem tyMentions_cl_eq (ρ : Nat → Nat) (W : Nat → Ty) (hW : ∀ j m, (W j
   induction t with
   | prod a b iha ihb => intro c d k h; simp only [cl, Ty.tyMentions, iha c d k h, ihb c d k h]
   | sum a b iha ihb => intro c d k h; simp only [cl, Ty.tyMentions, iha c d k h, ihb c d k h]
-  | code a b iha ihb => intro c d k h; simp only [cl, Ty.tyMentions, iha c d k h, ihb c d k h]
+  | code a b _ iha ihb => intro c d k h; simp only [cl, Ty.tyMentions, iha c d k h, ihb c d k h]
   | array i t ih => intro c d k h; simp only [cl, Ty.tyMentions, ih c d k h]
   | ptr μ t ih => intro c d k h; simp only [cl, Ty.tyMentions, ih c d k h]
   | ptrOpt μ t ih => intro c d k h; simp only [cl, Ty.tyMentions, ih c d k h]
@@ -14250,7 +14302,7 @@ theorem countT_cl_eq (ρ : Nat → Nat) (W : Nat → Ty) (hW : ∀ j m, (W j).ty
       · simp only [cl, hj, ↓reduceIte]
         rw [countT_zero _ k (hW _ _), countT_zero _ k (by simp only [Ty.tyMentions]; exact beq_false_of_ne (by omega))]
   | sum a b _ _ => intro c d k h; have e := hm (.sum a b) c d k h; simp only [cl] at e ⊢; simp only [Ty.countT, e]
-  | code a b _ _ => intro c d k h; have e := hm (.code a b) c d k h; simp only [cl] at e ⊢; simp only [Ty.countT, e]
+  | code a b kc _ _ => intro c d k h; have e := hm (.code a b kc) c d k h; simp only [cl] at e ⊢; simp only [Ty.countT, e]
   | array i t _ => intro c d k h; have e := hm (.array i t) c d k h; simp only [cl] at e ⊢; simp only [Ty.countT, e]
   | ptr μ t _ => intro c d k h; have e := hm (.ptr μ t) c d k h; simp only [cl] at e ⊢; simp only [Ty.countT, e]
   | ptrOpt μ t _ => intro c d k h; have e := hm (.ptrOpt μ t) c d k h; simp only [cl] at e ⊢; simp only [Ty.countT, e]
@@ -14288,7 +14340,7 @@ theorem countI_cl_eq (ρ : Nat → Nat) (W : Nat → Ty) (hWT : ∀ j m, (W j).t
   | share r => intro c d k h; have e := hm (.share r) c d k h; simp only [cl] at e ⊢; simp only [Ty.countI, e]
   | cap s r => intro c d k h; have e := hm (.cap s r) c d k h; simp only [cl] at e ⊢; simp only [Ty.countI, e]
   | sum a b _ _ => intro c d k h; have e := hm (.sum a b) c d k h; simp only [cl] at e ⊢; simp only [Ty.countI, e]
-  | code a b _ _ => intro c d k h; have e := hm (.code a b) c d k h; simp only [cl] at e ⊢; simp only [Ty.countI, e]
+  | code a b kc _ _ => intro c d k h; have e := hm (.code a b kc) c d k h; simp only [cl] at e ⊢; simp only [Ty.countI, e]
   | array i t _ => intro c d k h; have e := hm (.array i t) c d k h; simp only [cl] at e ⊢; simp only [Ty.countI, e]
   | ptr μ t _ => intro c d k h; have e := hm (.ptr μ t) c d k h; simp only [cl] at e ⊢; simp only [Ty.countI, e]
   | ptrOpt μ t _ => intro c d k h; have e := hm (.ptrOpt μ t) c d k h; simp only [cl] at e ⊢; simp only [Ty.countI, e]
@@ -14870,7 +14922,7 @@ theorem substS_skel_wf (A : List Ty) : ∀ (v : Ty) (c ni : Nat), v.wf c ni = tr
       intro c ni h; simp only [Ty.wf, Bool.and_eq_true] at h; simp only [skel, substS, iha _ _ h.1, ihb _ _ h.2]
   | sum a b iha ihb =>
       intro c ni h; simp only [Ty.wf, Bool.and_eq_true] at h; simp only [skel, substS, iha _ _ h.1, ihb _ _ h.2]
-  | code a b iha ihb =>
+  | code a b _ iha ihb =>
       intro c ni h; simp only [Ty.wf, Bool.and_eq_true] at h; simp only [skel, substS, iha _ _ h.1, ihb _ _ h.2]
   | array i t ih => intro c ni h; simp only [Ty.wf, Bool.and_eq_true] at h; simp only [skel, substS, ih _ _ h.2]
   | ptr μ t ih => intro c ni h; simp only [Ty.wf, Bool.and_eq_true] at h; simp only [skel, substS, ih _ _ h.2]
@@ -14900,13 +14952,13 @@ theorem findIdx_of_find {l : List Decl} {P : Decl → Bool} {d : Decl} (h : l.fi
         obtain ⟨i, h1, h2⟩ := ih h
         exact ⟨i + 1, by simp [List.findIdx?_cons, hx, h1], by simpa using h2⟩
 
-theorem Lay_code (σs : List Ty) {a b : Ty} {ni : Nat} (ha : a.wf 0 ni = true) (hb : b.wf 0 ni = true) (w : Word) :
-    Lay σs (.code a b) (.code a b) [w] := by
+theorem Lay_code (σs : List Ty) {a b : Ty} {k : CodeKind} {ni : Nat} (ha : a.wf 0 ni = true) (hb : b.wf 0 ni = true) (w : Word) :
+    Lay σs (.code a b k) (.code a b k) [w] := by
   refine ⟨?_, ?_, by simp [wc, accs], by simp [Valid], ?_⟩
   · intro us hu; simp [accs] at hu; subst hu; simp [nWords, Acc.size]
-  · rw [skel_close_wf σs (v := .code a b) (ni := ni) (by simp [Ty.wf, ha, hb])]
+  · rw [skel_close_wf σs (v := .code a b k) (ni := ni) (by simp [Ty.wf, ha, hb])]
   · unfold close
-    rw [substTs_TvB σs (.code a b) 0 0 (TvB_of_wf _ 0 ni (by simp [Ty.wf, ha, hb]))]
+    rw [substTs_TvB σs (.code a b k) 0 0 (TvB_of_wf _ 0 ni (by simp [Ty.wf, ha, hb]))]
 
 /-- Type equality moves no type variable: `guardT` agrees. -/
 theorem guardT_tyEq {cx : Cx} {d : Nat} {t u : Ty} (h : TyEqS cx d t u) :
@@ -14930,6 +14982,9 @@ theorem guardT_sub {cx : Cx} {t u : Ty} (h : SubS cx t u) : ∀ k, t.guardT k = 
   | iniWeak h _ => intro k hk; simp only [Ty.guardT] at hk ⊢; rw [← guardT_tyEq h k]; exact hk
   | prod _ _ iha ihb | sum _ _ iha ihb =>
       intro k hk; simp only [Ty.guardT, Bool.and_eq_true] at hk ⊢; exact ⟨iha k hk.1, ihb k hk.2⟩
+  | codeR h1 h2 | codeRR _ _ h1 h2 =>
+      intro k hk; simp only [Ty.guardT, Bool.and_eq_true] at hk ⊢
+      rw [← guardT_tyEq h1 k, ← guardT_tyEq h2 k]; exact hk
   | _ => intro k _; rfl
 
 theorem sub_opaqueOK {cx c₁ : Cx} {t u : Ty} (h : SubS c₁ t u) (ho : cx.opaqueOK t = true) :
@@ -14962,7 +15017,8 @@ theorem tstep_fnptr {p : Prog} {g : G} {mem : WeakMem.Memory} {pairs : List Weak
           have hwa' : d.argTy.wf 0 0 = true := by simpa [htp, hidx] using hwa
           have hwr' : d.retTy.wf 0 0 = true := by simpa [htp, hidx] using hwr
           have hn : d.name = f := by simpa using List.find?_some hd
-          have hvr : VR ρ η (.code d.argTy d.retTy) (shp (.code d.argTy d.retTy)) [cst (.num i)] := by
+          have hvr : ∀ kd, VR ρ η (.code d.argTy d.retTy kd) (shp (.code d.argTy d.retTy kd)) [cst (.num i)] := by
+            intro kd
             simp only [VR]
             refine ⟨i, d, rfl, by rw [hE.1]; exact hpi, by rw [hE.1, hn]; exact hd, htp, hidx,
               cl_wf _ hwa', cl_wf _ hwr'⟩
@@ -14971,7 +15027,7 @@ theorem tstep_fnptr {p : Prog} {g : G} {mem : WeakMem.Memory} {pairs : List Weak
           intro r hr
           simp only [List.mem_singleton] at hr
           subst hr
-          exact ⟨ρ, η, c', rfl, hE, he, htv', by simpa [withS] using bind_FInv hb hi hvr (Lay_code th.σs hwa' hwr' _), retPw_skel hPS hpw (skel_subst_eq hk th.σs 0 0 0)⟩
+          exact ⟨ρ, η, c', rfl, hE, he, htv', by (have h := bind_FInv hb hi (hvr _) (Lay_code th.σs hwa' hwr' _); (try simp only [withS] at h); (try simp only [withS]); revert h; cases d.kind <;> exact id), retPw_skel hPS hpw (skel_subst_eq hk th.σs 0 0 0)⟩
 
 /-- **P1 + P4 at the thread, `callc`**: a call through a code value.  The
 value's `VR` names the block, whose declared signature is the closure of the
@@ -14991,7 +15047,7 @@ theorem tstep_callc {p : Prog} {g : G} {mem : WeakMem.Memory} {pairs : List Weak
       have htv' := OpT_TvOK hP hop htv
       cases hop with
       | @callc c₁ _ _ _ _ tf σ τ t htf hc hu _ hsub hb =>
-          obtain ⟨σ', τ', rfl⟩ : ∃ a b, tf = .code a b := by cases tf <;> simp_all [codeOf]
+          obtain ⟨σ', τ', kf, rfl⟩ : ∃ a b kf, tf = .code a b kf := by cases tf <;> simp_all [codeOf]
           simp only [codeOf, Option.some.injEq, Prod.mk.injEq] at hc
           obtain ⟨h1, h2⟩ := hc
           subst σ' τ'
@@ -15007,7 +15063,7 @@ theorem tstep_callc {p : Prog} {g : G} {mem : WeakMem.Memory} {pairs : List Weak
           have hwr' : D.retTy.wf 0 0 = true := by simpa [htp, hidx] using hwr
           -- the code value's runtime signature renders the static one; its
           -- `sig` is the block's (24e: pointees may differ)
-          have hc : etok (skel rtf) = .code (etok (skel (close th.σs σ))) (etok (skel (close th.σs τ))) := hlf.2.1
+          have hc : etok (skel rtf) = .code (etok (skel (close th.σs σ))) (etok (skel (close th.σs τ))) kf := hlf.2.1
           obtain ⟨ra, rr, rfl, hsa, hsr⟩ := eskel_eq_code hc
           -- (T3c-5a-4) both signature components are opaque-free (the argument
           -- is held, the result is bound), so their `sig` is their closure's,
@@ -15059,7 +15115,7 @@ theorem tstep_callc {p : Prog} {g : G} {mem : WeakMem.Memory} {pairs : List Weak
               ⟨ShapeC_wc hw2 hl2.1, hsr, hw2 ▸ hl2.2.2.1, Valid_of_sig Er.symm hl2.2.2.2.1, by
                 have hy := hlf.2.2.2.2
                 simp only [close, substTs, lyt, etok, Ty.code.injEq] at hy
-                exact hy.2⟩, fun f rest h ws => by rw [bind_ret hb, use_ret hu]; exact hpw f rest h ws⟩
+                exact hy.2.1⟩, fun f rest h ws => by rw [bind_ret hb, use_ret hu]; exact hpw f rest h ws⟩
             rw [shp_of_sig Er]; exact (VR_code h2.1 lτ _ _).2 hv''
           · exact ⟨fun k _ hk => by simp at hk, fun k σ h => by simp at h, fun k _ hk => by simp at hk⟩
           · exact ⟨by simp [declCx, htp], ⟨fun k hk => by simp [declCx, htp, KEnv.ask] at hk, fun k hk => by simp [declCx, htp, KEnv.ask] at hk,
@@ -15078,6 +15134,7 @@ theorem VRR_instTs (us : List Idx) (η : TEnv) :
       VRR ρ η (instT us d t) rt ws R ↔ VRR (vinsL d (us.map (ev (fun k => ρ (k + d)))) ρ) η t rt ws R
   | .intS i, d, ρ, _, _, _ => by simp [instT, VRR, ev_instIs]
   | .int, _, _, _, _, _ => by simp [instT, VRR]
+  | .opq _, _, _, _, _, _ => by simp [instT, VRR, VR]
   | .tid, _, _, _, _, _ => by simp [instT, VRR, VR]
   | .fix _ _, _, _, _, _, _ => by simp [instT, VRR]
   | .lanes _ _, _, _, _, _, _ => by simp [instT, VRR]
@@ -15101,7 +15158,7 @@ theorem VRR_instTs (us : List Idx) (η : TEnv) :
   | .sum a b, d, ρ, rt, ws, R => by
       simp only [instT, VRR, VRR_instTs us η a d ρ, VRR_instTs us η b d ρ, VRR_instTs us η.unsee a d ρ,
         VRR_instTs us η.unsee b d ρ]
-  | .code a b, d, ρ, rt, ws, R => by
+  | .code a b _, d, ρ, rt, ws, R => by
       simp only [instT, VRR, cl_instTs]
   | .array _ _, _, _, _, _, _ => by simp [instT, VRR]
   | .ptr _ _, _, _, _, _, _ => by simp only [instT, VRR, cl_instTs, ModeOK_inst, ownW_inst]
@@ -15389,7 +15446,7 @@ theorem tstep_callcR {p : Prog} {g : G} {mem : WeakMem.Memory} {pairs : List Wea
       have htv' := OpT_TvOK hP hop htv
       cases hop with
       | @callc c₁ _ _ _ _ tf σ τ t htf hc hu _ hsub hb =>
-          obtain ⟨σ', τ', rfl⟩ : ∃ a b, tf = .code a b := by cases tf <;> simp_all [codeOf]
+          obtain ⟨σ', τ', kf, rfl⟩ : ∃ a b kf, tf = .code a b kf := by cases tf <;> simp_all [codeOf]
           simp only [codeOf, Option.some.injEq, Prod.mk.injEq] at hc
           obtain ⟨h1, h2⟩ := hc
           subst σ' τ'
@@ -15403,7 +15460,7 @@ theorem tstep_callcR {p : Prog} {g : G} {mem : WeakMem.Memory} {pairs : List Wea
           obtain ⟨hwa, hwr, -, -, hbody⟩ := id hDT
           have hwa' : D.argTy.wf 0 0 = true := by simpa [htp, hidx] using hwa
           have hwr' : D.retTy.wf 0 0 = true := by simpa [htp, hidx] using hwr
-          have hc : etok (skel rtf) = .code (etok (skel (close th.σs σ))) (etok (skel (close th.σs τ))) := hlf.2.1
+          have hc : etok (skel rtf) = .code (etok (skel (close th.σs σ))) (etok (skel (close th.σs τ))) kf := hlf.2.1
           obtain ⟨ra, rr, rfl, hsa, hsr⟩ := eskel_eq_code hc
           have htbf := peek_tb htv htf
           simp only [tb, Bool.and_eq_true] at htbf
@@ -15470,7 +15527,7 @@ theorem tstep_callcR {p : Prog} {g : G} {mem : WeakMem.Memory} {pairs : List Wea
               ⟨ShapeC_wc hw2 hl2.1, hsr, hw2 ▸ hl2.2.2.1, Valid_of_sig Er.symm hl2.2.2.2.1, by
                 have hy := hlf.2.2.2.2
                 simp only [close, substTs, lyt, etok, Ty.code.injEq] at hy
-                exact hy.2⟩, fun f rest h ws => by rw [bind_ret hb, use_ret hu]; exact hpw f rest h ws⟩
+                exact hy.2.1⟩, fun f rest h ws => by rw [bind_ret hb, use_ret hu]; exact hpw f rest h ws⟩
             rw [shp_of_sig Er]; exact (VRR_code h2.1 hr2 lτ _ _ _).2 hv''
           · rw [← shp_of_sig Ea, ← hs]
             exact (VRR_CER _ _ _ _ _).1 ((VRR_code hE.2.1 hE.2.2 lσ _ _ _).1 (VRR_sub hi1.1.1 hsub _ _ _ hvr))
@@ -15585,7 +15642,7 @@ theorem bh_shp : ∀ t : Ty, isBoxed t = true → bh (shp t)
   | .iall t, h => by
       simp only [isBoxed, sumHead, tier_iall] at h
       exact bh_shp t (by simpa [isBoxed] using h)
-  | .intS _, h | .int, h | .fix _ _, h | .lanes _ _, h | .prod _ _, h | .code _ _, h | .tvar _, h
+  | .intS _, h | .int, h | .fix _ _, h | .lanes _ _, h | .prod _ _, h | .code _ _ _, h | .tvar _, h
   | .ptr _ _, h | .ptrOpt _ _, h | .loc _ _, h | .unit, h | .void, h | .array _ _, h | .share _, h
   | .cap _ _, h | .word _ _, h | .tok _ _, h | .word2 _ _, h | .tok2 _ _ _ _, h | .epair _ _, h | .tokE _ _ _, h => by simp [isBoxed, sumHead] at h
 
@@ -15639,6 +15696,7 @@ theorem VR_ren0 (w1 w2 : Word) (x1 x2 : WeakMem.Address) (B1 B2 : Box)
       have hl : x1.label = l := by cases he.1; rfl
       rw [hl, hc] at hs; cases hs
   | intS => intro η ρ R s1 s2 _ _ _ _ _ _ _ _ _ h; simp [VR, h1] at h
+  | opq => intro η ρ R s1 s2 _ _ _ _ _ _ _ _ _ h; simp [VR, h1] at h
   | code => intro η ρ R s1 s2 _ _ _ _ _ _ _ _ _ h; simp [VR, h1] at h
   | tvar k => intro η ρ R s1 s2 _ hr _ _ _ _ _ _ _ h; simp only [VR, TEnv.get] at h; obtain ⟨_, _, h⟩ := h; exact absurd h (hr _ _ _)
   | ptr _ _ =>
@@ -15763,7 +15821,7 @@ theorem vsh_zero : ∀ t : Ty, isBoxed t = true → vsh 0 (shp t) = shp t
   | .iall t, h => by
       simp only [isBoxed, sumHead, tier_iall] at h
       exact vsh_zero t (by simpa [isBoxed] using h)
-  | .intS _, h | .int, h | .fix _ _, h | .lanes _ _, h | .prod _ _, h | .code _ _, h | .tvar _, h
+  | .intS _, h | .int, h | .fix _ _, h | .lanes _ _, h | .prod _ _, h | .code _ _ _, h | .tvar _, h
   | .ptr _ _, h | .ptrOpt _ _, h | .loc _ _, h | .unit, h | .void, h | .array _ _, h | .share _, h
   | .cap _ _, h | .word _ _, h | .tok _ _, h | .word2 _ _, h | .tok2 _ _ _ _, h | .epair _ _, h | .tokE _ _ _, h => by simp [isBoxed, sumHead] at h
 
@@ -16359,7 +16417,7 @@ theorem headArms_shp : ∀ t : Ty, sumSpine t → headArms (shp t) = some ((arms
   | .iex t, h => headArms_shp t h
   | .tex _ t, h => headArms_shp t h
   | .iall t, h => headArms_shp t h
-  | .intS _, h | .int, h | .fix _ _, h | .lanes _ _, h | .prod _ _, h | .code _ _, h | .tvar _, h
+  | .intS _, h | .int, h | .fix _ _, h | .lanes _ _, h | .prod _ _, h | .code _ _ _, h | .tvar _, h
   | .ptr _ _, h | .ptrOpt _ _, h | .loc _ _, h | .unit, h | .void, h | .array _ _, h | .share _, h
   | .cap _ _, h | .word _ _, h | .tok _ _, h | .word2 _ _, h | .tok2 _ _ _ _, h | .epair _ _, h | .tokE _ _ _, h => by simp [sumSpine] at h
 

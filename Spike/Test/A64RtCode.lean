@@ -7,7 +7,7 @@ its checks are the hand ones, and it fails on a wrong frame and on
 -/
 import Spike.Lib.Rt.A64RtCode
 import Spike.Lib.Rt.A64MainRet0
-import Spike.Test.A64Ret0PlaceOK
+import Spike.Test.A64Hello1PlaceOK
 
 namespace Spike.Lib.A64.Rt.Test
 

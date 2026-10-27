@@ -1,8 +1,7 @@
 "AArch64 pair-atomic + FEAT_LSE2"
-(* Contains material from herdtools7's bundled cat models (CeCILL-B); see LICENSE-herdtools7.txt. *)
 
-(* Uses herd7's aarch64.cat (copyright Arm Ltd) by `include' only and contains
-   none of its text; this file's own content is ours. *)
+(* Uses herd7's bundled aarch64.cat by `include' only and contains none of
+   its text; this file's own content is ours. *)
 
 (*
  * cats/aarch64-pair.cat with ONE change: the write side of both pair axioms is

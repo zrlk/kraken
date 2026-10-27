@@ -371,6 +371,7 @@ theorem flipOK_post (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] 
       rw [hEe0] at hs hp
       exact Nat.le_trans (X.inv.frlt l cl f (cutSto_sub hs) hp)
         (Nat.sub_le_sub_right (by rw [hpi.1]; show c.mem.size ≤ (c.mem.push _).size; rw [Array.size_push]; exact Nat.le_succ _) 1))
+    (hTA := by rw [hEe0]; exact TermMain.tidAt_cutP X.inv j S)
   rw [hEe0, hpi.1] at h
   exact h
 

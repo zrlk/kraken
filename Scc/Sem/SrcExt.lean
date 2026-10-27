@@ -548,7 +548,7 @@ theorem solo_done {p : CoreTerm.Prog} {k : Promises.Knobs} {arch : WeakMem.Arch}
     simp [h, tstep_isDone hd] at hm
   | ext hm _ _ =>
     intro th h hd
-    obtain ⟨th0, _, _, _, _, _, _, h0, ht, _⟩ := TermRun.extSteps_elim hm
+    obtain ⟨th0, _, _, _, _, _, _, _, h0, ht, _⟩ := TermRun.extSteps_elim hm
     rw [h] at h0; cases h0
     simp [TermRun.isDone, ht] at hd
   | @prom c0 _ a v w _ _ ih =>

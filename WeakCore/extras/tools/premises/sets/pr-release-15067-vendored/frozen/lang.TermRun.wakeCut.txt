@@ -1,0 +1,37 @@
+CoreLang.Ty : Type
+CoreTerm.At : Type
+CoreTerm.Expr : Type
+CoreTerm.ExtName.park : CoreTerm.ExtName
+CoreTerm.Prog : Type
+Promises.Knobs : Type
+TermRun.Bounds : Type
+TermRun.Bounds.solo : TermRun.Bounds → Nat
+TermRun.Cfg : Type
+TermRun.Cfg.ths : TermRun.Cfg → Array TermRun.TTh
+TermRun.TTh : Type
+TermRun.TTh.env : TermRun.TTh → TermRun.Env
+TermRun.TTh.permit : TermRun.TTh → Option WeakMem.Ts
+TermRun.TTh.term : TermRun.TTh → CoreTerm.Expr
+TermRun.Word : Type
+TermRun.certB : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → Nat → TermRun.Cfg → Nat → Bool
+TermRun.certCut : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → Nat → TermRun.Cfg → Nat → Bool
+TermRun.evalAt : TermRun.Env → CoreTerm.At → Option (CoreLang.Ty × List TermRun.Word)
+TermRun.extCfg : TermRun.Cfg →
+  Nat → TermRun.TTh → String → CoreTerm.ExtName → CoreTerm.Expr → List TermRun.Word → List TermRun.Word → TermRun.Cfg
+TermRun.wakeCut : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → TermRun.Bounds → TermRun.Cfg → Nat → Bool
+  := fun p k arch b c i =>
+  match c.ths[i]? with
+  | some th =>
+    match th.term with
+    | CoreTerm.Expr.let_ x (CoreTerm.Op.ext CoreTerm.ExtName.park a) e =>
+      if th.permit.isSome = true then false
+      else
+        match TermRun.evalAt th.env a with
+        | some (fst, ws) =>
+          [TermRun.extCfg c i th x CoreTerm.ExtName.park e ws []].any fun c' =>
+            !TermRun.certB p k arch b.solo c' i && TermRun.certCut p k arch b.solo c' i
+        | none => false
+    | x => false
+  | none => false
+WeakMem.Arch : Type
+WeakMem.Ts : Type

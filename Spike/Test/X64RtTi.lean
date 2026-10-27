@@ -73,4 +73,26 @@ example (hC0 : CFacts ret0Λ ret0Λ.static c0) {R : Region} (hR : R.OK) (hlo : R
     (fun m hm => by rw [labT_nextA]; exact hFr m hm _ (by decide))
     hrS (by unfold Scc.Sem.Range.Disjoint; decide +kernel)
 
+/-- **The same from `tiWAt_gen` at `.x7`** (`TiWAt` at `.x7` is `TiW`,
+`tiWAt_x7`; `threadInitInAt` at `.x7` is `threadInitIn`, `TiPhAt` at `.x7`
+`TiPh`). -/
+example (hC0 : CFacts ret0Λ ret0Λ.static c0) {R : Region} (hR : R.OK) (hlo : R.lo ≤ -248) (hhi : 8 ≤ R.hi)
+    (hFr : ∀ m, F m → ret0F m) (q : TiG) (hq : q.c0 = c0) (hra : q.g.ra = (labT ".Lscc_rt_start.x1").toBitVec)
+    (htcb : q.tcb = 134217736#64) (hrS : rS = ⟨(stacksA labT + q.k0).toNat, 16384⟩)
+    (hsub : rS.Sub ret0Λ.stackPool) (hSM : FStable R (StackM rS))
+    (hSM' : FStable (R.callee (-48 - 0) (-200) 8) (StackM rS)) :
+    ∀ i, TiWAt (Wr rS) (Kr rS) ret0Exe ret0End R F (StackM rS) q Flow.Ret0.ThreadInit.x7L i :=
+  tiWAt_gen ret0_instOk ret0_own Flow.Ret0.ThreadInit.ret0_threadInitIn hC0 hR hlo hhi q hq hra ret0_tiPh.toAt
+    (fun a ha => (ret0Words_mapped (ret0_tiAddrs a (htcb ▸ ha)).1).1)
+    (fun a ha m hm => hFr m hm a (ret0_tiAddrs a (htcb ▸ ha)).1)
+    (fun a ha => not_own (ret0_tiAddrs a (htcb ▸ ha)).2)
+    hsub hSM hSM' Flow.Ret0.StackTake.ret0_stackTakeIn ret0_takePh
+    (by rw [labT_lockA]; exact (ret0Words_mapped (by decide)).1)
+    (by rw [labT_freeNA]; exact (ret0Words_mapped (by decide)).2.1)
+    (by rw [labT_nextA]; exact (ret0Words_mapped (by decide)).1)
+    (fun m hm => by rw [labT_lockA]; exact hFr m hm _ (by decide))
+    (fun m hm => by rw [labT_freeNA]; exact hFr m hm _ (by decide))
+    (fun m hm => by rw [labT_nextA]; exact hFr m hm _ (by decide))
+    hrS (by unfold Scc.Sem.Range.Disjoint; decide +kernel)
+
 end Spike.Lib.X64.Rt.Test

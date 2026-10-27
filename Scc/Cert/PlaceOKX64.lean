@@ -14,15 +14,18 @@ import Scc.Cert.Rt.PhasesX64
 import Spike.Lib.LowerX64.Checks
 import Spike.Lib.LowerX64.PhCheck
 import Spike.Lib.X64AbortPh
+import Spike.Lib.X64TailPh
 import Scc.Cert.Rt.RtInitX64
 import Spike.Lib.Rt.X64RtPhTab
+import Spike.Lib.Rt.X64CodeInSetup
+import Scc.Cert.Ph1X64
 
 /-!
 # `PlaceOK` on x86-64
 
 The x86-64 instance of the per-program placement check
 (`Scc/Cert/PlaceOK.lean`), the twin of `Scc/Cert/PlaceOKA64.lean`: the
-output's types, its tables and the ten components, each with its extraction
+output's types, its tables and the eleven components, each with its extraction
 lemma from `PlaceOK` to the `Prop` the proofs use.
 
 * **The output** `Out`: the code cells the canonical loader lays out (sized
@@ -54,8 +57,8 @@ lemma from `PlaceOK` to the `Prop` the proofs use.
     `NeedX64.needOk`; `wideSt_of_placeOK`, `needOk_of_placeOK`);
   - A7 (in part) the runtime's fixed code in one pass over the cells
     (`Rt.X64.rtIn`, `Scc/Cert/Rt/X64RtIn.lean`): `scc_rt_main`'s tail
-    (`mainIn0`/`Abort.mainIn` by `PlaceData.tail`), `scc_rt_print`
-    (`Print.printIn`), the abort stubs and `scc_rt_abort`
+    (`mainIn0`/`RtIn.mainInS` by `PlaceData.tail`, `mainRtOk`), `scc_rt_alloc`
+    (`Alloc.allocIn`), `scc_rt_print` (`Print.printIn`), the abort stubs and `scc_rt_abort`
     (`Abort.abortIn`);
   - A5 the block table's static offsets: every row covered at its
     offsets, the offsets agreeing along the fall-through edges
@@ -84,9 +87,18 @@ lemma from `PlaceOK` to the `Prop` the proofs use.
   - A11 the runtime's fixed code: `scc_rt_start`, `scc_rt_main` at the
     tail's `MainCode` (`mcOf`), `scc_rt_alloc_tcb`, `scc_rt_thread_init`
     and `scc_rt_stack_take`, in one pass over the cells
-    (`Spike.Lib.X64.Rt.rtCodeOk`; `rtCodeOk_of_placeOK`). `false` on a
-    `.setup` tail, so such a program fails `PlaceOK` for now
-    (`placeOK_eq_false_of_a11`).
+    (`Spike.Lib.X64.Rt.rtCodeOk`; `rtCodeOk_of_placeOK`). On a `.setup`
+    tail, the same with `scc_rt_main` after a setup block
+    (`Spike.Lib.X64.Rt.setupOk`: two calls, the setup words marshalled);
+  - A12 the code of every user function: every stack-checked function of
+    the IR, of any shape, has its prologue with its parameters' spills, a
+    frame 16-aligned within a 32-bit immediate, each block's emitted code at
+    its label (its local labels numbered as the emitter numbers them), the
+    overflow block when it has a checked `+`, and its calls' and tail calls'
+    frames within the stack need's rows (`Scc.Cert.Code1X64.fnCode1Ok`;
+    `fnCode1_of_placeOKAt`); and their phase facts at A6's tables and the
+    code labels: the prologue's, every label-free run of every block's,
+    the overflow block's (`Scc.Cert.Ph1X64.fnPh1Ok`; `fnPh1_of_placeOKAt`).
 
 Where x86-64 differs from AArch64: the program is a list of sized cells and
 every offset is in bytes (a block's offset from its label, a label's address
@@ -101,7 +113,7 @@ open Scc.Sem Scc.Sem.X64 Scc.Cert.Link.X64
 
 /-- The shape of `scc_rt_main`'s tail: the `exit_group` tail right after
 the call of `wc_main` (`.bare`, `mainIn0`), or after a setup block
-(`.setup`, `Abort.mainIn`). -/
+(`.setup`, `RtIn.mainInS` at some width; `Abort.mainIn` at four words). -/
 inductive MainShape where
   | bare
   | setup
@@ -178,18 +190,38 @@ def mainIn0 (cells : List (Directive × Nat)) : Bool :=
   Spike.Lib.X64.Flow.exitIn cells ".Lscc_rt_main.x2" (-16) 4 4 5
 
 /-- The groups of `scc_rt_main`'s tail in the shape the placement data
-names (`RtIn.mainGrps0`/`mainGrps1`). -/
+names (`RtIn.mainGrps0`/`mainGrps1`); `hello1.w`'s, four setup words, at
+`.setup` (A7 takes any width, `mainRtOk`). -/
 def mainGrps : MainShape → List Rt.X64.RGrp
   | .bare => Rt.X64.RtIn.mainGrps0
   | .setup => Rt.X64.RtIn.mainGrps1
 
-/-- **A7** (the runtime's part): the tail of `scc_rt_main`, `scc_rt_print`,
-the abort stubs and `scc_rt_abort`, checked in one pass over the cells, and
-the overflow abort path's phase facts at A6's tables and the code labels
-(`abortPhC`). -/
+/-- **A7's pass over the runtime's code** at the shape of `scc_rt_main`'s
+tail: at `.bare` the pass at `mainGrps .bare`; at `.setup` the pass at
+`RtIn.mainGrpsS sw` (the result at `RtIn.mainK sw`) for some `sw < 6`, the
+widths A11 takes (`Spike.Lib.X64.Rt.setupOk`). The pass at `mainGrps` gives
+it (`mainRtOk_of_mainGrps`). -/
+def mainRtOk (cells : List (Directive × Nat)) : MainShape → Bool
+  | .bare => Rt.X64.rtIn cells (Rt.X64.RtIn.rtTab Rt.X64.RtIn.mainGrps0)
+  | .setup => (List.range 6).any fun sw => Rt.X64.rtIn cells (Rt.X64.RtIn.rtTab (Rt.X64.RtIn.mainGrpsS sw))
+
+theorem mainRtOk_of_mainGrps {cells : List (Directive × Nat)} {s : MainShape}
+    (h : Rt.X64.rtIn cells (Rt.X64.RtIn.rtTab (mainGrps s)) = true) : mainRtOk cells s = true := by
+  cases s with
+  | bare => exact h
+  | setup =>
+    simp only [mainGrps, Rt.X64.RtIn.mainGrps1_eq] at h
+    simp only [mainRtOk, List.any_eq_true, List.mem_range]
+    exact ⟨4, by decide, h⟩
+
+/-- **A7** (the runtime's part): the tail of `scc_rt_main` (`mainRtOk`),
+`scc_rt_print`, the abort stubs and `scc_rt_abort`, checked in one pass over
+the cells, and the overflow abort path's phase facts at A6's tables and the
+code labels (`abortPhC`), and the runtime routines' (`scc_rt_print`, the
+write and heap abort paths, `scc_rt_alloc`: `tailOffC`). -/
 def a7 (o : Out) (t : Tables) : Bool :=
-  Rt.X64.rtIn o.prog (Rt.X64.RtIn.rtTab (mainGrps o.place.tail)) &&
-    Spike.Lib.X64.StubW.abortPhC t.Λ.code.lo t.Λ o.prog
+  mainRtOk o.prog o.place.tail && Spike.Lib.X64.StubW.abortPhC t.Λ.code.lo t.Λ o.prog &&
+    Spike.Lib.X64.StubW.tailOffC t.Λ.code.lo t.Λ o.prog
 
 /-- **A6**: every row of the block table in its entry's phase, off the
 sites, and the runtime's phase facts but `scc_rt_main`'s (`rtPhOk` at
@@ -198,32 +230,47 @@ def a6 (o : Out) (t : Tables) : Bool :=
   Rt.X64.phasesOk t.Λ.code.lo o.prog t.Λ o.place.blocks &&
     Rt.X64.rtPhOk t.Λ.code.lo o.prog t.Λ (Spike.Lib.X64.Rt.rtPhTab none)
 
+/-- **The heap arena's symbols and size**: `scc_rt_heap` a data symbol of
+the link at the arena's base and `scc_rt_heap_use` (the allocator's
+counter) a data symbol at its address in the link's symbols (`heapUseOf`)
+(`Rt.X64.symLab`: no code label of the name, no other address for it), the arena holding the allocator's cells
+(`heapSizeOk`), and the static data below the arena (`dataBelowHeap`). -/
+def heapOk (o : Out) (Λ : Scc.Sem.Layout) : Bool :=
+  decide (Rt.X64.symLab Λ.code.lo o.prog (loadSyms Λ o.secs.rodata) Link.heapSym = some Λ.heap.lo) &&
+    decide (Rt.X64.symLab Λ.code.lo o.prog (loadSyms Λ o.secs.rodata) heapUseSym = some (heapUseOf Λ)) &&
+    heapSizeOk Λ && dataBelowHeap Λ
+
 /-- **A8**: the runtime's data words in the link, none of them with an
 initial word in the load (`rtInitOk`), the first TCB's words clear of
-`.data` and the heap (`rtOffOk`). -/
+`.data` and the heap (`rtOffOk`); the heap arena's symbols and size
+(`heapOk`). -/
 def a8 (o : Out) (t : Tables) : Bool :=
-  Rt.X64.rtWordsOk t.Λ o.prog o.secs && Rt.X64.rtInitOk t.Λ o.prog o.secs && Rt.X64.rtOffOk t.Λ o.prog o.secs
+  Rt.X64.rtWordsOk t.Λ o.prog o.secs && Rt.X64.rtInitOk t.Λ o.prog o.secs && Rt.X64.rtOffOk t.Λ o.prog o.secs &&
+    heapOk o t.Λ
 
 /-- `scc_rt_main`'s facts (`Spike.Lib.X64.Rt.MainCode`) from the placement
 data's shape of its tail: today's emitter writes one `scc_rt_main` without a
 setup block (`bareMC`: frame 32, the result at `-16`, `wc_main`); after a
-setup block the generic `mainUIn` does not apply yet (`none`). -/
+setup block `scc_rt_main` calls twice, which `MainCode` does not describe
+(`none`; A11 checks that shape by `Spike.Lib.X64.Rt.setupOk`). -/
 def mcOf : MainShape → Option Spike.Lib.X64.Rt.MainCode
   | .bare => some Spike.Lib.X64.Rt.bareMC
   | .setup => none
 
 /-- **A11**: the runtime's fixed code (`scc_rt_start`, `scc_rt_main` at
 `mcOf`, `scc_rt_alloc_tcb`, `scc_rt_thread_init`, `scc_rt_stack_take`)
-checked in one pass over the cells (`Spike.Lib.X64.Rt.rtCodeOk`).
-`false` on a `.setup` tail until that shape's `MainCode` exists. The groups
+checked in one pass over the cells (`Spike.Lib.X64.Rt.rtCodeOk`). The groups
 name the runtime's local return points as today's single-thread emitter
 numbers them (`.Lscc_rt_thread_init.x7`); the numbering is per program.
-With it, `scc_rt_main`'s phase facts at `mcOf` (`rtPhOk` at `mainPhTab`). -/
+With it, `scc_rt_main`'s phase facts at `mcOf` (`rtPhOk` at `mainPhTab`).
+On a `.setup` tail, the same with `scc_rt_main` after a setup block
+(`Spike.Lib.X64.Rt.setupOk`: `rtCodeOkS` and `mainPhTabS` at `setupMC sw`
+for some `sw`, `scc_rt_thread_init`'s return point one later, `.x8`). -/
 def a11 (o : Out) (t : Tables) : Bool :=
   match mcOf o.place.tail with
   | some mc =>
     Spike.Lib.X64.Rt.rtCodeOk o.prog mc && Rt.X64.rtPhOk t.Λ.code.lo o.prog t.Λ (Spike.Lib.X64.Rt.mainPhTab mc)
-  | none => false
+  | none => Spike.Lib.X64.Rt.setupOk o.prog t.Λ.code.lo t.Λ
 
 /-- **A9** (the lowered code blocks' part, `fnCodeOk`): the prologue and
 body of every `func0`-shaped function of the IR the output names, at its
@@ -234,7 +281,16 @@ def a9 (o : Out) (t : Tables) : Bool :=
   | some ir => Spike.Lib.LowerX64.fnCodeOk o.prog ir && Spike.Lib.LowerX64.fnPhOk t.Λ.code.lo t.Λ o.prog ir
   | none => false
 
-/-- **The ten components** on x86-64. -/
+/-- **A12**: the code of every stack-checked function of the IR the output
+names (`Scc.Cert.Code1X64.fnCode1Ok`, at the stack need's rows), whatever
+its shape, and its phase facts at A6's tables and the code labels
+(`Scc.Cert.Ph1X64.fnPh1Ok`); no IR fails. -/
+def a12 (o : Out) (t : Tables) : Bool :=
+  match o.place.ir with
+  | some ir => Scc.Cert.Code1X64.fnCode1Ok o.prog o.place.need ir && Scc.Cert.Ph1X64.fnPh1Ok t.Λ.code.lo t.Λ o.prog ir
+  | none => false
+
+/-- **The eleven components** on x86-64. -/
 def checks (cfg : Config) : Checks Out Tables where
   a1 := a1
   a2 := a2
@@ -246,6 +302,7 @@ def checks (cfg : Config) : Checks Out Tables where
   a8 := a8
   a9 := a9
   a11 := a11
+  a12 := a12
 
 /-- **`PlaceOK` on x86-64.** -/
 def placeOK (cfg : Config) (o : Out) : Bool := (checks cfg).ok (tablesOf cfg) o
@@ -307,15 +364,16 @@ theorem a6_of_parts
   simp only [a6, h, hrt, Bool.and_self]
 
 theorem a7_of_parts (h : Rt.X64.rtIn o.prog (Rt.X64.RtIn.rtTab (mainGrps o.place.tail)) = true)
-    (hph : Spike.Lib.X64.StubW.abortPhC (tablesOf cfg o).Λ.code.lo (tablesOf cfg o).Λ o.prog = true) :
+    (hph : Spike.Lib.X64.StubW.abortPhC (tablesOf cfg o).Λ.code.lo (tablesOf cfg o).Λ o.prog = true)
+    (htl : Spike.Lib.X64.StubW.tailOffC (tablesOf cfg o).Λ.code.lo (tablesOf cfg o).Λ o.prog = true) :
     a7 o (tablesOf cfg o) = true := by
-  simp only [a7, h, hph, Bool.and_self]
+  simp only [a7, mainRtOk_of_mainGrps h, hph, htl, Bool.and_self]
 
 theorem a8_of_parts (h : Rt.X64.rtWordsOk (tablesOf cfg o).Λ o.prog o.secs = true)
     (hi : Rt.X64.rtInitOk (tablesOf cfg o).Λ o.prog o.secs = true)
-    (hc : Rt.X64.rtOffOk (tablesOf cfg o).Λ o.prog o.secs = true) :
+    (hc : Rt.X64.rtOffOk (tablesOf cfg o).Λ o.prog o.secs = true) (hh : heapOk o (tablesOf cfg o).Λ = true) :
     a8 o (tablesOf cfg o) = true := by
-  simp only [a8, h, hi, hc, Bool.and_self]
+  simp only [a8, h, hi, hc, hh, Bool.and_self]
 
 theorem a11_of_parts {mc : Spike.Lib.X64.Rt.MainCode} (hs : mcOf o.place.tail = some mc)
     (h : Spike.Lib.X64.Rt.rtCodeOk o.prog mc = true)
@@ -329,13 +387,20 @@ theorem a9_of_parts {ir : Scc.IR.Program} (hir : o.place.ir = some ir)
     a9 o (tablesOf cfg o) = true := by
   simp only [a9, hir, h, hph, Bool.and_self]
 
+theorem a12_of_parts {ir : Scc.IR.Program} (hir : o.place.ir = some ir)
+    (h : Scc.Cert.Code1X64.fnCode1Ok o.prog o.place.need ir = true)
+    (hph : Scc.Cert.Ph1X64.fnPh1Ok (tablesOf cfg o).Λ.code.lo (tablesOf cfg o).Λ o.prog ir = true) :
+    a12 o (tablesOf cfg o) = true := by
+  simp only [a12, hir, h, hph, Bool.and_self]
+
 /-- **`PlaceOK` from its components.** -/
 theorem placeOK_of (h1 : a1 o (tablesOf cfg o) = true) (h2 : a2 o (tablesOf cfg o) = true)
     (h3 : a3 o (tablesOf cfg o) = true) (h4 : a4 cfg o (tablesOf cfg o) = true)
     (h5 : a5 o (tablesOf cfg o) = true) (h6 : a6 o (tablesOf cfg o) = true)
     (h7 : a7 o (tablesOf cfg o) = true) (h8 : a8 o (tablesOf cfg o) = true)
-    (h9 : a9 o (tablesOf cfg o) = true) (h11 : a11 o (tablesOf cfg o) = true) : placeOK cfg o = true :=
-  Checks.ok_of (C := checks cfg) h1 h2 h3 h4 h5 h6 h7 h8 h9 h11
+    (h9 : a9 o (tablesOf cfg o) = true) (h11 : a11 o (tablesOf cfg o) = true)
+    (h12 : a12 o (tablesOf cfg o) = true) : placeOK cfg o = true :=
+  Checks.ok_of (C := checks cfg) h1 h2 h3 h4 h5 h6 h7 h8 h9 h11 h12
 
 /-- A wrong static link (A1: not well-formed, the entry stack not clear of it, or `_start` not at the code
 base) fails `PlaceOK`. -/
@@ -375,17 +440,22 @@ theorem placeOK_eq_false_of_a2 (h : a2 o (tablesOf cfg o) = false) : placeOK cfg
 theorem placeOK_eq_false_of_a8 (h : a8 o (tablesOf cfg o) = false) : placeOK cfg o = false := by
   simp [placeOK, Checks.ok, checks, h]
 
-/-- Wrong runtime fixed code or `scc_rt_main`'s phases (A11), or a tail without its `MainCode` yet
-(`.setup`), fails `PlaceOK`. -/
+/-- Wrong runtime fixed code or `scc_rt_main`'s phases (A11) fail `PlaceOK`. -/
 theorem placeOK_eq_false_of_a11 (h : a11 o (tablesOf cfg o) = false) : placeOK cfg o = false := by
+  simp [placeOK, Checks.ok, checks, h]
+
+/-- A user function's code not in the cells, or a call over its stack need
+row (A12), fails `PlaceOK`. -/
+theorem placeOK_eq_false_of_a12 (h : a12 o (tablesOf cfg o) = false) : placeOK cfg o = false := by
   simp [placeOK, Checks.ok, checks, h]
 
 /-- **`placeOKAt` from its components** (at a layout `Λ`, one read off an
 executable, say). -/
 theorem placeOKAt_of {Λ : Scc.Sem.Layout} (h1 : a1 o ⟨Λ⟩ = true) (h2 : a2 o ⟨Λ⟩ = true) (h3 : a3 o ⟨Λ⟩ = true)
     (h4 : a4 cfg o ⟨Λ⟩ = true) (h5 : a5 o ⟨Λ⟩ = true) (h6 : a6 o ⟨Λ⟩ = true) (h7 : a7 o ⟨Λ⟩ = true)
-    (h8 : a8 o ⟨Λ⟩ = true) (h9 : a9 o ⟨Λ⟩ = true) (h11 : a11 o ⟨Λ⟩ = true) : placeOKAt cfg Λ o = true :=
-  Checks.ok_of (C := checks cfg) (tablesOf := fun _ => ⟨Λ⟩) h1 h2 h3 h4 h5 h6 h7 h8 h9 h11
+    (h8 : a8 o ⟨Λ⟩ = true) (h9 : a9 o ⟨Λ⟩ = true) (h11 : a11 o ⟨Λ⟩ = true) (h12 : a12 o ⟨Λ⟩ = true) :
+    placeOKAt cfg Λ o = true :=
+  Checks.ok_of (C := checks cfg) (tablesOf := fun _ => ⟨Λ⟩) h1 h2 h3 h4 h5 h6 h7 h8 h9 h11 h12
 
 /-- A failing component fails `placeOKAt` (A1, say a code that overruns
 the layout's code region, `codeFits`). -/
@@ -424,15 +494,16 @@ theorem a6_of_partsAt {Λ : Scc.Sem.Layout}
   simp only [a6, h, hrt, Bool.and_self]
 
 theorem a7_of_partsAt {Λ : Scc.Sem.Layout} (h : Rt.X64.rtIn o.prog (Rt.X64.RtIn.rtTab (mainGrps o.place.tail)) = true)
-    (hph : Spike.Lib.X64.StubW.abortPhC Λ.code.lo Λ o.prog = true) :
+    (hph : Spike.Lib.X64.StubW.abortPhC Λ.code.lo Λ o.prog = true)
+    (htl : Spike.Lib.X64.StubW.tailOffC Λ.code.lo Λ o.prog = true) :
     a7 o ⟨Λ⟩ = true := by
-  simp only [a7, h, hph, Bool.and_self]
+  simp only [a7, mainRtOk_of_mainGrps h, hph, htl, Bool.and_self]
 
 theorem a8_of_partsAt {Λ : Scc.Sem.Layout} (h : Rt.X64.rtWordsOk Λ o.prog o.secs = true)
     (hi : Rt.X64.rtInitOk Λ o.prog o.secs = true)
-    (hc : Rt.X64.rtOffOk Λ o.prog o.secs = true) :
+    (hc : Rt.X64.rtOffOk Λ o.prog o.secs = true) (hh : heapOk o Λ = true) :
     a8 o ⟨Λ⟩ = true := by
-  simp only [a8, h, hi, hc, Bool.and_self]
+  simp only [a8, h, hi, hc, hh, Bool.and_self]
 
 theorem a11_of_partsAt {Λ : Scc.Sem.Layout} {mc : Spike.Lib.X64.Rt.MainCode} (hs : mcOf o.place.tail = some mc)
     (h : Spike.Lib.X64.Rt.rtCodeOk o.prog mc = true)
@@ -445,6 +516,12 @@ theorem a9_of_partsAt {Λ : Scc.Sem.Layout} {ir : Scc.IR.Program} (hir : o.place
     (hph : Spike.Lib.LowerX64.fnPhOk Λ.code.lo Λ o.prog ir = true) :
     a9 o ⟨Λ⟩ = true := by
   simp only [a9, hir, h, hph, Bool.and_self]
+
+theorem a12_of_partsAt {Λ : Scc.Sem.Layout} {ir : Scc.IR.Program} (hir : o.place.ir = some ir)
+    (h : Scc.Cert.Code1X64.fnCode1Ok o.prog o.place.need ir = true)
+    (hph : Scc.Cert.Ph1X64.fnPh1Ok Λ.code.lo Λ o.prog ir = true) :
+    a12 o ⟨Λ⟩ = true := by
+  simp only [a12, hir, h, hph, Bool.and_self]
 
 /-- A program outside the one-word fragment or over its stack need (A4) fails `placeOKAt`. -/
 theorem placeOKAt_eq_false_of_a4 {Λ : Scc.Sem.Layout} (h : a4 cfg o ⟨Λ⟩ = false) : placeOKAt cfg Λ o = false := by
@@ -479,9 +556,13 @@ theorem placeOKAt_eq_false_of_a2 {Λ : Scc.Sem.Layout} (h : a2 o ⟨Λ⟩ = fals
 theorem placeOKAt_eq_false_of_a8 {Λ : Scc.Sem.Layout} (h : a8 o ⟨Λ⟩ = false) : placeOKAt cfg Λ o = false := by
   simp [placeOKAt, Checks.ok, checks, h]
 
-/-- Wrong runtime fixed code or `scc_rt_main`'s phases (A11), or a tail without its `MainCode` yet
-(`.setup`), fails `placeOKAt`. -/
+/-- Wrong runtime fixed code or `scc_rt_main`'s phases (A11) fail `placeOKAt`. -/
 theorem placeOKAt_eq_false_of_a11 {Λ : Scc.Sem.Layout} (h : a11 o ⟨Λ⟩ = false) : placeOKAt cfg Λ o = false := by
+  simp [placeOKAt, Checks.ok, checks, h]
+
+/-- A user function's code not in the cells, or a call over its stack need
+row (A12), fails `placeOKAt`. -/
+theorem placeOKAt_eq_false_of_a12 {Λ : Scc.Sem.Layout} (h : a12 o ⟨Λ⟩ = false) : placeOKAt cfg Λ o = false := by
   simp [placeOKAt, Checks.ok, checks, h]
 
 end Parts
@@ -523,30 +604,39 @@ theorem rtPh_of_placeOKAt (h : placeOKAt cfg Λ o = true) :
 private theorem a7_of' (h : placeOKAt cfg Λ o = true) : a7 o ⟨Λ⟩ = true :=
   Checks.a7_of_ok (C := checks cfg) (tablesOf := fun _ => ⟨Λ⟩) h
 
-private theorem a7_of (h : placeOKAt cfg Λ o = true) :
-    Rt.X64.rtIn o.prog (Rt.X64.RtIn.rtTab (mainGrps o.place.tail)) = true := by
-  have h7 := a7_of' h; simp only [a7, Bool.and_eq_true] at h7; exact h7.1
+private theorem a7_of (h : placeOKAt cfg Λ o = true) : mainRtOk o.prog o.place.tail = true := by
+  have h7 := a7_of' h; simp only [a7, Bool.and_eq_true] at h7; exact h7.1.1
 
 /-- **A7**: the overflow abort path's phase check at A6's tables and the
 code labels (`abortPhC`). -/
 theorem abortPh_of_placeOKAt (h : placeOKAt cfg Λ o = true) :
     Spike.Lib.X64.StubW.abortPhC Λ.code.lo Λ o.prog = true := by
+  have h7 := a7_of' h; simp only [a7, Bool.and_eq_true] at h7; exact h7.1.2
+
+/-- **A7**: the runtime routines' phase check at A6's tables and the code
+labels (`tailOffC`). -/
+theorem tailOff_of_placeOKAt (h : placeOKAt cfg Λ o = true) :
+    Spike.Lib.X64.StubW.tailOffC Λ.code.lo Λ o.prog = true := by
   have h7 := a7_of' h; simp only [a7, Bool.and_eq_true] at h7; exact h7.2
 
 private theorem a8_of' (h : placeOKAt cfg Λ o = true) : a8 o ⟨Λ⟩ = true :=
   Checks.a8_of_ok (C := checks cfg) (tablesOf := fun _ => ⟨Λ⟩) h
 
 private theorem a8_of (h : placeOKAt cfg Λ o = true) : Rt.X64.rtWordsOk Λ o.prog o.secs = true := by
-  have h8 := a8_of' h; simp only [a8, Bool.and_eq_true] at h8; exact h8.1.1
+  have h8 := a8_of' h; simp only [a8, Bool.and_eq_true] at h8; exact h8.1.1.1
 
 /-- **A8**: no runtime word has an initial word in the load
 (`Rt.X64.initVal_rt_of_rtInitOk`: each starts at `0`). -/
 theorem rtInit_of_placeOKAt (h : placeOKAt cfg Λ o = true) : Rt.X64.rtInitOk Λ o.prog o.secs = true := by
-  have h8 := a8_of' h; simp only [a8, Bool.and_eq_true] at h8; exact h8.1.2
+  have h8 := a8_of' h; simp only [a8, Bool.and_eq_true] at h8; exact h8.1.1.2
 
 /-- **A8**: the first TCB's words are clear of `.data` and the heap
 (`Rt.X64.clear_of_rtOffOk`). -/
 theorem rtOff_of_placeOKAt (h : placeOKAt cfg Λ o = true) : Rt.X64.rtOffOk Λ o.prog o.secs = true := by
+  have h8 := a8_of' h; simp only [a8, Bool.and_eq_true] at h8; exact h8.1.2
+
+/-- **A8**: the heap arena's symbols and size (`heapOk`). -/
+theorem heapOk_of_placeOKAt (h : placeOKAt cfg Λ o = true) : heapOk o Λ = true := by
   have h8 := a8_of' h; simp only [a8, Bool.and_eq_true] at h8; exact h8.2
 
 private theorem a9_of (h : placeOKAt cfg Λ o = true) : a9 o ⟨Λ⟩ = true :=
@@ -599,6 +689,27 @@ theorem ovfCode_of_placeOKAt (h : placeOKAt cfg Λ o = true) {ir : Scc.IR.Progra
   exact (Spike.Lib.LowerX64.fnCodeOk_func0 hok hf hI hw).2.2 hne
 private theorem a11_of (h : placeOKAt cfg Λ o = true) : a11 o ⟨Λ⟩ = true :=
   Checks.a11_of_ok (C := checks cfg) (tablesOf := fun _ => ⟨Λ⟩) h
+
+private theorem a12_of (h : placeOKAt cfg Λ o = true) : a12 o ⟨Λ⟩ = true :=
+  Checks.a12_of_ok (C := checks cfg) (tablesOf := fun _ => ⟨Λ⟩) h
+
+/-- **A12**: the output's IR's stack-checked functions have their code in
+the cells, at the stack need's rows (`Scc.Cert.Code1X64.fnCode1Ok`; per
+function `fnOk1_of_fnCode1Ok`, `fnOk1_facts`). -/
+theorem fnCode1_of_placeOKAt (h : placeOKAt cfg Λ o = true) {ir : Scc.IR.Program} (hir : o.place.ir = some ir) :
+    Scc.Cert.Code1X64.fnCode1Ok o.prog o.place.need ir = true := by
+  have h12 := a12_of h
+  simp only [a12, hir, Bool.and_eq_true] at h12
+  exact h12.1
+
+/-- **A12**'s phase part: the output's IR's stack-checked functions pass the
+phase check at A6's tables and the code labels (`Scc.Cert.Ph1X64.fnPh1Ok`;
+`fnPh1Ok_parts`, `fnPhF_of_fnPhAll1`, `fnPhF_facts`, `blocksPh_block`). -/
+theorem fnPh1_of_placeOKAt (h : placeOKAt cfg Λ o = true) {ir : Scc.IR.Program} (hir : o.place.ir = some ir) :
+    Scc.Cert.Ph1X64.fnPh1Ok Λ.code.lo Λ o.prog ir = true := by
+  have h12 := a12_of h
+  simp only [a12, hir, Bool.and_eq_true] at h12
+  exact h12.2
 
 /-- **A1**: the static link is well-formed. -/
 theorem wf_of_placeOKAt (h : placeOKAt cfg Λ o = true) : Λ.WF := by
@@ -745,28 +856,45 @@ theorem needOk_of_placeOKAt (h : placeOKAt cfg Λ o = true) :
     NeedX64.needOk o.prog o.place.need cfg.needBudget cfg.entries = true := by
   have := a4_of h; simp only [a4, Bool.and_eq_true] at this; exact this.2
 
+/-- The pass over the runtime's code at some groups of `scc_rt_main`'s
+tail, from `mainRtOk`. -/
+private theorem rtIn_of_mainRtOk {cells : List (Directive × Nat)} {s : MainShape}
+    (h : mainRtOk cells s = true) : ∃ main, Rt.X64.rtIn cells (Rt.X64.RtIn.rtTab main) = true := by
+  cases s with
+  | bare => exact ⟨_, h⟩
+  | setup =>
+    simp only [mainRtOk, List.any_eq_true] at h
+    obtain ⟨_, _, h⟩ := h; exact ⟨_, h⟩
+
+/-- **A7**: `scc_rt_alloc`'s code and labels (`seg_allocW`'s code premise). -/
+theorem allocIn_of_placeOKAt (h : placeOKAt cfg Λ o = true) : Spike.Lib.X64.Alloc.allocIn o.prog = true :=
+  have ⟨_, h⟩ := rtIn_of_mainRtOk (a7_of h); Rt.X64.RtIn.allocIn_of_rtIn h
+
 /-- **A7**: `scc_rt_print`'s code and labels. -/
 theorem printIn_of_placeOKAt (h : placeOKAt cfg Λ o = true) : Rt.X64.Print.printIn o.prog = true :=
-  Rt.X64.RtIn.printIn_of_rtIn (a7_of h)
+  have ⟨_, h⟩ := rtIn_of_mainRtOk (a7_of h); Rt.X64.RtIn.printIn_of_rtIn h
 
 /-- **A7**: the abort stubs and `scc_rt_abort`'s code and labels. -/
 theorem abortIn_of_placeOKAt (h : placeOKAt cfg Λ o = true) : Rt.X64.Abort.abortIn o.prog = true :=
-  Rt.X64.RtIn.abortIn_of_rtIn (a7_of h)
+  have ⟨_, h⟩ := rtIn_of_mainRtOk (a7_of h); Rt.X64.RtIn.abortIn_of_rtIn h
 
 /-- **A7**: the tail of `scc_rt_main`, without a setup block. -/
 theorem mainIn0_of_placeOKAt (h : placeOKAt cfg Λ o = true) (hs : o.place.tail = .bare) : mainIn0 o.prog = true := by
-  have h7 := a7_of h; simp only [hs, mainGrps] at h7; exact Rt.X64.RtIn.mainIn0_of_rtIn h7
+  have h7 := a7_of h; simp only [hs, mainRtOk] at h7; exact Rt.X64.RtIn.mainIn0_of_rtIn h7
 
-/-- **A7**: the tail of `scc_rt_main`, after a setup block. -/
+/-- **A7**: the tail of `scc_rt_main`, after a setup block of some width
+`sw < 6` (`RtIn.mainInS`, the result at `RtIn.mainK sw`; `Abort.mainIn` at
+four words, `RtIn.mainIn_eq_mainInS`). -/
 theorem mainIn_of_placeOKAt (h : placeOKAt cfg Λ o = true) (hs : o.place.tail = .setup) :
-    Rt.X64.Abort.mainIn o.prog = true := by
-  have h7 := a7_of h; simp only [hs, mainGrps] at h7; exact Rt.X64.RtIn.mainIn_of_rtIn h7
+    ∃ sw, sw < 6 ∧ Rt.X64.RtIn.mainInS o.prog sw = true := by
+  have h7 := a7_of h; simp only [hs, mainRtOk, List.any_eq_true, List.mem_range] at h7
+  obtain ⟨sw, hsw, h7⟩ := h7; exact ⟨sw, hsw, Rt.X64.RtIn.mainInS_of_rtIn h7⟩
 
-/-- **A11**: the tail of `scc_rt_main` has its `MainCode` (today: no setup
-block). -/
-theorem tail_of_placeOKAt (h : placeOKAt cfg Λ o = true) : o.place.tail = .bare := by
-  have h11 := a11_of h; revert h11; unfold a11
-  cases o.place.tail <;> simp [mcOf]
+/-- **A11 at a `.setup` tail**: `scc_rt_main`'s code and phase facts after
+a setup block (`Spike.Lib.X64.Rt.setupOk`). -/
+theorem setupOk_of_placeOKAt (h : placeOKAt cfg Λ o = true) (hs : o.place.tail = .setup) :
+    Spike.Lib.X64.Rt.setupOk o.prog Λ.code.lo Λ = true := by
+  have h11 := a11_of h; simp only [a11, hs, mcOf] at h11; exact h11
 
 /-- **A11**: the runtime's fixed code at the tail's `MainCode`
 (`Spike.Lib.X64.Rt.rtCodeIn_of_ok` gives its facts back). -/
@@ -781,10 +909,10 @@ theorem mainPh_of_placeOKAt (h : placeOKAt cfg Λ o = true) {mc : Spike.Lib.X64.
     Rt.X64.rtPhOk Λ.code.lo o.prog Λ (Spike.Lib.X64.Rt.mainPhTab mc) = true := by
   have h11 := a11_of h; simp only [a11, hs, Bool.and_eq_true] at h11; exact h11.2
 
-/-- **A11**: the runtime's fixed code at `bareMC`. -/
-theorem rtCodeOk_bare_of_placeOKAt (h : placeOKAt cfg Λ o = true) :
+/-- **A11**: the runtime's fixed code at `bareMC`, on a bare tail. -/
+theorem rtCodeOk_bare_of_placeOKAt (h : placeOKAt cfg Λ o = true) (hs : o.place.tail = .bare) :
     Spike.Lib.X64.Rt.rtCodeOk o.prog Spike.Lib.X64.Rt.bareMC = true :=
-  rtCodeOk_of_placeOKAt h (by rw [tail_of_placeOKAt h]; rfl)
+  rtCodeOk_of_placeOKAt h (by rw [hs]; rfl)
 
 /-- **A8**: the runtime's data words' checks. -/
 theorem rtWordsOk_of_placeOKAt (h : placeOKAt cfg Λ o = true) : Rt.X64.rtWordsOk Λ o.prog o.secs = true :=
@@ -796,6 +924,67 @@ theorem lab_of_placeOKAt (h : placeOKAt cfg Λ o = true) {x : String} (hx : x �
     ((_root_.Executable.labels (threadAt E Λ.code.lo o.prog (loadSyms Λ o.secs.rodata)).exe).label x).toBitVec =
       Rt.X64.rtA Λ o.prog o.secs x :=
   Rt.X64.label_of_rtWordsOk (loadOk_of_placeOKAt h) (a8_of h) hx E
+
+/-- **A8**: `scc_rt_heap` labels the heap arena's base in the loaded
+thread. -/
+theorem heapLab_of_placeOKAt (h : placeOKAt cfg Λ o = true) (E : Entry) :
+    (_root_.Executable.labels (threadAt E Λ.code.lo o.prog (loadSyms Λ o.secs.rodata)).exe).label Link.heapSym =
+      Int64.ofNat Λ.heap.lo := by
+  have hh := heapOk_of_placeOKAt h
+  simp only [heapOk, Bool.and_eq_true, decide_eq_true_eq] at hh
+  exact Rt.X64.label_threadAt_of_symLab (symsAround_of_loadOk (loadOk_of_placeOKAt h)) hh.1.1.1
+
+/-- **A8**: `scc_rt_heap`'s label as a number is the heap arena's base
+(the allocator's `Call.OK.heap` at `heap := Λ.heap.lo`). -/
+theorem heapLab_toNat_of_placeOKAt (h : placeOKAt cfg Λ o = true) (E : Entry) :
+    ((_root_.Executable.labels (threadAt E Λ.code.lo o.prog (loadSyms Λ o.secs.rodata)).exe).label
+      Link.heapSym).toBitVec.toNat = Λ.heap.lo := by
+  rw [heapLab_of_placeOKAt h E]
+  have hb := below32_of_placeOKAt h Λ.heap (by simp [Layout.regions])
+  have e : (Int64.ofNat Λ.heap.lo).toBitVec = BitVec.ofNat 64 Λ.heap.lo := by simp
+  rw [e, BitVec.toNat_ofNat]
+  exact Nat.mod_eq_of_lt (by omega)
+
+/-- **A8**: `scc_rt_heap_use` labels the allocator's counter at its
+address in the link's symbols (`heapUseOf`) in the loaded thread (the
+allocator's `Call.OK.ctr` at `ctr := heapUseOf Λ`). -/
+theorem heapUseLab_of_placeOKAt (h : placeOKAt cfg Λ o = true) (E : Entry) :
+    ((_root_.Executable.labels (threadAt E Λ.code.lo o.prog (loadSyms Λ o.secs.rodata)).exe).label
+      heapUseSym).toBitVec = BitVec.ofNat 64 (heapUseOf Λ) := by
+  have hh := heapOk_of_placeOKAt h
+  simp only [heapOk, Bool.and_eq_true, decide_eq_true_eq] at hh
+  rw [Rt.X64.label_threadAt_of_symLab (symsAround_of_loadOk (loadOk_of_placeOKAt h)) hh.1.1.2]
+  simp
+
+/-- **A8**: the heap arena holds the allocator's cells. -/
+theorem heapSize_of_placeOKAt (h : placeOKAt cfg Λ o = true) : 16 * allocCells ≤ Λ.heap.size := by
+  have hh := heapOk_of_placeOKAt h
+  simp only [heapOk, Bool.and_eq_true] at hh
+  exact heapSize_of_heapSizeOk hh.1.2
+
+/-- **A8**: the static data below the heap arena. -/
+theorem dataBelow_of_placeOKAt (h : placeOKAt cfg Λ o = true) : Λ.data.lo + Λ.data.size ≤ Λ.heap.lo := by
+  have hh := heapOk_of_placeOKAt h
+  simp only [heapOk, Bool.and_eq_true] at hh
+  exact dataBelow_of_dataBelowHeap hh.2
+
+/-- **A1**: the allocator's room above the arena's base (`Call.OK.room`
+at `heap := Λ.heap.lo`). -/
+theorem heapRoom_of_placeOKAt (h : placeOKAt cfg Λ o = true) : Λ.heap.lo + 2 ^ 46 ≤ 2 ^ 64 := by
+  have hb := below32_of_placeOKAt h Λ.heap (by simp [Layout.regions])
+  omega
+
+/-- The allocator's limit as `scc_rt_alloc` loads it: `movq $allocCells, %rcx`. -/
+def allocCellsDir : Directive :=
+  .instr (.regular .W64 .W64 (.mov (.reg (.low .rcx .W64)) (.imm (.int64 (Int64.ofNat allocCells)))))
+
+/-- **`allocCells` is the allocator's limit** (A7): both compares of `scc_rt_alloc`'s code that
+`allocIn_of_placeOKAt` places (`.cnt`'s `bC2`, `.slow`'s `bSlow`) load `allocCellsDir`, whose
+immediate is exactly `allocCells` (a sign-extended 32-bit immediate). Changing either the
+runtime's literal or `allocCells` alone breaks this by `rfl`. -/
+theorem allocCells_eq_lit : (Spike.Lib.X64.Alloc.bC2[6]?).map (·.1) = some allocCellsDir ∧
+    (Spike.Lib.X64.Alloc.bSlow[1]?).map (·.1) = some allocCellsDir ∧ allocCells < 2 ^ 31 :=
+  ⟨rfl, rfl, by decide⟩
 
 /-- **A8**: the side conditions of the runtime's words (`Rt.X64.wordsOk`;
 `Rt.X64.words_small_of_wordsOk` …). -/
@@ -949,6 +1138,11 @@ theorem abortPh_of_placeOK (h : placeOK cfg o = true) :
     Spike.Lib.X64.StubW.abortPhC (tablesOf cfg o).Λ.code.lo (tablesOf cfg o).Λ o.prog = true :=
   abortPh_of_placeOKAt (Λ := (tablesOf cfg o).Λ) h
 
+/-- `tailOff_of_placeOKAt` at the static link. -/
+theorem tailOff_of_placeOK (h : placeOK cfg o = true) :
+    Spike.Lib.X64.StubW.tailOffC (tablesOf cfg o).Λ.code.lo (tablesOf cfg o).Λ o.prog = true :=
+  tailOff_of_placeOKAt (Λ := (tablesOf cfg o).Λ) h
+
 /-- `rtInit_of_placeOKAt` at the static link. -/
 theorem rtInit_of_placeOK (h : placeOK cfg o = true) : Rt.X64.rtInitOk (tablesOf cfg o).Λ o.prog o.secs = true :=
   rtInit_of_placeOKAt (Λ := (tablesOf cfg o).Λ) h
@@ -966,6 +1160,16 @@ theorem fnCodeOk_of_placeOK (h : placeOK cfg o = true) :
 theorem fnPh_of_placeOK (h : placeOK cfg o = true) {ir : Scc.IR.Program} (hir : o.place.ir = some ir) :
     Spike.Lib.LowerX64.fnPhOk (tablesOf cfg o).Λ.code.lo (tablesOf cfg o).Λ o.prog ir = true :=
   fnPh_of_placeOKAt (Λ := (tablesOf cfg o).Λ) h hir
+
+/-- `fnCode1_of_placeOKAt` at the static link. -/
+theorem fnCode1_of_placeOK (h : placeOK cfg o = true) {ir : Scc.IR.Program} (hir : o.place.ir = some ir) :
+    Scc.Cert.Code1X64.fnCode1Ok o.prog o.place.need ir = true :=
+  fnCode1_of_placeOKAt (Λ := (tablesOf cfg o).Λ) h hir
+
+/-- `fnPh1_of_placeOKAt` at the static link. -/
+theorem fnPh1_of_placeOK (h : placeOK cfg o = true) {ir : Scc.IR.Program} (hir : o.place.ir = some ir) :
+    Scc.Cert.Ph1X64.fnPh1Ok (tablesOf cfg o).Λ.code.lo (tablesOf cfg o).Λ o.prog ir = true :=
+  fnPh1_of_placeOKAt (Λ := (tablesOf cfg o).Λ) h hir
 
 /-- `fnCode_of_placeOKAt` at the static link. -/
 theorem fnCode_of_placeOK (h : placeOK cfg o = true) {ir : Scc.IR.Program} (hir : o.place.ir = some ir)
@@ -1106,6 +1310,10 @@ theorem needOk_of_placeOK (h : placeOK cfg o = true) :
     NeedX64.needOk o.prog o.place.need cfg.needBudget cfg.entries = true :=
   needOk_of_placeOKAt (Λ := (tablesOf cfg o).Λ) h
 
+/-- `allocIn_of_placeOKAt` at the static link. -/
+theorem allocIn_of_placeOK (h : placeOK cfg o = true) : Spike.Lib.X64.Alloc.allocIn o.prog = true :=
+  allocIn_of_placeOKAt (Λ := (tablesOf cfg o).Λ) h
+
 /-- `printIn_of_placeOKAt` at the static link. -/
 theorem printIn_of_placeOK (h : placeOK cfg o = true) : Rt.X64.Print.printIn o.prog = true :=
   printIn_of_placeOKAt (Λ := (tablesOf cfg o).Λ) h
@@ -1120,12 +1328,13 @@ theorem mainIn0_of_placeOK (h : placeOK cfg o = true) (hs : o.place.tail = .bare
 
 /-- `mainIn_of_placeOKAt` at the static link. -/
 theorem mainIn_of_placeOK (h : placeOK cfg o = true) (hs : o.place.tail = .setup) :
-    Rt.X64.Abort.mainIn o.prog = true :=
+    ∃ sw, sw < 6 ∧ Rt.X64.RtIn.mainInS o.prog sw = true :=
   mainIn_of_placeOKAt (Λ := (tablesOf cfg o).Λ) h hs
 
-/-- `tail_of_placeOKAt` at the static link. -/
-theorem tail_of_placeOK (h : placeOK cfg o = true) : o.place.tail = .bare :=
-  tail_of_placeOKAt (Λ := (tablesOf cfg o).Λ) h
+/-- `setupOk_of_placeOKAt` at the static link. -/
+theorem setupOk_of_placeOK (h : placeOK cfg o = true) (hs : o.place.tail = .setup) :
+    Spike.Lib.X64.Rt.setupOk o.prog (tablesOf cfg o).Λ.code.lo (tablesOf cfg o).Λ = true :=
+  setupOk_of_placeOKAt (Λ := (tablesOf cfg o).Λ) h hs
 
 /-- `rtCodeOk_of_placeOKAt` at the static link. -/
 theorem rtCodeOk_of_placeOK (h : placeOK cfg o = true) {mc : Spike.Lib.X64.Rt.MainCode}
@@ -1139,9 +1348,9 @@ theorem mainPh_of_placeOK (h : placeOK cfg o = true) {mc : Spike.Lib.X64.Rt.Main
   mainPh_of_placeOKAt (Λ := (tablesOf cfg o).Λ) h hs
 
 /-- `rtCodeOk_bare_of_placeOKAt` at the static link. -/
-theorem rtCodeOk_bare_of_placeOK (h : placeOK cfg o = true) :
+theorem rtCodeOk_bare_of_placeOK (h : placeOK cfg o = true) (hs : o.place.tail = .bare) :
     Spike.Lib.X64.Rt.rtCodeOk o.prog Spike.Lib.X64.Rt.bareMC = true :=
-  rtCodeOk_bare_of_placeOKAt (Λ := (tablesOf cfg o).Λ) h
+  rtCodeOk_bare_of_placeOKAt (Λ := (tablesOf cfg o).Λ) h hs
 
 /-- `rtWordsOk_of_placeOKAt` at the static link. -/
 theorem rtWordsOk_of_placeOK (h : placeOK cfg o = true) : Rt.X64.rtWordsOk (tablesOf cfg o).Λ o.prog o.secs = true :=

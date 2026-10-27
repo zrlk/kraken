@@ -564,6 +564,7 @@ theorem wp_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [WrIni
     (fun c1 h1 h2 => by rw [hce2]; exact (hrun X S0 hS0 c1 h1 h2).2) X.hth hT2 hm2 hc hSC X.inv.bf hPS hSub hSig
     (by rw [hce2]; exact X.inv.riniCoh _ _ _ X.hth)
     (fun l cl f hs hp => by rw [hce2] at hs hp; exact X.inv.frlt l cl f (cutSto_sub hs) hp)
+    (by rw [hce2]; exact TermMain.tidAt_cut X.inv i S0)
   refine flipOK_congr ?_ ?_ ?_ ?_ h <;> rw [Y.1, hce2] <;> rfl
 
 /-! ## §5 `rmw` (T8): the slot form `NoPlantRMWS` -/

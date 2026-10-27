@@ -87,6 +87,10 @@ theorem ret0_placeOKAt_9 : A64.a9 outLit ⟨Λe⟩ = true := by
 theorem ret0_placeOKAt_11 : A64.a11 outLit ⟨Λe⟩ = true := by
   decide +kernel
 
+/-- A12 of `outLit` at `Λe` (kernel-checked). -/
+theorem ret0_placeOKAt_12 : A64.a12 outLit ⟨Λe⟩ = true := by
+  decide +kernel
+
 /-- **`placeOKAt` of `scc`'s output at the executable's layout**, from its
 components (`placeOKAt_of`). -/
 theorem ret0_placeOKAt : A64.placeOKAt placeCfg Λe out = true := by
@@ -94,7 +98,7 @@ theorem ret0_placeOKAt : A64.placeOKAt placeCfg Λe out = true := by
   simp only [Bool.and_eq_true] at h1
   rw [out_eq]
   exact A64.placeOKAt_of h1.1.1.1 h1.1.1.2 ret0_placeOKAt_3 h1.1.2 ret0_placeOKAt_5 ret0_placeOKAt_6 h1.2
-    ret0_placeOKAt_8 ret0_placeOKAt_9 ret0_placeOKAt_11
+    ret0_placeOKAt_8 ret0_placeOKAt_9 ret0_placeOKAt_11 ret0_placeOKAt_12
 
 /-- **`ret0.w` compiled for AArch64 is correct at the linked executable's
 layout**, at every admissible entry state, for every budget `B` and memory

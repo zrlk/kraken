@@ -97,7 +97,7 @@ theorem promIniGenB (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] 
         TermTyped.WitP c.mem th.promises l o τ :=
     TermTyped.witP_run X.hth hm.2.2.1 (TermCert.winInv_prom (TermCert.winInv_refl X.hth))
   obtain ⟨th1', E1, hth1', hx1, hTE1, hmi1, hSC1, hbo1, hfb1, hfr1, hna1, hfresh1, hIL1, hIH1, hPV1, hPO1⟩ :=
-    solo_typedXFP (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hsc (by first | exact TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw | exact TermViewInv.viewInv_run hV0 X.run | exact TermViewInv.viewInv_thread (TermViewInv.viewInv_run hV0 X.run) X.hc') hwin h0 h1 hc1 (fun l => X.inv.rle l) (hbr X S0) (hbp X) hHr
+    solo_typedXFP (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hsc (by first | exact TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw | exact TermViewInv.viewInv_run hV0 X.run | exact TermViewInv.viewInv_thread (TermViewInv.viewInv_run hV0 X.run) X.hc') hwin h0 (TermMain.tidAt_cutP X.inv j S0) h1 hc1 (fun l => X.inv.rle l) (hbr X S0) (hbp X) hHr
   rw [hth1] at hth1'
   cases hth1'
   have hTE1' := hTE1

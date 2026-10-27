@@ -4,6 +4,15 @@ import WeakCore.SpawnFinalX
 import WeakCore.SpawnArmZ
 import WeakCore.SpawnNoSpawn
 import WeakCore.ExtArmZ
+-- progress headlines
+import WeakCore.TermProgress
+-- liveness headlines
+import WeakCore.TermLiveL3
+import WeakCore.TermLiveCertRun
+import WeakCore.TermLiveCertScen
+import WeakCore.TermLiveC
+import WeakCore.TermLiveG3
+import WeakCore.SceProof
 /-!
 # CheckPremises — freeze the MEANING of the finals' premises (mechanism sketch)
 
@@ -23,10 +32,26 @@ def stopModules : List Name :=
   [`Promises, `WeakMem, `CoreLang, `CoreTerm, `CoreTyping, `CoreUtils, `TermRun, `Caps, `Freeze,
    `Scope, `SubWord, `Syntax, `Typestate, `ArrayLib, `HashMap, `HashMapLF, `HashMapOwn, `FlatHashMap]
 
+/-- The module of `n`, independent of the layout: when the library is vendored with its modules named
+`WeakCore.<M>`, the leading `WeakCore` component is dropped, so the stop rule and the `Init`/`Std`/`Lean`
+test see `<M>` in both layouts (in the source tree no module name starts with `WeakCore`; in a vendored copy
+every module name does, and the prefix is dropped). -/
 def moduleOf (env : Environment) (n : Name) : Name :=
   match env.getModuleIdxFor? n with
-  | some i => env.header.moduleNames[i.toNat]!
+  | some i =>
+      let m := env.header.moduleNames[i.toNat]!
+      if m.getRoot == `WeakCore && m != `WeakCore then m.replacePrefix `WeakCore .anonymous else m
   | none => `_local
+
+/-- (per-toolchain sets) The module layout of this run, from the modules of the finals: `vendored` when every
+final's module is named `WeakCore.<M>` (the prefix `moduleOf` drops), `source` when none is, `mixed` otherwise
+(guard.sh rejects `mixed`).  The layout changes the names of derived instances (the source layout adds a
+`_<module>` suffix, the vendored layout none), so the premise sets are keyed on it together with the toolchain. -/
+def layoutOf (env : Environment) (finals : List Name) : String :=
+  let v := finals.map fun f => match env.getModuleIdxFor? f with
+    | some i => let m := env.header.moduleNames[i.toNat]!; m.getRoot == `WeakCore && m != `WeakCore
+    | none => false
+  if v.all id then "vendored" else if v.all (!·) then "source" else "mixed"
 
 def isStop (m : Name) : Bool :=
   m.getRoot == `Init || m.getRoot == `Std || m.getRoot == `Lean || m == `_local || stopModules.contains m
@@ -53,11 +78,25 @@ def langRoots : List Name :=
    `TermRun.Cfg, `TermRun.Cfg.n, `TermRun.gOf, `TermRun.freshLabel,
    -- POR: the silent-step test's `spawn` arm
    `TermRun.touchesMem,
-   -- (IO1) the extern step and its run layer, moved into / living in TermRun
+   -- the extern step and its run layer, moved into / living in TermRun
    -- (a stop module): the extern successor, its gate, the run relations and the event/exit text
    `TermRun.extCfg, `TermRun.curCfg, `TermRun.ExtNeedsNoProm, `TermRun.extSteps,
    `CoreTerm.ExtName.events, `CoreTerm.ExtName.res, `CoreTerm.ExtName.sig, `TermRun.exitCode,
-   `TermRun.Event, `TermRun.Solo, `TermRun.Step, `TermRun.Certified]
+   `TermRun.Event, `TermRun.Solo, `TermRun.Step, `TermRun.Certified,
+   -- the run layer's promise
+   -- step, thread-step successor and certificate end test
+   `TermRun.promise, `TermRun.threadSteps, `TermRun.noPromises,
+   -- the explorer/certificate move set and the device/permit layer, which frozen texts
+   -- name but never print; `CoreTerm.ExtName.res` is now ABSENT (replaced by `Admits`)
+   `TermRun.extSuccs, `TermRun.extRs, `TermRun.wakeSuccs, `TermRun.certB, `TermRun.successorsAll,
+   `TermRun.atChoiceCutB, `TermRun.wakeCut, `TermRun.nodeTrunc, `TermRun.extCut, `TermRun.certCut,
+   `CoreTerm.devCells, `CoreTerm.devCellOK, `CoreTerm.exprNoDevOnly, `CoreTerm.exprNoDevFnptr,
+   `CoreTerm.ExtName.Admits, `CoreTerm.ExtName.resultsL, `CoreTerm.ExtName.ok, `CoreTerm.ExtName.deviceOnly,
+   `CoreTerm.ExtName.isChoice, `CoreTerm.ExtName.pure, `TermRun.ExtEnabled, `TermRun.setPermit, `TermRun.wake,
+   -- (user) the permit's release/acquire views
+   `TermRun.relView, `TermRun.parkVs,
+   `TermRun.thrOfTid, `TermRun.wordNum, `TermRun.lastDevWrite, `TermRun.lastMmioW, `TermRun.Event.observable,
+   `TermRun.obsTrace, `TermProgress.ExtBy, `TermLiveL3.SpuriousWake, `TermLiveCert.ScriptedRun]
 
 /-- Stop rule for a constant: stop module, unless forced. -/
 def stopC (env : Environment) (force : List Name) (n : Name) : Bool :=
@@ -225,7 +264,7 @@ def freeze (dir : String) (finals : List Name) : MetaM Unit := do
   let hasOk ← System.FilePath.pathExists "lang_absent_ok.txt"
   let okText ← if strict && hasOk then IO.FS.readFile "lang_absent_ok.txt" else pure ""
   let okAbsent : List String :=
-    ((okText.splitOn "\n").map String.trim).filter (fun l => l != "" && !l.startsWith "#")
+    ((okText.splitOn "\n").map (fun s => s.trimAscii.toString)).filter (fun l => l != "" && !l.startsWith "#")
   for f in langRoots do
     unless (env.find? f).isSome do
       if strict && !okAbsent.contains f.toString then
@@ -235,6 +274,12 @@ def freeze (dir : String) (finals : List Name) : MetaM Unit := do
     let names ← closure #[f] force
     IO.FS.writeFile s!"{dir}/lang.{f}.txt" (← render names force)
     logInfo m!"lang {f}: {names.size} constants"
+  -- (per-toolchain sets) the module layout of this run (guard.sh selects the premise set by toolchain and layout)
+  IO.FS.writeFile s!"{dir}/.layout" s!"{layoutOf env finals}\n"
+  -- (guard tool fix) completion marker, written last: the files of this run, one per line (guard.sh checks that
+  -- each exists and is non-empty, and that no other `.txt` file is present)
+  IO.FS.writeFile s!"{dir}/.expected"
+    (String.join ((finals.map fun f => s!"{f}.txt\n") ++ (langRoots.map fun f => s!"lang.{f}.txt\n")))
 
 end CheckPremises
 
@@ -255,4 +300,22 @@ end CheckPremises
    ``A9SpawnFinal.startOKX_spawnS, ``A9NoSpawn.stepsX_iff_steps_of_noSpawn,
    -- (E2, EM0) at `Sp := Spawn p k arch c0.cap ∨ Ext p k arch` (ExtArmZ; from InitOK)
    ``ExtArmZ.machine_tokens_main_em0, ``ExtArmZ.token_unique_net_em0, ``ExtArmZ.token_unique_final_em0,
-   ``ExtArmZ.reachable_typed_em0]
+   ``ExtArmZ.reachable_typed_em0,
+   -- progress on EM0 runs, its sharpness, configuration level (renamed progress_em0 -> progress_main)
+   ``TermProgress.progress_main, ``TermProgress.stuck_sharp, ``TermProgress.progress_main_cfg,
+   -- liveness headlines: the robust branch,
+   -- the certificate theorems on promise-free runs, the forced wait (with its caveat),
+   -- and the M3d instances behind `live def` (theorems and definitions, so a diff names the def that moved)
+   ``TermLiveL3.robust_touchedFree_thm, ``TermLiveL3.no_induced_livelock_robust2_thm,
+   ``TermLiveL3.no_induced_livelock_robust2_scenario,
+   ``TermLiveCert.no_livelock_of_check, ``TermLiveCert.no_livelock_of_check_fair, ``TermLiveCert.reach_of_check,
+   ``TermLiveCert.outcome_of_check, ``TermLiveCert.terminates_of_check, ``TermLiveCert.cfgCoh_scenario,
+   ``TermLiveC.forced_wait_held_thm,
+   -- critical-section form: scope 1 (TokPath), scope 2
+   -- (TokPathCall), and the seqlock / mutex / lockD-incrD instances; the 7 path defs are explicit roots so a diff names the def that moved
+   ``TermLiveC.forced_wait_in_critical_section, ``TermLiveC.forced_wait_in_critical_section_call,
+   ``TermLiveC.seqlock_forced_wait_in_critical_section, ``TermLiveC.mutex_forced_wait_in_critical_section,
+   ``TermLiveC.mutex_incr_forced_wait_in_critical_section,
+   ``TermLiveC.opSafe, ``TermLiveC.noUseOf, ``TermLiveC.tokEnd, ``TermLiveC.pathStep, ``TermLiveC.TokPath,
+   ``TermLiveC.callEnd, ``TermLiveC.TokPathCall,
+   ``SceProof.MainInst, ``SceProof.ScenInst, ``SceProof.mainInst, ``SceProof.scenInst]

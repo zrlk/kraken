@@ -1,0 +1,7 @@
+CoreTerm.Prog : Type
+Promises.Knobs : Type
+TermRun.Cfg : Type
+TermRun.certCut : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → Nat → TermRun.Cfg → Nat → Bool
+  := fun p k arch f c i => TermRun.soloOpen p k arch i f c
+TermRun.soloOpen : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → Nat → Nat → TermRun.Cfg → Bool
+WeakMem.Arch : Type

@@ -189,6 +189,10 @@ theorem pubWords_subS {cx : Cx} {σ τ : Ty} (h : SubS cx σ τ) : ∀ (σs : Li
       have := hP p
       simp only [substTs] at this ⊢
       simp only [pubArm]; exact this
+  | codeR _ _ => intro σs c d; exact ⟨by simp [substTs, sNo], fun ws => by simp [substTs, pubWords, sNo],
+      fun j p => by simp [substTs, pubArm, pubWords, sNo], by simp [substTs, armsOf]⟩
+  | codeRR _ _ _ _ => intro σs c d; exact ⟨by simp [substTs, sNo], fun ws => by simp [substTs, pubWords, sNo],
+      fun j p => by simp [substTs, pubArm, pubWords, sNo], by simp [substTs, armsOf]⟩
   | sum ha hb iha ihb =>
       intro σs c d
       obtain ⟨a1, -, a3, a4⟩ := iha σs c d
@@ -430,7 +434,7 @@ theorem stepB_callc {p : Prog} {E : TEnv} {g : G} {mem : Memory} {pairs : List T
   | let_ hop _ =>
     cases hop with
     | @callc c₁ _ _ _ _ tf σ τ t htf hc hu _ hsub hb =>
-      obtain ⟨σ', τ', rfl⟩ : ∃ a b, tf = .code a b := by cases tf <;> simp_all [codeOf]
+      obtain ⟨σ', τ', _, rfl⟩ : ∃ a b k, tf = .code a b k := by cases tf <;> simp_all [codeOf]
       simp only [codeOf, Option.some.injEq, Prod.mk.injEq] at hc
       obtain ⟨h1, h2⟩ := hc
       subst σ' τ'

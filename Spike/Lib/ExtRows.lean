@@ -198,7 +198,7 @@ theorem out_localP {K : Kernel.Abi I} {rd : TermRun.Word → Prop} (h : Inv1 Λ 
           (ws : List TermRun.Word) (k : Nat) (wold : TermRun.Word) (old : Nat) (us : List TermRun.Acc),
         o.thread.st = s' ∧ c.term = .let_ x (.newBuf a τ) e ∧ TermRun.evalAt c.env a = some (ta, ws) ∧
         TermRun.numOf ws = some k ∧ c.hold = some (mc, wold) ∧ TermRun.numOf [wold] = some old ∧
-        A.toNat = mh + 16 * old + mo k τ ∧ TermRun.accs (TermRun.close [] τ) = some us ∧
+        A.toNat = mh + 16 * old + mo k τ ∧ old + mu k τ ≤ mcl ∧ TermRun.accs (TermRun.close [] τ) = some us ∧
         (∀ (l : WeakMem.AllocLabel) (ini : Nat), lbl l = none →
           mxa l A.toNat (k * TermRun.nWords us) s'
             ⟨e, (x, .refine (.loc .own (.array (.lit k) (TermRun.close [] τ))) (.ini (.lit ini)),
@@ -238,6 +238,10 @@ theorem out_localP {K : Kernel.Abi I} {rd : TermRun.Word → Prop} (h : Inv1 Λ 
     cases hK
     rw [hns] at hs
     cases hs
+  | emit K' _ _ _ _ hK hae =>
+    cases hK
+    rw [hns] at hae
+    cases hae
   | holdLoad kl A' g x sa u v e he hx hA hh hX =>
     exact .inr (.inr (.inr (.inl ⟨kl, A', g, x, sa, u, v, e, he, hx, hA, hh, hX⟩)))
   | xchgStore kr A' V s' x sa u v e tv wv wold he hx hA hh hev hv hX =>
@@ -249,10 +253,10 @@ theorem out_localP {K : Kernel.Abi I} {rd : TermRun.Word → Prop} (h : Inv1 Λ 
     have hoo := hown.read hlat hr
     exact .inr (.inr (.inr (.inr (.inr (.inl ⟨x, a, τ, e, ta, ws, n, old, ht, hev, hn, hh, ⟨tr, hlat, hr⟩, hoo,
       fun hc => hst ▸ (hX old (msgsExcept_read_tlatestP hGm hGi hlat hr) hoo hc).2, hi⟩)))))
-  | alloc s' A' x a τ e ta ws k wold old us he ht hev hk hh hold hA hu hX =>
+  | alloc s' A' x a τ e ta ws k wold old us he ht hev hk hh hold hA hc hu hX =>
     obtain ⟨hm, -, hP, hi⟩ := inv1_silent h he (silentTree_done s') hstep ho
     exact .inr (.inr (.inr (.inr (.inr (.inr ⟨s', A', x, a, τ, e, ta, ws, k, wold, old, us, hP, ht, hev, hk, hh,
-      hold, hA, hu, hX, hm, hi⟩)))))
+      hold, hA, hc, hu, hX, hm, hi⟩)))))
 
 /-- **An `Out` row off a system call**, under `MemSide.ofLabels` with the
 machine's kernel model, for code whose trees from `t.st` write words only
@@ -309,7 +313,7 @@ theorem out_local {K : Kernel.Abi I} {rd : TermRun.Word → Prop} (h : Inv1 Λ l
           (ws : List TermRun.Word) (k : Nat) (wold : TermRun.Word) (old : Nat) (us : List TermRun.Acc),
         o.thread.st = s' ∧ c.term = .let_ x (.newBuf a τ) e ∧ TermRun.evalAt c.env a = some (ta, ws) ∧
         TermRun.numOf ws = some k ∧ c.hold = some (mc, wold) ∧ TermRun.numOf [wold] = some old ∧
-        A.toNat = mh + 16 * old + mo k τ ∧ TermRun.accs (TermRun.close [] τ) = some us ∧
+        A.toNat = mh + 16 * old + mo k τ ∧ old + mu k τ ≤ mcl ∧ TermRun.accs (TermRun.close [] τ) = some us ∧
         (∀ (l : WeakMem.AllocLabel) (ini : Nat), lbl l = none →
           mxa l A.toNat (k * TermRun.nWords us) s'
             ⟨e, (x, .refine (.loc .own (.array (.lit k) (TermRun.close [] τ))) (.ini (.lit ini)),
@@ -419,6 +423,10 @@ theorem out_progress {K : Kernel.Abi I} {rd : TermRun.Word → Prop} {t : Thread
     cases hK
     rw [hns] at hs
     cases hs
+  | emit K' _ _ _ _ hK hae =>
+    cases hK
+    rw [hns] at hae
+    cases hae
   | holdLoad kl A' g x sa u v e he => exact load_ok hp he
   | xchgStore kr A' V s' x sa u v e tv wv wold he => exact store_ok hp hb he
   | ctrRmw k op g x a τ e ta ws n he => exact RtRmw.rmw_ok A hp hb he
@@ -447,6 +455,10 @@ theorem out_no_error {K : Kernel.Abi I} {rd : TermRun.Word → Prop} {t : Thread
     cases hK
     rw [hns] at hsy
     cases hsy
+  | emit K' _ _ _ _ hK hae =>
+    cases hK
+    rw [hns] at hae
+    cases hae
   | holdLoad kl A' g x sa u v e he =>
     exact Spike.Bridge.stepOne_no_error A he (Spike.Bridge.runTree_load_ok A _ _ _ _ _ _) hs m
   | xchgStore kr A' V s' x sa u v e tv wv wold he =>
@@ -468,6 +480,7 @@ theorem out_exec {K : Kernel.Abi I} {rd : TermRun.Word → Prop} {s : I.State} (
   | rtLoad _ _ _ _ he => rw [he]; rfl
   | rtRmw _ _ _ _ _ he => rw [he]; rfl
   | sys K' _ hK hs => cases hK; rw [hns] at hs; cases hs
+  | emit K' _ _ _ _ hK hae => cases hK; rw [hns] at hae; cases hae
   | holdLoad _ _ _ _ _ _ _ _ he => rw [he]; rfl
   | xchgStore _ _ _ _ _ _ _ _ _ _ _ _ he => rw [he]; rfl
   | ctrRmw _ _ _ _ _ _ _ _ _ _ he => rw [he]; rfl
@@ -536,6 +549,10 @@ theorem out_memP {K : Kernel.Abi I} {rd : TermRun.Word → Prop}
     cases hK
     rw [hns] at hs
     cases hs
+  | emit K' _ _ _ _ hK hae =>
+    cases hK
+    rw [hns] at hae
+    cases hae
   | holdLoad kl A' g x sa u v e he => obtain ⟨hm, hp, -⟩ := inv1_rtLoad h he hstep ho; exact .inl ⟨hm, hp⟩
   | alloc s' A' x a τ e ta ws k _ _ _ he =>
     obtain ⟨hm, hp, -⟩ := inv1_silent h he (silentTree_done s') hstep ho; exact .inl ⟨hm, hp⟩

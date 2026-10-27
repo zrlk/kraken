@@ -30,6 +30,7 @@ import WeakCore.TermLive
 import WeakCore.CoreUtils
 import WeakCore.Syntax
 import WeakCore.Robust
+import WeakCore.TermSpawnDefs
 open CoreLang CoreTerm TermRun TermSmoke TermLive CoreUtils
 open WeakMem (Val)
 
@@ -494,25 +495,15 @@ so it commutes with everything else; the search is otherwise `exploreM`.
 Nothing in `TermRun` changes. -/
 
 /-- `exploreM`, with thread `crash` allowed to stop at any configuration
-(`TermLive.crashCfg`). -/
+(`TermLive.crashCfg`), and the truncations the search hit (`TermRun.exploreMT`). -/
+def exploreCrashT (p : Prog) (k : Promises.Knobs) (arch : WeakMem.Arch) (b : Bounds) (fuel : Nat)
+    (c : Cfg) (crash : Nat) : Explored × Trunc :=
+  exploreMT (fun d => let r := successorsT p k arch b true d; (r.1 ++ (crashCfg d crash).toList, r.2))
+    fuel c
+
 def exploreCrash (p : Prog) (k : Promises.Knobs) (arch : WeakMem.Arch) (b : Bounds) (fuel : Nat) (c : Cfg)
-    (crash : Nat) : Explored := Id.run do
-  let mut seen : Std.HashSet CfgKey := Std.HashSet.emptyWithCapacity.insert (cfgKey c)
-  let mut frontier : List Cfg := [c]
-  let mut finals : List Cfg := []
-  for _ in [0:fuel] do
-    if frontier.isEmpty then break
-    let mut next : List Cfg := []
-    for d in frontier do
-      if d.final then finals := d :: finals
-      else
-        for e in successors p k arch b d ++ (crashCfg d crash).toList do
-          let key := cfgKey e
-          if !seen.contains key then
-            seen := seen.insert key
-            next := e :: next
-    frontier := next
-  return ⟨finals, seen.size, !frontier.isEmpty⟩
+    (crash : Nat) : Explored :=
+  (exploreCrashT p k arch b fuel c crash).1
 
 /-- The distinct final outcomes of an exploration: each thread's result, then
 the coherence-last value at each watched address `(name, label, offset)`. -/
@@ -546,6 +537,17 @@ def finalsTable (thr : List (String × Ty × List Nat)) (watch : List (String ×
     String.join (List.replicate cols "c") ++ "}\n" ++ " & ".intercalate head ++ " \\\\\\hline\n" ++
     "\n".intercalate (fins.map row) ++ "\n\\end{tabular}\\par\\smallskip"
 
+/-- The threads of `threads=` as spawned kids: `g` on `a : argTy` = the setup's result followed by `extra`. -/
+def kidsOf (thr : List (String × Ty × List Nat)) : List TermSpawn.Kid :=
+  thr.map fun (g, t, xs) => { f := g, ts := [], ty := t, useRes := true, vals := xs.map fun n => .num n }
+
+/-- The start of `threads=`: the setup's final configuration, reshaped by the real spawn (`TermSpawn.spawnS`: the
+kids start on its memory with its views, every argument word raised to its release view), as in the liveness
+theorems' scenario start (`TermLiveL3.ScenarioStartK`). -/
+def spawnStart (p : Prog) (f : String) (argTy : Ty) (args : List Nat) (kids : List TermSpawn.Kid) (depth : Nat) :
+    Option Cfg :=
+  (runSetupCfg p f [] argTy (args.map fun n => cst (.num n)) depth).map fun (c, res) => TermSpawn.spawnS c res kids
+
 /-- A setup thread `f(args)`, then `thr`: each thread `(g, argTy, extra)` gets
 the setup's result followed by `extra`.  Every interleaving (and, with
 `maxP > 0`, promise) is explored; the distinct results per thread are shown.
@@ -556,34 +558,36 @@ def threads (p : Prog) (f : String) (argTy : Ty) (args : List Nat)
     (watch : List (String × Nat × Nat) := [])
     (expectFinal : Option (List (List Nat)) := none) (crash : Option Nat := none)
     (live : Option Nat := none) : Out :=
-  let s := runSetup p f [] argTy (args.map fun n => cst (.num n)) depth
+  let s := spawnStart p f argTy args (kidsOf thr) depth
   match s with
   | none => fail s!"setup {f} did not run to completion"
   | some _ =>
-  let thr' (s : Setup) := thr.map fun (g, t, xs) => (g, [], t, s.res ++ xs.map fun n => cst (.num n))
   -- with `live`, the graph is kept and analysed (`TermLive`); the finals are the same
   let gr : Option Graph := match live with
     | none => none
     | some _ => s.map fun s =>
-        exploreG p Promises.Knobs.all WeakMem.Arch.arm { maxP := maxP } depth (spawn s (thr' s))
+        exploreG p Promises.Knobs.all WeakMem.Arch.arm { maxP := maxP } depth s
           (fun d => match crash with | some i => (crashCfg d i).toList | none => [])
   let lv := gr.map analyse
-  let r := match gr, crash with
-    | some g, _ => some g.toExplored
-    | none, none => runE p s thr' maxP depth
+  -- the exploration and the truncations it hit (`TermRun.Trunc`); without `crash` it is `runE`'s
+  let rt : Option (Explored × Trunc) := match gr, crash with
+    | some g, _ => some (g.toExplored, g.why)
+    | none, none => s.map fun s =>
+        exploreMT (successorsT p Promises.Knobs.all WeakMem.Arch.arm { maxP := maxP } true) depth s
     | none, some i => s.map fun s =>
-        exploreCrash p Promises.Knobs.all WeakMem.Arch.arm { maxP := maxP } depth (spawn s (thr' s)) i
-  match r with
+        exploreCrashT p Promises.Knobs.all WeakMem.Arch.arm { maxP := maxP } depth s i
+  let r := rt.map (·.1)
+  match rt with
   | none => fail "no exploration"
-  | some ex =>
+  | some (ex, why) =>
     let undef := ex.finals.any (·.ths.any (·.undefs > 0))
     let rows := (enumFrom thr 0).map fun (i, (g, _, xs)) =>
       let outs := resultsOf r i
       (g, xs, outs)
     let status := s!"{ex.finals.length} final states, {ex.seen} configurations" ++
-      (if ex.cut then ", CUT OFF at the depth bound" else ", search complete") ++
+      (if ex.cut then ", CUT OFF (" ++ ", ".intercalate why.reasons ++ ")" else ", search complete") ++
       (if undef then ", some load returned undef" else ", no undef") ++
-      (if maxP > 0 then s!", promises $\\le$ {maxP}" else "") ++
+      (if maxP > 0 then s!", promises $\\le$ {maxP}" else ", promise-free runs only") ++
       (match crash with | some i => s!", thread {i} may stop anywhere" | none => "") ++
       (match lv with | some l => ", " ++ l.describe | none => "")
     let tex := "\\begin{clthreads}{" ++ fn (esc f) ++ "(" ++ commas (args.map toString) ++ ")}{" ++
@@ -594,7 +598,7 @@ def threads (p : Prog) (f : String) (argTy : Ty) (args : List Nat)
       "\n\\end{clthreads}"
     let fins := finalOutcomes ex thr.length watch
     let tex := if watch.isEmpty then tex else tex ++ "\n" ++ finalsTable thr watch fins
-    let errs := (if ex.cut then ["the search was cut off at the depth bound"] else []) ++
+    let errs := (if ex.cut then ["the search was cut off (" ++ ", ".intercalate why.reasons ++ ")"] else []) ++
       (if undef then ["a load returned undef"] else []) ++
       (if ex.finals.isEmpty then ["no final state"] else []) ++
       (match live, lv with

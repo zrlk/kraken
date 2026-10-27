@@ -1,0 +1,30 @@
+CoreLang.Ty : Type
+CoreTerm.At : Type
+CoreTerm.Expr : Type
+CoreTerm.Expr.let_ : String → CoreTerm.Op → CoreTerm.Expr → CoreTerm.Expr
+CoreTerm.ExtName.park : CoreTerm.ExtName
+CoreTerm.Op.ext : CoreTerm.ExtName → CoreTerm.At → CoreTerm.Op
+CoreTerm.Prog : Type
+Promises.Knobs : Type
+TermLiveL3.SpuriousWake : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → TermRun.Cfg → Nat → TermRun.Cfg → Prop
+  := fun p k arch c i c' =>
+  ∃ x a e th rt ws,
+    c.ths[i]? = some th ∧
+      th.term = CoreTerm.Expr.let_ x (CoreTerm.Op.ext CoreTerm.ExtName.park a) e ∧
+        th.permit = none ∧
+          TermRun.evalAt th.env a = some (rt, ws) ∧
+            TermRun.Certified p k arch (TermRun.extCfg c i th x CoreTerm.ExtName.park e ws []) i ∧
+              c' = TermRun.extCfg c i th x CoreTerm.ExtName.park e ws []
+TermRun.Certified : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → TermRun.Cfg → Nat → Prop
+TermRun.Cfg : Type
+TermRun.Cfg.ths : TermRun.Cfg → Array TermRun.TTh
+TermRun.TTh : Type
+TermRun.TTh.env : TermRun.TTh → TermRun.Env
+TermRun.TTh.permit : TermRun.TTh → Option WeakMem.Ts
+TermRun.TTh.term : TermRun.TTh → CoreTerm.Expr
+TermRun.Word : Type
+TermRun.evalAt : TermRun.Env → CoreTerm.At → Option (CoreLang.Ty × List TermRun.Word)
+TermRun.extCfg : TermRun.Cfg →
+  Nat → TermRun.TTh → String → CoreTerm.ExtName → CoreTerm.Expr → List TermRun.Word → List TermRun.Word → TermRun.Cfg
+WeakMem.Arch : Type
+WeakMem.Ts : Type

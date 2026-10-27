@@ -39,7 +39,7 @@ theorem bufInitPubFR [TermTyped.WrIniC] {p : Prog} {k : Promises.Knobs} {arch : 
   have h0 : OwnXLe p k arch (Cut Eg j S) j l 1 (promise c j a v w) :=
     ownXStepP_all 1 _ c a v w (ownXLe_start X.inv X.hth hS hsto hin) X.hw X.cert
   obtain ⟨th3, hth3, h⟩ :=
-    ownXLe_pub_noOwnUse hP (winQP hsc hw X hS) (TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw) h0 h1 hs hth1 hterm1 hea1 hws1 hx1 h2 hc2 hPS hSub hSig
+    ownXLe_pub_noOwnUse hP (winQP hsc hw X hS) (TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw) h0 (TermMain.tidAt_cutP X.inv j S) h1 hs hth1 hterm1 hea1 hws1 hx1 h2 hc2 hPS hSub hSig
   obtain rfl : th3 = th2 := Option.some.inj (hth3.symm.trans hth2)
   exact bufInit_ne_of_use hterm h rt w' ad g hea hwv hl
 

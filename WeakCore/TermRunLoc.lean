@@ -419,7 +419,7 @@ theorem runAgreeF2_of {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res}
     have hcr0 : E0.sto l = some cr0 := by rw [hE0]; exact hcr
     exact ⟨wt, hwt, TermOwnG0.g0WinT_ofP (hPS := hPS) (hSub := hSub) (hSig := hSig) hP (hS X) (TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw)
       (fun c1 h1 h2 => by rw [hE0e]; exact (hWn X).1 S0 hS0 c1 h1 h2) X.hth hpl hcr0
-      (TermCert.winInv_prom (TermCert.winInv_refl X.hth)) h0P hmt ha (by rw [hE0]; exact hca) hno hrf hcr0⟩
+      (TermCert.winInv_prom (TermCert.winInv_refl X.hth)) h0P hmt ha (by rw [hE0]; exact hca) hno hrf hcr0 (hTA := by rw [hE0e]; exact TermMain.tidAt_cut X.inv j S0)⟩
   have hini : ∀ l, (Cut Eg j S).ini l ≤ (plantE (Cut Eg j S) (stOf c.mem c.pairs th) (PlantL c Eg j th a v w)).ini l :=
     fun l => by
       by_cases hl : PlantL c Eg j th a v w l

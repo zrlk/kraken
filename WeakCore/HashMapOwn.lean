@@ -41,7 +41,7 @@ def onewD : Decl where
 /-- As `probe`, but the key column is an own buffer, passed in and handed back. -/
 def oprobeD : Decl where
   name := "oprobe"; tparams := [κK, κVo]; idx := ["m"]; arg := "a"
-  argTy := .prod SKB (.prod (.intS c1) (.prod K (.prod (.code (.prod K K) HashMap.bool) .int)))
+  argTy := .prod SKB (.prod (.intS c1) (.prod K (.prod (.code (.prod K K) HashMap.bool .plain) .int)))
   retTy := .prod SKB (.sum .int .int)
   body := .split (v "a") "kb" "a2" (.split (v "a2") "cv" "a3"
     (.split (v "a3") "k" "a4" (.split (v "a4") "eq" "pos"

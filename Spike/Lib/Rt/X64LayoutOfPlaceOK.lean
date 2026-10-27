@@ -78,6 +78,21 @@ theorem ofPlaceOK_words_al {pcfg : Scc.Cert.PlaceOK.Config} {o : Scc.Cert.PlaceO
     (i : CoreTerm.Expr → String → Nat → Option Nat) : ∀ a ∈ (ofPlaceOK h i).rtWords, a.toNat % 8 = 0 :=
   Scc.Cert.Rt.X64.words_al_of_wordsOk (Scc.Cert.Rt.X64.wordsOk_of_rtWordsOk (rtWordsOk_link_of_placeOKAt i h))
 
+/-- **The words of `ofPlaceOK` are off the allocator's counter** (A8's
+`ctrSepOk`): none is the word at `scc_rt_heap_use` (`heapUseOf`, the
+arena's `ctrLoc`). -/
+theorem hctr_of_placeOKAt {pcfg : Scc.Cert.PlaceOK.Config} {o : Scc.Cert.PlaceOK.X64.Out} {Λ : Scc.Sem.Layout}
+    (h : placeOKAt pcfg Λ o = true) (i : CoreTerm.Expr → String → Nat → Option Nat) :
+    ∀ a ∈ (ofPlaceOK h i).rtWords,
+      (⟨a, 8⟩ : Loc) ≠ ⟨BitVec.ofNat 64 (Scc.Cert.PlaceOK.heapUseOf (ofPlaceOK h i).Λ), 8⟩ := by
+  intro a ha he
+  have hs : Scc.Cert.Rt.X64.WordSep a (BitVec.ofNat 64 (Scc.Cert.PlaceOK.heapUseOf (ofPlaceOK h i).Λ)) :=
+    Scc.Cert.Rt.X64.ctrSep_of_rtWordsOk (rtWordsOk_link_of_placeOKAt i h) a ha
+  have ha' : a = BitVec.ofNat 64 (Scc.Cert.PlaceOK.heapUseOf (ofPlaceOK h i).Λ) := congrArg Loc.addr he
+  unfold Scc.Cert.Rt.X64.WordSep at hs
+  rw [← ha'] at hs
+  omega
+
 /-- **The Linux entry state is admissible at the record**: its stack is
 clear of the layout (`clear_link_of_placeOKAt`), at a 16-aligned user stack
 pointer with 64 KiB. -/
@@ -93,6 +108,9 @@ theorem witness_ok_ofPlaceOK {pcfg : Scc.Cert.PlaceOK.Config} {o : Scc.Cert.Plac
     {Λ : Scc.Sem.Layout} (h : placeOKAt pcfg Λ o = true) (i : CoreTerm.Expr → String → Nat → Option Nat) :
     Scc.Sem.Entry.Ok ⟨⟨2 ^ 32, 65536⟩⟩ (ofPlaceOK h i).Λ :=
   Scc.Sem.Entry.ok_witness (below32_of_placeOKAt h)
+
+/-- info: 'Spike.Lib.X64.Rt.RuntimeLayout.hctr_of_placeOKAt' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in #print axioms hctr_of_placeOKAt
 
 end RuntimeLayout
 

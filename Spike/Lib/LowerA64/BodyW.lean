@@ -180,12 +180,19 @@ def BodyW0 (Λ : Scc.Sem.Layout) (μ : Marks) (own : Own) (rS : Range) (Tk : Sta
   fun s c => Quiet c ∧ SFacts Λ μ own rS Tk lbl s c0
 
 /-- **The lag of a segment inside `BodyW0`**: with the control held back at
-`c0`, the segment is inside `SFacts` (`SegW.lag`, `C := (· = c0)`). -/
+`c0`, the segment is inside `SFacts` (`SegW.lag`, `C := (· = c0)`), under a
+memory side with the kernel model `Scc.Sem.A64.abi` (`hK`: `SFacts`' default write
+tail, no `write`, rules out a `write` to the output). -/
 theorem bodyW0_lag {Λ : Scc.Sem.Layout} {μ : Marks} {own : Own} {rS : Range} {Tk : State → Prop} {lbl : Lbl}
     {c0 : Ctl} {K : State → State → Prop} {p : Prog} {al : WeakMem.AllocLabel → Option Nat}
-    {ms : MemSide isaLSE2} {P Q : Frag isaLSE2} (h : SegW (BodyW0 Λ μ own rS Tk lbl c0) K p al ms P Q) :
+    {ms : MemSide isaLSE2} {P Q : Frag isaLSE2} (hK : ms.K = some Scc.Sem.A64.abi)
+    (h : SegW (BodyW0 Λ μ own rS Tk lbl c0) K p al ms P Q) :
     SegW (fun s c => SFacts Λ μ own rS Tk lbl s c) K p al ms (Lag p (· = c0) P) (Lag p (· = c0) Q) :=
-  h.lag (fun _ _ h => h.1) fun _ _ _ h _ hc => hc ▸ h.2
+  h.lag (fun _ _ h => h.1)
+    (fun _ _ h K' hK' ha buf n hd => by
+      rw [hK] at hK'; cases hK'
+      exact h.2.wrTail ha 1 buf n hd)
+    fun _ _ _ h _ hc => hc ▸ h.2
 
 section W
 

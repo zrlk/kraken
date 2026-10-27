@@ -2,8 +2,8 @@
 **`_start` at an output passing `placeOK`** (AArch64, the twin of
 `Spike/Lib/Rt/X64EntryOfPlaceOK.lean`): `_start`'s block (`b scc_rt_start`)
 inside `SFacts … Dt` at the record, with no premise but the source's facts
-at `c0`. The code check is A11's (`rtCodeOk_bare_of_placeOKAt`,
-`RtCodeIn.entry`); the phase facts are A6's (`rtPh_of_placeOKAt`,
+at `c0`. The code check is A11's on either tail (`rtCode0_of_placeOKAt`,
+`RtCodeIn0.entry`); the phase facts are A6's (`rtPh_of_placeOKAt`,
 `startPhTab`): the block's phase check and the phase index `13` at its pc,
 which is not the take's (`Tk`: `13 / 8 % 2 = 1`).
 
@@ -12,7 +12,7 @@ which is not the take's (`Tk`: `13 / 8 % 2 = 1`).
   `hEntry`.
 -/
 import Spike.Lib.Rt.A64RtW
-import Spike.Lib.Rt.A64RtCode
+import Spike.Lib.Rt.A64RtCodeSetup
 import Spike.Lib.Rt.A64RtPhRec
 import Spike.Lib.A64StubFacts
 
@@ -60,7 +60,7 @@ theorem entryW_ofPlaceOK {rS : Range} {lbl : Lbl} {Dt : State → Prop} {R : Reg
   have hp0 := ph_of_factOk hl (startFact_ofPlaceOK h i (f := .ph "_start" 0 13) (by simp [startPhTab]))
   have hW := blkW_pre (Spike.Lib.A64.PhRec.instOk_ofPlaceOK h i (rS := rS)) (lbl := lbl)
     (F := F) (rS := rS) (n := Ret0.entryN (Ly).lab c0) (l := "_start") (k := 0) (dead := fun _ => false) (ra := 0)
-    (rtCodeIn_of_ok (rtCodeOk_bare_of_placeOKAt h)).entry (ofNat4_zero _) Ret0.entryB_ok hR hal hlo hhi
+    (rtCode0_of_placeOKAt h).entry (ofNat4_zero _) Ret0.entryB_ok hR hal hlo hhi
     (fun _ _ hJ => hJ ▸ hC0) hb (fun _ _ _ k hk r hr => (noRet_false (by decide) k hk r hr).elim)
     (fun _ _ _ => rfl) (fun s hs => by unfold Tk; rw [hs, hp0]; decide)
   intro s σ c he hn hd hp hA hF hJn k hk m hA' hD

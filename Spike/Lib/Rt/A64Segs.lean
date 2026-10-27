@@ -869,12 +869,12 @@ theorem startSp2Sw_segW {W : Frag isaLSE2} {rS : Scc.Sem.Range} {prog : List Dir
     · dsimp only [Ret0.startN3, Ret0.startN4]; rw [startSw0_run]; rfl
     · dsimp only [Ret0.startN3, Ret0.startN4] at hJ ⊢; rw [startSw0_run]
       obtain ⟨rfl, h0, h32⟩ := hJ
-      refine ⟨rfl, ?_, ?_⟩ <;> simp [Spike.Lib.upd_apply, h0, h32]
+      refine ⟨rfl, ?_, ?_, ?_⟩ <;> simp [Spike.Lib.upd_apply, h0, h32]
   · -- `msr tpidr_el0, x10`
     refine seg_oneW (si_ndW (si := .msr .X10) hF2 (code_of hp hend hin.1.1.2 rfl) hW.msr fun σ c hJ =>
       ⟨c, .refl c, .inl ⟨(), (ofNat4_succ' _ 4).symm, rfl, ?_⟩⟩)
-    obtain ⟨rfl, h9, h10⟩ := hJ
-    refine ⟨rfl, h9, ?_⟩
+    obtain ⟨rfl, h9, h10, hx0⟩ := hJ
+    refine ⟨rfl, h9, ?_, hx0⟩
     show UInt64.ofBitVec (σ.regs.getRegOrZr (.low (.reg .X10) .W64)) = _
     rw [Spike.Lib.A64.Alloc.getRegOrZr_x]; exact congrArg UInt64.ofBitVec h10
 
@@ -965,12 +965,12 @@ theorem startSwitchU_segW {W : Frag isaLSE2} {K : State → State → Prop} {rS 
   refine sw_seqW (lo := -L) (hi := 0) (F' := swFSL L rS top a) (n' := startN6 lab tcb top c0)
     (sw_ndW rfl (code_of hp hend hin.1.2 rfl) (ofNat4_succ' _ 5).symm rfl hW.sw fun m σ c _ hD hJ => ?_)
     fun v hv hR => ?_
-  · obtain ⟨rfl, h9, htp⟩ := hJ
-    obtain ⟨hsp, -, htp'⟩ := swStep (startN5 lab tcb top c).o ((startN5 lab tcb top c).pc + Int64.ofNat 4) σ
+  · obtain ⟨rfl, h9, htp, hx0⟩ := hJ
+    obtain ⟨hsp, hx, htp'⟩ := swStep (startN5 lab tcb top c).o ((startN5 lab tcb top c).pc + Int64.ofNat 4) σ
     rw [hsp, h9]
     obtain ⟨sl, hsl⟩ := hmap m hD
     exact ⟨h16, hok, ⟨⟨rfl, hlimM.unmapped m hD⟩, (hFS m hD).off⟩, sl, hsl, c, .refl c, rfl, hsp.trans h9,
-      htp'.trans htp⟩
+      htp'.trans htp, (congrArg _ hx).trans hx0⟩
   · let g : MainG := ⟨top, UInt64.ofBitVec tcb, c0⟩
     have hF2 : FStable (swR v (-L) 0) (swFSL L rS top a v) := fun m m' h hd =>
       ⟨swF_stableL hfit hout m m' h.1 hd, stackOff_stable hfitS m m' h.2 hd⟩
@@ -984,7 +984,7 @@ theorem startSwitchU_segW {W : Frag isaLSE2} {K : State → State → Prop} {rS 
     · dsimp only [startN6, mainN0]; rw [startMain_run]
     · dsimp only [startN6, mainN0]; rw [startMain_run]; rfl
     · dsimp only [startN6, mainN0] at hJ ⊢; rw [startMain_run]
-      obtain ⟨rfl, hsp, htp⟩ := hJ
+      obtain ⟨rfl, hsp, htp, -⟩ := hJ
       refine ⟨rfl, ?_, ?_⟩ <;> simp_all [setXReg_TPIDR, Reg64s.setXReg_SP] <;> rfl
 
 end SwitchU

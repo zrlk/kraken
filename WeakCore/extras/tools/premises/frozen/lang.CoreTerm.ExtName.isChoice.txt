@@ -1,0 +1,7 @@
+CoreLang.Wd : Type
+CoreTerm.ExtName : Type
+CoreTerm.ExtName.isChoice : CoreTerm.ExtName → Bool
+  := fun x =>
+  match x with
+  | CoreTerm.ExtName.devChoice w => true
+  | x => false

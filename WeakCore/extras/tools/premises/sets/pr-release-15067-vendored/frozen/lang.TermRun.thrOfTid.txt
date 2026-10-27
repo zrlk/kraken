@@ -1,0 +1,14 @@
+Promises.TVal.val : Promises.TVal → WeakMem.Val
+TermRun.Cfg : Type
+TermRun.Cfg.ths : TermRun.Cfg → Array TermRun.TTh
+TermRun.TTh : Type
+TermRun.TTh.tidLbl : TermRun.TTh → Option WeakMem.AllocLabel
+TermRun.Word : Type
+TermRun.thrOfTid : TermRun.Cfg → TermRun.Word → Option Nat
+  := fun c w =>
+  match w.val with
+  | WeakMem.Val.loc { label := l, offset := 0 } 0 =>
+    List.find? (fun j => (c.ths[j]?.bind fun x => x.tidLbl) == some l) (List.range c.ths.size)
+  | x => none
+WeakMem.AllocLabel : Type
+WeakMem.Val : Type

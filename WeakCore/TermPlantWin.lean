@@ -163,7 +163,7 @@ theorem VR_nil_congr : ∀ (t : Ty) (η₁ η₂ : TEnv) (ρ : Nat → Nat) (rt 
       obtain ⟨n, Ra, Rb, h1, ⟨hb, x, s, B, hx, -⟩ | ⟨j, p, hd, -⟩⟩ := hv
       · simp at hx
       · cases h : (Ty.sum Ra Rb).tier <;> rw [h] at hd <;> simp [decodeArm] at hd
-  | .code a b, η₁, η₂, ρ, rt, _, hw, hp, hv => by
+  | .code a b _, η₁, η₂, ρ, rt, _, hw, hp, hv => by
       simp only [VR] at hv ⊢; rw [← hw, ← hp]; exact hv
   | .tex κ b, η₁, η₂, ρ, rt, hr, hw, hp, hv => by
       simp only [VR] at hv ⊢

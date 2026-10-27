@@ -35,3 +35,6 @@ deriving instance Lean.ToExpr for Scc.IR.Data
 deriving instance Lean.ToExpr for Scc.IR.Growth
 deriving instance Lean.ToExpr for Scc.IR.Program
 deriving instance Lean.ToExpr for Scc.Cert.PlaceOK.A64.PlaceData
+-- the functions of the block table's stage per function (`Scc/Cert/OutStageA64.lean`)
+deriving instance Lean.ToExpr for Scc.Cert.PlaceOK.A64.Data.K
+deriving instance Lean.ToExpr for Scc.Cert.PlaceOK.A64.Data.It

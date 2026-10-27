@@ -1,5 +1,6 @@
 import Scc.Frontend
 import Scc.Lower.Program
+import Scc.Lower.Spec1
 import Scc.Emit.A64
 import Kraken.Promising.Lower.Lowerable
 

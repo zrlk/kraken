@@ -79,13 +79,15 @@ and `Spike/Lib/X64Ret0Rows.lean`, from the same `ret0.w`:
     Spike/Gen/regen_x64.sh ret0 X64Ret0 --check    # staleness check
 
 Both scripts write the certificate `Spike/Test/Cert/MODCert.lean` too. A
-program that does not satisfy PlaceOK (`hello1.w` fails component a11; ask
-`Scc/Test/placediag.sh`) is regenerated with `CERT_FAILS=N`, so that scc
-writes the negative certificate (`--cert-fails N`):
+program that does not satisfy PlaceOK (ask `Scc/Test/placediag.sh`) is
+regenerated with `CERT_FAILS=N`, so that scc writes the negative certificate
+(`--cert-fails N`). On both ISAs `hello1.w`'s placement holds (A11 checks
+its setup tail), so its certificates are the positive ones; `hello1.w` is
+outside `Accepted0`, so they make no correctness claim:
 
-    CERT_FAILS=11 Spike/Gen/regen_a64.sh hello1 A64Hello1
-    CERT_FAILS=11 Spike/Gen/regen_x64.sh hello1 X64Hello1
+    Spike/Gen/regen_a64.sh hello1 A64Hello1
+    Spike/Gen/regen_x64.sh hello1 X64Hello1
 
-`Spike/Gen/drift.sh` runs all four staleness checks (`ret0` and `hello1` on
-both ISAs) and exits 0 when every generated file matches scc's output, 1
-otherwise.
+`Spike/Gen/drift.sh` runs all eight staleness checks (`ret0`, `hello1` and
+`call1` on both ISAs, `frame0` on x86-64 and `chain5` on AArch64) and exits
+0 when every generated file matches scc's output, 1 otherwise.

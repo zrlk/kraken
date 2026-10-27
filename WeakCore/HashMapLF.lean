@@ -48,7 +48,7 @@ def lfNewD : Decl where
 def lfProbeD : Decl where
   name := "lfProbe"; tparams := [κKL, κVL]; idx := ["m", "l"]; arg := "a"
   argTy := .prod (buf .pub PK (.add (.var 1) (.lit 1)) (.add (.var 1) (.lit 1)))
-    (.prod (.intS (.add (.var 1) (.lit 1))) (.prod K (.prod (.code (.prod K K) HashMap.bool)
+    (.prod (.intS (.add (.var 1) (.lit 1))) (.prod K (.prod (.code (.prod K K) HashMap.bool .plain)
       (.prod .int (.intS (.var 0))))))
   retTy := .sum .int (.sum .int .unit)
   body := .split (v "a") "kb" "a1" (.split (v "a1") "cv" "a2" (.split (v "a2") "k" "a3"

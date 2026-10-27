@@ -1,0 +1,217 @@
+/-
+# Sce — the `sce` command's I/O shell
+
+Run by `tools/sce` as `lean --load-dynlib=libwm.so Sce.lean` with the arguments in the environment
+(`SCE_ARGC`, `SCE_ARG_1` … `SCE_ARG_n`).  Not `lean --run` with a `main`, as §6 planned: `WeakMem.lean` declares
+the root `main` (the litmus tool), and every module here imports it, so this file cannot declare another one.
+Instead the last command, `#eval Sce.entry`, runs the command while the file is elaborated; it writes to
+`/dev/stdout` and `/dev/stderr` directly (`#eval` captures the standard streams) and ends the process with the
+exit code.  Without `SCE_ARGC` (a build of this file, e.g. the gate's) `entry` does nothing.
+
+All the work is `SceRun.run`, a pure function; this file only reads the files it may need (`SceRun.probes`,
+to a fixpoint: an import found adds its own imports' candidates), runs it, and prints.  With `--live-proof` it
+also writes the instance file `run` returns and builds it with `lean` (`SCE_LEAN`, against the same build:
+`tools/sce` passes `LEAN_PATH`); a file that does not build is exit 5, with Lean's messages.  The PROVED lines
+(`Result.proved`) are printed only once it has built, each with the `re-checked` line under it.
+
+Certificates: with `--live-proof` and an eligible scenario, `Result.cert` holds the
+directory `root.cert`, its `prog.lean` and each scenario's files; they are built (only if the instance file built,
+or none was written) with `lean -R root.cert -o F.olean F.lean` in that directory, under `timeout` and `-M`
+(`certLimitS`, `certMemMB`), at most `certPar` at a time.  `prog.lean` failing is exit 5 and no certificate line;
+a scenario's `start.lean` that does not reduce, or hits a limit, gets its continuation line; any other failure is
+exit 5 for that scenario only.  The PROVED lines of a scenario whose `main.lean` built follow M3d's.
+-/
+import WeakCore.SceRun
+
+namespace Sce
+open SceRun
+
+/-- Run `act`; its error as text. -/
+def tryE {α : Type} (act : IO α) : IO (Except String α) := do
+  try return .ok (← act) catch e => return .error (toString e)
+
+def readE (f : String) : IO (Except String String) := tryE (IO.FS.readFile f)
+
+def cacheFS (cache : List (String × Except String String)) : FS := fun f =>
+  match cache.find? (·.1 == f) with
+  | some (_, r) => r
+  | none => .error "not read"
+
+/-- Read every file `run` may look at. -/
+def load (args : List String) : IO (List (String × Except String String)) := do
+  let mut cache : List (String × Except String String) := []
+  for _ in [0:1000] do
+    let new := (probes args (cacheFS cache)).eraseDups.filter fun f => !cache.any (·.1 == f)
+    if new.isEmpty then break
+    for f in new do
+      cache := cache ++ [(f, ← readE f)]
+  return cache
+
+/-- The wall-clock limit (seconds) and the memory cap (MB) of one certificate file, and the parallel builds. -/
+def certLimitS : Nat := 1800
+def certMemMB : Nat := 14000
+def certPar : Nat := 3
+
+def has (s pat : String) : Bool := (s.splitOn pat).length > 1
+
+/-- How a certificate file's build ended. -/
+inductive Built where
+  | ok (msgs : String)
+  | noReduce
+  | limit
+  | fails (msgs : String)
+
+/-- Build `rel` (relative to the certificate root `root`, the working directory). -/
+def buildCert (lean lp root : String) (dyn : Option String) (rel : String) : IO Built := do
+  let olean := String.ofList (rel.toList.take (rel.length - 5)) ++ ".olean"
+  let args := #[toString certLimitS, lean, "-M", toString certMemMB] ++
+    (match dyn with | some d => #["--load-dynlib=" ++ d] | none => #[]) ++ #["-R", ".", "-o", olean, rel]
+  -- `timeout` (coreutils): exit 124 on the wall-clock limit, 137 when killed (e.g. by the memory cap)
+  match ← tryE (IO.Process.output { cmd := "timeout", args, cwd := root, env := #[("LEAN_PATH", some lp)] }) with
+  | .error e => return .fails (e ++ "\n")
+  | .ok o =>
+    if o.exitCode == 0 then return .ok (o.stdout ++ o.stderr)
+    let m := o.stdout ++ o.stderr
+    if o.exitCode == 124 || o.exitCode == 137 || has m "excessive memory consumption" || has m "bad_alloc" then
+      return .limit
+    -- the start probe's one tolerated failure: Lean's `decide` failure, and it is the file's only error
+    if (m.splitOn ": error").length == 2 && has m "decide" && (has m "failed" || has m "did not reduce") then
+      return .noReduce
+    return .fails m
+
+/-- The axioms a PROVED line may rest on. -/
+def stdAxiomNames : List String := ["propext", "Classical.choice", "Quot.sound"]
+
+/-- `m` (Lean's output for `main.lean`) has exactly `n` `#print axioms` results, each naming only `stdAxiomNames`
+(or none), and no `sorryAx` / `Lean.ofReduceBool` anywhere. -/
+def stdAxioms (m : String) (n : Nat) : Bool :=
+  let res := (m.splitOn "\n").filter fun l => has l "depends on axioms: [" || has l "does not depend on any axioms"
+  !has m "sorryAx" && !has m "ofReduceBool" && res.length == n && res.all fun l =>
+    has l "does not depend on any axioms" ||
+    match (l.splitOn "depends on axioms: [").getLast? with
+    | some rest => ((rest.splitOn "]").headD "").splitOn ", " |>.all (stdAxiomNames.contains ·)
+    | none => false
+
+#guard stdAxioms "'no_livelock' depends on axioms: [propext, Classical.choice, Quot.sound]\n'final_states' depends on axioms: [propext]\n" 2
+#guard !stdAxioms "'no_livelock' depends on axioms: [propext, sorryAx]\n'final_states' depends on axioms: [propext]\n" 2
+#guard !stdAxioms "'no_livelock' depends on axioms: [propext, Lean.ofReduceBool]\n'x' depends on axioms: [propext]\n" 2
+#guard !stdAxioms "'no_livelock' depends on axioms: [propext]\n" 2
+
+/-- Build `rels` at most `certPar` at a time; the first failure in their order. -/
+def buildAll (lean lp root : String) (dyn : Option String) (rels : List String) : IO (Option (String × Built)) := do
+  -- `SCE_CERT_PAR` lowers the parallelism (1..certPar)
+  let par := (((← IO.getEnv "SCE_CERT_PAR").bind String.toNat?).getD certPar).max 1 |>.min certPar
+  let mut rest := rels
+  while !rest.isEmpty do
+    let batch := rest.take par
+    rest := rest.drop par
+    let ts ← batch.mapM fun f => IO.asTask (buildCert lean lp root dyn f)
+    let rs ← ts.mapM fun t => do
+      match ← IO.wait t with
+      | .ok b => return b
+      | .error e => return .fails (toString e ++ "\n")
+    for (f, b) in batch.zip rs do
+      match b with
+      | .ok _ => pure ()
+      | b => return some (f, b)
+  return none
+
+/-- Write and build the certificate files (§3g): the stderr text added and whether the run fails (exit 5), or a
+file that cannot be written (exit 4). -/
+def certs (lean : String) (dir prog : String) (jobs : List (String × List String × List (String × String))) :
+    IO (String × Nat) := do
+  let w ← tryE do
+    IO.FS.createDirAll dir
+    IO.FS.writeFile (dir ++ "/prog.lean") prog
+    for (d, _, files) in jobs do
+      IO.FS.createDirAll (dir ++ "/" ++ d)
+      for (f, t) in files do IO.FS.writeFile (dir ++ "/" ++ f) t
+  if let .error e := w then return (SceText.cannotWrite dir e ++ "\n", 4)
+  let lp := ((← IO.getEnv "LEAN_PATH").map (· ++ ":")).getD "" ++ (← IO.FS.realPath dir).toString
+  let dyn ← match (← IO.getEnv "LEAN_PATH").bind fun p => (p.splitOn ":").head? with
+    | some b => do
+      let f := b ++ "/libwm.so"
+      if ← System.FilePath.pathExists f then pure (some (← IO.FS.realPath f).toString) else pure none
+    | none => pure none
+  let fail (f : String) (m : String) : String := SceText.certFails (dir ++ "/" ++ f) ++ "\n" ++ m
+  match ← buildCert lean lp dir dyn "prog.lean" with
+  | .ok _ => pure ()
+  | .fails m => return (fail "prog.lean" m, 5)
+  | _ => return (fail "prog.lean" "", 5)
+  let mut out := ""
+  let mut code := 0
+  for (d, proved, files) in jobs do
+    let start := d ++ "/start.lean"
+    let main := d ++ "/main.lean"
+    let mids := (files.map (·.1)).filter fun f => f != start && f != main && f != d ++ "/cert.lean"
+    match ← buildCert lean lp dir dyn start with
+    | .noReduce => out := out ++ SceText.certNoReduce ++ "\n"; continue
+    | .limit => out := out ++ SceText.certLimit ++ "\n"; continue
+    | .fails m => out := out ++ fail start m; code := 5; continue
+    | .ok _ => pure ()
+    let r ← match ← buildAll lean lp dir dyn [d ++ "/cert.lean"] with
+      | some x => pure (some x)
+      | none => buildAll lean lp dir dyn mids
+    match r with
+    | some (f, .fails m) => out := out ++ fail f m; code := 5; continue
+    | some (f, _) => out := out ++ fail f "(memory or time limit)\n"; code := 5; continue
+    | none => pure ()
+    match ← buildCert lean lp dir dyn main with
+    | .ok m =>
+      -- PROVED only if main.lean's `#print axioms` lines (one per PROVED line) name std axioms only
+      if stdAxioms m proved.length then
+        out := out ++ String.join (proved.map (· ++ "\n" ++ SceText.rechecked (dir ++ "/" ++ main) ++ "\n"))
+      else
+        out := out ++ SceText.certAxioms (dir ++ "/" ++ main) ++ "\n" ++ m; code := 5
+    | .fails m => out := out ++ fail main m; code := 5
+    | _ => out := out ++ fail main "(memory or time limit)\n"; code := 5
+  return (out, code)
+
+def entry : IO Unit := do
+  let some n := (← IO.getEnv "SCE_ARGC").bind String.toNat? | return ()
+  let args ← (List.range n).mapM fun i => return (← IO.getEnv s!"SCE_ARG_{i + 1}").getD ""
+  let r := run args (cacheFS (← load args))
+  let out ← IO.FS.Handle.mk "/dev/stdout" .append
+  let err ← IO.FS.Handle.mk "/dev/stderr" .append
+  let mut code := r.code
+  let mut stderr := r.stderr
+  if let some (f, t) := r.write then
+    try IO.FS.writeFile f t
+    catch e =>
+      stderr := stderr ++ SceText.cannotWrite f (toString e) ++ "\n"
+      code := 4
+  let lean := (← IO.getEnv "SCE_LEAN").getD "lean"
+  -- the certificates are built only if the instance file built or none was written (§3g)
+  let mut certOK := true
+  if let some (f, t) := r.proof then
+    certOK := false
+    match ← tryE (IO.FS.writeFile f t) with
+    | .error e =>
+      stderr := stderr ++ SceText.cannotWrite f e ++ "\n"
+      code := 4
+    | .ok () =>
+      match ← tryE (IO.Process.output { cmd := lean, args := #[f] }) with
+      | .ok o =>
+        if o.exitCode == 0 then
+          stderr := stderr ++ String.join (r.proved.map (· ++ "\n" ++ SceText.rechecked f ++ "\n"))
+          certOK := true
+        else
+          stderr := stderr ++ SceText.proofFails f ++ "\n" ++ o.stdout ++ o.stderr
+          -- a failed build does not override an earlier exit code (e.g. 4 from `-o`)
+          if code == 0 then code := 5
+      | .error e =>
+        stderr := stderr ++ SceText.proofFails f ++ "\n" ++ e ++ "\n"
+        if code == 0 then code := 5
+  if let some (dir, prog, jobs) := r.cert then
+    if certOK then
+      let (t, c) ← certs lean dir prog jobs
+      stderr := stderr ++ t
+      -- F2: a certificate failure does not override an earlier exit code
+      if c != 0 && code == 0 then code := c
+  out.putStr r.stdout; out.flush
+  err.putStr stderr; err.flush
+  IO.Process.exit code.toUInt8
+
+end Sce
+
+#eval Sce.entry

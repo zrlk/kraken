@@ -1,0 +1,88 @@
+CoreLang.Cap : Type
+CoreLang.ECounter : Type
+CoreLang.Mode : Type
+CoreLang.Proto : Type
+CoreLang.Proto2 : Type
+CoreLang.Ty : Type
+CoreLang.Wd : Type
+CoreTerm.At : Type
+CoreTerm.At.var : String → CoreTerm.At
+CoreTerm.BitOp : Type
+CoreTerm.BitOp1 : Type
+CoreTerm.ExtName : Type
+CoreTerm.FCmp : Type
+CoreTerm.FOp : Type
+CoreTerm.FOp1 : Type
+CoreTerm.Fence : Type
+CoreTerm.FetchOp : Type
+CoreTerm.Op : Type
+CoreTerm.instDecidableEqAt : DecidableEq CoreTerm.At
+TermLiveC.noUseOf : String → CoreTerm.Op → Bool
+  := fun y x =>
+  match x with
+  | CoreTerm.Op.fld i a => true
+  | op => !(TermScope.opAts op).contains (CoreTerm.At.var y)
+TermScope.opAts : CoreTerm.Op → List CoreTerm.At
+  := fun x =>
+  match x with
+  | CoreTerm.Op.atom a => [a]
+  | CoreTerm.Op.pair a b => [a, b]
+  | CoreTerm.Op.inl other a => [a]
+  | CoreTerm.Op.inr other a => [a]
+  | CoreTerm.Op.add a b => [a, b]
+  | CoreTerm.Op.sub a b => [a, b]
+  | CoreTerm.Op.new a => [a]
+  | CoreTerm.Op.null μ target => []
+  | CoreTerm.Op.fold a target => [a]
+  | CoreTerm.Op.publish a => [a]
+  | CoreTerm.Op.intoRgn r a => [a]
+  | CoreTerm.Op.newBuf n τ => [n]
+  | CoreTerm.Op.idx b i => [b, i]
+  | CoreTerm.Op.bufInit b i v => [b, i, v]
+  | CoreTerm.Op.fld i a => [a]
+  | CoreTerm.Op.load acq a => [a]
+  | CoreTerm.Op.store rel a v tok => [a, v] ++ tok.toList
+  | CoreTerm.Op.fence f => []
+  | CoreTerm.Op.mkWord r P v tok => [v, tok]
+  | CoreTerm.Op.pack a w target => [a]
+  | CoreTerm.Op.packT a σ target => [a]
+  | CoreTerm.Op.validate y => [CoreTerm.At.var y]
+  | CoreTerm.Op.call f is a ts => [a]
+  | CoreTerm.Op.spawn f a T ts => [a]
+  | CoreTerm.Op.ext n a => [a]
+  | CoreTerm.Op.borrow s t => [t]
+  | CoreTerm.Op.endBorrow t => [t]
+  | CoreTerm.Op.xchg a v => [a, v]
+  | CoreTerm.Op.fnptr f => []
+  | CoreTerm.Op.callc f a => [f, a]
+  | CoreTerm.Op.rem a n => [a, n]
+  | CoreTerm.Op.nameI a => [a]
+  | CoreTerm.Op.xchgAt b i v => [b, i, v]
+  | CoreTerm.Op.loadAt b i => [b, i]
+  | CoreTerm.Op.bits o a b => [a, b]
+  | CoreTerm.Op.bit1 o a => [a]
+  | CoreTerm.Op.vmatch lo hi b => [lo, hi, b]
+  | CoreTerm.Op.band a m => [a, m]
+  | CoreTerm.Op.zero τ => []
+  | CoreTerm.Op.loadAtF b i p => [b, i]
+  | CoreTerm.Op.xchgAtF b i p v => [b, i, v]
+  | CoreTerm.Op.freeze t => [t]
+  | CoreTerm.Op.cvt sg w a => [a]
+  | CoreTerm.Op.toInt a => [a]
+  | CoreTerm.Op.asLanes sg w a => [a]
+  | CoreTerm.Op.fop o a b => [a, b]
+  | CoreTerm.Op.fcmp o a b => [a, b]
+  | CoreTerm.Op.fop1 o a => [a]
+  | CoreTerm.Op.lane a j => [a, j]
+  | CoreTerm.Op.setLane a j v => [a, j, v]
+  | CoreTerm.Op.ldl b i => [b, i]
+  | CoreTerm.Op.stl b i v => [b, i, v]
+  | CoreTerm.Op.ldlw b wi j => [b, wi, j]
+  | CoreTerm.Op.stlw b wi j v => [b, wi, j, v]
+  | CoreTerm.Op.mkWord2 r P v0 v1 tok => [v0, v1, tok]
+  | CoreTerm.Op.ldp acq a n0 n1 => [a]
+  | CoreTerm.Op.stp rel a v0 v1 tok => [a, v0, v1, tok]
+  | CoreTerm.Op.mkEPair r P v0 v1 => [v0, v1]
+  | CoreTerm.Op.mkTicket r N P v tok => [v, tok]
+  | CoreTerm.Op.claim a tok => [a, tok]
+  | CoreTerm.Op.fetch o acq rel a v => [a, v]

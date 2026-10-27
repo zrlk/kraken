@@ -47,7 +47,7 @@ theorem mentions_lt : ∀ (t : Ty) (c j : Nat), tb c t = true → t.tyMentions j
   intro t
   induction t with
   | tvar k => intro c j h hm; simp only [tb, decide_eq_true_eq] at h; simp only [Ty.tyMentions, beq_iff_eq] at hm; omega
-  | prod a b iha ihb | sum a b iha ihb | code a b iha ihb =>
+  | prod a b iha ihb | sum a b iha ihb | code a b _ iha ihb =>
       intro c j h hm; simp only [tb, Bool.and_eq_true] at h; simp only [Ty.tyMentions, Bool.or_eq_true] at hm
       rcases hm with hm | hm
       · exact iha c j h.1 hm

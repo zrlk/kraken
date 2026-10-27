@@ -30,10 +30,9 @@ no event.
   leaves memory and promises alone.
 - `certSem_step_of_sysStep` (with `finishInstr_svcDeps`, `sysStep_solo`,
   `certSem_step_choose`): every return of a system call other than `clone`,
-  `exit` and `exit_group`, off the transfer sites and with no byte of a
-  `write` out, is one certification step to exactly the thread the kernel
-  leaves, memory unchanged (a `write` returning `k ≥ 1` is matched at the
-  state only, by `writeTree`'s leaf).
+  `write`, `exit` and `exit_group` (which end a certifying run), off the
+  transfer sites, is one certification step to exactly the thread the
+  kernel leaves, memory unchanged.
 - `certSem_step_of_take`, `certSem_step_of_take_self`,
   `certSem_step_of_release` (with `certSem_step_of_site`): a take or release
   is one certification step to exactly the thread the kernel leaves, given
@@ -333,18 +332,6 @@ theorem leaves_leaf {L : List I.State} {s' : I.State} (h : TreeLeaf (leaves L) s
   obtain ⟨i, hi⟩ := h
   exact hi ▸ List.getElem_mem _
 
-/-- `writeTree` is quiet, its leaves the return of the count. -/
-theorem writeTree_go {s : I.State} {buf k : Nat} :
-    ∀ m i, QuietTree (writeTree.go K s buf k i m) ∧
-      ∀ s', TreeLeaf (writeTree.go K s buf k i m) s' → s' = K.ret s (BitVec.ofNat 64 k)
-  | 0, i => ⟨trivial, fun _ h => h⟩
-  | m + 1, i => by
-    have ih := writeTree_go (s := s) (buf := buf) (k := k) m (i + 1)
-    simp only [writeTree.go]
-    split
-    · exact ih
-    · exact ⟨fun _ => ih.1, fun s' ⟨_, h⟩ => ih.2 s' h⟩
-
 /-- The returns of `sysStep` from the solo configuration are solo leaves. -/
 theorem rets_leaf {A : Arch} {x : KState} {tid : Nat} {s s' : I.State} {rs : List (BitVec 64)}
     (h : s' ∈ rs.filterMap fun r => (sysStep K A tid (solo K none x tid s) (.ret r)).bind fun (_, c') => stOf tid c') :
@@ -380,25 +367,7 @@ theorem soloExec_cases {A : Arch} {μ : Marks} {x : KState} {tid : Nat} {s : I.S
       · cases h
         exact .inr ⟨leaves_quiet _, fun s' hl => absurd (leaves_leaf hl) List.not_mem_nil⟩
       · cases h
-        refine .inr ⟨fun i => ?_, fun s' ⟨i, hl⟩ => ?_⟩
-        · dsimp only
-          split
-          · trivial
-          · rename_i hi
-            cases hw : ((List.range _).map fun k => writeTree K s _ (k + 1))[i.val - _]? with
-            | none => trivial
-            | some w =>
-              obtain ⟨k, -, rfl⟩ := List.mem_map.mp (List.mem_of_getElem? hw)
-              exact (writeTree_go _ 0).1
-        · dsimp only at hl
-          split at hl
-          · exact rets_leaf (hl ▸ List.getElem_mem _)
-          · cases hw : ((List.range _).map fun k => writeTree K s _ (k + 1))[i.val - _]? with
-            | none => rw [hw] at hl; exact hl.elim
-            | some w =>
-              rw [hw] at hl
-              obtain ⟨k, -, rfl⟩ := List.mem_map.mp (List.mem_of_getElem? hw)
-              exact .inr (.inr (.inl ⟨_, (writeTree_go _ 0).2 s' hl⟩))
+        exact .inr ⟨leaves_quiet _, fun s' hl => absurd (leaves_leaf hl) List.not_mem_nil⟩
       · cases h
         exact .inr ⟨leaves_quiet _, fun s' hl => rets_leaf (leaves_leaf hl)⟩
       · exact .inl h
@@ -508,8 +477,7 @@ theorem rets_certSuccs {A : Arch} {x : KState} {tid : Nat} {s s' : I.State} {cal
 /-- **At a supported system call other than `clone`, off the transfer
 sites, the solo projection is a quiet tree whose leaves are branches of
 `certExec`** (`certSuccs`): the returns `sysStep` gives the solo
-configuration, and at `write(…, buf, n)` the return of each count
-`1 … n` after its bytes' loads. -/
+configuration (none at `write`, which ends a certifying run). -/
 theorem soloExec_sys {A : Arch} {μ : Marks} {x : KState} {tid : Nat} {s : I.State} {call : Call}
     {tree : EvTree I.State} (hs : siteAt K μ s = none) (ha : K.atSys s = true)
     (hd : decode K.nrs (K.nr s) (K.arg s) = some call) (hcl : ∀ st tl, call ≠ .clone st tl)
@@ -526,29 +494,8 @@ theorem soloExec_sys {A : Arch} {μ : Marks} {x : KState} {tid : Nat} {s : I.Sta
   simp only [soloExec, hs, ha, ite_true, hd] at h
   split at h
   · rename_i st tl he; cases he; exact absurd rfl (hcl st tl)
-  · rename_i fd buf n he
-    cases he
-    cases h
-    refine ⟨fun i => ?_, fun s' ⟨i, hl⟩ => ?_⟩
-    · dsimp only
-      split
-      · trivial
-      · cases hw : ((List.range n).map fun k => writeTree K s buf (k + 1))[i.val - _]? with
-        | none => trivial
-        | some w =>
-          obtain ⟨k, -, rfl⟩ := List.mem_map.mp (List.mem_of_getElem? hw)
-          exact (writeTree_go _ 0).1
-    · dsimp only at hl
-      split at hl
-      · exact hex (hl ▸ List.getElem_mem _)
-      · cases hw : ((List.range n).map fun k => writeTree K s buf (k + 1))[i.val - _]? with
-        | none => rw [hw] at hl; exact hl.elim
-        | some w =>
-          rw [hw] at hl
-          obtain ⟨k, hk, rfl⟩ := List.mem_map.mp (List.mem_of_getElem? hw)
-          rw [(writeTree_go _ 0).2 s' hl]
-          simp only [certSuccs, results, List.mem_map]
-          exact ⟨_, List.mem_append_left _ (mem_counts (by simp at hk ⊢; omega)), rfl⟩
+  · cases h
+    exact ⟨leaves_quiet _, fun s' hl => absurd (leaves_leaf hl) List.not_mem_nil⟩
   · rename_i call' hne he
     cases h
     cases he
@@ -592,14 +539,13 @@ theorem certSem_step_of_not_site {A : Arch} {μ : Marks} {x : KState} {tid : Nat
 /-! ### The kernel's returns are certification steps
 
 A step of `sysStep` returning `r` to thread `tid` from a call other than
-`clone`, `exit` and `exit_group`, with no byte of a `write` out, is matched
+`clone`, `write`, `exit` and `exit_group` is matched
 by a certification step (`certSem_step_of_sysStep`): the solo configuration
 returns the same `r` to the same state (`sysStep_solo`), so that state is a
 branch of `soloExec`, and finishing the instruction under the kernel's
 dependencies (`finishInstr_svcDeps`) gives exactly the thread `retThread`
-leaves, with memory unchanged. A `write` returning `k ≥ 1` after its bytes
-is matched at the level of the state only (`writeTree`'s leaf); the views
-the kernel's byte reads give the thread are not part of this lemma. -/
+leaves, with memory unchanged. A `write` has no certification step
+(`soloExec` has no branch there), so it is excluded too. -/
 
 /-- **The kernel's dependencies give no input view**: finishing an
 instruction under `svcDeps` sets the result registers' views to 0, as
@@ -660,15 +606,17 @@ theorem certSem_step_choose {A : Arch} {cs : CertSem I} {t : Thread I} {tid : Na
   exact List.mem_map.mpr ⟨th, hth, rfl⟩
 
 /-- **Every return of a system call is a certification step** (P1): a
-`sysStep` returning `r` to thread `tid` at a call other than `clone`, `exit`
-and `exit_group`, off the transfer sites, with no byte of a `write` out,
-leaves the thread exactly as one certification step under `certSem` with
-any kernel state `x` (with `tid` a slot of `x`) does, memory unchanged. -/
+`sysStep` returning `r` to thread `tid` at a call other than `clone`,
+`write`, `exit` and `exit_group` (each of which ends a certifying run), off
+the transfer sites, leaves the thread exactly as one certification step
+under `certSem` with any kernel state `x` (with `tid` a slot of `x`) does,
+memory unchanged. -/
 theorem certSem_step_of_sysStep {A : Arch} {μ : Marks} {x : KState} {tid : Nat} {c c' : Config I × KState}
     {r : BitVec 64} {es : List Ev} {t : Thread I} {mem : Memory} {call : Call}
     (ht : c.1.threads[tid]? = some t) (hc : callOf K t = some call) (h : sysStep K A tid c (.ret r) = some (es, c'))
     (hw : c.2.wr tid = 0) (hlt : tid < x.slots.size) (hs : siteAt K μ t.st = none)
-    (hcl : ∀ st tl, call ≠ .clone st tl) (hx : call ≠ .exit) (hg : ∀ v, call ≠ .exitGroup v) :
+    (hcl : ∀ st tl, call ≠ .clone st tl) (hnw : ∀ fd buf n, call ≠ .write fd buf n) (hx : call ≠ .exit)
+    (hg : ∀ v, call ≠ .exitGroup v) :
     ∃ outs o, (certSem K A μ x tid).step A t tid mem = some outs ∧ .ok o ∈ outs ∧
       c'.1.threads[tid]? = some o.thread ∧ o.mem = mem := by
   obtain ⟨hr, s0, ht', hs0⟩ := sysStep_ret_shape ht hc h (fun _ _ _ _ => by rw [hw]; omega) hx hg
@@ -699,17 +647,7 @@ theorem certSem_step_of_sysStep {A : Arch} {μ : Marks} {x : KState} {tid : Nat}
     change soloExec K A μ x tid t.st = _
     simp only [soloExec, hs, hat, ite_true, hdc]
   cases call with
-  | write fd buf n =>
-    let rs := (results (.write fd buf n)).filterMap fun r =>
-      (sysStep K A tid (solo K none x tid t.st) (.ret r)).bind fun (_, c') => stOf tid c'
-    let ws := (List.range n).map fun k => writeTree K t.st buf (k + 1)
-    have hex : (certSem K A μ x tid).exec t.st = some (.choose (rs.length + ws.length) fun i =>
-        if h : i.val < rs.length then .done rs[i.val] else (ws[i.val - rs.length]?).getD (.fault "")) := by
-      change soloExec K A μ x tid t.st = _
-      simp only [soloExec, hs, hat, ite_true, hdc]; rfl
-    obtain ⟨outs, o, h1, h2, h3, h4⟩ := certSem_step_choose (A := A) (mem := mem) hex ⟨j, Nat.lt_add_right _ hj⟩
-      (by dsimp only; rw [dite_eq_left_of_eq_true (eq_true hj)]; exact congrArg EvTree.done hjs) hth
-    exact ⟨outs, o, h1, h2, by rw [h3], h4⟩
+  | write fd buf n => exact absurd rfl (hnw fd buf n)
   | clone st tl => exact absurd rfl (hcl st tl)
   | exit => exact absurd rfl hx
   | exitGroup v => exact absurd rfl (hg v)

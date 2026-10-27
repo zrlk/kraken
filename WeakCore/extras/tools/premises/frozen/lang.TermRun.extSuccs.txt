@@ -1,0 +1,47 @@
+CoreLang.Ty : Type
+CoreTerm.At : Type
+CoreTerm.Expr : Type
+CoreTerm.ExtName : Type
+CoreTerm.Prog : Type
+Promises.Knobs : Type
+TermRun.Bounds : Type
+TermRun.Bounds.solo : TermRun.Bounds → Nat
+TermRun.Cfg : Type
+TermRun.Cfg.ths : TermRun.Cfg → Array TermRun.TTh
+TermRun.Cfg.trace : TermRun.Cfg → List TermRun.Event
+TermRun.ExtEnabled : CoreTerm.ExtName → TermRun.TTh → Prop
+TermRun.ExtNeedsNoProm : CoreTerm.ExtName → TermRun.TTh → Prop
+TermRun.TTh : Type
+TermRun.TTh.env : TermRun.TTh → TermRun.Env
+TermRun.TTh.promises : TermRun.TTh → List WeakMem.Ts
+TermRun.TTh.term : TermRun.TTh → CoreTerm.Expr
+TermRun.TTh.vs : TermRun.TTh → WeakMem.VState
+TermRun.Word : Type
+TermRun.certB : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → Nat → TermRun.Cfg → Nat → Bool
+TermRun.evalAt : TermRun.Env → CoreTerm.At → Option (CoreLang.Ty × List TermRun.Word)
+TermRun.extCfg : TermRun.Cfg →
+  Nat → TermRun.TTh → String → CoreTerm.ExtName → CoreTerm.Expr → List TermRun.Word → List TermRun.Word → TermRun.Cfg
+TermRun.extRs : TermRun.Bounds → CoreTerm.ExtName → Nat → List TermRun.Word → List TermRun.Event → List (List TermRun.Word)
+TermRun.extSuccs : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → TermRun.Bounds → TermRun.Cfg → Nat → List TermRun.Cfg
+  := fun p k arch b c i =>
+  match c.ths[i]? with
+  | some th =>
+    match th.term with
+    | CoreTerm.Expr.let_ x (CoreTerm.Op.ext n a) e =>
+      if (decide (TermRun.ExtNeedsNoProm n th) && !th.promises.isEmpty || !decide (TermRun.ExtEnabled n th)) = true then
+        []
+      else
+        match TermRun.evalAt th.env a with
+        | some (fst, ws) =>
+          List.map (fun rs => TermRun.wake (TermRun.extCfg c i th x n e ws rs) i (TermRun.relView th.vs) n ws)
+            (List.filter (fun rs => TermRun.certB p k arch b.solo (TermRun.extCfg c i th x n e ws rs) i)
+              (TermRun.extRs b n i ws c.trace))
+        | none => []
+    | x => []
+  | none => []
+TermRun.instDecidableExtEnabled : (n : CoreTerm.ExtName) → (th : TermRun.TTh) → Decidable (TermRun.ExtEnabled n th)
+TermRun.instDecidableExtNeedsNoProm : (n : CoreTerm.ExtName) → (th : TermRun.TTh) → Decidable (TermRun.ExtNeedsNoProm n th)
+TermRun.relView : WeakMem.VState → WeakMem.Ts
+TermRun.wake : TermRun.Cfg → Nat → WeakMem.Ts → CoreTerm.ExtName → List TermRun.Word → TermRun.Cfg
+WeakMem.Arch : Type
+WeakMem.Ts : Type

@@ -743,7 +743,7 @@ theorem guardT_substTs (σs : List Ty) : ∀ (b : Ty) (c d k : Nat), k < c → T
     intro c d k hk htb hg
     simp only [TermClose.tb, Ty.guardT, substTs, Bool.and_eq_true] at htb hg ⊢
     exact ⟨iha c d k hk htb.1 hg.1, ihb c d k hk htb.2 hg.2⟩
-  | code a b iha ihb =>
+  | code a b _ iha ihb =>
     intro c d k hk htb hg
     simp only [TermClose.tb, Ty.guardT, substTs, Bool.and_eq_true] at htb hg ⊢
     exact ⟨iha c d k hk htb.1 hg.1, ihb c d k hk htb.2 hg.2⟩

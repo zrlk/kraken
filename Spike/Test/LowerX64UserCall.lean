@@ -58,7 +58,8 @@ variable {rS : Range} {ms : MemSide isa}
 (`userCallW_of_fn` at the switch's top), the overflow abort `hab` a
 premise. -/
 theorem ret0_userCallW {top : BitVec 64} (h8 : top.toNat % 8 = 0) (hok : (swR top (-80) 0).OK)
-    (hsub : rS.Sub ret0Λ.stackPool) (hfit : rS.lo + rS.size ≤ 2 ^ 64) {F' : MachineData → Prop}
+    (hsub : rS.Sub ret0Λ.stackPool) (hfit : rS.lo + rS.size ≤ 2 ^ 64) (hK : ms.K = some Scc.Sem.X64.abi)
+    {F' : MachineData → Prop}
     (hF' : ∀ m, F' m → swFSL 80 rS top (limA (tpOf 134217736#64)) top m ∧
       CallerCells (swR top (-80) 0) (-8 - 0) (8 - 80) 8 m)
     (hab : ∀ F'' : MachineData → Prop, (uR top).OK → (uR top).base.toNat % 8 = 0 → FStable (uR top) F'' →
@@ -89,13 +90,14 @@ theorem ret0_userCallW {top : BitVec 64} (h8 : top.toNat % 8 = 0) (hok : (swR to
       (stackOff_callee hok h8 (by show (-80 : Int) % 8 = 0; decide) (by show (0 : Int) % 8 = 0; decide)
         (by show (-80 : Int) ≤ _; decide) (by decide) (by show _ < (0 : Int); decide) (by decide)
         (hF' _ h).1.2 (hF' _ h).2) hc)
-    hab
+    hK hab
 
 /-- **`swUW_gen` at `ret0.x` with `ret0.w`'s lowered `main` as the user
 function** (`ret0_userCallW`), the post `UPost`, the overflow abort a
 premise at every frame condition of the switch's top. -/
 example {R : Region} {F : MachineData → Prop} {top : BitVec 64} (h8 : top.toNat % 8 = 0)
     (hok : (swR top (-80) 0).OK) (hsub : rS.Sub ret0Λ.stackPool) (hfit : rS.lo + rS.size ≤ 2 ^ 64)
+    (hK : ms.K = some Scc.Sem.X64.abi)
     (hab : ∀ F' F'' : MachineData → Prop, (uR top).OK → (uR top).base.toNat % 8 = 0 → FStable (uR top) F'' →
       (∀ m, F'' m → F' m ∧ CallerCells (mR top) (-8 - ret0MC.Z.toInt - 8 - 0) (-24) 8 m) →
       ∀ fp ra' : BitVec 64,
@@ -113,7 +115,7 @@ example {R : Region} {F : MachineData → Prop} {top : BitVec 64} (h8 : top.toNa
     ret0_limMapped hsub hfit fun v F' hF' => by
       by_cases hv : v = top
       · subst hv
-        exact ret0_userCallW h8 hok hsub hfit hF' (hab F')
+        exact ret0_userCallW h8 hok hsub hfit hK hF' (hab F')
       · intro F'' _ _ hFF _ _ _ _
         exact seg_falseW.mono_pre fun _ _ ⟨_, _, _, _, _, _, hD, _⟩ => hv ((hF' _ (hFF _ hD).1).1.1.1)
 

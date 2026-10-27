@@ -85,7 +85,7 @@ theorem privSlot_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] 
     have ht' : t ∈ TermFul.promsOf (promise c j a v w) j := by
       rw [TermFul.promsOf_some hpi.2.1]; exact ht
     have hmt : (promise c j a v w).mem[t]? = some m := by rw [hpi.1]; exact hm
-    exact (certified_promNotUndefX (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hsc (by first | exact TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw | exact TermViewInv.viewInv_run hV0 X.run | exact TermViewInv.viewInv_thread (TermViewInv.viewInv_run hV0 X.run) X.hc') hwin hX X.cert ht' hmt).1
+    exact (certified_promNotUndefX (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hsc (by first | exact TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw | exact TermViewInv.viewInv_run hV0 X.run | exact TermViewInv.viewInv_thread (TermViewInv.viewInv_run hV0 X.run) X.hc') hwin hX (TermMain.tidAt_cutP X.inv j S0) X.cert ht' hmt).1
   -- the word is below the planted count, hence in the buffer and held by a promise
   have hPsto : (TermPlantF.cutP Eg j).sto l = some cl := cutSto_own hcl ho
   have hNp : i < NpZ (TermPlantF.cutP Eg j) (stOf c.mem c.pairs th) l * nWords us := by
@@ -202,7 +202,7 @@ theorem plantN_two (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [
       rw [hpi.1]; show (c.mem.push ⟨a, v, w⟩)[u]? = some m
       rw [getElem_push_lt (hb u hu')]; exact hmu
     obtain ⟨c1, c2, th1, th2, ρ, η, cx, E2, -, -, -, -, -, -, hx1, hE, hTy, htv, hi, hmi, hscope, hpa, -, -, -, -, -,
-      -, -, hsw, -⟩ := certified_promTypedX (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hsc (by first | exact TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw | exact TermViewInv.viewInv_run hV0 X.run | exact TermViewInv.viewInv_thread (TermViewInv.viewInv_run hV0 X.run) X.hc') hwin hX X.cert ht' hmt
+      -, -, hsw, -⟩ := certified_promTypedX (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hsc (by first | exact TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw | exact TermViewInv.viewInv_run hV0 X.run | exact TermViewInv.viewInv_thread (TermViewInv.viewInv_run hV0 X.run) X.hc') hwin hX (TermMain.tidAt_cutP X.inv j S0) X.cert ht' hmt
     obtain ⟨cl2, o, U, us', j', hcl2, hat, hus', hj, hoff⟩ :=
       SWOne_holds p _ _ _ _ ρ η cx _ _ hE hTy htv hi hmi (TermTyped.scopeD_SW hscope hsw) hpa hsw
     have hcl0 : (Cut Eg j S0).sto m.loc.label = some cl := by rw [hl]; exact cutSto_own hcl ho

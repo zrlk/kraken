@@ -1,0 +1,179 @@
+CoreLang.Ty : Type
+CoreLang.Ty.tid : CoreLang.Ty
+CoreLang.Wd : Type
+CoreTerm.At : Type
+CoreTerm.At.var : String → CoreTerm.At
+CoreTerm.Expr : Type
+CoreTerm.Expr.let_ : String → CoreTerm.Op → CoreTerm.Expr → CoreTerm.Expr
+CoreTerm.Expr.tail : String → List String → CoreTerm.At → optParam (List CoreLang.Ty) [] → CoreTerm.Expr
+CoreTerm.ExtName : Type
+CoreTerm.ExtName.Admits : CoreTerm.ExtName → Nat → List TermRun.Word → List TermRun.Event → List TermRun.Word → Prop
+CoreTerm.ExtName.devChoice : CoreLang.Wd → CoreTerm.ExtName
+CoreTerm.ExtName.park : CoreTerm.ExtName
+CoreTerm.ExtName.sig : CoreTerm.ExtName → CoreLang.Ty × CoreLang.Ty
+CoreTerm.Op.ext : CoreTerm.ExtName → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.spawn : String → CoreTerm.At → CoreLang.Ty → optParam (List CoreLang.Ty) [] → CoreTerm.Op
+CoreTerm.Prog : Type
+Promises.Knobs : Type
+Promises.TVal.rts : Promises.TVal → WeakMem.Ts
+Promises.TVal.val : Promises.TVal → WeakMem.Val
+Promises.TVal.view : Promises.TVal → WeakMem.Ts
+TermLiveCert.ScriptedRun : {p : CoreTerm.Prog} →
+  {k : Promises.Knobs} → {arch : WeakMem.Arch} → List Nat → TermLiveMach.LRun (TermLiveL3.machineE p k arch).L → Prop
+  := fun {p} {k} {arch} V r =>
+  ∀ (n i : Nat) (th : TermRun.TTh) (x : String) (w : CoreLang.Wd) (a : CoreTerm.At) (e : CoreTerm.Expr),
+    r.lbl n = some (i, TermLiveL3.Lbl.thr) →
+      (r.cfg n).ths[i]? = some th →
+        th.term = CoreTerm.Expr.let_ x (CoreTerm.Op.ext (CoreTerm.ExtName.devChoice w) a) e →
+          ∃ v,
+            v ∈ V ∧
+              ((r.cfg (n + 1)).ths[i]?.bind fun x => List.head? x.env) =
+                some (x, (CoreTerm.ExtName.devChoice w).sig.snd, [TermRun.cst (WeakMem.Val.num v)])
+TermLiveL3.Lbl : Type
+  | TermLiveL3.Lbl.thr : TermLiveL3.Lbl
+  | TermLiveL3.Lbl.prom : TermLiveL3.Lbl
+  | TermLiveL3.Lbl.env : TermLiveL3.Lbl
+TermLiveL3.Lbl.thr : TermLiveL3.Lbl
+TermLiveL3.SpuriousWake : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → TermRun.Cfg → Nat → TermRun.Cfg → Prop
+  := fun p k arch c i c' =>
+  ∃ x a e th rt ws,
+    c.ths[i]? = some th ∧
+      th.term = CoreTerm.Expr.let_ x (CoreTerm.Op.ext CoreTerm.ExtName.park a) e ∧
+        th.permit = none ∧
+          TermRun.evalAt th.env a = some (rt, ws) ∧
+            TermRun.Certified p k arch (TermRun.extCfg c i th x CoreTerm.ExtName.park e ws []) i ∧
+              c' = TermRun.extCfg c i th x CoreTerm.ExtName.park e ws []
+TermLiveL3.machineE : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → TermLiveMach.LSys
+  := fun p k arch =>
+  { L := Nat × TermLiveL3.Lbl, S := TermLiveL3.mstepE p k arch, actor := fun l => some l.fst,
+    thr := fun i => (i, TermLiveL3.Lbl.thr) }
+TermLiveL3.mstepE : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → TermRun.Cfg → Nat × TermLiveL3.Lbl → TermRun.Cfg → Prop
+  := fun p k arch c x x_1 =>
+  match x, x_1 with
+  | (i, TermLiveL3.Lbl.thr), c' =>
+    c' ∈ TermRun.threadSteps p k arch c i ∧ TermRun.Certified p k arch c' i ∨
+      TermProgress.SpawnBy c.cap c i c' ∨ TermProgress.ExtBy p k arch c i c'
+  | (i, TermLiveL3.Lbl.prom), c' =>
+    ∃ a v w,
+      i < c.ths.size ∧
+        w < Array.size c.mem ∧ TermRun.Certified p k arch (TermRun.promise c i a v w) i ∧ c' = TermRun.promise c i a v w
+  | (i, TermLiveL3.Lbl.env), c' => TermLiveL3.SpuriousWake p k arch c i c'
+TermLiveMach.LRun : Type → Type
+  | TermLiveMach.LRun.mk : {L : Type} → (Nat → TermRun.Cfg) → (Nat → Option L) → TermLiveMach.LRun L
+TermLiveMach.LRun.cfg : {L : Type} → TermLiveMach.LRun L → Nat → TermRun.Cfg
+  := fun L self => self.1
+TermLiveMach.LRun.lbl : {L : Type} → TermLiveMach.LRun L → Nat → Option L
+  := fun L self => self.2
+TermLiveMach.LSys : Type 1
+  | TermLiveMach.LSys.mk : (L : Type) → (TermRun.Cfg → L → TermRun.Cfg → Prop) → (L → Option Nat) → (Nat → L) → TermLiveMach.LSys
+TermLiveMach.LSys.L : TermLiveMach.LSys → Type
+  := fun self => self.1
+TermProgress.ExtBy : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → TermRun.Cfg → Nat → TermRun.Cfg → Prop
+  := fun p k arch c i c' =>
+  ∃ x n a e th rt ws rs,
+    c.ths[i]? = some th ∧
+      th.term = CoreTerm.Expr.let_ x (CoreTerm.Op.ext n a) e ∧
+        (TermRun.ExtNeedsNoProm n th → th.promises = []) ∧
+          TermRun.ExtEnabled n th ∧
+            TermRun.evalAt th.env a = some (rt, ws) ∧
+              n.Admits i ws c.trace rs ∧
+                TermRun.Certified p k arch (TermRun.extCfg c i th x n e ws rs) i ∧
+                  c' = TermRun.wake (TermRun.extCfg c i th x n e ws rs) i (TermRun.relView th.vs) n ws
+TermProgress.SpawnBy : Nat → TermRun.Cfg → Nat → TermRun.Cfg → Prop
+  := fun cap c i c' =>
+  ∃ x f a T ts e th rt ws,
+    c.ths[i]? = some th ∧
+      th.term = CoreTerm.Expr.let_ x (CoreTerm.Op.spawn f a T ts) e ∧
+        th.promises = [] ∧
+          c.ths.size < cap ∧ TermRun.evalAt th.env a = some (rt, ws) ∧ c' = TermSpawnStep.spawnCfg c i th x e f ts T ws
+TermRun.Certified : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → TermRun.Cfg → Nat → Prop
+TermRun.Cfg : Type
+TermRun.Cfg.boxFence : TermRun.Cfg → Bool
+TermRun.Cfg.cap : TermRun.Cfg → Nat
+TermRun.Cfg.lbase : TermRun.Cfg → Nat
+TermRun.Cfg.mem : TermRun.Cfg → WeakMem.Memory
+TermRun.Cfg.n : TermRun.Cfg → Nat
+TermRun.Cfg.pairs : TermRun.Cfg → List WeakMem.Ts
+TermRun.Cfg.ths : TermRun.Cfg → Array TermRun.TTh
+TermRun.Cfg.trace : TermRun.Cfg → List TermRun.Event
+TermRun.ExtEnabled : CoreTerm.ExtName → TermRun.TTh → Prop
+TermRun.ExtNeedsNoProm : CoreTerm.ExtName → TermRun.TTh → Prop
+TermRun.Frame : Type
+TermRun.St : Type
+TermRun.St.vs : TermRun.St → WeakMem.VState
+TermRun.TTh : Type
+TermRun.TTh.env : TermRun.TTh → TermRun.Env
+TermRun.TTh.nalloc : TermRun.TTh → Nat
+TermRun.TTh.permit : TermRun.TTh → Option WeakMem.Ts
+TermRun.TTh.promises : TermRun.TTh → List WeakMem.Ts
+TermRun.TTh.stack : TermRun.TTh → List TermRun.Frame
+TermRun.TTh.term : TermRun.TTh → CoreTerm.Expr
+TermRun.TTh.tidLbl : TermRun.TTh → Option WeakMem.AllocLabel
+TermRun.TTh.undefs : TermRun.TTh → Nat
+TermRun.TTh.vs : TermRun.TTh → WeakMem.VState
+TermRun.TTh.σs : TermRun.TTh → List CoreLang.Ty
+TermRun.Word : Type
+TermRun.cst : WeakMem.Val → TermRun.Word
+TermRun.evalAt : TermRun.Env → CoreTerm.At → Option (CoreLang.Ty × List TermRun.Word)
+TermRun.extCfg : TermRun.Cfg →
+  Nat → TermRun.TTh → String → CoreTerm.ExtName → CoreTerm.Expr → List TermRun.Word → List TermRun.Word → TermRun.Cfg
+TermRun.fenceS : TermRun.St → WeakMem.Fence → TermRun.St
+TermRun.freshLabel : Nat → Nat → Nat → Nat → WeakMem.AllocLabel
+TermRun.promise : TermRun.Cfg → Nat → WeakMem.Address → WeakMem.Val → WeakMem.Ts → TermRun.Cfg
+TermRun.relView : WeakMem.VState → WeakMem.Ts
+TermRun.stOf : WeakMem.Memory → List WeakMem.Ts → TermRun.TTh → TermRun.St
+TermRun.threadSteps : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → TermRun.Cfg → Nat → List TermRun.Cfg
+TermRun.wake : TermRun.Cfg → Nat → WeakMem.Ts → CoreTerm.ExtName → List TermRun.Word → TermRun.Cfg
+TermRun.withS : TermRun.TTh → TermRun.St → TermRun.TTh
+TermSpawn.bumpW : WeakMem.Ts → TermRun.Word → TermRun.Word
+  := fun V w => { val := w.val, view := max w.view V, rts := max w.rts V }
+TermSpawnStep.spawnCfg : TermRun.Cfg →
+  Nat → TermRun.TTh → String → CoreTerm.Expr → String → List CoreLang.Ty → CoreLang.Ty → List TermRun.Word → TermRun.Cfg
+  := fun c i th x e f ts T ws =>
+  TermSpawnStep.spawnT c i (TermSpawnStep.spawnPar c i th x e) (TermSpawnStep.spawnKid c i th f ts T ws)
+TermSpawnStep.spawnKid : TermRun.Cfg → Nat → TermRun.TTh → String → List CoreLang.Ty → CoreLang.Ty → List TermRun.Word → TermRun.TTh
+  := fun c i th f ts T ws =>
+  { term := CoreTerm.Expr.tail f [] (CoreTerm.At.var "a") ts,
+    env := [("a", T, List.map (TermSpawn.bumpW (TermSpawnStep.spawnS c th).vs.vRelSt) ws)],
+    vs :=
+      have __src := (TermSpawnStep.spawnS c th).vs;
+      { coh := __src.coh, vRd := __src.vRd, vWr := __src.vWr, vCtrl := __src.vCtrl, vPreBase := __src.vPreBase,
+        vRelSt := __src.vRelSt, fwd := __src.fwd },
+    tidLbl := some (TermSpawnStep.tidLabel c i th) }
+TermSpawnStep.spawnPar : TermRun.Cfg → Nat → TermRun.TTh → String → CoreTerm.Expr → TermRun.TTh
+  := fun c i th x e =>
+  have __src := TermRun.withS th (TermSpawnStep.spawnS c th);
+  { term := e,
+    env :=
+      (x, CoreLang.Ty.tid, [TermRun.cst (WeakMem.Val.loc { label := TermSpawnStep.tidLabel c i th, offset := 0 } 0)]) ::
+        th.env,
+    σs := __src.σs, stack := __src.stack, vs := __src.vs, promises := __src.promises,
+    nalloc := th.nalloc + if th.tidLbl = none then 2 else 1, undefs := __src.undefs,
+    tidLbl := th.tidLbl.orElse fun x => some (TermRun.freshLabel c.lbase c.n i (th.nalloc + 1)),
+    permit := __src.permit }
+TermSpawnStep.spawnS : TermRun.Cfg → TermRun.TTh → TermRun.St
+  := fun c th => TermRun.fenceS (TermRun.stOf c.mem c.pairs th) WeakMem.Fence.sy
+TermSpawnStep.spawnT : TermRun.Cfg → Nat → TermRun.TTh → TermRun.TTh → TermRun.Cfg
+  := fun c i par kid =>
+  { mem := c.mem, pairs := c.pairs, ths := (c.ths.set! i par).push kid, lbase := c.lbase, boxFence := c.boxFence,
+    cap := c.cap, trace := c.trace }
+TermSpawnStep.tidLabel : TermRun.Cfg → Nat → TermRun.TTh → WeakMem.AllocLabel
+  := fun c i th => TermRun.freshLabel c.lbase c.n i th.nalloc
+WeakMem.Address : Type
+WeakMem.AllocLabel : Type
+WeakMem.Arch : Type
+WeakMem.Fence.sy : WeakMem.Fence
+WeakMem.Msg : Type
+WeakMem.Offset : Type
+WeakMem.Ts : Type
+WeakMem.VState : Type
+WeakMem.VState.coh : WeakMem.VState → WeakMem.Address → WeakMem.Ts
+WeakMem.VState.fwd : WeakMem.VState → List (WeakMem.Ts × WeakMem.Ts)
+WeakMem.VState.vCtrl : WeakMem.VState → WeakMem.Ts
+WeakMem.VState.vPreBase : WeakMem.VState → WeakMem.Ts
+WeakMem.VState.vRd : WeakMem.VState → WeakMem.Ts
+WeakMem.VState.vRelSt : WeakMem.VState → WeakMem.Ts
+WeakMem.VState.vWr : WeakMem.VState → WeakMem.Ts
+WeakMem.Val : Type
+WeakMem.Val.loc : WeakMem.Address → Nat → WeakMem.Val
+WeakMem.Val.num : Nat → WeakMem.Val

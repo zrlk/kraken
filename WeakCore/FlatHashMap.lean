@@ -67,7 +67,7 @@ slots are packed at `c` first (a closed type), then the table at `m`. -/
 def Tbl (x : Bool) : Ty := .iex (.prod (.prod (.intS (.var 0)) (CB x (.var 0))) Slots)
 /-- The table, `(growth_left, size)`, and the functions. -/
 def MapT (x : Bool) : Ty := .prod (Tbl x) (.prod (.prod .int .int) Fns)
-def EqT : Ty := .code (.prod K K) HashMap.bool
+def EqT : Ty := .code (.prod K K) HashMap.bool .plain
 /-- A probe's answer: `inl sr` (the raw slot index holding the key) or `inr ()`. -/
 def SR : Ty := .sum .int .unit
 

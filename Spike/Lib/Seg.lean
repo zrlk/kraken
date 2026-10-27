@@ -66,6 +66,13 @@ What one instruction does (`Out`):
   (`MemSide.abortAt`) is `main` returning (`MainExit`): the source runs
   locally to a placed control (`MemSide.pl`) whose return is the exit event
   with the call's code (`SrcSem.mainExit`); `SysOk` bundles these.
+* `emit`: a `write(1, buf, n)` to the output under the kernel model `ms.K`
+  (the output row): the source runs locally to `Pw 0`; each byte `j < n`
+  moves it from `Pw j` to `Pw (j + 1)` by the memory side's byte step
+  (`MemSide.bo`); every result the kernel may return after `j ≤ n` bytes
+  (`WriteRetOk`) lands in the fragment with the source at `Pw j`, and a
+  refusal with no byte out holds `Qw`, which justifies the abort
+  (`MemSide.we`).
 
 The runtime accesses (`rtLoad`, `rtStore`, `rtRmw`, `ctrRmw`) are at
 locations mapped for them (`MemSide.mp`), and what they read agrees with the
@@ -263,6 +270,8 @@ structure MemSide (I : ISA) where
   abortAt : I.State → Prop := fun _ => False
   pl : I.State → Ctl → Prop := fun _ _ => False
   xa : WeakMem.AllocLabel → Nat → Nat → Frag I := fun _ _ _ _ _ => False
+  bo : I.State → Nat → Ctl → (Ctl → Prop) → Prop := fun _ _ _ _ => False
+  we : I.State → Ctl → Prop := fun _ _ => False
 
 /-- **`main` returns with code `v`** from the pair `(s, c)`: the source runs
 locally to a placed control (`ms.pl`) whose return, in thread 0 with an
@@ -288,6 +297,13 @@ theorem SysOk.exitGroup_abort {I : ISA} {p : Prog} {ms : MemSide I} {s : I.State
 theorem SysOk.exitGroup_main {I : ISA} {p : Prog} {ms : MemSide I} {s : I.State} {c : Ctl} {v : Nat}
     (h : ¬ ms.abortAt s → MainExit p ms s c v) : SysOk p ms s c (.exitGroup v) :=
   ⟨nofun, nofun, nofun, fun _ he hn => by cases he; exact h hn⟩
+
+/-- **A result the kernel may return from a `write` after `j` bytes out**
+(`Kernel.sysStep`): the count `j` if positive; with no byte out `-EINTR`,
+`-EAGAIN` or a refusal. -/
+def WriteRetOk (j : Nat) (r : BitVec 64) : Prop :=
+  (0 < j → r = BitVec.ofNat 64 j) ∧ (j = 0 → r = Scc.Sem.Kernel.neg Scc.Sem.Kernel.eintr ∨
+    r = Scc.Sem.Kernel.neg Scc.Sem.Kernel.eagain ∨ Scc.Sem.Kernel.writeRefused r = true)
 
 /-- **What one instruction does** from the pair `(s, c)`, landing in the
 fragment `X`: see the module docstring. -/
@@ -403,21 +419,37 @@ inductive Out {I : ISA} (p : Prog) (lbl : WeakMem.AllocLabel → Option Nat) (ms
       Out p lbl ms X s c
   /-- The last instruction of a buffer allocation `let x = newBuf a τ in e`,
   `a` a number `k`, the heap counter's old count `old` held (`Out.ctrRmw`),
-  at the base `A = ms.heap + 16·old + ms.off k τ`, the element type's
+  at the base `A = ms.heap + 16·old + ms.off k τ`, the object's units
+  within the arena's cells (`old + ms.units k τ ≤ ms.cells`), the element type's
   accesses `us`: the source takes its allocation step; for every label `l`
   not yet placed, the pair lands in the allocation fragment `ms.xa` of `l`
-  placed at `A` with `k` elements of `nWords us` bytes, with `x` bound to
+  placed at `A` with `k` elements of `nWords us` words, with `x` bound to
   `l`'s locative at the buffer's type (`ini` elements initialised). It does
   not land in `X`. -/
   | alloc (s' : I.State) (A : BitVec 64) (x : String) (a : At) (τ : Ty) (e : Expr) (ta : Ty)
       (ws : List TermRun.Word) (k : Nat) (wold : TermRun.Word) (old : Nat) (us : List TermRun.Acc) :
       I.exec s = some (.done s') → c.term = .let_ x (.newBuf a τ) e → TermRun.evalAt c.env a = some (ta, ws) →
       TermRun.numOf ws = some k → c.hold = some (ms.ctr, wold) → TermRun.numOf [wold] = some old →
-      A.toNat = ms.heap + 16 * old + ms.off k τ → TermRun.accs (TermRun.close [] τ) = some us →
+      A.toNat = ms.heap + 16 * old + ms.off k τ → old + ms.units k τ ≤ ms.cells →
+      TermRun.accs (TermRun.close [] τ) = some us →
       (∀ (l : WeakMem.AllocLabel) (ini : Nat), lbl l = none →
         ms.xa l A.toNat (k * TermRun.nWords us) s'
           ⟨e, (x, .refine (.loc .own (.array (.lit k) (TermRun.close [] τ))) (.ini (.lit ini)),
             [TermRun.cst (.loc ⟨l, 0⟩ 0)]) :: c.env, none⟩) → Out p lbl ms X s c
+  /-- A `write(1, buf, n)` to the output under the kernel model `ms.K` (the
+  output row): the source runs locally to `Pw 0`; each byte `j < n` moves
+  it from `Pw j` to `Pw (j + 1)` by the byte step `ms.bo`; every result `r`
+  the kernel may return after `j ≤ n` bytes (`WriteRetOk`) lands in `X` with
+  the source at `Pw j`, and a refusal with no byte out holds `Qw`, which
+  justifies the abort (`ms.we`). -/
+  | emit (K : Scc.Sem.Kernel.Abi I) (buf n : Nat) (Pw : Nat → Ctl → Prop) (Qw : Ctl → Prop) :
+      ms.K = some K → K.atSys s = true →
+      Scc.Sem.Kernel.decode K.nrs (K.nr s) (K.arg s) = some (.write 1 buf n) →
+      (∃ c', LocalRun p c c' ∧ Pw 0 c') →
+      (∀ j < n, ∀ c1, Pw j c1 → ms.bo s (buf + j) c1 (Pw (j + 1))) →
+      (∀ j ≤ n, ∀ c1, Pw j c1 → ∀ r ∈ Scc.Sem.Kernel.results (.write 1 buf n), WriteRetOk j r →
+        X (K.ret s r) c1 ∧ (j = 0 → Scc.Sem.Kernel.writeRefused r = true → Qw c1)) →
+      (∀ c1, Qw c1 → ms.we s c1) → Out p lbl ms X s c
 
 theorem Out.mono {I : ISA} {p : Prog} {lbl : WeakMem.AllocLabel → Option Nat} {ms : MemSide I}
     {X Y : Frag I} {s : I.State} {c : Ctl}
@@ -444,8 +476,28 @@ theorem Out.mono {I : ISA} {p : Prog} {lbl : WeakMem.AllocLabel → Option Nat} 
   | ctrRmw k op g x a τ e ta ws n he hrt hm ht hev hn hh hop hX =>
     exact .ctrRmw k op g x a τ e ta ws n he hrt hm ht hev hn hh hop fun old hG ho hc =>
       ⟨(hX old hG ho hc).1, hXY _ _ (hX old hG ho hc).2⟩
-  | alloc s' A x a τ e ta ws k wold old us he ht hev hk hh hold hA hu hX =>
-    exact .alloc s' A x a τ e ta ws k wold old us he ht hev hk hh hold hA hu hX
+  | alloc s' A x a τ e ta ws k wold old us he ht hev hk hh hold hA hc hu hX =>
+    exact .alloc s' A x a τ e ta ws k wold old us he ht hev hk hh hold hA hc hu hX
+  | emit K buf n Pw Qw hK ha hd h0 hb hr hq =>
+    exact .emit K buf n Pw Qw hK ha hd h0 hb (fun j hj c1 hp r hm hok =>
+      ⟨hXY _ _ (hr j hj c1 hp r hm hok).1, (hr j hj c1 hp r hm hok).2⟩) hq
+
+/-- **An `Out.emit` row justifies an abort** (`ms.we`) at some control: the
+kernel may refuse the `write` with no byte out (`0`, `writeRefused`), which
+holds `Qw` at the local run's end `Pw 0`. So under a memory side with no
+abort justified (as `MemSide`'s default `we`) the row is not `emit`. -/
+theorem Out.we_of_emit {I : ISA} {p : Prog} {ms : MemSide I} {X : Frag I} {s : I.State} {c : Ctl}
+    (K : Scc.Sem.Kernel.Abi I) (buf n : Nat) (Pw : Nat → Ctl → Prop) (Qw : Ctl → Prop)
+    (h0 : ∃ c', LocalRun p c c' ∧ Pw 0 c')
+    (hr : ∀ j ≤ n, ∀ c1, Pw j c1 → ∀ r ∈ Scc.Sem.Kernel.results (.write 1 buf n), WriteRetOk j r →
+      X (K.ret s r) c1 ∧ (j = 0 → Scc.Sem.Kernel.writeRefused r = true → Qw c1))
+    (hq : ∀ c1, Qw c1 → ms.we s c1) : ∃ c1, ms.we s c1 := by
+  obtain ⟨c', -, hp⟩ := h0
+  have hm : (0 : BitVec 64) ∈ Scc.Sem.Kernel.results (.write 1 buf n) := by
+    simp only [Scc.Sem.Kernel.results, List.mem_append, List.mem_map, List.mem_range]
+    exact .inl ⟨0, by omega, rfl⟩
+  have hrf : Scc.Sem.Kernel.writeRefused 0 = true := by simp [Scc.Sem.Kernel.writeRefused]
+  exact ⟨c', hq c' ((hr 0 (Nat.zero_le _) c' hp 0 hm ⟨by omega, fun _ => .inr (.inr hrf)⟩).2 rfl hrf)⟩
 
 /-! ## Segments -/
 

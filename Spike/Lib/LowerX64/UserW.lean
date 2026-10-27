@@ -14,9 +14,10 @@ facts (`InstOk`, `Spike/Lib/Rt/X64RtW.lean`).
 - `ProPh`: the prologue's phase facts (its blocks' `blkPh` at their pcs, no
   dead target, no `ret`; the limit's load off the sites and in its next
   pc's phase), as `MainPh`'s prologue part (`Spike/Lib/Rt/X64RtMainU.lean`).
-- `proW_sfacts`: a stack-checked prologue without saved registers
-  (`prologueIn`, the limit at `%fs:8`) inside the consumer's facts, every
-  control of its invariant `c0` (as `mainUW_gen`'s `pro`).
+- `proW_sfactsP`: a stack-checked prologue with saved registers `ps` in
+  the frame (`prologueIn`, the limit at `%fs:8`) inside the consumer's
+  facts, every control of its invariant `c0`; `proW_sfacts`: without saved
+  registers (as `mainUW_gen`'s `pro`).
 - `proW_body0`: `fn0_seg`'s `hWp` inside `BodyW0`, the invariant's
   controls reached from `c0` by local runs, the thread pointer `tp`.
 
@@ -140,25 +141,26 @@ variable {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe] {endPc : 
   {K : State → State → Prop} {okPc : Nat → Bool} {ph : Nat → Nat} {Λ : Scc.Sem.Layout} {rS : Range} {lbl : Lbl}
 
 set_option maxHeartbeats 800000 in
-/-- **A stack-checked prologue without saved registers is inside the
-consumer's facts** (`mainUW_gen`'s `pro`, for any frame `Z`): its code
-(`hin`), its phase facts (`hph`), every control of its invariant `c0` with
-its facts (`hJc`, `hC0`), the thread pointer `tp` (`htp`) whose limit word
-is mapped (`hmr`) and unmapped in private memory under the frame condition
-(`hun`), in any 8-aligned region holding the frame below the saved `%rbp`
-with 8-aligned bounds. -/
-theorem proW_sfacts {ms : MemSide isa} {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp)
-    {fn sc entry : Label} {Z : Int64} {L : Label} {zl zf z1 z2 zs : Nat}
-    (hin : prologueIn cells fn sc entry Z 8 L zl zf z1 z2 zs [] = true)
+/-- **A stack-checked prologue is inside the consumer's facts** (for any
+frame `Z`): its code (`hin`) with its saved registers `ps` at cells of the
+frame (`hps`), its phase facts (`hph`), every control of its invariant `c0`
+with its facts (`hJc`, `hC0`), the thread pointer `tp` (`htp`) whose limit
+word is mapped (`hmr`) and unmapped in private memory under the frame
+condition (`hun`), in any 8-aligned region holding the frame below the
+saved `%rbp` with 8-aligned bounds. -/
+theorem proW_sfactsP {ms : MemSide isa} {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp)
+    {fn sc entry : Label} {Z : Int64} {L : Label} {zl zf z1 z2 zs : Nat} {ps : List (Reg64 × Int64 × Nat)}
+    (hin : prologueIn cells fn sc entry Z 8 L zl zf z1 z2 zs ps = true)
+    (hps : ∀ q ∈ ps, offOk (-8 - Z.toInt) 0 (-8 + q.2.1.toInt) = true)
     {J : AS → Ctl → Prop} {c0 : Ctl} (hC0 : CFacts Λ lbl c0) (hJc : ∀ σ c, J σ c → c = c0) {tp : UInt64}
-    (htp : ∀ σ c, J σ c → σ.regs.fsBase = tp) (hph : ProPh okPc ph lab fn sc Z L zl zf z1 z2 zs [])
+    (htp : ∀ σ c, J σ c → σ.regs.fsBase = tp) (hph : ProPh okPc ph lab fn sc Z L zl zf z1 z2 zs ps)
     {R : Region} {F : MachineData → Prop} (hR : R.OK) (hR8 : R.base.toNat % 8 = 0)
     (hlo : R.lo ≤ -8 - Z.toInt) (hhi : 0 ≤ R.hi) (hl : R.lo % 8 = 0) (hh : R.hi % 8 = 0) (hZ : 0 ≤ Z.toInt)
     (hmr : Scc.Sem.Kernel.mapped (K0 Λ) false ⟨limA tp, 8⟩ = true)
     (hun : ∀ m, F m → Mem.loadInt m.dmem (limA tp) 8 = none)
     (hsub : rS.Sub Λ.stackPool) (hfit : rS.lo + rS.size ≤ 2 ^ 64) (hFO : ∀ m, F m → StackOff rS R m) :
     XProW (fun s c => SFacts Λ μ own rS Tk lbl s c) K exe endPc R F ms ((_root_.Executable.labels exe).label fn)
-      Z 8 L zl zf z1 z2 zs [] J := by
+      Z 8 L zl zf z1 z2 zs ps J := by
   have h := hin
   simp only [prologueIn, Bool.and_eq_true] at h
   obtain ⟨⟨⟨⟨⟨⟨hgap, bHd⟩, bLea⟩, bLd⟩, bCmp⟩, bFr⟩, -⟩ := h
@@ -185,8 +187,24 @@ theorem proW_sfacts {ms : MemSide isa} {kp : Nat} (hI : InstOk exe endPc cells l
       (xCmp_ok (lo := -8 - Z.toInt) (hi := 0) _ _ _ _) hR (by omega) hhi hR8 hl hh
       (fun _ _ ⟨_, _, hJ, _⟩ => hJc _ _ hJ ▸ hC0) hph.cmp (hnr' (xCmp_noRet _ _ _)) (fun _ _ _ => rfl) hsub hfit hFO
   · exact blkW_postO hI bFr (by show _ = _ + 1 + 3 + _ + _ + _ + _; rw [h4, ofNat_add', ofNat_add', ofNat_add'])
-      (xFr_ok (lo := -8 - Z.toInt) (hi := 0) _ _ _ (by simp)) hR (by omega) hhi hR8 hl hh
+      (xFr_ok (lo := -8 - Z.toInt) (hi := 0) _ _ _ hps) hR (by omega) hhi hR8 hl hh
       (fun _ _ ⟨_, _, hJ, _⟩ => hJc _ _ hJ ▸ hC0) hph.fr (hnr' (xFr_noRet _ _ _)) (fun _ _ _ => rfl) hsub hfit hFO
+
+/-- **A stack-checked prologue without saved registers is inside the
+consumer's facts** (`mainUW_gen`'s `pro`): `proW_sfactsP` at `ps := []`. -/
+theorem proW_sfacts {ms : MemSide isa} {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp)
+    {fn sc entry : Label} {Z : Int64} {L : Label} {zl zf z1 z2 zs : Nat}
+    (hin : prologueIn cells fn sc entry Z 8 L zl zf z1 z2 zs [] = true)
+    {J : AS → Ctl → Prop} {c0 : Ctl} (hC0 : CFacts Λ lbl c0) (hJc : ∀ σ c, J σ c → c = c0) {tp : UInt64}
+    (htp : ∀ σ c, J σ c → σ.regs.fsBase = tp) (hph : ProPh okPc ph lab fn sc Z L zl zf z1 z2 zs [])
+    {R : Region} {F : MachineData → Prop} (hR : R.OK) (hR8 : R.base.toNat % 8 = 0)
+    (hlo : R.lo ≤ -8 - Z.toInt) (hhi : 0 ≤ R.hi) (hl : R.lo % 8 = 0) (hh : R.hi % 8 = 0) (hZ : 0 ≤ Z.toInt)
+    (hmr : Scc.Sem.Kernel.mapped (K0 Λ) false ⟨limA tp, 8⟩ = true)
+    (hun : ∀ m, F m → Mem.loadInt m.dmem (limA tp) 8 = none)
+    (hsub : rS.Sub Λ.stackPool) (hfit : rS.lo + rS.size ≤ 2 ^ 64) (hFO : ∀ m, F m → StackOff rS R m) :
+    XProW (fun s c => SFacts Λ μ own rS Tk lbl s c) K exe endPc R F ms ((_root_.Executable.labels exe).label fn)
+      Z 8 L zl zf z1 z2 zs [] J :=
+  proW_sfactsP hI hin (by simp) hC0 hJc htp hph hR hR8 hlo hhi hl hh hZ hmr hun hsub hfit hFO
 
 /-- **`fn0_seg`'s `hWp` inside `BodyW0`**: a user function's prologue
 (`proInC`) with its phase facts (`hph`), every control of its invariant

@@ -90,4 +90,57 @@ def scopeGaps : List String :=
 def blocks : Nat := (corpus.map (·.2.length)).foldl (· + ·) 0
 #eval s!"SyntaxTest: {blocks} code blocks round-trip"
 
+/-! ## (M1) The TEXTS T2 extern surface: every example parses, round-trips and checks -/
+
+def m1Src : String := "
+def pk(u : Unit) : Unit =
+  let x = park ()
+  ret x
+def upk(t : ThreadId) : Unit =
+  let x = unpark t
+  ret x
+def mr(r : Reg[32, rw]) : Reg[32, rw] * U32 =
+  let x = mmioRead[32, rw, acq] r
+  ret x
+def ra(b : Blk[16, 32, rw, stride 8; 0 3]) : Reg[32, rw] * Blk[16, 32, rw, stride 8; 1 0 3] =
+  let x = regAt[1 of Blk[16, 32, rw, stride 8; 0 3]] b
+  ret x
+device def dr(d : Reg[32, wo]) : U32 =
+  let x = devRecv[32] d
+  ret x
+device def dc(u : Unit) : U32 =
+  let x = devChoice[32] ()
+  ret x
+device def di(l : Irq) : Unit =
+  let x = devIrq l
+  ret x
+device def dout(v : U64) : Unit =
+  let x = devOut[64] v
+  ret x
+def mw(a : Reg[32, rw] * U32) : Reg[32, rw] =
+  let (r, v) = a
+  let p = (r, v)
+  let x = mmioWrite[32, rw, rel] p
+  ret x
+device def dw(a : Reg[32, ro] * U32) : Unit =
+  let (s, v) = a
+  let p = (s, v)
+  let x = devWrite[32] p
+  ret x
+"
+
+def m1Prog : Prog := match parseProg m1Src with | .ok p => p | .error _ => []
+
+#guard m1Prog.length == 10
+#guard m1Prog.all (roundTrips ·)
+#guard accepts (checkProg m1Prog)
+-- `regAt[3 of …; 0 3]`: register 3 is already taken -- parses, refused by the checker (`ExtName.ok`)
+#guard match parseProg "def rb(b : Blk[16, 32, rw, stride 8; 0 3]) : Reg[32, rw] * Blk[16, 32, rw, stride 8; 3 0 3] =\n  let x = regAt[3 of Blk[16, 32, rw, stride 8; 0 3]] b\n  ret x" with
+  | .ok p => match checkProg p with
+    | .ok _ => false
+    | .error e => (e.splitOn "inadmissible extern").length > 1
+  | .error _ => false
+-- core extern arguments are atoms: a tuple argument does not parse
+#guard (parseProg "def mw(a : Reg[32, rw] * U32) : Reg[32, rw] =\n  let (r, v) = a\n  let x = mmioWrite[32, rw, rel] (r, v)\n  ret x") matches .error _
+
 end SyntaxTest

@@ -1,0 +1,10 @@
+CoreLang.Ty : Type
+CoreTerm.Expr : Type
+CoreTerm.Op : Type
+TermLiveC.callEnd : String → String → String → String → CoreTerm.Op → CoreTerm.Expr → Bool
+  := fun f mv tk x op e =>
+  match op, e with
+  | CoreTerm.Op.pair (CoreTerm.At.var m') (CoreTerm.At.var t'),
+    CoreTerm.Expr.let_ x_1 (CoreTerm.Op.call f' is (CoreTerm.At.var q) ts) e =>
+    m' == mv && t' == tk && f' == f && q == x && x != mv && x != tk
+  | x, x_1 => false

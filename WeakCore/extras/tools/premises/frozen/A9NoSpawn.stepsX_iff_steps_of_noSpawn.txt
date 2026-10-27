@@ -34,6 +34,7 @@ TermRun.Step : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → TermRun.Cfg
 TermRun.TTh : Type
 TermRun.TTh.env : TermRun.TTh → TermRun.Env
 TermRun.TTh.nalloc : TermRun.TTh → Nat
+TermRun.TTh.permit : TermRun.TTh → Option WeakMem.Ts
 TermRun.TTh.promises : TermRun.TTh → List WeakMem.Ts
 TermRun.TTh.stack : TermRun.TTh → List TermRun.Frame
 TermRun.TTh.term : TermRun.TTh → CoreTerm.Expr
@@ -121,8 +122,10 @@ TermSpawnStep.spawnPar : TermRun.Cfg → Nat → TermRun.TTh → String → Core
     env :=
       (x, CoreLang.Ty.tid, [TermRun.cst (WeakMem.Val.loc { label := TermSpawnStep.tidLabel c i th, offset := 0 } 0)]) ::
         th.env,
-    σs := __src.σs, stack := __src.stack, vs := __src.vs, promises := __src.promises, nalloc := th.nalloc + 1,
-    undefs := __src.undefs, tidLbl := __src.tidLbl }
+    σs := __src.σs, stack := __src.stack, vs := __src.vs, promises := __src.promises,
+    nalloc := th.nalloc + if th.tidLbl = none then 2 else 1, undefs := __src.undefs,
+    tidLbl := th.tidLbl.orElse fun x => some (TermRun.freshLabel c.lbase c.n i (th.nalloc + 1)),
+    permit := __src.permit }
 TermSpawnStep.spawnS : TermRun.Cfg → TermRun.TTh → TermRun.St
   := fun c th => TermRun.fenceS (TermRun.stOf c.mem c.pairs th) WeakMem.Fence.sy
 TermSpawnStep.spawnT : TermRun.Cfg → Nat → TermRun.TTh → TermRun.TTh → TermRun.Cfg

@@ -59,7 +59,39 @@ info: "\
   (c.splitOn "theorem prog_not_accepted : Scc.Lower.Accepted0 prog_src = false").length == 2 &&
   (c.splitOn "theorem prog_placeOK : ").length == 2 &&
   (c.splitOn "theorem prog_cert_ready").length == 1 &&
+  (c.splitOn "Placement holds; `prog_src` is outside `Accepted0`, so no correctness claim").length == 2 &&
   (c.splitOn "#guard Scc.Cert.Link.X64.parsesTo ⟨asm, sizes, labelOffs⟩ out.prog out.secs").length == 2
+-- On both ISAs, a program in `Accepted1` also gets `prog_accepted1` (the
+-- fragment of the compiler theorems over `Accepted1`), whether or not it is
+-- in `Accepted0`. An `Accepted0` program's file is otherwise as before
+-- (`prog_accepted`, `prog_cert_ready`).
+#guard
+  let c := render { arch := .arm } "t.w" "" "" none [] { accepted := true, accepted1 := true, hasNeed := true }
+  (c.splitOn "theorem prog_accepted : Scc.Lower.Accepted0 prog_src = true").length == 2 &&
+  (c.splitOn "theorem prog_accepted1 : Scc.Lower.Accepted1 prog_src = true").length == 2 &&
+  (c.splitOn "theorem prog_cert_ready : ").length == 2
+#guard
+  let c := render { arch := .arm } "t.w" "" "" none [] { accepted1 := true, hasNeed := true }
+  (c.splitOn "theorem prog_not_accepted : Scc.Lower.Accepted0 prog_src = false").length == 2 &&
+  (c.splitOn "theorem prog_accepted1 : Scc.Lower.Accepted1 prog_src = true").length == 2 &&
+  (c.splitOn "theorem prog_cert_ready").length == 1 &&
+  (c.splitOn "outside `Accepted0` and in `Accepted1`").length == 2
+#guard
+  let c := render { arch := .x64 } "t.w" "" "" (some ([], [])) [] { accepted := true, accepted1 := true, hasNeed := true }
+  (c.splitOn "theorem prog_accepted : Scc.Lower.Accepted0 prog_src = true").length == 2 &&
+  (c.splitOn "theorem prog_accepted1 : Scc.Lower.Accepted1 prog_src = true").length == 2 &&
+  (c.splitOn "x64_scc_correctE_text_closedAt1").length == 3 &&
+  (c.splitOn "theorem prog_cert_ready : ").length == 2
+#guard
+  let c := render { arch := .x64 } "t.w" "" "" (some ([], [])) [] { accepted1 := true, hasNeed := true }
+  (c.splitOn "theorem prog_not_accepted : Scc.Lower.Accepted0 prog_src = false").length == 2 &&
+  (c.splitOn "theorem prog_accepted1 : Scc.Lower.Accepted1 prog_src = true").length == 2 &&
+  (c.splitOn "theorem prog_cert_ready").length == 1 &&
+  (c.splitOn "x86-64 compiler theorem over `Accepted1` covers it").length == 2 &&
+  (c.splitOn "MainFrame1Ok").length == 2
+#guard
+  let c := render { arch := .x64 } "t.w" "" "" (some ([], [])) [] { accepted := true, hasNeed := true }
+  (c.splitOn "theorem prog_accepted1").length == 1
 -- The emitter is checked per function (`emitItemsMaps_of_stages`): one
 -- `emit_eq_i` per function of the lowered IR; on x64 each starts at the local
 -- label number its predecessor's literal leaves.

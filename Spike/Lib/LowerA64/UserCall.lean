@@ -120,6 +120,7 @@ theorem userCallW_of_fn {d : Decl} (hd : Scc.Lower.Accepted0 [d] = true) {cx : F
     (hsub : rS.Sub Λ.stackPool) (hfit : rS.lo + rS.size ≤ 2 ^ 64)
     (hFO : ∀ m, F m → Spike.Lib.A64.Flow.Ret0.CallerCells R (-Z.toInt) (-D) 0 m →
       StackOff rS (R.callee (-Z.toInt) (-D) 0) m)
+    (hK : ms.K = some Scc.Sem.A64.abi)
     (hab : ∀ F' : MachineData → Prop, (R.callee (-Z.toInt) (-D) 0).OK →
       (R.callee (-Z.toInt) (-D) 0).base.toNat % 16 = 0 → FStable (R.callee (-Z.toInt) (-D) 0) F' →
       (∀ m, F' m → F m ∧ Spike.Lib.A64.Flow.Ret0.CallerCells R (-Z.toInt) (-D) 0 m) → ∀ fp ra' : BitVec 64,
@@ -163,7 +164,7 @@ theorem userCallW_of_fn {d : Decl} (hd : Scc.Lower.Accepted0 [d] = true) {cx : F
       rw [show tcbA σ.regs (Int64.ofNat Scc.IR.Tcb.stackLimit) = limA g.tp from tcbA_limA htp0]
       refine ⟨hlim'.rt, hlim'.mp, hlim'.unmapped, fun v hv => ?_⟩
       rw [hsp]; exact hlim'.room v hv)
-  have hlag := (bodyW0_lag hseg).mono_W (W' := fun s c => SFacts Λ μ own rS Tk lbl s c Dt)
+  have hlag := (bodyW0_lag hK hseg).mono_W (W' := fun s c => SFacts Λ μ own rS Tk lbl s c Dt)
     fun s c h => SFacts.dt_mono h fun _ h => h.elim
   refine (SegW.seq_left (Q := Lag [d] (· = Spike.Lib.A64Consumer.c0) (At exe endPc (R.callee (-Z.toInt) (-D) 0) F'
       (abortN (immsOf d) (InWalk d) [d] lbl cx (_root_.Executable.labels exe).label g.fp g.ra

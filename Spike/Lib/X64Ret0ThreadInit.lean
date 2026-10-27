@@ -27,7 +27,8 @@ so are the nodes at the six stores.
   store operands (`%rax` the value, `%rcx = tcb`; `FieldOps`).
 - **The code** (`threadInitIn`, `ret0_threadInitIn`): every block, the
   call and the stores at their label and byte offset in `ret0Cells`,
-  decided by the kernel.
+  decided by the kernel; `threadInitInAt` the same with the return point
+  at any label (`.x8` after a setup block).
 -/
 import Spike.Lib.X64Ret0StackTake
 import Scc.IR.Core
@@ -258,7 +259,25 @@ def threadInitIn (cells : List (Directive × Nat)) : Bool :=
   blockAtB cells x7L 117 tiRet &&
   (storeOff.zip storeBlks).all fun (o, b) => blockAtB cells x7L o b
 
+/-- **`scc_rt_thread_init`'s code in `cells` with its return point at
+`x`**: `threadInitIn` with `.x7` replaced by `x`. x86-64 numbers the `.x`
+labels with one counter over the program, so the return point is `.x7`
+after a bare `scc_rt_main` and `.x8` after a setup block
+(`Spike.Lib.X64.Rt.SetupCode.ti`); at `.x7` it is `threadInitIn`
+(`threadInitInAt_x7`). -/
+def threadInitInAt (cells : List (Directive × Nat)) (x : Label) : Bool :=
+  labelGapB cells fnL entryL 12 && blockAtB cells fnL 0 tiPro && blockAtB cells entryL 0 tiArg &&
+  blockAtB cells entryL 7 callBlk && labelGapB cells entryL x 12 &&
+  blockAtB cells x 0 tiSp && blockAtB cells x 51 tiF1 && blockAtB cells x 63 tiZ &&
+  blockAtB cells x 78 tiZ && blockAtB cells x 93 tiF4 && blockAtB cells x 105 tiF5 &&
+  blockAtB cells x 117 tiRet &&
+  (storeOff.zip storeBlks).all fun (o, b) => blockAtB cells x o b
+
+theorem threadInitInAt_x7 (cells : List (Directive × Nat)) : threadInitInAt cells x7L = threadInitIn cells := rfl
+
 #guard threadInitIn SccCode.ret0Cells
+#guard threadInitInAt SccCode.ret0Cells x7L
+#guard !threadInitInAt SccCode.ret0Cells ".Lscc_rt_thread_init.x8"
 
 /-- The code's check on `ret0Cells`. -/
 theorem ret0_threadInitIn : threadInitIn SccCode.ret0Cells = true := by decide +kernel

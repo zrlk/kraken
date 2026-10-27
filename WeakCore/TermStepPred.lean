@@ -804,7 +804,7 @@ theorem certified_promPredEX {p : Prog} {k : Promises.Knobs} {arch : Arch} {c : 
     {n0 v0 na0 : Nat} [ProgRetIall p] [TermTyped.WrIniC] (hP : ProgT p) (hstep : StepPredNumX p)
     (hsc : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → ScopeAt p i c0) (hvI : TermViewInv.ViewInv c)
     (hwin : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → NoHoldPubA p k arch E0 E0 i c0)
-    (h0 : InvAtXF p k arch i E0 n0 v0 na0 c) (hc : Certified p k arch c i)
+    (h0 : InvAtXF p k arch i E0 n0 v0 na0 c) (hTA : TermTyped.TidAt i c E0) (hc : Certified p k arch c i)
     {t : Ts} {m : Msg} (ht : t ∈ TermFul.promsOf c i) (hm : c.mem[t]? = some m) (hIW : IniWr E0 m.loc)
     {n : Nat} {P : Proto} (hW : WordAt E0 m.loc n P) (hep : P.epoch = true) (hv : m.view < t)
     (hund : ∃ t0 m0, c.mem[t0]? = some m0 ∧ m0.loc = m.loc ∧ m0.val = .undef ∧ t0 ∉ TermFul.promsOf c i) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) :
@@ -814,7 +814,7 @@ theorem certified_promPredEX {p : Prog} {k : Promises.Knobs} {arch : Arch} {c : 
   rw [hm] at hm'
   cases hm'
   have hc1 : Certified p k arch c1 i := certified_back (.thread h2 (.refl _)) hc2
-  obtain ⟨th1', E1, hth1', hx1, ⟨ρ, η, cx, rfl, hE, hT, htv, hi, hrp⟩, hmi1, -⟩ := solo_typedXF (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hsc hvI hwin h0 h1 hc1
+  obtain ⟨th1', E1, hth1', hx1, ⟨ρ, η, cx, rfl, hE, hT, htv, hi, hrp⟩, hmi1, -⟩ := solo_typedXF (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hsc hvI hwin h0 hTA h1 hc1
   rw [hth1] at hth1'
   cases hth1'
   have hscope := hsc c1 h1 hc1 th1 hth1 (TermTyped.not_spawnT_of_steps hth1 h2) ρ η cx hE hT htv hi
@@ -894,7 +894,7 @@ theorem promPredTX {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {M
     rw [TermFul.promsOf_some X.hth] at h4
     exact X.inv.promNU i th t0 m0 X.hth h4 h1m h3m
   exact certified_promPredEX (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hstep (fun c1 h1 h2 => (hrun S' hS' c1 h1 h2).1) (by first | exact TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw | exact TermViewInv.viewInv_run hV0 X.run | exact TermViewInv.viewInv_thread (TermViewInv.viewInv_run hV0 X.run) X.hc') (fun c1 h1 h2 => (hrun S' hS' c1 h1 h2).2)
-    h0 hc (by rw [TermFul.promsOf_some X.hth]; exact ht) hm hIW hW hep hv hund
+    h0 (TermMain.tidAt_cut X.inv i S') hc (by rw [TermFul.promsOf_some X.hth]; exact ht) hm hIW hW hep hv hund
 
 #print axioms promPredTX
 

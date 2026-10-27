@@ -229,22 +229,33 @@ abort, with the abort kind of the part of `B` the source crosses".
    `R t s`, a witness `w` with
    `Components M Λ w t s`, and a source thread `i` with `w.thr i = some tid`
    such that `AbortJustified B S tr s i k`:
-   - `overflow`, `heap`, `stack`, `threads`: some step of thread `i` from
+   - `overflow`, `heap`, `threads`: some step of thread `i` from
      `s` **crosses** the budget part of kind `k` (`B.Part k i`): the part
      holds at `s` and fails after the step. The parts are thread `i`'s own
-     numbers (`NoBigNumT i`), heap use within `B.cells`, thread `i`'s call
-     depth within `B.frames`, and the thread count within `B.threads`.
+     numbers (`NoBigNumT i`), heap use within `B.cells`, and the thread
+     count within `B.threads`.
+   - `stack`: some step of thread `i` from `s` leaves its call depth above
+     `B.frames` (`B.Part .stack i` fails after it), whether or not it held
+     at `s`. Unlike the other kinds the abort need not happen at the
+     crossing: the runtime has no depth counter, and aborts when a frame
+     does not fit under the stack cap, which the layout places at or
+     beyond `B.frames` frames (§7.3, item 5;
+     `AbortJustified.stack_part_after`).
    - `writeErr`: `Ev.writeErr ∈ tr` (the kernel refused an earlier `write`).
    - `threads`, as an alternative to a crossing: `Ev.cloneErr ∈ tr` (the
      kernel refused an earlier `clone`, §3 K6c; `AbortJustified.of_cloneErr`).
      `EnvJustified tr k` names this environment justification; `crossing`,
-     `part_before` and `not_of_not_part` assume its absence.
+     `part_before` and `not_of_not_part` assume its absence and
+     `k ≠ .stack`.
 
    Crossing, not merely ending outside: once a part is exceeded at `s` (a big
    number in a dead variable, say), "some step ends outside" would hold for
    every step of every thread and justify any abort.
-   `AbortJustified.part_before` / `not_of_not_part`: a budget abort is never
-   justified at a configuration already outside that part for that thread.
+   `AbortJustified.part_before` / `not_of_not_part`: a budget abort other
+   than `stack` is never justified at a configuration already outside that
+   part for that thread. The stack abort is the exception (§7.3, item 5):
+   it may come at any depth past `B.frames`, so a thread within `B.frames`
+   frames never sees it, but one past it may run deeper before it does.
 
    The trace of `s` is exactly the target's observable trace: the target
    has produced every byte the source produced before the step that crosses
@@ -828,11 +839,11 @@ Where the implementation is more specific than the list above:
   states `sysStep` returns the thread to from the solo configuration (only
   that thread, no shared write, no byte of a `write` out), with the
   kernel's register dependencies (`svcDeps`, the result registers from no
-  input, so the result views are `retThread`'s); at `write` also the
-  byte loads (`writeTree`); at a transfer site the state `xferStep` leaves
-  the thread in; at `exit`, `exit_group` and `clone` nothing. A thread may
-  reach a system call with outstanding promises, and a write after a system
-  call can be promised before it (the target files check `futex` wake,
+  input, so the result views are `retThread`'s); at a transfer site the
+  state `xferStep` leaves the thread in; at `exit`, `exit_group`, `clone`
+  and `write` nothing. A thread may reach a system call other than `clone`
+  and `write` with outstanding promises, and a write after such a call can
+  be promised before it (the target files check `futex` wake,
   `rt_sigaction` and `exit_group`). The design invariant is: the first step
   exact, later steps never under-approximating, except where the table
   says. It is enforced by this table, not a theorem.
@@ -840,19 +851,19 @@ Where the implementation is more specific than the list above:
   | Residual | Direction | Status |
   | --- | --- | --- |
   | `fresh`'s message part not checked in the solo configuration (no shared write there); the release's range match loose | over-approximates | sound |
-  | `write`: certification does not raise the thread's views by the kernel's byte reads (`readByte`) | over-approximates | sound |
   | the pool bytes are the kernel state's at the step, fixed for the run: a range released and re-taken in one certification run reads stale bytes | under-approximates | obligation `NoRetakeAfterRelease` (no certification run takes a range it released earlier in the same run); unreachable for the programs certified so far (no release site reached) |
   | the thread's own held ranges at `clone` | under-approximates | obligation `NoTouchAfterHandoff`; moot while `clone` is a dead end |
   | `clone` a dead end (no promise across it) | under-approximates | argued hardware claim (§4, *No promise across `clone`*; §6, 44) |
+  | `write` a dead end (no promise across it) | under-approximates | argued hardware claim on x64 (§4, *No promise across `clone`*; §6, 44); on AArch64 faithful for one thread only, a full barrier before `write`'s `svc` needed before any multi-threaded target (§9.0, *Verdict*) |
 
   What the proofs give on top (`Scc/Sem/CertLift.lean`,
   `Scc/Sem/CertSys.lean`): after a take whose range's pool bytes are zero,
   a certified thread is certified (`certAfter_take`), although the `xfer`
   hook itself asks no `CertAfter`; at a supported call other than `write`
   and `clone` a certified thread with promises has a kernel return after
-  which it is certified (`sys_progress`), and none is certified at `exit`
-  or `exit_group` (`prom_nil_of_exit`). At `write` that converse is open
-  (§9, *Open for hello1*). Still differing:
+  which it is certified (`sys_progress`), and none is certified at `exit`,
+  `exit_group` or `write` (`prom_nil_of_exit`, `prom_nil_of_write`). Still
+  differing:
   - **`futex`** has no memory effect in either (K7).
   - `sysStep_ret_mem` assumes the `write` progress record is at most the
     requested count (an invariant of `sysStep`'s `write` steps, not proved
@@ -928,6 +939,12 @@ Where the implementation is more specific than the list above:
   before `.clone`), which on hardware orders every earlier access before
   every later one, and so excludes the load-buffering and message-passing
   shapes across the call that the dead end removes from the model.
+  `write` is a dead end too (§6, 44), but fact (2) does not hold there:
+  `scc_rt_print` has no barrier before its `svc`/`syscall`. On x64 fact (1)
+  and TSO suffice (§9.0, *x86-64*). On AArch64 the dead end at `write`
+  removes `MP+svceret+addr` and `LB+svc-erets` across the call (§9.0), so
+  it is faithful only for one thread (no observer); a `dmb ish` before
+  `scc_rt_print`'s `svc` is needed before any multi-threaded target.
 - The loader `T.load`: that the Linux loader maps the executable as its
   program headers say, and that the layout `Λ` read from the executable
   (`Scc.Cert.Elf`) is where it puts the text, the image, the regions (K10,
@@ -1062,8 +1079,9 @@ and are to be reopened at the trigger given:
 
 - *Never-mirror* (§9.0): no target promise is mirrored by a source
   promise in the one-thread relation. Revisit at the start of M2.
-- *Abort budgets by exact runtime counters*, option (c) (§7.3, item 5).
-  Revisit once the runtime counters land, before M3.
+- *Abort budgets*, option (c) (§7.3, item 5): an exact runtime counter
+  for the heap; for the stack the byte cap only, the abort possibly after
+  the crossing of `B.frames`. Revisit before M3.
 - *A system call with outstanding promises*: kept as the open hypothesis
   `SvcNoProm` of the AArch64 one-thread theorem. Planned fix: certification
   does not pass an `svc`/`syscall` (`Scc/Sem/Kernel.lean`, `certExec`),
@@ -1223,6 +1241,18 @@ and are to be reopened at the trigger given:
     (`Spike/Test/{A64,X64}CloneCert.lean`); the take-mark promise sets of
     `ret0`/`hello1` (AArch64 six writes, x64 one), the `OwnDom` runs and
     the litmus corpora (`aarch64` 52/52, `x86_64` 28/28) are unchanged.
+    **Extended to `write`** (`soloExec`: no branch at `write`, neither the
+    counts nor the errors): a thread with an outstanding promise at a
+    `write` cannot certify (`prom_nil_of_write`). What it buys: the
+    consumers' `WriteNoProm` follows from certification, and the converse
+    of `sysStep_solo` at `write` (the buffer loaded in one certification
+    step against one byte per kernel step, views raised by `readByte`,
+    and mid-write `wr > 0`) is not needed. Justification: on x64 as for
+    `clone`; on AArch64 fact (2) of §4 does not hold (no barrier before
+    `scc_rt_print`'s `svc`), so the extension is faithful only for one
+    thread, and a `dmb ish` before that `svc` (§9.0, *Verdict* (i)) is
+    needed before any multi-threaded target. The fallback is
+    certification that tracks `wr` (§9.0, A1).
 
 ## 7. Open points for WeakCore
 
@@ -1546,11 +1576,12 @@ obligations*) are labelled in the runtime (§7.4, item 1).
    directives, and the x64 `cmpq %fs:…` (which Kraken rejects: only `mov`
    takes a `%fs:` operand) became a `mov` and a `cmp`.
 
-5. **Abort budgets: exact crossings** (decided: (c); to be implemented,
-   it may be revisited). `AbortJustified` asks a budget abort to be an
-   exact crossing: the part (`Budget.Part`) holds at the source
-   configuration and fails after thread `i`'s step (`part_before`). The
-   runtime's thresholds do not line up with the parts:
+5. **Abort budgets: exact crossings** (decided: (c), exact for the heap,
+   late for the stack; it may be revisited). `AbortJustified` asks a
+   budget abort other than `stack` to be an exact crossing: the part
+   (`Budget.Part`) holds at the source configuration and fails after
+   thread `i`'s step (`part_before`). The runtime's thresholds do not line
+   up with the parts:
    - *Heap*: `scc_rt_alloc` bumps the arena cursor by the object's bytes
      and aborts when it passes the arena's end (or on a huge length);
      `arena_covers` bounds the target bytes by `16 · heapUse` only, so the
@@ -1573,12 +1604,23 @@ obligations*) are labelled in the runtime (§7.4, item 1).
      `s` or after the step. Smallest change, but it drops the
      not-inherited property (`part_before` and its Holes example would be
      restated). *Fallback* only if the statement may be weakened.
-   - **(c) Exact runtime counters in source units (chosen).** The runtime
-     counts `heapUse` words globally and frames per thread, and aborts
-     exactly when a count passes `B.cells` / `B.frames`; the pinned area
-     holds exactly `B.threads` control blocks. `Correct` is unchanged.
-     Chosen because it keeps the statement as strong as it is; the cost is
-     a counter update per allocation and per call at run time.
+   - **(c) Exact counter for the heap; byte cap for the stack, late abort
+     (chosen).** The runtime counts `heapUse` words globally and aborts
+     exactly when the count passes `B.cells`; the pinned area holds
+     exactly `B.threads` control blocks. For the stack there is no
+     counter: the only stack abort is the grow routine's, when a frame
+     does not fit under the byte cap, and `B.frames` is derived from the
+     cap so that the abort comes at or after the crossing of `B.frames`,
+     never before. `AbortJustified`'s `stack` case asks only the far side
+     (the part fails after some step of the thread), not the crossing.
+     Chosen because it keeps the heap and threads clauses as strong as
+     they are, and a program within `B.frames` frames still never sees a
+     stack abort; the cost is a counter update per allocation, and none
+     per call. *History*: an exact per-thread depth counter (`Tcb.depth`,
+     bracketing every non-tail call of a code block) was implemented
+     first and removed (E′): its load, compare, store and branch per call
+     and its `deep` block per call site bought only the exact depth of a
+     stack abort, which nothing relies on.
 
    The plan for (c):
    - *Heap.* A global counter `scc_rt_heap_use`; `scc_rt_alloc` takes the
@@ -1620,38 +1662,32 @@ obligations*) are labelled in the runtime (§7.4, item 1).
      So only the oldest (the crossing thread) has `old ≤ cells` and
      aborts, the others spin, and the counter stays below
      `cells + (threads + 1) · umax`.
-   - *Stack.* A per-thread depth in the control block, changed only
-     around source non-tail calls (`let x = f(a)`, `callc`; not tail calls,
-     not runtime calls): `depth + 1 > B.frames` aborts, else the call runs
-     between `depth += 1` and `depth −= 1`. `B.frames` is derived from the
-     stack cap and the largest frame, so the pool and cap checks are
-     unreachable within the part.
-     *Settled shape*: the word `Tcb.depth` (offset 64), read and written
-     only by its thread, zero in the fresh control block (no store); the
-     caller brackets a call of a user block (not an extern or runtime
-     call; `callc` is refused by the frontend): load `d`, `d + 1 > F`
-     aborts, store `d + 1`, call, store `d` back (`d` kept in a frame
-     slot). `F` is an immediate, the program's `{p}Frames` in the code
-     file, and the certificate's `B.frames`.
-     *Counter invariant* (`Scc/Sem/StackCtr.lean`, `StackCtr1`): with one
-     thread, the counter is the number of user-block frames on the source
-     stack, within `F`, but one ahead between the store of `d + 1` and the
-     `call` (the source push) and between the callee's `ret` (the source
-     pop) and the restore. The branch is the source budget (`branch`:
-     `d + 1 > F` exactly when the depth is `F`), so the abort is justified
-     by the call's push (`abort_justified`, `stack_of_push`). Inside an
-     extern call's window the source stack has one frame more than the
-     depth (the extern's model body), which justifies nothing the target
-     does there. *Own word* (`Scc/Sem/OwnWord.lean`, `Inv1.rtLoad_own`):
-     a load of a word only the thread writes returns its last write, or
+   - *Stack.* No counter. A thread's stack grows by doubling up to the
+     cap (`Layout.stackCapBytes`); a frame that does not fit takes the
+     `stack` abort in the grow routine. `B.frames` is the program's
+     `{p}Frames` in the code file, `(cap − reserve − slack) / Fr` with `Fr`
+     the largest code block frame (`Lower.stackBudget`), so with at most
+     `B.frames` calls of code blocks live the grow routine always finds
+     room: a thread within the part never aborts on the stack. Past it
+     the abort comes once the live frames no longer fit, at or after
+     depth `B.frames + 1` (smaller frames fit longer), and is justified by
+     any step that left the depth above `B.frames`
+     (`AbortJustified.stack_part_after`, `Budget.lean`'s
+     `stack_of_past`). For a certified program the prologue checks never
+     fail (`hdepth : p.length ≤ fr`: static depth and the need table give
+     room at every context), so the grow routine is not entered and the
+     late clause is not exercised. The word `Tcb.depth` (offset 64) is
+     kept, unused, this release so that `Tcb.size` and the pinned block do
+     not move; it goes with the next layout change.
+     *Own word* (`Scc/Sem/OwnWord.lean`, `Inv1.rtLoad_own`): a load of a
+     word only the thread writes returns its last write, or
      the initial value; Kraken's read rule never offers the thread's own
      unfulfilled promise, so under the cover a promise to the word (which
      certification allows) needs no exclusion. The word's value is kept
      by every instruction not writing it (`stepOne_own`) and set by a
      store (`stepOne_store_own`) or kept by a promise (`own_promise`).
-     Open on the consumer side: threading `OwnVal` of the depth word
-     through the rows, and a per-frame ghost keeping the caller's saved
-     `d` across the call.
+     (The own-word rule was written for the removed depth counter; it
+     stays as a general fact about thread-private words.)
    - *Threads.* `B.threads = maxThreads + 1` (the main thread counts); the
      abort is at the reservation `i = maxThreads + 1`, after earlier
      reservations' `clone`s complete (a counter of successful spawns), so
@@ -2557,18 +2593,20 @@ beyond it:
   releases (the stack-grow trampoline) needs the stale-snapshot item of the
   §3.1 table (`NoRetakeAfterRelease`) and a `Pre` with released bytes.
 - *`write` with promises outstanding.* `WriteNoProm`: no promise at a
-  `write`. The generic converse of `sysStep_solo` fails there in two
-  cases: at `wr = 0` a certification run may take a `writeTree` branch
-  (the buffer loaded in one step where the kernel moves one byte per step,
-  with views raised by `readByte`); at `wr > 0` (mid-write) the solo
+  `write`. With `write` a certification dead end (§6, 44) a certified
+  thread at a `write` has none (`Kernel.prom_nil_of_write`); deriving
+  `WriteNoProm` from `Pre`'s certification is not yet done in the
+  consumers. Before the dead end the generic converse of `sysStep_solo`
+  failed there in two cases: at `wr = 0` a certification run could load
+  the buffer in one step where the kernel moves one byte per step, with
+  views raised by `readByte`; at `wr > 0` (mid-write) the solo
   configuration, with no byte out, is not the real one. `ret0` writes
   only on the abort path, which its main-path fragment excludes (empty
   `AbortPath`): no state of the fragment is at a `write` (`NoWrite`, an
   `SFacts` field, from the `svc`/`syscall` nodes' call numbers), and
   `writeNoProm_of_noWrite` discharges the premise
   (`Spike/Lib/{A64,X64}SegInst.lean`). hello1's `print` writes on the main
-  path, so `NoWrite` does not hold there. Open: hello1, and once for every
-  accepted program, or the two cases.
+  path, so `NoWrite` does not hold there; `prom_nil_of_write` covers it.
 - *Clone.* The handover relies on the `clone` dead end (§6, 44); hello1
   waits for it in the consumer (`Nodes.sysOk` excludes `clone` today).
 

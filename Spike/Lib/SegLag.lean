@@ -17,6 +17,8 @@ local run reaches each of its controls from (`Lag`), among those of a set
 runs the original segment takes are kept in the lag. The pairs' facts at
 the held-back control are the obligation (`hW`). `SysOk` holds at the
 held-back control as `main`'s exit takes a local run first (`MainExit`).
+The segment's states make no `write` to the output (`hnw`): a source held
+back cannot emit the output row's bytes.
 
 - `Quiet`, `Lag`, `LagJ`, `sysOk_lag`: the controls without pending
   events, the held-back fragment and node invariant, `SysOk` from a later
@@ -62,10 +64,13 @@ variable {I : ISA} {W W' : Frag I} {K : I.State → I.State → Prop} {p : Prog}
   {lbl : WeakMem.AllocLabel → Option Nat} {ms : MemSide I} {P Q : Frag I}
 
 /-- **A segment with the source control held back**: if every control of
-`W` is `Quiet`, the segment from `P` to `Q` gives one from `P` held back to
-`Q` held back (`Lag`, at the controls of `C`), inside `W'`, given that the
-pairs of `W` held back are in `W'` (`hW`). -/
+`W` is `Quiet` and no state of `W` is at a `write` to the output (`hnw`),
+the segment from `P` to `Q` gives one from `P` held back to `Q` held back
+(`Lag`, at the controls of `C`), inside `W'`, given that the pairs of `W`
+held back are in `W'` (`hW`). -/
 theorem lag {C : Ctl → Prop} (h : SegW W K p lbl ms P Q) (hq : ∀ s c, W s c → Quiet c)
+    (hnw : ∀ s c, W s c → ∀ K', ms.K = some K' → K'.atSys s = true → ∀ buf n,
+      Scc.Sem.Kernel.decode K'.nrs (K'.nr s) (K'.arg s) ≠ some (.write 1 buf n))
     (hW : ∀ s c c', W s c' → LocalRun p c c' → C c → W' s c) :
     SegW W' K p lbl ms (Lag p C P) (Lag p C Q) := by
   obtain ⟨inv, hP, hiW, hcl⟩ := h
@@ -100,6 +105,8 @@ theorem lag {C : Ctl → Prop} (h : SegW W K p lbl ms P Q) (hq : ∀ s c, W s c 
     | xchgStore _ _ _ _ x sa u v e _ _ _ _ hx => exact (hxs x sa u v e hx).elim
     | ctrRmw _ _ _ x a τ e _ _ _ _ _ _ ht => exact (hnb x a τ e ht).elim
     | alloc _ _ x a τ e _ _ _ _ _ _ _ ht => exact (hnb x a τ e ht).elim
+    | emit K' buf n _ _ hK' hat hd _ _ _ _ =>
+      exact (hnw s c' (hiW s c' hi) K' hK' hat buf n hd).elim
   · obtain ⟨c'', hr', hx⟩ := hk s' hks
     exact ⟨c, .refl c, hX hr hc hr' hx⟩
 

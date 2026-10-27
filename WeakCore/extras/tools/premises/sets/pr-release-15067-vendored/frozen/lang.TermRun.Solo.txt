@@ -1,0 +1,22 @@
+CoreTerm.Prog : Type
+Promises.Knobs : Type
+TermRun.Cfg : Type
+TermRun.Cfg.mem : TermRun.Cfg → WeakMem.Memory
+TermRun.Solo : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → Nat → TermRun.Cfg → TermRun.Cfg → Prop
+  | TermRun.Solo.refl : ∀ {p : CoreTerm.Prog} {k : Promises.Knobs} {arch : WeakMem.Arch} {i : Nat} (c : TermRun.Cfg),
+  TermRun.Solo p k arch i c c
+  | TermRun.Solo.thread : ∀ {p : CoreTerm.Prog} {k : Promises.Knobs} {arch : WeakMem.Arch} {i : Nat} {c c' c'' : TermRun.Cfg},
+  c' ∈ TermRun.threadSteps p k arch c i → TermRun.Solo p k arch i c' c'' → TermRun.Solo p k arch i c c''
+  | TermRun.Solo.prom : ∀ {p : CoreTerm.Prog} {k : Promises.Knobs} {arch : WeakMem.Arch} {i : Nat} {c c'' : TermRun.Cfg} (a : WeakMem.Address)
+  (v : WeakMem.Val) (w : WeakMem.Ts),
+  w < Array.size c.mem → TermRun.Solo p k arch i (TermRun.promise c i a v w) c'' → TermRun.Solo p k arch i c c''
+  | TermRun.Solo.ext : ∀ {p : CoreTerm.Prog} {k : Promises.Knobs} {arch : WeakMem.Arch} {i : Nat} {c c' c'' : TermRun.Cfg},
+  c' ∈ TermRun.extSteps c i → TermRun.Solo p k arch i c' c'' → TermRun.Solo p k arch i c c''
+TermRun.extSteps : TermRun.Cfg → Nat → List TermRun.Cfg
+TermRun.promise : TermRun.Cfg → Nat → WeakMem.Address → WeakMem.Val → WeakMem.Ts → TermRun.Cfg
+TermRun.threadSteps : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → TermRun.Cfg → Nat → List TermRun.Cfg
+WeakMem.Address : Type
+WeakMem.Arch : Type
+WeakMem.Msg : Type
+WeakMem.Ts : Type
+WeakMem.Val : Type

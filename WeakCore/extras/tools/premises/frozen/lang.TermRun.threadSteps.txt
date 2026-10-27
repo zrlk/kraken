@@ -1,0 +1,28 @@
+CoreTerm.Prog : Type
+Promises.Knobs : Type
+TermRun.Cfg : Type
+TermRun.Cfg.boxFence : TermRun.Cfg → Bool
+TermRun.Cfg.cap : TermRun.Cfg → Nat
+TermRun.Cfg.lbase : TermRun.Cfg → Nat
+TermRun.Cfg.mem : TermRun.Cfg → WeakMem.Memory
+TermRun.Cfg.pairs : TermRun.Cfg → List WeakMem.Ts
+TermRun.Cfg.ths : TermRun.Cfg → Array TermRun.TTh
+TermRun.Cfg.trace : TermRun.Cfg → List TermRun.Event
+TermRun.TTh : Type
+TermRun.gOf : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → TermRun.Cfg → Nat → TermRun.G
+TermRun.threadSteps : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → TermRun.Cfg → Nat → List TermRun.Cfg
+  := fun p k arch c i =>
+  match c.ths[i]? with
+  | none => []
+  | some th =>
+    List.map
+      (fun x =>
+        match x with
+        | (mem, pairs, th') =>
+          { mem := mem, pairs := pairs, ths := c.ths.set! i th', lbase := c.lbase, boxFence := c.boxFence, cap := c.cap,
+            trace := c.trace })
+      (TermRun.tstep (TermRun.gOf p k arch c i) c.mem c.pairs th)
+TermRun.tstep : TermRun.G → WeakMem.Memory → List WeakMem.Ts → TermRun.TTh → List (WeakMem.Memory × List WeakMem.Ts × TermRun.TTh)
+WeakMem.Arch : Type
+WeakMem.Memory : Type
+WeakMem.Ts : Type

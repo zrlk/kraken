@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Tests of Scc/Test/certify.sh: its verdict and exit status on x64 `ret0`
-# (certified with --instantiate, placement decided without), on two damaged copies of that executable (a truncated
+# (certified with --instantiate, placement decided without; the theorem over
+# `Accepted1` with `prog_mainFrame1`, and with CERTIFY_X64_FRAGMENT=0 the one
+# over `Accepted0`), on x64 `ifsub1` (certified, outside `Accepted0`), on two damaged copies of that executable (a truncated
 # file; `scc_rt_heap`'s symbol size patched to 0), on a program outside the
 # certified fragment (non-tail recursion) and on arm `ret0` (`ld.lld`'s
 # default link: `.rodata` below the code, a build-id note; certified with
@@ -27,6 +29,26 @@ run() { # expected-status expected-verdict-prefix args...
 }
 
 run 0 "certified" --instantiate Scc/Test/ret0.w
+# x64 instantiates the theorem over `Accepted1` with `main`'s frame bound.
+thm() { # case, post file, expected theorem, expected frame-bound flag (1/0)
+  local t=$1 f=$2 want=$3 hfr=$4 n
+  n=$(grep -c "^theorem prog_mainFrame1 " "$f" 2>/dev/null)
+  if grep -q "^  Spike\.Lib\.LowerX64\.$want (cfg := config)" "$f" && [ "$n" = "$hfr" ]; then
+    echo "ok   $t: $want"
+  else echo "FAIL $t: not $want (prog_mainFrame1: $n)"; fails=$((fails+1)); fi
+}
+thm "x64 ret0" .lake/certify/x64/ret0/ret0.post.lean x64_scc_correctE_text_closedAt1 1
+run 0 "certified" --instantiate Scc/Test/ifsub1.w
+thm "x64 ifsub1" .lake/certify/x64/ifsub1/ifsub1.post.lean x64_scc_correctE_text_closedAt1 1
+# An `Accepted0` program without `MainFrame1Ok` takes the theorem over
+# `Accepted0` (forced: no `Accepted0` program found has a frame above 4096
+# bytes; `maxAdds0` checked `+`s give 4064, evidence only, not a proof).
+CERTIFY_X64_FRAGMENT=0 run 0 "certified" --instantiate Scc/Test/ret0.w
+# The path taken is in T.post.lean's header.
+if grep -q '^-- certify.sh: theorem path: closedAt fallback ' .lake/certify/x64/ret0/ret0.post.lean; then
+  echo "ok   x64 ret0, CERTIFY_X64_FRAGMENT=0: header names the closedAt fallback"
+else echo "FAIL x64 ret0, CERTIFY_X64_FRAGMENT=0: header does not name the closedAt fallback"; fails=$((fails+1)); fi
+thm "x64 ret0, CERTIFY_X64_FRAGMENT=0" .lake/certify/x64/ret0/ret0.post.lean x64_scc_correctE_text_closedAt 0
 run 10 "placement decided" Scc/Test/ret0.w
 rm -rf "$N"; mkdir -p "$N"
 cp .lake/certify/x64/ret0/ret0 "$N/good"

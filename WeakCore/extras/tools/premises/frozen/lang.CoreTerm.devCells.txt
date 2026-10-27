@@ -1,0 +1,21 @@
+CoreLang.Idx : Type
+CoreLang.Kind : Type
+CoreLang.Mode : Type
+CoreLang.Pred : Type
+CoreLang.Ty : Type
+CoreTerm.devCells : CoreLang.Ty → List CoreLang.Ty
+  eq_def ∀ (x : CoreLang.Ty),
+  CoreTerm.devCells x =
+    match x with
+    | CoreLang.Ty.ptr μ t => [t]
+    | CoreLang.Ty.ptrOpt μ t => [t]
+    | CoreLang.Ty.loc μ t => [t]
+    | a.prod b => CoreTerm.devCells a ++ CoreTerm.devCells b
+    | a.sum b => CoreTerm.devCells a ++ CoreTerm.devCells b
+    | CoreLang.Ty.array i t => CoreTerm.devCells t
+    | t.refine ψ => CoreTerm.devCells t
+    | t.iex => CoreTerm.devCells t
+    | t.iall => CoreTerm.devCells t
+    | CoreLang.Ty.tex κ t => CoreTerm.devCells t
+    | t.mu => CoreTerm.devCells t
+    | x => []

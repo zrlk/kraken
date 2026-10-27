@@ -225,7 +225,7 @@ packs and `zero`.  Nothing else in a program names a protocol. -/
 def mapTy (f : Proto → Proto) : Ty → Ty
   | .prod a b     => .prod (mapTy f a) (mapTy f b)
   | .sum a b      => .sum (mapTy f a) (mapTy f b)
-  | .code a b     => .code (mapTy f a) (mapTy f b)
+  | .code a b k   => .code (mapTy f a) (mapTy f b) k
   | .array i t    => .array i (mapTy f t)
   | .ptr μ t      => .ptr μ (mapTy f t)
   | .ptrOpt μ t   => .ptrOpt μ (mapTy f t)

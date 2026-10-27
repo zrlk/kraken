@@ -52,7 +52,7 @@ theorem promWordW_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p]
     (fun l => X.inv.rle l) (X.inv.riniCoh _ _ _ X.hth)
     (fun l cl f hs hp => X.inv.frlt l cl f (cutSto_sub hs) hp) (IniZK Eg Tot HP j) (TermTyped.WitP c.mem th.promises)
   obtain ⟨-, c2, th2, E2, h2, hc2, hth2, hx2, -, hm2, hw2, hfb2H, hB2, hIL2, hIH2, hPV2, hPO2⟩ :=
-    TermIni.certified_promNotUndefXHP (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hsc (by first | exact TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw | exact TermViewInv.viewInv_run hV0 X.run | exact TermViewInv.viewInv_thread (TermViewInv.viewInv_run hV0 X.run) X.hc') hwin hXH X.cert (fun l => X.inv.rle l) (hbr X S0) ht hmt (hbp X) (TermTyped.witP_run X.hth hm.2.2.1 (TermCert.winInv_prom (TermCert.winInv_refl X.hth)))
+    TermIni.certified_promNotUndefXHP (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hsc (by first | exact TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw | exact TermViewInv.viewInv_run hV0 X.run | exact TermViewInv.viewInv_thread (TermViewInv.viewInv_run hV0 X.run) X.hc') hwin hXH (TermMain.tidAt_cutP X.inv j S0) X.cert (fun l => X.inv.rle l) (hbr X S0) ht hmt (hbp X) (TermTyped.witP_run X.hth hm.2.2.1 (TermCert.winInv_prom (TermCert.winInv_refl X.hth)))
   have hfb2 : FrBound (Cut Eg j S0) (promise c j a v w).mem.size th.vs.vWr E2 := by
     have e : (promise c j a v w).mem.size = c.mem.size + 1 := by rw [hpi.1, Array.size_push]
     rw [e]; exact hfb2H

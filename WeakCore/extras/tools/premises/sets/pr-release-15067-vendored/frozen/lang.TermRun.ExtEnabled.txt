@@ -1,0 +1,7 @@
+CoreTerm.ExtName : Type
+CoreTerm.ExtName.park : CoreTerm.ExtName
+TermRun.ExtEnabled : CoreTerm.ExtName → TermRun.TTh → Prop
+  := fun n th => n ≠ CoreTerm.ExtName.park ∨ th.permit.isSome = true
+TermRun.TTh : Type
+TermRun.TTh.permit : TermRun.TTh → Option WeakMem.Ts
+WeakMem.Ts : Type

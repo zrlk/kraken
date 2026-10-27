@@ -208,6 +208,23 @@ theorem room_of_le {b : Nat} (hb : (Ly).stacksA.toNat + 4096 ≤ b) :
   · rw [limInit_ofPlaceOK h i]
     simp
 
+/-- **The limit word's values are 16-aligned** (the limit `scc_rt_stacks +
+4096`, `scc_rt_stacks` 16-aligned, or the initial `0`). -/
+theorem g16_ofPlaceOK :
+    ∀ v : Val, GOf Ly M0 ⟨limA (tpOf ((Ly).pinA + 0#64 + 8#64)), 8⟩ v → (v.setWidth 64).toNat % 16 = 0 := by
+  intro v hv
+  rw [Spike.Lib.X64.Rt.limA_tcb0 (RuntimeLayout.ofPlaceOK h i)] at hv
+  rcases gOf_lim (show GOf Ly M0 ⟨(Ly).pinA + 16#64, 8⟩ v from hv) with rfl | rfl
+  · have := (Ly).pool_fit
+    have := (Ly).stacks_al
+    obtain ⟨h1, h2⟩ := (Ly).stacks_sub
+    simp only at h1 h2
+    simp only [limV, BitVec.setWidth_setWidth_of_le _ (by decide : 64 ≤ 128), BitVec.setWidth_eq,
+      BitVec.toNat_add, BitVec.toNat_ofNat]
+    omega
+  · rw [limInit_ofPlaceOK h i]
+    simp
+
 /-- `scc_rt_stacks` at its label. -/
 theorem stacksA_lab : Spike.Lib.X64.Flow.Ret0.stacksA (Ly).lab = (Ly).stacksA := (Ly).lab_stacks
 

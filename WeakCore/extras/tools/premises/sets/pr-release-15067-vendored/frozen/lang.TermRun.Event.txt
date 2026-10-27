@@ -1,0 +1,10 @@
+CoreLang.Mo : Type
+CoreLang.Wd : Type
+TermRun.Event : Type
+  | TermRun.Event.out : Nat → TermRun.Event
+  | TermRun.Event.exit : Nat → TermRun.Event
+  | TermRun.Event.mmioR : Nat → CoreLang.Wd → CoreLang.Mo → Nat → TermRun.Event
+  | TermRun.Event.mmioW : Nat → CoreLang.Wd → CoreLang.Mo → Nat → TermRun.Event
+  | TermRun.Event.devWrite : Nat → CoreLang.Wd → Nat → TermRun.Event
+  | TermRun.Event.irq : Nat → TermRun.Event
+  | TermRun.Event.devOut : CoreLang.Wd → Nat → TermRun.Event

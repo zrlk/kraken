@@ -1,0 +1,31 @@
+TermRun.Cfg : Type
+TermRun.Cfg.boxFence : TermRun.Cfg → Bool
+TermRun.Cfg.cap : TermRun.Cfg → Nat
+TermRun.Cfg.lbase : TermRun.Cfg → Nat
+TermRun.Cfg.mem : TermRun.Cfg → WeakMem.Memory
+TermRun.Cfg.pairs : TermRun.Cfg → List WeakMem.Ts
+TermRun.Cfg.ths : TermRun.Cfg → Array TermRun.TTh
+TermRun.Cfg.trace : TermRun.Cfg → List TermRun.Event
+TermRun.TTh : Type
+TermRun.TTh.env : TermRun.TTh → TermRun.Env
+TermRun.TTh.nalloc : TermRun.TTh → Nat
+TermRun.TTh.permit : TermRun.TTh → Option WeakMem.Ts
+TermRun.TTh.promises : TermRun.TTh → List WeakMem.Ts
+TermRun.TTh.stack : TermRun.TTh → List TermRun.Frame
+TermRun.TTh.term : TermRun.TTh → CoreTerm.Expr
+TermRun.TTh.tidLbl : TermRun.TTh → Option WeakMem.AllocLabel
+TermRun.TTh.undefs : TermRun.TTh → Nat
+TermRun.TTh.vs : TermRun.TTh → WeakMem.VState
+TermRun.TTh.σs : TermRun.TTh → List CoreLang.Ty
+TermRun.setPermit : TermRun.Cfg → Nat → WeakMem.Ts → TermRun.Cfg
+  := fun c j v =>
+  match c.ths[j]? with
+  | some th =>
+    { mem := c.mem, pairs := c.pairs,
+      ths :=
+        c.ths.set! j
+          { term := th.term, env := th.env, σs := th.σs, stack := th.stack, vs := th.vs, promises := th.promises,
+            nalloc := th.nalloc, undefs := th.undefs, tidLbl := th.tidLbl, permit := some (max (th.permit.getD 0) v) },
+      lbase := c.lbase, boxFence := c.boxFence, cap := c.cap, trace := c.trace }
+  | none => c
+WeakMem.Ts : Type

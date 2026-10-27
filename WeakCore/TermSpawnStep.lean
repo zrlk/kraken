@@ -32,10 +32,11 @@ def spawnS (c : Cfg) (th : TTh) : St := fenceS (stOf c.mem c.pairs th) .sy
 
 /-- The parent after the spawn: post-barrier, one more allocation (the child's box: machine-invisible
 but for `nalloc`; its cell is ghost), continuing with `x := loc (tidLabel ..)` (the child's `ThreadId`,
-a constant reference to its box). -/
+a constant reference to its box). A boxless parent also gets its own box at slot nalloc+1. -/
 def spawnPar (c : Cfg) (i : Nat) (th : TTh) (x : String) (e : Expr) : TTh :=
   { withS th (spawnS c th) with
-    nalloc := th.nalloc + 1,
+    nalloc := th.nalloc + (if th.tidLbl = none then 2 else 1),
+    tidLbl := th.tidLbl.orElse (fun _ => some (freshLabel c.lbase c.n i (th.nalloc + 1))),
     term := e, env := (x, .tid, [cst (.loc ⟨tidLabel c i th, 0⟩ 0)]) :: th.env }
 
 /-- The child: `tail f [] (var a) ts` on the argument words bumped to the parent's post-barrier
@@ -171,7 +172,7 @@ theorem substTs_tb (σs : List Ty) : ∀ (t : Ty) (c d : Nat), TermClose.tb c t 
   | tvar k => intro c d h; simp only [TermClose.tb, decide_eq_true_eq] at h; simp [substTs, h]
   | prod a b iha ihb => intro c d h; simp only [TermClose.tb, Bool.and_eq_true] at h; simp [substTs, iha c d h.1, ihb c d h.2]
   | sum a b iha ihb => intro c d h; simp only [TermClose.tb, Bool.and_eq_true] at h; simp [substTs, iha c d h.1, ihb c d h.2]
-  | code a b iha ihb => intro c d h; simp only [TermClose.tb, Bool.and_eq_true] at h; simp [substTs, iha c d h.1, ihb c d h.2]
+  | code a b _ iha ihb => intro c d h; simp only [TermClose.tb, Bool.and_eq_true] at h; simp [substTs, iha c d h.1, ihb c d h.2]
   | array i t ih => intro c d h; simp only [TermClose.tb] at h; simp [substTs, ih c d h]
   | ptr μ t ih => intro c d h; simp only [TermClose.tb] at h; simp [substTs, ih c d h]
   | ptrOpt μ t ih => intro c d h; simp only [TermClose.tb] at h; simp [substTs, ih c d h]
@@ -213,7 +214,7 @@ theorem promise_ths {c : Cfg} {i : Nat} {th : TTh} (hth : c.ths[i]? = some th) (
   simp [Array.set!, hi]
 
 /-- (E1) Along `Solo i`, a thread of a kind `Q` that promising keeps and that has no thread step
-and (IO1) no extern move (a spawn site) keeps its term and its promises only grow. -/
+and no extern move (a spawn site) keeps its term and its promises only grow. -/
 theorem solo_stuck {p : Prog} {k : Promises.Knobs} {arch : Arch} {Q : TTh → Prop}
     (hQ : ∀ th l, Q th → Q { th with promises := l })
     (hS : ∀ th, Q th → ∀ c i, c.ths[i]? = some th → threadSteps p k arch c i = [])
@@ -248,7 +249,7 @@ theorem cert_stuck {p : Prog} {k : Promises.Knobs} {arch : Arch} {Q : TTh → Pr
   rw [hnp] at h2
   exact List.prefix_nil.1 h2
 
-/-- (IO1) A thread at a spawn site has no extern move. -/
+/-- A thread at a spawn site has no extern move. -/
 theorem atSite_extSteps {c : Cfg} {i : Nat} {th : TTh} (hth : c.ths[i]? = some th) (hs : AtSite th) :
     extSteps c i = [] := by
   obtain ⟨x, f, a, T, ts, e, he⟩ := hs

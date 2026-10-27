@@ -1,0 +1,265 @@
+/-
+# UElabTest — the elaboration against the libraries and EM0
+
+(a) Every `.w` is an UnElab program meaning itself: for every program of `corpus` (`SyntaxTest.corpus`, which
+    is not built as a module, less its `E1` source program),
+    `elabProg (embedProg p)` is `p` (also a theorem, `elabProg_embedProg`), and the UnElab parser reads the
+    printed `.w` (`showProg p`) back to `p`.
+(b) The EM0 sources (`EM0Prelude.u`, `em0.u`) elaborate to the hand-written `.w` of `EM0Prelude.prelude` and
+    `EM0.progDecls` up to the names of value binders (`alphaEqDecl`); `let x = n` lets of a literal are
+    substituted away on both sides first (the `.w` names `two`, `n`, `j0`; the `.u` writes the literal).
+(c) The elaboration is accepted by the checker and by the wrapper scope check (`ProgScopeOKW`).
+(d) Rule 6: an index bound by a nested operation cannot be named by a type; the `let` form can.
+(e) Rule 4's lint: `retCallLint` flags every `ret f(args)` of a declared block (`waitLoop` written with `ret`).
+(f) Diagnostics (`UDiag`): rendering, and placement of parse errors, checker errors and the lint.
+-/
+import WeakCore.USyntax
+import WeakCore.UCheck
+import WeakCore.UDiag
+import WeakCore.USyntaxTest
+import WeakCore.FlatHashMap
+import WeakCore.HashMapLF
+import WeakCore.RWLock
+import WeakCore.Typestate
+import WeakCore.Caps
+import WeakCore.Freeze
+import WeakCore.SubWord
+import WeakCore.BufSmoke
+import WeakCore.EM0
+import WeakCore.TermScopeW
+open CoreLang CoreTerm Syntax UnElab USyntax
+
+namespace UElabTest
+
+/-! ## (a) the corpus -/
+
+/-- The library programs of `SyntaxTest.corpus` (`SyntaxTest` is run, not built, so its list is repeated here). -/
+def corpus : List (String × Prog) :=
+  [("mutexLib", mutexLib), ("seqLib", seqLib), ("queueLib Int", queueLib .int),
+   ("polyQueueLib", polyQueueLib), ("claimLib Int", claimLib .int), ("pcLib", pcLib),
+   ("TermSmoke", TermSmoke.seqProg ++ TermSmoke.qProg ++ TermSmoke.cProg ++ TermSmoke.bProg),
+   ("BufSmoke", BufSmoke.mpGood ++ BufSmoke.mpPlain ++ BufSmoke.mpBad ++ BufSmoke.zProg),
+   ("Typestate", Typestate.fileLib), ("Caps", Caps.capLib),
+   ("RWLock", RWLock.rwLib ++ RWLock.bsemLib),
+   ("HashMap", HashMap.hmLib ++ HashMap.instLib ++ HashMap.intLib ++ HashMap.rwProg),
+   ("HashMapOwn", HashMapOwn.ohmLib ++ HashMapOwn.oInstLib),
+   ("HashMapLF", HashMapLF.lfLib ++ HashMapLF.lfProg),
+   ("Freeze", Freeze.frzLib ++ Freeze.frzCLib), ("SubWord", SubWord.swLib),
+   ("FlatHashMap portable", FlatHashMap.ownLib false), ("FlatHashMap x64", FlatHashMap.ownLib true)]
+
+#guard corpus.length == 18
+
+def corpusEmbedFailures : List String :=
+  corpus.filterMap fun (n, p) =>
+    let q := elabProg (embedProg p)
+    if q.length == p.length && (p.zip q).all (fun (a, b) => sameDecl a b) then none else some n
+
+#guard corpusEmbedFailures.isEmpty
+
+def corpusParseFailures : List String :=
+  corpus.filterMap fun (n, p) =>
+    match parseProgE (showProg p) with
+    | .ok q => if q.length == p.length && (p.zip q).all (fun (a, b) => sameDecl a b) then none
+               else some n
+    | .error e => some s!"{n}: {e}"
+
+#guard corpusParseFailures.isEmpty
+
+/-- Every nested operation has exactly as many operands as its head has atom positions (`setAts` neither pads
+nor drops). -/
+partial def arityArg : UArg → Bool
+  | .at _ => true
+  | .op h args => args.length == (TermScope.opAts h).length && args.all arityArg
+
+def arityE : UExpr → Bool
+  | .let_ _ h args e => args.length == (TermScope.opAts h).length && args.all arityArg && arityE e
+  | .split a _ _ e | .unpack a _ _ e | .unpackT a _ _ e | .region a _ _ _ e | .openPub a _ _ _ e =>
+      arityArg a && arityE e
+  | .case a _ e1 _ e2 | .ifnull a e1 _ e2 | .parity a _ e1 e2 => arityArg a && arityE e1 && arityE e2
+  | .ifeq a b e1 e2 => arityArg a && arityArg b && arityE e1 && arityE e2
+  | .cas _ _ w e v _ e1 e2 => [w, e, v].all arityArg && arityE e1 && arityE e2
+  | .casp _ _ w e0 e1 v0 v1 _ ok fl => [w, e0, e1, v0, v1].all arityArg && arityE ok && arityE fl
+  | .ret a | .tail _ _ a _ => arityArg a
+
+def arityOK (s : String) (env : Env := {}) : Bool :=
+  match parseUnit s env with
+  | .ok r => r.unit.decls.all (arityE ·.body)
+  | .error _ => false
+
+#guard corpus.all fun (_, p) => arityOK (showProg p)
+#guard arityOK USyntaxTest.preludeU
+#guard arityOK (USyntaxTest.em0U.replace "import EM0Prelude" "") { lib := USyntaxTest.preludeP.reverse }
+#guard arityOK "def f(m : Ptr pub (Int * Int)) : Int = ret ((load acq (fld 1 m)) + (validate (load acq (fld 0 m))))"
+
+/-! ## (b) alpha-equivalence up to value binders -/
+
+/-- Rename an atom. -/
+def renAt (ρ : List (String × At)) : At → At
+  | .var x => (ρ.lookup x).getD (.var x)
+  | a => a
+
+def renOp (ρ : List (String × At)) (o : Op) : Op := setAts o ((TermScope.opAts o).map (renAt ρ))
+
+/-- Canonical form: value binders renamed `·0`, `·1`, … in binding order; lets of a literal substituted.
+Index, region and type binders keep their names (types mention them), and so do the binders of `nameI`,
+`a mod n`, `a & m` and `ldp`, which name indices.  A renamed binder that a type mentions makes the two sides
+differ (types are compared as written), so the comparison errs only towards "different". -/
+def canon (ρ : List (String × At)) (n : Nat) : Expr → Expr
+  | .let_ x o e =>
+      match o with
+      | .atom (.lit m) => canon ((x, .lit m) :: ρ) n e
+      | .nameI _ | .rem _ _ | .band _ _ | .ldp _ _ _ _ =>
+          .let_ x (renOp ρ o) (canon ((x, .var x) :: ρ) n e)
+      | _ => let v := "·" ++ toString n; .let_ v (renOp ρ o) (canon ((x, .var v) :: ρ) (n + 1) e)
+  | .split a x y e =>
+      let vx := "·" ++ toString n; let vy := "·" ++ toString (n + 1)
+      .split (renAt ρ a) vx vy (canon ((y, .var vy) :: (x, .var vx) :: ρ) (n + 2) e)
+  | .unpack a i x e => let v := "·" ++ toString n; .unpack (renAt ρ a) i v (canon ((x, .var v) :: (i, .var i) :: ρ) (n + 1) e)
+  | .unpackT a α x e => let v := "·" ++ toString n; .unpackT (renAt ρ a) α v (canon ((x, .var v) :: ρ) (n + 1) e)
+  | .region a r p t e =>
+      let vp := "·" ++ toString n; let vt := "·" ++ toString (n + 1)
+      .region (renAt ρ a) r vp vt (canon ((t, .var vt) :: (p, .var vp) :: ρ) (n + 2) e)
+  | .openPub a r p c e =>
+      let vp := "·" ++ toString n; let vc := "·" ++ toString (n + 1)
+      .openPub (renAt ρ a) r vp vc (canon ((c, .var vc) :: (p, .var vp) :: ρ) (n + 2) e)
+  | .case a x e1 y e2 =>
+      let vx := "·" ++ toString n; let vy := "·" ++ toString (n + 1)
+      .case (renAt ρ a) vx (canon ((x, .var vx) :: ρ) (n + 2) e1) vy (canon ((y, .var vy) :: ρ) (n + 2) e2)
+  | .ifnull a e1 x e2 =>
+      let v := "·" ++ toString n
+      .ifnull (renAt ρ a) (canon ρ (n + 1) e1) v (canon ((x, .var v) :: ρ) (n + 1) e2)
+  | .parity a k e1 e2 => .parity (renAt ρ a) k (canon ((k, .var k) :: ρ) n e1) (canon ((k, .var k) :: ρ) n e2)
+  | .ifeq a b e1 e2 => .ifeq (renAt ρ a) (renAt ρ b) (canon ρ n e1) (canon ρ n e2)
+  | .cas q r w e v t e1 e2 =>
+      let vt := "·" ++ toString n
+      .cas q r (renAt ρ w) (renAt ρ e) (renAt ρ v) vt (canon ((t, .var vt) :: ρ) (n + 1) e1) (canon ((t, .var vt) :: ρ) (n + 1) e2)
+  | .casp q r w e0 e1 v0 v1 t ok fl =>
+      let vt := "·" ++ toString n
+      .casp q r (renAt ρ w) (renAt ρ e0) (renAt ρ e1) (renAt ρ v0) (renAt ρ v1) vt
+        (canon ((t, .var vt) :: ρ) (n + 1) ok) (canon ((t, .var vt) :: ρ) (n + 1) fl)
+  | .ret a => .ret (renAt ρ a)
+  | .tail f is a ts => .tail f is (renAt ρ a) ts
+
+def canonDecl (d : Decl) : Decl := { d with body := canon [] 0 d.body }
+
+def alphaEqDecl (a b : Decl) : Bool := sameDecl (canonDecl a) (canonDecl b)
+
+def alphaReport (u w : Prog) : List String :=
+  (u.zip w).filterMap fun (a, b) =>
+    if alphaEqDecl a b then none
+    else some s!"{a.name}:\n{showDecl (canonDecl a)}\n---\n{showDecl (canonDecl b)}"
+
+open USyntaxTest in
+#guard preludeP.length == EM0Prelude.prelude.length && em0P.length == EM0.progDecls.length
+
+open USyntaxTest in
+#guard (alphaReport (preludeP ++ em0P) (EM0Prelude.prelude ++ EM0.progDecls)).isEmpty
+
+/-- `waitLoop` as in `em0.u`, comparing with `n`. -/
+def waitU (n : Nat) : Except Err Decl := parseDeclE s!"def waitLoop(c : Ptr pub Int) : Int =
+  if (load acq c) = {n} then ret 0
+  else
+    let _ = park ()
+    tail waitLoop(c)" { lib := USyntaxTest.preludeP.reverse }
+
+-- `alphaEqDecl` is not trivial: a one-literal change, and a different block, are told apart.
+open USyntaxTest in
+#guard match waitU 1, waitU 2, em0P.find? (·.name == "waitLoop") with
+  | .ok a, .ok b, some w => alphaEqDecl a w && !alphaEqDecl b w && (em0P.find? (·.name == "hello")).all (!alphaEqDecl a ·)
+  | _, _, _ => false
+
+/-! ## (c) checker and wrapper scope -/
+
+open USyntaxTest in
+#guard accepts (checkProg (preludeP ++ em0P)) && TermScope.ProgScopeOKW (preludeP ++ em0P)
+
+open USyntaxTest in
+#guard match preludeR, em0R with
+  | .ok a, .ok b => (UCheck.checkProgU (a.unit.decls ++ b.unit.decls) matches .ok _)
+  | _, _ => false
+
+/-! ## (d) rule 6
+
+`nameI (x + 1)` names the index of `x + 1`.  Bound by a `let`, the name `k` is usable in the `pack`; nested, the
+index is bound under the temporary, which no type can mention: `k` is unbound, and `i` is the wrong index. -/
+
+def chk (s : String) : String :=
+  match parseProgE s with
+  | .ok p => match checkProg p with | .ok _ => "accepted" | .error e => "check: " ++ e
+  | .error e => s!"parse: {e.line}:{e.col}: {e.msg}"
+
+#guard chk "def f{i}(x : Int[i]) : exists q. Int[q] =\n  let k = nameI (x + 1)\n  let p = pack k at k : exists q. Int[q]\n  ret p" == "accepted"
+#guard chk "def f{i}(x : Int[i]) : exists q. Int[q] =\n  let p = pack (nameI (x + 1)) at k : exists q. Int[q]\n  ret p" == "check: unbound index variable k"
+#guard chk "def f{i}(x : Int[i]) : exists q. Int[q] =\n  let p = pack (nameI (x + 1)) at i : exists q. Int[q]\n  ret p" == "check: pack: the value does not match the target at the witness"
+
+/-! ## (e) rule 4's lint -/
+
+def waitRet : String := "def waitLoop(c : Ptr pub Int) : Int =
+  if (load acq c) = 1 then ret 0
+  else
+    let _ = park ()
+    ret waitLoop(c)"
+
+def lintOf (s : String) : List String :=
+  match parseUnit s { lib := USyntaxTest.preludeP.reverse } with
+  | .ok r => UCheck.retCallLint ["waitLoop", "hello", "worker", "main"] r.unit.decls
+  | .error e => [e.msg]
+
+#guard lintOf waitRet ==
+  ["in waitLoop: `ret waitLoop(…)` returns after a call (a stack frame per call): did you mean `tail waitLoop(args)`?"]
+-- `em0.u` (it uses `tail`, and `let _ = park ()`, an extern, not a `ret`) draws no warning.
+#guard (lintOf (USyntaxTest.em0U.replace "import EM0Prelude" "")).isEmpty
+
+/-! ## (f) diagnostics -/
+
+def diagOf (file src : String) (env : Env := { lib := USyntaxTest.preludeP.reverse }) : String :=
+  UDiag.renderAll src (UDiag.diagnose file src env)
+
+#guard diagOf "w.u" waitRet == "w.u:5:5: warning: in waitLoop: `ret waitLoop(…)` returns after a call (a stack frame per call): did you mean `tail waitLoop(args)`?
+5 |     ret waitLoop(c)
+  |     ^~~~~~~~~~~~~~~
+5 |     ret waitLoop(c)
+  |         ^~~~~~~~~~~ suggested: tail waitLoop(c)"
+
+-- The placed lint and `UCheck.retCallLint` find the same calls.
+#guard match parseUnit waitRet { lib := USyntaxTest.preludeP.reverse } with
+  | .ok r => (elabProg r.unit.decls).flatMap (fun d => (UDiag.retSites ["waitLoop"] d.body []).map (·.2))
+             == r.unit.decls.flatMap (fun d => (UCheck.retCalls d.body).filter (["waitLoop"].contains ·))
+  | .error _ => false
+
+-- §6 draws no diagnostic.
+#guard UDiag.diagnose "EM0Prelude.u" USyntaxTest.preludeU |>.isEmpty
+#guard UDiag.diagnose "em0.u" (USyntaxTest.em0U.replace "import EM0Prelude" "") { lib := USyntaxTest.preludeP.reverse } |>.isEmpty
+
+def badSrc : String := "def f(c : Ptr pub Int) : Int =
+  let y = load acq c
+  let z = store rel c (y + y)
+  ret z
+def g(x : Int) : Int = let y = x + x + x ret y
+def h(m : Ptr pub (Int * Int)) : Int =
+  let a = load acq (fld 1 m)
+  ret (a + (fld 0 m))
+def k(x : Int) : Int =
+  if x = 0 then ret 0
+  else
+    let c = new x
+    let d = load acq (publish c)
+    let e = load acq (fld 0 c)
+    ret d"
+
+-- Parse errors first (resynchronised), then one checker error per block, each on the failing operand; a nested
+-- operation is underlined alone, in a branch, after an earlier nested one.
+#guard diagOf "bad.u" badSrc == "bad.u:5:38: binary operators take one level: write (x + y) + z, not x + y + z
+5 | def g(x : Int) : Int = let y = x + x + x ret y
+  |                                      ^
+bad.u:4:3: in f: ret: the value does not have the return type
+4 |   ret z
+  |   ^~~~~
+bad.u:8:7: in h: add needs integers
+8 |   ret (a + (fld 0 m))
+  |       ^~~~~~~~~~~~~~~
+bad.u:14:22: in k: c was already used (affine)
+14 |     let e = load acq (fld 0 c)
+   |                      ^~~~~~~~~"
+
+end UElabTest

@@ -70,7 +70,7 @@ theorem solo_typedXC {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c 
     {n0 v0 na0 : Nat} [ProgRetIall p] [WrIniC] (hP : ProgT p)
     (hsc : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → ScopeAt p i c0) (hvI : TermViewInv.ViewInv c)
     (hwin : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → NoHoldPubA p k arch E0 E0 i c0)
-    (h0 : InvAtXC p k arch i E0 n0 v0 na0 c) {c2 : Cfg} (h : Solo p k arch i c c2)
+    (h0 : InvAtXC p k arch i E0 n0 v0 na0 c) (hTA : TermTyped.TidAt i c E0) {c2 : Cfg} (h : Solo p k arch i c c2)
     (hc2 : Certified p k arch c2 i) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) : InvAtXC p k arch i E0 n0 v0 na0 c2 := by
   refine (run_inv (c1 := c2) (P := fun c0 => Solo p k arch i c c0 ∧ InvAtXC p k arch i E0 n0 v0 na0 c0) ?_ ?_ ?_ h
     (.refl _) ⟨.refl _, h0⟩).2
@@ -127,10 +127,14 @@ theorem solo_typedXC {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c 
       exact MemInv_promSt hm
     · exact frRunA_prom hth hfr
   · rintro c0 c0' ⟨hc0, th, E, hth, hx, hTE, hm, hSC, hbo, hfb, hfr, hna, hfresh, hbx, hpr⟩ hs _
-    obtain ⟨x1, a1, e1, evs, hterm, rfl⟩ := extSteps_thread hs hth
-    exact ⟨solo_trans hc0 (.ext hs (.refl _)), _, E, set_self hth, hx, TermTyped.ThInvE_emit hterm hTE,
-      by rw [gOf_ext hs]; exact hm, hSC, by rw [gOf_ext hs]; exact hbo, hfb, hfr, hna, by rw [gOf_ext hs]; exact hfresh,
-      by rw [gOf_ext hs]; exact hbx, by rw [gOf_ext hs]; exact hpr⟩
+    rcases TermTyped.extSteps_res hs hth with ⟨x1, n1, a1, e1, rt1, ws1, rs1, hterm, hn1, hev1, hrs1, rfl⟩ | ⟨x1, a1, e1, lb, hterm, htl, rfl⟩
+    · exact ⟨solo_trans hc0 (.ext hs (.refl _)), _, E, set_self hth, hx, TermTyped.ThInvE_ext hn1 hterm hev1 hrs1 hTE,
+        by rw [gOf_ext hs]; exact hm, hSC, by rw [gOf_ext hs]; exact hbo, hfb, hfr, hna, by rw [gOf_ext hs]; exact hfresh,
+        by rw [gOf_ext hs]; exact hbx, by rw [gOf_ext hs]; exact hpr⟩
+    · obtain ⟨hbs, hbp⟩ := TermTyped.tidBox_ext hx (TermTyped.tidAt_solo hc0 hTA th hth lb htl)
+      exact ⟨solo_trans hc0 (.ext hs (.refl _)), _, E, set_self (tr := c0.trace) hth, hx, TermTyped.ThInvE_cur hterm hbs hbp hTE,
+        by rw [gOf_ext hs]; exact hm, hSC, by rw [gOf_ext hs]; exact hbo, hfb, hfr, hna, by rw [gOf_ext hs]; exact hfresh,
+        by rw [gOf_ext hs]; exact hbx, by rw [gOf_ext hs]; exact hpr⟩
 
 /-- **A certified promise's pointer value at a single-word counted slot of a start cell** names, in an
 extension `E2` of the start `E0`, a frontier or a box; new cells, boxes and frontiers are tracked. -/
@@ -138,7 +142,7 @@ theorem certified_promTgtC {p : Prog} {k : Promises.Knobs} {arch : Arch} {c : Cf
     {n0 v0 na0 : Nat} [ProgRetIall p] [WrIniC] (hP : ProgT p)
     (hsc : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → ScopeAt p i c0) (hvI : TermViewInv.ViewInv c)
     (hwin : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → NoHoldPubA p k arch E0 E0 i c0)
-    (h0 : InvAtXC p k arch i E0 n0 v0 na0 c) (hc : Certified p k arch c i)
+    (h0 : InvAtXC p k arch i E0 n0 v0 na0 c) (hTA : TermTyped.TidAt i c E0) (hc : Certified p k arch c i)
     {t : Ts} {m : Msg} (ht : t ∈ TermFul.promsOf c i) (hm : c.mem[t]? = some m) {cl : Cell}
     (hcl : E0.sto m.loc.label = some cl) (hU : TermPtrRts.NotSnd cl.ty m.loc.offset)
     (hC : TermPtrRts.CntOK cl.ty m.loc.offset (mw m)) {a' : Address} {g : Nat} (hv : m.val = .loc a' g) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) :
@@ -149,7 +153,7 @@ theorem certified_promTgtC {p : Prog} {k : Promises.Knobs} {arch : Arch} {c : Cf
   rw [hm] at hm'
   cases hm'
   have h12 : Solo p k arch i c c2 := solo_trans h1 (.thread h2 (.refl _))
-  obtain ⟨th2, E2, hth2, hx2, -, hm2i, -, -, -, -, -, hfresh, hbx, hpr⟩ := solo_typedXC (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hsc hvI hwin h0 h12 hc2
+  obtain ⟨th2, E2, hth2, hx2, -, hm2i, -, -, -, -, -, hfresh, hbx, hpr⟩ := solo_typedXC (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hsc hvI hwin h0 hTA h12 hc2
   obtain ⟨th', r, hth', hr, e1, -, -, -⟩ := threadSteps_inv h2
   rw [hth1] at hth'
   cases hth'
@@ -244,7 +248,7 @@ theorem fgnCnt_prom (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] 
           rw [h1] at hcm0
           cases hcm0
       obtain ⟨E2, -, hfr, hbx, hpr, h2⟩ := certified_promTgtC (hPS := hPS) (hSub := hSub) (hSig := hSig) hP (fun c1 h1 h2 => (hrun X S hS c1 h1 h2).1) (by first | exact TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw | exact TermViewInv.viewInv_run hV0 X.run | exact TermViewInv.viewInv_thread (TermViewInv.viewInv_run hV0 X.run) X.hc')
-        (fun c1 h1 h2 => (hrun X S hS c1 h1 h2).2) h0 X.cert htm hmt (E0 := Cut Eg i S) hcut hns hcnt hv
+        (fun c1 h1 h2 => (hrun X S hS c1 h1 h2).2) h0 (TermMain.tidAt_cutP X.inv i S) X.cert htm hmt (E0 := Cut Eg i S) hcut hns hcnt hv
       have hfresh : ∀ n, th.nalloc ≤ n →
           a'.label = freshLabel (promise c i a v w).lbase (promise c i a v w).n i n →
           TgtOK (EgP Eg P N i c.mem.size) (promise c i a v w) i a'.label := by

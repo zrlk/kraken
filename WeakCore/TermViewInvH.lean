@@ -92,18 +92,36 @@ theorem envVR_of_run {p : Prog} {k : Promises.Knobs} {arch : Arch} {Sp : Cfg →
       w.view ≤ w.rts :=
   fun _ _ _ w hev hw => (evalAt_V ((viewInv_run h0 hr).2 i th hth).1 hev w hw).1
 
-/-- (IO1) The extern move keeps `ViewInv` (the new binding's words are constants). -/
+/-- (D4, T4(A) B1 (i)) `park`'s acquired view is capped at the memory size, so it keeps `VSB`. -/
+theorem parkVs_vsb {n : Nat} {th : TTh} (h : VSB n th.vs) : VSB n (parkVs n th) := by
+  obtain ⟨h1, h2, h3, h4, h5⟩ := h
+  unfold parkVs
+  split
+  · exact ⟨Nat.max_le.2 ⟨h1, Nat.min_le_right _ _⟩, h2, h3, Nat.max_le.2 ⟨h4, Nat.min_le_right _ _⟩, h5⟩
+  · exact ⟨h1, h2, h3, h4, h5⟩
+
+theorem parkVs_vsb_if {n : Nat} {th : TTh} (m : ExtName) (h : VSB n th.vs) :
+    VSB n (if m = .park then parkVs n th else th.vs) := by
+  split
+  · exact parkVs_vsb h
+  · exact h
+
+/-- The extern move keeps `ViewInv` (the new binding's words are constants; (D4) `park`'s capped view, `parkVs_vsb`). -/
 theorem viewInv_extS {c c' : Cfg} {i : Nat} (hv : ViewInv c) (hs : c' ∈ extSteps c i) : ViewInv c' := by
-  obtain ⟨th, x, a, e, evs, hth, -, rfl⟩ := extSteps_shape hs
-  refine ⟨hv.1, fun j t hj => ?_⟩
-  rcases set_get_cases hj with ⟨rfl, rfl⟩ | ⟨-, hj'⟩
-  · obtain ⟨h1, h2, h3⟩ := hv.2 _ th hth
-    refine ⟨?_, h2, h3⟩
-    intro en hen
-    rcases List.mem_cons.1 hen with rfl | hen
-    · intro w hw; cases hw
-    · exact h1 en hen
-  · exact hv.2 j t hj'
+  rcases extSteps_shape hs with ⟨th, hth, ⟨x, n, a, e, evs, rs, -, -, hrs, rfl⟩ | ⟨x, a, e, l, -, -, rfl⟩⟩ <;>
+  · refine ⟨hv.1, fun j t hj => ?_⟩
+    rcases set_get_cases hj with ⟨rfl, rfl⟩ | ⟨-, hj'⟩
+    · obtain ⟨h1, h2, h3⟩ := hv.2 _ th hth
+      refine ⟨?_, h2, by first | exact parkVs_vsb_if _ h3 | exact h3⟩
+      intro en hen
+      rcases List.mem_cons.1 hen with rfl | hen
+      · intro w hw
+        first
+          | (cases hw; done)
+          | (rw [List.mem_singleton.1 hw]; exact WV_cst _ _)
+          | (obtain ⟨m, rfl⟩ := hrs w hw; exact WV_cst _ _)
+      · exact h1 en hen
+    · exact hv.2 j t hj'
 
 /-- `ViewInv` along a solo run. -/
 theorem viewInv_solo {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c c' : Cfg}

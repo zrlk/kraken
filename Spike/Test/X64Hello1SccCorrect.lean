@@ -6,11 +6,11 @@ import Spike.Test.Cert.X64Hello1Cert
 
 `x64_scc_correctE_text_closed` takes a one-declaration program `[d]` that is
 `Accepted0` and whose output passes `placeOK`. `hello1.w`'s generated
-certificate (`Spike/Test/Cert/X64Hello1Cert.lean`) proves neither: its
-source has three declarations (`print`, `rodata`, `main`), it is outside
-`Accepted0` (`prog_not_accepted`), and `placeOK` of its output is `false`
-(`prog_not_placeOK`, A11: the setup block's tail has no `MainCode`). So the
-theorem is not applicable there; these checks keep that visible until the
+certificate (`Spike/Test/Cert/X64Hello1Cert.lean`) proves the placement
+(`prog_placeOK`) but not the rest: its source has three declarations
+(`print`, `rodata`, `main`) and it is outside `Accepted0`
+(`prog_not_accepted`). So the theorem is not applicable there (placement
+holds, no correctness claim); these checks keep that visible until the
 fragment grows.
 -/
 
@@ -30,8 +30,9 @@ example : ∀ d : CoreTerm.Decl, SccCertificate.prog_src ≠ [d] := by
 example : Scc.Lower.Accepted0 SccCertificate.prog_src ≠ true := by
   rw [SccCertificate.prog_not_accepted]; decide
 
-/-- **`placeOK` fails** on `hello1`'s output at its configuration. -/
-example : Scc.Cert.PlaceOK.X64.placeOK SccCertificate.placeCfg SccCertificate.out ≠ true := by
-  rw [SccCertificate.prog_not_placeOK]; decide
+/-- `placeOK` holds on `hello1`'s output at its configuration: only the
+shape and `Accepted0` keep the theorem out. -/
+example : Scc.Cert.PlaceOK.X64.placeOK SccCertificate.placeCfg SccCertificate.out = true :=
+  SccCertificate.prog_placeOK
 
 end Spike.Lib.LowerX64.Hello1Test

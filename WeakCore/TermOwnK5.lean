@@ -72,7 +72,7 @@ theorem ownXLe_pub_chain [WrIniC] {p : Prog} {k : Promises.Knobs} {arch : Arch} 
     {ad : Address} {g' : Nat}
     [ProgRetIall p] [TermA4.ProgCkWC p] (hP : ProgT p)
     (hQ : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → ScopeAt p i c0 ∧ NoHoldPubA p k arch E0 E0 i c0) (hvI : TermViewInv.ViewInv c)
-    (h0 : OwnXLe p k arch E0 i x 1 c) (h1 : Solo p k arch i c c1) (hs : c1' ∈ threadSteps p k arch c1 i)
+    (h0 : OwnXLe p k arch E0 i x 1 c) (hTA : TermTyped.TidAt i c E0) (h1 : Solo p k arch i c c1) (hs : c1' ∈ threadSteps p k arch c1 i)
     (hth : c1.ths[i]? = some th) (hterm : th.term = .let_ y (.publish a) e)
     (hea : evalAt th.env a = some (rt, ws)) (hws : ws.map (·.val) = [.loc ad g']) (hx : ad.label = x)
     (h2 : Solo p k arch i c1' c2) (hc2 : Certified p k arch c2 i) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) : OwnXLe p k arch E0 i x 0 c2 := by
@@ -80,18 +80,19 @@ theorem ownXLe_pub_chain [WrIniC] {p : Prog} {k : Promises.Knobs} {arch : Arch} 
   have hpub : OwnXPub1 p k arch i x := TermOwnK4.ownXPub1 hP hPS
   have hc1' : Certified p k arch c1' i := certified_back h2 hc2
   have hc1 : Certified p k arch c1 i := certified_back (.thread hs h2) hc2
-  have hI1 := ownXLe_run (hT 1) (ownXStepP_all 1) hQ hvI h0 h1 hc1
+  have hI1 := ownXLe_run (hT 1) (ownXStepP_all 1) hQ hvI h0 hTA h1 hc1
   obtain ⟨hsc1, hw1⟩ := hQ c1 h1 hc1
   have hI1' := hpub E0 c1 c1' th y a e rt ws ad g' hsc1 hw1 (TermViewInv.viewInv_solo hvI h1) hI1 hs hc1' hth hterm hea hws hx
   exact ownXLe_run (hT 0) (ownXStepP_all 0) (fun c0 h3 h4 => hQ c0 (solo_trans h1 (.thread hs h3)) h4)
-    (TermViewInv.viewInv_thread (TermViewInv.viewInv_solo hvI h1) hs) hI1' h2 hc2
+    (TermViewInv.viewInv_thread (TermViewInv.viewInv_solo hvI h1) hs) hI1'
+    (TermTyped.tidAt_thread hs (TermTyped.tidAt_solo h1 hTA)) h2 hc2
 
 /-- **No own use of `x` after its publish** (the chain plus `use_ne`), with the packages. -/
 theorem ownXLe_pub_noOwnUse [WrIniC] {p : Prog} {k : Promises.Knobs} {arch : Arch} {E0 : TEnv} {i : Nat} {x : AllocLabel}
     {c c1 c1' c2 : Cfg} {th : TTh} {y : String} {a : At} {e : Expr} {rt : Ty} {ws : List Word}
     {ad : Address} {g' : Nat} [ProgRetIall p] [TermA4.ProgCkWC p] (hP : ProgT p)
     (hQ : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → ScopeAt p i c0 ∧ NoHoldPubA p k arch E0 E0 i c0) (hvI : TermViewInv.ViewInv c)
-    (h0 : OwnXLe p k arch E0 i x 1 c) (h1 : Solo p k arch i c c1) (hs : c1' ∈ threadSteps p k arch c1 i)
+    (h0 : OwnXLe p k arch E0 i x 1 c) (hTA : TermTyped.TidAt i c E0) (h1 : Solo p k arch i c c1) (hs : c1' ∈ threadSteps p k arch c1 i)
     (hth : c1.ths[i]? = some th) (hterm : th.term = .let_ y (.publish a) e)
     (hea : evalAt th.env a = some (rt, ws)) (hws : ws.map (·.val) = [.loc ad g']) (hx : ad.label = x)
     (h2 : Solo p k arch i c1' c2) (hc2 : Certified p k arch c2 i) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) :
@@ -100,7 +101,7 @@ theorem ownXLe_pub_noOwnUse [WrIniC] {p : Prog} {k : Promises.Knobs} {arch : Arc
       ∀ a t c₁ rt ws ad g, cx.use a = .ok (t, c₁) →
         ((∃ u, cellOf t = some (.own, u)) ∨ ∃ n u k, bufOf t = some (.own, n, u, k)) →
         evalAt th.env a = some (rt, ws) → ws.map (·.val) = [.loc ad g] → ad.label ≠ x :=
-  (ownXLe_pub_chain hP hQ hvI h0 h1 hs hth hterm hea hws hx h2 hc2 hPS hSub hSig).use_ne
+  (ownXLe_pub_chain hP hQ hvI h0 hTA h1 hs hth hterm hea hws hx h2 hc2 hPS hSub hSig).use_ne
 
 /-! ## The `n = 0` runs (a cell published at the run start) -/
 
@@ -108,20 +109,20 @@ theorem ownXLe_pub_noOwnUse [WrIniC] {p : Prog} {k : Promises.Knobs} {arch : Arc
 theorem ownXLe0_run_noOwnUse [WrIniC] {p : Prog} {k : Promises.Knobs} {arch : Arch} {E0 : TEnv} {i : Nat} {x : AllocLabel}
     {c c2 : Cfg} [ProgRetIall p] [TermA4.ProgCkWC p] (hP : ProgT p)
     (hQ : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → ScopeAt p i c0 ∧ NoHoldPubA p k arch E0 E0 i c0) (hvI : TermViewInv.ViewInv c)
-    (h0 : OwnXLe p k arch E0 i x 0 c) (h : Solo p k arch i c c2) (hc2 : Certified p k arch c2 i) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) :
+    (h0 : OwnXLe p k arch E0 i x 0 c) (hTA : TermTyped.TidAt i c E0) (h : Solo p k arch i c c2) (hc2 : Certified p k arch c2 i) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) :
     ∃ th, c2.ths[i]? = some th ∧ ∃ ρ η cx Rf Rs, EnvOK p η ∧ Typed p cx th.term ∧
       FInvR ρ η th.σs (ResumeR p th.stack Rs) cx th.env Rf ∧
       ∀ a t c₁ rt ws ad g, cx.use a = .ok (t, c₁) →
         ((∃ u, cellOf t = some (.own, u)) ∨ ∃ n u k, bufOf t = some (.own, n, u, k)) →
         evalAt th.env a = some (rt, ws) → ws.map (·.val) = [.loc ad g] → ad.label ≠ x :=
-  (ownXLe_run (ownXStepT_all hP hPS hSub hSig 0) (ownXStepP_all 0) hQ hvI h0 h hc2).use_ne
+  (ownXLe_run (ownXStepT_all hP hPS hSub hSig 0) (ownXStepP_all 0) hQ hvI h0 hTA h hc2).use_ne
 
 /-- **No own use of a start-published `x`** along the certificate of a promise step. -/
 theorem ownXLe0_prom_noOwnUse [WrIniC] {p : Prog} {k : Promises.Knobs} {arch : Arch} {E0 : TEnv} {i : Nat} {x : AllocLabel}
     {c c2 : Cfg} {a : Address} {v : WeakMem.Val} {w : Ts} [ProgRetIall p] [TermA4.ProgCkWC p] (hP : ProgT p)
     (hQ : ∀ c0, Solo p k arch i (promise c i a v w) c0 → Certified p k arch c0 i →
       ScopeAt p i c0 ∧ NoHoldPubA p k arch E0 E0 i c0) (hvI : TermViewInv.ViewInv (promise c i a v w))
-    (h0 : OwnXLe p k arch E0 i x 0 c) (hw : w < c.mem.size) (h : Solo p k arch i (promise c i a v w) c2)
+    (h0 : OwnXLe p k arch E0 i x 0 c) (hTA : TermTyped.TidAt i c E0) (hw : w < c.mem.size) (h : Solo p k arch i (promise c i a v w) c2)
     (hc2 : Certified p k arch c2 i) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) :
     ∃ th, c2.ths[i]? = some th ∧ ∃ ρ η cx Rf Rs, EnvOK p η ∧ Typed p cx th.term ∧
       FInvR ρ η th.σs (ResumeR p th.stack Rs) cx th.env Rf ∧
@@ -129,7 +130,7 @@ theorem ownXLe0_prom_noOwnUse [WrIniC] {p : Prog} {k : Promises.Knobs} {arch : A
         ((∃ u, cellOf t = some (.own, u)) ∨ ∃ n u k, bufOf t = some (.own, n, u, k)) →
         evalAt th.env a = some (rt, ws) → ws.map (·.val) = [.loc ad g] → ad.label ≠ x :=
   ownXLe0_run_noOwnUse hP hQ hvI
-    (ownXStepP_all 0 E0 c a v w h0 hw (certified_back h hc2)) h hc2 hPS hSub hSig
+    (ownXStepP_all 0 E0 c a v w h0 hw (certified_back h hc2)) (TermTyped.tidAt_prom hTA) h hc2 hPS hSub hSig
 
 /-! ## A. `bufInitIni`, published case (restated fields: the bufInit's buffer handle names `m.loc.label`) -/
 
@@ -187,7 +188,7 @@ theorem bufInitIniF_pub [WrIniC] {p : Prog} {k : Promises.Knobs} {arch : Arch} {
     ∀ rt w' ad g0, evalAt th1.env bb = some (rt, [w']) → w'.val = .loc ad g0 → ad.label ≠ l := by
   obtain ⟨S, hS⟩ := Y.inv.thr j th Y.hth
   obtain ⟨th2, hth2, h⟩ := ownXLe0_prom_noOwnUse hP (winQP hsc hw Y hS) (TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 Y.run) Y.hw)
-    (ownXLe_start_pub Y.inv Y.hth hS hpub hsto) Y.hw h1 hc1 hPS hSub hSig
+    (ownXLe_start_pub Y.inv Y.hth hS hpub hsto) (TermMain.tidAt_cut Y.inv j S) Y.hw h1 hc1 hPS hSub hSig
   obtain rfl : th2 = th1 := Option.some.inj (hth2.symm.trans hth1)
   exact bufInit_ne_of_use hterm h
 
@@ -210,7 +211,7 @@ theorem bufInitIniT_pub [WrIniC] {p : Prog} {k : Promises.Knobs} {arch : Arch} {
     ∀ rt w' ad' g0, evalAt th1.env bb = some (rt, [w']) → w'.val = .loc ad' g0 → ad'.label ≠ l := by
   obtain ⟨S, hS⟩ := X.inv.thr i th X.hth
   obtain ⟨th2, hth2, h⟩ := ownXLe_pub_noOwnUse hP (winQC hsc hw X hS) (TermViewInv.viewInv_run hV0 X.run)
-    (ownXLe_start X.inv X.hth hS hsto (.inl hown)) (.refl _) X.hc' X.hth hterm hea hws hx h1 hc1 hPS hSub hSig
+    (ownXLe_start X.inv X.hth hS hsto (.inl hown)) (TermMain.tidAt_cut X.inv i S) (.refl _) X.hc' X.hth hterm hea hws hx h1 hc1 hPS hSub hSig
   obtain rfl : th2 = th1 := Option.some.inj (hth2.symm.trans hth1)
   exact bufInit_ne_of_use hterm1 h
 

@@ -1,0 +1,16 @@
+CoreLang.Wd : Type
+CoreLang.Wd.bits : CoreLang.Wd → Nat
+CoreTerm.ExtName : Type
+CoreTerm.ExtName.resultsL : CoreTerm.ExtName → Nat → List TermRun.Word → List TermRun.Event → List (List TermRun.Word)
+TermRun.Bounds : Type
+TermRun.Bounds.io : TermRun.Bounds → List Nat
+TermRun.Event : Type
+TermRun.Word : Type
+TermRun.cst : WeakMem.Val → TermRun.Word
+TermRun.extRs : TermRun.Bounds → CoreTerm.ExtName → Nat → List TermRun.Word → List TermRun.Event → List (List TermRun.Word)
+  := fun b n i ws tr =>
+  match n with
+  | CoreTerm.ExtName.devChoice w =>
+    List.map (fun v => [TermRun.cst (WeakMem.Val.num v)]) (List.filter (fun x => decide (x < 2 ^ w.bits)) b.io)
+  | x => n.resultsL i ws tr
+WeakMem.Val.num : Nat → WeakMem.Val

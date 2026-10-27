@@ -309,7 +309,7 @@ theorem VRR_own_zero (l : Nat) : ∀ (t : Ty) (ke : KEnv) (η : TEnv) (ρ : Nat 
           exact VRR_own_zero l a ke η ρ _ _ _ hn.1 hr hur hv
         · obtain ⟨q, -, hv⟩ := h3 (Nat.le_of_not_lt hj)
           exact VRR_own_zero l b ke η ρ _ _ _ hn.2 hr hur hv
-  | .code a b, _, η, ρ, rt, ws, X, _, _, _, hv => by
+  | .code a b _, _, η, ρ, rt, ws, X, _, _, _, hv => by
       simp only [VRR] at hv; rw [hv.2]; rfl
   | .tex κ b, ke, η, ρ, rt, ws, X, hn, hr, hur, hv => by
       simp only [Ty.noOwnIn, Bool.and_eq_true] at hn
@@ -346,6 +346,7 @@ theorem VRR_own_zero (l : Nat) : ∀ (t : Ty) (ke : KEnv) (η : TEnv) (ρ : Nat 
       simp only [VRR] at hv
       exact VRR_own_zero l b ke η (vcons 0 ρ) rt ws X hn hr hur (hv 0)
   | .intS _, _, _, _, _, _, _, _, _, _, hv => by simp only [VRR] at hv; rw [hv.2]; rfl
+  | .opq _, _, _, _, _, _, _, _, _, _, hv => by simp only [VRR] at hv; rw [hv.2]; rfl
   | .int, _, _, _, _, _, _, _, _, _, hv => by simp only [VRR] at hv; rw [hv.2]; rfl
   | .tid, _, _, _, _, _, _, _, _, _, hv => by simp only [VRR] at hv; rw [hv.2]; rfl
   | .fix _ _, _, _, _, _, _, _, _, _, _, hv => by simp only [VRR] at hv; rw [hv.2]; rfl

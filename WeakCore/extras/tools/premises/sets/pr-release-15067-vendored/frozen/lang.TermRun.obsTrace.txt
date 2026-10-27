@@ -1,0 +1,4 @@
+TermRun.Event : Type
+TermRun.Event.observable : TermRun.Event → Bool
+TermRun.obsTrace : List TermRun.Event → List TermRun.Event
+  := fun tr => List.filter TermRun.Event.observable tr

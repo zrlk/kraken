@@ -1547,14 +1547,14 @@ b .L20_wc_emit8.stack_check")) /- wc_emit8_29 -/]⟩
 
 /-- The blocks of `wc_printL`. -/
 def helloT_wc_printL : List Grp := [
-  ⟨".L21_wc_printL.stack_check", [(0, parseAArch64("sub x9, sp, #160
+  ⟨".L21_wc_printL.stack_check", [(0, parseAArch64("sub x9, sp, #128
 mrs x10, tpidr_el0")) /- wc_printL_0 -/,
     (3, parseAArch64("subs xzr, x9, x10
 b.lo .L21_wc_printL.stack_grow")) /- wc_printL_1 -/,
     (5, parseAArch64("add sp, x9, #0
-str x29, [sp, #144]
-str x30, [sp, #152]
-add x29, sp, #144
+str x29, [sp, #112]
+str x30, [sp, #120]
+add x29, sp, #112
 str x0, [sp]
 str x1, [sp, #8]
 str x2, [sp, #16]
@@ -1577,62 +1577,39 @@ add x9, x9, x10
 str x9, [sp, #64]
 ldr x10, [sp, #64]")) /- wc_printL_3 -/,
     (17, parseAArch64("str x9, [sp, #72]
-mrs x9, tpidr_el0
-str x9, [sp, #80]
-ldr x10, [sp, #80]")) /- wc_printL_4 -/,
-    (22, parseAArch64("str x9, [sp, #88]
-ldr x9, [sp, #88]
-movz x10, #1
-add x9, x9, x10
-str x9, [sp, #96]
-ldr x9, [sp, #96]
-movz x10, #30235
-movk x10, #2, lsl #16
-subs xzr, x9, x10
-b.hi .L21_wc_printL.1_deep9")) /- wc_printL_5 -/,
-    (32, parseAArch64("b .L21_wc_printL.2_call10")) /- wc_printL_6 -/]⟩,
-  ⟨".L21_wc_printL.1_deep9", [(0, parseAArch64("movz x0, #3
-bl scc_rt_abort")) /- wc_printL_7 -/]⟩,
-  ⟨".L21_wc_printL.halt10", [(0, parseAArch64("b .L21_wc_printL.halt10")) /- wc_printL_8 -/]⟩,
-  ⟨".L21_wc_printL.2_call10", [(0, parseAArch64("ldr x9, [sp, #96]
-ldr x10, [sp, #80]")) /- wc_printL_9 -/,
-    (3, parseAArch64("ldr x0, [sp, #72]
+ldr x0, [sp, #72]
 ldr x1, [sp, #32]
-bl wc_emit8")) /- wc_printL_10 -/]⟩,
-  ⟨".L21_wc_printL.sp12", [(0, parseAArch64("str x0, [sp, #104]
-mrs x9, tpidr_el0
-str x9, [sp, #112]
-ldr x9, [sp, #88]
-ldr x10, [sp, #112]")) /- wc_printL_11 -/,
-    (6, parseAArch64("ldr x9, [sp, #24]
+bl wc_emit8")) /- wc_printL_4 -/]⟩,
+  ⟨".L21_wc_printL.sp5", [(0, parseAArch64("str x0, [sp, #80]
+ldr x9, [sp, #24]
 movz x10, #0
 subs xzr, x9, x10
-b.eq .L21_wc_printL.3_then12")) /- wc_printL_12 -/,
-    (10, parseAArch64("b .L21_wc_printL.4_else13")) /- wc_printL_13 -/]⟩,
-  ⟨".L21_wc_printL.3_then12", [(0, parseAArch64("ldr x0, [sp, #104]
-ldr x29, [sp, #144]
-ldr x30, [sp, #152]
-add sp, sp, #160
-ret")) /- wc_printL_14 -/]⟩,
-  ⟨".L21_wc_printL.4_else13", [(0, parseAArch64("ldr x9, [sp, #24]
+b.eq .L21_wc_printL.1_then6")) /- wc_printL_5 -/,
+    (5, parseAArch64("b .L21_wc_printL.2_else7")) /- wc_printL_6 -/]⟩,
+  ⟨".L21_wc_printL.1_then6", [(0, parseAArch64("ldr x0, [sp, #80]
+ldr x29, [sp, #112]
+ldr x30, [sp, #120]
+add sp, sp, #128
+ret")) /- wc_printL_7 -/]⟩,
+  ⟨".L21_wc_printL.2_else7", [(0, parseAArch64("ldr x9, [sp, #24]
 movz x10, #1
 subs x9, x9, x10
 csel x9, x9, xzr, hs
-str x9, [sp, #120]
+str x9, [sp, #88]
 ldr x9, [sp, #16]
 movz x10, #1
 adds x9, x9, x10
-b.hs .L21_wc_printL.abort_overflow")) /- wc_printL_15 -/,
-    (9, parseAArch64("str x9, [sp, #128]
+b.hs .L21_wc_printL.abort_overflow")) /- wc_printL_8 -/,
+    (9, parseAArch64("str x9, [sp, #96]
 ldr x0, [sp]
 ldr x1, [sp, #8]
-ldr x2, [sp, #128]
-ldr x3, [sp, #120]
-ldr x4, [sp, #104]
-ldr x29, [sp, #144]
-ldr x30, [sp, #152]
-add sp, sp, #160
-b wc_printL")) /- wc_printL_16 -/]⟩,
+ldr x2, [sp, #96]
+ldr x3, [sp, #88]
+ldr x4, [sp, #80]
+ldr x29, [sp, #112]
+ldr x30, [sp, #120]
+add sp, sp, #128
+b wc_printL")) /- wc_printL_9 -/]⟩,
   ⟨".L21_wc_printL.stack_grow", [(0, parseAArch64("sub sp, sp, #80
 str x0, [sp]
 str x1, [sp, #8]
@@ -1645,8 +1622,8 @@ str x7, [sp, #56]
 str x29, [sp, #64]
 str x30, [sp, #72]
 add x29, sp, #64
-movz x0, #160
-bl scc_rt_morestack")) /- wc_printL_17 -/]⟩,
+movz x0, #128
+bl scc_rt_morestack")) /- wc_printL_10 -/]⟩,
   ⟨".L21_wc_printL.sp_check", [(0, parseAArch64("ldr x0, [sp]
 ldr x1, [sp, #8]
 ldr x2, [sp, #16]
@@ -1658,10 +1635,10 @@ ldr x7, [sp, #56]
 ldr x29, [sp, #64]
 ldr x30, [sp, #72]
 add sp, sp, #80
-b .L21_wc_printL.stack_check")) /- wc_printL_18 -/]⟩,
+b .L21_wc_printL.stack_check")) /- wc_printL_11 -/]⟩,
   ⟨".L21_wc_printL.abort_overflow", [(0, parseAArch64("movz x0, #1
-bl scc_rt_abort")) /- wc_printL_19 -/]⟩,
-  ⟨".L21_wc_printL.abort_overflow_halt", [(0, parseAArch64("b .L21_wc_printL.abort_overflow_halt")) /- wc_printL_20 -/]⟩
+bl scc_rt_abort")) /- wc_printL_12 -/]⟩,
+  ⟨".L21_wc_printL.abort_overflow_halt", [(0, parseAArch64("b .L21_wc_printL.abort_overflow_halt")) /- wc_printL_13 -/]⟩
 ]
 
 /-- The blocks of `wc_rodata`. -/

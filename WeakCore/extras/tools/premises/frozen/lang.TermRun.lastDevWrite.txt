@@ -1,0 +1,11 @@
+CoreLang.Wd : Type
+TermRun.Event : Type
+TermRun.lastDevWrite : List TermRun.Event → Nat → Nat
+  := fun tr r =>
+  (List.findSome?
+        (fun e =>
+          match e with
+          | TermRun.Event.devWrite r' w v => if r' = r then some v else none
+          | x => none)
+        tr.reverse).getD
+    0

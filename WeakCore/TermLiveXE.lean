@@ -95,6 +95,17 @@ def successorsLX (p : Prog) (k : Promises.Knobs) (arch : Arch) (b : Bounds) (cap
     List (Nat × Bool × Cfg) :=
   successorsL p k arch b c ++ spawnMoves cap c
 
+/-- `successorsLX`, with `successorsLT`'s truncations (spawn sites are not one: their moves are
+offered). -/
+def successorsLXT (p : Prog) (k : Promises.Knobs) (arch : Arch) (b : Bounds) (cap : Nat) (c : Cfg) :
+    List (Nat × Bool × Cfg) × Trunc :=
+  let r := successorsLT p k arch b false c
+  (r.1 ++ spawnMoves cap c, r.2)
+
+theorem successorsLXT_fst (p : Prog) (k : Promises.Knobs) (arch : Arch) (b : Bounds) (cap : Nat)
+    (c : Cfg) : (successorsLXT p k arch b cap c).1 = successorsLX p k arch b cap c := by
+  simp [successorsLXT, successorsLX, successorsLT_fst]
+
 /-! ## §2 The reduction and spawns -/
 
 /-- **Every enabled spawn is offered**, at every node (none is pruned). -/
@@ -124,7 +135,7 @@ theorem spawn_exit {p : Prog} {k : Promises.Knobs} {arch : Arch} {cap : Nat} {c 
 /-- `TermLive.exploreGP` with `successorsLX`, and `extra` (crash) moves labelled `cap`. -/
 def exploreGX (p : Prog) (k : Promises.Knobs) (arch : Arch) (b : Bounds) (cap fuel : Nat) (c : Cfg)
     (extra : Cfg → List Cfg := fun _ => []) : Graph :=
-  exploreGP (successorsLX p k arch b cap) (fun _ => cap) fuel c extra
+  exploreGP (successorsLXT p k arch b cap) (fun _ => cap) fuel c extra
 
 /-- Thread `th` sits at a spawn site with no promise out (decidable `AtSite`). -/
 def atSiteB (th : TTh) : Bool :=
@@ -173,7 +184,7 @@ theorem livelock_runX {p : Prog} {k : Promises.Knobs} {arch : Arch} {b : Bounds}
 /-! ## §4 Pinned
 
 A parent spawns a child that returns its argument.  With room for the child
-every fair run terminates; at capacity the parent is stuck.  The old explorer
+no fair livelock is found; at capacity the parent is stuck.  The old explorer
 reports the spawn site as stuck either way (a false alarm). -/
 
 def kidD : Decl where

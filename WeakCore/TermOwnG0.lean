@@ -61,7 +61,7 @@ theorem soloNP_snoc_prom {c0 c : Cfg} (h : SoloNP p k arch i r c0 c) :
   | prom a' v' w' hw' _ ih => exact fun a v w hw => .prom a' v' w' hw' (ih a v w hw)
   | ext hs' _ ih => exact fun a v w hw => .ext hs' (ih a v w hw)
 
-/-- (IO1) An extern move extends a `SoloNP` run (it is never a `publish`). -/
+/-- An extern move extends a `SoloNP` run (it is never a `publish`). -/
 theorem soloNP_snoc_ext {c0 c : Cfg} (h : SoloNP p k arch i r c0 c) :
     ∀ c1, c1 ∈ extSteps c i → SoloNP p k arch i r c0 c1 := by
   induction h with
@@ -156,8 +156,13 @@ theorem winLe_cert {cP : Cfg} {a0 : Address} {v0 : WeakMem.Val} {w : Ts} {t : Na
     rename_i c c1 c2
     intro hn hP th hth hB
     have hP1 := soloNP_snoc_ext hP c1 hs
-    obtain ⟨x1, a1, e1, evs, hterm, rfl⟩ := extSteps_thread hs hth
-    exact ih hn hP1 { th with term := e1, env := (x1, .unit, []) :: th.env } (set_self hth) hB
+    rcases extSteps_thread hs hth with ⟨x1, n1, a1, e1, evs, rs1, hterm, -, -, rfl⟩ | ⟨x1, a1, e1, lb, hterm, htl, rfl⟩
+    · have h2 := ih hn hP1 _ (set_self hth) hB
+      by_cases hk : n1 = .park
+      · subst hk; unfold parkVs at h2; simp only [↓reduceIte] at h2; split at h2 <;> exact h2
+      · simp only [hk, ↓reduceIte] at h2; exact h2
+    · exact ih hn hP1 { th with term := e1, env := (x1, .tid, [cst (.loc ⟨lb, 0⟩ 0)]) :: th.env }
+        (set_self (tr := c.trace) hth) hB
 
 /-- **G-0 at any planted root edge** `t` (`B` itself or an older outstanding promise of thread
 `i`) whose message `⟨b, .loc a' g, wt⟩` names `r`: the window `vWr ≤ wt`, from `PfrX`.  The

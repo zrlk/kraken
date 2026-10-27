@@ -1,11 +1,11 @@
 # bodyloss allowlist: M0 freeze vs pre-M0 freeze. Each entry is a deliberate M0 change.
 # renamed (bodies byte-identical): RunDRF/ThDRF -> RunScope/ThScope
-# (older base, replaced by IO1) TermScope.RunDRF
-# (older base, replaced by IO1) TermScope.ThDRF
+# (older base, replaced by the extern-step relaxation) TermScope.RunDRF
+# (older base, replaced by the extern-step relaxation) TermScope.ThDRF
 # gOf's stride is now `c.n` (was `c.ths.size`): gOf's own closure no longer reaches ths/TTh directly
-# (older base, replaced by IO1) TermRun.Cfg.ths@lang.TermRun.gOf.txt
-# (older base, replaced by IO1) TermRun.TTh@lang.TermRun.gOf.txt
-# (IO1) base = the installed post-E2 freeze. Moved from TermExtStep / the em0 closures into TermRun,
+# (older base, replaced by the extern-step relaxation) TermRun.Cfg.ths@lang.TermRun.gOf.txt
+# (older base, replaced by the extern-step relaxation) TermRun.TTh@lang.TermRun.gOf.txt
+# (extern-step relaxation) base = the installed post-E2 freeze. Moved from TermExtStep / the em0 closures into TermRun,
 # now frozen as lang roots (lang.TermRun.extCfg/curCfg/Event, lang.CoreTerm.ExtName.*):
 TermExtStep.curCfg@ExtArmZ.machine_tokens_main_em0.txt
 TermExtStep.extCfg@ExtArmZ.machine_tokens_main_em0.txt

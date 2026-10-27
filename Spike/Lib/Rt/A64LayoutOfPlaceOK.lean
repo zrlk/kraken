@@ -76,6 +76,21 @@ theorem ofPlaceOK_words_al {pcfg : Scc.Cert.PlaceOK.Config} {o : Scc.Cert.PlaceO
     (i : CoreTerm.Expr → String → Nat → Option Nat) : ∀ a ∈ (ofPlaceOK h i).rtWords, a.toNat % 8 = 0 :=
   Scc.Cert.Rt.A64.words_al_of_wordsOk (Scc.Cert.Rt.A64.wordsOk_of_rtWordsOk (rtWordsOk_link_of_placeOKAt i h))
 
+/-- **The words of `ofPlaceOK` are off the allocator's counter** (A8's
+`ctrSepOk`): none is the word at `scc_rt_heap_use` (`heapUseOf`, the
+arena's `ctrLoc`). -/
+theorem hctr_of_placeOKAt {pcfg : Scc.Cert.PlaceOK.Config} {o : Scc.Cert.PlaceOK.A64.Out} {Λ : Scc.Sem.Layout}
+    (h : placeOKAt pcfg Λ o = true) (i : CoreTerm.Expr → String → Nat → Option Nat) :
+    ∀ a ∈ (ofPlaceOK h i).rtWords,
+      (⟨a, 8⟩ : Loc) ≠ ⟨BitVec.ofNat 64 (Scc.Cert.PlaceOK.heapUseOf (ofPlaceOK h i).Λ), 8⟩ := by
+  intro a ha he
+  have hs : Scc.Cert.Rt.A64.WordSep a (BitVec.ofNat 64 (Scc.Cert.PlaceOK.heapUseOf (ofPlaceOK h i).Λ)) :=
+    Scc.Cert.Rt.A64.ctrSep_of_rtWordsOk (rtWordsOk_link_of_placeOKAt i h) a ha
+  have ha' : a = BitVec.ofNat 64 (Scc.Cert.PlaceOK.heapUseOf (ofPlaceOK h i).Λ) := congrArg Loc.addr he
+  unfold Scc.Cert.Rt.A64.WordSep at hs
+  rw [← ha'] at hs
+  omega
+
 /-- **The Linux entry state is admissible at the record**: its stack is
 clear of the layout (`clear_link_of_placeOKAt`), at a 16-aligned user stack
 pointer with 64 KiB. -/
@@ -91,6 +106,23 @@ theorem witness_ok_ofPlaceOK {pcfg : Scc.Cert.PlaceOK.Config} {o : Scc.Cert.Plac
     {Λ : Scc.Sem.Layout} (h : placeOKAt pcfg Λ o = true) (i : CoreTerm.Expr → String → Nat → Option Nat) :
     Scc.Sem.Entry.Ok ⟨⟨2 ^ 32, 65536⟩⟩ (ofPlaceOK h i).Λ :=
   Scc.Sem.Entry.ok_witness (below32_of_placeOKAt h)
+
+/-- **The main thread's TCB is `scc_rt_pinned + 8`**: `startAllUWF_gen`'s
+thread pointer at `MainE` (the first allocation, `n0 = 0`, past the header
+word at `scc_rt_pinned`) is the canonical link's address of
+`scc_rt_pinned` (`Rt.A64.rtA`) plus 8, at any immediate table. -/
+theorem mainE_tcb_ofPlaceOK {pcfg : Scc.Cert.PlaceOK.Config} {o : Scc.Cert.PlaceOK.A64.Out}
+    {Λ : Scc.Sem.Layout} (h : placeOKAt pcfg Λ o = true) (i : CoreTerm.Expr → String → Nat → Option Nat) :
+    Spike.Lib.A64.Flow.Ret0.pinA (ofPlaceOK h i).lab + 0#64 + 8#64 =
+      Scc.Cert.Rt.A64.rtA Λ o.prog o.secs "scc_rt_pinned" + 8#64 := by
+  rw [(ofPlaceOK h i).lab_pin, BitVec.add_zero]
+  rfl
+
+/-- info: 'Spike.Lib.A64.Rt.RuntimeLayout.mainE_tcb_ofPlaceOK' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in #print axioms mainE_tcb_ofPlaceOK
+
+/-- info: 'Spike.Lib.A64.Rt.RuntimeLayout.hctr_of_placeOKAt' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in #print axioms hctr_of_placeOKAt
 
 end RuntimeLayout
 
@@ -114,6 +146,10 @@ example : ret0P.stacksA = ret0L.stacksA := by decide +kernel
 example : ret0P.nextA = ret0L.nextA := by decide +kernel
 example : ret0P.lockA = ret0L.lockA := by decide +kernel
 example : ret0P.freeNA = ret0L.freeNA := by decide +kernel
+/-- `ret0`'s main thread's TCB, `scc_rt_pinned + 8`, at its hand layout's pinned word. -/
+example : Spike.Lib.A64.Flow.Ret0.pinA ret0P.lab + 0#64 + 8#64 = ret0L.pinA + 8#64 := by
+  rw [RuntimeLayout.mainE_tcb_ofPlaceOK]
+  decide +kernel
 
 end Oracle
 

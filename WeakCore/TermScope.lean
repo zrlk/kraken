@@ -31,7 +31,7 @@ theorem drf_shiftT : ∀ (t : Ty) (c : Nat), drf (t.shiftT c) = drf t := by
   | tvar k => intro c; simp only [Ty.shiftT]; split <;> rfl
   | prod a b iha ihb => intro c; simp [Ty.shiftT, drf, iha, ihb]
   | sum a b iha ihb => intro c; simp [Ty.shiftT, drf, iha, ihb]
-  | code a b iha ihb => intro c; simp [Ty.shiftT, drf, iha, ihb]
+  | code a b _ iha ihb => intro c; simp [Ty.shiftT, drf, iha, ihb]
   | array i t ih => intro c; simp [Ty.shiftT, drf, ih]
   | ptr μ t ih => intro c; simp [Ty.shiftT, drf, ih]
   | ptrOpt μ t ih => intro c; simp [Ty.shiftT, drf, ih]
@@ -48,7 +48,7 @@ theorem drf_shiftI : ∀ (t : Ty) (c : Nat), drf (t.shiftI c) = drf t := by
   induction t with
   | prod a b iha ihb => intro c; simp [Ty.shiftI, drf, iha, ihb]
   | sum a b iha ihb => intro c; simp [Ty.shiftI, drf, iha, ihb]
-  | code a b iha ihb => intro c; simp [Ty.shiftI, drf, iha, ihb]
+  | code a b _ iha ihb => intro c; simp [Ty.shiftI, drf, iha, ihb]
   | array i t ih => intro c; simp [Ty.shiftI, drf, ih]
   | ptr μ t ih => intro c; simp [Ty.shiftI, drf, ih, drfM_shift]
   | ptrOpt μ t ih => intro c; simp [Ty.shiftI, drf, ih, drfM_shift]
@@ -88,7 +88,7 @@ theorem drf_substTs {σs : List Ty} (hσ : AllDrf σs) :
       · rfl
   | prod a b iha ihb => intro c d h; simp only [substTs, drf, Bool.and_eq_true] at h ⊢; exact ⟨iha c d h.1, ihb c d h.2⟩
   | sum a b iha ihb => intro c d h; simp only [substTs, drf, Bool.and_eq_true] at h ⊢; exact ⟨iha c d h.1, ihb c d h.2⟩
-  | code a b iha ihb => intro c d h; simp only [substTs, drf, Bool.and_eq_true] at h ⊢; exact ⟨iha c d h.1, ihb c d h.2⟩
+  | code a b _ iha ihb => intro c d h; simp only [substTs, drf, Bool.and_eq_true] at h ⊢; exact ⟨iha c d h.1, ihb c d h.2⟩
   | array i t ih => intro c d h; exact ih c d h
   | ptr μ t ih => intro c d h; simp only [substTs, drf, Bool.and_eq_true] at h ⊢; exact ⟨h.1, ih c d h.2⟩
   | ptrOpt μ t ih => intro c d h; simp only [substTs, drf, Bool.and_eq_true] at h ⊢; exact ⟨h.1, ih c d h.2⟩
@@ -108,7 +108,7 @@ theorem drf_of_substTs (σs : List Ty) :
   induction t with
   | prod a b iha ihb => intro c d h; simp only [substTs, drf, Bool.and_eq_true] at h ⊢; exact ⟨iha c d h.1, ihb c d h.2⟩
   | sum a b iha ihb => intro c d h; simp only [substTs, drf, Bool.and_eq_true] at h ⊢; exact ⟨iha c d h.1, ihb c d h.2⟩
-  | code a b iha ihb => intro c d h; simp only [substTs, drf, Bool.and_eq_true] at h ⊢; exact ⟨iha c d h.1, ihb c d h.2⟩
+  | code a b _ iha ihb => intro c d h; simp only [substTs, drf, Bool.and_eq_true] at h ⊢; exact ⟨iha c d h.1, ihb c d h.2⟩
   | array i t ih => intro c d h; exact ih c d h
   | ptr μ t ih => intro c d h; simp only [substTs, drf, Bool.and_eq_true] at h ⊢; exact ⟨h.1, ih c d h.2⟩
   | ptrOpt μ t ih => intro c d h; simp only [substTs, drf, Bool.and_eq_true] at h ⊢; exact ⟨h.1, ih c d h.2⟩
@@ -137,7 +137,7 @@ theorem drf_substT : ∀ (t : Ty) (j : Nat) (s : Ty), drf s = true → drf t = t
     · split <;> rfl
   | prod a b iha ihb => intro j s hs h; simp only [Ty.substT, drf, Bool.and_eq_true] at h ⊢; exact ⟨iha j s hs h.1, ihb j s hs h.2⟩
   | sum a b iha ihb => intro j s hs h; simp only [Ty.substT, drf, Bool.and_eq_true] at h ⊢; exact ⟨iha j s hs h.1, ihb j s hs h.2⟩
-  | code a b iha ihb => intro j s hs h; simp only [Ty.substT, drf, Bool.and_eq_true] at h ⊢; exact ⟨iha j s hs h.1, ihb j s hs h.2⟩
+  | code a b _ iha ihb => intro j s hs h; simp only [Ty.substT, drf, Bool.and_eq_true] at h ⊢; exact ⟨iha j s hs h.1, ihb j s hs h.2⟩
   | array i t ih => intro j s hs h; exact ih j s hs h
   | ptr μ t ih => intro j s hs h; simp only [Ty.substT, drf, Bool.and_eq_true] at h ⊢; exact ⟨h.1, ih j s hs h.2⟩
   | ptrOpt μ t ih => intro j s hs h; simp only [Ty.substT, drf, Bool.and_eq_true] at h ⊢; exact ⟨h.1, ih j s hs h.2⟩
@@ -158,7 +158,7 @@ theorem drf_skel : ∀ t : Ty, drf (skel t) = drf t := by
   induction t with
   | prod a b iha ihb => simp [skel, drf, iha, ihb]
   | sum a b iha ihb => simp [skel, drf, iha, ihb]
-  | code a b iha ihb => simp [skel, drf, iha, ihb]
+  | code a b _ iha ihb => simp [skel, drf, iha, ihb]
   | array i t ih => simp [skel, drf, ih]
   | ptr μ t ih => cases μ <;> simp [skel, skelM, drf, drfM, ih]
   | ptrOpt μ t ih => cases μ <;> simp [skel, skelM, drf, drfM, ih]
@@ -178,7 +178,7 @@ theorem drf_etok : ∀ t : Ty, drf (etok t) = drf t := by
   induction t with
   | prod a b iha ihb => simp [etok, drf, iha, ihb]
   | sum a b iha ihb => simp [etok, drf, iha, ihb]
-  | code a b iha ihb => simp [etok, drf, iha, ihb]
+  | code a b _ iha ihb => simp [etok, drf, iha, ihb]
   | array i t ih => simp [etok, drf, ih]
   | ptr μ t ih => simp [etok, drf, ih]
   | ptrOpt μ t ih => simp [etok, drf, ih]

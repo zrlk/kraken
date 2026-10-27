@@ -5,10 +5,10 @@ import Spike.Lib.X64PrintL
 # `wc_printL`'s call to `scc_rt_morestack` on x64
 
 `hms_printL`: the given node `hms` of `Spike.Lib.X64.PrintL.seg_printL`
-(the grow stub's call to `scc_rt_morestack`, from `.ms` to `.x19` at some
+(the grow stub's call to `scc_rt_morestack`, from `.ms` to `.x18` at some
 ghost), by `seg_ms_call`: the stub calls with the return address at offset
 `-56`, the frame record `(rb g, ra)` at `0`, `8`, and the return address
-`.stk + 18`, which is the label `.x19` (`hx19`).
+`.stk + 18`, which is the label `.x18` (`hx18`).
 -/
 
 namespace Scc.Cert.Rt.X64.Morestack
@@ -27,8 +27,8 @@ abbrev printLRet (lab : Label → Int64) : BitVec 64 := (lab ".Lwc_printL.stk" +
 theorem hms_printL {γ : Sort _} {Rg : γ → Region} {Fg : γ → MachineData → Prop} {rb : γ → BitVec 64}
     (hcode : Code exe endPc)
     (hR : ∀ g, (Rg g).OK) (hF : ∀ g, FStable (Rg g) (Fg g))
-    (hlo : ∀ g, (Rg g).lo ≤ -152) (hhi : ∀ g, 16 ≤ (Rg g).hi)
-    (hx19 : (_root_.Executable.labels exe).label ".Lwc_printL.x19" =
+    (hlo : ∀ g, (Rg g).lo ≤ -120) (hhi : ∀ g, 16 ≤ (Rg g).hi)
+    (hx18 : (_root_.Executable.labels exe).label ".Lwc_printL.x18" =
       (_root_.Executable.labels exe).label ".Lwc_printL.stk" + 18)
     (hgrow : ∀ g need, Seg p lbl ms
       (At exe endPc (msR (Rg g) (-56)) (Fms (Fg g) (Rg g) (-56) (rb g) ra)
@@ -48,12 +48,12 @@ theorem hms_printL {γ : Sort _} {Rg : γ → Region} {Fg : γ → MachineData �
     (g : γ) :
     Seg p lbl ms (At exe endPc (Rg g) (Fg g) (PrintL.N (_root_.Executable.labels exe).label c0 (rb g) ra .ms))
       (fun s c => ∃ g', At exe endPc (Rg g') (Fg g')
-        (PrintL.N (_root_.Executable.labels exe).label c0 (rb g') ra .x19) s c) :=
+        (PrintL.N (_root_.Executable.labels exe).label c0 (rb g') ra .x18) s c) :=
   seg_ms_call (a := rb) (b := fun _ => ra) (kc := -56)
     (nC := fun g => PrintL.N (_root_.Executable.labels exe).label c0 (rb g) ra .ms)
-    (nX := fun g => PrintL.N (_root_.Executable.labels exe).label c0 (rb g) ra .x19) hcode hR hF
+    (nX := fun g => PrintL.N (_root_.Executable.labels exe).label c0 (rb g) ra .x18) hcode hR hF
     (fun g => by have := hlo g; omega) hhi (by decide) (by decide)
     (fun _ => ⟨rfl, rfl⟩) (fun _ _ _ ⟨⟨hc, h0, h8⟩, hra⟩ => ⟨hc, h0, h8, hra⟩)
-    (fun _ => ⟨by simp [PrintL.N, hx19], rfl⟩) (fun _ _ h0 h8 => ⟨rfl, h0, h8⟩) hgrow hrel g
+    (fun _ => ⟨by simp [PrintL.N, hx18], rfl⟩) (fun _ _ h0 h8 => ⟨rfl, h0, h8⟩) hgrow hrel g
 
 end Scc.Cert.Rt.X64.Morestack

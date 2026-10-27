@@ -94,6 +94,16 @@ def tiGrpsH : List RGrp := [
   ⟨x7L, [(0, tiSp), (51, tiF1), (63, tiZ), (78, tiZ), (93, tiF4), (105, tiF5), (117, tiRet)] ++
     storeOff.zip storeBlks, none⟩]
 
+/-- `scc_rt_thread_init`'s groups with its return point at `x`
+(`threadInitInAt`; `tiGrpsH` at `.x7`). -/
+def tiGrpsHAt (x : Label) : List RGrp := [
+  ⟨fnL, [(0, tiPro)], some (12, entryL)⟩,
+  ⟨entryL, [(0, tiArg), (7, callBlk)], some (12, x)⟩,
+  ⟨x, [(0, tiSp), (51, tiF1), (63, tiZ), (78, tiZ), (93, tiF4), (105, tiF5), (117, tiRet)] ++
+    storeOff.zip storeBlks, none⟩]
+
+theorem tiGrpsHAt_x7 : tiGrpsHAt x7L = tiGrpsH := rfl
+
 end Ti
 
 section Take
@@ -177,6 +187,22 @@ theorem threadInitIn_of (h : RtAll cells tiGrpsH) : Ret0.ThreadInit.threadInitIn
     List.cons_append, List.nil_append, RtAll, BsOk, GapAt, and_true] at h
   simp only [Ret0.ThreadInit.threadInitIn, Ret0.ThreadInit.storeOff, Ret0.ThreadInit.storeBlks,
     List.zip_cons_cons, List.zip_nil_left, List.all_cons, List.all_nil, h, Bool.and_self]
+
+/-- `scc_rt_thread_init`'s check with its return point at `x` from its
+groups. -/
+theorem threadInitInAt_of {x : Label} (h : RtAll cells (tiGrpsHAt x)) :
+    Ret0.ThreadInit.threadInitInAt cells x = true := by
+  simp only [tiGrpsHAt, Ret0.ThreadInit.storeOff, Ret0.ThreadInit.storeBlks, List.zip_cons_cons,
+    List.zip_nil_left, List.cons_append, List.nil_append, RtAll, BsOk, GapAt, and_true] at h
+  simp only [Ret0.ThreadInit.threadInitInAt, Ret0.ThreadInit.storeOff, Ret0.ThreadInit.storeBlks,
+    List.zip_cons_cons, List.zip_nil_left, List.all_cons, List.all_nil, h, Bool.and_self]
+
+/-- **The return point of `scc_rt_thread_init` is `.entry` + 12** in a
+program with its code at `x`. -/
+theorem gap_of_threadInitInAt {x : Label} (h : Ret0.ThreadInit.threadInitInAt cells x = true) :
+    Scc.Cert.Rt.X64.labelGapB cells Ret0.ThreadInit.entryL x 12 = true := by
+  simp only [Ret0.ThreadInit.threadInitInAt, Bool.and_eq_true] at h
+  exact h.1.1.1.1.1.1.1.1.2
 
 /-- `scc_rt_stack_take`'s check from its groups. -/
 theorem stackTakeIn_of (h : RtAll cells takeGrpsH) : Ret0.StackTake.stackTakeIn cells = true := by

@@ -1,16 +1,18 @@
 /-
-**Abort budgets by exact runtime counters** (`Scc/DESIGN.md` §7.3, item 5,
-option (c)): the source side of the heap and stack aborts, and the tie
+**Abort budgets** (`Scc/DESIGN.md` §7.3, item 5; an exact runtime counter
+for the heap, the stack cap for the stack): the source side of the heap and stack aborts, and the tie
 between the budget and the layout.
 
-The runtime counts in source units (planned shapes, §7.3): a global counter
+The runtime counts the heap in source units (§7.3): a global counter
 `scc_rt_heap_use` that `scc_rt_alloc` bumps by an allocation's words plus
 one, aborting exactly when the old count is within `B.cells` and the new one
-is past it; a per-thread depth bumped around source non-tail calls, aborting
-when the depth would pass `B.frames`. With the counter equal to the source
-quantity (`heapUse`, the thread's `stack.length`), the abort happens at the
-target step simulating the source step that crosses the part, which is what
-`AbortJustified` asks:
+is past it. With the counter equal to the source quantity (`heapUse`), the
+abort happens at the target step simulating the source step that crosses
+the part, which is what `AbortJustified` asks. The stack has no counter: a
+thread aborts in the grow routine when a frame no longer fits under the
+stack cap, which the layout places at or beyond `B.frames` frames, so the
+abort may come later than the crossing; `AbortJustified` asks for `stack`
+only that some step leave the depth above `B.frames`:
 
 - `memCells`, `memCells_allocBuf`: a `newBuf` of a fresh label adds its word
   count to the source's distinct cells (`cellCount`); `nallocSum_set`: one
@@ -21,14 +23,14 @@ target step simulating the source step that crosses the part, which is what
   `heapUse` by `u` from within `B.cells` to past it justifies a heap abort;
   `AbortJustified.not_heap_past`: once past (another thread crossed), no
   heap abort is justified, so a later thread must wait (spin), not abort;
-- `AbortJustified.stack_of_push`: a step of thread `i` that pushes one frame
-  when its depth is `B.frames` justifies a stack abort;
+- `AbortJustified.stack_of_past`: a step of thread `i` that ends with its
+  depth above `B.frames` justifies a stack abort;
 - `Budget.ofArena`, `arena_fits`: the heap part derived from the arena,
   `B.cells = heap bytes / 16`, so that the arena check is unreachable while
   the part holds (`arena_covers`).
 
-Not here: the runtime invariant that the counters equal the source
-quantities (it needs the runtime's counter code), and the frame-size side
+Not here: the runtime invariant that the heap counter equals the source
+quantity (it needs the runtime's counter code), and the frame-size side
 of the stack budget (the largest frame, the cap and the pool, which are the
 runtime layout's).
 -/
@@ -152,21 +154,16 @@ justified, so the runtime must not abort there (it waits for the crossing
 thread's exit). -/
 theorem AbortJustified.not_heap_past {B : Budget} {S : SrcSem} {tr : List Ev} {s : S.Cfg} {i : Nat}
     (hpast : B.cells < heapUse (S.core s)) : ¬ AbortJustified B S tr s i .heap :=
-  AbortJustified.not_of_not_part (k := .heap) (by simp [EnvJustified])
+  AbortJustified.not_of_not_part (k := .heap) (by decide) (by simp [EnvJustified])
     (by show ¬ heapUse (S.core s) ≤ B.cells; omega)
 
-/-- **A stack abort at the crossing is justified**: a step of thread `i`
-that pushes one frame when its depth is `B.frames`. -/
-theorem AbortJustified.stack_of_push {B : Budget} {S : SrcSem} {tr : List Ev} {s s' : S.Cfg} {i : Nat}
-    {es : List Ev} (hstep : S.step i s es s') {th th' : TermRun.TTh} (hth : (S.core s).ths[i]? = some th)
-    (hth' : (S.core s').ths[i]? = some th') (hlen : th'.stack.length = th.stack.length + 1)
-    (hat : th.stack.length = B.frames) : AbortJustified B S tr s i .stack := by
-  refine ⟨es, s', hstep, ?_, ?_⟩
-  · intro t ht
-    rw [hth] at ht; cases ht; omega
-  · intro h
-    have := h th' hth'
-    omega
+/-- **A stack abort past the budget is justified**: a step of thread `i`
+that ends with its depth above `B.frames` (at the crossing or later). -/
+theorem AbortJustified.stack_of_past {B : Budget} {S : SrcSem} {tr : List Ev} {s s' : S.Cfg} {i : Nat}
+    {es : List Ev} (hstep : S.step i s es s') {th' : TermRun.TTh}
+    (hth' : (S.core s').ths[i]? = some th') (hpast : B.frames < th'.stack.length) :
+    AbortJustified B S tr s i .stack :=
+  ⟨es, s', hstep, fun h => absurd (h th' hth') (by omega)⟩
 
 /-! ## The budget from the layout -/
 

@@ -67,9 +67,11 @@ structure CompRest (M : ExtMachine) (Λ : Layout) (w : Witness M) (t : M.Cfg) (s
   thr_onto : ∀ j tt, M.runs t j → t.1.threads[j]? = some tt → ∃ i, i < s.ths.size ∧ w.thr i = some j
   env_rep : ∀ i th j tt, s.ths[i]? = some th → w.thr i = some j → t.1.threads[j]? = some tt →
     ∀ d e, (frameEnvs th)[d]? = some e → ∀ x ty ws, TermRun.lookupE e x = some (ty, ws) →
-    ∀ k wd wp, ws[k]? = some wd → w.env i d x k = some wp → WordPlaceRep M w.lbl tt.st wp wd.val
+    ∀ k wd wp, ws[k]? = some wd → w.env i d x k = some wp → ¬ ExternFrame th d →
+    WordPlaceRep M w.lbl tt.st wp wd.val
   env_total : ∀ i th, s.ths[i]? = some th → ∀ d e xs, (frameEnvs th)[d]? = some e → (frameFv th)[d]? = some xs →
-    ∀ x ∈ xs, ∀ ty ws, TermRun.lookupE e x = some (ty, ws) → ∀ k < ws.length, ∃ pl, w.env i d x k = some pl
+    ¬ ExternFrame th d → ∀ x ∈ xs, ∀ ty ws, TermRun.lookupE e x = some (ty, ws) →
+    ∀ k < ws.length, ∃ pl, w.env i d x k = some pl
   stack_pool : ∀ j rg, M.stackRange t j = some rg → rg.Sub Λ.stackPool
   stack_disj : ∀ j j' rg rg', j ≠ j' → M.stackRange t j = some rg → M.stackRange t j' = some rg' →
     rg.Disjoint rg'
