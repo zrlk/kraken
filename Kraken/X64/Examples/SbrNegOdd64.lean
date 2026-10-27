@@ -96,4 +96,20 @@ theorem sbr_neg_odd_64_spec [Host] [FunDecls] (d : MachineData)
   cfg_cases
   all_goals kvcgen64 with finish
 
+/-- `sbr_neg_odd_64_spec`, read at the machine: from the program's first
+directive, the run reaches the program's end with the array and the mask in
+place. The mask's alignment is assumed (`h_mask_aligned`) until `Host` gets an
+alignment field for `.align`. -/
+theorem sbr_neg_odd_64_terminates_and_safe [Host] [FunDecls] [he : Embeds sbr_neg_odd_64_prog]
+    (d : MachineData)
+    (h_z_aligned : isAligned 16 (d.regs.get64 .rdi) = true)
+    (h_mask_aligned : isAligned 16 ps_mask2 = true)
+    (R : DataMem → Prop)
+    (h_mem : d.dmem =⋆ Mem.Blocks [(d.regs.get64 .rdi, 256), (ps_mask2, 16)] ⋆ R) :
+    Eventually (step1 Host.exe)
+      (fun u => u.data.dmem =⋆ Mem.Blocks [(d.regs.get64 .rdi, 256), (ps_mask2, 16)] ⋆ R)
+      ⟨d, he.embedding.startAddr⟩ :=
+  Program.step1_of_wp (sbr_neg_odd_64_spec d h_z_aligned h_mask_aligned R h_mem)
+    (fun _ _ h => h) (fun _ h => h.elim)
+
 end Kraken.Examples.SbrNegOdd64
