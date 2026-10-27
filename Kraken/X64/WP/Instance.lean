@@ -275,6 +275,38 @@ local macro "run_step" : tactic =>
   intro af
   exact hn _ (hpre af)
 
+@[spec] public theorem mov_reg32_imm_spec (asz : Width) (r : Reg64) (i : Int64) :
+    ⦃ fun s => Q () { s with regs := s.regs.set64 r ((i.toBitVec.truncate 32).zeroExtend 64) } ⦄
+      (Directive.instr (.regular asz .W32 (.mov (.reg (.low r .W32)) (.imm (.int64 i)))))
+    ⦃ Q; E ⦄ :=
+  ⟨fun _ hq => Program.wp_single fun _ _ _ _ hn _ => by
+    simp only [Directive.interp, Instr.interp, Operation.interp, Operand.interp, ConstExpr.interp,
+      MachineData.set, MachineData.setReg, Reg64s.set_low_W32, Effects.All]
+    exact hn _ hq⟩
+
+@[spec] public theorem mov_reg32_reg32_spec (asz : Width) (rd rs : Reg64) :
+    ⦃ fun s => Q () { s with regs := s.regs.set64 rd (((s.regs.get64 rs).take 32).zeroExtend 64) } ⦄
+      (Directive.instr (.regular asz .W32
+          (.mov (.reg (.low rd .W32)) (.regOrMem (.reg (.low rs .W32))))))
+    ⦃ Q; E ⦄ :=
+  ⟨fun _ hq => Program.wp_single fun _ _ _ _ hn _ => by
+    simp only [Directive.interp, Instr.interp, Operation.interp, Operand.interp, RegOrMem.interp,
+      MachineData.set, MachineData.setReg, Reg64s.get_low_W32, Reg64s.set_low_W32, Effects.All]
+    exact hn _ hq⟩
+
+@[spec] public theorem xor_reg32_reg32_spec (asz : Width) (rd rs : Reg64) :
+    ⦃ fun s =>
+        let v := (s.regs.get64 rd).take 32 ^^^ (s.regs.get64 rs).take 32
+        ∀ af : Bool,
+          Q () { s with regs := s.regs.set64 rd (v.zeroExtend 64), status := StatusFlags.ofLogic v af } ⦄
+      (Directive.instr (.regular asz .W32
+          (.xor (.reg (.low rd .W32)) (.regOrMem (.reg (.low rs .W32))))))
+    ⦃ Q; E ⦄ :=
+  ⟨fun _ hq => Program.wp_single fun _ _ _ _ hn _ => by
+    simp only [Directive.interp, Instr.interp, Operation.interp, Operand.interp, RegOrMem.interp,
+      MachineData.set, MachineData.setReg, Reg64s.get_low_W32, Reg64s.set_low_W32, Effects.All]
+    exact fun af => hn _ (hq af)⟩
+
 @[spec] public theorem dec_reg_spec (asz : Width) (r : Reg64) :
     ⦃ fun s =>
         let a := s.regs.get64 r
@@ -499,6 +531,22 @@ attribute [grind =] Int64.ofBitVec_toBitVec
     refine hj _ s ?_
     rw [Executable.StepOut.of_not_below_data (MachineData.not_stackBelow_self s)]
     exact hq⟩
+
+@[spec] public theorem jmp_mem_spec (osz : Width) (b : Reg64) (d : Int64) :
+    ⦃ fun s =>
+        let a := s.regs.get64 b + BitVec.ofInt 64 d.toInt
+        (Mem.loadInt s.dmem a 8).isSome = true
+          ∧ E (Int64.ofBitVec (BitVec.ofInt 64 (Mem.loadInt s.dmem a 8).get!)) s ⦄
+      (Directive.instr (.regular .W64 osz (.jmp (.mem ⟨some (.reg b), none, .int64 d⟩))))
+    ⦃ Q; E ⦄ := by
+  refine ⟨fun s ⟨hsome, hq⟩ => ?_⟩
+  obtain ⟨v, hv⟩ := Option.isSome_iff_exists.mp hsome
+  refine Program.wp_single fun _ _ _ _ _ hj => ?_
+  simp only [Directive.interp, Instr.interp, Operation.interp, RelRegOrMem.interp,
+    MachineData.load, AddrExpr.zeroExtend_interp_base_disp, Width.bytes, hv, Effects.All]
+  refine hj _ s ?_
+  rw [Executable.StepOut.of_not_below_data (MachineData.not_stackBelow_self s)]
+  rwa [hv, Option.get!_some] at hq
 
 @[spec] public theorem jcc_spec (asz osz : Width) (cc : CondCode) (l : Label) :
     ⦃ fun s => (cc.interp s.status = true → E (label l) s) ∧ (cc.interp s.status = false → Q () s) ⦄

@@ -262,3 +262,22 @@ theorem Mem.get?_storeInt_of_ne {w} (m : Mem w) (a b : BitVec w) (n : Nat) (v : 
     exact h i hi rfl
   rw [ExtHashMap.getElem?_eq_none hnot, ← get?_eq_getElem?]
   rfl
+
+/-- A load of `k` bytes at `b` that starts at least `n` bytes above a store of
+`n` bytes at `a`, without wrapping around to it, reads what was there before:
+a store to a stack slot leaves the slots above it alone. -/
+theorem Mem.loadInt_storeInt_of_above {w} (m : Mem w) (a b : BitVec w) (n k : Nat) (v : Int)
+    (hlo : n ≤ (b - a).toNat) (hhi : (b - a).toNat + k ≤ 2 ^ w) :
+    (m.storeInt a n v).loadInt b k = m.loadInt b k := by
+  apply Mem.loadInt_congr
+  intro i hi
+  apply Mem.get?_storeInt_of_ne
+  intro j hj hEq
+  have h := congrArg (fun x => (x - a).toNat) hEq
+  have hr : b + BitVec.ofNat w i - a = (b - a) + BitVec.ofNat w i := by
+    rw [BitVec.sub_eq_add_neg, BitVec.sub_eq_add_neg, BitVec.add_assoc, BitVec.add_assoc,
+      BitVec.add_comm (BitVec.ofNat w i)]
+  rw [hr, BitVec.add_comm a, BitVec.add_sub_cancel, BitVec.toNat_add, BitVec.toNat_ofNat,
+    BitVec.toNat_ofNat, Nat.mod_eq_of_lt (a := i) (by omega),
+    Nat.mod_eq_of_lt (a := j) (by omega), Nat.mod_eq_of_lt (by omega)] at h
+  omega
