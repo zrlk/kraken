@@ -64,6 +64,17 @@ variable [Host] [FunDecls] {Q : Unit → MachineData → Prop} {E : Int64 → Ma
     MachineData.set, MachineData.setReg, Reg64s.set_low_W64, Effects.All, ite_true]
   exact hn _ hpre
 
+@[spec] public theorem mov_reg_imm_label_sub_spec (asz : Width) (r : Reg64) (l₁ l₂ : Label) :
+    ⦃ fun s => Q () { s with regs := s.regs.set64 r (BitVec.setWidth 64 (label l₁ - label l₂).toBitVec) } ⦄
+      (Directive.instr (.regular asz .W64
+        (.mov (.reg (.low r .W64)) (.imm (.sub (.label l₁) (.label l₂))))))
+    ⦃ Q; E ⦄ := by
+  refine ⟨fun s hpre => ?_⟩
+  refine Program.wp_single fun _ _ _ _ hn _ => ?_
+  simp only [Directive.interp, Instr.interp, Operation.interp, Operand.interp, ConstExpr.interp,
+    MachineData.set, MachineData.setReg, Reg64s.set_low_W64, Effects.All, ite_true]
+  exact hn _ hpre
+
 @[spec] public theorem mov_store_reg_spec (b : Reg64) (d : Int64) (rs : Reg64) :
     ⦃ fun s => (Mem.loadInt s.dmem (s.regs.get64 b + BitVec.ofInt 64 d.toInt) 8).isSome = true
         ∧ Q () { s with
