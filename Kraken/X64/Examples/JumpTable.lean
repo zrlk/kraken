@@ -1,6 +1,7 @@
 module
 
 public import Kraken.StateCfg
+public import Kraken.X64.WP.Image
 import Kraken.X64.Parser
 
 /-!
@@ -48,16 +49,18 @@ sel:
 ```
 
 `sel_spec`: entered with a return address on the stack (at `s.pushRa ra`) and
-the table in memory, `sel` returns to it with `eax = selFn x` (zero-extended
-into `rax`), the stack popped and the memory unchanged.
+the program's image loaded, `sel` returns to it with `eax = selFn x`
+(zero-extended into `rax`), the stack popped and the memory unchanged.
 
-> **Note: the table is an assumption, not part of the program.** Kraken's
-> syntax has no `.long`. Its only data directive is `.byte`, which holds fixed
-> bytes, not label differences, and loads read the data memory `dmem`, not
-> the code image. So the `.rodata` table is not in `sel_body`. Instead,
-> `JumpTable` (in the precondition) says that `dmem` holds the three entries
-> at `.LJTI0_0`, each one the offset of its case from the table: what the
-> loader, having applied the relocations, puts there.
+The table is part of the program: its entries are `.long` data words whose
+values are label differences, kept symbolic (`Directive.word`). Here it sits
+in the text behind the code, aligned to 4, where the compiler's output has it
+in `.rodata`. The precondition says only that the image is loaded
+(`Host.Image`); `Host.word_value` reads each entry back from it. The one
+assumption about the table is that each offset fits in 32 bits (`h_fits`),
+which the assembler checks when it fills in the relocations.
+`sel_spec_of_table` is the earlier form, which assumes the three entries in
+memory (`JumpTable`) instead of the image.
 
 ## Findings
 
@@ -103,6 +106,11 @@ sel:
 .Ldefault:
   xorl %eax, %eax
   ret
+  .align 4
+.LJTI0_0:
+  .long .Lcase0 - .LJTI0_0
+  .long .Lcase1 - .LJTI0_0
+  .long .Lcase2 - .LJTI0_0
 ")
 
 /-- The C function. -/
@@ -137,7 +145,7 @@ theorem label_ne [Host] {k : Nat} (hk : sel_body.IsInfixAt Host.prog k) {i m j :
     ((List.isInfixAt_iff_getElem?.mp hk m hlt).trans ((List.getElem?_eq_getElem hlt).symm.trans hm))
     hpad (by omega) (by omega)
 
-theorem sel_spec [Host] [FunDecls] [he : Embeds sel_body] (s : MachineData) (ra : Int64) :
+theorem sel_spec_of_table [Host] [FunDecls] [he : Embeds sel_body] (s : MachineData) (ra : Int64) :
     ⦃ fun t => t = s.pushRa ra ∧ JumpTable t.dmem ⦄
       sel_body
     ⦃ (fun _ _ => False); fun a t => a = ra
@@ -155,6 +163,11 @@ theorem sel_spec [Host] [FunDecls] [he : Embeds sel_body] (s : MachineData) (ra 
   have h23 : label ".Lcase1" ≠ label ".Lcase2" := label_ne hk (i := 11) (j := 14) (m := 12) rfl rfl rfl (by rintro ⟨⟩) (by omega) (by omega)
   have h24 : label ".Lcase1" ≠ label ".Ldefault" := label_ne hk (i := 11) (j := 17) (m := 12) rfl rfl rfl (by rintro ⟨⟩) (by omega) (by omega)
   have h34 : label ".Lcase2" ≠ label ".Ldefault" := label_ne hk (i := 14) (j := 17) (m := 15) rfl rfl rfl (by rintro ⟨⟩) (by omega) (by omega)
+  have h05 : label "sel" ≠ label ".LJTI0_0" := label_ne hk (i := 0) (j := 21) (m := 1) rfl rfl rfl (by rintro ⟨⟩) (by omega) (by omega)
+  have h15 : label ".Lcase0" ≠ label ".LJTI0_0" := label_ne hk (i := 8) (j := 21) (m := 9) rfl rfl rfl (by rintro ⟨⟩) (by omega) (by omega)
+  have h25 : label ".Lcase1" ≠ label ".LJTI0_0" := label_ne hk (i := 11) (j := 21) (m := 12) rfl rfl rfl (by rintro ⟨⟩) (by omega) (by omega)
+  have h35 : label ".Lcase2" ≠ label ".LJTI0_0" := label_ne hk (i := 14) (j := 21) (m := 15) rfl rfl rfl (by rintro ⟨⟩) (by omega) (by omega)
+  have h45 : label ".Ldefault" ≠ label ".LJTI0_0" := label_ne hk (i := 17) (j := 21) (m := 18) rfl rfl rfl (by rintro ⟨⟩) (by omega) (by omega)
   refine ⟨fun t₀ ⟨h₀, htab⟩ => ?_⟩
   subst h₀
   obtain ⟨⟨e0, h0l, h0t⟩, ⟨e1, h1l, h1t⟩, ⟨e2, h2l, h2t⟩⟩ := htab
@@ -185,5 +198,34 @@ theorem sel_spec [Host] [FunDecls] [he : Embeds sel_body] (s : MachineData) (ra 
     (fun _ _ => 0) ?_ rfl
   <;> cfg_cases
   <;> kvcgen64 with finish
+
+/-- The table's entries, read from the loaded image. -/
+theorem jumpTable_of_image [Host] [he : Embeds sel_body] {m : DataMem} {R : DataMem → Prop}
+    (h : m =⋆ Host.Image ⋆ R)
+    (h_fits : ∀ c ∈ [".Lcase0", ".Lcase1", ".Lcase2"],
+      -2 ^ 31 ≤ (label c - label ".LJTI0_0").toInt ∧ (label c - label ".LJTI0_0").toInt < 2 ^ 31) :
+    JumpTable m := by
+  have hk := he.embedding.isInfixAt
+  have hpre : ∀ j, j ≤ 2 → ∀ j' < j, ∃ e, sel_body[21 + 1 + j']? = some (.word .W32 e) := by
+    intro j hj j' hj'
+    rcases j' with _ | _ | j' <;> first | exact ⟨_, rfl⟩ | omega
+  obtain ⟨v0, h0l, h0t⟩ := Host.word_value h hk (i := 21) (j := 0) rfl (hpre 0 (by omega)) rfl
+    (h_fits _ (by simp))
+  obtain ⟨v1, h1l, h1t⟩ := Host.word_value h hk (i := 21) (j := 1) rfl (hpre 1 (by omega)) rfl
+    (h_fits _ (by simp))
+  obtain ⟨v2, h2l, h2t⟩ := Host.word_value h hk (i := 21) (j := 2) rfl (hpre 2 (by omega)) rfl
+    (h_fits _ (by simp))
+  exact ⟨⟨v0, h0l, h0t⟩, ⟨v1, h1l, h1t⟩, ⟨v2, h2l, h2t⟩⟩
+
+theorem sel_spec [Host] [FunDecls] [he : Embeds sel_body] (s : MachineData) (ra : Int64)
+    (R : DataMem → Prop)
+    (h_fits : ∀ c ∈ [".Lcase0", ".Lcase1", ".Lcase2"],
+      -2 ^ 31 ≤ (label c - label ".LJTI0_0").toInt ∧ (label c - label ".LJTI0_0").toInt < 2 ^ 31) :
+    ⦃ fun t => t = s.pushRa ra ∧ t.dmem =⋆ Host.Image ⋆ R ⦄
+      sel_body
+    ⦃ (fun _ _ => False); fun a t => a = ra
+      ∧ t.regs.get64 .rsp = (s.pushRa ra).regs.get64 .rsp + 8 ∧ t.dmem = (s.pushRa ra).dmem
+      ∧ t.regs.get64 .rax = (selFn (arg (s.pushRa ra))).setWidth 64 ⦄ :=
+  ⟨fun t₀ ⟨h₀, himg⟩ => (sel_spec_of_table s ra).1 t₀ ⟨h₀, jumpTable_of_image himg h_fits⟩⟩
 
 end Kraken.Examples.JumpTable
