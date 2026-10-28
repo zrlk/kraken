@@ -3,7 +3,9 @@ module
 public import Kraken.StateCfg
 public import Kraken.SeparationMem
 public import Kraken.X64.WP.Image
+public import Kraken.X64.WP.HostWitness
 import Kraken.X64.Parser
+import all Kraken.SeparationMem
 
 /-!
 # `ff_sbr_neg_odd_64_sse`: an SSE loop that reads a constant
@@ -189,5 +191,50 @@ theorem sbr_neg_odd_64_terminates_and_safe [Host] [FunDecls] [he : Embeds sbr_ne
       ⟨d, he.embedding.startAddr⟩ :=
   Program.step1_of_wp (sbr_neg_odd_64_spec d h_z_aligned R h_mem)
     (fun _ _ h => h) (fun _ h => h.elim)
+
+/-! ## The hypotheses can hold at once
+
+The theorems above assume a `Host`. `witnessHost` is one: it places the program at
+`0x1000` with sizes the encodings could have, so the mask lands at `0x1010`.
+`Host.ofChecks` checks the host's conditions by evaluation. -/
+
+/-- Sizes for the 23 directives of `sbr_neg_odd_64_prog`. -/
+def witnessSizes : List Nat := [0, 2, 14, 0, 16, 0, 7, 0, 3, 4, 4, 4, 7, 7, 7, 7, 3, 4, 4, 4, 4, 3, 2]
+
+/-- The program at `0x1000`, laid out by `witnessSizes`. -/
+@[instance_reducible] def witnessLayout : _root_.Layout := {start := 0x1000, size := fun i => witnessSizes.getD i 0}
+
+/-- A host for `sbr_neg_odd_64_prog`. -/
+@[instance_reducible] def witnessHost : Host :=
+  Host.ofChecks sbr_neg_odd_64_prog witnessLayout (by decide +kernel) (by decide +kernel)
+    (by decide +kernel)
+
+/-- Under `witnessHost`, the image is the mask at `0x1010`. -/
+theorem witness_dataCells : @Host.dataCells witnessHost = [(0x1010#64, mask_bytes)] := by
+  decide +kernel
+
+/-- There are a host, an embedding, and a machine that meet every hypothesis of
+`sbr_neg_odd_64_spec`: the mask at `0x1010`, the array right after it, nothing else. -/
+theorem sbr_neg_odd_64_hyps_satisfiable :
+    ∃ (_ : Host), ∃ (_ : Embeds sbr_neg_odd_64_prog), ∃ (d : MachineData) (R : DataMem → Prop),
+      isAligned 16 (d.regs.get64 .rdi) = true ∧
+      d.dmem =⋆ Mem.Blocks [(d.regs.get64 .rdi, 256)] ⋆ Host.Image ⋆ R := by
+  have hsplit := Mem.At_append_sep mask_bytes (List.replicate 256 (0 : UInt8)) 0x1010#64
+    (by rw [List.length_replicate, mask_bytes_length]; omega)
+  rw [mask_bytes_length, show (0x1010#64 + BitVec.ofNat 64 16 : BitVec 64) = 0x1020#64 from rfl]
+    at hsplit
+  have h : ((mask_bytes ++ List.replicate 256 (0 : UInt8)).At 0x1010#64) =⋆
+      Eq (mask_bytes.At 0x1010#64) ⋆ Eq ((List.replicate 256 (0 : UInt8)).At 0x1020#64) := by
+    rw [← hsplit]
+  rw [Std.ExtHashMap.sep_comm] at h
+  have h1 := Mem.Block.sep_intro (len := 256) List.length_replicate (by decide) h
+  generalize (mask_bytes ++ List.replicate 256 (0 : UInt8)).At 0x1010#64 = m at h1
+  refine ⟨witnessHost, @Embeds.mk witnessHost _ (@Embedding.mk witnessHost _ 0 (List.prefix_refl _)),
+    { dmem := m, regs := { rdi := 0x1020 } }, Std.ExtHashMap.emp,
+    by change isAligned 16 (0x1020#64) = true; decide, ?_⟩
+  rw [Std.ExtHashMap.sep_emp]
+  show m =⋆ Mem.Block 0x1020#64 256 ⋆ Mem.Cells (@Host.dataCells witnessHost)
+  rw [witness_dataCells]
+  exact h1
 
 end Kraken.Examples.SbrNegOdd64
