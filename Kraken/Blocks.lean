@@ -118,6 +118,9 @@ theorem Program.fromLabel_ne_nil_of_mem {p : Program} {l : Label}
     | byteArray a =>
       rw [Program.fromLabel_cons, if_neg (fun hc => by cases hc.2)]
       exact ih h
+    | word w e =>
+      rw [Program.fromLabel_cons, if_neg (fun hc => by cases hc.2)]
+      exact ih h
 
 private theorem idxOf_eq_of_getElem? {α} [BEq α] [LawfulBEq α] {xs : List α} {a : α}
     (hnd : xs.Nodup) : ∀ {i : Nat}, xs[i]? = some a → xs.idxOf a = i := by
@@ -173,6 +176,9 @@ theorem Program.view_eq (p : Program) :
     | byteArray a =>
       simp only [Program.view, List.cons_append]
       exact congrArg (Directive.byteArray a :: ·) ih
+    | word w e =>
+      simp only [Program.view, List.cons_append]
+      exact congrArg (Directive.word w e :: ·) ih
 
 /-- The entry segment and every body are label-free. -/
 theorem Program.view_free (p : Program) :
@@ -198,6 +204,11 @@ theorem Program.view_free (p : Program) :
       rcases List.mem_cons.mp hd' with heq | hmem
       · rw [heq]; rfl
       · exact ih.1 d' hmem
+    | word w e =>
+      refine ⟨fun d' hd' => ?_, ih.2⟩
+      rcases List.mem_cons.mp hd' with heq | hmem
+      · rw [heq]; rfl
+      · exact ih.1 d' hmem
 
 /-- The labels are the view's block labels, in order. -/
 theorem Program.labels_view (p : Program) :
@@ -209,6 +220,7 @@ theorem Program.labels_view (p : Program) :
     | label l => simp only [Program.labels_cons_label, Program.view, List.map_cons, ih]
     | instr i => exact ih
     | byteArray a => exact ih
+    | word w e => exact ih
 
 /-- The scope suffix at a label, through the view: the blocks from the
 label's position. -/
@@ -253,6 +265,11 @@ theorem Program.fromLabel_view {p : Program} (hnd : (Program.labels p).Nodup) :
       simp only [Program.view]
       exact ih hnd hi
     | byteArray a =>
+      simp only [Program.view] at hi
+      rw [Program.fromLabel_cons, if_neg (fun hc => by cases hc.2)]
+      simp only [Program.view]
+      exact ih hnd hi
+    | word w e =>
       simp only [Program.view] at hi
       rw [Program.fromLabel_cons, if_neg (fun hc => by cases hc.2)]
       simp only [Program.view]

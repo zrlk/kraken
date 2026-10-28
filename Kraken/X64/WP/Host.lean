@@ -61,6 +61,8 @@ public class Host where
   has no instance: the cell would have size zero, and `zero_inert` would make it inert,
   which a data cell is not. The parser never produces an empty `.byte`. -/
   byteArray_size : ∀ i bs, prog[i]? = some (.byteArray bs) → @Kraken.Layout.size _ layout i = bs.size
+  /-- A data word occupies its width. -/
+  word_size : ∀ i w e, prog[i]? = some (.word w e) → @Kraken.Layout.size _ layout i = w.bytes
   /-- The directive after an `.align a` starts at a multiple of `a` bytes. The optional second
   operand of `.align` is the fill value; GAS's third operand, a bound on the padding, is not
   representable, so every parsed `.align` aligns. -/

@@ -1213,6 +1213,16 @@ def parseByteData : Parser Directive := do
     fail "byte value out of range"
   pure (.byteArray ⟨vals.map (fun v => UInt8.ofNat v.toNat)⟩)
 
+/-- Parse a data word: `.short`, `.long` or `.quad` followed by an integer or a symbolic
+constant (`sym`, `sym+8`, `.Lcase0-.Ltable`). The value stays symbolic; it becomes one
+`Directive.word` cell. -/
+def parseDataWord : Parser Directive := do
+  let w ← (attempt (pstring ".short" *> pure Width.W16)) <|>
+    (attempt (pstring ".long" *> pure Width.W32)) <|> (pstring ".quad" *> pure Width.W64)
+  skipHWs
+  let e ← parseInt64Raw <|> parseSymExpr
+  pure (.word w e)
+
 def skipSpaceAndCheckLineEnd : Parser Bool := do
   skipHWs
   let c? ← peek?
@@ -1230,7 +1240,7 @@ def parseOptionalInstr : Parser (Option Directive) := do
   if (← skipSpaceAndCheckLineEnd) then
     pure none
   else
-    let d ← parseByteData <|> (Directive.instr <$> (parseAlign <|> parseInstr))
+    let d ← parseByteData <|> parseDataWord <|> (Directive.instr <$> (parseAlign <|> parseInstr))
     pure (some d)
 
 def checkLineEnd : Parser Unit := do

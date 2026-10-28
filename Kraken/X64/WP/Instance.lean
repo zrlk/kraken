@@ -196,6 +196,10 @@ public theorem AddrExpr.zeroExtend_interp_index32_4 [L : Labels] (i : Reg64) (d 
     ⦃ fun _ => False ⦄ (Directive.byteArray bs) ⦃ Q; E ⦄ :=
   ⟨fun _ h => h.elim⟩
 
+@[spec] public theorem word_spec (w : Width) (e : ConstExpr) :
+    ⦃ fun _ => False ⦄ (Directive.word w e) ⦃ Q; E ⦄ :=
+  ⟨fun _ h => h.elim⟩
+
 @[spec] public theorem mulx_reg_spec (asz : Width) (hi lo rs : Reg64) :
     ⦃ fun s =>
         let v := (s.regs.get64 rs).unsigned * (s.regs.get64 .rdx).unsigned

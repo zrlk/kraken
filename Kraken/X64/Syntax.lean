@@ -281,6 +281,9 @@ inductive Directive
   | instr (_ : Instr)
   | label (_ : Label)
   | byteArray (_ : ByteArray)
+  /-- A data word of `w.bytes` bytes (`.short`, `.long`, `.quad`) whose value may be relocated:
+  a label, a difference of labels, a literal. -/
+  | word (w : Width) (e : ConstExpr)
   deriving BEq, DecidableEq, Repr, Hashable, Lean.ToExpr
 
 abbrev Program := List Directive
@@ -303,6 +306,9 @@ def Program.labels (p : Program) : List Label := p.filterMap Directive.label?
 @[simp, grind =] theorem Program.labels_cons_byteArray (a : ByteArray) (p : Program) :
     Program.labels (.byteArray a :: p) = Program.labels p := rfl
 
+@[simp, grind =] theorem Program.labels_cons_word (w : Width) (e : ConstExpr) (p : Program) :
+    Program.labels (.word w e :: p) = Program.labels p := rfl
+
 theorem Program.labels_append (a b : Program) :
     Program.labels (a ++ b) = Program.labels a ++ Program.labels b :=
   List.filterMap_append
@@ -321,7 +327,7 @@ theorem List.Nodup.eq_of_getElem?_label {P : Program} (hnd : (Program.labels P).
   | cons d P ih =>
     cases i <;> cases j <;> cases d <;>
       grind [Program.labels_cons_label, Program.labels_cons_instr, Program.labels_cons_byteArray,
-        Program.mem_labels, List.mem_of_getElem?]
+        Program.labels_cons_word, Program.mem_labels, List.mem_of_getElem?]
 
 
 abbrev Executable := Kraken.Executable Directive

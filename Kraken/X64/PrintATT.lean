@@ -21,6 +21,10 @@ def reg {w} (r : Reg w) : String := "%" ++ r.toStr
 
 def avxReg {w} (r : AvxReg w) : String := "%" ++ toString r
 
+/-- The data directive of a word of width `w`. -/
+def dataWord : Width → String
+  | .W8 => ".byte" | .W16 => ".short" | .W32 => ".long" | .W64 => ".quad"
+
 def const : ConstExpr → String
   | .label l => l
   | .int64 i => toString i
@@ -152,6 +156,7 @@ def directive : Directive → String
   | .instr i => instr i
   | .label l => s!"{l}:"
   | d@(.byteArray _) => toString d
+  | .word w e => s!"{dataWord w} {const e}"
 
 end Kraken.X64.ATT
 

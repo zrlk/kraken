@@ -872,6 +872,7 @@ def Instr.interp [Labels]
   | .label _ => next s
   | .instr i => i.interp s p next jmp
   | .byteArray _ => .unimplemented s!"Unimplemented: execution reached data block at {p.1}"
+  | .word _ _ => .unimplemented s!"Unimplemented: execution reached data word at {p.1}"
 
 def Directives.interp [Labels]
   (ds : List (Kraken.Sized Directive)) (s : MachineData) (pc : Int64)
@@ -923,6 +924,7 @@ def Directive.fakeSize (hashOfProgram : UInt64) (d : Directive) : Nat :=
   | .instr (.regular _ _ (.nop sz)) => sz -- may be zero
   | .instr i => (1 + hash (hashOfProgram, i) % 15).toNat
   | .byteArray bs => bs.size
+  | .word w _ => w.bytes
 
 def Program.fakeLayout (prog : Program) : Executable :=
   let : Inhabited Directive := .mk (.byteArray (.mk #[]))

@@ -205,3 +205,6 @@ instance : ToString Directive where
   | .instr i => ToString.toString i
   | .label l => s!"{l}:"
   | .byteArray bs => ".byte "++", ".intercalate (bs.toList.map (fun b => s!"{b}"))
+  | .word w e =>
+    let d := match w with | .W8 => ".byte" | .W16 => ".short" | .W32 => ".long" | .W64 => ".quad"
+    s!"{d} {e}"

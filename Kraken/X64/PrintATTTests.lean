@@ -62,12 +62,19 @@ def corpus : List String := [
   -- a memory operand without a base, and a difference of labels
   "lea -0x40(,%ecx,4), %rcx", "movq 8(,%rax,8), %rbx", "a:\nb:\n  subq $b-a, %rcx",
   -- data
-  ".byte 0, 0x80, 255"
+  ".byte 0, 0x80, 255", ".short 7", ".long -1", ".quad 0xFFFFFFFFFFFFFFFF", ".quad sym",
+  ".quad sym+8", "a:\nb:\n  .long b-a", ".LJT:\n  .long .Lcase0 - .LJT\n  .long .Lcase1-.LJT"
 ]
 
 /-- info: [] -/
 #guard_msgs in
 #eval corpus.filter (!roundtrips ·)
+
+-- Data words keep their symbolic value.
+#guard match parse ".LJT:\n  .long .Lcase0 - .LJT\n  .quad 5" with
+  | .ok p => p == [.label ".LJT", .word .W32 (.sub (.label ".Lcase0") (.label ".LJT")),
+      .word .W64 (.int64 5)]
+  | .error _ => false
 
 #guard ["cmove %ax, %bx", "cmovzl %eax, %ebx", "cmovnew %ax, %bx", "cmovnel %eax, %ebx", "cmovneq %rax, %rbx"].all roundtrips
 
