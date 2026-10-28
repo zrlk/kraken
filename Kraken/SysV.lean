@@ -27,6 +27,12 @@ stated once for every procedure:
   specification is these plus its semantics (`ArgU32`, `RetU8` for the
   register conventions of `unsigned`/`bool`, and whatever it computes).
 
+Read-only data follows a separate convention (`Kraken/X64/WP/Static.lean`): every
+procedure, including an assumed external routine, is granted the loaded image
+`Host.Image` (`Program.WP.StaticPre`) and gives it back (`Program.WP.StaticPost`).
+For an assumed routine this assumes only that it leaves the image alone, which
+a contract that lists constants one by one assumes too.
+
 Kraken has no faulting model, so stack exhaustion cannot be a runtime error;
 the reservation in the precondition is the only sound treatment. A tail call
 is a run that reaches `ra` through the callee, so it is covered by the
