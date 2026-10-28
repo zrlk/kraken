@@ -61,9 +61,10 @@ public class Host where
   has no instance: the cell would have size zero, and `zero_inert` would make it inert,
   which a data cell is not. The parser never produces an empty `.byte`. -/
   byteArray_size : ∀ i bs, prog[i]? = some (.byteArray bs) → @Kraken.Layout.size _ layout i = bs.size
-  /-- The directive after an `.align a` starts at a multiple of `a` bytes. The fact is stated
-  only for `.align` without a second operand. -/
-  align : ∀ i asz osz a, prog[i]? = some (.instr (.regular asz osz (.nopalign a none))) →
+  /-- The directive after an `.align a` starts at a multiple of `a` bytes. The optional second
+  operand of `.align` is the fill value; GAS's third operand, a bound on the padding, is not
+  representable, so every parsed `.align` aligns. -/
+  align : ∀ i asz osz a pad, prog[i]? = some (.instr (.regular asz osz (.nopalign a pad))) →
     isAligned a ((layout.apply prog).addrOf (i + 1)).toBitVec = true
 
 public instance [Host] : Layout := Host.layout
@@ -218,12 +219,12 @@ public theorem Host.byteArray_addr_succ [Host] {p : Program} {k i : Nat} {bs : B
 
 /-- The label right after an `.align n` of an embedded fragment is `n`-aligned. -/
 public theorem Host.label_aligned [Host] {p : Program} {k i n : Nat} {l : Label}
-    {asz osz : Width} (hp : p.IsInfixAt Host.prog k)
-    (ha : p[i]? = some (.instr (.regular asz osz (.nopalign n none))))
+    {asz osz : Width} {pad : Option Nat} (hp : p.IsInfixAt Host.prog k)
+    (ha : p[i]? = some (.instr (.regular asz osz (.nopalign n pad))))
     (hl : p[i + 1]? = some (.label l)) :
     isAligned n (label l).toBitVec = true := by
   rw [Host.label_eq hp hl, ← Nat.add_assoc]
-  exact Host.align _ asz osz n (Host.getElem?_of_isInfixAt hp ha)
+  exact Host.align _ asz osz n pad (Host.getElem?_of_isInfixAt hp ha)
 
 /-- An offset that is a multiple of `n` keeps an `n`-aligned address `n`-aligned, if the sum
 does not wrap. -/
