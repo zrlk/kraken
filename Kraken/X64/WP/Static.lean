@@ -2,6 +2,7 @@ module
 
 public import Kraken.StateCfg
 public import Kraken.X64.WP.Image
+public import Kraken.X64.WP.Writable
 
 /-!
 # The static frame
@@ -44,6 +45,32 @@ theorem StaticPre.pushRa [Host] {R : DataMem → Prop} {s : MachineData}
   rw [Std.ExtHashMap.sep_comm_l] at h ⊢
   rw [MachineData.dmem_pushRa]
   exact Mem.Blocks.storeInt h (Mem.Blocks.Inside.base (Nat.le_refl 8)) _
+
+/-! With writable data (`Kraken/X64/WP/Writable.lean`), the convention grants only the
+read-only part of the image; a procedure that reads or writes a global lists the global's
+cells, or all of `Host.ImageRW`, in `R`. -/
+
+/-- The convention's share with writable data: the read-only image, besides `R`. -/
+@[expose] def StaticPreRO [Host] [Host.Writable] (R : DataMem → Prop) (s : MachineData) : Prop :=
+  s.dmem =⋆ Host.ImageRO ⋆ R
+
+/-- The convention's share of a postcondition with writable data: the read-only image is
+still loaded, besides `R`. -/
+@[expose] def StaticPostRO [Host] [Host.Writable] (R : DataMem → Prop) (t : MachineData) : Prop :=
+  t.dmem =⋆ Host.ImageRO ⋆ R
+
+/-- The whole image is the read-only image and the writable cells. -/
+theorem StaticPre_eq_RO [Host] [Host.Writable] (R : DataMem → Prop) :
+    StaticPre R = StaticPreRO (Host.ImageRW ⋆ R) := by
+  funext s
+  unfold StaticPre StaticPreRO
+  rw [Host.Image_eq_ro_rw]
+
+theorem StaticPost_eq_RO [Host] [Host.Writable] (R : DataMem → Prop) :
+    StaticPost R = StaticPostRO (Host.ImageRW ⋆ R) := by
+  funext t
+  unfold StaticPost StaticPostRO
+  rw [Host.Image_eq_ro_rw]
 
 end Program.WP
 

@@ -1213,6 +1213,16 @@ def parseByteData : Parser Directive := do
     fail "byte value out of range"
   pure (.byteArray ⟨vals.map (fun v => UInt8.ofNat v.toNat)⟩)
 
+/-- Parse `.zero n` or `.space n`: `n` zero bytes, as `.bss` holds them, in one data cell.
+A fill operand is not accepted, and neither is `n = 0`: a data cell is never empty. -/
+def parseZeroData : Parser Directive := do
+  let _ ← attempt (pstring ".zero") <|> pstring ".space"
+  skipHWs
+  let n ← parseHexOrDec
+  if n ≤ 0 then
+    fail "the size of .zero/.space must be positive"
+  pure (.byteArray ⟨Array.replicate n.toNat 0⟩)
+
 /-- Parse a data word: `.short`, `.long` or `.quad` followed by an integer or a symbolic
 constant (`sym`, `sym+8`, `.Lcase0-.Ltable`). The value stays symbolic; it becomes one
 `Directive.word` cell. -/
@@ -1240,7 +1250,7 @@ def parseOptionalInstr : Parser (Option Directive) := do
   if (← skipSpaceAndCheckLineEnd) then
     pure none
   else
-    let d ← parseByteData <|> parseDataWord <|> (Directive.instr <$> (parseAlign <|> parseInstr))
+    let d ← parseByteData <|> parseZeroData <|> parseDataWord <|> (Directive.instr <$> (parseAlign <|> parseInstr))
     pure (some d)
 
 def checkLineEnd : Parser Unit := do

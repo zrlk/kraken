@@ -63,7 +63,8 @@ def corpus : List String := [
   "lea -0x40(,%ecx,4), %rcx", "movq 8(,%rax,8), %rbx", "a:\nb:\n  subq $b-a, %rcx",
   -- data
   ".byte 0, 0x80, 255", ".short 7", ".long -1", ".quad 0xFFFFFFFFFFFFFFFF", ".quad sym",
-  ".quad sym+8", "a:\nb:\n  .long b-a", ".LJT:\n  .long .Lcase0 - .LJT\n  .long .Lcase1-.LJT"
+  ".quad sym+8", "a:\nb:\n  .long b-a", ".LJT:\n  .long .Lcase0 - .LJT\n  .long .Lcase1-.LJT", ".zero 4",
+  ".space 0x10", "counter:\n  .zero 4"
 ]
 
 /-- info: [] -/
@@ -75,6 +76,14 @@ def corpus : List String := [
   | .ok p => p == [.label ".LJT", .word .W32 (.sub (.label ".Lcase0") (.label ".LJT")),
       .word .W64 (.int64 5)]
   | .error _ => false
+
+-- `.zero n` and `.space n` are `n` zero bytes; they print as `.byte`.
+#guard match parse ".zero 3\n.space 2" with
+  | .ok p => p == [.byteArray ⟨#[0, 0, 0]⟩, .byteArray ⟨#[0, 0]⟩]
+  | .error _ => false
+#guard match parse ".zero 0" with
+  | .ok _ => false
+  | .error _ => true
 
 #guard ["cmove %ax, %bx", "cmovzl %eax, %ebx", "cmovnew %ax, %bx", "cmovnel %eax, %ebx", "cmovneq %rax, %rbx"].all roundtrips
 
