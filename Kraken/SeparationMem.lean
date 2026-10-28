@@ -500,6 +500,58 @@ theorem Contains.of_sep₂ {w : Nat} {bs : List UInt8} {a : BitVec w} {G F : Mem
 theorem Contains.of_length {w : Nat} {m : Mem w} {a : BitVec w} {bs : List UInt8}
     (h : bs.length = 0) : Contains m a bs := fun i hi => by omega
 
+/-! ## Cells: owned regions with known contents
+
+`Cells` is the analogue of `Blocks` for regions whose bytes are known: a list
+of `(address, bytes)` pairs, separated from each other. A loaded program
+image is such a list. -/
+
+/-- Known-byte cells, separated: `Cells [(a₁, bs₁), (a₂, bs₂)]` is
+`Bytes a₁ bs₁ ⋆ Bytes a₂ bs₂`. -/
+def Cells {w : Nat} : List (BitVec w × List UInt8) → Mem w → Prop
+  | [] => emp
+  | [(a, bs)] => Bytes a bs
+  | (a, bs) :: c :: cs => Bytes a bs ⋆ Cells (c :: cs)
+
+theorem Cells_nil_sep {w : Nat} (F : Mem w → Prop) : Cells [] ⋆ F = F := by
+  rw [Cells, emp_sep]
+
+theorem Cells_cons_sep {w : Nat} (a : BitVec w) (bs : List UInt8) (cs : List (BitVec w × List UInt8))
+    (F : Mem w → Prop) : Cells ((a, bs) :: cs) ⋆ F = Bytes a bs ⋆ (Cells cs ⋆ F) := by
+  cases cs with
+  | nil => rw [Cells, Cells, emp_sep]
+  | cons c cs => rw [Cells, sep_assoc]
+
+theorem Cells_append_sep {w : Nat} (cs ds : List (BitVec w × List UInt8)) (F : Mem w → Prop) :
+    Cells (cs ++ ds) ⋆ F = Cells cs ⋆ (Cells ds ⋆ F) := by
+  induction cs with
+  | nil => rw [List.nil_append, Cells_nil_sep]
+  | cons c cs ih => obtain ⟨a, bs⟩ := c; rw [List.cons_append, Cells_cons_sep, Cells_cons_sep, ih]
+
+/-- The order of the cells does not matter. -/
+theorem Cells_perm_sep {w : Nat} {cs ds : List (BitVec w × List UInt8)} (h : cs.Perm ds)
+    (F : Mem w → Prop) : Cells cs ⋆ F = Cells ds ⋆ F := by
+  induction h generalizing F with
+  | nil => rfl
+  | cons c _ ih => obtain ⟨a, bs⟩ := c; rw [Cells_cons_sep, Cells_cons_sep, ih]
+  | swap c c' l =>
+    obtain ⟨a, bs⟩ := c; obtain ⟨a', bs'⟩ := c'
+    rw [Cells_cons_sep, Cells_cons_sep, Cells_cons_sep, Cells_cons_sep, sep_comm_l]
+  | trans _ _ ih₁ ih₂ => rw [ih₁, ih₂]
+
+/-- Pull one cell to the front. -/
+theorem Cells_erase_sep {w : Nat} {cs : List (BitVec w × List UInt8)} {a : BitVec w}
+    {bs : List UInt8} (h : (a, bs) ∈ cs) (F : Mem w → Prop) :
+    Cells cs ⋆ F = Bytes a bs ⋆ (Cells (cs.erase (a, bs)) ⋆ F) := by
+  rw [Cells_perm_sep (List.perm_cons_erase h), Cells_cons_sep]
+
+/-- Every cell is held by the memory. -/
+theorem Cells.contains {w : Nat} {cs : List (BitVec w × List UInt8)} {F : Mem w → Prop}
+    {m : Mem w} (h : m =⋆ Cells cs ⋆ F) {a : BitVec w} {bs : List UInt8} (hm : (a, bs) ∈ cs)
+    (hw : bs.length ≤ 2 ^ w) : Contains m a bs := by
+  rw [Cells_erase_sep hm] at h
+  exact Contains.of_sep h hw
+
 theorem Contains.loadInt {w : Nat} {m : Mem w} {a addr : BitVec w} {bs : List UInt8}
     (h : Contains m a bs) (hi : (addr - a).toNat < bs.length) :
     m.loadInt addr 1 = some (bs[(addr - a).toNat]!.toNat : Int) := by

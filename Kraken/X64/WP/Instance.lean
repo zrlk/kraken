@@ -405,6 +405,25 @@ public theorem AddrExpr.zeroExtend_interp_index32_4 [L : Labels] (i : Reg64) (d 
     Width.bytes, hv, Effects.All]
   exact hn _ (by rwa [hv, Option.get!_some] at hq)
 
+/-- `movzbl disp(b, i, 1), rd`: a byte load, zero-extended into the 32-bit register, which
+clears the upper half of `rd`. -/
+@[spec] public theorem movzx_load_byte_sib1_spec (rd b i : Reg64) (d : Int64) :
+    ⦃ fun s =>
+        let a := s.regs.get64 b + s.regs.get64 i + BitVec.ofInt 64 d.toInt
+        (Mem.loadInt s.dmem a 1).isSome = true
+          ∧ Q () { s with regs := (s.regs.set64 rd
+              (((BitVec.ofInt 8 (Mem.loadInt s.dmem a 1).get!).zeroExtend 32).zeroExtend 64)) } ⦄
+      (Directive.instr (.regular .W64 .W32
+          (.movzx (w' := .W8) (.reg (.low rd .W32)) (.mem ⟨some (.reg b), some ⟨i, .W8⟩, .int64 d⟩))))
+    ⦃ Q; E ⦄ := by
+  refine ⟨fun s ⟨hsome, hq⟩ => ?_⟩
+  obtain ⟨v, hv⟩ := Option.isSome_iff_exists.mp hsome
+  refine Program.wp_single fun _ _ _ _ hn _ => ?_
+  simp only [Directive.interp, Instr.interp, Operation.interp, RegOrMem.interp, MachineData.load,
+    MachineData.set, MachineData.setReg, Reg64s.set_low_W32, AddrExpr.zeroExtend_interp_sib1,
+    Width.bytes, hv, Effects.All]
+  exact hn _ (by rwa [hv, Option.get!_some] at hq)
+
 @[spec] public theorem mov_store_reg32_spec (b : Reg64) (d : Int64) (rs : Reg64) :
     ⦃ fun s => (Mem.loadInt s.dmem (s.regs.get64 b + BitVec.ofInt 64 d.toInt) 4).isSome = true
         ∧ Q () { s with
