@@ -25,10 +25,9 @@ frame `R`. The machine keeps code and data in separate memories, so the
 precondition owns the 16 bytes at `ps_mask2` in data memory. The proof never
 needs their contents, which need not match the `.byte` line.
 
-`xorps` requires its memory operand 16-byte aligned. `Host` does not promise
-that an `.align 16` directive ends at a multiple of 16, so the alignment of
-`ps_mask2` is a hypothesis (`h_mask_aligned`); the old layout model proved it
-from the layout's validity.
+`xorps` requires its memory operand 16-byte aligned. The label `ps_mask2`
+follows an `.align 16`, so `Host.label_aligned` gives its alignment
+(`ps_mask2_aligned`).
 -/
 
 open Kraken.X64.Parser
@@ -71,7 +70,12 @@ ff_sbr_neg_odd_64_sse:
 /-- The address of the mask. -/
 abbrev ps_mask2 [Host] : BitVec 64 := (label "ps_mask2").toBitVec
 
-theorem sbr_neg_odd_64_spec [Host] [FunDecls] (d : MachineData)
+/-- `ps_mask2` is 16-byte aligned wherever the program is embedded: it follows the
+`.align 16` at index 2. -/
+theorem ps_mask2_aligned [Host] [he : Embeds sbr_neg_odd_64_prog] : isAligned 16 ps_mask2 = true :=
+  Host.label_aligned he.embedding.isInfixAt (i := 2) rfl rfl
+
+theorem sbr_neg_odd_64_spec_of_aligned [Host] [FunDecls] (d : MachineData)
     (h_z_aligned : isAligned 16 (d.regs.get64 .rdi) = true)
     (h_mask_aligned : isAligned 16 ps_mask2 = true)
     (R : DataMem → Prop)
@@ -96,20 +100,31 @@ theorem sbr_neg_odd_64_spec [Host] [FunDecls] (d : MachineData)
   cfg_cases
   all_goals kvcgen64 with finish
 
+theorem sbr_neg_odd_64_spec [Host] [FunDecls] (d : MachineData)
+    (h_z_aligned : isAligned 16 (d.regs.get64 .rdi) = true)
+    (R : DataMem → Prop)
+    (h_mem : d.dmem =⋆ Mem.Blocks [(d.regs.get64 .rdi, 256), (ps_mask2, 16)] ⋆ R) :
+    WP.wp sbr_neg_odd_64_prog
+      (fun _ s => s.dmem =⋆ Mem.Blocks [(d.regs.get64 .rdi, 256), (ps_mask2, 16)] ⋆ R)
+      (fun _ _ => False) d := by
+  -- `Program.wp` quantifies over the embeddings; under one, the mask is aligned.
+  show Program.wp _ _ _ d
+  rw [Program.wp_eq]
+  intro he
+  exact Program.wp_eq.mp (sbr_neg_odd_64_spec_of_aligned d h_z_aligned ps_mask2_aligned R h_mem)
+
 /-- `sbr_neg_odd_64_spec`, read at the machine: from the program's first
 directive, the run reaches the program's end with the array and the mask in
-place. The mask's alignment is assumed (`h_mask_aligned`) until `Host` gets an
-alignment field for `.align`. -/
+place. -/
 theorem sbr_neg_odd_64_terminates_and_safe [Host] [FunDecls] [he : Embeds sbr_neg_odd_64_prog]
     (d : MachineData)
     (h_z_aligned : isAligned 16 (d.regs.get64 .rdi) = true)
-    (h_mask_aligned : isAligned 16 ps_mask2 = true)
     (R : DataMem → Prop)
     (h_mem : d.dmem =⋆ Mem.Blocks [(d.regs.get64 .rdi, 256), (ps_mask2, 16)] ⋆ R) :
     Eventually (step1 Host.exe)
       (fun u => u.data.dmem =⋆ Mem.Blocks [(d.regs.get64 .rdi, 256), (ps_mask2, 16)] ⋆ R)
       ⟨d, he.embedding.startAddr⟩ :=
-  Program.step1_of_wp (sbr_neg_odd_64_spec d h_z_aligned h_mask_aligned R h_mem)
+  Program.step1_of_wp (sbr_neg_odd_64_spec d h_z_aligned R h_mem)
     (fun _ _ h => h) (fun _ h => h.elim)
 
 end Kraken.Examples.SbrNegOdd64

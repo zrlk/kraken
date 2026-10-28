@@ -57,6 +57,14 @@ public class Host where
   /-- Two directives at the same address have the same offset in the executable. -/
   addr_determines_offset : ∀ j k, (layout.apply prog).addrOf j = (layout.apply prog).addrOf k →
     (layout.apply prog).sizeBefore j = (layout.apply prog).sizeBefore k
+  /-- A data cell occupies exactly its bytes. A host whose program has an empty data cell
+  has no instance: the cell would have size zero, and `zero_inert` would make it inert,
+  which a data cell is not. The parser never produces an empty `.byte`. -/
+  byteArray_size : ∀ i bs, prog[i]? = some (.byteArray bs) → @Kraken.Layout.size _ layout i = bs.size
+  /-- The directive after an `.align a` starts at a multiple of `a` bytes. The fact is stated
+  only for `.align` without a second operand. -/
+  align : ∀ i asz osz a, prog[i]? = some (.instr (.regular asz osz (.nopalign a none))) →
+    isAligned a ((layout.apply prog).addrOf (i + 1)).toBitVec = true
 
 public instance [Host] : Layout := Host.layout
 
@@ -185,3 +193,43 @@ public theorem Host.label_cases [Host] (l : Label) :
       cases hfx
       exact ⟨i, hd, rfl⟩
     · cases hfx
+
+/-! ### Data cells and alignment -/
+
+public theorem Host.getElem?_of_isInfixAt [Host] {p : Program} {k i : Nat} {d : Directive}
+    (hp : p.IsInfixAt Host.prog k) (hi : p[i]? = some d) : Host.prog[k + i]? = some d := by
+  obtain ⟨hlt, hpi⟩ := List.getElem?_eq_some_iff.mp hi
+  rw [List.isInfixAt_iff_getElem?.mp hp i hlt, hpi]
+
+/-- The address of the directive after the label `l` of an embedded fragment. -/
+public theorem Host.label_succ_addr [Host] {p : Program} {k i : Nat} {l : Label}
+    (hp : p.IsInfixAt Host.prog k) (hi : p[i]? = some (.label l)) :
+    label l = Host.addrOf (k + i + 1) := by
+  have hP := Host.getElem?_of_isInfixAt hp hi
+  rw [Host.label_eq hp hi, Host.addrOf_succ hP, Host.label_size _ l hP]
+  simp
+
+/-- A data cell of an embedded fragment occupies `bs.size` bytes from its address. -/
+public theorem Host.byteArray_addr_succ [Host] {p : Program} {k i : Nat} {bs : ByteArray}
+    (hp : p.IsInfixAt Host.prog k) (hi : p[i]? = some (.byteArray bs)) :
+    Host.addrOf (k + i + 1) = Host.addrOf (k + i) + .ofNat bs.size := by
+  have hP := Host.getElem?_of_isInfixAt hp hi
+  rw [Host.addrOf_succ hP, Host.byteArray_size _ bs hP]
+
+/-- The label right after an `.align n` of an embedded fragment is `n`-aligned. -/
+public theorem Host.label_aligned [Host] {p : Program} {k i n : Nat} {l : Label}
+    {asz osz : Width} (hp : p.IsInfixAt Host.prog k)
+    (ha : p[i]? = some (.instr (.regular asz osz (.nopalign n none))))
+    (hl : p[i + 1]? = some (.label l)) :
+    isAligned n (label l).toBitVec = true := by
+  rw [Host.label_eq hp hl, ← Nat.add_assoc]
+  exact Host.align _ asz osz n (Host.getElem?_of_isInfixAt hp ha)
+
+/-- An offset that is a multiple of `n` keeps an `n`-aligned address `n`-aligned, if the sum
+does not wrap. -/
+public theorem isAligned_add_ofNat {n o : Nat} {a : BitVec 64} (h : isAligned n a = true)
+    (ho : n ∣ o) (hw : a.toNat + o < 2 ^ 64) : isAligned n (a + BitVec.ofNat 64 o) = true := by
+  simp only [isAligned, beq_iff_eq] at h ⊢
+  rw [BitVec.toNat_add, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (a := o) (by omega),
+    Nat.mod_eq_of_lt hw]
+  exact Nat.dvd_iff_mod_eq_zero.mp (Nat.dvd_add (Nat.dvd_of_mod_eq_zero h) ho)
