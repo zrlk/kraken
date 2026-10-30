@@ -20,6 +20,8 @@ theorem srcSafeS_of_accepted2 {P : SrcSem.SrcParams} {p : Prog} (hacc : Scc.Lowe
   cell := fun _ _ _ hr h0 _ _ _ _ _ _ _ _ _ _ _ ht _ _ =>
     (noAcq_cell (progNoS_acq_of_accepted2 hacc) hH (fun c hc => setupInit_noAcq (hinit c hc)) hr h0 ht).elim
   xchg := fun _ _ _ hr h0 _ _ _ _ _ _ _ _ _ _ hs => (reach_cfgB_accepted2 hacc hH hinit hr).1.xchg h0 hs
+  box := fun _ _ hr => BoxCount.reach_boxLe hH (fun c hc => by
+    obtain ⟨meW, rfl⟩ := hinit c hc; exact BoxCount.setupStart_boxLe _ meW) hr
 
 /-- **`hello1L.w`'s source safety** (A64). -/
 theorem hello1o_srcSafeS {P : SrcSem.SrcParams}
@@ -28,21 +30,24 @@ theorem hello1o_srcSafeS {P : SrcSem.SrcParams}
     (I : A64ConsumerS.InvS) : A64ConsumerS.SrcSafeS P Spike.Test.Hello1MainSrc.hello1o I :=
   srcSafeS_of_accepted2 hello1o_accepted2 hH hinit I
 
-/-- **`SrcSafeS` from starts with the invariant** (A64), for every frame
+/-- **`SrcSafeS` from starts with the invariant and their boxes counted** (A64), for every frame
 invariant. -/
 theorem srcSafeS_of_initB_A {P : SrcSem.SrcParams} {p : Prog} (hacc : Scc.Lower.Accepted2 p = true)
     (hH : P.hooks = SrcSem.SrcHooks.none ∨ SrcOutProto.UsesWc P p)
-    (hinit : ∀ c, P.init c → CfgB c ∧ CfgNoS AcqOp c) (I : A64ConsumerS.InvS) : A64ConsumerS.SrcSafeS P p I where
+    (hinit : ∀ c, P.init c → CfgB c ∧ CfgNoS AcqOp c) (hbox : ∀ c, P.init c → boxCount c ≤ allocCount c)
+    (I : A64ConsumerS.InvS) : A64ConsumerS.SrcSafeS P p I where
   cell := fun _ _ _ hr h0 _ _ _ _ _ _ _ _ _ _ _ ht _ _ =>
     (noAcq_cell (progNoS_acq_of_accepted2 hacc) hH (fun c hc => (hinit c hc).2) hr h0 ht).elim
   xchg := fun _ _ _ hr h0 _ _ _ _ _ _ _ _ _ _ hs =>
     (reach_cfgB (blocksB_of_accepted2 hacc) (progNoS_acq_of_accepted2 hacc) hH hinit hr).1.xchg h0 hs
+  box := fun _ _ hr => BoxCount.reach_boxLe hH hbox hr
 
 /-- **The source safety of an `Accepted2` program at WeakCore's output
 hooks** (A64), at every start, for every frame invariant. -/
 theorem srcSafeS_srcP1oA {p : Prog} (hacc : Scc.Lower.Accepted2 p = true) (arch : WeakMem.Arch)
     (I : A64ConsumerS.InvS) : A64ConsumerS.SrcSafeS (SrcSem.srcP1o arch p) p I :=
-  srcSafeS_of_initB_A hacc (.inr (usesWc_srcP1o arch p)) (fun _ hc => progInit_cfgB hacc hc) I
+  srcSafeS_of_initB_A hacc (.inr (usesWc_srcP1o arch p)) (fun _ hc => progInit_cfgB hacc hc)
+    (fun _ hc => BoxCount.progInit_boxLe hc) I
 
 /--
 info: 'Spike.Lib.LowerNode.srcSafeS_srcP1oA' depends on axioms: [propext, Classical.choice, Quot.sound]

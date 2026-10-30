@@ -5,8 +5,7 @@ import Scc.Test.RtA64AbortTest
 # Every block of `hello1.w`'s AArch64 code at its place
 
 The table of places of the `block_spec` blocks of `hello1.w`'s AArch64 listing
-(`Spike/Gen/genblocks_a64.py`, the data of `Spike/Lib/A64Hello.lean` for
-`hello.w`), grouped per function in program order, checked against the program scc emits by one
+(`Spike/Gen/genblocks_a64.py`'s block data for `hello1.w`), grouped per function in program order, checked against the program scc emits by one
 `kernel_rfl` (`blocksIn`, `Scc/Cert/Rt/CodeA64.lean`): every block is code
 at its label and offset in every valid layout of the program
 (`codeAt_of_blocksIn`). Generated (the seed of `scc --cert`).
@@ -849,11 +848,11 @@ movz x10, #0
 subs xzr, x9, x10
 b.eq .L9_scc_rt_print.7_done")) /- scc_rt_print_2 -/,
     (4, parseAArch64("b .L9_scc_rt_print.2_write")) /- scc_rt_print_3 -/]⟩,
-  ⟨".L9_scc_rt_print.2_write", [(0, parseAArch64("movz x0, #1
+  ⟨".L9_scc_rt_print.2_write", [(1, parseAArch64("movz x0, #1
 ldr x1, [sp]
 ldr x2, [sp, #8]
 movz x8, #64")) /- scc_rt_print_4 -/,
-    (5, parseAArch64("str x0, [sp, #16]
+    (6, parseAArch64("str x0, [sp, #16]
 ldr x9, [sp, #16]
 movz x10, #65532
 movk x10, #65535, lsl #16
@@ -861,7 +860,7 @@ movk x10, #65535, lsl #32
 movk x10, #65535, lsl #48
 subs xzr, x9, x10
 b.eq .L9_scc_rt_print.1_loop")) /- scc_rt_print_5 -/,
-    (13, parseAArch64("b .L9_scc_rt_print.3_chk2")) /- scc_rt_print_6 -/]⟩,
+    (14, parseAArch64("b .L9_scc_rt_print.3_chk2")) /- scc_rt_print_6 -/]⟩,
   ⟨".L9_scc_rt_print.3_chk2", [(0, parseAArch64("ldr x9, [sp, #16]
 movz x10, #65525
 movk x10, #65535, lsl #16
@@ -886,7 +885,7 @@ str x9, [sp, #8]
 b .L9_scc_rt_print.1_loop")) /- scc_rt_print_11 -/]⟩,
   ⟨".L9_scc_rt_print.6_fail", [(0, parseAArch64("movz x0, #4
 bl scc_rt_abort")) /- scc_rt_print_12 -/]⟩,
-  ⟨".L9_scc_rt_print.halt10", [(0, parseAArch64("b .L9_scc_rt_print.halt10")) /- scc_rt_print_13 -/]⟩,
+  ⟨".L9_scc_rt_print.halt11", [(0, parseAArch64("b .L9_scc_rt_print.halt11")) /- scc_rt_print_13 -/]⟩,
   ⟨".L9_scc_rt_print.7_done", [(0, parseAArch64("ldr x29, [sp, #32]
 ldr x30, [sp, #40]
 add sp, sp, #48

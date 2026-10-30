@@ -84,11 +84,11 @@ theorem allocCtr (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -160)
       (l := ".L2_scc_rt_alloc.5_ok") (k := 41) (p := labT ".L2_scc_rt_alloc.5_ok" + Int64.ofNat (4 * 41))
       (by decide +kernel) rfl (by dsimp only [N]; decide +kernel) fun σ c m hJ hF => ?_)
       Spike.Lib.A64.Flow.NodeW.triv ?_
-    · obtain ⟨o, ⟨-, hle, -, hn28, -⟩, -, -, h10⟩ := hJ
+    · obtain ⟨o, ⟨-, hle, -, hn28, -, -⟩, -, -, h10⟩ := hJ
       have hq' := hq m hF
       rw [hello1_labT] at hq'
       exact hmem _ ⟨o.toNat, hle, hdr_addr hq' hle hn28 h10⟩ m hF
-    · rintro s c ⟨σ, ⟨o, ⟨rfl, hle, -, hn28, -⟩, -, -, h10⟩, hF, hL⟩ - hW
+    · rintro s c ⟨σ, ⟨o, ⟨rfl, hle, -, hn28, -, -⟩, -, -, h10⟩, hF, hL⟩ - hW
       have hq' := hq _ hF
       rw [hello1_labT] at hq'
       have ha := congrArg (fun L : Loc => L.addr.toNat) (hL _ hW)

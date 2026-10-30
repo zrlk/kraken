@@ -44,6 +44,24 @@ theorem PlacedSE.of_ext (h : c.term ∈ externModelTerms ∨ exprFv c.term = [])
 theorem PlacedSE.frames (h : PlacedSE Λ lbl s c fs) : FramesPlaced Λ lbl s fs :=
   h.elim PlacedS.frames fun h => h.2
 
+/-- **After the exit** at any depth, the frames at `PlacedSE`, the ranges
+held by `H` (`PostSA` over a held predicate, `HeldPathS`). -/
+def PostSAH (Λ : Scc.Sem.Layout) (P : SrcSem.SrcParams) (p : Prog) (H : State → List (Nat × Range) → Prop)
+    (t : T.M.Cfg) (s : TermRun.Cfg) : Prop :=
+  ∃ (th : Thread isaLSE2) (th0 : TermRun.TTh) (j : Nat) (lbl : Lbl) (lsize : Lsize) (ts : Nat → Option Nat)
+    (hl : List (Nat × Range)) (pm : _root_.Mem 64) (o : Outcome),
+    t.1.threads = #[th] ∧ (∃ E : Entry, t.2 = { KS E Λ j hl pm with exited := some o }) ∧ (∀ a, Kernel.byte pm a = 0) ∧
+    H th.st hl ∧
+    s.ths = #[th0] ∧ th0.σs = [] ∧ th0.promises = [] ∧
+    PlacedSE Λ lbl th.st (Ctl.of th0) th0.stack ∧ Inv1 Λ lbl lsize ts th t.1.mem s.mem ∧ OwnMsgs t.1.mem ∧
+    MemIn Λ t.1.mem ∧ ∃ tr, (SrcSem.source P p).Reach tr s
+
+/-- **There is progress after the exit** (`post_progressSA` at `PostSAH`). -/
+theorem post_progressSAH {P : SrcSem.SrcParams} {p : Prog} {μ : Marks} {H : State → List (Nat × Range) → Prop}
+    {t : T.M.Cfg} {s : TermRun.Cfg} (h : PostSAH Λ P p H t s) : T.M.Progress μ t := by
+  obtain ⟨_, _, _, _, _, _, _, _, o, _, ⟨_, hk⟩, _⟩ := h
+  exact Kernel.exited_progress abi (o := o) (by rw [hk])
+
 /-- **After the exit** at any depth, the frames at `PlacedSE` (`PostS` with
 the current frame possibly in the output extern's model: an abort of the
 output `write` ends the process inside `print`). -/
@@ -63,6 +81,10 @@ theorem post_progressSA {P : SrcSem.SrcParams} {p : Prog} {μ : Marks} {rS : Ran
   obtain ⟨_, _, _, _, _, _, _, _, o, _, ⟨_, hk⟩, _⟩ := h
   exact Kernel.exited_progress abi (o := o) (by rw [hk])
 
+/-- `PostSA` is `PostSAH` at `HeldOk`. -/
+theorem PostSA_eq {P : SrcSem.SrcParams} {p : Prog} {rS : Range} {Tk : State → Prop} {t : T.M.Cfg}
+    {s : TermRun.Cfg} : PostSA Λ P p rS Tk t s = PostSAH Λ P p (HeldOk Λ rS Tk) t s := rfl
+
 end Spike.Lib.A64ConsumerS
 
 namespace Spike.Lib.A64ConsumerA
@@ -75,12 +97,13 @@ open Spike.Lib.Consumer1 Spike.Lib.A64Consumer Spike.Lib.A64ConsumerS
 variable {Λ : Scc.Sem.Layout}
 
 /-- **`Components` for a one-thread pair with the current frame in the
-output extern's model** (`components_oneS` with the current frame unplaced):
-its term is a model term (`ExternFrame`, exempt from `env_rep` and
-`env_total`) or reads no variable; the suspended frames by `FramesPlaced`. -/
-theorem components_oneSE (hwf : Λ.WF) {t : T.M.Cfg} {s : TermRun.Cfg} {th : Thread isaLSE2} {th0 : TermRun.TTh}
-    {lbl : Lbl} {lsize : Lsize} {ts : Nat → Option Nat} {rS : Range} {Tk : State → Prop}
-    {hl : List (Nat × Range)} (hth : t.1.threads = #[th]) (hheld : t.2.held = hl) (hh : HeldOk Λ rS Tk th.st hl)
+output extern's model, the held ranges thread 0's and owned**
+(`components_oneSH` with the current frame unplaced): its term is a model
+term (`ExternFrame`, exempt from `env_rep` and `env_total`) or reads no variable; the suspended frames by `FramesPlaced`. -/
+theorem components_oneSEH (hwf : Λ.WF) {t : T.M.Cfg} {s : TermRun.Cfg} {th : Thread isaLSE2} {th0 : TermRun.TTh}
+    {lbl : Lbl} {lsize : Lsize} {ts : Nat → Option Nat}
+    {hl : List (Nat × Range)} (hth : t.1.threads = #[th]) (hheld : t.2.held = hl)
+    (hho : ∀ x ∈ hl, x.1 = 0 ∧ Owned Λ x.2 th.st)
     (hmi : MemIn Λ t.1.mem) (hs0 : s.ths = #[th0])
     (hext : th0.term ∈ externModelTerms ∨ exprFv th0.term = []) (hpl : FramesPlaced Λ lbl th.st th0.stack)
     (hinv : Inv1 Λ lbl lsize ts th t.1.mem s.mem) (hown : OwnMsgs t.1.mem) :
@@ -89,22 +112,8 @@ theorem components_oneSE (hwf : Λ.WF) {t : T.M.Cfg} {s : TermRun.Cfg} {th : Thr
   let envm : Nat → String → Nat → Option (WordPlace T.M.I.RegId) := fun d => match d with
     | 0 => fun _ _ => none
     | d + 1 => envf d
-  have hsr : ∀ j rg, T.M.stackRange t j = some rg → j = 0 ∧ rg = rS ∧ Owned Λ rS th.st := by
-    intro j rg h
-    change Kernel.stackRangeOf abi t j = some rg at h
-    unfold Kernel.stackRangeOf at h
-    split at h
-    · cases h
-    · rename_i tt htt
-      obtain ⟨rfl, rfl⟩ := get_one hth htt
-      rw [hheld] at h
-      rcases hh with ⟨rfl, -⟩ | ⟨rfl, -, ho⟩
-      · simp at h
-      · refine ⟨rfl, ?_, ho⟩
-        simp only [List.find?_cons, List.find?_nil] at h
-        split at h
-        · exact (Option.some.inj h).symm
-        · cases h
+  have hsr : ∀ j rg, T.M.stackRange t j = some rg → j = 0 ∧ Owned Λ rg th.st := fun j rg h =>
+    stackRange_held hth hheld hho h
   have hs1 : ∀ {i} {th'}, s.ths[i]? = some th' → i = 0 ∧ th' = th0 := by
     intro i th' h
     rw [hs0] at h
@@ -113,14 +122,14 @@ theorem components_oneSE (hwf : Λ.WF) {t : T.M.Cfg} {s : TermRun.Cfg} {th : Thr
     · simp at h
   refine ⟨witS lbl lsize ts envm t.1.mem.last, Components.ofMemRelP (tp := []) (sp := []) hinv.mem
     { thr_total := ?_, thr_inj := ?_, thr_onto := ?_, env_rep := ?_, env_total := ?_,
-      stack_pool := (fun j rg h => by obtain ⟨-, rfl, ho⟩ := hsr j rg h; exact ho.1),
+      stack_pool := (fun j rg h => by obtain ⟨-, ho⟩ := hsr j rg h; exact ho.1),
       stack_disj := (fun j j' rg rg' hne h h' => absurd ((hsr j rg h).1.trans (hsr j' rg' h').1.symm) hne),
       stack_owned := (fun j rg h j' tt' htt a h8 h1 h2 => by
-        obtain ⟨rfl, rfl, ho⟩ := hsr j rg h
+        obtain ⟨rfl, ho⟩ := hsr j rg h
         obtain ⟨rfl, rfl⟩ := get_one hth htt
         exact ⟨fun _ => rfl, fun _ => ho.2 a h8 h1 h2⟩),
       stack_private := (fun j rg h m hm hc => by
-        obtain ⟨-, rfl, ho⟩ := hsr j rg h
+        obtain ⟨-, ho⟩ := hsr j rg h
         exact shared_not_pool hwf (memIn_msgs hmi m hm).addr (sub_contains ho.1 hc)),
       stack_marked := fun _ _ h => h.elim,
       stack_unmarked := fun _ _ _ _ _ _ _ _ _ _ h => h, env_imm := ?_ }
@@ -176,6 +185,31 @@ theorem components_oneSE (hwf : Λ.WF) {t : T.M.Cfg} {s : TermRun.Cfg} {th : Thr
   · intro q hq m' hg
     rw [hown q m' hg]
     exact ⟨th, by rw [hth]; rfl, hq⟩
+
+/-- **`Components` for a one-thread pair with the current frame in the
+output extern's model** (`components_oneS` with the current frame unplaced):
+`components_oneSEH` at `HeldOk`. -/
+theorem components_oneSE (hwf : Λ.WF) {t : T.M.Cfg} {s : TermRun.Cfg} {th : Thread isaLSE2} {th0 : TermRun.TTh}
+    {lbl : Lbl} {lsize : Lsize} {ts : Nat → Option Nat} {rS : Range} {Tk : State → Prop}
+    {hl : List (Nat × Range)} (hth : t.1.threads = #[th]) (hheld : t.2.held = hl) (hh : HeldOk Λ rS Tk th.st hl)
+    (hmi : MemIn Λ t.1.mem) (hs0 : s.ths = #[th0])
+    (hext : th0.term ∈ externModelTerms ∨ exprFv th0.term = []) (hpl : FramesPlaced Λ lbl th.st th0.stack)
+    (hinv : Inv1 Λ lbl lsize ts th t.1.mem s.mem) (hown : OwnMsgs t.1.mem) :
+    ∃ w : Witness T.M, Components T.M Λ w t s ∧ w.thr 0 = some 0 :=
+  components_oneSEH hwf hth hheld hh.held_own hmi hs0 hext hpl hinv hown
+
+/-- **`Components` for a one-thread pair at `PlacedSE`, the held ranges
+thread 0's and owned** (`components_oneSX` over `HeldPathS.own`). -/
+theorem components_oneSXH (hwf : Λ.WF) {t : T.M.Cfg} {s : TermRun.Cfg} {th : Thread isaLSE2} {th0 : TermRun.TTh}
+    {lbl : Lbl} {lsize : Lsize} {ts : Nat → Option Nat}
+    {hl : List (Nat × Range)} (hth : t.1.threads = #[th]) (hheld : t.2.held = hl)
+    (hho : ∀ x ∈ hl, x.1 = 0 ∧ Owned Λ x.2 th.st)
+    (hmi : MemIn Λ t.1.mem) (hs0 : s.ths = #[th0]) (hpl : PlacedSE Λ lbl th.st (Ctl.of th0) th0.stack)
+    (hinv : Inv1 Λ lbl lsize ts th t.1.mem s.mem) (hown : OwnMsgs t.1.mem) :
+    ∃ w : Witness T.M, Components T.M Λ w t s ∧ w.thr 0 = some 0 := by
+  rcases hpl with hpl | ⟨hext, hfp⟩
+  · exact components_oneSH hwf hth hheld hho hmi hs0 hpl hinv hown
+  · exact components_oneSEH hwf hth hheld hho hmi hs0 hext hfp hinv hown
 
 /-- **`Components` for a one-thread pair at `PlacedSE`**: `components_oneS`
 at `PlacedS`, `components_oneSE` at the output extern's model. -/

@@ -79,7 +79,7 @@ runtime functions, then `func1 main [] r` for the body's closed form `r`; the
 trace of `main` is `marks1 d r`. -/
 theorem lowerWithMarks_accepted1main (cfg : Config) {d : Decl} (hd : Accepted1 [d] = true)
     (hheap : cfg.layout.heapBytes < 2 ^ 32) {rt : List Func}
-    (hrt : rtFuncs cfg.layout ⟨.unit, true⟩ 0 = .ok rt) :
+    (hrt : rtFuncs cfg.arch cfg.layout ⟨.unit, true⟩ 0 = .ok rt) :
     ∃ r, lower1 [(d.arg, .unit, [])] 0 d.body = some r ∧
       lowerWithMarks cfg { prog := [d], entry := ⟨.unit, true⟩, externs := [], adds := [] } =
         .ok (progOf cfg.layout rt [func1 (Names.user "main") [] r],
@@ -94,7 +94,8 @@ theorem lowerWithMarks_accepted1main (cfg : Config) {d : Decl} (hd : Accepted1 [
   unfold rtFuncs at hrt
   simp only [lowerWithMarks, hh, ite_false, List.any_nil, Bool.not_false, List.filter_cons_of_pos,
     List.filter_nil, List.mapM_cons, List.mapM_nil, hl, List.flatMap_cons, List.flatMap_nil, hsp,
-    List.append_nil, List.eraseDups_nil, hrt, bind, Except.bind, pure, Except.pure, hn]
+    List.append_nil, List.eraseDups_nil,
+    hrt, bind, Except.bind, pure, Except.pure, hn]
   rfl
 
 /-- A successful `lowerWithMarks` of a one-block `Accepted1` program is the
@@ -104,7 +105,7 @@ theorem lowerWithMarks_accepted1main_ok (cfg : Config) {d : Decl} (hd : Accepted
     (h : lowerWithMarks cfg { prog := [d], entry := ⟨.unit, true⟩, externs := [], adds := [] } =
       .ok x) :
     ∃ r rt, lower1 [(d.arg, .unit, [])] 0 d.body = some r ∧
-      rtFuncs cfg.layout ⟨.unit, true⟩ 0 = .ok rt ∧
+      rtFuncs cfg.arch cfg.layout ⟨.unit, true⟩ 0 = .ok rt ∧
       x = (progOf cfg.layout rt [func1 (Names.user "main") [] r],
         [(Names.user "main", marks1 d r)]) := by
   have hheap : cfg.layout.heapBytes < 2 ^ 32 := by
@@ -112,7 +113,7 @@ theorem lowerWithMarks_accepted1main_ok (cfg : Config) {d : Decl} (hd : Accepted
     unfold lowerWithMarks at h
     simp only [hc, ↓reduceIte] at h
     cases h
-  cases hrt : rtFuncs cfg.layout ⟨.unit, true⟩ 0 with
+  cases hrt : rtFuncs cfg.arch cfg.layout ⟨.unit, true⟩ 0 with
   | error e =>
     exfalso
     obtain ⟨hn, hdl, -, -, -, -, hbody⟩ := accepted1_main hd
@@ -122,7 +123,8 @@ theorem lowerWithMarks_accepted1main_ok (cfg : Config) {d : Decl} (hd : Accepted
     unfold rtFuncs at hrt
     simp only [lowerWithMarks, hh, ite_false, List.any_nil, Bool.not_false, List.filter_cons_of_pos,
       List.filter_nil, List.mapM_cons, List.mapM_nil, hl, List.flatMap_cons, List.flatMap_nil, hsp,
-      List.append_nil, List.eraseDups_nil, hrt, bind, Except.bind, pure, Except.pure, hn] at h
+      List.append_nil, List.eraseDups_nil,
+    hrt, bind, Except.bind, pure, Except.pure, hn] at h
     cases h
   | ok rt =>
     obtain ⟨r, hr, hl⟩ := lowerWithMarks_accepted1main cfg hd hheap hrt
@@ -136,7 +138,7 @@ program**: the runtime functions, then `func1 main [] r`; the trace of
 theorem lowerIR_accepted1main (cfg : Config) {d : Decl} (hd : Accepted1 [d] = true)
     {l : Lowered} (hl : lowerIR cfg [d] = .ok l) :
     ∃ r rt, lower1 [(d.arg, .unit, [])] 0 d.body = some r ∧
-      rtFuncs cfg.layout ⟨.unit, true⟩ 0 = .ok rt ∧
+      rtFuncs cfg.arch cfg.layout ⟨.unit, true⟩ 0 = .ok rt ∧
       l.ir = progOf cfg.layout rt [func1 (Names.user "main") [] r] ∧
       l.marks = [(Names.user "main", marks1 d r)] := by
   unfold lowerIR at hl

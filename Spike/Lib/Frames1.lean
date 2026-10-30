@@ -171,6 +171,25 @@ theorem Good1.not_newBuf {q : Ctl × List TermRun.Frame} (h : Good1 p q) :
   · rw [ht] at hb; simp [body1] at hb
   · rw [ht] at ht'; cases ht'
 
+/-- A `Good1` control is at no box allocation. -/
+theorem Good1.not_new {q : Ctl × List TermRun.Frame} (h : Good1 p q) :
+    ∀ x a e, q.1.term ≠ .let_ x (.new a) e := by
+  intro x a e ht
+  rcases h.1 with ⟨sc, hb⟩ | ⟨i, a', ts, ht'⟩
+  · rw [ht] at hb; simp [body1] at hb
+  · rw [ht] at ht'; cases ht'
+
+/-- A `Good1` control is at no publication (`PubStep`). -/
+theorem Good1.noPub {q : Ctl × List TermRun.Frame} (h : Good1 p q) : ∀ k c', ¬ PubStep k q.1 c' :=
+  noPub_of_term (fun x a e ht => by
+      rcases h.1 with ⟨sc, hb⟩ | ⟨i, a', ts, ht'⟩
+      · rw [ht] at hb; simp [body1] at hb
+      · rw [ht] at ht'; cases ht')
+    fun x r a e ht => by
+      rcases h.1 with ⟨sc, hb⟩ | ⟨i, a', ts, ht'⟩
+      · rw [ht] at hb; simp [body1] at hb
+      · rw [ht] at ht'; cases ht'
+
 /-- A `Good1` control is at no load. -/
 theorem Good1.not_load {q : Ctl × List TermRun.Frame} (h : Good1 p q) :
     ∀ x k a e, q.1.term ≠ .let_ x (.load k a) e := by
@@ -208,9 +227,14 @@ theorem Good1.quiet_run (hp : Accepted1 p = true) {c c₁ : Ctl} {fs fs₁ : Lis
   have hg' := good1_run hp hr hg
   have hh' : c₁.hold = none := hr.hold_none hh
   refine ⟨hh', fun x a e ht => hg'.not_load x true a e ht, fun x a b e ht => hg'.not_store x true a b none e ht,
-    hg'.not_newBuf, fun x sa u v e hx => ?_⟩
-  obtain ⟨-, ⟨a, t, pw, μ, ht, -⟩ | ⟨b, i, t, pw, ti, iws, μ, sb, k, ht, -⟩⟩ := hx <;>
-  · rcases hg'.1 with ⟨sc, hb⟩ | ⟨i', a', ts, ht'⟩
+    hg'.not_newBuf, fun x sa u v e hx => ?_, noPub_of_term (fun x a e ht => ?_) (fun x r a e ht => ?_),
+    hg'.not_new⟩
+  · obtain ⟨-, ⟨a, t, pw, μ, ht, -⟩ | ⟨b, i, t, pw, ti, iws, μ, sb, k, ht, -⟩⟩ := hx <;>
+    · rcases hg'.1 with ⟨sc, hb⟩ | ⟨i', a', ts, ht'⟩
+      · rw [ht] at hb; simp [body1] at hb
+      · rw [ht] at ht'; cases ht'
+  all_goals
+    rcases hg'.1 with ⟨sc, hb⟩ | ⟨i', a', ts, ht'⟩
     · rw [ht] at hb; simp [body1] at hb
     · rw [ht] at ht'; cases ht'
 

@@ -25,8 +25,9 @@ does, scc reads:
   program may print without `publish`): it writes the first `n` bytes of the
   slice to standard output.  Its body is ignored.
 * The block `printL` is the output extern's loop when it is textually
-  `printLoopD` (`Scc/PrintModel.lean`, `declIs`): the `emit` loop of the
-  extern's WeakCore model, which `print`'s model body (`printExtD`) tail-calls.
+  `printLoopD` or its published twin `printLoopPubD` (`Scc/PrintModel.lean`,
+  `declIs`): the `emit` loop of the extern's WeakCore model, which `print`'s
+  model body (`printExtD`, `printExtPubD`) tail-calls.
   Like the extern's body it is not checked or compiled (`externOf` lists it
   with the extern, so the lowering skips it), and no compiled block may call,
   tail-call or spawn it (`modelDiags`).  Any other block named `printL` is an
@@ -247,17 +248,17 @@ inductive Extern
   deriving Repr, BEq, DecidableEq, Inhabited
 
 /-- `some e` if block `d` is the extern `e` (name and signature match), or,
-for `.print`, the extern's loop (textually `printLoopD`; see the module
-docstring). -/
+for `.print`, the extern's loop (textually `printLoopD` or `printLoopPubD`;
+see the module docstring). -/
 def externOf (d : Decl) : Option Extern :=
   if d.name == "print" && d.idx.length == 1 && d.tparams.isEmpty &&
       (some d.argTy == printSig || some d.argTy == printOwnSig) &&
       d.retTy == .unit then some .print
-  else if d.name == "printL" && declIs d printLoopD then some .print
+  else if d.name == "printL" && (declIs d printLoopD || declIs d printLoopPubD) then some .print
   else none
 
-/-- Is block `d` the output extern's loop (`printLoopD`, textually)? -/
-def isPrintLoop (d : Decl) : Bool := d.name == "printL" && declIs d printLoopD
+/-- Is block `d` the output extern's loop (`printLoopD` or `printLoopPubD`, textually)? -/
+def isPrintLoop (d : Decl) : Bool := d.name == "printL" && (declIs d printLoopD || declIs d printLoopPubD)
 
 /-- The externs among the program's blocks. -/
 def externs (p : Prog) : List (String × Extern) :=

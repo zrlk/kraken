@@ -68,6 +68,12 @@ theorem BlkW.ofJF (hFS : FStable R F) {n : ND} {blk : List Directive} {V : State
     (h : ∀ σ c s, n.J σ c → F s.st.1 → V s c) : BlkW V (fun _ _ => False) exe endPc R F n blk :=
   fun _ σ c _ _ _ _ _ hF hJ _ _ _ _ hD => ⟨h σ c _ hJ (hFS _ _ hF hD), fun _ hk => hk⟩
 
+/-- A node whose obligation reads the node's control and the frame
+condition only (`BlkW.ofJF`'s node twin; `At` holds the frame condition). -/
+theorem NodeW.ofJF {n : ND} {V : State → Ctl → Prop} (h : ∀ σ c s, n.J σ c → F s.st.1 → V s c) :
+    NodeW V (fun _ _ => False) exe endPc R F n :=
+  fun s c ⟨_, _, _, _, σ, _, hF, hJ⟩ => ⟨h σ c s hJ hF, fun _ hk => hk⟩
+
 /-- **A block's states at `PlacedSE`**: the node's controls at model terms
 of the output extern or reading no variable (`hext`), the suspended frames
 placed at every state of the frame condition (`hfp`, kept off the region,
@@ -109,7 +115,7 @@ theorem _root_.Spike.Lib.A64.PrintA.PrintAW.ofJF (hFS : FStable R F) {V : State 
   have hJ : ∀ n σ c s, (N (_root_.Executable.labels exe).label x29 ra buf0 len0 P Q n).J σ c → F s.st.1 → V s c :=
     fun n σ c s hn hF => let ⟨j, hj⟩ := N_pq n hn; h j c s hj hF
   exact ⟨BlkW.ofJF hFS (hJ _), BlkW.ofJF hFS (hJ _), BlkW.ofJF hFS (hJ _), BlkW.ofJF hFS (hJ _),
-    BlkW.ofJF hFS (hJ _), BlkW.ofJF hFS (hJ _), BlkW.ofJF hFS (hJ _), BlkW.ofJF hFS (hJ _),
+    NodeW.ofJF (hJ _), BlkW.ofJF hFS (hJ _), BlkW.ofJF hFS (hJ _), BlkW.ofJF hFS (hJ _), BlkW.ofJF hFS (hJ _),
     BlkW.ofJF hFS (hJ _), BlkW.ofJF hFS (hJ _), BlkW.ofJF hFS (hJ _), BlkW.ofJF hFS (hJ _),
     BlkW.ofJF hFS (hJ _), BlkW.ofJF hFS (hJ _), BlkW.ofJF hFS (hJ _), BlkW.ofJF hFS (hJ _)⟩
 

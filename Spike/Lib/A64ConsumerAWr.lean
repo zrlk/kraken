@@ -31,6 +31,7 @@ pair from it and the pair's `Out` row.
 -/
 import Spike.Lib.A64ConsumerA
 import Scc.Sem.Rows1Rmw
+import Spike.Lib.FenceStep
 
 namespace Spike.Lib.A64ConsumerA
 
@@ -179,9 +180,13 @@ theorem out_eff {A : Arch} {lbl : Lbl} {ms : MemSide isaLSE2} {X : Frag isaLSE2}
   | sys _ _ hK' hat => exact (hsys hK' hat).elim
   | holdLoad _ _ _ _ _ _ _ _ he => exact .inl (load_same he hstep ho)
   | xchgStore _ _ _ _ _ _ _ _ _ _ _ _ he => exact .inr (hsto he)
-  | ctrRmw _ _ _ _ _ _ _ _ _ _ he => exact hrmw he
+  | ctrRmw _ _ _ _ _ _ _ he => exact hrmw he
   | alloc s' _ _ _ _ _ _ _ _ _ _ _ he => exact .inl (hsil he (silentTree_done s'))
+  | newStore _ _ _ _ _ _ _ _ _ _ _ _ he => exact .inr (hsto he)
   | emit _ _ _ _ _ hK' hat => exact (hsys hK' hat).elim
+  | fence _ _ _ he =>
+    obtain ⟨-, hm, hp⟩ := Spike.Lib.FenceStep.stepOne_fence_ok A 0 he ⟨outs, o, hstep, ho, rfl, rfl⟩
+    exact .inl ⟨hm, hp⟩
 
 /-! ## The obligation -/
 
@@ -297,7 +302,7 @@ theorem wrOkA_header {kr : Kraken.StoreKind} {A : BitVec 64} {V : Val} {s' : Sta
     (hev : TermRun.evalAt c.env a = some (ta, ws)) (hk : TermRun.numOf ws = some k)
     (hlt : A.toNat < ar.heap + 16 * old + ar.off k τ) (hne : (⟨A, 8⟩ : Loc) ≠ ar.ctrLoc) :
     WrOkA ar lbl lsize ms X s c :=
-  ⟨fun _ hL => wrAt_store he hL ▸ .inr (.inr (.inr ⟨old, x, a, τ, e, ta, ws, k, hh, ht, hev, hk, hlt⟩)),
+  ⟨fun _ hL => wrAt_store he hL ▸ .inr (.inr (.inr (.inl ⟨old, x, a, τ, e, ta, ws, k, hh, ht, hev, hk, hlt⟩))),
     fun hL => (hne (wrAt_store he hL).symm).elim⟩
 
 end Spike.Lib.A64ConsumerA

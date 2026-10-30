@@ -5,8 +5,7 @@ import Scc.Test.RtA64AbortTest
 # Every block of `hello.w`'s AArch64 code at its place
 
 The table of places of the `block_spec` blocks of `hello.w`'s AArch64 listing
-(`Spike/Gen/genblocks_a64.py`, the data of `Spike/Lib/A64Hello.lean` for
-`hello.w`), grouped per function in program order, checked against the program scc emits by one
+(`Spike/Gen/genblocks_a64.py`'s block data for `hello.w`), grouped per function in program order, checked against the program scc emits by one
 `kernel_rfl` (`blocksIn`, `Scc/Cert/Rt/CodeA64.lean`): every block is code
 at its label and offset in every valid layout of the program
 (`codeAt_of_blocksIn`). Generated (the seed of `scc --cert`).
@@ -849,11 +848,11 @@ movz x10, #0
 subs xzr, x9, x10
 b.eq .L9_scc_rt_print.7_done")) /- scc_rt_print_2 -/,
     (4, parseAArch64("b .L9_scc_rt_print.2_write")) /- scc_rt_print_3 -/]⟩,
-  ⟨".L9_scc_rt_print.2_write", [(0, parseAArch64("movz x0, #1
+  ⟨".L9_scc_rt_print.2_write", [(1, parseAArch64("movz x0, #1
 ldr x1, [sp]
 ldr x2, [sp, #8]
 movz x8, #64")) /- scc_rt_print_4 -/,
-    (5, parseAArch64("str x0, [sp, #16]
+    (6, parseAArch64("str x0, [sp, #16]
 ldr x9, [sp, #16]
 movz x10, #65532
 movk x10, #65535, lsl #16
@@ -861,7 +860,7 @@ movk x10, #65535, lsl #32
 movk x10, #65535, lsl #48
 subs xzr, x9, x10
 b.eq .L9_scc_rt_print.1_loop")) /- scc_rt_print_5 -/,
-    (13, parseAArch64("b .L9_scc_rt_print.3_chk2")) /- scc_rt_print_6 -/]⟩,
+    (14, parseAArch64("b .L9_scc_rt_print.3_chk2")) /- scc_rt_print_6 -/]⟩,
   ⟨".L9_scc_rt_print.3_chk2", [(0, parseAArch64("ldr x9, [sp, #16]
 movz x10, #65525
 movk x10, #65535, lsl #16
@@ -886,7 +885,7 @@ str x9, [sp, #8]
 b .L9_scc_rt_print.1_loop")) /- scc_rt_print_11 -/]⟩,
   ⟨".L9_scc_rt_print.6_fail", [(0, parseAArch64("movz x0, #4
 bl scc_rt_abort")) /- scc_rt_print_12 -/]⟩,
-  ⟨".L9_scc_rt_print.halt10", [(0, parseAArch64("b .L9_scc_rt_print.halt10")) /- scc_rt_print_13 -/]⟩,
+  ⟨".L9_scc_rt_print.halt11", [(0, parseAArch64("b .L9_scc_rt_print.halt11")) /- scc_rt_print_13 -/]⟩,
   ⟨".L9_scc_rt_print.7_done", [(0, parseAArch64("ldr x29, [sp, #32]
 ldr x30, [sp, #40]
 add sp, sp, #48
@@ -1129,33 +1128,28 @@ b.lo .L18_scc_rt_thr_worker.stack_grow")) /- scc_rt_thr_worker_1 -/,
 str x29, [sp, #64]
 str x30, [sp, #72]
 add x29, sp, #64
-str x0, [sp]")) /- scc_rt_thr_worker_2 -/]⟩,
-  ⟨".L18_scc_rt_thr_worker.0_entry", [(0, parseAArch64("ldr x10, [sp]")) /- scc_rt_thr_worker_3 -/,
-    (2, parseAArch64("str x9, [sp, #8]
-ldr x10, [sp]")) /- scc_rt_thr_worker_4 -/,
-    (5, parseAArch64("str x9, [sp, #16]
-ldr x10, [sp]")) /- scc_rt_thr_worker_5 -/,
-    (8, parseAArch64("str x9, [sp, #24]
-ldr x10, [sp]")) /- scc_rt_thr_worker_6 -/,
-    (11, parseAArch64("str x9, [sp, #32]
-ldr x10, [sp]")) /- scc_rt_thr_worker_7 -/,
-    (14, parseAArch64("str x9, [sp, #40]
-ldr x10, [sp]")) /- scc_rt_thr_worker_8 -/,
-    (17, parseAArch64("str x9, [sp, #48]
-ldr x0, [sp, #8]
-ldr x1, [sp, #16]
-ldr x2, [sp, #24]
-ldr x3, [sp, #32]
-ldr x4, [sp, #40]
-ldr x5, [sp, #48]
-bl wc_worker")) /- scc_rt_thr_worker_9 -/]⟩,
-  ⟨".L18_scc_rt_thr_worker.sp6", [(0, parseAArch64("movz x9, #1
-ldr x10, [sp]
-add x10, x10, #24")) /- scc_rt_thr_worker_10 -/,
-    (4, parseAArch64("movz x0, #0
-movz x8, #93")) /- scc_rt_thr_worker_11 -/,
-    (7, parseAArch64("str x0, [sp, #56]")) /- scc_rt_thr_worker_12 -/]⟩,
-  ⟨".L18_scc_rt_thr_worker.halt9", [(0, parseAArch64("b .L18_scc_rt_thr_worker.halt9")) /- scc_rt_thr_worker_13 -/]⟩,
+str x0, [sp]
+str x1, [sp, #8]
+str x2, [sp, #16]
+str x3, [sp, #24]
+str x4, [sp, #32]
+str x5, [sp, #40]")) /- scc_rt_thr_worker_2 -/]⟩,
+  ⟨".L18_scc_rt_thr_worker.0_entry", [(0, parseAArch64("ldr x0, [sp]
+ldr x1, [sp, #8]
+ldr x2, [sp, #16]
+ldr x3, [sp, #24]
+ldr x4, [sp, #32]
+ldr x5, [sp, #40]
+bl wc_worker")) /- scc_rt_thr_worker_3 -/]⟩,
+  ⟨".L18_scc_rt_thr_worker.sp0", [(0, parseAArch64("mrs x9, tpidr_el0
+str x9, [sp, #48]
+movz x9, #1
+ldr x10, [sp, #48]
+add x10, x10, #24")) /- scc_rt_thr_worker_4 -/,
+    (6, parseAArch64("movz x0, #0
+movz x8, #93")) /- scc_rt_thr_worker_5 -/,
+    (9, parseAArch64("str x0, [sp, #56]")) /- scc_rt_thr_worker_6 -/]⟩,
+  ⟨".L18_scc_rt_thr_worker.halt4", [(0, parseAArch64("b .L18_scc_rt_thr_worker.halt4")) /- scc_rt_thr_worker_7 -/]⟩,
   ⟨".L18_scc_rt_thr_worker.stack_grow", [(0, parseAArch64("sub sp, sp, #80
 str x0, [sp]
 str x1, [sp, #8]
@@ -1169,7 +1163,7 @@ str x29, [sp, #64]
 str x30, [sp, #72]
 add x29, sp, #64
 movz x0, #80
-bl scc_rt_morestack")) /- scc_rt_thr_worker_14 -/]⟩,
+bl scc_rt_morestack")) /- scc_rt_thr_worker_8 -/]⟩,
   ⟨".L18_scc_rt_thr_worker.sp_check", [(0, parseAArch64("ldr x0, [sp]
 ldr x1, [sp, #8]
 ldr x2, [sp, #16]
@@ -1181,481 +1175,24 @@ ldr x7, [sp, #56]
 ldr x29, [sp, #64]
 ldr x30, [sp, #72]
 add sp, sp, #80
-b .L18_scc_rt_thr_worker.stack_check")) /- scc_rt_thr_worker_15 -/]⟩
-]
-
-/-- The blocks of `wc_spin`. -/
-def helloT_wc_spin : List Grp := [
-  ⟨".L19_wc_spin.stack_check", [(0, parseAArch64("sub x9, sp, #32
-mrs x10, tpidr_el0")) /- wc_spin_0 -/,
-    (3, parseAArch64("subs xzr, x9, x10
-b.lo .L19_wc_spin.stack_grow")) /- wc_spin_1 -/,
-    (5, parseAArch64("add sp, x9, #0
-str x29, [sp, #16]
-str x30, [sp, #24]
-add x29, sp, #16
-str x0, [sp]")) /- wc_spin_2 -/]⟩,
-  ⟨".L19_wc_spin.0_entry", [(0, parseAArch64("ldr x0, [sp]
-ldr x29, [sp, #16]
-ldr x30, [sp, #24]
-add sp, sp, #32
-b wc_spin")) /- wc_spin_3 -/]⟩,
-  ⟨".L19_wc_spin.stack_grow", [(0, parseAArch64("sub sp, sp, #80
-str x0, [sp]
-str x1, [sp, #8]
-str x2, [sp, #16]
-str x3, [sp, #24]
-str x4, [sp, #32]
-str x5, [sp, #40]
-str x6, [sp, #48]
-str x7, [sp, #56]
-str x29, [sp, #64]
-str x30, [sp, #72]
-add x29, sp, #64
-movz x0, #32
-bl scc_rt_morestack")) /- wc_spin_4 -/]⟩,
-  ⟨".L19_wc_spin.sp_check", [(0, parseAArch64("ldr x0, [sp]
-ldr x1, [sp, #8]
-ldr x2, [sp, #16]
-ldr x3, [sp, #24]
-ldr x4, [sp, #32]
-ldr x5, [sp, #40]
-ldr x6, [sp, #48]
-ldr x7, [sp, #56]
-ldr x29, [sp, #64]
-ldr x30, [sp, #72]
-add sp, sp, #80
-b .L19_wc_spin.stack_check")) /- wc_spin_5 -/]⟩
-]
-
-/-- The blocks of `wc_emit8`. -/
-def helloT_wc_emit8 : List Grp := [
-  ⟨".L20_wc_emit8.stack_check", [(0, parseAArch64("sub x9, sp, #416
-mrs x10, tpidr_el0")) /- wc_emit8_0 -/,
-    (3, parseAArch64("subs xzr, x9, x10
-b.lo .L20_wc_emit8.stack_grow")) /- wc_emit8_1 -/,
-    (5, parseAArch64("add sp, x9, #0
-str x29, [sp, #400]
-str x30, [sp, #408]
-add x29, sp, #400
-str x0, [sp]
-str x1, [sp, #8]")) /- wc_emit8_2 -/]⟩,
-  ⟨".L20_wc_emit8.0_entry", [(0, parseAArch64("movz x9, #0
-movz x10, #7
-and x9, x9, x10
-str x9, [sp, #16]
-ldr x9, [sp, #16]
-movz x10, #8
-madd x9, x9, x10, xzr
-str x9, [sp, #24]
-ldr x9, [sp]
-ldr x10, [sp, #24]
-lsrv x9, x9, x10
-str x9, [sp, #32]
-ldr x9, [sp, #32]
-ubfm x9, x9, #0, #7
-str x9, [sp, #40]
-ldr x9, [sp, #8]
-movz x10, #0
-subs xzr, x9, x10
-csinc x9, xzr, xzr, ne
-str x9, [sp, #48]
-ldr x9, [sp, #48]
-movz x10, #1
-subs xzr, x9, x10
-b.eq .L20_wc_emit8.1_then5")) /- wc_emit8_3 -/,
-    (24, parseAArch64("b .L20_wc_emit8.2_else6")) /- wc_emit8_4 -/]⟩,
-  ⟨".L20_wc_emit8.1_then5", [(0, parseAArch64("ldr x0, [sp, #8]
-ldr x29, [sp, #400]
-ldr x30, [sp, #408]
-add sp, sp, #416
-ret")) /- wc_emit8_5 -/]⟩,
-  ⟨".L20_wc_emit8.2_else6", [(0, parseAArch64("ldr x9, [sp, #8]
-movz x10, #1
-sub x9, x9, x10
-str x9, [sp, #56]
-movz x9, #1
-movz x10, #7
-and x9, x9, x10
-str x9, [sp, #64]
-ldr x9, [sp, #64]
-movz x10, #8
-madd x9, x9, x10, xzr
-str x9, [sp, #72]
-ldr x9, [sp]
-ldr x10, [sp, #72]
-lsrv x9, x9, x10
-str x9, [sp, #80]
-ldr x9, [sp, #80]
-ubfm x9, x9, #0, #7
-str x9, [sp, #88]
-ldr x9, [sp, #56]
-movz x10, #0
-subs xzr, x9, x10
-csinc x9, xzr, xzr, ne
-str x9, [sp, #96]
-ldr x9, [sp, #96]
-movz x10, #1
-subs xzr, x9, x10
-b.eq .L20_wc_emit8.3_then13")) /- wc_emit8_6 -/,
-    (28, parseAArch64("b .L20_wc_emit8.4_else14")) /- wc_emit8_7 -/]⟩,
-  ⟨".L20_wc_emit8.3_then13", [(0, parseAArch64("ldr x0, [sp, #56]
-ldr x29, [sp, #400]
-ldr x30, [sp, #408]
-add sp, sp, #416
-ret")) /- wc_emit8_8 -/]⟩,
-  ⟨".L20_wc_emit8.4_else14", [(0, parseAArch64("ldr x9, [sp, #56]
-movz x10, #1
-sub x9, x9, x10
-str x9, [sp, #104]
-movz x9, #2
-movz x10, #7
-and x9, x9, x10
-str x9, [sp, #112]
-ldr x9, [sp, #112]
-movz x10, #8
-madd x9, x9, x10, xzr
-str x9, [sp, #120]
-ldr x9, [sp]
-ldr x10, [sp, #120]
-lsrv x9, x9, x10
-str x9, [sp, #128]
-ldr x9, [sp, #128]
-ubfm x9, x9, #0, #7
-str x9, [sp, #136]
-ldr x9, [sp, #104]
-movz x10, #0
-subs xzr, x9, x10
-csinc x9, xzr, xzr, ne
-str x9, [sp, #144]
-ldr x9, [sp, #144]
-movz x10, #1
-subs xzr, x9, x10
-b.eq .L20_wc_emit8.5_then21")) /- wc_emit8_9 -/,
-    (28, parseAArch64("b .L20_wc_emit8.6_else22")) /- wc_emit8_10 -/]⟩,
-  ⟨".L20_wc_emit8.5_then21", [(0, parseAArch64("ldr x0, [sp, #104]
-ldr x29, [sp, #400]
-ldr x30, [sp, #408]
-add sp, sp, #416
-ret")) /- wc_emit8_11 -/]⟩,
-  ⟨".L20_wc_emit8.6_else22", [(0, parseAArch64("ldr x9, [sp, #104]
-movz x10, #1
-sub x9, x9, x10
-str x9, [sp, #152]
-movz x9, #3
-movz x10, #7
-and x9, x9, x10
-str x9, [sp, #160]
-ldr x9, [sp, #160]
-movz x10, #8
-madd x9, x9, x10, xzr
-str x9, [sp, #168]
-ldr x9, [sp]
-ldr x10, [sp, #168]
-lsrv x9, x9, x10
-str x9, [sp, #176]
-ldr x9, [sp, #176]
-ubfm x9, x9, #0, #7
-str x9, [sp, #184]
-ldr x9, [sp, #152]
-movz x10, #0
-subs xzr, x9, x10
-csinc x9, xzr, xzr, ne
-str x9, [sp, #192]
-ldr x9, [sp, #192]
-movz x10, #1
-subs xzr, x9, x10
-b.eq .L20_wc_emit8.7_then29")) /- wc_emit8_12 -/,
-    (28, parseAArch64("b .L20_wc_emit8.8_else30")) /- wc_emit8_13 -/]⟩,
-  ⟨".L20_wc_emit8.7_then29", [(0, parseAArch64("ldr x0, [sp, #152]
-ldr x29, [sp, #400]
-ldr x30, [sp, #408]
-add sp, sp, #416
-ret")) /- wc_emit8_14 -/]⟩,
-  ⟨".L20_wc_emit8.8_else30", [(0, parseAArch64("ldr x9, [sp, #152]
-movz x10, #1
-sub x9, x9, x10
-str x9, [sp, #200]
-movz x9, #4
-movz x10, #7
-and x9, x9, x10
-str x9, [sp, #208]
-ldr x9, [sp, #208]
-movz x10, #8
-madd x9, x9, x10, xzr
-str x9, [sp, #216]
-ldr x9, [sp]
-ldr x10, [sp, #216]
-lsrv x9, x9, x10
-str x9, [sp, #224]
-ldr x9, [sp, #224]
-ubfm x9, x9, #0, #7
-str x9, [sp, #232]
-ldr x9, [sp, #200]
-movz x10, #0
-subs xzr, x9, x10
-csinc x9, xzr, xzr, ne
-str x9, [sp, #240]
-ldr x9, [sp, #240]
-movz x10, #1
-subs xzr, x9, x10
-b.eq .L20_wc_emit8.9_then37")) /- wc_emit8_15 -/,
-    (28, parseAArch64("b .L20_wc_emit8.10_else38")) /- wc_emit8_16 -/]⟩,
-  ⟨".L20_wc_emit8.9_then37", [(0, parseAArch64("ldr x0, [sp, #200]
-ldr x29, [sp, #400]
-ldr x30, [sp, #408]
-add sp, sp, #416
-ret")) /- wc_emit8_17 -/]⟩,
-  ⟨".L20_wc_emit8.10_else38", [(0, parseAArch64("ldr x9, [sp, #200]
-movz x10, #1
-sub x9, x9, x10
-str x9, [sp, #248]
-movz x9, #5
-movz x10, #7
-and x9, x9, x10
-str x9, [sp, #256]
-ldr x9, [sp, #256]
-movz x10, #8
-madd x9, x9, x10, xzr
-str x9, [sp, #264]
-ldr x9, [sp]
-ldr x10, [sp, #264]
-lsrv x9, x9, x10
-str x9, [sp, #272]
-ldr x9, [sp, #272]
-ubfm x9, x9, #0, #7
-str x9, [sp, #280]
-ldr x9, [sp, #248]
-movz x10, #0
-subs xzr, x9, x10
-csinc x9, xzr, xzr, ne
-str x9, [sp, #288]
-ldr x9, [sp, #288]
-movz x10, #1
-subs xzr, x9, x10
-b.eq .L20_wc_emit8.11_then45")) /- wc_emit8_18 -/,
-    (28, parseAArch64("b .L20_wc_emit8.12_else46")) /- wc_emit8_19 -/]⟩,
-  ⟨".L20_wc_emit8.11_then45", [(0, parseAArch64("ldr x0, [sp, #248]
-ldr x29, [sp, #400]
-ldr x30, [sp, #408]
-add sp, sp, #416
-ret")) /- wc_emit8_20 -/]⟩,
-  ⟨".L20_wc_emit8.12_else46", [(0, parseAArch64("ldr x9, [sp, #248]
-movz x10, #1
-sub x9, x9, x10
-str x9, [sp, #296]
-movz x9, #6
-movz x10, #7
-and x9, x9, x10
-str x9, [sp, #304]
-ldr x9, [sp, #304]
-movz x10, #8
-madd x9, x9, x10, xzr
-str x9, [sp, #312]
-ldr x9, [sp]
-ldr x10, [sp, #312]
-lsrv x9, x9, x10
-str x9, [sp, #320]
-ldr x9, [sp, #320]
-ubfm x9, x9, #0, #7
-str x9, [sp, #328]
-ldr x9, [sp, #296]
-movz x10, #0
-subs xzr, x9, x10
-csinc x9, xzr, xzr, ne
-str x9, [sp, #336]
-ldr x9, [sp, #336]
-movz x10, #1
-subs xzr, x9, x10
-b.eq .L20_wc_emit8.13_then53")) /- wc_emit8_21 -/,
-    (28, parseAArch64("b .L20_wc_emit8.14_else54")) /- wc_emit8_22 -/]⟩,
-  ⟨".L20_wc_emit8.13_then53", [(0, parseAArch64("ldr x0, [sp, #296]
-ldr x29, [sp, #400]
-ldr x30, [sp, #408]
-add sp, sp, #416
-ret")) /- wc_emit8_23 -/]⟩,
-  ⟨".L20_wc_emit8.14_else54", [(0, parseAArch64("ldr x9, [sp, #296]
-movz x10, #1
-sub x9, x9, x10
-str x9, [sp, #344]
-movz x9, #7
-movz x10, #7
-and x9, x9, x10
-str x9, [sp, #352]
-ldr x9, [sp, #352]
-movz x10, #8
-madd x9, x9, x10, xzr
-str x9, [sp, #360]
-ldr x9, [sp]
-ldr x10, [sp, #360]
-lsrv x9, x9, x10
-str x9, [sp, #368]
-ldr x9, [sp, #368]
-ubfm x9, x9, #0, #7
-str x9, [sp, #376]
-ldr x9, [sp, #344]
-movz x10, #0
-subs xzr, x9, x10
-csinc x9, xzr, xzr, ne
-str x9, [sp, #384]
-ldr x9, [sp, #384]
-movz x10, #1
-subs xzr, x9, x10
-b.eq .L20_wc_emit8.15_then61")) /- wc_emit8_24 -/,
-    (28, parseAArch64("b .L20_wc_emit8.16_else62")) /- wc_emit8_25 -/]⟩,
-  ⟨".L20_wc_emit8.15_then61", [(0, parseAArch64("ldr x0, [sp, #344]
-ldr x29, [sp, #400]
-ldr x30, [sp, #408]
-add sp, sp, #416
-ret")) /- wc_emit8_26 -/]⟩,
-  ⟨".L20_wc_emit8.16_else62", [(0, parseAArch64("ldr x9, [sp, #344]
-movz x10, #1
-sub x9, x9, x10
-str x9, [sp, #392]
-ldr x0, [sp, #392]
-ldr x29, [sp, #400]
-ldr x30, [sp, #408]
-add sp, sp, #416
-ret")) /- wc_emit8_27 -/]⟩,
-  ⟨".L20_wc_emit8.stack_grow", [(0, parseAArch64("sub sp, sp, #80
-str x0, [sp]
-str x1, [sp, #8]
-str x2, [sp, #16]
-str x3, [sp, #24]
-str x4, [sp, #32]
-str x5, [sp, #40]
-str x6, [sp, #48]
-str x7, [sp, #56]
-str x29, [sp, #64]
-str x30, [sp, #72]
-add x29, sp, #64
-movz x0, #416
-bl scc_rt_morestack")) /- wc_emit8_28 -/]⟩,
-  ⟨".L20_wc_emit8.sp_check", [(0, parseAArch64("ldr x0, [sp]
-ldr x1, [sp, #8]
-ldr x2, [sp, #16]
-ldr x3, [sp, #24]
-ldr x4, [sp, #32]
-ldr x5, [sp, #40]
-ldr x6, [sp, #48]
-ldr x7, [sp, #56]
-ldr x29, [sp, #64]
-ldr x30, [sp, #72]
-add sp, sp, #80
-b .L20_wc_emit8.stack_check")) /- wc_emit8_29 -/]⟩
-]
-
-/-- The blocks of `wc_printL`. -/
-def helloT_wc_printL : List Grp := [
-  ⟨".L21_wc_printL.stack_check", [(0, parseAArch64("sub x9, sp, #128
-mrs x10, tpidr_el0")) /- wc_printL_0 -/,
-    (3, parseAArch64("subs xzr, x9, x10
-b.lo .L21_wc_printL.stack_grow")) /- wc_printL_1 -/,
-    (5, parseAArch64("add sp, x9, #0
-str x29, [sp, #112]
-str x30, [sp, #120]
-add x29, sp, #112
-str x0, [sp]
-str x1, [sp, #8]
-str x2, [sp, #16]
-str x3, [sp, #24]
-str x4, [sp, #32]")) /- wc_printL_2 -/]⟩,
-  ⟨".L21_wc_printL.0_entry", [(0, parseAArch64("ldr x9, [sp, #16]
-movz x10, #8
-madd x9, x9, x10, xzr
-str x9, [sp, #40]
-ldr x9, [sp, #8]
-ldr x10, [sp, #40]
-add x9, x9, x10
-str x9, [sp, #48]
-ldr x9, [sp, #48]
-ubfm x9, x9, #0, #31
-str x9, [sp, #56]
-ldr x9, [sp]
-ldr x10, [sp, #56]
-add x9, x9, x10
-str x9, [sp, #64]
-ldr x10, [sp, #64]")) /- wc_printL_3 -/,
-    (17, parseAArch64("str x9, [sp, #72]
-ldr x0, [sp, #72]
-ldr x1, [sp, #32]
-bl wc_emit8")) /- wc_printL_4 -/]⟩,
-  ⟨".L21_wc_printL.sp5", [(0, parseAArch64("str x0, [sp, #80]
-ldr x9, [sp, #24]
-movz x10, #0
-subs xzr, x9, x10
-b.eq .L21_wc_printL.1_then6")) /- wc_printL_5 -/,
-    (5, parseAArch64("b .L21_wc_printL.2_else7")) /- wc_printL_6 -/]⟩,
-  ⟨".L21_wc_printL.1_then6", [(0, parseAArch64("ldr x0, [sp, #80]
-ldr x29, [sp, #112]
-ldr x30, [sp, #120]
-add sp, sp, #128
-ret")) /- wc_printL_7 -/]⟩,
-  ⟨".L21_wc_printL.2_else7", [(0, parseAArch64("ldr x9, [sp, #24]
-movz x10, #1
-subs x9, x9, x10
-csel x9, x9, xzr, hs
-str x9, [sp, #88]
-ldr x9, [sp, #16]
-movz x10, #1
-adds x9, x9, x10
-b.hs .L21_wc_printL.abort_overflow")) /- wc_printL_8 -/,
-    (9, parseAArch64("str x9, [sp, #96]
-ldr x0, [sp]
-ldr x1, [sp, #8]
-ldr x2, [sp, #96]
-ldr x3, [sp, #88]
-ldr x4, [sp, #80]
-ldr x29, [sp, #112]
-ldr x30, [sp, #120]
-add sp, sp, #128
-b wc_printL")) /- wc_printL_9 -/]⟩,
-  ⟨".L21_wc_printL.stack_grow", [(0, parseAArch64("sub sp, sp, #80
-str x0, [sp]
-str x1, [sp, #8]
-str x2, [sp, #16]
-str x3, [sp, #24]
-str x4, [sp, #32]
-str x5, [sp, #40]
-str x6, [sp, #48]
-str x7, [sp, #56]
-str x29, [sp, #64]
-str x30, [sp, #72]
-add x29, sp, #64
-movz x0, #128
-bl scc_rt_morestack")) /- wc_printL_10 -/]⟩,
-  ⟨".L21_wc_printL.sp_check", [(0, parseAArch64("ldr x0, [sp]
-ldr x1, [sp, #8]
-ldr x2, [sp, #16]
-ldr x3, [sp, #24]
-ldr x4, [sp, #32]
-ldr x5, [sp, #40]
-ldr x6, [sp, #48]
-ldr x7, [sp, #56]
-ldr x29, [sp, #64]
-ldr x30, [sp, #72]
-add sp, sp, #80
-b .L21_wc_printL.stack_check")) /- wc_printL_11 -/]⟩,
-  ⟨".L21_wc_printL.abort_overflow", [(0, parseAArch64("movz x0, #1
-bl scc_rt_abort")) /- wc_printL_12 -/]⟩,
-  ⟨".L21_wc_printL.abort_overflow_halt", [(0, parseAArch64("b .L21_wc_printL.abort_overflow_halt")) /- wc_printL_13 -/]⟩
+b .L18_scc_rt_thr_worker.stack_check")) /- scc_rt_thr_worker_9 -/]⟩
 ]
 
 /-- The blocks of `wc_rodata`. -/
 def helloT_wc_rodata : List Grp := [
-  ⟨".L22_wc_rodata.stack_check", [(0, parseAArch64("sub x9, sp, #48
+  ⟨".L19_wc_rodata.stack_check", [(0, parseAArch64("sub x9, sp, #48
 mrs x10, tpidr_el0")) /- wc_rodata_0 -/,
     (3, parseAArch64("subs xzr, x9, x10
-b.lo .L22_wc_rodata.stack_grow")) /- wc_rodata_1 -/,
+b.lo .L19_wc_rodata.stack_grow")) /- wc_rodata_1 -/,
     (5, parseAArch64("add sp, x9, #0
 str x29, [sp, #32]
 str x30, [sp, #40]
 add x29, sp, #32")) /- wc_rodata_2 -/]⟩,
-  ⟨".L22_wc_rodata.0_entry", [(0, parseAArch64("movz x0, #257
+  ⟨".L19_wc_rodata.0_entry", [(0, parseAArch64("movz x0, #257
 movz x1, #2
 movz x2, #3
 bl scc_rt_alloc")) /- wc_rodata_3 -/]⟩,
-  ⟨".L22_wc_rodata.sp0", [(0, parseAArch64("str x0, [sp]
+  ⟨".L19_wc_rodata.sp0", [(0, parseAArch64("str x0, [sp]
 ldr x10, [sp]")) /- wc_rodata_4 -/,
     (3, parseAArch64("str x9, [sp, #8]
 movz x9, #25928
@@ -1677,7 +1214,7 @@ ldr x29, [sp, #32]
 ldr x30, [sp, #40]
 add sp, sp, #48
 ret")) /- wc_rodata_8 -/]⟩,
-  ⟨".L22_wc_rodata.stack_grow", [(0, parseAArch64("sub sp, sp, #80
+  ⟨".L19_wc_rodata.stack_grow", [(0, parseAArch64("sub sp, sp, #80
 str x0, [sp]
 str x1, [sp, #8]
 str x2, [sp, #16]
@@ -1691,7 +1228,7 @@ str x30, [sp, #72]
 add x29, sp, #64
 movz x0, #48
 bl scc_rt_morestack")) /- wc_rodata_9 -/]⟩,
-  ⟨".L22_wc_rodata.sp_check", [(0, parseAArch64("ldr x0, [sp]
+  ⟨".L19_wc_rodata.sp_check", [(0, parseAArch64("ldr x0, [sp]
 ldr x1, [sp, #8]
 ldr x2, [sp, #16]
 ldr x3, [sp, #24]
@@ -1702,15 +1239,15 @@ ldr x7, [sp, #56]
 ldr x29, [sp, #64]
 ldr x30, [sp, #72]
 add sp, sp, #80
-b .L22_wc_rodata.stack_check")) /- wc_rodata_10 -/]⟩
+b .L19_wc_rodata.stack_check")) /- wc_rodata_10 -/]⟩
 ]
 
 /-- The blocks of `wc_worker`. -/
 def helloT_wc_worker : List Grp := [
-  ⟨".L23_wc_worker.stack_check", [(0, parseAArch64("sub x9, sp, #96
+  ⟨".L20_wc_worker.stack_check", [(0, parseAArch64("sub x9, sp, #96
 mrs x10, tpidr_el0")) /- wc_worker_0 -/,
     (3, parseAArch64("subs xzr, x9, x10
-b.lo .L23_wc_worker.stack_grow")) /- wc_worker_1 -/,
+b.lo .L20_wc_worker.stack_grow")) /- wc_worker_1 -/,
     (5, parseAArch64("add sp, x9, #0
 str x29, [sp, #80]
 str x30, [sp, #88]
@@ -1721,7 +1258,7 @@ str x2, [sp, #16]
 str x3, [sp, #24]
 str x4, [sp, #32]
 str x5, [sp, #40]")) /- wc_worker_2 -/]⟩,
-  ⟨".L23_wc_worker.0_entry", [(0, parseAArch64("ldr x9, [sp, #8]
+  ⟨".L20_wc_worker.0_entry", [(0, parseAArch64("ldr x9, [sp, #8]
 ubfm x9, x9, #0, #31
 str x9, [sp, #48]
 ldr x9, [sp]
@@ -1742,15 +1279,15 @@ str x9, [sp, #72]
 ldr x0, [sp, #56]
 ldr x1, [sp, #72]
 bl scc_rt_print")) /- wc_worker_3 -/]⟩,
-  ⟨".L23_wc_worker.sp4", [(0, parseAArch64("movz x9, #1
+  ⟨".L20_wc_worker.sp4", [(0, parseAArch64("movz x9, #1
 ldr x10, [sp, #32]")) /- wc_worker_4 -/,
     (3, parseAArch64("ldr x0, [sp, #40]
 bl scc_rt_unpark")) /- wc_worker_5 -/]⟩,
-  ⟨".L23_wc_worker.sp6", [(0, parseAArch64("ldr x29, [sp, #80]
+  ⟨".L20_wc_worker.sp6", [(0, parseAArch64("ldr x29, [sp, #80]
 ldr x30, [sp, #88]
 add sp, sp, #96
 ret")) /- wc_worker_6 -/]⟩,
-  ⟨".L23_wc_worker.stack_grow", [(0, parseAArch64("sub sp, sp, #80
+  ⟨".L20_wc_worker.stack_grow", [(0, parseAArch64("sub sp, sp, #80
 str x0, [sp]
 str x1, [sp, #8]
 str x2, [sp, #16]
@@ -1764,7 +1301,7 @@ str x30, [sp, #72]
 add x29, sp, #64
 movz x0, #96
 bl scc_rt_morestack")) /- wc_worker_7 -/]⟩,
-  ⟨".L23_wc_worker.sp_check", [(0, parseAArch64("ldr x0, [sp]
+  ⟨".L20_wc_worker.sp_check", [(0, parseAArch64("ldr x0, [sp]
 ldr x1, [sp, #8]
 ldr x2, [sp, #16]
 ldr x3, [sp, #24]
@@ -1775,39 +1312,39 @@ ldr x7, [sp, #56]
 ldr x29, [sp, #64]
 ldr x30, [sp, #72]
 add sp, sp, #80
-b .L23_wc_worker.stack_check")) /- wc_worker_8 -/]⟩
+b .L20_wc_worker.stack_check")) /- wc_worker_8 -/]⟩
 ]
 
 /-- The blocks of `wc_waitLoop`. -/
 def helloT_wc_waitLoop : List Grp := [
-  ⟨".L24_wc_waitLoop.stack_check", [(0, parseAArch64("sub x9, sp, #32
+  ⟨".L21_wc_waitLoop.stack_check", [(0, parseAArch64("sub x9, sp, #32
 mrs x10, tpidr_el0")) /- wc_waitLoop_0 -/,
     (3, parseAArch64("subs xzr, x9, x10
-b.lo .L24_wc_waitLoop.stack_grow")) /- wc_waitLoop_1 -/,
+b.lo .L21_wc_waitLoop.stack_grow")) /- wc_waitLoop_1 -/,
     (5, parseAArch64("add sp, x9, #0
 str x29, [sp, #16]
 str x30, [sp, #24]
 add x29, sp, #16
 str x0, [sp]")) /- wc_waitLoop_2 -/]⟩,
-  ⟨".L24_wc_waitLoop.0_entry", [(0, parseAArch64("ldr x10, [sp]")) /- wc_waitLoop_3 -/,
+  ⟨".L21_wc_waitLoop.0_entry", [(0, parseAArch64("ldr x10, [sp]")) /- wc_waitLoop_3 -/,
     (2, parseAArch64("str x9, [sp, #8]
 ldr x9, [sp, #8]
 movz x10, #1
 subs xzr, x9, x10
-b.eq .L24_wc_waitLoop.1_then1")) /- wc_waitLoop_4 -/,
-    (7, parseAArch64("b .L24_wc_waitLoop.2_else2")) /- wc_waitLoop_5 -/]⟩,
-  ⟨".L24_wc_waitLoop.1_then1", [(0, parseAArch64("movz x0, #0
+b.eq .L21_wc_waitLoop.1_then1")) /- wc_waitLoop_4 -/,
+    (7, parseAArch64("b .L21_wc_waitLoop.2_else2")) /- wc_waitLoop_5 -/]⟩,
+  ⟨".L21_wc_waitLoop.1_then1", [(0, parseAArch64("movz x0, #0
 ldr x29, [sp, #16]
 ldr x30, [sp, #24]
 add sp, sp, #32
 ret")) /- wc_waitLoop_6 -/]⟩,
-  ⟨".L24_wc_waitLoop.2_else2", [(0, parseAArch64("bl scc_rt_park")) /- wc_waitLoop_7 -/]⟩,
-  ⟨".L24_wc_waitLoop.sp3", [(0, parseAArch64("ldr x0, [sp]
+  ⟨".L21_wc_waitLoop.2_else2", [(0, parseAArch64("bl scc_rt_park")) /- wc_waitLoop_7 -/]⟩,
+  ⟨".L21_wc_waitLoop.sp3", [(0, parseAArch64("ldr x0, [sp]
 ldr x29, [sp, #16]
 ldr x30, [sp, #24]
 add sp, sp, #32
 b wc_waitLoop")) /- wc_waitLoop_8 -/]⟩,
-  ⟨".L24_wc_waitLoop.stack_grow", [(0, parseAArch64("sub sp, sp, #80
+  ⟨".L21_wc_waitLoop.stack_grow", [(0, parseAArch64("sub sp, sp, #80
 str x0, [sp]
 str x1, [sp, #8]
 str x2, [sp, #16]
@@ -1821,7 +1358,7 @@ str x30, [sp, #72]
 add x29, sp, #64
 movz x0, #32
 bl scc_rt_morestack")) /- wc_waitLoop_9 -/]⟩,
-  ⟨".L24_wc_waitLoop.sp_check", [(0, parseAArch64("ldr x0, [sp]
+  ⟨".L21_wc_waitLoop.sp_check", [(0, parseAArch64("ldr x0, [sp]
 ldr x1, [sp, #8]
 ldr x2, [sp, #16]
 ldr x3, [sp, #24]
@@ -1832,83 +1369,82 @@ ldr x7, [sp, #56]
 ldr x29, [sp, #64]
 ldr x30, [sp, #72]
 add sp, sp, #80
-b .L24_wc_waitLoop.stack_check")) /- wc_waitLoop_10 -/]⟩
+b .L21_wc_waitLoop.stack_check")) /- wc_waitLoop_10 -/]⟩
 ]
 
 /-- The blocks of `wc_main`. -/
 def helloT_wc_main : List Grp := [
-  ⟨".L25_wc_main.stack_check", [(0, parseAArch64("sub x9, sp, #96
+  ⟨".L22_wc_main.stack_check", [(0, parseAArch64("sub x9, sp, #144
 mrs x10, tpidr_el0")) /- wc_main_0 -/,
     (3, parseAArch64("subs xzr, x9, x10
-b.lo .L25_wc_main.stack_grow")) /- wc_main_1 -/,
+b.lo .L22_wc_main.stack_grow")) /- wc_main_1 -/,
     (5, parseAArch64("add sp, x9, #0
-str x29, [sp, #80]
-str x30, [sp, #88]
-add x29, sp, #80
+str x29, [sp, #128]
+str x30, [sp, #136]
+add x29, sp, #128
 str x0, [sp]
 str x1, [sp, #8]
 str x2, [sp, #16]
 str x3, [sp, #24]
 str x4, [sp, #32]")) /- wc_main_2 -/]⟩,
-  ⟨".L25_wc_main.0_entry", [(0, parseAArch64("movz x0, #256
+  ⟨".L22_wc_main.0_entry", [(0, parseAArch64("movz x0, #256
 movz x1, #1
 movz x2, #2
 bl scc_rt_alloc")) /- wc_main_3 -/]⟩,
-  ⟨".L25_wc_main.sp0", [(0, parseAArch64("str x0, [sp, #40]
+  ⟨".L22_wc_main.sp0", [(0, parseAArch64("str x0, [sp, #40]
 movz x9, #0
 ldr x10, [sp, #40]")) /- wc_main_4 -/,
     (5, parseAArch64("bl scc_rt_thread_reserve")) /- wc_main_5 -/]⟩,
-  ⟨".L25_wc_main.sp3", [(0, parseAArch64("str x0, [sp, #48]
+  ⟨".L22_wc_main.sp3", [(0, parseAArch64("str x0, [sp, #48]
 movz x0, #3075
 movk x0, #192, lsl #16
 movz x1, #1
 bl scc_rt_alloc_tcb")) /- wc_main_6 -/]⟩,
-  ⟨".L25_wc_main.sp4", [(0, parseAArch64("str x0, [sp, #56]
+  ⟨".L22_wc_main.sp4", [(0, parseAArch64("str x0, [sp, #56]
 ldr x9, [sp, #48]
 ldr x10, [sp, #56]")) /- wc_main_7 -/,
-    (4, parseAArch64("ldr x9, [sp]
-ldr x10, [sp, #56]")) /- wc_main_8 -/,
-    (7, parseAArch64("ldr x9, [sp, #8]
-ldr x10, [sp, #56]")) /- wc_main_9 -/,
-    (10, parseAArch64("ldr x9, [sp, #16]
-ldr x10, [sp, #56]")) /- wc_main_10 -/,
-    (13, parseAArch64("ldr x9, [sp, #24]
-ldr x10, [sp, #56]")) /- wc_main_11 -/,
-    (16, parseAArch64("ldr x9, [sp, #40]
-ldr x10, [sp, #56]")) /- wc_main_12 -/,
-    (19, parseAArch64("ldr x9, [sp, #32]
-ldr x10, [sp, #56]")) /- wc_main_13 -/,
-    (22, parseAArch64("ldr x0, [sp, #56]
-bl scc_rt_thread_init")) /- wc_main_14 -/]⟩,
-  ⟨".L25_wc_main.sp12", [(0, parseAArch64("str x0, [sp, #64]")) /- wc_main_15 -/,
-    (2, parseAArch64("ldr x1, [sp, #64]
+    (4, parseAArch64("ldr x0, [sp, #56]
+bl scc_rt_thread_init")) /- wc_main_8 -/]⟩,
+  ⟨".L22_wc_main.sp6", [(0, parseAArch64("str x0, [sp, #64]
+ldr x9, [sp, #8]
+str x9, [sp, #72]
+ldr x9, [sp, #16]
+str x9, [sp, #80]
+ldr x9, [sp, #24]
+str x9, [sp, #88]
+ldr x9, [sp, #40]
+str x9, [sp, #96]
+ldr x9, [sp, #32]
+str x9, [sp, #104]")) /- wc_main_9 -/,
+    (12, parseAArch64("ldr x1, [sp, #64]
 ldr x3, [sp, #56]
-ldr x9, [sp, #56]
+ldr x9, [sp]
+ldr x10, [sp, #72]
+ldr x11, [sp, #80]
+ldr x12, [sp, #88]
+ldr x13, [sp, #96]
+ldr x14, [sp, #104]
 movz x0, #3840
 movk x0, #13, lsl #16
 movz x2, #0
 movz x4, #0
-movz x8, #220")) /- wc_main_16 -/,
-    (11, parseAArch64("cbnz x0, .L25_wc_main.clone14")) /- wc_main_17 -/,
-    (12, parseAArch64("orr x0, xzr, x9
-movz x29, #0
-bl scc_rt_thr_worker")) /- wc_main_18 -/]⟩,
-  ⟨".L25_wc_main.child14", [(0, parseAArch64("b .L25_wc_main.child14")) /- wc_main_19 -/]⟩,
-  ⟨".L25_wc_main.clone14", [(0, parseAArch64("str x0, [sp, #72]
-ldr x9, [sp, #72]
+movz x8, #220")) /- wc_main_10 -/,
+    (26, parseAArch64("cbz x0, .L22_wc_main.child13")) /- wc_main_11 -/]⟩,
+  ⟨".L22_wc_main.clone13", [(0, parseAArch64("str x0, [sp, #112]
+ldr x9, [sp, #112]
 movz x10, #0
 subs xzr, x9, x10
-b.lt .L25_wc_main.1_spawnfail5")) /- wc_main_20 -/,
-    (5, parseAArch64("b .L25_wc_main.2_spawned6")) /- wc_main_21 -/]⟩,
-  ⟨".L25_wc_main.1_spawnfail5", [(0, parseAArch64("movz x0, #5
-bl scc_rt_abort")) /- wc_main_22 -/]⟩,
-  ⟨".L25_wc_main.halt17", [(0, parseAArch64("b .L25_wc_main.halt17")) /- wc_main_23 -/]⟩,
-  ⟨".L25_wc_main.2_spawned6", [(0, parseAArch64("ldr x0, [sp, #40]
-ldr x29, [sp, #80]
-ldr x30, [sp, #88]
-add sp, sp, #96
-b wc_waitLoop")) /- wc_main_24 -/]⟩,
-  ⟨".L25_wc_main.stack_grow", [(0, parseAArch64("sub sp, sp, #80
+b.lt .L22_wc_main.1_spawnfail5")) /- wc_main_12 -/,
+    (5, parseAArch64("b .L22_wc_main.2_spawned6")) /- wc_main_13 -/]⟩,
+  ⟨".L22_wc_main.1_spawnfail5", [(0, parseAArch64("movz x0, #5
+bl scc_rt_abort")) /- wc_main_14 -/]⟩,
+  ⟨".L22_wc_main.halt16", [(0, parseAArch64("b .L22_wc_main.halt16")) /- wc_main_15 -/]⟩,
+  ⟨".L22_wc_main.2_spawned6", [(0, parseAArch64("ldr x0, [sp, #40]
+ldr x29, [sp, #128]
+ldr x30, [sp, #136]
+add sp, sp, #144
+b wc_waitLoop")) /- wc_main_16 -/]⟩,
+  ⟨".L22_wc_main.stack_grow", [(0, parseAArch64("sub sp, sp, #80
 str x0, [sp]
 str x1, [sp, #8]
 str x2, [sp, #16]
@@ -1920,9 +1456,9 @@ str x7, [sp, #56]
 str x29, [sp, #64]
 str x30, [sp, #72]
 add x29, sp, #64
-movz x0, #96
-bl scc_rt_morestack")) /- wc_main_25 -/]⟩,
-  ⟨".L25_wc_main.sp_check", [(0, parseAArch64("ldr x0, [sp]
+movz x0, #144
+bl scc_rt_morestack")) /- wc_main_17 -/]⟩,
+  ⟨".L22_wc_main.sp_check", [(0, parseAArch64("ldr x0, [sp]
 ldr x1, [sp, #8]
 ldr x2, [sp, #16]
 ldr x3, [sp, #24]
@@ -1933,7 +1469,16 @@ ldr x7, [sp, #56]
 ldr x29, [sp, #64]
 ldr x30, [sp, #72]
 add sp, sp, #80
-b .L25_wc_main.stack_check")) /- wc_main_26 -/]⟩
+b .L22_wc_main.stack_check")) /- wc_main_18 -/]⟩,
+  ⟨".L22_wc_main.child13", [(0, parseAArch64("orr x0, xzr, x9
+orr x1, xzr, x10
+orr x2, xzr, x11
+orr x3, xzr, x12
+orr x4, xzr, x13
+orr x5, xzr, x14
+movz x29, #0
+bl scc_rt_thr_worker")) /- wc_main_19 -/]⟩,
+  ⟨".L22_wc_main.child13_halt", [(0, parseAArch64("b .L22_wc_main.child13_halt")) /- wc_main_20 -/]⟩
 ]
 
 /-- The blocks of `scc_rt_morestack`. -/
@@ -1977,9 +1522,6 @@ def helloT : List Grp :=
   helloT_scc_rt_abort_write ++
   helloT_scc_rt_abort_threads ++
   helloT_scc_rt_thr_worker ++
-  helloT_wc_spin ++
-  helloT_wc_emit8 ++
-  helloT_wc_printL ++
   helloT_wc_rodata ++
   helloT_wc_worker ++
   helloT_wc_waitLoop ++

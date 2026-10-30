@@ -31,6 +31,7 @@ pair from it and the pair's `Out` row.
 -/
 import Spike.Lib.X64ConsumerA
 import Scc.Sem.Rows1Rmw
+import Spike.Lib.FenceStep
 
 namespace Spike.Lib.X64ConsumerA
 
@@ -179,9 +180,13 @@ theorem out_eff {A : Arch} {lbl : Lbl} {ms : MemSide isa} {X : Frag isa} {s : St
   | sys _ _ hK' hat => exact (hsys hK' hat).elim
   | holdLoad _ _ _ _ _ _ _ _ he => exact .inl (load_same he hstep ho)
   | xchgStore _ _ _ _ _ _ _ _ _ _ _ _ he => exact .inr (hsto he)
-  | ctrRmw _ _ _ _ _ _ _ _ _ _ he => exact hrmw he
+  | ctrRmw _ _ _ _ _ _ _ he => exact hrmw he
   | alloc s' _ _ _ _ _ _ _ _ _ _ _ he => exact .inl (hsil he (silentTree_done s'))
+  | newStore _ _ _ _ _ _ _ _ _ _ _ _ he => exact .inr (hsto he)
   | emit _ _ _ _ _ hK' hat => exact (hsys hK' hat).elim
+  | fence _ _ _ he =>
+    obtain ⟨-, hm, hp⟩ := Spike.Lib.FenceStep.stepOne_fence_ok A 0 he ⟨outs, o, hstep, ho, rfl, rfl⟩
+    exact .inl ⟨hm, hp⟩
 
 /-! ## The obligation -/
 

@@ -240,7 +240,7 @@ theorem PreP.mem_bind {P : Item → Bool} {β : Type} {x : E Unit} {f : Unit →
 /-- **A function's items hold its label.** -/
 theorem emitFunc_label {a g ar} {f : Scc.IR.Func} {s s' : S} {u : Unit}
     (h : emitFunc a g ar f s = .ok (u, s')) : Item.d (.label f.name) ∈ s'.out := by
-  simp only [emitFunc] at h
+  unfold emitFunc at h
   split at h
   · obtain ⟨_, _, h1, -⟩ := bind_inv_E h
     cases h1

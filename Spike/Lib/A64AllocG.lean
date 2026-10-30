@@ -196,8 +196,8 @@ section Hdr
 variable {lab : Label → Int64} {ms : MemSide isaLSE2} {q : Spike.Lib.A64.Alloc.Call}
 
 /-- **The header's address** at the header's store, the counter's old
-value `o`. -/
-theorem hdr_addr {σ : Spike.Lib.A64.Flow.AS} {o : BitVec 64} (hq : q.OK ms lab)
+value `o`, at any allocation site (`Call.OKS`). -/
+theorem hdr_addrS {σ : Spike.Lib.A64.Flow.AS} {o : BitVec 64} (hq : q.OKS ms lab)
     (hle : o.toNat + ms.units q.n q.τ ≤ ms.cells) (hn28 : q.n < 2 ^ 28)
     (h10 : σ.regs.X10.toBitVec = Spike.Lib.A64.Alloc.H lab + o <<< 4 +
       (q.k * Spike.Lib.A64.Alloc.mOf q.h) <<< 3) :
@@ -210,6 +210,15 @@ theorem hdr_addr {σ : Spike.Lib.A64.Flow.AS} {o : BitVec 64} (hq : q.OK ms lab)
   rw [hra, Spike.Lib.A64.Alloc.base_toNat (by omega) (by omega) (Spike.Lib.A64.Alloc.mOf_lt _)
     (by rw [hq.heap]; exact hq.room), hq.heap, hk]
   rfl
+
+/-- **The header's address** at the header's store, the counter's old
+value `o`. -/
+theorem hdr_addr {σ : Spike.Lib.A64.Flow.AS} {o : BitVec 64} (hq : q.OK ms lab)
+    (hle : o.toNat + ms.units q.n q.τ ≤ ms.cells) (hn28 : q.n < 2 ^ 28)
+    (h10 : σ.regs.X10.toBitVec = Spike.Lib.A64.Alloc.H lab + o <<< 4 +
+      (q.k * Spike.Lib.A64.Alloc.mOf q.h) <<< 3) :
+    (Spike.Lib.A64.Flow.rAddr σ.regs .X10 0).toNat = q.hdrAt ms o.toNat :=
+  hdr_addrS hq.toS hle hn28 h10
 
 end Hdr
 
@@ -283,14 +292,14 @@ theorem allocArena (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
   · nab h15 b12_ok C
   · refine NodeW.imp (nodeW_wr_st hI (t := .X9) (b := .X10) (i := 0) h16 rfl (by pc_tac)
       fun σ c m hJ hF => ?_) Spike.Lib.A64.Flow.NodeW.triv ?_
-    · obtain ⟨o, ⟨-, hle, -, hn28, -⟩, -, -, h10⟩ := hJ
+    · obtain ⟨o, ⟨-, hle, -, hn28, -, -⟩, -, -, h10⟩ := hJ
       exact hmem _ (.inr ⟨o.toNat, hle, hdr_addr (hq m hF) hle hn28 h10⟩) m hF
-    · rintro s c ⟨σ, ⟨o, ⟨rfl, hle, -, hn28, -⟩, -, -, h10⟩, hF, hL⟩ - fs c' fs' hr L hW - lsize
+    · rintro s c ⟨σ, ⟨o, ⟨rfl, hle, -, hn28, -, -⟩, -, -, h10⟩, hF, hL⟩ - fs c' fs' hr L hW - lsize
       have hq' := hq _ hF
       obtain ⟨rfl, -⟩ := Prod.mk.inj (FrameRun.eq_of_newBuf hr hq'.term hq'.ev hq'.num)
       rw [hL L hW]
-      refine .inr (.inr (.inr ⟨o.toNat, q.x, q.a, q.τ, q.e, q.ta, q.ws, q.n, by rw [← hctr]; rfl, hq'.term,
-        hq'.ev, hq'.num, ?_⟩))
+      refine .inr (.inr (.inr (.inl ⟨o.toNat, q.x, q.a, q.τ, q.e, q.ta, q.ws, q.n, by rw [← hctr]; rfl, hq'.term,
+        hq'.ev, hq'.num, ?_⟩)))
       show (Spike.Lib.A64.Flow.rAddr σ.regs .X10 0).toNat < ar.heap + 16 * o.toNat + ar.off q.n q.τ
       rw [hdr_addr hq' hle hn28 h10, Spike.Lib.A64.Alloc.Call.hdrAt, ← hheap, ← hoff, hq'.off]
       omega
@@ -336,9 +345,9 @@ theorem allocCtr (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
   · nab h15 b12_ok C
   · refine NodeW.imp (nodeW_wr_st hI (t := .X9) (b := .X10) (i := 0) h16 rfl (by pc_tac)
       fun σ c m hJ hF => ?_) Spike.Lib.A64.Flow.NodeW.triv ?_
-    · obtain ⟨o, ⟨-, hle, -, hn28, -⟩, -, -, h10⟩ := hJ
+    · obtain ⟨o, ⟨-, hle, -, hn28, -, -⟩, -, -, h10⟩ := hJ
       exact hmem _ ⟨o.toNat, hle, hdr_addr (hq m hF) hle hn28 h10⟩ m hF
-    · rintro s c ⟨σ, ⟨o, ⟨rfl, hle, -, hn28, -⟩, -, -, h10⟩, hF, hL⟩ - hW
+    · rintro s c ⟨σ, ⟨o, ⟨rfl, hle, -, hn28, -, -⟩, -, -, h10⟩, hF, hL⟩ - hW
       have hq' := hq _ hF
       have ha := congrArg (fun L : Loc => L.addr.toNat) (hL _ hW)
       simp only at ha

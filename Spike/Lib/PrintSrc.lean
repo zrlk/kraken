@@ -47,7 +47,7 @@ open Scc.Sem.MemRel (SLatest)
 /-- **The source load of a one-word element**: at `let x = loadAt b i in
 e` with the buffer word an untagged locative and the element one word, the
 thread can read the latest message `j` of the element, binding its word;
-memory and pairs stay. -/
+memory and pairs stay (and the thread's allocation count and box label). -/
 theorem src_loadAt_step (g : G) (mem : WeakMem.Memory) (pairs : List WeakMem.Ts) (th : TTh)
     {x : String} {b i : At} {e : Expr} {t ti : Ty} {pw : Word} {iws : List Word}
     {μ : Mode} {u : Ty} {sa : WeakMem.Address} {k j : Nat} {m : WeakMem.Msg}
@@ -57,11 +57,11 @@ theorem src_loadAt_step (g : G) (mem : WeakMem.Memory) (pairs : List WeakMem.Ts)
     (hj : SLatest mem (offs sa k) j) (hm : mem[j]? = some m) :
     ∃ th', (mem, pairs, th') ∈ tstep g mem pairs th ∧ th'.term = e ∧
       th'.env = (x, u, [⟨m.val, m.view, j⟩]) :: th.env ∧ th'.promises = th.promises ∧ th'.σs = th.σs ∧
-      th'.stack = th.stack ∧ th'.nalloc = th.nalloc := by
+      th'.stack = th.stack ∧ th'.nalloc = th.nalloc ∧ th'.tidLbl = th.tidLbl := by
   have hk1 : offs sa (k * nWords [.one]) = offs sa k := by simp [nWords, Acc.size]
   obtain ⟨vs, hl⟩ := Spike.Lib.SrcMem.loadUnits_one g.arch pw false (stOf mem pairs th) hj hm
   refine ⟨⟨e, (x, u, [⟨m.val, m.view, j⟩]) :: th.env, th.σs, th.stack, vs, th.promises, th.nalloc,
-    th.undefs + countUndef [⟨m.val, m.view, j⟩], th.tidLbl, th.permit⟩, ?mem, ?_, ?_, ?_, ?_, ?_, ?_⟩
+    th.undefs + countUndef [⟨m.val, m.view, j⟩], th.tidLbl, th.permit⟩, ?mem, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   case mem =>
     simp only [tstep, ht, evalOp, heb, hei, hbuf, hk, addrOf, hpw, hu, hk1, List.mem_map]
     exact ⟨_, ⟨_, hl, rfl⟩, rfl⟩
@@ -305,7 +305,7 @@ theorem print_byte_lt (hP : UsesWc P p) (hd : p.find? (·.name == "printL") = so
   have hi1 := set0 (th' := { th with term := printLoad, env := (loadEnv pw (cst (.num i)) (cst (.num dv))
     (cst (.num c)) wn (cst (.num j))) }) hi
   have hc' : SLatest s.mem (offs ⟨l, 0⟩ i) jm := by simpa [offs] using hcell
-  obtain ⟨th2, h2, ht2, he2, hp2, hσ2, hst2, hn2⟩ := src_loadAt_step (gOf p P.k P.arch _ 0) s.mem s.pairs
+  obtain ⟨th2, h2, ht2, he2, hp2, hσ2, hst2, hn2, -⟩ := src_loadAt_step (gOf p P.k P.arch _ 0) s.mem s.pairs
     { th with term := printLoad, env := (loadEnv pw (cst (.num i)) (cst (.num dv)) (cst (.num c)) wn (cst (.num j))) }
     (x := "wd") (b := .var "b") (i := .var "iv") (e := printLane) (t := bufTy) (pw := pw)
     (iws := [cst (.num i)]) (μ := .own) (u := .lanes false .w8) (sa := ⟨l, 0⟩) (k := i)
@@ -495,7 +495,7 @@ def laneC (pw wn : Word) (m k : Nat) (mw : Word) : Ctl :=
 def emitC (pw wn : Word) (m k : Nat) (mw : Word) (b : Nat) : Ctl :=
   ⟨printEmit, ("x", .fix false .w8, [cst (.num b)]) :: (laneC pw wn m k mw).env, none⟩
 
-/-- The control after the `emit` (it binds `r` to `()`). -/
+/-- The control after the `emit` (it binds `r` to ``). -/
 def nextC (pw wn : Word) (m k : Nat) (mw : Word) (b : Nat) : Ctl :=
   ⟨printNext, ("r", .unit, []) :: (emitC pw wn m k mw b).env, none⟩
 
@@ -532,7 +532,7 @@ theorem printC_entry {pw wn : Word} {n m : Nat} (hwn : wn.val = .num n) (hm0 : m
     PrintC pw wn n m 0 ⟨printLBody, topEnv (printArgs pw wn 0 (m - 1) 0 0), none⟩ :=
   ⟨0, 0, rfl, by simp, rfl, rfl, by omega, by omega, hwn⟩
 
-/-- **Exit of the loop, as a local run**: at `k = printN n m`, `printL` runs to `ret ()`. -/
+/-- **Exit of the loop, as a local run**: at `k = printN n m`, `printL` runs to `ret `. -/
 theorem print_done_run {pw wn : Word} {n m : Nat} {c : Ctl}
     (h : PrintC pw wn n m (printN n m) c) : ∃ env, LocalRunS p c ⟨.ret .unit, env, none⟩ := by
   obtain ⟨i, j, ht, he, hh, hk, hj8, him, hwn⟩ := h
@@ -615,7 +615,8 @@ byte `k` with a latest message `j` holding `w (k / 8)` (the premise
 The source reads that message, takes lane `k % 8` and emits it, as the
 one event `.out` of `laneN .w8 (w (k / 8)) (k % 8)` (the byte
 `printBytes w k 1` lists); thread 0 lands at `nextC` with the word read (the
-number `w (k / 8)`) and that byte, memory and pairs kept. The source side of the output row's byte
+number `w (k / 8)`) and that byte, memory and pairs kept (and the thread's
+allocation count and box label). The source side of the output row's byte
 step at a load of `print` (`hlb` of `print_call_segW`). -/
 theorem loadC_byte (hP : UsesWc P p) {s : Cfg} {th : TTh} {pw wn : Word} {l m k : Nat} {w : Nat → Nat}
     (hi : s.ths[0]? = some th) (ht : th.term = (loadC pw wn m k).term) (he : th.env = (loadC pw wn m k).env)
@@ -626,11 +627,12 @@ theorem loadC_byte (hP : UsesWc P p) {s : Cfg} {th : TTh} {pw wn : Word} {l m k 
         { s with ths := s.ths.set! 0 th', trace := s.trace ++ [.out (laneN .w8 (w (k / 8)) (k % 8))] } ∧
       th'.term = (nextC pw wn m k mw (laneN .w8 (w (k / 8)) (k % 8))).term ∧
       th'.env = (nextC pw wn m k mw (laneN .w8 (w (k / 8)) (k % 8))).env ∧ th'.σs = [] ∧
-      th'.stack = th.stack ∧ th'.promises = [] ∧ mw.val = .num (w (k / 8)) ∧ th'.nalloc = th.nalloc := by
+      th'.stack = th.stack ∧ th'.promises = [] ∧ mw.val = .num (w (k / 8)) ∧ th'.nalloc = th.nalloc ∧
+      th'.tidLbl = th.tidLbl := by
   obtain ⟨jm, msg, hcell, hm, hv⟩ := hM
   have hT := traceThs_wc hP
   have hc' : SLatest s.mem (offs ⟨l, 0⟩ (k / 8)) jm := by simpa [offs] using hcell
-  obtain ⟨th2, h2, ht2, he2, hp2, hσ2, hst2, hn2⟩ := src_loadAt_step (gOf p P.k P.arch _ 0) s.mem s.pairs th
+  obtain ⟨th2, h2, ht2, he2, hp2, hσ2, hst2, hn2, htl2⟩ := src_loadAt_step (gOf p P.k P.arch _ 0) s.mem s.pairs th
     (x := "wd") (b := .var "b") (i := .var "iv") (e := printLane) (t := bufTy) (pw := pw)
     (iws := [cst (.num (k / 8))]) (μ := .own) (u := .lanes false .w8) (sa := ⟨l, 0⟩) (k := k / 8)
     ht (by rw [he]; rfl) (by rw [he]; rfl) hpw rfl rfl rfl hc' hm
@@ -646,9 +648,10 @@ theorem loadC_byte (hP : UsesWc P p) {s : Cfg} {th : TTh} {pw wn : Word} {l m k 
   simp only [List.nil_append, List.append_nil] at R
   have e8 : k % 8 % Wd.lanes .w8 = k % 8 := by show k % 8 % 8 = k % 8; omega
   simp only [extCfg, set!_set!, ExtName.events, e8] at R
-  refine ⟨_, ⟨msg.val, msg.view, jm⟩, R, rfl, ?_, hσ2.trans hσ, hst2, hp2.trans hp, hv, ?_⟩
+  refine ⟨_, ⟨msg.val, msg.view, jm⟩, R, rfl, ?_, hσ2.trans hσ, hst2, hp2.trans hp, hv, ?_, ?_⟩
   · simp only [nextC, emitC, laneC, he2, he, cst]
     rfl
   · exact hn2
+  · exact htl2
 
 end Spike.Lib.PrintSrc

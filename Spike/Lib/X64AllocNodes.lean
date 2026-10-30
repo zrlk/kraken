@@ -205,7 +205,8 @@ state of the invariant `k(%b)` is the counter's address, owned by the
 runtime and mapped for writing (`ms.mp`), outside the thread's private
 memory; the source is at a buffer allocation of `nn` elements, no hold
 pending, and `%r` holds the buffer's units; for every old value the runtime
-memory may hold at the counter within the arena's cells, the new value may
+memory may hold at the counter within the arena's cells and above the counter
+floor (`ms.lo`), the new value may
 be held there too, and the state after it (`%r` the old value, the flags any
 value) lands at a node with the control holding the old count. Its states
 lie in `W`, and no outside move `K` moves them (`hW`). -/
@@ -219,7 +220,7 @@ theorem ctr_ndW {W : Frag isa} {K : State → State → Prop} {n : ND} {b r : Re
       ∃ (x : String) (a : CoreTerm.At) (τ : Ty) (e : Expr) (ta : Ty) (ws : List TermRun.Word) (nn : Nat),
         c.term = .let_ x (.newBuf a τ) e ∧ TermRun.evalAt c.env a = some (ta, ws) ∧ TermRun.numOf ws = some nn ∧
         c.hold = none ∧ σ.regs.get64 r = BitVec.ofNat 64 (ms.units nn τ) ∧
-        ∀ old : Val, ms.G (ctrLoc ms) old → (old.setWidth 64).toNat ≤ ms.cells →
+        ∀ old : Val, ms.G (ctrLoc ms) old → (old.setWidth 64).toNat ≤ ms.cells → ms.lo (old.setWidth 64).toNat →
           ms.G (ctrLoc ms) ((old.setWidth 64 + BitVec.ofNat 64 (ms.units nn τ)).setWidth 128) ∧
           ∀ fl, Lands N E ⟨n.pc + Int64.ofNat z, n.o.kill r, { ownStep r (old.setWidth 64) σ with status := fl }⟩
             (holdCtr ms c (old.setWidth 64))) :
@@ -231,9 +232,10 @@ theorem ctr_ndW {W : Frag isa} {K : State → State → Prop} {n : ND} {b r : Re
     (eaddr_mB s z b k).trans (by rw [hA.regs]; exact ha)
   have hex := exec_xaddG_agrees (w := .W64) hc ha' hdm (agrees_of_decls hdc _ _)
   rw [Reg64s.get_low64] at hex
-  refine .ctrRmw .acqRel _ _ x a τ e ta ws nn hex hrt hmp ht hev hnn hh (fun old => ?_) fun old hG _ hle => ?_
+  refine .ctrRmw .acqRel _ _ x τ e nn hex hrt hmp (.inl ⟨a, ta, ws, ht, hev, hnn⟩) hh
+    (fun old => ?_) fun old hG _ hle hlo => ?_
   · simp only [hA.regs, hru]
-  obtain ⟨hG', hL⟩ := hX old hG hle
+  obtain ⟨hG', hL⟩ := hX old hG hle hlo
   exact ⟨hG', land_own rfl hr hF he hn hdc hpc hA hD (hL _)⟩
 
 /-- **`ctr_ndW` inside the trivial predicate**, with no outside moves. -/
@@ -245,7 +247,7 @@ theorem ctr_nd {n : ND} {b r : Reg64} {k : Int64} {z : Nat} (hr : r ≠ .rsp) (h
       ∃ (x : String) (a : CoreTerm.At) (τ : Ty) (e : Expr) (ta : Ty) (ws : List TermRun.Word) (nn : Nat),
         c.term = .let_ x (.newBuf a τ) e ∧ TermRun.evalAt c.env a = some (ta, ws) ∧ TermRun.numOf ws = some nn ∧
         c.hold = none ∧ σ.regs.get64 r = BitVec.ofNat 64 (ms.units nn τ) ∧
-        ∀ old : Val, ms.G (ctrLoc ms) old → (old.setWidth 64).toNat ≤ ms.cells →
+        ∀ old : Val, ms.G (ctrLoc ms) old → (old.setWidth 64).toNat ≤ ms.cells → ms.lo (old.setWidth 64).toNat →
           ms.G (ctrLoc ms) ((old.setWidth 64 + BitVec.ofNat 64 (ms.units nn τ)).setWidth 128) ∧
           ∀ fl, Lands N E ⟨n.pc + Int64.ofNat z, n.o.kill r, { ownStep r (old.setWidth 64) σ with status := fl }⟩
             (holdCtr ms c (old.setWidth 64))) :

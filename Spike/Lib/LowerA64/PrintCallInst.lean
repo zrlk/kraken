@@ -14,7 +14,7 @@ along the block, `PrintCallOkR` and the write tail; the abort's landing
 (`hAb`).
 
 - `printCallC_inst`: at `PrintCallC`;
-- `printCallCH_inst`: at `PrintCallCH` (the source held at `print`'s `ret ()`).
+- `printCallCH_inst`: at `PrintCallCH` (the source held at `print`'s `ret `).
 -/
 import Spike.Lib.LowerA64.PrintFramesJ
 import Spike.Lib.LowerA64.PrintCallW2
@@ -36,6 +36,7 @@ open Spike.Lib.LowerShape (printInsts)
 open Spike.Lib.A64.Flow.PrintCall (pN pR pF pcS pFJ)
 open Spike.Lib.PrintSrc (printLD)
 open Spike.Lib.A64.StubW (printPhOk)
+open Spike.Lib.A64.PrintG (printPhOkF)
 open Spike.Lib.A64.WriteAb (Ab)
 open Spike.Lib.ByteOut (ByteOut)
 
@@ -51,7 +52,7 @@ variable {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe] {endPc : 
 `printW_hPWJ_AB`, `printWE_hPWEJ`; the walk's facts stay premises. -/
 theorem printCallC_inst {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
     (hpr : Scc.Cert.Rt.A64.Print.printIn prog = true) (habI : Scc.Cert.Rt.A64.Abort.abortIn prog = true)
-    (hph : printPhOk okPc ph lab = true)
+    (hph : printPhOkF okPc ph lab = true)
     {cx : FnCtx} (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) (h16 : cx.frame % 16 = 0)
     (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -(cx.frame : Int) - 48) (hhi : 0 ≤ R.hi)
     (hl : R.lo % 8 = 0) (hh : R.hi % 8 = 0) (hsub : rS.Sub Λ.stackPool) (hfit : rS.lo + rS.size ≤ 2 ^ 64)
@@ -120,7 +121,7 @@ theorem printCallC_inst {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K o
 `printCallC_inst` is `printCallC_of'`). -/
 theorem printCallCH_inst {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
     (hpr : Scc.Cert.Rt.A64.Print.printIn prog = true) (habI : Scc.Cert.Rt.A64.Abort.abortIn prog = true)
-    (hph : printPhOk okPc ph lab = true)
+    (hph : printPhOkF okPc ph lab = true)
     {cx : FnCtx} (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) (h16 : cx.frame % 16 = 0)
     (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -(cx.frame : Int) - 48) (hhi : 0 ≤ R.hi)
     (hl : R.lo % 8 = 0) (hh : R.hi % 8 = 0) (hsub : rS.Sub Λ.stackPool) (hfit : rS.lo + rS.size ≤ 2 ^ 64)

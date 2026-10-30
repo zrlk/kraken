@@ -392,12 +392,12 @@ theorem allocSt (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp)
   · refine NodeW.st (nodeW_st_postA hI hown (lbl := Λ.static) (b := .rcx) (k := 0) (r := .rax) h28 rfl rfl
       (fun _ _ hJ => hJ.1 ▸ cfacts_c0) (phOne_spec p28).1 (phOne_spec p28).2 hR hR8 hl hh hsub hFO
       fun σ c m hJ hF => ?_)
-    obtain ⟨-, c, o, ⟨-, hle, -, hn28, -⟩, -, -, hcx⟩ := hJ
+    obtain ⟨-, c, o, ⟨-, hle, -, hn28, -, hlo⟩, -, -, hcx⟩ := hJ
     have hq' := hq m hF
     have hAeq := hdr_addr hq' hle hn28 hcx
     have hofn : BitVec.ofNat 64 (q.hdrAt ms o.toNat) = bAddr σ.regs .rcx 0 := by
       rw [← hAeq]; simp
-    obtain ⟨-, hmp', -⟩ := hq'.hdr o.toNat hle
+    obtain ⟨-, hmp', -⟩ := hq'.hdr o.toNat hlo hle
     exact ⟨hmp _ (hofn ▸ hmp'), hmem _ (.inr ⟨o.toNat, hle, hAeq⟩) m hF, hno _ (.inr ⟨o.toNat, hle, hAeq⟩)⟩
   · ablk h29 bO9_ok p29
   · refine NodeW.st (Spike.Lib.LowerX64.BlkW.nodeW (Spike.Lib.X64.Rt.blkW_postO hI (lbl := Λ.static)
@@ -406,7 +406,7 @@ theorem allocSt (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp)
       (blkPh_ret p30 (by rw [hra, p31]))
       (hret_of_run (lo := -160) (hi := 8) (by dsimp only [dumN, N]; decide) fun σ c hJ => ?_)
       (fun _ _ _ => rfl) hsub hfit hFO) (List.cons_ne_nil _ _))
-    obtain ⟨-, c, o, -, -, -, -, -, h0⟩ := hJ
+    obtain ⟨-, c, o, -, -, -, -, -, h0, -⟩ := hJ
     have hc : Spike.Lib.X64.classify iRet.toDir = some iRet := rfl
     simp only [arun, List.foldl, Spike.Lib.X64.dstep, hc]
     simp only [iRet, Spike.Lib.X64.AI.tgt, dumN, N, Spike.Lib.X64.Alloc.oE]

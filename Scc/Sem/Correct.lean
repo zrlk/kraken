@@ -294,10 +294,20 @@ allocation counters (`nalloc`, one per `new`, boxed sum or `newBuf`,
 including zero-word ones). -/
 def allocCount (s : TermRun.Cfg) : Nat := (s.ths.toList.map (·.nalloc)).sum
 
+/-- The number of thread-id boxes: the threads whose `ThreadId` box is
+allocated (`tidLbl` set: the start's own box, a spawned thread's, or the one
+`current` allocates on first use). Each such box was counted by an
+allocation counter (`nalloc`) but has no target heap object: the target's
+thread ids live in the thread control blocks (`Λ.pinned`). -/
+def boxCount (s : TermRun.Cfg) : Nat := s.ths.toList.countP (·.tidLbl.isSome)
+
 /-- **Heap use** in words: the words allocated plus one header word per
 allocation (the target allocator's header, which a zero-word allocation also
-takes). -/
-def heapUse (s : TermRun.Cfg) : Nat := cellCount s + allocCount s
+takes), not counting the thread-id boxes (`boxCount`), which take no target
+heap. Along runs every box was counted by an allocation (`boxCount ≤
+allocCount`), so the header count `allocCount s - boxCount s` is the number
+of the other allocations. -/
+def heapUse (s : TermRun.Cfg) : Nat := cellCount s + (allocCount s - boxCount s)
 
 /-! ### The heap part under `gc none`: the stand-in and its margin
 
@@ -306,7 +316,7 @@ objects of the labels counted (all labels with no collector, the live ones
 under a collector), each object `8 · (1 + len · (n + m))` bytes in the
 bipartite layout (`Scc/LAYOUT.md`) plus any alignment filler. Until WeakCore
 exports a per-label closed type, `heapUse` (words plus one header word per
-allocation) stands in for it under `gc none`. The margin: the arena bytes the
+allocation, thread-id boxes excepted) stands in for it under `gc none`. The margin: the arena bytes the
 runtime can consume for allocations whose source sizes are counted by
 `heapUse` is at most `16 · heapUse` (`arena_margin`, `arena_covers`), so an
 arena of `16 · B.cells` bytes is never exhausted while the heap part holds. -/
@@ -335,13 +345,14 @@ theorem arena_margin (as : List (Nat × Nat × Nat)) (ht : ∀ a ∈ as, 2 * a.2
 
 /-- **The arena covers the heap part**: if the allocations of a source
 configuration `s` (as `arena_margin` takes them) account for its words and
-its allocation count (`cellCount`, `allocCount`: every allocation pushes one
-first message per word to its fresh label, and later stores are to allocated
-cells), then within the heap part of `B` they take at most `16 · B.cells`
+its allocations other than thread-id boxes (`cellCount`, `allocCount -
+boxCount`: every allocation pushes one first message per word to its fresh
+label, and later stores are to allocated cells), then within the heap part of `B` they take at most `16 · B.cells`
 arena bytes. -/
 theorem arena_covers {s : TermRun.Cfg} {B : Budget} (as : List (Nat × Nat × Nat))
     (ht : ∀ a ∈ as, 2 * a.2.1 ≤ 3 * a.1) (hf : ∀ a ∈ as, a.2.2 ≤ 8)
-    (hw : (as.map (·.1)).sum = cellCount s) (hn : as.length = allocCount s) (hB : heapUse s ≤ B.cells) :
+    (hw : (as.map (·.1)).sum = cellCount s) (hn : as.length = allocCount s - boxCount s)
+    (hB : heapUse s ≤ B.cells) :
     (as.map fun a => objBytes a.2.1 a.2.2).sum ≤ 16 * B.cells := by
   have := arena_margin as ht hf
   rw [hw, hn] at this
@@ -423,9 +434,9 @@ def frameFv (th : TermRun.TTh) : List (List String) :=
 the term itself and every term a thread running it reaches without a call
 or a return (`TermRun.tstep` continues a `let` and a `split` with the body,
 an `ifeq` with one arm). Any other constructor is a leaf, but a `ret` leaf is
-left out: the models return only `()`, which reads no variable (`env_total`
-asks nothing of it), and a `ret ()` is not the extern's own (any block may
-return `()`). Used only on the two bodies of `externModelTerms`, built from
+left out: the models return only ``, which reads no variable (`env_total`
+asks nothing of it), and a `ret ` is not the extern's own (any block may
+return ``). Used only on the two bodies of `externModelTerms`, built from
 these constructors, `ret` and `tail`. -/
 def modelTerms : CoreTerm.Expr → List CoreTerm.Expr
   | e@(.let_ _ _ b) => e :: modelTerms b
@@ -434,16 +445,18 @@ def modelTerms : CoreTerm.Expr → List CoreTerm.Expr
   | .ret _ => []
   | e => [e]
 
-/-- **The output extern's model terms**: exactly the terms of the two model
-bodies, `Scc.Frontend.printBody` (`print{m}`) and `Scc.Frontend.printLBody`
-(its loop `printL{i, d}`, which `Frontend.externOf` fixes textually,
-`declIs`), less their `ret ()` leaves. A thread running the extern is at
+/-- **The output extern's model terms**: exactly the terms of the three model
+bodies, `Scc.Frontend.printBody` (`print{m}`, on an owned or a published
+slice), `Scc.Frontend.printLBody` and `Scc.Frontend.printLPubBody` (its loop
+`printL{i, d}` on an owned or a published slice, which `Frontend.externOf`
+fixes textually, `declIs`), less their `ret ` leaves. A thread running the extern is at
 one of these terms until it returns: a `tail` to `printL` enters
 `printLBody`, the `emit` step continues with the `let`'s body, and neither
 body calls. The list is closed: another extern's model is
 not on it until it is added here. -/
 def externModelTerms : List CoreTerm.Expr :=
-  modelTerms Scc.Frontend.printBody ++ modelTerms Scc.Frontend.printLBody
+  modelTerms Scc.Frontend.printBody ++ modelTerms Scc.Frontend.printLBody ++
+    modelTerms Scc.Frontend.printLPubBody
 
 /-- **Frame `d` of `th` runs the output extern's model**: it is the current
 frame (`d = 0`; the model bodies make no call, so no suspended frame is one
@@ -601,8 +614,8 @@ inductive Reach (s : TermRun.Cfg) (R : WeakMem.AllocLabel → Prop) : WeakMem.Al
 /-- **The root labels**: the labels referenced by a word of a variable some
 frame of some thread still reads (`frameFv`, the roots of `env_total`; they
 are also the values in flight, a source thread holding no word outside its
-frames). A thread's control block has no source label (a `ThreadId` is not
-yet a reference), so it is no root. -/
+frames). A `ThreadId` word is a reference to its thread's box (a zero-word
+label, `lbl_range`), so a box whose `ThreadId` some frame reads is a root. -/
 def RootLabel (s : TermRun.Cfg) (l : WeakMem.AllocLabel) : Prop :=
   ∃ (i : Nat) (th : TermRun.TTh) (d : Nat) (e : TermRun.Env) (xs : List String) (x : String) (ty : CoreLang.Ty)
     (ws : List TermRun.Word) (wd : TermRun.Word) (a : WeakMem.Address) (g : Nat), s.ths[i]? = some th ∧ (frameEnvs th)[d]? = some e ∧
@@ -694,9 +707,12 @@ structure Components (M : ExtMachine) (Λ : Layout) (w : Witness M) (t : M.Cfg) 
   /-- Layout injection: static labels are where `Λ` puts them ... -/
   lbl_static : ∀ l b, Λ.static l = some b → w.lbl l = some b
   /-- ... every placed label is a word-aligned range inside the heap or the
-  static image ... -/
+  static image, or a zero-word label in the pinned region (a thread's
+  `ThreadId` box, placed at its control block: a `ThreadId` word is the
+  block's address, and the label has no cells, so no target write is its) ... -/
   lbl_range : ∀ l b, w.lbl l = some b → b % 8 = 0 ∧
-    ((labelRange w l b).Sub Λ.heap ∨ (labelRange w l b).Sub Λ.data)
+    ((labelRange w l b).Sub Λ.heap ∨ (labelRange w l b).Sub Λ.data ∨
+      (w.lsize l = 0 ∧ (labelRange w l b).Sub Λ.pinned))
   /-- ... distinct live labels do not overlap (a dead label's range may be
   reused) ... -/
   lbl_disj : ∀ l l' b b', l ≠ l' → Live s l → Live s l' → w.lbl l = some b → w.lbl l' = some b' →
@@ -817,9 +833,12 @@ structure ComponentsAll (M : ExtMachine) (Λ : Layout) (w : Witness M) (t : M.Cf
   /-- Layout injection: static labels are where `Λ` puts them ... -/
   lbl_static : ∀ l b, Λ.static l = some b → w.lbl l = some b
   /-- ... every placed label is a word-aligned range inside the heap or the
-  static image ... -/
+  static image, or a zero-word label in the pinned region (a thread's
+  `ThreadId` box, placed at its control block: a `ThreadId` word is the
+  block's address, and the label has no cells, so no target write is its) ... -/
   lbl_range : ∀ l b, w.lbl l = some b → b % 8 = 0 ∧
-    ((labelRange w l b).Sub Λ.heap ∨ (labelRange w l b).Sub Λ.data)
+    ((labelRange w l b).Sub Λ.heap ∨ (labelRange w l b).Sub Λ.data ∨
+      (w.lsize l = 0 ∧ (labelRange w l b).Sub Λ.pinned))
   /-- ... distinct labels do not overlap ... -/
   lbl_disj : ∀ l l' b b', l ≠ l' → w.lbl l = some b → w.lbl l' = some b' →
     (labelRange w l b).Disjoint (labelRange w l' b')

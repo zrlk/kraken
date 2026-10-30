@@ -734,7 +734,7 @@ theorem decls1_lowerC (prog : Prog) (externs : List (String × Frontend.Extern))
 /-- A code block returning an `Int` is no extern (`Frontend.externOf`: every
 extern returns `Unit`). -/
 theorem externOf_int {d : Decl} (h : d.retTy = .int) : Frontend.externOf d = none := by
-  simp [Frontend.externOf, h, Frontend.declIs, Frontend.printLoopD]
+  simp [Frontend.externOf, h, Frontend.declIs, Frontend.printLoopD, Frontend.printLoopPubD]
 
 /-- **An `Accepted1` program has no externs** (`Frontend.externs`): its code
 blocks return an `Int`. -/

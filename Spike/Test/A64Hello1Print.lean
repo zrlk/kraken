@@ -175,7 +175,7 @@ theorem hello1_printCallCA {Dt : State → Prop} (J : InvS) (L D : Int) (v : Bit
   simp only [MSAt, hab]
   exact printCallC_instAI (Spike.Lib.A64.PhRec.instOk_ofPlaceOK h (imms2Me LeA P1A) (rS := rS0 (Ly)))
     (printIn_of_placeOKAt h) (abortIn_of_placeOKAt h)
-    (Spike.Lib.A64.StubW.printPhOk_of_tailPhOk (Spike.Lib.A64.Rt.tailPhOk_ofPlaceOK h _))
+    (Spike.Lib.A64.PrintG.printPhOkF_of_tailPhOk (Spike.Lib.A64.Rt.tailPhOk_ofPlaceOK h _))
     (FC).hf (FC).h1 (FC).h16 hok hal (by rw [e1]; omega) (by rw [e2]; exact Int.le_refl _)
     (by rw [e1]; omega) (by rw [e2]; rfl)
     (Spike.Lib.A64.Rt.rS0_sub (Ly)) (Spike.Lib.A64.Rt.fitS_of_sub _ (Spike.Lib.A64.Rt.rS0_sub (Ly)))
@@ -232,7 +232,7 @@ theorem hello1_printCallCHA {Dt : State → Prop} (J : InvS) (L D : Int) (v : Bi
   simp only [MSAt, hab]
   exact printCallCH_instAI (Spike.Lib.A64.PhRec.instOk_ofPlaceOK h (imms2Me LeA P1A) (rS := rS0 (Ly)))
     (printIn_of_placeOKAt h) (abortIn_of_placeOKAt h)
-    (Spike.Lib.A64.StubW.printPhOk_of_tailPhOk (Spike.Lib.A64.Rt.tailPhOk_ofPlaceOK h _))
+    (Spike.Lib.A64.PrintG.printPhOkF_of_tailPhOk (Spike.Lib.A64.Rt.tailPhOk_ofPlaceOK h _))
     (FC).hf (FC).h1 (FC).h16 hok hal (by rw [e1]; omega) (by rw [e2]; exact Int.le_refl _)
     (by rw [e1]; omega) (by rw [e2]; rfl)
     (Spike.Lib.A64.Rt.rS0_sub (Ly)) (Spike.Lib.A64.Rt.fitS_of_sub _ (Spike.Lib.A64.Rt.rS0_sub (Ly)))

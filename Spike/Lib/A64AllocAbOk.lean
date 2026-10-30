@@ -1,6 +1,6 @@
 /-
 **`scc_rt_alloc`'s targets off the write abort's pcs** (AArch64; for A7's
-`tailOffC`): `allocAbOk` (every block's targets off `WriteAb.abPcs`, as
+`tailOffC`): `allocAbOkR` (every block's targets off `WriteAb.abPcs`, as
 `A64ConsumerA.blkAb`; every single instruction's next pc off them; the heap
 abort's call target off every pc of `WriteAb.Ab` but the dispatcher's
 prologue, which `Ab` holds only at `x0 = 4`), at any labels.
@@ -11,9 +11,12 @@ put it just before `.L9_scc_rt_print.6_fail` (a pc of `Ab`).
 
 - `blkAbC`: `A64ConsumerA.blkAb` without the segment proofs (the same
   definition; `Spike/Lib/A64AllocGAb.lean` bridges them by `rfl`).
-- `abNoDispE`, `allocAbOk`: the check (read by `allocAb`).
-- `abLabs`, `allocAbLabs`: the labels it reads; `allocAbOk_congr`: two label
-  maps agreeing on them give the same check.
+- `abNoDispE`, `allocAbOkR`: the check (read by `allocAb`).
+- `unfenceLab`, `allocAbOk`: the check as A7 reads it (`StubW.tailPhOk`, at
+  `StubW.fenceLab`: the labels with the write block, led by the barrier
+  `dmb ish`, one instruction on), `allocAbOkR` at the labels one back.
+- `abLabs`, `allocAbLabs`: the labels it reads; `allocAbOkR_congr`,
+  `allocAbOk_congr`: two label maps agreeing on them give the same check.
 
 This file stays free of the segment proofs so that `PlaceOK` (A7) reads it.
 -/
@@ -48,7 +51,7 @@ but the heap abort's (`blkAbC`), every single instruction's next pc, the
 heap abort's `movz`'s next pc, and its call's target off `abNoDispE` (the
 call enters the dispatcher with `x0 = 2`). The `ret`'s target is the
 caller's (`allocAb`'s `hraAb`). -/
-def allocAbOk (lab : Label → Int64) : Bool :=
+def allocAbOkR (lab : Label → Int64) : Bool :=
   blkAbC lab (lab "scc_rt_alloc" + Int64.ofNat (4 * 0)) 0 b0 &&
   blkAbC lab (lab ".L2_scc_rt_alloc.0_entry" + Int64.ofNat (4 * 0)) 0 b1 &&
   blkAbC lab (lab ".L2_scc_rt_alloc.0_entry" + Int64.ofNat (4 * 4)) 0 b2 &&
@@ -82,13 +85,13 @@ def abLabs : List String :=
 /-- **`abPcs` reads the labels of `abLabs` only.** -/
 theorem abPcs_congr {lab lab' : Label → Int64} (h : ∀ l ∈ abLabs, lab l = lab' l) :
     abPcs lab = abPcs lab' := by
-  simp (disch := decide) only [abPcs, pcRet, Spike.Lib.A64.Print.pcSvc, tailPcs, failPcs, dispEPcs,
+  simp (disch := decide) only [abPcs, pcRet, Spike.Lib.A64.PrintD.pcSvc, tailPcs, failPcs, dispEPcs,
     dispTPcs, g4Pcs, stubPcs, h]
 
 /-- **`abNoDispE` reads the labels of `abLabs` only.** -/
 theorem abNoDispE_congr {lab lab' : Label → Int64} (h : ∀ l ∈ abLabs, lab l = lab' l) :
     abNoDispE lab = abNoDispE lab' := by
-  simp (disch := decide) only [abNoDispE, pcRet, Spike.Lib.A64.Print.pcSvc, tailPcs, failPcs,
+  simp (disch := decide) only [abNoDispE, pcRet, Spike.Lib.A64.PrintD.pcSvc, tailPcs, failPcs,
     dispTPcs, g4Pcs, stubPcs, h]
 
 /-- **`blkAbC` reads the labels at the block's targets and `abLabs` only.** -/
@@ -110,18 +113,18 @@ theorem blkAbC_congr {lab lab' : Label → Int64} {pc ra : Int64} {blk : List Di
       rw [aiTgts_congr fun L hL => h L ?_]
       exact List.mem_filterMap.mpr ⟨d, List.mem_of_getElem? hk, by rw [hc]; exact hL⟩
 
-/-- **The labels `allocAbOk` reads**: `allocPhOk`'s and `abPcs`'. -/
+/-- **The labels `allocAbOkR` reads**: `allocPhOk`'s and `abPcs`'. -/
 def allocAbLabs : List String := allocLabs ++ abLabs
 
-/-- **`allocAbOk` reads the labels of `allocAbLabs` only.** -/
-theorem allocAbOk_congr {lab lab' : Label → Int64} (h : ∀ l ∈ allocAbLabs, lab l = lab' l) :
-    allocAbOk lab = allocAbOk lab' := by
+/-- **`allocAbOkR` reads the labels of `allocAbLabs` only.** -/
+theorem allocAbOkR_congr {lab lab' : Label → Int64} (h : ∀ l ∈ allocAbLabs, lab l = lab' l) :
+    allocAbOkR lab = allocAbOkR lab' := by
   have hl : ∀ l ∈ allocLabs, lab l = lab' l := fun l hl => h l (by simp [allocAbLabs, hl])
   have ha : ∀ l ∈ abLabs, lab l = lab' l := fun l hl => h l (by simp [allocAbLabs, hl])
   have ho : ∀ l ∈ allocOwnLabs, lab l = lab' l := fun l hl' => hl l (by simp only [allocLabs]; simp [hl'])
   have hb : ∀ blk, blkLabs blk ⊆ allocLabs → ∀ l ∈ blkLabs blk, lab l = lab' l :=
     fun _ hs l hl' => hl l (hs hl')
-  unfold allocAbOk
+  unfold allocAbOkR
   rw [abPcs_congr ha, abNoDispE_congr ha, ha "scc_rt_abort" (by simp [abLabs]),
     ho "scc_rt_alloc" (by simp [allocOwnLabs]), ho ".L2_scc_rt_alloc.0_entry" (by simp [allocOwnLabs]),
     ho ".L2_scc_rt_alloc.1_cnt" (by simp [allocOwnLabs]), ho ".L2_scc_rt_alloc.2_slow" (by simp [allocOwnLabs]),
@@ -138,9 +141,31 @@ theorem allocAbOk_congr {lab lab' : Label → Int64} (h : ∀ l ∈ allocAbLabs,
     blkAbC_congr (hb b12 fun l hl => by simp only [allocLabs]; simp [hl]) ha,
     blkAbC_congr (hb b13 fun l hl => by simp only [allocLabs]; simp [hl]) ha]
 
+/-- **The labels with the write block one instruction back** (the inverse
+of `StubW.fenceLab`): the write block's label, led by the barrier `dmb ish`,
+moved to where its pcs past the barrier would start without it. -/
+def unfenceLab (lab : Label → Int64) (l : Label) : Int64 :=
+  if l = ".L9_scc_rt_print.2_write" then lab l - 4 else lab l
+
+/-- **`scc_rt_alloc`'s targets off the write abort's pcs, as A7 reads
+them** (`StubW.tailPhOk`, at `StubW.fenceLab`): `allocAbOkR` at the labels
+with the write block one instruction back, so that at `fenceLab lab` it is
+`allocAbOkR lab`, the write abort's pcs at the executable's labels. -/
+def allocAbOk (lab : Label → Int64) : Bool :=
+  allocAbOkR (unfenceLab lab)
+
+/-- **`allocAbOk` reads the labels of `allocAbLabs` only.** -/
+theorem allocAbOk_congr {lab lab' : Label → Int64} (h : ∀ l ∈ allocAbLabs, lab l = lab' l) :
+    allocAbOk lab = allocAbOk lab' := by
+  unfold allocAbOk
+  exact allocAbOkR_congr fun l hl => by unfold unfenceLab; rw [h l hl]
+
 -- No axioms beyond Lean's.
 
 /-- info: 'Spike.Lib.A64.AllocG.allocAbOk_congr' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms allocAbOk_congr
+
+/-- info: 'Spike.Lib.A64.AllocG.allocAbOkR_congr' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in #print axioms allocAbOkR_congr
 
 end Spike.Lib.A64.AllocG

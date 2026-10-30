@@ -134,7 +134,7 @@ theorem hello1_rodata_pre_runW {W : Frag isa} {K : State → State → Prop}
         · rw [hsl (-8) ⟨by decide, by omega, by omega⟩
             (by simp only [Region.Off, Region.callee, rNL, rN]; omega), h8]
         · simp only [Alloc.E] at hx
-          obtain ⟨-, -, -, -, -, -, -, hbx⟩ := hx
+          obtain ⟨-, -, -, -, -, -, -, -, hbx⟩ := hx
           rw [← hb]
           simp only [Reg64s.get64]
           rw [hreg, hbx, ← hfp]; rfl

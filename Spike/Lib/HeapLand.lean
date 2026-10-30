@@ -68,8 +68,8 @@ theorem _root_.Spike.Lib.AllocInvAt.prom_keep (h : AllocInvAt Λ lbl lsize t tm 
     (hp : ∀ k' w, tm.get? k' = some w → (freeR heap cells hu).contains w.loc.addr.toNat → k' ∈ t.prom →
       k' ∈ t'.prom) :
     AllocInvAt Λ lbl lsize t' tm heap cells ctr units off hu c := by
-  rcases h with ⟨hh, ex, ⟨x, a, τ, e, ta, ws, k, ht, hea, hk, hctr, hex⟩, ha⟩ | ⟨hn, hctr, ha⟩
-  · exact .inl ⟨hh, ex, ⟨x, a, τ, e, ta, ws, k, ht, hea, hk, hctr.prom_congr hc, hex⟩, ha.prom_keep hp⟩
+  rcases h with ⟨hh, ex, hpd, ha⟩ | ⟨hn, hctr, ha⟩
+  · exact .inl ⟨hh, ex, hpd.keep fun _ hctr => hctr.prom_congr hc, ha.prom_keep hp⟩
   · exact .inr ⟨hn, hctr.prom_congr hc, ha.prom_keep hp⟩
 
 /-! ## The landing -/
@@ -94,7 +94,7 @@ theorem _root_.Spike.Lib.AllocInvAt.held (h : AllocInvAt Λ lbl lsize t tm heap 
 (the control `c` at `let x = newBuf a τ in e` holding the counter's old count
 `old`, the buffer at `heap + 16 · old + off k τ`, the object within the
 cells, `old + units k τ ≤ cells`), from `AllocInvAt` at `heapUse s`, the
-one-thread invariant, thread 0 at `c` with no type arguments and its next label
+boxes counted by the allocations, the one-thread invariant, thread 0 at `c` with no type arguments and its next label
 fresh and the allocator's units and offsets (`off k τ` a word boundary, the
 buffer's words within the object's cells): the held count is `heapUse s`, and
 `land_step`'s source
@@ -114,7 +114,7 @@ theorem alloc_rowS {p : Prog} {kn : Promises.Knobs} {arch : WeakMem.Arch} {ts : 
     (hfit : off k τ + 8 * (k * nWords us) ≤ 16 * units k τ)
     (hz : ∀ vs, zeroWords (close [] τ) = some vs → ∀ v ∈ vs, ∀ lbl' : WeakMem.AllocLabel → Option Nat,
       ValRep lbl' v 0)
-    {c' : Spike.Lib.Ctl} (hc' : c'.hold = none) :
+    {c' : Spike.Lib.Ctl} (hc' : c'.hold = none) (hbx : Scc.Sem.boxCount s ≤ Scc.Sem.allocCount s) :
     old = heapUse s ∧
     ∃ th', { s with mem := (allocBuf (freshLabel s.lbase s.n 0 th.nalloc) (k * nWords us)
         (AllocSrc.newBufZero (close th.σs τ)) (stOf s.mem s.pairs th)).1.mem, ths := s.ths.set! 0 th' } ∈
@@ -148,6 +148,6 @@ theorem alloc_rowS {p : Prog} {kn : Promises.Knobs} {arch : WeakMem.Arch} {ts : 
   have hus' : accs (close th.σs τ) = some us := by rw [hσ]; exact hus
   exact HeapPres.land_step (p := p) (kn := kn) (arch := arch) h hh h1 hi htc hec ht
     hea hk hus' hfr hn0 hun hoff hfit hle
-    (fun vs hv v hm => hz vs (by rw [← hσ]; exact hv) v hm _) hc'
+    (fun vs hv v hm => hz vs (by rw [← hσ]; exact hv) v hm _) hc' hbx
 
 end Spike.Lib.HeapLand

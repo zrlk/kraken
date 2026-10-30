@@ -64,6 +64,7 @@ open Spike.Lib.A64.Flow
 open Spike.Lib.A64.Flow.Ret0 (StackOff CallerCells callerCells_stable)
 open Spike.Lib.A64.Flow.PrintCall (pR pF)
 open Spike.Lib.A64.StubW (printPhOk)
+open Spike.Lib.A64.PrintG (printPhOkF)
 open Spike.Lib.PrintSrc (printN)
 open Scc.Emit.A64 Scc.Lower.InvA64
 open Scc.Cert.Rt.A64 (Lays label_labelGap)
@@ -123,11 +124,12 @@ variable {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe] {prog : L
 
 /-- **`print`'s entry is in the phase of its `done`**: the prologue falls
 through to `0_entry` (`labelGap`), which branches to `1_loop`, whose
-`b.eq` targets `7_done`, each target in its block's phase (`printPhOk`). -/
+`b.eq` targets `7_done`, each target in its block's phase (`printPhOkF`). -/
 theorem print_phDone (hp : Lays exe prog kp) (hlab : (_root_.Executable.labels exe).label = lab)
-    (hpr : Scc.Cert.Rt.A64.Print.printIn prog = true) (hph : printPhOk okPc ph lab = true) :
+    (hpr : Scc.Cert.Rt.A64.Print.printIn prog = true) (hph : printPhOkF okPc ph lab = true) :
     ph (lab ".L9_scc_rt_print.7_done").toBitVec.toNat = ph (lab "scc_rt_print").toBitVec.toNat := by
-  obtain ⟨-, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, hgap⟩ := Spike.Lib.A64.PrintG.printIn_spec hpr
+  obtain ⟨-, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, hgap⟩ :=
+    Spike.Lib.A64.PrintG.printIn_spec hpr
   obtain ⟨p0, p1, p2, -⟩ := Spike.Lib.A64.PrintG.printPhOk_spec hph
   have he : lab ".L9_scc_rt_print.0_entry" = lab "scc_rt_print" + Int64.ofNat (4 * 6) := by
     rw [← hlab]; exact label_labelGap hp hgap
@@ -149,7 +151,7 @@ theorem print_phDone (hp : Lays exe prog kp) (hlab : (_root_.Executable.labels e
 `done`**: `print`'s entry in the return address's (`blC2_hra`) and
 `print_phDone`. -/
 theorem printRa_ph (hp : Lays exe prog kp) (hlab : (_root_.Executable.labels exe).label = lab)
-    (hpr : Scc.Cert.Rt.A64.Print.printIn prog = true) (hph : printPhOk okPc ph lab = true)
+    (hpr : Scc.Cert.Rt.A64.Print.printIn prog = true) (hph : printPhOkF okPc ph lab = true)
     {cx : FnCtx} {ra pc : Int64} {k : Nat} (h : BlC2 prog okPc ph lab cx ra pc Scc.Lower.Names.print k) :
     ph (pc + 4).toBitVec.toNat = ph (lab ".L9_scc_rt_print.7_done").toBitVec.toNat := by
   rw [print_phDone hp hlab hpr hph, ← blC2_hra h]; rfl
@@ -208,7 +210,7 @@ theorem printCall_ra {exe : _root_.Executable} [Kraken.Executable.ValidLayout ex
     {kp : Nat} {okPc : Nat → Bool} {ph : Nat → Nat} {lab : Label → Int64}
     (hp : Lays exe prog kp) (hlab : (_root_.Executable.labels exe).label = lab)
     (hpr : Scc.Cert.Rt.A64.Print.printIn prog = true) (hab : Scc.Cert.Rt.A64.Abort.abortIn prog = true)
-    (hph : printPhOk okPc ph lab = true) (hfi : cx.fi ≠ 9 ∧ cx.fi ≠ 12 ∧ cx.fi ≠ 16) {ra : Int64}
+    (hph : printPhOkF okPc ph lab = true) (hfi : cx.fi ≠ 9 ∧ cx.fi ≠ 12 ∧ cx.fi ≠ 16) {ra : Int64}
     {Cd : Int64 → List Directive → Prop} {Bl : Int64 → Label → Nat → Prop}
     (hBl : ∀ pc g k, Bl pc g k → BlC2 prog okPc ph lab cx ra pc g k)
     {kk n : Nat} {pc pc' : Int64} {b : Scc.IR.Operand} {o : Scc.IR.Reg} {m cw : Scc.IR.Operand}

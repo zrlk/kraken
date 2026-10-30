@@ -3,7 +3,7 @@ import Scc.Cert.Rt.LayoutA64
 /-!
 # Every block of an emitted AArch64 program at its place
 
-The block data of a program (`scc --blocks`, `Spike/Lib/A64Hello.lean`)
+The block data of a program (`scc --blocks`)
 names each block by its instructions; a function's proof needs each block
 as code at its node's pc (`Spike.Lib.A64.CodeAt`). A block's **place**
 is a label and an instruction count: the block is the run of instructions

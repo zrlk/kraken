@@ -149,25 +149,25 @@ open Spike.Lib.A64.WriteAb (pcRet tailPcs failPcs dispEPcs dispTPcs g4Pcs stubPc
 
 /-- `print`'s tests of the stored result (`WriteAb.tailPcs`) as positions. -/
 def tailPos : List (Label × Nat) :=
-  ((List.range 8).map fun j => (".L9_scc_rt_print.2_write", j + 6)) ++
+  ((List.range 8).map fun j => (".L9_scc_rt_print.2_write", j + 7)) ++
   ((List.range 8).map fun j => (".L9_scc_rt_print.3_chk2", j)) ++
   ((List.range 4).map fun j => (".L9_scc_rt_print.4_chk3", j))
 
 /-- The write abort's other positions (`abPos` but `tailPos`). -/
 def ntPos : List (Label × Nat) :=
-  [(".L9_scc_rt_print.2_write", 5)] ++ abPos.drop 21
+  [(".L9_scc_rt_print.2_write", 6)] ++ abPos.drop 21
 
 theorem ntPos_sub : ntPos.all (fun p => abPos.contains p && !tailPos.contains p) = true := by decide
 
 /-- **The tests' pcs are `tailPos`'s positions' addresses.** -/
 theorem tailPcs_eq (lab : Label → Int64) : tailPcs lab = tailPos.map fun p => lab p.1 + Int64.ofNat (4 * p.2) := by
-  simp [tailPcs, tailPos, Spike.Lib.A64.Print.pcSvc, List.range_succ, Int64.add_assoc]
+  simp [tailPcs, tailPos, Spike.Lib.A64.PrintD.pcSvc, List.range_succ, Int64.add_assoc]
 
 /-- **The write abort's other pcs are `ntPos`'s positions' addresses.** -/
 theorem ntPcs_eq (lab : Label → Int64) :
     pcRet lab :: failPcs lab ++ dispEPcs lab ++ dispTPcs lab ++ g4Pcs lab ++ stubPcs lab =
       ntPos.map fun p => lab p.1 + Int64.ofNat (4 * p.2) := by
-  simp [ntPos, abPos, pcRet, failPcs, dispEPcs, dispTPcs, g4Pcs, stubPcs, Spike.Lib.A64.Print.pcSvc,
+  simp [ntPos, abPos, pcRet, failPcs, dispEPcs, dispTPcs, g4Pcs, stubPcs, Spike.Lib.A64.PrintD.pcSvc,
     List.range_succ, Int64.add_assoc]
 
 variable {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe] {prog : List Directive} {kp : Nat}
@@ -592,7 +592,7 @@ section Print
 open Spike.Lib.A64.Print (b0 b1 b2 b3 b4 b5 b6 b7 b8 b9 b10 b11 b12 b13 b14 b16 oI
   b0_ok b1_ok b2_ok b3_ok b4_ok b5_ok b6_ok b7_ok b8_ok b9_ok b10_ok b11_ok b12_ok b13_ok b14_ok b16_ok)
 open Spike.Lib.A64.PrintA (PrintAW N)
-open Spike.Lib.A64.StubW (printPhOk)
+open Spike.Lib.A64.StubW (printPhOk phOne)
 
 variable {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe] {endPc : Int64} {prog : List Directive}
   {lab : Label → Int64} {μ : Marks} {own : Own} {Tk : State → Prop} {K : State → State → Prop}
@@ -603,6 +603,30 @@ variable {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe] {endPc : 
 theorem inRun0 {L : Label} {j : Nat} {blk : List Directive} (h : blockAt prog L j blk = true)
     (hl : 0 < blk.length) : InRun prog L j := by
   simpa using inRun_of_blockAt h hl
+
+/-- **The barrier's node keeps the write abort's phase**: off the sites
+(`hok`), its next pc at a position off `abPos` (`hr`, `hn`). -/
+theorem nodeW_abDmb (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
+    (hpr : Scc.Cert.Rt.A64.Print.printIn prog = true) (hab : Scc.Cert.Rt.A64.Abort.abortIn prog = true)
+    {n : ND} {L : Label} {j : Nat} (hb : blockAt prog L j Spike.Lib.A64.Print.bF = true)
+    (he : lab L + Int64.ofNat (4 * j) = n.pc) (hok : okPc n.pc.toBitVec.toNat = true)
+    (hr : InRun prog L (j + 1)) (hn : abPos.contains (L, j + 1) = false) :
+    NodeW (fun s _ => AbSt μ (Ab lab) s) (fun _ _ => False) exe endPc R F n := by
+  have hl := hI.labOk
+  subst hl
+  rintro s c ⟨hs, hnd, -, hpc, -⟩
+  rw [bF_eq] at hb
+  have hc := Spike.Lib.A64.Rt.cellOf hI hb he hs hnd hpc
+  have hP := hI.off s (by unfold pcOf; rw [hpc]; exact hok)
+  have hsys : abi.atSys s = false := Scc.Sem.A64.atSvc_false_of_cellAt hc (by intro _ h; cases h)
+  refine ⟨⟨fun _ _ t ht => ?_, fun _ h => (by rw [hsys] at h; cases h),
+    fun _ a ha hpc' => (hP.1.noTake a ha hpc').elim⟩, fun _ h => h⟩
+  rw [Kraken.Promising.Lower.A64.exec_dmb hc] at ht
+  cases ht
+  intro _
+  refine notAb_of_pos hI.lays hpr hab hr hn ?_
+  show s.st.2 + Int64.ofNat 4 = _
+  rw [hpc, ← he, Nat.mul_succ, Int64.ofNat_add, Int64.add_assoc]
 
 set_option hygiene false in
 /-- A block of `scc_rt_print` off the write abort, no `ret`. -/
@@ -626,20 +650,23 @@ the epilogue's phase (`hra`) and off the phase's pcs (`hraAb`), in a region
 of the routine's frame. -/
 theorem printAb (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
     (hpr : Scc.Cert.Rt.A64.Print.printIn prog = true) (hab : Scc.Cert.Rt.A64.Abort.abortIn prog = true)
-    (hph : printPhOk okPc ph lab = true)
+    (hph : printPhOkF okPc ph lab = true)
     (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -48) (hhi : 0 ≤ R.hi) (hlen : len0 < 2 ^ 63)
     (hra : ph (Int64.ofBitVec ra).toBitVec.toNat = ph (lab ".L9_scc_rt_print.7_done").toBitVec.toNat)
     (hraAb : Int64.ofBitVec ra ∉ abPcs lab) :
     PrintAW x29 ra buf0 len0 P Q (fun s _ => AbSt μ (Ab lab) s) (fun _ _ => False) exe endPc R F := by
   have hl := hI.labOk
   subst hl
-  obtain ⟨h0, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17⟩ := printIn_spec hpr
-  obtain ⟨p0, p1, p2, p3, p4, -, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17⟩ :=
+  obtain ⟨h0, h1, h2, h3, hf, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17⟩ :=
+    printIn_spec hpr
+  obtain ⟨p0, p1, p2, p3, pf, p4, -, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17⟩ :=
     printPhOk_spec hph
+  simp only [phOne, Bool.and_eq_true] at pf
   have rE := inRun0 h1 (by decide)
   have rL := inRun0 h2 (by decide)
   have rL4 := inRun0 h3 (by decide)
-  have rW := inRun0 h4 (by decide)
+  have rW := inRun0 hf (by decide)
+  have rW1 := inRun0 h4 (by decide)
   have rW4 := inRun0 h5 (by decide)
   have rW12 := inRun0 h7 (by decide)
   have rW13 := inRun0 h8 (by decide)
@@ -651,7 +678,7 @@ theorem printAb (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
   have rA := inRun0 h14 (by decide)
   have rF := inRun0 h15 (by decide)
   have rD := inRun0 h16 (by decide)
-  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · poff h0 b0_ok p0 (some (".L9_scc_rt_print.0_entry", 0))
       (fun q hq => by
         cases hq
@@ -674,13 +701,16 @@ theorem printAb (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
       (fun q hq => by
         rw [show extPos b3 none = [(".L9_scc_rt_print.2_write", 0)] by decide] at hq
         simp only [List.mem_cons, List.not_mem_nil, or_false] at hq; subst hq; exact rW)
-  · poff h4 b4_ok p4 (some (".L9_scc_rt_print.2_write", 4)) (fun q hq => by cases hq; rfl)
+  · exact nodeW_abDmb hI hpr hab hf (by ppc_tac) (by rw [show (N _ x29 ra buf0 len0 P Q .fence).pc =
+      (_root_.Executable.labels exe).label ".L9_scc_rt_print.2_write" + Int64.ofNat (4 * 0) by ppc_tac]; exact pf.1)
+      rW1 (by decide)
+  · poff h4 b4_ok p4 (some (".L9_scc_rt_print.2_write", 5)) (fun q hq => by cases hq; rfl)
       (fun q hq => by
-        rw [show extPos b4 (some (".L9_scc_rt_print.2_write", 4)) = [(".L9_scc_rt_print.2_write", 4)] by decide] at hq
+        rw [show extPos b4 (some (".L9_scc_rt_print.2_write", 5)) = [(".L9_scc_rt_print.2_write", 5)] by decide] at hq
         simp only [List.mem_cons, List.not_mem_nil, or_false] at hq; subst hq; exact rW4)
-  · pkeep h6 b5_ok p6 (some (".L9_scc_rt_print.2_write", 12)) [0] (fun q hq => by cases hq; rfl)
+  · pkeep h6 b5_ok p6 (some (".L9_scc_rt_print.2_write", 13)) [0] (fun q hq => by cases hq; rfl)
       (fun q hq => by
-        rw [show extPos b5 (some (".L9_scc_rt_print.2_write", 12)) = [(".L9_scc_rt_print.2_write", 12)] by decide] at hq
+        rw [show extPos b5 (some (".L9_scc_rt_print.2_write", 13)) = [(".L9_scc_rt_print.2_write", 13)] by decide] at hq
         simp only [List.mem_cons, List.not_mem_nil, or_false] at hq; subst hq; exact rW12)
       ?_
     intro σ c hJ k hk hx a hca s0 _ _ hs0 hA0 hn0 s' _ _ hpc' hA'
@@ -688,16 +718,16 @@ theorem printAb (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
     subst hx
     simp [b5, Spike.Lib.A64.Flow.classify] at hca
     subst hca
-    refine tail_ret hI.lays hpr hab hlo hhi ?_ hA0 rfl hn0 (q := (".L9_scc_rt_print.2_write", 6))
+    refine tail_ret hI.lays hpr hab hlo hhi ?_ hA0 rfl hn0 (q := (".L9_scc_rt_print.2_write", 7))
       (by simpa using inRun_of_blockAt h6 (i := 1) (by decide)) (by decide) ?_ hA' rfl ?_ ?_
     · rw [hs0, show Int64.ofNat (4 * 0) = 0 from rfl, Int64.add_zero]; rfl
     · rw [hpc']; show _ + _ + _ = _; dsimp only [N]; simp only [Int64.add_assoc]; rfl
     · simp [Spike.Lib.A64.Flow.arun, Spike.Lib.A64.Flow.AI.step, Spike.Lib.upd_apply, N]
     · simp [Spike.Lib.A64.Flow.arun, Spike.Lib.A64.Flow.AI.step, Spike.Lib.upd_apply, N]
-  · pkeep h7 b6_ok p7 (some (".L9_scc_rt_print.2_write", 13)) [] (fun q hq => by cases hq; rfl)
+  · pkeep h7 b6_ok p7 (some (".L9_scc_rt_print.2_write", 14)) [] (fun q hq => by cases hq; rfl)
       (fun q hq => by
-        rw [show extPos b6 (some (".L9_scc_rt_print.2_write", 13)) =
-            [(".L9_scc_rt_print.2_write", 13), (".L9_scc_rt_print.1_loop", 0)] by decide] at hq
+        rw [show extPos b6 (some (".L9_scc_rt_print.2_write", 14)) =
+            [(".L9_scc_rt_print.2_write", 14), (".L9_scc_rt_print.1_loop", 0)] by decide] at hq
         simp only [List.mem_cons, List.not_mem_nil, or_false] at hq; rcases hq with rfl | rfl <;> assumption)
       (fun _ _ _ _ _ hx => by cases hx)
   · pkeep h8 b7_ok p8 none [] (fun q hq => by cases hq)

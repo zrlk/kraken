@@ -580,17 +580,21 @@ theorem out_tp {p : CoreTerm.Prog} {lbl : WeakMem.AllocLabel → Option Nat} {ms
     exact .holdLoad kl A g x sa u v e he h1 h2 h3 fun r w' hr hv => ⟨h4 r w' hr hv, hT _ he r⟩
   | xchgStore kr A V s' x sa u v e tv wv wold he h1 h2 h3 h4 h5 h6 =>
     exact .xchgStore kr A V s' x sa u v e tv wv wold he h1 h2 h3 h4 h5 ⟨h6, hT _ he true⟩
-  | ctrRmw k op g x a τ e ta ws n he h1 h2 h3 h4 h5 h6 h7 h8 =>
-    exact .ctrRmw k op g x a τ e ta ws n he h1 h2 h3 h4 h5 h6 h7 fun old hG ho hle =>
-      ⟨(h8 old hG ho hle).1, (h8 old hG ho hle).2, hT _ he old⟩
+  | ctrRmw k op g x τ e n he h1 h2 h3 h4 h5 h6 =>
+    exact .ctrRmw k op g x τ e n he h1 h2 h3 h4 h5 fun old hG ho hle hl =>
+      ⟨(h6 old hG ho hle hl).1, (h6 old hG ho hle hl).2, hT _ he old⟩
   | alloc s' A x a τ e ta ws k wold old us he h1 h2 h3 h4 h5 h6 h7 h8 h9 =>
     exact .alloc s' A x a τ e ta ws k wold old us he h1 h2 h3 h4 h5 h6 h7 h8 fun l ini hl => h9 l ini hl (hT _ he)
+  | newStore kr A V s' x a ty e w wold old h0 he h1 h2 h3 h4 h5 h6 h7 h8 h9 h10 =>
+    exact .newStore kr A V s' x a ty e w wold old h0 he h1 h2 h3 h4 h5 h6 h7 h8 h9 fun l hl =>
+      h10 l hl (hT _ he true)
   | emit K' buf n Pw Qw hK' hat hd h0 hb hr hq =>
     have hK2 : ms.K = some K' := hK'
     rw [hK] at hK2
     cases hK2
     exact .emit _ buf n Pw Qw hK hat hd h0 hb (fun j hj c1 hp r hm hok =>
       ⟨⟨(hr j hj c1 hp r hm hok).1, hs⟩, (hr j hj c1 hp r hm hok).2⟩) hq
+  | fence k s' c' he hr hx => exact .fence k s' c' he hr ⟨hx, hT _ he ()⟩
 
 /-- **A segment keeps `fsBase`**: a segment under `tpXa ms t` (its
 allocation landings asked only at `fsBase = t`) whose states are at no

@@ -81,8 +81,8 @@ theorem loadBytes_one_none {m : _root_.Mem 64} {a : BitVec 64} (h : m[a]? = none
     m.loadBytes a 1 ≠ some [x] := by
   simp [Mem.loadBytes, List.allSome, h]
 
-/-- **`byteOut_emit` with the allocation count kept** (`th'.nalloc`, the
-source's byte run allocates nothing) and `hnum` asked of the byte's own
+/-- **`byteOut_emit` with the allocation count and box label kept**
+(`th'.nalloc`, `th'.tidLbl`: the source's byte run allocates nothing) and `hnum` asked of the byte's own
 location only: for the label `l` placed at `b` of which `a` is byte `k`
 (`ByteOut`'s witnesses), the latest message at `⟨l, k / 8⟩` a number. -/
 theorem byteOut_emit_n {P : SrcParams} {p : Prog} {I : ISA} {K : Kernel.Abi I} {Λ : Layout}
@@ -100,7 +100,7 @@ theorem byteOut_emit_n {P : SrcParams} {p : Prog} {I : ISA} {K : Kernel.Abi I} {
     Inv1 Λ lbl lsize ts t' tm s.mem ∧
       ∃ th', (source P p).Run s [.out bt] { s with ths := s.ths.set! 0 th', trace := s.trace ++ [.out bt.val] } ∧
         Q ⟨th'.term, th'.env, none⟩ ∧ th'.σs = [] ∧ th'.stack = th.stack ∧ th'.promises = [] ∧
-          th'.nalloc = th.nalloc := by
+          th'.nalloc = th.nalloc ∧ th'.tidLbl = th.tidLbl := by
   obtain ⟨pw, wn, l, b, m, k, hpw, hl, rfl, hrun, hQ⟩ := hbo
   have hb8 : b % 8 = 0 := (hinv.mem.lbl_range l b hl).1
   have ha : wordAddr lbl ⟨l, k / 8⟩ = some (b + k - (b + k) % 8) := by
@@ -113,7 +113,7 @@ theorem byteOut_emit_n {P : SrcParams} {p : Prog} {I : ISA} {K : Kernel.Abi I} {
   rw [hk8] at hbt
   refine ⟨hi', ?_⟩
   have R0 := hrun.toS.run_source (traceThs_wc hP) hi ht he hσ hst hp
-  obtain ⟨th', mw, R, ht', he', hσ', hst', hp', hmw, hn'⟩ := loadC_byte (P := P) (w := fun _ => n) (wn := wn) (m := m)
+  obtain ⟨th', mw, R, ht', he', hσ', hst', hp', hmw, hn', htl'⟩ := loadC_byte (P := P) (w := fun _ => n) (wn := wn) (m := m)
     (th := { th with term := (loadC pw wn m k).term, env := (loadC pw wn m k).env }) hP (set0 hi)
     rfl rfl hσ hst hp hpw hx ⟨j, msg, hj, hm, hv⟩
   have hbe : (⟨bt.val % 256, Nat.mod_lt _ (by decide)⟩ : Fin 256) = bt := Fin.ext (Nat.mod_eq_of_lt bt.isLt)
@@ -125,7 +125,7 @@ theorem byteOut_emit_n {P : SrcParams} {p : Prog} {I : ISA} {K : Kernel.Abi I} {
   have R2 := r2.toS.run_source (traceThs_wc hP) hi2 (by rw [ht']) (by rw [he']) hσ' (hst' ▸ hst) hp'
   have R1 := R01.trans R2
   simp only [set!_set!, List.nil_append, List.append_nil, ← hbt, hbe] at R1
-  refine ⟨_, R1, ?_, hσ', hst', hp', hn'⟩
+  refine ⟨_, R1, ?_, hσ', hst', hp', hn', htl'⟩
   have h0 : c2.hold = none := r2.toS.hold_none rfl
   obtain ⟨t2, e2, h2⟩ := c2
   simp only at h0
@@ -156,7 +156,7 @@ theorem byteOut_emit {P : SrcParams} {p : Prog} {I : ISA} {K : Kernel.Abi I} {Λ
     Inv1 Λ lbl lsize ts t' tm s.mem ∧
       ∃ th', (source P p).Run s [.out bt] { s with ths := s.ths.set! 0 th', trace := s.trace ++ [.out bt.val] } ∧
         Q ⟨th'.term, th'.env, none⟩ ∧ th'.σs = [] ∧ th'.stack = th.stack ∧ th'.promises = [] :=
-  let ⟨hi', th', R, hQ, hσ', hst', hp', _⟩ := byteOut_emit_n hP hbo hinv hwf hrb hpriv hi ht he hσ hst hp hx
+  let ⟨hi', th', R, hQ, hσ', hst', hp', _, _⟩ := byteOut_emit_n hP hbo hinv hwf hrb hpriv hi ht he hσ hst hp hx
     fun _ _ l b _ k _ hl ha _ => hnum _ (by
       have hb8 : b % 8 = 0 := (hinv.mem.lbl_range l b hl).1
       subst ha

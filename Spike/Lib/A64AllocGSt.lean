@@ -321,16 +321,17 @@ moved by `K`, its code passing the phase check (`hph`), for a call `q`
 whose return address is in the phase of the function's entry (`hra`), the
 owned words factoring through the phase (`hown`), in a region of the
 allocator's frame (8-aligned) whose frame condition gives the stack range
-off it (`hFO`) and the call's premises (`hq`), the counter and every header
+off it (`hFO`) and the call's premises at any allocation site (`hq`,
+`Call.OKS`), the counter and every header
 the code may store unmapped in private memory (`hmem`), owned at no phase
 (`hno`), the memory side's writable words mapped (`hmp`). -/
-theorem allocSt (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
+theorem allocStS (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
     (hA : Spike.Lib.A64.Flow.allocIn prog = true) (hph : allocPhOk okPc ph lab = true)
     {Λ : Scc.Sem.Layout} {rS : Range} {ownOf : Nat → List (Loc × Val)}
     (hown : ∀ s, own s = ownOf (ph (pcOf s)))
     (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -160) (hhi : 0 ≤ R.hi)
     (hl : R.lo % 8 = 0) (hh : R.hi % 8 = 0) (hsub : rS.Sub Λ.stackPool) (hfit : rS.lo + rS.size ≤ 2 ^ 64)
-    (hFO : ∀ m, F m → StackOff rS R m) (hq : ∀ m, F m → q.OK ms lab)
+    (hFO : ∀ m, F m → StackOff rS R m) (hq : ∀ m, F m → q.OKS ms lab)
     (hra : ph (Int64.ofBitVec q.ra).toBitVec.toNat = ph (lab "scc_rt_alloc").toBitVec.toNat)
     (hmp : ∀ L, ms.mp L true → Kernel.mapped (K0 Λ) true L = true)
     (hmem : ∀ a : BitVec 64,
@@ -373,12 +374,12 @@ theorem allocSt (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
   · refine NodeW.st (nodeW_st_postA hI hown (lbl := Λ.static) (t := .X9) (b := .X10) (i := 0) h16 rfl (by pcs_tac)
       (fun _ _ hJ => hJ.1 ▸ cfacts_c0) (phOne_spec p16).1 (phOne_spec p16).2 hR hR8 hl hh hsub hFO
       fun σ c m hJ hF => ?_)
-    obtain ⟨-, c, o, ⟨-, hle, -, hn28, -⟩, -, -, h10⟩ := hJ
+    obtain ⟨-, c, o, ⟨-, hle, -, hn28, -, hlo⟩, -, -, h10⟩ := hJ
     have hq' := hq m hF
-    have hAeq := hdr_addr hq' hle hn28 h10
+    have hAeq := hdr_addrS hq' hle hn28 h10
     have hofn : BitVec.ofNat 64 (q.hdrAt ms o.toNat) = Spike.Lib.A64.Flow.rAddr σ.regs .X10 0 := by
       rw [← hAeq]; simp
-    obtain ⟨-, hmp', -⟩ := hq'.hdr o.toNat hle
+    obtain ⟨-, hmp', -⟩ := hq'.hdr o.toNat hlo hle
     exact ⟨hmp _ (hofn ▸ hmp'), hmem _ (.inr ⟨o.toNat, hle, hAeq⟩) m hF, hno _ (.inr ⟨o.toNat, hle, hAeq⟩)⟩
   · ablk h17 b13_ok p17
   · refine NodeW.st (Spike.Lib.LowerA64.BlkW.nodeW (Spike.Lib.A64.Rt.blkW_postO hI
@@ -394,6 +395,26 @@ theorem allocSt (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
     simp [iRet, Spike.Lib.A64.Flow.AI.tgt, Reg64s.getRegOrZr, Reg64s.getRegOrZr64, RegOrZr.base, Reg64s.getXReg,
       h30]
 
+/-- **`scc_rt_alloc`'s states carry the state's facts** at any control:
+`allocStS` at a buffer allocation (`Call.OK`). -/
+theorem allocSt (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
+    (hA : Spike.Lib.A64.Flow.allocIn prog = true) (hph : allocPhOk okPc ph lab = true)
+    {Λ : Scc.Sem.Layout} {rS : Range} {ownOf : Nat → List (Loc × Val)}
+    (hown : ∀ s, own s = ownOf (ph (pcOf s)))
+    (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -160) (hhi : 0 ≤ R.hi)
+    (hl : R.lo % 8 = 0) (hh : R.hi % 8 = 0) (hsub : rS.Sub Λ.stackPool) (hfit : rS.lo + rS.size ≤ 2 ^ 64)
+    (hFO : ∀ m, F m → StackOff rS R m) (hq : ∀ m, F m → q.OK ms lab)
+    (hra : ph (Int64.ofBitVec q.ra).toBitVec.toNat = ph (lab "scc_rt_alloc").toBitVec.toNat)
+    (hmp : ∀ L, ms.mp L true → Kernel.mapped (K0 Λ) true L = true)
+    (hmem : ∀ a : BitVec 64,
+      (a = BitVec.ofNat 64 ms.ctr ∨ ∃ o, o + ms.units q.n q.τ ≤ ms.cells ∧ a.toNat = q.hdrAt ms o) →
+      ∀ m, F m → Mem.loadInt m.dmem a 8 = none)
+    (hno : ∀ a : BitVec 64,
+      (a = BitVec.ofNat 64 ms.ctr ∨ ∃ o, o + ms.units q.n q.τ ≤ ms.cells ∧ a.toNat = q.hdrAt ms o) →
+      ∀ j w, (⟨a, 8⟩, w) ∉ ownOf j) :
+    AllocW ms q (fun s _ => SFactsSt Λ μ own rS Tk s) K exe endPc R F :=
+  allocStS hI hA hph hown hR hal hlo hhi hl hh hsub hfit hFO (fun m h => (hq m h).toS) hra hmp hmem hno
+
 end Alloc
 
 -- No axioms beyond Lean's.
@@ -406,5 +427,8 @@ end Alloc
 
 /-- info: 'Spike.Lib.A64.AllocG.allocSt' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms allocSt
+
+/-- info: 'Spike.Lib.A64.AllocG.allocStS' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in #print axioms allocStS
 
 end Spike.Lib.A64.AllocG

@@ -121,13 +121,14 @@ section StartE
 
 /-- **The start's states inside `W` up to `scc_rt_main`'s entry**:
 `_start`'s branch, up to `.sp2`, from `.sp2` to the switch, and from the
-switch to `bl scc_rt_main` (with the stack range in private memory). -/
+switch to `bl scc_rt_main` (with the stack range in private memory); the
+thread init's take site at the extra frame `P` (`Sp2W`'s, `True` by default). -/
 structure StartEW (W : Frag isaLSE2) (K : State → State → Prop) (exe : _root_.Executable) (endPc : Int64)
-    (R : Region) (F : MachineData → Prop) (rS : Scc.Sem.Range) (n0 k0 : BitVec 64) (c0 : Ctl) (L : Int) :
-    Prop where
+    (R : Region) (F : MachineData → Prop) (rS : Scc.Sem.Range) (n0 k0 : BitVec 64) (c0 : Ctl) (L : Int)
+    (P : MachineData → Prop := fun _ => True) : Prop where
   e : BlkW W K exe endPc R F (entryN (_root_.Executable.labels exe).label c0) entryB
   s1 : Sp0W W K exe endPc R F n0 c0
-  s2 : Sp2W W K exe endPc R F rS n0 k0 c0
+  s2 : Sp2W W K exe endPc R F rS n0 k0 c0 P
   s3 : SwEW W K exe endPc R (fun m => F m ∧ StackM rS m) rS
     (pinA (_root_.Executable.labels exe).label + n0 + 8#64)
     (stacksA (_root_.Executable.labels exe).label + k0 + 16384#64) c0 L

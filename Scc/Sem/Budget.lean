@@ -17,8 +17,10 @@ only that some step leave the depth above `B.frames`:
 - `memCells`, `memCells_allocBuf`: a `newBuf` of a fresh label adds its word
   count to the source's distinct cells (`cellCount`); `nallocSum_set`: one
   thread's allocation counter bumped adds one to `allocCount`;
-  `heapUse_newBuf`: so `heapUse` grows by the words plus one, the `u` the
-  runtime adds;
+  `heapUse_newBuf`: so the words plus the allocations (`cellCount +
+  allocCount`) grow by the words plus one, the `u` the runtime adds (and so
+  does `heapUse` when the step keeps the thread-id boxes, `boxCount`, and
+  every box was counted by an allocation, which holds along runs);
 - `AbortJustified.heap_of_crossing`: a step of thread `i` that grows
   `heapUse` by `u` from within `B.cells` to past it justifies a heap abort;
   `AbortJustified.not_heap_past`: once past (another thread crossed), no
@@ -126,14 +128,16 @@ theorem nallocSum_set {ths : Array TermRun.TTh} {i : Nat} (hi : i < ths.size) {t
 
 /-- **A `newBuf` step's heap use**: a source configuration `c'` whose
 memory is `allocBuf l n` over `c`'s (a fresh label) and whose thread `i`
-has its allocation counter bumped has heap use `heapUse c + (n + 1)`: the
-words plus the header, the `u` the runtime's counter adds. -/
+has its allocation counter bumped has words plus allocations
+`cellCount c + allocCount c + (n + 1)`: the words plus the header, the `u`
+the runtime's counter adds. (`heapUse` subtracts the thread-id boxes,
+`boxCount`, which a `newBuf` step does not change; stated without them so
+that no run invariant is needed here.) -/
 theorem heapUse_newBuf {c c' : TermRun.Cfg} {l : WeakMem.AllocLabel} {n : Nat}
     {zero : Option (List WeakMem.Val)} {st : TermRun.St} (hst : st.mem = c.mem)
     (hmem : c'.mem = (TermRun.allocBuf l n zero st).1.mem) (hfresh : Fresh c l) {i : Nat} (hi : i < c.ths.size)
     {th' : TermRun.TTh} (hths : c'.ths = c.ths.set i th') (hn : th'.nalloc = c.ths[i].nalloc + 1) :
-    heapUse c' = heapUse c + (n + 1) := by
-  unfold heapUse
+    cellCount c' + allocCount c' = cellCount c + allocCount c + (n + 1) := by
   rw [cellCount_eq, cellCount_eq, allocCount_eq, allocCount_eq, hmem, hths,
     memCells_allocBuf (by rw [hst]; exact hfresh), nallocSum_set hi hn, hst]
   omega
@@ -179,7 +183,7 @@ def Budget.ofArena (Λ : Layout) (threads frames : Nat) : Budget :=
 `arena_covers` accounts for fit the arena. -/
 theorem arena_fits {s : TermRun.Cfg} {Λ : Layout} {threads frames : Nat} (as : List (Nat × Nat × Nat))
     (ht : ∀ a ∈ as, 2 * a.2.1 ≤ 3 * a.1) (hf : ∀ a ∈ as, a.2.2 ≤ 8)
-    (hw : (as.map (·.1)).sum = cellCount s) (hn : as.length = allocCount s)
+    (hw : (as.map (·.1)).sum = cellCount s) (hn : as.length = allocCount s - boxCount s)
     (hB : heapUse s ≤ (Budget.ofArena Λ threads frames).cells) :
     (as.map fun a => objBytes a.2.1 a.2.2).sum ≤ Λ.heap.size := by
   have := arena_covers as ht hf hw hn hB

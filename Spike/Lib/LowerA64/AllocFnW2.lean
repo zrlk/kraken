@@ -50,7 +50,7 @@ open Spike.Lib.A64.WriteAb (Ab abPcs)
 open Spike.Lib.LowerNode (FrOk2 ZBad)
 open Spike.Lib.A64.Alloc (Call AllocW N iAdrpC iAddC iAdrpH iAddH iRmw iHdr iRet b0 b1 b2 b3 b4 b5 b6 b7 b9 b11
   b12 b13 b0_ok b1_ok b2_ok b3_ok b4_ok b5_ok b6_ok b7_ok b9_ok b11_ok b12_ok b13_ok)
-open Spike.Lib.A64.AllocG (allocIn_spec allocSt allocAb allocArena allocCtr allocPc allocPhOk allocAbOk)
+open Spike.Lib.A64.AllocG (allocIn_spec allocSt allocAb allocArena allocCtr allocPc allocPhOk allocAbOkR)
 open Spike.Lib.A64.KeepTP (TP)
 
 section Alloc
@@ -144,11 +144,11 @@ theorem allocCtx_of (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
   have hq' : q.OK ms (_root_.Executable.labels exe).label := by
     obtain ⟨-, -, -, -, σ, -, hD, -⟩ := hAt
     exact hq _ hD
-  obtain ⟨k, op, g, x, a, τ, e, ta, ws, n, h1, h2, h3, h4, h5, h6, h7, h8, h9⟩ :=
+  obtain ⟨k, op, g, x, τ, e, n, h1, h2, h3, h4, h5, h6, h7⟩ :=
     Spike.Lib.A64.Alloc.ctrRow_alloc (lbl := lbl0) hF hq' (Spike.Lib.A64.Flow.alloc_code_of hI.lays hI.endOk hA)
       (hmc) hAt
-  exact ⟨k, op, g, x, a, τ, e, ta, ws, n, h1, h2, h3, h4, h5, h6, h7, h8, fun old hG hown hle =>
-    (h9 old hG hown hle).imp_right (hX _ _)⟩
+  exact ⟨k, op, g, x, τ, e, n, h1, h2, h3, h4, h5, h6, fun old hG hown hle hlo =>
+    (h7 old hG hown hle hlo).imp_right (hX _ _)⟩
 
 omit [Kraken.Executable.ValidLayout exe] in
 open Spike.Lib.A64.Alloc in
@@ -164,8 +164,8 @@ theorem ctrRow_alloc_n4 (hF : Spike.Lib.A64.Flow.FStable R F)
   Spike.Lib.A64.Flow.ctrRow_nd hF (fun s he hn => hcode.rmw s he hn) (fun m σ c hA hD hJ => by
     obtain ⟨⟨rfl, hF, hn28⟩, h10, h9⟩ := hJ
     exact ⟨h10, hq.rt, hq.mp, hmem _ hD, q.x, q.a, q.τ, q.e, q.ta, q.ws, q.n, hq.term, hq.ev,
-      hq.num, hq.hold, by rw [getRegOrZr_x]; exact h9, fun old hG hle =>
-        ⟨hq.grow old hG hle, .inl ⟨(), rfl, rfl, _, rfl, hle, hF, hn28, rfl⟩⟩⟩) hAt
+      hq.num, hq.hold, by rw [getRegOrZr_x]; exact h9, fun old hG hle hlo =>
+        ⟨hq.grow old hG hle, .inl ⟨(), rfl, rfl, _, rfl, hle, hF, hn28, rfl, hlo⟩⟩⟩) hAt
 
 /-- **The counter add's row landing in `X`** (`allocW2`'s `hctx`) from the
 allocator's node `n4` in `X` (`hX`; `ctrRow_alloc_n4`): only the add's
@@ -183,7 +183,7 @@ theorem allocCtx_n4 (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
     obtain ⟨-, -, -, -, σ, -, hD, -⟩ := hAt
     exact hq _ hD
   have hcode := Spike.Lib.A64.Flow.alloc_code_of (ms := ms) (q := q) hI.lays hI.endOk hA
-  obtain ⟨k, op, g, x, a, τ, e, ta, ws, n, h1, h2, h3, h4, h5, h6, h7, h8, h9⟩ :=
+  obtain ⟨k, op, g, x, τ, e, n, h1, h2, h3, h4, h5, h6, h7⟩ :=
     ctrRow_alloc_n4 hF hq' hcode hmc hAt
   -- the add keeps the thread pointer
   have hT : ∀ v, TP tp (g v) := by
@@ -191,8 +191,8 @@ theorem allocCtx_n4 (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
     have hc := Spike.Lib.A64.Flow.noMsrAt_of_code (hcode.rmw s he hn) (by decide) (j := 0) (by decide) rfl rfl
       (by rw [hpc, Spike.Lib.A64.Flow.ofNat4_zero])
     exact Spike.Lib.A64.KeepTP.exec_tp hc htp h1
-  refine ⟨k, op, g, x, a, τ, e, ta, ws, n, h1, h2, h3, h4, h5, h6, h7, h8, fun old hG hown hle => ?_⟩
-  obtain ⟨hG', hL⟩ := h9 old hG hown hle
+  refine ⟨k, op, g, x, τ, e, n, h1, h2, h3, h4, h5, h6, fun old hG hown hle hlo => ?_⟩
+  obtain ⟨hG', hL⟩ := h7 old hG hown hle hlo
   refine ⟨hG', hX _ _ ?_ (hT old)⟩
   rcases hL with ⟨_, hj⟩ | ⟨y, _⟩
   · exact hj
@@ -217,7 +217,7 @@ the region reaches (`hP`). The node's states are off a system call
 `allocCtr`'s. -/
 theorem allocW2 (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
     (hA : Spike.Lib.A64.Flow.allocIn prog = true) (hph : allocPhOk okPc ph lab = true)
-    (habk : allocAbOk lab = true) {Λ : Scc.Sem.Layout} {rS : Range} {ownOf : Nat → List (Loc × Val)}
+    (habk : allocAbOkR lab = true) {Λ : Scc.Sem.Layout} {rS : Range} {ownOf : Nat → List (Loc × Val)}
     (hown : ∀ s, own s = ownOf (ph (pcOf s)))
     (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -160) (hhi : 0 ≤ R.hi)
     (hl : R.lo % 8 = 0) (hh : R.hi % 8 = 0) (hsub : rS.Sub Λ.stackPool) (hfit : rS.lo + rS.size ≤ 2 ^ 64)
@@ -397,7 +397,7 @@ node `n4` in `PendA` (`hX`, `allocCtx_n4`, `ctrRow_msOfAX`), the counter
 unmapped under the stable frame condition (`hFS`, `hmem`). -/
 theorem allocW2X (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
     (hA : Spike.Lib.A64.Flow.allocIn prog = true) (hph : allocPhOk okPc ph lab = true)
-    (habk : allocAbOk lab = true) {Λ : Scc.Sem.Layout} {rS : Range} {ownOf : Nat → List (Loc × Val)}
+    (habk : allocAbOkR lab = true) {Λ : Scc.Sem.Layout} {rS : Range} {ownOf : Nat → List (Loc × Val)}
     (hown : ∀ s, own s = ownOf (ph (pcOf s)))
     (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -160) (hhi : 0 ≤ R.hi)
     (hl : R.lo % 8 = 0) (hh : R.hi % 8 = 0) (hsub : rS.Sub Λ.stackPool) (hfit : rS.lo + rS.size ≤ 2 ^ 64)

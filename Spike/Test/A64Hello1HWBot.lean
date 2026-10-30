@@ -149,7 +149,8 @@ theorem w2_ofSetupBotA (hp : Scc.Lower.Accepted2 p = true) {ty : Ty} (hty : Scc.
   have hc0t := th02_term_setup hty (meW2 (lay2 Λ p) (Out.ofEmitted (Scc.Lower.A64.lowerAll cfg p)))
   have hct' := callTo_setupTerm (p := p) (c0 := C0) hc0t (by simp only [th02, hty]; rfl) hf
   obtain ⟨-, rfl⟩ := CallTo.unique hct hct'
-  refine w2_ofPopped (Spike.Lib.LowerNode.progNoS_zbad_of_accepted2 hp) hW0 hC.1.noAlloc hC.2.2
+  refine w2_ofPopped (Spike.Lib.LowerNode.progNoS_zbad_of_accepted2 hp) hW0 hC.1.noAlloc
+    (postS_setupTerm_noNew (th02_term_setup hty _) c'' σ0.regs hP0) hC.2.2
     (List.cons_ne_nil _ _) ⟨by rw [hta]; trivial, fun fr hfr => ?_⟩ ?_
   · rw [List.mem_singleton] at hfr
     subst hfr

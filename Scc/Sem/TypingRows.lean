@@ -163,18 +163,30 @@ well-formed layout (`Layout.WF.pos`): the side condition of `ifnull_iff`. -/
 theorem MemRel.lbl_pos {Λ : Layout} {lsize : WeakMem.AllocLabel → Nat} {ts : Nat → Option Nat}
     {tm : Kraken.Promising.Memory} {sm : WeakMem.Memory} {pairs : List Nat} (h : MemRel Λ lbl lsize ts tm sm pairs)
     (hwf : Λ.WF) : ∀ l b, lbl l = some b → 0 < b :=
-  fun l b hl => hwf.lo_pos (h.lbl_range l b hl).2
+  fun l b hl => by
+    rcases (h.lbl_range l b hl).2 with hs | hs | ⟨-, hs⟩
+    · exact hwf.lo_pos (.inl hs)
+    · exact hwf.lo_pos (.inr hs)
+    · exact Nat.lt_of_lt_of_le (hwf.pos Λ.pinned (by simp [Layout.regions])) hs.1
 
 /-- `MemRel.lbl_pos` under the memory relation with promises. -/
 theorem MemRelP.lbl_pos {Λ : Layout} {lsize : WeakMem.AllocLabel → Nat} {ts : Nat → Option Nat}
     {tm : Kraken.Promising.Memory} {sm : WeakMem.Memory} {tp tq sp : List Nat}
     (h : MemRelP Λ lbl lsize ts tm sm tp tq sp) (hwf : Λ.WF) : ∀ l b, lbl l = some b → 0 < b :=
-  fun l b hl => hwf.lo_pos (h.lbl_range l b hl).2
+  fun l b hl => by
+    rcases (h.lbl_range l b hl).2 with hs | hs | ⟨-, hs⟩
+    · exact hwf.lo_pos (.inl hs)
+    · exact hwf.lo_pos (.inr hs)
+    · exact Nat.lt_of_lt_of_le (hwf.pos Λ.pinned (by simp [Layout.regions])) hs.1
 
 /-- `MemRel.lbl_pos` under the components of `R`. -/
 theorem Components.lbl_pos {M : ExtMachine} {Λ : Layout} {w : Witness M} {t : M.Cfg} {s : TermRun.Cfg}
     (h : Components M Λ w t s) (hwf : Λ.WF) : ∀ l b, w.lbl l = some b → 0 < b :=
-  fun l b hl => hwf.lo_pos (h.lbl_range l b hl).2
+  fun l b hl => by
+    rcases (h.lbl_range l b hl).2 with hs | hs | ⟨-, hs⟩
+    · exact hwf.lo_pos (.inl hs)
+    · exact hwf.lo_pos (.inr hs)
+    · exact Nat.lt_of_lt_of_le (hwf.pos Λ.pinned (by simp [Layout.regions])) hs.1
 
 /-! ## Transport -/
 

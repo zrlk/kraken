@@ -6,7 +6,7 @@ word the arena allows other than the counter (`allocInvAt_out`), and after
 the counter's add, idle to pending (`allocInvAt_ctr`).
 
 - `AllocInvAt.arenaOK`, `AllocInvAt.idle_of_term`, `AllocInvAt.retarget`:
-  the contract at the heap use; a control off a buffer allocation holds no
+  the contract at the heap use; a control off an allocation site holds no
   counter word; idle, the control may change to another holding none.
 - `ArenaW.out_free`: a word the arena allows, off the counter and outside
   the pending header, is outside the free range.
@@ -42,14 +42,25 @@ theorem _root_.Spike.Lib.AllocInvAt.arenaOK
   · exact ⟨ex, ha⟩
   · exact ⟨_, ha⟩
 
-/-- **A control off a buffer allocation holds no counter word** under
-`AllocInvAt` (pending is at the allocation). -/
+/-- **A control off an allocation site holds no counter word** under
+`AllocInvAt` (pending is at the allocation): a control at `let x = o in e`
+with `o` neither a buffer nor a box allocation. -/
 theorem _root_.Spike.Lib.AllocInvAt.idle_of_term
     (h : AllocInvAt Λ lbl lsize th tm ar.heap ar.cells ar.ctr ar.units ar.off hu c)
-    (ht : ∀ x a τ e, c.term ≠ .let_ x (.newBuf a τ) e) : ∀ w, c.hold ≠ some (ar.ctr, w) := by
-  rcases h with ⟨-, -, ⟨x, a, τ, e, -, -, -, hc, -⟩, -⟩ | ⟨hn, -⟩
-  · exact absurd hc (ht x a τ e)
-  · exact hn
+    (ht : ∃ x o e, c.term = .let_ x o e ∧ (∀ a τ, o ≠ .newBuf a τ) ∧ ∀ a, o ≠ .new a) :
+    ∀ w, c.hold ≠ some (ar.ctr, w) := by
+  obtain ⟨x0, o, e0, ht, hb, hn⟩ := ht
+  rcases h with ⟨-, -, ⟨x, n, τ, e, ⟨a, -, -, hc, -⟩ | ⟨-, a, -, hc, -⟩, -⟩, -⟩ | ⟨hn', -⟩
+  · rw [ht] at hc; simp only [Expr.let_.injEq] at hc; exact absurd hc.2.1 (hb a τ)
+  · rw [ht] at hc; simp only [Expr.let_.injEq] at hc; exact absurd hc.2.1 (hn a)
+  · exact hn'
+
+/-- **A control at `let x = o in e`, `o` neither a buffer nor a box
+allocation**, as `AllocInvAt.idle_of_term` takes it. -/
+theorem notAlloc_let {c : Ctl} {x : String} {o : Op} {e : Expr} (ht : c.term = .let_ x o e)
+    (hb : ∀ a τ, o ≠ .newBuf a τ) (hn : ∀ a, o ≠ .new a) :
+    ∃ x o e, c.term = .let_ x o e ∧ (∀ a τ, o ≠ .newBuf a τ) ∧ ∀ a, o ≠ .new a :=
+  ⟨x, o, e, ht, hb, hn⟩
 
 /-- **Idle, the control may change** to another holding no counter word. -/
 theorem _root_.Spike.Lib.AllocInvAt.retarget

@@ -38,6 +38,7 @@ open Spike.Lib.LowerShape (printInsts)
 open Spike.Lib.A64.Flow.PrintCall (pN pR pF pcS pFJ)
 open Spike.Lib.PrintSrc (PrintC printN loadC nextC)
 open Spike.Lib.A64.StubW (printPhOk)
+open Spike.Lib.A64.PrintG (printPhOkF)
 open Spike.Lib.ByteOut (ByteOut)
 
 variable {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe] {endPc : Int64}
@@ -90,7 +91,7 @@ from the caller's slots (`printCallC_of'`'s `PrintSlots`) and the frames
 below placed under `F` (`hFP`). -/
 theorem printW_hPWJ {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
     (hpr : Scc.Cert.Rt.A64.Print.printIn prog = true) (habI : Scc.Cert.Rt.A64.Abort.abortIn prog = true)
-    (hph : printPhOk okPc ph lab = true)
+    (hph : printPhOkF okPc ph lab = true)
     {cx : FnCtx} (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) (h16 : cx.frame % 16 = 0)
     (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -(cx.frame : Int) - 48) (hhi : 0 ≤ R.hi)
     (hl : R.lo % 8 = 0) (hh : R.hi % 8 = 0) (hsub : rS.Sub Λ.stackPool) (hfit : rS.lo + rS.size ≤ 2 ^ 64)
@@ -151,7 +152,7 @@ labels in the heap or `.data` (`hrg`, e.g. `lblRange_reach`) and the layout
 below `2 ^ 32` (`hb32`, `below32_of_placeOKAt`). -/
 theorem printW_hPWJ_AB {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
     (hpr : Scc.Cert.Rt.A64.Print.printIn prog = true) (habI : Scc.Cert.Rt.A64.Abort.abortIn prog = true)
-    (hph : printPhOk okPc ph lab = true)
+    (hph : printPhOkF okPc ph lab = true)
     {cx : FnCtx} (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) (h16 : cx.frame % 16 = 0)
     (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -(cx.frame : Int) - 48) (hhi : 0 ≤ R.hi)
     (hl : R.lo % 8 = 0) (hh : R.hi % 8 = 0) (hsub : rS.Sub Λ.stackPool) (hfit : rS.lo + rS.size ≤ 2 ^ 64)
@@ -207,14 +208,14 @@ theorem printW_hPWJ_AB {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K ok
     (fun _ _ h => h.1) he hfs hfp hcall (framesPlaced_printFJ hf hlo hhi hS hFP) hDt rfl rfl hpw hrg hb32
 
 /-- **`printCallC_of'`'s `hPWE` inside `W2`** (`printWE_w2'` at `printJ`
-at `print`'s `ret ()`): the frames inside `print` by
+at `print`'s `ret `): the frames inside `print` by
 `framesPlaced_printFJ` from the caller's slots and the frames below placed
 under `F` (`hFP`); at each call (`hPer`) the caller's continuation free of
 `ZBad`, the frames placed along the block and the rest of `PrintCallOk` at
 the call states. -/
 theorem printWE_hPWEJ {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
     (hpr : Scc.Cert.Rt.A64.Print.printIn prog = true) (habI : Scc.Cert.Rt.A64.Abort.abortIn prog = true)
-    (hph : printPhOk okPc ph lab = true)
+    (hph : printPhOkF okPc ph lab = true)
     {cx : FnCtx} (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) (h16 : cx.frame % 16 = 0)
     (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -(cx.frame : Int) - 48) (hhi : 0 ≤ R.hi)
     (hl : R.lo % 8 = 0) (hh : R.hi % 8 = 0) (hsub : rS.Sub Λ.stackPool) (hfit : rS.lo + rS.size ≤ 2 ^ 64)

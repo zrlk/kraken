@@ -19,13 +19,22 @@ open Kraken.Promising
 
 /-- **The allocator's arena**: at `heap`, of `cells` 16-byte cells, the
 heap counter word at `ctr`, an object of `k` elements of type `τ` taking
-`units k τ` cells with its base at `off k τ` in it. -/
+`units k τ` cells with its base at `off k τ` in it; box allocations
+admitted where `newOk` holds. -/
 structure Arena where
   heap : Nat
   cells : Nat
   ctr : Nat
   units : Nat → Ty → Nat
   off : Nat → Ty → Nat
+  /-- Whether the consumer's rows admit box allocations (`MemSide.newOk`
+  of the memory side with the arena). The default (none) is the strong
+  direction: only buffer allocations. -/
+  newOk : Prop := False
+  /-- Whether the consumer's rows admit the source's publication at a fence
+  (`MemSide.pub` of the memory side with the arena, `FenceRun.pub`). The
+  default (none) is the strong direction: fence rows take local runs only. -/
+  pub : Prop := False
 
 /-- **The arena's facts**: the counter word off the arena; an object of `k`
 elements of a type of words `us` that fits the arena (`k · nWords us + 1 ≤

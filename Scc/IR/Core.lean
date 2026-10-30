@@ -46,7 +46,8 @@ size that area per `tail`-connected group of functions, and every call of
 one of them reserves it (`StackMap.argAreas`), so a `tail` is always a jump
 in constant stack, whatever its argument count.
 `site` and `clone` take register arguments only (at most `maxRegArgs`), and
-spawned blocks take at most `maxSpawnArgs` words (the TCB's argument area).
+spawned blocks take at most `maxSpawnArgs` words (a `clone` passes its first
+in its `arg` and the others in the `spawnReg` registers).
 All registers are
 caller-saved from the IR's point of view: the emitter must make every IR
 register of the caller hold the same value after a `call` as before (other
@@ -96,9 +97,19 @@ def maxArgs : Nat := 32
 `clone` entry takes. -/
 def maxRegArgs : Nat := 6
 
-/-- At most this many argument words of a spawned block (they travel in the
-child's TCB, whose argument area the pinned region reserves per thread). -/
+/-- At most this many argument words of a spawned block: the `clone`
+argument and the `spawnReg` registers (the pinned region still reserves that
+many words per TCB). -/
 def maxSpawnArgs : Nat := 6
+
+/-- The IR register whose value at a `clone` is the child entry's argument
+`k + 1` (`k` = 1 … `maxSpawnArgs - 1`; `Inst.clone`).  `%` keeps it apart
+from every register the lowering names (`hint%n`) and every parameter. -/
+def spawnReg (k : Nat) : Reg := s!"%spawn{k}"
+
+/-- The `spawnReg` registers, in argument order (arguments 2 … `maxSpawnArgs`
+of a `clone` entry). -/
+def spawnRegs : List Reg := (List.range (maxSpawnArgs - 1)).map fun k => spawnReg (k + 1)
 
 /-- At most this many results of a `ret` or a `call`. -/
 def maxRets : Nat := 6
@@ -309,8 +320,15 @@ inductive Inst
   /-- Start a thread: `clone(cloneFlags, stack, …, tls)`.  The parent gets the
   kernel's return value (a thread id or `-errno`) in `d`.  The child starts
   with stack pointer `stack` (16-byte aligned, the top of its stack range),
-  thread pointer `tls`, and calls `entry(arg)`; `entry` never returns (it ends
-  in `Sys.exit`).  The child does not touch the parent's frame. -/
+  thread pointer `tls`, and calls `entry(arg, s₁, …, sₘ)`, where `sₖ` is the
+  value at the `clone` of the register `spawnReg k` (`k` = 1 … 5) if the
+  function has that register, and unspecified if it has not; `entry` never
+  returns (it ends in `Sys.exit`).  The child does not touch the parent's
+  frame: the emitters branch from the system call to a frameless stub at the
+  end of the function, which moves the arguments into place and calls
+  `entry`.  The `spawnReg` reads are not among the instruction's uses
+  (`StackMap.instUses`): the lowering writes them right before the `clone`
+  (only a `fence` between), so no safepoint sees them live. -/
   | clone (d : Reg) (stack tls : Operand) (entry : Sym) (arg : Operand)
   /-- `d := ` the address of the frame slot of register `s` (a stack address;
   `d` must be in `Func.stackRegs` and `s` must not be).  Taking the address

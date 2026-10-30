@@ -15,13 +15,17 @@ hook `SrcHooks.none`, start `mainInit`) are unaffected.
 - `wcHooks p k arch`: the source hook made of the two (`ext := ExtBy`,
   `trace := traceOf`).
 - `setupStart`, `setupInit`: the start before the setup block: thread 0 calls `rodata` on
-  `()`, pairs its result with the main thread's `Ptr pub Void` word and enters `main`.
+  ``, pairs its result with the main thread's `Ptr pub Void` word and enters `main`.
 - `tidStart`, `tidInit`: the start of `main(a : Ptr pub Void)`: thread 0 enters `main` on
   the main thread's word.
+- `tidStartT`, `setupStartT`: the starts of `main(a : ThreadId)` and
+  `main(a : S * ThreadId)`: the main thread holds its own `ThreadId` (`tidLbl` set, the
+  box at its first label, `mainTidLbl`), so `unpark` of it names thread 0.
 - `progInit p cap`: the start of program `p`, chosen by `main`'s argument type as `scc`'s
   entry check (`Scc.Frontend.entryOf`) classifies it.
 - `srcP1o arch p`: the single-thread parameters of `p` with output: memory model `arch`,
   one thread, start `progInit p 1`, hook `wcHooks p .all arch`.
+- `srcPo n arch p`: as `srcP1o` with `n` threads (capacity and label stripe `n`).
 -/
 import Scc.Sem.SrcExt
 
@@ -92,10 +96,33 @@ def tidStart (cap : Nat) (meW : Word) : TermRun.Cfg where
 /-- The starts of `main(a : Ptr pub Void)`: `tidStart` at any word for `me`. -/
 def tidInit (cap : Nat) : TermRun.Cfg → Prop := fun s => ∃ meW, s = tidStart cap meW
 
+/-- **The main thread's own `ThreadId`** in a start of label stripe `cap`: its box label
+`freshLabel 0 (max cap 1) 0 0` (thread 0's first allocation, as `current` would allocate
+it, `TermRun.curCfg`), and the word `cst (.loc ⟨l, 0⟩ 0)` naming it (`thrOfTid`). -/
+def mainTidLbl (cap : Nat) : WeakMem.AllocLabel := freshLabel 0 (max cap 1) 0 0
+
+/-- **The start of `main(a : ThreadId)`**: one thread entering `main` on its own
+`ThreadId` (`tidLbl` set, one allocation made: the box); empty memory; stripe `cap`. -/
+def tidStartT (cap : Nat) : TermRun.Cfg where
+  mem := #[]
+  ths := #[{ term := .tail "main" [] (.var "me"), env := [("me", .tid, [cst (.loc ⟨mainTidLbl cap, 0⟩ 0)])],
+             tidLbl := some (mainTidLbl cap), nalloc := 1 }]
+  cap := cap
+
+/-- **The start before the setup block of `main(a : S * ThreadId)`**: as `setupStart`,
+with `me` the main thread's own `ThreadId` (as `tidStartT`). -/
+def setupStartT (cap : Nat) : TermRun.Cfg where
+  mem := #[]
+  ths := #[{ term := setupTerm, env := [("me", .tid, [cst (.loc ⟨mainTidLbl cap, 0⟩ 0)]), ("u", .unit, [])],
+             tidLbl := some (mainTidLbl cap), nalloc := 1 }]
+  cap := cap
+
 /-- **The start of program `p`**, by `main`'s argument type (the classes of
 `Scc.Frontend.entryOf`): `Unit` starts at `main` (`mainInit`), `Ptr pub Void` at `main`
 on the thread's word (`tidInit`), `S * Ptr pub Void` before the setup block
-(`setupInit`). Any other program has no start. -/
+(`setupInit`), `ThreadId` at `main` on the thread's own `ThreadId` (`tidStartT`),
+`S * ThreadId` before the setup block with it (`setupStartT`). Any other program has no
+start. -/
 def progInit (p : Prog) (cap : Nat) : TermRun.Cfg → Prop :=
   match p.find? (·.name == "main") with
   | some d =>
@@ -103,6 +130,8 @@ def progInit (p : Prog) (cap : Nat) : TermRun.Cfg → Prop :=
     | .unit => mainInit cap
     | .ptr .pub .void => tidInit cap
     | .prod _ (.ptr .pub .void) => setupInit cap
+    | .tid => (· = tidStartT cap)
+    | .prod _ .tid => (· = setupStartT cap)
     | _ => fun _ => False
   | none => fun _ => False
 
@@ -115,6 +144,15 @@ def srcP1o (arch : WeakMem.Arch) (p : Prog) : SrcParams where
   arch := arch
   cap := 1
   init := progInit p 1
+  hooks := wcHooks p .all arch
+
+/-- **The source parameters of program `p` with output and `n` threads** (`n ≥ 1`; the
+statement takes `n` at least the target's thread slots and above `B.threads`): as
+`srcP1o`, with capacity and label stripe `n`. -/
+def srcPo (n : Nat) (arch : WeakMem.Arch) (p : Prog) : SrcParams where
+  arch := arch
+  cap := n
+  init := progInit p n
   hooks := wcHooks p .all arch
 
 end Scc.Sem.SrcSem

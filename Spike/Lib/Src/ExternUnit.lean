@@ -24,7 +24,8 @@ theorem retTy_of_externOf {d : Decl} {e : Scc.Frontend.Extern} (h : Scc.Frontend
   split at h
   · rename_i hc; simp only [Bool.and_eq_true, beq_iff_eq] at hc; exact hc.2
   · split at h
-    · rename_i _ hc; simp only [Bool.and_eq_true] at hc; rw [Scc.Frontend.declIs_eq hc.2]; rfl
+    · rename_i _ hc; simp only [Bool.and_eq_true, Bool.or_eq_true] at hc
+      rcases hc.2 with h | h <;> rw [Scc.Frontend.declIs_eq h] <;> rfl
     · cases h
 
 /-- With distinct names, a name determines the block. -/

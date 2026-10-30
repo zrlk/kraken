@@ -155,6 +155,11 @@ structure Isa where
   chained by `emitFuncs_cons`) instead of by the function's index
   (AArch64: `emitFuncAt` on `zipIdx`, chained by `mapM_ok_cons`). -/
   emitCounter : Bool := false
+  /-- The module and namespace of the placement check for a program that
+  takes its thread id or spawns (`placeOK2`: `Scc/Cert/SpawnX64.lean`,
+  `Scc/Cert/SpawnA64.lean`), imported and stated with `Placement.spawn`. -/
+  spawnMod : String := ""
+  spawnNs : String := ""
 
 def isaOf : Arch → Isa
   | .x64 => {
@@ -164,6 +169,7 @@ def isaOf : Arch → Isa
       lower := "Scc.Lower.X64", link := "Scc.Cert.Link.X64"
       predicate := "Scc.Emit.X64.ProgramWCLowerable prog", a9 := true, a9fast := true, a12 := true
       emitStaged := true, emitCounter := true, blocksStagedLarge := true, rt := "Scc.Cert.Rt.X64"
+      spawnMod := "Scc.Cert.SpawnX64", spawnNs := "Scc.Cert.Spawn.X64"
       predicateDoc := "`Scc.Emit.X64.ProgramWCLowerable` (`Scc/Emit/X64Lowerable.lean`: \
         every memory RMW is locked, no `movnti`)"
       dropped := "the assembler directive lines (sections, symbols, data, the stack-map \
@@ -175,6 +181,7 @@ def isaOf : Arch → Isa
       lower := "Scc.Lower.A64", link := "Scc.Cert.Link.A64"
       predicate := "prog.WCLowerable", cover := true, a9 := true, a9fast := true, a12 := true
       emitStaged := true, blocksStaged := true, a2fast := true, rt := "Scc.Cert.Rt.A64"
+      spawnMod := "Scc.Cert.SpawnA64", spawnNs := "Scc.Cert.Spawn.A64"
       predicateDoc := "Kraken's `Program.WCLowerable` (`Kraken/Promising/Lower/Lowerable.lean`: \
         the AArch64 forms a WeakCore lowering may emit)"
       dropped := "the assembler directive lines (sections, symbols, data, the stack-map \
@@ -222,6 +229,13 @@ structure Placement where
   (`a12Skip`) instead of a check per function. Not a trusted input: a wrong
   value gives a file that does not check. Empty: every function checked. -/
   checked : List Bool := []
+  /-- Whether the lowered IR's `scc_rt_main` passes the TCB to `main` or the
+  IR has a `clone` (`Scc.Cert.Spawn.X64.tidOf`, `spawnsOf`; `scc --cert`
+  sets it so): the file then states `placeOK2` (`Isa.spawnMod`) instead of
+  `placeOK`, whose A11 and A12 do not admit such a program. Not a trusted
+  input: it only selects which statement the file makes, and the kernel
+  decides that statement either way. -/
+  spawn : Bool := false
 
 /-- The programs with a release theorem (`Spike/Test/Ret0Release{A64,X64}.lean`):
 their certificate's docstring points at it (`docstring`). -/
@@ -288,7 +302,11 @@ def docstring (cfg : Config) (name srcHash asmHash : String) (sized : Bool := fa
    its component A{n} fails (`prog_placeOK_{n}`, decided on
    `outLit`)"
     | none =>
-      if isa.a12 then "`prog_placeOK` proves `placeOK` of it at `placeCfg` (decided on
+      if pl.spawn then s!"`prog_placeOK2` proves `placeOK2` of it at `placeCfg` (`{isa.spawnMod}`:
+   `placeOK` with A11', A12' and A13 for a program that takes its thread id
+   or spawns; decided on `outLit` in separate declarations, A1 to A9, A11',
+   A12''s two parts and A13, combined by `placeOK2_of`)"
+      else if isa.a12 then "`prog_placeOK` proves `placeOK` of it at `placeCfg` (decided on
    `outLit` in separate declarations, A1 to A8, A9 and A12 where the ISA
    checks them, A11, combined by `placeOK_of`)"
       else "`prog_placeOK` proves `placeOK` of it at `placeCfg` (decided on
@@ -697,7 +715,7 @@ theorem prog_placeOK_12p : {ns}.a12ph outLit {t} = true := by
   -- A12 per function on a listing whose block table is split (`blocksStage`): on one
   -- whose block table is one check (x86-64), that check is the peak, and A12 per
   -- function only adds time
-  let perFn := split && isa.blocksStaged && pl.parts != 0 && pl.funcs != 0
+  let perFn := split && isa.blocksStaged && pl.parts != 0 && pl.funcs != 0 && !pl.spawn
   let a12Thm := if isa.a12 then
     if perFn then a12PerFn ns t "" pl.funcs pl.checked else s!"{a12Parts}
 /-- A12 of `outLit`: the code of every user function (kernel-checked). -/
@@ -772,7 +790,9 @@ theorem prog_accepted : Scc.Lower.Accepted0 prog_src = true := by decide +kernel
 (kernel-checked): no `prog_cert_ready` is stated. -/
 theorem prog_not_accepted : Scc.Lower.Accepted0 prog_src = false := by decide +kernel
 "
-  let positive := s!"
+  -- A1 to A9: `placeOK`'s and `placeOK2`'s alike.
+  let sns := isa.spawnNs
+  let common := s!"
 /-- A1 of `outLit` (kernel-checked; each component is its own declaration,
 so that the kernel keeps one component's terms alive at a time). -/
 theorem prog_placeOK_1 : {ns}.a1 outLit {t} = true := by
@@ -804,7 +824,8 @@ theorem prog_placeOK_6 : {ns}.a6 outLit {t} = true :=
 /-- A8 of `outLit`: the runtime's data words (kernel-checked). -/
 theorem prog_placeOK_8 : {ns}.a8 outLit {t} = true := by
   decide +kernel
-{a9Thm}
+{a9Thm}"
+  let positive := s!"{common}
 /-- A11 of `outLit`: the runtime's fixed code (kernel-checked). -/
 theorem prog_placeOK_11 : {ns}.a11 outLit {t} = true := by
   decide +kernel
@@ -814,6 +835,35 @@ theorem prog_placeOK : {ns}.placeOK {can} out = true := by
   rw [out_eq]
   exact {ns}.placeOK_of prog_placeOK_1 prog_placeOK_2 prog_placeOK_3 prog_placeOK_4 prog_placeOK_5
     prog_placeOK_6 prog_placeOK_7 prog_placeOK_8{a9Arg} prog_placeOK_11{a12Arg}
+"
+  -- `placeOK2` (`Isa.spawnMod`) for a program that takes its thread id or
+  -- spawns: A1 to A9 as `placeOK`'s, A11'
+  -- for A11, A12' in its two parts and A13, each its own declaration.
+  let positive2 := s!"{common}
+/-- A11' of `outLit`: the runtime's fixed code, at the thread-id shape when
+`main` takes its thread id (kernel-checked). -/
+theorem prog_placeOK_11 : {sns}.a11' outLit {t} = true := by
+  decide +kernel
+
+/-- A12''s code part of `outLit` (kernel-checked). -/
+theorem prog_placeOK_12c : {sns}.a12code' outLit = true := by
+  decide +kernel
+
+/-- A12''s phase part of `outLit` (kernel-checked). -/
+theorem prog_placeOK_12p : {sns}.a12ph' outLit {t} = true := by
+  decide +kernel
+
+/-- A13 of `outLit`: the second thread's words and the spawn path's runtime
+code (kernel-checked). -/
+theorem prog_placeOK_13 : {sns}.a13 outLit {t} = true := by
+  decide +kernel
+
+/-- **`placeOK2` of `scc`'s output** for `prog_src`. -/
+theorem prog_placeOK2 : {sns}.placeOK2 {can} out = true := by
+  rw [out_eq]
+  exact {sns}.placeOK2_of prog_placeOK_1 prog_placeOK_2 prog_placeOK_3 prog_placeOK_4 prog_placeOK_5
+    prog_placeOK_6 prog_placeOK_7 prog_placeOK_8 prog_placeOK_9 prog_placeOK_11 prog_placeOK_12c
+    prog_placeOK_12p prog_placeOK_13
 "
   let negative (n : Nat) : String :=
     let cfgArg := if n == 4 then s!" {can}" else ""
@@ -837,8 +887,13 @@ def placeCfg : Scc.Cert.PlaceOK.Config :=
 /-- `out` as a literal: its value computed at elaboration time (`scc_lit%`,
 untrusted), trusted through `out_eq`. -/
 def outLit : {ns}.Out := scc_lit% out
-{outEq}{match pl.fails with | some n => negative n | none => positive}"
-  let ready := if accepted && pl.fails.isNone then s!"
+{outEq}{match pl.fails with | some n => negative n | none => if pl.spawn then positive2 else positive}"
+  let ready := if accepted && pl.fails.isNone then
+    if pl.spawn then s!"
+/-- **Acceptance and placement** of `prog_src`'s compilation. -/
+theorem prog_cert_ready : Scc.Lower.Accepted0 prog_src = true ∧ {sns}.placeOK2 {can} out = true :=
+  ⟨prog_accepted, prog_placeOK2⟩
+" else s!"
 /-- **Acceptance and placement** of `prog_src`'s compilation. -/
 theorem prog_cert_ready : Scc.Lower.Accepted0 prog_src = true ∧ {ns}.placeOK {can} out = true :=
   ⟨prog_accepted, prog_placeOK⟩
@@ -917,8 +972,9 @@ def render (cfg : Config) (name src asm : String)
   let isa := isaOf cfg.arch
   let srcHash := Sha256.ofString src
   let asmHash := Sha256.ofString asm
+  let spawnImport := if pl.spawn then s!"\nimport {isa.spawnMod}" else ""
   s!"import {isa.module}
-import {isa.place}
+import {isa.place}{spawnImport}
 import Scc.Cert.SrcTerm
 
 {docstring cfg name srcHash asmHash sizes.isSome pl}

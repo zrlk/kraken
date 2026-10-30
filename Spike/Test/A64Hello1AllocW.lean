@@ -192,7 +192,7 @@ theorem allocSt (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -160) 
       (l := ".L2_scc_rt_alloc.5_ok") (k := 41) (p := labT ".L2_scc_rt_alloc.5_ok" + Int64.ofNat (4 * 41))
       (by decide +kernel) rfl (by dsimp only [dumN, N]; decide +kernel) (fun _ _ hJ => hJ.1 ▸ cfacts_c0)
       (by decide +kernel) (by decide +kernel) hR hR8 hl hh hsub hFO fun σ c m hJ hF => ?_)
-    obtain ⟨-, c, o, ⟨-, hle, -, hn28, -⟩, -, -, h10⟩ := hJ
+    obtain ⟨-, c, o, ⟨-, hle, -, hn28, -, hlo⟩, -, -, h10⟩ := hJ
     have hq' := hq m hF
     rw [hello1_labT] at hq'
     have hk := Spike.Lib.A64.Alloc.Call.k_toNat hq'.n_lt
@@ -206,7 +206,7 @@ theorem allocSt (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -160) 
       rfl
     have hofn : BitVec.ofNat 64 (q.hdrAt ms o.toNat) = Spike.Lib.A64.Flow.rAddr σ.regs .X10 0 := by
       rw [← hAeq]; simp
-    obtain ⟨-, hmp', -⟩ := hq'.hdr o.toNat hle
+    obtain ⟨-, hmp', -⟩ := hq'.hdr o.toNat hlo hle
     exact ⟨hmp _ (hofn ▸ hmp'), hmem _ (.inr ⟨o.toNat, hle, hAeq⟩) m hF, hno _ (.inr ⟨o.toNat, hle, hAeq⟩)⟩
   · ablk ".L2_scc_rt_alloc.5_ok" 42 b13_ok
   · refine NodeW.st (Spike.Lib.LowerA64.BlkW.nodeW (Spike.Lib.A64.Rt.blkW_postO hello1_instOk

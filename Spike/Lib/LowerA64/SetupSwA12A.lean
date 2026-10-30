@@ -160,8 +160,9 @@ theorem mapM_idx1 {α : Type} {a b : Except String α} {l : List (Except String 
       rfl
 
 /-- **`scc_rt_main` is the runtime's second function.** -/
-theorem mainThread0_idx {lay : Scc.Layout} {e : Scc.Frontend.Entry} {sw : Nat} {rt : List Scc.IR.Func}
-    (h : Scc.Lower.Inv.rtFuncs lay e sw = .ok rt) : rt[1]? = some (Scc.Lower.Inv.mainThread0 e sw) := by
+theorem mainThread0_idx {arch : Scc.Arch} {lay : Scc.Layout} {e : Scc.Frontend.Entry} {sw : Nat}
+    {rt : List Scc.IR.Func}
+    (h : Scc.Lower.Inv.rtFuncs arch lay e sw = .ok rt) : rt[1]? = some (Scc.Lower.Inv.mainThread0 e sw) := by
   unfold Scc.Lower.Inv.rtFuncs at h
   rw [List.cons_append, List.cons_append] at h
   exact mapM_idx1 h (Scc.Lower.Inv.mainThreadF_eq e sw)

@@ -210,7 +210,8 @@ theorem ti_runAE {ab : Option (State → Prop)} (hN : NodesA Λ p μ rd G own ar
 
 /-- **An abort from `RSAE` is justified**: from `PreSA` by `r_abortA`; there
 is none from `EmitSA` (`emit_noAbort`). -/
-theorem r_abortAE {ab : Option (State → Prop)} (hN : NodesA Λ p μ rd G own ar I ab) (hwf : Λ.WF)
+theorem r_abortAE {ab : Option (State → Prop)} (hN : NodesA Λ p μ rd G own ar I ab) (hsafe : SrcSafeS P p I)
+    (hwf : Λ.WF)
     {Ab : State → Prop} (hA : AbortPathS μ I Ab ar.cells ar.ctr) {B : Budget} (hB : B.cells = ar.cells)
     {rS : Range} {Tk : State → Prop} (hT : TakePathS Λ p μ I rS Tk) {Ent : Entry} {t t' : T.M.Cfg}
     {s : TermRun.Cfg} {tid : Nat} {es tr : List Ev} {k : AbortKind}
@@ -219,9 +220,9 @@ theorem r_abortAE {ab : Option (State → Prop)} (hN : NodesA Λ p μ rd G own a
     ∃ w i, Components T.M Λ w t ((SrcSem.source P p).core s) ∧ w.thr i = some tid ∧
       AbortJustified B (SrcSem.source P p) tr s i k := by
   rcases h with ⟨⟨hpre, -⟩ | hem, -⟩ | hpost
-  · exact r_abortA hN hwf hA hB (.inl hpre) hti hs hk
+  · exact r_abortA hN hsafe hwf hA hB (.inl hpre) hti hs hk
   · exact (emit_noAbort hN hT hem hs hk).elim
-  · exact r_abortA hN hwf hA hB (.inr hpost) hti hs hk
+  · exact r_abortA hN hsafe hwf hA hB (.inr hpost) hti hs hk
 
 /-! ## The components -/
 
@@ -334,7 +335,7 @@ theorem correctKOnAE {B : Budget} (hB : B.cells = ar.cells) {A : Type} {ld : A �
         ⟨s', h'⟩)
       hr hR0 (pre := []) (fun th h hab => absurd hab (ti_load hab0 (hl.symm.trans h0) th h))
     rw [List.nil_append] at hti
-    exact r_abortAE hN hwf hA hB hT hR hti hs hk
+    exact r_abortAE hN hsafe hwf hA hB hT hR hti hs hk
 
 -- The kernel's check that `target (kernel 1) E`'s machine is `T`'s (`canonical 1`) may recurse past the default depth.
 set_option maxRecDepth 100000 in

@@ -123,7 +123,8 @@ theorem setupValWords_of_lowerIR {p : Prog} (hp : Scc.Lower.Accepted2 p = true) 
         · cases hw
         rw [spawned_accepted2 hp] at hw
         have harg : (entry2 p).arg = .setupTid := by simp [entry2, hs]
-        simp only [List.eraseDups_nil, List.mapM_nil, pure, Except.pure, harg, hfr, hn, throw, throwThe,
+        simp only [List.eraseDups_nil, List.mapM_nil, List.isEmpty_nil, Bool.not_true, Bool.and_false,
+          pure, Except.pure, harg, hfr, hn, throw, throwThe,
           MonadExceptOf.throw] at hw
         cases hw
 

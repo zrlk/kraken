@@ -32,10 +32,12 @@ What one instruction does (`Out`):
   the control records, as proof-only ghost state (`Ctl.hold`), the address
   and the word the source would read there; at the store the source takes
   its whole exchange step, binding that word;
-* `ctrRmw`: the allocator's atomic add of the buffer's source units
-  (`MemSide.units`) to the heap counter (`MemSide.ctr`) at a buffer
-  allocation `let x = newBuf a τ in e`: the source stutters, and the control
-  holds the counter's address and the old count (`Ctl.hold`);
+* `ctrRmw`: the allocator's atomic add of the object's source units
+  (`MemSide.units`) to the heap counter (`MemSide.ctr`) at an allocation
+  site (`AllocSite`: a buffer `let x = newBuf a τ in e`, or, where the
+  memory side admits it, a box `let x = new a in e`): the source stutters,
+  and the control holds the counter's address and the old count
+  (`Ctl.hold`);
 * `alloc`: the last instruction of a buffer allocation `let x = newBuf a τ
   in e` (its event tree `.done s'`), the counter's old count held, at which
   the source takes its allocation step: the base `A` is the arena
@@ -44,6 +46,13 @@ What one instruction does (`Out`):
   (one not yet placed), the pair lands in the allocation fragment
   (`MemSide.xa`) of that label placed at `A` with the buffer's size in
   bytes, with `x` bound to the buffer's locative;
+* `newStore`: the initialising plain store of a one-word box allocation
+  `let x = new a in e`, where the memory side admits it (`MemSide.newOk`),
+  the counter's old count held, at which the source takes its whole `new`
+  step (the label's push and the initial word's store): the store is at the
+  box's base `A`, placed as `alloc`'s, and for every label not yet placed the
+  pair lands in the allocation fragment of that label placed at `A` with one
+  word, with `x` bound to the box's owned pointer;
 * `store`: one store of an 8-byte location, matched by the source thread's
   release store `let x = store rel a b in e` of a word represented by the
   stored value;
@@ -74,7 +83,8 @@ What one instruction does (`Out`):
   refusal with no byte out holds `Qw`, which justifies the abort
   (`MemSide.we`).
 
-The runtime accesses (`rtLoad`, `rtStore`, `rtRmw`, `ctrRmw`) are at
+The runtime accesses (`rtLoad`, `rtStore`, `rtRmw`, `ctrRmw`) and the box's
+initialising store (`newStore`) are at
 locations mapped for them (`MemSide.mp`), and what they read agrees with the
 runtime words the thread owns (`MemSide.own`).
 
@@ -215,6 +225,15 @@ def XchgSite (c : Ctl) (x : String) (sa : WeakMem.Address) (u : Ty) (v : At) (e 
       pw.val = .loc sb 0 ∧ TermRun.bufElem t = some (μ, u) ∧ TermRun.evalAt c.env i = some (ti, iws) ∧
       TermRun.numOf iws = some k ∧ sa = TermRun.offs sb k))
 
+/-- **An allocation site** binding `x` to an object of `n` elements of type
+`τ`, then continuing with `e`: a buffer `let x = newBuf a τ in e`, `a` a
+number `n`, or, where `N` holds (`MemSide.newOk`), a box `let x = new a in
+e`, one object (`n = 1`) of `a`'s type `τ`. -/
+def AllocSite (N : Prop) (c : Ctl) (x : String) (n : Nat) (τ : Ty) (e : Expr) : Prop :=
+  (∃ a ta ws, c.term = .let_ x (.newBuf a τ) e ∧ TermRun.evalAt c.env a = some (ta, ws) ∧
+      TermRun.numOf ws = some n) ∨
+    (N ∧ ∃ a ws, c.term = .let_ x (.new a) e ∧ TermRun.evalAt c.env a = some (τ, ws) ∧ n = 1)
+
 /-- **The memory side the judgement is stated against**: what a whole-program
 proof's memory relation provides to the per-instruction rows.
 
@@ -249,7 +268,13 @@ proof's memory relation provides to the per-instruction rows.
   the abort, not `main` returning);
 - `pl`: the pairs placed in the program (`Out.sys`: `main` returns from one);
 - `xa l b n`: the fragment a buffer allocation lands in (`Out.alloc`), the
-  label `l` placed at `b` with `n` bytes.
+  label `l` placed at `b` with `n` bytes;
+- `lo o`: the counter floor: the counter values `o` the allocator may read
+  at its add (`Out.ctrRmw`), with the arena above the cursor `o` free of
+  every placed label at the consumer's instance. The allocator's per-call
+  premises at the headers and the returned base are asked only there. The
+  default (every value) is the weak direction: the row's producer is given
+  nothing.
 
 The defaults of the last five fields are the strong direction for a row: no
 owned words (no read facts), nothing mapped, no abort site, nothing placed,
@@ -272,6 +297,16 @@ structure MemSide (I : ISA) where
   xa : WeakMem.AllocLabel → Nat → Nat → Frag I := fun _ _ _ _ _ => False
   bo : I.State → Nat → Ctl → (Ctl → Prop) → Prop := fun _ _ _ _ => False
   we : I.State → Ctl → Prop := fun _ _ => False
+  lo : Nat → Prop := fun _ => True
+  /-- Whether a fence row may carry the source's publication step
+  (`FenceRun.pub`). The default (none) is the strong direction: consumers
+  that do not lift the source's `publish` take only `FenceRun.loc`. -/
+  pub : Prop := False
+  /-- Whether the rows of a box allocation `let x = new a in e` are admitted
+  (`AllocSite`'s box form at `Out.ctrRmw`, `Out.newStore`). The default
+  (none) is the strong direction: consumers that do not lift the source's
+  `new` see only buffer allocations. -/
+  newOk : Prop := False
 
 /-- **`main` returns with code `v`** from the pair `(s, c)`: the source runs
 locally to a placed control (`ms.pl`) whose return, in thread 0 with an
@@ -304,6 +339,53 @@ theorem SysOk.exitGroup_main {I : ISA} {p : Prog} {ms : MemSide I} {s : I.State}
 def WriteRetOk (j : Nat) (r : BitVec 64) : Prop :=
   (0 < j → r = BitVec.ofNat 64 j) ∧ (j = 0 → r = Scc.Sem.Kernel.neg Scc.Sem.Kernel.eintr ∨
     r = Scc.Sem.Kernel.neg Scc.Sem.Kernel.eagain ∨ Scc.Sem.Kernel.writeRefused r = true)
+
+/-- The type `publish a` gives `a`'s value (`TermRun`'s `publish` case). -/
+def pubTy : Ty → Option Ty
+  | .ptr _ u => some (.ptr .pub u)
+  | .refine (.loc _ (.array n u)) ψ => some (.refine (.loc .pub (.array n u)) ψ)
+  | _ => none
+
+/-- The type `intoRgn r a` gives `a`'s value (`TermRun`'s `intoRgn` case:
+region ids are ghost at runtime). -/
+def rgnTy : Ty → Option Ty
+  | .ptr _ u => some (.ptr (.rgn (.lit 0)) u)
+  | .refine (.loc _ (.array n u)) ψ => some (.refine (.loc (.rgn (.lit 0)) (.array n u)) ψ)
+  | _ => none
+
+/-- **The source's publication step at a fence of kind `k`**: `let x =
+publish a in e` (or `intoRgn r a`), no hold pending, `a`'s value bound to
+`x` at its published type; the source's release fence (`fenceS .st`), so the
+target's fence orders earlier stores (`dmb ishst`, `.st`; `dmb ish`, `.sy`). -/
+def PubStep (k : Kraken.FenceKind) (c c' : Ctl) : Prop :=
+  (k = .st ∨ k = .sy) ∧ c.hold = none ∧ ∃ (x : String) (a : At) (e : Expr) (t t' : Ty) (ws : List TermRun.Word),
+    ((c.term = .let_ x (.publish a) e ∧ pubTy t = some t') ∨
+      (∃ r, c.term = .let_ x (.intoRgn r a) e ∧ rgnTy t = some t')) ∧
+    TermRun.evalAt c.env a = some (t, ws) ∧ c' = ⟨e, (x, t', ws) :: c.env, none⟩
+
+/-- **The source's run at a fence of kind `k`**: a local run (`loc`), or,
+where the memory side allows it (`P`, `MemSide.pub`), its publication step
+from the row's control, then a local run (`pub`). The publication starts at
+the row's control (no local run before it: the row before the fence lands
+at the `publish`), so a control at no `publish` (`Quiet`) takes a local
+run only. -/
+inductive FenceRun (p : Prog) (P : Prop) (k : Kraken.FenceKind) : Ctl → Ctl → Prop
+  | loc {c c' : Ctl} : LocalRun p c c' → FenceRun p P k c c'
+  | pub {c c₁ c' : Ctl} : P → PubStep k c c₁ → LocalRun p c₁ c' → FenceRun p P k c c'
+
+/-- A fence run where no publication is allowed is a local run. -/
+theorem FenceRun.local {p : Prog} {k : Kraken.FenceKind} {c c' : Ctl} (h : FenceRun p False k c c') :
+    LocalRun p c c' := by
+  cases h with
+  | loc h => exact h
+  | pub hP => exact hP.elim
+
+/-- A fence run under a weaker publication allowance. -/
+theorem FenceRun.mono {p : Prog} {P P' : Prop} {k : Kraken.FenceKind} {c c' : Ctl} (h : FenceRun p P k c c')
+    (hP : P → P') : FenceRun p P' k c c' := by
+  cases h with
+  | loc h => exact .loc h
+  | pub h0 h1 h2 => exact .pub (hP h0) h1 h2
 
 /-- **What one instruction does** from the pair `(s, c)`, landing in the
 fragment `X`: see the module docstring. -/
@@ -396,24 +478,26 @@ inductive Out {I : ISA} (p : Prog) (lbl : WeakMem.AllocLabel → Option Nat) (ms
       XchgSite c x sa u v e → ValRep lbl (.loc sa 0) A.toNat → c.hold = some (A.toNat, wold) →
       TermRun.evalAt c.env v = some (tv, [wv]) → ValRep lbl wv.val V.toNat →
       X s' ⟨e, (x, u, [wold]) :: c.env, none⟩ → Out p lbl ms X s c
-  /-- The heap counter's atomic add at a buffer allocation `let x = newBuf
-  a τ in e`, `a` a number `n`, no hold pending: an RMW of the counter word
+  /-- The heap counter's atomic add at an allocation site (`AllocSite`: a
+  buffer `let x = newBuf a τ in e`, `a` a number `n`, or, where `ms.newOk`
+  admits it, a box `let x = new a in e`), no hold pending: an RMW of the counter word
   (`ms.ctr`, owned by the runtime, mapped for writing) adding the buffer's
   units `ms.units n τ`, its old value returned (not `noRet`).
   The source stutters; for every old value that runtime memory may hold
   there (`ms.G`), the owned value if the thread owns the counter
   (`ms.own`), within the arena's cells (`ms.cells`: no allocation is
-  pending), the new value may be held there too, and the control, holding
-  the counter's address and the old count, lands in `X`. -/
-  | ctrRmw (k : Kraken.RmwKind) (op : Val → Option Val) (g : Val → I.State) (x : String) (a : At)
-      (τ : Ty) (e : Expr) (ta : Ty) (ws : List TermRun.Word) (n : Nat) :
+  pending), above the counter floor (`ms.lo`), the new value may be held
+  there too, and the control, holding the counter's address and the old
+  count, lands in `X`. -/
+  | ctrRmw (k : Kraken.RmwKind) (op : Val → Option Val) (g : Val → I.State) (x : String)
+      (τ : Ty) (e : Expr) (n : Nat) :
       I.exec s = some (.rmw k false ⟨BitVec.ofNat 64 ms.ctr, 8⟩ op fun v => .done (g v)) →
       ms.rt (BitVec.ofNat 64 ms.ctr).toNat → ms.mp ⟨BitVec.ofNat 64 ms.ctr, 8⟩ true →
-      c.term = .let_ x (.newBuf a τ) e → TermRun.evalAt c.env a = some (ta, ws) → TermRun.numOf ws = some n →
+      AllocSite ms.newOk c x n τ e →
       c.hold = none →
       (∀ old, op old = some ((old.setWidth 64 + BitVec.ofNat 64 (ms.units n τ)).setWidth 128)) →
       (∀ old, ms.G ⟨BitVec.ofNat 64 ms.ctr, 8⟩ old → (∀ w, (⟨BitVec.ofNat 64 ms.ctr, 8⟩, w) ∈ ms.own s → old = w) →
-        (old.setWidth 64).toNat ≤ ms.cells →
+        (old.setWidth 64).toNat ≤ ms.cells → ms.lo (old.setWidth 64).toNat →
         ms.G ⟨BitVec.ofNat 64 ms.ctr, 8⟩ ((old.setWidth 64 + BitVec.ofNat 64 (ms.units n τ)).setWidth 128) ∧
         X (g old) { c with hold := some (ms.ctr, TermRun.cst (.num (old.setWidth 64).toNat)) }) →
       Out p lbl ms X s c
@@ -436,6 +520,25 @@ inductive Out {I : ISA} (p : Prog) (lbl : WeakMem.AllocLabel → Option Nat) (ms
         ms.xa l A.toNat (k * TermRun.nWords us) s'
           ⟨e, (x, .refine (.loc .own (.array (.lit k) (TermRun.close [] τ))) (.ini (.lit ini)),
             [TermRun.cst (.loc ⟨l, 0⟩ 0)]) :: c.env, none⟩) → Out p lbl ms X s c
+  /-- The initialising plain store of a box allocation `let x = new a in e`,
+  where the memory side admits it (`ms.newOk`), `a` of a one-word type `t`
+  (`accs t = [.one]`) whose word `w` `V` represents, the heap counter's old
+  count `old` held (`Out.ctrRmw` at the `new` site): the store is at the
+  box's base `A = ms.heap + 16·old + ms.off 1 t` (mapped for writing), the
+  box's units within the arena's cells. The source takes its whole `new`
+  step (`TermRun.alloc`: the label's push, then the initial word's store):
+  for every label `l` not yet placed, the pair lands in the allocation
+  fragment `ms.xa` of `l` placed at `A` with one word, with `x` bound to
+  `l`'s owned pointer. It does not land in `X`. -/
+  | newStore (kr : Kraken.StoreKind) (A : BitVec 64) (V : Val) (s' : I.State) (x : String) (a : At) (t : Ty)
+      (e : Expr) (w wold : TermRun.Word) (old : Nat) :
+      ms.newOk → I.exec s = some (.store kr false ⟨A, 8⟩ V fun _ => .done s') → ms.mp ⟨A, 8⟩ true →
+      c.term = .let_ x (.new a) e → TermRun.evalAt c.env a = some (t, [w]) → TermRun.accs t = some [.one] →
+      ValRep lbl w.val V.toNat → c.hold = some (ms.ctr, wold) → TermRun.numOf [wold] = some old →
+      A.toNat = ms.heap + 16 * old + ms.off 1 t → old + ms.units 1 t ≤ ms.cells →
+      (∀ l, lbl l = none →
+        ms.xa l A.toNat 1 s' ⟨e, (x, .ptr .own t, [TermRun.cst (.loc ⟨l, 0⟩ 0)]) :: c.env, none⟩) →
+      Out p lbl ms X s c
   /-- A `write(1, buf, n)` to the output under the kernel model `ms.K` (the
   output row): the source runs locally to `Pw 0`; each byte `j < n` moves
   it from `Pw j` to `Pw (j + 1)` by the byte step `ms.bo`; every result `r`
@@ -450,6 +553,12 @@ inductive Out {I : ISA} (p : Prog) (lbl : WeakMem.AllocLabel → Option Nat) (ms
       (∀ j ≤ n, ∀ c1, Pw j c1 → ∀ r ∈ Scc.Sem.Kernel.results (.write 1 buf n), WriteRetOk j r →
         X (K.ret s r) c1 ∧ (j = 0 → Scc.Sem.Kernel.writeRefused r = true → Qw c1)) →
       (∀ c1, Qw c1 → ms.we s c1) → Out p lbl ms X s c
+  /-- A fence (AArch64 `dmb`): no event the source sees, memory and
+  promises unchanged (only the thread's views move); the source takes a
+  local run, possibly none (stuttering), or, where the memory side allows
+  it (`ms.pub`), local runs around its publication step (`FenceRun`). -/
+  | fence (k : Kraken.FenceKind) (s' : I.State) (c' : Ctl) :
+      I.exec s = some (.fence k fun _ => .done s') → FenceRun p ms.pub k c c' → X s' c' → Out p lbl ms X s c
 
 theorem Out.mono {I : ISA} {p : Prog} {lbl : WeakMem.AllocLabel → Option Nat} {ms : MemSide I}
     {X Y : Frag I} {s : I.State} {c : Ctl}
@@ -473,14 +582,17 @@ theorem Out.mono {I : ISA} {p : Prog} {lbl : WeakMem.AllocLabel → Option Nat} 
     exact .holdLoad kl A g x sa u v e he hx hA hh fun r w' hr h => hXY _ _ (hX r w' hr h)
   | xchgStore kr A V s' x sa u v e tv wv wold he hx hA hh hev hv hX =>
     exact .xchgStore kr A V s' x sa u v e tv wv wold he hx hA hh hev hv (hXY _ _ hX)
-  | ctrRmw k op g x a τ e ta ws n he hrt hm ht hev hn hh hop hX =>
-    exact .ctrRmw k op g x a τ e ta ws n he hrt hm ht hev hn hh hop fun old hG ho hc =>
-      ⟨(hX old hG ho hc).1, hXY _ _ (hX old hG ho hc).2⟩
+  | ctrRmw k op g x τ e n he hrt hm hs hh hop hX =>
+    exact .ctrRmw k op g x τ e n he hrt hm hs hh hop fun old hG ho hc hl =>
+      ⟨(hX old hG ho hc hl).1, hXY _ _ (hX old hG ho hc hl).2⟩
   | alloc s' A x a τ e ta ws k wold old us he ht hev hk hh hold hA hc hu hX =>
     exact .alloc s' A x a τ e ta ws k wold old us he ht hev hk hh hold hA hc hu hX
+  | newStore kr A V s' x a t e w wold old hN he hm ht hev hu hv hh hold hA hc hX =>
+    exact .newStore kr A V s' x a t e w wold old hN he hm ht hev hu hv hh hold hA hc hX
   | emit K buf n Pw Qw hK ha hd h0 hb hr hq =>
     exact .emit K buf n Pw Qw hK ha hd h0 hb (fun j hj c1 hp r hm hok =>
       ⟨hXY _ _ (hr j hj c1 hp r hm hok).1, (hr j hj c1 hp r hm hok).2⟩) hq
+  | fence k s' c' he hr hx => exact .fence k s' c' he hr (hXY _ _ hx)
 
 /-- **An `Out.emit` row justifies an abort** (`ms.we`) at some control: the
 kernel may refuse the `write` with no byte out (`0`, `writeRefused`), which

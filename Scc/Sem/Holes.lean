@@ -437,7 +437,7 @@ theorem not_correct_event_after_exit (st : I.State) (P : SrcSem.SrcParams) (p : 
 
 /-! ## A justified abort -/
 
-/-- A finished source thread (`ret ()`), with no variables. -/
+/-- A finished source thread (`ret `), with no variables. -/
 def doneTh : TermRun.TTh := { term := .ret .unit, env := [] }
 
 /-- One source thread, `doneTh`, and no memory. -/
@@ -1052,15 +1052,15 @@ def fiveTh : TermRun.TTh := { term := .ret (.var "x"), env := [("x", .int, [Term
 /-- `fiveTh` does not run the output extern's model (`ret x`). -/
 theorem not_externFrame_fiveTh : ¬ ExternFrame fiveTh 0 := by
   simp [ExternFrame, externModelTerms, modelTerms, Scc.Frontend.printBody, Scc.Frontend.printLBody,
-    Scc.Frontend.printAdv, Scc.Frontend.printNext, fiveTh]
+    Scc.Frontend.printLPubBody, Scc.Frontend.printAdv, Scc.Frontend.printNext, fiveTh]
 
-/-- A thread at `ret ()` does not run the output extern's model, whatever
-its frames: the model bodies' `ret ()` leaves are not `externModelTerms`, so
-a user block returning `()` keeps `env_rep` and `env_total`. -/
+/-- A thread at `ret ` does not run the output extern's model, whatever
+its frames: the model bodies' `ret ` leaves are not `externModelTerms`, so
+a user block returning `` keeps `env_rep` and `env_total`. -/
 theorem not_externFrame_ret (th : TermRun.TTh) (d : Nat) (a : CoreTerm.At) (h : th.term = .ret a) :
     ¬ ExternFrame th d := by
   simp [ExternFrame, externModelTerms, modelTerms, Scc.Frontend.printBody, Scc.Frontend.printLBody,
-    Scc.Frontend.printAdv, Scc.Frontend.printNext, h]
+    Scc.Frontend.printLPubBody, Scc.Frontend.printAdv, Scc.Frontend.printNext, h]
 
 /-- The source configuration with that thread and empty memory. -/
 def fiveCfg : TermRun.Cfg := { mem := #[], ths := #[fiveTh] }
@@ -1357,7 +1357,7 @@ def casTh : TermRun.TTh :=
 /-- `casTh` does not run the output extern's model (a `cas`). -/
 theorem not_externFrame_casTh : ¬ ExternFrame casTh 0 := by
   simp [ExternFrame, externModelTerms, modelTerms, Scc.Frontend.printBody, Scc.Frontend.printLBody,
-    Scc.Frontend.printAdv, Scc.Frontend.printNext, casTh]
+    Scc.Frontend.printLPubBody, Scc.Frontend.printAdv, Scc.Frontend.printNext, casTh]
 
 /-- The source configuration with that thread and empty memory. -/
 def casCfg : TermRun.Cfg := { mem := #[], ths := #[casTh] }
@@ -1407,7 +1407,7 @@ def locTh : TermRun.TTh :=
 /-- `locTh` does not run the output extern's model (`ret p`). -/
 theorem not_externFrame_locTh : ¬ ExternFrame locTh 0 := by
   simp [ExternFrame, externModelTerms, modelTerms, Scc.Frontend.printBody, Scc.Frontend.printLBody,
-    Scc.Frontend.printAdv, Scc.Frontend.printNext, locTh]
+    Scc.Frontend.printLPubBody, Scc.Frontend.printAdv, Scc.Frontend.printNext, locTh]
 
 /-- `skipSrc` with the thread `locTh`: label 0 is live. -/
 def skipSrcLoc : TermRun.Cfg := { skipSrc with ths := #[locTh] }

@@ -137,7 +137,7 @@ theorem mapM_lowerDeclMarks_accepted1 {p : Prog} (hp : Accepted1 p = true) (obj 
 functions, then `funcs1`; the traces `marksAll1`. -/
 theorem lowerWithMarks_accepted1 (cfg : Config) {p : Prog} (hp : Accepted1 p = true)
     (hheap : cfg.layout.heapBytes < 2 ^ 32) {rt : List Func}
-    (hrt : rtFuncs cfg.layout ⟨.unit, true⟩ 0 = .ok rt) :
+    (hrt : rtFuncs cfg.arch cfg.layout ⟨.unit, true⟩ 0 = .ok rt) :
     ∃ rs, Pairwise2 (LowC p cfg.layout.obj none) p rs ∧
       lowerWithMarks cfg { prog := p, entry := ⟨.unit, true⟩, externs := [], adds := [] } =
         .ok (progOf cfg.layout rt (funcs1 p rs), marksAll1 p rs) := by
@@ -146,7 +146,8 @@ theorem lowerWithMarks_accepted1 (cfg : Config) {p : Prog} (hp : Accepted1 p = t
   have hh : ¬ (cfg.layout.heapBytes ≥ 2 ^ 32) := by omega
   unfold rtFuncs at hrt
   have hf : p.filter (fun d => !(([] : List (String × Frontend.Extern)).any (·.1 == d.name))) = p := by simp
-  simp only [lowerWithMarks, hh, ite_false, hf, hm, spawned_accepted1 hp, List.eraseDups_nil, List.mapM_nil, hrt,
+  simp only [lowerWithMarks, hh, ite_false, hf, hm, spawned_accepted1 hp, List.eraseDups_nil, List.isEmpty_nil, Bool.not_true,
+    Bool.and_false, List.mapM_nil, hrt,
     bind, Except.bind, pure, Except.pure]
   simp [progOf, funcs1, marksAll1, func1]
 
@@ -156,21 +157,22 @@ theorem lowerWithMarks_accepted1_ok (cfg : Config) {p : Prog} (hp : Accepted1 p 
     {x : IR.Program × List (Sym × Array (Node × Point))}
     (h : lowerWithMarks cfg { prog := p, entry := ⟨.unit, true⟩, externs := [], adds := [] } = .ok x) :
     ∃ rs rt, Pairwise2 (LowC p cfg.layout.obj none) p rs ∧
-      rtFuncs cfg.layout ⟨.unit, true⟩ 0 = .ok rt ∧
+      rtFuncs cfg.arch cfg.layout ⟨.unit, true⟩ 0 = .ok rt ∧
       x = (progOf cfg.layout rt (funcs1 p rs), marksAll1 p rs) := by
   have hheap : cfg.layout.heapBytes < 2 ^ 32 := by
     refine Nat.lt_of_not_ge fun hc => ?_
     unfold lowerWithMarks at h
     simp only [hc, ↓reduceIte] at h
     cases h
-  cases hrt : rtFuncs cfg.layout ⟨.unit, true⟩ 0 with
+  cases hrt : rtFuncs cfg.arch cfg.layout ⟨.unit, true⟩ 0 with
   | error e =>
     exfalso
     obtain ⟨rs, -, hm⟩ := mapM_lowerDeclMarks_accepted1 hp cfg.layout.obj none
     have hh : ¬ (cfg.layout.heapBytes ≥ 2 ^ 32) := by omega
     unfold rtFuncs at hrt
     have hf : p.filter (fun d => !(([] : List (String × Frontend.Extern)).any (·.1 == d.name))) = p := by simp
-    simp only [lowerWithMarks, hh, ite_false, hf, hm, spawned_accepted1 hp, List.eraseDups_nil, List.mapM_nil,
+    simp only [lowerWithMarks, hh, ite_false, hf, hm, spawned_accepted1 hp, List.eraseDups_nil, List.isEmpty_nil, Bool.not_true,
+    Bool.and_false, List.mapM_nil,
       hrt, bind, Except.bind, pure, Except.pure] at h
     cases h
   | ok rt =>
@@ -186,7 +188,7 @@ closed form `lowerC` without the depth counter (`frames = none`); the traces
 theorem lowerIR_accepted1 (cfg : Config) {p : Prog} (hp : Accepted1 p = true)
     {l : Lowered} (hl : lowerIR cfg p = .ok l) :
     ∃ rs rt, Pairwise2 (LowC p cfg.layout.obj none) p rs ∧
-      rtFuncs cfg.layout ⟨.unit, true⟩ 0 = .ok rt ∧
+      rtFuncs cfg.arch cfg.layout ⟨.unit, true⟩ 0 = .ok rt ∧
       l.ir = progOf cfg.layout rt (funcs1 p rs) ∧ l.marks = marksAll1 p rs := by
   unfold lowerIR at hl
   rw [checkedOf_accepted1 hp] at hl

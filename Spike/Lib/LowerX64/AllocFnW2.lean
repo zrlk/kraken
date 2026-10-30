@@ -173,8 +173,8 @@ theorem allocCtx_of (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp)
     exact hq _ hD
   obtain ⟨k, op, g, x, a, τ, e, ta, ws, n, h1, h2, h3, h4, h5, h6, h7, h8, h9⟩ :=
     Spike.Lib.X64.Alloc.ctrRow_alloc (lbl := lbl0) hI.lays hI.endOk hA hF hq' hmc hAt
-  exact ⟨k, op, g, x, a, τ, e, ta, ws, n, h1, h2, h3, h4, h5, h6, h7, h8, fun old hG hown hle =>
-    (h9 old hG hown hle).imp_right (hX _ _)⟩
+  exact ⟨k, op, g, x, a, τ, e, ta, ws, n, h1, h2, h3, h4, h5, h6, h7, h8, fun old hG hown hle hlo =>
+    (h9 old hG hown hle hlo).imp_right (hX _ _)⟩
 
 omit [Kraken.Executable.ValidLayout exe] in
 open Spike.Lib.X64 Spike.Lib.X64.Alloc Spike.Lib.X64.Flow in
@@ -199,8 +199,8 @@ theorem ctrRow_alloc_n4 [Kraken.Executable.ValidLayout exe] {kp : Nat} (hp : Lay
     rw [← hq.ctr, ← hcx]; simp [bAddr, Reg64s.get64]
   rw [hb]
   refine ⟨rfl, hq.rt, hq.mp, hmem _ hD, q.x, q.a, q.τ, q.e, q.ta, q.ws, q.n, hq.term, hq.ev,
-    hq.num, hq.hold, by exact hax, fun old hG hle => ⟨hq.grow old hG hle, fun fl =>
-      .inl ⟨(), ofNat_add' _ 19 5, rfl, _, rfl, hle, hFr, hn28, ?_⟩⟩⟩
+    hq.num, hq.hold, by exact hax, fun old hG hle hlo => ⟨hq.grow old hG hle, fun fl =>
+      .inl ⟨(), ofNat_add' _ 19 5, rfl, _, rfl, hle, hFr, hn28, ?_, hlo⟩⟩⟩
   simp [ownStep, Reg64s.set64]
 
 /-- **The counter add's row landing in `X`** (`allocW2`'s `hctx`) from the
@@ -222,8 +222,8 @@ theorem allocCtx_n4 (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp)
     exact hq _ hD
   obtain ⟨k, op, g, x, a, τ, e, ta, ws, n, h1, h2, h3, h4, h5, h6, h7, h8, h9⟩ :=
     ctrRow_alloc_n4 hI.lays hI.endOk hA hF hq' hmc hAt
-  refine ⟨k, op, g, x, a, τ, e, ta, ws, n, h1, h2, h3, h4, h5, h6, h7, h8, fun old hG hown hle => ?_⟩
-  obtain ⟨hG', hL⟩ := h9 old hG hown hle
+  refine ⟨k, op, g, x, a, τ, e, ta, ws, n, h1, h2, h3, h4, h5, h6, h7, h8, fun old hG hown hle hlo => ?_⟩
+  obtain ⟨hG', hL⟩ := h9 old hG hown hle hlo
   refine ⟨hG', hX _ _ ?_ (Spike.Lib.X64.KeepTP.exec_tp hT h1 old)⟩
   rcases hL with ⟨_, hj⟩ | ⟨y, _⟩
   · exact hj

@@ -99,6 +99,12 @@ ldr x30, [sp, #40]
 add sp, sp, #48
 ret")
 
+/-- **The barrier** `dmb ish` (`Emit.A64.fullFence`) that leads
+`.L9_scc_rt_print.2_write` in every AArch64 program (`Runtime.printF`). -/
+def bF : List Directive := parseAArch64("dmb ish")
+
+example : bF = [.instr ⟨.W64, .DMB .sy⟩] := by decide
+
 /-- The function's offsets inside the frame. -/
 abbrev oI : SO := ⟨-48, []⟩
 /-- The offsets at entry and return. -/

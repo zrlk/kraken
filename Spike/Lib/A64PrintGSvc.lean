@@ -3,7 +3,7 @@
 facts (`SFactsSt`) and the write abort's phase (`AbSt` at `WriteAb.Ab`) at
 `PrintA.N … .svc`, the `write` of `print`'s loop, for any executable with
 `InstOk`, its program holding the routine's code (`printIn`) passing the
-phase check `printPhOk`: the system-call twins of `printSt`
+phase check `printPhOkF`: the system-call twins of `printSt`
 (`Spike/Lib/A64PrintG.lean`) and `printAb` (`Spike/Lib/A64PrintGAb.lean`),
 the place-independent parts of `PrintW`'s system-call obligation at `W2`
 (`Spike/Lib/LowerA64/PrintCallC2.lean`).
@@ -67,8 +67,8 @@ theorem pcRet_nmem (hp : Lays exe prog kp) (hpr : Scc.Cert.Rt.A64.Print.printIn 
       tailPcs (_root_.Executable.labels exe).label ++ failPcs (_root_.Executable.labels exe).label ++
         dispEPcs (_root_.Executable.labels exe).label ++ dispTPcs (_root_.Executable.labels exe).label ++
         g4Pcs (_root_.Executable.labels exe).label ++ stubPcs (_root_.Executable.labels exe).label := by
-  have hpos : abPos = (".L9_scc_rt_print.2_write", 5) :: abPos.tail := by decide
-  have hnin : (".L9_scc_rt_print.2_write", 5) ∉ abPos.tail := by decide
+  have hpos : abPos = (".L9_scc_rt_print.2_write", 6) :: abPos.tail := by decide
+  have hnin : (".L9_scc_rt_print.2_write", 6) ∉ abPos.tail := by decide
   have h := abPcs_eq (_root_.Executable.labels exe).label
   rw [hpos, List.map_cons] at h
   simp only [abPcs, List.cons_append] at h
@@ -76,7 +76,7 @@ theorem pcRet_nmem (hp : Lays exe prog kp) (hpr : Scc.Cert.Rt.A64.Print.printIn 
   rw [h, List.mem_map]
   rintro ⟨q, hq, he⟩
   have hq' : q ∈ abPos := by rw [hpos]; exact List.mem_cons_of_mem _ hq
-  have h5 : (".L9_scc_rt_print.2_write", 5) ∈ abPos := by rw [hpos]; exact List.mem_cons_self
+  have h5 : (".L9_scc_rt_print.2_write", 6) ∈ abPos := by rw [hpos]; exact List.mem_cons_self
   refine pc_ne_of_inRun hp (abPos_inRun hpr hab q hq') (abPos_inRun hpr hab _ h5) ?_ (he.trans he0)
   intro hq5
   exact hnin (hq5 ▸ hq)
@@ -106,19 +106,19 @@ variable {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe] {endPc : 
 
 /-- The call's pc at its label and offset. -/
 theorem pcSvc_eq (lab : Label → Int64) :
-    Spike.Lib.A64.Print.pcSvc lab = lab ".L9_scc_rt_print.2_write" + Int64.ofNat (4 * 4) := by
-  simp only [Spike.Lib.A64.Print.pcSvc, Int64.add_assoc]; rfl
+    Spike.Lib.A64.PrintD.pcSvc lab = lab ".L9_scc_rt_print.2_write" + Int64.ofNat (4 * 5) := by
+  simp only [Spike.Lib.A64.PrintD.pcSvc, Int64.add_assoc]; rfl
 
 /-- The call's facts at a state of its node: off the marks' sites, no
 outside move, at the `svc` cell, its next pc in its phase. -/
 theorem svc_cell (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
-    (hin : Scc.Cert.Rt.A64.Print.printIn prog = true) (hph : printPhOk okPc ph lab = true) {s : State}
+    (hin : Scc.Cert.Rt.A64.Print.printIn prog = true) (hph : printPhOkF okPc ph lab = true) {s : State}
     (hs : s.exe = exe) (hn : s.endPc = endPc)
-    (hpc : s.st.2 = Spike.Lib.A64.Print.pcSvc (_root_.Executable.labels exe).label) :
+    (hpc : s.st.2 = Spike.Lib.A64.PrintD.pcSvc (_root_.Executable.labels exe).label) :
     (PcOff μ s ∧ ∀ s', ¬ K s s') ∧ CellAt s svcDir 4 ∧
       ∀ m, own (after s 4 m) = own s ∧ (Tk (after s 4 m) ↔ Tk s) := by
-  obtain ⟨-, -, -, -, -, h5, -⟩ := printIn_spec hin
-  obtain ⟨-, -, -, -, -, p5, -⟩ := printPhOk_spec hph
+  obtain ⟨-, -, -, -, -, -, h5, -⟩ := printIn_spec hin
+  obtain ⟨-, -, -, -, -, -, p5, -⟩ := printPhOk_spec hph
   obtain ⟨hok, hph5⟩ := phOne_spec p5
   rw [hI.labOk, pcSvc_eq] at hpc
   exact ⟨hI.off s (by unfold pcOf; rw [hpc]; exact hok), Spike.Lib.A64.Rt.cellOf hI h5 rfl hs hn hpc,
@@ -129,7 +129,7 @@ by `K`, its code in the program (`hin`) passing the phase check (`hph`), in
 a region whose frame condition gives the stack range off it (`hFO`), the
 write tail `Dt` given at the node (`hDt`). -/
 theorem printSvcSt (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
-    (hin : Scc.Cert.Rt.A64.Print.printIn prog = true) (hph : printPhOk okPc ph lab = true)
+    (hin : Scc.Cert.Rt.A64.Print.printIn prog = true) (hph : printPhOkF okPc ph lab = true)
     {Λ : Scc.Sem.Layout} {rS : Range} {Dt : State → Prop}
     (hR : R.OK) (hR8 : R.base.toNat % 8 = 0) (hl : R.lo % 8 = 0) (hh : R.hi % 8 = 0)
     (hsub : rS.Sub Λ.stackPool) (hFO : ∀ m, F m → StackOff rS R m)
@@ -163,7 +163,7 @@ and the abort's code in the program (`hpr`, `hab`) passing the phase check
 (`hph`), in a region of the routine's frame. -/
 theorem printSvcAb (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
     (hpr : Scc.Cert.Rt.A64.Print.printIn prog = true) (hab : Scc.Cert.Rt.A64.Abort.abortIn prog = true)
-    (hph : printPhOk okPc ph lab = true) (hlo : R.lo ≤ -48) (hhi : 0 ≤ R.hi) :
+    (hph : printPhOkF okPc ph lab = true) (hlo : R.lo ≤ -48) (hhi : 0 ≤ R.hi) :
     NodeW (fun s _ => AbSt μ (Ab (_root_.Executable.labels exe).label) s) (fun _ _ => False) exe endPc R F
       (N (_root_.Executable.labels exe).label x29 ra buf0 len0 P Q .svc) := by
   intro s c hAt
@@ -195,7 +195,7 @@ call clause gives it): the stack range off the callee's region from the
 caller's frame condition (`hFO`) and the caller's cells outside it
 (`stackOff_callee`). -/
 theorem printSvcStP (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
-    (hin : Scc.Cert.Rt.A64.Print.printIn prog = true) (hph : printPhOk okPc ph lab = true)
+    (hin : Scc.Cert.Rt.A64.Print.printIn prog = true) (hph : printPhOkF okPc ph lab = true)
     {Λ : Scc.Sem.Layout} {rS : Range} {Dt : State → Prop} {kc : Int} {F' : MachineData → Prop}
     (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hl : R.lo % 8 = 0) (hh : R.hi % 8 = 0)
     (hlo : R.lo ≤ kc + -48) (hkc : kc < R.hi) (hk16 : kc % 16 = 0)
@@ -217,7 +217,7 @@ abort's phase** (`WeAb`'s obligation): the return is at the pc after the
 call, the stored length (`[sp + 8]`, the frame's cell `-40`) at most the
 length `len0 < 2^63` (`hlen`), so a refusal of it (`refusal_of_refused`). -/
 theorem printSvcWe (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
-    (hin : Scc.Cert.Rt.A64.Print.printIn prog = true) (hph : printPhOk okPc ph lab = true)
+    (hin : Scc.Cert.Rt.A64.Print.printIn prog = true) (hph : printPhOkF okPc ph lab = true)
     (hlo : R.lo ≤ -48) (hhi : 0 ≤ R.hi) (hlen : len0 < 2 ^ 63) {s : State} {c : Ctl}
     (hAt : Spike.Lib.A64.Flow.At exe endPc R F (N (_root_.Executable.labels exe).label x29 ra buf0 len0 P Q .svc)
       s c) :

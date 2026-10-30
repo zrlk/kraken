@@ -206,7 +206,7 @@ lowering and emission succeed: the runtime functions, then `func0 main r`. -/
 theorem lowerAll_accepted0_a64 (cfg : Config) {d : Decl} (hd : Accepted0 [d] = true)
     {e : Scc.Lower.A64.Emitted} (h : Scc.Lower.A64.lowerAll? cfg [d] = .ok e) :
     ∃ r rt, lower0 [(d.arg, .unit, [])] 0 d.body = some r ∧
-      rtFuncs cfg.layout ⟨.unit, true⟩ 0 = .ok rt ∧
+      rtFuncs cfg.arch cfg.layout ⟨.unit, true⟩ 0 = .ok rt ∧
       (Scc.Lower.A64.lowerAll cfg [d]).low.ir = progOf cfg.layout rt [func0 (Names.user "main") r] := by
   obtain ⟨r, rt, hr, hrt, hir, -⟩ := lowerIR_accepted0 cfg hd (lowerAll?_low_a64 h)
   refine ⟨r, rt, hr, hrt, ?_⟩

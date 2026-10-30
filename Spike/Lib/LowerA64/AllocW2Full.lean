@@ -33,7 +33,7 @@ open Spike.Lib.A64.Flow.NewBuf (AllocCtx nbJc)
 open Spike.Lib.A64.WriteAb (Ab abPcs)
 open Spike.Lib.LowerNode (FrOk2 ZBad)
 open Spike.Lib.A64.Alloc (Call AllocW)
-open Spike.Lib.A64.AllocG (allocPhOk allocAbOk)
+open Spike.Lib.A64.AllocG (allocPhOk allocAbOkR)
 open Spike.Lib.A64.KeepTP (TP)
 open Spike.Lib.AllocReach (Reach IN)
 open Scc.Emit.A64 (FnCtx directives)
@@ -74,7 +74,7 @@ allocator's by `blC2_hra`) and the premises `hmem`, `hxa`, `hsz` at every `bl`
 pc. -/
 theorem allocW2_w2Full {rS : Range} (hI : InstOk exe endPc prog lab μ own Tk (TakeK a rS) okPc ph kp)
     (hA : Spike.Lib.A64.Flow.allocIn prog = true) (hph : allocPhOk okPc ph lab = true)
-    (habk : allocAbOk lab = true) (hpr : Scc.Cert.Rt.A64.Print.printIn prog = true)
+    (habk : allocAbOkR lab = true) (hpr : Scc.Cert.Rt.A64.Print.printIn prog = true)
     (hprA : Scc.Cert.Rt.A64.Abort.abortIn prog = true) {Λ : Scc.Sem.Layout} {ownOf : Nat → List (Loc × Val)}
     (hown : ∀ s, own s = ownOf (ph (pcOf s))) {cx : FnCtx} (hf : FrameOk cx) (h1 : cx.frame ≤ 4095)
     (h16 : cx.frame % 16 = 0) (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hl : R.lo % 8 = 0) (hh : R.hi % 8 = 0)
@@ -170,6 +170,7 @@ theorem allocW2_w2Full {rS : Range} (hI : InstOk exe endPc prog lab μ own Tk (T
           Abs R ⟨-(cx.frame : Int) + -160, []⟩ m0 σC) c0')
     (hsz : ∀ q : Call, q.OK (msOfAX Λ μ p rd G (fun s _ => own s) ar (IN ar L0 ls0 J) ab lbl lsize fs)
         (_root_.Executable.labels exe).label → ∀ l b old, lbl l = some b →
+      (msOfAX Λ μ p rd G (fun s _ => own s) ar (IN ar L0 ls0 J) ab lbl lsize fs).lo old →
       b = ar.heap + 16 * old + ar.off q.n q.τ → old + ar.units q.n q.τ ≤ ar.cells → q.n ≤ lsize l) :
     AllocW2 (CdCLE prog okPc ph lab ra0) (BlC2L prog okPc ph lab cx ra0)
       (fun lbl lsize s c => W2 Λ μ p rd G own rS Tk ar (IN ar L0 ls0 J) Dt (Ab lab) lbl lsize s c fs) (TakeK a rS)

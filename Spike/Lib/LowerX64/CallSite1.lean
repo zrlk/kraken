@@ -70,7 +70,7 @@ code block's closed form without the depth counter. -/
 theorem lowerAll_accepted1_x64 (cfg : Scc.Config) {p : Prog} (hp : Scc.Lower.Accepted1 p = true)
     {e : Scc.Lower.X64.Emitted} (h : Scc.Lower.X64.lowerAll? cfg p = .ok e) :
     ∃ rs rt, Pairwise2 (LowC p cfg.layout.obj none) p rs ∧
-      Scc.Lower.Inv.rtFuncs cfg.layout ⟨.unit, true⟩ 0 = .ok rt ∧
+      Scc.Lower.Inv.rtFuncs cfg.arch cfg.layout ⟨.unit, true⟩ 0 = .ok rt ∧
       (Scc.Lower.X64.lowerAll cfg p).low.ir = Scc.Lower.Inv.progOf cfg.layout rt (funcs1 p rs) ∧
       (Scc.Lower.X64.lowerAll cfg p).low.marks = Spike.Lib.LowerNode.marksAll1 p rs := by
   obtain ⟨rs, rt, hrs, hrt, hir, hm⟩ := Spike.Lib.LowerNode.lowerIR_accepted1 cfg hp (lowerAll?_low_x64 h)

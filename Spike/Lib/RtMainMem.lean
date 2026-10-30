@@ -28,8 +28,8 @@ theorem mem_of_mapM_ok {α : Type} : ∀ {l : List (Except String α)} {rt : Lis
         · exact List.mem_cons_of_mem _ (mem_of_mapM_ok hl hx)
 
 /-- **`scc_rt_main` is one of the runtime's functions** (`rtFuncs`' second). -/
-theorem mainThread0_mem {lay : Scc.Layout} {e : Scc.Frontend.Entry} {sw : Nat}
-    {rt : List Scc.IR.Func} (h : Scc.Lower.Inv.rtFuncs lay e sw = .ok rt) :
+theorem mainThread0_mem {arch : Scc.Arch} {lay : Scc.Layout} {e : Scc.Frontend.Entry} {sw : Nat}
+    {rt : List Scc.IR.Func} (h : Scc.Lower.Inv.rtFuncs arch lay e sw = .ok rt) :
     Scc.Lower.Inv.mainThread0 e sw ∈ rt := by
   unfold Scc.Lower.Inv.rtFuncs at h
   refine mem_of_mapM_ok h ?_

@@ -86,7 +86,7 @@ theorem _root_.Spike.Lib.X64ConsumerA.WrOkA.mono_fam {own' : OwnS} {I I' : InvS}
   refine ⟨h.arena, fun hL => ?_⟩
   obtain ⟨k, op, g, x, a, τ, e, ta, ws, n, h1, h2, h3, h4, h5, h6, h7, h8, h9⟩ := h.ctr hL
   exact ⟨k, op, g, x, a, τ, e, ta, ws, n, h1, h2, h3, h4, h5, h6, h7, h8,
-    fun old ha hb hc => (h9 old ha hb hc).imp id (PendA.mono hI)⟩
+    fun old ha hb hc hd => (h9 old ha hb hc hd).imp id (PendA.mono hI)⟩
 
 /-- **`W2` at a larger family.** -/
 theorem W2.mono {I I' : InvS} {L : Lbl} {ls : Lsize} {s : State} {c : Ctl} {fs : List TermRun.Frame}

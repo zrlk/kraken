@@ -42,6 +42,7 @@ open Spike.Lib.LowerShape (printInsts)
 open Spike.Lib.A64.Flow.PrintCall (pN pR pF pcS pFJ)
 open Spike.Lib.PrintSrc (PrintC printN loadC nextC)
 open Spike.Lib.A64.StubW (printPhOk)
+open Spike.Lib.A64.PrintG (printPhOkF)
 open Spike.Lib.ByteOut (ByteOut)
 
 variable {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe] {endPc : Int64}
@@ -59,7 +60,7 @@ label in the heap or `.data` (`hrg`) and the layout below `2 ^ 32`
 (`hb32`). -/
 theorem printW_w2B {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
     (hpr : Scc.Cert.Rt.A64.Print.printIn prog = true) (habI : Scc.Cert.Rt.A64.Abort.abortIn prog = true)
-    (hph : printPhOk okPc ph lab = true)
+    (hph : printPhOkF okPc ph lab = true)
     {cx : FnCtx} (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) (h16 : cx.frame % 16 = 0)
     (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -(cx.frame : Int) - 48) (hhi : 0 ≤ R.hi)
     (hl : R.lo % 8 = 0) (hh : R.hi % 8 = 0) (hsub : rS.Sub Λ.stackPool) (hfit : rS.lo + rS.size ≤ 2 ^ 64)
@@ -116,7 +117,7 @@ continuation free of `ZBad`, the frames placed along the block,
 `hpw`. -/
 theorem printW_hPW {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
     (hpr : Scc.Cert.Rt.A64.Print.printIn prog = true) (habI : Scc.Cert.Rt.A64.Abort.abortIn prog = true)
-    (hph : printPhOk okPc ph lab = true)
+    (hph : printPhOkF okPc ph lab = true)
     {cx : FnCtx} (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) (h16 : cx.frame % 16 = 0)
     (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -(cx.frame : Int) - 48) (hhi : 0 ≤ R.hi)
     (hl : R.lo % 8 = 0) (hh : R.hi % 8 = 0) (hsub : rS.Sub Λ.stackPool) (hfit : rS.lo + rS.size ≤ 2 ^ 64)
@@ -170,7 +171,7 @@ with `pFJ` at the call node (`hfr`), the rest of `PrintCallOk` at the call
 states (`hcall`). -/
 theorem printW_w2B' {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
     (hpr : Scc.Cert.Rt.A64.Print.printIn prog = true) (habI : Scc.Cert.Rt.A64.Abort.abortIn prog = true)
-    (hph : printPhOk okPc ph lab = true)
+    (hph : printPhOkF okPc ph lab = true)
     {cx : FnCtx} (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) (h16 : cx.frame % 16 = 0)
     (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -(cx.frame : Int) - 48) (hhi : 0 ≤ R.hi)
     (hl : R.lo % 8 = 0) (hh : R.hi % 8 = 0) (hsub : rS.Sub Λ.stackPool) (hfit : rS.lo + rS.size ≤ 2 ^ 64)
@@ -225,7 +226,7 @@ states and the frames placed under every frame condition that knows the
 call (`pFJ`). -/
 theorem printW_hPW' {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
     (hpr : Scc.Cert.Rt.A64.Print.printIn prog = true) (habI : Scc.Cert.Rt.A64.Abort.abortIn prog = true)
-    (hph : printPhOk okPc ph lab = true)
+    (hph : printPhOkF okPc ph lab = true)
     {cx : FnCtx} (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) (h16 : cx.frame % 16 = 0)
     (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -(cx.frame : Int) - 48) (hhi : 0 ≤ R.hi)
     (hl : R.lo % 8 = 0) (hh : R.hi % 8 = 0) (hsub : rS.Sub Λ.stackPool) (hfit : rS.lo + rS.size ≤ 2 ^ 64)

@@ -9,20 +9,18 @@ source memory size as a threshold (`SimState.appendForeign`).
 
 ## The side condition `StaleFree` is the consumer's
 
-`StaleFree` cannot be derived from `CertOk` alone: B2 without it is false.
-Counterexample (armv8, one location `x` foreign, `x = 0` in `M`): the
-certifying thread promised `z := 1` and its certification run is
-`str y, #1; dmb sy; ldr r, [x]; cbnz r, out; str z, #1`. At `M` the load reads
-the base `x = 0` (its window `(0, |M| + 1]` has no `x` message) and the run
-fulfils `z`. Let another thread append `x := 1` at `|M| + 1`. Now the own
-write of `y` lands at `|M| + 2`, the `dmb sy` raises the read bound to
-`|M| + 2`, and the window of the base `x` contains the foreign `x := 1`: the
-load must read `1`, the run branches to `out`, and no run fulfils `z`. That
-run reads a base message of a foreign location after its bound passed `|M|`,
-exactly what `StaleFree` at `|M|` forbids. (This is consistent with the
-machine: `succsL` re-certifies only the thread that steps, so a configuration
-may hold a thread that no longer certifies; such a thread is stuck, not
-unsound.)
+`StaleFree` is the hypothesis the proof uses: the replay matches a source
+step only where its event tree is `StaleFree` at the thresholds in force.
+Whether B2 holds from `CertOk` alone, without it, is open. What it asks
+(`StaleFree`, `Run.lean`): a read of a watched location (one the foreign
+messages write) from a timestamp at most a threshold has its read bound at
+most that threshold, and an exclusive or RMW write to a watched location is
+paired with a read above it. Once the run has seen past the base memory, it
+never reads a base message of a location the other threads write, and never
+claims atomicity over one.
+(The machine does not depend on the answer: `succsL` re-certifies only the
+thread that steps, so a thread that stopped certifying, if that can happen,
+is stuck, not unsound.)
 
 So the hypothesis the consumer supplies is precisely: the certification run,
 interleaved with the foreign appends (`SchedSF`), is `StaleFree` at every

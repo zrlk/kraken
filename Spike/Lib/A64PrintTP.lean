@@ -41,18 +41,19 @@ variable {p : Prog} {lbl : WeakMem.AllocLabel → Option Nat} {ms : MemSide isaL
   {R : Region} {F : MachineData → Prop} {ι κ : Sort _} {N : ι → ND} {E : κ → ND}
 
 /-- **`scc_rt_print` at its code is inside `NoMsrW W K`**: none of its
-blocks is an `MSR`. -/
+blocks, nor its barrier, is an `MSR`. -/
 theorem PrintAW.noMsr {W : Frag isaLSE2} {K : State → State → Prop} {prog : List Directive} {kp : Nat}
     {x29 ra buf0 : BitVec 64} {len0 : Nat} {P Q : Nat → Ctl → Prop}
     (hp : Lays exe prog kp) (hend : endPc = endOf exe prog kp) (hprog : printIn prog = true)
     (h : PrintA.PrintAW x29 ra buf0 len0 P Q W K exe endPc R F) :
     PrintA.PrintAW x29 ra buf0 len0 P Q (NoMsrW W K) K exe endPc R F := by
   simp only [printIn, Bool.and_eq_true, and_assoc] at hprog
-  obtain ⟨h0, h1, h2, h3, h4, -, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, -⟩ := hprog
+  obtain ⟨h0, h1, h2, h3, hf, h4, -, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, -⟩ := hprog
   exact ⟨BlkW.noMsr h.e (code_field hp hend h0 (by simp only [PrintA.N, add4, add0])) (by decide),
     BlkW.noMsr h.n1 (code_field hp hend h1 (by simp only [PrintA.N, add4, add0])) (by decide),
     BlkW.noMsr h.loop (code_field hp hend h2 (by simp only [PrintA.N, add4, add0])) (by decide),
     BlkW.noMsr h.n3 (code_field hp hend h3 (by simp only [PrintA.N, add4, add0])) (by decide),
+    NodeW.noMsr h.fence (code_field hp hend hf (by simp only [PrintA.N, add4, add0])) (by decide) (by decide),
     BlkW.noMsr h.write (code_field hp hend h4 (by simp only [PrintA.N, add4, add0])) (by decide),
     BlkW.noMsr h.n5 (code_field hp hend h5 (by simp only [PrintA.N, PrintA.pcSvc, add4, add0])) (by decide),
     BlkW.noMsr h.n6 (code_field hp hend h6 (by simp only [PrintA.N, PrintA.pcSvc, add4, add0])) (by decide),
@@ -74,7 +75,7 @@ theorem print_svc_noMsr {prog : List Directive} {kp : Nat} {x29 ra buf0 : BitVec
     (hAt : At exe endPc R F' (PrintA.N (_root_.Executable.labels exe).label x29 ra buf0 len0 P Q .svc) s c) :
     NoMsrAt s := by
   simp only [printIn, Bool.and_eq_true, and_assoc] at hprog
-  obtain ⟨-, -, -, -, -, hs, -⟩ := hprog
+  obtain ⟨-, -, -, -, -, -, hs, -⟩ := hprog
   obtain ⟨he, hn, -, hpc, -⟩ := id hAt
   exact noMsrAt_of_code (code_field hp hend hs (q := (PrintA.N (_root_.Executable.labels exe).label x29 ra
     buf0 len0 P Q .svc).pc) (by simp only [PrintA.N, PrintA.pcSvc, add4, add0]) s he hn)

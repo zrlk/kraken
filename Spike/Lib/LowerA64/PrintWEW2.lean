@@ -2,11 +2,11 @@
 **A call of `print` of an empty slice inside `W2`** (AArch64): `PrintWE`
 (`Spike/Lib/LowerA64/PrintCallC2.lean`) at the per-pair facts `W2`
 (`Spike/Lib/LowerA64/SFactsA2.lean`) at `print`'s frames
-`printFrame x e c1 :: fs`, the source at `print`'s `ret ()` (`cE`).
+`printFrame x e c1 :: fs`, the source at `print`'s `ret ` (`cE`).
 
 The argument block with its `bl` is `printBlkW_w2C` with the write abort's
 phase (`printBlkW_ab`), the placement at `PlacedSE` (`blkW_placedSE`: `cE`'s
-`ret ()` reads no variable) and `FrOk2` at `cE` (`printJ_hJ`, `frOk2_ret`).
+`ret ` reads no variable) and `FrOk2` at `cE` (`printJ_hJ`, `frOk2_ret`).
 `print`'s blocks are `printW2` at every call state, its `hpl` from
 `PrintAW.ofJF`, given `print`'s region, frame condition and return address
 at the call state (`PrintCallOk`, the call builder's obligation).
@@ -49,6 +49,7 @@ open Spike.Lib.PrintSrc (PrintC printN loadC nextC)
 open Spike.Lib.PrintSvc (printTop_ext self_mem_printTerms)
 open Spike.Lib.A64.PrintA (PrintAW)
 open Spike.Lib.A64.StubW (printPhOk)
+open Spike.Lib.A64.PrintG (printPhOkF)
 
 /-- **`printW2`'s premises at a call state** not given by the program: in
 `print`'s region `Rp` (16-aligned, 8-aligned bounds holding the 48 bytes
@@ -155,13 +156,13 @@ theorem printBlkWE_w2' {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K ok
 
 /-- **A call of `print` of an empty slice inside `W2`** (`PrintWE`) at
 `print`'s frames `printFrame x e c1 :: fs`, the source at `print`'s
-`ret ()` (`cE`): the argument block by `printBlkWE_w2`, `print`'s blocks by
+`ret ` (`cE`): the argument block by `printBlkWE_w2`, `print`'s blocks by
 `printW2` at every call state, given `PrintCallOk` there (`hcall`, in
 `print`'s region and frame condition); the caller's continuation and frames
 free of `ZBad` (`he`, `hfs`), the frames placed along the block (`hfp`). -/
 theorem printWE_w2 {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
     (hpr : Scc.Cert.Rt.A64.Print.printIn prog = true) (habI : Scc.Cert.Rt.A64.Abort.abortIn prog = true)
-    (hph : printPhOk okPc ph lab = true)
+    (hph : printPhOkF okPc ph lab = true)
     {cx : FnCtx} (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) (h16 : cx.frame % 16 = 0)
     (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -(cx.frame : Int)) (hhi : 0 ≤ R.hi)
     (hl : R.lo % 8 = 0) (hh : R.hi % 8 = 0) (hsub : rS.Sub Λ.stackPool) (hfit : rS.lo + rS.size ≤ 2 ^ 64)
@@ -213,7 +214,7 @@ the caller's continuation and frames free of `ZBad` (`he`, `hfs`), the
 frames placed along the block (`hfp`). -/
 theorem printW_w2 {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
     (hpr : Scc.Cert.Rt.A64.Print.printIn prog = true) (habI : Scc.Cert.Rt.A64.Abort.abortIn prog = true)
-    (hph : printPhOk okPc ph lab = true)
+    (hph : printPhOkF okPc ph lab = true)
     {cx : FnCtx} (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) (h16 : cx.frame % 16 = 0)
     (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -(cx.frame : Int) - 48) (hhi : 0 ≤ R.hi)
     (hl : R.lo % 8 = 0) (hh : R.hi % 8 = 0) (hsub : rS.Sub Λ.stackPool) (hfit : rS.lo + rS.size ≤ 2 ^ 64)
@@ -280,7 +281,7 @@ the suspended frames placed under such `F'` (`hfr`), the rest of
 `PrintCallOk` at the call states (`hcall`). -/
 theorem printWE_w2' {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
     (hpr : Scc.Cert.Rt.A64.Print.printIn prog = true) (habI : Scc.Cert.Rt.A64.Abort.abortIn prog = true)
-    (hph : printPhOk okPc ph lab = true)
+    (hph : printPhOkF okPc ph lab = true)
     {cx : FnCtx} (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) (h16 : cx.frame % 16 = 0)
     (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -(cx.frame : Int)) (hhi : 0 ≤ R.hi)
     (hl : R.lo % 8 = 0) (hh : R.hi % 8 = 0) (hsub : rS.Sub Λ.stackPool) (hfit : rS.lo + rS.size ≤ 2 ^ 64)
@@ -323,7 +324,7 @@ node, the suspended frames placed under such `F'` (`hfr`), the rest of
 memory side (`hms`) asked under such `F'`. -/
 theorem printW_w2' {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
     (hpr : Scc.Cert.Rt.A64.Print.printIn prog = true) (habI : Scc.Cert.Rt.A64.Abort.abortIn prog = true)
-    (hph : printPhOk okPc ph lab = true)
+    (hph : printPhOkF okPc ph lab = true)
     {cx : FnCtx} (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) (h16 : cx.frame % 16 = 0)
     (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -(cx.frame : Int) - 48) (hhi : 0 ≤ R.hi)
     (hl : R.lo % 8 = 0) (hh : R.hi % 8 = 0) (hsub : rS.Sub Λ.stackPool) (hfit : rS.lo + rS.size ≤ 2 ^ 64)

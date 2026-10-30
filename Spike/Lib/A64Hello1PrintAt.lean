@@ -115,7 +115,7 @@ theorem hello1_wcA_print_segW {W : Frag isaLSE2} {K : State → State → Prop}
     · exact Scc.Cert.Rt.A64.Print.code_field hp hend (by
         have h := SccCode.hello1_print
         simp only [Scc.Cert.Rt.A64.Print.printIn, Bool.and_eq_true, and_assoc] at h
-        exact h.2.2.2.2.2.1)
+        exact h.2.2.2.2.2.2.1)
         (by simp only [PrintA.N, PrintA.pcSvc, Scc.Cert.Rt.A64.Print.add4, Scc.Cert.Rt.A64.Print.add0])
     · rintro s c hAt k j c1 hlt ⟨σ0, c0, hJ, rfl, hP⟩
       have hk : k + j < printN (n σ0) (m σ0) := by

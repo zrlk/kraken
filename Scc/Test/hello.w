@@ -1,114 +1,73 @@
 -- Hello, world: WeakCore's hello-world program text, with `main` written in
 -- concrete syntax.  The setup block `rodata` builds the bytes on the heap
--- (static data by the heap-bytes route); `main` spawns `worker`, which prints
--- the slice and signals `main` through a release store and `unpark`; `main`
--- waits with an acquire load and `park`, then returns 0.
+-- (static data by the heap-bytes route) and publishes them.  The order of
+-- events: `main` spawns `worker` and sleeps (`waitLoop`: an acquire load of
+-- the flag, parking while it is 0); `worker` prints the published slice with
+-- the output extern, then wakes `main` (a release store of the flag and
+-- `unpark`) and exits; `main` sees the flag and returns 0.
 --
 -- Provisional forms (see Scc/Frontend.lean): `spawn{f}(a)` is the spawn;
--- `print` with this signature is the runtime's output extern, and its body
--- here is a WeakCore model that is not compiled.  `park`, `unpark` and
--- `ThreadId` are WeakCore's own.
+-- `print` with this signature is the runtime's output extern on a published
+-- slice, and `printL` is its loop.  Both are written textually as the
+-- extern's WeakCore model on a published slice (`printExtPubD`,
+-- `printLoopPubD` in Scc/PrintModel.lean: `printExtD`/`printLoopD` with
+-- `pub` for `own` and `load b[iv]` as `let l = b[iv]` then `load l`) and are
+-- not compiled.  `park`, `unpark` and `ThreadId` are WeakCore's own.
 
-def spin(n : Int) : Void =
-  tail spin(n)
-
-def emit8(a : LanesU8 * U64) : U64 =
-  let (w, cnt0) = a
-  let nil = cvt U64 0
-  let one = cvt U64 1
-  let b0 = lane w 0
-  let z0 = fcmp eq cnt0 nil
-  if z0 = 1 then
-    ret cnt0
+def printL{i, d}(a : (({Loc pub Array[i+1+d] LanesU8 | ini >= i+1+d} * Int[i]) * Int[d]) * ((Int * Int) * Int)) : Unit =
+  let (w, q) = a
+  let (bi, dv) = w
+  let (b, iv) = bi
+  let (cn, j) = q
+  let (c, n) = cn
+  if c = n then
+    ret ()
   else
-    let e0 = toInt b0
-    let cnt1 = fop sub cnt0 one
-    let b1 = lane w 1
-    let z1 = fcmp eq cnt1 nil
-    if z1 = 1 then
-      ret cnt1
-    else
-      let e1 = toInt b1
-      let cnt2 = fop sub cnt1 one
-      let b2 = lane w 2
-      let z2 = fcmp eq cnt2 nil
-      if z2 = 1 then
-        ret cnt2
+    if j = 8 then
+      if dv = 0 then
+        ret ()
       else
-        let e2 = toInt b2
-        let cnt3 = fop sub cnt2 one
-        let b3 = lane w 3
-        let z3 = fcmp eq cnt3 nil
-        if z3 = 1 then
-          ret cnt3
-        else
-          let e3 = toInt b3
-          let cnt4 = fop sub cnt3 one
-          let b4 = lane w 4
-          let z4 = fcmp eq cnt4 nil
-          if z4 = 1 then
-            ret cnt4
-          else
-            let e4 = toInt b4
-            let cnt5 = fop sub cnt4 one
-            let b5 = lane w 5
-            let z5 = fcmp eq cnt5 nil
-            if z5 = 1 then
-              ret cnt5
-            else
-              let e5 = toInt b5
-              let cnt6 = fop sub cnt5 one
-              let b6 = lane w 6
-              let z6 = fcmp eq cnt6 nil
-              if z6 = 1 then
-                ret cnt6
-              else
-                let e6 = toInt b6
-                let cnt7 = fop sub cnt6 one
-                let b7 = lane w 7
-                let z7 = fcmp eq cnt7 nil
-                if z7 = 1 then
-                  ret cnt7
-                else
-                  let e7 = toInt b7
-                  let cnt8 = fop sub cnt7 one
-                  ret cnt8
-
-def printL{i, d}(a : {Loc pub Array[i+1+d] LanesU8 | ini >= i+1+d} * Int[i] * Int[d] * U64) : U64 =
-  let (s, r1) = a
-  let (iv, r2) = r1
-  let (dv, cnt) = r2
-  let l = s[iv]
-  let w = load l
-  let wc = (w, cnt)
-  let cnt1 = emit8(wc)
-  if dv = 0 then
-    ret cnt1
-  else
-    let d1 = dv - 1
-    let un = nameI d1
-    let i1 = iv + 1
-    let jn = nameI i1
-    let q3 = (un, cnt1)
-    let q2 = (jn, q3)
-    let q1 = (s, q2)
-    tail printL{jn, un}(q1)
+        let d1 = dv - 1
+        let un = nameI d1
+        let i1 = iv + 1
+        let jn = nameI i1
+        let bi1 = (b, jn)
+        let w1 = (bi1, un)
+        let z = 0
+        let q1 = (cn, z)
+        let a1 = (w1, q1)
+        tail printL{jn, un}(a1)
+    else
+      let l = b[iv]
+      let wd = load l
+      let x = lane wd j
+      let r = emit x
+      let c1 = c + 1
+      let j1 = j + 1
+      let cn1 = (c1, n)
+      let q1 = (cn1, j1)
+      let bi2 = (b, iv)
+      let w2 = (bi2, dv)
+      let a1 = (w2, q1)
+      tail printL{i, d}(a1)
 
 def print{m}(a : ({Loc pub Array[m] LanesU8 | ini >= m} * Int[m]) * Int) : Unit =
-  let (sm, n) = a
-  let (s, mv) = sm
-  let cnt = cvt U64 n
+  let (bm, n) = a
+  let (b, mv) = bm
   if mv = 0 then
     ret ()
   else
-    let k = mv - 1
-    let kn = nameI k
+    let m1 = mv - 1
+    let mn = nameI m1
     let z = nameI 0
-    let q3 = (kn, cnt)
-    let q2 = (z, q3)
-    let q1 = (s, q2)
-    let r = printL{z, kn}(q1)
-    ret ()
+    let bi = (b, z)
+    let w = (bi, mn)
+    let c0 = 0
+    let j0 = 0
+    let cn = (c0, n)
+    let q = (cn, j0)
+    let a1 = (w, q)
+    tail printL{z, mn}(a1)
 
 def rodata(u : Unit) : exists q. ({Loc pub Array[q] LanesU8 | ini >= q} * Int[q]) * Int =
   let two = 2

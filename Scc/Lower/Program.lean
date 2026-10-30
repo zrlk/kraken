@@ -56,7 +56,10 @@ def lowerWithMarks (cfg : Config) (c : Frontend.Checked) :
     Runtime.allocF lay Names.allocTcb Names.pinned Names.pinnedNext (Runtime.pinnedBytes lay) .threads false,
     Runtime.threadReserveF lay,
     Runtime.threadInitF lay, Runtime.stackTakeF lay, Runtime.stackReleaseF lay, Runtime.growF lay,
-    Runtime.printF, Runtime.parkF, Runtime.unparkF, Runtime.abortF] ++
+    -- On AArch64 every program gets the barrier before `write`
+    -- (`Runtime.printF`): one shape of `scc_rt_print`, spawning or not.
+    Runtime.printF (fence := cfg.arch == .arm),
+    Runtime.parkF, Runtime.unparkF, Runtime.abortF] ++
     Runtime.abortKinds.map Runtime.abortKindF |>.mapM id
   pure ({ funcs := rt ++ thr ++ user, data := Runtime.data lay,
           start := Names.start, abortFn := Names.abort,

@@ -55,12 +55,14 @@ section Print
 
 open Spike.Lib.A64.Print
 
-/-- `scc_rt_print`'s blocks and its prologue's fall-through (`Print.printIn`). -/
+/-- `scc_rt_print`'s blocks and its prologue's fall-through (`Print.printIn`;
+`.2_write` led by the barrier `bF`). -/
 def printGrps : List RGrp := [
   ⟨"scc_rt_print", [(0, b0)], some (6, ".L9_scc_rt_print.0_entry")⟩,
   ⟨".L9_scc_rt_print.0_entry", [(0, b1)], none⟩,
   ⟨".L9_scc_rt_print.1_loop", [(0, b2), (4, b3)], none⟩,
-  ⟨".L9_scc_rt_print.2_write", [(0, b4), (4, [Spike.Lib.A64.Flow.svcDir]), (5, b5), (12, b6), (13, b7)], none⟩,
+  ⟨".L9_scc_rt_print.2_write", [(0, bF), (1, b4), (5, [Spike.Lib.A64.Flow.svcDir]), (6, b5), (13, b6), (14, b7)],
+    none⟩,
   ⟨".L9_scc_rt_print.3_chk2", [(0, b8), (6, b9), (7, b10)], none⟩,
   ⟨".L9_scc_rt_print.4_chk3", [(0, b11), (4, b12)], none⟩,
   ⟨".L9_scc_rt_print.5_adv", [(0, b13)], none⟩,

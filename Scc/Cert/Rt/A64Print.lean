@@ -4,15 +4,14 @@ import Spike.Lib.A64Print
 /-!
 # `scc_rt_print` in an emitted AArch64 program
 
-`Spike.Lib.A64.Print.seg_print` proves `scc_rt_print` one segment from its
-entry to its return or its abort, from hypotheses on the layout: each block
-at its node's pc (`Code`) and the prologue's fall-through to `.0_entry`
-(`hentry`). `printIn prog` checks them on a directive list: every block of
-the function is the run of instructions at its label and offset
+`printIn prog` checks `scc_rt_print`'s code on a directive list: every
+block of the function is the run of instructions at its label and offset
 (`blockAt`), and `.0_entry` is six instructions behind `scc_rt_print`
-(`labelGap`). `seg_print_of` is `seg_print` for any valid layout of a
-program with `printIn prog = true`, decided once per program by
-`decide +kernel`. The write system call stays a given node (`hsvc`).
+(`labelGap`), decided once per program by `decide +kernel`. On AArch64
+every program's write block `.2_write` is led by the barrier `dmb ish`
+(`Print.bF`, `Runtime.printF`), the rest of the block one instruction on.
+`code_field` gives a block's code from `blockAt` in every state of a valid
+layout, for the segment proofs.
 
 The labels are scc's (`.L9_scc_rt_print.*`: the runtime's functions come
 first in every program, in a fixed order).
@@ -25,18 +24,20 @@ open Kraken Kraken.Promising Kraken.Promising.AArch64 Spike.Lib Spike.Lib.A64 Sp
   Spike.Lib.A64.Print
 
 /-- **The code of `scc_rt_print` in `prog`**: its blocks at their labels
-and offsets (the `write` system call 4 instructions after `.2_write` among
-them), and the prologue's fall-through. -/
+and offsets (`.2_write` led by the barrier `bF`, `dmb ish`, the `write`
+system call 5 instructions after `.2_write` among them), and the prologue's
+fall-through. -/
 def printIn (prog : List Directive) : Bool :=
   blockAt prog "scc_rt_print" 0 b0 &&
   blockAt prog ".L9_scc_rt_print.0_entry" 0 b1 &&
   blockAt prog ".L9_scc_rt_print.1_loop" 0 b2 &&
   blockAt prog ".L9_scc_rt_print.1_loop" 4 b3 &&
-  blockAt prog ".L9_scc_rt_print.2_write" 0 b4 &&
-  blockAt prog ".L9_scc_rt_print.2_write" 4 [svcDir] &&
-  blockAt prog ".L9_scc_rt_print.2_write" 5 b5 &&
-  blockAt prog ".L9_scc_rt_print.2_write" 12 b6 &&
-  blockAt prog ".L9_scc_rt_print.2_write" 13 b7 &&
+  blockAt prog ".L9_scc_rt_print.2_write" 0 bF &&
+  blockAt prog ".L9_scc_rt_print.2_write" 1 b4 &&
+  blockAt prog ".L9_scc_rt_print.2_write" 5 [svcDir] &&
+  blockAt prog ".L9_scc_rt_print.2_write" 6 b5 &&
+  blockAt prog ".L9_scc_rt_print.2_write" 13 b6 &&
+  blockAt prog ".L9_scc_rt_print.2_write" 14 b7 &&
   blockAt prog ".L9_scc_rt_print.3_chk2" 0 b8 &&
   blockAt prog ".L9_scc_rt_print.3_chk2" 6 b9 &&
   blockAt prog ".L9_scc_rt_print.3_chk2" 7 b10 &&
@@ -66,39 +67,5 @@ theorem code_field {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe]
     (e : (_root_.Executable.labels exe).label l + Int64.ofNat (4 * k) = q) :
     ∀ s : State, s.exe = exe → s.endPc = endPc → CodeAt s q b :=
   fun _ hs hn => CodeAt.pc_eq (codeAt_blockAt hp hs (hn.trans hend) h) e
-
-set_option linter.unusedSimpArgs false in
-/-- **`scc_rt_print` is one segment** in any valid layout `exe` of a program
-`prog` with `printIn prog = true`, given its write system call. -/
-theorem seg_print_of {p : Prog} {lbl : WeakMem.AllocLabel → Option Nat} {ms : MemSide isaLSE2}
-    {exe : _root_.Executable} {endPc : Int64} {R : Region} {m0 : MachineData} {c0 : Ctl} {x29 ra : BitVec 64}
-    {prog : List Directive} [Kraken.Executable.ValidLayout exe] {kp : Nat} (hp : Lays exe prog kp)
-    (hend : endPc = endOf exe prog kp) (hprog : printIn prog = true)
-    (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -48) (hhi : 0 ≤ R.hi)
-    (hsvc : Seg p lbl ms (At exe endPc R (DFrame R m0) (N (_root_.Executable.labels exe).label c0 x29 ra .svc))
-      (At exe endPc R (DFrame R m0) (N (_root_.Executable.labels exe).label c0 x29 ra .n5))) :
-    Seg p lbl ms (At exe endPc R (DFrame R m0) (N (_root_.Executable.labels exe).label c0 x29 ra .e))
-      (fun s c => ∃ x, At exe endPc R (DFrame R m0) (E (_root_.Executable.labels exe).label c0 x29 ra x) s c) := by
-  simp only [printIn, Bool.and_eq_true, and_assoc] at hprog
-  obtain ⟨h0, h1, h2, h3, h4, hs, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, hgap⟩ := hprog
-  refine seg_print hR hal hlo hhi ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
-    (by rw [label_labelGap hp hgap]; simp only [add4, add0]) hsvc
-  · exact code_field hp hend h0 (by simp only [N, pcSvc, add4, add0])
-  · exact code_field hp hend h1 (by simp only [N, pcSvc, add4, add0])
-  · exact code_field hp hend h2 (by simp only [N, pcSvc, add4, add0])
-  · exact code_field hp hend h3 (by simp only [N, pcSvc, add4, add0])
-  · exact code_field hp hend h4 (by simp only [N, pcSvc, add4, add0])
-  · exact code_field hp hend h5 (by simp only [N, pcSvc, add4, add0])
-  · exact code_field hp hend h6 (by simp only [N, pcSvc, add4, add0])
-  · exact code_field hp hend h7 (by simp only [N, pcSvc, add4, add0])
-  · exact code_field hp hend h8 (by simp only [N, pcSvc, add4, add0])
-  · exact code_field hp hend h9 (by simp only [N, pcSvc, add4, add0])
-  · exact code_field hp hend h10 (by simp only [N, pcSvc, add4, add0])
-  · exact code_field hp hend h11 (by simp only [N, pcSvc, add4, add0])
-  · exact code_field hp hend h12 (by simp only [N, pcSvc, add4, add0])
-  · exact code_field hp hend h13 (by simp only [N, pcSvc, add4, add0])
-  · exact code_field hp hend h14 (by simp only [N, pcSvc, add4, add0])
-  · exact code_field hp hend h15 (by simp only [N, pcSvc, add4, add0])
-  · exact code_field hp hend hs (by simp only [N, pcSvc, add4, add0])
 
 end Scc.Cert.Rt.A64.Print

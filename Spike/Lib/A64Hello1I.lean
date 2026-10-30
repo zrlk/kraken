@@ -73,13 +73,13 @@ def hello1Tab : List (Label × Nat) :=
     (".L6_scc_rt_stack_take.halt37", 4196188), (".L6_scc_rt_stack_take.9_ok", 4196192),
     (".L6_scc_rt_stack_take.10_taken", 4196224), ("scc_rt_take_site", 4196232), ("scc_rt_stack_release", 4196256),
     ("scc_rt_print", 4197752), (".L9_scc_rt_print.0_entry", 4197776), (".L9_scc_rt_print.1_loop", 4197780),
-    (".L9_scc_rt_print.2_write", 4197800), (".L9_scc_rt_print.3_chk2", 4197856), (".L9_scc_rt_print.4_chk3", 4197888),
-    (".L9_scc_rt_print.5_adv", 4197908), (".L9_scc_rt_print.6_fail", 4197944), (".L9_scc_rt_print.sp9", 4197952),
-    (".L9_scc_rt_print.halt10", 4197952), (".L9_scc_rt_print.7_done", 4197956), ("wc_rodata", 4198848),
-    (".L18_wc_rodata.stack_check", 4198848), (".L18_wc_rodata.0_entry", 4198884), (".L18_wc_rodata.sp0", 4198900),
-    (".L18_wc_rodata.stack_grow", 4199004), (".L18_wc_rodata.sp_check", 4199060), ("wc_main", 4199108),
-    (".L19_wc_main.stack_check", 4199108), (".L19_wc_main.0_entry", 4199164), (".L19_wc_main.sp4", 4199248),
-    (".L19_wc_main.stack_grow", 4199268), (".L19_wc_main.sp_check", 4199324)]
+    (".L9_scc_rt_print.2_write", 4197800), (".L9_scc_rt_print.3_chk2", 4197860), (".L9_scc_rt_print.4_chk3", 4197892),
+    (".L9_scc_rt_print.5_adv", 4197912), (".L9_scc_rt_print.6_fail", 4197948), (".L9_scc_rt_print.sp10", 4197956),
+    (".L9_scc_rt_print.halt11", 4197956), (".L9_scc_rt_print.7_done", 4197960), ("wc_rodata", 4198852),
+    (".L18_wc_rodata.stack_check", 4198852), (".L18_wc_rodata.0_entry", 4198888), (".L18_wc_rodata.sp0", 4198904),
+    (".L18_wc_rodata.stack_grow", 4199008), (".L18_wc_rodata.sp_check", 4199064), ("wc_main", 4199112),
+    (".L19_wc_main.stack_check", 4199112), (".L19_wc_main.0_entry", 4199168), (".L19_wc_main.sp4", 4199252),
+    (".L19_wc_main.stack_grow", 4199272), (".L19_wc_main.sp_check", 4199328)]
 
 /-- The table's check of one entry: a label of the program at its `labIn` address. -/
 noncomputable def tabChk (p : Label × Nat) : Bool :=
@@ -189,7 +189,7 @@ def tkCross : List (Nat × Nat) :=
 
 /-- **The only crossings.** -/
 theorem tkCross_eq :
-    tkCross = [(4195244, 4198284), (4196184, 4198284), (4196232, 4196236), (4196880, 4195692)] := by
+    tkCross = [(4195244, 4198288), (4196184, 4198288), (4196232, 4196236), (4196880, 4195692)] := by
   decide +kernel
 
 /-- The take site's fall-through owns what the site owns. -/
@@ -204,11 +204,11 @@ def μ0 : Marks where
     | .take => some 4196232
     | .release => some 4196288
   abortAt
-    | .overflow => some 4198548
-    | .heap => some 4198620
-    | .stack => some 4198692
-    | .writeErr => some 4198764
-    | .threads => some 4198836
+    | .overflow => some 4198552
+    | .heap => some 4198624
+    | .stack => some 4198696
+    | .writeErr => some 4198768
+    | .threads => some 4198840
 
 /-- **The canonical target's marks of `hello1`** are `μ0`, given the
 loader's parse of the listing (`hpa`, the trust boundary). -/
@@ -221,13 +221,13 @@ theorem hello1_marks (hpa : Scc.Sem.A64.textProgram hello1Asm = .ok hello1Prog) 
   · funext k; cases k <;> exact (hr _).trans (by decide +kernel)
 
 /-- **The pcs off the marks' sites.** -/
-def okPc (pc : Nat) : Bool := !([4196232, 4196288, 4198548, 4198620, 4198692, 4198764, 4198836].contains pc)
+def okPc (pc : Nat) : Bool := !([4196232, 4196288, 4198552, 4198624, 4198696, 4198768, 4198840].contains pc)
 
 /-- A pc off the sites is off `μ0`'s, with no take there. -/
 theorem pcOff_of_okPc {rS : Range} : ∀ s : State, okPc (pcOf s) = true →
     PcOff μ0 s ∧ ∀ s', ¬ TakeK (labT Ret0.StackTake.siteL) rS s s' := by
   intro s h
-  have hne : ∀ a ∈ [4196232, 4196288, 4198548, 4198620, 4198692, 4198764, 4198836], pcOf s ≠ a := by
+  have hne : ∀ a ∈ [4196232, 4196288, 4198552, 4198624, 4198696, 4198768, 4198840], pcOf s ≠ a := by
     intro a ha he
     subst he
     simp only [okPc, Bool.not_eq_true', List.contains_eq_any_beq, List.any_eq_false, beq_iff_eq] at h
@@ -571,8 +571,8 @@ structure Hello1PostSrc (W : Frag isaLSE2) (K : State → State → Prop) (p : P
         Spike.Lib.A64.Rt.WcRa (wR R) ((_root_.Executable.labels exe).label ".L1_scc_rt_main.sp1") m) →
       ∀ g' : PG, g'.2.2 = ((_root_.Executable.labels exe).label ".L19_wc_main.sp4").toBitVec →
       SegW W K p lbl ms
-        (At exe endPc (pR (wR R)) F' (Print.N (_root_.Executable.labels exe).label g'.1 g'.2.1 g'.2.2 .svc))
-        (At exe endPc (pR (wR R)) F' (Print.N (_root_.Executable.labels exe).label g'.1 g'.2.1 g'.2.2 .n5))
+        (At exe endPc (pR (wR R)) F' (PrintD.N (_root_.Executable.labels exe).label g'.1 g'.2.1 g'.2.2 .svc))
+        (At exe endPc (pR (wR R)) F' (PrintD.N (_root_.Executable.labels exe).label g'.1 g'.2.1 g'.2.2 .n5))
   hedgeW : ∀ g : AS × Ctl, ∀ σ c, wcJ (wJ0 (_root_.Executable.labels exe).label σC Jr g) σ c →
       ∀ σ' : AS, (∀ k, -96 ≤ k → k < 0 → k % 8 = 0 → σ'.slot k = wcSl σ k) →
       σ'.regs.X0.toBitVec = 0#64 → σ'.regs.X29.toBitVec = σ.slot (-16) → σ'.regs.X30.toBitVec = σ.slot (-8) →

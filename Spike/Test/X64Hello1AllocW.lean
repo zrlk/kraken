@@ -225,7 +225,7 @@ theorem allocSt (hR : R.OK) (hR8 : R.base.toNat % 8 = 0) (hlo : R.lo ≤ -160) (
       (l := okL) (off := 170) (p := labT okL + Int64.ofNat 170) (by decide +kernel) rfl rfl
       (fun _ _ hJ => hJ.1 ▸ cfacts_c0) (by decide +kernel) (by decide +kernel) hR hR8 hl hh hsub hFO
       fun σ c m hJ hF => ?_)
-    obtain ⟨-, c, o, ⟨-, hle, -, hn28, -⟩, -, -, hcx⟩ := hJ
+    obtain ⟨-, c, o, ⟨-, hle, -, hn28, -, hlo⟩, -, -, hcx⟩ := hJ
     have hq' := hq m hF
     rw [hello1_labT] at hq'
     have hk := Spike.Lib.X64.Alloc.Call.k_toNat hq'.n_lt
@@ -239,7 +239,7 @@ theorem allocSt (hR : R.OK) (hR8 : R.base.toNat % 8 = 0) (hlo : R.lo ≤ -160) (
       rfl
     have hofn : BitVec.ofNat 64 (q.hdrAt ms o.toNat) = bAddr σ.regs .rcx 0 := by
       rw [← hAeq]; simp
-    obtain ⟨-, hmp', -⟩ := hq'.hdr o.toNat hle
+    obtain ⟨-, hmp', -⟩ := hq'.hdr o.toNat hlo hle
     exact ⟨hmp _ (hofn ▸ hmp'), hmem _ (.inr ⟨o.toNat, hle, hAeq⟩) m hF, hno _ (.inr ⟨o.toNat, hle, hAeq⟩)⟩
   · ablk okL 173 bO9_ok
   · refine NodeW.st (BlkW.nodeW (Spike.Lib.X64.Rt.blkW_postO hello1_instOk (l := okL) (off := 226)
@@ -248,7 +248,7 @@ theorem allocSt (hR : R.OK) (hR8 : R.base.toNat % 8 = 0) (hlo : R.lo ≤ -160) (
       hR hlo hhi hR8 hl hh (fun _ _ hJ => hJ.1 ▸ cfacts_c0) (by decide +kernel)
       (hret_of_run (lo := -160) (hi := 8) (by dsimp only [dumN, Spike.Lib.X64.Alloc.N]; decide) fun σ c hJ => ?_)
       (fun _ _ _ => rfl) hsub hfit hFO) (List.cons_ne_nil _ _))
-    obtain ⟨-, c, o, -, -, -, -, -, h0⟩ := hJ
+    obtain ⟨-, c, o, -, -, -, -, -, h0, -⟩ := hJ
     have hc : Spike.Lib.X64.classify iRet.toDir = some iRet := rfl
     simp only [arun, List.foldl, Spike.Lib.X64.dstep, hc]
     simp only [iRet, Spike.Lib.X64.AI.tgt, dumN, Spike.Lib.X64.Alloc.N, Spike.Lib.X64.Alloc.oE]

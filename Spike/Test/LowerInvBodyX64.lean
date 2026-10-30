@@ -57,7 +57,7 @@ example (areas : List (Sym × Nat)) :
 -- The whole-program statement at `ret0.w` (x86-64): whenever the lowering
 -- and emission succeed, `main`'s frame has the invariants.
 example (em : Scc.Lower.X64.Emitted) (h : Scc.Lower.X64.lowerAll? { arch := .x64 } ret0Src = .ok em) :
-    ∃ rt, rtFuncs ({ arch := .x64 } : Config).layout ⟨.unit, true⟩ 0 = .ok rt ∧
+    ∃ rt, rtFuncs .x64 ({ arch := .x64 } : Config).layout ⟨.unit, true⟩ 0 = .ok rt ∧
       let fr : Frame := { frameOf (StackMap.argAreas (progOf ({ arch := .x64 } : Config).layout rt
         [mainF]) argRegs.length) mainF with
         maps := (progOf ({ arch := .x64 } : Config).layout rt [mainF]).growth.isSome }

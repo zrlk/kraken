@@ -121,7 +121,7 @@ theorem callMsOK_arOfA (h : placeOKAt cfg Λ o = true) (hc : CtrZ o) (E : Entry)
     rw [arOf_off_eq hacc, hnm]
   · refine ⟨Spike.Lib.A64Consumer.mapped_K0_of_mem fun i hi => .inl (hcb i hi), fun _ i hi => ?_⟩
     exact .inl (hcb i (by simpa [Kernel.locBytes] using hi))
-  · intro o' ho
+  · intro o' _ ho
     obtain ⟨-, hhb⟩ := hdr_bytes_arOf h (ms := msOfA Λ μ rd G own (arOf Λ) I (fun _ => none) ls fs) rfl hnm hu1 ho
     exact ⟨hrt _, ⟨mapped_K0_of_heap hhb, fun _ i hi => .inr (.inl (hhb i (by simpa [Kernel.locBytes] using hi)))⟩,
       hGh _ hhb _⟩

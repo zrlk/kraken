@@ -84,7 +84,7 @@ theorem lagF {C : Ctl → List TermRun.Frame → Prop} (h : SegWS W K p lbl ms P
       exact .frame s₁ c fs he (.refl _) (hX (hr.trans hr') hc (.refl _) hx)
     | pre c₁ fs₁ hr' ho =>
       have hR := hr.trans hr'
-      obtain ⟨hh, hld, hst, hnb, hxs⟩ := hq s c' fs' hWs c₁ fs₁ hr'
+      obtain ⟨hh, hld, hst, hnb, hxs, hnp, hnn⟩ := hq s c' fs' hWs c₁ fs₁ hr'
       cases ho with
       | silent s₁ c₂ he hr'' hx => exact .lift (.silent s₁ c he (.refl c) (hX hR hc hr'' hx))
       | choice P t he ht hl =>
@@ -124,10 +124,16 @@ theorem lagF {C : Ctl → List TermRun.Frame → Prop} (h : SegWS W K p lbl ms P
           exact (hm ⟨v, hv, hE (f := fun m => ¬ m.abortAt s) fs₁ fs (fun _ _ _ _ _ _ _ e h => e ▸ h) hn⟩).elim
       | holdLoad _ _ _ x sa u v e _ hx => exact (hxs x sa u v e hx).elim
       | xchgStore _ _ _ _ x sa u v e _ _ _ _ hx => exact (hxs x sa u v e hx).elim
-      | ctrRmw _ _ _ x a τ e _ _ _ _ _ _ ht => exact (hnb x a τ e ht).elim
+      | ctrRmw _ _ _ x τ e _ _ _ _ hs =>
+        exact (hs.elim (fun ⟨a, _, _, ht, _⟩ => hnb x a τ e ht) fun ⟨_, a, _, ht, _⟩ => hnn x a e ht).elim
       | alloc _ _ x a τ e _ _ _ _ _ _ _ ht => exact (hnb x a τ e ht).elim
+      | newStore _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ hh' => rw [hh] at hh'; cases hh'
       | emit K' buf n _ _ hK' hat hd _ _ _ _ =>
         exact (hnw s c' fs' hWs K' (hms.K fs₁ ▸ hK') hat buf n hd).elim
+      | fence k s₁ c₂ he hr'' hx =>
+        cases hr'' with
+        | loc hr'' => exact .lift (.fence k s₁ c he (.loc (.refl c)) (hX hR hc hr'' hx))
+        | pub _ hps _ => exact (hnp _ _ hps).elim
   · obtain ⟨c₁, fs₁, hr', hx⟩ := hk s' hks
     exact ⟨c, fs, .refl _, hx.elim (fun hi => .inl ⟨hc, _, _, hi, hr.trans hr'⟩)
       fun hq => .inr ⟨hc, _, _, hq, hr.trans hr'⟩⟩

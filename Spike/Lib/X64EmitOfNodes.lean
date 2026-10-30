@@ -56,8 +56,10 @@ theorem emitA_of_nodes (hN : NodesA Λ p μ rd G own ar I (some Ab)) {rS : Range
     | rtRmw _ _ _ _ _ he => rw [hex] at he; cases he
     | holdLoad _ _ _ _ _ _ _ _ he => rw [hex] at he; cases he
     | xchgStore _ _ _ _ _ _ _ _ _ _ _ _ he => rw [hex] at he; cases he
-    | ctrRmw _ _ _ _ _ _ _ _ _ _ he => rw [hex] at he; cases he
+    | ctrRmw _ _ _ _ _ _ _ he => rw [hex] at he; cases he
     | alloc _ _ _ _ _ _ _ _ _ _ _ _ he => rw [hex] at he; cases he
+    | newStore _ _ _ _ _ _ _ _ _ _ _ _ he => rw [hex] at he; cases he
+    | fence _ _ _ he => rw [hex] at he; cases he
     | sys K call hK _ hd' hok _ =>
       cases hK
       rw [hdec] at hd'

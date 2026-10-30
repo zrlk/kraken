@@ -186,10 +186,10 @@ example : okBlk (-48) 0 Print.oI Print.b3 = true :=
   okBlk_of_rowIn_placeOK (b := ⟨4, (-48), 0, Print.oI, Print.b3⟩)
     (l := ".L9_scc_rt_print.1_loop") ret0_placeOK (by decide +kernel)
 example : okBlk (-48) 0 Print.oI Print.b4 = true :=
-  okBlk_of_rowIn_placeOK (b := ⟨0, (-48), 0, Print.oI, Print.b4⟩)
+  okBlk_of_rowIn_placeOK (b := ⟨1, (-48), 0, Print.oI, Print.b4⟩)
     (l := ".L9_scc_rt_print.2_write") ret0_placeOK (by decide +kernel)
 example : okBlk (-48) 0 Print.oI Print.b7 = true :=
-  okBlk_of_rowIn_placeOK (b := ⟨13, (-48), 0, Print.oI, Print.b7⟩)
+  okBlk_of_rowIn_placeOK (b := ⟨14, (-48), 0, Print.oI, Print.b7⟩)
     (l := ".L9_scc_rt_print.2_write") ret0_placeOK (by decide +kernel)
 /-- `Ret0.startMain_ok`: the row's region `[0, 0)` is inside the hand one. -/
 example : okBlk (-80) 0 SO.entry Ret0.startMain = true :=

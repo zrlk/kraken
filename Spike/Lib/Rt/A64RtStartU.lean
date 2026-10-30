@@ -66,8 +66,8 @@ theorem tcbW_wmono (hW : ∀ s c, W s c → W' s c) {q : TcbG} {i : TN} (h : Tcb
   cases i <;> dsimp only [TcbW] at h ⊢ <;> first | exact blkW_wmono hW h | exact nodeW_wmono hW h
 
 /-- `scc_rt_stack_take`'s obligations in a larger `W`. -/
-theorem takeW_wmono (hW : ∀ s c, W s c → W' s c) {q : TakeG} {i : TK} (h : TakeW W K exe endPc R F M q i) :
-    TakeW W' K exe endPc R F M q i := by
+theorem takeW_wmono (hW : ∀ s c, W s c → W' s c) {P : MachineData → Prop} {q : TakeG} {i : TK}
+    (h : TakeW W K exe endPc R F M q i P) : TakeW W' K exe endPc R F M q i P := by
   cases i <;> dsimp only [TakeW] at h ⊢ <;>
     first
     | exact blkW_wmono hW h
@@ -76,8 +76,8 @@ theorem takeW_wmono (hW : ∀ s c, W s c → W' s c) {q : TakeG} {i : TK} (h : T
     | exact fun s c hA => hW _ _ (h s c hA)
 
 /-- `scc_rt_thread_init`'s obligations in a larger `W`. -/
-theorem tiW_wmono (hW : ∀ s c, W s c → W' s c) {q : TiG} {i : TI} (h : TiW W K exe endPc R F M q i) :
-    TiW W' K exe endPc R F M q i := by
+theorem tiW_wmono (hW : ∀ s c, W s c → W' s c) {P : MachineData → Prop} {q : TiG} {i : TI}
+    (h : TiW W K exe endPc R F M q i P) : TiW W' K exe endPc R F M q i P := by
   cases i <;> dsimp only [TiW] at h ⊢ <;>
     first
     | exact blkW_wmono hW h

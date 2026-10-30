@@ -68,12 +68,15 @@ theorem quiet_of_body1 {c : Ctl} {scope : List String} (hb : body1 [] scope c.te
     Quiet c := by
   obtain ⟨t, env, hold⟩ := c
   simp only at hb hh
-  refine ⟨hh, ?_, ?_, ?_, fun x sa u v e ⟨_, hx⟩ => ?_⟩
+  refine ⟨hh, ?_, ?_, ?_, fun x sa u v e ⟨_, hx⟩ => ?_, noPub_of_term ?_ ?_, ?_⟩
   · rintro x a e rfl; simp [body1] at hb
   · rintro x a b e rfl; simp [body1] at hb
   · rintro x a τ e rfl; simp [body1] at hb
   · rcases hx with ⟨_, _, _, _, ht, _⟩ | ⟨_, _, _, _, _, _, _, _, _, ht, _⟩ <;>
     · simp only at ht; subst ht; simp [body1] at hb
+  · rintro x a e rfl; simp [body1] at hb
+  · rintro x r a e rfl; simp [body1] at hb
+  · rintro x a e rfl; simp [body1] at hb
 
 /-- **Along a local run from a tail call into `main`**, with no hold, every
 control is `Quiet`, `main`'s body being `body1 [] []` (`hd`). -/
@@ -87,11 +90,14 @@ theorem quiet_run1 (hd : ∀ d, p.find? (·.name == "main") = some d → body1 [
   induction hr with
   | refl c =>
     rintro (rfl | ⟨hh, sc, hb⟩)
-    · refine ⟨h0, ?_, ?_, ?_, fun x sa u v e ⟨_, hx⟩ => ?_⟩
+    · refine ⟨h0, ?_, ?_, ?_, fun x sa u v e ⟨_, hx⟩ => ?_, noPub_of_term ?_ ?_, ?_⟩
       · intro x a e h; rw [ht] at h; cases h
       · intro x a b e h; rw [ht] at h; cases h
       · intro x a τ e h; rw [ht] at h; cases h
       · rcases hx with ⟨_, _, _, _, h, _⟩ | ⟨_, _, _, _, _, _, _, _, _, h, _⟩ <;> · rw [ht] at h; cases h
+      · intro x a e h; rw [ht] at h; cases h
+      · intro x r a e h; rw [ht] at h; cases h
+      · intro x a e h; rw [ht] at h; cases h
     · exact quiet_of_body1 hb hh
   | @step c c₁ c' hs _ ih =>
     rintro (rfl | ⟨hh, sc, hb⟩)

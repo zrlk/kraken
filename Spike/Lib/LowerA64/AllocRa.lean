@@ -59,7 +59,7 @@ theorem blC2_ret {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe] {
 
 /-- The write abort's pcs (`abPcs`) as positions `(label, instruction)`. -/
 def abPos : List (Label × Nat) :=
-  ((List.range 9).map fun j => (".L9_scc_rt_print.2_write", j + 5)) ++
+  ((List.range 9).map fun j => (".L9_scc_rt_print.2_write", j + 6)) ++
   ((List.range 8).map fun j => (".L9_scc_rt_print.3_chk2", j)) ++
   ((List.range 4).map fun j => (".L9_scc_rt_print.4_chk3", j)) ++
   ((List.range 2).map fun j => (".L9_scc_rt_print.6_fail", j)) ++
@@ -78,13 +78,13 @@ theorem abPcs_eq (lab : Label → Int64) :
     abPcs lab = abPos.map fun p => lab p.1 + Int64.ofNat (4 * p.2) := by
   simp [abPcs, abPos, Spike.Lib.A64.WriteAb.pcRet, Spike.Lib.A64.WriteAb.tailPcs,
     Spike.Lib.A64.WriteAb.failPcs, Spike.Lib.A64.WriteAb.dispEPcs, Spike.Lib.A64.WriteAb.dispTPcs,
-    Spike.Lib.A64.WriteAb.g4Pcs, Spike.Lib.A64.WriteAb.stubPcs, Spike.Lib.A64.Print.pcSvc, List.range_succ,
+    Spike.Lib.A64.WriteAb.g4Pcs, Spike.Lib.A64.WriteAb.stubPcs, Spike.Lib.A64.PrintD.pcSvc, List.range_succ,
     Int64.add_assoc]
 
 /-- The runtime's blocks covering `abPos`, at their labels and offsets. -/
 def abBlks : List (Label × Nat × List Directive) :=
-  [(".L9_scc_rt_print.2_write", 5, Spike.Lib.A64.Print.b5), (".L9_scc_rt_print.2_write", 12, Spike.Lib.A64.Print.b6),
-   (".L9_scc_rt_print.2_write", 13, Spike.Lib.A64.Print.b7),
+  [(".L9_scc_rt_print.2_write", 6, Spike.Lib.A64.Print.b5), (".L9_scc_rt_print.2_write", 13, Spike.Lib.A64.Print.b6),
+   (".L9_scc_rt_print.2_write", 14, Spike.Lib.A64.Print.b7),
    (".L9_scc_rt_print.3_chk2", 0, Spike.Lib.A64.Print.b8), (".L9_scc_rt_print.3_chk2", 6, Spike.Lib.A64.Print.b9),
    (".L9_scc_rt_print.3_chk2", 7, Spike.Lib.A64.Print.b10),
    (".L9_scc_rt_print.4_chk3", 0, Spike.Lib.A64.Print.b11), (".L9_scc_rt_print.6_fail", 0, Spike.Lib.A64.Print.b14),

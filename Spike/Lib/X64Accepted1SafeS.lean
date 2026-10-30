@@ -27,5 +27,8 @@ theorem safeS_of_accepted1 {p : Prog} (hp : Scc.Lower.Accepted1 p = true) (arch 
     have hn := (hR hr 0 th h0).1
     obtain ⟨-, ⟨a, t, pw, μ, ht, -⟩ | ⟨b, i, t, pw, ti, iws, μ, sb, k, ht, -⟩⟩ := hx <;>
       simp only at ht <;> rw [ht] at hn <;> exact (hn.1 trivial).elim
+  · intro tr s hr
+    exact BoxCount.reach_boxLe (.inl (Spike.Lib.srcP1_hooks arch))
+      (fun c hc => by subst hc; exact BoxCount.mainStart_boxLe 1) hr
 
 end Spike.Lib.X64ConsumerS

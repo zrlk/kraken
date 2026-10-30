@@ -65,7 +65,7 @@ theorem components_load {n : Nat} {E : Entry} {Λ : Layout} {cells : List (Direc
     subst hj
     exact ⟨0, by simp [SrcStart.start, SrcSem.mainStart], rfl⟩
   lbl_static _ _ h := h
-  lbl_range := hss.range himg
+  lbl_range l b hl := ⟨(hss.range himg l b hl).1, (hss.range himg l b hl).2.imp_right Or.inl⟩
   lbl_disj _ _ _ _ _ hl := absurd hl not_live_start
   lbl_mem _ _ hl := absurd hl not_live_start
   epoch_fixed _ _ := rfl

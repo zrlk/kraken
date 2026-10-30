@@ -5,7 +5,10 @@ import WeakCore.Syntax
 
 The WeakCore model of the output extern on an owned slice: `printExtD`
 (`print{m}`, the extern's declaration) and `printLoopD` (`printL{i, d}`, its
-`emit` loop). scc does not compile either: the runtime's `scc_rt_print`
+`emit` loop); and its twin on a published slice, `printExtPubD` and
+`printLoopPubD` (the same text with `pub` for `own`, and the loop's read of
+word `iv` a locative `b[iv]` and a plain `load` of it: `loadAt` reads own
+buffers only). scc does not compile either: the runtime's `scc_rt_print`
 stands for them (`Frontend.externOf`). A program that writes them must write
 them **textually** (`declIs`), so that the source the proofs run is the
 program as written.
@@ -21,8 +24,9 @@ namespace Scc.Frontend
 
 /-! ## Textual equality of the extern's declarations -/
 
-/-- Equality of the `let` operations of the extern's model (`atom`, `add`,
-`sub`, `nameI`, `pair`, `loadAt`, `lane`, `ext`); `false` off them. -/
+/-- Equality of the `let` operations of the extern's models (`atom`, `add`,
+`sub`, `nameI`, `pair`, `loadAt`, `idx`, `load`, `lane`, `ext`); `false` off
+them. -/
 def opEqT : Op → Op → Bool
   | .atom a, o => match o with | .atom a' => a == a' | _ => false
   | .add a b, o => match o with | .add a' b' => a == a' && b == b' | _ => false
@@ -30,6 +34,8 @@ def opEqT : Op → Op → Bool
   | .nameI a, o => match o with | .nameI a' => a == a' | _ => false
   | .pair a b, o => match o with | .pair a' b' => a == a' && b == b' | _ => false
   | .loadAt a b, o => match o with | .loadAt a' b' => a == a' && b == b' | _ => false
+  | .idx a b, o => match o with | .idx a' b' => a == a' && b == b' | _ => false
+  | .load q a, o => match o with | .load q' a' => q == q' && a == a' | _ => false
   | .lane a b, o => match o with | .lane a' b' => a == a' && b == b' | _ => false
   | .ext n a, o => match o with | .ext n' a' => n == n' && a == a' | _ => false
   | _, _ => false
@@ -161,5 +167,41 @@ def printBody : Expr :=
 /-- **The output extern** `print{m}(a : printOwnSig) : Unit` with its model. -/
 def printExtD : Decl :=
   { name := "print", idx := ["m"], arg := "a", argTy := ownSliceTy, retTy := .unit, body := printBody }
+
+/-! ## The extern's model on a published slice -/
+
+/-- The published slice `({Loc pub Array[m] LanesU8 | ini >= m} * Int[m]) * Int`
+(`Frontend.printSig`'s type). -/
+def pubSliceTy : Ty :=
+  .prod (.prod (.refine (.loc .pub (.array (.var 0) (.lanes false .w8))) (.ini (.var 0))) (.intS (.var 0))) .int
+
+/-- The published loop's buffer: `printLBufTy` with `pub` for `own`. -/
+def printLBufPubTy : Ty :=
+  .refine (.loc .pub (.array (.add (.add (.var 1) (.lit 1)) (.var 0)) (.lanes false .w8)))
+    (.ini (.add (.add (.var 1) (.lit 1)) (.var 0)))
+
+/-- The published loop's argument: `printLTy` on `printLBufPubTy`. -/
+def printLPubTy : Ty :=
+  .prod (.prod (.prod printLBufPubTy (.intS (.var 1))) (.intS (.var 0))) (.prod (.prod .int .int) .int)
+
+/-- The published loop's body: `printLBody`, with word `iv` read through the
+locative `l = b[iv]` and a plain `load` (a published buffer has no `loadAt`). -/
+def printLPubBody : Expr :=
+  .split (.var "a") "w" "q" <| .split (.var "w") "bi" "dv" <| .split (.var "bi") "b" "iv" <|
+  .split (.var "q") "cn" "j" <| .split (.var "cn") "c" "n" <|
+  .ifeq (.var "c") (.var "n") (.ret .unit) <|
+  .ifeq (.var "j") (.lit 8) (.ifeq (.var "dv") (.lit 0) (.ret .unit) printAdv) <|
+  .let_ "l" (.idx (.var "b") (.var "iv")) <| .let_ "wd" (.load false (.var "l")) <|
+  .let_ "x" (.lane (.var "wd") (.var "j")) <|
+  .let_ "r" (.ext .emit (.var "x")) printNext
+
+/-- **The extern's loop on a published slice** `printL{i, d}`. -/
+def printLoopPubD : Decl :=
+  { name := "printL", idx := ["i", "d"], arg := "a", argTy := printLPubTy, retTy := .unit, body := printLPubBody }
+
+/-- **The output extern on a published slice** `print{m}(a : printSig) : Unit`
+with its model (`printBody`, as the owned one's). -/
+def printExtPubD : Decl :=
+  { name := "print", idx := ["m"], arg := "a", argTy := pubSliceTy, retTy := .unit, body := printBody }
 
 end Scc.Frontend

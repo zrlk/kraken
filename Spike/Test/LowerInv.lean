@@ -130,7 +130,7 @@ example : mainCtx.leave =
 
 -- The whole-program statement's hypotheses hold of `ret0.w` (AArch64).
 #guard (Scc.Lower.A64.lowerAll? { arch := .arm } ret0Src).isOk
-#guard match Scc.Lower.Inv.rtFuncs ({ arch := .arm } : Config).layout ⟨.unit, true⟩ 0 with
+#guard match Scc.Lower.Inv.rtFuncs .arm ({ arch := .arm } : Config).layout ⟨.unit, true⟩ 0 with
   | .ok rt => ret0IR.funcs == rt ++ [func0 (Names.user "main") ret0Res]
   | .error _ => false
 

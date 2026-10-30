@@ -56,7 +56,7 @@ theorem start {tm : Memory} (htm : tm.msgs = #[])
     (hd : ∀ l l' b b', l ≠ l' → lbl l = some b → lbl l' = some b' → (lrange lsize l b).Disjoint (lrange lsize l' b')) :
     MemRelP Λ lbl lsize (fun _ => none) tm #[] [] [] [] where
   lbl_static := hs
-  lbl_range := hr
+  lbl_range l b hl := ⟨(hr l b hl).1, (hr l b hl).2.imp_right Or.inl⟩
   lbl_disj := hd
   lbl_mem m hm := by simp at hm
   mem_rep k m hk := by simp at hk

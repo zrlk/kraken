@@ -41,7 +41,9 @@ def Correct (T : Target) (S : SrcSem) (Λ : Layout) (B : Budget) (asm : T.Asm) :
 
 `T` is the target: an extended machine `T.M`, an assembly type and a loader
 `T.load : Asm → Layout → Option T.M.Cfg`. `S` is the source machine with its
-start configurations (a WeakCore program and its setup block). For WeakCore
+start configurations (a WeakCore program and its setup block; a `main` taking
+`ThreadId` or `S * ThreadId` starts with that argument naming thread 0's own
+`ThreadId` box, `SrcSem.tidStartT` / `SrcSem.setupStartT`). For WeakCore
 with its extern step (designed upstream, not yet in the tree) `S` is
 `SrcSem.ofStepsG p k arch (Spawn ∨ Ext) (srcObs trace)`: runs are WeakCore's
 `StepsG p k arch (Spawn ∨ Ext)` runs, and each step is labelled with the
@@ -143,32 +145,33 @@ abort, with the abort kind of the part of `B` the source crosses".
 - **Budget `B`** (`Budget`, `Budget.Part`, `Budget.Within`), in source
   terms, one part per abort kind: heap use (`heapUse`: the words allocated,
   `cellCount`, plus one header word per allocation, `allocCount`, the sum of
-  the threads' `nalloc`) within `B.cells`; threads created (`ths.size`)
-  within `B.threads`; each thread's frames (`stack.length`) within
-  `B.frames`; and "every number in thread `i`'s register environments is
-  below `2^64`" (`NoBigNumT i`). `cellCount`, the distinct addresses in
-  source memory, counts allocated words, not written ones: every
-  allocation (`TermRun.alloc`, `allocBuf` for `newBuf`, with or without a
-  zero) pushes one first message per word, `undef` or zero. *Heap form
-  (chosen: target-sized, mode-dependent).* The intended heap part
-  is `Σ_{l ∈ L} size(ty l) ≤ B.heap`, `size` the bipartite layout's object
-  bytes (`8 · (1 + len · (n + m))`, plus alignment filler once 16-byte units
-  land), `L` all labels under `gc none` and the live labels (§1.2, 5) under
-  a collector; thread boxes (WeakCore's boxed `ThreadId`) count under
-  `threads`, their control blocks being in `Λ.pinned`. Until WeakCore
-  exports a per-label closed type, `heapUse` stands in under `gc none`,
-  with an explicit margin: `objBytes t f = 8 · (1 + t) + f`, and
+  the threads' `nalloc`, less the thread-id boxes, `boxCount`, the threads
+  with `tidLbl` set, which take no target heap) within `B.cells`; threads
+  created (`ths.size`) within `B.threads`; each thread's frames
+  (`stack.length`) within `B.frames`; and "every number in thread `i`'s
+  register environments is below `2^64`" (`NoBigNumT i`). `cellCount`, the
+  distinct addresses in source memory, counts allocated words, not written
+  ones: every allocation (`TermRun.alloc`, `allocBuf` for `newBuf`, with or
+  without a zero) pushes one first message per word, `undef` or zero. *Heap
+  form (chosen: target-sized, mode-dependent).* The intended heap
+  part is `Σ_{l ∈ L} size(ty l) ≤ B.heap`, `size` the bipartite layout's
+  object bytes (`8 · (1 + len · (n + m))`, plus alignment filler once
+  16-byte units land), `L` all labels under `gc none` and the live labels
+  (§1.2, 5) under a collector; thread boxes (WeakCore's boxed `ThreadId`)
+  count under `threads`, their control blocks being in `Λ.pinned`. Until
+  WeakCore exports a per-label closed type, `heapUse` stands in under
+  `gc none`, with an explicit margin: `objBytes t f = 8 · (1 + t) + f`, and
   `arena_margin` / `arena_covers` bound the arena bytes of allocations
-  accounting for `cellCount` and `allocCount` (at most three target words
-  per two source words, filler at most 8) by `16 · heapUse`, so an arena of
-  `16 · B.cells` bytes is not exhausted within the heap part. *Runtime
-  commitment for a future collector:* on arena exhaustion mid-cycle the
-  allocator waits for the cycle to complete instead of aborting, and aborts
-  with `heap` only if the arena is full right after a completed cycle; the
-  arena is at least `2 · B.heap` plus the largest object. Then a live
-  footprint within `B.heap` implies no heap abort; a waiting thread takes no
-  steps, and progress (clause 2) holds because the collector thread is
-  live. `Within` is
+  accounting for `cellCount` and `allocCount - boxCount` (at most three
+  target words per two source words, filler at most 8) by `16 · heapUse`,
+  so an arena of `16 · B.cells` bytes is not exhausted within the heap
+  part. *Runtime commitment for a future collector:* on arena exhaustion
+  mid-cycle the allocator waits for the cycle to complete instead of
+  aborting, and aborts with `heap` only if the arena is full right after a
+  completed cycle; the arena is at least `2 · B.heap` plus the largest
+  object. Then a live footprint within `B.heap` implies no heap abort; a
+  waiting thread takes no steps, and progress (clause 2) holds because the
+  collector thread is live. `Within` is
   every part for every thread. The source's own thread cap
   (`Spawn` needs `ths.size < cap`) is set to `B.threads + 1`: a spawn beyond
   the budget is then a source step that leaves it, which is what justifies
@@ -1159,7 +1162,11 @@ and are to be reopened at the trigger given:
     overflow part is per thread (`NoBigNumT i`).
 28. Heap use counts allocated words (`cellCount`, valid because every
     allocation pushes one message per word) plus one header word per
-    allocation (`allocCount`); a single `B.cells` bounds both.
+    allocation other than a thread-id box (`allocCount - boxCount`: a box
+    is counted by `nalloc` but has no cell and no target object, the target
+    thread id being in the control block); a single `B.cells` bounds both.
+    Along runs `boxCount ≤ allocCount` (an untrusted run lemma; no trusted
+    statement assumes it).
 29. `B` is the producer's choice and is published with each program (§1).
 30. `Correct` is meaningful only for the canonical `Target` per ISA (§1).
 31. Stack-pool metadata lives in `Λ.heap`/`Λ.data`, not in the pool (§2.6).

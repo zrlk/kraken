@@ -54,13 +54,16 @@ theorem Out.withBW {X : Frag I} {s : I.State} {c : Ctl} (h : Out p lbl ms X s c)
   | holdLoad kl A g x sa u v e he hx hA hh hX => exact .holdLoad kl A g x sa u v e he hx hA hh hX
   | xchgStore kr A V s' x sa u v e tv wv wold he hx hA hh hev hv hX =>
     exact .xchgStore kr A V s' x sa u v e tv wv wold he hx hA hh hev hv hX
-  | ctrRmw k op g x a τ e ta ws n he hrt hm ht hev hn hh hop hX =>
-    exact .ctrRmw k op g x a τ e ta ws n he hrt hm ht hev hn hh hop hX
+  | ctrRmw k op g x τ e n he hrt hm hs hh hop hX =>
+    exact .ctrRmw k op g x τ e n he hrt hm hs hh hop hX
   | alloc s' A x a τ e ta ws k wold old us he ht hev hk hh hold hA hc hu hX =>
     exact .alloc s' A x a τ e ta ws k wold old us he ht hev hk hh hold hA hc hu hX
+  | newStore kr A V s' x a ty e w wold old hN he hm ht hev hu hv hh hold hA hc hX =>
+    exact .newStore kr A V s' x a ty e w wold old hN he hm ht hev hu hv hh hold hA hc hX
   | emit K buf n Pw Qw hK ha hd h0 hb hr hq =>
     exact .emit K buf n Pw Qw hK ha hd h0 (fun j hj c1 hp => hbo _ _ _ _ (hb j hj c1 hp)) hr
       (fun c1 h => hwe _ _ (hq c1 h))
+  | fence k s' c' he hr hx => exact .fence k s' c' he hr hx
 
 /-- A memory side with no byte step and no abort justification (`MemSide`'s
 defaults) is weaker than any. -/
@@ -98,11 +101,14 @@ theorem Out.unBW {X : Frag I} {s : I.State} {c : Ctl} (h : Out p lbl (ms.withBW 
   | holdLoad kl A g x sa u v e he hx hA hh hX => exact .holdLoad kl A g x sa u v e he hx hA hh hX
   | xchgStore kr A V s' x sa u v e tv wv wold he hx hA hh hev hv hX =>
     exact .xchgStore kr A V s' x sa u v e tv wv wold he hx hA hh hev hv hX
-  | ctrRmw k op g x a τ e ta ws n he hrt hm ht hev hn hh hop hX =>
-    exact .ctrRmw k op g x a τ e ta ws n he hrt hm ht hev hn hh hop hX
+  | ctrRmw k op g x τ e n he hrt hm hs hh hop hX =>
+    exact .ctrRmw k op g x τ e n he hrt hm hs hh hop hX
   | alloc s' A x a τ e ta ws k wold old us he ht hev hk hh hold hA hc hu hX =>
     exact .alloc s' A x a τ e ta ws k wold old us he ht hev hk hh hold hA hc hu hX
+  | newStore kr A V s' x a ty e w wold old hN he hm ht hev hu hv hh hold hA hc hX =>
+    exact .newStore kr A V s' x a ty e w wold old hN he hm ht hev hu hv hh hold hA hc hX
   | emit K buf n Pw Qw hK ha hd => exact (hne K hK ha buf n hd).elim
+  | fence k s' c' he hr hx => exact .fence k s' c' he hr hx
 
 /-- **A segment inside `W` closed under `K`** under `ms` is one under
 `ms.withBW bo we`. -/

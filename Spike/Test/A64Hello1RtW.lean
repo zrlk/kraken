@@ -62,7 +62,7 @@ noncomputable def hello1Dead (l : Label) (k : Nat) (t : Nat) : Bool :=
 
 /-- The labels the rows branch to off the hand table: the abort's and
 `scc_rt_morestack`'s, at their `labIn` addresses. -/
-def hello1TabX : List (Label × Nat) := [("scc_rt_abort", 4198284), ("scc_rt_morestack", 4199372)]
+def hello1TabX : List (Label × Nat) := [("scc_rt_abort", 4198288), ("scc_rt_morestack", 4199376)]
 
 theorem hello1TabX_ok : hello1TabX.all tabChk = true := by decide +kernel
 

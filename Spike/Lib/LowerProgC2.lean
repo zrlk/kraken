@@ -22,7 +22,7 @@ functions, then `funcs2`, each compiled block's closed form `lowerC2`. -/
 theorem lowerAll_accepted2_a64 (cfg : Config) {p : Prog} (hp : Accepted2 p = true)
     {e : Scc.Lower.A64.Emitted} (h : Scc.Lower.A64.lowerAll? cfg p = .ok e) :
     ∃ ws rt, Pairwise2 (LowC2 p cfg.layout.obj) (compiled2 p) ws ∧
-      rtFuncs cfg.layout (entry2 p) (setupWords2 p) = .ok rt ∧
+      rtFuncs cfg.arch cfg.layout (entry2 p) (setupWords2 p) = .ok rt ∧
       (Scc.Lower.A64.lowerAll cfg p).low.checked = checked2 p ∧
       (Scc.Lower.A64.lowerAll cfg p).low.ir = progOf cfg.layout rt (funcs2 p ws) ∧
       (Scc.Lower.A64.lowerAll cfg p).low.marks = marksAll2 p ws := by

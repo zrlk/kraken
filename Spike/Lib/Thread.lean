@@ -32,6 +32,7 @@ where the fragments place the source words, `Place`) follow, and
 -/
 import Spike.Lib.Src
 import Spike.Bridge.LoopCorrect
+import Spike.Lib.FenceStep
 
 namespace Spike.Lib
 
@@ -161,6 +162,36 @@ theorem k_done_out {tid : Nat} {t : Thread I} {mem : Memory} {q : Thread I × Me
   have hfw : o.thread.views.fwdb = t.views.fwdb := by have := congrArg Views.fwdb hk; exact this
   exact ⟨hmem, (finishInstr_relKey hth).1, hfw, by unfold Views.getCoh; rw [hcoh], finishInstr_st hth⟩
 
+/-- **A fence** (`.fence k fun _ => .done s'`): as `k_done_out`; the fence
+moves only the new-access views (`fenceStep`), not the forwarding bank or
+the coherence views. -/
+theorem k_fence_out {tid : Nat} {t : Thread I} {mem : Memory} {q : Thread I × Memory} {k : Kraken.FenceKind}
+    {s' : I.State} (hex : I.exec t.st = some (.fence k fun _ => .done s')) (h : ThreadStep A tid (t, mem) q) :
+    q.2 = mem ∧ q.1.prom = t.prom ∧ q.1.views.fwdb = t.views.fwdb ∧
+      q.1.views.getCoh ⟨F, 8⟩ = t.views.getCoh ⟨F, 8⟩ ∧ q.1.st = s' := by
+  obtain ⟨outs, o, hs, ho, rfl⟩ := h
+  obtain ⟨hth, hmem, hp⟩ := FenceStep.stepOne_fence_ok A tid hex ⟨outs, o, hs, ho, rfl, rfl⟩
+  have hk := (finishInstr_relKey hth).2
+  have hcoh : o.thread.views.coh = t.views.coh := by
+    have := congrArg Views.coh hk; simp only at this; rw [this]; cases k <;> rfl
+  have hfw : o.thread.views.fwdb = t.views.fwdb := by
+    have := congrArg Views.fwdb hk; simp only at this; rw [this]; cases k <;> rfl
+  exact ⟨hmem, hp, hfw, by unfold Views.getCoh; rw [hcoh], finishInstr_st hth⟩
+
+/-- **A fence of a thread with no promise can step** (`done_can_step`'s
+counterpart: certification is trivial with no promise). -/
+theorem fence_can_step {c : Config I} {t0 t1 : Thread I} (hc : c.threads = #[t0, t1]) (hp : t1.prom = [])
+    {k : Kraken.FenceKind} {s : I.State} (hex : I.exec t1.st = some (.fence k fun _ => .done s)) :
+    ∃ c', StepSemInf A 1 c c' := by
+  have ht : c.threads[1]? = some t1 := by rw [hc]; rfl
+  obtain ⟨th, hth⟩ := finishInstr_nonempty t1 (I.deps t1.st) (instrViews t1 (I.deps t1.st)) s
+    (fenceStep (ctx0 1 t1 c.mem) k)
+  have hp' : th.prom = [] := by rw [(finishInstr_relKey hth).1]; simpa [ctx0] using hp
+  have hcert := certOk_nil A (tid := 1) (mem := c.mem) hp'
+  refine ⟨_, .inl ((instrSemInf_iff_of_exec A 1 ht hex).mpr ⟨th, c.mem, ⟨s, _, ?_, hth, ?_⟩, hcert, rfl⟩)⟩
+  · rw [FenceStep.run_fence]; exact List.mem_singleton.mpr rfl
+  · simp [ctx0]
+
 /-- **An instruction with a choice of silent leaves** (an undefined flag):
 as `k_done_out`, the thread at a leaf satisfying `P`. -/
 theorem k_silent_out {tid : Nat} {t : Thread I} {mem : Memory} {q : Thread I × Memory} {tree : EvTree I.State}
@@ -270,10 +301,14 @@ theorem step {tid : Nat} {t : Thread I} {mem : Memory} {q : Thread I × Memory} 
     | sys K call hK => nomatch hK
     | holdLoad kl B g x sa u v e hex hx => exact absurd hx (hR.noXchg _ _ hi _ _ _ _ _)
     | xchgStore kr B V s' x sa u v e tv wv wold hex hx => exact absurd hx (hR.noXchg _ _ hi _ _ _ _ _)
-    | ctrRmw _ _ _ _ _ _ _ _ _ _ hex hrt => exact hrt.elim
+    | ctrRmw _ _ _ _ _ _ _ hex hrt => exact hrt.elim
     | rtRmw _ _ _ _ _ hex hrt => exact hrt.elim
     | alloc s' B x a τ e ta ws k _ _ _ hex ht => exact absurd ht (hR.noAlloc _ _ hi _ _ _ _)
+    | newStore _ _ _ _ _ _ _ _ _ _ _ hN => exact hN.elim
     | emit K _ _ _ _ hK => nomatch hK
+    | fence k s' c' hex _ hX =>
+      obtain ⟨hm, hp, -, -, hst⟩ := k_fence_out (F := F) A hex h
+      exact ⟨hm, hp, c', hst ▸ hX⟩
   · exact absurd h (no_threadStep A (hR.fin _ _ hf))
 
 /-- **The reader certifies only with no promise.** -/
@@ -412,10 +447,21 @@ theorem sim_step_seg {c c' : Config I} {s : TermRun.Cfg} {tid : Nat} (hRel : Rel
         | sys K call hK => nomatch hK
         | holdLoad kl B g x sa u v e hex hx => exact absurd hx (hR.noXchg _ _ hi _ _ _ _ _)
         | xchgStore kr B V s' x sa u v e tv wv wold hex hx => exact absurd hx (hR.noXchg _ _ hi _ _ _ _ _)
-        | ctrRmw _ _ _ _ _ _ _ _ _ _ hex hrt => exact hrt.elim
+        | ctrRmw _ _ _ _ _ _ _ hex hrt => exact hrt.elim
         | rtRmw _ _ _ _ _ hex hrt => exact hrt.elim
         | alloc s' B x a τ e ta ws k _ _ _ hex ht => exact absurd ht (hR.noAlloc _ _ hi _ _ _ _)
+        | newStore _ _ _ _ _ _ _ _ _ _ _ hN => exact hN.elim
         | emit K _ _ _ _ hK => nomatch hK
+        | fence fk s' c' hex hrun hX =>
+          -- a fence: the local run, as a silent instruction
+          obtain ⟨hmem, hpr, hfw, hcoh, hstq⟩ := k_fence_out (F := F) A hex hts
+          have hm' : o.mem = c.mem := hmem
+          refine ⟨_, hrun.local.run (k := k) (arch := arch) (init := init) h1 rfl rfl hσ1 hst1 hpr1, ?_⟩
+          refine ⟨t0, o.thread, th0, _, hthr _, hths _, hW, by rw [hm']; exact hP,
+            ⟨hpr.trans hp1, hfw.trans hfw1, by rw [hcoh]; exact hvb, hpr1, hσ1, hst1, ?_⟩,
+            by rw [hm']; exact hM, hpairs, hmv⟩
+          rw [hstq, ctl_of_with _ (hrun.local.hold rfl)]
+          exact hX
       · exact absurd hts (no_threadStep A (hR.fin _ _ hf))
     | n + 2, ht, _, _ => simp at ht
   · rw [hc] at ht
@@ -503,10 +549,12 @@ theorem rspecS : RSpec A F v1 (KPh Inv Fin) where
       | sys K call hK => nomatch hK
       | holdLoad kl B g x sa u v e hex hx => exact absurd hx (hR.noXchg _ _ hi _ _ _ _ _)
       | xchgStore kr B V s' x sa u v e tv wv wold hex hx => exact absurd hx (hR.noXchg _ _ hi _ _ _ _ _)
-      | ctrRmw _ _ _ _ _ _ _ _ _ _ hex hrt => exact hrt.elim
+      | ctrRmw _ _ _ _ _ _ _ hex hrt => exact hrt.elim
       | rtRmw _ _ _ _ _ hex hrt => exact hrt.elim
       | alloc s' B x a τ e ta ws k _ _ _ hex ht => exact absurd ht (hR.noAlloc _ _ hi _ _ _ _)
+      | newStore _ _ _ _ _ _ _ _ _ _ _ hN => exact hN.elim
       | emit K _ _ _ _ hK => nomatch hK
+      | fence k s' c' hex => exact FenceStep.stepOne_fence_no_error A _ hex hs' m
     · have hex : I.exec t.st = none := hR.fin _ _ hf
       simp [stepOne, hex] at hs'
   can {c t0 t1} hc hM hp hP hh := by
@@ -523,10 +571,12 @@ theorem rspecS : RSpec A F v1 (KPh Inv Fin) where
       | sys K call hK => nomatch hK
       | holdLoad kl B g x sa u v e hex hx => exact absurd hx (hR.noXchg _ _ hi _ _ _ _ _)
       | xchgStore kr B V s' x sa u v e tv wv wold hex hx => exact absurd hx (hR.noXchg _ _ hi _ _ _ _ _)
-      | ctrRmw _ _ _ _ _ _ _ _ _ _ hex hrt => exact hrt.elim
+      | ctrRmw _ _ _ _ _ _ _ hex hrt => exact hrt.elim
       | rtRmw _ _ _ _ _ hex hrt => exact hrt.elim
       | alloc s' B x a τ e ta ws k _ _ _ hex ht => exact absurd ht (hR.noAlloc _ _ hi _ _ _ _)
+      | newStore _ _ _ _ _ _ _ _ _ _ _ hN => exact hN.elim
       | emit K _ _ _ _ hK => nomatch hK
+      | fence k s' c' hex => exact fence_can_step A hc hp hex
     · simp [Thread.halted, hR.fin _ _ hf] at hh
 
 variable {rv : I.State → I.RegId → BitVec 64} {pl : I.State → BitVec 64 → Option (BitVec 64)} {rF rR : I.RegId}

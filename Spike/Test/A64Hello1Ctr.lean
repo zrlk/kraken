@@ -310,9 +310,9 @@ theorem hctrA {W inv0 : FragS isaLSE2} {inv1 : WeakMem.AllocLabel → Nat → Na
   have hrow := Spike.Lib.A64.Alloc.ctrRow_alloc (lbl := hello1Λ.static)
     (ms := msOfA hello1Λ μ rd G own ar (Ih lsize inv0 inv1) hello1Λ.static lsize [setupFrame e env]) hFa
     (okA q.2) (alloc_code hp hend hello1_alloc) (fun m hm => hP.hmem q.1 (okA q.2) _ (.inl rfl) m hm.1.1) hAt
-  obtain ⟨k, op, g, x, a, τ, e', ta, ws, n, h1, h2, h3, h4, h5, h6, h7, h8, h9⟩ := hrow
-  refine ⟨k, op, g, x, a, τ, e', ta, ws, n, h1, h2, h3, h4, h5, h6, h7, h8, fun old hG hown hle => ?_⟩
-  obtain ⟨hG', hX⟩ := h9 old hG hown hle
+  obtain ⟨k, op, g, x, τ, e', n, h1, h2, h3, h4, h5, h6, h7⟩ := hrow
+  refine ⟨k, op, g, x, τ, e', n, h1, h2, h3, h4, h5, h6, fun old hG hown hle hlo => ?_⟩
+  obtain ⟨hG', hX⟩ := h7 old hG hown hle hlo
   refine ⟨hG', fun h => absurd h (List.cons_ne_nil _ _), Spike.Lib.Pend.of (.inl ⟨rfl, rfl, ?_⟩)⟩
   exact hmax inv hS _ _ _ (hinv _ _ _ ⟨hX, rfl⟩)
 

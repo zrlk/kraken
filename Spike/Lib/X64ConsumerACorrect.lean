@@ -417,8 +417,10 @@ theorem ti_runA {ab : Option (State → Prop)} (hN : NodesA Λ p μ rd G own ar 
 `writeErr` one by `TI`; the `overflow` one at any depth with every frame's
 environment small (`abortJustified_overflow_sourceS`); the `heap` one with
 the heap use within the budget's `cells` (`AllocInvAt.heapCtr`, `hB`) and the next
-label fresh (`FreshInv`, `abortJustified_heap_source`). -/
-theorem r_abortA {ab : Option (State → Prop)} (hN : NodesA Λ p μ rd G own ar I ab) (hwf : Λ.WF) {Ab : State → Prop}
+label fresh (`FreshInv`) and the boxes counted (`SrcSafeS.box`,
+`abortJustified_heap_source`). -/
+theorem r_abortA {ab : Option (State → Prop)} (hN : NodesA Λ p μ rd G own ar I ab) (hsafe : SrcSafeS P p I)
+    (hwf : Λ.WF) {Ab : State → Prop}
     (hA : AbortPathS μ I Ab ar.cells ar.ctr)
     {B : Budget} (hB : B.cells = ar.cells) {rS : Range} {Tk : State → Prop} {t t' : T.M.Cfg}
     {s : TermRun.Cfg} {tid : Nat} {es tr : List Ev} {k : AbortKind} (h : RSA Λ P p G own I rS Tk μ ar t s)
@@ -429,7 +431,7 @@ theorem r_abortA {ab : Option (State → Prop)} (hN : NodesA Λ p μ rd G own ar
   rotate_left
   · exact (Kernel.exited_no_step abi (o := o) (by rw [hx]) hs).elim
   obtain ⟨th, th0, j, lbl, lsize, ts, hl, pm, hd, hth, ⟨E, hk'⟩, -, hh, -, -, hs0, hσ, hp, hI, -, -, -, hinv,
-    hown, hmi, -, -, -, hai, hfr, -, -⟩ := h
+    hown, hmi, -, -, -, hai, hfr, -, tr', hre⟩ := h
   obtain ⟨a, ha, t2, ht2, hpc⟩ := hs.abort_at hk
   obtain ⟨rfl, rfl⟩ := get_one hth ht2
   obtain ⟨w, hw, hw0⟩ := components_oneSX hwf hth (by rw [hk']; rfl) hh hmi hs0
@@ -442,6 +444,7 @@ theorem r_abortA {ab : Option (State → Prop)} (hN : NodesA Λ p μ rd G own ar
   · have hr := hheap (heapUse s) hai.heapCtr
     exact abortJustified_heap_source hi (by rw [hB]; exact hr) hσ hp
       (Spike.Lib.fresh_of_placed (fun m hmem => (hinv.mem.lbl_mem m hmem).imp fun _ h => h.1) hfr.fresh)
+      (hsafe.box _ _ hre)
 
 open Scc.Cert.Link in
 /-- **`Correct` for a one-thread program at any call depth on a target on
@@ -489,7 +492,7 @@ theorem correctKOnA {B : Budget} (hB : B.cells = ar.cells) {A : Type} {ld : A �
       (fun hR hs => let ⟨s', _, h'⟩ := r_stepA hP hN hsafe hT hps (.of_all hrd) hwf hGpl hok hR hs; ⟨s', h'⟩)
       hr hR0 (pre := []) (fun th h hab => absurd hab (ti_load hab0 (hl.symm.trans h0) th h))
     rw [List.nil_append] at hti
-    exact r_abortA hN hwf hA hB hR hti hs hk
+    exact r_abortA hN hsafe hwf hA hB hR hti hs hk
 
 open Scc.Cert.Link in
 /-- **`Correct` for a one-thread program at any call depth on the canonical

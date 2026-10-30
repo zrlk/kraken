@@ -1039,6 +1039,7 @@ def hello1Asm : String := "\
   \tb.eq .L9_scc_rt_print.7_done\n\
   \tb .L9_scc_rt_print.2_write\n\
   .L9_scc_rt_print.2_write:\n\
+  \tdmb ish\n\
   \tmovz x0, #1\n\
   \tldr x1, [sp]\n\
   \tldr x2, [sp, #8]\n\
@@ -1081,9 +1082,9 @@ def hello1Asm : String := "\
   .L9_scc_rt_print.6_fail:\n\
   \tmovz x0, #4\n\
   \tbl scc_rt_abort\n\
-  .L9_scc_rt_print.sp9:\n\
-  .L9_scc_rt_print.halt10:\n\
-  \tb .L9_scc_rt_print.halt10\n\
+  .L9_scc_rt_print.sp10:\n\
+  .L9_scc_rt_print.halt11:\n\
+  \tb .L9_scc_rt_print.halt11\n\
   .L9_scc_rt_print.7_done:\n\
   \tldr x29, [sp, #32]\n\
   \tldr x30, [sp, #40]\n\
@@ -1645,7 +1646,7 @@ def hello1Asm : String := "\
   \t.quad .L6_scc_rt_stack_take.sp36, 0, 0, 4\n\
   \t.quad .L8_scc_rt_grow.sp13, 0, 0, 4\n\
   \t.quad .L8_scc_rt_grow.sp15, 0, 0, 4\n\
-  \t.quad .L9_scc_rt_print.sp9, 0, 0, 4\n\
+  \t.quad .L9_scc_rt_print.sp10, 0, 0, 4\n\
   \t.quad .L18_wc_rodata.sp0, 0, 0, 4\n\
   \t.quad .L18_wc_rodata.sp_check, 0, 0, 4\n\
   \t.quad .L19_wc_main.sp4, 0, 0, 4\n\
@@ -2501,11 +2502,11 @@ movz x10, #0
 subs xzr, x9, x10
 b.eq .L9_scc_rt_print.7_done")) /- scc_rt_print_2 -/,
     (4, parseAArch64("b .L9_scc_rt_print.2_write")) /- scc_rt_print_3 -/]⟩,
-  ⟨".L9_scc_rt_print.2_write", [(0, parseAArch64("movz x0, #1
+  ⟨".L9_scc_rt_print.2_write", [(1, parseAArch64("movz x0, #1
 ldr x1, [sp]
 ldr x2, [sp, #8]
 movz x8, #64")) /- scc_rt_print_4 -/,
-    (5, parseAArch64("str x0, [sp, #16]
+    (6, parseAArch64("str x0, [sp, #16]
 ldr x9, [sp, #16]
 movz x10, #65532
 movk x10, #65535, lsl #16
@@ -2513,7 +2514,7 @@ movk x10, #65535, lsl #32
 movk x10, #65535, lsl #48
 subs xzr, x9, x10
 b.eq .L9_scc_rt_print.1_loop")) /- scc_rt_print_5 -/,
-    (13, parseAArch64("b .L9_scc_rt_print.3_chk2")) /- scc_rt_print_6 -/]⟩,
+    (14, parseAArch64("b .L9_scc_rt_print.3_chk2")) /- scc_rt_print_6 -/]⟩,
   ⟨".L9_scc_rt_print.3_chk2", [(0, parseAArch64("ldr x9, [sp, #16]
 movz x10, #65525
 movk x10, #65535, lsl #16
@@ -2538,7 +2539,7 @@ str x9, [sp, #8]
 b .L9_scc_rt_print.1_loop")) /- scc_rt_print_11 -/]⟩,
   ⟨".L9_scc_rt_print.6_fail", [(0, parseAArch64("movz x0, #4
 bl scc_rt_abort")) /- scc_rt_print_12 -/]⟩,
-  ⟨".L9_scc_rt_print.halt10", [(0, parseAArch64("b .L9_scc_rt_print.halt10")) /- scc_rt_print_13 -/]⟩,
+  ⟨".L9_scc_rt_print.halt11", [(0, parseAArch64("b .L9_scc_rt_print.halt11")) /- scc_rt_print_13 -/]⟩,
   ⟨".L9_scc_rt_print.7_done", [(0, parseAArch64("ldr x29, [sp, #32]
 ldr x30, [sp, #40]
 add sp, sp, #48

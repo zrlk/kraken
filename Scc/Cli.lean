@@ -174,6 +174,17 @@ def checkCert (file : String) : IO UInt32 := do
     IO.eprintln s!"scc: cannot run {lake}: {e} (set LAKE to the lake command)"
     return 2
 
+/-- Whether the lowered IR takes the thread-id shape (`scc_rt_main` calls
+`wc_main(tcb)`) or spawns (a `clone`): a certificate then states `placeOK2`
+(`Cert.Gen.Placement.spawn`). The same tests as `Scc.Cert.Spawn.X64.tidOf`
+and `spawnsOf` (and their AArch64 twins), on the IR here, so that the driver
+imports no ISA; untrusted (a wrong value gives a file that does not check). -/
+def spawnShape (ir : IR.Program) : Bool :=
+  ir.funcs.any fun f => f.blocks.any fun b => b.insts.any fun
+    | .call _ g args => f.name == "scc_rt_main" && g == "wc_main" && args == [.reg "tcb"]
+    | .clone .. => true
+    | _ => false
+
 /-- The compiler for architecture `arch`, with its emission `emit` (the
 ISA's half of `lowerAll`: `Scc.Lower.A64.emitAll`, `Scc.Lower.X64.emitAll`,
 with the text and the other outputs, `Scc.Lower.Listing`).  The program is
@@ -238,7 +249,7 @@ def run (arch : Arch) (emit : Lower.Lowered → Except String Lower.Listing) (ar
           entries := Lower.threadEntries low.ir,
           budget := o.cfg.layout.stackBytes - IR.Tcb.headroom,
           fails := o.certFails, funcs := low.ir.funcs.length, parts := lst.parts,
-          checked := low.ir.funcs.map (·.checkStack) }
+          checked := low.ir.funcs.map (·.checkStack), spawn := spawnShape low.ir }
       match ← (IO.FS.writeFile cf (Cert.Gen.render o.cfg name src asm sizesT c.prog pl)).toBaseIO with
       | .ok () => pure ()
       | .error e => err s!"scc: cannot write {cf}: {e}"; return 2

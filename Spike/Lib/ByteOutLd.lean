@@ -42,7 +42,7 @@ theorem byteOut_emit_ld {P : SrcParams} {p : Prog} {I : ISA} {K : Kernel.Abi I} 
     Inv1 Λ lbl lsize ts t' tm s.mem ∧
       ∃ th', (source P p).Run s [.out bt] { s with ths := s.ths.set! 0 th', trace := s.trace ++ [.out bt.val] } ∧
         Q ⟨th'.term, th'.env, none⟩ ∧ th'.σs = [] ∧ th'.stack = th.stack ∧ th'.promises = [] ∧
-          th'.nalloc = th.nalloc := by
+          th'.nalloc = th.nalloc ∧ th'.tidLbl = th.tidLbl := by
   have hn : ∀ (pw wn : Word) (l b m k : Nat), pw.val = .loc ⟨l, 0⟩ 0 → lbl l = some b → a = b + k →
       LocalRun p c1 (PrintSrc.loadC pw wn m k) →
       ∃ j msg n, SLatest s.mem ⟨l, k / 8⟩ j ∧ s.mem[j]? = some msg ∧ msg.val = .num n :=
@@ -55,7 +55,10 @@ theorem byteOut_emit_ld {P : SrcParams} {p : Prog} {I : ISA} {K : Kernel.Abi I} 
     have hk : k < (lrange lsize l b).size := by
       have h8 : k / 8 < lsize l := hlt
       simp only [lrange]; omega
-    exact hd.hpriv_of_range hwf hE (hinv.mem.lbl_range l b hl).2 hk
+    rcases (hinv.mem.lbl_range l b hl).2 with hs | hs | ⟨h0, -⟩
+    · exact hd.hpriv_of_range hwf hE (.inl hs) hk
+    · exact hd.hpriv_of_range hwf hE (.inr hs) hk
+    · simp only [lrange, h0] at hk; omega
   exact byteOut_emit_n hP hbo hinv hwf hrb hpriv hi ht he hσ hst hp hx hn
 
 end Spike.Lib.ByteOut

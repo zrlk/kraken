@@ -104,12 +104,16 @@ theorem Out.mono_xa {lbl : Lbl} {ms ms' : MemSide isaLSE2} {X : Frag isaLSE2} {s
   | holdLoad kl A g x sa u v e he hx hA hh hX => exact .holdLoad kl A g x sa u v e he hx hA hh hX
   | xchgStore kr A V s' x sa u v e tv wv wold he hx hA hh hev hv hX =>
     exact .xchgStore kr A V s' x sa u v e tv wv wold he hx hA hh hev hv hX
-  | ctrRmw k op g x a τ e ta ws n he hrt hm ht hev hn hh hop hX =>
-    exact .ctrRmw k op g x a τ e ta ws n he hrt hm ht hev hn hh hop hX
+  | ctrRmw k op g x τ e n he hrt hm hs hh hop hX =>
+    exact .ctrRmw k op g x τ e n he hrt hm hs hh hop hX
   | alloc s' A x a τ e ta ws k wold old us he ht hev hk hh hold hA hc hu hX =>
     exact .alloc s' A x a τ e ta ws k wold old us he ht hev hk hh hold hA hc hu fun l ini hl =>
       hxa _ _ _ _ _ (hX l ini hl)
+  | newStore kr A V s' x a ty e w wold old hN he hm ht hev hu hv hh hold hA hc hX =>
+    exact .newStore kr A V s' x a ty e w wold old hN he hm ht hev hu hv hh hold hA hc
+      fun l hl => hxa _ _ _ _ _ (hX l hl)
   | emit K buf n Pw Qw hK ha hd h0 hb hr hq => exact .emit K buf n Pw Qw hK ha hd h0 hb hr hq
+  | fence k s' c' he hr hx => exact .fence k s' c' he hr hx
 
 /-- `Out.mono_xa` at the frames. -/
 theorem OutS.mono_xa {lbl : Lbl} {ms ms' : List TermRun.Frame → MemSide isaLSE2} {X : FragS isaLSE2} {s : State}
@@ -279,7 +283,7 @@ theorem inst_of_segWA2 {Λ : Scc.Sem.Layout} {μ : Marks} {rd : TermRun.Word →
   refine ⟨⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩, ⟨?_, ?_, ?_, ?_⟩, ⟨?_, ?_, ?_, ?_⟩,
     fun lbl lsize s c fs hi => (hF lbl lsize s c fs hi).wrTail⟩
   -- `NodesA`
-  · intro lbl lsize s c fs hi hoff
+  · intro lbl lsize s c fs hi hoff _
     exact hOut lbl lsize s c fs hi fun s' hk => hoff _ hμ (pcOf_eq_iff.mpr (TakeK.pc hk))
   · exact fun lbl lsize s c hi => (hF lbl lsize s c [] hi).noRet rfl
   · intro lbl lsize s c fs hi
@@ -306,7 +310,7 @@ theorem inst_of_segWA2 {Λ : Scc.Sem.Layout} {μ : Marks} {rd : TermRun.Word →
   · intro lbl lsize s c fs hi hns t mem outs o L hst hstep ho hW
     obtain ⟨c₀, fs₀, hi₀, hr⟩ := hi
     obtain ⟨c₁, ms', Y, hK, hout⟩ := hRow lbl lsize s c₀ fs₀ hi₀
-    exact ((hF _ _ _ _ _ hi₀).wr c fs hr hns).arena_of hout hK hns hst hstep ho hW
+    exact .inl (((hF _ _ _ _ _ hi₀).wr c fs hr hns).arena_of hout hK hns hst hstep ho hW)
   · intro lbl lsize s c fs hi x a' τ e ht
     obtain ⟨c₀, fs₀, hf, hr⟩ := hR lbl lsize s c fs hi
     exact zero_of_zeroOkTy (hf.zero c fs hr x a' τ e ht)

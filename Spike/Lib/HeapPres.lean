@@ -18,7 +18,7 @@ open Scc.Sem (heapUse cellCount allocCount Fresh Inv1 ValRep wordLoc)
 
 /-- **A call of `print`** (`outCfg`: the trace grows) keeps the heap use. -/
 theorem heapUse_outCfg {s : Cfg} {th th' : TTh} (hi : s.ths[0]? = some th) (hn : th'.nalloc = th.nalloc)
-    (bs : List Nat) : heapUse (Spike.Lib.SrcCalls.outCfg s th' bs) = heapUse s :=
-  heapUse_set hi rfl rfl hn
+    (ht : th'.tidLbl = th.tidLbl) (bs : List Nat) : heapUse (Spike.Lib.SrcCalls.outCfg s th' bs) = heapUse s :=
+  heapUse_set hi rfl rfl hn ht
 
 end Spike.Lib.HeapPres

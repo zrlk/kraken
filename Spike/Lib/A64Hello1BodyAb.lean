@@ -31,7 +31,7 @@ section Spec
 variable (lab : Label → Int64) (J : AS → Ctl → Prop) (Pr Qr : AS → Nat → Ctl → Prop)
 
 /-- `print`'s nodes for the call state `σC`. -/
-abbrev pNAb (σC : AS) : Print.PN → ND :=
+abbrev pNAb (σC : AS) : PrintD.PN → ND :=
   PrintAb.N lab σC.regs.X29.toBitVec σC.regs.X30.toBitVec σC.regs.X0.toBitVec σC.regs.X1.toBitVec.toNat
     (pP lab J Pr σC) (pP lab J Qr σC)
 

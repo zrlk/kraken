@@ -47,19 +47,22 @@ theorem data_hov (hb32 : ∀ r ∈ Λ.rodata :: Λ.regions, r.lo + r.size ≤ 2 
     (ha : a + nb ≤ Λ.data.lo + Λ.data.size) : a + nb < 2 ^ 64 := by
   have := data_end_le32 hb32; omega
 
-/-- **A label's range inside the heap or `.data` ends at or below
-`2 ^ 32`.** -/
+/-- **A label's range inside the heap, `.data` or (a zero-word `ThreadId`
+box) the pinned region ends at or below `2 ^ 32`.** -/
 theorem lbl_end_le32 (hb32 : ∀ r ∈ Λ.rodata :: Λ.regions, r.lo + r.size ≤ 2 ^ 32)
     {lsize : WeakMem.AllocLabel → Nat} {l : WeakMem.AllocLabel} {b : Nat}
-    (hr : (lrange lsize l b).Sub Λ.heap ∨ (lrange lsize l b).Sub Λ.data) : b + 8 * lsize l ≤ 2 ^ 32 := by
+    (hr : (lrange lsize l b).Sub Λ.heap ∨ (lrange lsize l b).Sub Λ.data ∨
+      (lsize l = 0 ∧ (lrange lsize l b).Sub Λ.pinned)) : b + 8 * lsize l ≤ 2 ^ 32 := by
   have hh := heap_end_le32 hb32
   have hd := data_end_le32 hb32
-  rcases hr with hs | hs <;> simp only [lrange, Range.Sub] at hs <;> omega
+  have hp := hb32 Λ.pinned (by simp [Layout.regions])
+  rcases hr with hs | hs | ⟨-, hs⟩ <;> simp only [lrange, Range.Sub] at hs <;> omega
 
 /-- **At most a label's bytes from its base do not wrap.** -/
 theorem lbl_hov (hb32 : ∀ r ∈ Λ.rodata :: Λ.regions, r.lo + r.size ≤ 2 ^ 32)
     {lsize : WeakMem.AllocLabel → Nat} {l : WeakMem.AllocLabel} {b nb : Nat}
-    (hr : (lrange lsize l b).Sub Λ.heap ∨ (lrange lsize l b).Sub Λ.data) (hn : nb ≤ 8 * lsize l) :
+    (hr : (lrange lsize l b).Sub Λ.heap ∨ (lrange lsize l b).Sub Λ.data ∨
+      (lsize l = 0 ∧ (lrange lsize l b).Sub Λ.pinned)) (hn : nb ≤ 8 * lsize l) :
     b + nb < 2 ^ 64 := by
   have := lbl_end_le32 hb32 hr; omega
 

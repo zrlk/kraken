@@ -76,7 +76,7 @@ example {Λ : Scc.Sem.Layout} {μ : Scc.Sem.Marks} {own : Spike.Lib.X64Consumer.
     (h : Spike.Lib.X64Consumer.SFacts Λ μ own rS Tk lbl s Spike.Lib.X64Consumer.c0) :
     BodyW0 Λ μ own rS Tk lbl Spike.Lib.X64Consumer.c0 s Spike.Lib.X64Consumer.c0 :=
   ⟨Spike.Lib.SegLagTest.quiet_of (by intros; simp) (by intros; simp) (by intros; simp) (by intros; simp)
-    (by intros; simp), h⟩
+    (by intros; simp) (by intros; simp) (by intros; simp) (by intros; simp), h⟩
 
 /-- `hC0` at the consumer's start. -/
 example {Λ : Scc.Sem.Layout} {lbl : Spike.Lib.X64Consumer.Lbl} :

@@ -220,10 +220,51 @@ structure TakePathS (Λ : Scc.Sem.Layout) (p : Prog) (μ : Marks) (I : InvS) (rS
     Kernel.decode abi.nrs (abi.nr s) (abi.arg s) = some call → ∀ s' ∈ Kernel.certSuccs abi s call, (Tk s' ↔ Tk s)
   owned : ∀ lbl lsize s c fs, I lbl lsize s c fs → Tk s → Owned Λ rS s
 
+/-- **The take site at any depth**, the range the site's registers name
+(`Kernel.siteRange`): a pair at the resolved take site is at a `nop` cell
+off a system call, and for every pool image `pm` a frame run reaches the
+fragment at the state with the range's bytes copied in, past the `nop`.
+`TakePathS` without the phase and the fixed range; the part of
+`HeldPathS` the system-call and take-step facts use (`TakeSiteS.off_sys`). -/
+structure TakeSiteS (p : Prog) (μ : Marks) (I : InvS) : Prop where
+  site : ∀ lbl lsize s c fs, I lbl lsize s c fs → ∀ a, μ.site .take = some a → pcOf s = a →
+    (∃ sz, Kraken.Promising.Lower.A64.CellAt s (.instr ⟨.W64, .NOP⟩) sz) ∧ abi.atSys s = false ∧
+      ∀ pm, ∃ c' fs', FrameRun p (c, fs) (c', fs') ∧
+        I lbl lsize (abi.skip (abi.setDmem s (Kernel.copyRange pm (abi.dmem s) (Kernel.siteRange abi s)))) c' fs'
+
+/-- **The take path over a held predicate `H`** (`TakePathS` with the
+ranges held a predicate of the thread state and the held list, in place of
+`HeldOk`'s one range `rS` and phase `Tk`; `TakePathS.toH`): `TakeSiteS`,
+and `own`, every range `H` holds is thread 0's and owned; `held`, at the
+take site the named range is in the pool, nonempty, off every held range,
+the `.rodata` image off the pool, and after the take `H` holds with the
+range pushed (given the fragment there); `instr`, `sys`, an instruction
+off the transfer sites (from a wide state) and a system call keep `H` at
+every successor in the fragment. -/
+structure HeldPathS (Λ : Scc.Sem.Layout) (p : Prog) (μ : Marks) (I : InvS) (H : State → List (Nat × Range) → Prop) :
+    Prop extends TakeSiteS p μ I where
+  own : ∀ s hl, H s hl → ∀ h ∈ hl, h.1 = 0 ∧ Owned Λ h.2 s
+  held : ∀ lbl lsize s c fs hl, I lbl lsize s c fs → H s hl → ∀ a, μ.site .take = some a → pcOf s = a →
+    (Kernel.siteRange abi s).Sub Λ.stackPool ∧ 0 < (Kernel.siteRange abi s).size ∧
+      Λ.rodata.Disjoint Λ.stackPool ∧ (∀ h ∈ hl, (Kernel.siteRange abi s).Disjoint h.2) ∧
+      ∀ pm c' fs', I lbl lsize (abi.skip (abi.setDmem s (Kernel.copyRange pm (abi.dmem s) (Kernel.siteRange abi s))))
+          c' fs' →
+        H (abi.skip (abi.setDmem s (Kernel.copyRange pm (abi.dmem s) (Kernel.siteRange abi s))))
+          ((0, Kernel.siteRange abi s) :: hl)
+  instr : ∀ lbl lsize s c fs hl, I lbl lsize s c fs → H s hl → WideSt s → Kernel.siteAt abi μ s = none →
+    abi.atSys s = false → ∀ tree, isaLSE2.exec s = some tree →
+    tree.AllInv (fun _ _ => True) (fun s' => ∀ lbl' lsize' c' fs', I lbl' lsize' s' c' fs' → H s' hl)
+  sys : ∀ lbl lsize s c fs hl, I lbl lsize s c fs → H s hl → abi.atSys s = true → ∀ call,
+    Kernel.decode abi.nrs (abi.nr s) (abi.arg s) = some call → ∀ s' ∈ Kernel.certSuccs abi s call,
+    ∀ lbl' lsize' c' fs', I lbl' lsize' s' c' fs' → H s' hl
+
 /-- **The source side's safety at any depth** (`SrcSafe` over the pairs a
 frame run reaches from the fragment, `IRun`, at thread 0's frames). The next
 label's freshness at a buffer allocation is not a source fact (a promise may
-place it); `PreJ` carries it as `FreshInv` instead. -/
+place it); `PreJ` carries it as `FreshInv` instead. `box`: every reachable
+configuration's thread-id boxes were counted by allocations (`boxCount ≤
+allocCount`, `BoxCount.reach_boxLe`), which `heapUse` relies on at a buffer
+allocation. -/
 structure SrcSafeS (P : SrcSem.SrcParams) (p : Prog) (I : InvS) : Prop where
   cell : ∀ tr s th, (SrcSem.source P p).Reach tr s → s.ths[0]? = some th → ∀ lbl lsize st hd,
     IRun p I lbl lsize st ⟨th.term, th.env, hd⟩ th.stack →
@@ -233,6 +274,7 @@ structure SrcSafeS (P : SrcSem.SrcParams) (p : Prog) (I : InvS) : Prop where
   xchg : ∀ tr s th, (SrcSem.source P p).Reach tr s → s.ths[0]? = some th → ∀ lbl lsize st hd,
     IRun p I lbl lsize st ⟨th.term, th.env, hd⟩ th.stack → ∀ x sa u v e, XchgSite ⟨th.term, th.env, hd⟩ x sa u v e →
       ∃ (k : Nat) (m : WeakMem.Msg), s.mem[k]? = some m ∧ m.loc = sa
+  box : ∀ tr s, (SrcSem.source P p).Reach tr s → Scc.Sem.boxCount s ≤ Scc.Sem.allocCount s
 
 /-- **The source's latest word at a load trigger is a number** at any depth
 (`SrcSafeS.num`, kept apart from `SrcSafeS` so that its trigger is a
@@ -346,7 +388,7 @@ theorem holdInv_frameRun {lbl : Lbl} {lsize : Lsize} {sm : WeakMem.Memory} {q q'
     | ret => trivial
 
 /-- **The source store of the store row at any depth** (`src_store_step`
-with the continuation off `ret` only at depth 0, the allocation count kept). -/
+with the continuation off `ret` only at depth 0, the allocation count and box label kept). -/
 theorem src_store_stepS (hP : HookOK P p) {c : TermRun.Cfg}
     {th : TermRun.TTh} {x : String} {a b : At} {e : Expr} {ty tb : Ty} {pw wb : TermRun.Word}
     {sa : WeakMem.Address} (h0 : c.ths[0]? = some th) (hp : th.promises = [])
@@ -356,7 +398,7 @@ theorem src_store_stepS (hP : HookOK P p) {c : TermRun.Cfg}
     ∃ (th' : TermRun.TTh) (mv : Nat), (SrcSem.source P p).step 0 c []
         { c with mem := c.mem.push ⟨sa, wb.val, mv⟩, ths := c.ths.set! 0 th' } ∧
       th'.term = e ∧ th'.env = (x, .unit, []) :: th.env ∧ th'.promises = [] ∧ th'.σs = th.σs ∧
-      th'.stack = th.stack ∧ th'.nalloc = th.nalloc := by
+      th'.stack = th.stack ∧ th'.nalloc = th.nalloc ∧ th'.tidLbl = th.tidLbl := by
   obtain ⟨μ', u, hc, hu⟩ := hcell
   obtain ⟨th', mv, hm, hte, hen, hp', hσ, hst, hna⟩ :=
     SrcMemN.src_store_step_cfgN (p := p) (k := P.k) (arch := P.arch) h0 ht hea heb hpw hc hu hp
@@ -364,11 +406,12 @@ theorem src_store_stepS (hP : HookOK P p) {c : TermRun.Cfg}
   have h0' : ({ c with mem := c.mem.push ⟨sa, wb.val, mv⟩, ths := c.ths.set! 0 th' } : TermRun.Cfg).ths[0]? =
       some th' := by simp [hlt]
   refine ⟨th', mv, src_step_of_threadSteps hP hm h0' hp' (mainExit_of_not_ret h0 ?_)
-    (mainExit_of_pair h0' fun h a' => hte ▸ hr (hst ▸ h) a'), hte, hen, hp', hσ, hst, hna⟩
+    (mainExit_of_pair h0' fun h a' => hte ▸ hr (hst ▸ h) a'), hte, hen, hp', hσ, hst, hna,
+    BoxCount.threadSteps_tidLbl hm h0 rfl⟩
   intro a' h; rw [ht] at h; cases h
 
 /-- **The source load of the load row at any depth** (`src_load_step` with
-the continuation off `ret` only at depth 0, the allocation count kept). -/
+the continuation off `ret` only at depth 0, the allocation count and box label kept). -/
 theorem src_load_stepS (hP : HookOK P p) {c : TermRun.Cfg}
     {th : TermRun.TTh} {x : String} {a : At} {e : Expr} {ty : Ty} {pw : TermRun.Word} {sa : WeakMem.Address}
     {j : Nat} {m : WeakMem.Msg} (h0 : c.ths[0]? = some th) (hp : th.promises = [])
@@ -377,18 +420,19 @@ theorem src_load_stepS (hP : HookOK P p) {c : TermRun.Cfg}
     (hr : th.stack = [] → ∀ a, e ≠ .ret a) :
     ∃ th' : TermRun.TTh, (SrcSem.source P p).step 0 c [] { c with ths := c.ths.set! 0 th' } ∧
       th'.term = e ∧ th'.env = (x, loadTy ty, [⟨m.val, m.view, j⟩]) :: th.env ∧ th'.promises = [] ∧
-      th'.σs = th.σs ∧ th'.stack = th.stack ∧ th'.nalloc = th.nalloc := by
+      th'.σs = th.σs ∧ th'.stack = th.stack ∧ th'.nalloc = th.nalloc ∧ th'.tidLbl = th.tidLbl := by
   obtain ⟨μ', u, hc, hu⟩ := hcell
   obtain ⟨th', hst, hte, hen, hp', hσ, hsk, hna⟩ :=
     SrcMemN.src_load_step_cfgN (p := p) (k := P.k) (arch := P.arch) h0 ht hea hpw hc hu hj hm
   have hlt : 0 < c.ths.size := (Array.getElem?_eq_some_iff.mp h0).1
   have h0' : ({ c with ths := c.ths.set! 0 th' } : TermRun.Cfg).ths[0]? = some th' := by simp [hlt]
   refine ⟨th', src_step_of_threadSteps hP hst h0' (hp'.trans hp) (mainExit_of_not_ret h0 ?_)
-    (mainExit_of_pair h0' fun h a' => hte ▸ hr (hsk ▸ h) a'), hte, hen, hp'.trans hp, hσ, hsk, hna⟩
+    (mainExit_of_pair h0' fun h a' => hte ▸ hr (hsk ▸ h) a'), hte, hen, hp'.trans hp, hσ, hsk, hna,
+    BoxCount.threadSteps_tidLbl hst h0 rfl⟩
   intro a' h; rw [ht] at h; cases h
 
 /-- **The source exchange at any depth** (`src_swap_step` with the
-continuation off `ret` only at depth 0, the allocation count kept). -/
+continuation off `ret` only at depth 0, the allocation count and box label kept). -/
 theorem src_swap_stepS (hP : HookOK P p) {c : TermRun.Cfg} {th : TermRun.TTh} {x : String}
     {sa : WeakMem.Address} {u : Ty} {v : At} {e : Expr} {tv : Ty} {wv : TermRun.Word} {j : Nat} {m : WeakMem.Msg}
     (h0 : c.ths[0]? = some th) (hp : th.promises = []) (hs : XchgSite ⟨th.term, th.env, none⟩ x sa u v e)
@@ -397,14 +441,15 @@ theorem src_swap_stepS (hP : HookOK P p) {c : TermRun.Cfg} {th : TermRun.TTh} {x
     ∃ (th' : TermRun.TTh) (mv : Nat), (SrcSem.source P p).step 0 c []
         { c with mem := c.mem.push ⟨sa, wv.val, mv⟩, ths := c.ths.set! 0 th' } ∧
       th'.term = e ∧ th'.env = (x, u, [⟨m.val, m.view, j⟩]) :: th.env ∧ th'.promises = [] ∧ th'.σs = th.σs ∧
-      th'.stack = th.stack ∧ th'.nalloc = th.nalloc := by
+      th'.stack = th.stack ∧ th'.nalloc = th.nalloc ∧ th'.tidLbl = th.tidLbl := by
   obtain ⟨th', mv, hst, hte, hen, hp', hσ, hsk, hna⟩ :=
     SrcMemN.src_swap_step_cfgN (p := p) (k := P.k) (arch := P.arch) h0 hs hev hp hj hm
   have hlt : 0 < c.ths.size := (Array.getElem?_eq_some_iff.mp h0).1
   have h0' : ({ c with mem := c.mem.push ⟨sa, wv.val, mv⟩, ths := c.ths.set! 0 th' } : TermRun.Cfg).ths[0]? =
       some th' := by simp [hlt]
   exact ⟨th', mv, src_step_of_threadSteps hP hst h0' hp' (mainExit_of_not_ret h0 hr0)
-    (mainExit_of_pair h0' fun h a' => hte ▸ hr (hsk ▸ h) a'), hte, hen, hp', hσ, hsk, hna⟩
+    (mainExit_of_pair h0' fun h a' => hte ▸ hr (hsk ▸ h) a'), hte, hen, hp', hσ, hsk, hna,
+    BoxCount.threadSteps_tidLbl hst h0 rfl⟩
 
 /-- An exchange site is a `let`, not at `ret`. -/
 theorem xchgSite_not_ret {c : Ctl} {x : String} {sa : WeakMem.Address} {u : Ty} {v : At} {e : Expr}
@@ -471,6 +516,52 @@ theorem TakePathS.off_sys {rS : Range} {Tk : State → Prop} (hT : TakePathS Λ 
     (hs : abi.atSys s = true) : ∀ a, μ.site .take = some a → pcOf s ≠ a := fun a ha hpc => by
   have h := (hT.site _ _ _ _ _ hI a ha hpc).2.2.1
   rw [hs] at h; cases h
+
+/-- A pair at a system call is off the take site (`TakePathS.off_sys` over
+`TakeSiteS`). -/
+theorem TakeSiteS.off_sys (hT : TakeSiteS p μ I) {lbl : Lbl} {lsize : Lsize} {s : State} {c : Ctl}
+    {fs : List TermRun.Frame} (hI : I lbl lsize s c fs) (hs : abi.atSys s = true) :
+    ∀ a, μ.site .take = some a → pcOf s ≠ a := fun a ha hpc => by
+  have h := (hT.site _ _ _ _ _ hI a ha hpc).2.1
+  rw [hs] at h; cases h
+
+/-- **Every range `HeldOk` holds is thread 0's and owned.** -/
+theorem _root_.Spike.Lib.A64Consumer.HeldOk.held_own {rS : Range} {Tk : State → Prop} {s : State}
+    {hl : List (Nat × Range)} (h : HeldOk Λ rS Tk s hl) : ∀ x ∈ hl, x.1 = 0 ∧ Owned Λ x.2 s := by
+  rcases h with ⟨rfl, -⟩ | ⟨rfl, -, ho⟩
+  · intro x hx; cases hx
+  · intro x hx
+    rw [List.mem_singleton] at hx; subst hx; exact ⟨rfl, ho⟩
+
+/-- **`TakePathS` is a `HeldPathS` over `HeldOk`**: before the take none is
+held (`site`'s `¬ Tk`), so the named range `rS` is off every held one; the
+phase and ownership after it by `site` and `owned`; `instr`, `sys` by
+`HeldOk.of_iff`. -/
+theorem TakePathS.toH {rS : Range} {Tk : State → Prop} (hT : TakePathS Λ p μ I rS Tk) :
+    HeldPathS Λ p μ I (HeldOk Λ rS Tk) where
+  site lbl lsize s c fs hI a ha hpc := by
+    obtain ⟨-, hcn, hsys, hsr, -, -, -, hrun⟩ := hT.site _ _ _ _ _ hI a ha hpc
+    refine ⟨hcn, hsys, fun pm => ?_⟩
+    obtain ⟨c', fs', hr, hI', -⟩ := hrun pm
+    exact ⟨c', fs', hr, by rw [hsr]; exact hI'⟩
+  own _ _ h := h.held_own
+  held lbl lsize s c fs hl hI hh a ha hpc := by
+    obtain ⟨hntk, -, -, hsr, hsub, hpos, hrod, hrun⟩ := hT.site _ _ _ _ _ hI a ha hpc
+    obtain rfl : hl = [] := by
+      rcases hh with ⟨h, -⟩ | ⟨-, h, -⟩
+      · exact h
+      · exact absurd h hntk
+    rw [hsr]
+    refine ⟨hsub, hpos, hrod, ?_, ?_⟩
+    · intro x hx; cases hx
+    · intro pm c' fs' hI'
+      obtain ⟨-, -, -, -, htk⟩ := hrun pm
+      exact .inr ⟨rfl, htk, hT.owned _ _ _ _ _ hI' htk⟩
+  instr lbl lsize s c fs hl hI hh _ hsn hns tree he :=
+    (hT.instr _ _ _ _ _ hI hsn hns tree he).mono fun _ hi _ _ _ _ hI' =>
+      hh.of_iff hi (hT.owned _ _ _ _ _ hI')
+  sys lbl lsize s c fs hl hI hh hs call hd s' hs' _ _ _ _ hI' :=
+    hh.of_iff (hT.sys _ _ _ _ _ hI hs call hd s' hs') (hT.owned _ _ _ _ _ hI')
 
 /-- **The row at a system call** is `Out.sys` after a frame run (an
 `OutS.frame` row is silent, but the instruction at an `svc` cell faults),
@@ -831,7 +922,7 @@ theorem pre_stepS (hP : HookOK P p) (hN : NodesS Λ p μ rd G own I) (hsafe : Sr
       obtain ⟨m, hm, hrep⟩ := hinv.mem.latestP_read hwf hinv.narrow (wordAddr_of_valRep_loc0 hv)
         (SLatestP.nil_iff.mpr hjl) htl hrd'
       have hX' := hX v ⟨m.val, m.view, jl⟩ (hrd _) (valRep_setWidth_of_fits hrep (read?_fits hfi.1 hfi.2 hrd'))
-      obtain ⟨th', hstep, hte, hen, hp', hσ', hst', hna'⟩ := src_load_stepS (p := p)
+      obtain ⟨th', hstep, hte, hen, hp', hσ', hst', hna', htl'⟩ := src_load_stepS (p := p)
         (c := { s with ths := #[thAt th0 c₁ fs₁] }) (th := thAt th0 c₁ fs₁) hP rfl hp ht hev hsa
         (hN.cell _ _ _ _ _ hI1 x a e ty w (.inl ht) hev) hjl hm hX'.noRet
       have hrun := run_trans0 hrun1 (run_one hstep)
@@ -850,7 +941,7 @@ theorem pre_stepS (hP : HookOK P p) (hN : NodesS Λ p μ rd G own I) (hsafe : Sr
       obtain ⟨k, m, hkm, hml⟩ := hsafe.cell₁ (reach_run hreach hrun1) hI1 (.inr ⟨b, ht⟩) hev hsa
       obtain ⟨-, -, hoff⟩ := hinv.mem.lbl_mem m (Array.mem_toList_iff.mpr (Array.mem_of_getElem? hkm))
       rw [hml] at hoff
-      obtain ⟨th', mv, hstep, hte, hen, hp', hσ', hst', hna'⟩ := src_store_stepS (p := p)
+      obtain ⟨th', mv, hstep, hte, hen, hp', hσ', hst', hna', htl'⟩ := src_store_stepS (p := p)
         (c := { s with ths := #[thAt th0 c₁ fs₁] }) (th := thAt th0 c₁ fs₁) hP rfl hp ht hev hsa
         (hN.cell _ _ _ _ _ hI1 x a e ty w (.inr ⟨b, ht⟩) hev) hevb hX.noRet
       rw [hsa] at hv
@@ -896,7 +987,7 @@ theorem pre_stepS (hP : HookOK P p) (hN : NodesS Λ p μ rd G own I) (hsafe : Sr
       obtain ⟨sa', jl, m, hwa', hoff', hjl, hm, rfl⟩ := hhi1
       have hsa' : sa' = sa := hinv.mem.wordAddr_inj hwa' hwa hoff' hoff
       subst sa'
-      obtain ⟨th', mv, hstep, hte, hen, hp', hσ', hst', hna'⟩ := src_swap_stepS (p := p)
+      obtain ⟨th', mv, hstep, hte, hen, hp', hσ', hst', hna', htl'⟩ := src_swap_stepS (p := p)
         (c := { s with ths := #[thAt th0 c₁ fs₁] }) (th := thAt th0 c₁ fs₁) hP rfl hp hxs hev hjl hm
         (xchgSite_not_ret hxs) hX.noRet
       rw [← wordLoc_toNat] at hex
@@ -1175,7 +1266,7 @@ theorem core_stepS (hP : HookOK P p) (hN : NodesS Λ p μ rd G own I) (hsafe : S
     obtain ⟨m, hm, hrep⟩ := hinv.mem.latestP_read hwf hinv.narrow (wordAddr_of_valRep_loc0 hv)
       (SLatestP.nil_iff.mpr hjl) htl hrd'
     have hX' := hX v ⟨m.val, m.view, jl⟩ (hrd _) (valRep_setWidth_of_fits hrep (read?_fits hfi.1 hfi.2 hrd'))
-    obtain ⟨th', hstep, hte, hen, hp', hσ', hst', -⟩ := src_load_stepS (p := p)
+    obtain ⟨th', hstep, hte, hen, hp', hσ', hst', -, -⟩ := src_load_stepS (p := p)
       (c := { s with ths := #[thAt th0 c₁ fs₁] }) (th := thAt th0 c₁ fs₁) hP rfl hp ht hev hsa
       (hN.cell _ _ _ _ _ hI1 x a e ty w (.inl ht) hev) hjl hm hX'.noRet
     have hrun := run_trans0 hrun1 (run_one hstep)
@@ -1190,7 +1281,7 @@ theorem core_stepS (hP : HookOK P p) (hN : NodesS Λ p μ rd G own I) (hsafe : S
     obtain ⟨k, m, hkm, hml⟩ := hsafe.cell₁ (reach_run hreach hrun1) hI1 (.inr ⟨b, ht⟩) hev hsa
     obtain ⟨-, -, hoff⟩ := hinv.mem.lbl_mem m (Array.mem_toList_iff.mpr (Array.mem_of_getElem? hkm))
     rw [hml] at hoff
-    obtain ⟨th', mv, hstep, hte, hen, hp', hσ', hst', -⟩ := src_store_stepS (p := p)
+    obtain ⟨th', mv, hstep, hte, hen, hp', hσ', hst', -, -⟩ := src_store_stepS (p := p)
       (c := { s with ths := #[thAt th0 c₁ fs₁] }) (th := thAt th0 c₁ fs₁) hP rfl hp ht hev hsa
       (hN.cell _ _ _ _ _ hI1 x a e ty w (.inr ⟨b, ht⟩) hev) hevb hX.noRet
     rw [hsa] at hv
@@ -1230,7 +1321,7 @@ theorem core_stepS (hP : HookOK P p) (hN : NodesS Λ p μ rd G own I) (hsafe : S
     obtain ⟨sa', jl, m, hwa', hoff', hjl, hm, rfl⟩ := hhi1
     have hsa' : sa' = sa := hinv.mem.wordAddr_inj hwa' hwa hoff' hoff
     subst sa'
-    obtain ⟨th', mv, hstep, hte, hen, hp', hσ', hst', -⟩ := src_swap_stepS (p := p)
+    obtain ⟨th', mv, hstep, hte, hen, hp', hσ', hst', -, -⟩ := src_swap_stepS (p := p)
       (c := { s with ths := #[thAt th0 c₁ fs₁] }) (th := thAt th0 c₁ fs₁) hP rfl hp hxs hev hjl hm
       (xchgSite_not_ret hxs) hX.noRet
     rw [← wordLoc_toNat] at hex
@@ -1442,31 +1533,34 @@ def witS (lbl : Lbl) (lsize : Lsize) (ts : Nat → Option Nat)
   since _ := 0
   tsFrom _ := last
 
-/-- **`Components` for a one-thread pair at any depth** (`components_one`
-with the frames: every frame's environment by `PlacedS`). -/
-theorem components_oneS (hwf : Λ.WF) {t : T.M.Cfg} {s : TermRun.Cfg} {th : Thread isaLSE2} {th0 : TermRun.TTh}
-    {lbl : Lbl} {lsize : Lsize} {ts : Nat → Option Nat} {rS : Range} {Tk : State → Prop}
-    {hl : List (Nat × Range)} (hth : t.1.threads = #[th]) (hheld : t.2.held = hl) (hh : HeldOk Λ rS Tk th.st hl)
+/-- **The stack range of a one-thread configuration** whose held ranges are
+thread 0's and owned (`HeldPathS.own`): thread 0's, one of them, owned. -/
+theorem stackRange_held {t : T.M.Cfg} {th : Thread isaLSE2} {hl : List (Nat × Range)} (hth : t.1.threads = #[th])
+    (hheld : t.2.held = hl) (hho : ∀ x ∈ hl, x.1 = 0 ∧ Owned Λ x.2 th.st) {j : Nat} {rg : Range}
+    (h : T.M.stackRange t j = some rg) : j = 0 ∧ Owned Λ rg th.st := by
+  change Kernel.stackRangeOf abi t j = some rg at h
+  unfold Kernel.stackRangeOf at h
+  split at h
+  · cases h
+  · rename_i tt htt
+    obtain ⟨rfl, rfl⟩ := get_one hth htt
+    rw [hheld] at h
+    obtain ⟨x, hx, rfl⟩ := Option.map_eq_some_iff.mp h
+    exact ⟨rfl, (hho x (List.mem_of_find?_eq_some hx)).2⟩
+
+/-- **`Components` for a one-thread pair at any depth, the held ranges
+thread 0's and owned** (`components_oneS` over `HeldPathS.own`: the stack
+range one of them, `stackRange_held`). -/
+theorem components_oneSH (hwf : Λ.WF) {t : T.M.Cfg} {s : TermRun.Cfg} {th : Thread isaLSE2} {th0 : TermRun.TTh}
+    {lbl : Lbl} {lsize : Lsize} {ts : Nat → Option Nat}
+    {hl : List (Nat × Range)} (hth : t.1.threads = #[th]) (hheld : t.2.held = hl)
+    (hho : ∀ x ∈ hl, x.1 = 0 ∧ Owned Λ x.2 th.st)
     (hmi : MemIn Λ t.1.mem) (hs0 : s.ths = #[th0]) (hpl : PlacedS Λ lbl th.st (Ctl.of th0) th0.stack)
     (hinv : Inv1 Λ lbl lsize ts th t.1.mem s.mem) (hown : OwnMsgs t.1.mem) :
     ∃ w : Witness T.M, Components T.M Λ w t s ∧ w.thr 0 = some 0 := by
   obtain ⟨envm, hrep, htot, himm⟩ := hpl
-  have hsr : ∀ j rg, T.M.stackRange t j = some rg → j = 0 ∧ rg = rS ∧ Owned Λ rS th.st := by
-    intro j rg h
-    change Kernel.stackRangeOf abi t j = some rg at h
-    unfold Kernel.stackRangeOf at h
-    split at h
-    · cases h
-    · rename_i tt htt
-      obtain ⟨rfl, rfl⟩ := get_one hth htt
-      rw [hheld] at h
-      rcases hh with ⟨rfl, -⟩ | ⟨rfl, -, ho⟩
-      · simp at h
-      · refine ⟨rfl, ?_, ho⟩
-        simp only [List.find?_cons, List.find?_nil] at h
-        split at h
-        · exact (Option.some.inj h).symm
-        · cases h
+  have hsr : ∀ j rg, T.M.stackRange t j = some rg → j = 0 ∧ Owned Λ rg th.st := fun j rg h =>
+    stackRange_held hth hheld hho h
   have hs1 : ∀ {i} {th'}, s.ths[i]? = some th' → i = 0 ∧ th' = th0 := by
     intro i th' h
     rw [hs0] at h
@@ -1475,14 +1569,14 @@ theorem components_oneS (hwf : Λ.WF) {t : T.M.Cfg} {s : TermRun.Cfg} {th : Thre
     · simp at h
   refine ⟨witS lbl lsize ts envm t.1.mem.last, Components.ofMemRelP (tp := []) (sp := []) hinv.mem
     { thr_total := ?_, thr_inj := ?_, thr_onto := ?_, env_rep := ?_, env_total := ?_,
-      stack_pool := (fun j rg h => by obtain ⟨-, rfl, ho⟩ := hsr j rg h; exact ho.1),
+      stack_pool := (fun j rg h => by obtain ⟨-, ho⟩ := hsr j rg h; exact ho.1),
       stack_disj := (fun j j' rg rg' hne h h' => absurd ((hsr j rg h).1.trans (hsr j' rg' h').1.symm) hne),
       stack_owned := (fun j rg h j' tt' htt a h8 h1 h2 => by
-        obtain ⟨rfl, rfl, ho⟩ := hsr j rg h
+        obtain ⟨rfl, ho⟩ := hsr j rg h
         obtain ⟨rfl, rfl⟩ := get_one hth htt
         exact ⟨fun _ => rfl, fun _ => ho.2 a h8 h1 h2⟩),
       stack_private := (fun j rg h m hm hc => by
-        obtain ⟨-, rfl, ho⟩ := hsr j rg h
+        obtain ⟨-, ho⟩ := hsr j rg h
         exact shared_not_pool hwf (memIn_msgs hmi m hm).addr (sub_contains ho.1 hc)),
       stack_marked := fun _ _ h => h.elim,
       stack_unmarked := fun _ _ _ _ _ _ _ _ _ _ h => h, env_imm := ?_ }
@@ -1519,6 +1613,17 @@ theorem components_oneS (hwf : Λ.WF) {t : T.M.Cfg} {s : TermRun.Cfg} {th : Thre
   · intro q hq m' hg
     rw [hown q m' hg]
     exact ⟨th, by rw [hth]; rfl, hq⟩
+
+/-- **`Components` for a one-thread pair at any depth** (`components_one`
+with the frames: every frame's environment by `PlacedS`): `components_oneSH`
+at `HeldOk`. -/
+theorem components_oneS (hwf : Λ.WF) {t : T.M.Cfg} {s : TermRun.Cfg} {th : Thread isaLSE2} {th0 : TermRun.TTh}
+    {lbl : Lbl} {lsize : Lsize} {ts : Nat → Option Nat} {rS : Range} {Tk : State → Prop}
+    {hl : List (Nat × Range)} (hth : t.1.threads = #[th]) (hheld : t.2.held = hl) (hh : HeldOk Λ rS Tk th.st hl)
+    (hmi : MemIn Λ t.1.mem) (hs0 : s.ths = #[th0]) (hpl : PlacedS Λ lbl th.st (Ctl.of th0) th0.stack)
+    (hinv : Inv1 Λ lbl lsize ts th t.1.mem s.mem) (hown : OwnMsgs t.1.mem) :
+    ∃ w : Witness T.M, Components T.M Λ w t s ∧ w.thr 0 = some 0 :=
+  components_oneSH hwf hth hheld hh.held_own hmi hs0 hpl hinv hown
 
 /-- **`RS` is explicit** (`r_components` with the frames). -/
 theorem r_componentsS (hN : NodesS Λ p μ rd G own I) (hwf : Λ.WF) {rS : Range} {Tk : State → Prop} {t : T.M.Cfg}
@@ -1794,8 +1899,10 @@ theorem abortJustified_overflow_sourceS {B : Budget} {tr : List Ev} {s : TermRun
 `writeErr` one by `TI`; the `overflow` one at any depth with every frame's
 environment small (`abortJustified_overflow_sourceS`); the `heap` one with
 the heap use within the budget's `cells` (`HeapCtr`, `hB`) and the next
-label fresh (`FreshInv`, `abortJustified_heap_source`). -/
-theorem r_abortS (hN : NodesS Λ p μ rd G own I) (hwf : Λ.WF) {Ab : State → Prop} (hA : AbortPathS μ I Ab cells ctr)
+label fresh (`FreshInv`) and the boxes counted (`SrcSafeS.box`,
+`abortJustified_heap_source`). -/
+theorem r_abortS (hN : NodesS Λ p μ rd G own I) (hsafe : SrcSafeS P p I) (hwf : Λ.WF) {Ab : State → Prop}
+    (hA : AbortPathS μ I Ab cells ctr)
     {B : Budget} (hB : B.cells = cells) {rS : Range} {Tk : State → Prop} {t t' : T.M.Cfg}
     {s : TermRun.Cfg} {tid : Nat} {es tr : List Ev} {k : AbortKind} (h : RS Λ P p G own I rS Tk μ cells ctr t s)
     (hti : TI Ab tr t) (hs : T.M.Step μ tid t es t') (hk : Ev.abort k ∈ es) :
@@ -1805,7 +1912,7 @@ theorem r_abortS (hN : NodesS Λ p μ rd G own I) (hwf : Λ.WF) {Ab : State → 
   rotate_left
   · exact (Kernel.exited_no_step abi (o := o) (by rw [hx]) hs).elim
   obtain ⟨th, th0, j, lbl, lsize, ts, hl, pm, hd, hth, ⟨E, hk'⟩, -, hh, -, -, hs0, hσ, hp, hI, -, -, -, hinv,
-    hown, hmi, -, -, -, hhc, hfr, -⟩ := h
+    hown, hmi, -, -, -, hhc, hfr, tr', hre⟩ := h
   obtain ⟨a, ha, t2, ht2, hpc⟩ := hs.abort_at hk
   obtain ⟨rfl, rfl⟩ := get_one hth ht2
   obtain ⟨w, hw, hw0⟩ := components_oneS hwf hth (by rw [hk']; rfl) hh hmi hs0
@@ -1816,8 +1923,9 @@ theorem r_abortS (hN : NodesS Λ p μ rd G own I) (hwf : Λ.WF) {Ab : State → 
   · exact hti th ht2 hab
   · exact abortJustified_overflow_sourceS hi hc hσ hp (noBigNumT_of_envSmallS hi he)
   · have hr := hheap (heapUse s) hhc
-    exact abortJustified_heap_source hi (by rw [hB]; exact hr) hσ hp 
+    exact abortJustified_heap_source hi (by rw [hB]; exact hr) hσ hp
       (Spike.Lib.fresh_of_placed (fun m hmem => (hinv.mem.lbl_mem m hmem).imp fun _ h => h.1) hfr.fresh)
+      (hsafe.box _ _ hre)
 
 open Scc.Cert.Link in
 /-- **`Correct` for a one-thread program at any call depth on a target on
@@ -1859,7 +1967,7 @@ theorem correctKOnS {B : Budget} (hB : B.cells = cells) {A : Type} {ld : A → S
       (fun hR hs => let ⟨s', _, h'⟩ := r_stepS hP hN hsafe hT hps hrd hwf hGpl hR hs; ⟨s', h'⟩)
       hr hR0 (pre := []) (fun th h hab => absurd hab (ti_load hab0 (hl.symm.trans h0) th h))
     rw [List.nil_append] at hti
-    exact r_abortS hN hwf hA hB hR hti hs hk
+    exact r_abortS hN hsafe hwf hA hB hR hti hs hk
 
 open Scc.Cert.Link in
 /-- **`Correct` for a one-thread program at any call depth on the canonical

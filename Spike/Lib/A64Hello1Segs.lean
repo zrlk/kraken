@@ -11,9 +11,9 @@ once on the program (`decide +kernel`):
   `[tpidr_el0, #8]`);
 - `hello1_main_exit_segW`: from the return of `wc_main` (`.sp1`, the status
   spilled at 40), `exit_group`, a segment to any fragment;
-- `seg_print_ofW`: `scc_rt_print` in any valid layout of a program with
-  `printIn` (`hello1_print`), its write system call a given segment (a
-  write to the output is no row's: `SysOk`).
+- `seg_print_ofW`: `scc_rt_print` (the fenced write, `PrintD`) in any
+  valid layout of a program with `printIn` (`hello1_print`), its write
+  system call a given segment (a write to the output is no row's: `SysOk`).
 
 Each plain form is the `W` form inside the trivial predicate (`.toSeg`).
 The limit's offset and the frames are checked against the thread control
@@ -23,6 +23,7 @@ import Spike.Lib.A64CodeSegs
 import Spike.Lib.A64Hello1Rows
 import Spike.Lib.A64Hello1Place
 import Scc.Cert.Rt.A64Print
+import Spike.Lib.A64PrintD
 
 namespace Spike.Lib.A64.Flow
 
@@ -186,39 +187,42 @@ variable {p : Prog} {lbl : WeakMem.AllocLabel → Option Nat} {ms : MemSide isaL
 
 /-- **`scc_rt_print` is one segment inside `W`** in any valid layout `exe`
 of a program `prog` with `printIn prog = true` (`hello1_print` for
-`hello1Prog`), given its write system call as a segment inside `W`
-(`hsvc`); its block nodes' states lie in `W`, none moved by `K` (`hW`).
-`Scc.Cert.Rt.A64.Print.seg_print_of` with `seg_printW`. -/
+`hello1Prog`): the fenced write (`Spike/Lib/A64PrintD.lean`), given its
+write system call as a segment inside `W` (`hsvc`); its block nodes' and
+the barrier's states lie in `W`, none moved by `K` (`hW`).
+`PrintD.seg_printW` at the code `printIn` checks. -/
 theorem seg_print_ofW {W : Frag isaLSE2} {K : State → State → Prop} {prog : List Directive}
     {kp : Nat} (hp : Lays exe prog kp) (hend : endPc = endOf exe prog kp) (hprog : printIn prog = true)
     (hF : FStable R F) (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -48) (hhi : 0 ≤ R.hi)
-    (hW : PrintW c0 x29 ra W K exe endPc R F)
+    (hW : PrintD.PrintW c0 x29 ra W K exe endPc R F)
     (hsvc : SegW W K p lbl ms
-      (At exe endPc R F (N (_root_.Executable.labels exe).label c0 x29 ra .svc))
-      (At exe endPc R F (N (_root_.Executable.labels exe).label c0 x29 ra .n5))) :
-    SegW W K p lbl ms (At exe endPc R F (N (_root_.Executable.labels exe).label c0 x29 ra .e))
-      (fun s c => ∃ x, At exe endPc R F (E (_root_.Executable.labels exe).label c0 x29 ra x) s c) := by
+      (At exe endPc R F (PrintD.N (_root_.Executable.labels exe).label c0 x29 ra .svc))
+      (At exe endPc R F (PrintD.N (_root_.Executable.labels exe).label c0 x29 ra .n5))) :
+    SegW W K p lbl ms (At exe endPc R F (PrintD.N (_root_.Executable.labels exe).label c0 x29 ra .e))
+      (fun s c => ∃ x, At exe endPc R F (PrintD.E (_root_.Executable.labels exe).label c0 x29 ra x) s c) := by
   simp only [printIn, Bool.and_eq_true, and_assoc] at hprog
-  obtain ⟨h0, h1, h2, h3, h4, hs, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, hgap⟩ := hprog
-  refine seg_printW hF hR hal hlo hhi ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  obtain ⟨h0, h1, h2, h3, hf, h4, hs, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, hgap⟩ := hprog
+  refine PrintD.seg_printW hF hR hal hlo hhi
+    ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
     (by rw [label_labelGap hp hgap]; simp only [add4, add0]) hW hsvc
-  · exact code_field hp hend h0 (by simp only [N, pcSvc, add4, add0])
-  · exact code_field hp hend h1 (by simp only [N, pcSvc, add4, add0])
-  · exact code_field hp hend h2 (by simp only [N, pcSvc, add4, add0])
-  · exact code_field hp hend h3 (by simp only [N, pcSvc, add4, add0])
-  · exact code_field hp hend h4 (by simp only [N, pcSvc, add4, add0])
-  · exact code_field hp hend h5 (by simp only [N, pcSvc, add4, add0])
-  · exact code_field hp hend h6 (by simp only [N, pcSvc, add4, add0])
-  · exact code_field hp hend h7 (by simp only [N, pcSvc, add4, add0])
-  · exact code_field hp hend h8 (by simp only [N, pcSvc, add4, add0])
-  · exact code_field hp hend h9 (by simp only [N, pcSvc, add4, add0])
-  · exact code_field hp hend h10 (by simp only [N, pcSvc, add4, add0])
-  · exact code_field hp hend h11 (by simp only [N, pcSvc, add4, add0])
-  · exact code_field hp hend h12 (by simp only [N, pcSvc, add4, add0])
-  · exact code_field hp hend h13 (by simp only [N, pcSvc, add4, add0])
-  · exact code_field hp hend h14 (by simp only [N, pcSvc, add4, add0])
-  · exact code_field hp hend h15 (by simp only [N, pcSvc, add4, add0])
-  · exact code_field hp hend hs (by simp only [N, pcSvc, add4, add0])
+  · exact code_field hp hend h0 (by simp only [PrintD.N, N, add4, add0])
+  · exact code_field hp hend h1 (by simp only [PrintD.N, N, add4, add0])
+  · exact code_field hp hend h2 (by simp only [PrintD.N, N, add4, add0])
+  · exact code_field hp hend h3 (by simp only [PrintD.N, N, add4, add0])
+  · exact code_field hp hend hf (by simp only [PrintD.N, add4, add0])
+  · exact code_field hp hend h4 (by simp only [PrintD.N, add4, add0])
+  · exact code_field hp hend h5 (by simp only [PrintD.N, PrintD.pcSvc, add4, add0])
+  · exact code_field hp hend h6 (by simp only [PrintD.N, PrintD.pcSvc, add4, add0])
+  · exact code_field hp hend h7 (by simp only [PrintD.N, PrintD.pcSvc, add4, add0])
+  · exact code_field hp hend h8 (by simp only [PrintD.N, N, add4, add0])
+  · exact code_field hp hend h9 (by simp only [PrintD.N, N, add4, add0])
+  · exact code_field hp hend h10 (by simp only [PrintD.N, N, add4, add0])
+  · exact code_field hp hend h11 (by simp only [PrintD.N, N, add4, add0])
+  · exact code_field hp hend h12 (by simp only [PrintD.N, N, add4, add0])
+  · exact code_field hp hend h13 (by simp only [PrintD.N, N, add4, add0])
+  · exact code_field hp hend h14 (by simp only [PrintD.N, N, add4, add0])
+  · exact code_field hp hend h15 (by simp only [PrintD.N, N, add4, add0])
+  · exact code_field hp hend hs (by simp only [PrintD.N, PrintD.pcSvc, add4, add0])
 
 end Print
 

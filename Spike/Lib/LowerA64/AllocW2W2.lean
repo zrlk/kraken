@@ -368,7 +368,7 @@ structure CallMsOK (ms : MemSide isaLSE2) (lab : Label → Int64) (q : Call) : P
   mp : ms.mp (Spike.Lib.A64.Flow.ctrLoc ms) true
   grow : ∀ old : Val, ms.G (Spike.Lib.A64.Flow.ctrLoc ms) old → (old.setWidth 64).toNat ≤ ms.cells →
     ms.G (Spike.Lib.A64.Flow.ctrLoc ms) ((old.setWidth 64 + q.u ms).setWidth 128)
-  hdr : ∀ o, o + ms.units q.n q.τ ≤ ms.cells →
+  hdr : ∀ o, ms.lo o → o + ms.units q.n q.τ ≤ ms.cells →
     ms.rt (q.hdrAt ms o) ∧ ms.mp ⟨BitVec.ofNat 64 (q.hdrAt ms o), 8⟩ true ∧
       ms.G ⟨BitVec.ofNat 64 (q.hdrAt ms o), 8⟩ (q.hdr.setWidth 128)
 

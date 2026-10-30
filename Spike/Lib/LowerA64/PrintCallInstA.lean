@@ -44,6 +44,7 @@ open Spike.Lib.LowerShape (printInsts)
 open Spike.Lib.A64.Flow.PrintCall (pN pR pF pcS pFJ)
 open Spike.Lib.PrintSrc (printLD)
 open Spike.Lib.A64.StubW (printPhOk)
+open Spike.Lib.A64.PrintG (printPhOkF)
 open Spike.Lib.ByteOut (ByteOut)
 
 variable {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe] {endPc : Int64}
@@ -55,7 +56,7 @@ variable {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe] {endPc : 
 
 /-- **The caller's frame placed at a slot file the state holds**: `R`'s
 cells at the frame's slots holding `sl` (`hsl`), `sl` holding the caller's
-control `c1` with `x` bound to `()` before `e` (`SlotRepAt`), on frames `fs`
+control `c1` with `x` bound to `` before `e` (`SlotRepAt`), on frames `fs`
 placed (as `framesPlaced_ofSlotRep`, the cells given directly). -/
 theorem framesPlaced_ofSlotRepS {cx : FnCtx} {s : State} {sl : Int → BitVec 64} {x : String}
     {e : Expr} {c1 : Ctl}
@@ -75,7 +76,7 @@ theorem framesPlaced_ofSlotRepS {cx : FnCtx} {s : State} {sl : Int → BitVec 64
   exact ⟨fun a => A1 a ∨ A2 a, FramesPlacedInI.cons1 (h1.mono fun _ h => .inl h) (h2.mono fun _ h => .inr h)⟩
 
 /-- **The frames with the caller's placed** at a state whose abstract slots
-`σ` (`Abs`) place the caller's control `c1` with `x` bound to `()` before
+`σ` (`Abs`) place the caller's control `c1` with `x` bound to `` before
 `e`, on the frames `fs` placed there (`framesPlaced_printFJ` without the
 call's `CKept`). -/
 theorem framesPlaced_ofSlotRep {cx : FnCtx} (hf : FrameOk cx) (hlo : R.lo ≤ -(cx.frame : Int) - 48)
@@ -210,7 +211,7 @@ theorem hraAb_of_blC2 [Kraken.Executable.ValidLayout exe] {kp : Nat} (hp : Scc.C
 the phase of `print`'s `done` (`printRa_ph`). -/
 theorem hraP_of_blC2 {kp : Nat} (hp : Scc.Cert.Rt.A64.Lays exe prog kp)
     (hpr : Scc.Cert.Rt.A64.Print.printIn prog = true)
-    (hph : printPhOk okPc ph (_root_.Executable.labels exe).label = true)
+    (hph : printPhOkF okPc ph (_root_.Executable.labels exe).label = true)
     {cx : FnCtx} {ra0 : Int64} {Bl : Int64 → Label → Nat → Prop}
     (hBl2 : ∀ pc k, Bl pc Scc.Lower.Names.print k →
       BlC2 prog okPc ph (_root_.Executable.labels exe).label cx ra0 pc Scc.Lower.Names.print k) :
@@ -224,7 +225,7 @@ the frames along the block by `printArgW_framesJ`, `PrintCallOkR` by
 write tail by `hDtP`. -/
 theorem printW_hPWA {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
     (hpr : Scc.Cert.Rt.A64.Print.printIn prog = true) (habI : Scc.Cert.Rt.A64.Abort.abortIn prog = true)
-    (hph : printPhOk okPc ph lab = true)
+    (hph : printPhOkF okPc ph lab = true)
     {cx : FnCtx} (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) (h16 : cx.frame % 16 = 0)
     (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -(cx.frame : Int) - 48) (hhi : 0 ≤ R.hi)
     (hl : R.lo % 8 = 0) (hh : R.hi % 8 = 0) (hsub : rS.Sub Λ.stackPool) (hfit : rS.lo + rS.size ≤ 2 ^ 64)
@@ -273,10 +274,10 @@ theorem printW_hPWA {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc 
     (framesPlaced_printFJ hf hlo hhi hS hFP) (fun _ _ _ _ _ _ _ _ _ hAt => hDtP _ _ _ _ _ _ _ hAt) rfl rfl hpw hrg hb32
 
 /-- **`printCallC_ofA`'s `hPWE` inside `W2`** (`printWE_w2J`): as
-`printW_hPWA` at `print`'s `ret ()`. -/
+`printW_hPWA` at `print`'s `ret `. -/
 theorem printWE_hPWEA {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
     (hpr : Scc.Cert.Rt.A64.Print.printIn prog = true) (habI : Scc.Cert.Rt.A64.Abort.abortIn prog = true)
-    (hph : printPhOk okPc ph lab = true)
+    (hph : printPhOkF okPc ph lab = true)
     {cx : FnCtx} (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) (h16 : cx.frame % 16 = 0)
     (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -(cx.frame : Int) - 48) (hhi : 0 ≤ R.hi)
     (hl : R.lo % 8 = 0) (hh : R.hi % 8 = 0) (hsub : rS.Sub Λ.stackPool) (hfit : rS.lo + rS.size ≤ 2 ^ 64)
@@ -322,7 +323,7 @@ its `hPW`, `hPWE` by `printW_hPWA`, `printWE_hPWEA`): `printCallC_instJ` with `h
 (`hraP`, `hraAb`). -/
 theorem printCallC_instA {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
     (hpr : Scc.Cert.Rt.A64.Print.printIn prog = true) (habI : Scc.Cert.Rt.A64.Abort.abortIn prog = true)
-    (hph : printPhOk okPc ph lab = true)
+    (hph : printPhOkF okPc ph lab = true)
     {cx : FnCtx} (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) (h16 : cx.frame % 16 = 0)
     (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -(cx.frame : Int) - 48) (hhi : 0 ≤ R.hi)
     (hl : R.lo % 8 = 0) (hh : R.hi % 8 = 0) (hsub : rS.Sub Λ.stackPool) (hfit : rS.lo + rS.size ≤ 2 ^ 64)
@@ -371,7 +372,7 @@ its `hPW`, `hPWE` by `printW_hPWA`, `printWE_hPWEA`): `printCallCH_instJ` with `
 (`hraP`, `hraAb`). -/
 theorem printCallCH_instA {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
     (hpr : Scc.Cert.Rt.A64.Print.printIn prog = true) (habI : Scc.Cert.Rt.A64.Abort.abortIn prog = true)
-    (hph : printPhOk okPc ph lab = true)
+    (hph : printPhOkF okPc ph lab = true)
     {cx : FnCtx} (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) (h16 : cx.frame % 16 = 0)
     (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -(cx.frame : Int) - 48) (hhi : 0 ≤ R.hi)
     (hl : R.lo % 8 = 0) (hh : R.hi % 8 = 0) (hsub : rS.Sub Λ.stackPool) (hfit : rS.lo + rS.size ≤ 2 ^ 64)

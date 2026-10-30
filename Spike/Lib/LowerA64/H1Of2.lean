@@ -171,7 +171,7 @@ theorem landStk_seg {W : Lbl → Lsize → FragS isaLSE2} {K : State → State �
   -- the count held: the call's element type is the allocation's
   have hkz : q.1.n ≤ AllocReach.updN ls l w l := by
     obtain ⟨-, -, -, -, σ, -, hFm, hJ⟩ := id hAt
-    obtain ⟨-, -, -, -, -, -, -, -, us, hus, hw⟩ := hJ
+    obtain ⟨-, -, -, -, -, -, -, -, -, us, hus, hw⟩ := hJ
     obtain ⟨mC, σC, c1, -, ⟨σ0, hJ1, -⟩, hN, -⟩ := hctx _ hFm
     obtain ⟨-, -, -, -, -, -, Lx, sm, B, hNJ, -⟩ := hJ1
     have ht : q.1.c0.term = .let_ x (.newBuf cn τ) e := hN.1 ▸ hNJ.1

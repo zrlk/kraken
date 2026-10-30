@@ -79,6 +79,15 @@ run 1 "failed: the ELF reader refuses ret0: scc_rt_heap has size 0" --elf "$ROOT
 run 3 "not certifiable" Scc/Test/deeprec.w
 run 10 "placement decided" --arch arm Scc/Test/ret0.w
 run 0 "certified" --arch arm --instantiate Scc/Test/ret0.w
+# Programs that take their thread id and spawn: `placeOK2At` decided
+# (`Scc/Cert/Spawn*.lean`), no theorem to instantiate.
+for A in x64 arm; do
+  run 10 "placement decided" --arch $A Scc/Test/wake.w
+  run 10 "placement decided" --arch $A Scc/Test/hello.w
+done
+# wake (the registry's arm entry): certified at run.sh's link; on x64 no proved theorem.
+run 0 "certified" --arch arm --instantiate Scc/Test/wake.w
+run 3 "not certifiable: no proved theorem for a program that takes its thread id" --instantiate Scc/Test/wake.w
 
 # hello1 (the registry), both ISAs: certified at run.sh's link and at a link moved by the
 # linker (--elf); exit 3 naming the component at a link above 4 GiB (A1); exit 3 for another

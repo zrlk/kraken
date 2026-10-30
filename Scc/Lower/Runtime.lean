@@ -45,18 +45,22 @@ The only runtime of an scc binary (`--host linux`, `--gc none`):
   range at least twice as large and rewrites the stack addresses that the
   frame records and the stack maps designate (`Scc.IR.StackMap`); past the
   per-thread cap `lay.stackCapBytes`, the abort outcome (`AbortKind.stack`).
-* `scc_rt_thr_<f>(tcb)`: the entry of threads spawned on block `f`: loads the
-  argument words from the TCB (`Term.tcbLayout`), calls `f`, release-stores the TCB's
-  `exited` flag, and ends the thread (`exit`).
+* `scc_rt_thr_<f>(a₁, …, aₙ)`: the entry of threads spawned on block `f`,
+  whose argument words it takes as parameters (the `clone` argument and the
+  `IR.spawnReg` registers, `Term.spawn`): calls `f`, release-stores the TCB's
+  `exited` flag (the TCB is the thread pointer), and ends the thread (`exit`).
 * `scc_rt_print(p, n)`: the `write` loop: `write(1, p, n)` until `n` bytes are
   out; a positive result advances; `-EINTR` and `-EAGAIN` retry; zero or any
-  other error takes the abort outcome (`AbortKind.write`).
-* `scc_rt_park()` / `scc_rt_unpark(t)`: a permit word in the TCB with a futex
+  other error takes the abort outcome (`AbortKind.write`).  With `fence` (an
+  AArch64 program that spawns, `lowerWithMarks`), a full barrier precedes the
+  `svc`, so no promise is outstanding at the `write` (`Scc/DESIGN.md` §4, *No
+  promise across `clone`*).
+* `scc_rt_park` / `scc_rt_unpark(t)`: a permit word in the TCB with a futex
   (`FUTEX_WAIT_PRIVATE` / `FUTEX_WAKE_PRIVATE`).  `park` consumes the permit if
   set, else waits while it is 0, then consumes it; it may return spuriously,
   which WeakCore's `park` allows (a return without a permit is a spurious wake).
 * `scc_rt_abort(k)`: dispatches on the `AbortKind` code to
-  `scc_rt_abort_<kind>()`, which writes the kind's message to fd 2 and exits
+  `scc_rt_abort_<kind>`, which writes the kind's message to fd 2 and exits
   with status `abortExitCode` (101); one `exit_group` site per kind, the
   trap instruction itself labelled `scc_rt_abort_<kind>_exit`.
 * `scc_rt_alloc_tcb(h, k)`: the same allocator over the **pinned region**, a
@@ -66,7 +70,7 @@ The only runtime of an scc binary (`--host linux`, `--gc none`):
   `clone`).  A TCB is an object of kind `pinned`: its fields are its first
   scalar words and a spawned thread's argument words follow them by region
   (`Term.tcbLayout`).
-* `scc_rt_thread_reserve()`: the first step of every spawn: an atomic add on
+* `scc_rt_thread_reserve`: the first step of every spawn: an atomic add on
   `scc_rt_nthreads` gives the child's thread index `i`; `i > lay.maxThreads`
   is the `AbortKind.threads` outcome, before the spawn takes a TCB or a stack
   or calls `clone`.  The count is never decremented, so a program runs at
@@ -336,7 +340,7 @@ def stackReleaseF (lay : Layout) : Except String Func :=
     unlockPool
     terminate (.ret [])
 
-/-- `scc_rt_thread_reserve()`: count a spawn (`Names.nthreads`) and return
+/-- `scc_rt_thread_reserve`: count a spawn (`Names.nthreads`) and return
 its thread index, 1 for the first spawn; past `lay.maxThreads`, abort
 `AbortKind.threads`. -/
 def threadReserveF (lay : Layout) : Except String Func :=
@@ -511,12 +515,13 @@ def growF (lay : Layout) : Except String Func :=
     emit (.store .plain .w64 ⟨tp, Tcb.stackLimit⟩ (← binR .add (.reg nb) (imm Tcb.headroom) "limit"))
     terminate (.ret [delta, .reg base, size])
 
-def printF : Except String Func :=
+def printF (fence : Bool := false) : Except String Func :=
   buildFunc Names.print ["p", "n"] false do
     startBlock "loop"
     terminate (.br .eq (.reg "n") (imm 0) "done" "write")
     startBlock "write"
     let r ← fresh "r"
+    if fence then emit (.fence .full)
     emit (.syscall r .write [imm 1, .reg "p", .reg "n"])
     terminate (.br .eq (.reg r) (immNeg eintr) "loop" "chk2")
     startBlock "chk2"
@@ -571,7 +576,7 @@ def AbortKind.message : AbortKind → String
   | .write => "scc: abort: write to standard output failed\n"
   | .threads => "scc: abort: cannot create a thread\n"
 
-/-- `scc_rt_abort_<kind>()`: the message of `k` to fd 2, then
+/-- `scc_rt_abort_<kind>`: the message of `k` to fd 2, then
 `exit_group(abortExitCode)`: one exit site per abort kind, its trap
 instruction labelled `scc_rt_abort_<kind>_exit` (`Names.abortExit`). -/
 def abortKindF (k : AbortKind) : Except String Func :=
@@ -634,23 +639,28 @@ def mainThreadF (entry : Frontend.Entry) (setupWords : Nat) : Except String Func
     terminate .unreachable
 
 /-- The trampoline of threads spawned on block `f` with argument type `T`:
-loads the argument words from the TCB (`tcbLayout`). -/
-def threadF (obj : ObjLayout) (f : String) (T : CoreLang.Ty) : Except String Func :=
-  buildFunc (Names.thread f) ["tcb"] true do
-    markHeap "tcb"
-    let (_, sl) ← tcbLayout obj T
-    let args ← sl.mapM fun sw => do
-      let d ← fresh "a"
-      -- A future barrier site: under a collector these reloads of the
-      -- spawn argument words (written by the parent before `clone`) must be
-      -- loaded-value-barrier loads, since a phase flip can happen between
-      -- the parent's store and the child's first instruction
-      -- (`Scc/LAYOUT.md` §10).  With `--gc none` they are plain loads.
-      emit (.load .plain .w64 d (tcbArgAddr obj "tcb" sw))
-      pure (Operand.reg d)
+its parameters are the argument words (`Term.spawn` passes them in the
+`clone` argument and the `IR.spawnReg` registers), one per word of `T`'s
+layout (`tcbLayout`). -/
+def threadF (obj : ObjLayout) (f : String) (T : CoreLang.Ty) : Except String Func := do
+  let sl ← match Obj.slots T (Tcb.size / 8) 0 with
+    | some sl => pure sl
+    | none => throw s!"no runtime layout for type {repr T}"
+  let ps := (List.range sl.length).map fun i => s!"a{i}"
+  buildFunc (Names.thread f) ps true do
+    -- The layout `Term.spawn` checked (and still reserves in the TCB).
+    let _ ← tcbLayout obj T
+    -- A future barrier site: under a collector the argument words cross the
+    -- `clone` in registers, and a phase flip can happen between the
+    -- parent's last barrier and the child's first instruction
+    -- (`Scc/LAYOUT.md` §10).  With `--gc none` nothing is needed.
+    let args := ps.map Operand.reg
     markWords T args
     emit (.call [] (Names.user f) args)
-    emit (.store .rel .w64 ⟨"tcb", Tcb.exited⟩ (imm 1))
+    let tcb ← fresh "tcb"
+    emit (.getTp tcb)
+    markHeap tcb
+    emit (.store .rel .w64 ⟨tcb, Tcb.exited⟩ (imm 1))
     let r ← fresh "r"
     emit (.syscall r .exit [imm 0])
     terminate .unreachable

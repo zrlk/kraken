@@ -34,7 +34,7 @@ theorem ret0_phOf : phOf 4194304 ret0Prog = Ret0.Inst.ph := by
     Ret0.Inst.bP, Ret0.Inst.bL, Ret0.Inst.bN, Ret0.Inst.bT, Ret0.Inst.inN, Bool.or_assoc]
 
 theorem ret0_sites : sitesOf 4194304 ret0Prog ret0Λ =
-    some [4196192, 4196248, 4198508, 4198580, 4198652, 4198724, 4198796] := by
+    some [4196192, 4196248, 4198512, 4198584, 4198656, 4198728, 4198800] := by
   decide +kernel
 
 /-- **`ret0.w`'s sites are the hand ones.** -/
@@ -55,7 +55,7 @@ theorem hello1_phOf : phOf 4194304 hello1Prog = Hello1.Inst.ph := by
     Hello1.Inst.bP, Hello1.Inst.bL, Hello1.Inst.bN, Hello1.Inst.bT, Ret0.Inst.inN, Bool.or_assoc]
 
 theorem hello1_sites : sitesOf 4194304 hello1Prog hello1Λ =
-    some [4196232, 4196288, 4198548, 4198620, 4198692, 4198764, 4198836] := by
+    some [4196232, 4196288, 4198552, 4198624, 4198696, 4198768, 4198840] := by
   decide +kernel
 
 /-- **`hello1.w`'s sites are the hand ones.** -/
@@ -74,7 +74,7 @@ open Ret0.Inst (labT ret0_labT)
 theorem codeLo_canonical (o : Out) : (tablesOf Config.canonical o).Λ.code.lo = 4194304 := rfl
 
 theorem ret0_sites' : sitesOf 4194304 ret0Prog (tablesOf Config.canonical ⟨ret0Prog, ret0Secs, [], ret0Place⟩).Λ =
-    some [4196192, 4196248, 4198508, 4198580, 4198652, 4198724, 4198796] := by
+    some [4196192, 4196248, 4198512, 4198584, 4198656, 4198728, 4198800] := by
   decide +kernel
 
 theorem ret0_okPcOf' :
@@ -147,7 +147,7 @@ example : ∃ T, phTabOf 4194304 ret0Prog = some T ∧
 
 example : ∃ T, phTabOf 4194304 ret0Prog = some T ∧
     marksOkT (fun l => codeOf 4194304 ret0Prog (if l = "_start" then "scc_rt_take_site" else l)) T
-      [4196192, 4196248, 4198508, 4198580, 4198652, 4198724, 4198796] = false :=
+      [4196192, 4196248, 4198512, 4198584, 4198656, 4198728, 4198800] = false :=
   ⟨_, ret0_phTab, by decide +kernel⟩
 
 /-! ## The words disjoint

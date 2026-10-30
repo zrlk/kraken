@@ -193,14 +193,14 @@ if (cd "$ROOT" && $LAKE build "Scc.Test.Stack$RELOC") >/dev/null \
   else bad "reloc" "assemble/link failed: $(cat reloc.link.err)"; fi
 else bad "reloc" "could not build or write the program: $(cat reloc.gen.err)"; fi
 
-# Index arithmetic keeps its overflow check (hello's `printL` has `iv + 1`).
+# Index arithmetic keeps its overflow check (printidx's `printL` has `iv + 1`).
 if [ "$ARCH" = x64 ]; then
-  if [[ "$(cat hello.s)" == *"jb .Lwc_printL.ovf"* ]]; then ok "hello: index + keeps its check"
-  else bad "hello" "no overflow check on printL's +"; fi
+  if [[ "$(cat printidx.s)" == *"jb .Lwc_printL.ovf"* ]]; then ok "printidx: index + keeps its check"
+  else bad "printidx" "no overflow check on printL's +"; fi
 else
-  if [[ "$(cat hello.s)" =~ b\.hs\ \.L[0-9]+_wc_printL\.abort_overflow ]]; then
-    ok "hello: index + keeps its check"
-  else bad "hello" "no overflow check on printL's +"; fi
+  if [[ "$(cat printidx.s)" =~ b\.hs\ \.L[0-9]+_wc_printL\.abort_overflow ]]; then
+    ok "printidx: index + keeps its check"
+  else bad "printidx" "no overflow check on printL's +"; fi
 fi
 
 # The listing on standard output, piped into the assembler.

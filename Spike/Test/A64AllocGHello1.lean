@@ -97,8 +97,8 @@ theorem allocSt_hello1 {rS : Range} (hR : R.OK) (hal : R.base.toNat % 16 = 0) (h
     hsub hfit hFO (by rw [← hello1_labT]; exact hq)
     (by rw [hra, Spike.Test.A64Hello1RtW.labT_eq_labX]; decide +kernel) hmp hmem hno
 
-/-- **`hello1.w`'s `allocAbOk`**, its targets off the write abort's pcs. -/
-theorem hello1_allocAbOk : Spike.Lib.A64.AllocG.allocAbOk labT = true := by
+/-- **`hello1.w`'s `allocAbOkR`**, its targets off the write abort's pcs. -/
+theorem hello1_allocAbOk : Spike.Lib.A64.AllocG.allocAbOkR labT = true := by
   rw [Spike.Test.A64Hello1W0.labT_eq_labY]; decide +kernel
 
 /-- **`hello1.w`'s `allocAb`** from the generic one: the return address

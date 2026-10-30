@@ -981,6 +981,7 @@ scc_rt_print:
 	b.eq .L9_scc_rt_print.7_done
 	b .L9_scc_rt_print.2_write
 .L9_scc_rt_print.2_write:
+	dmb ish
 	movz x0, #1
 	ldr x1, [sp]
 	ldr x2, [sp, #8]
@@ -1023,9 +1024,9 @@ scc_rt_print:
 .L9_scc_rt_print.6_fail:
 	movz x0, #4
 	bl scc_rt_abort
-.L9_scc_rt_print.sp9:
-.L9_scc_rt_print.halt10:
-	b .L9_scc_rt_print.halt10
+.L9_scc_rt_print.sp10:
+.L9_scc_rt_print.halt11:
+	b .L9_scc_rt_print.halt11
 .L9_scc_rt_print.7_done:
 	ldr x29, [sp, #32]
 	ldr x30, [sp, #40]
@@ -1478,7 +1479,7 @@ scc_stackmap:
 	.quad .L6_scc_rt_stack_take.sp36, 0, 0, 2
 	.quad .L8_scc_rt_grow.sp13, 0, 0, 2
 	.quad .L8_scc_rt_grow.sp15, 0, 0, 2
-	.quad .L9_scc_rt_print.sp9, 0, 0, 2
+	.quad .L9_scc_rt_print.sp10, 0, 0, 2
 	.quad .L18_wc_main.sp_check, 0, 0, 2
 	.quad -16
 	.quad -32

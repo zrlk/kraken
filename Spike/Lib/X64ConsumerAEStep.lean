@@ -161,7 +161,7 @@ theorem emit_stepAE {ab : Option (State → Prop)} (hP : HookOK P p) (hW : SrcOu
         simp only [Kernel.Call.write.injEq] at he; exact he
       simp only [↓reduceIte] at hes
       subst hes
-      obtain ⟨hinv', th', hrun, hQ, hσ', hstk, hp', hna⟩ := byteOut_emit_ld hW hnum
+      obtain ⟨hinv', th', hrun, hQ, hσ', hstk, hp', hna, htl⟩ := byteOut_emit_ld hW hnum
         (hbody.1 (t.2.wr 0) hlt _ hpj) hinv hwf hrb (hpi.dmemPriv 0 th ht1) hEnt hreach h0 rfl rfl hσ hfne hp
         (noExit_trace hW (hP.noExit hreach))
       have hwj' : (t.2.set 0 (.run (t.2.wr 0 + 1))).wr 0 = t.2.wr 0 + 1 := by rw [hk]; rfl
@@ -179,7 +179,7 @@ theorem emit_stepAE {ab : Option (State → Prop)} (hP : HookOK P p) (hW : SrcOu
       · show ExtRows.OwnOk (own u.st th'.stack) t.1.mem u.prom
         rw [hust, hstk, Kernel.readByte_prom hrb]; exact hoo
       · rw [Spike.Lib.HeapPres.heapUse_set (s' := { s with ths := s.ths.set! 0 th', trace := s.trace ++ [.out b.val] })
-          h0 rfl rfl hna]
+          h0 rfl rfl hna htl]
         exact allocInvAt_prom (allocInvAt_hold hai rfl rfl) (Kernel.readByte_prom hrb)
       · rw [hna]; unfold TermRun.Cfg.n at hfr ⊢; rw [hs0] at hfr; simp only [set_one hs0]; exact hfr
     · -- a return: the row's return clause, its frame run

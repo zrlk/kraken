@@ -354,7 +354,8 @@ def stackIR : IR.Program where
 
 /-- Two threads: `main` starts a child with `clone(CLONE_SETTLS)` and parks on
 its own TCB's permit (futex wait while the permit is 0); the child checks its
-thread pointer, prints `child`, unparks `main` (exchange the permit to 1, futex
+thread pointer and its second argument (`77`, passed in `spawnReg 1`,
+`Inst.clone`), prints `child`, unparks `main` (exchange the permit to 1, futex
 wake), sets its exited flag with a release store and wakes any waiter, then
 exits. `main`, after being unparked, waits for the exited flag (acquire load,
 futex wait) and prints `main`. Output `child\nmain\n`, exit 0. -/
@@ -369,7 +370,7 @@ def threadsIR : IR.Program where
   funcs := [startFunc "main", abortFunc,
     { name := "main", params := ["arg"], blocks := [
       { label := "entry", insts := initTcb "scc_tcb1" "scc_stack1" ++
-          [.clone "tid" (r "top") (r "t") "child" (r "t")],
+          [.mov (spawnReg 1) (k 77), .clone "tid" (r "top") (r "t") "child" (r "t")],
         term := .br .slt (r "tid") (k 0) "fail" "park" },
       { label := "fail", insts := [.call [] "scc_abort" [k 9]], term := .unreachable },
       { label := "park", insts := [.getTp "me", .rmw .xchg "p" ⟨"me", Tcb.permit⟩ (k 0)],
@@ -384,10 +385,12 @@ def threadsIR : IR.Program where
         term := .jmp "join" },
       { label := "done", insts := say "t_main" 5 ++ [.syscall "z" .exitGroup [k 0]],
         term := .unreachable }] },
-    { name := "child", params := ["self"], blocks := [
+    { name := "child", params := ["self", "v"], blocks := [
       { label := "entry", insts := [.getTp "tp"],
-        term := .br .eq (r "tp") (r "self") "run" "bad" },
+        term := .br .eq (r "tp") (r "self") "arg2" "bad" },
+      { label := "arg2", insts := [], term := .br .eq (r "v") (k 77) "run" "bad2" },
       { label := "bad", insts := [.syscall "z" .exitGroup [k 7]], term := .unreachable },
+      { label := "bad2", insts := [.syscall "z" .exitGroup [k 8]], term := .unreachable },
       { label := "run", insts := say "t_child" 6 ++
           [.la "m" "scc_tcb0", .rmw .xchg "old" ⟨"m", Tcb.permit⟩ (k 1),
            .bin .add "a" (r "m") (k Tcb.permit),
@@ -617,15 +620,15 @@ def helloEntries : List String :=
     pure (Lower.threadEntries (← Lower.lowerProgram { arch := .arm } c))).toOption.getD []
 
 #guard helloEntries == ["scc_rt_main", "scc_rt_thr_worker"]
-#guard helloNeed.length == 9
+#guard helloNeed.length == 6
 #guard Scc.Cert.NeedA64.needOk helloWA64 helloNeed (16384 - 4096) helloEntries
--- `wc_printL` calls `wc_emit8`: its need covers its frame and `wc_emit8`'s.
-#guard (Scc.Cert.NeedA64.row? helloNeed "wc_printL").map (·.2.2) ==
-  (do let (_, fr, _) ← Scc.Cert.NeedA64.row? helloNeed "wc_printL"
-      let (_, _, ne) ← Scc.Cert.NeedA64.row? helloNeed "wc_emit8"
+-- `scc_rt_main` calls `wc_main`: its need covers its frame and `wc_main`'s.
+#guard (Scc.Cert.NeedA64.row? helloNeed "scc_rt_main").map (·.2.2) ==
+  (do let (_, fr, _) ← Scc.Cert.NeedA64.row? helloNeed "scc_rt_main"
+      let (_, _, ne) ← Scc.Cert.NeedA64.row? helloNeed "wc_main"
       pure (fr + ne))
 #guard !Scc.Cert.NeedA64.needOk helloWA64
-  (helloNeed.map fun r => if r.1 == "wc_printL" then (r.1, r.2.1, r.2.2 - 8) else r)
+  (helloNeed.map fun r => if r.1 == "scc_rt_main" then (r.1, r.2.1, r.2.2 - 8) else r)
   (16384 - 4096) helloEntries
 #guard !Scc.Cert.NeedA64.needOk helloWA64 helloNeed 100 helloEntries
 #guard (needOfW (w_src% "Scc/Test/deeprec.w")).toOption.isNone

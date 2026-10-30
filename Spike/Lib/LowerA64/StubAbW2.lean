@@ -76,7 +76,7 @@ theorem dispTPcs_eq (lab : Label → Int64) :
   simp [dispTPcs, dispTPos, abPos, List.range_succ]
 
 theorem nvPcs_eq (lab : Label → Int64) : nvPcs lab = nvPos.map fun p => lab p.1 + Int64.ofNat (4 * p.2) := by
-  simp [nvPcs, nvPos, abPos, pcRet, tailPcs, failPcs, g4Pcs, stubPcs, Spike.Lib.A64.Print.pcSvc,
+  simp [nvPcs, nvPos, abPos, pcRet, tailPcs, failPcs, g4Pcs, stubPcs, Spike.Lib.A64.PrintD.pcSvc,
     List.range_succ]
   refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;> simp only [Int64.add_assoc] <;> rfl
 

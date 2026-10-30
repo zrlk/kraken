@@ -248,7 +248,11 @@ theorem PrivKeys.hpriv {Λ : Layout} {Ent : Entry} {s : I.State} (hd : PrivKeys 
     {tm : Memory} {sm : WeakMem.Memory} {pairs : List Nat} (hm : MemRel Λ lbl lsize ts tm sm pairs)
     {l : WeakMem.AllocLabel} {b k : Nat} (hl : lbl l = some b) (hk : k < 8 * lsize l) (x : UInt8) :
     (K.dmem s).loadBytes (BitVec.ofNat 64 (b + k)) 1 ≠ some [x] :=
-  hd.hpriv_of_range hwf hE (r := lrange lsize l b) (hm.lbl_range l b hl).2 hk x
+  by
+    rcases (hm.lbl_range l b hl).2 with hs | hs | ⟨h0, -⟩
+    · exact hd.hpriv_of_range hwf hE (r := lrange lsize l b) (.inl hs) hk x
+    · exact hd.hpriv_of_range hwf hE (r := lrange lsize l b) (.inr hs) hk x
+    · omega
 
 /-! ## The word-level form
 

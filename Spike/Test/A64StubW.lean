@@ -46,7 +46,7 @@ theorem ret0_svcIn : Scc.Cert.Rt.A64.blockAt ret0Prog Abort.overflow.entry 7 [Sp
   decide +kernel
 
 /-- The exit call's pc at `ret0`: the overflow's abort site. -/
-theorem ret0_exit : (labR Abort.overflow.exit).toBitVec.toNat = 4198508 := by decide +kernel
+theorem ret0_exit : (labR Abort.overflow.exit).toBitVec.toNat = 4198512 := by decide +kernel
 
 /-- **The exit call's site hypotheses hold at `ret0`'s marks** (satisfiable). -/
 example :
@@ -62,7 +62,7 @@ example :
 
 /-- A phase table with the exit call's next pc in another phase fails. -/
 example : abortPhOk Spike.Lib.A64.Flow.Ret0.Inst.okPc
-    (fun pc => if pc = 4198512 then 7 else Spike.Lib.A64.Flow.Ret0.Inst.ph pc) labR = false := by
+    (fun pc => if pc = 4198516 then 7 else Spike.Lib.A64.Flow.Ret0.Inst.ph pc) labR = false := by
   decide +kernel
 
 /-- An `okPc` excluding the stub's `adrp` fails. -/

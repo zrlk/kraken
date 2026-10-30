@@ -29,7 +29,7 @@ def mainFr : Frame :=
 -- The whole-program statement's hypotheses hold of `ret0.w` (x86-64), and
 -- `ret0IR` is the runtime functions, then `func0 main`.
 #guard (Scc.Lower.X64.lowerAll? { arch := .x64 } ret0Src).isOk
-#guard match rtFuncs ({ arch := .x64 } : Config).layout ⟨.unit, true⟩ 0 with
+#guard match rtFuncs .x64 ({ arch := .x64 } : Config).layout ⟨.unit, true⟩ 0 with
   | .ok rt => ret0IR.funcs.map (·.name) == (rt ++ [func0 (Names.user "main") {
       insts := [], ret := [], next := 0, marked := [], here := ([], .ret .unit) }]).map (·.name) &&
       ret0IR.funcs.getLast? == some mainF

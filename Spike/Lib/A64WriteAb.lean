@@ -23,7 +23,7 @@ code still tests it, by the data that makes the path the refusal's.
 `lab` is the executable's label map (`(_root_.Executable.labels exe).label`
 at the nodes' fragments).
 -/
-import Spike.Lib.A64Print
+import Spike.Lib.A64PrintD
 import Spike.Lib.A64Abort
 import Spike.Lib.Consumer1
 import Scc.Sem.TargetA64
@@ -36,15 +36,15 @@ open Spike.Lib.Consumer1 (Refusal)
 
 variable (lab : Label → Int64)
 
-/-- The pc after `print`'s system call (`Print.N .n5`). -/
-abbrev pcRet : Int64 := Print.pcSvc lab + 4
+/-- The pc after `print`'s system call (`PrintD.N .n5`). -/
+abbrev pcRet : Int64 := PrintD.pcSvc lab + 4
 
 /-- `print`'s tests of the stored result: the rest of the block after the
 call, its `b.eq` and `b`, `.3_chk2`'s block, `b.eq` and `b`, `.4_chk3`'s
 block up to its `b.le .6_fail`. -/
 def tailPcs : List Int64 :=
-  [Print.pcSvc lab + 8, Print.pcSvc lab + 12, Print.pcSvc lab + 16, Print.pcSvc lab + 20,
-   Print.pcSvc lab + 24, Print.pcSvc lab + 28, Print.pcSvc lab + 32, Print.pcSvc lab + 36,
+  [PrintD.pcSvc lab + 8, PrintD.pcSvc lab + 12, PrintD.pcSvc lab + 16, PrintD.pcSvc lab + 20,
+   PrintD.pcSvc lab + 24, PrintD.pcSvc lab + 28, PrintD.pcSvc lab + 32, PrintD.pcSvc lab + 36,
    lab ".L9_scc_rt_print.3_chk2", lab ".L9_scc_rt_print.3_chk2" + 4, lab ".L9_scc_rt_print.3_chk2" + 8,
    lab ".L9_scc_rt_print.3_chk2" + 12, lab ".L9_scc_rt_print.3_chk2" + 16,
    lab ".L9_scc_rt_print.3_chk2" + 20, lab ".L9_scc_rt_print.3_chk2" + 24,

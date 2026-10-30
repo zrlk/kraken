@@ -4,13 +4,13 @@
 `AbSt μ (WriteAb.Ab lab)`, none moved, for any executable with `InstOk`,
 its program holding the allocator's code (`allocIn`), passing the phase
 check (`allocPhOk`) and with its targets off the write abort's pcs
-(`allocAbOk`): `hello1.w`'s `allocAb` (`Spike/Test/A64Hello1AllocAb.lean`)
+(`allocAbOkR`): `hello1.w`'s `allocAb` (`Spike/Test/A64Hello1AllocAb.lean`)
 with the kernel's decisions over `labY`'s numeric tables replaced by
-`allocAbOk` at the labels `lab`.
+`allocAbOkR` at the labels `lab`.
 
 - `blkW_ab`, `blkW_abG`, `not_ab_after`, `nodeW_ab_si`, `nodeW_ab_st`,
   `nodeW_ab_ldop`: `hello1.w`'s generic lemmas.
-- `blkAbC_eq`, `allocAbOk_spec`: the check `allocAbOk`
+- `blkAbC_eq`, `allocAbOk_spec`: the check `allocAbOkR`
   (`Spike/Lib/A64AllocAbOk.lean`, every node's targets off `abPcs lab`, the
   heap abort's call target off every pc of `Ab` but the dispatcher's
   prologue, which `Ab` holds only at `x0 = 4`) node by node.
@@ -174,8 +174,8 @@ variable {lab : Label → Int64}
 /-- **`blkAbC` is `blkAb`.** -/
 theorem blkAbC_eq {p ra : Int64} {blk : List Directive} : blkAbC lab p ra blk = blkAb lab p ra blk := rfl
 
-/-- **`allocAbOk`'s facts**, one per node. -/
-theorem allocAbOk_spec (h : allocAbOk lab = true) :
+/-- **`allocAbOkR`'s facts**, one per node. -/
+theorem allocAbOk_spec (h : allocAbOkR lab = true) :
     blkAb lab (lab "scc_rt_alloc" + Int64.ofNat (4 * 0)) 0 b0 = true ∧
     blkAb lab (lab ".L2_scc_rt_alloc.0_entry" + Int64.ofNat (4 * 0)) 0 b1 = true ∧
     blkAb lab (lab ".L2_scc_rt_alloc.0_entry" + Int64.ofNat (4 * 4)) 0 b2 = true ∧
@@ -195,7 +195,7 @@ theorem allocAbOk_spec (h : allocAbOk lab = true) :
     blkAb lab (lab ".L2_scc_rt_alloc.5_ok" + Int64.ofNat (4 * 10)) 0 b12 = true ∧
     lab ".L2_scc_rt_alloc.5_ok" + Int64.ofNat (4 * 41) + Int64.ofNat 4 ∉ abPcs lab ∧
     blkAb lab (lab ".L2_scc_rt_alloc.5_ok" + Int64.ofNat (4 * 42)) 0 b13 = true := by
-  simp only [allocAbOk, blkAbC_eq, Bool.and_eq_true, Bool.not_eq_true', ← Bool.not_eq_true, List.contains_iff_mem] at h
+  simp only [allocAbOkR, blkAbC_eq, Bool.and_eq_true, Bool.not_eq_true', ← Bool.not_eq_true, List.contains_iff_mem] at h
   simpa only [and_assoc] using h
 
 /-- **The heap abort's call target is out of `Ab`** at `x0 ≠ 4`, off every
@@ -247,7 +247,7 @@ abort's pcs (`hab`), for a call `q` whose return address is off them
 header the code may store unmapped in private memory (`hmem`, `hq`). -/
 theorem allocAb (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
     (hA : Spike.Lib.A64.Flow.allocIn prog = true) (hph : allocPhOk okPc ph lab = true)
-    (hab : allocAbOk lab = true)
+    (hab : allocAbOkR lab = true)
     (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -160) (hhi : 0 ≤ R.hi)
     (hq : ∀ m, F m → q.OK ms lab)
     (hra : ph (Int64.ofBitVec q.ra).toBitVec.toNat = ph (lab "scc_rt_alloc").toBitVec.toNat)
@@ -310,7 +310,7 @@ theorem allocAb (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
   · bab h15 b12_ok p15 a15
   · refine nodeW_ab_st hI (t := .X9) (b := .X10) (i := 0) h16 rfl (by pcs_tac) (phOne_spec p16).1 a16
       fun σ c m hJ hF => ?_
-    obtain ⟨o, ⟨-, hle, -, hn28, -⟩, -, -, h10⟩ := hJ
+    obtain ⟨o, ⟨-, hle, -, hn28, -, -⟩, -, -, h10⟩ := hJ
     exact hmem _ (.inr ⟨o.toNat, hle, hdr_addr (hq m hF) hle hn28 h10⟩) m hF
   · bab h17 b13_ok p17 a17
   · refine Spike.Lib.LowerA64.BlkW.nodeW (blkW_ab hI (blk := [iRet.toDir]) (lo := -160) (hi := 0)

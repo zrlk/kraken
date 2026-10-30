@@ -62,7 +62,7 @@ theorem ret0_mainIn0 : Scc.Cert.Rt.A64.Abort.mainIn0 ret0Prog = true := by decid
 /-! ## The `write` system calls are checked
 
 `stubIn` checks the stub's `svc #0` (7 instructions after its entry) and
-`printIn` `scc_rt_print`'s (4 after `.2_write`): with `svc #1` there, the
+`printIn` `scc_rt_print`'s (5 after `.2_write`, past its barrier): with `svc #1` there, the
 checks fail, while the blocks around the call still match. -/
 
 /-- `prog` with the directive `k` instructions after the label `l` replaced
@@ -82,9 +82,9 @@ example : let p := breakAt ret0Prog overflow.entry 7 svc1
   decide +kernel
 
 open Scc.Cert.Rt.A64 in
-example : let p := breakAt ret0Prog ".L9_scc_rt_print.2_write" 4 svc1
-    (Scc.Cert.Rt.A64.Print.printIn p, blockAt p ".L9_scc_rt_print.2_write" 0 Spike.Lib.A64.Print.b4 &&
-      blockAt p ".L9_scc_rt_print.2_write" 5 Spike.Lib.A64.Print.b5) = (false, true) := by
+example : let p := breakAt ret0Prog ".L9_scc_rt_print.2_write" 5 svc1
+    (Scc.Cert.Rt.A64.Print.printIn p, blockAt p ".L9_scc_rt_print.2_write" 1 Spike.Lib.A64.Print.b4 &&
+      blockAt p ".L9_scc_rt_print.2_write" 6 Spike.Lib.A64.Print.b5) = (false, true) := by
   decide +kernel
 
 end Scc.Test.RtA64Abort

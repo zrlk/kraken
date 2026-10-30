@@ -31,7 +31,7 @@ open Spike.Lib.A64.WriteAb (Ab abPcs)
 open Spike.Lib.LowerNode (FrOk2 ZBad)
 open Spike.Lib.A64.Alloc (Call AllocW AllocWT N iAdrpH iAddH iHdr iRet b4 b5 b6 b7 b9 b11 b12 b13 b4_ok b5_ok
   b6_ok b7_ok b9_ok b11_ok b12_ok b13_ok)
-open Spike.Lib.A64.AllocG (allocIn_spec allocSt allocAb allocArena allocPc allocPhOk allocAbOk blkW_noWr
+open Spike.Lib.A64.AllocG (allocIn_spec allocSt allocAb allocArena allocPc allocPhOk allocAbOkR blkW_noWr
   nodeW_noWr_si nodeW_wr_st hdr_addr)
 
 section Imp
@@ -97,9 +97,9 @@ theorem allocNoCtrT (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
   · tblk h15 b12_ok
   · refine Spike.Lib.A64.AllocG.NodeW.imp (nodeW_wr_st hI (t := .X9) (b := .X10) (i := 0) h16 rfl (by pc_tac)
       fun σ c m hJ hF => ?_) Spike.Lib.A64.Flow.NodeW.triv ?_
-    · obtain ⟨o, ⟨-, hle, -, hn28, -⟩, -, -, h10⟩ := hJ
+    · obtain ⟨o, ⟨-, hle, -, hn28, -, -⟩, -, -, h10⟩ := hJ
       exact hmem _ ⟨o.toNat, hle, hdr_addr (hq m hF) hle hn28 h10⟩ m hF
-    · rintro s c ⟨σ, ⟨o, ⟨-, hle, -, hn28, -⟩, -, -, h10⟩, hF, hL⟩ - hW
+    · rintro s c ⟨σ, ⟨o, ⟨-, hle, -, hn28, -, -⟩, -, -, h10⟩, hF, hL⟩ - hW
       have hA' := hdr_addr (hq _ hF) hle hn28 h10
       have he := congrArg (fun L : Loc => L.addr.toNat) (hL _ hW)
       simp only [Arena.ctrLoc, BitVec.toNat_ofNat, Nat.mod_eq_of_lt h64] at he
@@ -115,7 +115,7 @@ theorem allocNoCtrT (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
 `hctx`, the tail writing no counter word (`allocNoCtrT`). -/
 theorem allocW2T (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
     (hA : Spike.Lib.A64.Flow.allocIn prog = true) (hph : allocPhOk okPc ph lab = true)
-    (habk : allocAbOk lab = true) {Λ : Scc.Sem.Layout} {rS : Range} {ownOf : Nat → List (Loc × Val)}
+    (habk : allocAbOkR lab = true) {Λ : Scc.Sem.Layout} {rS : Range} {ownOf : Nat → List (Loc × Val)}
     (hown : ∀ s, own s = ownOf (ph (pcOf s)))
     (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -160) (hhi : 0 ≤ R.hi)
     (hl : R.lo % 8 = 0) (hh : R.hi % 8 = 0) (hsub : rS.Sub Λ.stackPool) (hfit : rS.lo + rS.size ≤ 2 ^ 64)
@@ -161,7 +161,7 @@ theorem allocW2T (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
 `msOfAX_fields`, `msOfAX_mp`), with no counter context. -/
 theorem allocW2TX (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
     (hA : Spike.Lib.A64.Flow.allocIn prog = true) (hph : allocPhOk okPc ph lab = true)
-    (habk : allocAbOk lab = true) {Λ : Scc.Sem.Layout} {rS : Range} {ownOf : Nat → List (Loc × Val)}
+    (habk : allocAbOkR lab = true) {Λ : Scc.Sem.Layout} {rS : Range} {ownOf : Nat → List (Loc × Val)}
     (hown : ∀ s, own s = ownOf (ph (pcOf s)))
     (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -160) (hhi : 0 ≤ R.hi)
     (hl : R.lo % 8 = 0) (hh : R.hi % 8 = 0) (hsub : rS.Sub Λ.stackPool) (hfit : rS.lo + rS.size ≤ 2 ^ 64)

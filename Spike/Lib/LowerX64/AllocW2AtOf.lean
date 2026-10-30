@@ -187,7 +187,7 @@ theorem allocW2At_of {rS : Range} (hI : InstOk exe endPc cells lab μ own Tk (Ta
       ∀ j w, (⟨a, 8⟩, w) ∉ ownOf j)
     (hlt : ar.ctr + 8 ≤ ar.heap) (h64 : ar.ctr < 2 ^ 64)
     (hsz : ∀ q : Call, q.OK (MS J) (_root_.Executable.labels exe).label → ∀ l b old, lbl l = some b →
-      b = ar.heap + 16 * old + ar.off q.n q.τ → old + ar.units q.n q.τ ≤ ar.cells → q.n ≤ lsize l)
+      (MS J).lo old → b = ar.heap + 16 * old + ar.off q.n q.τ → old + ar.units q.n q.τ ≤ ar.cells → q.n ≤ lsize l)
     {lcx : Scc.Lower.Ctx} {fp ra : BitVec 64} {tp : UInt64} {G0 : Ctl → Prop} {T : Expr → Prop}
     {Lk : Expr × List (String × Scc.Lower.LitV) → Prop}
     (hTn : ∀ x cn τ e, T (.let_ x (.newBuf cn τ) e) → Scc.Lower.elem2 τ = true)

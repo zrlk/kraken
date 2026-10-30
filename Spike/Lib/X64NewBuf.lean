@@ -184,7 +184,7 @@ theorem newBuf_callW_ctx {W : Frag isa} {K : State → State → Prop} {cells : 
         simp only [SO.le, List.all_nil, Bool.and_true, decide_eq_true_eq]
         omega
       · simp only [Alloc.E] at hx
-        obtain ⟨-, -, -, -, -, -, -, hbx⟩ := hx
+        obtain ⟨-, -, -, -, -, -, -, -, hbx⟩ := hx
         have : σR.regs.rbp.toBitVec = σC.regs.rbp.toBitVec := by rw [hreg, hbx, ← hfp]; rfl
         exact UInt64.eq_of_toBitVec_eq this
       · intro k hk hn

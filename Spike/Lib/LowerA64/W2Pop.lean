@@ -29,24 +29,28 @@ variable {Λ : Scc.Sem.Layout} {μ : Marks} {p : Prog} {rd : TermRun.Word → Pr
 
 /-- **`W2` before a pop from `W2` after it**: at the state `s`, `W2` at the
 popped pair `(c'', [])` (`hW`), the popped control not at an allocation
-(`hnb`) nor at an overflow (`hov`), the pair `(c, fs)` above depth 0
+(`hnb`, a buffer; `hnn`, a box) nor at an overflow (`hov`), the pair `(c, fs)` above depth 0
 (`hne`) free of `ZBad` (`hf`) and placed (`hpl`). -/
 theorem w2_ofPopped (hp : ProgNoS ZBad p) {c c'' : Ctl} {fs : List TermRun.Frame}
     (hW : W2 Λ μ p rd G own rS Tk ar J Dt Ab lbl lsize s c'' [])
-    (hnb : ∀ x a τ e, c''.term ≠ .let_ x (.newBuf a τ) e) (hov : ¬ OvfReady c'')
+    (hnb : ∀ x a τ e, c''.term ≠ .let_ x (.newBuf a τ) e) (hnn : ∀ x a e, c''.term ≠ .let_ x (.new a) e)
+    (hov : ¬ OvfReady c'')
     (hne : fs ≠ []) (hf : FrOk2 c fs) (hpl : PlacedSE Λ lbl s c fs) :
     W2 Λ μ p rd G own rS Tk ar J Dt Ab lbl lsize s c fs := by
   refine w2_of hp hf hW.st hW.ab (fun h => absurd h hne) hpl ?_ ?_ ?_
   · intro c' fs' _ hsys
     have hw := hW.wr c'' [] (.refl _) hsys
     refine ⟨fun L hL => ?_, fun hL => ?_⟩
-    · rcases hw.arena L hL with h | h | h | ⟨_, x, a, τ, e, _, _, _, _, ht, _⟩
+    · rcases hw.arena L hL with h | h | h | ⟨_, x, a, τ, e, _, _, _, _, ht, _⟩ | ⟨-, _, x, a, e, _, _, _, ht, _⟩
       · exact .inl h
       · exact .inr (.inl h)
       · exact .inr (.inr (.inl h))
       · exact absurd ht (hnb x a τ e)
-    · obtain ⟨_, _, _, x, a, τ, e, _, _, _, _, _, _, ht, _⟩ := hw.ctr hL
-      exact absurd ht (hnb x a τ e)
+      · exact absurd ht (hnn x a e)
+    · obtain ⟨_, _, _, x, τ, e, _, _, _, _, hsite, _⟩ := hw.ctr hL
+      rcases hsite with ⟨a, _, _, ht, _⟩ | ⟨-, a, _, ht, _⟩
+      · exact absurd ht (hnb x a τ e)
+      · exact absurd ht (hnn x a e)
   · intro k a hk hpc
     obtain ⟨h1, h2⟩ := hW.abort k a hk hpc
     refine ⟨?_, h2⟩

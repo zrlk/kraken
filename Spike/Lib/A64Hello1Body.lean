@@ -26,7 +26,7 @@ namespace Spike.Lib.A64.Flow.Hello1
 open CoreLang CoreTerm
 open Kraken Kraken.AArch64.Parser Kraken.Promising Kraken.Promising.AArch64 Kraken.Promising.Lower.A64
 open Spike.Lib Spike.Lib.A64.Flow
-open Spike.Lib.A64.Flow.Ret0 (CallerCells blkW_mono LimOk)
+open Spike.Lib.A64.Flow.Ret0 (CallerCells blkW_mono nodeW_mono LimOk)
 open Spike.Lib.A64.Rt (WcRa)
 open Scc.Cert.Rt.A64 (Lays endOf blockAt label_labelGap labelGap)
 open Scc.Cert.Rt.A64.Print (printIn)
@@ -140,20 +140,21 @@ structure WcBody1W (W : Frag isaLSE2) (K : State → State → Prop) (exe : _roo
     (R : Region) (F : MachineData → Prop) (J : AS → Ctl → Prop) : Prop where
   e : BlkW W K exe endPc R F (wN (_root_.Executable.labels exe).label J .e) wcE
   print : ∀ g : PG, g.2.2 = ((_root_.Executable.labels exe).label ".L19_wc_main.sp4").toBitVec →
-    Print.PrintW g.1 g.2.1 g.2.2 W K exe endPc (pR R) (fun m => F m ∧ CallerCells R (-96) (-48) 0 m)
+    PrintD.PrintW g.1 g.2.1 g.2.2 W K exe endPc (pR R) (fun m => F m ∧ CallerCells R (-96) (-48) 0 m)
   sp4 : BlkW W K exe endPc R F (wN (_root_.Executable.labels exe).label J .sp4) wcR4
 
 /-- The body is inside the trivial predicate, with no outside moves. -/
 theorem WcBody1W.triv {exe : _root_.Executable} {endPc : Int64} {R : Region} {F : MachineData → Prop}
     {J : AS → Ctl → Prop} : WcBody1W (fun _ _ => True) (fun _ _ => False) exe endPc R F J :=
-  ⟨BlkW.triv, fun g _ => Print.PrintW.triv g.1 g.2.1 g.2.2, BlkW.triv⟩
+  ⟨BlkW.triv, fun g _ => PrintD.PrintW.triv g.1 g.2.1 g.2.2, BlkW.triv⟩
 
 /-- `PrintW` under a weaker frame condition holds under a stronger one. -/
 theorem printW_mono {W : Frag isaLSE2} {K : State → State → Prop} {exe : _root_.Executable} {endPc : Int64}
     {R : Region} {F F' : MachineData → Prop} {c0 : Ctl} {x29 ra : BitVec 64}
-    (h : Print.PrintW c0 x29 ra W K exe endPc R F) (hFF : ∀ m, F' m → F m) :
-    Print.PrintW c0 x29 ra W K exe endPc R F' :=
-  ⟨blkW_mono h.e hFF, blkW_mono h.n1 hFF, blkW_mono h.loop hFF, blkW_mono h.n3 hFF, blkW_mono h.write hFF,
+    (h : PrintD.PrintW c0 x29 ra W K exe endPc R F) (hFF : ∀ m, F' m → F m) :
+    PrintD.PrintW c0 x29 ra W K exe endPc R F' :=
+  ⟨blkW_mono h.e hFF, blkW_mono h.n1 hFF, blkW_mono h.loop hFF, blkW_mono h.n3 hFF, nodeW_mono h.fence hFF,
+    blkW_mono h.write hFF,
     blkW_mono h.n5 hFF, blkW_mono h.n6 hFF, blkW_mono h.n7 hFF, blkW_mono h.chk2 hFF, blkW_mono h.n9 hFF,
     blkW_mono h.n10 hFF, blkW_mono h.chk3 hFF, blkW_mono h.n12 hFF, blkW_mono h.adv hFF, blkW_mono h.fail hFF,
     blkW_mono h.done hFF⟩
@@ -182,8 +183,8 @@ theorem hello1_wc_body_segW {W : Frag isaLSE2} {K : State → State → Prop}
     (hsvc : ∀ F' : MachineData → Prop, FStable (pR R) F' →
       (∀ m, F' m → (F m ∧ CallerCells R (-96) (-48) 0 m) ∧ WcRa R x.pc m) →
       ∀ g : PG, g.2.2 = ((_root_.Executable.labels exe).label ".L19_wc_main.sp4").toBitVec →
-      SegW W K p lbl ms (At exe endPc (pR R) F' (Print.N (_root_.Executable.labels exe).label g.1 g.2.1 g.2.2 .svc))
-        (At exe endPc (pR R) F' (Print.N (_root_.Executable.labels exe).label g.1 g.2.1 g.2.2 .n5)))
+      SegW W K p lbl ms (At exe endPc (pR R) F' (PrintD.N (_root_.Executable.labels exe).label g.1 g.2.1 g.2.2 .svc))
+        (At exe endPc (pR R) F' (PrintD.N (_root_.Executable.labels exe).label g.1 g.2.1 g.2.2 .n5)))
     (hedge : ∀ σ c, J σ c → ∀ σ' : AS, (∀ k, -96 ≤ k → k < 0 → k % 8 = 0 → σ'.slot k = wcSl σ k) →
       σ'.regs.X0.toBitVec = 0#64 → σ'.regs.X29.toBitVec = σ.slot (-16) → σ'.regs.X30.toBitVec = σ.slot (-8) →
       ∃ c', LocalRun p c c' ∧ x.J σ' c') :
@@ -207,7 +208,7 @@ theorem hello1_wc_body_segW {W : Frag isaLSE2} {K : State → State → Prop}
       intro σ0
       rw [wcC_eq, wcE_X30, e4']
     refine call_nd_FWK (KC := False) (lo' := -48) (hi' := 0) (M := fun _ => True)
-      (Ne := fun g : PG => Print.N lab g.1 g.2.1 g.2.2 .e) (Ex := fun g : PG => Print.E lab g.1 g.2.1 g.2.2)
+      (Ne := fun g : PG => PrintD.N lab g.1 g.2.1 g.2.2 .e) (Ex := fun g : PG => Print.E lab g.1 g.2.1 g.2.2)
       hR hal hF (by show R.lo ≤ -96 + -48; omega) (by decide) (by show (-96 : Int) < R.hi; omega) (by decide)
       (by show (-96 : Int) % 16 = 0; decide) (by decide) (by decide) (fun h => h.elim) (fun h => h.elim)
       (fun _ h _ => h)
@@ -306,8 +307,8 @@ theorem hello1_wc_segW {W : Frag isaLSE2} {K : State → State → Prop}
     (hsvc : ∀ F' : MachineData → Prop, FStable (pR R) F' →
       (∀ m, F' m → (F m ∧ CallerCells R (-96) (-48) 0 m) ∧ WcRa R x.pc m) →
       ∀ g : PG, g.2.2 = ((_root_.Executable.labels exe).label ".L19_wc_main.sp4").toBitVec →
-      SegW W K p lbl ms (At exe endPc (pR R) F' (Print.N (_root_.Executable.labels exe).label g.1 g.2.1 g.2.2 .svc))
-        (At exe endPc (pR R) F' (Print.N (_root_.Executable.labels exe).label g.1 g.2.1 g.2.2 .n5)))
+      SegW W K p lbl ms (At exe endPc (pR R) F' (PrintD.N (_root_.Executable.labels exe).label g.1 g.2.1 g.2.2 .svc))
+        (At exe endPc (pR R) F' (PrintD.N (_root_.Executable.labels exe).label g.1 g.2.1 g.2.2 .n5)))
     (hedge : ∀ σ c, wcJ J0 σ c → ∀ σ' : AS, (∀ k, -96 ≤ k → k < 0 → k % 8 = 0 → σ'.slot k = wcSl σ k) →
       σ'.regs.X0.toBitVec = 0#64 → σ'.regs.X29.toBitVec = σ.slot (-16) → σ'.regs.X30.toBitVec = σ.slot (-8) →
       ∃ c', LocalRun p c c' ∧ x.J σ' c') :

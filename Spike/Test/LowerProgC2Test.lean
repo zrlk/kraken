@@ -31,7 +31,7 @@ def agrees (p : Prog) : Bool :=
   | .ok c =>
     c.entry.arg == (entry2 p).arg && c.entry.retInt == (entry2 p).retInt &&
       c.externs.map (·.1) == (checked2 p).externs.map (·.1) &&
-      match lowerWithMarks {} c, rtFuncs ({} : Scc.Config).layout (entry2 p) (setupWords2 p) with
+      match lowerWithMarks {} c, rtFuncs ({} : Scc.Config).arch ({} : Scc.Config).layout (entry2 p) (setupWords2 p) with
       | .ok (ir, ms), .ok rt =>
         ir.funcs.map (·.name) == rt.map (·.name) ++ (compiled2 p).map (Names.user ·.name) &&
           ms.map (·.1) == (compiled2 p).map (Names.user ·.name)

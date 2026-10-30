@@ -87,15 +87,19 @@ theorem startNoExit_one {mem : WeakMem.Memory} {th : TTh} {cap : Nat} (ht : NoS 
 /-- **Every start of `progInit`** has no exit operation and no exit. -/
 theorem progInit_startNoExit {p : Prog} {cap : Nat} {c : Cfg} (h : SrcSem.progInit p cap c) : StartNoExit c := by
   have key : SrcSem.progInit p cap = SrcSem.mainInit cap ∨ SrcSem.progInit p cap = SrcSem.tidInit cap ∨
-      SrcSem.progInit p cap = SrcSem.setupInit cap ∨ SrcSem.progInit p cap = fun _ => False := by
+      SrcSem.progInit p cap = SrcSem.setupInit cap ∨
+      SrcSem.progInit p cap = (· = SrcSem.tidStartT cap) ∨
+      SrcSem.progInit p cap = (· = SrcSem.setupStartT cap) ∨ SrcSem.progInit p cap = fun _ => False := by
     unfold SrcSem.progInit
     split
     · split <;> simp
     · simp
-  rcases key with e | e | e | e <;> rw [e] at h
+  rcases key with e | e | e | e | e | e <;> rw [e] at h
   · subst h; exact startNoExit_one (by simp [NoS]) rfl
   · obtain ⟨meW, rfl⟩ := h; exact startNoExit_one (by simp [NoS]) rfl
   · obtain ⟨meW, rfl⟩ := h; exact startNoExit_one (by simp [SrcSem.setupTerm, NoS, ExitOp]) rfl
+  · subst h; exact startNoExit_one (by simp [NoS]) rfl
+  · subst h; exact startNoExit_one (by simp [SrcSem.setupTerm, NoS, ExitOp]) rfl
   · exact h.elim
 
 /-- **No reachable configuration has an exit in its trace**, under WeakCore's

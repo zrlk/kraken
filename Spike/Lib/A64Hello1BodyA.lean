@@ -52,7 +52,7 @@ state leading to `σC`. -/
 def pP (σC : AS) (k : Nat) (c : Ctl) : Prop := ∃ σ0 c0, J σ0 c0 ∧ wcC lab σ0 = σC ∧ Pr σ0 k c
 
 /-- `print`'s nodes for the call state `σC`. -/
-abbrev pNA (σC : AS) : Print.PN → ND :=
+abbrev pNA (σC : AS) : PrintD.PN → ND :=
   PrintA.N lab σC.regs.X29.toBitVec σC.regs.X30.toBitVec σC.regs.X0.toBitVec σC.regs.X1.toBitVec.toNat
     (pP lab J Pr σC) (pP lab J Qr σC)
 

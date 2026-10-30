@@ -414,11 +414,12 @@ theorem shared_of_wordAddr {Λ : Scc.Sem.Layout} {lbl : WeakMem.AllocLabel → O
   obtain ⟨b, hb, rfl⟩ := Option.map_eq_some_iff.mp ha
   obtain ⟨-, hr⟩ := hm.lbl_range _ _ hb
   have ho' : @LT.lt Nat instLTNat sa.offset (lsize sa.label) := ho
-  rcases hr with ⟨h1, h2⟩ | ⟨h1, h2⟩
+  rcases hr with ⟨h1, h2⟩ | ⟨h1, h2⟩ | ⟨h0, -⟩
   · simp only [lrange] at h1 h2
     exact .inr (.inl ⟨by omega, by omega⟩)
   · simp only [lrange] at h1 h2
     exact .inl ⟨by omega, by omega⟩
+  · omega
 
 /-- **A one-word location is the word location of its address.** -/
 theorem loc_eq_wordLoc {L : Loc} (h : L.bytes = 8) : L = wordLoc L.addr.toNat := by
@@ -437,11 +438,12 @@ theorem heapData_of_wordAddr {Λ : Scc.Sem.Layout} {lbl : WeakMem.AllocLabel →
   obtain ⟨b, hb, rfl⟩ := Option.map_eq_some_iff.mp ha
   obtain ⟨-, hr⟩ := hm.lbl_range _ _ hb
   have ho' : @LT.lt Nat instLTNat sa.offset (lsize sa.label) := ho
-  rcases hr with ⟨h1, h2⟩ | ⟨h1, h2⟩
+  rcases hr with ⟨h1, h2⟩ | ⟨h1, h2⟩ | ⟨h0, -⟩
   · simp only [lrange] at h1 h2
     exact .inl ⟨by omega, by omega⟩
   · simp only [lrange] at h1 h2
     exact .inr ⟨by omega, by omega⟩
+  · omega
 
 /-- **Every target value is a 64-bit value** (`Scc/Sem/Fits.lean`): every
 message's and every initial one. -/

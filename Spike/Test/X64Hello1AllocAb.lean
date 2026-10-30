@@ -270,7 +270,7 @@ theorem allocAb_ret (hR : R.OK) (hlo : R.lo ≤ -160) (hhi : 8 ≤ R.hi)
   have hok : Spike.Lib.X64.okBlk (-160) 8 (Spike.Lib.X64.Alloc.N labT ms q .ret).o [(iRet.toDir, 1)] = true :=
     show Spike.Lib.X64.okBlk (-160) 8 Spike.Lib.X64.Alloc.oE [(iRet.toDir, 1)] = true by decide
   have hret := hret_of_run (lab := labT) (ra := labT ".Lwc_rodata.x13") hok fun σ c hJ => by
-    obtain ⟨o, -, -, -, -, -, h0⟩ := hJ
+    obtain ⟨o, -, -, -, -, -, h0, -⟩ := hJ
     show Int64.ofBitVec (σ.slot 0) = _
     rw [h0, hra]
     exact Int64.ofBitVec_toBitVec _

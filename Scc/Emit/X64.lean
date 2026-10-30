@@ -64,6 +64,13 @@ on a zero source); `popcnt` is `popcntq`.
 followed by a register `movzbl`/`movzwl` (one memory access, the same as a
 `movz*` with a memory source, which Kraken's parser does not read).
 
+**Threads.**  A `clone` passes its argument in `%r12` and the `spawnReg`s
+in `%rbx`, `%r13`, `%r14`, `%r15`, `%r9` (`spawnArgs`; the `clone` system
+call keeps every register but `%rax`, `%rcx`, `%r11`), and the child jumps
+(`jz`) to the function's child stub of the entry (`childL`, after the
+function's code), which zeroes `%rbp`, moves them into the argument
+registers and calls the entry.
+
 **Fences.**  Under TSO, `Fence.ld` and `Fence.st` need no code; `Fence.full`
 is `mfence`.  Acquire loads and release stores are plain `mov`s.
 
@@ -239,6 +246,24 @@ def archSetFs : Nat := 0x1002
 def nrArchPrctl : Nat := 158
 def nrClone : Nat := 56
 
+/-- The registers a `clone` passes the `spawnReg`s in, in order. -/
+def spawnArgRegs : List Reg64 := [.rbx, .r13, .r14, .r15, .r9]
+
+/-- The `spawnReg` registers of a function, each with the register a
+`clone` passes it in to the child (`Inst.clone`): `%rbx`, `%r13`, `%r14`,
+`%r15`, `%r9`, which the `clone` system call keeps (it clobbers `%rax`,
+`%rcx` and `%r11` only). -/
+def spawnArgs (fr : Frame) : List (IR.Reg × Reg64) :=
+  (IR.spawnRegs.zip spawnArgRegs).filter fun (r, _) => fr.slots.any (·.1 == r)
+
+/-- The entries a function's `clone`s start, each once (a child stub each,
+`childL`). -/
+def cloneEntries (f : Func) : List Sym :=
+  (f.blocks.flatMap fun b => b.insts.filterMap fun | .clone _ _ _ g _ => some g | _ => none).eraseDups
+
+/-- The label of a function's child stub into `entry` (one per entry). -/
+def childL (fn : String) (entry : Sym) : String := labelOf fn s!"child.{entry}"
+
 def loadArgs (fr : Frame) (regs : List Reg64) (args : List IR.Operand) (what : String) : E Unit := do
   if args.length > regs.length then throw s!"{fr.fn}: {what} with {args.length} arguments"
   for (a, r) in args.zip regs do ld fr a r
@@ -400,6 +425,7 @@ def emitInst (fr : Frame) (sm : Option StackMap.Entry) : Inst → E Unit
   | .clone d stack tls entry arg => do
       let parent ← freshL fr.fn
       ld fr arg .r12
+      for (r, t) in spawnArgs fr do ld fr (.reg r) t
       ld fr stack .rsi
       ld fr tls .r8
       movl .rdi cloneFlags
@@ -408,12 +434,8 @@ def emitInst (fr : Frame) (sm : Option StackMap.Entry) : Inst → E Unit
       movl .rax nrClone
       sysc
       ins (i64 (.test (xr .rax) (or_ .rax)))
-      ins (i64 (.jcc .nz parent))
-      -- the child: on its own stack, with %fs = tls
-      zero32 .rbp
-      movRR .rdi .r12
-      callSym entry
-      ud2
+      -- the child, on its own stack with %fs = tls, to its stub (`childStub`)
+      ins (i64 (.jcc .z (childL fr.fn entry)))
       lbl parent
       st fr .rax d
   | .slotAddr d s => do ins (i64 (.lea rax64 (← fr.slot s))); st fr .rax d
@@ -494,6 +516,17 @@ def emitFunc (abortFn : Sym) (growth : Option Growth) (areas : List (Sym × Nat)
     lbl (labelOf f.name "ovf")
     movl .rdi AbortKind.overflow.code
     callSym abortFn
+    ud2
+  -- the child stubs: frameless, the `clone` argument (`%r12`) and the
+  -- `spawnReg`s (`spawnArgs`) into the argument registers, the frame-record
+  -- chain ended, and `entry`, which never returns
+  for e in cloneEntries f do
+    lbl (childL f.name e)
+    zero32 .rbp
+    movRR .rdi .r12
+    for (t, a) in spawnArgRegs.zip (argRegs.drop 1) do
+      if (spawnArgs fr).any (·.2 == t) && t != a then movRR a t
+    callSym e
     ud2
   if f.checkStack then
     lbl (labelOf f.name "stk")

@@ -91,9 +91,9 @@ theorem TcbW.imp {q : TcbG} {i : TN} (h1 : TcbW W1 K exe endPc R F q i)
   cases i <;> dsimp only [TcbW] at h1 h2 ⊢ <;> first | exact BlkW.imp h1 h2 hw | exact NodeW.imp h1 h2 hw
 
 /-- `scc_rt_stack_take`'s obligations inside `W` from two. -/
-theorem TakeW.imp {q : TakeG} {i : TK} (h1 : TakeW W1 K exe endPc R F M q i)
-    (h2 : TakeW W2 (fun _ _ => False) exe endPc R F M q i) (hw : ∀ s c, W1 s c → W2 s c → W s c) :
-    TakeW W K exe endPc R F M q i := by
+theorem TakeW.imp {P : MachineData → Prop} {q : TakeG} {i : TK} (h1 : TakeW W1 K exe endPc R F M q i P)
+    (h2 : TakeW W2 (fun _ _ => False) exe endPc R F M q i P) (hw : ∀ s c, W1 s c → W2 s c → W s c) :
+    TakeW W K exe endPc R F M q i P := by
   cases i <;> dsimp only [TakeW] at h1 h2 ⊢ <;>
     first
     | exact BlkW.imp h1 h2 hw
@@ -102,9 +102,9 @@ theorem TakeW.imp {q : TakeG} {i : TK} (h1 : TakeW W1 K exe endPc R F M q i)
     | exact fun s c hA => hw s c (h1 s c hA) (h2 s c hA)
 
 /-- `scc_rt_thread_init`'s obligations inside `W` from two. -/
-theorem TiW.imp {q : TiG} {i : TI} (h1 : TiW W1 K exe endPc R F M q i)
-    (h2 : TiW W2 (fun _ _ => False) exe endPc R F M q i) (hw : ∀ s c, W1 s c → W2 s c → W s c) :
-    TiW W K exe endPc R F M q i := by
+theorem TiW.imp {P : MachineData → Prop} {q : TiG} {i : TI} (h1 : TiW W1 K exe endPc R F M q i P)
+    (h2 : TiW W2 (fun _ _ => False) exe endPc R F M q i P) (hw : ∀ s c, W1 s c → W2 s c → W s c) :
+    TiW W K exe endPc R F M q i P := by
   cases i <;> dsimp only [TiW] at h1 h2 ⊢ <;>
     first
     | exact BlkW.imp h1 h2 hw

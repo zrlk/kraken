@@ -25,11 +25,18 @@ placed at `b` with `8 * lsize l` bytes (`lrange`). -/
 def LblRange (Λ : Layout) (lbl : WeakMem.AllocLabel → Option Nat) (lsize : WeakMem.AllocLabel → Nat) : Prop :=
   ∀ l b, lbl l = some b → (lrange lsize l b).Sub Λ.heap ∨ (lrange lsize l b).Sub Λ.data
 
-/-- **`LblRange` from the memory relation** (`MemRel.lbl_range`). -/
+/-- **`LblRange` from the memory relation** (`MemRel.lbl_range`), when every
+placed label has a word (`hz`): a zero-word label may instead be a
+`ThreadId` box in the pinned region. -/
 theorem lblRange_of_memRel {lbl : WeakMem.AllocLabel → Option Nat} {lsize : WeakMem.AllocLabel → Nat}
     {ts : Nat → Option Nat} {tm : Kraken.Promising.Memory} {sm : WeakMem.Memory} {pairs : List Nat}
-    (h : MemRel Λ lbl lsize ts tm sm pairs) : LblRange Λ lbl lsize :=
-  fun l b hl => (h.lbl_range l b hl).2
+    (h : MemRel Λ lbl lsize ts tm sm pairs) (hz : ∀ l b, lbl l = some b → 0 < lsize l) :
+    LblRange Λ lbl lsize :=
+  fun l b hl => by
+    rcases (h.lbl_range l b hl).2 with hs | hs | ⟨h0, -⟩
+    · exact .inl hs
+    · exact .inr hs
+    · exact absurd h0 (Nat.pos_iff_ne_zero.mp (hz l b hl))
 
 /-- **A placed label's word below its size is unmapped** in a memory loading
 no word of the heap or `.data`: the word `k < lsize l` of the label `l`

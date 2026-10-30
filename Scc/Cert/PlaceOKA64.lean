@@ -167,8 +167,8 @@ def mainGrps : MainShape → List Rt.A64.RGrp
   | .setup => Rt.A64.RtIn.mainGrps1
 
 /-- **A7** (the runtime's part): the tail of `scc_rt_main`, `scc_rt_alloc`,
-`scc_rt_print`, the abort stubs and `scc_rt_abort`, checked in one pass over
-the program, and the overflow abort path's phase facts at A6's tables and the
+`scc_rt_print` (its write block led by `dmb ish`), the abort stubs and
+`scc_rt_abort`, checked in one pass over the program, and the overflow abort path's phase facts at A6's tables and the
 code labels (`abortPhC`), and the same for `scc_rt_print`'s write tail, the
 write/heap stubs and `scc_rt_alloc`, so none of their pcs is a thread site
 (`tailOffC`). -/

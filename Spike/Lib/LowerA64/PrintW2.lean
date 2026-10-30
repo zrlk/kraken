@@ -36,6 +36,7 @@ open Spike.Lib.A64.Rt (InstOk)
 open Spike.Lib.A64.Flow.PrintCall (pN pR pF pcS)
 open Spike.Lib.PrintSrc (PrintC printN)
 open Spike.Lib.A64.StubW (printPhOk)
+open Spike.Lib.A64.PrintG (printPhOkF)
 
 variable {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe] {endPc : Int64} {prog : List Directive}
   {lab : Label → Int64} {μ : Marks} {own : Own} {Tk : State → Prop} {K : State → State → Prop}
@@ -73,7 +74,7 @@ theorem frOk2_printC {pw wn : TermRun.Word} {n m k : Nat} {x : String} {e : Expr
 
 /-- **`print`'s system call is at no abort site** (`W2.abort`). -/
 theorem printSvc_abort (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
-    (hin : Scc.Cert.Rt.A64.Print.printIn prog = true) (hph : printPhOk okPc ph lab = true)
+    (hin : Scc.Cert.Rt.A64.Print.printIn prog = true) (hph : printPhOkF okPc ph lab = true)
     {x29 ra buf0 : BitVec 64} {len0 : Nat} {P Q : Nat → Ctl → Prop}
     (hAt : At exe endPc R F (Spike.Lib.A64.PrintA.N (_root_.Executable.labels exe).label x29 ra buf0 len0 P Q .svc)
       s c) {fs : List TermRun.Frame} {cells ctr : Nat} {Ab : State → Prop} :
@@ -93,7 +94,7 @@ abort's phase (`printSvcAb`), the source inside a call at the loop top
 their placement at `PlacedSE` (`hpl`) and the write tail at the node (`hDt`). -/
 theorem printSvc_w2 (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
     (hin : Scc.Cert.Rt.A64.Print.printIn prog = true) (hab : Scc.Cert.Rt.A64.Abort.abortIn prog = true)
-    (hph : printPhOk okPc ph lab = true)
+    (hph : printPhOkF okPc ph lab = true)
     {Λ : Scc.Sem.Layout} {p : Prog} {rd : TermRun.Word → Prop} {G : Loc → Val → Prop} {rS : Range}
     {ar : Arena} {J : InvS} {Dt : State → Prop} {lbl : Lbl} {lsize : Lsize}
     (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hl : R.lo % 8 = 0) (hh : R.hi % 8 = 0)
@@ -137,6 +138,12 @@ theorem BlkW.ofJ {n : ND} {blk : List Directive} {V : Ctl → Prop} (h : ∀ σ 
   fun _ σ c _ _ _ _ _ _ hJ _ _ _ _ _ => ⟨h σ c hJ, fun _ hk => hk⟩
 
 omit [Kraken.Executable.ValidLayout exe] in
+/-- A node whose obligation reads the node's control only. -/
+theorem NodeW.ofJ {n : ND} {V : Ctl → Prop} (h : ∀ σ c, n.J σ c → V c) :
+    NodeW (fun _ c => V c) (fun _ _ => False) exe endPc R F n :=
+  fun _ c ⟨_, _, _, _, σ, _, _, hJ⟩ => ⟨h σ c hJ, fun _ hk => hk⟩
+
+omit [Kraken.Executable.ValidLayout exe] in
 /-- **`print` inside `W`** from two, the second not moved (`BlkW.imp`). -/
 theorem PrintAW.imp {W1 W2 W : Frag isaLSE2}
     (h1 : PrintAW x29 ra buf0 len0 P Q W1 K exe endPc R F)
@@ -144,6 +151,7 @@ theorem PrintAW.imp {W1 W2 W : Frag isaLSE2}
     (hw : ∀ s c, W1 s c → W2 s c → W s c) : PrintAW x29 ra buf0 len0 P Q W K exe endPc R F := by
   have I := @Spike.Lib.A64.AllocG.BlkW.imp
   exact ⟨I h1.e h2.e hw, I h1.n1 h2.n1 hw, I h1.loop h2.loop hw, I h1.n3 h2.n3 hw,
+    Spike.Lib.A64.AllocG.NodeW.imp h1.fence h2.fence hw,
     I h1.write h2.write hw, I h1.n5 h2.n5 hw, I h1.n6 h2.n6 hw, I h1.n7 h2.n7 hw,
     I h1.chk2 h2.chk2 hw, I h1.n9 h2.n9 hw, I h1.n10 h2.n10 hw, I h1.chk3 h2.chk3 hw,
     I h1.n12 h2.n12 hw, I h1.adv h2.adv hw, I h1.fail h2.fail hw, I h1.done h2.done hw⟩
@@ -164,12 +172,12 @@ theorem rc0_pq {k : Nat} {r : BitVec 64} (h : RC0 len0 P Q k r c) : ∃ j, P j c
   · exact rc1_pq h
 
 /-- **Every node's control is the source's `P` or `Q` at some byte.** -/
-theorem N_pq {lab : Label → Int64} {σ : AS} (n : Spike.Lib.A64.Print.PN)
+theorem N_pq {lab : Label → Int64} {σ : AS} (n : Spike.Lib.A64.PrintD.PN)
     (h : (N lab x29 ra buf0 len0 P Q n).J σ c) : ∃ j, P j c ∨ Q j c := by
   cases n
   case e => exact ⟨_, .inl h.1⟩
   case n1 | loop => obtain ⟨_, -, h⟩ := h; exact ⟨_, .inl h⟩
-  case n3 | write => obtain ⟨_, -, -, h⟩ := h; exact ⟨_, .inl h⟩
+  case n3 | fence | write => obtain ⟨_, -, -, h⟩ := h; exact ⟨_, .inl h⟩
   case svc => obtain ⟨⟨_, -, -, h⟩, -⟩ := h; exact ⟨_, .inl h⟩
   case n5 => obtain ⟨_, -, h⟩ := h; exact rc0_pq h
   case n6 => obtain ⟨⟨_, -, h⟩, -⟩ := h; exact rc0_pq h
@@ -186,7 +194,8 @@ theorem PrintAW.ofJ {V : Ctl → Prop} (h : ∀ j c, P j c ∨ Q j c → V c) :
     PrintAW x29 ra buf0 len0 P Q (fun _ c => V c) (fun _ _ => False) exe endPc R F := by
   have hJ : ∀ n σ c, (N (_root_.Executable.labels exe).label x29 ra buf0 len0 P Q n).J σ c → V c :=
     fun n σ c hn => let ⟨j, hj⟩ := N_pq n hn; h j c hj
-  exact ⟨BlkW.ofJ (hJ _), BlkW.ofJ (hJ _), BlkW.ofJ (hJ _), BlkW.ofJ (hJ _), BlkW.ofJ (hJ _), BlkW.ofJ (hJ _),
+  exact ⟨BlkW.ofJ (hJ _), BlkW.ofJ (hJ _), BlkW.ofJ (hJ _), BlkW.ofJ (hJ _), NodeW.ofJ (hJ _), BlkW.ofJ (hJ _),
+    BlkW.ofJ (hJ _),
     BlkW.ofJ (hJ _), BlkW.ofJ (hJ _), BlkW.ofJ (hJ _), BlkW.ofJ (hJ _), BlkW.ofJ (hJ _), BlkW.ofJ (hJ _),
     BlkW.ofJ (hJ _), BlkW.ofJ (hJ _), BlkW.ofJ (hJ _), BlkW.ofJ (hJ _)⟩
 
@@ -198,7 +207,7 @@ sites (`printPc`); given the frames' placement (`PlacedSE`) at the blocks' state
 `frOk2_printC`). -/
 theorem printW2 (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
     (hin : Scc.Cert.Rt.A64.Print.printIn prog = true) (hab : Scc.Cert.Rt.A64.Abort.abortIn prog = true)
-    (hph : printPhOk okPc ph lab = true)
+    (hph : printPhOkF okPc ph lab = true)
     {Λ : Scc.Sem.Layout} {p : Prog} {rd : TermRun.Word → Prop} {G : Loc → Val → Prop} {rS : Range}
     {ar : Arena} {J : InvS} {Dt : State → Prop} {lbl : Lbl} {lsize : Lsize}
     (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -48) (hhi : 0 ≤ R.hi)

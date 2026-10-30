@@ -1,2 +1,1 @@
-hello.w: 1 checked `+` site(s), 1 boundable by index facts
-hello.w:90:5: checked `+` (boundable by index facts): i1 = iv + 1 in 'printL'
+hello.w: 0 checked `+` site(s), 0 boundable by index facts

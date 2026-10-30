@@ -43,6 +43,8 @@ import Spike.Lib.HeapLand
 import Spike.Lib.Arena
 import Spike.Lib.ByteOut
 import Spike.Lib.MemSideBW
+import Spike.Lib.AllocLo
+import Spike.Lib.FrameNew
 
 namespace Spike.Lib.X64ConsumerA
 
@@ -68,7 +70,8 @@ def CtrOff (ar : Arena) (lbl : Lbl) (lsize : Lsize) : Prop :=
 
 /-- **The memory side at the frames `fs` with the arena** (`msOfS` with the
 arena): an allocation lands in the fragment `I` with the label placed and the
-arena fitting the object (`AllocLand`). -/
+arena fitting the object (`AllocLand`); the counter floor is the placement's
+(`AllocLo.LoOf`: the arena above the cursor free of every placed label). -/
 def msOfA (Λ : Scc.Sem.Layout) (μ : Marks) (rd : TermRun.Word → Prop) (G : Loc → Val → Prop) (own : OwnS)
     (ar : Arena) (I : InvS) (lbl : Lbl) (lsize : Lsize) (fs : List TermRun.Frame) : MemSide isa :=
   MemSide.ofLabels rd lbl lsize (some abi) G ar.heap ar.ctr ar.units ar.off ar.cells (own := (own · fs))
@@ -76,6 +79,7 @@ def msOfA (Λ : Scc.Sem.Layout) (μ : Marks) (rd : TermRun.Word → Prop) (G : L
     (abortAt := fun s => ∃ k a, μ.abortAt k = some a ∧ pcOf s = a) (pl := fun s c => fs = [] ∧ Placed Λ lbl s c)
     (xa := fun l b n s c => AllocLand ar.heap ar.cells b n ∧
       I (fun l' => if l' = l then some b else lbl l') (fun l' => if l' = l then n else lsize l') s c fs)
+    (lo := Spike.Lib.AllocLo.LoOf ar.heap ar.cells lbl lsize)
 
 /-- **The write abort's justification at `s`, tied to the phase `Ab`**: every
 result `r` the kernel may refuse the call with (`Kernel.writeRefused`)
@@ -110,7 +114,7 @@ def PendA (p : Prog) (I : InvS) : InvS := fun lbl lsize s c fs =>
 landing in `X`): the instruction is the read-modify-write of the counter
 word adding the allocation's units, at `let x = newBuf a τ in e` with no
 hold; for every old value runtime memory may hold there, owned, within the
-cells, the new value may be held there too and the control, holding the old
+cells, above the counter floor, the new value may be held there too and the control, holding the old
 count, lands in `X`. -/
 def CtrRow (ms : MemSide isa) (X : Frag isa) (s : State) (c : Ctl) : Prop :=
   ∃ (k : Kraken.RmwKind) (op : Val → Option Val) (g : Val → State) (x : String) (a : At) (τ : Ty) (e : Expr)
@@ -121,7 +125,7 @@ def CtrRow (ms : MemSide isa) (X : Frag isa) (s : State) (c : Ctl) : Prop :=
     c.hold = none ∧
     (∀ old, op old = some ((old.setWidth 64 + BitVec.ofNat 64 (ms.units n τ)).setWidth 128)) ∧
     (∀ old, ms.G ⟨BitVec.ofNat 64 ms.ctr, 8⟩ old → (∀ w, (⟨BitVec.ofNat 64 ms.ctr, 8⟩, w) ∈ ms.own s → old = w) →
-      (old.setWidth 64).toNat ≤ ms.cells →
+      (old.setWidth 64).toNat ≤ ms.cells → ms.lo (old.setWidth 64).toNat →
       ms.G ⟨BitVec.ofNat 64 ms.ctr, 8⟩ ((old.setWidth 64 + BitVec.ofNat 64 (ms.units n τ)).setWidth 128) ∧
       X (g old) { c with hold := some (ms.ctr, TermRun.cst (.num (old.setWidth 64).toNat)) })
 
@@ -300,20 +304,23 @@ theorem allocInvAt_frameRun {c c' : Ctl} {fs fs' : List TermRun.Frame}
     (h : AllocInvAt Λ lbl lsize th tm ar.heap ar.cells ar.ctr ar.units ar.off hu c)
     (hr : FrameRun p (c, fs) (c', fs')) :
     AllocInvAt Λ lbl lsize th tm ar.heap ar.cells ar.ctr ar.units ar.off hu c' := by
-  rcases h with ⟨hh, ex, ⟨x, a, τ, e, ta, ws, k, ht, hea, hk, hctr, hex⟩, ha⟩ | ⟨hn, hctr, ha⟩
-  · obtain ⟨rfl, -⟩ := Prod.mk.inj (FrameRun.eq_of_newBuf hr ht hea hk)
-    exact .inl ⟨hh, ex, ⟨x, a, τ, e, ta, ws, k, ht, hea, hk, hctr, hex⟩, ha⟩
+  rcases h with ⟨hh, ex, hpd, ha⟩ | ⟨hn, hctr, ha⟩
+  · obtain ⟨x, n, τ, e, ⟨a, ta, ws, ht, hea, hk⟩ | ⟨-, a, ws, ht, -⟩, -⟩ := id hpd
+    · obtain ⟨rfl, -⟩ := Prod.mk.inj (FrameRun.eq_of_newBuf hr ht hea hk)
+      exact .inl ⟨hh, ex, hpd, ha⟩
+    · obtain ⟨rfl, -⟩ := Prod.mk.inj (FrameNew.FrameRun.eq_of_new hr ht)
+      exact .inl ⟨hh, ex, hpd, ha⟩
   · rcases FrameRun.hold_of hr with he | hn'
     · obtain ⟨rfl, -⟩ := Prod.mk.inj he
       exact .inr ⟨hn, hctr, ha⟩
     · exact .inr ⟨fun w h => (by simp only at hn'; rw [hn'] at h; cases h), hctr, ha⟩
 
 /-- **The heap use of the one-thread configuration** with its thread
-replaced by one of the same allocation count. -/
+replaced by one of the same allocation count and box label. -/
 theorem heapUse_one {s : TermRun.Cfg} {th0 th' : TermRun.TTh} (hs0 : s.ths = #[th0])
-    (hn : th'.nalloc = th0.nalloc) : heapUse { s with ths := #[th'] } = heapUse s := by
+    (hn : th'.nalloc = th0.nalloc) (ht : th'.tidLbl = th0.tidLbl) : heapUse { s with ths := #[th'] } = heapUse s := by
   have h0 : s.ths[0]? = some th0 := by rw [hs0]; rfl
-  exact Spike.Lib.HeapPres.heapUse_set (s' := { s with ths := #[th'] }) h0 rfl (set_one hs0).symm hn
+  exact Spike.Lib.HeapPres.heapUse_set (s' := { s with ths := #[th'] }) h0 rfl (set_one hs0).symm hn ht
 
 /-- **The header store fulfilling a promise while pending** at `hu` (the
 fulfilment twin of `AllocInvAt.header`): the promised message `q`, off the
@@ -331,18 +338,10 @@ theorem _root_.Spike.Lib.AllocInvAt.header_fulfil {c : Ctl}
   have hmem : ∀ k', k' ≠ q → (k' ∈ t'.prom ↔ k' ∈ th.prom) := fun k' hne => by
     rw [hp]; exact List.Nodup.mem_erase_iff hnd |>.trans (and_iff_right hne)
   rcases h with ⟨-, ex, hpd, ha⟩ | ⟨hn, -⟩
-  · obtain ⟨x', a', τ', e', ta', ws', k', ht', hea', hk', hctr, hex⟩ := hpd
-    rw [ht] at ht'
-    simp only [Expr.let_.injEq, Op.newBuf.injEq] at ht'
-    obtain ⟨rfl, ⟨rfl, rfl⟩, rfl⟩ := ht'
-    rw [hea] at hea'
-    simp only [Option.some.injEq, Prod.mk.injEq] at hea'
-    obtain ⟨rfl, rfl⟩ := hea'
-    rw [hk] at hk'
-    cases hk'
+  · obtain ⟨hctr, hex⟩ := hpd.newBuf ht hea hk
     refine .inl ⟨hh, fun a' => ex a' ∨ a' = w.loc.addr.toNat,
-      ⟨x, a, τ, e, ta, ws, k, ht, hea, hk, hctr.prom_congr fun k'' w' hg hl => hmem k'' fun he => ?_, ?_⟩,
-      ⟨ha.hu_le, ha.sub, ha.align, ha.disj, ha.zero, fun k'' w' hg hfr hx => ?_⟩⟩
+      AllocInv.Pending.of_newBuf ht hea hk (hctr.prom_congr fun k'' w' hg hl => hmem k'' fun he => ?_) ?_,
+      ⟨ha.hu_le, ha.sub, ha.align, ha.disj, ha.base, ha.zero, fun k'' w' hg hfr hx => ?_⟩⟩
     · subst he; rw [hq] at hg; cases hg; exact hw hl
     · rintro a' (h | rfl)
       · exact hex a' h
@@ -437,7 +436,7 @@ theorem pend_runA (hP : HookOK P p) (hN : NodesA Λ p μ rd G own ar I ab) {rS :
     ?_, (by rw [TermRun.Cfg.n, hs0] at hfr; exact hfr), hco, _, reach_run hreach hrun⟩
   · show ExtRows.OwnOk (own th.st fs₂) _ _
     rw [hN.ownRun _ _ _ _ _ _ _ hr (.inr hI)]; exact hoo
-  · rw [heapUse_one (th' := { th0 with term := c₂.term, env := c₂.env, stack := fs₂ }) hs0 rfl]
+  · rw [heapUse_one (th' := { th0 with term := c₂.term, env := c₂.env, stack := fs₂ }) hs0 rfl rfl]
     exact allocInvAt_frameRun hai hr
 
 /-- **A frame run lands in `PreJA`** over any fragment `J` (`pre_localJ`
@@ -464,7 +463,7 @@ theorem pre_localJA (hP : HookOK P p) {J : InvS} {t' : T.M.Cfg} {s : TermRun.Cfg
   obtain ⟨tr, hre⟩ := hre
   exact ⟨_, hrun, u, { th0 with term := c'.term, env := c'.env, stack := fs' }, 0, lbl, lsize, ts, hl, pm, c'.hold,
     hth, ⟨E, hk⟩, hz, hh, .inl rfl, hc, rfl, hσ, hp, hJ, holdInvA_frameRun hr hhi, hw, hb, hinv, hown, hmi, hfi, hgi,
-    hoo, by rw [heapUse_one (th' := { th0 with term := c'.term, env := c'.env, stack := fs' }) hs0 rfl]; exact hai,
+    hoo, by rw [heapUse_one (th' := { th0 with term := c'.term, env := c'.env, stack := fs' }) hs0 rfl rfl]; exact hai,
     by rw [TermRun.Cfg.n, hs0] at hfr; exact hfr, hco, _, reach_run hre hrun⟩
 
 /-- **A landing over `PendA` is a step of the relation**: the pending frame

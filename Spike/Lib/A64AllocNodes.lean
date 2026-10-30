@@ -89,38 +89,32 @@ variable {p : Prog} {lbl : WeakMem.AllocLabel → Option Nat} {ms : MemSide isaL
 
 /-! ## The heap counter's add -/
 
-/-- **A node at the heap counter's add** `ld<add><k> Xs, Xt, [Xn]`: from
-every state of the invariant `Xn` holds the counter's address, owned by
-the runtime and mapped for writing (`ms.mp`), outside the thread's private memory;
-the source is at a buffer allocation of `nn`
-elements, no hold pending, and `Xs` holds the buffer's units; for every
-old value the runtime memory may hold at the counter within the arena's
-cells, the new value may be held there too, and the state after it (`Xt`
-the old value) lands at a node with the control holding the old count. Its states lie in `W`, and no outside
-move `K` moves them (`hW`). -/
-theorem ctr_ndW {W : Frag isaLSE2} {K : State → State → Prop} {n : ND} {k : RmwKind} {rs rt b : XReg} (hF : FStable R F)
+/-- **`ctr_ndW` at any allocation site** (`AllocSite`: a buffer allocation,
+or, where the memory side allows it, `ms.newOk`, a box `new` of one
+object): the same node, the source's site given as `AllocSite`. -/
+theorem ctr_ndWS {W : Frag isaLSE2} {K : State → State → Prop} {n : ND} {k : RmwKind} {rs rt b : XReg}
+    (hF : FStable R F)
     (hcode : ∀ s : State, s.exe = exe → s.endPc = endPc → CodeAt s n.pc [ldopDir .ADD k rs rt b])
     (hW : ∀ s c, At exe endPc R F n s c → W s c ∧ ∀ s', ¬ K s s')
     (hedge : ∀ m σ c, Abs R n.o m σ → F m → n.J σ c →
       (σ.regs.getXReg b).toBitVec = BitVec.ofNat 64 ms.ctr ∧ ms.rt (BitVec.ofNat 64 ms.ctr).toNat ∧
       ms.mp (ctrLoc ms) true ∧ Mem.loadInt m.dmem (BitVec.ofNat 64 ms.ctr) 8 = none ∧
-      ∃ (x : String) (a : CoreTerm.At) (τ : Ty) (e : Expr) (ta : Ty) (ws : List TermRun.Word) (nn : Nat),
-        c.term = .let_ x (.newBuf a τ) e ∧ TermRun.evalAt c.env a = some (ta, ws) ∧ TermRun.numOf ws = some nn ∧
-        c.hold = none ∧ σ.regs.getRegOrZr (.low (.reg rs) .W64) = BitVec.ofNat 64 (ms.units nn τ) ∧
-        ∀ old : Val, ms.G (ctrLoc ms) old → (old.setWidth 64).toNat ≤ ms.cells →
+      ∃ (x : String) (τ : Ty) (e : Expr) (nn : Nat), AllocSite ms.newOk c x nn τ e ∧ c.hold = none ∧
+        σ.regs.getRegOrZr (.low (.reg rs) .W64) = BitVec.ofNat 64 (ms.units nn τ) ∧
+        ∀ old : Val, ms.G (ctrLoc ms) old → (old.setWidth 64).toNat ≤ ms.cells → ms.lo (old.setWidth 64).toNat →
           ms.G (ctrLoc ms) ((old.setWidth 64 + BitVec.ofNat 64 (ms.units nn τ)).setWidth 128) ∧
           Lands N E ⟨n.pc + Int64.ofNat 4, n.o.kill rt, ldStep rt (old.setWidth 64) σ⟩
             (holdCtr ms c (old.setWidth 64))) :
     SegW W K p lbl ms (At exe endPc R F n) (Next exe endPc R F N E) := by
   refine SegW.step hW fun s c ⟨he, hn, hdc, hpc, σ, hA, hD, hJ⟩ => ?_
   have hc : CellAt s (ldopDir .ADD k rs rt b) 4 := (hcode s he hn).cell (j := 0) rfl rfl rfl (by rw [hpc]; simp)
-  obtain ⟨hb, hrt, hmp, hdm, x, a, τ, e, ta, ws, nn, ht, hev, hnn, hh, hrs, hX⟩ := hedge _ σ c hA hD hJ
+  obtain ⟨hb, hrt, hmp, hdm, x, τ, e, nn, hs, hh, hrs, hX⟩ := hedge _ σ c hA hD hJ
   have hb' : (s.st.1.regs.getXReg b).toBitVec = BitVec.ofNat 64 ms.ctr := by rw [hA.regs]; exact hb
   have hex := exec_ldop hc (by rw [hb']; exact hdm)
   rw [hb', access_agrees (agrees_of_decls hdc _ _)] at hex
-  refine .ctrRmw k _ _ x a τ e ta ws nn hex hrt hmp ht hev hnn hh (fun old => ?_) fun old hG _ hle => ?_
+  refine .ctrRmw k _ _ x τ e nn hex hrt hmp hs hh (fun old => ?_) fun old hG _ hle hlo => ?_
   · rw [hA.regs, hrs, add_apply]
-  obtain ⟨hG', hL⟩ := hX old hG hle
+  obtain ⟨hG', hL⟩ := hX old hG hle hlo
   refine ⟨hG', ?_⟩
   have hA' : Abs R (n.o.kill rt)
       { s.st.1 with regs := s.st.1.regs.setRegOrZr (.low (.reg rt) .W64) (old.setWidth 64) }
@@ -138,6 +132,34 @@ theorem ctr_ndW {W : Frag isaLSE2} {K : State → State → Prop} {n : ND} {k : 
   · exact .inl ⟨j, hj.at he hn hdc hA' hD'⟩
   · exact .inr ⟨y, hy.at he hn hdc hA' hD'⟩
 
+/-- **A node at the heap counter's add** `ld<add><k> Xs, Xt, [Xn]`: from
+every state of the invariant `Xn` holds the counter's address, owned by
+the runtime and mapped for writing (`ms.mp`), outside the thread's private memory;
+the source is at a buffer allocation of `nn`
+elements, no hold pending, and `Xs` holds the buffer's units; for every
+old value the runtime memory may hold at the counter within the arena's
+cells and above the counter floor (`ms.lo`), the new value may be held there
+too, and the state after it (`Xt`
+the old value) lands at a node with the control holding the old count. Its states lie in `W`, and no outside
+move `K` moves them (`hW`). -/
+theorem ctr_ndW {W : Frag isaLSE2} {K : State → State → Prop} {n : ND} {k : RmwKind} {rs rt b : XReg} (hF : FStable R F)
+    (hcode : ∀ s : State, s.exe = exe → s.endPc = endPc → CodeAt s n.pc [ldopDir .ADD k rs rt b])
+    (hW : ∀ s c, At exe endPc R F n s c → W s c ∧ ∀ s', ¬ K s s')
+    (hedge : ∀ m σ c, Abs R n.o m σ → F m → n.J σ c →
+      (σ.regs.getXReg b).toBitVec = BitVec.ofNat 64 ms.ctr ∧ ms.rt (BitVec.ofNat 64 ms.ctr).toNat ∧
+      ms.mp (ctrLoc ms) true ∧ Mem.loadInt m.dmem (BitVec.ofNat 64 ms.ctr) 8 = none ∧
+      ∃ (x : String) (a : CoreTerm.At) (τ : Ty) (e : Expr) (ta : Ty) (ws : List TermRun.Word) (nn : Nat),
+        c.term = .let_ x (.newBuf a τ) e ∧ TermRun.evalAt c.env a = some (ta, ws) ∧ TermRun.numOf ws = some nn ∧
+        c.hold = none ∧ σ.regs.getRegOrZr (.low (.reg rs) .W64) = BitVec.ofNat 64 (ms.units nn τ) ∧
+        ∀ old : Val, ms.G (ctrLoc ms) old → (old.setWidth 64).toNat ≤ ms.cells → ms.lo (old.setWidth 64).toNat →
+          ms.G (ctrLoc ms) ((old.setWidth 64 + BitVec.ofNat 64 (ms.units nn τ)).setWidth 128) ∧
+          Lands N E ⟨n.pc + Int64.ofNat 4, n.o.kill rt, ldStep rt (old.setWidth 64) σ⟩
+            (holdCtr ms c (old.setWidth 64))) :
+    SegW W K p lbl ms (At exe endPc R F n) (Next exe endPc R F N E) :=
+  ctr_ndWS hF hcode hW fun m σ c hA hD hJ =>
+    let ⟨hb, hrt, hmp, hdm, x, a, τ, e, ta, ws, nn, ht, hev, hnn, hh, hrs, hX⟩ := hedge m σ c hA hD hJ
+    ⟨hb, hrt, hmp, hdm, x, τ, e, nn, .inl ⟨a, ta, ws, ht, hev, hnn⟩, hh, hrs, hX⟩
+
 /-- **`ctr_ndW` inside the trivial predicate**, with no outside moves. -/
 theorem ctr_nd {n : ND} {k : RmwKind} {rs rt b : XReg} (hF : FStable R F)
     (hcode : ∀ s : State, s.exe = exe → s.endPc = endPc → CodeAt s n.pc [ldopDir .ADD k rs rt b])
@@ -147,7 +169,7 @@ theorem ctr_nd {n : ND} {k : RmwKind} {rs rt b : XReg} (hF : FStable R F)
       ∃ (x : String) (a : CoreTerm.At) (τ : Ty) (e : Expr) (ta : Ty) (ws : List TermRun.Word) (nn : Nat),
         c.term = .let_ x (.newBuf a τ) e ∧ TermRun.evalAt c.env a = some (ta, ws) ∧ TermRun.numOf ws = some nn ∧
         c.hold = none ∧ σ.regs.getRegOrZr (.low (.reg rs) .W64) = BitVec.ofNat 64 (ms.units nn τ) ∧
-        ∀ old : Val, ms.G (ctrLoc ms) old → (old.setWidth 64).toNat ≤ ms.cells →
+        ∀ old : Val, ms.G (ctrLoc ms) old → (old.setWidth 64).toNat ≤ ms.cells → ms.lo (old.setWidth 64).toNat →
           ms.G (ctrLoc ms) ((old.setWidth 64 + BitVec.ofNat 64 (ms.units nn τ)).setWidth 128) ∧
           Lands N E ⟨n.pc + Int64.ofNat 4, n.o.kill rt, ldStep rt (old.setWidth 64) σ⟩
             (holdCtr ms c (old.setWidth 64))) :
@@ -472,6 +494,35 @@ theorem alloc_nd {n : ND} {lo hi : Int} {a : AI} (Ea : WeakMem.AllocLabel → Na
     Seg p lbl ms (At exe endPc R F n) (Next exe endPc R F N E) :=
   (alloc_ndW (W := fun _ _ => True) (K := fun _ _ => False) (hW := fun _ _ _ => ⟨trivial, fun _ h => h⟩)
     Ea hok hreg hF hR hal hlo hhi hcode hxa hedge).toSeg
+
+/-- **A node at a single silent instruction** `a` (a register move, a
+frame access, a branch, a `ret`): from every state of the invariant the
+source takes a local run and the abstract step lands at a node (the
+allocator's `ret` at a box allocation, where the hold is kept for the box's
+store). Its states lie in `W`, and no outside move `K` moves them
+(`hW`). -/
+theorem ai_ndW {W : Frag isaLSE2} {K : State → State → Prop} {n : ND} {lo hi : Int} {a : AI}
+    (hok : a.ok lo hi n.o = true)
+    (hreg : ∀ w op, a = .reg w op → RegOnly op = true) (hF : FStable R F) (hR : R.OK)
+    (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ lo) (hhi : hi ≤ R.hi)
+    (hcode : ∀ s : State, s.exe = exe → s.endPc = endPc → CodeAt s n.pc [a.toDir])
+    (hW : ∀ s c, At exe endPc R F n s c → W s c ∧ ∀ s', ¬ K s s')
+    (hedge : ∀ σ c, n.J σ c → ∃ c', LocalRun p c c' ∧
+      Lands N E ⟨a.tgt (_root_.Executable.labels exe).label (n.pc + Int64.ofNat 4) σ, a.so n.o,
+        a.step n.o (n.pc + Int64.ofNat 4) σ⟩ c') :
+    SegW W K p lbl ms (At exe endPc R F n) (Next exe endPc R F N E) := by
+  refine SegW.step hW fun s c ⟨he, hn, hdc, hpc, σ, hA, hD, hJ⟩ => ?_
+  have hc : CellAt s a.toDir 4 := (hcode s he hn).cell (j := 0) rfl rfl rfl (by rw [hpc]; simp)
+  obtain ⟨m', hex, hA', hD'⟩ := exec_ai hok hR hal hlo hhi hc hreg hA
+  have hl : labA s = (_root_.Executable.labels exe).label := by
+    funext L; show (_root_.Executable.labels s.exe).label L = _; rw [he]
+  rw [hl, hpc] at hex
+  rw [hpc] at hA'
+  obtain ⟨c', hr, hL⟩ := hedge σ c hJ
+  refine .silent _ c' hex hr ?_
+  rcases hL with ⟨j, hj⟩ | ⟨y, hy⟩
+  · exact .inl ⟨j, hj.at he hn hdc hA' (hF _ _ hD hD')⟩
+  · exact .inr ⟨y, hy.at he hn hdc hA' (hF _ _ hD hD')⟩
 
 end Fn
 

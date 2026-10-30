@@ -170,7 +170,7 @@ is one of them), and `BodyInv` holds at the start of the body. -/
 theorem main_inv_x64 (cfg : Config) {d : Decl} (hd : Accepted0 [d] = true)
     {em : Scc.Lower.X64.Emitted} (h : Scc.Lower.X64.lowerAll? cfg [d] = .ok em) :
     ∃ r rt, lower0 [(d.arg, .unit, [])] 0 d.body = some r ∧
-      rtFuncs cfg.layout ⟨.unit, true⟩ 0 = .ok rt ∧
+      rtFuncs cfg.arch cfg.layout ⟨.unit, true⟩ 0 = .ok rt ∧
       (Scc.Lower.X64.lowerAll cfg [d]).low.ir = progOf cfg.layout rt [func0 (Names.user "main") r] ∧
       let p := progOf cfg.layout rt [func0 (Names.user "main") r]
       let areas := StackMap.argAreas p argRegs.length

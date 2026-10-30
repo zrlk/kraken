@@ -24,7 +24,7 @@ namespace Spike.Lib.A64.Flow
 open CoreLang CoreTerm
 open Kraken Kraken.AArch64.Parser Kraken.Promising Kraken.Promising.AArch64 Kraken.Promising.Lower.A64
 open Spike.Lib
-open Spike.Lib.A64.Flow.Ret0 (CallerCells blkW_mono)
+open Spike.Lib.A64.Flow.Ret0 (CallerCells blkW_mono nodeW_mono)
 open Scc.Cert.Rt.A64 (Lays endOf)
 open Spike.Lib.PrintSrc (PrintC loadC nextC printN printLD printBody print_entry_run printC_entry
   printC_load printC_next)
@@ -36,7 +36,8 @@ theorem _root_.Spike.Lib.A64.PrintAb.PrintAbW.mono {W : Frag isaLSE2} {K : State
     {len0 : Nat} {P Q : Nat → Ctl → Prop}
     (h : PrintAb.PrintAbW x29 ra buf0 len0 P Q W K exe endPc R F) (hFF : ∀ m, F' m → F m) :
     PrintAb.PrintAbW x29 ra buf0 len0 P Q W K exe endPc R F' :=
-  ⟨blkW_mono h.e hFF, blkW_mono h.n1 hFF, blkW_mono h.loop hFF, blkW_mono h.n3 hFF, blkW_mono h.write hFF,
+  ⟨blkW_mono h.e hFF, blkW_mono h.n1 hFF, blkW_mono h.loop hFF, blkW_mono h.n3 hFF, nodeW_mono h.fence hFF,
+    blkW_mono h.write hFF,
     blkW_mono h.n5 hFF, blkW_mono h.n6 hFF, blkW_mono h.n7 hFF, blkW_mono h.chk2 hFF, blkW_mono h.n9 hFF,
     blkW_mono h.n10 hFF, blkW_mono h.chk3 hFF, blkW_mono h.n12 hFF, blkW_mono h.adv hFF, blkW_mono h.fail hFF,
     blkW_mono h.done hFF⟩
@@ -48,7 +49,7 @@ namespace PrintCallAb
 variable (lab : Label → Int64) (Pc Qc : AS → Nat → Ctl → Prop) (kc : Int)
 
 /-- `print`'s nodes for the call state `σC`. -/
-abbrev pN (σC : AS) : Print.PN → ND :=
+abbrev pN (σC : AS) : PrintD.PN → ND :=
   PrintAb.N lab σC.regs.X29.toBitVec σC.regs.X30.toBitVec σC.regs.X0.toBitVec σC.regs.X1.toBitVec.toNat
     (Pc σC) (Qc σC)
 
@@ -185,8 +186,8 @@ theorem print_call_segAbW {W : Frag isaLSE2} {K : State → State → Prop} {pro
   simp only [Scc.Cert.Rt.A64.Print.printIn, Bool.and_eq_true, and_assoc] at hpr
   refine PrintAb.hsvc_of_emit hE hK hF' (fun _ _ _ => hlen σC c hJ) ?_ (hWs σC c hJ F') (fun _ _ h => h) ?_
     (hwe σC c hJ F')
-  · exact Scc.Cert.Rt.A64.Print.code_field hp hend hpr.2.2.2.2.2.1
-      (by simp only [PrintAb.N, Print.pcSvc, Scc.Cert.Rt.A64.Print.add4, Scc.Cert.Rt.A64.Print.add0])
+  · exact Scc.Cert.Rt.A64.Print.code_field hp hend hpr.2.2.2.2.2.2.1
+      (by simp only [PrintAb.N, PrintD.pcSvc, Scc.Cert.Rt.A64.Print.add4, Scc.Cert.Rt.A64.Print.add0])
   · intro s c' hAt k j c1 hlt hP
     have hk : k + j < printN (n σC) (m σC) := by rw [← hN σC c hJ]; exact hlt
     obtain ⟨_, _, -, -, -, -, -, -, hwn⟩ := id hP

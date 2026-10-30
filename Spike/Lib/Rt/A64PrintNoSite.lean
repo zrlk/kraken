@@ -9,12 +9,14 @@ the sites (`okPc`), and a pc off the sites is neither transfer site.
   transfer site of its marks (`PhRec.μ`);
 - `okPc_of_blkPh`, `blkSt_okPc`: a block's phase check puts every pc of the
   block, so every `BlkSt` state's pc, off the sites;
-- `printIn_noSite`: from `printPhOk` at the record, `PrintIn` (any region,
-  ghosts and frame condition) is off the transfer sites;
+- `printIn_noSite`: from `tailPhOk`'s `scc_rt_print` parts at the record
+  (the barrier's `phOne` at `writeL`, `printPhOk` at `fenceLab`), `PrintIn`
+  (any region, ghosts and frame condition) is off the transfer sites;
 - `tailPhOk_ofPlaceOK`: `tailPhOk` at the record of an output passing
   `placeOK`, from A7's `tailOffC` (`tailOff_of_placeOKAt`);
   `printIn_noSite_ofPlaceOK`: `printIn_noSite` there; `allocPhOk_ofPlaceOK`,
-  `allocAbOk_ofPlaceOK`: `scc_rt_alloc`'s parts of `tailPhOk` there.
+  `allocAbOk_ofPlaceOK`: `scc_rt_alloc`'s parts of `tailPhOk` there (the
+  targets' check, read at `fenceLab`, at the labels by `allocAbOk_fenceLab`).
 -/
 import Spike.Lib.Rt.A64PrintDt
 import Spike.Lib.A64TailPh
@@ -64,29 +66,44 @@ theorem blkSt_okPc {okP : Nat → Bool} {phf : Nat → Nat} {dead : Nat → Bool
 /-! ## `scc_rt_print`'s pieces -/
 
 /-- **`scc_rt_print`'s write tail is off the transfer sites**, from its
-phase check at the record (any region, ghosts and frame condition). -/
+phase checks at the record (any region, ghosts and frame condition): the
+barrier's (`hf`, at `writeL`) and the body's at `fenceLab` (`h`, the write
+block one instruction on). -/
 theorem printIn_noSite (L : RuntimeLayout) {Rp : Region} {x29 ra : BitVec 64} {C : MachineData → Prop}
-    (h : StubW.printPhOk (okPc L) (ph L) L.lab = true) :
+    (hf : StubW.phOne (okPc L) (ph L) (L.lab StubW.writeL) = true)
+    (h : StubW.printPhOk (okPc L) (ph L) (StubW.fenceLab L.lab) = true) :
     ∀ s, PrintIn L.exe L.endPc Rp x29 ra C s → Kernel.siteAt abi (μ L) s = none := by
-  simp only [StubW.printPhOk, Bool.and_eq_true, and_assoc] at h
+  have hw : StubW.fenceLab L.lab ".L9_scc_rt_print.2_write" = L.lab ".L9_scc_rt_print.2_write" + 4 :=
+    ite_eq_left_iff.mpr fun h => absurd rfl h
+  have hn : ∀ l, l ≠ ".L9_scc_rt_print.2_write" → StubW.fenceLab L.lab l = L.lab l :=
+    fun _ hl => ite_eq_right_iff.mpr fun h => absurd h hl
+  simp only [StubW.printPhOk, Bool.and_eq_true, and_assoc, hw, hn ".L9_scc_rt_print.1_loop" (by decide),
+    hn ".L9_scc_rt_print.3_chk2" (by decide), hn ".L9_scc_rt_print.4_chk3" (by decide),
+    hn ".L9_scc_rt_print.5_adv" (by decide), hn ".L9_scc_rt_print.6_fail" (by decide),
+    hn ".L9_scc_rt_print.7_done" (by decide)] at h
   obtain ⟨-, -, p2, p3, p4, ps, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p16, pr⟩ := h
   rintro s ⟨i, hs⟩
   apply siteAt_of_okPc
   cases i
   case loop => exact blkSt_okPc p2 (add0 _).symm hs
   case n3 => exact blkSt_okPc p3 (by simp only [ppc, Int64.add_assoc]; rfl) hs
+  case fence =>
+    obtain ⟨-, -, -, hpc, -⟩ := hs
+    rw [hpc]
+    simp only [StubW.phOne, Bool.and_eq_true] at hf
+    exact hf.1
   case write => exact blkSt_okPc p4 (add0 _).symm hs
   case svc =>
     obtain ⟨-, -, -, hpc, -⟩ := hs
     rw [hpc]
     simp only [StubW.phOne, Bool.and_eq_true] at ps
-    have he : ppc L.exe .svc = L.lab ".L9_scc_rt_print.2_write" + Int64.ofNat (4 * 4) := by
-      simp only [ppc, Print.pcSvc, Int64.add_assoc]; rfl
+    have he : ppc L.exe .svc = L.lab ".L9_scc_rt_print.2_write" + 4 + Int64.ofNat (4 * 4) := by
+      simp only [ppc, PrintD.pcSvc, Int64.add_assoc]; rfl
     rw [he]
     exact ps.1
-  case n5 => exact blkSt_okPc p5 (by simp only [ppc, Print.pcSvc, Int64.add_assoc]; rfl) hs
-  case n6 => exact blkSt_okPc p6 (by simp only [ppc, Print.pcSvc, Int64.add_assoc]; rfl) hs
-  case n7 => exact blkSt_okPc p7 (by simp only [ppc, Print.pcSvc, Int64.add_assoc]; rfl) hs
+  case n5 => exact blkSt_okPc p5 (by simp only [ppc, PrintD.pcSvc, Int64.add_assoc]; rfl) hs
+  case n6 => exact blkSt_okPc p6 (by simp only [ppc, PrintD.pcSvc, Int64.add_assoc]; rfl) hs
+  case n7 => exact blkSt_okPc p7 (by simp only [ppc, PrintD.pcSvc, Int64.add_assoc]; rfl) hs
   case chk2 => exact blkSt_okPc p8 (add0 _).symm hs
   case n9 => exact blkSt_okPc p9 (by simp only [ppc, Int64.add_assoc]; rfl) hs
   case n10 => exact blkSt_okPc p10 (by simp only [ppc, Int64.add_assoc]; rfl) hs
@@ -107,6 +124,17 @@ theorem printIn_noSite (L : RuntimeLayout) {Rp : Region} {x29 ra : BitVec 64} {C
     · have : k = 3 := by rw [hl] at hk; omega
       subst this
       exact pr
+
+/-- **A7's `scc_rt_alloc` target check at `fenceLab` is `allocAbOkR` at
+the labels**: `unfenceLab` undoes `fenceLab`. -/
+theorem allocAbOk_fenceLab {lab : Label → Int64} :
+    AllocG.allocAbOk (StubW.fenceLab lab) = AllocG.allocAbOkR lab := by
+  unfold AllocG.allocAbOk
+  congr 1
+  funext l
+  by_cases hl : l = ".L9_scc_rt_print.2_write"
+  · simp [AllocG.unfenceLab, StubW.fenceLab, StubW.writeL, hl]
+  · simp [AllocG.unfenceLab, StubW.fenceLab, StubW.writeL, hl]
 
 /-! ## From the placement check -/
 
@@ -133,7 +161,8 @@ theorem printIn_noSite_ofPlaceOK {Rp : Region}
     {x29 ra : BitVec 64} {C : MachineData → Prop} :
     ∀ s, PrintIn (RuntimeLayout.ofPlaceOK h i).exe (RuntimeLayout.ofPlaceOK h i).endPc Rp x29 ra C s →
       Kernel.siteAt abi (μ (RuntimeLayout.ofPlaceOK h i)) s = none :=
-  printIn_noSite _ (StubW.printPhOk_of_tailPhOk (tailPhOk_ofPlaceOK h i))
+  printIn_noSite _ (StubW.fencePh_of_tailPhOk (tailPhOk_ofPlaceOK h i))
+    (StubW.printPhOk_of_tailPhOk (tailPhOk_ofPlaceOK h i))
 
 /-- **`scc_rt_alloc`'s phase check** at the record of an output passing
 `placeOK`, from A7's `tailOffC`. -/
@@ -143,10 +172,10 @@ theorem allocPhOk_ofPlaceOK :
   StubW.allocPhOk_of_tailPhOk (tailPhOk_ofPlaceOK h i)
 
 /-- **`scc_rt_alloc`'s targets off the write abort's pcs** at the record's
-labels of an output passing `placeOK`, from A7's `tailOffC`. -/
-theorem allocAbOk_ofPlaceOK :
-    AllocG.allocAbOk (RuntimeLayout.ofPlaceOK h i).lab = true :=
-  StubW.allocAbOk_of_tailPhOk (tailPhOk_ofPlaceOK h i)
+labels of an output passing `placeOK`, from A7's `tailOffC` (its check at
+`fenceLab`, `allocAbOk_fenceLab`). -/
+theorem allocAbOk_ofPlaceOK : AllocG.allocAbOkR (RuntimeLayout.ofPlaceOK h i).lab = true :=
+  allocAbOk_fenceLab ▸ StubW.allocAbOk_of_tailPhOk (tailPhOk_ofPlaceOK h i)
 
 end Place
 
@@ -157,5 +186,9 @@ info: 'Spike.Lib.A64.Rt.printIn_noSite_ofPlaceOK' depends on axioms: [propext, C
 -/
 #guard_msgs in
 #print axioms printIn_noSite_ofPlaceOK
+
+/-- info: 'Spike.Lib.A64.Rt.allocAbOk_ofPlaceOK' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms allocAbOk_ofPlaceOK
 
 end Spike.Lib.A64.Rt

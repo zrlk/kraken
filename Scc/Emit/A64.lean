@@ -338,8 +338,14 @@ the start-up stack switch zero `x29` so that the frame-record chain ends.
 Labels: block `b` (index `bi`) of function `f` (index `fi`) is
 `.L<fi>_<f>.<bi>_<b>` with every character other than a letter, a digit or
 `_` replaced by `_` in `<f>` and `<b>`; the index prefixes make labels unique.
-The per-function abort stubs and the clone continuation labels use suffixes
-that do not start with a digit. -/
+The per-function abort stubs, the child stubs and the clone continuation
+labels use suffixes that do not start with a digit.
+
+Threads: a `clone` passes its argument in `x9` and the `spawnReg`s in
+`x10`–`x14` (the kernel keeps every register but `x0` in the child), and
+the child branches (`cbz x0`) to the function's child stub of that `clone`
+(`FnCtx.childStub`, after the function's code), which moves them into
+`x0`–`x5`, zeroes `x29` and calls the entry. -/
 
 section FromIR
 
@@ -532,6 +538,11 @@ def FnCtx.setResults (c : FnCtx) (ds : List IR.Reg) : Except String (List Item) 
 /-- An endless self-branch, after code that never returns. -/
 def halt (l : Label) : List Item := [lbl l, jmp l]
 
+/-- The `spawnReg` registers the function has, each with the register a
+`clone` passes it in (`x10`–`x14`, `Inst.clone`). -/
+def FnCtx.spawnArgs (c : FnCtx) : List (IR.Reg × XReg) :=
+  (IR.spawnRegs.zip [.X10, .X11, .X12, .X13, .X14]).filter fun (r, _) => c.slots.contains r
+
 /-- Emit one IR instruction (`k` is its index in the function, for labels). -/
 def FnCtx.inst (c : FnCtx) (k : Nat) : IR.Inst → Except String (List Item)
   | .mov d s => do return (← c.getOp .X9 s) ++ (← c.setReg d .X9)
@@ -594,18 +605,41 @@ def FnCtx.inst (c : FnCtx) (k : Nat) : IR.Inst → Except String (List Item)
   | .clone d stack tls entry arg => do
     unless labelOk entry do throw s!"scc (arm): invalid symbol {entry}"
     -- clone(flags, newsp, parent_tid = 0, tls, child_tid = 0): the AArch64
-    -- argument order puts `tls` in x3. The child keeps x9 (the argument).
+    -- argument order puts `tls` in x3. The child keeps x9 (the argument)
+    -- and x10–x14 (the `spawnReg`s) and branches to its stub (`childStub`).
     let parent := c.local s!"clone{k}"
-    return (← c.getOp .X1 stack) ++ (← c.getOp .X3 tls) ++ (← c.getOp .X9 arg) ++
+    let mut spawn : List Item := []
+    for (r, t) in c.spawnArgs do
+      spawn := spawn ++ (← c.getReg t r)
+    return (← c.getOp .X1 stack) ++ (← c.getOp .X3 tls) ++ (← c.getOp .X9 arg) ++ spawn ++
       movImm .X0 IR.cloneFlags ++ movImm .X2 0 ++ movImm .X4 0 ++ syscall sysClone ++
-      [cbnz .W64 .X0 parent, movReg .W64 .X0 .X9] ++ (if c.maps then movImm .X29 0 else []) ++
-      [call entry] ++
-      halt (c.local s!"child{k}") ++ [lbl parent] ++ (← c.setReg d .X0)
+      [cbz .W64 .X0 (c.local s!"child{k}"), lbl parent] ++ (← c.setReg d .X0)
   | .slotAddr d s => do return addImm (xs .X9) spW64 (← c.slotOff s) ++ (← c.setReg d .X9)
   | .site s args => do
     unless labelOk s do throw s!"scc (arm): invalid symbol {s}"
     return (← c.getArgs args) ++ [lbl s, ins (w := .W64) .NOP]
   | .comment s => do return [.comment s]
+
+/-- The child's stub of the `clone` with index `k` into `entry`, placed
+after the function's code: frameless, it moves the argument (`x9`) and the
+`spawnReg`s (`x10`–`x14`) into the argument registers, ends the frame-record
+chain and calls `entry`, which never returns. -/
+def FnCtx.childStub (c : FnCtx) (k : Nat) (entry : IR.Sym) : List Item :=
+  [lbl (c.local s!"child{k}"), movReg .W64 .X0 .X9] ++
+    (([XReg.X10, .X11, .X12, .X13, .X14].zip (argRegs.drop 1)).filterMap fun (t, a) =>
+      if c.spawnArgs.any (·.2 == t) then some (movReg .W64 a t) else none) ++
+    (if c.maps then movImm .X29 0 else []) ++ [call entry] ++
+    halt (c.local s!"child{k}_halt")
+
+/-- The `clone`s of a function with their instruction indices (the `k` of
+`FnCtx.inst`: instructions and terminators numbered in order) and entries. -/
+def cloneSites (f : IR.Func) : List (Nat × IR.Sym) :=
+  (f.blocks.foldl (fun (acc : Nat × List (Nat × IR.Sym)) b =>
+    let r := b.insts.foldl (fun (acc : Nat × List (Nat × IR.Sym)) i =>
+      (acc.1 + 1, match i with
+        | .clone _ _ _ e _ => acc.2 ++ [(acc.1, e)]
+        | _ => acc.2)) acc
+    (r.1 + 1, r.2)) (0, [])).2
 
 /-- Restore `x29`/`x30` and pop the frame (no return). -/
 def FnCtx.leave (c : FnCtx) : List Item :=
@@ -757,10 +791,11 @@ def emitFunc (abortFn : String) (growth : Option IR.Growth) (areas : List (IR.Sy
       let e := IR.StackMap.checkMap f
       [(c.local "sp_check", e.stack.map saveOff, e.heap.map saveOff)]
     else []
+  let childStubs := (cloneSites f).flatMap fun (k, e) => c.childStub k e
   let stubs :=
     (if f.checkStack then
       (if growth.isSome then growStub else abortStub "abort_stack" .stack) else []) ++
-    (if hasAddChk then abortStub "abort_overflow" .overflow else [])
+    ((if hasAddChk then abortStub "abort_overflow" .overflow else []) ++ childStubs)
   return ([.raw ".p2align 2", .raw s!".type {f.name}, %function", lbl f.name] ++
     alloc ++ save ++ params ++ body ++ stubs, sps ++ checkSp)
 

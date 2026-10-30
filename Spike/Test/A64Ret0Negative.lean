@@ -58,7 +58,7 @@ def movz41 : Directive :=
 example : parseAArch64("movz x9, #41") = [movz41] := by decide
 
 /-- The index of `wc_main`'s `movz x9, #40` in `ret0Prog`, right after `.L18_wc_main.0_entry`. -/
-def wcIdx : Nat := 1280
+def wcIdx : Nat := 1281
 
 #guard ret0Prog[wcIdx - 1]? == some (.label ".L18_wc_main.0_entry")
 #guard ret0Prog[wcIdx]? == (parseAArch64("movz x9, #40")).head?

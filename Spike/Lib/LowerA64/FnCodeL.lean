@@ -275,8 +275,9 @@ theorem mapM_except_length {α β ε : Type} {f : α → Except ε β} :
 
 /-- **The runtime has 18 functions** (13 and the 5 abort kinds'), so a user
 function's index `rt.length + j` is none of the runtime's 9, 12, 16. -/
-theorem rtFuncs_length {lay : Scc.Layout} {e : Scc.Frontend.Entry} {sw : Nat} {rt : List Scc.IR.Func}
-    (h : Scc.Lower.Inv.rtFuncs lay e sw = .ok rt) : rt.length = 18 := by
+theorem rtFuncs_length {arch : Scc.Arch} {lay : Scc.Layout} {e : Scc.Frontend.Entry} {sw : Nat}
+    {rt : List Scc.IR.Func}
+    (h : Scc.Lower.Inv.rtFuncs arch lay e sw = .ok rt) : rt.length = 18 := by
   unfold Scc.Lower.Inv.rtFuncs at h
   rw [mapM_except_length h]
   simp [Scc.Lower.Runtime.abortKinds]

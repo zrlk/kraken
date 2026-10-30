@@ -374,7 +374,7 @@ and heap (`hoffL`, `hoffX`). -/
 theorem takeW_rtX (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
     (hpr : Scc.Cert.Rt.A64.Print.printIn prog = true) (hab : Scc.Cert.Rt.A64.Abort.abortIn prog = true)
     (hin : stackTakeIn prog = true) {Λ' : Scc.Sem.Layout} {lbl : Lbl} {ar : Arena} {c0 : Ctl}
-    {ownOf : Nat → List (Loc × Val)} {ra : Label → Int64} {F M : MachineData → Prop}
+    {ownOf : Nat → List (Loc × Val)} {ra : Label → Int64} {F M P : MachineData → Prop}
     {R : Region} (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -208) (hhi : 0 ≤ R.hi) (q : TakeG)
     (hq : q.c0 = c0) (hra : q.g.ra = (ra siteL).toBitVec) (hraOff : ra siteL ∉ Spike.Lib.A64.WriteAb.abPcs lab)
     (hph : TakePh okPc ph Tk ownOf μ lab ra) (hk : q.k0.toNat + 16384 ≤ 536870912)
@@ -386,7 +386,7 @@ theorem takeW_rtX (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
     (hoffX : (⟨nextA lab, 8⟩ : Loc) ≠ ar.ctrLoc ∧
       ¬ (ar.heap ≤ (nextA lab).toNat ∧ (nextA lab).toNat < ar.heap + 16 * ar.cells))
     (hpl0 : ∀ s, PlacedS Λ' lbl s c0 []) :
-    ∀ i, TakeW (RtX Λ' μ ar lbl lab c0) (fun _ _ => False) exe endPc R F M q i := by
+    ∀ i, TakeW (RtX Λ' μ ar lbl lab c0) (fun _ _ => False) exe endPc R F M q i P := by
   have h := hin
   simp only [stackTakeIn, labIn, Bool.and_eq_true] at h
   obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨gE, bE⟩, bEn⟩, bCls⟩, bJ1⟩, ⟨bD0, bD1⟩⟩, bD2⟩, ⟨bD7, bD8⟩⟩, bD9⟩,
@@ -632,7 +632,7 @@ of `takeW_rtX` (`hin'` to `hoffX`), returning to `.sp0`. -/
 theorem tiW_rtX (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
     (hpr : Scc.Cert.Rt.A64.Print.printIn prog = true) (hab : Scc.Cert.Rt.A64.Abort.abortIn prog = true)
     (hin : threadInitIn prog = true) {Λ' : Scc.Sem.Layout} {lbl : Lbl} {ar : Arena} {c0 : Ctl}
-    {ownOf : Nat → List (Loc × Val)} {ra : Label → Int64} {F M : MachineData → Prop}
+    {ownOf : Nat → List (Loc × Val)} {ra : Label → Int64} {F M P : MachineData → Prop}
     {R : Region} (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -256) (hhi : 0 ≤ R.hi) (q : TiG)
     (hq : q.c0 = c0) (hra : q.g.ra = (ra spL).toBitVec) (hraOff : ra spL ∉ Spike.Lib.A64.WriteAb.abPcs lab)
     (hph : TiPh okPc ph Tk lab ra)
@@ -650,7 +650,7 @@ theorem tiW_rtX (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
     (hoffX : (⟨nextA lab, 8⟩ : Loc) ≠ ar.ctrLoc ∧
       ¬ (ar.heap ≤ (nextA lab).toNat ∧ (nextA lab).toNat < ar.heap + 16 * ar.cells))
     (hpl0 : ∀ s, PlacedS Λ' lbl s c0 []) :
-    ∀ i, TiW (RtX Λ' μ ar lbl lab c0) (fun _ _ => False) exe endPc R F M q i := by
+    ∀ i, TiW (RtX Λ' μ ar lbl lab c0) (fun _ _ => False) exe endPc R F M q i P := by
   have h := hin
   simp only [threadInitIn, Bool.and_eq_true] at h
   obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨gE, bE⟩, bEn⟩, bSp⟩, bS0⟩, bF1⟩, bS1⟩, bF2⟩, bS2⟩, bF3⟩, bS3⟩, bF4⟩, bS4⟩, bF5⟩, bS5⟩,
@@ -696,7 +696,8 @@ theorem tiW_rtX (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
       have := hnx bSp (by decide) (by decide)
       rwa [ofNat4_zero] at this
     exact takeW_rtX hI hpr hab hin' hR' hal' (by show (-208 : Int) ≤ -208; omega) (by show (0 : Int) ≤ 0; omega)
-      (tiTake q g) hq hg hspOff hphT hk hunL hunN hunX hoffL hoffX hpl0 j
+      (tiTake q g) hq hg hspOff hphT hk (fun m h => hunL m h.1) (fun m h => hunN m h.1)
+      (fun m h => hunX m h.1) hoffL hoffX hpl0 j
   case sp =>
     dsimp only [TiW]; rw [hI.labOk]
     exact blkW_rtX hI hpr hab bSp (ofNat4_zero _) tiSp_ok hR hal (by omega) (by omega)

@@ -66,6 +66,8 @@ def kind(fn, lab, ins):
         return 'label'
     if mn == 'nop':
         return 'site' if lab in ('scc_rt_take_site', 'scc_rt_release_site') else 'system'
+    if mn == 'dmb':
+        return 'fence'
     if mn in ('msr', 'mrs'):
         return 'system'
     if re.fullmatch(r'(add|sub) sp, x\d+, #\d+', ins):

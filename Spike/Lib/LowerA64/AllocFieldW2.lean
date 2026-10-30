@@ -35,7 +35,7 @@ open Spike.Lib.A64.KeepTP (TP)
 open Spike.Lib.A64.WriteAb (Ab abPcs)
 open Spike.Lib.LowerNode (FrOk2 ZBad)
 open Spike.Lib.A64.Alloc (Call AllocW N)
-open Spike.Lib.A64.AllocG (allocPhOk allocAbOk)
+open Spike.Lib.A64.AllocG (allocPhOk allocAbOkR)
 open Spike.Lib.AllocReach (Reach IN)
 open Scc.Emit.A64 (FnCtx)
 open Scc.Lower.InvA64 (FrameOk)
@@ -127,7 +127,7 @@ pointer `TP tp` (`nbCall_seg` supplies it at the call), so the held pair
 starts at `n4` with `TP tp` and `hxa` is asked at `TP tp`. -/
 theorem allocW2_w2 {rS : Range} (hI : InstOk exe endPc prog lab μ own Tk (TakeK a rS) okPc ph kp)
     (hA : Spike.Lib.A64.Flow.allocIn prog = true) (hph : allocPhOk okPc ph lab = true)
-    (habk : allocAbOk lab = true) {Λ : Scc.Sem.Layout} {ownOf : Nat → List (Loc × Val)}
+    (habk : allocAbOkR lab = true) {Λ : Scc.Sem.Layout} {ownOf : Nat → List (Loc × Val)}
     (hown : ∀ s, own s = ownOf (ph (pcOf s))) {cx : FnCtx} (hf : FrameOk cx) (h16 : cx.frame % 16 = 0)
     (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hl : R.lo % 8 = 0) (hh : R.hi % 8 = 0)
     (hlo : R.lo ≤ -(cx.frame : Int) + -160 - 48) (hhi : 0 ≤ R.hi) (hFS : FStable R F)
@@ -237,7 +237,7 @@ heap abort path's obligations without code (`StubHN`, as `stubHN_w2` gives
 them; `StubHN.stubHW` with the abort code `hprA`) for every such call. -/
 theorem allocW2_field {rS : Range} (hI : InstOk exe endPc prog lab μ own Tk (TakeK a rS) okPc ph kp)
     (hA : Spike.Lib.A64.Flow.allocIn prog = true) (hph : allocPhOk okPc ph lab = true)
-    (habk : allocAbOk lab = true) (hprA : Scc.Cert.Rt.A64.Abort.abortIn prog = true) {Λ : Scc.Sem.Layout}
+    (habk : allocAbOkR lab = true) (hprA : Scc.Cert.Rt.A64.Abort.abortIn prog = true) {Λ : Scc.Sem.Layout}
     {ownOf : Nat → List (Loc × Val)}
     (hown : ∀ s, own s = ownOf (ph (pcOf s))) {cx : FnCtx} (hf : FrameOk cx) (h16 : cx.frame % 16 = 0)
     (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hl : R.lo % 8 = 0) (hh : R.hi % 8 = 0)

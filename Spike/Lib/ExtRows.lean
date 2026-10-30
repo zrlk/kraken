@@ -42,6 +42,7 @@ import Spike.Bridge.Progress
 import Spike.Lib.RtRmw
 import Scc.Sem.OwnWord
 import Scc.Sem.CertStep
+import Spike.Lib.FenceStep
 
 namespace Spike.Lib.ExtRows
 
@@ -55,6 +56,7 @@ variable {I : ISA} {A : Arch} {Λ : Scc.Sem.Layout} {lbl : WeakMem.AllocLabel �
   {o : Kraken.Promising.Outcome I} {p : Prog} {X : Frag I} {c : Ctl} {G : Loc → Val → Prop}
   {mh mc mcl : Nat} {mu mo : Nat → Ty → Nat} {mown : I.State → List (Loc × Val)} {mmp : Loc → Bool → Prop}
   {mab : I.State → Prop} {mpl : I.State → Ctl → Prop} {mxa : WeakMem.AllocLabel → Nat → Nat → Frag I}
+  {mlo : Nat → Prop}
 
 /-- **The runtime words a thread owns read as their values** (`MemSide.own`):
 each is a word, and the latest write of it not promised has the value
@@ -89,6 +91,24 @@ theorem row_silent (h : Inv1 Λ lbl lsize ts t tm sm) (hstep : stepOne A t tid t
   obtain ⟨-, -, hP, hi⟩ := inv1_silent h hex (silentTree_done s') hstep ho
   exact ⟨hP ▸ hx, hi⟩
 
+/-- **The fence row** (`Out.fence`): memory and promises unchanged (the
+fence moves only the thread's views, which `Inv1` does not read), the thread
+at the leaf, `Inv1` kept. -/
+theorem inv1_fence (h : Inv1 Λ lbl lsize ts t tm sm) {k : Kraken.FenceKind} {s' : I.State}
+    (hex : I.exec t.st = some (.fence k fun _ => .done s')) (hstep : stepOne A t tid tm = some outs)
+    (ho : .ok o ∈ outs) :
+    o.mem = tm ∧ o.thread.prom = t.prom ∧ o.thread.st = s' ∧ Inv1 Λ lbl lsize ts o.thread o.mem sm := by
+  obtain ⟨hth, hm, hp⟩ := FenceStep.stepOne_fence_ok A tid hex ⟨outs, o, hstep, ho, rfl, rfl⟩
+  exact ⟨hm, hp, finishInstr_st hth, inv1_of_step h hstep ho hm hp⟩
+
+/-- **The fence row** (`Out.fence`), as `row_silent`. -/
+theorem row_fence (h : Inv1 Λ lbl lsize ts t tm sm) (hstep : stepOne A t tid tm = some outs)
+    (ho : .ok o ∈ outs) {k : Kraken.FenceKind} {s' : I.State} {c' : Ctl}
+    (hex : I.exec t.st = some (.fence k fun _ => .done s')) (hx : X s' c') :
+    X o.thread.st c' ∧ Inv1 Λ lbl lsize ts o.thread o.mem sm := by
+  obtain ⟨-, -, hP, hi⟩ := inv1_fence h hex hstep ho
+  exact ⟨hP ▸ hx, hi⟩
+
 /-- **The choice row** (`Out.choice`). -/
 theorem row_choice (h : Inv1 Λ lbl lsize ts t tm sm) (hstep : stepOne A t tid tm = some outs)
     (ho : .ok o ∈ outs) {P : I.State → Prop} {tree : EvTree I.State} (hex : I.exec t.st = some tree)
@@ -112,7 +132,8 @@ theorem row_rtStore (h : Inv1 Λ lbl lsize ts t tm sm) (hstep : stepOne A t tid 
     (ho : .ok o ∈ outs) {kr : Kraken.StoreKind} {L : Loc} {V : Val} {s' : I.State}
     (hex : I.exec t.st = some (.store kr false L V fun _ => .done s')) (hL : L.bytes = 8)
     {rd : TermRun.Word → Prop} {mK : Option (Kernel.Abi I)} {mG : Loc → Val → Prop}
-    (hrt : (MemSide.ofLabels rd lbl lsize mK mG mh mc mu mo mcl mown mmp mab mpl mxa).rt L.addr.toNat) :
+    (hrt : (MemSide.ofLabels rd lbl lsize mK mG mh mc mu mo mcl mown mmp mab mpl mxa
+      (lo := mlo)).rt L.addr.toNat) :
     o.thread.st = s' ∧ Inv1 Λ lbl lsize ts o.thread o.mem sm :=
   h.rtStore A hex hL hrt hstep ho
 
@@ -161,7 +182,8 @@ theorem out_localP {K : Kernel.Abi I} {rd : TermRun.Word → Prop} (h : Inv1 Λ 
     (hw8 : ∀ tree, I.exec t.st = some tree → Wide8Tree tree)
     (hGm : MsgsExcept (fun m => G m.loc m.val) t.prom tm) (hGi : ∀ l, G l (tm.initVal l))
     (hown : OwnOk (mown t.st) tm t.prom)
-    (hout : Out p lbl (MemSide.ofLabels rd lbl lsize (some K) G mh mc mu mo mcl mown mmp mab mpl mxa) X t.st c) :
+    (hout : Out p lbl (MemSide.ofLabels rd lbl lsize (some K) G mh mc mu mo mcl mown mmp mab mpl mxa
+      (lo := mlo)) X t.st c) :
     (∃ c', LocalRun p c c' ∧ X o.thread.st c' ∧ Inv1 Λ lbl lsize ts o.thread o.mem sm) ∨
       (∃ (kl : Kraken.LoadKind) (A : BitVec 64) (g : Val → I.State) (x : String) (a : At) (e : Expr) (ty : Ty)
           (w : TermRun.Word) (sa : WeakMem.Address),
@@ -191,7 +213,7 @@ theorem out_localP {K : Kernel.Abi I} {rd : TermRun.Word → Prop} (h : Inv1 Λ 
         c.term = .let_ x (.newBuf a τ) e ∧ TermRun.evalAt c.env a = some (ta, ws) ∧ TermRun.numOf ws = some n ∧
         c.hold = none ∧ (∃ tr, TLatestP tm t.prom mc tr ∧ tm.read? (wordLoc mc) tr = some old) ∧
         (∀ w, (wordLoc mc, w) ∈ mown t.st → old = w) ∧
-        ((old.setWidth 64).toNat ≤ mcl →
+        ((old.setWidth 64).toNat ≤ mcl → mlo (old.setWidth 64).toNat →
           X o.thread.st { c with hold := some (mc, TermRun.cst (.num (old.setWidth 64).toNat)) }) ∧
         Inv1 Λ lbl lsize ts o.thread o.mem sm) ∨
       (∃ (s' : I.State) (A : BitVec 64) (x : String) (a : At) (τ : Ty) (e : Expr) (ta : Ty)
@@ -246,17 +268,22 @@ theorem out_localP {K : Kernel.Abi I} {rd : TermRun.Word → Prop} (h : Inv1 Λ 
     exact .inr (.inr (.inr (.inl ⟨kl, A', g, x, sa, u, v, e, he, hx, hA, hh, hX⟩)))
   | xchgStore kr A' V s' x sa u v e tv wv wold he hx hA hh hev hv hX =>
     exact .inr (.inr (.inr (.inr (.inl ⟨kr, A', V, s', x, sa, u, v, e, tv, wv, wold, he, hx, hA, hh, hev, hv, hX⟩))))
-  | ctrRmw k op g x a τ e ta ws n he hrt _ ht hev hn hh hop hX =>
+  | ctrRmw k op g x τ e n he hrt _ hs hh hop hX =>
+    obtain ⟨a, ta, ws, ht, hev, hn⟩ := hs.resolve_right fun h => h.1
     obtain ⟨old, tr, hst, hlat, hr, -⟩ :=
       stepOne_rmw_cases A (a := mc) he hstep ho h.coh fun q hq => (h.mem.tq_le q hq).2
     obtain ⟨-, -, -, -, hi⟩ := RtRmw.inv1_rtRmw A h (a := mc) he hrt hstep ho
     have hoo := hown.read hlat hr
     exact .inr (.inr (.inr (.inr (.inr (.inl ⟨x, a, τ, e, ta, ws, n, old, ht, hev, hn, hh, ⟨tr, hlat, hr⟩, hoo,
-      fun hc => hst ▸ (hX old (msgsExcept_read_tlatestP hGm hGi hlat hr) hoo hc).2, hi⟩)))))
+      fun hc hl => hst ▸ (hX old (msgsExcept_read_tlatestP hGm hGi hlat hr) hoo hc hl).2, hi⟩)))))
   | alloc s' A' x a τ e ta ws k wold old us he ht hev hk hh hold hA hc hu hX =>
     obtain ⟨hm, -, hP, hi⟩ := inv1_silent h he (silentTree_done s') hstep ho
     exact .inr (.inr (.inr (.inr (.inr (.inr ⟨s', A', x, a, τ, e, ta, ws, k, wold, old, us, hP, ht, hev, hk, hh,
       hold, hA, hc, hu, hX, hm, hi⟩)))))
+  | newStore _ _ _ _ _ _ _ _ _ _ _ hN => exact hN.elim
+  | fence k s' c' he hr hx =>
+    obtain ⟨hx', hi⟩ := row_fence h hstep ho he hx
+    exact .inl ⟨c', hr.local, hx', hi⟩
 
 /-- **An `Out` row off a system call**, under `MemSide.ofLabels` with the
 machine's kernel model, for code whose trees from `t.st` write words only
@@ -276,7 +303,8 @@ theorem out_local {K : Kernel.Abi I} {rd : TermRun.Word → Prop} (h : Inv1 Λ l
     (hstep : stepOne A t tid tm = some outs) (ho : .ok o ∈ outs) (hns : K.atSys t.st = false)
     (hw8 : ∀ tree, I.exec t.st = some tree → Wide8Tree tree)
     (hG : MemInv G tm) (hown : OwnOk (mown t.st) tm t.prom)
-    (hout : Out p lbl (MemSide.ofLabels rd lbl lsize (some K) G mh mc mu mo mcl mown mmp mab mpl mxa) X t.st c) :
+    (hout : Out p lbl (MemSide.ofLabels rd lbl lsize (some K) G mh mc mu mo mcl mown mmp mab mpl mxa
+      (lo := mlo)) X t.st c) :
     (∃ c', LocalRun p c c' ∧ X o.thread.st c' ∧ Inv1 Λ lbl lsize ts o.thread o.mem sm) ∨
       (∃ (kl : Kraken.LoadKind) (A : BitVec 64) (g : Val → I.State) (x : String) (a : At) (e : Expr) (ty : Ty)
           (w : TermRun.Word) (sa : WeakMem.Address),
@@ -306,7 +334,7 @@ theorem out_local {K : Kernel.Abi I} {rd : TermRun.Word → Prop} (h : Inv1 Λ l
         c.term = .let_ x (.newBuf a τ) e ∧ TermRun.evalAt c.env a = some (ta, ws) ∧ TermRun.numOf ws = some n ∧
         c.hold = none ∧ (∃ tr, TLatestP tm t.prom mc tr ∧ tm.read? (wordLoc mc) tr = some old) ∧
         (∀ w, (wordLoc mc, w) ∈ mown t.st → old = w) ∧
-        ((old.setWidth 64).toNat ≤ mcl →
+        ((old.setWidth 64).toNat ≤ mcl → mlo (old.setWidth 64).toNat →
           X o.thread.st { c with hold := some (mc, TermRun.cst (.num (old.setWidth 64).toNat)) }) ∧
         Inv1 Λ lbl lsize ts o.thread o.mem sm) ∨
       (∃ (s' : I.State) (A : BitVec 64) (x : String) (a : At) (τ : Ty) (e : Expr) (ta : Ty)
@@ -401,7 +429,8 @@ theorem store_ok {t : Thread I} {tid : Nat} {mem : Memory} (hp : t.prom = []) (h
 promise and its values at most `|M|`, with no promise after it. -/
 theorem out_progress {K : Kernel.Abi I} {rd : TermRun.Word → Prop} {t : Thread I} {tid : Nat} {mem : Memory}
     (hp : t.prom = []) (hb : t.Bnd mem.last) (hns : K.atSys t.st = false)
-    (hout : Out p lbl (MemSide.ofLabels rd lbl lsize (some K) G mh mc mu mo mcl mown mmp mab mpl mxa) X t.st c) :
+    (hout : Out p lbl (MemSide.ofLabels rd lbl lsize (some K) G mh mc mu mo mcl mown mmp mab mpl mxa
+      (lo := mlo)) X t.st c) :
     ∃ outs o, stepOne A t tid mem = some outs ∧ .ok o ∈ outs ∧ o.thread.prom = [] := by
   have hsil : ∀ {P : I.State → Prop} {tree : EvTree I.State}, I.exec t.st = some tree → SilentTree P tree →
       ∃ outs o, stepOne A t tid mem = some outs ∧ .ok o ∈ outs ∧ o.thread.prom = [] := by
@@ -429,13 +458,18 @@ theorem out_progress {K : Kernel.Abi I} {rd : TermRun.Word → Prop} {t : Thread
     cases hae
   | holdLoad kl A' g x sa u v e he => exact load_ok hp he
   | xchgStore kr A' V s' x sa u v e tv wv wold he => exact store_ok hp hb he
-  | ctrRmw k op g x a τ e ta ws n he => exact RtRmw.rmw_ok A hp hb he
+  | ctrRmw k op g x τ e n he => exact RtRmw.rmw_ok A hp hb he
   | alloc s' A' x a τ e ta ws k _ _ _ he => exact hsil he (silentTree_done s')
+  | newStore kr A' V s' x a t e w wold old _ he => exact store_ok hp hb he
+  | fence k s' c' he =>
+    obtain ⟨outs, o, hs, ho, hpo⟩ := FenceStep.stepOne_fence_progress A tid (mem := mem) he
+    exact ⟨outs, o, hs, ho, hpo.trans hp⟩
 
 /-- **An `Out` row off a system call has no error outcome.** -/
 theorem out_no_error {K : Kernel.Abi I} {rd : TermRun.Word → Prop} {t : Thread I} {tid : Nat} {mem : Memory}
     (hns : K.atSys t.st = false)
-    (hout : Out p lbl (MemSide.ofLabels rd lbl lsize (some K) G mh mc mu mo mcl mown mmp mab mpl mxa) X t.st c)
+    (hout : Out p lbl (MemSide.ofLabels rd lbl lsize (some K) G mh mc mu mo mcl mown mmp mab mpl mxa
+      (lo := mlo)) X t.st c)
     {outs : List (Except String (Kraken.Promising.Outcome I))} (hs : stepOne A t tid mem = some outs) (m : String) :
     (.error m : Except String (Kraken.Promising.Outcome I)) ∉ outs := by
   cases hout with
@@ -463,13 +497,17 @@ theorem out_no_error {K : Kernel.Abi I} {rd : TermRun.Word → Prop} {t : Thread
     exact Spike.Bridge.stepOne_no_error A he (Spike.Bridge.runTree_load_ok A _ _ _ _ _ _) hs m
   | xchgStore kr A' V s' x sa u v e tv wv wold he =>
     exact Spike.Bridge.stepOne_no_error A he (Spike.Bridge.runTree_store_ok A _ _ _ _ _ _ _) hs m
-  | ctrRmw k op g x a τ e ta ws n he =>
+  | ctrRmw k op g x τ e n he =>
     exact Spike.Bridge.stepOne_no_error A he (RtRmw.runTree_rmw_ok A _ _ _ _ _ _ _) hs m
   | alloc s' A' x a τ e ta ws k _ _ _ he => exact stepOne_silent_no_error A tid he (silentTree_done s') hs m
+  | newStore kr A' V s' x a t e w wold old _ he =>
+    exact Spike.Bridge.stepOne_no_error A he (Spike.Bridge.runTree_store_ok A _ _ _ _ _ _ _) hs m
+  | fence k s' c' he => exact FenceStep.stepOne_fence_no_error A tid he hs m
 
 /-- **An `Out` row off a system call has an instruction.** -/
 theorem out_exec {K : Kernel.Abi I} {rd : TermRun.Word → Prop} {s : I.State} (hns : K.atSys s = false)
-    (h : Out p lbl (MemSide.ofLabels rd lbl lsize (some K) G mh mc mu mo mcl mown mmp mab mpl mxa) X s c) :
+    (h : Out p lbl (MemSide.ofLabels rd lbl lsize (some K) G mh mc mu mo mcl mown mmp mab mpl mxa
+      (lo := mlo)) X s c) :
     (I.exec s).isSome := by
   cases h with
   | silent s' c' he => rw [he]; rfl
@@ -483,8 +521,10 @@ theorem out_exec {K : Kernel.Abi I} {rd : TermRun.Word → Prop} {s : I.State} (
   | emit K' _ _ _ _ hK hae => cases hK; rw [hns] at hae; cases hae
   | holdLoad _ _ _ _ _ _ _ _ he => rw [he]; rfl
   | xchgStore _ _ _ _ _ _ _ _ _ _ _ _ he => rw [he]; rfl
-  | ctrRmw _ _ _ _ _ _ _ _ _ _ he => rw [he]; rfl
+  | ctrRmw _ _ _ _ _ _ _ he => rw [he]; rfl
   | alloc _ _ _ _ _ _ _ _ _ _ _ _ he => rw [he]; rfl
+  | newStore _ _ _ _ _ _ _ _ _ _ _ _ he => rw [he]; rfl
+  | fence _ _ _ he => rw [he]; rfl
 
 
 /-- **The memory and promises after an `Out` row's outcome** off a system
@@ -498,7 +538,8 @@ theorem out_memP {K : Kernel.Abi I} {rd : TermRun.Word → Prop}
     (hw8 : ∀ tree, I.exec t.st = some tree → Wide8Tree tree)
     (hGm : MsgsExcept (fun m => G m.loc m.val) t.prom tm) (hGi : ∀ l, G l (tm.initVal l))
     (hown : OwnOk (mown t.st) tm t.prom)
-    (hout : Out p lbl (MemSide.ofLabels rd lbl lsize (some K) G mh mc mu mo mcl mown mmp mab mpl mxa) X t.st c) :
+    (hout : Out p lbl (MemSide.ofLabels rd lbl lsize (some K) G mh mc mu mo mcl mown mmp mab mpl mxa
+      (lo := mlo)) X t.st c) :
     (o.mem = tm ∧ o.thread.prom = t.prom) ∨ ∃ (L : Loc) (V : Val), L.bytes = 8 ∧
       ((o.mem = (tm.append ⟨L, V, tid⟩).1 ∧ o.thread.prom = t.prom) ∨
         ∃ q ∈ t.prom, tm.get? q = some ⟨L, V, tid⟩ ∧ o.mem = tm ∧ o.thread.prom = t.prom.erase q) ∧
@@ -510,7 +551,8 @@ theorem out_memP {K : Kernel.Abi I} {rd : TermRun.Word → Prop}
           XchgSite c x sa u v e ∧ ValRep lbl (.loc sa 0) L.addr.toNat) ∨
         (¬ ∃ l b, lbl l = some b ∧ (lrange lsize l b).contains L.addr.toNat) ∧ mmp L true ∧
           (∃ (x : String) (a : At) (τ : Ty) (e : Expr), c.term = .let_ x (.newBuf a τ) e) ∧
-          ((∀ v tr, tm.read? (wordLoc mc) tr = some v → (v.setWidth 64).toNat ≤ mcl) → G L V)) := by
+          ((∀ v tr, tm.read? (wordLoc mc) tr = some v →
+            (v.setWidth 64).toNat ≤ mcl ∧ mlo (v.setWidth 64).toNat) → G L V)) := by
   have hpl : ∀ q ∈ t.prom, q ≤ tm.last := fun q hq => (h.mem.tq_le q hq).2
   cases hout with
   | silent s' c' he =>
@@ -556,15 +598,18 @@ theorem out_memP {K : Kernel.Abi I} {rd : TermRun.Word → Prop}
   | holdLoad kl A' g x sa u v e he => obtain ⟨hm, hp, -⟩ := inv1_rtLoad h he hstep ho; exact .inl ⟨hm, hp⟩
   | alloc s' A' x a τ e ta ws k _ _ _ he =>
     obtain ⟨hm, hp, -⟩ := inv1_silent h he (silentTree_done s') hstep ho; exact .inl ⟨hm, hp⟩
-  | ctrRmw k op g x a τ e ta ws n he hrt hmp ht hev hn hh hop hX =>
+  | newStore _ _ _ _ _ _ _ _ _ _ _ hN => exact hN.elim
+  | ctrRmw k op g x τ e n he hrt hmp hs hh hop hX =>
+    obtain ⟨a, ta, ws, ht, hev, hn⟩ := hs.resolve_right fun h => h.1
     obtain ⟨old, tr, -, hl, hr, ⟨-, hm, hp⟩ | ⟨new, hnew, hw⟩⟩ :=
       stepOne_rmw_cases A (a := mc) he hstep ho h.coh hpl
     · exact .inl ⟨hm, hp⟩
-    · have hk : (∀ v tr, tm.read? (wordLoc mc) tr = some v → (v.setWidth 64).toNat ≤ mcl) → G (wordLoc mc) new :=
+    · have hk : (∀ v tr, tm.read? (wordLoc mc) tr = some v →
+            (v.setWidth 64).toNat ≤ mcl ∧ mlo (v.setWidth 64).toNat) → G (wordLoc mc) new :=
         fun hc => by
           rw [hop old] at hnew
           cases hnew
-          exact (hX old (msgsExcept_read_tlatestP hGm hGi hl hr) (hown.read hl hr) (hc old tr hr)).1
+          exact (hX old (msgsExcept_read_tlatestP hGm hGi hl hr) (hown.read hl hr) (hc old tr hr).1 (hc old tr hr).2).1
       rcases hw with ⟨q, hq, hg, -, hm, hp⟩ | ⟨hm, hp⟩
       · exact .inr ⟨_, new, rfl, .inr ⟨q, hq, hg, hm, hp⟩, .inr (.inr (.inr ⟨hrt, hmp, ⟨x, a, τ, e, ht⟩, hk⟩))⟩
       · exact .inr ⟨_, new, rfl, .inl ⟨hm, hp⟩, .inr (.inr (.inr ⟨hrt, hmp, ⟨x, a, τ, e, ht⟩, hk⟩))⟩
@@ -575,6 +620,7 @@ theorem out_memP {K : Kernel.Abi I} {rd : TermRun.Word → Prop}
       exact .inr ⟨_, V, rfl, .inr ⟨q, hq, hg, hm, hp⟩, .inr (.inr (.inl ⟨x, sa, u, v, e, hx, hA⟩))⟩
     · rw [wordLoc_toNat] at hm
       exact .inr ⟨_, V, rfl, .inl ⟨hm, hp⟩, .inr (.inr (.inl ⟨x, sa, u, v, e, hx, hA⟩))⟩
+  | fence k s' c' he => obtain ⟨hm, hp, -⟩ := inv1_fence h he hstep ho; exact .inl ⟨hm, hp⟩
 
 /-- **The memory after an `Out` row's outcome** off a system call:
 unchanged, or one message of the thread appended, by the runtime-store or
@@ -590,7 +636,8 @@ theorem out_mem {K : Kernel.Abi I} {rd : TermRun.Word → Prop}
     (h : Inv1 Λ lbl lsize ts t tm sm)
     (hstep : stepOne A t tid tm = some outs) (ho : .ok o ∈ outs) (hns : K.atSys t.st = false)
     (hw8 : ∀ tree, I.exec t.st = some tree → Wide8Tree tree) (hG : MemInv G tm) (hown : OwnOk (mown t.st) tm t.prom)
-    (hout : Out p lbl (MemSide.ofLabels rd lbl lsize (some K) G mh mc mu mo mcl mown mmp mab mpl mxa) X t.st c) :
+    (hout : Out p lbl (MemSide.ofLabels rd lbl lsize (some K) G mh mc mu mo mcl mown mmp mab mpl mxa
+      (lo := mlo)) X t.st c) :
     o.mem = tm ∨ ∃ (L : Loc) (V : Val), o.mem = (tm.append ⟨L, V, tid⟩).1 ∧ L.bytes = 8 ∧
       ((¬ ∃ l b, lbl l = some b ∧ (lrange lsize l b).contains L.addr.toNat) ∧ mmp L true ∧ G L V ∨
         (∃ (x : String) (a b : At) (e : Expr) (ty : Ty) (w : TermRun.Word) (sa : WeakMem.Address),
@@ -600,7 +647,8 @@ theorem out_mem {K : Kernel.Abi I} {rd : TermRun.Word → Prop}
           XchgSite c x sa u v e ∧ ValRep lbl (.loc sa 0) L.addr.toNat) ∨
         (¬ ∃ l b, lbl l = some b ∧ (lrange lsize l b).contains L.addr.toNat) ∧ mmp L true ∧
           (∃ (x : String) (a : At) (τ : Ty) (e : Expr), c.term = .let_ x (.newBuf a τ) e) ∧
-          ((∀ v tr, tm.read? (wordLoc mc) tr = some v → (v.setWidth 64).toNat ≤ mcl) → G L V)) := by
+          ((∀ v tr, tm.read? (wordLoc mc) tr = some v →
+            (v.setWidth 64).toNat ≤ mcl ∧ mlo (v.setWidth 64).toNat) → G L V)) := by
   rcases out_memP h hstep ho hns hw8 (MemInv.msgsExcept hG t.prom) hG.1 hown hout with ⟨hm, -⟩ |
     ⟨L, V, hL, ⟨hm, -⟩ | ⟨-, -, -, hm, -⟩, hk⟩
   · exact .inl hm

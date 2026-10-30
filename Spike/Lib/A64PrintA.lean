@@ -1,6 +1,7 @@
 /-
 **`scc_rt_print` against a source that prints byte by byte** (AArch64):
-the function of `Spike/Lib/A64Print.lean` (same blocks, same graph) with
+the function of `Spike/Lib/A64PrintD.lean` (same blocks, same graph, the
+barrier `dmb ish` leading `.2_write`) with
 invariants that track how far the output has got, for a source whose
 `print` is an emit loop.
 
@@ -31,7 +32,7 @@ byte steps (one `out` each). The specification:
 `len0 < 2^63`: a positive count is then a positive signed number, so the
 code's `b.le` separates it from a refusal.
 -/
-import Spike.Lib.A64Print
+import Spike.Lib.A64PrintD
 import Scc.Cert.Rt.A64Print
 
 set_option linter.unusedSimpArgs false
@@ -40,7 +41,8 @@ namespace Spike.Lib.A64.PrintA
 
 open CoreLang CoreTerm
 open Kraken Kraken.AArch64.Parser Kraken.Promising Kraken.Promising.AArch64 Spike.Lib.A64.Flow
-open Spike.Lib.A64.Print
+open Spike.Lib.A64.Print hiding PN
+open Spike.Lib.A64.PrintD (PN dmb_ndW)
 open Scc.Sem.Kernel (writeRefused neg eintr eagain)
 
 /-! ## Flags and arithmetic -/
@@ -147,8 +149,9 @@ unmoved, a positive count with the source `r` bytes further, or a refusal
 justifying the abort. -/
 def RC0 (k : Nat) (r : BitVec 64) (c : Ctl) : Prop := (r = C4 ∧ P k c) ∨ RC1 len0 P Q k r c
 
-/-- The pc after the system call's argument block. -/
-abbrev pcSvc : Int64 := lab ".L9_scc_rt_print.2_write" + 4 + 4 + 4 + 4
+/-- The pc after the system call's argument block (the barrier and four
+instructions after `.2_write`). -/
+abbrev pcSvc : Int64 := lab ".L9_scc_rt_print.2_write" + 4 + 4 + 4 + 4 + 4
 
 /-- **The nodes.** -/
 def N : PN → ND
@@ -157,7 +160,8 @@ def N : PN → ND
   | .n1 => ⟨lab ".L9_scc_rt_print.0_entry", oI, JI x29 ra buf0 len0 P⟩
   | .loop => ⟨lab ".L9_scc_rt_print.1_loop", oI, JI x29 ra buf0 len0 P⟩
   | .n3 => ⟨lab ".L9_scc_rt_print.1_loop" + 4 + 4 + 4 + 4, oI, JIlt x29 ra buf0 len0 P⟩
-  | .write => ⟨lab ".L9_scc_rt_print.2_write", oI, JIlt x29 ra buf0 len0 P⟩
+  | .fence => ⟨lab ".L9_scc_rt_print.2_write", oI, JIlt x29 ra buf0 len0 P⟩
+  | .write => ⟨lab ".L9_scc_rt_print.2_write" + 4, oI, JIlt x29 ra buf0 len0 P⟩
   | .svc => ⟨pcSvc lab, oI, fun σ c => JIlt x29 ra buf0 len0 P σ c ∧ σ.regs.X0 = 1 ∧ σ.regs.X8 = 64 ∧
       σ.regs.X1.toBitVec = σ.slot (-48) ∧ σ.regs.X2.toBitVec = σ.slot (-40)⟩
   | .n5 => ⟨pcSvc lab + 4, oI, fun σ c => ∃ k, JL x29 ra buf0 len0 k σ ∧ RC0 len0 P Q k σ.regs.X0.toBitVec c⟩
@@ -191,13 +195,14 @@ def E : PX → ND
   | .abort => ⟨lab "scc_rt_abort", oI, fun σ c => σ.regs.X0 = 4 ∧ ∃ k, Q k c⟩
 
 /-- **The function's states inside `W`**, none moved by `K`: one obligation
-per block node (the system call is a given node). -/
+per block node and the barrier's (the system call is a given node). -/
 structure PrintAW (W : Frag isaLSE2) (K : State → State → Prop) (exe : _root_.Executable) (endPc : Int64)
     (R : Region) (F : MachineData → Prop) : Prop where
   e : BlkW W K exe endPc R F (N (_root_.Executable.labels exe).label x29 ra buf0 len0 P Q .e) b0
   n1 : BlkW W K exe endPc R F (N (_root_.Executable.labels exe).label x29 ra buf0 len0 P Q .n1) b1
   loop : BlkW W K exe endPc R F (N (_root_.Executable.labels exe).label x29 ra buf0 len0 P Q .loop) b2
   n3 : BlkW W K exe endPc R F (N (_root_.Executable.labels exe).label x29 ra buf0 len0 P Q .n3) b3
+  fence : NodeW W K exe endPc R F (N (_root_.Executable.labels exe).label x29 ra buf0 len0 P Q .fence)
   write : BlkW W K exe endPc R F (N (_root_.Executable.labels exe).label x29 ra buf0 len0 P Q .write) b4
   n5 : BlkW W K exe endPc R F (N (_root_.Executable.labels exe).label x29 ra buf0 len0 P Q .n5) b5
   n6 : BlkW W K exe endPc R F (N (_root_.Executable.labels exe).label x29 ra buf0 len0 P Q .n6) b6
@@ -214,8 +219,8 @@ structure PrintAW (W : Frag isaLSE2) (K : State → State → Prop) (exe : _root
 /-- The function is inside the trivial predicate, with no outside moves. -/
 theorem PrintAW.triv {exe : _root_.Executable} {endPc : Int64} {R : Region} {F : MachineData → Prop} :
     PrintAW x29 ra buf0 len0 P Q (fun _ _ => True) (fun _ _ => False) exe endPc R F :=
-  ⟨BlkW.triv, BlkW.triv, BlkW.triv, BlkW.triv, BlkW.triv, BlkW.triv, BlkW.triv, BlkW.triv, BlkW.triv,
-    BlkW.triv, BlkW.triv, BlkW.triv, BlkW.triv, BlkW.triv, BlkW.triv, BlkW.triv⟩
+  ⟨BlkW.triv, BlkW.triv, BlkW.triv, BlkW.triv, NodeW.triv, BlkW.triv, BlkW.triv, BlkW.triv, BlkW.triv,
+    BlkW.triv, BlkW.triv, BlkW.triv, BlkW.triv, BlkW.triv, BlkW.triv, BlkW.triv, BlkW.triv⟩
 
 end Spec
 
@@ -248,11 +253,11 @@ set_option maxHeartbeats 1000000 in
 return or its abort, against a source that prints byte by byte: the block
 nodes keep the source where it is, and the system call (`hsvc`, a given
 segment inside `W`) moves it by the count it returns. The code is
-`seg_printW`'s (`Print.Code`, any `c0`). -/
+`PrintD.seg_printW`'s (`PrintD.Code`, any `c0`). -/
 theorem seg_printAW {W : Frag isaLSE2} {K : State → State → Prop} {F : MachineData → Prop} (hF : FStable R F)
     (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -48) (hhi : 0 ≤ R.hi)
     (hlen : len0 < 2 ^ 63)
-    (hcode : Print.Code c0 x29 ra exe endPc)
+    (hcode : PrintD.Code c0 x29 ra exe endPc)
     (hentry : (_root_.Executable.labels exe).label ".L9_scc_rt_print.0_entry" =
       (_root_.Executable.labels exe).label "scc_rt_print" + 4 + 4 + 4 + 4 + 4 + 4)
     (hW : PrintAW x29 ra buf0 len0 P Q W K exe endPc R F)
@@ -284,7 +289,10 @@ theorem seg_printAW {W : Frag isaLSE2} {K : State → State → Prop} {F : Machi
       simp only [hz', decide_false, Bool.false_eq_true, ite_false]
       hit PN.n3
       exact ⟨k, ⟨h16, h8, h48, h40, hk⟩, by omega, hP⟩
-  case n3 => node b3 b3_ok n3; rw [N, b3_run]; hit PN.write; exact hJ
+  case n3 => node b3 b3_ok n3; rw [N, b3_run]; hit PN.fence; exact hJ
+  case fence =>
+    refine dmb_ndW (k := .sy) (fun s he hn => hcode.fence s he hn) hW.fence fun σ c hJ => ?_
+    hit PN.write; exact hJ
   case write =>
     node b4 b4_ok write; rw [N, b4_run]; hit PN.svc
     refine ⟨hJ, ?_⟩
@@ -394,45 +402,47 @@ theorem seg_printA_ofW {W : Frag isaLSE2} {K : State → State → Prop} {F : Ma
     SegW W K p lbl ms (At exe endPc R F (N (_root_.Executable.labels exe).label x29 ra buf0 len0 P Q .e))
       (fun s c => ∃ x, At exe endPc R F (E (_root_.Executable.labels exe).label x29 ra len0 P Q x) s c) := by
   simp only [Scc.Cert.Rt.A64.Print.printIn, Bool.and_eq_true, and_assoc] at hprog
-  obtain ⟨h0, h1, h2, h3, h4, hs, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, hgap⟩ := hprog
+  obtain ⟨h0, h1, h2, h3, hf, h4, hs, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, hgap⟩ := hprog
   refine seg_printAW (c0 := ⟨.ret .unit, [], none⟩) hF hR hal hlo hhi hlen
-    ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+    ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
     (by rw [Scc.Cert.Rt.A64.label_labelGap hp hgap]
         simp only [Scc.Cert.Rt.A64.Print.add4, Scc.Cert.Rt.A64.Print.add0]) hW hsvc
   · exact Scc.Cert.Rt.A64.Print.code_field hp hend h0
-      (by simp only [Print.N, Print.pcSvc, Scc.Cert.Rt.A64.Print.add4, Scc.Cert.Rt.A64.Print.add0])
+      (by simp only [PrintD.N, Print.N, PrintD.pcSvc, Scc.Cert.Rt.A64.Print.add4, Scc.Cert.Rt.A64.Print.add0])
   · exact Scc.Cert.Rt.A64.Print.code_field hp hend h1
-      (by simp only [Print.N, Print.pcSvc, Scc.Cert.Rt.A64.Print.add4, Scc.Cert.Rt.A64.Print.add0])
+      (by simp only [PrintD.N, Print.N, PrintD.pcSvc, Scc.Cert.Rt.A64.Print.add4, Scc.Cert.Rt.A64.Print.add0])
   · exact Scc.Cert.Rt.A64.Print.code_field hp hend h2
-      (by simp only [Print.N, Print.pcSvc, Scc.Cert.Rt.A64.Print.add4, Scc.Cert.Rt.A64.Print.add0])
+      (by simp only [PrintD.N, Print.N, PrintD.pcSvc, Scc.Cert.Rt.A64.Print.add4, Scc.Cert.Rt.A64.Print.add0])
   · exact Scc.Cert.Rt.A64.Print.code_field hp hend h3
-      (by simp only [Print.N, Print.pcSvc, Scc.Cert.Rt.A64.Print.add4, Scc.Cert.Rt.A64.Print.add0])
+      (by simp only [PrintD.N, Print.N, PrintD.pcSvc, Scc.Cert.Rt.A64.Print.add4, Scc.Cert.Rt.A64.Print.add0])
+  · exact Scc.Cert.Rt.A64.Print.code_field hp hend hf
+      (by simp only [PrintD.N, Scc.Cert.Rt.A64.Print.add4, Scc.Cert.Rt.A64.Print.add0])
   · exact Scc.Cert.Rt.A64.Print.code_field hp hend h4
-      (by simp only [Print.N, Print.pcSvc, Scc.Cert.Rt.A64.Print.add4, Scc.Cert.Rt.A64.Print.add0])
+      (by simp only [PrintD.N, Print.N, PrintD.pcSvc, Scc.Cert.Rt.A64.Print.add4, Scc.Cert.Rt.A64.Print.add0])
   · exact Scc.Cert.Rt.A64.Print.code_field hp hend h5
-      (by simp only [Print.N, Print.pcSvc, Scc.Cert.Rt.A64.Print.add4, Scc.Cert.Rt.A64.Print.add0])
+      (by simp only [PrintD.N, Print.N, PrintD.pcSvc, Scc.Cert.Rt.A64.Print.add4, Scc.Cert.Rt.A64.Print.add0])
   · exact Scc.Cert.Rt.A64.Print.code_field hp hend h6
-      (by simp only [Print.N, Print.pcSvc, Scc.Cert.Rt.A64.Print.add4, Scc.Cert.Rt.A64.Print.add0])
+      (by simp only [PrintD.N, Print.N, PrintD.pcSvc, Scc.Cert.Rt.A64.Print.add4, Scc.Cert.Rt.A64.Print.add0])
   · exact Scc.Cert.Rt.A64.Print.code_field hp hend h7
-      (by simp only [Print.N, Print.pcSvc, Scc.Cert.Rt.A64.Print.add4, Scc.Cert.Rt.A64.Print.add0])
+      (by simp only [PrintD.N, Print.N, PrintD.pcSvc, Scc.Cert.Rt.A64.Print.add4, Scc.Cert.Rt.A64.Print.add0])
   · exact Scc.Cert.Rt.A64.Print.code_field hp hend h8
-      (by simp only [Print.N, Print.pcSvc, Scc.Cert.Rt.A64.Print.add4, Scc.Cert.Rt.A64.Print.add0])
+      (by simp only [PrintD.N, Print.N, PrintD.pcSvc, Scc.Cert.Rt.A64.Print.add4, Scc.Cert.Rt.A64.Print.add0])
   · exact Scc.Cert.Rt.A64.Print.code_field hp hend h9
-      (by simp only [Print.N, Print.pcSvc, Scc.Cert.Rt.A64.Print.add4, Scc.Cert.Rt.A64.Print.add0])
+      (by simp only [PrintD.N, Print.N, PrintD.pcSvc, Scc.Cert.Rt.A64.Print.add4, Scc.Cert.Rt.A64.Print.add0])
   · exact Scc.Cert.Rt.A64.Print.code_field hp hend h10
-      (by simp only [Print.N, Print.pcSvc, Scc.Cert.Rt.A64.Print.add4, Scc.Cert.Rt.A64.Print.add0])
+      (by simp only [PrintD.N, Print.N, PrintD.pcSvc, Scc.Cert.Rt.A64.Print.add4, Scc.Cert.Rt.A64.Print.add0])
   · exact Scc.Cert.Rt.A64.Print.code_field hp hend h11
-      (by simp only [Print.N, Print.pcSvc, Scc.Cert.Rt.A64.Print.add4, Scc.Cert.Rt.A64.Print.add0])
+      (by simp only [PrintD.N, Print.N, PrintD.pcSvc, Scc.Cert.Rt.A64.Print.add4, Scc.Cert.Rt.A64.Print.add0])
   · exact Scc.Cert.Rt.A64.Print.code_field hp hend h12
-      (by simp only [Print.N, Print.pcSvc, Scc.Cert.Rt.A64.Print.add4, Scc.Cert.Rt.A64.Print.add0])
+      (by simp only [PrintD.N, Print.N, PrintD.pcSvc, Scc.Cert.Rt.A64.Print.add4, Scc.Cert.Rt.A64.Print.add0])
   · exact Scc.Cert.Rt.A64.Print.code_field hp hend h13
-      (by simp only [Print.N, Print.pcSvc, Scc.Cert.Rt.A64.Print.add4, Scc.Cert.Rt.A64.Print.add0])
+      (by simp only [PrintD.N, Print.N, PrintD.pcSvc, Scc.Cert.Rt.A64.Print.add4, Scc.Cert.Rt.A64.Print.add0])
   · exact Scc.Cert.Rt.A64.Print.code_field hp hend h14
-      (by simp only [Print.N, Print.pcSvc, Scc.Cert.Rt.A64.Print.add4, Scc.Cert.Rt.A64.Print.add0])
+      (by simp only [PrintD.N, Print.N, PrintD.pcSvc, Scc.Cert.Rt.A64.Print.add4, Scc.Cert.Rt.A64.Print.add0])
   · exact Scc.Cert.Rt.A64.Print.code_field hp hend h15
-      (by simp only [Print.N, Print.pcSvc, Scc.Cert.Rt.A64.Print.add4, Scc.Cert.Rt.A64.Print.add0])
+      (by simp only [PrintD.N, Print.N, PrintD.pcSvc, Scc.Cert.Rt.A64.Print.add4, Scc.Cert.Rt.A64.Print.add0])
   · exact Scc.Cert.Rt.A64.Print.code_field hp hend hs
-      (by simp only [Print.N, Print.pcSvc, Scc.Cert.Rt.A64.Print.add4, Scc.Cert.Rt.A64.Print.add0])
+      (by simp only [PrintD.N, Print.N, PrintD.pcSvc, Scc.Cert.Rt.A64.Print.add4, Scc.Cert.Rt.A64.Print.add0])
 
 end Proof
 

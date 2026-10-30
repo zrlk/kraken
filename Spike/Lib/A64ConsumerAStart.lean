@@ -49,7 +49,7 @@ theorem StartOk.s0 (cap : Nat) : StartOk (s0 cap) { term := c0.term, env := c0.e
 
 /-- A start's heap use is 0. -/
 theorem StartOk.heapUse {s : TermRun.Cfg} {th0 : TermRun.TTh} (h : StartOk s th0) : heapUse s = 0 := by
-  unfold Scc.Sem.heapUse Scc.Sem.cellCount Scc.Sem.allocCount
+  unfold Scc.Sem.heapUse Scc.Sem.cellCount Scc.Sem.allocCount Scc.Sem.boxCount
   rw [h.mem, h.ths]; simp [h.nalloc]
 
 /-! ## The load -/
@@ -217,7 +217,7 @@ theorem correctKOnA' {B : Budget} (hB : B.cells = ar.cells) {A : Type} {ld : A �
       (fun hR hs => let ⟨s', _, h'⟩ := r_stepA hP hN hsafe hT hps hrd hwf hGpl hok hR hs; ⟨s', h'⟩)
       hr hR0 (pre := []) (fun th h hab => absurd hab (ti_load hab0 (hl.symm.trans h0) th h))
     rw [List.nil_append] at hti
-    exact r_abortA hN hwf hA hB hR hti hs hk
+    exact r_abortA hN hsafe hwf hA hB hR hti hs hk
 
 open Scc.Cert.Link in
 /-- **`Correct` at a start with `StartOk`** on the canonical AArch64

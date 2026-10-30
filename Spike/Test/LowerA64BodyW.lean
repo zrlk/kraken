@@ -62,7 +62,7 @@ example {Λ : Scc.Sem.Layout} {μ : Scc.Sem.Marks} {own : Spike.Lib.A64Consumer.
     (h : Spike.Lib.A64Consumer.SFacts Λ μ own rS Tk lbl s Spike.Lib.A64Consumer.c0) :
     BodyW0 Λ μ own rS Tk lbl Spike.Lib.A64Consumer.c0 s Spike.Lib.A64Consumer.c0 :=
   ⟨Spike.Lib.SegLagTest.quiet_of (by intros; simp) (by intros; simp) (by intros; simp) (by intros; simp)
-    (by intros; simp), h⟩
+    (by intros; simp) (by intros; simp) (by intros; simp) (by intros; simp), h⟩
 
 /-- `hQ` at `ret0.w`: its controls from the consumer's start are `Quiet`. -/
 example : ∀ c, Spike.Lib.LocalRun Spike.Lib.Ret0Src.ret0Src Spike.Lib.A64Consumer.c0 c → Spike.Lib.Quiet c :=

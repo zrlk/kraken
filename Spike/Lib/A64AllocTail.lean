@@ -108,7 +108,7 @@ theorem seg_allocW_tailA {W : Frag isaLSE2} {K : State → State → Prop} {F : 
   cases i
   case n4 =>
     anode b4 b4_ok n4; rw [TN.an, N, b4_run]
-    obtain ⟨o, rfl, ho, hF, hn28, h11⟩ := hJ
+    obtain ⟨o, rfl, ho, hF, hn28, h11, hlo⟩ := hJ
     have hu := Call.u_toNat hq.units
     have hc := hq.cells
     have hU := hq.units
@@ -122,7 +122,7 @@ theorem seg_allocW_tailA {W : Frag isaLSE2} {K : State → State → Prop} {F : 
       · simp_all [Fr, upd_apply]
       · simp [upd_apply]
     · rename_i h
-      refine .inl ⟨TN.n5, rfl, rfl, o, rfl, ?_, ?_, hn28, ?_⟩
+      refine .inl ⟨TN.n5, rfl, rfl, o, rfl, ?_, ?_, hn28, ?_, hlo⟩
       · simp only [BitVec.toNat_ofNat] at h; omega
       · simp_all [Fr, upd_apply]
       · simp [upd_apply]
@@ -144,8 +144,8 @@ theorem seg_allocW_tailA {W : Frag isaLSE2} {K : State → State → Prop} {F : 
   case full => anode b9 b9_ok full; rw [TN.an, N, b9_run]; exact .inr ⟨AX.abort, rfl, rfl, rfl, hJ⟩
   case ok =>
     anode b11 b11_ok ok; rw [TN.an, N, b11_run]
-    obtain ⟨o, hc, hle, hF, hn28, h128⟩ := hJ
-    refine .inl ⟨TN.ok1, rfl, rfl, o, ⟨hc, hle, ?_, hn28, ?_⟩, ?_⟩
+    obtain ⟨o, hc, hle, hF, hn28, h128, hlo⟩ := hJ
+    refine .inl ⟨TN.ok1, rfl, rfl, o, ⟨hc, hle, ?_, hn28, ?_, hlo⟩, ?_⟩
     · simp_all [Fr, upd_apply]
     · simp [upd_apply, h128]
     · simp [upd_apply, mOf, hF.2.2.1]
@@ -164,9 +164,9 @@ theorem seg_allocW_tailA {W : Frag isaLSE2} {K : State → State → Prop} {F : 
     exact adrp_lo12 _
   case n12 =>
     anode b12 b12_ok n12; rw [TN.an, N, b12_run]
-    obtain ⟨o, ⟨hc, hle, hF, hn28, h128⟩, h104, h9⟩ := hJ
+    obtain ⟨o, ⟨hc, hle, hF, hn28, h128, hlo⟩, h104, h9⟩ := hJ
     obtain ⟨h16, h8, h160, h152, h144⟩ := hF
-    refine .inl ⟨TN.hdr, rfl, rfl, o, ⟨hc, hle, ?_, hn28, ?_⟩, ⟨?_, ?_⟩, ?_, ?_⟩
+    refine .inl ⟨TN.hdr, rfl, rfl, o, ⟨hc, hle, ?_, hn28, ?_, hlo⟩, ⟨?_, ?_⟩, ?_, ?_⟩
     · simp_all [Fr, upd_apply]
     · simp [upd_apply, h128]
     · simp [upd_apply, h128, h9]
@@ -175,7 +175,7 @@ theorem seg_allocW_tailA {W : Frag isaLSE2} {K : State → State → Prop} {F : 
     · simp [h9, h128, h152, h104]
   case hdr =>
     refine rtst_ndW (fun s he hn => hcode.hdr s he hn) hW.hdr fun m σ c hA hD hJ => ?_
-    obtain ⟨o, ⟨hc, hle, hF, hn28, h128⟩, hb, h9, h10⟩ := hJ
+    obtain ⟨o, ⟨hc, hle, hF, hn28, h128, hlo⟩, hb, h9, h10⟩ := hJ
     have hk := Call.k_toNat hq.n_lt
     have hcl := hq.cells
     have hra : rAddr σ.regs .X10 0 = H (_root_.Executable.labels exe).label + o <<< 4 + (q.k * mOf q.h) <<< 3 := by
@@ -185,17 +185,17 @@ theorem seg_allocW_tailA {W : Frag isaLSE2} {K : State → State → Prop} {F : 
       rfl
     have hofn : BitVec.ofNat 64 (q.hdrAt ms o.toNat) = rAddr σ.regs .X10 0 := by
       rw [← hAeq]; simp
-    obtain ⟨hrt, hmp, hG⟩ := hq.hdr o.toNat hle
+    obtain ⟨hrt, hmp, hG⟩ := hq.hdr o.toNat hlo hle
     have hnone := hmem _ (.inr ⟨o.toNat, hle, hAeq⟩)
     refine ⟨hAeq ▸ hrt, hofn ▸ hmp, ?_, hnone _ hD, c, .refl c, .inl ⟨TN.n13, rfl, rfl, o,
-      ⟨hc, hle, hF, hn28, h128⟩, hb⟩⟩
+      ⟨hc, hle, hF, hn28, h128, hlo⟩, hb⟩⟩
     rw [← hofn, getRegOrZr_x]
     simpa [Reg64s.getXReg, h9] using hG
   case n13 =>
     anode b13 b13_ok n13; rw [TN.an, N, b13_run]
-    obtain ⟨o, ⟨hc, hle, hF, hn28, h128⟩, h80, h64⟩ := hJ
+    obtain ⟨o, ⟨hc, hle, hF, hn28, h128, hlo⟩, h80, h64⟩ := hJ
     obtain ⟨h16, h8, h160, h152, h144⟩ := hF
-    refine .inl ⟨TN.ret, ?_, ?_, o, hc, hle, hn28, ?_, ?_, ?_⟩
+    refine .inl ⟨TN.ret, ?_, ?_, o, hc, hle, hn28, ?_, ?_, ?_, hlo⟩
     · rfl
     · rfl
     · simp [h80, h64]
@@ -204,7 +204,7 @@ theorem seg_allocW_tailA {W : Frag isaLSE2} {K : State → State → Prop} {F : 
   case ret =>
     refine alloc_ndW (Ea ms q) (a := iRet) (lo := -160) (hi := 0) rfl (by rintro w op ⟨⟩) hF
       hR hal hlo hhi (fun s he hn => hcode.ret s he hn) hxa hW.ret fun σ c hJ => ?_
-    obtain ⟨o, rfl, hle, hn28, h0, h29, h30⟩ := hJ
+    obtain ⟨o, rfl, hle, hn28, h0, h29, h30, hlo'⟩ := hJ
     have hk := Call.k_toNat hq.n_lt
     have hcl := hq.cells
     have hA : σ.regs.X0.toBitVec.toNat = ms.heap + 16 * o.toNat + ms.off q.n q.τ := by
@@ -212,7 +212,7 @@ theorem seg_allocW_tailA {W : Frag isaLSE2} {K : State → State → Prop} {F : 
     obtain ⟨us, hus⟩ := hq.accs
     refine ⟨σ.regs.X0.toBitVec, q.x, q.a, q.τ, q.e, q.ta, q.ws, q.n, TermRun.cst (.num o.toNat), o.toNat, us, hq.term,
       hq.ev, hq.num, rfl, rfl, hA, hle, hus, fun l ini _ =>
-      ⟨?_, rfl, ini, o.toNat, rfl, rfl, hA, hle, h29, h30, us, hus, rfl⟩⟩
+      ⟨?_, rfl, ini, o.toNat, rfl, rfl, hA, hle, hlo', h29, h30, us, hus, rfl⟩⟩
     simp [Ea, iRet, AI.tgt, Reg64s.getXReg, h30]
 
 /-- **`scc_rt_alloc`'s tail is one segment inside `W` from any tail node

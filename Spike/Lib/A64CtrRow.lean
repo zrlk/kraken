@@ -34,6 +34,7 @@ theorem ctrRow_nd {n : ND} {k : RmwKind} {rs rt b : XReg} (hF : FStable R F)
         c.term = .let_ x (.newBuf a τ) e ∧ TermRun.evalAt c.env a = some (ta, ws) ∧ TermRun.numOf ws = some nn ∧
         c.hold = none ∧ σ.regs.getRegOrZr (.low (.reg rs) .W64) = BitVec.ofNat 64 (ms.units nn τ) ∧
         ∀ old : Val, ms.G (ctrLoc ms) old → (old.setWidth 64).toNat ≤ ms.cells →
+          ms.lo (old.setWidth 64).toNat →
           ms.G (ctrLoc ms) ((old.setWidth 64 + BitVec.ofNat 64 (ms.units nn τ)).setWidth 128) ∧
           Lands N E ⟨n.pc + Int64.ofNat 4, n.o.kill rt, ldStep rt (old.setWidth 64) σ⟩
             (holdCtr ms c (old.setWidth 64)))
@@ -45,10 +46,10 @@ theorem ctrRow_nd {n : ND} {k : RmwKind} {rs rt b : XReg} (hF : FStable R F)
   have hb' : (s.st.1.regs.getXReg b).toBitVec = BitVec.ofNat 64 ms.ctr := by rw [hA.regs]; exact hb
   have hex := exec_ldop hc (by rw [hb']; exact hdm)
   rw [hb', access_agrees (agrees_of_decls hdc _ _)] at hex
-  refine ⟨k, _, _, x, a, τ, e, ta, ws, nn, hex, hrt, hmp, ht, hev, hnn, hh, fun old => ?_,
-    fun old hG _ hle => ?_⟩
+  refine ⟨k, _, _, x, τ, e, nn, hex, hrt, hmp, .inl ⟨a, ta, ws, ht, hev, hnn⟩, hh, fun old => ?_,
+    fun old hG _ hle hlo => ?_⟩
   · rw [hA.regs, hrs, add_apply]
-  obtain ⟨hG', hL⟩ := hX old hG hle
+  obtain ⟨hG', hL⟩ := hX old hG hle hlo
   refine ⟨hG', ?_⟩
   have hA' : Abs R (n.o.kill rt)
       { s.st.1 with regs := s.st.1.regs.setRegOrZr (.low (.reg rt) .W64) (old.setWidth 64) }
@@ -88,7 +89,7 @@ theorem ctrRow_alloc {lbl : WeakMem.AllocLabel → Option Nat} {ms : MemSide isa
   ctrRow_nd hF (fun s he hn => hcode.rmw s he hn) (fun m σ c hA hD hJ => by
     obtain ⟨⟨rfl, hF, hn28⟩, h10, h9⟩ := hJ
     exact ⟨h10, hq.rt, hq.mp, hmem _ hD, q.x, q.a, q.τ, q.e, q.ta, q.ws, q.n, hq.term, hq.ev,
-      hq.num, hq.hold, by rw [getRegOrZr_x]; exact h9, fun old hG hle =>
-        ⟨hq.grow old hG hle, .inl ⟨AN.n4, rfl, rfl, _, rfl, hle, hF, hn28, rfl⟩⟩⟩) hAt
+      hq.num, hq.hold, by rw [getRegOrZr_x]; exact h9, fun old hG hle hlo =>
+        ⟨hq.grow old hG hle, .inl ⟨AN.n4, rfl, rfl, _, rfl, hle, hF, hn28, rfl, hlo⟩⟩⟩) hAt
 
 end Spike.Lib.A64.Alloc

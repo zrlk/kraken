@@ -551,10 +551,12 @@ theorem out_sys {p : Prog} {lbl : Lbl} {ms : MemSide isaLSE2} {X : Frag isaLSE2}
   | sys K call hK ha hd hok hx => exact ⟨K, call, hK, ha, hd, hok, hx⟩
   | holdLoad _ _ _ _ _ _ _ _ he => rw [hex] at he; cases he
   | xchgStore _ _ _ _ _ _ _ _ _ _ _ _ he => rw [hex] at he; cases he
-  | ctrRmw _ _ _ _ _ _ _ _ _ _ he => rw [hex] at he; cases he
+  | ctrRmw _ _ _ _ _ _ _ he => rw [hex] at he; cases he
   | alloc _ _ _ _ _ _ _ _ _ _ _ _ he => rw [hex] at he; cases he
+  | newStore _ _ _ _ _ _ _ _ _ _ _ _ he => rw [hex] at he; cases he
   | emit K buf n Pw Qw _ _ _ h0 _ hr hq =>
     exact absurd (Out.we_of_emit K buf n Pw Qw h0 hr hq) fun ⟨c1, h⟩ => hwe c1 h
+  | fence _ _ _ he => rw [hex] at he; cases he
 
 variable {Λ : Scc.Sem.Layout} {I : Inv} {μ : Marks} {rd : TermRun.Word → Prop} {G : Loc → Val → Prop} {own : Own}
 

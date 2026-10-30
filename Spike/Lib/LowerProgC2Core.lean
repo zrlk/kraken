@@ -237,7 +237,7 @@ theorem lowerWithMarks_accepted2_ok (cfg : Config) {p : Prog} (hp : Accepted2 p 
     {x : IR.Program × List (Sym × Array (Node × Point))}
     (h : lowerWithMarks cfg (checked2 p) = .ok x) :
     ∃ ws rt, Pairwise2 (LowC2 p cfg.layout.obj) (compiled2 p) ws ∧
-      rtFuncs cfg.layout (entry2 p) (setupWords2 p) = .ok rt ∧
+      rtFuncs cfg.arch cfg.layout (entry2 p) (setupWords2 p) = .ok rt ∧
       x = (progOf cfg.layout rt (funcs2 p ws), marksAll2 p ws) := by
   unfold lowerWithMarks at h
   simp only [checked2, bind, Except.bind, pure, Except.pure] at h
@@ -250,7 +250,8 @@ theorem lowerWithMarks_accepted2_ok (cfg : Config) {p : Prog} (hp : Accepted2 p 
   have hum' : (compiled2 p).mapM (fun d => lowerDeclMarks p (Frontend.externs p) d cfg.layout.obj) = .ok um := hum
   obtain ⟨ws, hws, rfl⟩ := mapM_ok_inv hum' (lowerDeclMarks_low2 hp cfg.layout.obj)
   rw [spawned_accepted2 hp] at h
-  simp only [List.eraseDups_nil, List.mapM_nil, pure, Except.pure] at h
+  simp only [List.eraseDups_nil, List.mapM_nil, List.isEmpty_nil, Bool.not_true, Bool.and_false, pure,
+    Except.pure] at h
   unfold rtFuncs
   by_cases hs : (setupOf p).isSome = true
   · have harg : (entry2 p).arg = .setupTid := by simp [entry2, hs]
@@ -286,7 +287,7 @@ it succeeds: the checked program `checked2 p`, the runtime functions, then
 theorem lowerIR_accepted2 (cfg : Config) {p : Prog} (hp : Accepted2 p = true)
     {l : Lowered} (hl : lowerIR cfg p = .ok l) :
     ∃ ws rt, Pairwise2 (LowC2 p cfg.layout.obj) (compiled2 p) ws ∧
-      rtFuncs cfg.layout (entry2 p) (setupWords2 p) = .ok rt ∧ l.checked = checked2 p ∧
+      rtFuncs cfg.arch cfg.layout (entry2 p) (setupWords2 p) = .ok rt ∧ l.checked = checked2 p ∧
       l.ir = progOf cfg.layout rt (funcs2 p ws) ∧ l.marks = marksAll2 p ws := by
   unfold lowerIR at hl
   rw [checkedOf_accepted2 hp] at hl

@@ -38,9 +38,11 @@ theorem Out.toA {ms ms' : MemSide I} {X : Frag I} {s : I.State} {c : Ctl} (h : O
     (hrd : ms'.rd = ms.rd) (hrt : ms'.rt = ms.rt) (hK : ms'.K = ms.K) (hG : ms'.G = ms.G)
     (hown : ms'.own = ms.own) (hmp : ms'.mp = ms.mp) (hab : ms'.abortAt = ms.abortAt) (hpl : ms'.pl = ms.pl)
     (hbo : ∀ s a c Q, ms.bo s a c Q → ms'.bo s a c Q) (hwe : ∀ s c, ms.we s c → ms'.we s c)
-    (hnb : NoNewBuf c) : Out p lbl ms' X s c := by
-  obtain ⟨rd, rt, K, G, heap, ctr, units, off, cells, own, mp, ab, pl, xa, bo, we⟩ := ms
-  obtain ⟨rd', rt', K', G', heap', ctr', units', off', cells', own', mp', ab', pl', xa', bo', we'⟩ := ms'
+    (hnb : NoNewBuf c) (hpub : ms.pub → ms'.pub := by first | exact id | exact False.elim)
+    (hnn : ¬ ms.newOk := by first | exact id | exact fun h => h) : Out p lbl ms' X s c := by
+  obtain ⟨rd, rt, K, G, heap, ctr, units, off, cells, own, mp, ab, pl, xa, bo, we, lo, pub, newOk⟩ := ms
+  obtain ⟨rd', rt', K', G', heap', ctr', units', off', cells', own', mp', ab', pl', xa', bo', we', lo', pub',
+    newOk'⟩ := ms'
   dsimp only at hrd hrt hK hG hown hmp hab hpl hbo hwe
   subst hrd hrt hK hG hown hmp hab hpl
   cases h with
@@ -56,11 +58,14 @@ theorem Out.toA {ms ms' : MemSide I} {X : Frag I} {s : I.State} {c : Ctl} (h : O
   | holdLoad kl A g x sa u v e he hx hA hh hX => exact .holdLoad kl A g x sa u v e he hx hA hh hX
   | xchgStore kr A V s' x sa u v e tv wv wold he hx hA hh hev hv hX =>
     exact .xchgStore kr A V s' x sa u v e tv wv wold he hx hA hh hev hv hX
-  | ctrRmw k op g x a τ e ta ws n he hrt hm ht => exact (hnb x a τ e ht).elim
+  | ctrRmw k op g x τ e n he hrt hm hs =>
+    exact (hs.elim (fun ⟨a, _, _, ht, _⟩ => hnb x a τ e ht) fun ⟨hN, _⟩ => hnn hN).elim
   | alloc s' A x a τ e ta ws k wold old us he ht => exact (hnb x a τ e ht).elim
+  | newStore _ _ _ _ _ _ _ _ _ _ _ hN => exact (hnn hN).elim
   | emit K buf n Pw Qw hK ha hd h0 hb hr hq =>
     exact .emit K buf n Pw Qw hK ha hd h0 (fun j hj c1 hp => hbo _ _ _ _ (hb j hj c1 hp)) hr
       (fun c1 h => hwe _ _ (hq c1 h))
+  | fence k s' c' he hr hx => exact .fence k s' c' he (hr.mono hpub) hx
 
 /-- **An `OutS` row at depth** whose row control (after the frame run) is
 no buffer allocation is one under `ms'` (`Out.toA` at every depth). -/
@@ -72,11 +77,14 @@ theorem OutS.toA {ms ms' : List TermRun.Frame → MemSide I} {X : FragS I} {s : 
     (hab : ∀ fs, (ms' fs).abortAt = (ms fs).abortAt) (hpl : ∀ fs, (ms' fs).pl = (ms fs).pl)
     (hbo : ∀ fs s a c Q, (ms fs).bo s a c Q → (ms' fs).bo s a c Q)
     (hwe : ∀ fs s c, (ms fs).we s c → (ms' fs).we s c)
-    (hnb : ∀ c₁ fs₁, FrameRun p (c, fs) (c₁, fs₁) → NoNewBuf c₁) : OutS p lbl ms' X s c fs := by
+    (hnb : ∀ c₁ fs₁, FrameRun p (c, fs) (c₁, fs₁) → NoNewBuf c₁)
+    (hpub : ∀ fs, (ms fs).pub → (ms' fs).pub := by first | exact fun _ => id | exact fun _ => False.elim)
+    (hnn : ∀ fs, ¬ (ms fs).newOk := by first | exact fun _ => id | exact fun _ h => h) :
+    OutS p lbl ms' X s c fs := by
   cases h with
   | pre c₁ fs₁ hr h =>
     exact .pre c₁ fs₁ hr (h.toA (hrd fs₁) (hrt fs₁) (hK fs₁) (hG fs₁) (hown fs₁) (hmp fs₁) (hab fs₁) (hpl fs₁)
-      (hbo fs₁) (hwe fs₁) (hnb c₁ fs₁ hr))
+      (hbo fs₁) (hwe fs₁) (hnb c₁ fs₁ hr) (hpub fs₁) (hnn fs₁))
   | frame s' c' fs' he hr hx => exact .frame s' c' fs' he hr hx
 
 /-- **A segment at depth** under `ms` is one under `ms'` (`OutS.toA`) when
@@ -89,11 +97,13 @@ theorem SegWS.toA {ms ms' : List TermRun.Frame → MemSide I} {W : FragS I} {K :
     (hab : ∀ fs, (ms' fs).abortAt = (ms fs).abortAt) (hpl : ∀ fs, (ms' fs).pl = (ms fs).pl)
     (hbo : ∀ fs s a c Q, (ms fs).bo s a c Q → (ms' fs).bo s a c Q)
     (hwe : ∀ fs s c, (ms fs).we s c → (ms' fs).we s c)
-    (hnb : ∀ s c fs, W s c fs → ∀ c₁ fs₁, FrameRun p (c, fs) (c₁, fs₁) → NoNewBuf c₁) :
+    (hnb : ∀ s c fs, W s c fs → ∀ c₁ fs₁, FrameRun p (c, fs) (c₁, fs₁) → NoNewBuf c₁)
+    (hpub : ∀ fs, (ms fs).pub → (ms' fs).pub := by first | exact fun _ => id | exact fun _ => False.elim)
+    (hnn : ∀ fs, ¬ (ms fs).newOk := by first | exact fun _ => id | exact fun _ h => h) :
     SegWS W K p lbl ms' P Q :=
   let ⟨inv, hP, hW, hcl⟩ := h
   ⟨inv, hP, hW, fun s c fs hi => ⟨fun hk => ((hcl s c fs hi).1 hk).toA hrd hrt hK hG hown hmp hab hpl hbo hwe
-    (hnb s c fs (hW s c fs hi)), (hcl s c fs hi).2⟩⟩
+    (hnb s c fs (hW s c fs hi)) hpub hnn, (hcl s c fs hi).2⟩⟩
 
 end ToA
 

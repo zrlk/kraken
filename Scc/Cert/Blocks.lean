@@ -57,8 +57,8 @@ count as `user`, the rest as `runtime`.
 
 The classification reads the listing's text, in the forms scc's printers
 (`Scc/Emit/X64Print.lean`, `Scc/Emit/A64Print.lean`) write; it is the
-Lean form of the generators that produced the data of
-`Spike/Lib/X64Hello.lean` and `Spike/Lib/A64Hello.lean`, and replaces them.
+Lean form of the generators that produced the hello block data
+(`Spike/Lib/X64Hello.lean`, and its AArch64 counterpart), and replaces them.
 This module imports no ISA.
 -/
 

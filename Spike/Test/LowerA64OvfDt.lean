@@ -32,7 +32,7 @@ theorem ret0_phs : StubW.abortPhOk okPc ph labT = true := labT_eq ▸ StubW.Test
 theorem ret0_abortIn : Scc.Cert.Rt.A64.Abort.abortIn ret0Prog = true := by decide +kernel
 
 /-- The exit call's pc at `ret0`. -/
-theorem ret0_exit : (labT Abort.overflow.exit).toBitVec.toNat = 4198508 := labT_eq ▸ StubW.Test.ret0_exit
+theorem ret0_exit : (labT Abort.overflow.exit).toBitVec.toNat = 4198512 := labT_eq ▸ StubW.Test.ret0_exit
 
 theorem ret0_hrel : ∀ a, μ0.site .release = some a → (labT Abort.overflow.exit).toBitVec.toNat ≠ a := by
   rw [ret0_exit]; intro a h; cases h; decide
@@ -102,10 +102,10 @@ example : OvfDt ret0Exe ret0End labT (at0 mSvc (Abort.pcSvc labT Abort.overflow)
 
 /-- The tail's pcs at `ret0` are pairwise distinct. -/
 theorem ret0_pcs :
-    (Abort.pcSvc labT Abort.overflow).toBitVec.toNat = 4198492 ∧
-    (Abort.pcSvc labT Abort.overflow + 4).toBitVec.toNat = 4198496 ∧
-    (Abort.pcSvc labT Abort.overflow + 4 + 4).toBitVec.toNat = 4198500 ∧
-    (Abort.pcSvc labT Abort.overflow + 4 + 4 + 4).toBitVec.toNat = 4198504 := by
+    (Abort.pcSvc labT Abort.overflow).toBitVec.toNat = 4198496 ∧
+    (Abort.pcSvc labT Abort.overflow + 4).toBitVec.toNat = 4198500 ∧
+    (Abort.pcSvc labT Abort.overflow + 4 + 4).toBitVec.toNat = 4198504 ∧
+    (Abort.pcSvc labT Abort.overflow + 4 + 4 + 4).toBitVec.toNat = 4198508 := by
   rw [labT_eq]; decide +kernel
 
 /-- **Negative**: at the `write` with `x8 ≠ 64`, the state is not in the tail. -/
@@ -123,7 +123,7 @@ example (m : MachineData) (h8 : m.regs.X8 ≠ 64) :
 /-- **Negative**: past the exit call no state is in the tail. -/
 example (m : MachineData) : ¬ OvfDt ret0Exe ret0End labT (at0 m (labT Abort.overflow.exit + 4)) := by
   have hp := ret0_pcs
-  have hx : (labT Abort.overflow.exit + 4).toBitVec.toNat = 4198512 := by rw [labT_eq]; decide +kernel
+  have hx : (labT Abort.overflow.exit + 4).toBitVec.toNat = 4198516 := by rw [labT_eq]; decide +kernel
   have hx' := ret0_exit
   rintro ⟨-, -, ⟨h, -⟩ | ⟨h, -⟩ | h | h | ⟨h, -⟩⟩
   all_goals

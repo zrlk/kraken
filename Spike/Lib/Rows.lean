@@ -10,6 +10,8 @@ The kind says which node lemma or `Out` row the instance uses there:
 
 - `label`: an address of a label into a register (`adrp`, `add :lo12:`);
 - `system`: a system-register move or a `nop` (no memory, no event);
+- `fence`: a barrier (`dmb`: no memory access, no event; it moves the
+  thread's views);
 - `site`: the `nop` at a resource-transfer site (the take or release site);
 - `switch`: a stack switch (`sp` written from a register of unknown
   offset);
@@ -30,6 +32,7 @@ namespace Spike.Lib.Rows
 inductive RowK where
   | label
   | system
+  | fence
   | site
   | switch
   | svc

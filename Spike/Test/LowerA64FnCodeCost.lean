@@ -38,7 +38,7 @@ listing with a wrong abort code, a wrong callee or without the block's
 label fails. -/
 
 /-- The index of `main`'s `.L18_wc_main.abort_overflow` label in `ret0Prog`. -/
-def ovfIdx : Nat := 1318
+def ovfIdx : Nat := 1319
 
 #guard SccCode.ret0Prog[ovfIdx]? == some (.label ".L18_wc_main.abort_overflow")
 #guard (SccCode.ret0Prog.drop (ovfIdx + 1)).take 2 == ovfBlk

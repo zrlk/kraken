@@ -300,8 +300,13 @@ theorem externOf_none_of_decl2 {E : List String} {s : Option Ty} {x : Bool} {d :
       · rfl
       · have hr := congrArg Decl.retTy (Scc.Frontend.declIs_eq hdi)
         rw [h.1.1.2] at hr; simp [Scc.Frontend.printLoopD] at hr
+    have hdp : Scc.Frontend.declIs d Scc.Frontend.printLoopPubD = false := by
+      cases hdi : Scc.Frontend.declIs d Scc.Frontend.printLoopPubD
+      · rfl
+      · have hr := congrArg Decl.retTy (Scc.Frontend.declIs_eq hdi)
+        rw [h.1.1.2] at hr; simp [Scc.Frontend.printLoopPubD] at hr
     unfold Scc.Frontend.externOf
-    simp [h.1.1.2, hdl]
+    simp [h.1.1.2, hdl, hdp]
   split at h
   · rename_i hm
     simp only [beq_iff_eq] at hm

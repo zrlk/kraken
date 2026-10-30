@@ -196,7 +196,7 @@ theorem landStk_hxa {hcode : ∀ (j : Nat) d, P[j]? = some d → FnCode2 exe cel
     simp only [enter, upd_apply, oB]
     rw [ite_eq_left (by omega)]
   -- the landing is the arena's
-  obtain ⟨ini, old, -, -, hb, hold, -, us, hus, hw⟩ := hJ
+  obtain ⟨ini, old, -, -, hb, hold, -, -, us, hus, hw⟩ := hJ
   have hold' : old + ar.units q.1.n q.1.τ ≤ ar.cells := by cases ab <;> exact hold
   have hu' : ar.units q.1.n q.1.τ = q.1.n * TermRun.nWords us + 1 := hfu _ _ us hus (by omega)
   have hb' : b = ar.heap + 16 * old + ar.off q.1.n q.1.τ := by cases ab <;> exact hb

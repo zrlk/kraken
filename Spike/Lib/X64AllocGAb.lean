@@ -367,7 +367,7 @@ theorem allocAb (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp)
       (by omega) (by omega) (blkPh_ret p30 (by rw [hra, p31]))
       (hret_of_run (lo := -160) (hi := 8) (by dsimp only [N]; decide) fun σ c hJ => ?_) (fun _ _ _ => rfl)
       (blkAb_ret hraAb)) (List.cons_ne_nil _ _)
-    obtain ⟨o, -, -, -, -, -, h0⟩ := hJ
+    obtain ⟨o, -, -, -, -, -, h0, -⟩ := hJ
     have hc : Spike.Lib.X64.classify iRet.toDir = some iRet := rfl
     simp only [arun, List.foldl, Spike.Lib.X64.dstep, hc]
     simp only [iRet, Spike.Lib.X64.AI.tgt, N, Spike.Lib.X64.Alloc.oE]

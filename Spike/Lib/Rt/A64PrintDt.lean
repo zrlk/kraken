@@ -6,8 +6,10 @@ their cells, under a frame condition `C` no write inside `Rp` breaks) step
 among themselves or out of the frame, at the return (`b16`'s `ret`) or the
 abort call (`b14`'s `bl scc_rt_abort`), keeping the promise set. The pieces
 are `Spike/Lib/Rt/A64TailDt.lean`'s: a `BlkSt` per block of the loop and of
-the exits, a `Pt` at the `write` call. Nothing names a layout: the code
-enters through `Print.Code`, the transfer sites through `hns`.
+the exits, a `Pt` at the barrier `dmb ish` leading `.2_write`
+(`Spike/Lib/Rt/A64FenceDt.lean`) and one at the `write` call. Nothing names a
+layout: the code enters through `PrintD.Code`, the transfer sites through
+`hns`.
 
 - `PJ x29 ra`: the frame's facts the pieces keep: the caller's `x29` at
   `-16`, the return address at `-8`;
@@ -15,11 +17,11 @@ enters through `Print.Code`, the transfer sites through `hns`.
 - `printIn_steps`: a certification step from `PrintIn` lands in `PrintIn`
   or in `Out`, given the routine's code, the pieces off the transfer sites
   (`hns`) and the exit blocks' ends in `Out` (`hret`, `hfail`);
-- `printIn_of_at`: the `write` node (`At … (Print.N … .svc)`) is in
+- `printIn_of_at`: the `write` node (`At … (PrintD.N … .svc)`) is in
   `PrintIn`.
 -/
-import Spike.Lib.Rt.A64TailDt
-import Spike.Lib.A64Print
+import Spike.Lib.Rt.A64FenceDt
+import Spike.Lib.A64PrintD
 
 namespace Spike.Lib.A64.Rt
 
@@ -29,7 +31,8 @@ open Scc.Sem.A64 (abi)
 open Spike.Lib.A64.Flow
 open Spike.Lib.A64
 open Spike.Lib (ClosedC StepsTo)
-open Spike.Lib.A64.Print (b2 b3 b4 b5 b6 b7 b8 b9 b10 b11 b12 b13 b14 b16 oI pcSvc)
+open Spike.Lib.A64.Print (b2 b3 b4 b5 b6 b7 b8 b9 b10 b11 b12 b13 b14 b16 oI)
+open Spike.Lib.A64.PrintD (pcSvc)
 
 /-! ## The pieces -/
 
@@ -37,20 +40,21 @@ open Spike.Lib.A64.Print (b2 b3 b4 b5 b6 b7 b8 b9 b10 b11 b12 b13 b14 b16 oI pcS
 at `-8`. -/
 def PJ (x29 ra : BitVec 64) (σ : Flow.AS) : Prop := σ.slot (-16) = x29 ∧ σ.slot (-8) = ra
 
-/-- The pieces: one per block of the loop and the exits, and the `write`
-call. -/
+/-- The pieces: one per block of the loop and the exits, the barrier and the
+`write` call. -/
 inductive PP where
-  | loop | n3 | write | svc | n5 | n6 | n7 | chk2 | n9 | n10 | chk3 | n12 | adv | fail | done
+  | loop | n3 | fence | write | svc | n5 | n6 | n7 | chk2 | n9 | n10 | chk3 | n12 | adv | fail | done
 
 section Pieces
 
 variable (exe : _root_.Executable) (endPc : Int64) (Rp : Region) (x29 ra : BitVec 64) (C : MachineData → Prop)
 
-/-- **The pieces' pcs** (their nodes' pcs, `Print.N`). -/
+/-- **The pieces' pcs** (their nodes' pcs, `PrintD.N`). -/
 def ppc : PP → Int64
   | .loop => (_root_.Executable.labels exe).label ".L9_scc_rt_print.1_loop"
   | .n3 => (_root_.Executable.labels exe).label ".L9_scc_rt_print.1_loop" + 4 + 4 + 4 + 4
-  | .write => (_root_.Executable.labels exe).label ".L9_scc_rt_print.2_write"
+  | .fence => (_root_.Executable.labels exe).label ".L9_scc_rt_print.2_write"
+  | .write => (_root_.Executable.labels exe).label ".L9_scc_rt_print.2_write" + 4
   | .svc => pcSvc (_root_.Executable.labels exe).label
   | .n5 => pcSvc (_root_.Executable.labels exe).label + 4
   | .n6 => pcSvc (_root_.Executable.labels exe).label + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4
@@ -65,11 +69,12 @@ def ppc : PP → Int64
   | .done => (_root_.Executable.labels exe).label ".L9_scc_rt_print.7_done"
 
 /-- **A piece of `scc_rt_print`'s write tail**: before an instruction of a
-block (at its node's pc, `Print.N`), or at the `write` call (`x0 = 1`,
-`x8 = 64`). -/
+block (at its node's pc, `PrintD.N`), at the barrier, or at the `write`
+call (`x0 = 1`, `x8 = 64`). -/
 def piece : PP → State → Prop
   | .loop => BlkSt exe endPc Rp C (ppc exe .loop) oI (PJ x29 ra) b2
   | .n3 => BlkSt exe endPc Rp C (ppc exe .n3) oI (PJ x29 ra) b3
+  | .fence => Pt exe endPc Rp C (ppc exe .fence) oI (PJ x29 ra)
   | .write => BlkSt exe endPc Rp C (ppc exe .write) oI (PJ x29 ra) b4
   | .svc => Pt exe endPc Rp C (ppc exe .svc) oI (fun σ => PJ x29 ra σ ∧ σ.regs.X0 = 1 ∧ σ.regs.X8 = 64)
   | .n5 => BlkSt exe endPc Rp C (ppc exe .n5) oI (PJ x29 ra) b5
@@ -134,7 +139,7 @@ region's facts, `C` kept by writes inside the region (`hC`), the pieces
 off the transfer sites (`hns`), and the exit blocks' ends in `Out`: the
 return (`hret`, `b16`) and the abort call (`hfail`, `b14`). -/
 theorem printIn_steps {Out : State → Prop} {c0 : Ctl} {x29' ra' : BitVec 64}
-    (hcode : Print.Code c0 x29' ra' exe endPc) (hR : Rp.OK) (hal : Rp.base.toNat % 16 = 0) (hlo : Rp.lo ≤ -48)
+    (hcode : PrintD.Code c0 x29' ra' exe endPc) (hR : Rp.OK) (hal : Rp.base.toNat % 16 = 0) (hlo : Rp.lo ≤ -48)
     (hhi : 0 ≤ Rp.hi) (hC : FStable Rp C) (hns : ∀ s, PI s → Kernel.siteAt abi μ s = none)
     (hret : ∀ s, BlkEnd exe endPc Rp C (ppc exe .done) oI (PJ x29 ra) b16 s → Out s)
     (hfail : ∀ s, BlkEnd exe endPc Rp C (ppc exe .fail) oI (PJ x29 ra) b14 s → Out s) :
@@ -158,7 +163,12 @@ theorem printIn_steps {Out : State → Prop} {c0 : Ctl} {x29' ra' : BitVec 64}
       (fun s he hn => hcode.n3 s he hn) (hsite .n3)) (inj .n3) ?_ p q hD hs
     rintro s ⟨he, hn, hd, σ0, hJ, hpc, hA, hCs⟩
     rw [Print.b3_run] at hpc hA
-    exact inj .write s (ent (by simp [b4]) he hn hd hpc hA hJ hCs)
+    exact inj .fence s ⟨he, hn, hd, hpc, _, hJ, hA, hCs⟩
+  case fence =>
+    -- the barrier: to the write block
+    refine into (fence_steps (pc := ppc exe .fence) (fun s he hn => hcode.fence s he hn) (hsite .fence))
+      (inj .fence) ?_ p q hD hs
+    exact fun s h => inj .write s (pt_blkSt (by simp [b4]) h)
   case write =>
     -- to the `write` call
     refine into (blkSt_steps (pc := ppc exe .write) (J := PJ x29 ra) Print.b4_ok hC hR hal hlo hhi
@@ -259,11 +269,11 @@ end Steps
 
 /-! ## Entry -/
 
-/-- **The `write` node is in the tail**: at `Print.N … .svc`, under a frame
+/-- **The `write` node is in the tail**: at `PrintD.N … .svc`, under a frame
 condition `F`. -/
 theorem printIn_of_at {exe : _root_.Executable} {endPc : Int64} {Rp : Region} {F : MachineData → Prop}
     {c0 c : Ctl} {x29 ra : BitVec 64} {s : State}
-    (hAt : At exe endPc Rp F (Print.N (_root_.Executable.labels exe).label c0 x29 ra .svc) s c) :
+    (hAt : At exe endPc Rp F (PrintD.N (_root_.Executable.labels exe).label c0 x29 ra .svc) s c) :
     PrintIn exe endPc Rp x29 ra F s := by
   obtain ⟨he, hn, hd, hpc, σ, hA, hF, ⟨-, h16, h8⟩, h0, hx8⟩ := hAt
   exact ⟨.svc, he, hn, hd, hpc, σ, ⟨⟨h16, h8⟩, h0, hx8⟩, hA, hF⟩

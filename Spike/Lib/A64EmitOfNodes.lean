@@ -42,7 +42,7 @@ theorem emitA_of_nodes (hN : NodesA Λ p μ rd G own ar I (some Ab)) {rS : Range
   obtain ⟨imm, sz, hc⟩ := hN.svc _ _ _ _ _ hI hs
   have hsv := hps _ _ _ _ _ hI hs buf n hdec
   have hex := Kraken.Promising.Lower.A64.exec_svc hc
-  cases hN.out _ _ _ _ _ hI (hT.off_sys hI hs) with
+  cases hN.out _ _ _ _ _ hI (hT.off_sys hI hs) (fun _ h => h) with
   | frame s' c' fs' he _ _ => rw [hex] at he; cases he
   | pre c₁ fs₁ hr h =>
     obtain ⟨rfl, -, -⟩ := frameRun_printSvc hd hsv hr
@@ -56,8 +56,10 @@ theorem emitA_of_nodes (hN : NodesA Λ p μ rd G own ar I (some Ab)) {rS : Range
     | rtRmw _ _ _ _ _ he => rw [hex] at he; cases he
     | holdLoad _ _ _ _ _ _ _ _ he => rw [hex] at he; cases he
     | xchgStore _ _ _ _ _ _ _ _ _ _ _ _ he => rw [hex] at he; cases he
-    | ctrRmw _ _ _ _ _ _ _ _ _ _ he => rw [hex] at he; cases he
+    | ctrRmw _ _ _ _ _ _ _ he => rw [hex] at he; cases he
     | alloc _ _ _ _ _ _ _ _ _ _ _ _ he => rw [hex] at he; cases he
+    | newStore _ _ _ _ _ _ _ _ _ _ _ _ he => rw [hex] at he; cases he
+    | fence _ _ _ he => rw [hex] at he; cases he
     | sys K call hK _ hd' hok _ =>
       cases hK
       rw [hdec] at hd'

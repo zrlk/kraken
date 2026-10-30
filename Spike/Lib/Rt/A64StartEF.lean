@@ -13,9 +13,12 @@ shape), so that a frame fact on the memory before the switch (`Fw` reads
 - `startSwitchEF_segW`: from the switch to `MainEF`, given `Fw` of the frame
   before the switch (`hFw`; the switch writes no memory) and the new frame
   `FStable` in the new region (`hFwS`);
-- `startEF_segW`, `startEF_segWS`: from `_start` (`entryN`) to `MainEF`.
+- `startEF_segW`, `startEF_segWS`: from `_start` (`entryN`) to `MainEF`;
+  `startEF_segWA`: with the callees' own words at their nodes' states and
+  the extra frame `P` up to the thread init's take site
+  (`TcbOkA`, `TakeOkA`).
 -/
-import Spike.Lib.Rt.A64StartE
+import Spike.Lib.Rt.A64StartEFP
 
 namespace Spike.Lib.A64.Rt
 
@@ -106,13 +109,14 @@ end SwitchEF
 
 section StartEF
 
-/-- **`StartEW` with the extra frame `Fw` after the switch.** -/
+/-- **`StartEW` with the extra frame `Fw` after the switch** (the thread
+init's take site at `P`, as `StartEW`'s). -/
 structure StartEWF (W : Frag isaLSE2) (K : State → State → Prop) (exe : _root_.Executable) (endPc : Int64)
     (R : Region) (F : MachineData → Prop) (Fw : _root_.Mem 64 → Prop) (rS : Scc.Sem.Range) (n0 k0 : BitVec 64)
-    (c0 : Ctl) (L : Int) : Prop where
+    (c0 : Ctl) (L : Int) (P : MachineData → Prop := fun _ => True) : Prop where
   e : BlkW W K exe endPc R F (entryN (_root_.Executable.labels exe).label c0) entryB
   s1 : Sp0W W K exe endPc R F n0 c0
-  s2 : Sp2W W K exe endPc R F rS n0 k0 c0
+  s2 : Sp2W W K exe endPc R F rS n0 k0 c0 P
   s3 : SwEWF W K exe endPc R (fun m => F m ∧ StackM rS m) Fw rS
     (pinA (_root_.Executable.labels exe).label + n0 + 8#64)
     (stacksA (_root_.Executable.labels exe).label + k0 + 16384#64) c0 L
@@ -123,7 +127,53 @@ variable {p : Prog} {lbl : WeakMem.AllocLabel → Option Nat} {ms : MemSide isaL
 
 /-- **From `_start` to `scc_rt_main`'s entry, inside `W`, with the extra
 frame `Fw` after the switch** (`startE_segW`; the switch by
-`startSwitchEF_segW`). -/
+`startSwitchEF_segW`), and the extra frame `P` (`FStable R P`) from `_start`
+to the thread init's take site (`entry_sp2_segWP`, then `startSp2Sw_segWA`
+at `P`). -/
+theorem startEF_segWA {W : Frag isaLSE2} {rS : Scc.Sem.Range} {Fw : _root_.Mem 64 → Prop} {prog : List Directive}
+    {kp : Nat} (hp : Lays exe prog kp) (hend : endPc = endOf exe prog kp) (hc : RtCodeIn0 prog) {L : Int}
+    (hK : ms.K = some Scc.Sem.A64.abi) (hF : FStable R F) (hR : R.OK) (hal : R.base.toNat % 16 = 0)
+    (hlo : R.lo ≤ -304) (hhi : 0 ≤ R.hi) (n0 k0 : BitVec 64) (c0 : Ctl)
+    (hn : n0.toNat + 80 ≤ 131072)
+    (hhdr : StOk ms F exe endPc (pinA (_root_.Executable.labels exe).label + n0) (AllocTcb.hdr0 ||| 1#64 <<< 36))
+    (htcb : ∀ g, TcbOkA ms F exe endPc (R.callee (-48) (-192) 0) F ⟨g, n0, c0⟩)
+    (hk : k0.toNat + 16384 ≤ 536870912)
+    (hfld : ∀ e ∈ ThreadInit.fields (pinA (_root_.Executable.labels exe).label + n0 + 8#64)
+        (stacksA (_root_.Executable.labels exe).label + k0),
+      StOk ms F exe endPc (pinA (_root_.Executable.labels exe).label + n0 + 8#64 + BitVec.ofNat 64 e.1) e.2)
+    (htk : ∀ g, TakeOkA ms F exe endPc ((R.callee (-48) (-256) 0).callee (-48) (-208) 0) F ⟨g, k0, c0⟩)
+    (h16 : (stacksA (_root_.Executable.labels exe).label + k0 + 16384#64).toNat % 16 = 0)
+    (hok : (swR (stacksA (_root_.Executable.labels exe).label + k0 + 16384#64) (-L) 0).OK)
+    (hsub : ∀ k, (swR (stacksA (_root_.Executable.labels exe).label + k0 + 16384#64) (-L) 0).Off k →
+      ((swR (stacksA (_root_.Executable.labels exe).label + k0 + 16384#64) (-L) 0).addr k).toNat % 8 = 0 ∧
+      rS.contains ((swR (stacksA (_root_.Executable.labels exe).label + k0 + 16384#64) (-L) 0).addr k).toNat ∧
+      rS.contains (((swR (stacksA (_root_.Executable.labels exe).label + k0 + 16384#64) (-L) 0).addr k).toNat + 7))
+    (hun : ∀ m, F m →
+      Mem.loadInt m.dmem (limA (UInt64.ofBitVec (pinA (_root_.Executable.labels exe).label + n0 + 8#64))) 8 = none)
+    (hFw : ∀ m, F m → Fw m.dmem)
+    (hFwS : ∀ v, FStable (swR v (-L) 0) (fun m => Fw m.dmem ∧ swFSL L rS
+      (stacksA (_root_.Executable.labels exe).label + k0 + 16384#64)
+      (limA (UInt64.ofBitVec (pinA (_root_.Executable.labels exe).label + n0 + 8#64))) v m))
+    (hRS : ∀ k, R.Off k → ∀ i < 8, R.addr k + BitVec.ofNat 64 i ∉ Scc.Sem.Kernel.addrs rS)
+    (hfitS : rS.lo + rS.size ≤ 2 ^ 64)
+    (houtS : ∀ a, a % 8 = 0 → rS.contains a → rS.contains (a + 7) →
+      (a : Int) + 8 ≤ R.base.toNat + R.lo ∨ (R.base.toNat : Int) + R.hi ≤ a)
+    (hFt : ∀ m pm, F m → F (takeMem pm rS m)) {P : MachineData → Prop} (hP : FStable R P)
+    (hW : StartEWF W (TakeK ((_root_.Executable.labels exe).label StackTake.siteL) rS) exe endPc R F Fw rS n0 k0
+      c0 L P) :
+    SegW W (TakeK ((_root_.Executable.labels exe).label StackTake.siteL) rS) p lbl ms
+      (At exe endPc R (fun m => F m ∧ P m) (entryN (_root_.Executable.labels exe).label c0))
+      (MainEF exe endPc rS Fw (pinA (_root_.Executable.labels exe).label + n0 + 8#64)
+        (stacksA (_root_.Executable.labels exe).label + k0 + 16384#64) c0 L) :=
+  (entry_sp2_segWP hp hend hc hK hF hP hR hal hlo hhi n0 c0 hn hhdr htcb hW.e hW.s1).seq
+    ((startSp2Sw_segWA hp hend hc.tail hc.ti hc.tiSp hc.take hF hR hal hlo hhi n0 k0 c0 hk hfld htk hP hW.s2 hRS
+      hfitS houtS hFt).seq
+      (startSwitchEF_segW hp hend hc.tail _ _ c0 h16 hok (fun _ h => h.2) hsub (fun m h => hun m h.1)
+        (fun m h => hFw m h.1) hFwS hW.s3))
+
+/-- **`startEF_segW` with the counter and the take's words owned at every
+state at their pcs** (`startEF_segWA` at `TcbOkA.of_tcbOk`,
+`TakeOkA.of_takeOk`). -/
 theorem startEF_segW {W : Frag isaLSE2} {rS : Scc.Sem.Range} {Fw : _root_.Mem 64 → Prop} {prog : List Directive}
     {kp : Nat} (hp : Lays exe prog kp) (hend : endPc = endOf exe prog kp) (hc : RtCodeIn0 prog) {L : Int}
     (hK : ms.K = some Scc.Sem.A64.abi) (hF : FStable R F) (hR : R.OK) (hal : R.base.toNat % 16 = 0)
@@ -159,12 +209,10 @@ theorem startEF_segW {W : Frag isaLSE2} {rS : Scc.Sem.Range} {Fw : _root_.Mem 64
       (At exe endPc R F (entryN (_root_.Executable.labels exe).label c0))
       (MainEF exe endPc rS Fw (pinA (_root_.Executable.labels exe).label + n0 + 8#64)
         (stacksA (_root_.Executable.labels exe).label + k0 + 16384#64) c0 L) :=
-  (entry_segW' hp hend hc.entry hF hR hal (by omega) hhi c0 hW.e).seq
-    ((startSp2_segW hp hend hc.call hc.start hc.tcb hK hF hR hal (by omega) hhi n0 c0 hn hhdr htcb hW.s1).seq
-      ((startSp2Sw_segW hp hend hc.tail hc.ti hc.tiSp hc.take hF hR hal hlo hhi n0 k0 c0 hk hfld htk hW.s2 hRS
-        hfitS houtS hFt).seq
-        (startSwitchEF_segW hp hend hc.tail _ _ c0 h16 hok (fun _ h => h.2) hsub (fun m h => hun m h.1)
-          (fun m h => hFw m h.1) hFwS hW.s3)))
+  (startEF_segWA hp hend hc hK hF hR hal hlo hhi n0 k0 c0 hn hhdr (fun _ => .of_tcbOk htcb) hk hfld
+    (fun _ => .of_takeOk htk) h16 hok hsub hun hFw hFwS hRS hfitS houtS hFt (P := fun _ => True)
+    (fun _ _ h _ => h) hW).mono_pre fun _ _ ⟨he, hn, hdc, hpc, σ, hA, hD, hJ⟩ =>
+      ⟨he, hn, hdc, hpc, σ, hA, ⟨hD, trivial⟩, hJ⟩
 
 /-- **`startEF_segW` at the empty frames** (`SegWS.liftS`). -/
 theorem startEF_segWS {W : FragS isaLSE2} {ms : List TermRun.Frame → MemSide isaLSE2} {rS : Scc.Sem.Range}

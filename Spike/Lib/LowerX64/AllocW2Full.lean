@@ -189,6 +189,7 @@ theorem allocW2_w2Full {rS : Range} (hI : InstOk exe endPc cells lab μ own Tk (
           Abs R ⟨-(fr.size : Int) - 8 + -160, []⟩ m0 σC) c0')
     (hsz : ∀ q : Call, q.OK (msOfAX Λ μ p rd G (fun s _ => own s) ar (IN ar L0 ls0 J) ab lbl lsize fs)
         (_root_.Executable.labels exe).label → ∀ l b old, lbl l = some b →
+      (msOfAX Λ μ p rd G (fun s _ => own s) ar (IN ar L0 ls0 J) ab lbl lsize fs).lo old →
       b = ar.heap + 16 * old + ar.off q.n q.τ → old + ar.units q.n q.τ ≤ ar.cells → q.n ≤ lsize l) :
     AllocW2 (CdCLE cells okPc ph lab ra0) (BlC2L cells okPc ph lab fr ra0)
       (fun lbl lsize s c => W2 Λ μ p rd G own rS Tk ar (IN ar L0 ls0 J) Dt (Ab lab) lbl lsize s c fs) (TakeK a rS)

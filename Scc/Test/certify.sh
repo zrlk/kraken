@@ -69,7 +69,7 @@
 # proof that it is never needed).
 #
 # hello1 (the registry of programs outside `Scc.Lower.Accepted1` with a
-# proved theorem; it has one entry): when PROG.w is `Scc/Test/hello1.w` byte
+# proved theorem; its other entry is wake, below): when PROG.w is `Scc/Test/hello1.w` byte
 # for byte and T.s is the text that theorem is about byte for byte
 # (`Scc/Test/elf/hello1x64/hello1.s`, `Scc/Test/elf/hello1a64/hello1.s`, the
 # checked-in certificate's `asm`), the theorem instantiated is
@@ -90,6 +90,32 @@
 # then arm 31 more minutes (peak RssAnon 3.1 GiB; alone, at most the sum). Another program
 # outside `Accepted1`, or hello1.w with another text, is not certifiable
 # (exit 3: no proved theorem).
+#
+# A program that takes its thread id or spawns (`wake.w`, `hello.w`): its
+# certificate states `placeOK2` (`Scc/Cert/SpawnX64.lean`,
+# `Scc/Cert/SpawnA64.lean`: `prog_placeOK2`) instead of `placeOK`, and
+# T.post.lean decides `placeOK2At` at the executable's layout (A11', A12' in
+# its two parts and A13 in place of A11 and A12). No compiler theorem covers
+# such a program but wake (the registry's second entry): without --instantiate
+# the verdict is 10 (placement decided) whatever its fragment; with
+# --instantiate, 3 (no proved theorem).
+#
+# wake (registry, arm only, --instantiate only): when PROG.w is
+# `Scc/Test/wake.w` byte for byte, T.s is `Scc/Test/elf/wakea64/wake.s` (the
+# checked-in certificate's `asm`, `Spike.Test.Cert.A64WakeCert`) byte for
+# byte and the executable is `Scc/Test/elf/wakea64/wake` byte for byte (its
+# SHA-256, compared by the script: the theorem is at that executable's
+# layout `Spike.Test.WakeLinkedA64.Λe` only, not at every layout), the
+# theorem instantiated is `Spike.Test.WakeLinkedA64.wake_linkedU`
+# (`CorrectE 2`) about `Spike.Lib.WakeT1.wakeSrc`, the frontend's reading
+# of T.w (`Scc.Cert.SrcTerm.reads`, by evaluation). T.post.lean imports it
+# (`Spike.Test.WakeLinkedA64Root`) and never this run's certificate; the
+# kernel checks that the layout read from the executable is `Λe` (`rfl`).
+# As for hello1: `hpa` by evaluation
+# (`#guard`), budget `allocCells`, the `.text` bytes not compared with the
+# encoding of `asm`. Its build (with LEAN_NUM_THREADS=1) takes hours on a
+# fresh checkout (not measured here). Another executable (a link moved by
+# the linker, --elf, another toolchain's bytes) is not certifiable (exit 3).
 set -u
 
 ARCH=x64; INST=0; ELF=""; SRC=""; VERBOSE=0
@@ -105,8 +131,8 @@ while [ $# -gt 0 ]; do
   esac
 done
 case "$ARCH" in
-  x64) NS=Scc.Cert.PlaceOK.X64 ;;
-  arm) NS=Scc.Cert.PlaceOK.A64 ;;
+  x64) NS=Scc.Cert.PlaceOK.X64; SNS=Scc.Cert.Spawn.X64 ;;
+  arm) NS=Scc.Cert.PlaceOK.A64; SNS=Scc.Cert.Spawn.A64 ;;
   *) echo "unknown arch $ARCH" >&2; exit 2 ;;
 esac
 [ -n "$SRC" ] && [ -f "$SRC" ] || { echo "$USAGE" >&2; exit 2; }
@@ -149,8 +175,8 @@ build() {
   return 1
 }
 
-if [ "$ARCH" = x64 ]; then CERT_MODS="Scc.Cert.X64 Scc.Cert.OutStageX64 Scc.Cert.E2EX64"
-else CERT_MODS="Scc.Cert.Arm Scc.Cert.OutStageA64 Scc.Cert.E2EA64"; fi
+if [ "$ARCH" = x64 ]; then CERT_MODS="Scc.Cert.X64 Scc.Cert.OutStageX64 Scc.Cert.E2EX64 Scc.Cert.SpawnX64"
+else CERT_MODS="Scc.Cert.Arm Scc.Cert.OutStageA64 Scc.Cert.E2EA64 Scc.Cert.SpawnA64"; fi
 build "scc and the certificate modules" "about 15 minutes on 64 cores" scc scc_x64 scc_arm Scc.Cert.Elf Scc.Cert.SrcTerm $CERT_MODS \
   || verdict 1 "failed: lake build scc (log: $BLOG)"
 # (hello1.w builds its own theorem's module instead, below.)
@@ -182,7 +208,29 @@ fi
 ACC="prog_accepted1"; ACCP="Scc.Lower.Accepted1"; IMMS="Scc.Lower.imms1Of prog_src"; HFR=""
 PATHN="closedAt1"
 HELLO1=0
-if ! grep -q "^theorem $ACC : $ACCP prog_src = true" "$T.cert.lean"; then
+WAKE=0
+# A program that takes its thread id or spawns: `placeOK2` (see the header).
+SPAWN=0
+grep -q "^theorem prog_placeOK2 : $SNS.placeOK2 placeCfg out = true" "$T.cert.lean" && SPAWN=1
+if [ $SPAWN = 1 ] && [ $INST = 1 ]; then
+  # The registry's wake entry (see the header): arm, `Scc/Test/wake.w` byte for byte.
+  show "$WORK" cmp "$T.w" "$ROOT/Scc/Test/wake.w"
+  { [ "$ARCH" = arm ] && cmp -s "$T.w" "$ROOT/Scc/Test/wake.w"; } || verdict 3 "not certifiable: no proved \
+theorem for a program that takes its thread id or spawns (placeOK2; decide the placement without --instantiate)"
+  WS="Scc/Test/elf/wakea64/wake.s"
+  show "$WORK" cmp "$T.s" "$ROOT/$WS"
+  cmp -s "$T.s" "$ROOT/$WS" \
+    || verdict 3 "not certifiable: no proved theorem for this program/text \
+($T.s is not $WS, the text of wake's theorem)"
+  WAKE=1
+  BENV="LEAN_NUM_THREADS=1"
+  build "wake's theorem" "hours" Spike.Test.WakeLinkedA64Root \
+    || verdict 1 "failed: lake build Spike.Test.WakeLinkedA64Root (log: $BLOG)"
+  BENV=""
+  PATHN="wake (registry): wake_linkedU"
+elif [ $SPAWN = 1 ]; then
+  :
+elif ! grep -q "^theorem $ACC : $ACCP prog_src = true" "$T.cert.lean"; then
   # The registry (see the header): `Scc/Test/hello1.w`, byte for byte.
   show "$WORK" cmp "$T.w" "$ROOT/Scc/Test/hello1.w"
   if cmp -s "$T.w" "$ROOT/Scc/Test/hello1.w"; then
@@ -308,6 +356,83 @@ case "$r" in
   *) verdict 1 "failed: the ELF reader could not be run" ;;
 esac
 
+# wake (registry): its theorem at the executable's layout, which must be `Λe`.
+if [ $WAKE = 1 ]; then
+  WE="Scc/Test/elf/wakea64/wake"
+  show "$WORK" cmp "$T" "$ROOT/$WE"
+  cmp -s "$T" "$ROOT/$WE" || verdict 3 "not certifiable: no proved theorem at this executable's layout \
+(wake's theorem is at the layout of $WE, and $T is not that executable byte for byte)"
+  cat >"$T.post.lean" <<EOF
+import Scc.Cert.Elf
+import Scc.Cert.SrcTerm
+import Spike.Test.WakeLinkedA64Root
+
+-- certify.sh: theorem path: $PATHN. The theorem is about the checked-in program and
+-- certificate (Spike.Test.Cert.A64WakeCert) at the checked-in executable's layout
+-- (Spike.Test.WakeLinkedA64.Λe). This run's certificate is not pasted here, on purpose.
+
+namespace SccCertificate
+
+-- This run's text is the theorem's \`asm\`, verbatim (evaluation).
+/-- info: true -/
+#guard_msgs in
+#eval do IO.println ((← IO.FS.readFile "$REL/$T.s") == asm)
+
+-- The frontend reads this run's program as the theorem's source \`wakeSrc\` (evaluation).
+/-- info: true -/
+#guard_msgs in
+#eval do IO.println (Scc.Cert.SrcTerm.reads (← IO.FS.readFile "$REL/$T.w") Spike.Lib.WakeT1.wakeSrc)
+
+-- The executable's SHA-256: $he
+/-- The layout of the executable and its SHA-256 (\`scc_elf_layout%\`: read at
+elaboration time, the reader evaluated by the elaborator). -/
+def elf : Scc.Sem.Layout × String := scc_elf_layout% "$REL/$T"
+
+-- The file read is the executable linked (evaluation, not a proof).
+#guard elf.2 == "$he"
+
+/-- **The executable's layout is the theorem's** \`Λe\` (kernel-checked). -/
+theorem prog_layout : elf.1 = Spike.Test.WakeLinkedA64.Λe := rfl
+
+-- \`hpa\`, by compiled evaluation: the theorem's parse premise (the trust boundary).
+#guard Scc.Cert.Link.A64.parsesTo asm outLit.prog outLit.secs
+
+/-- **wake's theorem at the executable's layout** (\`wake_linkedU\`): \`asm\` is correct
+for wake.w's two-thread source semantics at every admissible entry state, at the layout
+read from the executable (with the root's immediates \`WakeFinalCAW.iW\`), for every
+memory model and every budget of \`allocCells\` cells, given the loader's parse of
+\`asm\` (\`hpa\`, the \`#guard\` above). -/
+theorem prog_correct_linked
+    (hpa : Scc.Cert.Link.A64.parsesTo asm outLit.prog outLit.secs = true)
+    {B : Scc.Sem.Budget} (hB : B.cells = Scc.Cert.PlaceOK.allocCells) {arch : WeakMem.Arch} :
+    Scc.Sem.A64.CorrectE 2 (Spike.Lib.WakeA64.wakeS arch)
+      { elf.1 with imms := Spike.Lib.WakeFinalCAW.iW elf.1 } B asm := by
+  rw [prog_layout]
+  exact Spike.Test.WakeLinkedA64.wake_linkedU (fun _ _ => 0)
+    (fun _ => ⟨"a", CoreTerm.Expr.ret CoreTerm.At.unit, [], [], CoreLang.Ty.unit⟩) hpa hB
+
+/--
+info: 'SccCertificate.prog_correct_linked' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms prog_correct_linked
+
+end SccCertificate
+EOF
+  wrote "$WORK/$T.post.lean" "wake's theorem at the executable's layout"
+  rm -f post.rss
+  show "$ROOT" "$LAKE" env lean "$WORK/$T.post.lean"
+  if (cd "$ROOT" && "$ROOT/Scc/Test/rssanon.sh" "$WORK/post.rss" "$LAKE" env lean "$WORK/$T.post.lean") \
+      >"$T.post.out" 2>&1; then
+    secs=""; ra=""; [ -f post.rss ] && IFS=: read -r secs ra <post.rss
+    m=""; [ -n "$ra" ] && m=", $((ra / 1024)) MB RssAnon peak"; [ -n "$secs" ] && m=" (${secs} s$m)"
+    verdict 0 "certified$m: $T.post.lean: wake_linkedU at the layout of $WE, wake only (registry: \
+Scc/Test/wake.w, $WS and $WE byte for byte); hpa by evaluation; budget hB: 4194304 cells (allocCells); \
+the .text bytes are not compared with the encoding of asm"
+  fi
+  verdict 1 "failed: $T.post.lean does not check: $(grep -m1 -A3 'error' "$T.post.out" | head -c 2000)"
+fi
+
 # 4. The certificate after the link.
 if [ "$ARCH" = x64 ]; then
   HPA="Scc.Cert.Link.X64.parsesTo ⟨asm, sizes, labelOffs⟩ out.prog out.secs"; TEXT="⟨asm, sizes, labelOffs⟩"
@@ -345,6 +470,31 @@ theorem prog_placeOKAt_12 : $NS.a12 outLit $L = true :=
   $NS.a12_of_split prog_placeOKAt_12c prog_placeOKAt_12p
 "
 A12ARG=" prog_placeOKAt_12"
+A11THM="/-- A11 of \`outLit\` at the executable's layout (kernel-checked). -/
+theorem prog_placeOKAt_11 : $NS.a11 outLit $L = true := by
+  decide +kernel"
+PNAME="placeOKAt"; PNS=$NS
+if [ $SPAWN = 1 ]; then
+  # `placeOK2At`: A11', A12' in its two parts and A13 (`Scc/Cert/Spawn*.lean`).
+  A11THM="/-- A11' of \`outLit\` at the executable's layout (kernel-checked). -/
+theorem prog_placeOKAt_11 : $SNS.a11' outLit $L = true := by
+  decide +kernel"
+  A12THM="
+/-- A12''s code part of \`outLit\` (kernel-checked). -/
+theorem prog_placeOKAt_12c : $SNS.a12code' outLit = true := by
+  decide +kernel
+
+/-- A12''s phase part of \`outLit\` at the executable's layout (kernel-checked). -/
+theorem prog_placeOKAt_12p : $SNS.a12ph' outLit $L = true := by
+  decide +kernel
+
+/-- A13 of \`outLit\` at the executable's layout (kernel-checked). -/
+theorem prog_placeOKAt_13 : $SNS.a13 outLit $L = true := by
+  decide +kernel
+"
+  A12ARG=" prog_placeOKAt_12c prog_placeOKAt_12p prog_placeOKAt_13"
+  PNAME="placeOK2At"; PNS=$SNS
+fi
 CODEFILLS="(by decide +kernel)"
 [ $HELLO1 = 1 ] && CODEFILLS="prog_codeFills"
 {
@@ -426,20 +576,18 @@ theorem prog_placeOKAt_6 : $NS.a6 outLit $L = true :=
 theorem prog_placeOKAt_8 : $NS.a8 outLit $L = true := by
   decide +kernel
 
-/-- A11 of \`outLit\` at the executable's layout (kernel-checked). -/
-theorem prog_placeOKAt_11 : $NS.a11 outLit $L = true := by
-  decide +kernel
+$A11THM
 $A12THM
 /-- A9 of \`outLit\` at the executable's layout (kernel-checked). -/
 theorem prog_placeOKAt_9 : $NS.a9 outLit $L = true :=$A9PF
 
-/-- **\`placeOKAt\` of \`scc\`'s output at the executable's layout**, from its
-components (\`placeOKAt_of\`). -/
-theorem prog_placeOKAt : $NS.placeOKAt placeCfg elf.1 out = true := by
+/-- **\`$PNAME\` of \`scc\`'s output at the executable's layout**, from its
+components (\`${PNAME}_of\`). -/
+theorem prog_placeOKAt : $PNS.$PNAME placeCfg elf.1 out = true := by
   have h1 := prog_placeOKAt_1
   simp only [Bool.and_eq_true] at h1
   rw [out_eq]
-  exact $NS.placeOKAt_of
+  exact $PNS.${PNAME}_of
     h1.1.1.1 $A2PF prog_placeOKAt_3 h1.1.2 prog_placeOKAt_5 prog_placeOKAt_6 h1.2 prog_placeOKAt_8
     prog_placeOKAt_9 prog_placeOKAt_11$A12ARG
 EOF
@@ -489,7 +637,7 @@ info: 'SccCertificate.prog_ok_witness' depends on axioms: [propext, Classical.ch
 #print axioms prog_ok_witness
 EOF
     fi
-  else cat <<EOF
+  elif [ $SPAWN = 0 ]; then cat <<EOF
 
 /-- **Acceptance and placement at the executable's layout.** -/
 theorem prog_linked_ready : $ACCP prog_src = true ∧ $NS.placeOKAt placeCfg elf.1 out = true :=
@@ -552,6 +700,9 @@ if (cd "$ROOT" && "$ROOT/Scc/Test/rssanon.sh" "$WORK/post.rss" "$LAKE" env lean 
 fi
 
 # 5. It does not check: is it `placeOKAt` that fails, and at which component?
+# (`placeOK2At`'s components for a program that takes its thread id or spawns:
+# A12 then names A12' or A13.)
+CHECKS="$NS.checks"; [ $SPAWN = 1 ] && CHECKS="$SNS.checks2"
 {
   echo "import Scc.Cert.Elf"
   if [ $HELLO1 = 1 ]; then echo "import $H1CERT"; echo; echo "namespace SccCertificate"; echo
@@ -568,7 +719,7 @@ fi
   fi
   cat <<EOF
 def elf : Scc.Sem.Layout × String := scc_elf_layout% "$REL/$T"
-#eval IO.println (match Scc.Cert.PlaceOK.Checks.firstFail ($NS.checks placeCfg) (fun _ => $L) out with
+#eval IO.println (match Scc.Cert.PlaceOK.Checks.firstFail ($CHECKS placeCfg) (fun _ => $L) out with
   | some n => s!"certify-diag: a{n}"
   | none => "certify-diag: none")
 

@@ -227,7 +227,7 @@ the body; the frame is at most 4095 bytes (`Accepted0` bounds the body's
 theorem main_inv_a64 (cfg : Config) {d : Decl} (hd : Accepted0 [d] = true)
     {em : Scc.Lower.A64.Emitted} (h : Scc.Lower.A64.lowerAll? cfg [d] = .ok em) :
     ∃ r rt, lower0 [(d.arg, .unit, [])] 0 d.body = some r ∧
-      rtFuncs cfg.layout ⟨.unit, true⟩ 0 = .ok rt ∧
+      rtFuncs cfg.arch cfg.layout ⟨.unit, true⟩ 0 = .ok rt ∧
       (Scc.Lower.A64.lowerAll cfg [d]).low.ir = progOf cfg.layout rt [func0 (Names.user "main") r] ∧
       (func0 (Names.user "main") r, rt.length) ∈
         (progOf cfg.layout rt [func0 (Names.user "main") r]).funcs.zipIdx ∧

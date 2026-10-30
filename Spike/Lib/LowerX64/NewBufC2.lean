@@ -230,8 +230,8 @@ are unmapped under `F` (`hmem`), a fresh label's allocation at the `%fs`
 base `tp` lands in `ms.xa` (`hxa`), and the allocator's states for every
 such call returning to `pcR` are inside `W₀` at `fsBase = tp` in the call's
 context (`hW`; the call keeps `tp`, so no other state is asked);
-a label already placed at the allocation's base holds its count (`hsz`, the
-sizes `lsize`). -/
+a label already placed at the allocation's base, for an old count above
+the counter's floor (`ms.lo`), holds its count (`hsz`, the sizes `lsize`). -/
 def AllocW2 (Cd : Int64 → List (Directive × Nat) → Prop) (Bl : Int64 → Nat → Label → Nat → Prop)
     (W₀ : (WeakMem.AllocLabel → Option Nat) → (WeakMem.AllocLabel → Nat) → Frag isa)
     (K : State → State → Prop) (exe : _root_.Executable) (endPc : Int64) (R : Region)
@@ -262,7 +262,7 @@ def AllocW2 (Cd : Int64 → List (Directive × Nat) → Prop) (Bl : Int64 → Na
     (∀ q : Call, q.OK ms L → q.ra = pcR.toBitVec →
       AllocW ms q (fun s c => TP tp s → W₀ lbl lsize s c) K exe endPc (R.callee (-(fr.size : Int) - 8) (-160) 8)
         (fun m => F m ∧ CallerCells R (-(fr.size : Int) - 8) (-160) 8 m ∧ AllocCtx ms L R fr.size Jc q m)) ∧
-    (∀ q : Call, q.OK ms L → ∀ l b old, lbl l = some b → b = ms.heap + 16 * old + ms.off q.n q.τ →
+    (∀ q : Call, q.OK ms L → ∀ l b old, lbl l = some b → ms.lo old → b = ms.heap + 16 * old + ms.off q.n q.τ →
       old + ms.units q.n q.τ ≤ ms.cells → q.n ≤ lsize l) ∧
     ∀ (lbl' : WeakMem.AllocLabel → Option Nat) (lsize' : WeakMem.AllocLabel → Nat),
       (∀ l b, lbl l = some b → lbl' l = some b) → (∀ l, lsize l ≤ lsize' l) →
@@ -536,7 +536,7 @@ theorem nbRet_seg {fr : Scc.Emit.X64.Frame} (hf : FrameOk fr) (h1 : fr.size ≤ 
       lsize R fr.size tp (nbJc (_root_.Executable.labels exe).label [(i64 (.call (rel Scc.Lower.Names.alloc)), zc)]
         pcB (oB fr) (nbJ1 p lbl lsize fr R fp ra tp c0 (.let_ x (.newBuf cn τ) e) env lits cs bufs a0 a1 a2))⟩
       [(stDir off, z)])
-    (hsz : ∀ q : Call, q.OK ms0 (_root_.Executable.labels exe).label → ∀ l b old, lbl l = some b →
+    (hsz : ∀ q : Call, q.OK ms0 (_root_.Executable.labels exe).label → ∀ l b old, lbl l = some b → ms0.lo old →
       b = ms0.heap + 16 * old + ms0.off q.n q.τ → old + ms0.units q.n q.τ ≤ ms0.cells → q.n ≤ lsize l)
     (hIt : ∀ y ∈ Scc.Sem.exprFv e,
       (lookupS (ofEnv2 ((x, newBufTy τ, [.reg (regName x n), Scc.Lower.imm 0]) :: env)) y).isSome)
@@ -555,7 +555,7 @@ theorem nbRet_seg {fr : Scc.Emit.X64.Frame} (hf : FrameOk fr) (h1 : fr.size ≤ 
           (Scc.Lower.bufsAfter x cs bufs (.newBuf cn τ))).withTp tp) s c) := by
   refine (nbStore_seg (ms1 := ms0) (lbl' := lbl) (lsize' := lsize) (fs := fs) hf h1 hF hR hlo hhi pp he2 hfr
     (fun _ _ h => h) (fun _ => Nat.le_refl _) hoff hc hWB hIt hIc hlb).mono_pre ?_
-  rintro s c ⟨⟨he, hn, hd, hpc, σ, hA, hFm, q, ⟨σC, hJc, hrbp, hC⟩, l, ini, old, hvr, hc, hx0, hold, -⟩, ht⟩
+  rintro s c ⟨⟨he, hn, hd, hpc, σ, hA, hFm, q, ⟨σC, hJc, hrbp, hC⟩, l, ini, old, hvr, hc, hx0, hold, hlo0, -⟩, ht⟩
   have hrb : σ.regs.get64 .rbp = R.addr 0 := by
     obtain ⟨σ0, hJ1, hσC⟩ := hJc
     have h0 : σC.regs.get64 .rbp = σ0.regs.get64 .rbp := by
@@ -571,7 +571,7 @@ theorem nbRet_seg {fr : Scc.Emit.X64.Frame} (hf : FrameOk fr) (h1 : fr.size ≤ 
   obtain ⟨-, v, hv, hrv⟩ := hvr
   simp only [Scc.Sem.wordAddr, Option.map_eq_some_iff] at hv
   obtain ⟨b, hb', rfl⟩ := hv
-  exact hsz _ q.2 l b old hb' (by omega) hold
+  exact hsz _ q.2 l b old hb' hlo0 (by omega) hold
 
 /-- **The free variables at an allocation are bound** (`htot` at its
 `let`): the count atom's variable by `atomV`, the continuation's others
@@ -769,7 +769,7 @@ theorem newBufC_tail {fr : Scc.Emit.X64.Frame} (hf : FrameOk fr) (h1 : fr.size �
       (fun m hm => ⟨hF' m hm, by
         obtain ⟨mC, σC, c, hAb, hJ, hN, hK⟩ := hctx m hm
         exact ⟨mC, σC, _, hK, hAb, c, hJ, hN⟩⟩) hA
-    obtain ⟨he, hn, hd, hpc, σ, hAs, hFm, σx, σC, ⟨ini, old, hc, hx0, hb, hold, hfpx, -⟩,
+    obtain ⟨he, hn, hd, hpc, σ, hAs, hFm, σx, σC, ⟨ini, old, hc, hx0, hb, hold, -, hfpx, -⟩,
       ⟨c', ⟨σ0, hJ1, hσC⟩, hc', hfpC, h30, -⟩, rfl⟩ := hL
     have hra : Int64.ofBitVec q.ra = pcB + Int64.ofNat zc := by
       rw [← h30, hσC, arun_callq]

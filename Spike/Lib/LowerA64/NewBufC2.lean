@@ -227,7 +227,7 @@ def AllocW2 (Cd : Int64 → List Directive → Prop) (Bl : Int64 → Label → N
     (∀ q : Call, q.OK ms L → q.ra = pcR.toBitVec →
       AllocW ms q (fun s c => TP tp s → W₀ lbl lsize s c) K exe endPc (R.callee (-(cx.frame : Int)) (-160) 0)
         (fun m => F m ∧ CallerCells R (-(cx.frame : Int)) (-160) 0 m ∧ AllocCtx ms L R cx.frame Jc q m)) ∧
-    (∀ q : Call, q.OK ms L → ∀ l b old, lbl l = some b → b = ms.heap + 16 * old + ms.off q.n q.τ →
+    (∀ q : Call, q.OK ms L → ∀ l b old, lbl l = some b → ms.lo old → b = ms.heap + 16 * old + ms.off q.n q.τ →
       old + ms.units q.n q.τ ≤ ms.cells → q.n ≤ lsize l) ∧
     ∀ (lbl' : WeakMem.AllocLabel → Option Nat) (lsize' : WeakMem.AllocLabel → Nat),
       (∀ l b, lbl l = some b → lbl' l = some b) → (∀ l, lsize l ≤ lsize' l) →
@@ -566,7 +566,7 @@ theorem nbRet_seg {cx : FnCtx} (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) (h16 :
       cx.frame tp (nbJc (_root_.Executable.labels exe).label [blD Scc.Lower.Names.alloc] pcB (oF cx)
         (nbJ1 p lbl lsize cx fp ra tp c0 (.let_ x (.newBuf cn τ) e) env lits cs bufs a0 a1 a2))⟩ (directives ls))
     (hsz : ∀ q : Call, q.OK ms0 (_root_.Executable.labels exe).label → ∀ l b old, lbl l = some b →
-      b = ms0.heap + 16 * old + ms0.off q.n q.τ → old + ms0.units q.n q.τ ≤ ms0.cells → q.n ≤ lsize l)
+      ms0.lo old → b = ms0.heap + 16 * old + ms0.off q.n q.τ → old + ms0.units q.n q.τ ≤ ms0.cells → q.n ≤ lsize l)
     (hIt : ∀ y ∈ Scc.Sem.exprFv e,
       (lookupS (ofEnv2 ((x, newBufTy τ, [.reg (regName x n), Scc.Lower.imm 0]) :: env)) y).isSome)
     (hIc : ImmIn i (ofEnv2 ((x, newBufTy τ, [.reg (regName x n), Scc.Lower.imm 0]) :: env)) e)
@@ -583,12 +583,12 @@ theorem nbRet_seg {cx : FnCtx} (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) (h16 :
           (Scc.Lower.bufsAfter x cs bufs (.newBuf cn τ))).withTp tp) s c) := by
   refine (nbStore_seg (lbl' := lbl) (lsize' := lsize) hf h1 h16 hF hR hal hlo hhi pp he2 hfr
     (fun _ _ h => h) (fun _ => Nat.le_refl _) hs hc hWB hIt hIc hlb).mono_pre ?_
-  rintro s c ⟨⟨he, hn, hd, hpc, σ, hA, hFm, q, hC, l, ini, old, hvr, hc, hx0, hold, -, -⟩, ht⟩
+  rintro s c ⟨⟨he, hn, hd, hpc, σ, hA, hFm, q, hC, l, ini, old, hvr, hc, hx0, hold, hlo0, -⟩, ht⟩
   refine ⟨he, hn, hd, hpc, σ, hA, hFm, q, hC, l, ini, old, hc, hx0, hold, hvr, ?_, hA.regs ▸ ht⟩
   obtain ⟨-, v, hv, hrv⟩ := hvr
   simp only [Scc.Sem.wordAddr, Option.map_eq_some_iff] at hv
   obtain ⟨b, hb', rfl⟩ := hv
-  exact hsz _ q.2 l b old hb' (by omega) hold
+  exact hsz _ q.2 l b old hb' hlo0 (by omega) hold
 
 /-- **The free variables at an allocation are bound** (`htot` at its
 `let`): the count atom's variable by `atomV`, the continuation's others

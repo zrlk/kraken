@@ -53,7 +53,7 @@ open Spike.Lib.A64.Flow.NewBuf (AllocCtx)
 open Spike.Lib.A64.WriteAb (Ab abPcs)
 open Spike.Lib.LowerNode (FrOk2 ZBad)
 open Spike.Lib.A64.Alloc (Call AllocWT N E AN)
-open Spike.Lib.A64.AllocG (allocPhOk allocAbOk)
+open Spike.Lib.A64.AllocG (allocPhOk allocAbOkR)
 open Spike.Lib.AllocReach (Reach IN)
 open Spike.Lib.A64.KeepTP (TP tpXa)
 open Spike.Lib.A64.Flow (NoMsrW)
@@ -163,7 +163,7 @@ abort path (`seg_jabort2W`, its obligations `hstub`), which does not return
 context. -/
 theorem allocHeld_seg {rS : Range} (hI : InstOk exe endPc prog lab μ own Tk (TakeK a rS) okPc ph kp)
     (hA : Spike.Lib.A64.Flow.allocIn prog = true) (hph : allocPhOk okPc ph lab = true)
-    (habk : allocAbOk lab = true) {Λ : Scc.Sem.Layout} {ownOf : Nat → List (Loc × Val)}
+    (habk : allocAbOkR lab = true) {Λ : Scc.Sem.Layout} {ownOf : Nat → List (Loc × Val)}
     (hown : ∀ s, own s = ownOf (ph (pcOf s))) {fr : Int}
     (hRc : (R.callee (-fr) (-160) 0).OK) (halc : (R.callee (-fr) (-160) 0).base.toNat % 16 = 0)
     (hloc : (R.callee (-fr) (-160) 0).lo ≤ -160) (hhic : 0 ≤ (R.callee (-fr) (-160) 0).hi)
@@ -257,7 +257,7 @@ landings `StartsN`, as `landStk_hxa`) and the abort path's obligations
 docstring). -/
 theorem allocHeld_sg2 {rS : Range} (hI : InstOk exe endPc prog lab μ own Tk (TakeK a rS) okPc ph kp)
     (hA : Spike.Lib.A64.Flow.allocIn prog = true) (hph : allocPhOk okPc ph lab = true)
-    (habk : allocAbOk lab = true) {Λ : Scc.Sem.Layout} {ownOf : Nat → List (Loc × Val)}
+    (habk : allocAbOkR lab = true) {Λ : Scc.Sem.Layout} {ownOf : Nat → List (Loc × Val)}
     (hown : ∀ s, own s = ownOf (ph (pcOf s))) {fr : Int}
     (hRc : (R.callee (-fr) (-160) 0).OK) (halc : (R.callee (-fr) (-160) 0).base.toNat % 16 = 0)
     (hloc : (R.callee (-fr) (-160) 0).lo ≤ -160) (hhic : 0 ≤ (R.callee (-fr) (-160) 0).hi)

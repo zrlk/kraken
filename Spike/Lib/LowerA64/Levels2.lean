@@ -84,9 +84,9 @@ theorem _root_.Spike.Lib.A64ConsumerA.WrOkA.mono_fam {own' : OwnS} {I I' : InvS}
     (h : WrOkA ar L ls (msOfA Λ μ rd G own' ar I L ls fs) (fun s' c'' => PendA p I L ls s' c'' fs) s c) :
     WrOkA ar L ls (msOfA Λ μ rd G own' ar I' L ls fs) (fun s' c'' => PendA p I' L ls s' c'' fs) s c := by
   refine ⟨h.arena, fun hL => ?_⟩
-  obtain ⟨k, op, g, x, a, τ, e, ta, ws, n, h1, h2, h3, h4, h5, h6, h7, h8, h9⟩ := h.ctr hL
-  exact ⟨k, op, g, x, a, τ, e, ta, ws, n, h1, h2, h3, h4, h5, h6, h7, h8,
-    fun old ha hb hc => (h9 old ha hb hc).imp id (PendA.mono hI)⟩
+  obtain ⟨k, op, g, x, τ, e, n, h1, h2, h3, h4, h5, h6, h7⟩ := h.ctr hL
+  exact ⟨k, op, g, x, τ, e, n, h1, h2, h3, h4, h5, h6,
+    fun old ha hb hc hd => (h7 old ha hb hc hd).imp id (PendA.mono hI)⟩
 
 /-- **`W2` at a larger family.** -/
 theorem W2.mono {I I' : InvS} {L : Lbl} {ls : Lsize} {s : State} {c : Ctl} {fs : List TermRun.Frame}

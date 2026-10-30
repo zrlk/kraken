@@ -64,9 +64,9 @@ def ret0Tab : List (Label × Nat) :=
     (".L6_scc_rt_stack_take.8_full", 4196140), (".L6_scc_rt_stack_take.sp36", 4196148),
     (".L6_scc_rt_stack_take.halt37", 4196148), (".L6_scc_rt_stack_take.9_ok", 4196152),
     (".L6_scc_rt_stack_take.10_taken", 4196184), ("scc_rt_take_site", 4196192), ("scc_rt_stack_release", 4196216),
-    ("wc_main", 4198808), (".L18_wc_main.stack_check", 4198808), (".L18_wc_main.0_entry", 4198844),
-    (".L18_wc_main.stack_grow", 4198884), (".L18_wc_main.sp_check", 4198940),
-    (".L18_wc_main.abort_overflow", 4198988), (".L18_wc_main.abort_overflow_halt", 4198996)]
+    ("wc_main", 4198812), (".L18_wc_main.stack_check", 4198812), (".L18_wc_main.0_entry", 4198848),
+    (".L18_wc_main.stack_grow", 4198888), (".L18_wc_main.sp_check", 4198944),
+    (".L18_wc_main.abort_overflow", 4198992), (".L18_wc_main.abort_overflow_halt", 4199000)]
 
 /-- Each is a label of the program at its `labIn` address. -/
 theorem ret0Tab_ok : ret0Tab.all (fun p => labOk ret0Prog p.1 && labIn ret0Λ.code.lo ret0Prog p.1 == Int64.ofNat p.2)
@@ -193,7 +193,7 @@ def tkCross : List (Nat × Nat) :=
 calls of `scc_rt_abort`, the take site's fall-through, `scc_rt_grow`'s call
 of `scc_rt_stack_take`. -/
 theorem tkCross_eq :
-    tkCross = [(4195204, 4198244), (4196144, 4198244), (4196192, 4196196), (4196840, 4195652)] := by
+    tkCross = [(4195204, 4198248), (4196144, 4198248), (4196192, 4196196), (4196840, 4195652)] := by
   decide +kernel
 
 /-- The take site's fall-through owns what the site owns. -/
@@ -208,11 +208,11 @@ def μ0 : Marks where
     | .take => some 4196192
     | .release => some 4196248
   abortAt
-    | .overflow => some 4198508
-    | .heap => some 4198580
-    | .stack => some 4198652
-    | .writeErr => some 4198724
-    | .threads => some 4198796
+    | .overflow => some 4198512
+    | .heap => some 4198584
+    | .stack => some 4198656
+    | .writeErr => some 4198728
+    | .threads => some 4198800
 
 /-- **The canonical target's marks of `ret0`** are `μ0`, given the
 loader's parse of the listing (`hpa`, the trust boundary). -/
@@ -224,13 +224,13 @@ theorem ret0_marks (hpa : Scc.Sem.A64.textProgram ret0Asm = .ok ret0Prog) : T.ma
   · funext k; cases k <;> exact (hr _).trans (by decide +kernel)
 
 /-- **The pcs off the marks' sites.** -/
-def okPc (pc : Nat) : Bool := !([4196192, 4196248, 4198508, 4198580, 4198652, 4198724, 4198796].contains pc)
+def okPc (pc : Nat) : Bool := !([4196192, 4196248, 4198512, 4198584, 4198656, 4198728, 4198800].contains pc)
 
 /-- A pc off the sites is off `μ0`'s, with no take there. -/
 theorem pcOff_of_okPc {rS : Range} : ∀ s : State, okPc (pcOf s) = true →
     PcOff μ0 s ∧ ∀ s', ¬ TakeK (labT StackTake.siteL) rS s s' := by
   intro s h
-  have hne : ∀ a ∈ [4196192, 4196248, 4198508, 4198580, 4198652, 4198724, 4198796], pcOf s ≠ a := by
+  have hne : ∀ a ∈ [4196192, 4196248, 4198512, 4198584, 4198656, 4198728, 4198800], pcOf s ≠ a := by
     intro a ha he
     subst he
     simp only [okPc, Bool.not_eq_true', List.contains_eq_any_beq, List.any_eq_false, beq_iff_eq] at h
@@ -1065,8 +1065,8 @@ theorem tiW (hC0 : CFacts ret0Λ ret0Λ.static c0) {R : Region} (hR : R.OK) (hal
         rw [hb']; show ((R.base.toNat : Int) + -48) % 16 = 0; omega
       omega
     rw [ret0_labT] at hg
-    exact takeW hC0 hR' hal' (by show (-208 : Int) ≤ -208; omega) (by show (0 : Int) ≤ 0; omega) hFr
-      (tiTake q g) hq hg hsub hSM' (hsite g hg) j
+    exact takeW hC0 hR' hal' (by show (-208 : Int) ≤ -208; omega) (by show (0 : Int) ≤ 0; omega)
+      (fun m h => hFr m h.1) (tiTake q g) hq hg hsub hSM' ((hsite g hg).mono fun m h => h.1) j
   case sp => iblk 0 ThreadInit.tiSp_ok
   case st0 => ist 0
   case f1 => iblk 12 ThreadInit.tiF1_ok

@@ -1318,6 +1318,15 @@ def takeNG (b : Bool) : TK → ND
 def takeXG (b : Bool) : Unit → ND
   | () => ⟨Int64.ofBitVec q.g.ra, StackTake.oE, fun σ c => b = true ∧ c = q.c0 ∧ StackTake.Post q.g q.k0 (stacksA lab) σ⟩
 
+/-- **The nodes with the take's ghost, the rest after the take empty**:
+`takeNG`, after the take (`b = true`) only the node past the site. -/
+def takeNP (b : Bool) (i : TK) : ND :=
+  match b with
+  | false => takeNG lab q false i
+  | true => match i with
+    | .ret => takeNG lab q true .ret
+    | i => ⟨(takeNG lab q true i).pc, (takeNG lab q true i).o, fun _ _ => False⟩
+
 end Take
 
 /-- **The take's accesses to its own words** (`ownSwp_nd`, `ownLdr_nd`,
@@ -1562,9 +1571,12 @@ def takeF (F : MachineData → Prop) (rS : Scc.Sem.Range) (b : Bool) (m : Machin
 /-- **`scc_rt_stack_take`'s node obligations** inside `W`, not moved by `K`
 (`NodeW`, `BlkW`; both nodes of a label pair; the take site's in `W`). The
 block past the site is after the take, its frame condition also `M` (the
-stack range in private memory, `StackM`, at the use). -/
+stack range in private memory, `StackM`, at the use). The take site's frame
+condition is also `P` (a segment-local fact of the caller's memory, kept to
+the site; `True` by default). -/
 def TakeW (W : Frag isaLSE2) (K : State → State → Prop) (exe : _root_.Executable) (endPc : Int64) (R : Region)
-    (F M : MachineData → Prop) (q : TakeG) : TK → Prop
+    (F M : MachineData → Prop) (q : TakeG) (i : TK) (P : MachineData → Prop := fun _ => True) : Prop :=
+  match i with
   | .e => BlkW W K exe endPc R F (takeNG (_root_.Executable.labels exe).label q true .e) StackTake.stPro
   | .entry => BlkW W K exe endPc R F (takeNG (_root_.Executable.labels exe).label q true .entry) StackTake.stInit
   | .cls => BlkW W K exe endPc R F (takeNG (_root_.Executable.labels exe).label q true .cls) StackTake.stCls
@@ -1604,7 +1616,8 @@ def TakeW (W : Frag isaLSE2) (K : State → State → Prop) (exe : _root_.Execut
         StackTake.oI.sp (takeNG (_root_.Executable.labels exe).label q true .ok0).J)
   | .ok2 => BlkW W K exe endPc R F (takeNG (_root_.Executable.labels exe).label q true .ok2) StackTake.stOk
   | .tk => BlkW W K exe endPc R F (takeNG (_root_.Executable.labels exe).label q true .tk) StackTake.stSite
-  | .site => ∀ s c, At exe endPc R F (takeNG (_root_.Executable.labels exe).label q true .site) s c → W s c
+  | .site => ∀ s c, At exe endPc R (fun m => F m ∧ P m) (takeNG (_root_.Executable.labels exe).label q true .site) s c →
+      W s c
   | .ret => BlkW W K exe endPc R (fun m => F m ∧ M m) (takeNG (_root_.Executable.labels exe).label q true .ret)
       StackTake.stRet
 
@@ -1622,15 +1635,15 @@ theorem blkW_mono {W : Frag isaLSE2} {K : State → State → Prop} {F' : Machin
   fun s σ c he hn hdc hpc hA hD hJ => h s σ c he hn hdc hpc hA (hFF _ hD) hJ
 
 omit [Kraken.Executable.ValidLayout exe] in
-theorem TakeW.mono {W : Frag isaLSE2} {K : State → State → Prop} {F' M : MachineData → Prop} {q : TakeG}
-    {i : TK} (h : TakeW W K exe endPc R F M q i) (hFF : ∀ m, F' m → F m) : TakeW W K exe endPc R F' M q i := by
+theorem TakeW.mono {W : Frag isaLSE2} {K : State → State → Prop} {F' M P : MachineData → Prop} {q : TakeG}
+    {i : TK} (h : TakeW W K exe endPc R F M q i P) (hFF : ∀ m, F' m → F m) : TakeW W K exe endPc R F' M q i P := by
   cases i <;> dsimp only [TakeW] at h ⊢
   all_goals first
     | exact blkW_mono h hFF
     | exact blkW_mono h fun m h => ⟨hFF m h.1, h.2⟩
     | exact nodeW_mono h hFF
     | exact ⟨nodeW_mono h.1 hFF, nodeW_mono h.2 hFF⟩
-    | exact fun s c ⟨he, hn, hdc, hpc, σ, hA, hD, hJ⟩ => h s c ⟨he, hn, hdc, hpc, σ, hA, hFF _ hD, hJ⟩
+    | exact fun s c ⟨he, hn, hdc, hpc, σ, hA, hD, hJ⟩ => h s c ⟨he, hn, hdc, hpc, σ, hA, ⟨hFF _ hD.1, hD.2⟩, hJ⟩
 
 /-- **`scc_rt_stack_take` is one segment inside `W`, the take its outside
 move**: `stack_take_seg` with the take site the kernel's take of `rS`
@@ -1642,15 +1655,15 @@ theorem stack_take_segW {W : Frag isaLSE2} {rS : Scc.Sem.Range} (hp : Lays exe S
     (hend : endPc = endOf exe SccCode.ret0Prog)
     (hF : FStable R F) (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -208) (hhi : 0 ≤ R.hi)
     (hFF : ∀ m, F m → F0 m) (q : TakeG) (hk : q.k0.toNat + 16384 ≤ 536870912)
-    (htk : TakeOk ms F0 exe endPc q.k0)
-    (hW : ∀ i, TakeW W (TakeK ((_root_.Executable.labels exe).label StackTake.siteL) rS) exe endPc R F (StackM rS) q i)
+    (htk : TakeOk ms F0 exe endPc q.k0) {P : MachineData → Prop} (hP : FStable R P)
+    (hW : ∀ i, TakeW W (TakeK ((_root_.Executable.labels exe).label StackTake.siteL) rS) exe endPc R F (StackM rS) q i P)
     (hRS : ∀ k, R.Off k → ∀ i < 8, R.addr k + BitVec.ofNat 64 i ∉ Scc.Sem.Kernel.addrs rS)
     (hfit : rS.lo + rS.size ≤ 2 ^ 64)
     (hout : ∀ a, a % 8 = 0 → rS.contains a → rS.contains (a + 7) →
       (a : Int) + 8 ≤ R.base.toNat + R.lo ∨ (R.base.toNat : Int) + R.hi ≤ a)
     (hFt : ∀ m pm, F m → F (takeMem pm rS m)) :
     SegW W (TakeK ((_root_.Executable.labels exe).label StackTake.siteL) rS) p lbl ms
-      (At exe endPc R F (takeNG (_root_.Executable.labels exe).label q false .e))
+      (fun s c => At exe endPc R F (takeNG (_root_.Executable.labels exe).label q false .e) s c ∧ P s.st.1)
       (fun s c => ∃ x, At exe endPc R (fun m => F m ∧ StackM rS m)
         (takeXG (_root_.Executable.labels exe).label q true x) s c) := by
   have hin := StackTake.ret0_stackTakeIn
@@ -1669,20 +1682,36 @@ theorem stack_take_segW {W : Frag isaLSE2} {rS : Scc.Sem.Range} (hp : Lays exe S
       Abs R StackTake.oI (takeMem pm rS m) σ := fun hA =>
     ⟨hA.regs, hA.status, hA.so, fun k hk => by rw [loadInt_takeMem (hRS k hk)]; exact hA.slot k hk⟩
   have hSM := stackM_stable hfit hout
-  refine ((fn_seg_gW (exe := exe) (endPc := endPc) (Rg := fun _ => R) (Fg := takeF F rS)
-      (N := takeNG lab q) (E := takeXG lab q)
+  -- `P` held until the take (`b = false`); after it only the node past the site (`takeNP`)
+  refine ((fn_seg_gW (exe := exe) (endPc := endPc) (Rg := fun _ => R)
+      (Fg := fun b m => takeF F rS b m ∧ (b = false → P m)) (N := takeNP lab q) (E := takeXG lab q)
     (fun b i => ?_) false TK.e).mono_pre fun s c h => ?_).mono_post fun s c h => ?_
   rotate_left
-  · obtain ⟨he, hn, hdc, hpc, σ, hA, hD, hJ⟩ := h
-    exact ⟨he, hn, hdc, hpc, σ, hA, ⟨hD, nofun⟩, hJ⟩
-  · obtain ⟨g, x, he, hn, hdc, hpc, σ, hA, ⟨hD, hM⟩, hb, hJ⟩ := h
+  · obtain ⟨⟨he, hn, hdc, hpc, σ, hA, hD, hJ⟩, hPs⟩ := h
+    exact ⟨he, hn, hdc, hpc, σ, hA, ⟨⟨hD, nofun⟩, fun _ => hPs⟩, hJ⟩
+  · obtain ⟨g, x, he, hn, hdc, hpc, σ, hA, ⟨⟨hD, hM⟩, -⟩, hb, hJ⟩ := h
     subst hb
     exact ⟨x, he, hn, hdc, hpc, σ, hA, ⟨hD, hM rfl⟩, rfl, hJ⟩
-  have hFb : FStable R (takeF F rS b) := fun m m' ⟨hD, hM⟩ hd => ⟨hF m m' hD hd, fun hb => hSM m m' (hM hb) hd⟩
-  have hFFb : ∀ m, takeF F rS b m → F0 m := fun m h => hFF m h.1
-  have hWb : ∀ i, TakeW W (TakeK (lab StackTake.siteL) rS) exe endPc R (takeF F rS b) (StackM rS) q i :=
-    fun i => (hW i).mono fun m h => h.1
-  cases i
+  have hFb : FStable R (fun m => takeF F rS b m ∧ (b = false → P m)) := fun m m' ⟨⟨hD, hM⟩, hPm⟩ hd =>
+    ⟨⟨hF m m' hD hd, fun hb => hSM m m' (hM hb) hd⟩, fun hb => hP m m' (hPm hb) hd⟩
+  have hFFb : ∀ m, takeF F rS b m ∧ (b = false → P m) → F0 m := fun m h => hFF m h.1.1
+  have hWb : ∀ i, TakeW W (TakeK (lab StackTake.siteL) rS) exe endPc R
+      (fun m => takeF F rS b m ∧ (b = false → P m)) (StackM rS) q i P :=
+    fun i => (hW i).mono fun m h => h.1.1
+  cases b
+  case true =>
+    cases i
+    case ret =>
+      refine seg_fixW true ?_
+      knodeW StackTake.stRet StackTake.stRet_ok StackTake.siteL 1 (blkW_mono (F := fun m => F m ∧ StackM rS m)
+        (F' := fun m => takeF F rS true m ∧ (true = false → P m)) (hW TK.ret) fun m h => ⟨h.1.1, h.1.2 rfl⟩)
+      dsimp only [takeNP, takeNG, takeXG] at hJ ⊢
+      obtain ⟨-, rfl, hJ⟩ := hJ
+      obtain ⟨h1, h2, h3⟩ := StackTake.stRet_walk lab _ hJ
+      exact .inr ⟨(), h1.symm, by rw [h2]; rfl, rfl, rfl, h3⟩
+    all_goals exact seg_falseW.mono_pre fun _ _ ⟨_, _, _, _, _, _, _, h⟩ => h
+  let b := false  -- before the take
+  cases i <;> dsimp only [takeNP]
   case e =>
     refine seg_fixW b ?_
     knodeW StackTake.stPro StackTake.stPro_ok StackTake.fnL 0 (hWb TK.e)
@@ -1709,7 +1738,7 @@ theorem stack_take_segW {W : Frag isaLSE2} {rS : Scc.Sem.Range} (hp : Lays exe S
     knodeW StackTake.stJ1 StackTake.stJ1_ok StackTake.clsL 4 (hWb TK.j1)
     dsimp only [takeNG] at hJ ⊢
     rw [StackTake.stJ1_run]
-    exact .inl ⟨TK.d0, by dsimp only [takeNG]; rw [ofNat4_zero], rfl, hJ⟩
+    exact .inl ⟨TK.d0, by dsimp only [takeNP, takeNG]; rw [ofNat4_zero], rfl, hJ⟩
   case d0 =>
     refine seg_fixW b ?_
     refine seg_givenW TK.d2
@@ -1798,7 +1827,7 @@ theorem stack_take_segW {W : Frag isaLSE2} {rS : Scc.Sem.Range} (hp : Lays exe S
     dsimp only [takeNG] at hJ ⊢
     obtain ⟨rfl, hJ, h9⟩ := hJ
     obtain ⟨h1, h2, h3⟩ := StackTake.stEmpty_walk lab _ hJ h9
-    exact .inl ⟨TK.b0, by rw [h1]; dsimp only [takeNG]; rw [ofNat4_zero], by rw [h2]; rfl, rfl, h3.fr0⟩
+    exact .inl ⟨TK.b0, by rw [h1]; dsimp only [takeNP, takeNG]; rw [ofNat4_zero], by rw [h2]; rfl, rfl, h3.fr0⟩
   case b0 =>
     refine seg_fixW b ?_
     refine seg_givenW TK.b2
@@ -1856,7 +1885,7 @@ theorem stack_take_segW {W : Frag isaLSE2} {rS : Scc.Sem.Range} (hp : Lays exe S
     knodeW StackTake.stJ2 StackTake.stJ2_ok StackTake.bumpL 21 (hWb TK.b21)
     dsimp only [takeNG] at hJ ⊢
     rw [StackTake.stJ2_run]
-    exact .inl ⟨TK.ok0, by dsimp only [takeNG]; rw [ofNat4_zero], rfl, hJ⟩
+    exact .inl ⟨TK.ok0, by dsimp only [takeNP, takeNG]; rw [ofNat4_zero], rfl, hJ⟩
   case ok0 =>
     refine seg_fixW b ?_
     refine seg_givenW TK.ok2
@@ -1879,20 +1908,14 @@ theorem stack_take_segW {W : Frag isaLSE2} {rS : Scc.Sem.Range} (hp : Lays exe S
     obtain ⟨h1, h2, h3, h4, h5⟩ := StackTake.stSite_walk lab _ hJ
     exact .inl ⟨TK.site, by rw [h1]; exact eSite, by rw [h2]; rfl, rfl, h3, h4, h5⟩
   case site =>
-    refine seg_movedW (j := TK.ret) ((take_ndW (n' := takeNG lab q true TK.ret) rfl
+    refine seg_movedW (j := TK.ret) ((take_ndW (n := takeNG lab q false TK.site) (n' := takeNG lab q true TK.ret) rfl
       (fun s he hn => code_of hp hend hNop
-        (ofNat4_zero _) s he hn) (hWb TK.site) (fun m σ pm hA hD => ⟨hAbs hA, hFt m pm hD.1, fun _ => stackM_takeMem⟩)
+        (ofNat4_zero _) s he hn) (fun s c ⟨he, hn, hdc, hpc, σ, hA, hD, hJ⟩ => hW TK.site s c
+          ⟨he, hn, hdc, hpc, σ, hA, ⟨hD.1.1, hD.2 rfl⟩, hJ⟩)
+        (fun m σ pm hA hD => ⟨hAbs hA, ⟨hFt m pm hD.1.1, fun _ => stackM_takeMem⟩, nofun⟩)
       fun σ c hJ => ⟨rfl, c, .refl c, rfl, hJ.1, hJ.2.1⟩).mono_post fun _ _ h => ⟨true, h⟩)
   case ret =>
-    cases b
-    · exact seg_falseW.mono_pre fun _ _ ⟨_, _, _, _, _, _, _, h, _⟩ => Bool.false_ne_true h
-    refine seg_fixW true ?_
-    knodeW StackTake.stRet StackTake.stRet_ok StackTake.siteL 1 (blkW_mono (F := fun m => F m ∧ StackM rS m)
-      (F' := takeF F rS true) (hW TK.ret) fun m h => ⟨h.1, h.2 rfl⟩)
-    dsimp only [takeNG, takeXG] at hJ ⊢
-    obtain ⟨-, rfl, hJ⟩ := hJ
-    obtain ⟨h1, h2, h3⟩ := StackTake.stRet_walk lab _ hJ
-    exact .inr ⟨(), h1.symm, by rw [h2]; rfl, rfl, rfl, h3⟩
+    exact seg_falseW.mono_pre fun _ _ ⟨_, _, _, _, _, _, _, h, _⟩ => Bool.false_ne_true h
 
 end TakeProof
 
@@ -2181,17 +2204,48 @@ def tiNG (b : Bool) : TI → ND
 /-- The exit with the take's ghost. -/
 def tiXG (b : Bool) (x : Unit) : ND := tiA b (tiX lab q x)
 
+/-- A node before the take's call: its invariant, with the take not done (`b`). -/
+def tiB (b : Bool) (n : ND) : ND := ⟨n.pc, n.o, fun σ c => b = false ∧ n.J σ c⟩
+
+/-- **The nodes with the take's ghost, both sides gated**: `tiNG`, the nodes
+up to the call of `scc_rt_stack_take` only before the take is done. -/
+def tiNP (b : Bool) : TI → ND
+  | .e => tiB b (tiN lab q .e)
+  | .entry => tiB b (tiN lab q .entry)
+  | .call => tiB b (tiN lab q .call)
+  | .sp => tiNG lab q b .sp
+  | .st0 => tiNG lab q b .st0
+  | .f1 => tiNG lab q b .f1
+  | .st1 => tiNG lab q b .st1
+  | .f2 => tiNG lab q b .f2
+  | .st2 => tiNG lab q b .st2
+  | .f3 => tiNG lab q b .f3
+  | .st3 => tiNG lab q b .st3
+  | .f4 => tiNG lab q b .f4
+  | .st4 => tiNG lab q b .st4
+  | .f5 => tiNG lab q b .f5
+  | .st5 => tiNG lab q b .st5
+  | .ret => tiNG lab q b .ret
+
 end TiG
+
+/-- The caller's cells outside a callee's region (at `kc`, from `lo'` to
+`hi'`) hold values. -/
+def CallerCells (R : Region) (kc lo' hi' : Int) (m : MachineData) : Prop :=
+  ∀ k, R.Off k → ¬ (R.callee kc lo' hi').Off (k - kc) → (Mem.loadInt m.dmem (R.addr k) 8).isSome
 
 /-- **`scc_rt_thread_init`'s node obligations inside `W`**: the block
 nodes' states (`BlkW`), the stores' (`NodeW`), and at the call those of
-`scc_rt_stack_take` in the callee's region (`TakeW`, for every ghost). -/
+`scc_rt_stack_take` in the callee's region (`TakeW`, for every ghost,
+the caller's cells outside it holding values). -/
 def TiW (W : Frag isaLSE2) (K : State → State → Prop) (exe : _root_.Executable) (endPc : Int64) (R : Region)
-    (F M : MachineData → Prop) (q : TiG) : TI → Prop
+    (F M : MachineData → Prop) (q : TiG) (i : TI) (P : MachineData → Prop := fun _ => True) : Prop :=
+  match i with
   | .e => BlkW W K exe endPc R F (tiN (_root_.Executable.labels exe).label q .e) ThreadInit.tiPro
   | .entry => BlkW W K exe endPc R F (tiN (_root_.Executable.labels exe).label q .entry) ThreadInit.tiCall
   | .call => ∀ g, g.ra = ((_root_.Executable.labels exe).label ThreadInit.spL).toBitVec → ∀ i,
-      TakeW W K exe endPc (R.callee ThreadInit.oI.sp (-208) 0) F M (tiTake q g) i
+      TakeW W K exe endPc (R.callee ThreadInit.oI.sp (-208) 0)
+        (fun m => F m ∧ CallerCells R ThreadInit.oI.sp (-208) 0 m) M (tiTake q g) i P
   | .sp => BlkW W K exe endPc R (fun m => F m ∧ M m) (tiN (_root_.Executable.labels exe).label q .sp)
       ThreadInit.tiSp
   | .st0 => NodeW W K exe endPc R (fun m => F m ∧ M m) (tiN (_root_.Executable.labels exe).label q .st0)
@@ -2269,15 +2323,15 @@ theorem thread_init_segW {W : Frag isaLSE2} {rS : Scc.Sem.Range} (hp : Lays exe 
     (hFF : ∀ m, F m → F0 m) (q : TiG) (hk : q.k0.toNat + 16384 ≤ 536870912)
     (hfld : ∀ e ∈ ThreadInit.fields q.tcb (tiBase (_root_.Executable.labels exe).label q),
       StOk ms F0 exe endPc (q.tcb + BitVec.ofNat 64 e.1) e.2)
-    (htk : TakeOk ms F0 exe endPc q.k0)
-    (hW : ∀ i, TiW W (TakeK ((_root_.Executable.labels exe).label StackTake.siteL) rS) exe endPc R F (StackM rS) q i)
+    (htk : TakeOk ms F0 exe endPc q.k0) {P : MachineData → Prop} (hP : FStable R P)
+    (hW : ∀ i, TiW W (TakeK ((_root_.Executable.labels exe).label StackTake.siteL) rS) exe endPc R F (StackM rS) q i P)
     (hRS : ∀ k, R.Off k → ∀ i < 8, R.addr k + BitVec.ofNat 64 i ∉ Scc.Sem.Kernel.addrs rS)
     (hfit : rS.lo + rS.size ≤ 2 ^ 64)
     (hout : ∀ a, a % 8 = 0 → rS.contains a → rS.contains (a + 7) →
       (a : Int) + 8 ≤ R.base.toNat + R.lo ∨ (R.base.toNat : Int) + R.hi ≤ a)
     (hFt : ∀ m pm, F m → F (takeMem pm rS m)) :
     SegW W (TakeK ((_root_.Executable.labels exe).label StackTake.siteL) rS) p lbl ms
-      (At exe endPc R F (tiN (_root_.Executable.labels exe).label q .e))
+      (fun s c => At exe endPc R F (tiN (_root_.Executable.labels exe).label q .e) s c ∧ P s.st.1)
       (fun s c => ∃ x,
         At exe endPc R (fun m => F m ∧ StackM rS m) (tiX (_root_.Executable.labels exe).label q x) s c) := by
   have hin := ThreadInit.ret0_threadInitIn
@@ -2303,33 +2357,43 @@ theorem thread_init_segW {W : Frag isaLSE2} {rS : Scc.Sem.Range} (hp : Lays exe 
     rcases hout a h8 ha ha7 with h | h
     · exact .inl (by omega)
     · exact .inr (by omega)
-  refine ((fn_seg_gW (exe := exe) (endPc := endPc) (Rg := fun _ => R) (Fg := takeF F rS)
-      (N := tiNG (_root_.Executable.labels exe).label q) (E := tiXG (_root_.Executable.labels exe).label q)
+  -- `P` held until the take's call (`b = false`); the nodes up to it gated by `b = false` (`tiNP`)
+  refine ((fn_seg_gW (exe := exe) (endPc := endPc) (Rg := fun _ => R)
+      (Fg := fun b m => takeF F rS b m ∧ (b = false → P m))
+      (N := tiNP (_root_.Executable.labels exe).label q) (E := tiXG (_root_.Executable.labels exe).label q)
       (fun b i => ?_) false TI.e).mono_pre fun s c h => ?_).mono_post
     fun s c h => ?_
   rotate_left
-  · obtain ⟨he, hn, hdc, hpc, σ, hA, hD, hJ⟩ := h
-    exact ⟨he, hn, hdc, hpc, σ, hA, ⟨hD, nofun⟩, hJ⟩
-  · obtain ⟨g, x, he, hn, hdc, hpc, σ, hA, ⟨hD, hM⟩, hb, hJ⟩ := h
+  · obtain ⟨⟨he, hn, hdc, hpc, σ, hA, hD, hJ⟩, hPs⟩ := h
+    exact ⟨he, hn, hdc, hpc, σ, hA, ⟨⟨hD, nofun⟩, fun _ => hPs⟩, rfl, hJ⟩
+  · obtain ⟨g, x, he, hn, hdc, hpc, σ, hA, ⟨⟨hD, hM⟩, -⟩, hb, hJ⟩ := h
     subst hb
     exact ⟨x, he, hn, hdc, hpc, σ, hA, ⟨hD, hM rfl⟩, hJ⟩
-  have hFb : FStable R (takeF F rS b) := fun m m' ⟨hD, hM⟩ hd => ⟨hF m m' hD hd, fun hb => hSM m m' (hM hb) hd⟩
-  have hFFb : ∀ m, takeF F rS b m → F0 m := fun m h => hFF m h.1
-  cases i
+  have hFt0 : FStable R (takeF F rS b) := fun m m' ⟨hD, hM⟩ hd => ⟨hF m m' hD hd, fun hb => hSM m m' (hM hb) hd⟩
+  have hFb : FStable R (fun m => takeF F rS b m ∧ (b = false → P m)) := fun m m' ⟨hD, hPm⟩ hd =>
+    ⟨hFt0 m m' hD hd, fun hb => hP m m' (hPm hb) hd⟩
+  have hFFb : ∀ m, takeF F rS b m ∧ (b = false → P m) → F0 m := fun m h => hFF m h.1.1
+  cases i <;> dsimp only [tiNP]
   case e =>
-    refine seg_fixW b ?_
-    inodeW ThreadInit.tiPro ThreadInit.tiPro_ok ThreadInit.fnL 0 (blkW_mono (hW TI.e) fun m h => h.1)
-    dsimp only [tiNG, tiN] at hJ ⊢
-    obtain ⟨rfl, hJ⟩ := hJ
+    cases b
+    case true => exact seg_falseW.mono_pre fun _ _ ⟨_, _, _, _, _, _, _, h, _⟩ => absurd h (by decide)
+    refine seg_fixW false ?_
+    inodeW ThreadInit.tiPro ThreadInit.tiPro_ok ThreadInit.fnL 0
+      (fun s σ c he hn hdc hpc hA hD hJ => hW TI.e s σ c he hn hdc hpc hA hD.1.1 hJ.2)
+    dsimp only [tiNP, tiB, tiN] at hJ ⊢
+    obtain ⟨-, rfl, hJ⟩ := hJ
     obtain ⟨h1, h2, h3⟩ := ThreadInit.tiPro_walk lab _ hJ
-    exact .inl ⟨TI.entry, by rw [h1, ← eEntry]; rfl, by rw [h2]; rfl, rfl, h3⟩
+    exact .inl ⟨TI.entry, by rw [h1, ← eEntry]; rfl, by rw [h2]; rfl, rfl, rfl, h3⟩
   case entry =>
-    refine seg_fixW b ?_
-    inodeW ThreadInit.tiCall ThreadInit.tiCall_ok ThreadInit.entryL 0 (blkW_mono (hW TI.entry) fun m h => h.1)
-    dsimp only [tiNG, tiN] at hJ ⊢
-    obtain ⟨rfl, hJ⟩ := hJ
+    cases b
+    case true => exact seg_falseW.mono_pre fun _ _ ⟨_, _, _, _, _, _, _, h, _⟩ => absurd h (by decide)
+    refine seg_fixW false ?_
+    inodeW ThreadInit.tiCall ThreadInit.tiCall_ok ThreadInit.entryL 0
+      (fun s σ c he hn hdc hpc hA hD hJ => hW TI.entry s σ c he hn hdc hpc hA hD.1.1 hJ.2)
+    dsimp only [tiNP, tiB, tiN] at hJ ⊢
+    obtain ⟨-, rfl, hJ⟩ := hJ
     obtain ⟨h1, h2, h3⟩ := ThreadInit.tiCall_walk lab _ hJ
-    refine .inl ⟨TI.call, h1.symm, ?_, ⟨rfl, h2, h3⟩, ?_⟩
+    refine .inl ⟨TI.call, h1.symm, ?_, rfl, ⟨rfl, h2, h3⟩, ?_⟩
     · rw [ThreadInit.tiCall_run]; rfl
     · rw [ThreadInit.tiCall_run]
       simp only [ofInt_bmod]
@@ -2337,22 +2401,27 @@ theorem thread_init_segW {W : Frag isaLSE2} {rS : Scc.Sem.Range} (hp : Lays exe 
         show ∀ y : Int, y + 4 + 4 = y + 8 from fun y => by omega, BitVec.ofInt_add,
         Spike.Lib.int64_ofInt_toInt]; rfl
   case call =>
-    refine seg_fixW true ?_
-    refine call_nd_FW (lo' := -208) (hi' := 0) (M := StackM rS) (Ne := fun g => takeNG lab (tiTake q g) false .e)
+    cases b
+    case true => exact seg_falseW.mono_pre fun _ _ ⟨_, _, _, _, _, _, _, h, _⟩ => absurd h (by decide)
+    refine seg_fixW true ((call_nd_FWP (KC := True) (nC := tiN lab q .call) (lo' := -208) (hi' := 0) (M := StackM rS)
+      (P := P) (Ne := fun g => takeNG lab (tiTake q g) false .e)
       (Ex := fun g => takeXG lab (tiTake q g) true)
-      hR hal hFb (by show R.lo ≤ -48 + -208; omega) (by decide) (by show (-48 : Int) < R.hi; omega) (by decide)
+      hR hal hFt0 (by show R.lo ≤ -48 + -208; omega) (by decide) (by show (-48 : Int) < R.hi; omega) (by decide)
       (by show (-48 : Int) % 16 = 0; decide) (by decide) (by decide)
-      (TakeK.kstable fun m pm ⟨hD, _⟩ => ⟨hFt m pm hD, fun _ => stackM_takeMem⟩)
-      (fun s s' hk _ k hk' _ => by obtain ⟨pm, he⟩ := hk.mem; rw [he]; exact loadInt_takeMem (hRS k hk'))
-      (fun m h hM => ⟨h.1, fun _ => hM⟩)
-      (fun R' F' hR' hal' hlo' hhi' hF' hK' hFF' hR'e _ g' hg' _ => by
+      (fun _ => TakeK.kstable fun m pm ⟨hD, _⟩ => ⟨hFt m pm hD, fun _ => stackM_takeMem⟩)
+      (fun _ s s' hk _ k hk' _ => by obtain ⟨pm, he⟩ := hk.mem; rw [he]; exact loadInt_takeMem (hRS k hk'))
+      (fun m h hM => ⟨⟨h.1, fun _ => hM⟩, nofun⟩)
+      (fun R' F' hR' hal' hlo' hhi' hF' hK' hFF' hR'e hCC g' hg' _ => by
         subst hR'e
         obtain ⟨σC, c, ⟨-, h30⟩, ⟨-, -, -, h30', -⟩⟩ := hg'
         exact (stack_take_segW hp hend hF' hR' hal' hlo' hhi' (fun m h => hFF m (hFF' m h).1) (tiTake q g') hk htk
-          (fun i => (hW TI.call g' (h30'.symm.trans h30) i).mono fun m h => (hFF' m h).1) hRS' hfit hout'
-          (takeMem_of_kstable hK' exe endPc)).mono_post
+          (P := P) (FStable.callee hR (show R.lo ≤ -48 + -208 by omega) (by decide) (show (-48 : Int) < R.hi by omega)
+            (show (-48 : Int) + 0 ≤ R.hi by omega) hP)
+          (fun i => (hW TI.call g' (h30'.symm.trans h30) i).mono fun m h => ⟨(hFF' m h).1, hCC m h⟩) hRS' hfit hout'
+          (takeMem_of_kstable (hK' trivial) exe endPc)).mono_post
           fun s c ⟨x, he, hn, hdc, hpc, σ, hA, ⟨hD, hM⟩, hJ⟩ => ⟨x, ⟨he, hn, hdc, hpc, σ, hA, hD, hJ⟩, hM⟩)
-      (fun _ => rfl) ?_ ?_
+      (fun _ => rfl) ?_ ?_).mono_pre
+        fun s c ⟨he, hn, hdc, hpc, σ, hA, hD, hJ⟩ => ⟨he, hn, hdc, hpc, σ, hA, ⟨hD.1, hD.2 rfl⟩, hJ.2⟩)
     · rintro σC c ⟨⟨rfl, -, h0⟩, -⟩
       exact ⟨⟨σC.regs.SP.toBitVec, σC.regs.X29.toBitVec, σC.regs.X30.toBitVec⟩, rfl, rfl, rfl, rfl, rfl, h0⟩
     · rintro g x σC c σx c' σR ⟨⟨-, hfr, -⟩, h30⟩ ⟨-, hsp', -, h30', -⟩ ⟨-, rfl, hPost⟩ hregs - hslot
@@ -2374,7 +2443,7 @@ theorem thread_init_segW {W : Frag isaLSE2} {rS : Scc.Sem.Range} (hp : Lays exe 
         rw [hregs]; exact hPost.2.2.2
   case sp =>
     refine seg_fixW b ?_
-    inodeW ThreadInit.tiSp ThreadInit.tiSp_ok ThreadInit.spL 0 (blkW_tiS (hW TI.sp))
+    inodeW ThreadInit.tiSp ThreadInit.tiSp_ok ThreadInit.spL 0 (fun s σ c he hn hdc hpc hA hD hJ => blkW_tiS (hW TI.sp) s σ c he hn hdc hpc hA hD.1 hJ)
     dsimp only [tiNG, tiA, tiN] at hJ ⊢
     obtain ⟨rfl, rfl, hJ, h0⟩ := hJ
     obtain ⟨h1, h2, h3, h4, h5⟩ := ThreadInit.tiSp_walk lab _ hJ h0
@@ -2383,7 +2452,7 @@ theorem thread_init_segW {W : Frag isaLSE2} {rS : Scc.Sem.Range} (hp : Lays exe 
     refine seg_fixW b ?_
     have hc : blockAt SccCode.ret0Prog ThreadInit.spL (11 + 3 * 0) [strDir .X9 .X10 0] = true :=
       (show parseAArch64("str x9, [x10]") = [strDir .X9 .X10 0] by decide) ▸ hin'.1.1.1.1.1.1.1.1.1.1.1.2
-    refine rtst_ndW (code_of hp hend hc rfl) (nodeW_tiS (hW TI.st0)) fun m σ c _ hD hJ => ?_
+    refine rtst_ndW (code_of hp hend hc rfl) (nodeW_mono (F := takeF F rS b) (nodeW_tiS (hW TI.st0)) fun m h => h.1) fun m σ c _ hD hJ => ?_
     dsimp only [tiNG, tiA, tiN] at hJ
     obtain ⟨rfl, rfl, hJ, h9, h10⟩ := hJ
     have hfi := hfld (8 * 0, q.tcb) (by simp [ThreadInit.fields])
@@ -2393,7 +2462,7 @@ theorem thread_init_segW {W : Frag isaLSE2} {rS : Scc.Sem.Range} (hp : Lays exe 
       .inl ⟨TI.f1, (ofNat4_succ' _ _).symm, rfl, rfl, rfl, hJ⟩⟩
   case f1 =>
     refine seg_fixW b ?_
-    inodeW ThreadInit.tiF1 ThreadInit.tiF1_ok ThreadInit.spL 12 (blkW_tiS (hW TI.f1))
+    inodeW ThreadInit.tiF1 ThreadInit.tiF1_ok ThreadInit.spL 12 (fun s σ c he hn hdc hpc hA hD hJ => blkW_tiS (hW TI.f1) s σ c he hn hdc hpc hA hD.1 hJ)
     dsimp only [tiNG, tiA, tiN] at hJ ⊢
     obtain ⟨rfl, rfl, hJ⟩ := hJ
     obtain ⟨h1, h2, h3, h4, h5⟩ := ThreadInit.tiF1_walk lab _ hJ
@@ -2402,7 +2471,7 @@ theorem thread_init_segW {W : Frag isaLSE2} {rS : Scc.Sem.Range} (hp : Lays exe 
     refine seg_fixW b ?_
     have hc : blockAt SccCode.ret0Prog ThreadInit.spL (11 + 3 * 1) [strDir .X9 .X10 8] = true :=
       (show parseAArch64("str x9, [x10, #8]") = [strDir .X9 .X10 8] by decide) ▸ hin'.1.1.1.1.1.1.1.1.1.2
-    refine rtst_ndW (code_of hp hend hc rfl) (nodeW_tiS (hW TI.st1)) fun m σ c _ hD hJ => ?_
+    refine rtst_ndW (code_of hp hend hc rfl) (nodeW_mono (F := takeF F rS b) (nodeW_tiS (hW TI.st1)) fun m h => h.1) fun m σ c _ hD hJ => ?_
     dsimp only [tiNG, tiA, tiN] at hJ
     obtain ⟨rfl, rfl, hJ, h9, h10⟩ := hJ
     have hfi := hfld (8 * 1, tiBase (_root_.Executable.labels exe).label q + 4096#64) (by simp [ThreadInit.fields])
@@ -2412,7 +2481,7 @@ theorem thread_init_segW {W : Frag isaLSE2} {rS : Scc.Sem.Range} (hp : Lays exe 
       .inl ⟨TI.f2, (ofNat4_succ' _ _).symm, rfl, rfl, rfl, hJ⟩⟩
   case f2 =>
     refine seg_fixW b ?_
-    inodeW ThreadInit.tiF2 ThreadInit.tiF2_ok ThreadInit.spL 15 (blkW_tiS (hW TI.f2))
+    inodeW ThreadInit.tiF2 ThreadInit.tiF2_ok ThreadInit.spL 15 (fun s σ c he hn hdc hpc hA hD hJ => blkW_tiS (hW TI.f2) s σ c he hn hdc hpc hA hD.1 hJ)
     dsimp only [tiNG, tiA, tiN] at hJ ⊢
     obtain ⟨rfl, rfl, hJ⟩ := hJ
     obtain ⟨h1, h2, h3, h4, h5⟩ := ThreadInit.tiF2_walk lab _ hJ
@@ -2421,7 +2490,7 @@ theorem thread_init_segW {W : Frag isaLSE2} {rS : Scc.Sem.Range} (hp : Lays exe 
     refine seg_fixW b ?_
     have hc : blockAt SccCode.ret0Prog ThreadInit.spL (11 + 3 * 2) [strDir .X9 .X10 16] = true :=
       (show parseAArch64("str x9, [x10, #16]") = [strDir .X9 .X10 16] by decide) ▸ hin'.1.1.1.1.1.1.1.2
-    refine rtst_ndW (code_of hp hend hc rfl) (nodeW_tiS (hW TI.st2)) fun m σ c _ hD hJ => ?_
+    refine rtst_ndW (code_of hp hend hc rfl) (nodeW_mono (F := takeF F rS b) (nodeW_tiS (hW TI.st2)) fun m h => h.1) fun m σ c _ hD hJ => ?_
     dsimp only [tiNG, tiA, tiN] at hJ
     obtain ⟨rfl, rfl, hJ, h9, h10⟩ := hJ
     have hfi := hfld (8 * 2, 0#64) (by simp [ThreadInit.fields])
@@ -2431,7 +2500,7 @@ theorem thread_init_segW {W : Frag isaLSE2} {rS : Scc.Sem.Range} (hp : Lays exe 
       .inl ⟨TI.f3, (ofNat4_succ' _ _).symm, rfl, rfl, rfl, hJ⟩⟩
   case f3 =>
     refine seg_fixW b ?_
-    inodeW ThreadInit.tiF3 ThreadInit.tiF3_ok ThreadInit.spL 18 (blkW_tiS (hW TI.f3))
+    inodeW ThreadInit.tiF3 ThreadInit.tiF3_ok ThreadInit.spL 18 (fun s σ c he hn hdc hpc hA hD hJ => blkW_tiS (hW TI.f3) s σ c he hn hdc hpc hA hD.1 hJ)
     dsimp only [tiNG, tiA, tiN] at hJ ⊢
     obtain ⟨rfl, rfl, hJ⟩ := hJ
     obtain ⟨h1, h2, h3, h4, h5⟩ := ThreadInit.tiF3_walk lab _ hJ
@@ -2440,7 +2509,7 @@ theorem thread_init_segW {W : Frag isaLSE2} {rS : Scc.Sem.Range} (hp : Lays exe 
     refine seg_fixW b ?_
     have hc : blockAt SccCode.ret0Prog ThreadInit.spL (11 + 3 * 3) [strDir .X9 .X10 24] = true :=
       (show parseAArch64("str x9, [x10, #24]") = [strDir .X9 .X10 24] by decide) ▸ hin'.1.1.1.1.1.2
-    refine rtst_ndW (code_of hp hend hc rfl) (nodeW_tiS (hW TI.st3)) fun m σ c _ hD hJ => ?_
+    refine rtst_ndW (code_of hp hend hc rfl) (nodeW_mono (F := takeF F rS b) (nodeW_tiS (hW TI.st3)) fun m h => h.1) fun m σ c _ hD hJ => ?_
     dsimp only [tiNG, tiA, tiN] at hJ
     obtain ⟨rfl, rfl, hJ, h9, h10⟩ := hJ
     have hfi := hfld (8 * 3, 0#64) (by simp [ThreadInit.fields])
@@ -2450,7 +2519,7 @@ theorem thread_init_segW {W : Frag isaLSE2} {rS : Scc.Sem.Range} (hp : Lays exe 
       .inl ⟨TI.f4, (ofNat4_succ' _ _).symm, rfl, rfl, rfl, hJ⟩⟩
   case f4 =>
     refine seg_fixW b ?_
-    inodeW ThreadInit.tiF4 ThreadInit.tiF4_ok ThreadInit.spL 21 (blkW_tiS (hW TI.f4))
+    inodeW ThreadInit.tiF4 ThreadInit.tiF4_ok ThreadInit.spL 21 (fun s σ c he hn hdc hpc hA hD hJ => blkW_tiS (hW TI.f4) s σ c he hn hdc hpc hA hD.1 hJ)
     dsimp only [tiNG, tiA, tiN] at hJ ⊢
     obtain ⟨rfl, rfl, hJ⟩ := hJ
     obtain ⟨h1, h2, h3, h4, h5⟩ := ThreadInit.tiF4_walk lab _ hJ
@@ -2459,7 +2528,7 @@ theorem thread_init_segW {W : Frag isaLSE2} {rS : Scc.Sem.Range} (hp : Lays exe 
     refine seg_fixW b ?_
     have hc : blockAt SccCode.ret0Prog ThreadInit.spL (11 + 3 * 4) [strDir .X9 .X10 32] = true :=
       (show parseAArch64("str x9, [x10, #32]") = [strDir .X9 .X10 32] by decide) ▸ hin'.1.1.1.2
-    refine rtst_ndW (code_of hp hend hc rfl) (nodeW_tiS (hW TI.st4)) fun m σ c _ hD hJ => ?_
+    refine rtst_ndW (code_of hp hend hc rfl) (nodeW_mono (F := takeF F rS b) (nodeW_tiS (hW TI.st4)) fun m h => h.1) fun m σ c _ hD hJ => ?_
     dsimp only [tiNG, tiA, tiN] at hJ
     obtain ⟨rfl, rfl, hJ, h9, h10⟩ := hJ
     have hfi := hfld (8 * 4, tiBase (_root_.Executable.labels exe).label q) (by simp [ThreadInit.fields])
@@ -2469,7 +2538,7 @@ theorem thread_init_segW {W : Frag isaLSE2} {rS : Scc.Sem.Range} (hp : Lays exe 
       .inl ⟨TI.f5, (ofNat4_succ' _ _).symm, rfl, rfl, rfl, hJ⟩⟩
   case f5 =>
     refine seg_fixW b ?_
-    inodeW ThreadInit.tiF5 ThreadInit.tiF5_ok ThreadInit.spL 24 (blkW_tiS (hW TI.f5))
+    inodeW ThreadInit.tiF5 ThreadInit.tiF5_ok ThreadInit.spL 24 (fun s σ c he hn hdc hpc hA hD hJ => blkW_tiS (hW TI.f5) s σ c he hn hdc hpc hA hD.1 hJ)
     dsimp only [tiNG, tiA, tiN] at hJ ⊢
     obtain ⟨rfl, rfl, hJ⟩ := hJ
     obtain ⟨h1, h2, h3, h4, h5⟩ := ThreadInit.tiF5_walk lab _ hJ
@@ -2478,7 +2547,7 @@ theorem thread_init_segW {W : Frag isaLSE2} {rS : Scc.Sem.Range} (hp : Lays exe 
     refine seg_fixW b ?_
     have hc : blockAt SccCode.ret0Prog ThreadInit.spL (11 + 3 * 5) [strDir .X9 .X10 40] = true :=
       (show parseAArch64("str x9, [x10, #40]") = [strDir .X9 .X10 40] by decide) ▸ hin'.1.2
-    refine rtst_ndW (code_of hp hend hc rfl) (nodeW_tiS (hW TI.st5)) fun m σ c _ hD hJ => ?_
+    refine rtst_ndW (code_of hp hend hc rfl) (nodeW_mono (F := takeF F rS b) (nodeW_tiS (hW TI.st5)) fun m h => h.1) fun m σ c _ hD hJ => ?_
     dsimp only [tiNG, tiA, tiN] at hJ
     obtain ⟨rfl, rfl, hJ, h9, h10⟩ := hJ
     have hfi := hfld (8 * 5, tiBase (_root_.Executable.labels exe).label q + 16384#64) (by simp [ThreadInit.fields])
@@ -2488,7 +2557,7 @@ theorem thread_init_segW {W : Frag isaLSE2} {rS : Scc.Sem.Range} (hp : Lays exe 
       .inl ⟨TI.ret, (ofNat4_succ' _ _).symm, rfl, rfl, rfl, hJ⟩⟩
   case ret =>
     refine seg_fixW b ?_
-    inodeW ThreadInit.tiRet ThreadInit.tiRet_ok ThreadInit.spL 27 (blkW_tiS (hW TI.ret))
+    inodeW ThreadInit.tiRet ThreadInit.tiRet_ok ThreadInit.spL 27 (fun s σ c he hn hdc hpc hA hD hJ => blkW_tiS (hW TI.ret) s σ c he hn hdc hpc hA hD.1 hJ)
     dsimp only [tiNG, tiA, tiN, tiXG, tiX] at hJ ⊢
     obtain ⟨rfl, rfl, hJ⟩ := hJ
     obtain ⟨h1, h2, h3⟩ := ThreadInit.tiRet_walk lab _ hJ
@@ -2775,11 +2844,6 @@ structure WcW (W : Frag isaLSE2) (K : State → State → Prop) (exe : _root_.Ex
     (wcJ0 g)
   body : WcBodyW W K exe endPc R F (wcN1 (_root_.Executable.labels exe).label g).J
 
-/-- The caller's cells outside a callee's region (at `kc`, from `lo'` to
-`hi'`) hold values. -/
-def CallerCells (R : Region) (kc lo' hi' : Int) (m : MachineData) : Prop :=
-  ∀ k, R.Off k → ¬ (R.callee kc lo' hi').Off (k - kc) → (Mem.loadInt m.dmem (R.addr k) 8).isSome
-
 /-- **`scc_rt_main`'s states inside `W`**, none moved by `K`: its prologue's,
 the call block's, `wc_main`'s in the callee's region (for every ghost with
 the caller's source control and thread pointer, the caller's cells outside
@@ -2962,13 +3026,15 @@ structure SwW (W : Frag isaLSE2) (K : State → State → Prop) (exe : _root_.Ex
 /-- **`scc_rt_start` from `.sp2` to the switch: its states inside `W`**,
 none moved by `K`: `.sp2`'s block, `scc_rt_thread_init`'s in the callee's
 region (for every ghost), `.sp3`'s block and the `msr`, the last two with
-the stack range in private memory. -/
+the stack range in private memory; `scc_rt_thread_init`'s take site at
+frame condition `P` too (`True` by default). -/
 structure Sp2W (W : Frag isaLSE2) (K : State → State → Prop) (exe : _root_.Executable) (endPc : Int64)
-    (R : Region) (F : MachineData → Prop) (rS : Scc.Sem.Range) (n0 k0 : BitVec 64) (c0 : Ctl) : Prop where
+    (R : Region) (F : MachineData → Prop) (rS : Scc.Sem.Range) (n0 k0 : BitVec 64) (c0 : Ctl)
+    (P : MachineData → Prop := fun _ => True) : Prop where
   b2 : BlkW W K exe endPc R F (startN2 (_root_.Executable.labels exe).label n0 c0) startCall2
   ti : ∀ g, g.ra = ((_root_.Executable.labels exe).label sp3L).toBitVec → ∀ i,
     TiW W K exe endPc (R.callee Abort.oI.sp (-256) 0) F (StackM rS)
-    ⟨g, pinA (_root_.Executable.labels exe).label + n0 + 8#64, k0, c0⟩ i
+    ⟨g, pinA (_root_.Executable.labels exe).label + n0 + 8#64, k0, c0⟩ i P
   b3 : BlkW W K exe endPc R (fun m => F m ∧ StackM rS m)
     (startN3 (_root_.Executable.labels exe).label (pinA (_root_.Executable.labels exe).label + n0 + 8#64)
       (stacksA (_root_.Executable.labels exe).label + k0 + 16384#64) c0) startSw0
@@ -3005,15 +3071,15 @@ variable {p : Prog} {lbl : WeakMem.AllocLabel → Option Nat} {ms : MemSide isaL
   {R : Spike.Lib.Region} {F : MachineData → Prop}
 
 omit [Kraken.Executable.ValidLayout exe] in
-theorem TiW.mono {W : Frag isaLSE2} {K : State → State → Prop} {F' M : MachineData → Prop} {q : TiG} {i : TI}
-    (h : TiW W K exe endPc R F M q i) (hFF : ∀ m, F' m → F m) : TiW W K exe endPc R F' M q i := by
+theorem TiW.mono {W : Frag isaLSE2} {K : State → State → Prop} {F' M P : MachineData → Prop} {q : TiG} {i : TI}
+    (h : TiW W K exe endPc R F M q i P) (hFF : ∀ m, F' m → F m) : TiW W K exe endPc R F' M q i P := by
   cases i <;> dsimp only [TiW] at h ⊢
   all_goals first
     | exact blkW_mono h hFF
     | exact nodeW_mono h hFF
     | exact blkW_mono h fun m h => ⟨hFF m h.1, h.2⟩
     | exact nodeW_mono h fun m h => ⟨hFF m h.1, h.2⟩
-    | exact fun g hg i => (h g hg i).mono hFF
+    | exact fun g hg i => (h g hg i).mono fun m h => ⟨hFF m h.1, h.2⟩
 
 /-- **From the switch on, inside `W`** (`start_switch_seg`, its states'
 obligations `hW`). The new stack's cells hold values at the switch since
@@ -3152,9 +3218,10 @@ theorem start_sp2_sw_segW {W : Frag isaLSE2} {rS : Scc.Sem.Range} (hp : Lays exe
       (fun R' F' hR' hal' hlo' hhi' hF' hK' hFF' hR'e _ g' hg' _ => by
         subst hR'e
         obtain ⟨σC, c, ⟨-, h30⟩, ⟨-, -, -, h30', -⟩⟩ := hg'
-        exact (thread_init_segW hp hend hF' hR' hal' hlo' hhi' hFF' ⟨g', tcb, k0, c0⟩ hk hfld htk
+        exact ((thread_init_segW hp hend hF' hR' hal' hlo' hhi' hFF' ⟨g', tcb, k0, c0⟩ hk hfld htk
+          (P := fun _ => True) (fun _ _ h _ => h)
           (fun i => (hW.ti g' (h30'.symm.trans h30) i).mono hFF') hRS' hfit hout'
-          (takeMem_of_kstable hK' exe endPc)).mono_post
+          (takeMem_of_kstable hK' exe endPc)).mono_pre fun _ _ h => ⟨h, trivial⟩).mono_post
           fun s c ⟨x, he, hn, hdc, hpc, σ, hA, ⟨hD, hM⟩, hJ⟩ => ⟨x, ⟨he, hn, hdc, hpc, σ, hA, hD, hJ⟩, hM⟩)
       (fun _ => rfl) ?_ ?_)
     · rintro σC c ⟨⟨rfl, h0, -⟩, -⟩
@@ -3378,5 +3445,10 @@ named hypotheses, never theorems:
   whole-program proof gives the take site's move of the stack into the
   thread's private memory.
 -/
+
+/-- info: 'Spike.Lib.A64.Flow.Ret0.stack_take_segW' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in #print axioms Spike.Lib.A64.Flow.Ret0.stack_take_segW
+/-- info: 'Spike.Lib.A64.Flow.Ret0.thread_init_segW' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in #print axioms Spike.Lib.A64.Flow.Ret0.thread_init_segW
 
 end Spike.Lib.A64.Flow.Ret0

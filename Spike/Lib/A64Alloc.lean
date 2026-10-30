@@ -312,9 +312,38 @@ structure Call.OK (ms : MemSide isaLSE2) (lab : Label → Int64) (q : Call) : Pr
   mp : ms.mp (ctrLoc ms) true
   grow : ∀ old : Val, ms.G (ctrLoc ms) old → (old.setWidth 64).toNat ≤ ms.cells →
     ms.G (ctrLoc ms) ((old.setWidth 64 + q.u ms).setWidth 128)
-  hdr : ∀ o, o + ms.units q.n q.τ ≤ ms.cells →
+  hdr : ∀ o, ms.lo o → o + ms.units q.n q.τ ≤ ms.cells →
     ms.rt (q.hdrAt ms o) ∧ ms.mp ⟨BitVec.ofNat 64 (q.hdrAt ms o), 8⟩ true ∧
       ms.G ⟨BitVec.ofNat 64 (q.hdrAt ms o), 8⟩ (q.hdr.setWidth 128)
+
+/-- **The call's premises at any allocation site** (`AllocSite`: the
+buffer allocation `Call.OK` asks for, or, where the memory side allows it,
+`ms.newOk`, a box `new` of one object of type `τ`): `Call.OK` with its
+`term`, `ev` and `num` replaced by `site`. Everything but the `ret` node
+(`seg_allocW_gen`) holds from these. -/
+structure Call.OKS (ms : MemSide isaLSE2) (lab : Label → Int64) (q : Call) : Prop where
+  site : AllocSite ms.newOk q.c0 q.x q.n q.τ q.e
+  hold : q.c0.hold = none
+  n_lt : q.n < 2 ^ 64
+  ctr : (lab "scc_rt_heap_use").toBitVec = BitVec.ofNat 64 ms.ctr
+  heap : (lab "scc_rt_heap").toBitVec.toNat = ms.heap
+  room : ms.heap + 2 ^ 46 ≤ 2 ^ 64
+  cells : ms.cells = 4194304
+  units : ms.units q.n q.τ < 2 ^ 63
+  off : ms.off q.n q.τ = 8 * (q.n * (mOf q.h).toNat) + 8
+  accs : ∃ us, TermRun.accs (TermRun.close [] q.τ) = some us
+  rt : ms.rt (BitVec.ofNat 64 ms.ctr).toNat
+  mp : ms.mp (ctrLoc ms) true
+  grow : ∀ old : Val, ms.G (ctrLoc ms) old → (old.setWidth 64).toNat ≤ ms.cells →
+    ms.G (ctrLoc ms) ((old.setWidth 64 + q.u ms).setWidth 128)
+  hdr : ∀ o, ms.lo o → o + ms.units q.n q.τ ≤ ms.cells →
+    ms.rt (q.hdrAt ms o) ∧ ms.mp ⟨BitVec.ofNat 64 (q.hdrAt ms o), 8⟩ true ∧
+      ms.G ⟨BitVec.ofNat 64 (q.hdrAt ms o), 8⟩ (q.hdr.setWidth 128)
+
+/-- A buffer allocation's premises are ones at its site. -/
+theorem Call.OK.toS {ms : MemSide isaLSE2} {lab : Label → Int64} {q : Call} (h : q.OK ms lab) :
+    q.OKS ms lab :=
+  { h with site := .inl ⟨q.a, q.ta, q.ws, h.term, h.ev, h.num⟩ }
 
 /-- The internal nodes. -/
 inductive AN where
@@ -339,7 +368,8 @@ def Jc (σ : AS) (c : Ctl) : Prop := c = q.c0 ∧ Fr ms q σ ∧ q.n < 2 ^ 28
 /-- After the add, within the cells: the hold records the old value `o`,
 in its cell. -/
 def Jok (o : BitVec 64) (σ : AS) (c : Ctl) : Prop :=
-  c = holdCtr ms q.c0 o ∧ o.toNat + ms.units q.n q.τ ≤ ms.cells ∧ Fr ms q σ ∧ q.n < 2 ^ 28 ∧ σ.slot (-128) = o
+  c = holdCtr ms q.c0 o ∧ o.toNat + ms.units q.n q.τ ≤ ms.cells ∧ Fr ms q σ ∧ q.n < 2 ^ 28 ∧ σ.slot (-128) = o ∧
+    ms.lo o.toNat
 
 /-- After the add, past the cells. -/
 def Jslow (o : BitVec 64) (σ : AS) (c : Ctl) : Prop :=
@@ -373,7 +403,8 @@ def N : AN → ND
   | .rmw => ⟨lab ".L2_scc_rt_alloc.1_cnt" + 4 + 4 + 4 + 4 + 4, oI, fun σ c => Jc ms q σ c ∧
       σ.regs.X10.toBitVec = BitVec.ofNat 64 ms.ctr ∧ σ.regs.X9.toBitVec = q.u ms⟩
   | .n4 => ⟨lab ".L2_scc_rt_alloc.1_cnt" + 4 + 4 + 4 + 4 + 4 + 4, oI, fun σ c => ∃ o : BitVec 64,
-      c = holdCtr ms q.c0 o ∧ o.toNat ≤ ms.cells ∧ Fr ms q σ ∧ q.n < 2 ^ 28 ∧ σ.regs.X11.toBitVec = o⟩
+      c = holdCtr ms q.c0 o ∧ o.toNat ≤ ms.cells ∧ Fr ms q σ ∧ q.n < 2 ^ 28 ∧ σ.regs.X11.toBitVec = o ∧
+      ms.lo o.toNat⟩
   | .n5 => ⟨lab ".L2_scc_rt_alloc.1_cnt" + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4, oI,
       fun σ c => ∃ o, Jok ms q o σ c⟩
   | .slow => ⟨lab ".L2_scc_rt_alloc.2_slow", oI, fun σ c => ∃ o, Jslow ms q o σ c⟩
@@ -401,7 +432,7 @@ def N : AN → ND
       4 + 4, oE, fun σ c => ∃ o : BitVec 64, c = holdCtr ms q.c0 o ∧
       o.toNat + ms.units q.n q.τ ≤ ms.cells ∧ q.n < 2 ^ 28 ∧
       σ.regs.X0.toBitVec = H lab + o <<< 4 + (q.k * mOf q.h) <<< 3 + 8#64 ∧
-      σ.regs.X29.toBitVec = q.x29 ∧ σ.regs.X30.toBitVec = q.ra⟩
+      σ.regs.X29.toBitVec = q.x29 ∧ σ.regs.X30.toBitVec = q.ra ∧ ms.lo o.toNat⟩
 
 /-- **The exits**: the return to `ra` past the source's allocation step,
 and the heap abort. -/
@@ -409,7 +440,7 @@ def E (lbl : WeakMem.AllocLabel → Option Nat) : AX → ND
   | .ret => ⟨Int64.ofBitVec q.ra, oE, fun σ c => ∃ (l : WeakMem.AllocLabel) (ini old : Nat),
       Scc.Sem.ValRep lbl (.loc ⟨l, 0⟩ 0) σ.regs.X0.toNat ∧ c = allocCtl q.c0 q.x q.τ q.e q.n l ini ∧
       σ.regs.X0.toNat = ms.heap + 16 * old + ms.off q.n q.τ ∧ old + ms.units q.n q.τ ≤ ms.cells ∧
-      σ.regs.X29.toBitVec = q.x29 ∧ σ.regs.X30.toBitVec = q.ra⟩
+      ms.lo old ∧ σ.regs.X29.toBitVec = q.x29 ∧ σ.regs.X30.toBitVec = q.ra⟩
   | .abort => ⟨lab "scc_rt_abort", oI, fun σ c => σ.regs.X0 = 2 ∧ Jfull ms q c⟩
 
 /-- **The allocation's continuation** at the fresh label `l`, base `b`:
@@ -420,7 +451,7 @@ words). -/
 def Ea (l : WeakMem.AllocLabel) (b w : Nat) : ND :=
   ⟨Int64.ofBitVec q.ra, oE, fun σ c => ∃ (ini old : Nat), c = allocCtl q.c0 q.x q.τ q.e q.n l ini ∧
     σ.regs.X0.toNat = b ∧ b = ms.heap + 16 * old + ms.off q.n q.τ ∧ old + ms.units q.n q.τ ≤ ms.cells ∧
-    σ.regs.X29.toBitVec = q.x29 ∧ σ.regs.X30.toBitVec = q.ra ∧
+    ms.lo old ∧ σ.regs.X29.toBitVec = q.x29 ∧ σ.regs.X30.toBitVec = q.ra ∧
     ∃ us, TermRun.accs (TermRun.close [] q.τ) = some us ∧ w = q.n * TermRun.nWords us⟩
 
 /-- **The code**: every block and single instruction at its node's pc. -/
@@ -501,6 +532,16 @@ theorem Call.u_toNat {ms : MemSide isaLSE2} {q : Call} (h : ms.units q.n q.τ < 
     (q.u ms).toNat = ms.units q.n q.τ := by
   simp only [Call.u, BitVec.toNat_ofNat]; exact Nat.mod_eq_of_lt (by omega)
 
+/-- **`.4_full`'s `bl scc_rt_abort` sets `x30` past itself**: `b9_run`'s
+return address from the block's pc `pc`. -/
+theorem b9_x30 (pc : Int64) :
+    BitVec.ofInt 64 ((pc.toInt + 4 + 4).bmod 18446744073709551616) = (pc + 8).toBitVec := by
+  have hb : ∀ y : Int, BitVec.ofInt 64 (y.bmod 18446744073709551616) = BitVec.ofInt 64 y := fun y => by
+    apply BitVec.eq_of_toNat_eq; simp only [BitVec.toNat_ofInt]; rw [Int.bmod_emod]
+  rw [hb]
+  simp only [Int.add_assoc, BitVec.ofInt_add, Spike.Lib.int64_ofInt_toInt, Int64.toBitVec_add]
+  rfl
+
 section Proof
 
 variable {p : Prog} {lbl : WeakMem.AllocLabel → Option Nat} {ms : MemSide isaLSE2}
@@ -513,22 +554,29 @@ macro "anode " b:ident ok:ident f:ident : tactic =>
   `(tactic| refine seg_ndW (by simp [$b:ident]) $ok hF hR hal hlo hhi
     (fun s he hn => hcode.$f s he hn) hW.$f fun σ c hJ => ⟨c, .refl c, ?_⟩)
 
-/-- **`scc_rt_alloc` is one segment inside `W` from any of its nodes `i0`**
-to its return or its heap abort (`seg_allocW` from its entry). -/
-theorem seg_allocW_at {W : Frag isaLSE2} {K : State → State → Prop} {F : MachineData → Prop} (hF : FStable R F)
+/-- **`scc_rt_alloc` is one segment inside `W` from any of its nodes `i0`,
+at any allocation site** (`Call.OKS`), to its exits `Ex`: the heap abort
+reaching `Ex .abort` from `E`'s with `x30` the return address of `.4_full`'s
+`bl scc_rt_abort` (`hab`), and whatever the `ret` node reaches (`hret`, the one node
+whose step depends on the site: `Out.alloc` at a buffer allocation,
+`seg_allocW_at`; a silent `ret` keeping the hold at a box allocation). -/
+theorem seg_allocW_genR {W : Frag isaLSE2} {K : State → State → Prop} {F : MachineData → Prop} (hF : FStable R F)
     (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -160) (hhi : 0 ≤ R.hi)
-    (hq : q.OK ms (_root_.Executable.labels exe).label) (hcode : Code ms q exe endPc)
+    (hq : q.OKS ms (_root_.Executable.labels exe).label) (hcode : Code ms q exe endPc)
     (hentry : (_root_.Executable.labels exe).label ".L2_scc_rt_alloc.0_entry" =
       (_root_.Executable.labels exe).label "scc_rt_alloc" + 4 + 4 + 4 + 4 + 4 + 4 + 4)
     (hmem : ∀ a : BitVec 64,
       (a = BitVec.ofNat 64 ms.ctr ∨ ∃ o, o + ms.units q.n q.τ ≤ ms.cells ∧ a.toNat = q.hdrAt ms o) →
       ∀ m, F m → Mem.loadInt m.dmem a 8 = none)
-    (hxa : ∀ l b w s c, lbl l = none →
-      At exe endPc R F (Ea ms q l b w) s c → ms.xa l b w s c)
-    (hW : AllocW ms q W K exe endPc R F) (i0 : AN) :
+    (hW : AllocW ms q W K exe endPc R F) {Ex : AX → ND}
+    (hab : ∀ am c, Hit (E (_root_.Executable.labels exe).label ms q lbl .abort) am c →
+      am.σ.regs.X30.toBitVec = ((_root_.Executable.labels exe).label ".L2_scc_rt_alloc.4_full" + 8).toBitVec →
+      Hit (Ex .abort) am c)
+    (hret : SegW W K p lbl ms (At exe endPc R F (N (_root_.Executable.labels exe).label ms q .ret))
+      (Next exe endPc R F (N (_root_.Executable.labels exe).label ms q) Ex)) (i0 : AN) :
     SegW W K p lbl ms (At exe endPc R F (N (_root_.Executable.labels exe).label ms q i0))
-      (fun s c => ∃ x, At exe endPc R F (E (_root_.Executable.labels exe).label ms q lbl x) s c) := by
-  refine fn_segW (N := N _ ms q) (E := E _ ms q lbl) (fun i => ?_) i0
+      (fun s c => ∃ x, At exe endPc R F (Ex x) s c) := by
+  refine fn_segW (N := N _ ms q) (E := Ex) (fun i => ?_) i0
   cases i
   case e =>
     anode b0 b0_ok e; rw [N, b0_run]
@@ -565,16 +613,16 @@ theorem seg_allocW_at {W : Frag isaLSE2} {K : State → State → Prop} {F : Mac
     refine .inl ⟨AN.rmw, rfl, rfl, ⟨rfl, ?_, hn28⟩, h9, hF.2.2.2.2⟩
     simp_all [Fr, upd_apply]
   case rmw =>
-    refine ctr_ndW hF (fun s he hn => hcode.rmw s he hn)
+    refine ctr_ndWS hF (fun s he hn => hcode.rmw s he hn)
       hW.rmw fun m σ c hA hD hJ => ?_
     obtain ⟨⟨rfl, hF, hn28⟩, h10, h9⟩ := hJ
     have hnone := hmem _ (.inl rfl)
-    refine ⟨h10, hq.rt, hq.mp, hnone _ hD, q.x, q.a, q.τ, q.e, q.ta, q.ws, q.n, hq.term, hq.ev,
-      hq.num, hq.hold, by rw [getRegOrZr_x]; exact h9, fun old hG hle =>
-        ⟨hq.grow old hG hle, .inl ⟨AN.n4, rfl, rfl, _, rfl, hle, hF, hn28, rfl⟩⟩⟩
+    refine ⟨h10, hq.rt, hq.mp, hnone _ hD, q.x, q.τ, q.e, q.n, hq.site, hq.hold,
+      by rw [getRegOrZr_x]; exact h9, fun old hG hle hlo =>
+        ⟨hq.grow old hG hle, .inl ⟨AN.n4, rfl, rfl, _, rfl, hle, hF, hn28, rfl, hlo⟩⟩⟩
   case n4 =>
     anode b4 b4_ok n4; rw [N, b4_run]
-    obtain ⟨o, rfl, ho, hF, hn28, h11⟩ := hJ
+    obtain ⟨o, rfl, ho, hF, hn28, h11, hlo⟩ := hJ
     have hu := Call.u_toNat hq.units
     have hc := hq.cells
     have hU := hq.units
@@ -588,7 +636,7 @@ theorem seg_allocW_at {W : Frag isaLSE2} {K : State → State → Prop} {F : Mac
       · simp_all [Fr, upd_apply]
       · simp [upd_apply]
     · rename_i h
-      refine .inl ⟨AN.n5, rfl, rfl, o, rfl, ?_, ?_, hn28, ?_⟩
+      refine .inl ⟨AN.n5, rfl, rfl, o, rfl, ?_, ?_, hn28, ?_, hlo⟩
       · simp only [BitVec.toNat_ofNat] at h; omega
       · simp_all [Fr, upd_apply]
       · simp [upd_apply]
@@ -607,11 +655,13 @@ theorem seg_allocW_at {W : Frag isaLSE2} {K : State → State → Prop} {F : Mac
     anode b7 b7_ok n7; rw [N, b7_run]
     obtain ⟨o, hc, ho, hu, -⟩ := hJ
     exact .inl ⟨AN.full, rfl, rfl, .inr ⟨o, hc, ho, hu⟩⟩
-  case full => anode b9 b9_ok full; rw [N, b9_run]; exact .inr ⟨AX.abort, rfl, rfl, rfl, hJ⟩
+  case full =>
+    anode b9 b9_ok full; rw [N, b9_run]
+    exact .inr ⟨AX.abort, hab _ c ⟨rfl, rfl, rfl, hJ⟩ (b9_x30 _)⟩
   case ok =>
     anode b11 b11_ok ok; rw [N, b11_run]
-    obtain ⟨o, hc, hle, hF, hn28, h128⟩ := hJ
-    refine .inl ⟨AN.ok1, rfl, rfl, o, ⟨hc, hle, ?_, hn28, ?_⟩, ?_⟩
+    obtain ⟨o, hc, hle, hF, hn28, h128, hlo⟩ := hJ
+    refine .inl ⟨AN.ok1, rfl, rfl, o, ⟨hc, hle, ?_, hn28, ?_, hlo⟩, ?_⟩
     · simp_all [Fr, upd_apply]
     · simp [upd_apply, h128]
     · simp [upd_apply, mOf, hF.2.2.1]
@@ -630,9 +680,9 @@ theorem seg_allocW_at {W : Frag isaLSE2} {K : State → State → Prop} {F : Mac
     exact adrp_lo12 _
   case n12 =>
     anode b12 b12_ok n12; rw [N, b12_run]
-    obtain ⟨o, ⟨hc, hle, hF, hn28, h128⟩, h104, h9⟩ := hJ
+    obtain ⟨o, ⟨hc, hle, hF, hn28, h128, hlo⟩, h104, h9⟩ := hJ
     obtain ⟨h16, h8, h160, h152, h144⟩ := hF
-    refine .inl ⟨AN.hdr, rfl, rfl, o, ⟨hc, hle, ?_, hn28, ?_⟩, ⟨?_, ?_⟩, ?_, ?_⟩
+    refine .inl ⟨AN.hdr, rfl, rfl, o, ⟨hc, hle, ?_, hn28, ?_, hlo⟩, ⟨?_, ?_⟩, ?_, ?_⟩
     · simp_all [Fr, upd_apply]
     · simp [upd_apply, h128]
     · simp [upd_apply, h128, h9]
@@ -641,7 +691,7 @@ theorem seg_allocW_at {W : Frag isaLSE2} {K : State → State → Prop} {F : Mac
     · simp [h9, h128, h152, h104]
   case hdr =>
     refine rtst_ndW (fun s he hn => hcode.hdr s he hn) hW.hdr fun m σ c hA hD hJ => ?_
-    obtain ⟨o, ⟨hc, hle, hF, hn28, h128⟩, hb, h9, h10⟩ := hJ
+    obtain ⟨o, ⟨hc, hle, hF, hn28, h128, hlo⟩, hb, h9, h10⟩ := hJ
     have hk := Call.k_toNat hq.n_lt
     have hcl := hq.cells
     have hra : rAddr σ.regs .X10 0 = H (_root_.Executable.labels exe).label + o <<< 4 + (q.k * mOf q.h) <<< 3 := by
@@ -651,35 +701,75 @@ theorem seg_allocW_at {W : Frag isaLSE2} {K : State → State → Prop} {F : Mac
       rfl
     have hofn : BitVec.ofNat 64 (q.hdrAt ms o.toNat) = rAddr σ.regs .X10 0 := by
       rw [← hAeq]; simp
-    obtain ⟨hrt, hmp, hG⟩ := hq.hdr o.toNat hle
+    obtain ⟨hrt, hmp, hG⟩ := hq.hdr o.toNat hlo hle
     have hnone := hmem _ (.inr ⟨o.toNat, hle, hAeq⟩)
     refine ⟨hAeq ▸ hrt, hofn ▸ hmp, ?_, hnone _ hD, c, .refl c, .inl ⟨AN.n13, rfl, rfl, o,
-      ⟨hc, hle, hF, hn28, h128⟩, hb⟩⟩
+      ⟨hc, hle, hF, hn28, h128, hlo⟩, hb⟩⟩
     rw [← hofn, getRegOrZr_x]
     simpa [Reg64s.getXReg, h9] using hG
   case n13 =>
     anode b13 b13_ok n13; rw [N, b13_run]
-    obtain ⟨o, ⟨hc, hle, hF, hn28, h128⟩, h80, h64⟩ := hJ
+    obtain ⟨o, ⟨hc, hle, hF, hn28, h128, hlo⟩, h80, h64⟩ := hJ
     obtain ⟨h16, h8, h160, h152, h144⟩ := hF
-    refine .inl ⟨AN.ret, ?_, ?_, o, hc, hle, hn28, ?_, ?_, ?_⟩
+    refine .inl ⟨AN.ret, ?_, ?_, o, hc, hle, hn28, ?_, ?_, ?_, hlo⟩
     · rfl
     · rfl
     · simp [h80, h64]
     · simp [h16]
     · simp [h8]
-  case ret =>
-    refine alloc_ndW (Ea ms q) (a := iRet) (lo := -160) (hi := 0) rfl (by rintro w op ⟨⟩) hF
-      hR hal hlo hhi (fun s he hn => hcode.ret s he hn) hxa hW.ret fun σ c hJ => ?_
-    obtain ⟨o, rfl, hle, hn28, h0, h29, h30⟩ := hJ
-    have hk := Call.k_toNat hq.n_lt
-    have hcl := hq.cells
-    have hA : σ.regs.X0.toBitVec.toNat = ms.heap + 16 * o.toNat + ms.off q.n q.τ := by
-      rw [h0, base8_toNat (by omega) (by omega) (mOf_lt _) (by rw [hq.heap]; exact hq.room), hq.heap, hk, hq.off]
-    obtain ⟨us, hus⟩ := hq.accs
-    refine ⟨σ.regs.X0.toBitVec, q.x, q.a, q.τ, q.e, q.ta, q.ws, q.n, TermRun.cst (.num o.toNat), o.toNat, us, hq.term,
-      hq.ev, hq.num, rfl, rfl, hA, hle, hus, fun l ini _ =>
-      ⟨?_, rfl, ini, o.toNat, rfl, rfl, hA, hle, h29, h30, us, hus, rfl⟩⟩
-    simp [Ea, iRet, AI.tgt, Reg64s.getXReg, h30]
+  case ret => exact hret
+
+
+/-- **`scc_rt_alloc` is one segment inside `W` from any of its nodes `i0`,
+at any allocation site** (`Call.OKS`), to its exits `Ex`: the heap abort
+as `E`'s (`hab`), and whatever the `ret` node reaches (`hret`, the one node
+whose step depends on the site: `Out.alloc` at a buffer allocation,
+`seg_allocW_at`; a silent `ret` keeping the hold at a box allocation).
+`seg_allocW_genR` with `Ex .abort` `E`'s. -/
+theorem seg_allocW_gen {W : Frag isaLSE2} {K : State → State → Prop} {F : MachineData → Prop} (hF : FStable R F)
+    (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -160) (hhi : 0 ≤ R.hi)
+    (hq : q.OKS ms (_root_.Executable.labels exe).label) (hcode : Code ms q exe endPc)
+    (hentry : (_root_.Executable.labels exe).label ".L2_scc_rt_alloc.0_entry" =
+      (_root_.Executable.labels exe).label "scc_rt_alloc" + 4 + 4 + 4 + 4 + 4 + 4 + 4)
+    (hmem : ∀ a : BitVec 64,
+      (a = BitVec.ofNat 64 ms.ctr ∨ ∃ o, o + ms.units q.n q.τ ≤ ms.cells ∧ a.toNat = q.hdrAt ms o) →
+      ∀ m, F m → Mem.loadInt m.dmem a 8 = none)
+    (hW : AllocW ms q W K exe endPc R F) {Ex : AX → ND}
+    (hab : Ex .abort = E (_root_.Executable.labels exe).label ms q lbl .abort)
+    (hret : SegW W K p lbl ms (At exe endPc R F (N (_root_.Executable.labels exe).label ms q .ret))
+      (Next exe endPc R F (N (_root_.Executable.labels exe).label ms q) Ex)) (i0 : AN) :
+    SegW W K p lbl ms (At exe endPc R F (N (_root_.Executable.labels exe).label ms q i0))
+      (fun s c => ∃ x, At exe endPc R F (Ex x) s c) :=
+  seg_allocW_genR hF hR hal hlo hhi hq hcode hentry hmem hW (fun _ _ h _ => hab ▸ h) hret i0
+
+/-- **`scc_rt_alloc` is one segment inside `W` from any of its nodes `i0`**
+to its return or its heap abort (`seg_allocW` from its entry). -/
+theorem seg_allocW_at {W : Frag isaLSE2} {K : State → State → Prop} {F : MachineData → Prop} (hF : FStable R F)
+    (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -160) (hhi : 0 ≤ R.hi)
+    (hq : q.OK ms (_root_.Executable.labels exe).label) (hcode : Code ms q exe endPc)
+    (hentry : (_root_.Executable.labels exe).label ".L2_scc_rt_alloc.0_entry" =
+      (_root_.Executable.labels exe).label "scc_rt_alloc" + 4 + 4 + 4 + 4 + 4 + 4 + 4)
+    (hmem : ∀ a : BitVec 64,
+      (a = BitVec.ofNat 64 ms.ctr ∨ ∃ o, o + ms.units q.n q.τ ≤ ms.cells ∧ a.toNat = q.hdrAt ms o) →
+      ∀ m, F m → Mem.loadInt m.dmem a 8 = none)
+    (hxa : ∀ l b w s c, lbl l = none →
+      At exe endPc R F (Ea ms q l b w) s c → ms.xa l b w s c)
+    (hW : AllocW ms q W K exe endPc R F) (i0 : AN) :
+    SegW W K p lbl ms (At exe endPc R F (N (_root_.Executable.labels exe).label ms q i0))
+      (fun s c => ∃ x, At exe endPc R F (E (_root_.Executable.labels exe).label ms q lbl x) s c) := by
+  refine seg_allocW_gen hF hR hal hlo hhi hq.toS hcode hentry hmem hW rfl ?_ i0
+  refine alloc_ndW (Ea ms q) (a := iRet) (lo := -160) (hi := 0) rfl (by rintro w op ⟨⟩) hF
+    hR hal hlo hhi (fun s he hn => hcode.ret s he hn) hxa hW.ret fun σ c hJ => ?_
+  obtain ⟨o, rfl, hle, hn28, h0, h29, h30, hlo'⟩ := hJ
+  have hk := Call.k_toNat hq.n_lt
+  have hcl := hq.cells
+  have hA : σ.regs.X0.toBitVec.toNat = ms.heap + 16 * o.toNat + ms.off q.n q.τ := by
+    rw [h0, base8_toNat (by omega) (by omega) (mOf_lt _) (by rw [hq.heap]; exact hq.room), hq.heap, hk, hq.off]
+  obtain ⟨us, hus⟩ := hq.accs
+  refine ⟨σ.regs.X0.toBitVec, q.x, q.a, q.τ, q.e, q.ta, q.ws, q.n, TermRun.cst (.num o.toNat), o.toNat, us, hq.term,
+    hq.ev, hq.num, rfl, rfl, hA, hle, hus, fun l ini _ =>
+    ⟨?_, rfl, ini, o.toNat, rfl, rfl, hA, hle, hlo', h29, h30, us, hus, rfl⟩⟩
+  simp [Ea, iRet, AI.tgt, Reg64s.getXReg, h30]
 
 /-- **`scc_rt_alloc` is one segment inside `W`** from its entry to its
 return or its heap abort, for every frame condition `F` no write inside the

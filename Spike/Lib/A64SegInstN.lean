@@ -79,7 +79,7 @@ theorem inst_of_segWAN {Λ : Scc.Sem.Layout} {μ : Marks} {rd : TermRun.Word →
   refine ⟨⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩, ⟨?_, ?_, ?_, ?_⟩, ⟨?_, ?_, ?_, ?_⟩,
     fun lbl lsize s c fs hi => (hF lbl lsize s c fs hi).wrTail⟩
   -- `NodesA`
-  · intro lbl lsize s c fs hi hoff
+  · intro lbl lsize s c fs hi hoff _
     exact hOut lbl lsize s c fs hi fun s' hk => hoff _ hμ (pcOf_eq_iff.mpr (TakeK.pc hk))
   · exact fun lbl lsize s c hi => (hF lbl lsize s c [] hi).noRet rfl
   · intro lbl lsize s c fs hi
@@ -106,7 +106,7 @@ theorem inst_of_segWAN {Λ : Scc.Sem.Layout} {μ : Marks} {rd : TermRun.Word →
   · intro lbl lsize s c fs hi hns t mem outs o L hst hstep ho hW
     obtain ⟨c₀, fs₀, hi₀, hr⟩ := hi
     obtain ⟨c₁, ms', Y, hK, hout⟩ := hRow lbl lsize s c₀ fs₀ hi₀
-    exact ((hF _ _ _ _ _ hi₀).wr c fs hr hns).arena_of hout hK hns hst hstep ho hW
+    exact .inl (((hF _ _ _ _ _ hi₀).wr c fs hr hns).arena_of hout hK hns hst hstep ho hW)
   · intro lbl lsize s c fs hi x a' τ e ht
     obtain ⟨c₀, fs₀, hf, hr⟩ := hR lbl lsize s c fs hi
     exact zero_of_zeroOkTy (hf.zero c fs hr x a' τ e ht)

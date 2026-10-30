@@ -147,16 +147,116 @@ theorem FreshInv.place {lbl : WeakMem.AllocLabel → Option Nat} {base n i na : 
 /-! ## The allocation's phases -/
 
 /-- **A pending allocation** (units `units`, base offsets `off`, the arena
-at `heap`, the contract's exceptions `ex`): the control at `let x = newBuf a
-τ in e`, `a` the number `k`; the counter at the old count `old` plus the
-buffer's units; every exception below the buffer's base `heap + 16·old +
-off k τ` (the header; `Call.OK.off`: `off = 8·k·m + 8`, the header at
-`8·k·m` from the cell, so below the base). -/
+at `heap`, the contract's exceptions `ex`): the control at an allocation
+site of `n` objects of type `τ` (`AllocSite`: a buffer `let x = newBuf a τ
+in e`, `a` the number `n`, or a box `let x = new a in e`, `a` of type `τ`,
+`n = 1`); the counter at the old count `old` plus the object's units; every
+exception below the object's base `heap + 16·old + off n τ` (the header;
+`Call.OK.off`: `off = 8·n·m + 8`, the header at `8·n·m` from the cell, so
+below the base). -/
 def Pending (units off : Nat → Ty → Nat) (tm : Memory) (prom : List Time) (heap ctr old : Nat)
     (ex : Nat → Prop) (c : Spike.Lib.Ctl) : Prop :=
-  ∃ (x : String) (a : At) (τ : Ty) (e : Expr) (ta : Ty) (ws : List Word) (k : Nat),
-    c.term = .let_ x (.newBuf a τ) e ∧ evalAt c.env a = some (ta, ws) ∧ numOf ws = some k ∧
-    CtrAt tm prom ctr (old + units k τ) ∧ ∀ a', ex a' → a' < heap + 16 * old + off k τ
+  ∃ (x : String) (n : Nat) (τ : Ty) (e : Expr), Spike.Lib.AllocSite True c x n τ e ∧
+    CtrAt tm prom ctr (old + units n τ) ∧ ∀ a', ex a' → a' < heap + 16 * old + off n τ
+
+section PendingLemmas
+
+variable {units off : Nat → Ty → Nat} {tm : Memory} {prom : List Time} {heap ctr old : Nat}
+  {ex : Nat → Prop} {c : Spike.Lib.Ctl}
+
+/-- **An allocation site at a buffer is the buffer's**: `n` its number of
+elements, `τ` its element type. -/
+theorem allocSite_newBuf {N : Prop} {x x' : String} {n k : Nat} {τ τ' : Ty} {e e' : Expr} {a : At}
+    {ta : Ty} {ws : List Word} (hs : Spike.Lib.AllocSite N c x' n τ' e') (ht : c.term = .let_ x (.newBuf a τ) e)
+    (hea : evalAt c.env a = some (ta, ws)) (hk : numOf ws = some k) : n = k ∧ τ' = τ := by
+  rcases hs with ⟨a', ta', ws', ht', hea', hk'⟩ | ⟨-, a', ws', ht', -⟩
+  · rw [ht] at ht'
+    simp only [Expr.let_.injEq, Op.newBuf.injEq] at ht'
+    obtain ⟨-, ⟨rfl, rfl⟩, -⟩ := ht'
+    rw [hea] at hea'
+    simp only [Option.some.injEq, Prod.mk.injEq] at hea'
+    obtain ⟨-, rfl⟩ := hea'
+    rw [hk] at hk'
+    exact ⟨(Option.some.inj hk').symm, rfl⟩
+  · rw [ht] at ht'
+    simp at ht'
+
+/-- **An allocation site at a box is the box's**: one object of `a`'s type. -/
+theorem allocSite_new {N : Prop} {x x' : String} {n : Nat} {τ' ty : Ty} {e e' : Expr} {a : At}
+    {ws : List Word} (hs : Spike.Lib.AllocSite N c x' n τ' e') (ht : c.term = .let_ x (.new a) e)
+    (hea : evalAt c.env a = some (ty, ws)) : n = 1 ∧ τ' = ty := by
+  rcases hs with ⟨a', ta', ws', ht', -⟩ | ⟨-, a', ws', ht', hea', rfl⟩
+  · rw [ht] at ht'
+    simp at ht'
+  · rw [ht] at ht'
+    simp only [Expr.let_.injEq, Op.new.injEq] at ht'
+    obtain ⟨-, rfl, -⟩ := ht'
+    rw [hea] at hea'
+    simp only [Option.some.injEq, Prod.mk.injEq] at hea'
+    exact ⟨rfl, hea'.1.symm⟩
+
+/-- **An allocation site is no return**. -/
+theorem _root_.Spike.Lib.AllocSite.not_ret {N : Prop} {x : String} {n : Nat} {τ : Ty} {e : Expr}
+    (hs : Spike.Lib.AllocSite N c x n τ e) : ∀ a, c.term ≠ .ret a := by
+  intro a' ha
+  rcases hs with ⟨_, _, _, ht, -⟩ | ⟨-, _, _, ht, -⟩ <;> rw [ha] at ht <;> cases ht
+
+/-- **An allocation site under any allowance is one under `True`**. -/
+theorem _root_.Spike.Lib.AllocSite.toTrue {N : Prop} {x : String} {n : Nat} {τ : Ty} {e : Expr}
+    (hs : Spike.Lib.AllocSite N c x n τ e) : Spike.Lib.AllocSite True c x n τ e :=
+  hs.elim .inl fun ⟨_, h⟩ => .inr ⟨trivial, h⟩
+
+/-- **Pending at a buffer**, from the counter and the exceptions' bound. -/
+theorem Pending.of_newBuf {x : String} {a : At} {τ : Ty} {e : Expr} {ta : Ty} {ws : List Word} {k : Nat}
+    (ht : c.term = .let_ x (.newBuf a τ) e) (hea : evalAt c.env a = some (ta, ws)) (hk : numOf ws = some k)
+    (hctr : CtrAt tm prom ctr (old + units k τ)) (hex : ∀ a', ex a' → a' < heap + 16 * old + off k τ) :
+    Pending units off tm prom heap ctr old ex c :=
+  ⟨x, k, τ, e, .inl ⟨a, ta, ws, ht, hea, hk⟩, hctr, hex⟩
+
+/-- **Pending at a buffer** gives the counter at the old count plus the
+buffer's units and every exception below the buffer's base. -/
+theorem Pending.newBuf (h : Pending units off tm prom heap ctr old ex c) {x : String} {a : At} {τ : Ty}
+    {e : Expr} {ta : Ty} {ws : List Word} {k : Nat} (ht : c.term = .let_ x (.newBuf a τ) e)
+    (hea : evalAt c.env a = some (ta, ws)) (hk : numOf ws = some k) :
+    CtrAt tm prom ctr (old + units k τ) ∧ ∀ a', ex a' → a' < heap + 16 * old + off k τ := by
+  obtain ⟨x', n, τ', e', hs, hctr, hex⟩ := h
+  obtain ⟨rfl, rfl⟩ := allocSite_newBuf hs ht hea hk
+  exact ⟨hctr, hex⟩
+
+/-- **Pending at a box** gives the counter at the old count plus one
+object's units and every exception below the box's base. -/
+theorem Pending.box (h : Pending units off tm prom heap ctr old ex c) {x : String} {a : At} {e : Expr}
+    {ty : Ty} {ws : List Word} (ht : c.term = .let_ x (.new a) e) (hea : evalAt c.env a = some (ty, ws)) :
+    CtrAt tm prom ctr (old + units 1 ty) ∧ ∀ a', ex a' → a' < heap + 16 * old + off 1 ty := by
+  obtain ⟨x', n, τ', e', hs, hctr, hex⟩ := h
+  obtain ⟨rfl, rfl⟩ := allocSite_new hs ht hea
+  exact ⟨hctr, hex⟩
+
+/-- **Pending at a box** from the counter at the old count plus one
+object's units and every exception below the box's base (`Pending.box`'s
+converse). -/
+theorem Pending.of_box {x : String} {a : At} {e : Expr} {ty : Ty} {ws : List Word}
+    (ht : c.term = .let_ x (.new a) e) (hea : evalAt c.env a = some (ty, ws))
+    (hctr : CtrAt tm prom ctr (old + units 1 ty)) (hex : ∀ a', ex a' → a' < heap + 16 * old + off 1 ty) :
+    Pending units off tm prom heap ctr old ex c :=
+  ⟨x, 1, ty, e, .inr ⟨trivial, a, ws, ht, hea, rfl⟩, hctr, hex⟩
+
+/-- **Pending is kept** where the counter's value is (a message elsewhere,
+a promise, …), the exceptions unchanged. -/
+theorem Pending.keep {tm' : Memory} {prom' : List Time} (h : Pending units off tm prom heap ctr old ex c)
+    (hc : ∀ v, CtrAt tm prom ctr v → CtrAt tm' prom' ctr v) : Pending units off tm' prom' heap ctr old ex c :=
+  let ⟨x, n, τ, e, hs, hctr, hex⟩ := h
+  ⟨x, n, τ, e, hs, hc _ hctr, hex⟩
+
+/-- **Pending with one more exception** below the object's base. -/
+theorem Pending.ex_add {tm' : Memory} {prom' : List Time} {b : Nat} (h : Pending units off tm prom heap ctr old ex c)
+    (hc : ∀ v, CtrAt tm prom ctr v → CtrAt tm' prom' ctr v)
+    (hb : ∀ x n τ e, Spike.Lib.AllocSite True c x n τ e → b < heap + 16 * old + off n τ) :
+    Pending units off tm' prom' heap ctr old (fun a' => ex a' ∨ a' = b) c :=
+  let ⟨x, n, τ, e, hs, hctr, hex⟩ := h
+  ⟨x, n, τ, e, hs, hc _ hctr, fun a' h => h.elim (hex a') fun h => h ▸ hb x n τ e hs⟩
+
+end PendingLemmas
 
 /-- **The allocation invariant** (layout `Λ`, placement `lbl`/`lsize`,
 thread `t`, target memory `tm`, the arena at `heap` of `cells` cells, the
@@ -206,7 +306,7 @@ theorem AllocInv.ctrAdd {hu : Nat} (ha : ArenaOK Λ lbl lsize t tm heap cells hu
     (hv : w.val.toNat = hu + units k τ) (hh : c'.hold = some (ctr, cst (.num hu))) :
     AllocInv Λ lbl lsize t' (tm.append w).1 heap cells ctr units off c' :=
   .inl ⟨_, hh, hu, fun _ => False, rfl,
-    ⟨x, a, τ, e, ta, ws, k, ht, hea, hk, hv ▸ hp ▸ CtrAt.append_self hw hpl, fun _ h => h.elim⟩,
+    Pending.of_newBuf ht hea hk (hv ▸ hp ▸ CtrAt.append_self hw hpl) fun _ h => h.elim,
     ha.store_out hfree hp⟩
 
 /-- **The header store while pending**: a message off the counter, below
@@ -219,16 +319,8 @@ theorem AllocInv.header {wh : Word} {old : Nat} {ex : Nat → Prop} (hh : c.hold
     (hk : numOf ws = some k) {t' : Thread I} {w : Msg} (hw : w.loc ≠ wordLoc ctr)
     (hlt : w.loc.addr.toNat < heap + 16 * old + off k τ) (hp : t'.prom = t.prom) :
     AllocInv Λ lbl lsize t' (tm.append w).1 heap cells ctr units off c := by
-  obtain ⟨x', a', τ', e', ta', ws', k', ht', hea', hk', hctr, hex⟩ := hpd
-  rw [ht] at ht'
-  simp only [Expr.let_.injEq, Op.newBuf.injEq] at ht'
-  obtain ⟨rfl, ⟨rfl, rfl⟩, rfl⟩ := ht'
-  rw [hea] at hea'
-  simp only [Option.some.injEq, Prod.mk.injEq] at hea'
-  obtain ⟨rfl, rfl⟩ := hea'
-  rw [hk] at hk'
-  cases hk'
-  refine .inl ⟨wh, hh, old, _, ho, ⟨x, a, τ, e, ta, ws, k, ht, hea, hk, hp ▸ hctr.append_ne hw, ?_⟩,
+  obtain ⟨hctr, hex⟩ := hpd.newBuf ht hea hk
+  refine .inl ⟨wh, hh, old, _, ho, Pending.of_newBuf ht hea hk (hp ▸ hctr.append_ne hw) ?_,
     ha.store_ex hp⟩
   rintro a' (h | rfl)
   · exact hex a' h

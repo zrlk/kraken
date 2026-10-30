@@ -93,7 +93,7 @@ def releaseSite : Sym := "scc_rt_release_site"
 def grow : Sym := "scc_rt_grow"
 /-- The number of threads spawned so far (successful or not). -/
 def nthreads : Sym := "scc_rt_nthreads"
-/-- `scc_rt_thread_reserve()`: count a spawn and return its thread index;
+/-- `scc_rt_thread_reserve`: count a spawn and return its thread index;
 abort `threads` past `Layout.maxThreads`. -/
 def threadReserve : Sym := "scc_rt_thread_reserve"
 def sigign : Sym := "scc_rt_sigign"
@@ -459,9 +459,12 @@ def tcbArgAddr (o : ObjLayout) (tcb : Reg) : Bool × Nat → Addr
   | (false, i) => ⟨tcb, 8 * i⟩
 
 /-- `spawn f a` (`f` takes `T`): a thread index (`Names.threadReserve`, which
-aborts past the thread cap), a TCB in the pinned region holding the index and
-the argument words (`tcbLayout`), a stack, and a `clone` into `f`'s
-trampoline.  The result, the child's `ThreadId`, is its TCB's address. -/
+aborts past the thread cap), a TCB in the pinned region holding the index
+(with room for the argument words, `tcbLayout`, which it does not write), a
+stack, and a `clone` into `f`'s trampoline with the argument words as its
+arguments: the first in the `clone` argument, the others in the
+`IR.spawnReg` registers, written right before it.  The result, the child's
+`ThreadId`, is its TCB's address. -/
 def spawn (o : ObjLayout) (f : String) (T : Ty) (args : List Operand) : B Operand := do
   let tidx ← fresh "tidx"
   emit (.call [tidx] Names.threadReserve [])
@@ -475,16 +478,18 @@ def spawn (o : ObjLayout) (f : String) (T : Ty) (args : List Operand) : B Operan
   emit (.call [tcb] Names.allocTcb [imm hdr, imm 1])
   markHeap tcb
   emit (.store .plain .w64 ⟨tcb, Tcb.index⟩ (.reg tidx))
-  for (w, s) in args.zip sl do
-    emit (.store .plain .w64 (tcbArgAddr o tcb s) w)
   let top ← fresh "top"
   emit (.call [top] Names.threadInit [.reg tcb])
   let r ← fresh "clone"
+  -- No safepoint between these moves and the `clone`, which reads them
+  -- (`Inst.clone`).
+  for (w, k) in args.drop 1 |>.zipIdx do
+    emit (.mov (spawnReg (k + 1)) w)
   -- A spawn is a full barrier on the parent, and the child starts from the
   -- parent's views after it (`TermSpawnStep`); the fence makes that explicit
   -- rather than relying on the kernel's `clone` path.
   emit (.fence .full)
-  emit (.clone r (.reg top) (.reg tcb) (Names.thread f) (.reg tcb))
+  emit (.clone r (.reg top) (.reg tcb) (Names.thread f) (args.head?.getD (imm 0)))
   let bad ← freshLabel "spawnfail"
   let ok ← freshLabel "spawned"
   terminate (.br .slt (.reg r) (imm 0) bad ok)
@@ -680,7 +685,7 @@ def lowerOp (cx : Ctx) (env : Env) (x : String) : Op → B (Ty × List Operand)
       let d ← fresh x
       emit (.un (bit1Op o) d (← evalOne env a "bit1"))
       pure (.int, [.reg d])
-  -- The machine externs `park ()` / `unpark t`: the runtime's park/unpark.
+  -- The machine externs `park ` / `unpark t`: the runtime's park/unpark.
   | .ext .park _ => do emit (.call [] Names.park []); pure (.unit, [])
   | .ext .unpark a => do
       let (_, ws) ← evalAt env a

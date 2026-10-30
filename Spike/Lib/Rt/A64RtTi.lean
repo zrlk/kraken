@@ -102,7 +102,7 @@ to `.sp0`. -/
 theorem tiW_gen {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe] {endPc : Int64}
     {prog : List Directive} {lab : Label → Int64} {μ : Marks} {own : Own} {Tk : State → Prop}
     {K : State → State → Prop} {okPc : Nat → Bool} {ph : Nat → Nat} {Λ : Scc.Sem.Layout} {rS : Range} {lbl : Lbl}
-    {ownOf : Nat → List (Loc × Val)} {ra : Label → Int64} {c0 : Ctl} {F : MachineData → Prop}
+    {ownOf : Nat → List (Loc × Val)} {ra : Label → Int64} {c0 : Ctl} {F P : MachineData → Prop}
     {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp) (hown : ∀ s, own s = ownOf (ph (pcOf s)))
     (hin : threadInitIn prog = true) (hC0 : CFacts Λ lbl c0)
     {R : Region} (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -256) (hhi : 0 ≤ R.hi) (q : TiG)
@@ -120,7 +120,7 @@ theorem tiW_gen {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe] {e
     (hunN : ∀ m, F m → Mem.loadInt m.dmem (freeNA lab) 8 = none)
     (hunX : ∀ m, F m → Mem.loadInt m.dmem (nextA lab) 8 = none)
     (hrS : rS = ⟨(stacksA lab + q.k0).toNat, 16384⟩) (hdisj : Λ.rodata.Disjoint Λ.stackPool) :
-    ∀ i, TiW (fun s c => SFacts Λ μ own rS Tk lbl s c) K exe endPc R F (StackM rS) q i := by
+    ∀ i, TiW (fun s c => SFacts Λ μ own rS Tk lbl s c) K exe endPc R F (StackM rS) q i P := by
   have h := hin
   simp only [threadInitIn, Bool.and_eq_true] at h
   obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨-, bE⟩, bEn⟩, bSp⟩, bS0⟩, bF1⟩, bS1⟩, bF2⟩, bS2⟩, bF3⟩, bS3⟩, bF4⟩, bS4⟩, bF5⟩, bS5⟩,
@@ -155,7 +155,8 @@ theorem tiW_gen {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe] {e
         rw [hb']; show ((R.base.toNat : Int) + -48) % 16 = 0; omega
       omega
     exact takeW_gen hI hown hin' hC0 hR' hal' (by show (-208 : Int) ≤ -208; omega) (by show (0 : Int) ≤ 0; omega)
-      (tiTake q g) hq hg hphT hmL hmN hmX hunL hunN hunX hrS hsub hdisj hSM' j
+      (tiTake q g) hq hg hphT hmL hmN hmX (fun m h => hunL m h.1) (fun m h => hunN m h.1)
+      (fun m h => hunX m h.1) hrS hsub hdisj hSM' j
   case sp =>
     dsimp only [TiW]; rw [hI.labOk]
     exact blkW_post hI bSp (ofNat4_zero _) tiSp_ok hR hal (by omega) (by omega) (hC _ fun _ _ hJ => hJ.1) hph.sp

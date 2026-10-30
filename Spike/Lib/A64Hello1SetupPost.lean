@@ -77,8 +77,8 @@ theorem hello1_main_sp0_segW {W : Frag isaLSE2} {K : State → State → Prop}
         Spike.Lib.A64.Rt.WcRa (wR R) ((_root_.Executable.labels exe).label ".L1_scc_rt_main.sp1") m) →
       ∀ g' : PG, g'.2.2 = ((_root_.Executable.labels exe).label ".L19_wc_main.sp4").toBitVec →
       SegW W K p lbl ms
-        (At exe endPc (pR (wR R)) F' (Print.N (_root_.Executable.labels exe).label g'.1 g'.2.1 g'.2.2 .svc))
-        (At exe endPc (pR (wR R)) F' (Print.N (_root_.Executable.labels exe).label g'.1 g'.2.1 g'.2.2 .n5)))
+        (At exe endPc (pR (wR R)) F' (PrintD.N (_root_.Executable.labels exe).label g'.1 g'.2.1 g'.2.2 .svc))
+        (At exe endPc (pR (wR R)) F' (PrintD.N (_root_.Executable.labels exe).label g'.1 g'.2.1 g'.2.2 .n5)))
     (hedgeW : ∀ g : AS × Ctl, ∀ σ c, wcJ (wJ0 (_root_.Executable.labels exe).label σC Jr g) σ c →
       ∀ σ' : AS, (∀ k, -96 ≤ k → k < 0 → k % 8 = 0 → σ'.slot k = wcSl σ k) →
       σ'.regs.X0.toBitVec = 0#64 → σ'.regs.X29.toBitVec = σ.slot (-16) → σ'.regs.X30.toBitVec = σ.slot (-8) →
@@ -226,8 +226,8 @@ theorem hello1_main_post_segWS {W : FragS isaLSE2} {K : State → State → Prop
         Spike.Lib.A64.Rt.WcRa (wR R) ((_root_.Executable.labels exe).label ".L1_scc_rt_main.sp1") m) →
       ∀ g' : PG, g'.2.2 = ((_root_.Executable.labels exe).label ".L19_wc_main.sp4").toBitVec →
       SegW (fun s c => W s c []) K p lbl (ms [])
-        (At exe endPc (pR (wR R)) F' (Print.N (_root_.Executable.labels exe).label g'.1 g'.2.1 g'.2.2 .svc))
-        (At exe endPc (pR (wR R)) F' (Print.N (_root_.Executable.labels exe).label g'.1 g'.2.1 g'.2.2 .n5)))
+        (At exe endPc (pR (wR R)) F' (PrintD.N (_root_.Executable.labels exe).label g'.1 g'.2.1 g'.2.2 .svc))
+        (At exe endPc (pR (wR R)) F' (PrintD.N (_root_.Executable.labels exe).label g'.1 g'.2.1 g'.2.2 .n5)))
     (hedgeW : ∀ g : AS × Ctl, ∀ σ c, wcJ (wJ0 (_root_.Executable.labels exe).label σC Jr g) σ c →
       ∀ σ' : AS, (∀ k, -96 ≤ k → k < 0 → k % 8 = 0 → σ'.slot k = wcSl σ k) →
       σ'.regs.X0.toBitVec = 0#64 → σ'.regs.X29.toBitVec = σ.slot (-16) → σ'.regs.X30.toBitVec = σ.slot (-8) →

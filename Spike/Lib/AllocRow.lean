@@ -18,7 +18,8 @@ program proof establishes it at load and keeps it.
   region, 16-aligned;
 - **handed-out space below the cursor**: every placed label's range is
   disjoint from the free range `[heap + 16 · hu, heap + 16 · cells)`
-  (`freeR`);
+  (`freeR`), and no placed label's base is in it past the cursor's first
+  word (for 0-word labels, whose empty range is disjoint from everything);
 - **the zeroed arena**: every initial value in the free range is 0 (the
   arena is in `.bss`);
 - **never written past the cursor**: every target message at an address of
@@ -98,6 +99,10 @@ structure ArenaOK {I : ISA} (Λ : Scc.Sem.Layout) (lbl : WeakMem.AllocLabel → 
   align : heap % 16 = 0
   /-- Every placed label lies off the free range. -/
   disj : ∀ l b, lbl l = some b → (freeR heap cells hu).Disjoint (lrange lsize l b)
+  /-- No placed label's base is in the free range past the cursor's first
+  word (a 0-word label's empty range is off everything; its base may sit at
+  the cursor, where an object's header is, but not past it). -/
+  base : ∀ l b, lbl l = some b → ¬ (heap + 16 * hu + 8 ≤ b ∧ b < heap + 16 * cells)
   /-- The free range is zero at the initial write. -/
   zero : ∀ a, (freeR heap cells hu).contains a → tm.initVal (wordLoc a) = 0
   /-- Every message in the free range off the exceptions is an outstanding
@@ -116,7 +121,8 @@ theorem init (hsub : (Range.mk heap (16 * cells)).Sub Λ.heap) (hal : heap % 16 
     (hz : ∀ a, (freeR heap cells 0).contains a → tm.initVal (wordLoc a) = 0)
     (hm : ∀ k', tm.get? k' = none) :
     ArenaOK Λ (fun _ => none) lsize t tm heap cells 0 (fun _ => False) :=
-  ⟨Nat.zero_le _, hsub, hal, (fun _ _ h => by cases h), hz, (fun k' w h => by rw [hm k'] at h; cases h)⟩
+  ⟨Nat.zero_le _, hsub, hal, (fun _ _ h => by cases h), (fun _ _ h => by cases h), hz,
+    (fun k' w h => by rw [hm k'] at h; cases h)⟩
 
 /-- **The contract is kept** by a change of memory and thread that keeps the
 initial values of the free range, adds no message there (off the new
@@ -130,7 +136,7 @@ theorem keep (h : ArenaOK Λ lbl lsize t tm heap cells hu ex) {t' : Thread I} {t
     (hprom : ∀ k' w, tm.get? k' = some w → (freeR heap cells hu).contains w.loc.addr.toNat → k' ∈ t.prom →
       k' ∈ t'.prom) :
     ArenaOK Λ lbl lsize t' tm' heap cells hu ex' :=
-  ⟨h.hu_le, h.sub, h.align, h.disj, fun a ha => (hiv a ha).trans (h.zero a ha), fun k' w hk ha hx =>
+  ⟨h.hu_le, h.sub, h.align, h.disj, h.base, fun a ha => (hiv a ha).trans (h.zero a ha), fun k' w hk ha hx =>
     (hnew k' w hk ha hx).elim (fun ⟨ho, hnx⟩ => hprom k' w ho ha (h.fresh k' w ho ha hnx)) id⟩
 
 /-- **An appended message outside the free range** (a store to a placed
@@ -198,7 +204,8 @@ theorem place (h : ArenaOK Λ lbl lsize t tm heap cells hu ex) {l : WeakMem.Allo
     intro a ha
     simp only [Range.contains, freeR] at ha ⊢
     omega
-  refine ⟨hle, h.sub, h.align, fun l' b' hl => ?_, fun a ha => h.zero a (hsh a ha), fun k' w hk ha _ => ?_⟩
+  refine ⟨hle, h.sub, h.align, fun l' b' hl => ?_, fun l' b' hl => ?_, fun a ha => h.zero a (hsh a ha),
+    fun k' w hk ha _ => ?_⟩
   · by_cases he : l' = l
     · subst he
       simp only [ite_true, Option.some.injEq] at hl
@@ -208,6 +215,13 @@ theorem place (h : ArenaOK Λ lbl lsize t tm heap cells hu ex) {l : WeakMem.Allo
     · simp only [he, ite_false] at hl
       have hd := h.disj l' b' hl
       simp only [Range.Disjoint, freeR, lrange, he, ite_false] at hd ⊢
+      omega
+  · by_cases he : l' = l
+    · subst he
+      simp only [ite_true, Option.some.injEq] at hl
+      omega
+    · simp only [he, ite_false] at hl
+      have := h.base l' b' hl
       omega
   · refine h.fresh k' w hk (hsh _ ha) fun hx => ?_
     have := hex _ hx

@@ -47,6 +47,6 @@ theorem rdQ_ok {ms : MemSide isaLSE2} {lab : Label → Int64}
   rt := hrt
   mp := hmp
   grow := hgrow
-  hdr := hdr
+  hdr := fun o _ hle => hdr o hle
 
 end Spike.Lib.A64.Flow.Hello1

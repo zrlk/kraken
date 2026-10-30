@@ -2,12 +2,12 @@
 **`PrintTop` is at the output extern's model terms** (DRAFT, with the
 model-frame exemption `Scc.Sem.externModelTerms`): every term of
 `printL`'s body followed down (`PrintSvc.printTerms`) is a model term or
-its `ret ()`, which reads no variable. This is the `hTop` of
+its `ret `, which reads no variable. This is the `hTop` of
 `r_componentsAE` (`Spike/Lib/A64ConsumerAEComp.lean` and its x86-64 twin)
 at `Top := PrintTop` (`emitA_of_nodes`).
 
 - `printTerms_model`: a term followed down from a term of `PrintShape` is
-  one of its `modelTerms` or `ret ()`.
+  one of its `modelTerms` or `ret `.
 - `printTop_ext`: the `hTop`.
 -/
 import Spike.Lib.PrintSvcRun
@@ -18,7 +18,7 @@ namespace Spike.Lib.PrintSvc
 open CoreLang CoreTerm
 open Spike.Lib Spike.Lib.PrintSrc
 
-/-- **A term followed down is a model term or `ret ()`.** -/
+/-- **A term followed down is a model term or `ret `.** -/
 theorem printTerms_model {t u : Expr} (ht : PrintShape t) (hu : u ∈ printTerms t) :
     u ∈ Scc.Sem.modelTerms t ∨ u = .ret .unit := by
   induction t
@@ -66,7 +66,7 @@ theorem printTop_ext {c : Ctl} (h : PrintTop c) :
     have e : Scc.Frontend.printLBody = printLBody := rfl
     unfold Scc.Sem.externModelTerms
     rw [e]
-    exact List.mem_append_right _ h'
+    simp [h']
   · rw [h']
     exact .inr rfl
 

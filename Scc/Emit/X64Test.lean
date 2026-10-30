@@ -476,13 +476,13 @@ def byPlacement (before after : String) : String :=
 
 -- `Scc/Test/hello.w`
 #guard summary helloItems == byPlacement
-  "items 2248: instr 1766, label 222, directive 228, comment 3, blank 29, raw 0\n  round trip: ok\n  meaning: ok"
-  "items 2256: instr 1774, label 222, directive 228, comment 3, blank 29, raw 0\n  round trip: ok\n  meaning: ok"
+  "items 1782: instr 1349, label 188, directive 216, comment 3, blank 26, raw 0\n  round trip: ok\n  meaning: ok"
+  "items 1790: instr 1357, label 188, directive 216, comment 3, blank 26, raw 0\n  round trip: ok\n  meaning: ok"
 
 -- `Scc/Test/handoff.w`
 #guard summary handoffItems == byPlacement
-  "items 1686: instr 1271, label 180, directive 207, comment 3, blank 25, raw 0\n  round trip: ok\n  meaning: ok"
-  "items 1694: instr 1279, label 180, directive 207, comment 3, blank 25, raw 0\n  round trip: ok\n  meaning: ok"
+  "items 1683: instr 1265, label 181, directive 209, comment 3, blank 25, raw 0\n  round trip: ok\n  meaning: ok"
+  "items 1691: instr 1273, label 181, directive 209, comment 3, blank 25, raw 0\n  round trip: ok\n  meaning: ok"
 
 -- `Scc/Test/overflow.w`
 #guard summary overflowItems == byPlacement
@@ -505,7 +505,7 @@ info: items 137: instr 84, label 14, directive 33, comment 1, blank 5, raw 0
 
 -- `allOpsIR` (one of its functions has a zero-byte frame: its `subq $0, %rsp` is counted)
 /--
-info: items 638: instr 540, label 36, directive 47, comment 7, blank 8, raw 0
+info: items 639: instr 540, label 37, directive 47, comment 7, blank 8, raw 0
   round trip: ok
   meaning: ok
 -/

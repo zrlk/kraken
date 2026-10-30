@@ -47,7 +47,8 @@ source promises `sp`. -/
 structure MemRelP (Λ : Layout) (lbl : WeakMem.AllocLabel → Option Nat) (lsize : WeakMem.AllocLabel → Nat)
     (ts : Nat → Option Nat) (tm : Memory) (sm : WeakMem.Memory) (tp tq sp : List Nat) : Prop where
   lbl_static : ∀ l b, Λ.static l = some b → lbl l = some b
-  lbl_range : ∀ l b, lbl l = some b → b % 8 = 0 ∧ ((lrange lsize l b).Sub Λ.heap ∨ (lrange lsize l b).Sub Λ.data)
+  lbl_range : ∀ l b, lbl l = some b → b % 8 = 0 ∧ ((lrange lsize l b).Sub Λ.heap ∨ (lrange lsize l b).Sub Λ.data ∨
+    (lsize l = 0 ∧ (lrange lsize l b).Sub Λ.pinned))
   lbl_disj : ∀ l l' b b', l ≠ l' → lbl l = some b → lbl l' = some b' → (lrange lsize l b).Disjoint (lrange lsize l' b')
   lbl_mem : ∀ m ∈ sm.toList, ∃ b, lbl m.loc.label = some b ∧ m.loc.offset < lsize m.loc.label
   mem_rep : ∀ k m, sm[k]? = some m → ∃ k' a v, ts k = some k' ∧ wordAddr lbl m.loc = some a ∧
@@ -375,7 +376,7 @@ theorem alloc (h : MemRelP Λ lbl lsize ts tm sm tp tq sp) {l : WeakMem.AllocLab
       simp only [ite_true] at hl'; cases hl'
       exact ⟨hb, .inl (by rw [hrange_l]; exact hheap)⟩
     · simp only [he, ite_false] at hl'
-      rw [hrange l' he]; exact h.lbl_range l' b' hl'
+      rw [hrange l' he]; simpa only [he, ite_false] using h.lbl_range l' b' hl'
   · intro l1 l2 b1 b2 hne h1 h2
     by_cases e1 : l1 = l
     · subst e1
@@ -720,7 +721,7 @@ theorem addr_lt (h : MemRelP Λ lbl lsize ts tm sm tp tq sp) (hwf : Λ.WF) {sa :
   have hh := hwf.inSpace Λ.heap (by simp [Layout.regions])
   have hd := hwf.inSpace Λ.data (by simp [Layout.regions])
   simp only [Range.InSpace] at hh hd
-  rcases (h.lbl_range _ _ hb).2 with hs | hs <;> simp only [lrange, Range.Sub] at hs <;> omega
+  rcases (h.lbl_range _ _ hb).2 with hs | hs | ⟨h0, hs⟩ <;> simp only [lrange, Range.Sub] at hs <;> omega
 
 end MemRelP
 

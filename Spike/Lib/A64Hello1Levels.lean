@@ -213,7 +213,7 @@ theorem rd_land {ms : MemSide isaLSE2} {lab : Label → Int64} {g : MainG} {σC 
   obtain ⟨⟨σe, ⟨-, ⟨σm, ⟨hc, -⟩, -⟩, -⟩, -, -⟩, -⟩ := h1
   have hq : q.1.c0 = rdCN := h2.1 ▸ hc
   obtain ⟨-, hτ, -, hn⟩ := rdQ_facts q.2 hq
-  obtain ⟨-, old, -, -, hb, hold, -, -, us, hus, hw⟩ := hJ
+  obtain ⟨-, old, -, -, hb, hold, -, -, -, us, hus, hw⟩ := hJ
   rw [hτ] at hus
   have h8 : TermRun.accs (TermRun.close [] τ8) = some [.one] := by rfl
   have hus' : us = [.one] := Option.some.inj (hus.symm.trans h8)

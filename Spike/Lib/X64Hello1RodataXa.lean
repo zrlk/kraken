@@ -82,7 +82,7 @@ theorem rd_xa_post {F0 : MachineData → Prop} {g : WcG} {q : AG ms (_root_.Exec
   · obtain ⟨⟨σe, ⟨⟨c', ⟨⟨-, hfp, hra, -, -⟩, -⟩⟩, hc⟩, h0, h8⟩, hbp, -⟩ := h1
     have hq : q.1.c0 = rdCN := h2.1 ▸ hc
     obtain ⟨hx, hτ, he', hn'⟩ := rdQ_facts q.2 hq
-    obtain ⟨ini, old, hcl, hx0, hb, hold, hfpx, -⟩ := hJx
+    obtain ⟨ini, old, hcl, hx0, hb, hold, -, hfpx, -⟩ := hJx
     have hb' : b = ms.heap + 16 * old + ms.off 2 τ8 := by rw [← hn', ← hτ]; exact hb
     have hold' : old + ms.units 2 τ8 ≤ ms.cells := by rw [← hn', ← hτ]; exact hold
     refine ⟨l, ini, ⟨b, old, hl, hx0, hb', hold', ?_, ?_, ?_⟩, ?_⟩

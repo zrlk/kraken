@@ -81,6 +81,10 @@ structure SFactsS (Λ : Scc.Sem.Layout) (μ : Marks) (p : Prog) (own : OwnS) (rS
   tkSys : abi.atSys s = true → ∀ call,
     Kernel.decode abi.nrs (abi.nr s) (abi.arg s) = some call → ∀ s' ∈ Kernel.certSuccs abi s call, (Tk s' ↔ Tk s)
   owned : Tk s → Owned Λ rS s
+  /-- The heap case is a buffer allocation's only (`HeapReady`, guarded on
+  `newBuf`), by design: it feeds `AbortPathS`, whose consumer's relation
+  carries the buffer-only heap clause. Programs with box allocations use the
+  `SFactsACH` path (`HeapAbortOblA`, `AbortPathSC`). -/
   abortOk : ∀ k a, μ.abortAt k = some a → pcOf s = a →
     ((k = .overflow ∧ OvfReady c ∧ EnvSmallS c.env fs) ∨
       (k = .heap ∧ ∀ old, ((∃ x a τ e, c.term = .let_ x (.newBuf a τ) e) →

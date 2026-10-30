@@ -67,7 +67,7 @@ theorem notAbPc_of_posOff {exe : _root_.Executable} [Kraken.Executable.ValidLayo
 
 /-- The write abort's positions but the dispatcher's prologue. -/
 def abPosN : List (Label × Nat) :=
-  ((List.range 9).map fun j => (".L9_scc_rt_print.2_write", j + 5)) ++
+  ((List.range 9).map fun j => (".L9_scc_rt_print.2_write", j + 6)) ++
   ((List.range 8).map fun j => (".L9_scc_rt_print.3_chk2", j)) ++
   ((List.range 4).map fun j => (".L9_scc_rt_print.4_chk3", j)) ++
   ((List.range 2).map fun j => (".L9_scc_rt_print.6_fail", j)) ++
@@ -88,7 +88,7 @@ theorem abNoDispE_eq (lab : Label → Int64) :
     abNoDispE lab = abPosN.map fun p => lab p.1 + Int64.ofNat (4 * p.2) := by
   simp [abNoDispE, abPosN, Spike.Lib.A64.WriteAb.pcRet, Spike.Lib.A64.WriteAb.tailPcs,
     Spike.Lib.A64.WriteAb.failPcs, Spike.Lib.A64.WriteAb.dispTPcs, Spike.Lib.A64.WriteAb.g4Pcs,
-    Spike.Lib.A64.WriteAb.stubPcs, Spike.Lib.A64.Print.pcSvc, List.range_succ, Int64.add_assoc]
+    Spike.Lib.A64.WriteAb.stubPcs, Spike.Lib.A64.PrintD.pcSvc, List.range_succ, Int64.add_assoc]
 
 /-- A state off `abNoDispE` and not at `x0 = 4` is off `Ab`. -/
 theorem not_ab_of_noDispE {lab : Label → Int64} {s : State} (h : s.st.2 ∉ abNoDispE lab)

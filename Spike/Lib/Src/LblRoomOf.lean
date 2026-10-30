@@ -21,10 +21,12 @@ open Scc.Sem
 variable {Λ : Layout}
 
 /-- **`LblRoom` from every placed label's range inside the heap or
-`.data`**, the layout below `2 ^ 32`. -/
+`.data`, or (a zero-word `ThreadId` box) the pinned region**, the layout
+below `2 ^ 32`. -/
 theorem lblRoom_of_range (hb32 : ∀ r ∈ Λ.rodata :: Λ.regions, r.lo + r.size ≤ 2 ^ 32)
     {lbl : WeakMem.AllocLabel → Option Nat} {lsize : WeakMem.AllocLabel → Nat}
-    (hr : ∀ l b, lbl l = some b → (lrange lsize l b).Sub Λ.heap ∨ (lrange lsize l b).Sub Λ.data) :
+    (hr : ∀ l b, lbl l = some b → (lrange lsize l b).Sub Λ.heap ∨ (lrange lsize l b).Sub Λ.data ∨
+      (lsize l = 0 ∧ (lrange lsize l b).Sub Λ.pinned)) :
     LblRoom lbl := fun l A hl => by
   have := Scc.Cert.PlaceOK.lbl_end_le32 hb32 (hr l A hl)
   omega

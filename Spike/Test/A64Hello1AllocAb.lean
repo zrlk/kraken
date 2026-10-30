@@ -172,10 +172,10 @@ open Spike.Test.A64Hello1RtW (labX labT_eq_labX)
 /-- The labels of the write abort's pcs off `labX`'s tables: the
 dispatcher's tests, its jump to the write stub and the stub's. -/
 def abTabX : List (Label × Nat) :=
-  [(".L12_scc_rt_abort.0_entry", 4198304), (".L12_scc_rt_abort.2_next1", 4198340),
-   (".L12_scc_rt_abort.4_next3", 4198376), (".L12_scc_rt_abort.6_next5", 4198412),
-   (".L12_scc_rt_abort.7_is6", 4198432), ("scc_rt_abort_write", 4198704),
-   (".L16_scc_rt_abort_write.0_entry", 4198720), ("scc_rt_abort_write_exit", 4198764)]
+  [(".L12_scc_rt_abort.0_entry", 4198308), (".L12_scc_rt_abort.2_next1", 4198344),
+   (".L12_scc_rt_abort.4_next3", 4198380), (".L12_scc_rt_abort.6_next5", 4198416),
+   (".L12_scc_rt_abort.7_is6", 4198436), ("scc_rt_abort_write", 4198708),
+   (".L16_scc_rt_abort_write.0_entry", 4198724), ("scc_rt_abort_write_exit", 4198768)]
 
 theorem abTabX_ok : abTabX.all tabChk = true := by decide +kernel
 
@@ -299,7 +299,7 @@ theorem allocAb (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -160) 
       (l := ".L2_scc_rt_alloc.5_ok") (k := 41) (p := labT ".L2_scc_rt_alloc.5_ok" + Int64.ofNat (4 * 41))
       (by decide +kernel) rfl (by dsimp only [N]; decide +kernel) (by decide +kernel)
       (by rw [labT_eq_labY]; decide +kernel) fun σ c m hJ hF => ?_
-    obtain ⟨o, ⟨-, hle, -, hn28, -⟩, -, -, h10⟩ := hJ
+    obtain ⟨o, ⟨-, hle, -, hn28, -, -⟩, -, -, h10⟩ := hJ
     have hq' := hq m hF
     rw [hello1_labT] at hq'
     have hk := Spike.Lib.A64.Alloc.Call.k_toNat hq'.n_lt

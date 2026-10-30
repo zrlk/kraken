@@ -14,6 +14,10 @@ and the write stub (`print`'s abort call); `abortPhHeapOk`
 (`phOf`, `okPcOf`) and the program's code labels (`labC`), fail-closed:
 
 - `printPhOk`, `tailPhOk`: the checks at any `okPc`, `ph` and labels;
+  `scc_rt_print`'s write block is led by the barrier `dmb ish` (every
+  AArch64 program, `Runtime.printF`): `tailPhOk` checks the barrier's pc
+  (`phOne` at `writeL`) and `printPhOk` at `fenceLab`, the labels with
+  `writeL` one instruction on;
 - `printLabs`, `tailLabs`: the labels they read; `printPhOk_congr`,
   `tailPhOk_congr`: two label maps agreeing on them give the same check;
 - `tailOffC`: at A6's phase table and sites (`false` if either is
@@ -109,12 +113,29 @@ theorem printPhOk_congr {okPc : Nat → Bool} {ph : Nat → Nat} {lab lab' : Lab
     blkPh_congr (hb Print.b14 fun l hl => by simp only [printLabs]; simp [hl]),
     blkPh_congr (hb (Print.b16.take 3) fun l hl => by simp only [printLabs]; simp [hl])]
 
-/-- **The runtime routines' phase check**: `scc_rt_print`'s, the write abort
-path's, the heap abort path's and `scc_rt_alloc`'s, and `scc_rt_alloc`'s targets off the
-write abort's pcs. -/
+/-- The write block's label, led by the barrier (`Print.bF`). -/
+abbrev writeL : Label := ".L9_scc_rt_print.2_write"
+
+/-- **The labels one instruction on at the write block** (`writeL`): the
+body's checks (`printPhOk`, `allocAbOk`) read at them the write's pcs past
+the barrier. -/
+def fenceLab (lab : Label → Int64) (l : Label) : Int64 :=
+  if l = writeL then lab l + 4 else lab l
+
+/-- `fenceLab` of two label maps agreeing at a label agree there. -/
+theorem fenceLab_congr {lab lab' : Label → Int64} {l : Label} (h : lab l = lab' l) :
+    fenceLab lab l = fenceLab lab' l := by
+  unfold fenceLab; rw [h]
+
+/-- **The runtime routines' phase check**: `scc_rt_print`'s (the barrier,
+`phOne` at `writeL`, and `printPhOk` at `fenceLab`: the write block one on,
+`b3`'s branch to `writeL` read there one on, in the barrier's phase), the
+write abort path's, the heap abort path's and `scc_rt_alloc`'s, and
+`scc_rt_alloc`'s targets off the write abort's pcs at `fenceLab` (its pcs
+past the system call one on). -/
 def tailPhOk (okPc : Nat → Bool) (ph : Nat → Nat) (lab : Label → Int64) : Bool :=
-  printPhOk okPc ph lab && abortPhWriteOk okPc ph lab && abortPhHeapOk okPc ph lab && allocPhOk okPc ph lab &&
-    allocAbOk lab
+  phOne okPc ph (lab writeL) && printPhOk okPc ph (fenceLab lab) && abortPhWriteOk okPc ph lab &&
+    abortPhHeapOk okPc ph lab && allocPhOk okPc ph lab && allocAbOk (fenceLab lab)
 
 /-- **The labels `tailPhOk` reads.** -/
 def tailLabs : List String :=
@@ -123,21 +144,27 @@ def tailLabs : List String :=
 /-- **`tailPhOk` reads the labels of `tailLabs` only.** -/
 theorem tailPhOk_congr {okPc : Nat → Bool} {ph : Nat → Nat} {lab lab' : Label → Int64}
     (h : ∀ l ∈ tailLabs, lab l = lab' l) : tailPhOk okPc ph lab = tailPhOk okPc ph lab' := by
+  have hw : writeL ∈ tailLabs := by simp [tailLabs, printLabs, printOwnLabs]
   unfold tailPhOk
-  rw [printPhOk_congr fun l hl => h l (by simp [tailLabs, hl]),
+  rw [h writeL hw,
+    printPhOk_congr fun l hl => fenceLab_congr (h l (by simp [tailLabs, hl])),
     abortPhWriteOk_congr fun l hl => h l (by simp [tailLabs, hl]),
     abortPhHeapOk_congr fun l hl => h l (by simp [tailLabs, hl]),
     allocPhOk_congr fun l hl => h l (by simp [tailLabs, hl]),
-    allocAbOk_congr fun l hl => h l (by simp [tailLabs, hl])]
+    allocAbOk_congr fun l hl => fenceLab_congr (h l (by simp [tailLabs, hl]))]
 
 section Parts
 
 variable {okPc : Nat → Bool} {ph : Nat → Nat} {lab : Label → Int64} (h : tailPhOk okPc ph lab = true)
 include h
 
-/-- `tailPhOk`'s `scc_rt_print` part. -/
-theorem printPhOk_of_tailPhOk : printPhOk okPc ph lab = true := by
-  simp only [tailPhOk, Bool.and_eq_true] at h; exact h.1.1.1.1
+/-- `tailPhOk`'s barrier part. -/
+theorem fencePh_of_tailPhOk : phOne okPc ph (lab writeL) = true := by
+  simp only [tailPhOk, Bool.and_eq_true] at h; exact h.1.1.1.1.1
+
+/-- `tailPhOk`'s `scc_rt_print` part, at `fenceLab`. -/
+theorem printPhOk_of_tailPhOk : printPhOk okPc ph (fenceLab lab) = true := by
+  simp only [tailPhOk, Bool.and_eq_true] at h; exact h.1.1.1.1.2
 
 /-- `tailPhOk`'s write abort part. -/
 theorem abortPhWriteOk_of_tailPhOk : abortPhWriteOk okPc ph lab = true := by
@@ -151,8 +178,8 @@ theorem abortPhHeapOk_of_tailPhOk : abortPhHeapOk okPc ph lab = true := by
 theorem allocPhOk_of_tailPhOk : allocPhOk okPc ph lab = true := by
   simp only [tailPhOk, Bool.and_eq_true] at h; exact h.1.2
 
-/-- `tailPhOk`'s `scc_rt_alloc` target part. -/
-theorem allocAbOk_of_tailPhOk : allocAbOk lab = true := by
+/-- `tailPhOk`'s `scc_rt_alloc` target part, at `fenceLab`. -/
+theorem allocAbOk_of_tailPhOk : allocAbOk (fenceLab lab) = true := by
   simp only [tailPhOk, Bool.and_eq_true] at h; exact h.2
 
 end Parts

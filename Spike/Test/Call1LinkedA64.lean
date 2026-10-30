@@ -36,7 +36,7 @@ open Scc.Cert.PlaceOK
 open SccCertificate (asm out outLit out_eq placeCfg)
 
 -- The executable is the one linked (evaluation, not a proof).
-/-- info: 25e189f4ec9348fcae467617d0dd3ecfe87551af66f7270cc4d1b72d76c76261 -/
+/-- info: 456e7533f65ea3cf1770a2f142ba1a8229626418c086054ce7e481c48963daed -/
 #guard_msgs in
 #eval do IO.println (Scc.Cert.Sha256.ofBytes (← IO.FS.readBinFile "Scc/Test/elf/call1a64/call1"))
 
@@ -49,7 +49,7 @@ open SccCertificate (asm out outLit out_eq placeCfg)
 def elf : Scc.Sem.Layout × String := scc_elf_layout% "Scc/Test/elf/call1a64/call1"
 
 -- The file read is the executable linked (evaluation, not a proof).
-#guard elf.2 == "25e189f4ec9348fcae467617d0dd3ecfe87551af66f7270cc4d1b72d76c76261"
+#guard elf.2 == "456e7533f65ea3cf1770a2f142ba1a8229626418c086054ce7e481c48963daed"
 
 /-- The linked executable's layout. -/
 abbrev Λe : Scc.Sem.Layout := elf.1

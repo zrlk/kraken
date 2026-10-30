@@ -40,8 +40,9 @@ the allocator's arena base, heap counter address, units and base offset
 (`MemSide.heap`, `ctr`, `units`, `off`; defaults `0`, `0`, one unit, one
 header word) and the arena's cells (`MemSide.cells`, default `0`), and the
 owned words, the mapped locations, the abort sites, the placed pairs, the
-allocation fragment and the output's byte step (`MemSide.own`, `mp`,
-`abortAt`, `pl`, `xa`, `bo`; defaults as `MemSide`'s). -/
+allocation fragment, the output's byte step and the counter floor
+(`MemSide.own`, `mp`, `abortAt`, `pl`, `xa`, `bo`, `lo`; defaults as
+`MemSide`'s). -/
 def MemSide.ofLabels {I : ISA} (rd : TermRun.Word → Prop) (lbl : WeakMem.AllocLabel → Option Nat)
     (lsize : WeakMem.AllocLabel → Nat) (K : Option (Scc.Sem.Kernel.Abi I) := none)
     (G : Loc → Val → Prop := fun _ _ => True) (heap ctr : Nat := 0) (units : Nat → CoreLang.Ty → Nat := fun _ _ => 1)
@@ -49,9 +50,10 @@ def MemSide.ofLabels {I : ISA} (rd : TermRun.Word → Prop) (lbl : WeakMem.Alloc
     (own : I.State → List (Loc × Val) := fun _ => []) (mp : Loc → Bool → Prop := fun _ _ => False)
     (abortAt : I.State → Prop := fun _ => False) (pl : I.State → Ctl → Prop := fun _ _ => False)
     (xa : WeakMem.AllocLabel → Nat → Nat → Frag I := fun _ _ _ _ _ => False)
-    (bo : I.State → Nat → Ctl → (Ctl → Prop) → Prop := fun _ _ _ _ => False) : MemSide I :=
+    (bo : I.State → Nat → Ctl → (Ctl → Prop) → Prop := fun _ _ _ _ => False)
+    (lo : Nat → Prop := fun _ => True) : MemSide I :=
   { rd, rt := fun a => ¬ ∃ l b, lbl l = some b ∧ (lrange lsize l b).contains a, K, G, heap, ctr, units,
-    off, cells, own, mp, abortAt, pl, xa, bo }
+    off, cells, own, mp, abortAt, pl, xa, bo, lo }
 
 section KStore
 

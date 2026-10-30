@@ -312,7 +312,7 @@ from the frame's result cell: `wordRep_slot`, `RetSlot`, `nodeW_ret0_slot`, `blk
 `hx` of `retHeld_hW` / `retSlot_bodyN2` at the held call: `lookupS_held`, `regionOff_of_rsOf`, `hx_held`),
 `Spike.Lib.LowerA64.MainTailA` (`main`'s return tail at the held frames end to end, one segment to
 `ExitC2SLF` from the walk's facts: `mainTailA_seg`),
-`Spike.Lib.LowerA64.MainTailP` (the print arm, the source held at `print`'s `ret ()`: `heldRNU`,
+`Spike.Lib.LowerA64.MainTailP` (the print arm, the source held at `print`'s `ret `: `heldRNU`,
 `BlkEdge.heldRNU`, `exitC2SLF_of_heldRNU`, `blkW_ret0_nil`, `blkW_abSt_ret2`, `mainTailA_segP`, `heldP_segA`,
 `heldTailCX_of`),
 `Spike.Lib.LowerX64.MainTailP` (its x64 twin: `heldRNU`, `BlkEdge.heldRNU`, `exitC2SLF_of_heldRNU`,
@@ -1478,7 +1478,7 @@ know the call, `PrintCall.pFJ`), `Spike.Test.A64PrintTP` (their axiom guards),
 `Spike.Lib.LowerX64.HeldC` (the source held at a callee's `ret` one frame above `fs`: `HeldC`, `HeldCtl`,
 `HeldC.lagF`; `CallC2H`, `PrintCallCH`: `CallC2`, `PrintCallC` ending at `HeldC` of `ContC`),
 `Spike.Lib.LowerX64.PrintCallC2H` (`printCallCH_of` from `printCallC_of`'s premises, `printCallCH_of'` from
-`printCallC_of'`'s, `printCallCH_ofR` with `print`'s end states at `ret ()`, `printCallCH_ofRA` over
+`printCallC_of'`'s, `printCallCH_ofR` with `print`'s end states at `ret `, `printCallCH_ofRA` over
 `printCallC_ofA`'s premises; the hold node `printNRH`),
 `Spike.Lib.X64CallSAH` (`call_ndSFH`: `call_ndSF` with the callee's return not taken, landing at `fr :: fs`),
 `Spike.Lib.LowerX64.CallC2H` (`callC2H_of` from `callC2_of`'s premises and `hWH`, `W` at the held pairs of the
@@ -1579,7 +1579,7 @@ over `printCallC_ofA`/`printCallCH_ofRA`, the frames along the argument block (`
 `printCallC_instA`'s at a lowering table `i` apart from the world's: `i`'s entries the world's (`hiL`,
 `letAt_imms`, `bodyN2_imms`), the two agreeing at each `print` continuation (`hie`), the return address's facts
 from the calls at `BlC2` (`hraP_of_blC2`, `printRa_notAb`)),
-`Spike.Lib.PrintTopExt` (`PrintTop` at the extern's model terms or `ret ()`: `printTop_ext`, the `hTop` of
+`Spike.Lib.PrintTopExt` (`PrintTop` at the extern's model terms or `ret `: `printTop_ext`, the `hTop` of
 `r_componentsAE`),
 `Spike.Lib.A64ConsumerAEPrint`, `Spike.Lib.X64ConsumerAEPrint` (`Correct` through `print`'s `write` at
 `Top := PrintTop`: `compAE_printTop`, `correctKOnAEP`, `hE` by `emitA_of_nodes` and `hcompE` by `r_componentsAE`;
@@ -1604,6 +1604,8 @@ bytes, `hpriv` discharged from the run's `PrivInv`),
 print call: `hpw`, `hov` from the setup's post and the allocator's premises),
 `Spike.Lib.FreshSrc` (the source's next allocation label is fresh, from the memory relation and `FreshInv`).
 `Spike.Lib.HeapObl` (the consumers' heap obligations, ISA-free: `HeapAbortObl`, `HeapCtr`, `AllocInvAt`),
+`Spike.Lib.HeapAbortBox` (the heap abort at a box `new`: `HeapReadyBox`, `abortJustified_heap_sourceA`, and the
+obligations guarded on either allocation, `AtAlloc`, `HeapAbortOblA`, `HeapCtrA`),
 `Spike.Lib.A64HeapObl` (the AArch64 allocator discharges them), `Spike.Lib.X64HeapObl` (the same on x64,
 with `Jfull.heapReady`), `Spike.Lib.X64NewBufHeap` (x64's buffer allocation's heap abort exit discharges them),
 `Spike.Lib.HeapPresCore` (`AllocInvAt` at the source's heap use along an allocation's steps, `land_step`; a
@@ -2310,6 +2312,7 @@ import Spike.Lib.A64AllocS
 import Spike.Lib.A64AbortHeapS
 import Spike.Lib.FreshSrc
 import Spike.Lib.HeapObl
+import Spike.Lib.HeapAbortBox
 import Spike.Lib.A64HeapObl
 import Spike.Lib.LowerA64.PrintArgs
 import Spike.Test.LowerA64PrintArgs
@@ -2448,6 +2451,7 @@ import Spike.Lib.Src.NoAcq
 import Spike.Lib.Src.RunOk2
 import Spike.Lib.Src.SliceL
 import Spike.Lib.Src.SrcB
+import Spike.Lib.Src.BoxCount
 import Spike.Lib.Src.SrcNum
 import Spike.Lib.Src.SrcNum2
 import Spike.Lib.Src.SrcRdNum

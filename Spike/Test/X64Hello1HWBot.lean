@@ -91,8 +91,8 @@ local notation "ElR" => ElX h (fnCode2OfPMe hello1o_accepted2 h Le) (CxOkH h hel
 private theorem setupRestTerm_ext :
     ¬ ((Expr.let_ "a" (.pair (.var "r") (.var "me")) (.tail "main" [] (.var "a")) ∈ externModelTerms ∨
       exprFv (Expr.let_ "a" (.pair (.var "r") (.var "me")) (.tail "main" [] (.var "a"))) = [])) := by
-  simp [externModelTerms, modelTerms, Scc.Frontend.printBody, Scc.Frontend.printLBody, Scc.Frontend.printAdv,
-    Scc.Frontend.printNext, exprFv, opVars, atVars]
+  simp [externModelTerms, modelTerms, Scc.Frontend.printBody, Scc.Frontend.printLBody, Scc.Frontend.printLPubBody,
+    Scc.Frontend.printAdv, Scc.Frontend.printNext, exprFv, opVars, atVars]
   exact ⟨.var "r", by simp [opAts]⟩
 
 /-- **`hello1_hbot`'s premise `hW`**: at a `BotHR` key's return exit, `W2`

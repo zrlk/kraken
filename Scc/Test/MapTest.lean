@@ -95,10 +95,10 @@ def report (p : Except String Program) : String :=
     if issues.isEmpty then s!"ok: {p.funcs.length} functions, {entries} heap-list entries"
     else String.intercalate "\n" issues
 
-/-- info: ok: 26 functions, 27 heap-list entries -/
+/-- info: ok: 23 functions, 28 heap-list entries -/
 #guard_msgs in #eval IO.println (report (lowerW (w_src% "Scc/Test/hello.w")))
 
-/-- info: ok: 22 functions, 25 heap-list entries -/
+/-- info: ok: 22 functions, 27 heap-list entries -/
 #guard_msgs in #eval IO.println (report (lowerW (w_src% "Scc/Test/handoff.w")))
 
 /-- info: ok: 22 functions, 14 heap-list entries -/

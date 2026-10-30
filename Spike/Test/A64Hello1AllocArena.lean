@@ -213,17 +213,17 @@ theorem allocArena (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -16
       (l := ".L2_scc_rt_alloc.5_ok") (k := 41) (p := labT ".L2_scc_rt_alloc.5_ok" + Int64.ofNat (4 * 41))
       (by decide +kernel) rfl (by dsimp only [N]; decide +kernel) fun σ c m hJ hF => ?_)
       Spike.Lib.A64.Flow.NodeW.triv ?_
-    · obtain ⟨o, ⟨-, hle, -, hn28, -⟩, -, -, h10⟩ := hJ
+    · obtain ⟨o, ⟨-, hle, -, hn28, -, -⟩, -, -, h10⟩ := hJ
       have hq' := hq m hF
       rw [hello1_labT] at hq'
       exact hmem _ (.inr ⟨o.toNat, hle, hdr_addr hq' hle hn28 h10⟩) m hF
-    · rintro s c ⟨σ, ⟨o, ⟨rfl, hle, -, hn28, -⟩, -, -, h10⟩, hF, hL⟩ - fs c' fs' hr L hW - lsize
+    · rintro s c ⟨σ, ⟨o, ⟨rfl, hle, -, hn28, -, -⟩, -, -, h10⟩, hF, hL⟩ - fs c' fs' hr L hW - lsize
       have hq' := hq _ hF
       rw [hello1_labT] at hq'
       obtain ⟨rfl, -⟩ := Prod.mk.inj (FrameRun.eq_of_newBuf hr hq'.term hq'.ev hq'.num)
       rw [hL L hW]
-      refine .inr (.inr (.inr ⟨o.toNat, q.x, q.a, q.τ, q.e, q.ta, q.ws, q.n, by rw [← hctr]; rfl, hq'.term,
-        hq'.ev, hq'.num, ?_⟩))
+      refine .inr (.inr (.inr (.inl ⟨o.toNat, q.x, q.a, q.τ, q.e, q.ta, q.ws, q.n, by rw [← hctr]; rfl, hq'.term,
+        hq'.ev, hq'.num, ?_⟩)))
       show (Spike.Lib.A64.Flow.rAddr σ.regs .X10 0).toNat < ar.heap + 16 * o.toNat + ar.off q.n q.τ
       rw [hdr_addr hq' hle hn28 h10, Spike.Lib.A64.Alloc.Call.hdrAt, ← hheap, ← hoff, hq'.off]
       omega

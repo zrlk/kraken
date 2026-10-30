@@ -10,7 +10,8 @@ after a body's last `let` the control is at its `ret` while the target
 still runs the return block).
 
 `SegW.lag`: if no control of the segment's invariant has a source event
-pending (`Quiet`: no hold, not at a load, store, exchange or allocation),
+pending (`Quiet`: no hold, not at a load, store, exchange, allocation or
+publication),
 the segment holds with the source control **held back** at any control a
 local run reaches each of its controls from (`Lag`), among those of a set
 `C`: every instruction is matched by the source stuttering, and the local
@@ -33,11 +34,18 @@ open CoreLang CoreTerm
 open Kraken.Promising
 
 /-- **A control with no source event pending**: no hold, not at a load,
-a store, an allocation or an exchange. -/
+a store, an allocation, an exchange or a publication (`PubStep`). -/
 def Quiet (c : Ctl) : Prop :=
   c.hold = none ∧ (∀ x a e, c.term ≠ .let_ x (.load true a) e) ∧
     (∀ x a b e, c.term ≠ .let_ x (.store true a b none) e) ∧ (∀ x a τ e, c.term ≠ .let_ x (.newBuf a τ) e) ∧
-    ∀ x sa u v e, ¬ XchgSite c x sa u v e
+    (∀ x sa u v e, ¬ XchgSite c x sa u v e) ∧ (∀ k c', ¬ PubStep k c c') ∧
+    ∀ x a e, c.term ≠ .let_ x (.new a) e
+
+/-- **No publication at a control whose term is no `publish`/`intoRgn`
+`let`** (`Quiet`'s last conjunct from the term). -/
+theorem noPub_of_term {c : Ctl} (hp : ∀ x a e, c.term ≠ .let_ x (.publish a) e)
+    (hr : ∀ x r a e, c.term ≠ .let_ x (.intoRgn r a) e) : ∀ k c', ¬ PubStep k c c' :=
+  fun _ _ ⟨_, _, x, a, e, _, _, _, ht, _⟩ => ht.elim (fun h => hp x a e h.1) fun ⟨r, h, _⟩ => hr x r a e h
 
 /-- **The fragment `X` held back** at the controls of `C` a local run
 reaches `X`'s controls from. -/
@@ -79,7 +87,7 @@ theorem lag {C : Ctl → Prop} (h : SegW W K p lbl ms P Q) (hq : ∀ s c, W s c 
     hx.elim (fun hi => .inl ⟨_, hi, hr.trans hr', hc⟩) (fun hq => .inr ⟨_, hq, hr.trans hr', hc⟩)
   refine ⟨Lag p C inv, fun s c ⟨c', hp, hr, hc⟩ => ⟨c', hP s c' hp, hr, hc⟩,
     fun s c ⟨c', hi, hr, hc⟩ => hW s c c' (hiW s c' hi) hr hc, fun s c ⟨c', hi, hr, hc⟩ => ?_⟩
-  obtain ⟨hh, hld, hst, hnb, hxs⟩ := hq s c' (hiW s c' hi)
+  obtain ⟨hh, hld, hst, hnb, hxs, hnp, hnn⟩ := hq s c' (hiW s c' hi)
   obtain ⟨hout, hk⟩ := hcl s c' hi
   refine ⟨fun hK => ?_, fun s' hks => ?_⟩
   · cases hout hK with
@@ -103,10 +111,16 @@ theorem lag {C : Ctl → Prop} (h : SegW W K p lbl ms P Q) (hq : ∀ s c, W s c 
         ⟨c, .refl c, hX hr hc hr' hx⟩
     | holdLoad _ _ _ x sa u v e _ hx => exact (hxs x sa u v e hx).elim
     | xchgStore _ _ _ _ x sa u v e _ _ _ _ hx => exact (hxs x sa u v e hx).elim
-    | ctrRmw _ _ _ x a τ e _ _ _ _ _ _ ht => exact (hnb x a τ e ht).elim
+    | ctrRmw _ _ _ x τ e _ _ _ _ hs =>
+      exact (hs.elim (fun ⟨a, _, _, ht, _⟩ => hnb x a τ e ht) fun ⟨_, a, _, ht, _⟩ => hnn x a e ht).elim
     | alloc _ _ x a τ e _ _ _ _ _ _ _ ht => exact (hnb x a τ e ht).elim
+    | newStore _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ hh' => rw [hh] at hh'; cases hh'
     | emit K' buf n _ _ hK' hat hd _ _ _ _ =>
       exact (hnw s c' (hiW s c' hi) K' hK' hat buf n hd).elim
+    | fence k s' c'' he hr' hx =>
+      cases hr' with
+      | loc hr' => exact .fence k s' c he (.loc (.refl c)) (hX hr hc hr' hx)
+      | pub _ hps _ => exact (hnp _ _ hps).elim
   · obtain ⟨c'', hr', hx⟩ := hk s' hks
     exact ⟨c, .refl c, hX hr hc hr' hx⟩
 

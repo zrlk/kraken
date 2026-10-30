@@ -167,7 +167,7 @@ unmapped in private memory under the frame condition (`hunL`, `hunN`,
 theorem takeW_gen {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe] {endPc : Int64}
     {prog : List Directive} {lab : Label → Int64} {μ : Marks} {own : Own} {Tk : State → Prop}
     {K : State → State → Prop} {okPc : Nat → Bool} {ph : Nat → Nat} {Λ : Scc.Sem.Layout} {rS : Range} {lbl : Lbl}
-    {ownOf : Nat → List (Loc × Val)} {ra : Label → Int64} {c0 : Ctl} {F : MachineData → Prop}
+    {ownOf : Nat → List (Loc × Val)} {ra : Label → Int64} {c0 : Ctl} {F P : MachineData → Prop}
     {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp) (hown : ∀ s, own s = ownOf (ph (pcOf s)))
     (hin : stackTakeIn prog = true) (hC0 : CFacts Λ lbl c0)
     {R : Region} (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -208) (hhi : 0 ≤ R.hi) (q : TakeG)
@@ -180,7 +180,7 @@ theorem takeW_gen {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe] 
     (hunX : ∀ m, F m → Mem.loadInt m.dmem (nextA lab) 8 = none)
     (hrS : rS = ⟨(stacksA lab + q.k0).toNat, 16384⟩) (hsub : rS.Sub Λ.stackPool)
     (hdisj : Λ.rodata.Disjoint Λ.stackPool) (hSM : FStable R (StackM rS)) :
-    ∀ i, TakeW (fun s c => SFacts Λ μ own rS Tk lbl s c) K exe endPc R F (StackM rS) q i := by
+    ∀ i, TakeW (fun s c => SFacts Λ μ own rS Tk lbl s c) K exe endPc R F (StackM rS) q i P := by
   have h := hin
   simp only [stackTakeIn, labIn, Bool.and_eq_true] at h
   obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨-, bE⟩, bEn⟩, bCls⟩, bJ1⟩, ⟨bD0, bD1⟩⟩, bD2⟩, ⟨bD7, bD8⟩⟩, bD9⟩,

@@ -163,7 +163,7 @@ theorem seg_allocW_tailA {W : Frag isa} {K : State → State → Prop} {F : Mach
     anode bC2 bC2_ok cntL 24 hW.c2
     dsimp only [TN.an, N] at hJ ⊢
     rw [bC2_run]
-    obtain ⟨o, rfl, ho, ⟨h0, h8, h16, h24, h32⟩, hn28, hax⟩ := hJ
+    obtain ⟨o, rfl, ho, ⟨h0, h8, h16, h24, h32⟩, hn28, hax, hlo⟩ := hJ
     have hr : (σ.regs.rax.toNat : Int) = o.toNat := by rw [← hax]; rfl
     have hol := o.isLt
     rw [h32, hax, hr, hu]
@@ -189,7 +189,7 @@ theorem seg_allocW_tailA {W : Frag isa} {K : State → State → Prop} {F : Mach
           have := congrArg BitVec.toNat h'
           simp only [BitVec.toNat_sub, BitVec.toNat_add, BitVec.toNat_ofNat, Width.bits, hu] at this
           omega
-      refine .inl ⟨TN.j2, ofNat_add' _ 24 35, rfl, o, rfl, hle, ?_, hn28, ?_⟩
+      refine .inl ⟨TN.j2, ofNat_add' _ 24 35, rfl, o, rfl, hle, ?_, hn28, ?_, hlo⟩
       · simp [Fr, upd_apply, h0, h8, h16, h24, h32]
       · simp [upd_apply]
   case j2 =>
@@ -227,9 +227,9 @@ theorem seg_allocW_tailA {W : Frag isa} {K : State → State → Prop} {F : Mach
     anode bO0 bO0_ok okL 0 hW.ok
     dsimp only [TN.an, N] at hJ ⊢
     rw [bO0_run]
-    obtain ⟨o, rfl, hle, ⟨h0, h8, h16, h24, h32⟩, hn28, h48⟩ := hJ
+    obtain ⟨o, rfl, hle, ⟨h0, h8, h16, h24, h32⟩, hn28, h48, hlo⟩ := hJ
     refine .inl ⟨TN.f1, rfl, rfl, o, ?_⟩
-    simp [Jok, Fr, Jbase, upd_apply, Reg64s.set64, Reg64s.get64, h0, h8, h16, h24, h32, h48, hle, hn28]
+    simp [Jok, Fr, Jbase, upd_apply, Reg64s.set64, Reg64s.get64, h0, h8, h16, h24, h32, h48, hle, hn28, hlo]
   case f1 =>
     fnode (.shr_cl .rax) 11 3 TN.o1 hW.f1
     obtain ⟨o, hJo, ha, hc⟩ := hJ
@@ -238,9 +238,9 @@ theorem seg_allocW_tailA {W : Frag isa} {K : State → State → Prop} {F : Mach
     anode bO1 bO1_ok okL 14 hW.o1
     dsimp only [TN.an, N] at hJ ⊢
     rw [bO1_run]
-    obtain ⟨o, ⟨rfl, hle, ⟨h0, h8, h16, h24, h32⟩, hn28, h48⟩, ha⟩ := hJ
+    obtain ⟨o, ⟨rfl, hle, ⟨h0, h8, h16, h24, h32⟩, hn28, h48, hlo⟩, ha⟩ := hJ
     refine .inl ⟨TN.f2, ofNat_add' _ 14 15, rfl, o, ?_⟩
-    simp [Jok, Fr, Jbase, upd_apply, Reg64s.set64, Reg64s.get64, h0, h8, h16, h24, h32, h48, hle, hn28, ha]
+    simp [Jok, Fr, Jbase, upd_apply, Reg64s.set64, Reg64s.get64, h0, h8, h16, h24, h32, h48, hle, hn28, hlo, ha]
   case f2 =>
     fnode (.and_rr .rax .rcx) 29 3 TN.o2 hW.f2
     obtain ⟨o, hJo, ha, hc⟩ := hJ
@@ -249,9 +249,9 @@ theorem seg_allocW_tailA {W : Frag isa} {K : State → State → Prop} {F : Mach
     anode bO2 bO2_ok okL 32 hW.o2
     dsimp only [TN.an, N] at hJ ⊢
     rw [bO2_run]
-    obtain ⟨o, ⟨rfl, hle, ⟨h0, h8, h16, h24, h32⟩, hn28, h48⟩, ha⟩ := hJ
+    obtain ⟨o, ⟨rfl, hle, ⟨h0, h8, h16, h24, h32⟩, hn28, h48, hlo⟩, ha⟩ := hJ
     refine .inl ⟨TN.s2, ofNat_add' _ 32 4, rfl, o, ?_⟩
-    simp [Jok, Fr, Jbase, upd_apply, Reg64s.set64, Reg64s.get64, h0, h8, h16, h24, h32, h48, hle, hn28, ha]
+    simp [Jok, Fr, Jbase, upd_apply, Reg64s.set64, Reg64s.get64, h0, h8, h16, h24, h32, h48, hle, hn28, hlo, ha]
   case s2 =>
     refine si_ndW (si := .leaRip .rax "scc_rt_heap") (z := 7) rfl hF
       (code_field hp hend (by simp only [hin']) (l := okL) (off := 36) rfl) hW.s2
@@ -262,9 +262,9 @@ theorem seg_allocW_tailA {W : Frag isa} {K : State → State → Prop} {F : Mach
     anode bO3 bO3_ok okL 43 hW.o3
     dsimp only [TN.an, N] at hJ ⊢
     rw [bO3_run]
-    obtain ⟨o, ⟨rfl, hle, ⟨h0, h8, h16, h24, h32⟩, hn28, h48⟩, h72, ha⟩ := hJ
+    obtain ⟨o, ⟨rfl, hle, ⟨h0, h8, h16, h24, h32⟩, hn28, h48, hlo⟩, h72, ha⟩ := hJ
     refine .inl ⟨TN.f3, ofNat_add' _ 43 15, rfl, o, ?_⟩
-    simp [Jok, Fr, Jbase, upd_apply, Reg64s.set64, Reg64s.get64, h0, h8, h16, h24, h32, h48, hle, hn28, h72, ha]
+    simp [Jok, Fr, Jbase, upd_apply, Reg64s.set64, Reg64s.get64, h0, h8, h16, h24, h32, h48, hle, hn28, hlo, h72, ha]
   case f3 =>
     fnode (.shl_cl .rax) 58 3 TN.o4 hW.f3
     obtain ⟨o, hJo, h72, h80, ha, hc⟩ := hJ
@@ -273,9 +273,9 @@ theorem seg_allocW_tailA {W : Frag isa} {K : State → State → Prop} {F : Mach
     anode bO4 bO4_ok okL 61 hW.o4
     dsimp only [TN.an, N] at hJ ⊢
     rw [bO4_run]
-    obtain ⟨o, ⟨rfl, hle, ⟨h0, h8, h16, h24, h32⟩, hn28, h48⟩, h72, h80, ha⟩ := hJ
+    obtain ⟨o, ⟨rfl, hle, ⟨h0, h8, h16, h24, h32⟩, hn28, h48, hlo⟩, h72, h80, ha⟩ := hJ
     refine .inl ⟨TN.f4, ofNat_add' _ 61 27, rfl, o, ?_⟩
-    simp [Jok, Fr, Jbase, upd_apply, Reg64s.set64, Reg64s.get64, h0, h8, h16, h24, h32, h48, hle, hn28,
+    simp [Jok, Fr, Jbase, upd_apply, Reg64s.set64, Reg64s.get64, h0, h8, h16, h24, h32, h48, hle, hn28, hlo,
       h72, h80, ha, BitVec.add_comm]
   case f4 =>
     fnode (.imul_rr .rax .rcx) 88 4 TN.o5 hW.f4
@@ -285,9 +285,9 @@ theorem seg_allocW_tailA {W : Frag isa} {K : State → State → Prop} {F : Mach
     anode bO5 bO5_ok okL 92 hW.o5
     dsimp only [TN.an, N] at hJ ⊢
     rw [bO5_run]
-    obtain ⟨o, ⟨rfl, hle, ⟨h0, h8, h16, h24, h32⟩, hn28, h48⟩, h96, ha⟩ := hJ
+    obtain ⟨o, ⟨rfl, hle, ⟨h0, h8, h16, h24, h32⟩, hn28, h48, hlo⟩, h96, ha⟩ := hJ
     refine .inl ⟨TN.f5, ofNat_add' _ 92 15, rfl, o, ?_⟩
-    simp [Jok, Fr, Jbase, upd_apply, Reg64s.set64, Reg64s.get64, h0, h8, h16, h24, h32, h48, hle, hn28, h96, ha]
+    simp [Jok, Fr, Jbase, upd_apply, Reg64s.set64, Reg64s.get64, h0, h8, h16, h24, h32, h48, hle, hn28, hlo, h96, ha]
   case f5 =>
     fnode (.shl_cl .rax) 107 3 TN.o6 hW.f5
     obtain ⟨o, hJo, h96, ha, hc⟩ := hJ
@@ -296,9 +296,9 @@ theorem seg_allocW_tailA {W : Frag isa} {K : State → State → Prop} {F : Mach
     anode bO6 bO6_ok okL 110 hW.o6
     dsimp only [TN.an, N] at hJ ⊢
     rw [bO6_run]
-    obtain ⟨o, ⟨rfl, hle, ⟨h0, h8, h16, h24, h32⟩, hn28, h48⟩, h96, ha⟩ := hJ
+    obtain ⟨o, ⟨rfl, hle, ⟨h0, h8, h16, h24, h32⟩, hn28, h48, hlo⟩, h96, ha⟩ := hJ
     refine .inl ⟨TN.f6, ofNat_add' _ 110 15, rfl, o, ?_⟩
-    simp [Jok, Fr, Jbase, upd_apply, Reg64s.set64, Reg64s.get64, h0, h8, h16, h24, h32, h48, hle, hn28, h96, ha]
+    simp [Jok, Fr, Jbase, upd_apply, Reg64s.set64, Reg64s.get64, h0, h8, h16, h24, h32, h48, hle, hn28, hlo, h96, ha]
   case f6 =>
     fnode (.shl_cl .rax) 125 3 TN.o7 hW.f6
     obtain ⟨o, hJo, hb, ha, hc⟩ := hJ
@@ -307,9 +307,10 @@ theorem seg_allocW_tailA {W : Frag isa} {K : State → State → Prop} {F : Mach
     anode bO7 bO7_ok okL 128 hW.o7
     dsimp only [TN.an, N] at hJ ⊢
     rw [bO7_run]
-    obtain ⟨o, ⟨rfl, hle, ⟨h0, h8, h16, h24, h32⟩, hn28, h48⟩, ⟨h96, h112⟩, ha⟩ := hJ
+    obtain ⟨o, ⟨rfl, hle, ⟨h0, h8, h16, h24, h32⟩, hn28, h48, hlo⟩, ⟨h96, h112⟩, ha⟩ := hJ
     refine .inl ⟨TN.f7, ofNat_add' _ 128 12, rfl, o, ?_⟩
-    simp [Jok, Fr, Jbase, upd_apply, Reg64s.set64, Reg64s.get64, h0, h8, h16, h24, h32, h48, hle, hn28, h96, h112, ha]
+    simp [Jok, Fr, Jbase, upd_apply, Reg64s.set64, Reg64s.get64, h0, h8, h16, h24, h32, h48, hle, hn28, hlo,
+      h96, h112, ha]
   case f7 =>
     fnode (.or_rr .rax .rcx) 140 3 TN.o8 hW.f7
     obtain ⟨o, hJo, hb, ha, hc⟩ := hJ
@@ -318,15 +319,15 @@ theorem seg_allocW_tailA {W : Frag isa} {K : State → State → Prop} {F : Mach
     anode bO8 bO8_ok okL 143 hW.o8
     dsimp only [TN.an, N] at hJ ⊢
     rw [bO8_run]
-    obtain ⟨o, ⟨rfl, hle, ⟨h0, h8, h16, h24, h32⟩, hn28, h48⟩, ⟨h96, h112⟩, ha⟩ := hJ
+    obtain ⟨o, ⟨rfl, hle, ⟨h0, h8, h16, h24, h32⟩, hn28, h48, hlo⟩, ⟨h96, h112⟩, ha⟩ := hJ
     refine .inl ⟨TN.hdr, ofNat_add' _ 143 27, rfl, o, ?_⟩
-    simp [Jok, Fr, Jbase, upd_apply, Reg64s.set64, Reg64s.get64, h0, h8, h16, h24, h32, h48, hle, hn28,
+    simp [Jok, Fr, Jbase, upd_apply, Reg64s.set64, Reg64s.get64, h0, h8, h16, h24, h32, h48, hle, hn28, hlo,
       h96, h112, ha, BitVec.add_comm]
   case hdr =>
     refine rtst_ndW (b := .rcx) (k := 0) (r := .rax) (z := 3)
       (code_field hp hend (by simp only [hin']) (l := okL) (off := 170) rfl) hW.hdr fun m σ c _ hD hJ => ?_
     obtain ⟨o, hJo, hb, ha, hc⟩ := hJ
-    have ⟨_, hle, _, hn28, _⟩ := hJo
+    have ⟨_, hle, _, hn28, _, hlo⟩ := hJo
     have hra : bAddr σ.regs .rcx 0 = H (_root_.Executable.labels exe).label + o <<< 4 + (q.k * mOf q.h) <<< 3 := by
       rw [← hc]; simp [bAddr, Reg64s.get64]
     have hAeq : (bAddr σ.regs .rcx 0).toNat = q.hdrAt ms o.toNat := by
@@ -334,7 +335,7 @@ theorem seg_allocW_tailA {W : Frag isa} {K : State → State → Prop} {F : Mach
       rfl
     have hofn : BitVec.ofNat 64 (q.hdrAt ms o.toNat) = bAddr σ.regs .rcx 0 := by
       rw [← hAeq]; simp
-    obtain ⟨hrt, hmp, hG⟩ := hq.hdr o.toNat hle
+    obtain ⟨hrt, hmp, hG⟩ := hq.hdr o.toNat hlo hle
     have hv : σ.regs.get64 .rax = q.hdr := ha
     refine ⟨hAeq ▸ hrt, hofn ▸ hmp, ?_, hmem _ (.inr ⟨o.toNat, hle, hAeq⟩) _ hD, c, .refl c,
       .inl ⟨TN.o9, ofNat_add' _ 170 3, rfl, o, hJo, hb⟩⟩
@@ -344,8 +345,8 @@ theorem seg_allocW_tailA {W : Frag isa} {K : State → State → Prop} {F : Mach
     anode bO9 bO9_ok okL 173 hW.o9
     dsimp only [TN.an, N] at hJ ⊢
     rw [bO9_run]
-    obtain ⟨o, ⟨rfl, hle, ⟨h0, h8, h16, h24, h32⟩, hn28, h48⟩, ⟨h96, h112⟩⟩ := hJ
-    refine .inl ⟨TN.ret, ofNat_add' _ 173 53, rfl, o, rfl, hle, hn28, ?_, ?_, ?_⟩
+    obtain ⟨o, ⟨rfl, hle, ⟨h0, h8, h16, h24, h32⟩, hn28, h48, hlo⟩, ⟨h96, h112⟩⟩ := hJ
+    refine .inl ⟨TN.ret, ofNat_add' _ 173 53, rfl, o, rfl, hle, hn28, ?_, ?_, ?_, hlo⟩
     · simp [Reg64s.set64, Reg64s.get64, h96, h112]
       ac_rfl
     · simp [Reg64s.set64, Reg64s.get64, h8]
@@ -354,13 +355,13 @@ theorem seg_allocW_tailA {W : Frag isa} {K : State → State → Prop} {F : Mach
     refine alloc_ndW (Ea ms q) (a := .ret) (z := 1) (lo := -160) (hi := 8) rfl (by rintro w op ⟨⟩) hF
       hR hlo hhi (code_field hp hend (by simp only [hin']) (l := okL) (off := 226) rfl) hxa hW.ret
       fun σ c hJ => ?_
-    obtain ⟨o, rfl, hle, hn28, h0, h29, h30⟩ := hJ
+    obtain ⟨o, rfl, hle, hn28, h0, h29, h30, hlo⟩ := hJ
     have hA : σ.regs.rax.toBitVec.toNat = ms.heap + 16 * o.toNat + ms.off q.n q.τ := by
       rw [h0, base8_toNat (by omega) (by omega) (mOf_lt _) (by rw [hq.heap]; exact hq.room), hq.heap, hk, hq.off]
     obtain ⟨us, hus⟩ := hq.accs
     refine ⟨σ.regs.rax.toBitVec, q.x, q.a, q.τ, q.e, q.ta, q.ws, q.n, TermRun.cst (.num o.toNat), o.toNat, us,
       hq.term, hq.ev, hq.num, rfl, rfl, hA, hle, hus, fun l ini _ =>
-        ⟨?_, rfl, ini, o.toNat, rfl, ?_, hA, hle, ?_, us, hus, rfl⟩⟩
+        ⟨?_, rfl, ini, o.toNat, rfl, ?_, hA, hle, hlo, ?_, us, hus, rfl⟩⟩
     · simp [TN.an, N, Ea, AI.tgt, h30]
     · simp [iRet, AI.step, Reg64s.set64, Reg64s.get64]
     · simp [iRet, AI.step, Reg64s.set64, Reg64s.get64, h29]

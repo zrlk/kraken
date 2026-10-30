@@ -54,15 +54,15 @@ def a64bid : Layout × String := scc_elf_layout% "Scc/Test/elf/a_bid"
 #guard x64.1.symbols.length == 16
 #guard Link.wfB x64.1
 
-#guard a64.2 == "979a11dc3c58457c5ea8b6055888f6cc76911855f242296860faf0b08d124fc6"
-#guard a64.1.code == ⟨0x210190, 0x1298⟩
-#guard a64.1.rodata == ⟨0x221428, 0x1b8⟩
-#guard a64.1.data == ⟨0x2315e0, 0x2b1700 - 0x2315e0⟩
-#guard a64.1.heap == ⟨0x2b1700, 0x4000000⟩
-#guard a64.1.pinned == ⟨0x42b1700, 0x20000⟩
-#guard a64.1.stackPool == ⟨0x42d1700, 0x20000000⟩
-#guard a64.1.image.length == 23 && a64.1.image.head? == some (0x2315e0, 1)
-#guard a64.1.symbols.lookup "scc_rt_stack_free" == some 0x231738
+#guard a64.2 == "f2384bf9eb617bc1343c6ab2737cb5cf5e69146497c3d2653e7e6ae8c48f3525"
+#guard a64.1.code == ⟨0x210190, 0x129c⟩
+#guard a64.1.rodata == ⟨0x221430, 0x1b8⟩
+#guard a64.1.data == ⟨0x2315f0, 0x2b1710 - 0x2315f0⟩
+#guard a64.1.heap == ⟨0x2b1710, 0x4000000⟩
+#guard a64.1.pinned == ⟨0x42b1710, 0x20000⟩
+#guard a64.1.stackPool == ⟨0x42d1710, 0x20000000⟩
+#guard a64.1.image.length == 23 && a64.1.image.head? == some (0x2315f0, 1)
+#guard a64.1.symbols.lookup "scc_rt_stack_free" == some 0x231748
 #guard a64.1.symbols.lookup "scc_rt_abort_heap_exit" == none
 #guard a64.1.symbols.length == 16
 #guard Link.wfB a64.1
@@ -71,16 +71,16 @@ def a64bid : Layout × String := scc_elf_layout% "Scc/Test/elf/a_bid"
 -- (`refuseBelowCode` off): `a_def`'s layout is `a`'s with `.rodata` and the code swapped.
 #guard !refuseBelowCode
 #guard a64def.1.rodata == ⟨0x200158, 0x1b8⟩
-#guard a64def.1.code == ⟨0x210310, 0x1298⟩
+#guard a64def.1.code == ⟨0x210310, 0x129c⟩
 #guard a64def.1.rodata.lo + a64def.1.rodata.size ≤ a64def.1.code.lo
 #guard a64def.1.image.map (·.2) == a64.1.image.map (·.2)
 #guard a64def.1.symbols.map (·.1) == a64.1.symbols.map (·.1)
 #guard Link.wfB a64def.1
 
 -- The build-id note is no part of the layout: `a_bid`'s is `a`'s, moved by the note's size (rounded).
-#guard a64bid.2 == "b702fe61274fd2f657d4e877141db94fcea183b39d9d585fc2e4ef8f0d9fa761"
-#guard a64bid.1.code == ⟨0x2101f0, 0x1298⟩
-#guard a64bid.1.rodata == ⟨0x221488, 0x1b8⟩
+#guard a64bid.2 == "14068bdca3de5ae5093bc4c95767f9c0eb851d05a6ecffcbc7f1e2663a046fa7"
+#guard a64bid.1.code == ⟨0x2101f0, 0x129c⟩
+#guard a64bid.1.rodata == ⟨0x221490, 0x1b8⟩
 #guard a64bid.1.heap.size == a64.1.heap.size && a64bid.1.pinned.size == a64.1.pinned.size
 #guard a64bid.1.stackPool.size == a64.1.stackPool.size && a64bid.1.data.size == a64.1.data.size
 #guard a64bid.1.image.map (·.2) == a64.1.image.map (·.2)
@@ -149,7 +149,7 @@ def verdict (f : String) (p : ByteArray → Except String ByteArray) : IO Unit :
 -- The pinned region moved onto the heap arena.
 /-- info: overlapping regions -/
 #guard_msgs in
-#eval verdict "Scc/Test/elf/a" fun b => do return put64 b ((← entryOf b "scc_rt_pinned") + 8) 0x2b1700
+#eval verdict "Scc/Test/elf/a" fun b => do return put64 b ((← entryOf b "scc_rt_pinned") + 8) 0x2b1710
 
 -- A region of size 0.
 /-- info: scc_rt_stacks has size 0 -/
@@ -227,7 +227,7 @@ def secIdx (b : ByteArray) (n : String) : Except String Nat := do
 #guard_msgs in
 #eval verdict "Scc/Test/elf/a_bid" fun b => do
   let o ← shdrOf b (← secIdx b ".note.gnu.build-id")
-  return put64 (put64 b (o + 16) 0x221488) (o + 24) 0x1488
+  return put64 (put64 b (o + 16) 0x221490) (o + 24) 0x1490
 
 -- The note's address moved without its file bytes.
 /-- info: .note.gnu.build-id is not mapped from its file bytes -/

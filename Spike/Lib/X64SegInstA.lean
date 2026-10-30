@@ -113,12 +113,16 @@ theorem Out.mono_xa {lbl : Lbl} {ms ms' : MemSide isa} {X : Frag isa} {s : State
   | holdLoad kl A g x sa u v e he hx hA hh hX => exact .holdLoad kl A g x sa u v e he hx hA hh hX
   | xchgStore kr A V s' x sa u v e tv wv wold he hx hA hh hev hv hX =>
     exact .xchgStore kr A V s' x sa u v e tv wv wold he hx hA hh hev hv hX
-  | ctrRmw k op g x a τ e ta ws n he hrt hm ht hev hn hh hop hX =>
-    exact .ctrRmw k op g x a τ e ta ws n he hrt hm ht hev hn hh hop hX
+  | ctrRmw k op g x τ e n he hrt hm hs hh hop hX =>
+    exact .ctrRmw k op g x τ e n he hrt hm hs hh hop hX
   | alloc s' A x a τ e ta ws k wold old us he ht hev hk hh hold hA hc hu hX =>
     exact .alloc s' A x a τ e ta ws k wold old us he ht hev hk hh hold hA hc hu fun l ini hl =>
       hxa _ _ _ _ _ (hX l ini hl)
+  | newStore kr A V s' x a ty e w wold old hN he hm ht hev hu hv hh hold hA hc hX =>
+    exact .newStore kr A V s' x a ty e w wold old hN he hm ht hev hu hv hh hold hA hc
+      fun l hl => hxa _ _ _ _ _ (hX l hl)
   | emit K buf n Pw Qw hK ha hd h0 hb hr hq => exact .emit K buf n Pw Qw hK ha hd h0 hb hr hq
+  | fence k s' c' he hr hx => exact .fence k s' c' he hr hx
 
 /-- `Out.mono_xa` at the frames. -/
 theorem OutS.mono_xa {lbl : Lbl} {ms ms' : List TermRun.Frame → MemSide isa} {X : FragS isa} {s : State}

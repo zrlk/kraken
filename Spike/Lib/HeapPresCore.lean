@@ -42,23 +42,25 @@ import Spike.Lib.HeapObl
 import Spike.Lib.FreshSrc
 import Spike.Lib.SrcMem
 import Scc.Sem.Budget
+import Spike.Lib.Src.BoxCount
 
 namespace Spike.Lib.HeapPres
 
 open CoreLang CoreTerm TermRun
 open Kraken Kraken.Promising
-open Scc.Sem (heapUse cellCount allocCount Fresh Inv1 ValRep wordLoc)
+open Scc.Sem (heapUse cellCount allocCount boxCount Fresh Inv1 ValRep wordLoc)
 open Spike.Lib (AllocInvAt)
 open Spike.Lib.AllocInv (CtrAt Pending FreshInv)
 open Spike.Lib.AllocRow (ArenaOK freeR)
 
 /-! ## Heap use of steps that allocate nothing -/
 
-/-- **Heap use depends on the memory and the allocation counts only.** -/
-theorem heapUse_congr {s s' : Cfg} (hm : s'.mem = s.mem) (hn : allocCount s' = allocCount s) :
-    heapUse s' = heapUse s := by
+/-- **Heap use depends on the memory, the allocation counts and the box
+count only.** -/
+theorem heapUse_congr {s s' : Cfg} (hm : s'.mem = s.mem) (hn : allocCount s' = allocCount s)
+    (hb : boxCount s' = boxCount s) : heapUse s' = heapUse s := by
   unfold heapUse cellCount
-  rw [hm, hn]
+  rw [hm, hn, hb]
 
 /-- Replacing a thread by one with the same allocation count keeps the
 allocation count. -/
@@ -72,12 +74,12 @@ theorem allocCount_set {s : Cfg} {i : Nat} {th th' : TTh} (hi : s.ths[i]? = some
   simp only [Array.getElem_toList] at this
   omega
 
-/-- **A thread replaced by one with the same allocation count, the memory
-kept**, keeps the heap use (local steps, calls, returns). -/
+/-- **A thread replaced by one with the same allocation count and box
+label, the memory kept**, keeps the heap use (local steps, calls, returns). -/
 theorem heapUse_set {s s' : Cfg} {i : Nat} {th th' : TTh} (hi : s.ths[i]? = some th)
-    (hm : s'.mem = s.mem) (hths : s'.ths = s.ths.set! i th') (hn : th'.nalloc = th.nalloc) :
-    heapUse s' = heapUse s := by
-  refine heapUse_congr hm ?_
+    (hm : s'.mem = s.mem) (hths : s'.ths = s.ths.set! i th') (hn : th'.nalloc = th.nalloc)
+    (ht : th'.tidLbl = th.tidLbl) : heapUse s' = heapUse s := by
+  refine heapUse_congr hm ?_ (BoxCount.boxCount_set hi hths ht)
   have : allocCount s' = allocCount { s with ths := s.ths.set! i th' } := by
     rw [Scc.Sem.allocCount_eq, Scc.Sem.allocCount_eq, hths]
   rw [this, allocCount_set hi hn]
@@ -86,7 +88,7 @@ theorem heapUse_set {s s' : Cfg} {i : Nat} {th th' : TTh} (hi : s.ths[i]? = some
 `LocalRunS.run_source_top`) has the heap use it started with. -/
 theorem heapUse_local {s : Cfg} {i : Nat} {th : TTh} (hi : s.ths[i]? = some th) (term : Expr) (env : Env) :
     heapUse { s with ths := s.ths.set! i { th with term := term, env := env } } = heapUse s :=
-  heapUse_set hi rfl rfl rfl
+  heapUse_set hi rfl rfl rfl rfl
 
 /-! ## Heap use of the exchange -/
 
@@ -114,21 +116,21 @@ theorem eraseDups_append_mem {α : Type} [DecidableEq α] :
 
 /-- **A message at a location the memory has** adds no cell. -/
 theorem heapUse_push_old {s s' : Cfg} {m : WeakMem.Msg} (hm : s'.mem = s.mem.push m)
-    (hl : ∃ m' ∈ s.mem.toList, m'.loc = m.loc) (hn : allocCount s' = allocCount s) :
-    heapUse s' = heapUse s := by
+    (hl : ∃ m' ∈ s.mem.toList, m'.loc = m.loc) (hn : allocCount s' = allocCount s)
+    (hb : boxCount s' = boxCount s) : heapUse s' = heapUse s := by
   unfold heapUse cellCount
-  rw [hm, hn, Array.toList_push, List.map_append, List.map_singleton]
+  rw [hm, hn, hb, Array.toList_push, List.map_append, List.map_singleton]
   obtain ⟨m', hm', he⟩ := hl
   rw [eraseDups_append_mem (List.mem_map.mpr ⟨m', hm', he⟩)]
 
 /-- **The source exchange keeps the heap use**: the message appended at a
 location with a latest message (`SLatest`), the thread's allocation count
-kept. -/
+kept (and its box label). -/
 theorem heapUse_swap {s : Cfg} {i : Nat} {th th' : TTh} (hi : s.ths[i]? = some th)
     {sa : WeakMem.Address} {j : Nat} (hj : Scc.Sem.MemRel.SLatest s.mem sa j) {v : WeakMem.Val} {mv : Nat}
-    (hn : th'.nalloc = th.nalloc) :
+    (hn : th'.nalloc = th.nalloc) (ht : th'.tidLbl = th.tidLbl) :
     heapUse { s with mem := s.mem.push ⟨sa, v, mv⟩, ths := s.ths.set! i th' } = heapUse s := by
-  refine heapUse_push_old rfl ?_ ?_
+  refine heapUse_push_old rfl ?_ ?_ (BoxCount.boxCount_set hi rfl ht)
   · obtain ⟨⟨m, hm, hl⟩, -⟩ := hj
     exact ⟨m, Array.mem_toList_iff.mpr (Array.mem_of_getElem? hm), hl⟩
   · have : allocCount { s with mem := s.mem.push ⟨sa, v, mv⟩, ths := s.ths.set! i th' } =
@@ -167,7 +169,7 @@ theorem _root_.Spike.Lib.AllocInvAt.ctrAdd (h : AllocInvAt Λ lbl lsize t tm hea
   rcases h with ⟨hh0, -⟩ | ⟨-, -, ha⟩
   · exact absurd hh0 (hc _)
   · exact .inl ⟨hh, fun _ => False,
-      ⟨x, a, τ, e, ta, ws, k, ht, hea, hk, hp ▸ hv ▸ CtrAt.append_self hw hpl, fun _ h => h.elim⟩,
+      Pending.of_newBuf ht hea hk (hp ▸ hv ▸ CtrAt.append_self hw hpl) fun _ h => h.elim,
       ha.store_out hfree hp⟩
 
 /-- **The header store while pending** at `hu`: a message off the counter,
@@ -180,17 +182,27 @@ theorem _root_.Spike.Lib.AllocInvAt.header (h : AllocInvAt Λ lbl lsize t tm hea
     (hlt : w.loc.addr.toNat < heap + 16 * hu + off k τ) (hp : t'.prom = t.prom) :
     AllocInvAt Λ lbl lsize t' (tm.append w).1 heap cells ctr units off hu c := by
   rcases h with ⟨-, ex, hpd, ha⟩ | ⟨hn, -⟩
-  · obtain ⟨x', a', τ', e', ta', ws', k', ht', hea', hk', hctr, hex⟩ := hpd
-    rw [ht] at ht'
-    simp only [Expr.let_.injEq, Op.newBuf.injEq] at ht'
-    obtain ⟨rfl, ⟨rfl, rfl⟩, rfl⟩ := ht'
-    rw [hea] at hea'
-    simp only [Option.some.injEq, Prod.mk.injEq] at hea'
-    obtain ⟨rfl, rfl⟩ := hea'
-    rw [hk] at hk'
-    cases hk'
+  · obtain ⟨hctr, hex⟩ := hpd.newBuf ht hea hk
     refine .inl ⟨hh, fun a' => ex a' ∨ a' = w.loc.addr.toNat,
-      ⟨x, a, τ, e, ta, ws, k, ht, hea, hk, hp ▸ hctr.append_ne hw, ?_⟩, ha.store_ex hp⟩
+      Pending.of_newBuf ht hea hk (hp ▸ hctr.append_ne hw) ?_, ha.store_ex hp⟩
+    rintro a' (h | rfl)
+    · exact hex a' h
+    · exact hlt
+  · exact absurd hh (hn _)
+
+/-- **The box header store while pending** at `hu` (`AllocInvAt.header` at
+`let x = new a in e`): a message off the counter below the pending box's
+base is recorded as an exception. -/
+theorem _root_.Spike.Lib.AllocInvAt.headerBox (h : AllocInvAt Λ lbl lsize t tm heap cells ctr units off hu c)
+    (hh : c.hold = some (ctr, cst (.num hu))) {x : String} {a : At} {e : Expr} {ty : Ty}
+    {ws : List Word} (ht : c.term = .let_ x (.new a) e) (hea : evalAt c.env a = some (ty, ws))
+    {t' : Thread I} {w : Msg} (hw : w.loc ≠ wordLoc ctr)
+    (hlt : w.loc.addr.toNat < heap + 16 * hu + off 1 ty) (hp : t'.prom = t.prom) :
+    AllocInvAt Λ lbl lsize t' (tm.append w).1 heap cells ctr units off hu c := by
+  rcases h with ⟨-, ex, hpd, ha⟩ | ⟨hn, -⟩
+  · obtain ⟨hctr, hex⟩ := hpd.box ht hea
+    refine .inl ⟨hh, fun a' => ex a' ∨ a' = w.loc.addr.toNat,
+      Pending.of_box ht hea (hp ▸ hctr.append_ne hw) ?_, ha.store_ex hp⟩
     rintro a' (h | rfl)
     · exact hex a' h
     · exact hlt
@@ -204,9 +216,7 @@ theorem _root_.Spike.Lib.AllocInvAt.pending_keep (h : AllocInvAt Λ lbl lsize t 
     (hp : t'.prom = t.prom) :
     AllocInvAt Λ lbl lsize t' (tm.append w).1 heap cells ctr units off hu c := by
   rcases h with ⟨-, ex, hpd, ha⟩ | ⟨hn, -⟩
-  · obtain ⟨x', a', τ', e', ta', ws', k', ht', hea', hk', hctr, hex⟩ := hpd
-    exact .inl ⟨hh, ex, ⟨x', a', τ', e', ta', ws', k', ht', hea', hk', hp ▸ hctr.append_ne hw, hex⟩,
-      ha.store_out hfree hp⟩
+  · exact .inl ⟨hh, ex, hpd.keep fun _ hctr => hp ▸ hctr.append_ne hw, ha.store_out hfree hp⟩
   · exact absurd hh (hn _)
 
 /-- **Pending at `hu` gives the counter and the contract** the landing
@@ -220,15 +230,7 @@ theorem _root_.Spike.Lib.AllocInvAt.pending (h : AllocInvAt Λ lbl lsize t tm he
     CtrAt tm t.prom ctr (hu + units k τ) ∧ ∃ ex, ArenaOK Λ lbl lsize t tm heap cells hu ex ∧
       ∀ a', ex a' → a' < heap + 16 * hu + off k τ := by
   rcases h with ⟨-, ex, hpd, ha⟩ | ⟨hn, -⟩
-  · obtain ⟨x', a', τ', e', ta', ws', k', ht', hea', hk', hctr, hex⟩ := hpd
-    rw [ht] at ht'
-    simp only [Expr.let_.injEq, Op.newBuf.injEq] at ht'
-    obtain ⟨rfl, ⟨rfl, rfl⟩, rfl⟩ := ht'
-    rw [hea] at hea'
-    simp only [Option.some.injEq, Prod.mk.injEq] at hea'
-    obtain ⟨rfl, rfl⟩ := hea'
-    rw [hk] at hk'
-    cases hk'
+  · obtain ⟨hctr, hex⟩ := hpd.newBuf ht hea hk
     exact ⟨hctr, ex, ha, hex⟩
   · exact absurd hh (hn _)
 
@@ -259,8 +261,8 @@ theorem _root_.Spike.Lib.AllocInvAt.promise (h : AllocInvAt Λ lbl lsize t tm he
         · rename_i he; exact .inr (hp ▸ List.mem_append_right _ (List.mem_singleton.mpr he))
         · exact .inl ⟨hg, hx⟩)
       fun _ _ _ _ hm => hp ▸ List.mem_append_left _ hm
-  rcases h with ⟨hh, ex, ⟨x, a, τ, e, ta, ws, k, ht, hea, hk', hctr, hex⟩, ha⟩ | ⟨hn, hctr, ha⟩
-  · exact .inl ⟨hh, ex, ⟨x, a, τ, e, ta, ws, k, ht, hea, hk', hp ▸ hctr.promise w, hex⟩, hk ha⟩
+  rcases h with ⟨hh, ex, hpd, ha⟩ | ⟨hn, hctr, ha⟩
+  · exact .inl ⟨hh, ex, hpd.keep fun _ hctr => hp ▸ hctr.promise w, hk ha⟩
   · exact .inr ⟨hn, hp ▸ hctr.promise w, hk ha⟩
 
 /-- **The counter's add fulfilling a promise**, idle at `hu` to pending at
@@ -281,7 +283,47 @@ theorem _root_.Spike.Lib.AllocInvAt.ctrAdd_fulfil
   rcases h with ⟨hh0, -⟩ | ⟨-, hctr, ha⟩
   · exact absurd hh0 (hc _)
   · refine .inl ⟨hh, fun _ => False,
-      ⟨x, a, τ, e, ta, ws, k, ht, hea, hk, hp ▸ hv ▸ hctr.fulfil hq hw hgt hnd, fun _ h => h.elim⟩,
+      Pending.of_newBuf ht hea hk (hp ▸ hv ▸ hctr.fulfil hq hw hgt hnd) fun _ h => h.elim,
+      ha.keep (fun _ _ => rfl) (fun _ _ hg _ hx => .inl ⟨hg, hx⟩) fun k' w' hg hfr hm => ?_⟩
+    have hne : k' ≠ q := by
+      rintro rfl
+      rw [hq] at hg
+      cases hg
+      exact hfree hfr
+    exact hp ▸ (List.Nodup.mem_erase_iff hnd).mpr ⟨hne, hm⟩
+
+/-- **The counter's add at any allocation site** (`ctrAdd` over
+`AllocSite True`: a buffer or a box), idle at `hu` to pending at `hu`. -/
+theorem _root_.Spike.Lib.AllocInvAt.ctrAddS (h : AllocInvAt Λ lbl lsize t tm heap cells ctr units off hu c)
+    (hc : ∀ w', c.hold ≠ some (ctr, w')) {t' : Thread I} {w : Msg} (hw : w.loc = wordLoc ctr)
+    (hfree : ¬ (freeR heap cells hu).contains w.loc.addr.toNat) (hp : t'.prom = t.prom)
+    (hpl : ∀ q ∈ t.prom, q ≤ tm.last)
+    {c' : Spike.Lib.Ctl} {x : String} {n : Nat} {τ : Ty} {e : Expr}
+    (hs : Spike.Lib.AllocSite True c' x n τ e)
+    (hv : w.val.toNat = hu + units n τ) (hh : c'.hold = some (ctr, cst (.num hu))) :
+    AllocInvAt Λ lbl lsize t' (tm.append w).1 heap cells ctr units off hu c' := by
+  rcases h with ⟨hh0, -⟩ | ⟨-, -, ha⟩
+  · exact absurd hh0 (hc _)
+  · exact .inl ⟨hh, fun _ => False,
+      ⟨x, n, τ, e, hs, hp ▸ hv ▸ CtrAt.append_self hw hpl, fun _ h => h.elim⟩,
+      ha.store_out hfree hp⟩
+
+/-- **The counter's add fulfilling a promise at any allocation site**
+(`ctrAdd_fulfil` over `AllocSite True`). -/
+theorem _root_.Spike.Lib.AllocInvAt.ctrAdd_fulfilS
+    (h : AllocInvAt Λ lbl lsize t tm heap cells ctr units off hu c) (hc : ∀ w', c.hold ≠ some (ctr, w'))
+    {q : Time} {w : Msg} (hq : tm.get? q = some w) (hw : w.loc = wordLoc ctr)
+    (hfree : ¬ (freeR heap cells hu).contains w.loc.addr.toNat)
+    (hgt : ∀ k', Scc.Sem.TLatestP tm t.prom ctr k' → k' < q) (hnd : t.prom.Nodup)
+    {t' : Thread I} (hp : t'.prom = t.prom.erase q)
+    {c' : Spike.Lib.Ctl} {x : String} {n : Nat} {τ : Ty} {e : Expr}
+    (hs : Spike.Lib.AllocSite True c' x n τ e)
+    (hv : w.val.toNat = hu + units n τ) (hh : c'.hold = some (ctr, cst (.num hu))) :
+    AllocInvAt Λ lbl lsize t' tm heap cells ctr units off hu c' := by
+  rcases h with ⟨hh0, -⟩ | ⟨-, hctr, ha⟩
+  · exact absurd hh0 (hc _)
+  · refine .inl ⟨hh, fun _ => False,
+      ⟨x, n, τ, e, hs, hp ▸ hv ▸ hctr.fulfil hq hw hgt hnd, fun _ h => h.elim⟩,
       ha.keep (fun _ _ => rfl) (fun _ _ hg _ hx => .inl ⟨hg, hx⟩) fun k' w' hg hfr hm => ?_⟩
     have hne : k' ≠ q := by
       rintro rfl
@@ -299,18 +341,26 @@ theorem fresh_of_inv1 {ts : Nat → Option Nat} {s : Cfg} (h : Inv1 Λ lbl lsize
   Spike.Lib.fresh_of_placed (fun m hm => (h.mem.lbl_mem m hm).imp fun _ h => h.1) hf.fresh
 
 /-- **The heap use after the allocation**: the memory with the buffer of
-`n` words at a fresh label, the thread's allocation count bumped: `n` words
-plus the header. -/
+`n` words at a fresh label, the thread's allocation count bumped and its
+box label kept: `n` words plus the header (the boxes counted by the
+allocations, `hle`). -/
 theorem heapUse_alloc {s : Cfg} {i : Nat} {th th' : TTh} (hi : s.ths[i]? = some th) {l : WeakMem.AllocLabel}
-    (hfresh : Fresh s l) {n : Nat} {z : Option (List WeakMem.Val)} (hn : th'.nalloc = th.nalloc + 1) :
+    (hfresh : Fresh s l) {n : Nat} {z : Option (List WeakMem.Val)} (hn : th'.nalloc = th.nalloc + 1)
+    (ht : th'.tidLbl = th.tidLbl) (hle : boxCount s ≤ allocCount s) :
     heapUse { s with mem := (allocBuf l n z (stOf s.mem s.pairs th)).1.mem, ths := s.ths.set! i th' } =
       heapUse s + (n + 1) := by
+  have hb := BoxCount.boxCount_set
+    (s' := { s with mem := (allocBuf l n z (stOf s.mem s.pairs th)).1.mem, ths := s.ths.set! i th' }) hi rfl ht
+  have ha := BoxCount.allocCount_succ
+    (s' := { s with mem := (allocBuf l n z (stOf s.mem s.pairs th)).1.mem, ths := s.ths.set! i th' }) hi rfl hn
   obtain ⟨hlt, rfl⟩ := Array.getElem?_eq_some_iff.mp hi
-  refine Scc.Sem.heapUse_newBuf (st := stOf s.mem s.pairs s.ths[i]) rfl rfl hfresh hlt ?_ hn
+  refine BoxCount.heapUse_add (Scc.Sem.heapUse_newBuf (st := stOf s.mem s.pairs s.ths[i]) rfl rfl hfresh hlt ?_ hn)
+    (by omega) hb hle
   simp [Array.set!_eq_setIfInBounds, Array.setIfInBounds, hlt]
 
 /-- **The landing at the source's heap use**: from pending at `heapUse s`
 (the control `c` at `let x = newBuf a τ in e` holding the old count), the
+boxes counted by the allocations (`boxCount s ≤ allocCount s`), the
 one-thread invariant, the thread `th` at `c` with its next label fresh
 (`FreshInv`), and the allocation's sizes (`units k τ` its `k · nWords us`
 words plus the header, fitting the arena): the source steps at the fresh
@@ -329,7 +379,7 @@ theorem land_step {p : Prog} {kn : Promises.Knobs} {arch : WeakMem.Arch} {ts : N
     (hz : ∀ vs, zeroWords (close th.σs τ) = some vs → ∀ v ∈ vs,
       ValRep (fun l' => if l' = freshLabel s.lbase s.n i th.nalloc then
         some (heap + 16 * heapUse s + off k τ) else lbl l') v 0)
-    {c' : Spike.Lib.Ctl} (hc' : c'.hold = none) :
+    {c' : Spike.Lib.Ctl} (hc' : c'.hold = none) (hbx : boxCount s ≤ allocCount s) :
     ∃ th', { s with mem := (allocBuf (freshLabel s.lbase s.n i th.nalloc) (k * nWords us)
         (AllocSrc.newBufZero (close th.σs τ)) (stOf s.mem s.pairs th)).1.mem, ths := s.ths.set! i th' } ∈
           threadSteps p kn arch s i ∧ th'.term = e ∧
@@ -359,6 +409,6 @@ theorem land_step {p : Prog} {kn : Promises.Knobs} {arch : WeakMem.Arch} {ts : N
     Spike.Lib.AllocRow.row_alloc (p := p) (kn := kn) (arch := arch) h1 ha hi ht' hea' hk hus hfr.fresh
       hoff hfit hle hex hz
   refine ⟨th', hs, h1', h2, h3, h4, h5, h6, ?_, hinv, h.land hh ht hea hk ha' hc', hfr.place hn0 _⟩
-  rw [heapUse_alloc hi (fresh_of_inv1 h1 hfr) h6, hun]
+  rw [heapUse_alloc hi (fresh_of_inv1 h1 hfr) h6 (BoxCount.threadSteps_tidLbl hs hi rfl) hbx, hun]
 
 end Spike.Lib.HeapPres
