@@ -322,8 +322,8 @@ theorem allocArena (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp)
       obtain ⟨rfl, -⟩ := Prod.mk.inj (Spike.Lib.X64ConsumerA.FrameRun.eq_of_newBuf hr
         (show (Spike.Lib.X64.holdCtr ms q.c0 o).term = _ from hq'.term) hq'.ev hq'.num)
       rw [hL L hW]
-      refine .inr (.inr (.inr ⟨o.toNat, q.x, q.a, q.τ, q.e, q.ta, q.ws, q.n, by rw [← hctr]; rfl, hq'.term,
-        hq'.ev, hq'.num, ?_⟩))
+      refine .inr (.inr (.inr (.inl ⟨o.toNat, q.x, q.a, q.τ, q.e, q.ta, q.ws, q.n, by rw [← hctr]; rfl, hq'.term,
+        hq'.ev, hq'.num, ?_⟩)))
       show (bAddr σ.regs .rcx 0).toNat < ar.heap + 16 * o.toNat + ar.off q.n q.τ
       rw [hdr_addr hq' hle hn28 hcx, Spike.Lib.X64.Alloc.Call.hdrAt, ← hheap, ← hoff, hq'.off]
       omega

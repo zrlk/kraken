@@ -171,10 +171,10 @@ theorem allocCtx_of (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp)
   have hq' : q.OK ms (_root_.Executable.labels exe).label := by
     obtain ⟨-, -, -, -, σ, -, hD, -⟩ := hAt
     exact hq _ hD
-  obtain ⟨k, op, g, x, a, τ, e, ta, ws, n, h1, h2, h3, h4, h5, h6, h7, h8, h9⟩ :=
+  obtain ⟨k, op, g, x, τ, e, n, h1, h2, h3, h4, h5, h6, h7⟩ :=
     Spike.Lib.X64.Alloc.ctrRow_alloc (lbl := lbl0) hI.lays hI.endOk hA hF hq' hmc hAt
-  exact ⟨k, op, g, x, a, τ, e, ta, ws, n, h1, h2, h3, h4, h5, h6, h7, h8, fun old hG hown hle hlo =>
-    (h9 old hG hown hle hlo).imp_right (hX _ _)⟩
+  exact ⟨k, op, g, x, τ, e, n, h1, h2, h3, h4, h5, h6, fun old hG hown hle hlo =>
+    (h7 old hG hown hle hlo).imp_right (hX _ _)⟩
 
 omit [Kraken.Executable.ValidLayout exe] in
 open Spike.Lib.X64 Spike.Lib.X64.Alloc Spike.Lib.X64.Flow in
@@ -220,10 +220,10 @@ theorem allocCtx_n4 (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp)
   have hq' : q.OK ms (_root_.Executable.labels exe).label := by
     obtain ⟨-, -, -, -, σ, -, hD, -⟩ := hAt
     exact hq _ hD
-  obtain ⟨k, op, g, x, a, τ, e, ta, ws, n, h1, h2, h3, h4, h5, h6, h7, h8, h9⟩ :=
+  obtain ⟨k, op, g, x, τ, e, n, h1, h2, h3, h4, h5, h6, h7⟩ :=
     ctrRow_alloc_n4 hI.lays hI.endOk hA hF hq' hmc hAt
-  refine ⟨k, op, g, x, a, τ, e, ta, ws, n, h1, h2, h3, h4, h5, h6, h7, h8, fun old hG hown hle hlo => ?_⟩
-  obtain ⟨hG', hL⟩ := h9 old hG hown hle hlo
+  refine ⟨k, op, g, x, τ, e, n, h1, h2, h3, h4, h5, h6, fun old hG hown hle hlo => ?_⟩
+  obtain ⟨hG', hL⟩ := h7 old hG hown hle hlo
   refine ⟨hG', hX _ _ ?_ (Spike.Lib.X64.KeepTP.exec_tp hT h1 old)⟩
   rcases hL with ⟨_, hj⟩ | ⟨y, _⟩
   · exact hj

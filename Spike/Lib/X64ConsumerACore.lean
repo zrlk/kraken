@@ -18,6 +18,7 @@ messages exempting the outstanding promises; `core_sysA`; `core_siteA`).
   hypothesis.
 -/
 import Spike.Lib.X64ConsumerAStep
+import Spike.Lib.X64ConsumerAPub
 
 namespace Spike.Lib.X64ConsumerA
 
@@ -30,6 +31,7 @@ open Spike.Lib.CtrRows (CtrW)
 
 variable {P : SrcSem.SrcParams} {p : Prog} {Λ : Scc.Sem.Layout} {I : InvS} {μ : Marks} {rd : TermRun.Word → Prop}
   {G : Loc → Val → Prop} {own : OwnS} {ar : Arena} {ab : Option (State → Prop)}
+  {Cl : State → Prop}
 
 /-- **The core of `PreJA`** for a thread `th` and a memory `mem`
 (`PreCoreJ` with the arena), over a fragment `J`. -/
@@ -106,7 +108,7 @@ theorem core_localA (hP : HookOK P p) {J : InvS} {mem : Memory} {s : TermRun.Cfg
 
 /-- **A landing over `PendA` in the core**: the pending frame run taken
 (`core_land` with the arena). -/
-theorem core_landA (hP : HookOK P p) (hN : NodesA Λ p μ rd G own ar I ab) {th : Thread isa}
+theorem core_landA (hP : HookOK P p) (hN : NodesA Λ p μ rd G own ar I ab Cl) {th : Thread isa}
     {mem : Memory} {s s₂ : TermRun.Cfg} (hrun : (SrcSem.source P p).Run s [] s₂)
     (h : PreCoreJA Λ P p G own (PendA p I) ar th mem s₂) :
     ∃ s', (SrcSem.source P p).Run s [] s' ∧ PreCoreJA Λ P p G own I ar th mem s' := by
@@ -120,7 +122,7 @@ theorem core_landA (hP : HookOK P p) (hN : NodesA Λ p μ rd G own ar I ab) {th 
 /-- **An instruction step off a system call and off the take site keeps
 `PreCoreJA`** (`core_stepS` with the arena; `instr_stepA`'s rows), matched
 by a source run with no event. -/
-theorem core_stepA (hP : HookOK P p) (hN : NodesA Λ p μ rd G own ar I ab)
+theorem core_stepA (hP : HookOK P p) (hN : NodesA Λ p μ rd G own ar I ab Cl)
     (hsafe : SrcSafeS P p I) (hrd : SrcRd P p rd) (hwf : Λ.WF)
     (hGpl : ∀ a v, Λ.heap.contains a ∨ Λ.data.contains a → G (wordLoc a) v) (hok : ar.OK)
     {th : Thread isa} {mem : Memory} {s : TermRun.Cfg} {outs : List (Except String (Outcome isa))}
@@ -132,13 +134,13 @@ theorem core_stepA (hP : HookOK P p) (hN : NodesA Λ p μ rd G own ar I ab)
     hai, hfr, hco, tr, hreach⟩ := h
   have hcr : th0.stack = [] → ∀ a, th0.term ≠ .ret a := fun h0' => by
     rw [h0'] at hI; exact hN.noRet _ _ _ _ hI
-  obtain ⟨c₁, fs₁, hr0, hown_eq, hout⟩ := hN.rowX hI hnt fun h => absurd (hns.symm.trans h) Bool.false_ne_true
+  obtain ⟨c₁, fs₁, hr0, hown_eq, hout⟩ := hN.rowNS hI hnt hns
   have hI1 : IRun p I lbl lsize th.st c₁ fs₁ := IRun.trans hI hr0
   have hoo₁ : ExtRows.OwnOk (own th.st fs₁) mem th.prom := by rw [hown_eq]; exact hoo
   have hsrc : (fs₁ = [] → ∀ a, c₁.term ≠ .ret a) →
       (SrcSem.source P p).Run s [] { s with ths := #[thAt th0 c₁ fs₁] } :=
     fun hr1 => frun_one hP hr0 hs0 rfl rfl hσ rfl hp hcr hr1
-  obtain ⟨tree0, hex0⟩ := Option.isSome_iff_exists.mp (ExtRows.out_exec hns hout)
+  obtain ⟨tree0, hex0⟩ := Option.isSome_iff_exists.mp (Out.exec_isSome rfl hns hout)
   have hw' : WideSt o.thread.st :=
     wideInv _ _ _ hw ((Kernel.certExec_of_not_atSys abi hns).trans hex0) (ExtThread.stepOne_treeLeaf hex0 hso ho)
   have hb' := (stepOne_bnd _ hso ho hb).1
@@ -161,19 +163,49 @@ theorem core_stepA (hP : HookOK P p) (hN : NodesA Λ p μ rd G own ar I ab)
   have hfr1 : AllocInv.FreshInv lbl ({ s with ths := #[thAt th0 c₁ fs₁] } : TermRun.Cfg).lbase
       ({ s with ths := #[thAt th0 c₁ fs₁] } : TermRun.Cfg).n 0 (thAt th0 c₁ fs₁).nalloc :=
     freshInv_one hs0 rfl rfl rfl rfl hfr
+  rcases out_unpubL hout with ⟨kf, sf, cp, cf, hef, -, hps, hrL, hxf⟩ | hout
+  · -- the fence with the source's publication: the source publishes, then runs locally
+    obtain ⟨hm, hpr, hst, hinv'⟩ := ExtRows.inv1_fence hinv hef hso ho
+    have hX : PendA p I lbl lsize o.thread.st cf fs₁ := hst ▸ hxf
+    have hnr : fs₁ = [] → ∀ a, cp.term ≠ .ret a := fun h => noRet_of_run hrL (hX.noRet h)
+    have hrun1 := hsrc fun _ => pubStep_not_ret hps
+    obtain ⟨th', hstep, hte, hen, hp', hσ', hsk, hna, htl⟩ := src_publish_stepS (p := p)
+      (c := { s with ths := #[thAt th0 c₁ fs₁] }) (th := thAt th0 c₁ fs₁) hP rfl hp hps rfl rfl hnr
+    have hrun := run_trans0 hrun1 (run_one hstep)
+    obtain ⟨-, hcp⟩ := pubStep_landing hps
+    have hrL' : FrameRun p (⟨th'.term, th'.env, none⟩, th'.stack) (cf, fs₁) := by
+      rw [hte, hen, hsk, ← hcp]; exact FrameRun.ofLocal hrL fs₁
+    have hai2 : AllocInvAt Λ lbl lsize o.thread o.mem ar.heap ar.cells ar.ctr ar.units ar.off (heapUse s) cf :=
+      allocInvAt_frameRun ((allocInvAt_out hai1 hnd (.inl ⟨hm, hpr⟩)).retarget
+        (hai1.idle_of_term (pubStep_notAlloc hps)) fun w h => by rw [hcp] at h; cases h) (FrameRun.ofLocal hrL fs₁)
+    have hs2 : ({ ({ s with ths := #[thAt th0 c₁ fs₁] } : TermRun.Cfg) with
+        ths := (#[thAt th0 c₁ fs₁] : Array TermRun.TTh).set! 0 th' } : TermRun.Cfg).ths = #[th'] := by simp
+    obtain ⟨s₃, hrun3, hpre⟩ := core_localA (J := PendA p I) (own := own) (th0 := th') (hd := none) hP hs2
+      (hσ'.trans hσ) hp' hX hw' hb' hinv' hown' (by rw [hm, hpr]; exact hsh) hini' hfi'
+      (by rw [hm, hpr]; exact hgm) hgi' hoo' (by
+        rw [HeapPres.heapUse_set (s := { s with ths := #[thAt th0 c₁ fs₁] })
+          (s' := { ({ s with ths := #[thAt th0 c₁ fs₁] } : TermRun.Cfg) with
+            ths := (#[thAt th0 c₁ fs₁] : Array TermRun.TTh).set! 0 th' }) (th' := th') (i := 0) rfl rfl rfl hna htl,
+          hheap1]
+        exact hai2)
+      (freshInv_one hs0 hs2 rfl rfl hna hfr) hco ⟨_, reach_run hreach hrun⟩ (.inl trivial)
+      (fun h a => by rw [hte]; exact hnr (hsk.symm.trans h) a) hX.noRet hrL'
+    exact core_landA hP hN (run_trans0 hrun hrun3) hpre
+  -- no publication: the row is one under the memory side with none
   obtain ⟨ex, ha⟩ := hai1.arenaOK
   by_cases hwc : Writes th mem o ar.ctrLoc
   · -- the counter's add: the source stutters into the hold of the old count
-    obtain ⟨k, op, g, x, a, τ, e, ta, ws, n, hex, hrt, hmp, ht, hev, hn, hh0, hop, hX⟩ :=
+    obtain ⟨k, op, g, x, τ, e, n, hex, hrt, hmp, hs, hh0, hop, hX⟩ :=
       hN.ctrRow _ _ _ _ _ hI1 hns th mem outs o rfl hso ho hwc
     obtain ⟨old, ⟨trc, hlat, hrd'⟩, hown0, hland, hinv', hcw⟩ :=
       CtrRows.ctrRmw_row (I := isa) (mh := ar.heap) (mc := ar.ctr) (mu := ar.units) (mo := ar.off)
         (mcl := ar.cells) (mown := fun st => own st fs₁)
         (Y := fun old s' => PendA p I lbl lsize s'
           { c₁ with hold := some (ar.ctr, TermRun.cst (.num (old.setWidth 64).toNat)) } fs₁)
-        hinv hso ho hgm hgi hoo₁ hex hrt hop
+        hinv hso ho hgm hgi hoo₁ hex
+        (show (msOfA0 Λ μ rd G own ar I lbl lsize fs₁).rt (BitVec.ofNat 64 ar.ctr).toNat from hrt) hop
         hX
-    obtain ⟨hold64, hai'⟩ := allocInvAt_ctr hok hai1 hh0 hnd hpl hlat hrd' ht hev hn hcw
+    obtain ⟨hold64, hai'⟩ := allocInvAt_ctrS hok hai1 hh0 hnd hpl hlat hrd' hs.toTrue hcw
     have hle : (old.setWidth 64).toNat ≤ ar.cells := by rw [hold64]; exact ha.hu_le
     have hlo : Spike.Lib.AllocLo.LoOf ar.heap ar.cells lbl lsize (old.setWidth 64).toNat := by
       rw [hold64]; exact Spike.Lib.AllocLo.loOf_of_arenaOK ha
@@ -188,20 +220,49 @@ theorem core_stepA (hP : HookOK P p) (hN : NodesA Λ p μ rd G own ar I ab)
       · rw [hm, hpr]
         exact ⟨msgsExcept_append hsh (w := ⟨wordLoc ar.ctr, _, 0⟩) (hmp.2 rfl),
           msgsExcept_append hgm (w := ⟨wordLoc ar.ctr, _, 0⟩) hGnew⟩
-    have hrun1 := hsrc fun _ a' h => by rw [ht] at h; cases h
+    have hrun1 := hsrc fun _ => hs.not_ret
     refine core_landA hP hN hrun1 ⟨thAt th0 c₁ fs₁, lbl, lsize, ts, some (ar.ctr, TermRun.cst (.num (heapUse s))),
       rfl, hσ, hp, hX', .inr ⟨_, rfl⟩, hw', hb', hinv', hown', hmg.1, hini', hfi', hmg.2, hgi', hoo', ?_, hfr1, hco,
       _, reach_run hreach hrun1⟩
     rw [hheap1]; exact hai'
+  by_cases hNS : NewStM p lbl (msOfA Λ μ rd G own ar I lbl lsize fs₁) th.st c₁
+  · -- the box's initialising store: the source allocates the box at the fresh label at the heap use
+    obtain ⟨lbl', lsize', ts', th', sm, L, V, hrun2, hJ, hσ', hp', hst', hcrJ, hinv'', hai'', hfr'', hco', hL, hG,
+      hwr⟩ := newSt_src hP hN hsafe hGpl hok hs0 hσ hp hinv hai1 hfr hco hreach (hsrc fun _ => hNS.not_ret) hso ho hNS
+    have hmg : MsgsExcept (fun m => LocIn Λ.shared m.loc) o.thread.prom o.mem ∧
+        MsgsExcept (fun m => G m.loc m.val) o.thread.prom o.mem := by
+      rcases hwr with ⟨hm, hpr⟩ | ⟨q, -, hg, hm, hpr⟩
+      · rw [hm, hpr]
+        exact ⟨msgsExcept_append hsh (w := ⟨L, V, 0⟩) hL, msgsExcept_append hgm (w := ⟨L, V, 0⟩) hG⟩
+      · rw [hm, hpr]
+        exact ⟨msgsExcept_erase hsh hg hL, msgsExcept_erase hgm hg hG⟩
+    obtain ⟨s₃, hrun3, hpre⟩ := core_localA (J := I) (own := own) (s := { s with mem := sm, ths := #[th'] })
+      (th0 := th') (hd := none) (c' := ⟨th'.term, th'.env, none⟩) (fs' := th'.stack) hP rfl hσ' hp' hJ hw' hb'
+      hinv'' hown' hmg.1 hini' hfi' hmg.2 hgi' (by rw [hst']; exact hoo') hai'' hfr'' hco'
+      ⟨_, reach_run hreach hrun2⟩ (.inl trivial) hcrJ hcrJ (.refl _)
+    exact ⟨s₃, run_trans0 hrun2 hrun3, hpre⟩
+  -- not the box's store: the row is one with no box rows (the counter's add at a box refuted)
+  have hout0 : Out p lbl (msOfA0 Λ μ rd G own ar I lbl lsize fs₁) (fun s' c' => PendA p I lbl lsize s' c' fs₁)
+      th.st c₁ := by
+    rcases hout.unnew with h | ⟨k, op, g, n, τ, hex, hrt, hop, hX⟩ | h
+    · exact absurd h hNS
+    · obtain ⟨_, -, -, -, -, hcw⟩ := CtrRows.ctrRmw_row (I := isa) (mh := ar.heap) (mc := ar.ctr)
+        (mu := ar.units) (mo := ar.off) (mcl := ar.cells) (mown := fun st => own st fs₁) (Y := fun _ _ => True)
+        hinv hso ho hgm hgi hoo₁ hex
+        (show (msOfA0 Λ μ rd G own ar I lbl lsize fs₁).rt (BitVec.ofNat 64 ar.ctr).toNat from hrt) hop
+        fun old h1 h2 h3 h4 => ⟨hX old h1 h2 h3 h4, trivial⟩
+      exact absurd (writes_of_ctrW hcw) hwc
+    · exact h
   -- not the counter's add: the write is one the arena allows
   have hmw := CtrRows.out_memW (mh := ar.heap) (mc := ar.ctr) (mu := ar.units) (mo := ar.off) (mcl := ar.cells)
-    hinv hso ho hns (X64Ext.wide8_exec hw hns) hgm hgi hoo₁ hout
+    hinv hso ho hns (X64Ext.wide8_exec hw hns) hgm hgi hoo₁ hout0
   have hai' : AllocInvAt Λ lbl lsize o.thread o.mem ar.heap ar.cells ar.ctr ar.units ar.off (heapUse s) c₁ := by
     refine allocInvAt_out hai1 hnd ?_
     rcases hmw with hm | ⟨L, V, -, hwr, -⟩
     · exact .inl hm
     · have hW : Writes th mem o L := ⟨V, hwr⟩
-      exact .inr ⟨L, hW, fun he => hwc (he ▸ hW), hN.arena _ _ _ _ _ hI1 hns th mem outs o L rfl hso ho hW⟩
+      exact .inr ⟨L, hW, fun he => hwc (he ▸ hW),
+        (hN.arena _ _ _ _ _ hI1 hns th mem outs o L rfl hso ho hW).resolve_right hNS⟩
   have hmg : MsgsExcept (fun m => LocIn Λ.shared m.loc) o.thread.prom o.mem ∧
       MsgsExcept (fun m => G m.loc m.val) o.thread.prom o.mem := by
     rcases hmw with ⟨hm, hpr⟩ | ⟨L, V, hL8, hwr, hL⟩
@@ -242,7 +303,7 @@ theorem core_stepA (hP : HookOK P p) (hN : NodesA Λ p μ rd G own ar I ab)
       AllocInvAt Λ lbl lsize o.thread o.mem ar.heap ar.cells ar.ctr ar.units ar.off (heapUse x) c :=
     fun he h => by rw [he, hheap1]; exact h
   rcases CtrRows.out_localW (mh := ar.heap) (mc := ar.ctr) (mu := ar.units) (mo := ar.off) (mcl := ar.cells)
-      hinv hso ho hns (X64Ext.wide8_exec hw hns) hgm hgi hoo₁ hout with
+      hinv hso ho hns (X64Ext.wide8_exec hw hns) hgm hgi hoo₁ hout0 with
     ⟨c', hr, hX, hinv'⟩ |
     ⟨kl, A, g, x, a, e, ty, w, sa, hex, ht, hev, hv, hsa, hX⟩ |
     ⟨kr, A, V, s', x, a, b, e, ty, tb, w, wb, sa, hex, ht, hev, hv, hsa, hevb, hvb, hX⟩ |
@@ -454,7 +515,7 @@ theorem core_sysA (hP : HookOK P p) (hN : NodesA Λ p μ rd G own ar I) {rS : Ra
 /-- **The certification step at a transfer site keeps `PreCoreJA`**
 (`core_siteS` with the arena; the take's local run keeps the promises and
 the memory). -/
-theorem core_siteA (hP : HookOK P p) (hN : NodesA Λ p μ rd G own ar I ab) {rS : Range}
+theorem core_siteA (hP : HookOK P p) (hN : NodesA Λ p μ rd G own ar I ab Cl) {rS : Range}
     {Tk : State → Prop} (hT : TakePathS Λ p μ I rS Tk) {th : Thread isa} {mem : Memory} {s : TermRun.Cfg}
     {outs : List (Except String (Outcome isa))} {o : Outcome isa} {x : Kernel.KState}
     (h : PreCoreJA Λ P p G own I ar th mem s) (hsi : Kernel.siteAt abi μ th.st ≠ none)
@@ -483,7 +544,7 @@ theorem core_siteA (hP : HookOK P p) (hN : NodesA Λ p μ rd G own ar I ab) {rS 
 
 /-- **Every instruction step off a system call and off the transfer sites
 keeps `PreCoreJA`** (the form of `stepG_of`'s `hins`), by `core_stepA`. -/
-theorem core_insA (hP : HookOK P p) (hN : NodesA Λ p μ rd G own ar I ab)
+theorem core_insA (hP : HookOK P p) (hN : NodesA Λ p μ rd G own ar I ab Cl)
     (hsafe : SrcSafeS P p I) (hrd : SrcRd P p rd) (hwf : Λ.WF)
     (hGpl : ∀ a v, Λ.heap.contains a ∨ Λ.data.contains a → G (wordLoc a) v) (hok : ar.OK) :
     ∀ th mem s outs o, PreCoreJA Λ P p G own I ar th mem s → Kernel.siteAt abi μ th.st = none →

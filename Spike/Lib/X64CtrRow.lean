@@ -47,7 +47,7 @@ theorem ctrRow_nd {n : ND} {b r : Reg64} {k : Int64} {z : Nat} (hr : r ≠ .rsp)
     (eaddr_mB s z b k).trans (by rw [hA.regs]; exact ha)
   have hex := exec_xaddG_agrees (w := .W64) hc ha' hdm (agrees_of_decls hdc _ _)
   rw [Reg64s.get_low64] at hex
-  refine ⟨.acqRel, _, _, x, a, τ, e, ta, ws, nn, hex, hrt, hmp, ht, hev, hnn, hh, fun old => ?_,
+  refine ⟨.acqRel, _, _, x, τ, e, nn, hex, hrt, hmp, .inl ⟨a, ta, ws, ht, hev, hnn⟩, hh, fun old => ?_,
     fun old hG _ hle hlo => ?_⟩
   · simp only [hA.regs, hru]
   obtain ⟨hG', hL⟩ := hX old hG hle hlo

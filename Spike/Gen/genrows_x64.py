@@ -71,6 +71,8 @@ def kind(ins):
         return 'svc'
     if ins == 'ud2':
         return 'dead'
+    if ins == 'mfence':
+        return 'fence'
     if re.fullmatch(r'movq %\w+, %rsp', ins) or re.fullmatch(r'andq \$-?\d+, %rsp', ins):
         return 'switch'
     if re.fullmatch(r'movq %fs:\d+, %\w+', ins):
@@ -83,7 +85,7 @@ def kind(ins):
         return 'store'
     if re.fullmatch(r'(lock xaddq|xchgq) %\w+, ' + MEM, ins):
         return 'rmw'
-    if re.fullmatch(r'(andq|orq|xorq|imulq|addq|subq) %\w+, %\w+', ins) or \
+    if re.fullmatch(r'(andq|orq|xorq|testq|imulq|addq|subq) %\w+, %\w+', ins) or \
             re.fullmatch(r'(shlq|shrq|sarq) %cl, %\w+', ins) or re.fullmatch(r'xorl %(\w+), %\1', ins):
         return 'flags'
     return 'other'

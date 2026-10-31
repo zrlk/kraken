@@ -85,9 +85,11 @@ for A in x64 arm; do
   run 10 "placement decided" --arch $A Scc/Test/wake.w
   run 10 "placement decided" --arch $A Scc/Test/hello.w
 done
-# wake (the registry's arm entry): certified at run.sh's link; on x64 no proved theorem.
+# wake (the registry's entry), both ISAs: certified at run.sh's link; another spawning
+# program has no proved theorem.
 run 0 "certified" --arch arm --instantiate Scc/Test/wake.w
-run 3 "not certifiable: no proved theorem for a program that takes its thread id" --instantiate Scc/Test/wake.w
+run 0 "certified" --arch x64 --instantiate Scc/Test/wake.w
+run 3 "not certifiable: no proved theorem for a program that takes its thread id" --instantiate Scc/Test/hello.w
 
 # hello1 (the registry), both ISAs: certified at run.sh's link and at a link moved by the
 # linker (--elf); exit 3 naming the component at a link above 4 GiB (A1); exit 3 for another

@@ -141,6 +141,7 @@ theorem hello1_hWBot {E : Entry} :
   have hc0 := th02_term_setup hello1_hty.choose_spec
     (meW2 (lay2 Le P1) OX)
   obtain ⟨hCF, hMC⟩ := postS_setupTerm hc0 c'' _ hPost
+  have hNN := postS_setupTerm_noNew hc0 c'' _ hPost
   obtain ⟨cE', fr', cr, a', t', ws, hct', -, -, -, rfl⟩ := hPost
   obtain rfl := (CallTo.unique hCT hct').2
   -- the frame's body is the setup call's rest
@@ -156,7 +157,8 @@ theorem hello1_hWBot {E : Entry} :
     rcases hW2.place with hP | ⟨hx, -⟩
     · exact hP
     · exact absurd (hbody ▸ hx) setupRestTerm_ext
-  exact w2_ofPopped (Spike.Lib.LowerNode.progNoS_zbad_of_accepted2 hello1o_accepted2) hW2 hCF.noAlloc hMC.2
+  exact w2_ofPopped (Spike.Lib.LowerNode.progNoS_zbad_of_accepted2 hello1o_accepted2) hW2 hCF.noAlloc
+    hNN hMC.2
     (List.cons_ne_nil _ _) (frOk2_retFr ht hMC.1.1)
     (PlacedSE.of_placedS (placedS_retFr hJ hAbs.regs hP))
 

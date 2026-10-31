@@ -383,3 +383,6 @@ Spike.Lib.Rt.Seg.X64MorestackCall
 Spike.Lib.Rt.Seg.X64Print
 Spike.Lib.Rt.Seg.X64PrintLMs
 Spike.Lib.WakeSrc
+Spike.Test.WakeSrcPoEq
+Spike.Test.WakeSrcDefsEq
+Spike.Test.WakeBoxDefsEq

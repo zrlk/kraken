@@ -6,8 +6,11 @@ the take site and off a system call is matched by a source run landing in
 
 The row is the counter's add when the outcome writes the counter word
 (`NodesA.ctrRow`: `CtrRow`, `CtrRows.ctrRmw_row`; the source stutters into
-the hold of the old count, the heap use, `allocInvAt_ctr`). Otherwise it is
-`NodesA.row`'s, not the counter's add (`CtrRows.out_localW`,
+the hold of the old count, the heap use, `allocInvAt_ctrS`, at a buffer or
+a box). At the box's initialising store (`NewStM`) the source allocates the
+box at the fresh label at the heap use (`newSt_src`,
+`HeapLandN.new_rowA`). Otherwise it is `NodesA.row`'s with no box rows
+(`Out.unnew`), not the counter's add (`CtrRows.out_localW`,
 `CtrRows.out_memW`), its write one the arena allows (`NodesA.arena`,
 `allocInvAt_out`); the rows as in `pre_stepS`, and the allocation's last
 instruction (`Out.alloc`): the source allocates at the fresh label at the
@@ -15,11 +18,14 @@ heap use (`HeapLand.alloc_rowS`), landing in the fragment with the label
 placed (`msOfA`'s `xa`).
 
 - `TakePathS.ownedA`, `heapUse_store`, `ctr_ne_of_wordAddr`, `ctrOff_alloc`: helpers.
+- `newSt_src`: the box's store, source side.
 - `instr_stepA`: the instruction case.
 -/
 import Spike.Lib.X64ConsumerAMem
+import Spike.Lib.X64ConsumerAPub
 import Spike.Lib.X64ConsumerASys
 import Scc.Sem.FixInv
+import Spike.Lib.HeapLandN
 
 namespace Spike.Lib.X64ConsumerA
 
@@ -88,11 +94,113 @@ theorem writes_of_ctrW {th : Thread isa} {tm : Memory} {o : Outcome isa} {new : 
   · exact ⟨new, .inr ⟨q, hq, hg, hm, hp⟩⟩
   · exact ⟨new, .inl ⟨hm, hp⟩⟩
 
+/-- **The box's initialising store, source side** (`NewStM` at the row's
+pair, `HeapLandN.new_rowA`): after the row's frame run, the source allocates
+the box at the fresh label at the heap use; the landing's fragment holds with
+the label placed (`msOfA`'s `xa`), `Inv1`, `AllocInvAt` idle at the new heap
+use, `FreshInv` and `CtrOff` with the label placed, and the outcome's write
+is the box word, shared and in `G`, appended or fulfilling a promise. -/
+theorem newSt_src {ab : Option (State → Prop)} {Cl : State → Prop} (hP : HookOK P p)
+    (hN : NodesA Λ p μ rd G own ar I ab Cl) (hsafe : SrcSafeS P p I)
+    (hGpl : ∀ a v, Λ.heap.contains a ∨ Λ.data.contains a → G (wordLoc a) v) (hok : ar.OK)
+    {s : TermRun.Cfg} {th0 : TermRun.TTh} {th : Thread isa} {mem : Memory} {lbl : Lbl} {lsize : Lsize}
+    {ts : Nat → Option Nat} {c₁ : Ctl} {fs₁ : List TermRun.Frame} {tr : List Ev}
+    (hs0 : s.ths = #[th0]) (hσ : th0.σs = []) (hp : th0.promises = [])
+    (hinv : Inv1 Λ lbl lsize ts th mem s.mem)
+    (hai1 : AllocInvAt Λ lbl lsize th mem ar.heap ar.cells ar.ctr ar.units ar.off (heapUse s) c₁)
+    (hfr : AllocInv.FreshInv lbl s.lbase s.n 0 th0.nalloc) (hco : CtrOff ar lbl lsize)
+    (hreach : (SrcSem.source P p).Reach tr s)
+    (hrun1 : (SrcSem.source P p).Run s [] { s with ths := #[thAt th0 c₁ fs₁] })
+    {outs : List (Except String (Outcome isa))} {o : Outcome isa}
+    (hso : stepOne Arch.tso th 0 mem = some outs) (ho : .ok o ∈ outs)
+    (hNS : NewStM p lbl (msOfA Λ μ rd G own ar I lbl lsize fs₁) th.st c₁) :
+    ∃ (lbl' : Lbl) (lsize' : Lsize) (ts' : Nat → Option Nat) (th' : TermRun.TTh) (sm : WeakMem.Memory) (L : Loc)
+      (V : Val),
+      (SrcSem.source P p).Run s [] { s with mem := sm, ths := #[th'] } ∧
+      I lbl' lsize' o.thread.st ⟨th'.term, th'.env, none⟩ th'.stack ∧
+      th'.σs = [] ∧ th'.promises = [] ∧ th'.stack = fs₁ ∧ (th'.stack = [] → ∀ a, th'.term ≠ .ret a) ∧
+      Inv1 Λ lbl' lsize' ts' o.thread o.mem sm ∧
+      AllocInvAt Λ lbl' lsize' o.thread o.mem ar.heap ar.cells ar.ctr ar.units ar.off
+        (heapUse ({ s with mem := sm, ths := #[th'] } : TermRun.Cfg)) ⟨th'.term, th'.env, none⟩ ∧
+      AllocInv.FreshInv lbl' ({ s with mem := sm, ths := #[th'] } : TermRun.Cfg).lbase
+        ({ s with mem := sm, ths := #[th'] } : TermRun.Cfg).n 0 th'.nalloc ∧
+      CtrOff ar lbl' lsize' ∧ LocIn Λ.shared L ∧ G L V ∧
+      ((o.mem = (mem.append ⟨L, V, 0⟩).1 ∧ o.thread.prom = th.prom) ∨
+        ∃ q ∈ th.prom, mem.get? q = some ⟨L, V, 0⟩ ∧ o.mem = mem ∧ o.thread.prom = th.prom.erase q) := by
+  obtain ⟨kr, A, V, s', x, a, ty, e, w, wold, old, -, hex, hmp, ⟨_, ht⟩, hev, hu, hv, hh, hold, hAeq, hcl, hX⟩ := hNS
+  have hh' : c₁.hold = some (ar.ctr, wold) := hh
+  have hAeq' : A.toNat = ar.heap + 16 * old + ar.off 1 ty := hAeq
+  have hcl' : old + ar.units 1 ty ≤ ar.cells := hcl
+  have hX' : ∀ l, lbl l = none → HeapLand.AllocLand ar.heap ar.cells A.toNat 1 ∧
+      I (fun l' => if l' = l then some A.toNat else lbl l') (fun l' => if l' = l then 1 else lsize l') s'
+        ⟨e, (x, .ptr .own ty, [TermRun.cst (.loc ⟨l, 0⟩ 0)]) :: c₁.env, none⟩ fs₁ := hX
+  have hL0 : LocIn Λ.shared ⟨A, 8⟩ := hmp.2 rfl
+  have hheap1 : heapUse { s with ths := #[thAt th0 c₁ fs₁] } = heapUse s := heapUse_one hs0 rfl rfl
+  have hfr1 : AllocInv.FreshInv lbl ({ s with ths := #[thAt th0 c₁ fs₁] } : TermRun.Cfg).lbase
+      ({ s with ths := #[thAt th0 c₁ fs₁] } : TermRun.Cfg).n 0 (thAt th0 c₁ fs₁).nalloc :=
+    freshInv_one hs0 rfl rfl rfl rfl hfr
+  obtain ⟨hland, hJ⟩ := hX' _ (hfr1 _ (Nat.le_refl _))
+  have h1w : TermRun.nWords [.one] = 1 := rfl
+  have fit1 : 1 * TermRun.nWords [.one] + 1 ≤ ar.cells := by have := hland.2.2; rw [h1w]; omega
+  have hus : TermRun.accs (TermRun.close [] ty) = some [.one] := by rw [Spike.Lib.close_nil]; exact hu
+  have hun : ar.units 1 ty = 2 := by rw [hok.units 1 ty [.one] hus fit1, h1w]
+  obtain ⟨hoff, -, hoffit⟩ := hok.off 1 ty [.one] hus fit1
+  have hfit : ar.off 1 ty + 8 * 1 ≤ 16 * ar.units 1 ty := by rw [h1w] at hoffit; omega
+  have hb : wordLoc (ar.heap + 16 * old + ar.off 1 ty) ≠ wordLoc ar.ctr := by
+    rw [← hAeq', wordLoc_toNat]
+    intro heq
+    have h2 := congrArg (fun L : Loc => L.addr.toNat) heq
+    simp only [wordLoc, BitVec.toNat_ofNat] at h2
+    rw [Nat.mod_eq_of_lt hok.ctr_lt] at h2
+    have := hok.ctr_out
+    have := hland.1
+    have := hland.2.1
+    omega
+  have hexA := hex
+  rw [← wordLoc_toNat A] at hexA
+  have hexec := hexA
+  rw [hAeq'] at hexec
+  have hpl : ∀ q ∈ th.prom, q ≤ mem.last := fun q hq => (hinv.mem.tq_le q hq).2
+  obtain ⟨-, hwr⟩ := stepOne_store_cases Arch.tso hexA hso ho hpl
+  obtain ⟨hold', mv, th', hstep, hte, hen, hp', hσ', hst', hna', htl', hst_o, hheap', ⟨q, hinv''⟩, hai'', hfr''⟩ :=
+    HeapLandN.new_rowA (kn := P.k) (arch := P.arch) (p := p) (c' := (⟨e, [], none⟩ : Ctl))
+      (s := { s with ths := #[thAt th0 c₁ fs₁] }) (th := thAt th0 c₁ fs₁) (by rw [hheap1]; exact hai1) hinv rfl rfl
+      rfl hfr1 (TermRun.Cfg.lt_n (by simp)) ht hev hu hp hh' hold hcl' hun hoff hfit
+      (hsafe.box _ _ (reach_run hreach hrun1)) Arch.tso hexec hso ho hpl hb hv rfl
+  have hG : G (wordLoc A.toNat) V := by
+    refine hGpl _ V (heapData_of_wordAddr hinv''.mem
+      (sa := ⟨TermRun.freshLabel ({ s with ths := #[thAt th0 c₁ fs₁] } : TermRun.Cfg).lbase
+        ({ s with ths := #[thAt th0 c₁ fs₁] } : TermRun.Cfg).n 0 (thAt th0 c₁ fs₁).nalloc, 0⟩) ?_ ?_)
+    · simp [Scc.Sem.wordAddr, hAeq', hold']
+    · simp
+  rw [hAeq', hold'] at hJ hland
+  have hcrJ : th'.stack = [] → ∀ a, th'.term ≠ .ret a := fun h0' => by
+    have hf : fs₁ = [] := by rw [hst'] at h0'; exact h0'
+    subst hf
+    rw [hte]; exact hN.noRet _ _ _ _ hJ
+  have hx : mainExit ({ s with ths := #[thAt th0 c₁ fs₁] } : TermRun.Cfg) = [] :=
+    mainExit_of_not_ret rfl fun a' h => by
+      have h' : c₁.term = .ret a' := h
+      rw [ht] at h'; cases h'
+  have hstep' := src_step_of_threadSteps hP hstep (by simp) hp' hx (mainExit_of_pair (by simp) hcrJ)
+  refine ⟨_, _, _, th', _, wordLoc A.toNat, V, run_trans0 hrun1 (run_one hstep'), ?_, hσ'.trans hσ, hp', hst',
+    hcrJ, hinv'', ?_, ?_, ctrOff_alloc hok hco hland, by rw [wordLoc_toNat]; exact hL0, hG, ?_⟩
+  · rw [hst_o, hte, hen, hst']; exact hJ
+  · rw [show heapUse ({ s with mem := _, ths := #[th'] } : TermRun.Cfg) = _ from hheap']
+    exact hai''.retarget (fun w h => by cases h) fun w h => by cases h
+  · rw [hna']; exact hfr''
+  · rcases hwr with ⟨q, hq, hg, -, hm, hpr⟩ | ⟨hm, hpr⟩
+    · exact .inr ⟨q, hq, hg, hm, hpr⟩
+    · exact .inl ⟨hm, hpr⟩
+
+/-- info: 'Spike.Lib.X64ConsumerA.newSt_src' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in #print axioms newSt_src
+
 /-- **An instruction step from `PreJA`** (`pre_stepS`'s instruction case
 with the arena): the outcome `o` of the instruction at a pair of the
 fragment off the take site and off a system call is matched by a source run
 landing in `RSA`. -/
-theorem instr_stepA {ab : Option (State → Prop)} (hP : HookOK P p) (hN : NodesA Λ p μ rd G own ar I ab)
+theorem instr_stepA {ab : Option (State → Prop)} {Cl : State → Prop} (hP : HookOK P p) (hN : NodesA Λ p μ rd G own ar I ab Cl)
     (hsafe : SrcSafeS P p I) {rS : Range} {Tk : State → Prop} (hT : TakePathS Λ p μ I rS Tk) (hrd : SrcRd P p rd)
     (hwf : Λ.WF) (hGpl : ∀ a v, Λ.heap.contains a ∨ Λ.data.contains a → G (wordLoc a) v) (hok : ar.OK)
     {t : T.M.Cfg} {s : TermRun.Cfg} {th : Thread isa} {th0 : TermRun.TTh} {lbl : Lbl} {lsize : Lsize}
@@ -126,7 +234,7 @@ theorem instr_stepA {ab : Option (State → Prop)} (hP : HookOK P p) (hN : Nodes
       hso ho hfi.1, ?_⟩
     unfold InitFits; rw [(stepOne_dord _ hso ho).2.2.1.1]; exact hfi.2
   have hown' := ownMsgs_step hso ho hown
-  obtain ⟨c₁, fs₁, hr0, hown_eq, hout⟩ := hN.rowX hI hnt fun h => absurd (hns.symm.trans h) Bool.false_ne_true
+  obtain ⟨c₁, fs₁, hr0, hown_eq, hout⟩ := hN.rowNS hI hnt hns
   have hI1 : IRun p I lbl lsize th.st c₁ fs₁ := IRun.trans hI hr0
   have hoo₁ : ExtRows.OwnOk (own th.st fs₁) t.1.mem th.prom := by rw [hown_eq]; exact hoo
   have hsrc : (fs₁ = [] → ∀ a, c₁.term ≠ .ret a) →
@@ -137,27 +245,60 @@ theorem instr_stepA {ab : Option (State → Prop)} (hP : HookOK P p) (hN : Nodes
   have hnd : th.prom.Nodup := hinv.mem.tq_nodup
   have hpl : ∀ q ∈ th.prom, q ≤ t.1.mem.last := fun q hq => (hinv.mem.tq_le q hq).2
   have hoo' : ExtRows.OwnOk (own o.thread.st fs₁) o.mem o.thread.prom := by
-    obtain ⟨tree, hex⟩ := Option.isSome_iff_exists.mp (ExtRows.out_exec hns hout)
+    obtain ⟨tree, hex⟩ := Option.isSome_iff_exists.mp (Out.exec_isSome rfl hns hout)
     exact ownOk_step hex (hN.ownInstr _ _ _ _ _ hI1 hns tree hex) hinv.coh hinv.mem.tq_nodup
       (fun p hp => (hinv.mem.tq_le p hp).2) hso ho hoo₁
   have hheap1 : heapUse { s with ths := #[thAt th0 c₁ fs₁] } = heapUse s := heapUse_one hs0 rfl rfl
   have hfr1 : AllocInv.FreshInv lbl ({ s with ths := #[thAt th0 c₁ fs₁] } : TermRun.Cfg).lbase
       ({ s with ths := #[thAt th0 c₁ fs₁] } : TermRun.Cfg).n 0 (thAt th0 c₁ fs₁).nalloc :=
     freshInv_one hs0 rfl rfl rfl rfl hfr
+  rcases out_unpubL hout with ⟨kf, sf, cp, cf, hef, -, hps, hrL, hxf⟩ | hout
+  · -- the fence with the source's publication: the source publishes, then runs locally
+    obtain ⟨hm, hpr, hst, hinv'⟩ := ExtRows.inv1_fence hinv hef hso ho
+    have hX : PendA p I lbl lsize o.thread.st cf fs₁ := hst ▸ hxf
+    have hnr : fs₁ = [] → ∀ a, cp.term ≠ .ret a := fun h => noRet_of_run hrL (hX.noRet h)
+    have hrun1 := hsrc fun _ => pubStep_not_ret hps
+    obtain ⟨th', hstep, hte, hen, hp', hσ', hsk, hna, htl⟩ := src_publish_stepS (p := p)
+      (c := { s with ths := #[thAt th0 c₁ fs₁] }) (th := thAt th0 c₁ fs₁) hP rfl hp hps rfl rfl hnr
+    have hrun := run_trans0 hrun1 (run_one hstep)
+    obtain ⟨-, hcp⟩ := pubStep_landing hps
+    have hrL' : FrameRun p (⟨th'.term, th'.env, none⟩, th'.stack) (cf, fs₁) := by
+      rw [hte, hen, hsk, ← hcp]; exact FrameRun.ofLocal hrL fs₁
+    have hai2 : AllocInvAt Λ lbl lsize o.thread o.mem ar.heap ar.cells ar.ctr ar.units ar.off (heapUse s) cf :=
+      allocInvAt_frameRun ((allocInvAt_out hai1 hnd (.inl ⟨hm, hpr⟩)).retarget
+        (hai1.idle_of_term (pubStep_notAlloc hps)) fun w h => by rw [hcp] at h; cases h) (FrameRun.ofLocal hrL fs₁)
+    have hs2 : ({ ({ s with ths := #[thAt th0 c₁ fs₁] } : TermRun.Cfg) with
+        ths := (#[thAt th0 c₁ fs₁] : Array TermRun.TTh).set! 0 th' } : TermRun.Cfg).ths = #[th'] := by simp
+    have hmi' : MemIn Λ o.mem := by rw [hm]; exact hmi
+    have hfi'' : MemFits o.mem := by rw [hm]; exact hfi
+    have hgi' : MemInv G o.mem := by rw [hm]; exact hgi
+    obtain ⟨s₃, hrun3, hpre⟩ := pre_localJA (J := PendA p I) (t' := (t.1.withThread 0 o.thread o.mem, t.2))
+      (th0 := th') (hd := none) hP hth' hk hz (hh.of_iff hi (hT.ownedA hX)) hc hs2 (hσ'.trans hσ) hp' hX hw' hb' hinv' hown' hmi'
+      hfi'' hgi' hoo' (by
+        rw [HeapPres.heapUse_set (s := { s with ths := #[thAt th0 c₁ fs₁] })
+          (s' := { ({ s with ths := #[thAt th0 c₁ fs₁] } : TermRun.Cfg) with
+            ths := (#[thAt th0 c₁ fs₁] : Array TermRun.TTh).set! 0 th' }) (th' := th') (i := 0) rfl rfl rfl hna htl,
+          hheap1]
+        exact hai2)
+      (freshInv_one hs0 hs2 rfl rfl hna hfr) hco ⟨_, reach_run hreach hrun⟩ (.inl trivial)
+      (fun h a => by rw [hte]; exact hnr (hsk.symm.trans h) a) hX.noRet hrL'
+    exact pend_landA hP hN (run_trans0 hrun hrun3) hpre
+  -- no publication: the row is one under the memory side with none
   obtain ⟨ex, ha⟩ := hai1.arenaOK
   have hGm := MemInv.msgsExcept hgi th.prom
   by_cases hwc : Writes th t.1.mem o ar.ctrLoc
   · -- the counter's add: the source stutters into the hold of the old count
-    obtain ⟨k, op, g, x, a, τ, e, ta, ws, n, hex, hrt, hmp, ht, hev, hn, hh0, hop, hX⟩ :=
+    obtain ⟨k, op, g, x, τ, e, n, hex, hrt, hmp, hs, hh0, hop, hX⟩ :=
       hN.ctrRow _ _ _ _ _ hI1 hns th t.1.mem outs o rfl hso ho hwc
     obtain ⟨old, ⟨trc, hlat, hrd'⟩, hown0, hland, hinv', hcw⟩ :=
       CtrRows.ctrRmw_row (I := isa) (mh := ar.heap) (mc := ar.ctr) (mu := ar.units) (mo := ar.off) (mcl := ar.cells)
         (mown := fun st => own st fs₁)
         (Y := fun old s' => PendA p I lbl lsize s'
           { c₁ with hold := some (ar.ctr, TermRun.cst (.num (old.setWidth 64).toNat)) } fs₁)
-        hinv hso ho hGm hgi.1 hoo₁ hex hrt hop
+        hinv hso ho hGm hgi.1 hoo₁ hex
+        (show (msOfA0 Λ μ rd G own ar I lbl lsize fs₁).rt (BitVec.ofNat 64 ar.ctr).toNat from hrt) hop
         hX
-    obtain ⟨hold64, hai'⟩ := allocInvAt_ctr hok hai1 hh0 hnd hpl hlat hrd' ht hev hn hcw
+    obtain ⟨hold64, hai'⟩ := allocInvAt_ctrS hok hai1 hh0 hnd hpl hlat hrd' hs.toTrue hcw
     have hle : (old.setWidth 64).toNat ≤ ar.cells := by rw [hold64]; exact ha.hu_le
     have hlo : Spike.Lib.AllocLo.LoOf ar.heap ar.cells lbl lsize (old.setWidth 64).toNat := by
       rw [hold64]; exact Spike.Lib.AllocLo.loOf_of_arenaOK ha
@@ -169,21 +310,48 @@ theorem instr_stepA {ab : Option (State → Prop)} (hP : HookOK P p) (hN : Nodes
       rcases hcw with ⟨-, -, -, -, hm, -⟩ | ⟨hm, -⟩
       · rw [hm]; exact ⟨hmi, hgi⟩
       · rw [hm]; exact ⟨memIn_append (hmp.2 rfl) hmi, hgi.append hGnew⟩
-    have hrun1 := hsrc fun _ a' h => by rw [ht] at h; cases h
+    have hrun1 := hsrc fun _ => hs.not_ret
     refine pend_landA hP hN hrun1 ⟨o.thread, thAt th0 c₁ fs₁, 0, lbl, lsize, ts, hl, pm,
       some (ar.ctr, TermRun.cst (.num (heapUse s))), hth', ⟨E, hk⟩, hz, hh.of_iff hi (hT.ownedA hX'), .inl rfl,
       hc, rfl, hσ, hp, hX', .inr ⟨_, rfl⟩, hw', hb', hinv', hown', hmg.1, hfi', hmg.2, hoo', ?_, hfr1, hco, _,
       reach_run hreach hrun1⟩
     rw [hheap1]; exact hai'
+  by_cases hNS : NewStM p lbl (msOfA Λ μ rd G own ar I lbl lsize fs₁) th.st c₁
+  · -- the box's initialising store: the source allocates the box at the fresh label at the heap use
+    obtain ⟨lbl', lsize', ts', th', sm, L, V, hrun2, hJ, hσ', hp', hst', hcrJ, hinv'', hai'', hfr'', hco', hL, hG,
+      hwr⟩ := newSt_src hP hN hsafe hGpl hok hs0 hσ hp hinv hai1 hfr hco hreach (hsrc fun _ => hNS.not_ret) hso ho hNS
+    have hmg : MemIn Λ o.mem ∧ MemInv G o.mem := by
+      rcases hwr with ⟨hm, -⟩ | ⟨-, -, -, hm, -⟩
+      · rw [hm]; exact ⟨memIn_append (w := ⟨L, V, 0⟩) hL hmi, hgi.append hG⟩
+      · rw [hm]; exact ⟨hmi, hgi⟩
+    obtain ⟨s₃, hrun3, hpre⟩ := pre_localJA (J := I) (t' := (t.1.withThread 0 o.thread o.mem, t.2))
+      (s := { s with mem := sm, ths := #[th'] })
+      (th0 := th') (hd := none) (c' := ⟨th'.term, th'.env, none⟩) (fs' := th'.stack) hP hth' hk hz
+      (hh.of_iff hi (hT.owned _ _ _ _ _ hJ)) hc rfl hσ' hp' hJ hw' hb' hinv'' hown' hmg.1 hfi' hmg.2
+      (by rw [hst']; exact hoo') hai'' hfr'' hco' ⟨_, reach_run hreach hrun2⟩ (.inl trivial) hcrJ hcrJ (.refl _)
+    exact ⟨s₃, run_trans0 hrun2 hrun3, .inl hpre⟩
+  -- not the box's store: the row is one with no box rows (the counter's add at a box refuted)
+  have hout0 : Out p lbl (msOfA0 Λ μ rd G own ar I lbl lsize fs₁) (fun s' c' => PendA p I lbl lsize s' c' fs₁)
+      th.st c₁ := by
+    rcases hout.unnew with h | ⟨k, op, g, n, τ, hex, hrt, hop, hX⟩ | h
+    · exact absurd h hNS
+    · obtain ⟨_, -, -, -, -, hcw⟩ := CtrRows.ctrRmw_row (I := isa) (mh := ar.heap) (mc := ar.ctr)
+        (mu := ar.units) (mo := ar.off) (mcl := ar.cells) (mown := fun st => own st fs₁) (Y := fun _ _ => True)
+        hinv hso ho hGm hgi.1 hoo₁ hex
+        (show (msOfA0 Λ μ rd G own ar I lbl lsize fs₁).rt (BitVec.ofNat 64 ar.ctr).toNat from hrt) hop
+        fun old h1 h2 h3 h4 => ⟨hX old h1 h2 h3 h4, trivial⟩
+      exact absurd (writes_of_ctrW hcw) hwc
+    · exact h
   -- not the counter's add: the write is one the arena allows
   have hmw := CtrRows.out_memW (mh := ar.heap) (mc := ar.ctr) (mu := ar.units) (mo := ar.off) (mcl := ar.cells)
-    hinv hso ho hns (X64Ext.wide8_exec hw hns) hGm hgi.1 hoo₁ hout
+    hinv hso ho hns (X64Ext.wide8_exec hw hns) hGm hgi.1 hoo₁ hout0
   have hai' : AllocInvAt Λ lbl lsize o.thread o.mem ar.heap ar.cells ar.ctr ar.units ar.off (heapUse s) c₁ := by
     refine allocInvAt_out hai1 hnd ?_
     rcases hmw with hm | ⟨L, V, -, hwr, -⟩
     · exact .inl hm
     · have hW : Writes th t.1.mem o L := ⟨V, hwr⟩
-      exact .inr ⟨L, hW, fun he => hwc (he ▸ hW), hN.arena _ _ _ _ _ hI1 hns th t.1.mem outs o L rfl hso ho hW⟩
+      exact .inr ⟨L, hW, fun he => hwc (he ▸ hW),
+        (hN.arena _ _ _ _ _ hI1 hns th t.1.mem outs o L rfl hso ho hW).resolve_right hNS⟩
   have hsrc1 : ∀ (hr1 : fs₁ = [] → ∀ a, c₁.term ≠ .ret a),
       (SrcSem.source P p).Reach (tr ++ []) { s with ths := #[thAt th0 c₁ fs₁] } :=
     fun hr1 => reach_run hreach (hsrc hr1)
@@ -226,7 +394,7 @@ theorem instr_stepA {ab : Option (State → Prop)} (hP : HookOK P p) (hN : Nodes
       AllocInvAt Λ lbl lsize o.thread o.mem ar.heap ar.cells ar.ctr ar.units ar.off (heapUse x) c :=
     fun he h => by rw [he, hheap1]; exact h
   rcases CtrRows.out_localW (mh := ar.heap) (mc := ar.ctr) (mu := ar.units) (mo := ar.off) (mcl := ar.cells)
-      hinv hso ho hns (X64Ext.wide8_exec hw hns) hGm hgi.1 hoo₁ hout with
+      hinv hso ho hns (X64Ext.wide8_exec hw hns) hGm hgi.1 hoo₁ hout0 with
     ⟨c', hr, hX, hinv'⟩ |
     ⟨kl, A, g, x, a, e, ty, w, sa, hex, ht, hev, hv, hsa, hX⟩ |
     ⟨kr, A, V, s', x, a, b, e, ty, tb, w, wb, sa, hex, ht, hev, hv, hsa, hevb, hvb, hX⟩ |

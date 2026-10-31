@@ -11,7 +11,8 @@ allocator's `units` and base offsets `off`).
   offsets of an object of `k · nWords us` words with its header).
 - `msOfA`: `msOfS` with the arena, and the allocation fragment (`xa`): the
   pair lands in the fragment with the new label placed, the arena fitting
-  the object (`HeapLand.AllocLand`).
+  the object (`HeapLand.AllocLand`); box rows where the arena admits them
+  (`Arena.newOk`). `msOfA0`: the same with no box rows.
 - `WeAb`, `msOfAB`: the write abort's justification tied to the phase `Ab`,
   and `msOfA` with `print`'s byte step (`ByteOut`) and it (properties in
   `Spike/Lib/X64ConsumerAB.lean`); `msOfAX`: `msOfA` or `msOfAB`, the rows'
@@ -23,8 +24,8 @@ allocator's `units` and base offsets `off`).
 - `NodesA`: `NodesS` without `noAlloc`, its rows under `msOfAX … ab`, plus `ctrRow` (an outcome that
   writes the counter word is the counter's add), `arena` (no outcome writes
   into the arena outside the placed labels, but the header of a pending
-  allocation below its base) and `zero` (the zero words of an allocated type
-  represent 0).
+  allocation below its base, or the box's initialising store, `NewStM`) and
+  `zero` (the zero words of an allocated type represent 0).
 - `HoldInvA`: the hold an exchange's (`HoldInv`) or the counter's.
 - `PreJA`, `PreSA`, `RSA`: `PreJ`, `PreS`, `RS` with the hold `HoldInvA`,
   the counter off every placed label (`CtrOff`), and the heap clause
@@ -35,7 +36,8 @@ allocator's `units` and base offsets `off`).
   header store may fulfil a promise (`AllocInvAt.header_fulfil`); the rows
   and pending landings of `NodesS` restated (`NodesA.row`, `pend_runA`,
   `pre_localJA`, `pend_landA`); `NodesA.rowX`: the row under `msOfA` off the
-  output `write`, for rows under any `msOfAX … ab`.
+  output `write`, for rows under any `msOfAX … ab`; `NodesA.rowXC`, `NodesA.rowNS`: the same off `Cl`
+  (`NodesA`'s optional last parameter, the system calls at which no row is asked for), and off system calls.
 -/
 import Spike.Lib.X64ConsumerS
 import Spike.Lib.X64PlacedSE
@@ -45,6 +47,7 @@ import Spike.Lib.ByteOut
 import Spike.Lib.MemSideBW
 import Spike.Lib.AllocLo
 import Spike.Lib.FrameNew
+import Spike.Lib.OutNew
 
 namespace Spike.Lib.X64ConsumerA
 
@@ -68,11 +71,12 @@ placed word, so never the counter's. -/
 def CtrOff (ar : Arena) (lbl : Lbl) (lsize : Lsize) : Prop :=
   ∀ l b, lbl l = some b → ¬ (lrange lsize l b).contains ar.ctr
 
-/-- **The memory side at the frames `fs` with the arena** (`msOfS` with the
-arena): an allocation lands in the fragment `I` with the label placed and the
-arena fitting the object (`AllocLand`); the counter floor is the placement's
-(`AllocLo.LoOf`: the arena above the cursor free of every placed label). -/
-def msOfA (Λ : Scc.Sem.Layout) (μ : Marks) (rd : TermRun.Word → Prop) (G : Loc → Val → Prop) (own : OwnS)
+/-- **The memory side at the frames `fs` with the arena and no box rows**
+(`msOfS` with the arena): an allocation lands in the fragment `I` with the
+label placed and the arena fitting the object (`AllocLand`); the counter
+floor is the placement's (`AllocLo.LoOf`: the arena above the cursor free of
+every placed label). -/
+def msOfA0 (Λ : Scc.Sem.Layout) (μ : Marks) (rd : TermRun.Word → Prop) (G : Loc → Val → Prop) (own : OwnS)
     (ar : Arena) (I : InvS) (lbl : Lbl) (lsize : Lsize) (fs : List TermRun.Frame) : MemSide isa :=
   MemSide.ofLabels rd lbl lsize (some abi) G ar.heap ar.ctr ar.units ar.off ar.cells (own := (own · fs))
     (mp := fun L w => Kernel.mapped (K0 Λ) w L = true ∧ (w = true → LocIn Λ.shared L))
@@ -80,6 +84,13 @@ def msOfA (Λ : Scc.Sem.Layout) (μ : Marks) (rd : TermRun.Word → Prop) (G : L
     (xa := fun l b n s c => AllocLand ar.heap ar.cells b n ∧
       I (fun l' => if l' = l then some b else lbl l') (fun l' => if l' = l then n else lsize l') s c fs)
     (lo := Spike.Lib.AllocLo.LoOf ar.heap ar.cells lbl lsize)
+
+/-- **The memory side at the frames `fs` with the arena** (`msOfA0`), box
+rows admitted where the arena admits them (`Arena.newOk`), and the source's
+publication at a fence where it admits it (`Arena.pub`). -/
+def msOfA (Λ : Scc.Sem.Layout) (μ : Marks) (rd : TermRun.Word → Prop) (G : Loc → Val → Prop) (own : OwnS)
+    (ar : Arena) (I : InvS) (lbl : Lbl) (lsize : Lsize) (fs : List TermRun.Frame) : MemSide isa :=
+  { msOfA0 Λ μ rd G own ar I lbl lsize fs with newOk := ar.newOk, pub := ar.pub }
 
 /-- **The write abort's justification at `s`, tied to the phase `Ab`**: every
 result `r` the kernel may refuse the call with (`Kernel.writeRefused`)
@@ -112,16 +123,16 @@ def PendA (p : Prog) (I : InvS) : InvS := fun lbl lsize s c fs =>
 
 /-- **The counter's add at a pair** (`Out.ctrRmw`'s premises under `ms`,
 landing in `X`): the instruction is the read-modify-write of the counter
-word adding the allocation's units, at `let x = newBuf a τ in e` with no
-hold; for every old value runtime memory may hold there, owned, within the
+word adding the allocation's units, at an allocation site (`AllocSite
+ms.newOk`: a buffer, or where `ms` admits it a box) with no hold; for every
+old value runtime memory may hold there, owned, within the
 cells, above the counter floor, the new value may be held there too and the control, holding the old
 count, lands in `X`. -/
 def CtrRow (ms : MemSide isa) (X : Frag isa) (s : State) (c : Ctl) : Prop :=
-  ∃ (k : Kraken.RmwKind) (op : Val → Option Val) (g : Val → State) (x : String) (a : At) (τ : Ty) (e : Expr)
-    (ta : Ty) (ws : List TermRun.Word) (n : Nat),
+  ∃ (k : Kraken.RmwKind) (op : Val → Option Val) (g : Val → State) (x : String) (τ : Ty) (e : Expr) (n : Nat),
     isa.exec s = some (.rmw k false ⟨BitVec.ofNat 64 ms.ctr, 8⟩ op fun v => .done (g v)) ∧
     ms.rt (BitVec.ofNat 64 ms.ctr).toNat ∧ ms.mp ⟨BitVec.ofNat 64 ms.ctr, 8⟩ true ∧
-    c.term = .let_ x (.newBuf a τ) e ∧ TermRun.evalAt c.env a = some (ta, ws) ∧ TermRun.numOf ws = some n ∧
+    AllocSite ms.newOk c x n τ e ∧
     c.hold = none ∧
     (∀ old, op old = some ((old.setWidth 64 + BitVec.ofNat 64 (ms.units n τ)).setWidth 128)) ∧
     (∀ old, ms.G ⟨BitVec.ofNat 64 ms.ctr, 8⟩ old → (∀ w, (⟨BitVec.ofNat 64 ms.ctr, 8⟩, w) ∈ ms.own s → old = w) →
@@ -132,13 +143,17 @@ def CtrRow (ms : MemSide isa) (X : Frag isa) (s : State) (c : Ctl) : Prop :=
 /-- **A write the arena allows from the control `c`**: to the counter word
 (`ctrRow` says how), off the arena, into a placed label, or, the counter
 held at the old count `old` at `let x = newBuf a τ in e` of `k` elements,
-below the object's base (the header). -/
+below the object's base (the header); or, where the arena admits box rows
+(`Arena.newOk`), the counter held at `old` at `let x = new a in e` of one
+object of `a`'s type `ty`, below the box's base (the box's header). -/
 def ArenaW (ar : Arena) (lbl : Lbl) (lsize : Lsize) (c : Ctl) (L : Loc) : Prop :=
   L = ar.ctrLoc ∨ ¬ (ar.heap ≤ L.addr.toNat ∧ L.addr.toNat < ar.heap + 16 * ar.cells) ∨
     (∃ l b, lbl l = some b ∧ (lrange lsize l b).contains L.addr.toNat) ∨
-    ∃ old x a τ e ta ws k, c.hold = some (ar.ctr, TermRun.cst (.num old)) ∧ c.term = .let_ x (.newBuf a τ) e ∧
+    (∃ old x a τ e ta ws k, c.hold = some (ar.ctr, TermRun.cst (.num old)) ∧ c.term = .let_ x (.newBuf a τ) e ∧
       TermRun.evalAt c.env a = some (ta, ws) ∧ TermRun.numOf ws = some k ∧
-      L.addr.toNat < ar.heap + 16 * old + ar.off k τ
+      L.addr.toNat < ar.heap + 16 * old + ar.off k τ) ∨
+    (ar.newOk ∧ ∃ old x a e ty ws, c.hold = some (ar.ctr, TermRun.cst (.num old)) ∧ (∃ T, c.term = .let_ x (.new a T) e) ∧
+      TermRun.evalAt c.env a = some (ty, ws) ∧ L.addr.toNat < ar.heap + 16 * old + ar.off 1 ty)
 
 /-- **An outcome writes the location `L`**: one message of thread 0 at `L`,
 appended (the promises unchanged) or fulfilling an outstanding promise (the
@@ -154,13 +169,16 @@ as `NodesS.out`'s; the pending landings `PendA`): `ctrRow`,
 an outcome of the instruction of a pair a frame run reaches that writes the
 counter word (`Writes`) is the counter's add (`CtrRow`, landing in `PendA`);
 `arena`, every location such an outcome writes is one the arena allows
-(`ArenaW`); `zero`, at a buffer allocation the zero
+(`ArenaW`), or the box's initialising store from the pair (`NewStM`, at
+`msOfA`'s own fields); `zero`, at a buffer allocation the zero
 words of the type represent 0 under every placement. The rest as in
-`NodesS`. -/
+`NodesS`. At the system calls `Cl` marks (a `clone`, `ClonePathS`; none at
+the default) no row is asked for (`out`'s last premise). -/
 structure NodesA (Λ : Scc.Sem.Layout) (p : Prog) (μ : Marks) (rd : TermRun.Word → Prop) (G : Loc → Val → Prop)
-    (own : OwnS) (ar : Arena) (I : InvS) (ab : Option (State → Prop) := none) : Prop where
+    (own : OwnS) (ar : Arena) (I : InvS) (ab : Option (State → Prop) := none)
+    (Cl : State → Prop := fun _ => False) : Prop where
   out : ∀ lbl lsize s c fs, I lbl lsize s c fs → (∀ a, μ.site .take = some a → pcOf s ≠ a) →
-    OutS p lbl (msOfAX Λ μ p rd G own ar I ab lbl lsize) (Pend p (I lbl lsize)) s c fs
+    (abi.atSys s = true → ¬ Cl s) → OutS p lbl (msOfAX Λ μ p rd G own ar I ab lbl lsize) (Pend p (I lbl lsize)) s c fs
   noRet : ∀ lbl lsize s c, I lbl lsize s c [] → ∀ a, c.term ≠ .ret a
   cell : ∀ lbl lsize s c fs, IRun p I lbl lsize s c fs → ∀ x a e ty w,
     (c.term = .let_ x (.load true a) e ∨ ∃ b, c.term = .let_ x (.store true a b none) e) →
@@ -184,7 +202,8 @@ structure NodesA (Λ : Scc.Sem.Layout) (p : Prog) (μ : Marks) (rd : TermRun.Wor
     t.st = s → stepOne Arch.tso t 0 mem = some outs → .ok o ∈ outs → Writes t mem o ar.ctrLoc →
     CtrRow (msOfA Λ μ rd G own ar I lbl lsize fs) (fun s' c' => PendA p I lbl lsize s' c' fs) s c
   arena : ∀ lbl lsize s c fs, IRun p I lbl lsize s c fs → abi.atSys s = false → ∀ (t : Thread isa) mem outs o L,
-    t.st = s → stepOne Arch.tso t 0 mem = some outs → .ok o ∈ outs → Writes t mem o L → ArenaW ar lbl lsize c L
+    t.st = s → stepOne Arch.tso t 0 mem = some outs → .ok o ∈ outs → Writes t mem o L →
+    ArenaW ar lbl lsize c L ∨ NewStM p lbl (msOfA Λ μ rd G own ar I lbl lsize fs) s c
   zero : ∀ lbl lsize s c fs, IRun p I lbl lsize s c fs → ∀ x a τ e, c.term = .let_ x (.newBuf a τ) e →
     ∀ vs, TermRun.zeroWords (TermRun.close [] τ) = some vs → ∀ v ∈ vs, ∀ lbl' : WeakMem.AllocLabel → Option Nat,
       ValRep lbl' v 0
@@ -352,10 +371,39 @@ theorem _root_.Spike.Lib.AllocInvAt.header_fulfil {c : Ctl}
       · exact (hmem k'' he).mpr (ha.fresh k'' w' hg hfr fun h' => hx (.inl h'))
   · exact absurd hh (hn _)
 
+/-- **The box header store fulfilling a promise while pending** at `hu`
+(`AllocInvAt.header_fulfil` at `let x = new a in e`): below the pending
+box's base. -/
+theorem _root_.Spike.Lib.AllocInvAt.header_fulfilBox {c : Ctl}
+    (h : AllocInvAt Λ lbl lsize th tm ar.heap ar.cells ar.ctr ar.units ar.off hu c)
+    (hh : c.hold = some (ar.ctr, TermRun.cst (.num hu))) {x : String} {a : At} {T : Option Ty} {e : Expr} {ty : Ty}
+    {ws : List TermRun.Word} (ht : c.term = .let_ x (.new a T) e)
+    (hea : TermRun.evalAt c.env a = some (ty, ws)) {q : Time} {w : Msg}
+    (hq : tm.get? q = some w) (hw : w.loc ≠ wordLoc ar.ctr)
+    (hlt : w.loc.addr.toNat < ar.heap + 16 * hu + ar.off 1 ty) (hnd : th.prom.Nodup) {t' : Thread isa}
+    (hp : t'.prom = th.prom.erase q) :
+    AllocInvAt Λ lbl lsize t' tm ar.heap ar.cells ar.ctr ar.units ar.off hu c := by
+  have hmem : ∀ k', k' ≠ q → (k' ∈ t'.prom ↔ k' ∈ th.prom) := fun k' hne => by
+    rw [hp]; exact List.Nodup.mem_erase_iff hnd |>.trans (and_iff_right hne)
+  rcases h with ⟨-, ex, hpd, ha⟩ | ⟨hn, -⟩
+  · obtain ⟨hctr, hex⟩ := hpd.box ht hea
+    refine .inl ⟨hh, fun a' => ex a' ∨ a' = w.loc.addr.toNat,
+      AllocInv.Pending.of_box ht hea (hctr.prom_congr fun k'' w' hg hl => hmem k'' fun he => ?_) ?_,
+      ⟨ha.hu_le, ha.sub, ha.align, ha.disj, ha.base, ha.zero, fun k'' w' hg hfr hx => ?_⟩⟩
+    · subst he; rw [hq] at hg; cases hg; exact hw hl
+    · rintro a' (h | rfl)
+      · exact hex a' h
+      · exact hlt
+    · by_cases he : k'' = q
+      · subst he; rw [hq] at hg; cases hg
+        exact absurd (.inr rfl) hx
+      · exact (hmem k'' he).mpr (ha.fresh k'' w' hg hfr fun h' => hx (.inl h'))
+  · exact absurd hh (hn _)
+
 /-! ## Rows and landings -/
 
 variable {I : InvS} {μ : Marks} {rd : TermRun.Word → Prop} {G : Loc → Val → Prop} {own : OwnS}
-  {ab : Option (State → Prop)}
+  {ab : Option (State → Prop)} {Cl : State → Prop}
 
 /-- **The row of a pair of the fragment** (`NodesS.row` with the arena):
 the source takes a frame run to `(c₁, fs₁)`, from which the instruction is
@@ -364,7 +412,7 @@ theorem NodesA.row (hN : NodesA Λ p μ rd G own ar I) {s : State} {c : Ctl} {fs
     (hI : I lbl lsize s c fs) (hnt : ∀ a, μ.site .take = some a → pcOf s ≠ a) :
     ∃ c₁ fs₁, FrameRun p (c, fs) (c₁, fs₁) ∧ own s fs₁ = own s fs ∧
       Out p lbl (msOfA Λ μ rd G own ar I lbl lsize fs₁) (fun s' c' => PendA p I lbl lsize s' c' fs₁) s c₁ := by
-  cases hN.out _ _ _ _ _ hI hnt with
+  cases hN.out _ _ _ _ _ hI hnt (fun _ h => h) with
   | pre c₁ fs₁ hr h =>
     refine ⟨c₁, fs₁, hr, hN.ownRun _ _ _ _ _ _ _ hr (.inl hI), h.mono fun s' c' h' => ⟨?_, h'⟩⟩
     rintro h0 a hc
@@ -376,12 +424,13 @@ theorem NodesA.row (hN : NodesA Λ p μ rd G own ar I) {s : State} {c : Ctl} {fs
     refine ⟨c, fs, .refl _, rfl, .silent s' c he (.refl c) ⟨?_, c'', fs'', hr.trans hr', hx⟩⟩
     exact fun h0 => hN.noRet _ _ _ _ (h0 ▸ hI)
 
-/-- **The row of a pair of the fragment off the output `write`**, for rows
-under any `msOfAX … ab`: `NodesA.row`, the row under `msOfA` (an `Out.emit`
-row is at a `write(1, …)`, which `hne` excludes; `Out.unBW`). -/
-theorem NodesA.rowX (hN : NodesA Λ p μ rd G own ar I ab) {s : State} {c : Ctl} {fs : List TermRun.Frame}
+/-- **The row of a pair of the fragment off the output `write` and off
+`Cl`**, for rows under any `msOfAX … ab`: `NodesA.row`, the row under `msOfA`
+(an `Out.emit` row is at a `write(1, …)`, which `hne` excludes; `Out.unBW`). -/
+theorem NodesA.rowXC (hN : NodesA Λ p μ rd G own ar I ab Cl) {s : State} {c : Ctl} {fs : List TermRun.Frame}
     (hI : I lbl lsize s c fs) (hnt : ∀ a, μ.site .take = some a → pcOf s ≠ a)
-    (hne : abi.atSys s = true → ∀ buf n, Kernel.decode abi.nrs (abi.nr s) (abi.arg s) ≠ some (.write 1 buf n)) :
+    (hne : abi.atSys s = true → ∀ buf n, Kernel.decode abi.nrs (abi.nr s) (abi.arg s) ≠ some (.write 1 buf n))
+    (hcl : abi.atSys s = true → ¬ Cl s) :
     ∃ c₁ fs₁, FrameRun p (c, fs) (c₁, fs₁) ∧ own s fs₁ = own s fs ∧
       Out p lbl (msOfA Λ μ rd G own ar I lbl lsize fs₁) (fun s' c' => PendA p I lbl lsize s' c' fs₁) s c₁ := by
   have hun : ∀ {fs₁ : List TermRun.Frame} {X : Frag isa} {c₁ : Ctl},
@@ -394,7 +443,7 @@ theorem NodesA.rowX (hN : NodesA Λ p μ rd G own ar I ab) {s : State} {c : Ctl}
       exact Out.unBW h fun K hK ha => by
         cases hK
         exact hne ha
-  cases hN.out _ _ _ _ _ hI hnt with
+  cases hN.out _ _ _ _ _ hI hnt hcl with
   | pre c₁ fs₁ hr h =>
     refine ⟨c₁, fs₁, hr, hN.ownRun _ _ _ _ _ _ _ hr (.inl hI), (hun h).mono fun s' c' h' => ⟨?_, h'⟩⟩
     rintro h0 a hc
@@ -406,6 +455,24 @@ theorem NodesA.rowX (hN : NodesA Λ p μ rd G own ar I ab) {s : State} {c : Ctl}
     refine ⟨c, fs, .refl _, rfl, .silent s' c he (.refl c) ⟨?_, c'', fs'', hr.trans hr', hx⟩⟩
     exact fun h0 => hN.noRet _ _ _ _ (h0 ▸ hI)
 
+/-- **The row of a pair of the fragment off the output `write`**, for rows
+under any `msOfAX … ab` (`NodesA.rowXC`, no `Cl` at the default). -/
+theorem NodesA.rowX (hN : NodesA Λ p μ rd G own ar I ab) {s : State} {c : Ctl} {fs : List TermRun.Frame}
+    (hI : I lbl lsize s c fs) (hnt : ∀ a, μ.site .take = some a → pcOf s ≠ a)
+    (hne : abi.atSys s = true → ∀ buf n, Kernel.decode abi.nrs (abi.nr s) (abi.arg s) ≠ some (.write 1 buf n)) :
+    ∃ c₁ fs₁, FrameRun p (c, fs) (c₁, fs₁) ∧ own s fs₁ = own s fs ∧
+      Out p lbl (msOfA Λ μ rd G own ar I lbl lsize fs₁) (fun s' c' => PendA p I lbl lsize s' c' fs₁) s c₁ :=
+  hN.rowXC hI hnt hne fun _ h => h
+
+/-- **The row of a pair of the fragment off a system call**, any `Cl`
+(`NodesA.rowXC`: `out`'s premise is about system calls only). -/
+theorem NodesA.rowNS (hN : NodesA Λ p μ rd G own ar I ab Cl) {s : State} {c : Ctl} {fs : List TermRun.Frame}
+    (hI : I lbl lsize s c fs) (hnt : ∀ a, μ.site .take = some a → pcOf s ≠ a) (hns : abi.atSys s = false) :
+    ∃ c₁ fs₁, FrameRun p (c, fs) (c₁, fs₁) ∧ own s fs₁ = own s fs ∧
+      Out p lbl (msOfA Λ μ rd G own ar I lbl lsize fs₁) (fun s' c' => PendA p I lbl lsize s' c' fs₁) s c₁ :=
+  hN.rowXC hI hnt (fun h => absurd (hns.symm.trans h) Bool.false_ne_true)
+    fun h => absurd (hns.symm.trans h) Bool.false_ne_true
+
 /-- `PendA`'s state is one of the fragment's. -/
 theorem PendA.inv {s : State} {c : Ctl} {fs : List TermRun.Frame} (h : PendA p I lbl lsize s c fs) :
     ∃ c' fs', I lbl lsize s c' fs' := by
@@ -416,14 +483,14 @@ theorem PendA.noRet {s : State} {c : Ctl} {fs : List TermRun.Frame} (h : PendA p
     fs = [] → ∀ a, c.term ≠ .ret a := h.1
 
 /-- A pair of the fragment is a `PendA` one (with the empty run). -/
-theorem PendA.of (hN : NodesA Λ p μ rd G own ar I ab) {s : State} {c : Ctl} {fs : List TermRun.Frame}
+theorem PendA.of (hN : NodesA Λ p μ rd G own ar I ab Cl) {s : State} {c : Ctl} {fs : List TermRun.Frame}
     (h : I lbl lsize s c fs) : PendA p I lbl lsize s c fs :=
   ⟨fun h0 => hN.noRet _ _ _ _ (h0 ▸ h), c, fs, .refl _, h⟩
 
 /-- **A pending frame run is taken** (`pend_run` with the arena): the
 allocation invariant moves along the run (`allocInvAt_frameRun`) at the same
 heap use (`heapUse_one`). -/
-theorem pend_runA (hP : HookOK P p) (hN : NodesA Λ p μ rd G own ar I ab) {rS : Range}
+theorem pend_runA (hP : HookOK P p) (hN : NodesA Λ p μ rd G own ar I ab Cl) {rS : Range}
     {Tk : State → Prop} {t : T.M.Cfg} {s : TermRun.Cfg}
     (h : PreJA Λ P p G own (PendA p I) rS Tk μ ar t s) :
     ∃ s', (SrcSem.source P p).Run s [] s' ∧ PreSA Λ P p G own I rS Tk μ ar t s' := by
@@ -468,7 +535,7 @@ theorem pre_localJA (hP : HookOK P p) {J : InvS} {t' : T.M.Cfg} {s : TermRun.Cfg
 
 /-- **A landing over `PendA` is a step of the relation**: the pending frame
 run taken (`pend_runA`). -/
-theorem pend_landA (hP : HookOK P p) (hN : NodesA Λ p μ rd G own ar I ab) {rS : Range}
+theorem pend_landA (hP : HookOK P p) (hN : NodesA Λ p μ rd G own ar I ab Cl) {rS : Range}
     {Tk : State → Prop} {t : T.M.Cfg} {s s₂ : TermRun.Cfg} (hrun : (SrcSem.source P p).Run s [] s₂)
     (h : PreJA Λ P p G own (PendA p I) rS Tk μ ar t s₂) :
     ∃ s', (SrcSem.source P p).Run s [] s' ∧ RSA Λ P p G own I rS Tk μ ar t s' := by

@@ -10,6 +10,8 @@ justified by `AllocInvAt.heapCtr`.
 
 - `pre_loadA`, `init_of_loadA`, `stepSimA`, `r_componentsA`: the load and
   the simulation.
+- `outA_no_error`, `outA_progress`: a row under `msOfA` (box rows included,
+  `Out.unnew`) has no error outcome and has an outcome.
 - `WriteNoPromA`, `pre_progressA`, `r_progressA`, `r_memInA`: progress.
 - `ti_step_ofA`, `ti_stepA`, `ti_runA`, `r_abortA`: the abort clause.
 - `correctKOnA`, `correctKA`: `Correct`.
@@ -18,6 +20,7 @@ The components, progress and abort lemmas hold for rows under any
 `msOfAX … ab` (off the output `write`, `NodesA.rowX`, `NodesA.sysOkX`).
 -/
 import Spike.Lib.X64ConsumerACore
+import Spike.Lib.RtRmw
 
 namespace Spike.Lib.X64ConsumerA
 
@@ -170,6 +173,41 @@ theorem r_componentsA {ab : Option (State → Prop)} (hN : NodesA Λ p μ rd G o
 
 /-! ## Progress -/
 
+/-- **A row under `msOfA` off a system call has no error outcome**
+(`ExtRows.out_no_error` with the box's rows: its store and the counter's
+add, `Out.unnew`; the fence with the source's publication, `out_unpubL`). -/
+theorem outA_no_error {lbl : Lbl} {lsize : Lsize} {fs : List TermRun.Frame} {X : Frag isa} {c : Ctl}
+    {th : Thread isa} {tid : Nat} {mem : Memory} (hns : abi.atSys th.st = false)
+    (hout : Out p lbl (msOfA Λ μ rd G own ar I lbl lsize fs) X th.st c)
+    {outs : List (Except String (Kraken.Promising.Outcome isa))}
+    (hs : stepOne Arch.tso th tid mem = some outs) (m : String) :
+    (.error m : Except String (Kraken.Promising.Outcome isa)) ∉ outs := by
+  rcases hout.unnew with ⟨_, _, _, _, _, _, _, _, _, _, _, -, he, -⟩ | ⟨_, _, _, _, _, he, -⟩ | h
+  · exact Spike.Bridge.stepOne_no_error _ he (Spike.Bridge.runTree_store_ok _ _ _ _ _ _ _ _) hs m
+  · exact Spike.Bridge.stepOne_no_error _ he (RtRmw.runTree_rmw_ok _ _ _ _ _ _ _ _) hs m
+  · -- the fence with the source's publication is a fence row with no publication (the landing dropped)
+    rcases out_unpubL h with ⟨k, s', -, -, he, -⟩ | h
+    · exact ExtRows.out_no_error (X := fun _ _ => True) hns (show Out p lbl (msOfA0 Λ μ rd G own ar I lbl lsize fs)
+        _ th.st c from .fence k s' c he (.loc (.refl _)) trivial) hs m
+    · exact ExtRows.out_no_error hns (show Out p lbl (msOfA0 Λ μ rd G own ar I lbl lsize fs) X th.st c from h) hs m
+
+/-- **A row under `msOfA` off a system call has an outcome** with no promise
+for a thread with no promise and its values at most `|M|`
+(`ExtRows.out_progress` with the box's rows, `Out.unnew`; the fence with
+the source's publication, `out_unpubL`). -/
+theorem outA_progress {lbl : Lbl} {lsize : Lsize} {fs : List TermRun.Frame} {X : Frag isa} {c : Ctl}
+    {th : Thread isa} {tid : Nat} {mem : Memory} (hp : th.prom = []) (hb : th.Bnd mem.last)
+    (hns : abi.atSys th.st = false) (hout : Out p lbl (msOfA Λ μ rd G own ar I lbl lsize fs) X th.st c) :
+    ∃ outs o, stepOne Arch.tso th tid mem = some outs ∧ .ok o ∈ outs ∧ o.thread.prom = [] := by
+  rcases hout.unnew with ⟨_, _, _, _, _, _, _, _, _, _, _, -, he, -⟩ | ⟨_, _, _, _, _, he, -⟩ | h
+  · exact ExtRows.store_ok hp hb he
+  · exact RtRmw.rmw_ok _ hp hb he
+  · -- the fence with the source's publication is a fence row with no publication (the landing dropped)
+    rcases out_unpubL h with ⟨k, s', -, -, he, -⟩ | h
+    · exact ExtRows.out_progress (X := fun _ _ => True) hp hb hns (show Out p lbl
+        (msOfA0 Λ μ rd G own ar I lbl lsize fs) _ th.st c from .fence k s' c he (.loc (.refl _)) trivial)
+    · exact ExtRows.out_progress hp hb hns (show Out p lbl (msOfA0 Λ μ rd G own ar I lbl lsize fs) X th.st c from h)
+
 /-- **No promise at a `write`** at any depth (`WriteNoPromS` over `PreSA`). -/
 def WriteNoPromA (Λ : Scc.Sem.Layout) (P : SrcSem.SrcParams) (p : Prog) (G : Loc → Val → Prop) (own : OwnS)
     (I : InvS) (rS : Range) (Tk : State → Prop) (μ : Marks) (ar : Arena) : Prop :=
@@ -199,7 +237,7 @@ theorem pre_progressA {ab : Option (State → Prop)} (hN : NodesA Λ p μ rd G o
       simp [Thread.halted, Kraken.Promising.Lower.X64.exec_nop hcn]
     cases hs : abi.atSys th.st
     · obtain ⟨c₁, fs₁, -, -, hout⟩ := hN.rowX hI (fun a ha hpc => htk ⟨a, ha, hpc⟩) (fun h => by rw [hs] at h; cases h)
-      have := ExtRows.out_exec hs hout
+      have := Out.exec_isSome rfl hs hout
       simp only [Thread.halted]
       cases he : isa.exec th.st
       · rw [he] at this; cases this
@@ -218,7 +256,7 @@ theorem pre_progressA {ab : Option (State → Prop)} (hN : NodesA Λ p μ rd G o
             (Kraken.Promising.Lower.silentTree_done _) hs' m hm
         · obtain ⟨c₁, fs₁, -, -, hout⟩ :=
             hN.rowX hI (fun a ha hpc => htk ⟨a, ha, hpc⟩) (fun h => by rw [hsy] at h; cases h)
-          exact ExtRows.out_no_error hsy hout hs' m hm
+          exact outA_no_error hsy hout hs' m hm
       · exact hns ⟨th, ht1, hsy⟩
     · unfold Kernel.faultAt at hf
       split at hf
@@ -260,7 +298,7 @@ theorem pre_progressA {ab : Option (State → Prop)} (hN : NodesA Λ p μ rd G o
       by_cases hpn : th.prom = []
       · obtain ⟨c₁, fs₁, -, -, hout⟩ := hN.rowX hI hnt (fun h => by rw [hs] at h; cases h)
         obtain ⟨outs, o, hso, ho, hpo⟩ :=
-          ExtRows.out_progress (A := Arch.tso) (tid := 0) (mem := t.1.mem) hpn hb hs hout
+          outA_progress (tid := 0) (mem := t.1.mem) hpn hb hs hout
         exact ⟨[], _, .instr hruns hnsys hsite (.inl ⟨th, outs, o, ht, hso, ho, certOkC_of_prom_nil hpo, rfl⟩)⟩
       · obtain ⟨t', mem', hr, hp'⟩ := hcert
         cases hr with

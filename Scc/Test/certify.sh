@@ -100,7 +100,7 @@
 # the verdict is 10 (placement decided) whatever its fragment; with
 # --instantiate, 3 (no proved theorem).
 #
-# wake (registry, arm only, --instantiate only): when PROG.w is
+# wake (registry, --instantiate only): when PROG.w is
 # `Scc/Test/wake.w` byte for byte, T.s is `Scc/Test/elf/wakea64/wake.s` (the
 # checked-in certificate's `asm`, `Spike.Test.Cert.A64WakeCert`) byte for
 # byte and the executable is `Scc/Test/elf/wakea64/wake` byte for byte (its
@@ -111,6 +111,12 @@
 # of T.w (`Scc.Cert.SrcTerm.reads`, by evaluation). T.post.lean imports it
 # (`Spike.Test.WakeLinkedA64Root`) and never this run's certificate; the
 # kernel checks that the layout read from the executable is `Λe` (`rfl`).
+# On x64 the same with `Scc/Test/elf/wakex64/wake.s` (the checked-in
+# certificate `Spike.Test.Cert.X64WakeCert`'s `asm`), the executable
+# `Scc/Test/elf/wakex64/wake` (layout `Spike.Test.WakeLinkedX64.Λe`), and the
+# theorem `Spike.Test.WakeLinkedX64Root.wake_linkedX` (`CorrectE 2` about
+# `Spike.Test.WakeLinkedX64.wakeSX`, the source semantics of the
+# certificate's `prog_src`, the frontend's reading of T.w).
 # As for hello1: `hpa` by evaluation
 # (`#guard`), budget `allocCells`, the `.text` bytes not compared with the
 # encoding of `asm`. Its build (with LEAN_NUM_THREADS=1) takes hours on a
@@ -213,21 +219,26 @@ WAKE=0
 SPAWN=0
 grep -q "^theorem prog_placeOK2 : $SNS.placeOK2 placeCfg out = true" "$T.cert.lean" && SPAWN=1
 if [ $SPAWN = 1 ] && [ $INST = 1 ]; then
-  # The registry's wake entry (see the header): arm, `Scc/Test/wake.w` byte for byte.
+  # The registry's wake entry (see the header): arm or x64, `Scc/Test/wake.w` byte for byte.
   show "$WORK" cmp "$T.w" "$ROOT/Scc/Test/wake.w"
-  { [ "$ARCH" = arm ] && cmp -s "$T.w" "$ROOT/Scc/Test/wake.w"; } || verdict 3 "not certifiable: no proved \
+  cmp -s "$T.w" "$ROOT/Scc/Test/wake.w" || verdict 3 "not certifiable: no proved \
 theorem for a program that takes its thread id or spawns (placeOK2; decide the placement without --instantiate)"
-  WS="Scc/Test/elf/wakea64/wake.s"
+  if [ "$ARCH" = x64 ]; then
+    WD=wakex64; WMOD=Spike.Test.WakeLinkedX64Root; WTHM=wake_linkedX
+  else
+    WD=wakea64; WMOD=Spike.Test.WakeLinkedA64Root; WTHM=wake_linkedU
+  fi
+  WS="Scc/Test/elf/$WD/wake.s"
   show "$WORK" cmp "$T.s" "$ROOT/$WS"
   cmp -s "$T.s" "$ROOT/$WS" \
     || verdict 3 "not certifiable: no proved theorem for this program/text \
 ($T.s is not $WS, the text of wake's theorem)"
   WAKE=1
   BENV="LEAN_NUM_THREADS=1"
-  build "wake's theorem" "hours" Spike.Test.WakeLinkedA64Root \
-    || verdict 1 "failed: lake build Spike.Test.WakeLinkedA64Root (log: $BLOG)"
+  build "wake's theorem" "hours" "$WMOD" \
+    || verdict 1 "failed: lake build $WMOD (log: $BLOG)"
   BENV=""
-  PATHN="wake (registry): wake_linkedU"
+  PATHN="wake (registry): $WTHM"
 elif [ $SPAWN = 1 ]; then
   :
 elif ! grep -q "^theorem $ACC : $ACCP prog_src = true" "$T.cert.lean"; then
@@ -287,7 +298,7 @@ if [ $HELLO1 = 1 ]; then
   fi
   PATHN="hello1 (registry): ${H1GEN##*.}"
 fi
-if [ "$ARCH" = x64 ] && [ $INST = 1 ] && [ $HELLO1 = 0 ]; then
+if [ "$ARCH" = x64 ] && [ $INST = 1 ] && [ $HELLO1 = 0 ] && [ $WAKE = 0 ]; then
   # `MainFrame1Ok` by evaluation, to choose the theorem (untrusted: the
   # kernel decides it below, `prog_mainFrame1`).
   {
@@ -358,10 +369,68 @@ esac
 
 # wake (registry): its theorem at the executable's layout, which must be `Λe`.
 if [ $WAKE = 1 ]; then
-  WE="Scc/Test/elf/wakea64/wake"
+  WE="Scc/Test/elf/$WD/wake"
   show "$WORK" cmp "$T" "$ROOT/$WE"
   cmp -s "$T" "$ROOT/$WE" || verdict 3 "not certifiable: no proved theorem at this executable's layout \
 (wake's theorem is at the layout of $WE, and $T is not that executable byte for byte)"
+  if [ "$ARCH" = x64 ]; then
+  cat >"$T.post.lean" <<EOF
+import Scc.Cert.Elf
+import Scc.Cert.SrcTerm
+import Spike.Test.WakeLinkedX64Root
+
+-- certify.sh: theorem path: $PATHN. The theorem is about the checked-in program and
+-- certificate (Spike.Test.Cert.X64WakeCert) at the checked-in executable's layout
+-- (Spike.Test.WakeLinkedX64.Λe). This run's certificate is not pasted here, on purpose.
+
+namespace SccCertificate
+
+-- This run's text is the theorem's \`asm\`, verbatim (evaluation).
+/-- info: true -/
+#guard_msgs in
+#eval do IO.println ((← IO.FS.readFile "$REL/$T.s") == asm)
+
+-- The frontend reads this run's program as the theorem's source \`prog_src\` (evaluation).
+/-- info: true -/
+#guard_msgs in
+#eval do IO.println (Scc.Cert.SrcTerm.reads (← IO.FS.readFile "$REL/$T.w") prog_src)
+
+-- The executable's SHA-256: $he
+/-- The layout of the executable and its SHA-256 (\`scc_elf_layout%\`: read at
+elaboration time, the reader evaluated by the elaborator). -/
+def elf : Scc.Sem.Layout × String := scc_elf_layout% "$REL/$T"
+
+-- The file read is the executable linked (evaluation, not a proof).
+#guard elf.2 == "$he"
+
+/-- **The executable's layout is the theorem's** \`Λe\` (kernel-checked). -/
+theorem prog_layout : elf.1 = Spike.Test.WakeLinkedX64.Λe := rfl
+
+-- \`hpa\`, by compiled evaluation: the theorem's parse premise (the trust boundary).
+#guard Scc.Cert.Link.X64.parsesTo ⟨asm, sizes, labelOffs⟩ outLit.prog outLit.secs
+
+/-- **wake's theorem at the executable's layout** (\`wake_linkedX\`): \`asm\` is correct
+for wake.w's two-thread source semantics at every admissible entry state, at the layout
+read from the executable (with the root's immediates \`X64.WakeImms.iW\`), for every
+memory model and every budget of \`allocCells\` cells, given the loader's parse of
+\`asm\` (\`hpa\`, the \`#guard\` above). -/
+theorem prog_correct_linked
+    (hpa : Scc.Cert.Link.X64.parsesTo ⟨asm, sizes, labelOffs⟩ outLit.prog outLit.secs = true)
+    {B : Scc.Sem.Budget} (hB : B.cells = Scc.Cert.PlaceOK.allocCells) {arch : WeakMem.Arch} :
+    Scc.Sem.X64.CorrectE 2 (Spike.Test.WakeLinkedX64.wakeSX arch)
+      { elf.1 with imms := Spike.Lib.X64.WakeImms.iW elf.1 } B ⟨asm, sizes, labelOffs⟩ := by
+  rw [prog_layout]
+  exact Spike.Test.WakeLinkedX64Root.wake_linkedX hpa hB
+
+/--
+info: 'SccCertificate.prog_correct_linked' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms prog_correct_linked
+
+end SccCertificate
+EOF
+  else
   cat >"$T.post.lean" <<EOF
 import Scc.Cert.Elf
 import Scc.Cert.SrcTerm
@@ -419,6 +488,7 @@ info: 'SccCertificate.prog_correct_linked' depends on axioms: [propext, Classica
 
 end SccCertificate
 EOF
+  fi
   wrote "$WORK/$T.post.lean" "wake's theorem at the executable's layout"
   rm -f post.rss
   show "$ROOT" "$LAKE" env lean "$WORK/$T.post.lean"
@@ -426,7 +496,7 @@ EOF
       >"$T.post.out" 2>&1; then
     secs=""; ra=""; [ -f post.rss ] && IFS=: read -r secs ra <post.rss
     m=""; [ -n "$ra" ] && m=", $((ra / 1024)) MB RssAnon peak"; [ -n "$secs" ] && m=" (${secs} s$m)"
-    verdict 0 "certified$m: $T.post.lean: wake_linkedU at the layout of $WE, wake only (registry: \
+    verdict 0 "certified$m: $T.post.lean: $WTHM at the layout of $WE, wake only (registry: \
 Scc/Test/wake.w, $WS and $WE byte for byte); hpa by evaluation; budget hB: 4194304 cells (allocCells); \
 the .text bytes are not compared with the encoding of asm"
   fi

@@ -1,0 +1,355 @@
+/-
+**wake.w's `scc_rt_start` inside `W0`** (x86-64; twin of
+`Spike/Lib/A64WakeStartWf.lean`): the runtime's own nodes of
+the start, from `_start` to `call scc_rt_main`, inside the level before
+the allocation `WakeWf.W0` at the frames `[]` (the start: a pending tail call
+to `main`), at wake.w's global owned-words map `ownG`. Each node's state
+facts are `X64WakeStartEW.startEW_wake`'s at the first instance (`ownW` at
+`phW`) moved to `ownG` (which picks `ownW` at every free pc, `WcW.freeN`,
+and inside `scc_rt_alloc_tcb` and `scc_rt_thread_init` off a pool stack),
+the two abort phases from the decided checks (`phOffW`, `siOffW`), the
+rest from `WakeWf.blkW_wfQ` / `nodeW_wfQ` / `nodeW_wfQF`.
+
+The node lemmas are in `Spike/Lib/X64WakeStartWfL.lean` (split for size):
+
+- `blkW_W0S`, `nodeW_W0S`: a covered `ret`-free block / a single
+  instruction of the start inside `W0`, from its `SFacts` at `ownW`, its
+  free pcs and the agreement at its end.
+- `nodeW_W0S_fi`, `nodeW_W0S_and`: the same at an instruction with
+  undefined flags (`xorl %ebp, %ebp`) and at `andq $k, %rsp`.
+- `nodeW_W0S_svc`, `nodeW_W0S_reg`: the start's `syscall`s; a register
+  operation (the switch `movq %rax, %rsp`).
+- `labCv`, `goodW_fn`: a label read through `L.lab`; `ownG` picking `ownW`
+  at a callee's entry on a stack off the pool.
+- `startEW_W0S`: `StartEW` inside `W0`.
+
+**Unlike AArch64**: offsets are bytes and cells are sized, so the free pcs
+are `freeAt l [k, k + z]` for a node (AArch64's `freeAt l k 2`) and
+`freeBlk l k blk` for a block (AArch64's `freeAt l k blk.length`), the phase
+checks take the size (`siOffW pfxM l k z`); no `hal` / `h16` (no
+16-alignment), the new stack's depth takes `8 ≤ D` (`hL`) and the stack
+range lies off the region (`hout`) as in `startEW_wake`; the start has two
+more node kinds than AArch64's (`nodeW_W0S_fi` for `_start`'s and the
+tail's `xorl %ebp, %ebp`, `nodeW_W0S_and` for `_start`'s `andq $-16, %rsp`).
+Both `syscall`s (`rt_sigaction`, `arch_prctl`) use one lemma whose phases
+are proved directly from `keep_syscall` (every resumption lands `2` bytes
+on) instead of `nodeW_abSt_svc` / `nodeW_acSt_svc`, which exclude
+`arch_prctl`. `arch_prctl(ARCH_SET_FS)` (`archSetFs`) changes only the
+thread-private `fsBase` (no memory, no `%rsp`/`%rbp`, pc `2` on), and `WS`'s
+phases, `ownG` and the abort predicates read pc, `%rsp` and memory only, so
+`WS` is kept; a later x64 node that assumes the A64 `TPIDR_EL0` shape (a
+thread pointer fixed before `W0`) is where a mismatch would show. `pfxM` is local (`.Lwc_main`, the x86-64 labels have no
+function number). `scc_rt_start` runs in `_start`'s call's callee region
+`R.callee (-8) (-296) 8` at every frame condition `F'` there (`StartEW.s`),
+so the two callees' premises `htcb`, `hti` are stated for every such `F'`
+in the callee regions of that region, and `hoffP` is on that region's
+`-48` word; `scc_rt_thread_init` returns to `.x7` (`Code.Ti.x7L`), and its
+premise is `TiWAt` (no extra frame `P`).
+-/
+import Spike.Lib.X64WakeStartWfL
+
+namespace Spike.Lib.X64.WakePh.StartWf
+
+open CoreLang CoreTerm
+open Kraken Kraken.Promising Kraken.Promising.X64
+open Scc.Sem (Marks Range)
+open Scc.Sem.X64 (codeLabel pcOf abi)
+open Scc.Cert.Rt.X64 (blockAtB okPcOf)
+open SccCode (wakeCells)
+open Spike.Lib.X64.Rt (RuntimeLayout InstOk)
+open Spike.Lib.X64Consumer (Lbl Lsize SFacts CFacts noRetBlk)
+open Spike.Lib.X64ConsumerA (StSucc SFactsSt2 AbSt AcSt)
+open Spike.Lib.X64 (ND BlkW NodeW At CodeAt cellOff arun okBlk SI FI Abs)
+open Spike.Lib.X64.WakeWf (Wf W0 RunWf)
+open Spike.Lib.X64.WakePh.WcW (freeN freeAt freeBlk freeAt_pc freeAt_lab freeBlk_pc goodW_of_freeN
+  site_ne_of_freeN cv inCv lab_cv)
+open Spike.Lib (Arena FragS)
+open Kraken.Promising.Lower.X64 (CellAt op64)
+
+section Gen
+
+variable {L : RuntimeLayout} {a : BitVec 64} {rS : Range} {Tk : State → Prop} {lbl' : Lbl}
+  {K : State → State → Prop} {R : Spike.Lib.Region} {F : MachineData → Prop}
+  {ar : Arena} {p : Prog} {Dt Cl : State → Prop} {Ctx : FragS isa} {lbl : Lbl} {lsize : Lsize}
+  {frM : TermRun.Frame} {X0 : State → Prop} {c0 : Ctl}
+  (hp : L.prog = wakeCells) (hlo : L.Λ.code.lo = lo)
+  (hlab : ∀ l x, codeLabel lo wakeCells l = some x → L.lab l = Int64.ofNat x)
+  (hsite : (Spike.Lib.X64.PhRec.μ L).site .take =
+    some (L.lab Spike.Lib.X64.Flow.Ret0.StackTake.siteL).toBitVec.toNat)
+  (hcl : ∀ s, Cl s → abi.atSys s = true ∧
+    ∃ st tl, Scc.Sem.Kernel.decode abi.nrs (abi.nr s) (abi.arg s) = some (.clone st tl))
+  (hc0 : (∀ a, c0.term ≠ .ret a) ∧ RunWf p c0 []) (hpl0 : ∀ s, Spike.Lib.X64ConsumerS.PlacedSE L.Λ lbl s c0 [])
+  (hX0 : ∀ s, freeN (pcOf s) = true → X0 s)
+
+include hp hlo hlab hsite hcl hc0 hpl0 hX0
+
+/-! ## The start -/
+
+/-- `freeAt` of wakeCells, decided. -/
+macro "wsfree_dec" : tactic =>
+  `(tactic| (unfold freeAt freeN inCv cv; rw [← Scc.Cert.Rt.X64.codeT_eq]; decide +kernel))
+
+/-- `freeBlk` of wakeCells, decided. -/
+macro "wsfreeB_dec" : tactic =>
+  `(tactic| (unfold freeBlk freeAt freeN inCv cv; rw [← Scc.Cert.Rt.X64.codeT_eq]; decide +kernel))
+
+omit hp hlo hsite hcl hc0 hpl0 hX0 in
+/-- A label of wakeCells read through `L.lab`, decided. -/
+theorem labCv (l : Label) (hs : (codeLabel lo wakeCells l).isSome = true) (hb : cv l < 2 ^ 64) :
+    (L.lab l).toBitVec.toNat = cv l :=
+  lab_cv hlab hs hb
+
+omit hp hlo hlab hsite hcl hc0 hpl0 hX0 in
+/-- **At a callee's entry from the start on a stack off the pool**, `ownG`
+picks `ownW`: the pc inside `scc_rt_alloc_tcb` or `scc_rt_thread_init`
+(`hin`), `%rsp` at offset `-48` of a region whose address there is off the
+pool (`hoffP`). -/
+theorem goodW_fn {s : State} {m : MachineData} {o : Spike.Lib.X64.SO} {σ : Spike.Lib.X64.AS}
+    (hA : Abs R o m σ) (ho : o.sp = -48) (hm : s.st.1 = m)
+    (hoffP : ¬ (L.Λ.stackPool.lo < (R.addr (-48)).toNat ∧
+      (R.addr (-48)).toNat ≤ L.Λ.stackPool.lo + L.Λ.stackPool.size))
+    (hin : inPc L "scc_rt_alloc_tcb" "scc_rt_thread_reserve" s ∨
+      inPc L "scc_rt_thread_init" "scc_rt_stack_release" s) : GoodW L s := by
+  have hsp : m.regs.rsp.toBitVec = R.addr (-48) := by rw [Spike.Lib.X64ConsumerA.rsp_of_abs hA, ho]
+  refine .inl ⟨hin, ?_⟩
+  unfold spPool; rw [hm, hsp]; exact hoffP
+
+set_option maxRecDepth 100000 in
+set_option maxHeartbeats 6400000 in
+/-- **wake.w's `scc_rt_start` inside `W0`** (`StartEW`, from `_start` to
+`call scc_rt_main`, `scc_rt_thread_init` returning to `.x7`) at the frames
+`[]` at `ownG`: every own node of the start from `startEW_wake`'s `SFacts`
+at `ownW` (`blkW_W0S`, `nodeW_W0S`, `nodeW_W0S_fi`, `nodeW_W0S_and`,
+`nodeW_W0S_svc`, `nodeW_W0S_reg`), its pcs free and its phases decided.
+The two callees' states are premises (`htcb`, `hti`) at every frame
+condition of `scc_rt_start`'s region `R.callee (-8) (-296) 8`; the two call
+blocks end at the callees' entries on a stack whose `-48` word in that
+region is off the pool (`hoffP`). -/
+theorem startEW_W0S (hΛ : L.Λ.abortLbl = Scc.Cert.Link.abortName) (hs : WSep L a)
+    (hro : L.Λ.rodata.Disjoint L.Λ.stackPool) {n0 k0 : BitVec 64} {D : Int}
+    (hC0 : CFacts L.Λ lbl' c0) (hR : R.OK) (hRlo : R.lo ≤ -304) (hhi : 0 ≤ R.hi)
+    (hFr : ∀ m, F m → Spike.Lib.X64.Rt.rtF L m) (hn0 : n0 = 0#64)
+    (hrS : rS = ⟨(Spike.Lib.X64.Flow.Ret0.stacksA L.lab + k0).toNat, 16384⟩) (hsub : rS.Sub L.Λ.stackPool)
+    (hout : ∀ a, a % 8 = 0 → rS.contains a → rS.contains (a + 7) →
+      (a : Int) + 8 ≤ R.base.toNat + R.lo ∨ (R.base.toNat : Int) + R.hi ≤ a)
+    (h8 : (Spike.Lib.X64.Flow.Ret0.stacksA L.lab + k0 + 16384#64).toNat % 8 = 0)
+    (hok : (Spike.Lib.X64.swR (Spike.Lib.X64.Flow.Ret0.stacksA L.lab + k0 + 16384#64) (-D) 0).OK)
+    (hL : 8 ≤ D) (hL8 : D % 8 = 0)
+    (hoffP : ¬ (L.Λ.stackPool.lo < ((R.callee (-8) (-296) 8).addr (-48)).toNat ∧
+      ((R.callee (-8) (-296) 8).addr (-48)).toNat ≤ L.Λ.stackPool.lo + L.Λ.stackPool.size))
+    (htcb : ∀ F' : MachineData → Prop, Spike.Lib.X64.FStable (R.callee (-8) (-296) 8) F' →
+      Spike.Lib.X64.KStable (Spike.Lib.X64.PhRec.K L rS) F' → (∀ m, F' m → F m) →
+      ∀ g, g.ra = (L.lab Spike.Lib.X64.Flow.Ret0.x0L).toBitVec → ∀ i,
+      Spike.Lib.X64.Flow.Ret0.TcbW (WS L a ar p Dt Cl Ctx lbl lsize frM X0) (Spike.Lib.X64.PhRec.K L rS) L.exe
+        L.endPc ((R.callee (-8) (-296) 8).callee (-48 - 0) (-184) 8) F' ⟨g, n0, c0⟩ i)
+    (hti : ∀ F' : MachineData → Prop, Spike.Lib.X64.FStable (R.callee (-8) (-296) 8) F' →
+      Spike.Lib.X64.KStable (Spike.Lib.X64.PhRec.K L rS) F' → (∀ m, F' m → F m) →
+      ∀ g, g.ra = (L.lab Spike.Lib.X64.Flow.Ret0.x1L).toBitVec → ∀ i,
+      Spike.Lib.X64.Rt.TiWAt (WS L a ar p Dt Cl Ctx lbl lsize frM X0) (Spike.Lib.X64.PhRec.K L rS) L.exe
+        L.endPc ((R.callee (-8) (-296) 8).callee (-48 - 0) (-248) 8) F' (Spike.Lib.X64.Flow.Ret0.StackM rS)
+        ⟨g, Spike.Lib.X64.Flow.Ret0.pinA L.lab + n0 + 8#64, k0, c0⟩ Spike.Lib.X64.Rt.Code.Ti.x7L i) :
+    Spike.Lib.X64.Rt.StartEW (WS L a ar p Dt Cl Ctx lbl lsize frM X0) (Spike.Lib.X64.PhRec.K L rS) L.exe
+      L.endPc R F rS n0 k0 c0 D Spike.Lib.X64.Rt.Code.Ti.x7L := by
+  have hW := startEW_wake (a := a) (rS := rS) (lbl := lbl') hp hlo hΛ hlab hs hro hC0 hR hRlo hhi hFr hn0
+    hrS hsub hout h8 hok hL hL8
+  have hf : ∀ f ∈ Spike.Lib.X64.Rt.startPhTab, _ := fun f hf => startW_fact hΛ (f := f) (start_memW hf)
+  have hn : ∀ t, Scc.Cert.Rt.X64.deadN (codeLabel lo wakeCells) none t = true → (fun _ => false) t = true :=
+    fun _ h => by simp [Scc.Cert.Rt.X64.deadN] at h
+  have hr : ∀ r o', (none : Option (String × Nat)) = some (r, o') → (0 : Int64) = L.lab r + Int64.ofNat o' :=
+    fun _ _ h => nomatch h
+  have okB : ∀ {okP : Nat → Bool} {phf : Nat → Nat} {d : Nat → Bool} {pc ra : Int64}
+      {blk : List (Directive × Nat)},
+      Spike.Lib.X64Consumer.blkPh okP phf d L.lab pc ra blk = true →
+      ∀ j < blk.length, okP (pc + Int64.ofNat (cellOff blk j)).toBitVec.toNat = true := fun h j hj => by
+    have := List.all_eq_true.mp h j (List.mem_range.mpr hj)
+    simp only [Bool.and_eq_true] at this
+    exact this.1.1
+  have hrc := wake_rtCodeIn0
+  have hs0 := hrc.start0
+  simp only [Spike.Lib.X64.Rt.Code.Start.entryIn, Bool.and_eq_true] at hs0
+  obtain ⟨⟨e0, e2⟩, e6⟩ := hs0
+  have hst := hrc.start
+  simp only [Spike.Lib.X64.Flow.startIn, Bool.and_eq_true] at hst
+  obtain ⟨⟨⟨⟨-, cb0⟩, cbSi⟩, cbArgs⟩, cbSys⟩ := hst
+  have hcl' := hrc.call
+  simp only [Spike.Lib.X64.Flow.Ret0.startCallIn, Bool.and_eq_true] at hcl'
+  obtain ⟨cc, -⟩ := hcl'
+  have hcl2 := hrc.call2
+  simp only [Spike.Lib.X64.Flow.Ret0.startCall2In, Bool.and_eq_true] at hcl2
+  obtain ⟨cc2, -⟩ := hcl2
+  have htl := hrc.tail
+  simp only [Spike.Lib.X64.Flow.Ret0.startTailIn, Bool.and_eq_true] at htl
+  obtain ⟨⟨⟨⟨⟨tFs, tSys⟩, tSw⟩, tSwDir⟩, tXor⟩, tMain⟩ := htl
+  have hR' := Spike.Lib.Region.callee_ok (kc := -8) (lo' := -296) (hi' := 8) hR (by omega) (by decide)
+    (by omega) (by omega)
+  refine ⟨⟨?_, ?_, ?_⟩, fun F' hFs hKs hF' => ⟨⟨⟨?_, ?_, ?_, ?_⟩, ?_, htcb F' hFs hKs hF'⟩,
+    ⟨?_, hti F' hFs hKs hF', ?_, ?_, ?_⟩, ⟨?_, fun v => ?_, fun v => ?_⟩⟩⟩
+  · -- `_start`'s `xorl %ebp, %ebp`.
+    exact nodeW_W0S_fi hp hlo hlab hsite hcl hc0 hpl0 hX0 (fi := .xor_rr32_self .rbp) (l := "_start") (k := 0)
+      (z := 2) e0 (Spike.Lib.X64.Flow.ofNat_zero' _) hW.e.xor
+      (Spike.Lib.X64.Rt.PhOfTab.step_of_factOk hlab
+        (hf (.step "_start" 0 2) (by simp [Spike.Lib.X64.Rt.startPhTab]))).1
+      (by wsfree_dec) (by unfold Spike.Lib.X64.WakeWf.siOffW; decide +kernel) (fun _ _ h => h)
+  · -- `_start`'s `andq $-16, %rsp`.
+    exact nodeW_W0S_and hp hlo hlab hsite hcl hc0 hpl0 hX0 (i := -16) (l := "_start") (k := 2) (z := 4) e2 rfl
+      hW.e.and
+      (Spike.Lib.X64.Rt.PhOfTab.step_of_factOk hlab
+        (hf (.step "_start" 2 4) (by simp [Spike.Lib.X64.Rt.startPhTab]))).1
+      (by wsfree_dec) (by unfold Spike.Lib.X64.WakeWf.siOffW; decide +kernel) (fun _ _ h => h)
+  · -- `_start`'s call.
+    refine blkW_W0S hp hlo hlab hsite hcl hc0 hpl0 hX0 (l := "_start") (k := 6) e6
+      (by show _ = L.lab "_start" + Int64.ofNat 2 + Int64.ofNat 4; rw [Int64.add_assoc]; rfl)
+      Spike.Lib.X64.Rt.entryCallB_ok hR (by omega) hhi hW.e.call
+      (okB (Spike.Lib.X64.Rt.PhOfTab.blkPh_of_factOk hlab hr hn
+        (hf (.blk "_start" 6 Spike.Lib.X64.Rt.Code.Start.entryCall none none)
+          (by simp [Spike.Lib.X64.Rt.startPhTab]))))
+      (by wsfreeB_dec) ?_ (by decide +kernel) rfl (fun _ _ h => h)
+    intro σ c _ s m _ _ _ hs'
+    dsimp only [Spike.Lib.X64.Rt.entryN2] at hs'
+    rw [Spike.Lib.X64.Rt.entryCallB_run] at hs'
+    exact goodW_of_freeN hlab (by unfold pcOf; rw [hs']; exact freeAt_lab hlab (by wsfree_dec))
+  · -- The frame's setup.
+    refine blkW_W0S hp hlo hlab hsite hcl hc0 hpl0 hX0 (l := "scc_rt_start") (k := 0) cb0
+      (Spike.Lib.X64.Flow.ofNat_zero' _) Spike.Lib.X64.Flow.xStart0_ok hR' (by show (-296 : Int) ≤ _; omega) (by show _ ≤ (8 : Int); omega)
+      (hW.s F' hFs hKs hF').s1.start.w0
+      (okB (Spike.Lib.X64.Rt.PhOfTab.blkPh_of_factOk hlab hr hn
+        (hf (.blk "scc_rt_start" 0 Spike.Lib.X64.Flow.xStart0 none none) (by simp [Spike.Lib.X64.Rt.startPhTab]))))
+      (by wsfreeB_dec) ?_ (by decide +kernel) Spike.Lib.X64.Rt.StartU.xStart0_noRet (fun _ _ h => h)
+    intro σ c _ s m _ _ _ hs'
+    rw [Spike.Lib.X64.Flow.xStart0_run] at hs'
+    have := freeAt_pc hlab (l := "scc_rt_start") (os := [8]) (by wsfree_dec) (o := 8) (by simp)
+    exact goodW_of_freeN hlab (by unfold pcOf; rw [hs']; exact this)
+  · -- The handler's `lea`.
+    exact nodeW_W0S hp hlo hlab hsite hcl hc0 hpl0 hX0 (si := Spike.Lib.X64.Flow.siSig)
+      (l := Spike.Lib.X64.Flow.startE) (k := 0) (z := 7) cbSi (Spike.Lib.X64.Flow.ofNat_zero' _)
+      (hW.s F' hFs hKs hF').s1.start.w1
+      (Spike.Lib.X64.Rt.PhOfTab.step_of_factOk hlab
+        (hf (.step Spike.Lib.X64.Flow.startE 0 7) (by simp [Spike.Lib.X64.Rt.startPhTab]))).1
+      (by wsfree_dec) (by unfold Spike.Lib.X64.WakeWf.siOffW; decide +kernel) (fun _ _ ⟨_, h, _⟩ => h)
+  · -- The arguments.
+    refine blkW_W0S hp hlo hlab hsite hcl hc0 hpl0 hX0 (l := Spike.Lib.X64.Flow.startE) (k := 7) cbArgs
+      rfl Spike.Lib.X64.Flow.xStartArgs_ok hR' (by show (-296 : Int) ≤ _; omega) (by show _ ≤ (8 : Int); omega) (hW.s F' hFs hKs hF').s1.start.w2
+      (okB (Spike.Lib.X64.Rt.PhOfTab.blkPh_of_factOk hlab hr hn
+        (hf (.blk Spike.Lib.X64.Flow.startE 7 Spike.Lib.X64.Flow.xStartArgs none none)
+          (by simp [Spike.Lib.X64.Rt.startPhTab]))))
+      (by wsfreeB_dec) ?_ (by decide +kernel) Spike.Lib.X64.Rt.StartU.xStartArgs_noRet (fun _ _ ⟨_, h, _⟩ => h)
+    intro σ c _ s m _ _ _ hs'
+    dsimp only [Spike.Lib.X64.Flow.xStartN2] at hs'
+    rw [Spike.Lib.X64.Flow.xStartArgs_run, Spike.Lib.X64.Rt.StartU.startE41] at hs'
+    have := freeAt_pc hlab (l := Spike.Lib.X64.Flow.startE) (os := [41]) (by wsfree_dec) (o := 41) (by simp)
+    exact goodW_of_freeN hlab (by unfold pcOf; rw [hs']; exact this)
+  · -- `rt_sigaction`'s `syscall`.
+    exact nodeW_W0S_svc hp hlo hlab hsite hcl hc0 hpl0 hX0 (l := Spike.Lib.X64.Flow.startE) (k := 41) (z := 2)
+      cbSys (Spike.Lib.X64.Rt.StartU.startE41 _).symm (hW.s F' hFs hKs hF').s1.start.w3
+      (Spike.Lib.X64.Rt.PhOfTab.step_of_factOk hlab
+        (hf (.step Spike.Lib.X64.Flow.startE 41 2) (by simp [Spike.Lib.X64.Rt.startPhTab]))).1
+      (by wsfree_dec) (by unfold Spike.Lib.X64.WakeWf.siOffW; decide +kernel) (fun _ _ ⟨_, h, _⟩ => h)
+  · -- The call block of `scc_rt_alloc_tcb`.
+    refine blkW_W0S hp hlo hlab hsite hcl hc0 hpl0 hX0 (l := Spike.Lib.X64.Flow.startE) (k := 43) cc rfl
+      Spike.Lib.X64.Flow.Ret0.startCall_ok hR' (by show (-296 : Int) ≤ _; omega) (by show _ ≤ (8 : Int); omega) (hW.s F' hFs hKs hF').s1.blk
+      (okB (Spike.Lib.X64.Rt.PhOfTab.blkPh_of_factOk hlab hr hn
+        (hf (.blk Spike.Lib.X64.Flow.startE 43 Spike.Lib.X64.Rt.Code.Start.startCall none none)
+          (by simp [Spike.Lib.X64.Rt.startPhTab]))))
+      (by wsfreeB_dec) ?_ (by decide +kernel) Spike.Lib.X64.Rt.StartU.startCall_noRet (fun _ _ h => h.1)
+    intro σ c _ s m hA _ _ hs'
+    dsimp only [Spike.Lib.X64.Flow.Ret0.startN1R] at hA hs'
+    rw [Spike.Lib.X64.Flow.Ret0.startCall_run] at hA hs'
+    refine goodW_fn hA rfl (by rw [hs']) hoffP (.inl ?_)
+    unfold inPc pcOf; rw [hs']
+    refine ⟨Nat.le_refl _, ?_⟩
+    show (L.lab "scc_rt_alloc_tcb").toBitVec.toNat < (L.lab "scc_rt_thread_reserve").toBitVec.toNat
+    rw [labCv hlab "scc_rt_alloc_tcb" (by rw [← Scc.Cert.Rt.X64.codeT_eq]; decide +kernel)
+        (by unfold cv; rw [← Scc.Cert.Rt.X64.codeT_eq]; decide +kernel),
+      labCv hlab "scc_rt_thread_reserve" (by rw [← Scc.Cert.Rt.X64.codeT_eq]; decide +kernel)
+        (by unfold cv; rw [← Scc.Cert.Rt.X64.codeT_eq]; decide +kernel)]
+    unfold cv; rw [← Scc.Cert.Rt.X64.codeT_eq]; decide +kernel
+  · -- `.x0`'s block, the call of `scc_rt_thread_init`.
+    refine blkW_W0S hp hlo hlab hsite hcl hc0 hpl0 hX0 (l := Spike.Lib.X64.Flow.Ret0.x0L) (k := 0) cc2
+      (Spike.Lib.X64.Flow.ofNat_zero' _) Spike.Lib.X64.Flow.Ret0.startCall2_ok hR' (by show (-296 : Int) ≤ _; omega) (by show _ ≤ (8 : Int); omega)
+      (hW.s F' hFs hKs hF').s2.b0
+      (okB (Spike.Lib.X64.Rt.PhOfTab.blkPh_of_factOk hlab hr hn
+        (hf (.blk Spike.Lib.X64.Rt.Code.Start.x0L 0 Spike.Lib.X64.Rt.Code.Start.startCall2 none none)
+          (by simp [Spike.Lib.X64.Rt.startPhTab]))))
+      (by wsfreeB_dec) ?_ (by decide +kernel) Spike.Lib.X64.Rt.StartU.startCall2_noRet (fun _ _ h => h.1.1.1)
+    intro σ c _ s m hA _ _ hs'
+    dsimp only [Spike.Lib.X64.Flow.Ret0.startN2R] at hA hs'
+    rw [Spike.Lib.X64.Flow.Ret0.startCall2_run] at hA hs'
+    refine goodW_fn hA rfl (by rw [hs']) hoffP (.inr ?_)
+    unfold inPc pcOf; rw [hs']
+    refine ⟨Nat.le_refl _, ?_⟩
+    show (L.lab "scc_rt_thread_init").toBitVec.toNat < (L.lab "scc_rt_stack_release").toBitVec.toNat
+    rw [labCv hlab "scc_rt_thread_init" (by rw [← Scc.Cert.Rt.X64.codeT_eq]; decide +kernel)
+        (by unfold cv; rw [← Scc.Cert.Rt.X64.codeT_eq]; decide +kernel),
+      labCv hlab "scc_rt_stack_release" (by rw [← Scc.Cert.Rt.X64.codeT_eq]; decide +kernel)
+        (by unfold cv; rw [← Scc.Cert.Rt.X64.codeT_eq]; decide +kernel)]
+    unfold cv; rw [← Scc.Cert.Rt.X64.codeT_eq]; decide +kernel
+  · -- `.x1`'s block.
+    refine blkW_W0S hp hlo hlab hsite hcl hc0 hpl0 hX0 (l := Spike.Lib.X64.Flow.Ret0.x1L) (k := 0) tFs
+      (Spike.Lib.X64.Flow.ofNat_zero' _) Spike.Lib.X64.Flow.Ret0.startFs_ok hR' (by show (-296 : Int) ≤ _; omega) (by show _ ≤ (8 : Int); omega)
+      (hW.s F' hFs hKs hF').s2.fs
+      (okB (Spike.Lib.X64.Rt.PhOfTab.blkPh_of_factOk hlab hr hn
+        (hf (.blk Spike.Lib.X64.Rt.Code.Start.x1L 0 Spike.Lib.X64.Rt.Code.Start.startFs none none)
+          (by simp [Spike.Lib.X64.Rt.startPhTab]))))
+      (by wsfreeB_dec) ?_ (by decide +kernel) Spike.Lib.X64.Rt.StartU.startFs_noRet (fun _ _ h => h.1.1)
+    intro σ c _ s m _ _ _ hs'
+    dsimp only [Spike.Lib.X64.Flow.Ret0.startN3] at hs'
+    rw [Spike.Lib.X64.Flow.Ret0.startFs_run] at hs'
+    have := freeAt_pc hlab (l := Spike.Lib.X64.Flow.Ret0.x1L) (os := [18]) (by wsfree_dec) (o := 18) (by simp)
+    exact goodW_of_freeN hlab (by unfold pcOf; rw [hs']; exact this)
+  · -- `arch_prctl`'s `syscall`.
+    exact nodeW_W0S_svc hp hlo hlab hsite hcl hc0 hpl0 hX0 (l := Spike.Lib.X64.Flow.Ret0.x1L) (k := 18) (z := 2)
+      tSys rfl (hW.s F' hFs hKs hF').s2.sys
+      (Spike.Lib.X64.Rt.PhOfTab.step_of_factOk hlab
+        (hf (.step Spike.Lib.X64.Rt.Code.Start.x1L 18 2) (by simp [Spike.Lib.X64.Rt.startPhTab]))).1
+      (by wsfree_dec) (by unfold Spike.Lib.X64.WakeWf.siOffW; decide +kernel) (fun _ _ h => h.1)
+  · -- The block before the switch.
+    refine blkW_W0S hp hlo hlab hsite hcl hc0 hpl0 hX0 (l := Spike.Lib.X64.Flow.Ret0.x1L) (k := 20) tSw
+      rfl Spike.Lib.X64.Flow.Ret0.startSw_ok hR' (by show (-296 : Int) ≤ _; omega) (by show _ ≤ (8 : Int); omega) (hW.s F' hFs hKs hF').s2.sw
+      (okB (Spike.Lib.X64.Rt.PhOfTab.blkPh_of_factOk hlab hr hn
+        (hf (.blk Spike.Lib.X64.Rt.Code.Start.x1L 20 Spike.Lib.X64.Rt.Code.Start.startSw none none)
+          (by simp [Spike.Lib.X64.Rt.startPhTab]))))
+      (by wsfreeB_dec) ?_ (by decide +kernel) Spike.Lib.X64.Rt.StartU.startSw_noRet (fun _ _ h => h.1)
+    intro σ c _ s m _ _ _ hs'
+    dsimp only [Spike.Lib.X64.Flow.Ret0.startN5] at hs'
+    rw [Spike.Lib.X64.Flow.Ret0.startSw_run, Int64.add_assoc] at hs'
+    have := freeAt_pc hlab (l := Spike.Lib.X64.Flow.Ret0.x1L) (os := [28]) (by wsfree_dec) (o := 28) (by simp)
+    exact goodW_of_freeN hlab (by unfold pcOf; rw [hs']; exact this)
+  · -- The switch.
+    exact nodeW_W0S_reg hp hlo hlab hsite hcl hc0 hpl0 hX0 (w := .W64)
+      (op := .mov (.reg (.low .rsp .W64)) (.regOrMem (.reg (.low .rax .W64)))) rfl
+      (l := Spike.Lib.X64.Flow.Ret0.x1L) (k := 28) (z := 3) tSwDir rfl (hW.s F' hFs hKs hF').s3.sw
+      (swPhW hΛ hlab).sw.1
+      (by wsfree_dec) (by unfold Spike.Lib.X64.WakeWf.siOffW; decide +kernel) (fun _ _ h => h.1)
+  · -- After the switch: `xorl %ebp, %ebp` in the new region.
+    by_cases hv : v = Spike.Lib.X64.Flow.Ret0.stacksA L.lab + k0 + 16384#64
+    · subst hv
+      exact nodeW_W0S_fi hp hlo hlab hsite hcl hc0 hpl0 hX0 (fi := .xor_rr32_self .rbp)
+        (l := Spike.Lib.X64.Flow.Ret0.x1L) (k := 31) (z := 2) tXor rfl ((hW.s F' hFs hKs hF').s3.xor _)
+        (swPhW hΛ hlab).xor.1
+        (by wsfree_dec) (by unfold Spike.Lib.X64.WakeWf.siOffW; decide +kernel) (fun _ _ h => h.1)
+    · exact Spike.Lib.X64.Rt.nodeW_ofFalse fun _ h => hv h.1.1
+  · -- `call scc_rt_main` in the new region.
+    by_cases hv : v = Spike.Lib.X64.Flow.Ret0.stacksA L.lab + k0 + 16384#64
+    · subst hv
+      refine blkW_W0S hp hlo hlab hsite hcl hc0 hpl0 hX0 (l := Spike.Lib.X64.Flow.Ret0.x1L) (k := 33) tMain rfl
+        (Spike.Lib.X64.Rt.startMain_okL hL) hok (Int.le_refl _) (Int.le_refl _) ((hW.s F' hFs hKs hF').s3.blk _)
+        (okB (swPhW hΛ hlab).main) (by wsfreeB_dec) ?_ (by decide +kernel)
+        Spike.Lib.X64.Rt.MainU.startMain_noRet (fun _ _ h => h.1)
+      intro σ c _ s m _ _ _ hs'
+      dsimp only [Spike.Lib.X64.Flow.Ret0.startN8] at hs'
+      rw [Spike.Lib.X64.Flow.Ret0.startMain_run] at hs'
+      exact goodW_of_freeN hlab (by unfold pcOf; rw [hs']; exact freeAt_lab hlab (by wsfree_dec))
+    · exact Spike.Lib.X64.Rt.blkW_ofFalse fun _ h => hv h.1.1
+
+end Gen
+
+end Spike.Lib.X64.WakePh.StartWf
+
+/-- info: 'Spike.Lib.X64.WakePh.StartWf.labCv' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in #print axioms Spike.Lib.X64.WakePh.StartWf.labCv
+
+/-- info: 'Spike.Lib.X64.WakePh.StartWf.goodW_fn' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in #print axioms Spike.Lib.X64.WakePh.StartWf.goodW_fn
+
+/-- info: 'Spike.Lib.X64.WakePh.StartWf.startEW_W0S' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in #print axioms Spike.Lib.X64.WakePh.StartWf.startEW_W0S

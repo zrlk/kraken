@@ -33,10 +33,12 @@
 # `call1a64/call1.s` (the AArch64 `call1` certificate's text, linked the same
 # way, `Spike/Test/Call1LinkedA64.lean`), and `wakea64/wake` from
 # `wakea64/wake.s` (the AArch64 `wake` certificate's text, linked the same
-# way, `Spike/Test/WakeLinkedA64Elf.lean`); the digests in `ElfTest.lean`,
+# way, `Spike/Test/WakeLinkedA64Elf.lean`), and `wakex64/wake` from
+# `wakex64/wake.s` (the x86-64 `wake` certificate's text, linked as `run.sh`
+# links x86-64 binaries, `Spike/Test/WakeLinkedX64Elf.lean`); the digests in `ElfTest.lean`,
 # `Ret0LinkedX64.lean`, `Frame0LinkedX64.lean`, `Ret0LldX64.lean`,
 # `Ret0LinkedA64.lean`, `Hello1LinkedA64.lean`, `Call1LinkedA64.lean` and
-# `Call1LinkedX64.lean`, `Hello1LinkedX64.lean`, `WakeLinkedA64Elf.lean` then
+# `Call1LinkedX64.lean`, `Hello1LinkedX64.lean`, `WakeLinkedA64Elf.lean`, `WakeLinkedX64Elf.lean` then
 # need updating if the tools changed. Exits 1 on a mismatch.
 set -eu
 LAKE=${LAKE:-lake}
@@ -48,10 +50,10 @@ trap 'rm -rf "$TMP"' EXIT
 # The fixtures, the tools each needs, and its recorded command
 # (`link F OUT`: write fixture F under the directory OUT).
 FIXTURES="x a a_def a_bid ret0x64/ret0 ret0a64/ret0 hello1a64/hello1 call1a64/call1 frame0x64/frame0 call1x64/call1"
-FIXTURES="$FIXTURES ret0x64lld/ret0 hello1x64/hello1 wakea64/wake"
+FIXTURES="$FIXTURES ret0x64lld/ret0 hello1x64/hello1 wakea64/wake wakex64/wake"
 tools() {
   case "$1" in
-    x|ret0x64/ret0|frame0x64/frame0|call1x64/call1|hello1x64/hello1) echo "as ld" ;;
+    x|ret0x64/ret0|frame0x64/frame0|call1x64/call1|hello1x64/hello1|wakex64/wake) echo "as ld" ;;
     a|a_def|a_bid|ret0a64/ret0|hello1a64/hello1|call1a64/call1|wakea64/wake) echo "clang ld.lld" ;;
     ret0x64lld/ret0) echo "as ld.lld" ;;
   esac
@@ -87,6 +89,8 @@ link() {
     wakea64/wake) mkdir -p "$2/wakea64" &&
        clang --target=aarch64-linux-gnu -march=armv8.4-a -nostdlib -static -fuse-ld=lld \
          -o "$2/wakea64/wake" "$D/wakea64/wake.s" ;;
+    wakex64/wake) mkdir -p "$2/wakex64" && as -o "$TMP/wake.o" "$D/wakex64/wake.s" &&
+       ld -static -o "$2/wakex64/wake" "$TMP/wake.o" ;;
   esac
 }
 if [ "${1:-}" = --relink ]; then

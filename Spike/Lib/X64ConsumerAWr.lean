@@ -302,7 +302,7 @@ theorem wrOkA_header {kr : Kraken.StoreKind} {A : BitVec 64} {V : Val} {s' : Sta
     (hev : TermRun.evalAt c.env a = some (ta, ws)) (hk : TermRun.numOf ws = some k)
     (hlt : A.toNat < ar.heap + 16 * old + ar.off k τ) (hne : (⟨A, 8⟩ : Loc) ≠ ar.ctrLoc) :
     WrOkA ar lbl lsize ms X s c :=
-  ⟨fun _ hL => wrAt_store he hL ▸ .inr (.inr (.inr ⟨old, x, a, τ, e, ta, ws, k, hh, ht, hev, hk, hlt⟩)),
+  ⟨fun _ hL => wrAt_store he hL ▸ .inr (.inr (.inr (.inl ⟨old, x, a, τ, e, ta, ws, k, hh, ht, hev, hk, hlt⟩))),
     fun hL => (hne (wrAt_store he hL).symm).elim⟩
 
 end Spike.Lib.X64ConsumerA
