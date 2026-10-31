@@ -644,8 +644,11 @@ def StoreHolderFree (c : Cfg) (i : Nat) (th : TTh) (cx : Cx) (η : TEnv) : Prop 
 
 The memory-count route (`storeCrZ_ofM`, `dwf_ofM`) does not survive (H): a designated
 debit's block part `Z` (`BlkDb`) may carry `wd n` (planted fresh tokens), so `db_wd_pos` needs
-`hZ`.  The (H) replacement is the pinned slot cover (TermWdCoverH §3/§4); until then
-`StoreCrZ` is the temporary named field `storeCrZH` (TermMain). -/
+`hZ`.  `StoreCrZ` no longer needs this route: it is now `StoreNI ∧ StoreLeafPayAll`
+(TermStep), proved in `toObligationsCX` (TermMain) from `TermStoreNI.storeNI_of` and
+`TermPiece.storeLeafPay_of`; the fulfilled promises' debits are paid from the stored value.
+`hZ` and `HolderUniq` remain open; their consumer would be a liveness bound on `wd n` at a
+held region, not `StoreCrZ`. -/
 
 #print axioms leaf_word
 #print axioms one_at

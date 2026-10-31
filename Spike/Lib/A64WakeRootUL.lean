@@ -175,7 +175,7 @@ theorem rootOpen_U (E : Entry) (hE : E.Ok (Ly).Λ)
     obtain ⟨rfl, Lnd, hG, kr, A, V, s', x, a, ty, e, w, wold, old, hN, hex, hmp, ht, hev, hacc, hv, hh, hold, hA,
       hcl, hX⟩ := hC.1.resolve_left fun h =>
         hW (Spike.Lib.A64.WakeCtr.ctrAt_wr (Land.hcode_R hp IW hpa hwp) rfl s c fs h.1)
-    obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Spike.Lib.FrameNew.FrameRun.eq_of_new hr ht)
+    obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Spike.Lib.FrameNew.FrameRun.eq_of_new hr ht.choose_spec)
     have hU : U R1 s' := exec_un hC.2 hex true
     refine ⟨kr, A, V, s', x, a, ty, e, w, wold, old, hN, hex, hmp, ht, hev, hacc, hv, hh, hold, hA, hcl,
       fun l hl => ?_⟩

@@ -10,7 +10,7 @@ CoreLang.Clause2 : Type
 CoreLang.Clause2.holds : CoreLang.Clause2 → Bool
 CoreLang.CodeKind : Type
 CoreLang.CodeKind.plain : CoreLang.CodeKind
-CoreLang.CodeKind.restricted : Nat → Nat → CoreLang.CodeKind
+CoreLang.CodeKind.restricted : Nat → Nat → Bool → CoreLang.CodeKind
 CoreLang.ECounter : Type
 CoreLang.IEnv : Type
 CoreLang.Idx : Type
@@ -205,6 +205,7 @@ CoreTerm.Op.idx : CoreTerm.At → CoreTerm.At → CoreTerm.Op
 CoreTerm.Op.inl : CoreLang.Ty → CoreTerm.At → CoreTerm.Op
 CoreTerm.Op.inr : CoreLang.Ty → CoreTerm.At → CoreTerm.Op
 CoreTerm.Op.intoRgn : String → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.isTy : CoreTerm.At → CoreLang.Ty → CoreTerm.Op
 CoreTerm.Op.lane : CoreTerm.At → CoreTerm.At → CoreTerm.Op
 CoreTerm.Op.ldl : CoreTerm.At → CoreTerm.At → CoreTerm.Op
 CoreTerm.Op.ldlw : CoreTerm.At → CoreTerm.At → CoreTerm.At → CoreTerm.Op
@@ -217,7 +218,7 @@ CoreTerm.Op.mkTicket : String → CoreLang.Proto → CoreLang.Proto → CoreTerm
 CoreTerm.Op.mkWord : String → CoreLang.Proto → CoreTerm.At → CoreTerm.At → CoreTerm.Op
 CoreTerm.Op.mkWord2 : String → CoreLang.Proto2 → CoreTerm.At → CoreTerm.At → CoreTerm.At → CoreTerm.Op
 CoreTerm.Op.nameI : CoreTerm.At → CoreTerm.Op
-CoreTerm.Op.new : CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.new : CoreTerm.At → Option CoreLang.Ty → CoreTerm.Op
 CoreTerm.Op.newBuf : CoreTerm.At → CoreLang.Ty → CoreTerm.Op
 CoreTerm.Op.null : CoreLang.Mode → CoreLang.Ty → CoreTerm.Op
 CoreTerm.Op.pack : CoreTerm.At → String → CoreLang.Ty → CoreTerm.Op
@@ -270,7 +271,9 @@ CoreTerm.pwf : CoreLang.Proto → Bool
 CoreTerm.pwf2 : CoreLang.Proto2 → Bool
 CoreTerm.pwfE : CoreLang.ECounter → Bool
 CoreTerm.rgnCellOK : CoreLang.KEnv → CoreLang.Ty → Bool
+CoreTerm.slotOK : CoreLang.Ty → Bool
 CoreTerm.tailCheck : CoreTerm.Prog → CoreTerm.Cx → String → List String → CoreTerm.At → List CoreLang.Ty → CoreTerm.M Unit
+CoreTerm.tgtOK : CoreLang.Ty → Bool
 CoreTerm.toIntSrc : CoreLang.Ty → Bool
 CoreTerm.unfold1 : CoreLang.Ty → CoreLang.Ty
 CoreTerm.varOf : CoreTerm.At → CoreTerm.M String
@@ -323,7 +326,16 @@ CoreTyping.OpT : CoreTerm.Prog → CoreTerm.Cx → String → CoreTerm.Op → Co
   | CoreTyping.OpT.new : ∀ {p : CoreTerm.Prog} {cx c₁ c' : CoreTerm.Cx} {x : String} {a : CoreTerm.At} {t : CoreLang.Ty},
   cx.use a = Except.ok (t, c₁) →
     t.secondClass = false →
-      c₁.bind x (CoreLang.Ty.ptr CoreLang.Mode.own t) = Except.ok c' → CoreTyping.OpT p cx x (CoreTerm.Op.new a) c'
+      c₁.bind x (CoreLang.Ty.ptr CoreLang.Mode.own t) = Except.ok c' →
+        CoreTyping.OpT p cx x (CoreTerm.Op.new a (some t)) c'
+  | CoreTyping.OpT.isTy : ∀ {p : CoreTerm.Prog} {cx c' : CoreTerm.Cx} {x : String} {a : CoreTerm.At} {τ b : CoreLang.Ty} {κ : CoreLang.Kind},
+  cx.peek a = Except.ok (CoreLang.Ty.tex κ b) →
+    CoreTerm.slotOK b = true →
+      CoreLang.Ty.wf 0 0 τ = true →
+        CoreTerm.tgtOK τ = true →
+          CoreTerm.admitsIn cx κ τ = true →
+            cx.bind x (CoreLang.Ty.ptrOpt CoreLang.Mode.pub τ) = Except.ok c' →
+              CoreTyping.OpT p cx x (CoreTerm.Op.isTy a τ) c'
   | CoreTyping.OpT.publish : ∀ {p : CoreTerm.Prog} {cx c₁ c' : CoreTerm.Cx} {x : String} {a : CoreTerm.At} {u : CoreLang.Ty},
   cx.use a = Except.ok (CoreLang.Ty.ptr CoreLang.Mode.own u, c₁) →
     CoreLang.Ty.sharedOKIn c₁.ke (CoreLang.Ty.ptr CoreLang.Mode.pub u) = true →
@@ -790,7 +802,7 @@ CoreTyping.OpT : CoreTerm.Prog → CoreTerm.Cx → String → CoreTerm.Op → Co
         cx.bind x
               (d.argTy.code d.retTy
                 (match d.kind with
-                | CoreTerm.DeclKind.restricted f s => CoreLang.CodeKind.restricted f s
+                | CoreTerm.DeclKind.restricted f s ro loop => CoreLang.CodeKind.restricted f s ro
                 | x => CoreLang.CodeKind.plain)) =
             Except.ok c' →
           CoreTyping.OpT p cx x (CoreTerm.Op.fnptr f) c'

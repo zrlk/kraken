@@ -22,9 +22,9 @@ def wait(a : Ptr pub Int * Ptr pub Int) : Int =
 
 def main(me : ThreadId) : Int =
   let z = zero[Int]
-  let d0 = new z
+  let d0 = new[Int] z
   let d = publish d0
-  let f0 = new z
+  let f0 = new[Int] z
   let f = publish f0
   let cells = (d, f)
   let arg = (cells, me)

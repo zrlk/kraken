@@ -1829,7 +1829,7 @@ theorem evalOp_new_label {g : G} {env : Env} {σs : List Ty} {s : St} {op : Op} 
       obtain ⟨⟨s1, j, p⟩, h1, ⟨s2, q⟩, h2, rfl⟩ := h
       exact injM_new_label (projM_frame h1) hpl h2 hn
     · simp at h
-  case new a =>
+  case new a _ =>
     simp only [evalOp] at h
     repeat' split at h
     all_goals first

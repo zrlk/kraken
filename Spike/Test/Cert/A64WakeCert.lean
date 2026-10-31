@@ -18,7 +18,7 @@ for that future statement.
 What the file establishes:
 
 1. `source` and `asm` are the WeakCore source and the assembler text `scc`
-   wrote, verbatim (SHA-256 of their UTF-8 bytes: source `69f5c64b614cd6652c01cf7e15b19c273ee9928e9e0c27e7c8e73be040856fe3`, asm
+   wrote, verbatim (SHA-256 of their UTF-8 bytes: source `10437a369ff36933225c2bdb99999784500c56e74ec4be6a005b82beccb91ae5`, asm
    `0b5a959d45f05f84113dc7d3210b8bd5ee117d5607d773bd84c0686c58816c2a`).
 2. *Reproducibility, by evaluation (a `#guard`, not a proof):* `source`, run
    through `scc`'s frontend, lowering and emitter at elaboration time
@@ -68,7 +68,7 @@ namespace SccCertificate
 -- decisions below.
 set_option maxRecDepth 100000
 
--- SHA-256 (UTF-8): 69f5c64b614cd6652c01cf7e15b19c273ee9928e9e0c27e7c8e73be040856fe3
+-- SHA-256 (UTF-8): 10437a369ff36933225c2bdb99999784500c56e74ec4be6a005b82beccb91ae5
 /-- The WeakCore source `wake.w`, verbatim. -/
 def source : String := "\
   -- Wake: `hello.w` without the output.  `main` spawns `worker` on the flag\n\
@@ -95,7 +95,7 @@ def source : String := "\
   \n\
   def main(me : ThreadId) : Int =\n\
   \x20 let z = zero[Int]\n\
-  \x20 let o = new z\n\
+  \x20 let o = new[Int] z\n\
   \x20 let c = publish o\n\
   \x20 let p = (c, me)\n\
   \x20 let t = spawn{worker}(p)\n\
@@ -1936,7 +1936,7 @@ def prog_src : CoreTerm.Prog :=
         (CoreTerm.Op.zero (CoreLang.Ty.int))
         (CoreTerm.Expr.let_
           "o"
-          (CoreTerm.Op.new (CoreTerm.At.var "z"))
+          (CoreTerm.Op.new (CoreTerm.At.var "z") (some (CoreLang.Ty.int)))
           (CoreTerm.Expr.let_
             "c"
             (CoreTerm.Op.publish (CoreTerm.At.var "o"))

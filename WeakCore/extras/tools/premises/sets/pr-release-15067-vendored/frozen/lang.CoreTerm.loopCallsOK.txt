@@ -1,0 +1,8 @@
+CoreTerm.Decl : Type
+CoreTerm.Decl.allNames : CoreTerm.Decl → List String
+CoreTerm.Decl.body : CoreTerm.Decl → CoreTerm.Expr
+CoreTerm.Decl.name : CoreTerm.Decl → String
+CoreTerm.Prog : Type
+CoreTerm.loopCallBad : CoreTerm.Prog → String → List String → List (String × Nat) → List (String × Nat) → CoreTerm.Expr → Option (String × Nat)
+CoreTerm.loopCallsOK : CoreTerm.Prog → CoreTerm.Decl → Bool
+  := fun p d => (CoreTerm.loopCallBad p d.name d.allNames [] [] d.body).isNone

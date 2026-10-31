@@ -1,0 +1,34 @@
+CoreLang.Ty : Type
+CoreTerm.At : Type
+CoreTerm.Expr : Type
+CoreTerm.Op : Type
+CoreTerm.fuelOf : (String → Nat) → Nat → String → CoreTerm.Expr → Nat
+  eq_def ∀ (calleeFuel : String → Nat) (argFuel : Nat) (self : String) (x : CoreTerm.Expr),
+  CoreTerm.fuelOf calleeFuel argFuel self x =
+    match x with
+    | CoreTerm.Expr.let_ x op e =>
+      (1 +
+          match op with
+          | CoreTerm.Op.call f is a ts => calleeFuel f
+          | CoreTerm.Op.callc f a => argFuel
+          | x => 0) +
+        CoreTerm.fuelOf calleeFuel argFuel self e
+    | CoreTerm.Expr.split a x y e => 1 + CoreTerm.fuelOf calleeFuel argFuel self e
+    | CoreTerm.Expr.unpack a i x e => 1 + CoreTerm.fuelOf calleeFuel argFuel self e
+    | CoreTerm.Expr.unpackT a α x e => 1 + CoreTerm.fuelOf calleeFuel argFuel self e
+    | CoreTerm.Expr.openPub a r p c e => 1 + CoreTerm.fuelOf calleeFuel argFuel self e
+    | CoreTerm.Expr.region a r p t e => 1 + CoreTerm.fuelOf calleeFuel argFuel self e
+    | CoreTerm.Expr.case a x e₁ y e₂ =>
+      1 + max (CoreTerm.fuelOf calleeFuel argFuel self e₁) (CoreTerm.fuelOf calleeFuel argFuel self e₂)
+    | CoreTerm.Expr.ifnull a e₁ x e₂ =>
+      1 + max (CoreTerm.fuelOf calleeFuel argFuel self e₁) (CoreTerm.fuelOf calleeFuel argFuel self e₂)
+    | CoreTerm.Expr.parity a k e₁ e₂ =>
+      1 + max (CoreTerm.fuelOf calleeFuel argFuel self e₁) (CoreTerm.fuelOf calleeFuel argFuel self e₂)
+    | CoreTerm.Expr.ifeq a b e₁ e₂ =>
+      1 + max (CoreTerm.fuelOf calleeFuel argFuel self e₁) (CoreTerm.fuelOf calleeFuel argFuel self e₂)
+    | CoreTerm.Expr.cas acq rel w e v t ok fail =>
+      1 + max (CoreTerm.fuelOf calleeFuel argFuel self ok) (CoreTerm.fuelOf calleeFuel argFuel self fail)
+    | CoreTerm.Expr.casp acq rel w e0 e1 v0 v1 t ok fail =>
+      1 + max (CoreTerm.fuelOf calleeFuel argFuel self ok) (CoreTerm.fuelOf calleeFuel argFuel self fail)
+    | CoreTerm.Expr.ret a => 1
+    | CoreTerm.Expr.tail f is a ts => if (f == self) = true then 1 else 1 + calleeFuel f

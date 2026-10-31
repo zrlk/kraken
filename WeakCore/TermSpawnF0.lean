@@ -61,7 +61,7 @@ theorem SubS_facts {a b : Ty} (h : SubS c a b) : SubS c' a b := by
   | sum _ _ h1 h2 => exact .sum h1 h2
   | cap h1 h2 => exact .cap h1 (IEq_facts hf h2)
   | codeR h1 h2 => exact .codeR (TyEqS_facts hf h1) (TyEqS_facts hf h2)
-  | codeRR h1 h2 h3 h4 => exact .codeRR h1 h2 (TyEqS_facts hf h3) (TyEqS_facts hf h4)
+  | codeRR h1 h2 h0 h3 h4 => exact .codeRR h1 h2 h0 (TyEqS_facts hf h3) (TyEqS_facts hf h4)
 end facts
 
 theorem noIallV_TyEqS {c : Cx} {d : Nat} {a b : Ty} (h : TyEqS c d a b) : noIallV a = noIallV b := by
@@ -77,7 +77,7 @@ theorem noIallV_of_SubS {c : Cx} {a b : Ty} (h : SubS c a b) (hb : noIallV b = t
   | prod _ _ ih1 ih2 => simp only [noIallV, Bool.and_eq_true] at hb ⊢; exact ⟨ih1 hb.1, ih2 hb.2⟩
   | sum _ _ ih1 ih2 => simp only [noIallV, Bool.and_eq_true] at hb ⊢; exact ⟨ih1 hb.1, ih2 hb.2⟩
   | cap => rfl
-  | codeR h1 h2 | codeRR _ _ h1 h2 =>
+  | codeR h1 h2 | codeRR _ _ _ h1 h2 =>
       first | rfl | (simp only [noIallV, Bool.and_eq_true] at hb ⊢; rw [noIallV_TyEqS h1, noIallV_TyEqS h2]; exact hb)
 
 theorem instantiate_nil {cx : Cx} {d : Decl} {ts : List Ty} {at_ rt : Ty}
@@ -405,6 +405,16 @@ theorem finvR_empty {ρ : Nat → Nat} {η : TEnv} {p : Prog} {T : Ty} {Rf : Res
     fun _ _ _ _ _ _ => rfl, ⟨List.nodup_nil, List.nodup_nil, by simp, fun _ => .zero, by simp,
       by simp [Res.zero_le]⟩⟩
 
+/-- The phantom frame's body meets `DyFr` at `σs = []` (witness `S = []`, `H = []`). -/
+theorem dyFr_f0 (p : Prog) (η : TEnv) (R0 : Ty) :
+    DyFr p annNew (progTgts p) η (TermSpawn.f0 R0).σs (TermSpawn.f0 R0).body := by
+  refine ⟨[], [], ?_, ⟨?_, ?_⟩, ?_, ?_⟩
+  · intro g b h; simp at h
+  · simp only [TermSpawn.f0, scan]; split <;> simp [hits, both, opCalls]
+  · intro c hc; simp only [TermSpawn.f0, scan] at hc; split at hc <;> simp [hits, both, opCalls] at hc
+  · intro σ h; simp [TermSpawn.f0] at h
+  · intro j σ h; simp [TermSpawn.f0] at h
+
 /-- **The phantom frame resumes**: returning a value at `R0` into `[f0 R0]` holding `Rs`. -/
 theorem retOKR_f0 {p : Prog} {R0 : Ty} {ρ : Nat → Nat} {η : TEnv} {σs : List Ty} {Rs : Res}
     (hR0 : R0.wf 0 0 = true) (ha : R0.arrFree = true) (hn : noIallV R0 = true)
@@ -420,7 +430,7 @@ theorem retOKR_f0 {p : Prog} {R0 : Ty} {ρ : Nat → Nat} {η : TEnv} {σs : Lis
   have hr2 : CohR η' := hx.2.2.2.2.2.2.2.2.2.2.1
   have hW' : WitAF η' := by intro k; rw [hx.2.1]; exact hW k
   refine ⟨Rs, .zero, (Res.add_zero _).symm, ρ, η', cx0 R0, rfl, rfl,
-    ⟨hx.2.2.1.trans hE.1, hx.1, hr2⟩, ⟨typed_f0 hR0 ha, ckW_f0 hR0 ha hw⟩, tvOK_cx0 hR0 hn, ?_, fun _ _ h => by cases h⟩
+    ⟨hx.2.2.1.trans hE.1, hx.1, hr2⟩, ⟨typed_f0 hR0 ha, ckW_f0 hR0 ha hw⟩, tvOK_cx0 hR0 hn, ?_, (fun _ _ h => by cases h), dyFr_f0 p η' R0⟩
   have hb := bind_ok (cx := ({ ret := .tex Kind.top (R0.shiftT 0) } : Cx)) (x := "r") (t := R0)
     rfl rfl rfl ha
   exact bindR hb (finvR_empty (p := p) (Rf := Rs) hW') (RLink_of hx.1 hr2) hv hl'
@@ -432,7 +442,7 @@ theorem thInvRE_app {p : Prog} {E : TEnv} {th0 : TTh} {Tot : Res} {f : String} {
     (ha : (substTs ts.reverse 0 0 (instT [] 0 d.retTy)).arrFree = true)
     (hw : TermScope.argOK (substTs ts.reverse 0 0 (instT [] 0 d.retTy)) = true) :
     ThInvRE p E (app (TermSpawn.f0 (substTs ts.reverse 0 0 (instT [] 0 d.retTy))) th0) Tot := by
-  obtain ⟨ρ, η, cx, Rf, Rs, hCE, hEO, hTy, hTv, hF, hsum, -⟩ := h
+  obtain ⟨ρ, η, cx, Rf, Rs, hCE, hEO, hTy, hTv, hF, hsum, -, hDy0⟩ := h
   rw [hset] at hTy
   have hTy' := typed_tail_retype hTy.1 hd
   have hn : noIallV (substTs ts.reverse 0 0 (instT [] 0 d.retTy)) = true := by
@@ -444,7 +454,7 @@ theorem thInvRE_app {p : Prog} {E : TEnv} {th0 : TTh} {Tot : Res} {f : String} {
       rw [← hrt]
       exact noIallV_of_SubS hsubr (by rw [hret]; exact hTv.2.2.2.2.2.2.2)
   refine ⟨ρ, η, { cx with ret := substTs ts.reverse 0 0 (instT [] 0 d.retTy) }, Rf, Rs, hCE, hEO,
-    ?_, ?_, ?_, hsum, ?_⟩
+    ?_, ?_, ?_, hsum, ?_, hDy0⟩
   · show TypedK p η _ th0.term; rw [hset]; exact ⟨hTy', checkW_tail_retype hTy.2.1 hd, hTy.2.2.1, hTy.2.2.2⟩
   · exact ⟨hTv.1, hTv.2.1, tb_mono _ (tb_of_wf _ hR0) (Nat.zero_le _), hTv.2.2.2.1, hTv.2.2.2.2.1,
       hTv.2.2.2.2.2.1, mg_of_wf _ hR0, hn⟩

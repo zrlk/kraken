@@ -21,7 +21,7 @@ open WeakMem (Msg Memory Address VState Ts Arch AllocLabel)
 theorem ObligationsFX.toF {p : Prog} {k : Promises.Knobs} {arch : Arch} {Sp : Cfg → Cfg → Prop} {Init : Res}
     {MintOK : Res → Prop} {c0 : Cfg} (O : ObligationsFX p k arch Sp Init MintOK c0) :
     ObligationsF p k arch Init MintOK c0 :=
-  ⟨O.checked, O.progScope, O.runDRF0, fun X => O.certWinC (TCtx.toX X), fun X => O.certWin (PCtx.toX X)⟩
+  ⟨O.checked, O.progScope, O.runDRF0⟩
 
 /-! ## The spawn-era start state -/
 

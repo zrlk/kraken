@@ -204,7 +204,7 @@ def RunAgreeT3 (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → Cfg �
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res},
     TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
-    TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
+    TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
     PfrG { gOf p k arch c i with pf := fun l => TermOwnG0Defs.PubAt th l } (CE η) E' →
     ∀ c1 th1 E1, Solo p k arch i c' c1 → Certified p k arch c1 i → c1.ths[i]? = some th1 → Ext E' E1 →
       MemInv (gOf p k arch c1 i) E1 (stOf c1.mem c1.pairs th1) → FrBound E' c'.mem.size r.2.2.vs.vWr E1 →
@@ -241,7 +241,7 @@ def RunAgreeT3K (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → Cfg 
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res},
     TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
-    TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
+    TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
     PfrG { gOf p k arch c i with pf := fun l => TermOwnG0Defs.PubAt th l } (CE η) E' →
     ∀ c1 th1 E1, Solo p k arch i c' c1 → Certified p k arch c1 i → c1.ths[i]? = some th1 → Ext E' E1 →
       MemInv (gOf p k arch c1 i) E1 (stOf c1.mem c1.pairs th1) → FrBound E' c'.mem.size r.2.2.vs.vWr E1 →
@@ -343,7 +343,8 @@ theorem rootH0P {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {Mint
         (by rw [hpi.2.2]; exact TermTyped.riniCoh_promSt (X.inv.riniCoh j th S0 X.hth))
         (fun l cl f hs hp => Nat.le_trans (X.inv.frlt l cl f (cutSto_sub hs) hp)
           (by show c.mem.size - 1 ≤ (promise c j a v w).mem.size - 1; rw [hpi.1, Array.size_push]; exact Nat.sub_le_sub_right (Nat.le_succ _) 1)), .inl rfl⟩,
-      fun _ _ _ _ _ o h1 h2 => absurd (Nat.lt_of_lt_of_le h1 (Nat.mul_le_mul_right _ (X.inv.rle r))) h2⟩, hpf⟩
+      fun _ _ _ _ _ o h1 h2 => absurd (Nat.lt_of_lt_of_le h1 (Nat.mul_le_mul_right _ (X.inv.rle r))) h2,
+      by rw [gOf_promise]; exact (X.inv.tyRec X.hth S0).1, by rw [gOf_promise]; exact (X.inv.tyRec X.hth S0).2⟩, hpf⟩
   · have hx := Ext_refl (Coh_CE η) (CohR_CE η); rw [hη] at hx; exact hx
   · rw [gOf_promise]; exact X.inv.bf
 

@@ -10,9 +10,9 @@ that the run itself publishes: after the `publish` naming `l`, no `bufInit` of t
 `OwnXLe 1` holds at the promise start (`ownXLe_start` at `c`, then the promise step `ownXStepP_all`),
 and the publish chain `TermOwnK5.ownXLe_pub_noOwnUse` gives no own use of `l` after the publish.
 
-The window premise is `TermOwnK5.winQP` from the raw certificate fields `CertScopeP`/`CertWinP`
-(the direction allowed by TermOwnK5's circularity note: nothing here discharges `certWin*`,
-`CertFreshC` or `NoHoldPub`).
+The window premise is `TermOwnK5.winQP` from the certificate-window hypotheses `CertScopeP`/`CertWinP`
+(nothing here proves `CertWinC`/`CertWinP`, `CertFreshC` or `NoHoldPub`; see TermOwnK5's
+circularity note).
 -/
 
 namespace TermK5R

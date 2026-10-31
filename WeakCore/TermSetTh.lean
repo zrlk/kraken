@@ -18,9 +18,10 @@ variable {c : Cfg} {i : Nat} {th th' : TTh} {tr : List Event}
 @[simp] theorem setC_size : (setC c i th' tr).ths.size = c.ths.size := by simp [setC]
 @[simp] theorem setC_n : (setC c i th' tr).n = c.n := by simp [Cfg.n, setC]
 
-theorem gOf_setC (p : Prog) (k : Promises.Knobs) (arch : Arch) (j : Nat) :
+theorem gOf_setC (p : Prog) (k : Promises.Knobs) (arch : Arch) (j : Nat) (hth : c.ths[i]? = some th)
+    (ht : th'.tys = th.tys) :
     gOf p k arch (setC c i th' tr) j = gOf p k arch c j := by
-  unfold gOf; rw [setC_n]; rfl
+  unfold gOf; rw [setC_n, tysOf_set hth rfl ht]; rfl
 
 theorem setC_get (hth : c.ths[i]? = some th) {j : Nat} {t : TTh} (h : (setC c i th' tr).ths[j]? = some t) :
     (j = i ∧ t = th') ∨ (j ≠ i ∧ c.ths[j]? = some t) := by
@@ -44,6 +45,7 @@ structure Same (th th' : TTh) : Prop where
   v : th'.vs = { th.vs with vRd := th'.vs.vRd, vPreBase := th'.vs.vPreBase }
   n : th'.nalloc = th.nalloc
   u : th'.undefs = th.undefs
+  t : th'.tys = th.tys
 
 /-- The state after the replacement: `th`'s, but for `vRd`/`vPreBase`. -/
 def stV (m : Memory) (ps : List Ts) (th th' : TTh) : St :=
@@ -114,13 +116,14 @@ theorem sysInvN_setC {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} 
       TermPtrRts.ThRts t a th → TermPtrRts.ThRts t a th')
     (hB : TidBox Eg th') :
     SysInvN p k arch Init MintOK (setC c i th' tr) Eg Tot HP HS cr db := by
-  have hg : ∀ j, gOf p k arch (setC c i th' tr) j = gOf p k arch c j := gOf_setC p k arch
+  have hg : ∀ j, gOf p k arch (setC c i th' tr) j = gOf p k arch c j := fun j => gOf_setC p k arch j hth hS0.t
   constructor
   case tidBox =>
     intro j t hj
     rcases setC_get hth hj with ⟨rfl, rfl⟩ | ⟨-, hj'⟩
     · exact hB
     · exact h.tidBox j t hj'
+  case scalIni => exact h.scalIni
   case thr =>
     intro j t hj
     rw [hg]
@@ -195,6 +198,9 @@ theorem sysInvN_setC {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} 
   case promClos =>
     intro j th t m hj ht; obtain ⟨th0, h0, hp, -⟩ := sc_get hth hS0 hj; rw [hp] at ht; exact h.promClos j th0 t m h0 ht
   case stoNI => exact h.stoNI
+  case tysOK =>
+    rw [show TermRun.tysOf (setC c i th' tr) = TermRun.tysOf c from congrArg (·.tys) (hg i)]
+    exact h.tysOK
   case stoW => exact h.stoW
   case freshU =>
     simpa only [FreshU, FreshX, OwnZ, setC_mem, setC_lbase, setC_size, setC_n, pSumAt_setC hth hS0] using h.freshU

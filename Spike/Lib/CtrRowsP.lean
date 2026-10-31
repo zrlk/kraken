@@ -173,7 +173,7 @@ theorem out_memNP {K : Kernel.Abi I} {rd : TermRun.Word → Prop}
           ((∀ v tr, tm.read? (wordLoc mc) tr = some v →
             (v.setWidth 64).toNat ≤ mcl ∧ mlo (v.setWidth 64).toNat) → G L V)) ∨
         (∃ (x : String) (a : At) (e : Expr) (ty : Ty) (w wold : TermRun.Word) (old : Nat),
-          N ∧ c.term = .let_ x (.new a) e ∧ TermRun.evalAt c.env a = some (ty, [w]) ∧
+          N ∧ (∃ T, c.term = .let_ x (.new a T) e) ∧ TermRun.evalAt c.env a = some (ty, [w]) ∧
           TermRun.accs ty = some [.one] ∧ ValRep lbl w.val V.toNat ∧ c.hold = some (mc, wold) ∧
           TermRun.numOf [wold] = some old ∧ L.addr.toNat = mh + 16 * old + mo 1 ty ∧ old + mu 1 ty ≤ mcl ∧
           mmp L true)) := by

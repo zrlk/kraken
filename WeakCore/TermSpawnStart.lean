@@ -129,7 +129,7 @@ theorem sysInvW_R {c : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db
 /-- **The clean start** (J-a): `InitOK` gives `SysInvO`. -/
 theorem sysInvO_of_initOK {c : Cfg} (h0 : InitOK p k arch Init MintOK c) : SysInvO p k arch Init MintOK c := by
   obtain ⟨⟨Eg, T0, H0, S0, cr0, db0, hw0, hr0, hof0, hu0, hoc0, hbx0, hpf0, hko0, hop0, hni0, hsw0, hlb0, hly0, hmem0, -, hvl0, htd0⟩,
-    hn0, hcc0⟩ := h0
+    hn0, hcc0, hty0⟩ := h0
   have hw := sysInvW_R hw0 hpf0 hbx0
   have hpf : ∀ l, (EgR c.ths.size Eg).pfr l = none := hpf0
   have hbx : ∀ l, (EgR c.ths.size Eg).box l = none := hbx0
@@ -145,7 +145,7 @@ theorem sysInvO_of_initOK {c : Cfg} (h0 : InitOK p k arch Init MintOK c) : SysIn
       (TermUndefLow.undefLow_nil hmem0) (TermZwIni.zwIni_none hpf) (TermPredHold.predHold_none hpf) hvl0
       (fun t m cl hm _ => by rw [hmem0] at hm; simp at hm) hmem0 hpf (fun i th h => hlb0 i th h)
       (fun l cl hc => hly0 l cl (sto_R_sub hc)) hcc0 (fun l cl hc => hsw0 l cl (sto_R_sub hc))
-      (fun i th h l hl => by rw [htd0 i th h] at hl; cases hl),
+      (fun i th h l hl => by rw [htd0 i th h] at hl; cases hl) hty0,
     ⟨fun l cl i hc ho => ?_, fun l B hB => by rw [hbx l] at hB; cases hB⟩, fun j _ => ⟨?_, ?_, ?_⟩⟩
   · have := (sto_R.1 hc).2
     rw [ho] at this; simpa [liveB] using this

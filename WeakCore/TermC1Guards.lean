@@ -60,14 +60,14 @@ private def w (x : String) : At := .var x
 /-- int payload, region live, body `b` after `p := new x; region p r d t0`. -/
 def gd (n : String) (ity : Ty) (idx : List String) (b : List (String × Op)) (tail : Expr := .ret .unit) : Decl where
   name := n; idx := idx; arg := "x"; argTy := ity; retTy := .unit
-  body := lets [("p", .new (w "x"))] (.region (w "p") "r" "d" "t0" (lets b tail))
+  body := lets [("p", .new (w "x") (some ity))] (.region (w "p") "r" "d" "t0" (lets b tail))
 
 def tokT : Ty := .tok (.var 0) none
 
 def n3 : Decl where
   name := "n3"; idx := ["q"]; arg := "x"; argTy := .prod .int tokT; retTy := .unit
-  body := .split (w "x") "x1" "x2" (lets [("p", .new (w "x1"))] (.region (w "p") "r" "d" "t0"
-    (lets [("q", .new (w "x2")), ("z", .intoRgn "r" (w "q"))] (.ret .unit))))
+  body := .split (w "x") "x1" "x2" (lets [("p", .new (w "x1") (some .int))] (.region (w "p") "r" "d" "t0"
+    (lets [("q", .new (w "x2") (some (.tok (.var 1) none))), ("z", .intoRgn "r" (w "q"))] (.ret .unit))))
 
 /-- wide iex: ∃i. Int(i)×Int(i)×Int(i) — 3 words, countI 0 = 3, not granule. -/
 def wideT : Ty := .iex (.prod (.intS (.var 0)) (.prod (.intS (.var 0)) (.intS (.var 0))))
@@ -75,8 +75,8 @@ def narrowT : Ty := .iex (.prod (.intS (.var 0)) (.intS (.var 0)))
 
 def n12 (ty : Ty) (nm : String) : Decl where
   name := nm; idx := []; arg := "x"; argTy := .prod .int ty; retTy := .unit
-  body := .split (w "x") "x1" "x2" (lets [("p", .new (w "x1"))] (.region (w "p") "r" "d" "t0"
-    (lets [("q", .new (w "x2")), ("z", .intoRgn "r" (w "q"))] (.ret .unit))))
+  body := .split (w "x") "x1" "x2" (lets [("p", .new (w "x1") (some .int))] (.region (w "p") "r" "d" "t0"
+    (lets [("q", .new (w "x2") (some ty)), ("z", .intoRgn "r" (w "q"))] (.ret .unit))))
 
 /-- Context decl over region index r: arg = (d : Ptr (rgn r) Int) × (wit × Cap c r). -/
 def cxd (nm : String) (wit : Ty) (c : Cap) (b : List (String × Op)) (tail : Expr := .ret .unit) : Decl where

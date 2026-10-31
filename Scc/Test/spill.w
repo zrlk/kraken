@@ -87,13 +87,13 @@ def mix(a : ((Loc pub Int * U64) * (Loc pub Int * U64)) * (Loc pub Int * Int)) :
 
 def main(u : Unit) : Int =
   let z = zero[Int]
-  let c0 = new z
+  let c0 = new[Int] z
   let s0 = store c0 7
   let p = publish c0
   let v7 = load p
   let v9 = v7 + 2
   let q = (v7, v9)
-  let c1 = new q
+  let c1 = new[Int * Int] q
   let c = publish c1
   let la = fld 0 c
   let lb = fld 1 c

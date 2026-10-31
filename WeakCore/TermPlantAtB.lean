@@ -42,7 +42,7 @@ theorem plantIdxT_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p]
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {crS cr' db' δ : Ts → Res},
     TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
-    TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) crS (db i) δ →
+    TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) crS (db i) δ →
     ThSysAt p (gOf p k arch c i) c.mem c.pairs th Eg (Tot i) (HP i) HS (cr i) (db i) S →
     (∀ t l, crS t (.own l) = cr i t (.own l)) →
     MemInv (gOf p k arch c i) (CE η) (stOf c.mem c.pairs th) →
@@ -60,7 +60,7 @@ theorem plantIdxT_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p]
 theorem promise_gB (c : Cfg) (i : Nat) (a : Address) (v : WeakMem.Val) (w : Ts) (j : Nat) :
     gOf p k arch (promise c i a v w) j = gOf p k arch c j := by
   unfold gOf
-  rw [TermStep.promise_n]
+  rw [TermStep.promise_n, tysOf_promise]
   unfold promise
   split <;> rfl
 

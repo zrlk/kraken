@@ -165,9 +165,9 @@ theorem hctl_c0W {L : RuntimeLayout} {ms : MemSide isaLSE2} {Λ : Scc.Sem.Layout
         (∀ s, PlacedSE Λ L0 s c0 []) ∧ HeapAbortOblA ar.cells ar.ctr c0 := by
   rintro σ c0 ⟨-, -, q, hfull, σe, -, ⟨σ', hJ, -⟩, -⟩
   have hq : q.1.c0 = c0W := MainWf.ctl_mainE0 (P := (· = c0W)) rfl σ' _ hJ
-  have ht := q.2.term; rw [hq, Spike.Lib.WakeC0.c0W_term] at ht
+  obtain ⟨_, ht⟩ := q.2.term; rw [hq, Spike.Lib.WakeC0.c0W_term] at ht
   obtain ⟨-, ha, -⟩ := Expr.let_.inj ht
-  have hev := q.2.ev; rw [hq, ← Op.new.inj ha] at hev
+  have hev := q.2.ev; rw [hq, ← (Op.new.inj ha).1] at hev
   have hz : TermRun.evalAt c0W.env (.var "z") = some (.int, [TermRun.cst (.num 0)]) := rfl
   have hτ : q.1.τ = .int := by rw [hz] at hev; exact (Prod.mk.inj (Option.some.inj hev)).1.symm
   rcases hfull with ⟨-, hn⟩ | ⟨o, rfl, -, hlt⟩
@@ -175,10 +175,10 @@ theorem hctl_c0W {L : RuntimeLayout} {ms : MemSide isaLSE2} {Λ : Scc.Sem.Layout
   rw [q.2.one, hτ, hu] at hlt; rw [hq]
   refine ⟨⟨fun _ => Spike.Lib.WakeC0.c0W_ctl.1, WcWf.RunWf.hold Spike.Lib.WakeC0.c0W_ctl.2⟩,
     fun s => WcWf.PlacedSE.hold.2 (hpl0 s), fun old h => ?_⟩
-  obtain ⟨hle, hw⟩ := h (.inr ⟨"o", .var "z", Spike.Lib.A64.Flow.WakeWc.boxTerm, rfl⟩)
+  obtain ⟨hle, hw⟩ := h (.inr ⟨"o", .var "z", Spike.Lib.A64.Flow.WakeWc.boxTerm, _, rfl⟩)
   have he := hw _ (by rw [← hctr]; rfl)
   have ho : o.toNat = old := by simpa [TermRun.cst, Promises.TVal.mk0] using he
-  exact .inr ⟨"o", .var "z", _, .int, TermRun.cst (.num 0), rfl, rfl, rfl, hle, by rw [← hcells]; omega⟩
+  exact .inr ⟨"o", .var "z", _, .int, TermRun.cst (.num 0), ⟨_, rfl⟩, rfl, rfl, hle, by rw [← hcells]; omega⟩
 
 end Gen
 

@@ -173,8 +173,8 @@ theorem Good1.not_newBuf {q : Ctl × List TermRun.Frame} (h : Good1 p q) :
 
 /-- A `Good1` control is at no box allocation. -/
 theorem Good1.not_new {q : Ctl × List TermRun.Frame} (h : Good1 p q) :
-    ∀ x a e, q.1.term ≠ .let_ x (.new a) e := by
-  intro x a e ht
+    ∀ x a T e, q.1.term ≠ .let_ x (.new a T) e := by
+  intro x a _ e ht
   rcases h.1 with ⟨sc, hb⟩ | ⟨i, a', ts, ht'⟩
   · rw [ht] at hb; simp [body1] at hb
   · rw [ht] at ht'; cases ht'

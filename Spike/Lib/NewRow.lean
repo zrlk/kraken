@@ -48,8 +48,8 @@ locative to the cell at `Ptr own t`; the paired timestamps, type arguments,
 frames and thread-id box are unchanged, the promises stay empty, and the
 allocation count goes up by one. -/
 theorem src_new_step (g : G) (mem : WeakMem.Memory) (pairs : List WeakMem.Ts) (th : TTh)
-    {x : String} {a : At} {e : Expr} {t : Ty} {w : Word}
-    (ht : th.term = .let_ x (.new a) e) (hea : evalAt th.env a = some (t, [w]))
+    {x : String} {a : At} {T : Option Ty} {e : Expr} {t : Ty} {w : Word}
+    (ht : th.term = .let_ x (.new a T) e) (hea : evalAt th.env a = some (t, [w]))
     (hu : accs t = some [.one]) (hp : th.promises = []) :
     ∃ mv th', ((mem.push ⟨⟨freshLabel g.lbase g.n g.i th.nalloc, 0⟩, .undef, 0⟩).push
         ⟨⟨freshLabel g.lbase g.n g.i th.nalloc, 0⟩, w.val, mv⟩, pairs, th') ∈ tstep g mem pairs th ∧
@@ -61,12 +61,12 @@ theorem src_new_step (g : G) (mem : WeakMem.Memory) (pairs : List WeakMem.Ts) (t
   refine (storeUnits_one g.k g.arch _ w _ false _ ?hp).elim fun mv h => h.elim fun vs hs =>
     ⟨mv, _, ⟨_, ⟨_, ⟨_, hs, rfl⟩, rfl⟩, rfl⟩, ?_⟩
   case hp => exact hp
-  exact ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
+  split <;> exact ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
 
 /-- `src_new_step` as a thread step of thread `i`. -/
 theorem src_new_step_cfg {p : Prog} {kn : Promises.Knobs} {arch : WeakMem.Arch} {c : Cfg} {i : Nat} {th : TTh}
-    (hi : c.ths[i]? = some th) {x : String} {a : At} {e : Expr} {t : Ty} {w : Word}
-    (ht : th.term = .let_ x (.new a) e) (hea : evalAt th.env a = some (t, [w]))
+    (hi : c.ths[i]? = some th) {x : String} {a : At} {T : Option Ty} {e : Expr} {t : Ty} {w : Word}
+    (ht : th.term = .let_ x (.new a T) e) (hea : evalAt th.env a = some (t, [w]))
     (hu : accs t = some [.one]) (hp : th.promises = []) :
     ∃ mv th', { c with mem := ((c.mem.push ⟨⟨freshLabel c.lbase c.n i th.nalloc, 0⟩, .undef, 0⟩).push
         ⟨⟨freshLabel c.lbase c.n i th.nalloc, 0⟩, w.val, mv⟩), ths := c.ths.set! i th' } ∈
@@ -176,8 +176,8 @@ both sides with `l` placed at `A` with one word; and the contract holds of
 the thread after at `old + u`, `l` placed, no exception. -/
 theorem row_newStore (h : Inv1 Λ lbl lsize ts t tm c.mem) {heap cells old : Nat} {ex : Nat → Prop}
     (ha : ArenaOK Λ lbl lsize t tm heap cells old ex) (hi : c.ths[i]? = some th)
-    {x : String} {a : At} {e : Expr} {ty : Ty} {w : Word}
-    (ht : th.term = .let_ x (.new a) e) (hea : evalAt th.env a = some (ty, [w]))
+    {x : String} {a : At} {T : Option Ty} {e : Expr} {ty : Ty} {w : Word}
+    (ht : th.term = .let_ x (.new a T) e) (hea : evalAt th.env a = some (ty, [w]))
     (hu : accs ty = some [.one]) (hp : th.promises = [])
     (hfresh : lbl (freshLabel c.lbase c.n i th.nalloc) = none)
     {off u : Nat} (hoff : off % 8 = 0) (hfit : off + 8 * 1 ≤ 16 * u) (hle : old + u ≤ cells)

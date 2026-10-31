@@ -150,10 +150,10 @@ def mkRWD : Decl where
   name := "mkRW"; idx := []; arg := "x"
   argTy := .int
   retTy := guardedBy rwP .int
-  body := lets [("p", .new (v "x"))]
+  body := lets [("p", .new (v "x") (some .int))]
     (.region (v "p") "r" "d" "t0"
       (lets [("wv", .mkWord "r" rwP (.lit 0) (v "t0")),
-             ("pr", .pair (v "wv") (v "d")), ("s", .new (v "pr")),
+             ("pr", .pair (v "wv") (v "d")), ("s", .new (v "pr") (some (.prod (.word (.var 0) rwP) (.ptr (.rgn (.var 0)) .int)))),
              ("s2", .publish (v "s")), ("mx", .pack (v "s2") "r" (guardedBy rwP .int))]
         (.ret (v "mx"))))
 
@@ -301,10 +301,10 @@ def mkBSemD (n : Nat) : Decl where
   name := "mkBSem"; idx := []; arg := "x"
   argTy := .int
   retTy := guardedBy bsemP .int
-  body := lets [("p", .new (v "x"))]
+  body := lets [("p", .new (v "x") (some .int))]
     (.region (v "p") "r" "d" "t0"
       (lets [("wv", .mkWord "r" bsemP (.lit n) (v "t0")),
-             ("pr", .pair (v "wv") (v "d")), ("s", .new (v "pr")),
+             ("pr", .pair (v "wv") (v "d")), ("s", .new (v "pr") (some (.prod (.word (.var 0) bsemP) (.ptr (.rgn (.var 0)) .int)))),
              ("s2", .publish (v "s")), ("mx", .pack (v "s2") "r" (guardedBy bsemP .int))]
         (.ret (v "mx"))))
 

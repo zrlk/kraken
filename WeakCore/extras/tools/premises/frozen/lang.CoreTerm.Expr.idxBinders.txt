@@ -1,0 +1,28 @@
+CoreLang.Ty : Type
+CoreTerm.At : Type
+CoreTerm.Expr : Type
+CoreTerm.Expr.idxBinders : CoreTerm.Expr → List String
+  eq_def ∀ (x : CoreTerm.Expr),
+  x.idxBinders =
+    match x with
+    | CoreTerm.Expr.let_ x op e =>
+      (match op with
+        | CoreTerm.Op.ldp acq a n0 n1 => [n0, n1]
+        | CoreTerm.Op.rem a n => [x ++ "_d"]
+        | CoreTerm.Op.band a m => [x ++ "_d"]
+        | x => []) ++
+        e.idxBinders
+    | CoreTerm.Expr.split a x y e => e.idxBinders
+    | CoreTerm.Expr.unpack a i x e => e.idxBinders
+    | CoreTerm.Expr.unpackT a α x e => e.idxBinders
+    | CoreTerm.Expr.region a r p t e => e.idxBinders
+    | CoreTerm.Expr.openPub a r p c e => e.idxBinders
+    | CoreTerm.Expr.case a x e₁ y e₂ => e₁.idxBinders ++ e₂.idxBinders
+    | CoreTerm.Expr.ifnull a e₁ x e₂ => e₁.idxBinders ++ e₂.idxBinders
+    | CoreTerm.Expr.parity a k e₁ e₂ => e₁.idxBinders ++ e₂.idxBinders
+    | CoreTerm.Expr.ifeq a b e₁ e₂ => e₁.idxBinders ++ e₂.idxBinders
+    | CoreTerm.Expr.cas acq rel w e v t ok fail => ok.idxBinders ++ fail.idxBinders
+    | CoreTerm.Expr.casp acq rel w e0 e1 v0 v1 t ok fail => ok.idxBinders ++ fail.idxBinders
+    | CoreTerm.Expr.ret a => []
+    | CoreTerm.Expr.tail f is a ts => []
+CoreTerm.Op : Type

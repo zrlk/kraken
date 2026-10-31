@@ -19,11 +19,14 @@ K2–K4 are discharged by their deliverables (`TermOwnK2.ownXStep_k2`, `TermOwnK
 * `ownXLe0_run_noOwnUse` / `ownXLe0_prom_noOwnUse`: the `n = 0` runs (start-published cell, from
   a reachable configuration or from its promise step).
 * Window premise `hQ` (`ScopeAt ∧ NoHoldPub3` along the run) from the `CertScopeC/CertWinC` (thread
-  step) or `CertScopeP/CertWinP` (promise step) fields: `winQC`, `winQP`.
+  step) or `CertScopeP/CertWinP` (promise step) hypotheses: `winQC`, `winQP`.
 
-**Circularity (G-c = (B)).** `hQ` is read off the `certWinC`/`certWin` fields, so no lemma of this
-module may be used to discharge those fields (or `CertFreshC`, which feeds them via
-`certWinC_of_fresh`).
+**Circularity (G-c = (B)), formerly.** `hQ` was read off the `certWinC`/`certWin` fields of
+`ObligationsF`, so no lemma of this module could be used to discharge those fields (or `CertFreshC`,
+which fed them via `certWinC_of_fresh`). Since the `certWinC`/`certWin` fields were removed,
+`ObligationsFX.toObligationsCX` discharges the certificate-window facts itself (via
+`CertWinProof.certWinC_of`/`certWinP_of`, which take no certificate-window hypothesis), so this
+circularity no longer arises.
 
 `publish_own_cell` (the copy of W/TermNoHoldA L20 `publish_own`) now lives in `TermOwnX2`.
 -/
@@ -34,9 +37,9 @@ open CoreLang CoreTerm CoreTyping TermRun TermClose TermTv TermCert TermSound Te
   TermCut TermSys TermTyped TermMain TermOwnX2 TermOwnK1 TermCertScope
 open WeakMem (Msg Memory Address VState Ts Arch AllocLabel)
 
-/-! ## The window premise from the certificate fields -/
+/-! ## The window premise from the certificate-window hypotheses -/
 
-/-- **The window along a thread step's certificate runs** (from the source `c`), from the fields. -/
+/-- **The window along a thread step's certificate runs** (from the source `c`), from the certificate-window hypotheses. -/
 theorem winQC {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {MintOK : Res → Prop} {c0 : Cfg}
     (hsc : CertScopeC p k arch Sp Init MintOK c0) (hw : CertWinC p k arch Sp Init MintOK c0)
     {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {i : Nat}

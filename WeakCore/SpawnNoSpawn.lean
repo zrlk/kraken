@@ -91,6 +91,13 @@ theorem tstep_noS {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {r : Memor
     · show NoS bad fr.body
       rw [callFrame_body hfr]; exact hterm.2
     · exact hstk fr' hf'
+  · -- new arm: record write (term and stack as in `let`)
+    first
+      | (simp only [List.mem_map] at h; obtain ⟨⟨_, _, _⟩, -, rfl⟩ := h)
+      | skip
+    dsimp only
+    split <;> simp only [ThNoS, withS] at hstk ⊢ <;>
+      first | exact ⟨hterm, hstk⟩ | exact ⟨hterm.2, hstk⟩ | exact ⟨hterm.1, hstk⟩
   · -- case
     obtain ⟨s1, j, q, -, s2, q2, -, rfl⟩ := h
     simp only [ThNoS, withS]

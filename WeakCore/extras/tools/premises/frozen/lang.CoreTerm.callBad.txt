@@ -1,0 +1,28 @@
+CoreTerm.Decl : Type
+CoreTerm.Decl.body : CoreTerm.Decl → CoreTerm.Expr
+CoreTerm.Decl.kind : CoreTerm.Decl → CoreTerm.DeclKind
+CoreTerm.Decl.name : CoreTerm.Decl → String
+CoreTerm.DeclKind : Type
+CoreTerm.Pos : Type
+CoreTerm.Prog : Type
+CoreTerm.Tail : Type
+CoreTerm.callBad : CoreTerm.Prog → List String → List (String × Nat) → String → List String → Option (String × Nat)
+  := fun p bs nam f is =>
+  match List.find? (fun x => x.name == f) p with
+  | some d =>
+    match d.kind with
+    | CoreTerm.DeclKind.restricted fuel stack ro (some B) =>
+      match CoreTerm.selfBound d d.body with
+      | CoreTerm.Tail.bounded q j =>
+        match is[j]? with
+        | some m =>
+          if (List.count m bs != 1) = true then some (f, B)
+          else
+            match List.find? (fun x => x.fst == m) nam with
+            | some (fst, v) => if v ≤ B then none else some (f, B)
+            | none => some (f, B)
+        | none => some (f, B)
+      | x => some (f, B)
+    | x => none
+  | none => none
+CoreTerm.selfBound : CoreTerm.Decl → CoreTerm.Expr → CoreTerm.Tail

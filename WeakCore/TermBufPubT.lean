@@ -5,7 +5,7 @@ import WeakCore.TermPlantF
 # TermBufPubT: the thread-step post-publish `bufInit` exclusion (runAgree)
 
 `TermPlantF.BufInitPubTR` (the `hZo` of the thread-step typed runs at `PubZO`) holds from the raw
-certificate fields: an own cell of the post-step environment with a frontier is a start cell of the
+certificate-window hypotheses: an own cell of the post-step environment with a frontier is a start cell of the
 promiser's cut (`post_pfr_sto`), or the step publishes it, and in both cases `TermNoBufOwn.noBufT_pub`
 rules out a `bufInit` after the run's publish.
 -/
@@ -52,7 +52,7 @@ theorem post_pfr_sto {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} 
   · rw [hs0] at hcl
     cases hcl
 
-/-- **`BufInitPubTR` holds**, from the thread-step certificate fields. -/
+/-- **`BufInitPubTR` holds**, from the thread-step certificate-window hypotheses. -/
 theorem bufInitPubTR_of [TermTyped.WrIniC] {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {MintOK : Res → Prop}
     {c0 : Cfg} (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] (hP : ProgT p)
     (hsc : CertScopeC p k arch Sp Init MintOK c0) (hw : CertWinC p k arch Sp Init MintOK c0) (hPS : PwSkel)

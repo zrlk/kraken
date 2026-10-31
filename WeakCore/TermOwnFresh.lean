@@ -70,7 +70,7 @@ theorem ownFresh_thread (hb1 : AllocGT p k arch Sp Init MintOK c0) (hN : PromNod
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {crS cr' db' δ : Ts → Res}
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r) (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
+    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
       crS (db i) δ)
     (hK : ∀ t l, crS t (.own l) = cr i t (.own l))
     (h : OwnFreshZ c Tot HP HS cr) :
@@ -176,7 +176,7 @@ theorem mintRoomF_at (hb1 : AllocGT p k arch Sp Init MintOK c0)
     {HS : Res} {cr db : Nat → Ts → Res} {i : Nat} {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop}
     {ρ : Nat → Nat} {η : TEnv} {cx : Cx} {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res}
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r) (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
+    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
       (cr i) (db i) δ)
     (hof : OwnFreshZ c Tot HP HS cr)
     (hc : ∀ n j, C = Res.one (.ep n j) → F = Res.one (.rg n) →
@@ -220,7 +220,7 @@ theorem knetT_F (hb1 : AllocGT p k arch Sp Init MintOK c0)
     {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx} {Rf Rs : Res} {E' : TEnv}
     {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res}
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r) (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
+    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
       (cr i) (db i) δ)
     (hcl : ClaimAt th.term C F) (hof : OwnFreshZ c Tot HP HS cr)
     {rc : Nat → Nat} (hrc : RidOK c Tot HP HS cr db rc) (hle : rc i ≤ η.rid) :

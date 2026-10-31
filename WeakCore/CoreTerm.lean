@@ -743,7 +743,7 @@ inductive Op
   | inr (other : Ty) (a : At)
   | add (a b : At)
   | sub (a b : At)                          -- `a − b`, only where `b ≤ a` is provable
-  | new (a : At)                            -- allocate and initialise: `Ptr own τ`
+  | new (a : At) (T : Option Ty)           -- allocate at `T` (= `a`'s type): `Ptr own T`; `none` only from the pre-N2 lift
   | null (μ : Mode) (target : Ty)           -- `Ptr? μ target`; the only null there is
   | fold (a : At) (target : Ty)             -- a reference to `τ[μα.τ/α]` as one to `μα.τ`
   | publish (a : At)                        -- `Ptr own τ → Ptr pub τ`; emits the release
@@ -798,6 +798,7 @@ inductive Op
   | fetch (o : FetchOp) (acq rel : Bool) (a v : At)  -- atomic `old ⊕ v` into a cell or protocol word; the old value
   | spawn (f : String) (a : At) (T : Ty) (ts : List Ty := [])  -- start thread `f` on a copy of `a` at the checked type `T`: `ThreadId` (the child's index); several args: a pair
   | ext (n : ExtName) (a : At)              -- (E1) a trusted extern on `a : n.sig.1`, result `n.sig.2`: a configuration step (`TermExtStep.Ext`)
+  | isTy (a : At) (τ : Ty)                 -- `Ptr? pub τ`: `a`'s slot reference if its object was allocated at `τ`
   deriving Repr
 
 inductive Expr
@@ -821,7 +822,7 @@ def lets : List (String × Op) → Expr → Expr
   | [], e => e
   | (x, op) :: rest, e => .let_ x op (lets rest e)
 
-inductive DeclKind | plain | device | restricted (fuel stack : Nat) deriving DecidableEq, Repr
+inductive DeclKind | plain | device | restricted (fuel stack : Nat) (ro : Bool) (loop : Option Nat) deriving DecidableEq, Repr
 
 structure Decl where
   name  : String
@@ -831,7 +832,7 @@ structure Decl where
   argTy : Ty
   retTy : Ty
   body  : Expr
-  kind : DeclKind := .plain   -- `device`: may call device-only externs; `restricted`: REFUSED by this bundle's checker
+  kind : DeclKind := .plain   -- `device`: may call device-only externs; `restricted`: checked by `restrictedDeclOK`
 
 abbrev Prog := List Decl
 
@@ -1279,9 +1280,9 @@ def sub (cx : Cx) (σ τ : Ty) : Bool :=
   | .sum a b, .sum a' b' => sub cx a a' && sub cx b b'
   | .cap c r, .cap c' s => c.le c' && ieqD cx 0 r s
   -- (M1, T1) a restricted function is a plain function, and fits a larger budget slot
-  | .code a b (.restricted _ _), .code a' b' .plain => tyEq cx 0 a a' && tyEq cx 0 b b'
-  | .code a b (.restricted f s), .code a' b' (.restricted f' s') =>
-      decide (f ≤ f') && decide (s ≤ s') && tyEq cx 0 a a' && tyEq cx 0 b b'
+  | .code a b (.restricted _ _ _), .code a' b' .plain => tyEq cx 0 a a' && tyEq cx 0 b b'
+  | .code a b (.restricted f s ro), .code a' b' (.restricted f' s' ro') =>
+      f ≤ f' && s ≤ s' && (!ro' || ro) && tyEq cx 0 a a' && tyEq cx 0 b b'
   | _, _ => false
 
 /-- An integer type of unknown index (`Int`). -/
@@ -1510,6 +1511,22 @@ def admitsIn (cx : Cx) (κ : Kind) (σ : Ty) : Bool :=
       | _ => false
   | _ => κ.atom.holds (σ.width.bind Idx.closed)
 
+def tgtOK : Ty → Bool
+  | .unit | .void | .int | .tid | .opq _ => true
+  | .fix _ _ | .lanes _ _ => true
+  | .intS _ | .array _ _ | .share _ | .cap _ _ | .word _ _ | .tok _ _ => false
+  | .word2 _ _ | .tok2 _ _ _ _ | .epair _ _ | .tokE _ _ _ | .refine _ _ => false
+  | .tvar _ | .mu _ => false            -- `mu`: banned for now
+  | .prod a b | .sum a b => tgtOK a && tgtOK b
+  | .code a b _ => tgtOK a && tgtOK b
+  | .ptr μ t | .ptrOpt μ t | .loc μ t => (match μ with | .rgn _ => false | _ => true) && tgtOK t
+  | .iall t | .iex t => tgtOK t
+  | .tex _ t => tgtOK t
+def slotOK : Ty → Bool                   -- thin `Ptr pub E`, or fat `V * Ptr pub E` (slot = last word)
+  | .ptr .pub (.tvar 0) => true
+  | .prod _ (.ptr .pub (.tvar 0)) => true  -- `V` unrestricted: a vtable's methods may take self (mention `E`)
+  | _ => false
+
 /-- The callee's signature at these index and type arguments.  Index
 parameters first: after `instT` the signature is in the caller's index scope,
 which is the scope the type arguments were written in. -/
@@ -1653,10 +1670,25 @@ def checkOp (p : Prog) (cx : Cx) (x : String) : Op → M Cx
               else throw "sub: the difference is not provably nonnegative"
           | _, _ => throw "sub: index outside the decidable fragment"
       | _, _ => throw "sub needs integers of known value"
-  | .new a => do
+  | .new a T => do
       let (t, cx) ← cx.use a
       if t.secondClass then throw "new: a second-class capability cannot be stored"
+      match T with
+      | none => throw "new: the allocation's type annotation is missing"
+      | some T => if t != T then throw "new: the annotation does not match the value's type"
       cx.bind x (.ptr .own t)
+  | .isTy a τ => do
+      let t ← cx.peek a
+      match t with
+      | .tex κ b =>
+          if !slotOK b then
+            throw "isTy: the package must hold a `pub` reference `Ptr` to its hidden type, alone or as the last component of a pair; `Loc`, `Ptr?`, `own` and region references cannot be tested"
+          if !τ.wf 0 0 then throw "isTy: the target type must have no type or index variables"
+          if !tgtOK τ then
+            throw "isTy: the target must not mention an index, a region, a refinement or a recursive type"
+          if !admitsIn cx κ τ then throw "isTy: the target does not have the package variable's kind"
+          cx.bind x (.ptrOpt .pub τ)
+      | _ => throw "isTy needs a type package"
   | .publish a => do
       let (t, cx) ← cx.use a
       match t with
@@ -2174,7 +2206,7 @@ def checkOp (p : Prog) (cx : Cx) (x : String) : Op → M Cx
       let d ← p.find f
       if !(d.tparams.isEmpty && d.idx.isEmpty) then
         throw s!"fnptr {f}: only a monomorphic code block has a code pointer"
-      cx.bind x (.code d.argTy d.retTy (match d.kind with | .restricted f s => .restricted f s | _ => .plain))
+      cx.bind x (.code d.argTy d.retTy (match d.kind with | .restricted f s ro _ => .restricted f s ro | _ => .plain))
   | .callc f a => do
       let tf ← cx.peek f
       match codeOf tf with
@@ -2338,27 +2370,43 @@ def lendCx (cx : Cx) (acq rel : Bool) (r : Idx) (mo : Option Int) (t : String) :
             c₁.bind t .unit
     else throw "not a move of the lending protocol"
 
-/-- The rule for a term.  Every path ends in `ret` or a tail call, so branches
-are checked independently and never merged; an affine value left unused is
+/-- The binder-table entry of `x` after a binding made inside a helper
+(`checkOp` for `let`, `lendCx` for `cas`): its type in `cx.vars`, else its torn-read type in `cx.torn` (a torn read
+binds into `cx.torn`, CoreTerm `checkOp`'s `load` arm); never fails, so the accepted set is the old `check`'s. -/
+def bindersOf (cx : Cx) (x : String) : List (String × Ty) :=
+  match cx.vars.find? (·.1 == x) with
+  | some (_, t, _) => [(x, t)]
+  | none =>
+    match cx.torn.find? (·.x == x) with
+    | some tn => [(x, tn.ty)]
+    | none => []
+
+/-- The rule for a term, returning the binders it bound, in binding order, with their types (the
+old `check` body with one mechanical change: after each `cx.bind n t` the pair `(n, t)` is recorded and every
+recursive call returns the continuation's list appended; the restricted cell pass reads the table).  Every path ends
+in `ret` or a tail call, so branches are checked independently and never merged; an affine value left unused is
 dropped, which is what affine means. -/
-def check (p : Prog) (cx : Cx) : Expr → M Unit
+def checkBinders (p : Prog) (cx : Cx) : Expr → M (List (String × Ty))
   | .let_ x op e => do
       let cx ← checkOp p cx x op
-      check p cx e
+      let l ← checkBinders p cx e
+      pure (bindersOf cx x ++ l)
   | .split a x y e => do
       let (t, cx) ← cx.use a
       match t with
       | .prod u v => do
           let cx ← cx.bind x u
           let cx ← cx.bind y v
-          check p cx e
+          let l ← checkBinders p cx e
+          pure ((x, u) :: (y, v) :: l)
       | _ => throw "split needs a pair"
   | .unpack a i x e => do
       let (t, cx) ← cx.use a
       match t with
       | .iex b => do
           let cx ← (cx.push i).bind x b
-          check p cx e
+          let l ← checkBinders p cx e
+          pure ((x, b) :: l)
       | _ => throw "unpack needs an index existential"
   | .unpackT a _ x e => do
       let (t, cx) ← cx.use a
@@ -2367,9 +2415,303 @@ def check (p : Prog) (cx : Cx) : Expr → M Unit
           if !b.guardT 0 then
             throw "unpack: the package's variable must occur only under a reference"
           let cx ← (cx.pushT κ).bind x b
-          check p cx e
+          let l ← checkBinders p cx e
+          pure ((x, b) :: l)
       | _ => throw "unpack at a type needs a type existential"
   | .region a rn pn tn e => do
+      let (t, cx) ← cx.use a
+      match t with
+      | .ptr .own u => do
+          -- D1: a region cell is a published cell whose writes the token gates,
+          -- so its type is shareable (no `own` inside) and opening it fences.
+          if !rgnCellOK cx.ke u then
+            throw "region: the cell type is not shareable (rows 16, 17): an own reference inside a region must be moved in with intoRgn"
+          let cx := cx.push rn
+          let cx ← cx.bind pn (.ptr (.rgn (.var 0)) (u.shiftI 0))
+          let cx ← cx.bind tn (.tok (.var 0) none)
+          let l ← checkBinders p cx e
+          pure ((pn, .ptr (.rgn (.var 0)) (u.shiftI 0)) :: (tn, .tok (.var 0) none) :: l)
+      | .refine (.loc .own (.array n u)) (.ini k) => do
+          -- An own buffer can be opened as a region directly: the region's
+          -- pointer is the buffer's locative, its initialized prefix fixed.
+          if !rgnCellOK cx.ke (.array n u) then
+            throw "region: the cell type is not shareable (rows 16, 17): an own reference inside a region must be moved in with intoRgn"
+          let cx := cx.push rn
+          let cx ← cx.bind pn (.refine (.loc (.rgn (.var 0)) ((Ty.array n u).shiftI 0)) ((Pred.ini k).shift 0))
+          let cx ← cx.bind tn (.tok (.var 0) none)
+          let l ← checkBinders p cx e
+          pure ((pn, .refine (.loc (.rgn (.var 0)) ((Ty.array n u).shiftI 0)) ((Pred.ini k).shift 0)) ::
+            (tn, .tok (.var 0) none) :: l)
+      | _ => throw "region needs an own reference or an own buffer"
+  | .openPub a rn pn cn e => do
+      let (t, cx) ← cx.use a
+      match t with
+      | .ptr .pub u => do
+          let cx := cx.push rn
+          let cx ← cx.bind pn (.ptr (.rgn (.var 0)) (u.shiftI 0))
+          let cx ← cx.bind cn (.cap .pub (.var 0))
+          let l ← checkBinders p cx e
+          pure ((pn, .ptr (.rgn (.var 0)) (u.shiftI 0)) :: (cn, .cap .pub (.var 0)) :: l)
+      | _ => throw "openPub needs a pub reference"
+  | .case a x e₁ y e₂ => do
+      let (t, cx) ← cx.use a
+      match t with
+      | .sum u v => do
+          let l₁ ← checkBinders p (← cx.bind x u) e₁
+          let l₂ ← checkBinders p (← cx.bind y v) e₂
+          pure ((x, u) :: l₁ ++ (y, v) :: l₂)
+      | _ => throw "case needs a sum"
+  | .ifnull a e₁ y e₂ => do
+      let (t, cx) ← cx.use a
+      match t with
+      | .ptrOpt μ u => do
+          let l₁ ← checkBinders p cx e₁
+          let l₂ ← checkBinders p (← cx.bind y (.ptr μ u)) e₂
+          pure (l₁ ++ (y, .ptr μ u) :: l₂)
+      | _ => throw "ifnull needs a nullable reference"
+  | .parity a k ev od => do
+      let i ← intIdx cx a
+      let v ← match (cx.norm i).bind Lin.asVar? with
+        | some v => pure v
+        | none => throw "parity: the index is not a free variable, so there is nothing to refine"
+      let cx := cx.push k
+      let l₁ ← checkBinders p { cx with facts := (v + 1, .smul 2 (.var 0)) :: cx.facts } ev
+      let l₂ ← checkBinders p { cx with facts := (v + 1, .add (.smul 2 (.var 0)) (.lit 1)) :: cx.facts } od
+      pure (l₁ ++ l₂)
+  | .ifeq a b yes no =>
+      if plainEq cx a b then do let l₁ ← checkBinders p cx yes; let l₂ ← checkBinders p cx no; pure (l₁ ++ l₂)
+      else do
+      let i ← intIdx cx a
+      let j ← intIdx cx b
+      match cx.norm i, cx.norm j with
+      | some ni, some nj =>
+          let l₁ ← if ni == nj then checkBinders p cx yes
+          else
+            match ni.asVar?, nj.asVar? with
+            | some v, _ => do
+                if nj.mentions v then throw "ifeq: cannot record the equality"
+                checkBinders p { cx with facts := (v, nj.toIdx) :: cx.facts } yes
+            | _, some v => do
+                if ni.mentions v then throw "ifeq: cannot record the equality"
+                checkBinders p { cx with facts := (v, ni.toIdx) :: cx.facts } yes
+            | _, _ =>
+                match zeroVar ni nj with
+                | some u => checkBinders p { cx with facts := (u, .lit 0) :: cx.facts } yes
+                | none => throw "ifeq: cannot record the equality"
+          let l₂ ← checkBinders p (noCx cx ni nj) no
+          pure (l₁ ++ l₂)
+      | _, _ => throw "ifeq: index outside the decidable fragment"
+  | .cas acq rel w e v t ok fail => do
+      let tw ← cx.peek w
+      match wordOf tw with
+      | none =>
+          -- A plain `pub` cell: compare-and-swap one word.  No region, no token:
+          -- the cell's type is invariant, so success and failure both leave it
+          -- well typed, and the expected value is compared, not duplicated.
+          let u ← casCellTy cx tw
+          if u.rawWords != some 1 then throw "cas needs a one-word cell (§3.5)"
+          if affine cx.ke u then throw "cas would duplicate an affine value"
+          let te ← cx.peek e
+          let (tv, cx) ← cx.use v
+          if !sub cx te u then throw "cas: the expected value does not have the cell's type"
+          if !sub cx tv u then throw "cas: the new value does not have the cell's type"
+          if Ty.sensitiveIn cx.ke u && !(acq && rel) then
+            throw "cas: a view-sensitive type needs acq and rel (§3.8)"
+          let l₁ ← checkBinders p (← cx.bind t .unit) ok
+          let l₂ ← checkBinders p cx fail
+          pure ((t, .unit) :: l₁ ++ l₂)
+      | some (r, P) =>
+      if P.epoch then
+        -- An epoch counter: `cas e -> e + 1` enters epoch `e + 1` and yields
+        -- its token, never the region (the counter has no held state).
+        if !acq then throw "entering an epoch needs acq"
+        let i ← intIdx cx e
+        let j ← intIdx cx v
+        let (c, k) ← classifyM cx P i
+        let (c', k') ← classifyM cx P j
+        if !pstep P c k c' k' then throw "not a transition of the protocol"
+        let l₁ ← checkBinders p (← cx.bind t (.tokE r (.word P) j)) ok
+        let l₂ ← checkBinders p cx fail
+        pure ((t, .tokE r (.word P) j) :: l₁ ++ l₂)
+      else
+        if P.ghost then throw "cas on a ghost word: it has no runtime value"
+        let i ← intIdx cx e
+        let j ← intIdx cx v
+        let (c, k) ← classifyM cx P i
+        let (c', k') ← classifyM cx P j
+        let cl ← clauseM P c
+        let cl' ← clauseM P c'
+        if !cl.holds then throw "cas from a held state: the holder stores instead"
+        if !pstep P c k c' k' then throw "not a transition of the protocol"
+        let l₁ ← if cl'.holds then do
+          let cx' ← lendCx cx acq rel r (shareMove P c k c' k') t
+          let l ← checkBinders p cx' ok
+          pure (bindersOf cx' t ++ l)
+        else do
+          if P.lends.contains c || P.lendsDown.contains c then
+            throw "taking the region from a lending state: shares are out"
+          if !acq then throw "taking the region needs acq"
+          let cx' ← cx.bind t (.tok r (some (P, j)))
+          let cx' := if monotone P then { cx' with unsealed := r :: cx'.unsealed } else cx'
+          let l ← checkBinders p cx' ok
+          pure ((t, .tok r (some (P, j))) :: l)
+        let l₂ ← checkBinders p cx fail
+        pure (l₁ ++ l₂)
+  | .casp acq rel w e0 e1 v0 v1 t ok fail => do
+      let tw ← cx.peek w
+      match word2Of tw with
+      | none =>
+        match epairOf tw with
+        | none => throw "casp needs a reference to a protocol pair"
+        | some (r, P) =>
+          -- The epoch-fenced write: the new epoch must be the one a live epoch
+          -- token names, and the write publishes (`rel`).  The compare is the
+          -- fence: a re-stamp by a later epoch makes a stale writer's expected
+          -- pair wrong, and a stale pair that lands still names its epoch.
+          if !rel then throw "an epoch-fenced write needs rel"
+          let _ ← intIdx cx e0
+          let _ ← intIdx cx e1
+          let j0 ← intIdx cx v0
+          let _ ← intIdx cx v1
+          if !cx.hasTokE r P j0 then throw "an epoch-fenced write needs the epoch token of its new epoch"
+          let l₁ ← checkBinders p (← cx.bind t .unit) ok
+          let l₂ ← checkBinders p cx fail
+          pure ((t, .unit) :: l₁ ++ l₂)
+      | some (r, P) =>
+      let i0 ← intIdx cx e0
+      let i1 ← intIdx cx e1
+      let j0 ← intIdx cx v0
+      let j1 ← intIdx cx v1
+      let (c, k0, k1) ← classify2M cx P i0 i1
+      let (c', k0', k1') ← classify2M cx P j0 j1
+      let cl ← clause2M P c
+      let cl' ← clause2M P c'
+      if !cl.holds then throw "casp from a held state: the holder stores instead"
+      if !pstep2 P c k0 k1 c' k0' k1' then throw "not a transition of the pair protocol"
+      let l₁ ← if cl'.holds then do
+        if bump2 P k0 k0' then do
+          -- An epoch pair's move that bumps the epoch issues the new epoch's token.
+          if !acq then throw "entering an epoch needs acq"
+          let l ← checkBinders p (← cx.bind t (.tokE r (.pair P) j0)) ok
+          pure ((t, .tokE r (.pair P) j0) :: l)
+        else do
+          -- Between shared states nothing changes hands (a pair lends no shares).
+          let l ← checkBinders p (← cx.bind t .unit) ok
+          pure ((t, .unit) :: l)
+      else do
+        if !acq then throw "taking the region needs acq"
+        let l ← checkBinders p (← cx.bind t (.tok2 r P j0 j1)) ok
+        pure ((t, .tok2 r P j0 j1) :: l)
+      let l₂ ← checkBinders p cx fail
+      pure (l₁ ++ l₂)
+  | .ret a => do
+      let (t, cx) ← cx.use a
+      noLeak cx t
+      noDrop cx
+      if !sub cx t cx.ret then throw "ret: the value does not have the return type"
+      pure []
+  | .tail f is a ts => do
+      tailCheck p cx f is a ts
+      pure []
+
+
+/-- `check`: the rule for a term: `checkBinders` with its binder table dropped.  Its accepted set
+is `checkBinders`'s, which is the old `check`'s by construction (the arm lemmas `check_let` … `check_tail` below restate
+the old arms verbatim). -/
+def check (p : Prog) (cx : Cx) (e : Expr) : M Unit := (checkBinders p cx e).map fun _ => ()
+
+theorem check_eq_checkBinders (p : Prog) (cx : Cx) (e : Expr) :
+    check p cx e = .ok () ↔ ∃ l, checkBinders p cx e = .ok l := by
+  unfold check
+  cases checkBinders p cx e with
+  | error m => simp [Except.map]
+  | ok l => simp [Except.map]
+
+theorem map_unit_bind {α β : Type} (x : M α) (f : α → M β) :
+    (x >>= f).map (fun _ => ()) = x >>= fun a => (f a).map (fun _ => ()) := by
+  cases x <;> rfl
+
+theorem map_unit_bind_pure {α β : Type} (x : M α) (h : α → β) :
+    (x >>= fun a => pure (h a)).map (fun _ => ()) = x.map (fun _ => ()) := by
+  cases x <;> rfl
+
+theorem map_unit_pure {α : Type} (a : α) : (pure a : M α).map (fun _ => ()) = pure () := rfl
+
+theorem map_unit_throw {α : Type} (m : String) : (throw m : M α).map (fun _ => ()) = throw m := rfl
+
+theorem map_unit_seq {α β : Type} (x : M α) (f : Unit → M β) :
+    (x.map (fun _ => ()) >>= f) = x >>= fun _ => f () := by
+  cases x <;> rfl
+
+theorem bind_pure_unit {α : Type} (x : M α) : (x >>= fun _ => pure ()) = x.map (fun _ => ()) := by
+  cases x <;> rfl
+
+theorem map_unit_unit (x : M Unit) : x.map (fun _ => ()) = x := by
+  cases x <;> rfl
+
+theorem map_unit_ite {α : Type} (c : Prop) [Decidable c] (x y : M α) :
+    (if c then x else y).map (fun _ => ()) = if c then x.map (fun _ => ()) else y.map (fun _ => ()) := by
+  split <;> rfl
+
+/-- The arm lemmas' proof: unfold one `checkBinders` step and push `Except.map` through binds, `if`s and `match`es. -/
+macro "check_arm" : tactic => `(tactic| (
+  simp only [check, checkBinders];
+  repeat' (first
+    | rfl
+    | simp only [map_unit_bind, map_unit_bind_pure, map_unit_pure, map_unit_throw, map_unit_ite, bind_assoc,
+        map_unit_seq, bind_pure_unit, map_unit_unit]
+    | (apply bind_congr; intro _)
+    | split)))
+
+/-! ### `check` arm by arm: each RIGHT side is the old `check` arm, verbatim (before `checkBinders` existed); proofs
+push `Except.map` through the arm. -/
+
+theorem check_let (p : Prog) (cx : Cx) (x : String) (op : Op) (e : Expr) :
+    check p cx (.let_ x op e) = (
+      do
+      let cx ← checkOp p cx x op
+      check p cx e
+    ) := by check_arm
+
+theorem check_split (p : Prog) (cx : Cx) (a : At) (x y : String) (e : Expr) :
+    check p cx (.split a x y e) = (
+      do
+      let (t, cx) ← cx.use a
+      match t with
+      | .prod u v => do
+          let cx ← cx.bind x u
+          let cx ← cx.bind y v
+          check p cx e
+      | _ => throw "split needs a pair"
+    ) := by check_arm
+
+theorem check_unpack (p : Prog) (cx : Cx) (a : At) (i x : String) (e : Expr) :
+    check p cx (.unpack a i x e) = (
+      do
+      let (t, cx) ← cx.use a
+      match t with
+      | .iex b => do
+          let cx ← (cx.push i).bind x b
+          check p cx e
+      | _ => throw "unpack needs an index existential"
+    ) := by check_arm
+
+theorem check_unpackT (p : Prog) (cx : Cx) (a : At) (α x : String) (e : Expr) :
+    check p cx (.unpackT a α x e) = (
+      do
+      let (t, cx) ← cx.use a
+      match t with
+      | .tex κ b => do
+          if !b.guardT 0 then
+            throw "unpack: the package's variable must occur only under a reference"
+          let cx ← (cx.pushT κ).bind x b
+          check p cx e
+      | _ => throw "unpack at a type needs a type existential"
+    ) := by check_arm
+
+theorem check_region (p : Prog) (cx : Cx) (a : At) (rn pn tn : String) (e : Expr) :
+    check p cx (.region a rn pn tn e) = (
+      do
       let (t, cx) ← cx.use a
       match t with
       | .ptr .own u => do
@@ -2391,7 +2733,11 @@ def check (p : Prog) (cx : Cx) : Expr → M Unit
           let cx ← cx.bind tn (.tok (.var 0) none)
           check p cx e
       | _ => throw "region needs an own reference or an own buffer"
-  | .openPub a rn pn cn e => do
+    ) := by check_arm
+
+theorem check_openPub (p : Prog) (cx : Cx) (a : At) (rn pn cn : String) (e : Expr) :
+    check p cx (.openPub a rn pn cn e) = (
+      do
       let (t, cx) ← cx.use a
       match t with
       | .ptr .pub u => do
@@ -2400,21 +2746,33 @@ def check (p : Prog) (cx : Cx) : Expr → M Unit
           let cx ← cx.bind cn (.cap .pub (.var 0))
           check p cx e
       | _ => throw "openPub needs a pub reference"
-  | .case a x e₁ y e₂ => do
+    ) := by check_arm
+
+theorem check_case (p : Prog) (cx : Cx) (a : At) (x : String) (e₁ : Expr) (y : String) (e₂ : Expr) :
+    check p cx (.case a x e₁ y e₂) = (
+      do
       let (t, cx) ← cx.use a
       match t with
       | .sum u v => do
           check p (← cx.bind x u) e₁
           check p (← cx.bind y v) e₂
       | _ => throw "case needs a sum"
-  | .ifnull a e₁ y e₂ => do
+    ) := by check_arm
+
+theorem check_ifnull (p : Prog) (cx : Cx) (a : At) (e₁ : Expr) (y : String) (e₂ : Expr) :
+    check p cx (.ifnull a e₁ y e₂) = (
+      do
       let (t, cx) ← cx.use a
       match t with
       | .ptrOpt μ u => do
           check p cx e₁
           check p (← cx.bind y (.ptr μ u)) e₂
       | _ => throw "ifnull needs a nullable reference"
-  | .parity a k ev od => do
+    ) := by check_arm
+
+theorem check_parity (p : Prog) (cx : Cx) (a : At) (k : String) (ev od : Expr) :
+    check p cx (.parity a k ev od) = (
+      do
       let i ← intIdx cx a
       let v ← match (cx.norm i).bind Lin.asVar? with
         | some v => pure v
@@ -2422,7 +2780,11 @@ def check (p : Prog) (cx : Cx) : Expr → M Unit
       let cx := cx.push k
       check p { cx with facts := (v + 1, .smul 2 (.var 0)) :: cx.facts } ev
       check p { cx with facts := (v + 1, .add (.smul 2 (.var 0)) (.lit 1)) :: cx.facts } od
-  | .ifeq a b yes no =>
+    ) := by check_arm
+
+theorem check_ifeq (p : Prog) (cx : Cx) (a b : At) (yes no : Expr) :
+    check p cx (.ifeq a b yes no) = (
+      
       if plainEq cx a b then do check p cx yes; check p cx no
       else do
       let i ← intIdx cx a
@@ -2444,7 +2806,11 @@ def check (p : Prog) (cx : Cx) : Expr → M Unit
                 | none => throw "ifeq: cannot record the equality"
           check p (noCx cx ni nj) no
       | _, _ => throw "ifeq: index outside the decidable fragment"
-  | .cas acq rel w e v t ok fail => do
+    ) := by check_arm
+
+theorem check_cas (p : Prog) (cx : Cx) (acq rel : Bool) (w e v : At) (t : String) (ok fail : Expr) :
+    check p cx (.cas acq rel w e v t ok fail) = (
+      do
       let tw ← cx.peek w
       match wordOf tw with
       | none =>
@@ -2494,7 +2860,11 @@ def check (p : Prog) (cx : Cx) : Expr → M Unit
           let cx' := if monotone P then { cx' with unsealed := r :: cx'.unsealed } else cx'
           check p cx' ok
         check p cx fail
-  | .casp acq rel w e0 e1 v0 v1 t ok fail => do
+    ) := by check_arm
+
+theorem check_casp (p : Prog) (cx : Cx) (acq rel : Bool) (w e0 e1 v0 v1 : At) (t : String) (ok fail : Expr) :
+    check p cx (.casp acq rel w e0 e1 v0 v1 t ok fail) = (
+      do
       let tw ← cx.peek w
       match word2Of tw with
       | none =>
@@ -2536,12 +2906,21 @@ def check (p : Prog) (cx : Cx) : Expr → M Unit
         if !acq then throw "taking the region needs acq"
         check p (← cx.bind t (.tok2 r P j0 j1)) ok
       check p cx fail
-  | .ret a => do
+    ) := by check_arm
+
+theorem check_ret (p : Prog) (cx : Cx) (a : At) :
+    check p cx (.ret a) = (
+      do
       let (t, cx) ← cx.use a
       noLeak cx t
       noDrop cx
       if !sub cx t cx.ret then throw "ret: the value does not have the return type"
-  | .tail f is a ts => tailCheck p cx f is a ts
+    ) := by check_arm
+
+theorem check_tail (p : Prog) (cx : Cx) (f : String) (is : List String) (a : At) (ts : List Ty) :
+    check p cx (.tail f is a ts) = (
+      tailCheck p cx f is a ts
+    ) := by check_arm
 
 /-- (T6) The pointee types a device decl's argument hands to the device: through pointers, nullable pointers and LOCATIVES
 (`Loc (rgn r) Desc`, buffers), inside pairs, sums, arrays, refinements, binders and `mu`. (`cap`/`share`/`tok`/`word` values
@@ -2580,14 +2959,371 @@ def exprNoDevFnptr (isDev : String → Bool) : Expr → Bool
   | .cas _ _ _ _ _ _ ok fail | .casp _ _ _ _ _ _ _ _ ok fail => exprNoDevFnptr isDev ok && exprNoDevFnptr isDev fail
   | .ret _ | .tail .. => true
 
+/-! ### The kind pass: restricted functions (frozen helpers; every function structural on `Expr`) -/
+
+/-- Allocation and thread creation: refused in every restricted body. -/
+def opAllocates : Op → Bool
+  | .new _ _ | .newBuf _ _ | .mkWord .. | .mkWord2 .. | .mkEPair .. | .mkTicket .. | .spawn .. | .intoRgn .. | .publish _ => true
+  | .isTy _ _ => false
+  | _ => false
+/-- Stores and protocol advances: refused in READ-ONLY bodies. -/
+def opWrites : Op → Bool
+  | .store .. | .xchg .. | .xchgAt .. | .xchgAtF .. | .bufInit .. | .stl .. | .stlw .. | .stp .. | .fetch .. | .claim .. => true
+  | _ => false
+/-- The names an expression binds, in order (every binder form of `Expr`). -/
+def Expr.binders : Expr → List String
+  | .let_ x _ e => x :: e.binders
+  | .split _ x y e => x :: y :: e.binders
+  | .unpack _ i x e => i :: x :: e.binders
+  | .unpackT _ α x e => α :: x :: e.binders
+  | .region _ r p t e => r :: p :: t :: e.binders
+  | .openPub _ r p c e => r :: p :: c :: e.binders
+  | .case _ x e₁ y e₂ => x :: e₁.binders ++ y :: e₂.binders
+  | .ifnull _ e₁ x e₂ => e₁.binders ++ x :: e₂.binders
+  | .parity _ k e₁ e₂ => k :: e₁.binders ++ e₂.binders
+  | .ifeq _ _ e₁ e₂ => e₁.binders ++ e₂.binders
+  | .cas _ _ _ _ _ t ok fail | .casp _ _ _ _ _ _ _ t ok fail => t :: ok.binders ++ fail.binders
+  | .ret _ | .tail .. => []
+/-- No name is bound twice, and none rebinds the argument or an index parameter (`f = argName` and the position-keyed cell
+pass rely on it). -/
+def noShadow (d : Decl) : Bool :=
+  let bs := d.arg :: d.idx ++ d.body.binders
+  bs.eraseDups.length == bs.length
+/-- A component position of the argument: `[]` = the argument itself; `0 :: p`/`1 :: p` = the left/right component of a pair. -/
+abbrev Pos := List Nat
+/-- `argPos vs x`: the position of `x` in the argument, tracked syntactically through `split` (`split a x y` with `a` at `p`
+puts `x` at `p ++ [0]`, `y` at `p ++ [1]`); `none` for anything else. `vs` is the current map, built by the walk. -/
+def argPosOf (vs : List (String × Pos)) (x : String) : Option Pos := (vs.find? (·.1 == x)).map (·.2)
+-- `tyAt t p`: the type at position `p` of `t`; it ties the decremented component to the loop index parameter.
+def tyAt : Ty → Pos → Option Ty
+  | t, [] => some t
+  | .prod a _, 0 :: p => tyAt a p
+  | .prod _ b, 1 :: p => tyAt b p
+  | .refine t _, p => tyAt t p
+  | _, _ => none
+/-- The result of judging a body's self tails. INVARIANT the fuel theorem uses: `bounded q j` means EVERY self
+tail of the body passes, at index-argument position `j`, an index named by `nameI` of a value `k' = k − 1`, where `k` is the
+argument component at position `q`, `tyAt d.argTy q = Int[n]` with `n = d.idx[j]` (so `k = n` by typing), and `k` was tested
+nonzero on the path (`ifeq k 0 exit body`, exit branch without self tail; needed because `Idx.sub` truncates). So `n` strictly decreases on every iteration and the loop runs at most `n₀ + 1` bodies; the DECLARED
+`loop B` bounds `n₀` through the call-site rule (`loopCallsOK`). `bad` = some self tail is not of that form, or two tails
+use different positions; `bad` absorbs in every merge. -/
+inductive Tail | noTail | bounded (q : Pos) (j : Nat) | bad deriving DecidableEq, Repr
+def Tail.merge : Tail → Tail → Tail
+  | .bad, _ | _, .bad => .bad
+  | .noTail, t | t, .noTail => t
+  | .bounded q j, .bounded q' j' => if q == q' && j == j' then .bounded q j else .bad
+/-- The ONE index argument (position, decremented source) that is a `nameI` name; two such arguments, or none, = `none`. -/
+def idxArgOf (nam : List (String × String)) : List String → Nat → Option (Nat × String)
+  | [], _ => none
+  | m :: ms, j =>
+      match (nam.find? (·.1 == m)).map (·.2), idxArgOf nam ms (j + 1) with
+      | some k', none => some (j, k')
+      | none, r => r
+      | some _, some _ => none
+def selfBoundW (d : Decl) (vs : List (String × Pos)) (dec : List (String × String)) (nam : List (String × String))
+    (tup : List (String × List (Option Pos) × List String)) (guard : List String) : Expr → Tail
+  | .let_ x (.sub (.var k) (.lit 1)) e => selfBoundW d vs ((x, k) :: dec) nam tup guard e
+  | .let_ x (.nameI (.var k')) e => selfBoundW d vs dec ((x, k') :: nam) tup guard e        -- the nameI idiom
+  | .let_ x (.pair (.var a) (.var b)) e =>
+      selfBoundW d vs dec nam ((x, [argPosOf vs a, argPosOf vs b], [a, b]) :: tup) guard e
+  | .let_ _ _ e | .unpack _ _ _ e | .unpackT _ _ _ e | .openPub _ _ _ _ e => selfBoundW d vs dec nam tup guard e
+  | .split (.var a) x y e =>
+      match argPosOf vs a with
+      | some p => selfBoundW d ((x, p ++ [0]) :: (y, p ++ [1]) :: vs) dec nam tup guard e
+      | none => selfBoundW d vs dec nam tup guard e
+  | .split _ _ _ e => selfBoundW d vs dec nam tup guard e
+  | .ifeq (.var k) (.lit 0) exit body =>
+      match selfBoundW d vs dec nam tup guard exit with
+      | .noTail => selfBoundW d vs dec nam tup (k :: guard) body        -- the exit branch must have NO self tail
+      | _ => .bad
+  | .case _ _ e₁ _ e₂ | .ifnull _ e₁ _ e₂ | .parity _ _ e₁ e₂ | .ifeq _ _ e₁ e₂
+  | .cas _ _ _ _ _ _ e₁ e₂ | .casp _ _ _ _ _ _ _ _ e₁ e₂ =>
+      (selfBoundW d vs dec nam tup guard e₁).merge (selfBoundW d vs dec nam tup guard e₂)
+  | .region _ _ _ _ e => selfBoundW d vs dec nam tup guard e      -- recurses like `fuelOf`; refused by `restrictedOK` anyway
+  | .ret _ => .noTail
+  | .tail f is (.var a) _ =>
+      if f != d.name then .noTail else
+      let kOf (x : String) : Option String := (dec.find? (·.1 == x)).map (·.2)
+      -- `bounded k' q`: `k'` (= k − 1) sits at argument position `q`; the index argument at `j` is `nameI k'`; `k` is
+      -- the argument's component at `q`, tested nonzero, and typed `Int[d.idx[j]]` (de Bruijn `var (d.idx.length - 1 - j)`,
+      -- `inames := d.idx.reverse` in `checkDecl`)
+      let bounded (k' : String) (q : Pos) : Tail :=
+        match kOf k', idxArgOf nam is 0 with
+        | some k, some (j, k'') =>
+            if k'' == k' && guard.contains k && argPosOf vs k == some q &&
+               tyAt d.argTy q == some (.intS (.var (d.idx.length - 1 - j))) then .bounded q j else .bad
+        | _, _ => .bad
+      match kOf a with
+      | some _ => bounded a []                                      -- the argument IS the index
+      | none =>
+        match tup.find? (·.1 == a) with
+        | some (_, parts, srcs) =>
+            -- FLAT 2-tuple: exactly one part is a decremented index (position [i]); the other part is the argument's own
+            -- component at ITS position [j]
+            match parts, srcs with
+            | [none, some [1]], [k', _] => bounded k' [0]
+            | [some [0], none], [_, k'] => bounded k' [1]
+            | _, _ => .bad
+        | none => .bad
+  | .tail f _ _ _ => if f != d.name then .noTail else .bad   -- a self tail with a non-variable argument cannot be judged
+def selfBound (d : Decl) : Expr → Tail := selfBoundW d [(d.arg, [])] [] [] [] []
+/-- The restricted body rule (syntactic). -/
+def restrictedOK (ro : Bool) (self : String) (kindOf : String → Option DeclKind) (argName : String)
+    (argCode : Option CodeKind) : Expr → Bool   -- self tails are judged by `selfBound` at the decl level (each tail locally,
+                                               -- since `bad` absorbs: one unbounded tail anywhere refuses the decl)
+  | .let_ _ op e =>
+      !opAllocates op && (!ro || !opWrites op) &&
+      (match op with
+       | .call f _ _ _ => (match kindOf f with | some (.restricted _ _ r _) => !ro || r | _ => false)
+       | .callc f _ => !ro && f == .var argName && (match argCode with | some (.restricted ..) => true | _ => false)   -- `f : At`
+       | .ext n _ => !n.deviceOnly && n != .park && n != .current && (!ro || n.pure)
+       | _ => true) && restrictedOK ro self kindOf argName argCode e
+  | .region _ _ _ _ _ => false
+  | .split _ _ _ e | .unpack _ _ _ e | .unpackT _ _ _ e | .openPub _ _ _ _ e => restrictedOK ro self kindOf argName argCode e
+  | .case _ _ e₁ _ e₂ | .ifnull _ e₁ _ e₂ | .parity _ _ e₁ e₂ | .ifeq _ _ e₁ e₂ =>
+      restrictedOK ro self kindOf argName argCode e₁ && restrictedOK ro self kindOf argName argCode e₂
+  | .cas _ _ _ _ _ _ ok fail | .casp _ _ _ _ _ _ _ _ ok fail =>
+      !ro && restrictedOK ro self kindOf argName argCode ok && restrictedOK ro self kindOf argName argCode fail
+  | .ret _ => true
+  | .tail f _ _ _ => if f == self then true else (match kindOf f with | some (.restricted _ _ r _) => !ro || r | _ => false)
+-- NO rule here for the lowering items (`emit`, `exitEv`, the lane ops): `restrictedOK` is unchanged
+-- for them; an unfrozen sce lint (`lowerOK`) and Kraken's front end handle them.
+/-- Fuel: one per evaluated node; `call f` = 1 + fuel f; `callc` = 1 + the argument's declared fuel; `tail f` = 1 + fuel f;
+self tail = 1 (the loop multiplies). No cycle check is needed: every charge is ≥ 1 + the callee's DECLARED fuel, so a cycle
+`f → g → f` would need `fuel f > fuel g > fuel f`; soundness is a strong induction on the declared fuel. -/
+def fuelOf (calleeFuel : String → Nat) (argFuel : Nat) (self : String) : Expr → Nat
+  | .let_ _ op e => 1 + (match op with | .call f _ _ _ => calleeFuel f | .callc _ _ => argFuel | _ => 0) + fuelOf calleeFuel argFuel self e
+  | .split _ _ _ e | .unpack _ _ _ e | .unpackT _ _ _ e | .openPub _ _ _ _ e => 1 + fuelOf calleeFuel argFuel self e
+  | .region _ _ _ _ e => 1 + fuelOf calleeFuel argFuel self e        -- unreachable in a restricted body (refused); kept for totality
+  | .case _ _ e₁ _ e₂ | .ifnull _ e₁ _ e₂ | .parity _ _ e₁ e₂ | .ifeq _ _ e₁ e₂ =>
+      1 + max (fuelOf calleeFuel argFuel self e₁) (fuelOf calleeFuel argFuel self e₂)
+  | .cas _ _ _ _ _ _ ok fail | .casp _ _ _ _ _ _ _ _ ok fail => 1 + max (fuelOf calleeFuel argFuel self ok) (fuelOf calleeFuel argFuel self fail)
+  | .ret _ => 1
+  | .tail f _ _ _ => if f == self then 1 else 1 + calleeFuel f
+def declFuel (p : Prog) (f : String) : Nat :=
+  match p.find? (·.name == f) with
+  | some d => match d.kind with | .restricted fu _ _ _ => fu | _ => 0
+  | none => 0
+def argFuelOf (d : Decl) : Nat := match d.argTy with | .code _ _ (.restricted f _ _) => f | _ => 0
+def loopBound (d : Decl) : Nat := match d.kind with | .restricted _ _ _ (some B) => B | _ => 0     -- from the declared field
+def fuelDecl (p : Prog) (d : Decl) : Nat := (loopBound d + 1) * fuelOf (declFuel p) (argFuelOf d) d.name d.body
+/-- Per declaration (Bool; the checker's rule). -/
+def restrictedDeclOK (p : Prog) (d : Decl) : Bool :=
+  match d.kind with
+  | .restricted fuel _ ro loop =>
+      noShadow d &&
+      (match loop, selfBound d d.body with                      -- `loop` given ⇔ a well-formed batch loop
+       | none, .noTail => true | some _, .bounded _ _ => true | _, _ => false) &&
+      restrictedOK ro d.name (fun f => (p.find? (·.name == f)).map (·.kind)) d.arg
+        (match d.argTy with | .code _ _ k => some k | _ => none) d.body &&
+      fuelDecl p d ≤ fuel
+  | _ => true
+/-- The index names the checker pushes by itself: `ifeq`'s false branch pushes `_nz` (`nzCx`). No other `Cx.push` site
+pushes a fixed name. -/
+def checkerIdxNames : List String := ["_nz"]
+/-- The index names a body binds that `Expr.binders` does not list: `ldp`'s two halves and `rem`/`band`'s `x_d`. (Every
+other index push binds a name `Expr.binders` lists: `nameI x`, `rem`/`band`'s `x` and a word `load x` bind the `let` name;
+`unpack`'s index, `region`/`openPub`'s region and `parity`'s half are binders.) -/
+def Expr.idxBinders : Expr → List String
+  | .let_ x op e =>
+      (match op with | .ldp _ _ n0 n1 => [n0, n1] | .rem _ _ | .band _ _ => [x ++ "_d"] | _ => []) ++ e.idxBinders
+  | .split _ _ _ e | .unpack _ _ _ e | .unpackT _ _ _ e | .region _ _ _ _ e | .openPub _ _ _ _ e => e.idxBinders
+  | .case _ _ e₁ _ e₂ | .ifnull _ e₁ _ e₂ | .parity _ _ e₁ e₂ | .ifeq _ _ e₁ e₂ => e₁.idxBinders ++ e₂.idxBinders
+  | .cas _ _ _ _ _ _ ok fail | .casp _ _ _ _ _ _ _ _ ok fail => ok.idxBinders ++ fail.idxBinders
+  | .ret _ | .tail .. => []
+/-- Every name the declaration binds, as a variable or as an index, WITH multiplicity: the argument, the index parameters,
+the checker's own index names, the body's binders (all branches) and its index-only binders. Every way a name enters the
+checker's index context is in this list: `inames` starts as `d.idx.reverse` in `checkDecl` and grows only by `Cx.push`,
+every site of which is covered by `checkerIdxNames`, `Expr.binders` and `Expr.idxBinders`. -/
+def Decl.allNames (d : Decl) : List String :=
+  d.arg :: d.idx ++ checkerIdxNames ++ d.body.binders ++ d.body.idxBinders
+/-- The callee `f` with index arguments `is`: `none` = fine (not a loop function, or a literal index ≤ B). `bs` = the
+caller's `Decl.allNames`: the index name must be bound EXACTLY ONCE in the whole declaration, so the `nameI` binding
+`loopCallBad` recorded is the only binding the checker can resolve `f{m}` to. -/
+def callBad (p : Prog) (bs : List String) (nam : List (String × Nat)) (f : String) (is : List String) : Option (String × Nat) :=
+  match p.find? (·.name == f) with
+  | some d =>
+      match d.kind with
+      | .restricted _ _ _ (some B) =>
+          match selfBound d d.body with
+          | .bounded _ j =>
+              match is[j]? with
+              | some m =>
+                  if bs.count m != 1 then some (f, B) else
+                  match nam.find? (·.1 == m) with | some (_, v) => if v ≤ B then none else some (f, B) | none => some (f, B)
+              | none => some (f, B)
+          | _ => some (f, B)
+      | _ => none
+  | none => none
+/-- The call-site rule for `loop B` functions, for EVERY declaration (plain callers too — the callee's fuel bound is false
+otherwise): at each `call`, and each `tail` that is not a self tail, of a function whose kind is
+`.restricted _ _ _ (some B)`, the index argument at the callee's loop position `j` (`selfBound` of the callee) must be a name
+bound in THIS body by `let m = nameI (.lit v)`, or by `let m = nameI (.var c)` with `let c = .atom (.lit v)` earlier, and
+`v ≤ B`; and `m` — and `c` — must be bound exactly once in the declaration (`Decl.allNames`). Anything else (an index
+parameter of the caller, an arithmetic index, a name bound twice anywhere, a checker-internal name) is refused. Returns the
+first offending `(callee, B)`. -/
+def loopCallBad (p : Prog) (self : String) (bs : List String) (lits : List (String × Nat)) (nam : List (String × Nat)) :
+    Expr → Option (String × Nat)
+  | .let_ x (.atom (.lit v)) e => loopCallBad p self bs ((x, v) :: lits) nam e
+  | .let_ x (.nameI (.lit v)) e => loopCallBad p self bs lits ((x, v) :: nam) e
+  | .let_ x (.nameI (.var c)) e =>
+      loopCallBad p self bs lits
+        (match (if bs.count c == 1 then lits.find? (·.1 == c) else none) with | some (_, v) => (x, v) :: nam | none => nam) e
+  | .let_ _ (.call f is _ _) e => match callBad p bs nam f is with | some r => some r | none => loopCallBad p self bs lits nam e
+  | .let_ _ _ e | .split _ _ _ e | .unpack _ _ _ e | .unpackT _ _ _ e | .region _ _ _ _ e | .openPub _ _ _ _ e =>
+      loopCallBad p self bs lits nam e
+  | .case _ _ e₁ _ e₂ | .ifnull _ e₁ _ e₂ | .parity _ _ e₁ e₂ | .ifeq _ _ e₁ e₂
+  | .cas _ _ _ _ _ _ e₁ e₂ | .casp _ _ _ _ _ _ _ _ e₁ e₂ =>
+      match loopCallBad p self bs lits nam e₁ with | some r => some r | none => loopCallBad p self bs lits nam e₂
+  | .ret _ => none
+  | .tail f is _ _ => if f == self then none else callBad p bs nam f is
+def loopCallsOK (p : Prog) (d : Decl) : Bool := (loopCallBad p d.name d.allNames [] [] d.body).isNone
+/-- Program-wide (the hypothesis of the restricted-function theorems). Declaration names must be unique, since `declFuel`
+and `kindOf` use `p.find?`; every declaration obeys the call-site rule. -/
+def RestrictedProg (p : Prog) : Prop :=
+  (p.map (·.name)).Nodup ∧ ∀ d ∈ p, restrictedDeclOK p d = true ∧ loopCallsOK p d = true     -- the call-site rule for ALL decls
+
+
+/-! ### Per-rule refinements of `restrictedOK`, for the checker's messages 1–6 only (NOT roots)
+
+`ruleOK i` is `restrictedOK` with only rule `i`'s conjuncts (1: allocation/spawn/region/park/thread id; 2: read-only
+writes, non-`pure` externs, `cas`/`casp`; 3: calls of non-restricted functions; 4: read-only calls of non-read-only
+functions; 5: `callc` other than on a restricted argument; 6: `callc` under `ro`).  The checker tests
+`restrictedOK … || ruleOK i …`, a LITERAL conjunct guard: when `restrictedOK` holds no message 1–6 fires. -/
+def ruleOK (i : Nat) (ro : Bool) (self : String) (kindOf : String → Option DeclKind) (argName : String)
+    (argCode : Option CodeKind) : Expr → Bool
+  | .let_ _ op e =>
+      (match i with
+       | 1 => !opAllocates op && (match op with | .ext n _ => n != .park && n != .current | _ => true)
+       | 2 => (!ro || !opWrites op) && (match op with | .ext n _ => !ro || n.pure | _ => true)
+       | 3 => (match op with | .call f _ _ _ => (match kindOf f with | some (.restricted ..) => true | _ => false) | _ => true)
+       | 4 => (match op with | .call f _ _ _ => (match kindOf f with | some (.restricted _ _ r _) => !ro || r | _ => true) | _ => true)
+       | 5 => (match op with
+               | .callc f _ => f == .var argName && (match argCode with | some (.restricted ..) => true | _ => false)
+               | _ => true)
+       | 6 => (match op with | .callc .. => !ro | _ => true)
+       | _ => true) && ruleOK i ro self kindOf argName argCode e
+  | .region _ _ _ _ _ => i != 1
+  | .split _ _ _ e | .unpack _ _ _ e | .unpackT _ _ _ e | .openPub _ _ _ _ e => ruleOK i ro self kindOf argName argCode e
+  | .case _ _ e₁ _ e₂ | .ifnull _ e₁ _ e₂ | .parity _ _ e₁ e₂ | .ifeq _ _ e₁ e₂ =>
+      ruleOK i ro self kindOf argName argCode e₁ && ruleOK i ro self kindOf argName argCode e₂
+  | .cas _ _ _ _ _ _ ok fail | .casp _ _ _ _ _ _ _ _ ok fail =>
+      (i != 2 || !ro) && ruleOK i ro self kindOf argName argCode ok && ruleOK i ro self kindOf argName argCode fail
+  | .ret _ => true
+  | .tail f _ _ _ =>
+      if f == self then true else
+      match i with
+      | 3 => (match kindOf f with | some (.restricted ..) => true | _ => false)
+      | 4 => (match kindOf f with | some (.restricted _ _ r _) => !ro || r | _ => true)
+      | _ => true
+
+/-! ### The cell pass (UNFROZEN): an untrusted count, never a soundness issue: no theorem uses it; Kraken's
+compile step checks the exact byte need ≤ interrupt-stack size; `#guard`s pin each binder form's width rule. -/
+
+/-- The variable names an atom mentions. -/
+def At.names : At → List String
+  | .var x => [x]
+  | _ => []
+/-- Every atom operand of an operation (and the torn read a `validate` names). -/
+def Op.names : Op → List String
+  | .atom a | .inl _ a | .inr _ a | .new a _ | .fold a _ | .publish a | .intoRgn _ a | .newBuf a _ | .fld _ a | .load _ a
+  | .pack a _ _ | .packT a _ _ | .call _ _ a _ | .borrow _ a | .endBorrow a | .nameI a | .bit1 _ a | .freeze a
+  | .cvt _ _ a | .toInt a | .asLanes _ _ a | .fop1 _ a | .spawn _ a _ _ | .ext _ a | .isTy a _ => a.names
+  | .pair a b | .add a b | .sub a b | .idx a b | .xchg a b | .callc a b | .rem a b | .loadAt a b | .bits _ a b
+  | .band a b | .loadAtF a b _ | .fop _ a b | .fcmp _ a b | .lane a b | .ldl a b | .claim a b | .mkWord _ _ a b
+  | .mkEPair _ _ a b | .mkTicket _ _ _ a b => a.names ++ b.names
+  | .bufInit a b c | .xchgAt a b c | .vmatch a b c | .xchgAtF a b _ c | .setLane a b c | .stl a b c
+  | .ldlw a b c => a.names ++ b.names ++ c.names
+  | .ldp _ a _ _ => a.names
+  | .store _ a v tok => a.names ++ v.names ++ (match tok with | some t => t.names | none => [])
+  | .stlw a b c v | .stp _ a b c v => a.names ++ b.names ++ c.names ++ v.names
+  | .mkWord2 _ _ a b v => a.names ++ b.names ++ v.names
+  | .fetch _ _ _ a b => a.names ++ b.names
+  | .validate y => [y]
+  | .null .. | .fence _ | .fnptr _ | .zero _ => []
+/-- The free variable names of a term (binders of the node itself removed from its continuations). -/
+def Expr.freeVars : Expr → List String
+  | .let_ x op e => op.names ++ e.freeVars.filter (· != x)
+  | .split a x y e | .unpack a x y e | .unpackT a x y e => a.names ++ e.freeVars.filter (fun z => z != x && z != y)
+  | .region a r p t e | .openPub a r p t e => a.names ++ e.freeVars.filter (fun z => z != r && z != p && z != t)
+  | .case a x e₁ y e₂ => a.names ++ e₁.freeVars.filter (· != x) ++ e₂.freeVars.filter (· != y)
+  | .ifnull a e₁ x e₂ => a.names ++ e₁.freeVars ++ e₂.freeVars.filter (· != x)
+  | .parity a k e₁ e₂ => a.names ++ e₁.freeVars.filter (· != k) ++ e₂.freeVars.filter (· != k)
+  | .ifeq a b e₁ e₂ => a.names ++ b.names ++ e₁.freeVars ++ e₂.freeVars
+  | .cas _ _ w e v t ok fail => w.names ++ e.names ++ v.names ++ ok.freeVars.filter (· != t) ++ fail.freeVars.filter (· != t)
+  | .casp _ _ w e0 e1 v0 v1 t ok fail =>
+      w.names ++ e0.names ++ e1.names ++ v0.names ++ v1.names ++ ok.freeVars.filter (· != t) ++ fail.freeVars.filter (· != t)
+  | .ret a => a.names
+  | .tail _ _ a _ => a.names
+def Ty.wordsClosed (t : Ty) : Option Nat := t.width.bind Idx.closed       -- `width : Ty → Option Idx`
+-- (`t.words` = `kind` with 0 index variables gives `none` for EVERY index-typed binder — `Int[a]`, `Ptr[a] Int`,
+-- `Word[a, M]`, so any decl with index parameters, any `unpack`/`openPub` binder and any `cas` would get the
+-- fixed-width refusal; `width` gives `Int[a]`/`Ptr[a] Int`/`Word` → 1, `Tok` → 0, `Array[a] Int` → none)
+/-- Live words at a node: the binders in scope `vs` whose names occur free in the node (operands AND the continuation; a
+binder of the node itself is not in `vs` and counts from the first sub-node where it is in scope), weighed by the width table
+`ws` (every binder of the decl, argument first, then `checkBinders`'s table). `noShadow` makes names unique, so lookup by
+name is exact. (Operands are counted at their node — the words are still held when the op runs; this is the
+conservative reading of "live at any point".) -/
+def liveWords (ws : List (String × Nat)) (vs : List String) (e : Expr) : Nat :=
+  (vs.filter fun x => e.freeVars.contains x).foldl (fun n x => n + ((ws.lookup x).getD 0)) 0
+/-- Cells of one frame: the largest live-word count over ALL nodes of `e` (`max (liveWords ws vs node) …` at every
+node); a `call`/`callc` node adds the callee's DECLARED cells while the callee runs (the result binder is not yet live then;
+afterwards it is, the callee is gone). Arities per `Expr`. -/
+def frameCells (ws : List (String × Nat)) (calleeCells : String → Nat) (argCells : Nat) (self : String)
+    (vs : List String) : Expr → Nat
+  | .let_ x op e =>
+      let below := match op with | .call f _ _ _ => calleeCells f | .callc _ _ => argCells | _ => 0
+      max (liveWords ws vs (.let_ x op e) + below) (frameCells ws calleeCells argCells self (vs ++ [x]) e)
+  | .split a x y e => max (liveWords ws vs (.split a x y e)) (frameCells ws calleeCells argCells self (vs ++ [x, y]) e)
+  | .unpack a i x e => max (liveWords ws vs (.unpack a i x e)) (frameCells ws calleeCells argCells self (vs ++ [x]) e)
+  | .unpackT a α x e => max (liveWords ws vs (.unpackT a α x e)) (frameCells ws calleeCells argCells self (vs ++ [x]) e)
+  | .region a r p t e => max (liveWords ws vs (.region a r p t e)) (frameCells ws calleeCells argCells self (vs ++ [p, t]) e)  -- refused by `restrictedOK`; kept for totality
+  | .openPub a r p c e => max (liveWords ws vs (.openPub a r p c e)) (frameCells ws calleeCells argCells self (vs ++ [p, c]) e)
+  | .case a x e₁ y e₂ =>
+      max (liveWords ws vs (.case a x e₁ y e₂))
+        (max (frameCells ws calleeCells argCells self (vs ++ [x]) e₁) (frameCells ws calleeCells argCells self (vs ++ [y]) e₂))
+  | .ifnull a e₁ x e₂ =>
+      max (liveWords ws vs (.ifnull a e₁ x e₂))
+        (max (frameCells ws calleeCells argCells self vs e₁) (frameCells ws calleeCells argCells self (vs ++ [x]) e₂))
+  | .parity a k e₁ e₂ =>   -- `k` is an index, no word
+      max (liveWords ws vs (.parity a k e₁ e₂))
+        (max (frameCells ws calleeCells argCells self vs e₁) (frameCells ws calleeCells argCells self vs e₂))
+  | .ifeq a b e₁ e₂ =>
+      max (liveWords ws vs (.ifeq a b e₁ e₂))
+        (max (frameCells ws calleeCells argCells self vs e₁) (frameCells ws calleeCells argCells self vs e₂))
+  | .cas acq rel w e v t ok fail =>
+      max (liveWords ws vs (.cas acq rel w e v t ok fail))
+        (max (frameCells ws calleeCells argCells self (vs ++ [t]) ok) (frameCells ws calleeCells argCells self (vs ++ [t]) fail))
+  | .casp acq rel w e0 e1 v0 v1 t ok fail =>
+      max (liveWords ws vs (.casp acq rel w e0 e1 v0 v1 t ok fail))
+        (max (frameCells ws calleeCells argCells self (vs ++ [t]) ok) (frameCells ws calleeCells argCells self (vs ++ [t]) fail))
+  | .ret a => liveWords ws vs (.ret a)
+  | .tail f is a ts => if f == self then liveWords ws vs (.tail f is a ts) else max (liveWords ws vs (.tail f is a ts)) (calleeCells f)
+/-- A callee's cells = its DECLARED stack budget (as `declFuel` uses the declared fuel): structurally terminating, and the
+callee's own `checkDecl` has already checked its budget against its need. -/
+def declCells (p : Prog) (f : String) : Nat :=
+  match ((p.find? (·.name == f)).map (·.kind) : Option DeclKind) with | some (.restricted _ s _ _) => s | _ => 0
+def argCellsOf (d : Decl) : Nat := match d.argTy with | .code _ _ (.restricted _ s _) => s | _ => 0     -- `CodeKind.restricted` has no `loop` field
+def cellsDecl (p : Prog) (d : Decl) (tbl : List (String × Ty)) : Except String Nat := do
+  let ws ← ((d.arg, d.argTy) :: tbl).mapM fun (x, t) =>
+    match Ty.wordsClosed t with | some w => pure (x, w) | none => throw s!"{d.name}: a restricted function's binders must have a fixed width"
+  pure (1 + frameCells ws (declCells p) (argCellsOf d) d.name [d.arg] d.body)
+
+/-- The first name that occurs twice. STRUCTURAL, so `decide +kernel` on `checkProg` keeps reducing (library programs are
+typed by `checkProg_sound _ (ok_of_accepts (by decide +kernel))`). -/
+def firstDup : List String → Option String
+  | [] => none
+  | n :: ns => if ns.contains n then some n else firstDup ns
+
 def checkDecl (p : Prog) (d : Decl) : M Unit := do
   let nt := d.tparams.length
   if !d.argTy.wf nt d.idx.length || !d.retTy.wf nt d.idx.length then
     throw s!"{d.name}: signature is not well formed"
   if !d.argTy.scTop || d.retTy.secondClass then
     throw s!"{d.name}: a second-class capability may be passed, not returned or stored"
-  check p { inames := d.idx.reverse, vars := [(d.arg, d.argTy, true)], ret := d.retTy,
-            ke := d.tparams.reverse.map some } d.body
+  -- the walk runs once: the binder table is bound here and reused by the cell pass below
+  let tbl ← checkBinders p { inames := d.idx.reverse, vars := [(d.arg, d.argTy, true)], ret := d.retTy,
+                             ke := d.tparams.reverse.map some } d.body
   -- the kind rules; no rule mentions a decl by name (`isDev` is by KIND)
   let isDev : String → Bool := fun f => ((p.find? (·.name == f)).map (·.kind == .device)).getD false
   if d.kind == .device && !(devCells d.argTy).all devCellOK then
@@ -2596,12 +3332,295 @@ def checkDecl (p : Prog) (d : Decl) : M Unit := do
     throw s!"{d.name}: device externs and device functions may be used only inside a device function"
   if !exprNoDevFnptr isDev d.body then
     throw s!"{d.name}: a device function cannot be taken as a value"
+  -- ALL kinds: the call-site rule for loop functions (message 16)
+  match loopCallBad p d.name d.allNames [] [] d.body with
+  | some (f, B) => throw s!"{d.name}: a call of {f} must give its loop index a literal of at most {B}, through a name bound once"
+  | none => pure ()
   match d.kind with
-  | .restricted _ _ =>
-      throw s!"{d.name}: restricted functions are not supported yet (fuel and stack budgets are not checked)"
+  | .restricted fuel stack ro loop =>
+      if !noShadow d then throw s!"{d.name}: a restricted function may not rebind a name"                      -- 8
+      -- the loop rule: 15 (`loop` given, no self tail) and 7 (self tail without `loop`, or a bad shape)
+      match loop, selfBound d d.body with
+      | some _, .noTail => throw s!"{d.name}: loop is given but the function has no self tail call"
+      | none, .noTail => pure ()
+      | some _, .bounded _ _ => pure ()
+      | _, _ => throw s!"{d.name}: a restricted function loops only under a loop bound, by decreasing one index parameter behind a zero test"
+      -- messages 1–6: the per-rule Bools are non-root copies of the matching conjunct of `restrictedOK`; each is a LITERAL
+      -- conjunct of `restrictedDeclOK`, never stricter: `checkDecl_complete` needs `restrictedDeclOK = true` to imply every one
+      -- of them
+      let kindOf : String → Option DeclKind := fun f => (p.find? (·.name == f)).map (·.kind)
+      let argCode : Option CodeKind := match d.argTy with | .code _ _ k => some k | _ => none
+      let rOK := restrictedOK ro d.name kindOf d.arg argCode d.body
+      if !(rOK || ruleOK 1 ro d.name kindOf d.arg argCode d.body) then
+        throw s!"{d.name}: a restricted function may not allocate, spawn, open a region, park or ask for its thread id"
+      if !(rOK || ruleOK 2 ro d.name kindOf d.arg argCode d.body) then
+        throw s!"{d.name}: a read-only function may not store, compare-and-swap, advance a protocol or use an extern other than a read-only register read or `regAt`"
+      if !(rOK || ruleOK 3 ro d.name kindOf d.arg argCode d.body) then
+        throw s!"{d.name}: a restricted function may call only restricted functions"
+      if !(rOK || ruleOK 4 ro d.name kindOf d.arg argCode d.body) then
+        throw s!"{d.name}: a read-only function may call only read-only functions"
+      if !(rOK || ruleOK 5 ro d.name kindOf d.arg argCode d.body) then
+        throw s!"{d.name}: a restricted function may call through a code value only when it is its argument and that argument is restricted"
+      if !(rOK || ruleOK 6 ro d.name kindOf d.arg argCode d.body) then
+        throw s!"{d.name}: a read-only function may not call through a code value"
+      let n := fuelDecl p d
+      if fuel < n then throw s!"{d.name}: the fuel budget is {fuel} but the body needs {n}"                     -- 9
+      if !(restrictedDeclOK p d) then throw s!"{d.name}: a restricted function violates the restricted rules"  -- 13, DECIDES
+      let c ← cellsDecl p d tbl
+      if stack < c then throw s!"{d.name}: the stack budget is {stack} cells but the body needs {c}"          -- 10 (or 11 from `cellsDecl`)
   | _ => pure ()
 
-def checkProg (p : Prog) : M Unit := p.forM (checkDecl p)
+
+
+
+/-- (Proofs only, not a root.) `checkDecl`'s restricted pass after the loop rule, with every `if … then throw …` continued
+under `else`: the same rules in the same order. -/
+def restrictedRest (p : Prog) (d : Decl) (tbl : List (String × Ty)) (fuel stack : Nat) (ro : Bool) : M Unit :=
+      let kindOf : String → Option DeclKind := fun f => (p.find? (·.name == f)).map (·.kind)
+      let argCode : Option CodeKind := match d.argTy with | .code _ _ k => some k | _ => none
+      let rOK := restrictedOK ro d.name kindOf d.arg argCode d.body
+      if !(rOK || ruleOK 1 ro d.name kindOf d.arg argCode d.body) then
+        throw s!"{d.name}: a restricted function may not allocate, spawn, open a region, park or ask for its thread id" else
+      if !(rOK || ruleOK 2 ro d.name kindOf d.arg argCode d.body) then
+        throw s!"{d.name}: a read-only function may not store, compare-and-swap, advance a protocol or use an extern other than a read-only register read or `regAt`" else
+      if !(rOK || ruleOK 3 ro d.name kindOf d.arg argCode d.body) then
+        throw s!"{d.name}: a restricted function may call only restricted functions" else
+      if !(rOK || ruleOK 4 ro d.name kindOf d.arg argCode d.body) then
+        throw s!"{d.name}: a read-only function may call only read-only functions" else
+      if !(rOK || ruleOK 5 ro d.name kindOf d.arg argCode d.body) then
+        throw s!"{d.name}: a restricted function may call through a code value only when it is its argument and that argument is restricted" else
+      if !(rOK || ruleOK 6 ro d.name kindOf d.arg argCode d.body) then
+        throw s!"{d.name}: a read-only function may not call through a code value" else
+      let n := fuelDecl p d
+      if fuel < n then throw s!"{d.name}: the fuel budget is {fuel} but the body needs {n}" else
+      if !(restrictedDeclOK p d) then throw s!"{d.name}: a restricted function violates the restricted rules" else
+      do
+      let c ← cellsDecl p d tbl
+      if stack < c then throw s!"{d.name}: the stack budget is {stack} cells but the body needs {c}" else pure ()
+
+/-- (Proofs only, not a root.) `checkDecl`'s restricted pass in linear form.  (Unfolding `checkDecl` inlines each `do` join
+point into both branches of its `if`, doubling the term per rule; `checkDecl_eq` restates `checkDecl` over this form, by
+`rfl`.) -/
+def restrictedPass (p : Prog) (d : Decl) (tbl : List (String × Ty)) : M Unit :=
+  match d.kind with
+  | .restricted fuel stack ro loop =>
+      if !noShadow d then throw s!"{d.name}: a restricted function may not rebind a name" else
+      match loop, selfBound d d.body with
+      | some _, .noTail => throw s!"{d.name}: loop is given but the function has no self tail call"
+      | none, .noTail => restrictedRest p d tbl fuel stack ro
+      | some _, .bounded _ _ => restrictedRest p d tbl fuel stack ro
+      | _, _ => throw s!"{d.name}: a restricted function loops only under a loop bound, by decreasing one index parameter behind a zero test"
+  | _ => pure ()
+
+theorem checkDecl_eq (p : Prog) (d : Decl) : checkDecl p d = (do
+  let nt := d.tparams.length
+  if !d.argTy.wf nt d.idx.length || !d.retTy.wf nt d.idx.length then
+    throw s!"{d.name}: signature is not well formed"
+  if !d.argTy.scTop || d.retTy.secondClass then
+    throw s!"{d.name}: a second-class capability may be passed, not returned or stored"
+  let tbl ← checkBinders p { inames := d.idx.reverse, vars := [(d.arg, d.argTy, true)], ret := d.retTy,
+                             ke := d.tparams.reverse.map some } d.body
+  let isDev : String → Bool := fun f => ((p.find? (·.name == f)).map (·.kind == .device)).getD false
+  if d.kind == .device && !(devCells d.argTy).all devCellOK then
+    throw s!"{d.name}: a device function may only be given cells of plain bits, protocol words or word pairs"
+  if d.kind != .device && !exprNoDevOnly isDev d.body then
+    throw s!"{d.name}: device externs and device functions may be used only inside a device function"
+  if !exprNoDevFnptr isDev d.body then
+    throw s!"{d.name}: a device function cannot be taken as a value"
+  match loopCallBad p d.name d.allNames [] [] d.body with
+  | some (f, B) => throw s!"{d.name}: a call of {f} must give its loop index a literal of at most {B}, through a name bound once"
+  | none => pure ()
+  restrictedPass p d tbl) := rfl
+
+/-! ### Type-test targets.  The types a program tests with
+`isTy`, and `new`'s allocation annotation; read by `tstep`'s `new` flag and by the checker's
+`scopeAllocOK`. -/
+
+/-- T1: the targets of one body: the same arms as `scan` (every `Expr` constructor). -/
+def tgtScan (tgtOf : Op → Option Ty) : Expr → List Ty
+  | .let_ _ op e => (match tgtOf op with | some τ => [τ] | none => []) ++ tgtScan tgtOf e
+  | .split _ _ _ e => tgtScan tgtOf e
+  | .unpack _ _ _ e => tgtScan tgtOf e
+  | .unpackT _ _ _ e => tgtScan tgtOf e
+  | .region _ _ _ _ e => tgtScan tgtOf e
+  | .openPub _ _ _ _ e => tgtScan tgtOf e
+  | .case _ _ e₁ _ e₂ => tgtScan tgtOf e₁ ++ tgtScan tgtOf e₂
+  | .ifnull _ e₁ _ e₂ => tgtScan tgtOf e₁ ++ tgtScan tgtOf e₂
+  | .parity _ _ e₁ e₂ => tgtScan tgtOf e₁ ++ tgtScan tgtOf e₂
+  | .ifeq _ _ e₁ e₂ => tgtScan tgtOf e₁ ++ tgtScan tgtOf e₂
+  | .cas _ _ _ _ _ _ e₁ e₂ => tgtScan tgtOf e₁ ++ tgtScan tgtOf e₂
+  | .casp _ _ _ _ _ _ _ _ e₁ e₂ => tgtScan tgtOf e₁ ++ tgtScan tgtOf e₂
+  | .ret _ => []
+  | .tail _ _ _ _ => []
+
+/-- T2: the program's type-test targets: every declaration body, in program order (no dedup:
+only `contains`/`any`/`isEmpty` read it). -/
+def progTgtsP (tgtOf : Op → Option Ty) (p : Prog) : List Ty :=
+  p.flatMap fun d => tgtScan tgtOf d.body
+
+/-- T3: `τ` is tested somewhere in `e` (a syntactic occurrence, the walk's arms). -/
+def OccTgt (tgtOf : Op → Option Ty) (τ : Ty) : Expr → Prop
+  | .let_ _ op e => tgtOf op = some τ ∨ OccTgt tgtOf τ e
+  | .split _ _ _ e => OccTgt tgtOf τ e
+  | .unpack _ _ _ e => OccTgt tgtOf τ e
+  | .unpackT _ _ _ e => OccTgt tgtOf τ e
+  | .region _ _ _ _ e => OccTgt tgtOf τ e
+  | .openPub _ _ _ _ e => OccTgt tgtOf τ e
+  | .case _ _ e₁ _ e₂ => OccTgt tgtOf τ e₁ ∨ OccTgt tgtOf τ e₂
+  | .ifnull _ e₁ _ e₂ => OccTgt tgtOf τ e₁ ∨ OccTgt tgtOf τ e₂
+  | .parity _ _ e₁ e₂ => OccTgt tgtOf τ e₁ ∨ OccTgt tgtOf τ e₂
+  | .ifeq _ _ e₁ e₂ => OccTgt tgtOf τ e₁ ∨ OccTgt tgtOf τ e₂
+  | .cas _ _ _ _ _ _ e₁ e₂ => OccTgt tgtOf τ e₁ ∨ OccTgt tgtOf τ e₂
+  | .casp _ _ _ _ _ _ _ _ e₁ e₂ => OccTgt tgtOf τ e₁ ∨ OccTgt tgtOf τ e₂
+  | .ret _ => False
+  | .tail _ _ _ _ => False
+
+/-- L-T1: the walk collects exactly the occurring targets (completeness is `.mp`). -/
+theorem mem_tgtScan (tgtOf : Op → Option Ty) (τ : Ty) (e : Expr) :
+    τ ∈ tgtScan tgtOf e ↔ OccTgt tgtOf τ e := by
+  induction e <;> simp only [tgtScan, OccTgt, List.mem_append, List.not_mem_nil, *]
+  case let_ _ op _ _ => cases h : tgtOf op <;> simp [eq_comm]
+  all_goals simp
+
+/-- Completeness: a target tested in some declaration body of `p` is in `progTgtsP`. -/
+theorem progTgts_complete (tgtOf : Op → Option Ty) (p : Prog) (τ : Ty) (d : Decl)
+    (hd : d ∈ p) (ho : OccTgt tgtOf τ d.body) : τ ∈ progTgtsP tgtOf p :=
+  List.mem_flatMap.mpr ⟨d, hd, (mem_tgtScan tgtOf τ d.body).mpr ho⟩
+
+/-- And conversely (no spurious target). -/
+theorem progTgts_sound (tgtOf : Op → Option Ty) (p : Prog) (τ : Ty)
+    (h : τ ∈ progTgtsP tgtOf p) : ∃ d ∈ p, OccTgt tgtOf τ d.body := by
+  obtain ⟨d, hd, hm⟩ := List.mem_flatMap.mp h
+  exact ⟨d, hd, (mem_tgtScan tgtOf τ d.body).mp hm⟩
+
+/-- The empty case: no target is tested anywhere iff `progTgtsP` is empty. -/
+theorem progTgts_nil (tgtOf : Op → Option Ty) (p : Prog) :
+    progTgtsP tgtOf p = [] ↔ ∀ d ∈ p, ∀ τ, ¬ OccTgt tgtOf τ d.body := by
+  constructor
+  · intro h d hd τ ho; have := progTgts_complete tgtOf p τ d hd ho; simp [h] at this
+  · intro h; apply List.eq_nil_iff_forall_not_mem.mpr; intro τ hτ
+    obtain ⟨d, hd, ho⟩ := progTgts_sound tgtOf p τ hτ; exact h d hd τ ho
+
+/-- The allocation annotation: the type a `new` allocates at. -/
+def annNew : Op → Option Ty := fun | .new _ (some T) => some T | _ => none
+
+/-- The program's type-test targets: `progTgtsP` at the type tests (`isTy`). -/
+def progTgts (p : Prog) : List Ty := progTgtsP (fun | .isTy _ τ => some τ | _ => none) p
+
+/-! ### Opened type packages and type tests.
+The checker refuses an allocation inside an opened type package whose type mentions the hidden
+type and could be a type-test target (R-A1), and a call that passes such a type to a callee
+allocating so (R-A2). -/
+
+/-- `s` mentions a type variable bound inside the pattern (below depth `c`). -/
+def boundIn (c : Nat) (s : Ty) : Bool := (List.range c).any (s.tyMentions ·)
+
+/-- One-sided matching.  Does some instance of the pattern `T` (every free type variable a
+pattern variable) equal the closed target `τ`?  Nonlinear use of one variable is not checked
+(may say true more often: refuses more, never less). -/
+def tmatch (c : Nat) : Ty → Ty → Bool
+  | .tvar k, s => if k < c then s == .tvar k else !boundIn c s
+  | .prod a b, .prod a' b' => tmatch c a a' && tmatch c b b'
+  | .sum a b, .sum a' b' => tmatch c a a' && tmatch c b b'
+  | .code a b k, .code a' b' k' => k == k' && tmatch c a a' && tmatch c b b'
+  | .ptr μ t, .ptr μ' t' => μ == μ' && tmatch c t t'
+  | .ptrOpt μ t, .ptrOpt μ' t' => μ == μ' && tmatch c t t'
+  | .loc μ t, .loc μ' t' => μ == μ' && tmatch c t t'
+  | .iall t, .iall t' => tmatch c t t'
+  | .iex t, .iex t' => tmatch c t t'
+  | .array i t, .array i' t' => i == i' && tmatch c t t'
+  | .refine t ψ, .refine t' ψ' => ψ == ψ' && tmatch c t t'
+  | .tex κ t, .tex κ' t' => κ == κ' && tmatch (c + 1) t t'
+  | .mu t, .mu t' => tmatch (c + 1) t t'
+  | t, s => t == s
+
+/-- Some instance of `T` could be a test target. -/
+def couldTgt (tgts : List Ty) (T : Ty) : Bool := tgts.any (tmatch 0 T)
+
+/-- An allocation at `T` with the hidden (tainted) variables `bad` is refused. -/
+def hits (tgts : List Ty) (bad : List Nat) (T : Ty) : Bool :=
+  bad.any (T.tyMentions ·) && couldTgt tgts T
+
+/-- The callee's tainted variables: `enter` binds `tvar k` to `ts[len-1-k]` (TermRun:1063). -/
+def taintOf (bad : List Nat) (ts : List Ty) : List Nat :=
+  (List.range ts.length).filter fun k =>
+    match ts[ts.length - 1 - k]? with
+    | some t => bad.any (t.tyMentions ·)
+    | none => false
+
+def opCalls (bad : List Nat) : Op → List (String × List Nat)
+  | .call f _ _ ts => [(f, taintOf bad ts)]
+  | .spawn f _ _ ts => [(f, taintOf bad ts)]
+  | _ => []
+
+abbrev Scan := List Ty × List (String × List Nat)
+def both (x y : Scan) : Scan := (x.1 ++ y.1, x.2 ++ y.2)
+
+/-- The walk: refused allocation types, and calls with their callee taint. `unpackT` opens
+`tvar 0` and shifts the rest (as `Cx.pushT`, CoreTerm:1058). -/
+def scan (ann : Op → Option Ty) (tgts : List Ty) (bad : List Nat) : Expr → Scan
+  | .let_ _ op e =>
+      both ((match ann op with | some T => if hits tgts bad T then [T] else [] | none => []),
+            opCalls bad op) (scan ann tgts bad e)
+  | .split _ _ _ e => scan ann tgts bad e
+  | .unpack _ _ _ e => scan ann tgts bad e
+  | .unpackT _ _ _ e => scan ann tgts (0 :: bad.map (· + 1)) e
+  | .region _ _ _ _ e => scan ann tgts bad e
+  | .openPub _ _ _ _ e => scan ann tgts bad e
+  | .case _ _ e₁ _ e₂ => both (scan ann tgts bad e₁) (scan ann tgts bad e₂)
+  | .ifnull _ e₁ _ e₂ => both (scan ann tgts bad e₁) (scan ann tgts bad e₂)
+  | .parity _ _ e₁ e₂ => both (scan ann tgts bad e₁) (scan ann tgts bad e₂)
+  | .ifeq _ _ e₁ e₂ => both (scan ann tgts bad e₁) (scan ann tgts bad e₂)
+  | .cas _ _ _ _ _ _ e₁ e₂ => both (scan ann tgts bad e₁) (scan ann tgts bad e₂)
+  | .casp _ _ _ _ _ _ _ _ e₁ e₂ => both (scan ann tgts bad e₁) (scan ann tgts bad e₂)
+  | .ret _ => ([], [])
+  | .tail f _ _ ts => ([], [(f, taintOf bad ts)])
+
+/-- The worklist over (callee, tainted variables) for R-A2; `seen` makes it finite. -/
+def reach (p : Prog) (ann : Op → Option Ty) (tgts : List Ty) (caller f : String) :
+    Nat → List (String × List Nat) → List (String × List Nat) → Except String Unit
+  | _, [], _ => pure ()
+  | 0, _ :: _, _ =>
+      throw s!"{caller}: call {f}: cannot decide whether a type argument from an opened type package reaches a type-test target (too many call paths to check)"
+  | n + 1, (g, bad) :: rest, seen =>
+      if seen.contains (g, bad) then reach p ann tgts caller f n rest seen else
+      match p.find? (·.name == g) with
+      | none => reach p ann tgts caller f n rest ((g, bad) :: seen)
+      | some d =>
+          let r := scan ann tgts bad d.body
+          if !r.1.isEmpty then
+            throw s!"{caller}: call {f}: a type argument from an opened type package reaches an allocation that could be a type-test target"
+          else reach p ann tgts caller f n (rest ++ r.2.filter (!·.2.isEmpty)) ((g, bad) :: seen)
+
+def scopeFuel : Nat := 4096
+
+/-- The program check.  R-A1 for every declaration first, then R-A2 from each tainted call. -/
+def scopeAllocOKF (fuel : Nat) (p : Prog) (ann : Op → Option Ty) (tgts : List Ty) :
+    Except String Unit := do
+  if tgts.isEmpty then return ()
+  p.forM fun d =>
+    if !(scan ann tgts [] d.body).1.isEmpty then
+      throw s!"{d.name}: new: inside an opened type package, an allocation whose type mentions the hidden type must not be a possible type-test target"
+    else pure ()
+  p.forM fun d =>
+    ((scan ann tgts [] d.body).2.filter (!·.2.isEmpty)).forM fun (f, bad) =>
+      reach p ann tgts d.name f fuel [(f, bad)] []
+
+def scopeAllocOK (p : Prog) (ann : Op → Option Ty) (tgts : List Ty) : Except String Unit :=
+  scopeAllocOKF scopeFuel p ann tgts
+
+/-- At no hidden position, no call is tainted. -/
+theorem taintOf_nil (ts : List Ty) : taintOf [] ts = [] := by
+  unfold taintOf; apply List.filter_eq_nil_iff.mpr
+  intro k _; split <;> simp
+
+def checkProg (p : Prog) : M Unit := do
+  if p.any (fun d => match d.kind with | .restricted .. => true | _ => false) then
+    match firstDup (p.map (·.name)) with
+    | some n => throw s!"a program with restricted functions may not define a name twice: {n}"
+    | none => pure ()
+  scopeAllocOK p annNew (progTgts p)
+  p.forM (checkDecl p)
 
 def accepts (r : M Unit) : Bool :=
   match r with
@@ -2665,10 +3684,10 @@ def mkMutexD : Decl where
   name := "mkMutex"; idx := []; arg := "x"
   argTy := .int
   retTy := mutex .int
-  body := lets [("p", .new (v "x"))]
+  body := lets [("p", .new (v "x") (some .int))]
     (.region (v "p") "r" "d" "t0"
       (lets [("wv", .mkWord "r" mutexP (.lit 0) (v "t0")),
-             ("pr", .pair (v "wv") (v "d")), ("s", .new (v "pr")),
+             ("pr", .pair (v "wv") (v "d")), ("s", .new (v "pr") (some (.prod (.word (.var 0) mutexP) (.ptr (.rgn (.var 0)) .int)))),
              ("s2", .publish (v "s")), ("mx", .pack (v "s2") "r" (mutex .int))]
         (.ret (v "mx"))))
 
@@ -2744,10 +3763,10 @@ def mkSeqD : Decl where
   name := "mkSeq"; idx := []; arg := "x"
   argTy := pay
   retTy := seqLock pay
-  body := lets [("p", .new (v "x"))]
+  body := lets [("p", .new (v "x") (some pay))]
     (.region (v "p") "r" "d" "t0"
       (lets [("wv", .mkWord "r" seqP (.lit 0) (v "t0")),
-             ("pr", .pair (v "wv") (v "d")), ("s", .new (v "pr")),
+             ("pr", .pair (v "wv") (v "d")), ("s", .new (v "pr") (some (.prod (.word (.var 0) seqP) (.ptr (.rgn (.var 0)) pay)))),
              ("s2", .publish (v "s")), ("sq", .pack (v "s2") "r" (seqLock pay))]
         (.ret (v "sq"))))
 
@@ -2801,13 +3820,13 @@ def seqLib : Prog := [readD, writeD, mkSeqD]
   "no single state of the protocol"
 -- A lock born locked would hold a region nobody can take.
 #guard rejects (checkDecl mutexLib { mkMutexD with
-    body := lets [("p", .new (v "x"))]
+    body := lets [("p", .new (v "x") (some .int))]
       (.region (v "p") "r" "d" "t0"
         (lets [("wv", .mkWord "r" mutexP (.lit 1) (v "t0"))] (.ret .unit))) })
   "born in a state that holds its region"
 -- Two words over one region: the second has no fresh token left.
 #guard rejects (checkDecl mutexLib { mkMutexD with
-    body := lets [("p", .new (v "x"))]
+    body := lets [("p", .new (v "x") (some .int))]
       (.region (v "p") "r" "d" "t0"
         (lets [("w1", .mkWord "r" mutexP (.lit 0) (v "t0")),
                ("w2", .mkWord "r" mutexP (.lit 0) (v "t0"))] (.ret .unit))) })
@@ -2817,7 +3836,7 @@ def leakD : Decl where
   name := "leak"; idx := []; arg := "x"
   argTy := .int
   retTy := .unit
-  body := lets [("p", .new (v "x")), ("q", .new (v "p")), ("s", .publish (v "q"))] (.ret .unit)
+  body := lets [("p", .new (v "x") (some .int)), ("q", .new (v "p") (some (.ptr .own .int))), ("s", .publish (v "q"))] (.ret .unit)
 #guard rejects (checkDecl [] leakD) "not shareable"
 -- A mutex has no optimistic readers: `0 → 1 → 0` re-enters a state (ABA).
 #guard rejects (checkDecl [readD' (readBody true false true true) mutexP]
@@ -2871,7 +3890,7 @@ def queue (τ : Ty) : Ty := .ptr .pub (.prod (.ptr .pub (node τ)) (.ptr .pub (n
 
 /-- A node for `x`, with no successor, published. -/
 def mkNode (τ : Ty) (x n : String) : List (String × Op) :=
-  [("nl", .null .pub (node τ)), ("n0", .pair (v x) (v "nl")), ("n1", .new (v "n0")),
+  [("nl", .null .pub (node τ)), ("n0", .pair (v x) (v "nl")), ("n1", .new (v "n0") (some (.prod τ (.ptrOpt .pub (node τ))))),
    ("n2", .fold (v "n1") (.ptr .own (node τ))), (n, .publish (v "n2"))]
 
 /-- The dummy's value is the argument: a queue needs no `τ` to be zeroable. -/
@@ -2880,7 +3899,7 @@ def mkQueueD (τ : Ty) : Decl where
   argTy := τ
   retTy := queue τ
   body := lets (mkNode τ "x" "d" ++
-                [("c", .pair (v "d") (v "d")), ("c1", .new (v "c")), ("q", .publish (v "c1"))])
+                [("c", .pair (v "d") (v "d")), ("c1", .new (v "c") (some (.prod (.ptr .pub (node τ)) (.ptr .pub (node τ))))), ("q", .publish (v "c1"))])
     (.ret (v "q"))
 
 /-- Link `n` after the last node, then swing `tail`; if `tail` lags, help it
@@ -2968,12 +3987,12 @@ def casIll : Expr :=
   "cas: the expected value does not have the cell's type"
 -- Folding something that is not an unrolling of the node type.
 def foldBad : Expr :=
-  lets [("p", .new (v "x")), ("p2", .fold (v "p") (.ptr .own (node .int)))] (.ret .unit)
+  lets [("p", .new (v "x") (some .int)), ("p2", .fold (v "p") (.ptr .own (node .int)))] (.ret .unit)
 #guard rejects (checkDecl (queueLib .int) { mkQueueD .int with body := foldBad })
   "not one unrolling"
 -- A node's successor is `Ptr?`, so an empty queue's dummy cannot be built without `null`.
 def foldNoNull : Expr :=
-  lets [("d0", .pair (v "x") (v "x")), ("d1", .new (v "d0")),
+  lets [("d0", .pair (v "x") (v "x")), ("d1", .new (v "d0") (some (.prod .int .int))),
         ("d2", .fold (v "d1") (.ptr .own (node .int)))] (.ret .unit)
 #guard rejects (checkDecl (queueLib .int) { mkQueueD .int with body := foldNoNull })
   "not one unrolling"
@@ -3094,18 +4113,18 @@ def withCNode (τ : Ty) (x n : String) (k : Expr) (own : Bool := false) : Expr :
   let inRgn :=
     .region (v (if own then x else "p")) "r" "dp" "t0"
       (lets [("wv", .mkWord "r" claimP (.lit 0) (v "t0")), ("pr", .pair (v "wv") (v "dp")),
-             ("s", .new (v "pr")), ("s2", .publish (v "s")),
+             ("s", .new (v "pr") (some (.prod (.word (.var 0) claimP) (.ptr (.rgn (.var 0)) (τ.shiftI 0))))), ("s2", .publish (v "s")),
              ("cc", .pack (v "s2") "r" (guardedBy claimP τ)),
-             ("nl", .null .pub (cnode τ)), ("n0", .pair (v "cc") (v "nl")), ("n1", .new (v "n0")),
+             ("nl", .null .pub (cnode τ)), ("n0", .pair (v "cc") (v "nl")), ("n1", .new (v "n0") (some (.prod (guardedBy claimP τ) (.ptrOpt .pub (cnode τ))))),
              ("n2", .fold (v "n1") (.ptr .own (cnode τ))), (n, .publish (v "n2"))] k)
-  if own then inRgn else lets [("p", .new (v x))] inRgn
+  if own then inRgn else lets [("p", .new (v x) (some τ))] inRgn
 
 def cmkQueueD (τ : Ty) (own : Bool := false) : Decl where
   name := "mkQueue"; idx := []; arg := "x"
   argTy := if own then .ptr .own τ else τ
   retTy := cqueue τ
   body := withCNode τ "x" "d" (own := own)
-    (lets [("c", .pair (v "d") (v "d")), ("c1", .new (v "c")), ("q", .publish (v "c1"))]
+    (lets [("c", .pair (v "d") (v "d")), ("c1", .new (v "c") (some (.prod (.ptr .pub (cnode τ)) (.ptr .pub (cnode τ))))), ("q", .publish (v "c1"))]
       (.ret (v "q")))
 
 def cenqD (τ : Ty) : Decl where
@@ -3260,9 +4279,9 @@ a claim word in state 0, and wrap the claim cell in a published node `n`. -/
 def withPCNode (x n : String) (k : Expr) : Expr :=
   .unpack (v x) "r" "g" (.split (v "g") "dp" "t0"
     (lets [("wv", .mkWord "r" claimP (.lit 0) (v "t0")), ("pr", .pair (v "wv") (v "dp")),
-           ("s", .new (v "pr")), ("s2", .publish (v "s")),
+           ("s", .new (v "pr") (some (.prod (.word (.var 0) claimP) (.ptr (.rgn (.var 0)) α)))), ("s2", .publish (v "s")),
            ("cc", .pack (v "s2") "r" (guardedBy claimP α)),
-           ("nl", .null .pub (cnode α)), ("n0", .pair (v "cc") (v "nl")), ("n1", .new (v "n0")),
+           ("nl", .null .pub (cnode α)), ("n0", .pair (v "cc") (v "nl")), ("n1", .new (v "n0") (some (.prod (guardedBy claimP α) (.ptrOpt .pub (cnode α))))),
            ("n2", .fold (v "n1") (.ptr .own (cnode α))), (n, .publish (v "n2"))] k))
 
 def pcmkQueueD (κ : Kind := pcκ) : Decl where
@@ -3270,7 +4289,7 @@ def pcmkQueueD (κ : Kind := pcκ) : Decl where
   argTy := rpkg α
   retTy := cqueue α
   body := withPCNode "x" "d"
-    (lets [("c", .pair (v "d") (v "d")), ("c1", .new (v "c")), ("q", .publish (v "c1"))]
+    (lets [("c", .pair (v "d") (v "d")), ("c1", .new (v "c") (some (.prod (.ptr .pub (cnode α)) (.ptr .pub (cnode α))))), ("q", .publish (v "c1"))]
       (.ret (v "q")))
 
 def pcenqD (κ : Kind := pcκ) : Decl where
@@ -3327,7 +4346,7 @@ def mkPkg (σ : Ty) (x k : String) (own : Bool := false) : Expr → Expr :=
     let rn := "r" ++ k
     let inRgn := .region (v (if own then x else "p" ++ k)) rn ("d" ++ k) ("t" ++ k)
       (lets [("g" ++ k, .pair (v ("d" ++ k)) (v ("t" ++ k))), (k, .pack (v ("g" ++ k)) rn (rpkg (σ.shiftI 0)))] e)
-    if own then inRgn else lets [("p" ++ k, .new (v x))] inRgn
+    if own then inRgn else lets [("p" ++ k, .new (v x) (some σ))] inRgn
 
 /-- Make a queue of `σ`, push one element, and claim one.  Each element is
 used exactly once here, so `σ` may be affine.  With `own`, the elements come

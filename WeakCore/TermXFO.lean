@@ -20,49 +20,54 @@ open CoreLang CoreTerm CoreTyping TermRun TermClose TermTv TermSound TermMem Ter
   TermStepper TermCert TermFul TermGlob TermTyped TermMain TermInterf TermNoHold
 open WeakMem (Val Msg Memory Address VState Ts Arch AllocLabel)
 
-/-- `InvAtXFZ` with the run's post-publish provenance `PfrProvO` from the run start `st`. -/
+/-- `InvAtXFZ` with the run's post-publish provenance `PfrProvO` from the run start `st`.
+It also carries the typed-record invariant `TyOKE` and the freshness bound `RecFresh` at the same environment. -/
 def InvAtXFO (Z : AllocLabel → Prop) (p : Prog) (k : Promises.Knobs) (arch : Arch) (i : Nat) (E0 : TEnv)
     (n0 v0 na0 : Nat) (st c : Cfg) (H : AllocLabel → Nat → Ts → Prop := fun _ _ _ => True) (Ea : TEnv := E0) (Eu : TEnv := Ea) : Prop :=
   ∃ th E, c.ths[i]? = some th ∧ Ext E0 E ∧ ThInvE p E th ∧ MemInv (gOf p k arch c i) E (stOf c.mem c.pairs th) ∧
     StoClo E ∧ (gOf p k arch c i).boxFence = true ∧ FrBound E0 n0 v0 E ∧ FrRunA E0 n0 v0 E (stOf c.mem c.pairs th) Ea Eu ∧
     na0 ≤ th.nalloc ∧ FreshRun (gOf p k arch c i) E0 na0 E ∧ TermTyped.IniLoc Z E0 E ∧
     TermTyped.IniHeld H E0 E th.vs.vWr ∧ TermK5O.PfrProvO p k arch i H E0 st c E
+    ∧ TyOKE (gOf p k arch c i) E ∧ RecFresh (gOf p k arch c i) i th.nalloc
 
 theorem InvAtXFO.toF {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {E0 : TEnv} {Eu Ea : TEnv} {n0 v0 na0 : Nat}
     {st c : Cfg} {Z : AllocLabel → Prop} {H : AllocLabel → Nat → Ts → Prop}
     (h : InvAtXFO Z p k arch i E0 n0 v0 na0 st c H (Ea := Ea) (Eu := Eu)) : InvAtXFZ Z p k arch i E0 n0 v0 na0 c H (Ea := Ea) (Eu := Eu) :=
-  let ⟨th, E, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, _⟩ := h
-  ⟨th, E, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12⟩
+  let ⟨th, E, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, _, a13, a14⟩ := h
+  ⟨th, E, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14⟩
 
 theorem InvAtXFO.toZ {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {E0 : TEnv} {Eu Ea : TEnv} {n0 v0 na0 : Nat}
     {st c : Cfg} {Z : AllocLabel → Prop} {H : AllocLabel → Nat → Ts → Prop}
     (h : InvAtXFO Z p k arch i E0 n0 v0 na0 st c H (Ea := Ea) (Eu := Eu)) : InvAtXZ Z p k arch i E0 n0 v0 c H (Ea := Ea) (Eu := Eu) :=
-  let ⟨th, E, a1, a2, a3, a4, a5, a6, a7, a8, _, _, a11, a12, _⟩ := h
-  ⟨th, E, a1, a2, a3, a4, a5, a6, a7, a8, a11, a12⟩
+  let ⟨th, E, a1, a2, a3, a4, a5, a6, a7, a8, _, _, a11, a12, _, a13, a14⟩ := h
+  ⟨th, E, a1, a2, a3, a4, a5, a6, a7, a8, a11, a12, a13, a14⟩
 
 /-- The start: the invariant's own environment, nothing published (from `InvAtXFP_of`). -/
 theorem InvAtXFO_of {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {E : TEnv} {c : Cfg} {th : TTh}
     (hth : c.ths[i]? = some th) (hT : ThInvE p E th)
     (hm : MemInv (gOf p k arch c i) E (stOf c.mem c.pairs th)) (hSC : StoClo E)
     (hbo : (gOf p k arch c i).boxFence = true) (hrc : TermTyped.RiniCoh E (stOf c.mem c.pairs th))
-    (hfl : ∀ l cl f, E.sto l = some cl → E.pfr l = some f → f ≤ c.mem.size - 1) (Z : AllocLabel → Prop := fun _ => False)
+    (hfl : ∀ l cl f, E.sto l = some cl → E.pfr l = some f → f ≤ c.mem.size - 1)
+    (hTy : TyOKE (gOf p k arch c i) E) (hRc : RecFresh (gOf p k arch c i) i th.nalloc)
+    (Z : AllocLabel → Prop := fun _ => False)
     (H : AllocLabel → Nat → Ts → Prop := fun _ _ _ => True) :
     InvAtXFO Z p k arch i E c.mem.size th.vs.vWr th.nalloc c c H :=
-  let ⟨th, E, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, _, a14⟩ := InvAtXFP_of hth hT hm hSC hbo hrc hfl Z H
-  ⟨th, E, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a14⟩
+  let ⟨th, E, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, _, a14, a15, a16⟩ := InvAtXFP_of hth hT hm hSC hbo hrc hfl hTy hRc Z H
+  ⟨th, E, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a14, a15, a16⟩
 
 /-- (certWin-D) `InvAtXFO_of` anchored at any `Ea` with `AnchR` there (the post-step start). -/
 theorem InvAtXFO_ofA {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {E Eu Ea : TEnv} {c : Cfg} {th : TTh}
     (hth : c.ths[i]? = some th) (hT : ThInvE p E th)
     (hm : MemInv (gOf p k arch c i) E (stOf c.mem c.pairs th)) (hSC : StoClo E)
     (hbo : (gOf p k arch c i).boxFence = true) (hA : AnchR Eu Ea E (stOf c.mem c.pairs th)) (hx : Ea = E ∨ Ext Ea E)
+    (hTy : TyOKE (gOf p k arch c i) E) (hRc : RecFresh (gOf p k arch c i) i th.nalloc)
     (Z : AllocLabel → Prop := fun _ => False) (H : AllocLabel → Nat → Ts → Prop := fun _ _ _ => True) :
     InvAtXFO Z p k arch i E c.mem.size th.vs.vWr th.nalloc c c H Ea Eu := by
   obtain ⟨ρ, η, cx, rfl, h⟩ := hT
   exact ⟨th, CE η, hth, Ext_refl (Coh_CE η) (CohR_CE η), ⟨ρ, η, cx, rfl, h⟩, hm, hSC, hbo,
     FrBound_refl _ _ _, frRunA_startA hA hx,
     Nat.le_refl _, (fun l c h0 h => by rw [h0] at h; cases h), TermTyped.IniLoc_refl _ _,
-    TermTyped.IniHeld_refl _ _ _, TermK5O.pfrProvO_start _ _ _ _ _ _ _⟩
+    TermTyped.IniHeld_refl _ _ _, TermK5O.pfrProvO_start _ _ _ _ _ _ _, hTy, hRc⟩
 
 /-- (certWin-D) **The post-step start**: at a thread step `c → c'` (`TCtx`), the S6 witness `E'` (`TOutC`)
 is anchored at the pre-step cut `Cut Eg i S` (`AnchR`, `Ext`), from `ThSysAt` at `S` (the cut's typing and
@@ -73,12 +78,12 @@ theorem anchPost [WrIniC] {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : 
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {η : TEnv}
     {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res} {Rf Rs H : Res} {cr2 db2 : Ts → Res}
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r) (hCE : CE η = Cut Eg i S)
-    (Z : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs H cr2 db2 δ)
+    (Z : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs H cr2 db2 δ)
     (hS : ThSysAt p (gOf p k arch c i) c.mem c.pairs th Eg (Tot i) (HP i) HS (cr i) (db i) S)
     (hPfr : PfrG { gOf p k arch c i with pf := fun l => TermOwnG0Defs.PubAt th l } (CE η) E')
     (hsc : ScopeAt p i c) :
     AnchR (Cut Eg i S) (Cut Eg i S) E' (stOf r.1 r.2.1 r.2.2) ∧ Ext (Cut Eg i S) E' := by
-  obtain ⟨hF, hRE, hm', -, -, -, -, -, -, -, -, -, -, -, hWL⟩ := Z
+  obtain ⟨hF, hRE, hm', -, -, -, -, -, -, -, -, -, -, -, hWL, -⟩ := Z
   obtain ⟨-, η'', -, -, -, rfl, -⟩ := hRE
   obtain ⟨-, ⟨ρ', η', cx', hCE', hE', hT', htv', hi', -⟩, hm, -⟩ := hS
   have e : CE η' = CE η := hCE'.trans hCE.symm
@@ -120,32 +125,35 @@ theorem solo_typedXFO {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c
     InvAtXFO Z p k arch i E0 n0 v0 na0 st c2 H (Ea := Ea) (Eu := Eu) := by
   refine (run_inv (c1 := c2) (P := fun c0 => Solo p k arch i c c0 ∧ InvAtXFO Z p k arch i E0 n0 v0 na0 st c0 H (Ea := Ea) (Eu := Eu))
     ?_ ?_ ?_ h (.refl _) ⟨.refl _, h0⟩).2
-  · rintro c0 c0' ⟨hc0, th, E, hth, hx, hTE, hm, hSC, hbo, hfb, hfr, hna, hfresh, hIL, hIH, hPO⟩ hs hrest
+  · rintro c0 c0' ⟨hc0, th, E, hth, hx, hTE, hm, hSC, hbo, hfb, hfr, hna, hfresh, hIL, hIH, hPO, hTyR, hRcR⟩ hs hrest
     have hc0' : Certified p k arch c0' i := certified_back hrest hc2
     have hcert0 : Certified p k arch c0 i := certified_back (.thread hs hrest) hc2
-    obtain ⟨th', E', s, s', hth', hF, -, hvw, hx', hT', hm', hSC', hbo', hfb', hfr', hna', hfresh', hIL', hIH'⟩ :=
-      xfz_thread (W := fun l => TermK5O.PubZO p k arch i E0 st c0 l) (hPS := hPS) (hSub := hSub) (hSig := hSig) hP
+    obtain ⟨th', E', s, s', hth', hF, -, hvw, hx', hT', hm', hSC', hbo', hfb', hfr', hna', hfresh', hIL', hIH', hTyN, hRcN⟩ :=
+      xfz_threadT (W := fun l => TermK5O.PubZO p k arch i E0 st c0 l) (hPS := hPS) (hSub := hSub) (hSig := hSig) hP
         (hsc c0 hc0 hcert0) (TermViewInv.viewInv_solo hvI hc0) (hwin c0 hc0 hcert0) hth hx hTE hm hSC hbo hfb hfr hna hfresh hIL hIH hs hc0'
         (fun l hbi hz => hz.elim (hZr c0 hc0 hcert0 th hth l hbi)
           (TermK5O.pubZO_noBufInit (fun c1 th1 c1' l cl f h1 h2 h3 h4 h5 h6 h7 h8 =>
             hZo c1 th1 c1' c0 th l cl f h1 h2 h3 h4 h5 hcert0 hth h6 h7 h8) l hbi))
-        (hHr c0 hc0 hcert0 th hth)
+        (hHr c0 hc0 hcert0 th hth) hTyR hRcR
     exact ⟨solo_trans hc0 (.thread hs (.refl _)), th', E', hth', hx', hT', hm', hSC', hbo', hfb', hfr', hna',
-      hfresh', hIL', hIH', TermK5O.pfrProvO_thread hPO hF hfb hx (fun _ h => .inr h) hs hth hvw (hIH' hrl).2.1⟩
-  · rintro c0 a v w ⟨hc0, th, E, hth, hx, hTE, hm, hSC, hbo, hfb, hfr, hna, hfresh, hIL, hIH, hPO⟩ hw _
-    obtain ⟨th', h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12⟩ :=
-      xfz_prom (a := a) (v := v) (w := w) hth hx hTE hm hSC hbo hfb hfr hna hfresh hIL hIH
-    exact ⟨solo_trans hc0 (.prom a v w hw (.refl _)), th', E, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12,
-      TermK5O.pfrProvO_prom hPO hw⟩
-  · rintro c0 c0' ⟨hc0, th, E, hth, hx, hTE, hm, hSC, hbo, hfb, hfr, hna, hfresh, hIL, hIH, hPO⟩ hs _
+      hfresh', hIL', hIH', TermK5O.pfrProvO_thread hPO hF hfb hx (fun _ h => .inr h) hs hth hvw (hIH' hrl).2.1, hTyN, hRcN⟩
+  · rintro c0 a v w ⟨hc0, th, E, hth, hx, hTE, hm, hSC, hbo, hfb, hfr, hna, hfresh, hIL, hIH, hPO, hTyR, hRcR⟩ hw _
+    have hpi := promise_inv (a := a) (v := v) (w := w) hth
+    refine ⟨solo_trans hc0 (.prom a v w hw (.refl _)), _, E, hpi.2.1, hx, hTE, ?_, hSC,
+      by rw [gOf_promise]; exact hbo, hfb, ?_, hna, by rw [gOf_promise]; exact hfresh, hIL, hIH,
+      TermK5O.pfrProvO_prom hPO hw, by rw [gOf_promise]; exact hTyR, by rw [gOf_promise]; exact hRcR⟩
+    · rw [gOf_promise, hpi.2.2]
+      exact MemInv_promSt hm
+    · exact frRunA_prom hth hfr
+  · rintro c0 c0' ⟨hc0, th, E, hth, hx, hTE, hm, hSC, hbo, hfb, hfr, hna, hfresh, hIL, hIH, hPO, hTyR, hRcR⟩ hs _
     rcases TermTyped.extSteps_res hs hth with ⟨x1, n1, a1, e1, rt1, ws1, rs1, hterm, hn1, hev1, hrs1, rfl⟩ | ⟨x1, a1, e1, lb, hterm, htl, rfl⟩
     · exact ⟨solo_trans hc0 (.ext hs (.refl _)), _, E, set_self hth, hx, TermTyped.ThInvE_ext hn1 hterm hev1 hrs1 hTE,
         by rw [gOf_ext hs]; exact hm, hSC, by rw [gOf_ext hs]; exact hbo, hfb, hfr, hna, by rw [gOf_ext hs]; exact hfresh, hIL, hIH,
-        TermK5O.pfrProvO_ext hPO hs⟩
+        TermK5O.pfrProvO_ext hPO hs, by rw [gOf_ext hs]; exact hTyR, by rw [gOf_ext hs]; exact hRcR⟩
     · obtain ⟨hbs, hbp⟩ := TermTyped.tidBox_ext hx (TermTyped.tidAt_solo hc0 hTA th hth lb htl)
       exact ⟨solo_trans hc0 (.ext hs (.refl _)), _, E, set_self (tr := c0.trace) hth, hx, TermTyped.ThInvE_cur hterm hbs hbp hTE,
         by rw [gOf_ext hs]; exact hm, hSC, by rw [gOf_ext hs]; exact hbo, hfb, hfr, hna, by rw [gOf_ext hs]; exact hfresh, hIL, hIH,
-        TermK5O.pfrProvO_ext hPO hs⟩
+        TermK5O.pfrProvO_ext hPO hs, by rw [gOf_ext hs]; exact hTyR, by rw [gOf_ext hs]; exact hRcR⟩
 
 /-- **A certified thread's promise, with the post-publish provenance at the fulfilling
 configuration**: the value is defined (`certified_promNotUndefX`), the fulfilling configuration `c2`
@@ -178,7 +186,7 @@ theorem certified_promNotUndefXO {p : Prog} {k : Promises.Knobs} {arch : Arch} {
   obtain ⟨c1, c2, th1, th2, -, -, -, -, h1, -, h2, hc2, -, hth2, -, -, -, -, -, -, -, -, -, -, -, -, hm2, -, hn2, -⟩ :=
     certified_promTypedX hP hsc hvI hwin h0.toZ hTA hc ht hm hPS hSub hSig hZr hHr
   have h12 : Solo p k arch i c c2 := solo_trans h1 (.thread h2 (.refl _))
-  obtain ⟨th2', E2, hth2', hx2, hT2, hm2i, -, -, hfb2, -, -, -, hIL2, hIH2, hPO2⟩ :=
+  obtain ⟨th2', E2, hth2', hx2, hT2, hm2i, -, -, hfb2, -, -, -, hIL2, hIH2, hPO2, -, -⟩ :=
     solo_typedXFO hP hsc hvI hwin h0 hTA h12 hc2 hrl hZo hPS hSub hSig hZr hHr
   rw [hth2] at hth2'
   cases hth2'

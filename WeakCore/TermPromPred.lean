@@ -7,9 +7,9 @@ import WeakCore.TermNoHold
 (its non-epoch branch is the `wd n` count).  `PromPredE` (`TermNoHold`) is that
 case; `TermNoHold.promPredT` derives it from the one-step stage-A fact
 `StepPredNum` and the certificate run premise at the pre-step configuration.
-Under (H) the memory-count route (`storeCrZ_ofM`) is gone (`StoreCrZ` is the temporary
-field `storeCrZH`, to be replaced by the TermWdCoverH §4 pin cover); this module keeps
-`promPred_weaken` (the old field implies the new one). -/
+Under (H) the memory-count route (`storeCrZ_ofM`) is gone; `StoreCrZ` is now
+`StoreNI ∧ StoreLeafPayAll`, proved in `toObligationsCX` (TermMain) without the pinned slot
+cover.  This module keeps `promPred_weaken` (the old field implies the new one). -/
 
 namespace TermPromPred
 open CoreLang CoreTerm CoreTyping TermRun TermClose TermTv TermSound TermMem TermStep TermCut TermSys TermMain

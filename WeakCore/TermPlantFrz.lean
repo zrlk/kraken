@@ -14,7 +14,7 @@ theorem plantFrozen_planted {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS 
     {i : Nat} {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv}
     {cx : Cx} {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res}
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r) (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ)
+    (Z : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ)
     {l : AllocLabel} (hsh : Eg.Shared l) (hlt : ¬ Eg.ini l ≤ Eg.rini l) :
     (Eg.post (gOf p k arch c i) th.nalloc r.2.2.nalloc E').ini l = Eg.ini l := by
   have hF0 : EFoot (gOf p k arch c i) (Cut Eg i S) E' (stOf c.mem c.pairs th) (stOf r.1 r.2.1 r.2.2) := by
@@ -37,7 +37,7 @@ def PlantFrozenPubF (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → 
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res},
     TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
-    TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
+    TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
     ∀ l, Eg.OwnAt i l → Eg.Shared l → Eg.ini l ≤ Eg.rini l →
       (Eg.post (gOf p k arch c i) th.nalloc r.2.2.nalloc E').ini l = Eg.ini l
 

@@ -120,7 +120,7 @@ def Ante (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → Cfg → Pro
     (Gd : List TermPiece.GdE) (tg : TermPiece.GdE → Option Ts)
     (j : Nat) (thj : TTh) (Sj : AllocLabel → Prop) (l : AllocLabel) (cl : Cell) : Prop :=
   TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r ∧ EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs ∧
-    TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
+    TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
       (cr i) (db i) δ ∧
     TermOverCr.OverCrG Eg c (crPl cr pl) ∧ PoolTag Eg c pl ∧
     TermPiece.Drop (CE η) (stOf c.mem c.pairs th) Gd ∧

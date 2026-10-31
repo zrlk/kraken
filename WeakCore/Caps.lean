@@ -44,7 +44,7 @@ def incrD : Decl where
 /-- Own data: make it a region, lend the token, take it back, store under it. -/
 def ownUseD (extra : List (String × Op) := []) (afterEnd : List (String × Op) := []) : Decl where
   name := "ownUse"; idx := []; arg := "x"; argTy := .int; retTy := .int
-  body := lets [("p", .new (v "x"))]
+  body := lets [("p", .new (v "x") (some .int))]
     (.region (v "p") "r" "d" "t"
       (lets ([("c", .borrow .bor (v "t")), ("q", .pair (v "d") (v "c")),
               ("u", .call "incr" ["r"] (v "q"))] ++ extra ++
@@ -82,7 +82,7 @@ def pubUseD : Decl where
 
 def mkPubD : Decl where
   name := "mkPub"; idx := []; arg := "x"; argTy := .int; retTy := .ptr .pub .int
-  body := lets [("p", .new (v "x")), ("g", .publish (v "p"))] (.ret (v "g"))
+  body := lets [("p", .new (v "x") (some .int)), ("g", .publish (v "p"))] (.ret (v "g"))
 
 def capLib : Prog := [getD, incrD, ownUseD, rdReadD, rdWriteD, pubUseD, mkPubD] ++ rwLib
 
@@ -94,7 +94,7 @@ def capLib : Prog := [getD, incrD, ownUseD, rdReadD, rdWriteD, pubUseD, mkPubD] 
 #guard rejects (checkDecl [] (dcl "leak" (.prod rgnInt (.cap .bor (.var 0))) (.cap .bor (.var 0))
     (.split (v "a") "p" "c" (.ret (v "c"))) ["r"])) "may be passed, not returned or stored"
 -- … or stored.
-#guard rejects (checkDecl capLib (ownUseD [("h", .new (v "c"))])) "second-class capability cannot be stored"
+#guard rejects (checkDecl capLib (ownUseD [("h", .new (v "c") (some (.cap .bor (.var 0))))])) "second-class capability cannot be stored"
 -- … or smuggled through a type parameter.
 def idD : Decl where
   name := "id"; tparams := [{}]; idx := []; arg := "a"; argTy := .tvar 0; retTy := .tvar 0
@@ -118,7 +118,7 @@ def idD : Decl where
 -- A `pub` capability is first-class: it may be returned and stored.
 #guard accepts (checkDecl [] (dcl "keep" (.cap .pub (.var 0)) (.cap .pub (.var 0)) (.ret (v "a")) ["r"]))
 #guard accepts (checkDecl [] (dcl "keep2" (.cap .pub (.var 0)) (.ptr .own (.cap .pub (.var 0)))
-    (lets [("h", .new (v "a"))] (.ret (v "h"))) ["r"]))
+    (lets [("h", .new (v "a") (some (.cap .pub (.var 0))))] (.ret (v "h"))) ["r"]))
 
 /-! ## On the promise machine -/
 

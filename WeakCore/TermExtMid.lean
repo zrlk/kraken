@@ -10,9 +10,9 @@ import WeakCore.TermExtStep
   `current` binds the thread's box word `loc ⟨l, 0⟩`, first allocating the box (`TermBox.sysInvN_box`,
   `tidLbl := some (freshLabel …)`) when the thread has none (`curCfg_none`).
 
- `Ext` needs `th.promises = []` only for `ExtNeedsNoProm` (`exitEv`, `current()`); `emit` goes through
-`sysInvN_extSet`, which never reads promises. Only the first-use `current()` arm uses the empty promise set
-(`TermBox.sysInvN_box`).
+`Ext` needs `th.promises = []` only for `ExtNeedsNoProm` (`exitEv`, `emit`, a boxless `current()`, a device choice); `emit`
+still goes through `sysInvN_extSet`, which never reads promises. Only the first-use `current()` arm uses the
+empty promise set (`TermBox.sysInvN_box`).
 -/
 
 namespace TermExtMid
@@ -32,7 +32,7 @@ theorem ext_of_site {p : Prog} {E : TEnv} {th th' : TTh} {Tot : Res} {x : String
   have htb : tb 0 n.sig.2 = true := by cases n <;> simp [ExtName.sig, tb]
   have hmg : mg n.sig.2 = true := by cases n <;> simp [ExtName.sig, mg]
   constructor
-  · obtain ⟨ρ, η, cx, Rf, Rs, hCE, hE, hT, htv, hi, hsum, hpw⟩ := hR
+  · obtain ⟨ρ, η, cx, Rf, Rs, hCE, hE, hT, htv, hi, hsum, hpw, hDy⟩ := hR
     have hT2 := hT.2
     rw [hterm] at hT2
     obtain ⟨c', -, hop, he, hck, -⟩ := TermA4.CkW_let hT2
@@ -44,11 +44,11 @@ theorem ext_of_site {p : Prog} {E : TEnv} {th th' : TTh} {Tot : Res} {x : String
       obtain ⟨rt, ws0, R, Rr, -, -, -, -, hi1, hle⟩ := useR hu hi hE.2.2
       have hf := bindRZ hb (FInvR_mono hi1 (le_of_add_le hle)) (RLink_of hE.2.1 hE.2.2) (hvr ρ η hCE).2 hl
       refine ⟨ρ, η, c', Rf, Rs, hCE, hE, ⟨by rw [hpt]; exact he, by rw [hpt]; exact hck⟩, htv',
-        by rw [hps, hpk, hpe]; exact hf, hsum, ?_⟩
+        by rw [hps, hpk, hpe]; exact hf, hsum, ?_, by rw [hpt, hps]; exact hDy.letW hterm rfl⟩
       intro fr rest hst ws1
       rw [hpk] at hst
       rw [hret, hps]; exact hpw fr rest hst ws1
-  · obtain ⟨ρ, η, cx, hCE, hE, hT, htv, hi, hpw⟩ := hE'
+  · obtain ⟨ρ, η, cx, hCE, hE, hT, htv, hi, hpw, hDy⟩ := hE'
     rw [hterm] at hT
     cases hT with
     | let_ hop he =>
@@ -61,6 +61,7 @@ theorem ext_of_site {p : Prog} {E : TEnv} {th th' : TTh} {Tot : Res} {x : String
         obtain ⟨hi1, -⟩ := use_FInv hu hi
         refine ⟨ρ, η, c', hCE, hE, by rw [hpt]; exact he, htv',
           by rw [hps, hpe, hpk]; exact bind_FInv hb hi1 (hvr ρ η hCE).1 hl, ?_⟩
+        refine ⟨?_, by rw [hpt, hps]; exact hDy.letW hterm rfl⟩
         show RetPw th'.σs th'.stack c'.ret
         rw [hret, hps, hpk]; exact hpw
 
@@ -126,7 +127,7 @@ theorem sysInvN_extSet {i : Nat} {th : TTh} {x : String} {n : ExtName} {a : At} 
   obtain ⟨S, hRE, hE, hrest⟩ := hN.thr i th hth
   have hx := ext_of_site (th' := { th with term := e, env := (x, n.sig.2, ws) :: th.env }) hterm rfl rfl rfl rfl
     (hvr S) hl hRE hE
-  refine TermSetTh.sysInvN_setC hN hth ⟨rfl, rfl, rfl, rfl⟩ ⟨S, hx.1, hx.2, hrest⟩ ?_ ?_ (hN.tidBox i th hth)
+  refine TermSetTh.sysInvN_setC hN hth ⟨rfl, rfl, rfl, rfl, rfl⟩ ⟨S, hx.1, hx.2, hrest⟩ ?_ ?_ (hN.tidBox i th hth)
   · intro hk
     obtain ⟨hL1, hL2⟩ := (hN.ptrGL hk).2.1 i th hth
     refine ⟨?_, hL2⟩
@@ -162,7 +163,7 @@ theorem sysInvN_extRes {i : Nat} {th : TTh} {x : String} {n : ExtName} {a : At} 
       Eg Tot HP HS cr db := by
   obtain ⟨S, hRE, hE, hrest⟩ := hN.thr i th hth
   have hnn := noNames_res hn hrs
-  refine TermSetTh.sysInvN_setC hN hth ⟨rfl, rfl, rfl, rfl⟩
+  refine TermSetTh.sysInvN_setC hN hth ⟨rfl, rfl, rfl, rfl, rfl⟩
     ⟨S, TermTyped.ThInvRE_ext hn hterm hev hrs hRE, TermTyped.ThInvE_ext hn hterm hev hrs hE, hrest⟩ ?_ ?_
     (hN.tidBox i th hth)
   · intro hk
@@ -194,7 +195,7 @@ theorem sysInvN_wake {i : Nat} {v : Ts} {n : ExtName} {ws : List Word}
   rcases wake_cases c i v n ws with h | ⟨j, t, _u, ht, h⟩
   · rw [h]; exact hN
   · rw [h]
-    exact TermSetTh.sysInvN_setC hN ht ⟨rfl, rfl, rfl, rfl⟩ (hN.thr j t ht) (fun hk => (hN.ptrGL hk).2.1 j t ht)
+    exact TermSetTh.sysInvN_setC hN ht ⟨rfl, rfl, rfl, rfl, rfl⟩ (hN.thr j t ht) (fun hk => (hN.ptrGL hk).2.1 j t ht)
       (fun _ _ _ _ _ _ h => h) (hN.tidBox j t ht)
 
 theorem ownLive_wake {i : Nat} {v : Ts} {n : ExtName} {ws : List Word} (h : OwnLive Eg c) :

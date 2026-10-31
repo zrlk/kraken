@@ -1,0 +1,10 @@
+CoreTerm.Decl : Type
+CoreTerm.Decl.body : CoreTerm.Decl → CoreTerm.Expr
+CoreTerm.Decl.name : CoreTerm.Decl → String
+CoreTerm.Prog : Type
+CoreTerm.argFuelOf : CoreTerm.Decl → Nat
+CoreTerm.declFuel : CoreTerm.Prog → String → Nat
+CoreTerm.fuelDecl : CoreTerm.Prog → CoreTerm.Decl → Nat
+  := fun p d => (CoreTerm.loopBound d + 1) * CoreTerm.fuelOf (CoreTerm.declFuel p) (CoreTerm.argFuelOf d) d.name d.body
+CoreTerm.fuelOf : (String → Nat) → Nat → String → CoreTerm.Expr → Nat
+CoreTerm.loopBound : CoreTerm.Decl → Nat

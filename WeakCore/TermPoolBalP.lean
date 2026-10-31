@@ -23,7 +23,7 @@ def poolBalTP (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → Cfg �
     {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx} {Rf Rs : Res}
     {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ dc dh plh : Ts → Res},
     TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
-    TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
+    TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
       (cr i) (db i) δ →
     (∀ t, dc t + dh t ≤ δ t) → PoolInv Init MintOK c Eg Tot HP HS cr db pl →
     (∀ t, plh t ≠ .zero → t ∈ r.2.2.promises) →
@@ -41,7 +41,7 @@ def poolKnetTP (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → Cfg �
     {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx} {Rf Rs : Res}
     {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ dc dh plh : Ts → Res} {rc : Nat → Nat},
     TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
-    TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
+    TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
       (cr i) (db i) δ →
     (∀ t, dc t + dh t ≤ δ t) → PoolInv Init MintOK c Eg Tot HP HS cr db pl →
     (∀ t, plh t ≠ .zero → t ∈ r.2.2.promises) → (∀ t, TermPlant.CrKeys (plh t)) →
@@ -60,7 +60,7 @@ def poolRidTP (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → Cfg �
     {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx} {Rf Rs : Res}
     {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ dc dh plh : Ts → Res} {rc : Nat → Nat},
     TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
-    TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
+    TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
       (cr i) (db i) δ →
     (∀ t, dc t + dh t ≤ δ t) → PoolInv Init MintOK c Eg Tot HP HS cr db pl →
     (∀ t, plh t ≠ .zero → t ∈ r.2.2.promises) →

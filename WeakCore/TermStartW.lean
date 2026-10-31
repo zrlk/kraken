@@ -120,6 +120,30 @@ theorem heldOK_entry {η : TEnv} {t r : Ty} {env : Env} {ws : List Word} (henv :
   · simp only [TermSound.Holds, List.filter, Bool.true_or, List.map, Res.sum_cons, Res.sum_nil, Res.add_zero]
     exact Res.le_refl _
 
+/-- The wrapper term has the entry frame's opened-type-package clause, at no
+type arguments. -/
+theorem dyFr_wrap (ann : Op → Option Ty) (tg : List Ty) (p : CoreTerm.Prog) (η : TEnv) (rt : Option Ty) :
+    DyFr p ann tg η [] (TermStartW.wrapTerm rt) := by
+  refine ⟨[], [], ?_, ⟨?_, ?_⟩, ?_, ?_⟩
+  · intro g b h; simp at h
+  · rcases rt with _ | t
+    · simp [TermStartW.wrapTerm, TermStartW.exitTail, scan, both] <;> (repeat' split) <;> simp_all [hits]
+    · by_cases h1 : (intOf t).isSome = true
+      · simp [TermStartW.wrapTerm, TermStartW.exitTail, h1, scan, both] <;> (repeat' split) <;> simp_all [hits]
+      · by_cases h2 : TermStartW.numWord t = true
+        · simp [TermStartW.wrapTerm, TermStartW.exitTail, h1, h2, scan, both] <;> (repeat' split) <;> simp_all [hits]
+        · simp [TermStartW.wrapTerm, TermStartW.exitTail, h1, h2, scan, both] <;> (repeat' split) <;> simp_all [hits]
+  · intro c hc hne
+    rcases rt with _ | t
+    · simp [TermStartW.wrapTerm, TermStartW.exitTail, scan, both, opCalls] at hc; subst hc; simp_all [taintOf_nil]
+    · by_cases h1 : (intOf t).isSome = true
+      · simp [TermStartW.wrapTerm, TermStartW.exitTail, h1, scan, both, opCalls] at hc; subst hc; simp_all [taintOf_nil]
+      · by_cases h2 : TermStartW.numWord t = true
+        · simp [TermStartW.wrapTerm, TermStartW.exitTail, h1, h2, scan, both, opCalls] at hc; subst hc; simp_all [taintOf_nil]
+        · simp [TermStartW.wrapTerm, TermStartW.exitTail, h1, h2, scan, both, opCalls] at hc; subst hc; simp_all [taintOf_nil]
+  · intro σ h; simp at h
+  · intro j σ h; simp at h
+
 /-- **The wrapper's entry frame** (`EntryOK`), from the checker accepting the wrapper at `wcx`. -/
 theorem entryOK_wrap {p : Prog} {i : Nat} (hc : check p wcx (wrapTerm (mainRet p)) = .ok ())
     (hw : checkW p wcx (wrapTerm (mainRet p)) = .ok ()) : EntryOK p i (wrapTh p) := by
@@ -127,8 +151,8 @@ theorem entryOK_wrap {p : Prog} {i : Nat} (hc : check p wcx (wrapTerm (mainRet p
   exact ⟨fun _ => 0, wcx, ⟨check_sound p _ _ hc, hw,
       fun v hm => by simp only [wcx, List.mem_singleton] at hm; subst hm; rfl,
       fun k hk _ => absurd hk (Nat.not_lt_zero _)⟩, wcx_tvOK,
-    TermSpawn.finv_entry (fun _ _ => trivial) rfl rfl hv (Lay_etok_unit rfl), fun _ _ _ _ _ _ => rfl,
-    heldOK_entry rfl hv⟩
+    ⟨TermSpawn.finv_entry (fun _ _ => trivial) rfl rfl hv (Lay_etok_unit rfl), fun _ _ _ _ _ _ => rfl,
+    heldOK_entry rfl hv⟩, dyFr_wrap annNew (progTgts p) p _ (mainRet p)⟩
 
 /-- **`InitShape` at the wrapper start**, from the checker accepting the wrapper at `wcx`. -/
 theorem initShape_startW {p : Prog} {cap : Nat} (hc : check p wcx (wrapTerm (mainRet p)) = .ok ())
@@ -152,6 +176,9 @@ theorem initShape_startW {p : Prog} {cap : Nat} (hc : check p wcx (wrapTerm (mai
     subst he
     cases hw
   tid0 := fun i th hth => by
+    obtain ⟨-, rfl⟩ := startW_get hth
+    rfl
+  tys0 := fun i th hth => by
     obtain ⟨-, rfl⟩ := startW_get hth
     rfl
 

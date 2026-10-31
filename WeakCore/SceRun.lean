@@ -15,7 +15,7 @@ parse 1 → import/interface 3 → check 2 → live 5; usage/IO 4; internal 6):
    dependencies first; the signatures visible to a unit are those of every unit processed before it (v1:
    transitive).  `.i`/`.u` conformance is M4's.
 2. each unit: `UDiag.diagnose` (parse errors, one checker error per block, the `ret f(args)` lint).
-3. the whole program: `checkProg` and `ProgScopeOKW` (`scope error: …`), each error placed on its block.
+3. the whole program: `checkProg` and `ProgScopeOKW` (`scope error: …`), each error placed on its block.  Stages 1–3 are `SceFront.elaborate`, shared with other clients of the front half.
 4. the live stage (mode A, `SceLive.runSpec`; no errors before it): with `--threads`, that scenario alone; with
    `--live=N`, every scenario of the root unit; otherwise the scenarios some `live[S]` names.  Each prints its
    report on stderr; a mismatch (`--live`/the scenario's `live`, `--live-strict`, `--final`) is exit 5.  A
@@ -32,6 +32,7 @@ A `.w` input is parsed (`Syntax.parseProg`), checked block by block, scope-check
 runs only for `--threads`.
 -/
 import WeakCore.SceCli
+import WeakCore.SceFront
 import WeakCore.SceLive
 import WeakCore.UDiag
 import WeakCore.TermScopeW
@@ -40,270 +41,6 @@ import WeakCore.SceCert
 
 namespace SceRun
 open CoreLang CoreTerm Syntax UnElab USyntax UDiag SceCli
-
-/-! ## Diagnostics across files -/
-
-/-- A secondary range, possibly in another file, with its message. -/
-structure Note where
-  file : String
-  rng  : Rng
-  msg  : String := ""
-  deriving Repr, Inhabited
-
-/-- A diagnostic with its exit class (`1` parse, `3` import/interface, `2` check, `0` warning). -/
-structure SDiag where
-  cls    : Nat
-  d      : Diag
-  xnotes : List Note := []
-  /-- printed as the message alone (a live error of the `--threads` scenario, which has no source position) -/
-  bare   : Bool := false
-  deriving Repr, Inhabited
-
-def mkD (cls : Nat) (file msg : String) (rng : Rng) (block : Option String := none) (xnotes : List Note := []) :
-    SDiag :=
-  { cls, d := { file := file, block := block, msg := msg, at_ := rng }, xnotes }
-
-def at1 : Rng := { line := 1, col := 1, eline := 1, ecol := 2 }
-
-def errRng (e : Err) : Rng := { line := e.line, col := e.col, eline := e.line, ecol := e.col + 1 }
-
-/-- The file system `sce` sees: a file's text, or the reason it cannot be read. -/
-abbrev FS := String → Except String String
-
-structure Result where
-  stdout : String := ""
-  stderr : String := ""
-  write  : Option (String × String) := none
-  /-- `--live-proof`: the instance file to write and build (`Sce.lean` builds it). -/
-  proof  : Option (String × String) := none
-  /-- The PROVED lines, printed (by `Sce.lean`) only once the instance file has built. -/
-  proved : List String := []
-  /-- `--live-proof` with eligible certificates: the directory `root.cert`, the text of
-  its `prog.lean`, and per scenario its directory, its PROVED lines and its files (relative, in build order). -/
-  cert   : Option (String × String × List (String × List String × List (String × String))) := none
-  code   : Nat := 0
-  deriving Repr, Inhabited, BEq
-
-def srcOf (fs : FS) (f : String) : String := match fs f with | .ok s => s | .error _ => ""
-
-def exists_ (fs : FS) (f : String) : Bool := match fs f with | .ok _ => true | .error _ => false
-
-def renderS (fs : FS) (s : SDiag) : String :=
-  if s.bare then s.d.msg else
-  let main := render (srcOf fs s.d.file) s.d
-  let notes := s.xnotes.map fun n =>
-    let lines := ((srcOf fs n.file).splitOn "\n").toArray
-    let w := (toString n.rng.line).length
-    String.intercalate "\n" ((s!"{n.file}:{n.rng.line}:{n.rng.col}: note:" ++ (if n.msg.isEmpty then "" else " " ++ n.msg)) :: excerpt lines w n.rng)
-  String.intercalate "\n" (main :: notes)
-
-/-- The exit code of a list of diagnostics: the first failing stage, parse → import → check → live. -/
-def codeOf (ds : List SDiag) : Nat :=
-  if ds.any (·.cls == 1) then 1 else if ds.any (·.cls == 3) then 3 else if ds.any (·.cls == 2) then 2
-  else if ds.any (·.cls == 5) then 5 else 0
-
-def isErr (s : SDiag) : Bool := s.cls != 0
-
-/-! ## Paths -/
-
-def dirOf (f : String) : String :=
-  match f.splitOn "/" with
-  | [] | [_] => "."
-  | ps => "/".intercalate ps.dropLast
-
-def joinP (d x : String) : String := if d == "." then x else d ++ "/" ++ x
-
-def baseName (f : String) : String :=
-  let b := (f.splitOn "/").getLast?.getD f
-  match b.splitOn "." with
-  | [] | [_] => b
-  | ps => ".".intercalate ps.dropLast
-
-/-! ## Imports -/
-
-/-- The `import` lines of a source: the module name and the range `import X`. -/
-def importsOf (src : String) : List (String × Rng) :=
-  match ulex src with
-  | .error _ => []
-  | .ok (toks, _) =>
-    let rec go (i : Nat) (fuel : Nat) (acc : List (String × Rng)) : List (String × Rng) :=
-      match fuel with
-      | 0 => acc.reverse
-      | f + 1 =>
-        match toks[i]?, toks[i + 1]? with
-        | some ⟨.id "import", l, c⟩, some ⟨.id n, l2, c2⟩ | some ⟨.id "import", l, c⟩, some ⟨.qid n, l2, c2⟩ =>
-            let e := if l2 == l then c2 + n.length else c + 6
-            go (i + 2) f ((n, { line := l, col := c, eline := l, ecol := e }) :: acc)
-        | _, _ => acc.reverse
-    go 0 toks.size []
-
-structure UnitF where
-  name  : String
-  ufile : Option String
-  ifile : Option String
-  deriving Repr, Inhabited, BEq
-
-structure LState where
-  done  : List UnitF := []     -- dependencies first
-  diags : List SDiag := []
-  /-- every path looked up (for `Sce.lean`, which reads them before the pure run) -/
-  probed : List String := []
-
-/-- A frame of the import stack: the unit, and the import (file, range) that entered it. -/
-structure Frame where
-  name  : String
-  via   : Option Note
-  deriving Inhabited
-
-def find (fs : FS) (dirs : List String) (f : String) : Option String :=
-  (dirs.map (joinP · f)).find? (exists_ fs)
-
-/-- Depth-first over the imports of `file`, `stk` the units being loaded (innermost first). -/
-def loadImports (fs : FS) (incl : List String) (checkOnly : Bool) :
-    Nat → List Frame → String → LState → LState
-  | 0, _, _, st => st
-  | fuel + 1, stk, file, st =>
-    (importsOf (srcOf fs file)).foldl (init := st) fun st (x, rng) =>
-      let here : Note := { file, rng, msg := SceText.importsHere ((stk.head?.map (·.name)).getD "") x }
-      if let some k := stk.findIdx? (·.name == x) then
-        -- the cycle: `x`, the units entered after it, back to `x`; a note on each import line entering them
-        let inner := (stk.take k).reverse
-        let names := x :: inner.map (·.name) ++ [x]
-        let d := mkD 3 file (SceText.importCycle names) rng (xnotes := inner.filterMap (·.via))
-        { st with diags := st.diags ++ [d] }
-      else if st.done.any (·.name == x) then st
-      else
-        let dirs := dirOf file :: incl
-        let st := { st with probed := st.probed ++ dirs.flatMap fun d => [joinP d (x ++ ".i"), joinP d (x ++ ".u")] }
-        let fi := find fs dirs (x ++ ".i")
-        let fu := find fs dirs (x ++ ".u")
-        match fi, fu with
-        | none, none => { st with diags := st.diags ++ [mkD 3 file (SceText.importNotFound x dirs) rng] }
-        | _, _ =>
-          let st := if fu.isNone && !checkOnly then
-              { st with diags := st.diags ++ [mkD 3 file (SceText.importNoImpl x) rng] }
-            else st
-          let f := fu.getD (fi.getD "")
-          let st := loadImports fs incl checkOnly fuel ({ name := x, via := some here } :: stk) f st
-          if st.done.any (·.name == x) then st
-          else { st with done := st.done ++ [{ name := x, ufile := fu, ifile := fi }] }
-
-/-! ## Units -/
-
-/-- The range of the first occurrence of `n` on line `l` at or after column `c`. -/
-def nameRng (src : String) (l c : Nat) (n : String) : Rng :=
-  let line := ((src.splitOn "\n").toArray)[l - 1]?.getD ""
-  let rest := line.toList.drop (c - 1)
-  let rec idx (cs : List Char) (i : Nat) (fuel : Nat) : Option Nat :=
-    match fuel with
-    | 0 => none
-    | f + 1 => if cs.take n.length == n.toList then some i else match cs with
-      | [] => none
-      | _ :: t => idx t (i + 1) f
-  match idx rest 0 (rest.length + 1) with
-  | some i => { line := l, col := c + i, eline := l, ecol := c + i + n.length }
-  | none => { line := l, col := c, eline := l, ecol := c + 1 }
-
-/-- The blocks of a parsed unit with the range of each name. -/
-def declSites (src : String) (r : UParsed) : List (String × Rng) :=
-  (r.unit.items.zip r.itemAt).filterMap fun
-    | (.decl d _, (l, c)) => some (d.name, nameRng src l c ("def " ++ d.name) |> fun g =>
-        { g with col := g.col + 4 })
-    | _ => none
-
-structure PState where
-  env   : Env := {}
-  prog  : Prog := []
-  /-- per unit with an implementation: file, its blocks, spans, and the env it was parsed in -/
-  units : List (String × Prog × List Span × Env) := []
-  sites : List (String × Note) := []
-  diags : List SDiag := []
-  /-- the signatures of imported units with an interface but no implementation (`--check-only`) -/
-  isigs : Prog := []
-
-def classify (nParse : Nat) (ds : List Diag) : List SDiag :=
-  (ds.take nParse).map (fun d => { cls := 1, d }) ++
-  (ds.drop nParse).map fun d => { cls := if d.severity == "warning" then 0 else 2, d }
-
-def dupCheck (f : String) (sites : List (String × Note)) (ds : List (String × Rng)) :
-    List SDiag × List (String × Note) :=
-  ds.foldl (init := (([] : List SDiag), sites)) fun (acc, sites) (n, rng) =>
-    match sites.find? (·.1 == n) with
-    | some (_, first) =>
-        (acc ++ [mkD 3 f (SceText.duplicate n) rng (some n) [{ first with msg := SceText.firstDefinedHere }]], sites)
-    | none => (acc, sites ++ [(n, { file := f, rng })])
-
-def processUnit (fs : FS) (st : PState) (u : UnitF) : PState :=
-  let env0 := st.env
-  let st := match u.ufile with
-    | none => st
-    | some f =>
-      let src := srcOf fs f
-      let r := parseUnitAll src env0
-      let ds := classify r.errs.length (diagnose f src env0)
-      let own := elabProg r.unit.decls
-      let (dups, sites) := dupCheck f st.sites (declSites src r)
-      { st with env := r.env, prog := st.prog ++ own, units := st.units ++ [(f, own, r.spans.toList, env0)],
-                sites := sites, diags := st.diags ++ ds ++ dups }
-  match u.ifile with
-  | none => st
-  | some fi =>
-    let src := srcOf fs fi
-    let r := parseUnitAll src env0 (isI := true)
-    -- the importers see the interface
-    let sigs := if u.ufile.isSome then [] else r.unit.items.filterMap fun | .sig d _ => some d | _ => none
-    { st with env := r.env, isigs := st.isigs ++ sigs, diags := st.diags ++ r.errs.map fun e => mkD 1 fi e.msg (errRng e) }
-
-/-! ## The scope check, placed -/
-
-/-- The first block failing the scope check, with the reason: the verdict is `ProgScopeOK`'s and `declWrapOK`'s
-(per block, as `ProgScopeOKW` is their conjunction over the blocks); the reason is `checkW`'s message where it
-fails, else the name of the failing predicate. -/
-def scopeFail (p : Prog) (ctx : Prog := []) : Option (String × String) :=
-  let q := ctx ++ p
-  p.findSome? fun d =>
-    if !TermScope.ProgScopeOK [d] then some (d.name, "ProgScopeOK")
-    else if TermScope.declWrapOK q d then none
-    else match TermScope.checkW q { inames := d.idx.reverse, vars := [(d.arg, d.argTy, true)], ret := d.retTy,
-                                    ke := d.tparams.reverse.map some } d.body with
-      | .error m => some (d.name, m)
-      | .ok _ => some (d.name, "wrapOK")
-
-/-- With no context, `scopeFail` is exactly `ProgScopeOKW`'s verdict. -/
-theorem scopeFail_none {p : Prog} (h : scopeFail p = none) : TermScope.ProgScopeOKW p = true := by
-  simp only [scopeFail, List.nil_append, List.findSome?_eq_none_iff] at h
-  simp only [TermScope.ProgScopeOKW, TermScope.ProgWrapOK, TermScope.ProgScopeOK, Bool.and_eq_true,
-    List.all_eq_true]
-  refine ⟨fun d hd => ?_, fun d hd => ?_⟩
-  · have := h d hd
-    by_cases h1 : TermScope.ProgScopeOK [d] = true
-    · simpa [TermScope.ProgScopeOK] using h1
-    · simp [h1] at this
-  · have := h d hd
-    by_cases h1 : TermScope.ProgScopeOK [d] = true
-    · by_cases h2 : TermScope.declWrapOK p d = true
-      · exact h2
-      · revert this
-        simp only [h1, h2, Bool.not_true, Bool.false_eq_true, ite_false]
-        split <;> simp
-    · simp [h1] at this
-
-/-! ## Emission and re-check -/
-
-/-- Re-parse an emitted text (in `env`) and re-check it against the program it was printed from (`ctx`: the
-blocks it may call that it does not contain); `some reason` if that fails. -/
-def recheck (text : String) (env : Env) (ctx want : Prog) : Option String :=
-  match parseProg text env with
-  | .error e => some (toString e)
-  | .ok q =>
-    if !(q.length == want.length && (want.zip q).all fun (a, b) => sameDecl a b) then some SceText.rDiffers
-    else match q.forM (checkDecl (ctx ++ q)) with
-      | .error m => some m
-      | .ok _ => if ctx.isEmpty then (scopeFail q).map fun (_, r) => SceText.rScope r else none
-
-def errText (fs : FS) (ds : List SDiag) : String :=
-  let e := String.intercalate "\n" (ds.map (renderS fs))
-  if e.isEmpty then "" else e ++ "\n"
 
 /-- The result of a run with diagnostics `ds` and, if no error, the emitted `text` (or `none`: nothing to emit).
 `corrupt` is a test hook (the identity in `sce`): it alters the text before the re-check, to reach exit 6.
@@ -520,36 +257,21 @@ def runW (o : Opts) (fs : FS) (src : String) (corrupt : String → String) : Res
 /-- The `.u` mode. -/
 def runU (o : Opts) (fs : FS) (corrupt : String → String) : Result :=
   let root := baseName o.input
-  let ls := loadImports fs o.incl (o.mode == .checkOnly) 64 [{ name := root, via := none }] o.input {}
-  let units := ls.done ++ [{ name := root, ufile := some o.input, ifile := none }]
-  let ps := units.foldl (processUnit fs) {}
-  let ds := ls.diags ++ ps.diags
-  -- the whole program (only when every unit is clean): a checker error is placed on its block
-  let ds := if ds.any isErr then ds else
-    ds ++ ps.prog.filterMap fun d => match checkDecl (ps.isigs ++ ps.prog) d with
-      | .ok _ => none
-      | .error m =>
-        let site := (ps.sites.find? (·.1 == d.name)).map (·.2)
-        some (mkD 2 ((site.map (·.file)).getD o.input) m ((site.map (·.rng)).getD at1) (some d.name))
-  let ds := if ds.any isErr then ds else match scopeFail ps.prog ps.isigs with
-    | some (b, r) =>
-        let site := (ps.sites.find? (·.1 == b)).map (·.2)
-        ds ++ [mkD 2 ((site.map (·.file)).getD o.input) (SceText.scopeError r) ((site.map (·.rng)).getD at1)
-                (if b.isEmpty then none else some b)]
-    | none => ds
+  let f := SceFront.elaborate o.input o.incl fs (o.mode == .checkOnly)
+  let ds := f.diags
   if ds.any isErr then finish o fs ds none corrupt else
-  let rootEnv := match ps.units.getLast? with | some (_, _, _, env) => env | none => {}
+  let rootEnv := f.rootEnv
   let rootSrc := srcOf fs o.input
   let rootR := parseUnitAll rootSrc rootEnv
   -- a `live[S]` or a scenario: the live stage runs (a scenario that no `live[S]` names is only checked for warnings)
   let annotated := rootR.unit.items.any fun | .decl _ (some (some _)) => true | .scenario _ => true | _ => false
   match (if o.wantsLive || annotated then
-      liveStage o fs ps.prog (ps.units.map fun (f, own, sp, _) => (f, own, sp)) rootR.env
+      liveStage o fs f.prog (f.units.map fun u => (u.file, u.blocks, u.spans)) rootR.env
         (some (o.input, rootSrc, rootR))
     else .ok ([], [], [])) with
   | .error m => { stderr := m ++ "\n", code := 4 }
   | .ok (report, lds, jobs) =>
-  let inst := instStage ps.prog rootEnv o.input rootSrc rootR
+  let inst := instStage f.prog rootEnv o.input rootSrc rootR
   let ds := ds ++ lds ++ inst.ds
   -- each instance that holds gets its PROVED line at the end (decision, D3 (i)), even if the run fails
   -- elsewhere; with --live-proof, the lines wait for the instance file (`Sce.lean` builds it; nothing is written
@@ -557,9 +279,9 @@ def runU (o : Opts) (fs : FS) (corrupt : String → String) : Result :=
   let proving := o.liveProof && !inst.proved.isEmpty
   let ok := if proving then [] else inst.proved
   let withProof (r : Result) : Result :=
-    let r := if o.liveProof && r.code != 6 then { r with cert := certOf o.input ps.prog jobs } else r
+    let r := if o.liveProof && r.code != 6 then { r with cert := certOf o.input f.prog jobs } else r
     if proving && r.code != 6 then
-      { r with proof := some (proofFile o.input, proofText root ps.prog inst), proved := inst.proved }
+      { r with proof := some (proofFile o.input, proofText root f.prog inst), proved := inst.proved }
     else r
   withProof <|
   if ds.any isErr || o.mode == .checkOnly then finish o fs ds none corrupt report ok
@@ -567,14 +289,14 @@ def runU (o : Opts) (fs : FS) (corrupt : String → String) : Result :=
     let hdr := SceText.header o.input ++ "\n"
     match o.mode with
     | .printElab =>
-        let body := "\n\n".intercalate (ps.units.map fun (_, own, sp, env) => showProgElab own sp env)
-        finish o fs ds (some (hdr ++ body ++ "\n", fun t => recheck t {} [] ps.prog)) corrupt report ok
+        let body := "\n\n".intercalate (f.units.map fun u => showProgElab u.blocks u.spans u.env)
+        finish o fs ds (some (hdr ++ body ++ "\n", fun t => recheck t {} [] f.prog)) corrupt report ok
     | .emitUnit =>
-        let (own, env) := match ps.units.getLast? with
-          | some (_, own, _, env) => (own, env)
+        let (own, env) := match f.units.getLast? with
+          | some u => (u.blocks, u.env)
           | none => ([], {})
         finish o fs ds (some (hdr ++ showProg own env ++ "\n", fun t => recheck t env env.lib.reverse own)) corrupt report ok
-    | _ => finish o fs ds (some (hdr ++ showProg ps.prog ++ "\n", fun t => recheck t {} [] ps.prog)) corrupt report ok
+    | _ => finish o fs ds (some (hdr ++ showProg f.prog ++ "\n", fun t => recheck t {} [] f.prog)) corrupt report ok
 
 /-- The files `run args fs` may read: the input and every import candidate looked up (with `fs` so far). -/
 def probes (args : List String) (fs : FS) : List String :=
@@ -582,7 +304,7 @@ def probes (args : List String) (fs : FS) : List String :=
   | .error _ => []
   | .ok o =>
     if o.help then [] else if o.isW then [o.input] else
-    o.input :: (loadImports fs o.incl (o.mode == .checkOnly) 64 [{ name := baseName o.input, via := none }] o.input {}).probed
+    SceFront.probes o.input o.incl fs (o.mode == .checkOnly)
 
 /-- `sce args`, reading files through `fs`.  `corrupt`: the test hook of `finish`. -/
 def run (args : List String) (fs : FS) (corrupt : String → String := id) : Result :=

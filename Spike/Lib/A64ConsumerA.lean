@@ -150,7 +150,7 @@ def ArenaW (ar : Arena) (lbl : Lbl) (lsize : Lsize) (c : Ctl) (L : Loc) : Prop :
     (∃ old x a τ e ta ws k, c.hold = some (ar.ctr, TermRun.cst (.num old)) ∧ c.term = .let_ x (.newBuf a τ) e ∧
       TermRun.evalAt c.env a = some (ta, ws) ∧ TermRun.numOf ws = some k ∧
       L.addr.toNat < ar.heap + 16 * old + ar.off k τ) ∨
-    (ar.newOk ∧ ∃ old x a e ty ws, c.hold = some (ar.ctr, TermRun.cst (.num old)) ∧ c.term = .let_ x (.new a) e ∧
+    (ar.newOk ∧ ∃ old x a e ty ws, c.hold = some (ar.ctr, TermRun.cst (.num old)) ∧ (∃ T, c.term = .let_ x (.new a T) e) ∧
       TermRun.evalAt c.env a = some (ty, ws) ∧ L.addr.toNat < ar.heap + 16 * old + ar.off 1 ty)
 
 /-- **An outcome writes the location `L`**: one message of thread 0 at `L`,
@@ -363,7 +363,7 @@ theorem allocInvAt_frameRun {c c' : Ctl} {fs fs' : List TermRun.Frame}
     (hr : FrameRun p (c, fs) (c', fs')) :
     AllocInvAt Λ lbl lsize th tm ar.heap ar.cells ar.ctr ar.units ar.off hu c' := by
   rcases h with ⟨hh, ex, hpd, ha⟩ | ⟨hn, hctr, ha⟩
-  · obtain ⟨x, n, τ, e, ⟨a, ta, ws, ht, hea, hk⟩ | ⟨-, a, ws, ht, -⟩, -⟩ := id hpd
+  · obtain ⟨x, n, τ, e, ⟨a, ta, ws, ht, hea, hk⟩ | ⟨-, a, ws, ⟨_, ht⟩, -⟩, -⟩ := id hpd
     · obtain ⟨rfl, -⟩ := Prod.mk.inj (FrameRun.eq_of_newBuf hr ht hea hk)
       exact .inl ⟨hh, ex, hpd, ha⟩
     · obtain ⟨rfl, -⟩ := Prod.mk.inj (FrameNew.FrameRun.eq_of_new hr ht)
@@ -415,8 +415,8 @@ theorem _root_.Spike.Lib.AllocInvAt.header_fulfil {c : Ctl}
 box's base. -/
 theorem _root_.Spike.Lib.AllocInvAt.header_fulfilBox {c : Ctl}
     (h : AllocInvAt Λ lbl lsize th tm ar.heap ar.cells ar.ctr ar.units ar.off hu c)
-    (hh : c.hold = some (ar.ctr, TermRun.cst (.num hu))) {x : String} {a : At} {e : Expr} {ty : Ty}
-    {ws : List TermRun.Word} (ht : c.term = .let_ x (.new a) e)
+    (hh : c.hold = some (ar.ctr, TermRun.cst (.num hu))) {x : String} {a : At} {T : Option Ty} {e : Expr} {ty : Ty}
+    {ws : List TermRun.Word} (ht : c.term = .let_ x (.new a T) e)
     (hea : TermRun.evalAt c.env a = some (ty, ws)) {q : Time} {w : Msg}
     (hq : tm.get? q = some w) (hw : w.loc ≠ wordLoc ar.ctr)
     (hlt : w.loc.addr.toNat < ar.heap + 16 * hu + ar.off 1 ty) (hnd : th.prom.Nodup) {t' : Thread isaLSE2}

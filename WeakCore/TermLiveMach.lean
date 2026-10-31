@@ -163,6 +163,7 @@ def targetOf (th : TTh) : Option At :=
   | .let_ _ (.load _ a) _ => some a
   | .let_ _ (.fetch _ _ _ a _) _ => some a
   | .let_ _ (.ldp _ a _ _) _ => some a
+  | .let_ _ (.isTy _ _) _ => none
   | _ => none
 
 /-- Thread `i` is at an access to address `b` (the hypothesis shape of
@@ -663,10 +664,38 @@ theorem setTh_none {c : Cfg} {i : Nat} {x : TTh} (h : c.ths[i]? = none) : setTh 
   unfold setTh
   rw [e]
 
+/-- The replacement keeps thread `i`'s allocation records. -/
+def TysAt (c : Cfg) (i : Nat) (x : TTh) : Prop := ∀ y, c.ths[i]? = some y → x.tys = y.tys
+
+theorem tysOf_setTh {c : Cfg} {i : Nat} {x : TTh} (hx : TysAt c i x) : tysOf (setTh c i x) = tysOf c := by
+  cases hy : c.ths[i]? with
+  | none => rw [setTh_none hy]
+  | some y =>
+    funext l
+    simp only [tysOf, setTh, Array.toList_set!]
+    have hl : c.ths.toList[i]? = some y := by simpa using hy
+    refine findSome_set_same _ ?_ _ _ hl
+    simp [hx y hy]
+
 section Crash
 variable {p : Prog} {k : Promises.Knobs} {arch : Arch}
 
-theorem threadSteps_setTh {c : Cfg} {i j : Nat} {x : TTh} (h : j ≠ i) :
+theorem threadSteps_get_ne {c c' : Cfg} {i j : Nat} (h : c' ∈ threadSteps p k arch c j) (hij : i ≠ j) :
+    c'.ths[i]? = c.ths[i]? := by
+  unfold threadSteps at h
+  split at h
+  · simp at h
+  · obtain ⟨⟨mem, pairs, th'⟩, -, rfl⟩ := List.mem_map.1 h
+    simp only [getElem?_set!, Ne.symm hij, ↓reduceIte]
+
+theorem promise_get_ne {c : Cfg} {i j : Nat} (hij : i ≠ j) (a : Address) (v : Val) (w : Ts) :
+    (promise c j a v w).ths[i]? = c.ths[i]? := by
+  unfold promise
+  split
+  · rfl
+  · simp only [getElem?_set!, Ne.symm hij, ↓reduceIte]
+
+theorem threadSteps_setTh {c : Cfg} {i j : Nat} {x : TTh} (h : j ≠ i) (hx : TysAt c i x) :
     threadSteps p k arch (setTh c i x) j =
       (threadSteps p k arch c j).map (fun d => setTh d i x) := by
   unfold threadSteps
@@ -674,7 +703,8 @@ theorem threadSteps_setTh {c : Cfg} {i j : Nat} {x : TTh} (h : j ≠ i) :
   split
   · rfl
   · rw [List.map_map]
-    have hg : gOf p k arch (setTh c i x) j = gOf p k arch c j := by simp [gOf, setTh, Cfg.n]
+    have hg : gOf p k arch (setTh c i x) j = gOf p k arch c j := by
+      simp only [gOf, tysOf_setTh hx]; simp [setTh, Cfg.n]
     rw [hg]
     apply List.map_congr_left
     intro ⟨mem, pairs, th'⟩ _
@@ -713,47 +743,52 @@ theorem noPromises_setTh {c : Cfg} {i j : Nat} {x : TTh} (h : j ≠ i) :
   unfold noPromises
   rw [setTh_get_ne h]
 
-theorem Solo_setTh {c d : Cfg} {i j : Nat} (x : TTh) (h : j ≠ i) (hs : Solo p k arch j c d) :
+theorem Solo_setTh {c d : Cfg} {i j : Nat} (x : TTh) (h : j ≠ i) (hs : Solo p k arch j c d) (hx : TysAt c i x) :
     Solo p k arch j (setTh c i x) (setTh d i x) := by
   induction hs with
   | refl c => exact Solo.refl _
   | thread hs' _ ih =>
-      exact Solo.thread (by rw [threadSteps_setTh h]; exact List.mem_map_of_mem hs') ih
+      exact Solo.thread (by rw [threadSteps_setTh h hx]; exact List.mem_map_of_mem hs')
+        (ih fun y hy => hx y (by rwa [threadSteps_get_ne hs' (Ne.symm h)] at hy))
   | prom a v w hw _ ih =>
-      exact Solo.prom a v w hw (by rw [promise_setTh h]; exact ih)
-  | ext hs' _ ih => exact Solo.ext (extSteps_setTh h hs') ih
+      exact Solo.prom a v w hw (by
+        rw [promise_setTh h]; exact ih fun y hy => hx y (by rwa [promise_get_ne (Ne.symm h)] at hy))
+  | ext hs' _ ih =>
+      exact Solo.ext (extSteps_setTh h hs') (ih fun y hy => hx y (by rwa [extSteps_ne hs' (Ne.symm h)] at hy))
 
-theorem Certified_setTh {c : Cfg} {i j : Nat} {x : TTh} (h : j ≠ i) :
+theorem Certified_setTh {c : Cfg} {i j : Nat} {x : TTh} (h : j ≠ i) (hx : TysAt c i x) :
     Certified p k arch (setTh c i x) j ↔ Certified p k arch c j := by
   constructor
   · rintro ⟨d, hs, hn⟩
     cases hc : c.ths[i]? with
     | none => rw [setTh_none hc] at hs; exact ⟨d, hs, hn⟩
     | some y =>
-        have := Solo_setTh y h hs
+        have hxi : (setTh c i x).ths[i]? = some x := by
+          simp only [setTh, getElem?_set!, ↓reduceIte, lt_of_get hc]
+        have := Solo_setTh y h hs (fun z hz => by rw [hxi] at hz; cases hz; exact (hx y hc).symm)
         rw [setTh_setTh, setTh_self hc] at this
         exact ⟨_, this, by rw [noPromises_setTh h]; exact hn⟩
   · rintro ⟨d, hs, hn⟩
-    exact ⟨_, Solo_setTh x h hs, by rw [noPromises_setTh h]; exact hn⟩
+    exact ⟨_, Solo_setTh x h hs hx, by rw [noPromises_setTh h]; exact hn⟩
 
 /-- Replacing thread `i` changes no move of any other thread `j`. -/
-theorem mstep_setTh {c d' : Cfg} {i j : Nat} {x : TTh} (h : j ≠ i) (b : Bool) :
+theorem mstep_setTh {c d' : Cfg} {i j : Nat} {x : TTh} (h : j ≠ i) (b : Bool) (hx : TysAt c i x) :
     mstep p k arch (setTh c i x) (j, b) d' ↔ ∃ d, mstep p k arch c (j, b) d ∧ d' = setTh d i x := by
   cases b with
   | true =>
-    simp only [mstep, threadSteps_setTh h, List.mem_map]
+    simp only [mstep, threadSteps_setTh h hx, List.mem_map]
     constructor
     · rintro ⟨⟨d, hd, rfl⟩, hc⟩
-      exact ⟨d, ⟨hd, (Certified_setTh h).1 hc⟩, rfl⟩
+      exact ⟨d, ⟨hd, (Certified_setTh h (fun y hy => hx y (by rwa [threadSteps_get_ne hd (Ne.symm h)] at hy))).1 hc⟩, rfl⟩
     · rintro ⟨d, ⟨hd, hc⟩, rfl⟩
-      exact ⟨⟨d, hd, rfl⟩, (Certified_setTh h).2 hc⟩
+      exact ⟨⟨d, hd, rfl⟩, (Certified_setTh h (fun y hy => hx y (by rwa [threadSteps_get_ne hd (Ne.symm h)] at hy))).2 hc⟩
   | false =>
     simp only [mstep, promise_setTh h]
     constructor
     · rintro ⟨a, v, w, hj, hw, hc, rfl⟩
-      exact ⟨_, ⟨a, v, w, by simpa [setTh] using hj, hw, (Certified_setTh h).1 hc, rfl⟩, rfl⟩
+      exact ⟨_, ⟨a, v, w, by simpa [setTh] using hj, hw, (Certified_setTh h (fun y hy => hx y (by rwa [promise_get_ne (Ne.symm h)] at hy))).1 hc, rfl⟩, rfl⟩
     · rintro ⟨d, ⟨a, v, w, hj, hw, hc, rfl⟩, rfl⟩
-      exact ⟨a, v, w, by simpa [setTh] using hj, hw, (Certified_setTh h).2 hc, rfl⟩
+      exact ⟨a, v, w, by simpa [setTh] using hj, hw, (Certified_setTh h (fun y hy => hx y (by rwa [promise_get_ne (Ne.symm h)] at hy))).2 hc, rfl⟩
 
 /-- **Crash simulation.**  `TermLive.crashCfg c i = some c'` leaves memory
 alone (`crash_mem`), happens only with no promise of `i` out (the crash
@@ -771,7 +806,7 @@ theorem crash_sim {c c' : Cfg} {i : Nat} (h : TermLive.crashCfg c i = some c') :
     · rename_i hc
       cases h
       simp only [Bool.or_eq_true, Bool.not_eq_true', not_or] at hc
-      refine ⟨crash_mem c i _, ?_, _, rfl, fun j hj b d' => mstep_setTh hj b⟩
+      refine ⟨crash_mem c i _, ?_, _, rfl, fun j hj b d' => mstep_setTh hj b (fun y hy => by rw [hth] at hy; cases hy; rfl)⟩
       simp only [noPromises, hth, Option.map_some, Option.getD_some]
       cases hp : th.promises.isEmpty
       · rw [hp] at hc; exact absurd hc.2 (by decide)

@@ -1,0 +1,9 @@
+CoreTerm.Decl : Type
+CoreTerm.Decl.arg : CoreTerm.Decl → String
+CoreTerm.Decl.body : CoreTerm.Decl → CoreTerm.Expr
+CoreTerm.Decl.idx : CoreTerm.Decl → List String
+CoreTerm.Expr.binders : CoreTerm.Expr → List String
+CoreTerm.noShadow : CoreTerm.Decl → Bool
+  := fun d =>
+  have bs := d.arg :: d.idx ++ d.body.binders;
+  bs.eraseDups.length == bs.length

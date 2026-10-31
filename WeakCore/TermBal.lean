@@ -202,7 +202,7 @@ def MintRoomT (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → Cfg �
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res},
     TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
-    TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
+    TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
     ∀ key, ExclKey key → F key ≠ 0 → KeyLoad c Tot HP HS cr key + F key ≤ 1 + KeyDebt c db key
 
 /-- **(new obligation, sufficient for `MintRoomT`) A minted exclusive key is
@@ -214,7 +214,7 @@ def MintZeroT (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → Cfg �
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res},
     TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
-    TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
+    TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
     ∀ key, ExclKey key → F key ≠ 0 → KeyLoad c Tot HP HS cr key = 0
 
 /-- **(new obligation for T19) `MintOK` is closed under the step's mint.** -/
@@ -223,7 +223,7 @@ def MintClosedT (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → Cfg 
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res},
     TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
-    TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
+    TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
     ∀ M, MintOK M → MintOK (M + F)
 
 /-- A step mints every key at most once. -/
@@ -249,7 +249,7 @@ theorem knetT_core {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res}
     {cr db : Nat → Ts → Res} {i : Nat} {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop}
     {ρ : Nat → Nat} {η : TEnv} {cx : Cx} {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res}
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r) (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
+    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
       (cr i) (db i) δ)
     (hroom : ∀ key, ExclKey key → F key ≠ 0 → KeyLoad c Tot HP HS cr key + F key ≤ 1 + KeyDebt c db key) :
     ∀ key, ExclKey key → KeyNet c' (upd Tot i Tot') (upd HP i HP') HS' (upd cr i cr') (upd db i db') key := by
@@ -290,7 +290,7 @@ theorem knetT_proof (hR : MintRoomT p k arch Sp Init MintOK c0) {c c' : Cfg} {Eg
     {HS : Res} {cr db : Nat → Ts → Res} {i : Nat} {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop}
     {ρ : Nat → Nat} {η : TEnv} {cx : Cx} {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res}
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r) (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
+    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
       (cr i) (db i) δ) :
     ∀ key, ExclKey key → KeyNet c' (upd Tot i Tot') (upd HP i HP') HS' (upd cr i cr') (upd db i db') key :=
   knetT_core X Y Z (hR X Y Z)
@@ -301,7 +301,7 @@ theorem balT_proof (hM : MintClosedT p k arch Sp Init MintOK c0) {c c' : Cfg} {E
     {HS : Res} {cr db : Nat → Ts → Res} {i : Nat} {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop}
     {ρ : Nat → Nat} {η : TEnv} {cx : Cx} {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res}
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r) (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
+    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
       (cr i) (db i) δ) :
     ∃ M, MintOK M ∧
       thSum c'.ths.size (fun j => upd Tot i Tot' j + pSumAt c' j (upd cr i cr' j) + upd HP i HP' j) + HS' ≤
@@ -350,7 +350,7 @@ def RidFreshT (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → Cfg �
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res},
     TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
-    TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
+    TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
     F = Res.one (.rg (ridNext η)) + Res.one (.wd (ridNext η)) →
     KeyLoad c Tot HP HS cr (.rg (ridNext η)) ≤ KeyDebt c db (.rg (ridNext η)) ∧
       KeyLoad c Tot HP HS cr (.wd (ridNext η)) ≤ KeyDebt c db (.wd (ridNext η))
@@ -363,7 +363,7 @@ def AllocGT (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → Cfg → 
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res},
     TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
-    TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
+    TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
     ∀ l, F (.own l) ≠ 0 → FreshIn (gOf p k arch c i) th.nalloc r.2.2.nalloc l
 
 /-- (b2) **No own key of a label outside `E_g` is held** (frames, private
@@ -380,7 +380,7 @@ def ClaimRoomT (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → Cfg �
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res},
     TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
-    TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
+    TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
     ∀ n j, C = Res.one (.ep n j) → F = Res.one (.rg n) → KeyLoad c Tot HP HS cr (.rg n) + 1 ≤ 1 + KeyDebt c db (.rg n)
 
 /-- **Room for a thread step's mints, per instance**, from (a) at this step, (b1) with (b2), and (c). -/
@@ -389,7 +389,7 @@ theorem mintRoom_at (hb1 : AllocGT p k arch Sp Init MintOK c0) (hb2 : OwnKeyStoN
     {HS : Res} {cr db : Nat → Ts → Res} {i : Nat} {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop}
     {ρ : Nat → Nat} {η : TEnv} {cx : Cx} {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res}
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r) (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
+    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
       (cr i) (db i) δ)
     (hc : ∀ n j, C = Res.one (.ep n j) → F = Res.one (.rg n) →
       KeyLoad c Tot HP HS cr (.rg n) + 1 ≤ 1 + KeyDebt c db (.rg n))
@@ -448,7 +448,7 @@ theorem knetT_rid (hb1 : AllocGT p k arch Sp Init MintOK c0) (hb2 : OwnKeyStoN p
     {HS : Res} {cr db : Nat → Ts → Res} {i : Nat} {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop}
     {ρ : Nat → Nat} {η : TEnv} {cx : Cx} {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res}
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r) (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
+    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
       (cr i) (db i) δ) {rc : Nat → Nat} (hrc : RidOK c Tot HP HS cr db rc) (hle : rc i ≤ η.rid) :
     ∀ key, ExclKey key → KeyNet c' (upd Tot i Tot') (upd HP i HP') HS' (upd cr i cr') (upd db i db') key := by
   have htid : η.tid = i := Y.2.1
@@ -514,7 +514,7 @@ def ClaimExportT (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → Cfg
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res},
     TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
-    TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
+    TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
     ∀ n j, C = Res.one (.ep n j) → F = Res.one (.rg n) → ∃ x w tk e, th.term = .let_ x (.claim w tk) e
 
 /-- **`claimRoom` under D5**: vacuous, since no reachable step is a claim. -/
@@ -637,7 +637,7 @@ theorem knetT_coreD {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res}
     {cr db : Nat → Ts → Res} {i : Nat} {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop}
     {ρ : Nat → Nat} {η : TEnv} {cx : Cx} {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res}
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r) (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
+    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
       (cr i) (db i) δ)
     (hnd : ∀ (n : Nat) (th : TTh), c.ths[n]? = some th → th.promises.Nodup)
     (hroom : ∀ key, ExclKey key → F key ≠ 0 → KeyLoad c Tot HP HS cr key + F key ≤ 1 + KeyDebt c db key) :
@@ -710,7 +710,7 @@ theorem knetT_D (hb1 : AllocGT p k arch Sp Init MintOK c0) (hb2 : OwnKeyStoN p k
     {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx} {Rf Rs : Res} {E' : TEnv}
     {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res}
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r) (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
+    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
       (cr i) (db i) δ)
     (hcl : ClaimAt th.term C F)
     (_hcs : CrShiftP c c' (EgT Eg (gOf p k arch c i) th.nalloc r.2.2.nalloc E' c') cr i δ)
@@ -727,7 +727,7 @@ theorem balT_D (hM : MintClosedT p k arch Sp Init MintOK c0) (hN : PromNodupR p 
     {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx} {Rf Rs : Res}
     {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res}
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r) (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
+    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
       (cr i) (db i) δ)
     (_hcs : CrShiftP c c' (EgT Eg (gOf p k arch c i) th.nalloc r.2.2.nalloc E' c') cr i δ) :
     ∃ M, MintOK M ∧
@@ -782,7 +782,7 @@ theorem knetT_keyB {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res}
     {cr db : Nat → Ts → Res} {i : Nat} {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop}
     {ρ : Nat → Nat} {η : TEnv} {cx : Cx} {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res}
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r) (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
+    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
       (cr i) (db i) δ)
     (hnd : ∀ (n : Nat) (th : TTh), c.ths[n]? = some th → th.promises.Nodup) (key : Key) (b : Nat)
     (hroom' : KeyLoad c Tot HP HS cr key + F key ≤ b + KeyDebt c db key) :
@@ -839,7 +839,7 @@ theorem ridT_N (hres : TicketFreeRun p k arch Sp c0) {c c' : Cfg} {Eg : GEnv}
     {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx} {Rf Rs : Res} {E' : TEnv}
     {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res}
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r) (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
+    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
       (cr i) (db i) δ)
     (hcl : ClaimAt th.term C F) (hN : PromNodupR p k arch Sp c0)
     (rc : Nat → Nat) (hrc : RidOK c Tot HP HS cr db rc) (hle : rc i ≤ η.rid) :

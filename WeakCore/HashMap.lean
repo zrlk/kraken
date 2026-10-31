@@ -130,7 +130,7 @@ def newD : Decl where
     (.region (v "kf") "r" "kb" "t"
       (lets ([("vr", .intoRgn "r" (v "vf"))] ++ tuple "nt" [v "c2", v "kb", v "vr"] ++
              [("tb", .pack (v "nt0") "z" (TblR (.var 0)))] ++ mapCell "tb" "a" ++
-             [("p", .new (v "m0")), ("d", .intoRgn "r" (v "p")), ("g", .pair (v "d") (v "t")),
+             [("p", .new (v "m0") (some (MapTR (.var 1)))), ("d", .intoRgn "r" (v "p")), ("g", .pair (v "d") (v "t")),
               ("res", .pack (v "g") "r" NewMap)])
         (.ret (v "res"))))
 
@@ -463,7 +463,7 @@ def mkMapRWD : Decl := dcl "mkMapRW" .unit GM
   (lets (fnsOps ++ [("p", .call "hmNew" [] (v "fs") [KI, .int])])
     (.unpack (v "p") "r" "g" (.split (v "g") "d" "t0"
       (lets [("wv", .mkWord "r" RWLock.rwP (.lit 0) (v "t0")), ("pr", .pair (v "wv") (v "d")),
-             ("s", .new (v "pr")), ("s2", .publish (v "s")), ("mx", .pack (v "s2") "r" GM)]
+             ("s", .new (v "pr") (some (.prod (.word (.var 0) RWLock.rwP) (.ptr (.rgn (.var 0)) (MapKI (.var 0)))))), ("s2", .publish (v "s")), ("mx", .pack (v "s2") "r" GM)]
         (.ret (v "mx"))))))
 
 /-- Writer: `insert k ↦ val` under the lock; the displaced value, unwrapped. -/

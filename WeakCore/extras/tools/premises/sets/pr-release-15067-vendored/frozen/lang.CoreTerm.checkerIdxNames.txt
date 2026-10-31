@@ -1,0 +1,2 @@
+CoreTerm.checkerIdxNames : List String
+  := ["_nz"]

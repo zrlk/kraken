@@ -337,6 +337,15 @@ theorem tstep_appAll {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
        obtain ⟨x, hx, y, hy, rfl⟩ := h
        exact AppAll.trans (projM_appAll hx) (injM_appAll hy))
     | (simp only [List.mem_singleton] at h; subst h; exact fenceS_appAll _ .st)
+    | (simp only [List.mem_map] at h  -- new arm: record write
+       obtain ⟨x, hx, rfl⟩ := h
+       try dsimp only
+       split
+       all_goals
+         first
+           | exact evalOp_appAll hx
+           | exact stepRmw_appAll (th := mth _ _ _ _) hx
+           | exact stepRmwPair_appAll (th := mth _ _ _ _) hx)
 
 /-- Every message a thread step appends is at most its new `vWr`. -/
 theorem tstep_newLe {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
@@ -465,7 +474,7 @@ def OwnCohLeN (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → Cfg �
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res},
     TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
-    TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
+    TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
     ∀ l, (CE η).pfr l = none → E'.pfr l ≠ none → ∀ cl vals, E'.sto l = some cl →
       CellOK E' (E'.rc l) cl.ty vals → ∀ o, o < vals.length → r.2.2.vs.coh ⟨l, o⟩ ≤ r.2.2.vs.vWr
 
@@ -494,7 +503,7 @@ theorem ownCohInvT_step (hinv : OwnCohInvT p k arch Sp Init MintOK c0)
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res}
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r) (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ) :
+    (Z : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ) :
     OwnCohInv E' (stOf r.1 r.2.1 r.2.2) := by
   obtain ⟨S0, -, -, hm0, -⟩ := X.inv.thr i th X.hth
   exact ownCohInv_step X.hr hm0 (by rw [Y.1]; rfl) (by rw [Y.1]; rfl) (by rw [Y.1]; rfl) (hinv X Y) Z.1
@@ -565,6 +574,7 @@ theorem wp_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [WrIni
     (by rw [hce2]; exact X.inv.riniCoh _ _ _ X.hth)
     (fun l cl f hs hp => by rw [hce2] at hs hp; exact X.inv.frlt l cl f (cutSto_sub hs) hp)
     (by rw [hce2]; exact TermMain.tidAt_cut X.inv i S0)
+    (by rw [hce2]; exact (X.inv.tyRec X.hth S0).1) (X.inv.tyRec X.hth S0).2
   refine flipOK_congr ?_ ?_ ?_ ?_ h <;> rw [Y.1, hce2] <;> rfl
 
 /-! ## §5 `rmw` (T8): the slot form `NoPlantRMWS` -/

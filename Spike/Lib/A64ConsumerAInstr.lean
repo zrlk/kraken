@@ -127,7 +127,7 @@ theorem newSt_src {ab : Option (State → Prop)} {Cl : State → Prop} (hP : Hoo
       CtrOff ar lbl' lsize' ∧ LocIn Λ.shared L ∧ G L V ∧
       ((o.mem = (mem.append ⟨L, V, 0⟩).1 ∧ o.thread.prom = th.prom) ∨
         ∃ q ∈ th.prom, mem.get? q = some ⟨L, V, 0⟩ ∧ o.mem = mem ∧ o.thread.prom = th.prom.erase q) := by
-  obtain ⟨kr, A, V, s', x, a, ty, e, w, wold, old, -, hex, hmp, ht, hev, hu, hv, hh, hold, hAeq, hcl, hX⟩ := hNS
+  obtain ⟨kr, A, V, s', x, a, ty, e, w, wold, old, -, hex, hmp, ⟨_, ht⟩, hev, hu, hv, hh, hold, hAeq, hcl, hX⟩ := hNS
   have hh' : c₁.hold = some (ar.ctr, wold) := hh
   have hAeq' : A.toNat = ar.heap + 16 * old + ar.off 1 ty := hAeq
   have hcl' : old + ar.units 1 ty ≤ ar.cells := hcl
@@ -433,7 +433,7 @@ theorem instr_stepA {ab : Option (State → Prop)} {Cl : State → Prop} (hP : H
     · show ExtRows.OwnOk (own o.thread.st th'.stack) _ _
       rw [hst']; exact hoo'
     · refine hU (HeapPres.heapUse_set (s := { s with ths := #[thAt th0 c₁ fs₁] }) (i := 0) rfl rfl rfl hna' htl') ?_
-      exact hai'.retarget (hai'.idle_of_term (notAlloc_let ht (fun _ _ h => by cases h) fun _ h => by cases h))
+      exact hai'.retarget (hai'.idle_of_term (notAlloc_let ht (fun _ _ h => by cases h) fun _ _ h => by cases h))
         fun w h => by cases h
   · -- the store row
     have hrun1 := hsrc fun _ a' h => by rw [ht] at h; cases h
@@ -456,7 +456,7 @@ theorem instr_stepA {ab : Option (State → Prop)} {Cl : State → Prop} (hP : H
     · show ExtRows.OwnOk (own o.thread.st th'.stack) _ _
       rw [hst']; exact hoo'
     · refine hU (heapUse_store (s := { s with ths := #[thAt th0 c₁ fs₁] }) rfl hkm hml hna' htl') ?_
-      exact hai'.retarget (hai'.idle_of_term (notAlloc_let ht (fun _ _ h => by cases h) fun _ h => by cases h))
+      exact hai'.retarget (hai'.idle_of_term (notAlloc_let ht (fun _ _ h => by cases h) fun _ _ h => by cases h))
         fun w h => by cases h
   · -- the load of an exchange: the source stutters after the row's run, holding the latest word
     have hrun1 := hsrc fun _ => xchgSite_not_ret hxs
@@ -793,7 +793,7 @@ theorem instr_stepAH {ab : Option (State → Prop)} {Cl : State → Prop} (hP : 
     · show ExtRows.OwnOk (own o.thread.st th'.stack) _ _
       rw [hst']; exact hoo'
     · refine hU (HeapPres.heapUse_set (s := { s with ths := #[thAt th0 c₁ fs₁] }) (i := 0) rfl rfl rfl hna' htl') ?_
-      exact hai'.retarget (hai'.idle_of_term (notAlloc_let ht (fun _ _ h => by cases h) fun _ h => by cases h))
+      exact hai'.retarget (hai'.idle_of_term (notAlloc_let ht (fun _ _ h => by cases h) fun _ _ h => by cases h))
         fun w h => by cases h
   · -- the store row
     have hrun1 := hsrc fun _ a' h => by rw [ht] at h; cases h
@@ -816,7 +816,7 @@ theorem instr_stepAH {ab : Option (State → Prop)} {Cl : State → Prop} (hP : 
     · show ExtRows.OwnOk (own o.thread.st th'.stack) _ _
       rw [hst']; exact hoo'
     · refine hU (heapUse_store (s := { s with ths := #[thAt th0 c₁ fs₁] }) rfl hkm hml hna' htl') ?_
-      exact hai'.retarget (hai'.idle_of_term (notAlloc_let ht (fun _ _ h => by cases h) fun _ h => by cases h))
+      exact hai'.retarget (hai'.idle_of_term (notAlloc_let ht (fun _ _ h => by cases h) fun _ _ h => by cases h))
         fun w h => by cases h
   · -- the load of an exchange: the source stutters after the row's run, holding the latest word
     have hrun1 := hsrc fun _ => xchgSite_not_ret hxs

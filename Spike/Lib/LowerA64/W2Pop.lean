@@ -33,7 +33,7 @@ popped pair `(c'', [])` (`hW`), the popped control not at an allocation
 (`hne`) free of `ZBad` (`hf`) and placed (`hpl`). -/
 theorem w2_ofPopped (hp : ProgNoS ZBad p) {c c'' : Ctl} {fs : List TermRun.Frame}
     (hW : W2 Λ μ p rd G own rS Tk ar J Dt Ab lbl lsize s c'' [])
-    (hnb : ∀ x a τ e, c''.term ≠ .let_ x (.newBuf a τ) e) (hnn : ∀ x a e, c''.term ≠ .let_ x (.new a) e)
+    (hnb : ∀ x a τ e, c''.term ≠ .let_ x (.newBuf a τ) e) (hnn : ∀ x a T e, c''.term ≠ .let_ x (.new a T) e)
     (hov : ¬ OvfReady c'')
     (hne : fs ≠ []) (hf : FrOk2 c fs) (hpl : PlacedSE Λ lbl s c fs) :
     W2 Λ μ p rd G own rS Tk ar J Dt Ab lbl lsize s c fs := by
@@ -41,16 +41,16 @@ theorem w2_ofPopped (hp : ProgNoS ZBad p) {c c'' : Ctl} {fs : List TermRun.Frame
   · intro c' fs' _ hsys
     have hw := hW.wr c'' [] (.refl _) hsys
     refine ⟨fun L hL => ?_, fun hL => ?_⟩
-    · rcases hw.arena L hL with h | h | h | ⟨_, x, a, τ, e, _, _, _, _, ht, _⟩ | ⟨-, _, x, a, e, _, _, _, ht, _⟩
+    · rcases hw.arena L hL with h | h | h | ⟨_, x, a, τ, e, _, _, _, _, ht, _⟩ | ⟨-, _, x, a, e, _, _, _, ⟨_, ht⟩, _⟩
       · exact .inl h
       · exact .inr (.inl h)
       · exact .inr (.inr (.inl h))
       · exact absurd ht (hnb x a τ e)
-      · exact absurd ht (hnn x a e)
+      · exact absurd ht (hnn x a _ e)
     · obtain ⟨_, _, _, x, τ, e, _, _, _, _, hsite, _⟩ := hw.ctr hL
-      rcases hsite with ⟨a, _, _, ht, _⟩ | ⟨-, a, _, ht, _⟩
+      rcases hsite with ⟨a, _, _, ht, _⟩ | ⟨-, a, _, ⟨_, ht⟩, _⟩
       · exact absurd ht (hnb x a τ e)
-      · exact absurd ht (hnn x a e)
+      · exact absurd ht (hnn x a _ e)
   · intro k a hk hpc
     obtain ⟨h1, h2⟩ := hW.abort k a hk hpc
     refine ⟨?_, h2⟩

@@ -58,7 +58,7 @@ theorem hctr0_ofT (hcode : ∀ ms0 q, Code ms0 q exe endPc)
   intro s c fs _ hC hW c' fs' hr _
   obtain ⟨⟨rfl, ms0, R, F, q, hms, hGc, hok, hAt⟩, htp⟩ := hC.resolve_right fun hS => hSt s c fs hS hW
   have hc : c = q.c0 := by obtain ⟨-, -, -, -, σ, -, -, ⟨h, -⟩, -⟩ := hAt; exact h
-  obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Spike.Lib.FrameNew.FrameRun.eq_of_new hr (hc ▸ hok.okb.term))
+  obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Spike.Lib.FrameNew.FrameRun.eq_of_new hr (by rw [hc]; exact hok.okb.term.choose_spec))
   have hnm : Spike.Lib.A64.KeepTP.NoMsrAt s := by
     obtain ⟨he, hn, -, hpc, -⟩ := id hAt
     exact Spike.Lib.A64.Flow.noMsrAt_of_code ((hcode ms0 q).rmw s he hn) (by decide) (j := 0) (by simp) rfl rfl
@@ -72,7 +72,7 @@ theorem hctr0_ofT (hcode : ∀ ms0 q, Code ms0 q exe endPc)
   refine ⟨hG', fun _ a h => ?_, _, _, .refl _, .inl ⟨rfl, rfl, ?_⟩⟩
   · revert h; rw [hc]; intro h
     have h2 : q.c0.term = .ret a := h
-    rw [hok.okb.term] at h2
+    rw [hok.okb.term.choose_spec] at h2
     cases h2
   · rcases hL with ⟨_, hj⟩ | ⟨y, _⟩
     · exact hland ms0 R F q hms hGc hok _ _ hj (hT old)

@@ -1,0 +1,12 @@
+CoreLang.Pred : Type
+CoreLang.Ty : Type
+CoreTerm.Pos : Type
+CoreTerm.tyAt : CoreLang.Ty → CoreTerm.Pos → Option CoreLang.Ty
+  eq_def ∀ (x : CoreLang.Ty) (x_1 : CoreTerm.Pos),
+  CoreTerm.tyAt x x_1 =
+    match x, x_1 with
+    | t, [] => some t
+    | a.prod τ, 0 :: p => CoreTerm.tyAt a p
+    | σ.prod b, 1 :: p => CoreTerm.tyAt b p
+    | t.refine ψ, p => CoreTerm.tyAt t p
+    | x, x_2 => none

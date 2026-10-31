@@ -415,10 +415,10 @@ theorem tstepMCF_stepTKA_zfB {p : Prog} {g : G} {mem : Memory} {pairs : List Ts}
       (∀ rt w ad, evalAt th.env b = some (rt, [w]) → w.val = .loc ad 0 → (CE η).pfr ad.label ≠ none →
         ∃ Sp, MemHeldL (CE η) (stOf mem pairs th) H Sp ∧ SlotPayS (CE η) (stOf mem pairs th) Sp cr db ad.label))
     (hbiP : HbiP g mem pairs th η H cr cr₀ plb plf db Ok)
-    (hRP : RetPw th.σs th.stack cx.ret) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) (hown1 : PubLe1 th Rf Rs H := by assumption)
+    (hRP : RetPw th.σs th.stack cx.ret) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) (hTy : TyOKE g (CE η)) (hown1 : PubLe1 th Rf Rs H := by assumption)
     (hz0 : ∀ l, ¬ g.zf l := by exact fun _ h => h)
     (hPb : ∀ y a e rt ws ad, th.term = .let_ y (.publish a) e → evalAt th.env a = some (rt, ws) →
-      ws.map (·.val) = [.loc ad 0] → g.pf ad.label := by exact fun _ _ _ _ _ _ _ _ _ => trivial) :
+      ws.map (·.val) = [.loc ad 0] → g.pf ad.label := by exact fun _ _ _ _ _ _ _ _ _ => trivial) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
     tstep g mem pairs th ≠ [] ∧ ∀ r ∈ tstep g mem pairs th, PromAbove (stOf r.1 r.2.1 r.2.2) →
       (OwnFrOp (CE η) cx th → r.1 = mem) ∧ Ok r → ∃ Tot H' C F cr' db' Gd plh,
       ThInvMCFQK (fun E' => BiOut th E' ∧ KeepQRSB (CE η) E' (stOf mem pairs th) (stOf r.1 r.2.1 r.2.2) th cr cr' plh ∧
@@ -434,8 +434,8 @@ theorem tstepMCF_stepTKA_zfB {p : Prog} {g : G} {mem : Memory} {pairs : List Ts}
         (¬ PubShape cx th → Gd = []) := by
   by_cases hBR : NotBiRc th (CE η)
   · -- off a frontier `bufInit` at its buffer's real count: the exclusion holds
-    have h := tstepMCF_stepTKA_zfC (hz0 := hz0) (hPb := hPb) hP hp hn hnd hsc hT hCk hi hE htv hm hH hpx hC hia hdw
-      hwp hwin hfo hrmw hbf hpo hle hni hclo hbi hRP hPS hSub hSig hown1
+    have h := tstepMCF_stepTKA_zfC (hDy := hDy) (hz0 := hz0) (hPb := hPb) hP hp hn hnd hsc hT hCk hi hE htv hm hH hpx hC hia hdw
+      hwp hwin hfo hrmw hbf hpo hle hni hclo hbi hRP hPS hSub hSig hTy hown1
     refine ⟨h.1, fun r hr hpa hok => ?_⟩
     obtain ⟨Tot, H', C, F, cr', db', Gd, plh, ⟨E', hq, hrest⟩, h2⟩ := h.2 r hr hpa hok
     refine ⟨Tot, H', C, F, cr', db', Gd, plh, ⟨E', ⟨hq.1, keepQRSB_of_exP
@@ -461,14 +461,14 @@ theorem tstepMCF_stepTKA_zfB {p : Prog} {g : G} {mem : Memory} {pairs : List Ts}
   have htgP : OpTgtP th ad.label := ⟨b, rt, w, ad, 0, by rw [ht]; rfl, he, hw, rfl⟩
   have hOF : OwnFrOp (CE η) cx th := ⟨hO0, ad.label, hf, htg⟩
   have hnp : ∀ x' a e', th.term ≠ .let_ x' (.publish a) e' := fun x' a e' h' => by rw [ht] at h'; cases h'
-  have h := tstepMCF_stepTKA_zfC (cr := cr₀) (hz0 := hz0) (hPb := hPb) hP hp hn hnd hsc hT hCk hi hE htv hm hH hpx
+  have h := tstepMCF_stepTKA_zfC (hDy := hDy) (cr := cr₀) (hz0 := hz0) (hPb := hPb) hP hp hn hnd hsc hT hCk hi hE htv hm hH hpx
     hCk0 hia hdw hwp hwin hfo hrmw hbf hpo (fun hnb => (hnb x b i v e rt w ad rti wi ht he hw hei hnm hf).elim)
     hni hclo (fun x' b' i' v' e' ht' => ⟨(hbi x' b' i' v' e' ht').1, (hbi x' b' i' v' e' ht').2.1,
       fun rt' w' ad' he' hw' _ => by
         rw [ht] at ht'; cases ht'
         cases some_det he he'
         rw [hw] at hw'; cases hw'
-        exact ⟨Sp, hHL, hpay0⟩⟩) hRP hPS hSub hSig hown1
+        exact ⟨Sp, hHL, hpay0⟩⟩) hRP hPS hSub hSig hTy hown1
   refine ⟨h.1, fun r hr hpa hok => ?_⟩
   obtain ⟨Tot, H', C, F, cr', db', Gd, plh, ⟨E', ⟨hq1, hq2, hq3, hq4⟩, hEF, hSO, hBV, hTI, hMI, hMH, hPC⟩,
     hMS, hCl, hDr, hbal, hG1, hG2⟩ := h.2 r hr hpa hok

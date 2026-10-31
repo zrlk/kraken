@@ -32,7 +32,7 @@ theorem plantIdx_thread {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Re
     {cx : Cx} {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {crS cr' db' δ : Ts → Res}
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r)
     (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
+    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
       crS (db i) δ)
     (hS : ThSysAt p (gOf p k arch c i) c.mem c.pairs th Eg (Tot i) (HP i) HS (cr i) (db i) S)
     (hK : ∀ t l, crS t (.own l) = cr i t (.own l))
@@ -208,7 +208,17 @@ theorem plantIdx_prom (hV0 : TermViewInv.ViewInvR p k arch Sp c0) {c : Cfg} {Eg 
     have ht1 := (TermPtrRts.tminG_eq hpi.2.1).symm.trans htm
     have hv := TermPlantAtI.plant_vWr (hV0 := hV0) X hk hNP (TermCertScope.certScopeP_of hps h0d) hwin1 hAn (sto := Eg.sto)
       (fun l0 c3 h => TermPlantAtT.sto_of_cut (Eg := EgP Eg (TermPlantF.plantOf c Eg j a v w) N j c.mem.size)
-        (i := j) (S := S1) h) hTE1 hm1 hR1 ht1
+        (i := j) (S := S1) h) hTE1 hm1
+      (by
+        rw [TermTyped.gOf_promise]
+        intro l0 t0 c3 ht hc
+        obtain ⟨c4, h1, h2⟩ := X.inv.tysOK l0 t0 ht
+        have h3 : Eg.sto l0 = some c3 :=
+          TermPlantAtT.sto_of_cut (Eg := EgP Eg (TermPlantF.plantOf c Eg j a v w) N j c.mem.size) (i := j) (S := S1) hc
+        rw [h3] at h1
+        cases h1
+        exact h2)
+      (by rw [TermTyped.gOf_promise]; exact (X.inv.tyRec X.hth S1).2) hR1 ht1
       (by have hb : (promise c j a v w).boxFence = c.boxFence := by unfold promise; split <;> rfl
           rw [hb]; exact X.inv.bf)
       (fun q hq => by

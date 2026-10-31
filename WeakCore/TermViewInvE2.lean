@@ -41,8 +41,8 @@ theorem eo_inr {g : G} {env : Env} {σs : List Ty} {s s' : St} {t : Ty} {ws : Li
   · cases h
 
 theorem eo_new {g : G} {env : Env} {σs : List Ty} {s s' : St} {t : Ty} {ws : List Word}
-    {a : At}
-    (h : (s', t, ws) ∈ evalOp g env σs s (.new a)) (hs : StV s) (he : EnvV s.mem.size env) :
+    {a : At} {T : Option Ty}
+    (h : (s', t, ws) ∈ evalOp g env σs s (.new a T)) (hs : StV s) (he : EnvV s.mem.size env) :
     Concl s s' ws := by
   simp only [evalOp] at h
   split at h

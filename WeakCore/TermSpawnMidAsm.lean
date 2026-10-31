@@ -31,7 +31,7 @@ theorem sysInvN_spawnMid {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : R
     (hth : c.ths[i]? = some th) (hnp : th.promises = [])
     -- the step's shape (the `spawnPar`/`spawnKid`, `TermSpawnMidBridge`)
     (hpar : par.vs = (fenceS (stOf c.mem c.pairs th) .sy).vs ∧ par.promises = [] ∧ par.nalloc = th.nalloc ∧
-      par.undefs = th.undefs)
+      par.undefs = th.undefs) (hpty : par.tys = th.tys)
     (hPenv : ∃ (x : String) (w0 : Word), par.env = (x, .tid, [w0]) :: th.env ∧ par.stack = th.stack ∧
       ∀ w ∈ TermPtrRts.pubWords .tid [w0], ∀ l, TermPtrRts.Names l w → Eg.pfr l ≠ none ∨ Eg.box l ≠ none)
     -- (E2) the parent keeps its box, the kid's is published (`TermBox`)
@@ -154,6 +154,16 @@ theorem sysInvN_spawnMid {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : R
     cfgCoh := cfgCoh_spawnT hth hv hK hN.cfgCoh
     stoW := eSw
     freshU := TermFreshU.freshU_spawnT hth hpp' hkp hFU
+    scalIni := hN.scalIni
+    tysOK := by
+      have e : tysOf (spawnT c i par kid) = tysOf c := by
+        funext l
+        have h1 := congrFun (tysOf_set (d := { c with ths := c.ths.set! i par }) hth rfl hpty) l
+        simp only [tysOf] at h1 ⊢
+        rw [← h1]
+        simp [spawnT, Array.toList_push, List.findSome?_append, hK.tys]
+      rw [e]
+      exact hN.tysOK
     tidBox := by
       intro j tj hj
       rcases spawnT_get_cases hi hj with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ | ⟨-, -, hj'⟩

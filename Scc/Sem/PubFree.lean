@@ -156,8 +156,16 @@ theorem tstep_pf {g : G} {mem : WeakMem.Memory} {pairs : List Ts} {th : TTh}
         · simp at hr
       · simp at hr
     · simp at hr
+  · -- new (records the allocation type; term and stack as for every other let)
+    rename_i _ x a T e heq
+    rw [heq] at hok
+    simp only [pubFree, Bool.and_eq_true] at hok
+    simp only [List.mem_map] at hr
+    obtain ⟨_, -, rfl⟩ := hr
+    dsimp only
+    split <;> exact ⟨hok.2, hstk⟩
   · -- every other let
-    rename_i _ x op e _ _ heq
+    rename_i _ x op e _ _ _ heq
     rw [heq] at hok
     simp only [pubFree, Bool.and_eq_true] at hok
     simp only [List.mem_map] at hr
@@ -417,7 +425,7 @@ variable {Sp : Cfg → Cfg → Prop}
 /-- **At a configuration without `publish`, `NoHoldPubN` holds** (its premise
 asks for a thread at `let x = publish a in e`). -/
 theorem noHoldPubN_of {E0 E1 : TEnv} {i : Nat} {c : Cfg} (h : RunPF c) : NoHoldPubN p k arch E0 E1 i c := by
-  intro th hth _ _ _ _ _ _ _ _ _ _ _ x a e _ _ _ ht _ _ _
+  intro th hth _ _ _ _ _ _ _ _ _ _ _ _ _ _ x a e _ _ _ ht _ _ _
   have hpf := (h i th hth).term
   rw [ht] at hpf
   simp [pubFree, isPublish] at hpf
@@ -454,8 +462,7 @@ initial scope invariant remain. -/
 theorem obligationsFX_of_noPublish (hck : checkProg p = .ok ()) (hsc : TermScope.ProgScopeOKW p = true)
     (hrs : TermScope.RunScope c0) (hp : ProgPubFree p) (hpf : RunPF c0) :
     ObligationsFX p k arch (Spawn p k arch c0.cap) Init (fun _ => True) c0 :=
-  ⟨hck, hsc, hrs, certWinCNX_of_noPublish hp (runPFR_spawn hp hpf),
-    certWinPNX_of_noPublish hp (runPFR_spawn hp hpf)⟩
+  ⟨hck, hsc, hrs⟩
 
 /-- **Every thread is typed along every run with spawns** of a publish-free
 program (`machine_tokens_main_spawn`'s per-thread conjunct). -/
@@ -473,7 +480,7 @@ theorem srcTyped_spawn_of_noPublish (hck : checkProg p = .ok ()) (hsc : TermScop
 theorem obligationsF_of_noPublish (hck : checkProg p = .ok ()) (hsc : TermScope.ProgScopeOKW p = true)
     (hrs : TermScope.RunScope c0) (hp : ProgPubFree p) (hpf : RunPF c0) :
     ObligationsF p k arch Init (fun _ => True) c0 :=
-  ⟨hck, hsc, hrs, certWinCN_of_noPublish hp hpf, certWinPN_of_noPublish hp hpf⟩
+  ⟨hck, hsc, hrs⟩
 
 /-- **Every thread is typed along every run without spawns** of a
 publish-free program (`machine_tokens_mainF`'s per-thread conjunct). -/
@@ -496,7 +503,7 @@ def allocD : Decl where
   name := "alloc"; idx := []; arg := "x"
   argTy := .int
   retTy := .int
-  body := lets [("p", .new (v "x"))] (.ret (v "x"))
+  body := lets [("p", .new (v "x") (some .int))] (.ret (v "x"))
 
 /-- A one-block program without `publish` passes the check. -/
 theorem progPubFree_alloc : ProgPubFree [allocD] := by decide

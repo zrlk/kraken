@@ -101,11 +101,11 @@ theorem PubStep.landing {k : Kraken.FenceKind} {c c₁ : Ctl} (h : PubStep k c c
 
 /-- A publication is no allocation. -/
 theorem PubStep.notAlloc {k : Kraken.FenceKind} {c c₁ : Ctl} (h : PubStep k c c₁) :
-    ∃ x o e, c.term = .let_ x o e ∧ (∀ a τ, o ≠ .newBuf a τ) ∧ ∀ a, o ≠ .new a := by
+    ∃ x o e, c.term = .let_ x o e ∧ (∀ a τ, o ≠ .newBuf a τ) ∧ ∀ a T, o ≠ .new a T := by
   obtain ⟨-, -, x, a, e, t, t', ws, hterm, -, -⟩ := h
   rcases hterm with ⟨ht, -⟩ | ⟨r, ht, -⟩
-  · exact ⟨x, _, e, ht, fun _ _ h => (by cases h), fun _ h => (by cases h)⟩
-  · exact ⟨x, _, e, ht, fun _ _ h => (by cases h), fun _ h => (by cases h)⟩
+  · exact ⟨x, _, e, ht, fun _ _ h => (by cases h), fun _ _ h => (by cases h)⟩
+  · exact ⟨x, _, e, ht, fun _ _ h => (by cases h), fun _ _ h => (by cases h)⟩
 
 namespace A64ConsumerS
 

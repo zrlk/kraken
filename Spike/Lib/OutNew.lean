@@ -31,7 +31,7 @@ abbrev NewStM (p : Prog) (lbl : WeakMem.AllocLabel → Option Nat) (ms : MemSide
 /-- The box's initialising store is off a return (its pair is at `new`). -/
 theorem NewStM.not_ret {ms : MemSide I} {s : I.State} {c : Ctl} (h : NewStM p lbl ms s c) :
     ∀ a, c.term ≠ .ret a := by
-  obtain ⟨_, _, _, _, _, _, _, _, _, _, _, -, -, -, ht, -⟩ := h
+  obtain ⟨_, _, _, _, _, _, _, _, _, _, _, -, -, -, ⟨_, ht⟩, -⟩ := h
   intro a ha; rw [ha] at ht; cases ht
 
 /-- **An `Out` row, split at the box's rows**: the box's initialising store

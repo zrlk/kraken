@@ -217,7 +217,7 @@ theorem threadStepW {c₀ c c' : Cfg} (S : Setting p k arch Init c₀) (hrun : S
         · show Eg.ini l ≤ E'.ini l
           exact (hF0.2.2.2.2.1 l).1
         · intro t m th' hth' htp hnone hsome cl hcl
-          obtain ⟨-, -, -, -, -, -, -, -, -, -, Fd, -, -, -, hWL⟩ := Z
+          obtain ⟨-, -, -, -, -, -, -, -, -, -, Fd, -, -, -, hWL, -⟩ := Z
           rw [X.e3] at hth'
           cases hth'
           have hsome' : (stOf r.1 r.2.1 r.2.2).mem[t]? = some m := by

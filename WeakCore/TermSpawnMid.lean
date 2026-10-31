@@ -30,6 +30,7 @@ structure KidShape (par kid : TTh) (f : String) (ts : List Ty) (t : Ty) (ws : Li
   promises : kid.promises = []
   nalloc : kid.nalloc = 0
   undefs : kid.undefs = 0
+  tys : kid.tys = []
 
 section shape
 variable {c : Cfg} {i : Nat} {par kid : TTh}
@@ -232,7 +233,7 @@ theorem entryR_ofR {p : Prog} {Eg : GEnv} {i : Nat} {S : AllocLabel → Prop} {t
       fun k hk _ => absurd hk (Nat.not_lt_zero _)⟩
   refine ⟨⟨fun _ => 0, Cut Eg i S, { vars := [("a", t, true)], ret := r }, Tot, .zero, rfl, hE, hT, htv,
     ⟨finv_entryR (fun _ _ => trivial) henv hσ hv hlay, ?_, ?_⟩, Res.add_zero _,
-    fun f rest h => by rw [hstk] at h; cases h⟩,
+    (fun f rest h => by rw [hstk] at h; cases h), by rw [hterm, hσ]; exact dyFr_tail annNew (progTgts p) p _ f _ ts⟩,
     ⟨fun _ => 0, Cut Eg i S, { vars := [("a", t, true)], ret := r }, rfl, hE, hT.1, htv, ?_⟩⟩
   · rw [hstk]; intro _ _ _ _ _ _; rfl
   · refine HeldOK_mono (Rf := .zero) ⟨by simp, by simp, fun y h => by simp at h, fun _ => .zero, fun x e hx _ => ?_, ?_⟩
@@ -241,7 +242,8 @@ theorem entryR_ofR {p : Prog} {Eg : GEnv} {i : Nat} {S : AllocLabel → Prop} {t
       exact ⟨rt, ws, by rw [henv]; simp [lookupE], hv⟩
     · simp only [TermSound.Holds, List.filter, Bool.true_or, List.map, Res.sum_cons, Res.sum_nil, Res.add_zero]
       exact Res.le_refl _
-  · rw [hstk]; exact ⟨finv_entryR (fun _ _ => trivial) henv hσ hv hlay, fun _ _ h => by cases h⟩
+  · rw [hstk]; exact ⟨finv_entryR (fun _ _ => trivial) henv hσ hv hlay, (fun _ _ h => by cases h),
+    by rw [hterm, hσ]; exact dyFr_tail annNew (progTgts p) p _ f _ ts⟩
 
 /-- **The kid's entry typing** at its cut, from the parent's argument value (static `t`, runtime `rt`;
 resource-free, closed, copyable: ints and published pointers) and the callee check. The cut transport

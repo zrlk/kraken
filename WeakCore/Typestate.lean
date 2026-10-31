@@ -36,11 +36,11 @@ def openF : Decl where
   name := "open"; idx := []; arg := "x"
   argTy := .int
   retTy := file
-  body := lets [("p", .new (v "x"))]
+  body := lets [("p", .new (v "x") (some .int))]
     (.region (v "p") "r" "d" "t0"
       (lets [("wt", .mkWord "r" fileP (.lit 0) (v "t0"))]
         (.split (v "wt") "w" "t"
-          (lets [("pw", .new (v "w")), ("h", .pair (v "pw") (v "d")),
+          (lets [("pw", .new (v "w") (some (.word (.var 0) fileP))), ("h", .pair (v "pw") (v "d")),
                  ("ht", .pair (v "h") (v "t")), ("f", .pack (v "ht") "r" file)]
             (.ret (v "f"))))))
 
@@ -108,7 +108,7 @@ def fileLib : Prog := [openF, readF, closeF, useF]
 
 -- Born taken: a ghost word may not be born in the state that holds its region.
 #guard rejects (checkDecl fileLib { openF with
-    body := lets [("p", .new (v "x"))]
+    body := lets [("p", .new (v "x") (some .int))]
       (.region (v "p") "r" "d" "t0"
         (lets [("wt", .mkWord "r" fileP (.lit 1) (v "t0"))] (.ret .unit)))
     retTy := .unit }) "born in a state that does not hold"

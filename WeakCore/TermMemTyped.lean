@@ -14,9 +14,8 @@ Caveats:
   thread's own unshared cells are not covered.
 * **Pointee up to `Fd`.** In the pointer forms the target cell's type matches the pointee type up to
   `Fd` (μ-folding), not syntactically.
-* **Inherited assumptions.** `ObligationsF` has the fields `certWinC : CertWinCN …` and
-  `certWin : CertWinPN …`, which are named assumptions proved nowhere; every theorem here inherits
-  them through its `ObligationsF` hypothesis.
+* **Inherited assumptions.** Only the program-level fields `checked`, `progScope`, `runDRF0`; the former
+  certificate-window fields are discharged inside the proof.
 -/
 
 namespace TermMemTyped
@@ -42,7 +41,7 @@ theorem memTyped_of_frameTie {p : Prog} {k : Promises.Knobs} {arch : Arch} {c : 
   exact hM.1.1 t m cl ht hm hs
 
 /-- **Memory value typing along runs** (from `reachable_typedF`; caveats in the module doc: the
-observer's cut, its own promises excluded, `CertWinCN`/`CertWinPN` inherited via `ObligationsF`). -/
+observer's cut, its own promises excluded). -/
 theorem reachable_memTyped {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {c0 : Cfg}
     (O : ObligationsF p k arch Init (fun _ => True) c0) (hk : k.storeDepRts = true)
     (h0 : InitOK p k arch Init (fun _ => True) c0) {c : Cfg} (hr : TermStep.Steps p k arch c0 c) :

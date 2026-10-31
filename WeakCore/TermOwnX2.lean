@@ -24,7 +24,7 @@ carry the own key of `x` at most `n` times.  No credits, no full `MemHeld`, no `
 **Copied core (dedupe when W is ported to g249b):** `PubWinT3`, `PubWinS3`, `NoHoldPub3`
 (W/TermPubW L266, W/TermRunW L14–22) and `run_ind_win` (W/TermNoHoldA L117).
 
-**Hazard:** G-c must not use `ownXLe_run` (its window premise comes from `certWinC`; circular).
+**Hazard (formerly):** G-c could not use `ownXLe_run` (its window premise came from the `certWinC` field; circular). That field has been removed; see TermOwnK5's circularity note.
 -/
 
 namespace TermOwnX2
@@ -315,31 +315,34 @@ theorem publish_own_cell {p : Prog} {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {th
       subst hws'
       exact ⟨c, hsto, hmode⟩
 
-/-- **The own-key bound at `x`** (F1): frame plus private holding carry `own x` at most `n` times. -/
+/-- **The own-key bound at `x`** (F1): frame plus private holding carry `own x` at most `n` times. The
+exact allocation records agree with the frame's cells, and none names the thread's future labels (`TyOKE`, `RecFresh`). -/
 def OwnXLe (p : Prog) (k : Promises.Knobs) (arch : Arch) (E0 : TEnv) (i : Nat) (x : AllocLabel) (n : Nat)
     (c : Cfg) :
     Prop :=
   ∃ th E Tot HP, c.ths[i]? = some th ∧ ThInvRE p E th Tot ∧
     MemInv (gOf p k arch c i) E (stOf c.mem c.pairs th) ∧ MemHeldP E (stOf c.mem c.pairs th) HP ∧
     (gOf p k arch c i).boxFence = true ∧ StoNIE E ∧ E.sto x ≠ none ∧ Tot (.own x) + HP (.own x) ≤ n ∧
-    Ext E0 E ∧ AnchR E0 E0 E (stOf c.mem c.pairs th)
+    Ext E0 E ∧ AnchR E0 E0 E (stOf c.mem c.pairs th) ∧
+    TyOKE (gOf p k arch c i) E ∧ RecFresh (gOf p k arch c i) i th.nalloc
 
 theorem OwnXLe.mono {p : Prog} {k : Promises.Knobs} {arch : Arch} {E0 : TEnv} {i : Nat} {x : AllocLabel} {n m : Nat}
     {c : Cfg} (h : OwnXLe p k arch E0 i x n c) (hnm : n ≤ m) : OwnXLe p k arch E0 i x m c :=
-  let ⟨th, E, Tot, HP, hth, hT, hm, hP, hb, hn, hs, hle, hx, hA⟩ := h
-  ⟨th, E, Tot, HP, hth, hT, hm, hP, hb, hn, hs, Nat.le_trans hle hnm, hx, hA⟩
+  let ⟨th, E, Tot, HP, hth, hT, hm, hP, hb, hn, hs, hle, hx, hA, hTy, hRc⟩ := h
+  ⟨th, E, Tot, HP, hth, hT, hm, hP, hb, hn, hs, Nat.le_trans hle hnm, hx, hA, hTy, hRc⟩
 
 /-- An extern move keeps `OwnXLe` (resources, memory and the anchor unchanged). -/
 theorem ownXLe_ext {p : Prog} {k : Promises.Knobs} {arch : Arch} {E0 : TEnv} {i : Nat} {x : AllocLabel} {n : Nat}
     {c c' : Cfg} (h : OwnXLe p k arch E0 i x n c) (hs : c' ∈ extSteps c i) (hTA : TermTyped.TidAt i c E0) :
     OwnXLe p k arch E0 i x n c' := by
-  obtain ⟨th, E, Tot, HP, hth, hT, hm, hP, hb, hn, hsx, hle, hx, hA⟩ := h
+  obtain ⟨th, E, Tot, HP, hth, hT, hm, hP, hb, hn, hsx, hle, hx, hA, hTy, hRc⟩ := h
   rcases TermTyped.extSteps_res hs hth with ⟨x1, n1, a1, e1, rt1, ws1, rs1, hterm, hn1, hev1, hrs1, rfl⟩ | ⟨x1, a1, e1, lb, hterm, htl, rfl⟩
   · exact ⟨_, E, Tot, HP, set_self hth, TermTyped.ThInvRE_ext hn1 hterm hev1 hrs1 hT, by rw [gOf_ext hs]; exact hm, hP,
-      by rw [gOf_ext hs]; exact hb, hn, hsx, hle, hx, hA⟩
+      by rw [gOf_ext hs]; exact hb, hn, hsx, hle, hx, hA, by rw [gOf_ext hs]; exact hTy, by rw [gOf_ext hs]; exact hRc⟩
   · obtain ⟨hbs, hbp⟩ := TermTyped.tidBox_ext hx (hTA th hth lb htl)
     exact ⟨_, E, Tot, HP, set_self (tr := c.trace) hth, TermTyped.ThInvRE_cur hterm hbs hbp hT,
-      by rw [gOf_ext hs]; exact hm, hP, by rw [gOf_ext hs]; exact hb, hn, hsx, hle, hx, hA⟩
+      by rw [gOf_ext hs]; exact hm, hP, by rw [gOf_ext hs]; exact hb, hn, hsx, hle, hx, hA,
+      by rw [gOf_ext hs]; exact hTy, by rw [gOf_ext hs]; exact hRc⟩
 
 /-- At `n = 0` the frame part carries no `own x`. -/
 theorem OwnXLe.rf_zero {p : Prog} {k : Promises.Knobs} {arch : Arch} {E0 : TEnv} {i : Nat} {x : AllocLabel} {c : Cfg}
@@ -391,7 +394,8 @@ theorem ownXLe_start_le {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Re
   obtain ⟨hRE, -, hm, hP, -, -⟩ := hS
   simp only [Res.add_apply] at hle
   exact ⟨th, Cut Eg i S, Tot i, HP i, hth, hRE, hm, hP, hinv.bf, stoNIE_cut hinv.stoNI, cut_sto_ne hsto hin, hle, ext_RE hRE,
-    anchR_start hm (hinv.riniCoh i th S hth) (fun l cl f hs hp => hinv.frlt l cl f (cutSto_sub hs) hp)⟩
+    anchR_start hm (hinv.riniCoh i th S hth) (fun l cl f hs hp => hinv.frlt l cl f (cutSto_sub hs) hp),
+    (hinv.tyRec hth S).1, (hinv.tyRec hth S).2⟩
 
 /-- **`OwnXLe` at `n = 1`** at a `SysInvN` configuration (`ownNet_one`), at a cell `x` in thread
 `i`'s cut (its own cell, or a shared one): witness the cut, `Tot i`, `HP i`. -/
@@ -416,7 +420,8 @@ theorem ownXLe_start_pub {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : R
   simp only [Res.add_apply] at hzi
   obtain ⟨cl, hcl⟩ := Option.ne_none_iff_exists'.1 hsto
   exact ⟨th, Cut Eg i S, Tot i, HP i, hth, hRE, hm, hP, hinv.bf, stoNIE_cut hinv.stoNI, cut_sto_ne hcl (.inr hpf), by omega, ext_RE hRE,
-    anchR_start hm (hinv.riniCoh i th S hth) (fun l cl f hs hp => hinv.frlt l cl f (cutSto_sub hs) hp)⟩
+    anchR_start hm (hinv.riniCoh i th S hth) (fun l cl f hs hp => hinv.frlt l cl f (cutSto_sub hs) hp),
+    (hinv.tyRec hth S).1, (hinv.tyRec hth S).2⟩
 
 /-! ## No own key at a cell with a frontier (N route) -/
 
@@ -551,7 +556,7 @@ def OwnXStepP (p : Prog) (k : Promises.Knobs) (arch : Arch) (i : Nat) (x : Alloc
     OwnXLe p k arch E0 i x n (promise c0 i a v w)
 
 /-- **`OwnXLe` along a certified solo run** (`run_ind_win`, `Q = ScopeAt ∧ NoHoldPub3`).
-Do not use for G-c (`certWinC` supplies `hQ`; circular). -/
+Formerly it could not be used for G-c (the `certWinC` field supplied `hQ`; circular); see TermOwnK5's circularity note. -/
 theorem ownXLe_run {p : Prog} {k : Promises.Knobs} {arch : Arch} {E0 : TEnv} {i : Nat} {x : AllocLabel} {n : Nat}
     {c c2 : Cfg} (hT : OwnXStepT p k arch i x n) (hPr : OwnXStepP p k arch i x n)
     (hQ : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → ScopeAt p i c0 ∧ NoHoldPubA p k arch E0 E0 i c0)
@@ -565,12 +570,12 @@ theorem ownXLe_run {p : Prog} {k : Promises.Knobs} {arch : Arch} {E0 : TEnv} {i 
 
 /-! ## Package split of the thread-step obligation (the packages deliver, `TermOwnK5` assembles) -/
 
-/-- The package owning an op: 2 = own-cell loads/stores/xchg, 3 = buffer ops, 4 = word/pub/cas/
-ldp/stp/sum ops, 1 = everything else (frame/control). -/
+/-- The package owning an op: 2 = own-cell loads/stores/xchg and the type test `isTy` (state-free; its proof
+uses `MemInv` and `TyOKE`), 3 = buffer ops, 4 = word/pub/cas/ldp/stp/sum ops, 1 = everything else (frame/control). -/
 def opPkg : Op → Nat
-  | .load _ _ | .store _ _ _ _ | .xchg _ _ | .loadAt _ _ | .loadAtF _ _ _ => 2
+  | .load _ _ | .store _ _ _ _ | .xchg _ _ | .loadAt _ _ | .loadAtF _ _ _ | .isTy _ _ => 2
   | .bufInit _ _ _ | .xchgAt _ _ _ | .xchgAtF _ _ _ _ | .stl _ _ _ | .stlw _ _ _ _ | .ldl _ _
-  | .ldlw _ _ _ | .new _ | .newBuf _ _ => 3
+  | .ldlw _ _ _ | .new _ _ | .newBuf _ _ => 3
   | .inl _ _ | .inr _ _ | .publish _ | .intoRgn _ _ | .mkWord _ _ _ _ | .mkWord2 _ _ _ _ _
   | .mkEPair _ _ _ _ | .mkTicket _ _ _ _ _ | .claim _ _ | .fetch _ _ _ _ _ | .ldp _ _ _ _
   | .stp _ _ _ _ _ => 4

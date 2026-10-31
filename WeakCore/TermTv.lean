@@ -1113,6 +1113,9 @@ theorem OpT_TvOK {p : Prog} (hP : ProgT p) {cx c' : Cx} {x : String} {op : Op}
       exact (bind_TvOK hb h2 (by rw [hk2, hk]; simpa [tb] using hu')
         (by simpa [mg] using mg_bufOf (use_mg hu hv) hbuf)).1
   | null hw hb => exact (bind_TvOK hb hv (tb_of_wf _ hw) (mg_of_wf _ hw)).1
+  | isTy _ _ hw _ _ hb =>
+      exact (bind_TvOK hb hv (by simpa [tb] using TermClose.tb_mono _ (tb_of_wf _ hw) (Nat.zero_le _))
+        (by simpa [mg] using mg_of_wf _ hw)).1
   | fold hw hu _ hb =>
       obtain ⟨h1, -, hk⟩ := use_TvOK hu hv
       exact (bind_TvOK hb h1 (by rw [hk]; exact tb_of_wf _ hw) (mg_of_wf _ hw)).1
@@ -1357,9 +1360,12 @@ theorem ifnull_TvOK {cx c₁ c₂ : Cx} {a : At} {y : String} {μ : Mode} {u : T
 
 /-- (P1) Every code block's return type is `∀`-free at value positions
 (`noIallV`; from `ProgScopeOK`'s `drf d.retTy`).  A class, so that the step
-lemmas carry it to `declCx_TvOK` without changing their call sites. -/
+lemmas carry it to `declCx_TvOK` without changing their call sites.  It also carries the
+checker's verdict on the whole program (its opened-type-package allocation check keeps the
+per-frame invariant `DyFr` closed under calls, as `ProgCkWC.checked`). -/
 class ProgRetIall (p : Prog) : Prop where
   ret : ∀ d ∈ p, noIallV d.retTy = true
+  checked : checkProg p = .ok ()
 
 /-- A declaration's body context: its signature is well formed. -/
 theorem declCx_TvOK {p : Prog} {d : Decl} (h : DeclT p d) (hR : noIallV d.retTy = true) : TvOK (declCx d) := by

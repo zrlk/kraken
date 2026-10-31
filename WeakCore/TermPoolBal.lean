@@ -256,7 +256,7 @@ theorem room_pool (hb1 : AllocGT p k arch Sp Init MintOK c0) (hres : TicketFreeR
     {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx} {Rf Rs : Res}
     {Eo : TEnv} {Totq HPq HSq C F : Res} {crS crq dbq δ : Ts → Res} {rc : Nat → Nat}
     (X : TCtxX p k arch Sp Init MintOK c0 c cq Eg Tot HP HS cr db i th r) (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r Eo Totq HPq HSq C F crq dbq Rf Rs (HP i + HS)
+    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r Eo Totq HPq HSq C F crq dbq Rf Rs (HP i + HS)
       crS (db i) δ)
     (hcl : ClaimAt th.term C F) (htag : PoolTag Eg c pl) (hof : OwnFreshZ c Tot HP HS cr)
     (hrc : RidOK c Tot HP HS (crPl cr pl) db rc) (hle : rc i ≤ η.rid) :

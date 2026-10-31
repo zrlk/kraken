@@ -23,6 +23,75 @@ open TermCut (GEnv)
 open TermClose (cl tb arrFree_cl)
 open WeakMem (Msg Memory Address VState Ts Arch AllocLabel)
 
+/-- A tested package's slot type: a published reference, alone or last in a pair. -/
+theorem slotOK_shape {b : Ty} (h : slotOK b = true) :
+    b = .ptr .pub (.tvar 0) ∨ ∃ V, b = .prod V (.ptr .pub (.tvar 0)) := by
+  unfold slotOK at h
+  split at h <;> simp_all
+
+/-- The last word of a package with a slot is one of its published words. -/
+theorem slot_mem_pubWords {σs : List Ty} {κ : Kind} {b rt : Ty} {ws : List Word} {pw : Word}
+    (hs : slotOK b = true) (hl : Lay σs (.tex κ b) rt ws) (hlast : ws.getLast? = some pw) :
+    pw ∈ pubWords rt ws := by
+  have hmem : pw ∈ ws := List.mem_of_getLast? hlast
+  rw [pubWords_Lay hl]
+  have hwc : wc rt = wc (close σs (.tex κ b)) := by
+    have h := hl.2.1
+    have := congrArg wc h
+    rwa [wc_etok, wc_etok, wc_skel, wc_skel] at this
+  rcases slotOK_shape hs with rfl | ⟨V, rfl⟩
+  · simp [close, substTs, pubWords, sNo, mPub]
+    exact hmem
+  · simp [close, substTs, pubWords, sNo, mPub]
+    have hw1 : wc (Ty.ptr Mode.pub (Ty.tvar 0)) = some 1 := by first | rfl | decide | simp [wc, accs, nWords, Acc.size]
+    have hrt : wc rt = (do pure ((← wc (substTs σs 1 0 V)) + 1)) := by
+      rw [hwc]; simp [close, substTs, wc_tex, wc_prod, hw1]
+    split
+    · exact hmem
+    split
+    · exact hmem
+    split
+    · rename_i n hn
+      refine List.mem_append_right _ ?_
+      rw [hn] at hrt
+      have hlen : ws.length = n + 1 := ShapeC_len hl.1 (by simpa using hrt)
+      have hne : List.drop n ws ≠ [] := by
+        intro h; have := congrArg List.length h; simp [hlen] at this
+      have hd : (List.drop n ws).getLast? = some pw := by
+        rw [← hlast, List.getLast?_drop]; simp [hlen]; omega
+      exact List.mem_of_getLast? hd
+    · rename_i hn
+      exact absurd (by rw [hrt]; simp [hn]) hl.2.2.1
+
+/-- **`isTy`'s result** is the package's slot word or `null`, so it names nothing new. -/
+theorem valB_isTy {p : Prog} {E : TEnv} {g : G} {s s1 : St} {r : St × Ty × List Word}
+    {sto : Sto} {lb : AllocLabel} {N : AllocLabel → Prop} {th : TTh} {y : String} {a : At} {τ : Ty} {e : Expr}
+    (hT : ThInvE p E th) (hterm : th.term = .let_ y (.isTy a τ) e)
+    (h : r ∈ evalOp g th.env th.σs s (.isTy a τ)) : ValB sto s1 lb N th r.2.1 r.2.2 := by
+  obtain ⟨ρ, η, cx, -, -, hTy, -, hF, -⟩ := hT
+  rw [hterm] at hTy
+  cases hTy with
+  | let_ hop _ =>
+    cases hop with
+    | isTy hpk hsl _ _ _ _ =>
+      obtain ⟨rt, ws, he, -, hl⟩ := peek_VR hF.2.1 hpk
+      simp only [evalOp, ol, Option.mem_toList, Option.bind_eq_bind, Option.bind_eq_some_iff] at h
+      obtain ⟨⟨t0, ws0⟩, he0, pw, hpw, h⟩ := h
+      rw [he] at he0
+      simp only [Option.some.injEq, Prod.mk.injEq] at he0
+      obtain ⟨rfl, rfl⟩ := he0
+      have hnull : ValB sto s1 lb N th (.ptrOpt .pub (close th.σs τ)) [cst .null] :=
+        valB_of_cntOld (cntOld_pub_noNames fun w hw l => by
+          rw [List.mem_singleton] at hw; subst hw; exact not_names_null l)
+      have hfound : ValB sto s1 lb N th (.ptrOpt .pub (close th.σs τ)) [pw] := by
+        refine valB_of_cntOld (cntOld_of_rtsSub ?_ (cntOld_evalAt he))
+        intro w hw l hn
+        have hw' : w = pw := by simpa [pubWords, sNo, mPub] using hw
+        subst hw'
+        exact ⟨w, slot_mem_pubWords hsl hl hpw, hn, Nat.le_refl _⟩
+      repeat' split at h
+      all_goals (simp only [pure, Option.some.injEq] at h; subst h; first | exact hfound | exact hnull)
+
 /-- **A `let` of a non-call op** whose every result is fine at the empty store typing meets the
 step contract. -/
 theorem stepOK_op {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {x : String} {op : Op} {e : Expr}
@@ -32,7 +101,11 @@ theorem stepOK_op {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {x : Strin
       ValB (fun _ => none) (stOf mem pairs th) ga Gl th r.2.1 r.2.2) :
     ∀ r ∈ tstep g mem pairs th, StepOK sto (stOf mem pairs th) ga Gl Gl th r.2.2 := by
   intro r hr
-  rw [TermLocal.tstep_let_gen hterm hc] at hr
+  by_cases hN : ∃ a T, op = .new a T
+  · obtain ⟨a, T, rfl⟩ := hN
+    obtain ⟨s1, t1, ws1, hm1, tys, rfl⟩ := TermRun.tstep_new_mem hterm hr
+    exact stepOK_of_stepB_nil (stepB_let (x := x) rfl rfl (hv _ hm1))
+  rw [TermLocal.tstep_let_gen hterm hc (fun a T h => hN ⟨a, T, h⟩)] at hr
   obtain ⟨⟨s', t, ws⟩, hm, rfl⟩ := List.mem_map.1 hr
   exact stepOK_of_stepB_nil (stepB_let (x := x) rfl rfl (hv _ hm))
 
@@ -108,6 +181,7 @@ theorem stepOK_disp {p : Prog} {g : G} {E : TEnv} {sto : Sto} {mem : Memory} {pa
     | zero => exact stepOK_op ht rfl (fun _ h => valB_zero h) r hr
     | spawn => exact stepOK_op ht rfl (fun _ h => by simp [evalOp] at h) r hr
     | ext => exact stepOK_op ht rfl (fun _ h => by simp [evalOp] at h) r hr
+    | isTy => exact stepOK_op ht rfl (fun _ h => valB_isTy hI0 ht h) r hr
     | call => exact stepOK_of_stepB_nil (stepB_call hp hP hI0 ht hr)
     | fnptr => exact stepOK_op ht rfl (fun _ h => valB_fnptr h) r hr
     | callc => exact stepOK_of_stepB_nil (stepB_callc hp hP hI0 ht hr)

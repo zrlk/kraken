@@ -206,7 +206,7 @@ def h(a : Int * Int) : Int =
 
 def main(u : Unit) : Int =
   let zi = zero[Int]
-  let c = new zi
+  let c = new[Int] zi
   let s0 = store c 100
   let v = load c
   let p = (v, 200)

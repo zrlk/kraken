@@ -1,0 +1,5 @@
+CoreTerm.Pos : Type
+CoreTerm.Tail : Type
+  | CoreTerm.Tail.noTail : CoreTerm.Tail
+  | CoreTerm.Tail.bounded : CoreTerm.Pos → Nat → CoreTerm.Tail
+  | CoreTerm.Tail.bad : CoreTerm.Tail

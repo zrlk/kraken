@@ -150,7 +150,7 @@ theorem pf_progress {p : Prog} {k : Promises.Knobs} {arch : WeakMem.Arch} {Init 
     (hns : ¬ SpawnT th.term) :
     threadSteps p k arch c i ≠ [] := by
   obtain ⟨S, hS⟩ := h.thr i th hth
-  obtain ⟨ρ, η, cx, Rf, Rs, hCE, htid, hE, hT, htv, hFI, hsum, -, hm, -, -, hRP⟩ := ThSysAt.env h.clo hS
+  obtain ⟨ρ, η, cx, Rf, Rs, hCE, htid, hE, hT, htv, hFI, hsum, -, hm, -, -, hRP, hDy⟩ := ThSysAt.env h.clo hS
   have hT' : Typed p cx th.term := hT.1
   have hNI : ∀ c : Cx, TvOK c → noIallV c.ret = true := fun _ h => h.2.2.2.2.2.2.2
   have hi : FInv ρ η th.σs (Resume p th.stack) cx th.env :=
@@ -164,8 +164,8 @@ theorem pf_progress {p : Prog} {k : Promises.Knobs} {arch : WeakMem.Arch} {Init 
     exact Nat.lt_of_le_of_lt (Nat.zero_le _) (Cfg.lt_n (lt_of_get hth))
   have hwin : PubWinT (CE η) (stOf c.mem c.pairs th) th := by
     intro x a e rt ws ad hterm; exact absurd ⟨x, a, e, hterm⟩ hnpub
-  have key := (tstep_footprint (g := gOf p k arch c i) (mem := c.mem) (pairs := c.pairs) hP rfl hn hnd hsc hT' hi hE htv
-    hm h.bf (Or.inl hnp) hwin hRP pwSkel_ok pwSubS_ok pwSig_ok).1
+  have key := (tstep_footprint (hDy := hDy) (g := gOf p k arch c i) (mem := c.mem) (pairs := c.pairs) hP rfl hn hnd hsc hT' hi hE htv
+    hm h.bf (Or.inl hnp) hwin hRP pwSkel_ok pwSubS_ok pwSig_ok (by rw [hCE]; exact (h.tyRec hth S).1)).1
   unfold threadSteps; rw [hth]; simpa using key
 
 end
@@ -222,7 +222,7 @@ theorem progress_main {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Term
           ⟨_, .refl _, by rw [extCfg_noPromises hth, hp]; rfl⟩, rfl⟩)))
     · have hPSc : TermScope.ProgScopeOK p = true := TermScope.ProgScopeOKW.scope O.progScope
       haveI : TermTv.ProgRetIall p :=
-        ⟨fun _ hd => TermScope.noIallV_of_drf _ (TermScope.ProgScopeOK.decl hPSc hd).2.1⟩
+        ⟨fun _ hd => TermScope.noIallV_of_drf _ (TermScope.ProgScopeOK.decl hPSc hd).2.1, O.checked⟩
       have hrs : TermScope.RunScope c :=
         TermScope.runDRFR_of hPSc (ExtArmZ.spLeafArms_em0 (cap := c0.cap)).runDRF O.runDRF0 hr
       have hne := pf_progress (TermScope.progT_of_check O.checked) hN hrs hth hnd hp hs
@@ -255,7 +255,7 @@ theorem stuck_sharp {p : Prog} {k : Promises.Knobs} {arch : Arch} {cap : Nat} {c
     · rw [threadSteps_spawn hth hterm] at h1; simp at h1
     · have hget : (promise c i a' v w).ths[i]? = some
           ⟨th.term, th.env, th.σs, th.stack, th.vs, th.promises ++ [c.mem.size], th.nalloc, th.undefs, th.tidLbl,
-            th.permit⟩ := by
+            th.permit, th.tys⟩ := by
         have he : c.ths[i] = th := Option.some.inj ((Array.getElem?_eq_getElem hi).symm.trans hth)
         simp [promise, Array.set!, hi, he]
       have := cert_site hget ⟨x, f, a, T, ts, e, hterm⟩ hc

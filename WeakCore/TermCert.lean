@@ -553,6 +553,7 @@ theorem tstep_dead {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {t : Ts}
        obtain ⟨x, hx, rfl⟩ := h
        first
          | exact evalOp_dead hx hd
+         | (split <;> exact evalOp_dead hx hd)
          | exact stepRmw_dead (th := mth _ _ _ _) hx hd
          | exact stepRmwPair_dead (th := mth _ _ _ _) hx hd)
     | (simp only [List.mem_flatMap, List.mem_map] at h
@@ -1079,6 +1080,7 @@ theorem tstep_deadO {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {t : Ts}
        obtain ⟨x, hx, rfl⟩ := h
        first
          | exact evalOp_deadO hx hd
+         | (split <;> exact evalOp_deadO hx hd)
          | exact stepRmw_deadO (th := mth _ _ _ _) hx hd
          | exact stepRmwPair_deadO (th := mth _ _ _ _) hx hd)
     | (simp only [List.mem_flatMap, List.mem_map] at h
@@ -2472,6 +2474,7 @@ theorem tstep_ful {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {r : Memor
        obtain ⟨x, hx, rfl⟩ := h
        first
          | exact ful_mono (evalOp_ful hlt hx) (fun l v hw => Or.inl ⟨_, _, _, ‹_›, hw⟩)
+         | (split <;> exact ful_mono (evalOp_ful hlt hx) (fun l v hw => Or.inl ⟨_, _, _, ‹_›, hw⟩))
          | exact cas_ful ‹_› ‹_› ‹_› ‹_› ‹_› hx _ rfl
          | exact ful_of_keep hlt (keepR_of (stepRmwPair_grow (x := x) hx).1
              (stepRmwPair_prom (mem' := x.1) (pairs' := x.2.1) (th' := x.2.2) hx hpp)))
@@ -3094,6 +3097,7 @@ theorem tstep_deadV {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {t : Ts}
        obtain ⟨x, hx, rfl⟩ := h
        first
          | exact evalOp_deadV hx hd
+         | (split <;> exact evalOp_deadV hx hd)
          | exact stepRmw_deadV (th := mth _ _ _ _) hx hd
          | exact stepRmwPair_deadV (th := mth _ _ _ _) hx hd)
     | (simp only [List.mem_flatMap, List.mem_map] at h
@@ -3576,6 +3580,7 @@ theorem tstep_appUp {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
        obtain ⟨x, hx, rfl⟩ := h
        first
          | exact evalOp_appUp hx
+         | (split <;> exact evalOp_appUp hx)
          | exact stepRmw_appUp (th := mth _ _ _ _) hx
          | exact stepRmwPair_appUp (th := mth _ _ _ _) hx)
     | (simp only [List.mem_flatMap, List.mem_map] at h

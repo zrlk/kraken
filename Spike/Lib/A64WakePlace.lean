@@ -171,7 +171,7 @@ def wc_main_t0 : CoreTerm.Expr :=
   (CoreTerm.Expr.let_ "t" (CoreTerm.Op.spawn "worker" (CoreTerm.At.var "p") (CoreLang.Ty.prod (CoreLang.Ty.ptr (CoreLang.Mode.pub) (CoreLang.Ty.int)) (CoreLang.Ty.tid)) []) (CoreTerm.Expr.tail "waitLoop" [] (CoreTerm.At.var "c") []))
 
 def wc_main_t1 : CoreTerm.Expr :=
-  (CoreTerm.Expr.let_ "o" (CoreTerm.Op.new (CoreTerm.At.var "z")) (CoreTerm.Expr.let_ "c" (CoreTerm.Op.publish (CoreTerm.At.var "o")) (CoreTerm.Expr.let_ "p" (CoreTerm.Op.pair (CoreTerm.At.var "c") (CoreTerm.At.var "me")) wc_main_t0)))
+  (CoreTerm.Expr.let_ "o" (CoreTerm.Op.new (CoreTerm.At.var "z") (some (CoreLang.Ty.int))) (CoreTerm.Expr.let_ "c" (CoreTerm.Op.publish (CoreTerm.At.var "o")) (CoreTerm.Expr.let_ "p" (CoreTerm.Op.pair (CoreTerm.At.var "c") (CoreTerm.At.var "me")) wc_main_t0)))
 
 def wc_main_t2 : CoreTerm.Expr :=
   (CoreTerm.Expr.let_ "z" (CoreTerm.Op.zero (CoreLang.Ty.int)) wc_main_t1)

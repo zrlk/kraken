@@ -90,7 +90,7 @@ theorem hnew0_of (hcode : ∀ ms0 q, Code ms0 q exe endPc)
   intro s c fs _ hC hW c' fs' hr _ _ _ _
   obtain ⟨rfl, Lnd, hG, kr, A, V, s', x, a, ty, e, w, wold, old, hN, hex, hmp, ht, hev, hacc, hv, hh, hold, hA, hcl,
     hX⟩ := hC.resolve_left fun h => hW (ctrAt_wr hcode rfl s c fs h)
-  obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Spike.Lib.FrameNew.FrameRun.eq_of_new hr ht)
+  obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Spike.Lib.FrameNew.FrameRun.eq_of_new hr ht.choose_spec)
   exact ⟨kr, A, V, s', x, a, ty, e, w, wold, old, hN, hex, hmp, ht, hev, hacc, hv, hh, hold, hA, hcl,
     fun l hl => hland1 Lnd hG l _ _ _ hl (hX l hl)⟩
 

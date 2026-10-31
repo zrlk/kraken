@@ -285,16 +285,17 @@ def OwnXLeS (p : Prog) (g : G) (E0 : TEnv) (x : AllocLabel) (n : Nat) (mem : Mem
     (th : TTh) : Prop :=
   ∃ E Tot HP, ThInvRE p E th Tot ∧ MemInv g E (stOf mem pairs th) ∧ MemHeldP E (stOf mem pairs th) HP ∧
     g.boxFence = true ∧ StoNIE E ∧ E.sto x ≠ none ∧ Tot (.own x) + HP (.own x) ≤ n ∧
-    Ext E0 E ∧ AnchR E0 E0 E (stOf mem pairs th)
+    Ext E0 E ∧ AnchR E0 E0 E (stOf mem pairs th) ∧ TyOKE g E ∧ RecFresh g g.i th.nalloc
 
 /-- **The thread-local step obligation** at the terms `T`: one `tstep` result meeting `PromAbove`, from
-a source meeting `PAx`, `ScopeOK` and `PubWinS3` (any `g`, hence any knobs). -/
+a source meeting `PAx`, `ScopeOK` and `PubWinS3` (any `g`, hence any knobs).
+The result also carries the typed-record invariant `TyOKE` and the freshness bound `RecFresh`, against the records updated by the step. -/
 def OwnXStepL (p : Prog) (x : AllocLabel) (n : Nat) (T : Expr → Prop) : Prop :=
   ∀ (g : G) (mem : Memory) (pairs : List Ts) (th : TTh) (r : Memory × List Ts × TTh), g.p = p → 0 < g.n →
     T th.term → ∀ E0 : TEnv, ScopeOK p th → PubWinSA p g mem pairs th E0 E0 →
     (∀ (a : At) (rt : Ty) (ws : List Word) (w : Word), evalAt th.env a = some (rt, ws) → w ∈ ws → w.view ≤ w.rts) → OwnXLeS p g E0 x n mem pairs th →
     r ∈ tstep g mem pairs th → PromAbove (stOf r.1 r.2.1 r.2.2) → PAx g mem pairs th →
-    OwnXLeS p g E0 x n r.1 r.2.1 r.2.2
+    OwnXLeS p { g with tys := tysUpd g.tys th r.2.2 } E0 x n r.1 r.2.1 r.2.2
 
 /-- **Dispatcher**: the package deliverable from the thread-local obligation at its terms. -/
 theorem ownXStepPkg_of_local {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {x : AllocLabel} {n q : Nat}
@@ -303,45 +304,111 @@ theorem ownXStepPkg_of_local {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : 
   obtain ⟨th', r, hth', hr, e1, e2, e3, hpa⟩ := taken_promAbove hs hc
   rw [hth] at hth'
   cases hth'
-  obtain ⟨th1, E, Tot, HP, hth1, hT, hm, hP, hb, hni, hsx, hle, hx0, hA⟩ := hI
+  obtain ⟨th1, E, Tot, HP, hth1, hT, hm, hP, hb, hni, hsx, hle, hx0, hA, hTy, hRc⟩ := hI
   rw [hth] at hth1
   cases hth1
   have hS := h (gOf p k arch c0 i) c0.mem c0.pairs th r rfl
     (Nat.lt_of_le_of_lt (Nat.zero_le _) (Cfg.lt_n (arr_lt hth))) hq E0 (hsc th hth (TermTyped.not_spawnT_of_steps hth hs)) (hw th hth) (TermViewInv.envVR_solo (p := p) (k := k) (arch := arch) hvI (.refl _) hth)
-    ⟨E, Tot, HP, hT, hm, hP, hb, hni, hsx, hle, hx0, hA⟩ hr hpa (PAx_of_step hs hc hth)
-  obtain ⟨E', Tot', HP', hT', hm', hP', hb', hni', hsx', hle', hx', hA'⟩ := hS
-  refine ⟨r.2.2, E', Tot', HP', e3, hT', ?_, ?_, ?_, hni', hsx', hle', hx', ?_⟩
-  · rw [gOf_thread hs, e1, e2]; exact hm'
+    ⟨E, Tot, HP, hT, hm, hP, hb, hni, hsx, hle, hx0, hA, hTy, hRc⟩ hr hpa (PAx_of_step hs hc hth)
+  obtain ⟨E', Tot', HP', hT', hm', hP', hb', hni', hsx', hle', hx', hA', hTy', hRc'⟩ := hS
+  have hsub := TermTyped.tysOf_thread hs hth e3 hRc
+  refine ⟨r.2.2, E', Tot', HP', e3, hT', ?_, ?_, ?_, hni', hsx', hle', hx', ?_, ?_, ?_⟩
+  · rw [gOf_thread hs, e1, e2, MemInv_tys]; exact (MemInv_tys _ _ _ _).1 hm'
   · rw [e1, e2]; exact hP'
   · rw [gOf_thread hs]; exact hb'
   · rw [e1, e2]; exact hA'
+  · rw [gOf_thread hs]; exact TyOKE_mono hsub hTy'
+  · rw [gOf_thread hs]
+    exact RecFresh_sub (g := { gOf p k arch c0 i with tys := tysUpd (gOf p k arch c0 i).tys th r.2.2 })
+      (g' := { gOf p k arch c0 i with tys := tysOf c0' }) hsub rfl rfl hRc'
+
+/-- A step that appends no record leaves the records unchanged. -/
+theorem tysUpd_keep {t : AllocLabel → Option (Ty × Bool)} {th th' : TTh} (h : th'.tys = th.tys) :
+    tysUpd t th th' = t := by
+  funext l; unfold tysUpd; rw [h, List.drop_length]; rfl
+
+/-- The record conjuncts after a step that is not a `new`: the records are unchanged and the allocation count only
+grows. -/
+theorem tyOKE_keep {g : G} {E : TEnv} {mem : Memory} {pairs : List Ts} {th : TTh} {r : Memory × List Ts × TTh}
+    (hr : r ∈ tstep g mem pairs th) (hnn : ∀ x a T e, th.term ≠ .let_ x (.new a T) e) (hT : TyOKE g E)
+    (hR : RecFresh g g.i th.nalloc) :
+    TyOKE { g with tys := tysUpd g.tys th r.2.2 } E ∧ RecFresh { g with tys := tysUpd g.tys th r.2.2 } g.i r.2.2.nalloc := by
+  rw [tysUpd_keep (TermNallocF.tstep_tys_keep hr hnn)]
+  exact ⟨hT, RecFresh_mono hR (TermNallocF.tstep_nallocLe hr)⟩
+
+/-- `TyOKE` and `RecFresh` across a step that adds a cell only at the thread's next fresh label: the other cells are
+unchanged, and the new cell has the type of any exact record the step leaves at that label. -/
+theorem tyOKE_alloc {g : G} {E E' : TEnv} {mem : Memory} {pairs : List Ts} {th : TTh} {r : Memory × List Ts × TTh}
+    (hn : 0 < g.n) (hr : r ∈ tstep g mem pairs th)
+    (hsto : ∀ l, l ≠ freshLabel g.lbase g.n g.i th.nalloc → E'.sto l = E.sto l) (hT : TyOKE g E)
+    (hR : RecFresh g g.i th.nalloc)
+    (hnew : ∀ c t, E'.sto (freshLabel g.lbase g.n g.i th.nalloc) = some c →
+      tysUpd g.tys th r.2.2 (freshLabel g.lbase g.n g.i th.nalloc) = some (t, true) → c.ty = clD t) :
+    TyOKE { g with tys := tysUpd g.tys th r.2.2 } E' ∧ RecFresh { g with tys := tysUpd g.tys th r.2.2 } g.i r.2.2.nalloc := by
+  have hR' : RecFresh g g.i r.2.2.nalloc := RecFresh_mono hR (TermNallocF.tstep_nallocLe hr)
+  refine ⟨fun l t c ht hc => ?_, fun j hj t ht => ?_⟩
+  · have ht' : tysUpd g.tys th r.2.2 l = some (t, true) := ht
+    by_cases hl : l = freshLabel g.lbase g.n g.i th.nalloc
+    · rw [hl] at ht' hc
+      exact hnew c t hc ht'
+    · rcases tysUpd_tstep hr l with h | ⟨he, -, -⟩
+      · rw [h] at ht'
+        rw [hsto l hl] at hc
+        exact hT l t c ht' hc
+      · exact absurd he hl
+  · have ht' : tysUpd g.tys th r.2.2 (freshLabel g.lbase g.n g.i j) = some (t, true) := ht
+    rcases tysUpd_tstep hr (freshLabel g.lbase g.n g.i j) with h | ⟨he, hlt, -⟩
+    · rw [h] at ht'
+      exact hR' j hj t ht'
+    · have := freshLabel_inj_k hn he
+      omega
 
 /-- **A per-op step conclusion**: the result has the own-key data at some `E'` keeping `x` allocated,
-with the key total at most the source's frame `Tot0` plus private holding `HP0`. -/
+with the key total at most the source's frame `Tot0` plus private holding `HP0`.
+The result also carries the typed-record invariant `TyOKE` and the freshness bound `RecFresh`, against the records updated by the step. -/
 def StepC (p : Prog) (g : G) (x : AllocLabel) (E : TEnv) (s : St) (th : TTh) (Tot0 HP0 : Res)
     (r : Memory × List Ts × TTh) : Prop :=
   ∃ E' Tot' HP', ThInvRE p E' r.2.2 Tot' ∧ MemInv g E' (stOf r.1 r.2.1 r.2.2) ∧
     MemHeldP E' (stOf r.1 r.2.1 r.2.2) HP' ∧ StoNIE E' ∧ E'.sto x ≠ none ∧
     Tot' (.own x) + HP' (.own x) ≤ Tot0 (.own x) + HP0 (.own x) ∧
-    AnchStep g th E E' s (stOf r.1 r.2.1 r.2.2)
+    AnchStep g th E E' s (stOf r.1 r.2.1 r.2.2) ∧
+    TyOKE { g with tys := tysUpd g.tys th r.2.2 } E' ∧ RecFresh { g with tys := tysUpd g.tys th r.2.2 } g.i r.2.2.nalloc
+
+/-- `StepC` at the unchanged environment `E`, without the record conjuncts (every package-2 step). -/
+def StepCK (p : Prog) (g : G) (x : AllocLabel) (E : TEnv) (s : St) (th : TTh) (Tot0 HP0 : Res)
+    (r : Memory × List Ts × TTh) : Prop :=
+  ∃ Tot' HP', ThInvRE p E r.2.2 Tot' ∧ MemInv g E (stOf r.1 r.2.1 r.2.2) ∧
+    MemHeldP E (stOf r.1 r.2.1 r.2.2) HP' ∧ StoNIE E ∧ E.sto x ≠ none ∧
+    Tot' (.own x) + HP' (.own x) ≤ Tot0 (.own x) + HP0 (.own x) ∧
+    AnchStep g th E E s (stOf r.1 r.2.1 r.2.2)
+
+/-- `StepC` from `StepCK` and the record conjuncts at `E`. -/
+theorem stepC_ofK {p : Prog} {g : G} {x : AllocLabel} {E : TEnv} {s : St} {th : TTh} {Tot0 HP0 : Res}
+    {r : Memory × List Ts × TTh} (h : StepCK p g x E s th Tot0 HP0 r)
+    (hk : TyOKE { g with tys := tysUpd g.tys th r.2.2 } E ∧ RecFresh { g with tys := tysUpd g.tys th r.2.2 } g.i r.2.2.nalloc) :
+    StepC p g x E s th Tot0 HP0 r :=
+  let ⟨T', H', h1, h2, h3, h4, h5, h6, h7⟩ := h
+  ⟨E, T', H', h1, h2, h3, h4, h5, h6, h7, hk.1, hk.2⟩
 
 /-- `OwnXStepL` from per-op conclusions at the unpacked source frame (the `tstepMR_*` shape). -/
 theorem ownXStepL_of [WrIniC] {p : Prog} {x : AllocLabel} {n : Nat} {T : Expr → Prop}
     (h : ∀ (g : G) (mem : Memory) (pairs : List Ts) (th : TTh) (r : Memory × List Ts × TTh) (ρ : Nat → Nat)
       (η : TEnv) (cx : Cx) (Rf Rs HP : Res), g.p = p → 0 < g.n → T th.term → ScopeOK p th →
       (∃ E0, PubWinSA p g mem pairs th E0 E0) → EnvOK p η → TypedK p η cx th.term → TvOK cx →
-      FInvR ρ η th.σs (ResumeR p th.stack Rs) cx th.env Rf → RetPw th.σs th.stack cx.ret → MemInv g (CE η) (stOf mem pairs th) →
+      FInvR ρ η th.σs (ResumeR p th.stack Rs) cx th.env Rf → RetPw th.σs th.stack cx.ret →
+      DyFr p annNew (progTgts p) η th.σs th.term → MemInv g (CE η) (stOf mem pairs th) →
       MemHeldP (CE η) (stOf mem pairs th) HP → g.boxFence = true → StoNIE (CE η) → (CE η).sto x ≠ none →
+      TyOKE g (CE η) → RecFresh g g.i th.nalloc →
       r ∈ tstep g mem pairs th → PromAbove (stOf r.1 r.2.1 r.2.2) → PAx g mem pairs th →
       StepC p g x (CE η) (stOf mem pairs th) th (Rf + Rs) HP r) :
     OwnXStepL p x n T := by
   intro g mem pairs th r hp hn ht E0 hsc hw hvr hS hr hpa hpx
-  obtain ⟨E, Tot, HP, ⟨ρ, η, cx, Rf, Rs, rfl, hE, hT, htv, hi, rfl, hRP⟩, hm, hP, hb, hni, hx, hle, hx0, hA⟩ := hS
-  obtain ⟨E', Tot', HP', h1, h2, h3, h0, h4, h5, h6⟩ :=
-    h g mem pairs th r ρ η cx Rf Rs HP hp hn ht hsc ⟨E0, hw⟩ hE hT htv hi hRP hm hP hb hni hx hr hpa hpx
+  obtain ⟨E, Tot, HP, ⟨ρ, η, cx, Rf, Rs, rfl, hE, hT, htv, hi, rfl, hRP, hDy⟩, hm, hP, hb, hni, hx, hle, hx0, hA, hTy, hRc⟩ := hS
+  obtain ⟨E', Tot', HP', h1, h2, h3, h0, h4, h5, h6, h7, h8⟩ :=
+    h g mem pairs th r ρ η cx Rf Rs HP hp hn ht hsc ⟨E0, hw⟩ hE hT htv hi hRP hDy hm hP hb hni hx hTy hRc hr hpa hpx
   have hFp := finv_of htv hi
   obtain ⟨hx', hA'⟩ := h6 E0 hx0 hA hm.2.2.2.1 h2 (wrHyp hE hT.1 htv hFp hm (hsc ρ η cx hE hT.1 htv hFp) hvr hr)
-  exact ⟨E', Tot', HP', h1, h2, h3, hb, h0, h4, by omega, hx', hA'⟩
+  exact ⟨E', Tot', HP', h1, (MemInv_tys _ _ _ _).2 h2, h3, hb, h0, h4, by omega, hx', hA', h7, h8⟩
 
 end TermOwnHeldQ
 

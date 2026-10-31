@@ -69,7 +69,7 @@ def FgnNewT (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → Cfg → 
     {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx} {Rf Rs : Res}
     {E' : TEnv} {Tot' HP' HS' C F : Res} {crS cr' db' δ : Ts → Res} {Gd : List TermPiece.GdE},
     TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
-    TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
+    TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
       crS (db i) δ → StepCrQ cr pl i r.2.2.promises crS →
     PoolInv Init MintOK c Eg Tot HP HS cr db pl → TermPiece.Drop (CE η) (stOf c.mem c.pairs th) Gd →
     (∀ t, δ t = TermPlant.plantD1 Gd TermPiece.GdE.R (TermPlant.tgIn η.fp (TermHtgW1.Pδ0 c c' Eg i th)) t) →
@@ -85,7 +85,7 @@ theorem poolThread (PS : PoolStaging p k arch Sp Init MintOK c0 plantOf plantN)
     {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx} {Rf Rs : Res}
     {E' : TEnv} {Tot' HP' HS' H' C F : Res} {crS cr' db' δ plh : Ts → Res} {Gd : List TermPiece.GdE} {rc : Nat → Nat}
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r) (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
+    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
       crS (db i) δ) (hQ : StepCrQ cr pl i r.2.2.promises crS)
     (hδ : ∀ t, δ t = TermPlant.plantD1 Gd TermPiece.GdE.R (TermPlant.tgIn η.fp (TermHtgW1.Pδ0 c c' Eg i th)) t)
     (hPI : PoolInv Init MintOK c Eg Tot HP HS cr db pl)
@@ -213,10 +213,10 @@ theorem sum_key_le (l : List Ts) {f g : Ts → Res} {key : Key} (h : ∀ t, f t 
     exact Nat.add_le_add (h a) ih
 
 /-- A step output stays one at a smaller transfer. -/
-theorem TOut_mono {p : Prog} {g : G} {η : TEnv} {s : St} {r : Memory × List Ts × TTh} {E' : TEnv}
+theorem TOut_mono {p : Prog} {g : G} {η : TEnv} {s : St} {th : TTh} {r : Memory × List Ts × TTh} {E' : TEnv}
     {Tot' HP' HS' C F : Res} {cr' db' : Ts → Res} {Rf Rs H : Res} {cr db δ δ' : Ts → Res}
-    (Z : TOut p g η s r E' Tot' HP' HS' C F cr' db' Rf Rs H cr db δ) (hle : ∀ t key, δ' t key ≤ δ t key) :
-    TOut p g η s r E' Tot' HP' HS' C F cr' db' Rf Rs H cr db δ' := by
+    (Z : TOut p g η s th r E' Tot' HP' HS' C F cr' db' Rf Rs H cr db δ) (hle : ∀ t key, δ' t key ≤ δ t key) :
+    TOut p g η s th r E' Tot' HP' HS' C F cr' db' Rf Rs H cr db δ' := by
   obtain ⟨a1, a2, a3, a4, a5, a6, a7, a8, a9, ⟨s1, s2⟩, Fd, hFd, hin, a12⟩ := Z
   refine ⟨a1, a2, a3, a4, a5, a6, a7, a8, a9, ⟨fun t h => s1 t (ne_zero_of_key_le (hle t) h),
     fun t h => s2 t (ne_zero_of_key_le (hle t) h)⟩, Fd, fun t h => hFd t (ne_zero_of_key_le (hle t) h), ?_, a12⟩

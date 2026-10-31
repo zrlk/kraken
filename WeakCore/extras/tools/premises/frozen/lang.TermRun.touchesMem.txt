@@ -39,7 +39,7 @@ TermRun.touchesMem : TermRun.TTh → Bool
     | CoreTerm.Op.stl b i v => true
     | CoreTerm.Op.ldlw b wi j => true
     | CoreTerm.Op.stlw b wi j v => true
-    | CoreTerm.Op.new a => true
+    | CoreTerm.Op.new a T => true
     | CoreTerm.Op.publish a => true
     | CoreTerm.Op.intoRgn r a => true
     | CoreTerm.Op.fence f => true

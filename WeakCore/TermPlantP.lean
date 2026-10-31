@@ -71,13 +71,13 @@ theorem privSlot_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] 
     exact h1
   -- certification: no promise is `.undef`
   have hSC : StoClo (Cut Eg j S0) := fun l cl hl => X.inv.clo l cl (cutSto_sub hl)
-  obtain ⟨th0, E, hth0, hx, hTE0, hm0, hSC0, hbo0, hfb, hfr, -, -, -, hIH0⟩ := InvAtXF_of (p := p) (k := k) (arch := arch)
+  obtain ⟨th0, E, hth0, hx, hTE0, hm0, hSC0, hbo0, hfb, hfr, -, -, -, hIH0, hTyP, hRcP⟩ := InvAtXF_of (hTy := by rw [gOf_promise]; exact (X.inv.tyRec X.hth S0).1) (hRc := by rw [gOf_promise]; exact (X.inv.tyRec X.hth S0).2) (p := p) (k := k) (arch := arch)
     hpi.2.1 hTE (by rw [gOf_promise, hpi.2.2]; exact MemInv_promSt hm) hSC (by rw [gOf_promise]; exact X.inv.bf)
     (by rw [hpi.2.2]; exact TermTyped.riniCoh_promSt (X.inv.riniCoh _ _ _ X.hth))
     (fun l cl f hs hp => Nat.le_trans (X.inv.frlt l cl f (cutSto_sub hs) hp)
       (Nat.sub_le_sub_right (by rw [hpi.1]; show c.mem.size ≤ (c.mem.push _).size; rw [Array.size_push]; exact Nat.le_succ _) 1))
   have hX : InvAtX p k arch j (Cut Eg j S0) _ _ (promise c j a v w) :=
-    ⟨th0, E, hth0, hx, hTE0, hm0, hSC0, hbo0, hfb, hfr, fun _ _ _ h => h.elim, hIH0⟩
+    ⟨th0, E, hth0, hx, hTE0, hm0, hSC0, hbo0, hfb, hfr, fun _ _ _ h => h.elim, hIH0, hTyP, hRcP⟩
   have hsc := fun c1 h1 h2 => (hrun X S0 hSS0 c1 h1 h2).1
   have hwin := fun c1 h1 h2 => (hrun X S0 hSS0 c1 h1 h2).2
   have hnu : ∀ t m, t ∈ (thP th c.mem.size).promises → (c.mem.push ⟨a, v, w⟩)[t]? = some m →
@@ -170,13 +170,13 @@ theorem plantN_two (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [
   have hpi := promise_inv (a := a) (v := v) (w := w) X.hth
   have hb : ∀ t, t ∈ th.promises → t < c.mem.size := fun t ht => X.inv.plt j th t X.hth ht
   have hSC : StoClo (Cut Eg j S0) := fun l cl hl => X.inv.clo l cl (cutSto_sub hl)
-  obtain ⟨th0, E, hth0, hx, hTE0, hm0, hSC0, hbo0, hfb, hfr, -, -, -, hIH0⟩ := InvAtXF_of (p := p) (k := k) (arch := arch)
+  obtain ⟨th0, E, hth0, hx, hTE0, hm0, hSC0, hbo0, hfb, hfr, -, -, -, hIH0, hTyP, hRcP⟩ := InvAtXF_of (hTy := by rw [gOf_promise]; exact (X.inv.tyRec X.hth S0).1) (hRc := by rw [gOf_promise]; exact (X.inv.tyRec X.hth S0).2) (p := p) (k := k) (arch := arch)
     hpi.2.1 hTE (by rw [gOf_promise, hpi.2.2]; exact MemInv_promSt hm) hSC (by rw [gOf_promise]; exact X.inv.bf)
     (by rw [hpi.2.2]; exact TermTyped.riniCoh_promSt (X.inv.riniCoh _ _ _ X.hth))
     (fun l cl f hs hp => Nat.le_trans (X.inv.frlt l cl f (cutSto_sub hs) hp)
       (Nat.sub_le_sub_right (by rw [hpi.1]; show c.mem.size ≤ (c.mem.push _).size; rw [Array.size_push]; exact Nat.le_succ _) 1))
   have hX : InvAtX p k arch j (Cut Eg j S0) _ _ (promise c j a v w) :=
-    ⟨th0, E, hth0, hx, hTE0, hm0, hSC0, hbo0, hfb, hfr, fun _ _ _ h => h.elim, hIH0⟩
+    ⟨th0, E, hth0, hx, hTE0, hm0, hSC0, hbo0, hfb, hfr, fun _ _ _ h => h.elim, hIH0, hTyP, hRcP⟩
   have hsc := fun c1 h1 h2 => (hrun X S0 hSS0 c1 h1 h2).1
   have hwin := fun c1 h1 h2 => (hrun X S0 hSS0 c1 h1 h2).2
   -- the first word of the two-word unit in slot `ini`

@@ -285,7 +285,7 @@ theorem projM_eq (g : G) (s : St) (t : Ty) (ws : List Word) :
 
 /-- The operations that touch neither memory nor the thread's views. -/
 def opPure : Op → Bool
-  | .inl .. | .inr .. | .new _ | .publish _ | .intoRgn .. | .load .. | .store .. | .fence _ | .ldp .. | .stp ..
+  | .inl .. | .inr .. | .new _ _ | .publish _ | .intoRgn .. | .load .. | .store .. | .fence _ | .ldp .. | .stp ..
   | .fetch .. | .ldl .. | .ldlw .. | .stlw .. | .stl .. | .xchg .. | .xchgAt .. | .loadAt .. | .xchgAtF ..
   | .loadAtF .. | .newBuf .. | .bufInit .. => false
   | _ => true
@@ -323,7 +323,7 @@ def evalOpP (g : G) (env : Env) (σs : List Ty) : Op → Plan (Ty × List Word)
             (injP g (Ty.sum (close σs τ) t) ((armsOf (close σs τ)).length + x.1) x.2).bind fun q =>
               .done (Ty.sum (close σs τ) t, q)
       | none => .fail
-  | .new a =>
+  | .new a _ =>
       match evalAt env a with
       | none => .fail
       | some (t, ws) =>
@@ -637,6 +637,15 @@ def tstepP (g : G) (th : TTh) : Plan (St → TTh) :=
   match th.term with
   | .let_ _ (.call ..) _ => ofList ((silentOut g th).map fun th' _ => th')
   | .let_ _ (.callc ..) _ => ofList ((silentOut g th).map fun th' _ => th')
+  | .let_ x (.new a T) e =>
+      (evalOpP g th.env th.σs (.new a T)).bind fun r =>
+        .done fun s' =>
+          let th' := withS { th with term := e, env := (x, r.1, r.2) :: th.env } s'
+          match T, r.2.map (·.val) with
+          | some T, [WeakMem.Val.loc l _] =>
+              let u := close th.σs T
+              { th' with tys := th.tys ++ [(l.label, u, u.wf 0 0 && (progTgts g.p).contains u)] }
+          | _, _ => th'
   | .let_ x op e =>
       (evalOpP g th.env th.σs op).bind fun r =>
         .done fun s' => withS { th with term := e, env := (x, r.1, r.2) :: th.env } s'
@@ -713,6 +722,10 @@ theorem tstep_plan (g : G) (mem : Memory) (pairs : List Ts) (th : TTh) :
       repeat' split
       all_goals (try rfl)
       all_goals simp_all
+    case new =>
+      simp only [tstep, tstepP]
+      rw [evalOp_eq, run_bind, List.map_flatMap, List.map_eq_flatMap]
+      rfl
     all_goals
       simp only [tstep, tstepP]
       rw [evalOp_eq, run_bind, List.map_flatMap, List.map_eq_flatMap]
@@ -857,8 +870,12 @@ structure CfgM where
 /-- `Cfg.n`: labels are striped by the capacity. -/
 def CfgM.n (c : CfgM) : Nat := max c.cap c.ths.size
 
+/-- `tysOf` of a micro configuration: every thread's records (a busy thread's are its base's). -/
+def tysOfM (c : CfgM) (l : AllocLabel) : Option (Ty × Bool) :=
+  c.ths.toList.findSome? fun th => (th.base.tys.find? (·.1 == l)).map (·.2)
+
 def gOfM (p : Prog) (k : Promises.Knobs) (arch : Arch) (c : CfgM) (i : Nat) : G :=
-  ⟨p, k, arch, c.n, i, c.lbase, c.boxFence, fun _ => False, fun _ => True⟩
+  ⟨p, k, arch, c.n, i, c.lbase, c.boxFence, fun _ => False, fun _ => True, tysOfM c⟩
 
 def threadStepsM (p : Prog) (k : Promises.Knobs) (arch : Arch) (c : CfgM) (i : Nat) : List CfgM :=
   match c.ths[i]? with
@@ -954,6 +971,39 @@ theorem map_set {α β : Type} (f : α → β) (xs : Array α) (i : Nat) (a : α
     (xs.set! i a).map f = (xs.map f).set! i (f a) := by
   simp [Array.set!]
 
+/-- A micro step to a busy thread keeps its base's records. -/
+theorem act_tys {g : G} {mem : Memory} {pairs : List Ts} {base : TTh} :
+    ∀ (q : Plan (St → TTh)) {mem' : Memory} {pairs' : List Ts} {b : TTh} {q' : Plan (St → TTh)},
+      (mem', pairs', TThM.busy b q') ∈ act g mem pairs base q → b.tys = base.tys
+  | .done _, _, _, _, _, h => by simp [act] at h
+  | .fail, _, _, _, _, h => by simp [act] at h
+  | .alt p q, _, _, _, _, h => by
+      simp only [act, List.mem_append] at h
+      rcases h with h | h
+      · exact act_tys p h
+      · exact act_tys q h
+  | .ev o k, _, _, _, _, h => by
+      simp only [act, List.mem_map] at h
+      obtain ⟨_, -, h⟩ := h
+      simp only [Prod.mk.injEq, TThM.busy.injEq] at h
+      rw [← h.2.2.1]; rfl
+
+theorem act_busy_tys {g : G} {mem : Memory} {pairs : List Ts} {x : TThM} {mem' : Memory}
+    {pairs' : List Ts} {b : TTh} {q : Plan (St → TTh)} (h : (mem', pairs', TThM.busy b q) ∈ tstepMμ g mem pairs x) :
+    (TThM.busy b q).base.tys = x.base.tys := by
+  cases x with
+  | idle th => exact act_tys _ h
+  | busy b0 q0 => exact act_tys _ h
+
+/-- Replacing one micro thread by one whose base has the same records keeps `tysOfM`. -/
+theorem tysOfM_set {cm d : CfgM} {i : Nat} {x y : TThM} (hth : cm.ths[i]? = some x)
+    (hd : d.ths = cm.ths.set! i y) (ht : y.base.tys = x.base.tys) : tysOfM d = tysOfM cm := by
+  funext l
+  simp only [tysOfM, hd, Array.toList_set!]
+  have hl : cm.ths.toList[i]? = some x := by simpa using hth
+  refine findSome_set_same _ ?_ _ _ hl
+  simp [ht]
+
 /-- **A `BusyRun` of thread `i` is a path of micro thread steps** in any
 micro configuration that holds its start. -/
 theorem busy_path {i : Nat} {g : G} {x : Memory × List Ts × TThM} {r : Memory × List Ts × TTh}
@@ -976,7 +1026,9 @@ theorem busy_path {i : Nat} {g : G} {x : Memory × List Ts × TThM} {r : Memory 
         exact List.mem_map.2 ⟨_, hm, rfl⟩
       refine .step hstep ?_
       have := ih { cm with mem := mem', pairs := pairs', ths := cm.ths.set! i (.busy base q) }
-        (TermStep.arr_get_set_eq _ hth) rfl rfl (by rw [← hg]; simp [gOfM, CfgM.n, size_set])
+        (TermStep.arr_get_set_eq _ hth) rfl rfl (by
+          rw [← hg]; unfold gOfM
+          rw [tysOfM_set hth rfl (act_busy_tys hm)]; simp [CfgM.n, size_set])
       simpa [set_set] using this
 
 end
@@ -997,8 +1049,12 @@ variable {p : Prog} {k : Promises.Knobs} {arch : Arch}
 theorem embed_get (c : Cfg) (i : Nat) : (embed c).ths[i]? = (c.ths[i]?).map TThM.idle := by
   simp [embed]
 
+/-- An embedded configuration has its coarse records. -/
+theorem tysOfM_embed (c : Cfg) : tysOfM (embed c) = tysOf c := by
+  funext l; simp [tysOfM, tysOf, embed, List.findSome?_map, Function.comp_def, TThM.base]
+
 theorem gOfM_embed (c : Cfg) (i : Nat) : gOfM p k arch (embed c) i = gOf p k arch c i := by
-  simp [gOfM, gOf, embed, CfgM.n, Cfg.n]
+  unfold gOfM; rw [tysOfM_embed]; simp [gOf, embed, CfgM.n, Cfg.n]
 
 /-- A coarse thread step is a path of micro thread steps. -/
 theorem threadSteps_path {c c' : Cfg} {i : Nat} (h : c' ∈ threadSteps p k arch c i) :
@@ -1097,7 +1153,7 @@ def ResidualOK (p : Prog) (g : G) (η : TEnv) (mem : Memory) (pairs : List Ts) (
     (q : Plan (St → TTh)) (Rf Rs H : Res) (cr db : Ts → Res) : Prop :=
   ∀ r ∈ (run g q (stOf mem pairs base)).map commit,
     ∃ (E' : TEnv) (Tot' HP' HS' C F : Res) (cr' db' δ : Ts → Res),
-      TOut p g η (stOf mem pairs base) r E' Tot' HP' HS' C F cr' db' Rf Rs H cr db δ
+      TOut p g η (stOf mem pairs base) base r E' Tot' HP' HS' C F cr' db' Rf Rs H cr db δ
 
 /-- **The pending-op clause** of busy thread `g.i`: it began the op at `th0`
 (same code as `base`); the events done so far are a prefix of the op's plan;

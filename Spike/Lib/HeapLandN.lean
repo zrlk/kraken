@@ -36,8 +36,8 @@ control holding nothing. -/
 theorem new_rowA (h : AllocInvAt Λ lbl lsize t tm heap cells ctr units off (heapUse s) c)
     (h1 : Inv1 Λ lbl lsize ts t tm s.mem) (hi : s.ths[0]? = some th) (htc : th.term = c.term)
     (hec : th.env = c.env) (hfr : FreshInv lbl s.lbase s.n 0 th.nalloc) (hn0 : 0 < s.n)
-    {x : String} {a : At} {e : Expr} {ty : Ty} {w wold : Word} {old : Nat}
-    (ht : c.term = .let_ x (.new a) e) (hea : evalAt c.env a = some (ty, [w])) (hu : accs ty = some [.one])
+    {x : String} {a : At} {T : Option Ty} {e : Expr} {ty : Ty} {w wold : Word} {old : Nat}
+    (ht : c.term = .let_ x (.new a T) e) (hea : evalAt c.env a = some (ty, [w])) (hu : accs ty = some [.one])
     (hp : th.promises = []) (hh : c.hold = some (ctr, wold)) (hold : numOf [wold] = some old)
     (hle : old + units 1 ty ≤ cells) (hun : units 1 ty = 2) (hoff : off 1 ty % 8 = 0)
     (hfit : off 1 ty + 8 * 1 ≤ 16 * units 1 ty) (hbx : boxCount s ≤ allocCount s)

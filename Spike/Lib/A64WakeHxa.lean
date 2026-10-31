@@ -144,10 +144,10 @@ theorem box_landing (E : Entry) (hA13 : Scc.Cert.Spawn.A64.a13data (Ly).Λ o.pro
   -- the source at `c0W` past its `new`
   obtain ⟨q, ⟨σe, hJe, -⟩, h72, hc, ob, hAo, hlt⟩ := hJ
   obtain ⟨hq0, -⟩ := wJ0_c0W hJe
-  have ht := q.2.term
+  obtain ⟨_, ht⟩ := q.2.term
   rw [hq0] at ht
   obtain ⟨hx, ha, hee⟩ := Expr.let_.inj ht
-  have ha' := Op.new.inj ha
+  have ha' := (Op.new.inj ha).1
   have hev := q.2.ev
   rw [hq0, ← ha'] at hev
   have hτ : q.1.τ = .int := (Prod.mk.inj (Option.some.inj hev)).1.symm

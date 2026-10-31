@@ -38,7 +38,7 @@ theorem thSys_kidFull {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res}
   obtain ⟨hv, hlay⟩ := hArg S ⟨hRE, hE, hM, hP, hS, hC⟩
   have hty := kid_tyM (c := c) hp hK ha htb hd hts hwt hchk htv hv hlay hSL
   have hMk : MemInv g (Cut (EgK Eg c) c.ths.size (fun _ => False)) (stOf c.mem c.pairs kid) :=
-    TermSpawnKidMem.memInv_kidM _ hM hnp hOL hN.shty hN.boxSto hN.boxtop hObs hU hK.promises hK.nalloc
+    TermSpawnKidMem.memInv_kidM _ hM hnp hOL hN.shty hN.boxSto hN.boxtop hObs hN.rle hU hK.promises hK.nalloc
   exact thSys_kidM hN hOL hgi hth hnp hpar.2.1 hK.promises hty hMk
 
 /-- **`thr` after the spawn.** `hThrS`: the old threads' `ThSys` at the post-spawn striping (on M0 this is

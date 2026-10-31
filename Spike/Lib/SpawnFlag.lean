@@ -140,7 +140,7 @@ theorem flagC_tstep {g : G} {mem mem' : WeakMem.Memory} {pairs pairs' : List Ts}
     obtain ⟨rfl, rfl, rfl⟩ := h
     refine ⟨fun _ => ⟨.int, by simp [lookupE, withS]⟩, fun l h => ?_⟩
     simp [withS, mZ, mO, mC, spawnTerm, WakePreA.spawnTerm] at h
-  · rw [TermLocal.tstep_let_gen (ht.trans rfl : th.term = .let_ "o" (.new (.var "z")) mO) rfl] at h
+  · obtain ⟨_, _, _, h, tys, hr⟩ := tstep_new_mem (ht.trans rfl : th.term = .let_ "o" (.new (.var "z") (some .int)) mO) h
     have hzt := hz ht
     obtain ⟨t0, hz0⟩ := hfz ht
     rw [hz0] at hzt
@@ -150,6 +150,8 @@ theorem flagC_tstep {g : G} {mem mem' : WeakMem.Memory} {pairs pairs' : List Ts}
     obtain ⟨⟨s', pw⟩, ha, he'⟩ := h
     simp only [Prod.mk.injEq] at he'
     obtain ⟨rfl, rfl, rfl⟩ := he'
+    simp only [Prod.mk.injEq] at hr
+    obtain ⟨rfl, rfl, rfl⟩ := hr
     obtain ⟨hfm, rfl⟩ := alloc_flag ha
     refine ⟨fun h => ?_, fun l h => ?_⟩
     · simp [withS, mO, mZ] at h

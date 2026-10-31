@@ -517,7 +517,7 @@ theorem promLt_proj {g : G} {s : St} {ty : Ty} {ws : List Word} {r : St × Nat �
 /-- What an operation may write names only `L`: its stored operands and, for an injection, the
 projected payload. -/
 def OpWOK (L : AllocLabel → Prop) (g : G) (env : Env) (s : St) : Op → Prop
-  | .new a => AtNV L env a
+  | .new a _ => AtNV L env a
   | .store _ _ v _ => AtNV L env v
   | .stp _ _ v0 v1 _ => AtNV L env v0 ∧ AtNV L env v1
   | .xchg _ v => AtNV L env v
@@ -624,6 +624,20 @@ theorem tstep_wrV {L : AllocLabel → Prop} {g : G} {mem : Memory} {pairs : List
        exact WrV.trans (projM_wrV hx)
          (injM_wrV hy (hw _ _ (by assumption) _ hx (injM_pa (promLt_proj hpl hx) hy hpa))))
     | (simp only [List.mem_singleton] at h; subst h; exact fenceS_wrV _ _ .st)
+    | (simp only [List.mem_map] at h  -- new arm: record write
+       obtain ⟨x, hx, rfl⟩ := h
+       try dsimp only
+       revert hpa
+       split
+       all_goals
+         intro hpa
+         first
+           | exact evalOp_wrV hx hw hpl hpa
+           | exact stepRmw_wrV (th := mth _ _ _ _) hx (fun _ => nv_apply _ _ (by
+               rw [rmwNewVal_dataE1]; exact allNV_head (hw _ _ (by assumption))))
+           | exact stepRmwPair_wrV (th := mth _ _ _ _) hx
+               (by rw [rmwNewVal_dataE1]; exact allNV_head (hw.1 _ _ (by assumption)))
+               (by rw [rmwNewVal_dataE2]; exact allNV_head (hw.2 _ _ (by assumption))))
 
 /-! ## §2 Typed operands name allocated labels -/
 
@@ -802,7 +816,7 @@ theorem bnamedT_of :
       {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
       {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res},
       TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
-      TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
+      TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
         (cr i) (db i) δ →
       GBoxNamed (EgT Eg (gOf p k arch c i) th.nalloc r.2.2.nalloc E' c') := by
   intro c c' Eg Tot HP HS cr db i th r S ρ η cx Rf Rs E' Tot' HP' HS' C F cr' db' δ X _ Z

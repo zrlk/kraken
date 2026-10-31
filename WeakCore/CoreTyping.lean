@@ -821,11 +821,11 @@ inductive SubS (cx : Cx) : Ty → Ty → Prop
   /-- A stronger capability is a weaker one: `pub ≤ bor ≤ rd`. -/
   | cap {c c' r s} : c.le c' = true → IEq cx 0 r s → SubS cx (.cap c r) (.cap c' s)
   /-- (M1, T1) A restricted function is a plain function. -/
-  | codeR {a b a' b' f s} : TyEqS cx 0 a a' → TyEqS cx 0 b b' →
-      SubS cx (.code a b (.restricted f s)) (.code a' b' .plain)
-  /-- (M1, T1) A restricted function fits a larger budget slot. -/
-  | codeRR {a b a' b' f s f' s'} : f ≤ f' → s ≤ s' → TyEqS cx 0 a a' → TyEqS cx 0 b b' →
-      SubS cx (.code a b (.restricted f s)) (.code a' b' (.restricted f' s'))
+  | codeR {a b a' b' f s ro} : TyEqS cx 0 a a' → TyEqS cx 0 b b' →
+      SubS cx (.code a b (.restricted f s ro)) (.code a' b' .plain)
+  /-- (M1, T1) A restricted function fits a larger budget slot; a read-only one fits a non-read-only slot. -/
+  | codeRR {a b a' b' f s ro f' s' ro'} : f ≤ f' → s ≤ s' → (ro' = true → ro = true) → TyEqS cx 0 a a' → TyEqS cx 0 b b' →
+      SubS cx (.code a b (.restricted f s ro)) (.code a' b' (.restricted f' s' ro'))
 
 theorem sub_sound (cx : Cx) : ∀ (σ τ : Ty), sub cx σ τ = true → SubS cx σ τ := by
   intro σ
@@ -914,7 +914,8 @@ theorem sub_sound (cx : Cx) : ∀ (σ τ : Ty), sub cx σ τ = true → SubS cx 
         rename_i a' b' k'
         cases k <;> cases k' <;> simp at h
         · exact .codeR (tyEq_sound cx 0 _ _ h.1) (tyEq_sound cx 0 _ _ h.2)
-        · exact .codeRR h.1.1.1 h.1.1.2 (tyEq_sound cx 0 _ _ h.1.2) (tyEq_sound cx 0 _ _ h.2)
+        · exact .codeRR h.1.1.1.1 h.1.1.1.2 (fun h' => by rcases h.1.1.2 with h'' | h'' <;> simp_all)
+            (tyEq_sound cx 0 _ _ h.1.2) (tyEq_sound cx 0 _ _ h.2)
   | _ =>
       intro τ h
       unfold sub at h
@@ -1325,7 +1326,10 @@ inductive OpT (p : Prog) : Cx → String → Op → Cx → Prop
       cx.bind x (.intS d) = .ok c' → OpT p cx x (.sub a b) c'
   | new {cx c₁ c' : Cx} {x : String} {a : At} {t : Ty} :
       cx.use a = .ok (t, c₁) → t.secondClass = false → c₁.bind x (.ptr .own t) = .ok c' →
-      OpT p cx x (.new a) c'
+      OpT p cx x (.new a (some t)) c'
+  | isTy {cx c' : Cx} {x : String} {a : At} {τ b : Ty} {κ : Kind} :
+      cx.peek a = .ok (.tex κ b) → slotOK b = true → τ.wf 0 0 = true → tgtOK τ = true →
+      admitsIn cx κ τ = true → cx.bind x (.ptrOpt .pub τ) = .ok c' → OpT p cx x (.isTy a τ) c'
   | publish {cx c₁ c' : Cx} {x : String} {a : At} {u : Ty} :
       cx.use a = .ok (.ptr .own u, c₁) → Ty.sharedOKIn c₁.ke (.ptr .pub u) = true →
       c₁.bind x (.ptr .pub u) = .ok c' → OpT p cx x (.publish a) c'
@@ -1572,7 +1576,7 @@ inductive OpT (p : Prog) : Cx → String → Op → Cx → Prop
   /-- A monomorphic code block as a value. -/
   | fnptr {cx c' : Cx} {x f : String} {d : Decl} :
       p.find f = .ok d → d.tparams = [] → d.idx = [] →
-      cx.bind x (.code d.argTy d.retTy (match d.kind with | .restricted f s => .restricted f s | _ => .plain)) = .ok c' →
+      cx.bind x (.code d.argTy d.retTy (match d.kind with | .restricted f s ro _ => .restricted f s ro | _ => .plain)) = .ok c' →
       OpT p cx x (.fnptr f) c'
   /-- A call through a code value: `call`'s rule at the value's signature. -/
   | callc {cx c₁ c' : Cx} {x : String} {f a : At} {tf σ τ t : Ty} :
@@ -1939,14 +1943,20 @@ theorem checkOp_sound (p : Prog) (cx : Cx) (x : String) (op : Op) (cx' : Cx)
           · simp at h
         · simp at h
       · simp at h
-  | new a =>
+  | new a T =>
       simp only [checkOp, bind_ok_iff] at h
       obtain ⟨⟨t, c₁⟩, h1, h⟩ := h
       try dsimp only at h
       split at h
       · simp at h
       · rename_i hs
-        exact .new h1 (by simpa using hs) h
+        cases T with
+        | none => simp at h
+        | some T =>
+          by_cases hT : t = T
+          · subst hT
+            exact .new h1 (by simpa using hs) (by simpa using h)
+          · simp [hT] at h
   | publish a =>
       simp only [checkOp, bind_ok_iff] at h
       obtain ⟨⟨t, c₁⟩, h1, h⟩ := h
@@ -2542,6 +2552,16 @@ theorem checkOp_sound (p : Prog) (cx : Cx) (x : String) (op : Op) (cx' : Cx)
       · cases h
       rw [if_neg (by decide)] at h
       exact .ext h1 hok (sub_sound _ _ _ hsb) h
+  | isTy a τ =>
+      simp only [checkOp, bind_ok_iff] at h
+      obtain ⟨t, ht, h⟩ := h
+      cases t <;> try (simp at h; done)
+      rename_i κ b
+      by_cases h1 : slotOK b = true <;> simp [h1] at h
+      by_cases h2 : τ.wf 0 0 = true <;> simp [h2] at h
+      by_cases h3 : tgtOK τ = true <;> simp [h3] at h
+      by_cases h4 : admitsIn cx κ τ = true <;> simp [h4] at h
+      exact .isTy ht h1 h2 h3 h4 h
   | borrow c a =>
       simp only [checkOp, bind_ok_iff] at h
       obtain ⟨y, hy, t, ht, r, hr, ⟨t', c₁⟩, h1, h⟩ := h
@@ -2966,12 +2986,12 @@ theorem check_sound (p : Prog) : ∀ (e : Expr) (cx : Cx), check p cx e = .ok ()
   induction e with
   | let_ x op e ih =>
       intro cx h
-      simp only [check, bind_ok_iff] at h
+      simp only [check_let, bind_ok_iff] at h
       obtain ⟨c₁, h1, h2⟩ := h
       exact .let_ (checkOp_sound p cx x op c₁ h1) (ih c₁ h2)
   | split a x y e ih =>
       intro cx h
-      simp only [check, bind_ok_iff] at h
+      simp only [check_split, bind_ok_iff] at h
       obtain ⟨⟨t, c₁⟩, h1, h⟩ := h
       try dsimp only at h
       split at h
@@ -2982,7 +3002,7 @@ theorem check_sound (p : Prog) : ∀ (e : Expr) (cx : Cx), check p cx e = .ok ()
       · simp at h
   | unpack a i x e ih =>
       intro cx h
-      simp only [check, bind_ok_iff] at h
+      simp only [check_unpack, bind_ok_iff] at h
       obtain ⟨⟨t, c₁⟩, h1, h⟩ := h
       try dsimp only at h
       split at h
@@ -2993,7 +3013,7 @@ theorem check_sound (p : Prog) : ∀ (e : Expr) (cx : Cx), check p cx e = .ok ()
       · simp at h
   | unpackT a α x e ih =>
       intro cx h
-      simp only [check, bind_ok_iff] at h
+      simp only [check_unpackT, bind_ok_iff] at h
       obtain ⟨⟨t, c₁⟩, h1, h⟩ := h
       try dsimp only at h
       split at h
@@ -3007,7 +3027,7 @@ theorem check_sound (p : Prog) : ∀ (e : Expr) (cx : Cx), check p cx e = .ok ()
       · simp at h
   | region a rn pn tn e ih =>
       intro cx h
-      simp only [check, bind_ok_iff] at h
+      simp only [check_region, bind_ok_iff] at h
       obtain ⟨⟨t, c₁⟩, h1, h⟩ := h
       try dsimp only at h
       split at h
@@ -3027,7 +3047,7 @@ theorem check_sound (p : Prog) : ∀ (e : Expr) (cx : Cx), check p cx e = .ok ()
       · simp at h
   | openPub a rn pn cn e ih =>
       intro cx h
-      simp only [check, bind_ok_iff] at h
+      simp only [check_openPub, bind_ok_iff] at h
       obtain ⟨⟨t, c₁⟩, h1, h⟩ := h
       try dsimp only at h
       split at h
@@ -3038,7 +3058,7 @@ theorem check_sound (p : Prog) : ∀ (e : Expr) (cx : Cx), check p cx e = .ok ()
       · simp at h
   | case a x e₁ y e₂ ih₁ ih₂ =>
       intro cx h
-      simp only [check, bind_ok_iff] at h
+      simp only [check_case, bind_ok_iff] at h
       obtain ⟨⟨t, c₁⟩, h1, h⟩ := h
       try dsimp only at h
       split at h
@@ -3049,7 +3069,7 @@ theorem check_sound (p : Prog) : ∀ (e : Expr) (cx : Cx), check p cx e = .ok ()
       · simp at h
   | ifnull a e₁ y e₂ ih₁ ih₂ =>
       intro cx h
-      simp only [check, bind_ok_iff] at h
+      simp only [check_ifnull, bind_ok_iff] at h
       obtain ⟨⟨t, c₁⟩, h1, h⟩ := h
       try dsimp only at h
       split at h
@@ -3060,7 +3080,7 @@ theorem check_sound (p : Prog) : ∀ (e : Expr) (cx : Cx), check p cx e = .ok ()
       · simp at h
   | parity a k ev od ihe iho =>
       intro cx h
-      simp only [check, bind_ok_iff] at h
+      simp only [check_parity, bind_ok_iff] at h
       obtain ⟨i, hi, h⟩ := h
       split at h
       · rename_i v hv
@@ -3070,7 +3090,7 @@ theorem check_sound (p : Prog) : ∀ (e : Expr) (cx : Cx), check p cx e = .ok ()
       · simp at h
   | ifeq a b yes no ihy ihn =>
       intro cx h
-      simp only [check] at h
+      simp only [check_ifeq] at h
       split at h
       · rename_i hpe
         simp only [bind_ok_iff] at h
@@ -3120,7 +3140,7 @@ theorem check_sound (p : Prog) : ∀ (e : Expr) (cx : Cx), check p cx e = .ok ()
       · simp at h
   | cas acq rel w e v t ok fail ihok ihf =>
       intro cx h
-      simp only [check, bind_ok_iff] at h
+      simp only [check_cas, bind_ok_iff] at h
       obtain ⟨tw, htw, h⟩ := h
       split at h
       · rename_i hw
@@ -3195,7 +3215,7 @@ theorem check_sound (p : Prog) : ∀ (e : Expr) (cx : Cx), check p cx e = .ok ()
             (by simpa using hacq) h3 (ihok _ h4) (ihf cx h2)
   | casp acq rel w e0 e1 v0 v1 t ok fail ihok ihf =>
       intro cx h
-      simp only [check, bind_ok_iff] at h
+      simp only [check_casp, bind_ok_iff] at h
       obtain ⟨tw, htw, h⟩ := h
       split at h
       · rename_i hw2
@@ -3252,7 +3272,7 @@ theorem check_sound (p : Prog) : ∀ (e : Expr) (cx : Cx), check p cx e = .ok ()
             (by simpa using hh') (by simpa using hacq) h3 (ihok c₂ h4) (ihf cx h2)
   | ret a =>
       intro cx h
-      simp only [check, bind_ok_iff] at h
+      simp only [check_ret, bind_ok_iff] at h
       obtain ⟨⟨t, c₁⟩, h1, u, hn, u', _, h⟩ := h
       try dsimp only at h
       split at h
@@ -3261,7 +3281,7 @@ theorem check_sound (p : Prog) : ∀ (e : Expr) (cx : Cx), check p cx e = .ok ()
         exact .ret h1 (noLeak_sound hn) (sub_sound _ _ _ (by simpa using hs))
   | tail f is a ts =>
       intro cx h
-      simp only [check, tailCheck, bind_ok_iff] at h
+      simp only [check_tail, tailCheck, bind_ok_iff] at h
       obtain ⟨d, hd, ⟨at_, rt⟩, hi, ⟨t, c₁⟩, h1, u, hn, u', _, h⟩ := h
       try dsimp only at h
       split at h
@@ -3275,8 +3295,8 @@ theorem check_sound (p : Prog) : ∀ (e : Expr) (cx : Cx), check p cx e = .ok ()
 
 /-- **The checker is sound** for a code block. -/
 theorem checkDecl_sound (p : Prog) (d : Decl) (h : checkDecl p d = .ok ()) : DeclT p d := by
-  unfold checkDecl at h
-  simp only at h
+  rw [checkDecl_eq] at h
+  dsimp only at h
   split at h
   · simp at h
   · rename_i hwf
@@ -3287,8 +3307,7 @@ theorem checkDecl_sound (p : Prog) (d : Decl) (h : checkDecl p d = .ok ()) : Dec
       -- (M1, T6) the kind rules run after `check`
       simp only [bind_ok_iff] at h
       obtain ⟨u, h1, -⟩ := h
-      cases u
-      exact ⟨hwf.1, hwf.2, hsc.1, hsc.2, check_sound p d.body _ h1⟩
+      exact ⟨hwf.1, hwf.2, hsc.1, hsc.2, check_sound p d.body _ ((check_eq_checkBinders _ _ _).2 ⟨u, h1⟩)⟩
 
 theorem forM_ok {α : Type} (f : α → M Unit) : ∀ (l : List α), l.forM f = .ok () → ∀ a ∈ l, f a = .ok ()
   | [], _, a, ha => by simp at ha
@@ -3301,9 +3320,18 @@ theorem forM_ok {α : Type} (f : α → M Unit) : ∀ (l : List α), l.forM f = 
       · exact hb
       · exact forM_ok f bs hr a ha
 
+/-- An accepted program passed its duplicate-name prefix: the decls' `forM` is accepted. -/
+theorem checkProg_forM {p : Prog} (h : checkProg p = .ok ()) : p.forM (checkDecl p) = .ok () := by
+  unfold checkProg at h
+  split at h
+  · split at h
+    · simp at h
+    · simp at h; exact h.2
+  · simp at h; exact h.2
+
 /-- **The checker is sound** (T1b): an accepted program is well typed. -/
 theorem checkProg_sound (p : Prog) (h : checkProg p = .ok ()) : ProgT p :=
-  fun d hd => checkDecl_sound p d (forM_ok _ p h d hd)
+  fun d hd => checkDecl_sound p d (forM_ok _ p (checkProg_forM h) d hd)
 
 /-! ## §6. The library programs are well typed
 

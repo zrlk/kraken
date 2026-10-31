@@ -485,7 +485,7 @@ def boxStep (f mIn tag : String) (argOps : List (String × Op)) (arg : At) (k : 
     (.split (v (tag ++ "r")) (tag ++ "m") (tag ++ "o")
       (lets [(tag, .call "unbo" [] (v (tag ++ "o")))] k))
 def bIns (mIn tag : String) (key val : Nat) (k : Expr) : Expr :=
-  boxStep "insert" mIn tag [(tag ++ "x", .call "idI" [] (.lit val)), (tag ++ "b", .new (v (tag ++ "x"))),
+  boxStep "insert" mIn tag [(tag ++ "x", .call "idI" [] (.lit val)), (tag ++ "b", .new (v (tag ++ "x")) (some .int)),
     (tag ++ "kv", .pair (.lit key) (v (tag ++ "b")))] (v (tag ++ "kv")) k
 def bTake (mIn tag : String) (key : Nat) (k : Expr) : Expr :=
   boxStep "take" mIn tag [] (.lit key) k

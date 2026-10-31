@@ -14,6 +14,7 @@ TermRun.TTh.promises : TermRun.TTh → List WeakMem.Ts
 TermRun.TTh.stack : TermRun.TTh → List TermRun.Frame
 TermRun.TTh.term : TermRun.TTh → CoreTerm.Expr
 TermRun.TTh.tidLbl : TermRun.TTh → Option WeakMem.AllocLabel
+TermRun.TTh.tys : TermRun.TTh → List (WeakMem.AllocLabel × CoreLang.Ty × Bool)
 TermRun.TTh.undefs : TermRun.TTh → Nat
 TermRun.TTh.vs : TermRun.TTh → WeakMem.VState
 TermRun.TTh.σs : TermRun.TTh → List CoreLang.Ty
@@ -27,7 +28,7 @@ TermRun.promise : TermRun.Cfg → Nat → WeakMem.Address → WeakMem.Val → We
         c.ths.set! i
           { term := th.term, env := th.env, σs := th.σs, stack := th.stack, vs := th.vs,
             promises := th.promises ++ [Array.size c.mem], nalloc := th.nalloc, undefs := th.undefs,
-            tidLbl := th.tidLbl, permit := th.permit },
+            tidLbl := th.tidLbl, permit := th.permit, tys := th.tys },
       lbase := c.lbase, boxFence := c.boxFence, cap := c.cap, trace := c.trace }
 WeakMem.Address : Type
 WeakMem.Msg : Type

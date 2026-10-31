@@ -1,7 +1,7 @@
 import WeakCore.TermArchE
 
 /-
-# TermArchS — the spawn step simulates: TSO ⊆ ARM for every `StepsE` run, no premise
+# TermArchS — the spawn step simulates: TSO ⊆ ARM for every `StepsE` run, no `SpawnSim` premise
 
 `TermArchE.tso_stepsE_subset_arm` takes the premise `SpawnSim` (a TSO spawn is matched by an ARM
 spawn, keeping `CfgLeT`).  This module proves it (`spawn_sim`), so the headlines below hold for
@@ -15,7 +15,7 @@ a smaller bound only allows more.  So the bumped words relate (`tvle_bump`), the
 `fenceS_sim`, and the child's box label is the same (`tidLabel`: `lbase`, `n`, `nalloc` agree).
 
 * `spawn_sim : SpawnSim p k cap`.
-* Headlines: `tso_stepsE_subset_arm'`, `tso_traces_subset_arm'`, `tso_stepsE_final_subset_arm'`
+* Headlines: `tso_stepsE_subset_arm_full`, `tso_traces_subset_arm_full`, `tso_stepsE_final_subset_arm_full`
   (the `TermArchE` theorems with `SpawnSim` discharged).
 -/
 
@@ -83,12 +83,12 @@ theorem spawn_sim (p : Prog) (k : Promises.Knobs) (cap : Nat) : SpawnSim p k cap
         (h.ths.1 ▸ h4) hwa, ⟨?_, htr⟩⟩
     have hpar : TThLe (spawnPar ca i ta x e) (spawnPar ct i tt x e) :=
       ⟨rfl, ⟨rfl, rfl, by simp only [hlbl]; exact WsLe.refl _, hta.env⟩, hta.σs, hta.stack, hv,
-        hS.promises, by simp only [spawnPar, withS]; rw [hta.nalloc, htl], hS.undefs, hta.permit⟩
+        hS.promises, by simp only [spawnPar, withS]; rw [hta.nalloc, htl], hS.undefs, hta.permit, hta.tys⟩
     have hparl : (spawnPar ca i ta x e).tidLbl = (spawnPar ct i tt x e).tidLbl := by
       simp only [spawnPar, htl, h.lbase, hn, hta.nalloc]
     have hkid : TThLe (spawnKid ca i ta f ts T wa) (spawnKid ct i tt f ts T ws) :=
       ⟨rfl, ⟨rfl, rfl, wsle_bump hv.vRelSt hw, trivial⟩, rfl, trivial,
-        ⟨hv.coh, hv.vRd, hv.vWr, hv.vCtrl, hv.vPreBase, hv.vRelSt, rfl, hv.fwd⟩, rfl, rfl, rfl, .none⟩
+        ⟨hv.coh, hv.vRd, hv.vWr, hv.vCtrl, hv.vPreBase, hv.vRelSt, rfl, hv.fwd⟩, rfl, rfl, rfl, .none, rfl⟩
     have hkidl : (spawnKid ca i ta f ts T wa).tidLbl = (spawnKid ct i tt f ts T ws).tidLbl := by
       simp only [spawnKid, hlbl]
     refine ⟨h.mem, h.pairs, thsLe_push (thsLe_set h.ths i hpar hparl) hkid hkidl, h.lbase,
@@ -98,22 +98,22 @@ theorem spawn_sim (p : Prog) (k : Promises.Knobs) (cap : Nat) : SpawnSim p k cap
       exact h.agree t (mem_allP h1 this)
     · exact h.agree t ht
 
-/-- **Headline (`StepsE`), no premise.**  Every TSO run of machine, extern and spawn steps is
+/-- **Headline (`StepsE`), no `SpawnSim` premise.**  Every TSO run of machine, extern and spawn steps is
 matched by an ARM run with the same trace, terms, values and counters, and views and read
 timestamps no higher. -/
-theorem tso_stepsE_subset_arm' (p : Prog) (k : Promises.Knobs) (cap : Nat) {c0 c : Cfg}
+theorem tso_stepsE_subset_arm_full (p : Prog) (k : Promises.Knobs) (cap : Nat) {c0 c : Cfg}
     (hwf : ∀ t ∈ allP c0, t < c0.mem.size) (h : StepsE p k .tso cap c0 c) :
     ∃ c', StepsE p k .arm cap c0 c' ∧ CfgLe c' c ∧ c'.trace = c.trace :=
   tso_stepsE_subset_arm p k cap hwf (spawn_sim p k cap) h
 
-/-- Every TSO trace is an ARM trace (`StepsE`, no premise). -/
-theorem tso_traces_subset_arm' (p : Prog) (k : Promises.Knobs) (cap : Nat) {c0 : Cfg}
+/-- Every TSO trace is an ARM trace (`StepsE`, no `SpawnSim` premise). -/
+theorem tso_traces_subset_arm_full (p : Prog) (k : Promises.Knobs) (cap : Nat) {c0 : Cfg}
     (hwf : ∀ t ∈ allP c0, t < c0.mem.size) {tr : List Event}
     (h : STrE p k .tso cap c0 tr) : STrE p k .arm cap c0 tr :=
   tso_traces_subset_arm p k cap hwf (spawn_sim p k cap) h
 
-/-- Final configurations (`StepsE`, no premise). -/
-theorem tso_stepsE_final_subset_arm' (p : Prog) (k : Promises.Knobs) (cap : Nat) {c0 c : Cfg}
+/-- Final configurations (`StepsE`, no `SpawnSim` premise). -/
+theorem tso_stepsE_final_subset_arm_full (p : Prog) (k : Promises.Knobs) (cap : Nat) {c0 c : Cfg}
     (hwf : ∀ t ∈ allP c0, t < c0.mem.size) (h : StepsE p k .tso cap c0 c) (hf : c.final = true) :
     ∃ c', StepsE p k .arm cap c0 c' ∧ CfgLe c' c ∧ c'.trace = c.trace ∧ c'.final = true :=
   tso_stepsE_final_subset_arm p k cap hwf (spawn_sim p k cap) h hf
@@ -125,6 +125,6 @@ end TermArchS
 #print axioms TermArchS.thsLe_push
 #print axioms TermArchS.allP_spawnT
 #print axioms TermArchS.spawn_sim
-#print axioms TermArchS.tso_stepsE_subset_arm'
-#print axioms TermArchS.tso_traces_subset_arm'
-#print axioms TermArchS.tso_stepsE_final_subset_arm'
+#print axioms TermArchS.tso_stepsE_subset_arm_full
+#print axioms TermArchS.tso_traces_subset_arm_full
+#print axioms TermArchS.tso_stepsE_final_subset_arm_full

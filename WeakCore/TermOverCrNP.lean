@@ -261,7 +261,7 @@ theorem np_hfree {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr 
     {cx : Cx} {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res}
     (hsc : StepScopeF p k arch Sp Init MintOK c0)
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r) (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
+    (Z : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
       (cr i) (db i) δ)
     (hm : MemInv (gOf p k arch c i) (CE η) (stOf c.mem c.pairs th))
     (hnps : ¬ TermPiece.PubShape cx th)
@@ -404,7 +404,7 @@ theorem foreign_overCrNP {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : R
     {cx : Cx} {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res}
     (hsc : StepScopeF p k arch Sp Init MintOK c0)
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r) (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
+    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
       (cr i) (db i) δ)
     (hm : MemInv (gOf p k arch c i) (CE η) (stOf c.mem c.pairs th))
     (hnps : ¬ TermPiece.PubShape cx th)

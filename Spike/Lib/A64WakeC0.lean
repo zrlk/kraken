@@ -25,7 +25,7 @@ def c0W : Ctl :=
   ⟨SccCode.wakeImm_t1, [("z", .int, [TermRun.cst (.num 0)]),
     ("me", .tid, [TermRun.cst (.loc ⟨mainTidLbl 2, 0⟩ 0)])], none⟩
 
-theorem c0W_term : c0W.term = .let_ "o" (.new (.var "z")) Spike.Lib.A64.Flow.WakeWc.boxTerm := rfl
+theorem c0W_term : c0W.term = .let_ "o" (.new (.var "z") (some .int)) Spike.Lib.A64.Flow.WakeWc.boxTerm := rfl
 
 theorem c0W_z : ∃ tz, TermRun.lookupE c0W.env "z" = some (tz, [TermRun.cst (.num 0)]) := ⟨_, rfl⟩
 

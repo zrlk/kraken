@@ -501,7 +501,7 @@ theorem op_foot {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {
   case inr τ a =>
     cases hop with
     | inr _ hu _ => exact .inr (box_none hE hi htv hm hu hrd)
-  case new a =>
+  case new a _ =>
     refine .inr ?_
     have hf : b.label = _ := hrd
     rw [hf]; exact (hm.2.2.2.1.1 _ (Nat.le_refl _)).1

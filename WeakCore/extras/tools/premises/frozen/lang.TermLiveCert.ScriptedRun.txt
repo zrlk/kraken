@@ -109,6 +109,7 @@ TermRun.TTh.promises : TermRun.TTh → List WeakMem.Ts
 TermRun.TTh.stack : TermRun.TTh → List TermRun.Frame
 TermRun.TTh.term : TermRun.TTh → CoreTerm.Expr
 TermRun.TTh.tidLbl : TermRun.TTh → Option WeakMem.AllocLabel
+TermRun.TTh.tys : TermRun.TTh → List (WeakMem.AllocLabel × CoreLang.Ty × Bool)
 TermRun.TTh.undefs : TermRun.TTh → Nat
 TermRun.TTh.vs : TermRun.TTh → WeakMem.VState
 TermRun.TTh.σs : TermRun.TTh → List CoreLang.Ty
@@ -149,8 +150,8 @@ TermSpawnStep.spawnPar : TermRun.Cfg → Nat → TermRun.TTh → String → Core
         th.env,
     σs := __src.σs, stack := __src.stack, vs := __src.vs, promises := __src.promises,
     nalloc := th.nalloc + if th.tidLbl = none then 2 else 1, undefs := __src.undefs,
-    tidLbl := th.tidLbl.orElse fun x => some (TermRun.freshLabel c.lbase c.n i (th.nalloc + 1)),
-    permit := __src.permit }
+    tidLbl := th.tidLbl.orElse fun x => some (TermRun.freshLabel c.lbase c.n i (th.nalloc + 1)), permit := __src.permit,
+    tys := __src.tys }
 TermSpawnStep.spawnS : TermRun.Cfg → TermRun.TTh → TermRun.St
   := fun c th => TermRun.fenceS (TermRun.stOf c.mem c.pairs th) WeakMem.Fence.sy
 TermSpawnStep.spawnT : TermRun.Cfg → Nat → TermRun.TTh → TermRun.TTh → TermRun.Cfg

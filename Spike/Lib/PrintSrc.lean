@@ -61,7 +61,7 @@ theorem src_loadAt_step (g : G) (mem : WeakMem.Memory) (pairs : List WeakMem.Ts)
   have hk1 : offs sa (k * nWords [.one]) = offs sa k := by simp [nWords, Acc.size]
   obtain ⟨vs, hl⟩ := Spike.Lib.SrcMem.loadUnits_one g.arch pw false (stOf mem pairs th) hj hm
   refine ⟨⟨e, (x, u, [⟨m.val, m.view, j⟩]) :: th.env, th.σs, th.stack, vs, th.promises, th.nalloc,
-    th.undefs + countUndef [⟨m.val, m.view, j⟩], th.tidLbl, th.permit⟩, ?mem, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+    th.undefs + countUndef [⟨m.val, m.view, j⟩], th.tidLbl, th.permit, th.tys⟩, ?mem, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   case mem =>
     simp only [tstep, ht, evalOp, heb, hei, hbuf, hk, addrOf, hpw, hu, hk1, List.mem_map]
     exact ⟨_, ⟨_, hl, rfl⟩, rfl⟩

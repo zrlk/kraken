@@ -18,7 +18,7 @@ mkdir -p "$T/lib"
 printf 'def inc(x : Int) : Int =\n  ret (x + 1)\n' > "$T/lib/Q.u"
 printf 'import Q\ndef main(u : Unit) : Int =\n  tail inc(41)\n' > "$T/a.u"
 printf 'def f(x : Int) : Int =\n  let y = load acq x\n  ret y\n' > "$T/chk.u"
-printf 'scenario S = { setup = init(()) ; threads = [spin(())] ; depth = 60 ; live = 0 }\ndef init(u : Unit) : Ptr pub Int =\n  let z = zero[Int]\n  let o = new z\n  let c = publish o\n  ret c\nlive[S] def spin(c : Ptr pub Int) : Int =\n  let d = load acq c\n  if d = 1 then\n    ret 0\n  else\n    tail spin(c)\n' > "$T/live.u"
+printf 'scenario S = { setup = init(()) ; threads = [spin(())] ; depth = 60 ; live = 0 }\ndef init(u : Unit) : Ptr pub Int =\n  let z = zero[Int]\n  let o = new[Int] z\n  let c = publish o\n  ret c\nlive[S] def spin(c : Ptr pub Int) : Int =\n  let d = load acq c\n  if d = 1 then\n    ret 0\n  else\n    tail spin(c)\n' > "$T/live.u"
 printf 'live def f{r}(w : Ptr pub Word[r, <k! ; 0->0+1 ; robust, epoch>]) : Unit =\n  ret ()\n' > "$T/ep.u"
 
 # 1. --help: exit 0, the slogan last after a blank line
@@ -66,7 +66,7 @@ out=$(cat "$T/out"); err=$(cat "$T/err")
 
 # 8. --live-proof with a certificate (item 38): root.cert/ is written and built after the instance file; the
 # certificate's PROVED lines come last, each with its re-checked line
-printf 'scenario S = { setup = init(()) ; threads = [spin(()), setter(())] ; depth = 60 ; live = 0 ; cert = 1000 }\ndef init(u : Unit) : Ptr pub Int =\n  let z = zero[Int]\n  let o = new z\n  let c = publish o\n  ret c\nlive[S] def spin(c : Ptr pub Int) : Int =\n  let d = load acq c\n  if d = 1 then\n    ret 0\n  else\n    tail spin(c)\nlive def setter(c : Ptr pub Int) : Unit =\n  let d = store rel c 1\n  ret ()\n' > "$T/cert.u"
+printf 'scenario S = { setup = init(()) ; threads = [spin(()), setter(())] ; depth = 60 ; live = 0 ; cert = 1000 }\ndef init(u : Unit) : Ptr pub Int =\n  let z = zero[Int]\n  let o = new[Int] z\n  let c = publish o\n  ret c\nlive[S] def spin(c : Ptr pub Int) : Int =\n  let d = load acq c\n  if d = 1 then\n    ret 0\n  else\n    tail spin(c)\nlive def setter(c : Ptr pub Int) : Unit =\n  let d = store rel c 1\n  ret ()\n' > "$T/cert.u"
 tools/sce --live-proof -o "$T/cert.w" "$T/cert.u" >"$T/out" 2>"$T/err"; rc=$?
 err=$(cat "$T/err")
 [ $rc -eq 0 ] || bad "cert.u --live-proof: exit $rc: $err"

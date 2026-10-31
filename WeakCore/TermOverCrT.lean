@@ -21,7 +21,7 @@ theorem plantCr_post {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} 
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res}
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r) (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ)
+    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ)
     {j : Nat} {thj : TTh} {Sj : AllocLabel → Prop} (hji : j ≠ i) (hj : c.ths[j]? = some thj)
     {m : Msg} {tw : Ts} {R : Res}
     (hpc : PlantCr (Cut Eg j Sj) (stOf c.mem c.pairs thj) m tw R) :
@@ -67,7 +67,7 @@ theorem pd_witness {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {c
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res}
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r) (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ)
+    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ)
     {j : Nat} {thj : TTh} {S0 : AllocLabel → Prop} (hji : j ≠ i) (hj : c.ths[j]? = some thj)
     {g : TermPiece.GdE} {us : List Acc} {t : Ts} {m : Msg}
     (hC : TermPlant.PromCrK (Cut Eg j S0) (stOf c.mem c.pairs thj) (cr j) (db j))

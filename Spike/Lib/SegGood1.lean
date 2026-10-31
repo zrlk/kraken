@@ -65,9 +65,9 @@ theorem Out.good1 (hp : Scc.Lower.Accepted1 p = true) {ms : MemSide I} {X : Frag
   | xchgStore _ _ _ _ x sa u v e _ _ _ _ hx => exact (hg.not_xchg x sa u v e hx).elim
   | ctrRmw _ _ _ x τ e _ _ _ _ hs =>
     exact (hs.elim (fun ⟨a, _, _, ht, _⟩ => hg.not_newBuf x a τ e ht)
-      fun ⟨_, a, _, ht, _⟩ => hg.not_new x a e ht).elim
+      fun ⟨_, a, _, ⟨_, ht⟩, _⟩ => hg.not_new x a _ e ht).elim
   | alloc _ _ x a τ e _ _ _ _ _ _ _ ht => exact (hg.not_newBuf x a τ e ht).elim
-  | newStore _ _ _ _ x a _ e _ _ _ _ _ _ ht => exact (hg.not_new x a e ht).elim
+  | newStore _ _ _ _ x a _ e _ _ _ _ _ _ ht => exact ht.elim fun _ ht => (hg.not_new x a _ e ht).elim
   | emit K' buf n _ _ hK' hat hd _ _ _ _ => exact (hnw K' hK' hat buf n hd).elim
   | fence k s₁ c₂ he hr hx =>
     cases hr with

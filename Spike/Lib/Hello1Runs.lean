@@ -42,6 +42,13 @@ theorem localStepS_let (h : LocalStepS p c c') {x : String} {op : Op} {e : Expr}
   cases op
   case call f is a ts => exact (hc f is a ts rfl).elim
   case callc f a => exact (hcc f a rfl).elim
+  case new a T =>
+    simp only [TermRun.tstep, List.map_eq_singleton_iff] at this
+    obtain ⟨_, -, hf⟩ := this
+    have := congrArg (fun q => q.2.2.term) hf
+    first
+      | (rw [← this]; split <;> rfl)
+      | (simp only at this; rw [← this]; split <;> rfl)
   all_goals
     simp only [TermRun.tstep, List.map_eq_singleton_iff] at this
     obtain ⟨_, -, hf⟩ := this

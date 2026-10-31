@@ -45,7 +45,7 @@ theorem sysInvO_threadRW (O : Obligations p k arch Sp Init MintOK c0 plantOf pla
     (hPost : ∀ (th : TTh) (r : Memory × List Ts × TTh) S ρ η cx Rf Rs E' Tot' HP' HS' C F cr' db' δ,
       TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r →
       EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
-      TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs
+      TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs
         (HP i + HS) (TermPoolResplit.crR cr pl i (TermHbiPOf.QS Eg c i S th r) i) (db i) δ →
       (∀ l, TermOwnG0Defs.PubAt th l → ∀ t,
         TermPoolResplit.crR cr pl i (TermHbiPOf.QS Eg c i S th r) i t = cr i t) →

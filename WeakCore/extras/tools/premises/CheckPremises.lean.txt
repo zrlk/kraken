@@ -13,6 +13,9 @@ import WeakCore.TermLiveCertScen
 import WeakCore.TermLiveC
 import WeakCore.TermLiveG3
 import WeakCore.SceProof
+-- device start + DMA ring finals
+import WeakCore.TermStartD
+import WeakCore.DmaRing
 /-!
 # CheckPremises — freeze the MEANING of the finals' premises (mechanism sketch)
 
@@ -96,7 +99,13 @@ def langRoots : List Name :=
    -- (user) the permit's release/acquire views
    `TermRun.relView, `TermRun.parkVs,
    `TermRun.thrOfTid, `TermRun.wordNum, `TermRun.lastDevWrite, `TermRun.lastMmioW, `TermRun.Event.observable,
-   `TermRun.obsTrace, `TermProgress.ExtBy, `TermLiveL3.SpuriousWake, `TermLiveCert.ScriptedRun]
+   `TermRun.obsTrace, `TermProgress.ExtBy, `TermLiveL3.SpuriousWake, `TermLiveCert.ScriptedRun,
+   -- the restricted-function checker's kind pass (25; `CoreTerm.ExtName.pure` above, already a root)
+   `CoreTerm.opAllocates, `CoreTerm.opWrites, `CoreTerm.Expr.binders, `CoreTerm.noShadow, `CoreTerm.argPosOf,
+   `CoreTerm.tyAt, `CoreTerm.Tail, `CoreTerm.Tail.merge, `CoreTerm.idxArgOf, `CoreTerm.selfBoundW, `CoreTerm.selfBound,
+   `CoreTerm.restrictedOK, `CoreTerm.fuelOf, `CoreTerm.declFuel, `CoreTerm.argFuelOf, `CoreTerm.loopBound,
+   `CoreTerm.fuelDecl, `CoreTerm.restrictedDeclOK, `CoreTerm.checkerIdxNames, `CoreTerm.Expr.idxBinders,
+   `CoreTerm.Decl.allNames, `CoreTerm.callBad, `CoreTerm.loopCallBad, `CoreTerm.loopCallsOK, `CoreTerm.RestrictedProg]
 
 /-- Stop rule for a constant: stop module, unless forced. -/
 def stopC (env : Environment) (force : List Name) (n : Name) : Bool :=
@@ -208,6 +217,7 @@ def render (names : Array Name) (force : List Name := forceBody) : MetaM String 
     s := s ++ s!"{n} : {← ppExpr ci.type}\n"
     for c in hidden env ci.type do bad := bad.push (n, c)
     unless stopC env force n do
+      let pre := s.length
       match ci with
       | .defnInfo d =>
           match (← eqnTypes #[n]).get? n with
@@ -224,7 +234,17 @@ def render (names : Array Name) (force : List Name := forceBody) : MetaM String 
           -- (M0) a forced language-root structure also lists its field names (e.g. `Cfg`'s `cap`)
           if langRoots.contains n && isStructure env n then
             s := s ++ s!"  fields {getStructureFields env n}\n"
-      | _ => pure ()
+      | _ =>
+          -- (check only) a forced root that is neither a definition nor an inductive (`opaque`, or a
+          -- `partial def`, which compiles to an opaque constant) would be frozen by its SIGNATURE only
+          if langRoots.contains n || force.contains n then
+            throwError "premise guard: forced root {n} is not a definition or an inductive (opaque or partial?): \
+              its body would not be printed"
+      -- (check only) a forced root must print a body line (`  := `, `  eq_def `, `  | `)
+      if langRoots.contains n || force.contains n then
+        let out := (s.drop pre).toString
+        unless (out.splitOn "  := ").length > 1 || (out.splitOn "  eq_def ").length > 1 || (out.splitOn "  | ").length > 1 do
+          throwError "premise guard: forced root {n} rendered without a body line"
   -- (h2) hard check: no rendered text mentions a hidden (skipped, unclassified) constant
   unless bad.isEmpty do
     throwError "premise guard (h2): rendered text mentions skipped constants outside skipClasses/skipAllow \
@@ -272,6 +292,10 @@ def freeze (dir : String) (finals : List Name) : MetaM Unit := do
       IO.FS.writeFile s!"{dir}/lang.{f}.txt" "ABSENT\n"; logInfo m!"lang {f}: ABSENT"; continue
     let force := forceBody ++ [f]
     let names ← closure #[f] force
+    -- a forced root must render non-empty and with its own text (a theorem or a skipped
+    -- constant renders empty / bodiless): hard error, check only
+    unless names.contains f do
+      throwError "premise guard: language root {f} renders empty or without its own text (theorem or skipped constant?)"
     IO.FS.writeFile s!"{dir}/lang.{f}.txt" (← render names force)
     logInfo m!"lang {f}: {names.size} constants"
   -- (per-toolchain sets) the module layout of this run (guard.sh selects the premise set by toolchain and layout)
@@ -318,4 +342,8 @@ end CheckPremises
    ``TermLiveC.mutex_incr_forced_wait_in_critical_section,
    ``TermLiveC.opSafe, ``TermLiveC.noUseOf, ``TermLiveC.tokEnd, ``TermLiveC.pathStep, ``TermLiveC.TokPath,
    ``TermLiveC.callEnd, ``TermLiveC.TokPathCall,
-   ``SceProof.MainInst, ``SceProof.ScenInst, ``SceProof.mainInst, ``SceProof.scenInst]
+   ``SceProof.MainInst, ``SceProof.ScenInst, ``SceProof.mainInst, ``SceProof.scenInst,
+   -- device start + DMA ring
+   ``TermStartD.token_unique_net_board, ``TermStartD.token_unique_final_board,
+   ``TermStartD.machine_tokens_main_board, ``TermStartD.reachable_typed_board,
+   ``DmaRing.dma_ring_tokens_unique_net]

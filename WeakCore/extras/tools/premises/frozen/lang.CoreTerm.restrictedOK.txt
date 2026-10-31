@@ -1,0 +1,63 @@
+CoreLang.CodeKind : Type
+CoreLang.Ty : Type
+CoreTerm.At : Type
+CoreTerm.At.var : String → CoreTerm.At
+CoreTerm.DeclKind : Type
+CoreTerm.Expr : Type
+CoreTerm.ExtName : Type
+CoreTerm.ExtName.current : CoreTerm.ExtName
+CoreTerm.ExtName.deviceOnly : CoreTerm.ExtName → Bool
+CoreTerm.ExtName.park : CoreTerm.ExtName
+CoreTerm.ExtName.pure : CoreTerm.ExtName → Bool
+CoreTerm.Op : Type
+CoreTerm.instDecidableEqAt : DecidableEq CoreTerm.At
+CoreTerm.instDecidableEqExtName : DecidableEq CoreTerm.ExtName
+CoreTerm.opAllocates : CoreTerm.Op → Bool
+CoreTerm.opWrites : CoreTerm.Op → Bool
+CoreTerm.restrictedOK : Bool → String → (String → Option CoreTerm.DeclKind) → String → Option CoreLang.CodeKind → CoreTerm.Expr → Bool
+  eq_def ∀ (ro : Bool) (self : String) (kindOf : String → Option CoreTerm.DeclKind) (argName : String)
+  (argCode : Option CoreLang.CodeKind) (x : CoreTerm.Expr),
+  CoreTerm.restrictedOK ro self kindOf argName argCode x =
+    match x with
+    | CoreTerm.Expr.let_ x op e =>
+      (!CoreTerm.opAllocates op && (!ro || !CoreTerm.opWrites op) &&
+          match op with
+          | CoreTerm.Op.call f is a ts =>
+            match kindOf f with
+            | some (CoreTerm.DeclKind.restricted fuel stack r loop) => !ro || r
+            | x => false
+          | CoreTerm.Op.callc f a =>
+            !ro && f == CoreTerm.At.var argName &&
+              match argCode with
+              | some (CoreLang.CodeKind.restricted fuel stack ro) => true
+              | x => false
+          | CoreTerm.Op.ext n a =>
+            !n.deviceOnly && n != CoreTerm.ExtName.park && n != CoreTerm.ExtName.current && (!ro || n.pure)
+          | x => true) &&
+        CoreTerm.restrictedOK ro self kindOf argName argCode e
+    | CoreTerm.Expr.region a r p t e => false
+    | CoreTerm.Expr.split a x y e => CoreTerm.restrictedOK ro self kindOf argName argCode e
+    | CoreTerm.Expr.unpack a i x e => CoreTerm.restrictedOK ro self kindOf argName argCode e
+    | CoreTerm.Expr.unpackT a α x e => CoreTerm.restrictedOK ro self kindOf argName argCode e
+    | CoreTerm.Expr.openPub a r p c e => CoreTerm.restrictedOK ro self kindOf argName argCode e
+    | CoreTerm.Expr.case a x e₁ y e₂ =>
+      CoreTerm.restrictedOK ro self kindOf argName argCode e₁ && CoreTerm.restrictedOK ro self kindOf argName argCode e₂
+    | CoreTerm.Expr.ifnull a e₁ x e₂ =>
+      CoreTerm.restrictedOK ro self kindOf argName argCode e₁ && CoreTerm.restrictedOK ro self kindOf argName argCode e₂
+    | CoreTerm.Expr.parity a k e₁ e₂ =>
+      CoreTerm.restrictedOK ro self kindOf argName argCode e₁ && CoreTerm.restrictedOK ro self kindOf argName argCode e₂
+    | CoreTerm.Expr.ifeq a b e₁ e₂ =>
+      CoreTerm.restrictedOK ro self kindOf argName argCode e₁ && CoreTerm.restrictedOK ro self kindOf argName argCode e₂
+    | CoreTerm.Expr.cas acq rel w e v t ok fail =>
+      !ro && CoreTerm.restrictedOK ro self kindOf argName argCode ok &&
+        CoreTerm.restrictedOK ro self kindOf argName argCode fail
+    | CoreTerm.Expr.casp acq rel w e0 e1 v0 v1 t ok fail =>
+      !ro && CoreTerm.restrictedOK ro self kindOf argName argCode ok &&
+        CoreTerm.restrictedOK ro self kindOf argName argCode fail
+    | CoreTerm.Expr.ret a => true
+    | CoreTerm.Expr.tail f is a ts =>
+      if (f == self) = true then true
+      else
+        match kindOf f with
+        | some (CoreTerm.DeclKind.restricted fuel stack r loop) => !ro || r
+        | x => false

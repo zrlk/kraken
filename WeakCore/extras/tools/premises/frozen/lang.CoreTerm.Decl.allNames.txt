@@ -1,0 +1,9 @@
+CoreTerm.Decl : Type
+CoreTerm.Decl.allNames : CoreTerm.Decl → List String
+  := fun d => d.arg :: d.idx ++ CoreTerm.checkerIdxNames ++ d.body.binders ++ d.body.idxBinders
+CoreTerm.Decl.arg : CoreTerm.Decl → String
+CoreTerm.Decl.body : CoreTerm.Decl → CoreTerm.Expr
+CoreTerm.Decl.idx : CoreTerm.Decl → List String
+CoreTerm.Expr.binders : CoreTerm.Expr → List String
+CoreTerm.Expr.idxBinders : CoreTerm.Expr → List String
+CoreTerm.checkerIdxNames : List String

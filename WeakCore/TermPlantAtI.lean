@@ -197,6 +197,7 @@ theorem plant_vWr {c : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db
     (hT1 : ThInvE p E1 { th with promises := th.promises ++ [c.mem.size] })
     (hm1 : MemInv (gOf p k arch (promise c j a v w) j) E1
       (stOf (promise c j a v w).mem (promise c j a v w).pairs { th with promises := th.promises ++ [c.mem.size] }))
+    (hTy1 : TyOKE (gOf p k arch (promise c j a v w) j) E1) (hRc1 : RecFresh (gOf p k arch (promise c j a v w) j) j th.nalloc)
     (hR1 : TermPtrRts.PtrRtsE sto
       (stOf (promise c j a v w).mem (promise c j a v w).pairs { th with promises := th.promises ++ [c.mem.size] })
       { th with promises := th.promises ++ [c.mem.size] } l)
@@ -223,7 +224,7 @@ theorem plant_vWr {c : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db
   have hNo := hNP j l (promise c j a v w) _ E1 sto c.mem.size hk hs1
     (fun c2 hs hc => hCSP X c2 hs hc) (TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw)
     E0u E1 hwin hAn
-    (by obtain ⟨_, η, _, rfl, -⟩ := hT1; exact Ext_refl (Coh_CE η) (CohR_CE η)) hTA1 hNa1 hth1 hT1 hm1 hR1 ht1 hbf hfr hL hSC hps hD
+    (by obtain ⟨_, η, _, rfl, -⟩ := hT1; exact Ext_refl (Coh_CE η) (CohR_CE η)) hTA1 hNa1 hth1 hT1 hm1 hTy1 hRc1 hR1 ht1 hbf hfr hL hSC hps hD
     hC hG hLay hsa hpa hba hBS
   have h1 : (promise c j a v w).mem[c.mem.size]? = some ⟨a, v, w⟩ := by
     rw [hpi.1, Array.getElem?_push]; simp

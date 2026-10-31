@@ -30,14 +30,15 @@ def FootNCB (p : Prog) : Prop :=
   ∀ {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {cx : Cx} {ρ : Nat → Nat} {η : TEnv}
     [ProgRetIall p], ProgT p → g.p = p → 0 < g.n → isDone th = false →
     ScopeD th.σs cx th.term → Typed p cx th.term → FInv ρ η th.σs (Resume p th.stack) cx th.env →
-    EnvOK p η → TvOK cx → MemInv g (CE η) (stOf mem pairs th) → g.boxFence = true →
+    EnvOK p η → TvOK cx → MemInv g (CE η) (stOf mem pairs th) → TyOKE g (CE η) → g.boxFence = true →
     PAx g mem pairs th → PubWinT (CE η) (stOf mem pairs th) th →
     (∀ l, BufInitOn th l → ¬ g.zf l) → (∀ l, TermOwnG0Defs.PubAt th l → g.pf l) → RetPw th.σs th.stack cx.ret →
+    DyFr p annNew (progTgts p) η th.σs th.term →
     tstep g mem pairs th ≠ [] ∧ ∀ r ∈ tstep g mem pairs th, PromAbove (stOf r.1 r.2.1 r.2.2) →
       ∃ E', Foot g (CE η) E' (stOf mem pairs th) (stOf r.1 r.2.1 r.2.2) ∧ Ext (CE η) E' ∧
         ThInvE p E' r.2.2 ∧ MemInv g E' (stOf r.1 r.2.1 r.2.2) ∧
         (∀ l, TermOwnG0Defs.PubAt th l → E'.pfr l ≠ none) ∧ TermFootNC.FootNCE (CE η) E' r ∧
-        TermFootBP0.FootB1 g th.nalloc th.env r E' ∧ TermTyped.BumpIf th E'
+        TermFootBP0.FootB1 g th.nalloc th.env r E' ∧ TermTyped.BumpIf th E' ∧ NewCellSto g ρ η th E'
 
 /-- `NoFulPlRun` with `ThLbl` at the start, the box fence, the start's fresh labels
 outside `sto` and `StoClo` of the start environment (the bridge's `StoClo_Cut`); (v3c)
@@ -50,6 +51,7 @@ def NoFulPlRunGL (p : Prog) (k : Promises.Knobs) (arch : Arch) : Prop :=
     AnchR Eu Ea E1 (stOf c1.mem c1.pairs th1) → Ext Ea E1 →
     TermTyped.TidAt j c1 Ea → (∀ th, c1.ths[j]? = some th → th.tidLbl ≠ some a) →
     c1.ths[j]? = some th1 → ThInvE p E1 th1 → MemInv (gOf p k arch c1 j) E1 (stOf c1.mem c1.pairs th1) →
+    TyOKE (gOf p k arch c1 j) E1 → RecFresh (gOf p k arch c1 j) j th1.nalloc →
     TermPtrRts.PtrRtsE sto (stOf c1.mem c1.pairs th1) th1 a →
     TermPtrRts.tminOf sto (stOf c1.mem c1.pairs th1) a = some t →
     c1.boxFence = true → (∀ q, th1.nalloc ≤ q → sto (freshLabel c1.lbase c1.n j q) = none) →
@@ -77,7 +79,8 @@ def NFInv (p : Prog) (k : Promises.Knobs) (arch : Arch) (j : Nat) (a : AllocLabe
     (∀ t', TermPtrRts.tminOf S (stOf c.mem c.pairs th) a = some t' → TermPtrRts.BoxSep E t' a c.mem) ∧
     AnchR Eu Ea E (stOf c.mem c.pairs th) ∧ Ext Ea E ∧
     -- (C) the thread's box label (anchored) and `a` is not it
-    TermTyped.TidAt j c Ea ∧ (∀ th', c.ths[j]? = some th' → th'.tidLbl ≠ some a)
+    TermTyped.TidAt j c Ea ∧ (∀ th', c.ths[j]? = some th' → th'.tidLbl ≠ some a) ∧
+    TyOKE (gOf p k arch c j) E ∧ RecFresh (gOf p k arch c j) j th.nalloc
 
 /-- (C) The box word names only its label (copy of `TermExtMid.names_tid`). -/
 private theorem names_tidN {L a : AllocLabel} {w : Word} (hw : w ∈ TermPtrRts.pubWords .tid [cst (.loc ⟨L, 0⟩ 0)])
@@ -94,7 +97,7 @@ private theorem names_tidN {L a : AllocLabel} {w : Word} (hw : w ∈ TermPtrRts.
 theorem nfInv_prom {p : Prog} {k : Promises.Knobs} {arch : Arch} {j : Nat} {a : AllocLabel} {t : Ts} {Eu Ea : TEnv} {c : Cfg}
     {ad : Address} {v : WeakMem.Val} {w : Ts} (hJ : NFInv p k arch j a t Eu Ea c) :
     NFInv p k arch j a t Eu Ea (promise c j ad v w) := by
-  obtain ⟨th, E, S, hth, hE, hm, hES, hR, ht, hbf, hfr, hL, hSC, hD, hC, hG, hLay, hsa, hpa0, hba, hBS, hA, hXa, hTA, hNa⟩ := hJ
+  obtain ⟨th, E, S, hth, hE, hm, hES, hR, ht, hbf, hfr, hL, hSC, hD, hC, hG, hLay, hsa, hpa0, hba, hBS, hA, hXa, hTA, hNa, hTyJ, hRcJ⟩ := hJ
   have e := promise_inv (a := ad) (v := v) (w := w) hth
   have hlt : ∀ u ∈ th.promises, u < c.mem.size := hm.2.2.1
   have htm : TermPtrRts.tminOf S (promSt (stOf c.mem c.pairs th) ad v w) a = some t :=
@@ -104,7 +107,8 @@ theorem nfInv_prom {p : Prog} {k : Promises.Knobs} {arch : Arch} {j : Nat} {a : 
   have hlb : (promise c j ad v w).lbase = c.lbase := by unfold promise; split <;> rfl
   refine ⟨{ th with promises := th.promises ++ [c.mem.size] }, E, S, e.2.1, hE, ?_, hES, ?_, ?_,
     hbf'.trans hbf, ?_, hL, hSC, ⟨hD.ok, hD.σs, hD.env, hD.stk⟩, ?_, ?_, ?_, hsa, hpa0, hba, ?_, anchR_prom hth hA, hXa,
-    TermTyped.tidAt_prom hTA, fun th2 hth2 => by rw [e.2.1] at hth2; cases hth2; exact hNa th hth⟩
+    TermTyped.tidAt_prom hTA, fun th2 hth2 => by rw [e.2.1] at hth2; cases hth2; exact hNa th hth,
+    by rw [TermTyped.gOf_promise]; exact hTyJ, by rw [TermTyped.gOf_promise]; exact hRcJ⟩
   · rw [TermTyped.gOf_promise, e.2.2]; exact MemInv_promSt hm
   · rw [e.2.2]
     intro t' ht'
@@ -152,7 +156,7 @@ theorem nfInv_prom {p : Prog} {k : Promises.Knobs} {arch : Arch} {j : Nat} {a : 
 unchanged). -/
 theorem nfInv_ext {p : Prog} {k : Promises.Knobs} {arch : Arch} {j : Nat} {a : AllocLabel} {t : Ts} {Eu Ea : TEnv}
     {c c' : Cfg} (hJ : NFInv p k arch j a t Eu Ea c) (hs : c' ∈ extSteps c j) : NFInv p k arch j a t Eu Ea c' := by
-  obtain ⟨th, E, S, hth, hE, hm, hES, hR, ht, hbf, hfr, hL, hSC, hD, hC, hG, hLay, hsa, hpa0, hba, hBS, hA, hXa, hTA, hNa⟩ := hJ
+  obtain ⟨th, E, S, hth, hE, hm, hES, hR, ht, hbf, hfr, hL, hSC, hD, hC, hG, hLay, hsa, hpa0, hba, hBS, hA, hXa, hTA, hNa, hTyJ, hRcJ⟩ := hJ
   have hTA' : TermTyped.TidAt j c' Ea := TermTyped.tidAt_solo (p := p) (k := k) (arch := arch) (.ext hs (.refl _)) hTA
   rcases TermTyped.extSteps_res hs hth with ⟨x1, n1, a1, e1, rt1, ws1, rs1, hterm, hn1, hev1, hrs1, rfl⟩ | ⟨x1, a1, e1, lb, hterm, htl, rfl⟩
   rotate_left
@@ -160,7 +164,7 @@ theorem nfInv_ext {p : Prog} {k : Promises.Knobs} {arch : Arch} {j : Nat} {a : A
     have hbx := TermTyped.tidBox_ext hXa (hTA th hth lb htl)
     refine ⟨_, E, S, set_self (tr := c.trace) hth, TermTyped.ThInvE_cur hterm hbx.1 hbx.2 hE,
       by rw [gOf_ext hs]; exact hm, hES, ?_, ht, hbf,
-      by rw [extSteps_n hs]; exact hfr, ?_, hSC, ?_, hC, hG, hLay, hsa, hpa0, hba, hBS, hA, hXa, hTA', ?_⟩
+      by rw [extSteps_n hs]; exact hfr, ?_, hSC, ?_, hC, hG, hLay, hsa, hpa0, hba, hBS, hA, hXa, hTA', ?_, by rw [gOf_ext hs]; exact hTyJ, by rw [gOf_ext hs]; exact hRcJ⟩
     · intro t' ht'
       obtain ⟨hM, hRt⟩ := hR t' ht'
       refine ⟨hM, ?_, hRt.2⟩
@@ -194,7 +198,7 @@ theorem nfInv_ext {p : Prog} {k : Promises.Knobs} {arch : Arch} {j : Nat} {a : A
     obtain ⟨a', g, hva, -⟩ := hn
     simp [cst, Promises.TVal.mk0] at hva
   refine ⟨_, E, S, set_self hth, TermTyped.ThInvE_ext hn1 hterm hev1 hrs1 hE, by rw [gOf_ext hs]; exact hm, hES, ?_, ht, hbf,
-    by rw [extSteps_n hs]; exact hfr, ?_, hSC, ?_, hC, hG, hLay, hsa, hpa0, hba, hBS, hA, hXa, hTA', ?_⟩
+    by rw [extSteps_n hs]; exact hfr, ?_, hSC, ?_, hC, hG, hLay, hsa, hpa0, hba, hBS, hA, hXa, hTA', ?_, by rw [gOf_ext hs]; exact hTyJ, by rw [gOf_ext hs]; exact hRcJ⟩
   · intro t' ht'
     obtain ⟨hM, hRt⟩ := hR t' ht'
     refine ⟨hM, ?_, hRt.2⟩
@@ -227,13 +231,13 @@ theorem nfInv_thread {p : Prog} {k : Promises.Knobs} {arch : Arch} {j : Nat} {a 
     (hwinR : ∀ c0, Solo p k arch j c' c0 → Certified p k arch c0 j → NoHoldPubA p k arch Eu Ea j c0) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) :
     NFInv p k arch j a t Eu Ea c' := by
   classical
-  obtain ⟨th, E, S, hth, hE, hm, hES, hR, ht, hbf, hfr, hL, hSC, hD, hC, hG, hLay, hsa, hpa0, hba, hBS, hA, hXa, hTA, hNa⟩ := hJ
+  obtain ⟨th, E, S, hth, hE, hm, hES, hR, ht, hbf, hfr, hL, hSC, hD, hC, hG, hLay, hsa, hpa0, hba, hBS, hA, hXa, hTA, hNa, hTyJ, hRcJ⟩ := hJ
   obtain ⟨th', r, hth', hr, e1, e2, e3, hpa⟩ := taken_promAbove hs hc'
   rw [hth] at hth'
   cases hth'
   obtain ⟨-, -, -, -, -, -, -, hsz⟩ := TermFul.threadSteps_inv hs
   have hlb := threadSteps_lbase hs
-  obtain ⟨ρ, η, cx, hCE, hEO, hT, htv, hFI, hrp⟩ := id hE
+  obtain ⟨ρ, η, cx, hCE, hEO, hT, htv, hFI, hrp, hDy⟩ := id hE
   subst hCE
   have hn : 0 < (gOf p k arch c j).n := by
     show 0 < c.n
@@ -241,10 +245,12 @@ theorem nfInv_thread {p : Prog} {k : Promises.Knobs} {arch : Arch} {j : Nat} {a 
     · exact Nat.lt_of_le_of_lt (Nat.zero_le _) (Cfg.lt_n h1)
     · simp [h1] at hth
   have hsc0 := hsc th hth (TermTyped.not_spawnT_of_steps hth hs) ρ η cx hEO hT htv hFI
-  have hw0 := hwin th hth ρ η cx hEO hT htv hFI hm hXa hA.1 hA.2.2.1
+  have hw0 := hwin th hth ρ η cx hEO hT htv hFI hm hXa hA.1 hA.2.2.1 hTyJ hDy hrp
   have hpx := PAx_of_step hs hc' hth
-  obtain ⟨E', hF, hX, hE', hm', hPf, ⟨hNC0, hNC40⟩, hB1, hBump⟩ := (hFN hP rfl hn (tstep_notDone hr) hsc0 hT hFI hEO
-    htv hm hbf hpx hw0 (fun _ _ h => h) (fun _ _ => trivial) hrp).2 r hr hpa
+  obtain ⟨E', hF, hX, hE', hm', hPf, ⟨hNC0, hNC40⟩, hB1, hBump, hNw⟩ := (hFN hP rfl hn (tstep_notDone hr) hsc0 hT hFI hEO
+    htv hm hTyJ hbf hpx hw0 (fun _ _ h => h) (fun _ _ => trivial) hrp hDy).2 r hr hpa
+  have hnw := TermStep.hnew_of (g := gOf p k arch c j) hr hRcJ hDy (fun k => (hEO.2.1 k).1) hNw
+  have hTyR := TermTyped.tyRun_threadW (g := gOf p k arch c j) hs hth e3 rfl rfl rfl rfl hn hr hF.1 hTyJ hRcJ hnw
   have hA' := anchR_tstep hF hm' hBump hEO hT htv hFI hm hsc0 (TermViewInv.envVR_solo (p := p) (k := k) (arch := arch) hvI (.refl _) hth) hr hXa hA
   have hXa' : Ext Ea E' := Ext_trans hXa hX
   let S' : TermPtrRts.Sto := fun l =>
@@ -265,7 +271,7 @@ theorem nfInv_thread {p : Prog} {k : Promises.Knobs} {arch : Arch} {j : Nat} {a 
     · simp only [S', hf, ↓reduceIte]; exact h
   have hNF : ∀ u ∈ r.2.2.promises, ∀ m, r.1[u]? = some m → S m.loc.label = none → S' m.loc.label = none := by
     intro u hu m hmu hS
-    have hnf := promAlloc_locS (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hs hc' hscR (TermViewInv.viewInv_thread hvI hs) hwinR hth hm hSC hbf e1 e2 e3 hr hF hE' hm' hA' (.inr hXa') (TermTyped.tidAt_mono hXa' (TermTyped.tidAt_thread hs hTA)) hu hmu
+    have hnf := promAlloc_locS (hnew := hnw) (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hs hc' hscR (TermViewInv.viewInv_thread hvI hs) hwinR hth hm hSC hbf e1 e2 e3 hr hF hE' hm' hA' (.inr hXa') (TermTyped.tidAt_mono hXa' (TermTyped.tidAt_thread hs hTA)) hTyJ hRcJ hu hmu
     simp only [S', hnf, ↓reduceIte]; exact hS
   have h4 : ∀ l cl, S' l = some cl → S l = none → (CE η).sto l = none ∧ E'.sto l = some cl := by
     intro l cl h hS
@@ -319,11 +325,11 @@ theorem nfInv_thread {p : Prog} {k : Promises.Knobs} {arch : Arch} {j : Nat} {a 
     (fun l B h h' => by change E'.box l = none at h'; rw [h] at h'; cases h')
     (fun l f h => hX.2.2.2.2.2.2.1 l f h) (fun l B h => hX.2.2.2.2.2.2.2.2.1 l B h)
     hE hm hR (hnp th hth) hr hF hE' hpa hNF hL (hsc th hth (TermTyped.not_spawnT_of_steps hth hs)) hD hps (fun t' h => hC t' h) hG hfrS hLay hNC hNC4
-    rfl hP hfa hba hB1 hPf (fun _ _ => hE) (fun t' h => hBS t' h)
+    rfl hP hfa hba hB1 hPf (fun _ _ => let ⟨ρ0, η0, cx0, e1, e2, e3, e4, e5, e6, _⟩ := hE; ⟨ρ0, η0, cx0, e1, e2, e3, e4, e5, e6⟩) (fun t' h => hBS t' h)
   refine ⟨r.2.2, E', S', e3, hE', ?_, h2, ?_, ?_, hlb.2.trans hbf, ?_, hL', StoClo_EFoot hF.1 hSC,
     TermScope.tstep_drf hps hD hr, fun t' h => ?_, ?_, hLay', ?_, by rw [hpeq]; exact hpa0, ?_, ?_, (by rw [e1, e2]; exact hA'), hXa',
     TermTyped.tidAt_thread hs hTA, fun th2 hth2 => by
-      rw [e3] at hth2; cases hth2; rw [TermTidLbl.tstep_tidLbl hr]; exact hNa th hth⟩
+      rw [e3] at hth2; cases hth2; rw [TermTidLbl.tstep_tidLbl hr]; exact hNa th hth, hTyR.1, hTyR.2⟩
   · rw [TermTyped.gOf_thread hs, e1, e2]; exact hm'
   · rw [e1, e2]; exact hR'
   · rw [e1, e2]; exact htm t ht
@@ -364,7 +370,7 @@ theorem nfInv_thread {p : Prog} {k : Promises.Knobs} {arch : Arch} {j : Nat} {a 
           rw [hl]; exact hql
         have hin := (hm.2.2.2.1.1 q hq1).2.1 u m hu0 hml
         have hin' := TermPtrRtsThr.alloc_noFulfil hr (Nat.lt_of_le_of_lt hq1 hq2) u hin hul
-        exact promAlloc_locS (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hs hc' hscR (TermViewInv.viewInv_thread hvI hs) hwinR hth hm hSC hbf e1 e2 e3 hr hF hE' hm' hA' (.inr hXa') (TermTyped.tidAt_mono hXa' (TermTyped.tidAt_thread hs hTA)) hin' hu
+        exact promAlloc_locS (hnew := hnw) (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hs hc' hscR (TermViewInv.viewInv_thread hvI hs) hwinR hth hm hSC hbf e1 e2 e3 hr hF hE' hm' hA' (.inr hXa') (TermTyped.tidAt_mono hXa' (TermTyped.tidAt_thread hs hTA)) hTyJ hRcJ hin' hu
           ⟨q, hq1, hq2, hml⟩
       · exact Nat.le_trans (Nat.le_of_lt hlt0) (Nat.le_of_not_lt hul)
 
@@ -400,11 +406,11 @@ theorem nfInv_run {p : Prog} {k : Promises.Knobs} {arch : Arch} {j : Nat} {a : A
 publishing `a`, `tmin` stays an outstanding promise. -/
 theorem noFulPlRunGL_of {p : Prog} {k : Promises.Knobs} {arch : Arch} [ProgRetIall p] [WrIniC] (hP : ProgT p)
     (hK : TermPtrRts.PtrRtsThreadGL p) (hFN : FootNCB p) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) : NoFulPlRunGL p k arch := by
-  intro j a c1 th1 E1 sto t hk hES hsc hvI Eu Ea hwin hA1 hXa1 hTA1 hNa1 hth1 hE1 hm1 hR1 ht1 hbf hfr hL1 hSC1 hps hD1 hC1 hG1 hLay1 hsa hpa hba
+  intro j a c1 th1 E1 sto t hk hES hsc hvI Eu Ea hwin hA1 hXa1 hTA1 hNa1 hth1 hE1 hm1 hTy1 hRc1 hR1 ht1 hbf hfr hL1 hSC1 hps hD1 hC1 hG1 hLay1 hsa hpa hba
     hBS c2 th2 hrun hc2 hth2
   obtain ⟨th, E, S, hth, -, -, -, -, ht, -⟩ :=
     nfInv_run (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hK hFN hk hps hrun hc2 hsc hvI hwin
-      ⟨th1, E1, sto, hth1, hE1, hm1, hES, hR1, ht1, hbf, hfr, hL1, hSC1, hD1, hC1, hG1, hLay1, hsa, hpa, hba, hBS, hA1, hXa1, hTA1, hNa1⟩
+      ⟨th1, E1, sto, hth1, hE1, hm1, hES, hR1, ht1, hbf, hfr, hL1, hSC1, hD1, hC1, hG1, hLay1, hsa, hpa, hba, hBS, hA1, hXa1, hTA1, hNa1, hTy1, hRc1⟩
   rw [hth2] at hth
   cases hth
   exact (TermPtrRts.tminOf_spec ht).1

@@ -68,7 +68,7 @@ theorem msgWords_thread (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res}
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r) (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ)
+    (Z : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ)
     (hS : ThSysAt p (gOf p k arch c i) c.mem c.pairs th Eg (Tot i) (HP i) HS (cr i) (db i) S)
     (hPfr : PfrG { gOf p k arch c i with pf := fun l => TermOwnG0Defs.PubAt th l } (CE η) E')
     (h : MsgWordsG Eg c) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) :
@@ -146,7 +146,7 @@ theorem promWords_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p]
   obtain ⟨-, hTE, hm, -⟩ := id hSS
   have hpi := promise_inv (a := a) (v := v) (w := w) X.hth
   have hSC : StoClo (Cut Eg j S) := fun l cl hl => X.inv.clo l cl (cutSto_sub hl)
-  have h0 := InvAtXF_of (p := p) (k := k) (arch := arch) hpi.2.1 hTE
+  have h0 := InvAtXF_of (hTy := by rw [gOf_promise]; exact (X.inv.tyRec X.hth S).1) (hRc := by rw [gOf_promise]; exact (X.inv.tyRec X.hth S).2) (p := p) (k := k) (arch := arch) hpi.2.1 hTE
     (by rw [gOf_promise, hpi.2.2]; exact MemInv_promSt hm) hSC (by rw [gOf_promise]; exact X.inv.bf)
     (by rw [hpi.2.2]; exact TermTyped.riniCoh_promSt (X.inv.riniCoh _ _ _ X.hth))
     (fun l cl f hs hp => Nat.le_trans (X.inv.frlt l cl f (cutSto_sub hs) hp)
@@ -160,9 +160,9 @@ theorem promWords_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p]
     · rw [cutSto_sub hcl'] at hcl; cases hcl; exact hcl'
     · have := (X.inv.fresh j th X.hth m hm').1
       rw [← hl, hcl] at this; cases this
-  obtain ⟨th0, E, hth0, hx, hTE0, hm0, hSC0, hbo0, hfb, hfr, -, -, -, hIH0⟩ := h0
+  obtain ⟨th0, E, hth0, hx, hTE0, hm0, hSC0, hbo0, hfb, hfr, -, -, -, hIH0, hTyP, hRcP⟩ := h0
   have hX : InvAtX p k arch j (Cut Eg j S) _ _ (promise c j a v w) :=
-    ⟨th0, E, hth0, hx, hTE0, hm0, hSC0, hbo0, hfb, hfr, fun _ _ _ h => h.elim, hIH0⟩
+    ⟨th0, E, hth0, hx, hTE0, hm0, hSC0, hbo0, hfb, hfr, fun _ _ _ h => h.elim, hIH0, hTyP, hRcP⟩
   have hsc := fun c1 h1 h2 => (hrun X S hSS c1 h1 h2).1
   have hwin := fun c1 h1 h2 => (hrun X S hSS c1 h1 h2).2
   obtain ⟨c1, c2, th1, th2, ρ, η, cx, E2, -, -, -, -, -, -, hx1, hE, hT, htv, hi, hmi, hscope, hpa, -, -, -, -, -,

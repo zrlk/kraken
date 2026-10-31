@@ -104,7 +104,7 @@ def waitLoop(c : Ptr pub Int) : Int =
 def main(a : (exists q. ({Loc pub Array[q] LanesU8 | ini >= q} * Int[q]) * Int) * ThreadId) : Int =
   let (sl, me) = a
   let z = zero[Int]
-  let o = new z
+  let o = new[Int] z
   let c = publish o
   let p0 = (sl, c)
   let p = (p0, me)

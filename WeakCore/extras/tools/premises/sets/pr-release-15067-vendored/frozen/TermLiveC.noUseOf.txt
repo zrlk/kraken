@@ -31,7 +31,7 @@ TermScope.opAts : CoreTerm.Op → List CoreTerm.At
   | CoreTerm.Op.inr other a => [a]
   | CoreTerm.Op.add a b => [a, b]
   | CoreTerm.Op.sub a b => [a, b]
-  | CoreTerm.Op.new a => [a]
+  | CoreTerm.Op.new a T => [a]
   | CoreTerm.Op.null μ target => []
   | CoreTerm.Op.fold a target => [a]
   | CoreTerm.Op.publish a => [a]
@@ -86,3 +86,4 @@ TermScope.opAts : CoreTerm.Op → List CoreTerm.At
   | CoreTerm.Op.mkTicket r N P v tok => [v, tok]
   | CoreTerm.Op.claim a tok => [a, tok]
   | CoreTerm.Op.fetch o acq rel a v => [a, v]
+  | CoreTerm.Op.isTy a τ => [a]

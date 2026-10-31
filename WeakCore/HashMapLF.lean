@@ -77,7 +77,7 @@ def withLF (cont : Expr) : Expr :=
 
 /-- Publish a boxed `val` into slot `j`'s value cell. -/
 def putVal : List (String × Op) :=
-  [("vl", .idx (v "vb") (v "j")), ("bx", .new (v "val")), ("vp", .publish (v "bx")),
+  [("vl", .idx (v "vb") (v "j")), ("bx", .new (v "val") (some V)), ("vp", .publish (v "bx")),
    ("u9", .store true (v "vl") (v "vp") none)]
 
 def tt : Ty := HashMap.bool
@@ -94,7 +94,7 @@ def lfPutD : Decl where
         "pf" (lets ([("j", .rem (v "pf") (v "cv"))] ++ putVal) yes)
         "re" (.case (v "re")
           "pe" (lets [("j", .rem (v "pe") (v "cv")), ("kl", .idx (v "kb") (v "j")),
-                      ("nl", .null .pub K), ("kx", .new (v "k")), ("kp", .publish (v "kx"))]
+                      ("nl", .null .pub K), ("kx", .new (v "k") (some K)), ("kp", .publish (v "kx"))]
             (.cas true true (v "kl") (v "nl") (v "kp") "t" (lets putVal yes)
               (lets (tuple "w" [v "mp", v "k", v "val"]) (.tail "lfPut" [] (v "w0") [K, V]))))
           "full" no))))
@@ -139,7 +139,7 @@ def lfLib : Prog := [lfNewD, lfProbeD, lfPutD, lfGetD, lfDelD]
       (withLF (.case (v "res") "pf" yes
         "re" (.case (v "re")
           "pe" (lets [("j", .rem (v "pe") (v "cv")), ("kl", .idx (v "kb") (v "j")),
-                      ("nl", .null .pub K), ("kx", .new (v "k")), ("kp", .publish (v "kx"))]
+                      ("nl", .null .pub K), ("kx", .new (v "k") (some K)), ("kp", .publish (v "kx"))]
             (.cas false false (v "kl") (v "nl") (v "kp") "t" yes no))
           "full" no)))) })
 

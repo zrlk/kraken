@@ -85,6 +85,7 @@ CoreTerm.Op.idx : CoreTerm.At → CoreTerm.At → CoreTerm.Op
 CoreTerm.Op.inl : CoreLang.Ty → CoreTerm.At → CoreTerm.Op
 CoreTerm.Op.inr : CoreLang.Ty → CoreTerm.At → CoreTerm.Op
 CoreTerm.Op.intoRgn : String → CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.isTy : CoreTerm.At → CoreLang.Ty → CoreTerm.Op
 CoreTerm.Op.lane : CoreTerm.At → CoreTerm.At → CoreTerm.Op
 CoreTerm.Op.ldl : CoreTerm.At → CoreTerm.At → CoreTerm.Op
 CoreTerm.Op.ldlw : CoreTerm.At → CoreTerm.At → CoreTerm.At → CoreTerm.Op
@@ -97,7 +98,7 @@ CoreTerm.Op.mkTicket : String → CoreLang.Proto → CoreLang.Proto → CoreTerm
 CoreTerm.Op.mkWord : String → CoreLang.Proto → CoreTerm.At → CoreTerm.At → CoreTerm.Op
 CoreTerm.Op.mkWord2 : String → CoreLang.Proto2 → CoreTerm.At → CoreTerm.At → CoreTerm.At → CoreTerm.Op
 CoreTerm.Op.nameI : CoreTerm.At → CoreTerm.Op
-CoreTerm.Op.new : CoreTerm.At → CoreTerm.Op
+CoreTerm.Op.new : CoreTerm.At → Option CoreLang.Ty → CoreTerm.Op
 CoreTerm.Op.newBuf : CoreTerm.At → CoreLang.Ty → CoreTerm.Op
 CoreTerm.Op.null : CoreLang.Mode → CoreLang.Ty → CoreTerm.Op
 CoreTerm.Op.pack : CoreTerm.At → String → CoreLang.Ty → CoreTerm.Op
@@ -228,8 +229,8 @@ TermLiveCert.canon : TermRun.Cfg → TermRun.Cfg
               { coh := fun b => if b ∈ TermLiveCert.locs c then th.vs.coh b else 0, vRd := __src.vRd, vWr := __src.vWr,
                 vCtrl := __src.vCtrl, vPreBase := __src.vPreBase, vRelSt := __src.vRelSt, mine := __src.mine,
                 fwd := __src.fwd },
-            promises := th.promises, nalloc := th.nalloc, undefs := th.undefs, tidLbl := th.tidLbl,
-            permit := th.permit })
+            promises := th.promises, nalloc := th.nalloc, undefs := th.undefs, tidLbl := th.tidLbl, permit := th.permit,
+            tys := th.tys })
         c.ths,
     lbase := c.lbase, boxFence := c.boxFence, cap := c.cap, trace := c.trace }
 TermLiveCert.check : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → List Nat → List Nat → TermLiveCert.Cert → TermRun.Cfg → Bool
@@ -555,7 +556,8 @@ TermLiveCert.instDecidableEqOp_termLiveCert.decEq : (x x_1 : CoreTerm.Op) → De
       if h : a = b then h ▸ if h : a_1 = b_1 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
     | CoreTerm.Op.sub a a_1, CoreTerm.Op.sub b b_1, ⋯ =>
       if h : a = b then h ▸ if h : a_1 = b_1 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
-    | CoreTerm.Op.new a, CoreTerm.Op.new b, ⋯ => if h : a = b then h ▸ isTrue ⋯ else isFalse ⋯
+    | CoreTerm.Op.new a a_1, CoreTerm.Op.new b b_1, ⋯ =>
+      if h : a = b then h ▸ if h : a_1 = b_1 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
     | CoreTerm.Op.null a a_1, CoreTerm.Op.null b b_1, ⋯ =>
       if h : a = b then h ▸ if h : a_1 = b_1 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
     | CoreTerm.Op.fold a a_1, CoreTerm.Op.fold b b_1, ⋯ =>
@@ -741,6 +743,8 @@ TermLiveCert.instDecidableEqOp_termLiveCert.decEq : (x x_1 : CoreTerm.Op) → De
       else isFalse ⋯
     | CoreTerm.Op.ext a a_1, CoreTerm.Op.ext b b_1, ⋯ =>
       if h : a = b then h ▸ if h : a_1 = b_1 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
+    | CoreTerm.Op.isTy a a_1, CoreTerm.Op.isTy b b_1, ⋯ =>
+      if h : a = b then h ▸ if h : a_1 = b_1 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
   | isFalse h => isFalse ⋯
 TermLiveCert.instDecidableEqTVal_termLiveCert : DecidableEq Promises.TVal
   := TermLiveCert.instDecidableEqTVal_termLiveCert.decEq
@@ -757,9 +761,9 @@ TermLiveCert.instDecidableEqThKey_termLiveCert.decEq : (x x_1 : TermRun.ThKey) �
   match x, x_1 with
   |
   { term := a, env := a_1, σs := a_2, stack := a_3, coh := a_4, views := a_5, promises := a_6, nalloc := a_7,
-      undefs := a_8, tidLbl := a_9, permit := a_10, mine := a_11, fwd := a_12 },
+      undefs := a_8, tidLbl := a_9, permit := a_10, mine := a_11, fwd := a_12, tys := a_13 },
     { term := b, env := b_1, σs := b_2, stack := b_3, coh := b_4, views := b_5, promises := b_6, nalloc := b_7,
-      undefs := b_8, tidLbl := b_9, permit := b_10, mine := b_11, fwd := b_12 } =>
+      undefs := b_8, tidLbl := b_9, permit := b_10, mine := b_11, fwd := b_12, tys := b_13 } =>
     if h : a = b then
       h ▸
         if h : a_1 = b_1 then
@@ -783,7 +787,10 @@ TermLiveCert.instDecidableEqThKey_termLiveCert.decEq : (x x_1 : TermRun.ThKey) �
                                             if h : a_10 = b_10 then
                                               h ▸
                                                 if h : a_11 = b_11 then
-                                                  h ▸ if h : a_12 = b_12 then h ▸ isTrue ⋯ else isFalse ⋯
+                                                  h ▸
+                                                    if h : a_12 = b_12 then
+                                                      h ▸ if h : a_13 = b_13 then h ▸ isTrue ⋯ else isFalse ⋯
+                                                    else isFalse ⋯
                                                 else isFalse ⋯
                                             else isFalse ⋯
                                         else isFalse ⋯
@@ -909,6 +916,7 @@ TermRun.TTh.promises : TermRun.TTh → List WeakMem.Ts
 TermRun.TTh.stack : TermRun.TTh → List TermRun.Frame
 TermRun.TTh.term : TermRun.TTh → CoreTerm.Expr
 TermRun.TTh.tidLbl : TermRun.TTh → Option WeakMem.AllocLabel
+TermRun.TTh.tys : TermRun.TTh → List (WeakMem.AllocLabel × CoreLang.Ty × Bool)
 TermRun.TTh.undefs : TermRun.TTh → Nat
 TermRun.TTh.vs : TermRun.TTh → WeakMem.VState
 TermRun.TTh.σs : TermRun.TTh → List CoreLang.Ty
@@ -954,8 +962,8 @@ TermSpawnStep.spawnPar : TermRun.Cfg → Nat → TermRun.TTh → String → Core
         th.env,
     σs := __src.σs, stack := __src.stack, vs := __src.vs, promises := __src.promises,
     nalloc := th.nalloc + if th.tidLbl = none then 2 else 1, undefs := __src.undefs,
-    tidLbl := th.tidLbl.orElse fun x => some (TermRun.freshLabel c.lbase c.n i (th.nalloc + 1)),
-    permit := __src.permit }
+    tidLbl := th.tidLbl.orElse fun x => some (TermRun.freshLabel c.lbase c.n i (th.nalloc + 1)), permit := __src.permit,
+    tys := __src.tys }
 TermSpawnStep.spawnS : TermRun.Cfg → TermRun.TTh → TermRun.St
   := fun c th => TermRun.fenceS (TermRun.stOf c.mem c.pairs th) WeakMem.Fence.sy
 TermSpawnStep.spawnT : TermRun.Cfg → Nat → TermRun.TTh → TermRun.TTh → TermRun.Cfg

@@ -199,14 +199,13 @@ before `main` has returned and before any exit event: a source step whose
 trace is the byte. -/
 theorem emit_src_i (hP : UsesWc P p) {s : Cfg} {i : Nat} {th : TTh} {x : String} {a : At} {e : Expr} {rt : Ty}
     {w : Word} {b : Nat} (hi0 : i ≠ 0) (hi : s.ths[i]? = some th) (ht : th.term = .let_ x (.ext .emit a) e)
-    (ha : evalAt th.env a = some (rt, [w])) (hw : w.val = .num b)
+    (hp : th.promises = []) (ha : evalAt th.env a = some (rt, [w])) (hw : w.val = .num b)
     (hc : Certified p P.k P.arch (extCfg s i th x .emit e [w] []) i) (hex : mainExit s = [])
     (hx : ∀ c, Ev.exit c ∉ P.hooks.trace s) :
     (source P p).step i s [.out ⟨b % 256, Nat.mod_lt _ (by decide)⟩] (extCfg s i th x .emit e [w] []) := by
   refine ⟨hex, .inr (.inr ?_), ?_⟩
   · rw [hP]
-    exact ⟨x, .emit, a, e, th, rt, [w], [], hi, ht,
-      fun h => by simp [ExtNeedsNoProm, CoreTerm.ExtName.isChoice] at h, ha, rfl, hc, rfl⟩
+    exact ⟨x, .emit, a, e, th, rt, [w], [], hi, ht, fun _ => hp, ha, rfl, hc, rfl⟩
   · have hex' : mainExit (extCfg s i th x .emit e [w] []) = [] :=
       (mainExit_eq (extCfg_ths_ne s th x .emit e [w] [] (Ne.symm hi0))).trans hex
     have htr : P.hooks.trace (extCfg s i th x .emit e [w] []) =

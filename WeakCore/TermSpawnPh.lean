@@ -124,6 +124,7 @@ theorem sysInvN_phantC {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res
     obtain ⟨th0, hc, rfl⟩ := phantC_some_iff.1 hi
     refine h.tidBox i th0 hc l ?_
     unfold appIf at hl; split at hl <;> simpa [app] using hl
+  case scalIni => exact h.scalIni
   case thr =>
     intro i th hi
     obtain ⟨th0, hc, rfl⟩ := phantC_some_iff.1 hi
@@ -246,6 +247,9 @@ theorem sysInvN_phantC {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res
     obtain ⟨th0, h0, -, hv, -⟩ := ph_get hi
     rw [hv]
     exact h.cfgCoh i th0 h0
+  case tysOK =>
+    rw [show TermRun.tysOf (phantC f0 c) = TermRun.tysOf c from congrArg (·.tys) (hg 0)]
+    exact h.tysOK
   case pool =>
     obtain ⟨pl, ⟨hT, hU⟩, hO, ⟨M, hM, hb⟩, hK, ⟨rc, hR⟩⟩ := h.pool
     refine ⟨pl, ⟨?_, ?_⟩, ?_, ⟨M, hM, by simpa only [phantC_size', phantC_n, pSumAt_phantC] using hb⟩,
@@ -346,7 +350,13 @@ theorem initOK_phantC {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res}
     obtain ⟨th0, h0, rfl⟩ := phantC_some_iff.1 hi
     unfold appIf; split <;> simpa [app] using htd i th0 h0
   · intro i th hi; obtain ⟨th0, h0, hp, -⟩ := ph_get hi; rw [hp]; exact hnp i th0 h0
-  · intro i th hi; obtain ⟨th0, h0, -, hv, -⟩ := ph_get hi; rw [hv]; exact hcc i th0 h0
+  · refine ⟨fun i th hi => ?_, fun th hth => ?_⟩
+    · obtain ⟨th0, h0, -, hv, -⟩ := ph_get hi; rw [hv]; exact hcc.1 i th0 h0
+    · obtain ⟨i, hi⟩ := List.mem_iff_getElem?.1 hth
+      rw [Array.getElem?_toList] at hi
+      obtain ⟨th0, h0, rfl⟩ := phantC_some_iff.1 hi
+      have h1 := hcc.2 th0 (List.mem_iff_getElem?.2 ⟨i, by rw [Array.getElem?_toList]; exact h0⟩)
+      unfold appIf; split <;> simpa [app] using h1
 end TermSpawnSim
 
 #print axioms TermSpawnSim.phantC_n

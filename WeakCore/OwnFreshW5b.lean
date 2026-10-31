@@ -2,12 +2,12 @@ import WeakCore.TermPtrRtsThr
 import WeakCore.OwnFreshW5
 
 /-!
-# OwnFreshW5b: the W5b site
+# OwnFreshW5b: no old message at a freshly allocated label
 
 `oldMsg_not_fresh`: after a thread step of `i`, no message below the old memory size lies at a
 label the step allocated.  Such a message would be an outstanding promise of `i` (`GFreshL`), kept
 across the allocating step (`alloc_noFulfil`), at the step's fresh label, which `PromAllocF` (`hA`)
-rules out.  Allowed as W5b for the single use in `boxPlantSep_thread`.
+rules out.  Used only in `boxPlantSep_thread`.
 -/
 
 namespace TermPtrRtsK
@@ -23,7 +23,7 @@ theorem oldMsg_not_fresh {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : R
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res}
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r) (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ)
+    (Z : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ)
     (hS : ThSysAt p (gOf p k arch c i) c.mem c.pairs th Eg (Tot i) (HP i) HS (cr i) (db i) S)
     (hPfr : PfrG { gOf p k arch c i with pf := fun l => TermOwnG0Defs.PubAt th l } (CE η) E')
     {u : Ts} {m : Msg} (hu : u < c.mem.size) (hm : c'.mem[u]? = some m) :

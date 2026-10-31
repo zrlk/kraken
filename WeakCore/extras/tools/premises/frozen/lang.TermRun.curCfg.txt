@@ -17,6 +17,7 @@ TermRun.TTh.permit : TermRun.TTh → Option WeakMem.Ts
 TermRun.TTh.promises : TermRun.TTh → List WeakMem.Ts
 TermRun.TTh.stack : TermRun.TTh → List TermRun.Frame
 TermRun.TTh.tidLbl : TermRun.TTh → Option WeakMem.AllocLabel
+TermRun.TTh.tys : TermRun.TTh → List (WeakMem.AllocLabel × CoreLang.Ty × Bool)
 TermRun.TTh.undefs : TermRun.TTh → Nat
 TermRun.TTh.vs : TermRun.TTh → WeakMem.VState
 TermRun.TTh.σs : TermRun.TTh → List CoreLang.Ty
@@ -32,7 +33,7 @@ TermRun.curCfg : TermRun.Cfg → Nat → TermRun.TTh → String → CoreTerm.Exp
           { term := e,
             env := (x, CoreLang.Ty.tid, [TermRun.cst (WeakMem.Val.loc { label := l, offset := 0 } 0)]) :: th.env,
             σs := th.σs, stack := th.stack, vs := th.vs, promises := th.promises, nalloc := th.nalloc,
-            undefs := th.undefs, tidLbl := th.tidLbl, permit := th.permit },
+            undefs := th.undefs, tidLbl := th.tidLbl, permit := th.permit, tys := th.tys },
       lbase := c.lbase, boxFence := c.boxFence, cap := c.cap, trace := c.trace }
   | none =>
     have l := TermRun.freshLabel c.lbase c.n i th.nalloc;
@@ -42,7 +43,7 @@ TermRun.curCfg : TermRun.Cfg → Nat → TermRun.TTh → String → CoreTerm.Exp
           { term := e,
             env := (x, CoreLang.Ty.tid, [TermRun.cst (WeakMem.Val.loc { label := l, offset := 0 } 0)]) :: th.env,
             σs := th.σs, stack := th.stack, vs := th.vs, promises := th.promises, nalloc := th.nalloc + 1,
-            undefs := th.undefs, tidLbl := some l, permit := th.permit },
+            undefs := th.undefs, tidLbl := some l, permit := th.permit, tys := th.tys },
       lbase := c.lbase, boxFence := c.boxFence, cap := c.cap, trace := c.trace }
 TermRun.freshLabel : Nat → Nat → Nat → Nat → WeakMem.AllocLabel
 WeakMem.AllocLabel : Type

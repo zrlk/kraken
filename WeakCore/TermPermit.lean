@@ -89,9 +89,22 @@ theorem erase_upd (q i : Nat) (c : Cfg) (mem : Memory) (pairs : List Ts) (tr : L
 theorem noPromises_erase (q : Nat) (c : Cfg) (i : Nat) : noPromises (erasePermits q c) i = noPromises c i := by
   unfold noPromises; rw [erase_get]; cases c.ths[i]? <;> simp [eraseTh_promises]
 
+theorem eraseTh_tys (q m : Nat) (th : TTh) : (eraseTh q m th).tys = th.tys := by
+  unfold eraseTh; by_cases h : m = q <;> simp [h, normTh]
+
+theorem tysOf_erase (q : Nat) (c : Cfg) : tysOf (erasePermits q c) = tysOf c := by
+  have h : (erasePermits q c).ths.toList.map TTh.tys = c.ths.toList.map TTh.tys := by
+    apply List.ext_getElem
+    · simp [erasePermits]
+    · intro n h1 h2; simp [erasePermits, eraseTh_tys]
+  funext l
+  have e : ∀ d : Cfg, tysOf d l = (d.ths.toList.map TTh.tys).findSome? (fun ts => (ts.find? (·.1 == l)).map (·.2)) := by
+    intro d; simp only [tysOf, List.findSome?_map]; rfl
+  rw [e, e, h]
+
 theorem gOf_erase (p : Prog) (k : Promises.Knobs) (arch : Arch) (q : Nat) (c : Cfg) (i : Nat) :
     gOf p k arch (erasePermits q c) i = gOf p k arch c i := by
-  simp only [gOf, erase_n]; rfl
+  simp only [gOf, erase_n, tysOf_erase]; rfl
 
 /-- Thread `q`'s steps commute with the normalisation. -/
 theorem threadSteps_erase (p : Prog) (k : Promises.Knobs) (arch : Arch) (c : Cfg) (q : Nat) :

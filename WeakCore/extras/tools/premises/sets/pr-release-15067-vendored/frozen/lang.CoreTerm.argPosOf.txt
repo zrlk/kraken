@@ -1,0 +1,3 @@
+CoreTerm.Pos : Type
+CoreTerm.argPosOf : List (String × CoreTerm.Pos) → String → Option CoreTerm.Pos
+  := fun vs x => Option.map (fun x => x.snd) (List.find? (fun x_1 => x_1.fst == x) vs)

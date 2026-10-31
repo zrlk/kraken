@@ -288,6 +288,18 @@ theorem tstep_newR {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {r : Memo
     | (simp only [List.mem_flatMap, List.mem_map] at h
        obtain ⟨x, hx, y, hy, rfl⟩ := h
        exact .inl ((newIn_projInj (X := fun _ => False) hpl hx hy t m ht hm).resolve_right id))
+    | (simp only [List.mem_map] at h  -- new arm: record write
+       obtain ⟨x, hx, rfl⟩ := h
+       try dsimp only
+       split
+       all_goals
+         first
+           | exact (evalOp_newR hpl hx t m ht hm).imp id (fun h => .inl ⟨_, _, _, hT, h⟩)
+           | exact .inr (.inr (.inl ⟨_, _, _, _, _, _, _, _, _, _, hT, ‹_›,
+               by rw [rmw_newLoc hx t m ht hm]; assumption⟩))
+           | (obtain ⟨mem', pairs', th'⟩ := x
+              exact .inr (.inr (.inr ⟨_, _, _, _, _, _, _, _, _, _, _, _, _, hT, ‹_›, ‹_›,
+                rmwPair_newR hx t m ht hm⟩))))
 
 /-! ## 2. Typed: the written component, own or initialised (`ForeignIni`)
 
@@ -1035,7 +1047,7 @@ theorem promNoTwoOK_thread (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetI
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res}
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r) (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ)
+    (Z : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ)
     (hS : ThSysAt p (gOf p k arch c i) c.mem c.pairs th Eg (Tot i) (HP i) HS (cr i) (db i) S)
     (hPfr : PfrG { gOf p k arch c i with pf := fun l => TermOwnG0Defs.PubAt th l } (CE η) E')
     (h : PromNoTwoOK Eg c) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) :
@@ -1057,16 +1069,16 @@ theorem promNoTwoOK_thread (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetI
       have e := post_sto_fresh (Eg := Eg) (E' := E') ⟨j0, hj0, hj1, hl0⟩
       rw [← e]; exact hsto
     have hAP := TermXFO.anchPost (hV0 := hV0) X Y.1 Z hS hPfr (hrun X S hS).1
-    obtain ⟨hFt, hRE, hm', -⟩ := Z
-    have hg : gOf p k arch c' k' = gOf p k arch c k' := TermTyped.gOf_thread X.hc'
+    obtain ⟨hFt, hRE, hm', -⟩ := id Z
+    have hg := TermTyped.gOf_thread X.hc'
     have hSC0 : StoClo (CE η) := by
       rw [Y.1]; exact fun l cl hl => X.inv.clo l cl (cutSto_sub hl)
     have hbo : (gOf p k arch c' k').boxFence = true := by rw [hg]; exact X.inv.bf
     have hst : stOf c'.mem c'.pairs r.2.2 = stOf r.1 r.2.1 r.2.2 := by rw [X.e1, X.e2]
-    have h0 := TermNoHold.InvAtXF_ofA (p := p) (k := k) (arch := arch) (Ea := Cut Eg k' S) X.e3 hRE.thInvE (by rw [hg, hst]; exact hm')
+    have h0 := TermNoHold.InvAtXF_ofA (hTy := (TermNoHold.TCtxX.tyPost X Y.1 hFt (TermMain.TOutC.newTy Z)).1) (hRc := (TermNoHold.TCtxX.tyPost X Y.1 hFt (TermMain.TOutC.newTy Z)).2) (p := p) (k := k) (arch := arch) (Ea := Cut Eg k' S) X.e3 hRE.thInvE (by rw [hg, hst]; exact hm')
       (StoClo_EFoot hFt hSC0) hbo (by rw [hst]; exact hAP.1) (.inr hAP.2)
-    obtain ⟨thx, E, hthx, hx, hTEx, hmx, hSCx, hbox, hfb, hfr, -, -, -, hIH0⟩ := h0
-    have hX : InvAtX p k arch k' E' _ _ c' (Ea := Cut Eg k' S) := ⟨thx, E, hthx, hx, hTEx, hmx, hSCx, hbox, hfb, hfr, fun _ _ _ h => h.elim, hIH0⟩
+    obtain ⟨thx, E, hthx, hx, hTEx, hmx, hSCx, hbox, hfb, hfr, -, -, -, hIH0, hTyP, hRcP⟩ := h0
+    have hX : InvAtX p k arch k' E' _ _ c' (Ea := Cut Eg k' S) := ⟨thx, E, hthx, hx, hTEx, hmx, hSCx, hbox, hfb, hfr, fun _ _ _ h => h.elim, hIH0, hTyP, hRcP⟩
     have hsc := fun c1 h1 h2 => ((hrun X S hS).2 c1 h1 h2).1
     have hwin := fun c1 h1 h2 => ((hrun X S hS).2 c1 h1 h2).2
     have htp : t ∈ TermFul.promsOf c' k' := by rw [TermFul.promsOf_some X.e3]; exact ht

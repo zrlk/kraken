@@ -83,6 +83,9 @@ theorem initShape_main {p : Prog} {r : Ty} {cap : Nat} (hc : EntryChk p r) : Ini
   tid0 i th h := by
     obtain ⟨rfl, rfl⟩ := start_ths h
     rfl
+  tys0 i th h := by
+    obtain ⟨rfl, rfl⟩ := start_ths h
+    rfl
 
 /-- **`StartOKX` at the start**: `SysInvO`, no promises, `ViewInv`, `PWFall`
 (`initOK_of`, `startOKX_of_initOK`). -/

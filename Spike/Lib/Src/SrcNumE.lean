@@ -69,7 +69,7 @@ theorem LdOK.mono {mem mem' : WeakMem.Memory} {c : Expr × Env} (h : LdOK p mem 
 
 /-- **A local step is a frame step.** -/
 theorem LocalStep.tstepE {c c1 : Ctl} (h : LocalStep p c c1) : TStepE p (c.term, c.env) (c1.term, c1.env) := by
-  let g : G := ⟨p, Promises.Knobs.all, .arm, 0, 0, 0, true, fun _ => False, fun _ => True⟩
+  let g : G := ⟨p, Promises.Knobs.all, .arm, 0, 0, 0, true, fun _ => False, fun _ => True, fun _ => none⟩
   let th : TTh := { term := c.term, env := c.env }
   have hs := h.2 g #[] [] th rfl rfl rfl rfl rfl
   refine Or.inl ⟨g, #[], [], th, _, rfl, rfl, rfl, ⟨fun a ha => ?_, fun x f is a ts e ha => ?_⟩,
@@ -95,9 +95,15 @@ theorem tstepE_let {x : String} {op : Op} {e : Expr} {env : Env} {c1 : Expr × E
     ∃ t ws, c1 = (e, (x, t, ws) :: env) ∧
       ((∃ n a, op = .ext n a) ∨ ∃ g σs st s', (s', t, ws) ∈ evalOp g env σs st op) := by
   rcases h with ⟨g, mem, pairs, th, r, -, ht, he, -, hr, h1, h2⟩ | ⟨x', n, a, e', t, ws, hx, rfl⟩
-  · have hts : tstep g mem pairs th = (evalOp g th.env th.σs (stOf mem pairs th) op).map fun (s', t, ws) =>
+  · by_cases hn : ∃ a T, op = .new a T
+    · obtain ⟨a, T, rfl⟩ := hn
+      obtain ⟨s', t, ws, hev, tys, rfl⟩ := TermRun.tstep_new_mem (by simpa using ht) hr
+      simp only [withS] at h1 h2
+      subst he
+      exact ⟨t, ws, Prod.ext h1.symm h2.symm, Or.inr ⟨g, th.σs, _, s', hev⟩⟩
+    have hts : tstep g mem pairs th = (evalOp g th.env th.σs (stOf mem pairs th) op).map fun (s', t, ws) =>
         (s'.mem, s'.pairs, withS { th with term := e, env := (x, t, ws) :: th.env } s') := by
-      cases op <;> first | exact absurd rfl (hc _ _ _ _) | exact absurd rfl (hcc _ _) | simp [tstep, ht]
+      cases op <;> first | exact absurd rfl (hc _ _ _ _) | exact absurd rfl (hcc _ _) | exact (hn ⟨_, _, rfl⟩).elim | simp [tstep, ht]
     rw [hts] at hr
     obtain ⟨⟨s', t, ws⟩, hev, rfl⟩ := List.mem_map.1 hr
     simp only [withS] at h1 h2

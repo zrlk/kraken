@@ -289,7 +289,7 @@ def fmtTy (n : Names) (p : Nat) (t : Ty) : String :=
   | _, .intS i     => ty "Int" ++ "(" ++ fmtIdx n 0 i ++ ")"
   | p, .prod a b   => paren (p > 2) (fmtTy n 3 a ++ " \\times " ++ fmtTy n 2 b)
   | p, .sum a b    => paren (p > 1) (fmtTy n 2 a ++ " + " ++ fmtTy n 1 b)
-  | p, .code a b k => paren (p > 3) (ty "Code" ++ "\\," ++ fmtTy n 4 a ++ "\\," ++ fmtTy n 4 b ++ (match k with | .plain => "" | .restricted f s => "\\,\\md{restricted}_{" ++ toString f ++ "," ++ toString s ++ "}"))
+  | p, .code a b k => paren (p > 3) (ty "Code" ++ "\\," ++ fmtTy n 4 a ++ "\\," ++ fmtTy n 4 b ++ (match k with | .plain => "" | .restricted f s ro => "\\,\\md{restricted}_{" ++ toString f ++ "," ++ toString s ++ (if ro then ",\\md{ro}" else "") ++ "}"))
   | p, .array i t  => paren (p > 3) (ty "Array" ++ "_" ++ br (fmtIdx n 0 i) ++ "\\," ++ fmtTy n 3 t)
   | p, .ptr μ t    => paren (p > 3) (ty "Ptr" ++ "_" ++ br (fmtMode n μ) ++ "\\," ++ fmtTy n 3 t)
   | p, .ptrOpt μ t => paren (p > 3) (ty "Ptr?" ++ "_" ++ br (fmtMode n μ) ++ "\\," ++ fmtTy n 3 t)
@@ -414,7 +414,7 @@ def fmtOp (n : Names) : Op → String
   | .inr τ a           => opn "inr" ++ "_" ++ br (fmtTyT n τ) ++ sp ++ fmtAtN n a
   | .add a b           => fmtAtN n a ++ " + " ++ fmtAtN n b
   | .sub a b           => fmtAtN n a ++ " - " ++ fmtAtN n b
-  | .new a             => opn "new" ++ sp ++ fmtAtN n a
+  | .new a _           => opn "new" ++ sp ++ fmtAtN n a
   | .publish a         => opn "publish" ++ sp ++ fmtAtN n a
   | .intoRgn r a       => opn "intoRgn" ++ "_" ++ br (ident r) ++ sp ++ fmtAtN n a
   | .newBuf k τ        => opn "newBuf" ++ "_" ++ br (fmtTyT n τ) ++ sp ++ fmtAtN n k
@@ -436,6 +436,7 @@ def fmtOp (n : Names) : Op → String
   | .claim a tok       => opn "claim" ++ sp ++ fmtAtN n a ++ sp ++ kw "with" ++ sp ++ fmtAtN n tok
   | .spawn f a _ _ => opn "spawn" ++ sp ++ ident f ++ sp ++ fmtAtN n a
   | .ext e a => opn e.name ++ sp ++ fmtAtN n a
+  | .isTy a τ => opn "isTy" ++ "_" ++ br (fmtTyT n τ) ++ sp ++ fmtAtN n a
   | .fetch o acq rel a v => opn "fetch" ++ "_" ++ o.name ++ ord acq rel ++ sp ++ fmtAtN n a ++ sp ++ fmtAtN n v
   | .mkWord2 r P v0 v1 tok => opn "pair" ++ "_" ++ br (ident r) ++ "[" ++ fmtProto2 P n.protos2 ++ "]" ++ sp ++
                             "(" ++ fmtAtN n v0 ++ ", " ++ fmtAtN n v1 ++ ")" ++ sp ++ kw "with" ++ sp ++ fmtAtN n tok

@@ -6,7 +6,7 @@ CoreLang.Cap : Type
 CoreLang.Cap.frz : CoreLang.Cap
 CoreLang.CodeKind : Type
 CoreLang.CodeKind.plain : CoreLang.CodeKind
-CoreLang.CodeKind.restricted : Nat → Nat → CoreLang.CodeKind
+CoreLang.CodeKind.restricted : Nat → Nat → Bool → CoreLang.CodeKind
 CoreLang.ECounter : Type
 CoreLang.IEnv : Type
 CoreLang.Idx : Type
@@ -57,6 +57,7 @@ CoreLang.Wd : Type
 CoreLang.Wd.lanes : CoreLang.Wd → Nat
 CoreLang.info : CoreLang.Ctx → CoreLang.Ty → CoreLang.Info
 CoreLang.instDecidableEqArms : DecidableEq CoreLang.Arms
+CoreLang.instDecidableEqTy : DecidableEq CoreLang.Ty
 CoreLang.zeroArmP : (CoreLang.Ty → Bool) → CoreLang.IEnv → CoreLang.KEnv → CoreLang.Ty → Option Bool
   eq_def ∀ (sel : CoreLang.Ty → Bool) (env : CoreLang.IEnv) (ke : CoreLang.KEnv) (x : CoreLang.Ty),
   CoreLang.zeroArmP sel env ke x =
@@ -161,6 +162,7 @@ TermRun.G.k : TermRun.G → Promises.Knobs
 TermRun.G.lbase : TermRun.G → Nat
 TermRun.G.n : TermRun.G → Nat
 TermRun.G.p : TermRun.G → CoreTerm.Prog
+TermRun.G.tys : TermRun.G → WeakMem.AllocLabel → Option (CoreLang.Ty × Bool)
 TermRun.St : Type
 TermRun.St.mem : TermRun.St → WeakMem.Memory
 TermRun.St.nalloc : TermRun.St → Nat
@@ -258,7 +260,7 @@ TermRun.evalOp : TermRun.G →
               match ws, us with
               | [x], [y] => pure (s, CoreLang.Ty.int, [TermRun.subW x y])
               | x, x_1 => none
-  | CoreTerm.Op.new a =>
+  | CoreTerm.Op.new a T =>
     match TermRun.evalAt env a with
     | none => []
     | some (t, ws) =>
@@ -271,6 +273,21 @@ TermRun.evalOp : TermRun.G →
             match x with
             | (s', pw) => (s', CoreLang.Ty.ptr CoreLang.Mode.own t, [pw]))
           (TermRun.alloc g.k g.arch lbl us ws s)
+  | CoreTerm.Op.isTy a τ =>
+    TermRun.ol do
+      let __x ← TermRun.evalAt env a
+      match __x with
+        | (fst, ws) => do
+          let pw ← ws.getLast?
+          have τ' : CoreLang.Ty := TermRun.close σs τ
+          match pw.val with
+            | WeakMem.Val.loc l tag =>
+              match g.tys l.label with
+              | some (t, true) =>
+                if (t == τ') = true then pure (s, CoreLang.Ty.ptrOpt CoreLang.Mode.pub τ', [pw])
+                else pure (s, CoreLang.Ty.ptrOpt CoreLang.Mode.pub τ', [TermRun.cst WeakMem.Val.null])
+              | x => pure (s, CoreLang.Ty.ptrOpt CoreLang.Mode.pub τ', [TermRun.cst WeakMem.Val.null])
+            | x => pure (s, CoreLang.Ty.ptrOpt CoreLang.Mode.pub τ', [TermRun.cst WeakMem.Val.null])
   | CoreTerm.Op.null μ τ => [(s, CoreLang.Ty.ptrOpt μ (TermRun.close σs τ), [TermRun.cst WeakMem.Val.null])]
   | CoreTerm.Op.fold a τ =>
     TermRun.ol
@@ -651,7 +668,7 @@ TermRun.evalOp : TermRun.G →
       [(s,
           d.argTy.code d.retTy
             (match d.kind with
-            | CoreTerm.DeclKind.restricted fu sk => CoreLang.CodeKind.restricted fu sk
+            | CoreTerm.DeclKind.restricted f s ro loop => CoreLang.CodeKind.restricted f s ro
             | x => CoreLang.CodeKind.plain),
           [TermRun.cst (WeakMem.Val.num i)])]
     | x, x_1 => []
@@ -864,6 +881,7 @@ TermRun.toWFence : CoreTerm.Fence → WeakMem.Fence
 TermRun.vmatchN : Nat → Nat → Nat → Nat
 TermRun.zeroWords : CoreLang.Ty → Option (List WeakMem.Val)
 WeakMem.Address : Type
+WeakMem.Address.label : WeakMem.Address → WeakMem.AllocLabel
 WeakMem.AllocLabel : Type
 WeakMem.Fence.st : WeakMem.Fence
 WeakMem.Memory : Type

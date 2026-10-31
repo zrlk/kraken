@@ -85,6 +85,14 @@ theorem alloc_noFulfil {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
     | (simp only [List.mem_flatMap, List.mem_map] at h
        obtain ⟨x, hx, y, hy, rfl⟩ := h
        exact noFulA_keep ((keepR_eq (projM_keep hx).1 (projM_keep hx).2.2).trans (injM_keep hy)))
+    | (simp only [List.mem_map] at h  -- new arm: record write
+       obtain ⟨x, hx, rfl⟩ := h
+       try dsimp only
+       split
+       all_goals
+         first
+           | exact evalOp_noFulA hx
+           | exact noFulA_eq rfl)
 
 end TermPtrRtsThr
 

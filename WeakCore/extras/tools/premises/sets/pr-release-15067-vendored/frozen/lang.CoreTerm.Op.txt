@@ -21,7 +21,7 @@ CoreTerm.Op : Type
   | CoreTerm.Op.inr : CoreLang.Ty → CoreTerm.At → CoreTerm.Op
   | CoreTerm.Op.add : CoreTerm.At → CoreTerm.At → CoreTerm.Op
   | CoreTerm.Op.sub : CoreTerm.At → CoreTerm.At → CoreTerm.Op
-  | CoreTerm.Op.new : CoreTerm.At → CoreTerm.Op
+  | CoreTerm.Op.new : CoreTerm.At → Option CoreLang.Ty → CoreTerm.Op
   | CoreTerm.Op.null : CoreLang.Mode → CoreLang.Ty → CoreTerm.Op
   | CoreTerm.Op.fold : CoreTerm.At → CoreLang.Ty → CoreTerm.Op
   | CoreTerm.Op.publish : CoreTerm.At → CoreTerm.Op
@@ -76,3 +76,4 @@ CoreTerm.Op : Type
   | CoreTerm.Op.fetch : CoreTerm.FetchOp → Bool → Bool → CoreTerm.At → CoreTerm.At → CoreTerm.Op
   | CoreTerm.Op.spawn : String → CoreTerm.At → CoreLang.Ty → optParam (List CoreLang.Ty) [] → CoreTerm.Op
   | CoreTerm.Op.ext : CoreTerm.ExtName → CoreTerm.At → CoreTerm.Op
+  | CoreTerm.Op.isTy : CoreTerm.At → CoreLang.Ty → CoreTerm.Op

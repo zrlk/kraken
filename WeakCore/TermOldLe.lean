@@ -422,6 +422,7 @@ theorem tstep_old {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {t : Ts}
        obtain ⟨x, hx, rfl⟩ := h
        first
          | exact evalOp_old hx hd
+         | (split <;> exact evalOp_old hx hd)
          | exact stepRmw_old (th := mth _ _ _ _) hx hd
          | exact stepRmwPair_old (th := mth _ _ _ _) hx hd)
     | (simp only [List.mem_flatMap, List.mem_map] at h

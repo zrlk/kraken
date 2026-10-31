@@ -32,20 +32,9 @@ def tryE {α : Type} (act : IO α) : IO (Except String α) := do
 
 def readE (f : String) : IO (Except String String) := tryE (IO.FS.readFile f)
 
-def cacheFS (cache : List (String × Except String String)) : FS := fun f =>
-  match cache.find? (·.1 == f) with
-  | some (_, r) => r
-  | none => .error "not read"
-
 /-- Read every file `run` may look at. -/
-def load (args : List String) : IO (List (String × Except String String)) := do
-  let mut cache : List (String × Except String String) := []
-  for _ in [0:1000] do
-    let new := (probes args (cacheFS cache)).eraseDups.filter fun f => !cache.any (·.1 == f)
-    if new.isEmpty then break
-    for f in new do
-      cache := cache ++ [(f, ← readE f)]
-  return cache
+def load (args : List String) : IO (List (String × Except String String)) :=
+  SceFront.fixLoad (probes args) readE
 
 /-- The wall-clock limit (seconds) and the memory cap (MB) of one certificate file, and the parallel builds. -/
 def certLimitS : Nat := 1800
@@ -170,7 +159,7 @@ def certs (lean : String) (dir prog : String) (jobs : List (String × List Strin
 def entry : IO Unit := do
   let some n := (← IO.getEnv "SCE_ARGC").bind String.toNat? | return ()
   let args ← (List.range n).mapM fun i => return (← IO.getEnv s!"SCE_ARG_{i + 1}").getD ""
-  let r := run args (cacheFS (← load args))
+  let r := run args (SceFront.cacheFS (← load args))
   let out ← IO.FS.Handle.mk "/dev/stdout" .append
   let err ← IO.FS.Handle.mk "/dev/stderr" .append
   let mut code := r.code

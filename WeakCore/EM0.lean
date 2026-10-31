@@ -15,16 +15,17 @@ The program (prelude: `EM0Prelude`):
 It runs from the wrapper start `TermStartW.startW em0 2` (thread 0 calls `main`, then `exitEv r`; capacity
 2 for the one spawn).  `TermScopeEM0` proves the program-side obligations and instantiates the EM0 finals.
 
-**What is and is not established about the output.**  With promises
-on, the worker may promise its `store rel c 1` before its remaining `emit`s (an `emit` may run with
-promises outstanding); `main` can then read 1 and make its exit event early.  So the exit event may
-precede some or all of the bytes; the release/acquire join orders memory, not I/O.  What holds, under
-Kraken's first-exit reading, is: the output is a prefix of "Hello, world\n", followed by `exit 0`.  In
-the bounded explorer every complete run prints all 13 bytes and makes exactly one `exit 0`, and the bytes
-before the exit are a prefix of "Hello, world\n" (the `#guard`s below).  These are bounded-search facts
-for this program, **not theorems**; the proved results are the soundness finals of `TermScopeEM0` (and
-"every exit is `exit 0`" is not proved either: R2, deferred).  With promises off the only run prints
-"Hello, world\n" and then exits 0.
+**What is and is not established about the output.**  An
+`emit` is an `ExtNeedsNoProm` call: it runs only with no promise outstanding, and a certificate never
+passes one.  So the worker cannot promise its `store rel c 1` before its remaining `emit`s; that `main`
+then cannot read 1 before the last byte is out is the statement "the output is "Hello, world\n" then
+`exit 0`", which this restriction makes provable but which is not proved here (it needs a reachability
+invariant, no promise at a reachable `emit`, and an ordering argument).  In the bounded explorer every
+complete run prints all 13 bytes and then makes exactly one `exit 0` (the `#guard`s below; the search is
+not cut).  These are bounded-search facts for this program, **not theorems**; the proved results are the
+soundness finals of `TermScopeEM0` (and "every exit is `exit 0`" is not proved either).  With promises
+off the only run prints "Hello, world\n" and then exits 0.  A run in which the target's `write` fails has
+no source counterpart (`emit` never fails); such runs are outside the source model.
 
 The explorer has no `Spawn` successors in `successorsAll`; the tests use `TermSpawnSuccs.exploreMS`.
 -/
@@ -73,7 +74,7 @@ def waitLoop(c : Ptr pub Int) : Int =
 def main(u : Unit) : Int =
   let sl = hello(())
   let z = zero[Int]
-  let o = new z
+  let o = new[Int] z
   let c = publish o
   let me = current ()
   let p0 = (sl, c)
@@ -218,7 +219,7 @@ def progDecls : Prog := [
     (CoreTerm.Op.zero (CoreLang.Ty.int))
     (CoreTerm.Expr.let_
       "o"
-      (CoreTerm.Op.new (CoreTerm.At.var "z"))
+      (CoreTerm.Op.new (CoreTerm.At.var "z") (some (CoreLang.Ty.int)))
       (CoreTerm.Expr.let_
         "c"
         (CoreTerm.Op.publish (CoreTerm.At.var "o"))
@@ -332,15 +333,6 @@ def tracesW (p : Prog) (k : Promises.Knobs) (arch : WeakMem.Arch) (cap fuel : Na
 /-- "Hello, world\n", then `exit 0`. -/
 def helloTrace : List Event := ([72, 101, 108, 108, 111, 44, 32, 119, 111, 114, 108, 100, 10].map Event.out) ++ [.exit 0]
 
-/-- The output events of a trace. -/
-def outs (t : List Event) : List Event := t.filter fun e => match e with | .out _ => true | _ => false
-
-/-- A complete EM0 trace as the explorer finds it: all 13 bytes in order, exactly one `exit 0`, and the
-bytes before the exit a prefix of "Hello, world\n". -/
-def okTrace (t : List Event) : Bool :=
-  outs t == outs helloTrace && t.count (.exit 0) == 1 && t.length == 14 &&
-    (t.takeWhile (· != .exit 0)).isPrefixOf (outs helloTrace)
-
 /-- Promises off. -/
 def kOff : Promises.Knobs := { (default : Promises.Knobs) with promises := false }
 
@@ -354,10 +346,9 @@ def kOff : Promises.Knobs := { (default : Promises.Knobs) with promises := false
 -- on the search is cut (certification and promise-candidate fuel: `TermRun.Trunc`)
 #guard (tracesW em0T {} .arm 1 600).1.all (· == helloTrace) && (tracesW em0T {} .arm 1 600).2
 #guard tracesW em0T kOff .arm 1 600 == ([helloTrace], false)
--- promises on (default bounds): every complete run found is `okTrace`, and (R1) some run exits before the
--- last byte.  The search is cut (promise-candidate fuel: more solo fuel finds more finals), so this is a
--- bounded statement
-#guard let r := tracesW em0 {} .arm 2 600; r.2 && !r.1.isEmpty && r.1.all okTrace && r.1.any (· != helloTrace)
-#guard let r := tracesW em0 {} .tso 2 600; r.2 && !r.1.isEmpty && r.1.all okTrace && r.1.any (· != helloTrace)
+-- promises on (default bounds): the search is not cut, and every complete run found prints all of
+-- "Hello, world\n" before `exit 0` (no promise spans an `emit`).  A bounded statement.
+#guard let r := tracesW em0 {} .arm 2 600; !r.2 && !r.1.isEmpty && r.1.all (· == helloTrace)
+#guard let r := tracesW em0 {} .tso 2 600; !r.2 && !r.1.isEmpty && r.1.all (· == helloTrace)
 
 end EM0

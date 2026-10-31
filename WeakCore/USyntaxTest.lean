@@ -64,7 +64,7 @@ def waitLoop(c : Ptr pub Int) : Int =
     tail waitLoop(c)
 def main(u : Unit) : Int =
   let sl = hello(())
-  let c = publish (new (zero[Int]))
+  let c = publish (new[Int] (zero[Int]))
   let me = current ()
   let t = spawn worker ((sl, c), me) : ((exists q. ({Loc pub Array[q] LanesU8 | ini >= q} * Int[q]) * Int) * Ptr pub Int) * ThreadId
   tail waitLoop(c)
@@ -151,7 +151,7 @@ def blockW (p : Prog) (n : String) : String :=
 #guard blockW em0P "main" == "def main(u : Unit) : Int =
   let sl = hello(())
   let «%0» = zero[Int]
-  let «%1» = new «%0»
+  let «%1» = new[Int] «%0»
   let c = publish «%1»
   let me = current ()
   let «%2» = (sl, c)

@@ -27,7 +27,7 @@ theorem boxPV_thread {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} 
     {i : Nat} {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv}
     {cx : Cx} {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res}
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r) (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
+    (Z : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
       (cr i) (db i) δ)
     (hBV : ∀ l B, (CE η).box l = none → E'.box l = some B → ∀ e env0, r.2.2.env = e :: env0 →
       TermViewInv.StV (stOf c.mem c.pairs th) → TermViewInv.EnvV (stOf c.mem c.pairs th).mem.size env0 →

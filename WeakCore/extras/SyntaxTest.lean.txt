@@ -11,6 +11,8 @@ follow the checker through every accepted block.
 Build: LEAN_PATH=build lean SyntaxTest.lean   (after the libraries and Syntax.olean)
 -/
 import WeakCore.Syntax
+import WeakCore.CoreTyping
+import WeakCore.TermRun
 import WeakCore.FlatHashMap
 import WeakCore.HashMapLF
 import WeakCore.RWLock
@@ -142,5 +144,270 @@ def m1Prog : Prog := match parseProg m1Src with | .ok p => p | .error _ => []
   | .error _ => false
 -- core extern arguments are atoms: a tuple argument does not parse
 #guard (parseProg "def mw(a : Reg[32, rw] * U32) : Reg[32, rw] =\n  let (r, v) = a\n  let x = mmioWrite[32, rw, rel] (r, v)\n  ret x") matches .error _
+
+
+/-! ## The restricted-function checker: one accept/refuse per rule
+
+Each test pins one rule with its exact message.  `gsRefuses src msg`: the program parses and `checkProg` refuses it with
+a message containing `msg`.  Rule-level tests parse one decl WITHOUT type checking and run a frozen root (or the
+checker's restricted block `restrictedPass`) on it directly. -/
+
+def gsChk (s : String) : Except String Unit :=
+  match parseProg s with
+  | .ok p => checkProg p
+  | .error e => .error s!"parse: {e.msg}"
+
+def gsAccepts (s : String) : Bool := match gsChk s with | .ok _ => true | .error _ => false
+
+def gsRefuses (s msg : String) : Bool :=
+  match parseProg s with
+  | .ok p => match checkProg p with
+    | .ok _ => false
+    | .error e => (e.splitOn msg).length > 1
+  | .error _ => false
+
+/-- The cell count of decl `n` (`cellsDecl` over `checkBinders`'s table), if the body checks and every binder has a width. -/
+def gsCells (s n : String) : Option Nat :=
+  match parseProg s with
+  | .ok p => match p.find? (·.name == n) with
+    | some d => match checkBinders p (CoreTyping.declCx d) d.body with
+      | .ok tbl => match cellsDecl p d tbl with
+        | .ok c => some c
+        | .error _ => none
+      | .error _ => none
+    | none => none
+  | .error _ => none
+
+def gsFuel (s n : String) : Option Nat :=
+  match parseProg s with
+  | .ok p => (p.find? (·.name == n)).map (fuelDecl p)
+  | .error _ => none
+
+/-- Rule level: `selfBound` of one parsed decl. -/
+def gsSelf (s : String) : Option Tail :=
+  match parseDecl s with
+  | .ok d => some (selfBound d d.body)
+  | .error _ => none
+
+/-- Rule level: `loopCallsOK` of decl `n` in a parsed program, and the count of `m` in its `Decl.allNames`. -/
+def gsLoopOK (s n : String) : Option Bool :=
+  match parseProg s with
+  | .ok p => (p.find? (·.name == n)).map (loopCallsOK p)
+  | .error _ => none
+def gsCount (s n m : String) : Option Nat :=
+  match parseProg s with
+  | .ok p => (p.find? (·.name == n)).map fun d => d.allNames.count m
+  | .error _ => none
+
+-- an accepted restricted declaration
+def gsG (fuel stack : Nat) (loop : String := "") : String :=
+  s!"restricted[fuel {fuel}, stack {stack}{loop}] def g(k : Int) : Int =\n  let m = k + 1\n  ret m\n"
+#guard gsAccepts (gsG 8 4)
+#guard gsFuel (gsG 8 4) "g" == some 2
+#guard gsCells (gsG 8 4) "g" == some 2
+
+-- worked example: cellsDecl g = 2, h = 4 (h's own 2 + g's DECLARED stack 2)
+def gsH (stack : Nat) : String :=
+  s!"restricted[fuel 14, stack {stack}] def h(a : Ptr pub Int) : Int =\n  let x = load a\n  let y = g(x)\n  let z = x + y\n  ret z\n"
+#guard gsAccepts (gsG 8 2 ++ gsH 6)
+#guard gsCells (gsG 8 2 ++ gsH 6) "h" == some 4
+#guard gsRefuses (gsG 8 2 ++ gsH 3) "h: the stack budget is 3 cells but the body needs 4"
+#guard gsRefuses (gsG 8 1) "g: the stack budget is 1 cells but the body needs 2"
+
+-- a well-typed batch loop with a SPLIT index (`k` is the second component, `n` index parameter 0)
+def gsDrain (hdr : String) (exit : String := "ret ()") (dec : String := "k - 1") : String :=
+  s!"restricted[{hdr}] def drain\{n}(a : Ptr pub Int * Int[n]) : Unit =\n  let (b, k) = a\n  if k = 0 then\n    {exit}\n  else\n    let x = load b\n    let k' = {dec}\n    let m = nameI k'\n    let a' = (b, k')\n    tail drain\{m}(a')\n"
+def gsD : String := gsDrain "fuel 119, stack 6, loop 16"
+#guard gsAccepts gsD
+#guard gsSelf gsD == some (.bounded [1] 0)
+#guard gsFuel gsD "drain" == some 119
+#guard gsRefuses (gsDrain "fuel 118, stack 6, loop 16") "drain: the fuel budget is 118 but the body needs 119"
+-- restricted drivers (literal 16 <= 16), then a plain driver
+def gsRun (c : String := "16") (nm : String := "nameI c") : String :=
+  s!"restricted[fuel 130, stack 10] def run(b : Ptr pub Int) : Unit =\n  let c = {c}\n  let m = {nm}\n  let a = (b, c)\n  let u = drain\{m}(a)\n  ret u\n"
+#guard gsAccepts (gsD ++ gsRun)
+#guard gsFuel (gsD ++ gsRun) "run" == some 124
+#guard gsCells (gsD ++ gsRun) "run" == some 9
+#guard gsAccepts (gsD ++ gsRun "16" "nameI 16")
+def gsMain (n : Nat) : String :=
+  s!"def main(b : Ptr pub Int) : Unit =\n  let c = {n}\n  let m = nameI {n}\n  let a = (b, c)\n  let u = drain\{m}(a)\n  ret u\n"
+#guard gsAccepts (gsD ++ gsMain 16)
+
+-- the wrapper idiom (a restricted code argument, passed on and called)
+def gsWrap : String :=
+  "restricted[fuel 20, stack 4] def dispatch(cb : Code(Int, Unit; restricted 10 2)) : Unit =\n  let u = callc cb 1\n  ret u\n" ++
+  "restricted[fuel 30, stack 8] def h(a : Code(Int, Unit; restricted 10 2) * Int) : Unit =\n  let (cb, n) = a\n  let u = dispatch(cb)\n  ret u\n"
+#guard gsAccepts gsWrap
+
+-- `ro` with a read-only register read (3 cells)
+def gsRoRead : String :=
+  "restricted[fuel 6, stack 3, ro] def cond(r : Reg[32, ro]) : Reg[32, ro] * U32 =\n  let v = mmioRead[32, ro, plain] r\n  ret v\n"
+#guard gsAccepts gsRoRead
+#guard gsCells gsRoRead "cond" == some 3
+
+-- message 1
+#guard gsRefuses "restricted[fuel 8, stack 4] def f(k : Int) : Unit =\n  let p = new[Int] k\n  ret ()\n"
+  "f: a restricted function may not allocate, spawn, open a region, park or ask for its thread id"
+-- message 2: a store, a non-`ro` register read, a `cas` in an `ro` body
+def gsMsg2 : String :=
+  "f: a read-only function may not store, compare-and-swap, advance a protocol or use an extern other than a read-only register read or `regAt`"
+#guard gsRefuses "restricted[fuel 8, stack 4, ro] def f(a : Ptr pub Int) : Unit =\n  let u = store a 1\n  ret ()\n" gsMsg2
+#guard gsRefuses "restricted[fuel 6, stack 3, ro] def f(r : Reg[32, rw]) : Reg[32, rw] * U32 =\n  let v = mmioRead[32, rw, plain] r\n  ret v\n" gsMsg2
+#guard gsRefuses "restricted[fuel 12, stack 6, ro] def f{r}(m : Ptr pub (Word[r, Mutex] * Ptr[r] Int)) : Unit =\n  let w = fld 0 m\n  cas acq w 0 -> 1 as t then\n    let u = store rel w 0 with t\n    ret ()\n  else\n    ret ()\n" gsMsg2
+-- message 3
+#guard gsRefuses ("def pl(k : Int) : Int =\n  ret k\n" ++ "restricted[fuel 8, stack 4] def f(k : Int) : Int =\n  let m = pl(k)\n  ret m\n")
+  "f: a restricted function may call only restricted functions"
+-- message 4
+#guard gsRefuses (gsG 8 4 ++ "restricted[fuel 8, stack 8, ro] def f(k : Int) : Int =\n  let m = g(k)\n  ret m\n")
+  "f: a read-only function may call only read-only functions"
+-- message 5: `callc` on a loaded variable
+#guard gsRefuses "restricted[fuel 20, stack 4] def f(a : Ptr pub Code(Int, Unit; restricted 10 2)) : Unit =\n  let cb = load a\n  let u = callc cb 1\n  ret u\n"
+  "f: a restricted function may call through a code value only when it is its argument and that argument is restricted"
+-- message 6
+#guard gsRefuses "restricted[fuel 20, stack 4, ro] def f(cb : Code(Int, Unit; restricted 10 2, ro)) : Unit =\n  let u = callc cb 1\n  ret u\n"
+  "f: a read-only function may not call through a code value"
+
+-- message 7: an UNBOUNDED cas retry (no `loop`)
+def gsMsg7 (f : String) : String :=
+  s!"{f}: a restricted function loops only under a loop bound, by decreasing one index parameter behind a zero test"
+#guard gsRefuses "restricted[fuel 8, stack 4] def lock{r}(m : Ptr pub (Word[r, Mutex] * Ptr[r] Int)) : Tok[r, Mutex, 1] =\n  let w = fld 0 m\n  cas acq w 0 -> 1 as t then\n    ret t\n  else\n    tail lock{r}(m)\n"
+  (gsMsg7 "lock")
+-- the same retry with a decremented index under `loop 16` is a well-typed batch loop
+def gsLockN : String :=
+  "restricted[fuel 136, stack 8, loop 16] def lockN{r, n}(a : Ptr pub (Word[r, Mutex] * Ptr[r] Int) * Int[n]) : Unit =\n  let (m, k) = a\n  let w = fld 0 m\n  cas acq w 0 -> 1 as t then\n    let u = store rel w 0 with t\n    ret ()\n  else\n    if k = 0 then\n      ret ()\n    else\n      let k' = k - 1\n      let j = nameI k'\n      let a' = (m, k')\n      tail lockN{r, j}(a')\n"
+#guard gsAccepts gsLockN
+#guard gsSelf gsLockN == some (.bounded [1] 1)
+#guard gsFuel gsLockN "lockN" == some 136
+-- the split-index batch loop without `loop 16`
+#guard gsRefuses (gsDrain "fuel 119, stack 6") (gsMsg7 "drain")
+
+-- message 8: a `split` reusing an index name; two `case` arms binding one name.  (Rebinding the ARGUMENT name is
+-- refused earlier, by the body checker.)
+def gsMsg8 : String := "f: a restricted function may not rebind a name"
+#guard gsRefuses "restricted[fuel 8, stack 4] def f{n}(a : Int * Int) : Int =\n  let (n, c) = a\n  ret c\n" gsMsg8
+#guard gsRefuses "restricted[fuel 8, stack 4] def f(a : Int + Int) : Int =\n  case a of\n    inl x =>\n      ret x\n    inr x =>\n      ret x\n" gsMsg8
+#guard gsRefuses "restricted[fuel 8, stack 4] def f(k : Int) : Int =\n  let k = k + 1\n  ret k\n" "k is already bound (no shadowing)"
+
+-- message 9: the first declaration's g needs 2
+#guard gsRefuses (gsG 1 4) "g: the fuel budget is 1 but the body needs 2"
+
+-- message 15: `loop` without a self tail; `loop 16` round-trips
+#guard gsRefuses (gsG 8 4 ", loop 16") "g: loop is given but the function has no self tail call"
+#guard match parseDecl gsD with
+  | .ok d => d.kind == .restricted 119 6 false (some 16) && ((showDecl d).splitOn "loop 16").length > 1 && roundTrips d
+  | .error _ => false
+
+-- the call-site rule (message 16)
+def gsCallMsg (f : String) : String :=
+  s!"{f}: a call of drain must give its loop index a literal of at most 16, through a name bound once"
+#guard gsRefuses (gsD ++ gsRun "17") (gsCallMsg "run")
+#guard gsRefuses (gsD ++ "def main{n}(a : Ptr pub Int * Int[n]) : Unit =\n  let u = drain{n}(a)\n  ret u\n") (gsCallMsg "main")
+#guard gsRefuses (gsD ++ "def main(b : Ptr pub Int) : Unit =\n  let c = 17\n  let k2 = c - 1\n  let m = nameI k2\n  let a = (b, k2)\n  let u = drain{m}(a)\n  ret u\n")
+  (gsCallMsg "main")
+#guard gsLoopOK (gsD ++ gsRun) "run" == some true
+def gsTailTo (n : Nat) : String :=
+  s!"def main(b : Ptr pub Int) : Unit =\n  let c = {n}\n  let m = nameI {n}\n  let a = (b, c)\n  tail drain\{m}(a)\n"
+#guard gsAccepts (gsD ++ gsTailTo 16)
+#guard gsRefuses (gsD ++ gsTailTo 17) (gsCallMsg "main")
+-- the UNPACK route (the call's `m` is the unpacked index); the LDP route
+def gsUnpackRoute : String :=
+  "def main(a : Ptr pub Int * (exists i. Int[i])) : Unit =\n  let (b, p) = a\n  let m = nameI 16\n  let <m, y> = unpack p\n  let a2 = (b, y)\n  let u = drain{m}(a2)\n  ret u\n"
+#guard gsRefuses (gsD ++ gsUnpackRoute) (gsCallMsg "main")
+#guard gsLoopOK (gsD ++ gsUnpackRoute) "main" == some false
+#guard gsCount (gsD ++ gsUnpackRoute) "main" "m" == some 2
+def gsLdpRoute : String :=
+  "proto Gen = <<(k, k)! ; 0->0(+1, *) ; robust>>\n" ++
+  "restricted[fuel 140, stack 12] def main{r}(a : Ptr pub Pair[r, Gen] * Ptr pub Int) : Unit =\n  let (w, b) = a\n  let m = nameI 16\n  let z = ldp acq w as (m, m2)\n  let (k2, k3) = z\n  let a2 = (b, k2)\n  let u = drain{m}(a2)\n  ret u\n"
+#guard gsRefuses (gsD ++ gsLdpRoute) (gsCallMsg "main")
+#guard gsLoopOK (gsD ++ gsLdpRoute) "main" == some false
+#guard gsCount (gsD ++ gsLdpRoute) "main" "m" == some 2
+#guard (match parseProg (gsD ++ gsLdpRoute) with
+  | .ok p => (p.find? (·.name == "main")).map (·.body.idxBinders)
+  | .error _ => none) == some ["m", "m2"]
+-- the checker's own index name `_nz` (pushed by `ifeq`'s false branch), on the AST
+def gsDrainD : Decl :=
+  match parseDecl gsD with | .ok d => d | .error _ => { name := "", idx := [], arg := "", argTy := .unit, retTy := .unit, body := .ret .unit }
+def gsEvil : Decl :=
+  { name := "evil", idx := ["n"], arg := "a", argTy := .prod (.ptr .pub .int) (.intS (.var 0)), retTy := .unit,
+    body := .split (.var "a") "b" "k" (.let_ "_nz" (.nameI (.lit 16))
+      (.ifeq (.var "k") (.lit 0) (.ret .unit)
+        (.let_ "k1" (.sub (.var "k") (.lit 1)) (.let_ "a2" (.pair (.var "b") (.var "k1"))
+          (.let_ "u" (.call "drain" ["_nz"] (.var "a2") []) (.ret (.var "u"))))))) }
+#guard (match checkDecl [gsDrainD, gsEvil] gsEvil with | .ok _ => false | .error e => (e.splitOn (gsCallMsg "evil")).length > 1)
+#guard gsEvil.allNames.count "_nz" == 2
+-- a name bound in another branch; the literal's name bound twice; the name is also an index parameter
+#guard gsRefuses (gsD ++ "def main(b : Ptr pub Int) : Unit =\n  let c = 16\n  let z = 0\n  if z = 0 then\n    let m = 5\n    ret ()\n  else\n    let m = nameI c\n    let a = (b, c)\n    let u = drain{m}(a)\n    ret u\n")
+  (gsCallMsg "main")
+#guard gsRefuses (gsD ++ "def main(b : Ptr pub Int) : Unit =\n  let z = 0\n  if z = 0 then\n    let c = 3\n    ret ()\n  else\n    let c = 16\n    let m = nameI c\n    let a = (b, c)\n    let u = drain{m}(a)\n    ret u\n")
+  (gsCallMsg "main")
+#guard gsRefuses (gsD ++ "def main{m}(b : Ptr pub Int) : Unit =\n  let c = 16\n  let m = nameI 16\n  let a = (b, c)\n  let u = drain{m}(a)\n  ret u\n")
+  (gsCallMsg "main")
+
+-- `park ()` / `current ()` (message 1), `devOut` (the device-only message)
+#guard gsRefuses "restricted[fuel 8, stack 4] def f(u : Unit) : Unit =\n  let x = park ()\n  ret x\n"
+  "f: a restricted function may not allocate, spawn, open a region, park or ask for its thread id"
+#guard gsRefuses "restricted[fuel 8, stack 4] def f(u : Unit) : ThreadId =\n  let x = current ()\n  ret x\n"
+  "f: a restricted function may not allocate, spawn, open a region, park or ask for its thread id"
+#guard gsRefuses "restricted[fuel 8, stack 4] def f(v : U32) : Unit =\n  let x = devOut[32] v\n  ret x\n"
+  "device externs and device functions may be used only inside a device function"
+
+-- a second, UNDECREMENTED self tail in another branch; the exit replaced by a self tail (message 7)
+#guard gsRefuses ("restricted[fuel 200, stack 8, loop 16] def drain{n}(a : Ptr pub Int * Int[n]) : Unit =\n  let (b, k) = a\n  cas acq b 0 -> 1 as t then\n    tail drain{n}(a)\n  else\n    if k = 0 then\n      ret ()\n    else\n      let k' = k - 1\n      let m = nameI k'\n      let a' = (b, k')\n      tail drain{m}(a')\n")
+  (gsMsg7 "drain")
+#guard gsRefuses (gsDrain "fuel 200, stack 6, loop 16" "tail drain{n}(a)") (gsMsg7 "drain")
+-- two self tails decrementing different positions; one self tail passing two `nameI` names (message 7)
+def gsTwo (tl1 tl2 : String) : String :=
+  s!"restricted[fuel 300, stack 10, loop 16] def f\{n1, n2}(a : Int[n1] * Int[n2]) : Unit =\n  let (k1, k2) = a\n  if k1 = 0 then\n    ret ()\n  else\n    if k2 = 0 then\n      ret ()\n    else\n      let j1 = k1 - 1\n      let j2 = k2 - 1\n      let m1 = nameI j1\n      let m2 = nameI j2\n      let a1 = (j1, k2)\n      let a2 = (k1, j2)\n      case a of\n        inl x =>\n          {tl1}\n        inr y =>\n          {tl2}\n"
+#guard gsSelf (gsTwo "tail f{m1, n2}(a1)" "tail f{n1, m2}(a2)") == some .bad
+#guard gsSelf (gsTwo "tail f{m1, m2}(a1)" "tail f{m1, m2}(a1)") == some .bad
+#guard idxArgOf [("m", "k'")] ["r", "m"] 0 == some (1, "k'")
+#guard idxArgOf [("m", "k'"), ("j", "k2")] ["m", "j"] 0 == none
+-- the decremented value is not the loop parameter (`k : Int`)
+#guard gsSelf "restricted[fuel 119, stack 6, loop 16] def drain{n}(a : Ptr pub Int * Int) : Unit =\n  let (b, k) = a\n  if k = 0 then\n    ret ()\n  else\n    let k' = k - 1\n    let m = nameI k'\n    let a' = (b, k')\n    tail drain{m}(a')\n" == some .bad
+
+-- message 12
+#guard gsRefuses (gsG 8 4 ++ "def g(k : Int) : Int =\n  ret k\n") "a program with restricted functions may not define a name twice: g"
+
+-- cell counts per binder form; an open-width binder (message 11)
+#guard gsCells (gsG 8 4) "g" == some 2
+#guard gsCells "restricted[fuel 8, stack 4] def f(a : Int * Int) : Int =\n  let (b, c) = a\n  let s = b + c\n  ret s\n" "f" == some 3
+#guard gsCells "restricted[fuel 8, stack 4] def f(a : Int + Unit) : Int =\n  case a of\n    inl x =>\n      ret x\n    inr y =>\n      ret 0\n" "f" == some 3
+#guard gsCells "restricted[fuel 8, stack 4] def f(a : exists i. Int[i]) : Int =\n  let <i, x> = unpack a\n  ret x\n" "f" == some 2
+#guard gsCells "restricted[fuel 8, stack 4] def f(e : exists (E : {copy, share, noOwn}). Ptr pub E) : Int =\n  let <[E], p> = unpack e\n  ret 1\n" "f" == some 2
+#guard gsCells "restricted[fuel 8, stack 4] def f(p : Ptr pub Int) : Int =\n  let <r, q, c> = openPub p\n  let x = load q\n  ret x\n" "f" == some 2
+#guard gsCells gsLockN "lockN" == some 4
+#guard gsCells gsD "drain" == some 3
+#guard gsRefuses "restricted[fuel 8, stack 4] def f{n}(a : Array[n] Int) : Unit =\n  ret ()\n" "f: a restricted function's binders must have a fixed width"
+
+-- parse/print round trips of the new syntax; `ro` subtyping
+#guard match parseTy "Code(Int, Unit; restricted 64 8, ro)" with
+  | .ok t => t == .code .int .unit (.restricted 64 8 true)
+  | .error _ => false
+#guard match parseDecl "restricted[fuel 16, stack 4, ro] def g(x : Int) : Unit =\n  ret ()" with
+  | .ok d => d.kind == .restricted 16 4 true none && roundTrips d
+  | .error _ => false
+#guard match parseDecl "restricted[fuel 16, stack 4, loop 16, ro] def g(x : Int) : Unit =\n  ret ()" with
+  | .ok d => d.kind == .restricted 16 4 true (some 16) && roundTrips d
+  | .error _ => false
+#guard gsAccepts ("restricted[fuel 6, stack 2, ro] def r(k : Int) : Unit =\n  ret ()\n" ++
+  "def take(c : Code(Int, Unit; restricted 64 8)) : Unit =\n  ret ()\n" ++
+  "def use(u : Unit) : Unit =\n  let c = fnptr r\n  let v = take(c)\n  ret v\n")
+#guard gsRefuses ("restricted[fuel 6, stack 2] def r(k : Int) : Unit =\n  ret ()\n" ++
+  "def take(c : Code(Int, Unit; restricted 64 8, ro)) : Unit =\n  ret ()\n" ++
+  "def use(u : Unit) : Unit =\n  let c = fnptr r\n  let v = take(c)\n  ret v\n") "call take: argument type mismatch"
+
+-- supplement to the token step's render check: every new root is a definition or an inductive
+run_cmd do
+  let env ← Lean.getEnv
+  for n in [``CoreTerm.opAllocates, ``CoreTerm.opWrites, ``CoreTerm.Expr.binders, ``CoreTerm.noShadow,
+      ``CoreTerm.argPosOf, ``CoreTerm.tyAt, ``CoreTerm.Tail, ``CoreTerm.Tail.merge, ``CoreTerm.idxArgOf,
+      ``CoreTerm.selfBoundW, ``CoreTerm.selfBound, ``CoreTerm.restrictedOK, ``CoreTerm.fuelOf, ``CoreTerm.declFuel,
+      ``CoreTerm.argFuelOf, ``CoreTerm.loopBound, ``CoreTerm.fuelDecl, ``CoreTerm.restrictedDeclOK,
+      ``CoreTerm.checkerIdxNames, ``CoreTerm.Expr.idxBinders, ``CoreTerm.Decl.allNames, ``CoreTerm.callBad,
+      ``CoreTerm.loopCallBad, ``CoreTerm.loopCallsOK, ``CoreTerm.RestrictedProg, ``CoreTerm.checkOp,
+      ``CoreTyping.OpT, ``TermRun.evalOp] do
+    match env.find? n with
+    | some (.defnInfo _) | some (.inductInfo _) => pure ()
+    | _ => throwError "{n} is not a definition or an inductive"
 
 end SyntaxTest

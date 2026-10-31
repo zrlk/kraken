@@ -12,13 +12,13 @@ memory (every new message is above `t < c.mem.size`), so no "no append at a box 
 * thread step of `i` (`boxPlantSep_thread`): a gated cell after the step was gated before with the
   same frontier and `tmin` (`gateBack`; for `i` via K-2a's keep conjunct, as in `ptrRtsGL_thread`).
   For an old box the pre-state clause applies.  A new box is at a fresh label, and no old message
-  lies there (`oldMsg_not_fresh`, the W5b site), so the index disjunct holds.
+  lies there (`oldMsg_not_fresh`), so the index disjunct holds.
 * promise step (`boxPlantSep_prom`): boxes are unchanged.  For an old frontier the `tmin` is unchanged
   (`tminG_prom_own_some`/`tminG_prom_fgn`).  A newly planted cell is the promiser's (`plantOf_target`),
   so `PayOwn` makes it the box's owner, and `BoxPV` and `BoxFrOwn` give `w.view < B.fr ≤ vWr ≤ plantF`.
 * initial states: `boxPlantSep_none` (no boxes) and `boxPlantSep_noProm` (no promises).
 
-Certificate facts: none beyond those of `ptrRtsGL_thread` (`hA` now also through W5b).
+Certificate facts: none beyond those of `ptrRtsGL_thread` (`hA` now also through `oldMsg_not_fresh`).
 -/
 
 namespace TermPtrRtsK
@@ -171,7 +171,7 @@ theorem boxPlantSep_thread (hK : PtrRtsThreadGL p) (hk : k.storeDepRts = true)
     (hb1 : AllocGT p k arch Sp Init MintOK c0) (hA : PromAllocF p k arch Sp Init MintOK c0)
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r)
     (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
+    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
       crS (db i) δ)
     (hS : ThSysAt p (gOf p k arch c i) c.mem c.pairs th Eg (Tot i) (HP i) HS (cr i) (db i) S) (hKS : ∀ t l, crS t (.own l) = cr i t (.own l))
     (hm : MemInv (gOf p k arch c i) (CE η) (stOf c.mem c.pairs th))
@@ -181,10 +181,10 @@ theorem boxPlantSep_thread (hK : PtrRtsThreadGL p) (hk : k.storeDepRts = true)
     (hLay : ∀ l cl, Eg.sto l = some cl → LayT cl.ty) (hsc : TermTyped.ScopeOK p th)
     (hdrf : TermScope.ThScope th) (hps : TermScope.ProgScopeOK p = true) (hPT : ProgT p)
     (hFBP : TermFootBP0.FootBP { gOf p k arch c i with pf := fun l => TermOwnG0Defs.PubAt th l } E' th r)
-    (hRP : RetPw th.σs th.stack cx.ret) (hBP : BoxPlantSep Eg Tot HP c) :
+    (hRP : RetPw th.σs th.stack cx.ret) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) (hBP : BoxPlantSep Eg Tot HP c) :
     BoxPlantSep (EgT Eg (gOf p k arch c i) th.nalloc r.2.2.nalloc E' c') (upd Tot i Tot') (upd HP i HP') c' :=
   boxPlantSep_T (S := S) (ρ := ρ) (cx := cx) (F := F)
-    ⟨hK, hk, hb1, hA, X, Y, Z, hS, hKS, hm, hPC, hPfrP, hNCE, hG, hGW, hLay, hsc, hdrf, hps, hPT, hFBP, hRP, hBP⟩ hBP
+    ⟨hK, hk, hb1, hA, X, Y, Z, hS, hKS, hm, hPC, hPfrP, hNCE, hG, hGW, hLay, hsc, hdrf, hps, hPT, hFBP, hRP, hDy, hBP⟩ hBP
 
 end
 

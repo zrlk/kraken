@@ -232,7 +232,7 @@ e`, one object (`n = 1`) of `a`'s type `τ`. -/
 def AllocSite (N : Prop) (c : Ctl) (x : String) (n : Nat) (τ : Ty) (e : Expr) : Prop :=
   (∃ a ta ws, c.term = .let_ x (.newBuf a τ) e ∧ TermRun.evalAt c.env a = some (ta, ws) ∧
       TermRun.numOf ws = some n) ∨
-    (N ∧ ∃ a ws, c.term = .let_ x (.new a) e ∧ TermRun.evalAt c.env a = some (τ, ws) ∧ n = 1)
+    (N ∧ ∃ a ws, (∃ T, c.term = .let_ x (.new a T) e) ∧ TermRun.evalAt c.env a = some (τ, ws) ∧ n = 1)
 
 /-- **The memory side the judgement is stated against**: what a whole-program
 proof's memory relation provides to the per-instruction rows.
@@ -533,7 +533,7 @@ inductive Out {I : ISA} (p : Prog) (lbl : WeakMem.AllocLabel → Option Nat) (ms
   | newStore (kr : Kraken.StoreKind) (A : BitVec 64) (V : Val) (s' : I.State) (x : String) (a : At) (t : Ty)
       (e : Expr) (w wold : TermRun.Word) (old : Nat) :
       ms.newOk → I.exec s = some (.store kr false ⟨A, 8⟩ V fun _ => .done s') → ms.mp ⟨A, 8⟩ true →
-      c.term = .let_ x (.new a) e → TermRun.evalAt c.env a = some (t, [w]) → TermRun.accs t = some [.one] →
+      (∃ T, c.term = .let_ x (.new a T) e) → TermRun.evalAt c.env a = some (t, [w]) → TermRun.accs t = some [.one] →
       ValRep lbl w.val V.toNat → c.hold = some (ms.ctr, wold) → TermRun.numOf [wold] = some old →
       A.toNat = ms.heap + 16 * old + ms.off 1 t → old + ms.units 1 t ≤ ms.cells →
       (∀ l, lbl l = none →

@@ -41,7 +41,7 @@ def spawnAll(a : U64 * ThreadId) : Int =
     ret 0
   else
     let zi = zero[Int]
-    let d0 = new zi
+    let d0 = new[Int] zi
     let d = publish d0
     let arg = (d, me)
     let t = spawn{worker}(arg)

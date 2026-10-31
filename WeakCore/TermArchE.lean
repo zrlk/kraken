@@ -8,18 +8,18 @@ configuration step `Sp`, in particular `TermExtStep.StepsE` (`Spawn ∨ Ext`).
   `boxFence`, `pairs` and, per thread, `tidLbl`/`nalloc` (`ThsLe`); only `trace` is new.
 * `Step_simT`: `Step` leaves the trace alone, so `TermArch.Step_sim` lifts.
 * `Ext_sim`: the extern step `TermExtStep.Ext` simulates (all three calls, including the
-  `ExtNeedsNoProm` ones that `TermArch.extSteps_sim` excludes), with the same events, by the shared
+  `ExtNeedsNoProm` ones (`exitEv`, `emit`, a boxless `current()`, a device choice) that `TermArch.extSteps_sim` excludes), with the same events, by the shared
   per-call lemma `TermArch.extCfg_sim` (shared with `TermArch`); the
   certificate is `TermArch.Certified_sim` (whose `Solo_sim` already has the `Solo.ext` arm).
 * `stepsG_sim`: any extra step that simulates lifts to runs.
-* Headlines: `tso_extRuns_subset_arm` (machine and extern steps, no premise) and
+* Headlines: `tso_extRuns_subset_arm` (machine and extern steps, no `SpawnSim` premise) and
   `tso_stepsE_subset_arm` (all of `StepsE`, under the premise `SpawnSim`).
 
 **`Spawn` is a premise here, discharged in `TermArchS`.**  `spawnKid` binds `ws.map (bumpW V)`
 with `bumpW V w = {w with view := max w.view V, rts := max w.rts V}` and `V` the parent's
 post-barrier `vRelSt`, which is only `≤` on ARM.  `Promises.TValLe` relates `rts` by `≤`, so the
-child relates; `TermArchS.spawn_sim` proves `SpawnSim`, and `TermArchS.tso_stepsE_subset_arm'`
-(and `'` versions of the trace and final corollaries) state the headlines with no premise.
+child relates; `TermArchS.spawn_sim` proves `SpawnSim`, and `TermArchS.tso_stepsE_subset_arm_full`
+(and the `_full` versions of the trace and final corollaries) state the headlines with no `SpawnSim` premise.
 
 `hwf` (the initial outstanding promises are in memory) stays the only side condition;
 `hwf_of_noProm` discharges it when no promise is out (`TermMainDefs.AllNoProm`, part of `InitOK`).

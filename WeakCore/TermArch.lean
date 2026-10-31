@@ -417,6 +417,25 @@ theorem wsle_cons {wa : List Word} {y : Word} {wt : List Word} (h : WsLe wa (y :
 
 theorem wsle_one {x y : Word} (h : TValLe x y) : WsLe [x] [y] := ⟨h, trivial⟩
 
+theorem wsle_getLast {y : Word} : ∀ {wa wt : List Word}, WsLe wa wt → wt.getLast? = some y →
+    ∃ x, wa.getLast? = some x ∧ TValLe x y
+  | [], [], _, h => by simp at h
+  | x :: wa, z :: wt, ⟨hx, hw⟩, h => by
+      cases wt with
+      | nil =>
+          cases wa with
+          | nil => simp at h; subst h; exact ⟨x, rfl, hx⟩
+          | cons _ _ => exact hw.elim
+      | cons z2 wt =>
+          cases wa with
+          | nil => exact hw.elim
+          | cons x2 wa =>
+              rw [List.getLast?_cons_cons] at h
+              rw [List.getLast?_cons_cons]
+              exact wsle_getLast hw h
+  | [], _ :: _, h, _ => h.elim
+  | _ :: _, [], h, _ => h.elim
+
 theorem numOf_congr : ∀ {wa wt : List Word}, WsLe wa wt → numOf wa = numOf wt
   | [], [], _ => rfl
   | [x], [y], ⟨hx, _⟩ => by simp only [numOf, hx.val]
@@ -591,10 +610,10 @@ theorem ofArm_sim (t : Ty) (j : Nat) {pa pt : List Word} (hp : WsLe pa pt) {qt :
     · simp only [hj, ↓reduceIte] at he ⊢; cases he; exact ⟨pa, rfl, hp⟩
     · simp only [hj] at he; cases he
 
-theorem projM_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool)
+theorem projM_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool) {ty : AllocLabel → Option (Ty × Bool)}
     {sa st : St} (h : StLe O sa st) (t : Ty) {wa wt : List Word} (hw : WsLe wa wt)
-    {r : St × Nat × List Word} (hin : r ∈ projM ⟨p, k, .tso, n, i, lbase, bf, fun _ => False, fun _ => True⟩ st t wt) :
-    ∃ ra ∈ projM ⟨p, k, .arm, n, i, lbase, bf, fun _ => False, fun _ => True⟩ sa t wa,
+    {r : St × Nat × List Word} (hin : r ∈ projM ⟨p, k, .tso, n, i, lbase, bf, fun _ => False, fun _ => True, ty⟩ st t wt) :
+    ∃ ra ∈ projM ⟨p, k, .arm, n, i, lbase, bf, fun _ => False, fun _ => True, ty⟩ sa t wa,
       StLe O ra.1 r.1 ∧ ra.2.1 = r.2.1 ∧ WsLe ra.2.2 r.2.2 := by
   unfold projM at hin ⊢
   by_cases hb : isBoxed t = true
@@ -631,10 +650,10 @@ theorem projM_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool)
         simp [hd] at hin; subst hin
         exact ⟨(sa, j, pa), by simp [hda], h, rfl, hp⟩
 
-theorem injM_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool)
+theorem injM_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool) {ty : AllocLabel → Option (Ty × Bool)}
     {sa st : St} (h : StLe O sa st) (t : Ty) (j : Nat) {pa pt : List Word} (hp : WsLe pa pt)
-    {r : St × List Word} (hin : r ∈ injM ⟨p, k, .tso, n, i, lbase, bf, fun _ => False, fun _ => True⟩ st t j pt) :
-    ∃ ra ∈ injM ⟨p, k, .arm, n, i, lbase, bf, fun _ => False, fun _ => True⟩ sa t j pa, StLe O ra.1 r.1 ∧ WsLe ra.2 r.2 := by
+    {r : St × List Word} (hin : r ∈ injM ⟨p, k, .tso, n, i, lbase, bf, fun _ => False, fun _ => True, ty⟩ st t j pt) :
+    ∃ ra ∈ injM ⟨p, k, .arm, n, i, lbase, bf, fun _ => False, fun _ => True, ty⟩ sa t j pa, StLe O ra.1 r.1 ∧ WsLe ra.2 r.2 := by
   unfold injM at hin ⊢
   by_cases hb : isBoxed t = true
   · simp only [hb, ↓reduceIte] at hin ⊢
@@ -661,10 +680,10 @@ theorem injM_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool)
 
 def ResLe (O : List Ts) (ra rt : St × Ty × List Word) : Prop := StLe O ra.1 rt.1 ∧ ra.2.1 = rt.2.1 ∧ WsLe ra.2.2 rt.2.2
 
-theorem evalOp_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool)
+theorem evalOp_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool) {ty : AllocLabel → Option (Ty × Bool)}
     {ea et : Env} (he : EnvLe ea et) (σs : List Ty) {sa st : St} (h : StLe O sa st) (op : Op)
-    {rt : St × Ty × List Word} (hin : rt ∈ evalOp ⟨p, k, .tso, n, i, lbase, bf, fun _ => False, fun _ => True⟩ et σs st op) :
-    ∃ ra ∈ evalOp ⟨p, k, .arm, n, i, lbase, bf, fun _ => False, fun _ => True⟩ ea σs sa op , ResLe O ra rt := by
+    {rt : St × Ty × List Word} (hin : rt ∈ evalOp ⟨p, k, .tso, n, i, lbase, bf, fun _ => False, fun _ => True, ty⟩ et σs st op) :
+    ∃ ra ∈ evalOp ⟨p, k, .arm, n, i, lbase, bf, fun _ => False, fun _ => True, ty⟩ ea σs sa op , ResLe O ra rt := by
   cases op with
   | spawn => simp [evalOp] at hin
   | ext => simp [evalOp] at hin
@@ -694,6 +713,20 @@ theorem evalOp_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool)
       one ut ua hu => y' v' hv' rv' hrv'
       fin_same
   | null μ τ => simp only [evalOp] at hin ⊢; fin_same
+  | isTy a τ =>
+      simp only [evalOp, ol] at hin ⊢
+      ev a => t wt wa hw
+      rcases hc : wt.getLast? with _ | y
+      · simp [hc] at hin
+      obtain ⟨x, hx, hxy⟩ := wsle_getLast hw hc
+      simp only [hc, hx, Option.bind_eq_bind, Option.bind_some] at hin ⊢
+      rw [hxy.val]
+      repeat' split at hin
+      all_goals (simp at hin; subst hin)
+      all_goals first
+        | (simp_all; done)
+        | exact ⟨(sa, _, [x]), by simp_all, h, rfl, wsle_one hxy⟩
+        | exact ⟨(sa, _, _), by simp_all, h, rfl, WsLe.refl _⟩
   | fold a τ =>
       simp only [evalOp, ol] at hin ⊢
       ev a => t wt wa hw
@@ -903,7 +936,7 @@ theorem evalOp_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool)
       simp only [evalOp, ol] at hin ⊢
       opt (zeroWords (close σs τ)) => z
       fin_same
-  | new a =>
+  | new a _ =>
       simp only [evalOp] at hin ⊢
       ev a => t wt wa hw
       opt (accs t) => us
@@ -1301,6 +1334,8 @@ structure TThLe (ta tt : TTh) : Prop where
   undefs   : ta.undefs = tt.undefs
   /-- (D4) the park permit: both absent, or both present with a lower view -/
   permit   : PermLe ta.permit tt.permit
+  /-- the allocation records: the same -/
+  tys      : ta.tys = tt.tys
 
 /-- A `tstep` result (memory, pairs, thread), with the agreement invariant. -/
 def RLe (O : List Ts) (ra rt : Memory × List Ts × TTh) : Prop :=
@@ -1326,21 +1361,28 @@ macro "pick" : tactic =>
   `(tactic| simp only [ol, Option.pure_def, Option.bind_eq_bind, Option.bind_some, Option.map_some,
       Option.toList_some, List.mem_singleton, exists_eq_left])
 
-theorem tstep_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool)
+/-- Related word lists carry the same values. -/
+theorem wsle_vals : ∀ {wa wt : List Word}, WsLe wa wt → wa.map (·.val) = wt.map (·.val)
+  | [], [], _ => rfl
+  | _ :: _, _ :: _, ⟨hx, hw⟩ => by simp only [List.map_cons, hx.val, wsle_vals hw]
+  | [], _ :: _, h => h.elim
+  | _ :: _, [], h => h.elim
+
+theorem tstep_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool) {ty : AllocLabel → Option (Ty × Bool)}
     {ma mt : Memory} (pairs : List Ts) {ta tt : TTh}
     (h : StLe O (stOf ma pairs ta) (stOf mt pairs tt)) (ht : TThLe ta tt)
-    {r : Memory × List Ts × TTh} (hin : r ∈ tstep ⟨p, k, .tso, n, i, lbase, bf, fun _ => False, fun _ => True⟩ mt pairs tt) :
-    ∃ ra ∈ tstep ⟨p, k, .arm, n, i, lbase, bf, fun _ => False, fun _ => True⟩ ma pairs ta, RLe O ra r := by
-  obtain ⟨term, ea, σs, stka, vsa, pr, na, ua, tla, pma⟩ := ta
-  obtain ⟨term', et, σs', stkt, vst, pr', nt, ut, tlt, pmt⟩ := tt
-  obtain ⟨hterm, he, hσ, hstk, hvs, hpr, hna, hua, hpm⟩ := ht
-  simp only at hterm hσ hpr hna hua he hstk hvs hpm
-  subst hterm hσ hpr hna hua
+    {r : Memory × List Ts × TTh} (hin : r ∈ tstep ⟨p, k, .tso, n, i, lbase, bf, fun _ => False, fun _ => True, ty⟩ mt pairs tt) :
+    ∃ ra ∈ tstep ⟨p, k, .arm, n, i, lbase, bf, fun _ => False, fun _ => True, ty⟩ ma pairs ta, RLe O ra r := by
+  obtain ⟨term, ea, σs, stka, vsa, pr, na, ua, tla, pma, tya⟩ := ta
+  obtain ⟨term', et, σs', stkt, vst, pr', nt, ut, tlt, pmt, tyt⟩ := tt
+  obtain ⟨hterm, he, hσ, hstk, hvs, hpr, hna, hua, hpm, hty⟩ := ht
+  simp only at hterm hσ hpr hna hua he hstk hvs hpm hty
+  subst hterm hσ hpr hna hua hty
   have same : ∀ {e : Expr} {ea' et' : Env} {σs'' : List Ty} {fa ft : List Frame},
       EnvLe ea' et' → StackLe fa ft →
-      RLe O (ma, pairs, ⟨e, ea', σs'', fa, vsa, pr, na, ua, tla, pma⟩)
-        (mt, pairs, ⟨e, et', σs'', ft, vst, pr, na, ua, tlt, pmt⟩) :=
-    fun hE hS => ⟨h.mem, rfl, ⟨rfl, hE, rfl, hS, hvs, rfl, rfl, rfl, hpm⟩, h.agree, h.other⟩
+      RLe O (ma, pairs, ⟨e, ea', σs'', fa, vsa, pr, na, ua, tla, pma, tya⟩)
+        (mt, pairs, ⟨e, et', σs'', ft, vst, pr, na, ua, tlt, pmt, tya⟩) :=
+    fun hE hS => ⟨h.mem, rfl, ⟨rfl, hE, rfl, hS, hvs, rfl, rfl, rfl, hpm, rfl⟩, h.agree, h.other⟩
   cases term with
   | let_ x op e =>
       cases op
@@ -1351,7 +1393,7 @@ theorem tstep_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool)
         simp at hin; subst hin
         pick
         exact ⟨h.mem, rfl, ⟨rfl, ⟨rfl, rfl, hw, trivial⟩, rfl, ⟨⟨rfl, rfl, he, rfl, rfl⟩, hstk⟩, hvs,
-          rfl, rfl, rfl, hpm⟩, h.agree, h.other⟩
+          rfl, rfl, rfl, hpm, rfl⟩, h.agree, h.other⟩
       case callc f a =>
         simp only [tstep] at hin ⊢
         ev f => tf wt wa hw
@@ -1366,15 +1408,20 @@ theorem tstep_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool)
         simp at hin; subst hin
         pick
         exact ⟨h.mem, rfl, ⟨rfl, ⟨rfl, rfl, hu, trivial⟩, rfl, ⟨⟨rfl, rfl, he, rfl, rfl⟩, hstk⟩, hvs,
-          rfl, rfl, rfl, hpm⟩, h.agree, h.other⟩
+          rfl, rfl, rfl, hpm, rfl⟩, h.agree, h.other⟩
       all_goals
         simp only [tstep, List.mem_map] at hin ⊢
         obtain ⟨⟨s', t, ws⟩, hev, rfl⟩ := hin
         obtain ⟨⟨sa', ta', wa'⟩, hev', hs, htt, hws⟩ := evalOp_sim p k n i lbase bf he σs h _ hev
         refine ⟨_, ⟨(sa', ta', wa'), hev', rfl⟩, ?_⟩
         simp only at htt; subst htt
-        exact ⟨hs.mem, hs.pairs, ⟨rfl, ⟨rfl, rfl, hws, he⟩, rfl, hstk, hs.vs, hs.promises, hs.nalloc,
-          hs.undefs, hpm⟩, hs.agree, hs.other⟩
+        first
+          | exact ⟨hs.mem, hs.pairs, ⟨rfl, ⟨rfl, rfl, hws, he⟩, rfl, hstk, hs.vs, hs.promises, hs.nalloc,
+          hs.undefs, hpm, rfl⟩, hs.agree, hs.other⟩
+          | (rw [wsle_vals hws]
+             generalize List.map (fun x => x.val) ws = v
+             split <;> exact ⟨hs.mem, hs.pairs, ⟨rfl, ⟨rfl, rfl, hws, he⟩, rfl, hstk, hs.vs, hs.promises, hs.nalloc,
+               hs.undefs, hpm, rfl⟩, hs.agree, hs.other⟩)
   | split a x y e =>
       simp only [tstep] at hin ⊢
       ev a => t wt wa hw
@@ -1407,12 +1454,12 @@ theorem tstep_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool)
       all_goals first
         | (simp at hin; subst hin; pick
            exact ⟨hs.mem, hs.pairs, ⟨rfl, ⟨rfl, rfl, trivial, ⟨rfl, rfl, hw, he⟩⟩, rfl, hstk, hs.vs, hs.promises,
-             hs.nalloc, hs.undefs, hpm⟩, hs.agree, hs.other⟩)
+             hs.nalloc, hs.undefs, hpm, rfl⟩, hs.agree, hs.other⟩)
         | (rename_i t' ψ
            cases t' <;> try (simp at hin; done)
            simp at hin; subst hin; pick
            exact ⟨hs.mem, hs.pairs, ⟨rfl, ⟨rfl, rfl, trivial, ⟨rfl, rfl, hw, he⟩⟩, rfl, hstk, hs.vs, hs.promises,
-             hs.nalloc, hs.undefs, hpm⟩, hs.agree, hs.other⟩)
+             hs.nalloc, hs.undefs, hpm, rfl⟩, hs.agree, hs.other⟩)
   | openPub a w pn cn e =>
       simp only [tstep] at hin ⊢
       ev a => t wt wa hw
@@ -1431,7 +1478,7 @@ theorem tstep_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool)
       obtain ⟨⟨sa2, qa⟩, hij', h2, hq⟩ := injM_sim p k n i lbase bf h1 _ _ hpl hij
       refine ⟨_, ⟨(sa1, ja, pla), hpr', (sa2, qa), hij', rfl⟩, ?_⟩
       exact ⟨h2.mem, h2.pairs, ⟨rfl, ⟨rfl, rfl, hq, he⟩, rfl, hstk, h2.vs, h2.promises, h2.nalloc,
-        h2.undefs, hpm⟩, h2.agree, h2.other⟩
+        h2.undefs, hpm, rfl⟩, h2.agree, h2.other⟩
   | ifnull a e₁ y e₂ =>
       simp only [tstep] at hin ⊢
       ev a => t wt wa hw
@@ -1489,10 +1536,10 @@ theorem tstep_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool)
       simp only [hrd, hcu]
       by_cases hc : ((tt'.regs 1).val == ew.val) = true
       · simp only [hc, ↓reduceIte]
-        exact ⟨hmq, rfl, ⟨rfl, ⟨rfl, rfl, trivial, he⟩, rfl, hstk, htq.vs, htq.promises, rfl, rfl, hpm⟩,
+        exact ⟨hmq, rfl, ⟨rfl, ⟨rfl, rfl, trivial, he⟩, rfl, hstk, htq.vs, htq.promises, rfl, rfl, hpm, rfl⟩,
           hag, hot⟩
       · simp only [hc]
-        exact ⟨hmq, rfl, ⟨rfl, he, rfl, hstk, htq.vs, htq.promises, rfl, rfl, hpm⟩, hag, hot⟩
+        exact ⟨hmq, rfl, ⟨rfl, he, rfl, hstk, htq.vs, htq.promises, rfl, rfl, hpm, rfl⟩, hag, hot⟩
   | casp acq rel w e0 e1 v0 v1 t ok fail =>
       simp only [tstep] at hin ⊢
       ev w => t1 w1 wa1 hw1
@@ -1524,10 +1571,10 @@ theorem tstep_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool)
       simp only [hrd0, hrd1, hcu]
       by_cases hc : ((tt'.regs 1).val == x0.val && (tt'.regs 2).val == x1.val) = true
       · simp only [hc, ↓reduceIte]
-        exact ⟨hmq, rfl, ⟨rfl, ⟨rfl, rfl, trivial, he⟩, rfl, hstk, htq.vs, htq.promises, rfl, rfl, hpm⟩,
+        exact ⟨hmq, rfl, ⟨rfl, ⟨rfl, rfl, trivial, he⟩, rfl, hstk, htq.vs, htq.promises, rfl, rfl, hpm, rfl⟩,
           hag, hot⟩
       · simp only [hc]
-        exact ⟨hmq, rfl, ⟨rfl, he, rfl, hstk, htq.vs, htq.promises, rfl, rfl, hpm⟩, hag, hot⟩
+        exact ⟨hmq, rfl, ⟨rfl, he, rfl, hstk, htq.vs, htq.promises, rfl, rfl, hpm, rfl⟩, hag, hot⟩
   | ret a =>
       simp only [tstep] at hin ⊢
       rcases stkt with _ | ⟨ft, rt'⟩
@@ -1568,7 +1615,7 @@ theorem StackLe.refl : ∀ s : List Frame, StackLe s s
   | f :: s => ⟨⟨rfl, rfl, EnvLe.refl f.env, rfl, rfl⟩, StackLe.refl s⟩
 
 theorem TThLe.refl (t : TTh) : TThLe t t :=
-  ⟨rfl, EnvLe.refl _, rfl, StackLe.refl _, Promises.VLe.refl _, rfl, rfl, rfl, PermLe.refl _⟩
+  ⟨rfl, EnvLe.refl _, rfl, StackLe.refl _, Promises.VLe.refl _, rfl, rfl, rfl, PermLe.refl _, rfl⟩
 
 /-- Threads pairwise `TThLe`, with the same `ThreadId` box label (the extern moves agree). -/
 def ThsLe (A B : Array TTh) : Prop :=
@@ -1634,6 +1681,20 @@ theorem allP_set {c c' : Cfg} {i : Nat} {th : TTh} (hc : c'.ths = c.ths.set! i t
   · subst hx; exact Or.inl htx
 
 /-- Configurations: ARM on the left, TSO on the right. -/
+theorem tysOf_congr {ca ct : Cfg} (h : ThsLe ca.ths ct.ths) : tysOf ca = tysOf ct := by
+  have hm : ca.ths.toList.map TTh.tys = ct.ths.toList.map TTh.tys := by
+    apply List.ext_getElem
+    · simp [h.1]
+    · intro n h1 h2
+      simp only [List.getElem_map, Array.getElem_toList]
+      have h1' : n < ca.ths.size := by simpa using h1
+      have h2' : n < ct.ths.size := by simpa using h2
+      exact (h.2 n _ _ (Array.getElem?_eq_getElem h1') (Array.getElem?_eq_getElem h2')).1.tys
+  funext l
+  have e : ∀ d : Cfg, tysOf d l = (d.ths.toList.map TTh.tys).findSome? (fun ts => (ts.find? (·.1 == l)).map (·.2)) := by
+    intro d; simp only [tysOf, List.findSome?_map]; rfl
+  rw [e, e, hm]
+
 structure CfgLe (ca ct : Cfg) : Prop where
   mem      : MemLe ca.mem ct.mem
   pairs    : ca.pairs = ct.pairs
@@ -1662,7 +1723,7 @@ theorem threadSteps_sim (p : Prog) (k : Promises.Knobs) {ca ct c' : Cfg} (h : Cf
     ⟨h.mem, rfl, hta.vs, hta.promises, hta.nalloc, hta.undefs,
      fun t ht => h.agree t (mem_allP hb ht), h.agree⟩
   simp only [gOf] at hr ⊢
-  rw [show ca.n = ct.n by simp only [Cfg.n, h.ths.1, h.cap], h.lbase, h.boxFence, h.pairs]
+  rw [show ca.n = ct.n by simp only [Cfg.n, h.ths.1, h.cap], h.lbase, h.boxFence, h.pairs, tysOf_congr h.ths]
   obtain ⟨⟨ma', pa', ta'⟩, hra, hR⟩ := tstep_sim p k ct.n i ct.lbase ct.boxFence ct.pairs hs hta hr
   obtain ⟨hm, hp, ht', hag1, hag2⟩ := hR
   refine ⟨_, ⟨(ma', pa', ta'), hra, rfl⟩, ?_⟩
@@ -1684,7 +1745,7 @@ theorem promise_sim {ca ct : Cfg} (h : CfgLe ca ct) (i : Nat) (a : Address) (v :
   refine ⟨Promises.Sim.MemLe.push h.mem rfl rfl (Nat.le_refl _), h.pairs, thsLe_set h.ths i ?_ htl,
     h.lbase, h.boxFence, ?_, h.cap, h.trace⟩
   · exact ⟨hta.term, hta.env, hta.σs, hta.stack, hta.vs, by simp [hta.promises, hsz],
-      hta.nalloc, hta.undefs, hta.permit⟩
+      hta.nalloc, hta.undefs, hta.permit, hta.tys⟩
   · intro t ht
     rcases allP_set (c := ct) (i := i) rfl ht with ht | ht
     · rcases List.mem_append.mp ht with ht | ht
@@ -1736,7 +1797,7 @@ theorem resultsL_congr (n : ExtName) (i : Nat) {wa wt : List Word} (hw : WsLe wa
 
 /-- **`extCfg` simulates, for every call**: the same binding (the results `rs`), and
 traces that grow alike (`events_congr`).  Shared by `extSteps_sim` (certificates) and
-`TermArchE.Ext_sim` (the `Ext` step, whose `ExtNeedsNoProm` calls `extSteps` excludes). -/
+`TermArchE.Ext_sim` (the `Ext` step, whose `ExtNeedsNoProm` calls (`exitEv`, `emit`, a boxless `current()`, a device choice) `extSteps` excludes). -/
 theorem extCfg_sim {ca ct : Cfg} (h : CfgLe ca ct) {i : Nat} {ta tt : TTh} (hb : ct.ths[i]? = some tt)
     (hta : TThLe ta tt) (htl : ta.tidLbl = tt.tidLbl) (x : String) (n : ExtName) (e : Expr)
     {wa wt : List Word} (hw : WsLe wa wt) (rs : List Word) :
@@ -1757,19 +1818,19 @@ theorem extCfg_sim {ca ct : Cfg} (h : CfgLe ca ct) {i : Nat} {ta tt : TTh} (hb :
           simp only [extCfg, curCfg, hl, hla]
           exact ⟨h.mem, h.pairs, thsLe_set h.ths i
             ⟨rfl, ⟨rfl, rfl, WsLe.refl _, hta.env⟩, hta.σs, hta.stack, hta.vs, hta.promises, hta.nalloc,
-              hta.undefs, hta.permit⟩ rfl, h.lbase, h.boxFence, hagree _ rfl, h.cap, h.trace⟩
+              hta.undefs, hta.permit, hta.tys⟩ rfl, h.lbase, h.boxFence, hagree _ rfl, h.cap, h.trace⟩
       | none =>
           have hla : ta.tidLbl = none := htl.trans hl
           simp only [extCfg, curCfg, hl, hla, h.lbase, hn, hta.nalloc]
           exact ⟨h.mem, h.pairs, thsLe_set h.ths i
             ⟨rfl, ⟨rfl, rfl, WsLe.refl _, hta.env⟩, hta.σs, hta.stack, hta.vs, hta.promises, rfl,
-              hta.undefs, hta.permit⟩ rfl, rfl, h.boxFence, hagree _ rfl, h.cap, h.trace⟩
+              hta.undefs, hta.permit, hta.tys⟩ rfl, rfl, h.boxFence, hagree _ rfl, h.cap, h.trace⟩
   all_goals
     refine ⟨h.mem, h.pairs, thsLe_set h.ths i
         ⟨rfl, ⟨rfl, rfl, WsLe.refl _, hta.env⟩, hta.σs, hta.stack,
           by dsimp only; first | exact hta.vs | exact parkVs_le h.mem.1 hta.vs hta.permit | exact parkVs_le_if h.mem.1 hta.vs hta.permit _,
           hta.promises, hta.nalloc, hta.undefs,
-          by dsimp only; first | exact hta.permit | exact .none | exact permLe_park hta.permit _⟩ htl, h.lbase, h.boxFence, hagree _ rfl, h.cap, ?_⟩
+          by dsimp only; first | exact hta.permit | exact .none | exact permLe_park hta.permit _, hta.tys⟩ htl, h.lbase, h.boxFence, hagree _ rfl, h.cap, ?_⟩
     show ca.trace ++ _ = ct.trace ++ _
     rw [h.trace, events_congr _ hw]
 
@@ -1802,7 +1863,7 @@ theorem setPermit_sim {ca ct : Cfg} (h : CfgLe ca ct) (j : Nat) {va vt : Ts} (hv
     refine ⟨h.mem, h.pairs, thsLe_set h.ths j
       ⟨hta.term, hta.env, hta.σs, hta.stack, hta.vs, hta.promises, hta.nalloc, hta.undefs,
         .some (Nat.max_le.2 ⟨Nat.le_trans hta.permit.getD (Nat.le_max_left _ _),
-          Nat.le_trans hv (Nat.le_max_right _ _)⟩)⟩ htl,
+          Nat.le_trans hv (Nat.le_max_right _ _)⟩), hta.tys⟩ htl,
       h.lbase, h.boxFence, fun t ht => ?_, h.cap, h.trace⟩
     rcases allP_set (c := ct) (i := j) (th := { tt with permit := some (max (tt.permit.getD 0) vt) }) rfl ht
       with ht | ht

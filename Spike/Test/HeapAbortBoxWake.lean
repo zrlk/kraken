@@ -18,7 +18,7 @@ open Spike.Lib.WakeT1 (wakeSrc)
 
 /-- `main`'s body in `wakeSrc` is `let z = zero[Int] in mZ`, `mZ` the box allocation. -/
 theorem main_box : (wakeSrc.find? (·.name == "main")).map (·.body) = some (.let_ "z" (.zero .int) mZ) ∧
-    mZ = .let_ "o" (.new (.var "z")) mO := ⟨main_find, rfl⟩
+    mZ = .let_ "o" (.new (.var "z") (some .int)) mO := ⟨main_find, rfl⟩
 
 /-- `zero[Int]` (no type arguments) binds the word `0` at `Int`, in one step. -/
 theorem zero_int (g : G) (env : Env) (s : St) : evalOp g env [] s (.zero .int) = [(s, .int, [cst (.num 0)])] := by
@@ -29,6 +29,6 @@ theorem zero_int (g : G) (env : Env) (s : St) : evalOp g env [] s (.zero .int) =
 overflowing heap use. -/
 theorem mZ_heapReadyBox {cells old : Nat} {env : Env} {h : Option (Nat × Word)} (hle : old ≤ cells)
     (hlt : cells < old + 2) : HeapReadyBox cells old ⟨mZ, ("z", .int, [cst (.num 0)]) :: env, h⟩ :=
-  ⟨"o", .var "z", mO, .int, cst (.num 0), rfl, by simp [evalAt, lookupE], rfl, hle, hlt⟩
+  ⟨"o", .var "z", mO, .int, cst (.num 0), ⟨_, rfl⟩, by simp [evalAt, lookupE], rfl, hle, hlt⟩
 
 end Spike.Test.HeapAbortBoxWake

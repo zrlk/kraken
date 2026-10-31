@@ -10,8 +10,10 @@ for `.ext`); its only move is `Ext`, a configuration step **beside** `Step` and 
   and `n.events ws` (`emit`: one byte; `exitEv`: the exit code) is appended to `trace`.  Memory, pairs,
   views, promises, allocations and the thread count are unchanged; no fence; nothing is read from memory.
 * `Ext`: enabled iff the argument evaluates and thread `i` is certified afterwards; the calls of
-  `ExtNeedsNoProm` (`exitEv`, `current()`) also need an empty promise set. The I/O step itself is never
-  promised; stores after it may be (a certificate takes the same move, `Solo.ext`/`extSteps`).
+  `ExtNeedsNoProm` (`exitEv`, `emit`, a boxless `current()`, a device choice) also need an empty promise
+  set, and a certificate never takes them (`extSteps` stops there), so no promise spans an `exitEv`, `emit`,
+  device choice or boxless `current()`. The other calls (`devOut`, `mmioW`, `devWrite`, `park`/`unpark`, a boxed `current()`) may
+  run with promises outstanding and be taken by a certificate (`Solo.ext`/`extSteps`).
 * `StepsE`: runs of machine steps, spawns and extern steps (`StepsG` at `Spawn ∨ Ext`).
 * `Ext.ofNoProm`: with no promises the certificate is the empty run.
 -/
@@ -65,6 +67,123 @@ theorem Ext.ofNoProm {p : Prog} {k : Promises.Knobs} {arch : Arch} {c : Cfg} {i 
     Ext p k arch c (wake (extCfg c i th x n e ws rs) i (relView th.vs) n ws) :=
   .mk i x n a e th rt ws rs hth hterm (fun _ => hnp) hev hrs
     ⟨_, .refl _, by rw [extCfg_noPromises hth, hnp]; rfl⟩
+
+
+/-! ## No reachable thread at an `emit` holds a promise -/
+
+/-- Thread `th` sits at an `emit`. -/
+def AtEmit (th : TTh) : Prop := ∃ x a e, th.term = .let_ x (.ext .emit a) e
+
+/-- A thread at an `emit` has no thread step and no certificate extern move. -/
+theorem atEmit_threadSteps {p : Prog} {k : Promises.Knobs} {arch : Arch} {c : Cfg} {i : Nat} {th : TTh}
+    (hth : c.ths[i]? = some th) (hs : AtEmit th) : threadSteps p k arch c i = [] := by
+  obtain ⟨x, a, e, he⟩ := hs
+  simp [threadSteps, hth, tstep, he, evalOp]
+
+theorem atEmit_extSteps {c : Cfg} {i : Nat} {th : TTh} (hth : c.ths[i]? = some th) (hs : AtEmit th) :
+    extSteps c i = [] := by
+  obtain ⟨x, a, e, he⟩ := hs
+  simp [extSteps, hth, he, ExtNeedsNoProm]
+
+/-- **A certified thread at an `emit` has no promises.** -/
+theorem cert_emit {p : Prog} {k : Promises.Knobs} {arch : Arch} {c : Cfg} {i : Nat} {th : TTh}
+    (hth : c.ths[i]? = some th) (hs : AtEmit th) (hc : Certified p k arch c i) : th.promises = [] :=
+  cert_stuck (Q := AtEmit) (fun _ _ h => h) (fun _ h _ _ hth => atEmit_threadSteps hth h)
+    (fun _ h _ _ hth => atEmit_extSteps hth h) hth hs hc
+
+/-- A permit changes no thread's term or promises. -/
+theorem setPermit_termProm (c : Cfg) (j : Nat) (v : Ts) (l : Nat) :
+    (setPermit c j v).ths[l]?.map (fun t => (t.term, t.promises)) = c.ths[l]?.map (fun t => (t.term, t.promises)) := by
+  unfold setPermit
+  split
+  · next th h =>
+    by_cases hl : l = j
+    · subst hl
+      have hi : l < c.ths.size := by
+        rcases Nat.lt_or_ge l c.ths.size with h' | h'
+        · exact h'
+        · simp [Array.getElem?_eq_none h'] at h
+      have h2 : c.ths[l] = th := by simpa [Array.getElem?_eq_getElem hi] using h
+      simp [Array.set!, hi, h2]
+    · simp [Array.set!, Ne.symm hl]
+  · rfl
+
+/-- The wake changes no thread's term or promises. -/
+theorem wake_termProm (c : Cfg) (i : Nat) (v : Ts) (n : ExtName) (ws : List Word) (j : Nat) :
+    (wake c i v n ws).ths[j]?.map (fun t => (t.term, t.promises)) = c.ths[j]?.map (fun t => (t.term, t.promises)) := by
+  unfold wake
+  split
+  · split
+    · exact setPermit_termProm ..
+    · rfl
+  · rfl
+
+/-- The run invariant: every thread at an `emit` has no promises. -/
+def EmitNoProm (c : Cfg) : Prop := ∀ (i : Nat) (th : TTh), c.ths[i]? = some th → AtEmit th → th.promises = []
+
+theorem emitNoProm_step {p : Prog} {k : Promises.Knobs} {arch : Arch} {c c' : Cfg}
+    (h : Step p k arch c c') (h0 : EmitNoProm c) : EmitNoProm c' := by
+  intro j th hth hs
+  cases h with
+  | thread i hc hcert =>
+      by_cases hj : j = i
+      · subst hj; exact cert_emit hth hs hcert
+      · rw [threadSteps_ths_ne hc hj] at hth; exact h0 j th hth hs
+  | prom i a v w _ _ hcert =>
+      by_cases hj : j = i
+      · subst hj; exact cert_emit hth hs hcert
+      · rw [promise_ths_ne a v w hj] at hth; exact h0 j th hth hs
+
+theorem emitNoProm_spawn {p : Prog} {k : Promises.Knobs} {arch : Arch} {cap : Nat} {c c' : Cfg}
+    (h : Spawn p k arch cap c c') (h0 : EmitNoProm c) : EmitNoProm c' := by
+  intro j th' hth hs
+  cases h with
+  | mk i x f a T ts e th rt ws h1 _ h3 _ _ =>
+      have hi : i < c.ths.size := by
+        rcases Nat.lt_or_ge i c.ths.size with h | h
+        · exact h
+        · simp [Array.getElem?_eq_none h] at h1
+      simp only [spawnCfg, spawnT, Array.getElem?_push, Array.set!, Array.getElem?_setIfInBounds] at hth
+      split at hth
+      · cases hth; rfl
+      · split at hth
+        · cases hth; simpa [spawnPar, spawnS, withS, fenceS, stOf] using h3
+        · exact h0 j th' (by simpa using hth) hs
+
+theorem emitNoProm_ext {p : Prog} {k : Promises.Knobs} {arch : Arch} {c c' : Cfg}
+    (h : Ext p k arch c c') (h0 : EmitNoProm c) : EmitNoProm c' := by
+  intro j th' hth hs
+  obtain ⟨i, x, n, a, e, th, rt, ws, rs, h1, -, -, -, -, hcert, rfl⟩ := h.elim
+  have hw := wake_termProm (extCfg c i th x n e ws rs) i (relView th.vs) n ws j
+  rw [hth] at hw
+  cases h2 : (extCfg c i th x n e ws rs).ths[j]? with
+  | none => rw [h2] at hw; cases hw
+  | some th0 =>
+    rw [h2] at hw
+    simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at hw
+    obtain ⟨ht, hp⟩ := hw
+    have hs0 : AtEmit th0 := by obtain ⟨y, b, e', he⟩ := hs; exact ⟨y, b, e', ht ▸ he⟩
+    rw [hp]
+    by_cases hj : j = i
+    · subst hj; exact cert_emit h2 hs0 hcert
+    · have h3 : (extCfg c i th x n e ws rs).ths[j]? = c.ths[j]? := by
+        unfold extCfg curCfg; split <;> (try split) <;> simp [Array.set!, Ne.symm hj]
+      rw [h3] at h2; exact h0 j th0 h2 hs0
+
+/-- **No reachable thread sits at an `emit` with a promise outstanding.** A thread reaches
+`let x = ext .emit a in e` only by its own step, which leaves it certified; at an `emit` the certificate
+has no extern move (`extSteps` stops at `ExtNeedsNoProm`) and no thread move (`evalOp (.ext ..)` = []),
+so it can only add promises: it discharges none, and the set was already empty. Other threads' steps and
+spawns never touch thread `i`'s promises, and a spawned thread starts with none. -/
+theorem emit_promFree {p : Prog} {k : Promises.Knobs} {arch : Arch} {cap : Nat} {c0 c : Cfg}
+    (h0 : ∀ (i : Nat) (th : TTh), c0.ths[i]? = some th → th.promises = []) (hr : StepsE p k arch cap c0 c) :
+    ∀ (i : Nat) (th : TTh) (x : String) (a : At) (e : Expr), c.ths[i]? = some th →
+      th.term = .let_ x (.ext .emit a) e → th.promises = [] := by
+  intro i th x a e hth he
+  have h : EmitNoProm c :=
+    stepsG_pres (P := EmitNoProm) (fun _ _ h => emitNoProm_step h)
+      (fun _ _ h => h.elim (emitNoProm_spawn ·) (emitNoProm_ext ·)) hr (fun j t ht _ => h0 j t ht)
+  exact h i th hth ⟨x, a, e, he⟩
 
 /-! ## What the step leaves alone -/
 
@@ -214,6 +333,7 @@ end TermExtStep
 #print axioms TermExtStep.Ext.elim
 #print axioms TermExtStep.extCfg_noPromises
 #print axioms TermExtStep.Ext.ofNoProm
+#print axioms TermExtStep.emit_promFree
 #print axioms TermExtStep.extCfg_mem
 #print axioms TermExtStep.extCfg_pairs
 #print axioms TermExtStep.extCfg_cap

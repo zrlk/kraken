@@ -373,10 +373,10 @@ def atVars : CoreTerm.At → List String
 
 /-- The atoms an operation reads. -/
 def opAts : CoreTerm.Op → List CoreTerm.At
-  | .atom a | .inl _ a | .inr _ a | .new a | .fold a _ | .publish a | .intoRgn _ a | .newBuf a _
+  | .atom a | .inl _ a | .inr _ a | .new a _ | .fold a _ | .publish a | .intoRgn _ a | .newBuf a _
   | .fld _ a | .load _ a | .pack a _ _ | .packT a _ _ | .call _ _ a _ | .borrow _ a | .endBorrow a
   | .nameI a | .bit1 _ a | .freeze a | .cvt _ _ a | .toInt a | .asLanes _ _ a | .fop1 _ a
-  | .ldp _ a _ _ | .spawn _ a _ _ | .ext _ a => [a]
+  | .ldp _ a _ _ | .spawn _ a _ _ | .ext _ a | .isTy a _ => [a]
   | .pair a b | .add a b | .sub a b | .idx a b | .xchg a b | .callc a b | .rem a b | .loadAt a b
   | .bits _ a b | .band a b | .loadAtF a b _ | .fop _ a b | .fcmp _ a b | .lane a b | .ldl a b
   | .mkWord _ _ a b | .claim a b | .fetch _ _ _ a b | .mkEPair _ _ a b | .mkTicket _ _ _ a b => [a, b]

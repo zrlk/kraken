@@ -1,0 +1,9 @@
+CoreTerm.Decl : Type
+CoreTerm.Decl.name : CoreTerm.Decl → String
+CoreTerm.Prog : Type
+CoreTerm.RestrictedProg : CoreTerm.Prog → Prop
+  := fun p =>
+  (List.map (fun x => x.name) p).Nodup ∧
+    ∀ (d : CoreTerm.Decl), d ∈ p → CoreTerm.restrictedDeclOK p d = true ∧ CoreTerm.loopCallsOK p d = true
+CoreTerm.loopCallsOK : CoreTerm.Prog → CoreTerm.Decl → Bool
+CoreTerm.restrictedDeclOK : CoreTerm.Prog → CoreTerm.Decl → Bool

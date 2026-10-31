@@ -51,8 +51,9 @@ def traceOf (c : TermRun.Cfg) : List Ev := c.trace.filterMap evOf
 
 /-- **WeakCore's extern step taken by thread `i`**, in program `p` at knobs `k` and memory
 model `arch`: the premises of `TermExtStep.Ext.mk` with the thread exposed. Thread `i` is at
-`let x = ext n a in e`; if `n` needs an empty promise set (`exitEv`, `current`) it has
-none; `a` evaluates to the words `ws`; the configuration after the step (`extCfg`: bind
+`let x = ext n a in e`; if `n` needs an empty promise set (`exitEv`, `emit`, a boxless
+`current`, a device choice) it has none; `a` evaluates to the words `ws`; the
+configuration after the step (`extCfg`: bind
 the result `rs` that `n` admits, append the events of `n` to the trace) certifies thread
 `i`; and `c'` is that configuration after the threads `n` wakes (`wake`). -/
 def ExtBy (p : Prog) (k : Promises.Knobs) (arch : WeakMem.Arch) (i : Nat) (c c' : TermRun.Cfg) : Prop :=

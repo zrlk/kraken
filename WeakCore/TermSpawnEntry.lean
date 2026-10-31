@@ -63,7 +63,7 @@ theorem entryR_of {p : Prog} {Eg : GEnv} {i : Nat} {S : AllocLabel → Prop} {th
       fun k hk _ => absurd hk (Nat.not_lt_zero _)⟩
   refine ⟨⟨fun _ => 0, Cut Eg i S, { vars := [("a", t, true)], ret := r }, Tot, .zero, rfl, hE, hT, htv,
     ⟨finv_entry (fun _ _ => trivial) henv hσ hv hlay, ?_, ?_⟩, Res.add_zero _,
-    fun f rest h => by rw [hstk] at h; cases h⟩,
+    (fun f rest h => by rw [hstk] at h; cases h), by rw [hterm, hσ]; exact dyFr_tail annNew (progTgts p) p _ f _ ts⟩,
     ⟨fun _ => 0, Cut Eg i S, { vars := [("a", t, true)], ret := r }, rfl, hE, hT.1, htv, ?_⟩⟩
   · rw [hstk]; intro _ _ _ _ _ _; rfl
   · refine HeldOK_mono (Rf := .zero) ⟨by simp, by simp, fun y h => by simp at h, fun _ => .zero, fun x e hx _ => ?_, ?_⟩
@@ -72,6 +72,7 @@ theorem entryR_of {p : Prog} {Eg : GEnv} {i : Nat} {S : AllocLabel → Prop} {th
       exact ⟨t, ws, by rw [henv]; simp [lookupE], hv⟩
     · simp only [TermSound.Holds, List.filter, Bool.true_or, List.map, Res.sum_cons, Res.sum_nil, Res.add_zero]
       exact Res.le_refl _
-  · rw [hstk]; exact ⟨finv_entry (fun _ _ => trivial) henv hσ hv hlay, fun _ _ h => by cases h⟩
+  · rw [hstk]; exact ⟨finv_entry (fun _ _ => trivial) henv hσ hv hlay, (fun _ _ h => by cases h),
+    by rw [hterm, hσ]; exact dyFr_tail annNew (progTgts p) p _ f _ ts⟩
 
 end TermSpawn

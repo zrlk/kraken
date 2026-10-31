@@ -72,7 +72,7 @@ theorem tstepMR_region1 {a : At} {rn pn tn : String} {e : Expr}
       NoHold (CE η) (stOf mem pairs th) ad.label)
     (hfo : FpOK (CE η) (stOf mem pairs th)) (hRP : RetPw th.σs th.stack cx.ret) (hPS : PwSkel)
     (hrl : RgnLe1 th Rf Rs H)
-    (hPb : ∀ rt ws ad, evalAt th.env a = some (rt, ws) → ws.map (·.val) = [.loc ad 0] → g.pf ad.label) :
+    (hPb : ∀ rt ws ad, evalAt th.env a = some (rt, ws) → ws.map (·.val) = [.loc ad 0] → g.pf ad.label) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
     tstep g mem pairs th ≠ [] ∧ ∀ r ∈ tstep g mem pairs th, PromAbove (stOf r.1 r.2.1 r.2.2) →
       ∃ Tot H' cr' db' rt ws, evalAt th.env a = some (rt, ws) ∧
         ThInvMCFS p g (CE η) (stOf mem pairs th) Sp r.1 r.2.1 r.2.2 Tot H' cr' db' ∧
@@ -124,7 +124,7 @@ theorem tstepMR_region1 {a : At} {rn pn tn : String} {e : Expr}
       exact ⟨_, H, cr, db, _, ws, rfl, ⟨CE η, EFoot_refl, (by seenT), (by boxT),
         ⟨_, bumpR η, c, _, Rs, CE_bumpR η, ⟨hE.1, hxb.1, hxb.2.2.2.2.2.2.2.2.2.2.1⟩, hc.ext hxb, hvc,
           FInvR_ext hE.2.1 hE.2.2 hxb (by simpa [withS] using hf), rfl,
-          retPw_skel hPS hRP (skel_subst_eq hk th.σs 0 0 0)⟩, MemInv_fence hm,
+          retPw_skel hPS hRP (skel_subst_eq hk th.σs 0 0 0), hDy.sameW (fun _ => by rw [hterm]; rfl) rfl⟩, MemInv_fence hm,
         MemHeldK_eqs hH rfl rfl, PromCr_keep hC rfl (MemInv_promLt hm) (fun _ _ => rfl) (fun _ _ _ _ => rfl)⟩, hb⟩
     · obtain rfl := Fd_nonmu hFU (fun b => by simp [cl])
       have hown : c0.owner = some η.tid := hmode
@@ -136,7 +136,7 @@ theorem tstepMR_region1 {a : At} {rn pn tn : String} {e : Expr}
         (hTb _ (ownW_own_loc hws)) (hF0 _) (hrl.1 _ _ _ _ _ hterm _ _ ad 0 hea hws) (by subst hr; rfl)
         (fun hE' hx => by subst hr; exact ⟨_, _, c, _, Rs, rfl, hE', hc.ext hx, hvc,
           FInvR_ext hE.2.1 hE.2.2 hx (by simpa [withS] using hf), rfl,
-          retPw_skel hPS hRP (skel_subst_eq hk th.σs 0 0 0)⟩)
+          retPw_skel hPS hRP (skel_subst_eq hk th.σs 0 0 0), hDy.sameW (fun _ => by rw [hterm]; rfl) rfl⟩)
       subst hr
       refine ⟨_, H', cr', db', _, ws, rfl, hI, ?_⟩
       rw [ownW_own_loc hws]
@@ -165,7 +165,7 @@ theorem tstepMR_region1 {a : At} {rn pn tn : String} {e : Expr}
       (hTb _ (ownW_own_loc hwsv)) (hF0 _) (hrl.1 _ _ _ _ _ hterm _ _ ⟨lab, 0⟩ 0 hea hwsv) (by subst hr; rfl)
       (fun hE' hx => by subst hr; exact ⟨_, _, c, _, Rs, rfl, hE', hc.ext hx, hvc,
         FInvR_ext hE.2.1 hE.2.2 hx (by simpa [withS] using hf), rfl,
-        retPw_skel hPS hRP (skel_subst_eq hk th.σs 0 0 0)⟩)
+        retPw_skel hPS hRP (skel_subst_eq hk th.σs 0 0 0), hDy.sameW (fun _ => by rw [hterm]; rfl) rfl⟩)
     subst hr
     refine ⟨_, H', cr', db', _, [pw], rfl, hI, ?_⟩
     rw [ownW_own_loc hwsv]
@@ -190,7 +190,7 @@ theorem tstepMR_intoRgn1 {x rn : String} {a : At} {e : Expr}
       NoHold (CE η) (stOf mem pairs th) ad.label)
     (hfo : FpOK (CE η) (stOf mem pairs th)) (hRP : RetPw th.σs th.stack cx.ret) (hPS : PwSkel)
     (hrl : RgnLe1 th Rf Rs H)
-    (hPb : ∀ rt ws ad, evalAt th.env a = some (rt, ws) → ws.map (·.val) = [.loc ad 0] → g.pf ad.label) :
+    (hPb : ∀ rt ws ad, evalAt th.env a = some (rt, ws) → ws.map (·.val) = [.loc ad 0] → g.pf ad.label) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
     tstep g mem pairs th ≠ [] ∧ ∀ r ∈ tstep g mem pairs th, PromAbove (stOf r.1 r.2.1 r.2.2) →
       ∃ Tot H' cr' db' rt ws, evalAt th.env a = some (rt, ws) ∧
         (∀ ad g', ws.map (·.val) = [.loc ad g'] → η.sto ad.label ≠ none) ∧
@@ -246,7 +246,7 @@ theorem tstepMR_intoRgn1 {x rn : String} {a : At} {e : Expr}
           simp only [Res.add_apply] at h1 h3 ⊢; omega
       exact ⟨Rr + Rs, H, cr, db, _, wsb, hea, (fun ad' g' h => by rw [hnull] at h; cases h),
         ⟨CE η, EFoot_refl, (by seenT), (by boxT), ⟨ρ, η, c', Rr, Rs, rfl, hE, ⟨he, hck⟩, htv', hfr, rfl,
-          retPw_skel hPS hRP (skel_subst_eq hRk th.σs 0 0 0)⟩, MemInv_fence hm,
+          retPw_skel hPS hRP (skel_subst_eq hRk th.σs 0 0 0), hDy.letW hterm rfl⟩, MemInv_fence hm,
         MemHeldK_eqs hH rfl rfl, PromCr_keep hC rfl (MemInv_promLt hm) (fun _ _ => rfl) (fun _ _ _ _ => rfl)⟩, hleT⟩
     · obtain rfl := Fd_nonmu hFU (fun b => by simp [cl])
       have hown : c0.owner = some η.tid := hmode
@@ -267,7 +267,7 @@ theorem tstepMR_intoRgn1 {x rn : String} {a : At} {e : Expr}
           have hfr := bindR hb (FInvR_ext hE.2.1 hE.2.2 hx hi1R) (RLink_of hE'.2.1 hE'.2.2) hvz hl
           rw [Res.add_zero] at hfr
           exact ⟨ρ, _, c', Rr, Rs, rfl, hE', ⟨he, hck⟩, htv', hfr, rfl,
-            retPw_skel hPS hRP (skel_subst_eq hRk th.σs 0 0 0)⟩)
+            retPw_skel hPS hRP (skel_subst_eq hRk th.σs 0 0 0), hDy.letW hterm rfl⟩)
       subst hr'
       refine ⟨Rr + Rs, H', cr', db', _, wsb, hea, (fun ad' g' h => by rw [hws] at h; cases h; simp [hsto]), hI, ?_⟩
       rw [ownW_own_loc hws]
@@ -307,7 +307,7 @@ theorem tstepMR_intoRgn1 {x rn : String} {a : At} {e : Expr}
         have hfr := bindR hb (FInvR_ext hE.2.1 hE.2.2 hx hi1R) (RLink_of hE'.2.1 hE'.2.2) hvz hlay
         rw [Res.add_zero] at hfr
         exact ⟨ρ, _, c', Rr, Rs, rfl, hE', ⟨he, hck⟩, htv', hfr, rfl,
-          retPw_skel hPS hRP (skel_subst_eq hRk th.σs 0 0 0)⟩)
+          retPw_skel hPS hRP (skel_subst_eq hRk th.σs 0 0 0), hDy.letW hterm rfl⟩)
     subst hr'
     refine ⟨Rr + Rs, H', cr', db', _, [pw], hea,
       (fun ad g' h => by simp only [List.map_cons, List.map_nil, hpw] at h; cases h; simp [hsto]), hI, ?_⟩

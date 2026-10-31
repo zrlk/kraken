@@ -1,0 +1,13 @@
+CoreTerm.Decl : Type
+CoreTerm.Decl.kind : CoreTerm.Decl → CoreTerm.DeclKind
+CoreTerm.Decl.name : CoreTerm.Decl → String
+CoreTerm.DeclKind : Type
+CoreTerm.Prog : Type
+CoreTerm.declFuel : CoreTerm.Prog → String → Nat
+  := fun p f =>
+  match List.find? (fun x => x.name == f) p with
+  | some d =>
+    match d.kind with
+    | CoreTerm.DeclKind.restricted fu stack ro loop => fu
+    | x => 0
+  | none => 0

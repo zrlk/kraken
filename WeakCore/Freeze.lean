@@ -66,7 +66,7 @@ def tabIntoRgn (a : String) (k : Expr) : Expr :=
   .unpack (v a) "n" "tp" (.split (v "tp") "cv" "b"
     (.region (v "b") "r" "bb" "t0"
       (lets [("tp2", .pair (v "cv") (v "bb")), ("tb", .pack (v "tp2") "n" (TabR (.var 0))),
-             ("cc", .new (v "tb")), ("d", .intoRgn "r" (v "cc"))] k)))
+             ("cc", .new (v "tb") (some (TabR (.var 0)))), ("d", .intoRgn "r" (v "cc"))] k)))
 
 /-- Build `[10, 20, 30, 40]` — mutably, while it is still own. -/
 def mkTabD : Decl := dcl "mkTab" .int Tab
@@ -79,10 +79,10 @@ def mkTabD : Decl := dcl "mkTab" .int Tab
 for good), publish, pack.  The same code as `mkRW`, with `frzP`, for a `τ`
 with no `own` reference inside. -/
 def freezeD (τ : Ty) : Decl := dcl "freeze" τ (Frozen τ)
-  (lets [("p", .new (v "a"))]
+  (lets [("p", .new (v "a") (some τ))]
     (.region (v "p") "r" "d" "t0"
       (lets [("wv", .mkWord "r" frzP (.lit 0) (v "t0")), ("pr", .pair (v "wv") (v "d")),
-             ("s", .new (v "pr")), ("s2", .publish (v "s")), ("fz", .pack (v "s2") "r" (Frozen τ))]
+             ("s", .new (v "pr") (some (.prod (.word (.var 0) frzP) (.ptr (.rgn (.var 0)) (τ.shiftI 0))))), ("s2", .publish (v "s")), ("fz", .pack (v "s2") "r" (Frozen τ))]
         (.ret (v "fz")))))
 
 /-- Freeze the table: its buffer becomes the region (`tabIntoRgn`), then as
@@ -90,7 +90,7 @@ def freezeD (τ : Ty) : Decl := dcl "freeze" τ (Frozen τ)
 def freezeTabD : Decl := dcl "freeze" Tab FrozenTab
   (tabIntoRgn "a"
     (lets [("wv", .mkWord "r" frzP (.lit 0) (v "t0")), ("pr", .pair (v "wv") (v "d")),
-           ("s", .new (v "pr")), ("s2", .publish (v "s")), ("fz", .pack (v "s2") "r" FrozenTab)]
+           ("s", .new (v "pr") (some (.prod (.word (.var 0) frzP) (.ptr (.rgn (.var 0)) (TabR (.var 0)))))), ("s2", .publish (v "s")), ("fz", .pack (v "s2") "r" FrozenTab)]
       (.ret (v "fz"))))
 
 /-- Take a read share: `0 → 2` or `2k+2 → 2k+4`, with `acq`.  Retry on contention. -/
@@ -228,7 +228,7 @@ def FrzHTab : Ty := .iex (frzBody (TabR (.var 0)))
 
 /-- Freeze: region, `freeze` the fresh token, pack.  No word, no publish. -/
 def freezeCD (τ : Ty) : Decl := dcl "freezeC" τ (FrzH τ)
-  (lets [("p", .new (v "a"))]
+  (lets [("p", .new (v "a") (some τ))]
     (.region (v "p") "r" "d" "t0"
       (lets [("c", .freeze (v "t0")), ("h", .pair (v "c") (v "d")), ("fz", .pack (v "h") "r" (FrzH τ))]
         (.ret (v "fz")))))

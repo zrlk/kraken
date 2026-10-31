@@ -1,0 +1,22 @@
+CoreLang.Ty : Type
+CoreTerm.At : Type
+CoreTerm.Expr : Type
+CoreTerm.Expr.binders : CoreTerm.Expr → List String
+  eq_def ∀ (x : CoreTerm.Expr),
+  x.binders =
+    match x with
+    | CoreTerm.Expr.let_ x op e => x :: e.binders
+    | CoreTerm.Expr.split a x y e => x :: y :: e.binders
+    | CoreTerm.Expr.unpack a i x e => i :: x :: e.binders
+    | CoreTerm.Expr.unpackT a α x e => α :: x :: e.binders
+    | CoreTerm.Expr.region a r p t e => r :: p :: t :: e.binders
+    | CoreTerm.Expr.openPub a r p c e => r :: p :: c :: e.binders
+    | CoreTerm.Expr.case a x e₁ y e₂ => x :: e₁.binders ++ y :: e₂.binders
+    | CoreTerm.Expr.ifnull a e₁ x e₂ => e₁.binders ++ x :: e₂.binders
+    | CoreTerm.Expr.parity a k e₁ e₂ => k :: e₁.binders ++ e₂.binders
+    | CoreTerm.Expr.ifeq a b e₁ e₂ => e₁.binders ++ e₂.binders
+    | CoreTerm.Expr.cas acq rel w e v t ok fail => t :: ok.binders ++ fail.binders
+    | CoreTerm.Expr.casp acq rel w e0 e1 v0 v1 t ok fail => t :: ok.binders ++ fail.binders
+    | CoreTerm.Expr.ret a => []
+    | CoreTerm.Expr.tail f is a ts => []
+CoreTerm.Op : Type

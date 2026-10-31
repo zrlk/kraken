@@ -59,10 +59,11 @@ theorem withS_env (th : TTh) (s : St) : (withS th s).env = th.env := rfl
 theorem withS_stack (th : TTh) (s : St) : (withS th s).stack = th.stack := rfl
 
 theorem tstep_let_gen {g : G} {mem : WeakMem.Memory} {pairs : List WeakMem.Ts} {th : TTh}
-    {x : String} {op : Op} {b : Expr} (hterm : th.term = .let_ x op b) (hc : isCallOp op = false) :
+    {x : String} {op : Op} {b : Expr} (hterm : th.term = .let_ x op b) (hc : isCallOp op = false)
+    (hnn : ∀ a T, op ≠ .new a T := by intro _ _ h; cases h) :
     tstep g mem pairs th = (evalOp g th.env th.σs (stOf mem pairs th) op).map
       fun (s', t, ws) => (s'.mem, s'.pairs, withS { th with term := b, env := (x, t, ws) :: th.env } s') := by
-  cases op <;> first | (simp [isCallOp] at hc; done) | simp [tstep, hterm]
+  cases op <;> first | (simp [isCallOp] at hc; done) | exact absurd rfl (hnn _ _) | simp [tstep, hterm]
 
 /-- The shape of a step: into an immediate subterm, the stack kept, the
 environment extended at the front. -/
@@ -77,7 +78,12 @@ theorem tstep_shape {g : G} {mem : WeakMem.Memory} {pairs : List WeakMem.Ts} {th
   | let_ x op b =>
       rw [hterm] at hs
       simp only [straight, Bool.not_eq_true'] at hs
-      rw [tstep_let_gen hterm hs] at hr
+      by_cases hn : ∃ a T, op = .new a T
+      · obtain ⟨a, T, rfl⟩ := hn
+        obtain ⟨s', t, ws, -, tys, he⟩ := TermRun.tstep_new_mem hterm hr
+        cases he
+        exact ⟨by simp [Robust.subs, withS_term, hterm], rfl, [(x, t, ws)], rfl⟩
+      rw [tstep_let_gen hterm hs (fun a T h => hn ⟨a, T, h⟩)] at hr
       simp only [List.mem_map] at hr
       obtain ⟨⟨s', t, ws⟩, -, he⟩ := hr
       cases he
@@ -173,9 +179,9 @@ theorem winW_let {p : Prog} {cx : Cx} {x : String} {op : Op} {b : Expr}
       (localHolders c ≠ [] ∨ ∃ rel a v z, op = .store rel a v (some (.var z)) ∧
         z ∈ localHolders cx ∧ localHolders c = []) := by
   cases hco : checkOp p cx x op with
-  | error msg => simp [CoreTerm.check, hco, bind, Except.bind] at hc
+  | error msg => simp [CoreTerm.check_let, hco, bind, Except.bind] at hc
   | ok c =>
-      have hcb : CoreTerm.check p c b = .ok () := by simpa [CoreTerm.check, hco, bind, Except.bind] using hc
+      have hcb : CoreTerm.check p c b = .ok () := by simpa [CoreTerm.check_let, hco, bind, Except.bind] using hc
       have hbr : Scope.branches p cx (.let_ x op b) = [some c] := by
         simp [Scope.branches, hco, Except.toOption]
       cases hw with

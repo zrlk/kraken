@@ -1,0 +1,8 @@
+CoreLang.Ty : Type
+CoreTerm.Decl : Type
+CoreTerm.Decl.argTy : CoreTerm.Decl → CoreLang.Ty
+CoreTerm.argFuelOf : CoreTerm.Decl → Nat
+  := fun d =>
+  match d.argTy with
+  | σ.code τ (CoreLang.CodeKind.restricted f stack ro) => f
+  | x => 0

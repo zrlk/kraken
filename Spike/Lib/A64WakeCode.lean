@@ -3254,7 +3254,7 @@ def wakeImm_t0 : CoreTerm.Expr :=
 
 /-- A term at which the lowering keeps an immediate. -/
 def wakeImm_t1 : CoreTerm.Expr :=
-  (CoreTerm.Expr.let_ "o" (CoreTerm.Op.new (CoreTerm.At.var "z")) (CoreTerm.Expr.let_ "c" (CoreTerm.Op.publish (CoreTerm.At.var "o")) (CoreTerm.Expr.let_ "p" (CoreTerm.Op.pair (CoreTerm.At.var "c") (CoreTerm.At.var "me")) wakeImm_t0)))
+  (CoreTerm.Expr.let_ "o" (CoreTerm.Op.new (CoreTerm.At.var "z") (some (CoreLang.Ty.int))) (CoreTerm.Expr.let_ "c" (CoreTerm.Op.publish (CoreTerm.At.var "o")) (CoreTerm.Expr.let_ "p" (CoreTerm.Op.pair (CoreTerm.At.var "c") (CoreTerm.At.var "me")) wakeImm_t0)))
 
 open Classical in
 /-- **The immediate table** (`Scc.Sem.Layout.imms`): the constant of word `k`

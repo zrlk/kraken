@@ -612,9 +612,9 @@ theorem tau_c0W {ms : Spike.Lib.MemSide isaLSE2} {lab : Label → Int64} (q : Sp
     (hc0 : q.1.c0 = c0W) : q.1.τ = .int := by
   obtain ⟨e0, he0⟩ := Spike.Lib.WakeC0.c0W_box.term
   obtain ⟨w, hw, -⟩ := Spike.Lib.WakeC0.c0W_box.ev
-  have ht := q.2.term; rw [hc0, he0] at ht
+  obtain ⟨_, ht⟩ := q.2.term; rw [hc0, he0] at ht
   obtain ⟨-, ha, -⟩ := Expr.let_.inj ht
-  have ha' := Op.new.inj ha
+  have ha' := (Op.new.inj ha).1
   have hev := q.2.ev; rw [hc0, ← ha', hw] at hev
   exact (Prod.mk.inj (Option.some.inj hev)).1.symm
 

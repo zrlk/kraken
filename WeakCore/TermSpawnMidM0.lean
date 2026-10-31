@@ -24,9 +24,19 @@ theorem spawnT_n {c : Cfg} {i : Nat} {par kid : TTh} (hcap : c.ths.size < c.n) :
   rw [hs, hc]
   omega
 
-theorem gOf_spawnT {p : Prog} {k : Promises.Knobs} {arch : Arch} {c : Cfg} {i : Nat} {par kid : TTh}
-    (hcap : c.ths.size < c.n) (j : Nat) : gOf p k arch (spawnT c i par kid) j = gOf p k arch c j := by
-  unfold gOf; rw [spawnT_n hcap]; rfl
+/-- A spawn keeps the parent's records and appends a record-free kid, so the records are unchanged. -/
+theorem tysOf_spawnT {c : Cfg} {i : Nat} {th par kid : TTh} (hth : c.ths[i]? = some th)
+    (hpt : par.tys = th.tys) (hkt : kid.tys = []) : tysOf (spawnT c i par kid) = tysOf c := by
+  funext l
+  have h1 := congrFun (tysOf_set (d := { c with ths := c.ths.set! i par }) hth rfl hpt) l
+  simp only [tysOf] at h1 ⊢
+  rw [← h1]
+  simp [spawnT, Array.toList_push, List.findSome?_append, hkt]
+
+theorem gOf_spawnT {p : Prog} {k : Promises.Knobs} {arch : Arch} {c : Cfg} {i : Nat} {th par kid : TTh}
+    (hcap : c.ths.size < c.n) (hth : c.ths[i]? = some th) (hpt : par.tys = th.tys) (hkt : kid.tys = [])
+    (j : Nat) : gOf p k arch (spawnT c i par kid) j = gOf p k arch c j := by
+  unfold gOf; rw [spawnT_n hcap, tysOf_spawnT hth hpt hkt]; rfl
 
 /-- **`SysInvN` across a mid-run spawn, M0 form**: the [M0] hypotheses discharged; `hcap` is `Spawn`'s own
 premise at `cap := c.cap` (`c.n = max cap ths.size`). -/
@@ -36,7 +46,7 @@ theorem sysInvN_spawn_M0 {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : R
     (hN : SysInvN p k arch Init MintOK c Eg Tot HP HS cr db) (hOL : OwnLive Eg c) (hObs : ObsAll Eg c)
     (hth : c.ths[i]? = some th) (hnp : th.promises = []) (hcap : c.ths.size < c.cap)
     (hpar : par.vs = (fenceS (stOf c.mem c.pairs th) .sy).vs ∧ par.promises = [] ∧ par.nalloc = th.nalloc ∧
-      par.undefs = th.undefs)
+      par.undefs = th.undefs) (hpty : par.tys = th.tys)
     (hPenv : ∃ (x : String) (w0 : Word), par.env = (x, .tid, [w0]) :: th.env ∧ par.stack = th.stack ∧
       ∀ w ∈ TermPtrRts.pubWords .tid [w0], ∀ l, TermPtrRts.Names l w → Eg.pfr l ≠ none ∨ Eg.box l ≠ none)
     (hTBp : TidBox Eg par) (hTBk : TidBox Eg kid)
@@ -51,8 +61,8 @@ theorem sysInvN_spawn_M0 {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : R
       OwnLive (EgK Eg c) (spawnT c i par kid) ∧ ObsAll (EgK Eg c) (spawnT c i par kid) := by
   have hcap : c.ths.size < c.n := Nat.lt_of_lt_of_le hcap (Nat.le_max_left _ _)
   have hn := spawnT_n (i := i) (par := par) (kid := kid) hcap
-  have hg := gOf_spawnT (p := p) (k := k) (arch := arch) (i := i) (par := par) (kid := kid) hcap
-  refine sysInvN_spawnMid hN hOL hObs hth hnp hpar hPenv hTBp hTBk hK hKE hArg
+  have hg := gOf_spawnT (p := p) (k := k) (arch := arch) (i := i) (par := par) (kid := kid) hcap hth hpty hK.tys
+  refine sysInvN_spawnMid hN hOL hObs hth hnp hpar hpty hPenv hTBp hTBk hK hKE hArg
     (fun j tj h => by rw [hg]; exact hN.thr j tj h)
     (fun S h => hParTy S (by rw [hg] at h; exact h))
     (fun j tj h q hq => by rw [hn]; exact hN.fresh j tj h q hq)
@@ -190,7 +200,7 @@ theorem sysInvN_spawnStepW {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init :
         rw [e0, (hN.fresh i th hth (th.nalloc + 1) (Nat.le_succ _)).1] at h0; cases h0
       rw [TermBox.EgB_sto_ne hne1]; exact hsto0 l cl h0
     have hM := (sysInvN_spawn_M0 hB2 hOL2 hObs2 hth2 hnp hcap2
-      ⟨by rw [hv]; rfl, hpp.trans hnp, by rw [hna, htl]; rfl, hun⟩
+      ⟨by rw [hv]; rfl, hpp.trans hnp, by rw [hna, htl]; rfl, hun⟩ rfl
       ⟨x, _, hpe, hpk, hw02⟩ hTBp2 hTBk2 (TermSpawnMidZ.spawnKid_shape c i th x e f ts T ws) hKE
       (fun S hS => arg_of_site hS.2.1 hterm hev)
       (fun S hS => par_of_site hterm hpt hpe hps hpk
@@ -206,7 +216,7 @@ theorem sysInvN_spawnStepW {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init :
         rw [hptl, htl] at hl'; rw [htl]; exact hl')
     rw [← spawnT_setC (th1 := TermBox.thB th th.tidLbl)]
     have hM := (sysInvN_spawn_M0 hB hOL1 hObs1 hth1 hnp hcap
-      ⟨by rw [hv]; rfl, hpp.trans hnp, by rw [hna, htl]; rfl, hun⟩
+      ⟨by rw [hv]; rfl, hpp.trans hnp, by rw [hna, htl]; rfl, hun⟩ rfl
       ⟨x, _, hpe, hpk, hw0⟩ hTBp hTBk (TermSpawnMidZ.spawnKid_shape c i th x e f ts T ws) hKE
       (fun S hS => arg_of_site hS.2.1 hterm hev)
       (fun S hS => par_of_site hterm hpt hpe hps hpk

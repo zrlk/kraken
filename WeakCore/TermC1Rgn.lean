@@ -168,7 +168,7 @@ theorem tstepM_region1 {a : At} {rn pn tn : String} {e : Expr}
     (hsc : PubScope cx a)
     (hwin : ∀ rt ws ad, evalAt th.env a = some (rt, ws) → ws.map (·.val) = [.loc ad 0] →
       NoHold (CE η) (stOf mem pairs th) ad.label)
-    (hPb : ∀ rt ws ad, evalAt th.env a = some (rt, ws) → ws.map (·.val) = [.loc ad 0] → g.pf ad.label) :
+    (hPb : ∀ rt ws ad, evalAt th.env a = some (rt, ws) → ws.map (·.val) = [.loc ad 0] → g.pf ad.label) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
     tstep g mem pairs th ≠ [] ∧
       ∀ r ∈ tstep g mem pairs th, ThInvMFR1 p g (CE η) (stOf mem pairs th) th r.1 r.2.1 r.2.2 := by
   have hT0 := hT
@@ -194,7 +194,7 @@ theorem tstepM_region1 {a : At} {rn pn tn : String} {e : Expr}
       have hxb := Ext_bumpR hE.2.1
       refine ⟨CE (bumpR η), EFoot_refl, ⟨_, bumpR η, c, CE_bumpR η, ⟨hE.1, hxb.1, hxb.2.2.2.2.2.2.2.2.2.2.1⟩,
           hc, hvc, FInv_ext hE.2.1 hxb (by simpa [withS] using hf),
-          retPw_skel hPS hRP (skel_subst_eq hk th.σs 0 0 0)⟩, MemInv_fence hm,
+          retPw_skel hPS hRP (skel_subst_eq hk th.σs 0 0 0), hDy.sameW (fun _ => by rw [hterm]; rfl) rfl⟩, MemInv_fence hm,
         fun a' rn' pn' tn' e' rt' ws' ad' ht' hea' hws' => ?_⟩
       rw [hterm] at ht'
       cases ht'
@@ -210,7 +210,7 @@ theorem tstepM_region1 {a : At} {rn pn tn : String} {e : Expr}
       exact pubStep1 (Rd := η.rid + 1) hE hm hsto hown (Nat.le_succ _) hF (hwin _ _ ad hea hws)
         (hPb _ _ ad hea hws) rfl
         (fun hE' hx => ⟨_, _, c, rfl, hE', hc, hvc, FInv_ext hE.2.1 hx (by simpa [withS] using hf),
-          retPw_skel hPS hRP (skel_subst_eq hk th.σs 0 0 0)⟩)
+          retPw_skel hPS hRP (skel_subst_eq hk th.σs 0 0 0), hDy.sameW (fun _ => by rw [hterm]; rfl) (Ext.witEq hx)⟩)
         (RgnPubT1.of hterm hea fun ad' h => by rw [hws] at h; cases h; rfl)
   | region hu hrc _ _ _ =>
   obtain ⟨hi1, lab, c0, pw, μr, ru, hea, hpw, hsto, hcty, hown, hacc, -⟩ := ownPtr_inv hu hi
@@ -230,7 +230,7 @@ theorem tstepM_region1 {a : At} {rn pn tn : String} {e : Expr}
   exact pubStep1 (Rd := η.rid + 1) hE hm hsto hown (Nat.le_succ _) hF (hwin _ _ ⟨lab, 0⟩ hea hwsv)
     (hPb _ _ ⟨lab, 0⟩ hea hwsv) rfl
     (fun hE' hx => ⟨_, _, c, rfl, hE', hc, hvc, FInv_ext hE.2.1 hx (by simpa [withS] using hf),
-      retPw_skel hPS hRP (skel_subst_eq hk th.σs 0 0 0)⟩)
+      retPw_skel hPS hRP (skel_subst_eq hk th.σs 0 0 0), hDy.sameW (fun _ => by rw [hterm]; rfl) (Ext.witEq hx)⟩)
     (RgnPubT1.of hterm hea fun ad' h => pwLab hpw h)
 
 /-- **P1 + P4 at the thread, `intoRgn` on an own pointer**: `publish` with a region
@@ -246,7 +246,7 @@ theorem tstepM_intoRgn1 {x rn : String} {a : At} {e : Expr}
     (hsc : PubScope cx a)
     (hwin : ∀ rt ws ad, evalAt th.env a = some (rt, ws) → ws.map (·.val) = [.loc ad 0] →
       NoHold (CE η) (stOf mem pairs th) ad.label)
-    (hPb : ∀ rt ws ad, evalAt th.env a = some (rt, ws) → ws.map (·.val) = [.loc ad 0] → g.pf ad.label) :
+    (hPb : ∀ rt ws ad, evalAt th.env a = some (rt, ws) → ws.map (·.val) = [.loc ad 0] → g.pf ad.label) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
     tstep g mem pairs th ≠ [] ∧
       ∀ r ∈ tstep g mem pairs th, ThInvMFI1 p g (CE η) (stOf mem pairs th) th r.1 r.2.1 r.2.2 := by
   rw [hterm] at hT
@@ -277,7 +277,7 @@ theorem tstepM_intoRgn1 {x rn : String} {a : At} {e : Expr}
           (shp (.refine (.loc (.rgn (.lit 0)) (.array nr ur)) ψ)) wsb := by
         simp only [VR]; exact ⟨Or.inl ⟨hnull, e0, he0⟩, IniR_mono (TEnv.selIni_le_ini η _) hir⟩
       refine ⟨CE η, EFoot_refl, ⟨ρ, η, c', rfl, hE, he, htv', bind_FInv hb hi1 hvr hl,
-          retPw_skel hPS hRP (skel_subst_eq hRk th.σs 0 0 0)⟩, MemInv_fence hm,
+          retPw_skel hPS hRP (skel_subst_eq hRk th.σs 0 0 0), hDy.letW hterm rfl⟩, MemInv_fence hm,
         fun y rn' a' e' rt' ws' ad' ht' hea' hws' => ?_⟩
       rw [hterm] at ht'
       cases ht'
@@ -298,7 +298,7 @@ theorem tstepM_intoRgn1 {x rn : String} {a : At} {e : Expr}
       exact pubStep1 (Rd := η.rid) hE hm hsto hown (Nat.le_refl _) hF (hwin _ _ ad hea hws)
         (hPb _ _ ad hea hws) rfl
         (fun hE' hx => ⟨ρ, _, c', rfl, hE', he, htv', bind_FInv hb (FInv_ext hE.2.1 hx hi1) hvr hl,
-          retPw_skel hPS hRP (skel_subst_eq hRk th.σs 0 0 0)⟩)
+          retPw_skel hPS hRP (skel_subst_eq hRk th.σs 0 0 0), hDy.letW hterm rfl⟩)
         (IntoPubT1.of hterm hea fun ad' h => by rw [hws] at h; cases h; rfl)
   | intoRgn hr hu hrc hb =>
   rename_i c₁ r u
@@ -324,7 +324,7 @@ theorem tstepM_intoRgn1 {x rn : String} {a : At} {e : Expr}
   exact pubStep1 (Rd := η.rid) hE hm hsto hown (Nat.le_refl _) hF (hwin _ _ ⟨lab, 0⟩ hea hwsv)
     (hPb _ _ ⟨lab, 0⟩ hea hwsv) rfl
     (fun hE' hx => ⟨ρ, _, c', rfl, hE', he, htv', bind_FInv hb (FInv_ext hE.2.1 hx hi1) hvr hlay,
-      retPw_skel hPS hRP (skel_subst_eq hRk th.σs 0 0 0)⟩)
+      retPw_skel hPS hRP (skel_subst_eq hRk th.σs 0 0 0), hDy.letW hterm rfl⟩)
     (IntoPubT1.of hterm hea fun ad' h => pwLab hpw h)
 
 end

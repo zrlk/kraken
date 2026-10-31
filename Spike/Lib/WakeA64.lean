@@ -136,7 +136,7 @@ def wakeSrc : CoreTerm.Prog :=
         (CoreTerm.Op.zero (CoreLang.Ty.int))
         (CoreTerm.Expr.let_
           "o"
-          (CoreTerm.Op.new (CoreTerm.At.var "z"))
+          (CoreTerm.Op.new (CoreTerm.At.var "z") (some (CoreLang.Ty.int)))
           (CoreTerm.Expr.let_
             "c"
             (CoreTerm.Op.publish (CoreTerm.At.var "o"))

@@ -1,0 +1,17 @@
+CoreTerm.At : Type
+CoreTerm.FetchOp : Type
+CoreTerm.Op : Type
+CoreTerm.opWrites : CoreTerm.Op → Bool
+  := fun x =>
+  match x with
+  | CoreTerm.Op.store rel a v tok => true
+  | CoreTerm.Op.xchg a v => true
+  | CoreTerm.Op.xchgAt b i v => true
+  | CoreTerm.Op.xchgAtF b i p v => true
+  | CoreTerm.Op.bufInit b i v => true
+  | CoreTerm.Op.stl b i v => true
+  | CoreTerm.Op.stlw b wi j v => true
+  | CoreTerm.Op.stp rel a v0 v1 tok => true
+  | CoreTerm.Op.fetch o acq rel a v => true
+  | CoreTerm.Op.claim a tok => true
+  | x => false

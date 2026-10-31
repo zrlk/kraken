@@ -128,7 +128,7 @@ def CertWinC (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → Cfg →
     ∀ S, ThSysAt p (gOf p k arch c i) c.mem c.pairs th Eg (Tot i) (HP i) HS (cr i) (db i) S →
     ∀ c1, Solo p k arch i c c1 → Certified p k arch c1 i → NoHoldPubA p k arch (Cut Eg i S) (Cut Eg i S) i c1
 
-/-- (D+) **The field form of `CertWinC`**: `NoHoldPubN`, at the unseen publishes only (`certWinC_of_N`). -/
+/-- **The unseen-publish form of `CertWinC`** (formerly an `ObligationsF` field; discharged inside `ObligationsFX.toObligationsCX`): `NoHoldPubN`, at the unseen publishes only (`certWinC_of_N`). -/
 def CertWinCN (p : Prog) (k : Promises.Knobs) (arch : Arch) (Init : Res) (MintOK : Res → Prop) (c0 : Cfg) :
     Prop :=
   ∀ {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {i : Nat}
@@ -161,7 +161,7 @@ def CertWinP (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → Cfg →
         NoHoldPubA p k arch (Cut Eg j S1)
           (Cut (EgP Eg (TermPlantF.plantOf c Eg j a v w) (TermPlantF.plantN c Eg j a v w) j c.mem.size) j S1) j c1)
 
-/-- (D+) **The field form of `CertWinP`**: `NoHoldPubN`, at the unseen publishes only (`certWinP_of_N`). -/
+/-- **The unseen-publish form of `CertWinP`** (formerly an `ObligationsF` field; discharged inside `ObligationsFX.toObligationsCX`): `NoHoldPubN`, at the unseen publishes only (`certWinP_of_N`). -/
 def CertWinPN (p : Prog) (k : Promises.Knobs) (arch : Arch) (Init : Res) (MintOK : Res → Prop) (c0 : Cfg) :
     Prop :=
   ∀ {c : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {j : Nat} {th : TTh}
@@ -210,11 +210,11 @@ theorem certScopeC_of (hp : ProgScopeOK p = true) (h0 : TermScope.RunScopeR p k 
 theorem certScopeP_of (hp : ProgScopeOK p = true) (h0 : TermScope.RunScopeR p k arch Sp c0) : CertScopeP p k arch Sp Init MintOK c0 :=
   fun X _ h1 _ => scopeAt_of (solo_drf hp h1 (drf_prom (run_drf hp h0 X.run)))
 
-/-- (D+) The field `CertWinCN` gives `CertWinC` (`TermDPlus.noHoldPubA_of_N` under the binders). -/
+/-- `CertWinCNX` gives `CertWinC` (`TermDPlus.noHoldPubA_of_N` under the binders). -/
 theorem certWinC_of_N (h : CertWinCNX p k arch Sp Init MintOK c0) : CertWinC p k arch Sp Init MintOK c0 :=
   fun X S hS c1 h1 h2 => TermDPlus.noHoldPubA_of_N (h X S hS c1 h1 h2)
 
-/-- (D+) The field `CertWinPN` gives `CertWinP`. -/
+/-- `CertWinPNX` gives `CertWinP`. -/
 theorem certWinP_of_N (h : CertWinPNX p k arch Sp Init MintOK c0) : CertWinP p k arch Sp Init MintOK c0 :=
   fun X => ⟨fun S hS c1 h1 h2 => TermDPlus.noHoldPubA_of_N ((h X).1 S hS c1 h1 h2),
     fun HP' HS' cr' db' S1 hS c1 h1 h2 => TermDPlus.noHoldPubA_of_N ((h X).2 HP' HS' cr' db' S1 hS c1 h1 h2)⟩

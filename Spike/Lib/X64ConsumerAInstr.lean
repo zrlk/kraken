@@ -264,7 +264,7 @@ theorem instr_stepA {ab : Option (State → Prop)} (hP : HookOK P p) (hN : Nodes
     · show ExtRows.OwnOk (own o.thread.st th'.stack) _ _
       rw [hst']; exact hoo'
     · refine hU (HeapPres.heapUse_set (s := { s with ths := #[thAt th0 c₁ fs₁] }) (i := 0) rfl rfl rfl hna' htl') ?_
-      exact hai'.retarget (hai'.idle_of_term (notAlloc_let ht (fun _ _ h => by cases h) fun _ h => by cases h))
+      exact hai'.retarget (hai'.idle_of_term (notAlloc_let ht (fun _ _ h => by cases h) fun _ _ h => by cases h))
         fun w h => by cases h
   · -- the store row
     have hrun1 := hsrc fun _ a' h => by rw [ht] at h; cases h
@@ -287,7 +287,7 @@ theorem instr_stepA {ab : Option (State → Prop)} (hP : HookOK P p) (hN : Nodes
     · show ExtRows.OwnOk (own o.thread.st th'.stack) _ _
       rw [hst']; exact hoo'
     · refine hU (heapUse_store (s := { s with ths := #[thAt th0 c₁ fs₁] }) rfl hkm hml hna' htl') ?_
-      exact hai'.retarget (hai'.idle_of_term (notAlloc_let ht (fun _ _ h => by cases h) fun _ h => by cases h))
+      exact hai'.retarget (hai'.idle_of_term (notAlloc_let ht (fun _ _ h => by cases h) fun _ _ h => by cases h))
         fun w h => by cases h
   · -- the load of an exchange: the source stutters after the row's run, holding the latest word
     have hrun1 := hsrc fun _ => xchgSite_not_ret hxs

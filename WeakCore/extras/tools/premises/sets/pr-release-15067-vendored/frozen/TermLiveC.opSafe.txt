@@ -18,7 +18,7 @@ TermLiveC.opSafe : CoreTerm.Op → Bool
   | CoreTerm.Op.inr other a => true
   | CoreTerm.Op.add a b => true
   | CoreTerm.Op.sub a b => true
-  | CoreTerm.Op.new a => true
+  | CoreTerm.Op.new a T => true
   | CoreTerm.Op.null μ target => true
   | CoreTerm.Op.fold a target => true
   | CoreTerm.Op.fld i a => true
@@ -35,4 +35,5 @@ TermLiveC.opSafe : CoreTerm.Op → Bool
   | CoreTerm.Op.fop o a b => true
   | CoreTerm.Op.fcmp o a b => true
   | CoreTerm.Op.fop1 o a => true
+  | CoreTerm.Op.isTy a τ => false
   | x => false

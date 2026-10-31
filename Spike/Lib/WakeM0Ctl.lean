@@ -53,10 +53,12 @@ theorem localStep_let {c c' : Ctl} (h : LocalStep p c c') {x : String} {op : Op}
   all_goals
     simp only [TermRun.tstep, List.map_eq_singleton_iff] at this
     obtain ⟨⟨_, t, ws⟩, -, hf⟩ := this
-    have e1 := congrArg (fun q => q.2.2.term) hf
-    have e2 := congrArg (fun q => q.2.2.env) hf
-    simp only [TermRun.withS] at e1 e2
-    exact ⟨e1.symm, t, ws, e2.symm⟩
+    try split at hf
+    all_goals
+      have e1 := congrArg (fun q => q.2.2.term) hf
+      have e2 := congrArg (fun q => q.2.2.env) hf
+      simp only [TermRun.withS] at e1 e2
+      exact ⟨e1.symm, t, ws, e2.symm⟩
 
 /-- **A local step at an `ifeq`** keeps the environment and moves to one of
 the two branches. -/

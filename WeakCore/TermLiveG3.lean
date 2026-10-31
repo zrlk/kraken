@@ -11,8 +11,7 @@ LIMITS:
   steps before its store, are NOT covered.
 * Ticket locks: no ticket-lock instance is claimed (the release of a ticket lock is not a single token store;
   see `NoTicket` at TermMain:513).
-* Reachability / non-vacuity is OPEN: no concrete mutex/seqlock `Setting` is constructed; these statements are
-  relative to the certificate-window debts already carried by `forced_wait_held_thm`.
+* Reachability / non-vacuity is OPEN: no concrete mutex/seqlock `Setting` is constructed.
 * No soundness-API change. -/
 
 namespace TermLiveC
@@ -30,9 +29,10 @@ theorem heldV_seqP_odd (j : Nat) : TermLiveHeld.HeldV seqP (.num (2 * j + 1)) :=
 /-- Whitelisted operations: their `OpT` rules neither add facts nor call, and change the context only by
 `use`/`bind`, `fenceCx`, a `torn` entry, or (`loadWord` only) one `observeCx` push (an index shift). -/
 def opSafe : Op → Bool
-  | .atom _ | .pair _ _ | .inl _ _ | .inr _ _ | .add _ _ | .sub _ _ | .new _ | .null _ _ | .fold _ _
+  | .atom _ | .pair _ _ | .inl _ _ | .inr _ _ | .add _ _ | .sub _ _ | .new _ _ | .null _ _ | .fold _ _
   | .fld _ _ | .load _ _ | .store _ _ _ _ | .fence _ | .validate _ | .bits _ _ _ | .bit1 _ _ | .zero _
   | .cvt _ _ _ | .toInt _ | .asLanes _ _ _ | .fop _ _ _ | .fcmp _ _ _ | .fop1 _ _ => true
+  | .isTy _ _ => false
   | _ => false
 
 /-- `op` does not mention `y`, except as the base of a field locative `fld i y` (which, on a shared cell, only
@@ -711,7 +711,7 @@ release store of a held, non-ghost protocol word leaves every thread that keeps 
 on it (from a promise-free point on).
 Allowed path steps include loads and plain stores to OTHER cells (see `opSafe`).
 LIMITS: straight-line paths only (the `cas → ret` window inside `lock` stays open); no ticket-lock instance is
-claimed (the release of a ticket lock is not a single token store; see `NoTicket` at TermMain:513); reachability open, relative to the certificate-window debts of `forced_wait_held_thm`. -/
+claimed (the release of a ticket lock is not a single token store; see `NoTicket` at TermMain:513); reachability open. -/
 theorem forced_wait_in_critical_section {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : TermSound.Res}
     {c₀ : Cfg} (S : Setting p k arch Init c₀) {r : LRun (machineE p k arch).L} (hr : (machineE p k arch).Run r)
     (h0 : r.cfg 0 = c₀) {D : Nat → Option Nat} (hD : CrashOK (machineE p k arch) r D)

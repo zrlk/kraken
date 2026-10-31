@@ -40,16 +40,15 @@ theorem footNC_ofLocS {E E0 : TEnv} {lbl : AllocLabel} {T : Ty} {mem : Memory} {
     · rw [hl, allocE_eq] at hc; cases hc; exact h.2.2 v mv o hv hP hl ho hT
     · rw [allocE_ne hl, hs, hn] at hc; cases hc
 
-/-- (X) `tstepMR_new` with `FootNCE` on the witness. -/
-theorem tstepMR_newN {Sp : AllocLabel → List Res} {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
-    {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {x : String} {a : At} {e : Expr} {Rf Rs H : Res}
-    (hterm : th.term = .let_ x (.new a) e)
+theorem tstepMR_newNS {Sp : AllocLabel → List Res} {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
+    {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {x : String} {a : At} {T : Option Ty} {e : Expr} {Rf Rs H : Res}
+    (hterm : th.term = .let_ x (.new a T) e)
     (hniA : ∀ t c₁, cx.use a = .ok (t, c₁) → noIallV t = true) (hP : ProgT p) (hn : 0 < g.n)
     (hT : Typed p cx th.term) (hCk : TermA4.CkW p η.wit cx th.term) (hi : FInvR ρ η th.σs (ResumeR p th.stack Rs) cx th.env Rf)
     (hE : EnvOK p η) (htv : TvOK cx) (hm : MemInv g (CE η) (stOf mem pairs th))
-    (hH : MemHeldL (CE η) (stOf mem pairs th) H Sp) (hRP : RetPw th.σs th.stack cx.ret) (hPS : PwSkel) :
+    (hH : MemHeldL (CE η) (stOf mem pairs th) H Sp) (hRP : RetPw th.σs th.stack cx.ret) (hPS : PwSkel) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
     tstep g mem pairs th ≠ [] ∧ ∀ r ∈ tstep g mem pairs th,
-      ∃ Tot H', ThInvMKQ (fun E' => FootNCE (CE η) E' r) p g (CE η) (stOf mem pairs th) Sp r.1 r.2.1 r.2.2 Tot H' ∧
+      ∃ Tot H', ThInvMKQ (fun E' => FootNCE (CE η) E' r ∧ NewCellSto g ρ η th E') p g (CE η) (stOf mem pairs th) Sp r.1 r.2.1 r.2.2 Tot H' ∧
         FreshIn g (stOf mem pairs th).nalloc (stOf r.1 r.2.1 r.2.2).nalloc (freshLabel g.lbase g.n g.i th.nalloc) ∧
         Tot + H' ≤ Rf + Rs + H + Res.one (.own (freshLabel g.lbase g.n g.i th.nalloc)) := by
   rw [hterm] at hT hCk
@@ -61,8 +60,8 @@ theorem tstepMR_newN {Sp : AllocLabel → List Res} {p : Prog} {g : G} {mem : Me
   have hRk := OpT_retSk hop
   cases hop with
   | new hu _ hb =>
-  obtain ⟨tv, c₁, hu, hb⟩ : ∃ tv c₁, cx.use a = .ok (tv, c₁) ∧ c₁.bind x (.ptr .own tv) = .ok c' :=
-    ⟨_, _, hu, hb⟩
+  obtain ⟨tv, c₁, hu, hb, htvT⟩ : ∃ tv c₁, cx.use a = .ok (tv, c₁) ∧ c₁.bind x (.ptr .own tv) = .ok c' ∧ some tv = _ :=
+    ⟨_, _, hu, hb, rfl⟩
   have hi0 := hi.1
   obtain ⟨rt, ws, Rv, Rr, hea, hv, hl, hvr, hiR, hle⟩ := useR hu hi hE.2.2
   have ho : cx.opaqueOK tv = true :=
@@ -85,7 +84,7 @@ theorem tstepMR_newN {Sp : AllocLabel → List Res} {p : Prog} {g : G} {mem : Me
       (fun k hk => absurd hk (Nat.not_lt_zero _))).1 hvr
   obtain ⟨R0, H0, hHe, hent0, hX⟩ := MemHeldL_focusE hH (freshLabel g.lbase g.n g.i th.nalloc)
   obtain ⟨hmo, hoo, hpl, hfr, hsn, hoh, hpd, hopub, hpi, hbi, hpo⟩ := id hm
-  obtain ⟨hnone, hfresh, -, hpf0⟩ := hfr.1 th.nalloc (Nat.le_refl _)
+  obtain ⟨hnone, hfresh, -, -, hpf0⟩ := hfr.1 th.nalloc (Nat.le_refl _)
   have hR0 : R0 = .zero := hent0.1 hnone
   have hval : ValOf (allocE (CE η) (freshLabel g.lbase g.n g.i th.nalloc) (cl ρ η.wit 0 0 tv)) (cl ρ η.wit 0 0 tv)
       (ws.map (bumpW (stOf mem pairs th).vs.vRelSt)) :=
@@ -99,18 +98,23 @@ theorem tstepMR_newN {Sp : AllocLabel → List Res} {p : Prog} {g : G} {mem : Me
       (EnvValR.store (η := CE η) ⟨hvcR, Valid_of_sig hsig hl.2.2.2.1⟩ hsn)
   have hx : Ext η (η.withSto (allocE (CE η) (freshLabel g.lbase g.n g.i th.nalloc) (cl ρ η.wit 0 0 tv)).sto) :=
     Ext_withSto hE.2.1 (fun l c h => allocE_sub (η := CE η) hnone h) (fun _ => Nat.le_refl _)
-  have key : tstep g mem pairs th =
-      (alloc g.k g.arch (freshLabel g.lbase g.n g.i th.nalloc) us ws (stOf mem pairs th)).map fun (s', pw) =>
-        (s'.mem, s'.pairs, withS { th with term := e, env := (x, .ptr .own rt, [pw]) :: th.env } s') := by
-    simp only [tstep, hterm, evalOp, hea, hus, List.map_map]; rfl
-  rw [key]
+  have key : ∀ r ∈ tstep g mem pairs th, ∃ s' pw,
+      (s', pw) ∈ alloc g.k g.arch (freshLabel g.lbase g.n g.i th.nalloc) us ws (stOf mem pairs th) ∧
+      ∃ tys, r = (s'.mem, s'.pairs,
+        { withS { th with term := e, env := (x, .ptr .own rt, [pw]) :: th.env } s' with tys := tys }) := by
+    intro r hr
+    obtain ⟨s1, t1, ws1, hm1, tys, rfl⟩ := TermRun.tstep_new_mem hterm hr
+    simp only [evalOp, hea, hus, List.mem_map] at hm1
+    obtain ⟨⟨s2, pw⟩, hal, he⟩ := hm1
+    cases he
+    exact ⟨_, _, hal, tys, rfl⟩
   refine ⟨?_, ?_⟩
   · obtain ⟨r, hr⟩ := alloc_nonempty (k := g.k) (arch := g.arch) (lbl := freshLabel g.lbase g.n g.i th.nalloc)
       (s := stOf mem pairs th) hlen
-    exact List.ne_nil_of_mem (List.mem_map_of_mem hr)
+    simp only [tstep, hterm, evalOp, hea, hus, ne_eq, List.map_eq_nil_iff]
+    exact List.ne_nil_of_mem hr
   · intro r hr
-    rw [List.mem_map] at hr
-    obtain ⟨⟨s', pw⟩, hal, rfl⟩ := hr
+    obtain ⟨s', pw, hal, tys, rfl⟩ := key r hr
     obtain ⟨hmo', hoo', hpw⟩ := alloc_okP hwcT hlen hval hfresh hnone hpl hpo.1 hpo.2.1 hpf0 hmo hoo ⟨s', pw⟩ hal
     obtain ⟨hg, hsubl, hna, hpl', hful⟩ := alloc_growsP hpl ⟨s', pw⟩ hal
     obtain ⟨hla1, -⟩ := alloc_latP (k := g.k) (arch := g.arch) (us := us) (ws := ws) hpl (MemInv_nodup hm)
@@ -220,15 +224,22 @@ theorem tstepMR_newN {Sp : AllocLabel → List Res} {p : Prog} {g : G} {mem : Me
           (η₂ := allocE (CE η) (freshLabel g.lbase g.n g.i th.nalloc) (cl ρ η.wit 0 0 tv)) rfl rfl (fun l c h' => allocE_sub hnone h') (fun _ => Nat.le_refl _) h)
     refine ⟨Rr + Res.one (.own (freshLabel g.lbase g.n g.i th.nalloc)) + Rs, Rv + H0,
       ⟨allocE (CE η) (freshLabel g.lbase g.n g.i th.nalloc) (cl ρ η.wit 0 0 tv),
-        footNC_alloc hal ((accs_rtW hE.2.1 hi0.2.2.2.1 hi0.2.2.2.2.1 ho htb hl.2.2.2.2).symm.trans hus) hfresh hpo
+        ⟨footNC_alloc hal ((accs_rtW hE.2.1 hi0.2.2.2.1 hi0.2.2.2.2.1 ho htb hl.2.2.2.2).symm.trans hus) hfresh hpo
           hmo.2.2 rfl,
+         (by
+           intro x' a' T' e' h'
+           rw [hterm] at h'
+           obtain ⟨-, ⟨-, hT'⟩, -⟩ := (by simpa using h' : x = x' ∧ (a = a' ∧ _ = T') ∧ e = e')
+           refine ⟨_, allocE_eq, ?_⟩
+           show cl ρ η.wit 0 0 tv = cl ρ η.wit 0 0 T'
+           rw [Option.some.inj htvT, hT'])⟩,
         EFoot_fresh rfl rfl rfl rfl (lt_of_eq_succ hna) (fun l => allocE_sto_cases ⟨Clo_cl (fun k => (hE.2.1 k).1) ρ tv,
           mg_cl (fun k => (hE.2.1 k).1.1) (WitAF.mg hi.1.2.2.2.2.2.2.1) tv 0 0 (use_mg hu htv),
           noIallV_cl (WitAF.ni hi.1.2.2.2.2.2.2.1) tv 0 0 (hniA tv _ hu),
           TermA4.CkW_newCell hCk (fun k => (hE.2.1 k).1.1) (use_inv (ρ := ρ) (η := η) (σs := th.σs) (env := th.env) hu).1 htb ho⟩ (alloc_newT hal hwcT) (alloc_undefT hal hwcT) l) (fun _ => .inl rfl)
           (fun _ => ⟨Nat.le_refl _, .inl rfl⟩), (by seenT), (by boxT),
         ⟨ρ, η.withSto (allocE (CE η) (freshLabel g.lbase g.n g.i th.nalloc) (cl ρ η.wit 0 0 tv)).sto, c',
-          Rr + Res.one (.own (freshLabel g.lbase g.n g.i th.nalloc)), Rs, rfl, ⟨hE.1, hx.1, hx.2.2.2.2.2.2.2.2.2.2.1⟩, ⟨he, hck⟩, htv', hfr', rfl, retPw_skel hPS hRP (skel_subst_eq hRk th.σs 0 0 0)⟩, ?_,
+          Rr + Res.one (.own (freshLabel g.lbase g.n g.i th.nalloc)), Rs, rfl, ⟨hE.1, hx.1, hx.2.2.2.2.2.2.2.2.2.2.1⟩, ⟨he, hck⟩, htv', hfr', rfl, retPw_skel hPS hRP (skel_subst_eq hRk th.σs 0 0 0), hDy.letW hterm rfl⟩, ?_,
         MemHeldK_unfocus hX' hent (fun _ h => h.1 hpf0), CrKeep_alloc hg
           hsubl hful (fun _ hl => allocE_ne hl) hnone
           (Or.inr ⟨⟨_, by simp [allocE]; rfl, rfl⟩, hpf0⟩)⟩,
@@ -270,6 +281,21 @@ theorem tstepMR_newN {Sp : AllocLabel → List Res} {p : Prog} {g : G} {mem : Me
       simp only [Res.add_apply, Res.zero_apply] at *
       omega
 
+/-- (X) `tstepMR_new` with `FootNCE` on the witness. -/
+theorem tstepMR_newN {Sp : AllocLabel → List Res} {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
+    {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {x : String} {a : At} {T : Option Ty} {e : Expr} {Rf Rs H : Res}
+    (hterm : th.term = .let_ x (.new a T) e)
+    (hniA : ∀ t c₁, cx.use a = .ok (t, c₁) → noIallV t = true) (hP : ProgT p) (hn : 0 < g.n)
+    (hT : Typed p cx th.term) (hCk : TermA4.CkW p η.wit cx th.term) (hi : FInvR ρ η th.σs (ResumeR p th.stack Rs) cx th.env Rf)
+    (hE : EnvOK p η) (htv : TvOK cx) (hm : MemInv g (CE η) (stOf mem pairs th))
+    (hH : MemHeldL (CE η) (stOf mem pairs th) H Sp) (hRP : RetPw th.σs th.stack cx.ret) (hPS : PwSkel) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
+    tstep g mem pairs th ≠ [] ∧ ∀ r ∈ tstep g mem pairs th,
+      ∃ Tot H', ThInvMKQ (fun E' => FootNCE (CE η) E' r) p g (CE η) (stOf mem pairs th) Sp r.1 r.2.1 r.2.2 Tot H' ∧
+        FreshIn g (stOf mem pairs th).nalloc (stOf r.1 r.2.1 r.2.2).nalloc (freshLabel g.lbase g.n g.i th.nalloc) ∧
+        Tot + H' ≤ Rf + Rs + H + Res.one (.own (freshLabel g.lbase g.n g.i th.nalloc))  :=
+  (tstepMR_newNS (hDy := hDy) hterm hniA hP hn hT hCk hi hE htv hm hH hRP hPS).imp id fun h r hr =>
+    let ⟨Tot, H', ⟨E, hq, hK⟩, h2⟩ := h r hr; ⟨Tot, H', ⟨E, hq.1, hK⟩, h2⟩
+
 /-- (X) `tstepMR_newBuf` with `FootNCE` on the witness. -/
 theorem tstepMR_newBufN {Sp : AllocLabel → List Res} {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
     {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {x : String} {n : At} {τ : Ty} {e : Expr}
@@ -278,7 +304,7 @@ theorem tstepMR_newBufN {Sp : AllocLabel → List Res} {p : Prog} {g : G} {mem :
     (hn : 0 < g.n)
     (hT : Typed p cx th.term) (hCk : TermA4.CkW p η.wit cx th.term) (hi : FInvR ρ η th.σs (ResumeR p th.stack Rs) cx th.env Rf)
     (hE : EnvOK p η) (htv : TvOK cx) (hm : MemInv g (CE η) (stOf mem pairs th))
-    (hH : MemHeldL (CE η) (stOf mem pairs th) H Sp) (hRP : RetPw th.σs th.stack cx.ret) (hPS : PwSkel) :
+    (hH : MemHeldL (CE η) (stOf mem pairs th) H Sp) (hRP : RetPw th.σs th.stack cx.ret) (hPS : PwSkel) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
     tstep g mem pairs th ≠ [] ∧ ∀ r ∈ tstep g mem pairs th,
       ∃ Tot H', ThInvMKQ (fun E' => FootNCE (CE η) E' r) p g (CE η) (stOf mem pairs th) Sp r.1 r.2.1 r.2.2 Tot H' ∧
         FreshIn g (stOf mem pairs th).nalloc (stOf r.1 r.2.1 r.2.2).nalloc (freshLabel g.lbase g.n g.i th.nalloc) ∧
@@ -335,7 +361,7 @@ theorem tstepMR_newBufN {Sp : AllocLabel → List Res} {p : Prog} {g : G} {mem :
   let E' := allocE E0 lbl T
   let η' := η.withSto E'.sto ini' (Ri := rini')
   obtain ⟨hmo, hoo, hpl, hfr, hsn, hoh, hpd, hopub, hpi, hbi, hpo⟩ := id hm
-  obtain ⟨hnone, hfresh, hi0, hpf0⟩ := hfr.1 th.nalloc (Nat.le_refl _)
+  obtain ⟨hnone, hfresh, hi0, -, hpf0⟩ := hfr.1 th.nalloc (Nat.le_refl _)
   obtain ⟨R0, H0, hHe, hent0, hX⟩ := MemHeldL_focusE hH lbl
   have hR0 : R0 = .zero := hent0.1 hnone
   have hnone0 : E0.sto lbl = none := hnone
@@ -644,7 +670,7 @@ theorem tstepMR_newBufN {Sp : AllocLabel → List Res} {p : Prog} {g : G} {mem :
                 knone_nil).1 hzz) (by rw [h0]; simp))) l) (fun _ => .inl rfl)
       (fun l => ite_ini_cases _ _ _ l)
       (hrw := RiniW_of_ne fun l c h => bumpIni_other _ _ _ _ fun e => by
-        subst e; cases h.symm.trans hnone0), (by seenT), (by boxT), ⟨ρ, η', c', Rf + Res.one (.own (freshLabel g.lbase g.n g.i th.nalloc)), Rs, rfl, ⟨hE.1, hx.1, hx.2.2.2.2.2.2.2.2.2.2.1⟩, ⟨he, hck⟩, htv', hfr', rfl, retPw_skel hPS hRP (skel_subst_eq hRk th.σs 0 0 0)⟩,
+        subst e; cases h.symm.trans hnone0), (by seenT), (by boxT), ⟨ρ, η', c', Rf + Res.one (.own (freshLabel g.lbase g.n g.i th.nalloc)), Rs, rfl, ⟨hE.1, hx.1, hx.2.2.2.2.2.2.2.2.2.2.1⟩, ⟨he, hck⟩, htv', hfr', rfl, retPw_skel hPS hRP (skel_subst_eq hRk th.σs 0 0 0), hDy.letW hterm rfl⟩,
       ⟨hmo', hoo', fun t ht => by
         have ht' : t ∈ R.1.promises := ht
         rw [hpr] at ht'; exact Nat.lt_of_lt_of_le (hpl t ht') hg.1,
@@ -687,7 +713,8 @@ theorem tstepMR_newBufN {Sp : AllocLabel → List Res} {p : Prog} {g : G} {mem :
       have := freshLabel_inj_k hn h; subst this
       have h1 : R.1.nalloc ≤ th.nalloc := hj
       rw [hna] at h1; exact absurd h1 (by show ¬ th.nalloc + 1 ≤ th.nalloc; omega)
-    refine ⟨by rw [allocE_ne hne]; exact f1, fun t m ht hl => ?_, ?_, f5⟩
+    refine ⟨by rw [allocE_ne hne]; exact f1, fun t m ht hl => ?_, ?_,
+      ⟨by show bumpIni η.rini lbl iv (freshLabel g.lbase g.n g.i j) = 0; rw [bumpIni_other _ _ _ _ hne]; exact f5.1, f5.2⟩⟩
     · change R.1.mem[t]? = some m at ht
       by_cases hlt : t < (stOf mem pairs th).mem.size
       · rw [hg.2.1 t hlt] at ht; exact f2 t m ht hl
@@ -728,7 +755,7 @@ theorem tstepMR_inlBN {Sp : AllocLabel → List Res} {p : Prog} {g : G} {mem : M
     (hi1 : FInvR ρ η th.σs (ResumeR p th.stack Rs) c₁ th.env Rr) (hle : R + Rr ≤ Rf)
     (hea : evalAt th.env a = some (rt, ws)) (hv : VRR ρ η t (shp rt) ws R) (hl : Lay th.σs t rt ws)
     (hS : (Ty.sum rt (close th.σs τ)).tier = .boxed) (hrb : isBoxed rt = false)
-    (hE : EnvOK p η) (hm : MemInv g (CE η) (stOf mem pairs th)) (hbf : g.boxFence = true) (hH : MemHeldL (CE η) (stOf mem pairs th) H Sp) (hRP1 : RetPw th.σs th.stack c₁.ret) :
+    (hE : EnvOK p η) (hm : MemInv g (CE η) (stOf mem pairs th)) (hbf : g.boxFence = true) (hH : MemHeldL (CE η) (stOf mem pairs th) H Sp) (hRP1 : RetPw th.σs th.stack c₁.ret) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
     tstep g mem pairs th ≠ [] ∧ ∀ r ∈ tstep g mem pairs th,
       ∃ Tot H', ThInvMKQ (StoEq (CE η)) p g (CE η) (stOf mem pairs th) Sp r.1 r.2.1 r.2.2 Tot H' ∧ Tot + H' ≤ Rf + Rs + H := by
   obtain ⟨c', hb⟩ := hb
@@ -745,7 +772,7 @@ theorem tstepMR_inlBN {Sp : AllocLabel → List Res} {p : Prog} {g : G} {mem : M
   let V := s.vs.vRelSt
   have hbnone : η.box lbl = none := hm.2.2.2.2.2.2.2.2.2.1.1 s.nalloc (Nat.le_refl _)
   have hstoL : η.sto lbl = none := (hm.2.2.2.1.1 s.nalloc (Nat.le_refl _)).1
-  have hpfL : η.pfr lbl = none := (hm.2.2.2.1.1 s.nalloc (Nat.le_refl _)).2.2.2
+  have hpfL : η.pfr lbl = none := (hm.2.2.2.1.1 s.nalloc (Nat.le_refl _)).2.2.2.2
   have key : tstep g mem pairs th =
       (alloc g.k g.arch lbl (.one :: us) (cst (.num j) :: p0) s).map fun (s', pw) =>
         ((if g.boxFence then fenceS s' .st else s').mem, (if g.boxFence then fenceS s' .st else s').pairs,
@@ -793,7 +820,7 @@ theorem tstepMR_inlBN {Sp : AllocLabel → List Res} {p : Prog} {g : G} {mem : M
     have hf := FInvR_mono (bindR hb (FInvR_ext hE.2.1 hE.2.2 hx hi1) (RLink_of hx.1 hcr') hvr
       (Lay_box ⟨hshape, hsk, hwc, hval, hly⟩ hS)) (res_swap_le hle)
     refine ⟨Rf + Rs, H, ⟨CE η', fun _ => rfl, by rw [hCE]; exact EFoot_seeBox (nalloc_alloc_box hm.2.2.1 hal) rfl hpfL hstoL (alloc_size_fr hal) (by first | exact Nat.le_refl _ | (simp only [hbf, ↓reduceIte]; exact Nat.le_refl _) | (simp only [hbf, ↓reduceIte, stOf, withS]; exact Nat.le_refl _)) (alloc_size_len _ hal (by first | exact hlen | exact hnw.symm)), (by seenT), (by rw [hCE]; refine BoxNewV_seeBox hbnone ?_; intro e0 env0 he hs hev; have hev' := envV_tail he hev; exact payV_lt (TermViewInv.asArm_V has (TermViewInv.evalAt_V hev' hea)) hs.2.2.2.2.2 (alloc_size_len _ hal (by first | exact hlen | exact hnw.symm))),
-      ⟨ρ, η', c', Rf, Rs, rfl, ⟨hE.1, hx.1, hcr'⟩, he.ext hx, htv', hf, rfl, retPw_eq hRP1 (by first | rfl | exact (bind_ret hb :) | exact (bind_ret hb).trans (use_ret hu) | exact (use_ret hu :))⟩, ?_, ?_, ?_⟩,
+      ⟨ρ, η', c', Rf, Rs, rfl, ⟨hE.1, hx.1, hcr'⟩, he.ext hx, htv', hf, rfl, retPw_eq hRP1 (by first | rfl | exact (bind_ret hb :) | exact (bind_ret hb).trans (use_ret hu) | exact (use_ret hu :)), hDy.letW hterm rfl⟩, ?_, ?_, ?_⟩,
       Res.le_refl _⟩
     · rw [hCE]; exact hm'
     · rw [hCE]; exact MemHeldK_of (MemHeldL_seeE (lbl := lbl) (F := s'.vs.vWr) hHb hstoL hpfL)
@@ -808,7 +835,7 @@ theorem tstepMR_inrBN {Sp : AllocLabel → List Res} {p : Prog} {g : G} {mem : M
     (hi1 : FInvR ρ η th.σs (ResumeR p th.stack Rs) c₁ th.env Rr) (hle : R + Rr ≤ Rf)
     (hea : evalAt th.env a = some (rt, ws)) (hv : VRR ρ η t (shp rt) ws R) (hl : Lay th.σs t rt ws)
     (hS : (Ty.sum (close th.σs τ) rt).tier = .boxed) (hrb : isBoxed rt = false)
-    (hE : EnvOK p η) (hm : MemInv g (CE η) (stOf mem pairs th)) (hbf : g.boxFence = true) (hH : MemHeldL (CE η) (stOf mem pairs th) H Sp) (hRP1 : RetPw th.σs th.stack c₁.ret) :
+    (hE : EnvOK p η) (hm : MemInv g (CE η) (stOf mem pairs th)) (hbf : g.boxFence = true) (hH : MemHeldL (CE η) (stOf mem pairs th) H Sp) (hRP1 : RetPw th.σs th.stack c₁.ret) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
     tstep g mem pairs th ≠ [] ∧ ∀ r ∈ tstep g mem pairs th,
       ∃ Tot H', ThInvMKQ (StoEq (CE η)) p g (CE η) (stOf mem pairs th) Sp r.1 r.2.1 r.2.2 Tot H' ∧ Tot + H' ≤ Rf + Rs + H := by
   obtain ⟨c', hb⟩ := hb
@@ -827,7 +854,7 @@ theorem tstepMR_inrBN {Sp : AllocLabel → List Res} {p : Prog} {g : G} {mem : M
   let V := s.vs.vRelSt
   have hbnone : η.box lbl = none := hm.2.2.2.2.2.2.2.2.2.1.1 s.nalloc (Nat.le_refl _)
   have hstoL : η.sto lbl = none := (hm.2.2.2.1.1 s.nalloc (Nat.le_refl _)).1
-  have hpfL : η.pfr lbl = none := (hm.2.2.2.1.1 s.nalloc (Nat.le_refl _)).2.2.2
+  have hpfL : η.pfr lbl = none := (hm.2.2.2.1.1 s.nalloc (Nat.le_refl _)).2.2.2.2
   have key : tstep g mem pairs th =
       (alloc g.k g.arch lbl (.one :: us) (cst (.num (n + j)) :: p0) s).map fun (s', pw) =>
         ((if g.boxFence then fenceS s' .st else s').mem, (if g.boxFence then fenceS s' .st else s').pairs,
@@ -876,7 +903,7 @@ theorem tstepMR_inrBN {Sp : AllocLabel → List Res} {p : Prog} {g : G} {mem : M
     have hf := FInvR_mono (bindR hb (FInvR_ext hE.2.1 hE.2.2 hx hi1) (RLink_of hx.1 hcr') hvr
       (TermSound.Lay_boxR ⟨hshape, hsk, hwc, hval, hly⟩ hS)) (res_swap_le hle)
     refine ⟨Rf + Rs, H, ⟨CE η', fun _ => rfl, by rw [hCE]; exact EFoot_seeBox (nalloc_alloc_box hm.2.2.1 hal) rfl hpfL hstoL (alloc_size_fr hal) (by first | exact Nat.le_refl _ | (simp only [hbf, ↓reduceIte]; exact Nat.le_refl _) | (simp only [hbf, ↓reduceIte, stOf, withS]; exact Nat.le_refl _)) (alloc_size_len _ hal (by first | exact hlen | exact hnw.symm)), (by seenT), (by rw [hCE]; refine BoxNewV_seeBox hbnone ?_; intro e0 env0 he hs hev; have hev' := envV_tail he hev; exact payV_lt (TermViewInv.asArm_V has (TermViewInv.evalAt_V hev' hea)) hs.2.2.2.2.2 (alloc_size_len _ hal (by first | exact hlen | exact hnw.symm))),
-      ⟨ρ, η', c', Rf, Rs, rfl, ⟨hE.1, hx.1, hcr'⟩, he.ext hx, htv', hf, rfl, retPw_eq hRP1 (by first | rfl | exact (bind_ret hb :) | exact (bind_ret hb).trans (use_ret hu) | exact (use_ret hu :))⟩, ?_, ?_, ?_⟩,
+      ⟨ρ, η', c', Rf, Rs, rfl, ⟨hE.1, hx.1, hcr'⟩, he.ext hx, htv', hf, rfl, retPw_eq hRP1 (by first | rfl | exact (bind_ret hb :) | exact (bind_ret hb).trans (use_ret hu) | exact (use_ret hu :)), hDy.letW hterm rfl⟩, ?_, ?_, ?_⟩,
       Res.le_refl _⟩
     · rw [hCE]; exact hm'
     · rw [hCE]; exact MemHeldK_of (MemHeldL_seeE (lbl := lbl) (F := s'.vs.vWr) hHb hstoL hpfL)
@@ -894,7 +921,7 @@ theorem tstepMR_inlBBN {Sp : AllocLabel → List Res} {p : Prog} {g : G} {mem : 
     (hS : (Ty.sum rt (close th.σs τ)).tier = .boxed) (hrb : isBoxed rt = true)
     (hsg : sig rt = sig (cl ρ η.wit 0 0 t))
     (hE : EnvOK p η) (hm : MemInv g (CE η) (stOf mem pairs th)) (hbf : g.boxFence = true) (hH : MemHeldL (CE η) (stOf mem pairs th) H Sp)
-    (hpx : PAx g mem pairs th) (hRP1 : RetPw th.σs th.stack c₁.ret) :
+    (hpx : PAx g mem pairs th) (hRP1 : RetPw th.σs th.stack c₁.ret) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
     tstep g mem pairs th ≠ [] ∧ ∀ r ∈ tstep g mem pairs th, PromAbove (stOf r.1 r.2.1 r.2.2) →
       ∃ Tot H', ThInvMKQ (StoEq (CE η)) p g (CE η) (stOf mem pairs th) Sp r.1 r.2.1 r.2.2 Tot H' ∧ Tot + H' ≤ Rf + Rs + H := by
   obtain ⟨c', hb⟩ := hb
@@ -960,7 +987,7 @@ theorem tstepMR_inlBBN {Sp : AllocLabel → List Res} {p : Prog} {g : G} {mem : 
     subst hpw
     have hbnone : η.box lbl = none := hm1.2.2.2.2.2.2.2.2.2.1.1 s1.nalloc (Nat.le_refl _)
     have hstoL : η.sto lbl = none := (hm1.2.2.2.1.1 s1.nalloc (Nat.le_refl _)).1
-    have hpfL : η.pfr lbl = none := (hm1.2.2.2.1.1 s1.nalloc (Nat.le_refl _)).2.2.2
+    have hpfL : η.pfr lbl = none := (hm1.2.2.2.1.1 s1.nalloc (Nat.le_refl _)).2.2.2.2
     have hne0 : x0.label ≠ lbl := fun e => by rw [e, hbnone] at hB0; cases hB0
     let η' := η.withSto η.sto (P := fun l => if l = lbl then some s'.vs.vWr else η.pfr l)
       (S := fun l => l = lbl ∨ η.seen l) (Bx := fun l => if l = lbl then some B else η.box l)
@@ -989,7 +1016,7 @@ theorem tstepMR_inlBBN {Sp : AllocLabel → List Res} {p : Prog} {g : G} {mem : 
     have hf := FInvR_mono (bindR hb (FInvR_ext hE.2.1 hE.2.2 hx hi1) (RLink_of hx.1 hcr') hvr
       (Lay_box hl hS)) (res_swap_le hle)
     refine ⟨Rf + Rs, H, ⟨CE η', fun _ => rfl, EFoot_congr (s1 := s1) (by rw [hCE]; exact EFoot_seeBox (nalloc_alloc_box hm1.2.2.1 hal) rfl hpfL hstoL (alloc_size_fr hal) (by first | exact Nat.le_refl _ | (simp only [hbf, ↓reduceIte]; exact Nat.le_refl _) | (simp only [hbf, ↓reduceIte, stOf, withS]; exact Nat.le_refl _)) (alloc_size_len _ hal (by first | exact hlen | exact hnw.symm))) e5 e7 (congrArg Array.size e1) e4 e1, (by seenT), (by rw [hCE]; refine BoxNewV_seeBox hbnone ?_; intro e0 env0 he hs hev; have hev' := envV_tail he hev; obtain ⟨hp1, hV1⟩ := pV_of_proj h1 hea hs hev'; exact payV_lt hp1 hV1 (alloc_size_len _ hal hlen)),
-      ⟨ρ, η', c', Rf, Rs, rfl, ⟨hE.1, hx.1, hcr'⟩, he.ext hx, htv', hf, rfl, retPw_eq hRP1 (by first | rfl | exact (bind_ret hb :) | exact (bind_ret hb).trans (use_ret hu) | exact (use_ret hu :))⟩, ?_, ?_, ?_⟩,
+      ⟨ρ, η', c', Rf, Rs, rfl, ⟨hE.1, hx.1, hcr'⟩, he.ext hx, htv', hf, rfl, retPw_eq hRP1 (by first | rfl | exact (bind_ret hb :) | exact (bind_ret hb).trans (use_ret hu) | exact (use_ret hu :)), hDy.letW hterm rfl⟩, ?_, ?_, ?_⟩,
       Res.le_refl _⟩
     · rw [hCE]; exact hm'
     · rw [hCE]; exact MemHeldK_of (MemHeldL_seeE (lbl := lbl) (F := s'.vs.vWr) hHb hstoL hpfL)
@@ -1007,7 +1034,7 @@ theorem tstepMR_inrBBN {Sp : AllocLabel → List Res} {p : Prog} {g : G} {mem : 
     (hS : (Ty.sum (close th.σs τ) rt).tier = .boxed) (hrb : isBoxed rt = true)
     (hsg : sig rt = sig (cl ρ η.wit 0 0 t))
     (hE : EnvOK p η) (hm : MemInv g (CE η) (stOf mem pairs th)) (hbf : g.boxFence = true) (hH : MemHeldL (CE η) (stOf mem pairs th) H Sp)
-    (hpx : PAx g mem pairs th) (hRP1 : RetPw th.σs th.stack c₁.ret) :
+    (hpx : PAx g mem pairs th) (hRP1 : RetPw th.σs th.stack c₁.ret) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
     tstep g mem pairs th ≠ [] ∧ ∀ r ∈ tstep g mem pairs th, PromAbove (stOf r.1 r.2.1 r.2.2) →
       ∃ Tot H', ThInvMKQ (StoEq (CE η)) p g (CE η) (stOf mem pairs th) Sp r.1 r.2.1 r.2.2 Tot H' ∧ Tot + H' ≤ Rf + Rs + H := by
   obtain ⟨c', hb⟩ := hb
@@ -1075,7 +1102,7 @@ theorem tstepMR_inrBBN {Sp : AllocLabel → List Res} {p : Prog} {g : G} {mem : 
     subst hpw
     have hbnone : η.box lbl = none := hm1.2.2.2.2.2.2.2.2.2.1.1 s1.nalloc (Nat.le_refl _)
     have hstoL : η.sto lbl = none := (hm1.2.2.2.1.1 s1.nalloc (Nat.le_refl _)).1
-    have hpfL : η.pfr lbl = none := (hm1.2.2.2.1.1 s1.nalloc (Nat.le_refl _)).2.2.2
+    have hpfL : η.pfr lbl = none := (hm1.2.2.2.1.1 s1.nalloc (Nat.le_refl _)).2.2.2.2
     have hne0 : x0.label ≠ lbl := fun e => by rw [e, hbnone] at hB0; cases hB0
     let η' := η.withSto η.sto (P := fun l => if l = lbl then some s'.vs.vWr else η.pfr l)
       (S := fun l => l = lbl ∨ η.seen l) (Bx := fun l => if l = lbl then some B else η.box l)
@@ -1104,7 +1131,7 @@ theorem tstepMR_inrBBN {Sp : AllocLabel → List Res} {p : Prog} {g : G} {mem : 
     have hf := FInvR_mono (bindR hb (FInvR_ext hE.2.1 hE.2.2 hx hi1) (RLink_of hx.1 hcr') hvr
       (TermSound.Lay_boxR hl hS)) (res_swap_le hle)
     refine ⟨Rf + Rs, H, ⟨CE η', fun _ => rfl, EFoot_congr (s1 := s1) (by rw [hCE]; exact EFoot_seeBox (nalloc_alloc_box hm1.2.2.1 hal) rfl hpfL hstoL (alloc_size_fr hal) (by first | exact Nat.le_refl _ | (simp only [hbf, ↓reduceIte]; exact Nat.le_refl _) | (simp only [hbf, ↓reduceIte, stOf, withS]; exact Nat.le_refl _)) (alloc_size_len _ hal (by first | exact hlen | exact hnw.symm))) e5 e7 (congrArg Array.size e1) e4 e1, (by seenT), (by rw [hCE]; refine BoxNewV_seeBox hbnone ?_; intro e0 env0 he hs hev; have hev' := envV_tail he hev; obtain ⟨hp1, hV1⟩ := pV_of_proj h1 hea hs hev'; exact payV_lt hp1 hV1 (alloc_size_len _ hal hlen)),
-      ⟨ρ, η', c', Rf, Rs, rfl, ⟨hE.1, hx.1, hcr'⟩, he.ext hx, htv', hf, rfl, retPw_eq hRP1 (by first | rfl | exact (bind_ret hb :) | exact (bind_ret hb).trans (use_ret hu) | exact (use_ret hu :))⟩, ?_, ?_, ?_⟩,
+      ⟨ρ, η', c', Rf, Rs, rfl, ⟨hE.1, hx.1, hcr'⟩, he.ext hx, htv', hf, rfl, retPw_eq hRP1 (by first | rfl | exact (bind_ret hb :) | exact (bind_ret hb).trans (use_ret hu) | exact (use_ret hu :)), hDy.letW hterm rfl⟩, ?_, ?_, ?_⟩,
       Res.le_refl _⟩
     · rw [hCE]; exact hm'
     · rw [hCE]; exact MemHeldK_of (MemHeldL_seeE (lbl := lbl) (F := s'.vs.vWr) hHb hstoL hpfL)
@@ -1119,7 +1146,7 @@ theorem tstepMR_inlTN {Sp : AllocLabel → List Res} {x : String} {τ : Ty} {a :
     (hT : Typed p cx th.term) (hCk : TermA4.CkW p η.wit cx th.term) (hi : FInvR ρ η th.σs (ResumeR p th.stack Rs) cx th.env Rf)
     (hE : EnvOK p η) (htv : TvOK cx) (hm : MemInv g (CE η) (stOf mem pairs th)) (hbf : g.boxFence = true)
     (hH : MemHeldL (CE η) (stOf mem pairs th) H Sp)
-    (hpx : PAx g mem pairs th) (hRP : RetPw th.σs th.stack cx.ret) (hPS : PwSkel) :
+    (hpx : PAx g mem pairs th) (hRP : RetPw th.σs th.stack cx.ret) (hPS : PwSkel) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
     tstep g mem pairs th ≠ [] ∧ ∀ r ∈ tstep g mem pairs th, PromAbove (stOf r.1 r.2.1 r.2.2) →
       ∃ Tot H', ThInvMKQ (StoEq (CE η)) p g (CE η) (stOf mem pairs th) Sp r.1 r.2.1 r.2.2 Tot H' ∧ Tot + H' ≤ Rf + Rs + H := by
   have hT0 := hT
@@ -1141,14 +1168,14 @@ theorem tstepMR_inlTN {Sp : AllocLabel → List Res} {x : String} {τ : Ty} {a :
         rw [hb] at h; cases h; exact ⟨⟨he, hck⟩, htv'⟩
       by_cases hS : (Ty.sum rt (close th.σs τ)).tier = .boxed
       · cases hrb : isBoxed rt with
-        | false => exact paW <| tstepMR_inlBN (hbf := hbf) hterm hn hc' ⟨c', hb⟩ hi1 hle hea hv hl hS hrb hE hm hH (retPw_eq hRP (use_ret hu))
+        | false => exact paW <| tstepMR_inlBN (hDy := hDy) (hbf := hbf) hterm hn hc' ⟨c', hb⟩ hi1 hle hea hv hl hS hrb hE hm hH (retPw_eq hRP (use_ret hu))
         | true =>
             have ho : cx.opaqueOK _ = true :=
               peek_opaqueOK htv (use_inv (ρ := ρ) (η := η) (σs := th.σs) (env := th.env) hu).1
             have htb := (use_TvOK hu htv).2.1
-            exact tstepMR_inlBBN (hbf := hbf) hterm hn hc' ⟨c', hb⟩ hi1 hle hea hvV hv hl hS hrb
+            exact tstepMR_inlBBN (hDy := hDy) (hbf := hbf) hterm hn hc' ⟨c', hb⟩ hi1 hle hea hvV hv hl hS hrb
               (lay_closed hi.1.2.2.2.1 hi.1.2.2.2.2.1 ho htb hl) hE hm hH hpx (retPw_eq hRP (use_ret hu))
-      · refine paW <| liftMRN hm hH (tstep_inlR hterm hP (fun t' c₁' hu' => ?_) hT hCk hi hE htv hRP hPS)
+      · refine paW <| liftMRN hm hH (tstep_inlR (hDy := hDy) hterm hP (fun t' c₁' hu' => ?_) hT hCk hi hE htv hRP hPS)
           (same_inl hterm fun t0 ws0 hea0 => ?_)
         · rw [hu, Except.ok.injEq, Prod.mk.injEq] at hu'; obtain ⟨rfl, rfl⟩ := hu'
           rw [← hsk]; exact hS
@@ -1161,7 +1188,7 @@ theorem tstepMR_inrTN {Sp : AllocLabel → List Res} {x : String} {τ : Ty} {a :
     (hT : Typed p cx th.term) (hCk : TermA4.CkW p η.wit cx th.term) (hi : FInvR ρ η th.σs (ResumeR p th.stack Rs) cx th.env Rf)
     (hE : EnvOK p η) (htv : TvOK cx) (hm : MemInv g (CE η) (stOf mem pairs th)) (hbf : g.boxFence = true)
     (hH : MemHeldL (CE η) (stOf mem pairs th) H Sp)
-    (hpx : PAx g mem pairs th) (hRP : RetPw th.σs th.stack cx.ret) (hPS : PwSkel) :
+    (hpx : PAx g mem pairs th) (hRP : RetPw th.σs th.stack cx.ret) (hPS : PwSkel) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
     tstep g mem pairs th ≠ [] ∧ ∀ r ∈ tstep g mem pairs th, PromAbove (stOf r.1 r.2.1 r.2.2) →
       ∃ Tot H', ThInvMKQ (StoEq (CE η)) p g (CE η) (stOf mem pairs th) Sp r.1 r.2.1 r.2.2 Tot H' ∧ Tot + H' ≤ Rf + Rs + H := by
   have hT0 := hT
@@ -1183,14 +1210,14 @@ theorem tstepMR_inrTN {Sp : AllocLabel → List Res} {x : String} {τ : Ty} {a :
         rw [hb] at h; cases h; exact ⟨⟨he, hck⟩, htv'⟩
       by_cases hS : (Ty.sum (close th.σs τ) rt).tier = .boxed
       · cases hrb : isBoxed rt with
-        | false => exact paW <| tstepMR_inrBN (hbf := hbf) hterm hn hc' ⟨c', hb⟩ hi1 hle hea hv hl hS hrb hE hm hH (retPw_eq hRP (use_ret hu))
+        | false => exact paW <| tstepMR_inrBN (hDy := hDy) (hbf := hbf) hterm hn hc' ⟨c', hb⟩ hi1 hle hea hv hl hS hrb hE hm hH (retPw_eq hRP (use_ret hu))
         | true =>
             have ho : cx.opaqueOK _ = true :=
               peek_opaqueOK htv (use_inv (ρ := ρ) (η := η) (σs := th.σs) (env := th.env) hu).1
             have htb := (use_TvOK hu htv).2.1
-            exact tstepMR_inrBBN (hbf := hbf) hterm hn hc' ⟨c', hb⟩ hi1 hle hea hvV hv hl hS hrb
+            exact tstepMR_inrBBN (hDy := hDy) (hbf := hbf) hterm hn hc' ⟨c', hb⟩ hi1 hle hea hvV hv hl hS hrb
               (lay_closed hi.1.2.2.2.1 hi.1.2.2.2.2.1 ho htb hl) hE hm hH hpx (retPw_eq hRP (use_ret hu))
-      · refine paW <| liftMRN hm hH (tstep_inrR hterm hP (fun t' c₁' hu' => ?_) hT hCk hi hE htv hRP hPS)
+      · refine paW <| liftMRN hm hH (tstep_inrR (hDy := hDy) hterm hP (fun t' c₁' hu' => ?_) hT hCk hi hE htv hRP hPS)
           (same_inr hterm fun t0 ws0 hea0 => ?_)
         · rw [hu, Except.ok.injEq, Prod.mk.injEq] at hu'; obtain ⟨rfl, rfl⟩ := hu'
           rw [← hsk]; exact hS
@@ -1207,7 +1234,7 @@ theorem case_armNBRN {Sp : AllocLabel → List Res} {p : Prog} {g : G} {th : TTh
     (hm1 : MemInv g (CE η) s1) (hH1 : MemHeldL (CE η) s1 H Sp) {S0 : St}
     (hk1 : CrKeep (CE η) (CE η) S0 s1)
     (hty : isBoxed ty = false) (hq : ofArm ty j p1 = some q1) (hlay : Lay th.σs u ty q1)
-    (hvr : VRR ρ η u (shp ty) q1 R) (hRP1 : RetPw th.σs th.stack c₁.ret) :
+    (hvr : VRR ρ η u (shp ty) q1 R) (hRP1 : RetPw th.σs th.stack c₁.ret) (hDy : DyFr p annNew (progTgts p) η th.σs e') :
     injM g s1 ty j p1 ≠ [] ∧ ∀ r2 ∈ injM g s1 ty j p1, ∃ Tot H',
       ThInvMKQ (StoEq (CE η)) p g (CE η) S0 Sp r2.1.mem r2.1.pairs (withS { th with term := e', env := (xv, ty, r2.2) :: th.env } r2.1) Tot H' ∧
       Tot + H' ≤ Rf + Rs + H := by
@@ -1215,7 +1242,7 @@ theorem case_armNBRN {Sp : AllocLabel → List Res} {p : Prog} {g : G} {th : TTh
   refine ⟨by simp [ol], fun r2 hr2 => ?_⟩
   simp [ol] at hr2; subst hr2
   have hf := FInvR_mono (bindR hb hi1 (RLink_of hE.2.1 hE.2.2) hvr hlay) (res_swap_le hle)
-  exact ⟨Rf + Rs, H, ⟨CE η, fun _ => rfl, EFoot_refl, (by seenT), (by boxT), ⟨ρ, η, c', Rf, Rs, rfl, hE, he, htv, by simpa [withS] using hf, rfl, retPw_eq hRP1 (by first | rfl | exact (bind_ret hb :) | exact (bind_ret hb).trans (use_ret hu) | exact (use_ret hu :))⟩, hm1, MemHeldK_of hH1, hk1⟩,
+  exact ⟨Rf + Rs, H, ⟨CE η, fun _ => rfl, EFoot_refl, (by seenT), (by boxT), ⟨ρ, η, c', Rf, Rs, rfl, hE, he, htv, by simpa [withS] using hf, rfl, retPw_eq hRP1 (by first | rfl | exact (bind_ret hb :) | exact (bind_ret hb).trans (use_ret hu) | exact (use_ret hu :)), hDy.wit rfl⟩, hm1, MemHeldK_of hH1, hk1⟩,
     Res.le_refl _⟩
 
 /-- (X) `case_armBR` keeping `E.sto` on the witness. -/
@@ -1232,7 +1259,7 @@ theorem case_armBRN {Sp : AllocLabel → List Res} {p : Prog} {g : G} {th : TTh}
     (hsto0 : η.sto x0.label = none) (hini0 : η.ini x0.label = 0) (ht : B0.tag = j + s0)
     (hWp : WLe B0.pay p1) (hv : VRR ρ η u (vsh s0 (shp ty)) [w] R) (hlay : ∀ pw, Lay th.σs u ty [pw])
     (hpV : TermViewInv.StV S0 → TermViewInv.EnvV S0.mem.size th.env →
-      TermViewInv.WsV s1.mem.size p1 ∧ s1.vs.vRelSt ≤ s1.mem.size) (hRP1 : RetPw th.σs th.stack c₁.ret) :
+      TermViewInv.WsV s1.mem.size p1 ∧ s1.vs.vRelSt ≤ s1.mem.size) (hRP1 : RetPw th.σs th.stack c₁.ret) (hDy : DyFr p annNew (progTgts p) η th.σs e') :
     injM g s1 ty j p1 ≠ [] ∧ ∀ r2 ∈ injM g s1 ty j p1, ∃ Tot H',
       ThInvMKQ (StoEq (CE η)) p g (CE η) S0 Sp r2.1.mem r2.1.pairs (withS { th with term := e', env := (xv, ty, r2.2) :: th.env } r2.1) Tot H' ∧
       Tot + H' ≤ Rf + Rs + H := by
@@ -1253,7 +1280,7 @@ theorem case_armBRN {Sp : AllocLabel → List Res} {p : Prog} {g : G} {th : TTh}
     subst hpw
     have hbnone : η.box lbl = none := hm1.2.2.2.2.2.2.2.2.2.1.1 s1.nalloc (Nat.le_refl _)
     have hstoL : η.sto lbl = none := (hm1.2.2.2.1.1 s1.nalloc (Nat.le_refl _)).1
-    have hpfL : η.pfr lbl = none := (hm1.2.2.2.1.1 s1.nalloc (Nat.le_refl _)).2.2.2
+    have hpfL : η.pfr lbl = none := (hm1.2.2.2.1.1 s1.nalloc (Nat.le_refl _)).2.2.2.2
     have hne0 : x0.label ≠ lbl := fun e => by rw [e, hbnone] at hB0; cases hB0
     let η' := η.withSto η.sto (P := fun l => if l = lbl then some s'.vs.vWr else η.pfr l)
       (S := fun l => l = lbl ∨ η.seen l) (Bx := fun l => if l = lbl then some B else η.box l)
@@ -1285,7 +1312,7 @@ theorem case_armBRN {Sp : AllocLabel → List Res} {p : Prog} {g : G} {th : TTh}
         exact EFoot_seeBox (by rw [← hn1]; exact nalloc_alloc_box hm1.2.2.1 hal) rfl (by rw [← hn1]; exact hpfL)
           (by rw [← hn1]; exact hstoL) (Nat.le_trans hk1.2.1 (alloc_size_fr hal)) (by first | exact Nat.le_refl _ | (simp only [hbf, ↓reduceIte]; exact Nat.le_refl _) | (simp only [hbf, ↓reduceIte, stOf, withS]; exact Nat.le_refl _)) (Nat.le_trans (Nat.add_le_add_right hk1.2.1 _) (alloc_size_len _ hal hlen)), (by seenT), (by rw [hCE]; refine BoxNewV_seeBox hbnone ?_; intro e0 env0 he hs hev; have hev' := envV_tail he hev; obtain ⟨hp1, hV1⟩ := hpV hs hev'; exact payV_lt hp1 hV1 (alloc_size_len _ hal hlen)),
       ⟨ρ, η', c', Rf, Rs, rfl, ⟨hE.1, hx.1, hcr'⟩, he, htv,
-      by simpa [withS] using hf, rfl, retPw_eq hRP1 (by first | rfl | exact (bind_ret hb :) | exact (bind_ret hb).trans (use_ret hu) | exact (use_ret hu :))⟩, ?_, ?_, ?_⟩, Res.le_refl _⟩
+      by simpa [withS] using hf, rfl, retPw_eq hRP1 (by first | rfl | exact (bind_ret hb :) | exact (bind_ret hb).trans (use_ret hu) | exact (use_ret hu :)), hDy.wit rfl⟩, ?_, ?_, ?_⟩, Res.le_refl _⟩
     · rw [hCE]; exact hm'
     · rw [hCE]; exact MemHeldK_of (MemHeldL_seeE (lbl := lbl) (F := s'.vs.vWr) hHb hstoL hpfL)
     · rw [hCE]; exact CrKeep_trans hk1 (CrKeep_seeE (lbl := lbl) (F := s'.vs.vWr) (CrKeep_box hm1 hal B) hstoL)
@@ -1302,7 +1329,7 @@ theorem tstepMR_caseBN {Sp : AllocLabel → List Res} {p : Prog} {g : G} {mem : 
     (hl : Lay th.σs (.sum u v) (.sum ra rb) ws) (hS : (Ty.sum ra rb).tier = .boxed)
     (hsg : sig (.sum ra rb) = sig (cl ρ η.wit 0 0 (.sum u v)))
     (hE : EnvOK p η) (hm : MemInv g (CE η) (stOf mem pairs th)) (hbf : g.boxFence = true) (hH : MemHeldL (CE η) (stOf mem pairs th) H Sp)
-    (hpx : PAx g mem pairs th) (hRP1 : RetPw th.σs th.stack c₁.ret) :
+    (hpx : PAx g mem pairs th) (hRP1 : RetPw th.σs th.stack c₁.ret) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
     tstep g mem pairs th ≠ [] ∧ ∀ r ∈ tstep g mem pairs th, PromAbove (stOf r.1 r.2.1 r.2.2) →
       ∃ Tot H', ThInvMKQ (StoEq (CE η)) p g (CE η) (stOf mem pairs th) Sp r.1 r.2.1 r.2.2 Tot H' ∧ Tot + H' ≤ Rf + Rs + H := by
   have hbi := hm.2.2.2.2.2.2.2.2.2.1
@@ -1360,11 +1387,11 @@ theorem tstepMR_caseBN {Sp : AllocLabel → List Res} {p : Prog} {g : G} {mem : 
           obtain ⟨q, hq, hsq, hwq, hvd, hvr⟩ := (hA hj).2 hty
           obtain ⟨q1, hq1, hs1, hw1, hv1, hvr1⟩ :=
             case_arm_nbR hE.2.1 hE.2.2 hty hsg2.1 hq hsq hwq hvd (by rw [shp_lnorm]; exact hvr) hWp
-          exact case_armNBRN hb1 he1 htv1 hi1 hle hE hm1 hH1 hk1 hty hq1 ⟨hs1, hsa, hw1, hv1, hly.1⟩ hvr1 hRP1
+          exact case_armNBRN (hDy := hDy.leftW (fun _ => by rw [hterm]; rfl) rfl) hb1 he1 htv1 hi1 hle hE hm1 hH1 hk1 hty hq1 ⟨hs1, hsa, hw1, hv1, hly.1⟩ hvr1 hRP1
       | true =>
           have harmA : (armsOf ra)[B0.tag]? = some arm := by
             rw [← harm]; simp only [armsOf]; rw [List.getElem?_append_left hj]
-          exact case_armBRN (hbf := hbf) (s0 := 0) hb1 he1 htv1 hi1 hle hE hm1 hH1 hk1 hn1 hn hty (by rw [harmA]; exact hus)
+          exact case_armBRN (hDy := hDy.leftW (fun _ => by rw [hterm]; rfl) rfl) (hbf := hbf) (s0 := 0) hb1 he1 htv1 hi1 hle hE hm1 hH1 hk1 hn1 hn hty (by rw [harmA]; exact hus)
             (hlen p1 hWp) hw hB0 hsto0 hini0 (by omega) hWp ((hA hj).1 hty) (layB ra u hty hsa hly.1) hpV hRP1
     simp only [PAx, tstep, hterm, hea] at hpx ⊢
     refine ⟨?_, fun r hr hpr0 => ?_⟩
@@ -1419,11 +1446,11 @@ theorem tstepMR_caseBN {Sp : AllocLabel → List Res} {p : Prog} {g : G} {mem : 
           obtain ⟨q, hq, hsq, hwq, hvd, hvr⟩ := (hB' hj').2 hty
           obtain ⟨q1, hq1, hs1, hw1, hv1, hvr1⟩ :=
             case_arm_nbR hE.2.1 hE.2.2 hty hsg2.2 hq hsq hwq hvd (by rw [shp_lnorm]; exact hvr) hWp
-          exact case_armNBRN hb2 he2 htv2 hi1 hle hE hm1 hH1 hk1 hty hq1 ⟨hs1, hsb, hw1, hv1, hly.2⟩ hvr1 hRP1
+          exact case_armNBRN (hDy := hDy.rightW (fun _ => by rw [hterm]; rfl) rfl) hb2 he2 htv2 hi1 hle hE hm1 hH1 hk1 hty hq1 ⟨hs1, hsb, hw1, hv1, hly.2⟩ hvr1 hRP1
       | true =>
           have harmB : (armsOf rb)[B0.tag - (armsOf ra).length]? = some arm := by
             rw [← harm]; simp only [armsOf]; rw [List.getElem?_append_right hj']
-          exact case_armBRN (hbf := hbf) (s0 := (armsOf ra).length) hb2 he2 htv2 hi1 hle hE hm1 hH1 hk1 hn1 hn hty
+          exact case_armBRN (hDy := hDy.rightW (fun _ => by rw [hterm]; rfl) rfl) (hbf := hbf) (s0 := (armsOf ra).length) hb2 he2 htv2 hi1 hle hE hm1 hH1 hk1 hn1 hn hty
             (by rw [harmB]; exact hus) (hlen p1 hWp)
             hw hB0 hsto0 hini0 (by omega) hWp ((hB' hj').1 hty) (layB rb v hty hsb hly.2) hpV hRP1
     simp only [PAx, tstep, hterm, hea] at hpx ⊢
@@ -1472,7 +1499,7 @@ theorem tstepMR_caseTN {Sp : AllocLabel → List Res} {p : Prog} {g : G} {mem : 
     (hT : Typed p cx th.term) (hCk : TermA4.CkW p η.wit cx th.term) (hi : FInvR ρ η th.σs (ResumeR p th.stack Rs) cx th.env Rf)
     (hE : EnvOK p η) (htv : TvOK cx) (hm : MemInv g (CE η) (stOf mem pairs th)) (hbf : g.boxFence = true)
     (hH : MemHeldL (CE η) (stOf mem pairs th) H Sp)
-    (hpx : PAx g mem pairs th) (hRP : RetPw th.σs th.stack cx.ret) (hPS : PwSkel) :
+    (hpx : PAx g mem pairs th) (hRP : RetPw th.σs th.stack cx.ret) (hPS : PwSkel) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
     tstep g mem pairs th ≠ [] ∧ ∀ r ∈ tstep g mem pairs th, PromAbove (stOf r.1 r.2.1 r.2.2) →
       ∃ Tot H', ThInvMKQ (StoEq (CE η)) p g (CE η) (stOf mem pairs th) Sp r.1 r.2.1 r.2.2 Tot H' ∧ Tot + H' ≤ Rf + Rs + H := by
   have hT0 := hT
@@ -1494,11 +1521,11 @@ theorem tstepMR_caseTN {Sp : AllocLabel → List Res} {p : Prog} {g : G} {mem : 
         peek_opaqueOK htv (use_inv (ρ := ρ) (η := η) (σs := th.σs) (env := th.env) hu).1
       have htb := (use_TvOK hu htv).2.1
       have hsg := lay_closed (ρ := ρ) hi.1.2.2.2.1 hi.1.2.2.2.2.1 ho htb hl
-      exact tstepMR_caseBN (hbf := hbf) hterm hn hb1 ⟨he1, hck12.1⟩ htv12.1 hb2 ⟨he2, hck12.2⟩ htv12.2 hi1 hle hea hvV hv hl hS hsg hE hm hH hpx (retPw_eq hRP (by first | exact (use_ret hu :) | exact (bind_ret hb :) | exact (bind_ret hb).trans (use_ret hu)))
+      exact tstepMR_caseBN (hDy := hDy) (hbf := hbf) hterm hn hb1 ⟨he1, hck12.1⟩ htv12.1 hb2 ⟨he2, hck12.2⟩ htv12.2 hi1 hle hea hvV hv hl hS hsg hE hm hH hpx (retPw_eq hRP (by first | exact (use_ret hu :) | exact (bind_ret hb :) | exact (bind_ret hb).trans (use_ret hu)))
     · have hnb : ∀ t' c₁', cx.use a = .ok (t', c₁') → (close th.σs t').tier ≠ .boxed := fun t' c₁' hu' => by
         rw [hu, Except.ok.injEq, Prod.mk.injEq] at hu'; obtain ⟨rfl, rfl⟩ := hu'
         rw [← tier_of_eskel hl.2.1]; exact hS
-      refine paW <| liftMRN hm hH (tstep_caseR hterm hnb hT hCk hi hE htv hRP hPS) ?_
+      refine paW <| liftMRN hm hH (tstep_caseR (hDy := hDy) hterm hnb hT hCk hi hE htv hRP hPS) ?_
       have hT' := hT
       rw [hterm] at hT'
       obtain ⟨ra', rb', ws', j, p', hea', hS', has, -, -⟩ := case_step hT' hi.1 hnb htv

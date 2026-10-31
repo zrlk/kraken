@@ -66,7 +66,7 @@ theorem src_load_latest0 (g : TermRun.G) (mem : WeakMem.Memory) (pairs : List Na
     simp only [TermRun.loadUnits, SrcMem.offs_zero, List.mem_flatMap, List.mem_map]
     exact ⟨t1, ht1, _, List.mem_singleton.mpr rfl, by rw [hr]⟩
   refine ⟨⟨e, (x, loadTy ty, [⟨m.val, m.view, j⟩]) :: th.env, th.σs, th.stack, t1.vs, th.promises,
-    th.nalloc, th.undefs + TermRun.countUndef [⟨m.val, m.view, j⟩], th.tidLbl, th.permit⟩, ?mem, rfl, ?_, rfl,
+    th.nalloc, th.undefs + TermRun.countUndef [⟨m.val, m.view, j⟩], th.tidLbl, th.permit, th.tys⟩, ?mem, rfl, ?_, rfl,
     rfl, rfl, rfl, fun b => stepLoad_coh_mono ht1 b⟩
   case mem =>
     simp only [TermRun.tstep, ht, TermRun.evalOp, hea, hcell, TermRun.addrOf, hpw, hu, List.mem_map]

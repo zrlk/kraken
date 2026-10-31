@@ -406,7 +406,7 @@ def mk4(u : Unit) : {Loc own Array[4] Int | ini >= 4} =
 def demoMap(k : Int) : Int * Int * Int * Int =
   let u = ()
   let src = mk4(u)
-  let e0 = new k
+  let e0 = new[Int] k
   let <re, env, te> = region e0
   let ke = borrow bor te
   let c = fnptr addK
@@ -432,7 +432,7 @@ def demoMap(k : Int) : Int * Int * Int * Int =
 def demoFold(z : Int) : Int =
   let u = ()
   let src = mk4(u)
-  let e0 = new u
+  let e0 = new[Unit] u
   let <re, env, te> = region e0
   let ke = borrow bor te
   let c = fnptr plus
@@ -452,7 +452,7 @@ def demoFold(z : Int) : Int =
 def demoIter(z : Int) : Int * Int * Int * Int * Int =
   let u = ()
   let b = mk4(u)
-  let e0 = new z
+  let e0 = new[Int] z
   let <re, env, te> = region e0
   let ke = borrow bor te
   let c = fnptr incCount
@@ -478,7 +478,7 @@ def demoIter(z : Int) : Int * Int * Int * Int * Int =
 
 def demoIterI(u : Unit) : Int * Int * Int * Int =
   let b = mk4(u)
-  let e0 = new u
+  let e0 = new[Unit] u
   let e1 = publish e0
   let <re, env, ke> = openPub e1
   let c = fnptr mulIdx
@@ -503,7 +503,7 @@ def demoFoldR(z : Int) : Int =
   let u = ()
   let b = mk4(u)
   let <r, p, t> = region b
-  let e0 = new u
+  let e0 = new[Unit] u
   let <re, env, te> = region e0
   let ke = borrow bor te
   let c = fnptr plus
@@ -531,7 +531,7 @@ def demoIterR(z : Int) : Int * Int * Int * Int * Int =
   let u = ()
   let b = mk4(u)
   let <r, p, t> = region b
-  let e0 = new z
+  let e0 = new[Int] z
   let <re, env, te> = region e0
   let ke = borrow bor te
   let c = fnptr incCount
@@ -584,7 +584,7 @@ def countBin(a : exists q. (Int * Cap[bor, q]) * Ptr[q] (Ptr pub Int * Ptr pub I
 def histo(bins : Ptr pub Int * Ptr pub Int * Ptr pub Int) : Unit =
   let u = ()
   let b = mk4(u)
-  let e0 = new bins
+  let e0 = new[Ptr pub Int * Ptr pub Int * Ptr pub Int] bins
   let <re, env, te> = region e0
   let ke = borrow bor te
   let c = fnptr countBin
@@ -600,11 +600,11 @@ def histo(bins : Ptr pub Int * Ptr pub Int * Ptr pub Int) : Unit =
   let e = endBorrow te
   ret u
 def mkBins(z : Int) : Ptr pub Int * Ptr pub Int * Ptr pub Int =
-  let c0 = new z
+  let c0 = new[Int] z
   let p0 = publish c0
-  let c1 = new z
+  let c1 = new[Int] z
   let p1 = publish c1
-  let c2 = new z
+  let c2 = new[Int] z
   let p2 = publish c2
   let t = (p1, p2)
   let bins = (p0, t)
@@ -717,7 +717,7 @@ def touch[E : *]{r}(p : Ptr[r] E) : Unit =
 -- A `Fn` carries a `bor` capability, so it may be passed but not stored ...
 #guard mentions (refusal (libSrc ++ demoSrc.replace
     "  let f = pack g at [Int] : Fn(Int, Int)\n  let four = nameI 4\n  let q1 = (b, four)"
-    "  let f = pack g at [Int] : Fn(Int, Int)\n  let c9 = new f\n  let four = nameI 4\n  let q1 = (b, four)"))
+    "  let f = pack g at [Int] : Fn(Int, Int)\n  let c9 = new[Fn(Int, Int)] f\n  let four = nameI 4\n  let q1 = (b, four)"))
   "new: a second-class capability cannot be stored"
 -- ... nor returned (it would outlive the borrow of its environment) ...
 def mkCloSrc : String := "
@@ -750,7 +750,7 @@ def addKP(a : exists q. (Int * Cap[pub, q]) * Ptr[q] Int) : Int =
   ret y
 
 def pubClo(z : Int) : Int =
-  let e0 = new z
+  let e0 = new[Int] z
   let e1 = publish e0
   let <re, env, ke> = openPub e1
   let c = fnptr addKP
@@ -758,7 +758,7 @@ def pubClo(z : Int) : Int =
   let h = (ce, ke)
   let g = pack h at re : exists s. (Code(exists q. (Int * Cap[pub, q]) * Ptr[q] Int, Int) * Ptr[s] Int) * Cap[pub, s]
   let f = pack g at [Int] : exists (E : *). exists s. (Code(exists q. (Int * Cap[pub, q]) * Ptr[q] E, Int) * Ptr[s] E) * Cap[pub, s]
-  let cell = new f
+  let cell = new[exists (E : *). exists s. (Code(exists q. (Int * Cap[pub, q]) * Ptr[q] E, Int) * Ptr[s] E) * Cap[pub, s]] f
   ret z
 "
 #guard refusal (libSrc ++ demoSrc ++ pubCloSrc) == ""
@@ -779,18 +779,18 @@ def pubClo(z : Int) : Int =
   "unbound variable q0b"
 -- `region` consumes the buffer: `b` itself is gone, only `p` remains.
 #guard mentions (refusal (libSrc ++ demoSrc.replace
-    "  let <r, p, t> = region b\n  let e0 = new u\n"
-    "  let <r, p, t> = region b\n  let x9 = load b[0]\n  let e0 = new u\n"))
+    "  let <r, p, t> = region b\n  let e0 = new[Unit] u\n"
+    "  let <r, p, t> = region b\n  let x9 = load b[0]\n  let e0 = new[Unit] u\n"))
   "b was already used (affine)"
 -- The region's initialised prefix is fixed: no `bufInit` through `p`.
 #guard mentions (refusal (libSrc ++ demoSrc.replace
-    "  let <r, p, t> = region b\n  let e0 = new u\n"
-    "  let <r, p, t> = region b\n  let p2 = bufInit p 0 5\n  let e0 = new u\n"))
+    "  let <r, p, t> = region b\n  let e0 = new[Unit] u\n"
+    "  let <r, p, t> = region b\n  let p2 = bufInit p 0 5\n  let e0 = new[Unit] u\n"))
   "bufInit needs an own buffer"
 -- Only an own reference or an own buffer opens as a region, not a published one.
 #guard mentions (refusal (libSrc ++ demoSrc.replace
-    "  let <r, p, t> = region b\n  let e0 = new u\n"
-    "  let q9 = new u\n  let pq = publish q9\n  let <r9, p9, t9> = region pq\n  let <r, p, t> = region b\n  let e0 = new u\n"))
+    "  let <r, p, t> = region b\n  let e0 = new[Unit] u\n"
+    "  let q9 = new[Unit] u\n  let pq = publish q9\n  let <r9, p9, t9> = region pq\n  let <r, p, t> = region b\n  let e0 = new[Unit] u\n"))
   "region needs an own reference or an own buffer"
 
 /-! ## The examples, on the machine -/

@@ -56,10 +56,22 @@ def reTerm (f : Expr → Expr) (s : List Frame) (r : Memory × List Ts × TTh) :
 
 /-- The `let` arm of `tstep` for a non-call operation. -/
 theorem tstep_let {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {x : String} {op : Op} {e : Expr}
-    (hop : NotCall op) (ht : th.term = .let_ x op e) :
+    (hop : NotCall op) (hnn : ∀ a T, op ≠ .new a T) (ht : th.term = .let_ x op e) :
     tstep g mem pairs th = (evalOp g th.env th.σs (stOf mem pairs th) op).map fun (s', t, ws) =>
       (s'.mem, s'.pairs, withS { th with term := e, env := (x, t, ws) :: th.env } s') := by
-  cases op <;> first | exact absurd hop id | (unfold tstep; rw [ht])
+  cases op <;> first | exact absurd hop id | exact absurd rfl (hnn _ _) | (unfold tstep; rw [ht])
+
+/-- The `new` arm: as `tstep_let`, and the allocation record depends on neither the continuation nor the
+stack. -/
+theorem tstep_new_subst {g : G} {mem : Memory} {pairs : List Ts} (f : Expr → Expr) (th : TTh) (s : List Frame)
+    x a T e :
+    tstep g mem pairs { th with term := .let_ x (.new a T) (f e), stack := s } =
+      (tstep g mem pairs { th with term := .let_ x (.new a T) e, stack := [] }).map (reTerm f s) := by
+  simp only [tstep, List.map_map]
+  apply List.map_congr_left
+  intro ⟨s', t, ws⟩ _
+  simp only [Function.comp_apply, reTerm, withS, bind]
+  split <;> rfl
 
 
 theorem tstep_split_subst {g : G} {mem : Memory} {pairs : List Ts} (f : Expr → Expr) (th : TTh) (s : List Frame)
@@ -175,8 +187,12 @@ theorem tstep_head_subst {g : G} {mem : Memory} {pairs : List Ts} (f : Expr → 
       (tstep g mem pairs { th with term := h, stack := [] }).map (reTerm f s) := by
   cases h with
   | let_ x op e =>
-    rw [tstep_let hh rfl, tstep_let hh rfl, List.map_map]
-    rfl
+    by_cases hn : ∃ a T, op = .new a T
+    · obtain ⟨a, T, rfl⟩ := hn
+      exact tstep_new_subst f th s x a T e
+    · have hnn : ∀ a T, op ≠ .new a T := fun a T h => hn ⟨a, T, h⟩
+      rw [tstep_let hh hnn rfl, tstep_let hh hnn rfl, List.map_map]
+      rfl
   | split => exact tstep_split_subst f th s _ _ _ _
   | unpack => exact tstep_unpack_subst f th s _ _ _ _
   | unpackT => exact tstep_unpackT_subst f th s _ _ _ _
@@ -233,14 +249,25 @@ theorem tstep_head_env {g : G} {mem : Memory} {pairs : List Ts} (h : Expr) (hh :
     ∀ y ∈ r.2.2.env, y.1 ∈ binders h ∨ y ∈ th.env := by
   cases h with
   | let_ x op e =>
-    rw [tstep_let hh rfl] at hr
-    simp only [List.mem_map] at hr
-    obtain ⟨⟨s', t, ws⟩, _, rfl⟩ := hr
-    intro y hy
-    simp only [withS, List.mem_cons] at hy
-    rcases hy with rfl | hy
-    · exact Or.inl (by simp [binders])
-    · exact Or.inr hy
+    by_cases hn : ∃ a T, op = .new a T
+    · obtain ⟨a, T, rfl⟩ := hn
+      simp only [tstep, List.mem_map] at hr
+      obtain ⟨⟨s', t, ws⟩, _, rfl⟩ := hr
+      intro y hy
+      have hy' : y ∈ (x, t, ws) :: th.env := by
+        revert hy; split <;> exact id
+      simp only [List.mem_cons] at hy'
+      rcases hy' with rfl | hy'
+      · exact Or.inl (by simp [binders])
+      · exact Or.inr hy'
+    · rw [tstep_let hh (fun a T h => hn ⟨a, T, h⟩) rfl] at hr
+      simp only [List.mem_map] at hr
+      obtain ⟨⟨s', t, ws⟩, _, rfl⟩ := hr
+      intro y hy
+      simp only [withS, List.mem_cons] at hy
+      rcases hy with rfl | hy
+      · exact Or.inl (by simp [binders])
+      · exact Or.inr hy
   | ret a => exact absurd hh id
   | tail _ _ _ _ => exact absurd hh id
   | _ =>

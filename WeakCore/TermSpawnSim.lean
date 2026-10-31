@@ -67,9 +67,18 @@ theorem phantC_get (f0 : Frame) (c : Cfg) (j : Nat) :
 theorem phantC_size (f0 : Frame) (c : Cfg) : (phantC f0 c).ths.size = c.ths.size := by
   simp [phantC]
 
+theorem tysOf_phantC (f0 : Frame) (c : Cfg) : tysOf (phantC f0 c) = tysOf c := by
+  apply tysOf_ext
+  intro j
+  rw [phantC_get]
+  split
+  · cases c.ths[j]? <;> rfl
+  · rfl
+
 theorem gOf_phantC (p : Prog) (k : Promises.Knobs) (arch : Arch) (f0 : Frame) (c : Cfg) (i : Nat) :
     gOf p k arch (phantC f0 c) i = gOf p k arch c i := by
-  simp [gOf, phantC, Cfg.n]
+  simp only [gOf, tysOf_phantC]
+  simp [phantC, Cfg.n]
 
 theorem cfg_ext {c d : Cfg} (hm : c.mem = d.mem) (hp : c.pairs = d.pairs) (hl : c.lbase = d.lbase)
     (hb : c.boxFence = d.boxFence) (hc : c.cap = d.cap) (hs : c.ths.size = d.ths.size)

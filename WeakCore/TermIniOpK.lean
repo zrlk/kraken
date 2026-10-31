@@ -18,7 +18,7 @@ open CoreLang CoreTerm CoreTyping TermRun TermClose TermTv TermCert TermSound Te
 open TermCertScope TermOwnK5 TermPlantF
 open WeakMem (Msg Memory Address VState Ts Arch AllocLabel)
 
-/-- **`BufInitPubF`** from the promise-step certificate fields. -/
+/-- **`BufInitPubF`** from the promise-step certificate-window hypotheses. -/
 theorem bufInitPubF_of [TermTyped.WrIniC] {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {MintOK : Res → Prop}
     {c0 : Cfg} (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] (hP : ProgT p)
     (hsc : CertScopeP p k arch Sp Init MintOK c0) (hw : CertWinP p k arch Sp Init MintOK c0) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) :
@@ -29,7 +29,7 @@ theorem bufInitPubF_of [TermTyped.WrIniC] {p : Prog} {k : Promises.Knobs} {arch 
     exact bufInitIniF_pub (hV0 := hV0) hP hsc hw Y hpub hsto h1 hc1 hth1 hterm hPS hSub hSig rt w' ad g hea hwv hl
   · exact TermNoBufOwn.noBufF_noKey (hV0 := hV0) hP hsc hw Y hsto (.inl ho) hk0 hPS hSub hSig c1 h1 hc1 th1 hth1 hb
 
-/-- **`BufInitPubT`** from the thread-step certificate fields: a start-published cell by the `OwnXLe 0`
+/-- **`BufInitPubT`** from the thread-step certificate-window hypotheses: a start-published cell by the `OwnXLe 0`
 run from the step's source, the cell the step publishes by `bufInitIniT_pub`. -/
 theorem bufInitPubT_of [TermTyped.WrIniC] {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {MintOK : Res → Prop}
     {c0 : Cfg} (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] (hP : ProgT p)

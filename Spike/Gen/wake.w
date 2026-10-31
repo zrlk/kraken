@@ -22,7 +22,7 @@ def waitLoop(c : Ptr pub Int) : Int =
 
 def main(me : ThreadId) : Int =
   let z = zero[Int]
-  let o = new z
+  let o = new[Int] z
   let c = publish o
   let p = (c, me)
   let t = spawn{worker}(p)

@@ -31,7 +31,7 @@ TermLiveC.opSafe : CoreTerm.Op → Bool
   | CoreTerm.Op.inr other a => true
   | CoreTerm.Op.add a b => true
   | CoreTerm.Op.sub a b => true
-  | CoreTerm.Op.new a => true
+  | CoreTerm.Op.new a T => true
   | CoreTerm.Op.null μ target => true
   | CoreTerm.Op.fold a target => true
   | CoreTerm.Op.fld i a => true
@@ -48,6 +48,7 @@ TermLiveC.opSafe : CoreTerm.Op → Bool
   | CoreTerm.Op.fop o a b => true
   | CoreTerm.Op.fcmp o a b => true
   | CoreTerm.Op.fop1 o a => true
+  | CoreTerm.Op.isTy a τ => false
   | x => false
 TermLiveC.pathStep : String → String → String → CoreTerm.Op → Bool
   := fun a tk x op =>
@@ -62,7 +63,7 @@ TermScope.opAts : CoreTerm.Op → List CoreTerm.At
   | CoreTerm.Op.inr other a => [a]
   | CoreTerm.Op.add a b => [a, b]
   | CoreTerm.Op.sub a b => [a, b]
-  | CoreTerm.Op.new a => [a]
+  | CoreTerm.Op.new a T => [a]
   | CoreTerm.Op.null μ target => []
   | CoreTerm.Op.fold a target => [a]
   | CoreTerm.Op.publish a => [a]
@@ -117,3 +118,4 @@ TermScope.opAts : CoreTerm.Op → List CoreTerm.At
   | CoreTerm.Op.mkTicket r N P v tok => [v, tok]
   | CoreTerm.Op.claim a tok => [a, tok]
   | CoreTerm.Op.fetch o acq rel a v => [a, v]
+  | CoreTerm.Op.isTy a τ => [a]

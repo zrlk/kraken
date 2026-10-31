@@ -190,11 +190,12 @@ theorem cstep0_shape (hC0 : WCompat0 Q M μ Λ)
       | xchgStore kr A V s' x' sa u v e tv wv wold he hxs hA hh =>
         rw [hctl.hold] at hh; cases hh
       | ctrRmw k' op g x' τ e n he hrt hm hs =>
-        rcases hs with ⟨a, -, -, ht, -⟩ | ⟨-, a, -, ht, -⟩
+        rcases hs with ⟨a, -, -, ht, -⟩ | ⟨-, a, -, ⟨_, ht⟩, -⟩
         · exact (mterm_not_newBuf hctl.term ht).elim
         · rcases mterm_let hctl.term ht with ⟨-, h, -⟩ | ⟨-, h, -⟩ <;> cases h
       | alloc s' A x' a τ e ta ws k' wold old us he ht => exact (mterm_not_newBuf hctl.term ht).elim
       | newStore kr A V s' x' a t e w' wold old _ he hm ht =>
+        obtain ⟨_, ht⟩ := ht
         rcases mterm_let hctl.term ht with ⟨-, h, -⟩ | ⟨-, h, -⟩ <;> cases h
       | emit K buf n Pw Qw hK ha =>
         rw [hC0.K0 w] at hK; cases hK; rw [hat] at ha; cases ha

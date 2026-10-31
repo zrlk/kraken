@@ -8,8 +8,8 @@ import WeakCore.TermOwnG0Defs
 `TermPlantF.BufInitIniT` (restated with the stepper's `PfrG` at `pf := PubAt th` and the target
 link `BufInitOn th1 l`) holds vacuously: the newly shared cell is an own cell of the stepper whose
 frontier changed, so the step publishes it (`PfrG`), and `TermOwnK5.bufInitIniT_pub` excludes a
-certificate `bufInit` on a cell the step publishes.  From the fields `certWinC` / `CertScopeC`
-(already used for `BufInitPubT`); nothing here feeds them.
+certificate `bufInit` on a cell the step publishes.  From the certificate-window hypotheses `CertWinC` / `CertScopeC`
+(already used for `BufInitPubT`; `ObligationsFX.toObligationsCX` derives both); nothing here feeds them.
 -/
 
 namespace TermBiiT
@@ -27,7 +27,7 @@ theorem bufInitIniT_pfr [TermTyped.WrIniC] {p : Prog} {k : Promises.Knobs} {arch
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res}
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r)
     (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs
+    (Z : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs
       (HP i + HS) (cr i) (db i) δ)
     (hPfrP : PfrG { gOf p k arch c i with pf := fun l => TermOwnG0Defs.PubAt th l } (CE η) E')
     {l : AllocLabel} {f : Nat} (hn0 : Eg.pfr l = none) (hf : E'.pfr l = some f)

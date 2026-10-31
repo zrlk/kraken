@@ -42,7 +42,7 @@ theorem footNC_efoot {W : Ty → Prop} {g : G} {E E' : TEnv} {s s' : St} {r : Me
 
 /-- The ops that may allocate: `new`, `newBuf`, and the (re-)boxing injections. -/
 def AllocOp : Op → Prop
-  | .new _ => True
+  | .new _ _ => True
   | .newBuf _ _ => True
   | .inl _ _ => True
   | .inr _ _ => True
@@ -112,6 +112,14 @@ theorem tstep_nalloc {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} (hA : �
     | (simp only [List.mem_flatMap, List.mem_map] at h
        obtain ⟨x, hx, y, hy, rfl⟩ := h
        rfl)
+    | (simp only [List.mem_map] at h  -- new arm: record write
+       obtain ⟨x, hx, rfl⟩ := h
+       try dsimp only
+       split
+       all_goals
+         first
+           | exact evalOp_nalloc _ _ _ _ _ hA x hx
+           | rfl)
 
 /-! ## `new`: the allocated label's pair stores and second words -/
 

@@ -25,7 +25,7 @@ def RunAgreeT2 (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → Cfg �
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res},
     TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
-    TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
+    TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
     PfrG { gOf p k arch c i with pf := fun l => TermOwnG0Defs.PubAt th l } (CE η) E' →
     ∀ c1 th1 E1, Solo p k arch i c' c1 → Certified p k arch c1 i → c1.ths[i]? = some th1 → Ext E' E1 →
       MemInv (gOf p k arch c1 i) E1 (stOf c1.mem c1.pairs th1) → FrBound E' c'.mem.size r.2.2.vs.vWr E1 →

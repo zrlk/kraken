@@ -146,6 +146,7 @@ theorem Spawn.elim {p : Prog} {k : Promises.Knobs} {arch : Arch} {cap : Nat} {c 
 /-- `op` is not a spawn. -/
 def opNoSpawn : Op → Bool
   | .spawn .. => false
+  | .isTy _ _ => true
   | _ => true
 
 /-- No spawn anywhere in `e`. -/

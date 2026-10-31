@@ -1,0 +1,56 @@
+CoreLang.Ty : Type
+CoreTerm.At : Type
+CoreTerm.Expr : Type
+CoreTerm.Op : Type
+CoreTerm.Prog : Type
+CoreTerm.callBad : CoreTerm.Prog → List String → List (String × Nat) → String → List String → Option (String × Nat)
+CoreTerm.loopCallBad : CoreTerm.Prog → String → List String → List (String × Nat) → List (String × Nat) → CoreTerm.Expr → Option (String × Nat)
+  eq_def ∀ (p : CoreTerm.Prog) (self : String) (bs : List String) (lits nam : List (String × Nat)) (x : CoreTerm.Expr),
+  CoreTerm.loopCallBad p self bs lits nam x =
+    match x with
+    | CoreTerm.Expr.let_ x (CoreTerm.Op.atom (CoreTerm.At.lit v)) e =>
+      CoreTerm.loopCallBad p self bs ((x, v) :: lits) nam e
+    | CoreTerm.Expr.let_ x (CoreTerm.Op.nameI (CoreTerm.At.lit v)) e =>
+      CoreTerm.loopCallBad p self bs lits ((x, v) :: nam) e
+    | CoreTerm.Expr.let_ x (CoreTerm.Op.nameI (CoreTerm.At.var c)) e =>
+      CoreTerm.loopCallBad p self bs lits
+        (match if (List.count c bs == 1) = true then List.find? (fun x => x.fst == c) lits else none with
+        | some (fst, v) => (x, v) :: nam
+        | none => nam)
+        e
+    | CoreTerm.Expr.let_ x (CoreTerm.Op.call f is a ts) e =>
+      match CoreTerm.callBad p bs nam f is with
+      | some r => some r
+      | none => CoreTerm.loopCallBad p self bs lits nam e
+    | CoreTerm.Expr.let_ x op e => CoreTerm.loopCallBad p self bs lits nam e
+    | CoreTerm.Expr.split a x y e => CoreTerm.loopCallBad p self bs lits nam e
+    | CoreTerm.Expr.unpack a i x e => CoreTerm.loopCallBad p self bs lits nam e
+    | CoreTerm.Expr.unpackT a α x e => CoreTerm.loopCallBad p self bs lits nam e
+    | CoreTerm.Expr.region a r p_1 t e => CoreTerm.loopCallBad p self bs lits nam e
+    | CoreTerm.Expr.openPub a r p_1 c e => CoreTerm.loopCallBad p self bs lits nam e
+    | CoreTerm.Expr.case a x e₁ y e₂ =>
+      match CoreTerm.loopCallBad p self bs lits nam e₁ with
+      | some r => some r
+      | none => CoreTerm.loopCallBad p self bs lits nam e₂
+    | CoreTerm.Expr.ifnull a e₁ x e₂ =>
+      match CoreTerm.loopCallBad p self bs lits nam e₁ with
+      | some r => some r
+      | none => CoreTerm.loopCallBad p self bs lits nam e₂
+    | CoreTerm.Expr.parity a k e₁ e₂ =>
+      match CoreTerm.loopCallBad p self bs lits nam e₁ with
+      | some r => some r
+      | none => CoreTerm.loopCallBad p self bs lits nam e₂
+    | CoreTerm.Expr.ifeq a b e₁ e₂ =>
+      match CoreTerm.loopCallBad p self bs lits nam e₁ with
+      | some r => some r
+      | none => CoreTerm.loopCallBad p self bs lits nam e₂
+    | CoreTerm.Expr.cas acq rel w e v t e₁ e₂ =>
+      match CoreTerm.loopCallBad p self bs lits nam e₁ with
+      | some r => some r
+      | none => CoreTerm.loopCallBad p self bs lits nam e₂
+    | CoreTerm.Expr.casp acq rel w e0 e1 v0 v1 t e₁ e₂ =>
+      match CoreTerm.loopCallBad p self bs lits nam e₁ with
+      | some r => some r
+      | none => CoreTerm.loopCallBad p self bs lits nam e₂
+    | CoreTerm.Expr.ret a => none
+    | CoreTerm.Expr.tail f is a ts => if (f == self) = true then none else CoreTerm.callBad p bs nam f is

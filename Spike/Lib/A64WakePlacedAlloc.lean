@@ -121,7 +121,7 @@ end Inst
 /-- **The source at the box's `new` placed** (`let o = new z in boxTerm`):
 `z` the immediate `0` (the layout's at the term), `me` main's id at `pm`. -/
 theorem placedSE_newAt {Λ : Scc.Sem.Layout} {lbl : Lbl} {s : State} {c : Ctl}
-    (pm : Place (machine (kernel 1)).I.RegId) (ht : c.term = .let_ "o" (.new (.var "z")) boxTerm)
+    (pm : Place (machine (kernel 1)).I.RegId) (ht : c.term = .let_ "o" (.new (.var "z") (some .int)) boxTerm)
     {tz : Ty} (hz : TermRun.lookupE c.env "z" = some (tz, [TermRun.cst (.num 0)]))
     (hme : TermRun.evalAt c.env (.var "me") = some (.tid, [TermRun.cst (.loc ⟨mainTidLbl 2, 0⟩ 0)]))
     (hiz : Λ.imms c.term "z" 0 = some 0)
@@ -130,7 +130,7 @@ theorem placedSE_newAt {Λ : Scc.Sem.Layout} {lbl : Lbl} {s : State} {c : Ctl}
   simp only [TermRun.evalAt] at hme
   refine placedSE_of_tbl [("z", [.imm 0]), ("me", [.one pm])] ?_ ?_ ?_
   · intro x hx ty ws hl
-    rw [ht, show exprFv (.let_ "o" (.new (.var "z")) boxTerm) = ["z", "me"] by decide] at hx
+    rw [ht, show exprFv (.let_ "o" (.new (.var "z") (some .int)) boxTerm) = ["z", "me"] by decide] at hx
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hx
     rcases hx with rfl | rfl
     · rw [hz] at hl; cases hl; exact ⟨_, rfl, by simp⟩
@@ -162,10 +162,10 @@ theorem allocW_placed_new {Λ : Scc.Sem.Layout} {lbl : Lbl} {exe : _root_.Execut
     {F : MachineData → Prop} {ms : MemSide isaLSE2} {Jc : Flow.AS → Ctl → Prop} {q : Call}
     (hR : R.OK) (hlo : R.lo ≤ -80) (hhi : 0 ≤ R.hi)
     (hJc : ∀ σe c, Jc σe c → lbl (mainTidLbl 2) = some σe.regs.X0.toNat)
-    (hJs : ∀ σe c, Jc σe c → c.term = .let_ "o" (.new (.var "z")) boxTerm ∧
+    (hJs : ∀ σe c, Jc σe c → c.term = .let_ "o" (.new (.var "z") (some .int)) boxTerm ∧
       (∃ tz, TermRun.lookupE c.env "z" = some (tz, [TermRun.cst (.num 0)])) ∧
       TermRun.evalAt c.env (.var "me") = some (.tid, [TermRun.cst (.loc ⟨mainTidLbl 2, 0⟩ 0)]))
-    (hiz : Λ.imms (.let_ "o" (.new (.var "z")) boxTerm) "z" 0 = some 0) :
+    (hiz : Λ.imms (.let_ "o" (.new (.var "z") (some .int)) boxTerm) "z" 0 = some 0) :
     AllocW ms q (fun s c => PlacedSE Λ lbl s c []) (fun _ _ => False) exe endPc (wAR R)
       (fun m => F m ∧ Ret0.CallerCells R (-80) (-160) 0 m ∧ WcCtx ms (_root_.Executable.labels exe).label R Jc q m) :=
   allocW_placed hR hlo hhi hJc fun ⟨σe, hj⟩ _ h10 =>
@@ -173,12 +173,12 @@ theorem allocW_placed_new {Λ : Scc.Sem.Layout} {lbl : Lbl} {exe : _root_.Execut
     placedSE_newAt _ ht hz hme (ht ▸ hiz) h10
 
 /-- **The box's `new` is the lowering's immediate term** (`wakeImm_t1`). -/
-theorem newTerm_eq : (.let_ "o" (.new (.var "z")) boxTerm : Expr) = SccCode.wakeImm_t1 := by
+theorem newTerm_eq : (.let_ "o" (.new (.var "z") (some .int)) boxTerm : Expr) = SccCode.wakeImm_t1 := by
   unfold boxTerm SccCode.wakeImm_t1 SccCode.wakeImm_t0 Spike.Lib.WakePreA.spawnTerm; rfl
 
 /-- **`hiz` at wake's immediate table** (`immsW Λ0 wakeImms`, any `Λ0`). -/
 theorem hiz_immsW (Λ0 : Scc.Sem.Layout) :
-    Spike.Lib.WakeImmsW.immsW Λ0 SccCode.wakeImms (.let_ "o" (.new (.var "z")) boxTerm) "z" 0 = some 0 := by
+    Spike.Lib.WakeImmsW.immsW Λ0 SccCode.wakeImms (.let_ "o" (.new (.var "z") (some .int)) boxTerm) "z" 0 = some 0 := by
   rw [newTerm_eq]; simp [Spike.Lib.WakeImmsW.immsW, SccCode.wakeImms]
 
 end Spike.Lib.A64.WakePh.PlacedAlloc

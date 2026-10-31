@@ -4,15 +4,18 @@ import WeakCore.TermScope
 # TermInit: the initial configuration (S11)
 
 The standard initial configuration: empty memory, no promises, every thread
-at an entry frame (the `spawn` shape `tail f [] a ts` with its argument, or
-any frame typed at the empty global environment).  `SysInvW` holds there with
+at an entry frame (the `spawn` shape `tail f [] a ts` with its argument, the
+wrapper `wrapTerm`, or any frame typed at the empty global environment that is
+also clean for opened type packages, `DyFr`).  `SysInvW` holds there with
 the empty global environment `Eg0 p` (no cells, no boxes, no frontiers), zero
 frame totals, holdings and credits, and the rid clause (`ridOK_init`); so
 `TermMain.InitOK` holds (`TermMain.initOK_of`).
 
 The per-thread hypothesis `EntryOK` is the entry frame's typing at the empty
-cut; `entryOK_of` discharges it for an entry term the checker accepts in a
-context typing the argument as a resource-free value.
+cut, with its opened-type-package clause `DyFr`; `entryOK_of` discharges it for
+an entry term the checker accepts in a context typing the argument as a
+resource-free value (`DyFr` holds for every spawn-shape entry with no type
+arguments in scope, `σs = []`, for any `ts`).
 -/
 
 namespace TermInit
@@ -41,13 +44,17 @@ theorem cut_sto (p : Prog) (i : Nat) (S : AllocLabel → Prop) (l : AllocLabel) 
   cutSto_Eg0 p i l
 
 /-- **The entry frame of thread `i`**: typed, with a resource-free frame, at
-the empty cut. -/
+the empty cut, and clean for opened type packages (`DyFr`: by the checker's scan,
+neither the term nor any callee reached through its hidden type arguments allocates
+at a hidden type that could be a type-test target, and its index-closed type
+arguments at non-hidden positions agree with the frame's witnesses). -/
 def EntryOK (p : Prog) (i : Nat) (th : TTh) : Prop :=
   ∃ (ρ : Nat → Nat) (cx : Cx), TypedK p (Cut (Eg0 p) i S0) cx th.term ∧ TvOK cx ∧
-    FInvR ρ (Cut (Eg0 p) i S0) th.σs (ResumeR p [] .zero) cx th.env .zero
+    FInvR ρ (Cut (Eg0 p) i S0) th.σs (ResumeR p [] .zero) cx th.env .zero ∧
+    DyFr p annNew (progTgts p) (Cut (Eg0 p) i S0) th.σs th.term
 
 /-- **The standard initial configuration**: empty memory, the box fence on,
-and every thread at an entry frame with no promises, an empty stack and no
+and every thread at an entry frame with no promises, no allocation records, an empty stack and no
 writes. -/
 structure InitShape (p : Prog) (c0 : Cfg) : Prop where
   mem : c0.mem = #[]
@@ -66,6 +73,8 @@ structure InitShape (p : Prog) (c0 : Cfg) : Prop where
     ∀ e ∈ th.env, ∀ w ∈ e.2.2, ∀ (a : WeakMem.Address) (g : Nat), w.val ≠ .loc a g
   /-- (E2, stage 1) no start thread has a `ThreadId` box yet. -/
   tid0 : ∀ (i : Nat) (th : TTh), c0.ths[i]? = some th → th.tidLbl = none
+  /-- No start thread has an allocation record yet. -/
+  tys0 : ∀ (i : Nat) (th : TTh), c0.ths[i]? = some th → th.tys = []
 
 
 theorem memInv_init {g : G} {p : Prog} {i : Nat} {th : TTh} (hp : th.promises = []) :
@@ -131,10 +140,10 @@ theorem sysInvW_init {p : Prog} {k : Promises.Knobs} {arch : WeakMem.Arch} {Init
   case bnamed => intro l B h; simp at h
   case thr =>
     intro i th hth
-    obtain ⟨hp, hst, hv, ρ, cx, hT, htv, hFI⟩ := hs.thr i th hth
+    obtain ⟨hp, hst, hv, ρ, cx, hT, htv, hFI, hD⟩ := hs.thr i th hth
     have hE : EnvOK p (Cut (Eg0 p) i S0) := ⟨rfl, Coh_CE (Cut (Eg0 p) i S0), CohR_CE (Cut (Eg0 p) i S0)⟩
     refine ⟨S0, ⟨ρ, Cut (Eg0 p) i S0, cx, .zero, .zero, rfl, hE, hT, htv, by rw [hst]; exact hFI,
-      Res.add_zero _, fun _ _ h => by rw [hst] at h; cases h⟩, ⟨ρ, Cut (Eg0 p) i S0, cx, rfl, hE, hT.1, htv, by rw [hst]; exact ⟨hFI.1, fun _ _ h => by cases h⟩⟩, ?_,
+      Res.add_zero _, fun _ _ h => (by rw [hst] at h; cases h), hD⟩, ⟨ρ, Cut (Eg0 p) i S0, cx, rfl, hE, hT.1, htv, by rw [hst]; exact ⟨hFI.1, (fun _ _ h => by cases h), hD⟩⟩, ?_,
       memHeldOn_init, memHeldOn_init, ?_⟩
     · show MemInv _ _ (stOf c0.mem c0.pairs th)
       rw [hs.mem, hs.pairs]
@@ -257,7 +266,7 @@ theorem runDRF_spawn {c0 : Cfg}
 theorem checkW_tail_of {p : Prog} {cx : Cx} {f : String} {is : List String} {a : At} {ts : List Ty}
     (h : check p cx (.tail f is a ts) = .ok ()) (hts : ts.all TermScope.argOK = true) :
     TermScope.checkW p cx (.tail f is a ts) = .ok () := by
-  unfold check at h
+  rw [check_tail] at h
   unfold TermScope.checkW
   simp only [hts, Bool.not_true]
   exact h
@@ -281,7 +290,8 @@ theorem entryOK_of {p : Prog} {i : Nat} {th : TTh} {f : String} {ts : List Ty} {
     · subst hx; simp at h; exact ⟨rfl, h.symm⟩
     · have : ("a" == x) = false := by simpa using hx
       simp [List.find?, this] at h
-  refine ⟨fun _ => 0, { vars := [("a", t, true)], ret := r }, ?_, htv, ⟨⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩, ?_, ?_⟩⟩
+  refine ⟨fun _ => 0, { vars := [("a", t, true)], ret := r }, ?_, htv, ⟨⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩, ?_, ?_⟩,
+    by rw [hterm, hσ]; exact dyFr_tail annNew (progTgts p) p _ f _ ts⟩
   · rw [hterm]
     exact ⟨check_sound p _ _ hchk, checkW_tail_of hchk hts,
       fun v hm => by simp only [List.mem_singleton] at hm; subst hm; exact hwt,

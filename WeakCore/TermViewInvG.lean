@@ -11,6 +11,16 @@ namespace TermViewInv
 open CoreLang CoreTerm TermRun
 open WeakMem (Val Msg Memory Address VState Ts Arch AllocLabel)
 
+theorem eo_isTy {g : G} {env : Env} {σs : List Ty} {s s' : St} {t : Ty} {ws : List Word} {a : At} {τ : Ty}
+    (h : (s', t, ws) ∈ evalOp g env σs s (.isTy a τ)) (hs : StV s) (he : EnvV s.mem.size env) :
+    Concl s s' ws := by
+  simp only [evalOp, mem_ol, Option.bind_eq_bind, Option.bind_eq_some_iff] at h
+  obtain ⟨⟨t0, ws0⟩, hp, pw, hpw, h⟩ := h
+  have hw : WV s.mem.size pw := evalAt_V he hp pw (List.mem_of_getLast? hpw)
+  repeat' split at h
+  all_goals (simp only [pure, Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -, rfl⟩ := h)
+  all_goals first | exact concl_same hs (WsV_single hw) | exact concl_same hs (WsV_single (WV_cst _ _))
+
 theorem evalOp_V : OpV := by
   intro g env σs s s' t ws op h hs he
   cases op
@@ -21,6 +31,7 @@ theorem evalOp_V : OpV := by
   case add => exact eo_add h hs he
   case sub => exact eo_sub h hs he
   case null => exact eo_null h hs he
+  case isTy => exact eo_isTy h hs he
   case fold => exact eo_fold h hs he
   case fld => exact eo_fld h hs he
   case mkWord => exact eo_mkWord h hs he

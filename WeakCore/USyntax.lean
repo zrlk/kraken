@@ -428,7 +428,7 @@ partial def pKwOp (env : Env) (es : ES) (s : String) (i0 : Nat) : UP (POp × ES)
       let (u, a, es) ← pOperand env es
       let t ← reparse tpos (pBrTyU env es.sc)
       mk (if s == "inl" then .inl t U else .inr t U) [u] [a] es
-  | "new" => one (.new U) es
+  | "new" => let tpos ← tokPos; let _ ← pBrTyU env es.sc; let (u, a, es) ← pOperand env es; let t ← reparse tpos (pBrTyU env es.sc); mk (.new U (some t)) [u] [a] es
   | "publish" => one (.publish U) es
   | "intoRgn" => let r ← liftP pNameU; one (.intoRgn r U) es
   | "newBuf" =>
@@ -797,11 +797,19 @@ partial def pExprU (env : Env) (es : ES) : UP UExpr := do
 
 /-- `def f[α : κ]{r}(x : σ) : τ`: the signature (body `Scope.hole`) and the scope for the body. -/
 def pSigHead (env : Env) : UP (Decl × Sc) := do
-  -- (M1, T6) the decl kind prefix, as in `Syntax.pDecl`
+  -- the decl kind prefix, as in `Syntax.pDecl`, with `, loop B` and `, ro`
   let kind ← if ← eatKwU "device" then pure DeclKind.device
     else if ← eatKwU "restricted" then do
       expectSymU "["; expectKwU "fuel"; let f ← liftP pNat; expectSymU ","; expectKwU "stack"; let s ← liftP pNat
-      expectSymU "]"; pure (DeclKind.restricted f s)
+      let mut lp : Option Nat := none
+      let mut ro := false
+      if ← eatSymU "," then
+        if ← eatKwU "loop" then
+          lp := some (← liftP pNat)
+          if ← eatSymU "," then expectKwU "ro"; ro := true
+        else
+          expectKwU "ro"; ro := true
+      expectSymU "]"; pure (DeclKind.restricted f s ro lp)
     else pure DeclKind.plain
   expectKwU "def"
   let name ← liftP pNameU

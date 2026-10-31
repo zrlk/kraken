@@ -75,7 +75,7 @@ theorem spawnSrc_ctl {l : WeakMem.AllocLabel} {c : Ctl} (h : SpawnSrc l c) :
 /-- **The source premise at a box allocation** (the start control, `let o =
 new z in …`): not at a `ret`, and its runs well formed, vacuously: a frame run
 from a `new` is empty (`FrameRun.eq_of_new`). -/
-theorem new_ctl {p : Prog} {c : Ctl} {x : String} {a : At} {e : Expr} (ht : c.term = .let_ x (.new a) e) :
+theorem new_ctl {p : Prog} {c : Ctl} {x : String} {a : At} {T : Option Ty} {e : Expr} (ht : c.term = .let_ x (.new a T) e) :
     (∀ a, c.term ≠ .ret a) ∧ RunWf p c [] := by
   refine ⟨fun a' h => (by rw [ht] at h; cases h), ⟨?_, ?_⟩⟩
   · intro c' fs' hr x' a' e' ty w hc

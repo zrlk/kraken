@@ -48,12 +48,12 @@ theorem postS_setupTerm {p : Prog} {lbl : WeakMem.AllocLabel → Option Nat} {ty
 (`postS_setupTerm`'s companion: the call's rest is no `new`). -/
 theorem postS_setupTerm_noNew {p : Prog} {lbl : WeakMem.AllocLabel → Option Nat} {ty : Ty} {c0 : Ctl}
     (hc : c0.term = Scc.Sem.SrcSem.setupTerm) :
-    ∀ c rs, SPostC p lbl ty c0 c rs → ∀ x a e, c.term ≠ .let_ x (.new a) e := by
+    ∀ c rs, SPostC p lbl ty c0 c rs → ∀ x a T e, c.term ≠ .let_ x (.new a T) e := by
   rintro c rs ⟨cE, fr, cr, a', t, ws, ⟨x, f, a, e, d, t', ws', ht, -, -, -, rfl⟩, -, -, -, rfl⟩
   rw [hc] at ht
   simp only [Scc.Sem.SrcSem.setupTerm, Expr.let_.injEq] at ht
   obtain ⟨rfl, -, rfl⟩ := ht
-  intro _ _ _ h
+  intro _ _ _ _ h
   cases h
 
 end Spike.Lib.LowerA64

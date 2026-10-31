@@ -1,7 +1,85 @@
-# scc release note: `wake.w` certified on AArch64; `hello1.w` and `ret0.w` on AArch64 and x86-64
+# scc release note: WeakCore 621ec97a; `wake.w` certified on AArch64; `hello1.w` and `ret0.w` on AArch64 and x86-64
 
 This note states what this release of `scc` proves, what it trusts, and what
 it does not cover. Statements are quoted from the source tree.
+
+## New in this release: WeakCore 621ec97a
+
+The vendored WeakCore (`WeakCore/`) moves to upstream 621ec97a, and scc and
+its proofs are adapted to it. Nothing else is new: no new program and no new
+ISA coverage. `ret0.w` and `hello1.w` (both ISAs) and `wake.w` (AArch64) are
+re-certified under the new WeakCore. The statements quoted in §1 are
+unchanged, word for word, and so are their axioms.
+
+What changes for users:
+
+- **Typed allocation, `new[T] a`.** A `new` in a source program now names
+  the type it allocates at (`CoreTerm.Op.new a (some T)`). WeakCore's checker
+  refuses a `new` without the annotation ("new: the allocation's type
+  annotation is missing") and one whose annotation is not the value's type.
+  The test programs now write, for example, `let o = new[Int] z`. scc lowers
+  `new[T] a` as it lowered `new a`: the emitted assembly of the `Scc/Test`
+  programs is unchanged on both ISAs, and so are the checked-in texts and
+  executables (`Scc/Test/elf.sh --relink-check`, the `regen_*.sh --check`
+  runs). The wake certificate's `source` changes by that line; its `asm` does
+  not.
+- **Certificate windows are proved.** WeakCore's soundness theorems assumed
+  the certificate-window conditions `CertWinCN` and `CertWinPN` (and their
+  spawn and extern forms). They are now discharged inside WeakCore's proof
+  (`ObligationsFX.toObligationsCX`), so the obligations scc supplies no
+  longer contain them.
+- **`emit` takes no promises.** `emit` is now an `ExtNeedsNoProm` call
+  (`TermRun.ExtNeedsNoProm`): a thread takes it only with no outstanding
+  promise, and a certification run never takes it, so no promise spans an
+  output byte. This removes from the source semantics the executions in
+  which a store after an `emit` is promised, and read by another thread,
+  before that `emit` runs (`TermRun.LBE`); WeakCore lists them as not
+  covered (§5). On the scc side, the source step of `emit` takes
+  `th.promises = []` as a hypothesis, discharged by `prom_nil_of_write`
+  (`Scc/Sem/CertSys.lean`).
+- **The opened-scope check.** The checker refuses an allocation inside an
+  opened type package whose type mentions the hidden type and could be a
+  type-test target, and a call that passes such a type to a callee that
+  allocates so (`CoreTerm.scopeAllocOK`, at `annNew` and `progTgts`). scc's
+  frontend refuses type tests (`isTy`), so an accepted program has no
+  type-test target and this check refuses none of them.
+
+**The premise guard.** WeakCore ships a guard,
+`WeakCore/extras/tools/premises/guard.sh`, that freezes the meaning of the
+statements of WeakCore's final theorems: the transitive closure of the
+definitions each statement mentions, printed and compared with the vendored
+set. It was run with this repository's toolchain on a cold build of
+`WeakCore`, including the nine modules that only the guard imports
+(`TermProgress`, `TermLiveL3`, `TermLiveCertRun`, `TermLiveCertScen`,
+`TermLiveC`, `TermLiveG3`, `SceProof`, `TermStartD`, `DmaRing`):
+
+```
+cd WeakCore/extras
+WM_BUILD=<repository>/.lake/build/lib/lean WM_LEAN=<lean> tools/premises/guard.sh
+```
+
+Its last lines:
+
+```
+premise set: sets/pr-release-15067-vendored (da7648300c64202c3b348dad50a81c22; lean: Lean (version 4.35.0-pre, x86_64-unknown-linux-gnu, commit d0d716161618bd9fbd0bf2d9b8bbb9b48cccd7dd, Release); layout: vendored)
+premises: meaning unchanged (143 finals/premises; set sets/pr-release-15067-vendored da7648300c64202c3b348dad50a81c22)
+```
+
+**What the guard does not cover.** The closure stops at WeakCore's machine
+and language layer (`CheckPremises.stopModules`, which includes `CoreTerm`
+and `TermRun`). Definitions there are listed by name only; their bodies are
+not frozen. Among them, the release depends on these bodies:
+- `TermRun.tstep`, one step of one thread; its `new` step now records the
+  allocation's type, and whether that type is a type-test target, in the
+  thread's `tys`;
+- `CoreTerm.scan`, `CoreTerm.annNew` and `CoreTerm.progTgts`: the walk of the
+  opened-scope check, the allocation annotation, and the program's type-test
+  targets;
+- `TermRun.tysOf`, the type recorded for an allocation label in a
+  configuration.
+
+The guard would not report a change to these bodies. They are part of the
+specification (§3, item 15).
 
 ## 0. The claim
 
@@ -670,6 +748,11 @@ specification. In addition:
     `srcPo`/`progInitT` of `Spike/Lib/WakeA64.lean`: `Scc/Sem/SrcOut.lean`'s
     start with `main` entered on its own `ThreadId` and two thread slots.
     They are part of the specification.
+15. **WeakCore's machine and language layer.** The bodies of `TermRun.tstep`
+    (with `new`), `CoreTerm.scan`, `CoreTerm.annNew`, `CoreTerm.progTgts` and
+    `TermRun.tysOf` are part of the source semantics and are not covered by
+    WeakCore's premise guard (see "New in this release"). This is the
+    definition text of WeakCore 621ec97a as vendored.
 
 The trusted files' documentation states the above: `Scc/Sem/CorrectE.lean`
 (the trusted Linux stack fact, separate from the proved witness),
@@ -680,12 +763,29 @@ quantifier) and its notes on AArch64 alignment.
 ## 4. Reproducing
 
 **Building.** `lake build Spike Scc scc scc_x64 scc_arm` and the test
-modules. Memory: `WeakCore/TermStep.lean` needs about 5.8 GB even with
-`LEAN_NUM_THREADS=1`. The `hello1` certificate modules
-`Spike.Test.Cert.A64Hello1Cert` and `Spike.Test.Cert.X64Hello1Cert` need
-about **3.8 GiB per `lean` process** on a cold build, even with
-`LEAN_NUM_THREADS=1`, and more at default threads; build them with
-`LEAN_NUM_THREADS=1` and not alongside other heavy jobs. To bound the total
+modules. Memory: on a cold build with `LEAN_NUM_THREADS=1`, most modules
+stay under 2.5 GiB of anonymous memory per `lean` process (the resident size
+also counts the mapped `.olean` files). These modules need more, even
+single-threaded (peak anonymous memory / peak resident size):
+
+| Module | Anonymous | Resident |
+|---|---|---|
+| `WeakCore.TermStep` | 5.8 GiB | 7.4 GiB |
+| `WeakCore.GenLayer` | 4.5 GiB | 6.1 GiB |
+| `WeakCore.TermScopeFHM` | 4.0 GiB | 6.0 GiB |
+| `WeakCore.TermPlant` | 2.9 GiB | 4.5 GiB |
+| `Spike.Test.A64Hello1TgOk` | 3.1 GiB | 5.7 GiB |
+| `Spike.Test.A64Hello1PlaceOKELit` | 2.9 GiB | 5.1 GiB |
+| `Spike.Test.A64Ret0PlaceOKELit` | 2.7 GiB | 4.9 GiB |
+| `Spike.Test.X64Hello1PlaceOK` | 2.6 GiB | 4.8 GiB |
+
+Build each of them alone and single-threaded once its imports are built,
+e.g. `LEAN_NUM_THREADS=1 lake build WeakCore.TermStep`, with nothing else
+heavy running. A cold build of `WeakCore` with the nine guard-only modules
+took 52 minutes on 16 cores. The certificate modules (`Spike.Test.Cert.*`)
+need about 1.7 GiB anonymous (4.0 GiB resident) each with
+`LEAN_NUM_THREADS=1`, and more at default threads; build them one at a time
+with `LEAN_NUM_THREADS=1` and not alongside other heavy jobs. To bound the total
 of a parallel build, build serially, e.g. `LEAN_NUM_THREADS=1 taskset -c 0
 lake build Scc Spike`.
 
@@ -853,6 +953,11 @@ In this release `ret0.w` is certified at linked binaries and by `certify.sh
   whose source would need more heap may abort with exit 101.
 - **`print` is specified by its model.** The theorem is about `hello1o`, with
   `print`'s WeakCore model linked (§3 item 9).
+- **`emit` with outstanding promises.** Under WeakCore 621ec97a a thread
+  cannot `emit` while it has outstanding promises; executions that need this
+  (a store after an `emit`, promised before that `emit` runs,
+  `TermRun.LBE`) are not part of the source semantics, and WeakCore lists
+  them as not covered.
 - **Recursion depth.** Certificates set `maxRecDepth` right after the
   namespace: the reparse of a large asm can exceed the default. It changes no
   statement.

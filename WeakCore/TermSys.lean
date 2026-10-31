@@ -249,9 +249,10 @@ theorem ThSys.thInvMC (h : ThSys p g mem pairs th Eg Tot HP HS cr db) :
 /-- (S7h) **A thread's plain `ThInvM`** (S7f issue 4, option (i)).  (S8b)
 `ThInvM` carries the box fence (`hbf`). -/
 theorem ThSys.thInvM (h : ThSys p g mem pairs th Eg Tot HP HS cr db)
-    (hbf : g.boxFence = true) : ThInvM p g mem pairs th := by
+    (hbf : g.boxFence = true) (hTy : ∀ S, TyOKE g (Cut Eg g.i S)) (hRc : RecFresh g g.i th.nalloc) :
+    ThInvM p g mem pairs th := by
   obtain ⟨S, -, hE, hm, -⟩ := h
-  exact ⟨Cut Eg g.i S, hE, hm, hbf⟩
+  exact ⟨Cut Eg g.i S, hE, hm, hbf, hTy S, hRc⟩
 
 /-- (S7h) `ThInvR`: the thread holds at most `Tot`. -/
 theorem ThSys.thInvR (h : ThSys p g mem pairs th Eg Tot HP HS cr db) : ThInvR p th Tot := by
@@ -266,11 +267,11 @@ theorem ThSys.env (hclo : GStoClo Eg) (h : ThSys p g mem pairs th Eg Tot HP HS c
     ∃ S ρ η cx Rf Rs, CE η = Cut Eg g.i S ∧ η.tid = g.i ∧ EnvOK p η ∧ TypedK p η cx th.term ∧ TvOK cx ∧
       FInvR ρ η th.σs (ResumeR p th.stack Rs) cx th.env Rf ∧ Rf + Rs = Tot ∧ TermTyped.StoClo (CE η) ∧
       MemInv g (CE η) (stOf mem pairs th) ∧ MemHeld (CE η) (stOf mem pairs th) (HP + HS) ∧
-      TermPlant.PromCrK (CE η) (stOf mem pairs th) cr db ∧ RetPw th.σs th.stack cx.ret := by
-  obtain ⟨S, ⟨ρ, η, cx, Rf, Rs, hCE, hE, hT, htv, hi, hsum, hRP⟩, -, hm, hP, hS, hC⟩ := h
+      TermPlant.PromCrK (CE η) (stOf mem pairs th) cr db ∧ RetPw th.σs th.stack cx.ret ∧ DyFr p annNew (progTgts p) η th.σs th.term := by
+  obtain ⟨S, ⟨ρ, η, cx, Rf, Rs, hCE, hE, hT, htv, hi, hsum, hRP, hDy⟩, -, hm, hP, hS, hC⟩ := h
   have hH := MemHeld_join (fun _ _ hc hp => Cut_cov hc hp) hP hS
   have htid : (CE η).tid = (Cut Eg g.i S).tid := congrArg TEnv.tid hCE
-  refine ⟨S, ρ, η, cx, Rf, Rs, hCE, htid, hE, hT, htv, hi, hsum, ?_, ?_, ?_, ?_, hRP⟩
+  refine ⟨S, ρ, η, cx, Rf, Rs, hCE, htid, hE, hT, htv, hi, hsum, ?_, ?_, ?_, ?_, hRP, hDy⟩
   · rw [hCE]; exact StoClo_Cut hclo g.i S
   · rw [hCE]; exact hm
   · rw [hCE]; exact hH
@@ -292,9 +293,10 @@ theorem SysInvW.thInvMC (h : SysInvW p k arch Init MintOK c Eg Tot HP HS cr db) 
 
 /-- (S7h) Thread `i`'s plain `ThInvM` from `SysInv`. -/
 theorem SysInvW.thInvM (h : SysInvW p k arch Init MintOK c Eg Tot HP HS cr db) {i : Nat} {th : TTh}
-    (hth : c.ths[i]? = some th) :
+    (hth : c.ths[i]? = some th) (hTy : ∀ S, TyOKE (gOf p k arch c i) (Cut Eg i S))
+    (hRc : RecFresh (gOf p k arch c i) i th.nalloc) :
     ThInvM p (gOf p k arch c i) c.mem c.pairs th :=
-  (h.thread hth).thInvM h.bf
+  (h.thread hth).thInvM h.bf hTy hRc
 
 /-- (S7h) Thread `i`'s `tstepMC_step` hypotheses at its cut from `SysInv`
 (`ThSys.env`; note `(gOf p k arch c i).i = i`). -/
@@ -304,7 +306,7 @@ theorem SysInvW.env (h : SysInvW p k arch Init MintOK c Eg Tot HP HS cr db) {i :
       FInvR ρ η th.σs (ResumeR p th.stack Rs) cx th.env Rf ∧ Rf + Rs = Tot i ∧ TermTyped.StoClo (CE η) ∧
       MemInv (gOf p k arch c i) (CE η) (stOf c.mem c.pairs th) ∧
       MemHeld (CE η) (stOf c.mem c.pairs th) (HP i + HS) ∧ TermPlant.PromCrK (CE η) (stOf c.mem c.pairs th) (cr i) (db i) ∧
-      RetPw th.σs th.stack cx.ret :=
+      RetPw th.σs th.stack cx.ret ∧ DyFr p annNew (progTgts p) η th.σs th.term :=
   (h.thread hth).env h.clo
 
 /-- **(S7i) Every cut adopts the shared holding**: at thread `i`'s cut (any

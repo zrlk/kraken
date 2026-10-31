@@ -474,7 +474,7 @@ case "$cmp_out" in
     echo "FAIL: a Complete.lean theorem has a sorry"
     fail=1 ;;
 esac
-for thm in typed_not_checked progT_not_checked progTA_strict subA_iff tyEqA_iff checkProg_complete ProgTA.toProgT checkProg_iff check_iff; do
+for thm in typed_not_checked progT_not_checked progTA_strict subA_iff tyEqA_iff checkProg_complete ProgTA.toProgT checkProg_iff check_iff check_alg check_complete; do
   if ! echo "$cmp_out" | grep -q "'Complete.$thm' depends on axioms"; then
     echo "FAIL: Complete.lean's '#print axioms $thm' is missing."
     fail=1
@@ -1101,6 +1101,26 @@ esac
 for thm in ; do
   if ! echo "$tvic_out" | grep -qE "'TermViewInv.$thm' (depends on axioms|does not depend on any axioms)"; then
     echo "FAIL: TermViewInv.$thm missing or uses non-standard axioms"
+    fail=1
+  fi
+done
+
+# --- TermNallocF.lean (G1a) ------------------------------------------------------
+# G1a: steps of non-allocating terms keep nalloc (NotAllocT, tstep_nallocEq).
+echo "building TermNallocF.lean ..."
+if ! tnallocf_out=$(leanb TermNallocF 2>&1); then
+  echo "$tnallocf_out"
+  echo 'FAIL: TermNallocF.lean does not compile.'
+  fail=1
+fi
+case "$tnallocf_out" in
+  *"declaration uses"*|*sorryAx*)
+    echo "FAIL: a TermNallocF.lean theorem has a sorry"
+    fail=1 ;;
+esac
+for thm in TermNallocF.evalOp_nallocEq TermNallocF.tstep_nallocEq; do
+  if ! echo "$tnallocf_out" | grep -qE "'$thm' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
+    echo "FAIL: $thm missing or uses non-standard axioms"
     fail=1
   fi
 done
@@ -3584,26 +3604,6 @@ esac
 for thm in MemInv_publish0 MemInv_publishW EFoot.weak EFootW.riniW EFootW_pub ThInvMF.weak ThInvMCFS.weak PubWinT3_of tstepM_publishW tstepMR_publishW tstepMC_publishW Foot.weak FootW_ext cNXW ThInvMCFSW.toF tstepMF_stepW tstep_footprintW tstepMCF_stepLW tstepMCF_stepW tstep_footprintMCW; do
   if ! echo "$tpubw_out" | grep -qE "'TermStep.$thm' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
     echo "FAIL: TermStep.$thm missing or uses non-standard axioms"
-    fail=1
-  fi
-done
-
-# --- TermNallocF.lean (G1a) ------------------------------------------------------
-# G1a: steps of non-allocating terms keep nalloc (NotAllocT, tstep_nallocEq).
-echo "building TermNallocF.lean ..."
-if ! tnallocf_out=$(leanb TermNallocF 2>&1); then
-  echo "$tnallocf_out"
-  echo 'FAIL: TermNallocF.lean does not compile.'
-  fail=1
-fi
-case "$tnallocf_out" in
-  *"declaration uses"*|*sorryAx*)
-    echo "FAIL: a TermNallocF.lean theorem has a sorry"
-    fail=1 ;;
-esac
-for thm in TermNallocF.evalOp_nallocEq TermNallocF.tstep_nallocEq; do
-  if ! echo "$tnallocf_out" | grep -qE "'$thm' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
-    echo "FAIL: $thm missing or uses non-standard axioms"
     fail=1
   fi
 done
@@ -8256,6 +8256,60 @@ for thm in \
   fi
 done
 
+# --- TermScalIni.lean ------------------------------------------------------------
+# (scalIni) the scalar clause `SysInvN.scalIni`: kept by the plant, the thread step, withFp, the box.
+echo "building TermScalIni.lean ..."
+if ! s1_termscalini_out=$(leanb TermScalIni 2>&1); then
+  echo "$s1_termscalini_out"
+  echo 'FAIL: TermScalIni.lean does not compile.'
+  fail=1
+fi
+case "$s1_termscalini_out" in
+  *"declaration uses"*|*sorryAx*)
+    echo "FAIL: a TermScalIni.lean theorem has a sorry"
+    fail=1 ;;
+esac
+# TermScalIni: every #print axioms theorem, std axioms only.
+for thm in \
+    "TermScalIni.scalIni_le" \
+    "TermScalIni.scalIni_init" \
+    "TermScalIni.scalIni_ini0" \
+    "TermScalIni.slotCnt_nonarr" \
+    "TermScalIni.np_nonarr" \
+    "TermScalIni.npZ_nonarr" \
+    "TermScalIni.plantN_nonarr" \
+    "TermScalIni.ini_le_rini_of_ownHid" \
+    "TermScalIni.fresh_pfr_none" \
+    "TermScalIni.cut_ini_le" \
+    "TermScalIni.scalIni_egP" \
+    "TermScalIni.plantN0_of" \
+    "TermScalIni.scalIni_egT" \
+    "TermScalIni.hscal_of" \
+    "TermScalIni.scalIni_withFp"; do
+  thm_re=$(printf '%s' "$thm" | sed 's/[][\\.*^$?+(){}|]/\\&/g')  # names may contain ? ! etc.
+  if ! echo "${s1_termscalini_out}" | grep -qE "'([^' ]*\.)?$thm_re' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
+    echo "FAIL: TermScalIni.lean: '#print axioms $thm' missing or non-standard axioms"
+    fail=1
+  fi
+done
+
+# --- G5: the certificate-window proof (84 modules, CertWinProof) -------------
+# (G5) `CertWinProof.certWinC_of`/`certWinP_of` and their layers, built before TermMain, which
+# imports them (TermMainPre, EtaCertWinSnd).  The *Axioms modules print their axiom census.
+echo "building the 84 G5 certificate-window modules ..."
+for g5m in AxAll VRb Emb PubPos VRbClosure TvarB Head VRzLemmas PubPosL FlagB GenLayer KLayer ShadowPub ShadowPubStep ShadowPubAxioms ShadowWinChain ShadowWinChainAxioms WLayer WrIniInst ELayer ELayerAxioms TermMainPre AnchorFrameTyping AnchorFrameAxioms WinScope WinScopeAxioms WinStart WinStartAxioms WinPubSplit WinPremises WinPremisesAxioms KLayerAxioms MergeP MergeStmt MergeH Merge MergeQ PubPosM MergeV MergeW MergeR ZRel Frame CopyPlan PairNat EtaC LiftG LiftE LiftH Lift LiftPosZero DPub LiftTidBox LiftUpClosed VarBox EtaA EtaB EtaD StackFrameLevel StackInduction StackLevelZero VRLift StackResFree StackAxioms CopyPlanAxioms NLayer EtaL EtaS EtaP EtaNC EtaR ScalB PlantedHolder EtaN EtaO ContIV EtaFD BornU BornW EtaW EtaCertWinFst EtaCertWinSnd EtaCertWinAxioms OwnerExemptWitness; do
+  if ! g5_out=$(leanb $g5m 2>&1); then
+    echo "$g5_out"
+    echo "FAIL: $g5m.lean does not compile: the certificate-window proof no longer goes through."
+    fail=1
+  fi
+  case "$g5_out" in
+    *"declaration uses"*|*sorryAx*)
+      echo "FAIL: a $g5m.lean theorem has a sorry"
+      fail=1 ;;
+  esac
+done
+
 # --- TermMain.lean -----------------------------------------------------------
 # Top-down skeleton of headline 1: every open proof
 # obligation is a field of `Obligations`; `sysInv_step`/`sysInv_run` carry the
@@ -8342,26 +8396,6 @@ for thm in \
   thm_re=$(printf '%s' "$thm" | sed 's/[][\\.*^$?+(){}|]/\\&/g')  # names may contain ? ! etc.
   if ! echo "${b2_c1_out}" | grep -qE "'([^' ]*\.)?$thm_re' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
     echo "FAIL: C1.lean: '#print axioms $thm' missing or non-standard axioms"
-    fail=1
-  fi
-done
-
-# --- TermInitOKOld.lean --------------------------------------------------
-# RetPw + PIDX/plantIdx + D-B: new module.
-echo "building TermInitOKOld.lean ..."
-if ! k1a_terminitokold_out=$(leanb TermInitOKOld 2>&1); then
-  echo "$k1a_terminitokold_out"
-  echo 'FAIL: TermInitOKOld.lean does not compile.'
-  fail=1
-fi
-case "$k1a_terminitokold_out" in
-  *"declaration uses"*|*sorryAx*)
-    echo "FAIL: a TermInitOKOld.lean theorem has a sorry"
-    fail=1 ;;
-esac
-for thm in TermMain.initOK_of_old; do
-  if ! echo "$k1a_terminitokold_out" | grep -qE "'$thm' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
-    echo "FAIL: TermInitOKOld.lean: '#print axioms $thm' missing or non-standard axioms"
     fail=1
   fi
 done
@@ -8706,9 +8740,9 @@ done
 
 # --- TermArchE.lean / TermArchENS.lean / TermArchS.lean ---------------------
 # TSO ⊆ ARM lifted from `Step` to runs with extern steps (and, under a spawn-simulation
-# premise, to all of `StepsE`), traces equal.  ENS: spawn-free programs, no premise.
+# premise, to all of `StepsE`), traces equal.  ENS: spawn-free programs, no `SpawnSim` premise.
 # S: the spawn simulation is proved (`spawn_sim`, with `TValLe.rts` relaxed to `≤`), so all
-# of `StepsE` (spawning programs included) has no premise.
+# of `StepsE` (spawning programs included) has no `SpawnSim` premise.
 for mod in TermArchE TermArchENS TermArchS; do
   echo "building $mod.lean ..."
   if ! tae_out=$(leanb $mod 2>&1); then
@@ -8727,8 +8761,8 @@ for mod in TermArchE TermArchENS TermArchS; do
       tso_stepsE_final_subset_arm" ;;
     TermArchENS) thms="cfgNoS_ext stepsE_extRuns_of_noSpawn tso_stepsE_subset_arm_noSpawn
       tso_traces_subset_arm_noSpawn" ;;
-    TermArchS) thms="tvle_bump wsle_bump thsLe_push allP_spawnT spawn_sim tso_stepsE_subset_arm'
-      tso_traces_subset_arm' tso_stepsE_final_subset_arm'" ;;
+    TermArchS) thms="tvle_bump wsle_bump thsLe_push allP_spawnT spawn_sim tso_stepsE_subset_arm_full
+      tso_traces_subset_arm_full tso_stepsE_final_subset_arm_full" ;;
   esac
   for thm in $thms; do
     if ! echo "$tae_out" | grep -qE "'$mod.$thm' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
@@ -11873,7 +11907,7 @@ for thm in \
     "TermStep.Steps.inv" \
     "TermStep.ThInvMC_plant" \
     "TermStep.ThInvMC_promise_plant" \
-    "TermStep.ThInvMF.toM" \
+    "TermStep.ThInvMF.toMT" \
     "TermStep.ThInvMFA.toF" \
     "TermStep.ThInvMFS.toA" \
     "TermStep.ThInvMFS.toF" \
@@ -13398,6 +13432,30 @@ case "$e3_em0_out" in
     fail=1 ;;
 esac
 
+# --- LostWakeDemo.lean ---------------------------------------------------------
+# The faithful permit makes a lost wake-up visible. EM0 as written: the spawn-machine search (capacity 2, no
+# promises) is complete with no stuck configuration and no fair livelock. EM0 with the worker's `unpark` deleted
+# (`em0Lost`): the search is complete and stuck, and at every node with no thread move some thread is parked at `park`
+# holding no permit (the reason). The #guards state this; the printed report is the reason.
+echo "building LostWakeDemo.lean ..."
+if ! d4_lostwake_out=$(leanb LostWakeDemo 2>&1); then
+  echo "$d4_lostwake_out"
+  echo 'FAIL: LostWakeDemo.lean does not compile.  A failing #guard is an error,'
+  echo '      so EM0 or its unpark-less variant no longer behaves as the note says.'
+  fail=1
+fi
+case "$d4_lostwake_out" in
+  *"declaration uses"*|*sorryAx*)
+    echo "FAIL: a LostWakeDemo.lean theorem has a sorry"
+    fail=1 ;;
+esac
+case "$d4_lostwake_out" in
+  *"em0Lost: STUCK at node "*"parked at \`park\` with no permit"*) ;;
+  *)
+    echo "FAIL: LostWakeDemo.lean: the lost-wake-up report (stuck node, parked thread, no permit) is missing"
+    fail=1 ;;
+esac
+
 # --- UElabTest.lean (UnElab M2) ------------------------------------------------------
 # The elaboration against the libraries and EM0: every library program is an UnElab program meaning itself (and
 # the UnElab parser reads its printed .w back); EM0 in UnElab elaborates to EM0Prelude/EM0's .w up to value-binder
@@ -13439,6 +13497,73 @@ for thm in \
   thm_re=$(printf '%s' "$thm" | sed 's/[][\\.*^$?+(){}|]/\\&/g')
   if ! echo "${e3_scopeem0_out}" | grep -qE "'([^' ]*\.)?$thm_re' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
     echo "FAIL: TermScopeEM0.lean: '#print axioms $thm' missing or non-standard axioms"
+    fail=1
+  fi
+done
+
+# --- TermStartD.lean / DmaRing.lean ---------------------------------------------------
+# Device start + DMA ring: the board finals and the ring final.
+echo "building TermStartD.lean ..."
+if ! startd_out=$(leanb TermStartD 2>&1); then
+  echo "$startd_out"
+  echo 'FAIL: TermStartD.lean does not compile.'
+  fail=1
+fi
+case "$startd_out" in
+  *"declaration uses"*|*sorryAx*|*ofReduceBool*)
+    echo "FAIL: a TermStartD.lean theorem has a sorry or a native_decide"
+    fail=1 ;;
+esac
+echo "building DmaRing.lean ..."
+if ! dmaring_out=$(leanb DmaRing 2>&1); then
+  echo "$dmaring_out"
+  echo 'FAIL: DmaRing.lean does not compile.'
+  fail=1
+fi
+case "$dmaring_out" in
+  *"declaration uses"*|*sorryAx*|*ofReduceBool*)
+    echo "FAIL: a DmaRing.lean theorem has a sorry or a native_decide"
+    fail=1 ;;
+esac
+# DmaRing: every #print axioms theorem, std axioms only.
+for thm in \
+    "TermStartD.initShape_startD" \
+    "TermStartD.runScope_startD" \
+    "TermStartD.token_unique_net_board" \
+    "DmaRing.ring_argOK"; do
+  thm_re=$(printf '%s' "$thm" | sed 's/[][\\.*^$?+(){}|]/\\&/g')
+  if ! echo "${dmaring_out}" | grep -qE "'([^' ]*\.)?$thm_re' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
+    echo "FAIL: DmaRing.lean: '#print axioms $thm' missing or non-standard axioms"
+    fail=1
+  fi
+done
+# TermStartD has no #print axioms lines, so its registered finals are checked from
+# a file generated here (no olean is written).
+devstart_ax_tmp=$(mktemp -d)
+cat > "$devstart_ax_tmp/DevStartAxioms.lean" <<'EOF'
+import TermStartD
+import DmaRing
+#print axioms TermStartD.token_unique_net_board
+#print axioms TermStartD.token_unique_final_board
+#print axioms TermStartD.machine_tokens_main_board
+#print axioms TermStartD.reachable_typed_board
+#print axioms DmaRing.dma_ring_tokens_unique_net
+EOF
+if ! devstart_ax_out=$(LEAN_PATH="$BUILD" "$LEAN" $(dyn) "$devstart_ax_tmp/DevStartAxioms.lean" 2>&1); then
+  echo "$devstart_ax_out"
+  echo 'FAIL: the device-start axioms check file does not compile.'
+  fail=1
+fi
+rm -rf "$devstart_ax_tmp"
+for thm in \
+    "TermStartD.token_unique_net_board" \
+    "TermStartD.token_unique_final_board" \
+    "TermStartD.machine_tokens_main_board" \
+    "TermStartD.reachable_typed_board" \
+    "DmaRing.dma_ring_tokens_unique_net"; do
+  thm_re=$(printf '%s' "$thm" | sed 's/[][\\.*^$?+(){}|]/\\&/g')
+  if ! echo "${devstart_ax_out}" | grep -qE "'([^' ]*\.)?$thm_re' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
+    echo "FAIL: device-start finals: '#print axioms $thm' missing or non-standard axioms"
     fail=1
   fi
 done
@@ -13741,10 +13866,9 @@ done
 # SceCertK, SceCert (item 38): liveness certificates -- mode A (TermLiveCert.check by compiled evaluation, the
 # report lines and refusals) and the texts of the root.cert/ files --live-proof writes; SceCertK holds the ToExpr
 # instances and the #sce_start/#sce_cert commands those files run.  Nothing in them is trusted: the files are
-# re-checked by the kernel (TermLiveCertJoin).  tools/test-sce.sh builds one certificate end to end, and
-# tools/cldoc-tests/cert/ checks cldoc's cert option (it needs SceCert, so it is not in tools/test-cldoc.sh).
-echo "building SceText.lean, SceCli.lean, SceLive.lean, SceProof.lean, SceCertK.lean, SceCert.lean, SceRun.lean ..."
-for m in SceText SceCli SceLive SceProof SceCertK SceCert SceRun; do
+# re-checked by the kernel (TermLiveCertJoin).  tools/test-sce.sh builds one certificate end to end.
+echo "building SceText.lean, SceCli.lean, SceFront.lean, SceLive.lean, SceProof.lean, SceCertK.lean, SceCert.lean, SceRun.lean ..."
+for m in SceText SceCli SceFront SceLive SceProof SceCertK SceCert SceRun; do
   if ! sce_out=$(leanb $m 2>&1); then
     echo "$sce_out"
     echo "FAIL: $m.lean: does not compile (or a guard failed)."
@@ -13756,6 +13880,14 @@ for m in SceText SceCli SceLive SceProof SceCertK SceCert SceRun; do
   if [ "$m" = SceRun ] && ! echo "$sce_out" | grep -qE "'SceRun\.scopeFail_none' depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]"; then
     echo "FAIL: SceRun.lean: '#print axioms SceRun.scopeFail_none' missing or non-standard axioms"
     fail=1
+  fi
+  if [ "$m" = SceFront ]; then
+    for thm in rtCheck_iff Front.ok_roundTrip Front.checked_prog; do
+      if ! echo "$sce_out" | grep -qE "'SceFront\.$thm' depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]"; then
+        echo "FAIL: SceFront.lean: '#print axioms SceFront.$thm' missing or non-standard axioms"
+        fail=1
+      fi
+    done
   fi
   if [ "$m" = SceProof ]; then
     for thm in progRobustPwf_of_robustOK firstBad_none mainInst scenInst; do

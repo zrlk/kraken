@@ -85,13 +85,13 @@ theorem hplP_W {R : Spike.Lib.Region} {F : MachineData → Prop} (hR : R.OK) (hl
       rw [Spike.Lib.WakeHClW.hme_W hp IW, ← UInt64.toNat_toBitVec,
         (Spike.Lib.A64.WakePh.WcWfS.wJ0_wNC_JS h).2.2, (Ly).lab_pin]
       simp
-  have hJs : ∀ σe c, (JW) σC σe c → c.term = .let_ "o" (.new (.var "z")) Spike.Lib.A64.Flow.WakeWc.boxTerm ∧
+  have hJs : ∀ σe c, (JW) σC σe c → c.term = .let_ "o" (.new (.var "z") (some .int)) Spike.Lib.A64.Flow.WakeWc.boxTerm ∧
       (∃ tz, TermRun.lookupE c.env "z" = some (tz, [TermRun.cst (.num 0)])) ∧
       TermRun.evalAt c.env (.var "me") =
         some (.tid, [TermRun.cst (.loc ⟨Spike.Lib.WakeT1.mainTidLbl 2, 0⟩ 0)]) := fun σe c h => by
     rw [(Spike.Lib.A64.WakePh.WcWfS.wJ0_wNC_JS h).1]
     exact ⟨Spike.Lib.WakeC0.c0W_term, Spike.Lib.WakeC0.c0W_z, Spike.Lib.WakeC0.c0W_me⟩
-  have hiz : (Ly).Λ.imms (.let_ "o" (.new (.var "z")) Spike.Lib.A64.Flow.WakeWc.boxTerm) "z" 0 = some 0 := by
+  have hiz : (Ly).Λ.imms (.let_ "o" (.new (.var "z") (some .int)) Spike.Lib.A64.Flow.WakeWc.boxTerm) "z" 0 = some 0 := by
     show IW _ "z" 0 = some 0
     rw [Spike.Lib.A64.WakePh.PlacedAlloc.newTerm_eq, Spike.Lib.WakeImmsC0.immsW2_of_ne (by simp) (by simp)]
     simp [SccCode.wakeImms]

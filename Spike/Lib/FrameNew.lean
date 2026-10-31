@@ -21,8 +21,8 @@ variable {p : Prog}
 /-- **No local step at a box allocation**: the source's step there, if any,
 moves the allocation count on (`TermStep.alloc_growsP`), which a local step
 keeps. -/
-theorem localStepS_not_new {c c' : Ctl} (h : LocalStepS p c c') {x : String} {a : At} {e : Expr}
-    (ht : c.term = .let_ x (.new a) e) : False := by
+theorem localStepS_not_new {c c' : Ctl} (h : LocalStepS p c c') {x : String} {a : At} {T : Option Ty} {e : Expr}
+    (ht : c.term = .let_ x (.new a T) e) : False := by
   obtain ⟨-, h2⟩ := h
   let g : TermRun.G := { p := p, k := default, arch := default, lbase := 0, n := 1, i := 0 }
   let th : TermRun.TTh := { term := c.term, env := c.env }
@@ -41,13 +41,11 @@ theorem localStepS_not_new {c c' : Ctl} (h : LocalStepS p c c') {x : String} {a 
       have hg := (TermStep.alloc_growsP (fun t ht => by simp [TermRun.stOf] at ht) r hr).2.2.1
       obtain ⟨rfl, -, -⟩ := Prod.mk.inj hre
       have hn := congrArg (fun q => q.2.2.nalloc) he
-      simp only [TermRun.withS] at hn
-      simp [TermRun.stOf] at hg
-      omega
+      split at hn <;> (simp only [TermRun.withS] at hn; simp [TermRun.stOf] at hg; omega)
 
 /-- **A frame run from a box allocation is empty.** -/
 theorem FrameRun.eq_of_new {c : Ctl} {fs : List TermRun.Frame} {q' : Ctl × List TermRun.Frame}
-    (hr : FrameRun p (c, fs) q') {x : String} {a : At} {e : Expr} (ht : c.term = .let_ x (.new a) e) :
+    (hr : FrameRun p (c, fs) q') {x : String} {a : At} {T : Option Ty} {e : Expr} (ht : c.term = .let_ x (.new a T) e) :
     q' = (c, fs) := by
   cases hr with
   | refl => rfl

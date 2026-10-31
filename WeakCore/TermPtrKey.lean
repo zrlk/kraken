@@ -32,7 +32,7 @@ theorem ownKey_noIncrease_thread (hb1 : AllocGT p k arch Sp Init MintOK c0)
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {crS cr' db' δ : Ts → Res}
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r) (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
+    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
       crS (db i) δ)
     (hK : ∀ t l, crS t (.own l) = cr i t (.own l)) {l : AllocLabel}
     (hnf : ¬ FreshIn (gOf p k arch c i) th.nalloc r.2.2.nalloc l) :
@@ -51,7 +51,7 @@ theorem ownKey_noIncrease_thread_upd (hb1 : AllocGT p k arch Sp Init MintOK c0)
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {crS cr' db' δ : Ts → Res}
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r) (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
+    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
       crS (db i) δ)
     (hK : ∀ t l, crS t (.own l) = cr i t (.own l)) {l : AllocLabel}
     (hnf : ¬ FreshIn (gOf p k arch c i) th.nalloc r.2.2.nalloc l) :
@@ -159,9 +159,9 @@ theorem heldS_own_zero_pre
   exact heldS_own_zero hm hHS l
 
 /-- The post-state shared holding of a thread step is own-free. -/
-theorem heldS_own_zero_post {g : G} {η : TEnv} {s : St} {r : Memory × List Ts × TTh} {E' : TEnv}
+theorem heldS_own_zero_post {g : G} {η : TEnv} {s : St} {th : TTh} {r : Memory × List Ts × TTh} {E' : TEnv}
     {Tot' HP' HS' C F : Res} {cr' db' : Ts → Res} {Rf Rs H : Res} {cr db δ : Ts → Res}
-    (Z : TOut p g η s r E' Tot' HP' HS' C F cr' db' Rf Rs H cr db δ) (l : Nat) : HS' (.own l) = 0 :=
+    (Z : TOut p g η s th r E' Tot' HP' HS' C F cr' db' Rf Rs H cr db δ) (l : Nat) : HS' (.own l) = 0 :=
   heldS_own_zero Z.2.2.1 Z.2.2.2.2.1 l
 
 /-- **(ii) thread step, stepper, without `HS`** (the gate's form). -/
@@ -170,7 +170,7 @@ theorem ownKey_noIncrease_thread_noHS (hb1 : AllocGT p k arch Sp Init MintOK c0)
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {crS cr' db' δ : Ts → Res}
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r) (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
+    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
       crS (db i) δ)
     (hK : ∀ t l, crS t (.own l) = cr i t (.own l)) {l : AllocLabel}
     (hnf : ¬ FreshIn (gOf p k arch c i) th.nalloc r.2.2.nalloc l) :
@@ -240,7 +240,7 @@ theorem keyHeld_not_newPub
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res}
     (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
+    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
       (cr i) (db i) δ)
     (hm : MemInv (gOf p k arch c i) (CE η) (stOf c.mem c.pairs th))
     (hSK : SeenOK (CE η) E' Tot' (HP' + HS')) {a : AllocLabel}
@@ -270,7 +270,7 @@ theorem keyHeld_not_pub_C (hb1 : AllocGT p k arch Sp Init MintOK c0)
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {crS cr' db' δ : Ts → Res}
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r) (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
+    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
       crS (db i) δ)
     (hK : ∀ t l, crS t (.own l) = cr i t (.own l)) (hPC : PubConsumeC th C) {a : AllocLabel}
     (hnf : ¬ FreshIn (gOf p k arch c i) th.nalloc r.2.2.nalloc a) (hp : TermOwnG0Defs.PubAt th a) :
@@ -297,7 +297,7 @@ theorem keyHeld_not_pub_C_contra (hb1 : AllocGT p k arch Sp Init MintOK c0)
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {crS cr' db' δ : Ts → Res}
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r) (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
+    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
       crS (db i) δ)
     (hK : ∀ t l, crS t (.own l) = cr i t (.own l)) (hPC : PubConsumeC th C) {a : AllocLabel}
     (hnf : ¬ FreshIn (gOf p k arch c i) th.nalloc r.2.2.nalloc a) (hheld : 0 < (Tot' + HP') (.own a)) :
@@ -432,6 +432,10 @@ theorem tstep_nalloc {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
     | (simp only [List.mem_flatMap, List.mem_map] at h
        obtain ⟨x, hx, y, hy, rfl⟩ := h
        exact Nat.le_trans (Nat.le_of_eq (TermStepper.projM_nalloc hx).symm) (injM_nalloc hy))
+    | (simp only [List.mem_map] at h
+       obtain ⟨x, hx, rfl⟩ := h
+       dsimp only
+       split <;> exact evalOp_nalloc hx)
 
 
 
@@ -482,6 +486,9 @@ theorem promAlloc_locS {p : Prog} {k : Promises.Knobs} {arch : Arch} {j : Nat} {
     (hF : Foot (gOf p k arch c j) E E' (stOf c.mem c.pairs th) (stOf r.1 r.2.1 r.2.2))
     (hE' : ThInvE p E' r.2.2) (hm' : MemInv (gOf p k arch c j) E' (stOf r.1 r.2.1 r.2.2))
     (hA : AnchR Eu Ea E' (stOf r.1 r.2.1 r.2.2)) (hxa : Ea = E' ∨ Ext Ea E') (hTA : TermTyped.TidAt j c' E')
+    (hTyE : TyOKE (gOf p k arch c j) E) (hRcE : RecFresh (gOf p k arch c j) j th.nalloc)
+    (hnew : (∀ cl t, E'.sto (freshLabel (gOf p k arch c j).lbase (gOf p k arch c j).n (gOf p k arch c j).i th.nalloc) = some cl →
+        tysUpd (gOf p k arch c j).tys th r.2.2 (freshLabel (gOf p k arch c j).lbase (gOf p k arch c j).n (gOf p k arch c j).i th.nalloc) = some (t, true) → cl.ty = clD t))
     {t : Ts} {m : Msg} (ht : t ∈ r.2.2.promises) (hmt : r.1[t]? = some m) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) :
     ¬ FreshIn (gOf p k arch c j) th.nalloc r.2.2.nalloc m.loc.label := by
   intro hF0
@@ -490,11 +497,15 @@ theorem promAlloc_locS {p : Prog} {k : Promises.Knobs} {arch : Arch} {j : Nat} {
   have hlt : t < c.mem.size := hlt0 t (hsub.subset ht)
   have hm1 : c'.mem[t]? = some m := by rw [e1]; exact hmt
   have hpa : r.2.2.vs.coh m.loc < t := certified_promAbove hc' e3 ht hm1
-  have hg : gOf p k arch c' j = gOf p k arch c j := TermTyped.gOf_thread hs
+  have hg := TermTyped.gOf_thread hs
   have hbo : (gOf p k arch c' j).boxFence = true := by rw [hg]; exact hbf
   have hst : stOf c'.mem c'.pairs r.2.2 = stOf r.1 r.2.1 r.2.2 := by rw [e1, e2]
   have hx0 := TermNoHold.InvAtXF_ofA (p := p) (k := k) (arch := arch) e3 hE' (by rw [hg, hst]; exact hm')
     (StoClo_EFoot hF.1 hSC) hbo (by rw [hst]; exact hA) hxa
+    (TermTyped.tyRun_threadW (g := gOf p k arch c j) hs hth e3 rfl rfl rfl rfl
+      (Nat.lt_of_le_of_lt (Nat.zero_le _) (Cfg.lt_n (TermCert.arr_lt hth))) hr hF.1 hTyE hRcE hnew).1
+    (TermTyped.tyRun_threadW (g := gOf p k arch c j) hs hth e3 rfl rfl rfl rfl
+      (Nat.lt_of_le_of_lt (Nat.zero_le _) (Cfg.lt_n (TermCert.arr_lt hth))) hr hF.1 hTyE hRcE hnew).2
   have htp : t ∈ TermFul.promsOf c' j := by rw [TermFul.promsOf_some e3]; exact ht
   have hloc := TermNoHold.certified_promLoc (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hscR hvIR hwinR hx0 hTA hc' htp hm1
   have hb := hF.2 _ hF0
@@ -518,8 +529,8 @@ theorem promAlloc_locS {p : Prog} {k : Promises.Knobs} {arch : Arch} {j : Nat} {
     · obtain ⟨cq, hcq, -⟩ := hO; rw [hb.1] at hcq; cases hcq
     · rw [hT] at e; cases e
   have hX : InvAtX p k arch j E' c'.mem.size r.2.2.vs.vWr c' (Ea := Ea) (Eu := Eu) := by
-    obtain ⟨thx, E0, hthx, hx, hTEx, hmx, hSCx, hbox, hfb, hfr, -, -, -, hIH0⟩ := hx0
-    exact ⟨thx, E0, hthx, hx, hTEx, hmx, hSCx, hbox, hfb, hfr, fun _ _ _ h => h.elim, hIH0⟩
+    obtain ⟨thx, E0, hthx, hx, hTEx, hmx, hSCx, hbox, hfb, hfr, -, -, -, hIH0, hTyP, hRcP⟩ := hx0
+    exact ⟨thx, E0, hthx, hx, hTEx, hmx, hSCx, hbox, hfb, hfr, fun _ _ _ h => h.elim, hIH0, hTyP, hRcP⟩
   obtain ⟨c1, c2, th1, th2, ρ1, η1, cx1, E2, -, -, -, -, -, -, hx1, hE, hTy, htv, hi, hmi, hscope, hpa1, -, -, -, -, -,
     -, -, hsw, -⟩ := certified_promTypedX (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hscR hvIR hwinR hX hTA hc' htp hm1
   obtain ⟨cl1, o1, U, us, j1, hcl1, h1o, hus, hj, ho⟩ :=

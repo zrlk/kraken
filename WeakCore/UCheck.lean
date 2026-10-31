@@ -103,7 +103,7 @@ theorem check_lets (p : Prog) (cx : Cx) (ls : List (String × Op)) (e : Expr) :
   induction ls generalizing cx with
   | nil => simp [lets]
   | cons b ls ih =>
-      simp only [lets, check, List.foldlM_cons, stepB, bind_assoc]
+      simp only [lets, check_let, List.foldlM_cons, stepB, bind_assoc]
       congr 1; funext cx'; exact ih cx'
 
 mutual
@@ -128,7 +128,7 @@ end
 theorem checkU_elab (p : Prog) (cx : Cx) (k : Nat) (e : UExpr) : checkU p cx k e = check p cx (elabT k e) := by
   induction e generalizing cx k with
   | let_ x h args e ih =>
-      simp only [checkU, elabT, check_lets, checkArgs_fold, check]
+      simp only [checkU, elabT, check_lets, checkArgs_fold, check_let]
       congr 1; funext cx'; congr 1; funext cx''; exact ih cx'' _
   | ifeq a b yes no _ _ => simp only [checkU, elabT, check_lets, checkArgs_fold]
   | cas acq rel w e v t ok fail _ _ => simp only [checkU, elabT, check_lets, checkArgs_fold]
@@ -139,14 +139,15 @@ theorem checkU_elab (p : Prog) (cx : Cx) (k : Nat) (e : UExpr) : checkU p cx k e
 
 /-- `checkDecl` with its body check abstracted (pinned to the core's `checkDecl` by `checkDecl_with`, so it
 cannot drift from it). -/
-def checkDeclWith (p : Prog) (body : Cx → M Unit) (d : Decl) : M Unit := do
+def checkDeclWith (p : Prog) (body : Cx → M (List (String × Ty))) (d : Decl) : M Unit := do
   let nt := d.tparams.length
   if !d.argTy.wf nt d.idx.length || !d.retTy.wf nt d.idx.length then
     throw s!"{d.name}: signature is not well formed"
   if !d.argTy.scTop || d.retTy.secondClass then
     throw s!"{d.name}: a second-class capability may be passed, not returned or stored"
-  body { inames := d.idx.reverse, vars := [(d.arg, d.argTy, true)], ret := d.retTy,
-         ke := d.tparams.reverse.map some }
+  -- the walk runs once: the binder table is bound here and reused by the cell pass below
+  let tbl ← body { inames := d.idx.reverse, vars := [(d.arg, d.argTy, true)], ret := d.retTy,
+                   ke := d.tparams.reverse.map some }
   -- the kind rules; no rule mentions a decl by name (`isDev` is by KIND)
   let isDev : String → Bool := fun f => ((p.find? (·.name == f)).map (·.kind == .device)).getD false
   if d.kind == .device && !(devCells d.argTy).all devCellOK then
@@ -155,22 +156,67 @@ def checkDeclWith (p : Prog) (body : Cx → M Unit) (d : Decl) : M Unit := do
     throw s!"{d.name}: device externs and device functions may be used only inside a device function"
   if !exprNoDevFnptr isDev d.body then
     throw s!"{d.name}: a device function cannot be taken as a value"
+  -- ALL kinds: the call-site rule for loop functions (message 16)
+  match loopCallBad p d.name d.allNames [] [] d.body with
+  | some (f, B) => throw s!"{d.name}: a call of {f} must give its loop index a literal of at most {B}, through a name bound once"
+  | none => pure ()
   match d.kind with
-  | .restricted _ _ =>
-      throw s!"{d.name}: restricted functions are not supported yet (fuel and stack budgets are not checked)"
+  | .restricted fuel stack ro loop =>
+      if !noShadow d then throw s!"{d.name}: a restricted function may not rebind a name"                      -- 8
+      -- the loop rule: 15 (`loop` given, no self tail) and 7 (self tail without `loop`, or a bad shape)
+      match loop, selfBound d d.body with
+      | some _, .noTail => throw s!"{d.name}: loop is given but the function has no self tail call"
+      | none, .noTail => pure ()
+      | some _, .bounded _ _ => pure ()
+      | _, _ => throw s!"{d.name}: a restricted function loops only under a loop bound, by decreasing one index parameter behind a zero test"
+      -- messages 1–6: the per-rule Bools are non-root copies of the matching conjunct of `restrictedOK`; each is a LITERAL
+      -- conjunct of `restrictedDeclOK`, never stricter: `checkDecl_complete` needs `restrictedDeclOK = true` to imply every one
+      -- of them
+      let kindOf : String → Option DeclKind := fun f => (p.find? (·.name == f)).map (·.kind)
+      let argCode : Option CodeKind := match d.argTy with | .code _ _ k => some k | _ => none
+      let rOK := restrictedOK ro d.name kindOf d.arg argCode d.body
+      if !(rOK || ruleOK 1 ro d.name kindOf d.arg argCode d.body) then
+        throw s!"{d.name}: a restricted function may not allocate, spawn, open a region, park or ask for its thread id"
+      if !(rOK || ruleOK 2 ro d.name kindOf d.arg argCode d.body) then
+        throw s!"{d.name}: a read-only function may not store, compare-and-swap, advance a protocol or use an extern other than a read-only register read or `regAt`"
+      if !(rOK || ruleOK 3 ro d.name kindOf d.arg argCode d.body) then
+        throw s!"{d.name}: a restricted function may call only restricted functions"
+      if !(rOK || ruleOK 4 ro d.name kindOf d.arg argCode d.body) then
+        throw s!"{d.name}: a read-only function may call only read-only functions"
+      if !(rOK || ruleOK 5 ro d.name kindOf d.arg argCode d.body) then
+        throw s!"{d.name}: a restricted function may call through a code value only when it is its argument and that argument is restricted"
+      if !(rOK || ruleOK 6 ro d.name kindOf d.arg argCode d.body) then
+        throw s!"{d.name}: a read-only function may not call through a code value"
+      let n := fuelDecl p d
+      if fuel < n then throw s!"{d.name}: the fuel budget is {fuel} but the body needs {n}"                     -- 9
+      if !(restrictedDeclOK p d) then throw s!"{d.name}: a restricted function violates the restricted rules"  -- 13, DECIDES
+      let c ← cellsDecl p d tbl
+      if stack < c then throw s!"{d.name}: the stack budget is {stack} cells but the body needs {c}"          -- 10 (or 11 from `cellsDecl`)
   | _ => pure ()
 
-theorem checkDecl_with (p : Prog) (d : Decl) : checkDecl p d = checkDeclWith p (fun cx => check p cx d.body) d := rfl
+theorem checkDecl_with (p : Prog) (d : Decl) : checkDecl p d = checkDeclWith p (fun cx => checkBinders p cx d.body) d := rfl
 
-/-- A code block: the core's signature checks, then `checkU` on the body (counter 0). -/
-def checkDeclU (p : Prog) (d : UDecl) : M Unit := checkDeclWith p (fun cx => checkU p cx 0 d.body) (elabDecl d)
+/-- A code block: the core's signature checks, then `checkU` on the body (counter 0); the binder table
+for the restricted cell pass is the core walk's on the elaboration (`checkU` accepted it, so the walk agrees). -/
+def checkDeclU (p : Prog) (d : UDecl) : M Unit :=
+  checkDeclWith p (fun cx => do checkU p cx 0 d.body; checkBinders p cx (elabDecl d).body) (elabDecl d)
 
 /-- A program: every block, against the elaborated program (the checker reads other blocks only through
 `Prog.find?`, for signatures and `fnptr`, which `elabProg` leaves unchanged). -/
-def checkProgU (U : UProg) : M Unit := U.forM (checkDeclU (elabProg U))
+def checkProgU (U : UProg) : M Unit := do
+  -- the core `checkProg`'s duplicate-name prefix and type-scope check, on the elaborated program
+  if (elabProg U).any (fun d => match d.kind with | .restricted .. => true | _ => false) then
+    match firstDup ((elabProg U).map (·.name)) with
+    | some n => throw s!"a program with restricted functions may not define a name twice: {n}"
+    | none => pure ()
+  scopeAllocOK (elabProg U) annNew (progTgts (elabProg U))
+  U.forM (checkDeclU (elabProg U))
 
 theorem checkDeclU_elab (p : Prog) (d : UDecl) : checkDeclU p d = checkDecl p (elabDecl d) := by
-  simp only [checkDeclU, checkDecl_with, checkU_elab]; rfl
+  simp only [checkDeclU, checkDecl_with, checkU_elab]
+  congr 1; funext cx
+  show (check p cx (elabT 0 d.body) >>= fun _ => checkBinders p cx (elabT 0 d.body)) = checkBinders p cx (elabT 0 d.body)
+  unfold check; cases checkBinders p cx (elabT 0 d.body) <;> simp [Except.map, bind, Except.bind]
 
 theorem forM_map_elab (p : Prog) (U : UProg) :
     U.forM (checkDeclU p) = (U.map elabDecl).forM (checkDecl p) := by

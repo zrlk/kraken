@@ -1,0 +1,8 @@
+CoreTerm.Decl : Type
+CoreTerm.Decl.kind : CoreTerm.Decl → CoreTerm.DeclKind
+CoreTerm.DeclKind : Type
+CoreTerm.loopBound : CoreTerm.Decl → Nat
+  := fun d =>
+  match d.kind with
+  | CoreTerm.DeclKind.restricted fuel stack ro (some B) => B
+  | x => 0

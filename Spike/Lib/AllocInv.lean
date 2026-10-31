@@ -169,7 +169,7 @@ elements, `τ` its element type. -/
 theorem allocSite_newBuf {N : Prop} {x x' : String} {n k : Nat} {τ τ' : Ty} {e e' : Expr} {a : At}
     {ta : Ty} {ws : List Word} (hs : Spike.Lib.AllocSite N c x' n τ' e') (ht : c.term = .let_ x (.newBuf a τ) e)
     (hea : evalAt c.env a = some (ta, ws)) (hk : numOf ws = some k) : n = k ∧ τ' = τ := by
-  rcases hs with ⟨a', ta', ws', ht', hea', hk'⟩ | ⟨-, a', ws', ht', -⟩
+  rcases hs with ⟨a', ta', ws', ht', hea', hk'⟩ | ⟨-, a', ws', ⟨_, ht'⟩, -⟩
   · rw [ht] at ht'
     simp only [Expr.let_.injEq, Op.newBuf.injEq] at ht'
     obtain ⟨-, ⟨rfl, rfl⟩, -⟩ := ht'
@@ -182,15 +182,15 @@ theorem allocSite_newBuf {N : Prop} {x x' : String} {n k : Nat} {τ τ' : Ty} {e
     simp at ht'
 
 /-- **An allocation site at a box is the box's**: one object of `a`'s type. -/
-theorem allocSite_new {N : Prop} {x x' : String} {n : Nat} {τ' ty : Ty} {e e' : Expr} {a : At}
-    {ws : List Word} (hs : Spike.Lib.AllocSite N c x' n τ' e') (ht : c.term = .let_ x (.new a) e)
+theorem allocSite_new {N : Prop} {x x' : String} {n : Nat} {τ' ty : Ty} {e e' : Expr} {a : At} {T : Option Ty}
+    {ws : List Word} (hs : Spike.Lib.AllocSite N c x' n τ' e') (ht : c.term = .let_ x (.new a T) e)
     (hea : evalAt c.env a = some (ty, ws)) : n = 1 ∧ τ' = ty := by
-  rcases hs with ⟨a', ta', ws', ht', -⟩ | ⟨-, a', ws', ht', hea', rfl⟩
+  rcases hs with ⟨a', ta', ws', ht', -⟩ | ⟨-, a', ws', ⟨_, ht'⟩, hea', rfl⟩
   · rw [ht] at ht'
     simp at ht'
   · rw [ht] at ht'
     simp only [Expr.let_.injEq, Op.new.injEq] at ht'
-    obtain ⟨-, rfl, -⟩ := ht'
+    obtain ⟨-, ⟨rfl, -⟩, -⟩ := ht'
     rw [hea] at hea'
     simp only [Option.some.injEq, Prod.mk.injEq] at hea'
     exact ⟨rfl, hea'.1.symm⟩
@@ -199,7 +199,7 @@ theorem allocSite_new {N : Prop} {x x' : String} {n : Nat} {τ' ty : Ty} {e e' :
 theorem _root_.Spike.Lib.AllocSite.not_ret {N : Prop} {x : String} {n : Nat} {τ : Ty} {e : Expr}
     (hs : Spike.Lib.AllocSite N c x n τ e) : ∀ a, c.term ≠ .ret a := by
   intro a' ha
-  rcases hs with ⟨_, _, _, ht, -⟩ | ⟨-, _, _, ht, -⟩ <;> rw [ha] at ht <;> cases ht
+  rcases hs with ⟨_, _, _, ht, -⟩ | ⟨-, _, _, ⟨_, ht⟩, -⟩ <;> rw [ha] at ht <;> cases ht
 
 /-- **An allocation site under any allowance is one under `True`**. -/
 theorem _root_.Spike.Lib.AllocSite.toTrue {N : Prop} {x : String} {n : Nat} {τ : Ty} {e : Expr}
@@ -225,8 +225,8 @@ theorem Pending.newBuf (h : Pending units off tm prom heap ctr old ex c) {x : St
 
 /-- **Pending at a box** gives the counter at the old count plus one
 object's units and every exception below the box's base. -/
-theorem Pending.box (h : Pending units off tm prom heap ctr old ex c) {x : String} {a : At} {e : Expr}
-    {ty : Ty} {ws : List Word} (ht : c.term = .let_ x (.new a) e) (hea : evalAt c.env a = some (ty, ws)) :
+theorem Pending.box (h : Pending units off tm prom heap ctr old ex c) {x : String} {a : At} {T : Option Ty} {e : Expr}
+    {ty : Ty} {ws : List Word} (ht : c.term = .let_ x (.new a T) e) (hea : evalAt c.env a = some (ty, ws)) :
     CtrAt tm prom ctr (old + units 1 ty) ∧ ∀ a', ex a' → a' < heap + 16 * old + off 1 ty := by
   obtain ⟨x', n, τ', e', hs, hctr, hex⟩ := h
   obtain ⟨rfl, rfl⟩ := allocSite_new hs ht hea
@@ -235,11 +235,11 @@ theorem Pending.box (h : Pending units off tm prom heap ctr old ex c) {x : Strin
 /-- **Pending at a box** from the counter at the old count plus one
 object's units and every exception below the box's base (`Pending.box`'s
 converse). -/
-theorem Pending.of_box {x : String} {a : At} {e : Expr} {ty : Ty} {ws : List Word}
-    (ht : c.term = .let_ x (.new a) e) (hea : evalAt c.env a = some (ty, ws))
+theorem Pending.of_box {x : String} {a : At} {T : Option Ty} {e : Expr} {ty : Ty} {ws : List Word}
+    (ht : c.term = .let_ x (.new a T) e) (hea : evalAt c.env a = some (ty, ws))
     (hctr : CtrAt tm prom ctr (old + units 1 ty)) (hex : ∀ a', ex a' → a' < heap + 16 * old + off 1 ty) :
     Pending units off tm prom heap ctr old ex c :=
-  ⟨x, 1, ty, e, .inr ⟨trivial, a, ws, ht, hea, rfl⟩, hctr, hex⟩
+  ⟨x, 1, ty, e, .inr ⟨trivial, a, ws, ⟨_, ht⟩, hea, rfl⟩, hctr, hex⟩
 
 /-- **Pending is kept** where the counter's value is (a message elsewhere,
 a promise, …), the exceptions unchanged. -/

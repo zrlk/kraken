@@ -1,0 +1,20 @@
+CoreLang.ECounter : Type
+CoreLang.Proto : Type
+CoreLang.Proto2 : Type
+CoreLang.Ty : Type
+CoreTerm.At : Type
+CoreTerm.Op : Type
+CoreTerm.opAllocates : CoreTerm.Op → Bool
+  := fun x =>
+  match x with
+  | CoreTerm.Op.new a T => true
+  | CoreTerm.Op.newBuf n τ => true
+  | CoreTerm.Op.mkWord r P v tok => true
+  | CoreTerm.Op.mkWord2 r P v0 v1 tok => true
+  | CoreTerm.Op.mkEPair r P v0 v1 => true
+  | CoreTerm.Op.mkTicket r N P v tok => true
+  | CoreTerm.Op.spawn f a T ts => true
+  | CoreTerm.Op.intoRgn r a => true
+  | CoreTerm.Op.publish a => true
+  | CoreTerm.Op.isTy a τ => false
+  | x => false

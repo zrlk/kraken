@@ -37,7 +37,7 @@ word and the header) take the heap use `old` from within `cells` to past
 it. Only the term and the environment are read (not the hold). -/
 def HeapReadyBox (cells old : Nat) (c : Ctl) : Prop :=
   ∃ (x : String) (a : At) (e : Expr) (t : Ty) (w : TermRun.Word),
-    c.term = .let_ x (.new a) e ∧ TermRun.evalAt c.env a = some (t, [w]) ∧
+    (∃ T, c.term = .let_ x (.new a T) e) ∧ TermRun.evalAt c.env a = some (t, [w]) ∧
       TermRun.accs t = some [.one] ∧ old ≤ cells ∧ cells < old + 2
 
 /-- **A heap-crossing allocation**: a buffer's (`HeapReady`) or a box's
@@ -55,7 +55,7 @@ theorem abortJustified_heap_source_box {P : SrcSem.SrcParams} {p : Prog} {B : Bu
     (hc : HeapReadyBox B.cells (heapUse s) (Ctl.of th)) (hp : th.promises = [])
     (hfresh : Fresh s (TermRun.freshLabel s.lbase s.n 0 th.nalloc)) (hbx : boxCount s ≤ allocCount s) :
     AbortJustified B (SrcSem.source P p) tr s 0 .heap := by
-  obtain ⟨x, a, e, t, w, ht, ha, hu, hle, hlt⟩ := hc
+  obtain ⟨x, a, e, t, w, ⟨_, ht⟩, ha, hu, hle, hlt⟩ := hc
   simp only [Ctl.of] at ht ha
   obtain ⟨mv, th', hm, -, -, hp', -, -, hn, htl⟩ :=
     NewRow.src_new_step_cfg (p := p) (kn := P.k) (arch := P.arch) hi ht ha hu hp
@@ -90,8 +90,8 @@ two units carry past `cells` from within them (`cells - 1` or `cells`).
 On `wakeSrc` itself: `Spike/Test/HeapAbortBoxWake.lean`. -/
 example {cells old : Nat} {e : Expr} {env : TermRun.Env} {h : Option (Nat × TermRun.Word)}
     (hle : old ≤ cells) (hlt : cells < old + 2) :
-    HeapReadyBox cells old ⟨.let_ "o" (.new (.var "z")) e, ("z", .int, [TermRun.cst (.num 0)]) :: env, h⟩ :=
-  ⟨"o", .var "z", e, .int, TermRun.cst (.num 0), rfl, by simp [TermRun.evalAt, TermRun.lookupE], rfl, hle, hlt⟩
+    HeapReadyBox cells old ⟨.let_ "o" (.new (.var "z") (some .int)) e, ("z", .int, [TermRun.cst (.num 0)]) :: env, h⟩ :=
+  ⟨"o", .var "z", e, .int, TermRun.cst (.num 0), ⟨_, rfl⟩, by simp [TermRun.evalAt, TermRun.lookupE], rfl, hle, hlt⟩
 
 /-! ## The abort site's heap obligation at either allocation
 
@@ -100,7 +100,7 @@ a box allocation their premise is vacuous, so they ask `HeapReady` at every
 `old`. The `A` forms guard on `AtAlloc` and ask `HeapReadyA`. -/
 
 /-- **The control is at an allocation**: a buffer's or a box's. -/
-def AtAlloc (c : Ctl) : Prop := AtNewBuf c ∨ ∃ x a e, c.term = .let_ x (.new a) e
+def AtAlloc (c : Ctl) : Prop := AtNewBuf c ∨ ∃ x a e, ∃ T, c.term = .let_ x (.new a T) e
 
 /-- **The heap disjunct of an abort site at either allocation**: for every
 count `old` that the control allows at an allocation (within the cells, the

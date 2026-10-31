@@ -182,7 +182,8 @@ theorem memInv_child0 {g0 g : G} {E : TEnv} {mem : Memory} {pairs : List Ts} {th
     (hp2 : th2.promises = []) (hn2 : th2.nalloc = 0)
     (hfl : ∀ j, (E.sto (freshLabel g.lbase g.n g.i j) = none ∧
       (∀ (t : Nat) (m : Msg), mem[t]? = some m → m.loc.label = freshLabel g.lbase g.n g.i j → t ∈ th.promises) ∧
-      E.ini (freshLabel g.lbase g.n g.i j) = 0 ∧ E.pfr (freshLabel g.lbase g.n g.i j) = none) ∧
+      E.ini (freshLabel g.lbase g.n g.i j) = 0 ∧ E.rini (freshLabel g.lbase g.n g.i j) = 0 ∧
+      E.pfr (freshLabel g.lbase g.n g.i j) = none) ∧
       E.box (freshLabel g.lbase g.n g.i j) = none) :
     MemInv g E (stOf mem pairs th2) := by
   have hs : stOf mem pairs th2 = { stOf mem pairs th with nalloc := 0, undefs := th2.undefs } := by
@@ -197,6 +198,7 @@ theorem thSys_child0 {p : Prog} {k : Promises.Knobs} {arch : Arch} {cs : Cfg} {t
     {kids : List Kid} {Eg : GEnv} {T H HS : Res} {cr db : Ts → Res}
     (hT : ThSys p (gOf p k arch cs 0) cs.mem cs.pairs th Eg T H HS cr db) (hnp : th.promises = [])
     (h1 : cs.ths.size = 1) (hth : cs.ths[0]? = some th) (hfp : Eg.fpOf 0 = [])
+    (hrle : ∀ l, Eg.rini l ≤ Eg.ini l)
     (hG : ∀ j, GFreshL Eg cs th (freshLabel (spawnS cs res kids).lbase (spawnS cs res kids).n 0 j))
     (hvs : th2.vs = th.vs) (hp2 : th2.promises = []) (hn2 : th2.nalloc = 0)
     (hty : ∀ S, MemInv (gOf p k arch cs 0) (Cut Eg 0 S) (stOf cs.mem cs.pairs th) →
@@ -216,7 +218,7 @@ theorem thSys_child0 {p : Prog} {k : Promises.Knobs} {arch : Arch} {cs : Cfg} {t
     rw [cut_EgS0 hfp, spawnS_mem hth, spawnS_pairs hth]
     refine memInv_child0 hM hnp hvs hp2 hn2 (fun j => ?_)
     obtain ⟨g1, g2, g3, g4, g5⟩ := hG j
-    refine ⟨⟨?_, fun t m hm hl => g5 t m hm hl, g3, g4⟩, g2⟩
+    refine ⟨⟨?_, fun t m hm hl => g5 t m hm hl, g3, Nat.le_zero.1 (Nat.le_trans (hrle _) (Nat.le_of_eq g3)), g4⟩, g2⟩
     show cutSto Eg 0 (freshLabel (spawnS cs res kids).lbase (spawnS cs res kids).n 0 j) = none
     cases e : cutSto Eg 0 (freshLabel (spawnS cs res kids).lbase (spawnS cs res kids).n 0 j) with
     | none => rfl
@@ -252,7 +254,7 @@ theorem memInv_kid {g0 g : G} {cs : Cfg} {th th2 : TTh} {Eg : GEnv} {S0 : AllocL
     (hOL : OwnLive Eg cs) (h1 : cs.ths.size = 1) (hj : j ≠ 0)
     (hsh : SharedTyOK Eg) (hbs : ∀ l B, Eg.box l = some B → Eg.sto l = none)
     (hGK : ∀ k, GFreshL Eg cs th (freshLabel g.lbase g.n g.i k))
-    (hbt : BoxTopG Eg cs)
+    (hbt : BoxTopG Eg cs) (hrle : ∀ l, Eg.rini l ≤ Eg.ini l)
     (hvs : th2.vs = th.vs) (hp2 : th2.promises = []) (hn2 : th2.nalloc = 0)
     (hD : PubDefP (Cut (EgS Eg) j (fun _ => False)) cs.mem [])
     (hPP : PubPair (Cut (EgS Eg) j (fun _ => False)) cs.mem cs.pairs [])
@@ -277,12 +279,14 @@ theorem memInv_kid {g0 g : G} {cs : Cfg} {th th2 : TTh} {Eg : GEnv} {S0 : AllocL
   · exact absurd ho (cutSto_obs_own hOL h1 hj hc)
   · cases ht
   · obtain ⟨g1, g2, g3, g4, g5⟩ := hGK k
-    refine ⟨?_, fun t m hm hl => ?_, ?_, ?_⟩
+    refine ⟨?_, fun t m hm hl => ?_, ?_, ?_, ?_⟩
     · show cutSto (EgS Eg) j _ = none
       unfold cutSto; simp [GEnv.InCut, EgS, g1]
     · have := g5 t m hm hl; rw [hnp] at this; cases this
     · show Eg.ini _ = 0
       exact g3
+    · show Eg.rini _ = 0
+      exact Nat.le_zero.1 (Nat.le_trans (hrle _) (Nat.le_of_eq g3))
     · show Eg.pfr _ = none
       exact g4
   · obtain ⟨c, -, -, -, hc, ho, -⟩ := hU
@@ -365,7 +369,7 @@ theorem thSys_kid {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {Mi
   refine ⟨fun _ => False, hty.1, hty.2, ?_, ?_, ?_, ?_⟩
   · rw [spawnS_mem hth, spawnS_pairs hth]
     refine memInv_kid hM0 (hnp 0 th hth) hOL h1 hj hN.shty hN.boxSto
-      (fun q => kidG hN h1 hth _ j q) hN.boxtop hvs hp2 hn2
+      (fun q => kidG hN h1 hth _ j q) hN.boxtop hN.rle hvs hp2 hn2
       (pubDefP_EgS hN.shty hObs.1) (pubPair_EgS hN.shty hObs.2.1) (pubLive_EgS hObs.2.2)
   · refine ⟨[], fun _ => .zero, List.nodup_nil, ?_, ?_, rfl, ?_⟩
     · intro l c hq _
@@ -396,6 +400,17 @@ theorem sysInvN_spawnS {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res
     (hLbl : ∀ (i : Nat) kd, kids[i]? = some kd → TermPtrRts.EnvLbl (EgS Eg) (kidTh th.vs res kd).env) :
     SysInvN p k arch Init MintOK (spawnS cs res kids) (EgS Eg) (at0 Tot) (at0 HP) HS (fun _ _ => .zero)
       (fun _ _ => .zero) where
+  tysOK := fun l t ht => by
+    have h0 : TermRun.tysOf (spawnS cs res kids) l = none := by
+      unfold TermRun.tysOf
+      rw [List.findSome?_eq_none_iff]
+      intro t' ht'
+      obtain ⟨j, hj⟩ := List.mem_iff_getElem?.1 ht'
+      rw [Array.getElem?_toList] at hj
+      obtain ⟨kd, -, rfl⟩ := spawnS_th hth hj
+      rfl
+    rw [h0] at ht
+    cases ht
   thr := by
     intro i t hi
     obtain ⟨kd, hkd, rfl⟩ := spawnS_th hth hi
@@ -403,7 +418,7 @@ theorem sysInvN_spawnS {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res
     by_cases h0 : i = 0
     · subst h0
       simp only [at0_zero]
-      exact thSys_child0 (hN.thr 0 th hth) (hnp 0 th hth) h1 hth hfp (fun j => kidG hN h1 hth _ 0 j) rfl rfl rfl
+      exact thSys_child0 (hN.thr 0 th hth) (hnp 0 th hth) h1 hth hfp hN.rle (fun j => kidG hN h1 hth _ 0 j) rfl rfl rfl
         (hty0 kd hkd)
     · rw [at0_ne h0, at0_ne h0]
       exact thSys_kid hN hnp h1 hth hOL h0 (hObs i h0) rfl rfl rfl (htyK i kd h0 hkd)
@@ -685,6 +700,7 @@ theorem sysInvN_spawnS {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res
     intro i t hi l hl
     obtain ⟨kd, -, rfl⟩ := spawnS_th hth hi
     cases hl
+  scalIni := hN.scalIni
 
 
 #print axioms TermSpawn.sysInvN_spawnS

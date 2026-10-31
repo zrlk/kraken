@@ -22,7 +22,7 @@ def protosTy : Ty → List Proto
   | _ => []
 
 def protosOp : Op → List Proto
-  | .inl o _ | .inr o _ | .null _ o | .fold _ o | .newBuf _ o | .pack _ _ o | .zero o => protosTy o
+  | .inl o _ | .inr o _ | .null _ o | .fold _ o | .newBuf _ o | .pack _ _ o | .zero o | .isTy _ o => protosTy o
   | .mkWord _ P _ _ => [P]
   | .packT _ σ t => protosTy σ ++ protosTy t
   | .call _ _ _ ts => ts.flatMap protosTy
@@ -447,8 +447,17 @@ theorem tstep_thProvM {M : List Proto} {g : G} (hM : ∀ P ∈ protosOf g.p, P �
         · cases hy
       · cases hy
     · cases hy
+  · -- let (new): as `let (op)`; the allocation record is not read
+    rename_i x a T e heq
+    rw [heq] at hT
+    simp only [List.mem_map] at hy
+    obtain ⟨⟨s', t, ws⟩, hm, rfl⟩ := hy
+    have ht := evalOp_tyIn (Q := (· ∈ M)) (op := .new a T) hE hσ
+      (fun P hP => hT P (by simp only [protosExpr, List.mem_append]; exact .inl hP)) hp hm
+    split <;> exact ⟨sub_of (e' := e) hT (fun P hP => by simp only [protosExpr, List.mem_append]; exact .inr hP), hσ,
+      env_cons hE ht, hS⟩
   · -- let (op)
-    rename_i x op e hn1 hn2 heq
+    rename_i x op e hn1 hn2 hn3 heq
     rw [heq] at hT
     simp only [List.mem_map] at hy
     obtain ⟨⟨s', t, ws⟩, hm, rfl⟩ := hy

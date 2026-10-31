@@ -85,7 +85,7 @@ def setAts (o : Op) (as : List At) : Op :=
   | .inr t _ => .inr t (g 0)
   | .add _ _ => .add (g 0) (g 1)
   | .sub _ _ => .sub (g 0) (g 1)
-  | .new _ => .new (g 0)
+  | .new _ T => .new (g 0) T
   | .null μ t => .null μ t
   | .fold _ t => .fold (g 0) t
   | .publish _ => .publish (g 0)
@@ -142,6 +142,7 @@ def setAts (o : Op) (as : List At) : Op :=
   | .mkTicket r N P _ _ => .mkTicket r N P (g 0) (g 1)
   | .claim _ _ => .claim (g 0) (g 1)
   | .fetch o acq rel _ _ => .fetch o acq rel (g 0) (g 1)
+  | .isTy _ t => .isTy (g 0) t
 
 theorem setAts_opAts (o : Op) : setAts o (TermScope.opAts o) = o := by
   cases o with

@@ -100,7 +100,7 @@ theorem allocArenaS (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
       have hq' := hq _ hF
       have ha := hdr_addrS hq' hle hn28 h10
       rw [hL L hW]
-      rcases hq'.site with ⟨a, ta, ws, ht, hev, hnum⟩ | ⟨hN, a, ws, ht, hev, h1⟩
+      rcases hq'.site with ⟨a, ta, ws, ht, hev, hnum⟩ | ⟨hN, a, ws, ⟨_, ht⟩, hev, h1⟩
       · obtain ⟨rfl, -⟩ := Prod.mk.inj (FrameRun.eq_of_newBuf hr ht hev hnum)
         refine .inr (.inr (.inr (.inl ⟨o.toNat, q.x, a, q.τ, q.e, ta, ws, q.n, by rw [← hctr]; rfl, ht,
           hev, hnum, ?_⟩)))
@@ -108,7 +108,7 @@ theorem allocArenaS (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
         rw [ha, Spike.Lib.A64.Alloc.Call.hdrAt, ← hheap, ← hoff, hq'.off]
         omega
       · obtain ⟨rfl, -⟩ := Prod.mk.inj (Spike.Lib.FrameNew.FrameRun.eq_of_new hr ht)
-        refine .inr (.inr (.inr (.inr ⟨hnew hN, o.toNat, q.x, a, q.e, q.τ, ws, by rw [← hctr]; rfl, ht, hev, ?_⟩)))
+        refine .inr (.inr (.inr (.inr ⟨hnew hN, o.toNat, q.x, a, q.e, q.τ, ws, by rw [← hctr]; rfl, ⟨_, ht⟩, hev, ?_⟩)))
         show (Spike.Lib.A64.Flow.rAddr σ.regs .X10 0).toNat < ar.heap + 16 * o.toNat + ar.off 1 q.τ
         rw [ha, Spike.Lib.A64.Alloc.Call.hdrAt, ← hheap, ← hoff, ← h1, hq'.off]
         omega

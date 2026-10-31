@@ -30,7 +30,7 @@ theorem cfgCoh_spawnS {cs : Cfg} {res : List Word} {kids : List TermSpawn.Kid} (
 theorem cfgCoh_scenario {p : Prog} {k : Promises.Knobs} {arch : WeakMem.Arch} {Init : TermSound.Res}
     {kids : List TermSpawn.Kid} {c0 : Cfg} (hS : ScenarioStartK p k arch Init kids c0) : CfgCoh c0 := by
   obtain ⟨cpre, cs, _, th, _, _, _, _, _, res, _, _, h3, _, _, _, _, _, _, _, _, h12, _, _, _, _, _, _, _, _, rfl⟩ := hS
-  exact cfgCoh_spawnS (steps_coh h12 h3.2.2)
+  exact cfgCoh_spawnS (steps_coh h12 h3.2.2.1)
 
 end TermLiveCert
 #print axioms TermLiveCert.cfgCoh_scenario

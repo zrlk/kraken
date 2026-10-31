@@ -697,7 +697,9 @@ partial def pTyAtom (env : Env) (sc : Sc) : P Ty := do
   | .id "Code" =>
       bump; expectSym "("; let a ← pTy env sc; expectSym ","; let b ← pTy env sc
       let k ← if ← eatSym ";" then do
-          expectKw "restricted"; let f ← pNat; let s ← pNat; pure (CodeKind.restricted f s)
+          expectKw "restricted"; let f ← pNat; let s ← pNat
+          let ro ← eatSym ","; if ro then expectKw "ro"
+          pure (CodeKind.restricted f s ro)
         else pure CodeKind.plain
       expectSym ")"
       pure (.code a b k)
@@ -839,7 +841,7 @@ def pOp (env : Env) (sc : Sc) : P Op := do
     match s with
     | "inl" => bump; let t ← pBrTy env sc; pure (.inl t (← a1))
     | "inr" => bump; let t ← pBrTy env sc; pure (.inr t (← a1))
-    | "new" => bump; pure (.new (← a1))
+    | "new" => bump; let t ← pBrTy env sc; pure (.new (← a1) (some t))
     | "publish" => bump; pure (.publish (← a1))
     | "intoRgn" => bump; let r ← pName; pure (.intoRgn r (← a1))
     | "newBuf" => bump; let t ← pBrTy env sc; pure (.newBuf (← a1) t)
@@ -1087,11 +1089,21 @@ partial def pExpr (env : Env) (sc : Sc) : P Expr := do
 /-! ### Code blocks and programs -/
 
 def pDecl (env : Env) : P Decl := do
-  -- (M1, T6) the decl kind: `device def`, `restricted[fuel N, stack K] def` (the checker refuses the latter)
+  -- the decl kind: `device def`, `restricted[fuel N, stack K] def`, optionally with `, loop B` (the bound of the
+  -- function's one batch loop, judged by the checker) and `, ro` (read-only), in that order
   let kind ← if ← eatKw "device" then pure DeclKind.device
     else if ← eatKw "restricted" then do
-      expectSym "["; expectKw "fuel"; let f ← pNat; expectSym ","; expectKw "stack"; let s ← pNat; expectSym "]"
-      pure (DeclKind.restricted f s)
+      expectSym "["; expectKw "fuel"; let f ← pNat; expectSym ","; expectKw "stack"; let s ← pNat
+      let mut lp : Option Nat := none
+      let mut ro := false
+      if ← eatSym "," then
+        if ← eatKw "loop" then
+          lp := some (← pNat)
+          if ← eatSym "," then expectKw "ro"; ro := true
+        else
+          expectKw "ro"; ro := true
+      expectSym "]"
+      pure (DeclKind.restricted f s ro lp)
     else pure DeclKind.plain
   expectKw "def"
   let name ← pName
@@ -1267,7 +1279,7 @@ partial def showTy (env : Env) (sc : Sc) (p : Nat) : Ty → String
   | .prod a b => paren (p > 2) (showTy env sc 3 a ++ " * " ++ showTy env sc 2 b)
   | .sum a b => paren (p > 1) (showTy env sc 2 a ++ " + " ++ showTy env sc 1 b)
   | .code a b k => "Code(" ++ showTy env sc 0 a ++ ", " ++ showTy env sc 0 b ++
-      (match k with | .plain => "" | .restricted f s => s!"; restricted {f} {s}") ++ ")"
+      (match k with | .plain => "" | .restricted f s ro => s!"; restricted {f} {s}" ++ (if ro then ", ro" else "")) ++ ")"
   | .array i t => paren (p > 3) ("Array[" ++ showIdx sc 0 i ++ "] " ++ showTy env sc 3 t)
   | .ptr μ t => paren (p > 3) ("Ptr" ++ showMode sc μ ++ " " ++ showTy env sc 3 t)
   | .ptrOpt μ t => paren (p > 3) ("Ptr?" ++ showMode sc μ ++ " " ++ showTy env sc 3 t)
@@ -1314,7 +1326,7 @@ def showOp (env : Env) (sc : Sc) : Op → String
   | .inr t a => "inr[" ++ showTy env sc 0 t ++ "] " ++ showAt a
   | .add a b => showAt a ++ " + " ++ showAt b
   | .sub a b => showAt a ++ " - " ++ showAt b
-  | .new a => "new " ++ showAt a
+  | .new a (some t) => "new[" ++ showTy env sc 0 t ++ "] " ++ showAt a | .new a none => "new " ++ showAt a
   | .null μ t => "null : " ++ showTy env sc 0 (.ptrOpt μ t)
   | .fold a t => "fold " ++ showAt a ++ " : " ++ showTy env sc 0 t
   | .publish a => "publish " ++ showAt a
@@ -1337,6 +1349,7 @@ def showOp (env : Env) (sc : Sc) : Op → String
   | .ext (.regAt n w acc st tk k) a =>
       "regAt[" ++ toString k ++ " of " ++ showTy env sc 0 (.opq (.blk n w acc st tk)) ++ "] " ++ showAt a
   | .ext n a => n.name ++ " " ++ showAt a
+  | .isTy a τ => "isTy[" ++ showTy env sc 0 τ ++ "] " ++ showAt a
   | .fetch o acq rel a v => "fetch " ++ nameOf fetchNames o ++ " " ++ (if acq then "acq " else "") ++
       (if rel then "rel " else "") ++ showAt a ++ " " ++ showAt v
   | .mkWord2 r P v0 v1 t => "mkWord2 " ++ nameStr r ++ " " ++ showProto2 env P ++ " (" ++ showAt v0 ++ ", " ++
@@ -1449,7 +1462,9 @@ def showDecl (d : Decl) (env : Env := {}) : String :=
   let (sc, tns) := declSc d
   let tps := (tns.zip d.tparams).map fun (a, κ) => if κ == {} then a else a ++ " : " ++ showKind κ
   let head := (match d.kind with
-      | .plain => "" | .device => "device " | .restricted f s => s!"restricted[fuel {f}, stack {s}] ") ++
+      | .plain => "" | .device => "device "
+      | .restricted f s ro lp => s!"restricted[fuel {f}, stack {s}" ++
+          (match lp with | some B => s!", loop {B}" | none => "") ++ (if ro then ", ro" else "") ++ "] ") ++
     "def " ++ nameStr d.name ++
     (if tps.isEmpty then "" else "[" ++ ", ".intercalate tps ++ "]") ++
     (if d.idx.isEmpty then "" else "{" ++ ", ".intercalate (d.idx.map nameStr) ++ "}") ++
@@ -1504,7 +1519,7 @@ def roundTripReport (d : Decl) (env : Env := {}) : String :=
 #guard match parseDecl "device def f(x : Reg[32, rw]) : Unit = ret ()" with
   | .ok d => d.kind == .device && roundTrips d | .error _ => false
 #guard match parseDecl "restricted[fuel 64, stack 8] def g(x : Int) : Unit = ret ()" with
-  | .ok d => d.kind == .restricted 64 8 && roundTrips d | .error _ => false
+  | .ok d => d.kind == .restricted 64 8 false none && roundTrips d | .error _ => false
 #guard match parseDecl "device def h(b : Blk[16, 32, rw, stride 8; 0 3]) : Unit = let r = regAt[1 of Blk[16, 32, rw, stride 8; 0 3]] b let v = mmioRead[32, rw, acq] r let u = park v ret ()" with
   | .ok d => roundTrips d | .error _ => false
 -- `regAt` admissibility: index 3 is already taken in `Blk[16, 32, rw, stride 8; 0 3]` (refused); 1 is fresh

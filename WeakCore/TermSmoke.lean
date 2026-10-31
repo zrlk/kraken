@@ -222,7 +222,7 @@ def bMk : Decl where
   name := "mk"; idx := []; arg := "x"
   argTy := .unit
   retTy := bcell
-  body := lets [("e", .inr pay (v "x")), ("c", .new (v "e")), ("q", .publish (v "c"))] (.ret (v "q"))
+  body := lets [("e", .inr pay (v "x")), ("c", .new (v "e") (some bsum)), ("q", .publish (v "c"))] (.ret (v "q"))
 
 def bWr : Decl where
   name := "bwr"; idx := []; arg := "a"
@@ -272,7 +272,7 @@ Int) × Ptr pub E`; `useClo` unpacks it (the machine pushes a placeholder for
 
 def cloDemoD : Decl where
   name := "cloDemo"; idx := []; arg := "n"; argTy := .int; retTy := .int
-  body := lets [("c0", .new (v "n")), ("e", .publish (v "c0")), ("c", .call "mkClo" [] (v "e")),
+  body := lets [("c0", .new (v "n") (some .int)), ("e", .publish (v "c0")), ("c", .call "mkClo" [] (v "e")),
                 ("r", .call "useClo" [] (v "c"))] (.ret (v "r"))
 
 def cloProg : Prog := cloLib ++ [cloDemoD]

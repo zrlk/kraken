@@ -10,7 +10,7 @@ CoreLang.Clause2 : Type
 CoreLang.Clause2.holds : CoreLang.Clause2 → Bool
 CoreLang.CodeKind : Type
 CoreLang.CodeKind.plain : CoreLang.CodeKind
-CoreLang.CodeKind.restricted : Nat → Nat → CoreLang.CodeKind
+CoreLang.CodeKind.restricted : Nat → Nat → Bool → CoreLang.CodeKind
 CoreLang.ECounter : Type
 CoreLang.IEnv : Type
 CoreLang.Idx : Type
@@ -262,15 +262,52 @@ CoreTerm.checkOp : CoreTerm.Prog → CoreTerm.Cx → String → CoreTerm.Op → 
           else throw "sub: the difference is not provably nonnegative"
         | x, x_2 => throw "sub: index outside the decidable fragment"
       | x, x_2 => throw "sub needs integers of known value"
-  | CoreTerm.Op.new a => do
+  | CoreTerm.Op.new a T => do
     let __x ← cx.use a
     match __x with
       | (t, cx) =>
-        have __do_jp := fun __r => cx.bind x (CoreLang.Ty.ptr CoreLang.Mode.own t);
+        have __do_jp := fun __r =>
+          have __do_jp := fun __r => cx.bind x (CoreLang.Ty.ptr CoreLang.Mode.own t);
+          match T with
+          | none => do
+            let __r ← throw "new: the allocation's type annotation is missing"
+            __do_jp __r
+          | some T =>
+            if (t != T) = true then do
+              let __r ← throw "new: the annotation does not match the value's type"
+              __do_jp __r
+            else __do_jp ();
         if t.secondClass = true then do
           let __r ← throw "new: a second-class capability cannot be stored"
           __do_jp __r
         else __do_jp ()
+  | CoreTerm.Op.isTy a τ => do
+    let t ← cx.peek a
+    match t with
+      | CoreLang.Ty.tex κ b =>
+        have __do_jp := fun __r =>
+          have __do_jp := fun __r =>
+            have __do_jp := fun __r =>
+              have __do_jp := fun __r => cx.bind x (CoreLang.Ty.ptrOpt CoreLang.Mode.pub τ);
+              if (!CoreTerm.admitsIn cx κ τ) = true then do
+                let __r ← throw "isTy: the target does not have the package variable's kind"
+                __do_jp __r
+              else __do_jp ();
+            if (!CoreTerm.tgtOK τ) = true then do
+              let __r ← throw "isTy: the target must not mention an index, a region, a refinement or a recursive type"
+              __do_jp __r
+            else __do_jp ();
+          if (!CoreLang.Ty.wf 0 0 τ) = true then do
+            let __r ← throw "isTy: the target type must have no type or index variables"
+            __do_jp __r
+          else __do_jp ();
+        if (!CoreTerm.slotOK b) = true then do
+          let __r ←
+            throw
+                "isTy: the package must hold a `pub` reference `Ptr` to its hidden type, alone or as the last component of a pair; `Loc`, `Ptr?`, `own` and region references cannot be tested"
+          __do_jp __r
+        else __do_jp ()
+      | x => throw "isTy needs a type package"
   | CoreTerm.Op.publish a => do
     let __x ← cx.use a
     match __x with
@@ -1208,7 +1245,7 @@ CoreTerm.checkOp : CoreTerm.Prog → CoreTerm.Cx → String → CoreTerm.Op → 
       cx.bind x
         (d.argTy.code d.retTy
           (match d.kind with
-          | CoreTerm.DeclKind.restricted f s => CoreLang.CodeKind.restricted f s
+          | CoreTerm.DeclKind.restricted f s ro loop => CoreLang.CodeKind.restricted f s ro
           | x => CoreLang.CodeKind.plain))
     if (!(d.tparams.isEmpty && d.idx.isEmpty)) = true then do
         let __r ←
@@ -1550,8 +1587,10 @@ CoreTerm.pwf2 : CoreLang.Proto2 → Bool
 CoreTerm.pwfE : CoreLang.ECounter → Bool
 CoreTerm.rgnCellOK : CoreLang.KEnv → CoreLang.Ty → Bool
 CoreTerm.sawFor : CoreTerm.Cx → String → CoreLang.Idx → Option CoreLang.Idx
+CoreTerm.slotOK : CoreLang.Ty → Bool
 CoreTerm.sub : CoreTerm.Cx → CoreLang.Ty → CoreLang.Ty → Bool
 CoreTerm.tailCheck : CoreTerm.Prog → CoreTerm.Cx → String → List String → CoreTerm.At → List CoreLang.Ty → CoreTerm.M Unit
+CoreTerm.tgtOK : CoreLang.Ty → Bool
 CoreTerm.toIntSrc : CoreLang.Ty → Bool
 CoreTerm.tornLicence : CoreTerm.Cx → CoreLang.Idx → CoreTerm.M (String × CoreLang.Idx)
 CoreTerm.unfold1 : CoreLang.Ty → CoreLang.Ty

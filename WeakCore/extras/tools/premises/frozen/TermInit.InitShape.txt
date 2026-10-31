@@ -110,6 +110,7 @@ CoreLang.Ty.tvar : Nat → CoreLang.Ty
 CoreLang.Ty.unguarded : Nat → CoreLang.Ty → Bool
 CoreLang.Ty.unit : CoreLang.Ty
 CoreLang.Ty.void : CoreLang.Ty
+CoreLang.Ty.wf : Nat → Nat → CoreLang.Ty → Bool
 CoreLang.Ty.word : CoreLang.Idx → CoreLang.Proto → CoreLang.Ty
 CoreLang.Ty.word2 : CoreLang.Idx → CoreLang.Proto2 → CoreLang.Ty
 CoreLang.Ty.wordFree : CoreLang.Ty → Bool
@@ -192,6 +193,7 @@ CoreTerm.Cx.use : CoreTerm.Cx → CoreTerm.At → CoreTerm.M (CoreLang.Ty × Cor
 CoreTerm.Cx.vars : CoreTerm.Cx → List (String × CoreLang.Ty × Bool)
 CoreTerm.Decl : Type
 CoreTerm.Decl.argTy : CoreTerm.Decl → CoreLang.Ty
+CoreTerm.Decl.body : CoreTerm.Decl → CoreTerm.Expr
 CoreTerm.Decl.idx : CoreTerm.Decl → List String
 CoreTerm.Decl.name : CoreTerm.Decl → String
 CoreTerm.Decl.retTy : CoreTerm.Decl → CoreLang.Ty
@@ -208,6 +210,7 @@ CoreTerm.Prog.find : CoreTerm.Prog → String → CoreTerm.M CoreTerm.Decl
 CoreTerm.Torn : Type
 CoreTerm.Torn.ty : CoreTerm.Torn → CoreLang.Ty
 CoreTerm.affine : CoreLang.KEnv → CoreLang.Ty → Bool
+CoreTerm.annNew : CoreTerm.Op → Option CoreLang.Ty
 CoreTerm.bump2 : CoreLang.Proto2 → CoreTerm.Lin → CoreTerm.Lin → Bool
 CoreTerm.casCellTy : CoreTerm.Cx → CoreLang.Ty → CoreTerm.M CoreLang.Ty
 CoreTerm.checkOp : CoreTerm.Prog → CoreTerm.Cx → String → CoreTerm.Op → CoreTerm.M CoreTerm.Cx
@@ -225,12 +228,14 @@ CoreTerm.noCx : CoreTerm.Cx → CoreTerm.Lin → CoreTerm.Lin → CoreTerm.Cx
 CoreTerm.noDrop : CoreTerm.Cx → CoreTerm.M Unit
 CoreTerm.noLeak : CoreTerm.Cx → CoreLang.Ty → CoreTerm.M Unit
 CoreTerm.plainEq : CoreTerm.Cx → CoreTerm.At → CoreTerm.At → Bool
+CoreTerm.progTgts : CoreTerm.Prog → List CoreLang.Ty
 CoreTerm.pstep : CoreLang.Proto → Nat → CoreTerm.Lin → Nat → CoreTerm.Lin → Bool
 CoreTerm.pstep2 : CoreLang.Proto2 → Nat → CoreTerm.Lin → CoreTerm.Lin → Nat → CoreTerm.Lin → CoreTerm.Lin → Bool
 CoreTerm.pwf : CoreLang.Proto → Bool
 CoreTerm.pwf2 : CoreLang.Proto2 → Bool
 CoreTerm.pwfE : CoreLang.ECounter → Bool
 CoreTerm.rgnCellOK : CoreLang.KEnv → CoreLang.Ty → Bool
+CoreTerm.scan : (CoreTerm.Op → Option CoreLang.Ty) → List CoreLang.Ty → List Nat → CoreTerm.Expr → CoreTerm.Scan
 CoreTerm.shareMove : CoreLang.Proto → Nat → CoreTerm.Lin → Nat → CoreTerm.Lin → Option Int
 CoreTerm.sub : CoreTerm.Cx → CoreLang.Ty → CoreLang.Ty → Bool
 CoreTerm.unfold1 : CoreLang.Ty → CoreLang.Ty
@@ -398,7 +403,9 @@ TermInit.EntryOK : CoreTerm.Prog → Nat → TermRun.TTh → Prop
     TermSound.TypedK p (TermCut.Cut (TermInit.Eg0 p) i TermInit.S0) cx th.term ∧
       TermTv.TvOK cx ∧
         TermSound.FInvR ρ (TermCut.Cut (TermInit.Eg0 p) i TermInit.S0) th.σs (TermSound.ResumeR p [] TermSound.Res.zero)
-          cx th.env TermSound.Res.zero
+            cx th.env TermSound.Res.zero ∧
+          TermSound.DyFr p CoreTerm.annNew (CoreTerm.progTgts p) (TermCut.Cut (TermInit.Eg0 p) i TermInit.S0) th.σs
+            th.term
 TermInit.InitShape : CoreTerm.Prog → TermRun.Cfg → Prop
   | TermInit.InitShape.mk : ∀ {p : CoreTerm.Prog} {c0 : TermRun.Cfg},
   c0.mem = #[] →
@@ -421,7 +428,8 @@ TermInit.InitShape : CoreTerm.Prog → TermRun.Cfg → Prop
                     e ∈ th.env →
                       ∀ (w : TermRun.Word),
                         w ∈ e.snd.snd → ∀ (a : WeakMem.Address) (g : Nat), w.val ≠ WeakMem.Val.loc a g) →
-              (∀ (i : Nat) (th : TermRun.TTh), c0.ths[i]? = some th → th.tidLbl = none) → TermInit.InitShape p c0
+              (∀ (i : Nat) (th : TermRun.TTh), c0.ths[i]? = some th → th.tidLbl = none) →
+                (∀ (i : Nat) (th : TermRun.TTh), c0.ths[i]? = some th → th.tys = []) → TermInit.InitShape p c0
 TermInit.S0 : WeakMem.AllocLabel → Prop
   := fun x => False
 TermPtrRts.mPub : CoreLang.Mode → Bool
@@ -506,6 +514,7 @@ TermRun.TTh.promises : TermRun.TTh → List WeakMem.Ts
 TermRun.TTh.stack : TermRun.TTh → List TermRun.Frame
 TermRun.TTh.term : TermRun.TTh → CoreTerm.Expr
 TermRun.TTh.tidLbl : TermRun.TTh → Option WeakMem.AllocLabel
+TermRun.TTh.tys : TermRun.TTh → List (WeakMem.AllocLabel × CoreLang.Ty × Bool)
 TermRun.TTh.vs : TermRun.TTh → WeakMem.VState
 TermRun.TTh.σs : TermRun.TTh → List CoreLang.Ty
 TermRun.Word : Type
@@ -953,6 +962,7 @@ TermScope.opTys : CoreTerm.Op → List CoreLang.Ty
   | CoreTerm.Op.packT a σ τ => [σ, τ]
   | CoreTerm.Op.call f is a ts => ts
   | CoreTerm.Op.spawn f a T ts => T :: ts
+  | CoreTerm.Op.isTy a τ => [τ]
   | x => []
 TermScope.rcar : CoreLang.Ty → Bool
   := fun t => TermScope.rcarE [] t
@@ -1047,6 +1057,11 @@ TermSound.CohR : TermSound.TEnv → Prop
         η.rrs k S ws X ↔ TermSound.VRR ρ' (TermSound.CE η) (η.wit k) S ws X) ∧
       ∀ (ρ' : Nat → Nat) (S : TermSound.Shp) (ws : List TermRun.Word) (X : TermSound.Res),
         η.urrs k S ws X ↔ TermSound.VRR ρ' (TermSound.CE η.unsee) (η.wit k) S ws X
+TermSound.DyFr : CoreTerm.Prog →
+  (CoreTerm.Op → Option CoreLang.Ty) → List CoreLang.Ty → TermSound.TEnv → List CoreLang.Ty → CoreTerm.Expr → Prop
+  := fun p ann tg η σs e =>
+  ∃ S H,
+    TermSound.TaintClosed p ann tg S ∧ TermSound.HidClean ann tg S H e ∧ TermSound.TbS σs ∧ TermSound.WitXw η.wit σs H
 TermSound.EnvOK : CoreTerm.Prog → TermSound.TEnv → Prop
   := fun p η => η.prog = p ∧ TermSound.Coh η ∧ TermSound.CohR η
 TermSound.Ext : TermSound.TEnv → TermSound.TEnv → Prop
@@ -1098,6 +1113,10 @@ TermSound.HeldOK : (Nat → Nat) → TermSound.TEnv → CoreTerm.Cx → TermRun.
                   ∃ rt ws,
                     TermRun.lookupE env x = some (rt, ws) ∧ TermSound.VRR ρ η e.snd.fst (TermSound.shp rt) ws (Rx x)) ∧
             TermSound.Res.sum (List.map (fun e => Rx e.fst) (List.filter (TermSound.Holds cx) cx.vars)) ≤ Rf
+TermSound.HidClean : (CoreTerm.Op → Option CoreLang.Ty) → List CoreLang.Ty → List (String × List Nat) → List Nat → CoreTerm.Expr → Prop
+  := fun ann tg S H e =>
+  (CoreTerm.scan ann tg H e).fst = [] ∧
+    ∀ (c : String × List Nat), c ∈ (CoreTerm.scan ann tg H e).snd → c.snd ≠ [] → c ∈ S
 TermSound.Holds : CoreTerm.Cx → String × CoreLang.Ty × Bool → Bool
   := fun cx e => e.snd.snd || decide (e.fst ∈ cx.lent)
 TermSound.IdxLe : CoreLang.IEnv → CoreLang.Idx → CoreLang.Idx → Prop
@@ -1208,10 +1227,11 @@ TermSound.ResumeR : CoreTerm.Prog → List TermRun.Frame → TermSound.Res → T
                   TermSound.TypedK p η c f.body ∧
                     TermTv.TvOK c ∧
                       TermSound.FInvR ρ η f.σs (TermSound.ResumeR p rest Rrest) c ((f.x, f.ty, ws) :: f.env) (Rc + R) ∧
-                        ∀ (f' : TermRun.Frame) (rest' : List TermRun.Frame),
-                          rest = f' :: rest' →
-                            ∀ (ws : List TermRun.Word),
-                              TermPtrRts.pubWords f'.ty ws = TermPtrRts.pubWords (TermRun.close f.σs c.ret) ws
+                        (∀ (f' : TermRun.Frame) (rest' : List TermRun.Frame),
+                            rest = f' :: rest' →
+                              ∀ (ws : List TermRun.Word),
+                                TermPtrRts.pubWords f'.ty ws = TermPtrRts.pubWords (TermRun.close f.σs c.ret) ws) ∧
+                          TermSound.DyFr p CoreTerm.annNew (CoreTerm.progTgts p) η f.σs f.body
 TermSound.RetOK : (Nat → Nat) → TermSound.TEnv → List CoreLang.Ty → CoreLang.Ty → (TermSound.TEnv → List TermRun.Word → Prop) → Prop
   := fun ρ η σs ret K =>
   ∀ (η' : TermSound.TEnv),
@@ -1354,6 +1374,16 @@ TermSound.TEnv.urrs : TermSound.TEnv → Nat → TermSound.Shp → List TermRun.
   := fun self => self.14
 TermSound.TEnv.wit : TermSound.TEnv → Nat → CoreLang.Ty
   := fun self => self.3
+TermSound.TaintClosed : CoreTerm.Prog → (CoreTerm.Op → Option CoreLang.Ty) → List CoreLang.Ty → List (String × List Nat) → Prop
+  := fun p ann tg S =>
+  ∀ (g : String) (b : List Nat),
+    (g, b) ∈ S →
+      ∀ (d : CoreTerm.Decl),
+        List.find? (fun x => x.name == g) p = some d →
+          (CoreTerm.scan ann tg b d.body).fst = [] ∧
+            ∀ (e : String × List Nat), e ∈ (CoreTerm.scan ann tg b d.body).snd → e.snd ≠ [] → e ∈ S
+TermSound.TbS : List CoreLang.Ty → Prop
+  := fun σs => ∀ (σ : CoreLang.Ty), σ ∈ σs → TermClose.tb 0 σ = true
 TermSound.TypedK : CoreTerm.Prog → TermSound.TEnv → CoreTerm.Cx → CoreTerm.Expr → Prop
   := fun p η cx e => CoreTyping.Typed p cx e ∧ TermA4.CkW p η.wit cx e
 TermSound.VEq : List TermRun.Word → List TermRun.Word → Prop
@@ -1667,6 +1697,9 @@ TermSound.WitR : CoreLang.KEnv → TermSound.TEnv → Prop
   := fun ke η => ∀ (k : Nat), (ke.ask k true fun x => x.share) = true → TermSound.rgnFree (η.wit k) = true
 TermSound.WitSh : CoreLang.KEnv → TermSound.TEnv → Prop
   := fun ke η => ∀ (k : Nat), (ke.ask k true fun x => x.share) = true → (η.wit k).coupledOK = true
+TermSound.WitXw : (Nat → CoreLang.Ty) → List CoreLang.Ty → List Nat → Prop
+  := fun W σs H =>
+  ∀ (j : Nat) (σ : CoreLang.Ty), σs[j]? = some σ → ¬j ∈ H → CoreLang.Ty.wf 0 0 σ = true → W j = TermSound.clD σ
 TermSound.Word2Holds : CoreLang.Proto2 → List WeakMem.Val → Prop
   := fun P vs =>
   ∃ n0 n1 c cl k0 k1,

@@ -84,16 +84,16 @@ theorem pendingS_of (hN : N) (h : Pending units off tm prom heap ctr old ex c) :
 /-- **At a box**: the pending phase's site is the box's (one object of
 `a`'s type `ty`), so the counter is at `old` plus one object's units and
 every exception is below the box's base. -/
-theorem PendingS.box (h : PendingS N units off tm prom heap ctr old ex c) {x : String} {a : At} {e : Expr}
-    {ty : Ty} {ws : List Word} (ht : c.term = .let_ x (.new a) e) (hea : evalAt c.env a = some (ty, ws)) :
+theorem PendingS.box (h : PendingS N units off tm prom heap ctr old ex c) {x : String} {a : At} {T : Option Ty} {e : Expr}
+    {ty : Ty} {ws : List Word} (ht : c.term = .let_ x (.new a T) e) (hea : evalAt c.env a = some (ty, ws)) :
     CtrAt tm prom ctr (old + units 1 ty) ∧ ∀ a', ex a' → a' < heap + 16 * old + off 1 ty := by
   obtain ⟨x', n, τ, e', hs, hctr, hex⟩ := h
-  rcases hs with ⟨a', ta, ws', ht', -⟩ | ⟨-, a', ws', ht', hea', rfl⟩
+  rcases hs with ⟨a', ta, ws', ht', -⟩ | ⟨-, a', ws', ⟨_, ht'⟩, hea', rfl⟩
   · rw [ht] at ht'
     simp at ht'
   · rw [ht] at ht'
     simp only [Expr.let_.injEq, Op.new.injEq] at ht'
-    obtain ⟨-, rfl, -⟩ := ht'
+    obtain ⟨-, ⟨rfl, -⟩, -⟩ := ht'
     rw [hea] at hea'
     simp only [Option.some.injEq, Prod.mk.injEq] at hea'
     obtain ⟨rfl, -⟩ := hea'
@@ -180,8 +180,8 @@ it at `old` plus one object's units with no exception (over any placement,
 holding nothing. Then the invariant is idle at `old + units 1 ty`. -/
 theorem AllocInvS.newStore (A : Arch) {tid : Nat} {wh : Word}
     (hinv : AllocInvS N Λ lbl lsize t tm heap cells ctr units off c)
-    (hh : c.hold = some (ctr, wh)) (ho : numOf [wh] = some old) {x : String} {a : At} {e : Expr} {ty : Ty}
-    {ws : List Word} (ht : c.term = .let_ x (.new a) e) (hea : evalAt c.env a = some (ty, ws))
+    (hh : c.hold = some (ctr, wh)) (ho : numOf [wh] = some old) {x : String} {a : At} {T : Option Ty} {e : Expr} {ty : Ty}
+    {ws : List Word} (ht : c.term = .let_ x (.new a T) e) (hea : evalAt c.env a = some (ty, ws))
     {kr : StoreKind} {b : Nat} {V : Val} {s : I.State}
     (hex : I.exec t.st = some (.store kr false (wordLoc b) V fun _ => .done s))
     {outs : List (Except String (Kraken.Promising.Outcome I))} (hstep : stepOne A t tid tm = some outs)

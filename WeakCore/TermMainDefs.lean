@@ -152,6 +152,9 @@ def MsgWordsG (Eg : GEnv) (c : Cfg) : Prop :=
 def TidBox (Eg : GEnv) (th : TTh) : Prop :=
   ∀ l, th.tidLbl = some l → Eg.sto l = some ⟨.unit, none⟩ ∧ Eg.pfr l = some 0
 
+def TysOK (tys : AllocLabel → Option (Ty × Bool)) (sto : AllocLabel → Option TermSound.Cell) : Prop :=
+  ∀ l t, tys l = some (t, true) → ∃ c, sto l = some c ∧ c.ty = TermSound.clD t
+
 /-- **`SysInvW` with net key bounds** (the invariant carried along runs). -/
 structure SysInvN (p : Prog) (k : Promises.Knobs) (arch : Arch) (Init : Res) (MintOK : Res → Prop)
     (c : Cfg) (Eg : GEnv) (Tot HP : Nat → Res) (HS : Res) (cr db : Nat → Ts → Res) : Prop where
@@ -288,6 +291,28 @@ structure SysInvN (p : Prog) (k : Promises.Knobs) (arch : Arch) (Init : Res) (Mi
   freshU : FreshU c.n Eg c Tot HP HS cr
   /-- (E2) every thread's `ThreadId` box, once allocated, is a published zero-word cell (`TidBox`). -/
   tidBox : ∀ (i : Nat) (th : TTh), c.ths[i]? = some th → TidBox Eg th
+  /-- (scalIni) At a cell with a frontier, a reader-visible count past the real count is a
+  buffer's (`array (lit N) e`): the counts part only at a plant, whose count is at most the cell's
+  slot count (`TermStep.slotCnt`, 0 off buffers).  An own cell without a frontier has `ini ≤ rini`
+  already (`OwnHidP`). -/
+  scalIni : ∀ l cl f, Eg.sto l = some cl → Eg.pfr l = some f → Eg.rini l < Eg.ini l →
+    ∃ N e, cl.ty = .array (.lit N) e
+  tysOK : TysOK (TermRun.tysOf c) Eg.sto
+
+/-- Thread `i`'s exact records are typed at its cut, and none names one of its labels yet to allocate. -/
+theorem SysInvN.tyRec {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {MintOK : Res → Prop} {c : Cfg}
+    {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res}
+    (h : SysInvN p k arch Init MintOK c Eg Tot HP HS cr db) {i : Nat} {th : TTh} (hth : c.ths[i]? = some th)
+    (S : AllocLabel → Prop) :
+    TyOKE (gOf p k arch c i) (Cut Eg i S) ∧ RecFresh (gOf p k arch c i) i th.nalloc := by
+  refine ⟨fun l t cl ht hc => ?_, fun j hj t ht => ?_⟩
+  · obtain ⟨c', h1, h2⟩ := h.tysOK l t ht
+    rw [cutSto_sub hc] at h1
+    cases h1
+    exact h2
+  · obtain ⟨c', h1, -⟩ := h.tysOK _ t ht
+    have h2 := (h.fresh i th hth j hj).1
+    cases h2.symm.trans h1
 
 def SysInvNx (p : Prog) (k : Promises.Knobs) (arch : Arch) (Init : Res) (MintOK : Res → Prop) (c : Cfg) : Prop :=
   ∃ (Eg : GEnv) (Tot HP : Nat → Res) (HS : Res) (cr db : Nat → Ts → Res),
@@ -357,9 +382,20 @@ theorem SysInvW.toN (h : SysInvW p k arch Init MintOK c Eg Tot HP HS cr db) (hn 
     (hmw : MsgWordsG Eg c) (hmem0 : c.mem = #[]) (hpf0 : ∀ l, Eg.pfr l = none)
     (hlb : TermPtrRts.LblSto Eg c) (hly : ∀ l cl, Eg.sto l = some cl → LayT cl.ty)
     (hcc : TermLiveProps.CfgCoh c) (hsw : (∀ l cl, Eg.sto l = some cl → TermA4.wrapTop cl.ty = true))
-    (htb : ∀ (i : Nat) (th : TTh), c.ths[i]? = some th → TidBox Eg th) :
+    (htb : ∀ (i : Nat) (th : TTh), c.ths[i]? = some th → TidBox Eg th)
+    (hty0 : ∀ th ∈ c.ths.toList, th.tys = []) :
     SysInvN p k arch Init MintOK c Eg Tot HP HS cr db where
   tidBox := htb
+  tysOK := fun l t ht => by
+    have h0 : TermRun.tysOf c l = none := by
+      unfold TermRun.tysOf
+      rw [List.findSome?_eq_none_iff]
+      intro th hth
+      rw [hty0 th hth]
+      rfl
+    rw [h0] at ht
+    cases ht
+  scalIni := fun l _ _ _ hf => by rw [hpf0 l] at hf; cases hf
   thr := h.thr
   held := h.held
   clo := h.clo
@@ -581,8 +617,9 @@ theorem Res.sum_map_zero' {α : Type} : ∀ (L : List α), Res.sum (L.map (fun _
 into its private and shared parts at the S6 witness `E'`.  (D1) The last two
 conjuncts: the transfer `δ` to idle threads' credits (`CrShift`), paid out of
 the step's inequality (`Res.sum (Fd.map δ)` on its left, for a list `Fd`
-covering `δ`'s support, e.g. a duplicate-free copy of `η.fp`). -/
-def TOut (p : Prog) (g : G) (η : TEnv) (s : St) (r : Memory × List Ts × TTh) (E' : TEnv)
+covering `δ`'s support, e.g. a duplicate-free copy of `η.fp`).  The last conjunct: the cell
+at the step's fresh label `freshLabel g.lbase g.n g.i th.nalloc` has its exact record's type. -/
+def TOut (p : Prog) (g : G) (η : TEnv) (s : St) (th : TTh) (r : Memory × List Ts × TTh) (E' : TEnv)
     (Tot' HP' HS' C F : Res) (cr' db' : Ts → Res) (Rf Rs H : Res) (cr db : Ts → Res) (δ : Ts → Res) : Prop :=
   EFoot g (CE η) E' s (stOf r.1 r.2.1 r.2.2) ∧ ThInvRE p E' r.2.2 Tot' ∧ MemInv g E' (stOf r.1 r.2.1 r.2.2) ∧
     MemHeldP E' (stOf r.1 r.2.1 r.2.2) HP' ∧ MemHeldS E' (stOf r.1 r.2.1 r.2.2) HS' ∧
@@ -594,13 +631,15 @@ def TOut (p : Prog) (g : G) (η : TEnv) (s : St) (r : Memory × List Ts × TTh) 
     Tot' + (HP' + HS') + pSum (stOf r.1 r.2.1 r.2.2) cr' + Res.sum (Fd.map δ) + pSum s db + C ≤
       Rf + Rs + H + pSum s cr + pSum (stOf r.1 r.2.1 r.2.2) db' + F ∧
     IniFixZ { g with zf := fun l => (CE η).pfr l ≠ none ∧ (CE η).ini l ≤ (CE η).rini l } (CE η) E' s (stOf r.1 r.2.1 r.2.2) ∧
-    (∀ E0, TermTyped.WrLocA2 E0 g (CE η) E' s (stOf r.1 r.2.1 r.2.2))
+    (∀ E0, TermTyped.WrLocA2 E0 g (CE η) E' s (stOf r.1 r.2.1 r.2.2)) ∧
+    (∀ c t, E'.sto (freshLabel g.lbase g.n g.i th.nalloc) = some c →
+      tysUpd g.tys th r.2.2 (freshLabel g.lbase g.n g.i th.nalloc) = some (t, true) → c.ty = clD t)
 
 /-- (R4 resplit, (A)) **The credit-free part of `TOut`**: `TOut` with its two inequalities dropped
 (replaced by `True`, so conjunct positions are kept).  It does not read `Rf Rs H cr db`; consumers that
 never read the step's inequality take it, so a stepper output at the stepper's credits `crS` (`TOut … crS`)
 serves them at the thread's credits `cr i` (`TOut.toC`). -/
-def TOutC (p : Prog) (g : G) (η : TEnv) (s : St) (r : Memory × List Ts × TTh) (E' : TEnv)
+def TOutC (p : Prog) (g : G) (η : TEnv) (s : St) (th : TTh) (r : Memory × List Ts × TTh) (E' : TEnv)
     (Tot' HP' HS' C F : Res) (cr' db' : Ts → Res) (_Rf _Rs _H : Res) (_cr _db : Ts → Res) (δ : Ts → Res) :
     Prop :=
   EFoot g (CE η) E' s (stOf r.1 r.2.1 r.2.2) ∧ ThInvRE p E' r.2.2 Tot' ∧ MemInv g E' (stOf r.1 r.2.1 r.2.2) ∧
@@ -609,18 +648,38 @@ def TOutC (p : Prog) (g : G) (η : TEnv) (s : St) (r : Memory × List Ts × TTh)
     True ∧ BoxNewV (CE η) E' s r.2.2 ∧
     CrShift η s δ ∧ ∃ Fd : List Ts, (∀ t, δ t ≠ .zero → t ∈ Fd) ∧ True ∧
     IniFixZ { g with zf := fun l => (CE η).pfr l ≠ none ∧ (CE η).ini l ≤ (CE η).rini l } (CE η) E' s (stOf r.1 r.2.1 r.2.2) ∧
-    (∀ E0, TermTyped.WrLocA2 E0 g (CE η) E' s (stOf r.1 r.2.1 r.2.2))
+    (∀ E0, TermTyped.WrLocA2 E0 g (CE η) E' s (stOf r.1 r.2.1 r.2.2)) ∧
+    (∀ c t, E'.sto (freshLabel g.lbase g.n g.i th.nalloc) = some c →
+      tysUpd g.tys th r.2.2 (freshLabel g.lbase g.n g.i th.nalloc) = some (t, true) → c.ty = clD t)
 
 /-- A `TOut` gives its credit-free part, at any `Rf Rs H cr db`. -/
-theorem TOut.toC {p : Prog} {g : G} {η : TEnv} {s : St} {r : Memory × List Ts × TTh} {E' : TEnv}
+theorem TOut.toC {p : Prog} {g : G} {η : TEnv} {s : St} {th : TTh} {r : Memory × List Ts × TTh} {E' : TEnv}
     {Tot' HP' HS' C F : Res} {cr' db' : Ts → Res} {Rf Rs H : Res} {cr db δ : Ts → Res}
-    (h : TOut p g η s r E' Tot' HP' HS' C F cr' db' Rf Rs H cr db δ) (Rf2 Rs2 H2 : Res) (cr2 db2 : Ts → Res) :
-    TOutC p g η s r E' Tot' HP' HS' C F cr' db' Rf2 Rs2 H2 cr2 db2 δ :=
+    (h : TOut p g η s th r E' Tot' HP' HS' C F cr' db' Rf Rs H cr db δ) (Rf2 Rs2 H2 : Res) (cr2 db2 : Ts → Res) :
+    TOutC p g η s th r E' Tot' HP' HS' C F cr' db' Rf2 Rs2 H2 cr2 db2 δ :=
   let ⟨a1, a2, a3, a4, a5, a6, a7, _, a9, a10, Fd, hFd, _, a12⟩ := h
   ⟨a1, a2, a3, a4, a5, a6, a7, trivial, a9, a10, Fd, hFd, trivial, a12⟩
 
+/-- The last conjunct of `TOutC`: the cell at the step's fresh label has its exact record's type. -/
+theorem TOutC.newTy {p : Prog} {g : G} {η : TEnv} {s : St} {th : TTh} {r : Memory × List Ts × TTh} {E' : TEnv}
+    {Tot' HP' HS' C F : Res} {cr' db' : Ts → Res} {Rf Rs H : Res} {cr db δ : Ts → Res}
+    (Z : TOutC p g η s th r E' Tot' HP' HS' C F cr' db' Rf Rs H cr db δ) :
+    ∀ c t, E'.sto (freshLabel g.lbase g.n g.i th.nalloc) = some c →
+      tysUpd g.tys th r.2.2 (freshLabel g.lbase g.n g.i th.nalloc) = some (t, true) → c.ty = clD t :=
+  let ⟨_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, h⟩ := Z
+  h
+
+/-- The last conjunct of `TOut` (as `TOutC.newTy`). -/
+theorem TOut.newTy {p : Prog} {g : G} {η : TEnv} {s : St} {th : TTh} {r : Memory × List Ts × TTh} {E' : TEnv}
+    {Tot' HP' HS' C F : Res} {cr' db' : Ts → Res} {Rf Rs H : Res} {cr db δ : Ts → Res}
+    (Z : TOut p g η s th r E' Tot' HP' HS' C F cr' db' Rf Rs H cr db δ) :
+    ∀ c t, E'.sto (freshLabel g.lbase g.n g.i th.nalloc) = some c →
+      tysUpd g.tys th r.2.2 (freshLabel g.lbase g.n g.i th.nalloc) = some (t, true) → c.ty = clD t :=
+  let ⟨_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, h⟩ := Z
+  h
+
 /-- (D1) A `TOut` without transfer: `δ = 0`. -/
-theorem TOut_zero {p : Prog} {g : G} {η : TEnv} {s : St} {r : Memory × List Ts × TTh} {E' : TEnv}
+theorem TOut_zero {p : Prog} {g : G} {η : TEnv} {s : St} {th : TTh} {r : Memory × List Ts × TTh} {E' : TEnv}
     {Tot' HP' HS' C F : Res} {cr' db' : Ts → Res} {Rf Rs H : Res} {cr db : Ts → Res}
     (h1 : EFoot g (CE η) E' s (stOf r.1 r.2.1 r.2.2)) (h2 : ThInvRE p E' r.2.2 Tot')
     (h3 : MemInv g E' (stOf r.1 r.2.1 r.2.2)) (h4 : MemHeldP E' (stOf r.1 r.2.1 r.2.2) HP')
@@ -630,9 +689,11 @@ theorem TOut_zero {p : Prog} {g : G} {η : TEnv} {s : St} {r : Memory × List Ts
       Rf + Rs + H + pSum s cr + pSum (stOf r.1 r.2.1 r.2.2) db' + F)
     (h9 : BoxNewV (CE η) E' s r.2.2)
     (h10 : IniFixZ { g with zf := fun l => (CE η).pfr l ≠ none ∧ (CE η).ini l ≤ (CE η).rini l } (CE η) E' s (stOf r.1 r.2.1 r.2.2))
-    (h11 : ∀ E0, TermTyped.WrLocA2 E0 g (CE η) E' s (stOf r.1 r.2.1 r.2.2)) :
-    TOut p g η s r E' Tot' HP' HS' C F cr' db' Rf Rs H cr db (fun _ => .zero) := by
-  refine ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, CrShift_zero η s, [], fun _ h => absurd rfl h, ?_, h10, h11⟩
+    (h11 : ∀ E0, TermTyped.WrLocA2 E0 g (CE η) E' s (stOf r.1 r.2.1 r.2.2))
+    (h12 : (∀ cl t, E'.sto (freshLabel g.lbase g.n g.i th.nalloc) = some cl →
+        tysUpd g.tys th r.2.2 (freshLabel g.lbase g.n g.i th.nalloc) = some (t, true) → cl.ty = clD t)) :
+    TOut p g η s th r E' Tot' HP' HS' C F cr' db' Rf Rs H cr db (fun _ => .zero) := by
+  refine ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, CrShift_zero η s, [], fun _ h => absurd rfl h, ?_, h10, h11, h12⟩
   rw [List.map_nil, Res.sum_nil, Res.add_zero]
   exact h8
 
@@ -772,11 +833,11 @@ theorem ThSysAt.env {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TT
     ∃ ρ η cx Rf Rs, CE η = Cut Eg g.i S ∧ η.tid = g.i ∧ EnvOK p η ∧ TypedK p η cx th.term ∧ TvOK cx ∧
       FInvR ρ η th.σs (ResumeR p th.stack Rs) cx th.env Rf ∧ Rf + Rs = Tot ∧ TermTyped.StoClo (CE η) ∧
       MemInv g (CE η) (stOf mem pairs th) ∧ MemHeld (CE η) (stOf mem pairs th) (HP + HS) ∧
-      TermPlant.PromCrK (CE η) (stOf mem pairs th) cr db ∧ RetPw th.σs th.stack cx.ret := by
-  obtain ⟨⟨ρ, η, cx, Rf, Rs, hCE, hE, hT, htv, hi, hsum, hRP⟩, -, hm, hP, hS, hC⟩ := h
+      TermPlant.PromCrK (CE η) (stOf mem pairs th) cr db ∧ RetPw th.σs th.stack cx.ret ∧ DyFr p annNew (progTgts p) η th.σs th.term := by
+  obtain ⟨⟨ρ, η, cx, Rf, Rs, hCE, hE, hT, htv, hi, hsum, hRP, hDy⟩, -, hm, hP, hS, hC⟩ := h
   have hH := MemHeld_join (fun _ _ hc hp => Cut_cov hc hp) hP hS
   have htid : (CE η).tid = (Cut Eg g.i S).tid := congrArg TEnv.tid hCE
-  refine ⟨ρ, η, cx, Rf, Rs, hCE, htid, hE, hT, htv, hi, hsum, ?_, ?_, ?_, ?_, hRP⟩
+  refine ⟨ρ, η, cx, Rf, Rs, hCE, htid, hE, hT, htv, hi, hsum, ?_, ?_, ?_, ?_, hRP, hDy⟩
   · rw [hCE]; exact StoClo_Cut hclo g.i S
   · rw [hCE]; exact hm
   · rw [hCE]; exact hH

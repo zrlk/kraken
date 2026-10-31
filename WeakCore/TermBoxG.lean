@@ -188,7 +188,7 @@ theorem sysInvN_box {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {
   have hz := h.ownF i th th.nalloc hth (Nat.le_refl _)
   rw [← hl] at hz
   have hne : ∀ x cl, Eg.sto x = some cl → x ≠ l := fun x cl hx e => by subst e; rw [hs0] at hx; cases hx
-  have hg : ∀ j, gOf p k arch (setC c i (thB th tl) c.trace) j = gOf p k arch c j := gOf_setC p k arch
+  have hg : ∀ j, gOf p k arch (setC c i (thB th tl) c.trace) j = gOf p k arch c j := fun j => TermSetTh.gOf_setC p k arch j hth rfl
   have hlts : ∀ j t, c.ths[j]? = some t → j < c.ths.size := fun j t h' => by
     rcases Nat.lt_or_ge j c.ths.size with h1 | h1
     · exact h1
@@ -614,6 +614,15 @@ theorem sysInvN_box {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {
     have e : freshLabel c.lbase c.n q j ≠ l := fun e => by have := (hlab q j hqn e).1; omega
     refine ⟨⟨by rw [EgB_sto_ne e]; exact a, b, c1, by rw [EgB_pfr_ne e]; exact d, f⟩, ?_⟩
     simpa only [OwnZ, setC_size, setC_lbase, setC_n, pSumAt_thB hth] using o
+  case scalIni =>
+    intro x cl f hs hf hlt
+    by_cases hx : x = l
+    · subst hx
+      have : (EgB Eg x).ini x = Eg.ini x := rfl
+      omega
+    · have hs' : Eg.sto x = some cl := by rw [← EgB_sto_ne hx]; exact hs
+      have hf' : Eg.pfr x = some f := by rw [← EgB_pfr_ne hx]; exact hf
+      exact h.scalIni x cl f hs' hf' hlt
   case tidBox =>
     intro j t hj x hx
     have old : ∀ t0, c.ths[j]? = some t0 → t0.tidLbl = some x → (EgB Eg l).sto x = some ⟨.unit, none⟩ ∧ (EgB Eg l).pfr x = some 0 := by
@@ -626,6 +635,11 @@ theorem sysInvN_box {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {
       · exact old th hth hx
       · cases hx; exact ⟨EgB_sto_self, EgB_pfr_self⟩
     · exact old t hj' hx
+  case tysOK =>
+    intro x t ht
+    rw [show TermRun.tysOf (setC c i (thB th tl) c.trace) = TermRun.tysOf c from congrArg (·.tys) (hg 0)] at ht
+    obtain ⟨cl, hcl, hty⟩ := h.tysOK x t ht
+    exact ⟨cl, by rw [EgB_sto_ne (hne x cl hcl)]; exact hcl, hty⟩
 
 end TermBox
 

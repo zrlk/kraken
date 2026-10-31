@@ -269,7 +269,7 @@ def fgnCov (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → Cfg → P
     {E' : TEnv} {Tot' HP' HS' C F : Res} {crS cr' db' δ plh : Ts → Res}
     {Gd : List TermPiece.GdE} {tg : TermPiece.GdE → Option Ts},
     TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
-    TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
+    TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
       crS (db i) δ → StepCrQ cr pl i r.2.2.promises crS →
     TermOverCr.OverCrG Eg c (crPl cr pl) → PoolTag Eg c pl →
     TermPiece.Drop (CE η) (stOf c.mem c.pairs th) Gd →
@@ -341,7 +341,7 @@ def f1T (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → Cfg → Prop
     {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx} {Rf Rs : Res}
     {E' : TEnv} {Tot' HP' HS' C F : Res} {crS cr' db' δ dc dh plh : Ts → Res},
     TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
-    TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
+    TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
       crS (db i) δ → StepCrQ cr pl i r.2.2.promises crS →
     TermOverCr.OverCrG Eg c (crPl cr pl) → PoolTag Eg c pl →
     (∀ t, dc t + dh t ≤ δ t) →
@@ -387,7 +387,7 @@ def poolTagOwnT (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → Cfg 
     {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx} {Rf Rs : Res}
     {E' : TEnv} {Tot' HP' HS' C F : Res} {crS cr' db' δ plh : Ts → Res},
     TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
-    TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
+    TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
       crS (db i) δ → StepCrQ cr pl i r.2.2.promises crS →
     TermOverCr.OverCrG Eg c (crPl cr pl) → PoolTag Eg c pl →
     TermPlant.KeepQRS (CE η) E' (stOf c.mem c.pairs th) (stOf r.1 r.2.1 r.2.2) th crS cr' plh →
@@ -436,7 +436,7 @@ def poolBalT (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → Cfg →
     {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx} {Rf Rs : Res}
     {E' : TEnv} {Tot' HP' HS' C F : Res} {crS cr' db' δ dc dh plh : Ts → Res},
     TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
-    TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
+    TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
       crS (db i) δ → StepCrQ cr pl i r.2.2.promises crS →
     (∀ t, dc t + dh t ≤ δ t) → PoolInv Init MintOK c Eg Tot HP HS cr db pl →
     (∀ t, plh t ≠ .zero → t ∈ r.2.2.promises) →
@@ -454,7 +454,7 @@ def poolKnetT (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → Cfg �
     {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx} {Rf Rs : Res}
     {E' : TEnv} {Tot' HP' HS' C F : Res} {crS cr' db' δ dc dh plh : Ts → Res} {rc : Nat → Nat},
     TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
-    TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
+    TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
       crS (db i) δ → StepCrQ cr pl i r.2.2.promises crS →
     (∀ t, dc t + dh t ≤ δ t) → PoolInv Init MintOK c Eg Tot HP HS cr db pl →
     (∀ t, plh t ≠ .zero → t ∈ r.2.2.promises) → (∀ t, TermPlant.CrKeys (plh t)) →
@@ -473,7 +473,7 @@ def poolRidT (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → Cfg →
     {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx} {Rf Rs : Res}
     {E' : TEnv} {Tot' HP' HS' C F : Res} {crS cr' db' δ dc dh plh : Ts → Res} {rc : Nat → Nat},
     TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
-    TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
+    TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
       crS (db i) δ → StepCrQ cr pl i r.2.2.promises crS →
     (∀ t, dc t + dh t ≤ δ t) → PoolInv Init MintOK c Eg Tot HP HS cr db pl →
     (∀ t, plh t ≠ .zero → t ∈ r.2.2.promises) →

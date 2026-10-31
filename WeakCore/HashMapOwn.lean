@@ -175,7 +175,7 @@ def oStep (f mIn tag : String) (argOps : List (String × Op)) (arg : At) (k : Ex
 
 def oIns (mIn tag : String) (n val : Nat) (k : Expr) : Expr :=
   oStep "oinsert" mIn tag (keyOps tag n ++ [(tag ++ "x", .call "idI" [] (.lit val)),
-    (tag ++ "b", .new (v (tag ++ "x"))), (tag ++ "kv", .pair (v (tag ++ "k")) (v (tag ++ "b")))])
+    (tag ++ "b", .new (v (tag ++ "x")) (some .int)), (tag ++ "kv", .pair (v (tag ++ "k")) (v (tag ++ "b")))])
     (v (tag ++ "kv")) k
 def oTake (mIn tag : String) (n : Nat) (k : Expr) : Expr :=
   oStep "otake" mIn tag (keyOps tag n) (v (tag ++ "k")) k
@@ -214,7 +214,7 @@ def oInstLib : Prog := ohmLib ++ [hashKID, eqKID, idID, unbD, ownValD]
 /-- A two-slot own buffer of a Zeroable `τ`, born initialised, bound to `b3`. -/
 def bufOps (τ : Ty) : List (String × Op) := [("b3", .newBuf (.lit 2) τ)]
 /-- A fresh box of `5`, bound to `q`. -/
-def boxOps : List (String × Op) := [("y", .call "idI" [] (.lit 5)), ("q", .new (v "y"))]
+def boxOps : List (String × Op) := [("y", .call "idI" [] (.lit 5)), ("q", .new (v "y") (some .int))]
 
 -- Two exchanges on one own buffer: accepted (the buffer is only looked at) …
 #guard accepts (checkDecl [] (dcl "xx" PI PI

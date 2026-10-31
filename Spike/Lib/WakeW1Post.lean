@@ -154,11 +154,12 @@ theorem post_step1_of (hC : WCompat Q D μ Λ arch) (hx : WCompatX Q D) (hwf : �
           obtain ⟨-, ⟨a, t', pw, μ', ht, -⟩ | ⟨b, i, t', pw, ti, iws, μ', sb, k', ht, -⟩⟩ := hxs <;>
             rcases wterm_let hctl.term ht with h' | h' <;> rw [h'] at ht <;> simp [wkStore, wkUnpark] at ht
         | ctrRmw k' op g x' τ e n he hrt hm hs =>
-          rcases hs with ⟨a, -, -, ht, -⟩ | ⟨-, a, -, ht, -⟩ <;>
+          rcases hs with ⟨a, -, -, ht, -⟩ | ⟨-, a, -, ⟨_, ht⟩, -⟩ <;>
             rcases wterm_let hctl.term ht with h' | h' <;> rw [h'] at ht <;> simp [wkStore, wkUnpark] at ht
         | alloc s' A x' a τ e ta ws k' wold old us he ht =>
           rcases wterm_let hctl.term ht with h' | h' <;> rw [h'] at ht <;> simp [wkStore, wkUnpark] at ht
         | newStore kr A V s' x' a t e w' wold old _ he hm ht =>
+          obtain ⟨_, ht⟩ := ht
           rcases wterm_let hctl.term ht with h' | h' <;> rw [h'] at ht <;> simp [wkStore, wkUnpark] at ht
         | emit K buf n Pw Qw hK ha =>
           rw [hC.K w] at hK; cases hK; rw [hns] at ha; cases ha

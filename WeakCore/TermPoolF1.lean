@@ -69,7 +69,7 @@ theorem gfootZ {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ cri dbi : Ts → Res}
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r) (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
+    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
       cri dbi δ) :
     GFoot (gOf p k arch c i) Eg (Eg.post (gOf p k arch c i) th.nalloc r.2.2.nalloc E') th.nalloc r.2.2.nalloc
       c.mem.size := by
@@ -83,7 +83,7 @@ theorem ptag_conv {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ cri dbi : Ts → Res}
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r) (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
+    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
       cri dbi δ)
     {j : Nat} {thj : TTh} (hji : j ≠ i) (hj : c.ths[j]? = some thj) {f : Ts → Res} {t : Ts}
     (hpt : PTag Eg c j thj f t)
@@ -218,7 +218,7 @@ theorem ptag_keep {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ cri dbi : Ts → Res}
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r) (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
+    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
       cri dbi δ)
     {j : Nat} {thj : TTh} (hji : j ≠ i) (hj : c.ths[j]? = some thj) {f : Ts → Res} {t : Ts}
     (hpt : PTag Eg c j thj f t) :
@@ -267,7 +267,7 @@ theorem not_conv {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr 
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ dh cri dbi : Ts → Res}
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r) (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
+    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
       cri dbi δ)
     (hPT : PoolTag Eg c pl)
     (hdh : ∀ t, dh t ≠ .zero → ∃ j thj, j ≠ i ∧ c.ths[j]? = some thj ∧ t ∈ thj.promises ∧

@@ -79,7 +79,7 @@ theorem kidEntryOK_of {p : Prog} {cx c' : Cx} {x f : String} {a : At} {T : Ty} {
   refine ⟨?_, h.tb, h.drf, h.tsDrf, h.tsArg, h.wrap, ⟨rt, ?_, ?_⟩⟩
   · show Ty.affineIn [] T = false
     rw [AffineCl.affineIn_closed h.tb [] cx.ke]; exact h.aff
-  · simpa [check] using htc
+  · simpa [check_tail] using htc
   · refine ⟨fun e he => ?_, fun tn htn => (by simp at htn), hrt.1.1, fun e he => ?_, fun e he => ?_,
       fun tn htn => (by simp at htn), hrt.1.2, hrt.2⟩
     · simp only [List.mem_singleton] at he; subst he; exact h.tb
@@ -126,7 +126,7 @@ theorem par_of_site {p : Prog} {E : TEnv} {th par : TTh} {Tot : Res} {x f : Stri
     ⟨fun us h => by simp [accs] at h; subst h; rfl, by first | rfl | simp [etok, close, substTs, skel],
       by simp [wc, accs], trivial, by first | rfl | simp [etok, close, substTs, lyt]⟩
   constructor
-  · obtain ⟨ρ, η, cx, Rf, Rs, hCE, hE, hT, htv, hi, hsum, hpw⟩ := hR
+  · obtain ⟨ρ, η, cx, Rf, Rs, hCE, hE, hT, htv, hi, hsum, hpw, hDy⟩ := hR
     have hT2 := hT.2
     rw [hterm] at hT2
     obtain ⟨c', -, hop, he, hck, -⟩ := TermA4.CkW_let hT2
@@ -139,11 +139,11 @@ theorem par_of_site {p : Prog} {E : TEnv} {th par : TTh} {Tot : Res} {x f : Stri
       ⟨⟨L, ⟨.unit, none⟩, rfl, hs1, rfl, 0, hp1, .inr fun _ _ => Nat.zero_le _⟩, rfl⟩
     have hf := bindRZ P.bind hi (RLink_of hE.2.1 hE.2.2) hvr hl
     refine ⟨ρ, η, c', Rf, Rs, hCE, hE, ⟨by rw [hpt]; exact he, by rw [hpt]; exact hck⟩, htv',
-      by rw [hps, hpk, hpe]; exact hf, hsum, ?_⟩
+      by rw [hps, hpk, hpe]; exact hf, hsum, ?_, by rw [hpt, hps]; exact hDy.letW hterm rfl⟩
     intro fr rest hst ws
     rw [hpk] at hst
     rw [hret, hps]; exact hpw fr rest hst ws
-  · obtain ⟨ρ, η, cx, hCE, hE, hT, htv, hi, hpw⟩ := hE'
+  · obtain ⟨ρ, η, cx, hCE, hE, hT, htv, hi, hpw, hDy⟩ := hE'
     rw [hterm] at hT
     cases hT with
     | let_ hop he =>
@@ -156,6 +156,7 @@ theorem par_of_site {p : Prog} {E : TEnv} {th par : TTh} {Tot : Res} {x f : Stri
       have hvr : VR ρ η .tid (shp .tid) [cst (.loc ⟨L, 0⟩ 0)] :=
         ⟨L, ⟨.unit, none⟩, rfl, hs1, rfl, 0, hp1, .inr fun _ _ => Nat.zero_le _⟩
       refine ⟨ρ, η, c', hCE, hE, by rw [hpt]; exact he, htv', by rw [hps, hpe, hpk]; exact bind_FInv P.bind hi hvr hl, ?_⟩
+      refine ⟨?_, by rw [hpt, hps]; exact hDy.letW hterm rfl⟩
       show RetPw par.σs par.stack c'.ret
       rw [hret, hps, hpk]; exact hpw
 

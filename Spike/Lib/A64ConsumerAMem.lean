@@ -47,19 +47,19 @@ theorem _root_.Spike.Lib.AllocInvAt.arenaOK
 with `o` neither a buffer nor a box allocation. -/
 theorem _root_.Spike.Lib.AllocInvAt.idle_of_term
     (h : AllocInvAt Λ lbl lsize th tm ar.heap ar.cells ar.ctr ar.units ar.off hu c)
-    (ht : ∃ x o e, c.term = .let_ x o e ∧ (∀ a τ, o ≠ .newBuf a τ) ∧ ∀ a, o ≠ .new a) :
+    (ht : ∃ x o e, c.term = .let_ x o e ∧ (∀ a τ, o ≠ .newBuf a τ) ∧ ∀ a T, o ≠ .new a T) :
     ∀ w, c.hold ≠ some (ar.ctr, w) := by
   obtain ⟨x0, o, e0, ht, hb, hn⟩ := ht
-  rcases h with ⟨-, -, ⟨x, n, τ, e, ⟨a, -, -, hc, -⟩ | ⟨-, a, -, hc, -⟩, -⟩, -⟩ | ⟨hn', -⟩
+  rcases h with ⟨-, -, ⟨x, n, τ, e, ⟨a, -, -, hc, -⟩ | ⟨-, a, -, ⟨_, hc⟩, -⟩, -⟩, -⟩ | ⟨hn', -⟩
   · rw [ht] at hc; simp only [Expr.let_.injEq] at hc; exact absurd hc.2.1 (hb a τ)
-  · rw [ht] at hc; simp only [Expr.let_.injEq] at hc; exact absurd hc.2.1 (hn a)
+  · rw [ht] at hc; simp only [Expr.let_.injEq] at hc; exact absurd hc.2.1 (hn a _)
   · exact hn'
 
 /-- **A control at `let x = o in e`, `o` neither a buffer nor a box
 allocation**, as `AllocInvAt.idle_of_term` takes it. -/
 theorem notAlloc_let {c : Ctl} {x : String} {o : Op} {e : Expr} (ht : c.term = .let_ x o e)
-    (hb : ∀ a τ, o ≠ .newBuf a τ) (hn : ∀ a, o ≠ .new a) :
-    ∃ x o e, c.term = .let_ x o e ∧ (∀ a τ, o ≠ .newBuf a τ) ∧ ∀ a, o ≠ .new a :=
+    (hb : ∀ a τ, o ≠ .newBuf a τ) (hn : ∀ a T, o ≠ .new a T) :
+    ∃ x o e, c.term = .let_ x o e ∧ (∀ a τ, o ≠ .newBuf a τ) ∧ ∀ a T, o ≠ .new a T :=
   ⟨x, o, e, ht, hb, hn⟩
 
 /-- **Idle, the control may change** to another holding no counter word. -/
@@ -88,7 +88,7 @@ theorem ArenaW.out_free {ex : Nat → Prop} (ha : ArenaOK Λ lbl lsize th tm ar.
       (∃ old x a τ e ta ws k, c.hold = some (ar.ctr, TermRun.cst (.num old)) ∧ c.term = .let_ x (.newBuf a τ) e ∧
         TermRun.evalAt c.env a = some (ta, ws) ∧ TermRun.numOf ws = some k ∧
         L.addr.toNat < ar.heap + 16 * old + ar.off k τ) ∨
-      ∃ old x a e ty ws, c.hold = some (ar.ctr, TermRun.cst (.num old)) ∧ c.term = .let_ x (.new a) e ∧
+      ∃ old x a e ty ws, c.hold = some (ar.ctr, TermRun.cst (.num old)) ∧ (∃ T, c.term = .let_ x (.new a T) e) ∧
         TermRun.evalAt c.env a = some (ty, ws) ∧ L.addr.toNat < ar.heap + 16 * old + ar.off 1 ty := by
   rcases hL with he | hout | ⟨l, b, hb, hc⟩ | hh | ⟨-, hh⟩
   · exact absurd he hne
@@ -124,7 +124,7 @@ theorem allocInvAt_out (h : AllocInvAt Λ lbl lsize th tm ar.heap ar.cells ar.ct
   · obtain ⟨ex, ha⟩ := h.arenaOK
     rw [hm]
     rcases ArenaW.out_free ha hL hne with hf | ⟨old, x, a, τ, e, ta, ws, k, hh, ht, hea, hk, hlt⟩ |
-        ⟨old, x, a, e, ty, ws, hh, ht, hea, hlt⟩
+        ⟨old, x, a, e, ty, ws, hh, ⟨_, ht⟩, hea, hlt⟩
     · by_cases hc : ∃ w, c.hold = some (ar.ctr, w)
       · obtain ⟨w, hw⟩ := hc
         have := h.held hw
@@ -140,7 +140,7 @@ theorem allocInvAt_out (h : AllocInvAt Λ lbl lsize th tm ar.heap ar.cells ar.ct
   · obtain ⟨ex, ha⟩ := h.arenaOK
     rw [hm]
     rcases ArenaW.out_free ha hL hne with hf | ⟨old, x, a, τ, e, ta, ws, k, hh, ht, hea, hk, hlt⟩ |
-        ⟨old, x, a, e, ty, ws, hh, ht, hea, hlt⟩
+        ⟨old, x, a, e, ty, ws, hh, ⟨_, ht⟩, hea, hlt⟩
     · refine h.prom_keep (fun k' w hg' hl => ?_) fun k' w hg' hfr hk' => ?_
       · have hne' : k' ≠ q := by
           rintro rfl

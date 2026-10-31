@@ -31,17 +31,17 @@ def files : List (String × String) := [
   ("s.w", "def f(x : Word[0, Mutex] + Unit) : Unit =\n  ret ()\n"),
   ("s.u", "def f(x : Word[0, Mutex] + Unit) : Unit =\n  ret ()\n"),
   ("pbad.w", "def f(x : Int) : Int =\n  let y = load acq x\n  ret y\n"),
-  ("live.u", "scenario Spin = { setup = init(()) ; threads = [spin(()), setter(())] ; depth = 60 ; live = 0 }\nscenario Stuck = { setup = init(()) ; threads = [spin(())] ; depth = 60 ; live = 1 }\ndef init(u : Unit) : Ptr pub Int =\n  let z = zero[Int]\n  let o = new z\n  let c = publish o\n  ret c\nlive[Spin] def spin(c : Ptr pub Int) : Int =\n  let d = load acq c\n  if d = 1 then\n    ret 0\n  else\n    tail spin(c)\nlive def setter(c : Ptr pub Int) : Unit =\n  let d = store rel c 1\n  ret ()\ndef bump(c : Ptr pub Int) : Unit =\n  let d = load acq c\n  let e = d + 1\n  let u = store rel c e\n  tail bump(c)\n"),
+  ("live.u", "scenario Spin = { setup = init(()) ; threads = [spin(()), setter(())] ; depth = 60 ; live = 0 }\nscenario Stuck = { setup = init(()) ; threads = [spin(())] ; depth = 60 ; live = 1 }\ndef init(u : Unit) : Ptr pub Int =\n  let z = zero[Int]\n  let o = new[Int] z\n  let c = publish o\n  ret c\nlive[Spin] def spin(c : Ptr pub Int) : Int =\n  let d = load acq c\n  if d = 1 then\n    ret 0\n  else\n    tail spin(c)\nlive def setter(c : Ptr pub Int) : Unit =\n  let d = store rel c 1\n  ret ()\ndef bump(c : Ptr pub Int) : Unit =\n  let d = load acq c\n  let e = d + 1\n  let u = store rel c e\n  tail bump(c)\n"),
   ("nos.u", "live[T] def f(x : Int) : Int =\n  ret x\n"),
   ("warn.u", "scenario W = { setup = g(1) ; threads = [g(2)] ; live = 0 }\ndef g(x : Int) : Int =\n  ret x\n"),
   ("live.w", "def g(x : Int) : Int =\n  ret x\n"),
   ("ep.u", "live def f{r}(w : Ptr pub Word[r, <k! ; 0->0+1 ; robust, epoch>]) : Unit =\n  ret ()\n"),
   ("mx.u", "live def g{r}(w : Ptr pub Word[r, Mutex]) : Unit =\n  ret ()\n"),
-  ("kid.u", "scenario K = { setup = init(()) ; threads = [h(())] ; depth = 20 ; live = 0 }\ndef init(u : Unit) : Ptr pub Int =\n  let z = zero[Int]\n  let o = new z\n  let c = publish o\n  ret c\nlive[K] def h(x : Int) : Int =\n  ret x\n"),
-  ("cert1.u", "scenario S = { setup = init(()) ; threads = [spin(()), setter(())] ; depth = 60 ; live = 0 ; cert = 20000 }\nscenario U = { setup = init(()) ; threads = [spin(())] ; depth = 60 ; cert = 5 }\ndef init(u : Unit) : Ptr pub Int =\n  let z = zero[Int]\n  let o = new z\n  let c = publish o\n  ret c\nlive[S] def spin(c : Ptr pub Int) : Int =\n  let d = load acq c\n  if d = 1 then\n    ret 0\n  else\n    tail spin(c)\nlive def setter(c : Ptr pub Int) : Unit =\n  let d = store rel c 1\n  ret ()\n"),
-  ("cert2.u", "scenario S = { setup = init(()) ; threads = [spin(()), setter(())] ; depth = 60 ; cert = 3 }\ndef init(u : Unit) : Ptr pub Int =\n  let z = zero[Int]\n  let o = new z\n  let c = publish o\n  ret c\nlive[S] def spin(c : Ptr pub Int) : Int =\n  let d = load acq c\n  if d = 1 then\n    ret 0\n  else\n    tail spin(c)\nlive def setter(c : Ptr pub Int) : Unit =\n  let d = store rel c 1\n  ret ()\n"),
-  ("cert3.u", "scenario S = { setup = init(()) ; threads = [spin(()), setter(())] ; depth = 60 ; promises = 1 ; cert = 100 }\ndef init(u : Unit) : Ptr pub Int =\n  let z = zero[Int]\n  let o = new z\n  let c = publish o\n  ret c\nlive[S] def spin(c : Ptr pub Int) : Int =\n  let d = load acq c\n  if d = 1 then\n    ret 0\n  else\n    tail spin(c)\nlive def setter(c : Ptr pub Int) : Unit =\n  let d = store rel c 1\n  ret ()\n"),
-  ("cert4.u", "scenario S = { setup = init(()) ; threads = [spin(())] ; depth = 60 ; live = 1 ; cert = 100 }\ndef init(u : Unit) : Ptr pub Int =\n  let z = zero[Int]\n  let o = new z\n  let c = publish o\n  ret c\nlive[S] def spin(c : Ptr pub Int) : Int =\n  let d = load acq c\n  if d = 1 then\n    ret 0\n  else\n    tail spin(c)\nlive def setter(c : Ptr pub Int) : Unit =\n  let d = store rel c 1\n  ret ()\n")]
+  ("kid.u", "scenario K = { setup = init(()) ; threads = [h(())] ; depth = 20 ; live = 0 }\ndef init(u : Unit) : Ptr pub Int =\n  let z = zero[Int]\n  let o = new[Int] z\n  let c = publish o\n  ret c\nlive[K] def h(x : Int) : Int =\n  ret x\n"),
+  ("cert1.u", "scenario S = { setup = init(()) ; threads = [spin(()), setter(())] ; depth = 60 ; live = 0 ; cert = 20000 }\nscenario U = { setup = init(()) ; threads = [spin(())] ; depth = 60 ; cert = 5 }\ndef init(u : Unit) : Ptr pub Int =\n  let z = zero[Int]\n  let o = new[Int] z\n  let c = publish o\n  ret c\nlive[S] def spin(c : Ptr pub Int) : Int =\n  let d = load acq c\n  if d = 1 then\n    ret 0\n  else\n    tail spin(c)\nlive def setter(c : Ptr pub Int) : Unit =\n  let d = store rel c 1\n  ret ()\n"),
+  ("cert2.u", "scenario S = { setup = init(()) ; threads = [spin(()), setter(())] ; depth = 60 ; cert = 3 }\ndef init(u : Unit) : Ptr pub Int =\n  let z = zero[Int]\n  let o = new[Int] z\n  let c = publish o\n  ret c\nlive[S] def spin(c : Ptr pub Int) : Int =\n  let d = load acq c\n  if d = 1 then\n    ret 0\n  else\n    tail spin(c)\nlive def setter(c : Ptr pub Int) : Unit =\n  let d = store rel c 1\n  ret ()\n"),
+  ("cert3.u", "scenario S = { setup = init(()) ; threads = [spin(()), setter(())] ; depth = 60 ; promises = 1 ; cert = 100 }\ndef init(u : Unit) : Ptr pub Int =\n  let z = zero[Int]\n  let o = new[Int] z\n  let c = publish o\n  ret c\nlive[S] def spin(c : Ptr pub Int) : Int =\n  let d = load acq c\n  if d = 1 then\n    ret 0\n  else\n    tail spin(c)\nlive def setter(c : Ptr pub Int) : Unit =\n  let d = store rel c 1\n  ret ()\n"),
+  ("cert4.u", "scenario S = { setup = init(()) ; threads = [spin(())] ; depth = 60 ; live = 1 ; cert = 100 }\ndef init(u : Unit) : Ptr pub Int =\n  let z = zero[Int]\n  let o = new[Int] z\n  let c = publish o\n  ret c\nlive[S] def spin(c : Ptr pub Int) : Int =\n  let d = load acq c\n  if d = 1 then\n    ret 0\n  else\n    tail spin(c)\nlive def setter(c : Ptr pub Int) : Unit =\n  let d = store rel c 1\n  ret ()\n")]
 
 def fsOf (fl : List (String × String)) : FS := fun f => match fl.find? (·.1 == f) with
   | some (_, s) => .ok s
@@ -290,5 +290,31 @@ def em0W : Result := run ["em0.w"] (fsOf [("em0.w", em0Out.stdout)])
 
 #guard probes ["-I", "lib", "a.u"] fs == ["a.u", "Q.i", "Q.u", "lib/Q.i", "lib/Q.u"]
 #guard probes ["--help"] fs == []
+
+/-! ## The library (`SceFront`) -/
+
+open SceFront in
+#guard (run ["-I", "lib", "a.u"] fs).stdout ==
+  SceText.header "a.u" ++ "\n" ++ showProg (elaborate "a.u" ["lib"] fs).prog ++ "\n"
+open SceFront in
+#guard ((elaborate "em0.u" [] fs).checked?.map (·.prog.length)) == some (USyntaxTest.preludeP ++ USyntaxTest.em0P).length
+open SceFront in
+#guard (elaborate "a.u" ["lib"] fs).ok && (elaborate "a.u" ["lib"] fs).units.map (·.file) == ["lib/Q.u", "a.u"]
+open SceFront in
+#guard !(elaborate "chk.u" [] fs).ok && (elaborate "chk.u" [] fs).checked?.isNone && codeOf (elaborate "chk.u" [] fs).diags == DiagClass.check
+open SceFront in
+#guard (elaborate "nofile.u" [] fs).diags.map (·.cls) == [DiagClass.io] && codeOf (elaborate "nofile.u" [] fs).diags == 4
+open SceFront in
+#guard let c := elaborate "a.u" ["i"] fs true; c.ok && c.checked?.isNone && c.isigs.length == 1
+open SceFront in
+#guard SceFront.probes "a.u" ["lib"] fs == SceRun.probes ["-I", "lib", "a.u"] fs
+open SceFront in
+#guard (Id.run (loadWith (m := Id) (fun f => pure (fs f)) "a.u" ["lib"])).map (·.1) == ["a.u", "Q.i", "Q.u", "lib/Q.i", "lib/Q.u"]
+open SceFront in
+#guard (elaborate "a.u" ["lib"] (cacheFS (Id.run (loadWith (m := Id) (fun f => pure (fs f)) "a.u" ["lib"])))).checked?.isSome
+open SceFront in
+#guard ((elaborate "a.u" ["lib"] fs).spanOf "inc" []).map (·.1) == some "lib/Q.u"
+open SceFront in
+#guard (elaborate "dup.u" ["lib"] fs).diags.any fun d => d.cls == DiagClass.imports && SDiag.isError d
 
 end SceTest

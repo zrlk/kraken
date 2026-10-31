@@ -236,7 +236,18 @@ theorem thB_call (hp : BlocksB g.p) (hT : ThB mem th) {x : String} {op : Op} {e 
 theorem thB_let (hT : ThB mem th) {x : String} {op : Op} {e : Expr} (hterm : th.term = .let_ x op e)
     (hc : Robust.isCallOp op = false) (hr : r ∈ tstep g mem pairs th) : ThB r.1 r.2.2 := by
   have hm := (TermFul.tstep_grow hr).1
-  rw [TermLocal.tstep_let_gen hterm hc] at hr
+  by_cases hn : ∃ a T, op = .new a T
+  · obtain ⟨a, T, rfl⟩ := hn
+    obtain ⟨s', t, ws, -, tys, rfl⟩ := TermRun.tstep_new_mem hterm hr
+    refine thB_of hm hT ?_ rfl
+    show FrB s'.mem e ((x, t, ws) :: th.env)
+    have hF := hT.1
+    rw [hterm] at hF
+    rcases hF with hF | hn
+    · obtain ⟨cx, cs, bufs, scope, hb, -, -⟩ := hF
+      simp [body2] at hb
+    · exact Or.inr hn.2
+  rw [TermLocal.tstep_let_gen hterm hc (fun a T h => hn ⟨a, T, h⟩)] at hr
   simp only [List.mem_map] at hr
   obtain ⟨⟨s', t, ws⟩, hev, rfl⟩ := hr
   refine thB_of hm hT ?_ rfl

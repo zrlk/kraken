@@ -39,13 +39,13 @@ theorem noBoxProm_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p]
     NoBoxPromF p k arch Sp Init MintOK c0 := by
   intro c c' Eg Tot HP HS cr db i th r S ρ η cx Rf Rs E' Tot' HP' HS' C F cr' db' δ X Y Z hS hPfr l B hfr hB t ht m hm
   have hAP := TermXFO.anchPost (hV0 := hV0) X Y.1 Z hS hPfr (hrun X S hS).1
-  obtain ⟨hF, hRE, hm', -⟩ := Z
-  have hg : gOf p k arch c' i = gOf p k arch c i := TermTyped.gOf_thread X.hc'
+  obtain ⟨hF, hRE, hm', -⟩ := id Z
+  have hg := TermTyped.gOf_thread X.hc'
   have hSC0 : StoClo (CE η) := by
     rw [Y.1]; exact fun l cl hl => X.inv.clo l cl (cutSto_sub hl)
   have hbo : (gOf p k arch c' i).boxFence = true := by rw [hg]; exact X.inv.bf
   have hst : stOf c'.mem c'.pairs r.2.2 = stOf r.1 r.2.1 r.2.2 := by rw [X.e1, X.e2]
-  have h0 := InvAtXF_ofA (p := p) (k := k) (arch := arch) (Ea := Cut Eg i S) X.e3 hRE.thInvE (by rw [hg, hst]; exact hm')
+  have h0 := InvAtXF_ofA (hTy := (TermNoHold.TCtxX.tyPost X Y.1 hF (TermMain.TOutC.newTy Z)).1) (hRc := (TermNoHold.TCtxX.tyPost X Y.1 hF (TermMain.TOutC.newTy Z)).2) (p := p) (k := k) (arch := arch) (Ea := Cut Eg i S) X.e3 hRE.thInvE (by rw [hg, hst]; exact hm')
     (StoClo_EFoot hF hSC0) hbo (by rw [hst]; exact hAP.1) (.inr hAP.2)
   have hloc := certified_promLoc (hPS := hPS) (hSub := hSub) (hSig := hSig) hP (fun c1 h1 h2 => ((hrun X S hS).2 c1 h1 h2).1) (by first | exact TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw | exact TermViewInv.viewInv_run hV0 X.run | exact TermViewInv.viewInv_thread (TermViewInv.viewInv_run hV0 X.run) X.hc') (fun c1 h1 h2 => ((hrun X S hS).2 c1 h1 h2).2)
     h0 (TermTyped.tidAt_mono hAP.2 (TermTyped.tidAt_thread X.hc' (TermMain.tidAt_cut X.inv i S))) X.cert (by rw [TermFul.promsOf_some X.e3]; exact ht) hm
@@ -147,7 +147,7 @@ theorem promNoTwoP_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p
   obtain ⟨-, hTE, hm, -⟩ := id hS_S
   have hpi := promise_inv (a := a) (v := v) (w := w) X.hth
   have hSC : StoClo (Cut Eg j S) := fun l cl hl => X.inv.clo l cl (cutSto_sub hl)
-  have h0 := InvAtXF_of (p := p) (k := k) (arch := arch) hpi.2.1 hTE
+  have h0 := InvAtXF_of (hTy := by rw [gOf_promise]; exact (X.inv.tyRec X.hth S).1) (hRc := by rw [gOf_promise]; exact (X.inv.tyRec X.hth S).2) (p := p) (k := k) (arch := arch) hpi.2.1 hTE
     (by rw [gOf_promise, hpi.2.2]; exact MemInv_promSt hm) hSC (by rw [gOf_promise]; exact X.inv.bf)
     (by rw [hpi.2.2]; exact TermTyped.riniCoh_promSt (X.inv.riniCoh _ _ _ X.hth))
     (fun l cl f hs hp => Nat.le_trans (X.inv.frlt l cl f (cutSto_sub hs) hp)
@@ -161,9 +161,9 @@ theorem promNoTwoP_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p
     · rw [cutSto_sub hcl'] at hcl; cases hcl; exact hcl'
     · have := (X.inv.fresh j th X.hth m hm').1
       rw [← hl, hcl] at this; cases this
-  obtain ⟨th0, E, hth0, hx, hTE0, hm0, hSC0, hbo0, hfb, hfr, -, -, -, hIH0⟩ := h0
+  obtain ⟨th0, E, hth0, hx, hTE0, hm0, hSC0, hbo0, hfb, hfr, -, -, -, hIH0, hTyP, hRcP⟩ := h0
   have hX : InvAtX p k arch j (Cut Eg j S) _ _ (promise c j a v w) :=
-    ⟨th0, E, hth0, hx, hTE0, hm0, hSC0, hbo0, hfb, hfr, fun _ _ _ h => h.elim, hIH0⟩
+    ⟨th0, E, hth0, hx, hTE0, hm0, hSC0, hbo0, hfb, hfr, fun _ _ _ h => h.elim, hIH0, hTyP, hRcP⟩
   have hsc := fun c1 h1 h2 => (hrun X S hS_S c1 h1 h2).1
   have hwin := fun c1 h1 h2 => (hrun X S hS_S c1 h1 h2).2
   obtain ⟨c1, c2, th1, th2, ρ, η, cx, E2, -, -, -, -, -, -, hx1, hE, hT, htv, hi, hmi, hscope, hpa, -, -, -, -, -,
@@ -254,13 +254,13 @@ theorem plant_facts (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] 
   obtain ⟨-, hTE, hm, -⟩ := id hS_S
   have hpi := promise_inv (a := a) (v := v) (w := w) X.hth
   have hSC : StoClo (Cut Eg j S) := fun l cl hl => X.inv.clo l cl (cutSto_sub hl)
-  obtain ⟨th0, E, hth0, hx, hTE0, hm0, hSC0, hbo0, hfb, hfr, -, -, -, hIH0⟩ := InvAtXF_of (p := p) (k := k) (arch := arch)
+  obtain ⟨th0, E, hth0, hx, hTE0, hm0, hSC0, hbo0, hfb, hfr, -, -, -, hIH0, hTyP, hRcP⟩ := InvAtXF_of (hTy := by rw [gOf_promise]; exact (X.inv.tyRec X.hth S).1) (hRc := by rw [gOf_promise]; exact (X.inv.tyRec X.hth S).2) (p := p) (k := k) (arch := arch)
     hpi.2.1 hTE (by rw [gOf_promise, hpi.2.2]; exact MemInv_promSt hm) hSC (by rw [gOf_promise]; exact X.inv.bf)
     (by rw [hpi.2.2]; exact TermTyped.riniCoh_promSt (X.inv.riniCoh _ _ _ X.hth))
     (fun l cl f hs hp => Nat.le_trans (X.inv.frlt l cl f (cutSto_sub hs) hp)
       (Nat.sub_le_sub_right (by rw [hpi.1]; show c.mem.size ≤ (c.mem.push _).size; rw [Array.size_push]; exact Nat.le_succ _) 1))
   have hX : InvAtX p k arch j (Cut Eg j S) _ _ (promise c j a v w) :=
-    ⟨th0, E, hth0, hx, hTE0, hm0, hSC0, hbo0, hfb, hfr, fun _ _ _ h => h.elim, hIH0⟩
+    ⟨th0, E, hth0, hx, hTE0, hm0, hSC0, hbo0, hfb, hfr, fun _ _ _ h => h.elim, hIH0, hTyP, hRcP⟩
   obtain ⟨t, ht, m, hmt, hl', ⟨ca, hca, hno, hrf⟩, a', g, hv, hal, cl, hcl, hown, hnone⟩ := hR
   have ht' : t ∈ TermFul.promsOf (promise c j a v w) j := by rw [TermFul.promsOf_some hpi.2.1]; exact ht
   have hmt' : (promise c j a v w).mem[t]? = some m := by rw [hpi.1]; exact hmt
@@ -461,7 +461,7 @@ def PubPromOKF (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → Cfg �
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ crS : Ts → Res},
     TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
-    TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) crS (db i) δ →
+    TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) crS (db i) δ →
     (∀ l, TermOwnG0Defs.PubAt th l → ∀ t, crS t = cr i t) →
     PfrG { gOf p k arch c i with pf := fun l => TermOwnG0Defs.PubAt th l } (CE η) E' →
     ThSysAt p (gOf p k arch c i) c.mem c.pairs th Eg (Tot i) (HP i) HS (cr i) (db i) S →
@@ -482,7 +482,7 @@ theorem promT_cases
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res}
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r) (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ)
+    (Z : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ)
     {k' : Nat} {thk : TTh} {t : Ts} {m : Msg} (hk : c'.ths[k']? = some thk) (ht : t ∈ thk.promises)
     (hm : c'.mem[t]? = some m) {cl : Cell}
     (hcl : (EgT Eg (gOf p k arch c i) th.nalloc r.2.2.nalloc E' c').sto m.loc.label = some cl)
@@ -561,7 +561,7 @@ theorem pubE_post_facts
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res}
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r) (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ) :
+    (Z : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ) :
     (∀ l cl, (PubE Eg).sto l = some cl → (PubE (EgT Eg (gOf p k arch c i) th.nalloc r.2.2.nalloc E' c')).sto l = some cl) ∧
     (∀ l, (PubE Eg).ini l ≤ (PubE (EgT Eg (gOf p k arch c i) th.nalloc r.2.2.nalloc E' c')).ini l) ∧
     (∀ l f, (PubE Eg).pfr l = some f → (PubE (EgT Eg (gOf p k arch c i) th.nalloc r.2.2.nalloc E' c')).pfr l = some f) ∧
@@ -793,7 +793,7 @@ def BufInitPubTR (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → Cfg
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res},
     TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
-    TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
+    TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
     PfrG { gOf p k arch c i with pf := fun l => TermOwnG0Defs.PubAt th l } (CE η) E' →
     ∀ c1 th1 c1' c3 th3 l cl f, TermOwnG0Defs.SoloNP p k arch i l c' c1 → c1.ths[i]? = some th1 →
       TermOwnG0Defs.PubAt th1 l → c1' ∈ threadSteps p k arch c1 i → Solo p k arch i c1' c3 →
@@ -950,7 +950,7 @@ theorem plantInh_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] 
   have hnS := noOwn_seg hseg h4
   have hrS := rgnFree_seg hseg h5
   have hpv := promViewLt_run h0 X.run
-  obtain ⟨ws, hv, hlen⟩ := TermIni.certified_hinhW1HP (hPS := hPS) (hSub := hSub) (hSig := hSig) (E0 := Cut Eg j S0)
+  obtain ⟨ws, hv, hlen⟩ := TermIni.certified_hinhW1HP (hTy0 := (X.inv.tyRec X.hth S0).1) (hRc0 := (X.inv.tyRec X.hth S0).2) (hPS := hPS) (hSub := hSub) (hSig := hSig) (E0 := Cut Eg j S0)
     (hrc0 := X.inv.riniCoh _ _ _ X.hth) (hfl0 := fun l cl f hs hp => X.inv.frlt l cl f (cutSto_sub hs) hp) (Lp := PlantL c Eg j th a v w)
     (Z := IniZK Eg Tot HP j) (hZp := hbr X S0) (hZr := hbp X) hP
     (fun c1 h1 h2 => (hrun X S0 hS_S0 c1 h1 h2).1) (by first | exact TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw | exact TermViewInv.viewInv_run hV0 X.run | exact TermViewInv.viewInv_thread (TermViewInv.viewInv_run hV0 X.run) X.hc') (fun c1 h1 h2 => (hrun X S0 hS_S0 c1 h1 h2).2) X.hth hTE hm hSC X.inv.bf
@@ -1460,7 +1460,7 @@ theorem promIniGen (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [
   obtain ⟨-, hTE, hm, -⟩ := id hS_S0
   have hpi := promise_inv (a := a) (v := v) (w := w) X.hth
   have hSC : StoClo (Cut Eg j S0) := fun l cl hl => X.inv.clo l cl (cutSto_sub hl)
-  have h0 := InvAtXFP_of (p := p) (k := k) (arch := arch) hpi.2.1 hTE
+  have h0 := InvAtXFP_of (hTy := by rw [gOf_promise]; exact (X.inv.tyRec X.hth S0).1) (hRc := by rw [gOf_promise]; exact (X.inv.tyRec X.hth S0).2) (p := p) (k := k) (arch := arch) hpi.2.1 hTE
     (by rw [gOf_promise, hpi.2.2]; exact MemInv_promSt hm) hSC (by rw [gOf_promise]; exact X.inv.bf)
     (by rw [hpi.2.2]; exact TermTyped.riniCoh_promSt (X.inv.riniCoh _ _ _ X.hth))
     (fun l cl f hs hp => Nat.le_trans (X.inv.frlt l cl f (cutSto_sub hs) hp)
@@ -1477,7 +1477,7 @@ theorem promIniGen (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [
   rw [hmt] at hm'
   cases hm'
   have hc1 : Certified p k arch c1 j := certified_back (.thread h2 (.refl _)) hc2
-  obtain ⟨th1', E1, hth1', hx1, ⟨ρ, η, cx, rfl, hE, hT, htv, hi, -⟩, hmi1, -, -, hfb1, -, -, -, hIL1, hIH1, hPV1, hPO1⟩ :=
+  obtain ⟨th1', E1, hth1', hx1, ⟨ρ, η, cx, rfl, hE, hT, htv, hi, -⟩, hmi1, -, -, hfb1, -, -, -, hIL1, hIH1, hPV1, hPO1, -, -⟩ :=
     solo_typedXFP (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hsc (by first | exact TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw | exact TermViewInv.viewInv_run hV0 X.run | exact TermViewInv.viewInv_thread (TermViewInv.viewInv_run hV0 X.run) X.hc') hwin h0 (TermMain.tidAt_cutP X.inv j S0) h1 hc1 (fun l => X.inv.rle l) (hbr X S0) (hbp X) (TermTyped.witP_run X.hth hm.2.2.1 (TermCert.winInv_prom (TermCert.winInv_refl X.hth)))
   rw [hth1] at hth1'
   cases hth1'
@@ -1561,20 +1561,20 @@ theorem promWordGen (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] 
   obtain ⟨-, hTE, hm, -⟩ := id hS_S0
   have hpi := promise_inv (a := a) (v := v) (w := w) X.hth
   have hSC : StoClo (Cut Eg j S0) := fun l cl hl => X.inv.clo l cl (cutSto_sub hl)
-  obtain ⟨th0, E, hth0, hx, hTE0, hm0, hSC0, hbo0, hfb, hfr, -, -, -, hIH0⟩ := InvAtXF_of (p := p) (k := k) (arch := arch)
+  obtain ⟨th0, E, hth0, hx, hTE0, hm0, hSC0, hbo0, hfb, hfr, -, -, -, hIH0, hTyP, hRcP⟩ := InvAtXF_of (hTy := by rw [gOf_promise]; exact (X.inv.tyRec X.hth S0).1) (hRc := by rw [gOf_promise]; exact (X.inv.tyRec X.hth S0).2) (p := p) (k := k) (arch := arch)
     hpi.2.1 hTE (by rw [gOf_promise, hpi.2.2]; exact MemInv_promSt hm) hSC (by rw [gOf_promise]; exact X.inv.bf)
     (by rw [hpi.2.2]; exact TermTyped.riniCoh_promSt (X.inv.riniCoh _ _ _ X.hth))
     (fun l cl f hs hp => Nat.le_trans (X.inv.frlt l cl f (cutSto_sub hs) hp)
       (Nat.sub_le_sub_right (by rw [hpi.1]; show c.mem.size ≤ (c.mem.push _).size; rw [Array.size_push]; exact Nat.le_succ _) 1))
   have hX : InvAtX p k arch j (Cut Eg j S0) _ _ (promise c j a v w) :=
-    ⟨th0, E, hth0, hx, hTE0, hm0, hSC0, hbo0, hfb, hfr, fun _ _ _ h => h.elim, hIH0⟩
+    ⟨th0, E, hth0, hx, hTE0, hm0, hSC0, hbo0, hfb, hfr, fun _ _ _ h => h.elim, hIH0, hTyP, hRcP⟩
   have ht : t ∈ TermFul.promsOf (promise c j a v w) j := by
     rw [TermFul.promsOf_some hpi.2.1]; exact htm
   have hmt : (promise c j a v w).mem[t]? = some m := by
     rw [hpi.1]; exact hmm
   have hsc := fun c1 h1 h2 => (hrun X S0 hS_S0 c1 h1 h2).1
   have hwin := fun c1 h1 h2 => (hrun X S0 hS_S0 c1 h1 h2).2
-  have hXH := TermIni.InvAtXHP_promOf (k := k) (arch := arch) (a0 := a) (vB := v) (w := w) X.hth hTE hm hSC X.inv.bf
+  have hXH := TermIni.InvAtXHP_promOf (hTy0 := (X.inv.tyRec X.hth S0).1) (hRc0 := (X.inv.tyRec X.hth S0).2) (k := k) (arch := arch) (a0 := a) (vB := v) (w := w) X.hth hTE hm hSC X.inv.bf
     (fun l => X.inv.rle l) (X.inv.riniCoh _ _ _ X.hth)
     (fun l cl f hs hp => X.inv.frlt l cl f (cutSto_sub hs) hp) (IniZK Eg Tot HP j) (TermTyped.WitP c.mem th.promises)
   obtain ⟨-, c2, th2, E2, h2, hc2, hth2, hx2, -, hm2, hw2, hfb2H, hB2, hIL2, hIH2, hPV2, hPO2⟩ :=
@@ -1775,7 +1775,7 @@ def RunAgreeT (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → Cfg �
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res},
     TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
-    TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
+    TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
     PfrG { gOf p k arch c i with pf := fun l => TermOwnG0Defs.PubAt th l } (CE η) E' →
     ∀ c1 th1 E1, Solo p k arch i c' c1 → Certified p k arch c1 i → c1.ths[i]? = some th1 → Ext E' E1 →
       MemInv (gOf p k arch c1 i) E1 (stOf c1.mem c1.pairs th1) → FrBound E' c'.mem.size r.2.2.vs.vWr E1 →
@@ -1791,7 +1791,7 @@ def BufInitIniT (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → Cfg 
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res},
     TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
-    TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
+    TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
     PfrG { gOf p k arch c i with pf := fun l => TermOwnG0Defs.PubAt th l } (CE η) E' →
     ∀ l f, Eg.pfr l = none → E'.pfr l = some f → ∀ t m, t ∈ r.2.2.promises → c'.mem[t]? = some m → m.loc.label = l →
     ∀ c1 th1 x bb i' v' e, Solo p k arch i c' c1 → Certified p k arch c1 i → c1.ths[i]? = some th1 →
@@ -1807,7 +1807,7 @@ def PubWordWF (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → Cfg �
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ crS : Ts → Res},
     TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
-    TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) crS (db i) δ →
+    TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) crS (db i) δ →
     (∀ l, TermOwnG0Defs.PubAt th l → ∀ t, crS t = cr i t) →
     PfrG { gOf p k arch c i with pf := fun l => TermOwnG0Defs.PubAt th l } (CE η) E' →
     ThSysAt p (gOf p k arch c i) c.mem c.pairs th Eg (Tot i) (HP i) HS (cr i) (db i) S →
@@ -1827,7 +1827,7 @@ def PubClosT (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → Cfg →
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res},
     TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
-    TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
+    TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
     ThSysAt p (gOf p k arch c i) c.mem c.pairs th Eg (Tot i) (HP i) HS (cr i) (db i) S →
     PfrG { gOf p k arch c i with pf := fun l => TermOwnG0Defs.PubAt th l } (CE η) E' →
     ∀ l f, Eg.pfr l = none → E'.pfr l = some f → ∀ t m, t ∈ r.2.2.promises → c'.mem[t]? = some m → m.loc.label = l →
@@ -1845,7 +1845,7 @@ theorem inclS_post
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res}
     (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ) :
+    (Z : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ) :
     InclS E' (PubE (EgT Eg (gOf p k arch c i) th.nalloc r.2.2.nalloc E' c')) := by
   have hF := Z.1
   have hCE : CE η = Cut Eg i S := Y.1
@@ -1872,7 +1872,7 @@ theorem post_own_of_nopfr
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res}
     (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ)
+    (Z : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ)
     {l : AllocLabel} {cl : Cell} (hc : E'.sto l = some cl) (hn : E'.pfr l = none) : cl.owner = some i := by
   have hF := Z.1
   have hCE : CE η = Cut Eg i S := Y.1
@@ -1926,7 +1926,7 @@ theorem pubCell_of {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {c
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ crS : Ts → Res}
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r) (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) crS (db i) δ)
+    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) crS (db i) δ)
     {l : AllocLabel} {f} (hn0 : Eg.pfr l = none) (hf : E'.pfr l = some f) {cl} (hcl : Eg.sto l = some cl) :
     ¬ FreshIn (gOf p k arch c i) th.nalloc r.2.2.nalloc l ∧ (CE η).sto l = some cl ∧ E'.sto l = some cl := by
   have hF := Z.1
@@ -1963,11 +1963,11 @@ theorem pubPromOK_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p]
   have hmE := Z.2.2.1
   have hAP := TermXFO.anchPost (hV0 := hV0) X Y.1 (Z.toC Rf Rs (HP i + HS) (cr i) (db i)) hS hPfrP (hrunT X S hS).1
   have hCE : CE η = Cut Eg i S := Y.1
-  have hg : gOf p k arch c' i = gOf p k arch c i := TermTyped.gOf_thread X.hc'
+  have hg := TermTyped.gOf_thread X.hc'
   have hSC0 : StoClo (CE η) := by
     rw [hCE]; exact fun l cl hl => X.inv.clo l cl (cutSto_sub hl)
   have hst : stOf c'.mem c'.pairs r.2.2 = stOf r.1 r.2.1 r.2.2 := by rw [X.e1, X.e2]
-  have h0X := TermXFO.InvAtXFO_ofA (p := p) (k := k) (arch := arch) (Ea := Cut Eg i S) X.e3 hRE.thInvE (by rw [hg, hst]; exact hmE)
+  have h0X := TermXFO.InvAtXFO_ofA (hTy := (TermNoHold.TCtxX.tyPost X hCE hF (TermMain.TOut.newTy Z)).1) (hRc := (TermNoHold.TCtxX.tyPost X hCE hF (TermMain.TOut.newTy Z)).2) (p := p) (k := k) (arch := arch) (Ea := Cut Eg i S) X.e3 hRE.thInvE (by rw [hg, hst]; exact hmE)
     (StoClo_EFoot hF hSC0) (by rw [hg]; exact X.inv.bf) (by rw [hst]; exact hAP.1) (.inr hAP.2) (IniZTK Eg Tot HP i th) (TermTyped.WitP c'.mem r.2.2.promises)
   have hrlE : ∀ l, E'.rini l ≤ E'.ini l := hF.2.2.2.2.2.2.2.2.2.2.1 (fun l => by rw [hCE]; exact X.inv.rle l)
   have hHrT := TermTyped.witP_run (p := p) (k := k) (arch := arch) X.e3
@@ -1990,7 +1990,7 @@ theorem pubPromOK_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p]
     rw [hm] at hm''
     cases hm''
     have hc1 : Certified p k arch c1 i := certified_back (.thread h2 (.refl _)) hc2
-    obtain ⟨th1', E1, hth1', hx1, ⟨ρ1, η1, cx1, rfl, hE1, hT1, htv1, hi1, -⟩, hmi1, -, -, hfb1, -, -, -, hIL1, hIH1, hPO1⟩ :=
+    obtain ⟨th1', E1, hth1', hx1, ⟨ρ1, η1, cx1, rfl, hE1, hT1, htv1, hi1, -⟩, hmi1, -, -, hfb1, -, -, -, hIL1, hIH1, hPO1, -, -⟩ :=
       TermXFO.solo_typedXFO (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hsc (by first | exact TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw | exact TermViewInv.viewInv_run hV0 X.run | exact TermViewInv.viewInv_thread (TermViewInv.viewInv_run hV0 X.run) X.hc') hwin h0X (TermTyped.tidAt_mono hAP.2 (TermTyped.tidAt_thread X.hc' (TermMain.tidAt_cut X.inv i S))) h1 hc1 hrlE (hbtr X Y Z hPfrP)
         (hbp X) hHrT
     rw [hth1] at hth1'

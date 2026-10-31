@@ -169,6 +169,16 @@ theorem tstep_newCoh {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {r : Me
     | (simp only [List.mem_flatMap, List.mem_map] at h
        obtain ⟨x, hx, y, hy, rfl⟩ := h
        exact .inl ((newIn_projInj (X := fun _ => False) hpl hx hy t m ht hm).resolve_right id))
+    | (simp only [List.mem_map] at h  -- new arm: record write
+       obtain ⟨x, hx, rfl⟩ := h
+       try dsimp only
+       split
+       all_goals
+         first
+           | exact evalOp_newCoh hpl hx t m ht hm
+           | exact .inr (stepRmw_newCoh hx t m ht hm)
+           | (obtain ⟨mem', pairs', th'⟩ := x
+              exact .inr (stepRmwPair_newCoh hx t m ht hm)))
 
 /-! ## §4 `NewCohF` -/
 

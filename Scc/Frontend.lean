@@ -320,7 +320,7 @@ def tyBad : Ty → Option String
 
 /-- `none` if operation `op` is in the fragment, else the offending construct. -/
 def opBad : Op → Option String
-  | .atom _ | .pair _ _ | .add _ _ | .sub _ _ | .new _ | .publish _ | .idx _ _ | .fld _ _
+  | .atom _ | .pair _ _ | .add _ _ | .sub _ _ | .new _ _ | .publish _ | .idx _ _ | .fld _ _
   | .fence _ | .xchg _ _ | .nameI _ | .xchgAt _ _ _ | .loadAt _ _ | .bit1 _ _
   | .cvt _ _ _ | .toInt _ | .asLanes _ _ _ | .fop _ _ _ | .fcmp _ _ _ | .fop1 _ _
   | .lane _ _ | .setLane _ _ _ | .bufInit _ _ _ => none
@@ -365,10 +365,11 @@ def opBad : Op → Option String
   -- overflow, never `ldaddal`/`lock xadd`: those publish the wrapped value
   -- before the check could abort.
   | .fetch .. => some "a fetch-op (`fetch`)"
+  | .isTy _ _ => some "a type test (`isTy`)"
 
 /-- The atoms an operation of the fragment reads. -/
 def opAts : Op → List At
-  | .atom a | .new a | .publish a | .nameI a | .toInt a | .cvt _ _ a | .asLanes _ _ a
+  | .atom a | .new a _ | .publish a | .nameI a | .toInt a | .cvt _ _ a | .asLanes _ _ a
   | .fop1 _ a | .bit1 _ a | .pack a _ _ | .packT a _ _ | .call _ _ a _ | .spawn _ a _ _
   | .newBuf a _ | .fld _ a | .load _ a => [a]
   | .pair a b | .add a b | .sub a b | .idx a b | .xchg a b | .loadAt a b | .fop _ a b
@@ -538,7 +539,7 @@ def acceptDiags (src : String) (p : Prog) : List Diag :=
     -- A restricted declaration's fuel and stack budgets are not checked or
     -- lowered by scc yet; refuse it here rather than rely on WeakCore's checker.
     let rst := match d.kind with
-      | .restricted _ _ =>
+      | .restricted _ _ _ _ =>
           [diagAt src d.name [] s!"a restricted declaration is not in the accepted fragment (block '{d.name}')"]
       | _ => []
     -- An extern's body is replaced by the runtime; it is not compiled.

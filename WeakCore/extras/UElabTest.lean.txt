@@ -242,7 +242,7 @@ def h(m : Ptr pub (Int * Int)) : Int =
 def k(x : Int) : Int =
   if x = 0 then ret 0
   else
-    let c = new x
+    let c = new[Int] x
     let d = load acq (publish c)
     let e = load acq (fld 0 c)
     ret d"

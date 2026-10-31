@@ -29,7 +29,7 @@ theorem spawnPar_shape (c : Cfg) (i : Nat) (th : TTh) (x : String) (e : Expr) :
 /-- `spawnKid` has the `KidShape` (with the bound type `t := T`, the op's checked type). -/
 theorem spawnKid_shape (c : Cfg) (i : Nat) (th : TTh) (x : String) (e : Expr) (f : String) (ts : List Ty)
     (T : Ty) (ws : List Word) : KidShape (spawnPar c i th x e) (spawnKid c i th f ts T ws) f ts T ws :=
-  ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
+  ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
 
 end TermSpawnMidZ
 

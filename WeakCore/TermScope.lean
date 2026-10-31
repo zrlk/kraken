@@ -238,7 +238,7 @@ def opAts : Op → List At
   | .inr _ a => [a]
   | .add a b => [a, b]
   | .sub a b => [a, b]
-  | .new a => [a]
+  | .new a _ => [a]
   | .null _ _ => []
   | .fold a _ => [a]
   | .publish a => [a]
@@ -293,6 +293,7 @@ def opAts : Op → List At
   | .mkTicket _ _ _ v tok => [v, tok]
   | .claim a tok => [a, tok]
   | .fetch _ _ _ a v => [a, v]
+  | .isTy a _ => [a]
 
 /-- (`ProgScopeOK`, per operation) not `validate` or `intoRgn`, and (D5) not a
 ticket-lock operation (`mkTicket`, `claim`); every annotation `drf`, including
@@ -489,6 +490,12 @@ theorem evalOp_drf {g : G} {env : Env} {σs : List Ty} {s : St} {op : Op}
   cases op <;> simp only [opAts, List.mem_cons, List.mem_nil_iff, or_false, forall_eq_or_imp, forall_eq,
     List.cons_append, List.nil_append] at hA <;> simp only [opOK, opTys, List.all_cons, List.all_nil,
     Bool.and_true, Bool.and_eq_true] at hok
+  case isTy =>
+    intro r hr
+    simp only [evalOp, ol, Option.mem_toList, Option.bind_eq_bind, Option.bind_eq_some_iff] at hr
+    obtain ⟨_, -, _, -, hr⟩ := hr
+    repeat' split at hr
+    all_goals (simp only [pure, Option.some.injEq] at hr; subst hr; simp [drf, drfM, hc hok])
   case add => olcase
   case sub => olcase
   case publish => olcase
@@ -669,8 +676,24 @@ theorem tstep_drf {g : G} {mem : WeakMem.Memory} {pairs : List WeakMem.Ts} {th :
         · simp at hr
       · simp at hr
     · simp at hr
+  · -- new: as below, and the result also records the cell's type
+    rename_i _ x a T e heq
+    rw [heq] at hok henv
+    simp only [allOK, Bool.and_eq_true] at hok
+    simp only [List.mem_map] at hr
+    obtain ⟨⟨s', t, ws⟩, hm, rfl⟩ := hr
+    have ht : drf t = true := evalOp_drf hok.1 hσ
+      (fun a ha t ws hev => evalAt_drf (fun y hy => henv y (free_let_op ha hy)) hev)
+      (fun d hd => let h := ProgScopeOK.decl hp hd; ⟨h.1, h.2.1⟩) _ hm
+    have H : ThScope (withS { th with term := e, env := (x, t, ws) :: th.env } s') :=
+      ThScope_withS (th := { th with term := e, env := (x, t, ws) :: th.env }) _ ⟨hok.2, hσ, envDRF_cons (fun _ => ht)
+        (fun y hy hne => henv y (free_let_body hy hne)), hstk⟩
+    dsimp only
+    split
+    · exact ⟨H.ok, H.σs, H.env, H.stk⟩
+    · exact H
   · -- every other let
-    rename_i _ x op e _ _ heq
+    rename_i _ x op e _ _ _ heq
     rw [heq] at hok henv
     simp only [allOK, Bool.and_eq_true] at hok
     simp only [List.mem_map] at hr
@@ -1077,7 +1100,7 @@ theorem scope_termV {p : Prog} {cx : Cx} {t : Expr} {ρ : Nat → Nat} {η : TEn
     case call f is a ts =>
       simp only [opOK, opTys] at hok
       exact .inl (fun σ hσ => ⟨rgnFree_of_drf σ (List.all_eq_true.1 hok.1 σ hσ), noIallV_of_drf σ (List.all_eq_true.1 hok.1 σ hσ)⟩)
-    case new a =>
+    case new a _ =>
       exact .inl (fun ty c₁ hu => noIallV_of_drf ty
         (hat' a (by simp [opAts]) ty (use_inv (ρ := ρ) (η := η) (σs := σs) (env := env) hu).1))
     case newBuf n τ =>

@@ -303,6 +303,10 @@ theorem tstep_fulT {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {r : Memo
     | (simp only [List.mem_flatMap, List.mem_map] at h
        obtain ⟨x, hx, y, hy, rfl⟩ := h
        exact fulT_of_keep hlt ((keepR_eq (projM_keep hx).1 (projM_keep hx).2.2).trans (injM_keep hy)))
+    | (simp only [List.mem_map] at h
+       obtain ⟨x, hx, rfl⟩ := h
+       dsimp only
+       split <;> exact fulT_mono (evalOp_fulT hlt hx) (fun l v t hw => Or.inl ⟨_, _, _, ‹_›, hw⟩))
 
 /-! ## The data word comes from the environment -/
 

@@ -146,7 +146,7 @@ theorem cohC_tstep {g : G} {mem mem' : WeakMem.Memory} {pairs pairs' : List Ts} 
     simp [evalOp, ol, stOf, hcl, zeroWords] at h
     obtain ⟨rfl, rfl, rfl⟩ := h
     exact ⟨hc, fun h => by simp [withS, mZ, mO, mC, spawnTerm, WakePreA.spawnTerm] at h⟩
-  · rw [TermLocal.tstep_let_gen (ht.trans rfl : th.term = .let_ "o" (.new (.var "z")) mO) rfl] at h
+  · obtain ⟨_, _, _, h, tys, hr⟩ := tstep_new_mem (ht.trans rfl : th.term = .let_ "o" (.new (.var "z") (some .int)) mO) h
     have hzt := hz ht
     cases hzl : lookupE th.env "z" with
     | none => simp [hzl] at hzt
@@ -158,6 +158,8 @@ theorem cohC_tstep {g : G} {mem mem' : WeakMem.Memory} {pairs pairs' : List Ts} 
       obtain ⟨⟨s', pw⟩, ha, he'⟩ := h
       simp only [Prod.mk.injEq] at he'
       obtain ⟨rfl, rfl, rfl⟩ := he'
+      simp only [Prod.mk.injEq] at hr
+      obtain ⟨rfl, rfl, rfl⟩ := hr
       exact ⟨cohM_alloc (s := stOf mem pairs th) hc ha, fun h => by simp [withS, mO, mC, spawnTerm, WakePreA.spawnTerm] at h⟩
   · rw [TermLocal.tstep_let_gen (ht.trans rfl : th.term = .let_ "c" (.publish (.var "o")) mC) rfl] at h
     obtain ⟨⟨s', t, ws⟩, hr, rfl, rfl, rfl⟩ := List.mem_map.mp h

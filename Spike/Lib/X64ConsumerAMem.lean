@@ -47,19 +47,19 @@ theorem _root_.Spike.Lib.AllocInvAt.arenaOK
 with `o` neither a buffer nor a box allocation. -/
 theorem _root_.Spike.Lib.AllocInvAt.idle_of_term
     (h : AllocInvAt Λ lbl lsize th tm ar.heap ar.cells ar.ctr ar.units ar.off hu c)
-    (ht : ∃ x o e, c.term = .let_ x o e ∧ (∀ a τ, o ≠ .newBuf a τ) ∧ ∀ a, o ≠ .new a) :
+    (ht : ∃ x o e, c.term = .let_ x o e ∧ (∀ a τ, o ≠ .newBuf a τ) ∧ ∀ a T, o ≠ .new a T) :
     ∀ w, c.hold ≠ some (ar.ctr, w) := by
   obtain ⟨x0, o, e0, ht, hb, hn⟩ := ht
-  rcases h with ⟨-, -, ⟨x, n, τ, e, ⟨a, -, -, hc, -⟩ | ⟨-, a, -, hc, -⟩, -⟩, -⟩ | ⟨hn', -⟩
+  rcases h with ⟨-, -, ⟨x, n, τ, e, ⟨a, -, -, hc, -⟩ | ⟨-, a, -, ⟨_, hc⟩, -⟩, -⟩, -⟩ | ⟨hn', -⟩
   · rw [ht] at hc; simp only [Expr.let_.injEq] at hc; exact absurd hc.2.1 (hb a τ)
-  · rw [ht] at hc; simp only [Expr.let_.injEq] at hc; exact absurd hc.2.1 (hn a)
+  · rw [ht] at hc; simp only [Expr.let_.injEq] at hc; exact absurd hc.2.1 (hn a _)
   · exact hn'
 
 /-- **A control at `let x = o in e`, `o` neither a buffer nor a box
 allocation**, as `AllocInvAt.idle_of_term` takes it. -/
 theorem notAlloc_let {c : Ctl} {x : String} {o : Op} {e : Expr} (ht : c.term = .let_ x o e)
-    (hb : ∀ a τ, o ≠ .newBuf a τ) (hn : ∀ a, o ≠ .new a) :
-    ∃ x o e, c.term = .let_ x o e ∧ (∀ a τ, o ≠ .newBuf a τ) ∧ ∀ a, o ≠ .new a :=
+    (hb : ∀ a τ, o ≠ .newBuf a τ) (hn : ∀ a T, o ≠ .new a T) :
+    ∃ x o e, c.term = .let_ x o e ∧ (∀ a τ, o ≠ .newBuf a τ) ∧ ∀ a T, o ≠ .new a T :=
   ⟨x, o, e, ht, hb, hn⟩
 
 /-- **Idle, the control may change** to another holding no counter word. -/

@@ -228,7 +228,7 @@ def layoutStmt (ind : Nat) (cx : Ctx) : GM Ctx := do
     let s ← fresh "s"
     let p ← fresh "p"
     emit ind s!"let {z} = zero[Int]"
-    emit ind s!"let {c} = new {z}"
+    emit ind s!"let {c} = new[Int] {z}"
     emit ind s!"let {s} = store {c} {(← operand cx).n}"
     emit ind s!"let {p} = publish {c}"
     return { cx with pubs := cx.pubs.push p }
@@ -241,7 +241,7 @@ def layoutStmt (ind : Nat) (cx : Ctx) : GM Ctx := do
     let l0 ← fresh "l"
     let l1 ← fresh "l"
     emit ind s!"let {q} = ({a}, {← pick cx.pubs})"
-    emit ind s!"let {c} = new {q}"
+    emit ind s!"let {c} = new[Int * Ptr pub Int] {q}"
     emit ind s!"let {cp} = publish {c}"
     emit ind s!"let {l0} = fld 0 {cp}"
     emit ind s!"let {l1} = fld 1 {cp}"
@@ -406,7 +406,7 @@ def stmt (ind : Nat) (cx : Ctx) : GM Ctx := do
       let s ← fresh "s"
       let a ← operand cx
       emit ind s!"let {z} = zero[Int]"
-      emit ind s!"let {c} = new {z}"
+      emit ind s!"let {c} = new[Int] {z}"
       emit ind s!"let {s} = store {c} {a.n}"
       return { cx with cells := cx.cells.push c }
     let c ← pick cx.cells
@@ -784,10 +784,11 @@ namespace Scc.Test.Gen
   | .ok c => (RefEval.runProg c.prog .arm 5_000_000 matches .work _)
   | .error _ => false
 
--- `narrow` leaves the default stream byte-identical: the hash of programs
--- 0 … 39 of streams 11 and 70, as before `narrow` existed.
-#guard (List.range 40).foldl (fun h k => mixHash h (program 11 k).hash) 7 = 448067727662517775
-#guard (List.range 40).foldl (fun h k => mixHash h (program 70 k).hash) 7 = 13625200795582986081
+-- `narrow` leaves the default stream byte-identical: the hash of programs 0 … 39 of
+-- streams 11 and 70 is unchanged by `narrow` (recomputed when `new` gained its annotation
+-- `new[T]`; the generated text changed only at the `new` sites).
+#guard (List.range 40).foldl (fun h k => mixHash h (program 11 k).hash) 7 = 6394303551488950034
+#guard (List.range 40).foldl (fun h k => mixHash h (program 70 k).hash) 7 = 6306922964319311876
 
 -- Narrow programs pass the frontend and have no function of more than six argument words.
 #guard (List.range 20).all fun k =>

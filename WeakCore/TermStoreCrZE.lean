@@ -3,7 +3,12 @@ import WeakCore.TermViewInvH
 import WeakCore.TermUndefInv
 
 /-!
-# TermStoreCrZE: the epoch half of the `ObligationsF` field `storeCrZH`
+# TermStoreCrZE: the epoch half of the former `ObligationsF` field `storeCrZH` (historical)
+
+**Status.**  That `ObligationsF` field is gone: `StoreCrZ` is now `StoreNI ∧
+StoreLeafPayAll` (TermStep), and `toObligationsCX` (TermMain) fills `Obligations.storeCrZH` from
+`TermStoreNI.storeNI_of` and `TermPiece.storeLeafPay_of`.  The reduction below targets the old
+strong form `StoreCrZ0`; nothing outside this module uses it.
 
 **What is proved.**  The field `storeCrZH` (TermMain) asks, at every thread step from a
 reachable configuration (`TCtx`, `EnvAt`), for `StoreCrZ0`: every own outstanding promise `t`
@@ -26,16 +31,16 @@ reduces the field to its **non-epoch half** `NonEpochFree`:
 exact type under `NonEpochFree` in field form, so that the field becomes textually
 "`NonEpochFree` as a field".
 
-**What remains.**  `NonEpochFree`: at a non-epoch non-ghost word unit the store writes, no own
-outstanding promise carries a region token (`VRes = 0`).  It is the consumer of the pin project
-(with the review1 MAJOR 1 correction: the count needs per-cut
-additivity of the holder backing, not the global-sum cover).
+**What remained (earlier).**  `NonEpochFree`: at a non-epoch non-ghost word unit the store
+writes, no own outstanding promise carries a region token (`VRes = 0`).  The current proof of
+`StoreCrZ` pays the fulfilled promises' debits from the stored value instead, so
+`NonEpochFree` is no longer needed by any field.
 
-**Stage A note.**  Everything here is read off the pre-state: `TCtx.inv` (`SysInvN` at `c`:
+**Note.**  Everything here is read off the pre-state: `TCtx.inv` (`SysInvN` at `c`:
 `thr` for `MemInv` at the stepper's cut, `promTy`, `undefAt`), `TCtx.run`/`TCtx.hth` (for
 `EnvVR`), and `EnvAt` (the cut identity `CE η = Cut Eg i S`).  No `MemInv` after a publish is
-used (a known cycle).  The three extra premises beyond the
-field's own are existing fields / initial facts: `ObligationsF.progScope`,
+used (`MemInv` across a publish step needs `PubWin` at the publish).
+The three extra premises beyond the field's own are existing fields / initial facts: `ObligationsF.progScope`,
 `ObligationsF.runDRF0`, and `TermViewInv.ViewInv c0` (a component of `InitOK`, `hI.1`, exactly
 as `toObligations` extracts it).
 -/
@@ -49,7 +54,7 @@ open WeakMem (Val Msg Memory Address VState Ts Arch AllocLabel)
 
 /-! ## §1 The residual: the non-epoch half -/
 
-/-- **The non-epoch half of `StoreCrZ0`** (what the pin project discharges): for the same
+/-- **The non-epoch half of `StoreCrZ0`**: for the same
 store, units and own promises as `StoreCrZ0`'s premise, at a unit that is a non-ghost
 non-epoch protocol word (`WordAt` with `P.epoch = false`), the promise carries nothing
 (`StoreCrZ0`'s first disjunct).  By `WordAt_uniq` this is exactly `StoreCrZ0` restricted to

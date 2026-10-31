@@ -28,7 +28,7 @@ def dcl (name : String) (argTy retTy : Ty) (body : Expr) (idx : List String := [
 
 /-- Fill a two-slot buffer, in order, and publish it. -/
 def fill2 : Decl := dcl "fill2" .int (B .pub E 2 2)
-  (lets [("p", .new (v "a")), ("q", .publish (v "p")), ("b", .newBuf (.lit 2) E),
+  (lets [("p", .new (v "a") (some .int)), ("q", .publish (v "p")), ("b", .newBuf (.lit 2) E),
          ("b1", .bufInit (v "b") (.lit 0) (v "q")), ("b2", .bufInit (v "b1") (.lit 1) (v "q")),
          ("bp", .publish (v "b2"))] (.ret (v "bp")))
 #guard accepts (checkDecl [] fill2)
@@ -42,7 +42,7 @@ def getAt (i : Nat) (ty : Ty := B .pub E 2 2) : Decl := dcl "get" ty .int
 
 -- `bufInit` writes the next slot, and only while there is room.
 #guard rejects (checkDecl [] { fill2 with
-    body := lets [("p", .new (v "a")), ("q", .publish (v "p")), ("b", .newBuf (.lit 2) E),
+    body := lets [("p", .new (v "a") (some .int)), ("q", .publish (v "p")), ("b", .newBuf (.lit 2) E),
                   ("b1", .bufInit (v "b") (.lit 1) (v "q"))] (.ret .unit), retTy := .unit })
   "not the next uninitialised one"
 #guard rejects (checkDecl [] (dcl "full" (.prod (B .own E 1 1) E) .unit
@@ -79,7 +79,7 @@ def cellT : Ty := .ptr .pub (B .pub E 1 1)
 `Ptr own Int` rather than one to a singleton). -/
 def wrBody (rel : Bool) (pub : Bool := true) : Expr :=
   .split (v "a") "c" "x"
-    (lets ([("p", .new (v "x")), ("q", .publish (v "p")), ("b", .newBuf (.lit 1) E),
+    (lets ([("p", .new (v "x") (some .int)), ("q", .publish (v "p")), ("b", .newBuf (.lit 1) E),
             ("b1", .bufInit (v "b") (.lit 0) (v "q"))] ++
            (if pub then [("bp", .publish (v "b1"))] else [("bp", .atom (v "b1"))]) ++
            [("u", .store rel (v "c") (v "bp") none)]) (.ret .unit))
@@ -90,9 +90,9 @@ def rdBody (acq : Bool) : Expr :=
     (.ret (v "y"))
 
 def mkC : Decl := dcl "mkC" .int cellT
-  (lets [("p", .new (v "a")), ("q", .publish (v "p")), ("b", .newBuf (.lit 1) E),
+  (lets [("p", .new (v "a") (some .int)), ("q", .publish (v "p")), ("b", .newBuf (.lit 1) E),
          ("b1", .bufInit (v "b") (.lit 0) (v "q")), ("bp", .publish (v "b1")),
-         ("c", .new (v "bp")), ("cp", .publish (v "c"))] (.ret (v "cp")))
+         ("c", .new (v "bp") (some (.refine (.loc .pub (.array (.lit 1) (.ptr .pub .int))) (.ini (.add (.lit 0) (.lit 1)))))), ("cp", .publish (v "c"))] (.ret (v "cp")))
 def wr (rel : Bool) (pub : Bool := true) : Decl := dcl "wr" (.prod cellT .int) .unit (wrBody rel pub)
 def rd (acq : Bool) : Decl := dcl "rd" cellT E (rdBody acq)
 
@@ -149,7 +149,7 @@ def cellZ : Ty := .ptr .pub (B .pub .int 1 1)
 #guard !(Ty.sensitiveIn [] (B .pub .int 1 1))
 
 def mkZ : Decl := dcl "mkC" .unit cellZ
-  (lets [("b", .newBuf (.lit 1) .int), ("bp", .publish (v "b")), ("c", .new (v "bp")),
+  (lets [("b", .newBuf (.lit 1) .int), ("bp", .publish (v "b")), ("c", .new (v "bp") (some (.refine (.loc .pub (.array (.lit 1) .int)) (.ini (.lit 1))))),
          ("cp", .publish (v "c"))] (.ret (v "cp")))
 def wrZ : Decl := dcl "wr" cellZ .unit
   (lets [("b", .newBuf (.lit 1) .int), ("bp", .publish (v "b")), ("l", .idx (v "bp") (.lit 0)),
@@ -210,7 +210,7 @@ word: the `fld` and `loadAtF` ones returned 7 at type `IntS 9`. -/
 def P2 (a : Ty) : Ty := .prod a (.intS (.lit 9))
 -- A cell `(7, 9)` packed as `∃α. Ptr own (α × IntS 9)`.
 def opqCell (k : Expr) : Expr :=
-  lets [("p", .pair (.lit 7) (.lit 9)), ("r", .new (v "p")),
+  lets [("p", .pair (.lit 7) (.lit 9)), ("r", .new (v "p") (some (.prod (.intS (.lit 7)) (.intS (.lit 9))))),
         ("k", .packT (v "r") (.intS (.lit 7)) (.tex {} (.ptr .own (P2 (.tvar 0)))))]
     (.unpackT (v "k") "α" "y" k)
 #guard rejects (checkDecl [] (dcl "of" .unit (.intS (.lit 9))

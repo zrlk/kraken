@@ -1,0 +1,10 @@
+CoreTerm.idxArgOf : List (String × String) → List String → Nat → Option (Nat × String)
+  eq_def ∀ (nam : List (String × String)) (x : List String) (x_1 : Nat),
+  CoreTerm.idxArgOf nam x x_1 =
+    match x, x_1 with
+    | [], x => none
+    | m :: ms, j =>
+      match Option.map (fun x => x.snd) (List.find? (fun x => x.fst == m) nam), CoreTerm.idxArgOf nam ms (j + 1) with
+      | some k', none => some (j, k')
+      | none, r => r
+      | some val, some val_1 => none

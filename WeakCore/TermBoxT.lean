@@ -95,9 +95,9 @@ theorem freshLP_boxE {g : G} {s s' : St} (h : FreshLP g E s) (hna : s.nalloc ≤
     FreshLP g (boxE E l) s' := by
   obtain ⟨h1, h2⟩ := h
   refine ⟨fun j hj => ?_, ?_⟩
-  · obtain ⟨a1, a2, a3, a4⟩ := h1 j (Nat.le_trans hna hj)
+  · obtain ⟨a1, a2, a3, a3r, a4⟩ := h1 j (Nat.le_trans hna hj)
     have ne := hnf j hj
-    refine ⟨by rw [boxE_sto_ne ne]; exact a1, fun t m hm hl => ?_, a3, by rw [boxE_pfr_ne ne]; exact a4⟩
+    refine ⟨by rw [boxE_sto_ne ne]; exact a1, fun t m hm hl => ?_, a3, a3r, by rw [boxE_pfr_ne ne]; exact a4⟩
     rw [e1] at hm; rw [e2]; exact a2 t m hm hl
   · intro t m ht hmt hu
     rw [e1] at hmt; rw [e2] at ht; rw [e3]

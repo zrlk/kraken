@@ -27,7 +27,7 @@ theorem newStM_nd {n : ND} {t b : XReg} {i : Int64} (Eb : WeakMem.AllocLabel →
     (hedge : ∀ m σ c, Abs R n.o m σ → F m → n.J σ c →
       ms.newOk ∧ ms.mp ⟨rAddr σ.regs b i, 8⟩ true ∧ Mem.loadInt m.dmem (rAddr σ.regs b i) 8 = none ∧
       ∃ (x : String) (a : CoreTerm.At) (ty : Ty) (e : Expr) (w wold : TermRun.Word) (old : Nat),
-        c.term = .let_ x (.new a) e ∧ TermRun.evalAt c.env a = some (ty, [w]) ∧
+        (∃ T, c.term = .let_ x (.new a T) e) ∧ TermRun.evalAt c.env a = some (ty, [w]) ∧
         TermRun.accs ty = some [.one] ∧
         Scc.Sem.ValRep lbl w.val (σ.regs.getRegOrZr (.low (.reg t) .W64)).toNat ∧
         c.hold = some (ms.ctr, wold) ∧ TermRun.numOf [wold] = some old ∧

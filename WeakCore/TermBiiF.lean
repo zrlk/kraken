@@ -75,7 +75,7 @@ theorem promIniGenB (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] 
   obtain ⟨-, hTE, hm, -⟩ := id hS0
   have hpi := promise_inv (a := a) (v := v) (w := w) X.hth
   have hSC : StoClo (Cut Eg j S0) := fun l cl hl => X.inv.clo l cl (cutSto_sub hl)
-  have h0 := InvAtXFP_of (p := p) (k := k) (arch := arch) hpi.2.1 hTE
+  have h0 := InvAtXFP_of (hTy := by rw [gOf_promise]; exact (X.inv.tyRec X.hth S0).1) (hRc := by rw [gOf_promise]; exact (X.inv.tyRec X.hth S0).2) (p := p) (k := k) (arch := arch) hpi.2.1 hTE
     (by rw [gOf_promise, hpi.2.2]; exact MemInv_promSt hm) hSC (by rw [gOf_promise]; exact X.inv.bf)
     (by rw [hpi.2.2]; exact TermTyped.riniCoh_promSt (X.inv.riniCoh _ _ _ X.hth))
     (fun l cl f hs hp => Nat.le_trans (X.inv.frlt l cl f (cutSto_sub hs) hp)
@@ -96,7 +96,7 @@ theorem promIniGenB (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] 
       ∀ l o τ, (c1.mem.size ≤ τ ∨ (τ ∈ th1.promises ∧ ∃ m, c1.mem[τ]? = some m ∧ m.loc = ⟨l, o⟩)) →
         TermTyped.WitP c.mem th.promises l o τ :=
     TermTyped.witP_run X.hth hm.2.2.1 (TermCert.winInv_prom (TermCert.winInv_refl X.hth))
-  obtain ⟨th1', E1, hth1', hx1, hTE1, hmi1, hSC1, hbo1, hfb1, hfr1, hna1, hfresh1, hIL1, hIH1, hPV1, hPO1⟩ :=
+  obtain ⟨th1', E1, hth1', hx1, hTE1, hmi1, hSC1, hbo1, hfb1, hfr1, hna1, hfresh1, hIL1, hIH1, hPV1, hPO1, -, -⟩ :=
     solo_typedXFP (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hsc (by first | exact TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw | exact TermViewInv.viewInv_run hV0 X.run | exact TermViewInv.viewInv_thread (TermViewInv.viewInv_run hV0 X.run) X.hc') hwin h0 (TermMain.tidAt_cutP X.inv j S0) h1 hc1 (fun l => X.inv.rle l) (hbr X S0) (hbp X) hHr
   rw [hth1] at hth1'
   cases hth1'

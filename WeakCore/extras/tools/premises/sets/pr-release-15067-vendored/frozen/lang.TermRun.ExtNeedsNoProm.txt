@@ -1,9 +1,12 @@
 CoreTerm.ExtName : Type
 CoreTerm.ExtName.current : CoreTerm.ExtName
+CoreTerm.ExtName.emit : CoreTerm.ExtName
 CoreTerm.ExtName.exitEv : CoreTerm.ExtName
 CoreTerm.ExtName.isChoice : CoreTerm.ExtName → Bool
 TermRun.ExtNeedsNoProm : CoreTerm.ExtName → TermRun.TTh → Prop
-  := fun n th => n = CoreTerm.ExtName.exitEv ∨ n = CoreTerm.ExtName.current ∧ th.tidLbl = none ∨ n.isChoice = true
+  := fun n th =>
+  n = CoreTerm.ExtName.exitEv ∨
+    n = CoreTerm.ExtName.current ∧ th.tidLbl = none ∨ n.isChoice = true ∨ n = CoreTerm.ExtName.emit
 TermRun.TTh : Type
 TermRun.TTh.tidLbl : TermRun.TTh → Option WeakMem.AllocLabel
 WeakMem.AllocLabel : Type

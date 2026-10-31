@@ -45,8 +45,8 @@ theorem stepK3_ldl {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh
     (hterm : th.term = .let_ x (.ldl b i) e) (hP : ProgT p)
     (hT : Typed p cx th.term) (hCk : TermA4.CkW p η.wit cx th.term) (hi : FInvR ρ η th.σs (ResumeR p th.stack Rs) cx th.env Rf)
     (hE : EnvOK p η) (htv : TvOK cx) (hm : MemInv g (CE η) (stOf mem pairs th))
-    (hH : MemHeldP (CE η) (stOf mem pairs th) HP) (hnie : StoNIE (CE η)) (hx : (CE η).sto xl ≠ none) (hRP : RetPw th.σs th.stack cx.ret) (hPS : PwSkel) :
-    ∀ r ∈ tstep g mem pairs th, PromAbove (stOf r.1 r.2.1 r.2.2) → StepC p g xl (CE η) (stOf mem pairs th) th (Rf + Rs) HP r := by
+    (hH : MemHeldP (CE η) (stOf mem pairs th) HP) (hnie : StoNIE (CE η)) (hx : (CE η).sto xl ≠ none) (hRP : RetPw th.σs th.stack cx.ret) (hPS : PwSkel) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
+    ∀ r ∈ tstep g mem pairs th, PromAbove (stOf r.1 r.2.1 r.2.2) → StepCK p g xl (CE η) (stOf mem pairs th) th (Rf + Rs) HP r := by
   rw [hterm] at hT hCk
   cases hT with
   | let_ hop he =>
@@ -106,8 +106,8 @@ theorem stepK3_ldl {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh
   rw [hy, Option.map_some, Option.some.injEq, Prod.mk.injEq] at h2
   obtain ⟨rfl, rfl, rfl⟩ := h2
   obtain ⟨-, -, f1, f2, f3, f4, f5⟩ := hld (s1, old) h1 hpr
-  exact ⟨CE η, Rf + Rs, HP, ⟨ρ, η, c', Rf, Rs, rfl, hE, ⟨he, hck⟩, htv',
-    bindR0 hb hi (fix_VR sg w _) (fix_Lay _ sg w _) trivial, rfl, retPw_skel hPS hRP (skel_subst_eq hRk th.σs 0 0 0)⟩,
+  exact ⟨Rf + Rs, HP, ⟨ρ, η, c', Rf, Rs, rfl, hE, ⟨he, hck⟩, htv',
+    bindR0 hb hi (fix_VR sg w _) (fix_Lay _ sg w _) trivial, rfl, retPw_skel hPS hRP (skel_subst_eq hRk th.σs 0 0 0), hDy.letW hterm rfl⟩,
     MemInv_load hm f1 f2 f3 f4 f5 (loadUnits_relSt _ _ _ _ h1) (loadUnits_vWr _ _ _ _ h1),
     memHeldOn_eqs hH f1 f4, hnie, hx, Nat.le_refl _, anchStep_same (bumpIf_nb hterm)⟩
 
@@ -117,8 +117,8 @@ theorem stepK3_ldlw {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TT
     (hterm : th.term = .let_ x (.ldlw b wi jl) e) (hP : ProgT p)
     (hT : Typed p cx th.term) (hCk : TermA4.CkW p η.wit cx th.term) (hi : FInvR ρ η th.σs (ResumeR p th.stack Rs) cx th.env Rf)
     (hE : EnvOK p η) (htv : TvOK cx) (hm : MemInv g (CE η) (stOf mem pairs th))
-    (hH : MemHeldP (CE η) (stOf mem pairs th) HP) (hnie : StoNIE (CE η)) (hx : (CE η).sto xl ≠ none) (hRP : RetPw th.σs th.stack cx.ret) (hPS : PwSkel) :
-    ∀ r ∈ tstep g mem pairs th, PromAbove (stOf r.1 r.2.1 r.2.2) → StepC p g xl (CE η) (stOf mem pairs th) th (Rf + Rs) HP r := by
+    (hH : MemHeldP (CE η) (stOf mem pairs th) HP) (hnie : StoNIE (CE η)) (hx : (CE η).sto xl ≠ none) (hRP : RetPw th.σs th.stack cx.ret) (hPS : PwSkel) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
+    ∀ r ∈ tstep g mem pairs th, PromAbove (stOf r.1 r.2.1 r.2.2) → StepCK p g xl (CE η) (stOf mem pairs th) th (Rf + Rs) HP r := by
   rw [hterm] at hT hCk
   cases hT with
   | let_ hop he =>
@@ -179,8 +179,8 @@ theorem stepK3_ldlw {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TT
   rw [hy, Option.map_some, Option.some.injEq, Prod.mk.injEq] at h2
   obtain ⟨rfl, rfl, rfl⟩ := h2
   obtain ⟨-, -, f1, f2, f3, f4, f5⟩ := hld (s1, old) h1 hpr
-  exact ⟨CE η, Rf + Rs, HP, ⟨ρ, η, c', Rf, Rs, rfl, hE, ⟨he, hck⟩, htv',
-    bindR0 hb hi (fix_VR sg w _) (fix_Lay _ sg w _) trivial, rfl, retPw_skel hPS hRP (skel_subst_eq hRk th.σs 0 0 0)⟩,
+  exact ⟨Rf + Rs, HP, ⟨ρ, η, c', Rf, Rs, rfl, hE, ⟨he, hck⟩, htv',
+    bindR0 hb hi (fix_VR sg w _) (fix_Lay _ sg w _) trivial, rfl, retPw_skel hPS hRP (skel_subst_eq hRk th.σs 0 0 0), hDy.letW hterm rfl⟩,
     MemInv_load hm f1 f2 f3 f4 f5 (loadUnits_relSt _ _ _ _ h1) (loadUnits_vWr _ _ _ _ h1),
     memHeldOn_eqs hH f1 f4, hnie, hx, Nat.le_refl _, anchStep_same (bumpIf_nb hterm)⟩
 
@@ -191,8 +191,8 @@ theorem stepK3_xchgAt {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : 
     (hT : Typed p cx th.term) (hCk : TermA4.CkW p η.wit cx th.term) (hi : FInvR ρ η th.σs (ResumeR p th.stack Rs) cx th.env Rf)
     (hE : EnvOK p η) (htv : TvOK cx) (hm : MemInv g (CE η) (stOf mem pairs th))
     (hH : MemHeldP (CE η) (stOf mem pairs th) HP)
-    (hnie : StoNIE (CE η)) (hx : (CE η).sto xl ≠ none) (hRP : RetPw th.σs th.stack cx.ret) (hPS : PwSkel) :
-    ∀ r ∈ tstep g mem pairs th, PromAbove (stOf r.1 r.2.1 r.2.2) → StepC p g xl (CE η) (stOf mem pairs th) th (Rf + Rs) HP r := by
+    (hnie : StoNIE (CE η)) (hx : (CE η).sto xl ≠ none) (hRP : RetPw th.σs th.stack cx.ret) (hPS : PwSkel) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
+    ∀ r ∈ tstep g mem pairs th, PromAbove (stOf r.1 r.2.1 r.2.2) → StepCK p g xl (CE η) (stOf mem pairs th) th (Rf + Rs) HP r := by
   rw [hterm] at hT hCk
   cases hT with
   | let_ hop he =>
@@ -253,7 +253,7 @@ theorem stepK3_xchgAt {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : 
   | some f =>
     obtain ⟨Ro, hvold, hRo⟩ := oldValF hE.2.1 hE.2.2 (hnie _ _ hsto) (MemInv_noOwnT hm hsto hpfN) hat hvr
     have hfr := bindR hb hi1 (RLink_of hE.2.1 hE.2.2) hvold hlay
-    refine ⟨CE η, Rr + Ro + Rs, HP, ⟨ρ, η, c', Rr + Ro, Rs, rfl, hE, ⟨he, hck⟩, htv', hfr, rfl, retPw_skel hPS hRP (skel_subst_eq hRk th.σs 0 0 0)⟩,
+    refine ⟨Rr + Ro + Rs, HP, ⟨ρ, η, c', Rr + Ro, Rs, rfl, hE, ⟨he, hck⟩, htv', hfr, rfl, retPw_skel hPS hRP (skel_subst_eq hRk th.σs 0 0 0), hDy.letW hterm rfl⟩,
       MemInv_storeAt (a := (offs ad (ev ρ j * nWords us))) hm1' hsto hown hat hini hna hval hwUA hlen s2 hs2,
       memHeldOn_store (s' := s2) (a := offs ad (ev ρ j * nWords us)) (memHeldOn_eqs hH f1 f3)
         (fun l hl e => privOff (a := ad) hl (e.trans rfl) hpfN) (MemInv_promLt hm1') hs2,
@@ -268,7 +268,7 @@ theorem stepK3_xchgAt {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : 
   have hWold : WLe vq old := (loadUnits_latestPA hvql hvqlat h1 hp1).1
   have hvold := oldValR hE.2.1 hE.2.2 hsig (VRR_up _ _ _ _ _ hWold hvqR)
   have hfr := bindR hb hi1 (RLink_of hE.2.1 hE.2.2) hvold hlay
-  refine ⟨CE η, Rr + Rq + Rs, R2 + H0, ⟨ρ, η, c', Rr + Rq, Rs, rfl, hE, ⟨he, hck⟩, htv', hfr, rfl, retPw_skel hPS hRP (skel_subst_eq hRk th.σs 0 0 0)⟩,
+  refine ⟨Rr + Rq + Rs, R2 + H0, ⟨ρ, η, c', Rr + Rq, Rs, rfl, hE, ⟨he, hck⟩, htv', hfr, rfl, retPw_skel hPS hRP (skel_subst_eq hRk th.σs 0 0 0), hDy.letW hterm rfl⟩,
     MemInv_storeAt (a := (offs ad (ev ρ j * nWords us))) hm1' hsto hown hat hini hna hval hwUA hlen s2 hs2,
     hput0 g.k g.arch w false s1 f1 f3 fc (loadUnits_cohMono _ 0 _ _ h1) hm1'.2.2.2.2.1 s2 hs2, hnie, hx, ?_, anchStep_same (bumpIf_nb hterm)⟩
   have h1 := hle (.own xl)
@@ -283,8 +283,8 @@ theorem stepK3_xchgAtF {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th :
     (hT : Typed p cx th.term) (hCk : TermA4.CkW p η.wit cx th.term) (hi : FInvR ρ η th.σs (ResumeR p th.stack Rs) cx th.env Rf)
     (hE : EnvOK p η) (htv : TvOK cx) (hm : MemInv g (CE η) (stOf mem pairs th))
     (hH : MemHeldP (CE η) (stOf mem pairs th) HP)
-    (hnie : StoNIE (CE η)) (hx : (CE η).sto xl ≠ none) (hRP : RetPw th.σs th.stack cx.ret) (hPS : PwSkel) :
-    ∀ r ∈ tstep g mem pairs th, PromAbove (stOf r.1 r.2.1 r.2.2) → StepC p g xl (CE η) (stOf mem pairs th) th (Rf + Rs) HP r := by
+    (hnie : StoNIE (CE η)) (hx : (CE η).sto xl ≠ none) (hRP : RetPw th.σs th.stack cx.ret) (hPS : PwSkel) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
+    ∀ r ∈ tstep g mem pairs th, PromAbove (stOf r.1 r.2.1 r.2.2) → StepCK p g xl (CE η) (stOf mem pairs th) th (Rf + Rs) HP r := by
   rw [hterm] at hT hCk
   cases hT with
   | let_ hop he =>
@@ -351,7 +351,7 @@ theorem stepK3_xchgAtF {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th :
   | some f =>
     obtain ⟨Ro, hvold, hRo⟩ := oldValF hE.2.1 hE.2.2 (hnie _ _ hsto) (MemInv_noOwnT hm hsto hpfN) hat' hvr
     have hfr := bindR hb hi1 (RLink_of hE.2.1 hE.2.2) hvold hlay
-    refine ⟨CE η, Rr + Ro + Rs, HP, ⟨ρ, η, c', Rr + Ro, Rs, rfl, hE, ⟨he, hck⟩, htv', hfr, rfl, retPw_skel hPS hRP (skel_subst_eq hRk th.σs 0 0 0)⟩,
+    refine ⟨Rr + Ro + Rs, HP, ⟨ρ, η, c', Rr + Ro, Rs, rfl, hE, ⟨he, hck⟩, htv', hfr, rfl, retPw_skel hPS hRP (skel_subst_eq hRk th.σs 0 0 0), hDy.letW hterm rfl⟩,
       MemInv_storeAt (a := (offs ad (ev ρ j * nWords us + o))) hm1' hsto hown hat' hiniC hna hval hwUA hlen s2 hs2,
       memHeldOn_store (s' := s2) (a := offs ad (ev ρ j * nWords us + o)) (memHeldOn_eqs hH f1 f3)
         (fun l hl e => privOff (a := ad) hl (e.trans rfl) hpfN) (MemInv_promLt hm1') hs2,
@@ -367,7 +367,7 @@ theorem stepK3_xchgAtF {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th :
   have hWold : WLe vq old := (loadUnits_latestPA hvql hvqlat h1 hp1).1
   have hvold := oldValR hE.2.1 hE.2.2 hsgc (VRR_up _ _ _ _ _ hWold hvqR)
   have hfr := bindR hb hi1 (RLink_of hE.2.1 hE.2.2) hvold hlay
-  refine ⟨CE η, Rr + Rq + Rs, R2 + H0, ⟨ρ, η, c', Rr + Rq, Rs, rfl, hE, ⟨he, hck⟩, htv', hfr, rfl, retPw_skel hPS hRP (skel_subst_eq hRk th.σs 0 0 0)⟩,
+  refine ⟨Rr + Rq + Rs, R2 + H0, ⟨ρ, η, c', Rr + Rq, Rs, rfl, hE, ⟨he, hck⟩, htv', hfr, rfl, retPw_skel hPS hRP (skel_subst_eq hRk th.σs 0 0 0), hDy.letW hterm rfl⟩,
     MemInv_storeAt (a := (offs ad (ev ρ j * nWords us + o))) hm1' hsto hown hat' hiniC hna hval hwUA hlen s2 hs2,
     hput0 g.k g.arch w false s1 f1 f3 fc (loadUnits_cohMono _ 0 _ _ h1) hm1'.2.2.2.2.1 s2 hs2, hnie, hx, ?_, anchStep_same (bumpIf_nb hterm)⟩
   have h1 := hle (.own xl)
@@ -382,8 +382,8 @@ theorem stepK3_stlw {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TT
     (hT : Typed p cx th.term) (hCk : TermA4.CkW p η.wit cx th.term) (hi : FInvR ρ η th.σs (ResumeR p th.stack Rs) cx th.env Rf)
     (hE : EnvOK p η) (htv : TvOK cx) (hm : MemInv g (CE η) (stOf mem pairs th))
     (hH : MemHeldP (CE η) (stOf mem pairs th) HP)
-    (hnie : StoNIE (CE η)) (hx : (CE η).sto xl ≠ none) (hRP : RetPw th.σs th.stack cx.ret) (hPS : PwSkel) :
-    ∀ r ∈ tstep g mem pairs th, PromAbove (stOf r.1 r.2.1 r.2.2) → StepC p g xl (CE η) (stOf mem pairs th) th (Rf + Rs) HP r := by
+    (hnie : StoNIE (CE η)) (hx : (CE η).sto xl ≠ none) (hRP : RetPw th.σs th.stack cx.ret) (hPS : PwSkel) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
+    ∀ r ∈ tstep g mem pairs th, PromAbove (stOf r.1 r.2.1 r.2.2) → StepCK p g xl (CE η) (stOf mem pairs th) th (Rf + Rs) HP r := by
   rw [hterm] at hT hCk
   cases hT with
   | let_ hop he =>
@@ -468,7 +468,7 @@ theorem stepK3_stlw {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TT
   | some f =>
     have hfr := bindR hb hi (RLink_of hE.2.1 hE.2.2) (show VRR ρ η .unit (shp .unit) [] .zero from rfl) (unit_Lay _)
     rw [Res.add_zero] at hfr
-    refine ⟨CE η, Rf + Rs, HP, ⟨ρ, η, c', Rf, Rs, rfl, hE, ⟨he, hck⟩, htv', hfr, rfl, retPw_skel hPS hRP (skel_subst_eq hRk th.σs 0 0 0)⟩,
+    refine ⟨Rf + Rs, HP, ⟨ρ, η, c', Rf, Rs, rfl, hE, ⟨he, hck⟩, htv', hfr, rfl, retPw_skel hPS hRP (skel_subst_eq hRk th.σs 0 0 0), hDy.letW hterm rfl⟩,
       MemInv_storeAt (a := offs ad (ev ρ jw)) hm1' hsto hmode hat hini hna
         (lanes_EnvVal sg w _) hwUA (by simp [nWords, Acc.size]) s2 hs2,
       memHeldOn_store (s' := s2) (a := offs ad (ev ρ jw)) (memHeldOn_eqs hH f1 f3)
@@ -482,7 +482,7 @@ theorem stepK3_stlw {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TT
     (lanes_EnvValR sg w (setLaneN w y (m % w.lanes) yv)) hwU (by simp [nWords, Acc.size])
   have hfr := bindR hb hi (RLink_of hE.2.1 hE.2.2) (show VRR ρ η .unit (shp .unit) [] .zero from rfl) (unit_Lay _)
   rw [Res.add_zero] at hfr
-  refine ⟨CE η, Rf + Rs, R2 + H0, ⟨ρ, η, c', Rf, Rs, rfl, hE, ⟨he, hck⟩, htv', hfr, rfl, retPw_skel hPS hRP (skel_subst_eq hRk th.σs 0 0 0)⟩,
+  refine ⟨Rf + Rs, R2 + H0, ⟨ρ, η, c', Rf, Rs, rfl, hE, ⟨he, hck⟩, htv', hfr, rfl, retPw_skel hPS hRP (skel_subst_eq hRk th.σs 0 0 0), hDy.letW hterm rfl⟩,
     MemInv_storeAt (a := offs ad (ev ρ jw)) hm1' hsto hmode hat hini hna
       (lanes_EnvVal sg w _) hwUA (by simp [nWords, Acc.size]) s2 hs2,
     hput0 g.k g.arch pw false s1 f1 f3 fc (loadUnits_cohMono _ 0 _ _ h1) hm1'.2.2.2.2.1 s2 hs2, hnie, hx, ?_, anchStep_same (bumpIf_nb hterm)⟩
@@ -497,8 +497,8 @@ theorem stepK3_stl {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh
     (hT : Typed p cx th.term) (hCk : TermA4.CkW p η.wit cx th.term) (hi : FInvR ρ η th.σs (ResumeR p th.stack Rs) cx th.env Rf)
     (hE : EnvOK p η) (htv : TvOK cx) (hm : MemInv g (CE η) (stOf mem pairs th))
     (hH : MemHeldP (CE η) (stOf mem pairs th) HP)
-    (hnie : StoNIE (CE η)) (hx : (CE η).sto xl ≠ none) (hRP : RetPw th.σs th.stack cx.ret) (hPS : PwSkel) :
-    ∀ r ∈ tstep g mem pairs th, PromAbove (stOf r.1 r.2.1 r.2.2) → StepC p g xl (CE η) (stOf mem pairs th) th (Rf + Rs) HP r := by
+    (hnie : StoNIE (CE η)) (hx : (CE η).sto xl ≠ none) (hRP : RetPw th.σs th.stack cx.ret) (hPS : PwSkel) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
+    ∀ r ∈ tstep g mem pairs th, PromAbove (stOf r.1 r.2.1 r.2.2) → StepCK p g xl (CE η) (stOf mem pairs th) th (Rf + Rs) HP r := by
   rw [hterm] at hT hCk
   cases hT with
   | let_ hop he =>
@@ -583,7 +583,7 @@ theorem stepK3_stl {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh
   | some f =>
     have hfr := bindR hb hi (RLink_of hE.2.1 hE.2.2) (show VRR ρ η .unit (shp .unit) [] .zero from rfl) (unit_Lay _)
     rw [Res.add_zero] at hfr
-    refine ⟨CE η, Rf + Rs, HP, ⟨ρ, η, c', Rf, Rs, rfl, hE, ⟨he, hck⟩, htv', hfr, rfl, retPw_skel hPS hRP (skel_subst_eq hRk th.σs 0 0 0)⟩,
+    refine ⟨Rf + Rs, HP, ⟨ρ, η, c', Rf, Rs, rfl, hE, ⟨he, hck⟩, htv', hfr, rfl, retPw_skel hPS hRP (skel_subst_eq hRk th.σs 0 0 0), hDy.letW hterm rfl⟩,
       MemInv_storeAt (a := offs ad (ev ρ j / w.lanes)) hm1' hsto hmode hat hini hna
         (lanes_EnvVal sg w _) hwUA (by simp [nWords, Acc.size]) s2 hs2,
       memHeldOn_store (s' := s2) (a := offs ad (ev ρ j / w.lanes)) (memHeldOn_eqs hH f1 f3)
@@ -597,7 +597,7 @@ theorem stepK3_stl {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh
     hat hini hna (lanes_EnvValR sg w (setLaneN w y (ev ρ j % w.lanes) yv)) hwU (by simp [nWords, Acc.size])
   have hfr := bindR hb hi (RLink_of hE.2.1 hE.2.2) (show VRR ρ η .unit (shp .unit) [] .zero from rfl) (unit_Lay _)
   rw [Res.add_zero] at hfr
-  refine ⟨CE η, Rf + Rs, R2 + H0, ⟨ρ, η, c', Rf, Rs, rfl, hE, ⟨he, hck⟩, htv', hfr, rfl, retPw_skel hPS hRP (skel_subst_eq hRk th.σs 0 0 0)⟩,
+  refine ⟨Rf + Rs, R2 + H0, ⟨ρ, η, c', Rf, Rs, rfl, hE, ⟨he, hck⟩, htv', hfr, rfl, retPw_skel hPS hRP (skel_subst_eq hRk th.σs 0 0 0), hDy.letW hterm rfl⟩,
     MemInv_storeAt (a := offs ad (ev ρ j / w.lanes)) hm1' hsto hmode hat hini hna
       (lanes_EnvVal sg w _) hwUA (by simp [nWords, Acc.size]) s2 hs2,
     hput0 g.k g.arch pw false s1 f1 f3 fc (loadUnits_cohMono _ 0 _ _ h1) hm1'.2.2.2.2.1 s2 hs2, hnie, hx, ?_, anchStep_same (bumpIf_nb hterm)⟩
@@ -715,7 +715,8 @@ theorem stepK3_bufInit {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th :
     (hT : Typed p cx th.term) (hCk : TermA4.CkW p η.wit cx th.term) (hi : FInvR ρ η th.σs (ResumeR p th.stack Rs) cx th.env Rf)
     (hE : EnvOK p η) (htv : TvOK cx) (hm : MemInv g (CE η) (stOf mem pairs th))
     (hH : MemHeldP (CE η) (stOf mem pairs th) HP)
-    (hnie : StoNIE (CE η)) (hxl : (CE η).sto xl ≠ none) (hRP : RetPw th.σs th.stack cx.ret) (hPS : PwSkel) :
+    (hnie : StoNIE (CE η)) (hxl : (CE η).sto xl ≠ none) (hRP : RetPw th.σs th.stack cx.ret) (hPS : PwSkel)
+    (hTyE : TyOKE g (CE η)) (hRc : RecFresh g g.i th.nalloc) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
     ∀ r ∈ tstep g mem pairs th, PromAbove (stOf r.1 r.2.1 r.2.2) → StepC p g xl (CE η) (stOf mem pairs th) th (Rf + Rs) HP r := by
   rw [hterm] at hT hCk
   cases hT with
@@ -803,6 +804,7 @@ theorem stepK3_bufInit {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th :
     simp only [tstep, hterm, evalOp, hea, hei, hev, numOf, hwi, addrOf, hwv, bufElem, hus, List.map_map]; rfl
   rw [key]
   intro r hr hpa
+  have hk := tyOKE_keep (r := r) (by rw [key]; exact hr) (fun _ _ _ _ h => by rw [hterm] at h; cases h) hTyE hRc
   rw [List.mem_map] at hr
   obtain ⟨s', hs', rfl⟩ := hr
   have hvr : VR ρ (η.withSto η.sto ini' (Ri := rini')) (.refine (.loc .own (.array n u)) (.ini (.add k (.lit 1))))
@@ -830,13 +832,13 @@ theorem stepK3_bufInit {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th :
   cases hpfN : (CE η).pfr ad.label with
   | some f =>
     refine ⟨CE (η.withSto η.sto ini' (Ri := rini')), Rr2 + Rb + Rs, HP,
-      ⟨ρ, η.withSto η.sto ini' (Ri := rini'), c', Rr2 + Rb, Rs, rfl, hE', ⟨he, hck⟩, htv', hfr, rfl, retPw_skel hPS hRP (skel_subst_eq hRk th.σs 0 0 0)⟩,
+      ⟨ρ, η.withSto η.sto ini' (Ri := rini'), c', Rr2 + Rb, Rs, rfl, hE', ⟨he, hck⟩, htv', hfr, rfl, retPw_skel hPS hRP (skel_subst_eq hRk th.σs 0 0 0), hDy.letW hterm rfl⟩,
       MemInv_bufInit (E := CE η) (E' := CE (η.withSto η.sto ini' (Ri := rini'))) hm hsto hmode hat hini hweA
         (by omega) (show ev ρ j ≤ η.rc ad.label by omega) hval hlen rfl rfl rfl (bumpIni_self _ _ _)
         (fun l' h => bumpIni_other _ _ _ l' h) (bumpIni_self _ _ _) (fun l' h => bumpIni_other _ _ _ l' h) rfl rfl (fun _ _ h => h) rfl (fun l => hri' l) s' hs' hpa,
       heldBufInitF (E' := CE (η.withSto η.sto ini' (Ri := rini'))) hm hH hpfN rfl rfl rfl
         (fun l' h => bumpIni_other _ _ _ l' h) (fun l' h => bumpIni_other _ _ _ l' h) rfl (fun _ _ h => h) rfl
-        hile hri' hs', hnie, hxl, ?_, hAS _⟩
+        hile hri' hs', hnie, hxl, ?_, hAS _, hk.1, hk.2⟩
     have h1 := hle1 (.own xl)
     have h2 := hle2 (.own xl)
     simp only [Res.add_apply] at h1 h2 ⊢
@@ -855,25 +857,27 @@ theorem stepK3_bufInit {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th :
         max (min (η.ini ad.label) (η.rini ad.label)) (ev ρ j + 1) by
       rw [bumpIni_self, bumpIni_self]; omega)
   refine ⟨CE (η.withSto η.sto ini' (Ri := rini')), Rr2 + Rb + Rs, H2,
-    ⟨ρ, η.withSto η.sto ini' (Ri := rini'), c', Rr2 + Rb, Rs, rfl, hE', ⟨he, hck⟩, htv', hfr, rfl, retPw_skel hPS hRP (skel_subst_eq hRk th.σs 0 0 0)⟩,
+    ⟨ρ, η.withSto η.sto ini' (Ri := rini'), c', Rr2 + Rb, Rs, rfl, hE', ⟨he, hck⟩, htv', hfr, rfl, retPw_skel hPS hRP (skel_subst_eq hRk th.σs 0 0 0), hDy.letW hterm rfl⟩,
     MemInv_bufInit (E := CE η) (E' := CE (η.withSto η.sto ini' (Ri := rini'))) hm hsto hmode hat hini hweA
       (by omega) (show ev ρ j ≤ η.rc ad.label by omega) hval hlen rfl rfl rfl (bumpIni_self _ _ _)
       (fun l' h => bumpIni_other _ _ _ l' h) (bumpIni_self _ _ _) (fun l' h => bumpIni_other _ _ _ l' h) rfl rfl (fun _ _ h => h) rfl (fun l => hri' l) s' hs' hpa,
-    hput s' hs', hnie, hxl, ?_, hAS _⟩
+    hput s' hs', hnie, hxl, ?_, hAS _, hk.1, hk.2⟩
   have h1 := hle1 (.own xl)
   have h2 := hle2 (.own xl)
   have h3 := Res.le_def.1 hH2 (.own xl)
   simp only [Res.add_apply] at h1 h2 h3 ⊢
   omega
 
+
 -- copied from TermStep.tstepMR_new
 theorem stepK3_new {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
-    {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {x : String} {a : At} {e : Expr} {Rf Rs HP : Res} {xl : AllocLabel}
-    (hterm : th.term = .let_ x (.new a) e)
+    {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {x : String} {a : At} {T : Option Ty} {e : Expr} {Rf Rs HP : Res} {xl : AllocLabel}
+    (hterm : th.term = .let_ x (.new a T) e)
     (hniA : ∀ t c₁, cx.use a = .ok (t, c₁) → noIallV t = true) (hP : ProgT p) (hn : 0 < g.n)
     (hT : Typed p cx th.term) (hCk : TermA4.CkW p η.wit cx th.term) (hi : FInvR ρ η th.σs (ResumeR p th.stack Rs) cx th.env Rf)
     (hE : EnvOK p η) (htv : TvOK cx) (hm : MemInv g (CE η) (stOf mem pairs th))
-    (hH : MemHeldP (CE η) (stOf mem pairs th) HP) (hnie : StoNIE (CE η)) (hxl : (CE η).sto xl ≠ none) (hRP : RetPw th.σs th.stack cx.ret) (hPS : PwSkel) :
+    (hH : MemHeldP (CE η) (stOf mem pairs th) HP) (hnie : StoNIE (CE η)) (hxl : (CE η).sto xl ≠ none) (hRP : RetPw th.σs th.stack cx.ret) (hPS : PwSkel)
+    (hpp : g.p = p) (hTyE : TyOKE g (CE η)) (hRc : RecFresh g g.i th.nalloc) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
     ∀ r ∈ tstep g mem pairs th, PromAbove (stOf r.1 r.2.1 r.2.2) → StepC p g xl (CE η) (stOf mem pairs th) th (Rf + Rs) HP r := by
   rw [hterm] at hT hCk
   cases hT with
@@ -884,8 +888,8 @@ theorem stepK3_new {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh
   have hRk := OpT_retSk hop
   cases hop with
   | new hu _ hb =>
-  obtain ⟨tv, c₁, hu, hb⟩ : ∃ tv c₁, cx.use a = .ok (tv, c₁) ∧ c₁.bind x (.ptr .own tv) = .ok c' :=
-    ⟨_, _, hu, hb⟩
+  obtain ⟨tv, c₁, hu, hb, htvT⟩ : ∃ tv c₁, cx.use a = .ok (tv, c₁) ∧ c₁.bind x (.ptr .own tv) = .ok c' ∧ some tv = _ :=
+    ⟨_, _, hu, hb, rfl⟩
   have hi0 := hi.1
   obtain ⟨rt, ws, Rv, Rr, hea, hv, hl, hvr, hiR, hle⟩ := useR hu hi hE.2.2
   have ho : cx.opaqueOK tv = true :=
@@ -907,7 +911,7 @@ theorem stepK3_new {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh
     exact (VRR_close hE.2.1 hE.2.2 ρ tv [] 0 ρ (fun _ => 0) (shp rt) ws Rv (fun k => rfl)
       (fun k hk => absurd hk (Nat.not_lt_zero _))).1 hvr
   obtain ⟨hmo, hoo, hpl, hfr, hsn, hoh, hpd, hopub, hpi, hbi, hpo⟩ := id hm
-  obtain ⟨hnone, hfresh, -, hpf0⟩ := hfr.1 th.nalloc (Nat.le_refl _)
+  obtain ⟨hnone, hfresh, -, -, hpf0⟩ := hfr.1 th.nalloc (Nat.le_refl _)
   have hX := memHeldOn_off hH (l := freshLabel g.lbase g.n g.i th.nalloc) (fun h => by
     obtain ⟨⟨c0, hc0, -⟩, -⟩ := h; rw [hnone] at hc0; cases hc0)
   have hval : ValOf (allocE (CE η) (freshLabel g.lbase g.n g.i th.nalloc) (cl ρ η.wit 0 0 tv)) (cl ρ η.wit 0 0 tv)
@@ -922,14 +926,18 @@ theorem stepK3_new {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh
       (EnvValR.store (η := CE η) ⟨hvcR, Valid_of_sig hsig hl.2.2.2.1⟩ hsn)
   have hx : Ext η (η.withSto (allocE (CE η) (freshLabel g.lbase g.n g.i th.nalloc) (cl ρ η.wit 0 0 tv)).sto) :=
     Ext_withSto hE.2.1 (fun l c h => allocE_sub (η := CE η) hnone h) (fun _ => Nat.le_refl _)
-  have key : tstep g mem pairs th =
-      (alloc g.k g.arch (freshLabel g.lbase g.n g.i th.nalloc) us ws (stOf mem pairs th)).map fun (s', pw) =>
-        (s'.mem, s'.pairs, withS { th with term := e, env := (x, .ptr .own rt, [pw]) :: th.env } s') := by
-    simp only [tstep, hterm, evalOp, hea, hus, List.map_map]; rfl
-  rw [key]
+  have key : ∀ r ∈ tstep g mem pairs th, ∃ s' pw,
+      (s', pw) ∈ alloc g.k g.arch (freshLabel g.lbase g.n g.i th.nalloc) us ws (stOf mem pairs th) ∧
+      ∃ tys, r = (s'.mem, s'.pairs,
+        { withS { th with term := e, env := (x, .ptr .own rt, [pw]) :: th.env } s' with tys := tys }) := by
+    intro r hr
+    obtain ⟨s1, t1, ws1, hm1, tys, rfl⟩ := TermRun.tstep_new_mem hterm hr
+    simp only [evalOp, hea, hus, List.mem_map] at hm1
+    obtain ⟨⟨s2, pw⟩, hal, he⟩ := hm1
+    cases he
+    exact ⟨_, _, hal, tys, rfl⟩
   · intro r hr _
-    rw [List.mem_map] at hr
-    obtain ⟨⟨s', pw⟩, hal, rfl⟩ := hr
+    obtain ⟨s', pw, hal, tys, rfl⟩ := key r hr
     obtain ⟨hmo', hoo', hpw⟩ := alloc_okP hwcT hlen hval hfresh hnone hpl hpo.1 hpo.2.1 hpf0 hmo hoo ⟨s', pw⟩ hal
     obtain ⟨hg, hsubl, hna, hpl', hful⟩ := alloc_growsP hpl ⟨s', pw⟩ hal
     obtain ⟨hla1, -⟩ := alloc_latP (k := g.k) (arch := g.arch) (us := us) (ws := ws) hpl (MemInv_nodup hm)
@@ -1040,13 +1048,26 @@ theorem stepK3_new {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh
       (fun h => ValOfR_mono (η₁ := CE η)
         (η₂ := allocE (CE η) (freshLabel g.lbase g.n g.i th.nalloc) (cl ρ η.wit 0 0 tv)) rfl rfl (fun l c h' => allocE_sub hnone h') (fun _ => Nat.le_refl _) h)
     have hxne : xl ≠ freshLabel g.lbase g.n g.i th.nalloc := fun e => hxl (by rw [e]; exact hnone)
+    have hTR : ThInvRE p (allocE (CE η) (freshLabel g.lbase g.n g.i th.nalloc) (cl ρ η.wit 0 0 tv))
+        { withS { th with term := e, env := (x, .ptr .own rt, [cst (.loc ⟨freshLabel g.lbase g.n g.i th.nalloc, 0⟩ 0)]) :: th.env } s' with tys := tys }
+        (Rr + Res.one (.own (freshLabel g.lbase g.n g.i th.nalloc)) + Rs) :=
+      ⟨ρ, η.withSto (allocE (CE η) (freshLabel g.lbase g.n g.i th.nalloc) (cl ρ η.wit 0 0 tv)).sto, c',
+          Rr + Res.one (.own (freshLabel g.lbase g.n g.i th.nalloc)), Rs, rfl, ⟨hE.1, hx.1, hx.2.2.2.2.2.2.2.2.2.2.1⟩, ⟨he, hck⟩, htv', hfr', rfl, retPw_skel hPS hRP (skel_subst_eq hRk th.σs 0 0 0), hDy.letW hterm rfl⟩
+    have hNC : NewCellSto g ρ η th (allocE (CE η) (freshLabel g.lbase g.n g.i th.nalloc) (cl ρ η.wit 0 0 tv)) := by
+      intro x' a' T' e' h'
+      rw [hterm] at h'
+      obtain ⟨-, ⟨-, hT'⟩, -⟩ := (by simpa using h' : x = x' ∧ (a = a' ∧ _ = T') ∧ e = e')
+      refine ⟨_, allocE_eq, ?_⟩
+      show cl ρ η.wit 0 0 tv = cl ρ η.wit 0 0 T'
+      rw [Option.some.inj htvT, hT']
+    have hk := tyOKE_alloc hn hr (fun _ hl => allocE_ne hl) hTyE hRc
+      (fun c t hc ht => TermStep.hnew_of hr hRc (by rw [hpp]; exact hDy) (fun k => (hE.2.1 k).1) hNC c t hc ht)
     refine ⟨allocE (CE η) (freshLabel g.lbase g.n g.i th.nalloc) (cl ρ η.wit 0 0 tv), Rr + Res.one (.own (freshLabel g.lbase g.n g.i th.nalloc)) + Rs, Rv + HP,
-        ⟨ρ, η.withSto (allocE (CE η) (freshLabel g.lbase g.n g.i th.nalloc) (cl ρ η.wit 0 0 tv)).sto, c',
-          Rr + Res.one (.own (freshLabel g.lbase g.n g.i th.nalloc)), Rs, rfl, ⟨hE.1, hx.1, hx.2.2.2.2.2.2.2.2.2.2.1⟩, ⟨he, hck⟩, htv', hfr', rfl, retPw_skel hPS hRP (skel_subst_eq hRk th.σs 0 0 0)⟩, ?_,
+        hTR, ?_,
         memHeldOn_unfocus hX' hent (Priv_of allocE_eq rfl hpf0), fun l cl hcl => ?_,
         fun h => hxl (by rw [allocE_ne hxne] at h; exact h), ?_,
         anchStep_fresh (ext_CE hx) (bumpIf_nb hterm (hop := by intro _ _ _ h; cases h) _) (fun _ hl => allocE_ne hl) hpf0 (fun _ _ => rfl) hnone
-          (Priv_of allocE_eq rfl hpf0)⟩
+          (Priv_of allocE_eq rfl hpf0), hk.1, hk.2⟩
     · refine ⟨hmo', hoo', hpl', ⟨fun j hj => ?_, PrivCoh_growsAt hfr.2
           (fun a hu hl => by
             obtain ⟨c, N, e, us, hc, rest⟩ := hu
@@ -1095,7 +1116,8 @@ theorem stepK3_newBuf {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : 
     (hn : 0 < g.n)
     (hT : Typed p cx th.term) (hCk : TermA4.CkW p η.wit cx th.term) (hi : FInvR ρ η th.σs (ResumeR p th.stack Rs) cx th.env Rf)
     (hE : EnvOK p η) (htv : TvOK cx) (hm : MemInv g (CE η) (stOf mem pairs th))
-    (hH : MemHeldP (CE η) (stOf mem pairs th) HP) (hnie : StoNIE (CE η)) (hxl : (CE η).sto xl ≠ none) (hRP : RetPw th.σs th.stack cx.ret) (hPS : PwSkel) :
+    (hH : MemHeldP (CE η) (stOf mem pairs th) HP) (hnie : StoNIE (CE η)) (hxl : (CE η).sto xl ≠ none) (hRP : RetPw th.σs th.stack cx.ret) (hPS : PwSkel)
+    (hTyE : TyOKE g (CE η)) (hRc : RecFresh g g.i th.nalloc) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
     ∀ r ∈ tstep g mem pairs th, PromAbove (stOf r.1 r.2.1 r.2.2) → StepC p g xl (CE η) (stOf mem pairs th) th (Rf + Rs) HP r := by
   rw [hterm] at hT hCk
   cases hT with
@@ -1149,7 +1171,7 @@ theorem stepK3_newBuf {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : 
   let E' := allocE E0 lbl T
   let η' := η.withSto E'.sto ini' (Ri := rini')
   obtain ⟨hmo, hoo, hpl, hfr, hsn, hoh, hpd, hopub, hpi, hbi, hpo⟩ := id hm
-  obtain ⟨hnone, hfresh, hi0, hpf0⟩ := hfr.1 th.nalloc (Nat.le_refl _)
+  obtain ⟨hnone, hfresh, hi0, -, hpf0⟩ := hfr.1 th.nalloc (Nat.le_refl _)
   have hX := memHeldOn_off hH (l := lbl) (fun h => by
     obtain ⟨⟨c0, hc0, -⟩, -⟩ := h; rw [hnone] at hc0; cases hc0)
   have hnone0 : E0.sto lbl = none := hnone
@@ -1441,8 +1463,10 @@ theorem stepK3_newBuf {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : 
     (fun h => ValOfR_mono (η₁ := CE η) (η₂ := E') rfl rfl (fun l c h' => allocE_sub (η := E0) hnone0 h')
       (bumpIni_le _ _ _) h)
   have hxne : xl ≠ lbl := fun e => hxl (by rw [e]; exact hnone)
+  have hk := tyOKE_alloc (E := CE η) (E' := E') hn (by rw [key]; exact List.mem_singleton_self _) (fun _ hl => allocE_ne hl) hTyE hRc
+    (fun _ t _ ht => absurd (by rwa [tysUpd_keep (th := th) (th' := withS { th with term := e, env := (x, rtR, [R.2]) :: th.env } R.1) rfl] at ht) (hRc th.nalloc (Nat.le_refl _) t))
   refine ⟨E', Rf + Res.one (.own (freshLabel g.lbase g.n g.i th.nalloc)) + Rs, Res.zero + HP,
-    ⟨ρ, η', c', Rf + Res.one (.own (freshLabel g.lbase g.n g.i th.nalloc)), Rs, rfl, ⟨hE.1, hx.1, hx.2.2.2.2.2.2.2.2.2.2.1⟩, ⟨he, hck⟩, htv', hfr', rfl, retPw_skel hPS hRP (skel_subst_eq hRk th.σs 0 0 0)⟩,
+    ⟨ρ, η', c', Rf + Res.one (.own (freshLabel g.lbase g.n g.i th.nalloc)), Rs, rfl, ⟨hE.1, hx.1, hx.2.2.2.2.2.2.2.2.2.2.1⟩, ⟨he, hck⟩, htv', hfr', rfl, retPw_skel hPS hRP (skel_subst_eq hRk th.σs 0 0 0), hDy.letW hterm rfl⟩,
       ⟨hmo', hoo', fun t ht => by
         have ht' : t ∈ R.1.promises := ht
         rw [hpr] at ht'; exact Nat.lt_of_lt_of_le (hpl t ht') hg.1,
@@ -1472,7 +1496,7 @@ theorem stepK3_newBuf {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : 
       memHeldOn_unfocus hX' hent (Priv_of allocE_eq rfl hpf0), fun l cl hcl => ?_,
       fun h => hxl (by rw [allocE_ne hxne] at h; exact h), ?_,
       anchStep_fresh (ext_CE hx) (bumpIf_nb hterm (hop := by intro _ _ _ h; cases h) _) (fun _ hl => allocE_ne hl) hpf0
-        (fun _ hl => bumpIni_other _ _ _ _ hl) hnone (Priv_of allocE_eq rfl hpf0)⟩
+        (fun _ hl => bumpIni_other _ _ _ _ hl) hnone (Priv_of allocE_eq rfl hpf0), hk.1, hk.2⟩
   · have hj' : th.nalloc ≤ j := by
       have h1 : R.1.nalloc ≤ j := hj
       rw [hna] at h1; exact Nat.le_of_succ_le h1
@@ -1481,7 +1505,8 @@ theorem stepK3_newBuf {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : 
       have := freshLabel_inj_k hn h; subst this
       have h1 : R.1.nalloc ≤ th.nalloc := hj
       rw [hna] at h1; exact absurd h1 (by show ¬ th.nalloc + 1 ≤ th.nalloc; omega)
-    refine ⟨by rw [allocE_ne hne]; exact f1, fun t m ht hl => ?_, ?_, f5⟩
+    refine ⟨by rw [allocE_ne hne]; exact f1, fun t m ht hl => ?_, ?_,
+      ⟨by show bumpIni η.rini lbl iv (freshLabel g.lbase g.n g.i j) = 0; rw [bumpIni_other _ _ _ _ hne]; exact f5.1, f5.2⟩⟩
     · change R.1.mem[t]? = some m at ht
       by_cases hlt : t < (stOf mem pairs th).mem.size
       · rw [hg.2.1 t hlt] at ht; exact f2 t m ht hl
@@ -1504,34 +1529,36 @@ def IsStl (t : Expr) : Prop := ∃ y a b c e, t = .let_ y (.stl a b c) e
 def IsStlw (t : Expr) : Prop := ∃ y a b c d e, t = .let_ y (.stlw a b c d) e
 def IsLdl (t : Expr) : Prop := ∃ y a b e, t = .let_ y (.ldl a b) e
 def IsLdlw (t : Expr) : Prop := ∃ y a b c e, t = .let_ y (.ldlw a b c) e
-def IsNew (t : Expr) : Prop := ∃ y a e, t = .let_ y (.new a) e
+def IsNew (t : Expr) : Prop := ∃ y a T e, t = .let_ y (.new a T) e
 def IsNewBuf (t : Expr) : Prop := ∃ y a b e, t = .let_ y (.newBuf a b) e
 
 /-! ## Wiring (non-frontier ops) -/
 
 theorem ownXStepL_ldl [WrIniC] {p : Prog} {x : AllocLabel} {n : Nat} (hP : ProgT p) (hPS : PwSkel) : OwnXStepL p x n IsLdl :=
-  ownXStepL_of (fun _ _ _ _ r _ _ _ _ _ _ _ _ ht _ _ hE hT htv hi hRP hm hH _ hni hx hr hpa _ => by
+  ownXStepL_of (fun _ _ _ _ r _ _ _ _ _ _ _ _ ht _ _ hE hT htv hi hRP hDy hm hH _ hni hx hTyE hRc hr hpa _ => by
     obtain ⟨_, _, _, _, hte⟩ := ht
-    exact stepK3_ldl hte hP hT.1 hT.2 hi hE htv hm hH hni hx hRP hPS r hr hpa)
+    refine stepC_ofK ?_ (tyOKE_keep hr (fun _ _ _ _ h => by rw [hte] at h; cases h) hTyE hRc)
+    exact stepK3_ldl (hDy := hDy) hte hP hT.1 hT.2 hi hE htv hm hH hni hx hRP hPS r hr hpa)
 
 theorem ownXStepL_ldlw [WrIniC] {p : Prog} {x : AllocLabel} {n : Nat} (hP : ProgT p) (hPS : PwSkel) : OwnXStepL p x n IsLdlw :=
-  ownXStepL_of (fun _ _ _ _ r _ _ _ _ _ _ _ _ ht _ _ hE hT htv hi hRP hm hH _ hni hx hr hpa _ => by
+  ownXStepL_of (fun _ _ _ _ r _ _ _ _ _ _ _ _ ht _ _ hE hT htv hi hRP hDy hm hH _ hni hx hTyE hRc hr hpa _ => by
     obtain ⟨_, _, _, _, _, hte⟩ := ht
-    exact stepK3_ldlw hte hP hT.1 hT.2 hi hE htv hm hH hni hx hRP hPS r hr hpa)
+    refine stepC_ofK ?_ (tyOKE_keep hr (fun _ _ _ _ h => by rw [hte] at h; cases h) hTyE hRc)
+    exact stepK3_ldlw (hDy := hDy) hte hP hT.1 hT.2 hi hE htv hm hH hni hx hRP hPS r hr hpa)
 
 theorem ownXStepL_new [WrIniC] {p : Prog} {x : AllocLabel} {n : Nat} (hP : ProgT p) (hPS : PwSkel) : OwnXStepL p x n IsNew :=
-  ownXStepL_of (fun _ _ _ th r ρ η cx _ Rs _ _ hn ht hsc _ hE hT htv hi hRP hm hH _ hni hx hr hpa _ => by
-    obtain ⟨_, a, _, hte⟩ := ht
+  ownXStepL_of (fun _ _ _ th r ρ η cx _ Rs _ hpp hn ht hsc _ hE hT htv hi hRP hDy hm hH _ hni hx hTyE hRc hr hpa _ => by
+    obtain ⟨_, a, _, _, hte⟩ := ht
     have hsd := hsc ρ η cx hE hT.1 htv (finv_of htv hi)
     rw [hte] at hsd
     have hniA : ∀ t c₁, cx.use a = .ok (t, c₁) → noIallV t = true := by
       rcases hsd with h | ⟨_, _, _, ⟨_, _, h⟩ | ⟨_, h⟩ | ⟨_, h⟩⟩
       · exact h
       all_goals cases h
-    exact stepK3_new hte hniA hP hn hT.1 hT.2 hi hE htv hm hH hni hx hRP hPS r hr hpa)
+    exact stepK3_new (hDy := hDy) hte hniA hP hn hT.1 hT.2 hi hE htv hm hH hni hx hRP hPS hpp hTyE hRc r hr hpa)
 
 theorem ownXStepL_newBuf [WrIniC] {p : Prog} {x : AllocLabel} {n : Nat} (hP : ProgT p) (hPS : PwSkel) : OwnXStepL p x n IsNewBuf :=
-  ownXStepL_of (fun _ _ _ th r ρ η cx _ Rs _ _ hn ht hsc _ hE hT htv hi hRP hm hH _ hni hx hr hpa _ => by
+  ownXStepL_of (fun _ _ _ th r ρ η cx _ Rs _ _ hn ht hsc _ hE hT htv hi hRP hDy hm hH _ hni hx hTyE hRc hr hpa _ => by
     obtain ⟨_, _, τ, _, hte⟩ := ht
     have hsd := hsc ρ η cx hE hT.1 htv (finv_of htv hi)
     rw [hte] at hsd
@@ -1539,32 +1566,36 @@ theorem ownXStepL_newBuf [WrIniC] {p : Prog} {x : AllocLabel} {n : Nat} (hP : Pr
       rcases hsd with h | ⟨_, _, _, ⟨_, _, h⟩ | ⟨_, h⟩ | ⟨_, h⟩⟩
       · exact h
       all_goals cases h
-    exact stepK3_newBuf hte hniA hP hn hT.1 hT.2 hi hE htv hm hH hni hx hRP hPS r hr hpa)
+    exact stepK3_newBuf (hDy := hDy) hte hniA hP hn hT.1 hT.2 hi hE htv hm hH hni hx hRP hPS hTyE hRc r hr hpa)
 
 theorem ownXStepL_bufInit [WrIniC] {p : Prog} {x : AllocLabel} {n : Nat} (hP : ProgT p) (hPS : PwSkel) : OwnXStepL p x n IsBufInit :=
-  ownXStepL_of (fun _ _ _ _ r _ _ _ _ _ _ _ _ ht _ _ hE hT htv hi hRP hm hH _ hni hx hr hpa _ => by
+  ownXStepL_of (fun _ _ _ _ r _ _ _ _ _ _ _ _ ht _ _ hE hT htv hi hRP hDy hm hH _ hni hx hTyE hRc hr hpa _ => by
     obtain ⟨_, _, _, _, _, hte⟩ := ht
-    exact stepK3_bufInit hte hP hT.1 hT.2 hi hE htv hm hH hni hx hRP hPS r hr hpa)
+    exact stepK3_bufInit (hDy := hDy) hte hP hT.1 hT.2 hi hE htv hm hH hni hx hRP hPS hTyE hRc r hr hpa)
 
 theorem ownXStepL_xchgAt [WrIniC] {p : Prog} {x : AllocLabel} {n : Nat} (hP : ProgT p) (hPS : PwSkel) : OwnXStepL p x n IsXchgAt :=
-  ownXStepL_of (fun _ _ _ _ r _ _ _ _ _ _ _ _ ht _ _ hE hT htv hi hRP hm hH _ hni hx hr hpa _ => by
+  ownXStepL_of (fun _ _ _ _ r _ _ _ _ _ _ _ _ ht _ _ hE hT htv hi hRP hDy hm hH _ hni hx hTyE hRc hr hpa _ => by
     obtain ⟨_, _, _, _, _, hte⟩ := ht
-    exact stepK3_xchgAt hte hP hT.1 hT.2 hi hE htv hm hH hni hx hRP hPS r hr hpa)
+    refine stepC_ofK ?_ (tyOKE_keep hr (fun _ _ _ _ h => by rw [hte] at h; cases h) hTyE hRc)
+    exact stepK3_xchgAt (hDy := hDy) hte hP hT.1 hT.2 hi hE htv hm hH hni hx hRP hPS r hr hpa)
 
 theorem ownXStepL_xchgAtF [WrIniC] {p : Prog} {x : AllocLabel} {n : Nat} (hP : ProgT p) (hPS : PwSkel) : OwnXStepL p x n IsXchgAtF :=
-  ownXStepL_of (fun _ _ _ _ r _ _ _ _ _ _ _ _ ht _ _ hE hT htv hi hRP hm hH _ hni hx hr hpa _ => by
+  ownXStepL_of (fun _ _ _ _ r _ _ _ _ _ _ _ _ ht _ _ hE hT htv hi hRP hDy hm hH _ hni hx hTyE hRc hr hpa _ => by
     obtain ⟨_, _, _, _, _, _, hte⟩ := ht
-    exact stepK3_xchgAtF hte hP hT.1 hT.2 hi hE htv hm hH hni hx hRP hPS r hr hpa)
+    refine stepC_ofK ?_ (tyOKE_keep hr (fun _ _ _ _ h => by rw [hte] at h; cases h) hTyE hRc)
+    exact stepK3_xchgAtF (hDy := hDy) hte hP hT.1 hT.2 hi hE htv hm hH hni hx hRP hPS r hr hpa)
 
 theorem ownXStepL_stl [WrIniC] {p : Prog} {x : AllocLabel} {n : Nat} (hP : ProgT p) (hPS : PwSkel) : OwnXStepL p x n IsStl :=
-  ownXStepL_of (fun _ _ _ _ r _ _ _ _ _ _ _ _ ht _ _ hE hT htv hi hRP hm hH _ hni hx hr hpa _ => by
+  ownXStepL_of (fun _ _ _ _ r _ _ _ _ _ _ _ _ ht _ _ hE hT htv hi hRP hDy hm hH _ hni hx hTyE hRc hr hpa _ => by
     obtain ⟨_, _, _, _, _, hte⟩ := ht
-    exact stepK3_stl hte hP hT.1 hT.2 hi hE htv hm hH hni hx hRP hPS r hr hpa)
+    refine stepC_ofK ?_ (tyOKE_keep hr (fun _ _ _ _ h => by rw [hte] at h; cases h) hTyE hRc)
+    exact stepK3_stl (hDy := hDy) hte hP hT.1 hT.2 hi hE htv hm hH hni hx hRP hPS r hr hpa)
 
 theorem ownXStepL_stlw [WrIniC] {p : Prog} {x : AllocLabel} {n : Nat} (hP : ProgT p) (hPS : PwSkel) : OwnXStepL p x n IsStlw :=
-  ownXStepL_of (fun _ _ _ _ r _ _ _ _ _ _ _ _ ht _ _ hE hT htv hi hRP hm hH _ hni hx hr hpa _ => by
+  ownXStepL_of (fun _ _ _ _ r _ _ _ _ _ _ _ _ ht _ _ hE hT htv hi hRP hDy hm hH _ hni hx hTyE hRc hr hpa _ => by
     obtain ⟨_, _, _, _, _, _, hte⟩ := ht
-    exact stepK3_stlw hte hP hT.1 hT.2 hi hE htv hm hH hni hx hRP hPS r hr hpa)
+    refine stepC_ofK ?_ (tyOKE_keep hr (fun _ _ _ _ h => by rw [hte] at h; cases h) hTyE hRc)
+    exact stepK3_stlw (hDy := hDy) hte hP hT.1 hT.2 hi hE htv hm hH hni hx hRP hPS r hr hpa)
 
 /-- **Split** the K3 obligation into the nine per-op obligations. -/
 theorem ownXStepL_k3 {p : Prog} {x : AllocLabel} {n : Nat}
@@ -1584,7 +1615,7 @@ theorem ownXStepL_k3 {p : Prog} {x : AllocLabel} {n : Nat}
     | stlw a b c d => exact h5 g mem pairs th r hp hn ⟨y, a, b, c, d, e, hte⟩
     | ldl a b => exact h6 g mem pairs th r hp hn ⟨y, a, b, e, hte⟩
     | ldlw a b c => exact h7 g mem pairs th r hp hn ⟨y, a, b, c, e, hte⟩
-    | new a => exact h8 g mem pairs th r hp hn ⟨y, a, e, hte⟩
+    | new a T => exact h8 g mem pairs th r hp hn ⟨y, a, T, e, hte⟩
     | newBuf a b => exact h9 g mem pairs th r hp hn ⟨y, a, b, e, hte⟩
     | _ => simp [exprPkg, opPkg] at ht
   | _ => simp [exprPkg] at ht

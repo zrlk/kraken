@@ -370,6 +370,7 @@ theorem tstep_fm {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
        obtain ⟨x, hx, rfl⟩ := h
        first
          | exact evalOp_fm hx
+         | (split <;> exact evalOp_fm hx)
          | exact rmw_fm hx rfl rfl rfl rfl
          | exact rmwPair_fm hx rfl rfl rfl rfl)
     | (simp only [List.mem_flatMap, List.mem_map] at h

@@ -160,6 +160,8 @@ structure UTTh where
   tidLbl   : Option AllocLabel := none
   /-- (D4) the park permit (the core's `TTh.permit`); copied by `toCoreTh`/`backTh` -/
   permit   : Option Ts := none
+  /-- the core's allocation records (`TTh.tys`); copied to and from the core thread (`toCoreTh`, `coreView`, `backTh`, `fromCore0`) -/
+  tys      : List (AllocLabel × Ty × Bool) := []
   /-- the block's temporary counter: the next anonymous binder is `tmp ctr` -/
   ctr      : Nat := 0
 
@@ -169,18 +171,18 @@ def toCoreFr (f : UFrame) : Frame := ⟨f.x, elabT f.ctr f.body, f.env, f.σs, f
 def toCoreTh (th : UTTh) : TTh :=
   { term := elabT th.ctr th.term, env := th.env, σs := th.σs, stack := th.stack.map toCoreFr, vs := th.vs,
     promises := th.promises, nalloc := th.nalloc, undefs := th.undefs, tidLbl := th.tidLbl,
-    permit := th.permit }
+    permit := th.permit, tys := th.tys }
 
 /-- The core thread `tstep` is run on: `th`'s core fields, term `t`, no stack. -/
 def coreView (th : UTTh) (t : Expr) : TTh :=
   { term := t, env := th.env, σs := th.σs, stack := [], vs := th.vs, promises := th.promises,
     nalloc := th.nalloc, undefs := th.undefs, tidLbl := th.tidLbl,
-    permit := th.permit }
+    permit := th.permit, tys := th.tys }
 
 /-- A core result read back: its core fields, the U term `e` at counter `j`, `th`'s stack. -/
 def backTh (th : UTTh) (t : TTh) (e : UExpr) (j : Nat) : UTTh :=
   { term := e, env := t.env, σs := t.σs, stack := th.stack, vs := t.vs, promises := t.promises,
-    nalloc := t.nalloc, undefs := t.undefs, tidLbl := t.tidLbl, permit := t.permit, ctr := j }
+    nalloc := t.nalloc, undefs := t.undefs, tidLbl := t.tidLbl, permit := t.permit, tys := t.tys, ctr := j }
 
 def uIsDone (th : UTTh) : Bool :=
   match th.term, th.stack with
@@ -358,7 +360,7 @@ def uExtSteps (c : UCfg) (i : Nat) : List UCfg :=
 /-- A core thread with no stack read back at the U term `e`, counter 0 (a spawned child). -/
 def fromCore0 (t : TTh) (e : UExpr) : UTTh :=
   { term := e, env := t.env, σs := t.σs, stack := [], vs := t.vs, promises := t.promises,
-    nalloc := t.nalloc, undefs := t.undefs, tidLbl := t.tidLbl, permit := t.permit, ctr := 0 }
+    nalloc := t.nalloc, undefs := t.undefs, tidLbl := t.tidLbl, permit := t.permit, tys := t.tys, ctr := 0 }
 
 /-- The spawn move of thread `i`, through the core's `spawnPar`/`spawnKid` on the image. -/
 def uSpawnCfg (c : UCfg) (i : Nat) (th : UTTh) (x : String) (e : UExpr) (j : Nat) (f : String) (ts : List Ty)

@@ -21,6 +21,7 @@ TermRun.TTh.permit : TermRun.TTh → Option WeakMem.Ts
 TermRun.TTh.promises : TermRun.TTh → List WeakMem.Ts
 TermRun.TTh.stack : TermRun.TTh → List TermRun.Frame
 TermRun.TTh.tidLbl : TermRun.TTh → Option WeakMem.AllocLabel
+TermRun.TTh.tys : TermRun.TTh → List (WeakMem.AllocLabel × CoreLang.Ty × Bool)
 TermRun.TTh.undefs : TermRun.TTh → Nat
 TermRun.TTh.vs : TermRun.TTh → WeakMem.VState
 TermRun.TTh.σs : TermRun.TTh → List CoreLang.Ty
@@ -38,7 +39,7 @@ TermRun.extCfg : TermRun.Cfg →
           { term := e, env := (x, n.sig.snd, rs) :: th.env, σs := th.σs, stack := th.stack,
             vs := if n = CoreTerm.ExtName.park then TermRun.parkVs (Array.size c.mem) th else th.vs,
             promises := th.promises, nalloc := th.nalloc, undefs := th.undefs, tidLbl := th.tidLbl,
-            permit := if n = CoreTerm.ExtName.park then none else th.permit },
+            permit := if n = CoreTerm.ExtName.park then none else th.permit, tys := th.tys },
       lbase := c.lbase, boxFence := c.boxFence, cap := c.cap, trace := c.trace ++ n.events ws rs }
 TermRun.parkVs : Nat → TermRun.TTh → WeakMem.VState
 WeakMem.Msg : Type

@@ -20,7 +20,7 @@ theorem quiet_of {t : Expr} {env : TermRun.Env}
     (hl : ∀ x a e, t ≠ .let_ x (.load true a) e) (hs : ∀ x a b e, t ≠ .let_ x (.store true a b none) e)
     (hn : ∀ x a τ e, t ≠ .let_ x (.newBuf a τ) e) (hx : ∀ x a v e, t ≠ .let_ x (.xchg a v) e)
     (hxa : ∀ x b i v e, t ≠ .let_ x (.xchgAt b i v) e) (hp : ∀ x a e, t ≠ .let_ x (.publish a) e)
-    (hr : ∀ x r a e, t ≠ .let_ x (.intoRgn r a) e) (hw : ∀ x a e, t ≠ .let_ x (.new a) e) :
+    (hr : ∀ x r a e, t ≠ .let_ x (.intoRgn r a) e) (hw : ∀ x a T e, t ≠ .let_ x (.new a T) e) :
     Quiet ⟨t, env, none⟩ := by
   refine ⟨rfl, hl, hs, hn, fun x sa u v e ⟨_, h⟩ => ?_, noPub_of_term hp hr, hw⟩
   rcases h with ⟨a, _, _, _, ht, _⟩ | ⟨b, i, _, _, _, _, _, _, _, ht, _⟩

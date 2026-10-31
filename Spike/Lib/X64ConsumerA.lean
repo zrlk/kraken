@@ -305,7 +305,7 @@ theorem allocInvAt_frameRun {c c' : Ctl} {fs fs' : List TermRun.Frame}
     (hr : FrameRun p (c, fs) (c', fs')) :
     AllocInvAt Λ lbl lsize th tm ar.heap ar.cells ar.ctr ar.units ar.off hu c' := by
   rcases h with ⟨hh, ex, hpd, ha⟩ | ⟨hn, hctr, ha⟩
-  · obtain ⟨x, n, τ, e, ⟨a, ta, ws, ht, hea, hk⟩ | ⟨-, a, ws, ht, -⟩, -⟩ := id hpd
+  · obtain ⟨x, n, τ, e, ⟨a, ta, ws, ht, hea, hk⟩ | ⟨-, a, ws, ⟨_, ht⟩, -⟩, -⟩ := id hpd
     · obtain ⟨rfl, -⟩ := Prod.mk.inj (FrameRun.eq_of_newBuf hr ht hea hk)
       exact .inl ⟨hh, ex, hpd, ha⟩
     · obtain ⟨rfl, -⟩ := Prod.mk.inj (FrameNew.FrameRun.eq_of_new hr ht)

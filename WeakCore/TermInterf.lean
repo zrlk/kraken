@@ -93,7 +93,7 @@ theorem gfoot_of {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr 
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res}
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r) (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ) :
+    (Z : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ) :
     GFoot (gOf p k arch c i) Eg (Eg.post (gOf p k arch c i) th.nalloc r.2.2.nalloc E') th.nalloc r.2.2.nalloc
       c.mem.size := by
   have hF0 : EFoot (gOf p k arch c i) (Cut Eg i S) E' (stOf c.mem c.pairs th) (stOf r.1 r.2.1 r.2.2) := by
@@ -105,7 +105,7 @@ theorem interfFrameT_holds : ∀ {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res}
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res},
     TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
-    TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
+    TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
     ∀ j thj (Sj : AllocLabel → Prop), j ≠ i → c.ths[j]? = some thj →
       ThSysAt p (gOf p k arch c j) c.mem c.pairs thj Eg (Tot j) (HP j) HS (cr j) (db j) Sj →
       ThInvRE p (Cut (EgT Eg (gOf p k arch c i) th.nalloc r.2.2.nalloc E' c') j Sj) thj (Tot j) ∧ ThInvE p (Cut (EgT Eg (gOf p k arch c i) th.nalloc r.2.2.nalloc E' c') j Sj) thj := by
@@ -323,7 +323,7 @@ theorem fpokVisT_holds : ∀ {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res},
     TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
-    TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
+    TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
     ∀ (j j' : Nat) (thj thj' : TTh) (t : Ts) (m : Msg) (S' : AllocLabel → Prop), j ≠ j' → c'.ths[j]? = some thj →
       c'.ths[j']? = some thj' → t ∈ thj'.promises → c'.mem[t]? = some m → Vis (Cut (EgT Eg (gOf p k arch c i) th.nalloc r.2.2.nalloc E' c') j S') m.loc.label := by
   intro c c' Eg Tot HP HS cr db i th r S ρ η cx Rf Rs E' Tot' HP' HS' C F cr' db' δ X Y Z j j' thj thj' t m S' hjj hj hj' ht hm
@@ -375,7 +375,7 @@ theorem freshT_holds : ∀ {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS :
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res},
     TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
-    TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
+    TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
     ∀ j thj, c'.ths[j]? = some thj → ∀ m, thj.nalloc ≤ m →
       GFreshL (EgT Eg (gOf p k arch c i) th.nalloc r.2.2.nalloc E' c') c' thj (freshLabel c'.lbase c'.n j m) := by
   intro c c' Eg Tot HP HS cr db i th r S ρ η cx Rf Rs E' Tot' HP' HS' C F cr' db' δ X Y Z j thj hj m hm
@@ -395,7 +395,7 @@ theorem freshT_holds : ∀ {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS :
     have hnal : th.nalloc ≤ r.2.2.nalloc := (TermTyped.tstep_wrUp _ _ _ _ r X.hr).2.2.1
     have old := X.inv.fresh j th X.hth m (Nat.le_trans hnal hm)
     have hFL := Z.2.2.1.2.2.2.1.1 m hm
-    refine ⟨?_, ?_, hFL.2.2.1, hFL.2.2.2, fun t m' hm' hl => hFL.2.1 t m' (by rw [← X.e1]; exact hm') hl⟩
+    refine ⟨?_, ?_, hFL.2.2.1, hFL.2.2.2.2, fun t m' hm' hl => hFL.2.1 t m' (by rw [← X.e1]; exact hm') hl⟩
     · show (Eg.post (gOf p k arch c j) th.nalloc r.2.2.nalloc E').sto _ = none
       rw [post_sto_old hnF]; exact old.1
     · show (Eg.post (gOf p k arch c j) th.nalloc r.2.2.nalloc E').box _ = none
@@ -436,7 +436,7 @@ theorem interfHPT_holds : ∀ {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {H
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res},
     TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
-    TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
+    TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
     ∀ j thj (Sj : AllocLabel → Prop), j ≠ i → c.ths[j]? = some thj →
       ThSysAt p (gOf p k arch c j) c.mem c.pairs thj Eg (Tot j) (HP j) HS (cr j) (db j) Sj →
       MemHeldP (Cut (EgT Eg (gOf p k arch c i) th.nalloc r.2.2.nalloc E' c') j Sj) (stOf c'.mem c'.pairs thj) (HP j) := by
@@ -516,7 +516,7 @@ theorem interfCrT_cond (hA0 : PromTyA0F p k arch Sp Init MintOK c0) {c c' : Cfg}
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res}
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r) (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ)
+    (Z : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ)
     {j : Nat} {thj : TTh} {Sj : AllocLabel → Prop} (hji : j ≠ i) (hj : c.ths[j]? = some thj) :
     ∀ t m, t ∈ thj.promises → c.mem[t]? = some m →
       (Cut (EgT Eg (gOf p k arch c i) th.nalloc r.2.2.nalloc E' c') j Sj).sto m.loc.label =
@@ -597,7 +597,7 @@ theorem interfCrT_mover (hA0 : PromTyA0F p k arch Sp Init MintOK c0) {c c' : Cfg
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res}
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r) (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ)
+    (Z : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ)
     {j : Nat} {thj : TTh} {Sj : AllocLabel → Prop} (hji : j ≠ i) (hj : c.ths[j]? = some thj) :
     ∀ t m w R, t ∈ thj.promises → c.mem[t]? = some m → VRes (Cut Eg j Sj) m.loc w R →
       VRes (Cut (EgT Eg (gOf p k arch c i) th.nalloc r.2.2.nalloc E' c') j Sj) m.loc w R := by
@@ -611,7 +611,7 @@ theorem interfDb_mover (hA0 : PromTyA0F p k arch Sp Init MintOK c0) {c c' : Cfg}
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res}
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r) (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ)
+    (Z : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ)
     {j : Nat} {thj : TTh} {Sj : AllocLabel → Prop} (hji : j ≠ i) (hj : c.ths[j]? = some thj) (M : Memory) :
     ∀ t m R, t ∈ thj.promises → c.mem[t]? = some m → DbRes (Cut Eg j Sj) M m t R →
       DbRes (Cut (EgT Eg (gOf p k arch c i) th.nalloc r.2.2.nalloc E' c') j Sj) M m t R := by
@@ -628,7 +628,7 @@ theorem interfCrT_holds (hA0 : PromTyA0F p k arch Sp Init MintOK c0) :
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res},
     TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
-    TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
+    TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
     ∀ j thj (Sj : AllocLabel → Prop), j ≠ i → c.ths[j]? = some thj →
       ThSysAt p (gOf p k arch c j) c.mem c.pairs thj Eg (Tot j) (HP j) HS (cr j) (db j) Sj →
       PromCr (Cut Eg (gOf p k arch c j).i Sj) (stOf c.mem c.pairs thj) (cr j) (db j) →
@@ -670,7 +670,7 @@ def NoBoxPromF (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → Cfg �
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res},
     TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
-    TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
+    TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
     ThSysAt p (gOf p k arch c i) c.mem c.pairs th Eg (Tot i) (HP i) HS (cr i) (db i) S →
     PfrG { gOf p k arch c i with pf := fun l => TermOwnG0Defs.PubAt th l } (CE η) E' →
     ∀ l B, FreshIn (gOf p k arch c i) th.nalloc r.2.2.nalloc l → E'.box l = some B →
@@ -691,7 +691,7 @@ theorem boxtopT_holds (hnb : NoBoxPromF p k arch Sp Init MintOK c0) :
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res},
     TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
-    TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
+    TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
     ThSysAt p (gOf p k arch c i) c.mem c.pairs th Eg (Tot i) (HP i) HS (cr i) (db i) S →
     PfrG { gOf p k arch c i with pf := fun l => TermOwnG0Defs.PubAt th l } (CE η) E' →
     BoxTopG (EgT Eg (gOf p k arch c i) th.nalloc r.2.2.nalloc E' c') c' := by
@@ -1122,7 +1122,7 @@ theorem interfCrTK_holds (hA0 : PromTyA0F p k arch Sp Init MintOK c0) :
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res},
     TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
-    TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
+    TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
     CrShiftP c c' (EgT Eg (gOf p k arch c i) th.nalloc r.2.2.nalloc E' c') cr i δ →
     ∀ j thj (Sj : AllocLabel → Prop), j ≠ i → c.ths[j]? = some thj →
       ThSysAt p (gOf p k arch c j) c.mem c.pairs thj Eg (Tot j) (HP j) HS (cr j) (db j) Sj →
@@ -1397,7 +1397,7 @@ def MemClT (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → Cfg → P
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res},
     TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
-    TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
+    TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
     ∀ j thj (Sj : AllocLabel → Prop), j ≠ i → c.ths[j]? = some thj →
       ThSysAt p (gOf p k arch c j) c.mem c.pairs thj Eg (Tot j) (HP j) HS (cr j) (db j) Sj →
       Q (gOf p k arch c j) (Cut (EgT Eg (gOf p k arch c i) th.nalloc r.2.2.nalloc E' c') j Sj) (stOf c'.mem c'.pairs thj)
@@ -1410,7 +1410,7 @@ def MemClTH (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → Cfg → 
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res},
     TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
-    TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
+    TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
     ThSysAt p (gOf p k arch c i) c.mem c.pairs th Eg (Tot i) (HP i) HS (cr i) (db i) S →
     PfrG { gOf p k arch c i with pf := fun l => TermOwnG0Defs.PubAt th l } (CE η) E' →
     ∀ j thj (Sj : AllocLabel → Prop), j ≠ i → c.ths[j]? = some thj →
@@ -1424,7 +1424,7 @@ def MemClTP (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → Cfg → 
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ crS : Ts → Res},
     TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
-    TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) crS (db i) δ →
+    TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) crS (db i) δ →
     (∀ l, TermOwnG0Defs.PubAt th l → ∀ t, crS t = cr i t) →
     PfrG { gOf p k arch c i with pf := fun l => TermOwnG0Defs.PubAt th l } (CE η) E' →
     ThSysAt p (gOf p k arch c i) c.mem c.pairs th Eg (Tot i) (HP i) HS (cr i) (db i) S →
@@ -1449,7 +1449,7 @@ theorem interfMemT_of_clauses
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ crS : Ts → Res},
     TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
-    TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) crS (db i) δ →
+    TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) crS (db i) δ →
     (∀ l, TermOwnG0Defs.PubAt th l → ∀ t, crS t = cr i t) →
     PfrG { gOf p k arch c i with pf := fun l => TermOwnG0Defs.PubAt th l } (CE η) E' →
     ThSysAt p (gOf p k arch c i) c.mem c.pairs th Eg (Tot i) (HP i) HS (cr i) (db i) S →
@@ -1470,7 +1470,7 @@ def RiniFootF (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → Cfg �
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res},
     TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
-    TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
+    TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
     ∀ l, E'.rini l = (CE η).rini l ∨ FreshIn (gOf p k arch c i) th.nalloc r.2.2.nalloc l ∨ OwnAt (CE η) l
 
 /-- At a cell not of the stepper, `E_g` keeps cell, frontier and count. -/
@@ -1478,7 +1478,7 @@ theorem tctx_other_cell {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Re
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res}
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r) (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ)
+    (Z : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ)
     {l : AllocLabel} {cl : Cell} (hc : Eg.sto l = some cl) (ho : cl.owner ≠ some i) :
     (EgT Eg (gOf p k arch c i) th.nalloc r.2.2.nalloc E' c').sto l = some cl ∧
     (EgT Eg (gOf p k arch c i) th.nalloc r.2.2.nalloc E' c').pfr l = Eg.pfr l ∧
@@ -1499,7 +1499,7 @@ theorem tctx_other_rini (hri : RiniFootF p k arch Sp Init MintOK c0) {c c' : Cfg
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res}
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r) (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ)
+    (Z : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ)
     {l : AllocLabel} {cl : Cell} (hc : Eg.sto l = some cl) (ho : cl.owner ≠ some i) :
     (EgT Eg (gOf p k arch c i) th.nalloc r.2.2.nalloc E' c').rini l = Eg.rini l := by
   have hfr := X.inv.gfresh X.hth r.2.2.nalloc
@@ -1516,7 +1516,7 @@ theorem tctx_jcut {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res}
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r) (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ)
+    (Z : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ)
     {j : Nat} (hji : j ≠ i) {l : AllocLabel} {cl : Cell} :
     cutSto (EgT Eg (gOf p k arch c i) th.nalloc r.2.2.nalloc E' c') j l = some cl → cl.owner = some j →
       Eg.sto l = some cl ∧ cutSto Eg j l = some cl := by
@@ -1532,7 +1532,7 @@ theorem tctx_notI {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res}
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r) (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ)
+    (Z : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ)
     {l : AllocLabel} (hnF : ¬ FreshIn (gOf p k arch c i) th.nalloc r.2.2.nalloc l) (hnO : ¬ Eg.OwnAt i l) :
     (EgT Eg (gOf p k arch c i) th.nalloc r.2.2.nalloc E' c').sto l = Eg.sto l ∧
     (EgT Eg (gOf p k arch c i) th.nalloc r.2.2.nalloc E' c').pfr l = Eg.pfr l ∧
@@ -1620,7 +1620,7 @@ theorem tctx_cut {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr 
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res}
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r) (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ) :
+    (Z : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ) :
     Cut (EgT Eg (gOf p k arch c i) th.nalloc r.2.2.nalloc E' c') i E'.seen = E' := by
   have hF0 : EFoot (gOf p k arch c i) (Cut Eg i S) E' (stOf c.mem c.pairs th) (stOf r.1 r.2.1 r.2.2) := by
     rw [← Y.1]; exact Z.1
@@ -1641,7 +1641,7 @@ def PromTyAPostF (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → Cfg
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ crS : Ts → Res},
     TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
-    TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) crS (db i) δ →
+    TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) crS (db i) δ →
     (∀ l, TermOwnG0Defs.PubAt th l → ∀ t, crS t = cr i t) →
     PfrG { gOf p k arch c i with pf := fun l => TermOwnG0Defs.PubAt th l } (CE η) E' →
     ThSysAt p (gOf p k arch c i) c.mem c.pairs th Eg (Tot i) (HP i) HS (cr i) (db i) S →
@@ -1654,7 +1654,7 @@ def PromIniPostF (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → Cfg
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ crS : Ts → Res},
     TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
-    TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) crS (db i) δ →
+    TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) crS (db i) δ →
     (∀ l, TermOwnG0Defs.PubAt th l → ∀ t, crS t = cr i t) →
     PfrG { gOf p k arch c i with pf := fun l => TermOwnG0Defs.PubAt th l } (CE η) E' →
     ThSysAt p (gOf p k arch c i) c.mem c.pairs th Eg (Tot i) (HP i) HS (cr i) (db i) S →
@@ -1748,7 +1748,7 @@ theorem tctx_inclS {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {c
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res}
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r) (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ)
+    (Z : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ)
     (j : Nat) (Sj : AllocLabel → Prop) :
     InclS E' (Cut (EgT Eg (gOf p k arch c i) th.nalloc r.2.2.nalloc E' c') j Sj) := by
   have h := InclS_cut (EgT Eg (gOf p k arch c i) th.nalloc r.2.2.nalloc E' c') i j E'.seen Sj
@@ -1760,7 +1760,7 @@ theorem tctx_shared {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res}
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r) (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ)
+    (Z : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ)
     {l : AllocLabel} {cl : Cell} {f : Ts}
     (hc : (EgT Eg (gOf p k arch c i) th.nalloc r.2.2.nalloc E' c').sto l = some cl)
     (hf : (EgT Eg (gOf p k arch c i) th.nalloc r.2.2.nalloc E' c').pfr l = some f) :
@@ -1782,7 +1782,7 @@ theorem tctx_newOK_j {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} 
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res}
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r) (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ)
+    (Z : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ)
     {j : Nat} (hji : j ≠ i) (Sj : AllocLabel → Prop) {l : AllocLabel} {cl : Cell} {o : Nat}
     (hc : Eg.sto l = some cl) (ho : cl.owner = some j)
     (hI : InitR (Cut (EgT Eg (gOf p k arch c i) th.nalloc r.2.2.nalloc E' c') j Sj) cl l o)
@@ -1976,7 +1976,7 @@ def PubFrontierF (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → Cfg
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res},
     TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
-    TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
+    TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
     ∀ l f cl, (CE η).pfr l = none → E'.pfr l = some f → E'.sto l = some cl → r.2.2.vs.vWr ≤ f
 
 /-- (B3) **`PlantFrozen` at every thread step**: the stepper leaves
@@ -1986,7 +1986,7 @@ def PlantFrozenF (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → Cfg
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res},
     TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
-    TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
+    TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
     PlantFrozen i Eg (Eg.post (gOf p k arch c i) th.nalloc r.2.2.nalloc E')
 
 /-- (T1, the `hsc` of `stepper_newPos`) **The stepping term is in scope**, frame-only
@@ -2035,7 +2035,7 @@ theorem tctx_newOK_other {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : R
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res}
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r) (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ)
+    (Z : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ)
     (j : Nat) (Sj : AllocLabel → Prop) {l : AllocLabel} {cl : Cell} {o : Nat} {f : Ts}
     (hc : Eg.sto l = some cl) (hoi : cl.owner ≠ some i) (hpf : Eg.pfr l = some f)
     (hI : InitR (Cut (EgT Eg (gOf p k arch c i) th.nalloc r.2.2.nalloc E' c') j Sj) cl l o)
@@ -2059,7 +2059,7 @@ theorem tctx_newOwn {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res}
     (hsc : StepScopeF p k arch Sp Init MintOK c0)
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r) (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ)
+    (Z : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ)
     {l : AllocLabel} {cl : Cell} {o : Nat} (hc : Eg.sto l = some cl) (hoi : cl.owner = some i)
     (hI : InitR E' cl l o) {t : Nat} {m : Msg} (ht : c.mem.size ≤ t) (hm : c'.mem[t]? = some m)
     (hl : m.loc = ⟨l, o⟩) : WordOK E' cl.ty o (mw m) := by
@@ -2203,7 +2203,7 @@ def PromNoTwoPostF (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → C
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res},
     TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
-    TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
+    TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
     ThSysAt p (gOf p k arch c i) c.mem c.pairs th Eg (Tot i) (HP i) HS (cr i) (db i) S →
     PfrG { gOf p k arch c i with pf := fun l => TermOwnG0Defs.PubAt th l } (CE η) E' →
     ∀ (k' : Nat) (thk : TTh) (t : Ts) (m : Msg), c'.ths[k']? = some thk → t ∈ thk.promises → c'.mem[t]? = some m →
@@ -2219,7 +2219,7 @@ def PairStepperF (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → Cfg
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res},
     TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
-    TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
+    TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
     ThSysAt p (gOf p k arch c i) c.mem c.pairs th Eg (Tot i) (HP i) HS (cr i) (db i) S →
     PfrG { gOf p k arch c i with pf := fun l => TermOwnG0Defs.PubAt th l } (CE η) E' →
     ∀ j thj (Sj : AllocLabel → Prop), j ≠ i → c.ths[j]? = some thj →
@@ -2298,7 +2298,7 @@ def NewForeignTypedF (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg →
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res},
     TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
-    TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
+    TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
     ∀ (t : Nat) (m : Msg) (l : AllocLabel) (o : Nat) (cl : Cell), c.mem.size ≤ t → c'.mem[t]? = some m →
       m.loc = ⟨l, o⟩ → Eg.sto l = some cl → cl.owner ≠ some i → WordOK E' cl.ty o (mw m)
 
@@ -2310,7 +2310,7 @@ def NewPairF (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → Cfg →
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res},
     TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
-    TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
+    TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
     ∀ (t : Nat) (m : Msg) (l : AllocLabel) (o : Nat) (cl : Cell), c.mem.size ≤ t → c'.mem[t]? = some m →
       Eg.sto l = some cl → TwoAtT cl.ty o →
       (m.loc = ⟨l, o⟩ → t ∈ c'.pairs ∧ ∃ m1, c'.mem[t + 1]? = some m1 ∧ m1.loc = ⟨l, o + 1⟩) ∧
@@ -2462,7 +2462,7 @@ def OwnCohLeF (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → Cfg �
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res},
     TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
-    TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
+    TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ →
     ∀ l, (CE η).pfr l = none → E'.pfr l ≠ none → ∀ cl vals, E'.sto l = some cl →
       CellOK E' (E'.rc l) cl.ty vals → ∀ o, o < vals.length → r.2.2.vs.coh ⟨l, o⟩ ≤ r.2.2.vs.vWr
 
@@ -2654,7 +2654,11 @@ theorem cl4_freshLP : MemClT p k arch Sp Init MintOK c0 fun g E s => FreshLP g E
   have hj' : c'.ths[j]? = some thj := by rw [X.ho j hji]; exact hj
   have hG := freshT_holds X Y Z j thj hj' jj hjj
   rw [(threadSteps_lbase X.hc').1, TermStep.threadSteps_n X.hc'] at hG
-  refine ⟨?_, hG.2.2.2.2, hG.2.2.1, hG.2.2.2.1⟩
+  have hrle : ∀ l, (Eg.post (gOf p k arch c i) th.nalloc r.2.2.nalloc E').rini l ≤
+      (Eg.post (gOf p k arch c i) th.nalloc r.2.2.nalloc E').ini l :=
+    fun l => (show EFoot (gOf p k arch c i) (Cut Eg i S) E' (stOf c.mem c.pairs th) (stOf r.1 r.2.1 r.2.2) by
+      rw [← Y.1]; exact Z.1).2.2.2.2.2.2.2.2.2.2.1 X.inv.rle l
+  refine ⟨?_, hG.2.2.2.2, hG.2.2.1, Nat.le_zero.1 (Nat.le_trans (hrle _) (Nat.le_of_eq hG.2.2.1)), hG.2.2.2.1⟩
   show cutSto _ j _ = none
   cases e : cutSto (EgT Eg (gOf p k arch c i) th.nalloc r.2.2.nalloc E' c') j (freshLabel c.lbase c.n j jj) with
   | none => exact e
@@ -2808,7 +2812,9 @@ theorem pcl4_freshLP (hspec : PlantSpecF p k arch Sp Init MintOK c0 plantOf) (hp
   have hlb : (promise c j a v w).lbase = c.lbase := by
     rw [(promise_inv (a := a) (v := v) (w := w) X.hth).1]
   rw [hlb, TermStep.promise_n] at hG
-  refine ⟨?_, fun t m hm hl => hG.2.2.2.2 t m (by rw [prom_mem X.hth]; exact hm) hl, hG.2.2.1, hG.2.2.2.1⟩
+  refine ⟨?_, fun t m hm hl => hG.2.2.2.2 t m (by rw [prom_mem X.hth]; exact hm) hl, hG.2.2.1,
+    Nat.le_zero.1 (Nat.le_trans (Nat.le_trans (X.inv.rle _) (plantG_ini_le _ _ _ _)) (Nat.le_of_eq hG.2.2.1)),
+    hG.2.2.2.1⟩
   show cutSto _ j' _ = none
   cases e : cutSto ((plantG Eg (plantOf c Eg j a v w) (plantN c Eg j a v w)).withFp (fpProm Eg j c.mem.size)) j'
       (freshLabel c.lbase c.n j' jj) with

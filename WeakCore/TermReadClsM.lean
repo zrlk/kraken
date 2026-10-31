@@ -312,7 +312,7 @@ def RdOp (g : G) (env : Env) (s : St) : Op → Address → Prop
       addrOf pw = some b
   | .inl _ a, b => BoxRd g env s a b
   | .inr _ a, b => BoxRd g env s a b
-  | .new _, b => b.label = freshLabel g.lbase g.n g.i s.nalloc
+  | .new _ _, b => b.label = freshLabel g.lbase g.n g.i s.nalloc
   | .newBuf _ _, b => b.label = freshLabel g.lbase g.n g.i s.nalloc
   | _, _ => False
 
@@ -352,7 +352,7 @@ theorem evalOp_rd {g : G} {env : Env} {σs : List Ty} {s : St} {op : Op} {r : St
       obtain ⟨⟨s1, j, p⟩, hp, ⟨s2, q⟩, hq, rfl⟩ := h
       exact box_rd hea hp hq h1
     · simp at h
-  case new a =>
+  case new a _ =>
     simp only [evalOp] at h
     repeat' split at h
     all_goals first
@@ -462,7 +462,10 @@ theorem tstep_rd {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {r : Memory
        exact (nr (by show th'.vs.coh = th.vs.coh; rw [e1])).elim)
     | (simp only [List.mem_map] at h
        obtain ⟨⟨s', t, ws⟩, hx, rfl⟩ := h
-       exact .inl ⟨_, _, _, by assumption, evalOp_rd hx hlt h1 h2 h3⟩)
+       first
+         | exact .inl ⟨_, _, _, by assumption, evalOp_rd hx hlt h1 h2 h3⟩
+         | (revert h1 h2 h3 nr
+            split <;> intro h1 h2 h3 nr <;> exact .inl ⟨_, _, _, by assumption, evalOp_rd hx hlt h1 h2 h3⟩))
     | (simp only [List.mem_flatMap, List.mem_map] at h
        obtain ⟨⟨s1, j, p⟩, hp, ⟨s2, q⟩, hq, rfl⟩ := h
        exact .inr (.inl ⟨_, _, _, _, _, by assumption, box_rd (by assumption) hp hq h1⟩))

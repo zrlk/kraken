@@ -55,7 +55,7 @@ def mC : Expr := .let_ "p" (.pair (.var "c") (.var "me")) spawnTerm
 def mO : Expr := .let_ "c" (.publish (.var "o")) mC
 
 /-- main's body after `z`. -/
-def mZ : Expr := .let_ "o" (.new (.var "z")) mO
+def mZ : Expr := .let_ "o" (.new (.var "z") (some .int)) mO
 
 /-- main's body. -/
 def mBody : Expr := .let_ "z" (.zero .int) mZ
@@ -221,7 +221,7 @@ theorem tinv_tstep {g : G} {mem mem' : WeakMem.Memory} {pairs pairs' : List Ts} 
     refine ⟨Nat.le_refl _, Or.inr (Or.inr (Or.inl rfl)), hst, hv, EnvB.cons he (cst_b _ _), fun _ => ?_, fun h => ?_⟩
     · simp [lookupE, withS]
     · simp [withS, mZ, mO, mC, spawnTerm, WakePreA.spawnTerm] at h
-  · rw [TermLocal.tstep_let_gen (ht.trans rfl : th.term = .let_ "o" (.new (.var "z")) mO) rfl] at h
+  · obtain ⟨_, _, _, h, tys, hr⟩ := tstep_new_mem (ht.trans rfl : th.term = .let_ "o" (.new (.var "z") (some .int)) mO) h
     have hzt := hz ht
     cases hzl : lookupE th.env "z" with
     | none => simp [hzl] at hzt
@@ -233,6 +233,8 @@ theorem tinv_tstep {g : G} {mem mem' : WeakMem.Memory} {pairs pairs' : List Ts} 
       obtain ⟨⟨s', pw⟩, ha, he'⟩ := h
       simp only [Prod.mk.injEq] at he'
       obtain ⟨rfl, rfl, rfl⟩ := he'
+      simp only [Prod.mk.injEq] at hr
+      obtain ⟨rfl, rfl, rfl⟩ := hr
       obtain ⟨hlt, hvb, rfl⟩ := alloc_vb (s := stOf mem pairs th) hv ha
       refine ⟨Nat.le_of_lt hlt, Or.inr (Or.inr (Or.inr (Or.inl rfl))), hst, hvb,
         EnvB.cons (he.mono (by simp only [stOf] at hlt; omega)) (cst_b _ _), fun h => ?_,

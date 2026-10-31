@@ -331,7 +331,7 @@ theorem inv_target_cases {th : TTh} {w : At} (h : targetOf th = some w) :
   · cases h; exact .inr (.inr (.inl ⟨_, _, _, ‹_›⟩))
   · cases h; exact .inr (.inr (.inr (.inl ⟨_, _, _, _, _, _, ‹_›⟩)))
   · cases h; exact .inr (.inr (.inr (.inr ⟨_, _, _, _, _, ‹_›⟩)))
-  · cases h
+  all_goals cases h
 
 theorem inv_cell_of_word {t : Ty} {r : Idx} {P : Proto} (h : wordOf t = some (r, P)) :
     ∃ μ, cellOf t = some (μ, .word r P) := by

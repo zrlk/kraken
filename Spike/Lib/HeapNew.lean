@@ -47,8 +47,8 @@ thread's next label (fresh by `FreshInv`), the heap use two more after, and
 theorem new_rowS (h1 : Inv1 Λ lbl lsize ts t tm s.mem) {heap cells old : Nat} {ex : Nat → Prop}
     (ha : ArenaOK Λ lbl lsize t tm heap cells old ex) (hi : s.ths[0]? = some th)
     (hfr : FreshInv lbl s.lbase s.n 0 th.nalloc) (hn0 : 0 < s.n)
-    {x : String} {a : At} {e : Expr} {ty : Ty} {w : Word}
-    (ht : th.term = .let_ x (.new a) e) (hea : evalAt th.env a = some (ty, [w]))
+    {x : String} {a : At} {T : Option Ty} {e : Expr} {ty : Ty} {w : Word}
+    (ht : th.term = .let_ x (.new a T) e) (hea : evalAt th.env a = some (ty, [w]))
     (hu : accs ty = some [.one]) (hp : th.promises = [])
     {off u : Nat} (hoff : off % 8 = 0) (hfit : off + 8 * 1 ≤ 16 * u) (hle : old + u ≤ cells)
     (hex : ∀ a', ex a' → a' < heap + 16 * old + off) (hbx : boxCount s ≤ allocCount s)

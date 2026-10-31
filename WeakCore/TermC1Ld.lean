@@ -210,13 +210,13 @@ theorem tstepM_loadRgn1 {acq : Bool}
     (hE : EnvOK p η) (htv : TvOK cx) (hm : MemInv g (CE η) (stOf mem pairs th)) (hRP : RetPw th.σs th.stack cx.ret) (hPS : PwSkel)
     (hrop : rgnOpOK1 cx (.load acq a) = true)
     (hmo : ∀ rt ws ad c, evalAt th.env a = some (rt, ws) → ws.map (·.val) = [.loc ad 0] →
-      η.sto ad.label = some c → ModeOK1 η.tid η.pfr η.seen (.rgn r) ad.label c ws) :
+      η.sto ad.label = some c → ModeOK1 η.tid η.pfr η.seen (.rgn r) ad.label c ws) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
     tstep g mem pairs th ≠ [] ∧ ∀ r ∈ tstep g mem pairs th, PromAbove (stOf r.1 r.2.1 r.2.2) → ThInvMF p g (CE η) (stOf mem pairs th) r.1 r.2.1 r.2.2 := by
   rw [hterm] at hT
   cases hT with
   | let_ hop he =>
   obtain ⟨haf, hb⟩ := rgnLoad_facts hop hpk rfl hnw hrop (fun _ => rgn_adapt hi hpk hm hmo)
-  exact tstepM_loadCell hterm hpk haf hb he (OpT_TvOK hP hop htv) (OpT_retSk hop) hi hE htv hm hRP hPS (rgnV hmo)
+  exact tstepM_loadCell (hDy := hDy) hterm hpk haf hb he (OpT_TvOK hP hop htv) (OpT_retSk hop) hi hE htv hm hRP hPS (rgnV hmo)
 
 /-- **(G4) `load` through a region reference, with resources**: `tstepMR_loadCell`. -/
 theorem tstepMR_loadRgn1 {acq : Bool}
@@ -227,7 +227,7 @@ theorem tstepMR_loadRgn1 {acq : Bool}
     (hH : MemHeldL (CE η) (stOf mem pairs th) H Sp) (hRP : RetPw th.σs th.stack cx.ret) (hPS : PwSkel)
     (hrop : rgnOpOK1 cx (.load acq a) = true)
     (hmo : ∀ rt ws ad c, evalAt th.env a = some (rt, ws) → ws.map (·.val) = [.loc ad 0] →
-      η.sto ad.label = some c → ModeOK1 η.tid η.pfr η.seen (.rgn r) ad.label c ws) :
+      η.sto ad.label = some c → ModeOK1 η.tid η.pfr η.seen (.rgn r) ad.label c ws) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
     tstep g mem pairs th ≠ [] ∧ ∀ r ∈ tstep g mem pairs th, PromAbove (stOf r.1 r.2.1 r.2.2) →
       ∃ Tot H', ThInvMK p g (CE η) (stOf mem pairs th) Sp r.1 r.2.1 r.2.2 Tot H' ∧ Tot + H' ≤ Rf + Rs + H := by
   rw [hterm] at hT hCk
@@ -235,7 +235,7 @@ theorem tstepMR_loadRgn1 {acq : Bool}
   | let_ hop0 he0 =>
   obtain ⟨c', -, hop, he, hck, -⟩ := TermA4.CkW_let hCk
   obtain ⟨haf, hb⟩ := rgnLoad_facts hop hpk rfl hnw hrop (fun _ => rgn_adapt hi.1 hpk hm hmo)
-  exact tstepMR_loadCell hterm hpk haf hb he hck (OpT_TvOK hP hop htv) (OpT_retSk hop) hi hE htv hm hH hRP hPS (rgnV hmo)
+  exact tstepMR_loadCell (hDy := hDy) hterm hpk haf hb he hck (OpT_TvOK hP hop htv) (OpT_retSk hop) hi hE htv hm hH hRP hPS (rgnV hmo)
 
 /-- **(G4) `load` through a region reference, with credits**: nothing minted, credits kept. -/
 theorem tstepMC_loadRgn1 {acq : Bool}
@@ -247,12 +247,12 @@ theorem tstepMC_loadRgn1 {acq : Bool}
     {cr db : Ts → Res} (hC : PromCr (CE η) (stOf mem pairs th) cr db) (hRP : RetPw th.σs th.stack cx.ret) (hPS : PwSkel)
     (hrop : rgnOpOK1 cx (.load acq a) = true)
     (hmo : ∀ rt ws ad c, evalAt th.env a = some (rt, ws) → ws.map (·.val) = [.loc ad 0] →
-      η.sto ad.label = some c → ModeOK1 η.tid η.pfr η.seen (.rgn r) ad.label c ws) :
+      η.sto ad.label = some c → ModeOK1 η.tid η.pfr η.seen (.rgn r) ad.label c ws) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
     tstep g mem pairs th ≠ [] ∧ ∀ r ∈ tstep g mem pairs th, PromAbove (stOf r.1 r.2.1 r.2.2) → ∃ Tot H' C F,
       ThInvMCFS p g (CE η) (stOf mem pairs th) Sp r.1 r.2.1 r.2.2 Tot H' cr db ∧ MintStepN g η (stOf mem pairs th) (stOf r.1 r.2.1 r.2.2) C F ∧
       Tot + H' + pSum (stOf r.1 r.2.1 r.2.2) cr + pSum (stOf mem pairs th) db + C ≤
         Rf + Rs + H + pSum (stOf mem pairs th) cr + pSum (stOf r.1 r.2.1 r.2.2) db + F :=
-  mc_liftA hm hC (tstepMR_loadRgn1 hterm hP hpk hnw hT hCk hi hE htv hm hH hRP hPS hrop hmo)
+  mc_liftA hm hC (tstepMR_loadRgn1 (hDy := hDy) hterm hP hpk hnw hT hCk hi hE htv hm hH hRP hPS hrop hmo)
 
 /-- **(G4) `store` through a region reference, thread layer**: a `pub` store (`tstepM_storeCell`). -/
 theorem tstepM_storeRgn1 {rel : Bool} {v : At} {tok : Option At}
@@ -261,13 +261,13 @@ theorem tstepM_storeRgn1 {rel : Bool} {v : At} {tok : Option At}
     (hT : Typed p cx th.term) (hi : FInv ρ η th.σs (Resume p th.stack) cx th.env)
     (hE : EnvOK p η) (htv : TvOK cx) (hm : MemInv g (CE η) (stOf mem pairs th)) (hRP : RetPw th.σs th.stack cx.ret) (hPS : PwSkel)
     (hmo : ∀ rt ws ad c, evalAt th.env a = some (rt, ws) → ws.map (·.val) = [.loc ad 0] →
-      η.sto ad.label = some c → ModeOK1 η.tid η.pfr η.seen (.rgn r) ad.label c ws) :
+      η.sto ad.label = some c → ModeOK1 η.tid η.pfr η.seen (.rgn r) ad.label c ws) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
     tstep g mem pairs th ≠ [] ∧ ∀ r ∈ tstep g mem pairs th, ThInvMF p g (CE η) (stOf mem pairs th) r.1 r.2.1 r.2.2 := by
   rw [hterm] at hT
   cases hT with
   | let_ hop he =>
   obtain ⟨tv, c₁, hu, hsub, hb⟩ := rgnStore_facts hop hpk rfl hnw (fun _ _ _ _ => rgn_adapt hi hpk hm hmo)
-  exact tstepM_storeCell (hterm := hterm) (hpk := hpk) (hu := hu) (hsub := hsub) (hb := hb) (he := he)
+  exact tstepM_storeCell (hDy := hDy) (hterm := hterm) (hpk := hpk) (hu := hu) (hsub := hsub) (hb := hb) (he := he)
     (htv' := OpT_TvOK hP hop htv) (hRk := OpT_retSk hop) (hi := hi) (hE := hE) (htv := htv) (hm := hm)
     (hRP := hRP) (hPS := hPS) (hV := rgnV hmo)
 
@@ -282,7 +282,7 @@ theorem tstepMR_storeRgn1 {rel : Bool} {v : At} {tok : Option At}
     (hdw : StoreCrZ η cx (stOf mem pairs th) th)
     (hfo : FpOK (CE η) (stOf mem pairs th)) (hRP : RetPw th.σs th.stack cx.ret) (hPS : PwSkel)
     (hmo : ∀ rt ws ad c, evalAt th.env a = some (rt, ws) → ws.map (·.val) = [.loc ad 0] →
-      η.sto ad.label = some c → ModeOK1 η.tid η.pfr η.seen (.rgn r) ad.label c ws) :
+      η.sto ad.label = some c → ModeOK1 η.tid η.pfr η.seen (.rgn r) ad.label c ws) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
     tstep g mem pairs th ≠ [] ∧ ∀ r ∈ tstep g mem pairs th,
       ∃ Tot H' X, ThInvMPLX p g (CE η) (stOf mem pairs th) Sp r.1 r.2.1 r.2.2 Tot H' X ∧ Tot + H' + X ≤ Rf + Rs + H := by
   rw [hterm] at hT hCk
@@ -290,7 +290,7 @@ theorem tstepMR_storeRgn1 {rel : Bool} {v : At} {tok : Option At}
   | let_ hop0 he0 =>
   obtain ⟨c', -, hop, he, hck, -⟩ := TermA4.CkW_let hCk
   obtain ⟨tv, c₁, hu, hsub, hb⟩ := rgnStore_facts hop hpk rfl hnw (fun _ _ _ _ => rgn_adapt hi.1 hpk hm hmo)
-  exact tstepMR_storeCell (hterm := hterm) (hpk := hpk) (hnw := hnw) (hu := hu) (hsub := hsub) (hb := hb)
+  exact tstepMR_storeCell (hDy := hDy) (hterm := hterm) (hpk := hpk) (hnw := hnw) (hu := hu) (hsub := hsub) (hb := hb)
     (he := he) (hck := hck) (htv' := OpT_TvOK hP hop htv) (hRk := OpT_retSk hop) (hi := hi) (hE := hE)
     (htv := htv) (hm := hm) (hH := hH) (hia := hia) (hdw := hdw) (hfo := hfo) (hRP := hRP) (hPS := hPS)
     (hV := rgnV hmo)
@@ -307,12 +307,12 @@ theorem tstepMC_storeRgn1 {rel : Bool} {v : At} {tok : Option At}
     {cr db : Ts → Res} (hC : PromCr (CE η) (stOf mem pairs th) cr db)
     (hfo : FpOK (CE η) (stOf mem pairs th)) (hRP : RetPw th.σs th.stack cx.ret) (hPS : PwSkel)
     (hmo : ∀ rt ws ad c, evalAt th.env a = some (rt, ws) → ws.map (·.val) = [.loc ad 0] →
-      η.sto ad.label = some c → ModeOK1 η.tid η.pfr η.seen (.rgn r) ad.label c ws) :
+      η.sto ad.label = some c → ModeOK1 η.tid η.pfr η.seen (.rgn r) ad.label c ws) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
     tstep g mem pairs th ≠ [] ∧ ∀ r ∈ tstep g mem pairs th, ∃ Tot H' C F,
       ThInvMCFS p g (CE η) (stOf mem pairs th) Sp r.1 r.2.1 r.2.2 Tot H' cr db ∧ MintStepN g η (stOf mem pairs th) (stOf r.1 r.2.1 r.2.2) C F ∧
       Tot + H' + pSum (stOf r.1 r.2.1 r.2.2) cr + pSum (stOf mem pairs th) db + C ≤
         Rf + Rs + H + pSum (stOf mem pairs th) cr + pSum (stOf r.1 r.2.1 r.2.2) db + F :=
-  mc_liftPLX hC (tstepMR_storeRgn1 hterm hP hpk hnw hT hCk hi hE htv hm hH hia hdw hfo hRP hPS hmo)
+  mc_liftPLX hC (tstepMR_storeRgn1 (hDy := hDy) hterm hP hpk hnw hT hCk hi hE htv hm hH hia hdw hfo hRP hPS hmo)
 
 
 /-- **(G4) `load` through a region locative, thread layer**: a `pub` load (`tstepM_loadCellLoc`). -/
@@ -323,13 +323,13 @@ theorem tstepM_loadRgnLoc1 {acq : Bool}
     (hE : EnvOK p η) (htv : TvOK cx) (hm : MemInv g (CE η) (stOf mem pairs th)) (hRP : RetPw th.σs th.stack cx.ret) (hPS : PwSkel)
     (hrop : rgnOpOK1 cx (.load acq a) = true)
     (hmo : ∀ rt ws ad c, evalAt th.env a = some (rt, ws) → ws.map (·.val) = [.loc ad 0] →
-      η.sto ad.label = some c → ModeOK1 η.tid η.pfr η.seen (.rgn r) ad.label c ws) :
+      η.sto ad.label = some c → ModeOK1 η.tid η.pfr η.seen (.rgn r) ad.label c ws) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
     tstep g mem pairs th ≠ [] ∧ ∀ r ∈ tstep g mem pairs th, PromAbove (stOf r.1 r.2.1 r.2.2) → ThInvMF p g (CE η) (stOf mem pairs th) r.1 r.2.1 r.2.2 := by
   rw [hterm] at hT
   cases hT with
   | let_ hop he =>
   obtain ⟨haf, hb⟩ := rgnLoad_facts hop hpk rfl hnw hrop (rgnLoc_adaptL hi hpk hm hmo)
-  exact tstepM_loadCellLoc hterm hpk haf hb he (OpT_TvOK hP hop htv) (OpT_retSk hop) hi hE htv hm hRP hPS (fun h => by cases h) (rgnV hmo)
+  exact tstepM_loadCellLoc (hDy := hDy) hterm hpk haf hb he (OpT_TvOK hP hop htv) (OpT_retSk hop) hi hE htv hm hRP hPS (fun h => by cases h) (rgnV hmo)
 
 /-- **(G4) `load` through a region locative, with resources**: `tstepMR_loadCellLoc`. -/
 theorem tstepMR_loadRgnLoc1 {acq : Bool}
@@ -340,7 +340,7 @@ theorem tstepMR_loadRgnLoc1 {acq : Bool}
     (hH : MemHeldL (CE η) (stOf mem pairs th) H Sp) (hRP : RetPw th.σs th.stack cx.ret) (hPS : PwSkel)
     (hrop : rgnOpOK1 cx (.load acq a) = true)
     (hmo : ∀ rt ws ad c, evalAt th.env a = some (rt, ws) → ws.map (·.val) = [.loc ad 0] →
-      η.sto ad.label = some c → ModeOK1 η.tid η.pfr η.seen (.rgn r) ad.label c ws) :
+      η.sto ad.label = some c → ModeOK1 η.tid η.pfr η.seen (.rgn r) ad.label c ws) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
     tstep g mem pairs th ≠ [] ∧ ∀ r ∈ tstep g mem pairs th, PromAbove (stOf r.1 r.2.1 r.2.2) →
       ∃ Tot H', ThInvMK p g (CE η) (stOf mem pairs th) Sp r.1 r.2.1 r.2.2 Tot H' ∧ Tot + H' ≤ Rf + Rs + H := by
   rw [hterm] at hT hCk
@@ -348,7 +348,7 @@ theorem tstepMR_loadRgnLoc1 {acq : Bool}
   | let_ hop0 he0 =>
   obtain ⟨c', -, hop, he, hck, -⟩ := TermA4.CkW_let hCk
   obtain ⟨haf, hb⟩ := rgnLoad_facts hop hpk rfl hnw hrop (rgnLoc_adaptL hi.1 hpk hm hmo)
-  exact tstepMR_loadCellLoc hterm hpk haf hb he hck (OpT_TvOK hP hop htv) (OpT_retSk hop) hi hE htv hm hH hRP hPS (fun h => by cases h) (rgnV hmo)
+  exact tstepMR_loadCellLoc (hDy := hDy) hterm hpk haf hb he hck (OpT_TvOK hP hop htv) (OpT_retSk hop) hi hE htv hm hH hRP hPS (fun h => by cases h) (rgnV hmo)
 
 /-- **(G4) `load` through a region locative, with credits**: nothing minted, credits kept. -/
 theorem tstepMC_loadRgnLoc1 {acq : Bool}
@@ -360,12 +360,12 @@ theorem tstepMC_loadRgnLoc1 {acq : Bool}
     {cr db : Ts → Res} (hC : PromCr (CE η) (stOf mem pairs th) cr db) (hRP : RetPw th.σs th.stack cx.ret) (hPS : PwSkel)
     (hrop : rgnOpOK1 cx (.load acq a) = true)
     (hmo : ∀ rt ws ad c, evalAt th.env a = some (rt, ws) → ws.map (·.val) = [.loc ad 0] →
-      η.sto ad.label = some c → ModeOK1 η.tid η.pfr η.seen (.rgn r) ad.label c ws) :
+      η.sto ad.label = some c → ModeOK1 η.tid η.pfr η.seen (.rgn r) ad.label c ws) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
     tstep g mem pairs th ≠ [] ∧ ∀ r ∈ tstep g mem pairs th, PromAbove (stOf r.1 r.2.1 r.2.2) → ∃ Tot H' C F,
       ThInvMCFS p g (CE η) (stOf mem pairs th) Sp r.1 r.2.1 r.2.2 Tot H' cr db ∧ MintStepN g η (stOf mem pairs th) (stOf r.1 r.2.1 r.2.2) C F ∧
       Tot + H' + pSum (stOf r.1 r.2.1 r.2.2) cr + pSum (stOf mem pairs th) db + C ≤
         Rf + Rs + H + pSum (stOf mem pairs th) cr + pSum (stOf r.1 r.2.1 r.2.2) db + F :=
-  mc_liftA hm hC (tstepMR_loadRgnLoc1 hterm hP hpk hnw hT hCk hi hE htv hm hH hRP hPS hrop hmo)
+  mc_liftA hm hC (tstepMR_loadRgnLoc1 (hDy := hDy) hterm hP hpk hnw hT hCk hi hE htv hm hH hRP hPS hrop hmo)
 
 /-- **(G4) `store` through a region locative, thread layer**: a `pub` store (`tstepM_storeCellLoc`). -/
 theorem tstepM_storeRgnLoc1 {rel : Bool} {v : At} {tok : Option At}
@@ -374,13 +374,13 @@ theorem tstepM_storeRgnLoc1 {rel : Bool} {v : At} {tok : Option At}
     (hT : Typed p cx th.term) (hi : FInv ρ η th.σs (Resume p th.stack) cx th.env)
     (hE : EnvOK p η) (htv : TvOK cx) (hm : MemInv g (CE η) (stOf mem pairs th)) (hRP : RetPw th.σs th.stack cx.ret) (hPS : PwSkel)
     (hmo : ∀ rt ws ad c, evalAt th.env a = some (rt, ws) → ws.map (·.val) = [.loc ad 0] →
-      η.sto ad.label = some c → ModeOK1 η.tid η.pfr η.seen (.rgn r) ad.label c ws) :
+      η.sto ad.label = some c → ModeOK1 η.tid η.pfr η.seen (.rgn r) ad.label c ws) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
     tstep g mem pairs th ≠ [] ∧ ∀ r ∈ tstep g mem pairs th, ThInvMF p g (CE η) (stOf mem pairs th) r.1 r.2.1 r.2.2 := by
   rw [hterm] at hT
   cases hT with
   | let_ hop he =>
   obtain ⟨tv, c₁, hu, hsub, hb⟩ := rgnStore_facts hop hpk rfl hnw (rgnLoc_adaptS hi htv hpk hm hmo)
-  exact tstepM_storeCellLoc (hterm := hterm) (hpk := hpk) (hu := hu) (hsub := hsub) (hb := hb) (he := he)
+  exact tstepM_storeCellLoc (hDy := hDy) (hterm := hterm) (hpk := hpk) (hu := hu) (hsub := hsub) (hb := hb) (he := he)
     (htv' := OpT_TvOK hP hop htv) (hRk := OpT_retSk hop) (hi := hi) (hE := hE) (htv := htv) (hm := hm)
     (hRP := hRP) (hPS := hPS) (hμ := fun h => by cases h) (hV := rgnV hmo)
 
@@ -395,7 +395,7 @@ theorem tstepMR_storeRgnLoc1 {rel : Bool} {v : At} {tok : Option At}
     (hdw : StoreCrZ η cx (stOf mem pairs th) th)
     (hfo : FpOK (CE η) (stOf mem pairs th)) (hRP : RetPw th.σs th.stack cx.ret) (hPS : PwSkel)
     (hmo : ∀ rt ws ad c, evalAt th.env a = some (rt, ws) → ws.map (·.val) = [.loc ad 0] →
-      η.sto ad.label = some c → ModeOK1 η.tid η.pfr η.seen (.rgn r) ad.label c ws) :
+      η.sto ad.label = some c → ModeOK1 η.tid η.pfr η.seen (.rgn r) ad.label c ws) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
     tstep g mem pairs th ≠ [] ∧ ∀ r ∈ tstep g mem pairs th,
       ∃ Tot H' X, ThInvMPLX p g (CE η) (stOf mem pairs th) Sp r.1 r.2.1 r.2.2 Tot H' X ∧ Tot + H' + X ≤ Rf + Rs + H := by
   rw [hterm] at hT hCk
@@ -403,7 +403,7 @@ theorem tstepMR_storeRgnLoc1 {rel : Bool} {v : At} {tok : Option At}
   | let_ hop0 he0 =>
   obtain ⟨c', -, hop, he, hck, -⟩ := TermA4.CkW_let hCk
   obtain ⟨tv, c₁, hu, hsub, hb⟩ := rgnStore_facts hop hpk rfl hnw (rgnLoc_adaptS hi.1 htv hpk hm hmo)
-  exact tstepMR_storeCellLoc (hterm := hterm) (hpk := hpk) (hnw := hnw) (hu := hu) (hsub := hsub) (hb := hb)
+  exact tstepMR_storeCellLoc (hDy := hDy) (hterm := hterm) (hpk := hpk) (hnw := hnw) (hu := hu) (hsub := hsub) (hb := hb)
     (he := he) (hck := hck) (htv' := OpT_TvOK hP hop htv) (hRk := OpT_retSk hop) (hi := hi) (hE := hE)
     (htv := htv) (hm := hm) (hH := hH) (hia := hia) (hdw := hdw) (hfo := hfo) (hRP := hRP) (hPS := hPS)
     (hμ := fun h => by cases h) (hV := rgnV hmo)
@@ -420,12 +420,12 @@ theorem tstepMC_storeRgnLoc1 {rel : Bool} {v : At} {tok : Option At}
     {cr db : Ts → Res} (hC : PromCr (CE η) (stOf mem pairs th) cr db)
     (hfo : FpOK (CE η) (stOf mem pairs th)) (hRP : RetPw th.σs th.stack cx.ret) (hPS : PwSkel)
     (hmo : ∀ rt ws ad c, evalAt th.env a = some (rt, ws) → ws.map (·.val) = [.loc ad 0] →
-      η.sto ad.label = some c → ModeOK1 η.tid η.pfr η.seen (.rgn r) ad.label c ws) :
+      η.sto ad.label = some c → ModeOK1 η.tid η.pfr η.seen (.rgn r) ad.label c ws) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
     tstep g mem pairs th ≠ [] ∧ ∀ r ∈ tstep g mem pairs th, ∃ Tot H' C F,
       ThInvMCFS p g (CE η) (stOf mem pairs th) Sp r.1 r.2.1 r.2.2 Tot H' cr db ∧ MintStepN g η (stOf mem pairs th) (stOf r.1 r.2.1 r.2.2) C F ∧
       Tot + H' + pSum (stOf r.1 r.2.1 r.2.2) cr + pSum (stOf mem pairs th) db + C ≤
         Rf + Rs + H + pSum (stOf mem pairs th) cr + pSum (stOf r.1 r.2.1 r.2.2) db + F :=
-  mc_liftPLX hC (tstepMR_storeRgnLoc1 hterm hP hpk hnw hT hCk hi hE htv hm hH hia hdw hfo hRP hPS hmo)
+  mc_liftPLX hC (tstepMR_storeRgnLoc1 (hDy := hDy) hterm hP hpk hnw hT hCk hi hE htv hm hH hia hdw hfo hRP hPS hmo)
 end
 
 end TermC1

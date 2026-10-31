@@ -524,7 +524,7 @@ def lowerOp (cx : Ctx) (env : Env) (x : String) : Op → B (Ty × List Operand)
       let d ← fresh x
       emit (.subSat d p q)
       pure (.int, [.reg d])
-  | .new a => do
+  | .new a _ => do
       let (t, ws) ← evalAt env a
       let (n, m) ← countsOf cx.obj t
       let h ← header cx.obj .obj n m

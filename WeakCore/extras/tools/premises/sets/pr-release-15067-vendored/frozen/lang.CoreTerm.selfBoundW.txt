@@ -1,0 +1,87 @@
+CoreLang.Idx.var : Nat → CoreLang.Idx
+CoreLang.Ty : Type
+CoreLang.Ty.intS : CoreLang.Idx → CoreLang.Ty
+CoreLang.instDecidableEqTy : DecidableEq CoreLang.Ty
+CoreTerm.At : Type
+CoreTerm.Decl : Type
+CoreTerm.Decl.argTy : CoreTerm.Decl → CoreLang.Ty
+CoreTerm.Decl.idx : CoreTerm.Decl → List String
+CoreTerm.Decl.name : CoreTerm.Decl → String
+CoreTerm.Expr : Type
+CoreTerm.Op : Type
+CoreTerm.Pos : Type
+CoreTerm.Tail : Type
+CoreTerm.Tail.bad : CoreTerm.Tail
+CoreTerm.Tail.bounded : CoreTerm.Pos → Nat → CoreTerm.Tail
+CoreTerm.Tail.merge : CoreTerm.Tail → CoreTerm.Tail → CoreTerm.Tail
+CoreTerm.Tail.noTail : CoreTerm.Tail
+CoreTerm.argPosOf : List (String × CoreTerm.Pos) → String → Option CoreTerm.Pos
+CoreTerm.idxArgOf : List (String × String) → List String → Nat → Option (Nat × String)
+CoreTerm.selfBoundW : CoreTerm.Decl →
+  List (String × CoreTerm.Pos) →
+    List (String × String) →
+      List (String × String) →
+        List (String × List (Option CoreTerm.Pos) × List String) → List String → CoreTerm.Expr → CoreTerm.Tail
+  eq_def ∀ (d : CoreTerm.Decl) (vs : List (String × CoreTerm.Pos)) (dec nam : List (String × String))
+  (tup : List (String × List (Option CoreTerm.Pos) × List String)) (guard : List String) (x : CoreTerm.Expr),
+  CoreTerm.selfBoundW d vs dec nam tup guard x =
+    match x with
+    | CoreTerm.Expr.let_ x (CoreTerm.Op.sub (CoreTerm.At.var k) (CoreTerm.At.lit 1)) e =>
+      CoreTerm.selfBoundW d vs ((x, k) :: dec) nam tup guard e
+    | CoreTerm.Expr.let_ x (CoreTerm.Op.nameI (CoreTerm.At.var k')) e =>
+      CoreTerm.selfBoundW d vs dec ((x, k') :: nam) tup guard e
+    | CoreTerm.Expr.let_ x (CoreTerm.Op.pair (CoreTerm.At.var a) (CoreTerm.At.var b)) e =>
+      CoreTerm.selfBoundW d vs dec nam ((x, [CoreTerm.argPosOf vs a, CoreTerm.argPosOf vs b], [a, b]) :: tup) guard e
+    | CoreTerm.Expr.let_ x op e => CoreTerm.selfBoundW d vs dec nam tup guard e
+    | CoreTerm.Expr.unpack a i x e => CoreTerm.selfBoundW d vs dec nam tup guard e
+    | CoreTerm.Expr.unpackT a α x e => CoreTerm.selfBoundW d vs dec nam tup guard e
+    | CoreTerm.Expr.openPub a r p c e => CoreTerm.selfBoundW d vs dec nam tup guard e
+    | CoreTerm.Expr.split (CoreTerm.At.var a) x y e =>
+      match CoreTerm.argPosOf vs a with
+      | some p => CoreTerm.selfBoundW d ((x, p ++ [0]) :: (y, p ++ [1]) :: vs) dec nam tup guard e
+      | none => CoreTerm.selfBoundW d vs dec nam tup guard e
+    | CoreTerm.Expr.split a x y e => CoreTerm.selfBoundW d vs dec nam tup guard e
+    | CoreTerm.Expr.ifeq (CoreTerm.At.var k) (CoreTerm.At.lit 0) exit body =>
+      match CoreTerm.selfBoundW d vs dec nam tup guard exit with
+      | CoreTerm.Tail.noTail => CoreTerm.selfBoundW d vs dec nam tup (k :: guard) body
+      | x => CoreTerm.Tail.bad
+    | CoreTerm.Expr.case a x e₁ y e₂ =>
+      (CoreTerm.selfBoundW d vs dec nam tup guard e₁).merge (CoreTerm.selfBoundW d vs dec nam tup guard e₂)
+    | CoreTerm.Expr.ifnull a e₁ x e₂ =>
+      (CoreTerm.selfBoundW d vs dec nam tup guard e₁).merge (CoreTerm.selfBoundW d vs dec nam tup guard e₂)
+    | CoreTerm.Expr.parity a k e₁ e₂ =>
+      (CoreTerm.selfBoundW d vs dec nam tup guard e₁).merge (CoreTerm.selfBoundW d vs dec nam tup guard e₂)
+    | CoreTerm.Expr.ifeq a b e₁ e₂ =>
+      (CoreTerm.selfBoundW d vs dec nam tup guard e₁).merge (CoreTerm.selfBoundW d vs dec nam tup guard e₂)
+    | CoreTerm.Expr.cas acq rel w e v t e₁ e₂ =>
+      (CoreTerm.selfBoundW d vs dec nam tup guard e₁).merge (CoreTerm.selfBoundW d vs dec nam tup guard e₂)
+    | CoreTerm.Expr.casp acq rel w e0 e1 v0 v1 t e₁ e₂ =>
+      (CoreTerm.selfBoundW d vs dec nam tup guard e₁).merge (CoreTerm.selfBoundW d vs dec nam tup guard e₂)
+    | CoreTerm.Expr.region a r p t e => CoreTerm.selfBoundW d vs dec nam tup guard e
+    | CoreTerm.Expr.ret a => CoreTerm.Tail.noTail
+    | CoreTerm.Expr.tail f is (CoreTerm.At.var a) ts =>
+      if (f != d.name) = true then CoreTerm.Tail.noTail
+      else
+        have kOf := fun x => Option.map (fun x => x.snd) (List.find? (fun x_1 => x_1.fst == x) dec);
+        have bounded := fun k' q =>
+          match kOf k', CoreTerm.idxArgOf nam is 0 with
+          | some k, some (j, k'') =>
+            if
+                (k'' == k' && guard.contains k && CoreTerm.argPosOf vs k == some q &&
+                    CoreTerm.tyAt d.argTy q == some (CoreLang.Ty.intS (CoreLang.Idx.var (d.idx.length - 1 - j)))) =
+                  true then
+              CoreTerm.Tail.bounded q j
+            else CoreTerm.Tail.bad
+          | x, x_1 => CoreTerm.Tail.bad;
+        match kOf a with
+        | some val => bounded a []
+        | none =>
+          match List.find? (fun x => x.fst == a) tup with
+          | some (fst, parts, srcs) =>
+            match parts, srcs with
+            | [none, some [1]], [k', head] => bounded k' [0]
+            | [some [0], none], [head, k'] => bounded k' [1]
+            | x, x_1 => CoreTerm.Tail.bad
+          | none => CoreTerm.Tail.bad
+    | CoreTerm.Expr.tail f is a ts => if (f != d.name) = true then CoreTerm.Tail.noTail else CoreTerm.Tail.bad
+CoreTerm.tyAt : CoreLang.Ty → CoreTerm.Pos → Option CoreLang.Ty

@@ -1,0 +1,13 @@
+CoreTerm.Pos : Type
+CoreTerm.Tail : Type
+CoreTerm.Tail.bad : CoreTerm.Tail
+CoreTerm.Tail.bounded : CoreTerm.Pos → Nat → CoreTerm.Tail
+CoreTerm.Tail.merge : CoreTerm.Tail → CoreTerm.Tail → CoreTerm.Tail
+  := fun x x_1 =>
+  match x, x_1 with
+  | CoreTerm.Tail.bad, x => CoreTerm.Tail.bad
+  | x, CoreTerm.Tail.bad => CoreTerm.Tail.bad
+  | CoreTerm.Tail.noTail, t => t
+  | t, CoreTerm.Tail.noTail => t
+  | CoreTerm.Tail.bounded q j, CoreTerm.Tail.bounded q' j' =>
+    if (q == q' && j == j') = true then CoreTerm.Tail.bounded q j else CoreTerm.Tail.bad

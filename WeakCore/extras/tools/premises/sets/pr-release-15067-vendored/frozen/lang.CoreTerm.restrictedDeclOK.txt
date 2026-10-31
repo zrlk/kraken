@@ -1,0 +1,33 @@
+CoreLang.CodeKind : Type
+CoreLang.Ty : Type
+CoreTerm.Decl : Type
+CoreTerm.Decl.arg : CoreTerm.Decl → String
+CoreTerm.Decl.argTy : CoreTerm.Decl → CoreLang.Ty
+CoreTerm.Decl.body : CoreTerm.Decl → CoreTerm.Expr
+CoreTerm.Decl.kind : CoreTerm.Decl → CoreTerm.DeclKind
+CoreTerm.Decl.name : CoreTerm.Decl → String
+CoreTerm.DeclKind : Type
+CoreTerm.Pos : Type
+CoreTerm.Prog : Type
+CoreTerm.Tail : Type
+CoreTerm.fuelDecl : CoreTerm.Prog → CoreTerm.Decl → Nat
+CoreTerm.noShadow : CoreTerm.Decl → Bool
+CoreTerm.restrictedDeclOK : CoreTerm.Prog → CoreTerm.Decl → Bool
+  := fun p d =>
+  match d.kind with
+  | CoreTerm.DeclKind.restricted fuel stack ro loop =>
+    (CoreTerm.noShadow d &&
+          match loop, CoreTerm.selfBound d d.body with
+          | none, CoreTerm.Tail.noTail => true
+          | some val, CoreTerm.Tail.bounded q j => true
+          | x, x_1 => false) &&
+        CoreTerm.restrictedOK ro d.name (fun f => Option.map (fun x => x.kind) (List.find? (fun x => x.name == f) p))
+          d.arg
+          (match d.argTy with
+          | σ.code τ k => some k
+          | x => none)
+          d.body &&
+      decide (CoreTerm.fuelDecl p d ≤ fuel)
+  | x => true
+CoreTerm.restrictedOK : Bool → String → (String → Option CoreTerm.DeclKind) → String → Option CoreLang.CodeKind → CoreTerm.Expr → Bool
+CoreTerm.selfBound : CoreTerm.Decl → CoreTerm.Expr → CoreTerm.Tail

@@ -30,7 +30,7 @@ theorem src_load_stepN {x : String} {acq : Bool} {a : At} {e : Expr} {ty : Ty} {
       th'.promises = th.promises ∧ th'.σs = th.σs ∧ th'.stack = th.stack ∧ th'.nalloc = th.nalloc := by
   obtain ⟨vs, hl⟩ := loadUnits_one g.arch pw acq (stOf mem pairs th) hj hm
   refine ⟨⟨e, (x, loadTy ty, [⟨m.val, m.view, j⟩]) :: th.env, th.σs, th.stack, vs, th.promises, th.nalloc,
-    th.undefs + countUndef [⟨m.val, m.view, j⟩], th.tidLbl, th.permit⟩, ?mem, ?_, ?_, ?_, ?_, ?_, ?_⟩
+    th.undefs + countUndef [⟨m.val, m.view, j⟩], th.tidLbl, th.permit, th.tys⟩, ?mem, ?_, ?_, ?_, ?_, ?_, ?_⟩
   case mem =>
     simp only [tstep, ht, evalOp, hea, hcell, addrOf, hpw, hu, List.mem_map]
     exact ⟨_, ⟨_, hl, rfl⟩, by simp [withS, stOf, loadTy, hcell]⟩
@@ -46,7 +46,7 @@ theorem src_store_stepN {x : String} {rel : Bool} {a b : At} {e : Expr} {ty tb :
       th'.env = (x, .unit, []) :: th.env ∧ th'.promises = [] ∧ th'.σs = th.σs ∧ th'.stack = th.stack ∧
       th'.nalloc = th.nalloc := by
   obtain ⟨mv, vs, hs⟩ := storeUnits_one g.k g.arch pw wb sa rel (stOf mem pairs th) hp
-  refine ⟨⟨e, (x, .unit, []) :: th.env, th.σs, th.stack, vs, [], th.nalloc, th.undefs, th.tidLbl, th.permit⟩, mv, ?mem, ?_,
+  refine ⟨⟨e, (x, .unit, []) :: th.env, th.σs, th.stack, vs, [], th.nalloc, th.undefs, th.tidLbl, th.permit, th.tys⟩, mv, ?mem, ?_,
     ?_, ?_, ?_, ?_, ?_⟩
   case mem =>
     simp only [tstep, ht, evalOp, hea, heb, hcell, addrOf, hpw, hu, List.mem_map]
@@ -70,7 +70,7 @@ theorem src_xchgAt_stepN {x : String} {b i v : At} {e : Expr} {t ti tv : Ty} {pw
     { stOf mem pairs th with vs := vs, undefs := (stOf mem pairs th).undefs + countUndef [⟨m.val, m.view, j⟩] }
     hp
   refine ⟨⟨e, (x, u, [⟨m.val, m.view, j⟩]) :: th.env, th.σs, th.stack, vs', [], th.nalloc,
-    th.undefs + countUndef [⟨m.val, m.view, j⟩], th.tidLbl, th.permit⟩, mv, ?mem, ?_, ?_, ?_, ?_, ?_, ?_⟩
+    th.undefs + countUndef [⟨m.val, m.view, j⟩], th.tidLbl, th.permit, th.tys⟩, mv, ?mem, ?_, ?_, ?_, ?_, ?_, ?_⟩
   case mem =>
     simp only [tstep, ht, evalOp, heb, hei, hev, hbuf, hk, addrOf, hpw, hu, hk1, List.mem_map, List.mem_flatMap]
     exact ⟨_, ⟨_, hl, _, hs, rfl⟩, rfl⟩
@@ -90,7 +90,7 @@ theorem src_xchg_stepN {x : String} {a v : At} {e : Expr} {t tv : Ty} {pw wv : W
     { stOf mem pairs th with vs := vs, undefs := (stOf mem pairs th).undefs + countUndef [⟨m.val, m.view, j⟩] }
     hp
   refine ⟨⟨e, (x, u, [⟨m.val, m.view, j⟩]) :: th.env, th.σs, th.stack, vs', [], th.nalloc,
-    th.undefs + countUndef [⟨m.val, m.view, j⟩], th.tidLbl, th.permit⟩, mv, ?mem, ?_, ?_, ?_, ?_, ?_, ?_⟩
+    th.undefs + countUndef [⟨m.val, m.view, j⟩], th.tidLbl, th.permit, th.tys⟩, mv, ?mem, ?_, ?_, ?_, ?_, ?_, ?_⟩
   case mem =>
     simp only [tstep, ht, evalOp, hea, hev, hcell, addrOf, hpw, hu, List.mem_map, List.mem_flatMap]
     exact ⟨_, ⟨_, hl, _, hs, rfl⟩, rfl⟩

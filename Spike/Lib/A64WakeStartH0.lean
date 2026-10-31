@@ -44,12 +44,12 @@ open Spike.Lib.A64.WakePh (lo ownG)
 /-- **The start control boxes a zero**: `let o = new z in e`, `z` an `int`
 word of value `0`, no hold (wake's `main` after `let z = zero int`). -/
 structure C0Box (c0 : Ctl) : Prop where
-  term : ∃ e, c0.term = .let_ "o" (.new (.var "z")) e
+  term : ∃ e, c0.term = .let_ "o" (.new (.var "z") (some .int)) e
   ev : ∃ w : TermRun.Word, TermRun.evalAt c0.env (.var "z") = some (.int, [w]) ∧ w.val = .num 0
   hold : c0.hold = none
 
 /-- `C0Box` holds at `main`'s control after `let z = zero int`. -/
-example : C0Box ⟨.let_ "o" (.new (.var "z")) (.let_ "c" (.publish (.var "o"))
+example : C0Box ⟨.let_ "o" (.new (.var "z") (some .int)) (.let_ "c" (.publish (.var "o"))
     (.let_ "p" (.pair (.var "c") (.var "me")) Spike.Lib.WakePreA.spawnTerm)),
     [("z", .int, [TermRun.cst (.num 0)])], none⟩ :=
   ⟨⟨_, rfl⟩, ⟨_, rfl, rfl⟩, rfl⟩
@@ -206,9 +206,9 @@ theorem wake_start_wc_h0 {E : Scc.Sem.Entry} (hE : E.Ok (Ly).Λ)
   -- the box at `c0`: its type `int`, its word `w`
   have hbq : ∀ q : AGB MS (Ly).lab, q.1.c0 = c0 → q.1.a = .var "z" ∧ q.1.τ = .int ∧ q.1.ws = [w] := by
     intro q hq
-    have ht := q.2.term; rw [hq, he] at ht
+    obtain ⟨_, ht⟩ := q.2.term; rw [hq, he] at ht
     obtain ⟨-, ha, -⟩ := Expr.let_.inj ht
-    have ha' := Op.new.inj ha
+    have ha' := (Op.new.inj ha).1
     have hev := q.2.ev; rw [hq, ← ha', hw] at hev
     obtain ⟨h1, h2⟩ := Prod.mk.inj (Option.some.inj hev)
     exact ⟨ha'.symm, h1.symm, h2.symm⟩
@@ -221,12 +221,12 @@ theorem wake_start_wc_h0 {E : Scc.Sem.Entry} (hE : E.Ok (Ly).Λ)
     (fun q _ => mp_cellW hpw i q) (fun q hq => ⟨w, (hbq q hq).2.2, by rw [(hbq q hq).2.1]; rfl,
       by rw [hw0]; exact ⟨by decide, rfl⟩⟩) hWp hWs hxa
   refine ⟨⟨c0, "o", .var "z", .int, e, .int, [w], 1, 256#64, 0#64, 0#64⟩,
-    ⟨⟨.inr ⟨trivial, .var "z", [w], he, hw, rfl⟩, hbx.hold, by show (1 : Nat) < 2 ^ 64; decide, Spike.Lib.A64.Rt.ArenaW.arOf_ctrLab
+    ⟨⟨.inr ⟨trivial, .var "z", [w], ⟨_, he⟩, hw, rfl⟩, hbx.hold, by show (1 : Nat) < 2 ^ 64; decide, Spike.Lib.A64.Rt.ArenaW.arOf_ctrLab
       (Spike.Lib.PlaceW.link i hpw) .linux, Spike.Lib.A64.Rt.ArenaW.arOf_heapLab (Spike.Lib.PlaceW.link i hpw) .linux,
       by rw [hh]; omega, rfl, by rw [hu2]; decide, by rw [hf1]; simp [Spike.Lib.A64.Alloc.mOf], hacc1, hrt0 _, mp_dataW hpw i hctrB,
       fun _ _ _ => hG _ (by rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]; omega)
         (.inr (by rw [hct, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]; exact ⟨hc1, by omega⟩)) _,
-      fun o' _ ho => ?_⟩, trivial, he, hw, rfl⟩, rfl, rfl, rfl, rfl⟩
+      fun o' _ ho => ?_⟩, trivial, ⟨_, he⟩, hw, rfl⟩, rfl, rfl, rfl, rfl⟩
   have hd : Call.hdrAt (MS) ⟨c0, "o", .var "z", .int, e, .int, [w], 1, 256#64, 0#64, 0#64⟩ o' =
       (Ly).Λ.heap.lo + 16 * o' := by simp [Call.hdrAt, hh, Spike.Lib.A64.Alloc.mOf]
   rw [hu2, hcl] at ho

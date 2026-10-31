@@ -226,6 +226,17 @@ theorem tstep_gran {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {r : Memo
     | (simp only [List.mem_flatMap, List.mem_map] at h
        obtain ⟨x, hx, y, hy, rfl⟩ := h
        exact projInj_gran hx hy hF hG)
+    | (simp only [List.mem_map] at h  -- new arm: record write
+       obtain ⟨x, hx, rfl⟩ := h
+       try dsimp only
+       revert hF
+       split
+       all_goals
+         intro hF
+         first
+           | exact evalOp_gran hx (fun b us => hW _ _ _ b us hT) hF hG
+           | exact rmw_gran hx (hC _ _ _ _ _ _ _ _ _ _ _ hT ‹_› ‹_›) hG
+           | exact rmwPair_gran hx (hCP _ _ _ _ _ _ _ _ _ _ _ _ _ hT ‹_› ‹_›) hG)
 
 /-! ## Typed targets -/
 

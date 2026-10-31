@@ -194,8 +194,8 @@ theorem _root_.Spike.Lib.AllocInvAt.header (h : AllocInvAt Λ lbl lsize t tm hea
 `let x = new a in e`): a message off the counter below the pending box's
 base is recorded as an exception. -/
 theorem _root_.Spike.Lib.AllocInvAt.headerBox (h : AllocInvAt Λ lbl lsize t tm heap cells ctr units off hu c)
-    (hh : c.hold = some (ctr, cst (.num hu))) {x : String} {a : At} {e : Expr} {ty : Ty}
-    {ws : List Word} (ht : c.term = .let_ x (.new a) e) (hea : evalAt c.env a = some (ty, ws))
+    (hh : c.hold = some (ctr, cst (.num hu))) {x : String} {a : At} {T : Option Ty} {e : Expr} {ty : Ty}
+    {ws : List Word} (ht : c.term = .let_ x (.new a T) e) (hea : evalAt c.env a = some (ty, ws))
     {t' : Thread I} {w : Msg} (hw : w.loc ≠ wordLoc ctr)
     (hlt : w.loc.addr.toNat < heap + 16 * hu + off 1 ty) (hp : t'.prom = t.prom) :
     AllocInvAt Λ lbl lsize t' (tm.append w).1 heap cells ctr units off hu c := by

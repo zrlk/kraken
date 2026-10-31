@@ -351,6 +351,16 @@ theorem tstep_newOrd {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {r : Me
     | (simp only [List.mem_flatMap, List.mem_map] at h
        obtain ⟨x, hx, y, hy, rfl⟩ := h
        exact newOrd_projInj hx hy)
+    | (simp only [List.mem_map] at h  -- new arm: record write
+       obtain ⟨x, hx, rfl⟩ := h
+       try dsimp only
+       split
+       all_goals
+         first
+           | exact evalOp_newOrd hx
+           | exact newOrd_rmw hx
+           | (obtain ⟨mem', pairs', th'⟩ := x
+              exact newOrd_rmwPair hx))
 
 #print axioms evalOp_newOrd
 #print axioms tstep_newOrd
@@ -667,6 +677,19 @@ theorem tstep_newV {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {r : Memo
     | (simp only [List.mem_flatMap, List.mem_map] at h
        obtain ⟨x, hx, y, hy, rfl⟩ := h
        exact .inl ((newIn_projInj (X := fun _ => False) hpl hx hy t m ht hm).resolve_right id))
+    | (simp only [List.mem_map] at h  -- new arm: record write
+       obtain ⟨x, hx, rfl⟩ := h
+       try dsimp only
+       split
+       all_goals
+         first
+           | exact (evalOp_newV hpl hx t m ht hm).imp id (fun h => .inl ⟨_, _, _, hT, h⟩)
+           | (obtain ⟨hl, hv⟩ := rmw_casNew hx t m ht hm
+              exact .inr (.inr (.inl ⟨_, _, _, _, _, _, _, _, _, _, _, _, _, _, hT, ‹_›, ‹_›, ‹_›,
+                by rw [hl]; assumption, hv⟩)))
+           | (obtain ⟨mem', pairs', th'⟩ := x
+              exact .inr (.inr (.inr ⟨_, _, _, _, _, _, _, _, _, _, _, _, _, hT, ‹_›, ‹_›,
+                rmwPair_newLoc hx t m ht hm⟩))))
 
 #print axioms evalOp_newV
 #print axioms tstep_newV

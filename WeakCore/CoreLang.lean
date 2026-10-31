@@ -460,8 +460,9 @@ def Opq.copyable : Opq → Bool
   | _ => false
 def RegAcc.canRead  : RegAcc → Bool | .ro | .rw => true | .wo => false
 def RegAcc.canWrite : RegAcc → Bool | .wo | .rw => true | .ro => false
-/-- The kind flag of a `code` value: plain, or restricted with its fuel and stack budgets (decision E). -/
-inductive CodeKind | plain | restricted (fuel stack : Nat) deriving DecidableEq, Repr
+/-- The kind flag of a `code` value: plain, or restricted with its fuel and stack budgets and whether it is READ-ONLY
+(a condition function: no store, no protocol advance, only pure externs). -/
+inductive CodeKind | plain | restricted (fuel stack : Nat) (ro : Bool) deriving DecidableEq, Repr
 
 inductive Ty
   | unit

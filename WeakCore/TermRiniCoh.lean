@@ -140,7 +140,7 @@ theorem riniCoh_step {g : G} {E E' : TEnv} {mem : Memory} {pairs : List Ts} {th 
     have hz := hm.2.2.2.1.1 q hq1
     rw [← hql] at hz
     rcases hF.2.2.2.2.2.1 m.loc.label with e | ⟨-, F, -, -, -, ⟨c', hc', -⟩, -⟩ | ⟨-, -, e⟩
-    · rw [e, hz.2.2.2] at hpf; cases hpf
+    · rw [e, hz.2.2.2.2] at hpf; cases hpf
     · rw [hz.1] at hc'; cases hc'
     · rw [e] at hc; cases hc
   have hc0 : E.sto m.loc.label = some c := by

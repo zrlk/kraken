@@ -28,11 +28,11 @@ theorem pubWordW_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] 
   have hmE := Z.2.2.1
   have hAP := TermXFO.anchPost (hV0 := hV0) X Y.1 (Z.toC Rf Rs (HP i + HS) (cr i) (db i)) hS hPfrP (hrunT X S hS).1
   have hCE : CE η = Cut Eg i S := Y.1
-  have hg : gOf p k arch c' i = gOf p k arch c i := TermTyped.gOf_thread X.hc'
+  have hg := TermTyped.gOf_thread X.hc'
   have hSC0 : StoClo (CE η) := by
     rw [hCE]; exact fun l cl hl => X.inv.clo l cl (cutSto_sub hl)
   have hst : stOf c'.mem c'.pairs r.2.2 = stOf r.1 r.2.1 r.2.2 := by rw [X.e1, X.e2]
-  have h0X := TermXFO.InvAtXFO_ofA (p := p) (k := k) (arch := arch) (Ea := Cut Eg i S) X.e3 hRE.thInvE (by rw [hg, hst]; exact hmE)
+  have h0X := TermXFO.InvAtXFO_ofA (hTy := (TermNoHold.TCtxX.tyPost X hCE hF (TermMain.TOut.newTy Z)).1) (hRc := (TermNoHold.TCtxX.tyPost X hCE hF (TermMain.TOut.newTy Z)).2) (p := p) (k := k) (arch := arch) (Ea := Cut Eg i S) X.e3 hRE.thInvE (by rw [hg, hst]; exact hmE)
     (StoClo_EFoot hF hSC0) (by rw [hg]; exact X.inv.bf) (by rw [hst]; exact hAP.1) (.inr hAP.2) (IniZTK Eg Tot HP i th) (TermTyped.WitP c'.mem r.2.2.promises)
   have hrlE : ∀ l, E'.rini l ≤ E'.ini l := hF.2.2.2.2.2.2.2.2.2.2.1 (fun l => by rw [hCE]; exact X.inv.rle l)
   have hHrT := TermTyped.witP_run (p := p) (k := k) (arch := arch) X.e3

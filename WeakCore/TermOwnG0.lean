@@ -23,12 +23,13 @@ open CoreLang CoreTerm CoreTyping TermRun TermTv TermSound TermMem TermStep Term
 open TermOwnG0Defs TermOwnG0W
 open WeakMem (Msg Memory Address VState Ts Arch AllocLabel)
 
-/-- The body of `InvAtXR` at a given thread state and environment (its `∃ th E` opened). -/
+/-- The body of `InvAtXR` at a given thread state and environment (its `∃ th E` opened).
+It also carries the typed-record invariant `TyOKE` and the freshness bound `RecFresh` at the same environment. -/
 def InvAtXRB (p : Prog) (k : Promises.Knobs) (arch : Arch) (i : Nat) (E0 : TEnv) (n0 v0 : Nat)
     (mem0 : Memory) (P0 : List Ts) (l : AllocLabel) (cl : Cell) (c : Cfg) (th : TTh) (E : TEnv) : Prop :=
   Ext E0 E ∧ ThInvE p E th ∧ MemInv (gOf p k arch c i) E (stOf c.mem c.pairs th) ∧
     StoClo E ∧ (gOf p k arch c i).boxFence = true ∧ FrBound E0 n0 v0 E ∧ FrRunA E0 n0 v0 E (stOf c.mem c.pairs th) ∧
-    RiniHeld E0 mem0 P0 l cl E th.vs.vWr
+    RiniHeld E0 mem0 P0 l cl E th.vs.vWr ∧ TyOKE (gOf p k arch c i) E ∧ RecFresh (gOf p k arch c i) i th.nalloc
 
 /-- **The unplanted frontier along the run** (named hypothesis, PFR-CHECK): at every certified
 configuration reached by `SoloNP r` from the plant, the tracked `InvAtXR` witness environment (as a

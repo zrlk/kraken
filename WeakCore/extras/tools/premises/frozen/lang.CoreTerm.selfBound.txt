@@ -1,0 +1,12 @@
+CoreTerm.Decl : Type
+CoreTerm.Decl.arg : CoreTerm.Decl → String
+CoreTerm.Expr : Type
+CoreTerm.Pos : Type
+CoreTerm.Tail : Type
+CoreTerm.selfBound : CoreTerm.Decl → CoreTerm.Expr → CoreTerm.Tail
+  := fun d => CoreTerm.selfBoundW d [(d.arg, [])] [] [] [] []
+CoreTerm.selfBoundW : CoreTerm.Decl →
+  List (String × CoreTerm.Pos) →
+    List (String × String) →
+      List (String × String) →
+        List (String × List (Option CoreTerm.Pos) × List String) → List String → CoreTerm.Expr → CoreTerm.Tail

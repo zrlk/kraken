@@ -46,11 +46,11 @@ theorem noHold_seen {g : G} {E : TEnv} {s : St} {l : AllocLabel} {c : Cell} (hm 
 publish is discharged by `noHold_seen` at the typing's `MemInv`. -/
 theorem noHoldPubA_of_N {p : Prog} {k : Promises.Knobs} {arch : Arch} {E0 E1 : TEnv} {i : Nat} {c : Cfg}
     (h : NoHoldPubN p k arch E0 E1 i c) : NoHoldPubA p k arch E0 E1 i c := by
-  intro th hth ρ η cx hE hT htv hi hm hx hia hrm x a e rt ws ad hterm hea hws
+  intro th hth ρ η cx hE hT htv hi hm hx hia hrm hTy hDy hRP x a e rt ws ad hterm hea hws
   by_cases hs : (CE η).seen ad.label
   · obtain ⟨cl, hc, ho⟩ := TermPubSto.pubSto_of_typed hT hi hterm hea hws
     exact noHold_seen hm hc ho hs
-  · exact h th hth ρ η cx hE hT htv hi hm hx hia hrm x a e rt ws ad hterm hea hws hs
+  · exact h th hth ρ η cx hE hT htv hi hm hx hia hrm hTy hDy hRP x a e rt ws ad hterm hea hws hs
 
 end TermDPlus
 

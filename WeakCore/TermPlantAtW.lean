@@ -14,7 +14,7 @@ The two step facts of `TermPlantAtN` (`NoFulStepT`, `WinAfterT`) from the `TermP
   run-DRF scope and the `CertWinC` window), K-2a (`PtrRtsThreadP`, named), K-4 (`NoFulPlRun`)
   re-rooted at `c'`, and K-5 (`winLe_gen`) along the certificate of `c'`.
 
-`CertWinC` is consumed as a hypothesis only (nothing here feeds `certWin*`).
+`CertWinC` is consumed as a hypothesis only (nothing here proves `CertWinC`/`CertWinP`).
 -/
 
 namespace TermPlantAtW
@@ -41,7 +41,7 @@ variable {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {MintOK : Re
 variable {Sp : TermRun.Cfg → TermRun.Cfg → Prop}
 
 theorem gOf_thread {c c' : Cfg} {i : Nat} (hc' : c' ∈ threadSteps p k arch c i) (j : Nat) :
-    gOf p k arch c' j = gOf p k arch c j := by
+    gOf p k arch c' j = { gOf p k arch c j with tys := tysOf c' } := by
   unfold gOf
   rw [TermStep.threadSteps_n hc', (threadSteps_lbase hc').1, (threadSteps_lbase hc').2]
 
@@ -71,7 +71,7 @@ theorem postTyped [ProgRetIall p] (hP : ProgT p) (hps : TermScope.ProgScopeOK p 
       ThInvE p E' r.2.2 ∧ MemInv (gOf p k arch c i) E' (stOf r.1 r.2.1 r.2.2) ∧
       PromAbove (stOf r.1 r.2.1 r.2.2) ∧ (∀ l cl, E'.sto l = some cl → stoJ Eg.sto E' l = some cl) := by
   obtain ⟨S, hS⟩ := X.inv.thr i th X.hth
-  obtain ⟨ρ, η, cx, Rf, Rs, hCE, htid, hE, hT, htv, hFI, hsum, -, hm, -, -, hrp⟩ := ThSysAt.env X.inv.clo hS
+  obtain ⟨ρ, η, cx, Rf, Rs, hCE, htid, hE, hT, htv, hFI, hsum, -, hm, -, -, hrp, hDy⟩ := ThSysAt.env X.inv.clo hS
   have hCE' : CE η = Cut Eg i S := hCE
   have Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs := ⟨hCE, htid, hE, hT, htv, hFI, hsum⟩
   have hwin : PubWinT (CE η) (stOf c.mem c.pairs th) th :=
@@ -95,11 +95,12 @@ theorem postTyped [ProgRetIall p] (hP : ProgT p) (hps : TermScope.ProgScopeOK p 
     rw [X.e1, X.e2] at h1
     exact h1
   have hpx := TermTyped.PAx_of_step X.hc' X.cert X.hth
-  obtain ⟨-, hf⟩ := tstep_footprint (hPS := hPS) (hSub := hSub) (hSig := hSig) hP rfl hn hnd hsc hT.1 hFi hE htv hm X.inv.bf hpx hwin (hRP := hrp)
+  obtain ⟨-, hf⟩ := tstep_footprint (hDy := hDy) (hPS := hPS) (hSub := hSub) (hSig := hSig) hP rfl hn hnd hsc hT.1 hFi hE htv hm X.inv.bf hpx hwin (hRP := hrp)
+    (hTy := by rw [hCE']; exact (X.inv.tyRec X.hth S).1)
   obtain ⟨E', hF, -, hT', hm'⟩ := hf r X.hr hpa
   have hF2 : Foot (gOf p k arch c i) (Cut Eg i S) E' (stOf c.mem c.pairs th) (stOf r.1 r.2.1 r.2.2) := by
     rw [← hCE']; exact hF
-  refine ⟨S, E', ⟨ρ, η, cx, hCE', hE, hT.1, htv, hFi, hrp⟩, ?_, hF2, hT', hm', hpa, ?_⟩
+  refine ⟨S, E', ⟨ρ, η, cx, hCE', hE, hT.1, htv, hFi, hrp, hDy⟩, ?_, hF2, hT', hm', hpa, ?_⟩
   · rw [← hCE']; exact hm
   · intro l cl hl
     rcases hF2.1.2.2.1 l with e | ⟨hfr, -⟩
@@ -157,7 +158,7 @@ theorem nfInv_pre {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {Mi
     TermMain.tidAt_cut hinv i S, fun th2 hth2 hl2 => by
       rw [hth] at hth2; cases hth2
       have hb := (hinv.tidBox i th hth l hl2).1
-      rw [hsto] at hb; cases hb; simp at hown⟩
+      rw [hsto] at hb; cases hb; simp at hown, (hinv.tyRec hth S).1, (hinv.tyRec hth S).2⟩
   intro t' ht' lb B hB o w hw hN f' hf'
   rw [Cut_box] at hB
   rw [Cut_pfr] at hf'
@@ -173,8 +174,8 @@ theorem noFul_ofNF {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {l : 
     (hwin : ∀ c2, Solo p k arch i c1 c2 → Certified p k arch c2 i → TermTyped.NoHoldPubA p k arch Eu Ea i c2) :
     ∀ c2 th2, TermOwnG0Defs.SoloNP p k arch i l c1 c2 → Certified p k arch c2 i → c2.ths[i]? = some th2 →
       t ∈ th2.promises := by
-  obtain ⟨th, E, S, hth, hE, hm, hES, hR, ht, hbf, hfr, hL, hSC, hD, hC, hG, hLay, hsa, hpa, hba, hBS, hA, hXa, hTA, hNa⟩ := hJ
-  exact hNP i l c1 th E S t hk hES hsc hvI Eu Ea hwin hA hXa hTA hNa hth hE hm hR ht hbf hfr hL hSC hps hD hC hG hLay hsa hpa hba hBS
+  obtain ⟨th, E, S, hth, hE, hm, hES, hR, ht, hbf, hfr, hL, hSC, hD, hC, hG, hLay, hsa, hpa, hba, hBS, hA, hXa, hTA, hNa, hTyJ, hRcJ⟩ := hJ
+  exact hNP i l c1 th E S t hk hES hsc hvI Eu Ea hwin hA hXa hTA hNa hth hE hm hTyJ hRcJ hR ht hbf hfr hL hSC hps hD hC hG hLay hsa hpa hba hBS
 
 /-- (D-B) **The start of the owner's solo run at the pre-state**: `NoFulPlRunGL` (the run, v3d) at
 `(c, Cut Eg i S, Eg.sto)`, every start fact from `SysInvN` (`ptrGL`, `granW`, `stoLay`, `fresh`, `clo`,

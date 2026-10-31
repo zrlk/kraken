@@ -39,7 +39,7 @@ theorem granuleW_T
     · exact ⟨(ceFresh H hf).1, (egT_sto_fresh hf).symm.trans h⟩
     · rw [TermPtrStab.EgT_sto_old hf] at h; rw [h] at hS; cases hS
   have hRE : ThInvRE p (CE η) th (Tot i) :=
-    ⟨ρ, η, cx, Rf, Rs, rfl, H.Y.2.2.1, H.Y.2.2.2.1, H.Y.2.2.2.2.1, H.Y.2.2.2.2.2.1, H.Y.2.2.2.2.2.2, H.hRP⟩
+    ⟨ρ, η, cx, Rf, Rs, rfl, H.Y.2.2.1, H.Y.2.2.2.1, H.Y.2.2.2.2.1, H.Y.2.2.2.2.2.1, H.Y.2.2.2.2.2.2, H.hRP, H.dy⟩
   rw [H.X.e1, H.X.e2]
   exact TermGranStep.granuleW_stepNF h1
     (fun l cl h => by
@@ -58,7 +58,7 @@ theorem granuleW_thread (hK : PtrRtsThreadGL p) (hk : k.storeDepRts = true)
     (hb1 : AllocGT p k arch Sp Init MintOK c0) (hA : PromAllocF p k arch Sp Init MintOK c0)
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r)
     (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
+    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
       crS (db i) δ)
     (hS : ThSysAt p (gOf p k arch c i) c.mem c.pairs th Eg (Tot i) (HP i) HS (cr i) (db i) S) (hKS : ∀ t l, crS t (.own l) = cr i t (.own l))
     (hm : MemInv (gOf p k arch c i) (CE η) (stOf c.mem c.pairs th))
@@ -68,10 +68,10 @@ theorem granuleW_thread (hK : PtrRtsThreadGL p) (hk : k.storeDepRts = true)
     (hLay : ∀ l cl, Eg.sto l = some cl → LayT cl.ty) (hsc : TermTyped.ScopeOK p th)
     (hdrf : TermScope.ThScope th) (hps : TermScope.ProgScopeOK p = true) (hPT : ProgT p)
     (hFBP : TermFootBP0.FootBP { gOf p k arch c i with pf := fun l => TermOwnG0Defs.PubAt th l } E' th r)
-    (hRP : RetPw th.σs th.stack cx.ret) (hBP : BoxPlantSep Eg Tot HP c) :
+    (hRP : RetPw th.σs th.stack cx.ret) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) (hBP : BoxPlantSep Eg Tot HP c) :
     GranuleW (EgT Eg (gOf p k arch c i) th.nalloc r.2.2.nalloc E' c').sto c'.mem c'.pairs :=
   granuleW_T (S := S) (ρ := ρ) (cx := cx) (F := F)
-    ⟨hK, hk, hb1, hA, X, Y, Z, hS, hKS, hm, hPC, hPfrP, hNCE, hG, hGW, hLay, hsc, hdrf, hps, hPT, hFBP, hRP, hBP⟩
+    ⟨hK, hk, hb1, hA, X, Y, Z, hS, hKS, hm, hPC, hPfrP, hNCE, hG, hGW, hLay, hsc, hdrf, hps, hPT, hFBP, hRP, hDy, hBP⟩
 
 /-- **`ptrGL` across a promise step** at a `PCtx`, at the plant map `P` (`hPL`, the `Obligations`
 field `plantL`). -/

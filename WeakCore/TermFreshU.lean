@@ -24,7 +24,7 @@ theorem freshX_thread {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res}
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res}
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r) (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ)
+    (Z : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS) (cr i) (db i) δ)
     {x : AllocLabel} (hnF : ¬ FreshIn (gOf p k arch c i) th.nalloc r.2.2.nalloc x) (old : FreshX Eg c x) :
     FreshX (EgT Eg (gOf p k arch c i) th.nalloc r.2.2.nalloc E' c') c' x := by
   have hgf := gfoot_of X Y Z
@@ -60,7 +60,7 @@ theorem ownZ_thread (hb1 : AllocGT p k arch Sp Init MintOK c0) (hN : PromNodupR 
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {crS cr' db' δ : Ts → Res}
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r) (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
+    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
       crS (db i) δ)
     (hK : ∀ t l, crS t (.own l) = cr i t (.own l))
     {x : AllocLabel} (hnF : ¬ FreshIn (gOf p k arch c i) th.nalloc r.2.2.nalloc x) (h : OwnZ c Tot HP HS cr x) :
@@ -167,9 +167,9 @@ theorem freshU_thread (hb1 : AllocGT p k arch Sp Init MintOK c0) (hN : PromNodup
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {crS cr' db' δ : Ts → Res}
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r) (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
+    (Z : TOut p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
       crS (db i) δ)
-    (ZC : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
+    (ZC : TOutC p (gOf p k arch c i) η (stOf c.mem c.pairs th) th r E' Tot' HP' HS' C F cr' db' Rf Rs (HP i + HS)
       (cr i) (db i) δ)
     (hK : ∀ t l, crS t (.own l) = cr i t (.own l))
     (hD : ∀ q j, c.ths.size ≤ q → q < N → ¬ FreshIn (gOf p k arch c i) th.nalloc r.2.2.nalloc (freshLabel c.lbase N q j))

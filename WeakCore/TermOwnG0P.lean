@@ -55,9 +55,9 @@ theorem invAtXRB_prom {E0 : TEnv} {n0 v0 : Nat} {mem0 : Memory} {P0 : List Ts} {
     (h : InvAtXRB p k arch i E0 n0 v0 mem0 P0 l cl c0 th E) :
     ∃ th', (promise c0 i a v w).ths[i]? = some th' ∧
       InvAtXRB p k arch i E0 n0 v0 mem0 P0 l cl (promise c0 i a v w) th' E := by
-  obtain ⟨hx, hTE, hm, hSC, hbo, hfb, hfr, hrh⟩ := h
+  obtain ⟨hx, hTE, hm, hSC, hbo, hfb, hfr, hrh, hTy, hRc⟩ := h
   refine ⟨_, (promise_inv (a := a) (v := v) (w := w) hth).2.1, hx, hTE, ?_, hSC,
-    by rw [gOf_promise]; exact hbo, hfb, ?_, hrh⟩
+    by rw [gOf_promise]; exact hbo, hfb, ?_, hrh, by rw [gOf_promise]; exact hTy, by rw [gOf_promise]; exact hRc⟩
   · rw [gOf_promise, (promise_inv (a := a) (v := v) (w := w) hth).2.2]
     exact MemInv_promSt hm
   · exact frRunA_prom hth hfr
@@ -67,13 +67,13 @@ theorem invAtXRB_ext {E0 : TEnv} {n0 v0 : Nat} {mem0 : Memory} {P0 : List Ts} {l
     {c0 c0' : Cfg} {th : TTh} {E : TEnv} (hth : c0.ths[i]? = some th)
     (h : InvAtXRB p k arch i E0 n0 v0 mem0 P0 l cl c0 th E) (hs : c0' ∈ extSteps c0 i) (hTA : TermTyped.TidAt i c0 E0) :
     ∃ th', c0'.ths[i]? = some th' ∧ InvAtXRB p k arch i E0 n0 v0 mem0 P0 l cl c0' th' E := by
-  obtain ⟨hx, hTE, hm, hSC, hbo, hfb, hfr, hrh⟩ := h
+  obtain ⟨hx, hTE, hm, hSC, hbo, hfb, hfr, hrh, hTy, hRc⟩ := h
   rcases TermTyped.extSteps_res hs hth with ⟨x1, n1, a1, e1, rt1, ws1, rs1, hterm, hn1, hev1, hrs1, rfl⟩ | ⟨x1, a1, e1, lb, hterm, htl, rfl⟩
   · exact ⟨_, set_self hth, hx, TermTyped.ThInvE_ext hn1 hterm hev1 hrs1 hTE, by rw [gOf_ext hs]; exact hm, hSC,
-      by rw [gOf_ext hs]; exact hbo, hfb, hfr, hrh⟩
+      by rw [gOf_ext hs]; exact hbo, hfb, hfr, hrh, by rw [gOf_ext hs]; exact hTy, by rw [gOf_ext hs]; exact hRc⟩
   · obtain ⟨hbs, hbp⟩ := TermTyped.tidBox_ext hx (hTA th hth lb htl)
     exact ⟨_, set_self (tr := c0.trace) hth, hx, TermTyped.ThInvE_cur hterm hbs hbp hTE, by rw [gOf_ext hs]; exact hm, hSC,
-      by rw [gOf_ext hs]; exact hbo, hfb, hfr, hrh⟩
+      by rw [gOf_ext hs]; exact hbo, hfb, hfr, hrh, by rw [gOf_ext hs]; exact hTy, by rw [gOf_ext hs]; exact hRc⟩
 
 -- COPY of TermTyped.solo_typedXR
 /-- **The typed run before `publish r`, with the unplanted frontier**: along `SoloNP r` from `c`,
@@ -93,23 +93,25 @@ theorem solo_typedXRP {cP c : Cfg} {E0 : TEnv} {n0 v0 : Nat} {thP : TTh} {l : Al
     (P := fun c0 => SoloNP p k arch i r c c0 ∧ ∃ th E, c0.ths[i]? = some th ∧
       InvAtXRB p k arch i E0 n0 v0 cP.mem thP.promises l cl c0 th E ∧ E.pfr r = none) ?_ ?_ ?_ h
     (.refl _) ⟨.refl _, h0⟩).2
-  · rintro c0 c0' ⟨hc0N, th, E, hth, ⟨hx, hTE, hm, hSC, hbo, hfb, hfr, hrh⟩, hpf0⟩ hs hnp hrest
+  · rintro c0 c0' ⟨hc0N, th, E, hth, ⟨hx, hTE, hm, hSC, hbo, hfb, hfr, hrh, hTyR, hRcR⟩, hpf0⟩ hs hnp hrest
     have hc0 := hc0N.toSolo
     have hc0' : Certified p k arch c0' i := certified_back hrest.toSolo hc2
     have hcert0 : Certified p k arch c0 i := certified_back (.thread hs hrest.toSolo) hc2
     obtain ⟨th', rs, hth', hr, e1, e2, e3, hpa⟩ := taken_promAbove hs hc0'
     rw [hth] at hth'
     cases hth'
-    obtain ⟨ρ, η, cx, rfl, hE, hT, htv, hi, hrp⟩ := hTE
+    obtain ⟨ρ, η, cx, rfl, hE, hT, htv, hi, hrp, hDy⟩ := hTE
     have hscope := hsc c0 hc0 hcert0 th hth (TermTyped.not_spawnT_of_steps hth hs) ρ η cx hE hT htv hi
     -- No plant builder (EFoot_plant / plantSet / plantE) is reachable from thread steps;
     -- at g′ = {gOf … with pf := (· ≠ r)} the footprint needs only `hPb`, from `¬ PubAt th r`.
-    obtain ⟨-, hstep⟩ := tstep_footprintQ (hRP := hrp) (hPS := hPS) (hSub := hSub) (hSig := hSig) (g := { gOf p k arch c0 i with pf := fun l' => l' ≠ r }) hP rfl
+    obtain ⟨-, hstep⟩ := tstep_footprintQN (hDy := hDy) (hTy := hTyR) (hRP := hrp) (hPS := hPS) (hSub := hSub) (hSig := hSig) (g := { gOf p k arch c0 i with pf := fun l' => l' ≠ r }) hP rfl
       (Nat.lt_of_le_of_lt (Nat.zero_le _) (Cfg.lt_n (arr_lt hth)))
       (tstep_notDone hr) hscope hT hi hE htv hm hbo (PAx_of_step hs hc0' hth)
-      (hwin c0 hc0 hcert0 th hth ρ η cx hE hT htv hi hm (frRunA_ext hfr hx) hfr.2.1.1 hfr.2.1.2.2.1)
+      (hwin c0 hc0 hcert0 th hth ρ η cx hE hT htv hi hm (frRunA_ext hfr hx) hfr.2.1.1 hfr.2.1.2.2.1 hTyR hDy hrp)
       (hPb := fun y a e rt ws ad ht hea hws hEq => hnp th hth ⟨y, a, e, rt, ws, ad, ht, hea, hws, hEq⟩)
-    obtain ⟨E', hF, hx', hT', hm', hbB⟩ := hstep rs hr hpa
+    obtain ⟨E', hF, hx', hT', hm', hbB, hN⟩ := hstep rs hr hpa
+    have hTyN := TermTyped.tyRun_thread (hDy := hDy) (hC := fun k => (hE.2.1 k).1) (hN := hN) (g := { gOf p k arch c0 i with pf := fun l' => l' ≠ r }) hs hth e3 rfl rfl rfl rfl
+      (Nat.lt_of_le_of_lt (Nat.zero_le _) (Cfg.lt_n (arr_lt hth))) hr hF.1 hTyR hRcR
     have hA' := anchR_tstep hF hm' hbB hE hT htv hi hm hscope (TermViewInv.envVR_solo hvI hc0 hth) hr (frRunA_ext hfr hx) hfr.2.1
     have hcrE : (CE η).sto r ≠ none := by rw [hx.2.2.2.2.1 _ _ hcr]; exact fun h => by cases h
     have hpf' : E'.pfr r = none := Classical.byContradiction fun hne => by
@@ -119,7 +121,7 @@ theorem solo_typedXRP {cP c : Cfg} {E0 : TEnv} {n0 v0 : Nat} {thP : TTh} {l : Al
     have hfb' := FrBound_foot hF hwu hfb hfr.1
     have hW0 := solo_winInv hc0 hW
     refine ⟨soloNP_trans hc0N (.thread hs hnp (.refl _)), rs.2.2, E', e3, ⟨Ext_trans hx hx', hT', ?_,
-      StoClo_EFoot hF.1 hSC, by rw [gOf_thread hs]; exact hbo, hfb'.1, ?_, ?_⟩, hpf'⟩
+      StoClo_EFoot hF.1 hSC, by rw [gOf_thread hs]; exact hbo, hfb'.1, ?_, ?_, hTyN.1, hTyN.2⟩, hpf'⟩
     · rw [gOf_thread hs, e1, e2]
       exact hm'
     · rw [e1, e2]

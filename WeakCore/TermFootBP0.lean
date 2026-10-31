@@ -67,11 +67,10 @@ theorem nalloc_alloc_boxE {k : Promises.Knobs} {arch : Arch} {lbl : AllocLabel} 
   cases b <;> simp [fenceS, h]
 
 /-- `new`: the result binds an `own` reference, which counts no word. -/
-theorem footB1_new {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {x : String} {a : At} {e : Expr}
-    {r : Memory × List Ts × TTh} {E' : TEnv} (hterm : th.term = .let_ x (.new a) e)
+theorem footB1_new {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {x : String} {a : At} {T : Option Ty} {e : Expr}
+    {r : Memory × List Ts × TTh} {E' : TEnv} (hterm : th.term = .let_ x (.new a T) e)
     (hr : r ∈ tstep g mem pairs th) : FootB1 g th.nalloc th.env r E' := by
-  simp only [tstep, hterm, List.mem_map] at hr
-  obtain ⟨⟨s', t, ws⟩, hev, rfl⟩ := hr
+  obtain ⟨s', t, ws, hev, tys, rfl⟩ := TermRun.tstep_new_mem hterm hr
   refine footB1_cons (b0 := (x, t, ws)) rfl fun l _ w hw _ => ?_
   simp only [evalOp] at hev
   split at hev

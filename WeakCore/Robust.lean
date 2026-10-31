@@ -251,6 +251,7 @@ def mapOp (f : Proto → Proto) : Op → Op
   | .call g is a ts   => .call g is a (ts.map (mapTy f))
   | .spawn g a T ts   => .spawn g a (mapTy f T) (ts.map (mapTy f))
   | .zero t           => .zero (mapTy f t)
+  | .isTy a t         => .isTy a (mapTy f t)
   | op                => op
 
 def mapExpr (f : Proto → Proto) : Expr → Expr
@@ -324,7 +325,7 @@ def winStoreD : Decl := { winD with
   name := "winStore"
   body := lets [("w", .fld 0 (v "m"))]
     (.cas true false (v "w") (.lit 0) (.lit 3) "t"
-      (lets [("c", .new (v "t"))] (.ret .unit))
+      (lets [("c", .new (v "t") (some (.tok (.var 0) (some (identL, .lit 3)))))] (.ret .unit))
       (.ret .unit)) }
 
 /-- Paired and split again, then released: accepted (restructuring). -/

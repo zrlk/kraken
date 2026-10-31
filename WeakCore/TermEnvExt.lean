@@ -48,7 +48,7 @@ theorem tstep_env_ext {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {r : M
     all_goals
       simp only [List.mem_map] at h
       obtain ⟨⟨s', t, ws⟩, -, rfl⟩ := h
-      exact .inr ⟨_, rfl⟩
+      first | exact .inr ⟨_, rfl⟩ | (split <;> exact .inr ⟨_, rfl⟩)
   | split a x y e =>
     rw [hterm] at h
     simp only at h

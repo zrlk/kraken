@@ -610,6 +610,7 @@ theorem tstep_new {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {r : Memor
        obtain ⟨x, hx, rfl⟩ := h
        first
          | exact evalOp_new hpl hx t m ht hm
+         | (split <;> exact evalOp_new hpl hx t m ht hm)
          | exact Or.inr (tgt_of (by assumption) (by assumption) (by exact (rmw_newAt hx t m ht hm).symm)
              (List.mem_singleton_self _))
          | (obtain ⟨mem', pairs', th'⟩ := x
@@ -1085,6 +1086,7 @@ theorem tstep_newOp {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {r : Mem
        obtain ⟨x, hx, rfl⟩ := h
        first
          | exact (evalOp_newOp hpl hx t m ht hm).imp id (fun h => .inl ⟨_, _, _, hT, h⟩)
+         | (split <;> exact (evalOp_newOp hpl hx t m ht hm).imp id (fun h => .inl ⟨_, _, _, hT, h⟩))
          | exact .inr (.inr (.inl ⟨_, _, _, _, _, _, _, _, _, _, hT, ‹_›,
              by rw [rmw_newLoc hx t m ht hm]; assumption⟩))
          | (obtain ⟨mem', pairs', th'⟩ := x
@@ -1951,6 +1953,7 @@ theorem tstep_once {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {r : Memo
        obtain ⟨x, hx, rfl⟩ := h
        first
          | exact evalOp_once hpl hx t1 t2 m1 m2 h1 h2 hm1 hm2 hl hX
+         | (revert hX; split <;> intro hX <;> exact evalOp_once hpl hx t1 t2 m1 m2 h1 h2 hm1 hm2 hl hX)
          | exact rmw_once hx t1 t2 m1 m2 h1 h2 hm1 hm2
          | (obtain ⟨mem', pairs', th'⟩ := x
             exact rmwPair_once hx t1 t2 m1 m2 h1 h2 hm1 hm2 hl))
@@ -2464,11 +2467,14 @@ theorem SysInvW.publish_ownZero {p : Prog} {k : Promises.Knobs} {arch : Arch} {I
     (hterm : th.term = .let_ y (.publish a) e)
     {rt : Ty} {ws : List Word} {ad : Address} {g' : Nat} (hea : evalAt th.env a = some (rt, ws))
     (hws : ws.map (·.val) = [.loc ad g'])
-    (hside : TermTyped.OwnSide p (gOf p k arch c i) c.mem c.pairs th) (hPS : PwSkel) :
+    (hside : TermTyped.OwnSide p (gOf p k arch c i) c.mem c.pairs th) (hPS : PwSkel)
+    (hRc : RecFresh (gOf p k arch c i) i th.nalloc)
+    (hTyE : ∀ S, TyOKE (gOf p k arch c i) (Cut Eg i S)) :
     TermTyped.OwnZeroAt p k arch i ad.label c' := by
-  obtain ⟨E, hT, hm, hH, hC⟩ := h.thInvMC hth
+  obtain ⟨S, hT, -, hm, hHP, hHS, hC⟩ := h.thread hth
+  have hH := MemHeld_join (fun _ _ hc hp => Cut_cov hc hp) hHP hHS
   exact TermTyped.publish_ownZero hP hs hc' hth hterm hea hws rfl hT hm hH hC
-    (h.own_thread (arr_lt hth) ad.label) hside hPS
+    (h.own_thread (arr_lt hth) ad.label) hside hPS (hTyE S) hRc
 
 /-- (F2′ P2) **Under `SysInvW`, after publishing `x`'s own handle no own-mode
 use reaches `x` along the certifying run** (`TermTyped.publish_noOwnUse`). -/
@@ -2488,15 +2494,18 @@ theorem SysInvW.publish_noOwnUse {p : Prog} {k : Promises.Knobs} {arch : Arch} {
     (hprom : ∀ c0 th a v w, Solo p k arch i c1 c0 → w < c0.mem.size → Certified p k arch (promise c0 i a v w) i →
       c0.ths[i]? = some th → TermTyped.PromSide p (gOf p k arch c0 i) c0.mem c0.pairs th a v w)
     {c2 : Cfg} (h12 : Solo p k arch i c1 c2) (hc2 : Certified p k arch c2 i) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig)
-    (hnb : TermTyped.NoBoxedCur p k arch i c1) :
+    (hnb : TermTyped.NoBoxedCur p k arch i c1)
+    (hRc : RecFresh (gOf p k arch c i) i th.nalloc)
+    (hTyE : ∀ S, TyOKE (gOf p k arch c i) (Cut Eg i S)) :
     ∃ th, c2.ths[i]? = some th ∧ ∃ ρ η cx Rf Rs, EnvOK p η ∧ Typed p cx th.term ∧
       FInvR ρ η th.σs (ResumeR p th.stack Rs) cx th.env Rf ∧
       ∀ a t c₁ rt ws ad' g, cx.use a = .ok (t, c₁) →
         ((∃ u, cellOf t = some (.own, u)) ∨ ∃ n u k, bufOf t = some (.own, n, u, k)) →
         evalAt th.env a = some (rt, ws) → ws.map (·.val) = [.loc ad' g] → ad'.label ≠ ad.label := by
-  obtain ⟨E, hT, hm, hH, hC⟩ := h.thInvMC hth
+  obtain ⟨S, hT, -, hm, hHP, hHS, hC⟩ := h.thread hth
+  have hH := MemHeld_join (fun _ _ hc hp => Cut_cov hc hp) hHP hHS
   exact TermTyped.publish_noOwnUse hP hs hth hterm hea hws rfl hT hm hH hC
-    (h.own_thread (arr_lt hth) ad.label) hside0 hn hbf hside hprom h12 hc2 hPS hSub hSig hnb
+    (h.own_thread (arr_lt hth) ad.label) hside0 hn hbf hside hprom h12 hc2 hPS hSub hSig hnb (hTyE S) hRc
 
 #print axioms SysInvW.publish_ownZero
 #print axioms SysInvW.publish_noOwnUse

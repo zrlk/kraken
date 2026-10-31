@@ -11,8 +11,8 @@ open CoreTerm
 
 /-- **`FootNCB` holds unconditionally.** -/
 theorem footNCB_of (p : Prog) (hPS : TermSound.PwSkel) (hSub : TermSound.PwSubS) (hSig : TermSound.PwSig) : FootNCB p :=
-  fun hP hp hn hnd hsc hT hi hE htv hm hbf hpx hwin hZ hgp hrp =>
-    TermFootNCB.tstep_footprintK_ncB (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hp hn hnd hsc hT hi hE htv hm hbf hpx hwin hZ hgp (hRP := hrp)
+  fun hP hp hn hnd hsc hT hi hE htv hm hTy hbf hpx hwin hZ hgp hrp hDy =>
+    TermFootNCB.tstep_footprintK_ncB (hDy := hDy) (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hp hn hnd hsc hT hi hE htv hm hbf hpx hwin hZ hgp (hTy := hTy) (hRP := hrp)
 
 #print axioms footNCB_of
 

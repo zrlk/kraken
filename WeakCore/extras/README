@@ -5,7 +5,7 @@ files, the probes, the premise guard (tools/premises) and the check script check
 Every Lean file is stored as `.lean.txt` so that lake does not glob or build it as part of
 the library; its `import` lines name the `WeakCore.*` modules.
 
-Files (288):
+Files (348):
   FlatHashMapSlow.lean.txt
   HashMapLFSlow.lean.txt
   RWLockSlow.lean.txt
@@ -63,6 +63,7 @@ Files (288):
   tools/premises/frozen/A9NoSpawn.stepsX_iff_steps_of_noSpawn.txt
   tools/premises/frozen/A9SpawnFinal.startOKX_of_initOK.txt
   tools/premises/frozen/A9SpawnFinal.startOKX_spawnS.txt
+  tools/premises/frozen/DmaRing.dma_ring_tokens_unique_net.txt
   tools/premises/frozen/ExtArmZ.machine_tokens_main_em0.txt
   tools/premises/frozen/ExtArmZ.reachable_typed_em0.txt
   tools/premises/frozen/ExtArmZ.token_unique_final_em0.txt
@@ -114,6 +115,13 @@ Files (288):
   tools/premises/frozen/TermSpawn.machine_tokens_mainS.txt
   tools/premises/frozen/TermSpawn.startOK_of_initOK.txt
   tools/premises/frozen/TermSpawn.startOK_spawnS.txt
+  tools/premises/frozen/TermStartD.machine_tokens_main_board.txt
+  tools/premises/frozen/TermStartD.reachable_typed_board.txt
+  tools/premises/frozen/TermStartD.token_unique_final_board.txt
+  tools/premises/frozen/TermStartD.token_unique_net_board.txt
+  tools/premises/frozen/lang.CoreTerm.Decl.allNames.txt
+  tools/premises/frozen/lang.CoreTerm.Expr.binders.txt
+  tools/premises/frozen/lang.CoreTerm.Expr.idxBinders.txt
   tools/premises/frozen/lang.CoreTerm.ExtName.Admits.txt
   tools/premises/frozen/lang.CoreTerm.ExtName.deviceOnly.txt
   tools/premises/frozen/lang.CoreTerm.ExtName.events.txt
@@ -124,12 +132,34 @@ Files (288):
   tools/premises/frozen/lang.CoreTerm.ExtName.resultsL.txt
   tools/premises/frozen/lang.CoreTerm.ExtName.sig.txt
   tools/premises/frozen/lang.CoreTerm.Op.txt
+  tools/premises/frozen/lang.CoreTerm.RestrictedProg.txt
+  tools/premises/frozen/lang.CoreTerm.Tail.merge.txt
+  tools/premises/frozen/lang.CoreTerm.Tail.txt
+  tools/premises/frozen/lang.CoreTerm.argFuelOf.txt
+  tools/premises/frozen/lang.CoreTerm.argPosOf.txt
+  tools/premises/frozen/lang.CoreTerm.callBad.txt
   tools/premises/frozen/lang.CoreTerm.checkOp.txt
+  tools/premises/frozen/lang.CoreTerm.checkerIdxNames.txt
+  tools/premises/frozen/lang.CoreTerm.declFuel.txt
   tools/premises/frozen/lang.CoreTerm.devCellOK.txt
   tools/premises/frozen/lang.CoreTerm.devCells.txt
   tools/premises/frozen/lang.CoreTerm.exprNoDevFnptr.txt
   tools/premises/frozen/lang.CoreTerm.exprNoDevOnly.txt
+  tools/premises/frozen/lang.CoreTerm.fuelDecl.txt
+  tools/premises/frozen/lang.CoreTerm.fuelOf.txt
+  tools/premises/frozen/lang.CoreTerm.idxArgOf.txt
+  tools/premises/frozen/lang.CoreTerm.loopBound.txt
+  tools/premises/frozen/lang.CoreTerm.loopCallBad.txt
+  tools/premises/frozen/lang.CoreTerm.loopCallsOK.txt
+  tools/premises/frozen/lang.CoreTerm.noShadow.txt
+  tools/premises/frozen/lang.CoreTerm.opAllocates.txt
+  tools/premises/frozen/lang.CoreTerm.opWrites.txt
+  tools/premises/frozen/lang.CoreTerm.restrictedDeclOK.txt
+  tools/premises/frozen/lang.CoreTerm.restrictedOK.txt
+  tools/premises/frozen/lang.CoreTerm.selfBound.txt
+  tools/premises/frozen/lang.CoreTerm.selfBoundW.txt
   tools/premises/frozen/lang.CoreTerm.tailCheck.txt
+  tools/premises/frozen/lang.CoreTerm.tyAt.txt
   tools/premises/frozen/lang.CoreTyping.OpT.txt
   tools/premises/frozen/lang.TermLiveCert.ScriptedRun.txt
   tools/premises/frozen/lang.TermLiveL3.SpuriousWake.txt
@@ -180,6 +210,7 @@ Files (288):
   tools/premises/sets/pr-release-15067-vendored/frozen/A9NoSpawn.stepsX_iff_steps_of_noSpawn.txt
   tools/premises/sets/pr-release-15067-vendored/frozen/A9SpawnFinal.startOKX_of_initOK.txt
   tools/premises/sets/pr-release-15067-vendored/frozen/A9SpawnFinal.startOKX_spawnS.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/DmaRing.dma_ring_tokens_unique_net.txt
   tools/premises/sets/pr-release-15067-vendored/frozen/ExtArmZ.machine_tokens_main_em0.txt
   tools/premises/sets/pr-release-15067-vendored/frozen/ExtArmZ.reachable_typed_em0.txt
   tools/premises/sets/pr-release-15067-vendored/frozen/ExtArmZ.token_unique_final_em0.txt
@@ -231,6 +262,13 @@ Files (288):
   tools/premises/sets/pr-release-15067-vendored/frozen/TermSpawn.machine_tokens_mainS.txt
   tools/premises/sets/pr-release-15067-vendored/frozen/TermSpawn.startOK_of_initOK.txt
   tools/premises/sets/pr-release-15067-vendored/frozen/TermSpawn.startOK_spawnS.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/TermStartD.machine_tokens_main_board.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/TermStartD.reachable_typed_board.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/TermStartD.token_unique_final_board.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/TermStartD.token_unique_net_board.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.CoreTerm.Decl.allNames.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.CoreTerm.Expr.binders.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.CoreTerm.Expr.idxBinders.txt
   tools/premises/sets/pr-release-15067-vendored/frozen/lang.CoreTerm.ExtName.Admits.txt
   tools/premises/sets/pr-release-15067-vendored/frozen/lang.CoreTerm.ExtName.deviceOnly.txt
   tools/premises/sets/pr-release-15067-vendored/frozen/lang.CoreTerm.ExtName.events.txt
@@ -241,12 +279,34 @@ Files (288):
   tools/premises/sets/pr-release-15067-vendored/frozen/lang.CoreTerm.ExtName.resultsL.txt
   tools/premises/sets/pr-release-15067-vendored/frozen/lang.CoreTerm.ExtName.sig.txt
   tools/premises/sets/pr-release-15067-vendored/frozen/lang.CoreTerm.Op.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.CoreTerm.RestrictedProg.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.CoreTerm.Tail.merge.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.CoreTerm.Tail.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.CoreTerm.argFuelOf.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.CoreTerm.argPosOf.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.CoreTerm.callBad.txt
   tools/premises/sets/pr-release-15067-vendored/frozen/lang.CoreTerm.checkOp.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.CoreTerm.checkerIdxNames.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.CoreTerm.declFuel.txt
   tools/premises/sets/pr-release-15067-vendored/frozen/lang.CoreTerm.devCellOK.txt
   tools/premises/sets/pr-release-15067-vendored/frozen/lang.CoreTerm.devCells.txt
   tools/premises/sets/pr-release-15067-vendored/frozen/lang.CoreTerm.exprNoDevFnptr.txt
   tools/premises/sets/pr-release-15067-vendored/frozen/lang.CoreTerm.exprNoDevOnly.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.CoreTerm.fuelDecl.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.CoreTerm.fuelOf.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.CoreTerm.idxArgOf.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.CoreTerm.loopBound.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.CoreTerm.loopCallBad.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.CoreTerm.loopCallsOK.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.CoreTerm.noShadow.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.CoreTerm.opAllocates.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.CoreTerm.opWrites.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.CoreTerm.restrictedDeclOK.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.CoreTerm.restrictedOK.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.CoreTerm.selfBound.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.CoreTerm.selfBoundW.txt
   tools/premises/sets/pr-release-15067-vendored/frozen/lang.CoreTerm.tailCheck.txt
+  tools/premises/sets/pr-release-15067-vendored/frozen/lang.CoreTerm.tyAt.txt
   tools/premises/sets/pr-release-15067-vendored/frozen/lang.CoreTyping.OpT.txt
   tools/premises/sets/pr-release-15067-vendored/frozen/lang.TermLiveCert.ScriptedRun.txt
   tools/premises/sets/pr-release-15067-vendored/frozen/lang.TermLiveL3.SpuriousWake.txt

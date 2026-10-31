@@ -33,12 +33,12 @@ def useCounter(o : exists (T : {share, noOwn}). Ptr pub (Code(Ptr pub T, Int) * 
   ret v
 
 def mkAndUse(z : Int) : Int =
-  let c0 = new z
+  let c0 = new[Int] z
   let s = publish c0
   let fg = fnptr getI
   let fb = fnptr bumpI
   let ms = (fg, fb)
-  let v0 = new ms
+  let v0 = new[Code(Ptr pub Int, Int) * Code(Ptr pub Int, Unit)] ms
   let vt = publish v0
   let g = (vt, s)
   let o = pack g at [Int] : exists (T : {share, noOwn}). Ptr pub (Code(Ptr pub T, Int) * Code(Ptr pub T, Unit)) * Ptr pub T

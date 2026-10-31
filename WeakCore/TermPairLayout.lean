@@ -296,6 +296,15 @@ theorem tstep_pg {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
     | (simp only [List.mem_flatMap, List.mem_map] at h
        obtain ⟨x, hx, y, hy, rfl⟩ := h
        exact (pg_load (projM_keep hx)).trans (injM_pg hy))
+    | (simp only [List.mem_map] at h  -- new arm: record write
+       obtain ⟨x, hx, rfl⟩ := h
+       try dsimp only
+       split
+       all_goals
+         first
+           | exact evalOp_pg hx
+           | exact pg_mem (stepRmw_memExt hx)
+           | exact stepRmwPair_pg hx)
 
 /-! ## The invariant and the step clause -/
 

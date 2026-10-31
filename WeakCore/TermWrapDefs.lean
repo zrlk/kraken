@@ -17,6 +17,7 @@ def opTys : Op → List Ty
   | .packT _ σ τ => [σ, τ]
   | .call _ _ _ ts => ts
   | .spawn _ _ T ts => T :: ts
+  | .isTy _ τ => [τ]
   | _ => []
 
 /-- (A1) `call`'s type arguments and `packT`'s witness are `argOK`; every annotation `wrapOK`. -/

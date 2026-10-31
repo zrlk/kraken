@@ -55,7 +55,7 @@ def spawnTerm : CoreTerm.Expr :=
 
 /-- `spawnTerm` is `main`'s body after `z`, `o`, `c`, `p`. -/
 theorem main_body : (wakeSrc.find? (·.name = "main")).map (·.body) =
-    some (.let_ "z" (.zero .int) (.let_ "o" (.new (.var "z")) (.let_ "c" (.publish (.var "o"))
+    some (.let_ "z" (.zero .int) (.let_ "o" (.new (.var "z") (some .int)) (.let_ "c" (.publish (.var "o"))
       (.let_ "p" (.pair (.var "c") (.var "me")) spawnTerm)))) := rfl
 
 /-- **main's state at its `clone`** in the one-slot configuration `t`, the

@@ -1445,6 +1445,12 @@ theorem tstep_thN {p : Prog} (hacc : Accepted2 p = true)
     case callc f a =>
       exact (bad (fun _ _ _ _ => by rw [hterm]; rfl) (by rw [hterm]; rfl) (by rw [hterm, setupTerm_eq]; simp)
         (by rw [hterm, setupRest]; simp) (by rw [hterm]; simp) (fun _ _ _ _ => by rw [hterm]; simp)).elim
+    case new a T =>
+      obtain ⟨s', t, ws, hev, tys, hr'⟩ := TermRun.tstep_new_mem hterm hr
+      simp only [Prod.mk.injEq] at hr'
+      obtain ⟨rfl, rfl, rfl⟩ := hr'
+      exact thN_let hacc hp hT hterm rfl hev hm (fun b' i' v' hop _ => by cases hop) rfl rfl rfl rfl
+        (hTS (by rw [hterm]; exact ⟨fun _ h => (by cases h), fun _ _ _ _ _ _ h => (by cases h)⟩))
     all_goals
       simp only [tstep, hterm, List.mem_map, Prod.mk.injEq] at hr
       obtain ⟨⟨s', t, ws⟩, hev, rfl, rfl, rfl⟩ := hr

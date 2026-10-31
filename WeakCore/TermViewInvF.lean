@@ -88,7 +88,7 @@ theorem tstep_V (hop : OpV) {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
       simp only [List.mem_map] at h
       obtain ⟨⟨s', t, ws⟩, hin, rfl⟩ := h
       obtain ⟨h1, h2, h3⟩ := hop hin hs ht.1
-      exact ⟨h1.1, h2, EnvV_cons h3 (ht.1.mono h2), fun fr hf => (ht.2.1 fr hf).mono h2, h1.2⟩
+      first | exact ⟨h1.1, h2, EnvV_cons h3 (ht.1.mono h2), fun fr hf => (ht.2.1 fr hf).mono h2, h1.2⟩ | (split <;> exact ⟨h1.1, h2, EnvV_cons h3 (ht.1.mono h2), fun fr hf => (ht.2.1 fr hf).mono h2, h1.2⟩)
   | split a x y e =>
     rw [hterm] at h
     simp only at h

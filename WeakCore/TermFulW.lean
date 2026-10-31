@@ -275,7 +275,7 @@ theorem tstep_wpd {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
         · have hcall : Robust.isCallOp op = false := by
             cases op <;> first | rfl | (simp [UnitsOp] at hu)
           have h2 := h
-          rw [TermLocal.tstep_let_gen hterm hcall] at h2
+          rw [TermLocal.tstep_let_gen hterm hcall (fun _ _ h => by subst h; simp [UnitsOp] at hu)] at h2
           obtain ⟨y, hy, rfl⟩ := List.mem_map.1 h2
           obtain ⟨k, arch, s1, pw', b', rel', us', ws', hs1m, hs1p, hu', hst⟩ := evalOp_units hu hy
           obtain ⟨c2, U, hsto2, hat2, hacc2⟩ := TermTyped.unitsOp_ua hop hsc0 hi hE htv hu'

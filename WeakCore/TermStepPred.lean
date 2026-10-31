@@ -814,7 +814,7 @@ theorem certified_promPredEX {p : Prog} {k : Promises.Knobs} {arch : Arch} {c : 
   rw [hm] at hm'
   cases hm'
   have hc1 : Certified p k arch c1 i := certified_back (.thread h2 (.refl _)) hc2
-  obtain ⟨th1', E1, hth1', hx1, ⟨ρ, η, cx, rfl, hE, hT, htv, hi, hrp⟩, hmi1, -⟩ := solo_typedXF (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hsc hvI hwin h0 hTA h1 hc1
+  obtain ⟨th1', E1, hth1', hx1, ⟨ρ, η, cx, rfl, hE, hT, htv, hi, hrp, hDy⟩, hmi1, -⟩ := solo_typedXF (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hsc hvI hwin h0 hTA h1 hc1
   rw [hth1] at hth1'
   cases hth1'
   have hscope := hsc c1 h1 hc1 th1 hth1 (TermTyped.not_spawnT_of_steps hth1 h2) ρ η cx hE hT htv hi
@@ -829,7 +829,7 @@ theorem certified_promPredEX {p : Prog} {k : Promises.Knobs} {arch : Arch} {c : 
   replace hscope : StepScope cx th1.term := by
     rcases hscope with h | ⟨-, hcap⟩
     · exact h
-    · have e := ((tstep_cap (hPS := hPS) hP hcap hT hi hE htv hrp).2 r hr).2.2.2.2.1
+    · have e := ((tstep_cap (hDy := hDy) (hPS := hPS) hP hcap hT hi hE htv hrp).2 r hr).2.2.2.2.1
       simp only [stOf] at e
       exact absurd (e ▸ ht1) hn
   obtain ⟨th0, -, hth0, -⟩ := h0
@@ -876,7 +876,7 @@ theorem promPredTX {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {M
   obtain ⟨S', hS'⟩ := X.inv.thr i th X.hth
   obtain ⟨-, hTE, hmi, -⟩ := id hS'
   have hSC : StoClo (Cut Eg i S') := fun l cl hl => X.inv.clo l cl (cutSto_sub hl)
-  have h0 := InvAtXF_of (p := p) (k := k) (arch := arch) X.hth hTE hmi hSC X.inv.bf (X.inv.riniCoh _ _ _ X.hth)
+  have h0 := InvAtXF_of (hTy := (X.inv.tyRec X.hth S').1) (hRc := (X.inv.tyRec X.hth S').2) (p := p) (k := k) (arch := arch) X.hth hTE hmi hSC X.inv.bf (X.inv.riniCoh _ _ _ X.hth)
     (fun l cl f hs hp => X.inv.frlt l cl f (cutSto_sub hs) hp)
   have hc : Certified p k arch c i := by
     obtain ⟨c'', hs, hn⟩ := X.cert

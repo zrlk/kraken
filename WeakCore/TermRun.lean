@@ -24,7 +24,7 @@ Decisions, each with its reason:
   5. **No control dependencies**: branch collapse is allowed (§1.2).
   6. **A multi-word access is one step**, its units in order; promises recover
      the reorderings.
-  7. **Promises are unrestricted, certification is a `Prop`** (`Step`).  The
+  7. **Promises are unrestricted except across the `ExtNeedsNoProm` calls, certification is a `Prop`** (`Step`).  The
      explorer under-approximates both, so what it finds is real.
   8. **Boxed sums** are §3.5's born-frozen block: an injection allocates
      `[tag, payload…]`, fills it, `dmb ishst`, and yields the reference; a
@@ -421,9 +421,10 @@ structure TTh where
   undefs   : Nat := 0
   /-- (E2) the thread's own `ThreadId` box, once allocated: by `spawn` for a child, lazily by `current()` otherwise -/
   tidLbl   : Option AllocLabel := none
-  /-- (D4) the park permit: `some v` = set by `unpark`, carrying the unparkers' release view `v` (joined); consumed by
+  /-- the park permit: `some v` = set by `unpark`, carrying the unparkers' release view `v` (joined); consumed by
   `park`, which acquires `v`. `none` = no permit. -/
   permit   : Option Ts := none
+  tys      : List (AllocLabel × Ty × Bool) := []      -- (label, the closed static type at `new`, exact)
 
 /-- What a step needs to know about its surroundings. -/
 structure G where
@@ -443,6 +444,7 @@ structure G where
   of an existing cell (`TermStep.PfrG`, the last conjunct of `TermStep.EFoot`).  Never read by the
   machine (`TermPf`); `gOf` sets it to `fun _ => True`. -/
   pf : AllocLabel → Prop := fun _ => True
+  tys : AllocLabel → Option (Ty × Bool) := fun _ => none
 
 def ol {α : Type} (o : Option α) : List α := o.toList
 
@@ -683,7 +685,7 @@ def evalOp (g : G) (env : Env) (σs : List Ty) (s : St) : Op → List (St × Ty 
       match ws, us with
       | [x], [y] => pure (s, .int, [subW x y])
       | _, _ => none
-  | .new a =>
+  | .new a _ =>
       match evalAt env a with
       | none => []
       | some (t, ws) =>
@@ -692,6 +694,16 @@ def evalOp (g : G) (env : Env) (σs : List Ty) (s : St) : Op → List (St × Ty 
           | some us =>
               let lbl := freshLabel g.lbase g.n g.i s.nalloc
               (alloc g.k g.arch lbl us ws s).map fun (s', pw) => (s', .ptr .own t, [pw])
+  | .isTy a τ => ol do
+      let (_, ws) ← evalAt env a
+      let pw ← ws.getLast?
+      let τ' := close σs τ
+      match pw.val with
+      | .loc l _ => match g.tys l.label with
+          | some (t, true) => if t == τ' then pure (s, .ptrOpt .pub τ', [pw])
+                              else pure (s, .ptrOpt .pub τ', [cst .null])
+          | _ => pure (s, .ptrOpt .pub τ', [cst .null])
+      | _ => pure (s, .ptrOpt .pub τ', [cst .null])
   | .null μ τ => [(s, .ptrOpt μ (close σs τ), [cst .null])]
   | .fold a τ => ol ((evalAt env a).map fun (_, ws) => (s, close σs τ, ws))
   | .publish a => ol do
@@ -923,7 +935,7 @@ def evalOp (g : G) (env : Env) (σs : List Ty) (s : St) : Op → List (St × Ty 
   -- A code value is the block's position in the program.
   | .fnptr f =>
       match g.p.findIdx? (·.name == f), g.p.find? (·.name == f) with
-      | some i, some d => [(s, .code d.argTy d.retTy (match d.kind with | .restricted fu sk => .restricted fu sk | _ => .plain),
+      | some i, some d => [(s, .code d.argTy d.retTy (match d.kind with | .restricted f s ro _ => .restricted f s ro | _ => .plain),
           [cst (.num i)])]
       | _, _ => []
   | .callc .. => []
@@ -1108,6 +1120,14 @@ def tstep (g : G) (mem : Memory) (pairs : List Ts) (th : TTh) :
               | none => []
           | _ => []
       | _ => []
+  | .let_ x (.new a T) e =>
+      (evalOp g th.env th.σs s (.new a T)).map fun (s', t, ws) =>
+        let th' := withS (bind x t ws e) s'
+        (s'.mem, s'.pairs, match T, ws.map (·.val) with
+          | some T, [WeakMem.Val.loc l _] =>
+              let u := close th.σs T
+              { th' with tys := th.tys ++ [(l.label, u, u.wf 0 0 && (progTgts g.p).contains u)] }
+          | _, _ => th')
   | .let_ x op e =>
       (evalOp g th.env th.σs s op).map fun (s', t, ws) =>
         (s'.mem, s'.pairs, withS (bind x t ws e) s')
@@ -1238,7 +1258,20 @@ every step the stepping thread must be *certified*: alone, it can reach a
 state with no outstanding promises (Promises §2.4, thread-local because other
 threads only raise views). -/
 
-/-- (E1) An event of the machine: one output byte, or the exit code; (M1) the register accesses and the
+/-- A step at `let x = new a T in e`: an ordinary `let` step, but for the thread's allocation records. -/
+theorem tstep_new_mem {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {x : String} {a : At}
+    {T : Option Ty} {e : Expr} {r : Memory × List Ts × TTh} (ht : th.term = .let_ x (.new a T) e)
+    (hr : r ∈ tstep g mem pairs th) :
+    ∃ s' t ws, (s', t, ws) ∈ evalOp g th.env th.σs (stOf mem pairs th) (.new a T) ∧
+      ∃ tys, r = (s'.mem, s'.pairs, { withS { th with term := e, env := (x, t, ws) :: th.env } s' with tys := tys }) := by
+  simp only [tstep, ht, List.mem_map] at hr
+  obtain ⟨⟨s', t, ws⟩, hin, rfl⟩ := hr
+  refine ⟨s', t, ws, hin, ?_⟩
+  split
+  · exact ⟨_, rfl⟩
+  · exact ⟨_, rfl⟩
+
+/-- An event of the machine: one output byte, or the exit code; the register accesses and the
 device's moves (`Event.observable` picks the behaviour). -/
 inductive Event
   | out (b : Nat) | exit (n : Nat)
@@ -1295,7 +1328,7 @@ theorem mem_resultsL (n : ExtName) (i : Nat) (ws : List Word) (tr : List Event) 
   cases n <;> rcases ws with _ | ⟨w1, _ | ⟨w2, _ | ⟨w3, ws⟩⟩⟩ <;>
     simp [CoreTerm.ExtName.resultsL, CoreTerm.ExtName.Admits, eq_comm]
 
-/-- (M1) The results of every extern but `current` are numeric constants. -/
+/-- The results of every extern but `current` are numeric constants. -/
 theorem resultsL_num {n : ExtName} {i : Nat} {ws : List Word} {tr : List Event} {rs : List Word}
     (hn : n ≠ .current) (h : rs ∈ n.resultsL i ws tr) : ∀ w ∈ rs, ∃ m, w = cst (.num m) := by
   intro w hw
@@ -1304,7 +1337,7 @@ theorem resultsL_num {n : ExtName} {i : Nat} {ws : List Word} {tr : List Event} 
     (try simp only [List.mem_cons, List.not_mem_nil, or_false] at hw) <;>
     (try rcases hw with rfl | rfl) <;> (try subst hw) <;> exact ⟨_, rfl⟩
 
-/-- (E1) The events an extern step appends, from its argument and (M1) result words. -/
+/-- The events an extern step appends, from its argument and result words. -/
 def _root_.CoreTerm.ExtName.events : ExtName → List Word → List Word → List Event
   | .emit, [w], _ => match w.val with | .num b => [.out b] | _ => []            -- verbatim as today (Ext_iff_old)
   | .exitEv, [w], _ => match w.val with | .num v => [.exit (exitCode v)] | _ => []
@@ -1339,8 +1372,11 @@ theorem Cfg.lt_n {c : Cfg} {i : Nat} (h : i < c.ths.size) : i < c.n := Nat.lt_of
 theorem Cfg.n_of_cap0 {c : Cfg} (h : c.cap = 0) : c.n = c.ths.size := by
   simp [Cfg.n, h]
 
+def tysOf (c : Cfg) (l : AllocLabel) : Option (Ty × Bool) :=
+  c.ths.toList.findSome? fun th => (th.tys.find? (·.1 == l)).map (·.2)
+
 def gOf (p : Prog) (k : Promises.Knobs) (arch : Arch) (c : Cfg) (i : Nat) : G :=
-  ⟨p, k, arch, c.n, i, c.lbase, c.boxFence, fun _ => False, fun _ => True⟩
+  ⟨p, k, arch, c.n, i, c.lbase, c.boxFence, fun _ => False, fun _ => True, tysOf c⟩
 
 def threadSteps (p : Prog) (k : Promises.Knobs) (arch : Arch) (c : Cfg) (i : Nat) : List Cfg :=
   match c.ths[i]? with
@@ -1374,9 +1410,9 @@ def thrOfTid (c : Cfg) (w : Word) : Option Nat :=
   match w.val with
   | .loc ⟨l, 0⟩ 0 => (List.range c.ths.size).find? fun j => (c.ths[j]?.bind (·.tidLbl)) == some l
   | _ => none
-/-- (D4) What an `unpark` publishes: the caller's release view (`Promises.mstoreView … true` with no dependency). -/
+/-- What an `unpark` publishes: the caller's release view (`Promises.mstoreView … true` with no dependency). -/
 def relView (vs : VState) : Ts := max vs.vRelSt (max vs.vRd vs.vWr)
-/-- (D4) Thread `j` gets a permit carrying `v`, joined with any permit it holds (no such thread: unchanged). -/
+/-- Thread `j` gets a permit carrying `v`, joined with any permit it holds (no such thread: unchanged). -/
 def setPermit (c : Cfg) (j : Nat) (v : Ts) : Cfg :=
   match c.ths[j]? with
   | some th => { c with ths := c.ths.set! j { th with permit := some (max (th.permit.getD 0) v) } }
@@ -1385,17 +1421,21 @@ def setPermit (c : Cfg) (j : Nat) (v : Ts) : Cfg :=
 promises, and a promise premise would remove those executions from `StepsE` (a weakening of the safety roots). -/
 def _root_.CoreTerm.ExtName.isChoice : ExtName → Bool | .devChoice _ => true | _ => false
 def ExtNeedsNoProm (n : ExtName) (th : TTh) : Prop :=
-  n = .exitEv ∨ (n = .current ∧ th.tidLbl = none) ∨ n.isChoice = true      -- decidable, as today
--- (rev 2k) `devChoice` is the ONE new promise premise, on a NEW arm only (no old run is lost; O1/O4 unaffected): a device
--- thread chooses with no promise outstanding, so certificates (`extSteps`) never expand the `2 ^ w` result list.
--- DISCLOSED: this is a restriction on the HOSTILE device model — no device promise spans a `devChoice` — i.e. the
+  n = .exitEv ∨ (n = .current ∧ th.tidLbl = none) ∨ n.isChoice = true ∨ n = .emit      -- decidable, as today
+-- `devChoice` adds a promise premise only on its own new arm (no old run is lost by this arm):
+-- a device thread chooses with no promise outstanding, so certificates (`extSteps`) never expand the `2 ^ w` result list.
+-- Note: this is a restriction on the hostile device model — no device promise spans a `devChoice` — i.e. the
 -- device cannot make a store visible early whose value depends on a choice not yet made; certification already imposes it
 -- (a promise must be dischargeable alone, and `extSteps` stops at a choice), so no further behaviour is lost.
-/-- (D4) `park` is a THREAD move only with a permit; every other extern always is. Used by `ExtBy` and the explorer (`extSuccs`), NOT
+-- `emit` is a promise premise too: an `emit` is taken only with no promise of its thread
+-- outstanding, in a run (`Ext`, `extSuccs`) and in a certificate (`extSteps` is `[]` at an `emit`: no certificate passes
+-- one). This REMOVES old executions — a store promised before a later `emit` of the same thread (`LBE` below) — so the
+-- ∀-finals stay true. Device `devOut`/`mmioW` are NOT in it.
+/-- `park` is a THREAD move only with a permit; every other extern always is. Used by `ExtBy` and the explorer (`extSuccs`), NOT
 by `Ext`, `extSteps` or `Solo` (certificates pass `park` regardless): as a safety step a permit-less `park` return is always available (a spurious wake), so `StepsE` covers every
 execution and `machineE_run_stepsE` stays exact. -/
 def ExtEnabled (n : ExtName) (th : TTh) : Prop := n ≠ .park ∨ th.permit.isSome = true
-/-- (D4) `park` clears the permit; if it held `some v` it acquires `v` as an acquire load acquires its message view
+/-- `park` clears the permit; if it held `some v` it acquires `v` as an acquire load acquires its message view
 (`vRd` and `vPreBase` joined; no location, so `coh` unchanged) (the view is capped at the memory size; on runs from a start `c0` with `ViewInv c0` whose permits are bounded (`PermV c0`), e.g. `startW`, the cap never applies: `TermPermit.permit_le_size`). -/
 def parkVs (n : Nat) (th : TTh) : VState :=
   match th.permit with
@@ -1413,7 +1453,7 @@ def extCfg (c : Cfg) (i : Nat) (th : TTh) (x : String) (n : ExtName) (e : Expr) 
                                                 vs := if n = .park then parkVs c.mem.size th else th.vs,
                                                 permit := if n = .park then none else th.permit },
                   trace := c.trace ++ n.events ws rs }
-/-- (D4) `unpark t` by thread `i` with release view `v`: the thread `t` names gets a permit carrying `v`, or view 0 if it
+/-- `unpark t` by thread `i` with release view `v`: the thread `t` names gets a permit carrying `v`, or view 0 if it
 is `i` itself (program order already orders its own accesses). -/
 def wake (c : Cfg) (i : Nat) (v : Ts) (n : ExtName) (ws : List Word) : Cfg :=
   match n, ws with
@@ -1422,13 +1462,13 @@ def wake (c : Cfg) (i : Nat) (v : Ts) (n : ExtName) (ws : List Word) : Cfg :=
 
 /-- `ExtNeedsNoProm` is decidable (see its comment above: `exitEv`, a boxless `current()` (C: a `current()`
 whose thread already has its box only reads it, so a certificate may take it; the first `current()` allocates
-and stays uncertified); (M1) a device choice). -/
+and stays uncertified); a device choice; an `emit`). -/
 instance (n : ExtName) (th : TTh) : Decidable (ExtNeedsNoProm n th) := by unfold ExtNeedsNoProm; infer_instance
 
 instance (n : ExtName) (th : TTh) : Decidable (ExtEnabled n th) := by unfold ExtEnabled; infer_instance
 
 /-- The uncertified extern move of thread `i`, as a certificate may take it: none for the calls of
-`ExtNeedsNoProm`; otherwise `extCfg`, (M1) once per result list of `resultsL`. -/
+`ExtNeedsNoProm`; otherwise `extCfg`, once per result list of `resultsL`. -/
 def extSteps (c : Cfg) (i : Nat) : List Cfg :=
   match c.ths[i]? with
   | some th => match th.term with
@@ -1482,7 +1522,7 @@ theorem extSteps_intro {c : Cfg} {i : Nat} {th : TTh} {x : String} {n : ExtName}
   exact ⟨rs, hrs, rfl⟩
 
 /-- An uncertified extern move only rewrites thread `i`'s term, extends its environment by one
-binding, (D4) may change its view and clear its permit (`park`), and extends the trace. -/
+binding, may change its view and clear its permit (`park`), and extends the trace. -/
 theorem extSteps_frame {c c' : Cfg} {i : Nat} (h : c' ∈ extSteps c i) :
     ∃ th e v evs w b, c.ths[i]? = some th ∧
       c' = { c with ths := c.ths.set! i { th with term := e, env := v :: th.env, vs := w, permit := b },
@@ -1572,14 +1612,14 @@ theorem extSteps_self {c c' : Cfg} {i : Nat} (h : c' ∈ extSteps c i) :
     · simp [Array.getElem?_eq_none h] at hth
   exact ⟨th, e, v, w, b, hth, by simp [Array.set!, hi]⟩
 
-/-- Thread `i`'s machine state (`stOf`) is unchanged but for its view ((D4) `park` acquires its permit's view). -/
+/-- Thread `i`'s machine state (`stOf`) is unchanged but for its view (`park` acquires its permit's view). -/
 theorem extSteps_stOf {c c' : Cfg} {i : Nat} (h : c' ∈ extSteps c i) :
     ∃ th th', c.ths[i]? = some th ∧ c'.ths[i]? = some th' ∧
       stOf c'.mem c'.pairs th' = { stOf c.mem c.pairs th with vs := th'.vs } := by
   obtain ⟨th, e, v, _w, _b, h1, h2⟩ := extSteps_self h
   exact ⟨th, _, h1, h2, by rw [extSteps_mem h, extSteps_pairs h]; rfl⟩
 
-/-- (D4) `park` only raises the view: `vRd`/`vPreBase` are joined with the permit's (capped) view, the rest is unchanged. -/
+/-- `park` only raises the view: `vRd`/`vPreBase` are joined with the permit's (capped) view, the rest is unchanged. -/
 theorem parkVs_vle (n : Nat) (th : TTh) : Promises.VLe th.vs (parkVs n th) := by
   unfold parkVs
   split
@@ -1615,10 +1655,60 @@ theorem extSteps_promises {c c' : Cfg} {i : Nat} (h : c' ∈ extSteps c i) (j : 
     simp [h1, h2]
   · rw [extSteps_ne h hj]
 
+theorem findSome_set_same {α β : Type} (f : α → Option β) {a b : α} (hab : f b = f a) :
+    ∀ (l : List α) (i : Nat), l[i]? = some a → (l.set i b).findSome? f = l.findSome? f
+  | [], _, h => by simp at h
+  | x :: xs, 0, h => by
+      simp only [List.getElem?_cons_zero, Option.some.injEq] at h
+      subst h
+      simp only [List.set_cons_zero, List.findSome?_cons, hab]
+  | x :: xs, i+1, h => by
+      simp only [List.getElem?_cons_succ] at h
+      simp only [List.set_cons_succ, List.findSome?_cons, findSome_set_same f hab xs i h]
+
+/-- Replacing one thread by one with the same allocation records keeps `tysOf`. -/
+theorem tysOf_set {c d : Cfg} {i : Nat} {th th' : TTh} (hth : c.ths[i]? = some th)
+    (hd : d.ths = c.ths.set! i th') (ht : th'.tys = th.tys) : tysOf d = tysOf c := by
+  funext l
+  simp only [tysOf, hd, Array.toList_set!]
+  have hl : c.ths.toList[i]? = some th := by simpa using hth
+  refine findSome_set_same _ ?_ _ _ hl
+  simp [ht]
+
+/-- `tysOf` reads only each thread's allocation records. -/
+theorem tysOf_ext {c d : Cfg} (h : ∀ j : Nat, (c.ths[j]?).map TTh.tys = (d.ths[j]?).map TTh.tys) :
+    tysOf c = tysOf d := by
+  have hm : c.ths.toList.map TTh.tys = d.ths.toList.map TTh.tys := by
+    apply List.ext_getElem?
+    intro j
+    simpa only [List.getElem?_map, Array.getElem?_toList] using h j
+  funext l
+  have e : ∀ d : Cfg, tysOf d l = (d.ths.toList.map TTh.tys).findSome? (fun ts => (ts.find? (·.1 == l)).map (·.2)) := by
+    intro d; simp only [tysOf, List.findSome?_map]; rfl
+  rw [e, e, hm]
+
+/-- A promise keeps every thread's allocation records. -/
+theorem tysOf_promise (c : Cfg) (i : Nat) (a : Address) (v : Val) (w : Ts) :
+    tysOf (promise c i a v w) = tysOf c := by
+  unfold promise
+  split
+  · rfl
+  · rename_i th hth
+    exact tysOf_set hth rfl rfl
+
+/-- An extern move keeps every thread's allocation records. -/
+theorem extSteps_tysOf {c c' : Cfg} {i : Nat} (h : c' ∈ extSteps c i) : tysOf c' = tysOf c := by
+  obtain ⟨th, e, v, evs, w, bb, hth, rfl⟩ := extSteps_frame h
+  funext l
+  simp only [tysOf, Array.toList_set!]
+  have hl : c.ths.toList[i]? = some th := by simpa using hth
+  refine findSome_set_same _ ?_ _ _ hl
+  rfl
+
 /-- `gOf` is unchanged by an extern move. -/
 theorem gOf_ext {p : Prog} {k : Promises.Knobs} {arch : Arch} {c c' : Cfg} {i j : Nat} (h : c' ∈ extSteps c i) :
     gOf p k arch c' j = gOf p k arch c j := by
-  simp only [gOf, extSteps_n h, extSteps_lbase h, extSteps_boxFence h]
+  simp only [gOf, extSteps_n h, extSteps_lbase h, extSteps_boxFence h, extSteps_tysOf h]
 
 /-- Reading a thread of `xs.set! i y`. -/
 theorem set_get_cases {xs : Array TTh} {i j : Nat} {y t : TTh} (h : (xs.set! i y)[j]? = some t) :
@@ -1820,7 +1910,7 @@ def touchesMem (th : TTh) : Bool :=
   match th.term with
   | .let_ _ op _ =>
       match op with
-      | .load .. | .store .. | .xchg .. | .fetch .. | .xchgAt .. | .loadAt .. | .xchgAtF .. | .loadAtF .. | .ldl .. | .stl .. | .ldlw .. | .stlw .. | .new _ | .publish _ | .intoRgn .. | .fence _ | .newBuf .. | .bufInit .. | .ldp .. | .stp .. | .spawn .. | .ext .. => true
+      | .load .. | .store .. | .xchg .. | .fetch .. | .xchgAt .. | .loadAt .. | .xchgAtF .. | .loadAtF .. | .ldl .. | .stl .. | .ldlw .. | .stlw .. | .new _ _ | .publish _ | .intoRgn .. | .fence _ | .newBuf .. | .bufInit .. | .ldp .. | .stp .. | .spawn .. | .ext .. => true
       -- an injection allocates when the source or the sum is boxed
       | .inl τ a | .inr τ a =>
           boxedAt a || isBoxed τ ||
@@ -1887,12 +1977,13 @@ structure ThKey where
   nalloc   : Nat
   undefs   : Nat
   tidLbl   : Option AllocLabel
-  /-- (D4) the park permit -/
+  /-- the park permit -/
   permit   : Option Ts
   /-- `VState.mine`: which messages are the thread's own (a read of one is rfi) -/
   mine     : List Ts
   /-- `VState.fwd`: the forwarding views of the thread's own plain writes -/
   fwd      : List (Ts × Ts)
+  tys      : List (AllocLabel × Ty × Bool)
   deriving BEq, Hashable
 
 structure CfgKey where
@@ -1911,7 +2002,7 @@ def thKey (addrs : List Address) (th : TTh) : ThKey :=
     coh := addrs.map th.vs.coh
     views := (th.vs.vRd, th.vs.vWr, th.vs.vCtrl, th.vs.vPreBase, th.vs.vRelSt)
     promises := th.promises, nalloc := th.nalloc, undefs := th.undefs, tidLbl := th.tidLbl, permit := th.permit
-    mine := th.vs.mine, fwd := th.vs.fwd }
+    mine := th.vs.mine, fwd := th.vs.fwd, tys := th.tys }
 
 /-- The key is the data itself (structural equality and hashing), not its
 `repr`: pretty-printing a configuration's terms was the whole cost of a run. -/
@@ -1966,7 +2057,7 @@ def extCut (p : Prog) (k : Promises.Knobs) (arch : Arch) (b : Bounds) (c : Cfg) 
     | _ => false
   | none => false
 
-/-- (D4) Did certification drop thread `i`'s spurious wake (the candidate of `wakeSuccs`) for want of fuel? Feeds the
+/-- Did certification drop thread `i`'s spurious wake (the candidate of `wakeSuccs`) for want of fuel? Feeds the
 `cert` cut flag beside `extCut`, so a lost wake is never silently absent. -/
 def wakeCut (p : Prog) (k : Promises.Knobs) (arch : Arch) (b : Bounds) (c : Cfg) (i : Nat) : Bool :=
   match c.ths[i]? with
@@ -2081,7 +2172,7 @@ def writerBad : Decl where
   argTy := .prod flagTy .int
   retTy := .unit
   body := .split (v "a") "f" "x"
-    (lets [("c", .new (v "x")), ("u", .store false (v "f") (v "c") none)] (.ret .unit))
+    (lets [("c", .new (v "x") (some .int)), ("u", .store false (v "f") (v "c") none)] (.ret .unit))
 
 /-- The repair: `publish` first. -/
 def writerGood : Decl where
@@ -2089,7 +2180,7 @@ def writerGood : Decl where
   argTy := .prod flagTy .int
   retTy := .unit
   body := .split (v "a") "f" "x"
-    (lets [("c", .new (v "x")), ("q", .publish (v "c")),
+    (lets [("c", .new (v "x") (some .int)), ("q", .publish (v "c")),
            ("u", .store false (v "f") (v "q") none)] (.ret .unit))
 
 /-- Plain load of the flag; if set, plain load through it. -/
@@ -2166,12 +2257,12 @@ def anyProm (k : Promises.Knobs) (p : Prog) (arch : Arch) : Nat → Cfg → Bool
 
 end MP
 
-/-! ## (F2) An `emit` inside a certification window
+/-! ## (F2) An `emit` inside a would-be certification window
 
 Load buffering, with thread 0 emitting what it loaded before it stores.  The
-`r0 = r1 = 1` outcome needs thread 0's promise of `y := 1`, certified by a solo
-run through the `emit` (and the store after the `emit` must be a promise
-candidate): both need the extern moves in `certB`/`soloWrites`. -/
+`r0 = r1 = 1` outcome would need thread 0's promise of `y := 1` certified by a
+solo run through the `emit`; but an `emit` needs an empty promise set and
+`extSteps` stops there, so the outcome is excluded on every arch. -/
 namespace LBE
 
 def cellTy : Ty := .ptr .pub .int
@@ -2193,13 +2284,13 @@ def outs (arch : Arch) : List (Option Val × Option Val × List Event) :=
   ((explore [] Promises.Knobs.all arch {} 40 init).map fun c =>
     ((c.ths[0]?).bind MP.resultOf, (c.ths[1]?).bind MP.resultOf, c.trace)).eraseDups
 
--- ARM: the promise through the `emit` is found, and the trace records the emitted 1.
-#guard (outs .arm).contains (some (.num 1), some (.num 1), [.out 1])
+-- ARM: no promise spans the `emit`, so `r0 = r1 = 1` is not found.
+#guard !(outs .arm).contains (some (.num 1), some (.num 1), [.out 1])
 #guard (outs .arm).contains (some (.num 0), some (.num 0), [.out 0])
 -- TSO: no load buffering.
 #guard !(outs .tso).contains (some (.num 1), some (.num 1), [.out 1])
 -- The memoised search agrees on the ARM outcome.
-#guard ((exploreM [] Promises.Knobs.all .arm {} 40 init).finals.map fun c =>
+#guard !((exploreM [] Promises.Knobs.all .arm {} 40 init).finals.map fun c =>
     ((c.ths[0]?).bind MP.resultOf, (c.ths[1]?).bind MP.resultOf, c.trace)).contains
       (some (.num 1), some (.num 1), [.out 1])
 

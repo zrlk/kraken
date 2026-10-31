@@ -40,12 +40,12 @@ theorem frame_map_inj :
 theorem thKey_canonTh {A : List Address} {th th' : TTh} (h : thKey A th = thKey A th') :
     canonTh A th = canonTh A th' := by
   obtain ⟨term, env, σs, stack, ⟨coh, vRd, vWr, vCtrl, vPreBase, vRelSt, mine, fwd⟩, promises, nalloc, undefs,
-    tidLbl, permit⟩ := th
+    tidLbl, permit, tys⟩ := th
   obtain ⟨term', env', σs', stack', ⟨coh', vRd', vWr', vCtrl', vPreBase', vRelSt', mine', fwd'⟩, promises',
-    nalloc', undefs', tidLbl', permit'⟩ := th'
+    nalloc', undefs', tidLbl', permit', tys'⟩ := th'
   simp only [thKey, ThKey.mk.injEq, Prod.mk.injEq] at h
-  obtain ⟨h1, h2, h3, h4, h5, ⟨h6, h7, h8, h9, h10⟩, h11, h12, h13, h14, h15, h16, h17⟩ := h
-  subst h1 h2 h3 h6 h7 h8 h9 h10 h11 h12 h13 h14 h15 h16 h17
+  obtain ⟨h1, h2, h3, h4, h5, ⟨h6, h7, h8, h9, h10⟩, h11, h12, h13, h14, h15, h16, h17, h18⟩ := h
+  subst h1 h2 h3 h6 h7 h8 h9 h10 h11 h12 h13 h14 h15 h16 h17 h18
   have hs := frame_map_inj h4
   subst hs
   have hc : ∀ b ∈ A, coh b = coh' b := List.map_inj_left.1 h5

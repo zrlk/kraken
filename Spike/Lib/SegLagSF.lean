@@ -125,7 +125,7 @@ theorem lagF {C : Ctl → List TermRun.Frame → Prop} (h : SegWS W K p lbl ms P
       | holdLoad _ _ _ x sa u v e _ hx => exact (hxs x sa u v e hx).elim
       | xchgStore _ _ _ _ x sa u v e _ _ _ _ hx => exact (hxs x sa u v e hx).elim
       | ctrRmw _ _ _ x τ e _ _ _ _ hs =>
-        exact (hs.elim (fun ⟨a, _, _, ht, _⟩ => hnb x a τ e ht) fun ⟨_, a, _, ht, _⟩ => hnn x a e ht).elim
+        exact (hs.elim (fun ⟨a, _, _, ht, _⟩ => hnb x a τ e ht) fun ⟨_, a, _, ⟨_, ht⟩, _⟩ => hnn x a _ e ht).elim
       | alloc _ _ x a τ e _ _ _ _ _ _ _ ht => exact (hnb x a τ e ht).elim
       | newStore _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ hh' => rw [hh] at hh'; cases hh'
       | emit K' buf n _ _ hK' hat hd _ _ _ _ =>

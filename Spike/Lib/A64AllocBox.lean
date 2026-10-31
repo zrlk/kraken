@@ -34,7 +34,7 @@ open Kraken Kraken.AArch64.Parser Kraken.Promising Kraken.Promising.AArch64 Spik
 structure Call.OKB (ms : MemSide isaLSE2) (lab : Label → Int64) (q : Call) : Prop where
   toS : q.OKS ms lab
   newOk : ms.newOk
-  term : q.c0.term = .let_ q.x (.new q.a) q.e
+  term : ∃ T, q.c0.term = .let_ q.x (.new q.a T) q.e
   ev : TermRun.evalAt q.c0.env q.a = some (q.τ, q.ws)
   one : q.n = 1
 
@@ -126,7 +126,7 @@ theorem newStore_ndW {W : Frag isaLSE2} {K : State → State → Prop} {n : ND} 
     (hedge : ∀ m σ c, Abs R n.o m σ → F m → n.J σ c →
       ms.newOk ∧ ms.mp ⟨rAddr σ.regs b i, 8⟩ true ∧ Mem.loadInt m.dmem (rAddr σ.regs b i) 8 = none ∧
       ∃ (x : String) (a : CoreTerm.At) (ty : Ty) (e : Expr) (w wold : TermRun.Word) (old : Nat),
-        c.term = .let_ x (.new a) e ∧ TermRun.evalAt c.env a = some (ty, [w]) ∧
+        (∃ T, c.term = .let_ x (.new a T) e) ∧ TermRun.evalAt c.env a = some (ty, [w]) ∧
         TermRun.accs ty = some [.one] ∧
         Scc.Sem.ValRep lbl w.val (σ.regs.getRegOrZr (.low (.reg t) .W64)).toNat ∧
         c.hold = some (ms.ctr, wold) ∧ TermRun.numOf [wold] = some old ∧

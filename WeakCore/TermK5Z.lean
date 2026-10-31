@@ -10,7 +10,7 @@ open CoreLang CoreTerm CoreTyping TermRun TermClose TermTv TermCert TermSound Te
 open TermCut TermSys TermCertScope TermPlantF TermMain
 open WeakMem (Msg Memory Address VState Ts Arch AllocLabel)
 
-/-- **`hZp` at a promise step's certificate run**, from the raw certificate fields (`TermK5R.bufInitPubFR`). -/
+/-- **`hZp` at a promise step's certificate run**, from the raw certificate-window hypotheses (`TermK5R.bufInitPubFR`). -/
 theorem hZp_of [TermTyped.WrIniC] {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {MintOK : Res → Prop}
     {c0 : Cfg} (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] (hP : ProgT p)
     (hsc : CertScopeP p k arch Sp Init MintOK c0) (hw : CertWinP p k arch Sp Init MintOK c0)
@@ -24,7 +24,7 @@ theorem hZp_of [TermTyped.WrIniC] {p : Prog} {k : Promises.Knobs} {arch : Arch} 
   fun _ _ _ _ _ _ _ h1 hth1 hpub hs h2 hc3 hth3 hcl ho =>
     TermK5R.bufInitPubFR (hV0 := hV0) hP hsc hw X ((cutSto_some.1 hcl).1) (.inl ho) h1.toSolo hth1 hpub hs h2 hc3 hth3 hPS hSub hSig
 
-/-- **`TermPlantF.BufInitPubFR` holds**, from the raw certificate fields. -/
+/-- **`TermPlantF.BufInitPubFR` holds**, from the raw certificate-window hypotheses. -/
 theorem bufInitPubFR_of [TermTyped.WrIniC] {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {MintOK : Res → Prop}
     {c0 : Cfg} (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] (hP : ProgT p)
     (hsc : CertScopeP p k arch Sp Init MintOK c0) (hw : CertWinP p k arch Sp Init MintOK c0) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) :

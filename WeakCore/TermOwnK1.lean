@@ -90,9 +90,9 @@ theorem stoNIE_footW {g : G} {E E' : TEnv} {s s' : St} (hf : FootW g E E' s s') 
 theorem ownXStep_k1 {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {x : AllocLabel}
     [ProgRetIall p] [TermA4.ProgCkWC p] (hP : ProgT p) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) : ∀ n, OwnXStepPkg p k arch i x n 1 := by
   intro n E0 c0 c0' th hth hq hsc _ _ hI hs _
-  obtain ⟨th0, E, Tot, HP, hth0, hT, hm, hHP, hb, hni, hsx, hle, hx0, hA⟩ := hI
+  obtain ⟨th0, E, Tot, HP, hth0, hT, hm, hHP, hb, hni, hsx, hle, hx0, hA, hTyE, hRc⟩ := hI
   obtain rfl : th0 = th := Option.some.inj (hth0.symm.trans hth)
-  obtain ⟨ρ, η, cx, Rf, Rs, hCE, hE, hTy, htv, hFI, hsum, hRP⟩ := hT
+  obtain ⟨ρ, η, cx, Rf, Rs, hCE, hE, hTy, htv, hFI, hsum, hRP, hDy⟩ := hT
   subst hCE
   have hFI0 : FInv ρ η th0.σs (Resume p th0.stack) cx th0.env :=
     FInvR_FInv htv.2.2.2.2.2.2.2
@@ -100,27 +100,37 @@ theorem ownXStep_k1 {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {x :
   have hR := scopeR_of_pkg1 hTy.1 hq (hsc th0 hth (TermTyped.not_spawnT_of_steps hth hs) ρ η cx hE hTy.1 htv hFI0)
   obtain ⟨th1, r, hth1, hr, e1, e2, e3, -⟩ := threadSteps_inv hs
   obtain rfl : th1 = th0 := Option.some.inj (hth1.symm.trans hth)
-  obtain ⟨Tot', hT', hts⟩ := (tstepR_step hP rfl (tstep_notDone hr) hR hTy.1 hTy.2 hFI hE htv hRP hPS hSub hSig).2 r hr
+  obtain ⟨Tot', hT', hts⟩ := (tstepR_step (hDy := hDy) hP rfl (tstep_notDone hr) hR hTy.1 hTy.2 hFI hE htv hRP hPS hSub hSig).2 r hr
   obtain ⟨em, ep, hm'⟩ := frame_keep hR hTy.1 hTy.2 hFI hE htv hm r hr
   have hg := gOf_thread hs
   have h0 := totStep_own_le hts x
   rw [hsum] at h0
-  refine ⟨r.2.2, CE η, Tot', HP, e3, hT', ?_, ?_, ?_, hni, hsx, by omega, hx0, ?_⟩
+  have hkeep := TermNallocF.tstep_tys_keep hr (fun x a T e h => by rw [h] at hq; simp [exprPkg, opPkg] at hq)
+  have hsub : TysSub (tysOf c0') (gOf p k arch c0 i).tys := fun l u h => by
+    have h1 := TermTyped.tysOf_thread hs hth e3 hRc l u h
+    rwa [tysUpd_keep hkeep] at h1
+  refine ⟨r.2.2, CE η, Tot', HP, e3, hT', ?_, ?_, ?_, hni, hsx, by omega, hx0, ?_, ?_, ?_⟩
   · rw [hg, e1, e2]; exact hm'
   · rw [e1, e2]; exact memHeldOn_eqs hHP em ep
   · rw [hg]; exact hb
   · rw [e1, e2]; exact anchR_eqs hA em ep
+  · rw [hg]; exact TyOKE_mono (g := gOf p k arch c0 i) hsub hTyE
+  · rw [hg]
+    exact RecFresh_sub (g := gOf p k arch c0 i) (g' := { gOf p k arch c0 i with tys := tysOf c0' }) hsub rfl rfl
+      (RecFresh_mono hRc (TermNallocF.tstep_nallocLe hr))
 
 /-- **K1: the promise step**, any bound. -/
 theorem ownXStepP_all {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {x : AllocLabel} :
     ∀ n, OwnXStepP p k arch i x n := by
   intro n E0 c0 a v w h _ _
-  obtain ⟨th, E, Tot, HP, hth, hT, hm, hHP, hb, hni, hsx, hle, hx0, hA⟩ := h
+  obtain ⟨th, E, Tot, HP, hth, hT, hm, hHP, hb, hni, hsx, hle, hx0, hA, hTyE, hRc⟩ := h
   obtain ⟨-, h2, h3⟩ := promise_inv (a := a) (v := v) (w := w) hth
-  refine ⟨_, E, Tot, HP, h2, hT, ?_, ?_, ?_, hni, hsx, hle, hx0, anchR_prom hth hA⟩
+  refine ⟨_, E, Tot, HP, h2, hT, ?_, ?_, ?_, hni, hsx, hle, hx0, anchR_prom hth hA, ?_, ?_⟩
   · rw [gOf_promise, h3]; exact MemInv_promSt hm
   · rw [h3]; exact memHeldP_promSt hHP
   · rw [gOf_promise]; exact hb
+  · rw [gOf_promise]; exact hTyE
+  · rw [gOf_promise]; exact hRc
 
 end TermOwnK1
 

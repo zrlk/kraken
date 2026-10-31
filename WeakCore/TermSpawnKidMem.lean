@@ -37,7 +37,7 @@ theorem cutSto_kid_own {Eg : GEnv} {c : Cfg} (hOL : OwnLive Eg c) {l : AllocLabe
 theorem memInv_kidM0 {g0 g : G} {c : Cfg} {th kid : TTh} {Eg : GEnv} {i : Nat} {S0 : AllocLabel → Prop}
     (hM : MemInv g0 (Cut Eg i S0) (stOf c.mem c.pairs th)) (hnp : th.promises = [])
     (hOL : OwnLive Eg c) (hsh : SharedTyOK Eg) (hbs : ∀ l B, Eg.box l = some B → Eg.sto l = none)
-    (hbt : BoxTopG Eg c) (hObs : ObsAll Eg c)
+    (hbt : BoxTopG Eg c) (hObs : ObsAll Eg c) (hrle : ∀ l, Eg.rini l ≤ Eg.ini l)
     (hU : ∀ q, Eg.sto (freshLabel g.lbase g.n g.i q) = none ∧ Eg.box (freshLabel g.lbase g.n g.i q) = none ∧
       Eg.ini (freshLabel g.lbase g.n g.i q) = 0 ∧ Eg.pfr (freshLabel g.lbase g.n g.i q) = none ∧
       ∀ (t : Nat) (m : Msg), c.mem[t]? = some m → m.loc.label ≠ freshLabel g.lbase g.n g.i q)
@@ -65,11 +65,12 @@ theorem memInv_kidM0 {g0 g : G} {c : Cfg} {th kid : TTh} {Eg : GEnv} {i : Nat} {
   · exact absurd ho (cutSto_kid_own hOL hc)
   · cases ht
   · obtain ⟨g1, g2, g3, g4, g5⟩ := hU k
-    refine ⟨?_, fun t m hm hl => ?_, ?_, ?_⟩
+    refine ⟨?_, fun t m hm hl => ?_, ?_, ?_, ?_⟩
     · show cutSto Eg c.ths.size _ = none
       unfold cutSto; simp [GEnv.InCut, g1]
     · exact absurd hl (g5 t m hm)
     · exact g3
+    · exact Nat.le_zero.1 (Nat.le_trans (hrle _) (Nat.le_of_eq g3))
     · exact g4
   · obtain ⟨cl, -, -, -, hc, ho, -⟩ := hPU
     exact absurd ho (cutSto_kid_own hOL hc)
@@ -128,13 +129,13 @@ theorem memInv_kidM {g0 g : G} {c : Cfg} {th kid : TTh} {Eg : GEnv} {i : Nat} {S
     (F : Nat → List Ts)
     (hM : MemInv g0 (Cut Eg i S0) (stOf c.mem c.pairs th)) (hnp : th.promises = [])
     (hOL : OwnLive Eg c) (hsh : SharedTyOK Eg) (hbs : ∀ l B, Eg.box l = some B → Eg.sto l = none)
-    (hbt : BoxTopG Eg c) (hObs : ObsAll Eg c)
+    (hbt : BoxTopG Eg c) (hObs : ObsAll Eg c) (hrle : ∀ l, Eg.rini l ≤ Eg.ini l)
     (hU : ∀ q, Eg.sto (freshLabel g.lbase g.n g.i q) = none ∧ Eg.box (freshLabel g.lbase g.n g.i q) = none ∧
       Eg.ini (freshLabel g.lbase g.n g.i q) = 0 ∧ Eg.pfr (freshLabel g.lbase g.n g.i q) = none ∧
       ∀ (t : Nat) (m : Msg), c.mem[t]? = some m → m.loc.label ≠ freshLabel g.lbase g.n g.i q)
     (hp2 : kid.promises = []) (hn2 : kid.nalloc = 0) :
     MemInv g (Cut { Eg with fpOf := F } c.ths.size (fun _ => False)) (stOf c.mem c.pairs kid) := by
-  have h := memInv_kidM0 (Eg := Eg) (g := g) (kid := kid) hM hnp hOL hsh hbs hbt hObs hU hp2 hn2
+  have h := memInv_kidM0 (Eg := Eg) (g := g) (kid := kid) hM hnp hOL hsh hbs hbt hObs hrle hU hp2 hn2
   rw [cut_withFp]; exact memInv_withFp _ h
 
 /-- **`ObsAll` after the spawn**: memory is unchanged and the observer indices only shrink. -/

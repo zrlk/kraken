@@ -319,8 +319,8 @@ theorem valB_of_pubNil {sto : Sto} {s : St} {a : AllocLabel} {N : AllocLabel →
   intro w hw; rw [h] at hw; cases hw
 
 theorem valB_new {g : G} {env : Env} {σs : List Ty} {s s1 : St} {r : St × Ty × List Word}
-    {sto : Sto} {lb : AllocLabel} {N : AllocLabel → Prop} {th : TTh} {x : At}
-    (h : r ∈ evalOp g env σs s (.new x)) : ValB sto s1 lb N th r.2.1 r.2.2 := by
+    {sto : Sto} {lb : AllocLabel} {N : AllocLabel → Prop} {th : TTh} {x : At} {T : Option Ty}
+    (h : r ∈ evalOp g env σs s (.new x T)) : ValB sto s1 lb N th r.2.1 r.2.2 := by
   simp only [evalOp] at h
   repeat' split at h
   all_goals simp at h
