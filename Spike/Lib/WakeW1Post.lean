@@ -76,8 +76,8 @@ instruction row's instruction is not the fault `WCompat.sysExec` asks
 there. -/
 theorem sys_rows (hC : WCompat Q D μ Λ arch) (h : Parts Q D Λ w t s t0 t1 s0 s1 ts tp sp oc)
     (hnt : ¬ Q.atTexit t s ∨ ∀ a, s1.term ≠ .ret a) (hat : abi.atSys t1.st = true) {call : Call} (hd : callOf abi t1 = some call) :
-    SysOk wakeSrc (D.ms w) t1.st (Ctl.of s1) call ∧
-      ∀ s' ∈ certSuccs abi t1.st call, ∃ c', LocalRun wakeSrc (Ctl.of s1) c' ∧ D.Wi w s' c' := by
+    SysOk D.p (D.ms w) t1.st (Ctl.of s1) call ∧
+      ∀ s' ∈ certSuccs abi t1.st call, ∃ c', LocalRun D.p (Ctl.of s1) c' ∧ D.Wi w s' c' := by
   have hwi := h.pt1.1
   cases D.closed w _ _ hwi with
   | outL hl =>
@@ -122,7 +122,7 @@ rows keeps `Post`, matched by a source run with no observable event. -/
 theorem post_step1_of (hC : WCompat Q D μ Λ arch) (hx : WCompatX Q D) (hwf : Λ.WF) {t t' : Cfg}
     {s : TermRun.Cfg} {es : List Ev} (hpost : Q.Post Λ t s) (hnu : ¬ Q.atUnpk t s) (hnt : ¬ Q.atTexit t s)
     (hs : (machine (kernel 2)).Step μ 1 t es t') :
-    ∃ s', (wakeS arch).Run s (obs es) s' ∧ Q.Post Λ t' s' := by
+    ∃ s', (srcS D.p arch).Run s (obs es) s' ∧ Q.Post Λ t' s' := by
   obtain ⟨w, t0, t1, s0, s1, ts, tp, sp, oc, h⟩ := post_parts hC hpost
   have hex : SrcSem.mainExit s = [] := hC.mainLive t s hpost hs.runs.2.1
   have hwi := h.pt1.1

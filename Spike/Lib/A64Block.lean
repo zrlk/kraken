@@ -45,8 +45,7 @@ its two straight-line parts as `seg_block` instances (offsets symbolic),
 with the statement of `seg_add`. `seg_sub`: the saturating `-` (`subSat`:
 `subs` then `csel`, `Scc/Emit/A64.lean`) as one `seg_block` instance, for
 any operand words (`Scc.Sem.valRep_subW`). `block_spec` generates, for a concrete
-block, `okBlk` by `decide` and the closed form of `arun` by `simp`
-(`Spike/Lib/A64Hello.lean` applies it to a whole listing).
+block, `okBlk` by `decide` and the closed form of `arun` by `simp`.
 -/
 import Spike.Lib.A64
 import Scc.Sem.TypingRows

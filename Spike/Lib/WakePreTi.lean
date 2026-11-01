@@ -85,13 +85,13 @@ theorem ti0_of {E : Entry} {asm : String} {Λ : Scc.Sem.Layout} {prog : Program}
 `TIC Ab Ac`: `Pre1` with `abort` given `TIC` of the trace, plus `TIC` at
 the load (`ti0`) and along one-slot steps from `R1` (`tiStep`). -/
 structure Pre1T (arch : WeakMem.Arch) (Λ : Scc.Sem.Layout) (B : Budget) (asm : String) (E : Entry)
-    (R1 : Cfg → TermRun.Cfg → Prop) (Ab Ac : State → Prop) : Prop where
+    (R1 : Cfg → TermRun.Cfg → Prop) (Ab Ac : State → Prop) (p : CoreTerm.Prog := wakeSrc) : Prop where
   /-- The one-slot load is related to a source start. -/
-  init : ∀ d, (target (kernel 1) E).load asm Λ = some d → ∃ s0, (wakeS arch).init s0 ∧ R1 d s0
+  init : ∀ d, (target (kernel 1) E).load asm Λ = some d → ∃ s0, (srcS p arch).init s0 ∧ R1 d s0
   /-- A one-slot step keeps `R1` and the slot count, with a matching source run. -/
   step : ∀ tid d es d' s, R1 d s → d.1.threads.size = d.2.slots.size →
     (machine (kernel 1)).Step ((target (kernel 2) E).marks asm Λ) tid d es d' →
-    ∃ s', (wakeS arch).Run s (obs es) s' ∧ R1 d' s' ∧ d'.1.threads.size = d'.2.slots.size
+    ∃ s', (srcS p arch).Run s (obs es) s' ∧ R1 d' s' ∧ d'.1.threads.size = d'.2.slots.size
   /-- Progress and layout at one slot, off a `clone`. -/
   progress : ∀ d s, R1 d s → d.1.threads.size = d.2.slots.size → ¬ AtClone d →
     (machine (kernel 1)).Progress ((target (kernel 2) E).marks asm Λ) d ∧ InLayout (M := machine (kernel 1)) Λ d
@@ -102,10 +102,10 @@ structure Pre1T (arch : WeakMem.Arch) (Λ : Scc.Sem.Layout) (B : Budget) (asm : 
       InLayout (M := machine (kernel 2)) Λ (up d u)
   /-- A one-slot abort step after a trace with `TIC` is justified, with
   one-slot components (`r_abortACH`). -/
-  abort : ∀ tr d s tid es d' k, (wakeS arch).Reach (obs tr) s → R1 d s → d.1.threads.size = d.2.slots.size →
+  abort : ∀ tr d s tid es d' k, (srcS p arch).Reach (obs tr) s → R1 d s → d.1.threads.size = d.2.slots.size →
     TIC Ab Ac tr d →
     (machine (kernel 1)).Step ((target (kernel 2) E).marks asm Λ) tid d es d' → Ev.abort k ∈ es →
-    ∃ w i, Components (machine (kernel 1)) Λ w d s ∧ w.thr i = some tid ∧ AbortJustified B (wakeS arch) tr s i k
+    ∃ w i, Components (machine (kernel 1)) Λ w d s ∧ w.thr i = some tid ∧ AbortJustified B (srcS p arch) tr s i k
   /-- The explicit witness at one slot. -/
   wit : ∀ d s, R1 d s → d.1.threads.size = d.2.slots.size → ∃ w, Components (machine (kernel 1)) Λ w d s
   /-- No stack range is held for the extra slot's index. -/
@@ -120,10 +120,10 @@ structure Pre1T (arch : WeakMem.Arch) (Λ : Scc.Sem.Layout) (B : Budget) (asm : 
 namespace Pre1T
 
 variable {arch : WeakMem.Arch} {Λ : Scc.Sem.Layout} {B : Budget} {asm : String} {E : Entry}
-  {R1 : Cfg → TermRun.Cfg → Prop} {Ab Ac : State → Prop}
+  {R1 : Cfg → TermRun.Cfg → Prop} {Ab Ac : State → Prop} {p : CoreTerm.Prog}
 
 /-- `WakeObligations.pre_progress`. -/
-theorem pre_progress (O : Pre1T arch Λ B asm E R1 Ab Ac) :
+theorem pre_progress (O : Pre1T arch Λ B asm E R1 Ab Ac p) :
     ∀ d u s, R1 d s → Inert u → (∀ a, privLoad u.st a = none) → d.1.threads.size = d.2.slots.size →
       (machine (kernel 2)).Progress ((target (kernel 2) E).marks asm Λ) (up d u) ∧
         InLayout (M := machine (kernel 2)) Λ (up d u) := by
@@ -134,19 +134,19 @@ theorem pre_progress (O : Pre1T arch Λ B asm E R1 Ab Ac) :
     exact ⟨progress_up hn hu hp, hl⟩
 
 /-- `WakeObligations.pre_abort`, for any `Ti` that implies `TiPre Ab Ac`. -/
-theorem pre_abort (O : Pre1T arch Λ B asm E R1 Ab Ac) {Ti : Cfg → List Ev → Prop}
+theorem pre_abort (O : Pre1T arch Λ B asm E R1 Ab Ac p) {Ti : Cfg → List Ev → Prop}
     (hTi : ∀ t tr, Ti t tr → TiPre Ab Ac t tr) :
-    ∀ tr d u s tid es d' k, (wakeS arch).Reach (obs tr) s → R1 d s → Inert u →
+    ∀ tr d u s tid es d' k, (srcS p arch).Reach (obs tr) s → R1 d s → Inert u →
       (∀ a, privLoad u.st a = none) → d.1.threads.size = d.2.slots.size → Ti (up d u) tr →
       (machine (kernel 1)).Step ((target (kernel 2) E).marks asm Λ) tid d es d' → Ev.abort k ∈ es →
       ∃ w i, Components (machine (kernel 2)) Λ w (up d u) s ∧ w.thr i = some tid ∧
-        AbortJustified B (wakeS arch) tr s i k := by
+        AbortJustified B (srcS p arch) tr s i k := by
   intro tr d u s tid es d' k hr hR hu hpl hn hT hs hk
   obtain ⟨w, i, hc, hw, hj⟩ := O.abort tr d s tid es d' k hr hR hn ((TiPre.up_iff hu hn).mp (hTi _ _ hT)) hs hk
   exact ⟨w, i, components_up hn hpl (O.held d s hR hn) hc, hw, hj⟩
 
 /-- `WakeObligations.pre_wit`. -/
-theorem pre_wit (O : Pre1T arch Λ B asm E R1 Ab Ac) :
+theorem pre_wit (O : Pre1T arch Λ B asm E R1 Ab Ac p) :
     ∀ d u s, R1 d s → Inert u → (∀ a, privLoad u.st a = none) → d.1.threads.size = d.2.slots.size →
       ∃ w, Components (machine (kernel 2)) Λ w (up d u) s := by
   intro d u s hR _ hpl hn
@@ -155,7 +155,7 @@ theorem pre_wit (O : Pre1T arch Λ B asm E R1 Ab Ac) :
 
 /-- **`WakeObligations.ti_load` for `TiPre`**: the two-slot load is the
 lifted one-slot load (`load_two`). -/
-theorem ti_load (O : Pre1T arch Λ B asm E R1 Ab Ac) :
+theorem ti_load (O : Pre1T arch Λ B asm E R1 Ab Ac p) :
     ∀ t0, (target (kernel 2) E).load asm Λ = some t0 → TiPre Ab Ac t0 [] := by
   intro t0 h0
   obtain ⟨d, u, hd, rfl, hu, -, hn⟩ := load_two h0
@@ -164,7 +164,7 @@ theorem ti_load (O : Pre1T arch Λ B asm E R1 Ab Ac) :
 /-- **`WakeObligations.ti_step` for `TiPre`, on `Pre`**: a lifted step is
 a one-slot step (`tiStep`); after a `clone` `TiPre` is vacuous
 (`afterClone_ne_up`). -/
-theorem ti_stepPre (O : Pre1T arch Λ B asm E R1 Ab Ac) {Q : WakeRel} (hQ : Q.R1 = R1) :
+theorem ti_stepPre (O : Pre1T arch Λ B asm E R1 Ab Ac p) {Q : WakeRel} (hQ : Q.R1 = R1) :
     ∀ tid t es t' s pre, Q.Pre t s →
       (machine (kernel 2)).Step ((target (kernel 2) E).marks asm Λ) tid t es t' → TiPre Ab Ac t pre →
       TiPre Ab Ac t' (pre ++ es) := by
@@ -180,7 +180,7 @@ theorem ti_stepPre (O : Pre1T arch Λ B asm E R1 Ab Ac) {Q : WakeRel} (hQ : Q.R1
 /-- **`WakeObligations.ti_step` for `TiPre`**: on `Pre` by `ti_stepPre`;
 on `Post` given that a step from `Post` never reaches a lift (`hpost`: the
 last slot, once running, never becomes dormant again). -/
-theorem ti_step (O : Pre1T arch Λ B asm E R1 Ab Ac) {Q : WakeRel} (hQ : Q.R1 = R1)
+theorem ti_step (O : Pre1T arch Λ B asm E R1 Ab Ac p) {Q : WakeRel} (hQ : Q.R1 = R1)
     (hpost : ∀ tid t es t' s, Q.Post Λ t s →
       (machine (kernel 2)).Step ((target (kernel 2) E).marks asm Λ) tid t es t' → ∀ d u, t' ≠ up d u) :
     ∀ tid t es t' s pre, Q.Rw Λ t s →

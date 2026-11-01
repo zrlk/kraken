@@ -206,7 +206,7 @@ theorem post_store {kr : Kraken.StoreKind} {A : BitVec 64} {V : Val} {s' : isaLS
     (hea : TermRun.evalAt (Ctl.of s1).env a = some (ty, [wa])) (hva : ValRep (D.lbl w) wa.val A.toNat)
     (heb : TermRun.evalAt (Ctl.of s1).env b = some (tb, [wb])) (hvb : ValRep (D.lbl w) wb.val V.toNat)
     (hX : D.Wi w s' ⟨e, (x, .unit, []) :: (Ctl.of s1).env, none⟩) :
-    ∃ s', (wakeS arch).Run s [] s' ∧ Q.Post Λ (t.1.withThread 1 o.thread o.mem, t.2) s' := by
+    ∃ s', (srcS D.p arch).Run s [] s' ∧ Q.Post Λ (t.1.withThread 1 o.thread o.mem, t.2) s' := by
   -- the source worker is at its store
   have hst1 : s1.term = wkStore := by
     rcases h.pt1.2.2.2.1 with h1 | h1 | h1 | h1 | h1 <;>
@@ -315,10 +315,10 @@ theorem post_store {kr : Kraken.StoreKind} {A : BitVec 64} {V : Val} {s' : isaLS
     have hnpS : ¬ (Q.C w).passS s1 := fun hps => hnpT (hl.mpr hps)
     obtain ⟨hmv', hob⟩ := fulfil_ok hS hnpS hkcsp hm'
     rw [hC.C w] at hmv' hob
-    obtain ⟨vs, hstep, -, hvo⟩ := store_fulfil_src (P := srcPo 2 arch wakeSrc) (p := wakeSrc) rfl h.s1_get hAt
+    obtain ⟨vs, hstep, -, hvo⟩ := store_fulfil_src (P := srcPo 2 arch D.p) (p := D.p) rfl h.s1_get hAt
       hs1p hm' hml hmv hmv' hob hex
-    have hrun : (wakeS arch).Run s [] { s with ths := s.ths.set! 1 (afterStore s1 vs []) } :=
-      LRun.step (step := fun c es c' => ∃ i, (wakeS arch).step i c es c') ⟨1, hstep⟩ (LRun.refl _)
+    have hrun : (srcS D.p arch).Run s [] { s with ths := s.ths.set! 1 (afterStore s1 vs []) } :=
+      LRun.step (step := fun c es c' => ∃ i, (srcS D.p arch).step i c es c') ⟨1, hstep⟩ (LRun.refl _)
     have hs' : ({ s with ths := s.ths.set! 1 (afterStore s1 vs []) } : TermRun.Cfg).ths =
         #[s0, afterStore s1 vs []] := by
       show s.ths.set! 1 _ = _
@@ -389,13 +389,13 @@ theorem post_store {kr : Kraken.StoreKind} {A : BitVec 64} {V : Val} {s' : isaLS
       | cons k ks =>
         obtain ⟨Tc, hoc⟩ := h.src_prom hC (k := k) (by rw [hp1]; exact List.mem_cons_self)
         cases hoc
-    obtain ⟨vs, hstep, -, hvo⟩ := store_append_src (P := srcPo 2 arch wakeSrc) (p := wakeSrc) rfl h.s1_get hAt
+    obtain ⟨vs, hstep, -, hvo⟩ := store_append_src (P := srcPo 2 arch D.p) (p := D.p) rfl h.s1_get hAt
       hs1p hex
     let mS : WeakMem.Msg :=
       ⟨(Q.C w).cS, .num 1, Promises.storeMview (wTh s1.vs (D.cw w)) (TermRun.dataE 1 one) [0] true⟩
-    have hrun : (wakeS arch).Run s []
+    have hrun : (srcS D.p arch).Run s []
         { s with mem := s.mem.push mS, ths := s.ths.set! 1 (afterStore s1 vs []) } :=
-      LRun.step (step := fun c es c' => ∃ i, (wakeS arch).step i c es c') ⟨1, hstep⟩ (LRun.refl _)
+      LRun.step (step := fun c es c' => ∃ i, (srcS D.p arch).step i c es c') ⟨1, hstep⟩ (LRun.refl _)
     have hs' : ({ s with mem := s.mem.push mS, ths := s.ths.set! 1 (afterStore s1 vs []) } : TermRun.Cfg).ths =
         #[s0, afterStore s1 vs []] := by
       show s.ths.set! 1 _ = _

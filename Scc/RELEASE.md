@@ -1,18 +1,17 @@
-# scc release note: `wake.w` certified on AArch64 and x86-64; `hello1.w` and `ret0.w` on AArch64 and x86-64
+# scc release note: `wake.w` certified on AArch64 and x86-64, `hello.w` proved on AArch64 at its executable; `hello1.w` and `ret0.w` on AArch64 and x86-64
 
 This note states what this release of `scc` proves, what it trusts, and what
 it does not cover. Statements are quoted from the source tree.
 
-## New in this release: `wake.w` on x86-64
+## New in this release: `hello.w` on AArch64
 
-`wake.w`, the two-thread program certified on AArch64 in the previous
-release, is now certified on x86-64 too, at the executable checked in under
-`Scc/Test/elf/wakex64/wake` (§0, §1 `wake`, x86-64).
-`Scc/Test/certify.sh --arch x64 --instantiate Scc/Test/wake.w` now
-certifies (verdict 0) where it gave verdict 3. Nothing else is new: the
-statements quoted in §1 for `wake` on AArch64, `hello1` and `ret0` are
-unchanged, word for word, and so are their axioms; WeakCore stays at
-621ec97a.
+`Scc/Test/hello.w`, the two-thread hello-world (a worker prints the
+published bytes `Hello, world\n` and wakes `main`), is proved on AArch64 at
+the executable checked in under `Scc/Test/elf/helloa64/hello` (§0, §1
+`hello`, AArch64). `certify.sh` does not certify `hello.w` builds (§5).
+Nothing else is new: the statements quoted in §1 for `wake`, `hello1` and
+`ret0` are unchanged, word for word, and so are their axioms; WeakCore stays
+at 621ec97a.
 
 ## WeakCore 621ec97a
 
@@ -129,6 +128,36 @@ Each theorem's only premises are `hP`, the certificate's compiled parse
 (`#guard`), and `hB`, which fixes the budget's heap-cell count (§1). Every
 placement fact at `Λe` and every correctness step are kernel-checked.
 
+### `hello.w` (AArch64)
+
+`Scc/Test/hello.w` is a **two-thread** program: a setup block `rodata`
+writes the 13 bytes `Hello, world\n` into a fresh heap buffer and publishes
+the slice; `main` allocates a flag cell, publishes it, and spawns `worker`
+on the slice, the flag and its own `ThreadId`, then waits (`waitLoop`: an
+acquire load of the flag, parking while it is 0). `worker` passes the slice
+to the output extern `print`, stores 1 to the flag with release ordering,
+unparks `main` and returns; `main` sees the flag and returns 0.
+
+The listing `scc --arch arm` writes for it, `SccCode.helloAsm`, is
+`CorrectE 2` with respect to the program's two-thread WeakCore semantics
+with output `helloS arch`, on the kernel-model target with two thread slots,
+at **every** admissible entry state, for every memory model `arch` and every
+budget `B` whose heap-cell count is the allocator's, at **one layout**:
+`Λe`, read from the executable checked in under `Scc/Test/elf/helloa64/hello`
+(pinned by SHA-256), with the proof's immediate table
+(`Spike.Test.HelloLinkedA64.hello_linkedA`).
+
+> [!IMPORTANT]
+> This theorem is about **one program text at one layout**: `helloAsm`
+> (`Scc/Test/elf/helloa64/hello.s`), linked into
+> `Scc/Test/elf/helloa64/hello` with `.text` and `.rodata` placed by the
+> link command (§2). There is no layout-generic closed form, and
+> `certify.sh` does not certify `hello.w` builds (§5).
+
+The theorem's only premises are `hparse`, the listing's compiled parse
+(`#guard`), and `hB`, which fixes the budget's heap-cell count (§1). Every
+layout fact at `Λe` and every correctness step are kernel-checked.
+
 ### `hello1.w`
 
 `Scc/Test/hello1.w` is one thread: a setup block `rodata` writes the 13 bytes
@@ -188,8 +217,9 @@ correctness step are kernel-checked.
 - *Refinement of observations* (`Sim.sim`): the observable trace of every
   reachable target configuration (its trace less the `writeErr`, `cloneErr`
   and `abort` events) is a **prefix** of the trace of a related source run.
-  For `hello1`, the observable events are the bytes written to fd 1 and the
-  exit; `wake.w` writes nothing, so its only observable event is the exit.
+  For `hello1` and `hello`, the observable events are the bytes written to
+  fd 1 and the exit; `wake.w` writes nothing, so its only observable event is
+  the exit.
 - *Aborts only where justified* (`Sim.abort`): the target may abort (exit
   101) only where `AbortJustified` holds: the related source thread's next
   step would leave the budget `B`, or (for `writeErr`, `threads`) the kernel
@@ -198,7 +228,8 @@ correctness step are kernel-checked.
   call depth (`Scc.Sem.Budget`). The `ret0` theorems hold for every `B`. The
   `hello1` theorems hold for every `B` with `B.cells = allocCells`
   (4194304 16-byte cells, the allocator's arena, `Scc/Cert/PlaceOK.lean`); the
-  thread and frame bounds are free. The `wake` theorems have the same `hB`.
+  thread and frame bounds are free. The `wake` and `hello` theorems have the
+  same `hB`.
 - *No termination promise*: a target that diverges or blocks satisfies the
   statement. If the program exits, it exits as the source does, or aborts
   with exit 101 where `Correct` justifies it.
@@ -280,6 +311,65 @@ two thread slots and `main` started on its own `ThreadId`. Unlike AArch64,
 it uses `Scc.Sem.SrcSem.srcPo` itself, not a local copy; the proof's own
 source semantics is identified with it by `WakeLinkedX64Br.wakeSrc_eq` and
 `wakeS_eq`.
+
+### `hello`, AArch64
+
+`Spike/Test/HelloLinkedA64Root.lean`, with `SccCode.helloAsm`,
+`helloProg`, `helloSecs` the listing and its loader parse
+(`Spike/Lib/A64HelloCode.lean`), `helloS` = `Spike.Lib.HelloSrc.helloS` and
+`Le` = `Spike.Test.HelloLinkedA64.Le`, the placed runtime layout at `Λe`
+(`Le.Λ` is `Λe` with the proof's immediate table `ImmsMe.iRdM Λe` as
+`imms`):
+
+```lean
+theorem hello_linkedA {arch : WeakMem.Arch} {B : Scc.Sem.Budget}
+    (hparse : Scc.Cert.Link.A64.parsesTo SccCode.helloAsm SccCode.helloProg SccCode.helloSecs = true)
+    (hB : B.cells = Scc.Cert.PlaceOK.allocCells) :
+    Scc.Sem.A64.CorrectE 2 (Spike.Lib.HelloSrc.helloS arch) Le.Λ B SccCode.helloAsm
+```
+
+It is `RootFinal.hello_correct` at the layout facts `layoutE_e : LayoutE Λe`.
+The general statement (`Spike/Lib/A64HelloRootFinal.lean`) holds at every
+layout `Λ0` with those facts:
+
+```lean
+theorem hello_correct {Λ0 : Scc.Sem.Layout} (F : LayoutE Λ0) {arch : WeakMem.Arch} {B : Scc.Sem.Budget}
+    (hparse : parsesTo SccCode.helloAsm SccCode.helloProg SccCode.helloSecs = true)
+    (hB : B.cells = Scc.Cert.PlaceOK.allocCells) :
+    Scc.Sem.A64.CorrectE 2 (helloS arch) (RuntimeLayout.ofPlaceW F.hp (iRdM Λ0)).Λ B SccCode.helloAsm
+```
+
+and, per admissible entry, the root's obligations:
+
+```lean
+theorem hello_root_final {Λ0 : Scc.Sem.Layout} (F : LayoutE Λ0) {arch : WeakMem.Arch} {B : Scc.Sem.Budget}
+    {E : Scc.Sem.Entry} {ls : Spike.Lib.A64Consumer.Lsize}
+    (hparse : parsesTo SccCode.helloAsm SccCode.helloProg SccCode.helloSecs = true)
+    (hB : B.cells = Scc.Cert.PlaceOK.allocCells) (hE : E.Ok (RuntimeLayout.ofPlaceW F.hp (iRdM Λ0)).Λ) :
+    WakeObligationsR arch (RuntimeLayout.ofPlaceW F.hp (iRdM Λ0)).Λ B SccCode.helloAsm
+      (RootLit.QRoot (arch := arch) (E := E) (ls := ls) F.hp (i0M Λ0) hparse F.hlo (ImmsMe.immsKid_root F.hp)) E
+      (fun t tr => TiPre (AbH F.hp (iRdM Λ0)) (AcH F.hp (iRdM Λ0)) t tr ∧
+        TwH (RuntimeLayout.ofPlaceW F.hp (iRdM Λ0)).Λ E (AbH F.hp (iRdM Λ0)) t tr)
+      helloSrc
+```
+
+`LayoutE Λ0` (`Spike/Lib/A64HelloRootBaseInh.lean`) is the linked layout's
+facts: `PlaceW` (A1, A2, A4, A6, A8), `.text` at hello's phase base
+`WakePh.lo` (`0x210550`), no static words, `scc_rt_nthreads` starting at 0,
+A13's data part at the placed layout, and the second TCB's limit word
+starting at 0.
+
+- `hparse` is the loader's parse of `helloAsm` into `helloProg` and
+  `helloSecs`, the trust boundary as `hP` is for `wake`; it is
+  `#guard`-checked by evaluation (`HelloLinkedA64Root`).
+- `hB` fixes `B.cells` to the allocator's arena; threads and frames are free.
+- `hello_root_final`'s `ls` (level 0's label sizes) does not occur in
+  `hello_correct`'s conclusion.
+
+`helloS arch` is `Spike.Lib.WakeA64.srcS helloSrc arch` (`Spike/Lib/HelloSrc.lean`):
+the WeakCore semantics of `helloSrc`, the frontend's reading of
+`Scc/Test/hello.w` (`helloSrcOk`, `#guard`), with two thread slots and
+`main` started on its own `ThreadId` (wake's source machine, §3 item 14).
 
 ### `hello1`, AArch64
 
@@ -549,6 +639,10 @@ Classical.choice, Quot.sound]` for:
   (`WakeLinkedX64.lean`), `wakeS_eq` (`WakeLinkedX64Br.lean`; `wakeSrc_eq`
   depends on no axioms), and `certify.sh`'s generated `prog_correct_linked`
   for `wake.w` on x86-64;
+- `hello_linkedA` and `layoutE_e` (`HelloLinkedA64Root.lean`), and the layout
+  facts `placeW_e`, `hpin2`, `hinit2`, `linux_ok_e` and `hA13_e`
+  (`HelloLinkedA64.lean`), where `hnz` depends on `propext` only and `hlo` on
+  no axiom;
 - `hello1_finalCA` and `hello1_finalCA_of` (`A64Hello1FinalCA.lean`);
   `hello1_finalC` and `hello1_finalC_of` (`X64Hello1FinalC.lean`);
   `hello1_e2eOk` (`Hello1LinkedX64.lean`); `hello1_of_closed2A`,
@@ -713,6 +807,40 @@ What this chain still trusts is in §3.
    `prog_src` and `hpa`. The layout read from the executable is `Λe` by
    kernel `rfl` (`prog_layout : elf.1 = Spike.Test.WakeLinkedX64.Λe`).
 
+### `hello` at its executable (AArch64)
+
+1. `Scc/Test/elf/helloa64/hello.s` is the listing `SccCode.helloAsm`
+   verbatim (`#eval` guard in `Spike/Test/HelloLinkedA64Elf.lean`).
+   `Spike/Gen/regen_a64.sh hello A64Hello --check` (run by
+   `Spike/Gen/drift.sh`) ties the listing to scc's output on
+   `Spike/Gen/hello.w`, a checked copy of `Scc/Test/hello.w`.
+2. The link, as recorded in `Scc/Test/elf.sh`: `run.sh`'s AArch64 command
+   with `.text` placed at hello's phase base `0x210550` and `.rodata` at
+   `0x2001b8` (`ld.lld`'s default address, below `.text`):
+
+   ```
+   clang --target=aarch64-linux-gnu -march=armv8.4-a -nostdlib -static -fuse-ld=lld \
+     -Wl,--section-start=.text=0x210550,--section-start=.rodata=0x2001b8 \
+     -o helloa64/hello helloa64/hello.s
+   ```
+
+   `elf.sh --relink-check` reproduces it byte for byte with the toolchain
+   above. Under `qemu-aarch64` the executable prints `Hello, world` and
+   exits 0.
+3. The ELF reader reads `Λe` off the file (`scc_elf_layout%`, fail closed);
+   a guard pins its SHA-256, `5a99ee35…` (`HelloLinkedA64Elf`). Guarded:
+   `.text` at `0x210550`, `.rodata` ending at or below it.
+4. The kernel decides the layout facts at `Λe` (`HelloLinkedA64`): `PlaceW`
+   from A1, A2, A4, A6, A8 (`HelloLinkedA64A1` … `A8`, one `decide +kernel`
+   per component), `hlo`, `hstat`, `hnz`, and, at the placed layout `Le`,
+   `hpin2`, `hinit2` and `hA13_e`. `layoutE_e : LayoutE Λe` collects
+   `placeW_e`, `hlo`, `hstat`, `hnz`, `hA13_e` and `hinit2`. That the Linux
+   entry is admissible at `Le.Λ` is decided too (`linux_ok_e`), so the entry
+   quantifier is not vacuous there.
+5. Not checked by `certify.sh`: a fresh build of `hello.w` is not certified
+   (§5). To compare a build by hand, `cmp` its text with
+   `helloa64/hello.s`, and run `elf.sh --relink-check` for the executable.
+
 ### Other programs at linked layouts
 
 - **`frame0.w`** (`Spike/Gen/frame0.w`, `ret 42` with a zero-byte frame),
@@ -816,7 +944,12 @@ specification. In addition:
    `print`'s meaning is its WeakCore model `printL`/`print`
    (`Spike/Lib/PrintSrc.lean`), part of the specification: `hello1.w`
    declares `print` with an empty body, and the theorem is about `hello1o`,
-   the program with that model linked in.
+   the program with that model linked in. `hello.w` writes `printL`/`print`
+   in its own text as the extern's WeakCore model on a published slice
+   (`printExtPubD`/`printLoopPubD`, `Scc/PrintModel.lean`), so `helloS`'s
+   `print` is the frontend's reading of that text; scc does not compile
+   those bodies, and the call runs the runtime's `scc_rt_print`. The same
+   kernel `write` model applies to `hello`'s worker thread.
 10. **The allocator and the budget (`hello1`).** The allocator is runtime
     code in `hello1`'s text, checked by the placement check (A7 checks its
     arena constant) and covered by the proof, not trusted. What the
@@ -835,19 +968,20 @@ specification. In addition:
     `scc_rt_unpark`), the other checks unchanged. They are part of the
     certificate's statement; for `wake` the AArch64 proof uses the
     components it needs, the x86-64 proof all of them, each decided at `Λe`
-    (§2).
+    (§2). `hello`'s proof uses `PlaceW` (A1, A2, A4, A6, A8), A13's data part
+    and the second TCB's limit word, decided at `Λe` (§2).
 12. **`certify.sh`'s registry entry for `wake`.** The script recognises
     `wake.w` by comparing the program, `T.s` and the executable with the
     checked-in files (`Scc/Test/elf/wakea64/` on AArch64,
     `Scc/Test/elf/wakex64/` on x86-64) byte for byte, and only then
     instantiates `wake_linkedU` (AArch64) or `wake_linkedX` (x86-64); any
-    other spawning program is not certifiable (verdict 3 with
-    `--instantiate`).
+    other spawning program, `hello.w` included, is not certifiable (verdict
+    3 with `--instantiate`).
 13. **The thread and synchronisation calls (`wake`).** The kernel model's
     `clone` (one flag set, a fresh stack and TLS, the child's start state),
     `futex` wait/wake (`FUTEX_WAIT_PRIVATE`/`FUTEX_WAKE_PRIVATE`, used by
     `park`/`unpark`), `exit` and `exit_group` (`Scc/Sem/Kernel.lean`), as
-    used by wake's runtime; on x86-64 also `arch_prctl(ARCH_SET_FS)`, which
+    used by wake's and hello's runtime; on x86-64 also `arch_prctl(ARCH_SET_FS)`, which
     sets the `%fs` base the runtime reads its TCB through (system-call
     numbers 56, 202, 60, 231 and 158). The trust is that Linux's calls
     behave within this model.
@@ -855,8 +989,9 @@ specification. In addition:
     parameters `srcPo`/`progInitT` of `Spike/Lib/WakeA64.lean`:
     `Scc/Sem/SrcOut.lean`'s start with `main` entered on its own `ThreadId`
     and two thread slots. `wakeSX` (x86-64) uses `Scc.Sem.SrcSem.srcPo`
-    itself, at the certificate's `prog_src`. They are part of the
-    specification.
+    itself, at the certificate's `prog_src`. `helloS` uses the same
+    AArch64 source machine, `WakeA64.srcS`, at `helloSrc`. They are part of
+    the specification.
 15. **WeakCore's machine and language layer.** The bodies of `TermRun.tstep`
     (with `new`), `CoreTerm.scan`, `CoreTerm.annNew`, `CoreTerm.progTgts` and
     `TermRun.tysOf` are part of the source semantics and are not covered by
@@ -880,9 +1015,9 @@ single-threaded (peak anonymous memory / peak resident size):
 | Module | Anonymous | Resident |
 |---|---|---|
 | `WeakCore.TermStep` | 5.8 GiB | 7.4 GiB |
-| `WeakCore.GenLayer` | 4.5 GiB | 6.1 GiB |
-| `WeakCore.TermScopeFHM` | 4.0 GiB | 5.9 GiB |
-| `WeakCore.TermPlant` | 2.8 GiB | 4.4 GiB |
+| `WeakCore.GenLayer` | 4.5 GiB | 6.2 GiB |
+| `WeakCore.TermScopeFHM` | 4.0 GiB | 6.0 GiB |
+| `WeakCore.TermPlant` | 2.9 GiB | 4.6 GiB |
 | `Spike.Test.A64Hello1TgOk` | 3.1 GiB | 5.7 GiB |
 | `Spike.Test.A64Hello1PlaceOKELit` | 2.9 GiB | 5.1 GiB |
 | `Spike.Test.A64Ret0PlaceOKELit` | 2.7 GiB | 5.0 GiB |
@@ -964,6 +1099,21 @@ checks its SHA-256) and the certificate. On a checkout with nothing under
 peak of about 1.8 GB RssAnon per `lean` process (4.0 GB including mapped
 `.olean` files); no x86-64 `wake` module needs more than 2.5 GiB.
 
+**Checking the `hello` theorem (AArch64).**
+
+```
+LEAN_NUM_THREADS=1 lake build Spike.Test.HelloLinkedA64Root
+```
+
+builds `hello_linkedA` with its `#print axioms` guard, the linked layout
+(`Spike.Test.HelloLinkedA64Elf`, which reads the checked-in executable and
+checks its SHA-256) and the listing. On a checkout with nothing under
+`Spike` built it takes about 127 minutes with `LEAN_NUM_THREADS=1`,
+at a peak of about 1.7 GB RssAnon per `lean` process (4.1 GB including
+mapped `.olean` files); the placement modules `HelloLinkedA64A1` … `A8`
+each stay under 1.2 GB RssAnon (about 4.0 GB including mapped `.olean`
+files), and no `hello` module needs more than 2.5 GiB.
+
 **Certifying a fresh build** (`Accepted0`/`Accepted1` programs,
 `hello1.w`, and `wake.w` on both ISAs at its checked-in executables). The last line is the verdict, followed by time and peak RssAnon
 of the checking Lean process:
@@ -1020,17 +1170,26 @@ In this release `ret0.w` is certified at linked binaries and by `certify.sh
 --instantiate` on a fresh build, `frame0.w` by `certify.sh --instantiate`,
 `hello1.w` at every layout passing the placement check, by `certify.sh
 --instantiate` on a fresh build, and at its two checked-in executables, and
-`wake.w` on AArch64 and x86-64 at its checked-in executables.
+`wake.w` on AArch64 and x86-64 at its checked-in executables; `hello.w` is
+proved on AArch64 at its checked-in executable.
 
 - **`wake`'s theorems are at one layout each.** They hold at `Λe`, the
   layout of `Scc/Test/elf/wakea64/wake` and of `Scc/Test/elf/wakex64/wake`
   respectively (x86-64 `.text` at `0x401000`, GNU `ld`'s default), only; a
   relink that moves anything is not certifiable. Each covers its
   checked-in text only.
-- **`hello.w` is not covered.** Only `wake.w` (spawn, park/unpark and the
-  release/acquire handoff, without output) is certified among the spawning
-  programs.
-- **The cold builds of the `wake` proofs are long** (§4).
+- **`hello`'s theorem is at one layout.** It holds at `Λe`, the layout of
+  `Scc/Test/elf/helloa64/hello` (`.text` at `0x210550`, `.rodata` at
+  `0x2001b8`, both placed by the link command), only, and covers the listing
+  `helloAsm` only.
+- **`certify.sh` does not certify `hello.w` builds.** It has no registry
+  entry for `hello.w`; a fresh build is refused (verdict 3 with
+  `--instantiate`). The theorem is about the checked-in listing and
+  executable.
+- **`hello.w` on x86-64 is not covered.** Among the spawning programs,
+  `wake.w` (both ISAs) and `hello.w` (AArch64, at its executable) are
+  proved; nothing else that spawns is.
+- **The cold builds of the `wake` and `hello` proofs are long** (§4).
 
 - **`hello1`'s theorems are about one text.** They cover the checked-in
   certificate's `asm`; `certify.sh` certifies a build only when scc produces
@@ -1061,8 +1220,8 @@ In this release `ret0.w` is certified at linked binaries and by `certify.sh
   kernel's ELF loader; the trusted loader facts of §3 are about Linux on
   hardware. No native AArch64 host was used. x86-64 binaries run natively.
 - **Threads.** `hello1` and `ret0` run on one thread (`CorrectE 1`,
-  `kernel 1`); `Accepted2` has no `spawn`. `wake` runs two threads
-  (`CorrectE 2`) on the kernel model; under `qemu-aarch64` its runs do not
+  `kernel 1`); `Accepted2` has no `spawn`. `wake` and `hello` run two threads
+  (`CorrectE 2`) on the kernel model; under `qemu-aarch64` their runs do not
   exhibit hardware reorderings, but the theorem holds for every `arch`.
 - The executable's **`.text` bytes are not compared with `asm`'s encoding**
   (trusted, §3 item 6), for `wake` as for the others.
@@ -1071,8 +1230,9 @@ In this release `ret0.w` is certified at linked binaries and by `certify.sh
   part of the statement.
 - **`hello1`'s budget is fixed** to the allocator's cell count (`hB`); runs
   whose source would need more heap may abort with exit 101.
-- **`print` is specified by its model.** The theorem is about `hello1o`, with
-  `print`'s WeakCore model linked (§3 item 9).
+- **`print` is specified by its model.** The `hello1` theorem is about
+  `hello1o`, with `print`'s WeakCore model linked; `hello`'s `print` is the
+  model text written in `hello.w` (§3 item 9).
 - **`emit` with outstanding promises.** Under WeakCore 621ec97a a thread
   cannot `emit` while it has outstanding promises; executions that need this
   (a store after an `emit`, promised before that `emit` runs,

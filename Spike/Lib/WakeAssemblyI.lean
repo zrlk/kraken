@@ -98,11 +98,12 @@ theorem wake_obligations_I {Ab Ac : State → Prop}
     /- OPEN -/
     (post_wit : ∀ t s, (WakeQ.wakeQ arch R1 _ SR cT cS pT P G (wakeM hp i ok lab _ hoff) D r0 r1).Post
       (RuntimeLayout.ofPlaceW hp i).Λ t s → WakeRunInv.RunInv (RuntimeLayout.ofPlaceW hp i).Λ E t →
-      ∃ w, Components (machine (kernel 2)) (RuntimeLayout.ofPlaceW hp i).Λ w t s) :
+      ∃ w, Components (machine (kernel 2)) (RuntimeLayout.ofPlaceW hp i).Λ w t s)
+    /- (`rfl` at wake's worker sides) -/ (hDp : D.p = Spike.Lib.WakeT1.wakeSrc := by rfl) :
     WakeObligations arch (RuntimeLayout.ofPlaceW hp i).Λ B asm
       (WakeQ.wakeQ arch R1 _ SR cT cS pT P G (wakeM hp i ok lab _ hoff) D r0 r1) E (TiPre Ab Ac) :=
   WakeAssembly.wake_obligations (WakeQ.hwf_ofPlaceOK hp i) rfl rfl rfl hC hx hC0 hstart O spawn
-    (hhalt0_I hp i) hhalt1 (hmapM_I hp i) hmapW (hMμ_I hp i) hpl hpa hW1 post_wit
+    (hhalt0_I hp i) hhalt1 (hmapM_I hp i) hmapW (hMμ_I hp i) hpl hpa hW1 post_wit hDp
 
 /-- info: 'Spike.Lib.WakeAssemblyI.wake_obligations_I' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
@@ -156,7 +157,8 @@ theorem wake_obligations_IW {Ab Ac : State → Prop}
     /- OPEN -/
     (post_wit : ∀ t s, (WakeQ.wakeQ arch R1 _ SR cT cS pT P G (wakeM hp i ok lab _ hoff) D r0 r1).Post
       (RuntimeLayout.ofPlaceW hp i).Λ t s → WakeRunInv.RunInv (RuntimeLayout.ofPlaceW hp i).Λ E t →
-      ∃ w, Components (machine (kernel 2)) (RuntimeLayout.ofPlaceW hp i).Λ w t s) :
+      ∃ w, Components (machine (kernel 2)) (RuntimeLayout.ofPlaceW hp i).Λ w t s)
+    /- (`rfl` at wake's worker sides) -/ (hDp : D.p = Spike.Lib.WakeT1.wakeSrc := by rfl) :
     WakeObligations arch (RuntimeLayout.ofPlaceW hp i).Λ B asm
       (WakeQ.wakeQ arch R1 _ SR cT cS pT P G (wakeM hp i ok lab _ hoff) D r0 r1) E (TiPre Ab Ac) :=
   wake_obligations_I hp i hoff hC hx hC0 hstart O spawn
@@ -167,7 +169,7 @@ theorem wake_obligations_IW {Ab Ac : State → Prop}
       exact WakeLabMapped.labMapped_flag
         (fun sa hpt => (Spike.Lib.A64.Flow.Worker.Wake.ZX.labPtr (hW w s c hi).2 sa hpt).trans (hcS w).symm)
         hAa hTa (hC.cTin w))
-    (Spike.Lib.A64.Flow.Worker.Wake.ZX.hW1_ofX (cOf := id) hW) hpl hpa post_wit
+    (Spike.Lib.A64.Flow.Worker.Wake.ZX.hW1_ofX (cOf := id) hW) hpl hpa post_wit hDp
 
 /-- info: 'Spike.Lib.WakeAssemblyI.wake_obligations_IW' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
@@ -221,13 +223,14 @@ theorem wake_obligations_IWP {Ab Ac : State → Prop}
     boundary) -/
     {pcfg' : Scc.Cert.PlaceOK.Config} {po : Scc.Cert.PlaceOK.A64.Out}
     (hpl : PlaceW pcfg' (RuntimeLayout.ofPlaceW hp i).Λ po)
-    (hpa : textProgram asm = .ok po.prog) :
+    (hpa : textProgram asm = .ok po.prog)
+    /- (`rfl` at wake's worker sides) -/ (hDp : D.p = Spike.Lib.WakeT1.wakeSrc := by rfl) :
     WakeObligations arch (RuntimeLayout.ofPlaceW hp i).Λ B asm
       (WakeQ.wakeQ arch R1 _ SR cT cS pT P G (wakeM hp i ok lab _ hoff) D r0 r1) E (TiPre Ab Ac) :=
   wake_obligations_IW hp i hoff hC hx hC0 hstart O spawn hend hW hcS hmp hpl hpa
     (WakePostWit.post_wit_of rfl rfl (WakeQ.hwf_ofPlaceOK hp i)
       (fun w s c h => (hSR w).symm ▸ placed_I hp i w s c h)
-      (fun w s c h => (hlbl w).symm ▸ Spike.Lib.A64.Flow.Worker.Wake.ZX.placed (hW w s c h).2))
+      (fun w s c h => (hlbl w).symm ▸ Spike.Lib.A64.Flow.Worker.Wake.ZX.placed (hW w s c h).2)) hDp
 
 /-- info: 'Spike.Lib.WakeAssemblyI.wake_obligations_IWP' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in

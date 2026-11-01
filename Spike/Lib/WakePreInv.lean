@@ -19,18 +19,18 @@ open Spike.Lib.WakePreTi
 namespace Pre1T
 
 variable {arch : WeakMem.Arch} {Λ : Scc.Sem.Layout} {B : Budget} {asm : String} {E : Entry}
-  {R1 : Cfg → TermRun.Cfg → Prop} {Ab Ac : State → Prop}
+  {R1 : Cfg → TermRun.Cfg → Prop} {Ab Ac : State → Prop} {p : CoreTerm.Prog}
 
 /-- **`Pre1T` with an invariant `V`**: from `R1`'s obligations, `V` at the
 load's source start (`hinit`) and along each one-slot step's source run
 (`hstep`, which may use `R1` on both sides), the obligations at
 `R1 ∧ V`. -/
-theorem inv (O : Pre1T arch Λ B asm E R1 Ab Ac) (V : Cfg → TermRun.Cfg → Prop)
-    (hinit : ∀ d s0, (target (kernel 1) E).load asm Λ = some d → (wakeS arch).init s0 → R1 d s0 → V d s0)
+theorem inv (O : Pre1T arch Λ B asm E R1 Ab Ac p) (V : Cfg → TermRun.Cfg → Prop)
+    (hinit : ∀ d s0, (target (kernel 1) E).load asm Λ = some d → (srcS p arch).init s0 → R1 d s0 → V d s0)
     (hstep : ∀ tid d es d' s s', R1 d s → V d s → d.1.threads.size = d.2.slots.size →
       (machine (kernel 1)).Step ((target (kernel 2) E).marks asm Λ) tid d es d' →
-      (wakeS arch).Run s (obs es) s' → R1 d' s' → V d' s') :
-    Pre1T arch Λ B asm E (fun d s => R1 d s ∧ V d s) Ab Ac where
+      (srcS p arch).Run s (obs es) s' → R1 d' s' → V d' s') :
+    Pre1T arch Λ B asm E (fun d s => R1 d s ∧ V d s) Ab Ac p where
   init d hd := by
     obtain ⟨s0, hi, hR⟩ := O.init d hd
     exact ⟨s0, hi, hR, hinit d s0 hd hi hR⟩
@@ -47,10 +47,10 @@ theorem inv (O : Pre1T arch Λ B asm E R1 Ab Ac) (V : Cfg → TermRun.Cfg → Pr
 
 /-- **`Pre1T.inv` at a source-only invariant**: `V` true at every source
 start and kept by every source run. -/
-theorem invSrc (O : Pre1T arch Λ B asm E R1 Ab Ac) (V : TermRun.Cfg → Prop)
-    (hinit : ∀ s0, (wakeS arch).init s0 → V s0)
-    (hrun : ∀ s tr s', (wakeS arch).Run s tr s' → V s → V s') :
-    Pre1T arch Λ B asm E (fun d s => R1 d s ∧ V s) Ab Ac :=
+theorem invSrc (O : Pre1T arch Λ B asm E R1 Ab Ac p) (V : TermRun.Cfg → Prop)
+    (hinit : ∀ s0, (srcS p arch).init s0 → V s0)
+    (hrun : ∀ s tr s', (srcS p arch).Run s tr s' → V s → V s') :
+    Pre1T arch Λ B asm E (fun d s => R1 d s ∧ V s) Ab Ac p :=
   inv O (fun _ s => V s) (fun _ s0 _ hi _ => hinit s0 hi)
     (fun _ _ _ _ s s' _ hV _ _ hr _ => hrun s _ s' hr hV)
 

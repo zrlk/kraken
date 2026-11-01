@@ -13,7 +13,7 @@ memory steps, `Spike.Lib.SrcMem`; the ISA-free part of the one-thread consumers,
 `Spike.Lib.Typed`; the lowering's placements as word places, `Spike.Lib.Place`; runtime
 read-modify-writes, `Spike.Lib.RtRmw`). The AArch64
 and x64 halves (`Spike.Bridge.A64`, `Spike.Bridge.A64Loop`, `Spike.Lib.A64`, `Spike.Lib.A64Loop`,
-`Spike.Lib.A64Block`, `Spike.Lib.A64Flow`, `Spike.Lib.A64Hello`, `Spike.Lib.A64Cfg`,
+`Spike.Lib.A64Block`, `Spike.Lib.A64Flow`, `Spike.Lib.A64Cfg`,
 `Spike.Lib.A64Nodes`, `Spike.Lib.A64Switch`, `Spike.Lib.A64Dead`, `Spike.Lib.A64Abort`,
 `Spike.Lib.A64Call`, `Spike.Lib.A64Print`, `Spike.Lib.A64PrintL`, `Spike.Lib.A64ExtToy` (a closed
 `Correct` on the canonical target `canonical 1`, through `Scc.Sem.StepSim`), `Spike.Lib.A64ExtToy2`

@@ -109,11 +109,11 @@ end Parts
 
 /-- **A local step of the source worker is before its store point**, from
 and to. -/
-theorem localStep_pre {cw : TermRun.Word} {cS : WeakMem.Address} (hcw : cw.val = .loc cS 0) {c c' : Ctl}
-    (h : LocalStep wakeSrc c c') (hc : WCtl cw c) :
+theorem localStep_pre {p : Prog} {cw : TermRun.Word} {cS : WeakMem.Address} (hcw : cw.val = .loc cS 0) {c c' : Ctl}
+    (h : LocalStep p c c') (hc : WCtl cw c) (hwk : PreSplit c.term → WkDecl p) :
     (c.term ≠ wkUnpark ∧ c.term ≠ .ret .unit) ∧ (c'.term ≠ wkUnpark ∧ c'.term ≠ .ret .unit) := by
   rcases hc.term with ht | ht | ht | ht | ht
-  · obtain ⟨-, -, e1, -⟩ := localStep_wkTail h ht (hc.body (.inl ht))
+  · obtain ⟨-, -, e1, -⟩ := localStep_wkTail h ht (hc.body (.inl ht)) (hwk (.inl ht))
     rw [ht, e1]; simp [wkTail, wkBody, wkUnpark]
   · obtain ⟨e1, -⟩ := localStep_wkBody h ht (hc.body (.inr ht))
     rw [ht, e1]; simp [wkBody, wkStore, wkUnpark]
@@ -124,14 +124,14 @@ theorem localStep_pre {cw : TermRun.Word} {cS : WeakMem.Address} (hcw : cw.val =
   · exact (localStep_not_ret h .unit ht).elim
 
 /-- **A local run of the source worker keeps its side of the store point.** -/
-theorem localRun_pass {cw : TermRun.Word} {cS : WeakMem.Address} (hcw : cw.val = .loc cS 0) {c c' : Ctl}
-    (h : LocalRun wakeSrc c c') (hc : WCtl cw c) :
+theorem localRun_pass {p : Prog} {cw : TermRun.Word} {cS : WeakMem.Address} (hcw : cw.val = .loc cS 0) {c c' : Ctl}
+    (h : LocalRun p c c') (hc : WCtl cw c) (hwk : PreSplit c.term → WkDecl p) :
     (c'.term = wkUnpark ∨ c'.term = .ret .unit) ↔ (c.term = wkUnpark ∨ c.term = .ret .unit) := by
   induction h with
   | refl => exact Iff.rfl
   | @step c₀ c₁ c₂ hs hr ih =>
-    obtain ⟨⟨h1, h2⟩, ⟨h3, h4⟩⟩ := localStep_pre hcw hs hc
-    rw [ih (localStep_wCtl hcw hs hc)]
+    obtain ⟨⟨h1, h2⟩, ⟨h3, h4⟩⟩ := localStep_pre hcw hs hc hwk
+    rw [ih (localStep_wCtl hcw hs hc hwk) fun _ => hwk (localStep_preSplit hcw hs hc)]
     exact ⟨fun h => h.elim (absurd · h3) (absurd · h4), fun h => h.elim (absurd · h1) (absurd · h2)⟩
 
 namespace Parts
@@ -144,12 +144,12 @@ trivially; with its promise `kc` (before its store point, `past_noProm`),
 by its run to the store and the fulfilment (`certified_pre`; G1–G3 from
 `CProtS`, `fulfil_ok`). -/
 theorem certified_set (hC : WCompat Q D μ Λ arch) (h : Parts Q D Λ w t s t0 t1 s0 s1 ts tp sp oc) {c' : Ctl}
-    (hr : LocalRun wakeSrc (Ctl.of s1) c') :
-    TermRun.Certified wakeSrc Promises.Knobs.all arch
+    (hr : LocalRun D.p (Ctl.of s1) c') :
+    TermRun.Certified D.p Promises.Knobs.all arch
       { s with ths := s.ths.set! 1 { s1 with term := c'.term, env := c'.env } } 1 := by
   have hi := h.s1_get
   have hcw := hC.cwv w
-  have hctl' := localRun_wCtl hcw hr h.wCtl
+  have hctl' := localRun_wCtl hcw hr h.wCtl (D.wk w _ _ h.pt1.1)
   let s1' : TermRun.TTh := { s1 with term := c'.term, env := c'.env }
   have hi' : ({ s with ths := s.ths.set! 1 s1' } : TermRun.Cfg).ths[1]? = some s1' := getElem?_set!_self hi s1'
   obtain hp | ⟨k, ks, hp⟩ : s1.promises = [] ∨ ∃ k ks, s1.promises = k :: ks := by
@@ -168,7 +168,7 @@ theorem certified_set (hC : WCompat Q D μ Λ arch) (h : Parts Q D Λ w t s t0 t
     obtain ⟨hmv', hob⟩ := fulfil_ok hS hnpS ((h.core.sp_prom k).mpr (.inr hk)) hm
     rw [hC.C w] at hmv' hob
     have hpre : c'.term ≠ wkUnpark ∧ c'.term ≠ .ret .unit := by
-      have := (not_congr (localRun_pass hcw hr h.wCtl)).mpr hnp
+      have := (not_congr (localRun_pass hcw hr h.wCtl (D.wk w _ _ h.pt1.1))).mpr hnp
       exact ⟨fun e => this (.inl e), fun e => this (.inr e)⟩
     have hm' : ({ s with ths := s.ths.set! 1 s1' } : TermRun.Cfg).mem[k]? = some ⟨(Q.C w).cS, .num 1, m.view⟩ := by
       show s.mem[k]? = _
@@ -179,6 +179,7 @@ theorem certified_set (hC : WCompat Q D μ Λ arch) (h : Parts Q D Λ w t s t0 t
       subst this; rfl
     exact certified_pre (k := Promises.Knobs.all) hi' (by rw [hc'eq]; exact hctl') hpre h.pt1.2.1 h.pt1.2.2.1 hcw
       (by simp [s1', hp]) hm' hmv' hob
+      (fun hp => D.wk w _ _ h.pt1.1 (localRun_preSplit hcw hr h.wCtl hp))
 
 end Parts
 
@@ -196,23 +197,23 @@ theorem post_keep (hC : WCompat Q D μ Λ arch) {w : Q.ι} {t : Cfg} {s : TermRu
     (hcov : CohCoversL t1'.views t1'.prom t.1.mem ((Q.P w).cov 1))
     (hown : ExtRows.OwnOk (Q.own w 1 t1'.st []) t.1.mem t1'.prom)
     (hnp : (Q.P w).noProm t1'.st → t1'.prom = [])
-    (hr : LocalRun wakeSrc (Ctl.of s1) c') (hwi : D.Wi w t1'.st c') :
-    ∃ s', (wakeS arch).Run s [] s' ∧ Q.Post Λ (t.1.withThread 1 t1' t.1.mem, t.2) s' := by
+    (hr : LocalRun D.p (Ctl.of s1) c') (hwi : D.Wi w t1'.st c') :
+    ∃ s', (srcS D.p arch).Run s [] s' ∧ Q.Post Λ (t.1.withThread 1 t1' t.1.mem, t.2) s' := by
   have hi := h.s1_get
   have hcw := hC.cwv w
-  have hctl' := localRun_wCtl hcw hr h.wCtl
+  have hctl' := localRun_wCtl hcw hr h.wCtl (D.wk w _ _ h.pt1.1)
   let s1' : TermRun.TTh := { s1 with term := c'.term, env := c'.env }
   have hc'eq : Ctl.of s1' = c' := by
     obtain ⟨tm, en, hd⟩ := c'
     have : hd = none := hctl'.hold
     subst this; rfl
-  have hrun : (wakeS arch).Run s [] { s with ths := s.ths.set! 1 s1' } :=
-    localRunS_run_source_i (P := srcPo 2 arch wakeSrc) rfl (by decide) hr.toS hi rfl rfl h.pt1.2.2.1 hex
+  have hrun : (srcS D.p arch).Run s [] { s with ths := s.ths.set! 1 s1' } :=
+    localRunS_run_source_i (P := srcPo 2 arch D.p) rfl (by decide) hr.toS hi rfl rfl h.pt1.2.2.1 hex
       (h.certified_set hC hr)
   have hs' : ({ s with ths := s.ths.set! 1 s1' } : TermRun.Cfg).ths = #[s0, s1'] := by
     show s.ths.set! 1 s1' = _
     rw [h.ths]; rfl
-  have hpass := localRun_pass hcw hr h.wCtl
+  have hpass := localRun_pass hcw hr h.wCtl (D.wk w _ _ h.pt1.1)
   have hpT : ∀ (st : isaLSE2.State) (c : Ctl), D.Wi w st c →
       ((Q.C w).passT st ↔ (c.term = wkUnpark ∨ c.term = .ret .unit)) := hC.pass w
   have hpT' : (Q.C w).passT t1'.st ↔ (Q.C w).passT t1.st := by

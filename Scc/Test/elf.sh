@@ -33,12 +33,16 @@
 # `call1a64/call1.s` (the AArch64 `call1` certificate's text, linked the same
 # way, `Spike/Test/Call1LinkedA64.lean`), and `wakea64/wake` from
 # `wakea64/wake.s` (the AArch64 `wake` certificate's text, linked the same
-# way, `Spike/Test/WakeLinkedA64Elf.lean`), and `wakex64/wake` from
+# way, `Spike/Test/WakeLinkedA64Elf.lean`), `wakex64/wake` from
 # `wakex64/wake.s` (the x86-64 `wake` certificate's text, linked as `run.sh`
-# links x86-64 binaries, `Spike/Test/WakeLinkedX64Elf.lean`); the digests in `ElfTest.lean`,
+# links x86-64 binaries, `Spike/Test/WakeLinkedX64Elf.lean`), and `helloa64/hello` from
+# `helloa64/hello.s` (the AArch64 `hello` listing `SccCode.helloAsm`, linked
+# the same way with `.text` forced to `0x210550` and `.rodata` to `0x2001b8`,
+# `Spike/Test/HelloLinkedA64Elf.lean`); the digests in `ElfTest.lean`,
 # `Ret0LinkedX64.lean`, `Frame0LinkedX64.lean`, `Ret0LldX64.lean`,
 # `Ret0LinkedA64.lean`, `Hello1LinkedA64.lean`, `Call1LinkedA64.lean` and
-# `Call1LinkedX64.lean`, `Hello1LinkedX64.lean`, `WakeLinkedA64Elf.lean`, `WakeLinkedX64Elf.lean` then
+# `Call1LinkedX64.lean`, `Hello1LinkedX64.lean`, `WakeLinkedA64Elf.lean`, `WakeLinkedX64Elf.lean`,
+# `HelloLinkedA64Elf.lean` then
 # need updating if the tools changed. Exits 1 on a mismatch.
 set -eu
 LAKE=${LAKE:-lake}
@@ -50,11 +54,11 @@ trap 'rm -rf "$TMP"' EXIT
 # The fixtures, the tools each needs, and its recorded command
 # (`link F OUT`: write fixture F under the directory OUT).
 FIXTURES="x a a_def a_bid ret0x64/ret0 ret0a64/ret0 hello1a64/hello1 call1a64/call1 frame0x64/frame0 call1x64/call1"
-FIXTURES="$FIXTURES ret0x64lld/ret0 hello1x64/hello1 wakea64/wake wakex64/wake"
+FIXTURES="$FIXTURES ret0x64lld/ret0 hello1x64/hello1 wakea64/wake wakex64/wake helloa64/hello"
 tools() {
   case "$1" in
     x|ret0x64/ret0|frame0x64/frame0|call1x64/call1|hello1x64/hello1|wakex64/wake) echo "as ld" ;;
-    a|a_def|a_bid|ret0a64/ret0|hello1a64/hello1|call1a64/call1|wakea64/wake) echo "clang ld.lld" ;;
+    a|a_def|a_bid|ret0a64/ret0|hello1a64/hello1|call1a64/call1|wakea64/wake|helloa64/hello) echo "clang ld.lld" ;;
     ret0x64lld/ret0) echo "as ld.lld" ;;
   esac
 }
@@ -91,6 +95,10 @@ link() {
          -o "$2/wakea64/wake" "$D/wakea64/wake.s" ;;
     wakex64/wake) mkdir -p "$2/wakex64" && as -o "$TMP/wake.o" "$D/wakex64/wake.s" &&
        ld -static -o "$2/wakex64/wake" "$TMP/wake.o" ;;
+    helloa64/hello) mkdir -p "$2/helloa64" &&
+       clang --target=aarch64-linux-gnu -march=armv8.4-a -nostdlib -static -fuse-ld=lld \
+         -Wl,--section-start=.text=0x210550,--section-start=.rodata=0x2001b8 \
+         -o "$2/helloa64/hello" "$D/helloa64/hello.s" ;;
   esac
 }
 if [ "${1:-}" = --relink ]; then

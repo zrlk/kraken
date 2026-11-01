@@ -54,7 +54,7 @@ otherwise). -/
 theorem post_step0_of (hC : WCompat Q D μ Λ arch) (hC0 : WCompat0 Q M μ Λ) (hPT0 : Q.PT0 = PT0 M)
     (hKR : Q.KR = WakeKR.KR r0 r1) (hown : Q.own = WakeOwn.wakeOwn) (hwf : Λ.WF) {t t' : Cfg}
     {s : TermRun.Cfg} {es : List Ev} (hpost : Q.Post Λ t s) (hs : (machine (kernel 2)).Step μ 0 t es t') :
-    ∃ s', (wakeS arch).Run s (obs es) s' ∧ Q.Post Λ t' s' := by
+    ∃ s', (srcS M.p arch).Run s (obs es) s' ∧ Q.Post Λ t' s' := by
   obtain ⟨w, t0, t1, s0, s1, ts, tp, sp, oc, h⟩ := post_parts hC hpost
   have ht0 : t.1.threads[0]? = some t0 := by rw [h.th]; rfl
   have hx : t.2.exited = none := hs.runs.2.1

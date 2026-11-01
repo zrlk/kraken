@@ -41,8 +41,8 @@ open Spike.Lib.WakeMainHR (MainPieces)
 /-- **wake.w is correct on AArch64 with two slots at one entry state**,
 given the obligations there (`wake_correctE`'s proof at `E`). -/
 theorem wake_correctAt {arch : WeakMem.Arch} {Λ : Scc.Sem.Layout} {B : Budget} {asm : String} {Q : WakeRel}
-    {E : Entry} {Ti : Cfg → List Ev → Prop} (O : WakeObligations arch Λ B asm Q E Ti) :
-    Correct (target (kernel 2) E) (wakeS arch) Λ B asm := by
+    {E : Entry} {Ti : Cfg → List Ev → Prop} {p : CoreTerm.Prog} (O : WakeObligations arch Λ B asm Q E Ti p) :
+    Correct (target (kernel 2) E) (srcS p arch) Λ B asm := by
   have hsim := wake_stepSim O
   refine correct_of_stepSim hsim O.hwf ?_ ?_ ?_ ?_
   · obtain ⟨d, hd⟩ := O.hstart

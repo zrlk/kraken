@@ -1,8 +1,9 @@
 /-
-**`wc_worker`'s head on AArch64, with the thread rows** (the worker's half): `hello.w`'s `wc_worker` (`scc --arch arm -o -
-Scc/Test/hello.w`) from `.L23_wc_worker.0_entry` (after its prologue, `sp`
+**`wc_worker`'s head on AArch64, with the thread rows** (the worker's half):
+`hello.w`'s `wc_worker` (`scc --arch arm -o -
+Scc/Test/hello.w`) from `.L20_wc_worker.0_entry` (after its prologue, `sp`
 at the frame's base, offset `-96`; the arguments `x0..x5` in the words at
-`-96..-56`, `x29`/`x30` at `-16`/`-8`) to `.L23_wc_worker.sp4`, past the
+`-96..-56`, `x29`/`x30` at `-16`/`-8`) to `.L20_wc_worker.sp4`, past the
 call of hello's fenced `scc_rt_print` (`PrintF.printF_callT`).
 
 The `.0_entry` block (`wkE`) is `hello1`'s `wcE` with the scratch words
@@ -22,13 +23,14 @@ moved up by 8 (they sit above the worker's six argument words): it computes
   words, the thread pointer) are the caller's; so is `print`'s write system
   call (`hsvc`, `FA.hsvc_of_emitT` gives it from the output row).
 - `seg_wkT`: the head then the tail from `.sp4` (a hypothesis `htail`,
-  `WkTail.seg_wkTailU`'s conclusion), via `SegT.seq_or`.
+  `HelloTail.seg_wkTailU`'s conclusion), via `SegT.seq_or`.
 - `ThrHead.seg_thrHeadT`: `scc_rt_thr_worker`'s `.0_entry` block (`thE`)
   and its call of `wc_worker` (`call_ndT`, `wc_worker`'s segment given in
   every region `[-144, 0)` below the frame of 80).
 -/
 import Spike.Lib.A64PrintF
 import Spike.Lib.A64Alloc
+import Spike.Lib.A64HelloWkTail
 
 set_option linter.unusedSimpArgs false
 
@@ -84,10 +86,10 @@ theorem wkSl_keep (σ : AS) : wkSl σ (-16) = σ.slot (-16) ∧ wkSl σ (-8) = �
 /-- The abstract state at `print`'s entry, after the `.0_entry` block from
 `σ` (irreducible: the block's closed form is large). -/
 @[irreducible] def wkC (lab : Label → Int64) (σ : AS) : AS :=
-  (arun lab wkE ⟨lab ".L23_wc_worker.0_entry", ⟨-96, []⟩, σ⟩).σ
+  (arun lab wkE ⟨lab ".L20_wc_worker.0_entry", ⟨-96, []⟩, σ⟩).σ
 
 theorem wkC_eq (lab : Label → Int64) (σ : AS) :
-    wkC lab σ = (arun lab wkE ⟨lab ".L23_wc_worker.0_entry", ⟨-96, []⟩, σ⟩).σ := by
+    wkC lab σ = (arun lab wkE ⟨lab ".L20_wc_worker.0_entry", ⟨-96, []⟩, σ⟩).σ := by
   unfold wkC; rfl
 
 /-- The block's call leaves the return address `21` instructions on. -/
@@ -143,7 +145,7 @@ variable (lab : Label → Int64) (J : AS → Ctl → Prop) (Pr Qa : AS → Nat �
 call, the source at `print`'s predicate `Pr` of the call state at 0
 bytes. -/
 def wN : WN → ND
-  | .e => ⟨lab ".L23_wc_worker.0_entry", ⟨-96, []⟩, J⟩
+  | .e => ⟨lab ".L20_wc_worker.0_entry", ⟨-96, []⟩, J⟩
   | .call => ⟨lab "scc_rt_print", ⟨-96, []⟩, fun σ c => (∃ σ0 c0, J σ0 c0 ∧ σ = wkC lab σ0) ∧ Pr σ 0 c⟩
 
 /-- **The head's exits**: the caller's node `x` (at `.sp4`), and `print`'s
@@ -188,11 +190,11 @@ all `x1` bytes out (`hedge`). The code is `hcodeE` (the block), `hgap`
 system call is `hsvc` (in `PrintF.cN`'s form). -/
 theorem seg_wkBodyT (hF : FStable R F) (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -144)
     (hhi : 0 ≤ R.hi) {J : AS → Ctl → Prop} {Pr Qa : AS → Nat → Ctl → Prop} {x : ND}
-    (hxpc : x.pc = (_root_.Executable.labels exe).label ".L23_wc_worker.sp4") (hxo : x.o = ⟨-96, []⟩)
+    (hxpc : x.pc = (_root_.Executable.labels exe).label ".L20_wc_worker.sp4") (hxo : x.o = ⟨-96, []⟩)
     (hcodeE : ∀ s : State, s.exe = exe → s.endPc = endPc →
-      CodeAt s ((_root_.Executable.labels exe).label ".L23_wc_worker.0_entry") wkE)
-    (hgap : (_root_.Executable.labels exe).label ".L23_wc_worker.sp4" =
-      (_root_.Executable.labels exe).label ".L23_wc_worker.0_entry" + Int64.ofNat (4 * 21))
+      CodeAt s ((_root_.Executable.labels exe).label ".L20_wc_worker.0_entry") wkE)
+    (hgap : (_root_.Executable.labels exe).label ".L20_wc_worker.sp4" =
+      (_root_.Executable.labels exe).label ".L20_wc_worker.0_entry" + Int64.ofNat (4 * 21))
     {c0' : Ctl} {x29' ra' : BitVec 64} (hcode : PrintF.Code c0' x29' ra' exe endPc)
     (hentry : (_root_.Executable.labels exe).label ".L9_scc_rt_print.0_entry" =
       (_root_.Executable.labels exe).label "scc_rt_print" + 4 + 4 + 4 + 4 + 4 + 4)
@@ -219,7 +221,7 @@ theorem seg_wkBodyT (hF : FStable R F) (hR : R.OK) (hal : R.base.toNat % 16 = 0)
     refine ⟨c', hr, .inl ⟨WN.call, ?_, ?_, ⟨σ, c, hJ, (wkC_eq _ _).symm⟩, ?_⟩⟩
     · simp only [wN]; rw [wkE_run]
     · simp only [wN]; rw [wkE_run]; rfl
-    · show Pr (arun lab wkE ⟨lab ".L23_wc_worker.0_entry", ⟨-96, []⟩, σ⟩).σ 0 c'
+    · show Pr (arun lab wkE ⟨lab ".L20_wc_worker.0_entry", ⟨-96, []⟩, σ⟩).σ 0 c'
       rw [← wkC_eq]; exact hP
   case call =>
     refine PrintF.printF_callT (nC := wN lab J Pr .call) (Pc := Pr) (Qc := Qa) hR hal hF
@@ -238,9 +240,9 @@ theorem seg_wkBodyT (hF : FStable R F) (hR : R.OK) (hal : R.base.toNat % 16 = 0)
       exact .inr ⟨WX.abort, rfl, rfl, h4, σC, k, hQ⟩
 
 /-- **`wc_worker` from `.0_entry` to its return**, the head (`seg_wkBodyT`)
-then the tail from `.sp4` (`htail`: `WkTail.seg_wkTailU` for the ghosts
+then the tail from `.sp4` (`htail`: `HelloTail.seg_wkTailU` for the ghosts
 `c1 c2 A B x29 ra tp`, the source at `cw` after `print`'s return): at the
-return the source is past its `unpark` (`WkTail.E`), or `print` aborted.
+return the source is past its `unpark` (`HelloTail.E`), or `print` aborted.
 `hrec` gives the tail's invariant at `.sp4` from the entry's: the frame
 record, `c`/`j`'s words and the thread pointer (kept by the block and by
 `print`), and the source at `cw` once `print` is done. -/
@@ -248,9 +250,9 @@ theorem seg_wkT (hF : FStable R F) (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hl
     (hhi : 0 ≤ R.hi) {J : AS → Ctl → Prop} {Pr Qa : AS → Nat → Ctl → Prop}
     {cw c1 c2 : Ctl} {A B x29 ra tp : BitVec 64}
     (hcodeE : ∀ s : State, s.exe = exe → s.endPc = endPc →
-      CodeAt s ((_root_.Executable.labels exe).label ".L23_wc_worker.0_entry") wkE)
-    (hgap : (_root_.Executable.labels exe).label ".L23_wc_worker.sp4" =
-      (_root_.Executable.labels exe).label ".L23_wc_worker.0_entry" + Int64.ofNat (4 * 21))
+      CodeAt s ((_root_.Executable.labels exe).label ".L20_wc_worker.0_entry") wkE)
+    (hgap : (_root_.Executable.labels exe).label ".L20_wc_worker.sp4" =
+      (_root_.Executable.labels exe).label ".L20_wc_worker.0_entry" + Int64.ofNat (4 * 21))
     {c0' : Ctl} {x29' ra' : BitVec 64} (hcode : PrintF.Code c0' x29' ra' exe endPc)
     (hentry : (_root_.Executable.labels exe).label ".L9_scc_rt_print.0_entry" =
       (_root_.Executable.labels exe).label "scc_rt_print" + 4 + 4 + 4 + 4 + 4 + 4)
@@ -266,13 +268,13 @@ theorem seg_wkT (hF : FStable R F) (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hl
       ∀ c', Pr (wkC (_root_.Executable.labels exe).label σ0)
         (wkC (_root_.Executable.labels exe).label σ0).regs.X1.toBitVec.toNat c' → c' = cw)
     (htail : SegT p lbl ms
-      (At exe endPc R F (WkTail.N (_root_.Executable.labels exe).label cw c1 c2 A B x29 ra tp .sp4))
-      (fun s c => ∃ y, At exe endPc R F (WkTail.E c2 x29 ra tp y) s c)) :
+      (At exe endPc R F (HelloTail.N (_root_.Executable.labels exe).label cw c1 c2 A B x29 ra tp .sp4))
+      (fun s c => ∃ y, At exe endPc R F (HelloTail.E c2 x29 ra tp y) s c)) :
     SegT p lbl ms (At exe endPc R F (wN (_root_.Executable.labels exe).label J Pr .e))
-      (fun s c => (∃ y, At exe endPc R F (WkTail.E c2 x29 ra tp y) s c) ∨
+      (fun s c => (∃ y, At exe endPc R F (HelloTail.E c2 x29 ra tp y) s c) ∨
         At exe endPc R F (wX (_root_.Executable.labels exe).label Qa
-          (WkTail.N (_root_.Executable.labels exe).label cw c1 c2 A B x29 ra tp .sp4) .abort) s c) := by
-  refine (seg_wkBodyT (x := WkTail.N (_root_.Executable.labels exe).label cw c1 c2 A B x29 ra tp .sp4)
+          (HelloTail.N (_root_.Executable.labels exe).label cw c1 c2 A B x29 ra tp .sp4) .abort) s c) := by
+  refine (seg_wkBodyT (x := HelloTail.N (_root_.Executable.labels exe).label cw c1 c2 A B x29 ra tp .sp4)
     hF hR hal hlo hhi rfl rfl hcodeE hgap hcode hentry hm hcall hsvc ?_).mono_post ?_ |>.seq_or htail
   · intro σ0 c0 hJ0 σR c' hP hsl htp
     obtain ⟨h16, h8, h64, h56, htp0, hc⟩ := hrec σ0 c0 hJ0

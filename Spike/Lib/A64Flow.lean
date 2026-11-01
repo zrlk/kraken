@@ -48,9 +48,8 @@ So the block is stated over a **region** of the stack (`Region`,
   and no `K` move at each internal state.
 
 `block_spec` generates, for a concrete block, `okBlk` by `decide` and the
-closed form of `arun` by `simp` (`Spike/Lib/A64Hello.lean` applies it to a
-whole listing). The module lives in `Spike.Lib.A64.Flow` so that its names
-(`AS`, `Abs`, `AI`, `seg_block`, …) do not clash with `A64Block`'s.
+closed form of `arun` by `simp`. The module lives in `Spike.Lib.A64.Flow`
+so that its names (`AS`, `Abs`, `AI`, `seg_block`, …) do not clash with `A64Block`'s.
 -/
 import Spike.Lib.A64
 import Spike.Lib.Region

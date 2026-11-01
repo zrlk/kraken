@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Drift check of the generated program data and certificates: every
 # committed file regen_a64.sh / regen_x64.sh writes for the per-node
-# instances (`ret0`, and `hello1`'s negative certificate), the zero-frame
+# instances (`ret0`, `hello1` and AArch64 `hello`), the zero-frame
 # x64 certificate (`frame0`), the `call1` certificates (AArch64, x86-64) and the AArch64 `chain5`
 # certificate are what a fresh
 # regeneration from the current scc writes, and each copied program under
@@ -28,6 +28,7 @@ run bash Spike/Gen/regen_a64.sh ret0 A64Ret0 --check
 run bash Spike/Gen/regen_x64.sh ret0 X64Ret0 --check
 run bash Spike/Gen/regen_a64.sh hello1 A64Hello1 --check
 run bash Spike/Gen/regen_x64.sh hello1 X64Hello1 --check
+run bash Spike/Gen/regen_a64.sh hello A64Hello --check
 # The zero-frame x64 program (`Spike/Test/Frame0LinkedX64.lean`): its
 # certificate and the text its ELF fixture is linked from.
 frame0() {

@@ -88,7 +88,7 @@ structure SpawnPre (Q : WakeRel) (Λ : Scc.Sem.Layout) (D : WSide Q.ι) (r0 r1 :
 
 /-- **The `spawn` field.** -/
 theorem spawn_of {arch : WeakMem.Arch} {Λ : Scc.Sem.Layout} {asm : String} {E : Entry} {Q : WakeRel}
-    {D : WSide Q.ι} {r0 r1 : Q.ι → Range} {P0 : Q.ι → Cfg → TermRun.Cfg → TermRun.TTh → Prop}
+    {p : CoreTerm.Prog} {D : WSide Q.ι} {r0 r1 : Q.ι → Range} {P0 : Q.ι → Cfg → TermRun.Cfg → TermRun.TTh → Prop}
     (hown : Q.own = WakeOwn.wakeOwn) (hPT1 : Q.PT1 = PT1 D) (hKR : Q.KR = WakeKR.KR r0 r1)
     /- (the relation's parameters) the frozen words in both cover sets, the
     footprints outside the other thread's -/
@@ -100,18 +100,18 @@ theorem spawn_of {arch : WeakMem.Arch} {Λ : Scc.Sem.Layout} {asm : String} {E :
     abstract here: the instance fixes them, e.g. its frame, term,
     environment, label and control) -/
     (hpre : ∀ tid d s th stack tls r, SpawnPrem Q Λ asm E tid d s th stack tls r →
-      tid = 0 ∧ ∃ s' w s0 s1 lbl lsize ts j own₀, (wakeS arch).Run s [] s' ∧
+      tid = 0 ∧ ∃ s' w s0 s1 lbl lsize ts j own₀, (srcS p arch).Run s [] s' ∧
         SpawnPre Q Λ D r0 r1 w d th stack s' s0 s1 lbl lsize ts j own₀ ∧ P0 w d s' s0)
     /- (main's side: `MainAfter.main_closed_wake` into `Mi`) main's relation
     at the parent -/
     (hmain : ∀ d s th stack tls r s' w s0 s1 lbl lsize ts j own₀, SpawnPrem Q Λ asm E 0 d s th stack tls r →
-      (wakeS arch).Run s [] s' → SpawnPre Q Λ D r0 r1 w d th stack s' s0 s1 lbl lsize ts j own₀ →
+      (srcS p arch).Run s [] s' → SpawnPre Q Λ D r0 r1 w d th stack s' s0 s1 lbl lsize ts j own₀ →
       P0 w d s' s0 →
       Q.PT0 w d.1.mem s'.mem (retThread abi (parentPre abi d.2 0 th stack) r) s0)
     /- (the worker's side) the child in `Wi`, before its pass on both
     sides, its source views before the spawn -/
     (hwork : ∀ d s th stack tls r s' w s0 s1 lbl lsize ts j own₀, SpawnPrem Q Λ asm E 0 d s th stack tls r →
-      (wakeS arch).Run s [] s' → SpawnPre Q Λ D r0 r1 w d th stack s' s0 s1 lbl lsize ts j own₀ →
+      (srcS p arch).Run s [] s' → SpawnPre Q Λ D r0 r1 w d th stack s' s0 s1 lbl lsize ts j own₀ →
       D.Wi w (childAfter abi d.2 0 th stack tls).st (Ctl.of s1) ∧
         ¬ (Q.C w).passT (childAfter abi d.2 0 th stack tls).st ∧ ¬ (Q.C w).passS s1 ∧
         (Q.C w).mviewS s1 < (Q.SR w).S ∧ (Q.C w).obS s1 < (Q.SR w).S) :
@@ -119,7 +119,7 @@ theorem spawn_of {arch : WeakMem.Arch} {Λ : Scc.Sem.Layout} {asm : String} {E :
       d.1.threads[tid]? = some th → abi.atSys th.st = true → d.2.runs tid = true → d.2.exited = none →
       callOf abi th = some (.clone stack tls) → 0 < r.toNat → r.toNat < pidMax →
       CertAfter abi Arch.armv8 ((target (kernel 2) E).marks asm Λ) tid (afterClone abi d tid th stack tls r) →
-      ∃ s', (wakeS arch).Run s [] s' ∧ Q.Post Λ (afterClone abi d tid th stack tls r) s' := by
+      ∃ s', (srcS p arch).Run s [] s' ∧ Q.Post Λ (afterClone abi d tid th stack tls r) s' := by
   intro tid d s th stack tls r h1 h2 h3 h4 h5 h6 h7 h8 h9 h10
   have hP : SpawnPrem Q Λ asm E tid d s th stack tls r := ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10⟩
   obtain ⟨rfl, s', w, s0, s1, lbl, lsize, ts, j, own₀, hrun, hS, hP0⟩ := hpre _ _ _ _ _ _ _ hP

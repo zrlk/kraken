@@ -138,23 +138,23 @@ theorem post_local (hC : WCompat Q D μ Λ arch) (h : Parts Q D Λ w t s t0 t1 s
     (hT : CProtT (Q.SR w) (Q.C w) oc mem' t1 ts tp')
     (hpw : ∀ Tc kc, oc = some (Tc, kc) → Tc ∈ tp' → Tc ∈ t1'.prom)
     (htp : ∀ k ∈ tp', k ∈ tp) (hnd : t1'.prom.Nodup)
-    (hr : LocalRun wakeSrc (Ctl.of s1) c') (hwi : D.Wi w t1'.st c') :
-    ∃ s', (wakeS arch).Run s [] s' ∧ Q.Post Λ (t.1.withThread 1 t1' mem', t.2) s' := by
+    (hr : LocalRun D.p (Ctl.of s1) c') (hwi : D.Wi w t1'.st c') :
+    ∃ s', (srcS D.p arch).Run s [] s' ∧ Q.Post Λ (t.1.withThread 1 t1' mem', t.2) s' := by
   have hi := h.s1_get
   have hcw := hC.cwv w
-  have hctl' := localRun_wCtl hcw hr h.wCtl
+  have hctl' := localRun_wCtl hcw hr h.wCtl (D.wk w _ _ h.pt1.1)
   let s1' : TermRun.TTh := { s1 with term := c'.term, env := c'.env }
   have hc'eq : Ctl.of s1' = c' := by
     obtain ⟨tm, en, hd⟩ := c'
     have : hd = none := hctl'.hold
     subst this; rfl
-  have hrun : (wakeS arch).Run s [] { s with ths := s.ths.set! 1 s1' } :=
-    localRunS_run_source_i (P := srcPo 2 arch wakeSrc) rfl (by decide) hr.toS hi rfl rfl h.pt1.2.2.1 hex
+  have hrun : (srcS D.p arch).Run s [] { s with ths := s.ths.set! 1 s1' } :=
+    localRunS_run_source_i (P := srcPo 2 arch D.p) rfl (by decide) hr.toS hi rfl rfl h.pt1.2.2.1 hex
       (h.certified_set hC hr)
   have hs' : ({ s with ths := s.ths.set! 1 s1' } : TermRun.Cfg).ths = #[s0, s1'] := by
     show s.ths.set! 1 s1' = _
     rw [h.ths]; rfl
-  have hpass := localRun_pass hcw hr h.wCtl
+  have hpass := localRun_pass hcw hr h.wCtl (D.wk w _ _ h.pt1.1)
   have hpT : ∀ (st : isaLSE2.State) (c : Ctl), D.Wi w st c →
       ((Q.C w).passT st ↔ (c.term = wkUnpark ∨ c.term = .ret .unit)) := hC.pass w
   have hpT' : (Q.C w).passT t1'.st ↔ (Q.C w).passT t1.st := by
@@ -193,8 +193,8 @@ theorem post_rtw (hC : WCompat Q D μ Λ arch) (hwf : Λ.WF) (h : Parts Q D Λ w
     (hb : t1'.Bnd mem'.last) (hcov : CohCoversL t1'.views t1'.prom mem' ((Q.P w).cov 1))
     (hown : ExtRows.OwnOk (Q.own w 1 t1'.st []) mem' t1'.prom)
     (hnp : (Q.P w).noProm t1'.st → t1'.prom = [])
-    (hr : LocalRun wakeSrc (Ctl.of s1) c') (hwi : D.Wi w t1'.st c') :
-    ∃ s', (wakeS arch).Run s [] s' ∧ Q.Post Λ (t.1.withThread 1 t1' mem', t.2) s' := by
+    (hr : LocalRun D.p (Ctl.of s1) c') (hwi : D.Wi w t1'.st c') :
+    ∃ s', (srcS D.p arch).Run s [] s' ∧ Q.Post Λ (t.1.withThread 1 t1' mem', t.2) s' := by
   obtain ⟨hf, hout, hin⟩ := hC.mpW w _ hmp
   have hT0 := ((cProt_iff _ _ _).mp h.prot).1
   have hcTin : InLabel (Q.SR w).lbl (Q.SR w).lsize (Q.C w).cT := by
@@ -347,8 +347,8 @@ include hC hwf h hex hns hso ho hco
 /-- **The runtime-store row keeps `Post`.** -/
 theorem post_rtStore {kr : Kraken.StoreKind} {L : Loc} {V : Val} {s' : isaLSE2.State} {c' : Ctl}
     (he : isaLSE2.exec t1.st = some (.store kr false L V fun _ => .done s')) (hmp : (D.ms w).mp L true)
-    (hGV : (D.ms w).G L V) (hr : LocalRun wakeSrc (Ctl.of s1) c') (hX : D.Wi w s' c') :
-    ∃ s', (wakeS arch).Run s [] s' ∧ Q.Post Λ (t.1.withThread 1 o.thread o.mem, t.2) s' := by
+    (hGV : (D.ms w).G L V) (hr : LocalRun D.p (Ctl.of s1) c') (hX : D.Wi w s' c') :
+    ∃ s', (srcS D.p arch).Run s [] s' ∧ Q.Post Λ (t.1.withThread 1 o.thread o.mem, t.2) s' := by
   have hwide := hC.wide w _ _ h.pt1.1
   have hL8 : L.bytes = 8 := (Scc.Cert.WideA64.execLSE2_w8 hwide he).1
   have hfit : V.toNat < 2 ^ 64 := (Scc.Cert.WideA64.execLSE2_fit hwide he).1
@@ -371,10 +371,10 @@ latest write not promised, under its cover); no write keeps memory and
 promises (`post_instrKeep`), a write is out of label (`post_rtw`). -/
 theorem post_rtRmw {k : Kraken.RmwKind} {L : Loc} {op : Val → Option Val} {g : Val → isaLSE2.State} {c' : Ctl}
     (he : isaLSE2.exec t1.st = some (.rmw k false L op fun v => .done (g v))) (hmp : (D.ms w).mp L true)
-    (hr : LocalRun wakeSrc (Ctl.of s1) c')
+    (hr : LocalRun D.p (Ctl.of s1) c')
     (hX : ∀ old, (D.ms w).G L old → (∀ u, (L, u) ∈ (D.ms w).own t1.st → old = u) →
       (∀ new, op old = some new → (D.ms w).G L new) ∧ D.Wi w (g old) c') :
-    ∃ s', (wakeS arch).Run s [] s' ∧ Q.Post Λ (t.1.withThread 1 o.thread o.mem, t.2) s' := by
+    ∃ s', (srcS D.p arch).Run s [] s' ∧ Q.Post Λ (t.1.withThread 1 o.thread o.mem, t.2) s' := by
   have hwide := hC.wide w _ _ h.pt1.1
   have hL8 : L.bytes = 8 := (Scc.Cert.WideA64.execLSE2_w8 hwide he).1
   have hfit : ∀ old v, op old = some v → v.toNat < 2 ^ 64 := (Scc.Cert.WideA64.execLSE2_fit hwide he).1

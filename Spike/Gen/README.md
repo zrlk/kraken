@@ -3,8 +3,8 @@
 `genblocks_a64.py` and `genblocks_x64.py` read scc's assembly listing of a
 program and write one `block_spec` line per block of covered instructions,
 with its function's stack region and the block's static offsets at entry.
-`Spike/Lib/A64Hello.lean` and `Spike/Lib/X64Hello.lean` hold their output
-for `Scc/Test/hello.w` at an earlier revision, pasted below each file's header.
+`Spike/Lib/X64Hello.lean` holds the x86-64 output for `Scc/Test/hello.w` at
+an earlier revision, pasted below its header.
 
 The block lemmas (`Spike/Lib/A64Flow.lean`, `Spike/Lib/X64Block.lean`) and
 the composition (`Spike/Lib/A64Cfg.lean`, `Spike/Lib/X64Cfg.lean`) do not
@@ -88,6 +88,12 @@ outside `Accepted0`, so they make no correctness claim:
     Spike/Gen/regen_a64.sh hello1 A64Hello1
     Spike/Gen/regen_x64.sh hello1 X64Hello1
 
-`Spike/Gen/drift.sh` runs all eight staleness checks (`ret0`, `hello1` and
-`call1` on both ISAs, `frame0` on x86-64 and `chain5` on AArch64) and exits
+`hello.w` (copied to `Spike/Gen/hello.w`) and `wake.w` spawn; their
+`scc_rt_print` is the one every AArch64 program has (the write block led by
+`dmb ish`), so `hello_print` and `wake_print` are the trusted `printIn`:
+
+    Spike/Gen/regen_a64.sh hello A64Hello
+
+`Spike/Gen/drift.sh` runs all nine staleness checks (`ret0`, `hello1` and
+`call1` on both ISAs, `frame0` on x86-64, `hello` and `chain5` on AArch64) and exits
 0 when every generated file matches scc's output, 1 otherwise.

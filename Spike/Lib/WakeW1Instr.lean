@@ -70,8 +70,8 @@ theorem post_instrKeep (hC : WCompat Q D μ Λ arch) (h : Parts Q D Λ w t s t0 
     (hso : stepOne Arch.armv8 t1 1 t.1.mem = some outs) (ho : .ok o ∈ outs)
     (hco : CertOkC Arch.armv8 (certSem abi Arch.armv8 μ t.2 1) 1 o.thread o.mem)
     (hm : o.mem = t.1.mem) (hp : o.thread.prom = t1.prom) {c' : Ctl}
-    (hr : LocalRun wakeSrc (Ctl.of s1) c') (hwi : D.Wi w o.thread.st c') :
-    ∃ s', (wakeS arch).Run s [] s' ∧ Q.Post Λ (t.1.withThread 1 o.thread o.mem, t.2) s' := by
+    (hr : LocalRun D.p (Ctl.of s1) c') (hwi : D.Wi w o.thread.st c') :
+    ∃ s', (srcS D.p arch).Run s [] s' ∧ Q.Post Λ (t.1.withThread 1 o.thread o.mem, t.2) s' := by
   have hb := (stepOne_bnd _ hso ho h.core.bnd1).1
   have hcov := stepOne_cohL _ hso ho h.core.cov1
   have hown := h.own_step hC hns hso ho
@@ -115,16 +115,16 @@ include hC h hex hns hso ho hco
 
 /-- **The silent row keeps `Post`.** -/
 theorem post_silent {s' : isaLSE2.State} {c' : Ctl} (he : isaLSE2.exec t1.st = some (.done s'))
-    (hr : LocalRun wakeSrc (Ctl.of s1) c') (hX : D.Wi w s' c') :
-    ∃ s', (wakeS arch).Run s [] s' ∧ Q.Post Λ (t.1.withThread 1 o.thread o.mem, t.2) s' := by
+    (hr : LocalRun D.p (Ctl.of s1) c') (hX : D.Wi w s' c') :
+    ∃ s', (srcS D.p arch).Run s [] s' ∧ Q.Post Λ (t.1.withThread 1 o.thread o.mem, t.2) s' := by
   obtain ⟨hm, hp, hst⟩ := stepOne_silent_keep he (Lower.silentTree_done s') hso ho
   exact post_instrKeep hC h hex hns hso ho hco hm hp hr (hst ▸ hX)
 
 /-- **The choice row keeps `Post`.** -/
 theorem post_choice {P : isaLSE2.State → Prop} {tree : EvTree isaLSE2.State}
     (he : isaLSE2.exec t1.st = some tree) (hs : Lower.SilentTree P tree)
-    (hX : ∀ s', P s' → ∃ c', LocalRun wakeSrc (Ctl.of s1) c' ∧ D.Wi w s' c') :
-    ∃ s', (wakeS arch).Run s [] s' ∧ Q.Post Λ (t.1.withThread 1 o.thread o.mem, t.2) s' := by
+    (hX : ∀ s', P s' → ∃ c', LocalRun D.p (Ctl.of s1) c' ∧ D.Wi w s' c') :
+    ∃ s', (srcS D.p arch).Run s [] s' ∧ Q.Post Λ (t.1.withThread 1 o.thread o.mem, t.2) s' := by
   obtain ⟨hm, hp, hP⟩ := stepOne_silent_keep he hs hso ho
   obtain ⟨c', hr, hX'⟩ := hX _ hP
   exact post_instrKeep hC h hex hns hso ho hco hm hp hr hX'
@@ -132,8 +132,8 @@ theorem post_choice {P : isaLSE2.State → Prop} {tree : EvTree isaLSE2.State}
 /-- **The fence row keeps `Post`.** -/
 theorem post_fnc {k : Kraken.FenceKind} {s' : isaLSE2.State} {c' : Ctl}
     (he : isaLSE2.exec t1.st = some (.fence k fun _ => .done s'))
-    (hr : LocalRun wakeSrc (Ctl.of s1) c') (hX : D.Wi w s' c') :
-    ∃ s', (wakeS arch).Run s [] s' ∧ Q.Post Λ (t.1.withThread 1 o.thread o.mem, t.2) s' := by
+    (hr : LocalRun D.p (Ctl.of s1) c') (hX : D.Wi w s' c') :
+    ∃ s', (srcS D.p arch).Run s [] s' ∧ Q.Post Λ (t.1.withThread 1 o.thread o.mem, t.2) s' := by
   obtain ⟨hst, hm, hp⟩ := stepOne_fence_eq Arch.armv8 he hso ho
   exact post_instrKeep hC h hex hns hso ho hco hm hp hr (hst ▸ hX)
 
@@ -142,9 +142,9 @@ theorem post_fnc {k : Kraken.FenceKind} {s' : isaLSE2.State} {c' : Ctl}
 latest write not promised, under its cover). -/
 theorem post_rtLoad {kl : Kraken.LoadKind} {L : Loc} {g : Val → isaLSE2.State} {c' : Ctl}
     (he : isaLSE2.exec t1.st = some (.load kl false L fun v => .done (g v)))
-    (hr : LocalRun wakeSrc (Ctl.of s1) c')
+    (hr : LocalRun D.p (Ctl.of s1) c')
     (hX : ∀ v, (D.ms w).G L v → (∀ u, (L, u) ∈ (D.ms w).own t1.st → v = u) → D.Wi w (g v) c') :
-    ∃ s', (wakeS arch).Run s [] s' ∧ Q.Post Λ (t.1.withThread 1 o.thread o.mem, t.2) s' := by
+    ∃ s', (srcS D.p arch).Run s [] s' ∧ Q.Post Λ (t.1.withThread 1 o.thread o.mem, t.2) s' := by
   obtain ⟨hm, hp⟩ := stepOne_load_keep he hso ho
   rw [hC.G w] at hX
   simp only [hC.own w] at hX

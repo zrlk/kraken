@@ -223,7 +223,8 @@ theorem wake_obligations_IWR {Ab Ac : State → Prop}
     boundary) -/
     {pcfg' : Scc.Cert.PlaceOK.Config} {po : Scc.Cert.PlaceOK.A64.Out}
     (hpl : PlaceW pcfg' (RuntimeLayout.ofPlaceW hp i).Λ po)
-    (hpa : textProgram asm = .ok po.prog) :
+    (hpa : textProgram asm = .ok po.prog)
+    /- (`rfl` at wake's worker sides) -/ (hDp : D.p = Spike.Lib.WakeT1.wakeSrc := by rfl) :
     WakeObligations arch (RuntimeLayout.ofPlaceW hp i).Λ B asm
       (WakeQ.wakeQ arch R1 _ SR cT cS pT P G (wakeM hp i ok lab _ hoff) D r0 r1) E (TiPre Ab Ac) :=
   WakeAssemblyI.wake_obligations_I hp i hoff hC hx hC0 hstart O spawn
@@ -240,7 +241,7 @@ theorem wake_obligations_IWR {Ab Ac : State → Prop}
     hpl hpa
     (WakePostWit.post_wit_of rfl rfl (WakeQ.hwf_ofPlaceOK hp i)
       (fun w s c h => (hSR w).symm ▸ placed_I hp i w s c h)
-      (fun w s c h => Spike.Lib.A64.Flow.Worker.Wake.ZX.placed (hW w s c h).2))
+      (fun w s c h => Spike.Lib.A64.Flow.Worker.Wake.ZX.placed (hW w s c h).2)) hDp
 
 /-- `hW_IR` is `wake_obligations_IWR`'s `hW` at `wakeQI`'s data
 (`SR := (wakeSR ·.1)`, `cS := (·.1.cS)`, `D := wakeDR`). -/

@@ -60,11 +60,11 @@ promise at a no-promise state (`CertAfter`). -/
 theorem post_sys (hC : WCompat Q D μ Λ arch) (h : Parts Q D Λ w t s t0 t1 s0 s1 ts tp sp oc)
     (hex : SrcSem.mainExit s = []) {call : Call} (hat : abi.atSys t1.st = true)
     (hd : decode abi.nrs (abi.nr t1.st) (abi.arg t1.st) = some call)
-    (hok : SysOk wakeSrc (D.ms w) t1.st (Ctl.of s1) call)
-    (hx : ∀ s' ∈ certSuccs abi t1.st call, ∃ c', LocalRun wakeSrc (Ctl.of s1) c' ∧ D.Wi w s' c')
+    (hok : SysOk D.p (D.ms w) t1.st (Ctl.of s1) call)
+    (hx : ∀ s' ∈ certSuccs abi t1.st call, ∃ c', LocalRun D.p (Ctl.of s1) c' ∧ D.Wi w s' c')
     {p : Pick} {es : List Ev} {t' : Cfg} (hs : sysStep abi Arch.armv8 1 t p = some (es, t'))
     (hca : CertAfter abi Arch.armv8 μ 1 t') :
-    es = [] ∧ ∃ s', (wakeS arch).Run s [] s' ∧ Q.Post Λ t' s' := by
+    es = [] ∧ ∃ s', (srcS D.p arch).Run s [] s' ∧ Q.Post Λ t' s' := by
   have hc : callOf abi t1 = some call := hd
   have hnx : call ≠ .exit := hok.1
   have hcl : ∀ st tl, call ≠ .clone st tl := hok.2.1

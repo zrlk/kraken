@@ -230,16 +230,18 @@ theorem wake_obligations {Ab Ac : State → Prop}
     instructions is a release write, at most one per path -/
     (hW1 : ∀ w s c e, D.Wi w s c → isaLSE2.exec s = some e → EvTree.RelW1 Arch.armv8 e)
     /- (`WakePostWit.post_wit_of`) OPEN -/
-    (post_wit : ∀ t s, Q.Post Λ t s → WakeRunInv.RunInv Λ E t → ∃ w, Components (machine (kernel 2)) Λ w t s) :
+    (post_wit : ∀ t s, Q.Post Λ t s → WakeRunInv.RunInv Λ E t → ∃ w, Components (machine (kernel 2)) Λ w t s)
+    /- the sides' source program is wake.w's (`rfl` at wake's sides) -/
+    (hDp : D.p = wakeSrc := by rfl) (hMp : M.p = wakeSrc := by rfl) :
     WakeObligations arch Λ B asm Q E (TiPre Ab Ac) where
   hwf := hwf
   hstart := hstart
   pre_init := O.init
   pre_step := O.step
   spawn := spawn
-  post_step0 _ _ _ _ hP hs := WakeM0.post_step0_of hC hC0 hPT0 hKR hown hwf hP hs
-  post_step1 _ _ _ _ hP hnu hnt hs := post_step1_of hC hx hwf hP hnu hnt hs
-  unpark_src _ _ _ _ hP hu hs := unpark_src_of hC hx hwf hP hu hs
+  post_step0 _ _ _ _ hP hs := hMp ▸ WakeM0.post_step0_of hC hC0 hPT0 hKR hown hwf hP hs
+  post_step1 _ _ _ _ hP hnu hnt hs := hDp ▸ post_step1_of hC hx hwf hP hnu hnt hs
+  unpark_src _ _ _ _ hP hu hs := hDp ▸ unpark_src_of hC hx hwf hP hu hs
   worker_done := worker_done (texitFacts_of hC hKR)
   pre_progress := O.pre_progress
   post_progress t s hP hri hca := WakeProgress.post_progress_of hC hC0 hPT0 hKR (hMμ ▸ M.off) hhalt0 hhalt1 hP
