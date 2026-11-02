@@ -1,6 +1,6 @@
 /-
 **`XH` at every node of the spawned child's run** (AArch64; rows 5j-wit-W, 5j-wit-E-call): `SegRP.ZObl (XH Λ lbl)`,
-the `hX` input of `XH.zObl_XHF`, from `ZObl` at `PlacedSE` (row B8-placed-ZObl) and the layout's lack of
+the `hX` input of `XH.zObl_XHF`, from `ZObl` at `PlacedSE` and the layout's lack of
 immediates at the child's and the call's terms.
 
 `XH`'s second conjunct is `PlacedSE`'s consequence at the node's pinned control: at `kidH` (the stub, the thread
@@ -144,7 +144,7 @@ theorem wcObl_XH (hcS : w3.val = .loc cS 0) (hiw : ∀ y k, Λ.imms workerCallH 
     case svc => exact xh_of hp (h3_cS2 hJ.1.1)
     all_goals exact xh_of hp (h3_cS2 hJ.1)
 
-/-- **`ZObl` at `XH`** from `ZObl` at `PlacedSE` (row B8-placed-ZObl): the stub and the thread worker's
+/-- **`ZObl` at `XH`** from `ZObl` at `PlacedSE`: the stub and the thread worker's
 prologue and head at `kidH`, its tail at `cS2`, `wc_worker` by `wcObl_XH`. -/
 theorem zObl_XH {R : Region} {F : MachineData → Prop} {T : Ty} (hcS : w3.val = .loc cS 0)
     (hik : ∀ y k, Λ.imms (kidC T w0 w1 w2 w3 w4).term y k = none) (hiw : ∀ y k, Λ.imms workerCallH y k = none)

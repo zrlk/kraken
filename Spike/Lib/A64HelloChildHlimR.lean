@@ -1,6 +1,6 @@
 /-
 **The child's limit-word premises at the root's clone data** (AArch64, the residual of
-`B8-seg-hlim`): `Hello.SegR.ChildPrem`'s `hlimT`/`hlimW` exactly as the root's `hCP` asks them
+the child's stack-limit premises): `Hello.SegR.ChildPrem`'s `hlimT`/`hlimW` exactly as the root's `hCP` asks them
 (`A64HelloRootInv.hello_root_inv`'s `hCP`): at the worker's memory side `HelloMsW.msWH (LH hp i) (GH hp i (G0H hp i))
 (SRH hp i) w`, the frame `DFrame (childR stack (-272)) (childAfter abi x tid th stack tls).st.st.1`, the thread
 pointer `ofNat tls` and the stack `ofNat stack`.
@@ -16,7 +16,7 @@ take `r1Of`) at `msH`; `TlsTcb` is read only through `rt`, `mp`, `G`, which `msW
     initial value, a loader fact as wake's `A64WakeRoot`'s), `hsub1` (`StartPlaceLy.hsub1_W hp i hA13`);
   - `hm`: the memory relation at the record's placement (`PreRH.pre.inv1.mem`, after `PreRH.pre.SR`);
   - `hheld`, `htop`: `PreRH.pre.held`, `PreRH.pre.top` (`r1 := fun _ => r1Of (LH hp i).lab`);
-  - `htls`: the clone's thread pointer the second TCB `tH` (row B8-hS-Q2's clone side: `ClonePreH` gives
+  - `htls`: the clone's thread pointer the second TCB `tH` (clone side: `ClonePreH` gives
     `tls = x3`, and `HelloTcbArea.x3_of_cloneMidH` gives `x3 = tH` at `CloneMidH`).
 -/
 import Spike.Lib.A64HelloTcbArea

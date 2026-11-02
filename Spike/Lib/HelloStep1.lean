@@ -1,6 +1,6 @@
 /-
 **hello.w on AArch64: a step of the worker after the spawn keeps `Post`**
-(row B8-gen1; `HelloAssembly.HelloRows.post_step1`, the twin of
+(`HelloAssembly.HelloRows.post_step1`, the twin of
 `WakeW1.post_step1_of`): `Post` unpacks at `PT1hE`
 (`HelloEmitPh.post_partsHE`): at `PT1h`, whose phase sum splits the step, or
 mid-`write` (`EmitStep1`).
@@ -11,7 +11,7 @@ mid-`write` (`EmitStep1`).
   `relW` is `WCompatXH`'s fields, `wcompatX_relW`); its `Post` at `relW`
   is `Post` at `Q` (`HelloW1Store.post_ofW`). `relW` changes `PT1` only, so
   its `atUnpk`, `atTexit` are `Q`'s.
-- The print phase: `PrintStep1` (row B8-gen1p, this file's open part, to be
+- The print phase: `PrintStep1` (this file's open part, to be
   discharged by the print phase's rows).
 
 - `wcompatX_relW`: `WCompatX` at `relW` from `WCompatXH` (`krp` by
@@ -21,7 +21,7 @@ mid-`write` (`EmitStep1`).
   phase, at `KR = HelloKRE.KRHE` (design (i′)).
 - `PrivAt`, `privAt_of_runInv`: the threads' private keys private (from
   the run invariant), `post_step1`'s premise for the worker's `write`.
-- `EmitStep1`: the worker mid-`write` (row B8-W1E).
+- `EmitStep1`: the worker mid-`write`.
 - `post_step1H`: `post_step1` given `PrintStep1`, `EmitStep1` and
   `StoreWr0`, at `Q.PT1 = PT1hE D` (the `rfl` at `HelloQ.helloQ`, also
   `HelloCompat`'s `WCompatH.pt1`).
@@ -109,7 +109,7 @@ theorem privAt_of_runInv {E : Entry} {t : Cfg} (hE : E.clear Λ = true) (hri : W
     PrivAt Λ t :=
   ⟨E, hE, hri.1.dmemPriv⟩
 
-/-- **The print phase's obligation** (row B8-gen1p): from `Post`'s parts
+/-- **The print phase's obligation**: from `Post`'s parts
 with the worker in the print phase, a step of the worker other than its
 unpark and exit rows keeps `Post`. -/
 def PrintStep1 (Q : WakeRel) (D : WSideH Q.ι) (μ : Marks) (Λ : Scc.Sem.Layout) (arch : WeakMem.Arch) : Prop :=
@@ -117,7 +117,7 @@ def PrintStep1 (Q : WakeRel) (D : WSideH Q.ι) (μ : Marks) (Λ : Scc.Sem.Layout
     PrintPh (D.bufL w) (D.nB w) (D.mB w) (D.cw w) s1 → ¬ Q.atUnpk t s → ¬ Q.atTexit t s →
     (machine (kernel 2)).Step μ 1 t es t' → ∃ s', (srcS helloSrc arch).Run s (obs es) s' ∧ Q.Post Λ t' s'
 
-/-- **The worker mid-`write`'s obligation** (row B8-W1E): from `Post`'s parts
+/-- **The worker mid-`write`'s obligation**: from `Post`'s parts
 mid-`write` (`HelloEmitPh.PartsE`) off the worker's invariant, a step of the
 worker keeps `Post` (`HelloEmitW1.emitStep1_of`). -/
 def EmitStep1 (Q : WakeRel) (D : WSideH Q.ι) (μ : Marks) (Λ : Scc.Sem.Layout) (arch : WeakMem.Arch) : Prop :=

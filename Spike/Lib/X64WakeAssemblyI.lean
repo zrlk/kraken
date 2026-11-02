@@ -105,12 +105,13 @@ theorem wake_obligations_I {Ab Ac : State → Prop}
     (post_wit : ∀ t s,
       (X64WakeQ.wakeQ arch R1 _ SR cT cS pT P G (wakeM hp i T W ok lab _ hoff) D r0 r1 passT T W).Post
         (RuntimeLayout.ofPlaceWX hp i).Λ t s → X64WakeRunInv.RunInv (RuntimeLayout.ofPlaceWX hp i).Λ E t →
-      ∃ w, Components (machine (kernel 2)) (RuntimeLayout.ofPlaceWX hp i).Λ w t s) :
+      ∃ w, Components (machine (kernel 2)) (RuntimeLayout.ofPlaceWX hp i).Λ w t s)
+    /- (`rfl` at wake's worker sides) -/ (hDp : D.p = Spike.Lib.X64WakeT1.wakeSrc := by rfl) :
     WakeObligations arch (RuntimeLayout.ofPlaceWX hp i).Λ B asm
       (X64WakeQ.wakeQ arch R1 _ SR cT cS pT P G (wakeM hp i T W ok lab _ hoff) D r0 r1 passT T W) E
       (TiPre Ab Ac) :=
   X64WakeAssembly.wake_obligations (X64WakeQ.hwf_ofPlaceOK hp i) rfl rfl rfl hC hx hC0 hstart O spawn
-    (hhalt0_I hp i T W) hhalt1 (hmapM_I hp i T W) hmapW (hMμ_I hp i T W) hpl hpa hW1 post_wit
+    (hhalt0_I hp i T W) hhalt1 (hmapM_I hp i T W) hmapW (hMμ_I hp i T W) hpl hpa hW1 post_wit hDp
 
 /-- info: 'Spike.Lib.X64WakeAssemblyI.wake_obligations_I' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
@@ -156,7 +157,8 @@ theorem wake_obligations_IW {Ab Ac : State → Prop}
     (post_wit : ∀ t s,
       (X64WakeQ.wakeQ arch R1 _ SR cT cS pT P G (wakeM hp i T W ok lab _ hoff) D r0 r1 passT T W).Post
         (RuntimeLayout.ofPlaceWX hp i).Λ t s → X64WakeRunInv.RunInv (RuntimeLayout.ofPlaceWX hp i).Λ E t →
-      ∃ w, Components (machine (kernel 2)) (RuntimeLayout.ofPlaceWX hp i).Λ w t s) :
+      ∃ w, Components (machine (kernel 2)) (RuntimeLayout.ofPlaceWX hp i).Λ w t s)
+    /- (`rfl` at wake's worker sides) -/ (hDp : D.p = Spike.Lib.X64WakeT1.wakeSrc := by rfl) :
     WakeObligations arch (RuntimeLayout.ofPlaceWX hp i).Λ B asm
       (X64WakeQ.wakeQ arch R1 _ SR cT cS pT P G (wakeM hp i T W ok lab _ hoff) D r0 r1 passT T W) E
       (TiPre Ab Ac) :=
@@ -168,7 +170,7 @@ theorem wake_obligations_IW {Ab Ac : State → Prop}
       exact X64WakeLabMapped.labMapped_flag
         (fun sa hpt => (Spike.Lib.X64.Flow.Worker.Wake.ZX.labPtr (hW w s c hi).2 sa hpt).trans (hcS w).symm)
         hAa hTa (hC.cTin w))
-    (Spike.Lib.X64.Flow.Worker.Wake.ZX.hW1_ofX (cOf := id) hW) hpl hpa post_wit
+    (Spike.Lib.X64.Flow.Worker.Wake.ZX.hW1_ofX (cOf := id) hW) hpl hpa post_wit hDp
 
 /-- info: 'Spike.Lib.X64WakeAssemblyI.wake_obligations_IW' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
@@ -210,14 +212,15 @@ theorem wake_obligations_IWP {Ab Ac : State → Prop}
       Kernel.mapped (X64Consumer.K0 (RuntimeLayout.ofPlaceWX hp i).Λ) wr L = true)
     {pcfg' : Scc.Cert.PlaceOK.Config} {po : Scc.Cert.PlaceOK.X64.Out}
     (hpl : PlaceWX pcfg' (RuntimeLayout.ofPlaceWX hp i).Λ po)
-    (hpa : cellsOf asm = some po.prog) :
+    (hpa : cellsOf asm = some po.prog)
+    /- (`rfl` at wake's worker sides) -/ (hDp : D.p = Spike.Lib.X64WakeT1.wakeSrc := by rfl) :
     WakeObligations arch (RuntimeLayout.ofPlaceWX hp i).Λ B asm
       (X64WakeQ.wakeQ arch R1 _ SR cT cS pT P G (wakeM hp i T W ok lab _ hoff) D r0 r1 passT T W) E
       (TiPre Ab Ac) :=
   wake_obligations_IW hp i hoff hC hx hC0 hstart O spawn hend hW hcS hmp hpl hpa
     (X64WakePostWit.post_wit_of rfl rfl (X64WakeQ.hwf_ofPlaceOK hp i)
       (fun w s c h => (hSR w).symm ▸ placed_I hp i T W w s c h)
-      (fun w s c h => (hlbl w).symm ▸ Spike.Lib.X64.Flow.Worker.Wake.ZX.placed (hW w s c h).2))
+      (fun w s c h => (hlbl w).symm ▸ Spike.Lib.X64.Flow.Worker.Wake.ZX.placed (hW w s c h).2)) hDp
 
 /-- info: 'Spike.Lib.X64WakeAssemblyI.wake_obligations_IWP' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in

@@ -1,6 +1,6 @@
 /-
 **hello.w on AArch64: a step of main after the spawn keeps `Post`** (row
-B8-gen0; `HelloAssembly.HelloRows.post_step0`, the twin of
+`HelloAssembly.HelloRows.post_step0`, the twin of
 `WakeM0Post.post_step0_of` at hello's worker data `PT1h` and kernel
 relation `KRH`; the twin of `WakeM0Rt`, `WakeM0Prom`, `WakeM0Flag` and
 `WakeM0Post`, see `Spike/Lib/HelloM0Keep.lean`).

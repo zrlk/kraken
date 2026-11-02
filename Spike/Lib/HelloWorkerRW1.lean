@@ -1,6 +1,6 @@
 /-
 **hello.w's worker's `hW1` at `helloDR`** (row
-B8-genV-hW1, AArch64): at `Z := fun _ => ZHR exe kp`
+AArch64): at `Z := fun _ => ZHR exe kp`
 (`Spike/Lib/A64HelloZR.lean`), every state of `helloDR`'s invariant runs an
 instruction whose tree writes at most once, a release write
 (`WakeConv1`'s `hW1`, the worker's half of `HelloAssembly`'s `hconv`).

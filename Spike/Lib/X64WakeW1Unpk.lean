@@ -1,5 +1,5 @@
 /-
-**The worker's unpark** (hello plan 1.6; data in
+**The worker's unpark** (data in
 `Spike/Lib/WakeW1.lean`, `Spike/Lib/WakeW1Compat.lean`).
 
 At `atUnpk` the source worker is at `let w = unpark j in ret ()`, past its
@@ -78,7 +78,7 @@ theorem post_unpk (hC : WCompat Q D μ Λ arch) (hx : WCompatX Q D) (hwf : Λ.WF
     (hev : TermRun.evalAt (Ctl.of s1).env a = some (ty, [jw]))
     (hX : ∀ old, (D.ms w).G ⟨A, 8⟩ old → (∀ u, (⟨A, 8⟩, u) ∈ (D.ms w).own t1.st → old = u) →
       (D.ms w).G ⟨A, 8⟩ 1 ∧ D.Wi w (g old) ⟨e, (x, ExtName.unpark.sig.2, []) :: (Ctl.of s1).env, none⟩) :
-    ∃ s', (wakeS arch).Run s [] s' ∧ Q.Post Λ (t.1.withThread 1 o.thread o.mem, t.2) s' := by
+    ∃ s', (srcS D.p arch).Run s [] s' ∧ Q.Post Λ (t.1.withThread 1 o.thread o.mem, t.2) s' := by
   have hctl := h.wCtl
   have hcw := hC.cwv w
   have hstk : s1.stack = [] := h.pt1.2.1
@@ -112,13 +112,14 @@ theorem post_unpk (hC : WCompat Q D μ Λ arch) (hx : WCompatX Q D) (hwf : Λ.WF
   -- the source unpark
   let s1x : TermRun.TTh := { s1 with term := .ret .unit, env := ("w", ExtName.unpark.sig.2, []) :: s1.env }
   let pm : Option Nat := some (max (s0.permit.getD 0) (TermRun.relView s1.vs))
-  have hc : TermRun.Certified wakeSrc (srcPo 2 arch wakeSrc).k (srcPo 2 arch wakeSrc).arch
+  have hc : TermRun.Certified D.p (srcPo 2 arch D.p).k (srcPo 2 arch D.p).arch
       (TermRun.extCfg s 1 s1 "w" .unpark (.ret .unit) [jw'] []) 1 :=
     certified_nil (TermExtStep.extCfg_ths_self h.s1_get "w" .unpark (.ret .unit) [jw'] [] (by decide)) (by simpa using hs1p)
-  have hstep := unpark_src_i (P := srcPo 2 arch wakeSrc) (p := wakeSrc) rfl (by decide) h.s1_get hst hj hc hex
-  have hrun : (wakeS arch).Run s [] (TermRun.wake (TermRun.extCfg s 1 s1 "w" .unpark (.ret .unit) [jw'] []) 1 (TermRun.relView s1.vs)
+  have hstep := unpark_src_i (P := srcPo 2 arch D.p) (p := D.p) rfl (by decide) h.s1_get hst hj hc hex
+  have hrun : (srcS D.p arch).Run s [] (TermRun.wake (TermRun.extCfg s 1 s1 "w" .unpark (.ret .unit) [jw'] []) 1
+      (TermRun.relView s1.vs)
       .unpark [jw']) :=
-    LRun.step (step := fun c es c' => ∃ i, (wakeS arch).step i c es c') ⟨1, hstep⟩ (LRun.refl _)
+    LRun.step (step := fun c es c' => ∃ i, (srcS D.p arch).step i c es c') ⟨1, hstep⟩ (LRun.refl _)
   have hsm : (TermRun.wake (TermRun.extCfg s 1 s1 "w" .unpark (.ret .unit) [jw'] []) 1 (TermRun.relView s1.vs) .unpark [jw']).mem =
       s.mem := by rw [TermExtStep.wake_mem]; simp [TermRun.extCfg]
   have hE : (TermRun.extCfg s 1 s1 "w" .unpark (.ret .unit) [jw'] []).ths = #[s0, s1x] := by
@@ -176,7 +177,7 @@ theorem post_unpk (hC : WCompat Q D μ Λ arch) (hx : WCompatX Q D) (hwf : Λ.WF
       CProtT (Q.SR w) (Q.C w) oc o.mem t1 ts tp' →
       (∀ Tc kc, oc = some (Tc, kc) → Tc ∈ tp' → Tc ∈ o.thread.prom) → (∀ k ∈ tp', k ∈ tp) →
       o.thread.prom.Nodup →
-      ∃ s', (wakeS arch).Run s [] s' ∧ Q.Post Λ (t.1.withThread 1 o.thread o.mem, t.2) s' := by
+      ∃ s', (srcS D.p arch).Run s [] s' ∧ Q.Post Λ (t.1.withThread 1 o.thread o.mem, t.2) s' := by
     intro tp' hm hcore hT hpw htp hnd
     refine ⟨_, hrun, post_frame0 (ts' := ts) (tp' := tp') (sp' := sp) hC hx pm h.th h.ths hs' h.preC h.pt0 h.kr
       h.core.T_le ?_ ?_ ?_ ?_ (by rw [TermExtStep.wake_trace]; simp [TermRun.extCfg, CoreTerm.ExtName.events])⟩
@@ -287,7 +288,7 @@ a source run with no observable event. -/
 theorem unpark_src_of (hC : WCompat Q D μ Λ arch) (hx : WCompatX Q D) (hwf : Λ.WF) {t t' : Cfg}
     {s : TermRun.Cfg} {es : List Ev} (hpost : Q.Post Λ t s) (hu : Q.atUnpk t s)
     (hs : (machine (kernel 2)).Step μ 1 t es t') :
-    ∃ s', (wakeS arch).Run s (obs es) s' ∧ Q.Post Λ t' s' := by
+    ∃ s', (srcS D.p arch).Run s (obs es) s' ∧ Q.Post Λ t' s' := by
   obtain ⟨w, t0, t1, s0, s1, ts, tp, sp, oc, h⟩ := post_parts hC hpost
   have hex : SrcSem.mainExit s = [] := hC.mainLive t s hpost hs.runs.2.1
   have hwi := h.pt1.1

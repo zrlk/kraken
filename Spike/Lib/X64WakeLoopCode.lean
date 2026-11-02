@@ -1,5 +1,5 @@
 /-
-**wake.w on x86-64: `scc_rt_park`'s code** (hello plan 1.6, main's rows
+**wake.w on x86-64: `scc_rt_park`'s code** (main's rows
 after the spawn): the x86-64 twin of
 `Spike/Lib/A64WakeLoopCode.lean`. `Park.Code` in any valid layout of
 `SccCode.wakeCells`, every block decided (`parkIn`), and the park's

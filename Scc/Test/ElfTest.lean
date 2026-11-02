@@ -176,7 +176,7 @@ def verdict (f : String) (p : ByteArray → Except String ByteArray) : IO Unit :
 
 -- A `.data` symbol moved below the code: no longer refused for being below it, but outside every data
 -- region, so the layout is not well-formed.
-/-- info: the layout is not well-formed (wfB) -/
+/-- info: the layout is not well-formed (wfB): symbol scc_rt_msg1 outside every data region -/
 #guard_msgs in
 #eval verdict "Scc/Test/elf/a" fun b => do return put64 b ((← entryOf b "scc_rt_msg1") + 8) 0x200000
 
@@ -265,5 +265,21 @@ def secIdx (b : ByteArray) (n : String) : Except String Nat := do
     (b.extract (strs.offset + k) (strs.offset + k + 18)).data.toList == ".note.gnu.build-id".toUTF8.data.toList
     | throw "no name"
   return b.set! (strs.offset + k + 17) 'X'.toNat.toUInt8
+
+/-! ## The refusal message and the verdict
+
+`Link.wfBWhy` (the conjuncts named in the reader's `wfB` refusal) is empty exactly when `Link.wfB`
+holds: the message cannot drift from the verdict. -/
+
+theorem wfBWhy_nil_iff (Λ : Layout) : Link.wfBWhy Λ = [] ↔ Link.wfB Λ = true := by
+  have hw : ∀ (p : Prop) [Decidable p] (s : String), (if p then ([] : List String) else [s]) = [] ↔ p :=
+    fun p _ s => by by_cases h : p <;> simp [h]
+  simp only [Link.wfBWhy, Link.wfB, Layout.regions, List.zip_cons_cons, List.zip_nil_right,
+    List.flatMap_cons, List.flatMap_nil, List.append_eq_nil_iff, List.flatMap_eq_nil_iff,
+    List.all_cons, List.all_nil, Bool.and_eq_true, List.all_eq_true, Bool.and_true, hw, and_true,
+    and_assoc]
+
+/-- info: 'Scc.Test.Elf.wfBWhy_nil_iff' depends on axioms: [propext, Quot.sound] -/
+#guard_msgs in #print axioms wfBWhy_nil_iff
 
 end Scc.Test.Elf

@@ -51,7 +51,7 @@ def X2H (L : RuntimeLayout) (a endPc : Int64) (lbl : Lbl) (lsize : Lsize) : Frag
     s.st.1.regs.X1.toBitVec = Spike.Lib.A64.Flow.WakeWc.kOf L.lab ∧
     -- main's segment end (`HelloSegEnd.hpc_ofR`'s `hseg`): `At` in the widened region, base, alignment, `ra`, `x13`
     Spike.Lib.HelloCloneSegD.CloneSegD L endPc s c ∧
-    -- `x3` the second TCB (`HelloTcbArea.x3_of_cloneMidH`; root-hCP's `hx3`, row B8-hS-Q2's clone side)
+    -- `x3` the second TCB (`HelloTcbArea.x3_of_cloneMidH`; root-hCP's `hx3`, clone side)
     (s.st.1.regs.getXReg .X3).toBitVec = Spike.Lib.A64.Flow.HelloWc.tH L.lab) ∧
     (pcOf s = a.toBitVec.toNat →
       Kernel.siteRange abi s = Spike.Lib.A64.Rt.PreChild.r1Of L.lab ∧

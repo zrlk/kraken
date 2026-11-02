@@ -1,0 +1,332 @@
+/-
+**`HMidPAH.ti`'s discharger** (x86-64; the twin of `Spike/Lib/A64HelloTi2Hat.lean`, and the hello twin of
+`Spike/Lib/X64WakeTi2Hat.lean`): hello's second `scc_rt_thread_init` call, from `wc_main` on the second TCB `tH`
+returning to `.Lwc_main.x25`, is a segment inside the level and its fence `(W ∧ X) ∧ NoSetFsAt` under the take of
+the second stack or a `clone` refusal (`TakeCK site r1Of Cl`), at `tpXa (ms []) tp`, its post the stack `r1Of` in
+private memory.
+
+`Rt.threadInit_segWAtAC` at `r1Of` (`q.k0 = 16384`) and the return point `.x8` (`Rt.x8L`), its node obligations
+`StartTi.ti2_WSPH` (inside `StartWf.WSH` at `X0TH`, the take site's frame condition `Pz r1Of ∧ CallerCells`)
+lifted to `WSHX` (the start's level at `ownGHXW`: `OwnTi2.ti2LH`, `TiWAtP.imp`) and to `NoSetFsAt`
+(`tiWAtP_nmAt`); `WSHX` gives `W ∧ X` (`hWX`: the level lift, generic as hello's `W`, `X` are); the take `TakeK` is `TakeCK`'s off the clone's pc (`SegW.mono_K`; `X0TH`'s first conjunct, `hCl`).
+
+The callee's frame on the pool and `r1Of` off it come from `BoxPureH`'s base (`hbase`: `bandP_boxH`, `hout_boxH`,
+`hRS_boxH`), main's stack owned at the site (`owned_r0H`) from the box's frame off `R` (`hF0`, `StackOff`), the
+call's frame, the take's frame (`R'`'s cells off the take's region, `TiWAtP`'s site condition `CallerCells`, via
+`ti2_WSPH`'s `hXs`) and the take's cells, `R`'s bounds 8-aligned (`hR8`). Main's slots `-48` (the box's cell) and
+`-40` (main's id) are kept by the callee's frames (`slotPH_keep`), and so are the slice's `-8`, `-24`, `-32`
+(`slotSlH_keep`); the placement of `c0` at them is `hpl`. Left as named premises: the second TCB's words (`hmF`,
+`hunF`, `hnoF`, `hoffT`), the counters off the arena (`hoffL`, `hoffX`), the source's facts (`hSctl`, `hpl`), the
+field and take facts (`hfld`, `htk`), `hF0`, the level lift (`hWX`, from `WSHX`), the worker's TCB word off the
+counters and `a` (`hW`), the refusal's pc (`hCl`, `hcl`), the words'
+separation (`hs`), the rodata (`hro`) and the second stack in the pool (`hsub`). The child's stack unowned before
+its take comes from the pre's `Pz r1Of` (`x0TH_sitePz`), kept by the callee's frames (`pz_fstable_ti2H`).
+
+- `tiWAtP_nmAt`: `scc_rt_thread_init`'s obligations at any return point `xr` inside `W ∧ NoSetFsAt`
+  (wake's `Ti2.tiWAtP_nm` at `.x7`).
+- `site_ne_clonePcH`: the take site is off hello's clone's pc.
+- `hti_H`: `HMidPAH.ti`.
+
+No absolute address appears in the main theorem.
+
+**Unlike AArch64**: the take site's frame condition is `Pz r1Of ∧ CallerCells R' (-48 - 0) (-200) 8`
+(`Rt.TiWAtP`, `threadInit_segWAtAC`, as wake's x86-64 `hti_W`), not `TiW`'s `.call` `CallerCells`; the thread
+init returns to `.x8` (`Rt.x8L`; `Rt.TiWAtP … x8L`, `threadInitInAt … x8L`), so the `NoSetFsAt` lift is
+`tiWAtP_nmAt` (wake's `tiWAtP_nm` is at `.x7`); the fence is `NoSetFsAt` (A64's `NoMsrAt`); the source facts are
+at `QBH` (the box's fence, `X64HelloHatA.HMidPAH.ti`; A64's `SBH`); the regions are x86-64's (`R.callee (-136)
+(-248) 8`, the call's return slot `-136`; `R`'s base `96` below the second stack, `BoxPureH`'s; main's slots at
+`-48`, `-40`, the slice's at `-8`, `-24`, `-32`); `R'` needs no alignment premise; the caller's offsets at the
+call are `HelloWc.oCH`.
+-/
+import Spike.Lib.X64HelloHatA
+import Spike.Lib.X64HelloTi2P
+import Spike.Lib.X64HelloTi2HatG
+import Spike.Lib.X64HelloTi2Box
+import Spike.Lib.X64HelloTi2Slot
+import Spike.Lib.X64HelloTi2SlotSl
+import Spike.Lib.X64HelloTi2R0
+import Spike.Lib.X64WakeTiNoMsrP
+import Spike.Lib.X64WakeTi2HatG
+import Spike.Lib.Rt.X64SegsAC
+import Spike.Lib.X64HelloOwnTi2X
+import Spike.Lib.X64WakeOwnStartTiP
+
+namespace Spike.Lib.X64HelloTi2Hat
+
+section NoSetFs
+
+open Kraken Kraken.Promising Kraken.Promising.X64
+open Spike.Lib (Region)
+open Spike.Lib.X64 (ND BlkW NodeW At)
+open Spike.Lib.X64.KeepTP (NoSetFsAt)
+open Spike.Lib.X64.Flow (ofNat_zero')
+open Spike.Lib.X64.Flow.Ret0 (TiG TI tiCall storeBlks_eq)
+open Spike.Lib.X64.Flow.Ret0.StackTake (stackTakeIn)
+open Spike.Lib.X64.Flow.Ret0.ThreadInit (threadInitInAt storeOff callBlk)
+open Spike.Lib.X64.Rt (TiWAt TiWAtP)
+open Spike.Lib.X64.WakePh.Ti2 (blkA nodeA takeWP_nm)
+open Scc.Cert.Rt.X64 (Lays endOf)
+
+variable {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe] {endPc : Int64}
+  {R : Region} {F M P : MachineData → Prop} {W : Frag isa} {K : State → State → Prop}
+  {kp : Nat} {cells : List (Directive × Nat)}
+
+set_option hygiene false in
+/-- A block node at its `blockAtB` check `H`. -/
+local macro "tb " H:term:max : tactic =>
+  `(tactic| exact blkA hp hend hi $H (by first | rfl | exact ofNat_zero' _) (by decide))
+
+set_option hygiene false in
+/-- A single-instruction node at its `blockAtB` check `H`. -/
+local macro "tn " H:term:max : tactic =>
+  `(tactic| exact nodeA hp hend hi $H (by first | rfl | exact ofNat_zero' _) (by decide) (by decide))
+
+set_option maxHeartbeats 1600000 in
+/-- **`scc_rt_thread_init` at the return point `xr` is inside `W ∧ NoSetFsAt`, the take site under `F ∧ P`**
+(wake's `Ti2.tiWAtP_nm` at `.x7`): its blocks and stores by `blkA`/`nodeA` from `threadInitInAt … xr`, the
+nested take by `takeWP_nm`. -/
+theorem tiWAtP_nmAt {xr : Label} (hp : Lays exe cells kp) (hend : endPc = endOf exe cells kp)
+    (hin : threadInitInAt cells xr = true) (hst : stackTakeIn cells = true) {q : TiG}
+    (h : ∀ i, TiWAtP W K exe endPc R F M q xr P i) :
+    ∀ i, TiWAtP (fun s c => W s c ∧ NoSetFsAt s) K exe endPc R F M q xr P i := by
+  simp only [threadInitInAt, storeOff, storeBlks_eq,
+    List.zip_cons_cons, List.zip_nil_right, List.all_cons, List.all_nil, Bool.and_true, Bool.and_eq_true,
+    and_assoc] at hin
+  obtain ⟨-, t0, t1, tc, -, t2, t3, t4, t5, t6, t7, t8, s0, s1, s2, s3, s4, s5⟩ := hin
+  rw [show callBlk = tiCall from rfl] at tc
+  intro i
+  have hi := h i
+  by_cases hic : i = .call
+  · subst hic
+    dsimp only [TiWAtP] at hi ⊢
+    exact fun g hg => takeWP_nm hp hend hst (hi g hg)
+  rw [Spike.Lib.X64.Rt.tiWAtP_eq hic] at hi ⊢
+  cases i <;> dsimp only [TiWAt] at hi ⊢
+  case e => tb t0
+  case entry => tb t1
+  case c7 => tb tc
+  case call => exact absurd rfl hic
+  case x7 => tb t2
+  case st0 => tn s0
+  case f1 => tb t3
+  case st1 => tn s1
+  case f2 => tb t4
+  case st2 => tn s2
+  case f3 => tb t5
+  case st3 => tn s3
+  case f4 => tb t6
+  case st4 => tn s4
+  case f5 => tb t7
+  case st5 => tn s5
+  case ret => tb t8
+
+end NoSetFs
+
+section Hat
+
+open CoreLang CoreTerm
+open Kraken Kraken.Promising Kraken.Promising.X64
+open Spike.Lib Spike.Lib.X64 Spike.Lib.X64.Flow
+open Spike.Lib.X64.Flow.HelloWc (FrMGH wcNIH tH oCH)
+open Spike.Lib.X64.Flow.WakeWc (MidG tiQ stOk_tpXa)
+open Spike.Lib.X64.Flow.Ret0 (tiN tiX StackM CallerCells)
+open Spike.Lib.X64.Flow.Ret0.StackTake (siteL)
+open Spike.Lib.X64.Rt (RuntimeLayout)
+open Spike.Lib.X64.Rt.PreChild (r1Of)
+open Spike.Lib.X64.KeepTP (NoSetFsAt tpXa)
+open Spike.Lib.X64ConsumerA (TakeCK)
+open Spike.Lib.X64Consumer (Pz Lbl Lsize)
+open Spike.Lib.X64HelloHMid (QBH)
+open Spike.Lib.X64HelloPreA (clonePcH)
+open Spike.Lib.X64.HelloPh.StartWf (WSH)
+open Spike.Lib.X64.HelloPh.Ti2 (X0TH SlotPH SlotSlH)
+open Spike.Lib.X64.HelloPh (lo WSHX)
+open Scc.Sem.X64 (pcOf abi codeLabel)
+
+/-- **The take site is off hello's clone's pc**: the site (`StartTi.take_labsH`) is below the clone, `.x25 + 94`
+(`HelloPh.labs_eqH`). -/
+theorem site_ne_clonePcH {L : RuntimeLayout}
+    (hlab : ∀ l x, codeLabel lo SccCode.helloCells l = some x → L.lab l = Int64.ofNat x) :
+    (L.lab siteL).toBitVec.toNat ≠ clonePcH L := by
+  obtain ⟨-, -, -, -, -, -, -, -, -, eSite, -, -⟩ := Spike.Lib.X64.HelloPh.StartTi.take_labsH hlab (L := L)
+  obtain ⟨-, -, -, -, -, h25, -, -, -⟩ := Spike.Lib.X64.HelloPh.labs_eqH hlab (L := L)
+  have e : clonePcH L = (L.lab ".Lwc_main.x25").toBitVec.toNat + 94 := by
+    show ((L.lab ".Lwc_main.x25").toBitVec + 94#64).toNat = _
+    rw [BitVec.toNat_add, h25]; rfl
+  have es : L.lab siteL = Int64.ofNat 4200314 := eSite
+  rw [e, h25, es]; decide
+
+set_option maxHeartbeats 3200000 in
+/-- **`HMidPAH.ti` at `R`, `F`, `J1`, `tp`**: from the layout's program hello's (`hp`, `hlo`, `hlab`, `hsite`,
+`hΛ`), the words' separation at `a` (`hs`), `BoxPureH`'s base (`hbase`), and the named premises of the file's
+header; `WSHX`'s arena `ar`, debts `Dt`, refusal `Cw`, contexts `Ctx`, sizes `lsize` and main frame `frM c0`
+free (`hWX` lifts it to `W ∧ X`), the worker's TCB word off the counters and `a` (`hW`). -/
+theorem hti_H {L : RuntimeLayout} {W X : FragS isa} {ms : List TermRun.Frame → MemSide isa}
+    {p : Prog} {lbl : Lbl} {Cl : State → Prop} {l : WeakMem.AllocLabel} {b : Nat} {ws : List TermRun.Word}
+    {R : Region} {F : MachineData → Prop} {J1 : AS → Ctl → Prop} {tp : UInt64}
+    {a : BitVec 64} {ar : Arena} {Dt Cw : State → Prop} {Ctx : FragS isa} {lsize : Lsize}
+    {frM : Ctl → TermRun.Frame}
+    (hp : L.prog = SccCode.helloCells) (hlo : L.Λ.code.lo = lo)
+    (hlab : ∀ l x, codeLabel lo SccCode.helloCells l = some x → L.lab l = Int64.ofNat x)
+    (hsite : (Spike.Lib.X64.PhRec.μ L).site .take = some (L.lab siteL).toBitVec.toNat)
+    (hΛ : L.Λ.abortLbl = Scc.Cert.Link.abortName)
+    (hcl : ∀ s, Cw s → abi.atSys s = true ∧
+      ∃ st tl, Scc.Sem.Kernel.decode abi.nrs (abi.nr s) (abi.arg s) = some (.clone st tl))
+    (hCl : ∀ s, Cl s → pcOf s = clonePcH L)
+    (hWX : ∀ c0 cA, MidG (QBH l b ws) c0 cA → ∀ s c,
+      WSHX L a ar p Dt Cw Ctx lbl lsize (frM c0) (X0TH L (L.lab siteL)) s c → W s c [] ∧ X s c [])
+    (hs : Spike.Lib.X64.WakePh.WSep L a)
+    (hW : Spike.Lib.X64HelloOwnLift.tcbWH L ∉ [L.pnA, L.lockA, L.freeNA, L.nextA, a]) (hro : L.Λ.rodata.Disjoint L.Λ.stackPool)
+    (hSctl : ∀ c0 cA, MidG (QBH l b ws) c0 cA → (∀ a, c0.term ≠ .ret a) ∧ Spike.Lib.X64.WakeWf.RunWf p c0 [])
+    (hpl : ∀ c0 sl me cA fr, MidG (QBH l b ws) c0 cA ∧ FrMGH J1 fr sl me → ∀ s : State,
+      SlotPH R b me.toNat s.st.1 ∧ SlotSlH R sl.1.toNat sl.2.2.1.toNat sl.2.2.2.toNat s.st.1 →
+      Spike.Lib.X64ConsumerS.PlacedSE L.Λ lbl s c0 [])
+    (hFr : ∀ m, F m → Spike.Lib.X64.Rt.rtF L m)
+    (hmF : ∀ a ∈ Spike.Lib.X64.Rt.Ti.tiAddrs (tH L.lab),
+      Scc.Sem.Kernel.mapped (Spike.Lib.X64Consumer.K0 L.Λ) true ⟨a, 8⟩ = true)
+    (hunF : ∀ a ∈ Spike.Lib.X64.Rt.Ti.tiAddrs (tH L.lab), ∀ m, F m → Mem.loadInt m.dmem a 8 = none)
+    (hnoF : ∀ b ∈ Spike.Lib.X64.Rt.Ti.tiAddrs (tH L.lab), ∀ j w,
+      (⟨b, 8⟩, w) ∉ Spike.Lib.X64.HelloPh.own2bH L a j)
+    (hoffT : ∀ b ∈ Spike.Lib.X64.Rt.Ti.tiAddrs (tH L.lab),
+      ¬ (ar.heap ≤ b.toNat ∧ b.toNat < ar.heap + 16 * ar.cells) ∧ (⟨b, 8⟩ : Loc) ≠ ar.ctrLoc)
+    (hoffL : ¬ (ar.heap ≤ L.lockA.toNat ∧ L.lockA.toNat < ar.heap + 16 * ar.cells) ∧
+      (⟨L.lockA, 8⟩ : Loc) ≠ ar.ctrLoc)
+    (hoffX : ¬ (ar.heap ≤ L.nextA.toNat ∧ L.nextA.toNat < ar.heap + 16 * ar.cells) ∧
+      (⟨L.nextA, 8⟩ : Loc) ≠ ar.ctrLoc)
+    (hbase : R.base.toNat + 96 = L.stacksA.toNat + 16384) (hRs : R.lo ≤ -384 ∧ 8 ≤ R.hi)
+    (hR8 : R.lo % 8 = 0 ∧ R.hi % 8 = 0)
+    (hsub : (r1Of L.lab).Sub L.Λ.stackPool)
+    (hF0 : ∀ m, F m → Ret0.StackOff (Spike.Lib.X64.Rt.Ti2.r0Of L.lab) R m)
+    (hfld : ∀ e ∈ Ret0.ThreadInit.fields (tH L.lab) (Ret0.stacksA L.lab + 16384#64),
+      Ret0.StOk (ms []) F (tH L.lab + BitVec.ofNat 64 e.1) e.2)
+    (htk : ∀ (c0 : Ctl) (R' : Region) (F' : MachineData → Prop), (∀ m, F' m → F m) →
+      R' = R.callee (-136) (-248) 8 → ∀ (g g' : Ret0.AllocTcb.G),
+      Spike.Lib.X64.Rt.TakeOkA (ms []) F L.exe L.endPc (R'.callee (-48 - 0) (-200) 8) F'
+        (Ret0.tiTake (tiQ (tH L.lab) c0 g) g')) :
+    ∀ c0 sl me cA fr, MidG (QBH l b ws) c0 cA ∧ FrMGH J1 fr sl me →
+    ∀ (R' : Region) (F' : MachineData → Prop), R'.OK → R'.lo ≤ -248 → 8 ≤ R'.hi →
+      FStable R' F' → KStable (TakeCK (L.lab Ret0.StackTake.siteL) (r1Of L.lab) Cl) F' →
+      (∀ m, F' m → F m) → R' = R.callee (-136) (-248) 8 →
+      (∀ m, F' m → ∀ k, R.Off k → ¬ R'.Off (k - -136) → (Mem.loadInt m.dmem (R.addr k) 8).isSome) →
+      ∀ g : Ret0.AllocTcb.G,
+        (∃ σC c, (wcNIH L.lab c0 (tH L.lab) sl me cA fr).J σC c ∧
+          (tiN L.lab (tiQ (tH L.lab) c0 g) .e).J (enter (-136) σC) c) →
+        (∀ m', F' m' → ∃ mC σC c, Abs R oCH mC σC ∧ (wcNIH L.lab c0 (tH L.lab) sl me cA fr).J σC c ∧
+          (tiN L.lab (tiQ (tH L.lab) c0 g) .e).J (enter (-136) σC) c ∧
+          ∀ k, R.Off k → ¬ R'.Off (k - -136) →
+            Mem.loadInt m'.dmem (R.addr k) 8 = Mem.loadInt mC.dmem (R.addr k) 8) →
+        SegW (fun s c => (W s c [] ∧ X s c []) ∧ NoSetFsAt s)
+          (TakeCK (L.lab Ret0.StackTake.siteL) (r1Of L.lab) Cl) p lbl (tpXa (ms []) tp)
+          (fun s c => At L.exe L.endPc R' F' (tiN L.lab (tiQ (tH L.lab) c0 g) .e) s c ∧ Pz (r1Of L.lab) s.st.1)
+          (fun s c => ∃ x, At L.exe L.endPc R' F' (tiX L.lab (tiQ (tH L.lab) c0 g) x) s c ∧
+            StackM (r1Of L.lab) s.st.1) := by
+  intro c0 sl me cA fr hM R' F' hR hRlo hhi hF hKt hFF hR' hCC g hpre hFm
+  subst hR'
+  obtain ⟨l', A, ⟨-, rfl, -⟩, hcA⟩ := id hM.1
+  have hbd := Spike.Lib.X64.HelloPh.Ti2.bandP_boxH hbase
+  have hfit := Spike.Lib.X64.Rt.fitS_of_sub L hsub
+  have hout := Spike.Lib.X64.HelloPh.Ti2.hout_boxH (L := L) hbase
+  have hRS := Spike.Lib.X64.HelloPh.Ti2.hRS_boxH (L := L) hbase
+  have hrc : Spike.Lib.X64.Rt.RtCodeIn0 L.prog := hp ▸ Spike.Lib.X64.HelloPh.hello_rtCodeIn0
+  have hti : Ret0.ThreadInit.threadInitInAt L.prog Spike.Lib.X64.Rt.x8L = true :=
+    hp ▸ Spike.Lib.X64.HelloPh.hello_tiIn
+  -- the return address `.x25`, from the caller's node
+  have hra : g.ra = (L.lab ".Lwc_main.x25").toBitVec := by
+    obtain ⟨σC, c, hw, -, -, -, hx, -⟩ := hpre
+    exact hx.symm.trans hw.2.2.1
+  -- the take's frame and `r1Of`'s stability
+  have hSM := Ret0.stackM_stable hfit hout
+  have hSMt : FStable ((R.callee (-136) (-248) 8).callee (-48 - 0) (-200) 8) (StackM (r1Of L.lab)) := by
+    refine Ret0.stackM_stable hfit fun a h8 ha ha7 => ?_
+    show (a : Int) + 8 ≤ (((R.callee (-136) (-248) 8).callee (-48 - 0) (-200) 8).base.toNat : Int) + -200 ∨
+      (((R.callee (-136) (-248) 8).callee (-48 - 0) (-200) 8).base.toNat : Int) + 8 ≤ a
+    have hb' := Region.callee_base (hi' := 8) hR
+      (show (R.callee (-136) (-248) 8).lo ≤ (-48 - 0) + -200 by omega)
+      (by decide) (show (-48 - 0 : Int) < (R.callee (-136) (-248) 8).hi by omega)
+    rcases hout a h8 ha ha7 with h | h
+    · exact .inl (by omega)
+    · exact .inr (by omega)
+  have hal8 : R.base.toNat % 8 = 0 := by have := L.stacks_al; omega
+  -- main's slots at the callee's states, for the placement
+  have hPlK0 := Spike.Lib.X64.HelloPh.Ti2.slotPH_keep (L := L) hbase ⟨by omega, by omega⟩ hcA rfl fun m' h =>
+    let ⟨mC, σC, _, hA, hJ, _, hk⟩ := hFm m' h
+    ⟨mC, σC, hA, hJ.2.2.2.2.2.2.2.2.2.1, hJ.2.2.2.2.2.2.2.2.1, hk⟩
+  -- the slice's slots (`FrWH`'s `-8`, `-24`, `-32`), for the packet's words
+  have hPlS := Spike.Lib.X64.HelloPh.Ti2.slotSlH_keep (L := L) (sl := sl) hbase ⟨by omega, by omega⟩ fun m' h =>
+    let ⟨mC, σC, _, hA, hJ, _, hk⟩ := hFm m' h
+    ⟨mC, σC, hA, hJ.2.2.2.2.1, hJ.2.2.2.2.2.2.1, hJ.2.2.2.2.2.2.2.1, hk⟩
+  have hPlK := fun m m' h hd => And.intro (hPlK0 m m' h hd) (hPlS m m' h hd)
+  -- the take site's frame condition
+  let PT : MachineData → Prop := fun m => Pz (r1Of L.lab) m ∧
+    CallerCells (R.callee (-136) (-248) 8) (-48 - 0) (-200) 8 m
+  -- the nodes inside `WSH` at `X0TH`, then at `NoSetFsAt`
+  have hT := Spike.Lib.X64.HelloPh.StartTi.ti2_WSPH (P := PT)
+    (L := L) (a := a) (rS := r1Of L.lab) (ar := ar) (p := p) (Dt := Dt) (Cl := Cw)
+    (Ctx := Ctx) (lbl := lbl) (lsize := lsize) (frM := frM c0)
+    (X0 := X0TH L (L.lab siteL))
+    hp hlo hlab hsite hcl (hSctl c0 cA hM.1) (hpl c0 sl me cA fr hM) hPlK
+    (Spike.Lib.X64.HelloPh.Ti2.x0TH_ti hlab rfl)
+    (Spike.Lib.X64.WakePh.Ti2.bandP_callee hbd (by decide) (by decide)) hΛ hs hro hR hRlo hhi
+    (fun m h => hFr m (hFF m h)) (tiQ (tH L.lab) c0 g) rfl hmF (fun a ha m h => hunF a ha m (hFF m h)) hnoF
+    hra rfl hsub hSM hSMt hoffT hoffL hoffX
+    (fun s hpc hr hm hP h3 => Spike.Lib.X64.HelloPh.Ti2.x0TH_sitePz (site_ne_clonePcH hlab)
+      (P := fun s => CallerCells (R.callee (-136) (-248) 8) (-48 - 0) (-200) 8 s.st.1 ∧
+        ∀ k, ((R.callee (-136) (-248) 8).callee (-48 - 0) (-200) 8).Off k →
+          (Mem.loadInt s.st.1.dmem (((R.callee (-136) (-248) 8).callee (-48 - 0) (-200) 8).addr k) 8).isSome)
+      (fun s _ _ hm h4 => Spike.Lib.X64.HelloPh.Ti2.owned_r0H hbase hal8 hR8 hRs (hF0 _ (hFF _ hm)) (hCC _ hm)
+        h4.1 h4.2) s hpc hr hm hP.1 ⟨hP.2, h3⟩)
+  -- lifted to `WSHX` (`ti2LH` at the worker's TCB word), then to `NoSetFsAt`
+  have htcb : (tiQ (tH L.lab) c0 g).tcb = Spike.Lib.X64HelloOwnLift.tcbWH L := by
+    show Ret0.pinA L.lab + 112#64 = L.pinA + 112#64; rw [L.lab_pin]
+  have hL := Spike.Lib.X64.HelloPh.OwnTi2.ti2LH (L := L) (a := a) (ar := ar) (p := p) (Dt := Dt) (Cl := Cw)
+    (Ctx := Ctx) (lbl := lbl) (lsize := lsize) (frM := frM c0) (X0 := X0TH L (L.lab siteL))
+    (M := StackM (r1Of L.lab)) hp hlab hsite hs.tcb (hs.tcb_a 1 (by decide)) hW
+    (Spike.Lib.X64.WakePh.Ti2.bandP_callee hbd (by decide) (by decide)) hR hRlo hhi
+    (fun m h => hFr m (hFF m h)) (tiQ (tH L.lab) c0 g) htcb (fun a ha m h => hunF a ha m (hFF m h)) hra
+  have hTX : ∀ j, Spike.Lib.X64.Rt.TiWAtP (WSHX L a ar p Dt Cw Ctx lbl lsize (frM c0) (X0TH L (L.lab siteL)))
+      (Spike.Lib.X64.PhRec.K L (r1Of L.lab)) L.exe L.endPc (R.callee (-136) (-248) 8) F'
+      (StackM (r1Of L.lab)) (tiQ (tH L.lab) c0 g) Spike.Lib.X64.Rt.x8L PT j := fun j =>
+    Spike.Lib.X64.WakePh.TiWAtP.imp (hT j) (hL j) fun _ _ h1 h2 => h2 h1
+  have hTn := tiWAtP_nmAt L.lays rfl hti hrc.take hTX
+  -- the fields' and the take's facts under `tpXa`
+  have hfld' : ∀ e ∈ Ret0.ThreadInit.fields (tH L.lab) (Ret0.stacksA L.lab + 16384#64),
+      Ret0.StOk (tpXa (ms []) tp) F (tH L.lab + BitVec.ofNat 64 e.1) e.2 :=
+    fun e he => stOk_tpXa (hfld e he)
+  have htk' : ∀ g', Spike.Lib.X64.Rt.TakeOkA (tpXa (ms []) tp) F L.exe L.endPc
+      ((R.callee (-136) (-248) 8).callee (-48 - 0) (-200) 8) F' (Ret0.tiTake (tiQ (tH L.lab) c0 g) g') :=
+    fun g' => Spike.Lib.X64.WakePh.Ti2.takeOkA_tpX (htk c0 _ F' hFF rfl g g')
+  have hFt : ∀ m pm, F' m → F' (Ret0.takeMem pm (r1Of L.lab) m) :=
+    Ret0.takeMem_of_kstable (a := L.lab siteL) (fun s s' hk hm => hKt s s' (.inl hk) hm) L.exe L.endPc
+  -- the segment, at `TakeK` of the site
+  have hseg := Spike.Lib.X64.Rt.threadInit_segWAtAC (p := p) (lbl := lbl)
+    (ms := tpXa (ms []) tp) (F0 := F) L.lays rfl hti hrc.take hF hR hRlo hhi hFF (tiQ (tH L.lab) c0 g)
+    (by show (16384#64 : BitVec 64).toNat + 16384 ≤ 536870912; decide) hfld' htk'
+    (P := Pz (r1Of L.lab)) (Spike.Lib.X64.HelloPh.Ti2.pz_fstable_ti2H hbase)
+    hTn hRS hfit hout hFt
+  -- off the clone's pc `TakeK` of the site is `TakeCK`
+  have hseg1 := hseg.mono_K (K' := TakeCK (L.lab siteL) (r1Of L.lab) Cl)
+    fun s c hw s' => by
+      constructor
+      · rintro (hk | ⟨hcl', -⟩)
+        · exact hk
+        · exact absurd (hCl s hcl') hw.1.2.1.1
+      · exact fun hk => .inl hk
+  -- `WSHX` gives `W ∧ X`
+  have hseg2 := hseg1.mono_W (W' := fun s c => (W s c [] ∧ X s c []) ∧ NoSetFsAt s)
+    fun s c hw => ⟨hWX c0 cA hM.1 s c hw.1, hw.2⟩
+  refine hseg2.mono_post fun s c h => ?_
+  obtain ⟨x, he, hn, hdc, hpc, σ, hA, ⟨hD, hM'⟩, hJ⟩ := h
+  exact ⟨x, ⟨he, hn, hdc, hpc, σ, hA, hD, hJ⟩, hM'⟩
+
+end Hat
+
+end Spike.Lib.X64HelloTi2Hat
+
+/-- info: 'Spike.Lib.X64HelloTi2Hat.tiWAtP_nmAt' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in #print axioms Spike.Lib.X64HelloTi2Hat.tiWAtP_nmAt
+
+/-- info: 'Spike.Lib.X64HelloTi2Hat.site_ne_clonePcH' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in #print axioms Spike.Lib.X64HelloTi2Hat.site_ne_clonePcH
+
+/-- info: 'Spike.Lib.X64HelloTi2Hat.hti_H' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in #print axioms Spike.Lib.X64HelloTi2Hat.hti_H

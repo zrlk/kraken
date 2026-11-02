@@ -1,6 +1,5 @@
 /-
-**A step of main after the spawn keeps `Post`** (hello plan 1.6,
-`post_step0`; data in `Spike/Lib/X64WakeM0.lean`,
+**A step of main after the spawn keeps `Post`** (`post_step0`; data in `Spike/Lib/X64WakeM0.lean`,
 `Spike/Lib/X64WakeM0Compat.lean`). The thread-0 counterpart of
 `Spike/Lib/X64WakeW1Post.lean`.
 
@@ -58,7 +57,7 @@ otherwise). -/
 theorem post_step0_of (hC : WCompat Q D μ Λ arch) (hC0 : WCompat0 Q M μ Λ) (hPT0 : Q.PT0 = PT0 M)
     (hKR : Q.KR = X64WakeKR.KR r0 r1) (hwf : Λ.WF) {t t' : Cfg}
     {s : TermRun.Cfg} {es : List Ev} (hpost : Q.Post Λ t s) (hs : (machine (kernel 2)).Step μ 0 t es t') :
-    ∃ s', (wakeS arch).Run s (obs es) s' ∧ Q.Post Λ t' s' := by
+    ∃ s', (srcS M.p arch).Run s (obs es) s' ∧ Q.Post Λ t' s' := by
   obtain ⟨w, t0, t1, s0, s1, ts, tp, sp, oc, h⟩ := post_parts hC hpost
   have ht0 : t.1.threads[0]? = some t0 := by rw [h.th]; rfl
   have hx : t.2.exited = none := hs.runs.2.1

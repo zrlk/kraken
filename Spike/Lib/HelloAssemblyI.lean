@@ -28,8 +28,8 @@ the data's guarantee below the records' `hG`, the target store point
 clone `hMainR`, the child's entry `hWi`, the worker's halting and mapped
 facts at its system calls and instructions `hhalt1`, `hmapW` (progress's
 worker half), and `HelloRowsW` (`HelloRows` without main's step, row
-B8-gen0, the worker's unpark, row B8-genU, progress, row B8-genP, and the
-steps' keeping `CertAll`, row B8-genC, which `HelloM0Post.post_step0H`,
+the worker's unpark, progress, and the
+steps' keeping `CertAll`, which `HelloM0Post.post_step0H`,
 `HelloUnpk.unpark_srcH`, `HelloProgress.post_progressH` (main's halting and
 mapped facts from `HelloMainInv.mainInvP_W`, `WakeMappedRow.hM_of`) and
 `HelloCert.cert_stepH` (from `HelloRowsW.hconv`) prove).
@@ -161,9 +161,9 @@ theorem hello_obligations_I {arch : WeakMem.Arch} {B : Budget} {asm : String} {E
     (hd : dataSections asm = some o.secs)
     /- row: 5j-start. The entry state is clear of the layout. -/
     (hE : E.clear (LH hp i).Λ = true)
-    /- row: B8-R1 (row 1's `hbuf` in `R1`). The pre-spawn half. -/
+    /- (row 1's `hbuf` in `R1`). The pre-spawn half. -/
     (O : Pre1T arch (LH hp i).Λ B asm E R1 Ab Ac helloSrc)
-    /- row: B8-R1. `R1` is the pre-spawn relation with its source
+    /- `R1` is the pre-spawn relation with its source
     conjuncts (`HelloHPre.hpre_ofH`'s `hR1`). -/
     (hR1 : ∀ d s, R1 d s → R1OH arch (LH hp i).Λ (μH hp i E asm) Dd XH d s)
     /- row: 5j-hCl. The clone's facts at the pre-spawn segment's end
@@ -191,15 +191,15 @@ theorem hello_obligations_I {arch : WeakMem.Arch} {B : Budget} {asm : String} {E
     (hWi : HWiH arch R1 (SRH hp i) (fun w => w.1.cT) (fun w => w.1.cS) (fun w => w.1.pT) (PaH hp i E asm)
       (GH hp i G0) passT (MH hp i G0 E hpa) (DH hp i G0 P Z X hseg) (fun _ => Dd.r0) (fun _ => r1c) (LH hp i).Λ asm E
       (HelloHPre.FrH Dd))
-    /- row: B8-genP-hhalt1. The worker's states run at a system call
+    /- The worker's states run at a system call
     (`WakeAssembly`'s `hhalt1`). -/
     (hhalt1 : ∀ w s c fs, (DH hp i G0 P Z X hseg).Wi w s c fs → abi.atSys s = true → (isaLSE2.exec s).isSome)
-    /- row: B8-genP-hmapW. The worker's instructions touch only
+    /- The worker's instructions touch only
     locations mapped in `K0` (`WakeAssembly`'s `hmapW`). -/
     (hmapW : ∀ w s c fs, (DH hp i G0 P Z X hseg).Wi w s c fs → abi.atSys s = false → ∀ e,
       isaLSE2.exec s = some e →
       ¬ Kernel.Touches (fun l w => Kernel.mapped (A64Consumer.K0 (LH hp i).Λ) w l = false) e)
-    /- rows: B8-gen1/V, 5i, 5j-wit; see
+    /- 5i, 5j-wit; see
     `HelloRowsW`' fields. -/
     (R : HelloRowsW arch (LH hp i).Λ B asm (QH hp i G0 P Z X hseg arch R1 E hpa passT Dd r1c) E
       (DH hp i G0 P Z X hseg) (MH hp i G0 E hpa) (AbW (LH hp i).exe) (hcwH hp i G0 P Z X hseg)

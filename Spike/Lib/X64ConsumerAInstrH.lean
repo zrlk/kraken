@@ -23,12 +23,9 @@ open Spike.Lib.CtrRows (CtrW)
 variable {P : SrcSem.SrcParams} {p : Prog} {Λ : Scc.Sem.Layout} {I : InvS} {μ : Marks} {rd : TermRun.Word → Prop}
   {G : Loc → Val → Prop} {own : OwnS} {ar : Arena}
 
-/-- **An instruction step from `PreJAH`**, the ranges held by `H`
-(`instr_stepA` over `HeldPathS`; `H` kept by `HeldPathS.instr` at the
-landing in the fragment, given by `PendA.inv`): the outcome `o` of the instruction at a pair of the
-fragment off the take site and off a system call is matched by a source run
-landing in `RSAH`. -/
-theorem instr_stepAH {ab : Option (State → Prop)} {Cl : State → Prop} (hP : HookOK P p) (hN : NodesA Λ p μ rd G own ar I ab Cl)
+/-- **An instruction step from `PreJAH` from a given row** (`instr_stepAH`
+with `NodesA.rowNS`'s row from the pair's own control given, `hrow`). -/
+theorem instr_stepAH_of_row {ab : Option (State → Prop)} {Cl : State → Prop} (hP : HookOK P p) (hN : NodesA Λ p μ rd G own ar I ab Cl)
     (hsafe : SrcSafeS P p I) {H : State → List (Nat × Range) → Prop} (hT : HeldPathS Λ p μ I H) (hrd : SrcRd P p rd)
     (hwf : Λ.WF) (hGpl : ∀ a v, Λ.heap.contains a ∨ Λ.data.contains a → G (wordLoc a) v) (hok : ar.OK)
     {t : T.M.Cfg} {s : TermRun.Cfg} {th : Thread isa} {th0 : TermRun.TTh} {lbl : Lbl} {lsize : Lsize}
@@ -47,7 +44,9 @@ theorem instr_stepAH {ab : Option (State → Prop)} {Cl : State → Prop} (hP : 
     (hnt : ∀ a, μ.site .take = some a → pcOf th.st ≠ a) (hns : abi.atSys th.st = false)
     {outs : List (Except String (Outcome isa))} {o : Outcome isa}
     (hso : stepOne Arch.tso th 0 t.1.mem = some outs) (ho : .ok o ∈ outs) (hw' : WideSt o.thread.st)
-    (hc : CertOkC Arch.tso (Kernel.certSem abi Arch.tso μ t.2 0) 0 o.thread o.mem) :
+    (hc : CertOkC Arch.tso (Kernel.certSem abi Arch.tso μ t.2 0) 0 o.thread o.mem)
+    (hrow : ∃ c₁ fs₁, FrameRun p (⟨th0.term, th0.env, hd⟩, th0.stack) (c₁, fs₁) ∧ own th.st fs₁ = own th.st th0.stack ∧
+      Out p lbl (msOfA Λ μ rd G own ar I lbl lsize fs₁) (fun s' c' => PendA p I lbl lsize s' c' fs₁) th.st c₁) :
     ∃ s', (SrcSem.source P p).Run s [] s' ∧
       RSAH Λ P p G own I H μ ar (t.1.withThread 0 o.thread o.mem, t.2) s' := by
   have h0 : s.ths[0]? = some th0 := by rw [hs0]; rfl
@@ -65,7 +64,7 @@ theorem instr_stepAH {ab : Option (State → Prop)} {Cl : State → Prop} (hP : 
       hso ho hfi.1, ?_⟩
     unfold InitFits; rw [(stepOne_dord _ hso ho).2.2.1.1]; exact hfi.2
   have hown' := ownMsgs_step hso ho hown
-  obtain ⟨c₁, fs₁, hr0, hown_eq, hout⟩ := hN.rowNS hI hnt hns
+  obtain ⟨c₁, fs₁, hr0, hown_eq, hout⟩ := hrow
   have hI1 : IRun p I lbl lsize th.st c₁ fs₁ := IRun.trans hI hr0
   have hoo₁ : ExtRows.OwnOk (own th.st fs₁) t.1.mem th.prom := by rw [hown_eq]; exact hoo
   have hsrc : (fs₁ = [] → ∀ a, c₁.term ≠ .ret a) →
@@ -382,6 +381,47 @@ theorem instr_stepAH {ab : Option (State → Prop)} {Cl : State → Prop} (hP : 
       hcrJ hcrJ (.refl _)
     exact ⟨s₃, run_trans0 hrun2 hrun3, .inl hpre⟩
 
+/-- **An instruction step from `PreJAH`**, the ranges held by `H`
+(`instr_stepA` over `HeldPathS`; `H` kept by `HeldPathS.instr` at the
+landing in the fragment, given by `PendA.inv`): the outcome `o` of the instruction at a pair of the
+fragment off the take site and off a system call is matched by a source run
+landing in `RSAH`. Where the row starts past the source's
+publication (`PubPre`), the source publishes first (`pub_preA`). -/
+theorem instr_stepAH {ab : Option (State → Prop)} {Cl : State → Prop} (hP : HookOK P p) (hN : NodesA Λ p μ rd G own ar I ab Cl)
+    (hsafe : SrcSafeS P p I) {H : State → List (Nat × Range) → Prop} (hT : HeldPathS Λ p μ I H) (hrd : SrcRd P p rd)
+    (hwf : Λ.WF) (hGpl : ∀ a v, Λ.heap.contains a ∨ Λ.data.contains a → G (wordLoc a) v) (hok : ar.OK)
+    {t : T.M.Cfg} {s : TermRun.Cfg} {th : Thread isa} {th0 : TermRun.TTh} {lbl : Lbl} {lsize : Lsize}
+    {ts : Nat → Option Nat} {hl : List (Nat × Range)} {pm : _root_.Mem 64} {hd : Option (Nat × TermRun.Word)}
+    {E : Entry} {tr : List Ev}
+    (hth : t.1.threads = #[th]) (hk : t.2 = KS E Λ 0 hl pm) (hz : ∀ a, Kernel.byte pm a = 0)
+    (hh : H th.st hl) (hs0 : s.ths = #[th0]) (hσ : th0.σs = []) (hp : th0.promises = [])
+    (hI : I lbl lsize th.st ⟨th0.term, th0.env, hd⟩ th0.stack) (hhi : HoldInvA ar lbl lsize s.mem hd)
+    (hw : WideSt th.st) (hb : th.Bnd t.1.mem.last) (hinv : Inv1 Λ lbl lsize ts th t.1.mem s.mem)
+    (hown : OwnMsgs t.1.mem) (hmi : MemIn Λ t.1.mem) (hfi : MemFits t.1.mem) (hgi : MemInv G t.1.mem)
+    (hoo : ExtRows.OwnOk (own th.st th0.stack) t.1.mem th.prom)
+    (hai : AllocInvAt Λ lbl lsize th t.1.mem ar.heap ar.cells ar.ctr ar.units ar.off (heapUse s)
+      ⟨th0.term, th0.env, hd⟩)
+    (hfr : AllocInv.FreshInv lbl s.lbase s.n 0 th0.nalloc) (hco : CtrOff ar lbl lsize)
+    (hreach : (SrcSem.source P p).Reach tr s)
+    (hnt : ∀ a, μ.site .take = some a → pcOf th.st ≠ a) (hns : abi.atSys th.st = false)
+    {outs : List (Except String (Outcome isa))} {o : Outcome isa}
+    (hso : stepOne Arch.tso th 0 t.1.mem = some outs) (ho : .ok o ∈ outs) (hw' : WideSt o.thread.st)
+    (hc : CertOkC Arch.tso (Kernel.certSem abi Arch.tso μ t.2 0) 0 o.thread o.mem) :
+    ∃ s', (SrcSem.source P p).Run s [] s' ∧
+      RSAH Λ P p G own I H μ ar (t.1.withThread 0 o.thread o.mem, t.2) s' := by
+  obtain ⟨c₀, hc₀, hrow⟩ := hN.rowNS hI hnt hns
+  rcases hc₀ with rfl | ⟨-, -, hps, hI0⟩
+  · exact instr_stepAH_of_row hP hN hsafe hT hrd hwf hGpl hok hth hk hz hh hs0 hσ hp hI hhi hw hb hinv hown hmi
+      hfi hgi hoo hai hfr hco hreach hnt hns hso ho hw' hc hrow
+  · have hnr : th0.stack = [] → ∀ a, c₀.term ≠ .ret a := fun h0 => hN.noRet _ _ _ _ (h0 ▸ hI0)
+    obtain ⟨th1, hrun, rfl, rfl, hσ1, hp1, hsk, hai1, hfr1, hreach1⟩ :=
+      pub_preA hP hs0 hσ hp hps hnr hai hfr hreach
+    rw [← hsk] at hrow hoo
+    obtain ⟨s', hr', h'⟩ := instr_stepAH_of_row (s := { s with ths := #[th1] }) (th0 := th1) (hd := none)
+      hP hN hsafe hT hrd hwf hGpl hok hth hk hz hh rfl hσ1 hp1 (hsk ▸ hI0) (.inl trivial) hw hb hinv hown hmi
+      hfi hgi hoo hai1 hfr1 hco hreach1 hnt hns hso ho hw' hc hrow
+    exact ⟨s', run_trans0 hrun hr', h'⟩
+
 end Spike.Lib.X64ConsumerA
 
 /-! ## Axiom guards -/
@@ -390,3 +430,6 @@ end Spike.Lib.X64ConsumerA
 info: 'Spike.Lib.X64ConsumerA.instr_stepAH' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in #print axioms Spike.Lib.X64ConsumerA.instr_stepAH
+
+/-- info: 'Spike.Lib.X64ConsumerA.instr_stepAH_of_row' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in #print axioms Spike.Lib.X64ConsumerA.instr_stepAH_of_row

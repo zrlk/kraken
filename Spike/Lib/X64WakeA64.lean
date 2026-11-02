@@ -1,5 +1,5 @@
 /-
-**wake.w on x86-64, whole program (hello plan 1.6): the skeleton.**
+**wake.w on x86-64, whole program: the skeleton.**
 
 The x64 twin of `Spike/Lib/WakeA64.lean` (same names, namespaces
 `Spike.Lib.X64WakeT1` and `Spike.Lib.X64WakeA64`): the canonical x64 machine
@@ -188,8 +188,16 @@ open Spike.Lib.Inv2Start Spike.Lib.X64TwoSlot Spike.Lib.X64WakeT1
 /-- The machine configurations (both slot counts). -/
 abbrev Cfg : Type := Config isa × KState
 
+/-- **The source semantics of program `p`** at `n = 2` (the source machine of
+the skeleton; `wakeS` at wake.w, `Spike.Lib.X64HelloSrc.helloS` at hello.w). -/
+abbrev srcS (p : CoreTerm.Prog) (arch : WeakMem.Arch) : SrcSem := SrcSem.source (srcPo 2 arch p) p
+
 /-- **The source semantics of wake.w** at `n = 2`. -/
 abbrev wakeS (arch : WeakMem.Arch) : SrcSem := SrcSem.source (srcPo 2 arch wakeSrc) wakeSrc
+
+/-- `wakeS` is `srcS` at wake.w (definitionally; the body of `wakeS` is kept
+unfolded for the existing `unfold wakeS` consumers). -/
+theorem wakeS_srcS (arch : WeakMem.Arch) : wakeS arch = srcS wakeSrc arch := rfl
 
 /-- **The data of the relation** (no proof content): the one-thread relation
 before the spawn, and, indexed by a ghost record `ι`, the parameters of
@@ -269,21 +277,22 @@ def CertConv (μ : Marks) (t : Cfg) : Prop :=
 
 /-- **The obligations of 1.6** at entry state `E`.
 `μ` is the loaded program's marks (`(target (kernel 2) E).marks asm Λ`, the
-same at one slot, `marks_two`). -/
+same at one slot, `marks_two`). The source machine is `srcS p arch`; `p`
+defaults to wake.w's `wakeSrc` (so `srcS p arch` is `wakeS arch`). -/
 structure WakeObligations (arch : WeakMem.Arch) (Λ : Scc.Sem.Layout) (B : Budget) (asm : Asm) (Q : WakeRel)
-    (E : Entry) (Ti : Cfg → List Ev → Prop) : Prop where
+    (E : Entry) (Ti : Cfg → List Ev → Prop) (p : CoreTerm.Prog := wakeSrc) : Prop where
   /-- The layout is well formed. -/
   hwf : Λ.WF
   /-- (hello1's one-thread consumer) The program loads at one slot. -/
   hstart : ∃ d, (target (kernel 1) E).load asm Λ = some d
   /-- (hello1's one-thread consumer) The one-slot load is related by `R1`
   to the source start (`wake_start`: `tidStartT 2`). -/
-  pre_init : ∀ d, (target (kernel 1) E).load asm Λ = some d → ∃ s0, (wakeS arch).init s0 ∧ Q.R1 d s0
+  pre_init : ∀ d, (target (kernel 1) E).load asm Λ = some d → ∃ s0, (srcS p arch).init s0 ∧ Q.R1 d s0
   /-- (main's rows before the spawn) A step of the one-slot
   configuration keeps `R1` and the slot count, with a matching source run. -/
   pre_step : ∀ tid d es d' s, Q.R1 d s → d.1.threads.size = d.2.slots.size →
     (machine (kernel 1)).Step ((target (kernel 2) E).marks asm Λ) tid d es d' →
-    ∃ s', (wakeS arch).Run s (obs es) s' ∧ Q.R1 d' s' ∧ d'.1.threads.size = d'.2.slots.size
+    ∃ s', (srcS p arch).Run s (obs es) s' ∧ Q.R1 d' s' ∧ d'.1.threads.size = d'.2.slots.size
   /-- (spawn/stub rows + the `own` split / `PhRec2` / `TakePath2`; `post_start`
   assembles `Inv2` from the parts) The `clone` into slot 1 is the source
   `spawn`: a source run with no observable event to `Post` after `afterClone`. -/
@@ -291,30 +300,30 @@ structure WakeObligations (arch : WeakMem.Arch) (Λ : Scc.Sem.Layout) (B : Budge
     d.1.threads[tid]? = some th → abi.atSys th.st = true → d.2.runs tid = true → d.2.exited = none →
     callOf abi th = some (.clone stack tls) → 0 < r.toNat → r.toNat < pidMax →
     CertAfter abi Arch.tso ((target (kernel 2) E).marks asm Λ) tid (afterClone abi d tid th stack tls r) →
-    ∃ s', (wakeS arch).Run s [] s' ∧ Q.Post Λ (afterClone abi d tid th stack tls r) s'
+    ∃ s', (srcS p arch).Run s [] s' ∧ Q.Post Λ (afterClone abi d tid th stack tls r) s'
   /-- (main target/source rows after the spawn, using `wake_ldSt`;
   park-as-stutter; rely of thread 0 under the worker's writes) A step of
   main keeps `Post`. -/
   post_step0 : ∀ t es t' s, Q.Post Λ t s → (machine (kernel 2)).Step ((target (kernel 2) E).marks asm Λ) 0 t es t' →
-    ∃ s', (wakeS arch).Run s (obs es) s' ∧ Q.Post Λ t' s'
+    ∃ s', (srcS p arch).Run s (obs es) s' ∧ Q.Post Λ t' s'
   /-- (worker target rows + worker source steps; rely of
   thread 1) A step of the worker other than its unpark and exit rows keeps
   `Post`. -/
   post_step1 : ∀ t es t' s, Q.Post Λ t s → ¬ Q.atUnpk t s → ¬ Q.atTexit t s →
     (machine (kernel 2)).Step ((target (kernel 2) E).marks asm Λ) 1 t es t' →
-    ∃ s', (wakeS arch).Run s (obs es) s' ∧ Q.Post Λ t' s'
+    ∃ s', (srcS p arch).Run s (obs es) s' ∧ Q.Post Λ t' s'
   /-- **The source unpark**: the worker's `xchg` of `1` on
   main's permit word `⟨B + 16, 8⟩` commits the source worker's
   `ext unpark` (and it is committed nowhere else: main's park is never a
   commit point), keeping `Post`. -/
   unpark_src : ∀ t es t' s, Q.Post Λ t s → Q.atUnpk t s →
     (machine (kernel 2)).Step ((target (kernel 2) E).marks asm Λ) 1 t es t' →
-    ∃ s', (wakeS arch).Run s (obs es) s' ∧ Q.Post Λ t' s'
+    ∃ s', (srcS p arch).Run s (obs es) s' ∧ Q.Post Λ t' s'
   /-- **The worker's exit**: `thr_worker`'s exit `syscall`
   (the `texit` row) leaves the source worker at `ret`, keeping `Post`. -/
   worker_done : ∀ t es t' s, Q.Post Λ t s → Q.atTexit t s →
     (machine (kernel 2)).Step ((target (kernel 2) E).marks asm Λ) 1 t es t' →
-    ∃ s', (wakeS arch).Run s (obs es) s' ∧ Q.Post Λ t' s'
+    ∃ s', (srcS p arch).Run s (obs es) s' ∧ Q.Post Λ t' s'
   /-- Progress and layout before the spawn, of the lifted
   configuration: at main's `clone` the one-slot configuration faults (no
   dormant slot, `faultAt`) while the lifted one steps, so this is not a
@@ -352,14 +361,14 @@ structure WakeObligations (arch : WeakMem.Arch) (Λ : Scc.Sem.Layout) (B : Budge
     (machine (kernel 2)).Step ((target (kernel 2) E).marks asm Λ) tid t es t' → Ti t pre → Ti t' (pre ++ es)
   /-- An abort step of the one-slot configuration before the spawn is
   justified (a `clone` emits no event, so every abort is such a step). -/
-  pre_abort : ∀ tr d u s tid es d' k, (wakeS arch).Reach (obs tr) s → Q.R1 d s → Inert u →
+  pre_abort : ∀ tr d u s tid es d' k, (srcS p arch).Reach (obs tr) s → Q.R1 d s → Inert u →
     (∀ a, privLoad u.st a = none) → d.1.threads.size = d.2.slots.size → Ti (up d u) tr →
     (machine (kernel 1)).Step ((target (kernel 2) E).marks asm Λ) tid d es d' → Ev.abort k ∈ es →
-    ∃ w i, Components (machine (kernel 2)) Λ w (up d u) s ∧ w.thr i = some tid ∧ AbortJustified B (wakeS arch) tr s i k
+    ∃ w i, Components (machine (kernel 2)) Λ w (up d u) s ∧ w.thr i = some tid ∧ AbortJustified B (srcS p arch) tr s i k
   /-- (stub rows) An abort step after the spawn is justified. -/
-  post_abort : ∀ tr t s tid es t' k, (wakeS arch).Reach (obs tr) s → Q.Post Λ t s → Ti t tr →
+  post_abort : ∀ tr t s tid es t' k, (srcS p arch).Reach (obs tr) s → Q.Post Λ t s → Ti t tr →
     (machine (kernel 2)).Step ((target (kernel 2) E).marks asm Λ) tid t es t' → Ev.abort k ∈ es →
-    ∃ w i, Components (machine (kernel 2)) Λ w t s ∧ w.thr i = some tid ∧ AbortJustified B (wakeS arch) tr s i k
+    ∃ w i, Components (machine (kernel 2)) Λ w t s ∧ w.thr i = some tid ∧ AbortJustified B (srcS p arch) tr s i k
   /-- The explicit witness before the spawn. -/
   pre_wit : ∀ d u s, Q.R1 d s → Inert u → (∀ a, privLoad u.st a = none) → d.1.threads.size = d.2.slots.size →
     ∃ w, Components (machine (kernel 2)) Λ w (up d u) s
@@ -470,6 +479,7 @@ theorem wake_ldSt {I : ISA} (A : Arch) {R : SpawnRec} {C : CRec I} {pT : Loc} {t
 section Main
 
 variable {arch : WeakMem.Arch} {Λ : Scc.Sem.Layout} {B : Budget} {asm : Asm} {Q : WakeRel} {E : Entry}
+  {p : CoreTerm.Prog}
 
 /-- **The child after a `clone` has no promise.** -/
 theorem wakeChildAfter_prom {x : KState} {tid : Nat} {th : Thread isa} {stack tls : Nat} :
@@ -507,10 +517,10 @@ theorem certAll_afterClone {μ : Marks} {d : Cfg} {tid : Nat} {th : Thread isa} 
 
 /-- **A step before the spawn**: a matching source run to `Pre`, or (the
 `clone`) to `Post` with `CertAll` (`certAll_afterClone`). -/
-theorem wake_stepPre {Ti : Cfg → List Ev → Prop} (O : WakeObligations arch Λ B asm Q E Ti) {tid : Nat}
+theorem wake_stepPre {Ti : Cfg → List Ev → Prop} (O : WakeObligations arch Λ B asm Q E Ti p) {tid : Nat}
     {t t' : Cfg} {es : List Ev} {s : TermRun.Cfg} (hR : Q.Pre t s)
     (hs : (machine (kernel 2)).Step ((target (kernel 2) E).marks asm Λ) tid t es t') :
-    ∃ s', (wakeS arch).Run s (obs es) s' ∧
+    ∃ s', (srcS p arch).Run s (obs es) s' ∧
       (Q.Pre t' s' ∨ (Q.Post Λ t' s' ∧ CertAll ((target (kernel 2) E).marks asm Λ) t')) := by
   obtain ⟨d, u, rfl, hu, hpl, hn, hR⟩ := hR
   obtain ⟨-, ⟨d', hd', rfl⟩ | ⟨rfl, th, stack, tls, r, h1, h2, h3, h4, h5, h6, h7, rfl, hc⟩⟩ :=
@@ -526,10 +536,10 @@ theorem wake_stepPre {Ti : Cfg → List Ev → Prop} (O : WakeObligations arch �
     exact ⟨s', hr, .inr ⟨hP, certAll_afterClone hsz h1 hc (O.hconv _ _ hP)⟩⟩
 
 /-- **A step after the spawn** keeps `Post`, with a matching source run. -/
-theorem wake_stepPost {Ti : Cfg → List Ev → Prop} (O : WakeObligations arch Λ B asm Q E Ti) {tid : Nat}
+theorem wake_stepPost {Ti : Cfg → List Ev → Prop} (O : WakeObligations arch Λ B asm Q E Ti p) {tid : Nat}
     {t t' : Cfg} {es : List Ev} {s : TermRun.Cfg} (hP : Q.Post Λ t s)
     (hs : (machine (kernel 2)).Step ((target (kernel 2) E).marks asm Λ) tid t es t') :
-    ∃ s', (wakeS arch).Run s (obs es) s' ∧ Q.Post Λ t' s' := by
+    ∃ s', (srcS p arch).Run s (obs es) s' ∧ Q.Post Λ t' s' := by
   rcases tid with _ | _ | tid
   · exact O.post_step0 t es t' s hP hs
   · by_cases hu : Q.atUnpk t s
@@ -553,8 +563,8 @@ theorem Rx.rw {μ : Marks} {t : Cfg} {s : TermRun.Cfg} (h : Rx Q Λ E μ t s) : 
   h.2.imp id And.left
 
 /-- **The step-wise simulation.** -/
-theorem wake_stepSim {Ti : Cfg → List Ev → Prop} (O : WakeObligations arch Λ B asm Q E Ti) :
-    StepSim (target (kernel 2) E) (wakeS arch) Λ asm (Rx Q Λ E ((target (kernel 2) E).marks asm Λ)) where
+theorem wake_stepSim {Ti : Cfg → List Ev → Prop} (O : WakeObligations arch Λ B asm Q E Ti p) :
+    StepSim (target (kernel 2) E) (srcS p arch) Λ asm (Rx Q Λ E ((target (kernel 2) E).marks asm Λ)) where
   init := by
     intro t0 h0
     have hri := X64WakeRunInv.runInv_load O.hwide h0
@@ -573,7 +583,7 @@ theorem wake_stepSim {Ti : Cfg → List Ev → Prop} (O : WakeObligations arch �
 /-- **The trace invariant along a run**: from a related configuration
 satisfying `Ti` with trace `pre`, a run keeps `Ti` with the run's events
 appended (by `ti_step`, the relation carried by `wake_stepSim`). -/
-theorem wake_tiRun {Ti : Cfg → List Ev → Prop} (O : WakeObligations arch Λ B asm Q E Ti) {t t' : Cfg} {tr : List Ev}
+theorem wake_tiRun {Ti : Cfg → List Ev → Prop} (O : WakeObligations arch Λ B asm Q E Ti p) {t t' : Cfg} {tr : List Ev}
     (hr : (machine (kernel 2)).Run ((target (kernel 2) E).marks asm Λ) t tr t') {s : TermRun.Cfg}
     (hR : Rx Q Λ E ((target (kernel 2) E).marks asm Λ) t s) {pre : List Ev} (hT : Ti t pre) :
     Ti t' (pre ++ tr) := by
@@ -587,8 +597,8 @@ theorem wake_tiRun {Ti : Cfg → List Ev → Prop} (O : WakeObligations arch Λ 
 /-- **wake.w is correct on x86-64 with two slots**, given the obligations
 at every admissible entry state. -/
 theorem wake_correctE (Ti : Entry → Cfg → List Ev → Prop)
-    (O : ∀ E : Entry, E.Ok Λ → WakeObligations arch Λ B asm Q E (Ti E)) :
-    CorrectE 2 (wakeS arch) Λ B asm := by
+    (O : ∀ E : Entry, E.Ok Λ → WakeObligations arch Λ B asm Q E (Ti E) p) :
+    CorrectE 2 (srcS p arch) Λ B asm := by
   intro E hE
   have O := O E hE
   have hsim := wake_stepSim O
@@ -621,5 +631,9 @@ end Main
 /-- info: 'Spike.Lib.X64WakeA64.wake_correctE' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
 #print axioms wake_correctE
+
+/-- info: 'Spike.Lib.X64WakeA64.wakeS_srcS' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms wakeS_srcS
 
 end Spike.Lib.X64WakeA64

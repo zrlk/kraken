@@ -2,8 +2,8 @@
 **The refusal path's obligations at hello's root instance** (AArch64; the
 instantiation): `h2Stmt_root`'s `hobl` at `HelloRootBase.toPrem`, from `RefO.refOblH_root` at the
 start's labels `L0T`, the arena `arW`, the base's debts, contexts and sizes `ls0T ls`, and `h2`'s side `ms2H`;
-then `h2Stmt_root` at `toPrem` with every premise but the level's debts covering `DtW` (`hDt`, row
-B8-h2-refObl-hDt) and the text parsing to hello's program (`hhp`).
+then `h2Stmt_root` at `toPrem` with every premise but the level's debts covering `DtW` (`hDt`,
+discharged at the root) and the text parsing to hello's program (`hhp`).
 
 - `hobl_I`: `hobl` at `toPrem`: the box fresh (`Fresh2H`'s third conjunct), main's id at its TCB (`Box.hmt_H` at
   `Fresh2H`'s first), the kernel by the base's `hK2`, the exit call an abort site of `ms2H` by `refExH`.

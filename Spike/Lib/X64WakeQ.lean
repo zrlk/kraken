@@ -1,5 +1,5 @@
 /-
-**wake.w on x86-64: the concrete relation data** (hello plan 1.6), the
+**wake.w on x86-64: the concrete relation data**, the
 x86-64 twin of `Spike/Lib/WakeQ.lean`. `wakeQ` fixes the fields of `WakeRel` that `WakeAssembly` pins by an
 equation, so that each of those equations is `rfl`:
 

@@ -1,6 +1,6 @@
 /-
 **hello.w on AArch64: the worker's kernel system calls in the print phase
-keep `Post`** (C4, row B8-gen1-sys, step (c): `HelloStep1D.SysStepP` off
+keep `Post`** (C4, step (c): `HelloStep1D.SysStepP` off
 `print`'s `write` to fd 1). The twin of `WakeW1.post_sys` with `print`'s
 abort path (`WCompatH.sysOkH`).
 
@@ -58,7 +58,7 @@ def AbExit {ι : Type} (D : WSideH ι) (μ : Marks) (AbW : isaLSE2.State → Pro
   ∀ w s c fs v, D.Wi w s c fs → AbW s → abi.atSys s = true →
     decode abi.nrs (abi.nr s) (abi.arg s) = some (.exitGroup v) → ∃ k a, μ.abortAt k = some a ∧ pcOf s = a
 
-/-- **`print`'s `write` to fd 1 keeps `Post`** (B8-gen1-EmitStepP). -/
+/-- **`print`'s `write` to fd 1 keeps `Post`**. -/
 def Write1StepP (Q : WakeRel) (D : WSideH Q.ι) (μ : Marks) (Λ : Scc.Sem.Layout) (arch : WeakMem.Arch) : Prop :=
   ∀ w t s t0 t1 s0 s1 ts tp sp oc es t' (p : Pick) buf n, PartsH Q D Λ w t s t0 t1 s0 s1 ts tp sp oc →
     HelloStep1.PrivAt Λ t → PrintPh (D.bufL w) (D.nB w) (D.mB w) (D.cw w) s1 → SrcSem.mainExit s = [] → abi.atSys t1.st = true →
@@ -316,7 +316,7 @@ end Calls
 
 /-! ## The obligation -/
 
-/-- **`SysStepP`** (row B8-gen1-sys, step (c)): the worker's system calls in
+/-- **`SysStepP`** (step (c)): the worker's system calls in
 the print phase keep `Post`, given `print`'s `write` to fd 1
 (`Write1StepP`) and the abort path's `exit_group` at an abort site
 (`AbExit`); the bytes out of its `write(2, …)` by `wrOk2_of`; `hms` (`rfl`

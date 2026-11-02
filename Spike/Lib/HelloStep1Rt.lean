@@ -1,6 +1,6 @@
 /-
 **hello.w on AArch64: the worker's runtime writes after the spawn** (C4,
-row B8-gen1, step 3b; the twin of `Spike/Lib/WakeW1Rt.lean` at `PartsH`,
+step 3b; the twin of `Spike/Lib/WakeW1Rt.lean` at `PartsH`,
 the source side a frame run as in `Spike/Lib/HelloStep1P.lean`).
 
 A runtime write of the worker (`Out.rtStore`, `Out.rtRmw` at the frames an
@@ -237,7 +237,7 @@ variable (hC : HelloCompat Q D M μ Λ arch AbW hcw hem) (hms : ∀ w fs, D.ms w
 include hC hms hwf h hown hex hwr hso ho hco
 
 /-- **The runtime-store row keeps `Post`** (`OutTS.pre` with `Out.rtStore`
-at the frames `fs₁`; `hms`: row B8-gen1, `rfl` at `HelloAssemblyI.DH`). -/
+at the frames `fs₁`; `hms`: `rfl` at `HelloAssemblyI.DH`). -/
 theorem post_rtStoreH {kr : Kraken.StoreKind} {L : Loc} {V : Val} {s' : isaLSE2.State} {c₁ c' : Ctl}
     {fs₁ : List TermRun.Frame} (he : isaLSE2.exec t1.st = some (.store kr false L V fun _ => .done s'))
     (hmp : (D.ms w fs₁).mp L true) (hGV : (D.ms w fs₁).G L V)

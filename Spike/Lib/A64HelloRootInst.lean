@@ -5,7 +5,7 @@ derived (`H1GAH0V`'s `res`/`tcb` are `CalRootI.res_I`/`tcb_I`, assembled in `Roo
 init's writes off the arena are the segment's, `Ti2OffW.ti2_WSH_off`, so the base carries no open premise).
 
 - `W2I`, `X2I`, `WcI`, `GI`: the third level (no frames and `HelloW2.W2H`, the empty context, at `ntA`,
-  `helloSrc`, `ClH`, the level-1 placement and sizes; B8-W2H), the fence fact `X2H` at the take site
+  `helloSrc`, `ClH`, the level-1 placement and sizes), the fence fact `X2H` at the take site
   and the level's sizes (`h2Stmt_root`'s `hX2`, at `ls0 := ls0T ls`), the clone fact `StackM r1Of`
   (`h2Stmt_root`'s `hWc` by `id`), the ghosts `RootHP.GJ1RH`
   (`h2Stmt_root`'s `hG`).
@@ -51,7 +51,7 @@ open Spike.Lib.HeapLand (AllocLand)
 open Spike.Lib.A64.Rt.PreChild (r1Of)
 open Spike.Lib.A64.Flow.HelloWc (tH)
 
-/-- **The third level** at the box's labels (B8-W2H): no frames and `A64HelloW2H.W2H` at `ntA`,
+/-- **The third level** at the box's labels: no frames and `A64HelloW2H.W2H` at `ntA`,
 `helloSrc`, `ClH`, the level-1 placement and sizes (`Wf` at the empty context, the twice extended placement
 `lbl2H` and sizes `updN (updN lsize l n) l' n'`, so `OPremH.hW2` is `HelloW2.hW2H`). -/
 abbrev W2I (L : RuntimeLayout) (ar : Spike.Lib.Arena) (Dt : State → Prop) (Ctx : Spike.Lib.FragS isaLSE2) (lbl : Lbl)

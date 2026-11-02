@@ -67,9 +67,9 @@ theorem hello_obligations_IM {arch : WeakMem.Arch} {B : Budget} {asm : String} {
     (hd : dataSections asm = some o.secs)
     /- row: 5j-start. The entry state is clear of the layout. -/
     (hE : E.clear (LH hp i).Λ = true)
-    /- row: B8-R1 (row 1's `hbuf` in `R1`). The pre-spawn half. -/
+    /- (row 1's `hbuf` in `R1`). The pre-spawn half. -/
     (O : Pre1T arch (LH hp i).Λ B asm E R1 Ab Ac helloSrc)
-    /- row: B8-R1. `R1` is the pre-spawn relation with its source
+    /- `R1` is the pre-spawn relation with its source
     conjuncts. -/
     (hR1 : ∀ d s, R1 d s → R1OH arch (LH hp i).Λ (HelloAssemblyI.μH hp i E asm) Dd XH d s)
     /- row: 5j-hCl. The clone's facts at the pre-spawn segment's end. -/
@@ -109,14 +109,14 @@ theorem hello_obligations_IM {arch : WeakMem.Arch} {B : Budget} {asm : String} {
       (fun w => w.1.pT) (PaH hp i E asm) (GH hp i (G0H hp i)) passT (MH hp i (G0H hp i) E hpa)
       (DH hp i (G0H hp i) P Z X hseg) (fun _ => Dd.r0) (fun _ => r1c) (LH hp i).Λ asm E
       (HelloHPre.FrH Dd))
-    /- row: B8-genP-hhalt1 (as `hello_obligations_I`'s `hhalt1`). -/
+    /- (as `hello_obligations_I`'s `hhalt1`). -/
     (hhalt1 : ∀ w s c fs, (DH hp i (G0H hp i) P Z X hseg).Wi w s c fs → abi.atSys s = true →
       (isaLSE2.exec s).isSome)
-    /- row: B8-genP-hmapW (as `hello_obligations_I`'s `hmapW`). -/
+    /- (as `hello_obligations_I`'s `hmapW`). -/
     (hmapW : ∀ w s c fs, (DH hp i (G0H hp i) P Z X hseg).Wi w s c fs → abi.atSys s = false → ∀ e,
       isaLSE2.exec s = some e →
       ¬ Kernel.Touches (fun l w => Kernel.mapped (A64Consumer.K0 (LH hp i).Λ) w l = false) e)
-    /- rows: B8-gen1/V, 5i, 5j-wit; see
+    /- 5i, 5j-wit; see
     `HelloRowsW`' fields. -/
     (R : HelloRowsW arch (LH hp i).Λ B asm
       (QH hp i (G0H hp i) P Z X hseg arch (fun d s => R1 d s ∧ VPriv (LH hp i).Λ E d) E hpa passT Dd r1c) E

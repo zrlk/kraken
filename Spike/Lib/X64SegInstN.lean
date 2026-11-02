@@ -81,7 +81,7 @@ theorem inst_of_segWAN {Λ : Scc.Sem.Layout} {μ : Marks} {rd : TermRun.Word →
     fun lbl lsize s c fs hi => (hF lbl lsize s c fs hi).wrTail⟩
   -- `NodesA`
   · intro lbl lsize s c fs hi hoff _
-    exact hOut lbl lsize s c fs hi fun s' hk => hoff _ hμ (pcOf_eq_iff.mpr (TakeK.pc hk))
+    exact .inl (hOut lbl lsize s c fs hi fun s' hk => hoff _ hμ (pcOf_eq_iff.mpr (TakeK.pc hk)))
   · exact fun lbl lsize s c hi => (hF lbl lsize s c [] hi).noRet rfl
   · intro lbl lsize s c fs hi
     obtain ⟨c₀, fs₀, hf, hr⟩ := hR lbl lsize s c fs hi

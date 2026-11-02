@@ -1,6 +1,6 @@
 /-
-**hello's level 1 from rodata's landing, generic part** (AArch64, row
-`B8-H0R-h1GA`): the segment `H1Gfp.h1StmtHF_of_segWS`'s `hB` asks, from the allocator's landing `Ea`
+**hello's level 1 from rodata's landing, generic part** (AArch64, level 1's
+generic hand-off): the segment `H1Gfp.h1StmtHF_of_segWS`'s `hB` asks, from the allocator's landing `Ea`
 under `wc_rodata`'s frame `fr` (level 0's hand-off, `StartH0H1.RdLandH`'s shape) to `wc_main`'s box allocation's
 heap abort at `[]`.
 

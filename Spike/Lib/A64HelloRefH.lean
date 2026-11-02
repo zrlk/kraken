@@ -22,7 +22,7 @@
   `seg_refB`; `SpawnFail.seg_spawnFailWS_hello`, `R.lo ≤ -400` from
   `BoxPureH`).
 
-`RefOblH`'s instance at hello's `W2 ∧ X2H` waits on row B8-W2H. No absolute
+`RefOblH`'s instance at hello's `W2 ∧ X2H` waits on `W2H`. No absolute
 address appears in this file.
 -/
 import Spike.Lib.A64HelloHMid

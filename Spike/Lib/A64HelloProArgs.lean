@@ -1,6 +1,6 @@
 /-
-**A prologue keeps `wc_worker`'s and the thread worker's argument registers** (AArch64; rows
-B8-placed-ZObl/Wc and /Kid): the stack check, the limit's load into `x10`, the check's branch and the frame's
+**A prologue keeps `wc_worker`'s and the thread worker's argument registers** (AArch64; at
+`wc_worker` and the thread worker): the stack check, the limit's load into `x10`, the check's branch and the frame's
 set-up write none of `x0`, `x2 .. x5`, so a prologue's states lie inside any `W` determined by the entry's values
 of those registers. Shared by `A64HelloPlacedZWc` (`wz_placed`) and `A64HelloPlacedZKid` (`zT_placed`).
 

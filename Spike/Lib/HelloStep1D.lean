@@ -1,6 +1,6 @@
 /-
 **hello.w on AArch64: a step of the worker in the print phase keeps `Post`**
-(C4, row B8-gen1; `HelloStep1.PrintStep1`, the twin of
+(C4; `HelloStep1.PrintStep1`, the twin of
 `WakeW1.post_step1_of` in the print phase): the dispatch over
 `WakeW1.step1_cases` and the worker's frame-aware rows (`D.closed`, an
 `HelloSegThrS.OutTS` row).
@@ -21,12 +21,12 @@ system call; a `clone` is no row's (`noClone`); there is no transfer site
   phase ends, and the rows excluded there.
 - `outL_noClone`, `noClone`: no row of the worker is at a `clone`.
 - `post_outLH`: an `OutL` row after a frame run keeps `Post`.
-- `SysStepP` (rows B8-gen1-sys, steps 4–5): the print phase's kernel
+- `SysStepP` (steps 4–5): the print phase's kernel
   system-call steps (`print`'s `write`, the abort path), with the machine step.
 - `PrintWr0`, `printWr0_of`: no byte of a worker `write` out off a system
   call (at `HelloKRE.KRHE`).
 - `printStep1_of`: `PrintStep1` from `SysStepP`, `PrintWr0` and
-  `HelloStep1P.PromStepP`, with `hms` (row: B8-gen1, `rfl` at
+  `HelloStep1P.PromStepP`, with `hms` (`rfl` at
   `HelloAssemblyI.DH`), `hown` (`rfl` at `helloQ`) and `hml`
   (`HelloLive.mainLiveH`).
 -/
@@ -296,7 +296,7 @@ end Rows
 
 /-! ## The obligation -/
 
-/-- (rows B8-gen1-sys, steps 4–5) **The print phase's kernel system-call
+/-- (steps 4–5) **The print phase's kernel system-call
 steps**: `print`'s `write` to fd 1 and the abort path's (`WCompatH.sysOkH`). The
 machine step itself is kept as a premise, for the kernel-state lemmas (`krh_write`). -/
 def SysStepP (Q : WakeRel) (D : WSideH Q.ι) (μ : Marks) (Λ : Scc.Sem.Layout) (arch : WeakMem.Arch) : Prop :=

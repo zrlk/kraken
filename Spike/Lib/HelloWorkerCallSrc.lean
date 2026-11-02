@@ -56,8 +56,8 @@ open Spike.Lib.PrintSrc (printN printBody)
 def PrWr (pw wn : Word) (n m k : Nat) (c : Ctl) : Prop :=
   ∃ c1, LocalRunS helloSrc c c1 ∧ PrintCP pw wn n m k c1
 
-/-- **`print`'s predicate** (`PrW'` of the plan, row 5i-hab1; B8-hflagR
-(A')): `PrWr`, the control's term one of `print`'s or `printL`'s published
+/-- **`print`'s predicate** (`PrW'` of the plan, row 5i-hab1;
+design (A')): `PrWr`, the control's term one of `print`'s or `printL`'s published
 body's terms (`PrintSvc.printTerms`; `HelloEmitPh.PTermE` inlined), so a
 frame at it is an `ExternFrame` or reads no variable (`PrW.ext`). -/
 def PrW (pw wn : Word) (n m k : Nat) (c : Ctl) : Prop :=

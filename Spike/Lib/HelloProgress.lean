@@ -1,6 +1,6 @@
 /-
 **hello.w on AArch64: after the spawn the machine has progress** (row
-B8-genP; `HelloAssembly.HelloRowsW.post_progress`, the twin of
+`HelloAssembly.HelloRowsW.post_progress`, the twin of
 `WakeProgress.post_progress_of` and `WakeMapped.hmapped_of` at hello's
 worker data `PT1h`, frame-aware rows `OutTS` and kernel relation `KRH`).
 
@@ -27,8 +27,8 @@ supported calls widened (`CallOKH`).
     stack (`rfl`-like at `HelloWorkerRR.helloDR`'s `hK`);
   * `hoffM` (main off every abort site; `WakeM0.MSide.off` at the target's
     marks), `hhalt0`, `hmapM` (main's side, as wake's);
-  * `hhalt1`, `hmapW` (the worker's side at frames; rows B8-genP-hhalt1,
-    B8-genP-hmapW).
+  * `hhalt1`, `hmapW` (the worker's side at
+    frames).
 -/
 import Spike.Lib.WakeProgress
 import Spike.Lib.WakeMapped

@@ -1,5 +1,5 @@
 /-
-**The worker's steps after the spawn, case by case** (hello plan 1.6; data in `Spike/Lib/WakeW1.lean`).
+**The worker's steps after the spawn, case by case** (data in `Spike/Lib/WakeW1.lean`).
 
 - `step1_cases`: a step of thread `tid` of the two-slot canonical machine is
   an instruction off a system call (one `stepOne` outcome, certified), a

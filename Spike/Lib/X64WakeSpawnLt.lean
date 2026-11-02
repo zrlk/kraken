@@ -1,6 +1,5 @@
 /-
-**wake.w on x86-64: the worker's store bound at main's spawn** (hello plan
-1.6), the x86-64 twin of `Spike/Lib/WakeSpawnLt.lean` (`hview` of
+**wake.w on x86-64: the worker's store bound at main's spawn**, the x86-64 twin of `Spike/Lib/WakeSpawnLt.lean` (`hview` of
 `X64WakeSpawnR.spawn_R`).
 
 At main's `clone` the source configuration `s'` is main's spawn of `s`

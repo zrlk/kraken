@@ -236,7 +236,7 @@ theorem pre_progressA {ab : Option (State → Prop)} (hN : NodesA Λ p μ rd G o
       obtain ⟨n, sz, hcn⟩ := (hT.site _ _ _ _ _ hI a ha hpc).2.1
       simp [Thread.halted, Kraken.Promising.Lower.X64.exec_nop hcn]
     cases hs : abi.atSys th.st
-    · obtain ⟨c₁, fs₁, -, -, hout⟩ := hN.rowX hI (fun a ha hpc => htk ⟨a, ha, hpc⟩) (fun h => by rw [hs] at h; cases h)
+    · obtain ⟨-, -, c₁, fs₁, -, -, hout⟩ := hN.rowX hI (fun a ha hpc => htk ⟨a, ha, hpc⟩) (fun h => by rw [hs] at h; cases h)
       have := Out.exec_isSome rfl hs hout
       simp only [Thread.halted]
       cases he : isa.exec th.st
@@ -254,7 +254,7 @@ theorem pre_progressA {ab : Option (State → Prop)} (hN : NodesA Λ p μ rd G o
           obtain ⟨n, sz, hcn⟩ := (hT.site _ _ _ _ _ hI a ha hpc).2.1
           exact Kraken.Promising.Lower.stepOne_silent_no_error Arch.tso 0 (Kraken.Promising.Lower.X64.exec_nop hcn)
             (Kraken.Promising.Lower.silentTree_done _) hs' m hm
-        · obtain ⟨c₁, fs₁, -, -, hout⟩ :=
+        · obtain ⟨-, -, c₁, fs₁, -, -, hout⟩ :=
             hN.rowX hI (fun a ha hpc => htk ⟨a, ha, hpc⟩) (fun h => by rw [hsy] at h; cases h)
           exact outA_no_error hsy hout hs' m hm
       · exact hns ⟨th, ht1, hsy⟩
@@ -296,7 +296,7 @@ theorem pre_progressA {ab : Option (State → Prop)} (hN : NodesA Λ p μ rd G o
         have h3 : abi.atSys th.st = true := h2
         rw [hs] at h3; cases h3
       by_cases hpn : th.prom = []
-      · obtain ⟨c₁, fs₁, -, -, hout⟩ := hN.rowX hI hnt (fun h => by rw [hs] at h; cases h)
+      · obtain ⟨-, -, c₁, fs₁, -, -, hout⟩ := hN.rowX hI hnt (fun h => by rw [hs] at h; cases h)
         obtain ⟨outs, o, hso, ho, hpo⟩ :=
           outA_progress (tid := 0) (mem := t.1.mem) hpn hb hs hout
         exact ⟨[], _, .instr hruns hnsys hsite (.inl ⟨th, outs, o, ht, hso, ho, certOkC_of_prom_nil hpo, rfl⟩)⟩

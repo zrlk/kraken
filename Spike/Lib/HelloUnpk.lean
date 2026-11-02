@@ -1,5 +1,5 @@
 /-
-**hello.w on AArch64: the worker's unpark after the spawn** (row B8-genU;
+**hello.w on AArch64: the worker's unpark after the spawn** (
 `HelloAssembly.HelloRowsW.unpark_src`, the twin of `WakeW1.unpark_src_of`).
 
 At the unpark row the source worker is at `wkUnpark`, which takes no local

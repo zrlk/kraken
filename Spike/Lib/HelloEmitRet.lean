@@ -1,5 +1,5 @@
 /-
-**hello.w on AArch64: the return of `print`'s `write(1, …)`** (C4, row B8-emit-ret, design (a′)). The kernel's
+**hello.w on AArch64: the return of `print`'s `write(1, …)`** (C4, design (a′)). The kernel's
 return of the worker's `write(1, buf, n)` with `j = wr 1` bytes out (`HelloPostAb.write_ret_cases`) keeps `Post`,
 landing at `PT1h`, from the common parts (`PartsC`: `PartsH` in the print phase or `PartsE`):
 - `j > 0` (`r = j`): the link (`HelloKRE.Lk`) puts the source worker at the emit row's `Pw j` (`EmitR`; a `write`
@@ -94,7 +94,7 @@ theorem post_stutC (hC : WCompatH Q D μ Λ arch AbW) (h : PartsC Q D Λ w t s t
     simp only [Nat.one_ne_zero, ite_false] at h1
     exact hC.ownCov w _ _ L v h1
 
-/-- **The return of `print`'s `write(1, …)` keeps `Post`** (row B8-emit-ret; the twin of
+/-- **The return of `print`'s `write(1, …)` keeps `Post`** (the twin of
 `HelloEmitStep.post_byteC` at a return pick), landing at `PT1h`: after `j = wr 1 > 0` bytes (`r = j`) the
 link's `EmitR` at `Pw j` and its return clause, the source stuttering, the slot running at 0 (`post_stutC`,
 `krW_run0`); with none (`-EINTR`, `-EAGAIN` or a refusal, `WriteRetOk 0`), the emit row's frame run into `Pw 0`

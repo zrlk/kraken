@@ -63,7 +63,7 @@ variable {ι : Type} {arch : WeakMem.Arch} {R1 : Cfg → TermRun.Cfg → Prop} {
   {lsize : WeakMem.AllocLabel → Nat} {ts : Nat → Option Nat} {j : Nat} {own₀ : List (Loc × Val)}
   {l : WeakMem.AllocLabel}
 
-/-- (row B8-seg-words, `hdm`) **The cell is off the child's frame at main's clone**: at `PreRH` over a well-formed
+/-- (`hdm`) **The cell is off the child's frame at main's clone**: at `PreRH` over a well-formed
 layout, with `r1 w` inside the stack pool and handed at the clone, `c`'s placed word `cA` is unmapped in every
 memory of the child's frame condition. -/
 theorem hdm_preRH

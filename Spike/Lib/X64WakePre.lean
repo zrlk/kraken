@@ -1,6 +1,6 @@
 /-
 **wake.w on AArch64, the pre-spawn obligations from one-slot ones**
-(hello plan 1.6): `WakeObligations`' `pre_init`, `pre_step`,
+: `WakeObligations`' `pre_init`, `pre_step`,
 `pre_progress`, `pre_abort` and `pre_wit` (`Spike/Lib/WakeA64.lean`) from a
 relation `R1` on the one-slot configuration, stated at one slot only
 (`Pre1`).
@@ -44,13 +44,13 @@ def AtClone (d : Cfg) : Prop :=
 /-- **The pre-spawn obligations at one slot**, for the relation `R1` (with
 `μ` the loaded program's marks). -/
 structure Pre1 (arch : WeakMem.Arch) (Λ : Scc.Sem.Layout) (B : Budget) (asm : Asm) (E : Entry)
-    (R1 : Cfg → TermRun.Cfg → Prop) : Prop where
+    (R1 : Cfg → TermRun.Cfg → Prop) (p : CoreTerm.Prog := wakeSrc) : Prop where
   /-- The one-slot load is related to a source start. -/
-  init : ∀ d, (target (kernel 1) E).load asm Λ = some d → ∃ s0, (wakeS arch).init s0 ∧ R1 d s0
+  init : ∀ d, (target (kernel 1) E).load asm Λ = some d → ∃ s0, (srcS p arch).init s0 ∧ R1 d s0
   /-- A one-slot step keeps `R1` and the slot count, with a matching source run. -/
   step : ∀ tid d es d' s, R1 d s → d.1.threads.size = d.2.slots.size →
     (machine (kernel 1)).Step ((target (kernel 2) E).marks asm Λ) tid d es d' →
-    ∃ s', (wakeS arch).Run s (obs es) s' ∧ R1 d' s' ∧ d'.1.threads.size = d'.2.slots.size
+    ∃ s', (srcS p arch).Run s (obs es) s' ∧ R1 d' s' ∧ d'.1.threads.size = d'.2.slots.size
   /-- Progress and layout at one slot, off a `clone`. -/
   progress : ∀ d s, R1 d s → d.1.threads.size = d.2.slots.size → ¬ AtClone d →
     (machine (kernel 1)).Progress ((target (kernel 2) E).marks asm Λ) d ∧ InLayout (M := machine (kernel 1)) Λ d
@@ -61,9 +61,9 @@ structure Pre1 (arch : WeakMem.Arch) (Λ : Scc.Sem.Layout) (B : Budget) (asm : A
     (machine (kernel 2)).Progress ((target (kernel 2) E).marks asm Λ) (up d u) ∧
       InLayout (M := machine (kernel 2)) Λ (up d u)
   /-- A one-slot abort step is justified, with one-slot components. -/
-  abort : ∀ tr d s tid es d' k, (wakeS arch).Reach (obs tr) s → R1 d s → d.1.threads.size = d.2.slots.size →
+  abort : ∀ tr d s tid es d' k, (srcS p arch).Reach (obs tr) s → R1 d s → d.1.threads.size = d.2.slots.size →
     (machine (kernel 1)).Step ((target (kernel 2) E).marks asm Λ) tid d es d' → Ev.abort k ∈ es →
-    ∃ w i, Components (machine (kernel 1)) Λ w d s ∧ w.thr i = some tid ∧ AbortJustified B (wakeS arch) tr s i k
+    ∃ w i, Components (machine (kernel 1)) Λ w d s ∧ w.thr i = some tid ∧ AbortJustified B (srcS p arch) tr s i k
   /-- The explicit witness at one slot. -/
   wit : ∀ d s, R1 d s → d.1.threads.size = d.2.slots.size → ∃ w, Components (machine (kernel 1)) Λ w d s
   /-- No stack range is held for the extra slot's index. -/
@@ -72,10 +72,10 @@ structure Pre1 (arch : WeakMem.Arch) (Λ : Scc.Sem.Layout) (B : Budget) (asm : A
 namespace Pre1
 
 variable {arch : WeakMem.Arch} {Λ : Scc.Sem.Layout} {B : Budget} {asm : Asm} {E : Entry}
-  {R1 : Cfg → TermRun.Cfg → Prop}
+  {R1 : Cfg → TermRun.Cfg → Prop} {p : CoreTerm.Prog}
 
 /-- `WakeObligations.pre_progress`. -/
-theorem pre_progress (O : Pre1 arch Λ B asm E R1) :
+theorem pre_progress (O : Pre1 arch Λ B asm E R1 p) :
     ∀ d u s, R1 d s → Inert u → (∀ a, privLoad u.st a = none) → d.1.threads.size = d.2.slots.size →
       (machine (kernel 2)).Progress ((target (kernel 2) E).marks asm Λ) (up d u) ∧
         InLayout (M := machine (kernel 2)) Λ (up d u) := by
@@ -86,18 +86,18 @@ theorem pre_progress (O : Pre1 arch Λ B asm E R1) :
     exact ⟨progress_up hn hu hp, hl⟩
 
 /-- `WakeObligations.pre_abort`. -/
-theorem pre_abort (O : Pre1 arch Λ B asm E R1) :
-    ∀ tr d u s tid es d' k, (wakeS arch).Reach (obs tr) s → R1 d s → Inert u →
+theorem pre_abort (O : Pre1 arch Λ B asm E R1 p) :
+    ∀ tr d u s tid es d' k, (srcS p arch).Reach (obs tr) s → R1 d s → Inert u →
       (∀ a, privLoad u.st a = none) → d.1.threads.size = d.2.slots.size →
       (machine (kernel 1)).Step ((target (kernel 2) E).marks asm Λ) tid d es d' → Ev.abort k ∈ es →
       ∃ w i, Components (machine (kernel 2)) Λ w (up d u) s ∧ w.thr i = some tid ∧
-        AbortJustified B (wakeS arch) tr s i k := by
+        AbortJustified B (srcS p arch) tr s i k := by
   intro tr d u s tid es d' k hr hR _ hpl hn hs hk
   obtain ⟨w, i, hc, hw, hj⟩ := O.abort tr d s tid es d' k hr hR hn hs hk
   exact ⟨w, i, components_up hn hpl (O.held d s hR hn) hc, hw, hj⟩
 
 /-- `WakeObligations.pre_wit`. -/
-theorem pre_wit (O : Pre1 arch Λ B asm E R1) :
+theorem pre_wit (O : Pre1 arch Λ B asm E R1 p) :
     ∀ d u s, R1 d s → Inert u → (∀ a, privLoad u.st a = none) → d.1.threads.size = d.2.slots.size →
       ∃ w, Components (machine (kernel 2)) Λ w (up d u) s := by
   intro d u s hR _ hpl hn

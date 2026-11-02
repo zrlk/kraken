@@ -1,16 +1,16 @@
 /-
-**The refusal path's obligations at hello's root level** (AArch64; piece R7;
+**The refusal path's obligations at hello's root level** (AArch64; part 7;
 wake's `WakeRefStub.refObl` at its root): `RefH.RefOblH` at the root's third level `W2I ∧ X2I` under
 `TakeCKS (L.lab siteL) (ClH L)`, the ghosts `GJ1RH` and `h2`'s placement `lbl2H`, from `RefO.refOblH_of` and its
-pieces: the blocks (`RefBlkH.refBlkH`, R6), `SFactsAC` (`refACH`, R4), `ownGH`'s agreement, the abort's phase, no
-write, the abort band (`refAgH`, `refAbStH`, `refNoWrH`, `refAbWH`, R3), the map into the level (`refMapH`, R5).
+pieces: the blocks (`RefBlkH.refBlkH`, part 6), `SFactsAC` (`refACH`, part 4), `ownGH`'s agreement, the abort's phase, no
+write, the abort band (`refAgH`, `refAbStH`, `refNoWrH`, `refAbWH`, part 3), the map into the level (`refMapH`, part 5).
 
 `RefPreH`'s facts give `PreH`'s (`preH_of`): the region's by `BoxPureH`; the slice's words and main's id at the
 caller's entry state (`FrMGH`) by `HelloH2G.hG_of` at `GJ1RH`'s `GJ1H`; the box at `b'` by `upd`.
 
 - `preH_of`: `refOblH_of`'s `hpre` at `GJ1RH` and `lbl2H`.
 - `refOblH_root`: `RefOblH` at the root's level, generic in the memory side `ms` (its kernel `hK`, the exit call
-  an abort site `hex`, e.g. `refExH`) and given the level's debts cover `DtW` (`hDt`, row B8-h2-refObl-hDt).
+  an abort site `hex`, e.g. `refExH`) and given the level's debts cover `DtW` (`hDt`).
 
 No absolute address appears in a statement here.
 -/
@@ -55,7 +55,7 @@ variable {L : RuntimeLayout} (hp : L.prog = SccCode.helloProg) (hlo : L.Λ.code.
 
 include hp hlo hΛ hlab hsite in
 /-- **`RefOblH` at the root's level** (`h2Stmt_root`'s `hobl` at `W2I ∧ X2I`, `GJ1RH`, `lbl2H`, given the memory
-side's kernel `hK` and its exit abort site `hex`): `refOblH_of` at the pieces R3–R6, the level's debts covering
+side's kernel `hK` and its exit abort site `hex`): `refOblH_of` at the parts 3–6, the level's debts covering
 `DtW` (`hDt`). `W2I` is `RootWX.W2H` at the empty context and the sizes `updN (updN lsize l n) l' n'`
 (`HelloW2.w2H_def`, by unfolding), so the pieces are taken there. -/
 theorem refOblH_root {F0 : MachineData → Prop} {ar : Arena} {Dt : State → Prop} {Ctx : FragS isaLSE2} {lbl : Lbl}

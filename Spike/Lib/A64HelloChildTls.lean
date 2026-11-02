@@ -1,5 +1,5 @@
 /-
-**The child's limit word from the second TCB's words** (AArch64, rows B8-hlim-a..e; the hello twin of
+**The child's limit word from the second TCB's words** (AArch64, the hello twin of
 `Rt.PreChild.preChild_hlim`): `HelloChildHlim.hlim_stack`'s five runtime premises at the clone's thread pointer
 `tls` (`x3`) from `Rt.PreChild.TcbArea` at the TCB `tcbOf lab q`, with `tls` that TCB and the layout's bounds,
 gathered in one premise `TlsTcb` (row clone-tls-TcbArea, the clone producer's).
@@ -42,26 +42,26 @@ theorem e8 (h : TlsTcb M lab q tls r1) : tcbOf lab q + 8#64 = BitVec.ofNat 64 (t
   apply BitVec.eq_of_toNat_eq
   rw [BitVec.toNat_add, BitVec.toNat_ofNat, BitVec.toNat_ofNat, h.tls_eq]
 
-/-- **B8-hlim-a.** -/
+/-- **Limit word, part (a).** -/
 theorem hlim_a (h : TlsTcb M lab q tls r1) : tls + 16 ≤ 2 ^ 64 := h.fit
 
-/-- **B8-hlim-b.** -/
+/-- **Limit word, part (b).** -/
 theorem hlim_b (h : TlsTcb M lab q tls r1) : tls + 16 ≤ r1.lo ∨ r1.lo + r1.size ≤ tls + 8 := h.out
 
-/-- **B8-hlim-c**: the limit word is the runtime's (`TcbArea.rt` at `scc_rt_thread_init`'s field 1). -/
+/-- **Limit word, part (c)**: the limit word is the runtime's (`TcbArea.rt` at `scc_rt_thread_init`'s field 1). -/
 theorem hlim_c (h : TlsTcb M lab q tls r1) : M.rt (tls + 8) := by
   have hrt := h.area.rt (tcbOf lab q + BitVec.ofNat 64 (8 * 1)) (by simp [Spike.Lib.A64.Rt.Ti.tiAddrs])
   rw [show BitVec.ofNat 64 (8 * 1) = 8#64 from rfl, h.e8, BitVec.toNat_ofNat,
     Nat.mod_eq_of_lt (by have := h.fit; omega)] at hrt
   exact hrt
 
-/-- **B8-hlim-d**: the limit word mapped for reading (`TcbArea.mpR`). -/
+/-- **Limit word, part (d)**: the limit word mapped for reading (`TcbArea.mpR`). -/
 theorem hlim_d (h : TlsTcb M lab q tls r1) : M.mp ⟨BitVec.ofNat 64 (tls + 8), 8⟩ false := by
   have := h.area.mpR
   rw [h.e8] at this
   exact this
 
-/-- **B8-hlim-e**: every value at the limit word leaves the frames below `r1`'s top (`TcbArea.lim`, `room`). -/
+/-- **Limit word, part (e)**: every value at the limit word leaves the frames below `r1`'s top (`TcbArea.lim`, `room`). -/
 theorem hlim_e (h : TlsTcb M lab q tls r1) :
     ∀ v : Val, M.G ⟨BitVec.ofNat 64 (tls + 8), 8⟩ v → (v.setWidth 64).toNat + 176 ≤ r1.lo + r1.size := by
   intro v hv

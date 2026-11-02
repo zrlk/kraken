@@ -156,7 +156,7 @@ def PTermT (e : Expr) : Prop :=
   e ∈ preTermsH ∨ e ∈ PrintSvc.printTerms PrintSrc.printBody ∨
     e ∈ PrintSvc.printTerms HelloPrintSrcPub.printLBodyP
 
-/-- **The print phase's terms** (row B8-gen1; wake's `WTerm` pattern): the
+/-- **The print phase's terms** (wake's `WTerm` pattern): the
 source worker's term is a print-phase term (`PTermT`). `PrintPh` alone
 admits any term with a local run to an anchor; this pins the terms of
 `helloSrc`, so the rows of other source terms (a store, an exchange, an
@@ -194,7 +194,7 @@ theorem sLatest_unique {sm : WeakMem.Memory} {a : WeakMem.Address} {j j' : Nat}
 
 /-- **`BufV` is stable under memory extension** with no message at or after
 `S` to the buffer's words (they are frozen: `Inv2Core.frzS` at the
-instance's frozen buffer words, row B8-gen1-frz). -/
+instance's frozen buffer words). -/
 theorem BufV.mono {l : WeakMem.AllocLabel} {m S : Nat} {cw : TermRun.Word} {sm sm' : WeakMem.Memory}
     (h : BufV l m S cw sm) (hext : TermCert.MemExt sm sm')
     (hnew : ∀ k (msg : WeakMem.Msg), sm'[k]? = some msg → S ≤ k → ∀ i < m, msg.loc ≠ ⟨l, i⟩) :

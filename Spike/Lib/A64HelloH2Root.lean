@@ -97,7 +97,7 @@ theorem h2Stmt_root (P : HelloRootPrem (Ly) (LB)) {ls0 : Lsize}
     (hG : P.G = fun l b _ _ _ _ => GJ1RH (Ly) (Spike.Lib.A64ConsumerA.upd (LB) l b) l)
     /- the level's extra fact at the clone: the child's stack private -/
     (hWc : ∀ l b n l' b' n' s c, P.Wc l b n l' b' n' s c → Spike.Lib.A64.Flow.Ret0.StackM (r1Of (Ly).lab) s.st.1)
-    /- row: B8-h2-refObl. The refusal path's obligations inside the level. -/
+    /- The refusal path's obligations inside the level. -/
     (hobl : ∀ l b n l' b' n', Spike.Lib.A64.HelloPh.Fresh2H P.ar (LB) l b n l' b' n' →
       RefOblH (Ly) P.F0 (P.G l b n l' b' n') l' b' (slWsH l) n'
         (fun s c fs => P.W2 l b n l' b' n' s c fs ∧ P.X2 l b n l' b' n' s c fs) (TakeCKS (AT) (ClH (Ly)))

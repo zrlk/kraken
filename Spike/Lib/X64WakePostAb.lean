@@ -1,5 +1,5 @@
 /-
-**wake.w on x86-64: aborts after the spawn** (hello plan 1.6), the x86-64
+**wake.w on x86-64: aborts after the spawn**, the x86-64
 twin of `Spike/Lib/WakePostAb.lean`: two facts about `WakeRel.Post` for
 `WakeObligations`.
 

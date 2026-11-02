@@ -1,6 +1,6 @@
 /-
 **hello.w on AArch64: a step from `Post` to `Post` keeps `CertAll`** (row
-B8-genC; `HelloAssembly.HelloRowsW.cert_step`, the twins of
+`HelloAssembly.HelloRowsW.cert_step`, the twins of
 `WakeCert.no_site_of_post` / `certAll_step_of` and `WakeEnv.post_bnd` /
 `henv_of` at hello's worker data `PT1h` and kernel relation `KRH`).
 
@@ -11,7 +11,7 @@ kernel relation only for its slot conjuncts (`KRH`'s are `KR`'s).
 - `no_site_of_postH`, `certAll_step_ofH`, `post_bndH`, `henv_ofH`: as wake's
   (without the `H`).
 - `cert_stepH`: `HelloRowsW.cert_step`'s statement, given `hconv` (row
-  B8-genV, `HelloRowsW.hconv`).
+  `HelloRowsW.hconv`).
 -/
 import Spike.Lib.WakeEnv
 import Spike.Lib.HelloAssembly

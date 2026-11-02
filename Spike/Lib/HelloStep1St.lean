@@ -1,6 +1,6 @@
 /-
 **hello.w on AArch64: the worker's flag store after `print` returns** (C4,
-row B8-gen1, step 2c; the twin of `WakeW1.post_store` at `PartsH`, with a
+step 2c; the twin of `WakeW1.post_store` at `PartsH`, with a
 frame-run prefix).
 
 From the print phase the frame-aware rows (`HelloSegThrS.OutTS.pre`,

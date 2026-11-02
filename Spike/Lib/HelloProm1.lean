@@ -1,6 +1,6 @@
 /-
 **hello.w on AArch64: the worker's certified promises in the print phase**
-(C4, row B8-gen1-prom; the twin of `Spike/Lib/WakeW1Prom.lean` at `PartsH`,
+(C4; the twin of `Spike/Lib/WakeW1Prom.lean` at `PartsH`,
 the rows frame-aware as in `Spike/Lib/HelloStep1D.lean`).
 
 A promise of the worker is certified by a run of the worker alone under the

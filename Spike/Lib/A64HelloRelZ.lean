@@ -1,6 +1,6 @@
 /-
 **hello.w's worker writes at most once per instruction, a release write**
-(row B8-genV-hW1, AArch64): `RelZ`
+(AArch64): `RelZ`
 (`Spike/Lib/A64RelW1Nodes.lean`) at every node's states of hello's worker
 segments, in the `NodeZA`/`NodeW`/`ProW` form the segment lemmas take
 (`A64HelloWkTailNN`, `A64HelloThrNN`, `A64HelloChildNN`, `A64HelloPrintNN`,

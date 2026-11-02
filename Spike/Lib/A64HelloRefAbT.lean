@@ -1,5 +1,5 @@
 /-
-**The write abort's phase kept on hello.w's threads abort path** (AArch64; piece R3;
+**The write abort's phase kept on hello.w's threads abort path** (AArch64; part 3;
 the hello twin of `A64WakeRefAb`'s `tpathW_ab`): every obligation of `TPathW` at
 `AbSt μ (WriteAb.Ab lab)`, none moved, for an executable with `InstOk`, its program holding the runtime's abort
 code (`abortIn`) and passing the path's phase check (`abortPhThreadsOk`), its labels hello's code labels where they

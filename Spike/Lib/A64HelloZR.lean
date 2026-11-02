@@ -1,5 +1,5 @@
 /-
-**hello.w's worker segment's control fact with `RelZ`** (row B8-genV-hW1, AArch64): the fragment `ZHR exe kp` (`ZH`
+**hello.w's worker segment's control fact with `RelZ`** (AArch64): the fragment `ZHR exe kp` (`ZH`
 and wake's
 `RelZ`, `Spike/Lib/A64RelW1Nodes.lean`), so that `helloDR`'s invariant at
 `Z := fun _ => ZHR exe kp` gives the worker's `hW1` (every instruction's

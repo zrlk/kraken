@@ -57,8 +57,8 @@ theorem ZObl.flag {X : FragS isaLSE2} {cS : WeakMem.Address} {exe : _root_.Execu
 
 /-- **The flag under `Pend`**: at every control reached from the pending
 witness. (Controls between the source's own control and the witness are
-not covered: see the module docstring of `A64HelloFlagZ` and row
-B8-genP-hmapW-flag.) -/
+not covered: see the module docstring of `A64HelloFlagZ` and the
+worker's flag fact.) -/
 theorem flag_of_pend {cS : WeakMem.Address} {Z : FragS isaLSE2} {s : State} {c : Ctl} {fs : List TermRun.Frame}
     (h : Pend helloSrc (fun s c fs => Z s c fs ∧ FlagF cS s c fs) s c fs) :
     ∃ c' fs', FrameRun helloSrc (c, fs) (c', fs') ∧

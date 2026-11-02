@@ -121,6 +121,31 @@ def msOfAX (Λ : Scc.Sem.Layout) (μ : Marks) (p : Prog) (rd : TermRun.Word → 
 def PendA (p : Prog) (I : InvS) : InvS := fun lbl lsize s c fs =>
   (fs = [] → ∀ a, c.term ≠ .ret a) ∧ Pend p (I lbl lsize) s c fs
 
+/-- **The row after the source's publication** at a pair off a system call,
+where the arena admits the publication (`Arena.pub`): the source publishes
+(`PubStep .st`, a source step the target does not take) into a control of
+the fragment at the same frames, from which the instruction is a row under
+`msOfAX … ab` (`NodesA.out`'s, at the landing). On AArch64 the publication
+rides a fence row instead (`Out.fence`, `FenceRun.pub`); x86-64 also takes it
+where the target does not fence. -/
+def PubOut (Λ : Scc.Sem.Layout) (p : Prog) (μ : Marks) (rd : TermRun.Word → Prop) (G : Loc → Val → Prop)
+    (own : OwnS) (ar : Arena) (I : InvS) (ab : Option (State → Prop)) (lbl : Lbl) (lsize : Lsize) (s : State)
+    (c : Ctl) (fs : List TermRun.Frame) : Prop :=
+  abi.atSys s = false ∧ ar.pub ∧ ∃ c₁, PubStep .st c c₁ ∧ I lbl lsize s c₁ fs ∧
+    OutS p lbl (msOfAX Λ μ p rd G own ar I ab lbl lsize) (Pend p (I lbl lsize)) s c₁ fs
+
+/-- **Where a row starts** from the control `c` (`NodesA.rowXC`): at `c`, or,
+off a system call where the arena admits it, at the control `c₀` of the
+fragment the source's publication from `c` lands at (`PubOut`). -/
+def PubPre (ar : Arena) (I : InvS) (lbl : Lbl) (lsize : Lsize) (s : State) (c c₀ : Ctl)
+    (fs : List TermRun.Frame) : Prop :=
+  c₀ = c ∨ abi.atSys s = false ∧ ar.pub ∧ PubStep .st c c₀ ∧ I lbl lsize s c₀ fs
+
+/-- At a system call a row starts at the control itself. -/
+theorem PubPre.eq_of_sys {ar : Arena} {I : InvS} {lbl : Lbl} {lsize : Lsize} {s : State} {c c₀ : Ctl}
+    {fs : List TermRun.Frame} (h : PubPre ar I lbl lsize s c c₀ fs) (hs : abi.atSys s = true) : c₀ = c :=
+  h.resolve_right fun ⟨hns, _⟩ => absurd (hns.symm.trans hs) Bool.false_ne_true
+
 /-- **The counter's add at a pair** (`Out.ctrRmw`'s premises under `ms`,
 landing in `X`): the instruction is the read-modify-write of the counter
 word adding the allocation's units, at an allocation site (`AllocSite
@@ -173,12 +198,16 @@ counter word (`Writes`) is the counter's add (`CtrRow`, landing in `PendA`);
 `msOfA`'s own fields); `zero`, at a buffer allocation the zero
 words of the type represent 0 under every placement. The rest as in
 `NodesS`. At the system calls `Cl` marks (a `clone`, `ClonePathS`; none at
-the default) no row is asked for (`out`'s last premise). -/
+the default) no row is asked for (`out`'s last premise). Off a system call,
+where the arena admits the source's publication, `out` may give the row after
+it instead (`PubOut`). -/
 structure NodesA (Λ : Scc.Sem.Layout) (p : Prog) (μ : Marks) (rd : TermRun.Word → Prop) (G : Loc → Val → Prop)
     (own : OwnS) (ar : Arena) (I : InvS) (ab : Option (State → Prop) := none)
     (Cl : State → Prop := fun _ => False) : Prop where
   out : ∀ lbl lsize s c fs, I lbl lsize s c fs → (∀ a, μ.site .take = some a → pcOf s ≠ a) →
-    (abi.atSys s = true → ¬ Cl s) → OutS p lbl (msOfAX Λ μ p rd G own ar I ab lbl lsize) (Pend p (I lbl lsize)) s c fs
+    (abi.atSys s = true → ¬ Cl s) →
+    OutS p lbl (msOfAX Λ μ p rd G own ar I ab lbl lsize) (Pend p (I lbl lsize)) s c fs ∨
+      PubOut Λ p μ rd G own ar I ab lbl lsize s c fs
   noRet : ∀ lbl lsize s c, I lbl lsize s c [] → ∀ a, c.term ≠ .ret a
   cell : ∀ lbl lsize s c fs, IRun p I lbl lsize s c fs → ∀ x a e ty w,
     (c.term = .let_ x (.load true a) e ∨ ∃ b, c.term = .let_ x (.store true a b none) e) →
@@ -405,14 +434,15 @@ theorem _root_.Spike.Lib.AllocInvAt.header_fulfilBox {c : Ctl}
 variable {I : InvS} {μ : Marks} {rd : TermRun.Word → Prop} {G : Loc → Val → Prop} {own : OwnS}
   {ab : Option (State → Prop)} {Cl : State → Prop}
 
-/-- **The row of a pair of the fragment** (`NodesS.row` with the arena):
-the source takes a frame run to `(c₁, fs₁)`, from which the instruction is
-an `Out` row under `msOfA` landing in `PendA` at `fs₁`. -/
-theorem NodesA.row (hN : NodesA Λ p μ rd G own ar I) {s : State} {c : Ctl} {fs : List TermRun.Frame}
-    (hI : I lbl lsize s c fs) (hnt : ∀ a, μ.site .take = some a → pcOf s ≠ a) :
+/-- **The row from a pair of the fragment given its `OutS`** under `msOfA`:
+the source takes a frame run to `(c₁, fs₁)`, from which the instruction is an
+`Out` row under `msOfA` landing in `PendA` at `fs₁`. -/
+theorem NodesA.rowOfOutS (hN : NodesA Λ p μ rd G own ar I ab Cl) {s : State} {c : Ctl} {fs : List TermRun.Frame}
+    (hI : I lbl lsize s c fs)
+    (h : OutS p lbl (msOfA Λ μ rd G own ar I lbl lsize) (Pend p (I lbl lsize)) s c fs) :
     ∃ c₁ fs₁, FrameRun p (c, fs) (c₁, fs₁) ∧ own s fs₁ = own s fs ∧
       Out p lbl (msOfA Λ μ rd G own ar I lbl lsize fs₁) (fun s' c' => PendA p I lbl lsize s' c' fs₁) s c₁ := by
-  cases hN.out _ _ _ _ _ hI hnt (fun _ h => h) with
+  cases h with
   | pre c₁ fs₁ hr h =>
     refine ⟨c₁, fs₁, hr, hN.ownRun _ _ _ _ _ _ _ hr (.inl hI), h.mono fun s' c' h' => ⟨?_, h'⟩⟩
     rintro h0 a hc
@@ -425,42 +455,48 @@ theorem NodesA.row (hN : NodesA Λ p μ rd G own ar I) {s : State} {c : Ctl} {fs
     exact fun h0 => hN.noRet _ _ _ _ (h0 ▸ hI)
 
 /-- **The row of a pair of the fragment off the output `write` and off
-`Cl`**, for rows under any `msOfAX … ab`: `NodesA.row`, the row under `msOfA`
-(an `Out.emit` row is at a `write(1, …)`, which `hne` excludes; `Out.unBW`). -/
+`Cl`**, for rows under any `msOfAX … ab`: the row under `msOfA` (an
+`Out.emit` row is at a `write(1, …)`, which `hne` excludes; `Out.unBW`), from
+the control `c₀` the row starts at (`PubPre`: `c`, or past the source's
+publication, `NodesA.out`'s `PubOut`). -/
 theorem NodesA.rowXC (hN : NodesA Λ p μ rd G own ar I ab Cl) {s : State} {c : Ctl} {fs : List TermRun.Frame}
     (hI : I lbl lsize s c fs) (hnt : ∀ a, μ.site .take = some a → pcOf s ≠ a)
     (hne : abi.atSys s = true → ∀ buf n, Kernel.decode abi.nrs (abi.nr s) (abi.arg s) ≠ some (.write 1 buf n))
     (hcl : abi.atSys s = true → ¬ Cl s) :
-    ∃ c₁ fs₁, FrameRun p (c, fs) (c₁, fs₁) ∧ own s fs₁ = own s fs ∧
+    ∃ c₀, PubPre ar I lbl lsize s c c₀ fs ∧ ∃ c₁ fs₁, FrameRun p (c₀, fs) (c₁, fs₁) ∧ own s fs₁ = own s fs ∧
       Out p lbl (msOfA Λ μ rd G own ar I lbl lsize fs₁) (fun s' c' => PendA p I lbl lsize s' c' fs₁) s c₁ := by
-  have hun : ∀ {fs₁ : List TermRun.Frame} {X : Frag isa} {c₁ : Ctl},
-      Out p lbl (msOfAX Λ μ p rd G own ar I ab lbl lsize fs₁) X s c₁ →
-        Out p lbl (msOfA Λ μ rd G own ar I lbl lsize fs₁) X s c₁ := by
-    intro fs₁ X c₁ h
+  have hun : ∀ {c₀ : Ctl}, OutS p lbl (msOfAX Λ μ p rd G own ar I ab lbl lsize) (Pend p (I lbl lsize)) s c₀ fs →
+      OutS p lbl (msOfA Λ μ rd G own ar I lbl lsize) (Pend p (I lbl lsize)) s c₀ fs := by
+    intro c₀ h
     cases ab with
     | none => exact h
     | some Ab =>
-      exact Out.unBW h fun K hK ha => by
-        cases hK
-        exact hne ha
-  cases hN.out _ _ _ _ _ hI hnt hcl with
-  | pre c₁ fs₁ hr h =>
-    refine ⟨c₁, fs₁, hr, hN.ownRun _ _ _ _ _ _ _ hr (.inl hI), (hun h).mono fun s' c' h' => ⟨?_, h'⟩⟩
-    rintro h0 a hc
-    obtain ⟨c'', fs'', hr', h''⟩ := h'
-    cases hr'.eq_of_stuck (.inr ⟨h0, a, hc⟩)
-    exact hN.noRet _ _ _ _ (h0 ▸ h'') a hc
-  | frame s' c' fs' he hr hx =>
-    obtain ⟨c'', fs'', hr', hx⟩ := hx
-    refine ⟨c, fs, .refl _, rfl, .silent s' c he (.refl c) ⟨?_, c'', fs'', hr.trans hr', hx⟩⟩
-    exact fun h0 => hN.noRet _ _ _ _ (h0 ▸ hI)
+      cases h with
+      | pre c₁ fs₁ hr h =>
+        exact .pre c₁ fs₁ hr (Out.unBW h fun K hK ha => by
+          cases hK
+          exact hne ha)
+      | frame s' c' fs' he hr hx => exact .frame s' c' fs' he hr hx
+  rcases hN.out _ _ _ _ _ hI hnt hcl with h | ⟨hns, hp, c₀, hps, hI0, h⟩
+  · exact ⟨c, .inl rfl, hN.rowOfOutS hI (hun h)⟩
+  · exact ⟨c₀, .inr ⟨hns, hp, hps, hI0⟩, hN.rowOfOutS hI0 (hun h)⟩
+
+/-- **The row of a pair of the fragment** (`NodesS.row` with the arena;
+`NodesA.rowXC` at `msOfA`, no `Cl`). -/
+theorem NodesA.row (hN : NodesA Λ p μ rd G own ar I) {s : State} {c : Ctl} {fs : List TermRun.Frame}
+    (hI : I lbl lsize s c fs) (hnt : ∀ a, μ.site .take = some a → pcOf s ≠ a) :
+    ∃ c₀, PubPre ar I lbl lsize s c c₀ fs ∧ ∃ c₁ fs₁, FrameRun p (c₀, fs) (c₁, fs₁) ∧ own s fs₁ = own s fs ∧
+      Out p lbl (msOfA Λ μ rd G own ar I lbl lsize fs₁) (fun s' c' => PendA p I lbl lsize s' c' fs₁) s c₁ := by
+  rcases hN.out _ _ _ _ _ hI hnt (fun _ h => h) with h | ⟨hns, hp, c₀, hps, hI0, h⟩
+  · exact ⟨c, .inl rfl, hN.rowOfOutS hI h⟩
+  · exact ⟨c₀, .inr ⟨hns, hp, hps, hI0⟩, hN.rowOfOutS hI0 h⟩
 
 /-- **The row of a pair of the fragment off the output `write`**, for rows
 under any `msOfAX … ab` (`NodesA.rowXC`, no `Cl` at the default). -/
 theorem NodesA.rowX (hN : NodesA Λ p μ rd G own ar I ab) {s : State} {c : Ctl} {fs : List TermRun.Frame}
     (hI : I lbl lsize s c fs) (hnt : ∀ a, μ.site .take = some a → pcOf s ≠ a)
     (hne : abi.atSys s = true → ∀ buf n, Kernel.decode abi.nrs (abi.nr s) (abi.arg s) ≠ some (.write 1 buf n)) :
-    ∃ c₁ fs₁, FrameRun p (c, fs) (c₁, fs₁) ∧ own s fs₁ = own s fs ∧
+    ∃ c₀, PubPre ar I lbl lsize s c c₀ fs ∧ ∃ c₁ fs₁, FrameRun p (c₀, fs) (c₁, fs₁) ∧ own s fs₁ = own s fs ∧
       Out p lbl (msOfA Λ μ rd G own ar I lbl lsize fs₁) (fun s' c' => PendA p I lbl lsize s' c' fs₁) s c₁ :=
   hN.rowXC hI hnt hne fun _ h => h
 
@@ -468,10 +504,30 @@ theorem NodesA.rowX (hN : NodesA Λ p μ rd G own ar I ab) {s : State} {c : Ctl}
 (`NodesA.rowXC`: `out`'s premise is about system calls only). -/
 theorem NodesA.rowNS (hN : NodesA Λ p μ rd G own ar I ab Cl) {s : State} {c : Ctl} {fs : List TermRun.Frame}
     (hI : I lbl lsize s c fs) (hnt : ∀ a, μ.site .take = some a → pcOf s ≠ a) (hns : abi.atSys s = false) :
-    ∃ c₁ fs₁, FrameRun p (c, fs) (c₁, fs₁) ∧ own s fs₁ = own s fs ∧
+    ∃ c₀, PubPre ar I lbl lsize s c c₀ fs ∧ ∃ c₁ fs₁, FrameRun p (c₀, fs) (c₁, fs₁) ∧ own s fs₁ = own s fs ∧
       Out p lbl (msOfA Λ μ rd G own ar I lbl lsize fs₁) (fun s' c' => PendA p I lbl lsize s' c' fs₁) s c₁ :=
   hN.rowXC hI hnt (fun h => absurd (hns.symm.trans h) Bool.false_ne_true)
     fun h => absurd (hns.symm.trans h) Bool.false_ne_true
+
+/-- **The row of a pair of the fragment at a system call** off the output
+`write` and off `Cl`: `NodesA.rowXC` from the pair's own control
+(`PubPre.eq_of_sys`). -/
+theorem NodesA.rowSys (hN : NodesA Λ p μ rd G own ar I ab Cl) {s : State} {c : Ctl} {fs : List TermRun.Frame}
+    (hI : I lbl lsize s c fs) (hnt : ∀ a, μ.site .take = some a → pcOf s ≠ a) (hs : abi.atSys s = true)
+    (hne : ∀ buf n, Kernel.decode abi.nrs (abi.nr s) (abi.arg s) ≠ some (.write 1 buf n)) (hcl : ¬ Cl s) :
+    ∃ c₁ fs₁, FrameRun p (c, fs) (c₁, fs₁) ∧ own s fs₁ = own s fs ∧
+      Out p lbl (msOfA Λ μ rd G own ar I lbl lsize fs₁) (fun s' c' => PendA p I lbl lsize s' c' fs₁) s c₁ := by
+  obtain ⟨c₀, hc₀, h⟩ := hN.rowXC hI hnt (fun _ => hne) fun _ => hcl
+  rw [← hc₀.eq_of_sys hs]; exact h
+
+/-- **`NodesA.out` at a system call** is a row from the pair's own control
+(`PubOut` is off system calls). -/
+theorem NodesA.outSys (hN : NodesA Λ p μ rd G own ar I ab Cl) {s : State} {c : Ctl} {fs : List TermRun.Frame}
+    (hI : I lbl lsize s c fs) (hnt : ∀ a, μ.site .take = some a → pcOf s ≠ a) (hs : abi.atSys s = true)
+    (hcl : ¬ Cl s) :
+    OutS p lbl (msOfAX Λ μ p rd G own ar I ab lbl lsize) (Pend p (I lbl lsize)) s c fs :=
+  (hN.out _ _ _ _ _ hI hnt fun _ => hcl).resolve_right fun ⟨hns, _⟩ =>
+    absurd (hns.symm.trans hs) Bool.false_ne_true
 
 /-- `PendA`'s state is one of the fragment's. -/
 theorem PendA.inv {s : State} {c : Ctl} {fs : List TermRun.Frame} (h : PendA p I lbl lsize s c fs) :
@@ -543,3 +599,15 @@ theorem pend_landA (hP : HookOK P p) (hN : NodesA Λ p μ rd G own ar I ab Cl) {
   exact ⟨s', run_trans0 hrun hr, .inl hpre⟩
 
 end Spike.Lib.X64ConsumerA
+
+/-- info: 'Spike.Lib.X64ConsumerA.NodesA.rowOfOutS' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in #print axioms Spike.Lib.X64ConsumerA.NodesA.rowOfOutS
+
+/-- info: 'Spike.Lib.X64ConsumerA.NodesA.rowXC' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in #print axioms Spike.Lib.X64ConsumerA.NodesA.rowXC
+
+/-- info: 'Spike.Lib.X64ConsumerA.NodesA.rowSys' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in #print axioms Spike.Lib.X64ConsumerA.NodesA.rowSys
+
+/-- info: 'Spike.Lib.X64ConsumerA.NodesA.outSys' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in #print axioms Spike.Lib.X64ConsumerA.NodesA.outSys

@@ -1,5 +1,5 @@
 /-
-**wake.w after the spawn takes no abort step** (hello plan 1.6, x86-64;
+**wake.w after the spawn takes no abort step** (x86-64;
 the x86-64 twin of `Spike/Lib/WakeNoAbort.lean`): `WakeObligations.post_abort`
 is vacuous. An `abort k` event
 comes only from a system call `exit_group` (`sysStep_abort`) of a thread at
@@ -105,11 +105,11 @@ theorem post_abort_of {arch : WeakMem.Arch} {B : Budget} {μ : Marks} {Ab Ac : S
     (hoff0 : ∀ w tm sm t0 s0, Q.PT0 w tm sm t0 s0 → s0.term ≠ WakeMLive.wlRet →
       ∀ k a, μ.abortAt k = some a → pcOf t0.st ≠ a)
     (hsys1 : ∀ w tm sm t1 s1, Q.PT1 w tm sm t1 s1 → abi.atSys t1.st = true → ∀ call,
-      callOf abi t1 = some call → ∀ v, call ≠ .exitGroup v) :
-    ∀ tr t s tid es t' k, (wakeS arch).Reach (obs tr) s → Q.Post Λ t s → X64WakePreTi.TiPre Ab Ac t tr →
+      callOf abi t1 = some call → ∀ v, call ≠ .exitGroup v) {p : CoreTerm.Prog} :
+    ∀ tr t s tid es t' k, (srcS p arch).Reach (obs tr) s → Q.Post Λ t s → X64WakePreTi.TiPre Ab Ac t tr →
       (machine (kernel 2)).Step μ tid t es t' → Ev.abort k ∈ es →
       ∃ w i, Components (machine (kernel 2)) Λ w t s ∧ w.thr i = some tid ∧
-        AbortJustified B (wakeS arch) tr s i k :=
+        AbortJustified B (srcS p arch) tr s i k :=
   fun _ _ _ _ _ _ _ _ hP _ hs hk => (post_noAbort hlive hoff0 hsys1 hP hs hk).elim
 
 end Spike.Lib.X64WakeNoAbort

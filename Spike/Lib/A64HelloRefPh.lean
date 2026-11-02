@@ -1,6 +1,6 @@
 /-
 **hello.w's threads abort path and refused-`clone` blocks at `ph2bH`** (AArch64;
-piece R2; the hello twin of `Spike/Lib/A64WakeRefPh.lean`): the phase checks `stubTW_sfactsACG`
+part 2; the hello twin of `Spike/Lib/A64WakeRefPh.lean`): the phase checks `stubTW_sfactsACG`
 (`abortPhThreadsOk`) and the refusal blocks (`blkPh` of `cb`, `cl`, `flB`) ask, at the projected phase `ph2bH`
 (`Spike/Lib/A64HelloOwn2.lean`) and hello.w's off-site pcs, decided once by `decide +kernel` on the
 certificate's keyed table (no pc literal).

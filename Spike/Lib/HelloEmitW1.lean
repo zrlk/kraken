@@ -1,6 +1,6 @@
 /-
 **hello.w on AArch64: `print`'s `write` keeps `Post`** (C4, row
-B8-gen1-EmitStepP, design (a′), step S5). The worker at its
+design (a′), step S5). The worker at its
 `write(1, buf, n)`: a byte pick by `HelloEmitStep.post_byteH`/`post_byteE`,
 a return by `EmitRetP` (S4, `HelloEmitRet`), no abort pick.
 
@@ -147,7 +147,7 @@ theorem write1StepE_of (hC : WCompatH Q D μ Λ arch AbW) (hKR : Q.KR = KRHE D r
       (fun h0 => absurd hp (by rw [h0]; exact Nat.lt_irrefl 0)) hd hs hca
   | abort k => exact absurd hs (sysStep_write_abort h.t1_get hd)
 
-/-- **`HelloStep1.EmitStep1` from `Write1StepE`** (row B8-W1E): main's
+/-- **`HelloStep1.EmitStep1` from `Write1StepE`**: main's
 source is off its exit while the process runs (`hml`, as
 `HelloStep1D.printStep1_of`'s), and the step at the worker's `write` is a
 `sysStep` with `CertAfter` (`step_twriteC`). -/

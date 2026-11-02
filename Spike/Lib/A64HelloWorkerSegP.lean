@@ -63,7 +63,7 @@ structure ChildPrem (exe : _root_.Executable) (endPc : Int64) (kp : Nat) (lbl : 
   hv : Scc.Sem.ValRep lbl w3.val w.w4.toNat
   htag : ∃ sa, w3.val = .loc sa 0
   hvu : Scc.Sem.ValRep lbl w4.val w.w5.toNat
-  /- row: B8-hv012 (`HelloHv012.hv012_of_clone`). The packet's slice words: the buffer locative at
+  /- (`HelloHv012.hv012_of_clone`). The packet's slice words: the buffer locative at
   `x0`, the pair's `m`, `n` at `x2`, `x3`. -/
   hv0 : Scc.Sem.ValRep lbl w0.val w.w0.toNat
   hv1 : Scc.Sem.ValRep lbl w1.val w.w2.toNat

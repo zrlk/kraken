@@ -381,7 +381,7 @@ theorem hello_root_inv {arch : WeakMem.Arch} {B : Budget} {E : Entry}
     (Spike.Lib.A64.HelloPh.MainWcL1A.h1_level1P hp i0 E (fun _ => True) (I0R) ls hpa hhp hlo hstat hc hA13 hpin2
       hRdI hme hzI
       (fun _ _ _ hl hb => Spike.Lib.A64.HelloPh.RootHP.hland2_boxMRU hp i0 E (fun _ => True) ls h2S hl hb hF0))
-  -- level 1's take fact at its use (`Take1X.H1TakeXH`: `XR`'s `X0WH` at `inv1G`'s states, B8-h1-take)
+  -- level 1's take fact at its use (`Take1X.H1TakeXH`: `XR`'s `X0WH` at `inv1G`'s states)
   have h1t' : Spike.Lib.HelloPreA.Take1X.H1TakeXH (Ly) (AX) (inv1R) := Spike.Lib.HelloPreA.Take1X.h1TakeXH_and
     (Spike.Lib.HelloPreA.Take1X.h1TakeXH_inv1G fun _ _ _ _ _ _ h => h) (fun _ _ _ _ _ _ h => h.1)
   -- level 2's take facts (`HelloH2Inv.take2_of`)

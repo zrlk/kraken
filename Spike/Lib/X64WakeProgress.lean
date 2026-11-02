@@ -1,6 +1,5 @@
 /-
-**wake.w after the spawn has progress** (hello plan 1.6,
-`WakeObligations.post_progress`, x86-64; twin of `Spike/Lib/WakeProgress.lean`): the skeleton, with
+**wake.w after the spawn has progress** (`WakeObligations.post_progress`, x86-64; twin of `Spike/Lib/WakeProgress.lean`): the skeleton, with
 the three facts `Post` does not carry as named hypotheses.
 
 - `out_progressG`, `out_no_errorG`, `out_execG`: `ExtRows.out_progress`,
@@ -387,7 +386,7 @@ theorem worker_call (hC : WCompat Q D μ Λ arch) {w : Q.ι} {st : isa.State} {c
     obtain ⟨m, hm⟩ := hC.sysExec w _ _ _ hwi hat he
     cases hm
 
-/-- **`post_progress`** (hello plan 1.6; skeleton): after the spawn the
+/-- **`post_progress`** (skeleton): after the spawn the
 two-slot machine has progress and its memory is in the layout. An exited
 process has progress (`Kernel.exited_progress`); otherwise `progress_of`,
 thread 0 running by `KR`, main's `TOk` from its rows (`X64WakeM0.MSide.closed`,

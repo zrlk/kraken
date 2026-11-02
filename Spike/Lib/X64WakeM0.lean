@@ -1,6 +1,5 @@
 /-
-**wake.w on x86-64: main's relation after the spawn** (hello plan 1.6;
-the x64 twin of `Spike/Lib/WakeM0.lean`, same names, in `Spike.Lib.X64WakeM0`): the datum `PT0` of
+**wake.w on x86-64: main's relation after the spawn** (the x64 twin of `Spike/Lib/WakeM0.lean`, same names, in `Spike.Lib.X64WakeM0`): the datum `PT0` of
 `WakeRel` for main, over main's rows
 (`Spike/Lib/SegLd.lean`, `OutL`: `Out` and the load-or-stutter row of
 `waitLoop`'s acquire load).
@@ -69,14 +68,20 @@ def EnvC (cw : TermRun.Word) (env : TermRun.Env) : Prop :=
 
 /-! ## main's side -/
 
+/-- `p`'s `waitLoop` declaration is `wakeSrc`'s. -/
+abbrev WlDecl (p : Prog) : Prop :=
+  p.find? (·.name == "waitLoop") = wakeSrc.find? (·.name == "waitLoop")
+
 /-- **main's side of the relation**, per ghost record `w` of `ι`: the memory
 side of its rows (the placement `lbl w`), an invariant closed under them,
 main's pointer word for `c`, the invariant off every abort site. -/
 structure MSide (ι : Type) where
+  /-- The source program (`wakeSrc` at wake). -/
+  p : Prog := wakeSrc
   lbl : ι → WeakMem.AllocLabel → Option Nat
   ms : ι → MemSide isa
   Mi : ι → Frag isa
-  closed : ∀ w s c, Mi w s c → OutL wakeSrc (lbl w) (ms w) (Mi w) s c
+  closed : ∀ w s c, Mi w s c → OutL p (lbl w) (ms w) (Mi w) s c
   /-- main's pointer word for `c` (the published cell). -/
   cw : ι → TermRun.Word
   /-- The loaded program's marks. -/
@@ -86,13 +91,15 @@ structure MSide (ι : Type) where
   `exit_group` at every one, so `post_abort` needs all five; at the instance
   from `X64WakeOff.AbOffA`). -/
   off : ∀ w s c, Mi w s c → ∀ k a, μ.abortAt k = some a → pcOf s ≠ a
+  /-- `p`'s `waitLoop` is `wakeSrc`'s (`rfl` at wake). -/
+  wl : WlDecl p := by exact rfl
 
 /-- **A `SegL` to the empty fragment** (main's whole path after the spawn: it
 ends at `exit_group`, which has no successor) gives an invariant closed under
 the rows. -/
-theorem closed_of_segL {lbl : WeakMem.AllocLabel → Option Nat} {ms : MemSide isa} {P : Frag isa}
-    (h : SegL wakeSrc lbl ms P (fun _ _ => False)) :
-    ∃ inv : Frag isa, (∀ s c, P s c → inv s c) ∧ ∀ s c, inv s c → OutL wakeSrc lbl ms inv s c := by
+theorem closed_of_segL {p : Prog} {lbl : WeakMem.AllocLabel → Option Nat} {ms : MemSide isa} {P : Frag isa}
+    (h : SegL p lbl ms P (fun _ _ => False)) :
+    ∃ inv : Frag isa, (∀ s c, P s c → inv s c) ∧ ∀ s c, inv s c → OutL p lbl ms inv s c := by
   obtain ⟨inv, hP, hi⟩ := h
   exact ⟨inv, hP, fun s c h => (hi s c h).mono fun _ _ h => h.resolve_right id⟩
 

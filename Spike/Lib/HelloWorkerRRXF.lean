@@ -7,15 +7,15 @@ at `lo` (`hlab`) whose marks are off the labels (`hμ`).
 
 Release note: this is the `DH` of the assembly's switch (`HelloAssemblyI.DH` at `P := childPX`, `Z := ZHR ∧ X`,
 `X := XHF ∧ AbX`, `hseg := hsegF`). The entry fragment is inhabited only where `childPX` is produced at the clone
-(row B8-hcS, `childPX_of_clone`); the final instance carries that witness.
+(`childPX_of_clone`); the final instance carries that witness.
 
 - `hsegF`: each record's segment.
 - `helloDRF`: the worker's side.
 - `helloDRF_XHF`, `helloDRF_ab`: the invariant inside `XHF`, and its abort facts `AbFacts μ (WriteAb.Ab lab)`.
 - `helloDRF_hplW`, `helloDRF_hcall`, `helloDRF_flag`: the rows `hplW`, `hcall` and the flag.
 - `helloDRF_clone`: the invariant holds at the child after main's `clone` (`SegR.childPX_of_cloneX`), once
-  `ChildPrem` holds there (the executable in the fragment): `helloDRF`'s entry fragment is produced at the clone
-  (row B8-hcS).
+  `ChildPrem` holds there (the executable in the fragment): `helloDRF`'s entry fragment is produced at the
+  clone.
 - `helloDRF_zhr`: the invariant inside `NNH ∧ WideX ∧ Pend (ZHR exe kp)` (the consumers of `Z := ZHR`).
 -/
 import Spike.Lib.HelloWorkerRRX
@@ -129,7 +129,7 @@ theorem helloDRF_zhr : ∀ w s c fs,
   have h' := HelloWorkerRR.helloDR_inv exe endPc SR lbl ms _ _ _ hK _ cw bufL nB mB w s c fs h
   ⟨h'.1, h'.2.1, h'.2.2.mono fun _ _ _ h => h.1⟩
 
-/-- **`helloDRF`'s invariant at the child after main's `clone`** (row B8-hcS): `childPX_of_cloneX`'s entry,
+/-- **`helloDRF`'s invariant at the child after main's `clone`**: `childPX_of_cloneX`'s entry,
 given word 3 at the record's flag (`hw3`), `ChildPrem` at the child of main's thread and the clone's `tls`
 (`hpr`), and a fragment executable (`hw`, as `HelloWiI`'s `HelloMainG.hw_IH`; `WideX` at the child by
 `WorkerSide.wideX_childAfter`). The entry fragment `childPX` is produced at the clone, so the segment's

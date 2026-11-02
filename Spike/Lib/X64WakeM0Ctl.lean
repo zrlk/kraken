@@ -1,5 +1,5 @@
 /-
-**main's source control after the spawn** (hello plan 1.6, `post_step0`; terms in
+**main's source control after the spawn** (`post_step0`; terms in
 `Spike/Lib/WakeM0.lean`). The thread-0 twin of
 `Spike/Lib/WakeW1Src.lean`'s `WCtl`.
 
@@ -39,7 +39,7 @@ structure MCtl (cw : Word) (c : Ctl) : Prop where
   env : EnvC cw c.env
 
 /-- The global context of the inversions below (any would do). -/
-private def gM : G := { p := wakeSrc, k := Promises.Knobs.all, arch := .arm, n := 2, i := 0, lbase := 0 }
+private def gM (p : Prog) : G := { p := p, k := Promises.Knobs.all, arch := .arm, n := 2, i := 0, lbase := 0 }
 
 /-! ## Where a local step moves -/
 
@@ -50,7 +50,7 @@ body, with one binding of `x` pushed on the environment. -/
 theorem localStep_let {c c' : Ctl} (h : LocalStep p c c') {x : String} {op : Op} {e : Expr}
     (ht : c.term = .let_ x op e) (hc : ∀ f is a ts, op ≠ .call f is a ts) (hcc : ∀ f a, op ≠ .callc f a) :
     c'.term = e ∧ ∃ t ws, c'.env = (x, t, ws) :: c.env := by
-  have := h.2 { gM with p := p } #[] [] { term := .let_ x op e, env := c.env } rfl ht.symm rfl rfl rfl
+  have := h.2 (gM p) #[] [] { term := .let_ x op e, env := c.env } rfl ht.symm rfl rfl rfl
   cases op
   case call f is a ts => exact (hc f is a ts rfl).elim
   case callc f a => exact (hcc f a rfl).elim
@@ -68,7 +68,7 @@ theorem localStep_let {c c' : Ctl} (h : LocalStep p c c') {x : String} {op : Op}
 the two branches. -/
 theorem localStep_ifeq {c c' : Ctl} (h : LocalStep p c c') {a b : At} {yes no : Expr}
     (ht : c.term = .ifeq a b yes no) : (c'.term = yes ∨ c'.term = no) ∧ c'.env = c.env := by
-  have := h.2 { gM with p := p } #[] [] { term := .ifeq a b yes no, env := c.env } rfl ht.symm rfl rfl rfl
+  have := h.2 (gM p) #[] [] { term := .ifeq a b yes no, env := c.env } rfl ht.symm rfl rfl rfl
   simp only [TermRun.tstep] at this
   repeat' split at this
   all_goals first
@@ -89,12 +89,12 @@ theorem envC_cons {cw : Word} {env : Env} (h : EnvC cw env) {x : String} (hx : x
 
 /-- **A local step at `mTail`** enters `waitLoop`'s body with `c` bound to
 the same word. -/
-theorem localStep_mTail {cw : Word} {c c' : Ctl} (h : LocalStep wakeSrc c c') (ht : c.term = mTail)
-    (he : EnvC cw c.env) : c'.term = wlBody ∧ EnvC cw c'.env := by
+theorem localStep_mTail {cw : Word} {c c' : Ctl} (h : LocalStep p c c') (ht : c.term = mTail)
+    (he : EnvC cw c.env) (hwl : WlDecl p) : c'.term = wlBody ∧ EnvC cw c'.env := by
   obtain ⟨t, μ, u, hev, -, -⟩ := he
-  have e := tstep_tail (g := gM) (mem := #[]) (pairs := []) (th := { term := c.term, env := c.env })
-    (by rw [ht]; rfl) rfl rfl hev
-  have := h.2 gM #[] [] { term := c.term, env := c.env } rfl rfl rfl rfl rfl
+  have e := tstep_tail (g := gM p) (mem := #[]) (pairs := []) (th := { term := c.term, env := c.env })
+    (by rw [ht]; rfl) rfl (hwl.trans rfl) hev
+  have := h.2 (gM p) #[] [] { term := c.term, env := c.env } rfl rfl rfl rfl rfl
   rw [e] at this
   simp only [List.cons.injEq, Prod.mk.injEq, and_true] at this
   have e1 := congrArg TTh.term this.2.2
@@ -109,9 +109,10 @@ theorem localStep_mTail {cw : Word} {c c' : Ctl} (h : LocalStep wakeSrc c c') (h
 /-- **A local step keeps main's control invariant**: `mTail` to `wlBody`,
 `wlBody` to `wlIf`, `wlIf` to `wlRet` or `wlPark`, `wlPark` to `mTail`;
 none at `wlRet`. -/
-theorem localStep_mCtl {cw : Word} {c c' : Ctl} (h : LocalStep wakeSrc c c') (hc : MCtl cw c) : MCtl cw c' := by
+theorem localStep_mCtl {cw : Word} {c c' : Ctl} (h : LocalStep p c c') (hc : MCtl cw c)
+    (hwl : WlDecl p) : MCtl cw c' := by
   rcases hc.term with ht | ht | ht | ht | ht
-  · obtain ⟨e1, he⟩ := localStep_mTail h ht hc.env
+  · obtain ⟨e1, he⟩ := localStep_mTail h ht hc.env hwl
     exact ⟨h.1, .inr (.inl e1), he⟩
   · obtain ⟨e1, t, ws, e2⟩ := localStep_let h (ht.trans rfl) (by intros; simp) (by intros; simp)
     exact ⟨h.1, .inr (.inr (.inl e1)), e2 ▸ envC_cons hc.env (by decide) t ws⟩
@@ -125,10 +126,11 @@ theorem localStep_mCtl {cw : Word} {c c' : Ctl} (h : LocalStep wakeSrc c c') (hc
   · exact (localStep_not_ret h (.lit 0) ht).elim
 
 /-- **A local run keeps main's control invariant.** -/
-theorem localRun_mCtl {cw : Word} {c c' : Ctl} (h : LocalRun wakeSrc c c') (hc : MCtl cw c) : MCtl cw c' := by
+theorem localRun_mCtl {cw : Word} {c c' : Ctl} (h : LocalRun p c c') (hc : MCtl cw c)
+    (hwl : WlDecl p) : MCtl cw c' := by
   induction h with
   | refl => exact hc
-  | step hs _ ih => exact ih (localStep_mCtl hs hc)
+  | step hs _ ih => exact ih (localStep_mCtl hs hc hwl)
 
 /-- info: 'Spike.Lib.X64WakeM0.localRun_mCtl' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in

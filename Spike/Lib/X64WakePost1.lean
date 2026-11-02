@@ -1,6 +1,5 @@
 /-
-**wake.w on x86-64: the worker's steps after the spawn** (hello plan 1.6,
-the worker half of `WakeObligations`: `worker_done`, `unpark_src`,
+**wake.w on x86-64: the worker's steps after the spawn** (the worker half of `WakeObligations`: `worker_done`, `unpark_src`,
 `post_step1`, and the worker's promise case `post_prom1`).
 
 - `atSvc_atNop`: a thread at a `syscall` is not at a `nop` (no transfer site).
@@ -95,9 +94,9 @@ structure TexitFacts (Q : WakeRel) : Prop where
 
 /-- **The `worker_done` obligation**: at the worker's exit row the source
 stutters and `Post` is kept. -/
-theorem worker_done (F : TexitFacts Q) {μ : Marks} :
+theorem worker_done (F : TexitFacts Q) {μ : Marks} {p : CoreTerm.Prog} :
     ∀ t es t' s, Q.Post Λ t s → Q.atTexit t s → (machine (kernel 2)).Step μ 1 t es t' →
-      ∃ s', (wakeS arch).Run s (obs es) s' ∧ Q.Post Λ t' s' := by
+      ∃ s', (srcS p arch).Run s (obs es) s' ∧ Q.Post Λ t' s' := by
   intro t es t' s hP hx hs
   obtain ⟨t1, h1, hsys, hc⟩ := F.call t s hx
   obtain ⟨rfl, rfl⟩ := step_texit h1 hsys hc hs

@@ -1,5 +1,5 @@
 /-
-**`WCompat0.flagLd` at the x86-64 instance** (hello plan 1.6; x86-64 twin of
+**`WCompat0.flagLd` at the x86-64 instance** (x86-64 twin of
 `Spike/Lib/WakeInst.lean`'s `not_flagIf`/`flagLd_I`): at `wlBody` main's
 only load of the flag's word is `wc_waitLoop`'s `movq (%rcx), %rax`
 (`OutL.load` or `OutL.ldSt`; every other row's event differs, a system call

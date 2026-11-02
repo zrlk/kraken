@@ -1,5 +1,5 @@
 /-
-**The child segment's slice-count premise at main's clone** (AArch64, rows B8-seg-hm; premises of
+**The child segment's slice-count premise at main's clone** (AArch64; premises of
 `Hello.SegR.seg_childR` / `ChildPrem`). At the clone (`HelloPreA.ClonePreH`) the child's words are main's
 `x9 .. x14`; `x11` is the slice's word count, `2` (`SlRep`: the packet's slice `[b, 2, 13]`), so its byte count
 fits `wc_worker`'s signed bound.
@@ -28,7 +28,7 @@ theorem x11_clone (h : ClonePreH pfx Λ r0 r1 X lbl t s) {th : Thread isaLSE2} (
   obtain ⟨-, -, -, -, rfl, -⟩ := hsl
   exact h11
 
-/-- **`ChildPrem.hm` at the clone's words** (row B8-seg-hm): the slice's byte count `8 · x11 = 16` is below
+/-- **`ChildPrem.hm` at the clone's words**: the slice's byte count `8 · x11 = 16` is below
 `2 ^ 63`. -/
 theorem hm_clone (h : ClonePreH pfx Λ r0 r1 X lbl t s) {th : Thread isaLSE2} (hth : t.1.threads = #[th]) :
     th.st.st.1.regs.X11.toBitVec.toNat * 8 < 2 ^ 63 := by

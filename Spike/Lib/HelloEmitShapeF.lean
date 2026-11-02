@@ -1,6 +1,6 @@
 /-
-**hello.w on AArch64: the emit row at the worker's `write(1, …)`, read off its invariant** (row
-B8-EmitShape). The worker's invariant `D.Wi` is closed under `OutTS` (`WSideH.closed`); at a system call
+**hello.w on AArch64: the emit row at the worker's `write(1, …)`, read off its invariant**.
+The worker's invariant `D.Wi` is closed under `OutTS` (`WSideH.closed`); at a system call
 whose instruction faults (`WCompatH.sysExec`) decoding to `write(1, buf, n)`, the only row `OutTS` offers is
 `Out.emit`, reached by a frame run (`OutTS.pre`, or `OutTS.top` with `OutT.outL`): `Out.sys` excludes a
 `write` to `1` (`SysOk`), `OutT.texit` decodes to `exit`, and every other row executes a non-faulting tree.
@@ -110,7 +110,7 @@ end Rows
 
 variable {ι : Type}
 
-/-- (row B8-EmitShape, with a frame run) **At the worker's `write(1, buf, n)` there is an emit row at the
+/-- (with a frame run) **At the worker's `write(1, buf, n)` there is an emit row at the
 frames a frame run of the source worker reaches**: at `D.Wi w st (Ctl.of s1) s1.stack`, a frame run of the
 source worker to `(c', fs')`, byte controls `Pw` with `Pw 0 c'` and refusal controls `Qw`, and the emit row's
 clauses (`EmitCl`) at `fs'`. (`HelloEmitPh.EmitShape` with its local run widened to a frame run and its

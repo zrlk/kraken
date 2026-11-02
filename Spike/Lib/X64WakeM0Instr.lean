@@ -1,6 +1,5 @@
 /-
-**main's instruction steps that keep memory and promises** (hello plan
-1.6, `post_step0`). The thread-0 counterpart of
+**main's instruction steps that keep memory and promises** (`post_step0`). The thread-0 counterpart of
 `Spike/Lib/X64WakeW1Instr.lean`.
 
 - `stepOne_getCoh_mono`: one instruction raises no coherence view
@@ -112,8 +111,8 @@ theorem post_instrKeep0 (hC : WCompat Q D μ Λ arch) (hC0 : WCompat0 Q M μ Λ)
     (hso : stepOne Arch.tso t0 0 t.1.mem = some outs) (ho : .ok o ∈ outs)
     (hco : CertOkC Arch.tso (certSem abi Arch.tso μ t.2 0) 0 o.thread o.mem)
     (hm : o.mem = t.1.mem) (hp : o.thread.prom = t0.prom) {c' : Ctl}
-    (hr : LocalRun wakeSrc (Ctl.of s0) c') (hmi : M.Mi w o.thread.st c') :
-    ∃ s', (wakeS arch).Run s [] s' ∧ Q.Post Λ (t.1.withThread 0 o.thread o.mem, t.2) s' := by
+    (hr : LocalRun M.p (Ctl.of s0) c') (hmi : M.Mi w o.thread.st c') :
+    ∃ s', (srcS M.p arch).Run s [] s' ∧ Q.Post Λ (t.1.withThread 0 o.thread o.mem, t.2) s' := by
   have hb := (stepOne_bnd _ hso ho h.core.bnd0).1
   have hcov := stepOne_cohL _ hso ho h.core.cov0
   have hpre := h.preC.mono (stepOne_getCoh_mono _ _ hso ho _)
@@ -132,8 +131,8 @@ include hC hC0 hPT0 hKR h hso ho hco
 
 /-- **main's silent row keeps `Post`.** -/
 theorem post_silent0 {s' : isa.State} {c' : Ctl} (he : isa.exec t0.st = some (.done s'))
-    (hr : LocalRun wakeSrc (Ctl.of s0) c') (hX : M.Mi w s' c') :
-    ∃ s', (wakeS arch).Run s [] s' ∧ Q.Post Λ (t.1.withThread 0 o.thread o.mem, t.2) s' := by
+    (hr : LocalRun M.p (Ctl.of s0) c') (hX : M.Mi w s' c') :
+    ∃ s', (srcS M.p arch).Run s [] s' ∧ Q.Post Λ (t.1.withThread 0 o.thread o.mem, t.2) s' := by
   obtain ⟨st, hP, hth, hm⟩ := Lower.stepOne_silent_ok Arch.tso 0 he (Lower.silentTree_done s')
     ⟨outs, o, hso, ho, rfl, rfl⟩
   exact post_instrKeep0 hC hC0 hPT0 hKR h hso ho hco hm (finishInstr_relKey hth).1 hr
@@ -142,8 +141,8 @@ theorem post_silent0 {s' : isa.State} {c' : Ctl} (he : isa.exec t0.st = some (.d
 /-- **main's choice row keeps `Post`.** -/
 theorem post_choice0 {P : isa.State → Prop} {tree : EvTree isa.State}
     (he : isa.exec t0.st = some tree) (hs : Lower.SilentTree P tree)
-    (hX : ∀ s', P s' → ∃ c', LocalRun wakeSrc (Ctl.of s0) c' ∧ M.Mi w s' c') :
-    ∃ s', (wakeS arch).Run s [] s' ∧ Q.Post Λ (t.1.withThread 0 o.thread o.mem, t.2) s' := by
+    (hX : ∀ s', P s' → ∃ c', LocalRun M.p (Ctl.of s0) c' ∧ M.Mi w s' c') :
+    ∃ s', (srcS M.p arch).Run s [] s' ∧ Q.Post Λ (t.1.withThread 0 o.thread o.mem, t.2) s' := by
   obtain ⟨st, hP, hth, hm⟩ := Lower.stepOne_silent_ok Arch.tso 0 he hs ⟨outs, o, hso, ho, rfl, rfl⟩
   obtain ⟨c', hr, hX'⟩ := hX _ ((finishInstr_st hth) ▸ hP)
   exact post_instrKeep0 hC hC0 hPT0 hKR h hso ho hco hm (finishInstr_relKey hth).1 hr hX'
@@ -151,8 +150,8 @@ theorem post_choice0 {P : isa.State → Prop} {tree : EvTree isa.State}
 /-- **main's fence row keeps `Post`.** -/
 theorem post_fnc0 {k : Kraken.FenceKind} {s' : isa.State} {c' : Ctl}
     (he : isa.exec t0.st = some (.fence k fun _ => .done s'))
-    (hr : LocalRun wakeSrc (Ctl.of s0) c') (hX : M.Mi w s' c') :
-    ∃ s', (wakeS arch).Run s [] s' ∧ Q.Post Λ (t.1.withThread 0 o.thread o.mem, t.2) s' := by
+    (hr : LocalRun M.p (Ctl.of s0) c') (hX : M.Mi w s' c') :
+    ∃ s', (srcS M.p arch).Run s [] s' ∧ Q.Post Λ (t.1.withThread 0 o.thread o.mem, t.2) s' := by
   obtain ⟨hst, hm, hp⟩ := stepOne_fence_eq Arch.tso he hso ho
   exact post_instrKeep0 hC hC0 hPT0 hKR h hso ho hco hm hp hr (hst ▸ hX)
 
@@ -162,9 +161,9 @@ theorem post_fnc0 {k : Kraken.FenceKind} {s' : isa.State} {c' : Ctl}
 `WCompat0.ownCov0`). -/
 theorem post_rtLoad0 {kl : Kraken.LoadKind} {L : Loc} {g : Val → isa.State} {c' : Ctl}
     (he : isa.exec t0.st = some (.load kl false L fun v => .done (g v)))
-    (hr : LocalRun wakeSrc (Ctl.of s0) c')
+    (hr : LocalRun M.p (Ctl.of s0) c')
     (hX : ∀ v, (M.ms w).G L v → (∀ u, (L, u) ∈ (M.ms w).own t0.st → v = u) → M.Mi w (g v) c') :
-    ∃ s', (wakeS arch).Run s [] s' ∧ Q.Post Λ (t.1.withThread 0 o.thread o.mem, t.2) s' := by
+    ∃ s', (srcS M.p arch).Run s [] s' ∧ Q.Post Λ (t.1.withThread 0 o.thread o.mem, t.2) s' := by
   obtain ⟨hm, hp⟩ := stepOne_load_keep' 0 he hso ho
   rw [hC0.G0 w] at hX
   simp only [hC0.own0 w] at hX

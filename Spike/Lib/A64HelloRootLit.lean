@@ -14,14 +14,14 @@ generic in the layout `Λ0` and the immediates `i0`.
   `#guard parsesTo` in `A64HelloCode`; the kernel does not reduce the parser). Every other premise is
   `hello_root_inv`'s, with its table.
 
-**Open: the layout.** The layout facts `hp`, `hlo`, `hstat`, `hnz`,
+**The layout.** The layout facts `hp`, `hlo`, `hstat`, `hnz`,
 `hA13` are decidable only at a concrete `Λ0`, and `hlo` (`Λ0.code.lo = 0x210550`, the base of hello's phase
 chain, `A64HelloPh.lo`) only at a linked executable's layout: the static link `helloΛ` has its code at
-`0x400000` (`hlo_helloΛ_false` in `Spike/Test/A64HelloRootLitSmoke.lean`). `run.sh`'s link of `helloAsm` puts
-`.text` at `0x210620`, not `0x210550` (hello's `.rodata` is larger than wake's), so the fixture must be linked
-with `.text` at `0x210550` or the phase chain re-based. The row: a checked-in hello ELF (a trusted `elf.sh`
-entry), a `WakeLinkedA64Elf`-style module reading `Λe` (path, SHA, `Λe.code.lo` guard), and the layout facts
-at `Λe`, one `decide +kernel` module per placement component as at wake.
+`0x400000` (`hlo_helloΛ_false` in `Spike/Test/A64HelloRootLitSmoke.lean`). They are decided at the checked-in
+executable's layout `Λe`: `Scc/Test/a64link.sh` links hello with `.text` pinned at `0x210550`,
+`Spike/Test/HelloLinkedA64Elf.lean` reads `Λe` off the file (path, SHA-256, `Λe.code.lo` guard), one
+`decide +kernel` module per placement component decides the facts there (`Spike/Test/HelloLinkedA64*.lean`), as
+at wake, and `Spike/Test/HelloLinkedA64Root.lean` instantiates the root at `Λe` (`hello_linkedA`).
 -/
 import Spike.Lib.A64HelloWeRoot
 import Spike.Lib.A64HelloCode

@@ -1,6 +1,6 @@
 /-
 **hello.w's worker at a system call runs, and off one touches only mapped locations** (AArch64;
-B8-genP-hmapW; the twins of `A64WakeEndOff.hhalt1_of` and
+the twins of `A64WakeEndOff.hhalt1_of` and
 `WakeMappedRow.hW_of` at hello's frame-aware worker side `HelloW1.WSideH`): `HelloProgress.post_progressH`'s
 premises `hhalt1` and `hmapW`.
 
@@ -18,7 +18,7 @@ premises `hhalt1` and `hmapW`.
   frame run reaches from the invariant, every untagged locative accessed is the flag `cS w`, placed in a label at
   `b w` whose word `cT w` is shared.
 
-Open at the instance (row B8-genP-hmapW-flag): the flag fact `hflag` at the worker's controls. `helloDR`'s
+Open at the instance: the flag fact `hflag` at the worker's controls. `helloDR`'s
 invariant carries no control fact beyond `Pend helloSrc (Z w)`, and `ZHR` none about `LabPtr`; wake gets it from
 `wakeZX`'s `LabPtr` conjunct (`A64WakeCtlZ`), per node of the segment.
 -/

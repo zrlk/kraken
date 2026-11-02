@@ -1,5 +1,5 @@
 /-
-**The second TCB's words at hello's worker memory side** (AArch64; B8-hS-Q2;
+**The second TCB's words at hello's worker memory side** (AArch64;
 the hello twin of `WakeTcbArea`): `Rt.PreChild.TcbArea` at `HelloMs.msH (LH hp i) (GH hp i (G0H hp i))
 (SRH hp i) w` for main's second `scc_rt_alloc_tcb` (`tcb2QH g c0`: header `pinA + 104`, TCB `tH = pinA + 112`, its
 limit word `lim2AH = pinA + 120`, its id word `pinA + 168`), and so `HelloChildTls.TlsTcb` at the second take
@@ -17,7 +17,7 @@ limit word `lim2AH = pinA + 120`, its id word `pinA + 168`), and so `HelloChildT
   pool (`hsub1`, `StartPlaceLy.hsub1_W`).
 - An `example`: `TlsTcb`'s thread-pointer hypothesis `htls` is met by `tH` itself.
 
-Open (row B8-hS-Q2, the clone side): `htls`, the clone's `x3` the TCB; `ClonePostH` leaves `wcNSH`'s `x3` (`tc`)
+Open (the clone side): `htls`, the clone's `x3` the TCB; `ClonePostH` leaves `wcNSH`'s `x3` (`tc`)
 existential, so it comes with the `PreRH` `X` fix (row 5j-misc-X-fix).
 -/
 import Spike.Lib.A64HelloChildTls
@@ -240,7 +240,7 @@ theorem x3_of_wcNSH {exe : _root_.Executable} {endPc : Int64} {R : Spike.Lib.Reg
   rw [hA.regs]
   simpa [Scc.Sem.A64.xRegs] using h3
 
-/-- **At main's clone in `h2`'s invariant `x3` is the second TCB** (row B8-hS-Q2's clone side, for the `PreRH` `X`
+/-- **At main's clone in `h2`'s invariant `x3` is the second TCB** (clone side, for the `PreRH` `X`
 fix): `CloneMidH`'s node is `wcNSH` at `tH`. -/
 theorem x3_of_cloneMidH {L : RuntimeLayout} {F0 : MachineData → Prop}
     {G : Spike.Lib.Region → (MachineData → Prop) → (Spike.Lib.A64.Flow.AS → Ctl → Prop) → UInt64 → Prop}

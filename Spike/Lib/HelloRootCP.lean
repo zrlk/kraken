@@ -18,7 +18,7 @@ clause), and `x3` is the second TCB (`hx3`, the level-3 clone clause `X2H` is to
 `HelloTcbArea.x3_of_cloneMidH`; until then a premise in the clause's form, as `hClH_ofR`'s `hown2`/`hx1` were).
 
 - `x14_ofR`, `x3_ofR`: main's `x14` and `x3` at the clone from the fragment.
-- `hCP_root`: `hCP` with the `FrH Dd` antecedent. Open: `hx3` (row B8-hS-Q2's clone side, the `X2H` clause);
+- `hCP_root`: `hCP` with the `FrH Dd` antecedent. Open: `hx3` (clone side, the `X2H` clause);
   layout facts `hinit2` (the second limit word's initial value) and
   `hn3` (the pinned `.zero` reaching the second TCB's id word, `176` bytes; `131072` at the listing).
 -/
@@ -162,7 +162,7 @@ theorem hCP_root (hpa : textProgram asm = .ok o.prog) (hhp : textProgram asm = .
     (hCl : ∀ s, Cl s → pcOf s = clonePcH (Ly))
     (h0 : H0StmtH W0 K Dd.L0 ms0 (Ly) Start Dd.inv0) (h1 : H1StmtHF W1 K Dd.ar Dd.L0 ms1 (Ly) Rd Dd.inv1 fr)
     (hinv2 : Dd.inv2 = inv2H W2 K ms2 (Ly) a (Ly).endPc Dd.L0 ls0)
-    /- row B8-hS-Q2 (clone side): `x3` the second TCB at the level-3 clone states (`X2H`'s clause to be) -/
+    /- (clone side): `x3` the second TCB at the level-3 clone states (`X2H`'s clause to be) -/
     (hx3 : ∀ l b n l' b' n' s c fs, Dd.inv2 l b n l' b' n' s c fs → pcOf s = clonePcH (Ly) →
       (s.st.1.regs.getXReg .X3).toBitVec = tH (Ly).lab) :
     ∀ d s th stack tls r s' w s0 s1 lbl lsize ts j own₀ l,

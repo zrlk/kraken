@@ -1,6 +1,6 @@
 /-
 **hello.w on AArch64: main's steps after the spawn that keep memory, and
-its exit** (row B8-gen0, first half; the twin of `Spike/Lib/WakeM0Frame.lean`,
+its exit** (first half; the twin of `Spike/Lib/WakeM0Frame.lean`,
 `WakeM0Keep`, `WakeM0Instr`, `WakeM0Sys` and `WakeM0Exit` at hello's worker
 data `PT1h` and kernel relation `KRH`).
 

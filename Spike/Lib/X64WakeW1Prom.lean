@@ -1,5 +1,5 @@
 /-
-**The worker's certified promises** (hello plan 1.6; data in
+**The worker's certified promises** (data in
 `Spike/Lib/WakeW1.lean`, `Spike/Lib/WakeW1Compat.lean`).
 
 A promise of the worker is certified by a run of the worker alone under the
@@ -201,8 +201,8 @@ theorem cstep_shape (hC : WCompat Q D μ Λ arch) (hx : WCompatX Q D)
     obtain ⟨hf1, hout, hin⟩ := hC.mpW w _ hmp
     have hne : wordLoc a ≠ (Q.C w).cT := fun e => hout (by rw [e]; exact hcTin)
     exact ⟨⟨hf1, hin, hG, rfl, hf, fun e => absurd e hne⟩, hne⟩
-  have hpast : ∀ {c'}, LocalRun wakeSrc c c' → (Past c' ↔ Past c) := fun hr => localRun_pass hcw hr hctl
-  have hkeep : ∀ {c'}, LocalRun wakeSrc c c' → D.Wi w o.thread.st c' → o.mem = x.2 → o.thread.prom = x.1.prom →
+  have hpast : ∀ {c'}, LocalRun D.p c c' → (Past c' ↔ Past c) := fun hr => localRun_pass hcw hr hctl (D.wk w _ c hwi)
+  have hkeep : ∀ {c'}, LocalRun D.p c c' → D.Wi w o.thread.st c' → o.mem = x.2 → o.thread.prom = x.1.prom →
       ∃ c c', D.Wi w x.1.st c ∧ D.Wi w (o.thread, o.mem).1.st c' ∧ WCtl (D.cw w) c' ∧
         (((o.thread, o.mem).2 = x.2 ∧ (o.thread, o.mem).1.prom = x.1.prom ∧ (Past c' ↔ Past c)) ∨
          abi.atSys x.1.st = false ∧ ∃ L V, Good Q Λ w ⟨L, V, 1⟩ ∧
@@ -210,7 +210,7 @@ theorem cstep_shape (hC : WCompat Q D μ Λ arch) (hx : WCompatX Q D)
             (∃ q ∈ x.1.prom, x.2.get? q = some ⟨L, V, 1⟩ ∧ (o.thread, o.mem).2 = x.2 ∧
               (o.thread, o.mem).1.prom = x.1.prom.erase q)) ∧
            (L ≠ (Q.C w).cT → (Past c' ↔ Past c)) ∧ (L = (Q.C w).cT → ¬ Past c ∧ Past c')) :=
-    fun hr hX hm hp => ⟨c, _, hwi, hX, localRun_wCtl hcw hr hctl, .inl ⟨hm, hp, hpast hr⟩⟩
+    fun hr hX hm hp => ⟨c, _, hwi, hX, localRun_wCtl hcw hr hctl (D.wk w _ c hwi), .inl ⟨hm, hp, hpast hr⟩⟩
   cases hat : abi.atSys x.1.st
   · rw [certSem_step_of_not_site hsite hat] at hso
     rw [hat] at hkeep
@@ -285,7 +285,7 @@ theorem cstep_shape (hC : WCompat Q D μ Λ arch) (hx : WCompatX Q D)
           obtain ⟨a, rfl⟩ : ∃ a, L = wordLoc a := ⟨_, ExtRows.loc_wordLoc hL8⟩
           obtain ⟨hst, hc⟩ := stepOne_store_cases Arch.tso he hso ho hq.le
           obtain ⟨hgood, hne⟩ := hmpG a V hmp hG hfit
-          refine ⟨c, c', hwi, hst ▸ hX, localRun_wCtl hcw hr hctl,
+          refine ⟨c, c', hwi, hst ▸ hX, localRun_wCtl hcw hr hctl (D.wk w _ c hwi),
             .inr ⟨rfl, wordLoc a, V, hgood, ?_, fun _ => hpast hr, fun e => absurd e hne⟩⟩
           rcases hc with ⟨q, hq', hg, -, hm, hp⟩ | ⟨hm, hp⟩
           · exact .inr ⟨q, hq', hg, hm, hp⟩
@@ -320,7 +320,7 @@ theorem cstep_shape (hC : WCompat Q D μ Λ arch) (hx : WCompatX Q D)
           · have hGn' := hGn new hop
             rw [hC.G w] at hGn'
             obtain ⟨hgood, hne⟩ := hmpG a new hmp hGn' (hfit old new hop)
-            refine ⟨c, c', hwi, hst ▸ hXo, localRun_wCtl hcw hr hctl,
+            refine ⟨c, c', hwi, hst ▸ hXo, localRun_wCtl hcw hr hctl (D.wk w _ c hwi),
               .inr ⟨rfl, wordLoc a, new, hgood, ?_, fun _ => hpast hr, fun e => absurd e hne⟩⟩
             rcases hc with ⟨q, hq', hg, hm, hp⟩ | ⟨hm, hp⟩
             · exact .inr ⟨q, hq', hg, hm, hp⟩
@@ -586,7 +586,7 @@ theorem post_prom1 (hC : WCompat Q D μ Λ arch) (hx : WCompatX Q D) (hwf : Λ.W
     (h : Parts Q D Λ w t s t0 t1 s0 s1 ts tp sp oc) (hex : SrcSem.mainExit s = []) {m : Msg} (hwt : m.tid = 1)
     (hc : CertOkC Arch.tso (certSem abi Arch.tso μ t.2 1) 1 (Live.Sem.promThread t1 t.1.mem m)
       (t.1.mem.append m).1) :
-    ∃ s', (wakeS arch).Run s [] s' ∧
+    ∃ s', (srcS D.p arch).Run s [] s' ∧
       Q.Post Λ (t.1.withThread 1 (Live.Sem.promThread t1 t.1.mem m) (t.1.mem.append m).1, t.2) s' := by
   obtain ⟨⟨hf, hin, hG, hb8, hfit, hv1⟩, hcnt⟩ := prom_good hC hx hwf h hc
   have hT0 := ((cProt_iff _ _ _).mp h.prot).1
@@ -688,13 +688,14 @@ theorem post_prom1 (hC : WCompat Q D μ Λ arch) (hx : WCompatX Q D) (hwf : Λ.W
     have hnpre : s1.term ≠ wkUnpark ∧ s1.term ≠ .ret .unit := by
       have := (not_congr (hC.pass w _ _ h.pt1.1)).mp hnpT
       exact ⟨fun e => this (.inl e), fun e => this (.inr e)⟩
-    have hcert := certified_pre (k := (srcPo 2 arch wakeSrc).k) (arch := (srcPo 2 arch wakeSrc).arch)
+    have hcert := certified_pre (k := (srcPo 2 arch D.p).k) (arch := (srcPo 2 arch D.p).arch)
       (w := (Q.SR w).S - 1) hg1 h.wCtl hnpre hstk h.pt1.2.2.1 (hC.cwv w) (by simp [hs1p])
       (by rw [hgm]; simp) (Nat.le_pred_of_lt hlt.1) (Nat.lt_of_lt_of_le hlt.2 hSle)
-    have hstep := prom_c_src (P := srcPo 2 arch wakeSrc) (p := wakeSrc) rfl
+      (D.wk w _ _ h.pt1.1)
+    have hstep := prom_c_src (P := srcPo 2 arch D.p) (p := D.p) rfl
       (by rw [h.ths]; simp) (by omega) hcert hex
-    have hrun : (wakeS arch).Run s [] (TermRun.promise s 1 (Q.C w).cS (.num 1) ((Q.SR w).S - 1)) :=
-      LRun.step (step := fun c es c' => ∃ i, (wakeS arch).step i c es c') ⟨1, hstep⟩ (LRun.refl _)
+    have hrun : (srcS D.p arch).Run s [] (TermRun.promise s 1 (Q.C w).cS (.num 1) ((Q.SR w).S - 1)) :=
+      LRun.step (step := fun c es c' => ∃ i, (srcS D.p arch).step i c es c') ⟨1, hstep⟩ (LRun.refl _)
     have hs' : (TermRun.promise s 1 (Q.C w).cS (.num 1) ((Q.SR w).S - 1)).ths = #[s0, s1'] := by
       unfold TermRun.promise; rw [h.s1_get]; show s.ths.set! 1 s1' = _; rw [h.ths]; rfl
     -- the memory relation: `Tc ↦ kc`, both mirrored

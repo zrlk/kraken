@@ -1,6 +1,5 @@
 /-
-**The memory-side fields of `WCompat0`/`WCompat` at `msOf`** (hello plan
-1.6, x86-64): the fields of main's (`X64WakeM0.WCompat0`) and the worker's
+**The memory-side fields of `WCompat0`/`WCompat` at `msOf`** (x86-64): the fields of main's (`X64WakeM0.WCompat0`) and the worker's
 (`X64WakeW1.WCompat`) compatibility facts that only read the rows' memory side,
 for a side built by the consumers' `Spike.Lib.X64Consumer.msOf`, before the
 concrete sides `M`/`D` are fixed.

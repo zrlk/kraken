@@ -1,5 +1,5 @@
 /-
-**The child segment's stack-limit premises** (AArch64, row B8-seg-hlim; `Hello.SegR.ChildPrem`'s `hlimT`,
+**The child segment's stack-limit premises** (AArch64; `Hello.SegR.ChildPrem`'s `hlimT`,
 `hlimW`). The child thread's TCB limit word `tls + 8` is the runtime's, mapped for reading, off the handed
 range `r1` (so unmapped in the child's first memory: `childAfter` copies only `r1`), and every value runtime
 memory may hold there is at least the stub's and `wc_worker`'s frames (`80 + 96` bytes) below `r1`'s top.

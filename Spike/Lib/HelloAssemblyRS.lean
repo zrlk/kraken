@@ -1,6 +1,6 @@
 /-
 **hello.w on AArch64: the placed assembly at the root, the worker's segment and the child's entry
-instantiated** (row B8-gen1, independent part): `HelloAssemblyRV.hello_obligations_RV` at the root parameters
+instantiated** (independent part): `HelloAssemblyRV.hello_obligations_RV` at the root parameters
 `P := HelloWorkerDHF.PF`, `Z := ZF μE`, `X := XF μE`, `hseg := hsegFH` (the DH := helloDRF switch; from the loader's
 parses `hpa`, `hhp`, `hlo` and the immediates' `ImmsKid` `hI`), its `hWi` by `HelloWiI.hWiH_IG` (`PF` by
 `cwvH`), whose handed-stack facts `htop`/`hal`/`hsz` are `HelloWiI.r1c_facts` at the records' second stack
@@ -227,7 +227,7 @@ theorem hello_obligations_RS {arch : WeakMem.Arch} {B : Budget} {E : Entry} {pas
     (hmapW : ∀ w s c fs, (DH hp i (G0H hp i) (PS) (ZS) (XS) (hS)).Wi w s c fs → abi.atSys s = false → ∀ e,
       isaLSE2.exec s = some e →
       ¬ Kernel.Touches (fun l w => Kernel.mapped (A64Consumer.K0 (LH hp i).Λ) w l = false) e)
-    /- row: B8-genV-hW1. The worker's instructions are `RelW1`. -/
+    /- The worker's instructions are `RelW1`. -/
     (hRW1 : ∀ w s c fs e, (DH hp i (G0H hp i) (PS) (ZS) (XS) (hS)).Wi w s c fs → isaLSE2.exec s = some e →
       EvTree.RelW1 Arch.armv8 e)
     /- row: 5i-hab1 (as `hello_obligations_RV`'s). -/

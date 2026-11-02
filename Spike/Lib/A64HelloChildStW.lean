@@ -1,5 +1,5 @@
 /-
-**The child segment's runtime-store premises at the worker's memory side** (AArch64, row B8-seg-words' `hS`,
+**The child segment's runtime-store premises at the worker's memory side** (AArch64, `hS`,
 `htp4`, `hSx`; `Hello.SegR.ChildPrem`'s fields at `childP_of_clone`'s data): `HelloChildSt.childSt_IH` at main's
 permit word (`pinA + 24`) and `HelloChildSt.stOk_pinnedH` at the second TCB's word (`pinA + 136`), read through
 the packet's `ThreadId` word `meW` (main's TCB, `pinA + 8`) and the clone's thread pointer `tls` (the second TCB,

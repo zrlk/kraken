@@ -1,6 +1,6 @@
 /-
 **hello.w on AArch64: a byte of `print`'s `write` keeps `Post`** (C4, row
-B8-gen1-EmitStepP, design (a′), steps S1–S2). The worker at its
+design (a′), steps S1–S2). The worker at its
 `write(1, buf, n)` with `j` bytes out and the source worker at an emit-row
 byte control (`ByteOutP` landing in `Pw (j + 1)`): a byte pick reads the
 frozen buffer's byte `j` (`HelloFrz.readByte_frz`), the source runs one
@@ -8,7 +8,7 @@ byte of the published loop (`HelloEmitSrc.emit_byte_src`) emitting the same
 byte, and both land at `HelloEmitPh.PartsE` with the link at `j + 1`
 (`HelloKRE.EmitR`).
 
-- `ByteFrz`: the instance's premise (row B8-emit-frz): the buffer's words
+- `ByteFrz`: the instance's premise: the buffer's words
   in its label, their target words frozen.
 - `byte_val`: the target's byte is the source's (`HelloFrz.readByte_frz` at
   the source's latest message, the worker's private keys clear of the
@@ -44,7 +44,7 @@ open Scc.Sem.MemRel (SLatest)
 
 /-! ## The instance's premise -/
 
-/-- (row B8-emit-frz) **The buffer's target words are frozen**: the layout
+/-- **The buffer's target words are frozen**: the layout
 is well formed and, under the memory relation at the record's placement and
 the buffer's label placed at `b0`, its `mB` words lie in the label with
 their target words in `frz` (`HelloFrz.readByte_frz`'s premises but the

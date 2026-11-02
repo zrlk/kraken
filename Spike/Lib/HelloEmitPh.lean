@@ -1,5 +1,5 @@
 /-
-**hello.w on AArch64: the worker mid-`write`** (C4, row B8-gen1-EmitStepP,
+**hello.w on AArch64: the worker mid-`write`** (C4,
 design (a′)): mid-`write(1, …)` the target worker is at
 `print`'s `svc` with `wr 1 = j` bytes out and the source worker at the emit
 row's `Pw j`, where `PT1h`'s invariant conjunct (`D.Wi` at the source
@@ -171,7 +171,7 @@ theorem PartsE.s1_get (h : PartsE Q D Λ w t s t0 t1 s0 s1 ts tp sp oc) : s.ths[
 theorem PartsE.t1_get (h : PartsE Q D Λ w t s t0 t1 s0 s1 ts tp sp oc) : t.1.threads[1]? = some t1 := by
   rw [h.th]; rfl
 
-/-! ## The emit row's shape (row B8-EmitShape) -/
+/-! ## The emit row's shape -/
 
 /-- **The source worker at control `c1`** (term and environment; its
 stack, promises and views kept). -/

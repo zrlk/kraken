@@ -1,6 +1,6 @@
 /-
-**The allocator's exits with the heap abort's return address** (AArch64, row `B8-H0-rdabort`
-item 1): `Alloc.E`'s exits with the heap abort's `x30` the return address past `.4_full`'s
+**The allocator's exits with the heap abort's return address** (AArch64, the read-only
+data abort): `Alloc.E`'s exits with the heap abort's `x30` the return address past `.4_full`'s
 `bl scc_rt_abort` (as `Alloc.EB .abort`), at a buffer allocation.
 
 `Alloc.seg_allocW_at` reaches `Alloc.E .abort`, which drops `x30`; `seg_allocW_genR` hands it over at the abort's

@@ -1,17 +1,31 @@
-# scc release note: `wake.w` certified on AArch64 and x86-64, `hello.w` proved on AArch64 at its executable; `hello1.w` and `ret0.w` on AArch64 and x86-64
+# scc release note: `wake.w` and `hello.w` certified on AArch64 and x86-64 at their executables; `hello1.w` and `ret0.w` on AArch64 and x86-64
 
 This note states what this release of `scc` proves, what it trusts, and what
 it does not cover. Statements are quoted from the source tree.
 
-## New in this release: `hello.w` on AArch64
+## New in this release: `hello.w` on x86-64, and `certify.sh` certifies `hello.w`
 
 `Scc/Test/hello.w`, the two-thread hello-world (a worker prints the
-published bytes `Hello, world\n` and wakes `main`), is proved on AArch64 at
-the executable checked in under `Scc/Test/elf/helloa64/hello` (§0, §1
-`hello`, AArch64). `certify.sh` does not certify `hello.w` builds (§5).
-Nothing else is new: the statements quoted in §1 for `wake`, `hello1` and
-`ret0` are unchanged, word for word, and so are their axioms; WeakCore stays
-at 621ec97a.
+published bytes `Hello, world\n` and wakes `main`), is now also proved on
+x86-64, at the executable checked in under `Scc/Test/elf/hellox64/hello`
+(§0, §1 `hello`, x86-64). `certify.sh --instantiate` now certifies
+`hello.w` on both ISAs when the run's text and executable are the checked-in
+ones (§2, §4); any other build of `hello.w` is refused, as for `wake.w`.
+The AArch64 link in `run.sh` and `certify.sh` places `.text` at hello's and
+wake's phase base through one shared script (`Scc/Test/a64link.sh`, §3).
+The AArch64 `hello` executable is relinked by that script, with the
+build-id note placed as well: `.text` stays at `0x210550` and the statement
+is unchanged, but the file's bytes, and so its pinned SHA-256, change
+(`3ccb878e…`, §2). The ELF reader's refusal now names the failing check
+(§3), and `certify_test.sh`'s linker matrix is stricter and compares each
+linked `.text` with the assembled listing (`Scc/Test/textcheck.py`, §4).
+One proof declaration is renamed: `XProW.noSetFs` in
+`Spike/Lib/X64Hello1RodataTP.lean` is now `XProW.noSetFs1` (the old name
+clashed with `Flow.XProW.noSetFs` of `Spike/Lib/X64KeepTPW.lean`).
+
+Nothing else is new: the statements quoted in §1 for `wake`, `hello`
+(AArch64), `hello1` and `ret0` are unchanged, word for word, and so are their
+axioms; WeakCore stays at 621ec97a.
 
 ## WeakCore 621ec97a
 
@@ -151,8 +165,33 @@ budget `B` whose heap-cell count is the allocator's, at **one layout**:
 > This theorem is about **one program text at one layout**: `helloAsm`
 > (`Scc/Test/elf/helloa64/hello.s`), linked into
 > `Scc/Test/elf/helloa64/hello` with `.text` and `.rodata` placed by the
-> link command (§2). There is no layout-generic closed form, and
-> `certify.sh` does not certify `hello.w` builds (§5).
+> link command (§2). There is no layout-generic closed form; `certify.sh`
+> certifies a build of `hello.w` only when its text and executable are these
+> files byte for byte (§4).
+
+The theorem's only premises are `hparse`, the listing's compiled parse
+(`#guard`), and `hB`, which fixes the budget's heap-cell count (§1). Every
+layout fact at `Λe` and every correctness step are kernel-checked.
+
+### `hello.w` (x86-64)
+
+The program is the one described for AArch64 above. The listing
+`scc --arch x64` writes for it, `SccCode.helloAsm`, is `CorrectE 2` with
+respect to the program's two-thread WeakCore semantics with output
+`helloSX arch`, on the kernel-model target with two thread slots, at
+**every** admissible entry state, for every memory model `arch` and every
+budget `B` whose heap-cell count is the allocator's, at **one layout**:
+`Λe`, read from the executable checked in under
+`Scc/Test/elf/hellox64/hello` (pinned by SHA-256), with the proof's
+immediate table (`Spike.Test.HelloLinkedX64.hello_linkedX`).
+
+> [!IMPORTANT]
+> This theorem is about **one program text at one layout**: `helloAsm`
+> (`Scc/Test/elf/hellox64/hello.s`), assembled by GNU `as` and linked by
+> GNU `ld -static` with its default script into
+> `Scc/Test/elf/hellox64/hello` (§2). There is no layout-generic closed
+> form; `certify.sh` certifies a build of `hello.w` only when its text and
+> executable are these files byte for byte (§4).
 
 The theorem's only premises are `hparse`, the listing's compiled parse
 (`#guard`), and `hB`, which fixes the budget's heap-cell count (§1). Every
@@ -370,6 +409,118 @@ starting at 0.
 the WeakCore semantics of `helloSrc`, the frontend's reading of
 `Scc/Test/hello.w` (`helloSrcOk`, `#guard`), with two thread slots and
 `main` started on its own `ThreadId` (wake's source machine, §3 item 14).
+
+### `hello`, x86-64
+
+`Spike/Test/HelloLinkedX64Root.lean`, with `SccCode.helloAsm`,
+`helloCells`, `helloSecs` the listing, its code cells and its loader parse
+(`Spike/Lib/X64HelloCode.lean`), `iH := iRdM Λe` the proof's immediate
+table, and `helloSX` the source semantics fixed in
+`Spike/Test/HelloLinkedX64.lean` (`helloS_eq` identifies it with the proof's
+`Spike.Lib.X64HelloSrc.helloS`):
+
+```lean
+theorem hello_linkedX : HelloLinkedXGoal Λe iH
+```
+
+`HelloLinkedXGoal` is stated before the proof (`Spike/Test/HelloLinkedX64.lean`;
+every proof module is downstream of it):
+
+```lean
+def HelloGoalAt (Λ : Scc.Sem.Layout) : Prop :=
+  ∀ {arch : WeakMem.Arch} {B : Scc.Sem.Budget},
+    Scc.Cert.Link.X64.parsesTo SccCode.helloAsm SccCode.helloCells SccCode.helloSecs = true →
+    B.cells = Scc.Cert.PlaceOK.allocCells →
+    Scc.Sem.X64.CorrectE 2 (helloSX arch) Λ B SccCode.helloAsm
+
+def HelloLinkedXGoal (Λ0 : Scc.Sem.Layout) (iH : CoreTerm.Expr → String → Nat → Option Nat) : Prop :=
+  HelloGoalAt { Λ0 with imms := iH }
+```
+
+At the Linux entry, which is admissible at `Le.Λ` (`linux_ok_e`):
+
+```lean
+theorem hello_linkedX_linux {arch : WeakMem.Arch} {B : Scc.Sem.Budget}
+    (hparse : Scc.Cert.Link.X64.parsesTo SccCode.helloAsm SccCode.helloCells SccCode.helloSecs = true)
+    (hB : B.cells = Scc.Cert.PlaceOK.allocCells) :
+    Scc.Sem.Correct (Scc.Sem.X64.target (Scc.Sem.X64.kernel 2) .linux)
+      (Spike.Lib.X64HelloSrc.helloS arch) Le.Λ B SccCode.helloAsm
+```
+
+`hello_linkedX` is `RootFinal.hello_correct` at the layout facts
+`layoutEX_e : LayoutEX Λe`. The general statement
+(`Spike/Lib/X64HelloRootFinal.lean`) holds at every layout `Λ0` with those
+facts:
+
+```lean
+theorem hello_correct {Λ0 : Scc.Sem.Layout} (F : LayoutEX Λ0) {arch : WeakMem.Arch} {B : Scc.Sem.Budget}
+    (hparse : parsesTo SccCode.helloAsm SccCode.helloCells SccCode.helloSecs = true)
+    (hB : B.cells = Scc.Cert.PlaceOK.allocCells) :
+    Scc.Sem.X64.CorrectE 2 (helloS arch) (RuntimeLayout.ofPlaceWX F.hp (iRdM Λ0)).Λ B SccCode.helloAsm
+```
+
+and, per admissible entry, the root's obligations:
+
+```lean
+theorem hello_root_final {Λ0 : Scc.Sem.Layout} (F : LayoutEX Λ0) {arch : WeakMem.Arch} {B : Scc.Sem.Budget}
+    {E : Scc.Sem.Entry} {ls : Spike.Lib.X64Consumer.Lsize}
+    (hparse : parsesTo SccCode.helloAsm SccCode.helloCells SccCode.helloSecs = true)
+    (hB : B.cells = Scc.Cert.PlaceOK.allocCells) (hE : E.Ok (RuntimeLayout.ofPlaceWX F.hp (iRdM Λ0)).Λ) :
+    WakeObligationsR arch (RuntimeLayout.ofPlaceWX F.hp (iRdM Λ0)).Λ B SccCode.helloAsm
+      (RootLit.QRoot (arch := arch) (E := E) (ls := ls) F.hp (i0M Λ0) hparse F.hlo
+        ⟨Spike.Lib.X64.HelloImms.kid_root F.hp, Spike.Lib.X64.HelloImms.wcall_root F.hp⟩) E
+      (fun t tr => TiPre (AbH F.hp (iRdM Λ0)) (AcH F.hp (iRdM Λ0)) t tr ∧
+        TwH (RuntimeLayout.ofPlaceWX F.hp (iRdM Λ0)).Λ E (AbH F.hp (iRdM Λ0)) t tr)
+      helloSrc
+```
+
+`LayoutEX Λ0` (`Spike/Lib/X64HelloLayoutE.lean`) is the linked layout's
+facts: `PlaceWX` (every component of `placeOK2At`), `.text` at hello's phase
+base `X64.HelloPh.lo` (`0x401000`, GNU `ld`'s default), no static words,
+`scc_rt_nthreads` starting at 0, A13's data part at the placed layout, the
+first TCB's 168 bytes inside the pinned region, the second TCB's limit word
+starting at 0, and the child's stack range inside the stack pool.
+
+- `hparse` is the loader's parse of `helloAsm` into `helloCells` and
+  `helloSecs`, the trust boundary as for AArch64; it is `#guard`-checked by
+  evaluation (`HelloLinkedX64Root`).
+- `hB` fixes `B.cells` to the allocator's arena; threads and frames are free.
+- `hello_root_final`'s `ls` (level 0's label sizes) does not occur in
+  `hello_correct`'s conclusion.
+
+`helloS arch` is `Spike.Lib.X64WakeA64.srcS helloSrc arch`
+(`Spike/Lib/X64HelloSrc.lean`), at the same `helloSrc` as on AArch64.
+
+**Where the x86-64 proof differs from the AArch64 one.** None of these
+changes the statement's form.
+
+- **Thread pointers live in memory.** x86-64 threads reach their TCB through
+  the `%fs` base, so each thread's self word is read from memory (AArch64:
+  `TPIDR_EL0`). Main's memory side owns its TCB's self word and the worker's
+  side its own; main owns both up to the clone. The root's map of owned words
+  is the canonical one plus both self words (`ownGHXW`), and the worker's
+  rows and levels 1 and 2 are stated at any map of owned words (through
+  `Own1H`, `Spike/Lib/X64HelloOwn1.lean`). `wake`'s x86-64 map with the self
+  words is `wakeOwnXW` (`Spike/Lib/X64WakeOwnXW.lean`).
+- **Publication is a source stutter.** The publishing store lands between
+  two source steps rather than inside a row (AArch64's `stlr`), so segments
+  may start their rows after the publication (`Spike/Lib/X64SegWPub.lean`).
+- **The clone's arguments.** `clone(flags, k, 0, 0, t)` takes its fourth
+  argument in `%r10` (AArch64: `x3`); the clone's decode reads `%rax = 56`,
+  `%rdi = cloneFlags` and `%rdx = %r10 = 0`
+  (`X64HelloWcInv.clone_decode_of_postH`). The child's `%rbp` is live at the
+  clone.
+- **Sized instructions.** A block's pcs are byte offsets (AArch64: `4k`);
+  system calls are `syscall`, decoded from `%rax` (AArch64: `svc`, `x8`); a
+  `ret`'s target is the slot at `%rsp` (AArch64: `x30`); release writes are
+  stated per state under `Arch.tso`.
+- **Layout facts.** They are one structure over all of `placeOK2At`
+  (`LayoutEX`), inhabited at `Λe` and at `Λ1`
+  (`Spike/Test/HelloLinkedX64L1.lean`), the listing's static link at GNU
+  `ld`'s section bases, which needs no executable.
+
+Every `Spike/Lib/X64Hello*.lean` module doc records its differences from
+the AArch64 twin.
 
 ### `hello1`, AArch64
 
@@ -643,6 +794,14 @@ Classical.choice, Quot.sound]` for:
   facts `placeW_e`, `hpin2`, `hinit2`, `linux_ok_e` and `hA13_e`
   (`HelloLinkedA64.lean`), where `hnz` depends on `propext` only and `hlo` on
   no axiom;
+- `hello_linkedX` and `hello_linkedX_linux` (`HelloLinkedX64Root.lean`),
+  `layoutEX_e` and `linux_ok_e` (`HelloLinkedX64Le.lean`),
+  `RootFinal.hello_correct` and `hello_root_final`
+  (`Spike/Lib/X64HelloRootFinal.lean`), `RootLit.hello_root_lit`,
+  `hello_root_litM` and `hc_H` (`Spike/Lib/X64HelloRootLit.lean`, where
+  `hz_H` depends on `propext` only) and `RootInv.hello_root_inv`
+  (`Spike/Lib/X64HelloRootInv.lean`), and `certify.sh`'s generated
+  instantiation of `hello_linkedA`/`hello_linkedX` for `hello.w`;
 - `hello1_finalCA` and `hello1_finalCA_of` (`A64Hello1FinalCA.lean`);
   `hello1_finalC` and `hello1_finalC_of` (`X64Hello1FinalC.lean`);
   `hello1_e2eOk` (`Hello1LinkedX64.lean`); `hello1_of_closed2A`,
@@ -815,12 +974,13 @@ What this chain still trusts is in §3.
    `Spike/Gen/drift.sh`) ties the listing to scc's output on
    `Spike/Gen/hello.w`, a checked copy of `Scc/Test/hello.w`.
 2. The link, as recorded in `Scc/Test/elf.sh`: `run.sh`'s AArch64 command
-   with `.text` placed at hello's phase base `0x210550` and `.rodata` at
-   `0x2001b8` (`ld.lld`'s default address, below `.text`):
+   with the build-id note, `.rodata` and `.text` placed by
+   `Scc/Test/a64link.sh` (`.text` at hello's phase base `0x210550`, the note
+   and `.rodata` at `ld.lld`'s default addresses, below `.text`):
 
    ```
    clang --target=aarch64-linux-gnu -march=armv8.4-a -nostdlib -static -fuse-ld=lld \
-     -Wl,--section-start=.text=0x210550,--section-start=.rodata=0x2001b8 \
+     -Wl,--section-start=.note.gnu.build-id=0x200190,--section-start=.rodata=0x2001b8,--section-start=.text=0x210550 \
      -o helloa64/hello helloa64/hello.s
    ```
 
@@ -828,7 +988,7 @@ What this chain still trusts is in §3.
    above. Under `qemu-aarch64` the executable prints `Hello, world` and
    exits 0.
 3. The ELF reader reads `Λe` off the file (`scc_elf_layout%`, fail closed);
-   a guard pins its SHA-256, `5a99ee35…` (`HelloLinkedA64Elf`). Guarded:
+   a guard pins its SHA-256, `3ccb878e…` (`HelloLinkedA64Elf`). Guarded:
    `.text` at `0x210550`, `.rodata` ending at or below it.
 4. The kernel decides the layout facts at `Λe` (`HelloLinkedA64`): `PlaceW`
    from A1, A2, A4, A6, A8 (`HelloLinkedA64A1` … `A8`, one `decide +kernel`
@@ -837,9 +997,44 @@ What this chain still trusts is in §3.
    `placeW_e`, `hlo`, `hstat`, `hnz`, `hA13_e` and `hinit2`. That the Linux
    entry is admissible at `Le.Λ` is decided too (`linux_ok_e`), so the entry
    quantifier is not vacuous there.
-5. Not checked by `certify.sh`: a fresh build of `hello.w` is not certified
-   (§5). To compare a build by hand, `cmp` its text with
-   `helloa64/hello.s`, and run `elf.sh --relink-check` for the executable.
+5. `certify.sh --arch arm --instantiate Scc/Test/hello.w` performs steps
+   1–4 for a fresh build at `run.sh`'s pinned link only when its text is
+   `helloa64/hello.s` and its executable `helloa64/hello`, byte for byte,
+   and then instantiates `hello_linkedA` (§4); a build at `ld.lld`'s default
+   layout, or of a changed `hello.w`, is not certifiable (verdict 3).
+
+### `hello` at its executable (x86-64)
+
+1. `Scc/Test/elf/hellox64/hello.s` is the listing `SccCode.helloText`
+   verbatim (`#eval` guard in `Spike/Test/HelloLinkedX64Elf.lean`). That
+   scc's lowering of `helloSrc` produces the listing's cells and sections is
+   checked by evaluation (`#guard` in `Spike/Lib/X64HelloOut.lean`,
+   documentation only: no proof reads it). `Spike/Gen/drift.sh` does not
+   cover the x86-64 `hello` listing.
+2. The link, as recorded in `Scc/Test/elf.sh`: `run.sh`'s x86-64 command
+   with GNU `ld`'s default script. No section is placed: `ld`'s default
+   `.text` is `0x401000`, which is hello's phase base:
+
+   ```
+   as -o hello.o hellox64/hello.s && ld -static -o hellox64/hello hello.o
+   ```
+
+   `elf.sh --relink-check` reproduces it byte for byte with the toolchain
+   above. The executable prints `Hello, world` and exits 0.
+3. The ELF reader reads `Λe` off the file (`scc_elf_layout%`, fail closed);
+   a guard pins its SHA-256, `369c53ad…` (`HelloLinkedX64Elf`). Guarded:
+   `.text` at `0x401000`, 16-aligned, `.rodata` above the code.
+4. The kernel decides the layout facts at `Λe` (`HelloLinkedX64Le`):
+   `placeOK2At` from its components (`HelloLinkedX64A1` … `A13`, one
+   `decide +kernel` per module; A12's code part is layout-independent),
+   `hlo`, `hstat`, `hnz`, and, at the placed layout `Le`, `hA13_e`,
+   `hpin2_e`, `hinit2_e` and `hsub1_e`. `layoutEX_e : LayoutEX Λe` collects
+   them. That the Linux entry is admissible at `Le.Λ` is decided too
+   (`linux_ok_e`), so the entry quantifier is not vacuous there.
+5. `certify.sh --arch x64 --instantiate Scc/Test/hello.w` performs steps 1–4
+   for a fresh build only when its text is `hellox64/hello.s` and its
+   executable `hellox64/hello`, byte for byte, and then instantiates
+   `hello_linkedX` (§4); any other build is not certifiable (verdict 3).
 
 ### Other programs at linked layouts
 
@@ -856,7 +1051,9 @@ The Lean kernel and its standard axioms (`propext`, `Classical.choice`,
 the system calls; `Correct` and the WeakCore source semantics as the
 specification. In addition:
 
-1. **The ELF layout reader** (`Scc/Cert/Elf.lean`). Evaluated by the
+1. **The ELF layout reader** (`Scc/Cert/Elf.lean`). Its refusal names the
+   failing conjunct of `wfB` (`Link.wfBWhy`, diagnostics only; `wfB` and
+   `wfB_sound` are unchanged). Evaluated by the
    elaborator (`scc_elf_layout%`), not replayed by the kernel: a `#guard`'s
    trust. It reads the System V gABI header, program, section and symbol
    tables of an ELF64 LE `ET_EXEC` file (`EM_AARCH64` or `EM_X86_64`) and
@@ -968,15 +1165,17 @@ specification. In addition:
     `scc_rt_unpark`), the other checks unchanged. They are part of the
     certificate's statement; for `wake` the AArch64 proof uses the
     components it needs, the x86-64 proof all of them, each decided at `Λe`
-    (§2). `hello`'s proof uses `PlaceW` (A1, A2, A4, A6, A8), A13's data part
-    and the second TCB's limit word, decided at `Λe` (§2).
-12. **`certify.sh`'s registry entry for `wake`.** The script recognises
-    `wake.w` by comparing the program, `T.s` and the executable with the
-    checked-in files (`Scc/Test/elf/wakea64/` on AArch64,
-    `Scc/Test/elf/wakex64/` on x86-64) byte for byte, and only then
-    instantiates `wake_linkedU` (AArch64) or `wake_linkedX` (x86-64); any
-    other spawning program, `hello.w` included, is not certifiable (verdict
-    3 with `--instantiate`).
+    (§2). `hello`'s AArch64 proof uses `PlaceW` (A1, A2, A4, A6, A8), A13's
+    data part and the second TCB's limit word, its x86-64 proof all of the
+    components, each decided at `Λe` (§2).
+12. **`certify.sh`'s registry entries for `wake` and `hello`.** The script
+    recognises `wake.w` and `hello.w` by comparing the program, `T.s` and the
+    executable with the checked-in files (`Scc/Test/elf/wakea64/`,
+    `Scc/Test/elf/helloa64/` on AArch64, `Scc/Test/elf/wakex64/`,
+    `Scc/Test/elf/hellox64/` on x86-64) byte for byte, and only then
+    instantiates `wake_linkedU`, `hello_linkedA` (AArch64) or `wake_linkedX`,
+    `hello_linkedX` (x86-64); any other spawning program is not certifiable
+    (verdict 3 with `--instantiate`).
 13. **The thread and synchronisation calls (`wake`).** The kernel model's
     `clone` (one flag set, a fresh stack and TLS, the child's start state),
     `futex` wait/wake (`FUTEX_WAIT_PRIVATE`/`FUTEX_WAKE_PRIVATE`, used by
@@ -990,13 +1189,28 @@ specification. In addition:
     `Scc/Sem/SrcOut.lean`'s start with `main` entered on its own `ThreadId`
     and two thread slots. `wakeSX` (x86-64) uses `Scc.Sem.SrcSem.srcPo`
     itself, at the certificate's `prog_src`. `helloS` uses the same
-    AArch64 source machine, `WakeA64.srcS`, at `helloSrc`. They are part of
-    the specification.
+    AArch64 source machine, `WakeA64.srcS`, at `helloSrc`, and `helloSX`
+    (x86-64) the x86-64 one, `X64WakeA64.srcS`, at the same `helloSrc`. They
+    are part of the specification.
 15. **WeakCore's machine and language layer.** The bodies of `TermRun.tstep`
     (with `new`), `CoreTerm.scan`, `CoreTerm.annNew`, `CoreTerm.progTgts` and
     `TermRun.tysOf` are part of the source semantics and are not covered by
     WeakCore's premise guard (see "WeakCore 621ec97a"). This is the
     definition text of WeakCore 621ec97a as vendored.
+
+16. **The AArch64 link of `wake` and `hello`** (`Scc/Test/a64link.sh`,
+    sourced by `run.sh`, `certify.sh` and `elf.sh`). Their proofs are stated
+    with `.text` at `0x210550`, so their executables are linked with the
+    build-id note, `.rodata` and `.text` placed at fixed addresses (the
+    note's and `.rodata`'s are `ld.lld`'s defaults); with the three
+    placements `ld.lld` writes its default script's segments, and `wake`'s
+    executable is its default link byte for byte. A `.rodata` larger than
+    about 66 KiB makes the placed link fail. Other programs are linked at
+    `ld.lld`'s default. x86-64 needs no placement: GNU `ld` puts `.text` at
+    `0x401000` whatever the size of `.rodata`.
+17. **x86-64 executables are linked with GNU `ld`.** The x86-64 emitter does
+    not 16-align `.text`; with `ld.lld`'s default layout the code base comes
+    out unaligned and the reader refuses it (`wfB`).
 
 The trusted files' documentation states the above: `Scc/Sem/CorrectE.lean`
 (the trusted Linux stack fact, separate from the proved witness),
@@ -1006,22 +1220,25 @@ quantifier) and its notes on AArch64 alignment.
 
 ## 4. Reproducing
 
-**Building.** `lake build Spike Scc scc scc_x64 scc_arm` and the test
-modules. Memory: on a cold build with `LEAN_NUM_THREADS=1`, most modules
+**Building.** `lake build Kraken KrakenAArch64 WeakCore Scc Spike scc`
+(5872 jobs), then `lake build scc_x64 scc_arm` and the test modules. In
+this release's cold build, no module outside the table below went above
+2.5 GB of anonymous memory, and the certificate modules took 1.63–1.79 GB
+each with `LEAN_NUM_THREADS=1`. Memory: on a cold build with `LEAN_NUM_THREADS=1`, most modules
 stay under 2.5 GiB of anonymous memory per `lean` process (the resident size
 also counts the mapped `.olean` files). These modules need more, even
 single-threaded (peak anonymous memory / peak resident size):
 
 | Module | Anonymous | Resident |
 |---|---|---|
-| `WeakCore.TermStep` | 5.8 GiB | 7.4 GiB |
-| `WeakCore.GenLayer` | 4.5 GiB | 6.2 GiB |
-| `WeakCore.TermScopeFHM` | 4.0 GiB | 6.0 GiB |
-| `WeakCore.TermPlant` | 2.9 GiB | 4.6 GiB |
-| `Spike.Test.A64Hello1TgOk` | 3.1 GiB | 5.7 GiB |
-| `Spike.Test.A64Hello1PlaceOKELit` | 2.9 GiB | 5.1 GiB |
+| `WeakCore.TermStep` | 5.9 GiB | 7.4 GiB |
+| `WeakCore.GenLayer` | 4.5 GiB | 6.1 GiB |
+| `WeakCore.TermScopeFHM` | 4.0 GiB | 6.1 GiB |
+| `WeakCore.TermPlant` | 2.9 GiB | 4.5 GiB |
+| `Spike.Test.A64Hello1TgOk` | 3.1 GiB | 5.8 GiB |
+| `Spike.Test.A64Hello1PlaceOKELit` | 2.9 GiB | 5.2 GiB |
 | `Spike.Test.A64Ret0PlaceOKELit` | 2.7 GiB | 5.0 GiB |
-| `Spike.Test.X64Hello1PlaceOK` | 2.6 GiB | 4.8 GiB |
+| `Spike.Test.X64Hello1PlaceOK` | 2.6 GiB | 4.9 GiB |
 
 Build each of them alone and single-threaded once its imports are built,
 e.g. `LEAN_NUM_THREADS=1 lake build WeakCore.TermStep`, with nothing else
@@ -1108,14 +1325,32 @@ LEAN_NUM_THREADS=1 lake build Spike.Test.HelloLinkedA64Root
 builds `hello_linkedA` with its `#print axioms` guard, the linked layout
 (`Spike.Test.HelloLinkedA64Elf`, which reads the checked-in executable and
 checks its SHA-256) and the listing. On a checkout with nothing under
-`Spike` built it takes about 127 minutes with `LEAN_NUM_THREADS=1`,
-at a peak of about 1.7 GB RssAnon per `lean` process (4.1 GB including
-mapped `.olean` files); the placement modules `HelloLinkedA64A1` … `A8`
-each stay under 1.2 GB RssAnon (about 4.0 GB including mapped `.olean`
-files), and no `hello` module needs more than 2.5 GiB.
+`Spike` built it takes about 120 minutes with `LEAN_NUM_THREADS=1`
+(about 115 minutes plus about 5 minutes for the certificate module
+`Spike.Test.Cert.A64WakeCert` it depends on), at a peak of about 1.7 GiB
+RssAnon per `lean` process (4.4 GiB including mapped `.olean` files); the
+placement modules `HelloLinkedA64A1` … `A8` each stay at or under about
+1.2 GiB RssAnon, and no `hello` module needs more than 2.5 GiB.
+
+**Checking the x86-64 `hello` theorem.**
+
+```
+LEAN_NUM_THREADS=1 lake build Spike.Test.HelloLinkedX64Root
+```
+
+builds `hello_linkedX` and `hello_linkedX_linux` with their `#print axioms`
+guards, the linked layout (`Spike.Test.HelloLinkedX64Elf`, which reads the
+checked-in executable and checks its SHA-256) and the listing. The x86-64
+`hello` development's modules are listed in `Spike/HelloTargetsX64.txt` (568
+modules, some of them outside this root's import closure). On a checkout
+with nothing under `Spike` built it takes about 140 minutes with
+`LEAN_NUM_THREADS=1` (about 136 minutes plus about 4.5 minutes for the
+certificate module `Spike.Test.Cert.X64WakeCert` it depends on), at a peak
+of about 1.8 GiB RssAnon per `lean` process; no x86-64 `hello` module needs
+more than 2.5 GiB.
 
 **Certifying a fresh build** (`Accepted0`/`Accepted1` programs,
-`hello1.w`, and `wake.w` on both ISAs at its checked-in executables). The last line is the verdict, followed by time and peak RssAnon
+`hello1.w`, and `wake.w` and `hello.w` on both ISAs at their checked-in executables). The last line is the verdict, followed by time and peak RssAnon
 of the checking Lean process:
 
 | Command | Verdict |
@@ -1128,6 +1363,8 @@ of the checking Lean process:
 | `Scc/Test/certify.sh --arch x64 --instantiate Scc/Test/hello1.w` | **certified** (33 s, 1977 MB) |
 | `Scc/Test/certify.sh --arch arm --instantiate Scc/Test/wake.w` | **certified** (3.6 s, 130 MB) |
 | `Scc/Test/certify.sh --arch x64 --instantiate Scc/Test/wake.w` | **certified** (6.1 s, 141 MB) |
+| `Scc/Test/certify.sh --arch arm --instantiate Scc/Test/hello.w` | **certified** (2.86 s, 158 MB) |
+| `Scc/Test/certify.sh --arch x64 --instantiate Scc/Test/hello.w` | **certified** (2.51 s, 154 MB) |
 
 For `hello1.w`, the first run builds `Spike.Test.X64Hello1FinalC` /
 `Spike.Test.A64Hello1FinalCA` if they are not built (on a checkout with
@@ -1136,24 +1373,35 @@ AArch64, with `LEAN_NUM_THREADS=1`; peak about 4 GiB).
 
 `certify.sh -v` prints every command it runs and the Lean files it writes,
 so a run can be repeated by hand. Any other program outside `Accepted1`,
-`hello1.w` compiled to a different text, or `wake.w` with another text or
-executable, is **not certifiable**. For `wake.w` the first run builds
-`Spike.Test.WakeLinkedA64Root` or `Spike.Test.WakeLinkedX64Root` if it is
-not built (above); the times in the table are with it built.
+`hello1.w` compiled to a different text, or `wake.w` or `hello.w` with
+another text or executable, is **not certifiable**. For `wake.w` the first
+run builds `Spike.Test.WakeLinkedA64Root` or `Spike.Test.WakeLinkedX64Root`
+if it is not built (above), and for `hello.w`
+`Spike.Test.HelloLinkedA64Root` or `Spike.Test.HelloLinkedX64Root`; the
+times in the table are with it built.
 
 **Tests.**
 
-- `#print axioms` over every non-test module reports only `propext`,
-  `Classical.choice` and `Quot.sound`.
+- `#print axioms` over every non-test module (3372 modules) reports only
+  `propext`, `Classical.choice` and `Quot.sound`.
 - `Scc/Test/run.sh`, both ISAs: 60 checks, 54 passed, 0 failed, 6 not
-  certifiable; certificates 15 certified, 6 not certifiable.
+  certifiable; certificates 15 certified, 6 not certifiable (`deeprec`,
+  `growmany`, `spill`, `stackcap` and `stackdepth` without a stack need
+  table, `tailwide` refused by A12).
 - `Scc/Test/blocks.sh --check`: 42 passed; `Spike/Gen/drift.sh`: clean;
   `Scc/Test/elf.sh`: ok; `Scc/Test/elf.sh --relink-check`: ok;
   `Scc/Test/textalign.sh`: ok (21 programs).
-- `Scc/Test/certify_test.sh`: all passed (including `-v`, `hello1.w` on
-  both ISAs at its `run.sh` link and at a moved link, `wake.w` certified on
-  both ISAs at its checked-in executables, another spawning program
-  (`hello.w`) refused, and refusals of other programs outside `Accepted1`).
+- `Scc/Test/certify_test.sh`: all passed, 108 ok, 0 failed, 0 skipped,
+  without `CERTIFY_TEST_SKIP_MISSING` (including `-v`, `hello1.w` on both ISAs at its `run.sh` link and at a
+  moved link, `wake.w` and `hello.w` certified on both ISAs at their
+  checked-in executables, `hello.w` refused at another link or with one byte
+  changed, and refusals of other programs outside `Accepted1`). The linker
+  matrix checks that each tool is installed and prints its version; the
+  expectations were recorded with GNU ld 2.47, gold 1.16, LLD 21.1.8 and
+  clang 21.1.8. A case whose tool is missing is skipped and counts as a
+  failure unless `CERTIFY_TEST_SKIP_MISSING=1` is set, and a `.text` that
+  differs from the assembled listing outside relocated fields
+  (`Scc/Test/textcheck.py`) is a failure.
 - `tools/diff_place.sh`: the placement samples of `diff.sh` match their
   pinned outcomes on both ISAs, wide and narrow (narrow: 21 certifiable,
   9 without a stack need table, 0 failed).
@@ -1170,25 +1418,29 @@ In this release `ret0.w` is certified at linked binaries and by `certify.sh
 --instantiate` on a fresh build, `frame0.w` by `certify.sh --instantiate`,
 `hello1.w` at every layout passing the placement check, by `certify.sh
 --instantiate` on a fresh build, and at its two checked-in executables, and
-`wake.w` on AArch64 and x86-64 at its checked-in executables; `hello.w` is
-proved on AArch64 at its checked-in executable.
+`wake.w` and `hello.w` on AArch64 and x86-64 at their checked-in
+executables, also by `certify.sh --instantiate` when a fresh build is those
+files byte for byte.
 
 - **`wake`'s theorems are at one layout each.** They hold at `Λe`, the
   layout of `Scc/Test/elf/wakea64/wake` and of `Scc/Test/elf/wakex64/wake`
   respectively (x86-64 `.text` at `0x401000`, GNU `ld`'s default), only; a
   relink that moves anything is not certifiable. Each covers its
   checked-in text only.
-- **`hello`'s theorem is at one layout.** It holds at `Λe`, the layout of
-  `Scc/Test/elf/helloa64/hello` (`.text` at `0x210550`, `.rodata` at
-  `0x2001b8`, both placed by the link command), only, and covers the listing
-  `helloAsm` only.
-- **`certify.sh` does not certify `hello.w` builds.** It has no registry
-  entry for `hello.w`; a fresh build is refused (verdict 3 with
-  `--instantiate`). The theorem is about the checked-in listing and
-  executable.
-- **`hello.w` on x86-64 is not covered.** Among the spawning programs,
-  `wake.w` (both ISAs) and `hello.w` (AArch64, at its executable) are
-  proved; nothing else that spawns is.
+- **`hello`'s theorems are at one layout each.** They hold at `Λe`, the
+  layout of `Scc/Test/elf/helloa64/hello` (`.text` at `0x210550`, `.rodata`
+  at `0x2001b8`, both placed by the link command) and of
+  `Scc/Test/elf/hellox64/hello` (`.text` at `0x401000`, GNU `ld`'s default)
+  respectively, only, and each covers its listing only. The canonical
+  static link (`Scc.Cert.Link.canonical`, code at `0x400000`) is not such a
+  layout.
+- **Among the spawning programs, only `wake.w` and `hello.w` are proved**,
+  on both ISAs, at their checked-in executables; `certify.sh` refuses any
+  other spawning program (verdict 3 with `--instantiate`).
+- **Superseded proof declarations remain in the tree**, off the final
+  theorems' paths (x86-64 `hello`: the instances at the canonical map of
+  owned words that have a generic twin, and an earlier chain of the root's
+  obligations). No statement depends on them.
 - **The cold builds of the `wake` and `hello` proofs are long** (§4).
 
 - **`hello1`'s theorems are about one text.** They cover the checked-in
@@ -1224,7 +1476,9 @@ proved on AArch64 at its checked-in executable.
   (`CorrectE 2`) on the kernel model; under `qemu-aarch64` their runs do not
   exhibit hardware reorderings, but the theorem holds for every `arch`.
 - The executable's **`.text` bytes are not compared with `asm`'s encoding**
-  (trusted, §3 item 6), for `wake` as for the others.
+  by any proof (trusted, §3 item 6), for `wake` and `hello` as for the
+  others; `certify_test.sh` compares them for its links (`textcheck.py`), as
+  a test.
 - **Liveness/termination is not claimed** (§0). `CorrectE` is a trace-prefix
   refinement with justified aborts; that `wake`'s `main` is woken is not
   part of the statement.

@@ -13,7 +13,7 @@ other than a `syscall`.
 - `NoSetFsW W K`: `W`, asking for no `arch_prctl(ARCH_SET_FS)`, not moved
   by `K`; `noSetFsAt_of_code`: a state at a cell of a code segment with no
   `syscall`;
-- `NodeW.noSetFs`, `BlkW.noSetFs`, `XProW.noSetFs`: a node's, a block
+- `NodeW.noSetFs`, `BlkW.noSetFs`, `XProW.noSetFs1`: a node's, a block
   node's, a prologue's obligation at code with no `syscall` is one inside
   `NoSetFsW W K`;
 - `SegW.keepTPN`: `SegW.keepTP` for a segment inside `NoSetFsW W K` (the
@@ -106,8 +106,10 @@ theorem SegW.keepTPN' {W' : Frag isa} {p : Prog} {lbl : WeakMem.AllocLabel → O
   KeepTP.SegW.keepTP' hK h (fun _ _ hw => hw.2.1) (fun _ _ hw s' hk _ => (hw.2.2 s' hk).elim)
     fun s c hw ht => hW s c hw.1 ht
 
-/-- **A prologue at code with no `syscall`** is inside `NoSetFsW W K`. -/
-theorem XProW.noSetFs {ms : MemSide isa} {pc0 Z lim : Int64} {L : String} {zl zf z1 z2 zs : Nat}
+/-- **A prologue at code with no `syscall`** is inside `NoSetFsW W K`, given each segment has no `syscall`
+(`h0` … `h4`). Named `noSetFs1` because `X64KeepTPW` declares `Flow.XProW.noSetFs` (with those facts computed),
+so that both modules can be imported together. -/
+theorem XProW.noSetFs1 {ms : MemSide isa} {pc0 Z lim : Int64} {L : String} {zl zf z1 z2 zs : Nat}
     {ps : List (Reg64 × Int64 × Nat)} {J : AS → Ctl → Prop}
     (h : XProW W K exe endPc R F ms pc0 Z lim L zl zf z1 z2 zs ps J)
     (hc0 : ∀ s : State, s.exe = exe → s.endPc = endPc → CodeAt s pc0 xHead)
@@ -214,7 +216,7 @@ theorem RdPreW.noSetFs (hp : Lays exe SccCode.hello1Cells) (hend : endPc = endOf
     rw [e0, Int64.add_assoc]; rfl
   have he := hello1_rdEIn
   simp only [rdEIn, Bool.and_eq_true] at he
-  refine ⟨XProW.noSetFs h.pro (code_field hp hend b0 (ofNat_zero' _)) (code_field hp hend b1 ?_)
+  refine ⟨XProW.noSetFs1 h.pro (code_field hp hend b0 (ofNat_zero' _)) (code_field hp hend b1 ?_)
     (code_field hp hend b2 ?_) (code_field hp hend b3 ?_) (code_field hp hend b4 ?_)
     (by decide) (by decide) (by decide) (by decide) (by decide),
     BlkW.noSetFs h.e (code_field hp hend he.1 (ofNat_zero' _)) (by decide),

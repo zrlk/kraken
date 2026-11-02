@@ -1,6 +1,6 @@
 /-
 **wake.w's skeleton with the run invariant at the worker's steps** (C4,
-option (B), row B8-gen1). A twin of `Spike.Lib.WakeA64`'s obligations and
+option (B)). A twin of `Spike.Lib.WakeA64`'s obligations and
 main theorem, verbatim apart from one premise: `WakeObligationsR.post_step1`
 also takes the run invariant `WakeRunInv.RunInv Λ E t` at the step's source
 configuration (the worker's private keys, `DmemPriv`, for its `write`'s

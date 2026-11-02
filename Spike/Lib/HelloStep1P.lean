@@ -1,6 +1,6 @@
 /-
 **hello.w on AArch64: the worker's print-phase steps, frame runs** (C4,
-row B8-gen1, step 2; the data in `Spike/Lib/HelloW1.lean`, the dispatch in
+step 2; the data in `Spike/Lib/HelloW1.lean`, the dispatch in
 `Spike/Lib/HelloStep1.lean`): the frame-aware rows (`HelloSegThrS.OutTS`)
 let the source worker take a frame run (local steps, `print`'s call and
 return) where wake's took a local run.
@@ -20,7 +20,7 @@ return) where wake's took a local run.
   `post_frameRunH` (`HelloW1.post_setP` at the frame run's end).
 - `post_silentH`, `post_choiceH`, `post_fncH`, `post_rtLoadH`: the rows
   keeping memory and promises (`WakeW1Instr`'s twins); `post_rtLoadH` takes
-  `hms : ∀ w fs, D.ms w fs = D.ms w []` (row: B8-gen1, `rfl` at
+  `hms : ∀ w fs, D.ms w fs = D.ms w []` (`rfl` at
   `HelloAssemblyI.DH`).
 - `PromStepP`: the print phase's certified
   promise, `PrintStep1`'s promise branch.
@@ -435,7 +435,7 @@ theorem post_fncH (hC : HelloCompat Q D M μ Λ arch AbW hcw hem)
 
 /-- **The runtime-load row keeps `Post`** (`OutTS.pre` with `Out.rtLoad`, at
 the frames `fs₁` the run reaches): the value read is a `G` value (the
-memory's invariant); the worker owns no word. `hms` (row: B8-gen1, `rfl` at
+memory's invariant); the worker owns no word. `hms` (`rfl` at
 `HelloAssemblyI.DH`): the worker's memory side is the same at every frame
 stack, so its `G` and `own` at `fs₁` are `WakeW1.WCompat`'s (at `[]`). -/
 theorem post_rtLoadH (hC : HelloCompat Q D M μ Λ arch AbW hcw hem) (hms : ∀ w fs, D.ms w fs = D.ms w [])

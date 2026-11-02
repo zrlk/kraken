@@ -21,7 +21,7 @@ open Spike.Lib.HelloPreA (ClonePreH)
 variable {pfx : String} {Λ : Scc.Sem.Layout} {r0 r1 : Range} {X : State → Prop}
   {lbl : WeakMem.AllocLabel → Option Nat} {t : Cfg} {s : TermRun.Cfg}
 
-/-- (row B8-hsvc-fit) **main's `x9` at the clone has 13 bytes of room**: the buffer label holds a source message at
+/-- **main's `x9` at the clone has 13 bytes of room**: the buffer label holds a source message at
 offset `1`, so it is in bounds and placed below `2^64 - 16`. -/
 theorem x9_fit_clone (h : ClonePreH pfx Λ r0 r1 X lbl t s) {th : Thread isaLSE2} (hth : t.1.threads = #[th])
     {Λ' : Scc.Sem.Layout} {lsize : WeakMem.AllocLabel → Nat} {ts : Nat → Option Nat} {tm : Memory}
@@ -43,7 +43,7 @@ theorem x9_fit_clone (h : ClonePreH pfx Λ r0 r1 X lbl t s) {th : Thread isaLSE2
   have h9' : th.st.st.1.regs.X9.toBitVec.toNat = sl0 := h9
   omega
 
-/-- (row B8-hsvc) **`hsvc_clone` with its fit discharged** by `x9_fit_clone`. -/
+/-- **`hsvc_clone` with its fit discharged** by `x9_fit_clone`. -/
 theorem hsvc_cloneM (h : ClonePreH pfx Λ r0 r1 X lbl t s) {th : Thread isaLSE2} (hth : t.1.threads = #[th])
     {Λ' : Scc.Sem.Layout} {lsize : WeakMem.AllocLabel → Nat} {ts : Nat → Option Nat} {tm : Memory}
     {tp tq sp : List Nat} (hm : MemRelP Λ' lbl lsize ts tm s.mem tp tq sp) (hwf : Λ'.WF) :

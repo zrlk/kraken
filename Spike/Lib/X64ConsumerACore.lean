@@ -119,22 +119,32 @@ theorem core_landA (hP : HookOK P p) (hN : NodesA Λ p μ rd G own ar I ab Cl) {
     (fun h0 => hN.noRet _ _ _ _ (h0 ▸ hI)) hr
   exact ⟨s', run_trans0 hrun hr', h'⟩
 
-/-- **An instruction step off a system call and off the take site keeps
-`PreCoreJA`** (`core_stepS` with the arena; `instr_stepA`'s rows), matched
-by a source run with no event. -/
-theorem core_stepA (hP : HookOK P p) (hN : NodesA Λ p μ rd G own ar I ab Cl)
+/-- **An instruction step keeping `PreCoreJA` from a given row**
+(`core_stepA` on `PreCoreJA`'s components, with `NodesA.rowNS`'s row from the
+pair's own control given, `hrow`). -/
+theorem core_stepA_of_row (hP : HookOK P p) (hN : NodesA Λ p μ rd G own ar I ab Cl)
     (hsafe : SrcSafeS P p I) (hrd : SrcRd P p rd) (hwf : Λ.WF)
     (hGpl : ∀ a v, Λ.heap.contains a ∨ Λ.data.contains a → G (wordLoc a) v) (hok : ar.OK)
     {th : Thread isa} {mem : Memory} {s : TermRun.Cfg} {outs : List (Except String (Outcome isa))}
-    {o : Outcome isa} (h : PreCoreJA Λ P p G own I ar th mem s) (hns : abi.atSys th.st = false)
+    {o : Outcome isa} {th0 : TermRun.TTh} {lbl : Lbl} {lsize : Lsize} {ts : Nat → Option Nat}
+    {hd : Option (Nat × TermRun.Word)} {tr : List Ev}
+    (hs0 : s.ths = #[th0]) (hσ : th0.σs = []) (hp : th0.promises = [])
+    (hI : I lbl lsize th.st ⟨th0.term, th0.env, hd⟩ th0.stack) (hhi : HoldInvA ar lbl lsize s.mem hd)
+    (hw : WideSt th.st) (hb : th.Bnd mem.last) (hinv : Inv1 Λ lbl lsize ts th mem s.mem) (hown : OwnMsgs mem)
+    (hsh : MsgsExcept (fun m => LocIn Λ.shared m.loc) th.prom mem) (hini : ∀ q ∈ mem.init, InitIn Λ q.1)
+    (hfi : MemFits mem) (hgm : MsgsExcept (fun m => G m.loc m.val) th.prom mem) (hgi : ∀ l, G l (mem.initVal l))
+    (hoo : ExtRows.OwnOk (own th.st th0.stack) mem th.prom)
+    (hai : AllocInvAt Λ lbl lsize th mem ar.heap ar.cells ar.ctr ar.units ar.off (heapUse s) ⟨th0.term, th0.env, hd⟩)
+    (hfr : AllocInv.FreshInv lbl s.lbase s.n 0 th0.nalloc) (hco : CtrOff ar lbl lsize)
+    (hreach : (SrcSem.source P p).Reach tr s) (hns : abi.atSys th.st = false)
     (hnt : ∀ a, μ.site .take = some a → pcOf th.st ≠ a)
-    (hso : stepOne Arch.tso th 0 mem = some outs) (ho : .ok o ∈ outs) :
+    (hso : stepOne Arch.tso th 0 mem = some outs) (ho : .ok o ∈ outs)
+    (hrow : ∃ c₁ fs₁, FrameRun p (⟨th0.term, th0.env, hd⟩, th0.stack) (c₁, fs₁) ∧ own th.st fs₁ = own th.st th0.stack ∧
+      Out p lbl (msOfA Λ μ rd G own ar I lbl lsize fs₁) (fun s' c' => PendA p I lbl lsize s' c' fs₁) th.st c₁) :
     ∃ s', (SrcSem.source P p).Run s [] s' ∧ PreCoreJA Λ P p G own I ar o.thread o.mem s' := by
-  obtain ⟨th0, lbl, lsize, ts, hd, hs0, hσ, hp, hI, hhi, hw, hb, hinv, hown, hsh, hini, hfi, hgm, hgi, hoo,
-    hai, hfr, hco, tr, hreach⟩ := h
   have hcr : th0.stack = [] → ∀ a, th0.term ≠ .ret a := fun h0' => by
     rw [h0'] at hI; exact hN.noRet _ _ _ _ hI
-  obtain ⟨c₁, fs₁, hr0, hown_eq, hout⟩ := hN.rowNS hI hnt hns
+  obtain ⟨c₁, fs₁, hr0, hown_eq, hout⟩ := hrow
   have hI1 : IRun p I lbl lsize th.st c₁ fs₁ := IRun.trans hI hr0
   have hoo₁ : ExtRows.OwnOk (own th.st fs₁) mem th.prom := by rw [hown_eq]; exact hoo
   have hsrc : (fs₁ = [] → ∀ a, c₁.term ≠ .ret a) →
@@ -454,6 +464,33 @@ theorem core_stepA (hP : HookOK P p) (hN : NodesA Λ p μ rd G own ar I ab Cl)
       hcrJ hcrJ (.refl _)
     exact ⟨s₃, run_trans0 hrun2 hrun3, hpre⟩
 
+/-- **An instruction step off a system call and off the take site keeps
+`PreCoreJA`** (`core_stepS` with the arena; `instr_stepA`'s rows), matched
+by a source run with no event. Where the row starts past the source's
+publication (`PubPre`), the source publishes first (`pub_preA`). -/
+theorem core_stepA (hP : HookOK P p) (hN : NodesA Λ p μ rd G own ar I ab Cl)
+    (hsafe : SrcSafeS P p I) (hrd : SrcRd P p rd) (hwf : Λ.WF)
+    (hGpl : ∀ a v, Λ.heap.contains a ∨ Λ.data.contains a → G (wordLoc a) v) (hok : ar.OK)
+    {th : Thread isa} {mem : Memory} {s : TermRun.Cfg} {outs : List (Except String (Outcome isa))}
+    {o : Outcome isa} (h : PreCoreJA Λ P p G own I ar th mem s) (hns : abi.atSys th.st = false)
+    (hnt : ∀ a, μ.site .take = some a → pcOf th.st ≠ a)
+    (hso : stepOne Arch.tso th 0 mem = some outs) (ho : .ok o ∈ outs) :
+    ∃ s', (SrcSem.source P p).Run s [] s' ∧ PreCoreJA Λ P p G own I ar o.thread o.mem s' := by
+  obtain ⟨th0, lbl, lsize, ts, hd, hs0, hσ, hp, hI, hhi, hw, hb, hinv, hown, hsh, hini, hfi, hgm, hgi, hoo,
+    hai, hfr, hco, tr, hreach⟩ := h
+  obtain ⟨c₀, hc₀, hrow⟩ := hN.rowNS hI hnt hns
+  rcases hc₀ with rfl | ⟨-, -, hps, hI0⟩
+  · exact core_stepA_of_row hP hN hsafe hrd hwf hGpl hok hs0 hσ hp hI hhi hw hb hinv hown hsh hini hfi hgm hgi
+      hoo hai hfr hco hreach hns hnt hso ho hrow
+  · have hnr : th0.stack = [] → ∀ a, c₀.term ≠ .ret a := fun h0 => hN.noRet _ _ _ _ (h0 ▸ hI0)
+    obtain ⟨th1, hrun, rfl, rfl, hσ1, hp1, hsk, hai1, hfr1, hreach1⟩ :=
+      pub_preA hP hs0 hσ hp hps hnr hai hfr hreach
+    rw [← hsk] at hrow hoo
+    obtain ⟨s', hr', h'⟩ := core_stepA_of_row (s := { s with ths := #[th1] }) (th0 := th1) (hd := none)
+      hP hN hsafe hrd hwf hGpl hok rfl hσ1 hp1 (hsk ▸ hI0) (.inl trivial) hw hb hinv hown hsh hini hfi hgm hgi
+      hoo hai1 hfr1 hco hreach1 hns hnt hso ho hrow
+    exact ⟨s', run_trans0 hrun hr', h'⟩
+
 /-- **A certification step at a system call other than the output `write`
 keeps `PreCoreJA`**, for rows under any `msOfAX … ab` (`core_sysA`;
 `NodesA.sysRowX`): the row's frame run, then the local run to the
@@ -595,3 +632,9 @@ theorem promSharedA (hP : HookOK P p) (hN : NodesA Λ p μ rd G own ar I)
     (core_sysA hP hN hT h hsi hs hso ho).imp fun _ h => h.2
 
 end Spike.Lib.X64ConsumerA
+
+/-- info: 'Spike.Lib.X64ConsumerA.core_stepA_of_row' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in #print axioms Spike.Lib.X64ConsumerA.core_stepA_of_row
+
+/-- info: 'Spike.Lib.X64ConsumerA.core_stepA' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in #print axioms Spike.Lib.X64ConsumerA.core_stepA

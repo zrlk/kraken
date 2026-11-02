@@ -1,5 +1,5 @@
 /-
-**hello.w's refusal blocks inside the third level** (AArch64; piece R6; the hello twin
+**hello.w's refusal blocks inside the third level** (AArch64; part 6; the hello twin
 of `Spike/Lib/A64WakeRefBlk.lean`): `cb` (`.sp6 + 4 · 26`), `.clone13`'s `cl` and `.1_spawnfail5`'s `flB`, the nine
 pcs from `.sp6 + 104`, inside `RootWX.W2H ∧ X2H` (the root's `W2I ∧ X2I`) under no `TakeCKS` move. `W2H`'s `Wf` by
 `WakeWf.blkW_wf`: `SFactsSt2` at `ownGH` by `WcSp4W.blk_cH` at `own2bH … 0`, where `ownGH` agrees with it

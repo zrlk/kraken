@@ -1,9 +1,9 @@
 /-
-**hello.w: `HelloRowsW` with `hconv` discharged** (row B8-genV wired): the
+**hello.w: `HelloRowsW` with `hconv` discharged** (`hconv` wired): the
 open rows other than `hconv` (`HelloRowsWV`), and `HelloRowsW` from them by
 `HelloConv1.hconvH` at hello's `PT0`/`KR` (`hPT0`, `hKR`), the link's
 well-formedness (`hwf`), a frame-independent memory side (`hms`) and the
-worker's `RelW1` (`hW1`, row B8-genV-hW1).
+worker's `RelW1` (`hW1`).
 
 - `HelloRowsWV`: `HelloRowsW`'s fields other than `hconv`.
 - `HelloRowsWV.toW`: `HelloRowsW` with `hconv := hconvH …`.
@@ -28,7 +28,7 @@ structure HelloRowsWV (arch : WeakMem.Arch) (Λ : Scc.Sem.Layout) (B : Budget) (
     (E : Entry) (D : WSideH Q.ι) (M : WakeM0.MSide Q.ι) (AbW : isaLSE2.State → Prop)
     (hcw : ∀ w, ∃ cS, (D.cw w).val = .loc cS 0) (hem : NoWrite D) (Ab Ac : State → Prop)
     (Tw : Cfg → List Ev → Prop) : Prop where
-  /-- row: B8-gen1 (as `HelloRowsW.post_step1`). -/
+  /-- (as `HelloRowsW.post_step1`). -/
   post_step1 : HelloCompat Q D M ((target (kernel 2) E).marks asm Λ) Λ arch AbW hcw hem →
     ∀ t es t' s, Q.Post Λ t s → WakeRunInv.RunInv Λ E t → ¬ Q.atUnpk t s → ¬ Q.atTexit t s →
       (machine (kernel 2)).Step ((target (kernel 2) E).marks asm Λ) 1 t es t' →

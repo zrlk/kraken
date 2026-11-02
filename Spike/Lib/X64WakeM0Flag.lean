@@ -1,5 +1,5 @@
 /-
-**main's flag load** (hello plan 1.6, `post_step0`; the 0/1
+**main's flag load** (`post_step0`; the 0/1
 split in `Spike/Lib/Inv2Read.lean`).
 
 main's row at `wlBody` (an `Out.load` or `OutL.ldSt`) is the acquire load
@@ -97,7 +97,7 @@ theorem post_flag0 (hC : WCompat Q D μ Λ arch) (hC0 : WCompat0 Q M μ Λ) (hPT
     (he : isa.exec t0.st = some (.load kl false ⟨A, 8⟩ fun v => .done (g v)))
     {ty : Ty} {wd : TermRun.Word} (hev : TermRun.evalAt s0.env (.var "c") = some (ty, [wd]))
     (hv : ValRep (M.lbl w) wd.val A.toNat) :
-    ∃ s', (wakeS arch).Run s [] s' ∧ Q.Post Λ (t.1.withThread 0 o.thread o.mem, t.2) s' := by
+    ∃ s', (srcS M.p arch).Run s [] s' ∧ Q.Post Λ (t.1.withThread 0 o.thread o.mem, t.2) s' := by
   have hpt0 := h.pt0M hPT0
   have hmi : M.Mi w t0.st (Ctl.of s0) := h.mi0 hPT0 hKR hx
   have hctl := h.mCtl hPT0
@@ -135,7 +135,7 @@ theorem post_flag0 (hC : WCompat Q D μ Λ arch) (hC0 : WCompat0 Q M μ Λ) (hPT
     obtain ⟨-, -, -, -, m, hmk, -, hmv⟩ := h.prot.some_msg Tc kc rfl
     have hi := h.s0_get
     obtain ⟨th', hstep, ht', he', hp', hσ', hk', htl', hcoh⟩ :=
-      src_load_latest0 (TermRun.gOf wakeSrc (srcPo 2 arch wakeSrc).k (srcPo 2 arch wakeSrc).arch s 0) s.mem s.pairs s0
+      src_load_latest0 (TermRun.gOf M.p (srcPo 2 arch M.p).k (srcPo 2 arch M.p).arch s 0) s.mem s.pairs s0
         (ht.trans rfl) hcv (hC0.cw0 w) hcell hcu (slatest_kc h.prot) hmk
     let w' : TermRun.Word := ⟨m.val, m.view, kc⟩
     have hmi' : M.Mi w o.thread.st (Ctl.of th') := by
@@ -152,8 +152,9 @@ theorem post_flag0 (hC : WCompat Q D μ Λ arch) (hC0 : WCompat0 Q M μ Λ) (hPT
       mainExit_of_notRet h.ths hpt0.2.2.2.1 (by rw [ht]; simp [wlBody, WakeMLive.wlRet])
     have hex' : SrcSem.mainExit { s with ths := s.ths.set! 0 th' } = [] :=
       mainExit_of_notRet hs' (by rw [ht']; exact .inr (.inr (.inl rfl))) hlive
-    have hrun : (wakeS arch).Run s [] { s with ths := s.ths.set! 0 th' } :=
-      LRun.step (step := fun c es c' => ∃ i, (wakeS arch).step i c es c') ⟨0, WakeM0Src.source_step_nil' (P := srcPo 2 arch wakeSrc) rfl
+    have hrun : (srcS M.p arch).Run s [] { s with ths := s.ths.set! 0 th' } :=
+      LRun.step (step := fun c es c' => ∃ i, (srcS M.p arch).step i c es c') ⟨0, WakeM0Src.source_step_nil'
+          (P := srcPo 2 arch M.p) rfl
         (.inl (.inl ⟨SrcMem.mem_threadSteps hi hstep, certified_nil hi' (by rw [hp']; exact hpt0.2.2.2.2.2.1)⟩))
         hex hex' rfl⟩ (LRun.refl _)
     have hb := (stepOne_bnd _ hso ho h.core.bnd0).1

@@ -1,5 +1,5 @@
 /-
-**hello's worker landing fact with the flag** (AArch64; rows 5j-wit-W, 5j-wit-E-call, B8-genP-hmapW-flag): the
+**hello's worker landing fact with the flag** (AArch64; rows 5j-wit-W, 5j-wit-E-call): the
 fragment `XHF` the worker's segment invariant lies in: `A64HelloXH`'s `XH` (every frame placed, the caller frame of
 the call the control runs to placed) and the flag
 `FlagZ.FlagF cS` (every control a frame run reaches accesses no untagged locative but `cS`).

@@ -1,6 +1,6 @@
 /-
 **hello.w: the output's byte step for the published `print` loop and the
-worker's memory side with it** (C4, B8-gen1 §0: the prerequisite of
+worker's memory side with it** (C4 §0: the prerequisite of
 EmitStepP; the twin of `ByteOut.ByteOut` at `HelloPrintSrcPub`'s controls).
 
 `helloMs` (`HelloMs`) has the defaults `bo := False`, `we := False`, so no

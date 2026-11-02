@@ -1,6 +1,6 @@
 /-
 **hello.w on AArch64: main's certification is append-free at `Post`** (row
-B8-genV, main's half; the twin of `WakeConv0.hconv_main` / `hconv_of` at
+main's half; the twin of `WakeConv0.hconv_main` / `hconv_of` at
 hello's worker data `PT1h` and kernel relation `KRH`).
 
 As at wake: main's certifying runs stay in `WakeM0.CInv0` (`WakeM0.cstep0`),

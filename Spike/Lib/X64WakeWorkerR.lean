@@ -277,7 +277,8 @@ theorem wake_obligations_IWR {Ab Ac : State → Prop}
       Kernel.mapped (X64Consumer.K0 (RuntimeLayout.ofPlaceWX hp i).Λ) wr L = true)
     {pcfg' : Scc.Cert.PlaceOK.Config} {po : Scc.Cert.PlaceOK.X64.Out}
     (hpl : PlaceWX pcfg' (RuntimeLayout.ofPlaceWX hp i).Λ po)
-    (hpa : cellsOf asm = some po.prog) :
+    (hpa : cellsOf asm = some po.prog)
+    /- (`rfl` at wake's worker sides) -/ (hDp : D.p = Spike.Lib.X64WakeT1.wakeSrc := by rfl) :
     WakeObligations arch (RuntimeLayout.ofPlaceWX hp i).Λ B asm
       (X64WakeQ.wakeQ arch R1 _ SR cT cS pT P G (wakeM hp i T W ok lab _ hoff) D r0 r1 passT T W) E
       (TiPre Ab Ac) :=
@@ -295,7 +296,7 @@ theorem wake_obligations_IWR {Ab Ac : State → Prop}
     hpl hpa
     (X64WakePostWit.post_wit_of rfl rfl (X64WakeQ.hwf_ofPlaceOK hp i)
       (fun w s c h => (hSR w).symm ▸ placed_I hp i T W w s c h)
-      (fun w s c h => Spike.Lib.X64.Flow.Worker.Wake.ZX.placed (hW w s c h).2))
+      (fun w s c h => Spike.Lib.X64.Flow.Worker.Wake.ZX.placed (hW w s c h).2)) hDp
 
 /-- `hW_IR` is `wake_obligations_IWR`'s `hW` at `wakeQI`'s data
 (`SR := (wakeSR ·.1)`, `cS := (·.1.cS)`, `D := wakeDR`). -/

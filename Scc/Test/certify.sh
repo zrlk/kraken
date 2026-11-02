@@ -23,8 +23,11 @@
 #   1. `scc --arch ARCH --cert T.cert.lean -o T.s PROG.w`; the certificate's
 #      digests of the source and the text must be `sha256sum`'s.
 #   2. Assemble and link T.s into T with run.sh's commands (x64: GNU `as`,
-#      `ld -static`; arm: clang with lld), so that the executable certified
-#      is the one run.sh runs. With --elf EXE, EXE is taken as the executable
+#      `ld -static`; arm: clang with lld, `Scc/Test/a64link.sh`: when PROG.w
+#      is `Scc/Test/wake.w` or `Scc/Test/hello.w` byte for byte, `.text` pinned
+#      at their proofs' code base `0x210550`), so that the executable certified
+#      is the one run.sh runs. With --elf EXE,
+#      EXE is taken as the executable
 #      instead (a file linked otherwise, or a damaged one for the tests).
 #   3. The ELF layout reader (`Scc.Cert.Elf.elfParts`) on T, by evaluation,
 #      for its refusal, if any, in a few seconds.
@@ -69,7 +72,7 @@
 # proof that it is never needed).
 #
 # hello1 (the registry of programs outside `Scc.Lower.Accepted1` with a
-# proved theorem; its other entry is wake, below): when PROG.w is `Scc/Test/hello1.w` byte
+# proved theorem; its other entries are wake and hello, below): when PROG.w is `Scc/Test/hello1.w` byte
 # for byte and T.s is the text that theorem is about byte for byte
 # (`Scc/Test/elf/hello1x64/hello1.s`, `Scc/Test/elf/hello1a64/hello1.s`, the
 # checked-in certificate's `asm`), the theorem instantiated is
@@ -96,9 +99,9 @@
 # `Scc/Cert/SpawnA64.lean`: `prog_placeOK2`) instead of `placeOK`, and
 # T.post.lean decides `placeOK2At` at the executable's layout (A11', A12' in
 # its two parts and A13 in place of A11 and A12). No compiler theorem covers
-# such a program but wake (the registry's second entry): without --instantiate
-# the verdict is 10 (placement decided) whatever its fragment; with
-# --instantiate, 3 (no proved theorem).
+# such a program but wake and hello (the registry's other entries): without
+# --instantiate the verdict is 10 (placement decided) whatever its fragment;
+# with --instantiate, 3 (no proved theorem).
 #
 # wake (registry, --instantiate only): when PROG.w is
 # `Scc/Test/wake.w` byte for byte, T.s is `Scc/Test/elf/wakea64/wake.s` (the
@@ -122,6 +125,33 @@
 # encoding of `asm`. Its build (with LEAN_NUM_THREADS=1) takes hours on a
 # fresh checkout (not measured here). Another executable (a link moved by
 # the linker, --elf, another toolchain's bytes) is not certifiable (exit 3).
+#
+# hello (registry, --instantiate only): as wake, with `Scc/Test/hello.w`
+# byte for byte, T.s `Scc/Test/elf/helloa64/hello.s` (hello's listing
+# `SccCode.helloAsm`, verbatim) and the executable
+# `Scc/Test/elf/helloa64/hello` byte for byte (layout
+# `Spike.Test.HelloLinkedA64.Λe`); the theorem is
+# `Spike.Test.HelloLinkedA64.hello_linkedA` (`CorrectE 2` about
+# `Spike.Lib.HelloSrc.helloS`, the frontend's reading of T.w, at the layout
+# with the root's immediates `A64.HelloPh.ImmsMe.iRdM`), from
+# `Spike.Test.HelloLinkedA64Root`. As for wake, the arm link of step 2 is
+# run.sh's with the code base pinned (`Scc/Test/a64link.sh`, as
+# `Scc/Test/elf.sh` links `wakea64/wake` and `helloa64/hello`): hello's own
+# default `.text` is not its theorem's `0x210550`. On x64 the
+# same with `Scc/Test/elf/hellox64/hello.s` (`SccCode.helloText`), the
+# executable `Scc/Test/elf/hellox64/hello` (run.sh's link; layout
+# `Spike.Test.HelloLinkedX64.Λe`), and the theorem
+# `Spike.Test.HelloLinkedX64.hello_linkedX` (`CorrectE 2` about
+# `Spike.Test.HelloLinkedX64.helloSX` with the immediates
+# `X64.HelloImms.iRdM`), only when its module
+# `Spike/Test/HelloLinkedX64Root.lean` is in the checkout (else exit 3, no
+# proved theorem; when it is, the kernel checks the theorem and its axioms
+# in T.post.lean, as for wake). The theorem names the listing (`SccCode.*`),
+# not `SccCertificate.*`: T.post.lean does not import this run's certificate
+# or the checked-in one. As for wake: `hpa` by evaluation, budget
+# `allocCells`, the `.text` bytes not compared with the encoding of the
+# listing, the build with LEAN_NUM_THREADS=1 (hours on a fresh checkout, not
+# measured here), another executable not certifiable (exit 3).
 set -u
 
 ARCH=x64; INST=0; ELF=""; SRC=""; VERBOSE=0
@@ -145,6 +175,7 @@ esac
 if [ -n "$ELF" ]; then [ -f "$ELF" ] || { echo "$0: no file $ELF" >&2; exit 2; }; ELF=$(cd "$(dirname "$ELF")" && pwd)/$(basename "$ELF"); fi
 
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
+. "$ROOT/Scc/Test/a64link.sh"
 LAKE=${LAKE:-lake}
 SCC="$ROOT/.lake/build/bin/scc"
 T=$(basename "$SRC" .w)
@@ -215,10 +246,35 @@ ACC="prog_accepted1"; ACCP="Scc.Lower.Accepted1"; IMMS="Scc.Lower.imms1Of prog_s
 PATHN="closedAt1"
 HELLO1=0
 WAKE=0
+HELLO=0
 # A program that takes its thread id or spawns: `placeOK2` (see the header).
 SPAWN=0
 grep -q "^theorem prog_placeOK2 : $SNS.placeOK2 placeCfg out = true" "$T.cert.lean" && SPAWN=1
 if [ $SPAWN = 1 ] && [ $INST = 1 ]; then
+  # The registry's hello entry (see the header): `Scc/Test/hello.w` byte for byte.
+  show "$WORK" cmp "$T.w" "$ROOT/Scc/Test/hello.w"
+  cmp -s "$T.w" "$ROOT/Scc/Test/hello.w" && HELLO=1
+fi
+if [ $HELLO = 1 ]; then
+  if [ "$ARCH" = x64 ]; then
+    HD=hellox64; HMOD=Spike.Test.HelloLinkedX64Root; HTHM=hello_linkedX
+    [ -f "$ROOT/Spike/Test/HelloLinkedX64Root.lean" ] || verdict 3 "not certifiable: no proved \
+theorem for a program that takes its thread id or spawns (hello on x64: Spike/Test/HelloLinkedX64Root.lean \
+is not in this checkout; decide the placement without --instantiate)"
+  else
+    HD=helloa64; HMOD=Spike.Test.HelloLinkedA64Root; HTHM=hello_linkedA
+  fi
+  HS="Scc/Test/elf/$HD/hello.s"
+  show "$WORK" cmp "$T.s" "$ROOT/$HS"
+  cmp -s "$T.s" "$ROOT/$HS" \
+    || verdict 3 "not certifiable: no proved theorem for this program/text \
+($T.s is not $HS, the text of hello's theorem)"
+  BENV="LEAN_NUM_THREADS=1"
+  build "hello's theorem" "hours" "$HMOD" \
+    || verdict 1 "failed: lake build $HMOD (log: $BLOG)"
+  BENV=""
+  PATHN="hello (registry): $HTHM"
+elif [ $SPAWN = 1 ] && [ $INST = 1 ]; then
   # The registry's wake entry (see the header): arm or x64, `Scc/Test/wake.w` byte for byte.
   show "$WORK" cmp "$T.w" "$ROOT/Scc/Test/wake.w"
   cmp -s "$T.w" "$ROOT/Scc/Test/wake.w" || verdict 3 "not certifiable: no proved \
@@ -298,7 +354,7 @@ if [ $HELLO1 = 1 ]; then
   fi
   PATHN="hello1 (registry): ${H1GEN##*.}"
 fi
-if [ "$ARCH" = x64 ] && [ $INST = 1 ] && [ $HELLO1 = 0 ] && [ $WAKE = 0 ]; then
+if [ "$ARCH" = x64 ] && [ $INST = 1 ] && [ $HELLO1 = 0 ] && [ $WAKE = 0 ] && [ $HELLO = 0 ]; then
   # `MainFrame1Ok` by evaluation, to choose the theorem (untrusted: the
   # kernel decides it below, `prog_mainFrame1`).
   {
@@ -343,9 +399,13 @@ elif [ "$ARCH" = x64 ]; then
   { as -o "$T.o" "$T.s" && ld -static -o "$T" "$T.o"; } 2>"$T.link.err" \
     || verdict 1 "failed: assemble/link: $(head -c 2000 "$T.link.err")"
 else
-  show "$WORK" clang --target=aarch64-linux-gnu -march=armv8.4-a -nostdlib -static -fuse-ld=lld -o "$T" "$T.s"
-  clang --target=aarch64-linux-gnu -march=armv8.4-a -nostdlib -static -fuse-ld=lld -o "$T" "$T.s" 2>"$T.link.err" \
-    || verdict 1 "failed: assemble/link: $(head -c 2000 "$T.link.err")"
+  # wake and hello (the registry's sources, with or without --instantiate): `.text` pinned at their
+  # proofs' code base, as run.sh links them (`Scc/Test/a64link.sh`).
+  PIN=0
+  { cmp -s "$T.w" "$ROOT/Scc/Test/wake.w" || cmp -s "$T.w" "$ROOT/Scc/Test/hello.w"; } && PIN=1
+  show "$WORK" $A64_CC $(a64_flags $PIN) -o "$T" "$T.s"
+  $A64_CC $(a64_flags $PIN) -o "$T" "$T.s" \
+    2>"$T.link.err" || verdict 1 "failed: assemble/link: $(head -c 2000 "$T.link.err")"
 fi
 show "$WORK" sha256sum "$T"
 he=$(sha256sum "$T" | cut -d' ' -f1)
@@ -499,6 +559,141 @@ EOF
     verdict 0 "certified$m: $T.post.lean: $WTHM at the layout of $WE, wake only (registry: \
 Scc/Test/wake.w, $WS and $WE byte for byte); hpa by evaluation; budget hB: 4194304 cells (allocCells); \
 the .text bytes are not compared with the encoding of asm"
+  fi
+  verdict 1 "failed: $T.post.lean does not check: $(grep -m1 -A3 'error' "$T.post.out" | head -c 2000)"
+fi
+
+# hello (registry): its theorem at the executable's layout, which must be `Λe`.
+if [ $HELLO = 1 ]; then
+  HE="Scc/Test/elf/$HD/hello"
+  show "$WORK" cmp "$T" "$ROOT/$HE"
+  cmp -s "$T" "$ROOT/$HE" || verdict 3 "not certifiable: no proved theorem at this executable's layout \
+(hello's theorem is at the layout of $HE, and $T is not that executable byte for byte)"
+  if [ "$ARCH" = x64 ]; then
+  cat >"$T.post.lean" <<EOF
+import Scc.Cert.Elf
+import Scc.Cert.SrcTerm
+import Spike.Test.HelloLinkedX64Root
+
+-- certify.sh: theorem path: $PATHN. The theorem is about hello's listing (SccCode.helloAsm)
+-- at the checked-in executable's layout (Spike.Test.HelloLinkedX64.Λe). No certificate is
+-- imported: neither this run's nor a checked-in one.
+
+namespace SccCertificate
+
+-- This run's text is the listing, verbatim (evaluation).
+/-- info: true -/
+#guard_msgs in
+#eval do IO.println ((← IO.FS.readFile "$REL/$T.s") == SccCode.helloText)
+
+-- The frontend reads this run's program as the theorem's source \`helloSrc\` (evaluation).
+/-- info: true -/
+#guard_msgs in
+#eval do IO.println (Scc.Cert.SrcTerm.reads (← IO.FS.readFile "$REL/$T.w") Spike.Lib.X64HelloSrc.helloSrc)
+
+-- The executable's SHA-256: $he
+/-- The layout of the executable and its SHA-256 (\`scc_elf_layout%\`: read at
+elaboration time, the reader evaluated by the elaborator). -/
+def elf : Scc.Sem.Layout × String := scc_elf_layout% "$REL/$T"
+
+-- The file read is the executable linked (evaluation, not a proof).
+#guard elf.2 == "$he"
+
+/-- **The executable's layout is the theorem's** \`Λe\` (kernel-checked). -/
+theorem prog_layout : elf.1 = Spike.Test.HelloLinkedX64.Λe := rfl
+
+-- \`hpa\`, by compiled evaluation: the theorem's parse premise (the trust boundary).
+#guard Scc.Cert.Link.X64.parsesTo SccCode.helloAsm SccCode.helloCells SccCode.helloSecs
+
+/-- **hello's theorem at the executable's layout** (\`hello_linkedX\`): the listing is correct
+for hello.w's two-thread source semantics at every admissible entry state, at the layout
+read from the executable (with the root's immediates \`X64.HelloImms.iRdM\`), for every
+memory model and every budget of \`allocCells\` cells, given the loader's parse of the
+listing (\`hpa\`, the \`#guard\` above). -/
+theorem prog_correct_linked
+    (hpa : Scc.Cert.Link.X64.parsesTo SccCode.helloAsm SccCode.helloCells SccCode.helloSecs = true)
+    {B : Scc.Sem.Budget} (hB : B.cells = Scc.Cert.PlaceOK.allocCells) {arch : WeakMem.Arch} :
+    Scc.Sem.X64.CorrectE 2 (Spike.Test.HelloLinkedX64.helloSX arch)
+      { elf.1 with imms := Spike.Lib.X64.HelloImms.iRdM elf.1 } B SccCode.helloAsm := by
+  rw [prog_layout]
+  exact Spike.Test.HelloLinkedX64.hello_linkedX hpa hB
+
+/--
+info: 'SccCertificate.prog_correct_linked' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms prog_correct_linked
+
+end SccCertificate
+EOF
+  else
+  cat >"$T.post.lean" <<EOF
+import Scc.Cert.Elf
+import Scc.Cert.SrcTerm
+import Spike.Test.HelloLinkedA64Root
+
+-- certify.sh: theorem path: $PATHN. The theorem is about hello's listing (SccCode.helloAsm)
+-- at the checked-in executable's layout (Spike.Test.HelloLinkedA64.Λe). No certificate is
+-- imported: neither this run's nor a checked-in one.
+
+namespace SccCertificate
+
+-- This run's text is the listing, verbatim (evaluation).
+/-- info: true -/
+#guard_msgs in
+#eval do IO.println ((← IO.FS.readFile "$REL/$T.s") == SccCode.helloAsm)
+
+-- The frontend reads this run's program as the theorem's source \`helloSrc\` (evaluation).
+/-- info: true -/
+#guard_msgs in
+#eval do IO.println (Scc.Cert.SrcTerm.reads (← IO.FS.readFile "$REL/$T.w") Spike.Lib.HelloSrc.helloSrc)
+
+-- The executable's SHA-256: $he
+/-- The layout of the executable and its SHA-256 (\`scc_elf_layout%\`: read at
+elaboration time, the reader evaluated by the elaborator). -/
+def elf : Scc.Sem.Layout × String := scc_elf_layout% "$REL/$T"
+
+-- The file read is the executable linked (evaluation, not a proof).
+#guard elf.2 == "$he"
+
+/-- **The executable's layout is the theorem's** \`Λe\` (kernel-checked). -/
+theorem prog_layout : elf.1 = Spike.Test.HelloLinkedA64.Λe := rfl
+
+-- \`hpa\`, by compiled evaluation: the theorem's parse premise (the trust boundary).
+#guard Scc.Cert.Link.A64.parsesTo SccCode.helloAsm SccCode.helloProg SccCode.helloSecs
+
+/-- **hello's theorem at the executable's layout** (\`hello_linkedA\`): the listing is correct
+for hello.w's two-thread source semantics at every admissible entry state, at the layout
+read from the executable (with the root's immediates \`A64.HelloPh.ImmsMe.iRdM\`), for every
+memory model and every budget of \`allocCells\` cells, given the loader's parse of the
+listing (\`hpa\`, the \`#guard\` above). -/
+theorem prog_correct_linked
+    (hpa : Scc.Cert.Link.A64.parsesTo SccCode.helloAsm SccCode.helloProg SccCode.helloSecs = true)
+    {B : Scc.Sem.Budget} (hB : B.cells = Scc.Cert.PlaceOK.allocCells) {arch : WeakMem.Arch} :
+    Scc.Sem.A64.CorrectE 2 (Spike.Lib.HelloSrc.helloS arch)
+      { elf.1 with imms := Spike.Lib.A64.HelloPh.ImmsMe.iRdM elf.1 } B SccCode.helloAsm := by
+  rw [prog_layout]
+  exact Spike.Test.HelloLinkedA64.hello_linkedA hpa hB
+
+/--
+info: 'SccCertificate.prog_correct_linked' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms prog_correct_linked
+
+end SccCertificate
+EOF
+  fi
+  wrote "$WORK/$T.post.lean" "hello's theorem at the executable's layout"
+  rm -f post.rss
+  show "$ROOT" "$LAKE" env lean "$WORK/$T.post.lean"
+  if (cd "$ROOT" && "$ROOT/Scc/Test/rssanon.sh" "$WORK/post.rss" "$LAKE" env lean "$WORK/$T.post.lean") \
+      >"$T.post.out" 2>&1; then
+    secs=""; ra=""; [ -f post.rss ] && IFS=: read -r secs ra <post.rss
+    m=""; [ -n "$ra" ] && m=", $((ra / 1024)) MB RssAnon peak"; [ -n "$secs" ] && m=" (${secs} s$m)"
+    verdict 0 "certified$m: $T.post.lean: $HTHM at the layout of $HE, hello only (registry: \
+Scc/Test/hello.w, $HS and $HE byte for byte); hpa by evaluation; budget hB: 4194304 cells (allocCells); \
+the .text bytes are not compared with the encoding of the listing"
   fi
   verdict 1 "failed: $T.post.lean does not check: $(grep -m1 -A3 'error' "$T.post.out" | head -c 2000)"
 fi

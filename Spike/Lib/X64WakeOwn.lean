@@ -1,5 +1,5 @@
 /-
-**wake.w on x86-64: the owned words after the spawn** (hello plan 1.6):
+**wake.w on x86-64: the owned words after the spawn**:
 the datum `own` of `WakeRel` is empty for both threads. No row of either
 thread after the spawn reads an owned value (the worker's and main's
 runtime words are written as the runtime's for any value runtime memory

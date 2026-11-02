@@ -1,6 +1,6 @@
 /-
 **The assembly's worker side at the placed instance, at the spawned child's segment inside `XHF ∧ AbX`** (hello.w,
-rows 5j-wit-W, 5j-wit-E-call, 5i-hab1, B8-genP-hmapW-flag; AArch64): `HelloAssemblyI.DH` at
+rows 5j-wit-W, 5j-wit-E-call, 5i-hab1; AArch64): `HelloAssemblyI.DH` at
 `HelloWorkerRRXF.helloDRF`'s fragments placed at the records (`SRH`'s labels, `msWH` at `GH`, flag `w.1.cS`). The
 root's switch instantiates `DH hp i G0 (PF hp i G0) (ZF hp i μ) (XF hp i μ) (hsegFH …)`; this `DH` is `helloDRF` at
 the placement definitionally, so `helloDRF`'s projections are its rows.

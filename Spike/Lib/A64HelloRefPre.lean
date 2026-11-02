@@ -1,5 +1,5 @@
 /-
-**The refusal path's obligations at hello's level 2, from pieces** (AArch64; piece R1;
+**The refusal path's obligations at hello's level 2, from pieces** (AArch64; part 1;
 the hello twin of wake's `WakeRefStub` interface and `refObl_of`): `RefH.RefOblH` from the refusal
 path's three blocks and the threads abort path's `StubTW` below main's frame (`R.callee (-144) (-48) 0`), the latter
 `TPathW.stub` of one `TPathW` inside the level under its outside move, the pointwise map (`MapH`) of five

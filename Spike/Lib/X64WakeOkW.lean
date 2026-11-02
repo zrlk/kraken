@@ -1,6 +1,5 @@
 /-
-**wake.w's ghost records' facts at the x86-64 instance** (hello plan 1.6;
-x86-64 twin of `Spike/Lib/WakeOkW.lean`): the concrete `ok` of
+**wake.w's ghost records' facts at the x86-64 instance** (x86-64 twin of `Spike/Lib/WakeOkW.lean`): the concrete `ok` of
 `X64WakeInst`'s ghost records `Gh` for wake.w, and the record the spawn
 obligation builds at main's clone, with the proof that it satisfies `ok`.
 

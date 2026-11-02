@@ -201,7 +201,7 @@ theorem wcObl_flag (hcS : w3.val = .loc cS 0)
     case svc => exact ofEqF (flagF_cS2 cS w0 w1 w2 w3 w4) hJ.1.1
     all_goals exact ofEqF (flagF_cS2 cS w0 w1 w2 w3 w4) hJ.1
 
-/-- **`ZObl` at the flag** (row B8-hflag-ZObl): the stub and the thread worker's head at `kidH`, its tail
+/-- **`ZObl` at the flag**: the stub and the thread worker's head at `kidH`, its tail
 at `cS2`, `wc_worker` by `wcObl_flag`. -/
 theorem zObl_flag {R : Region} {F : MachineData → Prop} {T : Ty} (hcS : w3.val = .loc cS 0) :
     ZObl (FlagF cS) exe endPc ms R F w tp sp0 T w0 w1 w2 w3 w4 n m where

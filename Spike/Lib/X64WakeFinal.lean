@@ -95,8 +95,8 @@ open Spike.Lib.TwoSlot Spike.Lib.Handover Spike.Lib.X64TwoSlot in
 given the obligations there (`X64WakeA64.wake_correctE`'s proof at `E`; the
 twin of `WakeFinalCA.wake_correctAt`): the relation `Q` may depend on `E`. -/
 theorem wake_correctAt {arch : WeakMem.Arch} {Λ : Scc.Sem.Layout} {B : Budget} {asm : Asm} {Q : WakeRel}
-    {E : Entry} {Ti : Cfg → List Ev → Prop} (O : WakeObligations arch Λ B asm Q E Ti) :
-    Correct (target (kernel 2) E) (wakeS arch) Λ B asm := by
+    {E : Entry} {Ti : Cfg → List Ev → Prop} {p : CoreTerm.Prog} (O : WakeObligations arch Λ B asm Q E Ti p) :
+    Correct (target (kernel 2) E) (srcS p arch) Λ B asm := by
   have hsim := wake_stepSim O
   refine correct_of_stepSim hsim O.hwf ?_ ?_ ?_ ?_
   · obtain ⟨d, hd⟩ := O.hstart

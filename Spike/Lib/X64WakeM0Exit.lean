@@ -1,5 +1,5 @@
 /-
-**main's `exit_group` after the spawn** (hello plan 1.6, `post_step0`).
+**main's `exit_group` after the spawn** (`post_step0`).
 
 - `localRun_run_source_wc`: `LocalRun.run_source` under WeakCore's hook
   (`UsesWc`) with the no-exit fact at the starting configuration only, in
@@ -115,19 +115,19 @@ theorem post_exit0 (hC : WCompat Q D μ Λ arch) (hC0 : WCompat0 Q M μ Λ) (hPT
     (hmi : M.Mi w t0.st (Ctl.of s0)) (hat : abi.atSys t0.st = true) {v : Nat}
     (hd : decode abi.nrs (abi.nr t0.st) (abi.arg t0.st) = some (.exitGroup v))
     (hoff : ¬ ∃ k a, μ.abortAt k = some a ∧ pcOf t0.st = a) :
-    ∃ s', (wakeS arch).Run s [.exit (exitCode v)] s' ∧
+    ∃ s', (srcS M.p arch).Run s [.exit (exitCode v)] s' ∧
       Q.Post Λ (t.1, { t.2 with exited := some (.exit (exitCode v)) }) s' := by
   obtain ⟨hok, -⟩ := sys_rows0 hC0 hmi hat hd
   obtain ⟨c', hr, -, hex⟩ := hok.2.2.2 v rfl (fun hab => hoff (hC0.abortAt0 w _ hab))
   have hpt0 := h.pt0M hPT0
-  have hctl' := localRun_mCtl hr (h.mCtl hPT0)
+  have hctl' := localRun_mCtl hr (h.mCtl hPT0) M.wl
   have hlive : s0.term ≠ wlRet := hC0.live0 w _ _ hmi
   have hnr : ∀ a, (Ctl.of s0).term ≠ .ret a := fun a hra => hlive (mterm_ret (h.mCtl hPT0).term hra)
   have hk := h.kr
   rw [hKR] at hk
   obtain ⟨hn, h0, h1, hh, -, htr⟩ := hk
   let s0' : TermRun.TTh := { s0 with term := c'.term, env := c'.env }
-  have hrun := localRun_run_source_wc (P := srcPo 2 arch wakeSrc) rfl hr h.s0_get rfl rfl hpt0.2.2.1 hpt0.2.1
+  have hrun := localRun_run_source_wc (P := srcPo 2 arch M.p) rfl hr h.s0_get rfl rfl hpt0.2.2.1 hpt0.2.1
     hpt0.2.2.2.2.2.1 hnr (fun x hx => by
       change Ev.exit x ∈ SrcSem.traceOf s at hx
       rw [htr] at hx; cases hx)

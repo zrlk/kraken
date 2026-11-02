@@ -1,5 +1,5 @@
 /-
-**wake.w's spawned child, at the source** (hello plan 1.2, `hsplit` of
+**wake.w's spawned child, at the source** (`hsplit` of
 `Spike.Lib.X64.Flow.Worker.Wake.seg_thrWorker`): the spawn leaves the child
 at `tail worker [] (var "a") []` on the argument's two words
 (`WeakCore`'s `spawnKid`); its tail call enters `worker`'s body

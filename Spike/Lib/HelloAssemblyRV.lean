@@ -1,9 +1,9 @@
 /-
-**hello.w on AArch64: the placed assembly at the root, `hconv` wired** (row B8-genV:
+**hello.w on AArch64: the placed assembly at the root, `hconv` wired** (
 `HelloAssemblyRP.hello_obligations_RP` with its rows `R` from `HelloRowsV.HelloRowsWV.toW`: `hconv` by
 `HelloConv1.hconvH` at the instance's `hwf` (`WakeOSide.hwf_W`), `hms` (the worker's memory side does not read
-its frames, `rfl`), `hPT0`/`hKR` (`rfl`, `HelloQ`), the worker's `RelW1` a premise, `hRW1`, row B8-genV-hW1).
-`post_step1` wired too (row B8-gen1): the rows `RV` are `HelloRowsV1.HelloRowsW1` (no `post_step1`), and
+its frames, `rfl`), `hPT0`/`hKR` (`rfl`, `HelloQ`), the worker's `RelW1` a premise, `hRW1`).
+`post_step1` wired too: the rows `RV` are `HelloRowsV1.HelloRowsW1` (no `post_step1`), and
 `HelloRowsW1.toW` fills it by `HelloStep1RI.post_step1RI` at the side facts of `HelloSideI` (`hml_I`,
 `hAbX_I` from the parses `hpa`/`hhp`, `hfz_I`, `hES_I`; `hown`, `hlbl`, `hbo` by `rfl`, `hNP` by
 `WakeP.noProm_prom`) and the entry's `hE`. Rows 5i wired (`HelloRowsV2.helloRowsW1_of`): at
@@ -178,7 +178,7 @@ theorem hello_obligations_RV {arch : WeakMem.Arch} {B : Budget} {E : Entry} {pas
     (hmapW : ∀ w s c fs, (DH hp i (G0H hp i) P Z X hseg).Wi w s c fs → abi.atSys s = false → ∀ e,
       isaLSE2.exec s = some e →
       ¬ Kernel.Touches (fun l w => Kernel.mapped (A64Consumer.K0 (LH hp i).Λ) w l = false) e)
-    /- row: B8-genV-hW1. The worker's instructions are `RelW1`. -/
+    /- The worker's instructions are `RelW1`. -/
     (hRW1 : ∀ w s c fs e, (DH hp i (G0H hp i) P Z X hseg).Wi w s c fs → isaLSE2.exec s = some e →
       EvTree.RelW1 Arch.armv8 e)
     /- row: 5i-hab1 (`HelloRowsV2.helloRowsW1_of`'s). The worker's abort facts. -/

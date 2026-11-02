@@ -29,7 +29,8 @@
 #
 # Environment: LAKE (default `lake`) is the lake command used to build scc.
 # x64 binaries are assembled with GNU `as` and linked with `ld -static`; arm
-# binaries are built with clang and lld and run under `qemu-aarch64`, or
+# binaries are built with clang and lld (`Scc/Test/a64link.sh`: wake and hello
+# with `.text` pinned at their proofs' code base) and run under `qemu-aarch64`, or
 # natively on a qualifying aarch64 host (--arm-run; see Scc/Test/armrun.sh).
 set -u
 
@@ -43,6 +44,7 @@ while [ $# -gt 0 ]; do
 done
 case "$ARCH" in x64|arm) ;; *) echo "unknown arch $ARCH" >&2; exit 2 ;; esac
 . "$(dirname "$0")/armrun.sh"
+. "$(dirname "$0")/a64link.sh"
 [ "$ARCH" = arm ] && arm_run_resolve
 
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
@@ -58,12 +60,14 @@ pass=0; fail=0; certified=0; uncertifiable=0
 ok() { pass=$((pass + 1)); echo "ok   $1"; }
 bad() { fail=$((fail + 1)); echo "FAIL $1: $2"; }
 
-# Assemble and link $1.s into $1.
+# Assemble and link $1.s into $1 (arm: wake and hello pinned, `Scc/Test/a64link.sh`).
 link() {
   if [ "$ARCH" = x64 ]; then
     as -o "$1.o" "$1.s" && ld -static -o "$1" "$1.o"
   else
-    clang --target=aarch64-linux-gnu -march=armv8.4-a -nostdlib -static -fuse-ld=lld -o "$1" "$1.s"
+    local pin=0
+    case "$1" in wake|hello) pin=1 ;; esac
+    $A64_CC $(a64_flags $pin) -o "$1" "$1.s"
   fi
 }
 

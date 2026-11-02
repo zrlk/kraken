@@ -1,5 +1,5 @@
 /-
-**The flag at `wc_worker`'s two landings off its nodes** (rows B8-hflagR and B8-hflagE,
+**The flag at `wc_worker`'s two landings off its nodes** (the source and exit landings,
 AArch64): `SegRP.ZXObl (FlagZ.FlagF cS)`, the flag half of `seg_childRPX`'s landing obligations at
 `X := XHF`, given the packet's flag word is `cS`'s locative (`hcS`, carried by `SegRP.childPX cS`).
 
@@ -10,7 +10,7 @@ AArch64): `SegRP.ZXObl (FlagZ.FlagF cS)`, the flag half of `seg_childRPX`'s land
   `FlagSrc.flagF_cS2`.
 
 `PrW`'s term conjunct is `print`'s or `printL`'s body terms (tightening), so every
-`PrW` control's term is `PTermP` (`prW_pTerm`; formerly the premise `hPT`, row B8-hPT-temp).
+`PrW` control's term is `PTermP` (`prW_pTerm`; formerly the premise `hPT`).
 
 - `prW_pTerm`: a `PrW` control's term is `PTermP`.
 - `at_E_ctl`: the control at `HelloTail.E c2`'s node is `c2`.
@@ -65,8 +65,8 @@ theorem wcXObl_flag (hcS : w3.val = .loc cS 0)
     rw [at_E_ctl h]
     exact flagF_cS2 cS w0 w1 w2 w3 w4 s
 
-/-- **`ZXObl` at the flag** (`seg_childRPX`'s landing obligations' flag half, rows B8-hflagR and
-B8-hflagE). -/
+/-- **`ZXObl` at the flag** (`seg_childRPX`'s landing obligations' flag half,
+both landings). -/
 theorem zXObl_flag {R : Region} {F : MachineData → Prop} (hcS : w3.val = .loc cS 0) :
     ZXObl (FlagF cS) exe endPc R F w tp w0 w1 w2 w3 w4 n m :=
   ⟨fun R' F' _ _ _ _ _ _ x29 ra _ => wcXObl_flag hcS R' F' x29 ra⟩

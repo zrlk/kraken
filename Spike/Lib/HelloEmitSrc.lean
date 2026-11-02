@@ -1,6 +1,6 @@
 /-
 **hello.w: the source side of a byte of `print`'s `write`** (C4, row
-B8-gen1-EmitStepP, design (a′)): mid-`write(1, …)` each byte the kernel
+design (a′)): mid-`write(1, …)` each byte the kernel
 writes is matched by the source worker's run through one byte of the
 published loop (`HelloByteOutP.ByteOutP`): a local run to the element's
 `idx` (`loadCP`), the `idx`, the load of the word, the lane, the `emit`,
@@ -299,7 +299,7 @@ theorem nextCP_congr {pw wn lw mw : Word} {m m' k b : Nat} (h : loadCP pw wn m' 
   simp only [nextCP, emitCP, laneCP, ldCP, he]
 
 /-- **A byte of the emit row at the source worker** (`ByteOutP` at its
-control, row B8-gen1-EmitStepP): the worker (thread 1, in the print phase
+control): the worker (thread 1, in the print phase
 on the label `l`, the buffer's words with latest messages, `BufV`) runs
 locally to the element's `idx` of byte `k` (`a = b0 + k`, `lbl l = some
 b0`, `k / 8 < m`), reads word `k / 8`'s latest message `jm` of value `v`,

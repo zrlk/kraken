@@ -1,13 +1,13 @@
 /-
 **hello.w on AArch64: the worker's certification is append-free at `Post`**
-(row B8-genV, the worker's half; the twin of `WakeConv1.hconv_worker` /
+(the worker's half; the twin of `WakeConv1.hconv_worker` /
 `hconv_of'` at hello's worker data `PT1h` and kernel relation `KRH`).
 
 As at wake: the worker's certifying runs stay in `HelloProm1.CInvH` (`Wi` at
 a source thread in a phase, `HelloProm1.cstepH`), in both phases, where every
 instruction tree of the certification semantics is `RelW1`
 (`relW1_workerH`): off a system call it is the ISA's, `RelW1` at a state in
-`Wi` by the named worker write fact `hW1` (row B8-genV-hW1); at one it is a
+`Wi` by the named worker write fact `hW1`; at one it is a
 choice of resumed states, or the ISA's fault (`WCompatH.sysExec`). `Post`
 (unpacked as `HelloW1.PartsH`) puts the worker in `CInvH` (`PartsH.pt1`).
 
@@ -90,8 +90,8 @@ theorem hconv1H (hC : HelloCompat Q D M μ Λ arch AbW hcw hem) (hwf : Λ.WF)
     (fun x e hx' he => let ⟨_, hwi, _⟩ := hx'.wi; relW1_workerH hC.1 hW1 hwi he) hq hle hc
 
 /-- **`hconv`** for both threads at hello's worker data: main by
-`HelloConv0.hconv_mainH`, the worker by `hconv1H` (given `hW1`, row
-B8-genV-hW1). -/
+`HelloConv0.hconv_mainH`, the worker by `hconv1H` (given `hW1`, the
+worker's write fact). -/
 theorem hconvH (hC : HelloCompat Q D M μ Λ arch AbW hcw hem) (hwf : Λ.WF)
     (hms : ∀ w fs, D.ms w fs = D.ms w []) (hPT0 : Q.PT0 = PT0 M) (hKR : Q.KR = KRHE D r0 r1)
     (hW1 : ∀ w s c fs e, D.Wi w s c fs → isaLSE2.exec s = some e → EvTree.RelW1 Arch.armv8 e) :

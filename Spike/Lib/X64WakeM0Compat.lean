@@ -1,6 +1,5 @@
 /-
-**main's compatibility facts after the spawn** (hello plan 1.6,
-`post_step0`): what main's steps after the spawn need of the rest of the
+**main's compatibility facts after the spawn** (`post_step0`): what main's steps after the spawn need of the rest of the
 proof's data, as one hypothesis `WCompat0`, one field per fact.
 The thread-0 counterpart of `Spike/Lib/WakeW1Compat.lean`'s `WCompat`, for a
 relation whose `PT0` is `WakeM0.PT0 M` (main's side `M`), whose owned words

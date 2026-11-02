@@ -1,6 +1,5 @@
 /-
-**wake.w after the spawn keeps the certification invariant** (hello plan
-1.6, `WakeObligations.cert_step`, x86-64; twin of `Spike/Lib/WakeCert.lean`): a step from `Post`
+**wake.w after the spawn keeps the certification invariant** (`WakeObligations.cert_step`, x86-64; twin of `Spike/Lib/WakeCert.lean`): a step from `Post`
 keeps `CertAll`.
 
 - `sysStep_frame`: a kernel system-call step keeps the memory, every other

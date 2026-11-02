@@ -133,8 +133,8 @@ theorem takeCKS_iffH {s s' : State} (hx : X0WH (Ly) (AX) s) :
 
 /-- **hello's start segment from the start pair** (`RootOpen.hst0`'s twin): `hG` (`hello_start_wc_h0G`'s segment
 at the root's choices, from `_start`'s node at `c0S` with `FWN ∧ Pz rS0`, to `Q1 ∨ Q2`), then the exits' segments
-`hC` (at `Q1`, `wc_main`'s heap abort; `hello_hab_closed`) and `hCrd` (at `Q2`, `wc_rodata`'s heap abort; open
-row `B8-H0-rdabort`, see the module doc), each with no exit. The start pair is `hG`'s entry (`entry_atH`); the
+`hC` (at `Q1`, `wc_main`'s heap abort; `hello_hab_closed`) and `hCrd` (at `Q2`, `wc_rodata`'s heap abort; open,
+see the module doc), each with no exit. The start pair is `hG`'s entry (`entry_atH`); the
 take at the site label moves `X0WH`'s states as `PhRec.K` (`takeCKS_iffH`); `WS` is `W0H` (`marks_target`). -/
 theorem hst0_ofH (E : Entry) (hE : E.Ok (Ly).Λ) (hpa : textProgram asm = .ok o.prog)
     (hhp : textProgram asm = .ok SccCode.helloProg)

@@ -261,7 +261,7 @@ theorem inst_of_segWA2CH {L0 : Lbl} {ls0 : Lsize} {a : Int64}
     ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_⟩, fun lbl lsize s c fs hi => (hF lbl lsize s c fs hi).wrTail, ?_, ?_⟩
   -- `NodesA`
   · intro lbl lsize s c fs hi hoff hncl
-    refine hOut lbl lsize s c fs hi (hnk lbl lsize s c fs hi (fun hpc => hoff _ hμ hpc) fun hc => ?_)
+    refine .inl (hOut lbl lsize s c fs hi (hnk lbl lsize s c fs hi (fun hpc => hoff _ hμ hpc) fun hc => ?_))
     exact hncl ((hF lbl lsize s c fs hi).clSvc hc).1 hc
   · exact fun lbl lsize s c hi => (hF lbl lsize s c [] hi).noRet rfl
   · intro lbl lsize s c fs hi

@@ -24,7 +24,7 @@ open Spike.Lib.HelloMainPreSrc (SpawnSrcH)
 variable {pfx : String} {Λ : Scc.Sem.Layout} {r0 r1 : Range} {X : State → Prop}
   {lbl : WeakMem.AllocLabel → Option Nat} {t : Cfg} {s : TermRun.Cfg}
 
-/-- (row B8-hsvc) **`hsvc_I`'s data at the clone's words**: main's source
+/-- **`hsvc_I`'s data at the clone's words**: main's source
 at the `spawn` with the slice words `[lb, 2, 13]` (`SpawnSrcH`), the buffer
 word `cst (loc lb)` (`hpw`) placed at the buffer address `w'.w0 + w'.w1`'s
 low half `= w'.w0` (`hl`), the count word `13` (`hwn`), `print`'s count

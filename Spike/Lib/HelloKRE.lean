@@ -1,6 +1,6 @@
 /-
 **hello.w on AArch64: the kernel relation with the worker's `write` link**
-(row B8-gen1-KRHE, design (i′)). Mid-`write`, the worker's
+(design (i′)). Mid-`write`, the worker's
 target thread is at `print`'s `svc` with `wr 1 = j` bytes out, and the
 source worker is at the emit row's `Pw j`. `PT1` sees no kernel state, so
 the link `j = wr 1` lives in the kernel relation: `KRHE := KRH ∧ Lk`.

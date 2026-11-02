@@ -1,5 +1,5 @@
 /-
-**main's certified promises** (hello plan 1.6, `post_step0`).
+**main's certified promises** (`post_step0`).
 The thread-0 counterpart of `Spike/Lib/X64WakeW1Prom.lean`, simpler: main
 never writes the flag, so there is no potential.
 
@@ -110,14 +110,14 @@ theorem cstep0_shape (hC0 : WCompat0 Q M μ Λ)
     intro a V hmp hG hf
     obtain ⟨hf1, hout, hin⟩ := hC0.mpW0 w _ hmp
     exact ⟨hf1, hin, hG, rfl, hf, hout, fun st L v hm e => hC0.ownMp0 w st L v hm (by rw [← e]; exact hmp)⟩
-  have hkeep : ∀ {c'}, LocalRun wakeSrc c c' → M.Mi w o.thread.st c' → o.mem = x.2 → o.thread.prom = x.1.prom →
+  have hkeep : ∀ {c'}, LocalRun M.p c c' → M.Mi w o.thread.st c' → o.mem = x.2 → o.thread.prom = x.1.prom →
       ∃ c', M.Mi w (o.thread, o.mem).1.st c' ∧ MCtl (M.cw w) c' ∧
         (((o.thread, o.mem).2 = x.2 ∧ (o.thread, o.mem).1.prom = x.1.prom) ∨
          ∃ L V, Good0 Q Λ w ⟨L, V, 0⟩ ∧
            (((o.thread, o.mem).2 = (x.2.append ⟨L, V, 0⟩).1 ∧ (o.thread, o.mem).1.prom = x.1.prom) ∨
             (∃ q ∈ x.1.prom, x.2.get? q = some ⟨L, V, 0⟩ ∧ (o.thread, o.mem).2 = x.2 ∧
               (o.thread, o.mem).1.prom = x.1.prom.erase q))) :=
-    fun hr hX hm hp => ⟨_, hX, localRun_mCtl hr hctl, .inl ⟨hm, hp⟩⟩
+    fun hr hX hm hp => ⟨_, hX, localRun_mCtl hr hctl M.wl, .inl ⟨hm, hp⟩⟩
   -- the flag load (an `Out.load` or `OutL.ldSt` row, at `wlBody` by `mterm_load`)
   have hflag : ∀ {kl : Kraken.LoadKind} {A : BitVec 64} {g : Val → isa.State} {x' : String} {a : At}
       {e : Expr} {ty : Ty} {wd : TermRun.Word},
@@ -163,7 +163,7 @@ theorem cstep0_shape (hC0 : WCompat0 Q M μ Λ)
         rw [hC0.G0 w] at hG
         obtain ⟨a, rfl⟩ : ∃ a, L = wordLoc a := ⟨_, ExtRows.loc_wordLoc hL8⟩
         obtain ⟨hst, hc⟩ := stepOne_store_cases Arch.tso he hso ho hq.le
-        refine ⟨c', hst ▸ hX, localRun_mCtl hr hctl, .inr ⟨wordLoc a, V, hmpG a V hmp hG hfit, ?_⟩⟩
+        refine ⟨c', hst ▸ hX, localRun_mCtl hr hctl M.wl, .inr ⟨wordLoc a, V, hmpG a V hmp hG hfit, ?_⟩⟩
         rcases hc with ⟨q, hq', hg, -, hm, hp⟩ | ⟨hm, hp⟩
         · exact .inr ⟨q, hq', hg, hm, hp⟩
         · exact .inl ⟨hm, hp⟩
@@ -196,7 +196,7 @@ theorem cstep0_shape (hC0 : WCompat0 Q M μ Λ)
         · exact hkeep hr (hst ▸ hXo) hm hp
         · have hGn' := hGn new hop
           rw [hC0.G0 w] at hGn'
-          refine ⟨c', hst ▸ hXo, localRun_mCtl hr hctl,
+          refine ⟨c', hst ▸ hXo, localRun_mCtl hr hctl M.wl,
             .inr ⟨wordLoc a, new, hmpG a new hmp hGn' (hfit old new hop), ?_⟩⟩
           rcases hc with ⟨q, hq', hg, hm, hp⟩ | ⟨hm, hp⟩
           · exact .inr ⟨q, hq', hg, hm, hp⟩
@@ -315,7 +315,7 @@ theorem post_prom0 (hC : WCompat Q D μ Λ arch) (hC0 : WCompat0 Q M μ Λ) (hPT
     (h : Parts Q D Λ w t s t0 t1 s0 s1 ts tp sp oc) (hx : t.2.exited = none) {m : Msg} (hwt : m.tid = 0)
     (hc : CertOkC Arch.tso (certSem abi Arch.tso μ t.2 0) 0 (Live.Sem.promThread t0 t.1.mem m)
       (t.1.mem.append m).1) :
-    ∃ s', (wakeS arch).Run s [] s' ∧
+    ∃ s', (srcS M.p arch).Run s [] s' ∧
       Q.Post Λ (t.1.withThread 0 (Live.Sem.promThread t0 t.1.mem m) (t.1.mem.append m).1, t.2) s' := by
   have hmi := h.mi0 hPT0 hKR hx
   obtain ⟨hf, hin, hG, hb8, hfit, hout, -⟩ := prom_good0 hC0 hPT0 h hmi hc

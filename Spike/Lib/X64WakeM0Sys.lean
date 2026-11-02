@@ -1,5 +1,5 @@
 /-
-**main's system calls after the spawn** (hello plan 1.6, `post_step0`). The thread-0 counterpart of
+**main's system calls after the spawn** (`post_step0`). The thread-0 counterpart of
 `Spike/Lib/X64WakeW1Sys.lean` and of
 `X64WakeW1Post.sys_rows`.
 
@@ -37,8 +37,8 @@ variable {Q : WakeRel} {D : WSide Q.ι} {M : MSide Q.ι} {r0 r1 : Q.ι → Range
 fault `WCompat0.sysExec0` asks there. -/
 theorem sys_rows0 (hC0 : WCompat0 Q M μ Λ) {st : isa.State} {c : Ctl} (hmi : M.Mi w st c)
     (hat : abi.atSys st = true) {call : Call} (hd : decode abi.nrs (abi.nr st) (abi.arg st) = some call) :
-    SysOk wakeSrc (M.ms w) st c call ∧
-      ∀ s' ∈ certSuccs abi st call, ∃ c', LocalRun wakeSrc c c' ∧ M.Mi w s' c' := by
+    SysOk M.p (M.ms w) st c call ∧
+      ∀ s' ∈ certSuccs abi st call, ∃ c', LocalRun M.p c c' ∧ M.Mi w s' c' := by
   cases M.closed w _ _ hmi with
   | out r =>
     cases r with
@@ -73,7 +73,7 @@ theorem post_sys0 (hC : WCompat Q D μ Λ arch) (hC0 : WCompat0 Q M μ Λ) (hPT0
     (hg : ∀ v, call ≠ .exitGroup v)
     {p : Pick} {es : List Ev} {t' : Cfg} (hs : sysStep abi Arch.tso 0 t p = some (es, t'))
     (hca : CertAfter abi Arch.tso μ 0 t') :
-    es = [] ∧ ∃ s', (wakeS arch).Run s [] s' ∧ Q.Post Λ t' s' := by
+    es = [] ∧ ∃ s', (srcS M.p arch).Run s [] s' ∧ Q.Post Λ t' s' := by
   obtain ⟨hok, hX⟩ := sys_rows0 hC0 hmi hat hd
   have hc : callOf abi t0 = some call := hd
   have hnx : call ≠ .exit := hok.1

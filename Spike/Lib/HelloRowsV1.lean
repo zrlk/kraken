@@ -1,5 +1,5 @@
 /-
-**hello.w: `HelloRowsWV` with `post_step1` discharged** (row B8-gen1 wired):
+**hello.w: `HelloRowsWV` with `post_step1` discharged** (`post_step1` wired):
 the open rows other than `hconv` and `post_step1` (`HelloRowsW1`), and
 `HelloRowsWV` from them by `HelloStep1RI.post_step1RI` at hello's `KR`
 (`hKR`), the link's well-formedness (`hwf`), a clear entry (`hE`) and the

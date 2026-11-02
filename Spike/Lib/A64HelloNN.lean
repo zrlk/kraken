@@ -66,7 +66,7 @@ def AbW (exe : _root_.Executable) (s : State) : Prop :=
     s.st.2 = (_root_.Executable.labels exe).label Spike.Lib.A64.Abort.write.exit
 
 /-- **`scc_rt_abort_write`'s two system calls, each pinned to its site**
-(row B8-c4-AbExit-svc): the `write` to fd 2 at `Abort.pcSvc … Abort.write`,
+(the abort exit's system calls): the `write` to fd 2 at `Abort.pcSvc … Abort.write`,
 `exit_group(abortStatus)` at `Abort.write.exit`. (A site-blind
 `AbW ∧ (write 2 ∨ exit_group)` would allow `exit_group` at the `write`'s
 site, so `AbExit` at `helloDR` would not follow.) -/

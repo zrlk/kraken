@@ -33,7 +33,7 @@ theorem NodesA.sysRowT (hN : NodesA Λ p μ rd G own ar I)
       SysOk p (msOfA Λ μ rd G own ar I lbl lsize fs₁) s c₁ call ∧
       ∀ s' ∈ Kernel.certSuccs abi s call, ∃ c' fs', FrameRun p (c₁, fs₁) (c', fs') ∧ I lbl lsize s' c' fs' := by
   obtain ⟨sz, hc⟩ := hN.svc _ _ _ _ _ hI hs
-  cases hN.out _ _ _ _ _ hI (hT.off_sys hI hs) (fun _ h => h) with
+  cases hN.outSys hI (hT.off_sys hI hs) hs id with
   | pre c₁ fs₁ hr h =>
     obtain ⟨K, call, hK, -, hd, hok, hx⟩ := out_sys hc h (fun _ h => False.elim h)
     cases hK
@@ -64,7 +64,7 @@ theorem NodesA.sysRowXT (hN : NodesA Λ p μ rd G own ar I ab)
       SysOk p (msOfA Λ μ rd G own ar I lbl lsize fs₁) s c₁ call ∧
       ∀ s' ∈ Kernel.certSuccs abi s call, ∃ c' fs', FrameRun p (c₁, fs₁) (c', fs') ∧ I lbl lsize s' c' fs' := by
   obtain ⟨sz, hc⟩ := hN.svc _ _ _ _ _ hI hs
-  obtain ⟨c₁, fs₁, hr, -, h⟩ := hN.rowX hI (hT.off_sys hI hs) fun _ => hnw
+  obtain ⟨c₁, fs₁, hr, -, h⟩ := hN.rowSys hI (hT.off_sys hI hs) hs hnw id
   obtain ⟨K, call, hK, -, hd, hok, hx⟩ := out_sys hc h (fun _ h => False.elim h)
   cases hK
   refine ⟨c₁, fs₁, call, hr, hd, hok, fun s' hs' => ?_⟩

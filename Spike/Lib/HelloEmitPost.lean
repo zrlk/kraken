@@ -1,6 +1,6 @@
 /-
 **hello.w on AArch64: `Post` after a byte of `print`'s `write`** (C4, row
-B8-gen1-EmitStepP, design (a′)). The worker mid-`write(1, …)` is at
+design (a′)). The worker mid-`write(1, …)` is at
 `HelloEmitPh.PartsE`; a byte keeps the target state and memory, moves the
 source worker through one byte of the published loop (its views grown by
 the buffer word's load, `HelloW1.VB`) and lands at `PartsE` again.

@@ -30,11 +30,11 @@ Proved here (the lemmas are generic in the source program, and read only
 
 Open, collected in `HelloRows` (each the field given the compatibility
 facts `HelloCompat`):
-`post_step0` (row B8-gen0, `KRH` twin of `WakeM0Post.post_step0_of`),
-`post_step1` (row B8-gen1, under the run invariant: the print phase's rows
-`HelloW1Print.post_*P`, the store phase's through `relW`), `unpark_src` (row B8-genU, through
-`relW`), `post_progress` (row B8-genP), `cert_step` (row B8-genC),
-`hconv` (row B8-genV), `post_abort` (row 5i: the print phase's refused
+`post_step0` (`KRH` twin of `WakeM0Post.post_step0_of`),
+`post_step1` (under the run invariant: the print phase's rows
+`HelloW1Print.post_*P`, the store phase's through `relW`), `unpark_src` (through
+`relW`), `post_progress`, `cert_step`,
+`hconv`, `post_abort` (row 5i: the print phase's refused
 write and `exit_group`, from `Tw`); `post_wit` (row 5j-wit); `tw_load`,
 `tw_step` (row 5i). Further premises: `hstart`, `O`, `spawn`.
 
@@ -111,7 +111,7 @@ structure HelloRowsW (arch : WeakMem.Arch) (Λ : Scc.Sem.Layout) (B : Budget) (a
     (E : Entry) (D : WSideH Q.ι) (M : WakeM0.MSide Q.ι) (AbW : isaLSE2.State → Prop)
     (hcw : ∀ w, ∃ cS, (D.cw w).val = .loc cS 0) (hem : NoWrite D) (Ab Ac : State → Prop)
     (Tw : Cfg → List Ev → Prop) : Prop where
-  /-- row: B8-gen1 (the print phase by `HelloW1Print.post_setP` /
+  /-- (the print phase by `HelloW1Print.post_setP` /
   `post_keepP` / `post_callP` / `post_retP`, the store phase by
   `WakeW1.post_step1_of` at `relW` with `post_toW` / `post_ofW`). A step
   of the worker other than its unpark and exit rows keeps `Post`. -/
@@ -119,7 +119,7 @@ structure HelloRowsW (arch : WeakMem.Arch) (Λ : Scc.Sem.Layout) (B : Budget) (a
     ∀ t es t' s, Q.Post Λ t s → WakeRunInv.RunInv Λ E t → ¬ Q.atUnpk t s → ¬ Q.atTexit t s →
       (machine (kernel 2)).Step ((target (kernel 2) E).marks asm Λ) 1 t es t' →
       ∃ s', (srcS helloSrc arch).Run s (obs es) s' ∧ Q.Post Λ t' s'
-  /-- row: B8-genV (`KRH` twin of `WakeConv1.hconv_of'`, with the
+  /-- (`KRH` twin of `WakeConv1.hconv_of'`, with the
   worker's `hW1`). At `Post` a running thread's certification is
   append-free. -/
   hconv : HelloCompat Q D M ((target (kernel 2) E).marks asm Λ) Λ arch AbW hcw hem →
@@ -152,25 +152,25 @@ structure HelloRows (arch : WeakMem.Arch) (Λ : Scc.Sem.Layout) (B : Budget) (as
     (E : Entry) (D : WSideH Q.ι) (M : WakeM0.MSide Q.ι) (AbW : isaLSE2.State → Prop)
     (hcw : ∀ w, ∃ cS, (D.cw w).val = .loc cS 0) (hem : NoWrite D) (Ab Ac : State → Prop)
     (Tw : Cfg → List Ev → Prop) : Prop extends HelloRowsW arch Λ B asm Q E D M AbW hcw hem Ab Ac Tw where
-  /-- row: B8-gen0 (`KRH` twin of `WakeM0Post.post_step0_of`). A step
+  /-- (`KRH` twin of `WakeM0Post.post_step0_of`). A step
   of main keeps `Post`. -/
   post_step0 : HelloCompat Q D M ((target (kernel 2) E).marks asm Λ) Λ arch AbW hcw hem →
     ∀ t es t' s, Q.Post Λ t s → (machine (kernel 2)).Step ((target (kernel 2) E).marks asm Λ) 0 t es t' →
       ∃ s', (srcS helloSrc arch).Run s (obs es) s' ∧ Q.Post Λ t' s'
-  /-- row: B8-genU (`WakeW1.unpark_src_of` at `relW`, the unpark in
+  /-- (`WakeW1.unpark_src_of` at `relW`, the unpark in
   the store phase). The worker's unpark is the source unpark. -/
   unpark_src : HelloCompat Q D M ((target (kernel 2) E).marks asm Λ) Λ arch AbW hcw hem →
     ∀ t es t' s, Q.Post Λ t s → Q.atUnpk t s →
       (machine (kernel 2)).Step ((target (kernel 2) E).marks asm Λ) 1 t es t' →
       ∃ s', (srcS helloSrc arch).Run s (obs es) s' ∧ Q.Post Λ t' s'
-  /-- row: B8-genP (`HelloProgress.post_progressH`, the `KRH` twin of
+  /-- (`HelloProgress.post_progressH`, the `KRH` twin of
   `WakeProgress.post_progress_of`, given `hhalt0`/`hhalt1`/`hmapM`/`hmapW`). Progress and layout after the
   spawn. -/
   post_progress : HelloCompat Q D M ((target (kernel 2) E).marks asm Λ) Λ arch AbW hcw hem →
     ∀ t s, Q.Post Λ t s → WakeRunInv.RunInv Λ E t → CertAll ((target (kernel 2) E).marks asm Λ) t →
       (machine (kernel 2)).Progress ((target (kernel 2) E).marks asm Λ) t ∧
         InLayout (M := machine (kernel 2)) Λ t
-  /-- row: B8-genC (`KRH` twins of `WakeCert.certAll_step_of` and
+  /-- (`KRH` twins of `WakeCert.certAll_step_of` and
   `WakeEnv.henv_of`). A step from `Post` to `Post` keeps `CertAll`. -/
   cert_step : HelloCompat Q D M ((target (kernel 2) E).marks asm Λ) Λ arch AbW hcw hem →
     ∀ tid t es t' s s', Q.Post Λ t s → CertAll ((target (kernel 2) E).marks asm Λ) t →
@@ -188,7 +188,7 @@ theorem hello_obligations {Ab Ac : State → Prop} {Tw : Cfg → List Ev → Pro
     (hC : HelloCompat Q D M ((target (kernel 2) E).marks asm Λ) Λ arch AbW hcw hem)
     /- row: 5j-start. The program loads at one slot. -/
     (hstart : ∃ d, (target (kernel 1) E).load asm Λ = some d)
-    /- row: B8-R1 (row 1's `hbuf` in `R1`). The pre-spawn half. -/
+    /- (row 1's `hbuf` in `R1`). The pre-spawn half. -/
     (O : Pre1T arch Λ B asm E Q.R1 Ab Ac helloSrc)
     /- row: 5j-spawn (the instance; `HelloSpawnR.spawn_RH`). -/
     (spawn : ∀ tid d s th stack tls (r : BitVec 64), Q.R1 d s → d.1.threads.size = d.2.slots.size →
@@ -196,7 +196,7 @@ theorem hello_obligations {Ab Ac : State → Prop} {Tw : Cfg → List Ev → Pro
       callOf abi th = some (.clone stack tls) → 0 < r.toNat → r.toNat < pidMax →
       CertAfter abi Arch.armv8 ((target (kernel 2) E).marks asm Λ) tid (afterClone abi d tid th stack tls r) →
       ∃ s', (srcS helloSrc arch).Run s [] s' ∧ Q.Post Λ (afterClone abi d tid th stack tls r) s')
-    /- rows: B8-gen0/1/U/P/C/V, 5i, 5j-wit; see
+    /- 5i, 5j-wit; see
     `HelloRows`' fields. -/
     (R : HelloRows arch Λ B asm Q E D M AbW hcw hem Ab Ac Tw)
     /- the placement check at the layout and the loader's parse (the trust

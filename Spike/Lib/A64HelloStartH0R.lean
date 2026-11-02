@@ -20,7 +20,7 @@ Left as premises:
 - `hhabctl` (`HabCtl.HabCtlH`);
 - `hhabctlRd` (`HabCtlRd.HabCtlRdH`: the controls' facts at `wc_rodata`'s heap abort).
 
-`wc_rodata`'s heap abort exit (`StartH0B`'s `hCrd`) closes by `RdHAb.hello_rd_hab_closed` (row `B8-H0-rdabort`),
+`wc_rodata`'s heap abort exit (`StartH0B`'s `hCrd`) closes by `RdHAb.hello_rd_hab_closed`,
 at the root's frame `frM := FR`.
 
 - `hst0_ofH_i0`: the statement; `hst0_ofH_iH`: at `i0 := helloImms`.

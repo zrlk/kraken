@@ -1,6 +1,6 @@
 /-
 **hello.w on AArch64: `post_step1` under the run invariant, assembled**
-(row B8-gen1; `HelloAssembly.HelloRowsW.post_step1`, whose shape reads
+(`HelloAssembly.HelloRowsW.post_step1`, whose shape reads
 `WakeRunInv.RunInv` for the worker's `write`'s private keys):
 `HelloStep1.post_step1H` with its three parts discharged by the print and
 emit phases' rows, and `PrivAt` by `HelloStep1.privAt_of_runInv`.

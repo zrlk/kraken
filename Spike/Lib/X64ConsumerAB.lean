@@ -67,7 +67,10 @@ example : msOfAX Λ μ p rd G own ar I none = msOfA Λ μ rd G own ar I := rfl
 write abort phase `Ab`: each row carries over (`OutS.msOfAB`), the rest is
 unchanged. -/
 theorem NodesA.toAB (h : NodesA Λ p μ rd G own ar I) (Ab : State → Prop) : NodesA Λ p μ rd G own ar I (some Ab) :=
-  { h with out := fun lbl lsize s c fs hI ht hc => OutS.msOfAB (h.out lbl lsize s c fs hI ht hc) }
+  { h with
+    out := fun lbl lsize s c fs hI ht hc =>
+      Or.imp OutS.msOfAB (fun ⟨hns, hp, c₁, hps, hI₁, h₁⟩ => ⟨hns, hp, c₁, hps, hI₁, OutS.msOfAB h₁⟩)
+        (h.out lbl lsize s c fs hI ht hc) }
 
 /-- **A segment at depth under `msOfA` is one under `msOfAB`.** -/
 theorem SegWS.msOfAB {W : FragS isa} {K : State → State → Prop} {P Q : FragS isa}

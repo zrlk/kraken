@@ -29,7 +29,7 @@ variable {ι : Type} {arch : WeakMem.Arch} {R1 : Cfg → TermRun.Cfg → Prop} {
   {lsize : WeakMem.AllocLabel → Nat} {ts : Nat → Option Nat} {j : Nat} {own₀ : List (Loc × Val)}
   {l : WeakMem.AllocLabel}
 
-/-- (row B8-clone-MemRelP) **The source-memory relation at main's clone**, at the record's placement: `inv1`'s,
+/-- **The source-memory relation at main's clone**, at the record's placement: `inv1`'s,
 over the spawned configuration's memory, which is the pre-spawn one. -/
 theorem memRelP_preRH
     (h : PreRH arch R1 SR cT cS pT Pa G passT M D r0 r1 Λ w d th stack s s' s0 s1 lbl lsize ts j own₀ l) :
@@ -49,7 +49,7 @@ section Inst
 variable {pcfg : Scc.Cert.PlaceOK.Config} {o : Scc.Cert.PlaceOK.A64.Out} {Λ0 : Scc.Sem.Layout}
   (hp : PlaceW pcfg Λ0 o) (i : CoreTerm.Expr → String → Nat → Option Nat)
 
-/-- (row B8-clone-MemRelP) **hello's placed layout is well formed.** -/
+/-- **hello's placed layout is well formed.** -/
 theorem wf_LH : (LH hp i).Λ.WF := Spike.Lib.PlaceW.wf_link_of_placeW i hp
 
 end Inst
@@ -64,7 +64,7 @@ variable {ι : Type} {arch : WeakMem.Arch} {R1 : Cfg → TermRun.Cfg → Prop} {
   {lsize : WeakMem.AllocLabel → Nat} {ts : Nat → Option Nat} {j : Nat} {own₀ : List (Loc × Val)}
   {l : WeakMem.AllocLabel}
 
-/-- (rows B8-hsvc-fit + B8-clone-MemRelP) **main's `x9` at the clone has 13 bytes of room**, at hello's placed
+/-- **main's `x9` at the clone has 13 bytes of room**, at hello's placed
 layout, from `PreRH` alone. -/
 theorem x9_fit_preRH {pcfg : Scc.Cert.PlaceOK.Config} {o : Scc.Cert.PlaceOK.A64.Out} {Λ0 : Scc.Sem.Layout}
     {hp : PlaceW pcfg Λ0 o} {i : CoreTerm.Expr → String → Nat → Option Nat}

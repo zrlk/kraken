@@ -1,6 +1,5 @@
 /-
-**The remaining compatibility fields at the x86-64 instance** (hello plan
-1.6; x86-64 twin of `Spike/Lib/WakeInstFields.lean`): the fields of
+**The remaining compatibility fields at the x86-64 instance** (x86-64 twin of `Spike/Lib/WakeInstFields.lean`): the fields of
 `X64WakeW1.WCompatX`, `X64WakeW1.WCompat` (through
 `X64WakeAssembly.wCompat_of`) and `X64WakeM0.WCompat0` not proved in
 `X64WakeInst`, at `Q := X64WakeInst.wakeQI hp i T W ok arch R1 μT M D r0 r1 passT`

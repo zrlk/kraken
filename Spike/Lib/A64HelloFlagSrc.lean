@@ -1,6 +1,6 @@
 /-
-**The flag on hello.w's source worker from `print`'s call on** (rows B8-hflagR and
-B8-hflagE, AArch64): `FlagZ.FlagF cS` (every control a frame run reaches accesses no untagged locative but
+**The flag on hello.w's source worker from `print`'s call on** (both landings,
+AArch64): `FlagZ.FlagF cS` (every control a frame run reaches accesses no untagged locative but
 `cS`, `WakeMappedRow.LabPtr`) at the worker's controls from the call of `print` (`wcP`) on, given the
 packet's flag word is `cS`'s locative (`hcS : w3.val = .loc cS 0`).
 
@@ -16,7 +16,7 @@ and `printL`'s terms binds a load, store or exchange (`noLabB`, decided on the t
 - `wcRE ws`: the control after `print`'s return; `wcRE_noStep`: it takes no local step.
 - `Inv`, `inv_step`, `inv_run`, `ptr_inv`: the invariant along frame runs, and `LabPtr` under it.
 - `flagF_wcP`, `flagF_pTerm`, `flagF_wcRE`: `FlagF cS` at the call, inside `print`, at the store.
-- `flagF_cS2` (row B8-hflagE's source half): `FlagF cS` at `SegR.cS2` (`ret ()` after `unpark`) on no
+- `flagF_cS2` (source half): `FlagF cS` at `SegR.cS2` (`ret ()` after `unpark`) on no
   frame, for every `cS`.
 -/
 import Spike.Lib.A64HelloFlagZ
@@ -193,7 +193,7 @@ theorem flagF_wcRE {cS : WeakMem.Address} {w0 w1 w2 w3 w4 : TermRun.Word} (hcS :
     (ws : List TermRun.Word) (s : State) : FlagF cS s (wcRE w0 w1 w2 w3 w4 ws) [] :=
   flagF_inv hcS (.inr (.inr ⟨ws, rfl⟩)) s
 
-/-- **The flag at `ret ()` after `unpark`, on no frame** (row B8-hflagE's source half): the only frame
+/-- **The flag at `ret ()` after `unpark`, on no frame** (source half): the only frame
 run is empty (`ret` takes no local step, and there is no frame to return into), and `ret` accesses
 nothing. Any `cS`. -/
 theorem flagF_cS2 (cS : WeakMem.Address) (w0 w1 w2 w3 w4 : TermRun.Word) (s : State) :

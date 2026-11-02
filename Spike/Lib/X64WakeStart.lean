@@ -1,6 +1,6 @@
 /-
 **wake.w on x86-64: `Post` at the clone with the worker's relation**
-(hello plan 1.6, the `spawn` obligation's last step): `X64WakeA64.post_start`
+(the `spawn` obligation's last step): `X64WakeA64.post_start`
 at the empty owned words (`X64WakeOwn.post_startO`) and the worker's
 `PT1` (`Spike/Lib/X64WakeW1.lean`), built at the spawn.
 

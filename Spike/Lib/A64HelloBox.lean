@@ -5,7 +5,7 @@ with at level 1, and the proof that every landing of the box's store (`GsH1`) is
 
 `BoxH` is lean on purpose. It carries what the landing gives and what level 2 is known to need: `wc_main`'s region
 and frame condition, the entry invariant's shape, the landing itself under main's thread pointer, one cell, and the
-child's stack unmapped. B8-h2-inst (the `H2StmtH` producer, also owned here) may add conjuncts as it needs them,
+child's stack unmapped. The `H2StmtH` producer (also owned here) may add conjuncts as it needs them,
 e.g. the pool band of the call's slots, `takeMem`/`StackOff` stability of the frame condition, the source term or
 `Owned r0`.
 

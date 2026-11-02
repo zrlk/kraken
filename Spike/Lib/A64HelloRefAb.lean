@@ -1,5 +1,5 @@
 /-
-**The refusal path's threads abort pieces at hello's level 2** (AArch64; piece R3;
+**The refusal path's threads abort pieces at hello's level 2** (AArch64; part 3;
 the hello twins of wake's `A64WakeRefAg`, `A64WakeRefAbW`, `A64WakeRefAbSt`, `A64WakeRefNoWr`): four of
 `refOblH_of`'s component paths, at any layout running hello.w at the canonical base (`hp`, `hlo`, `hΛ`, `hlab`), in
 `TOblH`'s region `R.callee (-144) (-48) 0` (`callee144`):

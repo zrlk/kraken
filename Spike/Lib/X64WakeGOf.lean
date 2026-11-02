@@ -1,5 +1,5 @@
 /-
-**wake's flag word is free in the consumer's value invariant** (hello plan): the premise `hc` of
+**wake's flag word is free in the consumer's value invariant**: the premise `hc` of
 `WakeG.wakeG_iff` at `G0 = GOf Ly m0`
 (`Spike/Lib/X64StartOfPlaceOK.lean`), so `wakeG (GOf Ly m0) cT = GOf Ly m0`.
 

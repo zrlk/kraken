@@ -1,6 +1,5 @@
 /-
-**Reassembling `Post` after a worker step** (hello plan 1.6;
-data in `Spike/Lib/WakeW1.lean`, `Spike/Lib/WakeW1Compat.lean`).
+**Reassembling `Post` after a worker step** (data in `Spike/Lib/WakeW1.lean`, `Spike/Lib/WakeW1Compat.lean`).
 
 A step of the worker (thread 1) replaces its thread, possibly appends to
 the target memory, keeps the kernel state, and runs the source worker,

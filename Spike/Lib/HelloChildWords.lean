@@ -9,7 +9,7 @@ placement `lbl` (the record's, `lbl_clone`).
 - `lbl_clone`: the record's placement is the clone's `lbl`.
 - `words_clone`: `hv`, `htag`, `hvu` at the clone's thread's `x13`, `x14`.
 - `sl_clone`: main's `x11`, `x12` at the clone are the slice's `2`, `13`
-  (`SlRep`); `hx1_clone` (row B8-seg-hx1): at `wc_worker`'s body on the
+  (`SlRep`); `hx1_clone`: at `wc_worker`'s body on the
   clone's words, `print`'s count `x1` is `printN 13 2`.
 -/
 import Spike.Lib.HelloSpawnR
@@ -92,7 +92,7 @@ theorem sl_clone (h : ClonePreH pfx Λ r0 r1 X lbl t s) {th : Thread isaLSE2} (h
   obtain ⟨-, -, -, -, rfl, rfl⟩ := hsl
   exact ⟨h11, h12⟩
 
-/-- **`ChildPrem.hx1` at the clone's words** (row B8-seg-hx1): at
+/-- **`ChildPrem.hx1` at the clone's words**: at
 `wc_worker`'s body (`wkJ`) on main's `x9 .. x14`, `print`'s count is
 `printN 13 2` (`Body.wkC_x1`: `min (x12, 8 · x11)`). -/
 theorem hx1_clone (h : ClonePreH pfx Λ r0 r1 X lbl t s) {th : Thread isaLSE2} (hth : t.1.threads = #[th])

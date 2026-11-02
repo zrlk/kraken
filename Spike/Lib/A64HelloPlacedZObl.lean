@@ -47,7 +47,7 @@ theorem wcObl_placed {R' : Region} {F' : MachineData → Prop} {x29 ra : BitVec 
   hZW := wZW_placed hlo hhi hv hvu
   hZU := wZU_placed hvu
 
-/-- **`ZObl` at `PlacedSE`** (row B8-placed-ZObl): every node of the spawned child's run placed. -/
+/-- **`ZObl` at `PlacedSE`**: every node of the spawned child's run placed. -/
 theorem zObl_placed {R : Region} {F : MachineData → Prop} {T : Ty} (hlo : R.lo ≤ -80) (hhi : -32 ≤ R.hi)
     (hv0 : ValRep lbl w0.val w.w0.toNat) (hv1 : ValRep lbl w1.val w.w2.toNat) (hv2 : ValRep lbl w2.val w.w3.toNat)
     (hv : ValRep lbl w3.val w.w4.toNat) (hvu : ValRep lbl w4.val w.w5.toNat) :

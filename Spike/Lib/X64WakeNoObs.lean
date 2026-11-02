@@ -1,5 +1,5 @@
 /-
-**wake.w on x86-64, no source event before the spawn** (hello plan 1.6),
+**wake.w on x86-64, no source event before the spawn**,
 the x86-64 twin of `Spike/Lib/WakeNoObs.lean`:
 the pre-spawn relation strengthened by "while the process runs, the source
 has observed nothing" (`NoObs`), so that at main's `clone` the source's

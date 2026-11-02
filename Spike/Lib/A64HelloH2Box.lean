@@ -14,7 +14,7 @@ three segments inside the level and its facts `W2 ∧ X2H`, under the take or a 
   (`hCP`).
 - `h2Stmt_box`: `H2StmtH` at `inv2H` (wake's `h1Stmt_box`).
 
-The hello instances of `CP`, `Ref`, `hret`, `hseg` and `hCP`'s `X2H` clone clause are B8-h2-inst's next layer.
+The hello instances of `CP`, `Ref`, `hret`, `hseg` and `hCP`'s `X2H` clone clause are the next layer.
 -/
 import Spike.Lib.A64HelloH2Inv
 import Spike.Lib.A64WakeBoxW

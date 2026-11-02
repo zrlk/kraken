@@ -1,6 +1,6 @@
 /-
 **The threads abort path's components give the third level, and the exit call is an abort site** (AArch64;
-piece R5; the hello twins of wake's `A64WakeRefMap` and `A64WakeRefEx`):
+part 5; the hello twins of wake's `A64WakeRefMap` and `A64WakeRefEx`):
 `RefO.MapH` at the level `RootWX.W2H ∧ HelloH2Inv.X2H` under `TakeCKS`, and `RefO.ExH` at any `msOfA` side whose
 marks are the canonical target's of a text parsing to hello's program.
 
@@ -10,7 +10,7 @@ At a state of the path, `SFactsAC` at `own2bH` (`ACWH`) with `ownGH`'s agreement
 (`AbW`), off hello's clone and the take site (`HAbStub.abort_offH`), so `X2H` holds vacuously and no `TakeCKS`
 move leaves it (`WakeWcK1.takeCKS_none`).
 
-- `refMapH`: `MapH` at `W2H … ∧ X2H …`, given `DtW ⊆ Dt` (row B8-h2-refObl-hDt discharges it at the root).
+- `refMapH`: `MapH` at `W2H … ∧ X2H …`, given `DtW ⊆ Dt` (discharged at the root).
 - `threads_exit_pcH`: the threads abort label is the stub's exit label in hello's code.
 - `refExH`: `ExH` at `msOfA` at the target's marks of any text `asm` parsing to `L.prog`.
 

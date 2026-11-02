@@ -1,5 +1,5 @@
 /-
-**Main's permit word after the spawn** (hello plan 1.6, x86-64): the
+**Main's permit word after the spawn** (x86-64): the
 premise `hS` of `MainAfter.main_closed_wake` (`∀ g, Ret0.StOk ms (Fg g)
 (tp + 16#64) 0#64`, the park's store of `0` to main's permit word) at
 the wake instance: the runtime's layout of a placed output

@@ -1,5 +1,5 @@
 /-
-**`SFactsAC` along hello.w's threads abort path below main's frame** (AArch64; piece R4;
+**`SFactsAC` along hello.w's threads abort path below main's frame** (AArch64; part 4;
 the hello twin of wake's `A64WakeRefAC`): `RefO.ACH`, from `Hello.StubW.stubTW_sfactsACG` at the
 instance `instOk2bPH` (`own2bH` through `ph2bH`), the path's phase check `abortPhTH`, in the callee's region at
 `-144` (`callee144`), the `write` call's node (`hsvcT`) as wake's, joined by `TPathW.ofStub`.

@@ -1,6 +1,5 @@
 /-
-**main's steps that keep memory and promises** (hello plan 1.6,
-`post_step0`). The thread-0 counterpart of
+**main's steps that keep memory and promises** (`post_step0`). The thread-0 counterpart of
 `Spike/Lib/X64WakeW1Keep.lean`'s `post_keep`.
 
 - `Parts.mCtl`: main's control invariant at its source thread.
@@ -76,10 +75,10 @@ theorem post_keep0 (hC : WCompat Q D μ Λ arch) (hC0 : WCompat0 Q M μ Λ) (hPT
     (hcov : CohCoversL t0'.views t0'.prom t.1.mem ((Q.P w).cov 0))
     (hnp : (Q.P w).noProm t0'.st → t0'.prom = [])
     (hpre : PreC (Q.SR w) (Q.C w).cT t.1.mem t0'.views)
-    (hr : LocalRun wakeSrc (Ctl.of s0) c') (hmi : M.Mi w t0'.st c') :
-    ∃ s', (wakeS arch).Run s [] s' ∧ Q.Post Λ (t.1.withThread 0 t0' t.1.mem, t.2) s' := by
+    (hr : LocalRun M.p (Ctl.of s0) c') (hmi : M.Mi w t0'.st c') :
+    ∃ s', (srcS M.p arch).Run s [] s' ∧ Q.Post Λ (t.1.withThread 0 t0' t.1.mem, t.2) s' := by
   have hpt0 := h.pt0M hPT0
-  have hctl' := localRun_mCtl hr (h.mCtl hPT0)
+  have hctl' := localRun_mCtl hr (h.mCtl hPT0) M.wl
   let s0' : TermRun.TTh := { s0 with term := c'.term, env := c'.env }
   have hc'eq : Ctl.of s0' = c' := by
     obtain ⟨tm, en, hd⟩ := c'
@@ -91,8 +90,8 @@ theorem post_keep0 (hC : WCompat Q D μ Λ arch) (hC0 : WCompat0 Q M μ Λ) (hPT
     rw [h.ths]; rfl
   have hex' : SrcSem.mainExit { s with ths := s.ths.set! 0 s0' } = [] :=
     mainExit_of_notRet hs' hctl'.term hlive
-  have hrun : (wakeS arch).Run s [] { s with ths := s.ths.set! 0 s0' } :=
-    WakeM0Src.localRunS_run_source_0 (P := srcPo 2 arch wakeSrc) rfl hr.toS h.s0_get rfl rfl hpt0.2.2.1
+  have hrun : (srcS M.p arch).Run s [] { s with ths := s.ths.set! 0 s0' } :=
+    WakeM0Src.localRunS_run_source_0 (P := srcPo 2 arch M.p) rfl hr.toS h.s0_get rfl rfl hpt0.2.2.1
       hpt0.2.1 hpt0.2.2.2.2.2.1 hex'
   refine ⟨_, hrun, post_frame0' (s := s) (ts' := ts) (tp' := tp) (sp' := sp) hC hPT0 hKR h.th hs' rfl rfl h.pt1 h.prot h.kr
     (.inl rfl) ⟨rfl, rfl, rfl⟩ ?_ hpre ?_ hlive⟩

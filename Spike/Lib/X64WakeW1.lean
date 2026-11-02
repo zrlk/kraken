@@ -1,6 +1,5 @@
 /-
-**wake.w on x86-64: the worker's relation after the spawn** (hello plan
-1.6): the data `PT1`, `atUnpk`, `atTexit` of `WakeRel` for the
+**wake.w on x86-64: the worker's relation after the spawn**: the data `PT1`, `atUnpk`, `atTexit` of `WakeRel` for the
 worker, over the worker's rows (`Spike/Lib/SegThr.lean`, `OutT`).
 
 - `wkTail`, `wkBody`: the worker at its spawn (the tail call of `worker`)
@@ -39,6 +38,11 @@ def wkBody : Expr := .split (.var "a") "c" "j" wkStore
 /-- `wakeSrc`'s worker has body `wkBody`. -/
 theorem wakeSrc_worker : (wakeSrc.find? (·.name == "worker")).map (·.body) = some wkBody := rfl
 
+/-- **Program `p` has `wakeSrc`'s `worker`** (looked up by name): the only fact
+about the program that the worker's lemmas use, and only before its split
+(`PreSplit`). -/
+abbrev WkDecl (p : Prog) : Prop := p.find? (·.name == "worker") = wakeSrc.find? (·.name == "worker")
+
 /-- **The source worker at its spawn** (`TermSpawnStep.spawnKid`): the tail
 call of `worker` on its argument. -/
 def wkTail : Expr := .tail "worker" [] (.var "a") []
@@ -55,10 +59,15 @@ def WTerm (e : Expr) : Prop := e = wkTail ∨ e = wkBody ∨ e = wkStore ∨ e =
 memory side of its rows (the placement `lbl w`), and an invariant closed
 under them. -/
 structure WSide (ι : Type) where
+  /-- The source program (wake.w's by default). -/
+  p : Prog := wakeSrc
   lbl : ι → WeakMem.AllocLabel → Option Nat
   ms : ι → MemSide isa
   Wi : ι → Frag isa
-  closed : ∀ w s c, Wi w s c → OutT wakeSrc (lbl w) (ms w) (Wi w) s c
+  closed : ∀ w s c, Wi w s c → OutT p (lbl w) (ms w) (Wi w) s c
+  /-- Before its split the worker runs `p`'s `worker`, which is `wakeSrc`'s
+  (`rfl` at `wakeSrc`). -/
+  wk : ∀ w s c, Wi w s c → PreSplit c.term → WkDecl p := by intros; exact rfl
   /-- The worker's pointer word for `c` (the first component of its
   argument). -/
   cw : ι → TermRun.Word
@@ -69,9 +78,9 @@ structure WSide (ι : Type) where
 /-- **A `SegT` to the empty fragment** (the worker's whole segment: it ends
 at the thread's `exit`, which has no successor) gives an invariant closed
 under the rows. -/
-theorem closed_of_segT {lbl : WeakMem.AllocLabel → Option Nat} {ms : MemSide isa} {P : Frag isa}
-    (h : SegT wakeSrc lbl ms P (fun _ _ => False)) :
-    ∃ inv : Frag isa, (∀ s c, P s c → inv s c) ∧ ∀ s c, inv s c → OutT wakeSrc lbl ms inv s c := by
+theorem closed_of_segT {p : Prog} {lbl : WeakMem.AllocLabel → Option Nat} {ms : MemSide isa} {P : Frag isa}
+    (h : SegT p lbl ms P (fun _ _ => False)) :
+    ∃ inv : Frag isa, (∀ s c, P s c → inv s c) ∧ ∀ s c, inv s c → OutT p lbl ms inv s c := by
   obtain ⟨inv, hP, hi⟩ := h
   exact ⟨inv, hP, fun s c h => (hi s c h).mono fun _ _ h => h.resolve_right id⟩
 

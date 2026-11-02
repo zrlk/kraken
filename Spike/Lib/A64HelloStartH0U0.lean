@@ -7,8 +7,8 @@ asked only with `r1Of` unmapped), `KeepUnS.SegWS.mono_xa`/`keepUn` carry it back
 `msUH` comes from `Ea`'s `AllocLand` and `hRdU`, as there.
 
 Left as premises: the loader's facts (`hpa`, `hhp`, `hlo0`, `hstat`, `hA13`, `hctr2`, `hc`), the source
-and frame premises `hWe`, `hrd`, `hloc`, `hq` at `msUH`, `hhabctlRd`, and `hRdU` (row
-`B8-H0R-h1GA`: from `h1`'s statement at the frame `[FR]`). `hret`, `hPw`, `hhabctl` are level 1's.
+and frame premises `hWe`, `hrd`, `hloc`, `hq` at `msUH`, `hhabctlRd`, and `hRdU` (level 1's
+generic hand-off: from `h1`'s statement at the frame `[FR]`). `hret`, `hPw`, `hhabctl` are level 1's.
 
 - `hst0_ofHU0_i0`: the statement (`hRdU` may assume `TP (pinA + 8)` at the landing, L1-TP),
   at `C0S.immsH Λ0 i0`; `hst0_ofHU0`: at `i0 := helloImms` (`ImmsH.iH`).

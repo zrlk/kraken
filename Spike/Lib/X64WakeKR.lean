@@ -1,6 +1,5 @@
 /-
-**wake.w on x64: the kernel-side relation after the spawn** (hello plan
-1.6): the datum `KR` of `WakeRel`, at the two stack ranges of the ghost
+**wake.w on x64: the kernel-side relation after the spawn**: the datum `KR` of `WakeRel`, at the two stack ranges of the ghost
 record (`r0 w` main's, `r1 w` the worker's).
 
 - `KR r0 r1 w t s`: two slots, main's running, the worker's running or

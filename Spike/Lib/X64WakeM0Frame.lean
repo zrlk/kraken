@@ -1,5 +1,5 @@
 /-
-**Reassembling `Post` after a step of main** (hello plan 1.6, `post_step0`). The thread-0
+**Reassembling `Post` after a step of main** (`post_step0`). The thread-0
 counterpart of `Spike/Lib/X64WakeW1Frame.lean`.
 
 A step of main (thread 0) replaces its thread, possibly appends one message

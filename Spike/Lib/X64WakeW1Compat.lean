@@ -1,5 +1,5 @@
 /-
-**The worker's compatibility facts** (hello plan 1.6): what the
+**The worker's compatibility facts**: what the
 worker's steps after the spawn (`post_step1`, `unpark_src`) need of the
 rest of the proof's data, as one hypothesis `WCompat`, one field per
 fact.

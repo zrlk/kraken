@@ -4,7 +4,7 @@
 the start's labels `L0T`, the arena `arW`, `h2`'s side `H2Rt.ms2H`), at every box ghost `h0` quantifies over.
 
 The level `W2I … l b n l' b' n'` is `RootWX.W2H` at the empty context, the twice extended placement
-`lbl2H L0 l b l' b'` and the sizes `updN (updN ls0 l n) l' n'` (`A64HelloW2H.w2H_def`, B8-W2H), so the
+`lbl2H L0 l b l' b'` and the sizes `updN (updN ls0 l n) l' n'` (`A64HelloW2H.w2H_def`), so the
 generic `WcW2.wcWf_W2Hb` and `Wcl2.wcl_W2GJ1H` apply there. Their premises are discharged from the layout: the
 counters' separations (`HelloRootBase.hs`, `CalWf.sepN_W`), the words mapped (`CalWf.hmN_W`, `LdFacts.hmP_W`,
 A13's spawn words by `LdFacts.spawn_fact`), the box ghost's frame condition leaving them unmapped (`wn_GJ1RH`,

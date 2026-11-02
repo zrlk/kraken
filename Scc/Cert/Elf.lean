@@ -351,6 +351,40 @@ def buildIdNote (loads : List Phdr) (others : List Range) (syms : List Sym) :
 /-- The linker's symbols, not data symbols. -/
 def linkerSyms : List String := ["__bss_start", "_edata", "_end"]
 
+end Scc.Cert.Elf
+
+namespace Scc.Cert.Link
+
+/-- **Why `wfB Λ` fails**: one short string per failing conjunct of `wfB`, in its order (`[]` when
+it holds). For the ELF reader's refusal message only (`Elf.elfParts`): nothing is proved of it,
+`wfB` stays the verdict, and a drift between the two shows in that message. -/
+def wfBWhy (Λ : Scc.Sem.Layout) : List String :=
+  let rs := ["code", "data", "heap", "stackPool", "pinned"].zip Λ.regions
+  let ps := [("code", "data", Λ.code, Λ.data), ("code", "heap", Λ.code, Λ.heap),
+    ("code", "stackPool", Λ.code, Λ.stackPool), ("data", "heap", Λ.data, Λ.heap),
+    ("data", "stackPool", Λ.data, Λ.stackPool), ("heap", "stackPool", Λ.heap, Λ.stackPool),
+    ("code", "pinned", Λ.code, Λ.pinned), ("data", "pinned", Λ.data, Λ.pinned),
+    ("heap", "pinned", Λ.heap, Λ.pinned), ("stackPool", "pinned", Λ.stackPool, Λ.pinned)]
+  let why (b : Bool) (s : String) := if b then [] else [s]
+  (rs.flatMap fun (n, r) => why (inSpaceB r) s!"region {n} not in the address space") ++
+  (rs.flatMap fun (n, r) => why (r.lo % 16 = 0) s!"{n}.lo {r.lo} is not 16-aligned") ++
+  (ps.flatMap fun (n, m, r, s) => why (disjB r s) s!"{n} and {m} overlap") ++
+  why (kinds.all fun k => kinds.all fun k' => !(Λ.abortLbl k == Λ.abortLbl k') || decide (k = k'))
+    "two abort kinds share a label" ++
+  (Λ.image.flatMap fun p => why (containsB Λ.data p.1 && p.1 % 8 = 0 && p.2 < 2 ^ 64)
+    s!"image word at {p.1} not an aligned word of data") ++
+  (Λ.symbols.flatMap fun p => why (containsB Λ.data p.2 || containsB Λ.heap p.2 ||
+    containsB Λ.stackPool p.2 || containsB Λ.pinned p.2) s!"symbol {p.1} outside every data region") ++
+  (Λ.symbols.flatMap fun p => why (p.2 < Λ.code.lo || Λ.code.lo + Λ.code.size ≤ p.2)
+    s!"symbol {p.1} inside the code") ++
+  why (nodupB (Λ.symbols.map Prod.fst)) "duplicate symbol names" ++
+  (rs.flatMap fun (n, r) => why (0 < r.lo) s!"region {n} at address 0")
+
+end Scc.Cert.Link
+
+namespace Scc.Cert.Elf
+open Scc.Sem
+
 /-- **The parts of the layout of an executable**, checked (see the module
 doc). -/
 def elfParts (b : ByteArray) : Except String ElfLayout := do
@@ -429,7 +463,10 @@ def elfParts (b : ByteArray) : Except String ElfLayout := do
       throw s!"data symbol {s.name} at or above the heap arena"
     out := out ++ [(s.name, s.value)]
   let e : ElfLayout := { code, data, rodata, heap, stackPool := pool, pinned, image, symbols := out }
-  unless Link.wfB e.toLayout do throw "the layout is not well-formed (wfB)"
+  unless Link.wfB e.toLayout do
+    let why := Link.wfBWhy e.toLayout
+    throw s!"the layout is not well-formed (wfB): {if why.isEmpty then
+      "wfB false, no conjunct named: wfBWhy out of step" else ", ".intercalate why}"
   return e
 
 /-- **The layout of an executable** (see the module doc). -/

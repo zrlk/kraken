@@ -1,6 +1,5 @@
 /-
-**The rows main never takes after the spawn** (hello plan 1.6,
-`post_step0`; terms in `Spike/Lib/WakeM0.lean`).
+**The rows main never takes after the spawn** (`post_step0`; terms in `Spike/Lib/WakeM0.lean`).
 
 main's source after the spawn is at an `MTerm`, and the only `let`s among
 them are `wlBody`'s acquire load of `c` and `wlPark`'s `park`. So the rows

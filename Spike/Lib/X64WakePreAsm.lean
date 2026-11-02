@@ -1,6 +1,6 @@
 /-
 **wake.w on x86-64, the pre-spawn obligations from a one-thread consumer**
-(hello plan 1.6): `Spike.Lib.X64WakePreTi.Pre1T` at the relation
+: `Spike.Lib.X64WakePreTi.Pre1T` at the relation
 `R1 := RSAH Λ P wakeSrc G own I H μ ar` (`Spike/Lib/X64ConsumerAH.lean`),
 from the consumer's node obligations over a held predicate `H` and a
 `clone` path `Cl` (`pre1T_of`).

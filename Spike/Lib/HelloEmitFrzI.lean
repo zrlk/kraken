@@ -1,6 +1,6 @@
 /-
 **hello.w on AArch64: the worker's buffer frozen at the placed instance**
-(C4, row B8-emit-frz). `HelloEmitStep.ByteFrz`'s facts at
+(C4). `HelloEmitStep.ByteFrz`'s facts at
 `HelloAssemblyI`'s instance (records `ιH`, spawn data `SRH`, location data
 `PaH`, the buffer `lBH` of `2` words): the layout well formed
 (`WakeQ.hwf_ofPlaceOK`), and at the memory relation of the record's
@@ -25,7 +25,7 @@ section Inst
 variable {pcfg : Scc.Cert.PlaceOK.Config} {o : Scc.Cert.PlaceOK.A64.Out} {Λ0 : Scc.Sem.Layout}
   (hp : PlaceW pcfg Λ0 o) (i : CoreTerm.Expr → String → Nat → Option Nat)
 
-/-- **The buffer is frozen at the instance** (row B8-emit-frz): the layout
+/-- **The buffer is frozen at the instance**: the layout
 well formed, and at the memory relation of a record's placement the
 buffer's `2` words inside its label with their target words frozen. -/
 theorem byteFrz_I (E : Entry) (asm : String) :
