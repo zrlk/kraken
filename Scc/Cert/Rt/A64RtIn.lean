@@ -36,7 +36,8 @@ section Alloc
 open Spike.Lib.A64.Alloc
 
 /-- `scc_rt_alloc`'s blocks and single instructions and its prologue's
-fall-through (`Flow.allocIn`). -/
+fall-through (`Flow.allocIn`; `.5_ok`'s run up to the return label
+`Flow.allocRetL`, then the `ret` there). -/
 def allocGrps : List RGrp := [
   ⟨"scc_rt_alloc", [(0, b0)], some (7, ".L2_scc_rt_alloc.0_entry")⟩,
   ⟨".L2_scc_rt_alloc.0_entry", [(0, b1), (4, b2)], none⟩,
@@ -45,7 +46,8 @@ def allocGrps : List RGrp := [
   ⟨".L2_scc_rt_alloc.2_slow", [(0, b6), (4, b7)], none⟩,
   ⟨".L2_scc_rt_alloc.4_full", [(0, b9)], none⟩,
   ⟨".L2_scc_rt_alloc.5_ok", [(0, b11), (8, [iAdrpH.toDir]), (9, [iAddH.toDir]), (10, b12), (41, [iHdr]),
-    (42, b13), (54, [iRet.toDir])], none⟩]
+    (42, b13)], some (54, Flow.allocRetL)⟩,
+  ⟨Flow.allocRetL, [(0, [iRet.toDir])], none⟩]
 
 end Alloc
 
@@ -67,7 +69,8 @@ def printGrps : List RGrp := [
   ⟨".L9_scc_rt_print.4_chk3", [(0, b11), (4, b12)], none⟩,
   ⟨".L9_scc_rt_print.5_adv", [(0, b13)], none⟩,
   ⟨".L9_scc_rt_print.6_fail", [(0, b14)], none⟩,
-  ⟨".L9_scc_rt_print.7_done", [(0, b16)], none⟩]
+  ⟨".L9_scc_rt_print.7_done", [(0, b16.take 3)], some ((b16.take 3).length, Print.retL)⟩,
+  ⟨Print.retL, [(0, b16.drop 3)], none⟩]
 
 end Print
 
@@ -139,7 +142,7 @@ open Spike.Lib.A64.Print in
 theorem printIn_of_rtIn (h : rtIn prog (rtTab main) = true) : Print.printIn prog = true := by
   have h := (rtAll_parts h).2.1
   simp only [printGrps, RtAll, BsOk, GapAt, and_true] at h
-  simp only [Print.printIn, h, Bool.and_self]
+  simp only [Print.printIn, blockAcross, Nat.zero_add, h, Bool.and_self]
 
 open Spike.Lib.A64.Abort in
 theorem stubIn_of {st : Stub} {b1 : List Directive} {rest : List RGrp}

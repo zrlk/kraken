@@ -11,8 +11,8 @@ Unlike AArch64:
 - `hp` is `PlaceWX` (every component of `placeOK2At`), not AArch64's `PlaceW` subset (A1, A2, A4, A6, A8);
 - `hpin2` and `hsub1` are fields, decided at the concrete layout as x86-64 wake does
   (`WakeLinkedX64Le.hpin2`, `hsub1`); AArch64 derives `hpin2` from the listing's `.zero` and has no `hsub1`;
-- `hnz` is x86-64's `X64WakeOInit.NtZ` and `hinit2` reads `X64HelloGOf2H.lim2AH` (`pinA + 120`, hello's second
-  TCB's limit word, as `HelloRootCP.hCP_root` asks; wake's is `pinA + 112`).
+- `hnz` is x86-64's `X64WakeOInit.NtZ` and `hinit2` reads `X64HelloGOf2H.lim2AH` (`pinA + 152`, hello's second
+  TCB's limit word, as `HelloRootCP.hCP_root` asks; wake's is `pinA + 144`).
 
 - `LayoutEX Λ0`: the facts.
 - `LayoutEX.hwide`: the executable is in the wide fragment (from `hp`'s A4).
@@ -48,8 +48,8 @@ structure LayoutEX (Λ0 : Scc.Sem.Layout) : Prop where
   hnz : Spike.Lib.X64WakeOInit.NtZ Λ0 oH = true
   /-- A13's data part at the placed layout. -/
   hA13 : Scc.Cert.Spawn.X64.a13data (RuntimeLayout.ofPlaceWX hp (iRdM Λ0)).Λ oH.prog oH.secs = true
-  /-- The first TCB's 168 bytes fit the pinned region. -/
-  hpin2 : (RuntimeLayout.ofPlaceWX hp (iRdM Λ0)).pinA.toNat + 168 ≤
+  /-- The first 200 bytes fit the pinned region. -/
+  hpin2 : (RuntimeLayout.ofPlaceWX hp (iRdM Λ0)).pinA.toNat + 200 ≤
     (RuntimeLayout.ofPlaceWX hp (iRdM Λ0)).Λ.pinned.lo + (RuntimeLayout.ofPlaceWX hp (iRdM Λ0)).Λ.pinned.size
   /-- The second TCB's limit word starts at `0` (not a `PlaceWX` fact: A8's `rtInitOk` covers the first TCB's
   words only). -/

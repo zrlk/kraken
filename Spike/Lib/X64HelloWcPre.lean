@@ -7,7 +7,7 @@ cells (`decide +kernel`). It is `X64WakeWcPre` at hello's `wc_main`:
                       movq %rdi, -8(%rbp) … movq %r8, -40(%rbp)      (the prologue, hWcPro)
     .Lwc_main.entry:  movq $256, %rdi; movq $1, %rsi; movq $2, %rdx
                       call scc_rt_alloc                              (wcEH)
-    .Lwc_main.x22:                                                   -- the exit `wXH .x18`
+    .Lwc_main.x0:                                                   -- the exit `wXH .x18`
 
 The region `R` is `wc_main`'s as handed over at the call: based at the return address's cell, so the saved
 `%rbp` is at `-8`, `main`'s five argument words (`%rdi, %rsi, %rdx, %rcx, %r8`: the slice's four registers and
@@ -27,7 +27,7 @@ based at the saved `%rbp` (`X64HelloWcSp6.oWH`), `R.fp (-8)`.
   spilled below `%rbp` (`-8 .. -40(%rbp)`, the region's `-16 .. -48`; AArch64: at the frame's base). `wcJH`
   records the return address and the caller's `%rbp` (AArch64: `x29`/`x30`).
 - The nodes and exits are `X64WakeWcPre`'s shapes (`WakeWc.WN`/`WX`; the return exit is the constructor `.x18`,
-  at hello's `.Lwc_main.x22`); the heap abort's return address is `.Lscc_rt_alloc.full + 12`, pushed at `-304`.
+  at hello's `.Lwc_main.x0`); the heap abort's return address is `.Lscc_rt_alloc.full + 12`, pushed at `-304`.
 - `.entry` takes the source's local run to the box's allocation (`hloc`), as on AArch64 (wake: none).
 -/
 import Spike.Lib.X64HelloRodata
@@ -67,7 +67,7 @@ block_spec wcEH (-304) 8 oWRH wcEH
 
 /-- **`wc_main`'s entry block in `cells`**, `.x22` right after the call. -/
 def wcEInH (cells : List (Directive × Nat)) : Bool :=
-  blockAtB cells ".Lwc_main.entry" 0 wcEH && labelGapB cells ".Lwc_main.entry" ".Lwc_main.x22" 26
+  blockAtB cells ".Lwc_main.entry" 0 wcEH && labelGapB cells ".Lwc_main.entry" ".Lwc_main.x0" 26
 
 theorem hello_wcEInH : wcEInH SccCode.helloCells = true := by decide +kernel
 
@@ -90,12 +90,12 @@ def wNH : WN → ND
   | .e => ⟨lab ".Lwc_main.entry", oWRH, Hello1.wJ R (wcJH J0)⟩
   | .call => ⟨lab "scc_rt_alloc", ⟨-144, []⟩, fun σ c => wcJH J1 σ c ∧ σ.regs.get64 .rbp = R.addr (-8) ∧
       σ.regs.rdi.toBitVec = 256#64 ∧ σ.regs.rsi.toBitVec = 1#64 ∧ σ.regs.rdx.toBitVec = 2#64 ∧
-      σ.slot (-144) = (lab ".Lwc_main.x22").toBitVec⟩
+      σ.slot (-144) = (lab ".Lwc_main.x0").toBitVec⟩
 
 /-- **The exits**: the allocator's return at `.x22` (its return's facts, the frame and `%rbp` kept), and its
 heap abort (the return address `.Lscc_rt_alloc.full + 12` its `call scc_rt_abort` pushed, at `-304`). -/
 def wXH : WX → ND
-  | .x18 => ⟨lab ".Lwc_main.x22", ⟨-136, []⟩, fun σ c => ∃ q : AGB ms lab, wcJH J1 σ q.1.c0 ∧
+  | .x18 => ⟨lab ".Lwc_main.x0", ⟨-136, []⟩, fun σ c => ∃ q : AGB ms lab, wcJH J1 σ q.1.c0 ∧
       σ.regs.get64 .rbp = R.addr (-8) ∧ (Alloc.EB lab ms q.1 .ret).J σ c⟩
   | .abort => ⟨lab "scc_rt_abort", ⟨-304, []⟩, fun σ c => σ.regs.rdi.toBitVec = 2#64 ∧
       σ.slot (-304) = (lab ".Lscc_rt_alloc.full" + 12).toBitVec ∧
@@ -122,7 +122,7 @@ structure WcPreWH (W : Frag isa) (K : State → State → Prop) (exe : _root_.Ex
     ".Lwc_main.stk" 5 9 3 6 7 [(.rdi, -8, 4), (.rsi, -16, 4), (.rdx, -24, 4), (.rcx, -32, 4), (.r8, -40, 4)] J0
   e : BlkW W K exe endPc R F (wNH (_root_.Executable.labels exe).label R J0 J1 .e) wcEH
   alloc : ∀ q : Call, q.OKB ms (_root_.Executable.labels exe).label →
-    q.ra = ((_root_.Executable.labels exe).label ".Lwc_main.x22").toBitVec →
+    q.ra = ((_root_.Executable.labels exe).label ".Lwc_main.x0").toBitVec →
     AllocW ms q W K exe endPc (wARH R)
       (fun m => F m ∧ CallerCells R (-144) (-160) 8 m ∧ WcCtxH ms (_root_.Executable.labels exe).label R J0 J1 q m)
 
@@ -166,7 +166,7 @@ theorem hello_wc_pre_segW {W : Frag isa} {K : State → State → Prop}
   simp only [wcEInH, Bool.and_eq_true] at hin
   obtain ⟨h0, hgap⟩ := hin
   let lab := (_root_.Executable.labels exe).label
-  have e26 : lab ".Lwc_main.x22" = lab ".Lwc_main.entry" + Int64.ofNat 26 := label_labelGapB hp hgap
+  have e26 : lab ".Lwc_main.x0" = lab ".Lwc_main.entry" + Int64.ofNat 26 := label_labelGapB hp hgap
   refine SegW.seq (prologue_seg_ofW hp hend hello_wcPro (nb := ⟨lab ".Lwc_main.entry", oWRH, wcJH J0⟩)
     (by decide) hF hR
     (by show R.lo ≤ -8 - (128 : Int64).toInt; rw [show (128 : Int64).toInt = 128 from rfl]; omega) (by omega)
@@ -216,7 +216,7 @@ theorem hello_wc_pre_segW {W : Frag isa} {K : State → State → Prop}
       (fun R' F' hR' hlo' hhi' hF' _ hFF hR'e hcc g hg hkeep => by
         subst hR'e
         obtain ⟨σC, c, ⟨-, -, -, -, -, h80⟩, ⟨-, -, hra, -⟩⟩ := hg
-        have hr : g.1.ra = (lab ".Lwc_main.x22").toBitVec := by
+        have hr : g.1.ra = (lab ".Lwc_main.x0").toBitVec := by
           rw [← hra, ← h80]; rfl
         exact (Alloc.seg_allocBW hp hend hello_alloc hF' hR' hlo' hhi' g.2
           (fun a ha m hm => hmem g.1 g.2 a ha m (hFF m hm))
@@ -235,7 +235,7 @@ theorem hello_wc_pre_segW {W : Frag isa} {K : State → State → Prop}
       cases y
       · refine .inr ⟨WX.x18, ?_, by show SO.le ⟨-136, []⟩ ⟨-144 - 0 + 8, []⟩ = true; decide, g,
           ⟨σe, hc ▸ hJe, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩, ?_, ?_⟩
-        · show lab ".Lwc_main.x22" = Int64.ofBitVec g.1.ra
+        · show lab ".Lwc_main.x0" = Int64.ofBitVec g.1.ra
           rw [← hra]
           show _ = Int64.ofBitVec (σC.slot (-144 - 0 + 0))
           rw [show (-144 : Int) - 0 + 0 = -144 by decide, h80, int64_ofBitVec_toBitVec]

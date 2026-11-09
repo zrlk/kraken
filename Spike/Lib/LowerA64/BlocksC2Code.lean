@@ -32,19 +32,34 @@ set_option linter.unusedSimpArgs false
 
 /-! ## The code predicate -/
 
+/-- **The loads of a `ret`'s words**: each word into its register. -/
+def retLoads (cx : FnCtx) : List (Scc.IR.Operand × XReg) → Except String (List Item)
+  | [] => .ok []
+  | (v, r) :: ps => do
+    let l ← cx.getOp r v
+    let ls ← retLoads cx ps
+    pure (l ++ ls)
+
 /-- **The code of an `Accepted2` block's instructions `is` numbered from
 `k` at `pc`, then of its terminator `tm`**: `CodeC`'s arms, and the calls of
 `newBuf` (`newBufCall p h kv u`: `imm h`, `kv` and `u` loaded into `x0`,
 `x1`, `x2` at `pc`, `Cd`; the `bl scc_rt_alloc` after them with the return
 label `spK`, `Bl`; `x0`'s store into `p`, `Cd`) and of the output extern
 (`call [] scc_rt_print [a0, a1]`: `a0`, `a1` loaded into `x0`, `x1` at `pc`,
-`Cd`; the `bl scc_rt_print` after them, `Bl`; no result). -/
+`Cd`; the `bl scc_rt_print` after them, `Bl`; no result). A checked `+`
+as in `CodeC` (P5: `addDirs` at `pc`, then the result's store after its
+fall-through's label `x{k}`). The terminator: as in `CodeC`, its `ret` of
+up to `maxRets` words `vs` (`retLoads`, then the frame's exit and `ret`, its
+return site's label `x{k}` between them). -/
 def CodeC2 (cx : FnCtx) (Cd : Int64 → List Directive → Prop) (Bl : Int64 → Label → Nat → Prop) :
     Nat → Int64 → List Scc.IR.Inst → Scc.IR.Term → Prop
-  | k, pc, [], tm => tm = .unreachable ∨ ∃ l, cx.term k tm = .ok l ∧ Cd pc (directives l)
+  | k, pc, [], tm => tm = .unreachable ∨
+      (∃ l, (∀ ws, tm ≠ .ret ws) ∧ cx.term k tm = .ok l ∧ Cd pc (directives l)) ∨
+      (∃ vs ls, tm = .ret vs ∧ vs.length ≤ Scc.IR.maxRets ∧ retLoads cx (vs.zip argRegs) = .ok ls ∧
+        Cd pc (directives (ls ++ cx.leave ++ [ret])))
   | k, pc, i :: is, tm =>
-    (Spike.Lib.LowerShape.isCall i = false ∧ ∃ l, cx.inst k i = .ok l ∧ Cd pc (directives l) ∧
-      CodeC2 cx Cd Bl (k + 1) (pc + Int64.ofNat (4 * (directives l).length)) is tm) ∨
+    (Spike.Lib.LowerShape.isCall i = false ∧ (∀ d a b, i ≠ .addChk d a b) ∧ ∃ l, cx.inst k i = .ok l ∧
+      Cd pc (directives l) ∧ CodeC2 cx Cd Bl (k + 1) (pc + Int64.ofNat (4 * (directives l).length)) is tm) ∨
     (∃ d g w lw ls, i = .call [d] (Scc.Lower.Names.user g) [w] ∧ cx.getOp .X0 w = .ok lw ∧
       cx.setReg d .X0 = .ok ls ∧ Cd pc (directives lw) ∧
       Bl (pc + Int64.ofNat (4 * (directives lw).length)) (Scc.Lower.Names.user g) k ∧
@@ -59,7 +74,12 @@ def CodeC2 (cx : FnCtx) (Cd : Int64 → List Directive → Prop) (Bl : Int64 →
         (pc + Int64.ofNat (4 * (directives la).length) + 4 + Int64.ofNat (4 * (directives ls).length)) is tm) ∨
     (∃ a0 a1 la, i = .call [] Scc.Lower.Names.print [a0, a1] ∧ cx.getArgs [a0, a1] = .ok la ∧
       Cd pc (directives la) ∧ Bl (pc + Int64.ofNat (4 * (directives la).length)) Scc.Lower.Names.print k ∧
-      CodeC2 cx Cd Bl (k + 1) (pc + Int64.ofNat (4 * (directives la).length) + 4) is tm)
+      CodeC2 cx Cd Bl (k + 1) (pc + Int64.ofNat (4 * (directives la).length) + 4) is tm) ∨
+    (∃ d a b la lb ls, i = .addChk d a b ∧ cx.getOp .X9 a = .ok la ∧ cx.getOp .X10 b = .ok lb ∧
+      cx.setReg d .X9 = .ok ls ∧ Cd pc (addDirs cx la lb) ∧
+      Cd (pc + Int64.ofNat (4 * (addDirs cx la lb).length)) (directives ls) ∧
+      CodeC2 cx Cd Bl (k + 1)
+        (pc + Int64.ofNat (4 * (addDirs cx la lb).length) + Int64.ofNat (4 * (directives ls).length)) is tm)
 
 /-- **The code of instructions `is` numbered from `k` at `pc`, up to
 `pc'`**: `CodeC2`'s arms without the terminator, the code ending at `pc'`
@@ -68,8 +88,8 @@ def InstsC2 (cx : FnCtx) (Cd : Int64 → List Directive → Prop) (Bl : Int64 �
     Nat → Int64 → List Scc.IR.Inst → Int64 → Prop
   | _, pc, [], pc' => pc' = pc
   | k, pc, i :: is, pc' =>
-    (Spike.Lib.LowerShape.isCall i = false ∧ ∃ l, cx.inst k i = .ok l ∧ Cd pc (directives l) ∧
-      InstsC2 cx Cd Bl (k + 1) (pc + Int64.ofNat (4 * (directives l).length)) is pc') ∨
+    (Spike.Lib.LowerShape.isCall i = false ∧ (∀ d a b, i ≠ .addChk d a b) ∧ ∃ l, cx.inst k i = .ok l ∧
+      Cd pc (directives l) ∧ InstsC2 cx Cd Bl (k + 1) (pc + Int64.ofNat (4 * (directives l).length)) is pc') ∨
     (∃ d g w lw ls, i = .call [d] (Scc.Lower.Names.user g) [w] ∧ cx.getOp .X0 w = .ok lw ∧
       cx.setReg d .X0 = .ok ls ∧ Cd pc (directives lw) ∧
       Bl (pc + Int64.ofNat (4 * (directives lw).length)) (Scc.Lower.Names.user g) k ∧
@@ -84,7 +104,12 @@ def InstsC2 (cx : FnCtx) (Cd : Int64 → List Directive → Prop) (Bl : Int64 �
         (pc + Int64.ofNat (4 * (directives la).length) + 4 + Int64.ofNat (4 * (directives ls).length)) is pc') ∨
     (∃ a0 a1 la, i = .call [] Scc.Lower.Names.print [a0, a1] ∧ cx.getArgs [a0, a1] = .ok la ∧
       Cd pc (directives la) ∧ Bl (pc + Int64.ofNat (4 * (directives la).length)) Scc.Lower.Names.print k ∧
-      InstsC2 cx Cd Bl (k + 1) (pc + Int64.ofNat (4 * (directives la).length) + 4) is pc')
+      InstsC2 cx Cd Bl (k + 1) (pc + Int64.ofNat (4 * (directives la).length) + 4) is pc') ∨
+    (∃ d a b la lb ls, i = .addChk d a b ∧ cx.getOp .X9 a = .ok la ∧ cx.getOp .X10 b = .ok lb ∧
+      cx.setReg d .X9 = .ok ls ∧ Cd pc (addDirs cx la lb) ∧
+      Cd (pc + Int64.ofNat (4 * (addDirs cx la lb).length)) (directives ls) ∧
+      InstsC2 cx Cd Bl (k + 1)
+        (pc + Int64.ofNat (4 * (addDirs cx la lb).length) + Int64.ofNat (4 * (directives ls).length)) is pc')
 
 /-- **`CodeC2` of a block split after some instructions**: the code of the
 instructions `is` up to some `pc'`, then `CodeC2` of the rest from `pc'`. -/
@@ -99,18 +124,22 @@ theorem CodeC2_append {cx : FnCtx} {Cd : Int64 → List Directive → Prop} {Bl 
     simp only [List.cons_append, CodeC2, InstsC2, List.length_cons, ih, show k + 1 + is.length =
       k + (is.length + 1) by omega]
     constructor
-    · rintro (⟨hc, l, hl, hcd, pc', h1, h2⟩ | ⟨d, g, w, lw, ls, hi, hw, hs, h0, hb, h3, pc', h1, h2⟩ |
-        ⟨p, h, kv, u, la, ls, hi, ha, hs, h0, hb, h3, pc', h1, h2⟩ | ⟨a0, a1, la, hi, ha, h0, hb, pc', h1, h2⟩)
-      · exact ⟨pc', .inl ⟨hc, l, hl, hcd, h1⟩, h2⟩
+    · rintro (⟨hc, hn, l, hl, hcd, pc', h1, h2⟩ | ⟨d, g, w, lw, ls, hi, hw, hs, h0, hb, h3, pc', h1, h2⟩ |
+        ⟨p, h, kv, u, la, ls, hi, ha, hs, h0, hb, h3, pc', h1, h2⟩ | ⟨a0, a1, la, hi, ha, h0, hb, pc', h1, h2⟩ |
+        ⟨d, a, b, la, lb, ls, hi, ha, hb, hs, h0, h3, pc', h1, h2⟩)
+      · exact ⟨pc', .inl ⟨hc, hn, l, hl, hcd, h1⟩, h2⟩
       · exact ⟨pc', .inr (.inl ⟨d, g, w, lw, ls, hi, hw, hs, h0, hb, h3, h1⟩), h2⟩
       · exact ⟨pc', .inr (.inr (.inl ⟨p, h, kv, u, la, ls, hi, ha, hs, h0, hb, h3, h1⟩)), h2⟩
-      · exact ⟨pc', .inr (.inr (.inr ⟨a0, a1, la, hi, ha, h0, hb, h1⟩)), h2⟩
-    · rintro ⟨pc', (⟨hc, l, hl, hcd, h1⟩ | ⟨d, g, w, lw, ls, hi, hw, hs, h0, hb, h3, h1⟩ |
-        ⟨p, h, kv, u, la, ls, hi, ha, hs, h0, hb, h3, h1⟩ | ⟨a0, a1, la, hi, ha, h0, hb, h1⟩), h2⟩
-      · exact .inl ⟨hc, l, hl, hcd, pc', h1, h2⟩
+      · exact ⟨pc', .inr (.inr (.inr (.inl ⟨a0, a1, la, hi, ha, h0, hb, h1⟩))), h2⟩
+      · exact ⟨pc', .inr (.inr (.inr (.inr ⟨d, a, b, la, lb, ls, hi, ha, hb, hs, h0, h3, h1⟩))), h2⟩
+    · rintro ⟨pc', (⟨hc, hn, l, hl, hcd, h1⟩ | ⟨d, g, w, lw, ls, hi, hw, hs, h0, hb, h3, h1⟩ |
+        ⟨p, h, kv, u, la, ls, hi, ha, hs, h0, hb, h3, h1⟩ | ⟨a0, a1, la, hi, ha, h0, hb, h1⟩ |
+        ⟨d, a, b, la, lb, ls, hi, ha, hb, hs, h0, h3, h1⟩), h2⟩
+      · exact .inl ⟨hc, hn, l, hl, hcd, pc', h1, h2⟩
       · exact .inr (.inl ⟨d, g, w, lw, ls, hi, hw, hs, h0, hb, h3, pc', h1, h2⟩)
       · exact .inr (.inr (.inl ⟨p, h, kv, u, la, ls, hi, ha, hs, h0, hb, h3, pc', h1, h2⟩))
-      · exact .inr (.inr (.inr ⟨a0, a1, la, hi, ha, h0, hb, pc', h1, h2⟩))
+      · exact .inr (.inr (.inr (.inl ⟨a0, a1, la, hi, ha, h0, hb, pc', h1, h2⟩)))
+      · exact .inr (.inr (.inr (.inr ⟨d, a, b, la, lb, ls, hi, ha, hb, hs, h0, h3, pc', h1, h2⟩)))
 
 /-- **The code of a function's `Accepted2` blocks**: each block not ending
 in `unreachable` at its assembler label (`lab`), as `CodeC2` from some
@@ -121,14 +150,6 @@ def BlocksCodeC2 (cx : FnCtx) (Cd : Int64 → List Directive → Prop) (Bl : Int
     ∃ L k, cx.blockLabel b.label = .ok L ∧ CodeC2 cx Cd Bl k (lab L) b.insts b.term
 
 /-! ## The constructs' blocks -/
-
-/-- **The loads of a `ret`'s words**: each word into its register. -/
-def retLoads (cx : FnCtx) : List (Scc.IR.Operand × XReg) → Except String (List Item)
-  | [] => .ok []
-  | (v, r) :: ps => do
-    let l ← cx.getOp r v
-    let ls ← retLoads cx ps
-    pure (l ++ ls)
 
 /-- **A construct's block** of an `Accepted2` body: `Kind1`'s and a `ret` of
 the words `vs` (at most the argument registers), each loaded into its
@@ -148,9 +169,16 @@ theorem Kind2.of1 {cx : FnCtx} {blk : List Directive} (h : Kind1 cx blk) : Kind2
 theorem CodeC.toC2 {cx : FnCtx} {Cd : Int64 → List Directive → Prop} {Bl : Int64 → Label → Nat → Prop} :
     ∀ {k : Nat} {pc : Int64} {is : List Scc.IR.Inst} {tm : Scc.IR.Term},
       CodeC cx Cd Bl k pc is tm → CodeC2 cx Cd Bl k pc is tm
-  | _, _, [], _, h => h
-  | _, _, _ :: _, _, .inl ⟨hc, l, hl, hcd, h⟩ => .inl ⟨hc, l, hl, hcd, CodeC.toC2 h⟩
-  | _, _, _ :: _, _, .inr ⟨d, g, w, lw, ls, hi, hw, hs, h1, h2, h3, h⟩ =>
+  | _, _, [], _, h => by
+    rcases h with h | h | ⟨w, lw, rfl, hw, hcd⟩
+    · exact .inl h
+    · exact .inr (.inl h)
+    · refine .inr (.inr ⟨[w], lw, rfl, by simp [Scc.IR.maxRets], ?_, by simpa using hcd⟩)
+      simp [argRegs, xregs, retLoads, hw, bind, Except.bind, pure, Except.pure]
+  | _, _, _ :: _, _, .inl ⟨hc, hn, l, hl, hcd, h⟩ => .inl ⟨hc, hn, l, hl, hcd, CodeC.toC2 h⟩
+  | _, _, _ :: _, _, .inr (.inl ⟨d, g, w, lw, ls, hi, hw, hs, h1, h2, h3, h⟩) =>
     .inr (.inl ⟨d, g, w, lw, ls, hi, hw, hs, h1, h2, h3, CodeC.toC2 h⟩)
+  | _, _, _ :: _, _, .inr (.inr ⟨d, a, b, la, lb, ls, hi, ha, hb, hs, h1, h2, h⟩) =>
+    .inr (.inr (.inr (.inr ⟨d, a, b, la, lb, ls, hi, ha, hb, hs, h1, h2, CodeC.toC2 h⟩)))
 
 end Spike.Lib.LowerA64

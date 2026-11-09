@@ -23,7 +23,8 @@ No absolute address appears in a statement here.
 - The return address is `.Lscc_rt_alloc.full + 12` (`Alloc.fullL`; AArch64: `.L2_scc_rt_alloc.4_full + 8`); the
   path pieces are `X64HelloHAbStub`'s and the code fact `X64AbortHeapRWCode.stubHRW_of_code`.
 - AArch64's `RdHAb.hello_rd_hab_closed` is stated over the AArch64 start level (`HelloStartWcS.WS`,
-  `HelloStartH0G.helloLsw`); its twin needs the x86-64 start level and is not part of this module.
+  `HelloStartH0G.helloLsw`); its twin is `X64HelloRdHAbCX`'s `hello_rd_hab_closedX`, at the x86-64 start level at
+  `ownGHXW`.
 -/
 import Spike.Lib.X64Hello1SetupTail
 import Spike.Lib.X64AbortHeapRWCode

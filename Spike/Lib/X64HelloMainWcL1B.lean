@@ -1,5 +1,5 @@
 /-
-**`rdPostW_L1`'s `hbuf` at `Level1I`'s choices** (x86-64; the twin of `Spike/Lib/A64HelloMainWcL1B.lean`): at
+**`wc_rodata`'s rest's `hbuf` at `Level1I`'s choices** (x86-64; the twin of `Spike/Lib/A64HelloMainWcL1B.lean`): at
 every `.x15` state of `Level1I`'s invariant (a landing image `JpL` under main's thread pointer, below the root's
 call invariant `mRdJ0 J'`), both buffer words `(%rax)` and `8(%rax)` are box cells (`WcW.BoxOkH`) under
 `wc_rodata`'s frame condition at the start's `FS`: mapped (the heap), unloaded (`WordsNone`) and owned at no phase
@@ -9,7 +9,7 @@ call invariant `mRdJ0 J'`), both buffer words `(%rax)` and `8(%rax)` are box cel
 - `CellX0Q`, `cellX0Q_jpL`: `%rax` is an allocator call's block with room for its header and two words, at a
   landing image below `rdCN`.
 - `boxOkH_q`: both words at `CellX0Q` are `BoxOkH`.
-- `hbuf_L1`: `rdPostW_L1`'s `hbuf` at `Level1I`'s choices.
+- `hbuf_L1`: `RdWfSFX.rdPostW_WSHX`'s `hbuf` at `Level1I`'s choices.
 
 ## Differences from the AArch64 version
 
@@ -165,7 +165,7 @@ local notation "J'" => rdJH (Ly).lab (RM) (JS (Ly) 0#64 c0S)
 set_option hygiene false in
 local notation "MSU" => msUH (asm := asm) hpw i0 E rd I ls [FR]
 
-/-- **`rdPostW_L1`'s `hbuf` at `Level1I`'s choices** (module doc): at every `.x15` state of `Level1I`'s invariant,
+/-- **`rdPostW_WSHX`'s `hbuf` at `Level1I`'s choices** (module doc): at every `.x15` state of `Level1I`'s invariant,
 both buffer words are box cells under `wc_rodata`'s frame condition at the start's `FS`. -/
 theorem hbuf_L1 (hA13 : Scc.Cert.Spawn.X64.a13data (Ly).Λ o.prog o.secs = true)
     {l : WeakMem.AllocLabel} {b n : Nat} {m0 : MachineData} {σC : FAS} :

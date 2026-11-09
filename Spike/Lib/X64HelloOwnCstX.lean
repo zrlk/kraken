@@ -37,7 +37,7 @@ combinator are used as they are.
 AArch64 has no counterpart (main owns no TCB word there). Against wake's x86-64 classes: `InTH` starts at
 `scc_rt_thread_init`'s `.x8 + 51` (hello's listing; wake `.x7 + 51`), `InCH` is `wc_main`'s `.x25` to `.stk`
 (wake `.x21`), the abort range and `scc_rt_stack_take` are at hello's addresses, and the worker's word is
-`tcbWH = pinA + 112` (wake `tcb2 = pinA + 104`). `InAH` is the same range as wake's (the runtime's prefix is
+`tcbWH = pinA + 144` (wake `tcb2 = pinA + 136`). `InAH` is the same range as wake's (the runtime's prefix is
 laid out identically).
 -/
 import Spike.Lib.X64HelloOwnSX
@@ -68,9 +68,9 @@ def InAH (p : Nat) : Prop := 4198500 ≤ p ∧ p < 4198540
 /-- `scc_rt_thread_init`'s `.x8 + 51` to `scc_rt_stack_take`. -/
 def InTH (p : Nat) : Prop := 4199657 ≤ p ∧ p < 4199732
 /-- `wc_main`'s `.x25` to `.stk`. -/
-def InCH (p : Nat) : Prop := 4203774 ≤ p ∧ p < 4203948
+def InCH (p : Nat) : Prop := 4203812 ≤ p ∧ p < 4203986
 /-- `scc_rt_abort` to `scc_rt_thr_worker`. -/
-def InAbH (p : Nat) : Prop := 4202486 ≤ p ∧ p < 4202972
+def InAbH (p : Nat) : Prop := 4202524 ≤ p ∧ p < 4203010
 
 instance (p : Nat) : Decidable (InAH p) := by unfold InAH; infer_instance
 instance (p : Nat) : Decidable (InTH p) := by unfold InTH; infer_instance
@@ -91,7 +91,7 @@ theorem selfOwnH_iffC (hlab : ∀ l x, codeLabel lo helloCells l = some x → L.
     selfOwnH L s ↔ (spPool L s ∧ 4198500 ≤ pcOf s) ∨ InAH (pcOf s) ∨ InTH (pcOf s) := by
   have e1 : L.lab ".Lscc_rt_start.x1" = Int64.ofNat 4198500 := labCH hlab (by decide +kernel)
   have eM : L.lab "scc_rt_main" = Int64.ofNat 4198540 := labCH hlab (by decide +kernel)
-  have e8 : L.lab ".Lscc_rt_thread_init.x8" = Int64.ofNat 4199606 := labCH hlab (by decide +kernel)
+  have e8 : L.lab ".Lscc_rt_thread_init.x0" = Int64.ofNat 4199606 := labCH hlab (by decide +kernel)
   have eT : L.lab "scc_rt_stack_take" = Int64.ofNat 4199732 := labCH hlab (by decide +kernel)
   unfold selfOwnH inPc InAH InTH
   rw [e1, eM, e8, eT, ofNat_toNatH (by decide), ofNat_toNatH (by decide), ofNat_toNatH (by decide),
@@ -100,12 +100,12 @@ theorem selfOwnH_iffC (hlab : ∀ l x, codeLabel lo helloCells l = some x → L.
 /-- **`selfOwnWH` by the classes**, off the abort range. -/
 theorem selfOwnWH_iffC (hlab : ∀ l x, codeLabel lo helloCells l = some x → L.lab l = Int64.ofNat x)
     (hab : ¬ InAbH (pcOf s)) : selfOwnWH L s ↔ (spPool L s ∧ InTH (pcOf s)) ∨ InCH (pcOf s) := by
-  have e8 : L.lab ".Lscc_rt_thread_init.x8" = Int64.ofNat 4199606 := labCH hlab (by decide +kernel)
+  have e8 : L.lab ".Lscc_rt_thread_init.x0" = Int64.ofNat 4199606 := labCH hlab (by decide +kernel)
   have eT : L.lab "scc_rt_stack_take" = Int64.ofNat 4199732 := labCH hlab (by decide +kernel)
-  have e25 : L.lab ".Lwc_main.x25" = Int64.ofNat 4203774 := labCH hlab (by decide +kernel)
-  have eK : L.lab ".Lwc_main.stk" = Int64.ofNat 4203948 := labCH hlab (by decide +kernel)
-  have eA : L.lab "scc_rt_abort" = Int64.ofNat 4202486 := labCH hlab (by decide +kernel)
-  have eW : L.lab "scc_rt_thr_worker" = Int64.ofNat 4202972 := labCH hlab (by decide +kernel)
+  have e25 : L.lab ".Lwc_main.x3" = Int64.ofNat 4203812 := labCH hlab (by decide +kernel)
+  have eK : L.lab ".Lwc_main.stk" = Int64.ofNat 4203986 := labCH hlab (by decide +kernel)
+  have eA : L.lab "scc_rt_abort" = Int64.ofNat 4202524 := labCH hlab (by decide +kernel)
+  have eW : L.lab "scc_rt_thr_worker" = Int64.ofNat 4203010 := labCH hlab (by decide +kernel)
   unfold selfOwnWH inPc InTH InCH
   unfold InAbH at hab
   rw [e8, eT, e25, eK, eA, eW, ofNat_toNatH (by decide), ofNat_toNatH (by decide), ofNat_toNatH (by decide),

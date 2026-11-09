@@ -19,7 +19,7 @@ No absolute address appears in a statement here.
 ## Differences from the AArch64 version
 
 - The callee's region is `[-24, 16)` with no alignment (`callee_ofPreH` has three conclusions); the return
-  address is `.Lwc_main.x27` (`abPT_x27H`, AArch64: `abPT_sp15H` at `.L22_wc_main.sp15`).
+  address is `.Lwc_main.x5` (`abPT_x27H`, AArch64: `abPT_sp15H` at `.L22_wc_main.sp15`).
 - `tpathW_hNH` has seventeen nodes (the stub's `leaq` is one node, the calls are `syscall`s), as wake's
   `X64WakeRefNoWr.tpathW_hN`.
 -/
@@ -69,7 +69,7 @@ theorem exit_offH : ∀ a, (Spike.Lib.X64.PhRec.μ L).site .take = some a →
   rw [Spike.Lib.X64.HelloPh.siteH hp hlo hlab]
   rintro a ⟨⟩
   show (L.lab "scc_rt_abort_threads_exit").toBitVec.toNat ≠ _
-  rw [hlab _ 4202964 (by rw [← codeT_eq]; decide +kernel), hlab _ 4200314 (by rw [← codeT_eq]; decide +kernel)]
+  rw [hlab _ 4203002 (by rw [← codeT_eq]; decide +kernel), hlab _ 4200314 (by rw [← codeT_eq]; decide +kernel)]
   decide
 
 omit hp hlo hlab in
@@ -85,7 +85,7 @@ include hp hlo hlab in
 /-- **`AbPT` at `.x27`** in any region holding the path. -/
 theorem abPT_x27H {μ : Marks} {R : Region} {F : MachineData → Prop} {c0 : Ctl}
     (hμ : μ = Spike.Lib.X64.PhRec.μ L) (hR : R.OK) (hlo' : R.lo ≤ -24) (hhi : 16 ≤ R.hi) :
-    Spike.Lib.X64.WakePh.AbPT L μ L.endPc R F c0 (L.lab ".Lwc_main.x27").toBitVec := by
+    Spike.Lib.X64.WakePh.AbPT L μ L.endPc R F c0 (L.lab ".Lwc_main.x5").toBitVec := by
   subst hμ
   have hlays : Scc.Cert.Rt.X64.Lays L.exe SccCode.helloCells L.pfx := hp ▸ L.lays
   have hsd := SccCode.hello_abort

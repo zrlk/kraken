@@ -14,7 +14,7 @@ runtime's words by `rtInitOk`, `scc_rt_nthreads` by `hnt`, e.g. `X64WakeOInit.hn
 **Where this differs from AArch64**: the labels are resolved by `codeLabel lo helloCells` (A64: `codeOf lo
 helloProg`), the layout is `ofPlaceWX` of a `PlaceWX`, the program comes from `cellsOf asm` (A64:
 `textProgram asm`), and the load takes the label offsets (`loadParsed … o.labelOffs`), all as in
-`X64WakeOInit`. `ownGH` tests x86-64's labels (`.Lwc_main.x24`, `.x25`, A64's `.L22_wc_main.sp4`, `.sp6`); the
+`X64WakeOInit`. `ownGH` tests x86-64's labels (`.Lwc_main.x2`, `.x25`, A64's `.L22_wc_main.sp4`, `.sp6`); the
 pcs are those of `X64.HelloPh.ownGH_labs`, all above `lo`.
 -/
 import Spike.Lib.X64WakeOInit
@@ -43,9 +43,9 @@ theorem ownGH_lo {L : RuntimeLayout} (hlab : ∀ l x, codeLabel lo helloCells l 
     simp [Nat.mod_eq_of_lt hlt]
   have h1 := e "scc_rt_alloc_tcb" 4199029 (by rw [← codeT_eq]; decide +kernel) (by decide)
   have h2 := e "scc_rt_thread_init" 4199582 (by rw [← codeT_eq]; decide +kernel) (by decide)
-  have h3 := e ".Lwc_main.x24" 4203749 (by rw [← codeT_eq]; decide +kernel) (by decide)
-  have h4 := e ".Lwc_main.x25" 4203774 (by rw [← codeT_eq]; decide +kernel) (by decide)
-  have h5 := e "scc_rt_abort" 4202486 (by rw [← codeT_eq]; decide +kernel) (by decide)
+  have h3 := e ".Lwc_main.x2" 4203787 (by rw [← codeT_eq]; decide +kernel) (by decide)
+  have h4 := e ".Lwc_main.x3" 4203812 (by rw [← codeT_eq]; decide +kernel) (by decide)
+  have h5 := e "scc_rt_abort" 4202524 (by rw [← codeT_eq]; decide +kernel) (by decide)
   unfold ownGH inPc
   simp [hpc, h1, h2, h3, h4, h5, phH_lo, lo]
 

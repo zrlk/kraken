@@ -12,9 +12,13 @@ counter's context (`hctx`) and the box store's writes' obligation (`hwr`) owed o
 
 ## Differences from the AArch64 version
 
-AArch64 has no counterpart: main owns no TCB word there. Against `X64HelloWcWfR`'s `wcPreW_WSgH`/`wcSp0W_WSgH`:
-the level is `WSHX`; the producers take `ownGHXW`'s separation premises (`hsep`, `ha`, `hW`), the frame's band on
-the pool (`hb`, `hbd`), and the allocator's words and the box cells off `tcbM` (`hnoM`, `hboxM`).
+AArch64 has no counterpart at this level: main owns no TCB word there (AArch64 `A64HelloWcWfR` works at `WSH`).
+- The level is `WSHX`; the producers take `ownGHXW`'s separation premises (`hsep`, `ha`, `hW`), the frame's band
+  on the pool (`hb`, `hbd`), and the allocator's words and the box cells off `tcbM` (`hnoM`, `hboxM`).
+- The thread pointer is `fsBase` (`KeepTP.TP`, `WakeTP.tpG`; AArch64 `TPIDR_EL0`); the prologue is `XProW`.
+- `call` pushes the return address: `8 ≤ R.hi`, the allocator's region `wARH R = R.callee (-144) (-160) 8`; the
+  bounds are x86-64's frame (`R.lo ≤ -136` for `.x22`, `-304` for the call).
+- The allocator returns to `.Lwc_main.x0` (AArch64 `.L22_wc_main.sp0`); the box's store is at `.x22 + 15`.
 -/
 import Spike.Lib.X64HelloWcWfSX
 import Spike.Lib.X64HelloWcWfR
@@ -73,7 +77,7 @@ theorem allocW_wcWSgHX (hsep : Spike.Lib.X64.PhRec.TcbSep L) (ha : tcbM L ≠ a)
     (hR : R.OK) (hR8 : R.base.toNat % 8 = 0) (hRlo : R.lo ≤ -304) (hhi : 8 ≤ R.hi)
     (hpool : L.Λ.stackPool.lo ≤ 2 ^ 64) {ms : Spike.Lib.MemSide isa}
     {J0 J1 : Spike.Lib.X64.AS → Spike.Lib.Ctl → Prop} {q : Call} {t : UInt64} (hq : q.OKB ms L.lab)
-    (hra : q.ra = (L.lab ".Lwc_main.x22").toBitVec)
+    (hra : q.ra = (L.lab ".Lwc_main.x0").toBitVec)
     (hmp : ∀ l, ms.mp l true → Scc.Sem.Kernel.mapped (Spike.Lib.X64Consumer.K0 L.Λ) true l = true)
     (hmem : ∀ w : BitVec 64,
       (w = BitVec.ofNat 64 ms.ctr ∨ ∃ o, o + ms.units q.n q.τ ≤ ms.cells ∧ w.toNat = q.hdrAt ms o) →
@@ -109,8 +113,8 @@ theorem allocW_wcWSgHX (hsep : Spike.Lib.X64.PhRec.TcbSep L) (ha : tcbM L ≠ a)
   · exact h0
   · exact cf_hold h0
 
-/-- **`WcWfSX.wcPreW_WSHX` guarded by the thread pointer `t`** (`WcWfR.wcPreW_WSgH` at `ownGHXW`): the prologue
-and the entry block by `WcWfSX.proW_WSHX`/`eW_WSHX`, the allocator by `allocW_wcWSgHX` (the counter's context
+/-- **`WcWfSX.wcPreW_WSHX` guarded by the thread pointer `t`** (AArch64 `WcWfR.wcPreW_WSgH`, here at `ownGHXW`): the
+prologue and the entry block by `WcWfSX.proW_WSHX`/`eW_WSHX`, the allocator by `allocW_wcWSgHX` (the counter's context
 `hctx` owed only at `t`). -/
 theorem wcPreW_WSgHX (hsep : Spike.Lib.X64.PhRec.TcbSep L) (ha : tcbM L ≠ a)
     (hW : tcbWH L ∉ [L.pnA, L.lockA, L.freeNA, L.nextA, a]) (hb : BandOnP L R (-304) 8)
@@ -133,10 +137,10 @@ theorem wcPreW_WSgHX (hsep : Spike.Lib.X64.PhRec.TcbSep L) (ha : tcbM L ≠ a)
     (hc0J : ∀ σ c, J0 σ c → (∀ a, c.term ≠ .ret a) ∧ RunWf p c [])
     (hc1J : ∀ σ c, J1 σ c → (∀ a, c.term ≠ .ret a) ∧ RunWf p c [])
     (hpl : WcPreWH (fun s c => PlacedSE L.Λ lbl s c []) (fun _ _ => False) L.exe L.endPc R F ms J0 J1)
-    (hX0a : ∀ q : Call, q.OKB ms L.lab → q.ra = (L.lab ".Lwc_main.x22").toBitVec →
+    (hX0a : ∀ q : Call, q.OKB ms L.lab → q.ra = (L.lab ".Lwc_main.x0").toBitVec →
       AllocW ms q (fun s _ => X0 s) (fun _ _ => False) L.exe L.endPc (wARH R)
         (fun m => F m ∧ CallerCells R (-144) (-160) 8 m ∧ WcCtxH ms L.lab R J0 J1 q m))
-    (hctx : ∀ q : Call, q.OKB ms L.lab → q.ra = (L.lab ".Lwc_main.x22").toBitVec →
+    (hctx : ∀ q : Call, q.OKB ms L.lab → q.ra = (L.lab ".Lwc_main.x0").toBitVec →
       ∀ s c, At L.exe L.endPc (wARH R) (fun m => F m ∧ CallerCells R (-144) (-160) 8 m ∧
         WcCtxH ms L.lab R J0 J1 q m) (Spike.Lib.X64.Alloc.N L.lab ms q .rmw) s c → TP t s → Ctx s c [])
     (hctr : ms.ctr = ar.ctr) (hheap : ms.heap = ar.heap) (hoff : ∀ k τ, ms.off k τ = ar.off k τ)
@@ -155,8 +159,8 @@ theorem wcPreW_WSgHX (hsep : Spike.Lib.X64.PhRec.TcbSep L) (ha : tcbM L ≠ a)
       (hmem q hq) (hno q hq) (hnoM q hq) hc1J (hpl.alloc q hq hra) (hX0a q hq hra) (hctx q hq hra) hctr hheap
       hoff hnew hlt h64⟩
 
-/-- **`WcWfSX.wcSp0W_WSHX` guarded by the thread pointer `t`** (`WcWfR.wcSp0W_WSgH` at `ownGHXW`): the store's
-writes' obligation only at `t` (`hwr`), `WSHX` only at `t`. -/
+/-- **`WcWfSX.wcSp0W_WSHX` guarded by the thread pointer `t`** (AArch64 `WcWfR.wcSp0W_WSgH`, here at `ownGHXW`): the
+store's writes' obligation only at `t` (`hwr`), `WSHX` only at `t`. -/
 theorem wcSp0W_WSgHX (hsep : Spike.Lib.X64.PhRec.TcbSep L) (ha : tcbM L ≠ a)
     (hW : tcbWH L ∉ [L.pnA, L.lockA, L.freeNA, L.nextA, a]) (hbd : BandOnP L R (-144) 8) (hR : R.OK)
     (hRlo : R.lo ≤ -136) (hhi : 8 ≤ R.hi)
@@ -177,17 +181,17 @@ theorem wcSp0W_WSgHX (hsep : Spike.Lib.X64.PhRec.TcbSep L) (ha : tcbM L ≠ a)
   simp only [Spike.Lib.X64.Flow.HelloWc.wcS0InH, Bool.and_eq_true] at hin
   obtain ⟨h0, h3⟩ := hin
   have hI := instOkH hp hlo a (fun _ => False) hsite (rS := ⟨0, 0⟩)
-  have hb : blockAtB L.prog ".Lwc_main.x22" 15 [(Spike.Lib.X64.stDir .rcx 0 .rax, 3)] = true := by
+  have hb : blockAtB L.prog ".Lwc_main.x0" 15 [(Spike.Lib.X64.stDir .rcx 0 .rax, 3)] = true := by
     rw [hp]; exact h3
   refine ⟨?_, ?_⟩
   · exact Spike.Lib.X64.AllocG.BlkW.imp
-      (Spike.Lib.X64.HelloPh.WcWfSX.blkW_WSHX hp hlo hΛ hlab hsite hcl hX0 (l := ".Lwc_main.x22") (k := 0) h0
+      (Spike.Lib.X64.HelloPh.WcWfSX.blkW_WSHX hp hlo hΛ hlab hsite hcl hX0 (l := ".Lwc_main.x0") (k := 0) h0
         (ofNat_zero' _) Spike.Lib.X64.Flow.HelloWc.wcS0H_ok hR hRlo hhi hS.b (by decide)
         (by unfold Spike.Lib.X64.HelloWf.phOffW; decide +kernel) (by decide) (by wcfreeBH_dec)
         (fun _ _ ⟨q, ⟨σe, hJe, _⟩, _, o, hc, _⟩ => hc ▸ cf_hold (hc1J σe _ hJe)) hpl.b)
       Spike.Lib.X64.BlkW.triv fun _ _ h _ _ => h
   · have hT := Spike.Lib.X64.HelloPh.WcWfSX.nodeW_WSHX hp hlo hΛ hlab hsite hcl hX0 (Dt := Dt) (frM := frM)
-      (n := nT (sNH ms L.lab R J1 .st) t) (l := ".Lwc_main.x22") (k := 15) (z := 3) rfl (nodeW_nT hS.st)
+      (n := nT (sNH ms L.lab R J1 .st) t) (l := ".Lwc_main.x0") (k := 15) (z := 3) rfl (nodeW_nT hS.st)
       (by wcfreeH_dec) (by decide) (by unfold Spike.Lib.X64.HelloWf.siOffW; decide +kernel)
       (by
         rintro s c ⟨h1, h2, h3', h4', σ, hA, hF, hJ, -⟩

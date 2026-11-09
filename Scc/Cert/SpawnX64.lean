@@ -303,8 +303,8 @@ ja .Lscc_rt_thread_reserve.full")).zip [4, 4, 7, 3, 4, 4, 7, 3, 2]),
 call scc_rt_abort")).zip [7, 5])], none⟩,
   ⟨".Lscc_rt_thread_reserve.ok", [(0, (parse("movq -24(%rbp), %rax
 movq %rbp, %rsp
-popq %rbp
-ret")).zip [4, 3, 1, 1])], none⟩]
+popq %rbp")).zip [4, 3, 1])], some (8, ".Lscc_rt_thread_reserve.x1")⟩,
+  ⟨".Lscc_rt_thread_reserve.x1", [(0, (parse("ret")).zip [1])], none⟩]
 
 /-- `xchgq %rax, 16(%rcx)` (the park word), four bytes. -/
 def xchgPark : List (Directive × Nat) := (parse("xchgq %rax, 16(%rcx)")).zip [4]
@@ -365,8 +365,10 @@ je .Lscc_rt_park.done")).zip [4, 4, 7, 3, 2]),
 movq -8(%rbp), %rcx
 movq $0, %rax")).zip [4, 4, 7]),
     (79, xchgPark),
-    (83, (parse("movq %rax, -40(%rbp)")).zip [4] ++ epi)], some (92, ".Lscc_rt_park.done")⟩,
-  ⟨".Lscc_rt_park.done", [(0, epi)], none⟩]
+    (83, (parse("movq %rax, -40(%rbp)")).zip [4] ++ epi.take 2)], some (91, ".Lscc_rt_park.x0")⟩,
+  ⟨".Lscc_rt_park.x0", [(0, epi.drop 2)], some (1, ".Lscc_rt_park.done")⟩,
+  ⟨".Lscc_rt_park.done", [(0, epi.take 2)], some (4, ".Lscc_rt_park.x1")⟩,
+  ⟨".Lscc_rt_park.x1", [(0, epi.drop 2)], none⟩]
 
 /-- **`scc_rt_unpark`'s code** (`Runtime.unparkF`): the swap of the
 target's park word with `1`, the `futex` wake if it was `0`. -/
@@ -385,8 +387,10 @@ cmpq %rcx, %rax
 je .Lscc_rt_unpark.wake")).zip [4, 4, 7, 3, 2]),
     (35, (parse("jmp .Lscc_rt_unpark.done")).zip [2])], some (37, ".Lscc_rt_unpark.wake")⟩,
   ⟨".Lscc_rt_unpark.wake", [(0, futexArgs 129 1), (62, [(op64 .syscall, 2)]),
-    (64, (parse("movq %rax, -32(%rbp)")).zip [4] ++ epi)], some (73, ".Lscc_rt_unpark.done")⟩,
-  ⟨".Lscc_rt_unpark.done", [(0, epi)], none⟩]
+    (64, (parse("movq %rax, -32(%rbp)")).zip [4] ++ epi.take 2)], some (72, ".Lscc_rt_unpark.x0")⟩,
+  ⟨".Lscc_rt_unpark.x0", [(0, epi.drop 2)], some (1, ".Lscc_rt_unpark.done")⟩,
+  ⟨".Lscc_rt_unpark.done", [(0, epi.take 2)], some (4, ".Lscc_rt_unpark.x1")⟩,
+  ⟨".Lscc_rt_unpark.x1", [(0, epi.drop 2)], none⟩]
 
 /-- **The spawn path's runtime code**, in program order. -/
 def spawnGrps : List RGrp := reserveGrps ++ parkGrps ++ unparkGrps
@@ -419,11 +423,11 @@ example : (spawnGrps.flatMap fun g => g.bs.filter fun (_, b) => !b.all (fun d =>
   decide
 
 /-- **The words the second thread adds**: the thread counter, and the
-second allocation of `scc_rt_alloc_tcb` from `scc_rt_pinned` + 80 (after
-the first TCB's ten words, `Runtime.allocF` at `2307`) up to its header,
-its TCB and `maxSpawnArgs` argument words: sixteen words. -/
+second allocation of `scc_rt_alloc_tcb` from `scc_rt_pinned` + 112 (after
+the first TCB's fourteen words, `Runtime.allocF` at `3331`) up to its header,
+its TCB and `maxSpawnArgs` argument words: twenty words. -/
 def spawnWords (pinA : BitVec 64) : List (BitVec 64) :=
-  (List.range (1 + Scc.IR.Tcb.size / 8 + Scc.IR.maxSpawnArgs)).map fun i => pinA + BitVec.ofNat 64 (80 + 8 * i)
+  (List.range (1 + Scc.IR.Tcb.size / 8 + Scc.IR.maxSpawnArgs)).map fun i => pinA + BitVec.ofNat 64 (112 + 8 * i)
 
 /-- **The words of a `scc_rt_alloc_tcb(h, k)` allocation** (`Runtime.allocF`
 at the TCB layout, as `scc_rt_alloc_tcb`'s code computes them): the header,
@@ -431,7 +435,7 @@ then `k` times the `n` traced and `m` untraced words of `h`. -/
 def tcbWords (h k : Nat) : Nat := k * ((h >>> 8) % 16384 + (h >>> 22) % 16384) + 1
 
 /-- **Every TCB allocation fits `spawnWords`**: each call of
-`scc_rt_alloc_tcb` has immediate arguments and at most sixteen words. -/
+`scc_rt_alloc_tcb` has immediate arguments and at most twenty words. -/
 def allocFit (ir : Scc.IR.Program) : Bool :=
   ir.funcs.all fun f => f.blocks.all fun b => b.insts.all fun
     | .call _ g args => g != "scc_rt_alloc_tcb" || match args with
@@ -439,10 +443,10 @@ def allocFit (ir : Scc.IR.Program) : Bool :=
       | _ => false
     | _ => true
 
-/-- The first TCB (`scc_rt_start`'s, `2307`) is ten words, `wake.w`'s
-spawn twelve, a spawn of `maxSpawnArgs` words (`9 + 6` fields) sixteen. -/
-example : (tcbWords 2307 1, tcbWords 8390915 1, tcbWords (9 * 256 + 6 * 2 ^ 22 + 3) 1,
-    1 + Scc.IR.Tcb.size / 8 + Scc.IR.maxSpawnArgs) = (10, 12, 16, 16) := by decide
+/-- The first TCB (`scc_rt_start`'s, `3331`) is fourteen words, `wake.w`'s
+spawn sixteen, a spawn of `maxSpawnArgs` words (`13 + 6` fields) twenty. -/
+example : (tcbWords 3331 1, tcbWords 8391939 1, tcbWords (13 * 256 + 6 * 2 ^ 22 + 3) 1,
+    1 + Scc.IR.Tcb.size / 8 + Scc.IR.maxSpawnArgs) = (14, 16, 20, 20) := by decide
 
 /-- **A13's data part**: `scc_rt_nthreads` a decided data symbol; its word
 and the second allocation's passing `wordOk`, clear of the runtime's words

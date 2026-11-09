@@ -194,7 +194,7 @@ theorem childSeg_X {pcfg : Scc.Cert.PlaceOK.Config} {o : Scc.Cert.PlaceOK.X64.Ou
           (BitVec.ofNat 64 meW + 16#64).toNat % 4 = 0 →
           LdOk ms (DFrame (childR (r1.lo + r1.size) (-16384))
               (childAfter abi t.2 0 th (r1.lo + r1.size) (tcbOf lab q).toNat).st.st.1) W →
-          OwnAt ms exe endPc ((_root_.Executable.labels exe).label ".Lscc_rt_thr_worker.x12") W W →
+          OwnAt ms exe endPc ((_root_.Executable.labels exe).label ".Lscc_rt_thr_worker.x0") W W →
           StOk ms (DFrame (childR (r1.lo + r1.size) (-16384))
               (childAfter abi t.2 0 th (r1.lo + r1.size) (tcbOf lab q).toNat).st.st.1)
             (W + 24#64) 1#64 →

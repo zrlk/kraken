@@ -48,11 +48,11 @@ def ownGH (L : RuntimeLayout) (a : BitVec 64) (s : State) : List (Loc × Val) :=
     if spPool L s then own2aH L a (ph2aH (pcOf s)) else ownH L a (phH (pcOf s))
   else if inPc L "scc_rt_thread_init" "scc_rt_stack_release" s then
     if spPool L s then own2bH L a (ph2bH (pcOf s)) else ownH L a (phH (pcOf s))
-  else if inPc L ".Lwc_main.x24" ".Lwc_main.x25" s then own2aH L a (ph2aH (pcOf s))
-  else if inPc L ".Lwc_main.x25" ".Lwc_main.stk" s then own2bH L a (ph2bH (pcOf s))
+  else if inPc L ".Lwc_main.x2" ".Lwc_main.x3" s then own2aH L a (ph2aH (pcOf s))
+  else if inPc L ".Lwc_main.x3" ".Lwc_main.stk" s then own2bH L a (ph2bH (pcOf s))
   else if inPc L "scc_rt_abort" "scc_rt_thr_worker" s then
-    if raAt L ".Lscc_rt_alloc_tcb.x6" s ∧ spPool L s then own2aH L a (ph2aH (pcOf s))
-    else if raAt L ".Lwc_main.x27" s then own2bH L a (ph2bH (pcOf s))
+    if raAt L ".Lscc_rt_alloc_tcb.x0" s ∧ spPool L s then own2aH L a (ph2aH (pcOf s))
+    else if raAt L ".Lwc_main.x5" s then own2bH L a (ph2bH (pcOf s))
     else ownH L a (phH (pcOf s))
   else ownH L a (phH (pcOf s))
 
@@ -60,10 +60,10 @@ def ownGH (L : RuntimeLayout) (a : BitVec 64) (s : State) : List (Loc × Val) :=
 the map; each range nonempty). -/
 theorem ownGH_labs :
     ["scc_rt_alloc_tcb", "scc_rt_thread_reserve", "scc_rt_thread_init", "scc_rt_stack_release",
-      ".Lwc_main.x24", ".Lwc_main.x25", ".Lwc_main.stk", "scc_rt_abort", "scc_rt_thr_worker",
-      ".Lscc_rt_alloc_tcb.x6", ".Lwc_main.x27"].map (Scc.Sem.X64.codeLabel lo SccCode.helloCells) =
-    [some 4199029, some 4199484, some 4199582, some 4200327, some 4203749, some 4203774, some 4203948,
-      some 4202486, some 4202972, some 4199282, some 4203909] := by
+      ".Lwc_main.x2", ".Lwc_main.x3", ".Lwc_main.stk", "scc_rt_abort", "scc_rt_thr_worker",
+      ".Lscc_rt_alloc_tcb.x0", ".Lwc_main.x5"].map (Scc.Sem.X64.codeLabel lo SccCode.helloCells) =
+    [some 4199029, some 4199484, some 4199582, some 4200327, some 4203787, some 4203812, some 4203986,
+      some 4202524, some 4203010, some 4199282, some 4203947] := by
   decide +kernel
 
 /-- **Off the abort range `ownGH` reads the registers and the pc only.** -/

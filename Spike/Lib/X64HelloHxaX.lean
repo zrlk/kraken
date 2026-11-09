@@ -4,7 +4,7 @@ counterpart of `Spike/Lib/X64WakeHxa.lean`'s `hxa_R`): the start segment's `hxa`
 the child's stack unmapped (`StartH0U.msUHg own`, any own map `own`). The landing is one the arena hands out
 (`AllocLand`, from `Ea`'s allocator facts at `arOf`: offset `8`, `units = n * nWords + 1`), and, with `r1Of`
 unmapped, in the fragment `I` at the extended placement by `hRdU` (from level 1's statement:
-`StartH0H1.hRdU_of_h1F`).
+`StartH0H1.hRdU_of_h1Fg`).
 
 - `hxa_ofRdU`: the start segment's `hxa` at `msUHg own … fs` from `hRdU`, for any frames `fs` and source invariant
   `J'`.

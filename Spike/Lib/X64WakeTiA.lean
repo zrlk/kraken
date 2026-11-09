@@ -54,7 +54,7 @@ local notation "Ly" => Spike.Lib.X64.Rt.RuntimeLayout.ofPlaceWX hp i
 theorem tiA_of (hpa : cellsOf asm = some o.prog) (hwp : cellsOf asm = some wakeCells)
     (hlo0 : Λ0.code.lo = Spike.Lib.X64.WakePh.lo) (hstat : Λ0.static = fun _ => none)
     (hA13 : Scc.Cert.Spawn.X64.a13data (Ly).Λ o.prog o.secs = true)
-    (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) (hcz : Spike.Lib.X64.Rt.CtrZ o)
+    (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) (hcz : Spike.Lib.X64.Rt.CtrZ o)
     (hctrD : ∀ a ∈ [(Ly).pnA, (Ly).lockA, (Ly).freeNA, (Ly).nextA], (Ly).Λ.data.contains a.toNat) :
     ∀ E : Entry, E.Ok (Ly).Λ → ∀ l b n, L0T (Ly).Λ l = none →
       AllocLand (WakeOD.arW hp i).heap (WakeOD.arW hp i).cells b n →

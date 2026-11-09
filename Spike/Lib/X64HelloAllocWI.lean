@@ -1,15 +1,15 @@
 /-
 **`scc_rt_alloc` inside `SFactsSt2` at `ownGH`** (x86-64; hello twin of
 `Spike/Lib/A64HelloAllocWI.lean`): the allocator in `HelloRd.RdPreW.alloc`
-(rodata's buffer, returning to `.Lwc_rodata.x15`) and `wc_main`'s box
-(returning to `.Lwc_main.x22`) at the pre-spawn chain's `W`.
+(rodata's buffer, returning to `.Lwc_rodata.x0`) and `wc_main`'s box
+(returning to `.Lwc_main.x0`) at the pre-spawn chain's `W`.
 `AllocG.allocStS` at the first instance (`instOkH`, owned words `ownH L a`,
 no take phase) combined (`AllocW.imp`) with the agreement of `ownGH` and
 `ownH` at the allocator's nodes: every allocator pc is free (`freeNH`), and
 so is every successor except the heap abort's `call`, whose target
 `scc_rt_abort` is in `ownGH`'s abort range with the return address it pushes
 neither of the two return points `ownGH` reads there
-(`.Lscc_rt_alloc_tcb.x6`, `.Lwc_main.x27`). Unlike wake's, the return point
+(`.Lscc_rt_alloc_tcb.x0`, `.Lwc_main.x5`). Unlike wake's, the return point
 is a parameter `rl` (`AllocRetH`: one of the two calls' return points).
 
 The pcs and phase facts are checked by the kernel against the certificate's
@@ -70,10 +70,10 @@ theorem freeAt_addH (hlab : ∀ l x, codeLabel lo helloCells l = some x → L.la
 
 /-- The labels the heap abort's entry reads, below `2 ^ 64` (with room for `+ 12`). -/
 theorem abortLabsH (l : Label) (h : l ∈ [("scc_rt_abort" : Label), "scc_rt_thr_worker", ".Lscc_rt_alloc.full",
-    ".Lscc_rt_alloc_tcb.x6", ".Lwc_main.x27"]) :
+    ".Lscc_rt_alloc_tcb.x0", ".Lwc_main.x5"]) :
     (codeLabel lo helloCells l).isSome = true ∧ cvH l + 12 < 2 ^ 64 := by
-  have : [("scc_rt_abort" : Label), "scc_rt_thr_worker", ".Lscc_rt_alloc.full", ".Lscc_rt_alloc_tcb.x6",
-      ".Lwc_main.x27"].all (fun l => (codeLabel lo helloCells l).isSome && decide (cvH l + 12 < 2 ^ 64)) = true := by
+  have : [("scc_rt_abort" : Label), "scc_rt_thr_worker", ".Lscc_rt_alloc.full", ".Lscc_rt_alloc_tcb.x0",
+      ".Lwc_main.x5"].all (fun l => (codeLabel lo helloCells l).isSome && decide (cvH l + 12 < 2 ^ 64)) = true := by
     unfold cvH; rw [← codeT_eq]; decide +kernel
   have := List.all_eq_true.mp this l h
   simpa only [Bool.and_eq_true, decide_eq_true_eq] using this
@@ -81,11 +81,11 @@ theorem abortLabsH (l : Label) (h : l ∈ [("scc_rt_abort" : Label), "scc_rt_thr
 /-- The abort range is nonempty and the return address past the abort's
 `call` is neither return point `ownGH` reads. -/
 theorem abortCvH : cvH "scc_rt_abort" < cvH "scc_rt_thr_worker" ∧
-    cvH ".Lscc_rt_alloc.full" + 12 ≠ cvH ".Lscc_rt_alloc_tcb.x6" ∧
-    cvH ".Lscc_rt_alloc.full" + 12 ≠ cvH ".Lwc_main.x27" := by
+    cvH ".Lscc_rt_alloc.full" + 12 ≠ cvH ".Lscc_rt_alloc_tcb.x0" ∧
+    cvH ".Lscc_rt_alloc.full" + 12 ≠ cvH ".Lwc_main.x5" := by
   have : (decide (cvH "scc_rt_abort" < cvH "scc_rt_thr_worker") &&
-    decide (cvH ".Lscc_rt_alloc.full" + 12 ≠ cvH ".Lscc_rt_alloc_tcb.x6") &&
-    decide (cvH ".Lscc_rt_alloc.full" + 12 ≠ cvH ".Lwc_main.x27")) = true := by
+    decide (cvH ".Lscc_rt_alloc.full" + 12 ≠ cvH ".Lscc_rt_alloc_tcb.x0") &&
+    decide (cvH ".Lscc_rt_alloc.full" + 12 ≠ cvH ".Lwc_main.x5")) = true := by
     unfold cvH; rw [← codeT_eq]; decide +kernel
   simpa only [Bool.and_eq_true, decide_eq_true_eq, and_assoc] using this
 
@@ -100,8 +100,8 @@ theorem goodW_abortH (hlab : ∀ l x, codeLabel lo helloCells l = some x → L.l
   obtain ⟨sA, bA⟩ := abortLabsH "scc_rt_abort" (by simp)
   obtain ⟨sT, bT⟩ := abortLabsH "scc_rt_thr_worker" (by simp)
   obtain ⟨sF, bF⟩ := abortLabsH ".Lscc_rt_alloc.full" (by simp)
-  obtain ⟨s6, b6⟩ := abortLabsH ".Lscc_rt_alloc_tcb.x6" (by simp)
-  obtain ⟨s27, b27⟩ := abortLabsH ".Lwc_main.x27" (by simp)
+  obtain ⟨s6, b6⟩ := abortLabsH ".Lscc_rt_alloc_tcb.x0" (by simp)
+  obtain ⟨s27, b27⟩ := abortLabsH ".Lwc_main.x5" (by simp)
   obtain ⟨hAT, h6, h27⟩ := abortCvH
   have eA := lab_cvH hlab sA (by omega)
   have eT := lab_cvH hlab sT (by omega)
@@ -123,8 +123,8 @@ theorem goodW_abortH (hlab : ∀ l x, codeLabel lo helloCells l = some x → L.l
   · have := hv _ h; rw [ex, e27] at this; exact h27 this
 
 /-- **The allocator's return points at hello**: rodata's buffer call's
-`.Lwc_rodata.x15` and `wc_main`'s box call's `.Lwc_main.x22`. -/
-def AllocRetH (rl : Label) : Prop := rl = ".Lwc_rodata.x15" ∨ rl = ".Lwc_main.x22"
+`.Lwc_rodata.x0` and `wc_main`'s box call's `.Lwc_main.x0`. -/
+def AllocRetH (rl : Label) : Prop := rl = ".Lwc_rodata.x0" ∨ rl = ".Lwc_main.x0"
 
 /-- Both return points are free. -/
 theorem AllocRetH.free {rl : Label} (h : AllocRetH rl) : freeAtH rl [0] = true := by
@@ -325,7 +325,8 @@ theorem allocAgreeH (a : BitVec 64) {ms : Spike.Lib.MemSide isa} {q : Call}
   · refine blkAgreeLH hp hlab hsite a h29 (by pc_tac) bO9_ok hR hlo' hhi (by wcfreeBH_dec) fun σ c _ => ?_
     dsimp only [N]; rw [Spike.Lib.X64.Alloc.bO9_run]; fadd okL 173 53
   · -- The `ret`, to `rl`.
-    refine Spike.Lib.LowerX64.BlkW.nodeW (blkAgreeLH hp hlab hsite a (blk := [(iRet.toDir, 1)]) h30 rfl
+    refine Spike.Lib.LowerX64.BlkW.nodeW (blkAgreeLH hp hlab hsite a (blk := [(iRet.toDir, 1)]) h30.2
+      (by rw [ofNat_zero']; exact (Scc.Cert.Rt.X64.label_labelGapB L.lays (hp ▸ h30.1)).trans rfl)
       (blo := -160) (bhi := 8) (by dsimp only [N]; decide) hR hlo' hhi (by wcfreeBH_dec)
       fun σ c hJ => ?_) (List.cons_ne_nil _ _)
     obtain ⟨o, -, -, -, -, -, h30', -⟩ := hJ
@@ -348,8 +349,8 @@ def allocTabH : List PhFact :=
    .step okL 36 7, .blk okL 43 bO3 none none, .step okL 58 3, .blk okL 61 bO4 none none, .step okL 88 4,
    .blk okL 92 bO5 none none, .step okL 107 3, .blk okL 110 bO6 none none, .step okL 125 3,
    .blk okL 128 bO7 none none, .step okL 140 3, .blk okL 143 bO8 none none, .step okL 170 3,
-   .blk okL 173 bO9 none none, .ok okL 226, .ph okL 226 0, .ph fnL 0 0, .ph ".Lwc_rodata.x15" 0 0,
-   .ph ".Lwc_main.x22" 0 0]
+   .blk okL 173 bO9 none none, .ok okL 226, .ph okL 226 0, .ph fnL 0 0, .ph ".Lwc_rodata.x0" 0 0,
+   .ph ".Lwc_main.x0" 0 0]
 
 /-- The table's facts hold at the resolved phases. -/
 theorem allocFactsH : allocTabH.all (factOk (codeT lo helloCells) okC phC) = true := by decide +kernel

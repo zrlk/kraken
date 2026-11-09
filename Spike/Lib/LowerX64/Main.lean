@@ -70,8 +70,9 @@ abort label, given the prologue's obligations (`XProW`, the edge) and the
 body's blocks' (`BlkW` at its nodes and pending stores, each block one of
 the body's, `InBody`). -/
 def MainSeg (cfg : Scc.Config) (d : Decl) (sizes : List Nat) : Prop :=
-  ∃ r : Res, lower0 [(d.arg, .unit, [])] 0 d.body = some r ∧
-    func0 (Scc.Lower.Names.user "main") r ∈ (Scc.Lower.X64.lowerAll cfg [d]).low.ir.funcs ∧
+  ∃ (r : Res) (m : Nat), lower0 [(d.arg, .unit, [])] 0 d.body = some r ∧
+    (func0 (Scc.Lower.Names.user "main") r, m) ∈
+      Scc.Cert.Code1X64.starts (Scc.Lower.X64.lowerAll cfg [d]).low.ir 0 (Scc.Lower.X64.lowerAll cfg [d]).low.ir.funcs ∧
     let fr := frOf (Scc.Lower.X64.lowerAll cfg [d]).low.ir (func0 (Scc.Lower.Names.user "main") r)
     FrameOk fr ∧ fr.size ≤ 4096 ∧ fr.size % 16 = 0 ∧
     ∃ zl zf z1 z2 zs : Nat,
@@ -87,12 +88,12 @@ def MainSeg (cfg : Scc.Config) (d : Decl) (sizes : List Nat) : Prop :=
       (∀ pc t s blk, CdOf exe endPc pc blk →
         InBody (_root_.Executable.labels exe).label
           (Scc.Cert.PlaceOK.X64.cellsOfEmitted (Scc.Lower.X64.lowerAll cfg [d]) sizes) fr
-          (Scc.Emit.X64.labelOf (Scc.Lower.Names.user "main") "entry") r.insts r.ret pc blk →
+          (Scc.Emit.X64.labelOf (Scc.Lower.Names.user "main") "entry") m r.insts r.ret pc blk →
         BlkW W K exe endPc (rbR R) F (bodyN p lbl fr fp ra c0 pc t s) blk) →
       (∀ pc t s k blk, CdOf exe endPc pc blk →
         InBody (_root_.Executable.labels exe).label
           (Scc.Cert.PlaceOK.X64.cellsOfEmitted (Scc.Lower.X64.lowerAll cfg [d]) sizes) fr
-          (Scc.Emit.X64.labelOf (Scc.Lower.Names.user "main") "entry") r.insts r.ret pc blk →
+          (Scc.Emit.X64.labelOf (Scc.Lower.Names.user "main") "entry") m r.insts r.ret pc blk →
         BlkW W K exe endPc (rbR R) F (pendN p lbl fr fp ra c0 pc t s k) blk) →
       (∀ σ c, J σ c →
         (ms.rt (σ.regs.fsBase.toBitVec + (Int64.ofNat Scc.IR.Tcb.stackLimit).toBitVec).toNat ∧
@@ -121,6 +122,7 @@ theorem main_seg_of_placeOK {cfg : Scc.Config} {d : Decl} (hd : Scc.Lower.Accept
   obtain ⟨-, hsz, h16, hsl, -, -, hI, -, -, -⟩ := hinv
   have hmem : func0 (Scc.Lower.Names.user "main") r ∈ (Scc.Lower.X64.lowerAll cfg [d]).low.ir.funcs := by
     rw [hir]; simp [Scc.Lower.Inv.progOf]
+  have hm := mem_starts_self (ir := (Scc.Lower.X64.lowerAll cfg [d]).low.ir) (m := 0) hmem
   have hnext := accepted0_next_x64 hd hr
   rw [← hir] at hsz h16 hsl
   have hle : (frOf (Scc.Lower.X64.lowerAll cfg [d]).low.ir (func0 (Scc.Lower.Names.user "main") r)).size ≤ 4096 := by
@@ -129,9 +131,9 @@ theorem main_seg_of_placeOK {cfg : Scc.Config} {d : Decl} (hd : Scc.Lower.Accept
   have hfo : FrameOk (frOf (Scc.Lower.X64.lowerAll cfg [d]).low.ir (func0 (Scc.Lower.Names.user "main") r)) :=
     ⟨_, _, rfl, rfl⟩
   obtain ⟨⟨zl, zf, z1, z2, zs, hpro⟩, hbody⟩ := Scc.Cert.PlaceOK.X64.fnCode_of_placeOK hpl
-    (Scc.Cert.PlaceOK.X64.lowerAll_place_ir cfg [d] sizes labelOffs) hmem hI
+    (Scc.Cert.PlaceOK.X64.lowerAll_place_ir cfg [d] sizes labelOffs) hm hI
     (Scc.Lower.Inv.accepted0_ret_singleton hd hr).choose_spec
-  refine ⟨r, hr, hmem, hfo, hle, h16, zl, zf, z1, z2, zs, ?_⟩
+  refine ⟨r, 0, hr, hm, hfo, hle, h16, zl, zf, z1, z2, zs, ?_⟩
   intro p lbl ms exe _ endPc R F W K J fp ra c0 hp hend hF hR hlo hhi hWp hWb hWs hedge
   exact fn0_seg hfo (by omega) hp hend hpro hr (fresh_unit d.arg) hbody (walk_immsOf d) hF hR hlo hhi hWp hWb hWs hedge
 

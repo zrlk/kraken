@@ -247,7 +247,7 @@ theorem tiL (hbdI : BandI L R (-248)) (hR : R.OK) (hRlo : R.lo ≤ -248) (hhi : 
     · dsimp only [Spike.Lib.X64.Rt.tiNAt] at hJ ⊢; rw [(tiF5_walk _ _ hJ.2).1, eX7]; decide +kernel
   case st5 => tstL bS5 TI.st5 5 40 4 113
   case ret =>
-    refine blkL hp hlab hsite hsep ha hW (P := PM) (Q := QM) bRet rfl tiRet_ok hR (by omega) (by omega)
+    refine blkLA hp hlab hsite hsep ha hW (P := PM) (Q := QM) bRet rfl tiRet_ok hR (by omega) (by omega)
       (fun _ h => h.2) (fun s h => cls_offM hlab hbd48 s h.1) (cls_offM hlab hbd48) ?_ (soI tiRet oI)
       (fun σ c hJ => ?_)
     · intro k hk; dsimp only [Spike.Lib.X64.Rt.tiNAt]; rw [eX7]; revert k; decide +kernel

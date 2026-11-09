@@ -156,39 +156,39 @@ structure RdGW (W : Frag isa) (K : State → State → Prop) (exe : _root_.Execu
   e : BlkW W K exe endPc R F
     ⟨(_root_.Executable.labels exe).label ".Lwc_rodata.entry", oR, sJE (_root_.Executable.labels exe).label ms F0 g R⟩
     rdE
-  alloc : ∀ q : Call, q.ra = ((_root_.Executable.labels exe).label ".Lwc_rodata.x13").toBitVec →
+  alloc : ∀ q : Call, q.ra = ((_root_.Executable.labels exe).label ".Lwc_rodata.x0").toBitVec →
     AllocW ms q W K exe endPc (R.callee (-48) (-160) 8) (fun m => F m ∧ CallerCells R (-48) (-160) 8 m)
-  l1 : BlkW W K exe endPc R F ⟨(_root_.Executable.labels exe).label ".Lwc_rodata.x13", oR, sJp lbl ms g R⟩ rpB0
+  l1 : BlkW W K exe endPc R F ⟨(_root_.Executable.labels exe).label ".Lwc_rodata.x0", oR, sJp lbl ms g R⟩ rpB0
   l1L : NodeW W K exe endPc R F (LaneStore.lsNL (_root_.Executable.labels exe).label rpB0
-    ((_root_.Executable.labels exe).label ".Lwc_rodata.x13")
-    ((_root_.Executable.labels exe).label ".Lwc_rodata.x13" + 8)
+    ((_root_.Executable.labels exe).label ".Lwc_rodata.x0")
+    ((_root_.Executable.labels exe).label ".Lwc_rodata.x0" + 8)
     oR oR "w0" "o0" "b" false .w8 rdK1 0 eW1 (sJp lbl ms g R))
   l1H : BlkW W K exe endPc R F (LaneStore.lsNH (_root_.Executable.labels exe).label rpB0
-    ((_root_.Executable.labels exe).label ".Lwc_rodata.x13")
-    ((_root_.Executable.labels exe).label ".Lwc_rodata.x13" + 8)
+    ((_root_.Executable.labels exe).label ".Lwc_rodata.x0")
+    ((_root_.Executable.labels exe).label ".Lwc_rodata.x0" + 8)
     3 oR oR .rax .rcx 0 "w0" "o0" "b" false .w8 rdK1 0 eW1 (sJp lbl ms g R)) rpB1
   l1S : NodeW W K exe endPc R F (LaneStore.lsNS (_root_.Executable.labels exe).label rpB0 rpB1
-    ((_root_.Executable.labels exe).label ".Lwc_rodata.x13")
-    ((_root_.Executable.labels exe).label ".Lwc_rodata.x13" + 8)
-    ((_root_.Executable.labels exe).label ".Lwc_rodata.x13" + Int64.ofNat 29) 3 oR oR oR .rax .rcx 0 "w0" "o0" "b"
+    ((_root_.Executable.labels exe).label ".Lwc_rodata.x0")
+    ((_root_.Executable.labels exe).label ".Lwc_rodata.x0" + 8)
+    ((_root_.Executable.labels exe).label ".Lwc_rodata.x0" + Int64.ofNat 29) 3 oR oR oR .rax .rcx 0 "w0" "o0" "b"
     false .w8 rdK1 0 eW1 (sJp lbl ms g R))
   l2 : BlkW W K exe endPc R F
-    ⟨(_root_.Executable.labels exe).label ".Lwc_rodata.x13" + Int64.ofNat 29 + Int64.ofNat 3, oR, sJ2 lbl ms g R⟩ rpB2
+    ⟨(_root_.Executable.labels exe).label ".Lwc_rodata.x0" + Int64.ofNat 29 + Int64.ofNat 3, oR, sJ2 lbl ms g R⟩ rpB2
   l2L : NodeW W K exe endPc R F (LaneStore.lsNL (_root_.Executable.labels exe).label rpB2
-    ((_root_.Executable.labels exe).label ".Lwc_rodata.x13" + Int64.ofNat 29 + Int64.ofNat 3)
-    ((_root_.Executable.labels exe).label ".Lwc_rodata.x13" + Int64.ofNat 36)
+    ((_root_.Executable.labels exe).label ".Lwc_rodata.x0" + Int64.ofNat 29 + Int64.ofNat 3)
+    ((_root_.Executable.labels exe).label ".Lwc_rodata.x0" + Int64.ofNat 36)
     oR oR "w1" "o1" "b" false .w8 rdK2 1 eN (sJ2 lbl ms g R))
   l2H : BlkW W K exe endPc R F (LaneStore.lsNH (_root_.Executable.labels exe).label rpB2
-    ((_root_.Executable.labels exe).label ".Lwc_rodata.x13" + Int64.ofNat 29 + Int64.ofNat 3)
-    ((_root_.Executable.labels exe).label ".Lwc_rodata.x13" + Int64.ofNat 36)
+    ((_root_.Executable.labels exe).label ".Lwc_rodata.x0" + Int64.ofNat 29 + Int64.ofNat 3)
+    ((_root_.Executable.labels exe).label ".Lwc_rodata.x0" + Int64.ofNat 36)
     4 oR oR .rax .rcx 8 "w1" "o1" "b" false .w8 rdK2 1 eN (sJ2 lbl ms g R)) rpB3
   l2S : NodeW W K exe endPc R F (LaneStore.lsNS (_root_.Executable.labels exe).label rpB2 rpB3
-    ((_root_.Executable.labels exe).label ".Lwc_rodata.x13" + Int64.ofNat 29 + Int64.ofNat 3)
-    ((_root_.Executable.labels exe).label ".Lwc_rodata.x13" + Int64.ofNat 36)
-    ((_root_.Executable.labels exe).label ".Lwc_rodata.x13" + Int64.ofNat 58) 4 oR oR oR .rax .rcx 8 "w1" "o1" "b"
+    ((_root_.Executable.labels exe).label ".Lwc_rodata.x0" + Int64.ofNat 29 + Int64.ofNat 3)
+    ((_root_.Executable.labels exe).label ".Lwc_rodata.x0" + Int64.ofNat 36)
+    ((_root_.Executable.labels exe).label ".Lwc_rodata.x0" + Int64.ofNat 58) 4 oR oR oR .rax .rcx 8 "w1" "o1" "b"
     false .w8 rdK2 1 eN (sJ2 lbl ms g R))
   ret : BlkW W K exe endPc R F
-    ⟨(_root_.Executable.labels exe).label ".Lwc_rodata.x13" + Int64.ofNat 58 + Int64.ofNat 4, oR, sJ4 lbl ms g R⟩ rpB4
+    ⟨(_root_.Executable.labels exe).label ".Lwc_rodata.x0" + Int64.ofNat 58 + Int64.ofNat 4, oR, sJ4 lbl ms g R⟩ rpB4
 
 /-- The walk's states are inside the trivial predicate, with no outside
 moves. -/
@@ -234,7 +234,7 @@ source past the allocation. -/
 theorem nbX_sJp (hlo : R.lo ≤ -8) (hhi : 8 ≤ R.hi) {F0 : MachineData → Prop} {g : WcG} {t : UInt64}
     {σ : AS} {c : Ctl}
     (h : (nbX (tpXa ms t) (_root_.Executable.labels exe).label lbl R 40
-      ((_root_.Executable.labels exe).label ".Lwc_rodata.x13")
+      ((_root_.Executable.labels exe).label ".Lwc_rodata.x0")
       (nbJc (_root_.Executable.labels exe).label rdE ((_root_.Executable.labels exe).label ".Lwc_rodata.entry") oR
         (sJ1 (sJE (_root_.Executable.labels exe).label ms F0 g R))) .ret).J σ c) :
     sJp lbl ms g R σ c := by
@@ -310,7 +310,7 @@ theorem hello1_rodata_setupGW {W : Frag isa} {K : State → State → Prop}
   have hin := hello1_rdEIn
   simp only [rdEIn, Bool.and_eq_true] at hin
   obtain ⟨h0, hgap⟩ := hin
-  have e26 : lab ".Lwc_rodata.x13" = lab ".Lwc_rodata.entry" + Int64.ofNat 26 := label_labelGapB hp hgap
+  have e26 : lab ".Lwc_rodata.x0" = lab ".Lwc_rodata.entry" + Int64.ofNat 26 := label_labelGapB hp hgap
   have hrp := hello1_rpIn
   simp only [rpIn, Bool.and_eq_true] at hrp
   obtain ⟨⟨⟨⟨⟨⟨⟨⟨c0, c1⟩, c2⟩, c3⟩, c4⟩, c5⟩, c6⟩, c7⟩, c8⟩ := hrp
@@ -319,9 +319,9 @@ theorem hello1_rodata_setupGW {W : Frag isa} {K : State → State → Prop}
   have i8 : BitVec.ofInt 64 (8 : Int64).toInt = BitVec.ofNat 64 8 := by decide
   -- the allocation: `rdE` and the call
   have hs0 : SegW W' K p lbl ms' (At exe endPc R F (sEn lab ".Lwc_rodata.entry" 32 [] J0))
-      (fun s c => At exe endPc R F ⟨lab ".Lwc_rodata.x13", ⟨-40, []⟩, sJp lbl ms g R⟩ s c ∨
+      (fun s c => At exe endPc R F ⟨lab ".Lwc_rodata.x0", ⟨-40, []⟩, sJp lbl ms g R⟩ s c ∨
         At exe endPc R F (sAb lab 40 Ab) s c) := by
-    refine (alloc_stepW (fs := 40) (pc := lab ".Lwc_rodata.entry") (o := oR) (pcR := lab ".Lwc_rodata.x13")
+    refine (alloc_stepW (fs := 40) (pc := lab ".Lwc_rodata.entry") (o := oR) (pcR := lab ".Lwc_rodata.x0")
       (J1 := sJ1 (sJE lab ms F0 g R)) (Ab := Ab) hp hend Alloc.hello1_allocIn hF hR (by decide)
       (by rw [allocAbortDepth_40]; omega) (by omega) (by simp [rdE]) rdE_ok (by omega) hhi
       (code_field hp hend h0 (ofNat_zero' _)) (fun σ => by rw [rdE_run]; exact ⟨rfl, rfl⟩) ?hloc ?hq
@@ -354,13 +354,13 @@ theorem hello1_rodata_setupGW {W : Frag isa} {K : State → State → Prop}
       rintro c ⟨q, hf, σC, σ0, ⟨-, hc⟩, -⟩
       exact ⟨q.1, callOK_untp q.2, hc, hf⟩
   -- the first lane store, `"Hello, w"` at the buffer's base
-  have hs1 : SegW W' K p lbl ms' (At exe endPc R F ⟨lab ".Lwc_rodata.x13", ⟨-40, []⟩, sJp lbl ms g R⟩)
-      (fun s c => At exe endPc R F ⟨lab ".Lwc_rodata.x13" + Int64.ofNat 29 + Int64.ofNat 3, oR, sJ2 lbl ms g R⟩ s c ∨
+  have hs1 : SegW W' K p lbl ms' (At exe endPc R F ⟨lab ".Lwc_rodata.x0", ⟨-40, []⟩, sJp lbl ms g R⟩)
+      (fun s c => At exe endPc R F ⟨lab ".Lwc_rodata.x0" + Int64.ofNat 29 + Int64.ofNat 3, oR, sJ2 lbl ms g R⟩ s c ∨
         At exe endPc R F (sAb lab 40 Ab) s c) := by
     have hc1 := code_field hp hend c0 (ofNat_zero' _)
-    have hc2 := code_field hp hend c1 (q := lab ".Lwc_rodata.x13" + 8) rfl
-    have hc3 := code_field hp hend c2 (q := lab ".Lwc_rodata.x13" + 8 + Int64.ofNat 3) (by rw [Int64.add_assoc]; rfl)
-    have hc4 := code_field hp hend c3 (q := lab ".Lwc_rodata.x13" + Int64.ofNat 29) rfl
+    have hc2 := code_field hp hend c1 (q := lab ".Lwc_rodata.x0" + 8) rfl
+    have hc3 := code_field hp hend c2 (q := lab ".Lwc_rodata.x0" + 8 + Int64.ofNat 3) (by rw [Int64.add_assoc]; rfl)
+    have hc4 := code_field hp hend c3 (q := lab ".Lwc_rodata.x0" + Int64.ofNat 29) rfl
     refine (lane_stepW (W := W') (B1 := rpB0) (B2 := rpB1) (zl := 3) (zs := 3) (o := oR) (oL := oR) (oS := oR)
       (t := .rax) (b := .rcx) (i := 0) (t' := .rax) (w := "w0") (ov := "o0") (bn := "b") (sg := false) (wd := .w8)
       (Kw := rdK1) (i' := 0) (e := eW1) (J := sJp lbl ms g R) (J' := sJ2 lbl ms g R)
@@ -378,7 +378,7 @@ theorem hello1_rodata_setupGW {W : Frag isa} {K : State → State → Prop}
       rintro σ c ⟨l, ini, hRF, rfl⟩
       obtain ⟨A, old, hl, hn, hb, hold⟩ := rdF_word hQ hRF (.inl rfl)
       obtain ⟨-, -, -, -, -, -, hs0', hs8, hbp⟩ := id hRF
-      have ha : bAddr (arun lab rpB0 ⟨lab ".Lwc_rodata.x13", oR, σ⟩).σ.regs .rcx 0 =
+      have ha : bAddr (arun lab rpB0 ⟨lab ".Lwc_rodata.x0", oR, σ⟩).σ.regs .rcx 0 =
           σ.regs.rax.toBitVec + BitVec.ofNat 64 0 := by
         rw [rpB0_run]; simp only [bAddr, i0, Reg64s.get64_set64_self]
       refine ⟨_, _, _, l, A, rfl, rfl, bufElem_b ini, hl, by rw [ha, hn], fun m hm => ?_, fun r => ?_⟩
@@ -399,15 +399,15 @@ theorem hello1_rodata_setupGW {W : Frag isa} {K : State → State → Prop}
             exact hbp
   -- the second lane store, `"orld\n"` at the buffer's base plus 8
   have hs2 : SegW W' K p lbl ms'
-      (At exe endPc R F ⟨lab ".Lwc_rodata.x13" + Int64.ofNat 29 + Int64.ofNat 3, oR, sJ2 lbl ms g R⟩)
-      (fun s c => At exe endPc R F ⟨lab ".Lwc_rodata.x13" + Int64.ofNat 58 + Int64.ofNat 4, oR, sJ4 lbl ms g R⟩ s c ∨
+      (At exe endPc R F ⟨lab ".Lwc_rodata.x0" + Int64.ofNat 29 + Int64.ofNat 3, oR, sJ2 lbl ms g R⟩)
+      (fun s c => At exe endPc R F ⟨lab ".Lwc_rodata.x0" + Int64.ofNat 58 + Int64.ofNat 4, oR, sJ4 lbl ms g R⟩ s c ∨
         At exe endPc R F (sAb lab 40 Ab) s c) := by
-    have hc1 := code_field hp hend c4 (q := lab ".Lwc_rodata.x13" + Int64.ofNat 29 + Int64.ofNat 3)
+    have hc1 := code_field hp hend c4 (q := lab ".Lwc_rodata.x0" + Int64.ofNat 29 + Int64.ofNat 3)
       (by rw [Int64.add_assoc]; rfl)
-    have hc2 := code_field hp hend c5 (q := lab ".Lwc_rodata.x13" + Int64.ofNat 36) rfl
-    have hc3 := code_field hp hend c6 (q := lab ".Lwc_rodata.x13" + Int64.ofNat 36 + Int64.ofNat 4)
+    have hc2 := code_field hp hend c5 (q := lab ".Lwc_rodata.x0" + Int64.ofNat 36) rfl
+    have hc3 := code_field hp hend c6 (q := lab ".Lwc_rodata.x0" + Int64.ofNat 36 + Int64.ofNat 4)
       (by rw [Int64.add_assoc]; rfl)
-    have hc4 := code_field hp hend c7 (q := lab ".Lwc_rodata.x13" + Int64.ofNat 58) rfl
+    have hc4 := code_field hp hend c7 (q := lab ".Lwc_rodata.x0" + Int64.ofNat 58) rfl
     refine lane_stepW (W := W') (B1 := rpB2) (B2 := rpB3) (zl := 4) (zs := 4) (o := oR) (oL := oR) (oS := oR)
       (t := .rax) (b := .rcx) (i := 8) (t' := .rax) (w := "w1") (ov := "o1") (bn := "b") (sg := false) (wd := .w8)
       (Kw := rdK2) (i' := 1) (e := eN) (J := sJ2 lbl ms g R) (J' := sJ4 lbl ms g R)
@@ -424,7 +424,7 @@ theorem hello1_rodata_setupGW {W : Frag isa} {K : State → State → Prop}
       rintro σ c ⟨l, ini, wo0, hRF, rfl⟩
       obtain ⟨A, old, hl, hn, hb, hold⟩ := rdF_word hQ hRF (.inr rfl)
       obtain ⟨-, -, -, -, -, -, hs0', hs8, hbp⟩ := id hRF
-      have ha : bAddr (arun lab rpB2 ⟨lab ".Lwc_rodata.x13" + Int64.ofNat 29 + Int64.ofNat 3, oR, σ⟩).σ.regs .rcx 8 =
+      have ha : bAddr (arun lab rpB2 ⟨lab ".Lwc_rodata.x0" + Int64.ofNat 29 + Int64.ofNat 3, oR, σ⟩).σ.regs .rcx 8 =
           σ.slot (-16) + BitVec.ofNat 64 8 := by
         rw [rpB2_run]; simp only [bAddr, i8, Reg64s.get64_set64_self]
       refine ⟨_, _, _, l, A, rfl, rfl, bufElem_b ini, hl, by rw [ha, hn], fun m hm => ?_, fun r => ?_⟩
@@ -444,11 +444,11 @@ theorem hello1_rodata_setupGW {W : Frag isa} {K : State → State → Prop}
             exact hbp
   -- the epilogue
   have hs3 : SegW W' K p lbl ms'
-      (At exe endPc R F ⟨lab ".Lwc_rodata.x13" + Int64.ofNat 58 + Int64.ofNat 4, oR, sJ4 lbl ms g R⟩)
+      (At exe endPc R F ⟨lab ".Lwc_rodata.x0" + Int64.ofNat 58 + Int64.ofNat 4, oR, sJ4 lbl ms g R⟩)
       (fun s c => At exe endPc R F (sRet (rdPostS lbl ms) g) s c ∨ At exe endPc R F (sAb lab 40 Ab) s c) := by
-    have hc := code_field hp hend c8 (q := lab ".Lwc_rodata.x13" + Int64.ofNat 58 + Int64.ofNat 4)
-      (by rw [Int64.add_assoc]; rfl)
-    refine (ret_stepW (n := ⟨lab ".Lwc_rodata.x13" + Int64.ofNat 58 + Int64.ofNat 4, oR, sJ4 lbl ms g R⟩)
+    have hc := Spike.Lib.X64.code_field_blockAcrossB hp hend c8 (List.take_append_drop _ _)
+      (q := lab ".Lwc_rodata.x0" + Int64.ofNat 58 + Int64.ofNat 4) (by rw [Int64.add_assoc]; rfl)
+    refine (ret_stepW (n := ⟨lab ".Lwc_rodata.x0" + Int64.ofNat 58 + Int64.ofNat 4, oR, sJ4 lbl ms g R⟩)
       (PostS := rdPostS lbl ms) (g := g) (by simp [rpB4]) rpB4_ok hF hR (by omega) hhi hc
       (BlkW.noSetFs hW.ret hc (by decide))
       ?_).mono_post fun _ _ h => .inl h
@@ -466,9 +466,9 @@ theorem hello1_rodata_setupGW {W : Frag isa} {K : State → State → Prop}
       (fun s c => At exe endPc R F (sRet (rdPostS lbl ms) g) s c ∨ At exe endPc R F (sAb lab 40 Ab) s c) :=
     chainW (A := fun k => match k with
       | 0 => At exe endPc R F (sEn lab ".Lwc_rodata.entry" 32 [] J0)
-      | 1 => At exe endPc R F ⟨lab ".Lwc_rodata.x13", ⟨-40, []⟩, sJp lbl ms g R⟩
-      | 2 => At exe endPc R F ⟨lab ".Lwc_rodata.x13" + Int64.ofNat 29 + Int64.ofNat 3, oR, sJ2 lbl ms g R⟩
-      | _ => At exe endPc R F ⟨lab ".Lwc_rodata.x13" + Int64.ofNat 58 + Int64.ofNat 4, oR, sJ4 lbl ms g R⟩) 3
+      | 1 => At exe endPc R F ⟨lab ".Lwc_rodata.x0", ⟨-40, []⟩, sJp lbl ms g R⟩
+      | 2 => At exe endPc R F ⟨lab ".Lwc_rodata.x0" + Int64.ofNat 29 + Int64.ofNat 3, oR, sJ2 lbl ms g R⟩
+      | _ => At exe endPc R F ⟨lab ".Lwc_rodata.x0" + Int64.ofNat 58 + Int64.ofNat 4, oR, sJ4 lbl ms g R⟩) 3
       (fun k hk => by
         rcases (by omega : k = 0 ∨ k = 1 ∨ k = 2) with rfl | rfl | rfl
         · exact hs0

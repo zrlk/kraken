@@ -28,7 +28,7 @@ exit status in `%rdi`); the labels' pcs are compared on the resolved
 addresses (`abH_labs`, the sites at `4200277`, `4200317`; A64's `lab_ne`);
 the region is `[-24, 16)` with no alignment premise; the return address is
 `raAb` (`.Lscc_rt_alloc.full + 12`, A64's `.L2_scc_rt_alloc.4_full + 8`) and
-`ownG`'s two return points `.Lscc_rt_alloc_tcb.x5`, `.Lwc_main.x23` (A64's
+`ownG`'s two return points `.Lscc_rt_alloc_tcb.x0`, `.Lwc_main.x5` (A64's
 `.sp13`, `.sp11`); `wc_heapAbStub`'s region is `R.callee (-240 - 8) (-24)
 16`, so `R` needs `[-272, -232)` (A64's `R.lo ≤ -288`, `0 ≤ R.hi`, `hal`).
 -/
@@ -155,7 +155,7 @@ theorem nodeW_exAbWf {ar : Arena} {Ab Ac : State → Prop} {fs : List TermRun.Fr
   obtain ⟨-, h2⟩ := abH_labs hlab
   have hc' : c = c0 := hc
   refine ⟨fun k x hx hpcs => ⟨?_, fun v hv => ?_⟩, fun _ h => h⟩
-  · have hpx : x = 4202723 := by
+  · have hpx : x = 4202761 := by
       rw [← hpcs]; unfold pcOf; rw [hpc]; simp only [NT, Abort.N, Abort.heap, h2]; decide
     subst hpx
     rw [e, ← codeT_eq] at hx
@@ -254,8 +254,8 @@ theorem hpathW_hab0 {ar : Arena} {p : Prog} {Cl : State → Prop} {Ctx : FragS i
       (Spike.Lib.X64.WriteAb.Ab L.lab) Cl (Spike.Lib.X64.ThreadsAb.Ac L.lab pfxM) Ctx L0 ls0 frM X0 s c fs)
       (fun _ _ => False) L.exe L.endPc R F c0 ra := by
   have ef : L.lab ".Lscc_rt_alloc.full" = Int64.ofNat 4198751 := hlab _ _ (by rw [← codeT_eq]; decide +kernel)
-  have e5 : L.lab ".Lscc_rt_alloc_tcb.x5" = Int64.ofNat 4199245 := hlab _ _ (by rw [← codeT_eq]; decide +kernel)
-  have e23 : L.lab ".Lwc_main.x23" = Int64.ofNat 4203484 := hlab _ _ (by rw [← codeT_eq]; decide +kernel)
+  have e5 : L.lab ".Lscc_rt_alloc_tcb.x0" = Int64.ofNat 4199245 := hlab _ _ (by rw [← codeT_eq]; decide +kernel)
+  have e23 : L.lab ".Lwc_main.x5" = Int64.ofNat 4203522 := hlab _ _ (by rw [← codeT_eq]; decide +kernel)
   have es : L.lab Spike.Lib.X64.Flow.Ret0.StackTake.siteL = Int64.ofNat 4200277 :=
     hlab _ _ (by rw [← codeT_eq]; decide +kernel)
   obtain ⟨-, h2⟩ := abH_labs hlab

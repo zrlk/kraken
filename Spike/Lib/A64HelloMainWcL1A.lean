@@ -168,7 +168,7 @@ theorem hP_level1
     (hhp : textProgram asm = .ok SccCode.helloProg)
     (hlo0 : Λ0.code.lo = lo) (hstat : Λ0.static = fun _ => none) (hc : Spike.Lib.A64.Rt.CtrZ o)
     (hA13 : Scc.Cert.Spawn.A64.a13data (Ly).Λ o.prog o.secs = true)
-    (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
+    (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
     /- the layout's immediates (loader; at the root's `iRdM`: `ImmsMe.rdImms_iRdM`, `hmeC_iRdM`, `HabCtlA.hz_i0M`) -/
     (hI : RdImms (Ly).Λ) (himm : (Ly).Λ.imms Spike.Lib.SrcCalls.setupCont "me" 0 = some (tcb0 (Ly).Λ))
     (hz : (Ly).Λ.imms Spike.Lib.HelloMainPreSrc.newTerm "z" 0 = some 0)
@@ -239,7 +239,7 @@ theorem h1_level1P
     (hhp : textProgram asm = .ok SccCode.helloProg)
     (hlo0 : Λ0.code.lo = lo) (hstat : Λ0.static = fun _ => none) (hc : Spike.Lib.A64.Rt.CtrZ o)
     (hA13 : Scc.Cert.Spawn.A64.a13data (Ly).Λ o.prog o.secs = true)
-    (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
+    (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
     (hI : RdImms (Ly).Λ) (himm : (Ly).Λ.imms Spike.Lib.SrcCalls.setupCont "me" 0 = some (tcb0 (Ly).Λ))
     /- the certificate table's `z` at `newTerm` (at the root's `ImmsMe.i0M`: `HabCtlA.hz_i0M`) -/
     (hz : i0 Spike.Lib.HelloMainPreSrc.newTerm "z" 0 = some 0)

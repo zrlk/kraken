@@ -1,24 +1,31 @@
 /-
 **hello.w from `_start` to `wc_rodata`'s heap abort at hello's start choices, level 0, at `ownGHXW`** (x86-64; the
-`ownGHXW` instance of `Spike/Lib/X64HelloStartH0G0.lean`): `StartPlaceX.hello_rd_placeXT` at hello's start choices
+twin of `Spike/Lib/A64HelloStartH0G0.lean`, at `ownGHXW`): `StartPlaceX.hello_rd_placeXT` at hello's start choices
 (`c0S`, `helloSrc`, `L0T`/`ls0T ls`, `cTW`, the take site, `frH c0S.env`, `J' v := rdJH lab (RS helloLsw v) JW`,
 `helloLsw`), with the root's memory side owning `ownGHXW Ly ntA` and the start's level `WSHFg (ownGHXW Ly ntA)`.
-The leaf premises are discharged as in `StartH0G0.hello_start_rd_h0G0`; the thread init inside `WSHX` is
+The segment runs up to rodata's landing only: its only exit is `wc_rodata`'s heap abort at `[FR]`. `helloLsw`'s
+bounds here: `296 ≤ 488`, `488 % 8 = 0`, `488 ≤ 12288` (`decide`); the thread init inside `WSHX` is
 `hello_rd_placeXT`'s.
 
 Left as premises: the loader's facts (`hpa`, `hhp`, `hlo0`, `hstat`, `hA13`, `hctr2`, `hc`), the immediate `hme`,
-and the source/frame premises (`hWe`, `hrd`, `hloc`, `hq`, `hxa`) at the new memory side and level.
+and the source/frame premises (`hWe`, `hrd`, `hloc`, `hq`, `hxa`: the allocator's fresh-label landing in
+`ms [FR]`'s allocation fragment) at the new memory side and level.
 
 - `hello_start_rd_h0G0X`: the statement; its exit and `hxa` carry `TP (tpOf (tcbS Ly))`.
 
 ## Differences from the AArch64 version
 
-AArch64's root memory side owns `ownGH` (`A64HelloStartH0G0`); x86-64's main also holds its own and the worker's
-TCB words, so the memory side owns `ownGHXW` and the level is `WSHFg (ownGHXW …)` (`hello_rd_placeXT`). The rest
-is `StartH0G0`'s differences: `scc_rt_main` in `MainGlue.RS helloLsw v` with `J'` indexed by `v` (`hloc` only at
-`topS Ly 0`), `helloLsw = 488`,
-the loader's facts as `cellsOf asm = some …`, the start's controls `HelloRdCf.start_ctl c0S.env`, the thread
-pointer `tpOf (tcbS Ly)`.
+- AArch64's root memory side owns `ownGH`; x86-64's main also holds its own and the worker's TCB words, so the
+  memory side owns `ownGHXW` and the level is `WSHFg (ownGHXW …)` (`hello_rd_placeXT`).
+- `scc_rt_main` runs in `MainGlue.RS helloLsw v` (AArch64: `swR v (-helloLsw) 0`) and `mNC` takes that region, so
+  the source's invariant after the setup's call is `rdJH (Ly).lab (RS helloLsw v) JW`, indexed by `v`; `hrd`
+  and `hxa` are stated at it for every `v` (AArch64: one `J'`), `hloc` only at the first stack's top
+  `topS Ly 0`, so `J1 := mRdJ0 (J' (topS Ly 0))` meets it by reflexivity. `hxa`'s kept cells are
+  `CKept … (-48) (-160) 8`.
+- `helloLsw = 488` (AArch64 `480`), against `hello_rd_placeXT`'s `296 ≤ Lsw` (AArch64 `288`).
+- The loader's facts are `cellsOf asm = some …` (AArch64: `textProgram asm = .ok …`), and the start's control
+  facts are `HelloRdCf.start_ctl c0S.env` (AArch64 `C0S.c0S_ctl`).
+- The thread pointer is `tpOf (tcbS Ly)` (AArch64: `UInt64.ofBitVec (pinA + 0 + 8)`).
 -/
 import Spike.Lib.X64HelloStartPlaceXT
 import Spike.Lib.X64HelloC0S
@@ -35,7 +42,7 @@ open Spike.Lib.X64.Rt (RuntimeLayout entryR rtF)
 open Spike.Lib.X64Consumer (Lbl Lsize Pz)
 open Spike.Lib.X64.HelloPh (lo)
 open Spike.Lib.X64.HelloPh.StartGlue (X0WH)
-open Spike.Lib.X64.HelloPh.StartWcS (WS rdJH)
+open Spike.Lib.X64.HelloPh.StartWcS (rdJH)
 open Spike.Lib.X64 (At enter)
 open Spike.Lib.X64.Flow.Ret0 (tpOf)
 open Spike.Lib.X64.WakePh.MainGlue (FS JS RS topS tcbS)

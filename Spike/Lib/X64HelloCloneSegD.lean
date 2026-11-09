@@ -14,7 +14,7 @@ can import it (the clone segment's module imports `h2`'s through the root premis
   spill `-48(%rbp)` at offset `32` (`scc_rt_main`'s `%rbp` is `80` above `wc_main`'s); `hi = 40` as wake's
   `X64WakeSpawnR.MainWS.hRhi`.
 - The node's caller words are `JS`'s `fp` (the saved `%rbp` at `0`; AArch64: `x29`); the return address is at
-  `mainX3` (`.Lscc_rt_main.x3`; AArch64: `mainSp1`); the cell is in `%r15` (`X64HelloWcSp6.JLH`; AArch64: `x13`).
+  `mainX3` (`.Lscc_rt_main.x1`; AArch64: `mainSp1`); the cell is in `%r15` (`X64HelloWcSp6.JLH`; AArch64: `x13`).
 - `cloneAtH` has no label prefix (AArch64's `pfxM`).
 -/
 import Spike.Lib.X64HelloParent

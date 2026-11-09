@@ -223,7 +223,7 @@ theorem wake_start_wc_h0X {E : Entry} (hE : E.Ok (Ly).Λ)
     {inv0 : FragS isa} {inv1 : WeakMem.AllocLabel → Nat → Nat → FragS isa} {F0 : MachineData → Prop}
     (hpo : o.prog = wakeCells) (hlo : (Ly).Λ.code.lo = lo) (hstat : Λ0.static = fun _ => none)
     (hA13 : Scc.Cert.Spawn.X64.a13data (Ly).Λ o.prog o.secs = true)
-    (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
+    (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
     (hctrD : ∀ a ∈ [(Ly).pnA, (Ly).lockA, (Ly).freeNA, (Ly).nextA], (Ly).Λ.data.contains a.toNat)
     (hc : Spike.Lib.X64.Rt.CtrZ o)
     (hax : ax.toBitVec.toNat = ((Ly).lab Spike.Lib.X64.Flow.Ret0.StackTake.siteL).toBitVec.toNat)

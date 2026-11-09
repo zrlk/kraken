@@ -2,13 +2,13 @@
 **hello's root premises from their base** (x86-64; twin of `Spike/Lib/A64HelloRootInst.lean`): the choices
 `HelloRootPrem` leaves free that the h1/h2 chains fix, made once, and the named premises they discharge.
 
-- `W2Ig`, `W2I`, `X2I`, `WcI`: the third level (no frames and `HelloW2.W2H`, the empty context, at any owned words
-  `own` (`W2Ig`) or at `ownGH L (ntA L.lab)` (`W2I`), `helloSrc`, `ClH`, the level-1 placement and sizes), the
-  fence fact `X2H` at the take site and the level's sizes, the clone fact `StackM r1Of`.
+- `W2Ig`, `X2I`, `WcI`: the third level (no frames and `HelloW2.W2H`, the empty context, at any owned words `own`,
+  `helloSrc`, `ClH`, the level-1 placement and sizes), the fence fact `X2H` at the take site and the level's sizes, the
+  clone fact `StackM r1Of`.
 - `HelloRootBase`: `HelloRootPrem`'s fields but `W2`, `X2`, `Wc`, `G` and the premises on them (`x2_off`, `hXr`,
   `hP`); `h2`'s side a parameter at the base's raw sizes.
 - `hW2_I`: `OPremH.hW2` at `W2Ig own` (`HelloW2.hW2H`, no premise).
-- `hWX_Ig`, `hWX_I`: `H1GAH0.hWX` at these choices, at any `own` and at `ownGH` (at a state writing off the arena,
+- `hWX_Ig`: `H1GAH0.hWX` at these choices, at any `own` (at a state writing off the arena,
   `HelloW2.w2H_of_wshg`; `X2I` by `RootWX.hWX_W2Hg`).
 - `HelloRootBase.wn_GJ1RH`: the pinned ghost's frame condition leaves `.data`/`pinned` unmapped.
 - `HelloRootBase.har_W`: the base's `har` at the arena `WakeOD.arW`, from `CtrZ`.
@@ -19,10 +19,11 @@
 - The code is `helloCells` with labels by `codeLabel` (AArch64 `helloProg`, `codeOf`); `h2`'s kernel is
   `X64.abi`; the source is `X64HelloSrc.helloSrc`; the start's `clone` phase is x86-64's
   `Hello.ThreadsAb.AcH … StartWf.pfxM`.
-- `hWX_I` is at the box's fence `QBH` (x86-64's `H1GAH.hWX`; AArch64 `SBH`).
+- `hWX_Ig` is at the box's fence `QBH` (x86-64's `H1GAHG.hWX`; AArch64 `SBH`).
 - The pinned ghost's frame condition is `wcF (RS helloLsw v) …` over the call's region, whose `FS`'s
   `WordsNoneP` sits one conjunct deeper (`h.1.1.1`; AArch64 `h.1.1`).
-- The third level, `hW2_I` and `hWX_Ig` are generic in the owned words (`W2Ig`; AArch64: at `ownGH`).
+- The third level, `hW2_I` and `hWX_Ig` are generic in the owned words (`W2Ig`; AArch64's `W2I`, `hWX_I`: at
+  `ownGH`); the root's are at `ownGHXW`.
 - AArch64's `c0S_I`, `hstat_tablesOf` and `hstat_elf` are unused by the hello proof and have no twin here.
 -/
 import Spike.Lib.X64HelloRootPrem
@@ -54,12 +55,6 @@ abbrev W2Ig (own : Spike.Lib.X64Consumer.Own) (L : RuntimeLayout) (ar : Spike.Li
     ar Spike.Lib.X64HelloSrc.helloSrc Dt (Spike.Lib.X64.WriteAb.Ab L.lab) (ClH L)
     (Spike.Lib.X64.Hello.ThreadsAb.AcH L.lab Spike.Lib.X64.HelloPh.StartWf.pfxM) Ctx lbl lsize l b n l' b' n' s c fs
 
-/-- **The third level** at the box's labels: `W2Ig` at the start's own words (`ownGH L (ntA L.lab)`). -/
-abbrev W2I (L : RuntimeLayout) (ar : Spike.Lib.Arena) (Dt : State → Prop) (Ctx : Spike.Lib.FragS isa) (lbl : Lbl)
-    (lsize : Spike.Lib.X64Consumer.Lsize) (l : WeakMem.AllocLabel) (b n : Nat) (l' : WeakMem.AllocLabel)
-    (b' n' : Nat) : Spike.Lib.FragS isa :=
-  W2Ig (ownGH L (Spike.Lib.X64.Rt.Reserve.ntA L.lab)) L ar Dt Ctx lbl lsize l b n l' b' n'
-
 /-- **The fence's extra fact** at the box's labels: `X2H` at the take site, `lbl2H` and the level's sizes. -/
 abbrev X2I (L : RuntimeLayout) (lbl : Lbl) (lsize : Spike.Lib.X64Consumer.Lsize) (l : WeakMem.AllocLabel)
     (b n : Nat) (l' : WeakMem.AllocLabel) (b' n' : Nat) : Spike.Lib.FragS isa :=
@@ -86,22 +81,9 @@ theorem hWX_Ig {own : Spike.Lib.X64Consumer.Own} {L : RuntimeLayout} {ar : Spike
   fun c0 cA hM s c h hoff => ⟨⟨rfl, Spike.Lib.X64.HelloW2.w2H_of_wshg h hoff⟩,
     (Spike.Lib.X64.HelloPh.RootWX.hWX_W2Hg (Ctx := Ctx) L.endPc _ _ c0 cA hM s c h).2⟩
 
-/-- **`H1GAH0.hWX` at the instance's choices**: `hWX_Ig` at the start's own words (`ownGH L (ntA L.lab)`,
-`WSH`, `W2I`). -/
-theorem hWX_I {L : RuntimeLayout} {ar : Spike.Lib.Arena} {Dt : State → Prop} {Ctx : Spike.Lib.FragS isa}
-    {lbl : Lbl} {lsize : Spike.Lib.X64Consumer.Lsize} {frM : Spike.Lib.Ctl → TermRun.Frame}
-    {l : WeakMem.AllocLabel} {b n : Nat} {l' : WeakMem.AllocLabel} {b' n' : Nat} :
-    ∀ c0 cA, Spike.Lib.X64.Flow.WakeWc.MidG (Spike.Lib.X64HelloHMid.QBH l' b' (slWsH l)) c0 cA → ∀ s c,
-      Spike.Lib.X64.HelloPh.StartWf.WSH L (Spike.Lib.X64.Rt.Reserve.ntA L.lab) ar Spike.Lib.X64HelloSrc.helloSrc Dt
-        (ClH L) Ctx (lbl2H lbl l b l' b') lsize (frM c0)
-        (Spike.Lib.X64.HelloPh.Ti2.X0TH L (L.lab Spike.Lib.X64.Flow.Ret0.StackTake.siteL)) s c →
-      Spike.Lib.X64.HelloW2.OffW ar s →
-      W2I L ar Dt Ctx lbl lsize l b n l' b' n' s c [] ∧ X2I L lbl lsize l b n l' b' n' s c [] :=
-  hWX_Ig
-
 /-- **`OPremH.hW2` at the instance's level** (`HelloW2.hW2H`, no premise): `SFactsACH` at every state of `W2Ig own`
-(e.g. `W2I`), at the twice extended placement `lbl2H` and sizes `updN (updN lsize l n) l' n'`, for any `rd`, `G`,
-fragment `J`. -/
+(e.g. `W2Ig ownGHXW`), at the twice extended placement `lbl2H` and sizes `updN (updN lsize l n) l' n'`, for any `rd`,
+`G`, fragment `J`. -/
 theorem hW2_I {own : Spike.Lib.X64Consumer.Own} {L : RuntimeLayout} {ar : Spike.Lib.Arena} {Dt : State → Prop}
     {Ctx : Spike.Lib.FragS isa} {lbl : Lbl} {lsize : Spike.Lib.X64Consumer.Lsize} {rd : TermRun.Word → Prop}
     {G : Loc → Val → Prop} {J : Spike.Lib.X64ConsumerS.InvS} :
@@ -126,10 +108,8 @@ structure HelloRootBase (L : RuntimeLayout) (lbl : Lbl) (ar : Spike.Lib.Arena)
   hlab : ∀ l x, codeLabel lo SccCode.helloCells l = some x → L.lab l = Int64.ofNat x
   hsite : (Spike.Lib.X64.PhRec.μ L).site .take =
     some (L.lab Spike.Lib.X64.Flow.Ret0.StackTake.siteL).toBitVec.toNat
-  /-- `.rodata` off the stack pool (`hti_HO`'s `hro`). -/
+  /-- `.rodata` off the stack pool (`hti_HOX`'s `hro`). -/
   hro : L.Λ.rodata.Disjoint L.Λ.stackPool
-  /-- The level after the allocation. -/
-  W1 : Spike.Lib.FragS isa
   /-- The arena's geometry: the counter off its cells, the box sizes. -/
   har : ar.OK
   /-- The start's level's debts (`StartWf.WSH`'s `Dt`). -/
@@ -162,10 +142,10 @@ structure HelloRootBase (L : RuntimeLayout) (lbl : Lbl) (ar : Spike.Lib.Arena)
   hs : Spike.Lib.X64.WakePh.WSep L (Spike.Lib.X64.Rt.Reserve.ntA L.lab)
   /-- The second stack in the pool. -/
   hsub : (r1Of L.lab).Sub L.Λ.stackPool
-  /-- The second TCB's words mapped (`hti_HO`'s `hmF`). -/
+  /-- The second TCB's words mapped (`hti_HOX`'s `hmF`). -/
   hmF : ∀ a ∈ Spike.Lib.X64.Rt.Ti.tiAddrs (tH L.lab),
     Scc.Sem.Kernel.mapped (Spike.Lib.X64Consumer.K0 L.Λ) true ⟨a, 8⟩ = true
-  /-- The second TCB's words off the owned words (`hti_HO`'s `hnoF`). -/
+  /-- The second TCB's words off the owned words (`hti_HOX`'s `hnoF`). -/
   hnoF : ∀ b ∈ Spike.Lib.X64.Rt.Ti.tiAddrs (tH L.lab), ∀ j w,
     (⟨b, 8⟩, w) ∉ own2bH L (Spike.Lib.X64.Rt.Reserve.ntA L.lab) j
   /-- The second TCB's words off the arena. -/
@@ -218,9 +198,6 @@ end Spike.Lib.X64.HelloPh
 
 /-- info: 'Spike.Lib.X64.HelloPh.hWX_Ig' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms Spike.Lib.X64.HelloPh.hWX_Ig
-
-/-- info: 'Spike.Lib.X64.HelloPh.hWX_I' depends on axioms: [propext, Classical.choice, Quot.sound] -/
-#guard_msgs in #print axioms Spike.Lib.X64.HelloPh.hWX_I
 
 /-- info: 'Spike.Lib.X64.HelloPh.hW2_I' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms Spike.Lib.X64.HelloPh.hW2_I

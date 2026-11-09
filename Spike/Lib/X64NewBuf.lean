@@ -298,11 +298,11 @@ theorem newBuf_blkW {W : Frag isa} {K : State → State → Prop} {cells : List 
 
 open Hello1 (rN aR) in
 /-- `wc_rodata`'s call of the allocator is an instance (frame 40, the
-landing at `.x13`, `hello1_allocIn` for the allocator's code). -/
+landing at `.x0`, `hello1_allocIn` for the allocator's code). -/
 example {W : Frag isa} {K : State → State → Prop} {J0 : AS → Ctl → Prop}
     (hp : Lays exe SccCode.hello1Cells) (hend : endPc = endOf exe SccCode.hello1Cells)
     (hF : FStable R F) (hR : R.OK) (hlo : R.lo ≤ -208) (hhi : 8 ≤ R.hi)
-    (hW : ∀ q : Call, q.ra = ((_root_.Executable.labels exe).label ".Lwc_rodata.x13").toBitVec →
+    (hW : ∀ q : Call, q.ra = ((_root_.Executable.labels exe).label ".Lwc_rodata.x0").toBitVec →
       AllocW ms q W K exe endPc (aR R) (fun m => F m ∧ CallerCells R (-48) (-160) 8 m))
     (hq : ∀ σ c, (rN (_root_.Executable.labels exe).label R J0 .call).J σ c → ∃ q : Call,
       q.OK ms (_root_.Executable.labels exe).label ∧ q.c0 = c ∧
@@ -317,7 +317,7 @@ example {W : Frag isa} {K : State → State → Prop} {J0 : AS → Ctl → Prop}
       ∀ l b w s c, lbl l = none → At exe endPc (aR R) F' (Ea ms q.1 l b w) s c → ms.xa l b w s c) :
     SegW W K p lbl ms (At exe endPc R F (rN (_root_.Executable.labels exe).label R J0 .call))
       (fun s c => ∃ x, At exe endPc R F (nbX ms (_root_.Executable.labels exe).label lbl R 40
-        ((_root_.Executable.labels exe).label ".Lwc_rodata.x13")
+        ((_root_.Executable.labels exe).label ".Lwc_rodata.x0")
         (rN (_root_.Executable.labels exe).label R J0 .call).J x) s c) :=
   newBuf_callW (fs := 40) hp hend Alloc.hello1_allocIn hF hR (by decide)
     (by rw [allocAbortDepth_40]; exact hlo) (by omega) hq (fun _ _ h => h.2.2.2.2.2) hmem hxa

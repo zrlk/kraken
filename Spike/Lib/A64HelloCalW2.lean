@@ -81,6 +81,32 @@ theorem blkC_W2H {n : ND} {blk : List Directive} {l rl : Label} {k : Nat} {blo b
     (fun σ c h => ⟨fun _ => (hJ σ c h).1, (hJ σ c h).2⟩) hpl
   exact blkW_noKH hW fun _ _ h => ⟨rfl, h⟩
 
+/-- **A block split by a return label** (`m`, after
+its first `jA` rows; `blockAcross`): as `blkC_W2H`. -/
+theorem blkC_W2HA {n : ND} {blk : List Directive} {l rl m : Label} {k jA : Nat} {blo bhi : Int}
+    (hb : Scc.Cert.Rt.A64.blockAcross SccCode.helloProg l k (blk.take jA) m (blk.drop jA) = true)
+    (he : L.lab l + Int64.ofNat (4 * k) = n.pc)
+    (hok : Spike.Lib.A64.Flow.okBlk blo bhi n.o blk = true) (hR : R.OK) (hal : R.base.toNat % 16 = 0)
+    (hlo' : R.lo ≤ blo) (hhi : bhi ≤ R.hi)
+    (hst : BlkW (fun s _ => SFactsSt2 L.Λ (Spike.Lib.A64.PhRec.μ L) (ownGH L (ntA L.lab)) s) K L.exe L.endPc R F
+      n blk)
+    (hokP : ∀ j < blk.length, Spike.Lib.A64.HelloPh.okC (n.pc + Int64.ofNat (4 * j)).toBitVec.toNat = true)
+    (hph : Spike.Lib.A64.HelloWf.phOffHC pfxM l k rl blk = true)
+    (hret : ∀ σ c, n.J σ c → ∀ j (hj : j < blk.length) r, Spike.Lib.A64.Flow.classify blk[j] = some (.ret r) →
+      Int64.ofInt ((Spike.Lib.A64.Flow.arun L.lab (blk.take j) ⟨n.pc, n.o, σ⟩).σ.regs.getRegOrZr r).signed = L.lab rl)
+    (hJ : ∀ σ c, n.J σ c → (∀ a, c.term ≠ .ret a) ∧ RunWf helloSrc c [])
+    (hpl : BlkW (fun s c => PlacedSE L.Λ lbl s c []) (fun _ _ => False) L.exe L.endPc R F n blk) :
+    BlkW W2 (fun _ _ => False) L.exe L.endPc R F n blk := by
+  have hI := Spike.Lib.A64.HelloPh.instOkH hp hlo (ntA L.lab) (fun _ => False) hsite (rS := ⟨0, 0⟩)
+  have hW := Spike.Lib.A64.HelloWf.blkW_wfQHA (Λ := L.Λ) (ar := ar) (p := helloSrc) (Ctx := Ctx) (lsize := lsize)
+    (fs := []) (Dt := Dt) (Cl := Spike.Lib.A64.HelloPh.ClH L) (lbl := lbl) (pfx := pfxM) hI (hp ▸ hb) he hok hR hal
+    hlo' hhi (Spike.Lib.A64.WakePh.CalWf.blkW_dt hst)
+    (fun j hj s _ _ h3 => (hI.off s (by
+      rw [Spike.Lib.A64.HelloPh.okPc_eq hΛ]; unfold pcOf; rw [h3]; exact hokP j hj)).1)
+    (Spike.Lib.A64.HelloWf.phOffHC_sound hlab hph) hret (fun _ h => h.2)
+    (fun σ c h => ⟨fun _ => (hJ σ c h).1, (hJ σ c h).2⟩) hpl
+  exact blkW_noKH hW fun _ _ h => ⟨rfl, h⟩
+
 /-- **A silent single instruction inside `W2H`** at no move (`WcWf.nodeW_wfC_siH`): its pc off the take site
 (`htk`) and `okC` (`hokP`). -/
 theorem nodeC_W2H {n : ND} {si : Spike.Lib.A64.Flow.SI} {l : Label} {k : Nat}
@@ -168,9 +194,9 @@ theorem reserveW_W2H (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo' : R.lo ≤ 
     (hpl : ∀ i, ReserveW (fun s c => PlacedSE L.Λ lbl s c []) (fun _ _ => False) L.exe L.endPc R F q i) :
     ∀ i, ReserveW W2 (fun _ _ => False) L.exe L.endPc R F q i := by
   obtain ⟨lF, lE, lO⟩ := Spike.Lib.A64.HelloPh.resLabs
-  have eF : (_root_.Executable.labels L.exe).label fnL = Int64.ofNat 2165168 := hlab _ _ lF
-  have eE : (_root_.Executable.labels L.exe).label entryL = Int64.ofNat 2165184 := hlab _ _ lE
-  have eO : (_root_.Executable.labels L.exe).label okL = Int64.ofNat 2165260 := hlab _ _ lO
+  have eF : (_root_.Executable.labels L.exe).label fnL = Int64.ofNat 2165172 := hlab _ _ lF
+  have eE : (_root_.Executable.labels L.exe).label entryL = Int64.ofNat 2165188 := hlab _ _ lE
+  have eO : (_root_.Executable.labels L.exe).label okL = Int64.ofNat 2165264 := hlab _ _ lO
   have hin := Spike.Lib.A64.Flow.HelloWc.hello_reserveIn
   simp only [Spike.Lib.A64.Flow.Reserve.reserveIn, Bool.and_eq_true] at hin
   obtain ⟨⟨⟨⟨⟨⟨⟨⟨-, bE⟩, bA⟩, bA1⟩, bArg⟩, bRmw⟩, bBnd⟩, bJ⟩, bOk⟩ := hin
@@ -216,7 +242,7 @@ theorem reserveW_W2H (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo' : R.lo ≤ 
       (hJ _ fun _ _ h => h.1) h2
     intro j hj; dsimp only [rvN]; rw [eE]; revert j; decide
   case ok =>
-    refine blkC_W2H hp hlo hΛ hlab hsite (rl := ".L22_wc_main.sp3") bOk (Spike.Lib.A64.Flow.ofNat4_zero _)
+    refine blkC_W2HA hp hlo hΛ hlab hsite (rl := ".L22_wc_main.sp3") bOk (Spike.Lib.A64.Flow.ofNat4_zero _)
       Spike.Lib.A64.Flow.Reserve.rRet_ok hR hal (by omega) (by omega) h1 ?_ (by decide +kernel)
       (Spike.Lib.A64Consumer.hret_of_run Spike.Lib.A64.Flow.Reserve.rRet_ok fun σ c hJ' => ?_)
       (hJ _ fun _ _ h => h.1) h2
@@ -230,16 +256,16 @@ set_option maxHeartbeats 3200000 in
 /-- (row hP-tcb) **The second `scc_rt_alloc_tcb`'s nodes inside `W2H`** (`tcb2QH`, called from `wc_main` returning
 to `.sp4`, `hra`), in a region with the frame `[-192, 0]`, at no move: each node's `SFactsSt2` (`hst`, at any move)
 and placement (`hpl`), the control `c0` (`hc0`), the counter `scc_rt_pinned_next` (`L.pnA`) and the header word
-(`L.pinA + 104`) unmapped under `F` (`hunP`, `hunH`) and off the arena and not its counter word (`hoffP`,
+(`L.pinA + 136`) unmapped under `F` (`hunP`, `hunH`) and off the arena and not its counter word (`hoffP`,
 `hoffH`). -/
 theorem tcbWG_W2H (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo' : R.lo ≤ -192) (hhi : 0 ≤ R.hi)
     (g : Spike.Lib.A64.Flow.Ret0.AllocTcb.G) (c0 : Ctl) (hra : g.ra = (L.lab ".L22_wc_main.sp4").toBitVec)
     (hc0 : (∀ a, c0.term ≠ .ret a) ∧ RunWf helloSrc c0 [])
     (hunP : ∀ m, F m → Mem.loadInt m.dmem L.pnA 8 = none)
     (hoffP : ¬ (ar.heap ≤ L.pnA.toNat ∧ L.pnA.toNat < ar.heap + 16 * ar.cells) ∧ (⟨L.pnA, 8⟩ : Loc) ≠ ar.ctrLoc)
-    (hunH : ∀ m, F m → Mem.loadInt m.dmem (L.pinA + 104#64) 8 = none)
-    (hoffH : ¬ (ar.heap ≤ (L.pinA + 104#64).toNat ∧ (L.pinA + 104#64).toNat < ar.heap + 16 * ar.cells) ∧
-      (⟨L.pinA + 104#64, 8⟩ : Loc) ≠ ar.ctrLoc)
+    (hunH : ∀ m, F m → Mem.loadInt m.dmem (L.pinA + 136#64) 8 = none)
+    (hoffH : ¬ (ar.heap ≤ (L.pinA + 136#64).toNat ∧ (L.pinA + 136#64).toNat < ar.heap + 16 * ar.cells) ∧
+      (⟨L.pinA + 136#64, 8⟩ : Loc) ≠ ar.ctrLoc)
     (hst : ∀ i, TcbWG (fun s _ => SFactsSt2 L.Λ (Spike.Lib.A64.PhRec.μ L) (ownGH L (ntA L.lab)) s) K L.exe L.endPc
       R F (tcb2QH g c0) i)
     (hpl : ∀ i, TcbWG (fun s c => PlacedSE L.Λ lbl s c []) (fun _ _ => False) L.exe L.endPc R F (tcb2QH g c0) i) :
@@ -329,7 +355,7 @@ theorem tcbWG_W2H (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo' : R.lo ≤ -19
       rw [Spike.Lib.A64.Rt.Tcb.rAddr_zero]; simp only [Reg64s.getXReg]
       rw [hJ'.2.2.2, tcb2QH_hdrA, hpin]; exact hoffH
   case ret =>
-    refine blkC_W2H hp hlo hΛ hlab hsite (rl := ".L22_wc_main.sp4") bRet rfl
+    refine blkC_W2HA hp hlo hΛ hlab hsite (rl := ".L22_wc_main.sp4") bRet rfl
       Spike.Lib.A64.Flow.Ret0.AllocTcb.atRet_ok hR hal (by omega) (by omega) h1 ?_ (by decide +kernel)
       (Spike.Lib.A64Consumer.hret_of_run Spike.Lib.A64.Flow.Ret0.AllocTcb.atRet_ok fun σ c hJ' => ?_)
       (hJ _ fun _ _ h => h.1) h2

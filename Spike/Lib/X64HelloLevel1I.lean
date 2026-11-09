@@ -1,11 +1,11 @@
 /-
 **hello's level 1 at the root's choices** (x86-64; the twin of `Spike/Lib/A64HelloLevel1I.lean`'s live part): the
-level `HelloWf.W1H` at the root's choices (context `Land.CtxR1H`, frame `frH c0S.env`, the start's facts `X0WH`)
+level `HelloWf.W1Hg` at the root's choices (context `Land.CtxR1H`, frame `frH c0S.env`, the start's facts `X0WH`)
 and, at rodata's entry `J1 := mRdJ0 J'`, main's TCB in the caller's slot (the landing's `hJ1`, asked by the
 level-1 instances that pin `wc_main`'s caller, as `Land.GsH1` does).
 
-- `W1Rg`: the level at the root's choices at any owned words `own` (`HelloWf.W1Hg own`); `W1R`, `XR`: the level
-  at `ownGH` and its per-state facts at the root's choices.
+- `W1Rg`: the level at the root's choices at any owned words `own` (`HelloWf.W1Hg own`); `XR`: its per-state
+  facts at the root's choices.
 - `slot16_rdJ`: at rodata's entry `J1 := mRdJ0 J'` the caller's slot `-16` is main's TCB `pinA + 8`.
 
 ## Differences from the AArch64 version
@@ -18,7 +18,7 @@ level-1 instances that pin `wc_main`'s caller, as `Land.GsH1` does).
   `StartH0B` and `H1Gfp` imports serve its landing segment only.
 - Not twinned (unreachable from the AArch64 root, so twins only live constants): `hB_land`, `h1_level1`.
 - The level is generic in the owned words (`W1Rg`; AArch64's `W1R` is at `ownGH` only), so that `ownGHXW`, which
-  carries main's and the worker's TCB words, shares it.
+  carries main's and the worker's TCB words, is an instance; the root's level 1 is at `ownGHXW`.
 -/
 import Spike.Lib.X64HelloLand1
 import Spike.Lib.X64HelloW1H
@@ -63,9 +63,6 @@ set_option hygiene false in
 local notation "AR" => Spike.Lib.X64.WakeOD.arW hpw IH
 
 set_option hygiene false in
-local notation "NT" => Spike.Lib.X64.Rt.Reserve.ntA (Ly).lab
-
-set_option hygiene false in
 local notation "LB" => L0T (Ly).Λ
 
 set_option hygiene false in
@@ -80,11 +77,6 @@ frame `FR`, the start's facts. -/
 abbrev W1Rg (own : Spike.Lib.X64Consumer.Own) : WeakMem.AllocLabel → Nat → Nat → FragS isa :=
   Spike.Lib.X64.HelloWf.W1Hg own (Ly) (AR) helloSrc DtW (Spike.Lib.X64.HelloPh.ClH (Ly))
     (Spike.Lib.X64.HelloPh.Land.CtxR1H (asm := asm) hpw i0 E rd ls) (LB) (ls0T ls) (FR) (X0WH (Ly) (AX))
-
-/-- **The level at the root's choices**: `W1Rg` at `ownGH` (`W1H` with the context `CtxR1H`, the frame `FR`,
-the start's facts). -/
-abbrev W1R : WeakMem.AllocLabel → Nat → Nat → FragS isa :=
-  W1Rg (asm := asm) hpw i0 E rd ls (Spike.Lib.X64.HelloPh.ownGH (Ly) NT)
 
 /-- **The level's per-state facts** (`h1StmtHF_of_segWS`'s `X`): the start's `X0WH`. -/
 abbrev XR : WeakMem.AllocLabel → Nat → Nat → FragS isa := fun _ _ _ s _ _ => X0WH (Ly) (AX) s

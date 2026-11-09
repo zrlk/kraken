@@ -139,8 +139,21 @@ def isSym (s : String) : Bool :=
 def operands (t : String) (dir : String) : List String :=
   ((t.drop dir.length).toString.splitOn ",").map (·.trimAscii.toString)
 
+/-- A `.quad` operand `A - B` or `A - .` (one space each side of the `-`): the
+difference word of label `A` and label `B` (`some B`) or the word's own address
+(`none`); `A` is a label other than `.`. -/
+def quadDiff? (x : String) : Option Kraken.DataImage.Item :=
+  match x.splitOn " - " with
+  | [a, b] =>
+    if a != "." && isSym a then
+      if b == "." then some (.quadDiff a none)
+      else if isSym b then some (.quadDiff a (some b)) else none
+    else none
+  | _ => none
+
 /-- The items of one line of a data section: a label, `.balign n`,
-`.p2align k`, `.zero n` / `.skip n`, `.byte`, `.quad` (numbers or labels);
+`.p2align k`, `.zero n` / `.skip n`, `.byte`, `.quad` (numbers, labels or
+label differences, `quadDiff?`);
 symbol directives (`.globl`, `.type`, `.size`) and blank or comment lines
 have none. `none`: a line the loader does not read (it refuses the text). -/
 def dataLine (t : String) : Option (List Kraken.DataImage.Item) :=
@@ -167,7 +180,7 @@ def dataLine (t : String) : Option (List Kraken.DataImage.Item) :=
     (operands t ".quad").mapM fun x =>
       match parseInt? x with
       | some v => some (.quad v)
-      | none => if isSym x then some (.quadLabel x) else none
+      | none => if isSym x then some (.quadLabel x) else quadDiff? x
   else none
 
 /-- **The data sections of a text**: the lines of its `.data`, `.bss` and

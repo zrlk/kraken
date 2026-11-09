@@ -1,6 +1,6 @@
 /-
 **hello.w on x86-64: main after its `clone`** (the spawn's parent half): back from the
-clone's `syscall` (`.Lwc_main.x25 + 94` in hello.w's x86-64 listing, `SccCode.helloCells`) with the child's id
+clone's `syscall` (`.Lwc_main.x3 + 94` in hello.w's x86-64 listing, `SccCode.helloCells`) with the child's id
 `0 < %rax < pidMax`, main runs
 
     testq %rax, %rax                    -- row (test_ndW): ZF clear
@@ -82,7 +82,7 @@ block_spec x26B (-128) 16 oP x26B
 block_spec bsB (-128) 16 oP bsB
 block_spec spB (-128) 16 oP spB
 
-abbrev x26L : Label := ".Lwc_main.x26"
+abbrev x26L : Label := ".Lwc_main.x4"
 abbrev spL : Label := ".Lwc_main.spawned6"
 
 /-- **The parent's blocks and rows in `cells`**: the test and the `je` at

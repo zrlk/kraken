@@ -5,7 +5,7 @@ itself the layout- and context-generic twin of wake's `hwr_R` and `fstable_wAR`,
 - `fstable_aRG`: the allocator's frame condition at a call of frame `fr` (`CallerCells`, `PlacedAlloc.CtxG`) is
   stable in the callee's region; the instances `fstable_wARH` (`wc_main`'s box call, `-144`, `WcCtxH`) and
   `fstable_aRH` (`wc_rodata`'s buffer call, `-48`, `HelloRd.RdCtx`).
-- `hwr_stH`: `WcWfS.wcSp0W_WSH`'s `hwr` (guarded by the thread pointer `t`) in any valid layout of `helloCells`:
+- `hwr_stH`: `WcWfRX.wcSp0W_WSgHX`'s `hwr` (guarded by the thread pointer `t`) in any valid layout of `helloCells`:
   at `wc_main`'s box store (`sNH .st`) the store is `StAt ref … Gs` (so in `Ctx`, `hCtx`) and writes no counter
   (`hlt`, `h64`). The landing family `Gs` admits is the box's landing `bXH ref` under `t` (`hGs`); the box's word
   and cell are `hbox`, `hcell`.
@@ -13,7 +13,7 @@ itself the layout- and context-generic twin of wake's `hwr_R` and `fstable_wAR`,
 The root context (wake's `hctx_R`) needs hello's root `Ctx`; `hwr_stH` takes it as `hCtx`.
 
 Unlike AArch64 (`str x9, [x10]` at `.L22_wc_main.sp0 + 12`, one `sp`-based frame, the callee's region `[-160, 0)`
-with `0 ≤ R.hi`, the thread pointer in `TPIDR_EL0`), the store is `movq %rax, (%rcx)` at `.Lwc_main.x22 + 15`
+with `0 ≤ R.hi`, the thread pointer in `TPIDR_EL0`), the store is `movq %rax, (%rcx)` at `.Lwc_main.x0 + 15`
 (the cell at slot `-56`, the word in `%rax`), its landing `bXRH` on `R` is moved to `bXH` on `R.fp (-8)`
 (`bXRH_rebase`), the callee's region is `[-160, 8)` with `8 ≤ R.hi`, and the thread pointer is `fsBase`.
 -/
@@ -80,7 +80,7 @@ variable {p : Prog} {lbl : Lbl} {exe : _root_.Executable} [Kraken.Executable.Val
   {R : Region} {F : MachineData → Prop} {ar : Arena} {lsize : Lsize} {Ctx : FragS isa}
 
 set_option maxHeartbeats 800000 in
-/-- **`WcWfS.wcSp0W_WSH`'s `hwr`** under the thread pointer `t`, in any valid layout of `helloCells`: at
+/-- **`WcWfRX.wcSp0W_WSgHX`'s `hwr`** under the thread pointer `t`, in any valid layout of `helloCells`: at
 `wc_main`'s box store (`sNH .st`) the store is `StAt ref p lbl Gs` (its landing `bXH ref` on `R.fp (-8)` under
 `t`, `hGs`), so in `Ctx` (`hCtx`), writing no counter (the counter below `ref`'s heap, `hlt`).
 - The value boxed is one word represented by `0` (`hbox`).
@@ -109,9 +109,9 @@ theorem hwr_stH {kp : Nat} (hL : Lays exe SccCode.helloCells kp) (hend : endPc =
   have hSt : StAt ref p lbl Gs s c [] := by
     refine ⟨rfl, _, hGs, ?_⟩
     refine Spike.Lib.X64.Alloc.newStM_nd (b := .rcx) (r := .rax) (k := 0) (z := 3) (R := R) (F := F)
-      (n := ⟨(_root_.Executable.labels exe).label ".Lwc_main.x22" + Int64.ofNat 15, oWRH, fun σ c =>
+      (n := ⟨(_root_.Executable.labels exe).label ".Lwc_main.x0" + Int64.ofNat 15, oWRH, fun σ c =>
         (sNH { ref with xa := X } (_root_.Executable.labels exe).label R J1 .st).J σ c ∧ σ.regs.fsBase = t⟩)
-      (fun l A => ⟨(_root_.Executable.labels exe).label ".Lwc_main.x22" + Int64.ofNat 18, oWRH, fun σ c =>
+      (fun l A => ⟨(_root_.Executable.labels exe).label ".Lwc_main.x0" + Int64.ofNat 18, oWRH, fun σ c =>
         (bXRH ref (_root_.Executable.labels exe).label J1 l A).J σ c ∧ σ.regs.fsBase = t⟩)
       (code_field hL hend hin.2 rfl) ?_ ?_ ?_
     · rintro l A s' c' - ⟨he, hn, hdc, hpc, σ, hA', hD, hJ, htp'⟩
@@ -132,8 +132,8 @@ theorem hwr_stH {kp : Nat} (hL : Lays exe SccCode.helloCells kp) (hend : endPc =
           by rw [ha, hA56], hle⟩, htp'⟩⟩
       · have : (σ.regs.get64 .rax).toNat = 0 := by simp [Reg64s.get64, h0]
         rw [this]; exact hrep
-      · show (_root_.Executable.labels exe).label ".Lwc_main.x22" + Int64.ofNat 18 =
-          (_root_.Executable.labels exe).label ".Lwc_main.x22" + Int64.ofNat 15 + Int64.ofNat 3
+      · show (_root_.Executable.labels exe).label ".Lwc_main.x0" + Int64.ofNat 18 =
+          (_root_.Executable.labels exe).label ".Lwc_main.x0" + Int64.ofNat 15 + Int64.ofNat 3
         rw [Int64.add_assoc]; rfl
     · obtain ⟨he, hn, hdc, hpc, σ, hA', hD, hJ⟩ := hAt
       exact ⟨he, hn, hdc, hpc, σ, hA', hD, hJ, by rw [← hA'.regs]; exact htp⟩

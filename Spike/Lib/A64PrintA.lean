@@ -34,6 +34,7 @@ code's `b.le` separates it from a refusal.
 -/
 import Spike.Lib.A64PrintD
 import Scc.Cert.Rt.A64Print
+import Spike.Lib.A64CodeAcross
 
 set_option linter.unusedSimpArgs false
 
@@ -439,7 +440,7 @@ theorem seg_printA_ofW {W : Frag isaLSE2} {K : State → State → Prop} {F : Ma
       (by simp only [PrintD.N, Print.N, PrintD.pcSvc, Scc.Cert.Rt.A64.Print.add4, Scc.Cert.Rt.A64.Print.add0])
   · exact Scc.Cert.Rt.A64.Print.code_field hp hend h14
       (by simp only [PrintD.N, Print.N, PrintD.pcSvc, Scc.Cert.Rt.A64.Print.add4, Scc.Cert.Rt.A64.Print.add0])
-  · exact Scc.Cert.Rt.A64.Print.code_field hp hend h15
+  · exact Spike.Lib.A64.code_field_blockAcross hp hend h15 (List.take_append_drop _ _)
       (by simp only [PrintD.N, Print.N, PrintD.pcSvc, Scc.Cert.Rt.A64.Print.add4, Scc.Cert.Rt.A64.Print.add0])
   · exact Scc.Cert.Rt.A64.Print.code_field hp hend hs
       (by simp only [PrintD.N, Print.N, PrintD.pcSvc, Scc.Cert.Rt.A64.Print.add4, Scc.Cert.Rt.A64.Print.add0])

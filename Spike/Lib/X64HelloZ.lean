@@ -281,11 +281,11 @@ theorem wc_hZW {cw c1 c2 : Ctl} {A B rbp0 ra tp sp : BitVec 64} (hw : ¬ HPassC 
     NodeZ (fun s c => Z0 exe kp s c []) exe
       (HelloTail.NA (_root_.Executable.labels exe).label cw c1 c2 A B rbp0 ra tp sp i) (HelloTail.blkN i) := by
   cases i
-  · exact node0F hp (l := ".Lwc_worker.x17") (off := 0) (by zpc) (by zk) (by zk) (by zp hw)
-  · exact node0F hp (l := ".Lwc_worker.x17") (off := 11) (by zpc) (by zk) (by zk) (by zp hw)
-  · exact node0T hp (l := ".Lwc_worker.x17") (off := 14) (by zpc) (by zk) (by zk) (by zp h1)
+  · exact node0F hp (l := ".Lwc_worker.x0") (off := 0) (by zpc) (by zk) (by zk) (by zp hw)
+  · exact node0F hp (l := ".Lwc_worker.x0") (off := 11) (by zpc) (by zk) (by zk) (by zp hw)
+  · exact node0T hp (l := ".Lwc_worker.x0") (off := 14) (by zpc) (by zk) (by zk) (by zp h1)
   · exact nodeZ_nil
-  · exact node0T hp (l := ".Lwc_worker.x18") (off := 0) (by zpc) (by zk) (by zk) (by zp h2)
+  · exact node0T hp (l := ".Lwc_worker.x1") (off := 0) (by zpc) (by zk) (by zk) (by zp h2)
 
 set_option maxHeartbeats 1600000 in
 /-- **`scc_rt_unpark`'s nodes** (`hZU`), past the store. -/
@@ -323,11 +323,11 @@ theorem thr_hZT {c3 : Ctl} {tp sp0 : BitVec 64} (h3 : HPassC c3) (i : HThrTail.P
     NodeZ (fun s c => Z0 exe kp s c []) exe (HThrTail.NA (_root_.Executable.labels exe).label c3 tp sp0 i)
       (HThrTail.blkN i) := by
   cases i
-  · exact node0T hp (l := ".Lscc_rt_thr_worker.x13") (off := 0) (by zpc) (by zk) (by zk) (by zp h3)
-  · exact node0T hp (l := ".Lscc_rt_thr_worker.x13") (off := 9) (by zpc) (by zk) (by zk) (by zp h3)
-  · exact node0T hp (l := ".Lscc_rt_thr_worker.x13") (off := 24) (by zpc) (by zk) (by zk) (by zp h3)
-  · exact node0T hp (l := ".Lscc_rt_thr_worker.x13") (off := 28) (by zpc) (by zk) (by zk) (by zp h3)
-  · exact node0T hp (l := ".Lscc_rt_thr_worker.x13") (off := 40) (by zpc) (by zk) (by zk) (by zp h3)
+  · exact node0T hp (l := ".Lscc_rt_thr_worker.x0") (off := 0) (by zpc) (by zk) (by zk) (by zp h3)
+  · exact node0T hp (l := ".Lscc_rt_thr_worker.x0") (off := 9) (by zpc) (by zk) (by zk) (by zp h3)
+  · exact node0T hp (l := ".Lscc_rt_thr_worker.x0") (off := 24) (by zpc) (by zk) (by zk) (by zp h3)
+  · exact node0T hp (l := ".Lscc_rt_thr_worker.x0") (off := 28) (by zpc) (by zk) (by zk) (by zp h3)
+  · exact node0T hp (l := ".Lscc_rt_thr_worker.x0") (off := 40) (by zpc) (by zk) (by zk) (by zp h3)
 
 /-- **The child's stub** (`hZc`), before the store. -/
 theorem child_hZc {cW : Ctl} {w : Child.Words} {tp sp0 : BitVec 64} (h0 : ¬ HPassC cW) (i : CN) :

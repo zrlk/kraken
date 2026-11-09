@@ -27,10 +27,10 @@ open Spike.Lib.X64.RunsOff (runsNeChk abPtsA runsOffA_of_chk)
 /-- **The parent half's byte runs**: the test and the `je` after the
 clone's `syscall`, `.x22`'s block and its `jmp`, `.spawned6`. -/
 def parentRuns : List (String × Nat × Nat) :=
-  [(".Lwc_main.x21", 48, 53), (".Lwc_main.x22", 0, 22), (".Lwc_main.spawned6", 0, 13)]
+  [(".Lwc_main.x3", 48, 53), (".Lwc_main.x4", 0, 22), (".Lwc_main.spawned6", 0, 13)]
 
 /-- **The `exit_group` tail's byte run** at `scc_rt_main`'s return point. -/
-def exitRuns : List (String × Nat × Nat) := [(".Lscc_rt_main.x2", 0, 15)]
+def exitRuns : List (String × Nat × Nat) := [(".Lscc_rt_main.x0", 0, 15)]
 
 /-- The parent half's byte runs miss `PcOffA`'s points. -/
 theorem parent_chkA : runsNeChk SccCode.wakeCells parentRuns abPtsA = true := by decide +kernel

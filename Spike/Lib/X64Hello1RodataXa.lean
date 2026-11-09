@@ -1,6 +1,6 @@
 /-
 **`wc_rodata`'s allocation continuation on x64**: a fresh label's landing
-in the allocator is at `wc_rodata`'s `.x13` for any placement of the label
+in the allocator is at `wc_rodata`'s `.x0` for any placement of the label
 at the landing's base, and from there the rest of `wc_rodata` runs to the
 setup block's return (`Spike/Lib/X64Hello1RodataSetup.lean`), the `%fs`
 base kept. The x64 twin of `Spike/Lib/A64Hello1RodataXa.lean`.
@@ -8,12 +8,12 @@ base kept. The x64 twin of `Spike/Lib/A64Hello1RodataXa.lean`.
 - `aR_off_neg8`, `aR_off_0`: the frame record's cells lie outside the
   allocator's region;
 - `rd_xa_post`: from the allocator's continuation `Ea` in its region, under
-  a frame condition the call hands it, to `.x13` (of `sJp`) in
+  a frame condition the call hands it, to `.x0` (of `sJp`) in
   `wc_rodata`'s region, under any labelling placing `l` at the base;
-- `hello1_rodata_post_tpW`: from `.x13` with the call's `%fs` base to
+- `hello1_rodata_post_tpW`: from `.x0` with the call's `%fs` base to
   `sXf`, given the region's base is the call's `%rsp`;
 - `hello1_rodata_setupPW`: `hello1_rodata_setupW` with the allocation's
-  continuation asked at `.x13`'s states (`hpost`) instead of at the
+  continuation asked at `.x0`'s states (`hpost`) instead of at the
   allocator's landing.
 -/
 import Spike.Lib.X64Hello1RodataSetup
@@ -49,10 +49,10 @@ theorem aR_off_0 : ¬ (aR R).Off (0 - -48) := fun h => by
   simp [Region.callee] at this
 
 omit [Executable.ValidLayout exe] in
-/-- **The allocator's fresh-label landing is at `wc_rodata`'s `.x13`**: a
+/-- **The allocator's fresh-label landing is at `wc_rodata`'s `.x0`**: a
 state at the continuation `Ea` of label `l`, base `b`, in the allocator's
 region, under a frame condition `F'` the call hands it (as in
-`hello1_rodata_setupW`'s `hxa`), is at `.x13` of `sJp lbl'` in
+`hello1_rodata_setupW`'s `hxa`), is at `.x0` of `sJp lbl'` in
 `wc_rodata`'s region under `F`, for every labelling `lbl'` placing `l` at
 `b`. -/
 theorem rd_xa_post {F0 : MachineData → Prop} {g : WcG} {q : AG ms (_root_.Executable.labels exe).label}
@@ -63,7 +63,7 @@ theorem rd_xa_post {F0 : MachineData → Prop} {g : WcG} {q : AG ms (_root_.Exec
         (sJ1 (sJ0 (_root_.Executable.labels exe).label ms F0 g)) .call).J σC c ∧
       (Alloc.N (_root_.Executable.labels exe).label ms q.1 .e).J (enter (-48) σC) c ∧ CKept R (-48) (-160) 8 mC m)
     {s : State} {c : Ctl} (h : At exe endPc (aR R) F' (Ea ms q.1 l b w) s c) :
-    At exe endPc R F ⟨(_root_.Executable.labels exe).label ".Lwc_rodata.x13", ⟨-40, []⟩, sJp lbl' ms g R⟩ s c := by
+    At exe endPc R F ⟨(_root_.Executable.labels exe).label ".Lwc_rodata.x0", ⟨-40, []⟩, sJp lbl' ms g R⟩ s c := by
   have h' := at_leave (R := R) (F := F) (kb := -48) (lo' := -160) (hi' := 8)
     (P := fun σ => ∃ c0,
       (rNL (_root_.Executable.labels exe).label R (sJ0 (_root_.Executable.labels exe).label ms F0 g)
@@ -75,7 +75,7 @@ theorem rd_xa_post {F0 : MachineData → Prop} {g : WcG} {q : AG ms (_root_.Exec
   obtain ⟨he, hn, hdc, hpc, σ, hA, hD, σx, σC, hJx, ⟨c0, h1, h2⟩, rfl⟩ := h'
   refine ⟨he, hn, hdc, ?_, _, hA, hD, ?_⟩
   · rw [hpc]
-    show Int64.ofBitVec q.1.ra = (_root_.Executable.labels exe).label ".Lwc_rodata.x13"
+    show Int64.ofBitVec q.1.ra = (_root_.Executable.labels exe).label ".Lwc_rodata.x0"
     rw [← h2.2.2.1]
     show Int64.ofBitVec (σC.slot (-48)) = _
     rw [h1.2.2.2.2.2, int64_ofBitVec_toBitVec]
@@ -100,8 +100,8 @@ theorem rd_xa_post {F0 : MachineData → Prop} {g : WcG} {q : AG ms (_root_.Exec
     · rw [hq, hx, hτ, he', hn'] at hcl
       exact hcl
 
-/-- **`wc_rodata` from `.x13` to the setup block's return, the `%fs` base
-kept**: from `.x13` of `sJp lbl` with the call's `%fs` base to `sXf`, in a
+/-- **`wc_rodata` from `.x0` to the setup block's return, the `%fs` base
+kept**: from `.x0` of `sJp lbl` with the call's `%fs` base to `sXf`, in a
 region of depth 40 whose base is the call's `%rsp` (`hL`), the buffer's
 words unmapped under `F` (`hbuf`), the states in `W`, none moved by `K`
 (`hWpost`); `rdQ`'s premises (`hQ`) bound the arena. -/
@@ -115,7 +115,7 @@ theorem hello1_rodata_post_tpW {W : Frag isa} {K : State → State → Prop}
     (hWpost : RdPostLW W K exe endPc R F (sJp lbl ms g R) (sJp' lbl ms g R) (sJh1 lbl ms g R) (sJ2 lbl ms g R)
       (sJ2' lbl ms g R) (sJh2 lbl ms g R) (sJ4 lbl ms g R)) :
     SegW W K p lbl ms
-      (fun s c => At exe endPc R F ⟨(_root_.Executable.labels exe).label ".Lwc_rodata.x13", ⟨-40, []⟩,
+      (fun s c => At exe endPc R F ⟨(_root_.Executable.labels exe).label ".Lwc_rodata.x0", ⟨-40, []⟩,
         sJp lbl ms g R⟩ s c ∧ TP g.tp s)
       (At exe endPc R F (sXf lbl ms g)) := by
   let lab := (_root_.Executable.labels exe).label
@@ -132,7 +132,7 @@ theorem hello1_rodata_post_tpW {W : Frag isa} {K : State → State → Prop}
     simp only [BitVec.toNat_ofNat]
     omega
   have hpost : SegW (NoSetFsW W K) K p lbl ms'
-      (At exe endPc R F ⟨lab ".Lwc_rodata.x13", ⟨-40, []⟩, sJp lbl ms g R⟩)
+      (At exe endPc R F ⟨lab ".Lwc_rodata.x0", ⟨-40, []⟩, sJp lbl ms g R⟩)
       (At exe endPc R F (sX lbl ms g)) := by
     refine hello1_rodata_post_runW hp hend hF hR (by omega) hhi (show SO.le ⟨8, []⟩ ⟨8, []⟩ = true by decide)
       (RdPostLW.noSetFs hp hend hWpost)
@@ -230,8 +230,8 @@ theorem hello1_rodata_post_tpW {W : Frag isa} {K : State → State → Prop}
   · rw [← hAb.regs]; exact ht
 
 /-- **`hello1_rodata_setupW` with the allocation's continuation at
-`.x13`**: a fresh label `l`'s allocation, landing at base `b`, continues in
-`ms.xa` whenever the state is at `.x13` of `sJp lbl'` for every labelling
+`.x0`**: a fresh label `l`'s allocation, landing at base `b`, continues in
+`ms.xa` whenever the state is at `.x0` of `sJp lbl'` for every labelling
 `lbl'` placing `l` at `b`, at the call's `%fs` base, the region's base the
 call's `%rsp` (`hpost`; `hello1_rodata_post_tpW` runs from there). -/
 theorem hello1_rodata_setupPW {W : Frag isa} {K : State → State → Prop}
@@ -247,7 +247,7 @@ theorem hello1_rodata_setupPW {W : Frag isa} {K : State → State → Prop}
       Mem.loadInt m.dmem (BitVec.ofNat 64 (ms.heap + 16 * old + ms.off 2 τ8 + i)) 8 = none)
     (hpost : ∀ l b w s c, lbl l = none → R.addr 0 = g.sp →
       (∀ lbl' : WeakMem.AllocLabel → Option Nat, lbl' l = some b →
-        At exe endPc R F ⟨(_root_.Executable.labels exe).label ".Lwc_rodata.x13", ⟨-40, []⟩, sJp lbl' ms g R⟩
+        At exe endPc R F ⟨(_root_.Executable.labels exe).label ".Lwc_rodata.x0", ⟨-40, []⟩, sJp lbl' ms g R⟩
           s c) →
       TP g.tp s → ms.xa l b w s c)
     (hWpre : RdPreW W K exe endPc R F ms (sJ0 (_root_.Executable.labels exe).label ms F0 g)

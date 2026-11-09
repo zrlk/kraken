@@ -55,10 +55,11 @@ theorem ownG_lo {L : RuntimeLayout} (hlab : ∀ l x, codeOf lo wakeProg l = some
     omega
   unfold ownG
   simp only [hn "scc_rt_alloc_tcb" "scc_rt_thread_reserve" 2164712 (by rw [← codeT_eq]; decide +kernel) (by decide),
-    hn "scc_rt_thread_init" "scc_rt_stack_release" 2165244 (by rw [← codeT_eq]; decide +kernel) (by decide),
-    hn ".L21_wc_main.sp4" ".L21_wc_main.sp6" 2169268 (by rw [← codeT_eq]; decide +kernel) (by decide),
-    hn ".L21_wc_main.sp6" ".L21_wc_main.stack_grow" 2169292 (by rw [← codeT_eq]; decide +kernel) (by decide),
-    hn "scc_rt_abort" "scc_rt_thr_worker" 2167996 (by rw [← codeT_eq]; decide +kernel) (by decide), ↓reduceIte, hpc, phW_lo]
+    hn "scc_rt_thread_init" "scc_rt_stack_release" 2165248 (by rw [← codeT_eq]; decide +kernel) (by decide),
+    hn ".L21_wc_main.sp4" ".L21_wc_main.sp6" 2169300 (by rw [← codeT_eq]; decide +kernel) (by decide),
+    hn ".L21_wc_main.sp6" ".L21_wc_main.stack_grow" 2169324 (by rw [← codeT_eq]; decide +kernel) (by decide),
+    hn "scc_rt_abort" "scc_rt_thr_worker" 2168028 (by rw [← codeT_eq]; decide +kernel) (by decide), ↓reduceIte, hpc,
+    phW_lo]
 
 /-- **`scc_rt_nthreads` starts at `0`** (a decided fact of the emitted
 output, as `rtInitOk` for the runtime's words): its symbol resolves to a

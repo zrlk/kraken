@@ -8,7 +8,7 @@ lemmas of `X64HelloWcPreWI` and `X64HelloWcResWI` at the callees' regions
 (`wARH R`, `rARH R`).
 
 `scc_rt_alloc`'s obligations at `ownGH` are `X64HelloAllocWI.allocW_wcGH`
-at the return label `.Lwc_main.x22`.
+at the return label `.Lwc_main.x0`.
 
 - `wARH_ok`, `rARH_ok`: the callees' regions are regions, 8-aligned.
 - `wcPreW_wcGH`: `WcPreWH` from the prologue's premises (`htp`, `hmr`,

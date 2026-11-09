@@ -5,7 +5,8 @@ the `Accepted2` twin of `Spike/Lib/LowerA64/BlocksC1Code.lean`'s
 `Spike/Lib/LowerShapeC2Shape.lean`).
 
 - `inst2_allIns`, `term2_allIns`: the code of every non-call `InstC2`
-  instruction and of every `TermC2` terminator is instructions only.
+  instruction but a checked `+` and of every `TermC2` terminator but a
+  `ret` is instructions only (those two carry fresh labels `x{k}`, P5).
 - `BlC2`: `BlC` with the `bl`'s pc in the phase of `ra` and an instruction
   after the return label `spK` (`InRun`): what a callee's return-address
   facts need (`Spike/Lib/LowerA64/AllocRa.lean`); `CodeC2.mono` weakens it.
@@ -14,7 +15,8 @@ the `Accepted2` twin of `Spike/Lib/LowerA64/BlocksC1Code.lean`'s
 - `callSeg`: a call's code `lw`, `bl g`, the return label `spK`, `ls` in a
   segment gives `lw`'s and `ls`'s pieces at `CdC`, the `bl` at `BlC2`, and the
   segment and phase facts after `spK` (`codeC_of_seg`'s call arm).
-- `codeC2_of_seg`, `codeC2_block`: at `BlC2`.
+- `codeC2_of_seg`, `codeC2_block`: at `BlC2`; a checked `+`'s fall-through
+  label and a `ret`'s return site label start new runs, as in `codeC_of_seg`.
 -/
 import Spike.Lib.LowerA64.BlocksC2Code
 import Spike.Lib.LowerA64.Body2Arms
@@ -40,20 +42,12 @@ section Emit
 
 variable {cx : FnCtx}
 
-/-- **The code of every non-call `InstC2` instruction is instructions
-only.** -/
+/-- **The code of every non-call `InstC2` instruction but a checked `+` is
+instructions only** (a checked `+`'s has its fall-through's label, P5). -/
 theorem inst2_allIns {k : Nat} {i : Scc.IR.Inst} (hi : InstC2 i) (hc : Spike.Lib.LowerShape.isCall i = false)
-    {ci : List Item} (h : cx.inst k i = .ok ci) : AllIns ci := by
+    (ha : ∀ d a b, i ≠ .addChk d a b) {ci : List Item} (h : cx.inst k i = .ok ci) : AllIns ci := by
   cases hi with
-  | addChk d p q =>
-    simp only [FnCtx.inst] at h
-    obtain ⟨la, ha, h⟩ := bind_eq_ok h
-    obtain ⟨lb, hb, h⟩ := bind_eq_ok h
-    obtain ⟨ls, hs, h⟩ := bind_eq_ok h
-    cases ok_inj h
-    refine allIns_append (allIns_append (allIns_append (allIns_getOp ha) (allIns_getOp hb)) ?_)
-      (allIns_setReg hs)
-    simp [AllIns, directives_addChecked, isIns]
+  | addChk d p q => exact absurd rfl (ha d p q)
   | subSat d p q =>
     simp only [FnCtx.inst] at h
     obtain ⟨la, ha, h⟩ := bind_eq_ok h
@@ -63,7 +57,7 @@ theorem inst2_allIns {k : Nat} {i : Scc.IR.Inst} (hi : InstC2 i) (hc : Spike.Lib
     refine allIns_append (allIns_append (allIns_append (allIns_getOp ha) (allIns_getOp hb)) ?_)
       (allIns_setReg hs)
     simp [AllIns, subSat, directives, ins, isIns]
-  | load d a => exact inst_allIns (.load d a) hc h
+  | load d a => exact inst_allIns (.load d a) hc (fun _ _ _ h => by cases h) h
   | store a w =>
     simp only [xchgStore, FnCtx.inst] at h
     obtain ⟨lv, hv, h⟩ := bind_eq_ok h
@@ -139,14 +133,12 @@ theorem allIns_leave_ret : AllIns (cx.leave ++ [ret]) := by
   · simp [directives, ins, isIns]
   · exact allIns_append (allIns_movImm _ _) (allIns_ins _)
 
-/-- **The code of a `TermC2` terminator is instructions only.** -/
-theorem term2_allIns {k : Nat} {t : Scc.IR.Term} (ht : TermC2 t) {c2 : List Item} (h : cx.term k t = .ok c2) :
-    AllIns c2 := by
+/-- **The code of a `TermC2` terminator but a `ret` is instructions only**
+(a `ret`'s has its return site's label, P5). -/
+theorem term2_allIns {k : Nat} {t : Scc.IR.Term} (ht : TermC2 t) (hr : ∀ ws, t ≠ .ret ws) {c2 : List Item}
+    (h : cx.term k t = .ok c2) : AllIns c2 := by
   cases ht with
-  | ret ws =>
-    obtain ⟨-, ls, hls, rfl⟩ := term_retN_inv h
-    rw [List.append_assoc]
-    exact allIns_append (allIns_retLoads hls) allIns_leave_ret
+  | ret ws => exact absurd rfl (hr ws)
   | br p q l l' =>
     simp only [FnCtx.term] at h
     obtain ⟨la, ha, h⟩ := bind_eq_ok h
@@ -181,13 +173,15 @@ theorem CodeC2.mono {cx : FnCtx} {Cd : Int64 → List Directive → Prop} {Bl Bl
     ∀ {k : Nat} {pc : Int64} {is : List Scc.IR.Inst} {tm : Scc.IR.Term},
       CodeC2 cx Cd Bl k pc is tm → CodeC2 cx Cd Bl' k pc is tm
   | _, _, [], _, h => h
-  | _, _, _ :: _, _, .inl ⟨hc, l, hl, hcd, h⟩ => .inl ⟨hc, l, hl, hcd, CodeC2.mono hB h⟩
+  | _, _, _ :: _, _, .inl ⟨hc, hn, l, hl, hcd, h⟩ => .inl ⟨hc, hn, l, hl, hcd, CodeC2.mono hB h⟩
   | _, _, _ :: _, _, .inr (.inl ⟨d, g, w, lw, ls, hi, hw, hs, h1, h2, h3, h⟩) =>
     .inr (.inl ⟨d, g, w, lw, ls, hi, hw, hs, h1, hB _ _ _ h2, h3, CodeC2.mono hB h⟩)
   | _, _, _ :: _, _, .inr (.inr (.inl ⟨p, h, kv, u, la, ls, hi, ha, hs, h1, h2, h3, h'⟩)) =>
     .inr (.inr (.inl ⟨p, h, kv, u, la, ls, hi, ha, hs, h1, hB _ _ _ h2, h3, CodeC2.mono hB h'⟩))
-  | _, _, _ :: _, _, .inr (.inr (.inr ⟨a0, a1, la, hi, ha, h1, h2, h⟩)) =>
-    .inr (.inr (.inr ⟨a0, a1, la, hi, ha, h1, hB _ _ _ h2, CodeC2.mono hB h⟩))
+  | _, _, _ :: _, _, .inr (.inr (.inr (.inl ⟨a0, a1, la, hi, ha, h1, h2, h⟩))) =>
+    .inr (.inr (.inr (.inl ⟨a0, a1, la, hi, ha, h1, hB _ _ _ h2, CodeC2.mono hB h⟩)))
+  | _, _, _ :: _, _, .inr (.inr (.inr (.inr ⟨d, a, b, la, lb, ls, hi, ha, hb, hs, h1, h2, h⟩))) =>
+    .inr (.inr (.inr (.inr ⟨d, a, b, la, lb, ls, hi, ha, hb, hs, h1, h2, CodeC2.mono hB h⟩)))
 
 /-- A directive list beginning with an instruction. -/
 def HeadIns (D : List Directive) : Prop := ∃ x r, D = .instr x :: r
@@ -210,6 +204,18 @@ theorem headIns_append_all {A P : List Directive} (hA : A.all isIns = true) (hP 
   | nil => simpa using hP
   | cons a A => exact headIns_append (P := P) (headIns_of_all hA (List.cons_ne_nil _ _))
 
+/-- **A load from the stack begins with an instruction** (the frame's exit's
+first, `term2_head`). -/
+theorem headIns_ldrOff {w : RegWidth} {rt : XReg} {base : RegOrSp .W64} {off : Int} {P : List Directive} :
+    HeadIns (directives (ldrOff w rt base off) ++ P) := by
+  unfold ldrOff
+  split
+  · exact ⟨_, _, rfl⟩
+  split
+  · exact ⟨_, _, rfl⟩
+  rw [directives_append, List.append_assoc]
+  exact headIns_append_all (allIns_movImm _ _) ⟨_, _, rfl⟩
+
 section Emit
 
 variable {cx : FnCtx}
@@ -217,12 +223,16 @@ variable {cx : FnCtx}
 /-- **A `TermC2` terminator's code begins with an instruction.** -/
 theorem term2_head {k : Nat} {t : Scc.IR.Term} (ht : TermC2 t) {c2 : List Item} (h : cx.term k t = .ok c2) :
     HeadIns (directives c2) := by
-  refine headIns_of_all (term2_allIns ht h) ?_
   cases ht with
   | ret ws =>
-    obtain ⟨-, ls, -, rfl⟩ := term_retN_inv h
-    simp [directives_append, ret, ins, directives]
+    -- its loads, then the frame's exit (P5: the return site's label after it)
+    obtain ⟨-, ls, hls, rfl⟩ := term_retN_inv h
+    rw [directives_append, directives_append]
+    unfold FnCtx.leave
+    rw [directives_append, directives_append, List.append_assoc, List.append_assoc, List.append_assoc]
+    exact headIns_append_all (allIns_retLoads hls) headIns_ldrOff
   | br p q l l' =>
+    refine headIns_of_all (term2_allIns (.br p q l l') (fun _ h => by cases h) h) ?_
     simp only [FnCtx.term] at h
     obtain ⟨la, -, h⟩ := bind_eq_ok h
     obtain ⟨lb, -, h⟩ := bind_eq_ok h
@@ -235,8 +245,15 @@ theorem term2_head {k : Nat} {t : Scc.IR.Term} (ht : TermC2 t) {c2 : List Item} 
 instructions only, or a call's (its arguments' loads, then the `bl`). -/
 theorem inst2_head (hm : cx.maps = true) {k : Nat} {i : Scc.IR.Inst} (hi : InstC2 i) {ci : List Item}
     (h : cx.inst k i = .ok ci) {P : List Directive} (hP : HeadIns P) : HeadIns (directives ci ++ P) := by
+  by_cases hac : ∃ d a b, i = .addChk d a b
+  · -- a checked `+`: its add, then its fall-through's label (P5)
+    obtain ⟨d, a, b, rfl⟩ := hac
+    obtain ⟨la, lb, ls, ha, hb, -, hds⟩ := inst_addChk_items h
+    rw [hds, List.append_assoc]
+    refine headIns_append (headIns_of_all (allIns_addDirs ha hb) ?_)
+    simp [addDirs, directives_append, directives_addChecked]
   by_cases hc : Spike.Lib.LowerShape.isCall i = false
-  · exact headIns_append_all (inst2_allIns hi hc h) hP
+  · exact headIns_append_all (inst2_allIns hi hc (fun d a b h => hac ⟨d, a, b, h⟩) h) hP
   · have hbl : ∀ (A : List Item) (g : Label) (rest : List Directive), AllIns A →
         directives ci = directives A ++ blD g :: rest → HeadIns (directives ci ++ P) := by
       intro A g rest hA hd
@@ -379,7 +396,7 @@ theorem callSeg (hgap : ∀ a b n, labelGap prog a b n = true → lab b = lab a 
   have hseg2 : segIn prog spK (directives ls ++ D ++ zs) = true := segIn_label hseg'
   refine ⟨?_, ⟨?_, ?_, ?_⟩, ?_, hsp, hseg2, ?_, ?_⟩
   · -- the arguments' loads
-    refine ⟨hAw', l, xs.length, rfl, ?_, ?_⟩
+    refine ⟨hAw', .inl ⟨l, xs.length, trivial, rfl, ?_⟩, ?_⟩
     · exact blockAt_of_segIn (zs := [B] ++ .label spK :: (directives ls ++ D ++ zs))
         (by simpa only [List.append_assoc] using hseg') hx hAw'
     · exact runPhB_sub (zs := [B]) (by simpa only [List.append_assoc] using hr0)
@@ -437,11 +454,57 @@ theorem codeC2_of_seg (hm : cx.maps = true)
       (∀ r ∈ runsAux l xs.reverse (directives (c1 ++ c2) ++ zs), ph (lab r.1).toBitVec.toNat = ph ra.toBitVec.toNat) →
       CodeC2 cx (CdC prog okPc ph lab ra) (BlC2 prog okPc ph lab cx ra) k (lab l + Int64.ofNat (4 * xs.length))
         is tm
-  | [], k, l, c1, c2, xs, zs, _, hi, ht, hseg, hx, hph, _ => by
+  | [], k, l, c1, c2, xs, zs, _, hi, ht, hseg, hx, hph, hrl => by
     simp only [instsItems] at hi
     cases hi
-    simp only [List.nil_append, List.length_nil, Nat.add_zero] at hseg hph ht
-    exact Or.inr ⟨c2, ht, cdC_at hseg hx (term2_allIns htm ht) hph⟩
+    simp only [List.nil_append, List.length_nil, Nat.add_zero] at hseg hph hrl ht
+    by_cases hr : ∀ ws, tm ≠ .ret ws
+    · exact Or.inr (Or.inl ⟨c2, hr, ht, cdC_at hseg hx (term2_allIns htm hr ht) hph⟩)
+    -- a `ret`: its return site's label between the frame exit and `ret` (P5)
+    obtain ⟨ws, rfl⟩ : ∃ ws, tm = .ret ws := by
+      cases htm with
+      | ret ws => exact ⟨ws, rfl⟩
+      | br => exact absurd (fun _ h => by cases h) hr
+    obtain ⟨hn, lw, hg, rfl⟩ := term_retN_inv ht
+    generalize hX : cx.local s!"x{k}" = X at hseg hph hrl
+    generalize hT : directives (lw ++ cx.leave) = T
+    have hTi : T.all isIns = true := by rw [← hT]; exact allIns_append (allIns_retLoads hg) (allIns_leave cx)
+    have hRi : (directives [ret]).all isIns = true := allIns_ins _
+    have hTR : directives (lw ++ cx.leave ++ [ret]) = T ++ directives [ret] := by rw [← hT, directives_append]
+    have hD : directives (lw ++ cx.leave ++ [lbl X, ret]) = T ++ .label X :: directives [ret] := by
+      rw [← hT, show lw ++ cx.leave ++ [lbl X, ret] = (lw ++ cx.leave) ++ [lbl X] ++ [ret] by simp,
+        directives_append, directives_append, List.append_assoc]; rfl
+    rw [hD] at hseg hph hrl
+    -- the loads and frame exit
+    have hseg1 : segIn prog l (xs ++ T ++ (.label X :: directives [ret] ++ zs)) = true := by
+      simpa only [List.append_assoc, List.cons_append] using hseg
+    have hph1 : ∀ r ∈ runsAux l xs.reverse (T ++ (.label X :: directives [ret] ++ zs)),
+        runPhB okPc ph lab (lab r.1) ra r.2 = true := by
+      simpa only [List.append_assoc, List.cons_append] using hph
+    obtain ⟨hat1, hr1, hp1⟩ := cdCQ_at1 (Q := fun _ => True) trivial hseg1 hx hTi hph1
+    have hxT : (xs ++ T).all isIns = true := by rw [List.all_append, hx, hTi]; rfl
+    obtain ⟨hseg2, hsp⟩ := label_at hgap (P := xs ++ T) (R := directives [ret] ++ zs)
+      (by simpa only [List.append_assoc, List.cons_append] using hseg) hxT
+    rw [List.cons_append, runs_label l xs hTi X] at hph1
+    have hrl1 := hrl
+    rw [List.append_assoc, List.cons_append, runs_label l xs hTi X] at hrl1
+    -- `ret`, after the return site's label
+    obtain ⟨hat2, hr2, -⟩ := cdCQ_at1 (Q := fun _ => True) (l := X) (xs := []) trivial (by simpa using hseg2) rfl
+      hRi (fun r hr => hph1 r (List.mem_cons_of_mem _ hr))
+    rw [List.length_nil, ofNat4_zero] at hat2 hr2
+    have hphX : ph (lab X).toBitVec.toNat = ph ra.toBitVec.toNat := by
+      obtain ⟨P, hP⟩ := runsAux_run0 X [] (directives [ret] ++ zs)
+      exact hrl1 _ (List.mem_cons_of_mem _ hP)
+    have hphl : ph (lab l).toBitVec.toNat = ph ra.toBitVec.toNat := hrl1 _ (List.mem_cons_self ..)
+    have hsp' : lab X = lab l + Int64.ofNat (4 * xs.length) + Int64.ofNat (4 * T.length) := by
+      rw [hsp, pc_app]
+    refine Or.inr (Or.inr ⟨ws, lw, rfl, hn, hg, ?_⟩)
+    rw [hTR]
+    refine ⟨by rw [List.all_append, hTi, hRi]; rfl, .inr ⟨T, _, rfl, hat1, by rw [← hsp']; exact hat2⟩, ?_⟩
+    refine runPhB_append hr1 (by rw [← hsp']; exact hr2) ?_
+    by_cases hTe : T = []
+    · subst hTe; simp only [List.length_nil, ofNat4_zero]
+    · rw [← hsp', hphX, hp1 hTe, hphl]
   | i :: is, k, l, c1, c2, xs, zs, hs, hi, ht, hseg, hx, hph, hrl => by
     have hs' := List.forall_mem_cons.mp hs
     simp only [instsItems] at hi
@@ -479,10 +542,57 @@ theorem codeC2_of_seg (hm : cx.maps = true)
           refine ⟨h1, h2, h3, ?_⟩
           have := codeC2_of_seg hm hgap htm is (k + 1) _ c1' c2 (directives ls) zs hs'.2 hc1 ht hseg2 hAs hrs hrl2
           rwa [hsp] at this
+        by_cases hac : ∃ d a b, i = .addChk d a b
+        · -- a checked `+`: its fall-through's label before the store (P5)
+          obtain ⟨d, a, b, rfl⟩ := hac
+          obtain ⟨la, lb, ls, ha, hb, hs, hds⟩ := inst_addChk_items hci
+          rw [hds] at hseg hph hrl
+          generalize hDd : directives (c1' ++ c2) = D at hseg hph hrl
+          generalize hX : cx.local s!"x{k}" = X at hseg hph hrl
+          have hAi := allIns_addDirs ha hb
+          have hSi : (directives ls).all isIns = true := allIns_setReg hs
+          -- the checked add
+          have hseg1 : segIn prog l (xs ++ addDirs cx la lb ++ (.label X :: (directives ls ++ D ++ zs))) = true := by
+            simpa only [List.append_assoc, List.cons_append] using hseg
+          have hph1 : ∀ r ∈ runsAux l xs.reverse (addDirs cx la lb ++ .label X :: (directives ls ++ D ++ zs)),
+              runPhB okPc ph lab (lab r.1) ra r.2 = true := by
+            simpa only [List.append_assoc, List.cons_append] using hph
+          have hrl1 : ∀ r ∈ runsAux l xs.reverse (addDirs cx la lb ++ .label X :: (directives ls ++ D ++ zs)),
+              ph (lab r.1).toBitVec.toNat = ph ra.toBitVec.toNat := by
+            simpa only [List.append_assoc, List.cons_append] using hrl
+          have cA := cdC_at hseg1 hx hAi hph1
+          have hxA : (xs ++ addDirs cx la lb).all isIns = true := by rw [List.all_append, hx, hAi]; rfl
+          obtain ⟨hseg2, hsp⟩ := label_at hgap (P := xs ++ addDirs cx la lb) (R := directives ls ++ D ++ zs)
+            (by simpa only [List.append_assoc] using hseg1) hxA
+          rw [runs_label l xs hAi X] at hph1 hrl1
+          have hsp' : lab X = lab l + Int64.ofNat (4 * xs.length) + Int64.ofNat (4 * (addDirs cx la lb).length) := by
+            rw [hsp, pc_app]
+          have hphX : ∀ r ∈ runsAux X [] (directives ls ++ D ++ zs), runPhB okPc ph lab (lab r.1) ra r.2 = true :=
+            fun r hr => hph1 r (List.mem_cons_of_mem _ hr)
+          have hrlX : ∀ r ∈ runsAux X [] (directives ls ++ D ++ zs),
+              ph (lab r.1).toBitVec.toNat = ph ra.toBitVec.toNat :=
+            fun r hr => hrl1 r (List.mem_cons_of_mem _ hr)
+          -- the store, after the fall-through's label
+          have cS := cdC_at (l := X) (xs := []) (zs := D ++ zs)
+            (by simpa only [List.append_assoc, List.nil_append] using hseg2) rfl hSi
+            (by simpa only [List.append_assoc, List.reverse_nil] using hphX)
+          rw [List.length_nil, ofNat4_zero, hsp'] at cS
+          -- the rest of the block
+          have c3 := codeC2_of_seg hm hgap htm is (k + 1) X c1' c2 (directives ls) zs hs'.2 hc1 ht
+            (by rw [hDd]; simpa only [List.append_assoc] using hseg2) hSi
+            (by
+              rw [hDd, ← List.append_nil (directives ls).reverse, ← runsAux_shift _ _ _ _ (noLabel_of_isIns hSi)]
+              simpa only [List.append_assoc] using hphX)
+            (by
+              rw [hDd, ← List.append_nil (directives ls).reverse, ← runsAux_shift _ _ _ _ (noLabel_of_isIns hSi)]
+              simpa only [List.append_assoc] using hrlX)
+          rw [hsp'] at c3
+          exact Or.inr (Or.inr (Or.inr (Or.inr ⟨d, a, b, la, lb, ls, rfl, ha, hb, hs, cA, cS, c3⟩)))
         by_cases hc : Spike.Lib.LowerShape.isCall i = false
-        · -- an instruction other than a call: instructions only
-          have hA : (directives ci).all isIns = true := inst2_allIns hs'.1 hc hci
-          refine Or.inl ⟨hc, ci, hci, ?_, ?_⟩
+        · -- an instruction other than a call or a checked `+`: instructions only
+          have hna : ∀ d a b, i ≠ .addChk d a b := fun d a b h => hac ⟨d, a, b, h⟩
+          have hA : (directives ci).all isIns = true := inst2_allIns hs'.1 hc hna hci
+          refine Or.inl ⟨hc, hna, ci, hci, ?_, ?_⟩
           · exact cdC_at (zs := directives (c1' ++ c2) ++ zs) (by simpa only [List.append_assoc] using hseg) hx hA
               (by simpa only [List.append_assoc] using hph)
           · have hxA : (xs ++ directives ci).all isIns = true := by rw [List.all_append, hx, hA]; rfl
@@ -514,7 +624,7 @@ theorem codeC2_of_seg (hm : cx.maps = true)
             cases hsr
             have hAa : AllIns ca := by rw [getArgs_eq (by simp)] at hca; exact allIns_getOps hca
             obtain ⟨h1, h2, -, h4⟩ := hcall hAa allIns_nil hd
-            refine .inr (.inr (.inr ⟨a0, a1, ca, rfl, hca, h1, h2, ?_⟩))
+            refine .inr (.inr (.inr (.inl ⟨a0, a1, ca, rfl, hca, h1, h2, ?_⟩)))
             simpa [directives] using h4
           | _ => exact absurd rfl hc
 

@@ -47,7 +47,7 @@ about a program that runs. -/
 -- and the run below of the load exits with `42`.
 #guard (T.load ret0Asm ret0Λ).isSome
 
-/-- info: "out=\"\" events=[exit 42] stop=exited steps=294 poolMsgs=0" -/
+/-- info: "out=\"\" events=[exit 42] stop=exited steps=295 poolMsgs=0" -/
 #guard_msgs in
 #eval match T.load ret0Asm ret0Λ with
   | some c =>

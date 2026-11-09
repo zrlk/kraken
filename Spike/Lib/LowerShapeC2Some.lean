@@ -996,7 +996,7 @@ theorem accepted2_lowerC2 {p : Prog} (hp : Accepted2 p = true) {d : Decl} (hd : 
   have hn := Spike.Lib.LowerNode.nodup_of_accepted2 hp
   have hp' := hp
   simp only [Accepted2, Bool.and_eq_true] at hp'
-  obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨-, -⟩, hds⟩, hsp⟩, -⟩, hlay⟩, -⟩, hcalls⟩, -⟩, -⟩ := hp'
+  obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨-, -⟩, -⟩, hds⟩, hsp⟩, -⟩, hlay⟩, -⟩, hcalls⟩, -⟩, -⟩ := hp'
   have hne := Spike.Lib.LowerNode.isPrintExt_false_of_compiled hd hc
   have hnl : ¬(hasPrint p = true ∧ d.name = "printL") := by
     rintro ⟨hpr, hnm⟩

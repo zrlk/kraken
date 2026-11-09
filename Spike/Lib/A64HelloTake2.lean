@@ -5,8 +5,8 @@ instance of `own2bH` (`Spike/Lib/A64HelloOwn2.lean`) at the phase
 projection `ph2bH := phH % 16` with the canonical take's phase (bit `3`
 clear), and the phase facts of `scc_rt_thread_init` (`TiPh`, returning to
 `wc_main`'s `.sp6`, hello.w's `.L22_wc_main`) and `scc_rt_stack_take`
-(`TakePh`) there. hello.w's take site is at `2165976`, its release site at
-`2166032`.
+(`TakePh`) there. hello.w's take site is at `2165980`, its release site at
+`2166036`.
 
 - `take2TabH`, `ti2TabH`: `takePhTab` with its pins' phases, `tiPhTab`
   returning to `.sp6`; decided at `ph2bHC` (`decide +kernel`).
@@ -196,7 +196,7 @@ theorem takePh2bH {L : RuntimeLayout} (hp : L.prog = SccCode.helloProg) (hlo : L
       L.lab Spike.Lib.A64.Flow.Ret0.ThreadInit.spL = L.lab r := fun _ h => nomatch h
   have hlk : Spike.Lib.A64.Flow.Ret0.lockA L.lab = L.lockA := L.lab_lock
   have hnx : Spike.Lib.A64.Flow.Ret0.nextA L.lab = L.nextA := L.lab_next
-  have hsite : (L.lab siteL).toBitVec.toNat = 2165976 :=
+  have hsite : (L.lab siteL).toBitVec.toNat = 2165980 :=
     pcAt0_eq hlab (by unfold Scc.Cert.Rt.A64.pcAt; rw [← codeT_eq]; decide +kernel)
   have hs12 := ph_of_factOk hlab (hf (.ph Rt.Code.Take.spinL 2 12) (by simp [take2TabH]))
   have hs14 := ph_of_factOk hlab (hf (.ph Rt.Code.Take.spinL 3 14) (by simp [take2TabH]))
@@ -332,7 +332,7 @@ theorem takePh2bH {L : RuntimeLayout} (hp : L.prog = SccCode.helloProg) (hlo : L
         Ne.symm c4, Ne.symm c5, Ne.symm c6, c7, c8, Ne.symm c7, Ne.symm c8]
       rfl
     siteRel := fun a ha => by
-      have e : (Spike.Lib.A64.PhRec.μ L).site .release = some 2166032 := by
+      have e : (Spike.Lib.A64.PhRec.μ L).site .release = some 2166036 := by
         show codeOf L.Λ.code.lo L.prog "scc_rt_release_site" = _; rw [hp, hlo, ← codeT_eq]; decide +kernel
       rw [e] at ha; cases ha; rw [hsite]; decide
     siteAb := fun k a ha => by

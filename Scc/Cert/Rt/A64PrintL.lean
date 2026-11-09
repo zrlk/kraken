@@ -1,4 +1,5 @@
 import Scc.Cert.Rt.A64PrintLMs
+import Spike.Lib.A64CodeAcross
 
 /-!
 # `wc_printL` in an emitted AArch64 program
@@ -10,7 +11,10 @@ the prologue's fall-through into `.0_entry` (`hentry`);
 `Scc.Cert.Rt.A64.Morestack.hms_printL` adds `.sp_check` at the grow stub's
 return address (`hsp`). `printLIn prog` checks them on a directive list:
 every block at its label and instruction offset (`blockAt`) and the three
-label distances (`labelGap`). The function's blocks start at
+label distances (`labelGap`). The P5 return labels split two blocks:
+`1_then6`'s `ret` follows the label `.x7` (one segment through
+`blockAcross`, `code_field_blockAcross`), and `b9` follows the label `.x9`,
+9 instructions behind `.2_else7` (a fourth `labelGap`). The function's blocks start at
 `.stack_check`, the label right after `wc_printL` (the run after
 `wc_printL` itself is empty). `code_printL`, `check_printL`,
 `entry_printL` and `sp_printL` are the hypotheses in any valid layout of a
@@ -34,15 +38,16 @@ def printLIn (prog : List Directive) : Bool :=
   blockAt prog ".L21_wc_printL.0_entry" 17 b4 &&
   blockAt prog ".L21_wc_printL.sp5" 0 b5 &&
   blockAt prog ".L21_wc_printL.sp5" 5 b6 &&
-  blockAt prog ".L21_wc_printL.1_then6" 0 b7 &&
+  blockAcross prog ".L21_wc_printL.1_then6" 0 (b7.take 4) ".L21_wc_printL.x7" (b7.drop 4) &&
   blockAt prog ".L21_wc_printL.2_else7" 0 b8 &&
-  blockAt prog ".L21_wc_printL.2_else7" 9 b9 &&
+  blockAt prog ".L21_wc_printL.x9" 0 b9 &&
   blockAt prog ".L21_wc_printL.stack_grow" 0 b10 &&
   blockAt prog ".L21_wc_printL.sp_check" 0 b11 &&
   blockAt prog ".L21_wc_printL.abort_overflow" 0 b12 &&
   labelGap prog "wc_printL" ".L21_wc_printL.stack_check" 0 &&
   labelGap prog ".L21_wc_printL.stack_check" ".L21_wc_printL.0_entry" 14 &&
-  labelGap prog ".L21_wc_printL.stack_grow" ".L21_wc_printL.sp_check" 14
+  labelGap prog ".L21_wc_printL.stack_grow" ".L21_wc_printL.sp_check" 14 &&
+  labelGap prog ".L21_wc_printL.2_else7" ".L21_wc_printL.x9" 9
 
 section Layout
 
@@ -55,7 +60,7 @@ private theorem gaps (h : printLIn prog = true) :
     labelGap prog ".L21_wc_printL.stack_check" ".L21_wc_printL.0_entry" 14 = true ∧
     labelGap prog ".L21_wc_printL.stack_grow" ".L21_wc_printL.sp_check" 14 = true := by
   simp only [printLIn, Bool.and_eq_true, and_assoc] at h
-  exact h.2.2.2.2.2.2.2.2.2.2.2.2.2
+  exact ⟨h.2.2.2.2.2.2.2.2.2.2.2.2.2.1, h.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, h.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1⟩
 
 /-- `.stack_check` at `wc_printL` (`seg_printL`'s `hcheck`). -/
 theorem check_printL {kp : Nat} (hp : Lays exe prog kp) (h : printLIn prog = true) :
@@ -85,7 +90,7 @@ theorem code_printL {kp : Nat} (hp : Lays exe prog kp) (hend : endPc = endOf exe
     (c0 : Ctl) (x29 ra : BitVec 64) : Code c0 x29 ra exe endPc := by
   have hc := check_printL hp h
   simp only [printLIn, Bool.and_eq_true, and_assoc] at h
-  obtain ⟨h0, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, -⟩ := h
+  obtain ⟨h0, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, -, -, -, hg9⟩ := h
   refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · exact code_field hp hend h0 (by simp only [N, hc, add4, add0])
   · exact code_field hp hend h1 (by simp only [N, hc, add4, add0])
@@ -94,9 +99,10 @@ theorem code_printL {kp : Nat} (hp : Lays exe prog kp) (hend : endPc = endOf exe
   · exact code_field hp hend h4 (by simp only [N, add4, add0])
   · exact code_field hp hend h5 (by simp only [N, add4, add0])
   · exact code_field hp hend h6 (by simp only [N, add4, add0])
-  · exact code_field hp hend h7 (by simp only [N, add4, add0])
+  · exact Spike.Lib.A64.code_field_blockAcross hp hend h7 (List.take_append_drop _ _)
+      (by simp only [N, add4, add0])
   · exact code_field hp hend h8 (by simp only [N, add4, add0])
-  · exact code_field hp hend h9 (by simp only [N, add4, add0])
+  · exact code_field hp hend h9 (by rw [label_labelGap hp hg9]; simp only [N, add4, add0])
   · exact code_field hp hend h10 (by simp only [N, add4, add0])
   · exact code_field hp hend h11 (by simp only [N, add4, add0])
   · exact code_field hp hend h12 (by simp only [N, add4, add0])

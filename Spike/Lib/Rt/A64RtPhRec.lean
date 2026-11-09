@@ -249,7 +249,7 @@ theorem tcbPh_ofPlaceOK {mc : Option MainCode}
       (by simp [Spike.Lib.A64.Rt.tcbPhTab]))
     bnd := blkPh_of_factOk hl hr hn (hf (.blk Code.Tcb.lenL 38 Code.Tcb.atBnd none none)
       (by simp [Spike.Lib.A64.Rt.tcbPhTab]))
-    j2 := blkPh_of_factOk hl hr hn (hf (.blk Code.Tcb.lenL 47 Code.Tcb.atJ2 none none)
+    j2 := blkPh_of_factOk hl hr hn (hf (.blk Code.Tcb.lenL 48 Code.Tcb.atJ2 none none)
       (by simp [Spike.Lib.A64.Rt.tcbPhTab]))
     ok2 := blkPh_of_factOk hl hr hn (hf (.blk Code.Tcb.okL 2 Code.Tcb.atOk none none)
       (by simp [Spike.Lib.A64.Rt.tcbPhTab]))
@@ -284,7 +284,14 @@ theorem tcbPh_ofPlaceOK {mc : Option MainCode}
       · rw [rmwPc, Spike.Lib.A64.Flow.Ret0.ofNat4_succ']
         exact noTk_pin h i (l := lenL) (k := 38) (v := 12) (by decide) (by decide)
       · exact noTk_pin h i (l := lenL) (k := 38) (v := 12) (by decide) (by decide)
-      · exact noTk_pin h i (l := lenL) (k := 47) (v := 12) (by decide) (by decide)
+      · -- `.1_len` + 48 is not a pin (A6 pins the bound's branch at + 47): the table's `.ph` fact.
+        have h48 : ph (RuntimeLayout.ofPlaceOK h i)
+            ((RuntimeLayout.ofPlaceOK h i).lab lenL + Int64.ofNat (4 * 48)).toBitVec.toNat = 12 :=
+          ph_of_factOk hl (hf (.ph Code.Tcb.lenL 48 12) (by simp [Spike.Lib.A64.Rt.tcbPhTab]))
+        intro s hs hT
+        unfold Tk at hT
+        rw [hs, h48] at hT
+        omega
       · exact noTk_pin h i (l := okL) (k := 2) (v := 12) (by decide) (by decide)
       · exact noTk_pin h i (l := okL) (k := 30) (v := 12) (by decide) (by decide)
       · exact noTk_pin h i (l := lenL) (k := 32) (v := 13) (by decide) (by decide)

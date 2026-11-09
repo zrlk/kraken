@@ -9,7 +9,7 @@ second instance (`own2bH` at `ph2bH`, `instOk2bPH`) move to `SFactsSt2` at
 wake's, program independent.
 
 - `PcIH`, `PcNH`: the callees' pcs at hello's canonical base (`PcNH` off
-  the take site `2165976`); `inIH_of`, `offSiteH`.
+  the take site `2165980`); `inIH_of`, `offSiteH`.
 - `good2bIH_of`: `Good2bH` by the pc and `sp`.
 - `fin2H`: `Good2bH` where a block's run ends inside the callees.
 - `blk2_ownH`, `node2_ownH`, `site2_ownH`: a block's (a node's, the take
@@ -37,12 +37,12 @@ open Spike.Lib.A64.WakePh.Ti2 (BandP)
 /-- **`scc_rt_thread_init`'s and `scc_rt_stack_take`'s pcs** at hello's
 canonical base (up to `scc_rt_stack_release`), tied to the labels by
 `inIH_of` (`labs_eqH`). -/
-def PcIH (p : Int64) : Prop := 2165280 ≤ p.toBitVec.toNat ∧ p.toBitVec.toNat < 2166000
+def PcIH (p : Int64) : Prop := 2165284 ≤ p.toBitVec.toNat ∧ p.toBitVec.toNat < 2166004
 
 instance (p : Int64) : Decidable (PcIH p) := by unfold PcIH; infer_instance
 
-/-- **`PcIH` off the take site** (`2165976`). -/
-def PcNH (p : Int64) : Prop := PcIH p ∧ p.toBitVec.toNat ≠ 2165976
+/-- **`PcIH` off the take site** (`2165980`). -/
+def PcNH (p : Int64) : Prop := PcIH p ∧ p.toBitVec.toNat ≠ 2165980
 
 instance (p : Int64) : Decidable (PcNH p) := by unfold PcNH; infer_instance
 
@@ -55,8 +55,8 @@ theorem inIH_of (hlab : ∀ l x, codeOf lo SccCode.helloProg l = some x → L.la
   unfold inPc pcOf; rw [e3, e4]; exact hp
 
 /-- **A pc of the callees off the take site is off its label** (hello's take
-site at `2165976`, `hsite`). -/
-theorem offSiteH (hsite : (L.lab Spike.Lib.A64.Flow.Ret0.StackTake.siteL).toBitVec.toNat = 2165976) {s : State}
+site at `2165980`, `hsite`). -/
+theorem offSiteH (hsite : (L.lab Spike.Lib.A64.Flow.Ret0.StackTake.siteL).toBitVec.toNat = 2165980) {s : State}
     (hp : PcNH s.st.2) : pcOf s ≠ (L.lab Spike.Lib.A64.Flow.Ret0.StackTake.siteL).toBitVec.toNat := by
   rw [hsite]; exact hp.2
 
@@ -97,7 +97,7 @@ instance: its pcs in `PcNH` (`h1`), its static `sp` offsets in `[klo, 0]`
 (`hso`), `Good2bH` where its run ends (`hfin`). -/
 theorem blk2_ownH (hlab : ∀ l x, codeOf lo SccCode.helloProg l = some x → L.lab l = Int64.ofNat x)
     (hb : BandP L R klo)
-    (hsite : ∀ x, (Spike.Lib.A64.PhRec.μ L).site .take = some x → x = 2165976)
+    (hsite : ∀ x, (Spike.Lib.A64.PhRec.μ L).site .take = some x → x = 2165980)
     (hS : BlkW (fun s c => Spike.Lib.A64ConsumerA.SFactsSt L.Λ (Spike.Lib.A64.PhRec.μ L)
         (fun s => own2bH L a (ph2bH (pcOf s))) rS Tk s)
       K L.exe L.endPc R F n blk)

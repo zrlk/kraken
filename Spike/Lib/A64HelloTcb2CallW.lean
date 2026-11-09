@@ -13,7 +13,7 @@ any range (`tcb2W_ownGKH`, wake's `tcbWG_takeK`).
 - `BandSp3H`: main's frame at `.sp3` on a pool stack, `BandAH` of the
   callee's region `R.callee (-144) (-192) 0`.
 - `sp3_factsH`, `lab_sp3H`, `own_sp3H`, `own_fnH`: `ownGH` is `ownH L a 16`
-  at the block's pcs (`.sp3` at `2169696`) and at the callee's entry.
+  at the block's pcs (`.sp3` at `2169728`) and at the callee's entry.
 - `tcb2Call_ownGH`, `tcb2W_ownGKH`: the results.
 -/
 import Spike.Lib.A64HelloTcb2W
@@ -47,14 +47,14 @@ abbrev BandSp3H (L : RuntimeLayout) (R : Region) : Prop := BandAH L (R.callee (-
 
 /-- The block's pcs at the canonical base: their values, the phase `16`,
 off the sites. -/
-theorem sp3_factsH : ∀ k < 5, (Int64.ofNat 2169696 + Int64.ofNat (4 * k)).toBitVec.toNat = 2169696 + 4 * k ∧
-    phC (2169696 + 4 * k) = 16 ∧ okC (2169696 + 4 * k) = true := by decide +kernel
+theorem sp3_factsH : ∀ k < 5, (Int64.ofNat 2169728 + Int64.ofNat (4 * k)).toBitVec.toNat = 2169728 + 4 * k ∧
+    phC (2169728 + 4 * k) = 16 ∧ okC (2169728 + 4 * k) = true := by decide +kernel
 
 variable {L : RuntimeLayout}
 
 /-- `.sp3` at the canonical base. -/
 theorem lab_sp3H (hlab : ∀ l x, codeOf lo SccCode.helloProg l = some x → L.lab l = Int64.ofNat x) :
-    (_root_.Executable.labels L.exe).label ".L22_wc_main.sp3" = Int64.ofNat 2169696 :=
+    (_root_.Executable.labels L.exe).label ".L22_wc_main.sp3" = Int64.ofNat 2169728 :=
   hlab _ _ (by rw [← codeT_eq]; decide +kernel)
 
 /-- **`ownGH` at the block's pcs** is `ownH L a 16` (no range of `ownGH`'s
@@ -63,7 +63,7 @@ theorem own_sp3H (hlab : ∀ l x, codeOf lo SccCode.helloProg l = some x → L.l
     {s : State} {k : Nat} (hk : k < 5)
     (hs : s.st.2 = (_root_.Executable.labels L.exe).label ".L22_wc_main.sp3" + Int64.ofNat (4 * k)) :
     ownGH L a s = ownH L a 16 := by
-  have hp : pcOf s = 2169696 + 4 * k := by
+  have hp : pcOf s = 2169728 + 4 * k := by
     unfold pcOf; rw [hs, lab_sp3H hlab]; exact (sp3_factsH k hk).1
   obtain ⟨e1, e2, e3, e4, e5, -, e7, e8, e9⟩ := labs_eqH hlab (L := L)
   rw [ownGH_W hlab (.inr (.inr ⟨?_, ?_, ?_, ?_⟩)), hp, phH_eq, (sp3_factsH k hk).2.1] <;> unfold inPc <;> omega
@@ -117,11 +117,11 @@ theorem tcb2Call_ownGH (hp : L.prog = SccCode.helloProg) (hlo : L.Λ.code.lo = l
   refine Spike.Lib.A64ConsumerA.BlkW.leaf (Spike.Lib.A64.Flow.code_of L.lays rfl hin.1.1.1.1.1
     (Spike.Lib.A64.Flow.ofNat4_zero _)) tcb2CallH_ok hR hal hlo3 hhi ?_ ?_ ?_
   · intro x hx k hk
-    rw [hsite, show L.lab Spike.Lib.A64.Flow.Ret0.StackTake.siteL = Int64.ofNat 2165976 from eSite] at hx
+    rw [hsite, show L.lab Spike.Lib.A64.Flow.Ret0.StackTake.siteL = Int64.ofNat 2165980 from eSite] at hx
     cases hx
     show ((_root_.Executable.labels L.exe).label ".L22_wc_main.sp3" + Int64.ofNat (4 * k)).toBitVec.toNat ≠ _
     rw [e3, (sp3_factsH k (hlen ▸ hk)).1]
-    have : (Int64.ofNat 2165976).toBitVec.toNat = 2165976 := rfl
+    have : (Int64.ofNat 2165980).toBitVec.toNat = 2165980 := rfl
     omega
   · intro σ c hJ k hk s m hA he hn hs
     exact own_sp3H hlab (hlen ▸ hk) (by rw [hs]; rfl)
@@ -149,7 +149,7 @@ theorem tcb2W_ownGKH (hp : L.prog = SccCode.helloProg) (hlo : L.Λ.code.lo = lo)
     (hΛ : L.Λ.abortLbl = Scc.Cert.Link.abortName)
     (hlab : ∀ l x, codeOf lo SccCode.helloProg l = some x → L.lab l = Int64.ofNat x)
     (hsep : L.pnA ≠ L.lockA ∧ L.pnA ≠ L.freeNA ∧ L.pnA ≠ L.nextA ∧ L.pnA ≠ a)
-    (hhdr : L.pinA + 80#64 + 24#64 ∉ [L.pnA, L.lockA, L.freeNA, L.nextA, a])
+    (hhdr : L.pinA + 112#64 + 24#64 ∉ [L.pnA, L.lockA, L.freeNA, L.nextA, a])
     {Λ : Scc.Sem.Layout} {lbl : Lbl} {c0 : Ctl} (hC0 : CFacts Λ lbl c0)
     {R : Region} (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo' : R.lo ≤ -192) (hhi : 0 ≤ R.hi)
     (hb : BandAH L R) (g : Spike.Lib.A64.Flow.Ret0.AllocTcb.G) (hra : g.ra = (L.lab ".L22_wc_main.sp4").toBitVec)

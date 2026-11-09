@@ -18,11 +18,12 @@ form `lowerC` emits with the depth counter (`InstC`, `TermC`,
 - `inst_call1_inv`: a user call `call [d] f [w]` (`inst_call_inv`,
   `Spike/Lib/LowerA64/CallSite1.lean`, at one word each way) is `w`'s load
   into `x0`, `bl f`, the label `spK` and the store of `x0` into `d`'s slot;
-- `inst_allIns`: every other `InstC` instruction's code is instructions
-  only; `term_allIns`: so is a `ret`'s, a `br`'s; `term_unreachable`: the
-  halt label and its self-branch;
-- `instsItems_allIns`: the code of `InstC` instructions without a call is
-  instructions only;
+- `inst_allIns`: every other `InstC` instruction's code but a checked `+`'s
+  is instructions only; `term_allIns`: so is a `br`'s (a checked `+` and a
+  `ret` take fresh labels, P5); `term_unreachable`: the halt label and its
+  self-branch;
+- `instsItems_allIns`: the code of `InstC` instructions without a call nor
+  a checked `+` is instructions only;
 - `callSite_run`: with that, `callSite1`'s run before the `bl` starts at
   the block's label and is instructions only (`call_blockAt`'s premise);
 - `callBlk_code`: the code of a call block `call{n+5}` numbered from `k` is
@@ -247,21 +248,14 @@ theorem inst_call1_inv (hm : cx.maps = true) {k : Nat} {d : Scc.IR.Reg} {f : Lab
   rw [setResults_one] at hsr
   exact ⟨ca, sr, hca, hsr, allIns_getOp hca, allIns_setReg hsr, hd⟩
 
-/-- **The code of every other `InstC` instruction is instructions only**:
-a checked `+`, a saturating `-`, the thread-pointer read, the depth's
-plain 64-bit load, store and increment. -/
+/-- **The code of every other `InstC` instruction but a checked `+` is
+instructions only**: a saturating `-`, the thread-pointer read, the depth's
+plain 64-bit load, store and increment (a checked `+`'s fall-through takes
+a fresh label, P5). -/
 theorem inst_allIns {k : Nat} {i : Scc.IR.Inst} (hi : InstC i) (hc : Spike.Lib.LowerShape.isCall i = false)
-    {ci : List Item} (h : cx.inst k i = .ok ci) : AllIns ci := by
+    (ha : ∀ d p q, i ≠ .addChk d p q) {ci : List Item} (h : cx.inst k i = .ok ci) : AllIns ci := by
   cases hi with
-  | addChk d p q =>
-    simp only [FnCtx.inst] at h
-    obtain ⟨la, ha, h⟩ := bind_eq_ok h
-    obtain ⟨lb, hb, h⟩ := bind_eq_ok h
-    obtain ⟨ls, hs, h⟩ := bind_eq_ok h
-    cases ok_inj h
-    refine allIns_append (allIns_append (allIns_append (allIns_getOp ha) (allIns_getOp hb)) ?_)
-      (allIns_setReg hs)
-    simp [AllIns, directives_addChecked, isIns]
+  | addChk d p q => exact absurd rfl (ha d p q)
   | subSat d p q =>
     simp only [FnCtx.inst] at h
     obtain ⟨la, ha, h⟩ := bind_eq_ok h
@@ -304,32 +298,12 @@ theorem inst_allIns {k : Nat} {i : Scc.IR.Inst} (hi : InstC i) (hc : Spike.Lib.L
   | call d g w _ => simp [Spike.Lib.LowerShape.isCall] at hc
   | abort => simp [Spike.Lib.LowerShape.isCall] at hc
 
-/-- **The code of a `ret` or a `br`** (`TermC`) is instructions only. -/
+/-- **The code of a `br`** (`TermC`) is instructions only (a `ret`'s
+return site takes a fresh label, P5). -/
 theorem term_allIns {frames : Option Nat} {k : Nat} {t : Scc.IR.Term} (ht : TermC frames t)
-    (hu : t ≠ .unreachable) {c2 : List Item} (h : cx.term k t = .ok c2) : AllIns c2 := by
+    (hu : t ≠ .unreachable) (hr : ∀ ws, t ≠ .ret ws) {c2 : List Item} (h : cx.term k t = .ok c2) : AllIns c2 := by
   cases ht with
-  | ret w _ =>
-    cases hv : cx.getOp .X0 w with
-    | error e =>
-      have ha : argRegs = .X0 :: argRegs.tail := rfl
-      simp only [FnCtx.term] at h
-      rw [ha] at h
-      simp [hv, Scc.IR.maxRets, bind, Except.bind, pure, Except.pure, forIn, ForIn.forIn] at h
-    | ok lw =>
-      rw [term_ret1 k hv] at h
-      cases h
-      refine allIns_append (allIns_append (allIns_getOp hv) ?_) (allIns_ins _)
-      unfold AllIns FnCtx.leave
-      rw [directives_append, directives_append, List.all_append, List.all_append]
-      have := allIns_ldrOff .W64 .X29 spW64 ((cx.frame : Int) - 16)
-      have := allIns_ldrOff .W64 .X30 spW64 ((cx.frame : Int) - 8)
-      unfold AllIns at *
-      simp only [*, Bool.true_and]
-      unfold addImm
-      split
-      · simp [directives, ins, isIns]
-      · simp [directives, ins, isIns]
-      · exact allIns_append (allIns_movImm _ _) (allIns_ins _)
+  | ret w _ => exact absurd rfl (hr _)
   | br p q l l' _ _ | depth d fr l l' _ =>
     simp only [FnCtx.term] at h
     obtain ⟨la, ha, h⟩ := bind_eq_ok h
@@ -402,9 +376,9 @@ theorem callBlk_code (hm : cx.maps = true) {k n : Nat} {g : String} {w : Scc.IR.
   cases ok_inj hcp3
   cases ok_inj hcp4
   obtain ⟨lw, ls, hw, hs, hlw, hls, hd⟩ := inst_call1_inv hm h1
-  have a0 : AllIns c0 := inst_allIns (.store _ _) rfl h0
-  have a2 : AllIns c2 := inst_allIns (.getTp _) rfl h2
-  have a3 : AllIns c3 := inst_allIns (.store _ _) rfl h3
+  have a0 : AllIns c0 := inst_allIns (.store _ _) rfl (fun _ _ _ h => by cases h) h0
+  have a2 : AllIns c2 := inst_allIns (.getTp _) rfl (fun _ _ _ h => by cases h) h2
+  have a3 : AllIns c3 := inst_allIns (.store _ _) rfl (fun _ _ _ h => by cases h) h3
   have e4 : k + (rest.length + 1 + 1 + 1 + 1) = k + 4 + rest.length := by omega
   simp only [List.length_cons, List.cons_append, List.nil_append] at hct
   rw [e4] at hct
@@ -412,19 +386,20 @@ theorem callBlk_code (hm : cx.maps = true) {k n : Nat} {g : String} {w : Scc.IR.
     allIns_append a0 hlw, allIns_append (allIns_append hls a2) a3, ?_⟩
   simp only [directives_append, hd, List.append_assoc, List.cons_append, List.append_nil]
 
-/-- **The code of instructions without a call is instructions only**
-(`InstC`, no `call`). -/
+/-- **The code of instructions without a call nor a checked `+` is
+instructions only** (`InstC`). -/
 theorem instsItems_allIns :
     ∀ {k : Nat} {is : List Scc.IR.Inst} {c : List Item}, (∀ i ∈ is, InstC i) → NoCall is →
-      instsItems cx k is = .ok c → AllIns c
-  | _, [], c, _, _, h => by cases ok_inj h; exact allIns_nil
-  | k, i :: is, c, hs, hn, h => by
+      (∀ i ∈ is, ∀ d p q, i ≠ .addChk d p q) → instsItems cx k is = .ok c → AllIns c
+  | _, [], c, _, _, _, h => by cases ok_inj h; exact allIns_nil
+  | k, i :: is, c, hs, hn, ha, h => by
     simp only [instsItems] at h
     obtain ⟨ci, hci, h⟩ := bind_eq_ok h
     obtain ⟨cr, hcr, h⟩ := bind_eq_ok h
     cases ok_inj h
-    exact allIns_append (inst_allIns (hs i (by simp)) (hn i (by simp)) hci)
-      (instsItems_allIns (fun j hj => hs j (by simp [hj])) (fun j hj => hn j (by simp [hj])) hcr)
+    exact allIns_append (inst_allIns (hs i (by simp)) (hn i (by simp)) (ha i (by simp)) hci)
+      (instsItems_allIns (fun j hj => hs j (by simp [hj])) (fun j hj => hn j (by simp [hj]))
+        (fun j hj => ha j (by simp [hj])) hcr)
 
 /-- **The run before a call's `bl`** (`callSite1`'s `X ++ ys`) when the
 code before the `bl` is instructions only: no label `X`, the run from the

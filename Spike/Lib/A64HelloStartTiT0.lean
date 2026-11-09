@@ -33,18 +33,18 @@ variable {L : RuntimeLayout}
 
 /-- The labels the take's pcs are decided from, at hello's canonical base. -/
 theorem take_labsH (hlab : ∀ l x, codeOf lo SccCode.helloProg l = some x → L.lab l = Int64.ofNat x) :
-    (_root_.Executable.labels L.exe).label fnL = Int64.ofNat 2165436 ∧
-    (_root_.Executable.labels L.exe).label entryL = Int64.ofNat 2165456 ∧
-    (_root_.Executable.labels L.exe).label clsL = Int64.ofNat 2165492 ∧
-    (_root_.Executable.labels L.exe).label doneL = Int64.ofNat 2165596 ∧
-    (_root_.Executable.labels L.exe).label spinL = Int64.ofNat 2165668 ∧
-    (_root_.Executable.labels L.exe).label lockedL = Int64.ofNat 2165704 ∧
-    (_root_.Executable.labels L.exe).label bumpL = Int64.ofNat 2165836 ∧
-    (_root_.Executable.labels L.exe).label okL = Int64.ofNat 2165936 ∧
-    (_root_.Executable.labels L.exe).label takenL = Int64.ofNat 2165968 ∧
-    (_root_.Executable.labels L.exe).label siteL = Int64.ofNat 2165976 ∧
-    (_root_.Executable.labels L.exe).label ".L6_scc_rt_stack_take.8_full" = Int64.ofNat 2165924 ∧
-    (_root_.Executable.labels L.exe).label Spike.Lib.A64.Flow.Ret0.ThreadInit.spL = Int64.ofNat 2165308 := by
+    (_root_.Executable.labels L.exe).label fnL = Int64.ofNat 2165440 ∧
+    (_root_.Executable.labels L.exe).label entryL = Int64.ofNat 2165460 ∧
+    (_root_.Executable.labels L.exe).label clsL = Int64.ofNat 2165496 ∧
+    (_root_.Executable.labels L.exe).label doneL = Int64.ofNat 2165600 ∧
+    (_root_.Executable.labels L.exe).label spinL = Int64.ofNat 2165672 ∧
+    (_root_.Executable.labels L.exe).label lockedL = Int64.ofNat 2165708 ∧
+    (_root_.Executable.labels L.exe).label bumpL = Int64.ofNat 2165840 ∧
+    (_root_.Executable.labels L.exe).label okL = Int64.ofNat 2165940 ∧
+    (_root_.Executable.labels L.exe).label takenL = Int64.ofNat 2165972 ∧
+    (_root_.Executable.labels L.exe).label siteL = Int64.ofNat 2165980 ∧
+    (_root_.Executable.labels L.exe).label ".L6_scc_rt_stack_take.8_full" = Int64.ofNat 2165928 ∧
+    (_root_.Executable.labels L.exe).label Spike.Lib.A64.Flow.Ret0.ThreadInit.spL = Int64.ofNat 2165312 := by
   refine ⟨hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_,
     hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_⟩ <;> (rw [← codeT_eq]; decide +kernel)
 

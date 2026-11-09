@@ -62,20 +62,20 @@ theorem refMap (hpa : textProgram SccCertificate.asm = .ok o.prog)
   have hpL : textProgram SccCertificate.asm = .ok (Ly).prog := by rw [hpW]; exact hwp
   have hlab := Spike.Lib.WakeOAb.hlab_W hp i hpa hwp hlo
   obtain ⟨e1, e2, -⟩ := Spike.Lib.A64.WakePh.ab_labs hlab
-  have hst : (Ly).lab Spike.Lib.A64.Flow.Ret0.StackTake.siteL = Int64.ofNat 2165940 :=
+  have hst : (Ly).lab Spike.Lib.A64.Flow.Ret0.StackTake.siteL = Int64.ofNat 2165944 :=
     hlab _ _ (by rw [← codeT_eq]; decide +kernel)
-  have h6 : (Ly).lab (pfxM ++ ".sp6") = Int64.ofNat 2169292 := hlab _ _ (by rw [← codeT_eq]; decide +kernel)
+  have h6 : (Ly).lab (pfxM ++ ".sp6") = Int64.ofNat 2169324 := hlab _ _ (by rw [← codeT_eq]; decide +kernel)
   have haW := Spike.Lib.WakeOSide.aW_site hp i hpa hwp hpL (Spike.Lib.PlaceW.site_ofPlaceW hp i) E
   -- `scc_rt_abort`'s code is between the take's and the clone's pcs.
   obtain ⟨⟨hin1, hin2⟩, -, -⟩ := habw.1
   rw [e1] at hin1
   rw [e2] at hin2
-  have hn1 : (Int64.ofNat 2167996).toBitVec.toNat = 2167996 := rfl
-  have hn2 : (Int64.ofNat 2168560).toBitVec.toNat = 2168560 := rfl
+  have hn1 : (Int64.ofNat 2168028).toBitVec.toNat = 2168028 := rfl
+  have hn2 : (Int64.ofNat 2168592).toBitVec.toNat = 2168592 := rfl
   rw [hn1] at hin1
   rw [hn2] at hin2
   have hcl : pcOf s ≠ Spike.Lib.A64.Flow.WakeWc.clonePc (Ly) := by
-    have : Spike.Lib.A64.Flow.WakeWc.clonePc (Ly) = 2169344 := by
+    have : Spike.Lib.A64.Flow.WakeWc.clonePc (Ly) = 2169376 := by
       unfold Spike.Lib.A64.Flow.WakeWc.clonePc Spike.Lib.WakePreA.cloneAt
       show ((Ly).lab (pfxM ++ ".sp6") + Int64.ofNat (4 * 13)).toBitVec.toNat = _
       rw [h6]; rfl

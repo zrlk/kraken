@@ -27,13 +27,14 @@ kp`; the canonical loader's thread is one: `Scc.Cert.Rt.A64.lays_threadAt`).
 import Spike.Lib.A64WakeWorker
 import Spike.Lib.A64WakeLabels
 import Spike.Lib.A64CodeSegs
+import Spike.Lib.A64CodeAcross
 
 namespace Spike.Lib.A64.Flow.Worker.Wake.Labels
 
 open CoreLang CoreTerm
 open Kraken Kraken.AArch64.Parser Kraken.Promising Kraken.Promising.AArch64 Kraken.Promising.Lower.A64
 open Scc.Sem (ValRep)
-open Scc.Cert.Rt.A64 (Lays endOf blockAt labelGap label_labelGap)
+open Scc.Cert.Rt.A64 (Lays endOf blockAt labelGap label_labelGap blockAcross)
 open Spike.Lib.A64.Flow.Worker
 open Spike.Lib.A64.Flow.Worker.Wake
 open Spike.Lib.A64.Flow.Park (swpDir)
@@ -51,7 +52,7 @@ abbrev wkIn : Bool :=
     [.instr ⟨.W64, .STLR .W64 (.low (.reg .X9) .W64) (.low (.reg .X10) .W64)⟩] &&
   blockAt wakeProg (WkTailW.pfx0 ++ ".0_entry") 3 WkTailW.b1 &&
   blockAt wakeProg (WkTailW.pfx0 ++ ".0_entry") 4 WkTailW.b2 &&
-  blockAt wakeProg (WkTailW.pfx0 ++ ".sp1") 0 WkTailW.b3 &&
+  blockAcross wakeProg (WkTailW.pfx0 ++ ".sp1") 0 (WkTailW.b3.take 3) (WkTailW.pfx0 ++ ".x2") (WkTailW.b3.drop 3) &&
   labelGap wakeProg (WkTailW.pfx0 ++ ".0_entry") (WkTailW.pfx0 ++ ".sp1") 5
 
 /-- `scc_rt_thr_worker`'s blocks at wake's prefix. -/
@@ -74,8 +75,8 @@ abbrev unpkIn : Bool :=
   blockAt wakeProg ".L11_scc_rt_unpark.0_entry" 9 Unpark.b3 &&
   blockAt wakeProg ".L11_scc_rt_unpark.1_wake" 0 Unpark.b4 &&
   blockAt wakeProg ".L11_scc_rt_unpark.1_wake" 11 [svcDir] &&
-  blockAt wakeProg ".L11_scc_rt_unpark.1_wake" 12 Unpark.b5 &&
-  blockAt wakeProg ".L11_scc_rt_unpark.2_done" 0 Unpark.b6
+  blockAcross wakeProg ".L11_scc_rt_unpark.1_wake" 12 (Unpark.b5.take 4) ".L11_scc_rt_unpark.x4" (Unpark.b5.drop 4) &&
+  blockAcross wakeProg ".L11_scc_rt_unpark.2_done" 0 (Unpark.b6.take 3) ".L11_scc_rt_unpark.x5" (Unpark.b6.drop 3)
 
 /-- `wc_worker`'s prologue: frame 32, `c` and `j` at 0 and 8. -/
 abbrev wcPro : Bool := prologueIn wakeProg "wc_worker" (WkTailW.pfx0 ++ ".stack_check")
@@ -109,7 +110,8 @@ theorem wkCode {c0 c1 c2 : Ctl} {A B x29 ra tp : BitVec 64} :
     code_of hp hend h1 (by simp only [WkTailW.N, ofNat4_succ, ofNat4_zero]),
     code_of hp hend h2 (by simp only [WkTailW.N, ofNat4_succ, ofNat4_zero]),
     code_of hp hend h3 (by simp only [WkTailW.N, WkTailW.pcBl, ofNat4_succ, ofNat4_zero]),
-    code_of hp hend h4 (by simp only [WkTailW.N, ofNat4_succ, ofNat4_zero])⟩
+    code_field_blockAcross hp hend h4 (List.take_append_drop _ _)
+      (by simp only [WkTailW.N, ofNat4_succ, ofNat4_zero])⟩
 
 /-- **`.sp1` right after `wc_worker`'s `bl`.** -/
 theorem hsp1 : (_root_.Executable.labels exe).label (WkTailW.pfx0 ++ ".sp1") =
@@ -156,8 +158,10 @@ theorem unpkCode {c0 c1 : Ctl} {B x29 ra tp : BitVec 64} : Unpark.Code c0 c1 B x
     code_of hp hend h4 (by simp only [Unpark.N, ofNat4_succ, ofNat4_zero]),
     code_of hp hend h5 (by simp only [Unpark.N, ofNat4_succ, ofNat4_zero]),
     code_of hp hend h6 (by simp only [Unpark.N, Unpark.pcSvc, ofNat4_succ, ofNat4_zero]),
-    code_of hp hend h7 (by simp only [Unpark.N, Unpark.pcSvc, ofNat4_succ, ofNat4_zero]),
-    code_of hp hend h8 (by simp only [Unpark.N, ofNat4_succ, ofNat4_zero])⟩
+    code_field_blockAcross hp hend h7 (List.take_append_drop _ _)
+      (by simp only [Unpark.N, Unpark.pcSvc, ofNat4_succ, ofNat4_zero]),
+    code_field_blockAcross hp hend h8 (List.take_append_drop _ _)
+      (by simp only [Unpark.N, ofNat4_succ, ofNat4_zero])⟩
 
 /-- **`scc_rt_unpark`'s frame set-up falls through to `.0_entry`.** -/
 theorem hpentry : (_root_.Executable.labels exe).label ".L11_scc_rt_unpark.0_entry" =

@@ -10,7 +10,7 @@
 frame condition: at the root's ghost (`RootHP.GJ1RH`) `R` is `(wcR R' helloD).fp (-8)` and `F` is
 `wcF R' helloD … m1 σm`, which keeps the caller's cells outside `wc_main`'s region (`CKept`) as they were at the
 call (`Abs R' ⟨-80, []⟩ m1 σm`). The saved return address at `8` is the one `scc_rt_main`'s `call` pushed
-(`FrMGH` at `J1 = wcJ0 (mWC …)`), the label `.Lscc_rt_main.x3`.
+(`FrMGH` at `J1 = wcJ0 (mWC …)`), the label `.Lscc_rt_main.x1`.
 
 - `CloneSegH`: the facts (an `abbrev` of `X64HelloCloneSegD.CloneSegD`).
 - `cloneSegH_of_mid`: `CloneSegH` from `CloneMidH` at the pinned ghost `GJ1RH` (the widening and the return

@@ -156,7 +156,7 @@ theorem hst0_XR (E : Entry) (hE : E.Ok (Ly).Λ)
     (hWe : ∀ v s c, At (Ly).exe (Ly).endPc (RM v) (FS (Ly) (RS0) helloLsw 0#64 v) (mNC (Ly).lab (RM v) (JW)) s c →
       WP s c [])
     (hctx : ∀ (v : BitVec 64) (m0 : MachineData) (σC : FAS), ∀ q : Call, q.OK ((MSUB) [FR]) (Ly).lab →
-      q.ra = ((Ly).lab ".Lwc_rodata.x15").toBitVec →
+      q.ra = ((Ly).lab ".Lwc_rodata.x0").toBitVec →
       ∀ s c, At (Ly).exe (Ly).endPc (aR (mR (RM v)))
         (fun m => mF (RM v) (FS (Ly) (RS0) helloLsw 0#64 v) m0 σC m ∧
           Spike.Lib.X64.Flow.Ret0.CallerCells (mR (RM v)) (-48) (-160) 8 m ∧

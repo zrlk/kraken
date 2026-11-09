@@ -123,7 +123,7 @@ def ckRuns : List (Label × Nat × Nat) :=
   [(".L21_wc_main.sp0", 4, 6), (".L21_wc_main.sp3", 0, 5), (".L21_wc_main.sp4", 0, 6),
    ("scc_rt_thread_init", 0, 1), (".L21_wc_main.sp6", 0, 13),
    (Flow.Reserve.fnL, 0, 4), (Flow.Reserve.entryL, 0, 16), (Flow.Reserve.okL, 0, 5),
-   (Ret0.AllocTcb.fnL, 0, 6), (Ret0.AllocTcb.entryL, 0, 5), (Ret0.AllocTcb.lenL, 0, 48),
+   (Ret0.AllocTcb.fnL, 0, 6), (Ret0.AllocTcb.entryL, 0, 5), (Ret0.AllocTcb.lenL, 0, 49),
    (Ret0.AllocTcb.okL, 0, 43)]
 
 /-- **The runs' pcs are neither the clone's** (`.sp6 + 4·13`) **nor the take

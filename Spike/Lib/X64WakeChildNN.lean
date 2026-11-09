@@ -186,7 +186,7 @@ theorem seg_childStubNN {Q : Frag isa} (hp : Lays exe SccCode.wakeCells kp)
     (hc3 : c3 = ⟨e, (x, ExtName.unpark.sig.2, []) :: c2.env, none⟩)
     {ar : CoreTerm.At} (hret3 : c3.term = .ret ar)
     (hT : LdOk ms F tp)
-    (hown : OwnAt ms exe endPc ((_root_.Executable.labels exe).label ".Lscc_rt_thr_worker.x12") tp tp)
+    (hown : OwnAt ms exe endPc ((_root_.Executable.labels exe).label ".Lscc_rt_thr_worker.x0") tp tp)
     (hSx : StOk ms F (tp + 24#64) 1#64)
     (hZc : ∀ i, NodeZ Z exe (cN (_root_.Executable.labels exe).label cW A B tp sp0 i) (cBlk i))
     (hZ : ThrZ Z exe cW c1 c2 c3 A B tp (sp0 - 8#64)) :
@@ -238,7 +238,7 @@ theorem seg_childPreNN {p : Prog} {lbl : WeakMem.AllocLabel → Option Nat} {ms 
           LdOk ms (DFrame (childR (r1.lo + r1.size) (-16384))
               (childAfter abi t.2 0 th (r1.lo + r1.size) (tcbOf lab q).toNat).st.st.1)
             (BitVec.ofNat 64 (tcbOf lab q).toNat) →
-          OwnAt ms exe endPc ((_root_.Executable.labels exe).label ".Lscc_rt_thr_worker.x12")
+          OwnAt ms exe endPc ((_root_.Executable.labels exe).label ".Lscc_rt_thr_worker.x0")
             (BitVec.ofNat 64 (tcbOf lab q).toNat) (BitVec.ofNat 64 (tcbOf lab q).toNat) →
           StOk ms (DFrame (childR (r1.lo + r1.size) (-16384))
               (childAfter abi t.2 0 th (r1.lo + r1.size) (tcbOf lab q).toNat).st.st.1)

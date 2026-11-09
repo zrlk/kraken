@@ -2,7 +2,7 @@
 **`MainWcPS.hWp`, `hWs` at the root's context at `ownGHXW` with the placement discharged** (x86-64 only; the
 `ownGHXW` counterpart of `X64HelloMainWcL1Wj`): `MainWcL1Wi.hWp_L1X`/`hWs_L1X` at `Level1I`'s `Jr` and `Jr1`, their
 `hpl` by `WcPlS.hplP_S`/`hplS_S` (the entry controls placed, `MainWcL1Wj.plE_J0`/`plE_J1`; the region,
-`MainWcL1Wj.wcR_L1`). The placement does not read the owned words, so these are `X64HelloMainWcL1Wj`'s.
+`MainWcL1Wj.wcR_L1`). The placement does not read the owned words, so its facts are `X64HelloMainWcL1Wj`'s.
 
 - `hWp_L1PX`, `hWs_L1PX`: the statements, at the level `Level1I.W1Rg … (ownGHXW Ly ntA)` and the level's memory
   side at `ownGHXW`.
@@ -116,8 +116,8 @@ local notation "J1" => wcJ0 (mWC (Ly).lab σC (Spike.Lib.X64.HelloPh.Land.Jr1LH 
 
 variable {I : Spike.Lib.X64ConsumerS.InvS} {l : WeakMem.AllocLabel} {b n : Nat} {σC σ1 : FAS} {m1 : MachineData}
 
-/-- **`hWp` at `CtxR1H` at `ownGHXW`, placed** (`hWp_L1P` at `ownGHXW`): `MainWcL1Wi.hWp_L1X` at `Level1I`'s
-`Jr`, `hpl` by `WcPlS.hplP_S`. -/
+/-- **`hWp` at `CtxR1H` at `ownGHXW`, placed** (AArch64 `A64HelloMainWcL1Wj.hWp_L1P` at `ownGHXW`):
+`MainWcL1Wi.hWp_L1X` at `Level1I`'s `Jr`, `hpl` by `WcPlS.hplP_S`. -/
 theorem hWp_L1PX (hp : o.prog = SccCode.helloCells) (hpa : Scc.Sem.X64.cellsOf asm = some o.prog)
     (hhp : Scc.Sem.X64.cellsOf asm = some SccCode.helloCells) (hlo0 : Λ0.code.lo = lo)
     (hc : Spike.Lib.X64.Rt.CtrZ o) (hA13 : Scc.Cert.Spawn.X64.a13data (Ly).Λ o.prog o.secs = true)
@@ -129,8 +129,8 @@ theorem hWp_L1PX (hp : o.prog = SccCode.helloCells) (hpa : Scc.Sem.X64.cellsOf a
   Spike.Lib.X64.HelloPh.MainWcL1Wi.hWp_L1X hpw i0 E rd ls hp hpa hhp hlo0 hc hA13 hslot
     (Spike.Lib.X64.HelloPh.WcPlS.hplP_S hR.1 hR.2.1 hR.2.2 (plE_J0 hpw i0 hl hslot) (plE_J1 hpw i0 hz hl hslot))
 
-/-- **`hWs` at `CtxR1H` at `ownGHXW`, placed** (`hWs_L1P` at `ownGHXW`): `MainWcL1Wi.hWs_L1X`, `hpl` by
-`WcPlS.hplS_S`. -/
+/-- **`hWs` at `CtxR1H` at `ownGHXW`, placed** (AArch64 `A64HelloMainWcL1Wj.hWs_L1P` at `ownGHXW`):
+`MainWcL1Wi.hWs_L1X`, `hpl` by `WcPlS.hplS_S`. -/
 theorem hWs_L1PX (hp : o.prog = SccCode.helloCells) (hpa : Scc.Sem.X64.cellsOf asm = some o.prog)
     (hhp : Scc.Sem.X64.cellsOf asm = some SccCode.helloCells) (hlo0 : Λ0.code.lo = lo)
     (hc : Spike.Lib.X64.Rt.CtrZ o) (hA13 : Scc.Cert.Spawn.X64.a13data (Ly).Λ o.prog o.secs = true)

@@ -54,7 +54,7 @@ theorem hstk_of_placeOKAt {cfg : Scc.Config} {pcfg : Scc.Cert.PlaceOK.Config} {p
   have he : Spike.Lib.LowerNode.entry2 p = ⟨.setupTid, true⟩ := by simp [Spike.Lib.LowerNode.entry2, hs]
   rw [he] at hrt
   generalize hir' : (Scc.Lower.X64.lowerAll cfg p).low.ir = ir at hir
-  have hf : Scc.Lower.Inv.mainThread0 ⟨.setupTid, true⟩ (Spike.Lib.LowerNode.setupWords2 p) ∈ ir.funcs := by
+  have hf : Scc.Lower.Inv.mainThread0 ⟨.setupTid, true⟩ (Spike.Lib.LowerNode.setupWords2 p) (Spike.Lib.LowerNode.setupMask2 p) ∈ ir.funcs := by
     rw [hir]
     exact List.mem_append_left _ (Spike.Lib.mainThread0_mem hrt)
   obtain ⟨n, hn⟩ := mem_starts ir 0 hf

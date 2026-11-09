@@ -1,6 +1,6 @@
 /-
 **hello.w's `wc_rodata` up to the allocator's return placed at the setup call's frame** (x86-64; twin of
-`Spike/Lib/A64HelloRdPreS.lean`; `RdWfSF.rdPreW_WSHF`'s `hpl` at `fs = [HelloRdCf.frH env]`, region `Hello1.mR R`,
+`Spike/Lib/A64HelloRdPreS.lean`; `RdWfSFX.rdPreW_WSHX`'s `hpl` at `fs = [HelloRdCf.frH env]`, region `Hello1.mR R`,
 frame condition `Hello1.mF R F m0 σC`): the prologue's, the entry block's and the allocator's states are placed
 (`PlacedSE` at the frame) once every control of `wc_rodata`'s entry invariant `J0` and of the allocator's caller
 `J1` is placed at every state (`hc`; at `rodata`'s allocation `rdCN` by `placed_rdCN`).
@@ -139,7 +139,7 @@ end Nodes
 /-! ## `wc_rodata` up to the allocator's return -/
 
 /-- **`wc_rodata` up to the allocator's return inside the placement at the setup call's frame**
-(`RdWfSF.rdPreW_WSHF`'s `hpl` at `[frH env]`, region `Hello1.mR R`, frame condition `Hello1.mF R F m0 σC`): every
+(`RdWfSFX.rdPreW_WSHX`'s `hpl` at `[frH env]`, region `Hello1.mR R`, frame condition `Hello1.mF R F m0 σC`): every
 control of the entry invariant `J0` and of the allocator's caller `J1` is placed at every state (`hc`), the
 frame's `me` is a caller's slot (`hP`), the caller's region reaches the allocator's (`hlo`). -/
 theorem rdPreW_frS {exe : _root_.Executable} {endPc : Int64} {R : Region} {F : MachineData → Prop}

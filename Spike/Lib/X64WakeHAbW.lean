@@ -20,8 +20,8 @@ pc of the path from the region's bounds and the nodes' invariants; no `hal`
 (the band is `[-32, 8]`, the region `[-24, 16)` at least: `abPH`'s `hlo`,
 `hhi`; A64's `[-48, 0)`); the stub's `leaq` is one node (`sn1`, A64's
 `sn1`/`sn1b`), so `AbPH` has 11 fields, the `write` call's node `ssvc` at
-`NT .sys`; `ownG` reads the two return points `.Lscc_rt_alloc_tcb.x5` and
-`.Lwc_main.x23` on the path (A64's `.sp13`, `.sp11`: `abHAgreeW`'s `h5`,
+`NT .sys`; `ownG` reads the two return points `.Lscc_rt_alloc_tcb.x0` and
+`.Lwc_main.x5` on the path (A64's `.sp13`, `.sp11`: `abHAgreeW`'s `h5`,
 `h23`). `abH_labs` resolves only the two labels `ab_labs` lacks; the path's
 phase check at `phW` (A64's `abortHTabW`, `abortPhHW`) is not restated here.
 -/
@@ -47,8 +47,8 @@ variable {L : RuntimeLayout}
 /-- **The heap stub's entry and exit labels**, resolved at the canonical
 base. -/
 theorem abH_labs (hlab : ∀ l x, codeLabel lo wakeCells l = some x → L.lab l = Int64.ofNat x) :
-    L.lab ".Lscc_rt_abort_heap.entry" = Int64.ofNat 4202671 ∧
-    L.lab "scc_rt_abort_heap_exit" = Int64.ofNat 4202723 := by
+    L.lab ".Lscc_rt_abort_heap.entry" = Int64.ofNat 4202709 ∧
+    L.lab "scc_rt_abort_heap_exit" = Int64.ofNat 4202761 := by
   refine ⟨hlab _ _ ?_, hlab _ _ ?_⟩ <;> (rw [← codeT_eq]; decide +kernel)
 
 /-- **`AbP` at every node of the heap abort path**: the dispatcher's blocks
@@ -192,8 +192,8 @@ the two return points `ownG` reads there (`h5`, `h23`). -/
 theorem abHAgreeW (hlab : ∀ l x, codeLabel lo wakeCells l = some x → L.lab l = Int64.ofNat x) {a : BitVec 64}
     {μ : Scc.Sem.Marks} {endPc : Int64} {R : Region} {F : MachineData → Prop} {c0 : Ctl} {ra : BitVec 64}
     (h : AbPH L μ endPc R F c0 ra)
-    (h5 : ra = (L.lab ".Lscc_rt_alloc_tcb.x5").toBitVec → BandOut L R)
-    (h23 : ra ≠ (L.lab ".Lwc_main.x23").toBitVec) :
+    (h5 : ra = (L.lab ".Lscc_rt_alloc_tcb.x0").toBitVec → BandOut L R)
+    (h23 : ra ≠ (L.lab ".Lwc_main.x5").toBitVec) :
     AbHAgree L a (fun s => ownW L a (phW (pcOf s))) μ endPc R F c0 ra :=
   abHAgree h fun _ hs => ownG_W hlab (goodW_ab hs h5 h23)
 

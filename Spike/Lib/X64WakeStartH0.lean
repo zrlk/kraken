@@ -176,7 +176,7 @@ theorem wake_start_wc_h0 {a : BitVec 64} {E : Scc.Sem.Entry} (hE : E.Ok (Ly).Λ)
     (hctr2 : ∀ a ∈ [(Ly).pnA, (Ly).lockA, (Ly).freeNA, (Ly).nextA], a ≠ Spike.Lib.X64WakeGOf2.lim2A (Ly))
     (hcT : cT ≠ ⟨(Ly).pinA + 16#64, 8⟩)
     (hc : Spike.Lib.X64.Rt.CtrZ o)
-    (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
+    (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
     (hrt0 : ∀ a, ¬ ∃ l b, L0 l = some b ∧ (Scc.Sem.lrange ls0 l b).contains a) (hbx : C0Box c0)
     {P : MachineData → Prop} (hP : Spike.Lib.X64.FStable (entryR E) P)
     (hti : ∀ F' : MachineData → Prop, Spike.Lib.X64.FStable ((entryR E).callee (-8) (-296) 8) F' →

@@ -30,7 +30,7 @@ The `imulq` (undefined flags) is a node of its own (`flag_nd`,
 `Spike/Lib/X64Flags.lean`), landing at the next block for every value of
 the flags. Given nodes (hypotheses): the thread-pointer load of the stack
 limit (`htls`), the heap load (`hheap`), the call to `wc_emit8` (`hcall`,
-from its entry with the return address at `-120` back to `.x17`) and the
+from its entry with the return address at `-120` back to `.x0`) and the
 call to `scc_rt_morestack` (`hms`). The calls may grow the stack and so
 move the frame: the region, the frame condition `F` (any condition no write
 inside the region breaks, `FStable`) and the caller's `%rbp` are a ghost
@@ -155,7 +155,9 @@ block_spec b14 (-120) 16 oG b14
 
 /-! ## The graph -/
 
-/-- The internal nodes: one per block, and the given nodes. -/
+/-- The internal nodes: one per block, and the given nodes. The nodes `x17`
+and `x18` keep their pre-P5 names; their labels are `.Lwc_printL.x0` and
+`.Lwc_printL.x3` (P5's per-function label numbers). -/
 inductive PN where
   | e | chk | tls | n2 | n3 | entry | mul | n5 | heap | n6 | call | x17 | n8 | then6 | else7 | n11
   | ovf | stk | ms | x18
@@ -190,8 +192,8 @@ def N : PN → ND
   | .n6 => ⟨lab ".Lwc_printL.entry" + 66, oI, JI c0 rbp0 ra⟩
   | .call => ⟨lab "wc_emit8", ⟨-120, [(.rbp, 0)]⟩, fun σ c => JI c0 rbp0 ra σ c ∧
       σ.slot (-120) = (lab ".Lwc_printL.entry" + 83).toBitVec⟩
-  | .x17 => ⟨lab ".Lwc_printL.x17", oI, JI c0 rbp0 ra⟩
-  | .n8 => ⟨lab ".Lwc_printL.x17" + 20, oI, JI c0 rbp0 ra⟩
+  | .x17 => ⟨lab ".Lwc_printL.x0", oI, JI c0 rbp0 ra⟩
+  | .n8 => ⟨lab ".Lwc_printL.x0" + 20, oI, JI c0 rbp0 ra⟩
   | .then6 => ⟨lab ".Lwc_printL.then6", oI, JI c0 rbp0 ra⟩
   | .else7 => ⟨lab ".Lwc_printL.else7", oI, JI c0 rbp0 ra⟩
   | .n11 => ⟨lab ".Lwc_printL.else7" + 43, oI, JI c0 rbp0 ra⟩
@@ -199,7 +201,7 @@ def N : PN → ND
   | .stk => ⟨lab ".Lwc_printL.stk", oX, JI c0 rbp0 ra⟩
   | .ms => ⟨lab "scc_rt_morestack", ⟨-56, [(.rbp, 0)]⟩, fun σ c => JI c0 rbp0 ra σ c ∧
       σ.slot (-56) = (lab ".Lwc_printL.stk" + 18).toBitVec⟩
-  | .x18 => ⟨lab ".Lwc_printL.x18", oG, JI c0 rbp0 ra⟩
+  | .x18 => ⟨lab ".Lwc_printL.x3", oG, JI c0 rbp0 ra⟩
 
 /-- **The exits.** -/
 def E : PX → ND

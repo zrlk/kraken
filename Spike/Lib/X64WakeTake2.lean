@@ -5,7 +5,7 @@
 (the canonical phase: `phOf < 16`) with the canonical take's phase (bit `3`
 clear, relative to the second thread's range), and the phase facts of
 `scc_rt_thread_init` (`TiPh`, returning to `wc_main`'s `.x21`) and
-`scc_rt_stack_take` (`TakePh`, returning to `.Lscc_rt_thread_init.x7`)
+`scc_rt_stack_take` (`TakePh`, returning to `.Lscc_rt_thread_init.x0`)
 there.
 
 Per-call phase projection; generic multi-spawn wants a reserve/post-take
@@ -58,7 +58,7 @@ def ti2Tab : List PhFact :=
   [.blk Ti.fnL 0 Ti.tiPro none none, .blk Ti.entryL 0 Ti.tiArg none none, .blk Ti.entryL 7 Ti.callBlk none none,
     .blk Ti.x7L 0 Ti.tiSp none none, .blk Ti.x7L 51 Ti.tiF1 none none, .blk Ti.x7L 63 Ti.tiZ none none,
     .blk Ti.x7L 78 Ti.tiZ none none, .blk Ti.x7L 93 Ti.tiF4 none none, .blk Ti.x7L 105 Ti.tiF5 none none,
-    .blk Ti.x7L 117 Ti.tiRet (some (".Lwc_main.x21", 0)) none,
+    .blk Ti.x7L 117 Ti.tiRet (some (".Lwc_main.x3", 0)) none,
     .step Ti.x7L 48 3, .step Ti.x7L 59 4, .step Ti.x7L 74 4, .step Ti.x7L 89 4, .step Ti.x7L 101 4,
     .step Ti.x7L 113 4,
     .ph Ti.fnL 0 12, .ph Ti.entryL 0 12, .ph Ti.entryL 7 12]
@@ -102,8 +102,8 @@ theorem own2b_mod16 (L : RuntimeLayout) (a : BitVec 64) (i : Nat) : own2b L a (i
 `call scc_rt_thread_init` (`ph2a`, the second instance) at the callee's
 entry (`ph2b`, this one) the lists agree. -/
 theorem own2a_own2b_ph (L : RuntimeLayout) (a : BitVec 64) :
-    own2a L a (ph2a 4203392) = own2b L a (ph2b 4199545) := by
-  have h1 : ph2a 4203392 = 0 := by rw [ph2a_eq]; unfold ph2aC; rw [threadInit2_ph.1]
+    own2a L a (ph2a 4203430) = own2b L a (ph2b 4199545) := by
+  have h1 : ph2a 4203430 = 0 := by rw [ph2a_eq]; unfold ph2aC; rw [threadInit2_ph.1]
   have h2 : ph2b 4199545 = 12 := by rw [ph2b_eq]; unfold ph2bC; rw [threadInit2_ph.2.2]
   rw [h1, h2]; unfold own2a own2b ownV; simp
 
@@ -131,12 +131,12 @@ open Spike.Lib.X64.Rt in
 theorem tiPh2b {L : RuntimeLayout} (hΛ : L.Λ.abortLbl = Scc.Cert.Link.abortName)
     (hlab : ∀ l x, codeLabel lo wakeCells l = some x → L.lab l = Int64.ofNat x) :
     TiPh (okPcOf lo wakeCells L.Λ) ph2b (fun s => ph2b (pcOf s) / 8 % 2 = 0) L.lab
-      (fun _ => L.lab ".Lwc_main.x21") := by
+      (fun _ => L.lab ".Lwc_main.x3") := by
   have hf : ∀ f ∈ ti2Tab, _ := fun f hf => ti2_fact hΛ (f := f) hf
   have hn : ∀ t, Scc.Cert.Rt.X64.deadN (codeLabel lo wakeCells) none t = true → (fun _ => false) t = true :=
     fun _ h => by simp [Scc.Cert.Rt.X64.deadN] at h
   have hr : ∀ r o', (none : Option (String × Nat)) = some (r, o') →
-      L.lab ".Lwc_main.x21" = L.lab r + Int64.ofNat o' := fun _ _ h => nomatch h
+      L.lab ".Lwc_main.x3" = L.lab r + Int64.ofNat o' := fun _ _ h => nomatch h
   exact {
     e := blkPh_of_factOk hlab hr hn (hf (.blk Code.Ti.fnL 0 Code.Ti.tiPro none none) (by simp [ti2Tab]))
     entry := blkPh_of_factOk hlab hr hn (hf (.blk Code.Ti.entryL 0 Code.Ti.tiArg none none) (by simp [ti2Tab]))
@@ -148,7 +148,7 @@ theorem tiPh2b {L : RuntimeLayout} (hΛ : L.Λ.abortLbl = Scc.Cert.Link.abortNam
     f4 := blkPh_of_factOk hlab hr hn (hf (.blk Code.Ti.x7L 93 Code.Ti.tiF4 none none) (by simp [ti2Tab]))
     f5 := blkPh_of_factOk hlab hr hn (hf (.blk Code.Ti.x7L 105 Code.Ti.tiF5 none none) (by simp [ti2Tab]))
     ret := blkPh_of_factOk hlab (fun _ _ h => by cases h; exact (Spike.Lib.X64.Flow.ofNat_zero' _).symm) hn
-      (hf (.blk Code.Ti.x7L 117 Code.Ti.tiRet (some (".Lwc_main.x21", 0)) none) (by simp [ti2Tab]))
+      (hf (.blk Code.Ti.x7L 117 Code.Ti.tiRet (some (".Lwc_main.x3", 0)) none) (by simp [ti2Tab]))
     st := by
       intro pz hp
       simp only [stPcs, List.mem_cons, List.not_mem_nil, or_false] at hp

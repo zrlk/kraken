@@ -84,16 +84,19 @@ theorem ret0_proInC_eq : proInC SccCode.ret0Cells mainFr "wc_main" ".Lwc_main.en
     Spike.Lib.X64.Flow.wcPro := by
   decide +kernel
 
-#guard bodyIn SccCode.ret0Cells mainFr ".Lwc_main.entry" 0 ret0Res.insts ret0Res.ret
+#guard bodyIn SccCode.ret0Cells mainFr ".Lwc_main.entry" 0 0 ret0Res.insts ret0Res.ret
 
-theorem ret0_bodyIn : bodyIn SccCode.ret0Cells mainFr ".Lwc_main.entry" 0 ret0Res.insts ret0Res.ret = true := by
+theorem ret0_bodyIn : bodyIn SccCode.ret0Cells mainFr ".Lwc_main.entry" 0 0 ret0Res.insts ret0Res.ret = true := by
   decide +kernel
 
-/-- The sizes `bodyIn` reads: the add's `[7, 7, 3, 2]`, the store's `4`
-at `19`, the return's `[4, 3, 1, 1]` at `23`. -/
+/-- The sizes `bodyIn` reads, at the labels it reads them after: the add's
+`[7, 7, 3, 2]` at `.entry`; past the add's return label `.x0` (19 bytes on),
+the store's `4` and the teardown's `[4, 3, 1]` at `4`; the `ret`'s `1` at the
+result's return label `.x1` (the return `[4, 3, 1, 1]` split by `.x1`). -/
 theorem ret0_sizes : sizesAt SccCode.ret0Cells ".Lwc_main.entry" 0 4 = [7, 7, 3, 2] ∧
-    sizesAt SccCode.ret0Cells ".Lwc_main.entry" 19 1 = [4] ∧
-    sizesAt SccCode.ret0Cells ".Lwc_main.entry" 23 4 = [4, 3, 1, 1] := by
+    sizesAt SccCode.ret0Cells ".Lwc_main.x0" 0 1 = [4] ∧
+    sizesAt SccCode.ret0Cells ".Lwc_main.x0" 4 3 = [4, 3, 1] ∧
+    sizesAt SccCode.ret0Cells ".Lwc_main.x1" 0 1 = [1] := by
   decide +kernel
 
 /-- `bodyIn`'s blocks are the hand blocks: the add is `wcAdd`, the store and
@@ -108,12 +111,29 @@ variable {p : Prog} {lbl : WeakMem.AllocLabel → Option Nat} {ms : MemSide isa}
   {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe] {endPc : Int64}
   {R : Region} {F : MachineData → Prop}
 
+omit [Kraken.Executable.ValidLayout exe] in
+/-- `BodyCode` along a weaker code predicate. -/
+theorem bodyCode_mono {fr : Scc.Emit.X64.Frame} {C1 C2 : Int64 → List (Directive × Nat) → Prop}
+    (h : ∀ pc blk, C1 pc blk → C2 pc blk) :
+    ∀ pc is ws, BodyCode fr C1 pc is ws → BodyCode fr C2 pc is ws := by
+  intro pc is
+  induction is generalizing pc with
+  | nil =>
+    intro ws hb
+    rcases ws with _ | ⟨w, _ | ⟨_, _⟩⟩ <;> simp only [BodyCode] at hb ⊢
+    obtain ⟨l, zs, h1, h2, h3⟩ := hb
+    exact ⟨l, zs, h1, h2, h _ _ h3⟩
+  | cons i is ih =>
+    intro ws hb
+    cases i <;> simp only [BodyCode] at hb ⊢
+    obtain ⟨la, lb, off, zs, z, h1, h2, h3, h4, h5, h6, h7⟩ := hb
+    exact ⟨la, lb, off, zs, z, h1, h2, h3, h4, h _ _ h5, h _ _ h6, ih _ _ h7⟩
+
 /-- **`main`'s lowered body's code in any valid layout of `ret0Cells`.** -/
 theorem ret0_bodyCode (hp : Lays exe SccCode.ret0Cells) (hend : endPc = endOf exe SccCode.ret0Cells) :
     BodyCode mainFr (CdOf exe endPc) ((_root_.Executable.labels exe).label ".Lwc_main.entry")
       ret0Res.insts ret0Res.ret := by
-  have := bodyCode_of hp hend _ 0 _ ret0_bodyIn
-  rwa [Spike.Lib.X64.Flow.ofNat_zero'] at this
+  exact bodyCode_mono (fun _ _ hc => hc.1) _ _ _ (bodyCode_inBody hp hend ret0_bodyIn)
 
 /-- **The symbolic body segment at `ret0.w`'s `main`**: from `.entry`
 (`main`'s body, `u` bound to the unit) to the saved return address or the
@@ -230,11 +250,11 @@ theorem ret0_fn0_segW {p : Prog} {lbl : WeakMem.AllocLabel → Option Nat} {ms :
     (hWp : Spike.Lib.X64.Flow.XProW W K exe endPc R F ms ((_root_.Executable.labels exe).label "wc_main")
       (Int64.ofInt mainFr.size) (Int64.ofNat Scc.IR.Tcb.stackLimit) (proL mainFr) 5 9 3 2 4 [] J)
     (hWb : ∀ pc t s blk, CdOf exe endPc pc blk →
-      InBody (_root_.Executable.labels exe).label SccCode.ret0Cells mainFr ".Lwc_main.entry" ret0Res.insts
+      InBody (_root_.Executable.labels exe).label SccCode.ret0Cells mainFr ".Lwc_main.entry" 0 ret0Res.insts
         ret0Res.ret pc blk →
       BlkW W K exe endPc (rbR R) F (bodyN p lbl mainFr fp ra c0 pc t s) blk)
     (hWs : ∀ pc t s k blk, CdOf exe endPc pc blk →
-      InBody (_root_.Executable.labels exe).label SccCode.ret0Cells mainFr ".Lwc_main.entry" ret0Res.insts
+      InBody (_root_.Executable.labels exe).label SccCode.ret0Cells mainFr ".Lwc_main.entry" 0 ret0Res.insts
         ret0Res.ret pc blk →
       BlkW W K exe endPc (rbR R) F (pendN p lbl mainFr fp ra c0 pc t s k) blk)
     (hedge : ∀ σ c, J σ c →
@@ -263,12 +283,12 @@ theorem ret0_fn0_segW {p : Prog} {lbl : WeakMem.AllocLabel → Option Nat} {ms :
 
 /-- info: [(0, 4, 19), (19, 1, 4), (23, 4, 9)] -/
 #guard_msgs in -- `ret0.w`'s body blocks (`InBody`'s): the add, its store, the return; byte offsets, lengths, bytes
-#eval (bodyBlks SccCode.ret0Cells mainFr ".Lwc_main.entry" 0 ret0Res.insts ret0Res.ret).map
+#eval (bodyBlks SccCode.ret0Cells mainFr ".Lwc_main.entry" 0 0 0 ret0Res.insts ret0Res.ret).map
   (fun x => (x.1, x.2.length, (x.2.map (·.2)).sum))
 
 /-- Every body block is `InBody` at its offset (`hWb`'s premise is satisfiable). -/
-example (lab : String → Int64) : ∀ x ∈ bodyBlks SccCode.ret0Cells mainFr ".Lwc_main.entry" 0 ret0Res.insts ret0Res.ret,
-    InBody lab SccCode.ret0Cells mainFr ".Lwc_main.entry" ret0Res.insts ret0Res.ret
+example (lab : String → Int64) : ∀ x ∈ bodyBlks SccCode.ret0Cells mainFr ".Lwc_main.entry" 0 0 0 ret0Res.insts ret0Res.ret,
+    InBody lab SccCode.ret0Cells mainFr ".Lwc_main.entry" 0 ret0Res.insts ret0Res.ret
       (lab ".Lwc_main.entry" + Int64.ofNat x.1) x.2 :=
   fun x hx => ⟨x.1, rfl, hx⟩
 

@@ -133,7 +133,7 @@ module doc). -/
 theorem hpre_ofC {asm : Asm} {E : Entry} {arch : WeakMem.Arch} {R1 : Cfg → TermRun.Cfg → Prop} {μ : Marks}
     {M : X64WakeM0.MSide (ιR hp i)} {r0 r1 : ιR hp i → Range} {D : X64WakeO.OData} {μ' : Marks}
     (hR1 : ∀ d s, R1 d s → X64WakeO.R1O arch (Ly).Λ μ' D d s)
-    (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
+    (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
     (hr0 : ∀ w, r0 w = D.r0) (hr1 : ∀ w, r1 w = r1Of (Ly).lab)
     (hown : ∃ a, ∀ st stk, D.own st stk = ownGXW (Ly) a st)
     (hG : ∀ d s (th : Thread isa) (th0 : TermRun.TTh) (lbl : Lbl) (lsize : Lsize) ts hd l T S pT cw,

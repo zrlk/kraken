@@ -139,8 +139,8 @@ def phase (asm : String) : Option (Nat × Range × Bool × Bool × Bool × Nat �
         post.all (tk rS),
         pre.length, post.length)
 
-/-- info: (some (214, { lo := 268435456, size := 16384 }, true, true, true, 214, 79),
- some (214, { lo := 268435456, size := 16384 }, true, true, true, 214, 302)) -/
+/-- info: (some (215, { lo := 268435456, size := 16384 }, true, true, true, 215, 79),
+ some (215, { lo := 268435456, size := 16384 }, true, true, true, 215, 302)) -/
 #guard_msgs in
 #eval (phase ret0, phase hello1)
 

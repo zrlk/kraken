@@ -44,10 +44,10 @@ theorem ownGH_lo {L : RuntimeLayout}
     omega
   unfold ownGH
   simp only [hn "scc_rt_alloc_tcb" "scc_rt_thread_reserve" 2164748 (by rw [← codeT_eq]; decide +kernel) (by decide),
-    hn "scc_rt_thread_init" "scc_rt_stack_release" 2165280 (by rw [← codeT_eq]; decide +kernel) (by decide),
-    hn ".L22_wc_main.sp4" ".L22_wc_main.sp6" 2169716 (by rw [← codeT_eq]; decide +kernel) (by decide),
-    hn ".L22_wc_main.sp6" ".L22_wc_main.stack_grow" 2169740 (by rw [← codeT_eq]; decide +kernel) (by decide),
-    hn "scc_rt_abort" "scc_rt_thr_worker" 2168032 (by rw [← codeT_eq]; decide +kernel) (by decide), ↓reduceIte, hpc,
+    hn "scc_rt_thread_init" "scc_rt_stack_release" 2165284 (by rw [← codeT_eq]; decide +kernel) (by decide),
+    hn ".L22_wc_main.sp4" ".L22_wc_main.sp6" 2169748 (by rw [← codeT_eq]; decide +kernel) (by decide),
+    hn ".L22_wc_main.sp6" ".L22_wc_main.stack_grow" 2169772 (by rw [← codeT_eq]; decide +kernel) (by decide),
+    hn "scc_rt_abort" "scc_rt_thr_worker" 2168064 (by rw [← codeT_eq]; decide +kernel) (by decide), ↓reduceIte, hpc,
     phH_lo]
 
 section Place

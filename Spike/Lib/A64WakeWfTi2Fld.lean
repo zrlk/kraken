@@ -5,8 +5,8 @@ of `WakeTi2Hat.hti_W` at `Ly := RuntimeLayout.ofPlaceW hp i` and
 `ms1 := WakeH1Inv.ms1W hp i E cT ls0 l b n []` (`hunF` passes through as
 `hfld2_W`'s premise).
 
-The second TCB `t2 = pinA + 104` has its six words in `[pinA + 104, pinA +
-152)`, in `pinned` (`hpin2`); the counters `lockA`, `freeNA`, `nextA` are
+The second TCB `t2 = pinA + 136` has its six words in `[pinA + 136, pinA +
+184)`, in `pinned` (`hpin2`); the counters `lockA`, `freeNA`, `nextA` are
 runtime words (`words_mapped`). Both lie in `.data` or `pinned`, disjoint
 from the heap that holds `l`'s box (`AllocLand`), the start's label `L0T`
 none of them (no static labels, `hstat`; main's `ThreadId` box sized `0`).
@@ -16,7 +16,7 @@ none of them (no static labels, `hstat`; main's `ThreadId` box sized `0`).
 - `hnoF2_W`: the TCB's words none of `own2b`'s (A13's data part: apart from
   the runtime's words and from `scc_rt_nthreads`).
 - `hfld2_W`: `scc_rt_thread_init`'s six stores (`StOk`); `G` is `GOf2`'s,
-  the limit word `pinA + 112` holding `lim2V`.
+  the limit word `pinA + 144` holding `lim2V`.
 - `tcb_word`, `tcb_bytes`, `rt_dp`, `stOk_tcb`: the TCB's words (`spawnWords`',
   in `pinned`); a word of `.data` or `pinned` is the runtime's at `ms1`.
 
@@ -77,18 +77,18 @@ theorem hoffX_W :
     (CalWf.ne_of_sep (Scc.Cert.Rt.A64.ctrSep_of_rtWordsOk (Spike.Lib.PlaceW.rtWordsOk_link_of_placeW i hp) _
       (Ly).next_mem))
 
-/-- The second TCB is `pinA + 104`. -/
-theorem t2_eq : t2 (Ly).lab = (Ly).pinA + 104#64 := by
-  show Ret0.pinA (Ly).lab + 104#64 = _; rw [(Ly).lab_pin]
+/-- The second TCB is `pinA + 136`. -/
+theorem t2_eq : t2 (Ly).lab = (Ly).pinA + 136#64 := by
+  show Ret0.pinA (Ly).lab + 136#64 = _; rw [(Ly).lab_pin]
 
-/-- The TCB's word `c` as `pinA + (104 + c)`. -/
-theorem pin_add (c : Nat) : (Ly).pinA + 104#64 + BitVec.ofNat 64 c = (Ly).pinA + BitVec.ofNat 64 (104 + c) := by
+/-- The TCB's word `c` as `pinA + (136 + c)`. -/
+theorem pin_add (c : Nat) : (Ly).pinA + 136#64 + BitVec.ofNat 64 c = (Ly).pinA + BitVec.ofNat 64 (136 + c) := by
   rw [BitVec.add_assoc]; congr 1; apply BitVec.eq_of_toNat_eq; simp [BitVec.toNat_add]
 
-/-- **A word of the second TCB** is `pinA + 80 + 8 (3 + k)`, `spawnWords`'
+/-- **A word of the second TCB** is `pinA + 112 + 8 (3 + k)`, `spawnWords`'
 word `3 + k`. -/
 theorem tcb_word {a : BitVec 64} (ha : a ∈ Spike.Lib.A64.Rt.Ti.tiAddrs (t2 (Ly).lab)) :
-    ∃ k < 6, a = (Ly).pinA + BitVec.ofNat 64 (80 + 8 * (3 + k)) := by
+    ∃ k < 6, a = (Ly).pinA + BitVec.ofNat 64 (112 + 8 * (3 + k)) := by
   rw [t2_eq hp i] at ha
   simp only [Spike.Lib.A64.Rt.Ti.tiAddrs, List.mem_cons, List.not_mem_nil, or_false] at ha
   rcases ha with rfl | rfl | rfl | rfl | rfl | rfl
@@ -99,14 +99,14 @@ theorem tcb_word {a : BitVec 64} (ha : a ∈ Spike.Lib.A64.Rt.Ti.tiAddrs (t2 (Ly
   · exact ⟨4, by decide, pin_add hp i _⟩
   · exact ⟨5, by decide, pin_add hp i _⟩
 
-/-- A word of `[pinA + 104, pinA + 152)`: its bytes in `pinned`. -/
-theorem tcb_bytes (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) {k : Nat} (hk : k < 6) :
-    ∀ j < 8, (Ly).Λ.pinned.contains (((Ly).pinA + BitVec.ofNat 64 (80 + 8 * (3 + k))).toNat + j) := by
-  have ht := Spike.Lib.WakeTcbArea.pin2_toNat hp i (c := 80 + 8 * (3 + k)) (by omega)
+/-- A word of `[pinA + 136, pinA + 184)`: its bytes in `pinned`. -/
+theorem tcb_bytes (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) {k : Nat} (hk : k < 6) :
+    ∀ j < 8, (Ly).Λ.pinned.contains (((Ly).pinA + BitVec.ofNat 64 (112 + 8 * (3 + k))).toNat + j) := by
+  have ht := Spike.Lib.WakeTcbArea.pin2_toNat hp i (c := 112 + 8 * (3 + k)) (by omega)
   exact fun j hj => Spike.Lib.WakeTcbArea.pin2_contains hp i hpin2 (by omega) (by omega)
 
 /-- **`hti_W`'s `hoffT`**: the second TCB's words are off wake's arena. -/
-theorem hoffT2_W (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
+theorem hoffT2_W (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
     (hcz : Spike.Lib.A64.Rt.CtrZ o) :
     ∀ a ∈ Spike.Lib.A64.Rt.Ti.tiAddrs (t2 (Ly).lab),
       ¬ ((WakeOD.arW hp i).heap ≤ a.toNat ∧ a.toNat < (WakeOD.arW hp i).heap + 16 * (WakeOD.arW hp i).cells) ∧
@@ -116,7 +116,7 @@ theorem hoffT2_W (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.
   exact CalWf.hoffPin_W hp i hpin2 hcz (by omega)
 
 /-- **`hti_W`'s `hmF`**: the second TCB's words are mapped for a write. -/
-theorem hmF2_W (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) :
+theorem hmF2_W (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) :
     ∀ a ∈ Spike.Lib.A64.Rt.Ti.tiAddrs (t2 (Ly).lab),
       Scc.Sem.Kernel.mapped (Spike.Lib.A64Consumer.K0 (Ly).Λ) true ⟨a, 8⟩ = true := by
   intro a ha
@@ -140,10 +140,10 @@ theorem hnoF2_W (hA13 : Scc.Cert.Spawn.A64.a13data (Ly).Λ o.prog o.secs = true)
   simp only [Scc.Cert.Spawn.A64.a13data, Bool.and_eq_true, List.all_cons, List.all_eq_true,
     decide_eq_true_eq] at hA13
   obtain ⟨⟨⟨⟨⟨-, -, -⟩, -, hoS⟩, -, -⟩, hpw⟩, -⟩ := hA13
-  have hm : (Ly).pinA + BitVec.ofNat 64 (80 + 8 * (3 + k)) ∈ Scc.Cert.Spawn.A64.spawnWords (Ly).pinA :=
+  have hm : (Ly).pinA + BitVec.ofNat 64 (112 + 8 * (3 + k)) ∈ Scc.Cert.Spawn.A64.spawnWords (Ly).pinA :=
     List.mem_map.2 ⟨3 + k, List.mem_range.2 (by simp only [Scc.IR.Tcb.size, Scc.IR.maxSpawnArgs]; omega), rfl⟩
   have hO : ∀ y, y ∈ [(Ly).pnA, (Ly).nextA, (Ly).lockA, (Ly).freeNA] →
-      (Ly).pinA + BitVec.ofNat 64 (80 + 8 * (3 + k)) ≠ y := by
+      (Ly).pinA + BitVec.ofNat 64 (112 + 8 * (3 + k)) ≠ y := by
     intro y hy
     have hold : y ∈ Scc.Cert.Rt.A64.rtWords (Ly).pinA (Ly).pnA (Ly).nextA (Ly).lockA (Ly).freeNA := by
       simp only [List.mem_cons, List.not_mem_nil, or_false] at hy
@@ -189,7 +189,7 @@ theorem rt_dp (hstat : (Ly).Λ.static = fun _ => none)
     omega
 
 /-- **A store to a word of the second TCB at `ms1`**, given its `G`. -/
-theorem stOk_tcb (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
+theorem stOk_tcb (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
     (hstat : (Ly).Λ.static = fun _ => none)
     (hland : AllocLand (WakeOD.arW hp i).heap (WakeOD.arW hp i).cells b n)
     (hunT : ∀ a ∈ Spike.Lib.A64.Rt.Ti.tiAddrs (t2 (Ly).lab), ∀ m, F m → Mem.loadInt m.dmem a 8 = none)
@@ -203,8 +203,8 @@ theorem stOk_tcb (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.
       fun _ j hj => .inr (.inr (hin j (by simpa [Scc.Sem.Kernel.locBytes] using hj)))⟩, hG, hun⟩
 
 /-- **`hti_W`'s `hfld`**: `scc_rt_thread_init`'s six stores; `G` is
-`GOf2`'s, the limit word `pinA + 112` holding `lim2V`. -/
-theorem hfld2_W (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
+`GOf2`'s, the limit word `pinA + 144` holding `lim2V`. -/
+theorem hfld2_W (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
     (hstat : (Ly).Λ.static = fun _ => none)
     (hland : AllocLand (WakeOD.arW hp i).heap (WakeOD.arW hp i).cells b n)
     (hunT : ∀ a ∈ Spike.Lib.A64.Rt.Ti.tiAddrs (t2 (Ly).lab), ∀ m, F m → Mem.loadInt m.dmem a 8 = none) :

@@ -1,4 +1,5 @@
 import Spike.Lib.X64PhasesOfPlaceOK
+import Spike.Lib.Rt.X64RtReservePh
 import Spike.Lib.X64Ret0I
 import Spike.Lib.X64Hello1I
 import Spike.Test.X64Ret0PlaceOK
@@ -37,7 +38,7 @@ theorem ret0_phOf : phOf 4194304 ret0Cells = Ret0.Inst.ph := by
     Ret0.Inst.bP, Ret0.Inst.bL, Ret0.Inst.bN, Ret0.Inst.bT, Ret0.Inst.inN, Bool.or_assoc]
 
 theorem ret0_sites : sitesOf 4194304 ret0Cells ret0Λ =
-    some [4196177, 4196217, 4198555, 4198623, 4198691, 4198759, 4198827] := by
+    some [4196177, 4196217, 4198593, 4198661, 4198729, 4198797, 4198865] := by
   decide +kernel
 
 /-- **`ret0.w`'s sites are the hand ones.** -/
@@ -58,7 +59,7 @@ theorem hello1_phOf : phOf 4194304 hello1Cells = Hello1.Inst.ph := by
     Hello1.Inst.bP, Hello1.Inst.bL, Hello1.Inst.bN, Hello1.Inst.bT, Ret0.Inst.inN, Bool.or_assoc]
 
 theorem hello1_sites : sitesOf 4194304 hello1Cells hello1Λ =
-    some [4196218, 4196258, 4198596, 4198664, 4198732, 4198800, 4198868] := by
+    some [4196218, 4196258, 4198634, 4198702, 4198770, 4198838, 4198906] := by
   decide +kernel
 
 /-- **`hello1.w`'s sites are the hand ones.** -/
@@ -78,7 +79,7 @@ theorem codeLo_canonical (o : Out) : (tablesOf Config.canonical o).Λ.code.lo = 
 
 theorem ret0_sites' : sitesOf 4194304 ret0Cells
     (tablesOf Config.canonical ⟨ret0Cells, ret0Secs, ret0Asm.labelOffs, ret0Place⟩).Λ =
-    some [4196177, 4196217, 4198555, 4198623, 4198691, 4198759, 4198827] := by
+    some [4196177, 4196217, 4198593, 4198661, 4198729, 4198797, 4198865] := by
   decide +kernel
 
 theorem ret0_okPcOf' :
@@ -112,22 +113,46 @@ example : blkPh Ret0.Inst.okPc Ret0.Inst.ph (fun t => t == 4195133) labT
 
 example : blkPh Ret0.Inst.okPc Ret0.Inst.ph (fun _ => false) labT
     (labT Ret0.AllocTcb.okL + Int64.ofNat 143) (labT ".Lscc_rt_start.x0") Ret0.AllocTcb.atRet = true := by
-  have h := blkPh_of_rowAt_placeOK (off := 143) (blk := Ret0.AllocTcb.atRet)
-    (l := Ret0.AllocTcb.okL) (dead := fun _ => false) (ra := labT ".Lscc_rt_start.x0") (atTables ret0_placeOK)
-    (by decide +kernel) (by decide +kernel) ret0_labT' (by decide +kernel)
-  simp only [codeLo_canonical] at h
-  rw [ret0_phOf, ret0_okPcOf'] at h
-  exact h
+  rw [← List.take_append_drop 11 Ret0.AllocTcb.atRet]
+  refine Spike.Lib.X64.Rt.Reserve.blkPh_appendX ?_ ?_ (by decide +kernel)
+  · have h := blkPh_of_rowAt_placeOK (off := 143) (blk := Ret0.AllocTcb.atRet.take 11)
+      (l := Ret0.AllocTcb.okL) (dead := fun _ => false) (ra := labT ".Lscc_rt_start.x0") (atTables ret0_placeOK)
+      (by decide +kernel) (by decide +kernel) ret0_labT' (by decide +kernel)
+    simp only [codeLo_canonical] at h
+    rw [ret0_phOf, ret0_okPcOf'] at h
+    exact h
+  · have e : labT Ret0.AllocTcb.okL + Int64.ofNat 143 +
+        Int64.ofNat ((Ret0.AllocTcb.atRet.take 11).map (·.2)).sum = labT Ret0.AllocTcb.retL + Int64.ofNat 0 := by
+      decide +kernel
+    rw [e]
+    have h := blkPh_of_rowAt_placeOK (off := 0) (blk := Ret0.AllocTcb.atRet.drop 11)
+      (l := Ret0.AllocTcb.retL) (dead := fun _ => false) (ra := labT ".Lscc_rt_start.x0") (atTables ret0_placeOK)
+      (by decide +kernel) (by decide +kernel) ret0_labT' (by decide +kernel)
+    simp only [codeLo_canonical] at h
+    rw [ret0_phOf, ret0_okPcOf'] at h
+    exact h
 
 example : blkPh Ret0.Inst.okPc Ret0.Inst.ph (fun _ => false) labT
-    (labT Ret0.StackTake.siteL + Int64.ofNat 1) (labT ".Lscc_rt_thread_init.x7") Ret0.StackTake.stRet
+    (labT Ret0.StackTake.siteL + Int64.ofNat 1) (labT ".Lscc_rt_thread_init.x0") Ret0.StackTake.stRet
       = true := by
-  have h := blkPh_of_rowAt_placeOK (off := 1) (blk := Ret0.StackTake.stRet)
-    (l := Ret0.StackTake.siteL) (dead := fun _ => false) (ra := labT ".Lscc_rt_thread_init.x7") (atTables ret0_placeOK)
-    (by decide +kernel) (by decide +kernel) ret0_labT' (by decide +kernel)
-  simp only [codeLo_canonical] at h
-  rw [ret0_phOf, ret0_okPcOf'] at h
-  exact h
+  rw [← List.take_append_drop 3 Ret0.StackTake.stRet]
+  refine Spike.Lib.X64.Rt.Reserve.blkPh_appendX ?_ ?_ (by decide +kernel)
+  · have h := blkPh_of_rowAt_placeOK (off := 1) (blk := Ret0.StackTake.stRet.take 3)
+      (l := Ret0.StackTake.siteL) (dead := fun _ => false) (ra := labT ".Lscc_rt_thread_init.x0")
+      (atTables ret0_placeOK) (by decide +kernel) (by decide +kernel) ret0_labT' (by decide +kernel)
+    simp only [codeLo_canonical] at h
+    rw [ret0_phOf, ret0_okPcOf'] at h
+    exact h
+  · have e : labT Ret0.StackTake.siteL + Int64.ofNat 1 +
+        Int64.ofNat ((Ret0.StackTake.stRet.take 3).map (·.2)).sum = labT Ret0.StackTake.retL + Int64.ofNat 0 := by
+      decide +kernel
+    rw [e]
+    have h := blkPh_of_rowAt_placeOK (off := 0) (blk := Ret0.StackTake.stRet.drop 3)
+      (l := Ret0.StackTake.retL) (dead := fun _ => false) (ra := labT ".Lscc_rt_thread_init.x0")
+      (atTables ret0_placeOK) (by decide +kernel) (by decide +kernel) ret0_labT' (by decide +kernel)
+    simp only [codeLo_canonical] at h
+    rw [ret0_phOf, ret0_okPcOf'] at h
+    exact h
 
 /-! ## A negative test
 

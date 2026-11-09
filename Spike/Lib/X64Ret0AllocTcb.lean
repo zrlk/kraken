@@ -2,7 +2,7 @@
 **`scc_rt_alloc_tcb` in `ret0.w` on x64, block by block**: the x64 twin of
 `Spike/Lib/A64Ret0AllocTcb.lean`. The walks of the runtime's TCB allocator
 along its one feasible path when `scc_rt_start` calls it with the header
-`2307` and `k = 1`, the named entry and exit predicates of its segment
+`3331` and `k = 1`, the named entry and exit predicates of its segment
 (S2), and the pcs of its writes outside the frame. The nodes at its single
 instructions (the label addresses, the instructions with undefined flags,
 the counter's `lock xadd`, the header's store) are the composition's; each
@@ -10,10 +10,10 @@ walk takes the facts they establish as hypotheses.
 
     scc_rt_alloc_tcb(h = %rdi, k = %rsi):       frame of 176 below %rbp
       .entry: if k ≥ 2^28 goto full                         (atChk: not taken)
-      .len:   d = (k·(((h >> 8) & 16383) + m) + 1)·8,       (atL0 … atL6: d = 80)
+      .len:   d = (k·(((h >> 8) & 16383) + m) + 1)·8,       (atL0 … atL6: d = 112)
               m = (h >> 22) & 16383                         (m = 0)
               old = lock xadd [scc_rt_pinned_next], d       (rmwPc)
-              if old + d > 2^17 goto full                   (atBnd: not taken)
+              if old + d > 163840 goto full                 (atBnd: not taken)
       .ok:    [pinned + old + 8·k·m] = h | k << 36          (hdrPc)
               %rax = pinned + old + 8·k·m + 8; ret          (atRet)
 
@@ -45,7 +45,7 @@ namespace Spike.Lib.X64.Flow.Ret0.AllocTcb
 open CoreLang CoreTerm
 open Kraken Kraken.Promising Kraken.Promising.X64 Kraken.Promising.Lower Kraken.Promising.Lower.X64
 open Kraken.X64.Parser Spike.Lib.X64
-open Scc.Cert.Rt.X64 (Lays endOf blockAtB labelGapB)
+open Scc.Cert.Rt.X64 (Lays endOf blockAtB labelGapB blockAcrossB)
 
 set_option linter.unusedSimpArgs false
 
@@ -119,14 +119,14 @@ def atArg : List (Directive × Nat) := (parse("movq %rax, -88(%rbp)
 movq -88(%rbp), %rcx
 movq -80(%rbp), %rax")).zip [4, 4, 4]
 
-/-- The counter's old value saved; past the pinned area (`2^17` bytes) goes to the abort. -/
+/-- The counter's old value saved; past the pinned area (`163840` bytes) goes to the abort. -/
 def atBnd : List (Directive × Nat) := (parse("movq %rax, -96(%rbp)
 movq -96(%rbp), %rax
 movq -80(%rbp), %rcx
 addq %rcx, %rax
 movq %rax, -104(%rbp)
 movq -104(%rbp), %rax
-movq $131072, %rcx
+movq $163840, %rcx
 cmpq %rcx, %rax
 ja .Lscc_rt_alloc_tcb.full")).zip [4, 4, 4, 3, 4, 4, 7, 3, 2]
 
@@ -212,12 +212,12 @@ structure G where
   ra : BitVec 64
 
 /-- The header `scc_rt_start` passes. -/
-abbrev hdr0 : BitVec 64 := 2307#64
+abbrev hdr0 : BitVec 64 := 3331#64
 
 /-- The TCB's length in bytes the code computes for `hdr0` and `k = 1`. -/
-abbrev tcbLen : BitVec 64 := 80#64
+abbrev tcbLen : BitVec 64 := 112#64
 
-/-- **Entry**: `%rsp`, `%rbp`, the return address the ghosts', `%rdi = 2307`,
+/-- **Entry**: `%rsp`, `%rbp`, the return address the ghosts', `%rdi = 3331`,
 `%rsi = 1`. The own word `scc_rt_pinned_next` holds `n0` (the map's, not
 the state's). -/
 def Pre (g : G) (_n0 : BitVec 64) (σ : AS) : Prop :=
@@ -237,8 +237,8 @@ def Fr (g : G) (ss : List (Int × BitVec 64)) (σ : AS) : Prop :=
 
 /-- The return address, the saved `%rbp` and the arguments. -/
 abbrev s0 (g : G) : List (Int × BitVec 64) := [(0, g.ra), (-8, g.fp), (-16, hdr0), (-24, 1#64)]
-/-- With the length field `9`. -/
-abbrev sA (g : G) : List (Int × BitVec 64) := (-40, 9#64) :: s0 g
+/-- With the length field `13`. -/
+abbrev sA (g : G) : List (Int × BitVec 64) := (-40, 13#64) :: s0 g
 /-- With `m = 0`. -/
 abbrev s1 (g : G) : List (Int × BitVec 64) := (-56, 0#64) :: s0 g
 /-- With `d = tcbLen`. -/
@@ -294,20 +294,20 @@ theorem atL0_walk (lab : String → Int64) (pc : Int64) {g : G} {σ : AS} (h : F
   rw [atL0_run]
   walk [h]
 
-/-- `(h >> 8) & 16383`'s operands (`h >> 8 = 9`). -/
+/-- `(h >> 8) & 16383`'s operands (`h >> 8 = 13`). -/
 theorem atL1_walk (lab : String → Int64) (pc : Int64) {g : G} {σ : AS} (h : Fr g (s0 g) σ)
-    (ha : σ.regs.rax.toBitVec = 9#64) :
+    (ha : σ.regs.rax.toBitVec = 13#64) :
     (arun lab atL1 ⟨pc, oI, σ⟩).pc = pc + Int64.ofNat 15 ∧
     (arun lab atL1 ⟨pc, oI, σ⟩).so = oI ∧ Fr g (s0 g) (arun lab atL1 ⟨pc, oI, σ⟩).σ ∧
-    (arun lab atL1 ⟨pc, oI, σ⟩).σ.regs.rax.toBitVec = 9#64 ∧
+    (arun lab atL1 ⟨pc, oI, σ⟩).σ.regs.rax.toBitVec = 13#64 ∧
     (arun lab atL1 ⟨pc, oI, σ⟩).σ.regs.rcx.toBitVec = 16383#64 := by
   frh h
   rw [atL1_run]
   walk [h, ha]
 
-/-- The length field `9` saved; `h >> 22`'s operands. -/
+/-- The length field `13` saved; `h >> 22`'s operands. -/
 theorem atL2_walk (lab : String → Int64) (pc : Int64) {g : G} {σ : AS} (h : Fr g (s0 g) σ)
-    (ha : σ.regs.rax.toBitVec = 9#64) :
+    (ha : σ.regs.rax.toBitVec = 13#64) :
     (arun lab atL2 ⟨pc, oI, σ⟩).pc = pc + Int64.ofNat 15 ∧
     (arun lab atL2 ⟨pc, oI, σ⟩).so = oI ∧ Fr g (sA g) (arun lab atL2 ⟨pc, oI, σ⟩).σ ∧
     (arun lab atL2 ⟨pc, oI, σ⟩).σ.regs.rax.toBitVec = hdr0 ∧
@@ -333,17 +333,17 @@ theorem atL4_walk (lab : String → Int64) (pc : Int64) {g : G} {σ : AS} (h : F
     (arun lab atL4 ⟨pc, oI, σ⟩).pc = pc + Int64.ofNat 27 ∧
     (arun lab atL4 ⟨pc, oI, σ⟩).so = oI ∧ Fr g (s1 g) (arun lab atL4 ⟨pc, oI, σ⟩).σ ∧
     (arun lab atL4 ⟨pc, oI, σ⟩).σ.regs.rax.toBitVec = 1#64 ∧
-    (arun lab atL4 ⟨pc, oI, σ⟩).σ.regs.rcx.toBitVec = 9#64 := by
+    (arun lab atL4 ⟨pc, oI, σ⟩).σ.regs.rcx.toBitVec = 13#64 := by
   frh h
   rw [atL4_run]
   walk [h, ha]
 
-/-- `k·(len + m) + 1 = 10`; the shift's operands. -/
+/-- `k·(len + m) + 1 = 14`; the shift's operands. -/
 theorem atL5_walk (lab : String → Int64) (pc : Int64) {g : G} {σ : AS} (h : Fr g (s1 g) σ)
-    (ha : σ.regs.rax.toBitVec = 9#64) :
+    (ha : σ.regs.rax.toBitVec = 13#64) :
     (arun lab atL5 ⟨pc, oI, σ⟩).pc = pc + Int64.ofNat 33 ∧
     (arun lab atL5 ⟨pc, oI, σ⟩).so = oI ∧ Fr g (s1 g) (arun lab atL5 ⟨pc, oI, σ⟩).σ ∧
-    (arun lab atL5 ⟨pc, oI, σ⟩).σ.regs.rax.toBitVec = 10#64 ∧
+    (arun lab atL5 ⟨pc, oI, σ⟩).σ.regs.rax.toBitVec = 14#64 ∧
     (arun lab atL5 ⟨pc, oI, σ⟩).σ.regs.rcx.toBitVec = 3#64 := by
   frh h
   rw [atL5_run]
@@ -371,7 +371,8 @@ theorem atArg_walk (lab : String → Int64) (pc : Int64) {g : G} {σ : AS} {P : 
   walk [h, hP]
 
 /-- **The bound is not crossed** when the counter's old value `n0` (in
-`%rax`) has room for `tcbLen` more bytes below `2^17`. -/
+`%rax`) has room for `tcbLen` more bytes below `163840` (the hypothesis's
+`80 ≤ 2^17` implies it). -/
 theorem atBnd_walk (lab : String → Int64) (pc : Int64) {g : G} {σ : AS} {n0 : BitVec 64} (h : Fr g (s2 g) σ)
     (ha : σ.regs.rax.toBitVec = n0) (hn : n0.toNat + 80 ≤ 131072) :
     (arun lab atBnd ⟨pc, oI, σ⟩).pc = pc + Int64.ofNat 35 ∧
@@ -381,7 +382,7 @@ theorem atBnd_walk (lab : String → Int64) (pc : Int64) {g : G} {σ : AS} {n0 :
   rw [atBnd_run]
   walk [h, ha]
   intro h1 h2
-  by_cases he : n0.toNat + 80 = 131072
+  by_cases he : n0.toNat + 112 = 163840
   · refine absurd (BitVec.eq_of_toNat_eq ?_) h2
     simp only [BitVec.toNat_sub, BitVec.toNat_add, BitVec.toNat_ofNat, Width.bits] at he ⊢
     omega
@@ -520,9 +521,9 @@ end Vals
 /-- **The values along the path**: the single instructions' results on the
 operands the walks give, as the next walks take them. -/
 theorem path_vals :
-    hdr0.ushiftRight (((8#64).take 8).toNat &&& 63) = 9#64 ∧ (9#64 &&& 16383#64) = 9#64 ∧
+    hdr0.ushiftRight (((8#64).take 8).toNat &&& 63) = 13#64 ∧ (13#64 &&& 16383#64) = 13#64 ∧
     hdr0.ushiftRight (((22#64).take 8).toNat &&& 63) = 0#64 ∧ (0#64 &&& 16383#64) = 0#64 ∧
-    1#64 * 9#64 = 9#64 ∧ 10#64 <<< (((3#64).take 8).toNat &&& 63) = tcbLen ∧
+    1#64 * 13#64 = 13#64 ∧ 14#64 <<< (((3#64).take 8).toNat &&& 63) = tcbLen ∧
     1#64 * 0#64 = 0#64 ∧ 0#64 <<< (((3#64).take 8).toNat &&& 63) = 0#64 ∧
     1#64 <<< (((36#64).take 8).toNat &&& 63) = 1#64 <<< 36 := by decide
 
@@ -536,6 +537,8 @@ abbrev entryL : Label := ".Lscc_rt_alloc_tcb.entry"
 abbrev lenL : Label := ".Lscc_rt_alloc_tcb.len"
 /-- The header's label. -/
 abbrev okL : Label := ".Lscc_rt_alloc_tcb.ok"
+/-- The return's label (just before `ret`). -/
+abbrev retL : Label := ".Lscc_rt_alloc_tcb.x1"
 /-- The abort's label. -/
 abbrev fullL : Label := ".Lscc_rt_alloc_tcb.full"
 
@@ -571,7 +574,8 @@ def allocTcbIn (cells : List (Directive × Nat)) : Bool :=
   siAt cells okL 0 "scc_rt_pinned" && blockAtB cells okL 7 atO1 && fiAt cells okL 34 (.imul_rr .rax .rcx) 4 &&
   blockAtB cells okL 38 atO2 && fiAt cells okL 53 (.shl_cl .rax) 3 && blockAtB cells okL 56 atO3 &&
   fiAt cells okL 74 (.shl_cl .rax) 3 && blockAtB cells okL 77 atO4 && fiAt cells okL 95 (.or_rr .rax .rcx) 3 &&
-  blockAtB cells okL 98 atO5 && blockAtB cells okL 140 hdrBlk && blockAtB cells okL 143 atRet
+  blockAtB cells okL 98 atO5 && blockAtB cells okL 140 hdrBlk &&
+  blockAcrossB cells okL 143 (atRet.take 11) retL (atRet.drop 11)
 
 #guard allocTcbIn SccCode.ret0Cells
 

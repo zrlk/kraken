@@ -161,15 +161,15 @@ theorem mapM_idx1 {α : Type} {a b : Except String α} {l : List (Except String 
 
 /-- **`scc_rt_main` is the runtime's second function.** -/
 theorem mainThread0_idx {arch : Scc.Arch} {lay : Scc.Layout} {e : Scc.Frontend.Entry} {sw : Nat}
-    {rt : List Scc.IR.Func}
-    (h : Scc.Lower.Inv.rtFuncs arch lay e sw = .ok rt) : rt[1]? = some (Scc.Lower.Inv.mainThread0 e sw) := by
+    {m : List Bool} {rt : List Scc.IR.Func}
+    (h : Scc.Lower.Inv.rtFuncs arch lay e sw m = .ok rt) : rt[1]? = some (Scc.Lower.Inv.mainThread0 e sw m) := by
   unfold Scc.Lower.Inv.rtFuncs at h
   rw [List.cons_append, List.cons_append] at h
-  exact mapM_idx1 h (Scc.Lower.Inv.mainThreadF_eq e sw)
+  exact mapM_idx1 h (Scc.Lower.Inv.mainThreadF_eq e sw m)
 
 /-- **`scc_rt_main`'s local labels**: `.L1_scc_rt_main.…`. -/
-theorem mainLocal (ir : Scc.IR.Program) (e : Scc.Frontend.Entry) (sw : Nat) (s : String) :
-    (ctxOf ir 1 (Scc.Lower.Inv.mainThread0 e sw)).local s = ".L1_scc_rt_main." ++ s := by
+theorem mainLocal (ir : Scc.IR.Program) (e : Scc.Frontend.Entry) (sw : Nat) (s : String) {m : List Bool} :
+    (ctxOf ir 1 (Scc.Lower.Inv.mainThread0 e sw m)).local s = ".L1_scc_rt_main." ++ s := by
   show s!".L{1}_{sanitize Scc.Lower.Names.mainThread}." ++ s = _
   congr 1
   decide +kernel
@@ -268,7 +268,7 @@ theorem sw_eq_setupWords2A {cfg : Scc.Config} {pcfg : Scc.Cert.PlaceOK.Config} {
   have he : Spike.Lib.LowerNode.entry2 p = ⟨.setupTid, true⟩ := by simp [Spike.Lib.LowerNode.entry2, hs]
   rw [he] at hrt
   generalize hir' : (Scc.Lower.A64.lowerAll cfg p).low.ir = ir at hir
-  generalize hf0 : Scc.Lower.Inv.mainThread0 ⟨.setupTid, true⟩ (Spike.Lib.LowerNode.setupWords2 p) = f0
+  generalize hf0 : Scc.Lower.Inv.mainThread0 ⟨.setupTid, true⟩ (Spike.Lib.LowerNode.setupWords2 p) (Spike.Lib.LowerNode.setupMask2 p) = f0
   have hf : (f0, 1) ∈ ir.funcs.zipIdx := by
     rw [List.mem_zipIdx_iff_getElem?, hir, ← hf0]
     simp only [Scc.Lower.Inv.progOf]
@@ -278,11 +278,11 @@ theorem sw_eq_setupWords2A {cfg : Scc.Config} {pcfg : Scc.Cert.PlaceOK.Config} {
   have h12 := fnCode1_of_placeOKAt h ((place_ir_ofEmitted _).trans (congrArg some hir'))
   have hok := Scc.Cert.Code1A64.fnOk1_of_fnCode1Ok h12 hf (by rw [← hf0]; rfl)
   subst hf0
-  have hm : (ctxOf ir 1 (Scc.Lower.Inv.mainThread0 ⟨.setupTid, true⟩ (Spike.Lib.LowerNode.setupWords2 p))).maps =
+  have hm : (ctxOf ir 1 (Scc.Lower.Inv.mainThread0 ⟨.setupTid, true⟩ (Spike.Lib.LowerNode.setupWords2 p) (Spike.Lib.LowerNode.setupMask2 p))).maps =
       true := by
     show ir.growth.isSome = true
     rw [hir]; rfl
-  have hfo : FrameOk (ctxOf ir 1 (Scc.Lower.Inv.mainThread0 ⟨.setupTid, true⟩ (Spike.Lib.LowerNode.setupWords2 p))) :=
+  have hfo : FrameOk (ctxOf ir 1 (Scc.Lower.Inv.mainThread0 ⟨.setupTid, true⟩ (Spike.Lib.LowerNode.setupWords2 p) (Spike.Lib.LowerNode.setupMask2 p))) :=
     fnCtx_frameOk _ _ _ _ _
   unfold Scc.Cert.Code1A64.fnOk1 at hok
   split at hok
@@ -290,10 +290,10 @@ theorem sw_eq_setupWords2A {cfg : Scc.Config} {pcfg : Scc.Cert.PlaceOK.Config} {
   rename_i b0 bs ps hb hps
   simp only [Bool.and_eq_true, decide_eq_true_eq] at hok
   have hfr : (ctxOf ir 1
-      (Scc.Lower.Inv.mainThread0 ⟨.setupTid, true⟩ (Spike.Lib.LowerNode.setupWords2 p))).frame ≤ 32768 := by
+      (Scc.Lower.Inv.mainThread0 ⟨.setupTid, true⟩ (Spike.Lib.LowerNode.setupWords2 p) (Spike.Lib.LowerNode.setupMask2 p))).frame ≤ 32768 := by
     have := hok.1.1.1.1.1.2; omega
   have hbl : Scc.Cert.Code1A64.blocksOk (Out.ofEmitted (Scc.Lower.A64.lowerAll cfg p)).prog
-      (ctxOf ir 1 (Scc.Lower.Inv.mainThread0 ⟨.setupTid, true⟩ (Spike.Lib.LowerNode.setupWords2 p))) 0
+      (ctxOf ir 1 (Scc.Lower.Inv.mainThread0 ⟨.setupTid, true⟩ (Spike.Lib.LowerNode.setupWords2 p) (Spike.Lib.LowerNode.setupMask2 p))) 0
       ([] ++ ⟨"entry", Scc.Lower.Inv.mainInsts ⟨.setupTid, true⟩ (Spike.Lib.LowerNode.setupWords2 p),
         .unreachable⟩ :: []) = true := by
     exact hok.1.1.1.2
@@ -307,10 +307,10 @@ theorem sw_eq_setupWords2A {cfg : Scc.Config} {pcfg : Scc.Cert.PlaceOK.Config} {
   have hM := (Scc.Cert.Rt.A64.RtAll.append (Scc.Cert.Rt.A64.RtAll.append (Scc.Cert.Rt.A64.RtAll.append
     (Scc.Cert.Rt.A64.RtAll.append hR).1).1).1).2
   have hgap' := hM.2.2.2.2.2.2.2.1
-  have e0 : (ctxOf ir 1 (Scc.Lower.Inv.mainThread0 ⟨.setupTid, true⟩ (Spike.Lib.LowerNode.setupWords2 p))).local "sp0" =
+  have e0 : (ctxOf ir 1 (Scc.Lower.Inv.mainThread0 ⟨.setupTid, true⟩ (Spike.Lib.LowerNode.setupWords2 p) (Spike.Lib.LowerNode.setupMask2 p))).local "sp0" =
       (setupMC sw).sp0 := by
     rw [mainLocal]; show _ = ".L1_scc_rt_main.sp0"; decide +kernel
-  have e1 : (ctxOf ir 1 (Scc.Lower.Inv.mainThread0 ⟨.setupTid, true⟩ (Spike.Lib.LowerNode.setupWords2 p))).local "sp1" =
+  have e1 : (ctxOf ir 1 (Scc.Lower.Inv.mainThread0 ⟨.setupTid, true⟩ (Spike.Lib.LowerNode.setupWords2 p) (Spike.Lib.LowerNode.setupMask2 p))).local "sp1" =
       (setupMC sw).sp1 := by
     rw [mainLocal]; show _ = ".L1_scc_rt_main.sp1"; decide +kernel
   rw [e0, e1] at hgap

@@ -2,24 +2,22 @@
 **hello's level 1 with the heap abort at `wXA`, its control facts discharged** (x86-64; the twin of
 `Spike/Lib/A64HelloLevel1HA.lean`): level 1's landing segment with `wc_main`'s box allocation's heap abort at
 `HelloWc.wXA` (`Level1.land_segWSLA`: the abort keeps `wc_main`'s spills) and closed by `HabCtlA`'s stub
-(`wc_heapAbStubKHA`, `wc_heapAb_segWSHA`) at `HabCtlA.HabCtlHA`, whose producer `HabCtlA.habCtlHA_jr1L` places
+(`wc_heapAbStubKHAg`, `wc_heapAb_segWSHA`) at `HabCtlA.HabCtlHA`, whose producer `HabCtlA.habCtlHA_jr1L` places
 `c0H` from the spills. No control premise is left, only the certificate table's `z` at `i0` (`hz`; at the root
 `HabCtlA.hz_i0M`).
 
 - `hello_hab_closedLAg`: the heap-abort exit at `wXA` closes inside `StartWcS.WSg ownW` at any level own `ownW`,
   at a fixed caller `σC`, from `HabCtlHA` at `wc_main`'s region and frame condition and the stub's path inside the
   level (`hP0`, `HabCtlA.wc_heapAbStubKHAg`'s).
-- `hello_hab_closedLA`: `hello_hab_closedLAg` at `ownGH` (`WS`), `hP0` by `HabCtlS.hpathW_hab0HS`.
 - `hB_landAg`: level 1's landing segment at any owned words `own` (`Level1I.W1Rg own`, `StartH0H1.RdLandHg own`),
   from rodata's landing to no exit, the stub's path inside the level given (`hP0`).
-- `hB_landA`: it at `ownGH`, `hP0` by `HabCtlS.hpathW_hab0HS`.
 
 ## Differences from the AArch64 version
 
 - `scc_rt_main`'s region at the switch base `v` is `MainGlue.RS helloLsw v` (AArch64 `swR v (-helloLsw) 0`), so
   `wc_main`'s is `wcR (RS helloLsw v) helloD` (bounds `-400`, `8`), and `rdJH` takes it (`J'` at `v`).
-- `hello_hab_closedLA` is stated at the root's layout `ofPlaceWX hpw (immsH Λ0 i0)` (AArch64: any table `i`), so
-  the region's facts are `Land.fstable_FS`'s and `HelloM.wcR_ok`'s; the heap abort's exit is at `4202760`
+- `hello_hab_closedLAg` is stated at the root's layout `ofPlaceWX hpw (immsH Λ0 i0)` (AArch64: any table `i`), so
+  the region's facts are `Land.fstable_FS`'s and `HelloM.wcR_ok`'s; the heap abort's exit is at `4202798`
   (`abH_labsH`).
 - The landing's segment is a `SegWSP` (`Level1.land_segWSLA`'s, rows after the source's publication); the closing
   stub's `SegWS` enters it by `SegWS.toP`.
@@ -58,14 +56,12 @@ open Spike.Lib.X64.KeepTP (TP)
 open Spike.Lib.X64.Alloc (Call)
 open Spike.Lib.X64.Flow.Ret0 (tpOf)
 open Spike.Lib.X64.HelloPh.StartGlue (X0WH)
-open Spike.Lib.X64.HelloPh.StartWcS (WS rdJH)
+open Spike.Lib.X64.HelloPh.StartWcS (rdJH)
 open Spike.Lib.X64.HelloPh.StartH0G (helloD helloLsw)
-open Spike.Lib.X64.HelloPh.StartH0U (msUH)
-open Spike.Lib.X64.HelloPh.StartH0H1 (RdLandH)
-open Spike.Lib.X64.HelloPh.HabCtlA (HabCtlHA wc_heapAb_segWSHA wc_heapAbStubKHA habCtlHA_jr1L)
+open Spike.Lib.X64.HelloPh.HabCtlA (HabCtlHA wc_heapAb_segWSHA habCtlHA_jr1L)
 open Spike.Lib.X64.HelloPh.MainGlueS (MainWcPS)
 open Spike.Lib.X64.HelloPh.Level1 (LandF JpL JpT)
-open Spike.Lib.X64.HelloPh.Level1I (W1R XR)
+open Spike.Lib.X64.HelloPh.Level1I (XR)
 open Spike.Lib.HeapLand (AllocLand)
 open Spike.Lib.X64WakeLoadT (L0T ls0T)
 open Spike.Lib.X64.HelloPh.C0S (c0S)
@@ -89,9 +85,6 @@ local notation "RS0" => Spike.Lib.X64.Rt.rS0 (Ly)
 
 set_option hygiene false in
 local notation "AR" => Spike.Lib.X64.WakeOD.arW hpw IH
-
-set_option hygiene false in
-local notation "NT" => Spike.Lib.X64.Rt.Reserve.ntA (Ly).lab
 
 set_option hygiene false in
 local notation "AX" => (Ly).lab Spike.Lib.X64.Flow.Ret0.StackTake.siteL
@@ -157,7 +150,7 @@ theorem hello_hab_closedLAg {ownW : Spike.Lib.X64Consumer.Own} {LB : Lbl} {E : S
     obtain ⟨-, e9⟩ := Spike.Lib.X64.HelloPh.abH_labsH hlab
     have hΛ : (Ly).Λ.abortLbl = Scc.Cert.Link.abortName :=
       Spike.Lib.PlaceWX.abortLbl_of_placeWX (Spike.Lib.PlaceWX.link IH hpw)
-    refine ⟨.heap, 4202760, ?_, by unfold pcOf; rw [hs, e9]; rfl⟩
+    refine ⟨.heap, 4202798, ?_, by unfold pcOf; rw [hs, e9]; rfl⟩
     rw [Spike.Lib.X64.Flow.Worker.Wake.AbOffW.marks_target (Ly) hpa]
     show codeLabel (Ly).Λ.code.lo (Ly).prog ((Ly).Λ.abortLbl .heap) = _
     rw [hprog, hlo, hΛ, ← codeT_eq]; decide +kernel
@@ -180,48 +173,6 @@ theorem hello_hab_closedLAg {ownW : Spike.Lib.X64Consumer.Own} {LB : Lbl} {E : S
     (Spike.Lib.X64.HelloPh.HabCtlA.wc_heapAbStubKHAg hprog hlo hlab hF hR (by show (-helloD : Int) ≤ -336; decide)
       (by show (-296 : Int) ≤ 8; decide) rfl (hhabctl _ m1 σ1) hab hP0) _
 
-/-- **The heap-abort exit at `wXA` closes** (`HabCtlA`'s stub): `hello_hab_closedLAg` at the start's own
-`ownGH Ly NT` (`WS`), the stub's path by `HabCtlS.hpathW_hab0HS`. -/
-theorem hello_hab_closedLA {LB : Lbl} {E : Scc.Sem.Entry} {rd : TermRun.Word → Prop} {G : Loc → Val → Prop}
-    {own : Spike.Lib.X64ConsumerS.OwnS} {I : Spike.Lib.X64ConsumerS.InvS} {ls : Lsize}
-    {Ctx : FragS isa} {ls0 : Lsize} {frM : TermRun.Frame} {t : UInt64}
-    {σC : FAS} {Jr1 : FAS → Spike.Lib.Ctl → Prop}
-    (hpa : cellsOf asm = some o.prog)
-    (hhp : cellsOf asm = some SccCode.helloCells)
-    (hlo0 : Λ0.code.lo = lo)
-    /- the controls' facts at `wXA` (`HabCtlA.habCtlHA_jr1L` at level 1) -/
-    (hhabctl : ∀ v m1 σ1, HabCtlHA ((MSf) []) (Ly).lab helloSrc (Ly).Λ LB (AR)
-      [] (wcJ0 (mWC (Ly).lab σC Jr1).J σ1) (wcR (RS helloLsw v) helloD)
-      (wcF (RS helloLsw v) helloD (FS (Ly) (RS0) helloLsw 0#64 v) m1 σ1)) :
-    SegWS (WS (Ly) (NT) (AR) helloSrc DtW (Spike.Lib.X64.HelloPh.ClH (Ly)) Ctx LB ls0 frM (X0WH (Ly) (AX)))
-      (Spike.Lib.X64.PhRec.K (Ly) (RS0)) helloSrc LB (MSf)
-      (Frag.at (fun s c => ∃ v m1 σ1,
-        At (Ly).exe (Ly).endPc (wcR (RS helloLsw v) helloD)
-          (wcF (RS helloLsw v) helloD (FS (Ly) (RS0) helloLsw 0#64 v) m1 σ1)
-          (wXA ((MSf) []) (Ly).lab (wcJ0 (mWC (Ly).lab σC Jr1).J σ1)) s c ∧ TP t s) [])
-      (fun _ _ _ => False) := by
-  have hp : o.prog = SccCode.helloCells := Option.some.inj (hpa.symm.trans hhp)
-  have hprog : (Ly).prog = SccCode.helloCells := hp
-  have hlo : (Ly).Λ.code.lo = lo := hlo0
-  have hlab : ∀ l x, codeLabel lo SccCode.helloCells l = some x → (Ly).lab l = Int64.ofNat x :=
-    fun l x h => Spike.Lib.PlaceWX.hlab_ofPlaceWX hpw IH l x (by rw [hlo, hp]; exact h)
-  have hΛ : (Ly).Λ.abortLbl = Scc.Cert.Link.abortName :=
-    Spike.Lib.PlaceWX.abortLbl_of_placeWX (Spike.Lib.PlaceWX.link IH hpw)
-  obtain ⟨-, hR0, -⟩ := Spike.Lib.X64.HelloPh.Land.fstable_FS hpw i0
-  have hlo1 : (RS helloLsw (TOP)).lo ≤ -80 - helloD := by show (8 : Int) - helloLsw ≤ -80 - helloD; decide
-  have hhi1 : (0 : Int) ≤ (RS helloLsw (TOP)).hi := by show (0 : Int) ≤ 8; decide
-  have hD : (0 : Int) ≤ helloD := by decide
-  have hRw : (wcR (RS helloLsw (TOP)) helloD).OK :=
-    Region.callee_ok hR0 (by omega) (by omega) (by omega) (by omega)
-  have hlo2 : (wcR (RS helloLsw (TOP)) helloD).lo ≤ -336 := by show (-helloD : Int) ≤ -336; decide
-  have hhi2 : (-296 : Int) ≤ (wcR (RS helloLsw (TOP)) helloD).hi := by show (-296 : Int) ≤ 8; decide
-  have hR' : ((wcR (RS helloLsw (TOP)) helloD).callee (-304 - 8) (-24) 16).OK :=
-    Region.callee_ok hRw (by omega) (by decide) (by omega) (by omega)
-  exact hello_hab_closedLAg hpw i0 hpa hhp hlo0 hhabctl fun F' c0 hF' hc0 hpl hobl =>
-    Spike.Lib.X64.HelloPh.HabCtlS.hpathW_hab0HS hprog hlo hlab (NT) hΛ hR' (by simp [Region.callee])
-      (by simp [Region.callee]) rfl (.inl rfl) Spike.Lib.X64.HelloPh.ClH.cl hc0 hF' hpl hobl
-      (Spike.Lib.X64.HelloPh.HAbStub.x0WH_abort hlab rfl)
-
 end Place
 
 /-! ## The landing segment -/
@@ -240,19 +191,6 @@ local notation "KR" => Spike.Lib.X64.PhRec.K (Ly) (RS0)
 set_option hygiene false in
 /-- `wc_rodata`'s entry invariant at the switch base `v`. -/
 local notation "J'" v => rdJH (Ly).lab (RS helloLsw v) (JS (Ly) 0#64 c0S)
-
-set_option hygiene false in
-/-- Level 0's memory sides (the landing's). -/
-local notation "MSU" => msUH (asm := asm) hpw i0 E rd I ls
-
-set_option hygiene false in
-/-- The level's memory sides after rodata's allocation of `l` at `b`, `n` words, at the frames `fs`. -/
-local notation "MS1" => fun (l : WeakMem.AllocLabel) (b n : Nat) (fs : List TermRun.Frame) =>
-  Spike.Lib.X64ConsumerA.msOfA (Ly).Λ
-    ((Scc.Sem.X64.target (Scc.Sem.X64.kernel 2) E).marks asm (Ly).Λ) rd
-    (Spike.Lib.X64HelloGOf2H.gWH hpw IH (Spike.Lib.X64WakeHG.cTW hpw IH))
-    (fun s _ => Spike.Lib.X64.HelloPh.ownGH (Ly) NT s)
-    (AR) I (Spike.Lib.X64ConsumerA.upd (LB) l b) (Spike.Lib.X64ConsumerA.updN (ls0T ls) l n) fs
 
 set_option hygiene false in
 /-- Level 0's memory sides (the landing's) at an own map `own`. -/
@@ -360,72 +298,11 @@ theorem hB_landAg {own : Spike.Lib.X64Consumer.Own} {J1 : FAS → FAS → Spike.
     (show (8 : Int) ≤ 8 by decide) rfl hPv (hmem0 l b n)).seq ?_
   exact hC.toP.mono_pre fun s c fs ⟨⟨m1, σ1, h, ht⟩, hfs⟩ => ⟨⟨_, m1, σ1, h, ht⟩, hfs⟩
 
-set_option maxHeartbeats 1600000 in
-/-- **Level 1's landing segment, the heap abort at `wXA`** (`hB_landAg` at `ownGH`, the stub's path by
-`HabCtlS.hpathW_hab0HS`; module doc): from rodata's landing `RdLandH` at `[FR]`, inside `W1R ∧ XR` under
-`TakeCKS`, with no exit. The abort's controls are `HabCtlA.habCtlHA_jr1L`'s at the caller's slot `-16` (the case
-split's `hs`), `l` fresh (`hl`) and `hz`. -/
-theorem hB_landA {J1 : FAS → FAS → Spike.Lib.Ctl → Prop}
-    (hpa : cellsOf asm = some o.prog)
-    (hhp : cellsOf asm = some SccCode.helloCells)
-    (hlo0 : Λ0.code.lo = lo)
-    /- the certificate table's `z` at `newTerm` (at the root's `HelloImms.i0M`: `HabCtlA.hz_i0M`) -/
-    (hz : i0 newTerm "z" 0 = some 0)
-    /- the landing's caller holds main's TCB at its slot `-16` (`Level1I.slot16_rdJ` at `J1 := mRdJ0 J'`) -/
-    (hJ1 : ∀ σC σ c, J1 σC σ c → σC.slot (-16) = Spike.Lib.X64.Flow.Ret0.pinA (Ly).lab + 0#64 + 8#64)
-    /- `MainWcPS` at the level: `wc_rodata`'s rest from `.x15` at `JpT (JpL …) TV` and `wc_main` to its box
-    allocation, at the first stack's top -/
-    (hP : ∀ l b n m0 σC, (LB) l = none → AllocLand (AR).heap (AR).cells b n →
-      σC.slot (-16) = Spike.Lib.X64.Flow.Ret0.pinA (Ly).lab + 0#64 + 8#64 →
-      ∃ Jp' Jx1 J2 J2' J3 J4 J4x J5 Jr : FAS → Spike.Lib.Ctl → Prop,
-      MainWcPS (W1R (asm := asm) hpw i0 E rd ls l b n) (KR) helloSrc (Spike.Lib.X64ConsumerA.upd (LB) l b)
-        ((MS1) l b n) (Ly).exe (Ly).endPc (RS helloLsw (TOP)) helloD (FS (Ly) (RS0) helloLsw 0#64 (TOP)) (FR)
-        m0 σC
-        (JpT (JpL (R := RS helloLsw (TOP)) ((MSU) [FR]) (Ly).lab (mRdJ0 (J' (TOP)) σC) (J1 σC) l b n) (TV))
-        Jp' Jx1 J2 J2' J3 J4 J4x J5 Jr (Spike.Lib.X64.HelloPh.Land.Jr1LH hpw i0 l b) (TV))
-    /- the box allocation's words free at `FS` -/
-    (hmem0 : ∀ l b n, ∀ q : Call, q.OKB ((MS1) l b n []) (Ly).lab → ∀ a : BitVec 64,
-      (a = BitVec.ofNat 64 ((MS1) l b n []).ctr ∨ ∃ o, o + ((MS1) l b n []).units q.n q.τ ≤ ((MS1) l b n []).cells ∧
-        a.toNat = q.hdrAt ((MS1) l b n []) o) →
-      ∀ m, FS (Ly) (RS0) helloLsw 0#64 (TOP) m → Mem.loadInt m.dmem a 8 = none) :
-    ∀ l b n, (LB) l = none → AllocLand (AR).heap (AR).cells b n →
-      SegWSP (fun s c fs => W1R (asm := asm) hpw i0 E rd ls l b n s c fs ∧ XR hpw i0 l b n s c fs)
-        (TakeCKS (AX) (Spike.Lib.X64.HelloPh.ClH (Ly))) helloSrc (Spike.Lib.X64ConsumerA.upd (LB) l b)
-        ((MS1) l b n) (Frag.at (RdLandH (asm := asm) hpw i0 E rd I ls J1 l b n) [FR]) (fun _ _ _ => False) := by
-  have hp : o.prog = SccCode.helloCells := Option.some.inj (hpa.symm.trans hhp)
-  have hprog : (Ly).prog = SccCode.helloCells := hp
-  have hlo : (Ly).Λ.code.lo = lo := hlo0
-  have hlab : ∀ l x, codeLabel lo SccCode.helloCells l = some x → (Ly).lab l = Int64.ofNat x :=
-    fun l x h => Spike.Lib.PlaceWX.hlab_ofPlaceWX hpw IH l x (by rw [hlo, hp]; exact h)
-  have hΛ : (Ly).Λ.abortLbl = Scc.Cert.Link.abortName :=
-    Spike.Lib.PlaceWX.abortLbl_of_placeWX (Spike.Lib.PlaceWX.link IH hpw)
-  obtain ⟨-, hR0, -⟩ := Spike.Lib.X64.HelloPh.Land.fstable_FS hpw i0
-  have hlo1 : (RS helloLsw (TOP)).lo ≤ -80 - helloD := by show (8 : Int) - helloLsw ≤ -80 - helloD; decide
-  have hhi1 : (0 : Int) ≤ (RS helloLsw (TOP)).hi := by show (0 : Int) ≤ 8; decide
-  have hD : (0 : Int) ≤ helloD := by decide
-  have hRw : (wcR (RS helloLsw (TOP)) helloD).OK :=
-    Region.callee_ok hR0 (by omega) (by omega) (by omega) (by omega)
-  have hlo2 : (wcR (RS helloLsw (TOP)) helloD).lo ≤ -336 := by show (-helloD : Int) ≤ -336; decide
-  have hhi2 : (-296 : Int) ≤ (wcR (RS helloLsw (TOP)) helloD).hi := by show (-296 : Int) ≤ 8; decide
-  have hR' : ((wcR (RS helloLsw (TOP)) helloD).callee (-304 - 8) (-24) 16).OK :=
-    Region.callee_ok hRw (by omega) (by decide) (by omega) (by omega)
-  exact hB_landAg hpw i0 E rd I ls hpa hhp hlo0 hz hJ1 hP hmem0 fun _ _ _ F' c0 hF' hc0 hpl hobl =>
-    Spike.Lib.X64.HelloPh.HabCtlS.hpathW_hab0HS hprog hlo hlab (NT) hΛ hR' (by simp [Region.callee])
-      (by simp [Region.callee]) rfl (.inl rfl) Spike.Lib.X64.HelloPh.ClH.cl hc0 hF' hpl hobl
-      (Spike.Lib.X64.HelloPh.HAbStub.x0WH_abort hlab rfl)
-
 end Spike.Lib.X64.HelloPh.Level1HA
 
 /-- info: 'Spike.Lib.X64.HelloPh.Level1HA.hello_hab_closedLAg' depends on axioms:
 [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms Spike.Lib.X64.HelloPh.Level1HA.hello_hab_closedLAg
 
-/-- info: 'Spike.Lib.X64.HelloPh.Level1HA.hello_hab_closedLA' depends on axioms:
-[propext, Classical.choice, Quot.sound] -/
-#guard_msgs in #print axioms Spike.Lib.X64.HelloPh.Level1HA.hello_hab_closedLA
-
 /-- info: 'Spike.Lib.X64.HelloPh.Level1HA.hB_landAg' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms Spike.Lib.X64.HelloPh.Level1HA.hB_landAg
-
-/-- info: 'Spike.Lib.X64.HelloPh.Level1HA.hB_landA' depends on axioms: [propext, Classical.choice, Quot.sound] -/
-#guard_msgs in #print axioms Spike.Lib.X64.HelloPh.Level1HA.hB_landA

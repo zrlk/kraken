@@ -11,7 +11,7 @@ state (wake's `TiWAtP.imp`, generic).
 
 AArch64 has no counterpart: main owns no TCB word there (its thread pointer is a register). Against x86-64 wake's
 `OwnSt.tiXP`: the level is hello's (`WSH`/`WSHX`, `tiLH`), `scc_rt_thread_init` returns to `.x8` (`Rt.x8L`; wake's
-`.x7`), the code is helloCells and `hW` is about the worker's word `tcbWH L` (`pinA + 112`). Wake's `At.monoF`,
+`.x7`), the code is helloCells and `hW` is about the worker's word `tcbWH L` (`pinA + 144`). Wake's `At.monoF`,
 `TakeWP.imp` and `TiWAtP.imp` are program independent and used as they are.
 -/
 import Spike.Lib.X64HelloOwnStartTi

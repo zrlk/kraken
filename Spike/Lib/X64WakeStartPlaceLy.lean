@@ -21,7 +21,7 @@ region's.
 - `hsub1_W`: the child's stack `r1W` in the stack pool (A8, A13's data part).
 - `hctr2_of_data`: `hctr2` from the counters lying in `.data` and the second
   limit word `pinA + 112` in the pinned region (`hpin2`).
-- `hpin2_W`, `hpin2_outLit`: the pinned region reaches `pinA + 168` from
+- `hpin2_W`, `hpin2_outLit`: the pinned region reaches `pinA + 200` from
   A1's `regionsTied`, at wake's x86-64 certificate for every layout.
 
 Where x86-64 differs from AArch64: the program is the cell list `wakeCells`
@@ -91,16 +91,16 @@ theorem hcT_W : Spike.Lib.X64WakeHG.cTW hpw i ≠ ⟨(Ly).pinA + 16#64, 8⟩ := 
 /-- **`hctr2`** from the counters in `.data` and the second limit word in
 the pinned region (`hpin2`): `.data` and the pinned region are disjoint
 (`Layout.WF`), `pinA` the pinned region's base. -/
-theorem hctr2_of_data (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
+theorem hctr2_of_data (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
     (hctrD : ∀ a ∈ [(Ly).pnA, (Ly).lockA, (Ly).freeNA, (Ly).nextA], (Ly).Λ.data.contains a.toNat) :
     ∀ a ∈ [(Ly).pnA, (Ly).lockA, (Ly).freeNA, (Ly).nextA], a ≠ Spike.Lib.X64WakeGOf2.lim2A (Ly) := by
   intro a ha he
   have hd : Λ0.data.contains a.toNat := hctrD a ha
-  have hpz : (Ly).pinA.toNat + 168 ≤ Λ0.pinned.lo + Λ0.pinned.size := hpin2
+  have hpz : (Ly).pinA.toNat + 200 ≤ Λ0.pinned.lo + Λ0.pinned.size := hpin2
   have hp0 : (Ly).pinA.toNat = Λ0.pinned.lo := PlaceWX.pinA_toNat_ofPlaceWX hpw i
   have hdp : Λ0.data.Disjoint Λ0.pinned := (PlaceWX.wf_link_of_placeWX i hpw).disjoint.2.2.2.2.2.2.2.1
   have hs := (Ly).words_small _ (Ly).pin_mem
-  have hb : a.toNat = (Ly).pinA.toNat + 112 := by
+  have hb : a.toNat = (Ly).pinA.toNat + 144 := by
     rw [he]
     show ((Ly).pinA + Spike.Lib.X64WakeGOf2.lim2Off).toNat = _
     rw [BitVec.toNat_add]
@@ -111,24 +111,24 @@ theorem hctr2_of_data (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly
 
 /-- **`hpin2`**: the pinned region, at `scc_rt_pinned` (`pinA`), is the
 `.zero` after that symbol in `.bss`/`.data` (A1's `regionsTied`), so it
-reaches `pinA + 168` once that `.zero` has 168 bytes. -/
+reaches `pinA + 200` once that `.zero` has 200 bytes. -/
 theorem hpin2_W {n : Nat}
     (hz : Scc.Cert.PlaceOK.zeroAfter (o.secs.bss ++ o.secs.data) Scc.Cert.Link.pinnedSym = some n)
-    (hn : 168 ≤ n) : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size := by
+    (hn : 200 ≤ n) : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size := by
   have hreg := PlaceWX.regionsTied_of_placeWX hpw
   simp only [Scc.Cert.PlaceOK.regionsTied, List.all_cons, List.all_nil, Bool.and_true, Bool.and_eq_true,
     decide_eq_true_eq] at hreg
   have hsz : Λ0.pinned.size = n := Option.some.inj (hreg.2.2.2.symm.trans hz)
   have hp0 : (Ly).pinA.toNat = Λ0.pinned.lo := PlaceWX.pinA_toNat_ofPlaceWX hpw i
-  show (Ly).pinA.toNat + 168 ≤ Λ0.pinned.lo + Λ0.pinned.size
+  show (Ly).pinA.toNat + 200 ≤ Λ0.pinned.lo + Λ0.pinned.size
   omega
 
 /-- **`hpin2` at wake's x86-64 certificate** (any layout): its `.zero`
-after `scc_rt_pinned` has `131072` bytes. -/
+after `scc_rt_pinned` has `163840` bytes. -/
 theorem hpin2_outLit (hpc : PlaceWX pcfg Λ0 SccCertificate.outLit) :
-    (RuntimeLayout.ofPlaceWX hpc i).pinA.toNat + 168 ≤
+    (RuntimeLayout.ofPlaceWX hpc i).pinA.toNat + 200 ≤
       (RuntimeLayout.ofPlaceWX hpc i).Λ.pinned.lo + (RuntimeLayout.ofPlaceWX hpc i).Λ.pinned.size :=
-  hpin2_W hpc i (n := 131072) (by decide) (by decide)
+  hpin2_W hpc i (n := 163840) (by decide) (by decide)
 
 /-- Disjoint words differ. -/
 private theorem ne_of_sep {a b : BitVec 64} (h : Scc.Cert.Rt.X64.WordSep a b) : a ≠ b := by

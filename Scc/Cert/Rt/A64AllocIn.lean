@@ -6,7 +6,8 @@ import Spike.Lib.A64Alloc
 
 `allocIn prog` checks the allocator's code (`Spike/Lib/A64Alloc.lean`'s
 blocks and single instructions) at its labels and offsets in a directive
-list, and the prologue's fall-through to `.0_entry` (`labelGap`). It is the
+list, the prologue's fall-through to `.0_entry` and the return label
+`allocRetL` 54 instructions after `.5_ok` (`labelGap`). It is the
 code premise of `seg_alloc_ofW` (`Spike/Lib/A64Hello1Rodata.lean`). The
 text is the runtime's, the same in every program, so A7 checks it with the
 rest of the runtime's fixed code (`Scc/Cert/Rt/A64RtIn.lean`) and
@@ -22,8 +23,14 @@ open Kraken Kraken.Promising Kraken.Promising.AArch64
 open Scc.Cert.Rt.A64 (blockAt labelGap)
 open Spike.Lib.A64.Alloc
 
+/-- The return label before `scc_rt_alloc`'s `ret` (a GC table key, P5):
+the return site's label, `x` followed by the `ret` term's instruction index
+in `scc_rt_alloc` (22). -/
+abbrev allocRetL : Label := ".L2_scc_rt_alloc.x22"
+
 /-- **The code of `scc_rt_alloc` in `prog`**: its blocks and single
-instructions at their labels and offsets, and the prologue's fall-through. -/
+instructions at their labels and offsets (the `ret` at the return label
+`allocRetL`, 54 instructions after `.5_ok`), and the prologue's fall-through. -/
 def allocIn (prog : List Directive) : Bool :=
   blockAt prog "scc_rt_alloc" 0 b0 &&
   blockAt prog ".L2_scc_rt_alloc.0_entry" 0 b1 &&
@@ -43,7 +50,8 @@ def allocIn (prog : List Directive) : Bool :=
   blockAt prog ".L2_scc_rt_alloc.5_ok" 10 b12 &&
   blockAt prog ".L2_scc_rt_alloc.5_ok" 41 [iHdr] &&
   blockAt prog ".L2_scc_rt_alloc.5_ok" 42 b13 &&
-  blockAt prog ".L2_scc_rt_alloc.5_ok" 54 [iRet.toDir] &&
+  labelGap prog ".L2_scc_rt_alloc.5_ok" allocRetL 54 &&
+  blockAt prog allocRetL 0 [iRet.toDir] &&
   labelGap prog "scc_rt_alloc" ".L2_scc_rt_alloc.0_entry" 7
 
 end Spike.Lib.A64.Flow

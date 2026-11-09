@@ -4,7 +4,7 @@ part 2): main's second `scc_rt_thread_init` call (from
 `wc_main`'s `.x20`, on a pool stack) writes the worker's TCB self word
 `tcb2 = pinA + 104` (`Tcb2Call.tcb2Q_tcbOf`) at its first store
 (`movq %rax, (%rcx)` at `.x7 + 48`). From then on main holds it, holding its
-address, up to its `clone` (`.Lwc_main.x21 + 46`), whose own list `own₀`
+address, up to its `clone` (`.Lwc_main.x3 + 46`), whose own list `own₀`
 must hold it for `X64WakeSpawn.spawn_ofXW` (`hW0`, the hand-over to the
 worker). This file appends it to `ownGX` (`ownGXW`), as `X64WakeOwnS`
 appends `tcbM` to `ownG`.
@@ -51,7 +51,7 @@ open Spike.Lib.Consumer1 (writeTree_mono writeTree_true)
 
 /-- **The worker's TCB word** `scc_rt_pinned + 104` (the second
 `scc_rt_alloc_tcb` call's, `Tcb2Call.tcb2Q_tcbOf`). -/
-abbrev tcb2 (L : RuntimeLayout) : BitVec 64 := L.pinA + 104#64
+abbrev tcb2 (L : RuntimeLayout) : BitVec 64 := L.pinA + 136#64
 
 /-- The two TCB words differ. -/
 theorem tcb2_ne_tcbM (L : RuntimeLayout) : tcb2 L ≠ tcbM L := by
@@ -64,10 +64,10 @@ theorem tcb2_ne_tcbM (L : RuntimeLayout) : tcb2 L ≠ tcbM L := by
 in `wc_main` from `.x21` to `.stk`, or in the abort path entered from
 `.x23`. -/
 def selfOwnW (L : RuntimeLayout) (s : State) : Prop :=
-  (spPool L s ∧ (L.lab ".Lscc_rt_thread_init.x7").toBitVec.toNat + 51 ≤ pcOf s ∧
+  (spPool L s ∧ (L.lab ".Lscc_rt_thread_init.x0").toBitVec.toNat + 51 ≤ pcOf s ∧
       pcOf s < (L.lab "scc_rt_stack_take").toBitVec.toNat) ∨
-    inPc L ".Lwc_main.x21" ".Lwc_main.stk" s ∨
-    (inPc L "scc_rt_abort" "scc_rt_thr_worker" s ∧ raAt L ".Lwc_main.x23" s)
+    inPc L ".Lwc_main.x3" ".Lwc_main.stk" s ∨
+    (inPc L "scc_rt_abort" "scc_rt_thr_worker" s ∧ raAt L ".Lwc_main.x5" s)
 
 instance (L : RuntimeLayout) (s : State) : Decidable (selfOwnW L s) := by
   unfold selfOwnW; infer_instance
@@ -188,12 +188,12 @@ private theorem labV (hlab : ∀ l x, codeLabel lo wakeCells l = some x → L.la
     {y : Nat} (h : codeT lo wakeCells l = some y) : L.lab l = Int64.ofNat y :=
   hlab _ _ (by rw [← codeT_eq]; exact h)
 
-/-- **`selfOwnW` at the clone's `syscall`** (`.Lwc_main.x21 + 46`,
+/-- **`selfOwnW` at the clone's `syscall`** (`.Lwc_main.x3 + 46`,
 `X64WakePreA.cloneAt`). -/
 theorem selfOwnW_clone (hlab : ∀ l x, codeLabel lo wakeCells l = some x → L.lab l = Int64.ofNat x)
-    (hpc : s.st.2 = L.lab ".Lwc_main.x21" + 46) : selfOwnW L s := by
-  have e21 : L.lab ".Lwc_main.x21" = Int64.ofNat 4203397 := labV hlab (by decide +kernel)
-  have eS : L.lab ".Lwc_main.stk" = Int64.ofNat 4203514 := labV hlab (by decide +kernel)
+    (hpc : s.st.2 = L.lab ".Lwc_main.x3" + 46) : selfOwnW L s := by
+  have e21 : L.lab ".Lwc_main.x3" = Int64.ofNat 4203435 := labV hlab (by decide +kernel)
+  have eS : L.lab ".Lwc_main.stk" = Int64.ofNat 4203552 := labV hlab (by decide +kernel)
   refine .inr (.inl ?_)
   unfold inPc pcOf
   rw [hpc, e21, eS]
@@ -203,11 +203,11 @@ theorem selfOwnW_clone (hlab : ∀ l x, codeLabel lo wakeCells l = some x → L.
 on a pool stack, `ownGXW L a s` holds `tcbM` and `tcb2`, each with its
 address (`spawn_ofXW`'s `hT0`, `hW0` at `own₀ = ownGXW L a s`). -/
 theorem clone_ownGXW (hlab : ∀ l x, codeLabel lo wakeCells l = some x → L.lab l = Int64.ofNat x)
-    (hsp : spPool L s) (hpc : s.st.2 = L.lab ".Lwc_main.x21" + 46) :
+    (hsp : spPool L s) (hpc : s.st.2 = L.lab ".Lwc_main.x3" + 46) :
     (⟨tcbM L, 8⟩, (tcbM L).setWidth 128) ∈ ownGXW L a s ∧
       (⟨tcb2 L, 8⟩, (tcb2 L).setWidth 128) ∈ ownGXW L a s :=
   have e1 : L.lab ".Lscc_rt_start.x1" = Int64.ofNat 4198500 := labV hlab (by decide +kernel)
-  have e21 : L.lab ".Lwc_main.x21" = Int64.ofNat 4203397 := labV hlab (by decide +kernel)
+  have e21 : L.lab ".Lwc_main.x3" = Int64.ofNat 4203435 := labV hlab (by decide +kernel)
   have hx : (L.lab ".Lscc_rt_start.x1").toBitVec.toNat ≤ pcOf s := by
     unfold pcOf; rw [hpc, e1, e21]; decide
   ⟨tcbM_mem_ownGXW (.inl ⟨hsp, hx⟩), tcb2_mem_ownGXW (selfOwnW_clone hlab hpc)⟩

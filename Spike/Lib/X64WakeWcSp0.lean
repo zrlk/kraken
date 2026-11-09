@@ -4,7 +4,7 @@
 `wakeCells` (`Spike/Lib/X64WakeCode.lean`), from checks decided once on the
 cells (`decide +kernel`):
 
-    .Lwc_main.x18:                      -- %rax = the box's cell (Alloc.EB)
+    .Lwc_main.x0:                      -- %rax = the box's cell (Alloc.EB)
       movq %rax, -16(%rbp); movq -16(%rbp), %rcx; movq $0, %rax  (wcS0)
       movq %rax, (%rcx)                 -- row: the box's store (Out.newStore)
       # fence st: no code under TSO
@@ -67,7 +67,7 @@ def boxSt : List (Directive × Nat) := [(stDir .rcx 0 .rax, 3)]
 /-- **`.x18`'s block and row in `cells`**: the block at `0`, the store at
 `15`. -/
 def wcS0In (cells : List (Directive × Nat)) : Bool :=
-  blockAtB cells ".Lwc_main.x18" 0 wcS0 && blockAtB cells ".Lwc_main.x18" 15 boxSt
+  blockAtB cells ".Lwc_main.x0" 0 wcS0 && blockAtB cells ".Lwc_main.x0" 15 boxSt
 
 theorem wake_wcS0In : wcS0In SccCode.wakeCells = true := by decide +kernel
 
@@ -91,8 +91,8 @@ variable (ms : MemSide isa) (lab : Label → Int64) (R : Region) (J0 : AS → Ct
 offset) and the box's store (`%rax` the word `0`, `%rcx` and slot `-24`
 the cell, the hold kept). -/
 def sN : SN → ND
-  | .b => ⟨lab ".Lwc_main.x18", oWR, (wX ms lab R J0 .x18).J⟩
-  | .st => ⟨lab ".Lwc_main.x18" + Int64.ofNat 15, oWR, fun σ c => ∃ q : AGB ms lab, ∃ o : BitVec 64,
+  | .b => ⟨lab ".Lwc_main.x0", oWR, (wX ms lab R J0 .x18).J⟩
+  | .st => ⟨lab ".Lwc_main.x0" + Int64.ofNat 15, oWR, fun σ c => ∃ q : AGB ms lab, ∃ o : BitVec 64,
       wcJ J0 σ q.1.c0 ∧ c = holdCtr ms q.1.c0 o ∧ σ.regs.rax.toBitVec = 0#64 ∧
       σ.regs.rcx.toBitVec = σ.slot (-24) ∧ (σ.slot (-24)).toNat = ms.heap + 16 * o.toNat + ms.off 1 q.1.τ ∧
       o.toNat + ms.units 1 q.1.τ ≤ ms.cells ∧ ms.lo o.toNat⟩
@@ -106,7 +106,7 @@ variable (ms : MemSide isa) (lab : Label → Int64) (J0 : AS → Ctl → Prop)
 /-- **The landing past the box's store on `R`** for the fresh label `l`
 at the cell `A`, at `oWR` (the cell at slot `-24`). -/
 def bXR (l : WeakMem.AllocLabel) (A : Nat) : ND :=
-  ⟨lab ".Lwc_main.x18" + Int64.ofNat 18, oWR, fun σ c => ∃ q : AGB ms lab,
+  ⟨lab ".Lwc_main.x0" + Int64.ofNat 18, oWR, fun σ c => ∃ q : AGB ms lab,
     wcJ J0 σ q.1.c0 ∧ (σ.slot (-24)).toNat = A ∧
     c = ⟨q.1.e, (q.1.x, .ptr .own q.1.τ, [TermRun.cst (.loc ⟨l, 0⟩ 0)]) :: q.1.c0.env, none⟩ ∧
     ∃ o : Nat, A = ms.heap + 16 * o + ms.off 1 q.1.τ ∧ o + ms.units 1 q.1.τ ≤ ms.cells⟩
@@ -117,7 +117,7 @@ at the saved `%rbp`, `WcClone.oW`) for the fresh label `l` at the cell
 the cell at `-16`, the frame kept (`wcJF`); the cell the allocator's,
 `ms.heap + 16·o + ms.off 1 τ` for a counter value `o` within the cells. -/
 def bX (l : WeakMem.AllocLabel) (A : Nat) : ND :=
-  ⟨lab ".Lwc_main.x18" + Int64.ofNat 18, ⟨-64, [(.rbp, 0)]⟩, fun σ c => ∃ q : AGB ms lab,
+  ⟨lab ".Lwc_main.x0" + Int64.ofNat 18, ⟨-64, [(.rbp, 0)]⟩, fun σ c => ∃ q : AGB ms lab,
     wcJF J0 σ q.1.c0 ∧ (σ.slot (-16)).toNat = A ∧
     c = ⟨q.1.e, (q.1.x, .ptr .own q.1.τ, [TermRun.cst (.loc ⟨l, 0⟩ 0)]) :: q.1.c0.env, none⟩ ∧
     ∃ o : Nat, A = ms.heap + 16 * o + ms.off 1 q.1.τ ∧ o + ms.units 1 q.1.τ ≤ ms.cells⟩
@@ -223,7 +223,7 @@ theorem wake_wc_sp0_segW {W : Frag isa} {K : State → State → Prop} {Q : Frag
       by rw [ha], rfl, o.toNat, by rw [ha, hA24], hle⟩⟩
     · have : (σ.regs.get64 .rax).toNat = 0 := by simp [Reg64s.get64, h0]
       rw [this]; exact hrep
-    · show lab ".Lwc_main.x18" + Int64.ofNat 18 = lab ".Lwc_main.x18" + Int64.ofNat 15 + Int64.ofNat 3
+    · show lab ".Lwc_main.x0" + Int64.ofNat 18 = lab ".Lwc_main.x0" + Int64.ofNat 15 + Int64.ofNat 3
       rw [Int64.add_assoc]; rfl
 
 end Seg

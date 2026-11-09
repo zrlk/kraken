@@ -13,7 +13,7 @@ at `ownGH`. The frame band `StartTcb.BandT` and `rsp_of_abs` are wake's, program
 
 ## Differences from the AArch64 version
 
-- hello's x86-64 addresses (`X64HelloOwnGEq.labs_eqH`; AArch64: `2164748 .. 2165168`), the take site `4200314`
+- hello's x86-64 addresses (`X64HelloOwnGEq.labs_eqH`; AArch64: `2164748 .. 2165172`), the take site `4200314`
   (`StartTi.siteTH`); labels by `codeLabel lo helloCells`.
 - As wake's x86-64 `StartTcb`: no `hal`; the band is `[-184, 8]` (AArch64's `[-192, 0]`); a block's pcs are its
   pc plus `cellOff`; a node's successor is `sz` bytes on; `Keep` is `%rsp`/`%rbp`.

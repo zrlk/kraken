@@ -13,7 +13,7 @@ the pool, `StartTcb.BandT`). No state of the call owns either TCB word (its pcs 
 AArch64 has no counterpart: main owns no TCB word there (its thread pointer is a register). Against x86-64 wake's
 `OwnSt.tcbL`/`tcbX`: the code is helloCells (`hello_allocTcbIn`, `tcb_labsH`), the take site is at `4200314`
 (`PTH`), the classes are `CstH`/`NoHH`, the level is hello's (`WSH`/`WSHX`) and `hW` is about the worker's word
-`tcbWH L` (`pinA + 112`).
+`tcbWH L` (`pinA + 144`).
 -/
 import Spike.Lib.X64HelloOwnStartTk
 import Spike.Lib.X64HelloStartTcbW
@@ -52,6 +52,16 @@ its end pc's `NoHH` left. -/
 local macro "tblkL " bb:term:max ok:term:max blk:term:max oo:term:max el:term:max : tactic =>
   `(tactic| (
     refine blkLH hp hlab hsite hsep ha hW (P := PTH) (Q := NoHH) $bb (by first | rfl | exact ofNat_zero' _) $ok hR
+      (by omega) (by omega) (fun _ h => h.2) (fun s h => cls_offH hlab hbd s h.1) (cls_offH hlab hbd) ?_
+      (soT $blk $oo) (fun σ c hJ => ?_)
+    · intro k hk; dsimp only [tcbN]; rw [$el:term]; revert k; decide +kernel
+    dsimp only [tcbN] at hJ ⊢))
+
+set_option hygiene false in
+/-- `tblkL` on a block split by a return label (`blkLHA`). -/
+local macro "tblkLA " bb:term:max ok:term:max blk:term:max oo:term:max el:term:max : tactic =>
+  `(tactic| (
+    refine blkLHA hp hlab hsite hsep ha hW (P := PTH) (Q := NoHH) $bb (by first | rfl | exact ofNat_zero' _) $ok hR
       (by omega) (by omega) (fun _ h => h.2) (fun s h => cls_offH hlab hbd s h.1) (cls_offH hlab hbd) ?_
       (soT $blk $oo) (fun σ c hJ => ?_)
     · intro k hk; dsimp only [tcbN]; rw [$el:term]; revert k; decide +kernel
@@ -159,7 +169,7 @@ theorem tcbLH (hp : L.prog = helloCells)
     tblkL bO5 atO5_ok atO5 oI eOk
     rw [(atO5_walk _ _ hJ.2.1 hJ.2.2).1, eOk]; decide +kernel
   case ret =>
-    tblkL bRet atRet_ok atRet oI eOk
+    tblkLA bRet atRet_ok atRet oI eOk
     rw [(atRet_walk _ _ hJ.2).1, hra, Int64.ofBitVec_toBitVec, show L.lab Spike.Lib.X64.Flow.Ret0.x0L =
       Int64.ofNat 4198487 from eX0]
     decide +kernel

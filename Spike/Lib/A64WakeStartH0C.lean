@@ -96,7 +96,7 @@ theorem wake_hab_closed {E : Scc.Sem.Entry} {rd : TermRun.Word → Prop} {G : Lo
     rw [Spike.Lib.A64.Rt.stacksA_lab0]; exact Spike.Lib.A64.Rt.rt_hokD _ (by decide) (by decide)
   have hab : ∀ s : State, s.st.2 = (Ly).lab "scc_rt_abort_heap_exit" → ((MSf) []).abortAt s := fun s hs => by
     obtain ⟨-, -, -, -, -, -, -, -, e9, -⟩ := abH_labs hlab
-    refine ⟨.heap, 2168332, ?_, by rw [pcOf, hs, e9]; rfl⟩
+    refine ⟨.heap, 2168364, ?_, by rw [pcOf, hs, e9]; rfl⟩
     rw [Spike.Lib.A64.Flow.Worker.Wake.AbOffW.marks_target (Ly) hpL]
     show codeOf (Ly).Λ.code.lo (Ly).prog ((Ly).Λ.abortLbl .heap) = _
     rw [hprog, hlo, hΛ, ← codeT_eq]; decide +kernel

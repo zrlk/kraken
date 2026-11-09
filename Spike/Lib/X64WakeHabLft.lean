@@ -12,7 +12,7 @@ producer of `StartH0C.HabLft`, the premise `wake_hab_closed`,
 - `bandIn_topAb`: the dispatcher's band `[-32, 8]` below `wc_main`'s frame
   at the first stack's top (`(wR (RS wcLsw (topS L 0)) wcD).callee (-248)
   (-24) 16`) is on the stack pool.
-- `raAb_ne_x23`: the heap abort's return address is not `.Lwc_main.x23`.
+- `raAb_ne_x23`: the heap abort's return address is not `.Lwc_main.x5`.
 - `cst_abH`: on the heap path in a band on the pool, main's word only
   (`selfOwn` from the pool above `.x1`; `selfOwnW` false, the return
   address not `.x23`).
@@ -96,19 +96,19 @@ theorem bandIn_topAb (L : RuntimeLayout) :
   omega
 
 /-- The heap abort's return point (`.Lscc_rt_alloc.full` plus `12`) lies
-below `.Lwc_main.x23` in wake's code at `lo`. -/
+below `.Lwc_main.x5` in wake's code at `lo`. -/
 def raAbChk : Bool :=
-  match codeLabel lo wakeCells ".Lscc_rt_alloc.full", codeLabel lo wakeCells ".Lwc_main.x23" with
+  match codeLabel lo wakeCells ".Lscc_rt_alloc.full", codeLabel lo wakeCells ".Lwc_main.x5" with
   | some x, some y => decide (x + 12 < y ∧ y < 2 ^ 63)
   | _, _ => false
 
 theorem raAbChk_true : raAbChk = true := by
   unfold raAbChk; simp only [← codeT_eq]; decide +kernel
 
-/-- **The heap abort's return address is not `.Lwc_main.x23`'s.** -/
+/-- **The heap abort's return address is not `.Lwc_main.x5`'s.** -/
 theorem raAb_ne_x23 {L : RuntimeLayout}
     (hlab : ∀ l x, codeLabel lo wakeCells l = some x → L.lab l = Int64.ofNat x) :
-    raAb L.lab ≠ (L.lab ".Lwc_main.x23").toBitVec := by
+    raAb L.lab ≠ (L.lab ".Lwc_main.x5").toBitVec := by
   have h := raAbChk_true
   unfold raAbChk at h
   split at h
@@ -128,15 +128,15 @@ theorem raAb_ne_x23 {L : RuntimeLayout}
 /-- **Main's word only on the heap path** in a band on the pool, from a
 caller other than `.x23`: `selfOwn` (on the pool, `scc_rt_abort` above
 `.x1`), not `selfOwnW` (`scc_rt_abort` is past `scc_rt_stack_take` and
-before `.Lwc_main.x21`, the return address not `.x23`). -/
+before `.Lwc_main.x3`, the return address not `.x23`). -/
 theorem cst_abH {L : RuntimeLayout} (hlab : ∀ l x, codeLabel lo wakeCells l = some x → L.lab l = Int64.ofNat x)
-    {R : Region} {ra : BitVec 64} (hb : BandIn L R) (h23 : ra ≠ (L.lab ".Lwc_main.x23").toBitVec) {s : State}
+    {R : Region} {ra : BitVec 64} (hb : BandIn L R) (h23 : ra ≠ (L.lab ".Lwc_main.x5").toBitVec) {s : State}
     (h : AbP L R ra s) : Cst L (tM L) [] s := by
   have hx1 := Spike.Lib.X64.WakeRefAbW.lab_lt hlab (l₁ := ".Lscc_rt_start.x1") (l₂ := "scc_rt_abort")
     (by unfold Spike.Lib.X64.WakeRefAbW.labLt; rw [← codeT_eq]; decide +kernel)
   have hst := Spike.Lib.X64.WakeRefAbW.lab_lt hlab (l₁ := "scc_rt_stack_take") (l₂ := "scc_rt_abort")
     (by unfold Spike.Lib.X64.WakeRefAbW.labLt; rw [← codeT_eq]; decide +kernel)
-  have hw21 := Spike.Lib.X64.WakeRefAbW.lab_lt hlab (l₁ := "scc_rt_thr_worker") (l₂ := ".Lwc_main.x21")
+  have hw21 := Spike.Lib.X64.WakeRefAbW.lab_lt hlab (l₁ := "scc_rt_thr_worker") (l₂ := ".Lwc_main.x3")
     (by unfold Spike.Lib.X64.WakeRefAbW.labLt; rw [← codeT_eq]; decide +kernel)
   have hin := h.1
   unfold inPc at hin

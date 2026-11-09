@@ -4,7 +4,7 @@
 `Spike/Lib/X64HelloRefAb.lean`): the `testq` row at `.x25 + 96`, the `je` block at `.x25 + 99`, `.x26`'s block
 and `.spawnfail5`'s, inside main's 128-byte frame on the first stack (`PreH`'s region). Their pcs are in `[.x25,
 .stk)` (`InCH`), where main holds both words (`OwnSp4.cls_cH`); `.spawnfail5`'s run ends at `scc_rt_abort` with
-the return address `.Lwc_main.x27` pushed at `-136`, where it holds both too (`selfOwnH` on the pool, `selfOwnWH`'s
+the return address `.Lwc_main.x5` pushed at `-136`, where it holds both too (`selfOwnH` on the pool, `selfOwnWH`'s
 abort disjunct). So both appended maps may be appended at every node (`CstOkH`).
 
 - `bandOn_preH`: main's band `[-144, 8]` of `PreH`'s region lies in the first stack.
@@ -79,7 +79,7 @@ theorem fin_cH {R : Region} (hb : BandOnP L R (-144) 8) {nd : ND} {blk : List (D
 
 include hlab in
 /-- **`CstH` where `.spawnfail5`'s run ends**: at `scc_rt_abort` on the pool (`selfOwnH`), the return address
-`.Lwc_main.x27` pushed at `-136` (`selfOwnWH`'s abort disjunct). -/
+`.Lwc_main.x5` pushed at `-136` (`selfOwnWH`'s abort disjunct). -/
 theorem fl_cstH {R : Region} (hb : BandOnP L R (-144) 8) (hRlo : R.lo ≤ -136) (hhi : 16 ≤ R.hi)
     {cP : Spike.Lib.Ctl} {sl : BitVec 64 × BitVec 64 × BitVec 64 × BitVec 64} {cA me : BitVec 64}
     (σ : Spike.Lib.X64.AS) (s : State) (m : MachineData)
@@ -102,7 +102,7 @@ theorem fl_cstH {R : Region} (hb : BandOnP L R (-144) 8) (hRlo : R.lo ≤ -136) 
   have hpc : pcOf s = (L.lab "scc_rt_abort").toBitVec.toNat := by unfold pcOf; rw [hs]
   have hin : pcOf s ∈ raSp L := by rw [hpc]; simp [raSp, abFns]
   have hrA : raAddr L s = s.st.1.regs.rsp.toBitVec := by simp only [raAddr, hin, ↓reduceIte]
-  have hld : privLoad s (raAddr L s) = some (L.lab ".Lwc_main.x27").toBitVec := by
+  have hld : privLoad s (raAddr L s) = some (L.lab ".Lwc_main.x5").toBitVec := by
     rw [hrA, hm, rsp_of_abs hA]
     obtain ⟨j, hj1, hj2⟩ := hA.slot (-136) ⟨by decide, by omega, by omega⟩
     unfold privLoad
@@ -111,7 +111,7 @@ theorem fl_cstH {R : Region} (hb : BandOnP L R (-144) 8) (hRlo : R.lo ≤ -136) 
   have hinP : inPc L "scc_rt_abort" "scc_rt_thr_worker" s := by
     unfold inPc; rw [hpc, e8, e9]; exact ⟨Nat.le_refl _, refRangeH.2.2.2.2.2.2.2.2.2.1⟩
   have hge : 4198500 ≤ pcOf s := by
-    rw [hpc, e8]; have : clH "scc_rt_abort" = 4202486 := by decide +kernel
+    rw [hpc, e8]; have : clH "scc_rt_abort" = 4202524 := by decide +kernel
     omega
   exact ⟨ownSH_of_self ((selfOwnH_iffC hlab).mpr (.inl ⟨hsp, hge⟩)), ownSWH_of_self (.inr (.inr ⟨hinP, hld⟩))⟩
 

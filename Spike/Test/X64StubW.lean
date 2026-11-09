@@ -28,7 +28,9 @@ theorem ret0_labR : (_root_.Executable.labels ret0Exe).label = labR := by
   funext l
   unfold labR
   split
-  · next h => exact label_labIn ret0_lays rfl h
+  · next h =>
+    exact label_labIn ret0_lays
+      (congrArg Prod.fst (Scc.Cert.Link.X64.threadAt_exe_of_above Spike.Lib.X64.Flow.Ret0.Mem.ret0_above)) h
   · rfl
 
 /-- **The abort path's phase check at `ret0.x`**, decided on the hand tables. -/
@@ -50,7 +52,7 @@ theorem ret0_sysIn :
   decide +kernel
 
 /-- The exit call's pc at `ret0.x`: the overflow's abort site. -/
-theorem ret0_exit : (labR Abort.overflow.exit).toBitVec.toNat = 4198555 := by decide +kernel
+theorem ret0_exit : (labR Abort.overflow.exit).toBitVec.toNat = 4198593 := by decide +kernel
 
 /-- **The exit call's site hypotheses hold at `ret0.x`'s marks** (satisfiable). -/
 example :
@@ -66,7 +68,7 @@ example :
 
 /-- A phase table with the exit call's next pc in another phase fails. -/
 example : abortPhOk Spike.Lib.X64.Flow.Ret0.Inst.okPc
-    (fun pc => if pc = 4198557 then 7 else Spike.Lib.X64.Flow.Ret0.Inst.ph pc) labR = false := by
+    (fun pc => if pc = 4198595 then 7 else Spike.Lib.X64.Flow.Ret0.Inst.ph pc) labR = false := by
   decide +kernel
 
 /-- An `okPc` excluding the stub's `leaq` fails. -/

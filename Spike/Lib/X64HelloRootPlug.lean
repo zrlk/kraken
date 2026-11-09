@@ -8,13 +8,13 @@ loader's facts the root carries (the program's two parses, the code base, A13's 
   and the take site (`siteH`).
 - `hro_H`, `hs_H`, `hsub_H`: `.rodata` off the stack pool (A1), the words' separation at `scc_rt_nthreads` and the
   second stack in the pool (A13's data part).
-- `tiH_word`, `tiH_spawn`: the second TCB `tH = pinA + 112` is `spawnWords`' words `4` to `9`.
+- `tiH_word`, `tiH_spawn`: the second TCB `tH = pinA + 144` is `spawnWords`' words `4` to `9`.
 - `hmF_H`, `hnoF_H`, `hoffT_H`: the second TCB's words mapped (A13's data part: in `.data` or `pinned`), none of
   `own2bH`'s, off `arW` (`H2Rt.hoffSp_H`).
 - `hoffL_H`, `hoffX_H`: the stack lock and cursor off `arW` (`HrdArena.offW_arWH`).
 - `hK2_H`, `hpub2_H`: `h2`'s side `ms2H`'s kernel and publication (`rfl`, `arW`'s `pub`).
-- `RootRest`, `RootRest.toBase`: the base's fields not plugged here (`W1`, `Dt`, `Ctx`, `ls`, `frM`, `msB`, `F0`,
-  `hokb`, `hg`), and the base from them, `har` by `HelloRootBase.har_W` and the loader facts `hpa`, `hhp`, `hlo0`,
+- `RootRest`, `RootRest.toBase`: the base's fields not plugged here (`Dt`, `Ctx`, `ls`, `frM`, `msB`, `F0`, `hokb`,
+  `hg`), and the base from them, `har` by `HelloRootBase.har_W` and the loader facts `hpa`, `hhp`, `hlo0`,
   `hA13`, `CtrZ`.
 
 ## Unlike AArch64
@@ -114,11 +114,11 @@ theorem hsub_H : (r1Of (Ly).lab).Sub (Ly).Λ.stackPool :=
   Spike.Lib.X64.WakePh.StartPlaceLy.hsub1_W hpw IH hA13
 
 omit hA13 in
-/-- **A word of the second TCB** `tH = pinA + 112` is `pinA + 80 + 8 (4 + k)`, `spawnWords`' word `4 + k`. -/
+/-- **A word of the second TCB** `tH = pinA + 144` is `pinA + 112 + 8 (4 + k)`, `spawnWords`' word `4 + k`. -/
 theorem tiH_word {a : BitVec 64} (ha : a ∈ Spike.Lib.X64.Rt.Ti.tiAddrs (tH (Ly).lab)) :
-    ∃ k < 6, a = (Ly).pinA + BitVec.ofNat 64 (80 + 8 * (4 + k)) := by
-  have e : ∀ c : Nat, tH (Ly).lab + BitVec.ofNat 64 c = (Ly).pinA + BitVec.ofNat 64 (112 + c) := fun c => by
-    show Spike.Lib.X64.Flow.Ret0.pinA (Ly).lab + 112#64 + BitVec.ofNat 64 c = _
+    ∃ k < 6, a = (Ly).pinA + BitVec.ofNat 64 (112 + 8 * (4 + k)) := by
+  have e : ∀ c : Nat, tH (Ly).lab + BitVec.ofNat 64 c = (Ly).pinA + BitVec.ofNat 64 (144 + c) := fun c => by
+    show Spike.Lib.X64.Flow.Ret0.pinA (Ly).lab + 144#64 + BitVec.ofNat 64 c = _
     rw [(Ly).lab_pin, BitVec.add_assoc]; congr 1; apply BitVec.eq_of_toNat_eq; simp [BitVec.toNat_add]
   simp only [Spike.Lib.X64.Rt.Ti.tiAddrs, List.mem_cons, List.not_mem_nil, or_false] at ha
   rcases ha with rfl | rfl | rfl | rfl | rfl | rfl
@@ -193,13 +193,11 @@ theorem hpub2_H (asm : Scc.Sem.X64.Asm) (E : Scc.Sem.Entry) (ls : Spike.Lib.X64C
 
 /-! ## The base from its rest -/
 
-/-- **`HelloRootBase`'s fields this module does not plug** (the rest: the level after the allocation, the start's
-level's choices, the box's side and frame, the carry to `h2`'s side). -/
+/-- **`HelloRootBase`'s fields this module does not plug** (the rest: the start's level's choices, the box's side
+and frame, the carry to `h2`'s side). -/
 structure RootRest (L : RuntimeLayout) (lbl : Lbl) (ar : Spike.Lib.Arena)
     (ms2 : Spike.Lib.X64Consumer.Lsize → WeakMem.AllocLabel → Nat → Nat → WeakMem.AllocLabel → Nat → Nat →
       List TermRun.Frame → Spike.Lib.MemSide isa) : Type where
-  /-- The level after the allocation. -/
-  W1 : Spike.Lib.FragS isa
   /-- The start's level's debts (`StartWf.WSH`'s `Dt`). -/
   Dt : State → Prop
   /-- The start's level's contexts (`WSH`'s `Ctx`). -/
@@ -239,7 +237,6 @@ noncomputable def RootRest.toBase (asm : Scc.Sem.X64.Asm) (E : Scc.Sem.Entry)
   hlab := hlab_H hpw i0 hpa hhp hlo0
   hsite := hsite_H hpw i0 hpa hhp hlo0
   hro := hro_H hpw i0
-  W1 := B.W1
   har := Spike.Lib.X64.HelloPh.HelloRootBase.har_W hpw i0 hc
   Dt := B.Dt
   Ctx := B.Ctx

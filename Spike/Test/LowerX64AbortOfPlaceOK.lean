@@ -23,7 +23,7 @@ open Scc.Cert.PlaceOK.X64.Test (ret0_placeOK)
 open SccCode (ret0Λ ret0Cells ret0Secs ret0Imms)
 
 /-- **Oracle**: the overflow exit call resolves at the hand site. -/
-theorem ret0_ovf : Scc.Sem.X64.codeLabel ret0Λ.code.lo ret0Cells "scc_rt_abort_overflow_exit" = some 4198555 := by
+theorem ret0_ovf : Scc.Sem.X64.codeLabel ret0Λ.code.lo ret0Cells "scc_rt_abort_overflow_exit" = some 4198593 := by
   decide +kernel
 
 /-- The generic discharges at `ret0`'s placement check. -/
@@ -37,11 +37,11 @@ example := hms_ofPlaceOK (atTables ret0_placeOK) ret0Imms (rd := fun _ => True) 
 theorem ret0_sitesOf :
     Scc.Cert.Rt.X64.sitesOf (Scc.Cert.Link.X64.linkOf ret0Cells ret0Secs).code.lo ret0Cells
       (Scc.Cert.Link.X64.linkOf ret0Cells ret0Secs) =
-      some [4196177, 4196217, 4198555, 4198623, 4198691, 4198759, 4198827] := by
+      some [4196177, 4196217, 4198593, 4198661, 4198729, 4198797, 4198865] := by
   decide +kernel
 
 /-- **Satisfiable**: `ret0`'s sites are distinct. -/
-example : [4196177, 4196217, 4198555, 4198623, 4198691, 4198759, 4198827].Nodup := by decide
+example : [4196177, 4196217, 4198593, 4198661, 4198729, 4198797, 4198865].Nodup := by decide
 
 /-- The site discharges at `ret0`'s placement check. -/
 example := sites7 (atTables ret0_placeOK)
@@ -62,12 +62,12 @@ sites resolve but are not distinct, so A6's check fails on them. -/
 example : ¬ ∃ ss, Scc.Cert.Rt.X64.sitesOf dupΛ.code.lo ret0Cells dupΛ = some ss ∧ ss.Nodup := by
   rintro ⟨ss, hs, hnd⟩
   have : Scc.Cert.Rt.X64.sitesOf dupΛ.code.lo ret0Cells dupΛ =
-      some [4196177, 4196217, 4198555, 4198555, 4198691, 4198759, 4198827] := by decide +kernel
+      some [4196177, 4196217, 4198593, 4198593, 4198729, 4198797, 4198865] := by decide +kernel
   rw [this] at hs; cases hs
   simp at hnd
 
 /-- The exit call's address at `ret0`'s record. -/
-theorem ret0P_exit : (ret0P.lab Abort.overflow.exit).toBitVec.toNat = 4198555 :=
+theorem ret0P_exit : (ret0P.lab Abort.overflow.exit).toBitVec.toNat = 4198593 :=
   lab_toNat (atTables ret0_placeOK) ret0Imms ret0_ovf
 
 /-- **The site premises hold by hand at `ret0`'s record**: the exit call is off the release and take sites and no
@@ -93,13 +93,13 @@ example :
 
 /-- **Negative**: `hk` fails at the heap exit call's address (the heap
 kind's site is there). -/
-example : ¬ (∀ k a, (μ ret0P).abortAt k = some a → (4198623 : Nat) = a → k = .overflow) := by
+example : ¬ (∀ k a, (μ ret0P).abortAt k = some a → (4198661 : Nat) = a → k = .overflow) := by
   intro hk
-  have hh : (μ ret0P).abortAt .heap = some 4198623 := by decide +kernel
-  cases hk .heap 4198623 hh rfl
+  have hh : (μ ret0P).abortAt .heap = some 4198661 := by decide +kernel
+  cases hk .heap 4198661 hh rfl
 
 /-- **Negative**: the heap exit call is not at the overflow exit call. -/
-example : Scc.Sem.X64.codeLabel ret0Λ.code.lo ret0Cells "scc_rt_abort_heap_exit" ≠ some 4198555 := by
+example : Scc.Sem.X64.codeLabel ret0Λ.code.lo ret0Cells "scc_rt_abort_heap_exit" ≠ some 4198593 := by
   decide +kernel
 
 end Spike.Test.LowerX64AbortOfPlaceOK

@@ -2,7 +2,7 @@
 **wake.w on x86-64: main after a refused `clone`** (the spawn's refusal
 half, twin of `Spike/Lib/A64WakeSpawnFail.lean`; the parent half is
 `Spike/Lib/X64WakeParent.lean`): back from main's `clone`
-(`ThreadsAb.cloneAt`, `.Lwc_main.x21 + 46`) with a refusal in `%rax`
+(`ThreadsAb.cloneAt`, `.Lwc_main.x3 + 46`) with a refusal in `%rax`
 (`ThreadsAb.CloneRef`: `-EAGAIN` or `-ENOMEM`), main runs
 
     testq %rax, %rax                    -- row (test_ndW): ZF clear

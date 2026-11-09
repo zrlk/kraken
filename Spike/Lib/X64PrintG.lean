@@ -23,6 +23,8 @@ import Spike.Lib.X64AllocGSt
 import Spike.Lib.X64PrintA
 import Spike.Lib.X64PrintPh
 import Spike.Lib.LowerX64.W2Body
+import Spike.Lib.LowerX64.BodyW
+import Spike.Lib.X64CodeAcross
 
 namespace Spike.Lib.X64.PrintG
 
@@ -49,7 +51,8 @@ section Spec
 
 variable {okPc : Nat → Bool} {ph : Nat → Nat} {lab : Label → Int64}
 
-/-- **`printIn`'s facts**, one per block. -/
+/-- **`printIn`'s facts**, one per block (the epilogue `x13` across the
+return label `retL`, `blockAcrossB`). -/
 theorem printIn_spec {cells : List (Directive × Nat)} (h : Scc.Cert.Rt.X64.Print.printIn cells = true) :
     blockAtB cells "scc_rt_print" 0 x0 = true ∧
     blockAtB cells ".Lscc_rt_print.entry" 0 x1 = true ∧
@@ -65,7 +68,8 @@ theorem printIn_spec {cells : List (Directive × Nat)} (h : Scc.Cert.Rt.X64.Prin
     blockAtB cells ".Lscc_rt_print.chk3" 16 x10 = true ∧
     blockAtB cells ".Lscc_rt_print.adv" 0 x11 = true ∧
     blockAtB cells ".Lscc_rt_print.fail" 0 x12 = true ∧
-    blockAtB cells ".Lscc_rt_print.done" 0 x13 = true ∧
+    Scc.Cert.Rt.X64.blockAcrossB cells ".Lscc_rt_print.done" 0 (x13.take 2) Scc.Cert.Rt.X64.Print.retL
+      (x13.drop 2) = true ∧
     labelGapB cells "scc_rt_print" ".Lscc_rt_print.entry" 16 = true := by
   simpa only [Scc.Cert.Rt.X64.Print.printIn, Bool.and_eq_true, and_assoc] using h
 
@@ -189,8 +193,10 @@ theorem printNoWr (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp)
   · exact blkW_noSysI hI h11 (by pc_tac) x11_ok
   · exact Spike.Lib.X64.AllocG.blkW_noWr hI h12 (by pc_tac) x12_ok hR hlo hhi
   · exact blkW_noSysI hI h12 (by pc_tac) x12_ok
-  · exact Spike.Lib.X64.AllocG.blkW_noWr hI h13 (by pc_tac) x13_ok hR hlo hhi
-  · exact blkW_noSysI hI h13 (by pc_tac) x13_ok
+  · exact Spike.Lib.LowerX64.blkW_noWr' (Spike.Lib.X64.code_field_blockAcrossB hI.lays hI.endOk h13
+      (List.take_append_drop _ _) (by rw [hI.labOk]; pc_tac)) x13_ok hR hlo hhi
+  · exact Spike.Lib.LowerX64.blkW_noSys' (Spike.Lib.X64.code_field_blockAcrossB hI.lays hI.endOk h13
+      (List.take_append_drop _ _) (by rw [hI.labOk]; pc_tac)) x13_ok
 
 set_option hygiene false in
 /-- A block of `scc_rt_print` without `ret`, no dead target, at the source
@@ -229,10 +235,15 @@ theorem printSt (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp)
   · pblk h10 x10_ok p10
   · pblk h11 x11_ok p11
   · pblk h12 x12_ok p12
-  · refine BlkW.st (Spike.Lib.X64.Rt.blkW_postO hI (lbl := Λ.static) (dead := fun _ => false)
-      (ra := Int64.ofBitVec ra) h13 (by pc_tac) x13_ok hR hlo hhi hR8 hl hh (fun _ _ hJ => hJ.1 ▸ cfacts_c0)
-      (blkPh_x13 p13 (by simpa [Spike.Lib.X64.Flow.ofNat_zero'] using p14)
-        (by simpa [Spike.Lib.X64.Flow.ofNat_zero'] using hra))
+  · have he : lab ".Lscc_rt_print.done" + Int64.ofNat 0 = (dumN (N lab rbp0 ra buf0 len0 P Q .done)).pc := by
+      pc_tac
+    have hp := blkPh_x13 (ra := Int64.ofBitVec ra) p13 (by simpa [Spike.Lib.X64.Flow.ofNat_zero'] using p14)
+      (by simpa [Spike.Lib.X64.Flow.ofNat_zero'] using hra)
+    rw [he] at hp
+    refine BlkW.st (Spike.Lib.LowerX64.blkW_postO' hI (lbl := Λ.static) (dead := fun _ => false)
+      (ra := Int64.ofBitVec ra) (Spike.Lib.X64.code_field_blockAcrossB hI.lays hI.endOk h13
+        (List.take_append_drop _ _) (by rw [hI.labOk]; exact he))
+      x13_ok hR hlo hhi hR8 hl hh (fun _ _ hJ => hJ.1 ▸ cfacts_c0) hp
       (hret_of_run x13_ok fun σ c hJ => ?_) (fun _ _ _ => rfl) hsub hfit hFO)
     obtain ⟨-, c, -, h8, -⟩ := hJ
     simp only [dumN, N]

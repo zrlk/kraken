@@ -12,7 +12,7 @@ inside `WSH`) with `OwnSt.tcbXH` (inside `LftH`) at the callee's region `(R.call
 
 AArch64 has no counterpart: main owns no TCB word there (its thread pointer is a register). Against x86-64 wake's
 `OwnSt.startTcbX`: the producers are hello's (`StartTcb.startTcb_WSH`, `tcbXH`), the code is helloCells, the level
-is `WSH`/`WSHX` and `hW` is about the worker's word `tcbWH L` (`pinA + 112`). Wake's `bandT_of` and `hoffP_of`
+is `WSH`/`WSHX` and `hW` is about the worker's word `tcbWH L` (`pinA + 144`). Wake's `bandT_of` and `hoffP_of`
 read no program and are used as they are (no twins).
 -/
 import Spike.Lib.X64HelloOwnStartTcb

@@ -3,7 +3,7 @@
 `WakeOPremW.oPrem_W` / `WakeOD.wakeD` at hello's choices): the instance data `helloDR` of one entry and
 `HelloO.OPremH` at it from the segments' and take facts' premises.
 
-The data: `gWH … cTW` (`HelloGOf2H`: wake's `gW` with hello's second limit word `pinA + 120`), `ownGH … ntA`,
+The data: `gWH … cTW` (`HelloGOf2H`: wake's `gW` with hello's second limit word `pinA + 152`), `ownGH … ntA`,
 `arW`, `ClH`, `DtW`, the start's labels `L0T`/`ls0T ls`, the
 take site `(Ly).lab siteL`, the level before the allocation `W0H` with its invariant `RootH0.inv0H` (the
 greatest closed invariant there), the ranges `r0W`/`r1W`, every word readable (`rd := ⊤`, as wake).
@@ -86,7 +86,7 @@ theorem oPremH_R (hpa : textProgram asm = .ok o.prog)
     (hhp : textProgram asm = .ok SccCode.helloProg) (hd : dataSections asm = some o.secs)
     /- instance facts -/
     (hlo : Λ0.code.lo = Spike.Lib.A64.WakePh.lo) (hstat : Λ0.static = fun _ => none)
-    (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
+    (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
     (hsub1 : (Spike.Lib.WakeOSide.r1W hp i).Sub (Ly).Λ.stackPool) (hc : Spike.Lib.A64.Rt.CtrZ o)
     (hnz : Spike.Lib.WakeOInit.NtZ Λ0 o = true)
     (arch : WeakMem.Arch) {B : Budget} (hB : B.cells = Scc.Cert.PlaceOK.allocCells)

@@ -161,6 +161,32 @@ theorem blkL2 {n : ND} {blk : List (Directive × Nat)} {l : Label} {k : Nat} {bl
     refine hclsQ s (by unfold pcOf; rw [hs']; exact hfin σ c hJ) ⟨_, ho.1, ho.2, ?_⟩
     rw [hs']; exact rsp_of_abs hA
 
+/-- **`Lft2` along a covered block split by a return label** (`m`, after its
+first `jA` rows; `blockAcrossB`): as `blkL2`. -/
+theorem blkL2A {n : ND} {blk : List (Directive × Nat)} {l m : Label} {k jA : Nat} {blo bhi slo shi : Int}
+    {c1 c2 : List (Loc × Val)} {P Q : Nat → Prop}
+    (hb : Scc.Cert.Rt.X64.blockAcrossB wakeCells l k (blk.take jA) m (blk.drop jA) = true)
+    (he : L.lab l + Int64.ofNat k = n.pc)
+    (hok : okBlk blo bhi n.o blk = true) (hR : R.OK) (hlo : R.lo ≤ blo) (hhi : bhi ≤ R.hi)
+    (hP : ∀ q, P q → q ≠ 4200277)
+    (hcls : ∀ s : State, P (pcOf s) → SpAt R slo shi s → Cst L c1 c2 s)
+    (hclsQ : ∀ s : State, Q (pcOf s) → SpAt R slo shi s → Cst L c1 c2 s)
+    (h1 : ∀ j < blk.length, P (n.pc + Int64.ofNat (cellOff blk j)).toBitVec.toNat)
+    (hso : ∀ j ≤ blk.length, slo ≤ (soRun (blk.take j) n.o).sp ∧ (soRun (blk.take j) n.o).sp ≤ shi)
+    (hfin : ∀ σ c, n.J σ c → Q (arun (_root_.Executable.labels L.exe).label blk ⟨n.pc, n.o, σ⟩).pc.toBitVec.toNat) :
+    BlkW (Lft2 Λ L a Dt) (fun _ _ => False) L.exe L.endPc R F n blk := by
+  refine BlkW.lft2 (blkW_cstOkB hs ha hW
+    (Spike.Lib.X64.code_field_blockAcrossB L.lays rfl (hp ▸ hb) (List.take_append_drop jA blk) he) hok hR hlo
+    hhi ?_ hcls h1 hso ?_)
+  · intro a' ha' j hj
+    rw [hsite] at ha'; cases ha'
+    rw [siteV hlab]; exact hP _ (h1 j hj)
+  · intro σ c hJ s m hA _ _ hs'
+    have ho := hso blk.length (Nat.le_refl _)
+    rw [List.take_length, ← arun_so (_root_.Executable.labels L.exe).label _ ⟨n.pc, n.o, σ⟩] at ho
+    refine hclsQ s (by unfold pcOf; rw [hs']; exact hfin σ c hJ) ⟨_, ho.1, ho.2, ?_⟩
+    rw [hs']; exact rsp_of_abs hA
+
 omit hp hsite in
 /-- **`Lft2` at a node** whose successors keep `%rsp` and `%rbp` `sz` bytes
 on (`nodeL` at `Lft2`). -/
@@ -183,6 +209,9 @@ end Spike.Lib.X64.WakePh
 
 /-- info: 'Spike.Lib.X64.WakePh.blkL2' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms Spike.Lib.X64.WakePh.blkL2
+
+/-- info: 'Spike.Lib.X64.WakePh.blkL2A' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in #print axioms Spike.Lib.X64.WakePh.blkL2A
 
 /-- info: 'Spike.Lib.X64.WakePh.nodeL2' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms Spike.Lib.X64.WakePh.nodeL2

@@ -449,7 +449,7 @@ theorem fnCode_of_placeOKAt (h : placeOKAt cfg Λ o = true) {ir : Scc.IR.Program
     let c := Scc.Emit.A64.fnCtx ir.abortFn ir.growth (Scc.IR.StackMap.argAreas ir Scc.Emit.A64.argRegs.length) fi
       (Scc.Lower.Inv.func0 name r)
     Spike.Lib.LowerA64.proInC o.prog c name (c.prefix ++ "0_entry") = true ∧
-      Spike.Lib.LowerA64.bodyIn o.prog c (c.prefix ++ "0_entry") 0 r.insts r.ret = true := by
+      Spike.Lib.LowerA64.bodyIn o.prog c (c.prefix ++ "0_entry") 0 0 r.insts r.ret = true := by
   obtain ⟨ir', hir', hok⟩ := fnCodeOk_of_placeOKAt h
   rw [hir] at hir'; cases hir'
   have := Spike.Lib.LowerA64.fnCodeOk_func0 hok hf hI hw
@@ -944,7 +944,7 @@ theorem fnCode_of_placeOK (h : placeOK cfg o = true) {ir : Scc.IR.Program} (hir 
     let c := Scc.Emit.A64.fnCtx ir.abortFn ir.growth (Scc.IR.StackMap.argAreas ir Scc.Emit.A64.argRegs.length) fi
       (Scc.Lower.Inv.func0 name r)
     Spike.Lib.LowerA64.proInC o.prog c name (c.prefix ++ "0_entry") = true ∧
-      Spike.Lib.LowerA64.bodyIn o.prog c (c.prefix ++ "0_entry") 0 r.insts r.ret = true :=
+      Spike.Lib.LowerA64.bodyIn o.prog c (c.prefix ++ "0_entry") 0 0 r.insts r.ret = true :=
   fnCode_of_placeOKAt (Λ := (tablesOf cfg o).Λ) h hir hf hI hw
 
 /-- `ovfCode_of_placeOKAt` at the static link. -/

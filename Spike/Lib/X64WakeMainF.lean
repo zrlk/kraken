@@ -247,7 +247,7 @@ without `q` (byte `7` of `.entry`; `.then1` is past the load) and
 `scc_rt_park`'s. -/
 def flagRuns : List (String × Nat × Nat) :=
   [("wc_waitLoop", 0, 31), (".Lwc_waitLoop.entry", 0, 7), (".Lwc_waitLoop.entry", 8, 29),
-    (".Lwc_waitLoop.else2", 0, 5), (".Lwc_waitLoop.x16", 0, 10)] ++ Spike.Lib.X64.Flow.Park.parkRuns
+    (".Lwc_waitLoop.else2", 0, 5), (".Lwc_waitLoop.x1", 0, 10)] ++ Spike.Lib.X64.Flow.Park.parkRuns
 
 /-- `flagRuns` misses `q` at wake. -/
 theorem flag_chk : runsNeChk SccCode.wakeCells flagRuns [(".Lwc_waitLoop.entry", 7)] = true := by
@@ -364,12 +364,13 @@ theorem loopW_flag [Executable.ValidLayout exe] {cells : List (Directive × Nat)
           rw [ofNat_add']; simp only [N]; rfl)
     n6 := blkW_flag b6_ok hR hlo hhi (code_field hp hend h6 rfl) h0 (fun _ _ hJ => .inl hJ.1)
       (by ne_blk ".Lwc_waitLoop.entry" 8 29 27 b6)
-    then1 := blkW_flag b7_ok hR hlo hhi (code_field hp hend h7 (ofNat_zero' _)) h0
+    then1 := blkW_flag b7_ok hR hlo hhi
+      (Spike.Lib.X64.code_field_blockAcrossB hp hend h7 (List.take_append_drop _ _) (ofNat_zero' _)) h0
       (fun _ c hJ => .inr (hP c hJ.2.1)) (fun _ _ _ hJ => (hnp hJ.2.1).elim)
     else2 := blkW_flag b8_ok hR hlo hhi (code_field hp hend h8 (ofNat_zero' _)) h0 (fun _ _ hJ => .inl hJ.1)
       (by ne_blk ".Lwc_waitLoop.else2" 0 5 0 b8)
     x16 := blkW_flag b9_ok hR hlo hhi (code_field hp hend h9 (ofNat_zero' _)) h0 (fun _ _ hJ => .inl hJ.1)
-      (by ne_blk ".Lwc_waitLoop.x16" 0 10 0 b9) }
+      (by ne_blk ".Lwc_waitLoop.x1" 0 10 0 b9) }
   -- the prologue's limit load `movq %fs:8, %r11`: `tp + 8`, not the flag's word
   · have hc : CellAt s (fsDir .r11 8) 9 :=
       (code_field hp hend p2 (by show _ = _ + 1 + 3 + _; rw [e4]) s he hn).cell0 rfl rfl hpc

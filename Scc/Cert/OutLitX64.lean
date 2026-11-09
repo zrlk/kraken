@@ -33,5 +33,6 @@ deriving instance Lean.ToExpr for Scc.IR.Func
 deriving instance Lean.ToExpr for Scc.IR.DataInit
 deriving instance Lean.ToExpr for Scc.IR.Data
 deriving instance Lean.ToExpr for Scc.IR.Growth
+deriving instance Lean.ToExpr for Scc.Host
 deriving instance Lean.ToExpr for Scc.IR.Program
 deriving instance Lean.ToExpr for Scc.Cert.PlaceOK.X64.PlaceData

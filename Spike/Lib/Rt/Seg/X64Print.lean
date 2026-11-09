@@ -1,4 +1,5 @@
 import Scc.Cert.Rt.X64Print
+import Spike.Lib.X64CodeAcross
 
 /-!
 # The segment theorems of `Scc.Cert.Rt.X64Print`
@@ -44,7 +45,7 @@ theorem seg_print_of {p : Prog} {lbl : WeakMem.AllocLabel → Option Nat} {ms : 
   · exact code_field hp hend h10 rfl
   · exact code_field hp hend h11 (off0 _)
   · exact code_field hp hend h12 (off0 _)
-  · exact code_field hp hend h13 (off0 _)
+  · exact Spike.Lib.X64.code_field_blockAcrossB hp hend h13 (List.take_append_drop _ _) (off0 _)
   · exact code_field hp hend hs rfl
 
 end Scc.Cert.Rt.X64.Print

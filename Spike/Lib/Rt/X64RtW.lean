@@ -24,6 +24,7 @@ instruction is `z` bytes long.
   (`Spike/Test/X64RtW.lean`).
 -/
 import Spike.Lib.Rt.X64RtNodes
+import Spike.Lib.X64CodeAcross
 
 namespace Spike.Lib.X64.Rt
 
@@ -137,6 +138,32 @@ theorem blkW_pre {kp : Nat}
   have := (hsm k hk { s' with st := (s'.st.1, n.pc) } s' rfl hpc').2.mp htk
   exact absurd this (hT _ (by unfold pcOf; rfl))
 
+/-- **A covered block before the take, split by a return label** (`m`,
+after its first `j` rows; `blockAcrossB`): as `blkW_pre`. -/
+theorem blkW_preA {kp : Nat}
+    (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp) {R : Region} {F : MachineData → Prop}
+    {n : ND} {blk : List (Directive × Nat)} {lo hi : Int} {dead : Nat → Bool} {ra : Int64} {l m : Label}
+    {off j : Nat} (hb : Scc.Cert.Rt.X64.blockAcrossB cells l off (blk.take j) m (blk.drop j) = true)
+    (he : lab l + Int64.ofNat off = n.pc)
+    (hok : okBlk lo hi n.o blk = true) (hR : R.OK) (hlo : R.lo ≤ lo) (hhi : hi ≤ R.hi)
+    (hC : ∀ σ c, n.J σ c → CFacts Λ lbl c)
+    (hph : blkPh okPc ph dead lab (lab l + Int64.ofNat off) ra blk = true)
+    (hret : ∀ σ c, n.J σ c → ∀ k (hk : k < blk.length), classify blk[k].1 = some .ret →
+      Int64.ofBitVec ((arun lab (blk.take k) ⟨n.pc, n.o, σ⟩).σ.slot (arun lab (blk.take k) ⟨n.pc, n.o, σ⟩).so.sp)
+        = ra)
+    (hdead : ∀ σ c, n.J σ c → dead (arun lab blk ⟨n.pc, n.o, σ⟩).pc.toBitVec.toNat = false)
+    (hT : ∀ s : State, pcOf s = (lab l + Int64.ofNat off).toBitVec.toNat → ¬ Tk s) :
+    BlkW (fun s c => SFacts Λ μ own rS Tk lbl s c) K exe endPc R F n blk := by
+  rw [he] at hph hT
+  have hcode : ∀ s : State, s.exe = exe → s.endPc = endPc → CodeAt s n.pc blk :=
+    Spike.Lib.X64.code_field_blockAcrossB hI.lays hI.endOk hb (List.take_append_drop j blk)
+      (by rw [hI.labOk]; exact he)
+  rw [← hI.labOk] at hph hret hdead
+  obtain ⟨hpc, hph', hsm⟩ := blkPh_sound (μ := μ) (endPc := endPc) hI.same hI.off hok hph hret hdead
+  refine blkW_sfacts hcode hok hR hlo hhi hC hpc hph' fun s m _ _ _ k hk s' _ hpc' htk => ?_
+  have := (hsm k hk { s' with st := (s'.st.1, n.pc) } s' rfl hpc').2.mp htk
+  exact absurd this (hT _ (by unfold pcOf; rfl))
+
 /-- **A covered block after the take** is inside `SFacts`: as `blkW_pre`
 without the entry's phase, its frame condition also `StackM rS` (kept by
 the region's writes, `hSM`) and `rS` in the pool (`hsub`). -/
@@ -156,6 +183,34 @@ theorem blkW_post {kp : Nat}
   rw [he] at hph
   have hcode : ∀ s : State, s.exe = exe → s.endPc = endPc → CodeAt s n.pc blk := fun s hs hn =>
     he ▸ codeOf hI hb hs hn
+  rw [← hI.labOk] at hph hret hdead
+  obtain ⟨hpc, hph', -⟩ := blkPh_sound (μ := μ) (endPc := endPc) hI.same hI.off hok hph hret hdead
+  refine blkW_sfacts hcode hok hR hlo hhi hC hpc hph' fun s m hF hD _ k hk s' hm _ _ => ?_
+  refine ⟨hsub, fun a h8 ha ha7 => ?_⟩
+  unfold Scc.Sem.X64.privLoad
+  rw [Option.isSome_map, hm]
+  exact hSM _ _ hF.2 hD a h8 ha ha7
+
+/-- **A covered block after the take, split by a return label** (`m`, after
+its first `j` rows; `blockAcrossB`): as `blkW_post`. -/
+theorem blkW_postA {kp : Nat}
+    (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp) {R : Region} {F : MachineData → Prop}
+    {n : ND} {blk : List (Directive × Nat)} {lo hi : Int} {dead : Nat → Bool} {ra : Int64} {l m : Label}
+    {off j : Nat} (hb : Scc.Cert.Rt.X64.blockAcrossB cells l off (blk.take j) m (blk.drop j) = true)
+    (he : lab l + Int64.ofNat off = n.pc)
+    (hok : okBlk lo hi n.o blk = true) (hR : R.OK) (hlo : R.lo ≤ lo) (hhi : hi ≤ R.hi)
+    (hC : ∀ σ c, n.J σ c → CFacts Λ lbl c)
+    (hph : blkPh okPc ph dead lab (lab l + Int64.ofNat off) ra blk = true)
+    (hret : ∀ σ c, n.J σ c → ∀ k (hk : k < blk.length), classify blk[k].1 = some .ret →
+      Int64.ofBitVec ((arun lab (blk.take k) ⟨n.pc, n.o, σ⟩).σ.slot (arun lab (blk.take k) ⟨n.pc, n.o, σ⟩).so.sp)
+        = ra)
+    (hdead : ∀ σ c, n.J σ c → dead (arun lab blk ⟨n.pc, n.o, σ⟩).pc.toBitVec.toNat = false)
+    (hsub : rS.Sub Λ.stackPool) (hSM : FStable R (StackM rS)) :
+    BlkW (fun s c => SFacts Λ μ own rS Tk lbl s c) K exe endPc R (fun m => F m ∧ StackM rS m) n blk := by
+  rw [he] at hph
+  have hcode : ∀ s : State, s.exe = exe → s.endPc = endPc → CodeAt s n.pc blk :=
+    Spike.Lib.X64.code_field_blockAcrossB hI.lays hI.endOk hb (List.take_append_drop j blk)
+      (by rw [hI.labOk]; exact he)
   rw [← hI.labOk] at hph hret hdead
   obtain ⟨hpc, hph', -⟩ := blkPh_sound (μ := μ) (endPc := endPc) hI.same hI.off hok hph hret hdead
   refine blkW_sfacts hcode hok hR hlo hhi hC hpc hph' fun s m hF hD _ k hk s' hm _ _ => ?_

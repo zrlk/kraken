@@ -3,7 +3,7 @@
 `Spike/Lib/A64HelloLoopCode.lean`, and `Spike/Lib/X64WakeLoopCode.lean` restated at hello.w's
 cells (`SccCode.helloCells`, `Spike/Lib/X64HelloCode.lean`). `Park.Code` in any valid layout
 of `helloCells`, every block decided (`parkIn`), the park's prologue fall-through, and the
-wait loop's check `X64WaitLoopX.waitInX` at hello's label `.Lwc_waitLoop.x20` and `helloCells`
+wait loop's check `X64WaitLoopX.waitInX` at hello's label `.Lwc_waitLoop.x1` and `helloCells`
 (`waitXL`, `hello_waitIn`), for
 `MainPost.seg_mainPost`'s `hpcode`, `hpentry` and the wait loop's segments.
 
@@ -20,6 +20,7 @@ is no `HelloLabels` module.
 -/
 import Spike.Lib.X64Park
 import Spike.Lib.X64HelloCode
+import Spike.Lib.X64CodeAcross
 import Spike.Lib.X64WaitLoopX
 import Spike.Lib.Rt.X64Layout
 import Spike.Lib.X64PlaceWRt
@@ -30,7 +31,7 @@ open Kraken Kraken.Promising Kraken.Promising.X64 Kraken.Promising.Lower.X64
 open Spike.Lib.X64
 open Spike.Lib.X64.Flow
 open Spike.Lib.X64.Flow.Park (b0 b1 b2 b3 b4 b5 b6 b7)
-open Scc.Cert.Rt.X64 (Lays endOf blockAtB code_field labelGapB label_labelGapB)
+open Scc.Cert.Rt.X64 (Lays endOf blockAtB code_field labelGapB label_labelGapB blockAcrossB)
 
 /-- `scc_rt_park`'s blocks in hello's cells. -/
 abbrev parkIn : Bool :=
@@ -44,13 +45,13 @@ abbrev parkIn : Bool :=
   blockAtB SccCode.helloCells ".Lscc_rt_park.wait" 62 [(op64 .syscall, 2)] &&
   blockAtB SccCode.helloCells ".Lscc_rt_park.wait" 64 b5 &&
   blockAtB SccCode.helloCells ".Lscc_rt_park.wait" 79 [(xchgDir .rcx 16 .rax, 4)] &&
-  blockAtB SccCode.helloCells ".Lscc_rt_park.wait" 83 b6 &&
-  blockAtB SccCode.helloCells ".Lscc_rt_park.done" 0 b7
+  blockAcrossB SccCode.helloCells ".Lscc_rt_park.wait" 83 (b6.take 3) ".Lscc_rt_park.x0" (b6.drop 3) &&
+  blockAcrossB SccCode.helloCells ".Lscc_rt_park.done" 0 (b7.take 2) ".Lscc_rt_park.x1" (b7.drop 2)
 
 theorem hello_parkIn : parkIn = true := by decide +kernel
 
 /-- hello's label after the park call in `wc_waitLoop` (wake's `.Lwc_waitLoop.x16`). -/
-abbrev waitXL : Label := ".Lwc_waitLoop.x20"
+abbrev waitXL : Label := ".Lwc_waitLoop.x1"
 
 /-- **The wait loop's code in hello's cells** (`X64WaitLoopX.waitInX` at `waitXL`, the check
 the label-parametric segments take: blocks and label gaps). -/
@@ -71,8 +72,9 @@ theorem parkCode_hello (hp : Lays exe SccCode.helloCells kp) (hend : endPc = end
     code_field hp hend h5 rfl,
     code_field hp hend h6 (Spike.Lib.X64.Flow.ofNat_zero' _),
     code_field hp hend h7 rfl, code_field hp hend h8 rfl, code_field hp hend h9 rfl,
-    code_field hp hend h10 rfl,
-    code_field hp hend h11 (Spike.Lib.X64.Flow.ofNat_zero' _)⟩
+    Spike.Lib.X64.code_field_blockAcrossB hp hend h10 (List.take_append_drop _ _) rfl,
+    Spike.Lib.X64.code_field_blockAcrossB hp hend h11 (List.take_append_drop _ _)
+      (Spike.Lib.X64.Flow.ofNat_zero' _)⟩
 
 /-- The park's prologue's label gap in hello's cells. -/
 abbrev parkLabIn : Bool := labelGapB SccCode.helloCells "scc_rt_park" ".Lscc_rt_park.entry" 8

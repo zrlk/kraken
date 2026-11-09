@@ -66,7 +66,7 @@ theorem hinit_W (hpa : textProgram SccCertificate.asm = .ok o.prog)
     (hlo : Λ0.code.lo = Spike.Lib.A64.WakePh.lo) (hstat : Λ0.static = fun _ => none)
     (hsub1 : (WakeOSide.r1W hp i).Sub (Ly).Λ.stackPool) (hc : Spike.Lib.A64.Rt.CtrZ o)
     (hnz : WakeOInit.NtZ Λ0 o = true)
-    (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
+    (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
     (arch : WeakMem.Arch) {E : Entry} (hE : E.clear (Ly).Λ = true) (cT : Loc) (Dt : State → Prop) (ls0 : Lsize)
     (W0 inv0 : FragS isaLSE2) (W1 inv1 : WeakMem.AllocLabel → Nat → Nat → FragS isaLSE2)
     /- OPEN: the start in `inv0` -/

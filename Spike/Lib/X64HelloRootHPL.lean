@@ -13,7 +13,7 @@ pinned ghost `GJ1RH`.
   top, the landing's `v` by its frame condition).
 - `hland2_boxMRUg`: `LandR1U.hland2_ofUg` with `boxMH_landingRH` at `GJ1RH` (`h2`'s box clause at `GJ1RH`, with
   `r1Of` unmapped): every pinned landing with `r1Of` unmapped is in the level's allocation fragment, at any owned
-  words `own`; `hland2_boxMRU` is its instance at `ownGH`.
+  words `own`.
 - An example: `GJ1RH` holds at the real run's region and frame condition.
 
 ## Unlike AArch64
@@ -226,31 +226,6 @@ theorem hland2_boxMRUg {own : Spike.Lib.X64Consumer.Own}
     obtain ⟨-, hA, htp⟩ := hL
     exact ⟨boxMH_landingRH hpw i0 E rd ls hF0 hslot hA htp, hu⟩
 
-/-- **The box's landings in `h2`'s fragment at the pinned ghosts** (`hland2_boxMRUg` at `ownGH`). -/
-theorem hland2_boxMRU {W2 : WeakMem.AllocLabel → Nat → Nat → WeakMem.AllocLabel → Nat → Nat → Spike.Lib.FragS isa}
-    {K : State → State → Prop}
-    {ms2 : WeakMem.AllocLabel → Nat → Nat → WeakMem.AllocLabel → Nat → Nat → List TermRun.Frame →
-      Spike.Lib.MemSide isa}
-    {L : RuntimeLayout} {endPc : Int64} {F0 : MachineData → Prop}
-    {inv0 : Spike.Lib.FragS isa} {inv1 : WeakMem.AllocLabel → Nat → Nat → Spike.Lib.FragS isa}
-    {inv2 : WeakMem.AllocLabel → Nat → Nat → WeakMem.AllocLabel → Nat → Nat → Spike.Lib.FragS isa}
-    {l : WeakMem.AllocLabel} {b n : Nat}
-    (h2 : Spike.Lib.X64HelloPreA.H2StmtH W2 K (AR) (LB) ms2 L endPc
-      (fun l b n l' A n' s c => BoxMH (Ly) (ref1H (asm := asm) hpw i0 E rd ls l b n []) F0
-        (GJ1RH (Ly) (Spike.Lib.X64ConsumerA.upd (LB) l b) l) l' A (slWsH l) n' s c ∧
-        Spike.Lib.X64.KeepUn.U (R1) s) inv2)
-    (hl : (LB) l = none) (hb : Spike.Lib.HeapLand.AllocLand (AR).heap (AR).cells b n)
-    (hF0 : ∀ v m1 σ1 m, wcF (RS helloLsw v) helloD (FS (Ly) (RS0) helloLsw 0#64 v) m1 σ1 m → F0 m) :
-    Spike.Lib.X64.HelloPh.LandR1U.HLand2U (asm := asm) hpw i0 E rd ls l b n
-      ((Spike.Lib.X64ConsumerA.msOfA (Ly).Λ
-        ((Scc.Sem.X64.target (Scc.Sem.X64.kernel 2) E).marks asm (Ly).Λ) rd
-        (Spike.Lib.X64HelloGOf2H.gWH hpw IH (Spike.Lib.X64WakeHG.cTW hpw IH))
-        (fun s _ => Spike.Lib.X64.HelloPh.ownGH (Ly) (Spike.Lib.X64.Rt.Reserve.ntA (Ly).lab) s) (AR)
-        (Spike.Lib.X64ConsumerA.I3 (AR) (LB) (Spike.Lib.X64WakeLoadT.ls0T ls) inv0 inv1 inv2)
-        (Spike.Lib.X64ConsumerA.upd (LB) l b) (Spike.Lib.X64ConsumerA.updN (Spike.Lib.X64WakeLoadT.ls0T ls) l n)
-        []).xa) :=
-  hland2_boxMRUg hpw i0 E rd ls h2 hl hb hF0
-
 end Spike.Lib.X64.HelloPh.RootHP
 
 /-- info: 'Spike.Lib.X64.HelloPh.RootHP.box_regRH' depends on axioms: [propext, Classical.choice, Quot.sound] -/
@@ -263,6 +238,3 @@ info: 'Spike.Lib.X64.HelloPh.RootHP.boxMH_landingRH' depends on axioms: [propext
 
 /-- info: 'Spike.Lib.X64.HelloPh.RootHP.hland2_boxMRUg' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms Spike.Lib.X64.HelloPh.RootHP.hland2_boxMRUg
-
-/-- info: 'Spike.Lib.X64.HelloPh.RootHP.hland2_boxMRU' depends on axioms: [propext, Classical.choice, Quot.sound] -/
-#guard_msgs in #print axioms Spike.Lib.X64.HelloPh.RootHP.hland2_boxMRU

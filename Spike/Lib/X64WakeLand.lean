@@ -25,7 +25,7 @@ x86-64 twin of `Spike/Lib/A64WakeLand.lean` (namespace
   `asm` (A64: `SccCertificate.asm`) and is at `ownGXW` (A64: `ownG`);
 - the frame is `wR (RS wcLsw v) wcD` with `FS L (rS0 L) wcLsw 0 v` and
   `CallerCells … 8` (A64: `wR (swR v (-384) 0) 336`, `… 0`), the call
-  returning to `.Lwc_main.x18` (A64: `.L21_wc_main.sp0`), the landing `bX`
+  returning to `.Lwc_main.x0` (A64: `.L21_wc_main.sp0`), the landing `bX`
   on the frame `(wR …).fp (-8)`, the thread pointer `tpOf (tcbS L)`;
 - no `hcode_R`: the allocator's code is the layout's (`L.lays`, `L.valid`,
   `allocIn` from `hprog : L.prog = wakeCells`), as `WakeCtr.hctr0_of`
@@ -81,13 +81,13 @@ variable (L : RuntimeLayout) (c0 : Ctl)
 
 /-- **The start's counter adds**: `scc_rt_alloc` called from `wc_main` at
 its frame on a stack based at `v` (`WcPreW.alloc`'s region and frame
-condition), returning to `.Lwc_main.x18`. -/
+condition), returning to `.Lwc_main.x0`. -/
 def GcW (ms0 : MemSide isa) (R : Region) (F : MachineData → Prop) (q : Call) : Prop :=
   ∃ v m0 σC, R = wAR (wR (RS wcLsw v) wcD) ∧
     F = (fun m => wF (RS wcLsw v) wcD (FS L (Spike.Lib.X64.Rt.rS0 L) wcLsw 0#64 v) m0 σC m ∧
       CallerCells (wR (RS wcLsw v) wcD) (-80) (-160) 8 m ∧
       WcCtx ms0 L.lab (wR (RS wcLsw v) wcD) (wJ0 (wNC L.lab (JS L 0#64 c0)).J σC) q m) ∧
-    q.ra = (L.lab ".Lwc_main.x18").toBitVec
+    q.ra = (L.lab ".Lwc_main.x0").toBitVec
 
 /-- **The box store's landings**: `bX` at `ref` in `wc_main`'s frame, with
 main's thread pointer, for one cell. -/

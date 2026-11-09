@@ -4,12 +4,12 @@
 cells (`decide +kernel`). It is `X64WakeWcSp0` and `X64WakeWcRes` at hello's `wc_main` (frame 128, the cell at
 `-48(%rbp)`):
 
-    .Lwc_main.x22:                      -- %rax = the box's cell (Alloc.EB)
+    .Lwc_main.x0:                      -- %rax = the box's cell (Alloc.EB)
       movq %rax, -48(%rbp); movq -48(%rbp), %rcx; movq $0, %rax  (wcS0H)
       movq %rax, (%rcx)                 -- row: the box's store (Out.newStore)
       # fence st: no code under TSO
       call scc_rt_thread_reserve        -- `.x22 + 18` (resBH), `.x23` pushed
-    .Lwc_main.x23:                      -- %rax = n + 1 = 1
+    .Lwc_main.x1:                      -- %rax = n + 1 = 1
 
 There are two segments, as in wake. The first ends at the box's store: for every fresh label `l` the pair lands at
 `bXH l A` (on `R.fp (-8)`), which one `ms.xa` continues in (`hxa`, the instance's choice). The second starts from
@@ -66,7 +66,7 @@ block_spec wcS0H (-136) 8 oWRH wcS0H
 
 /-- **`.x22`'s block and the box's store in `cells`**: the block at `0`, the store at `15`. -/
 def wcS0InH (cells : List (Directive × Nat)) : Bool :=
-  blockAtB cells ".Lwc_main.x22" 0 wcS0H && blockAtB cells ".Lwc_main.x22" 15 boxSt
+  blockAtB cells ".Lwc_main.x0" 0 wcS0H && blockAtB cells ".Lwc_main.x0" 15 boxSt
 
 theorem hello_wcS0InH : wcS0InH SccCode.helloCells = true := by decide +kernel
 
@@ -77,7 +77,7 @@ block_spec resBH (-136) 16 (⟨-128, [(.rbp, 0)]⟩ : SO) resBH
 
 /-- **The call in `cells`**: at `.x22`'s `18`, `.x23` right after. -/
 def wcResInH (cells : List (Directive × Nat)) : Bool :=
-  blockAtB cells ".Lwc_main.x22" 18 resBH && labelGapB cells ".Lwc_main.x22" ".Lwc_main.x23" 23
+  blockAtB cells ".Lwc_main.x0" 18 resBH && labelGapB cells ".Lwc_main.x0" ".Lwc_main.x1" 23
 
 theorem hello_wcResInH : wcResInH SccCode.helloCells = true := by decide +kernel
 
@@ -99,8 +99,8 @@ variable (ms : MemSide isa) (lab : Label → Int64) (R : Region) (J1 : AS → Ct
 /-- **The nodes**: `.x22` (the allocator's return, `wXH .x18`, with `%rbp`'s offset) and the box's store (`%rax`
 the word `0`, `%rcx` and slot `-56` the cell, the hold kept). -/
 def sNH : SN → ND
-  | .b => ⟨lab ".Lwc_main.x22", oWRH, (wXH ms lab R J1 .x18).J⟩
-  | .st => ⟨lab ".Lwc_main.x22" + Int64.ofNat 15, oWRH, fun σ c => ∃ q : AGB ms lab, ∃ o : BitVec 64,
+  | .b => ⟨lab ".Lwc_main.x0", oWRH, (wXH ms lab R J1 .x18).J⟩
+  | .st => ⟨lab ".Lwc_main.x0" + Int64.ofNat 15, oWRH, fun σ c => ∃ q : AGB ms lab, ∃ o : BitVec 64,
       wcJH J1 σ q.1.c0 ∧ c = holdCtr ms q.1.c0 o ∧ σ.regs.rax.toBitVec = 0#64 ∧
       σ.regs.rcx.toBitVec = σ.slot (-56) ∧ (σ.slot (-56)).toNat = ms.heap + 16 * o.toNat + ms.off 1 q.1.τ ∧
       o.toNat + ms.units 1 q.1.τ ≤ ms.cells ∧ ms.lo o.toNat⟩
@@ -114,7 +114,7 @@ variable (ms : MemSide isa) (lab : Label → Int64) (J1 : AS → Ctl → Prop)
 /-- **The landing past the box's store on `R`** for the fresh label `l` at the cell `A`, at `oWRH` (the cell at
 slot `-56`). -/
 def bXRH (l : WeakMem.AllocLabel) (A : Nat) : ND :=
-  ⟨lab ".Lwc_main.x22" + Int64.ofNat 18, oWRH, fun σ c => ∃ q : AGB ms lab,
+  ⟨lab ".Lwc_main.x0" + Int64.ofNat 18, oWRH, fun σ c => ∃ q : AGB ms lab,
     wcJH J1 σ q.1.c0 ∧ (σ.slot (-56)).toNat = A ∧
     c = ⟨q.1.e, (q.1.x, .ptr .own q.1.τ, [TermRun.cst (.loc ⟨l, 0⟩ 0)]) :: q.1.c0.env, none⟩ ∧
     ∃ o : Nat, A = ms.heap + 16 * o + ms.off 1 q.1.τ ∧ o + ms.units 1 q.1.τ ≤ ms.cells⟩
@@ -124,7 +124,7 @@ fresh label `l` at the cell `A`: the source past its `new` (`o` bound to `l`'s o
 at `-48`, the frame kept (`wcJFH`); the cell the allocator's, `ms.heap + 16·o + ms.off 1 τ` for a counter value
 `o` within the cells. -/
 def bXH (l : WeakMem.AllocLabel) (A : Nat) : ND :=
-  ⟨lab ".Lwc_main.x22" + Int64.ofNat 18, ⟨-128, [(.rbp, 0)]⟩, fun σ c => ∃ q : AGB ms lab,
+  ⟨lab ".Lwc_main.x0" + Int64.ofNat 18, ⟨-128, [(.rbp, 0)]⟩, fun σ c => ∃ q : AGB ms lab,
     wcJFH J1 σ q.1.c0 ∧ (σ.slot (-48)).toNat = A ∧
     c = ⟨q.1.e, (q.1.x, .ptr .own q.1.τ, [TermRun.cst (.loc ⟨l, 0⟩ 0)]) :: q.1.c0.env, none⟩ ∧
     ∃ o : Nat, A = ms.heap + 16 * o + ms.off 1 q.1.τ ∧ o + ms.units 1 q.1.τ ≤ ms.cells⟩
@@ -241,7 +241,7 @@ theorem hello_wc_sp0_segW {W : Frag isa} {K : State → State → Prop} {Q : Fra
       by rw [ha], rfl, o.toNat, by rw [ha, hA56], hle⟩⟩
     · have : (σ.regs.get64 .rax).toNat = 0 := by simp [Reg64s.get64, h0]
       rw [this]; exact hrep
-    · show lab ".Lwc_main.x22" + Int64.ofNat 18 = lab ".Lwc_main.x22" + Int64.ofNat 15 + Int64.ofNat 3
+    · show lab ".Lwc_main.x0" + Int64.ofNat 18 = lab ".Lwc_main.x0" + Int64.ofNat 15 + Int64.ofNat 3
       rw [Int64.add_assoc]; rfl
 
 end Sp0Seg
@@ -275,15 +275,15 @@ def rJH (σ : AS) (c : Ctl) : Prop := ∃ l A, (bXH ms lab J1 l A).J σ c ∧ Q 
 /-- **The nodes**: the call block (the landing past the box's store, `%rbp` at the saved `%rbp`) and the
 reserve's entry (`.x23` pushed at `-136`). -/
 def rNH : RsN → ND
-  | .bl => ⟨lab ".Lwc_main.x22" + Int64.ofNat 18, ⟨-128, [(.rbp, 0)]⟩, fun σ c =>
+  | .bl => ⟨lab ".Lwc_main.x0" + Int64.ofNat 18, ⟨-128, [(.rbp, 0)]⟩, fun σ c =>
       rJH ms lab J1 Q σ c ∧ σ.regs.get64 .rbp = R.addr 0⟩
   | .call => ⟨lab "scc_rt_thread_reserve", ⟨-136, []⟩, fun σ c => rJH ms lab J1 Q σ c ∧
-      σ.regs.get64 .rbp = R.addr 0 ∧ σ.slot (-136) = (lab ".Lwc_main.x23").toBitVec⟩
+      σ.regs.get64 .rbp = R.addr 0 ∧ σ.slot (-136) = (lab ".Lwc_main.x1").toBitVec⟩
 
 /-- **The exit at `.x23`**: the reserve's result `1` in `%rax`, the source and frame kept, `%rbp` at the saved
 `%rbp`. -/
 def rXH : Unit → ND
-  | () => ⟨lab ".Lwc_main.x23", ⟨-128, []⟩, fun σ c => rJH ms lab J1 Q σ c ∧
+  | () => ⟨lab ".Lwc_main.x1", ⟨-128, []⟩, fun σ c => rJH ms lab J1 Q σ c ∧
       σ.regs.get64 .rbp = R.addr 0 ∧ σ.regs.rax.toBitVec = 1#64⟩
 
 end Res
@@ -303,7 +303,7 @@ structure WcResWH (W : Frag isa) (K : State → State → Prop) (exe : _root_.Ex
     (R : Region) (F : MachineData → Prop) (ms : MemSide isa) (J1 : AS → Ctl → Prop)
     (Q : WeakMem.AllocLabel → Nat → Ctl → Prop) : Prop where
   bl : BlkW W K exe endPc R F (rNH ms (_root_.Executable.labels exe).label R J1 Q .bl) resBH
-  res : ∀ g : Flow.Ret0.AllocTcb.G × Ctl, g.1.ra = ((_root_.Executable.labels exe).label ".Lwc_main.x23").toBitVec →
+  res : ∀ g : Flow.Ret0.AllocTcb.G × Ctl, g.1.ra = ((_root_.Executable.labels exe).label ".Lwc_main.x1").toBitVec →
     ∀ i, ReserveW W K exe endPc (rARH R)
       (fun m => F m ∧ CallerCells R (-136) (-40) 8 m ∧ ResCtxH (_root_.Executable.labels exe).label R
         (rNH ms (_root_.Executable.labels exe).label R J1 Q .call).J g m) ⟨g.1, 0#64, g.2⟩ i
@@ -339,7 +339,7 @@ theorem hello_wc_res_segW {W : Frag isa} {K : State → State → Prop}
   simp only [wcResInH, Bool.and_eq_true] at hin
   obtain ⟨h18, hgap⟩ := hin
   let lab := (_root_.Executable.labels exe).label
-  have e23 : lab ".Lwc_main.x23" = lab ".Lwc_main.x22" + Int64.ofNat 23 := label_labelGapB hp hgap
+  have e23 : lab ".Lwc_main.x1" = lab ".Lwc_main.x0" + Int64.ofNat 23 := label_labelGapB hp hgap
   refine (fn_segW (N := rNH ms lab R J1 Q) (E := rXH ms lab R J1 Q) (fun i => ?_) RsN.bl).mono_pre ?_
   rotate_left
   · rintro s c ⟨l, A, h, hQ⟩
@@ -370,7 +370,7 @@ theorem hello_wc_res_segW {W : Frag isa} {K : State → State → Prop}
       (fun R' F' hR' hlo' hhi' hF' _ hFF hR'e hcc g hg hkeep => by
         subst hR'e
         obtain ⟨σC, c, ⟨-, -, h136⟩, ⟨-, -, -, hra⟩⟩ := hg
-        have hr : g.1.ra = (lab ".Lwc_main.x23").toBitVec := by
+        have hr : g.1.ra = (lab ".Lwc_main.x1").toBitVec := by
           rw [← hra, ← h136]; rfl
         exact (reserve_segWA hp hend hello_reserveIn hF' hR' hlo' hhi' hFF ⟨g.1, 0#64, g.2⟩
           (by show (0#64 : BitVec 64).toNat + 1 ≤ 1023; decide) ((hres g).mono hFF)
@@ -384,7 +384,7 @@ theorem hello_wc_res_segW {W : Frag isa} {K : State → State → Prop}
         hsl k ⟨h3, by omega, by omega⟩ (by simp only [Region.Off, Region.callee, rNH]; omega)
       refine .inr ⟨(), ?_, by show SO.le ⟨-128, []⟩ ⟨-136 - 0 + 8, []⟩ = true; decide,
         ⟨l, A, hc' ▸ hc ▸ bXH_slots hX hkeep, hc' ▸ hc ▸ hQ⟩, ?_, ?_⟩
-      · show lab ".Lwc_main.x23" = Int64.ofBitVec g.1.ra
+      · show lab ".Lwc_main.x1" = Int64.ofBitVec g.1.ra
         rw [← hra]
         show _ = Int64.ofBitVec (σC.slot (-136 - 0 + 0))
         rw [show (-136 : Int) - 0 + 0 = -136 by decide, h136, int64_ofBitVec_toBitVec]

@@ -8,7 +8,7 @@ import Spike.Lib.X64PrintL
 (the grow stub's call to `scc_rt_morestack`, from `.ms` to `.x18` at some
 ghost), by `seg_ms_call`: the stub calls with the return address at offset
 `-56`, the frame record `(rb g, ra)` at `0`, `8`, and the return address
-`.stk + 18`, which is the label `.x18` (`hx18`).
+`.stk + 18`, which is the label `.x3` (`hx18`).
 
 The theorems stated over the segment predicate (`Spike.Lib.Seg`, `MemSide`)
 are in `Spike/Lib/Rt/Seg/X64PrintLMs.lean` (same namespace and names).

@@ -38,8 +38,8 @@ theorem resPhWP (hΛ : Λ.abortLbl = Scc.Cert.Link.abortName) {L : RuntimeLayout
   obtain ⟨-, lE, -⟩ := resLabs
   obtain ⟨-, -, -, p5, p6⟩ := resSteps
   rw [← phW_eq] at p5 p6
-  have hrmw : (rmwPc lab).toBitVec.toNat = 2165168 := pc_eq hlab lE 5
-  have hrmw4 : (rmwPc lab + Int64.ofNat 4).toBitVec.toNat = 2165172 := by
+  have hrmw : (rmwPc lab).toBitVec.toNat = 2165172 := pc_eq hlab lE 5
+  have hrmw4 : (rmwPc lab + Int64.ofNat 4).toBitVec.toNat = 2165176 := by
     unfold rmwPc; rw [hlab _ _ lE, Int64.add_assoc, ← Int64.ofNat_add, toNat_add]
   refine ResPhP.of_resPh (resPhW hΛ (Tk := fun _ => False) hlab hsep fun _ _ _ _ h => h)
     (rmwTk_of_ph (TkW := TkW) ?_)

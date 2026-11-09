@@ -39,7 +39,7 @@ theorem fn0_seg {cx : FnCtx} (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) (h16 : c
     {kp : Nat} (hp : Lays exe prog kp) (hend : endPc = endOf exe prog kp) {fn entry : Label}
     (hpro : proInC prog cx fn entry = true)
     {e : Expr} {env : Scc.Lower.Env} {n : Nat} {r : Res} (hr : lower0 env n e = some r) (hfr : Fresh env n)
-    (hbody : bodyIn prog cx entry 0 r.insts r.ret = true)
+    (hbody : bodyIn prog cx entry 0 0 r.insts r.ret = true)
     {i : Expr → String → Nat → Option Nat} {T : Expr → Prop}
     (hImm : ∀ q ∈ lowerEnvs env n e, ImmIn i (ofEnv q.2.1) q.1 ∧ T q.1)
     (hF : FStable R F) (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -(cx.frame : Int))

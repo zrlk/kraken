@@ -675,7 +675,9 @@ theorem seg_allocW_at {W : Frag isa} {K : State → State → Prop} {F : Machine
     · simp [upd_apply, h0]
   case ret =>
     refine alloc_ndW (Ea ms q) (a := .ret) (z := 1) (lo := -160) (hi := 8) rfl (by rintro w op ⟨⟩) hF
-      hR hlo hhi (code_field hp hend (by simp only [hin']) (l := okL) (off := 226) rfl) hxa hW.ret
+      hR hlo hhi (code_field hp hend (by simp only [hin']) (l := retL) (off := 0)
+        (by rw [label_labelGapB (a := okL) (b := retL) (off := 226) hp (by simp only [hin'])]; exact ofNat_zero' _))
+      hxa hW.ret
       fun σ c hJ => ?_
     obtain ⟨o, rfl, hle, hn28, h0, h29, h30, hlo⟩ := hJ
     have hA : σ.regs.rax.toBitVec.toNat = ms.heap + 16 * o.toNat + ms.off q.n q.τ := by

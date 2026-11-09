@@ -7,8 +7,8 @@
 - `unmapped_child`: a word off the handed range `r1` is unmapped in the child's first memory.
 - `stOk_pinnedH`: a word whose 8 bytes lie in `pinned` is a runtime store under `helloMs` in the child's
   frame, given `G` at the word and value (as `X64WakeChildSt.stOk_pinned`).
-- `childSt_IH`: main's permit word `pinA + 24` and the second TCB's word `pinA + 128` take the store of `1`
-  (`hpin2`: the pinned region reaches `pinA + 168`; `hG`: `G` allows `1` there).
+- `childSt_IH`: main's permit word `pinA + 24` and the second TCB's word `pinA + 160` take the store of `1`
+  (`hpin2`: the pinned region reaches `pinA + 200`; `hG`: `G` allows `1` there).
 - `StOk.withBW`: a runtime store's facts do not read the byte or abort rows, so they hold at
   `ms.withBW bo we` (hello's `helloMsW`, the child segment's memory side).
 
@@ -99,13 +99,13 @@ theorem stOk_pinnedH {ts : Nat → Option Nat} {tm : Memory} {sm : WeakMem.Memor
   · rintro ⟨l, b, hl, hx⟩
     exact hoff 0 (by decide) ⟨l, b, hl, by simpa using hx⟩
 
-/-- **`hS`/`hSx` at the instance**: main's permit word `pinA + 24` and the second TCB's word `pinA + 128`
-take the store of `1` in the child's frame, given the pinned region through `pinA + 168` (`hpin2`) and `G`
+/-- **`hS`/`hSx` at the instance**: main's permit word `pinA + 24` and the second TCB's word `pinA + 160`
+take the store of `1` in the child's frame, given the pinned region through `pinA + 200` (`hpin2`) and `G`
 allowing `1` at the word (`hG`). -/
 theorem childSt_IH {ts : Nat → Option Nat} {tm : Memory} {sm : WeakMem.Memory} {tp tq sp : List Nat}
     (hm : MemRelP (Ly).Λ lbl lsize ts tm sm tp tq sp)
-    (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
-    {a : BitVec 64} (ha : a = (Ly).pinA + 24#64 ∨ a = (Ly).pinA + 128#64)
+    (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
+    {a : BitVec 64} (ha : a = (Ly).pinA + 24#64 ∨ a = (Ly).pinA + 160#64)
     (hG : G ⟨a, 8⟩ ((1#64 : BitVec 64).setWidth 128))
     {x : KState} {tid : Nat} {th : Thread isa} {r1 : Range} {tls : Nat} {lo : Int}
     (hh : handed x tid (r1.lo + r1.size) = some (tid, r1))
@@ -115,7 +115,7 @@ theorem childSt_IH {ts : Nat → Option Nat} {tm : Memory} {sm : WeakMem.Memory}
   rcases ha with rfl | rfl
   · exact stOk_pinnedH hpl i hm (Spike.Lib.X64WakeChildSt.pin_pinned hpl i hpin2 (c := 24) (by decide)) hG hh
       hsub hlo
-  · exact stOk_pinnedH hpl i hm (Spike.Lib.X64WakeChildSt.pin_pinned hpl i hpin2 (c := 128) (by decide)) hG hh
+  · exact stOk_pinnedH hpl i hm (Spike.Lib.X64WakeChildSt.pin_pinned hpl i hpin2 (c := 160) (by decide)) hG hh
       hsub hlo
 
 end Place

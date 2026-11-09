@@ -19,7 +19,7 @@ there (`hP`), and in `DH.Wi` by `X64HelloWorkerRR.helloDR_entry` (`WideX` from t
 
 ## Unlike AArch64
 
-- The clone's `syscall`'s code is `codeAt_blockAt_lays` at `hello_svcIn` (`.Lwc_main.x25 + 94`, no prefix;
+- The clone's `syscall`'s code is `codeAt_blockAt_lays` at `hello_svcIn` (`.Lwc_main.x3 + 94`, no prefix;
   AArch64 `code_of` at `cloneAtH pfxM`), and the child's words are main's `%r12, %rbx, %r13, %r14, %r15, %r9`
   (AArch64 `x9 .. x14`).
 - The region's facts are `Rt.childStub_region`'s (no alignment); `ChildD.ok` asks no alignment either, so there is

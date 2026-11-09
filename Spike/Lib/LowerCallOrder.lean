@@ -186,7 +186,7 @@ theorem callee_earlier {p : Prog} (hp : Accepted1 p = true) {j : Nat} {d : Decl}
   simp only [decl1, Bool.and_eq_true] at hd
   have hc := body1_callee_walkC frames d.body _ env n hd.2 q hq x g is a ts e' hqe
   simp only [callee1, Bool.and_eq_true, List.contains_iff_mem, List.append_nil] at hc
-  exact find_earlier hp.1.1.1 (by simpa using hc.1) hf
+  exact find_earlier hp.1.1.1.2 (by simpa using hc.1) hf
 
 /-- **A `ret` at a point of an `Accepted1` body's walk is of one word**
 (the body's free variables bound to scalar words): the premise `RetOne` of

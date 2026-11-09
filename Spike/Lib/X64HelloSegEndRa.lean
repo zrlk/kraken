@@ -4,7 +4,7 @@
 return address `FrMGH` records (`fr.2`) is `lab mainX3`, the segment end's pin of main's saved return address.
 
 The source of the pin is `wcJ0` itself: `Hello1.mWC`'s invariant has the slot at `%rsp` (offset `-80` of the
-caller's frame) holding `lab ".Lscc_rt_main.x3"` (`call wc_main`'s pushed return address; `MainPost.mainX3` is
+caller's frame) holding `lab ".Lscc_rt_main.x1"` (`call wc_main`'s pushed return address; `MainPost.mainX3` is
 the same label), and `wcJ0`'s `σ = enter (-80) σC` rebases the slots so that it is the entry state's `slot 0`,
 which is `FrMGH`'s `fr.2`.
 
@@ -12,7 +12,7 @@ which is `FrMGH`'s `fr.2`.
 
 **Where this differs from AArch64** (forced by the x86-64 shape): the return address is pushed by `call` and read
 from the entry state's `slot 0` (AArch64: the link register `x30`, `FrMGH`'s `fr.2` the entry's `x30`); the return
-point is `.Lscc_rt_main.x3` (`mainX3`; AArch64: `.L1_scc_rt_main.sp1`, `mainSp1`), so the theorem is
+point is `.Lscc_rt_main.x1` (`mainX3`; AArch64: `.L1_scc_rt_main.sp1`, `mainSp1`), so the theorem is
 `fr_ra_mainX3` (AArch64: `fr_ra_mainSp1`). A64's `hra_of_FrMGH` is dead and not twinned.
 -/
 import Spike.Lib.X64HelloWcMid

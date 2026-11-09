@@ -69,7 +69,7 @@ def tcbNG : TN → ND
       AllocTcb.Fr1G q.h q.g σ ∧ σ.regs.X9.toBitVec = AllocTcb.lenOf q.h ∧ σ.regs.X10.toBitVec = pnA lab⟩
   | .bnd => ⟨lab AllocTcb.lenL + Int64.ofNat (4 * 38), AllocTcb.oI, fun σ c => c = q.c0 ∧
       AllocTcb.Fr1G q.h q.g σ ∧ σ.regs.X11.toBitVec = q.n0⟩
-  | .j2 => ⟨lab AllocTcb.lenL + Int64.ofNat (4 * 47), AllocTcb.oI, fun σ c => c = q.c0 ∧ AllocTcb.Fr2G q.h q.g q.n0 σ⟩
+  | .j2 => ⟨lab AllocTcb.lenL + Int64.ofNat (4 * 48), AllocTcb.oI, fun σ c => c = q.c0 ∧ AllocTcb.Fr2G q.h q.g q.n0 σ⟩
   | .ok => ⟨lab AllocTcb.okL, AllocTcb.oI, fun σ c => c = q.c0 ∧ AllocTcb.Fr2G q.h q.g q.n0 σ⟩
   | .ok1 => ⟨lab AllocTcb.okL + Int64.ofNat (4 * 1), AllocTcb.oI, fun σ c => c = q.c0 ∧
       ∃ σ0, AllocTcb.Fr2G q.h q.g q.n0 σ0 ∧ σ = (SI.adrp .X9 "scc_rt_pinned").step lab σ0⟩
@@ -135,6 +135,16 @@ local macro "tnodeW " b:ident ok:ident l:term:max k:term:max w:term:max : tactic
   `(tactic| refine seg_ndW (by simp [$b:ident]) $ok hF hR hal hlo hhi
     (code_of hp hend (by simp only [AllocTcb.allocTcbIn, Bool.and_eq_true] at hin; simp only [hin])
       (l := $l) (k := $k) (by first | rfl | exact ofNat4_zero _)) $w fun σ c hJ => ⟨c, .refl c, ?_⟩)
+
+set_option hygiene false in
+/-- `tnodeW` for a block split by its return label `r` after `n` instructions
+(`blockAcross`, `Spike.Lib.A64.code_field_blockAcross`). -/
+local macro "tnodeWA " b:ident ok:ident l:term:max k:term:max n:term:max r:term:max w:term:max : tactic =>
+  `(tactic| refine seg_ndW (by simp [$b:ident]) $ok hF hR hal hlo hhi
+    (Spike.Lib.A64.code_field_blockAcross hp hend
+      (by simp only [AllocTcb.allocTcbIn, Bool.and_eq_true] at hin; simp only [hin])
+      (l := $l) (m := $r) (k := $k) (List.take_append_drop $n _)
+      (by first | rfl | exact ofNat4_zero _)) $w fun σ c hJ => ⟨c, .refl c, ?_⟩)
 
 /-- **`scc_rt_alloc_tcb` at `h` is one segment inside `W`** (`allocTcb_segW`
 at `h`): room for `lenOf h` bytes below `2^17` (`hn`), the header word's
@@ -207,7 +217,7 @@ theorem allocTcbG_segW {W : Frag isaLSE2} {K : State → State → Prop} {prog :
     obtain ⟨h1, h2, h3⟩ := AllocTcb.atBnd_walkG (_root_.Executable.labels exe).label _ hJ h11 hn
     exact .inl ⟨TN.j2, by rw [h1, ← ofNat4_add]; rfl, by rw [h2]; rfl, rfl, h3⟩
   case j2 =>
-    tnodeW AllocTcb.atJ2 AllocTcb.atJ2_ok AllocTcb.lenL 47 (hW TN.j2)
+    tnodeW AllocTcb.atJ2 AllocTcb.atJ2_ok AllocTcb.lenL 48 (hW TN.j2)
     dsimp only [tcbNG, tcbXG] at hJ ⊢
     rw [AllocTcb.atJ2_run]
     exact .inl ⟨TN.ok, rfl, rfl, hJ⟩
@@ -240,7 +250,7 @@ theorem allocTcbG_segW {W : Frag isaLSE2} {K : State → State → Prop} {prog :
       rw [← h9]; simp [Reg64s.getXReg]
     rw [this]; exact hhdr.G
   case ret =>
-    tnodeW AllocTcb.atRet AllocTcb.atRet_ok AllocTcb.okL 30 (hW TN.ret)
+    tnodeWA AllocTcb.atRet AllocTcb.atRet_ok AllocTcb.okL 30 12 AllocTcb.retL (hW TN.ret)
     dsimp only [tcbNG, tcbXG] at hJ ⊢
     obtain ⟨rfl, hJ⟩ := hJ
     obtain ⟨h1, h2, h3⟩ := AllocTcb.atRet_walkG (_root_.Executable.labels exe).label _ hJ
@@ -265,7 +275,7 @@ structure TcbPhG (okPc : Nat → Bool) (ph : Nat → Nat) (Tk : State → Prop) 
   len : blkPh okPc ph (tcbDead lab lenL 0) lab (lab lenL + Int64.ofNat (4 * 0)) (ra lenL) atLen = true
   arg : blkPh okPc ph (tcbDead lab lenL 34) lab (lab lenL + Int64.ofNat (4 * 34)) (ra lenL) atArg = true
   bnd : blkPh okPc ph (tcbDead lab lenL 38) lab (lab lenL + Int64.ofNat (4 * 38)) (ra lenL) atBnd = true
-  j2 : blkPh okPc ph (tcbDead lab lenL 47) lab (lab lenL + Int64.ofNat (4 * 47)) (ra lenL) atJ2 = true
+  j2 : blkPh okPc ph (tcbDead lab lenL 48) lab (lab lenL + Int64.ofNat (4 * 48)) (ra lenL) atJ2 = true
   ok2 : blkPh okPc ph (tcbDead lab okL 2) lab (lab okL + Int64.ofNat (4 * 2)) (ra okL) atOk = true
   ret : blkPh okPc ph (tcbDead lab okL 30) lab (lab okL + Int64.ofNat (4 * 30)) (ra okL) atRet = true
   fullNe : (lab entryL + Int64.ofNat (4 * 4)).toBitVec.toNat ≠ (lab fullL).toBitVec.toNat
@@ -378,7 +388,7 @@ theorem tcbW_genG {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe] 
     exact hJ.2.2.2
   case ret =>
     dsimp only [TcbWG]; rw [hI.labOk]
-    exact blkW_pre hI bRet rfl atRet_ok hR hal (by omega) (by omega) (hC _ fun _ _ hJ => hJ.1) hph.ret
+    exact blkW_preA hI bRet rfl atRet_ok hR hal (by omega) (by omega) (hC _ fun _ _ hJ => hJ.1) hph.ret
       (hret_of_run atRet_ok fun _ _ hJ => by
         dsimp only [tcbNG] at hJ ⊢
         rw [(atRet_walkG lab _ hJ.2).1, hra]; exact Int64.ofBitVec_toBitVec _)

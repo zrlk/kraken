@@ -3,7 +3,7 @@
 `Spike/Lib/X64WakeWcl.lean`'s lift to `ownGXW`): `Wcl2.wcl_W2H`'s level `W2H` at `ownGH` moved to `W2HX`, the same
 level at main's pre-spawn map with both TCB self words (`ownGHXW = ownGH ++ ownSH ++ ownSWH`, `X64HelloOwnSX`).
 
-The `syscall` (`WcSp6.wcNSH`, `.Lwc_main.x25 + 94`) and its resumption (`+ 96`) are in `InCH` (`wc_main`'s `.x25`
+The `syscall` (`WcSp6.wcNSH`, `.Lwc_main.x3 + 94`) and its resumption (`+ 96`) are in `InCH` (`wc_main`'s `.x25`
 to `.stk`), so with `wc_main`'s frame on the pool (`hb : BandOnP L R (-144) 8`, its `%rsp` at the frame's `-128`)
 both words are held there (`cls_poolWH`); the `syscall` writes nothing, so `CstOkH` holds at the node
 (`nodeW_cstOkHK`) and `Wf.appendS` twice lifts the level.
@@ -87,7 +87,7 @@ theorem cstOk_wcNSH {c0 : Ctl} {t k : BitVec 64} {sl : BitVec 64 × BitVec 64 ×
     {me cA : BitVec 64} {fr : BitVec 64 × BitVec 64} :
     ∀ s c, At L.exe L.endPc R F (wcNSH (_root_.Executable.labels L.exe).label c0 t k sl me cA fr) s c →
       CstOkH (Spike.Lib.X64.PhRec.μ L) L (ntA L.lab) s := by
-  have e25 : L.lab x25L = Int64.ofNat 4203774 := Spike.Lib.X64.HelloPh.WcSp4W.lab_x25H hlab
+  have e25 : L.lab x25L = Int64.ofNat 4203812 := Spike.Lib.X64.HelloPh.WcSp4W.lab_x25H hlab
   intro s c hA
   refine Spike.Lib.X64.HelloPh.nodeW_cstOkHK hs ha hW (sz := 2)
     (P := fun p => (InTH p ∨ InCH p) ∧ ¬ InAbH p) (Spike.Lib.X64.HelloPh.cls_poolWH hlab hb)
@@ -97,7 +97,7 @@ theorem cstOk_wcNSH {c0 : Ctl} {t k : BitVec 64} {sl : BitVec 64 × BitVec 64 ×
     exact ⟨hK, by rw [keep_pc hc hK, h.2.2.2.1]⟩
   · show (_ ∧ _) ∧ (_ ∧ _)
     simp only [wcNSH]
-    rw [show (_root_.Executable.labels L.exe).label x25L = Int64.ofNat 4203774 from e25]
+    rw [show (_root_.Executable.labels L.exe).label x25L = Int64.ofNat 4203812 from e25]
     decide +kernel
   · intro s c h hns
     exact absurd ((Scc.Sem.X64.atSyscall_of_cellAt (Spike.Lib.X64.HelloPh.Wcl2.svc_clH hp h).1).symm.trans hns)

@@ -52,7 +52,7 @@ theorem mainCode_ofPlaceOK {cfg : Scc.Config} {d : Decl} (hd : Scc.Lower.Accepte
         (func0 (Scc.Lower.Names.user "main") r) ∧
       FrameOk cx ∧ cx.frame ≤ 4095 ∧ cx.frame % 16 = 0 ∧
       proInC o.prog cx Spike.Lib.A64.Rt.bareMC.fn entry = true ∧
-      bodyIn o.prog cx entry 0 r.insts r.ret = true ∧
+      bodyIn o.prog cx entry 0 0 r.insts r.ret = true ∧
       (r.insts ≠ [] → Scc.Cert.Rt.A64.blockAt o.prog (cx.local "abort_overflow") 0 ovfBlk = true) := by
   intro o ir
   obtain ⟨r, rt, hr, -, hir, hmem, hinv⟩ := main_inv_a64 cfg hd hlow

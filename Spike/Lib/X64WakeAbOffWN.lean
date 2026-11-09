@@ -91,7 +91,7 @@ theorem wk_ab {c1 c2 c3 : Ctl} {A B rbp0 ra tp sp : BitVec 64} (i : WkTailW.PN) 
   · refine nodeZ_ab hp (l := ".Lwc_worker.entry") (off := 11) (by rfl) (by decide +kernel)
   · refine nodeZ_ab hp (l := ".Lwc_worker.entry") (off := 14) (by rfl) (by decide +kernel)
   · exact Pass.nodeZ_nil
-  · refine nodeZ_ab0 hp (l := ".Lwc_worker.x14") (by rfl) (by decide +kernel)
+  · refine nodeZ_ab0 hp (l := ".Lwc_worker.x0") (by rfl) (by decide +kernel)
 
 /-- `AbOffL` at `scc_rt_unpark`'s nodes. -/
 theorem unpk_ab {c2 c3 : Ctl} {B rbp1 ra1 tp : BitVec 64} (i : Unpark.PN) :
@@ -113,11 +113,11 @@ theorem tail_ab {c3 : Ctl} {tp sp0 : BitVec 64} (i : ThrTailW.PN) :
     NodeZ (AbOffL (_root_.Executable.labels exe).label) exe
       (ThrTailW.N (_root_.Executable.labels exe).label c3 tp sp0 i) (ThrTailW.blkN i) := by
   cases i
-  · refine nodeZ_ab0 hp (l := ".Lscc_rt_thr_worker.x12") (by rfl) (by decide +kernel)
-  · refine nodeZ_ab hp (l := ".Lscc_rt_thr_worker.x12") (off := 9) (by rfl) (by decide +kernel)
-  · refine nodeZ_ab hp (l := ".Lscc_rt_thr_worker.x12") (off := 24) (by rfl) (by decide +kernel)
-  · refine nodeZ_ab hp (l := ".Lscc_rt_thr_worker.x12") (off := 28) (by rfl) (by decide +kernel)
-  · refine nodeZ_ab hp (l := ".Lscc_rt_thr_worker.x12") (off := 40) (by rfl) (by decide +kernel)
+  · refine nodeZ_ab0 hp (l := ".Lscc_rt_thr_worker.x0") (by rfl) (by decide +kernel)
+  · refine nodeZ_ab hp (l := ".Lscc_rt_thr_worker.x0") (off := 9) (by rfl) (by decide +kernel)
+  · refine nodeZ_ab hp (l := ".Lscc_rt_thr_worker.x0") (off := 24) (by rfl) (by decide +kernel)
+  · refine nodeZ_ab hp (l := ".Lscc_rt_thr_worker.x0") (off := 28) (by rfl) (by decide +kernel)
+  · refine nodeZ_ab hp (l := ".Lscc_rt_thr_worker.x0") (off := 40) (by rfl) (by decide +kernel)
 
 /-- **`AbOffL` at every node of the thread worker's run** (`X64WakeZXA`'s
 `hAb`). -/

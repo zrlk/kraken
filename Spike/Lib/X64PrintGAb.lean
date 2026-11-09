@@ -26,6 +26,7 @@ label and a byte offset (`pc_ne_of_inRunB`).
 - `tgtL`, `posOf`, `posTgts`, `wfChk`, `extPos`, `offChk`, `tgt_pos`: a
   block's targets by position, decided on the concrete block.
 - `blkW_abOff`: a block whose targets are off the phase.
+- `cellOff_take`, `blkW_abOffX13`: the epilogue's, across the return label (`blockAcrossB`).
 - `soRun`, `arun_so`, `keepChk`, `blkW_abKeep`: a block of the tests, but
   for listed instructions (the store of the result, the `jle .fail`).
 - `inRunB_at`, `inRun0`, `x9h`, `x9_take`, `printAb`.
@@ -454,6 +455,94 @@ theorem blkW_abOff {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc 
     rw [← hI.labOk] at hpc' hqe ⊢
     exact notAb_of_pos hI.lays hpr hab hqr hc (hpc'.trans hqe)
 
+/-- The cells' offsets of a prefix are the list's below its length. -/
+theorem cellOff_take (l : List (Directive × Nat)) {m k : Nat} (h : k ≤ m) : cellOff (l.take m) k = cellOff l k := by
+  unfold cellOff
+  rw [List.take_take, Nat.min_eq_left h]
+
+/-- **The epilogue `x13` keeps the write abort's phase** (`blkW_abOff`
+across the return label): its teardown at `.done` and its `ret` at `retL`
+right after it (`blockAcrossB`), the teardown's targets in it or at `retL`,
+the `ret`'s return address `ra` off `abPcs`. -/
+theorem blkW_abOffX13 {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp)
+    (hpr : Scc.Cert.Rt.X64.Print.printIn cells = true) (hab : Scc.Cert.Rt.X64.Abort.abortIn cells = true)
+    {n : ND} {lo hi : Int} {dead : Nat → Bool} {ra : Int64}
+    (hb : Scc.Cert.Rt.X64.blockAcrossB cells ".Lscc_rt_print.done" 0 (Spike.Lib.X64.Print.x13.take 2)
+      Scc.Cert.Rt.X64.Print.retL (Spike.Lib.X64.Print.x13.drop 2) = true)
+    (he : lab ".Lscc_rt_print.done" + Int64.ofNat 0 = n.pc)
+    (hok : okBlk lo hi n.o Spike.Lib.X64.Print.x13 = true) (hR : R.OK) (hlo : R.lo ≤ lo) (hhi : hi ≤ R.hi)
+    (hph : blkPh okPc ph dead lab (lab ".Lscc_rt_print.done" + Int64.ofNat 0) ra Spike.Lib.X64.Print.x13 = true)
+    (hret : ∀ σ c, n.J σ c → ∀ k (hk : k < Spike.Lib.X64.Print.x13.length),
+      classify Spike.Lib.X64.Print.x13[k].1 = some .ret →
+      Int64.ofBitVec ((arun lab (Spike.Lib.X64.Print.x13.take k) ⟨n.pc, n.o, σ⟩).σ.slot
+        (arun lab (Spike.Lib.X64.Print.x13.take k) ⟨n.pc, n.o, σ⟩).so.sp) = ra)
+    (hdead : ∀ σ c, n.J σ c → dead (arun lab Spike.Lib.X64.Print.x13 ⟨n.pc, n.o, σ⟩).pc.toBitVec.toNat = false)
+    (hraAb : ra ∉ abPcs lab) :
+    BlkW (fun s _ => AbSt μ (Ab lab) s) (fun _ _ => False) exe endPc R F n Spike.Lib.X64.Print.x13 := by
+  have hl := hI.labOk
+  subst hl
+  have hb' := hb
+  simp only [Scc.Cert.Rt.X64.blockAcrossB, Bool.and_eq_true] at hb'
+  obtain ⟨⟨h1, h2⟩, h3⟩ := hb'
+  have hcode := Spike.Lib.X64.code_field_blockAcrossB hI.lays hI.endOk hb (List.take_append_drop _ _) he
+  rw [he] at hph
+  obtain ⟨hpc, -, -⟩ := blkPh_sound (μ := μ) (endPc := endPc) hI.same hI.off hok hph hret hdead
+  refine Spike.Lib.X64ConsumerA.blkW_abSt hcode hok hR hlo hhi
+    (fun k hk s h1 h2 h3 => (hpc k hk s h1 h2 h3).1) fun σ c hJ k hk a hca s' _ _ hpc' _ => ?_
+  have hnx : ∀ q, some (Scc.Cert.Rt.X64.Print.retL, 0) = some q →
+      (_root_.Executable.labels exe).label ".Lscc_rt_print.done" +
+          Int64.ofNat (0 + cellOff (Spike.Lib.X64.Print.x13.take 2) (Spike.Lib.X64.Print.x13.take 2).length) =
+        (_root_.Executable.labels exe).label q.1 + Int64.ofNat q.2 := by
+    intro q hq
+    cases hq
+    rw [label_labelGapB hI.lays h2,
+      show 0 + cellOff (Spike.Lib.X64.Print.x13.take 2) (Spike.Lib.X64.Print.x13.take 2).length =
+        0 + ((Spike.Lib.X64.Print.x13.take 2).map (·.2)).sum by decide,
+      show Int64.ofNat (Scc.Cert.Rt.X64.Print.retL, 0).2 = 0 from rfl, Int64.add_zero]
+  have hIn : ∀ q ∈ extPos (Spike.Lib.X64.Print.x13.take 2) (some (Scc.Cert.Rt.X64.Print.retL, 0)),
+      InRunB cells q.1 q.2 := by
+    rw [show extPos (Spike.Lib.X64.Print.x13.take 2) (some (Scc.Cert.Rt.X64.Print.retL, 0)) =
+      [(Scc.Cert.Rt.X64.Print.retL, 0)] by decide]
+    intro q hq
+    simp only [List.mem_cons, List.not_mem_nil, or_false] at hq
+    subst hq
+    obtain ⟨kb, hbk⟩ := blockAt_of_blockAtB h3
+    simpa [cellOff] using inRunB_of_blockAt hbk (i := 0) (by decide)
+  have hoff : offChk ".Lscc_rt_print.done" 0 (Spike.Lib.X64.Print.x13.take 2)
+      (some (Scc.Cert.Rt.X64.Print.retL, 0)) = true := by decide
+  have hk3 : k < 3 := by simpa [Spike.Lib.X64.Print.x13] using hk
+  replace hpc' : s'.st.2 = a.tgt (_root_.Executable.labels exe).label
+      (arun (_root_.Executable.labels exe).label (Spike.Lib.X64.Print.x13.take k) ⟨n.pc, n.o, σ⟩).so
+      ((_root_.Executable.labels exe).label ".Lscc_rt_print.done" + Int64.ofNat 0 +
+        Int64.ofNat (cellOff Spike.Lib.X64.Print.x13 k) + Int64.ofNat Spike.Lib.X64.Print.x13[k].2)
+      (arun (_root_.Executable.labels exe).label (Spike.Lib.X64.Print.x13.take k) ⟨n.pc, n.o, σ⟩).σ := by
+    rw [hpc', he]
+    rfl
+  -- the `ret`: its return address
+  have hR' : a = .ret → ¬ Ab (_root_.Executable.labels exe).label s' := by
+    rintro rfl
+    refine Spike.Lib.X64.WriteAb.not_ab_of_pc ?_
+    rw [hpc']
+    simp only [AI.tgt]
+    rw [hret σ c hJ k hk hca]
+    exact hraAb
+  rcases (by omega : k < 2 ∨ k = 2) with hk2 | rfl
+  · have hk' : k < (Spike.Lib.X64.Print.x13.take 2).length := by
+      rw [List.length_take]; exact Nat.lt_min.mpr ⟨hk2, hk⟩
+    have hca' : classify (Spike.Lib.X64.Print.x13.take 2)[k].1 = some a := by
+      rw [List.getElem_take]; exact hca
+    rcases tgt_pos (lab := (_root_.Executable.labels exe).label) h1 (by decide) hnx hIn hk' hca'
+        (arun (_root_.Executable.labels exe).label (Spike.Lib.X64.Print.x13.take k) ⟨n.pc, n.o, σ⟩).so
+        (arun (_root_.Executable.labels exe).label (Spike.Lib.X64.Print.x13.take k) ⟨n.pc, n.o, σ⟩).σ
+      with hr | ⟨q, hq, hqr, hqe⟩
+    · exact hR' hr
+    · have hc := List.all_eq_true.mp (List.all_eq_true.mp hoff k (List.mem_range.mpr hk')) q hq
+      rw [Bool.not_eq_true'] at hc
+      rw [cellOff_take _ (Nat.le_of_lt hk2), List.getElem_take] at hqe
+      exact notAb_of_pos hI.lays hpr hab hqr hc (hpc'.trans hqe)
+  · have hr : classify Spike.Lib.X64.Print.x13[2].1 = some .ret := rfl
+    exact hR' (Option.some.inj (hca.symm.trans hr))
+
 end Off
 
 /-! ## Blocks of the tests -/
@@ -630,7 +719,10 @@ theorem printAb (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp)
   have rC316 := inRun0 h10 (by decide)
   have rA := inRun0 h11 (by decide)
   have rF := inRun0 h12 (by decide)
-  have rD := inRun0 h13 (by decide)
+  have rD : InRunB cells ".Lscc_rt_print.done" 0 := by
+    have h := h13
+    simp only [Scc.Cert.Rt.X64.blockAcrossB, Bool.and_eq_true] at h
+    exact inRun0 h.1.1 (by decide)
   refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · poff h0 x0_ok p0 (some (".Lscc_rt_print.entry", 0))
       (fun q hq => by
@@ -747,13 +839,11 @@ theorem printAb (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp)
     rcases (by omega : k = 0 ∨ k = 1) with rfl | rfl
     · simp [Spike.Lib.X64.WriteAb.failPcs, N]
     · simp only [Spike.Lib.X64.WriteAb.failPcs, List.mem_cons]; right; left; rfl
-  · refine blkW_abOff hI hpr hab (dead := fun _ => false) (ra := Int64.ofBitVec ra) (nxt := none) h13 (by pc_tac)
+  · refine blkW_abOffX13 hI hpr hab (dead := fun _ => false) (ra := Int64.ofBitVec ra) h13 (by pc_tac)
       x13_ok hR (by omega) (by omega)
       (blkPh_x13 p13 (by simpa [Spike.Lib.X64.Flow.ofNat_zero'] using p14)
         (by simpa [Spike.Lib.X64.Flow.ofNat_zero'] using hra))
-      (hret_of_run x13_ok fun σ c hJ => ?_) (fun _ _ _ => rfl) (by decide) (fun q hq => by cases hq)
-      (fun q hq => by rw [show extPos x13 none = [] by decide] at hq; cases hq) (by decide)
-      (fun _ _ _ => hraAb)
+      (hret_of_run x13_ok fun σ c hJ => ?_) (fun _ _ _ => rfl) hraAb
     obtain ⟨-, h8, -⟩ := hJ
     simp only [N]
     rw [x13_run, h8]

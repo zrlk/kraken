@@ -602,7 +602,7 @@ theorem immIn_imms2Of {p : Prog} (hp : Scc.Lower.Accepted2 p = true) {cx : Scc.L
     {ps : List Operand} (hps : ∀ o ∈ ps, IsReg o) (hpl : Scc.Obj.valWords d.argTy = some ps.length) (n : Nat) :
     ∀ q ∈ lowerEnvs2 cx [(d.arg, d.argTy, ps)] n d.body, ImmIn2 (imms2Of p) q.2.1 q.1 := by
   simp only [Scc.Lower.Accepted2, Bool.and_eq_true] at hp
-  obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨-, -⟩, hds⟩, hsp⟩, hc⟩, hlay⟩, -⟩, -⟩, -⟩, -⟩ := hp
+  obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨-, -⟩, -⟩, hds⟩, hsp⟩, hc⟩, hlay⟩, -⟩, -⟩, -⟩, -⟩ := hp
   have hcx : CxOK cx p := ⟨hprog, fun d' hd' => by
     obtain ⟨E, hE⟩ := decl2_of_decls2 hds d' hd'
     exact retTy_decl2 hE, hext⟩

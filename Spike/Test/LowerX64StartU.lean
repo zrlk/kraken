@@ -61,9 +61,9 @@ example {R : Region} {F : MachineData → Prop} {top : BitVec 64} (h8 : top.toNa
   have hL := swL_ok (n := mainFr.size) (by omega) (by omega)
   have hZ : ret0MC.Z.toInt = 32 := by decide
   have hZb : Spike.Lib.X64.Rt.bareMC.Z.toInt = 32 := by decide
-  have hex : (labT Abort.overflow.exit).toBitVec.toNat = 4198555 := by
+  have hex : (labT Abort.overflow.exit).toBitVec.toNat = 4198593 := by
     rw [Spike.Test.LowerX64AbortCall.labT_labR]; exact Spike.Lib.X64.StubW.Test.ret0_exit
-  have hph : bodyPhOk okPc ph (fun _ => false) labT ret0Cells mainFr ".Lwc_main.entry" ret0Res.insts ret0Res.ret
+  have hph : bodyPhOk okPc ph (fun _ => false) labT ret0Cells mainFr ".Lwc_main.entry" 0 ret0Res.insts ret0Res.ret
       (Int64.ofBitVec ((_root_.Executable.labels ret0Exe).label ret0MC.sp0).toBitVec) = true := by
     rw [Spike.Lib.X64.Flow.Ret0.Inst.ret0_labT]; exact ret0_bodyPh
   exact swUW_gen_dt ret0_instOk Flow.Ret0.ret0_startTailIn ret0_mainUIn cfacts_c0 (fun _ _ h => h.1 ▸ cfacts_c0)

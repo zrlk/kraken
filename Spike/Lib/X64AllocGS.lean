@@ -60,7 +60,10 @@ set_option hygiene false in
 /-- The allocator's `ret`, writing nothing, as `W`'s component `C`. -/
 local macro "nret " hb:term:max C:term : tactic =>
   `(tactic| exact NodeW.imp (Spike.Lib.LowerX64.BlkW.nodeW (blkW_noWr hI (blk := [(iRet.toDir, 1)]) (lo := -160)
-    (hi := 8) $hb rfl (show Spike.Lib.X64.okBlk (-160) 8 Spike.Lib.X64.Alloc.oE [(iRet.toDir, 1)] = true by decide)
+    (hi := 8) ($hb).2 (by
+      rw [Spike.Lib.X64.Flow.ofNat_zero']; show lab _ = lab _ + Int64.ofNat 226
+      rw [← hI.labOk]; exact Scc.Cert.Rt.X64.label_labelGapB hI.lays ($hb).1)
+    (show Spike.Lib.X64.okBlk (-160) 8 Spike.Lib.X64.Alloc.oE [(iRet.toDir, 1)] = true by decide)
     hR (by omega) (by omega)) (List.cons_ne_nil _ _)) Spike.Lib.X64.NodeW.triv $C)
 
 /-- **`scc_rt_alloc`'s states allow `ArenaWr0`** at every frame list and

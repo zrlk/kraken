@@ -9,7 +9,7 @@
 - `child_abX`: `AbX` at the stub's four nodes.
 
 Unlike AArch64 (two blocks: the `cbz` past the `clone` and the call block), the stub is four nodes: the `testq`
-and the `je` at `.Lwc_main.x25 + 96`, `+ 99`, the `xorl %ebp, %ebp` row and the call block at `.child`; the two
+and the `je` at `.Lwc_main.x3 + 96`, `+ 99`, the `xorl %ebp, %ebp` row and the call block at `.child`; the two
 rows are single cells (`cellZA_abX`, from `exec_test_rr` and `exec_fi`), the region needs `R.lo ≤ -128` and no
 alignment, and the stub's single-cell checks are `HelloWf.siAbH` at hello's code labels.
 -/

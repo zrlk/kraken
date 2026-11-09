@@ -8,20 +8,27 @@ return label after it); the twin of `Spike/Lib/LowerA64/BlocksC1Code.lean`.
   `k`, then the terminator's: each non-call instruction's code (`Emits`, at
   `Cd`), or a one-word user call's argument load (`Cd`), its `callq` and
   return label `.L<fn>.x<k>` (`Bl`) and its result's store (`Cd`), the
-  counter `k + 1` after it;
+  counter `k + 1` after it; a checked `+`'s add (`addDirs`, `Cd`) and, after
+  its fall-through's label `.L<fn>.x<k>`, its store (`Cd`), the counter
+  `k + 1` after it; a `ret`'s code (`retDirs`) as one label-free `Cd` piece
+  around its return site's label (P5);
 - `BlC`: the `Bl` instance: the `callq` is code `j` cells after a label `L`
   (`blockAt`), the return label follows `L` after `j + 1` cells
   (`labelGap`), and the `callq` passes its phase check (`blkPh`), as
   `call_blockAt` gives;
 - `BlocksCodeC`: every block not ending in `unreachable` (the bracket's dead
   abort block `deepBlock`) is at its label, at some label number.
-- `CdC`: the `Cd` instance: a label-free piece of sized cells after a label
-  (`blockAt`) passing its run's phase check (`runPhB`); `cdOf_cdC` puts it
-  in the code of a laid-out program;
+- `At1Q`, `AtQ`, `CdCQ`, `CdC`: the `Cd` instance: a label-free piece of
+  sized cells after a label of `Q` (`blockAt`), whole or in two pieces
+  around a fresh label (`AtQ`), passing its phase check from its pc
+  (`runPhB`); `CdC` at any labels; `.mono`, `.sub` (a sub-piece),
+  `CdCQ.toCdC`; `cdCQ_at1`, `cdCQ_at`, `cdC_at`: a piece of a segment;
+  `AtQ.cdOf`, `cdOf_cdC` put it in the code of a laid-out program;
 - `codeC_of_seg`: a block's code after its label (`segIn`), as the emitter
   writes it from a state (`instsCode`, `emitTerm`), every run from there
   passing `runPhB`, gives `CodeC` at `CdC` and `BlC` (each call's return
-  label `.L<fn>.x<k>` starting a new run, at the address `labelGap` gives,
+  label, checked `+`'s fall-through label and `ret`'s return site label
+  `.L<fn>.x<k>` starting a new run, at the address `labelGap` gives,
   `hgap`; `hgap_of_lays` on a laid-out program);
 - `codeC_block`, `blocksCodeC`, `entryCodeC`: from a block's `blocksOk` and
   `blocksPh` (as `Blocks1.lean`'s `code1_block`), a block of `lowerC`'s
@@ -69,14 +76,21 @@ at `k`, then of its terminator `tm`**. A non-call instruction: the items
 cell sizes `zs`. A one-word user call `call [d] g [w]`: `w`'s load `lw`
 into `%rdi` at `pc` (`Cd`), the `callq g` of `zc` bytes after it with the
 return label `.L<fn>.x<k>` (`Bl`), then `%rax`'s store into `d`'s slot
-`off` (`Cd`), the counter `k + 1` after it. The terminator: an
-`unreachable` (no claim), or the items it emits at `pc` (`Cd`).
+`off` (`Cd`), the counter `k + 1` after it. A checked `+` `addChk d a b`
+(P5): the operands' loads and the checked add (`addDirs`) at `pc` (`Cd`),
+then, after its fall-through's label `.L<fn>.x<k>`, the store into `d`'s
+slot `off` (`Cd`), the counter `k + 1` after it. The terminator: an
+`unreachable` (no claim), the items it emits at `pc` (`Emits`, `Cd`), or a
+`ret [w]`'s load, epilogue and `ret` (`retDirs`, label-free, its return
+site's label `.L<fn>.x<k>` between the epilogue and `ret`) at `pc` (`Cd`).
 `Cd pc blk`: `blk` is the code at `pc`; `Bl pc zc g k`: `callq g` of `zc`
 bytes is the code at `pc`, followed by the label `.L<fn>.x<k>`. -/
 def CodeC (fr : Scc.Emit.X64.Frame) (Cd : Int64 → List (Directive × Nat) → Prop)
     (Bl : Int64 → Nat → Label → Nat → Prop) : Nat → Int64 → List Scc.IR.Inst → Scc.IR.Term → Prop
   | _, pc, [], tm => tm = .unreachable ∨
-      ∃ l zs, Emits (emitTerm fr tm) l ∧ zs.length = (dirs l).length ∧ Cd pc ((dirs l).zip zs)
+      (∃ l zs, Emits (emitTerm fr tm) l ∧ zs.length = (dirs l).length ∧ Cd pc ((dirs l).zip zs)) ∨
+      (∃ w lw zs, tm = .ret [w] ∧ getOp fr .rax w = .ok lw ∧ zs.length = (retDirs lw).length ∧
+        Cd pc ((retDirs lw).zip zs))
   | k, pc, i :: is, tm =>
     (isCall i = false ∧ ∃ l zs, Emits (emitInst fr none i) l ∧ zs.length = (dirs l).length ∧
       Cd pc ((dirs l).zip zs) ∧ CodeC fr Cd Bl k (pc + Int64.ofNat zs.sum) is tm) ∨
@@ -84,7 +98,11 @@ def CodeC (fr : Scc.Emit.X64.Frame) (Cd : Int64 → List (Directive × Nat) → 
       rsOf fr d = some off ∧ zs.length = (dirs lw).length ∧ Cd pc ((dirs lw).zip zs) ∧
       Bl (pc + Int64.ofNat zs.sum) zc (Scc.Lower.Names.user g) k ∧
       Cd (pc + Int64.ofNat zs.sum + Int64.ofNat zc) [(stDir off, z)] ∧
-      CodeC fr Cd Bl (k + 1) (pc + Int64.ofNat zs.sum + Int64.ofNat zc + Int64.ofNat z) is tm)
+      CodeC fr Cd Bl (k + 1) (pc + Int64.ofNat zs.sum + Int64.ofNat zc + Int64.ofNat z) is tm) ∨
+    (∃ d a b la lb off zs z, i = .addChk d a b ∧ getOp fr .rax a = .ok la ∧ getOp fr .rcx b = .ok lb ∧
+      rsOf fr d = some off ∧ zs.length = (addDirs fr la lb).length ∧ Cd pc ((addDirs fr la lb).zip zs) ∧
+      Cd (pc + Int64.ofNat zs.sum) [(stDir off, z)] ∧
+      CodeC fr Cd Bl (k + 1) (pc + Int64.ofNat zs.sum + Int64.ofNat z) is tm)
 
 /-- **A call's `callq g` of `zc` bytes at `pc` with the return label
 `.L<fn>.x<k>` after it**: `j` cells (`off` bytes) after a label `L`
@@ -113,44 +131,37 @@ theorem emitInst_sm {fr : Scc.Emit.X64.Frame} {i : Scc.IR.Inst} (hc : isCall i =
 
 /-! ## The `Cd` instance -/
 
-/-- **A piece of a block's code at `pc`**: label-free cells, `j` cells
-(`off` bytes) after a label `L` (`blockAt`), passing the run's phase check
-from `pc` (`runPhB`) with the return address `ra`. -/
-def CdC (cells : List (Directive × Nat)) (okPc : Nat → Bool) (ph : Nat → Nat) (lab : Label → Int64) (ra : Int64)
-    (pc : Int64) (blk : List (Directive × Nat)) : Prop :=
-  blk.all (fun c => !c.1.isLabel) = true ∧ ∃ L j off, lab L + Int64.ofNat off = pc ∧
-    blockAt cells L j off blk = true ∧ runPhB okPc ph lab pc ra blk = true
+/-- **`blk` is placed at `pc` after a label of `Q`**: `j` cells (`off`
+bytes) after a label `L` of `Q` (`blockAt`). -/
+def At1Q (Q : Label → Prop) (cells : List (Directive × Nat)) (lab : Label → Int64) (pc : Int64)
+    (blk : List (Directive × Nat)) : Prop :=
+  ∃ L j off, Q L ∧ lab L + Int64.ofNat off = pc ∧ blockAt cells L j off blk = true
+
+/-- **`blk` is placed at `pc` after labels of `Q`**, whole (`At1Q`) or in
+two pieces, the second right after the first (a checked `+`'s code around
+its fall-through's label, a `ret`'s around its return site's label, P5). -/
+def AtQ (Q : Label → Prop) (cells : List (Directive × Nat)) (lab : Label → Int64) (pc : Int64)
+    (blk : List (Directive × Nat)) : Prop :=
+  At1Q Q cells lab pc blk ∨ ∃ b1 b2, blk = b1 ++ b2 ∧ At1Q Q cells lab pc b1 ∧
+    At1Q Q cells lab (pc + Int64.ofNat (b1.map (·.2)).sum) b2
+
+/-- **A piece of a block's code at `pc` after labels of `Q`**: label-free
+cells, placed after labels of `Q` (`AtQ`), passing the phase check from
+`pc` (`runPhB`) with the return address `ra`. -/
+def CdCQ (Q : Label → Prop) (cells : List (Directive × Nat)) (okPc : Nat → Bool) (ph : Nat → Nat)
+    (lab : Label → Int64) (ra : Int64) (pc : Int64) (blk : List (Directive × Nat)) : Prop :=
+  blk.all (fun c => !c.1.isLabel) = true ∧ AtQ Q cells lab pc blk ∧ runPhB okPc ph lab pc ra blk = true
+
+/-- **A piece of a block's code at `pc`**: `CdCQ` at any labels. -/
+abbrev CdC (cells : List (Directive × Nat)) (okPc : Nat → Bool) (ph : Nat → Nat) (lab : Label → Int64)
+    (ra : Int64) : Int64 → List (Directive × Nat) → Prop :=
+  CdCQ (fun _ => True) cells okPc ph lab ra
 
 /-- The stack abort's call (the deep block's). -/
 abbrev abortI : Scc.IR.Inst :=
   .call [] Scc.Lower.Names.abort [Scc.Lower.imm Scc.IR.AbortKind.stack.code]
 
 /-! ## Runs -/
-
-/-- **A label-free prefix joins the current run.** -/
-theorem runsAux_shift : ∀ (l : Label) (acc c S : List (Directive × Nat)), (∀ d ∈ c, d.1.isLabel = false) →
-    runsAux l acc (c ++ S) = runsAux l (c.reverse ++ acc) S
-  | l, acc, [], S, _ => by simp
-  | l, acc, d :: c, S, h => by
-    have hd : d.1.isLabel = false := h d (List.mem_cons_self ..)
-    have ih := runsAux_shift l (d :: acc) c S fun d' hd' => h d' (List.mem_cons_of_mem _ hd')
-    obtain ⟨d, zd⟩ := d
-    cases d with
-    | label l'' => cases hd
-    | instr i => simp only [List.cons_append, runsAux]; rw [ih]; simp
-    | byteArray a => simp only [List.cons_append, runsAux]; rw [ih]; simp
-
-/-- **The current run** of `runsAux l acc S`: `acc` (reversed) and the
-cells of `S` up to its first label. -/
-theorem runsAux_run0 : ∀ (l : Label) (acc S : List (Directive × Nat)), ∃ P, (l, acc.reverse ++ P) ∈ runsAux l acc S
-  | l, acc, [] => ⟨[], by simp [runsAux]⟩
-  | l, acc, (.label _, _) :: _ => ⟨[], by simp [runsAux]⟩
-  | l, acc, (.instr i, w) :: S => by
-    obtain ⟨P, hP⟩ := runsAux_run0 l ((.instr i, w) :: acc) S
-    exact ⟨(.instr i, w) :: P, by simpa [runsAux] using hP⟩
-  | l, acc, (.byteArray a, w) :: S => by
-    obtain ⟨P, hP⟩ := runsAux_run0 l ((.byteArray a, w) :: acc) S
-    exact ⟨(.byteArray a, w) :: P, by simpa [runsAux] using hP⟩
 
 /-- **`runPhB` of a sub-run**: in a run `xs ++ ys ++ zs` passing `runPhB`,
 `ys` at its pc passes `runPhB`. -/
@@ -179,61 +190,144 @@ theorem runPhB_sub {okPc : Nat → Bool} {ph : Nat → Nat} {lab : Label → Int
   simp only [Bool.and_eq_true, beq_iff_eq, List.all_eq_true, h0]
   exact ⟨⟨h1, h2⟩, fun t ht => h3 t ht⟩
 
-/-- **The first run is after the label** the runs start from. -/
-theorem runsAux_head (l : Label) :
-    ∀ (acc ds : List (Directive × Nat)), ∃ y, (l, y) ∈ runsAux l acc ds
-  | acc, [] => ⟨acc.reverse, by simp [runsAux]⟩
-  | acc, (d, z) :: ds => by
-    cases d with
-    | label l' => exact ⟨acc.reverse, by simp [runsAux]⟩
-    | _ => simpa [runsAux] using runsAux_head l _ ds
+/-- **`runPhB` of two runs, one right after the other**, the second's pc
+in the first's phase. -/
+theorem runPhB_append {okPc : Nat → Bool} {ph : Nat → Nat} {lab : Label → Int64} {pc ra : Int64}
+    {a b : List (Directive × Nat)} (ha : runPhB okPc ph lab pc ra a = true)
+    (hb : runPhB okPc ph lab (pc + Int64.ofNat (a.map (·.2)).sum) ra b = true)
+    (he : ph (pc + Int64.ofNat (a.map (·.2)).sum).toBitVec.toNat = ph pc.toBitVec.toNat) :
+    runPhB okPc ph lab pc ra (a ++ b) = true := by
+  unfold runPhB at ha hb ⊢
+  rw [List.all_eq_true] at ha hb ⊢
+  intro k hk
+  have hk' := List.mem_range.mp hk
+  rw [List.length_append] at hk'
+  rcases Nat.lt_or_ge k a.length with h' | h'
+  · have hoff : cellOff (a ++ b) k = cellOff a k := by
+      unfold cellOff; rw [List.take_append_of_le_length (by omega)]
+    rw [hoff, List.getElem?_append_left h']
+    exact ha k (List.mem_range.mpr h')
+  · obtain ⟨j, rfl⟩ := Nat.exists_eq_add_of_le h'
+    have hoff : cellOff (a ++ b) (a.length + j) = (a.map (·.2)).sum + cellOff b j := by
+      unfold cellOff
+      rw [List.take_append, List.take_of_length_le (by omega), Nat.add_sub_cancel_left, List.map_append,
+        List.sum_append]
+    have := hb j (List.mem_range.mpr (by omega))
+    rw [he] at this
+    rw [hoff, List.getElem?_append_right (by omega), Nat.add_sub_cancel_left, Int64.ofNat_add, ← Int64.add_assoc]
+    exact this
 
-/-- **The runs past a label-free slice**: the slice of `t` from `a` of
-length `b` label-free, the runs from `a` are those from `a + b`, the slice
-joining the current run. -/
-theorem runs_step {l : Label} {t : List (Directive × Nat)} {a b n : Nat}
-    (h : ∀ d ∈ (t.drop a).take b, d.1.isLabel = false) :
-    runsAux l (t.take a).reverse ((t.drop a).take (b + n)) =
-      runsAux l (t.take (a + b)).reverse ((t.drop (a + b)).take n) := by
-  rw [List.take_add, runsAux_shift _ _ _ _ h, ← List.reverse_append, ← List.take_add, List.drop_drop]
+/-- **A block inside a placed block is placed**, `pre.length` cells and
+`pre`'s bytes further. -/
+theorem blockAt_sub {cells : List (Directive × Nat)} {l : Label} {k off : Nat}
+    {pre blk post : List (Directive × Nat)} (h : blockAt cells l k off (pre ++ blk ++ post) = true) :
+    blockAt cells l (k + pre.length) (off + (pre.map (·.2)).sum) blk = true := by
+  unfold blockAt at h ⊢
+  simp only [Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq] at h ⊢
+  obtain ⟨⟨hl, hoff⟩, hb⟩ := h
+  generalize Scc.Cert.Rt.X64.run cells l = r at hoff hb ⊢
+  have hlen : (pre ++ blk ++ post).length ≤ (r.drop k).length := by
+    have := congrArg List.length hb
+    simp only [List.length_take] at this
+    omega
+  have hd : r.drop k = pre ++ blk ++ post ++ (r.drop k).drop (pre ++ blk ++ post).length := by
+    have := List.take_append_drop (pre ++ blk ++ post).length (r.drop k)
+    rw [hb] at this
+    exact this.symm
+  refine ⟨⟨hl, ?_⟩, ?_⟩
+  · rw [List.take_add, List.map_append, List.sum_append, hoff, hd]
+    simp
+  · rw [← List.drop_drop, hd]
+    simp
 
-/-- The cells of a slice of a segment are label-free when its directives
-are. -/
-theorem slice_noLabel {S : List (Directive × Nat)} {c : List Directive} (hY : S.map (·.1) = c)
-    (hc : c.all (fun d => !d.isLabel) = true) : ∀ d ∈ S, d.1.isLabel = false := by
-  intro d hd
-  have := List.all_eq_true.mp hc d.1 (by rw [← hY]; exact List.mem_map_of_mem hd)
-  simpa using this
+section Q
 
-/-- **The cells after an inner label of a segment**: after `label l'` of
-the segment `P ++ .label l' :: Q` of `l`, whose cells are `t`. -/
-theorem after_label {cells : List (Directive × Nat)} {l l' : Label} {P Q : List Directive}
-    {t : List (Directive × Nat)} (h : segIn cells l (P ++ .label l' :: Q) = true) (ht : after l cells = some t) :
-    after l' cells = some (t.drop (P.length + 1)) := by
-  obtain ⟨i, hi, -, hl⟩ := segIn_iff.mp h
-  have hl' := Scc.Cert.Code1X64.labelsAt_append hl
-  simp only [Scc.Cert.Code1X64.labelsAt, Bool.and_eq_true, beq_iff_eq] at hl'
-  rw [after_eq, hi] at ht
-  cases ht
-  rw [after_eq, hl'.1, List.drop_drop]
-  simp only [Option.map_some, Nat.add_assoc]
+variable {Q : Label → Prop} {cells : List (Directive × Nat)} {okPc : Nat → Bool} {ph : Nat → Nat}
+  {lab : Label → Int64} {ra : Int64}
+
+theorem At1Q.mono {Q' : Label → Prop} (hQ : ∀ L, Q L → Q' L) {pc : Int64} {blk : List (Directive × Nat)}
+    (h : At1Q Q cells lab pc blk) : At1Q Q' cells lab pc blk :=
+  let ⟨L, j, off, hL, he, hb⟩ := h
+  ⟨L, j, off, hQ L hL, he, hb⟩
+
+theorem AtQ.mono {Q' : Label → Prop} (hQ : ∀ L, Q L → Q' L) {pc : Int64} {blk : List (Directive × Nat)}
+    (h : AtQ Q cells lab pc blk) : AtQ Q' cells lab pc blk := by
+  rcases h with h | ⟨b1, b2, e, h1, h2⟩
+  · exact .inl (h.mono hQ)
+  · exact .inr ⟨b1, b2, e, h1.mono hQ, h2.mono hQ⟩
+
+theorem CdCQ.mono {Q' : Label → Prop} (hQ : ∀ L, Q L → Q' L) {pc : Int64} {blk : List (Directive × Nat)}
+    (h : CdCQ Q cells okPc ph lab ra pc blk) : CdCQ Q' cells okPc ph lab ra pc blk :=
+  ⟨h.1, h.2.1.mono hQ, h.2.2⟩
+
+/-- **`CdCQ` forgets its labels' predicate.** -/
+theorem CdCQ.toCdC {pc : Int64} {blk : List (Directive × Nat)}
+    (h : CdCQ Q cells okPc ph lab ra pc blk) : CdC cells okPc ph lab ra pc blk :=
+  h.mono fun _ _ => trivial
+
+/-- **A block inside a placed block is placed** (`blockAt_sub`). -/
+theorem At1Q.sub {pc0 pc : Int64} {pre blk post : List (Directive × Nat)}
+    (h : At1Q Q cells lab pc0 (pre ++ blk ++ post)) (hpc : pc = pc0 + Int64.ofNat (pre.map (·.2)).sum) :
+    At1Q Q cells lab pc blk := by
+  obtain ⟨L, j, off, hL, he, hb⟩ := h
+  refine ⟨L, j + pre.length, off + (pre.map (·.2)).sum, hL, ?_, blockAt_sub hb⟩
+  rw [hpc, ← he, Int64.ofNat_add, Int64.add_assoc]
+
+/-- **A block inside a block placed in pieces is placed in pieces**: inside
+one piece, or across the two. -/
+theorem AtQ.sub {pc0 pc : Int64} {pre blk post : List (Directive × Nat)}
+    (h : AtQ Q cells lab pc0 (pre ++ blk ++ post)) (hpc : pc = pc0 + Int64.ofNat (pre.map (·.2)).sum) :
+    AtQ Q cells lab pc blk := by
+  subst hpc
+  rcases h with h | ⟨b1, b2, e, h1, h2⟩
+  · exact .inl (h.sub rfl)
+  · rcases List.append_eq_append_iff.mp e with ⟨a1, rfl, rfl⟩ | ⟨c1, e2, rfl⟩
+    · exact .inl (h1.sub rfl)
+    · rcases List.append_eq_append_iff.mp e2 with ⟨a1, rfl, rfl⟩ | ⟨c2, rfl, rfl⟩
+      · refine .inr ⟨a1, c1, rfl, At1Q.sub (pre := pre) (post := []) (by rwa [List.append_nil]) rfl, ?_⟩
+        refine At1Q.sub (pre := []) (post := post) (by rwa [List.nil_append]) ?_
+        simp [List.sum_append, Int64.ofNat_add, Int64.add_assoc, show Int64.ofNat 0 = 0 from rfl]
+      · refine .inl (h2.sub (pre := c2) (post := post) ?_)
+        simp [List.sum_append, Int64.ofNat_add, Int64.add_assoc]
+
+/-- **A block inside a piece at `CdCQ` is at `CdCQ`** (`AtQ.sub`,
+`runPhB_sub`). -/
+theorem CdCQ.sub {pc0 pc : Int64} {pre blk post : List (Directive × Nat)}
+    (h : CdCQ Q cells okPc ph lab ra pc0 (pre ++ blk ++ post))
+    (hpc : pc = pc0 + Int64.ofNat (pre.map (·.2)).sum) : CdCQ Q cells okPc ph lab ra pc blk := by
+  obtain ⟨hl, hat, hr⟩ := h
+  refine ⟨?_, hat.sub hpc, ?_⟩
+  · simp only [List.all_append, Bool.and_eq_true] at hl
+    exact hl.1.2
+  · have := runPhB_sub hr
+    have hc : cellOff (pre ++ blk ++ post) pre.length = (pre.map (·.2)).sum := by
+      simp [cellOff]
+    rwa [hc, ← hpc] at this
+
+end Q
 
 section Code
 
 variable {fr : Scc.Emit.X64.Frame} {cells : List (Directive × Nat)} {okPc : Nat → Bool} {ph : Nat → Nat}
   {lab : Label → Int64} {ra : Int64}
 
-/-- **A piece `c` of a run is at `CdC`**: after the label-free `xs` in the
-segment after `l` (the cells `t`), the runs from there passing `runPhB`; at
-the sizes of its cells, the pc past it at `xs ++ c`'s offset. -/
-theorem cdC_at {l : Label} {t : List (Directive × Nat)} (ht : after l cells = some t) {xs c zs : List Directive}
+/-- **A piece `c` of a run, after one label of `Q`**: after the label-free
+`xs` in the segment after `l` of `Q` (the cells `t`), the runs from there
+passing `runPhB`; at the sizes of its cells, label-free, after `l`
+(`At1Q`), passing `runPhB`, the pc past it at `xs ++ c`'s offset, and its
+pc in the phase of `l`'s if it is not empty. -/
+theorem cdCQ_at1 {Q : Label → Prop} {l : Label} (hQ : Q l) {t : List (Directive × Nat)}
+    (ht : after l cells = some t) {xs c zs : List Directive}
     (hseg : segIn cells l (xs ++ c ++ zs) = true) (hx : xs.all (fun d => !d.isLabel) = true)
     (hc : c.all (fun d => !d.isLabel) = true)
     (hph : ∀ r ∈ runsAux l (t.take xs.length).reverse ((t.drop xs.length).take (c ++ zs).length),
       runPhB okPc ph lab (lab r.1) ra r.2 = true) :
-    ∃ zc, zc.length = c.length ∧ CdC cells okPc ph lab ra (lab l + Int64.ofNat (cellOff t xs.length)) (c.zip zc) ∧
+    ∃ zc, zc.length = c.length ∧ (c.zip zc).all (fun c => !c.1.isLabel) = true ∧
+      At1Q Q cells lab (lab l + Int64.ofNat (cellOff t xs.length)) (c.zip zc) ∧
+      runPhB okPc ph lab (lab l + Int64.ofNat (cellOff t xs.length)) ra (c.zip zc) = true ∧
       lab l + Int64.ofNat (cellOff t xs.length) + Int64.ofNat zc.sum =
-        lab l + Int64.ofNat (cellOff t (xs ++ c).length) := by
+        lab l + Int64.ofNat (cellOff t (xs ++ c).length) ∧
+      (c ≠ [] → ph (lab l + Int64.ofNat (cellOff t xs.length)).toBitVec.toNat = ph (lab l).toBitVec.toNat) := by
   have hY := seg_slice ht hseg
   have hYe := zip_fst_snd ((t.drop xs.length).take c.length)
   rw [hY] at hYe
@@ -241,27 +335,71 @@ theorem cdC_at {l : Label} {t : List (Directive × Nat)} (ht : after l cells = s
     have := congrArg List.length (seg_take ht hseg)
     simp only [List.length_map, List.length_take] at this
     omega
+  have hlenY : ((t.drop xs.length).take c.length).length = c.length := by
+    simpa using congrArg List.length hY
   have hS := slice_noLabel hY hc
-  refine ⟨((t.drop xs.length).take c.length).map (·.2), by simp; simp at hlenT; omega, ?_, ?_⟩
+  have hph' := hph
+  rw [List.length_append, List.take_add, runsAux_shift _ _ _ _ hS] at hph'
+  obtain ⟨P, hP⟩ := runsAux_run0 l (((t.drop xs.length).take c.length).reverse ++ (t.take xs.length).reverse)
+    (((t.drop xs.length).drop c.length).take zs.length)
+  have hr := hph' _ hP
+  simp only [List.reverse_append, List.reverse_reverse] at hr
+  have hr' : runPhB okPc ph lab (lab l) ra (t.take xs.length ++ (t.drop xs.length).take c.length ++ P) = true := by
+    simpa only [List.append_assoc] using hr
+  have e : cellOff (t.take xs.length ++ (t.drop xs.length).take c.length ++ P) (t.take xs.length).length =
+      cellOff t xs.length := by
+    unfold cellOff
+    rw [List.append_assoc, List.take_left' rfl]
+  refine ⟨((t.drop xs.length).take c.length).map (·.2), by simp; simp at hlenT; omega, ?_, ?_, ?_, ?_, ?_⟩
   · rw [hYe]
-    refine ⟨List.all_eq_true.mpr fun d hd => by simp [hS d hd], l, xs.length, cellOff t xs.length, rfl, ?_, ?_⟩
-    · obtain ⟨t', ht', -, hb⟩ := blockAt_of_segIn hseg hx hc
-      rw [ht] at ht'
-      cases ht'
-      exact hb
-    · rw [List.length_append, List.take_add, runsAux_shift _ _ _ _ hS] at hph
-      obtain ⟨P, hP⟩ := runsAux_run0 l (((t.drop xs.length).take c.length).reverse ++ (t.take xs.length).reverse)
-        (((t.drop xs.length).drop c.length).take zs.length)
-      have hr := hph _ hP
-      simp only [List.reverse_append, List.reverse_reverse] at hr
-      have := runPhB_sub (xs := t.take xs.length) (ys := (t.drop xs.length).take c.length) (zs := P)
-        (by simpa only [List.append_assoc] using hr)
-      have e : cellOff (t.take xs.length ++ (t.drop xs.length).take c.length ++ P) (t.take xs.length).length =
-          cellOff t xs.length := by
-        unfold cellOff
-        rw [List.append_assoc, List.take_left' rfl]
-      rwa [e] at this
+    exact List.all_eq_true.mpr fun d hd => by simp [hS d hd]
+  · rw [hYe]
+    refine ⟨l, xs.length, cellOff t xs.length, hQ, rfl, ?_⟩
+    obtain ⟨t', ht', -, hb⟩ := blockAt_of_segIn hseg hx hc
+    rw [ht] at ht'
+    cases ht'
+    exact hb
+  · rw [hYe]
+    have := runPhB_sub hr'
+    rwa [e] at this
   · rw [List.length_append, pc_step]
+  · intro hne
+    have hne' : 0 < ((t.drop xs.length).take c.length).length := by
+      rw [hlenY]
+      exact Nat.pos_of_ne_zero fun h0 => hne (List.eq_nil_of_length_eq_zero h0)
+    have hlen : (t.take xs.length).length < (t.take xs.length ++ (t.drop xs.length).take c.length ++ P).length := by
+      simp only [List.length_append] at hne' ⊢
+      omega
+    have := (Scc.Cert.Ph1X64.runPhB_get hr' hlen).2.1
+    rwa [e] at this
+
+/-- **A piece `c` of a run is at `CdCQ Q`** (`cdCQ_at1`): after the
+label-free `xs` in the segment after `l` of `Q` (the cells `t`), the runs
+from there passing `runPhB`; at the sizes of its cells, the pc past it at
+`xs ++ c`'s offset. -/
+theorem cdCQ_at {Q : Label → Prop} {l : Label} (hQ : Q l) {t : List (Directive × Nat)}
+    (ht : after l cells = some t) {xs c zs : List Directive}
+    (hseg : segIn cells l (xs ++ c ++ zs) = true) (hx : xs.all (fun d => !d.isLabel) = true)
+    (hc : c.all (fun d => !d.isLabel) = true)
+    (hph : ∀ r ∈ runsAux l (t.take xs.length).reverse ((t.drop xs.length).take (c ++ zs).length),
+      runPhB okPc ph lab (lab r.1) ra r.2 = true) :
+    ∃ zc, zc.length = c.length ∧
+      CdCQ Q cells okPc ph lab ra (lab l + Int64.ofNat (cellOff t xs.length)) (c.zip zc) ∧
+      lab l + Int64.ofNat (cellOff t xs.length) + Int64.ofNat zc.sum =
+        lab l + Int64.ofNat (cellOff t (xs ++ c).length) := by
+  obtain ⟨zc, hz, ha, hat, hr, hpc, -⟩ := cdCQ_at1 hQ ht hseg hx hc hph
+  exact ⟨zc, hz, ⟨ha, .inl hat, hr⟩, hpc⟩
+
+/-- **A piece `c` of a run is at `CdC`** (`cdCQ_at` at any labels). -/
+theorem cdC_at {l : Label} {t : List (Directive × Nat)} (ht : after l cells = some t) {xs c zs : List Directive}
+    (hseg : segIn cells l (xs ++ c ++ zs) = true) (hx : xs.all (fun d => !d.isLabel) = true)
+    (hc : c.all (fun d => !d.isLabel) = true)
+    (hph : ∀ r ∈ runsAux l (t.take xs.length).reverse ((t.drop xs.length).take (c ++ zs).length),
+      runPhB okPc ph lab (lab r.1) ra r.2 = true) :
+    ∃ zc, zc.length = c.length ∧ CdC cells okPc ph lab ra (lab l + Int64.ofNat (cellOff t xs.length)) (c.zip zc) ∧
+      lab l + Int64.ofNat (cellOff t xs.length) + Int64.ofNat zc.sum =
+        lab l + Int64.ofNat (cellOff t (xs ++ c).length) :=
+  cdCQ_at trivial ht hseg hx hc hph
 
 /-- **A block's code after its label gives `CodeC`**: the code `code` its
 instructions `is` (`InstC` but the stack abort's call, a stack map each,
@@ -285,13 +423,14 @@ theorem codeC_of_seg (hm : fr.maps = true)
         ph (lab r.1).toBitVec.toNat = ph ra.toBitVec.toNat) →
       CodeC fr (CdC cells okPc ph lab ra) (BlC cells okPc ph lab fr ra) s.next
         (lab l + Int64.ofNat (cellOff t xs.length)) is tm
-  | [], ms, s, s', code, l, t, xs, zs, _, _, h, hD, ht, hseg, hx, hph, _ => by
+  | [], ms, s, s', code, l, t, xs, zs, _, _, h, hD, ht, hseg, hx, hph, hrl => by
     obtain ⟨u, s1, hI, hT⟩ := bind_inv h
     rw [instsCode_nil] at hI
     cases hI
     by_cases hu : tm = .unreachable
     · exact Or.inl hu
-    · obtain ⟨ct, et, act⟩ := emitTerm_allIns htm hT
+    by_cases hr : ∀ ws, tm ≠ .ret ws
+    · obtain ⟨ct, et, act⟩ := emitTerm_allIns htm hr hT
       rw [et] at hT
       cases hT
       have hc : code = ct := by
@@ -300,7 +439,73 @@ theorem codeC_of_seg (hm : fr.maps = true)
         rw [← List.reverse_reverse code, h2, List.reverse_reverse]
       subst hc
       obtain ⟨zc, hz, hcd, -⟩ := cdC_at ht hseg hx act hph
-      exact Or.inr ⟨code, zc, et, hz, hcd⟩
+      exact Or.inr (Or.inl ⟨code, zc, et, hz, hcd⟩)
+    -- `ret [w]`: its return site's label between the epilogue and `ret` (P5)
+    obtain ⟨w, rfl⟩ : ∃ w, tm = .ret [w] := by
+      cases htm with
+      | ret w _ => exact ⟨w, rfl⟩
+      | unreachable => exact absurd rfl hu
+      | _ => exact absurd (fun _ h => by cases h) hr
+    obtain ⟨lw, hlw⟩ : ∃ lw, getOp fr .rax w = .ok lw := by
+      rcases ld_cases fr w .rax s with ⟨lw, hlw, -⟩ | ⟨e, he⟩
+      · exact ⟨lw, hlw⟩
+      · rw [Scc.Lower.InvX64.emitTerm_ret1, bind_err he] at hT; cases hT
+    rw [emitTerm_ret hlw] at hT
+    cases hT
+    have hc : code = lw ++ retItems fr.fn s.next := by
+      have h1 : code.reverse ++ s.out = (lw ++ retItems fr.fn s.next).reverse ++ s.out := hD.symm
+      have h2 := List.append_cancel_right h1
+      rw [← List.reverse_reverse code, h2, List.reverse_reverse]
+    subst hc
+    have eT : dirs (lw ++ tearItems) = tearDirs lw := rfl
+    rw [directives_eq_dirs, dirs_retItems, eT] at hseg hph hrl
+    have hRe : retDirs lw = tearDirs lw ++ [i64 .ret] := by rw [retDirs, dirs_epiItems_split, ← tearDirs]
+    have hTl : (tearDirs lw).all (fun d => !d.isLabel) = true := by
+      have : AllIns (lw ++ tearItems) := by
+        unfold tearItems; allIns_tac
+      exact this
+    have hTne : tearDirs lw ≠ [] := by
+      obtain ⟨dl, hdl⟩ := dirs_getOp hlw
+      rw [tearDirs, dirs_append, hdl]; simp
+    -- the load and teardown
+    have hseg1 : segIn cells l (xs ++ tearDirs lw ++ .label (retL fr.fn s.next) :: ([i64 .ret] ++ zs)) = true := by
+      simpa only [List.append_assoc, List.cons_append, List.singleton_append, List.nil_append] using hseg
+    have hph1 : ∀ r ∈ runsAux l (t.take xs.length).reverse
+        ((t.drop xs.length).take (tearDirs lw ++ .label (retL fr.fn s.next) :: ([i64 .ret] ++ zs)).length),
+        runPhB okPc ph lab (lab r.1) ra r.2 = true := by
+      simpa only [List.append_assoc, List.cons_append, List.singleton_append, List.nil_append] using hph
+    have hrl1 : ∀ r ∈ runsAux l (t.take xs.length).reverse
+        ((t.drop xs.length).take (tearDirs lw ++ .label (retL fr.fn s.next) :: ([i64 .ret] ++ zs)).length),
+        ph (lab r.1).toBitVec.toNat = ph ra.toBitVec.toNat := by
+      simpa only [List.append_assoc, List.cons_append, List.singleton_append, List.nil_append] using hrl
+    obtain ⟨z1, hz1, ha1, hat1, hr1, hpc1, hp1⟩ := cdCQ_at1 (Q := fun _ => True) trivial ht hseg1 hx hTl hph1
+    have hxT : (xs ++ tearDirs lw).all (fun d => !d.isLabel) = true := by rw [List.all_append, hx, hTl]; rfl
+    obtain ⟨ht2, hseg2, hsp⟩ := label_at hgap ht (by simpa only [List.append_assoc] using hseg1) hxT
+    obtain ⟨-, hafter⟩ := runs_label ht hseg1 hTl hph1
+    obtain ⟨-, hrafter⟩ := runs_label ht hseg1 hTl hrl1
+    generalize t.drop ((xs ++ tearDirs lw).length + 1) = t2 at ht2 hafter hrafter
+    -- `ret`, after the return site's label
+    have hph2 : ∀ r ∈ runsAux (retL fr.fn s.next) (t2.take ([] : List Directive).length).reverse
+        ((t2.drop ([] : List Directive).length).take ([i64 .ret] ++ zs).length),
+        runPhB okPc ph lab (lab r.1) ra r.2 = true := by simpa using hafter
+    obtain ⟨z2, hz2, ha2, hat2, hr2, -, -⟩ := cdCQ_at1 (Q := fun _ => True) (xs := []) trivial ht2
+      (by simpa using hseg2) rfl rfl hph2
+    simp only [List.length_nil, Spike.Lib.X64.cellOff_zero, show Int64.ofNat 0 = 0 from rfl, Int64.add_zero]
+      at hat2 hr2
+    have hphR : ph (lab (retL fr.fn s.next)).toBitVec.toNat = ph ra.toBitVec.toNat := by
+      obtain ⟨y, hy⟩ := runsAux_head (retL fr.fn s.next) [] _
+      exact hrafter _ hy
+    have hphl : ph (lab l).toBitVec.toNat = ph ra.toBitVec.toNat := by
+      obtain ⟨y, hy⟩ := runsAux_head l _ _
+      exact hrl _ hy
+    have hsp' : lab (retL fr.fn s.next) = lab l + Int64.ofNat (cellOff t xs.length) + Int64.ofNat z1.sum := by
+      rw [hpc1, hsp]
+    have hs1 : (((tearDirs lw).zip z1).map (·.2)).sum = z1.sum := by
+      rw [List.map_snd_zip (by omega)]
+    refine Or.inr (Or.inr ⟨w, lw, z1 ++ z2, rfl, hlw, by rw [hRe]; simp [hz1, hz2], ?_⟩)
+    rw [hRe, List.zip_append hz1.symm]
+    refine ⟨by rw [List.all_append, ha1, ha2]; rfl, .inr ⟨_, _, rfl, hat1, by rw [hs1, ← hsp']; exact hat2⟩, ?_⟩
+    exact runPhB_append hr1 (by rw [hs1, ← hsp']; exact hr2) (by rw [hs1, ← hsp', hphR, hp1 hTne, hphl])
   | i :: is, ms, s, s', code, l, t, xs, zs, hs, hms, h, hD, ht, hseg, hx, hph, hrl => by
     obtain ⟨m, ms, rfl⟩ : ∃ m ms', ms = m :: ms' := by
       cases ms with
@@ -315,9 +520,75 @@ theorem codeC_of_seg (hm : fr.maps = true)
       rw [bind_ok hI]; exact hT
     obtain ⟨c', hc'⟩ := (Pre.bind' (instsCode_pre fr is ms) fun _ => emitTerm_pre fr tm).out _ _ _ hrest
     have hD' : s'.out = c'.reverse.reverse ++ s2.out := by rw [List.reverse_reverse]; exact hc'
+    by_cases hac : ∃ d a b, i = .addChk d a b
+    · -- a checked `+`: its fall-through's label before the store (P5)
+      obtain ⟨d, a, b, rfl⟩ := hac
+      obtain ⟨la, lb, off, hla, hlb, hd, rfl⟩ := emitInst_add_cases fr m d a b s hE
+      have hcode : code = (la ++ lb ++ addChecked (ovfL fr) ++
+          [Item.d (.label (retL fr.fn s.next)), Item.d (stDir off)]) ++ c'.reverse := by
+        have h1 : code.reverse ++ s.out = (c' ++ (la ++ lb ++ addChecked (ovfL fr) ++
+            [Item.d (.label (retL fr.fn s.next)), Item.d (stDir off)]).reverse) ++ s.out := by
+          rw [← hD, hc']; simp
+        have h2 := List.append_cancel_right h1
+        rw [← List.reverse_reverse code, h2]; simp
+      subst hcode
+      generalize hDd : directives c'.reverse = D at hseg hph hrl
+      have hdd : directives ((la ++ lb ++ addChecked (ovfL fr) ++
+          [Item.d (.label (retL fr.fn s.next)), Item.d (stDir off)]) ++ c'.reverse) =
+          addDirs fr la lb ++ .label (retL fr.fn s.next) :: stDir off :: D := by
+        rw [← hDd]
+        simp only [directives_eq_dirs, dirs_append, addDirs, List.append_assoc]
+        rfl
+      rw [hdd] at hseg hph hrl
+      have hAl : (addDirs fr la lb).all (fun d => !d.isLabel) = true := by
+        have : AllIns (la ++ lb ++ addChecked (ovfL fr)) := by
+          unfold addChecked; allIns_tac
+        exact this
+      have hSl : (stDir off).isLabel = false := rfl
+      -- the checked add
+      have hseg1 : segIn cells l (xs ++ addDirs fr la lb ++ .label (retL fr.fn s.next) :: ([stDir off] ++ (D ++ zs))) =
+          true := by
+        simpa only [List.append_assoc, List.cons_append, List.singleton_append, List.nil_append] using hseg
+      have hph1 : ∀ r ∈ runsAux l (t.take xs.length).reverse
+          ((t.drop xs.length).take (addDirs fr la lb ++ .label (retL fr.fn s.next) :: ([stDir off] ++ (D ++ zs))).length),
+          runPhB okPc ph lab (lab r.1) ra r.2 = true := by
+        simpa only [List.append_assoc, List.cons_append, List.singleton_append, List.nil_append] using hph
+      have hrl1 : ∀ r ∈ runsAux l (t.take xs.length).reverse
+          ((t.drop xs.length).take (addDirs fr la lb ++ .label (retL fr.fn s.next) :: ([stDir off] ++ (D ++ zs))).length),
+          ph (lab r.1).toBitVec.toNat = ph ra.toBitVec.toNat := by
+        simpa only [List.append_assoc, List.cons_append, List.singleton_append, List.nil_append] using hrl
+      obtain ⟨zl, hzl, hcdl, hpcl⟩ := cdC_at ht hseg1 hx hAl hph1
+      have hxA : (xs ++ addDirs fr la lb).all (fun d => !d.isLabel) = true := by rw [List.all_append, hx, hAl]; rfl
+      obtain ⟨ht2, hseg2, hsp⟩ := label_at hgap ht (by simpa only [List.append_assoc] using hseg1) hxA
+      obtain ⟨-, hafter⟩ := runs_label ht hseg1 hAl hph1
+      obtain ⟨-, hrafter⟩ := runs_label ht hseg1 hAl hrl1
+      generalize t.drop ((xs ++ addDirs fr la lb).length + 1) = t2 at ht2 hafter hrafter
+      -- the store, after the fall-through's label
+      have hsegS : segIn cells (retL fr.fn s.next) ([] ++ [stDir off] ++ (D ++ zs)) = true := by simpa using hseg2
+      have hphS : ∀ r ∈ runsAux (retL fr.fn s.next) (t2.take ([] : List Directive).length).reverse
+          ((t2.drop ([] : List Directive).length).take ([stDir off] ++ (D ++ zs)).length),
+          runPhB okPc ph lab (lab r.1) ra r.2 = true := by simpa using hafter
+      have hrlS : ∀ r ∈ runsAux (retL fr.fn s.next) (t2.take ([] : List Directive).length).reverse
+          ((t2.drop ([] : List Directive).length).take ([stDir off] ++ (D ++ zs)).length),
+          ph (lab r.1).toBitVec.toNat = ph ra.toBitVec.toNat := by simpa using hrafter
+      obtain ⟨zst, hzst, hcds, hpcs⟩ := cdC_at ht2 hsegS rfl (by simp [hSl]) hphS
+      obtain ⟨z, rfl⟩ := length_one hzst
+      -- the rest of the block, the label counter at `k + 1`
+      have hSS := slice_noLabel (seg_slice ht2 hsegS) (by simp [hSl])
+      rw [show ([stDir off] ++ (D ++ zs)).length = [stDir off].length + (D ++ zs).length from
+        List.length_append, runs_step hSS] at hphS hrlS
+      have := codeC_of_seg hm hgap htm is ms _ s' c'.reverse _ _ [stDir off] zs hs'.2 hms' hrest hD' ht2
+        (by rw [hDd]; simpa using hsegS) (by simp [hSl]) (by rw [hDd]; simpa using hphS)
+        (by rw [hDd]; simpa using hrlS)
+      simp only [List.length_nil, List.nil_append, List.length_singleton, Spike.Lib.X64.cellOff_zero] at hpcs hcds this
+      have hsp' : lab (retL fr.fn s.next) = lab l + Int64.ofNat (cellOff t xs.length) + Int64.ofNat zl.sum := by
+        rw [hpcl, hsp]
+      refine Or.inr (Or.inr ⟨d, a, b, la, lb, off, zl, z, rfl, hla, hlb, hd, hzl, hcdl, ?_, ?_⟩)
+      · rw [← hsp']; simpa using hcds
+      · rw [← hsp']; rw [← hpcs] at this; simpa using this
     by_cases hc : isCall i = false
-    · -- an instruction other than a call: label-free items
-      obtain ⟨ci, ei, ai⟩ := emitInst_allIns hs'.1.1 hc hE
+    · -- an instruction other than a call or a checked `+`: label-free items
+      obtain ⟨ci, ei, ai⟩ := emitInst_allIns hs'.1.1 hc (fun d a b h => hac ⟨d, a, b, h⟩) hE
       rw [ei] at hE
       cases hE
       have hcode : code = ci ++ c'.reverse := by
@@ -473,10 +744,10 @@ theorem codeC_of_seg (hm : fr.maps = true)
           (by rw [hDd]; simpa using hrlS)
         simp only [List.length_nil, List.nil_append, List.length_singleton, Spike.Lib.X64.cellOff_zero] at hpcs hcds this
         rw [← hpcl] at hblk
-        refine Or.inr ⟨d, g, w, lw, off, zl, zc, z, rfl, hw, hd, hzl, hcdl,
+        refine Or.inr (Or.inl ⟨d, g, w, lw, off, zl, zc, z, rfl, hw, hd, hzl, hcdl,
           ⟨l, (xs ++ directives lw).length, cellOff t (xs ++ directives lw).length, hpcl.symm, hb, hg, hblk,
             by rw [hpcl, ← hsp]; exact hspk⟩,
-          ?_, ?_⟩
+          ?_, ?_⟩)
         · rw [hpcl, ← hsp]; simpa using hcds
         · rw [hpcl, ← hsp]; rw [← hpcs] at this; simpa using this
       | abort => exact absurd rfl hnA
@@ -485,25 +756,6 @@ theorem codeC_of_seg (hm : fr.maps = true)
 end Code
 
 /-! ## From the placement checks -/
-
-/-- **`runPhB` reads the labels at the run's targets only.** -/
-theorem runPhB_congr {okPc : Nat → Bool} {ph : Nat → Nat} {lab lab' : Label → Int64} {pc ra : Int64}
-    {blk : List (Directive × Nat)} (h : ∀ L ∈ blkLabs blk, lab L = lab' L) :
-    runPhB okPc ph lab pc ra blk = runPhB okPc ph lab' pc ra blk := by
-  unfold runPhB
-  congr 1
-  funext k
-  congr 1
-  cases hk : blk[k]? with
-  | none => rfl
-  | some dz =>
-    simp only
-    cases hc : X64.classify dz.1 with
-    | none => rfl
-    | some a =>
-      simp only
-      rw [aiTgts_congr fun L hL => h L ?_]
-      exact List.mem_filterMap.mpr ⟨dz, List.mem_of_getElem? hk, by rw [hc]; exact hL⟩
 
 /-- An instruction other than a call is not the stack abort's call. -/
 theorem ne_abortI_of_isCall {i : Scc.IR.Inst} (h : isCall i = false) : i ≠ abortI := by
@@ -653,20 +905,27 @@ section Lays
 
 variable {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe] {cells : List (Directive × Nat)} {kp : Nat}
 
-/-- **`codeC_of_seg`'s `hgap`** at the labels of a laid-out program. -/
-theorem hgap_of_lays (hp : Scc.Cert.Rt.X64.Lays exe cells kp) :
-    ∀ a b n off, labelGap cells a b n off = true →
-      (_root_.Executable.labels exe).label b = (_root_.Executable.labels exe).label a + Int64.ofNat off :=
-  fun _ _ _ _ h => Scc.Cert.Rt.X64.label_labelGap_lays hp h
+/-- **A piece placed after labels (`AtQ`) is in the code** of a laid-out
+program, at its labels: each piece (`codeAt_blockAt_lays`), the two
+concatenated (`CodeAt.append`). -/
+theorem AtQ.cdOf (hp : Scc.Cert.Rt.X64.Lays exe cells kp) {endPc : Int64}
+    (hend : endPc = Scc.Cert.Rt.X64.endOf exe cells kp) {Q : Label → Prop} {pc : Int64}
+    {blk : List (Directive × Nat)} (h : AtQ Q cells (_root_.Executable.labels exe).label pc blk) :
+    CdOf exe endPc pc blk := by
+  have h1 : ∀ pc blk, At1Q Q cells (_root_.Executable.labels exe).label pc blk → CdOf exe endPc pc blk := by
+    rintro _ _ ⟨L, j, off, -, hpc, hb⟩ s hs hn
+    have := Scc.Cert.Rt.X64.codeAt_blockAt_lays hp hs (hn.trans hend) hb
+    rwa [hpc] at this
+  rcases h with h | ⟨b1, b2, rfl, ha1, ha2⟩
+  · exact h1 _ _ h
+  · exact fun s hs hn => Spike.Lib.X64.CodeAt.append (h1 _ _ ha1 s hs hn) (h1 _ _ ha2 s hs hn)
 
 /-- **A piece at `CdC` is in the code** of a laid-out program, at its
 labels. -/
 theorem cdOf_cdC (hp : Scc.Cert.Rt.X64.Lays exe cells kp) {endPc : Int64}
     (hend : endPc = Scc.Cert.Rt.X64.endOf exe cells kp) {okPc : Nat → Bool} {ph : Nat → Nat} {ra : Int64} :
-    ∀ pc blk, CdC cells okPc ph (_root_.Executable.labels exe).label ra pc blk → CdOf exe endPc pc blk := by
-  rintro _ _ ⟨_, L, j, off, hpc, hb, _⟩ s hs hn
-  have := Scc.Cert.Rt.X64.codeAt_blockAt_lays hp hs (hn.trans hend) hb
-  rwa [hpc] at this
+    ∀ pc blk, CdC cells okPc ph (_root_.Executable.labels exe).label ra pc blk → CdOf exe endPc pc blk :=
+  fun _ _ h => h.2.1.cdOf hp hend
 
 /-- **A call at `BlC` is in the code** of a laid-out program, at its
 labels (the bracket's `hBl`). -/
@@ -687,22 +946,6 @@ theorem blC_ph {cells : List (Directive × Nat)} {okPc : Nat → Bool} {ph : Nat
     (h : BlC cells okPc ph lab fr ra pc zc g k) :
     ph (pc + Int64.ofNat zc).toBitVec.toNat = ph ra.toBitVec.toNat :=
   h.choose_spec.choose_spec.choose_spec.2.2.2.2
-
-/-- **`codeC_of_seg`'s `hgap` at the layout of an output passing `PlaceOK`.** -/
-theorem hgap_ofPlaceOK {cfg : Scc.Config} {p : CoreTerm.Prog} {sizes : List Nat} {labelOffs : List (String × Nat)}
-    {pcfg : Scc.Cert.PlaceOK.Config} {Λ : Scc.Sem.Layout}
-    (h : Scc.Cert.PlaceOK.X64.placeOKAt pcfg Λ
-      (Scc.Cert.PlaceOK.X64.Out.ofEmitted (Scc.Lower.X64.lowerAll cfg p) sizes labelOffs) = true)
-    (i : CoreTerm.Expr → String → Nat → Option Nat) :
-    ∀ a b n off, labelGap (Scc.Cert.PlaceOK.X64.Out.ofEmitted (Scc.Lower.X64.lowerAll cfg p) sizes labelOffs).prog
-      a b n off = true →
-      (Spike.Lib.X64.Rt.RuntimeLayout.ofPlaceOK h i).lab b =
-        (Spike.Lib.X64.Rt.RuntimeLayout.ofPlaceOK h i).lab a + Int64.ofNat off := by
-  haveI := (Spike.Lib.X64.Rt.RuntimeLayout.ofPlaceOK h i).valid
-  have hI := Spike.Lib.X64.PhRec.instOk_ofPlaceOK h i (rS := Spike.Lib.X64.Rt.rS0 (Spike.Lib.X64.Rt.RuntimeLayout.ofPlaceOK h i))
-  intro a b n off hg
-  rw [← hI.labOk]
-  exact hgap_of_lays hI.lays a b n off hg
 
 /-- **A code block's function's code from `PlaceOK`, at `fnPh1_ofPlaceOK`'s
 witnesses**: for the closed forms `rs` and runtime functions `rt`, the `j`th

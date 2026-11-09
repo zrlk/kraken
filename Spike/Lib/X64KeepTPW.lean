@@ -25,7 +25,7 @@ open Kraken Kraken.X64.Parser Kraken.Promising Kraken.Promising.X64 Kraken.Promi
   Kraken.Promising.Lower.X64
 open Spike.Lib.X64.KeepTP (NoSetFsAt dNoSys TP tpXa noSetFsAt_of_cell)
 open Spike.Lib.X64.Flow (XProW xHead xLea xCmp xFr xSt ofNat_zero')
-open Scc.Cert.Rt.X64 (Lays endOf code_field)
+open Scc.Cert.Rt.X64 (Lays endOf code_field label_labelGapB)
 
 set_option linter.unusedSimpArgs false
 
@@ -164,7 +164,10 @@ theorem AllocW.noSetFs {kp : Nat} (hp : Lays exe cells kp) (hend : endPc = endOf
   · ablk h.o8 okL 143
   · anod h.hdr okL 170 [(iHdr, 3)]
   · ablk h.o9 okL 173
-  · anod h.ret okL 226 [(iRet.toDir, 1)]
+  · exact NodeW.noSetFs h.ret
+      (code_field hp hend (b := [(iRet.toDir, 1)]) (by simp only [hin', iRet]) (l := retL) (off := 0)
+        (by rw [label_labelGapB (a := okL) (b := retL) (off := 226) hp (by simp only [hin'])]; exact ofNat_zero' _))
+      (by decide) (by decide)
 
 end Alloc
 

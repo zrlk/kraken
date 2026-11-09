@@ -27,6 +27,7 @@ import Spike.Lib.A64WakeWcRes
 import Spike.Lib.A64HelloCode
 import Spike.Lib.A64HelloAllocEA
 import Spike.Lib.A64AllocNR
+import Spike.Lib.A64CodeAcross
 
 namespace Spike.Lib.A64.Flow.HelloRd
 
@@ -37,7 +38,7 @@ open Spike.Lib.A64.Flow.Ret0 (CallerCells LimOk)
 open Spike.Lib.A64.Alloc (Call AllocW Ea Jfull)
 open Spike.Lib.A64.Flow.Hello1 (rdE rdE_ok rdE_run rdJ AG RN RX aR rdFr rpB0 rpB0_ok rpB0_run rpB1 rpB1_ok
   rpB1_run rpB2 rpB2_ok rpB2_run rpB3 rpB3_ok rpB3_run rpB4 rpB4_ok rpB4_run rpK1 rpK2 rAddr_x10_x0)
-open Scc.Cert.Rt.A64 (Lays endOf blockAt label_labelGap labelGap)
+open Scc.Cert.Rt.A64 (Lays endOf blockAt label_labelGap labelGap blockAcross)
 
 set_option linter.unusedSimpArgs false
 
@@ -64,7 +65,8 @@ def rpIn (prog : List Directive) : Bool :=
   blockAt prog ".L19_wc_rodata.sp0" 3 rpB1 && blockAt prog ".L19_wc_rodata.sp0" 9 [strDir .X9 .X10 0] &&
   blockAt prog ".L19_wc_rodata.sp0" 10 rpB2 && blockAt prog ".L19_wc_rodata.sp0" 11 [ldrDir .X9 .X10 8] &&
   blockAt prog ".L19_wc_rodata.sp0" 12 rpB3 && blockAt prog ".L19_wc_rodata.sp0" 17 [strDir .X9 .X10 8] &&
-  blockAt prog ".L19_wc_rodata.sp0" 18 WakeWc.pubF && blockAt prog ".L19_wc_rodata.sp0" 19 rpB4
+  blockAt prog ".L19_wc_rodata.sp0" 18 WakeWc.pubF &&
+  blockAcross prog ".L19_wc_rodata.sp0" 19 (rpB4.take 7) ".L19_wc_rodata.x6" (rpB4.drop 7)
 
 theorem hello_rpIn : rpIn SccCode.helloProg = true := by decide +kernel
 
@@ -531,7 +533,8 @@ theorem hello_rodata_post_runW {W : Frag isaLSE2} {K : State → State → Prop}
     show lab ".L19_wc_rodata.sp0" + Int64.ofNat (4 * 19) = lab ".L19_wc_rodata.sp0" + Int64.ofNat (4 * 18) + 4
     rw [Int64.add_assoc]; rfl
   case s4 =>
-    refine seg_ndW (by simp [rpB4]) rpB4_ok hF hR hal hlo hhi (code_of hp hend c8 rfl) hW.s4
+    refine seg_ndW (by simp [rpB4]) rpB4_ok hF hR hal hlo hhi
+      (code_field_blockAcross hp hend c8 (List.take_append_drop _ _) rfl) hW.s4
       fun σ c ⟨σ0, ⟨c0', hJp⟩, hJ, hfr⟩ => ?_
     simp only [pN]
     obtain ⟨c', hr, hx⟩ := hedge σ0 c hJ

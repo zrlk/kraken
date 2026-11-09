@@ -46,8 +46,8 @@ open Spike.Lib.HelloSrc (helloSrc)
 
 /-- **The `svc`'s pc** at the canonical base: its value, `ph2bH` `0`, off the sites; the resumption's `ph2bH`
 `0`. -/
-theorem svc_factsH : (Int64.ofNat 2169740 + Int64.ofNat (4 * 25)).toBitVec.toNat = 2169840 ∧
-    Spike.Lib.A64.HelloPh.okC 2169840 = true ∧ Spike.Lib.A64.HelloPh.ph2bHC 2169844 = 0 := by decide +kernel
+theorem svc_factsH : (Int64.ofNat 2169772 + Int64.ofNat (4 * 25)).toBitVec.toNat = 2169872 ∧
+    Spike.Lib.A64.HelloPh.okC 2169872 = true ∧ Spike.Lib.A64.HelloPh.ph2bHC 2169876 = 0 := by decide +kernel
 
 /-- The `svc` of `.sp6` in hello's program. -/
 theorem hello_svc : blockAt SccCode.helloProg ".L22_wc_main.sp6" 25 [svcDir] = true := by decide +kernel
@@ -57,7 +57,7 @@ theorem ab_resH : Spike.Lib.A64.AllocG.abLabs.all
     (fun x => (codeOf Spike.Lib.A64.HelloPh.lo SccCode.helloProg x).isSome) = true := by decide +kernel
 
 /-- **The clone's resumption is off the write abort's pcs** at the code labels. -/
-theorem ab_offH : Int64.ofNat 2169740 + Int64.ofNat (4 * 25) + Int64.ofNat 4 ∉
+theorem ab_offH : Int64.ofNat 2169772 + Int64.ofNat (4 * 25) + Int64.ofNat 4 ∉
     Spike.Lib.A64.WriteAb.abPcs (Spike.Lib.LowerA64.labC Spike.Lib.A64.HelloPh.lo SccCode.helloProg) := by
   decide +kernel
 
@@ -68,7 +68,7 @@ theorem own_svc4H {a : BitVec 64}
     (hlab : ∀ l x, codeOf Spike.Lib.A64.HelloPh.lo SccCode.helloProg l = some x → L.lab l = Int64.ofNat x)
     {s : State} (hs : s.st.2 = L.lab ".L22_wc_main.sp6" + Int64.ofNat (4 * 25) + Int64.ofNat 4) :
     Spike.Lib.A64.HelloPh.ownGH L a s = Spike.Lib.A64.HelloPh.own2bH L a 0 := by
-  have hp : pcOf s = 2169844 := by
+  have hp : pcOf s = 2169876 := by
     unfold pcOf; rw [hs, Spike.Lib.A64.HelloPh.WcSp4W.lab_sp6H hlab]; rfl
   obtain ⟨-, -, -, -, -, e6, e7, -, -⟩ := Spike.Lib.A64.HelloPh.labs_eqH hlab (L := L)
   have hg : Spike.Lib.A64.HelloPh.Good2bH L s :=
@@ -127,7 +127,7 @@ theorem wcl_W2H (hRlo : R.lo ≤ -144) (hhi : 0 ≤ R.hi)
   have hFW := hJ.2.2.2.2.2.2.2.2.2.2.2.2.2
   change s.st.2 = L.lab ".L22_wc_main.sp6" + Int64.ofNat (4 * 25) at hpc
   have e6 := Spike.Lib.A64.HelloPh.WcSp4W.lab_sp6H hlab (L := L)
-  have hP : pcOf s = 2169840 := by unfold pcOf; rw [hpc, e6, svc_factsH.1]
+  have hP : pcOf s = 2169872 := by unfold pcOf; rw [hpc, e6, svc_factsH.1]
   have hpo := ((Spike.Lib.A64.HelloPh.instOkH hp hlo (ntA L.lab) (fun _ => False) hsite (rS := ⟨0, 0⟩)).off s
     (by rw [Spike.Lib.A64.HelloPh.okPc_eq hΛ, hP]; exact svc_factsH.2.1)).1
   have hsys := hCl.2.1

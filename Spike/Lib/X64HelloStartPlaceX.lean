@@ -1,30 +1,61 @@
 /-
 **hello.w from `_start` to `wc_rodata`'s heap abort at a placed output, level 0, at `ownGHXW`** (x86-64; the
-`ownGHXW` instance of `Spike/Lib/X64HelloStartPlace0.lean`, the hello counterpart of
+twin of `Spike/Lib/A64HelloStartPlace0.lean` at `ownGHXW`, the hello counterpart of
 `Spike/Lib/X64WakeStartPlaceX.lean`): `StartWcS0.hello_start_rd_segWS0X` at `Ly := RuntimeLayout.ofPlaceWX hpw i`
-with the root's memory side owning `ownGHXW Ly ntA` (main's and the worker's TCB words appended to `ownGH`'s) and the
-start's level `WSHFg (ownGHXW Ly ntA)`, discharged as `StartPlace0.hello_rd_place0`.
+with wake's x86-64 `StartPlace.wake_start_wc_place`'s choices and discharges at hello's labels, the root's memory
+side owning `ownGHXW Ly ntA` (main's and the worker's TCB words appended to `ownGH`'s) and the start's level
+`WSHFg (ownGHXW Ly ntA)`. Level 0 ends at rodata's landing, so there is no `D`, no return and no box; the new
+stack's depth needs `296 ≤ Lsw` (`hL296`) directly.
 
-Discharged here, besides `hello_rd_place0`'s: `ownGHXW`'s separation (`hsep` by `wsep_W`'s `tcb`, `ha` by its
+Discharged here: `ownGHXW`'s separation (`hsep` by `wsep_W`'s `tcb`, `ha` by its
 `tcb_a`, `hW` by `tcbWH_notG_W`, from A13's data part `hA13`); `scc_rt_alloc_tcb`'s states inside `WSHX` (`htcbX`,
 by `OwnSt.startTcbXH`); the counters and the take's words owned at their nodes under `ownGHXW` (`tcbOkA_ownGHXW`,
 `takeOkA_ownGHXW`).
 
-Left as premises: `hello_rd_place0`'s, plus `htiX` (the thread init's states inside `WSHX`, as `Rt.TiWAtP`), with
-`hWe`, `hrd` at the new level.
+Left as premises: `hc0`, `hpl0`, `hro`, `hC0`, `hA13`, `hfree`, `hctr2`, `hcT`, `hc`, the source/frame premises
+(`hWe`, `hrun`, `hJ'`, `hrd`, `hloc`, `hq`, `hxa`, at the new level), and `htiX` (the thread init's states inside
+`WSHX`, as `Rt.TiWAtP`).
 
 - `hello_rd_placeX`: the segment inside `WSHFg (ownGHXW Ly ntA)`.
 
 ## Differences from the AArch64 version
 
-AArch64's root memory side owns `ownGH` (`A64HelloStartPlace0`); x86-64's main also holds its own and the worker's
-TCB words (`ownSH`, `ownSWH`), so the memory side owns `ownGHXW` and the level is `WSHFg (ownGHXW …)`.
-`hello_start_rd_segWS0X` needs the callees' states inside both levels (`htcb`, `hti` inside `WSH` as in
-`hello_rd_place0`; `htcbX`, `htiX` inside `WSHX`). Against x86-64 wake's `StartPlaceX`: the segment ends at
-`wc_rodata`'s heap abort at `[fr]` (wake: `wc_main`'s), and the discharges are `hello_rd_place0`'s. The proof is
-`hello_rd_place0`'s at the other owned words; folding the two into one generic proof is left for a later cleanup.
+- AArch64's root memory side owns `ownGH`; x86-64's main also holds its own and the worker's TCB words (`ownSH`,
+  `ownSWH`), so the memory side owns `ownGHXW` and the level is `WSHFg (ownGHXW …)`. `hello_start_rd_segWS0X`
+  needs the callees' states inside both levels (`htcb`, `hti` inside `WSH`; `htcbX`, `htiX` inside `WSHX`).
+- `scc_rt_main` runs in `call scc_rt_main`'s callee region `MainGlue.RS Lsw v` (AArch64: `swR v (-Lsw) 0`), so
+  `rodata`'s call invariant `J'` is indexed by the switch base (`J' v`, as `hello_start_rd_segWS0X`'s), and `hrun`,
+  `hJ'`, `hrd`, `hxa` are stated at `J' v`; `hloc` only at the first stack's top `J' (topS Ly 0)`; `hxa`'s kept
+  cells are `CKept … (-48) (-160) 8`.
+- The thread pointer is `tpOf (tcbS Ly)` (AArch64: `UInt64.ofBitVec (pinA + 0 + 8)`).
+- The depth bound is `296 ≤ Lsw` (AArch64 `288`), the new top `8`-aligned (from `rt_h16`), and the stack range is
+  `rS0` (`Rt.rS0_sub`; AArch64's `stackM_rS0` premises).
+- `htcb` and `hti` hold at every frame `F'` of the start's region `(entryR E).callee (-8) (-296) 8`
+  (`startTcb_WSH` with `OwnSt.bandT_of` at `bandOffP_entry`, `StartH0Ti.htiWH_place`); AArch64 builds `BandT`
+  from `offE` at the callee's offsets. The runtime words off the arena come from `CalWf.off_of` (AArch64:
+  `StartH0Ti.offW_arW`).
+- The owned-word frames are at depths `-184`, `-200` of the callees' regions (`offE` at `(entryR E).addr`;
+  AArch64: `-240`, `-304` from the entry).
+- The limit bounds are `top - 8 - 8 - 64` and `top - 8 - 8 - 64 - 8 - 8 - 32`, rewritten to `top - 80` and
+  `top - 128` for `room_gWH_top` (AArch64: `top - 80`, `top - 80 - 48`).
+- Against x86-64 wake's `StartPlaceX`: the segment ends at `wc_rodata`'s heap abort at `[fr]` (wake: `wc_main`'s).
 -/
-import Spike.Lib.X64HelloStartPlace0
+import Spike.Lib.X64HelloStartWcS
+import Spike.Lib.X64HelloMainPreTF
+import Spike.Lib.X64HelloStartWfP
+import Spike.Lib.X64HelloMainWf
+import Spike.Lib.X64WakeMainGlue
+import Spike.Lib.X64WordsNone
+import Spike.Lib.X64HelloFrameD
+import Spike.Lib.X64HelloStartPlace
+import Spike.Lib.X64HelloStartTcbW
+import Spike.Lib.X64HelloStartOwnA
+import Spike.Lib.X64HelloStartH0Ti
+import Spike.Lib.X64HelloGOf2H
+import Spike.Lib.X64WakeStartPlaceB
+import Spike.Lib.X64WakeRootP
+import Spike.Lib.Rt.X64ArenaOfPlaceW
+import Spike.Lib.LowerX64.ArCallMs
 import Spike.Lib.X64HelloMainGlueX
 import Spike.Lib.X64HelloStartOwnAX
 import Spike.Lib.X64HelloOwnStartG
@@ -39,7 +70,6 @@ open Spike.Lib.X64.Rt (RuntimeLayout entryR rtF)
 open Spike.Lib.X64Consumer (Lbl Lsize Pz)
 open Spike.Lib.X64.HelloPh (lo)
 open Spike.Lib.X64.HelloPh.StartGlue (X0WH)
-open Spike.Lib.X64.HelloPh.StartWcS (WS)
 open Spike.Lib.X64 (swR At enter)
 open Spike.Lib.X64.Flow.Ret0 (pinA stacksA limA tpOf)
 open Spike.Lib.X64.WakePh.MainGlue (FS JS RS topS tcbS)
@@ -91,10 +121,10 @@ local notation "KR" => Spike.Lib.X64.PhRec.K (Ly) RS0
 set_option linter.unusedSimpArgs false in
 set_option maxHeartbeats 1600000 in
 /-- **From `_start` to `wc_rodata`'s heap abort at a placed hello output, level 0, at `ownGHXW`**:
-`StartWcS0.hello_start_rd_segWS0X` with `StartPlace0.hello_rd_place0`'s discharges, `ownGHXW`'s separation from A13
-(`hsep`, `ha` from `wsep_W`, `hW` by `tcbWH_notG_W`), `scc_rt_alloc_tcb`'s states inside `WSHX` by
-`OwnSt.startTcbXH`, the owned words at the callees' nodes by `tcbOkA_ownGHXW`, `takeOkA_ownGHXW`; the thread init
-inside `WSHX` is the premise `htiX`. -/
+`StartWcS0.hello_start_rd_segWS0X` with wake's `StartPlace` discharges at hello's labels, `ownGHXW`'s separation from
+A13 (`hsep`, `ha` from `wsep_W`, `hW` by `tcbWH_notG_W`), `scc_rt_alloc_tcb`'s states inside `WSHX` by
+`OwnSt.startTcbXH`, the owned words at the callees' nodes by `tcbOkA_ownGHXW`, `takeOkA_ownGHXW`; the thread init inside
+`WSHX` is the premise `htiX`. -/
 theorem hello_rd_placeX {E : Scc.Sem.Entry} (hE : E.Ok (Ly).Λ)
     {p : Prog} {Dt : State → Prop} {Ctx : FragS isa} {lbl lbl' : Lbl} {lsize : Lsize}
     {frM : TermRun.Frame} {c0 : Ctl} {ax : Int64} {μ : Scc.Sem.Marks} {rd : TermRun.Word → Prop} {cT : Loc}

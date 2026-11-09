@@ -10,7 +10,7 @@ part): `scc_rt_main`'s prologue and call block as one segment, from its entry to
 
 - The prologue is x86-64's five-node `XProW` (frame 64 under the saved `%rbp`, `%rdi` at `-8(%rbp)`; AArch64's
   `ProW` of frame 80), its segment `prologue_seg_ofW` at `HelloM.hello_mainPro`, its limit word at
-  `%fs:8` (`hlimM`: `LimOk ms F (fsBase + 8) (rsp - 8 - 64)`). `call` pushes `.Lscc_rt_main.x2` (at `-80`),
+  `%fs:8` (`hlimM`: `LimOk ms F (fsBase + 8) (rsp - 8 - 64)`). `call` pushes `.Lscc_rt_main.x0` (at `-80`),
   read from the block's run through `label_labelGapB` (`.x2 = .entry + 5`). The bounds are `R.lo ≤ -288`,
   `8 ≤ R.hi`, with no 16-alignment; the nodes take the region (`mN0 lab R J`, `mNC lab R J`).
 - Not twinned (unreachable from the AArch64 root, so twins only live constants): `blkW_at0`,
@@ -53,7 +53,7 @@ theorem main_call_segW {W : Frag isa} {K : State → State → Prop} {ms : MemSi
   simp only [mainIn, Bool.and_eq_true] at hin
   obtain ⟨⟨⟨h0, -⟩, hg1⟩, -⟩ := hin
   let lab := (_root_.Executable.labels exe).label
-  have e5 : (_root_.Executable.labels exe).label ".Lscc_rt_main.x2" =
+  have e5 : (_root_.Executable.labels exe).label ".Lscc_rt_main.x0" =
       (_root_.Executable.labels exe).label ".Lscc_rt_main.entry" + Int64.ofNat 5 := label_labelGapB hp hg1
   refine SegW.seq (prologue_seg_ofW hp hend hello_mainPro (nb := ⟨lab ".Lscc_rt_main.entry", mO, mJ J⟩)
     (by decide) hF hR (by have : (64 : Int64).toInt = 64 := (by decide); omega) (by omega) (by decide)

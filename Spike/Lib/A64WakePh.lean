@@ -65,17 +65,17 @@ def inR (pc : Nat) : Bool :=
 def phW : Nat → Nat := phExt (phOf lo wakeProg) inR
 
 /-- The resolved ranges. -/
-def RC : List (Nat × Nat) := [(2165172, 2165244), (2169248, 2169408), (2169512, 2169532)]
+def RC : List (Nat × Nat) := [(2165176, 2165248), (2169280, 2169440), (2169544, 2169564)]
 
 /-- The canonical phase table of wakeProg. -/
 def TC : PhTab where
   p := [(2164048, 2164120), (2164712, 2164908)]
-  l := [(2165644, 2165824)]
-  n := [(2164048, 2164132), (2164712, 2165132), (2165244, 2165272), (2165400, 2165848)]
-  t := [(2164048, 2164132), (2164712, 2165132), (2165244, 2165272), (2165400, 2165944)]
+  l := [(2165648, 2165828)]
+  n := [(2164048, 2164132), (2164712, 2165136), (2165248, 2165276), (2165404, 2165852)]
+  t := [(2164048, 2164132), (2164712, 2165136), (2165248, 2165276), (2165404, 2165948)]
 
 /-- The sites (`siteLabels` at `Link.abortName`). -/
-def SC : List Nat := [2165940, 2165996, 2168260, 2168332, 2168404, 2168476, 2168548]
+def SC : List Nat := [2165944, 2166000, 2168292, 2168364, 2168436, 2168508, 2168580]
 
 theorem wakeR_eq : wakeR.mapM (PhRange.resolve (codeOf lo wakeProg)) = some RC := by
   rw [← codeT_eq]; decide +kernel
@@ -126,22 +126,22 @@ def ownW (L : RuntimeLayout) (a : BitVec 64) (i : Nat) : List (Loc × Val) :=
 
 /-- The reserve's blocks' checks at `phW`, returning to `wc_main`'s `.sp3`. -/
 theorem resBlks :
-    blkOkN (codeT lo wakeProg) okC phC 2165132 0 rPro (some ".L21_wc_main.sp3") none = true ∧
-    blkOkN (codeT lo wakeProg) okC phC 2165148 2 rArg (some ".L21_wc_main.sp3") none = true ∧
-    blkOkN (codeT lo wakeProg) okC phC 2165148 6 rBnd (some ".L21_wc_main.sp3") none = true ∧
-    blkOkN (codeT lo wakeProg) okC phC 2165148 15 rJ (some ".L21_wc_main.sp3") none = true ∧
-    blkOkN (codeT lo wakeProg) okC phC 2165224 0 rRet (some ".L21_wc_main.sp3") none = true := by
+    blkOkN (codeT lo wakeProg) okC phC 2165136 0 rPro (some ".L21_wc_main.sp3") none = true ∧
+    blkOkN (codeT lo wakeProg) okC phC 2165152 2 rArg (some ".L21_wc_main.sp3") none = true ∧
+    blkOkN (codeT lo wakeProg) okC phC 2165152 6 rBnd (some ".L21_wc_main.sp3") none = true ∧
+    blkOkN (codeT lo wakeProg) okC phC 2165152 15 rJ (some ".L21_wc_main.sp3") none = true ∧
+    blkOkN (codeT lo wakeProg) okC phC 2165228 0 rRet (some ".L21_wc_main.sp3") none = true := by
   decide +kernel
 
 /-- The reserve's labels. -/
-theorem resLabs : codeOf lo wakeProg fnL = some 2165132 ∧ codeOf lo wakeProg entryL = some 2165148 ∧
-    codeOf lo wakeProg okL = some 2165224 := by
+theorem resLabs : codeOf lo wakeProg fnL = some 2165136 ∧ codeOf lo wakeProg entryL = some 2165152 ∧
+    codeOf lo wakeProg okL = some 2165228 := by
   rw [← codeT_eq]; decide +kernel
 
 /-- The reserve's single steps and the add off the sites, at `phW`. -/
 theorem resSteps : factOk (codeT lo wakeProg) okC phC (.step entryL 0) = true ∧
     factOk (codeT lo wakeProg) okC phC (.step entryL 1) = true ∧
-    factOk (codeT lo wakeProg) okC phC (.ok entryL 5) = true ∧ phC 2165168 = 0 ∧ phC 2165172 = 16 := by
+    factOk (codeT lo wakeProg) okC phC (.ok entryL 5) = true ∧ phC 2165172 = 0 ∧ phC 2165176 = 16 := by
   decide +kernel
 
 variable {Λ : Scc.Sem.Layout} {lab : Label → Int64}
@@ -169,8 +169,8 @@ theorem resPhW (hΛ : Λ.abortLbl = Scc.Cert.Link.abortName) {L : RuntimeLayout}
   have hn : ∀ {d : Nat → Bool} t, Scc.Cert.Rt.A64.deadN (codeOf lo wakeProg) none t = true → d t = true :=
     fun _ h => by simp [Scc.Cert.Rt.A64.deadN] at h
   have hr : ∀ r, some ".L21_wc_main.sp3" = some r → lab ".L21_wc_main.sp3" = lab r := fun _ h => by cases h; rfl
-  have hrmw : (rmwPc lab).toBitVec.toNat = 2165168 := pc_eq hlab lE 5
-  have hrmw4 : (rmwPc lab + Int64.ofNat 4).toBitVec.toNat = 2165172 := by
+  have hrmw : (rmwPc lab).toBitVec.toNat = 2165172 := pc_eq hlab lE 5
+  have hrmw4 : (rmwPc lab + Int64.ofNat 4).toBitVec.toNat = 2165176 := by
     unfold rmwPc; rw [hlab _ _ lE, Int64.add_assoc, ← Int64.ofNat_add, toNat_add]
   exact {
     e := blkPh_of_blkOkN hlab lF hr hn bE

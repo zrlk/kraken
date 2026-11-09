@@ -48,9 +48,10 @@ set_option linter.unusedSimpArgs false
 its fourth instruction (past the `stlr`) and its `.sp6`, `scc_rt_unpark`,
 `scc_rt_thr_worker`'s `.sp0` and `.halt4`. -/
 def helloPostRuns : List (Label × Nat × Nat) :=
-  [(".L20_wc_worker.sp4", 3, 5), (".L20_wc_worker.sp6", 0, 4), ("scc_rt_unpark", 0, 5),
-    (".L11_scc_rt_unpark.0_entry", 0, 10), (".L11_scc_rt_unpark.1_wake", 0, 17),
-    (".L11_scc_rt_unpark.2_done", 0, 4), (HThrTail.pfx0 ++ ".sp0", 0, 10), (HThrTail.pfx0 ++ ".halt4", 0, 1)]
+  [(".L20_wc_worker.sp4", 3, 5), (".L20_wc_worker.sp6", 0, 3), (".L20_wc_worker.x7", 0, 1),
+    ("scc_rt_unpark", 0, 5), (".L11_scc_rt_unpark.0_entry", 0, 10), (".L11_scc_rt_unpark.1_wake", 0, 16),
+    (".L11_scc_rt_unpark.x4", 0, 1), (".L11_scc_rt_unpark.2_done", 0, 3), (".L11_scc_rt_unpark.x5", 0, 1),
+    (HThrTail.pfx0 ++ ".sp0", 0, 10), (HThrTail.pfx0 ++ ".halt4", 0, 1)]
 
 theorem hello_runsOk : runsOk helloProg helloPostRuns = true := by decide +kernel
 
@@ -128,6 +129,21 @@ theorem nodeZ_b {n : ND} {len : Nat} {l : Label} {k0 : Nat} {b : Bool}
     (hchk : passChk l k0 len b = true) : NodeZ (PB b) exe n len :=
   fun _ _ _ _ hk he hs _ => pass_at hp hchk hk he (hpc ▸ hs)
 
+/-- **The store point at a node across a label**: its first `a`
+instructions `k0 ..` after `l`, the rest from the next label `m`
+(`labelGap`: `m` right after them, a return label, P5). -/
+theorem nodeZ_b2 {n : ND} {len : Nat} {l m : Label} {k0 a : Nat} {b : Bool}
+    (hpc : n.pc = (_root_.Executable.labels exe).label l + Int64.ofNat (4 * k0))
+    (hg : labelGap helloProg l m (k0 + a) = true) (hchk1 : passChk l k0 a b = true)
+    (hchk2 : passChk m 0 (len - a) b = true) : NodeZ (PB b) exe n len := by
+  intro s σ c k hk he hs _
+  by_cases hka : k < a
+  · exact pass_at hp hchk1 hka he (hpc ▸ hs)
+  · refine pass_at hp hchk2 (k := k - a) (by omega) he ?_
+    rw [hs, hpc, label_labelGap hp hg, ofNat4_zero, Int64.add_assoc, Int64.add_assoc, ← Int64.ofNat_add,
+      ← Int64.ofNat_add]
+    exact congrArg (_ + Int64.ofNat ·) (by omega)
+
 /-- **Before the store at a prologue** (`fn`'s label is its stack check's,
 `sc`), its fifteen instructions. -/
 theorem pro_off {fn sc : Label} (hg : labelGap helloProg fn sc 0 = true) (hchk : passChk sc 0 15 false = true) :
@@ -175,7 +191,8 @@ theorem tail_b {c0 c1 c2 : Ctl} {A B x29 ra tp : BitVec 64} (i : HelloTail.PN) :
   · exact nodeZ_b hp (l := ".L20_wc_worker.sp4") (k0 := 3) (by zb) (by zb)
   · exact nodeZ_b hp (l := ".L20_wc_worker.sp4") (k0 := 4) (by zb) (by zb)
   · exact nodeZ_nil
-  · exact nodeZ_b hp (l := ".L20_wc_worker.sp6") (k0 := 0) (by zb) (by zb)
+  · exact nodeZ_b2 hp (l := ".L20_wc_worker.sp6") (m := ".L20_wc_worker.x7") (k0 := 0) (a := 3) (by zb) (by zb)
+      (by zb) (by zb)
 
 /-- **`scc_rt_unpark`'s nodes are past the store** (`hZU`). -/
 theorem unpk_b {c0 c1 : Ctl} {B x29 ra tp : BitVec 64} (i : Unpark.PN) :
@@ -188,8 +205,10 @@ theorem unpk_b {c0 c1 : Ctl} {B x29 ra tp : BitVec 64} (i : Unpark.PN) :
   · exact nodeZ_b hp (l := ".L11_scc_rt_unpark.0_entry") (k0 := 9) (by zb) (by zb)
   · exact nodeZ_b hp (l := ".L11_scc_rt_unpark.1_wake") (k0 := 0) (by zb) (by zb)
   · exact nodeZ_b hp (l := ".L11_scc_rt_unpark.1_wake") (k0 := 11) (by zb) (by zb)
-  · exact nodeZ_b hp (l := ".L11_scc_rt_unpark.1_wake") (k0 := 12) (by zb) (by zb)
-  · exact nodeZ_b hp (l := ".L11_scc_rt_unpark.2_done") (k0 := 0) (by zb) (by zb)
+  · exact nodeZ_b2 hp (l := ".L11_scc_rt_unpark.1_wake") (m := ".L11_scc_rt_unpark.x4") (k0 := 12) (a := 4)
+      (by zb) (by zb) (by zb) (by zb)
+  · exact nodeZ_b2 hp (l := ".L11_scc_rt_unpark.2_done") (m := ".L11_scc_rt_unpark.x5") (k0 := 0) (a := 3)
+      (by zb) (by zb) (by zb) (by zb)
 
 /-- **`scc_rt_thr_worker`'s tail is past the store** (`seg_thrWorkerH`'s
 `hZT`). -/
@@ -249,7 +268,8 @@ theorem print_b {Pc Qc : AS → Nat → Ctl → Prop} {σC : AS} (i : PrintF.PN)
   · exact nodeZ_b hp (l := ".L9_scc_rt_print.4_chk3") (k0 := 4) (by zb) (by zb)
   · exact nodeZ_b hp (l := ".L9_scc_rt_print.5_adv") (k0 := 0) (by zb) (by zb)
   · exact nodeZ_b hp (l := ".L9_scc_rt_print.6_fail") (k0 := 0) (by zb) (by zb)
-  · exact nodeZ_b hp (l := ".L9_scc_rt_print.7_done") (k0 := 0) (by zb) (by zb)
+  · exact nodeZ_b2 hp (l := ".L9_scc_rt_print.7_done") (m := ".L9_scc_rt_print.x12") (k0 := 0) (a := 3)
+      (by zb) (by zb) (by zb) (by zb)
 
 /-- **The child's stub is before the store** (`seg_childStubH`'s `hZc`). -/
 theorem child_b {cW : Ctl} {w : Words} {tp sp0 : BitVec 64} (i : Child.CN) :

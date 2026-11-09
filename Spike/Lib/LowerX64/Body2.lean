@@ -5,7 +5,8 @@ of `CodeC`, `Kind1`, `bodyN`, `ExitC` and `CallC` (`BlocksC1Code.lean`,
 (`Spike/Lib/LowerShapeC2.lean`); the twin of `Spike/Lib/LowerA64/Body2.lean`.
 
 - `Kind2`: a construct's block, `Kind1`'s or a `ret` of up to six words;
-- `CodeC2`, `InstsC2`, `BlocksCodeC2`: `CodeC` with two more call arms, the
+- `CodeC2`, `InstsC2`, `BlocksCodeC2`: `CodeC` (its checked `+` arm, its
+  `ret` arm at up to six words) with two more call arms, the
   allocator's (`newBufCall`: three argument words, the result's store) and
   the output extern's (`printInsts`'s last instruction: two argument words,
   no result); `InstsC2` the arms of a run of instructions without the
@@ -72,11 +73,18 @@ after it with the return label `.L<fn>.x<k>` (`Bl`), then `%rax`'s store
 into `d`'s slot `off` (`Cd`), the counter `k + 1` after it. The output
 call `call [] scc_rt_print ws` (two words): `ws`'s loads into `%rdi`,
 `%rsi` at `pc` (`Cd`), the `callq` with its return label (`Bl`), the
-counter `k + 1` after it. -/
+counter `k + 1` after it. A checked `+` as in `CodeC` (P5: the store after
+its fall-through's label `.L<fn>.x<k>`, the counter `k + 1` after it). The
+terminator: as in `CodeC`, its `ret` of up to six words `ws` (`getOps`
+into `retRegs`, `retDirs`, its return site's label between the epilogue
+and `ret`). -/
 def CodeC2 (fr : Scc.Emit.X64.Frame) (Cd : Int64 → List (Directive × Nat) → Prop)
     (Bl : Int64 → Nat → Label → Nat → Prop) : Nat → Int64 → List Scc.IR.Inst → Scc.IR.Term → Prop
   | _, pc, [], tm => tm = .unreachable ∨
-      ∃ l zs, Emits (emitTerm fr tm) l ∧ zs.length = (dirs l).length ∧ Cd pc ((dirs l).zip zs)
+      (∃ l zs, Emits (emitTerm fr tm) l ∧ zs.length = (dirs l).length ∧ Cd pc ((dirs l).zip zs)) ∨
+      (∃ ws lw zs, tm = .ret ws ∧ ws.length ≤ Scc.Emit.X64.retRegs.length ∧
+        getOps fr (ws.zip Scc.Emit.X64.retRegs) = .ok lw ∧ zs.length = (retDirs lw).length ∧
+        Cd pc ((retDirs lw).zip zs))
   | k, pc, i :: is, tm =>
     (isCall i = false ∧ ∃ l zs, Emits (emitInst fr none i) l ∧ zs.length = (dirs l).length ∧
       Cd pc ((dirs l).zip zs) ∧ CodeC2 fr Cd Bl k (pc + Int64.ofNat zs.sum) is tm) ∨
@@ -95,7 +103,11 @@ def CodeC2 (fr : Scc.Emit.X64.Frame) (Cd : Int64 → List (Directive × Nat) →
       getOps fr (ws.zip Scc.Emit.X64.argRegs) = .ok lw ∧
       zs.length = (dirs lw).length ∧ Cd pc ((dirs lw).zip zs) ∧
       Bl (pc + Int64.ofNat zs.sum) zc Scc.Lower.Names.print k ∧
-      CodeC2 fr Cd Bl (k + 1) (pc + Int64.ofNat zs.sum + Int64.ofNat zc) is tm)
+      CodeC2 fr Cd Bl (k + 1) (pc + Int64.ofNat zs.sum + Int64.ofNat zc) is tm) ∨
+    (∃ d a b la lb off zs z, i = .addChk d a b ∧ getOp fr .rax a = .ok la ∧ getOp fr .rcx b = .ok lb ∧
+      rsOf fr d = some off ∧ zs.length = (addDirs fr la lb).length ∧ Cd pc ((addDirs fr la lb).zip zs) ∧
+      Cd (pc + Int64.ofNat zs.sum) [(stDir off, z)] ∧
+      CodeC2 fr Cd Bl (k + 1) (pc + Int64.ofNat zs.sum + Int64.ofNat z) is tm)
 
 /-- **The code of a run of instructions `is`** from `pc` and label counter
 `k` to `pc'` and counter `k'` (`CodeC2`'s instruction arms, no terminator). -/
@@ -120,7 +132,11 @@ def InstsC2 (fr : Scc.Emit.X64.Frame) (Cd : Int64 → List (Directive × Nat) �
       getOps fr (ws.zip Scc.Emit.X64.argRegs) = .ok lw ∧
       zs.length = (dirs lw).length ∧ Cd pc ((dirs lw).zip zs) ∧
       Bl (pc + Int64.ofNat zs.sum) zc Scc.Lower.Names.print k ∧
-      InstsC2 fr Cd Bl (k + 1) (pc + Int64.ofNat zs.sum + Int64.ofNat zc) is k' pc')
+      InstsC2 fr Cd Bl (k + 1) (pc + Int64.ofNat zs.sum + Int64.ofNat zc) is k' pc') ∨
+    (∃ d a b la lb off zs z, i = .addChk d a b ∧ getOp fr .rax a = .ok la ∧ getOp fr .rcx b = .ok lb ∧
+      rsOf fr d = some off ∧ zs.length = (addDirs fr la lb).length ∧ Cd pc ((addDirs fr la lb).zip zs) ∧
+      Cd (pc + Int64.ofNat zs.sum) [(stDir off, z)] ∧
+      InstsC2 fr Cd Bl (k + 1) (pc + Int64.ofNat zs.sum + Int64.ofNat z) is k' pc')
 
 /-- **A block's code splits at a run of instructions**: the run's code to
 `pc'`, counter `k'`, then the rest's. -/
@@ -138,19 +154,23 @@ theorem codeC2_append {fr : Scc.Emit.X64.Frame} {Cd : Int64 → List (Directive 
     · rintro (⟨hc, l, zs, hE, hz, hcd, k', pc', h1, h2⟩ |
         ⟨d, g, w, lw, off, zs, zc, z, hi, hl, ho, hz, hcd, hb, hs, k', pc', h1, h2⟩ |
         ⟨d, ws, lw, off, zs, zc, z, hi, hn, hl, ho, hz, hcd, hb, hs, k', pc', h1, h2⟩ |
-        ⟨ws, lw, zs, zc, hi, hn, hl, hz, hcd, hb, k', pc', h1, h2⟩)
+        ⟨ws, lw, zs, zc, hi, hn, hl, hz, hcd, hb, k', pc', h1, h2⟩ |
+        ⟨d, a, b, la, lb, off, zs, z, hi, ha, hb, ho, hz, hcd, hs, k', pc', h1, h2⟩)
       · exact ⟨k', pc', .inl ⟨hc, l, zs, hE, hz, hcd, h1⟩, h2⟩
       · exact ⟨k', pc', .inr (.inl ⟨d, g, w, lw, off, zs, zc, z, hi, hl, ho, hz, hcd, hb, hs, h1⟩), h2⟩
       · exact ⟨k', pc', .inr (.inr (.inl ⟨d, ws, lw, off, zs, zc, z, hi, hn, hl, ho, hz, hcd, hb, hs, h1⟩)), h2⟩
-      · exact ⟨k', pc', .inr (.inr (.inr ⟨ws, lw, zs, zc, hi, hn, hl, hz, hcd, hb, h1⟩)), h2⟩
+      · exact ⟨k', pc', .inr (.inr (.inr (.inl ⟨ws, lw, zs, zc, hi, hn, hl, hz, hcd, hb, h1⟩))), h2⟩
+      · exact ⟨k', pc', .inr (.inr (.inr (.inr ⟨d, a, b, la, lb, off, zs, z, hi, ha, hb, ho, hz, hcd, hs, h1⟩))), h2⟩
     · rintro ⟨k', pc', (⟨hc, l, zs, hE, hz, hcd, h1⟩ |
         ⟨d, g, w, lw, off, zs, zc, z, hi, hl, ho, hz, hcd, hb, hs, h1⟩ |
         ⟨d, ws, lw, off, zs, zc, z, hi, hn, hl, ho, hz, hcd, hb, hs, h1⟩ |
-        ⟨ws, lw, zs, zc, hi, hn, hl, hz, hcd, hb, h1⟩), h2⟩
+        ⟨ws, lw, zs, zc, hi, hn, hl, hz, hcd, hb, h1⟩ |
+        ⟨d, a, b, la, lb, off, zs, z, hi, ha, hb, ho, hz, hcd, hs, h1⟩), h2⟩
       · exact .inl ⟨hc, l, zs, hE, hz, hcd, k', pc', h1, h2⟩
       · exact .inr (.inl ⟨d, g, w, lw, off, zs, zc, z, hi, hl, ho, hz, hcd, hb, hs, k', pc', h1, h2⟩)
       · exact .inr (.inr (.inl ⟨d, ws, lw, off, zs, zc, z, hi, hn, hl, ho, hz, hcd, hb, hs, k', pc', h1, h2⟩))
-      · exact .inr (.inr (.inr ⟨ws, lw, zs, zc, hi, hn, hl, hz, hcd, hb, k', pc', h1, h2⟩))
+      · exact .inr (.inr (.inr (.inl ⟨ws, lw, zs, zc, hi, hn, hl, hz, hcd, hb, k', pc', h1, h2⟩)))
+      · exact .inr (.inr (.inr (.inr ⟨d, a, b, la, lb, off, zs, z, hi, ha, hb, ho, hz, hcd, hs, k', pc', h1, h2⟩)))
 
 /-- **The code of a function's blocks** (`BlocksCodeC` at `CodeC2`). -/
 def BlocksCodeC2 (fr : Scc.Emit.X64.Frame) (Cd : Int64 → List (Directive × Nat) → Prop)
@@ -162,11 +182,19 @@ theorem codeC2_of_codeC {fr : Scc.Emit.X64.Frame} {Cd : Int64 → List (Directiv
     {Bl : Int64 → Nat → Label → Nat → Prop} :
     ∀ (is : List Scc.IR.Inst) (k : Nat) (pc : Int64) (tm : Scc.IR.Term),
       CodeC fr Cd Bl k pc is tm → CodeC2 fr Cd Bl k pc is tm
-  | [], _, _, _, h => h
+  | [], _, _, tm, h => by
+    rcases h with h | h | ⟨w, lw, zs, rfl, hl, hz, hcd⟩
+    · exact .inl h
+    · exact .inr (.inl h)
+    · refine .inr (.inr ⟨[w], lw, zs, rfl, by simp [Scc.Emit.X64.retRegs], ?_, hz, hcd⟩)
+      simp [getOps, Scc.Emit.X64.retRegs, hl, bind, Except.bind, pure, Except.pure]
   | _ :: is, k, pc, tm, h => by
-    rcases h with ⟨hc, l, zs, hE, hz, hcd, h⟩ | ⟨d, g, w, lw, off, zs, zc, z, hi, hl, ho, hz, hcd, hb, hs, h⟩
+    rcases h with ⟨hc, l, zs, hE, hz, hcd, h⟩ | ⟨d, g, w, lw, off, zs, zc, z, hi, hl, ho, hz, hcd, hb, hs, h⟩ |
+      ⟨d, a, b, la, lb, off, zs, z, hi, ha, hb, ho, hz, hcd, hs, h⟩
     · exact .inl ⟨hc, l, zs, hE, hz, hcd, codeC2_of_codeC is _ _ _ h⟩
     · exact .inr (.inl ⟨d, g, w, lw, off, zs, zc, z, hi, hl, ho, hz, hcd, hb, hs, codeC2_of_codeC is _ _ _ h⟩)
+    · exact .inr (.inr (.inr (.inr ⟨d, a, b, la, lb, off, zs, z, hi, ha, hb, ho, hz, hcd, hs,
+        codeC2_of_codeC is _ _ _ h⟩)))
 
 theorem blocksCodeC2_of_blocksCodeC {fr : Scc.Emit.X64.Frame} {Cd : Int64 → List (Directive × Nat) → Prop}
     {Bl : Int64 → Nat → Label → Nat → Prop} {lab : Label → Int64} {bs : List Scc.IR.Block}

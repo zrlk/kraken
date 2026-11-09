@@ -5,14 +5,14 @@ the return address `wc_rodata`'s states hand `Jp` is `scc_rt_main`'s `.x2` at th
 `call wc_rodata` pushed (`rdJ`: slot `0` kept from the entry), which is `.x2` once the entry block's invariant
 `J1` keeps the call's (`x30_mRdJ0`: the call node `mNC` has it at slot `-80`, `enter`'s slot `0`).
 
-- `x30_mRdJ0`: the call node's states (`mRdJ0 (mNC lab R J).J σC`) have slot `0` `= .Lscc_rt_main.x2`.
+- `x30_mRdJ0`: the call node's states (`mRdJ0 (mNC lab R J).J σC`) have slot `0` `= .Lscc_rt_main.x0`.
 - `hra_land`: at the landing left to `wc_rodata`'s region, slot `0` is the same.
 
 ## Differences from the AArch64 version
 
 - `call` pushes the return address, so it is read at the stack top (slot `0`) rather than from `x30` and the
   prologue's saved `x30` at `-8`; the name `x30_mRdJ0` is kept for the twin. The return label is
-  `.Lscc_rt_main.x2` (AArch64's `.L1_scc_rt_main.sp0`), and the nodes take the region (`mNC lab R J`,
+  `.Lscc_rt_main.x0` (AArch64's `.L1_scc_rt_main.sp0`), and the nodes take the region (`mNC lab R J`,
   `rN lab R J0 J1`).
 - Not twinned (unreachable from the AArch64 root, so twins only live constants): `hra_ret`.
 -/
@@ -31,10 +31,10 @@ local notation "FAS" => Spike.Lib.X64.AS
 
 variable {lab : Label → Int64}
 
-/-- **The call node's return address** is `scc_rt_main`'s return point `.Lscc_rt_main.x2`, at slot `0` past
+/-- **The call node's return address** is `scc_rt_main`'s return point `.Lscc_rt_main.x0`, at slot `0` past
 `enter`. -/
 theorem x30_mRdJ0 {R : Region} {J : FAS → Spike.Lib.Ctl → Prop} {σC σ : FAS} {c : Spike.Lib.Ctl}
-    (h : mRdJ0 (mNC lab R J).J σC σ c) : σ.slot 0 = (lab ".Lscc_rt_main.x2").toBitVec := by
+    (h : mRdJ0 (mNC lab R J).J σC σ c) : σ.slot 0 = (lab ".Lscc_rt_main.x0").toBitVec := by
   obtain ⟨rfl, -, -, -, -, -, -, -, -, h80⟩ := h
   exact h80
 
@@ -42,9 +42,9 @@ theorem x30_mRdJ0 {R : Region} {J : FAS → Spike.Lib.Ctl → Prop} {σC σ : FA
 region `aR (mR R)` (`leave` keeps the caller's), the caller's at `rN .call` the return address kept from the
 entry. -/
 theorem hra_land {R : Region} {J0 J1 : FAS → Spike.Lib.Ctl → Prop}
-    (hx : ∀ σe c, J1 σe c → σe.slot 0 = (lab ".Lscc_rt_main.x2").toBitVec)
+    (hx : ∀ σe c, J1 σe c → σe.slot 0 = (lab ".Lscc_rt_main.x0").toBitVec)
     {σ σx : FAS} {c0 : Spike.Lib.Ctl} (h : (rN lab (mR R) J0 J1 .call).J σ c0) :
-    lab ".Lscc_rt_main.x2" = Int64.ofBitVec ((leave (aR (mR R)) (-48) σ σx).slot 0) := by
+    lab ".Lscc_rt_main.x0" = Int64.ofBitVec ((leave (aR (mR R)) (-48) σ σx).slot 0) := by
   obtain ⟨⟨σe, hJ, h0, -⟩, -⟩ := h
   have hoff : ¬ (aR (mR R)).Off (0 - -48) := by
     simp only [Spike.Lib.Region.Off, aR, Spike.Lib.Region.callee]; omega

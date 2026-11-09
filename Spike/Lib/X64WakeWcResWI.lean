@@ -17,7 +17,7 @@ checked by the kernel against the certificate's labels).
 (`X64Reserve`: `rPro` at `scc_rt_thread_reserve`, the `leaq` at `.entry`,
 `rArg` at `.entry + 7`, the `lock xaddq` at `.entry + 22`, `rBnd` at
 `.entry + 27`, `rJ` at `.entry + 65`, `rRet` at `.ok`; A64's has a second
-single instruction, `add`, and an `ldadd`); it returns to `.Lwc_main.x19`
+single instruction, `add`, and an `ldadd`); it returns to `.Lwc_main.x1`
 (A64's `.sp3`); its frame is `[-40, 8)` (`R.lo ≤ -40`, `8 ≤ R.hi`; A64's
 `[-48, 0)`, 16-aligned, `hal`); the agreement is named `ResAgW` (A64's
 `AgW`, a name `X64WakeOwnGAbT` already uses); the free pcs are byte offsets
@@ -70,7 +70,7 @@ private theorem blkAg {a : BitVec 64} {n : ND} {blk : List (Directive × Nat)} {
 returning to `.x19` (`hra`), with the counter unmapped under `F` (`hunN`,
 for the `lock xaddq`'s step). -/
 theorem resAgree (hlo : L.Λ.code.lo = lo) (rS : Range) (a : BitVec 64) (hR : R.OK) (hlo' : R.lo ≤ -40) (hhi : 8 ≤ R.hi)
-    (q : ResG) (hn : q.n = 0#64) (hra : q.g.ra = (L.lab ".Lwc_main.x19").toBitVec)
+    (q : ResG) (hn : q.n = 0#64) (hra : q.g.ra = (L.lab ".Lwc_main.x1").toBitVec)
     (hunN : ∀ m, F m → Mem.loadInt m.dmem (ntA L.lab) 8 = none) :
     ∀ i, ReserveW (ResAgW L a) (fun _ _ => False) L.exe L.endPc R F q i := by
   have hin := Spike.Lib.X64.Flow.WakeWc.wake_reserveIn
@@ -128,11 +128,15 @@ theorem resAgree (hlo : L.Λ.code.lo = lo) (rS : Range) (a : BitVec 64) (hR : R.
     rw [Spike.Lib.X64.Flow.Reserve.rJ_run]
     exact freeAt_lab hlab (l := okL) (by wcfree_dec)
   case ok =>
-    refine blkAg hp hlab hsite (l := okL) (k := 0) bOk (ofNat_zero' _) Spike.Lib.X64.Flow.Reserve.rRet_ok hR hlo'
-      hhi (by wcfreeB_dec) fun σ c hJ => ?_
+    have he : L.lab okL + Int64.ofNat 0 = L.lab okL := ofNat_zero' _
+    refine blkAgreeW hlab (Spike.Lib.X64.code_field_blockAcrossB L.lays rfl (hp ▸ bOk) (List.take_append_drop 3 _) he)
+      Spike.Lib.X64.Flow.Reserve.rRet_ok hR hlo' hhi hsite
+      (fun j hj => by
+        have h := freeBlk_pc hlab (l := okL) (k := 0) (by wcfreeB_dec) hj
+        rw [he] at h; exact h) fun σ c hJ => ?_
     show freeN (arun L.lab rRet ⟨L.lab okL, oI, σ⟩).pc.toBitVec.toNat = true
     rw [(Spike.Lib.X64.Flow.Reserve.rRet_walk _ _ hJ.2).1, hra, Int64.ofBitVec_toBitVec]
-    exact freeAt_lab hlab (l := ".Lwc_main.x19") (by wcfree_dec)
+    exact freeAt_lab hlab (l := ".Lwc_main.x1") (by wcfree_dec)
 
 end Agree
 
@@ -152,7 +156,7 @@ runtime's words (`hsep`), mapped (`hmN`) and unmapped under `F` (`hunN`). -/
 theorem reserveW_wcG
     (hsep : ntA L.lab ≠ L.pnA ∧ ntA L.lab ≠ L.lockA ∧ ntA L.lab ≠ L.freeNA ∧ ntA L.lab ≠ L.nextA)
     (hR : R.OK) (hlo' : R.lo ≤ -40) (hhi : 8 ≤ R.hi)
-    (g : Spike.Lib.X64.Flow.Ret0.AllocTcb.G × Spike.Lib.Ctl) (hra : g.1.ra = (L.lab ".Lwc_main.x19").toBitVec)
+    (g : Spike.Lib.X64.Flow.Ret0.AllocTcb.G × Spike.Lib.Ctl) (hra : g.1.ra = (L.lab ".Lwc_main.x1").toBitVec)
     (hmN : Scc.Sem.Kernel.mapped (Spike.Lib.X64Consumer.K0 Λ) true ⟨ntA L.lab, 8⟩ = true)
     (hunN : ∀ m, F m → Mem.loadInt m.dmem (ntA L.lab) 8 = none) :
     ∀ i, ReserveW (fun s _ => SFactsSt2 Λ (Spike.Lib.X64.PhRec.μ L) (ownG L (ntA L.lab)) s)
@@ -161,7 +165,7 @@ theorem reserveW_wcG
   have hW := Spike.Lib.X64.Rt.Reserve.reserveW_gen (instOkW hp hlo (ntA L.lab) (fun _ => False) hsite (rS := rS))
     (Λ := Λ) (lbl := fun _ => none) (rS := rS) (F := F) (fun _ => rfl)
     (by rw [hp]; exact Spike.Lib.X64.Flow.WakeWc.wake_reserveIn)
-    Spike.Lib.X64.Flow.Ret0.Inst.cfacts_c0 hR hlo' hhi q0 rfl (ra := L.lab ".Lwc_main.x19") hra
+    Spike.Lib.X64.Flow.Ret0.Inst.cfacts_c0 hR hlo' hhi q0 rfl (ra := L.lab ".Lwc_main.x1") hra
     (Spike.Lib.X64.WakePh.resPhW hΛ (Tk := fun s => (fun _ : Nat => False) (phW (pcOf s))) hlab hsep
       (fun _ _ _ _ h => h)) hmN hunN
   have hag := resAgree hp hlab hsite hlo rS (ntA L.lab) hR hlo' hhi q0 rfl hra hunN

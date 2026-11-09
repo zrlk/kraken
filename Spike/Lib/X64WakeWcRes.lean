@@ -4,9 +4,9 @@
 layout of `wakeCells` (`Spike/Lib/X64WakeCode.lean`), from checks decided
 once on the cells (`decide +kernel`):
 
-    .Lwc_main.x18 + 18:                 -- past the box's store (`bX l A`)
+    .Lwc_main.x0 + 18:                 -- past the box's store (`bX l A`)
       call scc_rt_thread_reserve        -- (resB), `.x19` pushed at -72
-    .Lwc_main.x19:                      -- %rax = n + 1 = 1
+    .Lwc_main.x1:                      -- %rax = n + 1 = 1
 
 The reserve is `Rt.Reserve`'s segment at the counter's old value `0`
 (`ResOkA`: owned at the `lock xadd` node's states, not at every state at its
@@ -21,7 +21,7 @@ landing's control (`boxTerm`, `o` bound to the box's owned locative) through
 the reserve (`rX` carries `bX`'s facts and `Q` at the same control), through
 `scc_rt_alloc_tcb` (`X64WakeWcSp3Seg`), the tid store and
 `scc_rt_thread_init`, all parametric in the source control. Its one
-publication step is taken at `wc_main`'s `mfence` at `.Lwc_main.x21 + 12`
+publication step is taken at `wc_main`'s `mfence` at `.Lwc_main.x3 + 12`
 (`X64WakeClone.wcNf`, `X64WakeWcPub.wake_wc_clone_pub_segW`): matched once,
 there, and nowhere between the box's store and `.x21`.
 
@@ -78,7 +78,7 @@ block_spec resB (-72) 16 (⟨-64, [(.rbp, 0)]⟩ : SO) resB
 
 /-- **The call in `cells`**: at `.x18`'s `18`, `.x19` right after. -/
 def wcResIn (cells : List (Directive × Nat)) : Bool :=
-  blockAtB cells ".Lwc_main.x18" 18 resB && labelGapB cells ".Lwc_main.x18" ".Lwc_main.x19" 23
+  blockAtB cells ".Lwc_main.x0" 18 resB && labelGapB cells ".Lwc_main.x0" ".Lwc_main.x1" 23
 
 theorem wake_wcResIn : wcResIn SccCode.wakeCells = true := by decide +kernel
 
@@ -114,15 +114,15 @@ def rJ (σ : AS) (c : Ctl) : Prop := ∃ l A, (bX ms lab J0 l A).J σ c ∧ Q l 
 `%rbp` at the saved `%rbp`) and the reserve's entry (`.x19` pushed at
 `-72`). -/
 def rN : RsN → ND
-  | .bl => ⟨lab ".Lwc_main.x18" + Int64.ofNat 18, ⟨-64, [(.rbp, 0)]⟩, fun σ c =>
+  | .bl => ⟨lab ".Lwc_main.x0" + Int64.ofNat 18, ⟨-64, [(.rbp, 0)]⟩, fun σ c =>
       rJ ms lab J0 Q σ c ∧ σ.regs.get64 .rbp = R.addr 0⟩
   | .call => ⟨lab "scc_rt_thread_reserve", ⟨-72, []⟩, fun σ c => rJ ms lab J0 Q σ c ∧
-      σ.regs.get64 .rbp = R.addr 0 ∧ σ.slot (-72) = (lab ".Lwc_main.x19").toBitVec⟩
+      σ.regs.get64 .rbp = R.addr 0 ∧ σ.slot (-72) = (lab ".Lwc_main.x1").toBitVec⟩
 
 /-- **The exit at `.x19`**: the reserve's result `1` in `%rax`, the source
 and frame kept, `%rbp` at the saved `%rbp`. -/
 def rX : Unit → ND
-  | () => ⟨lab ".Lwc_main.x19", ⟨-64, []⟩, fun σ c => rJ ms lab J0 Q σ c ∧
+  | () => ⟨lab ".Lwc_main.x1", ⟨-64, []⟩, fun σ c => rJ ms lab J0 Q σ c ∧
       σ.regs.get64 .rbp = R.addr 0 ∧ σ.regs.rax.toBitVec = 1#64⟩
 
 end Res
@@ -148,7 +148,7 @@ structure WcResW (W : Frag isa) (K : State → State → Prop) (exe : _root_.Exe
     (R : Region) (F : MachineData → Prop) (ms : MemSide isa) (J0 : AS → Ctl → Prop)
     (Q : WeakMem.AllocLabel → Nat → Ctl → Prop) : Prop where
   bl : BlkW W K exe endPc R F (rN ms (_root_.Executable.labels exe).label R J0 Q .bl) resB
-  res : ∀ g : Flow.Ret0.AllocTcb.G × Ctl, g.1.ra = ((_root_.Executable.labels exe).label ".Lwc_main.x19").toBitVec →
+  res : ∀ g : Flow.Ret0.AllocTcb.G × Ctl, g.1.ra = ((_root_.Executable.labels exe).label ".Lwc_main.x1").toBitVec →
     ∀ i, ReserveW W K exe endPc (rAR R)
       (fun m => F m ∧ CallerCells R (-72) (-40) 8 m ∧ ResCtx (_root_.Executable.labels exe).label R
         (rN ms (_root_.Executable.labels exe).label R J0 Q .call).J g m) ⟨g.1, 0#64, g.2⟩ i
@@ -186,7 +186,7 @@ theorem wake_wc_res_segW {W : Frag isa} {K : State → State → Prop}
   simp only [wcResIn, Bool.and_eq_true] at hin
   obtain ⟨h18, hgap⟩ := hin
   let lab := (_root_.Executable.labels exe).label
-  have e19 : lab ".Lwc_main.x19" = lab ".Lwc_main.x18" + Int64.ofNat 23 := label_labelGapB hp hgap
+  have e19 : lab ".Lwc_main.x1" = lab ".Lwc_main.x0" + Int64.ofNat 23 := label_labelGapB hp hgap
   refine (fn_segW (N := rN ms lab R J0 Q) (E := rX ms lab R J0 Q) (fun i => ?_) RsN.bl).mono_pre ?_
   rotate_left
   · rintro s c ⟨l, A, h, hQ⟩
@@ -217,7 +217,7 @@ theorem wake_wc_res_segW {W : Frag isa} {K : State → State → Prop}
       (fun R' F' hR' hlo' hhi' hF' _ hFF hR'e hcc g hg hkeep => by
         subst hR'e
         obtain ⟨σC, c, ⟨-, -, h72⟩, ⟨-, -, -, hra⟩⟩ := hg
-        have hr : g.1.ra = (lab ".Lwc_main.x19").toBitVec := by
+        have hr : g.1.ra = (lab ".Lwc_main.x1").toBitVec := by
           rw [← hra, ← h72]; rfl
         exact (reserve_segWA hp hend wake_reserveIn hF' hR' hlo' hhi' hFF ⟨g.1, 0#64, g.2⟩
           (by show (0#64 : BitVec 64).toNat + 1 ≤ 1023; decide) ((hres g).mono hFF)
@@ -231,7 +231,7 @@ theorem wake_wc_res_segW {W : Frag isa} {K : State → State → Prop}
         hsl k ⟨h3, by omega, by omega⟩ (by simp only [Region.Off, Region.callee, rN]; omega)
       refine .inr ⟨(), ?_, by show SO.le ⟨-64, []⟩ ⟨-72 - 0 + 8, []⟩ = true; decide,
         ⟨l, A, hc' ▸ hc ▸ bX_slots hX hkeep, hc' ▸ hc ▸ hQ⟩, ?_, ?_⟩
-      · show lab ".Lwc_main.x19" = Int64.ofBitVec g.1.ra
+      · show lab ".Lwc_main.x1" = Int64.ofBitVec g.1.ra
         rw [← hra]
         show _ = Int64.ofBitVec (σC.slot (-72 - 0 + 0))
         rw [show (-72 : Int) - 0 + 0 = -72 by decide, h72, int64_ofBitVec_toBitVec]

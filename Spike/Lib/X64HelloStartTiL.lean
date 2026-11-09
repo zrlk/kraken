@@ -27,7 +27,7 @@ As wake's x86-64 `StartTiL` / `StartTiL2`: no `hal`; a frame's high end is
 `8` (`hso`'s `n.o.sp ≤ 8`); a block's pcs are `cellOff` bytes on (A64's
 `4 * j`) and a node's successor `z` bytes on (A64's `4`), the instruction
 at byte offset `k` of `l` (`blockAtB`); `Keep` is `%rsp`/`%rbp`; the take
-site's literal is `4200314` (A64's `2165976`, `StartTi.siteTH`); a `ret`'s
+site's literal is `4200314` (A64's `2165980`, `StartTi.siteTH`); a `ret`'s
 target is the stack slot at `%rsp` (`hret`; A64's `x30`); the spawn prefix
 is the x86-64 start's (`StartWf.pfxM`). AArch64's `nodeI_WSldopH` (`ldadd`)
 becomes `nodeI_WSxaddH` (`lock xaddq`), `nodeI_WSswpH` becomes
@@ -191,6 +191,47 @@ theorem blkI_WSH {n : ND} {blk : List (Directive × Nat)} {l rl : Label} {k : Na
   have hst : BlkW (fun s _ => SFactsSt2 L.Λ (Spike.Lib.X64.PhRec.μ L) (ownGH L a) s Dt) K L.exe L.endPc R F n blk :=
     blkI_ownH hlab hbd (siteTH hlab hsite) hS hcode hok hR hlo' hhi h1 hso hfin
   have hw := Spike.Lib.X64.HelloPh.StartWf.blkW_wfQH (Λ := L.Λ) (ar := ar) (p := p) (Ctx := Ctx) (lsize := lsize)
+    (fs := []) (Cl := Cl) hI (hp ▸ hb) he hok hR hlo' hhi hst
+    (fun j hj s h1 h2 h3 => (hI.off s (by unfold pcOf; rw [h3]; exact hokpc j hj)).1)
+    (Spike.Lib.X64.HelloWf.phOffW_sound hlab hph) hret hcl
+    (fun σ c hJ' => by rw [hJ σ c hJ']; exact ⟨fun _ => hc0.1, hc0.2⟩)
+    (fun s σ c _ _ _ _ _ _ hJ' _ _ _ _ _ => by rw [hJ σ c hJ']; exact ⟨hpl0 _, fun _ h => h⟩)
+  refine Spike.Lib.X64.WakeWf.blkW_w0 (.inl rfl) ?_ hw
+  intro s σ c _ _ _ _ _ _ _ j hj m _ _
+  exact ⟨hX0 _ (inIH_of hlab (h1 j hj).1) (offSiteH (siteLabH hlab) (h1 j hj)), fun _ h => h⟩
+
+/-- **A block split by a return label** (`m`, after
+its first `jA` rows; `blockAcrossB`): as `blkI_WSH`. -/
+theorem blkI_WSHA {n : ND} {blk : List (Directive × Nat)} {l rl m : Label} {k jA : Nat} {blo bhi : Int}
+    (hb : Scc.Cert.Rt.X64.blockAcrossB helloCells l k (blk.take jA) m (blk.drop jA) = true)
+    (he : L.lab l + Int64.ofNat k = n.pc)
+    (hok : okBlk blo bhi n.o blk = true) (hR : R.OK) (hlo' : R.lo ≤ blo) (hhi : bhi ≤ R.hi)
+    (hS : BlkW (fun s c => SFacts L.Λ (Spike.Lib.X64.PhRec.μ L) (fun s => ownH L a (phH (pcOf s))) rS Tk lbl' s c)
+      K L.exe L.endPc R F n blk)
+    (hokpc : ∀ j < blk.length,
+      okPcOf lo helloCells L.Λ (L.lab l + Int64.ofNat k + Int64.ofNat (cellOff blk j)).toBitVec.toNat = true)
+    (h1 : ∀ j < blk.length, PcNH (n.pc + Int64.ofNat (cellOff blk j)))
+    (hso : ∀ j ≤ blk.length, klo ≤ (soRun (blk.take j) n.o).sp ∧ (soRun (blk.take j) n.o).sp ≤ 8)
+    (hfin : ∀ σ c, n.J σ c → ∀ (s : State) m,
+      Abs R (arun (_root_.Executable.labels L.exe).label blk ⟨n.pc, n.o, σ⟩).so m
+        (arun (_root_.Executable.labels L.exe).label blk ⟨n.pc, n.o, σ⟩).σ →
+      s.exe = L.exe → s.endPc = L.endPc →
+      s.st = (m, (arun (_root_.Executable.labels L.exe).label blk ⟨n.pc, n.o, σ⟩).pc) →
+      GoodWH L s)
+    (hph : Spike.Lib.X64.HelloWf.phOffW pfxM l k rl blk = true)
+    (hret : ∀ σ c, n.J σ c → ∀ j (hj : j < blk.length), Spike.Lib.X64.classify blk[j].1 = some .ret →
+      Int64.ofBitVec ((arun L.lab (blk.take j) ⟨n.pc, n.o, σ⟩).σ.slot (arun L.lab (blk.take j) ⟨n.pc, n.o, σ⟩).so.sp)
+        = L.lab rl)
+    (hJ : ∀ σ c, n.J σ c → c = c0) :
+    BlkW (WSH L a ar p Dt Cl Ctx lbl lsize frM X0) K L.exe L.endPc R F n blk := by
+  rw [he] at hokpc
+  have hI := instOkH hp hlo a (fun _ => False) hsite (rS := rS)
+  have hcode : ∀ s : State, s.exe = L.exe → s.endPc = L.endPc → CodeAt s n.pc blk :=
+    Spike.Lib.X64.code_field_blockAcrossB hI.lays hI.endOk (hp ▸ hb) (List.take_append_drop jA blk)
+      (by rw [hI.labOk]; exact he)
+  have hst : BlkW (fun s _ => SFactsSt2 L.Λ (Spike.Lib.X64.PhRec.μ L) (ownGH L a) s Dt) K L.exe L.endPc R F n blk :=
+    blkI_ownH hlab hbd (siteTH hlab hsite) hS hcode hok hR hlo' hhi h1 hso hfin
+  have hw := Spike.Lib.X64.HelloPh.StartWf.blkW_wfQHA (Λ := L.Λ) (ar := ar) (p := p) (Ctx := Ctx) (lsize := lsize)
     (fs := []) (Cl := Cl) hI (hp ▸ hb) he hok hR hlo' hhi hst
     (fun j hj s h1 h2 h3 => (hI.off s (by unfold pcOf; rw [h3]; exact hokpc j hj)).1)
     (Spike.Lib.X64.HelloWf.phOffW_sound hlab hph) hret hcl

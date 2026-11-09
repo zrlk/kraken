@@ -7,7 +7,7 @@ premises (the take-site decision; `sys_progress` for `SvcNoProm`). The
 AArch64 versions are in the take-limbo tests.
 
 - **(a) A promise outstanding at a system call** (against `SvcNoProm`): at
-  the load configuration thread 0 can promise the `.data` word `6291472 := 80`
+  the load configuration thread 0 can promise the `.data` word `6291472 := 112`
   (the pinned-region counter) under `Kernel.certExec`. The run then reaches the
   first system call (`rt_sigaction`, pc `4194366`) after 13 steps with the
   promise outstanding, and is still certified there.
@@ -82,7 +82,7 @@ def svcWitness : List String :=
         s!"promise={lastMsg x.1.mem} steps={r.steps} pc={pcOf t.st} atSys={abi.atSys t.st} " ++
           s!"prom={t.prom} certified={cr.certified}"
 
-/-- info: ["promise=(some (6291472, 80)) steps=13 pc=4194366 atSys=true prom=[1] certified=true"] -/
+/-- info: ["promise=(some (6291472, 112)) steps=13 pc=4194366 atSys=true prom=[1] certified=true"] -/
 #guard_msgs in
 #eval svcWitness
 

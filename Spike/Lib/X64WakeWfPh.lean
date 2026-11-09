@@ -51,7 +51,7 @@ open Kraken.Promising.Lower.X64 (CellAt)
 /-- **The labels `acPcs lab pfx` reads**: the spawn's, the dispatcher's and
 the threads stub's. -/
 def acLabs (pfx : String) : List String :=
-  [pfx ++ ".x21", pfx ++ ".x22", pfx ++ ".spawnfail5", "scc_rt_abort", ".Lscc_rt_abort.entry",
+  [pfx ++ ".x3", pfx ++ ".x4", pfx ++ ".spawnfail5", "scc_rt_abort", ".Lscc_rt_abort.entry",
     ".Lscc_rt_abort.next1", ".Lscc_rt_abort.next3", ".Lscc_rt_abort.next5", ".Lscc_rt_abort.next7",
     ".Lscc_rt_abort.is8", Spike.Lib.X64.Abort.threads.fn, Spike.Lib.X64.Abort.threads.entry,
     Spike.Lib.X64.Abort.threads.exit]
@@ -63,8 +63,8 @@ theorem acPcs_congr {lab lab' : Label → Int64} {pfx : String} (h : ∀ l ∈ a
     Spike.Lib.X64.ThreadsAb.cloneAt, Spike.Lib.X64.ThreadsAb.pcSt, Spike.Lib.X64.ThreadsAb.tailPcs,
     Spike.Lib.X64.ThreadsAb.failPcs, Spike.Lib.X64.WriteAb.dispEPcs, Spike.Lib.X64.ThreadsAb.dispTPcs,
     Spike.Lib.X64.ThreadsAb.g5Pcs, Spike.Lib.X64.ThreadsAb.stubPcs]
-  rw [h (pfx ++ ".x21") (by simp [acLabs]),
-    h (pfx ++ ".x22") (by simp [acLabs]),
+  rw [h (pfx ++ ".x3") (by simp [acLabs]),
+    h (pfx ++ ".x4") (by simp [acLabs]),
     h (pfx ++ ".spawnfail5") (by simp [acLabs]),
     h ("scc_rt_abort") (by simp [acLabs]),
     h (".Lscc_rt_abort.entry") (by simp [acLabs]),

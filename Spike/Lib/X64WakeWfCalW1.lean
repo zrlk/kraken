@@ -120,17 +120,17 @@ theorem reserveW_wf (asm : Scc.Sem.X64.Asm) (E : Scc.Sem.Entry)
     (hoffN : ¬ ((WakeOD.arW hpw i).heap ≤ (ntA (Ly).lab).toNat ∧
         (ntA (Ly).lab).toNat < (WakeOD.arW hpw i).heap + 16 * (WakeOD.arW hpw i).cells) ∧
       (⟨ntA (Ly).lab, 8⟩ : Loc) ≠ (WakeOD.arW hpw i).ctrLoc)
-    (hst : ∀ g : Spike.Lib.X64.Flow.Ret0.AllocTcb.G × Ctl, g.1.ra = ((Ly).lab ".Lwc_main.x19").toBitVec →
+    (hst : ∀ g : Spike.Lib.X64.Flow.Ret0.AllocTcb.G × Ctl, g.1.ra = ((Ly).lab ".Lwc_main.x1").toBitVec →
       ∀ nd, ReserveW (fun s _ => SFactsSt2 (Ly).Λ (Spike.Lib.X64.PhRec.μ (Ly)) (ownGXW (Ly) (ntA (Ly).lab)) s) K'
         (Ly).exe (Ly).endPc (rAR R)
         (fun m => F m ∧ CallerCells R (-72) (-40) 8 m ∧ ResCtx (Ly).lab R (rN ms (Ly).lab R J0 Q .call).J g m)
         ⟨g.1, 0#64, g.2⟩ nd)
-    (hpl : ∀ g : Spike.Lib.X64.Flow.Ret0.AllocTcb.G × Ctl, g.1.ra = ((Ly).lab ".Lwc_main.x19").toBitVec →
+    (hpl : ∀ g : Spike.Lib.X64.Flow.Ret0.AllocTcb.G × Ctl, g.1.ra = ((Ly).lab ".Lwc_main.x1").toBitVec →
       ∀ nd, ReserveW (fun s c => PlacedSE (Ly).Λ (Spike.Lib.X64ConsumerA.upd (Spike.Lib.X64WakeLoadT.L0T (Ly).Λ) l b)
           s c []) (fun _ _ => False) (Ly).exe (Ly).endPc (rAR R)
         (fun m => F m ∧ CallerCells R (-72) (-40) 8 m ∧ ResCtx (Ly).lab R (rN ms (Ly).lab R J0 Q .call).J g m)
         ⟨g.1, 0#64, g.2⟩ nd) :
-    ∀ g : Spike.Lib.X64.Flow.Ret0.AllocTcb.G × Ctl, g.1.ra = ((Ly).lab ".Lwc_main.x19").toBitVec →
+    ∀ g : Spike.Lib.X64.Flow.Ret0.AllocTcb.G × Ctl, g.1.ra = ((Ly).lab ".Lwc_main.x1").toBitVec →
       ∀ nd, ReserveW (fun s c => WakeOPremW.W1W asm hpw i E Dt Ctx ls0 l b n s c []) (fun _ _ => False)
         (Ly).exe (Ly).endPc (rAR R)
         (fun m => F m ∧ CallerCells R (-72) (-40) 8 m ∧ ResCtx (Ly).lab R (rN ms (Ly).lab R J0 Q .call).J g m)
@@ -171,12 +171,12 @@ theorem tcbWG_wf_pt (asm : Scc.Sem.X64.Asm) (E : Scc.Sem.Entry)
     (hoffP : ¬ ((WakeOD.arW hpw i).heap ≤ (Ly).pnA.toNat ∧
         (Ly).pnA.toNat < (WakeOD.arW hpw i).heap + 16 * (WakeOD.arW hpw i).cells) ∧
       (⟨(Ly).pnA, 8⟩ : Loc) ≠ (WakeOD.arW hpw i).ctrLoc)
-    (hunH : ∀ m, Fc m → Mem.loadInt m.dmem ((Ly).pinA + 96#64) 8 = none)
-    (hoffH : ¬ ((WakeOD.arW hpw i).heap ≤ ((Ly).pinA + 96#64).toNat ∧
-        ((Ly).pinA + 96#64).toNat < (WakeOD.arW hpw i).heap + 16 * (WakeOD.arW hpw i).cells) ∧
-      (⟨(Ly).pinA + 96#64, 8⟩ : Loc) ≠ (WakeOD.arW hpw i).ctrLoc)
+    (hunH : ∀ m, Fc m → Mem.loadInt m.dmem ((Ly).pinA + 128#64) 8 = none)
+    (hoffH : ¬ ((WakeOD.arW hpw i).heap ≤ ((Ly).pinA + 128#64).toNat ∧
+        ((Ly).pinA + 128#64).toNat < (WakeOD.arW hpw i).heap + 16 * (WakeOD.arW hpw i).cells) ∧
+      (⟨(Ly).pinA + 128#64, 8⟩ : Loc) ≠ (WakeOD.arW hpw i).ctrLoc)
     (c0 : Ctl) (hc : (∀ a, c0.term ≠ .ret a) ∧ RunWf wakeSrc c0 []) (g : Spike.Lib.X64.Flow.Ret0.AllocTcb.G)
-    (hra : g.ra = ((Ly).lab ".Lwc_main.x20").toBitVec)
+    (hra : g.ra = ((Ly).lab ".Lwc_main.x2").toBitVec)
     (hst : ∀ nd, TcbWG (fun s _ => SFactsSt2 (Ly).Λ (Spike.Lib.X64.PhRec.μ (Ly)) (ownGXW (Ly) (ntA (Ly).lab)) s) K'
         (Ly).exe (Ly).endPc Rc Fc (Tcb2Call.tcb2Q g c0) nd)
     (hpl : ∀ nd, TcbWG (fun s c => PlacedSE (Ly).Λ (Spike.Lib.X64ConsumerA.upd (Spike.Lib.X64WakeLoadT.L0T (Ly).Λ) l b)
@@ -218,23 +218,23 @@ theorem tcbWG_wf (asm : Scc.Sem.X64.Asm) (E : Scc.Sem.Entry)
     (hoffP : ¬ ((WakeOD.arW hpw i).heap ≤ (Ly).pnA.toNat ∧
         (Ly).pnA.toNat < (WakeOD.arW hpw i).heap + 16 * (WakeOD.arW hpw i).cells) ∧
       (⟨(Ly).pnA, 8⟩ : Loc) ≠ (WakeOD.arW hpw i).ctrLoc)
-    (hunH : ∀ m, F m → Mem.loadInt m.dmem ((Ly).pinA + 96#64) 8 = none)
-    (hoffH : ¬ ((WakeOD.arW hpw i).heap ≤ ((Ly).pinA + 96#64).toNat ∧
-        ((Ly).pinA + 96#64).toNat < (WakeOD.arW hpw i).heap + 16 * (WakeOD.arW hpw i).cells) ∧
-      (⟨(Ly).pinA + 96#64, 8⟩ : Loc) ≠ (WakeOD.arW hpw i).ctrLoc)
+    (hunH : ∀ m, F m → Mem.loadInt m.dmem ((Ly).pinA + 128#64) 8 = none)
+    (hoffH : ¬ ((WakeOD.arW hpw i).heap ≤ ((Ly).pinA + 128#64).toNat ∧
+        ((Ly).pinA + 128#64).toNat < (WakeOD.arW hpw i).heap + 16 * (WakeOD.arW hpw i).cells) ∧
+      (⟨(Ly).pinA + 128#64, 8⟩ : Loc) ≠ (WakeOD.arW hpw i).ctrLoc)
     (hst : ∀ c0 cA m fr, MidG Q c0 cA ∧ FrG J0 fr ∧ FrMG J0 fr m →
-      ∀ g : Spike.Lib.X64.Flow.Ret0.AllocTcb.G, g.ra = ((Ly).lab ".Lwc_main.x20").toBitVec →
+      ∀ g : Spike.Lib.X64.Flow.Ret0.AllocTcb.G, g.ra = ((Ly).lab ".Lwc_main.x2").toBitVec →
       ∀ nd, TcbWG (fun s _ => SFactsSt2 (Ly).Λ (Spike.Lib.X64.PhRec.μ (Ly)) (ownGXW (Ly) (ntA (Ly).lab)) s) K'
         (Ly).exe (Ly).endPc (R.callee (-72) (-184) 8) (fun mm => F mm ∧ CallerCells R (-72) (-184) 8 mm ∧
           TcbCtx (Ly).lab R (wcNCR (Ly).lab c0 cA m fr).J c0 g mm) (Tcb2Call.tcb2Q g c0) nd)
     (hpl : ∀ c0 cA m fr, MidG Q c0 cA ∧ FrG J0 fr ∧ FrMG J0 fr m →
-      ∀ g : Spike.Lib.X64.Flow.Ret0.AllocTcb.G, g.ra = ((Ly).lab ".Lwc_main.x20").toBitVec →
+      ∀ g : Spike.Lib.X64.Flow.Ret0.AllocTcb.G, g.ra = ((Ly).lab ".Lwc_main.x2").toBitVec →
       ∀ nd, TcbWG (fun s c => PlacedSE (Ly).Λ (Spike.Lib.X64ConsumerA.upd (Spike.Lib.X64WakeLoadT.L0T (Ly).Λ) l b)
           s c []) (fun _ _ => False) (Ly).exe (Ly).endPc (R.callee (-72) (-184) 8)
         (fun mm => F mm ∧ CallerCells R (-72) (-184) 8 mm ∧ TcbCtx (Ly).lab R (wcNCR (Ly).lab c0 cA m fr).J c0 g mm)
         (Tcb2Call.tcb2Q g c0) nd) :
     ∀ c0 cA m fr, MidG Q c0 cA ∧ FrG J0 fr ∧ FrMG J0 fr m →
-      ∀ g : Spike.Lib.X64.Flow.Ret0.AllocTcb.G, g.ra = ((Ly).lab ".Lwc_main.x20").toBitVec →
+      ∀ g : Spike.Lib.X64.Flow.Ret0.AllocTcb.G, g.ra = ((Ly).lab ".Lwc_main.x2").toBitVec →
       ∀ nd, TcbWG (fun s c => WakeOPremW.W1W asm hpw i E Dt Ctx ls0 l b n s c []) (fun _ _ => False) (Ly).exe
         (Ly).endPc (R.callee (-72) (-184) 8)
         (fun mm => F mm ∧ CallerCells R (-72) (-184) 8 mm ∧ TcbCtx (Ly).lab R (wcNCR (Ly).lab c0 cA m fr).J c0 g mm)

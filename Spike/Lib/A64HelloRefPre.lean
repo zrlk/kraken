@@ -87,8 +87,8 @@ after the call. -/
 theorem raT_sp15H {L : RuntimeLayout}
     (hlab : ∀ l x, codeOf Spike.Lib.A64.HelloPh.lo SccCode.helloProg l = some x → L.lab l = Int64.ofNat x) :
     raT L.lab pfxM = (L.lab ".L22_wc_main.sp15").toBitVec := by
-  have h5 : L.lab (pfxM ++ ".1_spawnfail5") = Int64.ofNat 2169872 := hlab _ _ (by rw [← codeT_eq]; decide +kernel)
-  have h15 : L.lab ".L22_wc_main.sp15" = Int64.ofNat 2169880 := hlab _ _ (by rw [← codeT_eq]; decide +kernel)
+  have h5 : L.lab (pfxM ++ ".1_spawnfail5") = Int64.ofNat 2169904 := hlab _ _ (by rw [← codeT_eq]; decide +kernel)
+  have h15 : L.lab ".L22_wc_main.sp15" = Int64.ofNat 2169912 := hlab _ _ (by rw [← codeT_eq]; decide +kernel)
   unfold raT
   rw [h5, h15]
   decide

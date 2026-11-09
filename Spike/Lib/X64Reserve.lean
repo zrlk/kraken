@@ -34,7 +34,7 @@ namespace Spike.Lib.X64.Flow.Reserve
 open CoreLang CoreTerm
 open Kraken Kraken.Promising Kraken.Promising.X64 Kraken.Promising.Lower Kraken.Promising.Lower.X64
 open Kraken.X64.Parser Spike.Lib.X64
-open Scc.Cert.Rt.X64 (Lays endOf blockAtB labelGapB)
+open Scc.Cert.Rt.X64 (Lays endOf blockAtB labelGapB blockAcrossB)
 open Spike.Lib.X64.Flow.Ret0.AllocTcb (G siAt)
 
 set_option linter.unusedSimpArgs false
@@ -195,6 +195,8 @@ abbrev entryL : Label := ".Lscc_rt_thread_reserve.entry"
 abbrev okL : Label := ".Lscc_rt_thread_reserve.ok"
 /-- The abort's label. -/
 abbrev fullL : Label := ".Lscc_rt_thread_reserve.full"
+/-- The return label before the `ret` of `rRet` (after its first 3 rows). -/
+abbrev retL : Label := ".Lscc_rt_thread_reserve.x1"
 
 /-- The counter's add `lock xaddq %rax, (%rcx)`. -/
 def rmwBlk : List (Directive × Nat) := (parse("lock xaddq %rax, (%rcx)")).zip [5]
@@ -207,7 +209,7 @@ and the fall-through into `.entry`. -/
 def reserveIn (cells : List (Directive × Nat)) : Bool :=
   labelGapB cells fnL entryL 8 && blockAtB cells fnL 0 rPro && siAt cells entryL 0 "scc_rt_nthreads" &&
   blockAtB cells entryL 7 rArg && blockAtB cells entryL 22 rmwBlk && blockAtB cells entryL 27 rBnd &&
-  blockAtB cells entryL 65 rJ && blockAtB cells okL 0 rRet
+  blockAtB cells entryL 65 rJ && blockAcrossB cells okL 0 (rRet.take 3) retL (rRet.drop 3)
 
 end Spike.Lib.X64.Flow.Reserve
 

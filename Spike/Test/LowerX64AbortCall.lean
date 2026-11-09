@@ -109,10 +109,10 @@ example {top : BitVec 64} (h8 : top.toNat % 8 = 0) (hok : (swR top (-120) 0).OK)
       (by show _ ≤ (0 : Int); decide)
   have hb8 : ((swR top (-120) 0).callee (-8 - 0) (8 - 120) 8).base.toNat % 8 = 0 :=
     addr_toNat_mod8 _ h8 (by decide)
-  have hph : bodyPhOk okPc ph (fun _ => false) labT ret0Cells mainFr ".Lwc_main.entry" ret0Res.insts ret0Res.ret
+  have hph : bodyPhOk okPc ph (fun _ => false) labT ret0Cells mainFr ".Lwc_main.entry" 0 ret0Res.insts ret0Res.ret
       (Int64.ofBitVec ((_root_.Executable.labels ret0Exe).label ret0MC.sp0).toBitVec) = true := by
     rw [Spike.Lib.X64.Flow.Ret0.Inst.ret0_labT]; exact ret0_bodyPh
-  have hex : (labT Abort.overflow.exit).toBitVec.toNat = 4198555 := by
+  have hex : (labT Abort.overflow.exit).toBitVec.toNat = 4198593 := by
     rw [labT_labR]; exact Spike.Lib.X64.StubW.Test.ret0_exit
   exact userCallW_main main0_accepted mainFr_ok mainFr_small ret0_proInC ret0_lower0 ret0_bodyIn ret0_instOk
     hb8 (by decide) (by rw [mainFr_size]; decide) (by decide) hph ret0_proPhFr cfacts_c0 ret0_limMapped

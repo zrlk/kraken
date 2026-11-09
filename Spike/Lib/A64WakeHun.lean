@@ -50,14 +50,14 @@ theorem hunP_W : ∀ v m0 σC m, WF hp i v m0 σC m → Mem.loadInt m.dmem (Ly).
   hun_W hp i ((Ly).words_mapped _ (Ly).pn_mem).2.2
 
 /-- **`hunH`**: the second TCB's header `pinA + 96`. -/
-theorem hunH_W : ∀ v m0 σC m, WF hp i v m0 σC m → Mem.loadInt m.dmem ((Ly).pinA + 96#64) 8 = none :=
+theorem hunH_W : ∀ v m0 σC m, WF hp i v m0 σC m → Mem.loadInt m.dmem ((Ly).pinA + 128#64) 8 = none :=
   hun_W hp i ((H1Rt.a13_facts hp i hA13).2.1 _ (List.mem_map.2 ⟨2, List.mem_range.2 (by decide), rfl⟩))
 
-/-- **`hunT`**: the second TCB's id word `t2 + 56 = pinA + 160`. -/
+/-- **`hunT`**: the second TCB's id word `t2 + 56 = pinA + 192`. -/
 theorem hunT_W : ∀ v m0 σC m, WF hp i v m0 σC m →
     Mem.loadInt m.dmem (Spike.Lib.A64.Flow.WakeWc.t2 (Ly).lab + 56#64) 8 = none := by
-  have e : Spike.Lib.A64.Flow.WakeWc.t2 (Ly).lab + 56#64 = (Ly).pinA + BitVec.ofNat 64 160 := by
-    show Spike.Lib.A64.Flow.Ret0.pinA (Ly).lab + 104#64 + 56#64 = _
+  have e : Spike.Lib.A64.Flow.WakeWc.t2 (Ly).lab + 56#64 = (Ly).pinA + BitVec.ofNat 64 192 := by
+    show Spike.Lib.A64.Flow.Ret0.pinA (Ly).lab + 136#64 + 56#64 = _
     rw [(Ly).lab_pin, BitVec.add_assoc]; rfl
   rw [e]
   exact hun_W hp i ((H1Rt.a13_facts hp i hA13).2.1 _ (List.mem_map.2 ⟨10, List.mem_range.2 (by decide), rfl⟩))

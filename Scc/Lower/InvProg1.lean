@@ -1,5 +1,6 @@
 import Scc.Lower.InvProg
 import Scc.Lower.Inv1
+import Scc.Lower.SplitInv1
 
 /-!
 # The whole-program lowering of one-block `Accepted1` programs
@@ -86,16 +87,18 @@ theorem lowerWithMarks_accepted1main (cfg : Config) {d : Decl} (hd : Accepted1 [
           [(Names.user "main", marks1 d r)]) := by
   obtain ⟨hn, hdl, -, -, ha, -, hbody⟩ := accepted1_main hd
   obtain ⟨r, hr, hl⟩ := lowerDeclMarks_lower1 [d] [] cfg.layout.obj none hdl
+  have hs := splitFuncMarks_func1 hd { prog := [d], externs := [], fn := d.name, obj := cfg.layout.obj } rfl
+    (List.mem_singleton_self d) (Names.user d.name) (lowerC_of_lower1 _ _ _ _ _ _ _ hr)
   rw [env1_main ha] at hr
-  rw [params1R_main ha] at hl
+  rw [params1R_main ha, hn] at hl hs
   refine ⟨r, hr, ?_⟩
   have hsp : spawnedE d.body = [] := spawnedE_body1 _ _ _ hbody
   have hh : ¬ (cfg.layout.heapBytes ≥ 2 ^ 32) := by omega
   unfold rtFuncs at hrt
   simp only [lowerWithMarks, hh, ite_false, List.any_nil, Bool.not_false, List.filter_cons_of_pos,
     List.filter_nil, List.mapM_cons, List.mapM_nil, hl, List.flatMap_cons, List.flatMap_nil, hsp,
-    List.append_nil, List.eraseDups_nil,
-    hrt, bind, Except.bind, pure, Except.pure, hn]
+    List.append_nil, List.eraseDups_nil, Functor.map, Except.map, hs,
+    hrt, bind, Except.bind, pure, Except.pure]
   rfl
 
 /-- A successful `lowerWithMarks` of a one-block `Accepted1` program is the
@@ -123,7 +126,7 @@ theorem lowerWithMarks_accepted1main_ok (cfg : Config) {d : Decl} (hd : Accepted
     unfold rtFuncs at hrt
     simp only [lowerWithMarks, hh, ite_false, List.any_nil, Bool.not_false, List.filter_cons_of_pos,
       List.filter_nil, List.mapM_cons, List.mapM_nil, hl, List.flatMap_cons, List.flatMap_nil, hsp,
-      List.append_nil, List.eraseDups_nil,
+      List.append_nil, List.eraseDups_nil, Functor.map, Except.map,
     hrt, bind, Except.bind, pure, Except.pure, hn] at h
     cases h
   | ok rt =>

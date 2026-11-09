@@ -222,7 +222,7 @@ theorem x64_lower_correctE (hd : Scc.Lower.Accepted0 [d] = true) {em : Scc.Lower
       (fun _ => 0) (fun _ => "") :=
     Scc.Sem.StaticSyms.of_none hs
   have hs' : (Ly h).Λ.static = fun _ => none := funext hs
-  obtain ⟨fr, r, entry, zl, zf, z1, z2, zs, hr, hf, h4, h16, hpro, hbody, hphB, hphP, hab⟩ :=
+  obtain ⟨fr, r, entry, m, zl, zf, z1, z2, zs, hr, hf, h4, h16, hpro, hbody, hphB, hphP, hab⟩ :=
     mainPh_ofPlaceOK hd hlow h (immsOf d)
   have hpc := Spike.Lib.X64.PhRec.hpc_ofPlaceOKE h (immsOf d) E
   have htl := tail_bare_of_accepted0 hd hlow sizes labelOffs

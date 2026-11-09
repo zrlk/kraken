@@ -173,18 +173,19 @@ theorem noBl_kind2 {cx : FnCtx} (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) (h16 
 
 /-- **`cxBlk2_ofW2`'s `hTg` from the check**: at a code predicate each of
 whose pieces sits in the run of a label passing `q` and none of the write
-abort's (`hQ`), every `b`, `b.cond`, `cbz` or `cbnz` of a `Kind2` part goes
+abort's (`hQ`, `AtQ`: whole or in two pieces around a fresh label, P5),
+every `b`, `b.cond`, `cbz` or `cbnz` of a `Kind2` part goes
 to a position off the write abort, and it has no `bl`. -/
 theorem hTg_of_tgOkQB {q : Label → Bool} {prog : List Directive} (hc : tgOkQB q prog = true) {cx : FnCtx}
     (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) (h16 : cx.frame % 16 = 0) {Cd : Int64 → List Directive → Prop}
-    (hQ : ∀ pc blk, Cd pc blk → ∃ L j, q L = true ∧ L ∉ abLabs ∧ blockAt prog L j blk = true)
+    {labQ : Label → Int64}
+    (hQ : ∀ pc blk, Cd pc blk → AtQ (fun L => q L = true ∧ L ∉ abLabs) prog labQ pc blk)
     (lab : Label → Int64) :
     ∀ pc blk, SubCd Cd pc blk → Kind2 cx blk → ∀ k (hk : k < blk.length) L,
       (classify blk[k] = some (.b L) ∨ classify blk[k] = some (.bl L) ∨
         (∃ cc, classify blk[k] = some (.bcond cc L)) ∨ (∃ t, classify blk[k] = some (.cbz t L)) ∨
         ∃ t, classify blk[k] = some (.cbnz t L)) → PosOff prog lab (lab L) := by
   rintro pc blk ⟨pc0, pre, suf, hcd, -⟩ hk k hkl L ht
-  obtain ⟨L0, j, hq, hL0, hb⟩ := hQ _ _ hcd
   have hkl' : pre.length + k < (pre ++ blk ++ suf).length := by simp; omega
   have he : (pre ++ blk ++ suf)[pre.length + k] = blk[k] := by
     simp [hkl]
@@ -192,7 +193,17 @@ theorem hTg_of_tgOkQB {q : Label → Bool} {prog : List Directive} (hc : tgOkQB 
     rcases ht with h | h | ⟨_, h⟩ | ⟨_, h⟩ | ⟨_, h⟩ <;> simp only [h, dTgt]
     exact absurd h (noBl_kind2 hf h1 h16 hk k hkl L)
   rw [← he] at hd
-  exact posOff_of_tgtOkB (tgtOkB_of_tgOkQB hc hb hq hL0 hkl' hd) lab
+  -- the piece holding the part's `k`th instruction, after a label of `q` (P5: one of two)
+  generalize pre ++ blk ++ suf = W at hcd hkl' hd
+  rcases hQ _ _ hcd with ⟨L0, j, ⟨hq, hL0⟩, -, hb⟩ | ⟨b1, b2, rfl, ⟨L1, j1, ⟨hq1, hL1⟩, -, hb1⟩,
+    ⟨L2, j2, ⟨hq2, hL2⟩, -, hb2⟩⟩
+  · exact posOff_of_tgtOkB (tgtOkB_of_tgOkQB hc hb hq hL0 hkl' hd) lab
+  · by_cases hi : pre.length + k < b1.length
+    · rw [List.getElem_append_left hi] at hd
+      exact posOff_of_tgtOkB (tgtOkB_of_tgOkQB hc hb1 hq1 hL1 hi hd) lab
+    · have hi2 : pre.length + k - b1.length < b2.length := by simp at hkl'; omega
+      rw [List.getElem_append_right (by omega)] at hd
+      exact posOff_of_tgtOkB (tgtOkB_of_tgOkQB hc hb2 hq2 hL2 hi2 hd) lab
 
 /-- **`cxBlk2_ofW2`'s `hTg` from `tgOkB`** at a code predicate of pieces at
 `CdCLE` (`hTg_of_tgOkQB`, its pieces at `CdCL`'s labels: user functions'
@@ -206,8 +217,7 @@ theorem hTg_of_tgOkB {prog : List Directive} (hc : tgOkB prog = true) {cx : FnCt
         (∃ cc, classify blk[k] = some (.bcond cc L)) ∨ (∃ t, classify blk[k] = some (.cbz t L)) ∨
         ∃ t, classify blk[k] = some (.cbnz t L)) → PosOff prog lab' (lab' L) :=
   hTg_of_tgOkQB hc hf h1 h16 (fun pc blk h =>
-    let ⟨⟨_, L, j, ⟨hL, hW⟩, _, hb, _⟩, _⟩ := hCd pc blk h
-    ⟨L, j, hW, hL, hb⟩) lab'
+    (hCd pc blk h).1.2.1.mono fun _ ⟨hL, hW⟩ => ⟨hW, hL⟩) lab'
 
 end Spike.Lib.LowerA64
 

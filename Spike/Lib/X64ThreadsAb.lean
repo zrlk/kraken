@@ -81,7 +81,7 @@ abbrev spLoad (s : State) (o : BitVec 64) : Option (BitVec 64) := privLoad s (s.
 variable (lab : Label → Int64) (pfx : String)
 
 /-- The spawn's `clone` call: the `syscall` of `pfx.x21`. -/
-abbrev cloneAt : Int64 := lab (pfx ++ ".x21") + 46
+abbrev cloneAt : Int64 := lab (pfx ++ ".x3") + 46
 
 /-- The pc after the call: `testq %rax, %rax`. -/
 abbrev pcRet : Int64 := cloneAt lab pfx + 2
@@ -91,11 +91,11 @@ tests and branches in one instruction). -/
 abbrev pcJe : Int64 := cloneAt lab pfx + 5
 
 /-- `.x22`'s store of the result. -/
-abbrev pcSt : Int64 := lab (pfx ++ ".x22")
+abbrev pcSt : Int64 := lab (pfx ++ ".x4")
 
 /-- `.x22`'s tests of the stored result up to its `jl`. -/
 def tailPcs : List Int64 :=
-  [lab (pfx ++ ".x22") + 4, lab (pfx ++ ".x22") + 8, lab (pfx ++ ".x22") + 15, lab (pfx ++ ".x22") + 18]
+  [lab (pfx ++ ".x4") + 4, lab (pfx ++ ".x4") + 8, lab (pfx ++ ".x4") + 15, lab (pfx ++ ".x4") + 18]
 
 /-- `.spawnfail5`: `movq $5, %rdi; call scc_rt_abort`. -/
 def failPcs : List Int64 := [lab (pfx ++ ".spawnfail5"), lab (pfx ++ ".spawnfail5") + 7]

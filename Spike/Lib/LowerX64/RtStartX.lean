@@ -421,6 +421,155 @@ theorem blkW_rtXG {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc p
   obtain rfl := hc0 σ c hJ
   exact ⟨⟨h1.1, hpl0 _, fun L hL => (h2.1 L hL).elim, rfl⟩, fun _ h => h⟩
 
+/-! ## Blocks split by a return label -/
+
+/-- The first part of a block across a label is a block at its label. -/
+theorem blockAtB_of_blockAcrossB {l m : Label} {off : Nat} {a b : List (Directive × Nat)}
+    (h : Scc.Cert.Rt.X64.blockAcrossB cells l off a m b = true) : blockAtB cells l off a = true := by
+  simp only [Scc.Cert.Rt.X64.blockAcrossB, Bool.and_eq_true] at h
+  exact h.1.1
+
+/-- **A cell of a block split by a return label is a position off the write
+abort** (`m`, after the block's first `j` rows; `blockAcrossB`), both labels
+off the write abort's: before the split in `l`'s run, after it in `m`'s. -/
+theorem posOff_of_blockAcrossB {kp : Nat} (hp : Scc.Cert.Rt.X64.Lays exe cells kp) {l m : Label} {off j i : Nat}
+    {blk : List (Directive × Nat)}
+    (hb : Scc.Cert.Rt.X64.blockAcrossB cells l off (blk.take j) m (blk.drop j) = true)
+    (hl : l ∉ abLabs) (hm : m ∉ abLabs) (hi : i < blk.length) :
+    PosOff cells (_root_.Executable.labels exe).label
+      ((_root_.Executable.labels exe).label l + Int64.ofNat (off + cellOff blk i)) := by
+  simp only [Scc.Cert.Rt.X64.blockAcrossB, Bool.and_eq_true] at hb
+  obtain ⟨⟨h1, hg⟩, h2⟩ := hb
+  by_cases hij : i < j
+  · have hi' : i < (blk.take j).length := by simp; omega
+    have hr := inRunB_of_blockAtB h1 hi'
+    have hc : cellOff (blk.take j) i = cellOff blk i := by
+      simp only [cellOff, List.take_take, Nat.min_eq_left (Nat.le_of_lt hij)]
+    rw [hc] at hr
+    exact ⟨l, _, hr, hl, rfl⟩
+  · have hj : j ≤ blk.length := by omega
+    have hi' : i - j < (blk.drop j).length := by simp; omega
+    have hr := inRunB_of_blockAtB h2 hi'
+    have hgap := Scc.Cert.Rt.X64.label_labelGapB hp hg
+    have hc : cellOff blk i = ((blk.take j).map (·.2)).sum + cellOff (blk.drop j) (i - j) := by
+      have e : cellOff blk i = cellOff (blk.take j ++ blk.drop j) i := by rw [List.take_append_drop]
+      rw [e]
+      unfold cellOff
+      rw [List.take_append, List.take_of_length_le (by simp; omega), List.map_append, List.sum_append]
+      simp [List.length_take, Nat.min_eq_left hj]
+    refine ⟨m, _, hr, hm, ?_⟩
+    rw [hgap, hc, Nat.zero_add, Int64.add_assoc, ← Int64.ofNat_add, Nat.add_assoc]
+
+/-- **`blkW_abSt_tg`'s targets from the place of a block split by a return
+label** (`m`, after its first `j` rows; `blockAcrossB`, `m` off the write
+abort's): as `htgt_offR`. -/
+theorem htgt_offRA {kp : Nat} (hp : Scc.Cert.Rt.X64.Lays exe cells kp)
+    (hpr : Scc.Cert.Rt.X64.Print.printIn cells = true) (hab : Scc.Cert.Rt.X64.Abort.abortIn cells = true)
+    {n : ND} {blk : List (Directive × Nat)} {l m : Label} {off j : Nat} {ra : Int64} {lo hi : Int}
+    (hb : Scc.Cert.Rt.X64.blockAcrossB cells l off (blk.take j) m (blk.drop j) = true)
+    (hok : okBlk lo hi n.o blk = true)
+    (he : (_root_.Executable.labels exe).label l + Int64.ofNat off = n.pc) (hl : l ∉ abLabs)
+    (hm : m ∉ abLabs)
+    (hnext : lastFalls blk = true → PosOff cells (_root_.Executable.labels exe).label
+      ((_root_.Executable.labels exe).label l + Int64.ofNat (off + cellOff blk blk.length)) ∨
+        ∀ σ c, n.J σ c → PosOff cells (_root_.Executable.labels exe).label
+          (arun (_root_.Executable.labels exe).label blk ⟨n.pc, n.o, σ⟩).pc)
+    (hlabs : ∀ L ∈ blkLabs blk, L ≠ "scc_rt_abort" →
+      PosOff cells (_root_.Executable.labels exe).label ((_root_.Executable.labels exe).label L) ∨
+        ∀ σ c, n.J σ c → PosOff cells (_root_.Executable.labels exe).label
+          (arun (_root_.Executable.labels exe).label blk ⟨n.pc, n.o, σ⟩).pc)
+    (hra : noRetBlk blk = false → ra ∉ Spike.Lib.X64.WriteAb.abPcs (_root_.Executable.labels exe).label)
+    (habt : ∀ σ c, n.J σ c → ∀ k (hk : k < blk.length) a, classify blk[k].1 = some a →
+      aiLab a = some "scc_rt_abort" → a = .call "scc_rt_abort" ∧
+        (arun (_root_.Executable.labels exe).label (blk.take k) ⟨n.pc, n.o, σ⟩).σ.regs.get64 .rdi ≠ 4#64) :
+    ∀ σ c, n.J σ c → ∀ k (hk : k < blk.length) a, classify blk[k].1 = some a →
+      ∀ t ∈ aiTgts (_root_.Executable.labels exe).label
+          (n.pc + Int64.ofNat (cellOff blk k) + Int64.ofNat blk[k].2) ra a,
+        (k + 1 = blk.length → t = (arun (_root_.Executable.labels exe).label blk ⟨n.pc, n.o, σ⟩).pc) →
+        t ∉ Spike.Lib.X64.WriteAb.abPcs (_root_.Executable.labels exe).label ∨
+          (a = .call "scc_rt_abort" ∧
+            (arun (_root_.Executable.labels exe).label (blk.take k) ⟨n.pc, n.o, σ⟩).σ.regs.get64 .rdi ≠ 4#64) := by
+  intro σ c hJ k hk a ha t ht hdt
+  by_cases hr : a = .ret
+  · subst hr
+    left
+    simp only [aiTgts, List.mem_singleton] at ht
+    cases hnr : noRetBlk blk
+    · exact ht ▸ hra hnr
+    · exact (noRet_false hnr k hk ha).elim
+  · rcases aiTgts_cases hr ht with ⟨rfl, hf⟩ | ⟨L, hL, rfl⟩
+    · left
+      have hpos : n.pc + Int64.ofNat (cellOff blk k) + Int64.ofNat blk[k].2 =
+          (_root_.Executable.labels exe).label l + Int64.ofNat (off + cellOff blk (k + 1)) := by
+        rw [← he, cellOff_succ hk, Int64.ofNat_add, Int64.ofNat_add, Int64.add_assoc, Int64.add_assoc]
+      by_cases hlt : k + 1 < blk.length
+      · refine notAbPc_of_posOff hp hpr hab ?_
+        rw [hpos]
+        exact posOff_of_blockAcrossB hp hb hl hm hlt
+      · have hk1 : k = blk.length - 1 := by omega
+        have hlast : blk.getLast? = some blk[k] := by
+          rw [List.getLast?_eq_getElem?]; simp [hk1]
+        rcases hnext (by simp only [lastFalls, hlast, ha, Option.map_some, Option.getD_some, hf]) with hn' | hend
+        · refine notAbPc_of_posOff hp hpr hab ?_
+          rw [hpos]
+          rwa [show k + 1 = blk.length by omega]
+        · exact hdt (by omega) ▸ notAbPc_of_posOff hp hpr hab (hend σ c hJ)
+    · have hmem : L ∈ blkLabs blk := List.mem_filterMap.mpr ⟨blk[k], List.getElem_mem hk, by
+        simp only [ha, Option.bind_some]; exact hL⟩
+      by_cases hab' : L = "scc_rt_abort"
+      · exact .inr (habt σ c hJ k hk a ha (hab' ▸ hL))
+      · -- a branch is the block's last instruction
+        obtain ⟨a', ha', -, hterm⟩ :=
+          Spike.Lib.X64.okBlk_get (_root_.Executable.labels exe).label (am := ⟨n.pc, n.o, σ⟩) hok hk
+        rw [ha] at ha'
+        cases ha'
+        have hlast : k + 1 = blk.length := by
+          refine Classical.byContradiction fun hne => ?_
+          have := hterm (by omega)
+          cases a <;> simp_all [aiLab, Spike.Lib.X64.AI.isTerm]
+        rcases hlabs L hmem hab' with hL' | hend
+        · exact .inl (notAbPc_of_posOff hp hpr hab hL')
+        · exact .inl (hdt hlast ▸ notAbPc_of_posOff hp hpr hab (hend σ c hJ))
+
+/-- **A covered runtime block split by a return label inside `RtX`** (`m`,
+after its first `j` rows; `blockAcrossB`, `m` off the write abort's), a
+`ret` and abort calls allowed: as `blkW_rtXG`. -/
+theorem blkW_rtXGA {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp)
+    (hpr : Scc.Cert.Rt.X64.Print.printIn cells = true) (hab : Scc.Cert.Rt.X64.Abort.abortIn cells = true)
+    {n : ND} {blk : List (Directive × Nat)} {lo hi : Int} {dead : Nat → Bool} {ra : Int64} {l m : Label}
+    {off j : Nat} (hb : Scc.Cert.Rt.X64.blockAcrossB cells l off (blk.take j) m (blk.drop j) = true)
+    (he : lab l + Int64.ofNat off = n.pc)
+    (hok : okBlk lo hi n.o blk = true) (hR : R.OK) (hlo : R.lo ≤ lo) (hhi : hi ≤ R.hi)
+    (hph : blkPh okPc ph dead lab n.pc ra blk = true) (hl : l ∉ abLabs) (hm : m ∉ abLabs)
+    (hret : ∀ σ c, n.J σ c → ∀ k (hk : k < blk.length), classify blk[k].1 = some .ret →
+      Int64.ofBitVec ((arun lab (blk.take k) ⟨n.pc, n.o, σ⟩).σ.slot (arun lab (blk.take k) ⟨n.pc, n.o, σ⟩).so.sp)
+        = ra)
+    (hra : noRetBlk blk = false → ra ∉ Spike.Lib.X64.WriteAb.abPcs lab)
+    (hnext : lastFalls blk = true → PosOff cells lab (lab l + Int64.ofNat (off + cellOff blk blk.length)) ∨
+      ∀ σ c, n.J σ c → PosOff cells lab (arun lab blk ⟨n.pc, n.o, σ⟩).pc)
+    (hlabs : ∀ L ∈ blkLabs blk, L ≠ "scc_rt_abort" → PosOff cells lab (lab L) ∨
+      ∀ σ c, n.J σ c → PosOff cells lab (arun lab blk ⟨n.pc, n.o, σ⟩).pc)
+    (habt : ∀ σ c, n.J σ c → ∀ k (hk : k < blk.length) a, classify blk[k].1 = some a →
+      aiLab a = some "scc_rt_abort" → a = .call "scc_rt_abort" ∧
+        (arun lab (blk.take k) ⟨n.pc, n.o, σ⟩).σ.regs.get64 .rdi ≠ 4#64)
+    (hc0 : ∀ σ c, n.J σ c → c = c0) (hpl0 : ∀ s, PlacedS Λ lbl s c0 []) :
+    BlkW (RtX Λ μ ar lbl lab c0) (fun _ _ => False) exe endPc R F n blk := by
+  have hcode : ∀ s : State, s.exe = exe → s.endPc = endPc → Spike.Lib.X64.CodeAt s n.pc blk :=
+    Spike.Lib.X64.code_field_blockAcrossB hI.lays hI.endOk hb (List.take_append_drop j blk)
+      (by rw [hI.labOk]; exact he)
+  have hW := Spike.Lib.X64.AllocG.blkW_noWrA hI hb he hok hR hlo hhi (F := F)
+  have hlays := hI.lays
+  have hA : BlkW (fun s _ => AbSt μ (Ab lab) s) (fun _ _ => False) exe endPc R F n blk := by
+    obtain ⟨-, -, hlab, -, -⟩ := id hI
+    subst hlab
+    exact blkW_abSt_tg hI hpr hab hcode hok hR hlo hhi hph hret
+      (htgt_offRA hlays hpr hab hb hok he hl hm hnext hlabs hra habt)
+  intro s σ c hs hn hd hpc hAb hF hJ k' hk m hA' hD
+  have h1 := hA s σ c hs hn hd hpc hAb hF hJ k' hk m hA' hD
+  have h2 := hW s σ c hs hn hd hpc hAb hF hJ k' hk m hA' hD
+  obtain rfl := hc0 σ c hJ
+  exact ⟨⟨h1.1, hpl0 _, fun L hL => (h2.1 L hL).elim, rfl⟩, fun _ h => h⟩
+
 /-! ## Loads, exchanges and the take site -/
 
 /-- **A runtime node at a load** `movq k(%b), %r` of a word unmapped in

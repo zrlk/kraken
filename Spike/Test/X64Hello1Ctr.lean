@@ -18,7 +18,7 @@ x86-64 twin of `Spike/Test/A64Hello1Ctr.lean`.
 Where x86-64 differs from AArch64: `scc_rt_main`'s region is `mainR v L`
 under `mainF` (no alignment premise on `v`, so no `aR_al`); the
 allocator's region `aR` keeps the return address cell above (`hi' = 8`);
-the allocator returns to `wc_rodata`'s `.x13`; the call's frame record is
+the allocator returns to `wc_rodata`'s `.x0`; the call's frame record is
 `fp` (`%rbp`) for `x29`; the heap abort's node is left to `wc_rodata`'s
 region by `at_leave`.
 -/
@@ -120,7 +120,7 @@ theorem allocA_closedWS {W : FragS isa} {inv1 : WeakMem.AllocLabel → Nat → N
     (m0 : MachineData) (σC : AS)
     (q : AG (msOfA hello1Λ μ rd G own ar (Ih lsize (fun _ _ _ => False) inv1) hello1Λ.static lsize
       [setupFrame e env]) (_root_.Executable.labels exe).label)
-    (hra : q.1.ra = ((_root_.Executable.labels exe).label ".Lwc_rodata.x13").toBitVec) :
+    (hra : q.1.ra = ((_root_.Executable.labels exe).label ".Lwc_rodata.x0").toBitVec) :
     SegWS W K p hello1Λ.static
       (msOfA hello1Λ μ rd G own ar (Ih lsize (fun _ _ _ => False) inv1) hello1Λ.static lsize)
       ((Next exe endPc (aR (mR (mainR v L)))
@@ -243,7 +243,7 @@ theorem qswap {ms : MemSide isa} {R0 : Region} {F0 : MachineData → Prop} {m0 :
       ⟨s0, s8, s16.trans hqh, s24.trans hqk, s32.trans hqu⟩, hn1⟩, hrcx, hrax.trans hqu⟩⟩
 
 /-- **The context of `W0`'s counter write**: `scc_rt_alloc`'s counter add
-for `wc_rodata`'s call `q` (returning to `wc_rodata`'s `.x13`) under
+for `wc_rodata`'s call `q` (returning to `wc_rodata`'s `.x0`) under
 `rodata`'s frame, in the allocator's region under its frame condition
 (`FaA`) for some well-formed region `swR v (-L) 0` and caller's state
 `m0`, `σC`. Any such call, as `RdPreW.alloc` quantifies: `hctrA` swaps it
@@ -255,7 +255,7 @@ def CtxA (μ : Marks) (rd : TermRun.Word → Prop) (G : Loc → Val → Prop) (o
     (L : Int) (e : Expr) (env : TermRun.Env) : FragS isa := fun s c fs =>
   fs = [setupFrame e env] ∧ ∃ v : BitVec 64, (swR v (-L) 0).OK ∧
     ∃ (m0 : MachineData) (σC : AS) (q : Call),
-    q.ra = ((_root_.Executable.labels exe).label ".Lwc_rodata.x13").toBitVec ∧
+    q.ra = ((_root_.Executable.labels exe).label ".Lwc_rodata.x0").toBitVec ∧
     At exe endPc (aR (mR (mainR v L)))
       (FaA (msOfA hello1Λ μ rd G own ar (fun _ _ _ _ _ => False) hello1Λ.static lsize [setupFrame e env]) exe rT
         tcb top c0 L v m0 σC q)

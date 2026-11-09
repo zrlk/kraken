@@ -16,7 +16,7 @@ component of `Wf`:
 
 **Where this differs from AArch64** (forced by the x86-64 shape): the
 labels are `wakeCells`' (`codeLabel`, A64's `codeOf … wakeProg`); the
-return point is `.Lwc_main.x18` (A64's `.L21_wc_main.sp0`); the region is
+return point is `.Lwc_main.x0` (A64's `.L21_wc_main.sp0`); the region is
 the allocator's frame `[-160, 8)` with an 8-aligned base (`hR8`, as
 `allocW_wcG` asks; A64's `hal`, `0 ≤ R.hi`).
 -/
@@ -57,7 +57,7 @@ theorem allocW_WS (hp : L.prog = wakeCells) (hlo : L.Λ.code.lo = Spike.Lib.X64.
     (a : BitVec 64) {ms : Spike.Lib.MemSide isa} {q : Call}
     (hR : R.OK) (hR8 : R.base.toNat % 8 = 0) (hlo' : R.lo ≤ -160) (hhi : 8 ≤ R.hi)
     (hl : R.lo % 8 = 0) (hh : R.hi % 8 = 0) (hpool : L.Λ.stackPool.lo ≤ 2 ^ 64)
-    (hra : q.ra = (L.lab ".Lwc_main.x18").toBitVec) (hq : ∀ m, F m → q.OKS ms L.lab)
+    (hra : q.ra = (L.lab ".Lwc_main.x0").toBitVec) (hq : ∀ m, F m → q.OKS ms L.lab)
     (hmp : ∀ l, ms.mp l true → Scc.Sem.Kernel.mapped (Spike.Lib.X64Consumer.K0 L.Λ) true l = true)
     (hmem : ∀ a : BitVec 64,
       (a = BitVec.ofNat 64 ms.ctr ∨ ∃ o, o + ms.units q.n q.τ ≤ ms.cells ∧ a.toNat = q.hdrAt ms o) →

@@ -111,13 +111,13 @@ theorem sp0bW_wcGH (a : BitVec 64) (hR : R.OK) (hRlo : R.lo ≤ -136) (hhi : 8 �
     {ms : Spike.Lib.MemSide isa} {J0 : Spike.Lib.X64.AS → Spike.Lib.Ctl → Prop} :
     BlkW (fun s _ => SFactsSt2 Λ (Spike.Lib.X64.PhRec.μ L) (ownGH L a) s) (Spike.Lib.X64.PhRec.K L rS)
       L.exe L.endPc R F (sNH ms L.lab R J0 .b) wcS0H :=
-  blkW_wcGH hp hlo hΛ hlab a hsite (l := ".Lwc_main.x22") (k := 0)
+  blkW_wcGH hp hlo hΛ hlab a hsite (l := ".Lwc_main.x0") (k := 0)
     (by have := hello_wcS0InH; simp only [wcS0InH, Bool.and_eq_true] at this; exact this.1)
     (ofNat_zero' _) wcS0H_ok hR hRlo hhi (by decide) (by decide) (by wcfreeBH_dec)
     (fun σ c _ => by
       show freeNH (arun L.lab wcS0H ⟨_, oWRH, σ⟩).pc.toBitVec.toNat = true
       rw [wcS0H_run]
-      exact freeAt_pcH hlab (l := ".Lwc_main.x22") (os := [15]) (by wcfreeH_dec) (List.mem_singleton.mpr rfl))
+      exact freeAt_pcH hlab (l := ".Lwc_main.x0") (os := [15]) (by wcfreeH_dec) (List.mem_singleton.mpr rfl))
 
 /-- **The reserve's call block inside `SFactsSt2` at `ownGH`.** -/
 theorem resBlW_wcGH (a : BitVec 64) (hR : R.OK) (hRlo : R.lo ≤ -136) (hhi : 16 ≤ R.hi)
@@ -125,7 +125,7 @@ theorem resBlW_wcGH (a : BitVec 64) (hR : R.OK) (hRlo : R.lo ≤ -136) (hhi : 16
     {Q : WeakMem.AllocLabel → Nat → Spike.Lib.Ctl → Prop} :
     BlkW (fun s _ => SFactsSt2 Λ (Spike.Lib.X64.PhRec.μ L) (ownGH L a) s) (Spike.Lib.X64.PhRec.K L rS)
       L.exe L.endPc R F (rNH ms L.lab R J0 Q .bl) resBH :=
-  blkW_wcGH hp hlo hΛ hlab a hsite (l := ".Lwc_main.x22") (k := 18)
+  blkW_wcGH hp hlo hΛ hlab a hsite (l := ".Lwc_main.x0") (k := 18)
     (by have := hello_wcResInH; simp only [wcResInH, Bool.and_eq_true] at this; exact this.1)
     rfl resBH_ok hR hRlo hhi (by decide) (by decide) (by wcfreeBH_dec)
     (fun σ c _ => by
@@ -144,11 +144,11 @@ theorem sp0stW_wcGH (a : BitVec 64) {ms : Spike.Lib.MemSide isa} {J0 : Spike.Lib
   simp only [wcS0InH, Bool.and_eq_true] at hin
   obtain ⟨-, h3⟩ := hin
   have hI := instOkH hp hlo a (fun _ => False) hsite (rS := rS)
-  have hb : blockAtB L.prog ".Lwc_main.x22" 15 [(Spike.Lib.X64.stDir .rcx 0 .rax, 3)] = true := by
+  have hb : blockAtB L.prog ".Lwc_main.x0" 15 [(Spike.Lib.X64.stDir .rcx 0 .rax, 3)] = true := by
     rw [hp]; exact h3
   have hf := Spike.Lib.X64.Rt.PhOfTab.step_of_factOk hlab
-    (wcW_factH hΛ (f := .step ".Lwc_main.x22" 15 3) (by decide))
-  have hfr : freeAtH ".Lwc_main.x22" [15, 15 + 3] = true := by wcfreeH_dec
+    (wcW_factH hΛ (f := .step ".Lwc_main.x0" 15 3) (by decide))
+  have hfr : freeAtH ".Lwc_main.x0" [15, 15 + 3] = true := by wcfreeH_dec
   have f0 := freeAt_pcH hlab hfr (o := 15) (by simp)
   have f3 := freeAt_pcH hlab hfr (o := 15 + 3) (by simp)
   rw [ofNat_add'] at f3

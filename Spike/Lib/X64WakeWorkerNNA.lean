@@ -214,7 +214,7 @@ theorem seg_unparkCallWNNA (hF : FStable R F) (hR : R.OK) (hlo : R.lo ≤ -72) (
     {c0' c1' : Ctl} {B' rbp0' ra' tp' : BitVec 64} (hpcode : Unpark.Code c0' c1' B' rbp0' ra' tp' exe endPc)
     (hpentry : (_root_.Executable.labels exe).label ".Lscc_rt_unpark.entry" =
       (_root_.Executable.labels exe).label "scc_rt_unpark" + 12)
-    (hx14 : (_root_.Executable.labels exe).label ".Lwc_worker.x14" =
+    (hx14 : (_root_.Executable.labels exe).label ".Lwc_worker.x0" =
       (_root_.Executable.labels exe).label ".Lwc_worker.entry" + 14 + 9)
     (hZU : ∀ (R' : Region) (F' : MachineData → Prop),
       CallerF R F (N (_root_.Executable.labels exe).label c0 c1 c2 A B rbp0 ra tp sp .unpk) 0 (-40) 8 R' F' →
@@ -246,7 +246,7 @@ theorem seg_unparkCallWNNA (hF : FStable R F) (hR : R.OK) (hlo : R.lo ≤ -72) (
     refine .inl ⟨(), ?_, by show SO.le oP ⟨-32 - 0 + 8, []⟩ = true; decide, hc',
       ?_, ?_, ?_, ?_, ?_, ?_⟩
     · subst hra
-      show (_root_.Executable.labels exe).label ".Lwc_worker.x14" = Int64.ofBitVec (σC.slot (-32))
+      show (_root_.Executable.labels exe).label ".Lwc_worker.x0" = Int64.ofBitVec (σC.slot (-32))
       rw [h32, hx14]; rfl
     · rw [hout (-8) (by decide) (by decide) (by decide)]; exact h8
     · rw [hout 0 (by decide) (by decide) (by decide)]; exact h0
@@ -278,7 +278,7 @@ theorem seg_wkTailWUNNA (hF : FStable R F) (hR : R.OK) (hlo : R.lo ≤ -72) (hhi
     {c0' c1' : Ctl} {B' rbp0' ra' tp' : BitVec 64} (hpcode : Unpark.Code c0' c1' B' rbp0' ra' tp' exe endPc)
     (hpentry : (_root_.Executable.labels exe).label ".Lscc_rt_unpark.entry" =
       (_root_.Executable.labels exe).label "scc_rt_unpark" + 12)
-    (hx14 : (_root_.Executable.labels exe).label ".Lwc_worker.x14" =
+    (hx14 : (_root_.Executable.labels exe).label ".Lwc_worker.x0" =
       (_root_.Executable.labels exe).label ".Lwc_worker.entry" + 14 + 9)
     (hZ : ∀ i, NodeZA Z exe endPc R F (NA (_root_.Executable.labels exe).label c0 c1 c2 A B rbp0 ra tp (R.addr 0) i)
       (blkN i))
@@ -330,7 +330,7 @@ local macro "thit " j:term : tactic =>
 /-- **`seg_thrTailW` off the transfer sites.** -/
 theorem seg_thrTailWNNA {Q : Frag isa} (hF : FStable R F) (hR : R.OK) (hlo : R.lo ≤ -40) (hhi : 8 ≤ R.hi)
     (hK : ms.K = some Scc.Sem.X64.abi) (hT : LdOk ms F tp)
-    (hown : OwnAt ms exe endPc ((_root_.Executable.labels exe).label ".Lscc_rt_thr_worker.x12") tp tp)
+    (hown : OwnAt ms exe endPc ((_root_.Executable.labels exe).label ".Lscc_rt_thr_worker.x0") tp tp)
     (hS : StOk ms F (tp + 24#64) 1#64) {a : CoreTerm.At} (ht : c0.term = .ret a)
     (hcode : Code c0 tp (R.addr 0) exe endPc)
     (hZ : ∀ i, NodeZA Z exe endPc R F (NA (_root_.Executable.labels exe).label c0 tp (R.addr 0) i) (blkN i)) :

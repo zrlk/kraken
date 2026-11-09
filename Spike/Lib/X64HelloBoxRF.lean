@@ -4,13 +4,13 @@
 `X64WakeTakeFLy.wF_takeMem`/`stackOff_r0_box` and `X64WakeBoxW.fS_dmem`/`wF_dmem`,
 taken at hello's `wc_main` frame condition at the call,
 `wcF (RS Lsw v) D (FS Ly rS0 Lsw 0 v) m1 σ1`, with the runtime's words unmapped
-under it. These are `H1GAH`'s region and frame fields at the box's real ghost
-(`RootHP.hP_of`).
+under it. These are `H1GAHG`'s region and frame fields at the box's real ghost
+(`RootHP.hP_ofG`).
 
 - `rtF_of_wn`: `WordsNoneP` gives `rtF`: every runtime word's bytes are in
   `.data` or `pinned` (`words_mapped`).
 - `unF_of_wn`: `WordsNoneP` gives the second TCB's words unmapped (`tH = pinA +
-  112`, six words), given that the pinned region reaches `pinA + 168` (`hpin2`).
+  112`, six words), given that the pinned region reaches `pinA + 200` (`hpin2`).
 - `wcF_dmemH`: the frame condition reads memory only (`fcg`).
 - `wcF_takeMemH`: the frame condition survives the child's stack take (`fcl`).
 - `stackOff_r0_boxH`: main's stack is mapped off `wc_main`'s region under the
@@ -67,15 +67,15 @@ local notation "RS0" => Spike.Lib.X64.Rt.rS0 (Ly)
 set_option hygiene false in
 local notation "R1" => Spike.Lib.X64.Rt.PreChild.r1Of (Ly).lab
 
-/-- **`WordsNoneP` gives the second TCB's words unmapped** (`H1GAH.hunF`): `tH = pinA + 112` and its six words lie
-in `[pinA + 112, pinA + 160)`, inside the pinned region (`pinA` its base, `hpin2` its reach). -/
-theorem unF_of_wn (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) {m : MachineData}
+/-- **`WordsNoneP` gives the second TCB's words unmapped** (`H1GAHG.hunF`): `tH = pinA + 144` and its six words lie
+in `[pinA + 144, pinA + 192)`, inside the pinned region (`pinA` its base, `hpin2` its reach). -/
+theorem unF_of_wn (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) {m : MachineData}
     (h : WordsNoneP (Ly).Λ m.dmem) :
     ∀ a ∈ Spike.Lib.X64.Rt.Ti.tiAddrs (Spike.Lib.X64.Flow.HelloWc.tH (Ly).lab), Mem.loadInt m.dmem a 8 = none := by
   have hp0 : (Ly).pinA.toNat = (Ly).Λ.pinned.lo := Spike.Lib.PlaceWX.pinA_toNat_ofPlaceWX hpw i
   have hs := (Ly).words_small _ (Ly).pin_mem
-  have hT : (Spike.Lib.X64.Flow.HelloWc.tH (Ly).lab).toNat = (Ly).pinA.toNat + 112 := by
-    show (Spike.Lib.X64.Flow.Ret0.pinA (_root_.Executable.labels (Ly).exe).label + 112#64).toNat = _
+  have hT : (Spike.Lib.X64.Flow.HelloWc.tH (Ly).lab).toNat = (Ly).pinA.toNat + 144 := by
+    show (Spike.Lib.X64.Flow.Ret0.pinA (_root_.Executable.labels (Ly).exe).label + 144#64).toNat = _
     rw [(Ly).lab_pin, BitVec.toNat_add, BitVec.toNat_ofNat]
     simp only [Nat.reducePow, Nat.reduceMod]
     omega
@@ -87,7 +87,7 @@ theorem unF_of_wn (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ
   obtain ⟨k, hk, rfl⟩ := hk
   intro j hj
   have ha : (Spike.Lib.X64.Flow.HelloWc.tH (Ly).lab + BitVec.ofNat 64 (8 * k)).toNat =
-      (Ly).pinA.toNat + 112 + 8 * k := by
+      (Ly).pinA.toNat + 144 + 8 * k := by
     rw [BitVec.toNat_add, hT, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega), Nat.mod_eq_of_lt (by omega)]
   rw [ha]
   unfold Spike.Lib.X64.DmemPriv.PrivB Scc.Sem.Range.contains
@@ -95,7 +95,7 @@ theorem unF_of_wn (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ
 
 /-! ## `wc_main`'s frame condition at the call -/
 
-/-- **The frame condition reads memory only** (`H1GAH.fcg`; wake's `X64WakeBoxW.fS_dmem`/`wF_dmem`). -/
+/-- **The frame condition reads memory only** (`H1GAHG.fcg`; wake's `X64WakeBoxW.fS_dmem`/`wF_dmem`). -/
 theorem wcF_dmemH {R : Spike.Lib.Region} {D : Int} {L : RuntimeLayout} {rS : Scc.Sem.Range} {Lsw : Int}
     {k0 v : BitVec 64} {m1 : MachineData} {σ1 : Spike.Lib.X64.AS} :
     ∀ m m' : MachineData, m'.dmem = m.dmem → wcF R D (FS L rS Lsw k0 v) m1 σ1 m → wcF R D (FS L rS Lsw k0 v) m1 σ1 m' :=
@@ -159,7 +159,7 @@ private theorem rs_okH {Lsw : Int} {v : BitVec 64} (hL8 : 8 ≤ Lsw) (hv : Lsw �
     Spike.Lib.Region.callee_base hR (by show -Lsw ≤ -8 - 0 + (8 - Lsw); omega) (by show 8 - Lsw ≤ 0; omega)
       (by show (-8 - 0 : Int) < 0; decide)⟩
 
-/-- **The frame condition survives the child's stack take** (`H1GAH.fcl`; wake's `X64WakeTakeFLy.wF_takeMem` at a
+/-- **The frame condition survives the child's stack take** (`H1GAHG.fcl`; wake's `X64WakeTakeFLy.wF_takeMem` at a
 depth `Lsw`): `WordsNoneP` by `wordsNoneP_takeMem`; the limit word a runtime word; stack 0's words, the switch
 region's cells and `wc_main`'s cells below `v = stacksA + 16384`, all off the child's stack. -/
 theorem wcF_takeMemH (hA13 : Scc.Cert.Spawn.X64.a13data (Ly).Λ o.prog o.secs = true)
@@ -210,7 +210,7 @@ theorem wcF_takeMemH (hA13 : Scc.Cert.Spawn.X64.a13data (Ly).Λ o.prog o.secs = 
     rw [Spike.Lib.X64.Flow.Ret0.loadInt_takeMem (below_offH hpw i hA13 (by omega))]
     exact hck k hk hn
 
-/-- **Main's stack mapped off `wc_main`'s region** (`H1GAH.hF0`; wake's `X64WakeTakeFLy.stackOff_r0_box` at depths
+/-- **Main's stack mapped off `wc_main`'s region** (`H1GAHG.hF0`; wake's `X64WakeTakeFLy.stackOff_r0_box` at depths
 `Lsw`/`D`), at the box's frame based at the saved `%rbp`, `(wcR (RS Lsw v) D).fp (-8)` (where `bXH` is stated;
 the same cells as `wcR (RS Lsw v) D`, `Region.fp_out'`): stack 0's words off `swR` from `FS`; those in
 `scc_rt_main`'s region `RS Lsw v` but off `wc_main`'s kept from the call (`CKept`, `Abs`). -/

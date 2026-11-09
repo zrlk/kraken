@@ -7,7 +7,7 @@ any value invariant `G`, and the child's frame on the stub's region `childR top 
 - `stOk_pinnedH`: a word whose 8 bytes lie in `pinned` is a runtime store under `helloMs` in the child's
   frame, given `G` at the word and value (as `WakeChildSt.stOk_pinned`).
 - `childSt_IH`: main's permit word `pinA + 24` and the second TCB's word `pinA + 128` take the store of `1`
-  (`hpin2`: the pinned region reaches `pinA + 168`; `hG`: `G` allows `1` there).
+  (`hpin2`: the pinned region reaches `pinA + 200`; `hG`: `G` allows `1` there).
 - `StOk.withBW`: a runtime store's facts do not read the byte or abort rows, so they hold at
   `ms.withBW bo we` (hello's `helloMsW`, the child segment's memory side).
 - `hdm_placed`: a word inside a placed label (`MemRelP`'s placement: `.data` or the heap) is unmapped in
@@ -90,14 +90,14 @@ theorem stOk_pinnedH {ts : Nat → Option Nat} {tm : Memory} {sm : WeakMem.Memor
     exact hoff 0 (by decide) ⟨l, b, hl, by simpa using hx⟩
 
 /-- **`hS`/`hSx` at the instance**: main's permit word `pinA + 24` and the second TCB's word `pinA + 128`
-take the store of `1` in the child's frame, given the pinned region through `pinA + 168` (`hpin2`) and `G`
+take the store of `1` in the child's frame, given the pinned region through `pinA + 200` (`hpin2`) and `G`
 allowing `1` at the word (`hG`). -/
 theorem childSt_IH {ts : Nat → Option Nat} {tm : Memory} {sm : WeakMem.Memory} {tp tq sp : List Nat}
     (hm : MemRelP (RuntimeLayout.ofPlaceW hpl i).Λ lbl lsize ts tm sm tp tq sp)
-    (hpin2 : (RuntimeLayout.ofPlaceW hpl i).pinA.toNat + 168 ≤
+    (hpin2 : (RuntimeLayout.ofPlaceW hpl i).pinA.toNat + 200 ≤
       (RuntimeLayout.ofPlaceW hpl i).Λ.pinned.lo + (RuntimeLayout.ofPlaceW hpl i).Λ.pinned.size)
     {a : BitVec 64} (ha : a = (RuntimeLayout.ofPlaceW hpl i).pinA + 24#64 ∨
-      a = (RuntimeLayout.ofPlaceW hpl i).pinA + 128#64)
+      a = (RuntimeLayout.ofPlaceW hpl i).pinA + 160#64)
     (hG : G ⟨a, 8⟩ ((1#64 : BitVec 64).setWidth 128))
     {x : KState} {tid : Nat} {th : Thread isaLSE2} {r1 : Range} {tls : Nat} {lo : Int}
     (hh : handed x tid (r1.lo + r1.size) = some (tid, r1))
@@ -112,7 +112,7 @@ theorem childSt_IH {ts : Nat → Option Nat} {tm : Memory} {sm : WeakMem.Memory}
     rw [show (24#64 : BitVec 64) = BitVec.ofNat 64 24 from rfl, WakeChildSt.pinA_add hpl i (by decide)]
     exact this
   · refine stOk_pinnedH hpl i hm (fun k hk => ?_) hG hh hsub hlo
-    rw [show (128#64 : BitVec 64) = BitVec.ofNat 64 128 from rfl, WakeChildSt.pinA_add hpl i (by decide)]
+    rw [show (160#64 : BitVec 64) = BitVec.ofNat 64 160 from rfl, WakeChildSt.pinA_add hpl i (by decide)]
     simp only [Range.contains]; omega
 
 /-- **`hdm` at a placed word**: a word whose 8 bytes lie in a placed label (in `.data` or the heap,

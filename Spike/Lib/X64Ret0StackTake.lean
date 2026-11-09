@@ -44,7 +44,7 @@ namespace Spike.Lib.X64.Flow.Ret0.StackTake
 open CoreLang CoreTerm
 open Kraken Kraken.Promising Kraken.Promising.X64 Kraken.Promising.Lower Kraken.Promising.Lower.X64
 open Kraken.X64.Parser Spike.Lib.X64
-open Scc.Cert.Rt.X64 (Lays endOf blockAtB labelGapB)
+open Scc.Cert.Rt.X64 (Lays endOf blockAtB labelGapB blockAcrossB)
 open Spike.Lib.X64.Flow.Ret0.AllocTcb (G siAt)
 
 set_option linter.unusedSimpArgs false
@@ -444,6 +444,8 @@ abbrev okL : Label := ".Lscc_rt_stack_take.ok"
 abbrev takenL : Label := ".Lscc_rt_stack_take.taken"
 /-- The site's label. -/
 abbrev siteL : Label := "scc_rt_take_site"
+/-- The return's label (just before `ret`). -/
+abbrev retL : Label := ".Lscc_rt_stack_take.x1"
 
 /-- **The pc of the lock's swap** (`xchg`: the lock `0 → 1`). -/
 abbrev swpPc (lab : Label → Int64) : Int64 := lab spinL + Int64.ofNat 11
@@ -476,7 +478,7 @@ def stackTakeIn (cells : List (Directive × Nat)) : Bool :=
   blockAtB cells bumpL 108 stJ2 &&
   siAt cells okL 0 "scc_rt_stacks" && blockAtB cells okL 7 stOk &&
   blockAtB cells takenL 0 stSite && labelGapB cells takenL siteL 11 &&
-  blockAtB cells siteL 0 ((parse("nop")).zip [1]) && blockAtB cells siteL 1 stRet
+  blockAtB cells siteL 0 ((parse("nop")).zip [1]) && blockAcrossB cells siteL 1 (stRet.take 3) retL (stRet.drop 3)
 
 #guard stackTakeIn SccCode.ret0Cells
 

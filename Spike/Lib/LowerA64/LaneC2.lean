@@ -41,8 +41,10 @@ theorem insts_xchg {cx : FnCtx} {Cd : Int64 → List Directive → Prop} {Bl : I
     ∃ l1 l2, cx.inst kk (xchgLoad d a) = .ok l1 ∧ Cd pc (directives l1) ∧
       cx.inst (kk + 1) (xchgStore a w) = .ok l2 ∧ Cd (pc + Int64.ofNat (4 * (directives l1).length)) (directives l2) ∧
       pc' = pc + Int64.ofNat (4 * ((directives l1).length + (directives l2).length)) := by
-  rcases h with ⟨-, l1, hl1, hc1, h⟩ | ⟨_, _, _, _, _, he, -⟩ | ⟨_, _, _, _, _, _, he, -⟩ | ⟨_, _, _, he, -⟩
-  · rcases h with ⟨-, l2, hl2, hc2, rfl⟩ | ⟨_, _, _, _, _, he, -⟩ | ⟨_, _, _, _, _, _, he, -⟩ | ⟨_, _, _, he, -⟩
+  rcases h with ⟨-, -, l1, hl1, hc1, h⟩ | ⟨_, _, _, _, _, he, -⟩ | ⟨_, _, _, _, _, _, he, -⟩ | ⟨_, _, _, he, -⟩ |
+    ⟨_, _, _, _, _, _, he, -⟩
+  · rcases h with ⟨-, -, l2, hl2, hc2, rfl⟩ | ⟨_, _, _, _, _, he, -⟩ | ⟨_, _, _, _, _, _, he, -⟩ | ⟨_, _, _, he, -⟩ |
+      ⟨_, _, _, _, _, _, he, -⟩
     · refine ⟨l1, l2, hl1, hc1, hl2, hc2, ?_⟩
       rw [Nat.mul_add, Int64.ofNat_add, Int64.add_assoc]
     all_goals first | cases he | simp [xchgStore, Spike.Lib.LowerShape.newBufCall] at he

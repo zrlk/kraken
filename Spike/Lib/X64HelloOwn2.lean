@@ -8,13 +8,13 @@ index's bits (`X64WakePh.ownV`). Three instances, switched where both give the s
 
 - `ownH` (`own1`, wake's `ownW`): `scc_rt_start` and `wc_main` up to the second `call scc_rt_alloc_tcb`.
 - `own2aH`: the second `scc_rt_alloc_tcb` call and `wc_main` up to the second `call scc_rt_thread_init`;
-  `scc_rt_pinned_next` `80 → 208` (`80 + lenOf h` at hello's header `h = 0xc00c03`).
+  `scc_rt_pinned_next` `112 → 272` (`112 + lenOf h` at hello's header `h = 0xc01003`).
 - `own2bH`: the second `scc_rt_thread_init` call and after; `scc_rt_stack_next` `16384 → 32768`.
 
 - `hdr2H`, `own2aH`, `own2bH`: the values and the instances.
 - `ph2aH`, `ph2aHC`, `ph2aH_eq`, `ph2bH`, `ph2bHC`, `ph2bH_eq`: the phase projections (bits `0`-`1`, `0`-`3`
   of `phH`) and their resolved forms; `own2aH_mod4`: `own2aH` reads bits `0`-`1` only.
-- `allocTcb2H_ph`: the second `call scc_rt_alloc_tcb` (`.x23 + 18`), its return point `.x24` and the callee's
+- `allocTcb2H_ph`: the second `call scc_rt_alloc_tcb` (`.x1 + 18`), its return point `.x2` and the callee's
   entry, decided.
 - `own2a_own2bH`, `own1_own2aH_ph`: the switches.
 
@@ -22,7 +22,7 @@ index's bits (`X64WakePh.ownV`). Three instances, switched where both give the s
 
 `Spike/Lib/A64HelloOwn2.lean`.
 
-- The pcs are x86-64's at `lo = 0x401000` (the 5-byte `call` at `.Lwc_main.x23 + 18`, `.x24`,
+- The pcs are x86-64's at `lo = 0x401000` (the 5-byte `call` at `.Lwc_main.x1 + 18`, `.x2`,
   `scc_rt_alloc_tcb`); the phases are the same (`16`, `16`, `13`).
 - `ownV`/`ownW_eq` are `Spike/Lib/X64WakeOwn2.lean`'s.
 - Only the live constants are twinned: `pn2H_eq`, `switch_pcs`, `threadInit2H_ph`, `own1_own2aH`,
@@ -39,18 +39,18 @@ open Spike.Lib.X64.WakePh (ownV ownW ownW_eq)
 
 /-! ## The values -/
 
-/-- `wc_main`'s header for the second TCB in hello.w (`movq $12585987, %rdi`). -/
-abbrev hdr2H : BitVec 64 := 12585987#64
+/-- `wc_main`'s header for the second TCB in hello.w (`movq $12587011, %rdi`). -/
+abbrev hdr2H : BitVec 64 := 12587011#64
 
 /-- **The second `scc_rt_alloc_tcb` call's instance**: `scc_rt_pinned_next`
-`80 → 208`, `scc_rt_stack_next` `16384`, `scc_rt_nthreads` `1`. -/
+`112 → 272`, `scc_rt_stack_next` `16384`, `scc_rt_nthreads` `1`. -/
 def own2aH (L : RuntimeLayout) (a : BitVec 64) : Nat → List (Loc × Val) :=
-  ownV L a 80#64 208#64 16384#64 16384#64 1#64 1#64
+  ownV L a 112#64 272#64 16384#64 16384#64 1#64 1#64
 
 /-- **The second `scc_rt_thread_init` call's instance**: `scc_rt_pinned_next`
-`208`, `scc_rt_stack_next` `16384 → 32768`, `scc_rt_nthreads` `1`. -/
+`272`, `scc_rt_stack_next` `16384 → 32768`, `scc_rt_nthreads` `1`. -/
 def own2bH (L : RuntimeLayout) (a : BitVec 64) : Nat → List (Loc × Val) :=
-  ownV L a 208#64 208#64 16384#64 32768#64 1#64 1#64
+  ownV L a 272#64 272#64 16384#64 32768#64 1#64 1#64
 
 /-! ## The phase projections -/
 
@@ -84,9 +84,9 @@ theorem own2aH_mod4 (L : RuntimeLayout) (a : BitVec 64) (i : Nat) : own2aH L a (
 
 /-! ## The switches -/
 
-/-- `wc_main`'s second `call scc_rt_alloc_tcb` (`.x23 + 18`) and its return
-point `.x24` are at phase `16`, the callee's entry at `13`. -/
-theorem allocTcb2H_ph : phC 4203744 = 16 ∧ phC 4203749 = 16 ∧ phC 4199029 = 13 := by decide +kernel
+/-- `wc_main`'s second `call scc_rt_alloc_tcb` (`.x1 + 18`) and its return
+point `.x2` are at phase `16`, the callee's entry at `13`. -/
+theorem allocTcb2H_ph : phC 4203782 = 16 ∧ phC 4203787 = 16 ∧ phC 4199029 = 13 := by decide +kernel
 
 /-- **The second switch**: past `wc_main`'s second `call scc_rt_thread_init`
 (phase `16`, the second instance) at the callee's entry (`12`, the third)
@@ -97,8 +97,8 @@ theorem own2a_own2bH (L : RuntimeLayout) (a : BitVec 64) : own2aH L a 16 = own2b
 /-- **The first switch at the two phase maps**: `ownH` through `phH` at the
 `call`, `own2aH` through `ph2aH` at the callee's entry. -/
 theorem own1_own2aH_ph (L : RuntimeLayout) (a : BitVec 64) :
-    ownH L a (phH 4203744) = own2aH L a (ph2aH 4199029) := by
-  have h1 : phH 4203744 = 16 := by rw [phH_eq]; exact allocTcb2H_ph.1
+    ownH L a (phH 4203782) = own2aH L a (ph2aH 4199029) := by
+  have h1 : phH 4203782 = 16 := by rw [phH_eq]; exact allocTcb2H_ph.1
   have h2 : ph2aH 4199029 = 1 := by rw [ph2aH_eq]; unfold ph2aHC; rw [allocTcb2H_ph.2.2]
   rw [h1, h2, ownH, ownW_eq]; unfold own2aH ownV; simp
 

@@ -24,13 +24,13 @@ segment.
 - `tcb2Call_ownG`: the result; `tcb2W_ownGK`: the callee's at the same `K`.
 
 **Unlike AArch64**: the names keep A64's `sp3` though the block is at
-`.Lwc_main.x19` (`lab_sp3` is `.x19`'s address, `4203349`); the block has 4
+`.Lwc_main.x1` (`lab_sp3` is `.x19`'s address, `4203387`); the block has 4
 cells (`movq`, `movq`, `movq`, `call`; A64's 5), its pcs `.x19 + cellOff`;
 the callee's region is `R.callee (-72) (-184) 8` (based at the pushed
 return address, `oC`; A64's `R.callee (-80) (-192) 0`); the block's bounds
 are `hlo3 : R.lo ≤ -72`, `hhi : 16 ≤ R.hi` (A64's `-80`, `0`); no `hal`;
 `tcb2W_ownGK` takes `tcb2W_ownG`'s x86-64 premises (`hlo' : R.lo ≤ -184`,
-`hhi : 8 ≤ R.hi`, the return to `.Lwc_main.x20`).
+`hhi : 8 ≤ R.hi`, the return to `.Lwc_main.x2`).
 -/
 import Spike.Lib.X64WakeTcb2W
 
@@ -137,24 +137,24 @@ abbrev BandSp3 (L : RuntimeLayout) (R : Region) : Prop := BandA L (R.callee (-72
 /-- The block's pcs at the canonical base: their values, the phase `16`,
 off the sites, at most 18 bytes on. -/
 theorem sp3_facts : ∀ k < 4,
-    (Int64.ofNat 4203349 + Int64.ofNat (cellOff tcb2Call k)).toBitVec.toNat = 4203349 + cellOff tcb2Call k ∧
-    phC (4203349 + cellOff tcb2Call k) = 16 ∧ okC (4203349 + cellOff tcb2Call k) = true ∧
+    (Int64.ofNat 4203387 + Int64.ofNat (cellOff tcb2Call k)).toBitVec.toNat = 4203387 + cellOff tcb2Call k ∧
+    phC (4203387 + cellOff tcb2Call k) = 16 ∧ okC (4203387 + cellOff tcb2Call k) = true ∧
     cellOff tcb2Call k ≤ 18 := by decide +kernel
 
 variable {L : RuntimeLayout}
 
 /-- `.x19` at the canonical base. -/
 theorem lab_sp3 (hlab : ∀ l x, codeLabel lo wakeCells l = some x → L.lab l = Int64.ofNat x) :
-    (_root_.Executable.labels L.exe).label ".Lwc_main.x19" = Int64.ofNat 4203349 :=
+    (_root_.Executable.labels L.exe).label ".Lwc_main.x1" = Int64.ofNat 4203387 :=
   hlab _ _ (by rw [← codeT_eq]; decide +kernel)
 
 /-- **`ownG` at the block's pcs** is `ownW L a 16` (no range of `ownG`'s
 holds, `phW = 16`). -/
 theorem own_sp3 (hlab : ∀ l x, codeLabel lo wakeCells l = some x → L.lab l = Int64.ofNat x) {a : BitVec 64}
     {s : State} {k : Nat} (hk : k < 4)
-    (hs : s.st.2 = (_root_.Executable.labels L.exe).label ".Lwc_main.x19" + Int64.ofNat (cellOff tcb2Call k)) :
+    (hs : s.st.2 = (_root_.Executable.labels L.exe).label ".Lwc_main.x1" + Int64.ofNat (cellOff tcb2Call k)) :
     ownG L a s = ownW L a 16 := by
-  have hp : pcOf s = 4203349 + cellOff tcb2Call k := by
+  have hp : pcOf s = 4203387 + cellOff tcb2Call k := by
     unfold pcOf; rw [hs, lab_sp3 hlab]; exact (sp3_facts k hk).1
   have hc := (sp3_facts k hk).2.2.2
   obtain ⟨e1, e2, e3, e4, e5, -, e7, e8, e9⟩ := labs_eq hlab (L := L)
@@ -199,7 +199,7 @@ theorem tcb2Call_ownG (hp : L.prog = wakeCells) (hlo : L.Λ.code.lo = lo) (a : B
     (ofNat_zero' _) tcb2Call_ok hR hlo3 hhi (fun _ _ hJ => hJ.1 ▸ hC0) (by decide +kernel)
     (by decide +kernel) (fun k hk => ?_) hsub hSM ?_
   · show okPcOf lo wakeCells L.Λ
-      ((_root_.Executable.labels L.exe).label ".Lwc_main.x19" + Int64.ofNat (cellOff tcb2Call k)).toBitVec.toNat
+      ((_root_.Executable.labels L.exe).label ".Lwc_main.x1" + Int64.ofNat (cellOff tcb2Call k)).toBitVec.toNat
         = true
     rw [okPc_eq hΛ, e3, (sp3_facts k (hlen ▸ hk)).1]; exact (sp3_facts k (hlen ▸ hk)).2.2.1
   refine Spike.Lib.X64ConsumerA.BlkW.leaf (code_field L.lays rfl hin.1 (ofNat_zero' _)) tcb2Call_ok hR hlo3 hhi
@@ -207,7 +207,7 @@ theorem tcb2Call_ownG (hp : L.prog = wakeCells) (hlo : L.Λ.code.lo = lo) (a : B
   · intro x hx k hk
     rw [hsite, show L.lab Spike.Lib.X64.Flow.Ret0.StackTake.siteL = Int64.ofNat 4200277 from eSite] at hx
     cases hx
-    show ((_root_.Executable.labels L.exe).label ".Lwc_main.x19" + Int64.ofNat (cellOff tcb2Call k)).toBitVec.toNat
+    show ((_root_.Executable.labels L.exe).label ".Lwc_main.x1" + Int64.ofNat (cellOff tcb2Call k)).toBitVec.toNat
       ≠ _
     rw [e3, (sp3_facts k (hlen ▸ hk)).1]
     have : (Int64.ofNat 4200277).toBitVec.toNat = 4200277 := rfl
@@ -221,10 +221,10 @@ theorem tcb2Call_ownG (hp : L.prog = wakeCells) (hlo : L.Λ.code.lo = lo) (a : B
     · have ht : tcb2Call.take (k + 1) = tcb2Call := List.take_of_length_le (by omega)
       rw [ht] at hA hs
       obtain ⟨h1, h2⟩ := tcb2Call_pc (_root_.Executable.labels L.exe).label
-        ((_root_.Executable.labels L.exe).label ".Lwc_main.x19") σ
+        ((_root_.Executable.labels L.exe).label ".Lwc_main.x1") σ
       refine own_fn hlab hb (by rw [hs]; exact h1) ?_
       have e := Spike.Lib.X64ConsumerA.rsp_of_abs hA
-      rw [show (wcN3 L.lab J c0).pc = (_root_.Executable.labels L.exe).label ".Lwc_main.x19" from rfl,
+      rw [show (wcN3 L.lab J c0).pc = (_root_.Executable.labels L.exe).label ".Lwc_main.x1" from rfl,
         show (wcN3 L.lab J c0).o = Tcb2Call.oW from rfl, h2] at e
       rw [hs]; exact e
 
@@ -238,10 +238,10 @@ theorem tcb2W_ownGK (hp : L.prog = wakeCells) (hlo : L.Λ.code.lo = lo) (a : Bit
     (hΛ : L.Λ.abortLbl = Scc.Cert.Link.abortName)
     (hlab : ∀ l x, codeLabel lo wakeCells l = some x → L.lab l = Int64.ofNat x)
     (hsep : L.pnA ≠ L.lockA ∧ L.pnA ≠ L.freeNA ∧ L.pnA ≠ L.nextA ∧ L.pnA ≠ a)
-    (hhdr : L.pinA + 80#64 + 16#64 ∉ [L.pnA, L.lockA, L.freeNA, L.nextA, a])
+    (hhdr : L.pinA + 112#64 + 16#64 ∉ [L.pnA, L.lockA, L.freeNA, L.nextA, a])
     {Λ : Scc.Sem.Layout} {lbl : Lbl} {c0 : Ctl} (hC0 : CFacts Λ lbl c0)
     {R : Region} (hR : R.OK) (hlo' : R.lo ≤ -184) (hhi : 8 ≤ R.hi)
-    (hb : BandA L R) (g : Spike.Lib.X64.Flow.Ret0.AllocTcb.G) (hra : g.ra = (L.lab ".Lwc_main.x20").toBitVec)
+    (hb : BandA L R) (g : Spike.Lib.X64.Flow.Ret0.AllocTcb.G) (hra : g.ra = (L.lab ".Lwc_main.x2").toBitVec)
     {F : MachineData → Prop}
     (hmP : Scc.Sem.Kernel.mapped (Spike.Lib.X64Consumer.K0 Λ) true ⟨L.pnA, 8⟩ = true)
     (hmH : Scc.Sem.Kernel.mapped (Spike.Lib.X64Consumer.K0 Λ) true

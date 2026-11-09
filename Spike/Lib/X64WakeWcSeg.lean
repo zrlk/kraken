@@ -21,7 +21,7 @@ thread pointer's value), and from it with `X64WakePreA.ClonePre` the facts
 
 **Where this differs from AArch64**: main's parent region is
 `⟨R.base, -64, 16⟩` with `R.base = %rsp + 64` (A64: `-96`, `sp + 80`); the
-return point is `.Lscc_rt_main.x2` (the label after the `call`; A64's
+return point is `.Lscc_rt_main.x0` (the label after the `call`; A64's
 `.sp0`, `x30`), read from the slot `wNC` pins (`σC.slot (-48)`); the cell
 register is `%r12` (A64 `x9`). There is no alignment conjunct: the x86-64
 `wake_wc_mid_hatW` exit carries none and `parent_at_pre` asks none. `hZ_of`
@@ -88,7 +88,7 @@ theorem clonePost_of {L : RuntimeLayout} {endPc : Int64} {J : AS → Ctl → Pro
 entry is `scc_rt_main`'s call node (`wNC`, the return address `.x2` in the
 slot at `-48`), entered at that slot (`enter (-48)`). -/
 theorem hra_of_frG {lab : Label → Int64} {J : AS → Ctl → Prop} {σC : AS} {fr : BitVec 64 × BitVec 64}
-    (h : FrG (WakeM.wJ0 (WakeM.wNC lab J).J σC) fr) : Int64.ofBitVec fr.2 = lab ".Lscc_rt_main.x2" := by
+    (h : FrG (WakeM.wJ0 (WakeM.wNC lab J).J σC) fr) : Int64.ofBitVec fr.2 = lab ".Lscc_rt_main.x0" := by
   obtain ⟨σe, c, ⟨rfl, -, -, h48, -⟩, rfl⟩ := h
   show Int64.ofBitVec (σC.slot (-48 + 0)) = _
   rw [show (-48 : Int) + 0 = -48 from rfl, h48]; rfl

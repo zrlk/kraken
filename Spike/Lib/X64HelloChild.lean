@@ -73,7 +73,7 @@ block_spec jeB (-128) 0 oC jeB
 block_spec chB (-128) 0 oC chB
 
 /-- `wc_main`'s label after `scc_rt_thread_init`'s return (the spawn's block). -/
-abbrev x25L : Label := ".Lwc_main.x25"
+abbrev x25L : Label := ".Lwc_main.x3"
 
 /-- The child's label. -/
 abbrev chL : Label := ".Lwc_main.child.scc_rt_thr_worker"

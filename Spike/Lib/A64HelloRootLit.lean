@@ -7,7 +7,7 @@ generic in the layout `Λ0` and the immediates `i0`.
 - `pcfgH`, `oH`: the placement configuration (the certificate's `placeCfg`: the canonical one, `helloNeed`'s
   budget and entries) and the output. `PlaceW` reads neither the block table nor the main tail's shape, so `oH`
   carries none (`blocks := []`).
-- `hz_H`, `hc_H`: the pinned region's `.zero` (`131072` bytes) and the counter's zeroed item, by `decide +kernel`
+- `hz_H`, `hc_H`: the pinned region's `.zero` (`163840` bytes) and the counter's zeroed item, by `decide +kernel`
   on `helloSecs` (the twins of `CertFacts.pinZ_helloCert`/`ctrZ_helloCert`, without the certificate).
 - `hello_root_lit`: `hello_root_inv` at `asm := helloAsm`, `o := oH`, `pcfg := pcfgH`. Discharged here: `hz`/`hn`
   (`hz_H`, `decide`), `hc` (`hc_H`); `hpa`/`hhp`/`hd` are the one parse premise `hparse` (the trust boundary,
@@ -89,9 +89,9 @@ def oH : Scc.Cert.PlaceOK.A64.Out :=
   { prog := helloProg, secs := SccCode.helloSecs,
     place := { blocks := [], need := SccCode.helloNeed, tail := .setup } }
 
-/-- **The pinned region's `.zero`** after `scc_rt_pinned` has `131072` bytes (`ChildRoot.hpin2_H`'s `hz`). -/
+/-- **The pinned region's `.zero`** after `scc_rt_pinned` has `163840` bytes (`ChildRoot.hpin2_H`'s `hz`). -/
 theorem hz_H :
-    Scc.Cert.PlaceOK.zeroAfter (oH.secs.bss ++ oH.secs.data) Scc.Cert.Link.pinnedSym = some 131072 := by
+    Scc.Cert.PlaceOK.zeroAfter (oH.secs.bss ++ oH.secs.data) Scc.Cert.Link.pinnedSym = some 163840 := by
   decide +kernel
 
 private theorem lookup_mem {β : Type} : ∀ {l : List (String × β)} {k : String} {b : β},
@@ -264,7 +264,7 @@ theorem hello_root_lit {arch : WeakMem.Arch} {B : Budget} {E : Entry}
     (hI : Spike.Lib.A64.HelloPh.XHFSeg.ImmsKid (Ly).Λ) :
     WakeObligationsR arch (Ly).Λ B helloAsm (QQ) E
       (fun t tr => TiPre (AbH hp (IH0)) (AcH hp (IH0)) t tr ∧ TwH (Ly).Λ E (AbH hp (IH0)) t tr) helloSrc :=
-  hello_root_inv (asm := helloAsm) (o := oH) (nZ := 131072) (arch := arch) (B := B) (E := E)
+  hello_root_inv (asm := helloAsm) (o := oH) (nZ := 163840) (arch := arch) (B := B) (E := E)
     (ls := ls) hp i0 (hpaH) (hpaH) (parsed_of_parsesTo hparse).2 hlo hstat
     hc_H hnz hB hE hA13 hz_H (by decide)
     hm hRdI hme hzI hinit2 hI

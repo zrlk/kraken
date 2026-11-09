@@ -1,4 +1,5 @@
 import Scc.Lower.Inv
+import Scc.Lower.SplitInv0
 
 /-!
 # The whole-program lowering of `Accepted0` programs
@@ -29,10 +30,11 @@ namespace Scc.Lower.Inv
 
 /-- **The runtime functions** `lowerWithMarks` puts first, for architecture
 `arch` (on AArch64 `scc_rt_print`'s write is fenced, `Runtime.printF`),
-layout `lay`, entry shape `entry` and `setupWords` words of setup result. -/
-def rtFuncs (arch : Arch) (lay : Layout) (entry : Frontend.Entry) (setupWords : Nat) :
-    Except String (List Func) :=
-  [Runtime.startF lay, Runtime.mainThreadF entry setupWords, Runtime.allocF lay,
+layout `lay`, entry shape `entry`, `setupWords` words of setup result and
+its trace mask `setupMask` (`Runtime.mainThreadF`). -/
+def rtFuncs (arch : Arch) (lay : Layout) (entry : Frontend.Entry) (setupWords : Nat)
+    (setupMask : List Bool := []) : Except String (List Func) :=
+  [Runtime.startF lay, Runtime.mainThreadF entry setupWords setupMask, Runtime.allocF lay,
     Runtime.allocF lay Names.allocTcb Names.pinned Names.pinnedNext (Runtime.pinnedBytes lay) .threads false,
     Runtime.threadReserveF lay,
     Runtime.threadInitF lay, Runtime.stackTakeF lay, Runtime.stackReleaseF lay, Runtime.growF lay,
@@ -86,13 +88,15 @@ theorem lowerWithMarks_accepted0 (cfg : Config) {d : Decl} (hd : Accepted0 [d] =
   obtain ⟨hn, -, -, -, -, hbody⟩ := accepted0_decl hd
   obtain ⟨r, hr, hl⟩ := lowerDeclMarks_accepted0 [d] [] cfg.layout.obj none hd
   refine ⟨r, hr, ?_⟩
+  rw [hn] at hl
+  have hs := splitFuncMarks_func0 hd (Names.user "main") hr
   have hsp : spawnedE d.body = [] := spawnedE_body0 _ _ hbody
   have hh : ¬ (cfg.layout.heapBytes ≥ 2 ^ 32) := by omega
   unfold rtFuncs at hrt
   simp only [lowerWithMarks, hh, ite_false, List.any_nil, Bool.not_false, List.filter_cons_of_pos,
     List.filter_nil, List.mapM_cons, List.mapM_nil, hl, List.flatMap_cons, List.flatMap_nil, hsp,
-    List.append_nil, List.eraseDups_nil,
-    hrt, bind, Except.bind, pure, Except.pure, hn]
+    List.append_nil, List.eraseDups_nil, Functor.map, Except.map, hs,
+    hrt, bind, Except.bind, pure, Except.pure]
   rfl
 
 /-- A successful `lowerWithMarks` of an `Accepted0` program is the one of
@@ -114,14 +118,16 @@ theorem lowerWithMarks_accepted0_ok (cfg : Config) {d : Decl} (hd : Accepted0 [d
   | error e =>
     exfalso
     obtain ⟨hn, -, -, -, -, hbody⟩ := accepted0_decl hd
-    obtain ⟨r, -, hl⟩ := lowerDeclMarks_accepted0 [d] [] cfg.layout.obj none hd
+    obtain ⟨r, hr, hl⟩ := lowerDeclMarks_accepted0 [d] [] cfg.layout.obj none hd
+    rw [hn] at hl
+    have hs := splitFuncMarks_func0 hd (Names.user "main") hr
     have hsp : spawnedE d.body = [] := spawnedE_body0 _ _ hbody
     have hh : ¬ (cfg.layout.heapBytes ≥ 2 ^ 32) := by omega
     unfold rtFuncs at hrt
     simp only [lowerWithMarks, hh, ite_false, List.any_nil, Bool.not_false, List.filter_cons_of_pos,
       List.filter_nil, List.mapM_cons, List.mapM_nil, hl, List.flatMap_cons, List.flatMap_nil, hsp,
-      List.append_nil, List.eraseDups_nil,
-    hrt, bind, Except.bind, pure, Except.pure, hn] at h
+      List.append_nil, List.eraseDups_nil, Functor.map, Except.map, hs,
+    hrt, bind, Except.bind, pure, Except.pure] at h
     cases h
   | ok rt =>
     obtain ⟨r, hr, hl⟩ := lowerWithMarks_accepted0 cfg hd hheap hrt
@@ -202,14 +208,25 @@ def mainInsts (entry : Frontend.Entry) (sw : Nat) : List Inst :=
     [.call [] (Names.user "main") (mainArgs entry sw),
      .syscall (regName "r" n) .exitGroup [imm 0]])
 
-/-- **The main-thread runtime function** in closed form. -/
-def mainThread0 (entry : Frontend.Entry) (sw : Nat) : Func :=
+/-- **The main-thread runtime function** in closed form, for the setup
+result's trace mask `mask`: `tcb` and the setup words `mask` marks `true` are
+trace words, those it marks `false` scalar words (`Runtime.markBits`). -/
+def mainThread0 (entry : Frontend.Entry) (sw : Nat) (mask : List Bool := []) : Func :=
   { name := Names.mainThread, params := ["tcb"], checkStack := true,
-    blocks := [⟨"entry", mainInsts entry sw, .unreachable⟩], heapRegs := ["tcb"], scalarRegs := [] }
+    blocks := [⟨"entry", mainInsts entry sw, .unreachable⟩],
+    heapRegs := "tcb" :: Runtime.maskRegs true (mainDs entry sw) mask,
+    scalarRegs := Runtime.maskRegs false (mainDs entry sw) mask }
+
+theorem maskRegs_nil (b : Bool) (bs : List Bool) : Runtime.maskRegs b [] bs = [] := rfl
+
+theorem markBits_eq (ds : List Reg) (bs : List Bool) (s : BState) :
+    Runtime.markBits ds bs s =
+      .ok ((), { s with heapRegs := s.heapRegs ++ (Runtime.maskRegs true ds bs).toArray,
+                        scalarRegs := s.scalarRegs ++ (Runtime.maskRegs false ds bs).toArray }) := rfl
 
 set_option maxHeartbeats 1000000 in
-theorem mainThreadF_eq (entry : Frontend.Entry) (sw : Nat) :
-    Runtime.mainThreadF entry sw = .ok (mainThread0 entry sw) := by
+theorem mainThreadF_eq (entry : Frontend.Entry) (sw : Nat) (mask : List Bool := []) :
+    Runtime.mainThreadF entry sw mask = .ok (mainThread0 entry sw mask) := by
   obtain ⟨arg, ret⟩ := entry
   have hm : markHeap "tcb" ({} : BState) = .ok ((), { heapRegs := #["tcb"] }) := by
     unfold markHeap; rw [modify_eq]; simp [hasReg_eq]
@@ -220,9 +237,12 @@ theorem mainThreadF_eq (entry : Frontend.Entry) (sw : Nat) :
   cases arg <;> cases ret <;>
   · simp only [StateT.run, ite_true, ite_false, pure_bind, Bool.false_eq_true]
     repeat (first
-      | rw [bind_ok hm] | rw [bind_ok (mapM_fresh _ _ _)] | rw [bind_ok (emit_cur _ rfl rfl)]
+      | rw [bind_ok hm] | rw [bind_ok (mapM_fresh _ _ _)] | rw [bind_ok (markBits_eq _ _ _)]
+      | rw [bind_ok (emit_cur _ rfl rfl)]
       | rw [bind_ok (fresh_eq _ _)] | rw [terminate_eq _ rfl])
+      <;> try dsimp only
     simp only [Nat.zero_add, List.length_range]
-    simp [mainThread0, mainInsts, mainSetup, mainDs, mainArgs, Functor.map, Except.map, e1, e2, e3]
+    simp [mainThread0, mainInsts, mainSetup, mainDs, mainArgs, Functor.map, Except.map, e1, e2, e3,
+      maskRegs_nil]
 
 end Scc.Lower.Inv

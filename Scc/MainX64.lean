@@ -3,6 +3,7 @@ import Scc.Lower.SpecX64
 import Scc.Cert.X64
 import Scc.Cert.Sizes
 import Scc.Cert.WideCheckX64
+import Scc.Cert.MapsCheckX64
 
 /-!
 # scc-x64
@@ -16,6 +17,11 @@ program outside the one-word fragment (`Scc.Cert.WideCheckX64`).
 def main (args : List String) : IO UInt32 :=
   Scc.Cli.run .x64 (fun l => do
       let e ← Scc.Lower.X64.emitAll l
+      -- refuse unless the tables put together from the constants and the split are the
+      -- text's (`Scc.Cert.MapsX64.checkTables`); the CLI's configuration is always the
+      -- default layout (`Scc.Cli.parseArgs` sets only the architecture), and a wrong
+      -- configuration here could only cause a refusal
+      Scc.Cert.MapsX64.checkTables { arch := .x64 } e.low.ir e.items e.safepoints
       let lst ← e.listing
       -- the functions the placement check's block table splits the code
       -- into (`Scc.Cert.PlaceOK.X64.Data.splitFns`): one at the first label

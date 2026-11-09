@@ -12,8 +12,8 @@ fact:
 * `placeWX_e : PlaceWX placeCfg Λe outLit` (`PlaceWX.of2 wake_placeOK2At`);
 * `ie := X64.WakeImms.iW Λe`, `Le := ofPlaceWX placeWX_e ie`;
 * `hstat`, `hnz` (`scc_rt_nthreads` decided, no initial word), `hpin2`
-  (the first TCB's 168 bytes in the pinned region), `hinit2` (the second
-  TCB's limit word `pinA + 112` starts at `0`), `hsub1` (the child's stack in
+  (the first 200 bytes in the pinned region), `hinit2` (the second
+  TCB's limit word `pinA + 144` starts at `0`), `hsub1` (the child's stack in
   the pool), `hwide` (the executable in the wide fragment);
 * `hctrD_e`, `hctr2_e`, `hA13_e` (the counters in `.data`, off `lim2A`; A13's
   data part).
@@ -57,11 +57,11 @@ def NtZ (Λ : Scc.Sem.Layout) (o : Scc.Cert.PlaceOK.X64.Out) : Bool :=
 /-- `scc_rt_nthreads` starts at `0`. -/
 theorem hnz : NtZ Λe outLit = true := by decide +kernel
 
-/-- The first TCB's 168 bytes fit the pinned region. -/
-theorem hpin2 : Le.pinA.toNat + 168 ≤ Le.Λ.pinned.lo + Le.Λ.pinned.size := by decide +kernel
+/-- The first 200 bytes fit the pinned region. -/
+theorem hpin2 : Le.pinA.toNat + 200 ≤ Le.Λ.pinned.lo + Le.Λ.pinned.size := by decide +kernel
 
-/-- **The second TCB's limit word** (`WakeGOf2.lim2A`): `pinA + 112`. -/
-abbrev lim2A (L : RuntimeLayout) : BitVec 64 := L.pinA + 112#64
+/-- **The second TCB's limit word** (`WakeGOf2.lim2A`): `pinA + 144`. -/
+abbrev lim2A (L : RuntimeLayout) : BitVec 64 := L.pinA + 144#64
 
 /-- The second TCB's limit word starts at `0`. -/
 theorem hinit2 : (Spike.Lib.X64.PhRec.m0Of Le.Λ outLit.prog outLit.secs).initVal ⟨lim2A Le, 8⟩ = 0 := by

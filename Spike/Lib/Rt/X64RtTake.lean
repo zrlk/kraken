@@ -273,7 +273,7 @@ theorem takeW_gen {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe] 
       rw [hpc']
   case ret =>
     dsimp only [TakeW]; rw [hI.labOk]
-    exact blkW_post hI (by assumption) rfl stRet_ok hR hlo hhi (hC _ fun _ _ hJ => hJ.2.1) hph.ret
+    exact blkW_postA (j := 3) hI (by assumption) rfl stRet_ok hR hlo hhi (hC _ fun _ _ hJ => hJ.2.1) hph.ret
       (hret_of_run stRet_ok fun _ _ hJ => by
         dsimp only [takeNG] at hJ ⊢
         rw [(stRet_walk lab _ hJ.2.2).1, hra]; exact Int64.ofBitVec_toBitVec _)

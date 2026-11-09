@@ -72,6 +72,7 @@ abbrev fnL : Label := "scc_rt_alloc_tcb"
 abbrev entryL : Label := ".Lscc_rt_alloc_tcb.entry"
 abbrev lenL : Label := ".Lscc_rt_alloc_tcb.len"
 abbrev okL : Label := ".Lscc_rt_alloc_tcb.ok"
+abbrev retL : Label := ".Lscc_rt_alloc_tcb.x1"
 def atPro : List (Directive × Nat) := (parse("pushq %rbp
 movq %rsp, %rbp
 subq $176, %rsp
@@ -117,7 +118,7 @@ movq -80(%rbp), %rcx
 addq %rcx, %rax
 movq %rax, -104(%rbp)
 movq -104(%rbp), %rax
-movq $131072, %rcx
+movq $163840, %rcx
 cmpq %rcx, %rax
 ja .Lscc_rt_alloc_tcb.full")).zip [4, 4, 4, 3, 4, 4, 7, 3, 2]
 def atJ2 : List (Directive × Nat) := (parse("jmp .Lscc_rt_alloc_tcb.ok")).zip [2]
@@ -175,6 +176,7 @@ abbrev bumpL : Label := ".Lscc_rt_stack_take.bump"
 abbrev okL : Label := ".Lscc_rt_stack_take.ok"
 abbrev takenL : Label := ".Lscc_rt_stack_take.taken"
 abbrev siteL : Label := "scc_rt_take_site"
+abbrev retL : Label := ".Lscc_rt_stack_take.x1"
 def stPro : List (Directive × Nat) := (parse("pushq %rbp
 movq %rsp, %rbp
 subq $192, %rsp
@@ -255,7 +257,8 @@ namespace Ti
 
 abbrev fnL : Label := "scc_rt_thread_init"
 abbrev entryL : Label := ".Lscc_rt_thread_init.entry"
-abbrev x7L : Label := ".Lscc_rt_thread_init.x7"
+abbrev x7L : Label := ".Lscc_rt_thread_init.x0"
+abbrev retL : Label := ".Lscc_rt_thread_init.x1"
 def tiPro : List (Directive × Nat) := (parse("pushq %rbp
 movq %rsp, %rbp
 subq $32, %rsp
@@ -298,7 +301,7 @@ end Ti
 namespace Start
 
 def startCall : List (Directive × Nat) := (parse("movq %rax, -16(%rbp)
-movq $2307, %rdi
+movq $3331, %rdi
 movq $1, %rsi
 call scc_rt_alloc_tcb")).zip [4, 7, 7, 5]
 abbrev x0L : Label := ".Lscc_rt_start.x0"
@@ -373,7 +376,8 @@ def tcbGrps : List RGrp := [
     (163, atBnd), (198, atJ2)], none⟩,
   ⟨okL, [(0, [((SI.leaRip .rax "scc_rt_pinned").toDir, 7)]), (7, atO1), (34, [((FI.imul_rr .rax .rcx).toDir, 4)]),
     (38, atO2), (53, [((FI.shl_cl .rax).toDir, 3)]), (56, atO3), (74, [((FI.shl_cl .rax).toDir, 3)]), (77, atO4),
-    (95, [((FI.or_rr .rax .rcx).toDir, 3)]), (98, atO5), (140, hdrBlk), (143, atRet)], none⟩]
+    (95, [((FI.or_rr .rax .rcx).toDir, 3)]), (98, atO5), (140, hdrBlk), (143, atRet.take 11)], some (199, retL)⟩,
+  ⟨retL, [(0, atRet.drop 11)], none⟩]
 
 end Tcb
 
@@ -385,8 +389,9 @@ open Code.Ti
 def tiGrps : List RGrp := [
   ⟨fnL, [(0, tiPro)], some (12, entryL)⟩,
   ⟨entryL, [(0, tiArg), (7, callBlk)], some (12, x7L)⟩,
-  ⟨x7L, [(0, tiSp), (51, tiF1), (63, tiZ), (78, tiZ), (93, tiF4), (105, tiF5), (117, tiRet)] ++
-    storeOff.zip storeBlks, none⟩]
+  ⟨x7L, [(0, tiSp), (51, tiF1), (63, tiZ), (78, tiZ), (93, tiF4), (105, tiF5), (117, tiRet.take 3)] ++
+    storeOff.zip storeBlks, some (125, retL)⟩,
+  ⟨retL, [(0, tiRet.drop 3)], none⟩]
 
 end Ti
 
@@ -409,7 +414,8 @@ def takeGrps : List RGrp := [
     (38, stAdd), (56, (parse("lock xaddq %rax, (%rcx)")).zip [5]), (61, stBnd), (108, stJ2)], none⟩,
   ⟨okL, [(0, [((SI.leaRip .rax "scc_rt_stacks").toDir, 7)]), (7, stOk)], none⟩,
   ⟨takenL, [(0, stSite)], some (11, siteL)⟩,
-  ⟨siteL, [(0, (parse("nop")).zip [1]), (1, stRet)], none⟩]
+  ⟨siteL, [(0, (parse("nop")).zip [1]), (1, stRet.take 3)], some (12, retL)⟩,
+  ⟨retL, [(0, stRet.drop 3)], none⟩]
 
 end Take
 
@@ -426,7 +432,7 @@ def rtCodeOk (cells : List (Directive × Nat)) (mc : MainCode) : Bool := rtIn ce
 frame 32, the result spilled at `-16`, `call wc_main`, its labels and cell
 sizes, `%rdi` stored at `-8(%rbp)`. -/
 def bareMC : MainCode :=
-  ⟨32, -16, "wc_main", ".Lscc_rt_main.chk", ".Lscc_rt_main.stk", ".Lscc_rt_main.entry", ".Lscc_rt_main.x2",
+  ⟨32, -16, "wc_main", ".Lscc_rt_main.chk", ".Lscc_rt_main.stk", ".Lscc_rt_main.entry", ".Lscc_rt_main.x0",
     5, 9, 3, 2, 4, [(.rdi, -8, 4)], 4, 4, 5⟩
 
 end Spike.Lib.X64.Rt

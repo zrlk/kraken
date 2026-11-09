@@ -11,8 +11,8 @@ block's with none.
 
 ## Differences from the AArch64 version
 
-- `wc_rodata`'s return lands at `.Lscc_rt_main.x2` (AArch64's `.L1_scc_rt_main.sp0`); the names
-  `hello_main_sp0_segW`, `MainPostSWH.sp0` are kept for the twin. `call wc_main` pushes `.Lscc_rt_main.x3`
+- `wc_rodata`'s return lands at `.Lscc_rt_main.x0` (AArch64's `.L1_scc_rt_main.sp0`); the names
+  `hello_main_sp0_segW`, `MainPostSWH.sp0` are kept for the twin. `call wc_main` pushes `.Lscc_rt_main.x1`
   (`.x2 + 41`, `label_labelGapB`) at `-80`; `wc_main`'s region `wcR R D` reaches the return address's cell
   (`hi' = 8`), with no 16-alignment (`hD8 : D % 8 = 0`, no `hal`), and the bounds are `R.lo ≤ -288`,
   `8 ≤ R.hi`.
@@ -63,8 +63,8 @@ theorem hello_main_sp0_segW {W : Frag isa} {K : State → State → Prop}
   have hin := hello_mainIn
   simp only [mainIn, Bool.and_eq_true] at hin
   obtain ⟨⟨⟨-, hb1⟩, -⟩, hg2⟩ := hin
-  have e41 : (_root_.Executable.labels exe).label ".Lscc_rt_main.x3" =
-      (_root_.Executable.labels exe).label ".Lscc_rt_main.x2" + Int64.ofNat 41 := label_labelGapB hp hg2
+  have e41 : (_root_.Executable.labels exe).label ".Lscc_rt_main.x1" =
+      (_root_.Executable.labels exe).label ".Lscc_rt_main.x0" + Int64.ofNat 41 := label_labelGapB hp hg2
   refine SegW.seq (Q := At exe endPc R F (mWC lab σC Jr))
     (seg_oneW (seg_ndW (by simp [mB1]) mB1_ok hF hR hlo hhi
       (code_field hp hend hb1 (ofNat_zero' _)) hsp0 fun σ c hJ => ⟨c, .refl c, .inl ⟨(), ?_, ?_, ?_⟩⟩)) ?_

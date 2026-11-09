@@ -16,13 +16,9 @@ hand statement. `ret0.w`'s twin is `Spike/Test/X64Ret0PlaceOK.lean`.
 (`tail := .setup`, `mcOf .setup = none`), which A11 checks by
 `Spike.Lib.X64.Rt.setupOk` (`Spike/Lib/Rt/X64CodeInSetup.lean`: two calls,
 four setup words marshalled, `setupMC 4`). The emitter numbers the
-runtime's local return points per program (`Scc.Emit.X64.freshL`):
-`scc_rt_main`'s setup call takes one more, so `scc_rt_thread_init`'s return
-point is `.Lscc_rt_thread_init.x8` here and `.x7` in `ret0.w`; the setup
-pass names `.x8` (`tiGrpsAt`), the bare one `.x7` (`tiGrps`), shown below.
-
-Every `Accepted0` program numbers them as `ret0.w` does (the runtime
-functions come first, and only `scc_rt_main`'s setup call varies).
+runtime's local labels per function, so `scc_rt_thread_init`'s return
+point is `.Lscc_rt_thread_init.x0` here as in `ret0.w`; the setup pass
+(`tiGrpsAt`) and the bare one (`tiGrps`) name the same point, shown below.
 -/
 
 namespace Scc.Cert.PlaceOK.X64.Test
@@ -58,7 +54,10 @@ private theorem hello1_a1 : (PlaceOK.a1 (tablesOf Config.canonical hello1Out) &&
 private theorem hello1_a2 : (loadOk (linkOf hello1Cells hello1Secs) hello1Cells hello1Secs hello1Asm.labelOffs &&
     abortsIn hello1Cells (linkOf hello1Cells hello1Secs) &&
     imageIn hello1Cells hello1Secs (linkOf hello1Cells hello1Secs)) = true := by
-  have h := hello1_parts; simp only [Bool.and_eq_true] at h; exact h.1.1.1.1.1.2
+  have h := hello1_parts; simp only [Bool.and_eq_true] at h
+  have h2 := h.1.1.1.1.1.2
+  rw [a2, tablesOf_canonical] at h2
+  exact h2
 private theorem hello1_a3 : a3 hello1Out (tablesOf Config.canonical hello1Out) = true := by
   have h := hello1_parts; simp only [Bool.and_eq_true] at h; exact h.1.1.1.1.2
 private theorem hello1_a4 : (Scc.Cert.WideX64.wideIn (hello1Cells.map (·.1)) &&
@@ -110,25 +109,24 @@ theorem hello1_a11 : a11 hello1Out (tablesOf Config.canonical hello1Out) = true 
 example : mcOf hello1Place.tail = none := rfl
 
 /-- `scc_rt_main` with three setup words, or a frame other than its own, or
-`scc_rt_thread_init`'s return point at `.x7`, fails A11's setup pass. -/
+`scc_rt_thread_init`'s return point at its `ret` (`.x1`), fails A11's setup pass. -/
 example : (Spike.Lib.X64.Rt.rtCodeOkS hello1Cells (Spike.Lib.X64.Rt.setupMC 3) ||
     Spike.Lib.X64.Rt.rtCodeOkS hello1Cells { Spike.Lib.X64.Rt.setupMC 4 with Z := 80 } ||
-    Spike.Lib.X64.Rt.rtCodeOkS hello1Cells { Spike.Lib.X64.Rt.setupMC 4 with ti := Spike.Lib.X64.Rt.Code.Ti.x7L })
+    Spike.Lib.X64.Rt.rtCodeOkS hello1Cells { Spike.Lib.X64.Rt.setupMC 4 with ti := Spike.Lib.X64.Rt.Code.Ti.retL })
     = false := by
   decide +kernel
 
 #guard rtIn hello1Cells (Spike.Lib.X64.Rt.mainSGrps (Spike.Lib.X64.Rt.setupMC 4))
 #guard rtIn hello1Cells (Spike.Lib.X64.Rt.tiGrpsAt (Spike.Lib.X64.Rt.setupMC 4).ti)
 
-/-- At the bare `MainCode` the pass fails, at `scc_rt_main`'s and at
-`scc_rt_thread_init`'s groups: its return point is `.x8`, not `.x7`. -/
+/-- At the bare `MainCode` the pass fails, at `scc_rt_main`'s groups. -/
 example : Spike.Lib.X64.Rt.rtCodeOk hello1Cells Spike.Lib.X64.Rt.bareMC = false := by decide +kernel
 
 #guard rtIn hello1Cells Spike.Lib.X64.Rt.startGrps
 #guard rtIn hello1Cells Spike.Lib.X64.Rt.tcbGrps
-#guard !rtIn hello1Cells Spike.Lib.X64.Rt.tiGrps
+#guard rtIn hello1Cells Spike.Lib.X64.Rt.tiGrps
 #guard rtIn hello1Cells Spike.Lib.X64.Rt.takeGrps
-#guard hello1Cells.any (·.1 == .label ".Lscc_rt_thread_init.x8")
-#guard !hello1Cells.any (·.1 == .label ".Lscc_rt_thread_init.x7")
+#guard hello1Cells.any (·.1 == .label ".Lscc_rt_thread_init.x0")
+#guard !hello1Cells.any (·.1 == .label ".Lscc_rt_thread_init.x8")
 
 end Scc.Cert.PlaceOK.X64.Test

@@ -14,7 +14,7 @@ the control facts at `wc_main`'s heap abort below `scc_rt_main`'s entry.
   and the heap abort's obligation (`HeapAbortOblA`) hold.
 
 **Where this differs from AArch64**: `HPathW` has no `sn1b` node (one-node
-`leaq`) and its `syscall` node is `ssys`; the clone's pc is `.Lwc_main.x21 +
+`leaq`) and its `syscall` node is `ssys`; the clone's pc is `.Lwc_main.x3 +
 46` (A64's `.L21_wc_main.sp6 + 52`); the callee region is `R.callee (-240 -
 8) (-24) 16`, so `R` needs `[-272, -232)` and no alignment premise (A64's
 `R.lo ≤ -288`, `0 ≤ R.hi`, `hal`); x86-64 has no fixed box control `c0W`
@@ -87,16 +87,16 @@ theorem abort_off (s : State) (h : inPc L "scc_rt_abort" "scc_rt_thr_worker" s) 
   have hc := Spike.Lib.X64.Flow.WakeWc.clone_inCv
   simp only [Bool.and_eq_true, decide_eq_true_eq] at hc
   obtain ⟨⟨hs, hb⟩, -⟩ := hc
-  have e : Spike.Lib.X64.Flow.WakeWc.clonePc L = cv ".Lwc_main.x21" + 46 := by
+  have e : Spike.Lib.X64.Flow.WakeWc.clonePc L = cv ".Lwc_main.x3" + 46 := by
     obtain ⟨y, hy⟩ := Option.isSome_iff_exists.mp hs
-    have ey : cv ".Lwc_main.x21" = y := by simp [cv, hy]
+    have ey : cv ".Lwc_main.x3" = y := by simp [cv, hy]
     rw [ey] at hb ⊢
-    show (L.lab ".Lwc_main.x21" + 46).toBitVec.toNat = y + 46
+    show (L.lab ".Lwc_main.x3" + 46).toBitVec.toNat = y + 46
     rw [hlab _ y hy]
     show (BitVec.ofNat 64 y + BitVec.ofNat 64 46).toNat = y + 46
     rw [BitVec.toNat_add, BitVec.toNat_ofNat, BitVec.toNat_ofNat]; omega
-  have hcl : ¬ (cv "scc_rt_abort" ≤ cv ".Lwc_main.x21" + 46 ∧
-      cv ".Lwc_main.x21" + 46 < cv "scc_rt_thr_worker") := by
+  have hcl : ¬ (cv "scc_rt_abort" ≤ cv ".Lwc_main.x3" + 46 ∧
+      cv ".Lwc_main.x3" + 46 < cv "scc_rt_thr_worker") := by
     unfold cv; rw [← codeT_eq]; decide +kernel
   have hst := lab_cv' hlab Spike.Lib.X64.Flow.Ret0.StackTake.siteL
     (by unfold cv; rw [← codeT_eq]; decide +kernel)

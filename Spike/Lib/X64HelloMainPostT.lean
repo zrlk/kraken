@@ -31,7 +31,7 @@ rest runs from `JrT`. The source's publication is taken as a stutter before `wc_
   has at `R.addr (-8)` (`hsl`); `hello_rodata_post_runW`'s `hedge` sees `Jp`, so the return node's invariant is
   `retJH fr Jr` with that `%rbp` (`Jr` itself, the source's return, need not know it).
 - `hello_rodata_post_runW` asks `.x15`'s `%rbp` of `Jp` (`hbp`), and `.x2`'s node knows `%rbp` at the saved
-  `%rbp` (`Hello1.mO`); `hra` is about the stack top `σ0.slot 0` and `.Lscc_rt_main.x2` (AArch64: the saved
+  `%rbp` (`Hello1.mO`); `hra` is about the stack top `σ0.slot 0` and `.Lscc_rt_main.x0` (AArch64: the saved
   `x30` at `-8`, `.L1_scc_rt_main.sp0`).
 - No 16-alignment (`hD8 : D % 8 = 0`, no `hal`), `8 ≤ R.hi`; the buffer's words are at `%rax` (`bAddr`).
 - Not twinned (unreachable from the AArch64 root, so twins only live constants): none.
@@ -71,7 +71,7 @@ theorem rdPostW_noMsr {exe : _root_.Executable} [Kraken.Executable.ValidLayout e
     NodeW.noSetFs h.l2 (code_field hp hend c5 rfl) (by simp) (by decide),
     BlkW.noSetFs h.s3 (code_field hp hend c6 rfl) (by decide),
     NodeW.noSetFs h.x2 (code_field hp hend c7 rfl) (by simp) (by decide),
-    BlkW.noSetFs h.s4 (code_field hp hend c8 rfl) (by decide)⟩
+    BlkW.noSetFs h.s4 (Spike.Lib.X64.code_field_blockAcrossB hp hend c8 (List.take_append_drop _ _) rfl) (by decide)⟩
 
 /-- **`wc_rodata`'s return invariant at the `%fs` base `t`, `scc_rt_main`'s `%rsp`** (`R.addr (-72)`, past
 the popped return address, in `scc_rt_main`'s region `R`) **and its `%rbp`** (`R.addr (-8)`, `wc_rodata`'s
@@ -99,7 +99,7 @@ theorem hello_main_post_segWST {W : FragS isa} {K : State → State → Prop} {f
     (hJpT : ∀ σ0 c, Jp σ0 c → σ0.regs.fsBase = t)
     (hW : MainPostSWH W K exe endPc R F fr m0 σC Jp Jp' J1 J2 J2' J3 (J4P J4 J4x) (JrT Jr t R))
     (hbp : ∀ σ0 c, Jp σ0 c → σ0.regs.get64 .rbp = (mR R).addr (-8))
-    (hra : ∀ σ0 c, Jp σ0 c → (_root_.Executable.labels exe).label ".Lscc_rt_main.x2" = Int64.ofBitVec (σ0.slot 0))
+    (hra : ∀ σ0 c, Jp σ0 c → (_root_.Executable.labels exe).label ".Lscc_rt_main.x0" = Int64.ofBitVec (σ0.slot 0))
     (hmem : ∀ σ0 c, Jp σ0 c → ∀ i : Int64, (i = 0 ∨ i = 8) →
       ∀ m, mF R F m0 σC m → Mem.loadInt m.dmem (bAddr σ0.regs .rax i) 8 = none)
     (hr0 : ∀ σ0 c, Jp σ0 c → ∃ c', LocalRun p c c' ∧ Jp' σ0 c')
@@ -145,7 +145,7 @@ theorem hello_main_post_segWST {W : FragS isa} {K : State → State → Prop} {f
   have hpost := SegWP.keepTPN (W := fun s c => W s c [fr]) (K := K) (t := t) hK'
     (hello_rodata_post_runW (W := NoSetFsW (fun s c => W s c [fr]) K) (ms := tpXa (ms [fr]) t) hp hend hF' hR'
       (by show (-208 : Int) ≤ -40; decide) (by show (8 : Int) ≤ 8; decide)
-      (x := ⟨lab ".Lscc_rt_main.x2", ⟨8, []⟩, retJH fr fun σ c => Jr σ c ∧ σ.regs.get64 .rbp = R.addr (-8)⟩)
+      (x := ⟨lab ".Lscc_rt_main.x0", ⟨8, []⟩, retJH fr fun σ c => Jr σ c ∧ σ.regs.get64 .rbp = R.addr (-8)⟩)
       (show SO.le ⟨8, []⟩ ⟨8, []⟩ = true by decide) (rdPostW_noMsr hp hend hW.rd) hbp hra
       hmem hr0 h1 h2 hr2 h3 h4 hfen hpubx hlocx fun σ0 c ⟨c0, hJp⟩ hJ5 σ' h0 h1 h2 h3 hbp' hsp' => by
         obtain ⟨c', hr, a, ty, ws, hc, ha, hJr⟩ := hedge σ0 c hJ5 σ' h0 h1 h2 h3 hbp' hsp'

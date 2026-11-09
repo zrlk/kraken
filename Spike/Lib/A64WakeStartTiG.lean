@@ -35,13 +35,13 @@ canonical base (up to `scc_rt_stack_release`). The bounds are checked
 against the labels only by `inI_of` (`labs_eq`, decided from `hlab`), and
 every `PcI` fact is decided on pcs from the label lemmas `ti_labs` /
 `take_labs`, so a `.text` shift fails those decisions loudly. -/
-def PcI (p : Int64) : Prop := 2165244 ≤ p.toBitVec.toNat ∧ p.toBitVec.toNat < 2165964
+def PcI (p : Int64) : Prop := 2165248 ≤ p.toBitVec.toNat ∧ p.toBitVec.toNat < 2165968
 
 instance (p : Int64) : Decidable (PcI p) := by unfold PcI; infer_instance
 
 /-- **`PcI` off the take site.** The site's literal is tied to the label by
 `StartTcb.siteT` (`Tcb2W.tcb_labs`, decided), the only producer of `hsite`. -/
-def PcN (p : Int64) : Prop := PcI p ∧ p.toBitVec.toNat ≠ 2165940
+def PcN (p : Int64) : Prop := PcI p ∧ p.toBitVec.toNat ≠ 2165944
 
 instance (p : Int64) : Decidable (PcN p) := by unfold PcN; infer_instance
 
@@ -72,7 +72,7 @@ theorem inI_of (hlab : ∀ l x, codeOf lo wakeProg l = some x → L.lab l = Int6
 literal tied by `Tcb2W.tcb_labs`). -/
 theorem offSite (hlab : ∀ l x, codeOf lo wakeProg l = some x → L.lab l = Int64.ofNat x) {s : State}
     (hp : PcN s.st.2) : pcOf s ≠ (L.lab Spike.Lib.A64.Flow.Ret0.StackTake.siteL).toBitVec.toNat := by
-  rw [show L.lab Spike.Lib.A64.Flow.Ret0.StackTake.siteL = Int64.ofNat 2165940 from
+  rw [show L.lab Spike.Lib.A64.Flow.Ret0.StackTake.siteL = Int64.ofNat 2165944 from
     (Tcb2W.tcb_labs hlab).2.2.2.2.2]
   exact fun e => hp.2 (e.trans (by decide))
 
@@ -109,7 +109,7 @@ theorem finI (hlab : ∀ l x, codeOf lo wakeProg l = some x → L.lab l = Int64.
 instance: its pcs in `PcN` (`h1`), its static `sp` offsets in `[klo, 0]`
 (`hso`), `GoodW` where its run ends (`hfin`). -/
 theorem blkI_own (hlab : ∀ l x, codeOf lo wakeProg l = some x → L.lab l = Int64.ofNat x) (hb : BandI L R klo)
-    (hsite : ∀ x, (Spike.Lib.A64.PhRec.μ L).site .take = some x → x = 2165940)
+    (hsite : ∀ x, (Spike.Lib.A64.PhRec.μ L).site .take = some x → x = 2165944)
     (hS : BlkW (fun s c => SFacts L.Λ (Spike.Lib.A64.PhRec.μ L) (fun s => ownW L a (phW (pcOf s))) rS Tk lbl' s c)
       K L.exe L.endPc R F n blk)
     (hcode : ∀ s : State, s.exe = L.exe → s.endPc = L.endPc → Spike.Lib.A64.CodeAt s n.pc blk)

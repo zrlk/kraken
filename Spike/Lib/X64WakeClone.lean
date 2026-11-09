@@ -4,7 +4,7 @@ twin of `Spike/Lib/A64WakeWcSp4.lean`'s `.sp6` half and
 `A64WakeWcSp4Seg.wake_wc_sp4_call_segW`'s tail), at the listing level, in
 `wc_main`'s frame (`oW`: `%rsp` at `-64`, `%rbp` at `0`):
 
-    .Lwc_main.x21:                      -- %rax = the child's stack top k
+    .Lwc_main.x3:                      -- %rax = the child's stack top k
       movq %rax, -40(%rbp); movq -8(%rbp), %rax; movq %rax, -48(%rbp)  (x21A)
       mfence                            -- row: a fence (mfence_ndW)
       movq -16(%rbp), %r12; movq -48(%rbp), %rbx; movq -40(%rbp), %rsi
@@ -24,7 +24,7 @@ reserve's id, `-32` the TCB `t`, `-40` the stack top `k`, `-48` main's word
 again; the caller's `%rbp` and return address at `0` and `8` (`fr`).
 
 - `x21A`, `cloneLd`, `nrB` (`block_spec`); `fenceB`, `xdx`, `x10`: the rows;
-  `wcCloneIn`: the blocks and rows at `.Lwc_main.x21`'s offsets (checked
+  `wcCloneIn`: the blocks and rows at `.Lwc_main.x3`'s offsets (checked
   against wake's cells: `SccCode.wakeCells`).
 - `FrW cA m t fr`: the frame's words; `wcN21`, `wcNf`, `wcNa`, `wcNd`,
   `wcN10`, `wcNr`, `wcNS`: the nodes; `x21A_edge`, `cloneLd_edge`,
@@ -90,9 +90,9 @@ block_spec cloneLd (-64) 16 oW cloneLd
 block_spec nrB (-64) 16 oW nrB
 
 /-- The label of `.x21`. -/
-abbrev x21L : Label := ".Lwc_main.x21"
+abbrev x21L : Label := ".Lwc_main.x3"
 
-/-- **The blocks and rows in `cells`** at `.Lwc_main.x21`: indices `0`,
+/-- **The blocks and rows in `cells`** at `.Lwc_main.x3`: indices `0`,
 `3`, `4`, `9`, `10`, `11`, `12`, byte offsets `0`, `12`, `15`, `36`, `38`,
 `41`, `46`. -/
 def wcCloneIn (cells : List (Directive × Nat)) : Bool :=

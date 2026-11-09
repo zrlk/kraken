@@ -1,9 +1,9 @@
 /-
 **hello.w on x86-64: a placed record's self words** (the twin of `X64WakeSpawnR.selfOK_placed` at hello's two
 TCBs): `SelfOK (tcbM L) (tcbWH L) g` for a record whose labels the memory relation places, given that the pinned
-region reaches `pinA + 168` (`hpin2`).
+region reaches `pinA + 200` (`hpin2`).
 
-- `selfOK_placedH`: main's TCB word `tcbM L = pinA + 8` and the worker's `tcbWH L = pinA + 112` lie in `pinned`
+- `selfOK_placedH`: main's TCB word `tcbM L = pinA + 8` and the worker's `tcbWH L = pinA + 144` lie in `pinned`
   (`hpin2`), so off every label the memory relation places (in `.data` or the heap, disjoint from `pinned`,
   `X64WakeGOf.heapData_of_placed`); the flag's word lies in its label (`X64WakeInst.inLabel_cT`), so it is not
   main's.
@@ -16,8 +16,8 @@ Consumer: `X64HelloAssemblyI.hello_obligations_I` (the records' `okHR` at the cl
 `X64HelloRec.hrec_okHRc`).
 
 **Unlike AArch64**, where the records need no self words (A64's threads own no word), x86-64's memory sides own
-the TCB words `%fs:0` reads, so each record carries `SelfOK`; hello's second TCB is at `pinA + 112` (wake's at
-`pinA + 104`).
+the TCB words `%fs:0` reads, so each record carries `SelfOK`; hello's second TCB is at `pinA + 144` (wake's at
+`pinA + 136`).
 -/
 import Spike.Lib.X64HelloOwnLift
 import Spike.Lib.X64WakeChildSt
@@ -43,7 +43,7 @@ set_option hygiene false in
 local notation "Ly" => RuntimeLayout.ofPlaceWX hp i
 
 /-- **`SelfOK` of a record placed by the memory relation** at hello's TCB words (see the module doc). -/
-theorem selfOK_placedH (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) {g : Gh}
+theorem selfOK_placedH (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) {g : Gh}
     {ts : Nat → Option Nat} {tm : Memory} {sm : WeakMem.Memory} {tp tq sp : List Nat}
     (hm : MemRelP (Ly).Λ g.lbl g.lsize ts tm sm tp tq sp) (hg : GhOK (Ly).Λ g) :
     SelfOK (tcbM (Ly)) (tcbWH (Ly)) g := by
@@ -54,9 +54,9 @@ theorem selfOK_placedH (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (L
   have h0 := PlaceWX.pinA_toNat_ofPlaceWX hp i
   have hsm := X64WakeChildSt.pinA_small hp i
   have eT : (tcbM (Ly)).toNat = (Ly).pinA.toNat + 8 := X64WakeChildSt.pinA_add hp i (c := 8) (by decide)
-  have eW : (tcbWH (Ly)).toNat = (Ly).pinA.toNat + 112 := X64WakeChildSt.pinA_add hp i (c := 112) (by decide)
+  have eW : (tcbWH (Ly)).toNat = (Ly).pinA.toNat + 144 := X64WakeChildSt.pinA_add hp i (c := 144) (by decide)
   simp only [Range.Disjoint, Range.InSpace] at hdp hhp hH hD
-  have hoff : ∀ a : BitVec 64, a.toNat = (Ly).pinA.toNat + 8 ∨ a.toNat = (Ly).pinA.toNat + 112 →
+  have hoff : ∀ a : BitVec 64, a.toNat = (Ly).pinA.toNat + 8 ∨ a.toNat = (Ly).pinA.toNat + 144 →
       ¬ InLabel g.lbl g.lsize ⟨a, 8⟩ := by
     rintro a ha ⟨l, b, hl, hx⟩
     have hs := Spike.Lib.X64WakeGOf.heapData_of_placed hm hl hx
@@ -85,7 +85,7 @@ theorem cT_ne_tcbWH_placedH {g : Gh} {ts : Nat → Option Nat} {tm : Memory} {sm
 /-- **Inhabitation at hello's records**: the record built at the clone (`X64WakeOkW.recW`) satisfies hello's full
 `okHR` at the TCB words, `SelfOK` included, from the clone's memory relation, `c`'s and the buffer's placement and
 `hpin2` alone (what `X64HelloRec.hrec_okHRc` builds at `X64HelloAssemblyI.ιH`). -/
-example (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) {lB : WeakMem.AllocLabel}
+example (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) {lB : WeakMem.AllocLabel}
     {b0 T S : Nat} {lbl : WeakMem.AllocLabel → Option Nat} {lsize : WeakMem.AllocLabel → Nat}
     {l : WeakMem.AllocLabel} {pT : Loc} {cw : TermRun.Word} {ts : Nat → Option Nat} {tm : Memory}
     {sm : WeakMem.Memory} {tp tq sp : List Nat} (hm : MemRelP (Ly).Λ lbl lsize ts tm sm tp tq sp) {cA : Nat}

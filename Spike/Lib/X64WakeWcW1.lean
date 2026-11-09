@@ -71,12 +71,12 @@ theorem WcMidW.of_main {W : Frag isa} {K : State → State → Prop} {exe : _roo
     {R : Region} {F F₂ : MachineData → Prop} {ms : MemSide isa} {J0 : AS → Ctl → Prop}
     {Q : WeakMem.AllocLabel → Nat → Ctl → Prop} (hm : WcMainW W K exe endPc R F F₂ ms J0 Q)
     (hres : ∀ g : Flow.Ret0.AllocTcb.G × Ctl,
-      g.1.ra = ((_root_.Executable.labels exe).label ".Lwc_main.x19").toBitVec →
+      g.1.ra = ((_root_.Executable.labels exe).label ".Lwc_main.x1").toBitVec →
       ∀ i, ReserveW W K exe endPc (rAR R)
         (fun m => F m ∧ CallerCells R (-72) (-40) 8 m ∧ ResCtx (_root_.Executable.labels exe).label R
           (rN ms (_root_.Executable.labels exe).label R J0 Q .call).J g m) ⟨g.1, 0#64, g.2⟩ i)
     (htcb : ∀ c0 cA m fr, MidG Q c0 cA ∧ FrG J0 fr ∧ FrMG J0 fr m →
-      ∀ g : Ret0.AllocTcb.G, g.ra = ((_root_.Executable.labels exe).label ".Lwc_main.x20").toBitVec →
+      ∀ g : Ret0.AllocTcb.G, g.ra = ((_root_.Executable.labels exe).label ".Lwc_main.x2").toBitVec →
       ∀ i, TcbWG W K exe endPc (R.callee (-72) (-184) 8)
         (fun mm => F mm ∧ CallerCells R (-72) (-184) 8 mm ∧
           TcbCtx (_root_.Executable.labels exe).label R (wcNCR (_root_.Executable.labels exe).label c0 cA m fr).J
@@ -100,12 +100,12 @@ theorem wcMidW_w1 (asm : Scc.Sem.X64.Asm) (hp : PlaceWX pcfg Λ0 o) (i : CoreTer
     (hwcWf : WcMainW (fun s c => WakeOPremW.W1W asm hp i E Dt Ctx ls0 l b n s c []) (fun _ _ => False)
       exe endPc R F F₂ ms J0 Q)
     (hres : ∀ g : Flow.Ret0.AllocTcb.G × Ctl,
-      g.1.ra = ((_root_.Executable.labels exe).label ".Lwc_main.x19").toBitVec →
+      g.1.ra = ((_root_.Executable.labels exe).label ".Lwc_main.x1").toBitVec →
       ∀ nd, ReserveW (fun s c => WakeOPremW.W1W asm hp i E Dt Ctx ls0 l b n s c []) (fun _ _ => False) exe endPc
         (rAR R) (fun m => F m ∧ CallerCells R (-72) (-40) 8 m ∧ ResCtx (_root_.Executable.labels exe).label R
           (rN ms (_root_.Executable.labels exe).label R J0 Q .call).J g m) ⟨g.1, 0#64, g.2⟩ nd)
     (htcb : ∀ c0 cA m fr, MidG Q c0 cA ∧ FrG J0 fr ∧ FrMG J0 fr m →
-      ∀ g : Ret0.AllocTcb.G, g.ra = ((_root_.Executable.labels exe).label ".Lwc_main.x20").toBitVec →
+      ∀ g : Ret0.AllocTcb.G, g.ra = ((_root_.Executable.labels exe).label ".Lwc_main.x2").toBitVec →
       ∀ nd, TcbWG (fun s c => WakeOPremW.W1W asm hp i E Dt Ctx ls0 l b n s c []) (fun _ _ => False) exe endPc
         (R.callee (-72) (-184) 8) (fun mm => F mm ∧ CallerCells R (-72) (-184) 8 mm ∧
           TcbCtx (_root_.Executable.labels exe).label R (wcNCR (_root_.Executable.labels exe).label c0 cA m fr).J

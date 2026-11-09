@@ -10,20 +10,22 @@ program's `main`: one block `entry` holding the body's instructions, all
 
 * `blockLabel_func0`: the entry block's label is `c.prefix ++ "0_entry"`;
 * `bodyItems c r`: the code of the body, its instructions' (`FnCtx.inst`),
-  in order, then its `ret`'s (`FnCtx.term`);
+  in order and numbered from 0 (`codesFrom`), then its `ret`'s
+  (`FnCtx.term`, numbered after them);
 * `emitFunc_func0_items`: the function's items are a prologue, the entry
   block's label, `bodyItems c r`, then the stubs. Nothing comes between the
   label and the body: a call's safepoint goes to the separate safepoint
-  list, and an `addChk` places no label (its code does not depend on the
-  instruction counter, nor does `ret`'s);
+  list (an `addChk`'s fall-through label and the `ret`'s label are part of
+  their codes, numbered by the instruction counter, `x{k}`);
 * `addChkOk_func0`: in that context every instruction of the body emits
   (its registers are the function's slots, `funcRegs_func0_eq`), and so
   does every returned operand;
 * `bodyItems_eq_flatMap`: in a frame of at most 32 KiB, `bodyItems` is per
   instruction the operands' loads into `x9`/`x10`, `adds x9, x9, x10`,
-  `b.cs` to the overflow abort and `str x9` into the destination's slot
-  (`addChkCode`, `inst_addChk`), then the result into `x0`, the frame's
-  exit and `ret` (`term_ret1`).
+  `b.cs` to the overflow abort, the fall-through's label and `str x9` into
+  the destination's slot (`addChkCode`, `inst_addChk`), then the result
+  into `x0`, the frame's exit, the return site's label and `ret`
+  (`term_ret1`).
 -/
 
 open Scc.IR Scc.Lower Scc.Lower.Inv
@@ -35,12 +37,24 @@ open StackMap (instUses instDefs opRegs)
 
 /-! ## The body's code -/
 
+/-- The codes `g k x` of the elements `x` of a list, the counter `k` from
+`k` on, advancing by one per element (as `emitFunc`'s instruction counter
+does). -/
+def codesFrom {α : Type} (g : Nat → α → Except String (List Item)) :
+    Nat → List α → Except String (List (List Item))
+  | _, [] => .ok []
+  | k, x :: l => do
+    let ys ← g k x
+    let xs ← codesFrom g (k + 1) l
+    pure (ys :: xs)
+
 /-- **The code of an `Accepted0` body** in context `c`: its instructions',
-in order, then its `ret`'s. The instruction counter is `0` throughout: an
-`addChk` and a `ret` do not read it (`inst_addChk_k`, `term_ret_k`). -/
+in order, numbered from 0, then its `ret`'s, numbered after them (the
+emitter's instruction counter: an `addChk`'s and a `ret`'s labels read
+it). -/
 def bodyItems (c : FnCtx) (r : Res) : Except String (List Item) := do
-  let xs ← r.insts.mapM (c.inst 0)
-  let t ← c.term 0 (.ret r.ret)
+  let xs ← codesFrom c.inst 0 r.insts
+  let t ← c.term r.insts.length (.ret r.ret)
   pure (xs.flatten ++ t)
 
 theorem sanitize_entry : sanitize "entry" = "entry" := by
@@ -60,17 +74,18 @@ theorem blockLabel_func0 (abortFn : String) (growth : Option IR.Growth)
 
 /-! ## `emitFunc`'s loops -/
 
-/-- **A loop that appends each element's code**: if each step on `x`
-appends `g x` to the code and advances the counter by one (whatever else it
-does to its state `σ`), the loop over `l` appends the codes of `l` in
-order and advances the counter by its length. -/
-theorem forIn_appends {α σ : Type} (g : α → Except String (List Item))
+/-- **A loop that appends each element's code**: if each step on `x` at
+counter `k` appends `g k x` to the code and advances the counter by one
+(whatever else it does to its state `σ`), the loop over `l` appends the
+codes of `l` in order, numbered from its counter, and advances the counter
+by its length. -/
+theorem forIn_appends {α σ : Type} (g : Nat → α → Except String (List Item))
     (body : α → σ × Nat × List Item → Except String (ForInStep (σ × Nat × List Item))) :
     ∀ (l : List α), (∀ x ∈ l, ∀ s k code y, body x (s, k, code) = .ok y →
-      ∃ ys s', g x = .ok ys ∧ y = .yield (s', k + 1, code ++ ys)) →
+      ∃ ys s', g k x = .ok ys ∧ y = .yield (s', k + 1, code ++ ys)) →
     ∀ (s : σ) (k : Nat) (code : List Item) (res : σ × Nat × List Item),
       forIn l (s, k, code) body = .ok res →
-      ∃ xs, l.mapM g = .ok xs ∧ res.2.1 = k + l.length ∧ res.2.2 = code ++ xs.flatten
+      ∃ xs, codesFrom g k l = .ok xs ∧ res.2.1 = k + l.length ∧ res.2.2 = code ++ xs.flatten
   | [], _, s, k, code, res, h => by
     rw [List.forIn_nil] at h
     cases h; exact ⟨[], rfl, by simp, by simp⟩
@@ -84,16 +99,16 @@ theorem forIn_appends {α σ : Type} (g : α → Except String (List Item))
       obtain ⟨xs, hm, h1, h2⟩ := forIn_appends g body l (fun x hx => hb x (List.mem_cons_of_mem _ hx))
         s' (k + 1) (code ++ ys) res h
       refine ⟨ys :: xs, ?_, by simp [h1]; omega, by simp [h2]⟩
-      simp only [List.mapM_cons, hg, hm]; rfl
+      simp only [codesFrom, hg, hm, bind, Except.bind, pure, Except.pure]
 
 /-- `forIn_appends` with the loop's result first. -/
-theorem forIn_appends' {α σ : Type} (g : α → Except String (List Item))
+theorem forIn_appends' {α σ : Type} (g : Nat → α → Except String (List Item))
     {body : α → σ × Nat × List Item → Except String (ForInStep (σ × Nat × List Item))}
     {l : List α} {s : σ} {k : Nat} {code : List Item} {res : σ × Nat × List Item}
     (h : forIn l (s, k, code) body = .ok res)
     (hb : ∀ x ∈ l, ∀ s k code y, body x (s, k, code) = .ok y →
-      ∃ ys s', g x = .ok ys ∧ y = .yield (s', k + 1, code ++ ys)) :
-    ∃ xs, l.mapM g = .ok xs ∧ res.2.1 = k + l.length ∧ res.2.2 = code ++ xs.flatten :=
+      ∃ ys s', g k x = .ok ys ∧ y = .yield (s', k + 1, code ++ ys)) :
+    ∃ xs, codesFrom g k l = .ok xs ∧ res.2.1 = k + l.length ∧ res.2.2 = code ++ xs.flatten :=
   forIn_appends g body l hb s k code res h
 
 /-- The safepoint maps of `func0 name r`: one block, one entry per
@@ -115,22 +130,14 @@ theorem callMaps_func0 (name : IR.Sym) (r : Res) :
   | nil => rfl
   | cons i l ih => simp only [List.foldr_cons, List.length_cons, ih]
 
-/-- Mapping over a zip with a function of the first components. -/
-theorem mapM_zip_fst {α β : Type} (g : α → Except String (List Item)) :
-    ∀ (l : List α) (ms : List β), ms.length = l.length →
-      (l.zip ms).mapM (fun x => g x.1) = l.mapM g
-  | [], _, _ => rfl
-  | a :: l, b :: ms, h => by
-    simp only [List.zip_cons_cons, List.mapM_cons, mapM_zip_fst g l ms (by simpa using h)]
-  | _ :: _, [], h => by simp at h
-
-/-- The code of an `addChk` does not read the instruction counter. -/
-theorem inst_addChk_k (c : FnCtx) (k : Nat) (d : IR.Reg) (a b : IR.Operand) :
-    c.inst k (.addChk d a b) = c.inst 0 (.addChk d a b) := rfl
-
-/-- Nor does the code of a `ret`. -/
-theorem term_ret_k (c : FnCtx) (k : Nat) (vs : List IR.Operand) :
-    c.term k (.ret vs) = c.term 0 (.ret vs) := rfl
+/-- The codes over a zip with a function of the first components. -/
+theorem codesFrom_zip_fst {α β : Type} (g : Nat → α → Except String (List Item)) :
+    ∀ (k : Nat) (l : List α) (ms : List β), ms.length = l.length →
+      codesFrom (fun k x => g k x.1) k (l.zip ms) = codesFrom g k l
+  | _, [], _, _ => rfl
+  | k, a :: l, b :: ms, h => by
+    simp only [List.zip_cons_cons, codesFrom, codesFrom_zip_fst g (k + 1) l ms (by simpa using h)]
+  | _, _ :: _, [], h => by simp at h
 
 /-! ## The function's items -/
 
@@ -164,12 +171,12 @@ theorem emitFunc_func0_items {abortFn : String} {growth : Option IR.Growth}
       cases F with
       | error e => cases hres
       | ok v =>
-        obtain ⟨xs, hxs, hk, hcode⟩ := forIn_appends' (fun x : IR.Inst × Option IR.StackMap.Entry =>
-          c.inst 0 x.1) hF (by
+        obtain ⟨xs, hxs, hk, hcode⟩ := forIn_appends' (fun k (x : IR.Inst × Option IR.StackMap.Entry) =>
+          c.inst k x.1) hF (by
           intro x hx s k code y hy
           obtain ⟨d, a, b, hdab⟩ := hAll x.1 (List.of_mem_zip hx).1
-          simp only [hdab, inst_addChk_k] at hy ⊢
-          cases hi : c.inst 0 (.addChk d a b) with
+          simp only [hdab] at hy ⊢
+          cases hi : c.inst k (.addChk d a b) with
           | error e => rw [hi] at hy; cases hy
           | ok ys =>
             rw [hi] at hy
@@ -183,10 +190,11 @@ theorem emitFunc_func0_items {abortFn : String} {growth : Option IR.Growth}
                   · cases hy; exact ⟨ys, _, rfl, rfl⟩
               · cases hy; exact ⟨ys, _, rfl, rfl⟩
             · cases hy; exact ⟨ys, _, rfl, rfl⟩)
-        rw [mapM_zip_fst (fun i => c.inst 0 i) r.insts ms hlen] at hxs
+        rw [codesFrom_zip_fst (fun k i => c.inst k i) 0 r.insts ms hlen] at hxs
+        have hk' : v.2.1 = r.insts.length := by rw [hk]; simp [hlen]
         dsimp only at hres
-        rw [term_ret_k] at hres
-        cases ht : c.term 0 (.ret r.ret) with
+        rw [hk'] at hres
+        cases ht : c.term r.insts.length (.ret r.ret) with
         | error e => rw [ht] at hres; cases hres
         | ok t =>
           rw [ht] at hres
@@ -209,11 +217,11 @@ def okL (e : Except String (List Item)) : List Item := match e with | .ok l => l
 /-- The offset of a successful slot lookup (`0` on an error). -/
 def okI (e : Except String Int) : Int := match e with | .ok n => n | .error _ => 0
 
-/-- The code of an `addChk` with its operands' loads and its destination's
-offset (`inst_addChk`); any other instruction has none here. -/
-def addChkCode (c : FnCtx) : IR.Inst → List Item
+/-- The code of an `addChk` at counter `k` with its operands' loads and its
+destination's offset (`inst_addChk`); any other instruction has none here. -/
+def addChkCode (c : FnCtx) (k : Nat) : IR.Inst → List Item
   | .addChk d a b => okL (c.getOp .X9 a) ++ okL (c.getOp .X10 b) ++
-      addChecked .X9 .X9 .X10 (c.local "abort_overflow") ++
+      addChecked .X9 .X9 .X10 (c.local "abort_overflow") ++ [lbl (c.local s!"x{k}")] ++
       [ins (.STR (rz .W64 .X9) ⟨spW64, .imm ⟨i64 (okI (c.slotOff d)), none⟩⟩)]
   | _ => []
 
@@ -224,30 +232,33 @@ def AddChkOk (c : FnCtx) (i : IR.Inst) : Prop :=
     c.slotOff d = .ok off
 
 /-- The code of an `addChk` that emits is `addChkCode`. -/
-theorem inst_addChkCode {c : FnCtx} (hf : FrameOk c) (hs : c.frame ≤ 32768) {i : IR.Inst}
-    (h : AddChkOk c i) : c.inst 0 i = .ok (addChkCode c i) := by
+theorem inst_addChkCode {c : FnCtx} (hf : FrameOk c) (hs : c.frame ≤ 32768) (k : Nat)
+    {i : IR.Inst} (h : AddChkOk c i) : c.inst k i = .ok (addChkCode c k i) := by
   obtain ⟨d, a, b, la, lb, off, rfl, ha, hb, hd⟩ := h
-  rw [inst_addChk hf hs 0 ha hb hd]
+  rw [inst_addChk hf hs k ha hb hd]
   simp only [addChkCode, ha, hb, hd, okL, okI]
 
-/-- The codes of instructions that all emit. -/
-theorem mapM_addChkCode {c : FnCtx} (hf : FrameOk c) (hs : c.frame ≤ 32768) :
-    ∀ (l : List IR.Inst), (∀ i ∈ l, AddChkOk c i) → l.mapM (c.inst 0) = .ok (l.map (addChkCode c))
-  | [], _ => rfl
-  | i :: l, h => by
-    simp only [List.mapM_cons, inst_addChkCode hf hs (h i List.mem_cons_self),
-      mapM_addChkCode hf hs l (fun j hj => h j (List.mem_cons_of_mem _ hj)), List.map_cons]
-    rfl
+/-- The codes of instructions that all emit, numbered from `k`. -/
+theorem codesFrom_addChkCode {c : FnCtx} (hf : FrameOk c) (hs : c.frame ≤ 32768) :
+    ∀ (l : List IR.Inst) (k : Nat), (∀ i ∈ l, AddChkOk c i) →
+      codesFrom c.inst k l = .ok ((l.zipIdx k).map fun (i, j) => addChkCode c j i)
+  | [], _, _ => rfl
+  | i :: l, k, h => by
+    simp only [codesFrom, inst_addChkCode hf hs k (h i List.mem_cons_self),
+      codesFrom_addChkCode hf hs l (k + 1) (fun j hj => h j (List.mem_cons_of_mem _ hj)),
+      List.zipIdx_cons, List.map_cons, bind, Except.bind, pure, Except.pure]
 
 /-- **The body's code as one list**: per instruction the operands' loads
 into `x9`/`x10`, `adds x9, x9, x10`, `b.cs` to the overflow abort, `str x9`
-into the destination's slot (`addChkCode`); then `v` into `x0`, the frame's
-exit and `ret`. -/
+into the destination's slot (`addChkCode`, the `j`th with its label `x{j}`); then `v` into
+`x0`, the frame's exit, the return site's label `x{n}` (`n` the number of instructions) and
+`ret`. -/
 theorem bodyItems_eq_flatMap {c : FnCtx} (hf : FrameOk c) (hs : c.frame ≤ 32768) {r : Res}
     (hI : ∀ i ∈ r.insts, AddChkOk c i) {v : IR.Operand} (hr : r.ret = [v]) {lv : List Item}
     (hv : c.getOp .X0 v = .ok lv) :
-    bodyItems c r = .ok (r.insts.flatMap (addChkCode c) ++ (lv ++ c.leave ++ [ret])) := by
-  simp only [bodyItems, mapM_addChkCode hf hs r.insts hI, hr, term_ret1 0 hv, bind,
+    bodyItems c r = .ok (r.insts.zipIdx.flatMap (fun (i, j) => addChkCode c j i) ++
+      (lv ++ c.leave ++ [lbl (c.local s!"x{r.insts.length}"), ret])) := by
+  simp only [bodyItems, codesFrom_addChkCode hf hs r.insts 0 hI, hr, term_ret1 _ hv, bind,
     Except.bind, pure, Except.pure, List.flatMap_def]
 
 /-! ## Every instruction emits -/

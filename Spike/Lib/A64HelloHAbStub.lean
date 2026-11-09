@@ -284,16 +284,16 @@ theorem abort_offH (s : State) (h : Spike.Lib.A64.WakePh.inPc L "scc_rt_abort" "
     pcOf s ≠ Spike.Lib.HelloPreA.clonePcH L ∧
       pcOf s ≠ (L.lab Spike.Lib.A64.Flow.Ret0.StackTake.siteL).toBitVec.toNat := by
   obtain ⟨e1, e2, -, -, -, -, -, -, -, -, -, -, -, -, e15⟩ := abH_labsH hlab
-  have hsite : (L.lab Spike.Lib.A64.Flow.Ret0.StackTake.siteL).toBitVec.toNat = 2165976 := by
-    rw [hlab _ 2165976 (by rw [← codeT_eq]; decide +kernel)]; decide
-  have hcl : Spike.Lib.HelloPreA.clonePcH L = 2169840 := by
-    show (L.lab (".L22_wc_main" ++ ".sp6") + Int64.ofNat (4 * 25)).toBitVec.toNat = 2169840
+  have hsite : (L.lab Spike.Lib.A64.Flow.Ret0.StackTake.siteL).toBitVec.toNat = 2165980 := by
+    rw [hlab _ 2165980 (by rw [← codeT_eq]; decide +kernel)]; decide
+  have hcl : Spike.Lib.HelloPreA.clonePcH L = 2169872 := by
+    show (L.lab (".L22_wc_main" ++ ".sp6") + Int64.ofNat (4 * 25)).toBitVec.toNat = 2169872
     rw [show (".L22_wc_main" ++ ".sp6" : String) = ".L22_wc_main.sp6" from rfl, e15]; decide
   obtain ⟨h1, h2⟩ := h
   rw [e1] at h1
   rw [e2] at h2
-  have h1' : 2168032 ≤ pcOf s := by simpa using h1
-  have h2' : pcOf s < 2168596 := by simpa using h2
+  have h1' : 2168064 ≤ pcOf s := by simpa using h1
+  have h2' : pcOf s < 2168628 := by simpa using h2
   rw [hcl, hsite]
   omega
 

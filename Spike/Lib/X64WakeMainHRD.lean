@@ -21,7 +21,7 @@ twin; the instance takes `L := RuntimeLayout.ofPlaceWX hp i` and its
 `endR`. The region is `⟨Rm.base, -64, 16⟩` with `Rm.base = %rsp + 64` (A64
 `-96`, `SP + 80`); there is no alignment field (`hal`: the x64
 `parent_at_pre` and `wake_wc_mid_hatW` ask none); the return point is
-`.Lscc_rt_main.x2` (`MainPost.mainX2`; A64 `mainSp0`); the parent's frame
+`.Lscc_rt_main.x0` (`MainPost.mainX2`; A64 `mainSp0`); the parent's frame
 pointer is `fp` (A64 `x29`); `hsp` is an extra field (A64 has `hal`
 instead), feeding `base8`/`wideOK`. **Not here yet**: `hMainR_ofD` needs
 the x64 twins of `WakeMainHR.hMainR_of`/`MainPieces`, `WakeSpawnR.{PreR, QG, ιR,

@@ -44,7 +44,7 @@ def codeAt (fi : Nat) : Bool := fnOk1 hello1L.prog hello1L.place.need ir (startA
 #guard ((ir.funcs.zipIdx.filter fun (p : Scc.IR.Func × Nat) => p.1.checkStack).map
   fun (p : Scc.IR.Func × Nat) => (p.1.name, p.2)) == [("scc_rt_main", 1), ("wc_rodata", 18), ("wc_main", 19)]
 #guard [1, 18, 19].map (fun fi => (frOf ir (fnAt fi)).size) == [64, 32, 80]
-#guard [1, 18, 19].map startAt == [2, 13, 15]
+#guard [1, 18, 19].map startAt == [0, 0, 0]
 #guard hello1L.place.need == [("scc_rt_main", 72, 168), ("wc_rodata", 40, 40), ("wc_main", 88, 88)]
 #guard (callees (fnAt 1)) == (["wc_rodata", "wc_main"], [])
 #guard (callees (fnAt 18)) == (["scc_rt_alloc"], [])

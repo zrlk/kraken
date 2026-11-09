@@ -52,6 +52,16 @@ local macro "tblkL " bb:term:max ok:term:max blk:term:max oo:term:max el:term:ma
     dsimp only [tcbN] at hJ ⊢))
 
 set_option hygiene false in
+/-- `tblkL` on a block split by a return label (`blkLA`). -/
+local macro "tblkLA " bb:term:max ok:term:max blk:term:max oo:term:max el:term:max : tactic =>
+  `(tactic| (
+    refine blkLA hp hlab hsite hsep ha hW (P := PT) (Q := NoH) $bb (by first | rfl | exact ofNat_zero' _) $ok hR
+      (by omega) (by omega) (fun _ h => h.2) (fun s h => cls_off hlab hbd s h.1) (cls_off hlab hbd) ?_
+      (soT $blk $oo) (fun σ c hJ => ?_)
+    · intro k hk; dsimp only [tcbN]; rw [$el:term]; revert k; decide +kernel
+    dsimp only [tcbN] at hJ ⊢))
+
+set_option hygiene false in
 /-- A single-instruction node of the call inside `Lft` (`z` bytes, `bb` its
 code check, `el` its label's value, `kp` its `Keep` from the cell `hc` and
 the step `hs`). -/
@@ -153,7 +163,7 @@ theorem tcbL (hp : L.prog = wakeCells)
     tblkL bO5 atO5_ok atO5 oI eOk
     rw [(atO5_walk _ _ hJ.2.1 hJ.2.2).1, eOk]; decide +kernel
   case ret =>
-    tblkL bRet atRet_ok atRet oI eOk
+    tblkLA bRet atRet_ok atRet oI eOk
     rw [(atRet_walk _ _ hJ.2).1, hra, Int64.ofBitVec_toBitVec, show L.lab Spike.Lib.X64.Flow.Ret0.x0L =
       Int64.ofNat 4198487 from eX0]
     decide +kernel

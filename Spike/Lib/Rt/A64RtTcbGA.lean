@@ -60,6 +60,16 @@ local macro "tnodeW " b:ident ok:ident l:term:max k:term:max w:term:max : tactic
     (code_of hp hend (by simp only [AllocTcb.allocTcbIn, Bool.and_eq_true] at hin; simp only [hin])
       (l := $l) (k := $k) (by first | rfl | exact ofNat4_zero _)) $w fun σ c hJ => ⟨c, .refl c, ?_⟩)
 
+set_option hygiene false in
+/-- `tnodeW` for a block split by its return label `r` after `n` instructions
+(`blockAcross`, `Spike.Lib.A64.code_field_blockAcross`). -/
+local macro "tnodeWA " b:ident ok:ident l:term:max k:term:max n:term:max r:term:max w:term:max : tactic =>
+  `(tactic| refine seg_ndW (by simp [$b:ident]) $ok hF hR hal hlo hhi
+    (Spike.Lib.A64.code_field_blockAcross hp hend
+      (by simp only [AllocTcb.allocTcbIn, Bool.and_eq_true] at hin; simp only [hin])
+      (l := $l) (m := $r) (k := $k) (List.take_append_drop $n _)
+      (by first | rfl | exact ofNat4_zero _)) $w fun σ c hJ => ⟨c, .refl c, ?_⟩)
+
 /-- **`scc_rt_alloc_tcb` at `h` is one segment inside `W`, the counter
 owned at the `ldadd` node's states** (`allocTcbG_segW` at `TcbOkGA`). -/
 theorem allocTcbG_segWA {W : Frag isaLSE2} {K : State → State → Prop} {prog : List Directive} {kp : Nat}
@@ -130,7 +140,7 @@ theorem allocTcbG_segWA {W : Frag isaLSE2} {K : State → State → Prop} {prog 
     obtain ⟨h1, h2, h3⟩ := AllocTcb.atBnd_walkG (_root_.Executable.labels exe).label _ hJ h11 hn
     exact .inl ⟨TN.j2, by rw [h1, ← ofNat4_add]; rfl, by rw [h2]; rfl, rfl, h3⟩
   case j2 =>
-    tnodeW AllocTcb.atJ2 AllocTcb.atJ2_ok AllocTcb.lenL 47 (hW TN.j2)
+    tnodeW AllocTcb.atJ2 AllocTcb.atJ2_ok AllocTcb.lenL 48 (hW TN.j2)
     dsimp only [tcbNG, tcbXG] at hJ ⊢
     rw [AllocTcb.atJ2_run]
     exact .inl ⟨TN.ok, rfl, rfl, hJ⟩
@@ -163,7 +173,7 @@ theorem allocTcbG_segWA {W : Frag isaLSE2} {K : State → State → Prop} {prog 
       rw [← h9]; simp [Reg64s.getXReg]
     rw [this]; exact hhdr.G
   case ret =>
-    tnodeW AllocTcb.atRet AllocTcb.atRet_ok AllocTcb.okL 30 (hW TN.ret)
+    tnodeWA AllocTcb.atRet AllocTcb.atRet_ok AllocTcb.okL 30 12 AllocTcb.retL (hW TN.ret)
     dsimp only [tcbNG, tcbXG] at hJ ⊢
     obtain ⟨rfl, hJ⟩ := hJ
     obtain ⟨h1, h2, h3⟩ := AllocTcb.atRet_walkG (_root_.Executable.labels exe).label _ hJ

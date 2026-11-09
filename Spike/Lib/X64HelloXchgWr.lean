@@ -16,7 +16,7 @@ or in the context `Ctx`.
 No absolute address appears in this file.
 
 **Where this differs from AArch64**: the stores are `movq %rax, 0(%rcx)` at
-`.Lwc_rodata.x15 + 29` and `movq %rax, 8(%rcx)` at `.x15 + 58` (A64:
+`.Lwc_rodata.x0 + 29` and `movq %rax, 8(%rcx)` at `.x15 + 58` (A64:
 `str x9, [x10]`, `str x9, [x10, #8]` at word offsets), located by
 `blockAtB` on sized cells and a byte offset (A64: `blockAt` and `4 * k`);
 the address is `bAddr σ.regs .rcx k`, rewritten to the buffer base `%rax`

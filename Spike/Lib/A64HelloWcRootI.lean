@@ -11,7 +11,7 @@ A13's spawn words by `LdFacts.spawn_fact`), the box ghost's frame condition leav
 `H2Rt.hunSp_H`, `BoxRF.rtF_of_wn`), `BoxPureH`'s `R.base + 80` the first stack's top (`H2Rt.bandSp3H_of`;
 `wcWf_W2Hb`'s `hbase` as is), the placement past the box (`WcPl2.wcMainW_plGJ1H` at `Box.hmt_H`, `Fresh2H`).
 
-- `spw_mem`: `pinA + 80 + 8 j` is a spawn word for `j < 16`.
+- `spw_mem`: `pinA + 112 + 8 j` is a spawn word for `j < 16`.
 - `bandTiH_of`: `scc_rt_thread_init`'s frame band on the first stack, from `R.base + 80`.
 - `htid3_H`: the second TCB's id word is none of `own2aH`'s words.
 - `wcWf_I`: `H1GAH0V.wcWf` at the instance (row hP-wcWf).
@@ -66,14 +66,14 @@ local notation "LB" => Spike.Lib.WakeLoadT.L0T (Ly).Λ
 set_option hygiene false in
 local notation "AW" => Spike.Lib.WakeOD.arW hpw IH
 
-/-- `pinA + 80 + 8 j` is a spawn word for `j < 16`. -/
+/-- `pinA + 112 + 8 j` is a spawn word for `j < 16`. -/
 theorem spw_mem {j : Nat} (hj : j < 16) :
-    (Ly).pinA + BitVec.ofNat 64 (80 + 8 * j) ∈ Scc.Cert.Spawn.A64.spawnWords (Ly).pinA :=
-  List.mem_map.2 ⟨j, List.mem_range.2 hj, rfl⟩
+    (Ly).pinA + BitVec.ofNat 64 (112 + 8 * j) ∈ Scc.Cert.Spawn.A64.spawnWords (Ly).pinA :=
+  List.mem_map.2 ⟨j, List.mem_range.2 (by simp only [Scc.IR.Tcb.size, Scc.IR.maxSpawnArgs]; omega), rfl⟩
 
 /-- The second TCB's id word is spawn word `11`. -/
-theorem tid_eq : tH (Ly).lab + 56#64 = (Ly).pinA + BitVec.ofNat 64 (80 + 8 * 11) := by
-  show Spike.Lib.A64.Flow.Ret0.pinA (Ly).lab + 112#64 + 56#64 = _
+theorem tid_eq : tH (Ly).lab + 56#64 = (Ly).pinA + BitVec.ofNat 64 (112 + 8 * 11) := by
+  show Spike.Lib.A64.Flow.Ret0.pinA (Ly).lab + 144#64 + 56#64 = _
   rw [(Ly).lab_pin, BitVec.add_assoc]; rfl
 
 /-- **The second TCB's id word is none of `own2aH`'s words** (wake's `LdFacts.htid3_W`). -/
@@ -112,9 +112,9 @@ theorem wcWf_I (B : HelloRootBase (Ly) (LB) (AW) (Spike.Lib.A64.HelloPh.H2Rt.ms2
   have hun := Spike.Lib.A64.HelloPh.H2Rt.hunSp_H hpw IH hS
   have sp3 := Spike.Lib.A64.WakePh.LdFacts.spawn_fact hpw IH hA13 (spw_mem hpw i0 (j := 3) (by decide)) true
   have sp11 := Spike.Lib.A64.WakePh.LdFacts.spawn_fact hpw IH hA13 (spw_mem hpw i0 (j := 11) (by decide)) true
-  have e3 : (Ly).pinA + BitVec.ofNat 64 (80 + 8 * 3) = (Ly).pinA + 80#64 + 24#64 := by
+  have e3 : (Ly).pinA + BitVec.ofNat 64 (112 + 8 * 3) = (Ly).pinA + 112#64 + 24#64 := by
     rw [BitVec.add_assoc]; rfl
-  have e3' : (Ly).pinA + BitVec.ofNat 64 (80 + 8 * 3) = (Ly).pinA + 104#64 := rfl
+  have e3' : (Ly).pinA + BitVec.ofNat 64 (112 + 8 * 3) = (Ly).pinA + 136#64 := rfl
   have hs := B.hs
   exact Spike.Lib.A64.HelloPh.WcW2.wcWf_W2Hb (L := Ly) (ar := AW) (Dt := B.Dt) (Ctx := fun _ _ _ => False)
     (lbl := lbl2H (LB) l b l' b')

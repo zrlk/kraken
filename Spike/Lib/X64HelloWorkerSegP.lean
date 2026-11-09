@@ -40,7 +40,7 @@ structure ChildPrem (exe : _root_.Executable) (endPc : Int64) (kp : Nat) (lbl : 
     (w0 w1 w2 w3 w4 : TermRun.Word) (n m : Nat) : Prop where
   hlimT : LimOk (ms []) F (tp + (8 : Int64).toBitVec) (sp0 - 8#64 - 8#64 - (64 : Int64).toBitVec)
   hT : LdOk (ms []) F tp
-  hown : OwnAt (ms []) exe endPc ((_root_.Executable.labels exe).label ".Lscc_rt_thr_worker.x13") tp tp
+  hown : OwnAt (ms []) exe endPc ((_root_.Executable.labels exe).label ".Lscc_rt_thr_worker.x0") tp tp
   hlimW : ∀ rbp ra σ c, wcJE (wcP w0 w1 w2 w3 w4) w rbp ra tp σ c → σ.regs.rsp.toBitVec = sp0 - 8#64 - 80#64 →
       LimOk (ms []) F (tp + (8 : Int64).toBitVec) (σ.regs.rsp.toBitVec - 8#64 - (80 : Int64).toBitVec)
   hm : w.w2.toNat * 8 < 2 ^ 63

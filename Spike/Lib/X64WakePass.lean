@@ -31,7 +31,7 @@ is decided on the listing (`passChk`, `pcIn_iff`).
 `label + 4k`), so `passChk` takes the list of a node's byte offsets (its
 block's `cellOff`s; the prologue's `0 .. 35`); the release store is a plain
 `movq` (TSO; AArch64: `stlr`), at `.Lwc_worker.entry + 11`; the stub is four
-nodes (`testq`, `je` at `.Lwc_main.x21 + 48`, `+ 51`; `xorl`, the call at
+nodes (`testq`, `je` at `.Lwc_main.x3 + 48`, `+ 51`; `xorl`, the call at
 the child's label, `+ 2`); `scc_rt_unpark`'s nodes (its `xchg`) and the
 tail's are those of `X64WorkerRows`/`X64WakeWorker`.
 -/
@@ -62,9 +62,9 @@ from byte 14 (past the store's 3 bytes at 11) and its `.x14`,
 `scc_rt_unpark`, `scc_rt_thr_worker`'s `.x12` (each to its label's last
 byte). -/
 def wakePostRuns : List (Label × Nat × Nat) :=
-  [(".Lwc_worker.entry", 14, 23), (".Lwc_worker.x14", 0, 5), ("scc_rt_unpark", 0, 12),
+  [(".Lwc_worker.entry", 14, 23), (".Lwc_worker.x0", 0, 5), ("scc_rt_unpark", 0, 12),
     (".Lscc_rt_unpark.entry", 0, 37), (".Lscc_rt_unpark.wake", 0, 73), (".Lscc_rt_unpark.done", 0, 5),
-    (".Lscc_rt_thr_worker.x12", 0, 48)]
+    (".Lscc_rt_thr_worker.x0", 0, 48)]
 
 theorem wake_runsOk : runsOk SccCode.wakeCells wakePostRuns = true := by decide +kernel
 
@@ -189,7 +189,7 @@ theorem wk_pass {c1 c2 c3 : Ctl} {A B rbp0 ra tp sp : BitVec 64} (h1 : ¬ WPassC
   · refine nodeZ_pass hp (l := ".Lwc_worker.entry") (off := 11) ?_ ?_ ?_ (wp_false h1) <;> zn
   · refine nodeZ_pass hp (l := ".Lwc_worker.entry") (off := 14) ?_ ?_ ?_ (wp_true h2) <;> zn
   · exact nodeZ_nil
-  · refine nodeZ_pass0 hp (l := ".Lwc_worker.x14") ?_ ?_ ?_ (wp_true h3) <;> zn
+  · refine nodeZ_pass0 hp (l := ".Lwc_worker.x0") ?_ ?_ ?_ (wp_true h3) <;> zn
 
 /-- `wakePass` at `scc_rt_unpark`'s nodes, past the store. -/
 theorem unpk_pass {c2 c3 : Ctl} {B rbp1 ra1 tp : BitVec 64} (h2 : WPassC c2) (h3 : WPassC c3)
@@ -210,11 +210,11 @@ theorem unpk_pass {c2 c3 : Ctl} {B rbp1 ra1 tp : BitVec 64} (h2 : WPassC c2) (h3
 theorem tail_pass {c3 : Ctl} {tp sp0 : BitVec 64} (h3 : WPassC c3) (i : ThrTailW.PN) :
     NodeZ wakePass exe (ThrTailW.N (_root_.Executable.labels exe).label c3 tp sp0 i) (ThrTailW.blkN i) := by
   cases i
-  · refine nodeZ_pass0 hp (l := ".Lscc_rt_thr_worker.x12") ?_ ?_ ?_ (wp_true h3) <;> zn
-  · refine nodeZ_pass hp (l := ".Lscc_rt_thr_worker.x12") (off := 9) ?_ ?_ ?_ (wp_true h3) <;> zn
-  · refine nodeZ_pass hp (l := ".Lscc_rt_thr_worker.x12") (off := 24) ?_ ?_ ?_ (wp_true h3) <;> zn
-  · refine nodeZ_pass hp (l := ".Lscc_rt_thr_worker.x12") (off := 28) ?_ ?_ ?_ (wp_true h3) <;> zn
-  · refine nodeZ_pass hp (l := ".Lscc_rt_thr_worker.x12") (off := 40) ?_ ?_ ?_ (wp_true h3) <;> zn
+  · refine nodeZ_pass0 hp (l := ".Lscc_rt_thr_worker.x0") ?_ ?_ ?_ (wp_true h3) <;> zn
+  · refine nodeZ_pass hp (l := ".Lscc_rt_thr_worker.x0") (off := 9) ?_ ?_ ?_ (wp_true h3) <;> zn
+  · refine nodeZ_pass hp (l := ".Lscc_rt_thr_worker.x0") (off := 24) ?_ ?_ ?_ (wp_true h3) <;> zn
+  · refine nodeZ_pass hp (l := ".Lscc_rt_thr_worker.x0") (off := 28) ?_ ?_ ?_ (wp_true h3) <;> zn
+  · refine nodeZ_pass hp (l := ".Lscc_rt_thr_worker.x0") (off := 40) ?_ ?_ ?_ (wp_true h3) <;> zn
 
 /-- **`wakePass` at every node of the thread worker's run**, its controls
 before (`c0`, `c1`) and past (`c2`, `c3`) the store. -/

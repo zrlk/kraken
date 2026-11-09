@@ -11,10 +11,12 @@ one before `SegW.lag` (`Spike/Lib/SegLag.lean`) holds the control back at
 `SegW.lag` with `C := (· = c0)` it gives `SFacts` at the held-back control
 (`bodyW0_lag`).
 
-- `blkAt_of_bodyBlks`, `mem_bodyBlks`, `blockAt_of_bodyBlks`,
-  `okBlk_bodyBlks`: a block of the body is the checked `+`'s, its store or
-  the return's, at the sizes `bodyIn` checks; `bodyIn` places it; its cover
-  at the body's offsets.
+- `mem_bodyBlks`, `okBlk_bodyBlks`: a block of the body is the checked
+  `+`'s, its store or the return's (across its label, P5), at the sizes
+  `bodyIn` checks; its cover at the body's offsets. Its code is
+  `cdOf_bodyBlks` (`Spike/Lib/LowerX64/BodyIn.lean`).
+- `blkW_postO'`: `blkW_postO` at a block's code rather than its `blockAtB`
+  placement (a block across a label has none).
 - `blkW_body0`: a block of the body at any node with the body's offsets
   whose controls a local run from `c0` reaches, the saved pair `fp`/`ra`
   in their cells, is inside `BodyW0` (`blkW_postO` at `c0`; the return
@@ -27,8 +29,7 @@ Where x86-64 differs from AArch64:
 - a block of the body is its directives zipped with the sizes the listing
   gives (`sizesAt`), which may be fewer; `bodyIn` checks they are not, so
   `mem_bodyBlks` and `okBlk_bodyBlks` take `bodyIn` (AArch64: the blocks
-  are the directives, from the context alone), and `blockAt_of_bodyBlks`
-  gives `blockAtB`;
+  are the directives, from the context alone);
 - the body's offsets are `oB fr` (`%rbp`-based) and its cover is in
   `[-size, 16)`, so the region's top is at least `16` (AArch64: `0`); the
   frame's hypotheses are `FrameOk fr` and `fr.size ≤ 2 ^ 31` (no `% 16`);
@@ -51,9 +52,10 @@ open Spike.Lib Spike.Lib.X64
 open Scc.Lower.InvX64
 open Scc.Cert.Rt.X64 (blockAtB)
 open Scc.Sem (Marks Range)
-open Spike.Lib.X64Consumer (CFacts SFacts blkPh hret_of_run noRetBlk noRet_false Own Lbl)
-open Spike.Lib.X64.Rt (InstOk blkW_postO)
-open Spike.Lib.X64.Flow.Ret0 (StackOff)
+open Spike.Lib.X64Consumer (CFacts SFacts blkPh hret_of_run noRetBlk noRet_false Own Lbl blkPh_sound blkW_sfacts)
+open Spike.Lib.X64.Rt (InstOk owned_off)
+open Spike.Lib.X64.Flow.Ret0 (StackOff stackOff_stable)
+open Spike.Lib.X64.Flow (ofNat_zero')
 
 /-! ## The body's blocks -/
 
@@ -61,17 +63,18 @@ section Blocks
 
 variable {cells : List (Directive × Nat)} {fr : Scc.Emit.X64.Frame} {l : String}
 
-/-- **A block of the body is placed**: its directives `ds` (the checked
-`+`'s, its store or the return's) at the sizes the listing gives, which
-`blkAt` checks at its offset. -/
-theorem blkAt_of_bodyBlks :
-    ∀ {is : List Scc.IR.Inst} {k : Nat} {ws : List Scc.IR.Operand} {j : Nat} {blk : List (Directive × Nat)},
-    bodyIn cells fr l k is ws = true → (j, blk) ∈ bodyBlks cells fr l k is ws →
-    ∃ ds, blk = ds.zip (sizesAt cells l j ds.length) ∧ blkAt cells l j ds = true ∧
-      ((∃ a b la lb, getOp fr .rax a = .ok la ∧ getOp fr .rcx b = .ok lb ∧ ds = addDirs fr la lb) ∨
-        (∃ d o, rsOf fr d = some o ∧ ds = [stDir o]) ∨
-        (∃ w lw, getOp fr .rax w = .ok lw ∧ ds = retDirs lw))
-  | [], k, ws, j, blk, hi, h => by
+/-- **A block of the body** is the checked `+`'s, its store or the
+return's, at sizes of its length (the return's across its label: the
+teardown's sizes, then `ret`'s). -/
+theorem mem_bodyBlks :
+    ∀ {is : List Scc.IR.Inst} {L : String} {k e o : Nat} {ws : List Scc.IR.Operand} {j : Nat}
+      {blk : List (Directive × Nat)},
+    bodyIn cells fr L k o is ws = true → (j, blk) ∈ bodyBlks cells fr L k e o is ws →
+    (∃ a b la lb zs, getOp fr .rax a = .ok la ∧ getOp fr .rcx b = .ok lb ∧
+        zs.length = (addDirs fr la lb).length ∧ blk = (addDirs fr la lb).zip zs) ∨
+      (∃ d o z, rsOf fr d = some o ∧ blk = [(stDir o, z)]) ∨
+      (∃ w lw zs, getOp fr .rax w = .ok lw ∧ zs.length = (retDirs lw).length ∧ blk = (retDirs lw).zip zs)
+  | [], L, k, e, o, ws, j, blk, hi, h => by
     match ws, hi, h with
     | [w], hi, h =>
       cases hg : getOp fr .rax w with
@@ -79,53 +82,34 @@ theorem blkAt_of_bodyBlks :
       | ok lw =>
         simp only [bodyBlks, hg, List.mem_singleton, Prod.mk.injEq] at h
         obtain ⟨rfl, rfl⟩ := h
-        simp only [bodyIn, hg] at hi
-        exact ⟨_, rfl, hi, .inr (.inr ⟨w, lw, hg, rfl⟩)⟩
+        simp only [bodyIn, hg, blkAt, Bool.and_eq_true, beq_iff_eq] at hi
+        obtain ⟨⟨⟨hz1, -⟩, -⟩, hz2, -⟩ := hi
+        refine .inr (.inr ⟨w, lw, _, hg, ?_, (retZip_eq hz1).symm⟩)
+        rw [List.length_append, hz1, retDirs, dirs_epiItems_split, ← tearDirs, List.length_append]
+        simpa using hz2
     | [], _, h => simp [bodyBlks] at h
     | _ :: _ :: _, _, h => simp [bodyBlks] at h
-  | i :: is, k, ws, j, blk, hi, h => by
+  | i :: is, L, k, e, o, ws, j, blk, hi, h => by
     cases i
     case addChk d a b =>
       cases ha : getOp fr .rax a <;> cases hb : getOp fr .rcx b <;> cases hd : rsOf fr d <;>
         simp only [bodyBlks, ha, hb, hd, List.not_mem_nil] at h
-      case ok.ok.some la lb o =>
+      case ok.ok.some la lb off =>
         simp only [bodyIn, ha, hb, hd, Bool.and_eq_true] at hi
-        obtain ⟨⟨h1, h2⟩, h3⟩ := hi
+        obtain ⟨⟨⟨h1, -⟩, h2⟩, h3⟩ := hi
+        simp only [blkAt, Bool.and_eq_true, beq_iff_eq] at h1 h2
         simp only [List.mem_cons, Prod.mk.injEq] at h
         rcases h with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ | h
-        · exact ⟨_, rfl, h1, .inl ⟨a, b, la, lb, ha, hb, rfl⟩⟩
-        · exact ⟨[stDir o], rfl, h2, .inr (.inl ⟨d, o, hd, rfl⟩)⟩
-        · exact blkAt_of_bodyBlks h3 h
+        · exact .inl ⟨a, b, la, lb, _, ha, hb, h1.1, rfl⟩
+        · obtain ⟨z, hz⟩ := length_one h2.1
+          exact .inr (.inl ⟨d, off, z, hd, by simp only [List.length_singleton] at hz; rw [hz]; rfl⟩)
+        · exact mem_bodyBlks h3 h
     all_goals simp [bodyBlks] at h
 
-/-- **A block of the body** is the checked `+`'s, its store or the
-return's, at sizes of its length. -/
-theorem mem_bodyBlks {is : List Scc.IR.Inst} {k : Nat} {ws : List Scc.IR.Operand} {j : Nat}
-    {blk : List (Directive × Nat)} (hi : bodyIn cells fr l k is ws = true) (h : (j, blk) ∈ bodyBlks cells fr l k is ws) :
-    (∃ a b la lb zs, getOp fr .rax a = .ok la ∧ getOp fr .rcx b = .ok lb ∧
-        zs.length = (addDirs fr la lb).length ∧ blk = (addDirs fr la lb).zip zs) ∨
-      (∃ d o z, rsOf fr d = some o ∧ blk = [(stDir o, z)]) ∨
-      (∃ w lw zs, getOp fr .rax w = .ok lw ∧ zs.length = (retDirs lw).length ∧ blk = (retDirs lw).zip zs) := by
-  obtain ⟨ds, rfl, hb, hs⟩ := blkAt_of_bodyBlks hi h
-  simp only [blkAt, Bool.and_eq_true, beq_iff_eq] at hb
-  rcases hs with ⟨a, b, la, lb, ha, hb', rfl⟩ | ⟨d, o, hd, rfl⟩ | ⟨w, lw, hg, rfl⟩
-  · exact .inl ⟨a, b, la, lb, _, ha, hb', hb.1, rfl⟩
-  · obtain ⟨z, hz⟩ := length_one hb.1
-    exact .inr (.inl ⟨d, o, z, hd, by rw [hz]; rfl⟩)
-  · exact .inr (.inr ⟨w, lw, _, hg, hb.1, rfl⟩)
-
-/-- **`bodyIn` places every block of the body** at its offset. -/
-theorem blockAt_of_bodyBlks {is : List Scc.IR.Inst} {k : Nat} {ws : List Scc.IR.Operand} {j : Nat}
-    {blk : List (Directive × Nat)} (hi : bodyIn cells fr l k is ws = true) (h : (j, blk) ∈ bodyBlks cells fr l k is ws) :
-    blockAtB cells l j blk = true := by
-  obtain ⟨ds, rfl, hb, -⟩ := blkAt_of_bodyBlks hi h
-  simp only [blkAt, Bool.and_eq_true] at hb
-  exact hb.2
-
 /-- **A block of the body is covered** at the body's offsets. -/
-theorem okBlk_bodyBlks (hf : FrameOk fr) (h1 : fr.size ≤ 2 ^ 31) {is : List Scc.IR.Inst} {k : Nat}
-    {ws : List Scc.IR.Operand} {j : Nat} {blk : List (Directive × Nat)} (hi : bodyIn cells fr l k is ws = true)
-    (h : (j, blk) ∈ bodyBlks cells fr l k is ws) :
+theorem okBlk_bodyBlks (hf : FrameOk fr) (h1 : fr.size ≤ 2 ^ 31) {is : List Scc.IR.Inst} {k e o : Nat}
+    {ws : List Scc.IR.Operand} {j : Nat} {blk : List (Directive × Nat)} (hi : bodyIn cells fr l k o is ws = true)
+    (h : (j, blk) ∈ bodyBlks cells fr l k e o is ws) :
     okBlk (-(fr.size : Int)) 16 (oB fr) blk = true := by
   rcases mem_bodyBlks hi h with ⟨a, b, la, lb, zs, ha, hb, hz, rfl⟩ | ⟨d, o, z, hd, rfl⟩ |
     ⟨w, lw, zs, hg, hz, rfl⟩
@@ -204,7 +188,32 @@ variable {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe] {endPc : 
   {cells : List (Directive × Nat)} {lab : Label → Int64} {μ : Marks} {own : Own} {Tk : State → Prop}
   {K : State → State → Prop} {okPc : Nat → Bool} {ph : Nat → Nat} {Λ : Scc.Sem.Layout} {rS : Range} {lbl : Lbl}
   {R : Region} {F : MachineData → Prop} {p : Prog} {c0 : Ctl} {fr : Scc.Emit.X64.Frame} {l : String}
-  {is : List Scc.IR.Inst} {ws : List Scc.IR.Operand} {fp ra : BitVec 64}
+  {is : List Scc.IR.Inst} {ws : List Scc.IR.Operand} {fp ra : BitVec 64} {m : Nat}
+
+omit [Kraken.Executable.ValidLayout exe] in
+/-- **`blkW_postO` at a block's code** (`hcode`) rather than its
+`blockAtB` placement: the block covered (`hok`) and passing its phase check
+at its pc (`hph`) is inside `SFacts`, the words of `rS` off its region from
+the frame condition (`hFO`). -/
+theorem blkW_postO' {kp : Nat}
+    (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp) {R : Region} {F : MachineData → Prop}
+    {n : ND} {blk : List (Directive × Nat)} {lo hi : Int} {dead : Nat → Bool} {ra : Int64}
+    (hcode : ∀ s : State, s.exe = exe → s.endPc = endPc → CodeAt s n.pc blk)
+    (hok : okBlk lo hi n.o blk = true) (hR : R.OK) (hlo : R.lo ≤ lo) (hhi : hi ≤ R.hi)
+    (hR8 : R.base.toNat % 8 = 0) (hl : R.lo % 8 = 0) (hh : R.hi % 8 = 0)
+    (hC : ∀ σ c, n.J σ c → CFacts Λ lbl c)
+    (hph : blkPh okPc ph dead lab n.pc ra blk = true)
+    (hret : ∀ σ c, n.J σ c → ∀ k (hk : k < blk.length), classify blk[k].1 = some .ret →
+      Int64.ofBitVec ((arun lab (blk.take k) ⟨n.pc, n.o, σ⟩).σ.slot (arun lab (blk.take k) ⟨n.pc, n.o, σ⟩).so.sp)
+        = ra)
+    (hdead : ∀ σ c, n.J σ c → dead (arun lab blk ⟨n.pc, n.o, σ⟩).pc.toBitVec.toNat = false)
+    (hsub : rS.Sub Λ.stackPool) (hfit : rS.lo + rS.size ≤ 2 ^ 64) (hFO : ∀ m, F m → StackOff rS R m) :
+    BlkW (fun s c => SFacts Λ μ own rS Tk lbl s c) K exe endPc R F n blk := by
+  rw [← hI.labOk] at hph hret hdead
+  obtain ⟨hpc, hph', -⟩ := blkPh_sound (μ := μ) (endPc := endPc) hI.same hI.off hok hph hret hdead
+  refine blkW_sfacts hcode hok hR hlo hhi hC hpc hph' fun s m hF hD hc k hk s' hm _ _ => ?_
+  subst hm
+  exact owned_off hR hR8 hl hh hsub (stackOff_stable hfit _ _ (hFO _ hF) hD) hc
 
 /-- **A block of the body is inside `BodyW0`** at any node with the body's
 offsets (`hno`) whose controls a local run from `c0` reaches, the saved
@@ -213,13 +222,13 @@ block placed by `bodyIn` (`hbody`), its phase check `bodyPhOk` with no dead
 target and the return address `ra` (`hph`), the controls a local run from
 `c0` reaches `Quiet` (`hQ`). -/
 theorem blkW_body0 {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp) (hf : FrameOk fr)
-    (h1 : fr.size ≤ 2 ^ 31) (hbody : bodyIn cells fr l 0 is ws = true)
-    (hph : bodyPhOk okPc ph (fun _ => false) lab cells fr l is ws (Int64.ofBitVec ra) = true)
+    (h1 : fr.size ≤ 2 ^ 31) (hbody : bodyIn cells fr l m 0 is ws = true)
+    (hph : bodyPhOk okPc ph (fun _ => false) lab cells fr l m is ws (Int64.ofBitVec ra) = true)
     (hR : R.OK) (hR8 : R.base.toNat % 8 = 0) (hlo : R.lo ≤ -(fr.size : Int)) (hhi : 16 ≤ R.hi)
     (hl : R.lo % 8 = 0) (hh : R.hi % 8 = 0) (hsub : rS.Sub Λ.stackPool) (hfit : rS.lo + rS.size ≤ 2 ^ 64)
     (hFO : ∀ m, F m → StackOff rS R m) (hC0 : CFacts Λ lbl c0) (hQ : ∀ c, LocalRun p c0 c → Quiet c)
     {n : ND} (hno : n.o = oB fr) (hJ : ∀ σ c, n.J σ c → LocalRun p c0 c ∧ FrJ fp ra σ.slot)
-    {blk : List (Directive × Nat)} (hin : InBody lab cells fr l is ws n.pc blk) :
+    {blk : List (Directive × Nat)} (hin : InBody lab cells fr l m is ws n.pc blk) :
     BlkW (BodyW0 Λ μ own rS Tk lbl c0) K exe endPc R F n blk := by
   have hphb := blkPh_of_inBody hin hph
   obtain ⟨j, hpc, hj⟩ := hin
@@ -261,8 +270,11 @@ theorem blkW_body0 {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc 
       rw [(arun_epi lab (n.pc + Int64.ofNat [z0].sum) (-(fr.size : Int))
         { σ with regs := σ.regs.set64 .rax v } z1 z2 z3).1]
       exact congrArg Int64.ofBitVec hfj.2
-  have H := blkW_postO (n := n') (dead := fun _ => false) (ra := Int64.ofBitVec ra) (l := l) (off := j) hI
-    (blockAt_of_bodyBlks hbody hj) hpc.symm hok hR hlo hhi hR8 hl hh (fun _ _ h => h.1 ▸ hC0) (hpc ▸ hphb)
+  have hcode : CdOf exe endPc n'.pc blk := by
+    have := cdOf_bodyBlks hI.lays hI.endOk is l m 0 0 ws hbody (ofNat_zero' _).symm hj
+    rwa [hI.labOk, ← hpc] at this
+  have H := blkW_postO' (n := n') (dead := fun _ => false) (ra := Int64.ofBitVec ra) hI
+    hcode hok hR hlo hhi hR8 hl hh (fun _ _ h => h.1 ▸ hC0) hphb
     hret (fun _ _ _ => rfl) hsub hfit hFO
   intro s σ c he hn hd hp hA hF hJn k hk m hA' hD
   obtain ⟨hW, hK⟩ := H s σ c0 he hn hd hp hA hF ⟨rfl, c, hJn⟩ k hk m hA' hD
@@ -270,13 +282,13 @@ theorem blkW_body0 {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc 
 
 /-- **`fn0_seg`'s `hWb`**: the body's blocks at its nodes inside `BodyW0`. -/
 theorem hWb_of {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp) (hf : FrameOk fr)
-    (h1 : fr.size ≤ 2 ^ 31) (hbody : bodyIn cells fr l 0 is ws = true)
-    (hph : bodyPhOk okPc ph (fun _ => false) lab cells fr l is ws (Int64.ofBitVec ra) = true)
+    (h1 : fr.size ≤ 2 ^ 31) (hbody : bodyIn cells fr l m 0 is ws = true)
+    (hph : bodyPhOk okPc ph (fun _ => false) lab cells fr l m is ws (Int64.ofBitVec ra) = true)
     (hR : R.OK) (hR8 : R.base.toNat % 8 = 0) (hlo : R.lo ≤ -(fr.size : Int)) (hhi : 16 ≤ R.hi)
     (hl : R.lo % 8 = 0) (hh : R.hi % 8 = 0) (hsub : rS.Sub Λ.stackPool) (hfit : rS.lo + rS.size ≤ 2 ^ 64)
     (hFO : ∀ m, F m → StackOff rS R m) (hC0 : CFacts Λ lbl c0) (hQ : ∀ c, LocalRun p c0 c → Quiet c)
     {al : WeakMem.AllocLabel → Option Nat} :
-    ∀ pc t s blk, CdOf exe endPc pc blk → InBody (_root_.Executable.labels exe).label cells fr l is ws pc blk →
+    ∀ pc t s blk, CdOf exe endPc pc blk → InBody (_root_.Executable.labels exe).label cells fr l m is ws pc blk →
       BlkW (BodyW0 Λ μ own rS Tk lbl c0) K exe endPc R F (bodyN p al fr fp ra c0 pc t s) blk :=
   fun _ _ _ _ _ hin => blkW_body0 hI hf h1 hbody hph hR hR8 hlo hhi hl hh hsub hfit hFO hC0 hQ rfl
     (fun _ _ (h : _ ∧ _ ∧ _) => ⟨h.2.2, h.2.1⟩) (hI.labOk ▸ hin)
@@ -284,13 +296,13 @@ theorem hWb_of {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc ph k
 /-- **`fn0_seg`'s `hWs`**: the body's blocks at its pending stores inside
 `BodyW0`. -/
 theorem hWs_of {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp) (hf : FrameOk fr)
-    (h1 : fr.size ≤ 2 ^ 31) (hbody : bodyIn cells fr l 0 is ws = true)
-    (hph : bodyPhOk okPc ph (fun _ => false) lab cells fr l is ws (Int64.ofBitVec ra) = true)
+    (h1 : fr.size ≤ 2 ^ 31) (hbody : bodyIn cells fr l m 0 is ws = true)
+    (hph : bodyPhOk okPc ph (fun _ => false) lab cells fr l m is ws (Int64.ofBitVec ra) = true)
     (hR : R.OK) (hR8 : R.base.toNat % 8 = 0) (hlo : R.lo ≤ -(fr.size : Int)) (hhi : 16 ≤ R.hi)
     (hl : R.lo % 8 = 0) (hh : R.hi % 8 = 0) (hsub : rS.Sub Λ.stackPool) (hfit : rS.lo + rS.size ≤ 2 ^ 64)
     (hFO : ∀ m, F m → StackOff rS R m) (hC0 : CFacts Λ lbl c0) (hQ : ∀ c, LocalRun p c0 c → Quiet c)
     {al : WeakMem.AllocLabel → Option Nat} :
-    ∀ pc t s k blk, CdOf exe endPc pc blk → InBody (_root_.Executable.labels exe).label cells fr l is ws pc blk →
+    ∀ pc t s k blk, CdOf exe endPc pc blk → InBody (_root_.Executable.labels exe).label cells fr l m is ws pc blk →
       BlkW (BodyW0 Λ μ own rS Tk lbl c0) K exe endPc R F (pendN p al fr fp ra c0 pc t s k) blk :=
   fun _ _ _ _ _ _ hin => blkW_body0 hI hf h1 hbody hph hR hR8 hlo hhi hl hh hsub hfit hFO hC0 hQ rfl
     (fun _ _ (h : _ ∧ _ ∧ _) => ⟨h.2.2, h.2.1⟩) (hI.labOk ▸ hin)

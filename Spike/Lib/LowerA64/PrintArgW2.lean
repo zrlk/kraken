@@ -136,7 +136,7 @@ its instructions classified (`hc`). -/
 theorem blkPh_of_cdC {prog : List Directive} {ra pc : Int64} {blk : List Directive}
     (h : CdC prog okPc ph lab ra pc blk) (hc : ∀ d ∈ blk, (Spike.Lib.A64.Flow.classify d).isSome = true) :
     blkPh okPc ph (fun _ => false) lab pc ra blk = true := by
-  obtain ⟨-, -, -, -, -, hrun⟩ := h
+  obtain ⟨-, -, hrun⟩ := h
   simpa using Scc.Cert.Ph1A64.blkPh_of_runPhB (xs := []) (zs := []) (by simpa using hrun) hc
 
 end Ph
@@ -225,34 +225,45 @@ theorem print_chunks {Cd : Int64 → List Directive → Prop} {Bl : Int64 → La
         Int64.ofNat (4 * (directives l5).length)) Scc.Lower.Names.print k' := by
   unfold printInsts at hi
   rw [InstsC2] at hi
-  rcases hi with ⟨-, l1, c1, hc1, hi⟩ | ⟨_, _, _, _, _, he, -⟩ | ⟨_, _, _, _, _, _, he, -⟩ | ⟨_, _, _, he, -⟩
+  rcases hi with ⟨-, -, l1, c1, hc1, hi⟩ | ⟨_, _, _, _, _, he, -⟩ | ⟨_, _, _, _, _, _, he, -⟩ | ⟨_, _, _, he, -⟩ |
+    ⟨_, _, _, _, _, _, he, -⟩
   rotate_left
   · cases he
   · simp [Spike.Lib.LowerShape.newBufCall] at he
   · cases he
+  · cases he
   rw [InstsC2] at hi
-  rcases hi with ⟨-, l2, c2, hc2, hi⟩ | ⟨_, _, _, _, _, he, -⟩ | ⟨_, _, _, _, _, _, he, -⟩ | ⟨_, _, _, he, -⟩
+  rcases hi with ⟨-, -, l2, c2, hc2, hi⟩ | ⟨_, _, _, _, _, he, -⟩ | ⟨_, _, _, _, _, _, he, -⟩ | ⟨_, _, _, he, -⟩ |
+    ⟨_, _, _, _, _, _, he, -⟩
   rotate_left
   · cases he
   · simp [Spike.Lib.LowerShape.newBufCall] at he
   · cases he
+  · cases he
   rw [InstsC2] at hi
-  rcases hi with ⟨-, l3, c3, hc3, hi⟩ | ⟨_, _, _, _, _, he, -⟩ | ⟨_, _, _, _, _, _, he, -⟩ | ⟨_, _, _, he, -⟩
+  rcases hi with ⟨-, -, l3, c3, hc3, hi⟩ | ⟨_, _, _, _, _, he, -⟩ | ⟨_, _, _, _, _, _, he, -⟩ | ⟨_, _, _, he, -⟩ |
+    ⟨_, _, _, _, _, _, he, -⟩
   rotate_left
   · cases he
   · simp [Spike.Lib.LowerShape.newBufCall] at he
   · cases he
+  · cases he
   rw [InstsC2] at hi
-  rcases hi with ⟨-, l4, c4, hc4, hi⟩ | ⟨_, _, _, _, _, he, -⟩ | ⟨_, _, _, _, _, _, he, -⟩ | ⟨_, _, _, he, -⟩
+  rcases hi with ⟨-, -, l4, c4, hc4, hi⟩ | ⟨_, _, _, _, _, he, -⟩ | ⟨_, _, _, _, _, _, he, -⟩ | ⟨_, _, _, he, -⟩ |
+    ⟨_, _, _, _, _, _, he, -⟩
   rotate_left
   · cases he
   · simp [Spike.Lib.LowerShape.newBufCall] at he
   · cases he
+  · cases he
   rw [InstsC2] at hi
-  rcases hi with ⟨hc, -⟩ | ⟨_, _, _, _, _, he, -⟩ | ⟨_, _, _, _, _, _, he, -⟩ | ⟨a0, a1, l5, he, c5, hc5, hb5, -⟩
+  rcases hi with ⟨hc, -⟩ | ⟨_, _, _, _, _, he, -⟩ | ⟨_, _, _, _, _, _, he, -⟩ | ⟨a0, a1, l5, he, c5, hc5, hb5, -⟩ |
+    ⟨_, _, _, _, _, _, he, -⟩
   · simp [Spike.Lib.LowerShape.isCall] at hc
   · simp at he
   · simp [Spike.Lib.LowerShape.newBufCall] at he
+  rotate_left
+  · cases he
   simp only [Scc.IR.Inst.call.injEq, List.cons.injEq, and_true, true_and] at he
   obtain ⟨rfl, rfl⟩ := he
   exact ⟨l1, l2, l3, l4, l5, ⟨_, _, _, _, l1, l2, l3, l4, l5, c1, c2, c3, c4, c5, rfl⟩, hc1, hc2, hc3, hc4, hc5,
@@ -271,34 +282,45 @@ theorem print_ph {prog : List Directive} {okPc : Nat → Bool} {ph : Nat → Nat
     blkPh okPc ph (fun _ => false) lab pc ra (directives L ++ blPrintD) = true := by
   unfold printInsts at hi
   rw [InstsC2] at hi
-  rcases hi with ⟨-, l1, c1, hc1, hi⟩ | ⟨_, _, _, _, _, he, -⟩ | ⟨_, _, _, _, _, _, he, -⟩ | ⟨_, _, _, he, -⟩
+  rcases hi with ⟨-, -, l1, c1, hc1, hi⟩ | ⟨_, _, _, _, _, he, -⟩ | ⟨_, _, _, _, _, _, he, -⟩ | ⟨_, _, _, he, -⟩ |
+    ⟨_, _, _, _, _, _, he, -⟩
   rotate_left
   · cases he
   · simp [Spike.Lib.LowerShape.newBufCall] at he
   · cases he
+  · cases he
   rw [InstsC2] at hi
-  rcases hi with ⟨-, l2, c2, hc2, hi⟩ | ⟨_, _, _, _, _, he, -⟩ | ⟨_, _, _, _, _, _, he, -⟩ | ⟨_, _, _, he, -⟩
+  rcases hi with ⟨-, -, l2, c2, hc2, hi⟩ | ⟨_, _, _, _, _, he, -⟩ | ⟨_, _, _, _, _, _, he, -⟩ | ⟨_, _, _, he, -⟩ |
+    ⟨_, _, _, _, _, _, he, -⟩
   rotate_left
   · cases he
   · simp [Spike.Lib.LowerShape.newBufCall] at he
   · cases he
+  · cases he
   rw [InstsC2] at hi
-  rcases hi with ⟨-, l3, c3, hc3, hi⟩ | ⟨_, _, _, _, _, he, -⟩ | ⟨_, _, _, _, _, _, he, -⟩ | ⟨_, _, _, he, -⟩
+  rcases hi with ⟨-, -, l3, c3, hc3, hi⟩ | ⟨_, _, _, _, _, he, -⟩ | ⟨_, _, _, _, _, _, he, -⟩ | ⟨_, _, _, he, -⟩ |
+    ⟨_, _, _, _, _, _, he, -⟩
   rotate_left
   · cases he
   · simp [Spike.Lib.LowerShape.newBufCall] at he
   · cases he
+  · cases he
   rw [InstsC2] at hi
-  rcases hi with ⟨-, l4, c4, hc4, hi⟩ | ⟨_, _, _, _, _, he, -⟩ | ⟨_, _, _, _, _, _, he, -⟩ | ⟨_, _, _, he, -⟩
+  rcases hi with ⟨-, -, l4, c4, hc4, hi⟩ | ⟨_, _, _, _, _, he, -⟩ | ⟨_, _, _, _, _, _, he, -⟩ | ⟨_, _, _, he, -⟩ |
+    ⟨_, _, _, _, _, _, he, -⟩
   rotate_left
   · cases he
   · simp [Spike.Lib.LowerShape.newBufCall] at he
   · cases he
+  · cases he
   rw [InstsC2] at hi
-  rcases hi with ⟨hc, -⟩ | ⟨_, _, _, _, _, he, -⟩ | ⟨_, _, _, _, _, _, he, -⟩ | ⟨a0, a1, l5, he, c5, hc5, hb5, -⟩
+  rcases hi with ⟨hc, -⟩ | ⟨_, _, _, _, _, he, -⟩ | ⟨_, _, _, _, _, _, he, -⟩ | ⟨a0, a1, l5, he, c5, hc5, hb5, -⟩ |
+    ⟨_, _, _, _, _, _, he, -⟩
   · simp [Spike.Lib.LowerShape.isCall] at hc
   · simp at he
   · simp [Spike.Lib.LowerShape.newBufCall] at he
+  rotate_left
+  · cases he
   simp only [Scc.IR.Inst.call.injEq, List.cons.injEq, and_true, true_and] at he
   obtain ⟨rfl, rfl⟩ := he
   have hPC : PrintCode cx n b o m cw (l1 ++ l2 ++ l3 ++ l4 ++ l5) :=
@@ -458,11 +480,13 @@ theorem printBlkW_w2 {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc
   blkW_w2BPc (n := ⟨pc, oF cx, Jn⟩) hI hR hal hlo hhi hl hh hsub hfit hFO hp hcode hph
     (printCode_okBlk hf h1 h16 hL) (printCode_noRet hf h1 h16 hL) hab hP hJ
 
-/-- **A chunk of the code predicate is code** (`code_of` at its `blockAt`). -/
+/-- **A chunk of the code predicate is code** (`AtQ.cdOf`, whole or in two
+pieces). -/
 theorem cdOf_of_cdC {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp) {ra pc : Int64}
     {blk : List Directive} (h : CdC prog okPc ph lab ra pc blk) : CdOf exe endPc pc blk := by
-  obtain ⟨-, L, j, hpc, hb, -⟩ := h
-  exact Spike.Lib.A64.Flow.code_of hI.lays hI.endOk hb (q := pc) (by rw [hI.labOk]; exact hpc)
+  obtain ⟨-, hat, -⟩ := h
+  rw [← hI.labOk] at hat
+  exact AtQ.cdOf hI.lays hI.endOk _ _ hat
 
 /-- **A call's `bl` is code** (`code_of` at its `blockAt`). -/
 theorem cdOf_of_blC {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp) {cx : FnCtx}

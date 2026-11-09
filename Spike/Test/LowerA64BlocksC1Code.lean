@@ -18,15 +18,17 @@ variable (cx : FnCtx) (Cd : Int64 → List Directive → Prop) (Bl : Int64 → L
 /-- `unreachable` makes no claim. -/
 example (k : Nat) (pc : Int64) : CodeC cx Cd Bl k pc [] .unreachable := Or.inl rfl
 
-/-- A `ret`'s code at `pc`. -/
-example (k : Nat) (pc : Int64) (w : Scc.IR.Operand) (l : List Item) (h : cx.term k (.ret [w]) = .ok l)
-    (hc : Cd pc (directives l)) : CodeC cx Cd Bl k pc [] (.ret [w]) := Or.inr ⟨l, h, hc⟩
+/-- A `ret`'s code at `pc`: the result's load, the frame's exit and `ret`
+(the return site's label after it is not code). -/
+example (k : Nat) (pc : Int64) (w : Scc.IR.Operand) (lw : List Item) (h : cx.getOp .X0 w = .ok lw)
+    (hc : Cd pc (directives (lw ++ cx.leave ++ [ret]))) : CodeC cx Cd Bl k pc [] (.ret [w]) :=
+  Or.inr (Or.inr ⟨w, lw, rfl, h, hc⟩)
 
 /-- The thread-pointer read numbered `k`, then the block's rest from `k + 1`. -/
 example (k : Nat) (pc : Int64) (d : Scc.IR.Reg) (l : List Item) (is : List Scc.IR.Inst) (tm : Scc.IR.Term)
     (h : cx.inst k (.getTp d) = .ok l) (hc : Cd pc (directives l))
     (hr : CodeC cx Cd Bl (k + 1) (pc + Int64.ofNat (4 * (directives l).length)) is tm) :
-    CodeC cx Cd Bl k pc (.getTp d :: is) tm := Or.inl ⟨rfl, l, h, hc, hr⟩
+    CodeC cx Cd Bl k pc (.getTp d :: is) tm := Or.inl ⟨rfl, fun _ _ _ he => Scc.IR.Inst.noConfusion he, l, h, hc, hr⟩
 
 /-- A one-word user call numbered `k`: the argument's load, the `bl` with
 return label `spK` (`Bl _ _ k`), the result's store. -/
@@ -38,7 +40,7 @@ example (k : Nat) (pc : Int64) (d : Scc.IR.Reg) (g : String) (w : Scc.IR.Operand
     (hr : CodeC cx Cd Bl (k + 1)
       (pc + Int64.ofNat (4 * (directives lw).length) + 4 + Int64.ofNat (4 * (directives ls).length)) [] tm) :
     CodeC cx Cd Bl k pc [.call [d] (Scc.Lower.Names.user g) [w]] tm :=
-  Or.inr ⟨d, g, w, lw, ls, rfl, hw, hs, h1, h2, h3, hr⟩
+  Or.inr (Or.inl ⟨d, g, w, lw, ls, rfl, hw, hs, h1, h2, h3, hr⟩)
 
 /-- `codeC_of_seg` on a call-free `ret` block right after its label: its code
 at `CdC` from the label's address. -/

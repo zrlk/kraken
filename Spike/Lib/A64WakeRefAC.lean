@@ -68,8 +68,8 @@ theorem refAC (hpa : textProgram SccCertificate.asm = .ok o.prog)
   have hEnd : endR hp i = (Ly).endPc := by
     simp only [endR, RuntimeLayout.endPc, hpW]
   obtain ⟨-, -, -, -, -, -, -, -, -, -, -, -, -, -, -, e16⟩ := Spike.Lib.A64.WakePh.ab_labs hlab
-  have hex : (Ly).lab Spike.Lib.A64.Abort.threads.exit = Int64.ofNat 2168548 := e16
-  have hst : (Ly).lab Spike.Lib.A64.Flow.Ret0.StackTake.siteL = Int64.ofNat 2165940 :=
+  have hex : (Ly).lab Spike.Lib.A64.Abort.threads.exit = Int64.ofNat 2168580 := e16
+  have hst : (Ly).lab Spike.Lib.A64.Flow.Ret0.StackTake.siteL = Int64.ofNat 2165944 :=
     hlab _ _ (by rw [← codeT_eq]; decide +kernel)
   have hI := Spike.Lib.A64.WakePh.instOk2bP hpW hlo (Spike.Lib.A64.Rt.Reserve.ntA (Ly).lab)
     (Spike.Lib.PlaceW.site_ofPlaceW hp i) (rS := rSW hp i)
@@ -143,7 +143,7 @@ theorem refAC (hpa : textProgram SccCertificate.asm = .ok o.prog)
     (ms := msT)
     hI hprog hphs hR' hal' hlo'' hhi' hl8 hh8 hF hsub hfit hFO hc (fun s h => h.2)
     (fun a ha => by
-      have e : (Spike.Lib.A64.PhRec.μ (Ly)).site .release = some 2165996 := by
+      have e : (Spike.Lib.A64.PhRec.μ (Ly)).site .release = some 2166000 := by
         show codeOf Λ0.code.lo (Ly).prog "scc_rt_release_site" = _
         rw [hpW, hlo, ← codeT_eq]; decide +kernel
       rw [e] at ha; cases ha; rw [hex]; decide)

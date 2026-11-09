@@ -96,11 +96,11 @@ under `F` (`hmP`, `hmH`, `hunP`, `hunH`), apart from the runtime's words
 theorem wcSp3W_wcGX (hb : BandOnP L R (-256) 8) (hR : R.OK) (hRlo : R.lo ≤ -256) (hhi : 16 ≤ R.hi)
     (rK : Range)
     (hsepP : L.pnA ≠ L.lockA ∧ L.pnA ≠ L.freeNA ∧ L.pnA ≠ L.nextA ∧ L.pnA ≠ a)
-    (hhdr : L.pinA + 80#64 + 16#64 ∉ [L.pnA, L.lockA, L.freeNA, L.nextA, a])
+    (hhdr : L.pinA + 112#64 + 16#64 ∉ [L.pnA, L.lockA, L.freeNA, L.nextA, a])
     (hmP : Scc.Sem.Kernel.mapped (Spike.Lib.X64Consumer.K0 Λ) true ⟨L.pnA, 8⟩ = true)
-    (hmH : Scc.Sem.Kernel.mapped (Spike.Lib.X64Consumer.K0 Λ) true ⟨L.pinA + 96#64, 8⟩ = true)
+    (hmH : Scc.Sem.Kernel.mapped (Spike.Lib.X64Consumer.K0 Λ) true ⟨L.pinA + 128#64, 8⟩ = true)
     (hunP : ∀ m, F m → Mem.loadInt m.dmem L.pnA 8 = none)
-    (hunH : ∀ m, F m → Mem.loadInt m.dmem (L.pinA + 96#64) 8 = none)
+    (hunH : ∀ m, F m → Mem.loadInt m.dmem (L.pinA + 128#64) 8 = none)
     (c0 : Spike.Lib.Ctl) (cA m : BitVec 64) (fr : BitVec 64 × BitVec 64) :
     WcSp3W (fun s _ => SFactsSt2 Λ (Spike.Lib.X64.PhRec.μ L) (ownGXW L a) s) (Spike.Lib.X64.PhRec.K L rK)
       L.exe L.endPc R F c0 cA m fr := by
@@ -108,7 +108,7 @@ theorem wcSp3W_wcGX (hb : BandOnP L R (-256) 8) (hR : R.OK) (hRlo : R.lo ≤ -25
   have hsub : (⟨Λ.stackPool.lo, 0⟩ : Range).Sub Λ.stackPool := by simp only [Range.Sub]; omega
   have hSM : ∀ R' : Region, Spike.Lib.X64.FStable R' (StackM ⟨Λ.stackPool.lo, 0⟩) :=
     fun _ _ m' _ _ => stackM_nil _ m'
-  have eH : ∀ g c, hdrA L.lab (tcb2Q g c) = L.pinA + 96#64 := fun g c => by
+  have eH : ∀ g c, hdrA L.lab (tcb2Q g c) = L.pinA + 128#64 := fun g c => by
     rw [tcb2Q_hdrA, L.lab_pin]
   have hb3 := bandSp3 (bandOnP_mono hb (Int.le_refl _) (by decide))
   have hRc : (R.callee (-72) (-184) 8).OK :=
@@ -187,11 +187,11 @@ theorem wcMidW_wcGX (hb : BandOnP L R (-256) 8) (hR : R.OK) (hRlo : R.lo ≤ -25
     (hmN : Scc.Sem.Kernel.mapped (Spike.Lib.X64Consumer.K0 Λ) true ⟨ntA L.lab, 8⟩ = true)
     (hunN : ∀ m, F m → Mem.loadInt m.dmem (ntA L.lab) 8 = none)
     (hsepP : L.pnA ≠ L.lockA ∧ L.pnA ≠ L.freeNA ∧ L.pnA ≠ L.nextA ∧ L.pnA ≠ ntA L.lab)
-    (hhdr : L.pinA + 80#64 + 16#64 ∉ [L.pnA, L.lockA, L.freeNA, L.nextA, ntA L.lab])
+    (hhdr : L.pinA + 112#64 + 16#64 ∉ [L.pnA, L.lockA, L.freeNA, L.nextA, ntA L.lab])
     (hmP : Scc.Sem.Kernel.mapped (Spike.Lib.X64Consumer.K0 Λ) true ⟨L.pnA, 8⟩ = true)
-    (hmH : Scc.Sem.Kernel.mapped (Spike.Lib.X64Consumer.K0 Λ) true ⟨L.pinA + 96#64, 8⟩ = true)
+    (hmH : Scc.Sem.Kernel.mapped (Spike.Lib.X64Consumer.K0 Λ) true ⟨L.pinA + 128#64, 8⟩ = true)
     (hunP : ∀ m, F m → Mem.loadInt m.dmem L.pnA 8 = none)
-    (hunH : ∀ m, F m → Mem.loadInt m.dmem (L.pinA + 96#64) 8 = none)
+    (hunH : ∀ m, F m → Mem.loadInt m.dmem (L.pinA + 128#64) 8 = none)
     (htidW : Scc.Sem.Kernel.mapped (Spike.Lib.X64Consumer.K0 Λ) true ⟨t2 L.lab + 56#64, 8⟩ = true ∧
       (∀ m', F m' → Mem.loadInt m'.dmem (t2 L.lab + 56#64) 8 = none) ∧
       ∀ w, (⟨t2 L.lab + 56#64, 8⟩, w) ∉ own2a L (ntA L.lab) 0)

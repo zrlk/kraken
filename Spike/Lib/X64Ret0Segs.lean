@@ -16,6 +16,7 @@ both frames. The limit's offset is checked against the thread control
 block's layout (`#guard`).
 -/
 import Spike.Lib.X64CodeSegs
+import Spike.Lib.X64CodeAcross
 import Spike.Lib.X64Ret0Code
 import Scc.IR.Core
 
@@ -24,7 +25,7 @@ namespace Spike.Lib.X64.Flow
 open CoreLang CoreTerm
 open Kraken Kraken.Promising Kraken.Promising.X64 Kraken.Promising.Lower Kraken.Promising.Lower.X64
 open Kraken.X64.Parser Spike.Lib.X64
-open Scc.Cert.Rt.X64 (Lays endOf blockAtB code_field)
+open Scc.Cert.Rt.X64 (Lays endOf blockAtB code_field labelGapB blockAcrossB label_labelGapB)
 
 set_option linter.unusedSimpArgs false
 
@@ -46,7 +47,7 @@ abbrev wcPro : Bool := prologueIn ret0Cells "wc_main" ".Lwc_main.chk" ".Lwc_main
   5 9 3 2 4 []
 
 /-- `scc_rt_main`'s `exit_group` tail. -/
-abbrev mainExit : Bool := exitIn ret0Cells ".Lscc_rt_main.x2" (-16) 4 4 5
+abbrev mainExit : Bool := exitIn ret0Cells ".Lscc_rt_main.x0" (-16) 4 4 5
 
 #guard mainPro
 #guard wcPro
@@ -167,7 +168,7 @@ known), a segment to any fragment, given the `exit_group` with the status in
 `%rax` is matched there (`hok`). Its states lie in `W`, none moved by `K` (`hW`). -/
 theorem ret0_main_exit_segW {W : Frag isa} {K : State → State → Prop}
     (hp : Lays exe ret0Cells) (hend : endPc = endOf exe ret0Cells) {n : ND}
-    {Q : Frag isa} {sp : Int} (hpc : n.pc = (_root_.Executable.labels exe).label ".Lscc_rt_main.x2")
+    {Q : Frag isa} {sp : Int} (hpc : n.pc = (_root_.Executable.labels exe).label ".Lscc_rt_main.x0")
     (hno : n.o = ⟨sp, [(.rbp, -8)]⟩) (hK : ms.K = some Scc.Sem.X64.abi) (hF : FStable R F) (hR : R.OK)
     (hlo : R.lo ≤ -40) (hhi : 0 ≤ R.hi)
     (hW : XExitW W K exe endPc R F n sp (-8) (-16) 4 4 5)
@@ -182,7 +183,7 @@ theorem ret0_main_exit_segW {W : Frag isa} {K : State → State → Prop}
 known), a segment to any fragment, given the `exit_group` with the status in
 `%rax` is matched there (`hok`). -/
 theorem ret0_main_exit_seg (hp : Lays exe ret0Cells) (hend : endPc = endOf exe ret0Cells) {n : ND}
-    {Q : Frag isa} {sp : Int} (hpc : n.pc = (_root_.Executable.labels exe).label ".Lscc_rt_main.x2")
+    {Q : Frag isa} {sp : Int} (hpc : n.pc = (_root_.Executable.labels exe).label ".Lscc_rt_main.x0")
     (hno : n.o = ⟨sp, [(.rbp, -8)]⟩) (hK : ms.K = some Scc.Sem.X64.abi) (hF : FStable R F) (hR : R.OK)
     (hlo : R.lo ≤ -40) (hhi : 0 ≤ R.hi)
     (hok : ∀ s c σ0, n.J σ0 c → At exe endPc R F ⟨n.pc + Int64.ofNat 4 + Int64.ofNat 4 + Int64.ofNat 5,
@@ -217,9 +218,11 @@ block_spec wcAdd (-24) 8 oB wcAdd
 block_spec wcRet (-24) 8 oB wcRet
 
 /-- **`wc_main`'s body in `cells`**: the add at `.entry`, the return after
-it. -/
+it (at the label `.x0` that follows the checked add, across the return
+label `.x1` just before `ret`). -/
 def wcBodyIn (cells : List (Directive × Nat)) : Bool :=
-  blockAtB cells ".Lwc_main.entry" 0 wcAdd && blockAtB cells ".Lwc_main.entry" 19 wcRet
+  blockAtB cells ".Lwc_main.entry" 0 wcAdd && labelGapB cells ".Lwc_main.entry" ".Lwc_main.x0" 19 &&
+    blockAcrossB cells ".Lwc_main.x0" 0 (wcRet.take 4) ".Lwc_main.x1" (wcRet.drop 4)
 
 /-- The body's check on `ret0Cells`. -/
 theorem ret0_wcBodyIn : wcBodyIn SccCode.ret0Cells = true := by decide +kernel
@@ -274,12 +277,15 @@ theorem ret0_wc_body_segW {W : Frag isa} {K : State → State → Prop}
       SegW W K p lbl ms P (At exe endPc R F n) := fun h =>
     h.mono_post fun _ _ h => h.elim (fun ⟨_, h⟩ => h) fun ⟨e, _⟩ => e.elim
   refine SegW.seq (Q := At exe endPc R F n1) ?_ ?_
-  · refine one (seg_ndW (by simp [wcAdd]) wcAdd_ok hF hR hlo hhi (code_field hp hend hin.1 (ofNat_zero' _))
+  · refine one (seg_ndW (by simp [wcAdd]) wcAdd_ok hF hR hlo hhi (code_field hp hend hin.1.1 (ofNat_zero' _))
       hW.w0 fun σ c hJ => ⟨c, .refl c, .inl ⟨(), ?_, ?_, σ, hJ, ?_⟩⟩)
     · rw [wcAdd_run]
     · rw [wcAdd_run]; rfl
     · rw [wcAdd_run]; refine ⟨rfl, ?_, ?_⟩ <;> simp [Reg64s.set64]
-  · refine one (seg_ndW (n := n1) (by simp [wcRet]) wcRet_ok hF hR hlo hhi (code_field hp hend hin.2 rfl) hW.w1
+  have e1 : (_root_.Executable.labels exe).label ".Lwc_main.x0" + Int64.ofNat 0 = pc + 19 := by
+    rw [label_labelGapB hp hin.1.2, ofNat_zero' _]; rfl
+  · refine one (seg_ndW (n := n1) (by simp [wcRet]) wcRet_ok hF hR hlo hhi
+      (Spike.Lib.X64.code_field_blockAcrossB hp hend hin.2 (List.take_append_drop _ _) e1) hW.w1
       fun σ c ⟨σ0, hJ, hs, h9, hb⟩ => ⟨c, .refl c, .inl ⟨(), ?_, ?_, hedge σ0 c hJ _ ?_ ?_ ?_ ?_⟩⟩)
     · rw [wcRet_run, hra σ0 c hJ, hs]
     · rw [wcRet_run]; exact ho

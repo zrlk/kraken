@@ -102,7 +102,8 @@ theorem blkW_sfacts_ret2P {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K
 
 /-- **`SFacts` at `main`'s `ret` block of the code**
 (`blkW_sfacts_ret2P`): a block of the code predicate `CdC` at the saved
-return address (`SubCd`, its phase from the run's check, as `blkW_w2CP`).
+return address (`SubCd`, whole or in two pieces around the return site's
+label, `AtQ.cdOf`; its phase from the run's check, as `blkW_w2CP`).
 The `hS` of `blkW_heldTailN` at the `ret a` node. -/
 theorem blkW_sfacts_ret2 {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
     (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) (h16 : cx.frame % 16 = 0)
@@ -113,15 +114,16 @@ theorem blkW_sfacts_ret2 {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K 
     (hgo : retLoads cx (vs.zip argRegs) = .ok ls)
     (hcd : SubCd (CdC prog okPc ph lab (Int64.ofBitVec ra)) n.pc (directives (ls ++ cx.leave ++ [ret]))) :
     BlkW (fun s c => SFacts Λ μ own rS Tk lbl s c) K exe endPc R F (dumN n) (directives (ls ++ cx.leave ++ [ret])) := by
-  obtain ⟨pc0, pre, post, ⟨-, L, j, hpc0, hb, hrun⟩, hpc⟩ := hcd
+  obtain ⟨pc0, pre, post, hc0, hpc⟩ := hcd
+  obtain ⟨-, hat, hrun⟩ := CdCQ.sub hc0 hpc.symm
   have hok : okBlk (-(cx.frame : Int)) 0 n.o (directives (ls ++ cx.leave ++ [ret])) = true :=
     hno ▸ okBlk_ret2 hf h1 h16 hgo
-  have hph := Scc.Cert.Ph1A64.blkPh_of_runPhB hrun (classify_of_okBlk hok)
-  have he : lab L + Int64.ofNat (4 * (j + pre.length)) = n.pc := by
-    rw [← hpc, ← hpc0, Nat.mul_add, Int64.ofNat_add, Int64.add_assoc]
-  rw [hpc] at hph
+  have hph := Scc.Cert.Ph1A64.blkPh_of_runPhB (xs := []) (zs := []) (by simpa using hrun)
+    (classify_of_okBlk hok)
+  rw [show n.pc + Int64.ofNat (4 * ([] : List Directive).length) = n.pc by simp] at hph
+  rw [← hI.labOk] at hat
   exact blkW_sfacts_ret2P hI hf h1 h16 hR hal hlo hhi hl hh hsub hfit hFO hno hfj hgo
-    (Spike.Lib.A64.Flow.code_of hI.lays hI.endOk (blockAt_sub hb) (by rw [hI.labOk]; exact he)) hph
+    (AtQ.cdOf hI.lays hI.endOk _ _ hat) hph
 
 end R2
 

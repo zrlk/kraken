@@ -8,7 +8,7 @@ slots besides the cell's (`-48`) and main's id's (`-40`): `wc_main` spills the s
 - `placedSE_spawnAtH`: at `SpawnSrcH l [w0, w1, w2]`, `c` at a place and `p` at five (the generic placement
   `X64.WakeSrcCtl.placedSE_of_tbl`).
 - `placedSE_slotsH`: at `SlotPH ∧ SlotSlH`, the slice `SlRep` at the slots.
-- `hpl_GJ1H`: `H1GAH.hpl`'s statement at `SlotPH ∧ SlotSlH` (not `SlotPH` alone: the slice's words have no other
+- `hpl_GJ1H`: `H1GAHG.hpl`'s statement at `SlotPH ∧ SlotSlH` (not `SlotPH` alone: the slice's words have no other
   place), at a ghost of `GJ1H` with the box's label `l'` fresh at `lbl1`.
 - `placedSE_boxAtH`, `placedSE_boxSlotsH`, `hplQ_GJ1H`: the same at the box's fence (`QBH`, free variables `o`,
   `sl`, `me`).
@@ -106,7 +106,7 @@ theorem placedSE_slotsH {Λ : Scc.Sem.Layout} {lbl : Lbl} {s : State} {c : Ctl} 
     ⟨_, slotRdH_place s0, by decide, w0, by simp [Scc.Sem.wordAddr, hl], by simp⟩
     ⟨_, slotRdH_place s2, by decide, rfl⟩ ⟨_, slotRdH_place s3, by decide, rfl⟩ ⟨_, p48, hb⟩ ⟨_, p40, ht⟩
 
-/-- **`H1GAH.hpl` at `SlotPH ∧ SlotSlH`**, at a ghost of `GJ1H` (rodata's label `lr`, the box's `l'` fresh at
+/-- **`H1GAHG.hpl` at `SlotPH ∧ SlotSlH`**, at a ghost of `GJ1H` (rodata's label `lr`, the box's `l'` fresh at
 `lbl1`, main's id at the TCB): `c0` at the clone's source `SBH l' b' (slWsH lr)`, the slice `sl` and main's word
 `me` of an entry state of `J1`, is placed at the twice extended placement wherever the slots read `b'`, `me` and
 `sl` (wake's `WakePlacedCal.hti_placed`). -/

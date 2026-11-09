@@ -5,7 +5,7 @@ lowering's output and so of every output passing `placeOKAt`. No layout
 constant is involved.
 
 - `secs_ofEmitted`: a successful emission's data sections are
-  `Secs.ofProgram` of the lowered IR's data (`emitAll_secs`);
+  `Secs.ofProgram` of the lowered IR's data, with some GC tables' data (`emitAll_secs`);
 - `ctrZ_ofEmitted`: `lowerAll? cfg p = .ok e` gives `CtrZ (Out.ofEmitted e sizes labelOffs)`
   (`lowerIR_data`, `ctr_secs`);
 - `ctrZ_ofPlaceOK`: an output `Out.ofEmitted (lowerAll cfg p) sizes labelOffs` passing
@@ -22,14 +22,10 @@ open Scc.Cert.PlaceOK.X64 (placeOKAt Out placeOKAt_eq_false_of_a11)
 
 /-- **A successful emission's data sections** are `Secs.ofProgram` of its
 IR's data. -/
-theorem secs_ofEmitted {l : Scc.Lower.Lowered} {e : Scc.Lower.X64.Emitted} (h : Scc.Lower.X64.emitAll l = .ok e) :
-    ∃ maps, e.secs = Scc.Emit.Data.Secs.ofProgram l.ir.data maps := by
-  have hs := Scc.Lower.X64.emitAll_secs h
-  unfold Scc.Emit.X64.dataSecs at hs
-  simp only [bind, Except.bind, pure, Except.pure] at hs
-  split at hs
-  · cases hs
-  · exact ⟨_, (Except.ok.inj hs).symm⟩
+theorem secs_ofEmitted {l : Scc.Lower.Lowered} {gw : Option (List (Array (List Int) × List (List Nat)))}
+    {e : Scc.Lower.X64.Emitted} (h : Scc.Lower.X64.emitAll l gw = .ok e) :
+    ∃ maps tbl, e.secs = Scc.Emit.Data.Secs.ofProgram l.ir.data maps tbl :=
+  Scc.Lower.X64.emitAll_secs h
 
 /-- **The counter's item is a zeroed word in every successful output**. -/
 theorem ctrZ_ofEmitted {cfg : Scc.Config} {p : CoreTerm.Prog} {e : Scc.Lower.X64.Emitted} {sizes : List Nat}
@@ -40,12 +36,12 @@ theorem ctrZ_ofEmitted {cfg : Scc.Config} {p : CoreTerm.Prog} {e : Scc.Lower.X64
   | error _ => rw [hl] at h; cases h
   | ok l =>
     rw [hl] at h
-    obtain ⟨maps, hs⟩ := secs_ofEmitted h
+    obtain ⟨maps, tbl, hs⟩ := secs_ofEmitted h
     have hd := Spike.Lib.Rt.lowerIR_data hl
     unfold CtrZ
     show ∃ its, (_, its) ∈ Scc.Cert.Link.symItems (e.secs.bss ++ e.secs.data) ∧ _
     rw [hs, hd]
-    exact Spike.Lib.Rt.ctr_secs cfg.layout maps
+    exact Spike.Lib.Rt.ctr_secs cfg.layout maps tbl
 
 set_option maxRecDepth 100000 in
 /-- **The counter's item is a zeroed word in an output passing

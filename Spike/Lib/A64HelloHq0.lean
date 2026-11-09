@@ -116,7 +116,7 @@ local notation "MSU" => msUH (asm := asm) hpw i0 E rd I ls fs
 control is `rdCN` (`rdJH`), whose buffer call meets `Call.OK` at `msUH` (`ok_arW` at hello's value invariant,
 `HelloGOf2H.hGpl_gWH`; the counter word off `L0T`'s words, `StartH0.rt_L0T`). -/
 theorem hq0_H (hstat : Λ0.static = fun _ => none) (hc : Spike.Lib.A64.Rt.CtrZ o)
-    (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
+    (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
     {E : Entry} {rd : TermRun.Word → Prop} {I : Spike.Lib.A64ConsumerS.InvS} {ls : Lsize}
     {fs : List TermRun.Frame} {J : FAS → Spike.Lib.Ctl → Prop} :
     ∀ σC σ c, mRdJ0 (rdJH (Ly).lab J) σC σ c → ∃ q : Call, q.OK (MSU) (Ly).lab ∧

@@ -2,7 +2,7 @@
 **The counter add's tail at the root's context, the child's stack carried
 unmapped** (wake.w, x86-64): at the start control `c0W`, a counter add of
 `GcW` (a box call from `wc_main` on the first stack, returning to
-`.Lwc_main.x18`) at the allocator's `c2`, under main's thread pointer, is
+`.Lwc_main.x0`) at the allocator's `c2`, under main's thread pointer, is
 one segment inside `WSX` at the root's context `CtxR … c0W (refW …)` to
 `wc_main`'s heap abort; and the box store's landing of `GsW`, with the
 child's stack unmapped, is in the memory side's allocation fragment.
@@ -27,7 +27,7 @@ x86-64 twin of `Spike/Lib/A64WakeLand4.lean` (namespace
 
 **Where x86-64 differs from AArch64**:
 - the allocator's node past the counter's add is `c2` (A64 `n4`), the call
-  returns to `.Lwc_main.x18` (A64 `.L21_wc_main.sp0`), the frame is
+  returns to `.Lwc_main.x0` (A64 `.L21_wc_main.sp0`), the frame is
   `wR (RS wcLsw v) wcD` with `CallerCells … 8` (A64 `wR (swR v (-384) 0)
   336`, `… 0`), and the landing `bX` is on `(wR …).fp (-8)`;
 - the level is `WSX` at `ownGXW` (A64 `WS`), and `hWp`/`hWs` are not
@@ -140,7 +140,7 @@ set_option linter.unusedSimpArgs false in
 set_option maxHeartbeats 1600000 in
 /-- **The counter add's tail at any memory side `ms` that is `refW` but for
 `xa`** (`hms`): from the allocator's `c2` for a box call `q` of `wc_main`
-returning to `.Lwc_main.x18` (`hq`, `hra`) under main's thread pointer,
+returning to `.Lwc_main.x0` (`hq`, `hra`) under main's thread pointer,
 `wake_wc_c2_segW` to the heap abort. `hWp`/`hWs` by `WcWfR.hWp_R`/`hWs_R`
 moved to `ms`; the region, arena and memory facts computed; the landing
 `hxa` a premise. -/
@@ -154,7 +154,7 @@ theorem hland_seg {E : Entry} {Dt : State → Prop} {frM : TermRun.Frame} {ax : 
     (hxa : ∀ v m0 σC l A s c, L0T (Ly).Λ l = none →
       At (Ly).exe (Ly).endPc ((wR (RS wcLsw v) wcD).fp (-8)) (wF (RS wcLsw v) wcD (FS (Ly) (RS0) wcLsw 0#64 v) m0 σC)
         (bX ms (Ly).lab ((JW) σC) l A) s c → TP (TV) s → ms.xa l A 1 s c) :
-    ∀ v m0 σC (q : Call), q.OKB ms (Ly).lab → q.ra = ((Ly).lab ".Lwc_main.x18").toBitVec →
+    ∀ v m0 σC (q : Call), q.OKB ms (Ly).lab → q.ra = ((Ly).lab ".Lwc_main.x0").toBitVec →
     SegW (WSR) (KW) wakeSrc (L0T (Ly).Λ) ms
       (fun s c => At (Ly).exe (Ly).endPc (wAR (wR (RS wcLsw v) wcD))
         (fun m => wF (RS wcLsw v) wcD (FS (Ly) (RS0) wcLsw 0#64 v) m0 σC m ∧
@@ -266,7 +266,7 @@ theorem hland_segU {E : Entry} {Dt : State → Prop} {frM : TermRun.Frame} {ax :
     (hB1 : ∀ l b n, L0T (Ly).Λ l = none → Spike.Lib.HeapLand.AllocLand (AR).heap (AR).cells b n →
       ∀ s c, Spike.Lib.X64.Flow.WakeWc.Box (Ly) (MS) F0 l b n s c → inv1 l b n s c [])
     (hF0 : ∀ v m0 σC m, wF (RS wcLsw v) wcD (FS (Ly) (RS0) wcLsw 0#64 v) m0 σC m → F0 m) :
-    ∀ v m0 σC (q : Call), q.OKB (MS) (Ly).lab → q.ra = ((Ly).lab ".Lwc_main.x18").toBitVec →
+    ∀ v m0 σC (q : Call), q.OKB (MS) (Ly).lab → q.ra = ((Ly).lab ".Lwc_main.x0").toBitVec →
     SegW (WSR) (KW) wakeSrc (L0T (Ly).Λ) (MS)
       (fun s c => (At (Ly).exe (Ly).endPc (wAR (wR (RS wcLsw v) wcD))
         (fun m => wF (RS wcLsw v) wcD (FS (Ly) (RS0) wcLsw 0#64 v) m0 σC m ∧

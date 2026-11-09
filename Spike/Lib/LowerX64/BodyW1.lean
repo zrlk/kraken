@@ -69,37 +69,16 @@ variable {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe] {endPc : 
   {K : State → State → Prop} {okPc : Nat → Bool} {ph : Nat → Nat} {Λ : Scc.Sem.Layout} {rS : Range} {lbl : Lbl}
   {R : Region} {F : MachineData → Prop} {p : Prog} {c0 : Ctl} {fr : Scc.Emit.X64.Frame} {fp ra : BitVec 64}
 
-omit [Kraken.Executable.ValidLayout exe] in
-/-- **`blkW_postO` at a block's code** (`hcode`) rather than its
-`blockAtB` placement: the block covered (`hok`) and passing its phase check
-at its pc (`hph`) is inside `SFacts`, the words of `rS` off its region from
-the frame condition (`hFO`). -/
-theorem blkW_postO' {kp : Nat}
-    (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp) {R : Region} {F : MachineData → Prop}
-    {n : ND} {blk : List (Directive × Nat)} {lo hi : Int} {dead : Nat → Bool} {ra : Int64}
-    (hcode : ∀ s : State, s.exe = exe → s.endPc = endPc → CodeAt s n.pc blk)
-    (hok : okBlk lo hi n.o blk = true) (hR : R.OK) (hlo : R.lo ≤ lo) (hhi : hi ≤ R.hi)
-    (hR8 : R.base.toNat % 8 = 0) (hl : R.lo % 8 = 0) (hh : R.hi % 8 = 0)
-    (hC : ∀ σ c, n.J σ c → CFacts Λ lbl c)
-    (hph : blkPh okPc ph dead lab n.pc ra blk = true)
-    (hret : ∀ σ c, n.J σ c → ∀ k (hk : k < blk.length), classify blk[k].1 = some .ret →
-      Int64.ofBitVec ((arun lab (blk.take k) ⟨n.pc, n.o, σ⟩).σ.slot (arun lab (blk.take k) ⟨n.pc, n.o, σ⟩).so.sp)
-        = ra)
-    (hdead : ∀ σ c, n.J σ c → dead (arun lab blk ⟨n.pc, n.o, σ⟩).pc.toBitVec.toNat = false)
-    (hsub : rS.Sub Λ.stackPool) (hfit : rS.lo + rS.size ≤ 2 ^ 64) (hFO : ∀ m, F m → StackOff rS R m) :
-    BlkW (fun s c => SFacts Λ μ own rS Tk lbl s c) K exe endPc R F n blk := by
-  rw [← hI.labOk] at hph hret hdead
-  obtain ⟨hpc, hph', -⟩ := blkPh_sound (μ := μ) (endPc := endPc) hI.same hI.off hok hph hret hdead
-  refine blkW_sfacts hcode hok hR hlo hhi hC hpc hph' fun s m hF hD hc k hk s' hm _ _ => ?_
-  subst hm
-  exact owned_off hR hR8 hl hh hsub (stackOff_stable hfit _ _ (hFO _ hF) hD) hc
-
 /-- **`body1_seg`'s `hCd`**: a block at `Cd1` is in the code. -/
 theorem cdOf_cd1 {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp) {ra' : Int64} :
     ∀ pc blk, Cd1 cells okPc ph lab fr ra' pc blk → CdOf exe endPc pc blk := by
-  rintro _ _ ⟨_, l, k, off, hpc, hb, _⟩ s hs hn
-  have := Scc.Cert.Rt.X64.codeAt_blockAt_lays hI.lays hs (hn.trans hI.endOk) hb
-  rwa [hI.labOk, hpc] at this
+  have hat : ∀ pc blk, At1 cells lab pc blk → CdOf exe endPc pc blk := by
+    rintro _ _ ⟨l, k, off, hpc, hb⟩ s hs hn
+    have := Scc.Cert.Rt.X64.codeAt_blockAt_lays hI.lays hs (hn.trans hI.endOk) hb
+    rwa [hI.labOk, hpc] at this
+  rintro pc _ ⟨_, ha | ⟨b1, b2, rfl, ha1, ha2⟩, _⟩
+  · exact hat _ _ ha
+  · exact fun s hs hn => CodeAt.append (hat _ _ ha1 s hs hn) (hat _ _ ha2 s hs hn)
 
 omit [Kraken.Executable.ValidLayout exe] in
 /-- **A construct's block returns only to the saved `ra`** (`blkW_postO`'s
@@ -187,12 +166,12 @@ theorem blkW_body1 {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc 
     {blk : List (Directive × Nat)} (hcd : Cd1 cells okPc ph lab fr (Int64.ofBitVec ra) n.pc blk) :
     BlkW (BodyW0 Λ μ own rS Tk lbl c0) K exe endPc R F n blk := by
   have hcode : ∀ s : State, s.exe = exe → s.endPc = endPc → CodeAt s n.pc blk := cdOf_cd1 hI _ _ hcd
-  obtain ⟨hk, l, j, off, hpc, hb, hphb⟩ := hcd
+  obtain ⟨hk, -, hphb⟩ := hcd
   have hok : okBlk (-(fr.size : Int)) 16 n.o blk = true := hno ▸ kind1_ok hf h1 hk
   let n' : ND := ⟨n.pc, n.o, fun σ c => c = c0 ∧ ∃ c1, n.J σ c1⟩
   have hret := hret_kind1 (lab := lab) (n := n') hf h1 hno (fun σ _ ⟨_, c1, hJ1⟩ => (hJ σ c1 hJ1).2) hk
   have H := blkW_postO' (n := n') (dead := fun _ => false) (ra := Int64.ofBitVec ra) hI hcode hok hR hlo hhi
-    hR8 hl hh (fun _ _ h => h.1 ▸ hC0) (hpc ▸ hphb) hret (fun _ _ _ => rfl) hsub hfit hFO
+    hR8 hl hh (fun _ _ h => h.1 ▸ hC0) hphb hret (fun _ _ _ => rfl) hsub hfit hFO
   intro s σ c he hn hd hp hA hF hJn k hk m hA' hD
   obtain ⟨hW, hK⟩ := H s σ c0 he hn hd hp hA hF ⟨rfl, c, hJn⟩ k hk m hA' hD
   exact ⟨⟨hQ c (hJ σ c hJn).1, hW⟩, hK⟩

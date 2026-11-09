@@ -20,7 +20,7 @@ on a block or a node at free pcs.
 checks the pcs `lab l + o` for the byte offsets `o ∈ os` (AArch64's
 `freeAt l k n`: the `n` pcs `lab l + 4 (k + j)`), `freeBlk l k blk` a
 block's pcs `lab l + k + cellOff blk j`; `ownG`'s second range is
-`.Lwc_main.x20`–`.Lwc_main.stk` (AArch64's `.sp4`–`.stack_grow`); the
+`.Lwc_main.x2`–`.Lwc_main.stk` (AArch64's `.sp4`–`.stack_grow`); the
 labels resolve by `codeLabel lo wakeCells`; `blkAgreeW` has no `hal`;
 `nodeAgreeW` is at a cell of size `z` other than `syscall` (AArch64's
 `svc`, `4`). The wc_main-specific rest of the A64 pair (`wcTabW`,
@@ -55,7 +55,7 @@ def inCv (l₁ l₂ : Label) (x : Nat) : Bool := cv l₁ ≤ x && x < cv l₂
 ranges, and off the take site. -/
 def freeN (x : Nat) : Bool :=
   !inCv "scc_rt_alloc_tcb" "scc_rt_thread_reserve" x && !inCv "scc_rt_thread_init" "scc_rt_stack_release" x &&
-    !inCv ".Lwc_main.x20" ".Lwc_main.stk" x && !inCv "scc_rt_abort" "scc_rt_thr_worker" x &&
+    !inCv ".Lwc_main.x2" ".Lwc_main.stk" x && !inCv "scc_rt_abort" "scc_rt_thr_worker" x &&
     x != cv Spike.Lib.X64.Flow.Ret0.StackTake.siteL
 
 /-- **The pcs `lab l + o` for the byte offsets `o ∈ os` are free.** -/
@@ -106,7 +106,7 @@ theorem freeBlk_pc (hlab : ∀ l x, codeLabel lo wakeCells l = some x → L.lab 
 /-- The labels `freeN` reads are wakeCells', below `2 ^ 64`. -/
 theorem freeLabs :
     [("scc_rt_alloc_tcb" : Label), "scc_rt_thread_reserve", "scc_rt_thread_init", "scc_rt_stack_release",
-      ".Lwc_main.x20", ".Lwc_main.stk", "scc_rt_abort", "scc_rt_thr_worker",
+      ".Lwc_main.x2", ".Lwc_main.stk", "scc_rt_abort", "scc_rt_thr_worker",
       Spike.Lib.X64.Flow.Ret0.StackTake.siteL].all
       (fun l => (codeLabel lo wakeCells l).isSome && decide (cv l < 2 ^ 64)) = true := by
   unfold cv; rw [← codeT_eq]; decide +kernel
@@ -115,7 +115,7 @@ theorem freeLabs :
 theorem goodW_of_freeN (hlab : ∀ l x, codeLabel lo wakeCells l = some x → L.lab l = Int64.ofNat x)
     (h : freeN (pcOf s) = true) : GoodW L s := by
   have hl : ∀ l ∈ [("scc_rt_alloc_tcb" : Label), "scc_rt_thread_reserve", "scc_rt_thread_init",
-      "scc_rt_stack_release", ".Lwc_main.x20", ".Lwc_main.stk", "scc_rt_abort",
+      "scc_rt_stack_release", ".Lwc_main.x2", ".Lwc_main.stk", "scc_rt_abort",
       "scc_rt_thr_worker", Spike.Lib.X64.Flow.Ret0.StackTake.siteL], (L.lab l).toBitVec.toNat = cv l := by
     intro l hl
     have := List.all_eq_true.mp freeLabs l hl

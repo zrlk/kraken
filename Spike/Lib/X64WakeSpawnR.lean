@@ -159,12 +159,12 @@ local notation "Ly" => RuntimeLayout.ofPlaceWX hp i
 
 /-- **`SelfOK` of a record placed by the memory relation** (X64-SelfOK,
 via `X64WakeInst.selfOK_tcb`): the TCB words `tcbM L = pinA + 8`,
-`tcb2 L = pinA + 104` lie in `pinned` (`hpin2`), off every label the memory
+`tcb2 L = pinA + 136` lie in `pinned` (`hpin2`), off every label the memory
 relation places (in `.data` or the heap, disjoint from `pinned`), and the
 flag's word lies in its label (`X64WakeInst.inLabel_cT`).
 
 **Unlike AArch64**: no counterpart (A64's records need no `SelfOK`). -/
-theorem selfOK_placed (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) {g : Gh}
+theorem selfOK_placed (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) {g : Gh}
     {ts : Nat → Option Nat} {tm : Memory} {sm : WeakMem.Memory} {tp tq sp : List Nat}
     (hm : MemRelP (Ly).Λ g.lbl g.lsize ts tm sm tp tq sp) (hg : GhOK (Ly).Λ g) :
     Spike.Lib.X64WakeInst.SelfOK (tcbM (Ly)) (tcb2 (Ly)) g := by
@@ -175,9 +175,9 @@ theorem selfOK_placed (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly
   have h0 := PlaceWX.pinA_toNat_ofPlaceWX hp i
   have hsm := X64WakeChildSt.pinA_small hp i
   have eT : (tcbM (Ly)).toNat = (Ly).pinA.toNat + 8 := X64WakeChildSt.pinA_add hp i (c := 8) (by decide)
-  have eW : (tcb2 (Ly)).toNat = (Ly).pinA.toNat + 104 := X64WakeChildSt.pinA_add hp i (c := 104) (by decide)
+  have eW : (tcb2 (Ly)).toNat = (Ly).pinA.toNat + 136 := X64WakeChildSt.pinA_add hp i (c := 136) (by decide)
   simp only [Range.Disjoint, Range.InSpace] at hdp hhp hH hD
-  have hoff : ∀ a : BitVec 64, a.toNat = (Ly).pinA.toNat + 8 ∨ a.toNat = (Ly).pinA.toNat + 104 →
+  have hoff : ∀ a : BitVec 64, a.toNat = (Ly).pinA.toNat + 8 ∨ a.toNat = (Ly).pinA.toNat + 136 →
       (Spike.Lib.X64WakeInst.wakeMs hp i g).rt a.toNat := by
     rintro a ha ⟨l, b, hl, hx⟩
     have hs := Spike.Lib.X64WakeGOf.heapData_of_placed hm hl hx
@@ -190,7 +190,7 @@ theorem selfOK_placed (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly
 
 /-- **A record of the layout from the memory relation**: `GhOK` and
 `selfOK_placed`. -/
-theorem ghOKR_of (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) {g : Gh}
+theorem ghOKR_of (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) {g : Gh}
     {ts : Nat → Option Nat} {tm : Memory} {sm : WeakMem.Memory} {tp tq sp : List Nat}
     (hm : MemRelP (Ly).Λ g.lbl g.lsize ts tm sm tp tq sp) (hg : GhOK (Ly).Λ g) :
     X64WakeAssemblyR.GhOKR (Ly) g :=
@@ -320,7 +320,7 @@ theorem spawn_R {asm : Asm} {E : Entry} {arch : WeakMem.Arch} {R1 : Cfg → Term
     /- instance facts -/
     (hprog : o.prog = wakeCells) (hlo : (Ly).Λ.code.lo = Spike.Lib.X64.WakePh.lo)
     (hA13 : Scc.Cert.Spawn.X64.a13data (Ly).Λ o.prog o.secs = true)
-    (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
+    (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
     (hinit2 : (Spike.Lib.X64.PhRec.m0Of (Ly).Λ o.prog o.secs).initVal
       ⟨Spike.Lib.X64WakeGOf2.lim2A (Ly), 8⟩ = 0)
     (hwide : Scc.Cert.WideX64.ExeWide (Ly).exe)
@@ -513,7 +513,7 @@ theorem wake_obligations_RS {Ab Ac : State → Prop} {arch : WeakMem.Arch} {B : 
     /- instance facts -/
     (hlo : (Ly).Λ.code.lo = Spike.Lib.X64.WakePh.lo)
     (hA13 : Scc.Cert.Spawn.X64.a13data (Ly).Λ o.prog o.secs = true)
-    (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
+    (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
     (hinit2 : (Spike.Lib.X64.PhRec.m0Of (Ly).Λ o.prog o.secs).initVal
       ⟨Spike.Lib.X64WakeGOf2.lim2A (Ly), 8⟩ = 0)
     (hwide : Scc.Cert.WideX64.ExeWide (Ly).exe)

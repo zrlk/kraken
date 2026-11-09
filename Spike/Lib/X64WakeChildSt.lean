@@ -4,20 +4,20 @@ manner of `Spike/Lib/WakeChildSt.lean`): the per-pair premises `hS`/`htp4`,
 `hT`/`hown` and `hSx` of `X64WakeChildXI.childSeg_XI` at the instance
 (`L := RuntimeLayout.ofPlaceWX hpl i`, the worker's `msW hpl i T W g` with
 `T` main's TCB `tcbM L = pinA + 8` and `W` the worker's `tcb2 L =
-pinA + 104`), under the frame of the child's first memory after the
+pinA + 136`), under the frame of the child's first memory after the
 `clone` that handed `r1` (`r1` in the stack pool).
 
 - `pinA_small`, `pinA_add`: `pinA` lies below `2 ^ 32`; `pinA + c` for a
   small `c` does not wrap.
-- `pin_pinned`: a word `pinA + c` with `c + 8 ≤ 168` has its bytes in
-  `pinned`, given that the region reaches `pinA + 168` (`hpin2`).
+- `pin_pinned`: a word `pinA + c` with `c + 8 ≤ 200` has its bytes in
+  `pinned`, given that the region reaches `pinA + 200` (`hpin2`).
 - `stOk_pinned`, `ldOk_pinned`: a word whose 8 bytes lie in `pinned` and
   off both TCB self words is a runtime store (given the value invariant)
   and load under `msW` in the child's frame (off every placed label, which
   lie in `.data`/heap; mapped in `K0`, shared; off the child's handed
   range, which lies in the pool).
 - `childSt_I`: at main's permit word `pinA + 24` (`tcbM + 16`) and the
-  second TCB's word `pinA + 128` (`tcb2 + 24`), value `1`; the value
+  second TCB's word `pinA + 160` (`tcb2 + 24`), value `1`; the value
   invariant off both limit words (`X64WakeGOf2.gOf2_ne`).
 - `childLd_I`: the load of the worker's TCB word `tcb2` (`hT`).
 - `childOwn_I`: `msW` owns `⟨W, 8⟩` with value `W` at every pc (`hown`).
@@ -34,7 +34,7 @@ pinA + 104`), under the frame of the child's first memory after the
   (`childOwn_I`); AArch64 has neither premise.
 - `StOk` has no executable or end-pc arguments.
 
-Open (premises): `hpin2` (the pinned region reaches `pinA + 168`, through
+Open (premises): `hpin2` (the pinned region reaches `pinA + 200`, through
 the tid word `tcb2 + 56`).
 -/
 import Spike.Lib.X64WakeInst
@@ -77,9 +77,9 @@ theorem pinA_add {c : Nat} (hc : c < 2 ^ 32) :
   have := pinA_small hpl i
   rw [BitVec.toNat_add, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega : c < 2 ^ 64), Nat.mod_eq_of_lt (by omega)]
 
-/-- **A word `pinA + c` below `pinA + 168` has its bytes in `pinned`.** -/
-theorem pin_pinned (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
-    {c : Nat} (hc : c + 8 ≤ 168) :
+/-- **A word `pinA + c` below `pinA + 200` has its bytes in `pinned`.** -/
+theorem pin_pinned (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
+    {c : Nat} (hc : c + 8 ≤ 200) :
     ∀ k < 8, (Ly).Λ.pinned.contains (((Ly).pinA + BitVec.ofNat 64 c).toNat + k) := by
   intro k hk
   have h0 := PlaceWX.pinA_toNat_ofPlaceWX hpl i
@@ -160,13 +160,13 @@ theorem ldOk_pinned (T W : BitVec 64) (g : Gh) {ts : Nat → Option Nat} {tm : M
   exact Spike.Lib.X64.Rt.loadInt_copyRange_none (by omega) (by simp only [Range.contains]; omega) (by decide)
 
 /-- **`hS`/`hSx` at the instance**: main's permit word `pinA + 24` and the
-second TCB's word `pinA + 128` take the store of `1` in the child's frame,
+second TCB's word `pinA + 160` take the store of `1` in the child's frame,
 for `T`, `W` the two TCB words. -/
 theorem childSt_I {T W : BitVec 64} (hT : T = tcbM (Ly)) (hW : W = tcb2 (Ly)) (g : Gh)
     {ts : Nat → Option Nat} {tm : Memory} {sm : WeakMem.Memory} {tp tq sp : List Nat}
     (hm : MemRelP (Ly).Λ g.lbl g.lsize ts tm sm tp tq sp)
-    (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
-    {a : BitVec 64} (ha : a = (Ly).pinA + 24#64 ∨ a = (Ly).pinA + 128#64)
+    (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
+    {a : BitVec 64} (ha : a = (Ly).pinA + 24#64 ∨ a = (Ly).pinA + 160#64)
     {x : KState} {tid : Nat} {th : Thread isa} {r1 : Range} {tls : Nat}
     (hh : handed x tid (r1.lo + r1.size) = some (tid, r1))
     (hsub : r1.Sub (Ly).Λ.stackPool) (hsz : r1.size = 16384) :
@@ -175,16 +175,16 @@ theorem childSt_I {T W : BitVec 64} (hT : T = tcbM (Ly)) (hW : W = tcb2 (Ly)) (g
   have hs := pinA_small hpl i
   have eT : T.toNat = (Ly).pinA.toNat + 8 := by
     rw [hT]; exact pinA_add hpl i (c := 8) (by decide)
-  have eW : W.toNat = (Ly).pinA.toNat + 104 := by
-    rw [hW]; exact pinA_add hpl i (c := 104) (by decide)
+  have eW : W.toNat = (Ly).pinA.toNat + 136 := by
+    rw [hW]; exact pinA_add hpl i (c := 136) (by decide)
   rcases ha with rfl | rfl
   · have e : ((Ly).pinA + 24#64).toNat = (Ly).pinA.toNat + 24 := pinA_add hpl i (c := 24) (by decide)
     refine stOk_pinned hpl i T W g hm (pin_pinned hpl i hpin2 (c := 24) (by decide)) (.inr ?_)
       (.inr (by simp only [e, eT]; omega)) (.inl (by simp only [e, eW]; omega)) hh hsub hsz
     exact Spike.Lib.X64WakeGOf2.gOf2_ne (Spike.Lib.X64.PhRec.pin_ne (by decide))
       (Spike.Lib.X64WakeGOf2.pin_ne2 (by decide)) _
-  · have e : ((Ly).pinA + 128#64).toNat = (Ly).pinA.toNat + 128 := pinA_add hpl i (c := 128) (by decide)
-    refine stOk_pinned hpl i T W g hm (pin_pinned hpl i hpin2 (c := 128) (by decide)) (.inr ?_)
+  · have e : ((Ly).pinA + 160#64).toNat = (Ly).pinA.toNat + 160 := pinA_add hpl i (c := 160) (by decide)
+    refine stOk_pinned hpl i T W g hm (pin_pinned hpl i hpin2 (c := 160) (by decide)) (.inr ?_)
       (.inr (by simp only [e, eT]; omega)) (.inr (by simp only [e, eW]; omega)) hh hsub hsz
     exact Spike.Lib.X64WakeGOf2.gOf2_ne (Spike.Lib.X64.PhRec.pin_ne (by decide))
       (Spike.Lib.X64WakeGOf2.pin_ne2 (by decide)) _
@@ -194,14 +194,14 @@ load in the child's frame. -/
 theorem childLd_I (T : BitVec 64) {W : BitVec 64} (hW : W = tcb2 (Ly)) (g : Gh)
     {ts : Nat → Option Nat} {tm : Memory} {sm : WeakMem.Memory} {tp tq sp : List Nat}
     (hm : MemRelP (Ly).Λ g.lbl g.lsize ts tm sm tp tq sp)
-    (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
+    (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
     {x : KState} {tid : Nat} {th : Thread isa} {r1 : Range} {tls : Nat}
     (hh : handed x tid (r1.lo + r1.size) = some (tid, r1))
     (hsub : r1.Sub (Ly).Λ.stackPool) (hsz : r1.size = 16384) :
     LdOk (msW hpl i T W g) (DFrame (childR (r1.lo + r1.size) (-16384))
         (childAfter abi x tid th (r1.lo + r1.size) tls).st.st.1) W := by
   subst hW
-  exact ldOk_pinned hpl i T _ g hm (pin_pinned hpl i hpin2 (c := 104) (by decide)) hh hsub hsz
+  exact ldOk_pinned hpl i T _ g hm (pin_pinned hpl i hpin2 (c := 136) (by decide)) hh hsub hsz
 
 /-- **`hown` at the instance**: `msW` owns `⟨W, 8⟩` with value `W` at every
 pc. -/

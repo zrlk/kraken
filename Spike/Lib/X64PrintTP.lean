@@ -25,6 +25,7 @@ hold inside `NoSetFsW W K` (`Spike/Lib/X64Hello1RodataTP.lean`) and
 import Spike.Lib.X64PrintByteOut
 import Spike.Lib.X64PrintEmpty
 import Spike.Lib.X64Hello1RodataTP
+import Spike.Lib.X64CodeAcross
 
 namespace Spike.Lib.X64
 
@@ -69,7 +70,7 @@ theorem PrintAW.noSetFs {W : Frag isa} {K : State → State → Prop} {cells : L
     Flow.BlkW.noSetFs h.n10 (code_field hp hend h10 rfl) (by decide),
     Flow.BlkW.noSetFs h.adv (code_field hp hend h11 (Scc.Cert.Rt.X64.Print.off0 _)) (by decide),
     Flow.BlkW.noSetFs h.fail (code_field hp hend h12 (Scc.Cert.Rt.X64.Print.off0 _)) (by decide),
-    Flow.BlkW.noSetFs h.done (code_field hp hend h13 (Scc.Cert.Rt.X64.Print.off0 _)) (by decide)⟩
+    Flow.BlkW.noSetFs h.done (Spike.Lib.X64.code_field_blockAcrossB hp hend h13 (List.take_append_drop _ _) (Scc.Cert.Rt.X64.Print.off0 _)) (by decide)⟩
 
 omit [Executable.ValidLayout exe] in
 /-- **A state at `print`'s system call asks for `write`** (`%rax = 1`,

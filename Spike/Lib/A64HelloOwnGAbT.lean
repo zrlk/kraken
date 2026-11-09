@@ -37,21 +37,21 @@ variable {L : RuntimeLayout}
 
 /-- **The threads abort path's labels**, resolved at hello's base `lo`. -/
 theorem ab_labsH (hlab : ∀ l x, codeOf lo SccCode.helloProg l = some x → L.lab l = Int64.ofNat x) :
-    L.lab "scc_rt_abort" = Int64.ofNat 2168032 ∧ L.lab "scc_rt_thr_worker" = Int64.ofNat 2168596 ∧
-    L.lab ".L12_scc_rt_abort.0_entry" = Int64.ofNat 2168052 ∧
-    L.lab ".L12_scc_rt_abort.1_is0" = Int64.ofNat 2168072 ∧
-    L.lab ".L12_scc_rt_abort.2_next1" = Int64.ofNat 2168088 ∧
-    L.lab ".L12_scc_rt_abort.3_is2" = Int64.ofNat 2168108 ∧
-    L.lab ".L12_scc_rt_abort.4_next3" = Int64.ofNat 2168124 ∧
-    L.lab ".L12_scc_rt_abort.5_is4" = Int64.ofNat 2168144 ∧
-    L.lab ".L12_scc_rt_abort.6_next5" = Int64.ofNat 2168160 ∧
-    L.lab ".L12_scc_rt_abort.7_is6" = Int64.ofNat 2168180 ∧
-    L.lab ".L12_scc_rt_abort.8_next7" = Int64.ofNat 2168196 ∧
-    L.lab ".L12_scc_rt_abort.9_is8" = Int64.ofNat 2168216 ∧
-    L.lab ".L12_scc_rt_abort.10_next9" = Int64.ofNat 2168232 ∧
-    L.lab "scc_rt_abort_threads" = Int64.ofNat 2168524 ∧
-    L.lab ".L17_scc_rt_abort_threads.0_entry" = Int64.ofNat 2168540 ∧
-    L.lab "scc_rt_abort_threads_exit" = Int64.ofNat 2168584 := by
+    L.lab "scc_rt_abort" = Int64.ofNat 2168064 ∧ L.lab "scc_rt_thr_worker" = Int64.ofNat 2168628 ∧
+    L.lab ".L12_scc_rt_abort.0_entry" = Int64.ofNat 2168084 ∧
+    L.lab ".L12_scc_rt_abort.1_is0" = Int64.ofNat 2168104 ∧
+    L.lab ".L12_scc_rt_abort.2_next1" = Int64.ofNat 2168120 ∧
+    L.lab ".L12_scc_rt_abort.3_is2" = Int64.ofNat 2168140 ∧
+    L.lab ".L12_scc_rt_abort.4_next3" = Int64.ofNat 2168156 ∧
+    L.lab ".L12_scc_rt_abort.5_is4" = Int64.ofNat 2168176 ∧
+    L.lab ".L12_scc_rt_abort.6_next5" = Int64.ofNat 2168192 ∧
+    L.lab ".L12_scc_rt_abort.7_is6" = Int64.ofNat 2168212 ∧
+    L.lab ".L12_scc_rt_abort.8_next7" = Int64.ofNat 2168228 ∧
+    L.lab ".L12_scc_rt_abort.9_is8" = Int64.ofNat 2168248 ∧
+    L.lab ".L12_scc_rt_abort.10_next9" = Int64.ofNat 2168264 ∧
+    L.lab "scc_rt_abort_threads" = Int64.ofNat 2168556 ∧
+    L.lab ".L17_scc_rt_abort_threads.0_entry" = Int64.ofNat 2168572 ∧
+    L.lab "scc_rt_abort_threads_exit" = Int64.ofNat 2168616 := by
   refine ⟨hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_,
     hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_⟩ <;>
     (rw [← codeT_eq]; decide +kernel)

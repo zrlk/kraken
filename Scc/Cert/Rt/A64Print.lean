@@ -23,10 +23,16 @@ open CoreLang CoreTerm
 open Kraken Kraken.Promising Kraken.Promising.AArch64 Spike.Lib Spike.Lib.A64 Spike.Lib.A64.Flow
   Spike.Lib.A64.Print
 
+/-- The return label before `scc_rt_print`'s `ret` (a GC table key, P5):
+the return site's label, `x` followed by the `ret` term's instruction index
+in `scc_rt_print` (12). -/
+abbrev retL : Label := ".L9_scc_rt_print.x12"
+
 /-- **The code of `scc_rt_print` in `prog`**: its blocks at their labels
 and offsets (`.2_write` led by the barrier `bF`, `dmb ish`, the `write`
-system call 5 instructions after `.2_write` among them), and the prologue's
-fall-through. -/
+system call 5 instructions after `.2_write` among them; the last block
+`b16` across the return label `retL`: its teardown at `.7_done`, `retL`
+right after it, its `ret` at `retL`, `blockAcross`), and the prologue's fall-through. -/
 def printIn (prog : List Directive) : Bool :=
   blockAt prog "scc_rt_print" 0 b0 &&
   blockAt prog ".L9_scc_rt_print.0_entry" 0 b1 &&
@@ -45,7 +51,7 @@ def printIn (prog : List Directive) : Bool :=
   blockAt prog ".L9_scc_rt_print.4_chk3" 4 b12 &&
   blockAt prog ".L9_scc_rt_print.5_adv" 0 b13 &&
   blockAt prog ".L9_scc_rt_print.6_fail" 0 b14 &&
-  blockAt prog ".L9_scc_rt_print.7_done" 0 b16 &&
+  blockAcross prog ".L9_scc_rt_print.7_done" 0 (b16.take 3) retL (b16.drop 3) &&
   labelGap prog "scc_rt_print" ".L9_scc_rt_print.0_entry" 6
 
 /-- A code segment at an equal pc. -/

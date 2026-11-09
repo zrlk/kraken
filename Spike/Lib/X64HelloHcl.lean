@@ -6,7 +6,7 @@ relation's post-exit branch pins no pc).
 
 At a `clone` call under the relation before the exit, main is the one thread (`RSAH`'s `PreJAH`), its state in the
 fragment at the clone's pc (`X64HelloHClW.pc_of_cloneH`); the child's state is main's at the next cell
-(`Handover.childAfter`, `nextPc_of_cellAt` at the clone's `syscall`), the pc `.Lwc_main.x25 + 94 + 2`, which is
+(`Handover.childAfter`, `nextPc_of_cellAt` at the clone's `syscall`), the pc `.Lwc_main.x3 + 94 + 2`, which is
 off every pc of `scc_rt_abort_write`'s phase (`HelloWf.siAbH_sound`, decided on the listing).
 
 - `siAbH_clone`: the clone's next pc is off `abPcs` (decided).
@@ -16,7 +16,7 @@ off every pc of `scc_rt_abort_write`'s phase (`HelloWf.siAbH_sound`, decided on 
 
 ## Unlike AArch64
 
-- The clone's `syscall` is 2 bytes at `.Lwc_main.x25 + 94` (`X64HelloClonePreH.cloneAtH`; AArch64 the 4-byte
+- The clone's `syscall` is 2 bytes at `.Lwc_main.x3 + 94` (`X64HelloClonePreH.cloneAtH`; AArch64 the 4-byte
   `svc` at `.L22_wc_main.sp6 + 4·25` past the prefix `pfxM`), so the child's pc is `cloneAtH exe + 2`, and
   `siAbH` takes the instruction's size.
 - The layout's program is the cell list `SccCode.helloCells` and the label premise `hlab` reads `codeLabel`
@@ -48,7 +48,7 @@ open Spike.Lib.X64HelloHClW (pc_of_cloneH)
 open Spike.Lib.X64.Flow.Worker.Hello.Child (hello_svcIn)
 open Spike.Lib.X64.HelloPh.WcSp6 (x25L)
 
-/-- **The clone's next pc is off the write abort's pcs** (`HelloWf.siAbH` at `.Lwc_main.x25 + 94`, 2 bytes). -/
+/-- **The clone's next pc is off the write abort's pcs** (`HelloWf.siAbH` at `.Lwc_main.x3 + 94`, 2 bytes). -/
 theorem siAbH_clone : Spike.Lib.X64.HelloWf.siAbH x25L 94 2 = true := by
   simp only [Spike.Lib.X64.HelloWf.siAbH, ← Scc.Cert.Rt.X64.codeT_eq]; decide +kernel
 

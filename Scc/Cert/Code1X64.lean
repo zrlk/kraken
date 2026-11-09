@@ -1,5 +1,6 @@
 import Spike.Lib.LowerX64.Checks
 import Scc.Cert.NeedX64
+import Scc.Cert.StartsX64
 
 /-!
 # The code of every stack-checked function (x86-64; A12's `fnCode1Ok`)
@@ -37,11 +38,10 @@ emitter's own code for it, fail-closed:
 * `fnCode1Ok`: `fnOk1` for every stack-checked function.
 
 Where x86-64 differs from AArch64:
-- the emitter numbers its local labels `.Lf.xN` with one counter through
-  the whole program (`emitFuncs`); `starts` gives each function's first
-  number from the IR (`fnLabs`: the labels each instruction and the grow
-  stub take), and `startsOk` checks it against the emitter (by evaluation,
-  in the tests);
+- the emitter numbers each function's local labels `.Lf.xN` from 0
+  (`emitFuncAt`); `starts` gives each function its first number (0,
+  `Scc/Cert/StartsX64.lean`), and `startsOk` checks it against the emitter
+  (by evaluation, in the tests);
 - cells carry sizes, so the extraction lemmas give blocks at byte offsets
   (`cellOff` of the run after the label).
 
@@ -348,45 +348,6 @@ def fnOk1 (cells : List (Directive × Nat)) (tbl : List NeedX64.Row) (ir : Scc.I
       blockAtB cells (proL (frOf ir f)) 0 stkHead
     | none => false
   | _, _ => false
-
-/-! ## The local labels' numbering -/
-
-/-- The local labels (`freshL`) the emitter takes for an instruction, with
-safepoints recorded (`maps`) or not. -/
-def instLabs (maps : Bool) : Scc.IR.Inst → Nat
-  | .bin .udiv _ _ _ | .bin .urem _ _ _ => 2
-  | .bin .sdiv _ _ _ | .bin .srem _ _ _ => 3
-  | .clone .. => 1
-  | .call .. => if maps then 1 else 0
-  | _ => 0
-
-/-- The local labels the emitter takes for a function: its instructions',
-and the grow stub's safepoint (a stack-checked function with growth). -/
-def fnLabs (ir : Scc.IR.Program) (f : Scc.IR.Func) : Nat :=
-  (f.blocks.map fun b => (b.insts.map (instLabs ir.growth.isSome)).sum).sum +
-    if f.checkStack && ir.growth.isSome then 1 else 0
-
-/-- **Each function with its first local label number**, the first of the
-functions `fs` numbered from `n` (as `emitFuncs` numbers them). -/
-def starts (ir : Scc.IR.Program) : Nat → List Scc.IR.Func → List (Scc.IR.Func × Nat)
-  | _, [] => []
-  | n, f :: fs => (f, n) :: starts ir (n + fnLabs ir f) fs
-
-/-- `startsOk`'s walk: each function's `emitFuncAt` from `n` ends at
-`n + fnLabs`. -/
-def startsOkAux (ir : Scc.IR.Program) (areas : List (Scc.IR.Sym × Nat)) : Nat → List Scc.IR.Func → Bool
-  | _, [] => true
-  | n, f :: fs =>
-    match Scc.Emit.X64.emitFuncAt ir areas f n with
-    | .ok (_, n', _) => n' == n + fnLabs ir f && startsOkAux ir areas n' fs
-    | .error _ => false
-
-/-- **`starts` is the emitter's numbering** of `ir` (checked by evaluation
-in the tests; A12 does not depend on it: a wrong number fails `segIn`). -/
-def startsOk (ir : Scc.IR.Program) : Bool :=
-  match Scc.Emit.X64.emitPre ir with
-  | .ok areas => startsOkAux ir areas 0 ir.funcs
-  | .error _ => false
 
 /-- **The code of every stack-checked function of `ir`** (`fnOk1`). -/
 def fnCode1Ok (cells : List (Directive × Nat)) (tbl : List NeedX64.Row) (ir : Scc.IR.Program) : Bool :=

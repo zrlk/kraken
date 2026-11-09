@@ -8,7 +8,9 @@ terminator's is never empty) or a call's `callq` (at a position off the write
 abort by `BlC2L`); a terminator's piece ends with a `jmp` or a `ret`.
 
 - `emits_unique`, `emitTerm2_last`: the items a piece of code emits are
-  unique; a `TermC2` terminator's last directive is a `jmp` or a `ret`.
+  unique; a `TermC2` terminator's last directive is a `jmp` or a `ret` (a
+  `ret` takes a fresh label, P5: its piece `CodeC2`'s `ret` arm, ending in
+  `ret`).
 - `cellOff_zip`: a piece's size.
 - `codeC2_cdCLE`: `CodeC2` at `CdCL` gives it at `CdCLE`, its pc a position
   off the write abort, every call's pc one (`hBl`).
@@ -44,22 +46,7 @@ theorem emitTerm2_last {fr : Scc.Emit.X64.Frame} {t : Scc.IR.Term} (ht : TermC2 
     (hc : Emits (emitTerm fr t) c) : ∃ d, (dirs c).getLast? = some d ∧ isJR d = true := by
   have h := hc { out := [], next := 0, maps := [] }
   cases ht with
-  | ret ws =>
-    by_cases hgt : ws.length > Scc.Emit.X64.retRegs.length
-    · simp only [emitTerm, Scc.Emit.X64.loadArgs, hgt, ite_true] at h
-      cases h
-    have hl : Scc.Emit.X64.loadArgs fr Scc.Emit.X64.retRegs ws "ret" =
-        (ldsLoop fr (ws.zip Scc.Emit.X64.retRegs) >>= fun _ => pure ()) := by
-      simp only [Scc.Emit.X64.loadArgs, hgt, ite_false]
-    have he : emitTerm fr (.ret ws) =
-        ((ldsLoop fr (ws.zip Scc.Emit.X64.retRegs) >>= fun _ => pure ()) >>= fun _ =>
-          (do Scc.Emit.X64.epilogue; Scc.Emit.X64.ins (Scc.Emit.X64.i64 .ret))) := by
-      simp only [emitTerm, hl]
-    rw [he] at h hc
-    obtain ⟨u, s1, h1, -⟩ := bind_inv h
-    obtain ⟨lw, hlw⟩ := ldsLoop_ok h1
-    obtain rfl := emits_unique hc ((ldsLoop_emits hlw).seq emits_retTail)
-    simp [epiItems, dirs, isJR, Spike.Lib.X64.classify, Scc.Emit.X64.i64, Scc.Emit.X64.op]
+  | ret ws => exact (not_emits_retN hc).elim
   | br p q l l' =>
     simp only [emitTerm, cmpAB] at h hc
     obtain ⟨u1, s1, h1, h⟩ := bind_inv h
@@ -102,8 +89,19 @@ theorem codeC2_cdCLE (hBl : ∀ pc zc g k, Bl pc zc g k → PosOff cells lab pc)
     ∀ (is : List Scc.IR.Inst) (k : Nat) (pc : Int64), CodeC2 fr (CdCL cells okPc ph lab ra) Bl k pc is tm →
       CodeC2 fr (CdCLE cells okPc ph lab ra) Bl k pc is tm ∧ PosOff cells lab pc
   | [], _, pc, h => by
-    rcases h with h | ⟨l, zs, hE, hz, hcd⟩
+    rcases h with h | ⟨l, zs, hE, hz, hcd⟩ | ⟨ws, lw, zs, hw, hn, hl, hz, hcd⟩
     · subst h; cases htm
+    rotate_left
+    · -- a `ret`: its piece ends with `ret` (P5)
+      have hj' : endJ ((retDirs lw).zip zs) = true := by
+        rw [endJ, List.map_fst_zip (by omega), retDirs, dirs_epiItems_split, List.getLast?_append]
+        simp [isJR, Spike.Lib.X64.classify, Scc.Emit.X64.i64, Scc.Emit.X64.op]
+      have hne : (retDirs lw).zip zs ≠ [] := by
+        intro h0
+        rw [h0] at hj'
+        cases hj'
+      exact ⟨.inr (.inr ⟨ws, lw, zs, hw, hn, hl, hz, ⟨hcd, fun h => absurd hj' (by rw [h]; decide)⟩⟩),
+        posOff_start hcd hne⟩
     obtain ⟨d, hd, hj⟩ := emitTerm2_last htm hE
     have hj' : endJ ((dirs l).zip zs) = true := by
       rw [endJ, List.map_fst_zip (by omega), hd]; exact hj
@@ -113,10 +111,11 @@ theorem codeC2_cdCLE (hBl : ∀ pc zc g k, Bl pc zc g k → PosOff cells lab pc)
       rw [List.length_zip, Nat.min_eq_left (by omega)] at this
       rw [List.length_eq_zero_iff.mp this] at hd
       cases hd
-    exact ⟨.inr ⟨l, zs, hE, hz, hcd, fun h => absurd hj' (by rw [h]; decide)⟩, posOff_start hcd hne⟩
+    exact ⟨.inr (.inl ⟨l, zs, hE, hz, hcd, fun h => absurd hj' (by rw [h]; decide)⟩), posOff_start hcd hne⟩
   | i :: is, k, pc, h => by
     rcases h with ⟨hc, l, zs, hE, hz, hcd, hr⟩ | ⟨d, g, w, lw, off, zs, zc, z, hi, hl, ho, hz, hcd, hb, hs, hr⟩ |
-      ⟨d, ws, lw, off, zs, zc, z, hi, hn, hl, ho, hz, hcd, hb, hs, hr⟩ | ⟨ws, lw, zs, zc, hi, hn, hl, hz, hcd, hb, hr⟩
+      ⟨d, ws, lw, off, zs, zc, z, hi, hn, hl, ho, hz, hcd, hb, hs, hr⟩ | ⟨ws, lw, zs, zc, hi, hn, hl, hz, hcd, hb, hr⟩ |
+      ⟨d, a, b, la, lb, off, zs, z, hi, ha, hb, ho, hz, hcd, hs, hr⟩
     · obtain ⟨hr', hp⟩ := codeC2_cdCLE hBl htm is k _ hr
       obtain ⟨hcd', hp0⟩ := cdCLE_of hcd (by rw [cellOff_zip hz]; exact hp)
       exact ⟨.inl ⟨hc, l, zs, hE, hz, hcd', hr'⟩, hp0⟩
@@ -130,7 +129,13 @@ theorem codeC2_cdCLE (hBl : ∀ pc zc g k, Bl pc zc g k → PosOff cells lab pc)
       exact ⟨.inr (.inr (.inl ⟨d, ws, lw, off, zs, zc, z, hi, hn, hl, ho, hz, hcd', hb, hs', hr'⟩)), hp0⟩
     · obtain ⟨hr', -⟩ := codeC2_cdCLE hBl htm is (k + 1) _ hr
       obtain ⟨hcd', hp0⟩ := cdCLE_of hcd (by rw [cellOff_zip hz]; exact hBl _ _ _ _ hb)
-      exact ⟨.inr (.inr (.inr ⟨ws, lw, zs, zc, hi, hn, hl, hz, hcd', hb, hr'⟩)), hp0⟩
+      exact ⟨.inr (.inr (.inr (.inl ⟨ws, lw, zs, zc, hi, hn, hl, hz, hcd', hb, hr'⟩))), hp0⟩
+    · -- a checked `+`: its store after its fall-through's label (P5)
+      obtain ⟨hr', hp⟩ := codeC2_cdCLE hBl htm is (k + 1) _ hr
+      obtain ⟨hs', hps⟩ := cdCLE_of hs (by simpa [cellOff] using hp)
+      have hps' : PosOff cells lab (pc + Int64.ofNat zs.sum) := posOff_start hs (by simp)
+      obtain ⟨hcd', hp0⟩ := cdCLE_of hcd (by rw [cellOff_zip hz]; exact hps')
+      exact ⟨.inr (.inr (.inr (.inr ⟨d, a, b, la, lb, off, zs, z, hi, ha, hb, ho, hz, hcd', hs', hr'⟩))), hp0⟩
 
 /-- **`BlocksCodeC2` at `CdCL` gives it at `CdCLE`**, every block's
 terminator a `TermC2`. -/

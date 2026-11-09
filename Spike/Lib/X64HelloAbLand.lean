@@ -38,8 +38,8 @@ open SccCode (helloCells)
 
 /-! ## The landings' check (decided at helloCells' code labels) -/
 
-/-- The next pc after `.Lwc_worker.x17`'s first cell (4 bytes) is off the write abort's pcs. -/
-theorem landS_x17 : Spike.Lib.X64.HelloWf.siAbH ".Lwc_worker.x17" 0 4 = true := by
+/-- The next pc after `.Lwc_worker.x0`'s first cell (4 bytes) is off the write abort's pcs. -/
+theorem landS_x17 : Spike.Lib.X64.HelloWf.siAbH ".Lwc_worker.x0" 0 4 = true := by
   simp only [Spike.Lib.X64.HelloWf.siAbH, ← Scc.Cert.Rt.X64.codeT_eq]; decide +kernel
 
 /-! ## A single cell at a state -/
@@ -90,13 +90,13 @@ variable (hp : Lays exe helloCells kp) (hend : endPc = endOf exe helloCells kp)
   (hμ : MarksL μ (_root_.Executable.labels exe).label)
 include hp hend hlab hμ
 
-/-- **`AbX` at `.Lwc_worker.x17`**: its first cell `movq -40(%rbp), %rcx` (`HelloTail.b0`). -/
+/-- **`AbX` at `.Lwc_worker.x0`**: its first cell `movq -40(%rbp), %rcx` (`HelloTail.b0`). -/
 theorem abX_x17 {s : State} {c : Ctl} {fs : List TermRun.Frame} (hs : s.exe = exe) (hn : s.endPc = endPc)
-    (hd : s.decls = {}) (hpc : s.st.2 = (_root_.Executable.labels exe).label ".Lwc_worker.x17") :
+    (hd : s.decls = {}) (hpc : s.st.2 = (_root_.Executable.labels exe).label ".Lwc_worker.x0") :
     AbX μ (_root_.Executable.labels exe).label s c fs := by
   have hcd := (Labels.wkTailCode hp hend (c0 := c) (c1 := c) (c2 := c) (A := 0) (B := 0) (rbp0 := 0) (ra := 0)
     (tp := 0) (sp := 0)).e s hs hn
-  have he : s.st.2 = (_root_.Executable.labels exe).label ".Lwc_worker.x17" + Int64.ofNat 0 :=
+  have he : s.st.2 = (_root_.Executable.labels exe).label ".Lwc_worker.x0" + Int64.ofNat 0 :=
     hpc.trans (ofNat_zero' _).symm
   have hc : CellAt s (ldDir .rbp (-40) .rcx) 4 := hcd.cell (j := 0) (by decide) rfl rfl he
   have hq := pcOffA_at (runsOffA_of_chk hp tlRuns_chk) (List.Mem.head _) (Nat.le_refl 0) (by decide) he
@@ -107,10 +107,10 @@ theorem abX_x17 {s : State} {c : Ctl} {fs : List TermRun.Frame} (hs : s.exe = ex
 /-- **`AbX` at the thread worker's `.x13`**: its first cell, the load of the thread pointer (`HThrTail`'s
 `.x13`, `movfs_leaf`). -/
 theorem abX_x13 {s : State} {c : Ctl} {fs : List TermRun.Frame} (hs : s.exe = exe) (hn : s.endPc = endPc)
-    (hd : s.decls = {}) (hpc : s.st.2 = (_root_.Executable.labels exe).label ".Lscc_rt_thr_worker.x13") :
+    (hd : s.decls = {}) (hpc : s.st.2 = (_root_.Executable.labels exe).label ".Lscc_rt_thr_worker.x0") :
     AbX μ (_root_.Executable.labels exe).label s c fs := by
   have hcd := (thrCode hp hend (c0 := c) (tp := 0) (sp := 0)).x13 s hs hn
-  have he : s.st.2 = (_root_.Executable.labels exe).label ".Lscc_rt_thr_worker.x13" + Int64.ofNat 0 :=
+  have he : s.st.2 = (_root_.Executable.labels exe).label ".Lscc_rt_thr_worker.x0" + Int64.ofNat 0 :=
     hpc.trans (ofNat_zero' _).symm
   have hc := hcd.cell0 rfl rfl hpc
   have hq := pcOffA_at (runsOffA_of_chk hp thrRuns_chk) (List.Mem.head _) (Nat.le_refl 0) (by decide) he
@@ -119,15 +119,15 @@ theorem abX_x13 {s : State} {c : Ctl} {fs : List TermRun.Frame} (hs : s.exe = ex
     (fun w w' h => by unfold fsDir op64 at h; cases h) hex hl
 
 omit hend hlab hμ in
-/-- **`print`'s return address from `wc_worker`'s call is `.Lwc_worker.x17`** (`Body.wkC_ra`, `Wk.hgap`). -/
+/-- **`print`'s return address from `wc_worker`'s call is `.Lwc_worker.x0`** (`Body.wkC_ra`, `Wk.hgap`). -/
 theorem wcRet_x17 {J Kc : AS → Ctl → Prop} {σC : AS} {c : Ctl}
     (hJ : (Body.wCall (_root_.Executable.labels exe).label J Kc).J σC c) :
-    Int64.ofBitVec (σC.slot (-96)) = (_root_.Executable.labels exe).label ".Lwc_worker.x17" := by
+    Int64.ofBitVec (σC.slot (-96)) = (_root_.Executable.labels exe).label ".Lwc_worker.x0" := by
   obtain ⟨⟨σ0, c0, fl, -, rfl⟩, -⟩ := hJ
   rw [Body.wkC_ra _ σ0 fl (Wk.hgap hp)]
   rfl
 
-/-- **`ZXObl` at `AbX`**: `print`'s return landing at `.Lwc_worker.x17` (`wcRet_x17`, `abX_x17`), and
+/-- **`ZXObl` at `AbX`**: `print`'s return landing at `.Lwc_worker.x0` (`wcRet_x17`, `abX_x17`), and
 `wc_worker`'s return landing at the thread worker's `.x13` (`hra`, `abX_x13`). -/
 theorem zXObl_abX {R : Region} {F : MachineData → Prop} {w : Child.Words} {tp : BitVec 64}
     {w0 w1 w2 w3 w4 : TermRun.Word} {n m : Nat} :

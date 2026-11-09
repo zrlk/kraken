@@ -1,4 +1,5 @@
 import Scc.Lower.Spec
+import Scc.IR.BlockLen
 
 /-!
 # The fragment `Accepted1`: several code blocks, calls, `if` and `-`
@@ -26,11 +27,17 @@ non-recursive calls between them, the integer `if` and the integer `-`:
   every point with the same remaining term; programs that reuse a name with
   different literals are refused (`let x = 1  ret x` in one code block and
   `let x = 2  ret x` in another, or in the two arms of an `if`).
+* bounded blocks (`blocksOk1`): every block of the lowered code (the body
+  up to its first `if` or `ret`, and each arm of an `if` up to its next
+  one) weighs at most `Scc.IR.maxBlockLen` units (`Scc.IR.blockWeight`), the
+  first one with its parameter, so the block split leaves the lowering as
+  it is.
 
 Not in the fragment: tail calls, externs (output, `park`), allocation,
-memory operations, spawn, setup blocks, loops (a loop is a tail call). There
-is no bound on the number of `let`s: the frames' sizes are a placement fact
-of the output (`Scc.Cert.PlaceOK.A64.fnCode1Ok`), not a count here.
+memory operations, spawn, setup blocks, loops (a loop is a tail call). The
+number of `let`s is bounded only per block (`blocksOk1`): the frames' sizes
+are a placement fact of the output (`Scc.Cert.PlaceOK.A64.fnCode1Ok`), not a
+count here.
 
 `accepted1_of_accepted0`: every `Accepted0` program is in `Accepted1`.
 `Accepted1K` (`accepted1_of_K`): the same verdict with names compared as
@@ -147,11 +154,49 @@ def immsCoherent (p : Prog) : Bool :=
     | some n => imms1Of p q.1 b.1 0 == some n
     | none => true
 
-/-- **The fragment `Accepted1`** (see the module docstring): distinct code
-block names, one of them `main`, every code block `decl1` in program
-order, and coherent immediates (`immsCoherent`). -/
+/-! ## Bounded blocks
+
+The block split (`Scc.Lower.splitFunc`) leaves a function whose blocks are
+within `Scc.IR.maxBlockLen` (`Scc.IR.blocksOk`) as it is. `blocksOk1`
+bounds, on the source, the blocks of the IR function an `Accepted1` code
+block lowers to without the depth counter, as `lowerWithMarks` lowers it
+(`Scc.Lower.Inv.func1`): block `entry` from the body, after the parameter
+moves (one unit per parameter), and one block per arm of each `if`, each up
+to the next `if` or `ret`. The weights are `Scc.IR.instWeight`'s and
+`Scc.IR.termWeight`'s of what each construct lowers to: `let x = a`
+nothing, `+` an `addChk` and `-` a `subSat` (1 unit each), a call
+`call [r] g [w]` (3 units), an `if` its `br` (1 unit), `ret a` a `ret` of
+one word (2 units). -/
+
+/-- **The weight of the block starting at `e`**, up to its first `if` or
+`ret` (see the section docstring). -/
+def openW1 : Expr → Nat
+  | .let_ _ (.atom _) e => openW1 e
+  | .let_ _ (.add _ _) e => openW1 e + 1
+  | .let_ _ (.sub _ _) e => openW1 e + 1
+  | .let_ _ (.call ..) e => openW1 e + 3
+  | .ifeq .. => 1
+  | .ret _ => 2
+  | _ => 0
+
+/-- **The heaviest block started inside `e`**: by an arm of an `if` of
+`e` (`openW1` of the arm), `0` if there is none. -/
+def armsW1 : Expr → Nat
+  | .let_ _ _ e => armsW1 e
+  | .ifeq _ _ y n => max (max (openW1 y) (armsW1 y)) (max (openW1 n) (armsW1 n))
+  | _ => 0
+
+/-- **Bounded blocks**: for every code block, its first block with its
+parameters, and every other block, within `Scc.IR.maxBlockLen`. -/
+def blocksOk1 (p : Prog) : Bool :=
+  p.all fun d => decide ((params1 d).length + openW1 d.body ≤ Scc.IR.maxBlockLen) &&
+    decide (armsW1 d.body ≤ Scc.IR.maxBlockLen)
+
+/-- **The fragment `Accepted1`** (see the module docstring): bounded blocks
+(`blocksOk1`), distinct code block names, one of them `main`, every code
+block `decl1` in program order, and coherent immediates (`immsCoherent`). -/
 def Accepted1 (p : Prog) : Bool :=
-  (p.map (·.name)).Nodup && p.any (·.name == "main") && decls1 [] p && immsCoherent p
+  blocksOk1 p && (p.map (·.name)).Nodup && p.any (·.name == "main") && decls1 [] p && immsCoherent p
 
 /-! ## `Accepted0` is in `Accepted1` -/
 
@@ -242,17 +287,44 @@ theorem immsCoherent_of_body0 (d : Decl) (h : body0 (params1 d) d.body = true) :
     simp
   · rfl
 
+/-- An `Accepted0` body is one block: its checked `+`s and its `ret`, no
+`if`. -/
+theorem openW1_of_body0 (e : Expr) : ∀ (scope : List String), body0 scope e = true →
+    openW1 e = adds0 e + 2 ∧ armsW1 e = 0 := by
+  induction e with
+  | let_ x op e ih =>
+    intro scope h
+    cases op <;> simp only [body0, Bool.and_eq_true, reduceCtorEq] at h
+    · have := ih _ h.2; simp only [openW1, armsW1, adds0]; exact this
+    · have := ih _ h.2; simp only [openW1, armsW1, adds0]; omega
+  | ret a => intro _ _; simp [openW1, armsW1, adds0]
+  | _ => intro _ h; simp [body0] at h
+
+/-- **`Accepted0` programs have bounded blocks**: at most `maxAdds0` = 508
+`addChk`s and a `ret` of one word, 510 units, no parameter. -/
+theorem blocksOk1_of_accepted0 {p : Prog} (h : Accepted0 p = true) : blocksOk1 p = true := by
+  match p, h with
+  | [d], h =>
+    simp only [Accepted0, Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq] at h
+    obtain ⟨⟨⟨⟨⟨⟨-, -⟩, -⟩, ha⟩, -⟩, hb⟩, hmax⟩ := h
+    have hp : params1 d = [] := by simp [params1, ha]
+    obtain ⟨ho, hr⟩ := openW1_of_body0 d.body [] hb
+    simp only [maxAdds0] at hmax
+    simp [blocksOk1, hp, ho, hr, Scc.IR.maxBlockLen]
+    omega
+
 /-- **Every `Accepted0` program is in `Accepted1`**: its one code block is
 `main(u : Unit) : Int`, with no parameter in scope and an `Accepted0`
 body. -/
 theorem accepted1_of_accepted0 {p : Prog} (h : Accepted0 p = true) : Accepted1 p = true := by
   match p, h with
   | [d], h =>
+    have hw := blocksOk1_of_accepted0 h
     simp only [Accepted0, Bool.and_eq_true, beq_iff_eq] at h
     obtain ⟨⟨⟨⟨⟨⟨hn, ht⟩, hi⟩, ha⟩, hr⟩, hb⟩, -⟩ := h
     have hp : params1 d = [] := by simp [params1, ha]
     have hc := immsCoherent_of_body0 d (by rw [hp]; exact hb)
-    simp [Accepted1, decls1, decl1, hn, ht, hi, ha, hr, hp, body1_of_body0 [] [] d.body hb, hc]
+    simp [Accepted1, decls1, decl1, hn, ht, hi, ha, hr, hp, body1_of_body0 [] [] d.body hb, hc, hw]
 
 /-! ## Keyed immediates
 
@@ -386,7 +458,7 @@ theorem immsCoherentK_eq (p : Prog) : immsCoherentK p = immsCoherent p := by
 
 /-- **`Accepted1`, keyed**: `immsCoherentK` for `immsCoherent`. -/
 def Accepted1K (p : Prog) : Bool :=
-  (p.map (·.name)).Nodup && p.any (·.name == "main") && decls1 [] p && immsCoherentK p
+  blocksOk1 p && (p.map (·.name)).Nodup && p.any (·.name == "main") && decls1 [] p && immsCoherentK p
 
 theorem Accepted1K_eq (p : Prog) : Accepted1K p = Accepted1 p := by
   simp only [Accepted1K, Accepted1, immsCoherentK_eq]

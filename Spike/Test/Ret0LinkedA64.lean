@@ -38,7 +38,7 @@ read at elaboration time, the reader evaluated by the elaborator). -/
 def elf : Scc.Sem.Layout × String := scc_elf_layout% "Scc/Test/elf/ret0a64/ret0"
 
 -- The file read is the executable linked (evaluation, not a proof).
-#guard elf.2 == "2fcc55b698bcad17c8ccfee85ff9ba8a2456db847e66996d726a72ad73bf3bd5"
+#guard elf.2 == "d0cb524c43425ef92a99b3b9e52e640210a96d31d4fd20656be03274e252eddb"
 
 /-- The linked executable's layout. -/
 abbrev Λe : Scc.Sem.Layout := elf.1
@@ -145,9 +145,9 @@ info: 'Spike.Test.Ret0LinkedA64.ret0_linked_witness' depends on axioms: [propext
 
 -- `e_entry` (offset 24) one instruction past the start of `.text`, where A1 puts `_start`: the reader
 -- refuses the file.
-/-- info: the entry point 2163572 is not the start of .text (2163568) -/
+/-- info: the entry point 2174324 is not the start of .text (2174320) -/
 #guard_msgs in
-#eval Scc.Test.Elf.verdict "Scc/Test/elf/ret0a64/ret0" fun b => pure (Scc.Test.Elf.put64 b 24 0x210374)
+#eval Scc.Test.Elf.verdict "Scc/Test/elf/ret0a64/ret0" fun b => pure (Scc.Test.Elf.put64 b 24 0x212d74)
 
 /-- A code region one instruction short fails `placeOKAt` (kernel-checked,
 through A1: `placeOKAt_eq_false_of_a1`). -/

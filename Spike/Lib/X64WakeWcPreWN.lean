@@ -15,7 +15,7 @@
 `Out.fence .sy`; A64's `dmb`, 4 bytes, any kind), named `nodeW_mfence_pre`
 (A64's `nodeW_dmb_pre`); wc_main has no fence before `.x20` (scc's
 `# fence st` emits no code under TSO), its one `mfence` is at
-`.Lwc_main.x21 + 12`, the lemma's use being the `.x20`–`.x21` part
+`.Lwc_main.x3 + 12`, the lemma's use being the `.x20`–`.x21` part
 (`WcSp4W`). `succ_pc` and `nodeAgreeW` are `X64WakeFree`'s, at a cell of
 any size `z` off `syscall` (A64's `succ_pc4`, `nodeAgreeW` at 4 bytes off
 `svc`, this file's), and so `nodeW_wcG` takes the size `z` (`hfz`,

@@ -5,19 +5,19 @@
 
     .L22_wc_main.sp3:                   -- x0 = the reserve's id 1
       str x0, [sp, #48]
-      movz x0, #3075
-      movk x0, #192, lsl #16            -- x0 = hdrH = 12585987 (n = 12, m = 3)
+      movz x0, #4099
+      movk x0, #192, lsl #16            -- x0 = hdrH = 12587011 (n = 16, m = 3)
       movz x1, #1
       bl scc_rt_alloc_tcb               -- (tcb2CallH), x30 = .sp4; the callee (allocTcbG_segWA, its frame of 192)
-    .L22_wc_main.sp4:                   -- x0 = the TCB t = pinA + 112
+    .L22_wc_main.sp4:                   -- x0 = the TCB t = pinA + 144
       str x0, [sp, #56]; ldr x9, [sp, #48]; ldr x10, [sp, #56]  (sp4AH)
       str x9, [x10, #56]                -- row: the TCB's tid word (rtst_ndW)
       ldr x0, [sp, #56]; bl scc_rt_thread_init                  (initCallH), the callee `hti` (its frame of 256)
     .L22_wc_main.sp6:                   -- `wcN6H` (A64HelloWcSp6) at the stack top `kOf lab`
 
 The frame's words `FrWH sl me cA fr` (the five spills, the cell at `[sp, #40]`, the caller's `x29`, `x30`) survive
-both calls (outside the callees' regions). The call's ghost record is `tcb2QH g c0 := ⟨g, hdrH, 80, c0⟩`: the
-counter's old value `80` is `scc_rt_start`'s first TCB (header `2307`, as in wake), so the TCB is `pinA + 112`
+both calls (outside the callees' regions). The call's ghost record is `tcb2QH g c0 := ⟨g, hdrH, 112, c0⟩`: the
+counter's old value `112` is `scc_rt_start`'s first TCB (header `3331`, as in wake), so the TCB is `pinA + 144`
 (`tcb2QH_tcbOf`). `scc_rt_thread_init` at the second take returns wake's `kOf lab` (`k0 = 16384`).
 
 - `tcb2CallH`, `sp4AH`, `initCallH` (`block_spec`); `wcSp3InH`, `hello_wcSp3InH`, `hello_allocTcbIn`: the blocks,
@@ -54,7 +54,7 @@ set_option linter.unusedSimpArgs false
 
 /-- **The second call's block** at `.sp3`. -/
 def tcb2CallH : List Directive := parseAArch64("str x0, [sp, #48]
-movz x0, #3075
+movz x0, #4099
 movk x0, #192, lsl #16
 movz x1, #1
 bl scc_rt_alloc_tcb")
@@ -86,24 +86,24 @@ theorem hello_allocTcbIn : Ret0.AllocTcb.allocTcbIn SccCode.helloProg = true := 
 /-! ## The header, the ghost record, the TCB -/
 
 /-- **The second TCB's header** (`n = 12`, `m = 3`). -/
-abbrev hdrH : BitVec 64 := 12585987#64
+abbrev hdrH : BitVec 64 := 12587011#64
 
 theorem mOf_hdrH : mOf hdrH <<< 3 = 24#64 := by decide
 
-/-- **The second call's ghost record**: the header `hdrH`, the counter's old value `80` (the first TCB's eighty
+/-- **The second call's ghost record**: the header `hdrH`, the counter's old value `112` (the first TCB's 112
 bytes). -/
-def tcb2QH (g : Ret0.AllocTcb.G) (c0 : Ctl) : TcbGG := ⟨g, hdrH, 80#64, c0⟩
+def tcb2QH (g : Ret0.AllocTcb.G) (c0 : Ctl) : TcbGG := ⟨g, hdrH, 112#64, c0⟩
 
-/-- `tcb2QH`'s header word: `pinned + 104`. -/
+/-- `tcb2QH`'s header word: `pinned + 136`. -/
 theorem tcb2QH_hdrA (lab : Label → Int64) (g : Ret0.AllocTcb.G) (c0 : Ctl) :
-    hdrA lab (tcb2QH g c0) = Ret0.pinA lab + 104#64 := by
-  show Ret0.pinA lab + 80#64 + mOf hdrH <<< 3 = _
+    hdrA lab (tcb2QH g c0) = Ret0.pinA lab + 136#64 := by
+  show Ret0.pinA lab + 112#64 + mOf hdrH <<< 3 = _
   rw [mOf_hdrH, BitVec.add_assoc]; rfl
 
-/-- The second TCB: `pinA + 112`. -/
-abbrev tH (lab : Label → Int64) : BitVec 64 := Ret0.pinA lab + 112#64
+/-- The second TCB: `pinA + 144`. -/
+abbrev tH (lab : Label → Int64) : BitVec 64 := Ret0.pinA lab + 144#64
 
-/-- **`tcb2QH`'s TCB**: `pinned + 112`. -/
+/-- **`tcb2QH`'s TCB**: `pinned + 144`. -/
 theorem tcb2QH_tcbOf (lab : Label → Int64) (g : Ret0.AllocTcb.G) (c0 : Ctl) :
     tcbOf lab (tcb2QH g c0) = tH lab := by
   show hdrA lab (tcb2QH g c0) + 8#64 = _
@@ -308,7 +308,7 @@ theorem hello_wc_sp3_segW {W : Frag isaLSE2} {K : State → State → Prop}
         subst hR'e
         obtain ⟨σC, c, ⟨-, -, -, h30, -⟩, ⟨-, -, -, h30', -, -⟩⟩ := hg
         exact (allocTcbG_segWA hp hend hello_allocTcbIn hF' hR' hal' hlo' hhi' hFF (tcb2QH g c0)
-          (by show (80#64).toNat + (Ret0.AllocTcb.lenOf hdrH).toNat ≤ 131072; decide)
+          (by show (112#64).toNat + (Ret0.AllocTcb.lenOf hdrH).toNat ≤ 131072; decide)
           (hhdr g) ((htcb g).mono hFF)
           fun i => tcbWG_mono (hW.tcb g (h30'.symm.trans h30) i) fun m h => ⟨hFF m h, hcc m h, hkeep m h⟩).mono_post
           fun _ _ ⟨x, h⟩ => ⟨x, h, trivial⟩)

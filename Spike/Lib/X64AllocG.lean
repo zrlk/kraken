@@ -105,6 +105,28 @@ theorem blkW_noWr {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc p
   obtain ⟨m', hex, -⟩ := Spike.Lib.X64.exec_ai haok hR hlo hhi hc hreg hA'
   exact noWr_done hex
 
+/-- **A covered block split by a return label writes nothing** (`m`, after
+its first `j` rows; `blockAcrossB`): as `blkW_noWr`. -/
+theorem blkW_noWrA {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp) {n : ND}
+    {blk : List (Directive × Nat)} {lo hi : Int} {l m : Label} {off j : Nat}
+    (hb : Scc.Cert.Rt.X64.blockAcrossB cells l off (blk.take j) m (blk.drop j) = true)
+    (he : lab l + Int64.ofNat off = n.pc)
+    (hok : Spike.Lib.X64.okBlk lo hi n.o blk = true) (hR : R.OK) (hlo : R.lo ≤ lo) (hhi : hi ≤ R.hi) :
+    BlkW (fun s _ => ∀ L, ¬ WrAt s L) (fun _ _ => False) exe endPc R F n blk := by
+  have hcode : ∀ s : State, s.exe = exe → s.endPc = endPc → Spike.Lib.X64.CodeAt s n.pc blk :=
+    Spike.Lib.X64.code_field_blockAcrossB hI.lays hI.endOk hb (List.take_append_drop j blk)
+      (by rw [hI.labOk]; exact he)
+  intro s σ c hs hn _ _ _ _ _ k hk m hA' _
+  refine ⟨?_, fun _ h => h⟩
+  obtain ⟨a, hca, haok, -⟩ :=
+    Spike.Lib.X64.okBlk_get (_root_.Executable.labels exe).label (am := ⟨n.pc, n.o, σ⟩) hok hk
+  obtain ⟨hdir, hreg⟩ := Spike.Lib.X64.classify_sound hca
+  have hd : blk[k]? = some (a.toDir, blk[k].2) := by rw [List.getElem?_eq_getElem hk, ← hdir]
+  have hc : CellAt { s with st := (m, n.pc + Int64.ofNat (cellOff blk k)) } a.toDir blk[k].2 :=
+    (hcode s hs hn).cell hd rfl rfl rfl
+  obtain ⟨m', hex, -⟩ := Spike.Lib.X64.exec_ai haok hR hlo hhi hc hreg hA'
+  exact noWr_done hex
+
 /-- **A single instruction without an event** (`SI`) writes nothing. -/
 theorem nodeW_noWr_si {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp) {n : ND}
     {si : SI} {z : Nat} {l : Label} {off : Nat} {p : Int64} (hb : blockAtB cells l off [(si.toDir, z)] = true)
@@ -188,7 +210,8 @@ theorem allocIn_spec {cells : List (Directive × Nat)} (h : allocIn cells = true
     blockAtB cells okL 110 bO6 = true ∧ blockAtB cells okL 125 [((FI.shl_cl .rax).toDir, 3)] = true ∧
     blockAtB cells okL 128 bO7 = true ∧ blockAtB cells okL 140 [((FI.or_rr .rax .rcx).toDir, 3)] = true ∧
     blockAtB cells okL 143 bO8 = true ∧ blockAtB cells okL 170 [(iHdr, 3)] = true ∧
-    blockAtB cells okL 173 bO9 = true ∧ blockAtB cells okL 226 [(iRet.toDir, 1)] = true := by
+    blockAtB cells okL 173 bO9 = true ∧
+    (labelGapB cells okL retL 226 = true ∧ blockAtB cells retL 0 [(iRet.toDir, 1)] = true) := by
   simpa only [allocIn, fiAt, Bool.and_eq_true, and_assoc] using h
 
 end Code
@@ -329,7 +352,8 @@ theorem allocArena (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp)
       omega
   · nab h29 bO9_ok C
   · exact NodeW.imp (Spike.Lib.LowerX64.BlkW.nodeW (blkW_noWr hI (blk := [(iRet.toDir, 1)]) (lo := -160) (hi := 8)
-      h30 rfl (show Spike.Lib.X64.okBlk (-160) 8 Spike.Lib.X64.Alloc.oE [(iRet.toDir, 1)] = true by decide) hR
+      h30.2 (by rw [← hI.labOk, Scc.Cert.Rt.X64.label_labelGapB hI.lays h30.1]; exact Spike.Lib.X64.Flow.ofNat_zero' _)
+      (show Spike.Lib.X64.okBlk (-160) 8 Spike.Lib.X64.Alloc.oE [(iRet.toDir, 1)] = true by decide) hR
       (by omega) (by omega)) (List.cons_ne_nil _ _)) Spike.Lib.X64.NodeW.triv C
 
 /-- **`scc_rt_alloc`'s states write the counter only in `Ctx`**, for a
@@ -394,7 +418,8 @@ theorem allocCtr (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp)
       omega
   · nab h29 bO9_ok C
   · exact NodeW.imp (Spike.Lib.LowerX64.BlkW.nodeW (blkW_noWr hI (blk := [(iRet.toDir, 1)]) (lo := -160) (hi := 8)
-      h30 rfl (show Spike.Lib.X64.okBlk (-160) 8 Spike.Lib.X64.Alloc.oE [(iRet.toDir, 1)] = true by decide) hR
+      h30.2 (by rw [← hI.labOk, Scc.Cert.Rt.X64.label_labelGapB hI.lays h30.1]; exact Spike.Lib.X64.Flow.ofNat_zero' _)
+      (show Spike.Lib.X64.okBlk (-160) 8 Spike.Lib.X64.Alloc.oE [(iRet.toDir, 1)] = true by decide) hR
       (by omega) (by omega)) (List.cons_ne_nil _ _)) Spike.Lib.X64.NodeW.triv C
 
 end Alloc

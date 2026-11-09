@@ -1,4 +1,5 @@
 import Scc.Lower.Runtime
+import Scc.Lower.Split
 
 /-!
 # Lowering a whole program
@@ -36,14 +37,16 @@ def lowerWithMarks (cfg : Config) (c : Frontend.Checked) :
     throw s!"the heap arena of {cfg.layout.heapBytes} bytes is 4 GiB or more: locative offsets are 32-bit byte offsets"
   let p := c.prog
   let compiled := p.filter fun d => !(c.externs.any (·.1 == d.name))
-  let userMarks ← compiled.mapM fun d => lowerDeclMarks p c.externs d cfg.layout.obj
+  -- Blocks over `maxBlockLen` are split (`Scc/Lower/Split.lean`) in the user
+  -- functions and the thread trampolines, never in the runtime routines.
+  let userMarks ← compiled.mapM fun d => splitFuncMarks <$> lowerDeclMarks p c.externs d cfg.layout.obj
   let user := userMarks.map (·.1)
   let spawned := (p.flatMap fun d => spawnedE d.body).eraseDups
   let thr ← spawned.mapM fun f => do
     let d ← match p.find? (·.name == f) with
       | some d => pure d
       | none => throw s!"spawn of unknown block '{f}'"
-    Runtime.threadF cfg.layout.obj f d.argTy
+    splitFunc <$> Runtime.threadF cfg.layout.obj f d.argTy
   let setupWords ← match c.entry.arg with
     | .setupTid => match p.find? (·.name == "rodata") with
       | some r => match Obj.valWords r.retTy with
@@ -51,8 +54,13 @@ def lowerWithMarks (cfg : Config) (c : Frontend.Checked) :
         | none => throw "rodata: no runtime layout for its result"
       | none => throw "no setup block 'rodata'"
     | _ => pure 0
+  -- The setup result's trace mask (`Runtime.mainThreadF`): which of its
+  -- `setupWords` registers hold trace words.
+  let setupMask := match c.entry.arg with
+    | .setupTid => ((p.find? (·.name == "rodata")).bind fun r => Obj.traceMask r.retTy).getD []
+    | _ => []
   let lay := cfg.layout
-  let rt ← [Runtime.startF lay, Runtime.mainThreadF c.entry setupWords, Runtime.allocF lay,
+  let rt ← [Runtime.startF lay, Runtime.mainThreadF c.entry setupWords setupMask, Runtime.allocF lay,
     Runtime.allocF lay Names.allocTcb Names.pinned Names.pinnedNext (Runtime.pinnedBytes lay) .threads false,
     Runtime.threadReserveF lay,
     Runtime.threadInitF lay, Runtime.stackTakeF lay, Runtime.stackReleaseF lay, Runtime.growF lay,

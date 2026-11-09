@@ -22,7 +22,7 @@ absolute address in this file.
 
 **Where this differs from AArch64**: there is no fence before the reserve's
 call (scc's `# fence st` emits no code under TSO, `X64WakeWcRes`), so A64's
-`fenceW_wcG` has no twin here (wc_main's one `mfence`, at `.Lwc_main.x21`,
+`fenceW_wcG` has no twin here (wc_main's one `mfence`, at `.Lwc_main.x3`,
 is `WcSp4W`'s, by `nodeW_mfence_pre`); the prologue is x86-64's five-node
 `XProW` (A64's four-node `ProW`), its limit load a `%fs` load before the
 take (`nodeW_fsld_pre`, this file's: `Rt/X64RtW` has only the after-switch
@@ -152,13 +152,13 @@ theorem sp0bW_wcG (a : BitVec 64) (hR : R.OK) (hRlo : R.lo ≤ -72) (hhi : 8 ≤
     {ms : Spike.Lib.MemSide isa} {J0 : Spike.Lib.X64.AS → Spike.Lib.Ctl → Prop} :
     BlkW (fun s _ => SFactsSt2 Λ (Spike.Lib.X64.PhRec.μ L) (ownG L a) s) (Spike.Lib.X64.PhRec.K L rS)
       L.exe L.endPc R F (sN ms L.lab R J0 .b) wcS0 :=
-  blkW_wcG hp hlo hΛ hlab a hsite (l := ".Lwc_main.x18") (k := 0)
+  blkW_wcG hp hlo hΛ hlab a hsite (l := ".Lwc_main.x0") (k := 0)
     (by have := wake_wcS0In; simp only [wcS0In, Bool.and_eq_true] at this; exact this.1)
     (ofNat_zero' _) wcS0_ok hR hRlo hhi (by decide) (by decide) (by wcfreeB_dec)
     (fun σ c _ => by
       show freeN (arun L.lab wcS0 ⟨_, oWR, σ⟩).pc.toBitVec.toNat = true
       rw [wcS0_run]
-      exact freeAt_pc hlab (l := ".Lwc_main.x18") (os := [15]) (by wcfree_dec) (List.mem_singleton.mpr rfl))
+      exact freeAt_pc hlab (l := ".Lwc_main.x0") (os := [15]) (by wcfree_dec) (List.mem_singleton.mpr rfl))
 
 /-- **The reserve's call block inside `SFactsSt2` at `ownG`.** -/
 theorem resBlW_wcG (a : BitVec 64) (hR : R.OK) (hRlo : R.lo ≤ -72) (hhi : 16 ≤ R.hi)
@@ -166,7 +166,7 @@ theorem resBlW_wcG (a : BitVec 64) (hR : R.OK) (hRlo : R.lo ≤ -72) (hhi : 16 �
     {Q : WeakMem.AllocLabel → Nat → Spike.Lib.Ctl → Prop} :
     BlkW (fun s _ => SFactsSt2 Λ (Spike.Lib.X64.PhRec.μ L) (ownG L a) s) (Spike.Lib.X64.PhRec.K L rS)
       L.exe L.endPc R F (rN ms L.lab R J0 Q .bl) resB :=
-  blkW_wcG hp hlo hΛ hlab a hsite (l := ".Lwc_main.x18") (k := 18)
+  blkW_wcG hp hlo hΛ hlab a hsite (l := ".Lwc_main.x0") (k := 18)
     (by have := wake_wcResIn; simp only [wcResIn, Bool.and_eq_true] at this; exact this.1)
     rfl resB_ok hR hRlo hhi (by decide) (by decide) (by wcfreeB_dec)
     (fun σ c _ => by
@@ -186,11 +186,11 @@ theorem sp0stW_wcG (a : BitVec 64) {ms : Spike.Lib.MemSide isa} {J0 : Spike.Lib.
   simp only [wcS0In, Bool.and_eq_true] at hin
   obtain ⟨-, h3⟩ := hin
   have hI := instOkW hp hlo a (fun _ => False) hsite (rS := rS)
-  have hb : blockAtB L.prog ".Lwc_main.x18" 15 [(Spike.Lib.X64.stDir .rcx 0 .rax, 3)] = true := by
+  have hb : blockAtB L.prog ".Lwc_main.x0" 15 [(Spike.Lib.X64.stDir .rcx 0 .rax, 3)] = true := by
     rw [hp]; exact h3
   have hf := Spike.Lib.X64.Rt.PhOfTab.step_of_factOk hlab
-    (wcW_fact hΛ (f := .step ".Lwc_main.x18" 15 3) (by decide))
-  have hfr : freeAt ".Lwc_main.x18" [15, 15 + 3] = true := by wcfree_dec
+    (wcW_fact hΛ (f := .step ".Lwc_main.x0" 15 3) (by decide))
+  have hfr : freeAt ".Lwc_main.x0" [15, 15 + 3] = true := by wcfree_dec
   have f0 := freeAt_pc hlab hfr (o := 15) (by simp)
   have f3 := freeAt_pc hlab hfr (o := 15 + 3) (by simp)
   rw [ofNat_add'] at f3

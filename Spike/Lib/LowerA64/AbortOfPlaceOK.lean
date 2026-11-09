@@ -172,7 +172,7 @@ frame condition, the limit word and the write tail stay premises. -/
 theorem userCallW_main_ofPlaceOK {d : Decl} (hd : Scc.Lower.Accepted0 [d] = true) {cx : FnCtx}
     {r : Scc.Lower.Inv.Res} {fn entry : Label} (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) (h16 : cx.frame % 16 = 0)
     (hpro : proInC o.prog cx fn entry = true) (hr : Scc.Lower.Inv.lower0 [(d.arg, .unit, [])] 0 d.body = some r)
-    (hbody : bodyIn o.prog cx entry 0 r.insts r.ret = true) {rS : Scc.Sem.Range} {Dt : State → Prop}
+    (hbody : bodyIn o.prog cx entry 0 0 r.insts r.ret = true) {rS : Scc.Sem.Range} {Dt : State → Prop}
     {rd : TermRun.Word → Prop} {G : Loc → Val → Prop} {lbl : Spike.Lib.A64Consumer.Lbl}
     {lsize : Spike.Lib.A64Consumer.Lsize} {R : Region} {F : MachineData → Prop} {Z : Int64} {D : Int}
     {tp : UInt64} {ra : BitVec 64} (hD : (cx.frame : Int) + 48 ≤ D) (hD8 : D % 8 = 0)

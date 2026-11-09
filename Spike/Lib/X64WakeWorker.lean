@@ -10,10 +10,10 @@
   stack-checked prologue, frame of 16: `c`/`j` at `-8(%rbp)`/`-16(%rbp)`,
   offsets `-16`/`-24`) to its return: the `movq` store (the source's store,
   `relStore_nd`), the call of `scc_rt_unpark` as a given node, the epilogue
-  at `.Lwc_worker.x14`; `WkTailW.seg_unparkCallW` discharges the call with
+  at `.Lwc_worker.x0`; `WkTailW.seg_unparkCallW` discharges the call with
   `Unpark.seg_unpark` (`WkTailW.seg_wkTailWU`, region `[-72, 8)`).
 - `ThrTailW.seg_thrTailW`: `scc_rt_thr_worker`'s tail from
-  `.Lscc_rt_thr_worker.x12` (frame of 32, the thread pointer spilled at
+  `.Lscc_rt_thr_worker.x0` (frame of 32, the thread pointer spilled at
   `-24(%rbp)`).
 - `ThrHeadW.seg_thrHeadW`: `scc_rt_thr_worker`'s `.entry` block (`%rdi`,
   `%rsi` from the frame, `call wc_worker`) and the call (`call_ndT`,
@@ -128,7 +128,7 @@ def N : PN → ND
   | .n3 => ⟨lab ".Lwc_worker.entry" + 14, oI, JI A B rbp0 ra tp sp c1⟩
   | .unpk => ⟨lab "scc_rt_unpark", oS, fun σ c => JI A B rbp0 ra tp sp c1 σ c ∧ σ.regs.get64 .rdi = B ∧
       σ.slot (-32) = raU lab⟩
-  | .x14 => ⟨lab ".Lwc_worker.x14", oP, JI A B rbp0 ra tp sp c2⟩
+  | .x14 => ⟨lab ".Lwc_worker.x0", oP, JI A B rbp0 ra tp sp c2⟩
 
 /-- **The exit**: the return to `ra` with `%rsp` past the return address,
 `%rbp` and the thread pointer as at entry, the source past its `unpark`. -/
@@ -232,7 +232,7 @@ theorem seg_unparkCallW (hF : FStable R F) (hR : R.OK) (hlo : R.lo ≤ -72) (hhi
     {c0' c1' : Ctl} {B' rbp0' ra' tp' : BitVec 64} (hpcode : Unpark.Code c0' c1' B' rbp0' ra' tp' exe endPc)
     (hpentry : (_root_.Executable.labels exe).label ".Lscc_rt_unpark.entry" =
       (_root_.Executable.labels exe).label "scc_rt_unpark" + 12)
-    (hx14 : (_root_.Executable.labels exe).label ".Lwc_worker.x14" =
+    (hx14 : (_root_.Executable.labels exe).label ".Lwc_worker.x0" =
       (_root_.Executable.labels exe).label ".Lwc_worker.entry" + 14 + 9) :
     SegT p lbl ms (At exe endPc R F (N (_root_.Executable.labels exe).label c0 c1 c2 A B rbp0 ra tp sp .unpk))
       (At exe endPc R F (N (_root_.Executable.labels exe).label c0 c1 c2 A B rbp0 ra tp sp .x14)) := by
@@ -258,7 +258,7 @@ theorem seg_unparkCallW (hF : FStable R F) (hR : R.OK) (hlo : R.lo ≤ -72) (hhi
     refine .inl ⟨(), ?_, by show SO.le oP ⟨-32 - 0 + 8, []⟩ = true; decide, hc',
       ?_, ?_, ?_, ?_, ?_, ?_⟩
     · subst hra
-      show (_root_.Executable.labels exe).label ".Lwc_worker.x14" = Int64.ofBitVec (σC.slot (-32))
+      show (_root_.Executable.labels exe).label ".Lwc_worker.x0" = Int64.ofBitVec (σC.slot (-32))
       rw [h32, hx14]; rfl
     · rw [hout (-8) (by decide) (by decide) (by decide)]; exact h8
     · rw [hout 0 (by decide) (by decide) (by decide)]; exact h0
@@ -291,7 +291,7 @@ theorem seg_wkTailWU (hF : FStable R F) (hR : R.OK) (hlo : R.lo ≤ -72) (hhi : 
     {c0' c1' : Ctl} {B' rbp0' ra' tp' : BitVec 64} (hpcode : Unpark.Code c0' c1' B' rbp0' ra' tp' exe endPc)
     (hpentry : (_root_.Executable.labels exe).label ".Lscc_rt_unpark.entry" =
       (_root_.Executable.labels exe).label "scc_rt_unpark" + 12)
-    (hx14 : (_root_.Executable.labels exe).label ".Lwc_worker.x14" =
+    (hx14 : (_root_.Executable.labels exe).label ".Lwc_worker.x0" =
       (_root_.Executable.labels exe).label ".Lwc_worker.entry" + 14 + 9) :
     SegT p lbl ms (At exe endPc R F (N (_root_.Executable.labels exe).label c0 c1 c2 A B rbp0 ra tp (R.addr 0) .e))
       (fun s c => ∃ x, At exe endPc R F (E c2 rbp0 ra tp x) s c) :=
@@ -345,14 +345,14 @@ variable (lab : Label → Int64) (c0 : Ctl) (tp sp : BitVec 64)
 
 /-- **The nodes.** -/
 def N : PN → ND
-  | .x12 => ⟨lab ".Lscc_rt_thr_worker.x12", oP, fun σ c => c = c0 ∧ σ.regs.fsBase.toBitVec = tp ∧
+  | .x12 => ⟨lab ".Lscc_rt_thr_worker.x0", oP, fun σ c => c = c0 ∧ σ.regs.fsBase.toBitVec = tp ∧
       σ.regs.rbp.toBitVec = sp - 8#64⟩
-  | .n1 => ⟨lab ".Lscc_rt_thr_worker.x12" + 9, oP, fun σ c => c = c0 ∧ σ.regs.get64 .rax = tp ∧
+  | .n1 => ⟨lab ".Lscc_rt_thr_worker.x0" + 9, oP, fun σ c => c = c0 ∧ σ.regs.get64 .rax = tp ∧
       σ.regs.rbp.toBitVec = sp - 8#64⟩
-  | .ex => ⟨lab ".Lscc_rt_thr_worker.x12" + 24, oI, fun σ c => c = c0 ∧ σ.regs.get64 .rcx = tp ∧
+  | .ex => ⟨lab ".Lscc_rt_thr_worker.x0" + 24, oI, fun σ c => c = c0 ∧ σ.regs.get64 .rcx = tp ∧
       σ.regs.get64 .rax = 1#64⟩
-  | .n2 => ⟨lab ".Lscc_rt_thr_worker.x12" + 28, oI, fun _ c => c = c0⟩
-  | .sys => ⟨lab ".Lscc_rt_thr_worker.x12" + 40, oI, fun σ c => c = c0 ∧ σ.regs.get64 .rax = 60#64⟩
+  | .n2 => ⟨lab ".Lscc_rt_thr_worker.x0" + 28, oI, fun _ c => c = c0⟩
+  | .sys => ⟨lab ".Lscc_rt_thr_worker.x0" + 40, oI, fun σ c => c = c0 ∧ σ.regs.get64 .rax = 60#64⟩
 
 /-- **The code**: every block and single instruction at its node's pc. -/
 structure Code (exe : _root_.Executable) (endPc : Int64) : Prop where
@@ -399,7 +399,7 @@ then the `exit` with the source at `ret a` (`OutT.texit`); the source
 stutters until then. The ghost `sp` is the region's base. -/
 theorem seg_thrTailW {Q : Frag isa} (hF : FStable R F) (hR : R.OK) (hlo : R.lo ≤ -40) (hhi : 8 ≤ R.hi)
     (hK : ms.K = some Scc.Sem.X64.abi) (hT : LdOk ms F tp)
-    (hown : OwnAt ms exe endPc ((_root_.Executable.labels exe).label ".Lscc_rt_thr_worker.x12") tp tp)
+    (hown : OwnAt ms exe endPc ((_root_.Executable.labels exe).label ".Lscc_rt_thr_worker.x0") tp tp)
     (hS : StOk ms F (tp + 24#64) 1#64) {a : CoreTerm.At} (ht : c0.term = .ret a)
     (hcode : Code c0 tp (R.addr 0) exe endPc) :
     SegT p lbl ms (At exe endPc R F (N (_root_.Executable.labels exe).label c0 tp (R.addr 0) .x12)) Q := by

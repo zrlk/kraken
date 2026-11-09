@@ -118,6 +118,43 @@ theorem blkW_rpGH (hp : L.prog = SccCode.helloProg) (hlo : L.Λ.code.lo = lo)
   exact blkW_mapC (n' := n') rfl rfl h2 fun σ c hJ =>
     ⟨Spike.Lib.A64Consumer.c0, show _ ∧ _ from ⟨rfl, c, hJ⟩, fun _ h => h⟩
 
+/-- **A block split by a return label** (`m`, after
+its first `jA` rows; `blockAcross`): as `blkW_rpGH`. -/
+theorem blkW_rpGHA (hp : L.prog = SccCode.helloProg) (hlo : L.Λ.code.lo = lo)
+    (hΛ : L.Λ.abortLbl = Scc.Cert.Link.abortName)
+    (hlab : ∀ l x, codeOf lo SccCode.helloProg l = some x → L.lab l = Int64.ofNat x) (a : BitVec 64)
+    (hsite : (Spike.Lib.A64.PhRec.μ L).site .take =
+      some (L.lab Spike.Lib.A64.Flow.Ret0.StackTake.siteL).toBitVec.toNat)
+    {n : ND} {blk : List Directive} {l m : Label} {k jA : Nat} {blo bhi : Int} {ra : Option String} {rapc : Int64}
+    (hb : Scc.Cert.Rt.A64.blockAcross SccCode.helloProg l k (blk.take jA) m (blk.drop jA) = true)
+    (he : L.lab l + Int64.ofNat (4 * k) = n.pc)
+    (hok : Spike.Lib.A64.Flow.okBlk blo bhi n.o blk = true)
+    (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo' : R.lo ≤ blo) (hhi : bhi ≤ R.hi)
+    (hf : PhFact.blk l k blk ra none ∈ rpTabH) (hra : ∀ r, ra = some r → rapc = L.lab r)
+    (hret : ∀ σ c, n.J σ c → ∀ j (hj : j < blk.length) r, Spike.Lib.A64.Flow.classify blk[j] = some (.ret r) →
+      Int64.ofInt ((Spike.Lib.A64.Flow.arun L.lab (blk.take j) ⟨n.pc, n.o, σ⟩).σ.regs.getRegOrZr r).signed = rapc)
+    (hfree : freeAtH l k blk.length = true)
+    (hlast : ∀ σ c, n.J σ c →
+      freeNH (Spike.Lib.A64.Flow.arun L.lab blk ⟨n.pc, n.o, σ⟩).pc.toBitVec.toNat = true) :
+    BlkW (fun s _ => SFactsSt2 Λ (Spike.Lib.A64.PhRec.μ L) (ownGH L a) s) (Spike.Lib.A64.PhRec.K L rS)
+      L.exe L.endPc R F n blk := by
+  let n' : ND := ⟨n.pc, n.o, fun σ c => c = Spike.Lib.A64Consumer.c0 ∧ ∃ c', n.J σ c'⟩
+  have hph := blkPh_of_factOk hlab (rapc := rapc) (dset := fun _ => false) hra
+    (fun _ h => by simp [Scc.Cert.Rt.A64.deadN] at h) (rpW_factH hΛ hf)
+  have hW := Spike.Lib.A64.Rt.blkW_preA (instOkH hp hlo a (fun _ => False) hsite (rS := rS)) (Λ := Λ)
+    (lbl := fun _ => none) (rS := rS) (F := F) (n := n') (hp ▸ hb) he hok hR hal hlo' hhi
+    (fun _ _ hJ => hJ.1 ▸ Spike.Lib.A64.Flow.Ret0.Inst.cfacts_c0) hph
+    (fun σ _ hJ => let ⟨c', hJ'⟩ := hJ.2; hret σ c' hJ') (fun _ _ _ => rfl)
+    (fun _ _ h => h)
+  have hcode := Spike.Lib.A64.code_field_blockAcross L.lays rfl (hp ▸ hb)
+    (List.take_append_drop jA blk) (q := n.pc) he
+  have hag := blkAgreeWH (a := a) (μ := Spike.Lib.A64.PhRec.μ L) (F := F) (n := n') hlab hcode hok hR hal hlo' hhi
+    hsite (fun j hj => by rw [← he]; exact freeAt_pcH hlab hfree hj)
+    (fun σ c hJ => let ⟨_, hJ'⟩ := hJ.2; hlast σ _ hJ')
+  have h2 := Spike.Lib.A64ConsumerA.BlkW.ownCongr2 (Spike.Lib.A64.WakePh.Tcb2W.blkW_toSt2 hW) hag
+  exact blkW_mapC (n' := n') rfl rfl h2 fun σ c hJ =>
+    ⟨Spike.Lib.A64Consumer.c0, show _ ∧ _ from ⟨rfl, c, hJ⟩, fun _ h => h⟩
+
 /-- The pc `4 k` past `.sp0`, `k < 20`, is free. -/
 theorem freeSp0H (hlab : ∀ l x, codeOf lo SccCode.helloProg l = some x → L.lab l = Int64.ofNat x) {k : Nat}
     (hk : k < 20) : freeNH (L.lab ".L19_wc_rodata.sp0" + Int64.ofNat (4 * k)).toBitVec.toNat = true := by
@@ -283,7 +320,7 @@ theorem rdPostW_wcGH (a : BitVec 64) (hR : R.OK) (hal : R.base.toNat % 16 = 0) (
           ⟨L.lab ".L19_wc_rodata.sp0" + Int64.ofNat (4 * 19), ⟨-48, []⟩, σ⟩).pc = L.lab ".L1_scc_rt_main.sp0" := by
       rintro σ c ⟨σ0, ⟨c0, hJp⟩, -, -, -, h8⟩
       rw [rpB4_run, h8, hra σ0 c0 hJp, Int64.ofBitVec_toBitVec]
-    refine blkW_rpGH hp hlo hΛ hlab a hsite (k := 19) (ra := some ".L1_scc_rt_main.sp0") b4 rfl rpB4_ok hR hal
+    refine blkW_rpGHA hp hlo hΛ hlab a hsite (k := 19) (ra := some ".L1_scc_rt_main.sp0") b4 rfl rpB4_ok hR hal
       hRlo hhi (by decide) (fun _ h => by cases h; rfl) (Spike.Lib.A64Consumer.hret_of_run rpB4_ok hend)
       (by free_decH) fun σ c hJ => ?_
     show freeNH (Spike.Lib.A64.Flow.arun L.lab rpB4

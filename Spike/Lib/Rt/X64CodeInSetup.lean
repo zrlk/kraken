@@ -9,18 +9,18 @@ With a setup block (`main(a : S * Ptr pub Void)`, `rodata(u : Unit) : S`,
 `Runtime.mainThreadF` at `EntryArg.setupTid`), scc's `scc_rt_main` keeps
 the bare shape's stack-checked prologue (`%rdi`, the TCB, stored at
 `-8(%rbp)`) and its `exit_group` tail, but calls twice: `call rodata` at
-`.entry`; then at `.x2` the `sw` setup words come back in `%rax`, `%rdx`,
+`.entry`; then at `.x0` the `sw` setup words come back in `%rax`, `%rdx`,
 `%rcx`, `%rsi`, `%rdi`, `%r8` (`Scc.Emit.X64.retRegs`), go to the frame at
 `-16`, …, `-(8 sw + 8)` and back into `%rdi`, `%rsi`, … (`argRegs`), the
 TCB into the next argument register (`marshal`), and `call main`; the tail
-at `.x3` spills the result at `-8 (sw + 2)`. The frame holds `sw + 3`
+at `.x1` spills the result at `-8 (sw + 2)`. The frame holds `sw + 3`
 slots (the TCB, the words, the result, the system call's), 16-aligned.
 
-The emitter numbers the `.x` labels with one counter over the whole program
-(`Scc.Emit.X64.freshL`), so the setup call shifts every later one by one:
-`scc_rt_thread_init`'s return point is `.Lscc_rt_thread_init.x8` here and
-`.x7` after a bare `scc_rt_main` (`tiGrpsAt`, `SetupCode.ti`). The other
-runtime groups name no `.x` label after `scc_rt_main`'s.
+The emitter numbers the `.x` labels per function from 0
+(`Scc.Emit.X64.freshL`), so the setup call shifts no other function's:
+`scc_rt_thread_init`'s return point is `.Lscc_rt_thread_init.x0` here as
+after a bare `scc_rt_main` (`tiGrpsAt`, `SetupCode.ti` keep the label a
+parameter).
 
 - `SetupCode`: the frame, the spill, the two callees, `sw` and the labels;
   `setupMC sw` today's emitter's at `sw` words (`hello1.w`: `sw = 4`, frame
@@ -75,7 +75,7 @@ def xLd (p : Reg64 × Int64 × Nat) : Directive × Nat :=
 /-- The slot of setup word `i`, `-(16 + 8 i)(%rbp)`. -/
 def swOff (i : Nat) : Int64 := -Int64.ofNat (16 + 8 * i)
 
-/-- **`.x2`'s block at `sw` words**: the setup words from the result
+/-- **`.x0`'s block at `sw` words**: the setup words from the result
 registers stored at their slots and loaded back into the argument
 registers, the TCB from `-8(%rbp)` into the next one, `call fn`; each move
 four bytes. -/
@@ -90,11 +90,11 @@ def marshalSz (sw : Nat) : Nat := 4 * (2 * sw + 1) + 5
 /-- **`scc_rt_main` after a setup block of `sw` words**, as today's emitter
 writes it: the frame of `sw + 3` slots, the result spilled at
 `-8 (sw + 2)`, `call wc_rodata` then `call wc_main`, its labels, and
-`scc_rt_thread_init`'s return point `.x8`. -/
+`scc_rt_thread_init`'s return point `.x0`. -/
 def setupMC (sw : Nat) : SetupCode :=
   ⟨Int64.ofNat ((8 * (sw + 3) + 15) / 16 * 16), -Int64.ofNat (8 * (sw + 2)), "wc_rodata", "wc_main", sw,
-    ".Lscc_rt_main.chk", ".Lscc_rt_main.stk", ".Lscc_rt_main.entry", ".Lscc_rt_main.x2", ".Lscc_rt_main.x3",
-    ".Lscc_rt_thread_init.x8"⟩
+    ".Lscc_rt_main.chk", ".Lscc_rt_main.stk", ".Lscc_rt_main.entry", ".Lscc_rt_main.x0", ".Lscc_rt_main.x1",
+    ".Lscc_rt_thread_init.x0"⟩
 
 /-- The prologue's frame block at `sc`: `subq $Z, %rsp`, `%rdi` (the TCB)
 stored at `-8(%rbp)`. -/
@@ -117,12 +117,13 @@ section Ti
 open Code.Ti
 
 /-- `scc_rt_thread_init`'s groups with its return point at `x`
-(`tiGrps` at `.x7`). -/
+(`tiGrps` at `x7L`). -/
 def tiGrpsAt (x : Label) : List RGrp := [
   ⟨fnL, [(0, tiPro)], some (12, entryL)⟩,
   ⟨entryL, [(0, tiArg), (7, callBlk)], some (12, x)⟩,
-  ⟨x, [(0, tiSp), (51, tiF1), (63, tiZ), (78, tiZ), (93, tiF4), (105, tiF5), (117, tiRet)] ++
-    storeOff.zip storeBlks, none⟩]
+  ⟨x, [(0, tiSp), (51, tiF1), (63, tiZ), (78, tiZ), (93, tiF4), (105, tiF5), (117, tiRet.take 3)] ++
+    storeOff.zip storeBlks, some (125, retL)⟩,
+  ⟨retL, [(0, tiRet.drop 3)], none⟩]
 
 theorem tiGrpsAt_x7 : tiGrpsAt x7L = tiGrps := rfl
 
@@ -156,7 +157,7 @@ def setupOk (cells : List (Directive × Nat)) (lo : Nat) (Λ : Scc.Sem.Layout) :
 #guard_msgs in
 #eval [4, 0, 5].map fun sw => ((setupMC sw).Z.toInt, (setupMC sw).k.toInt)
 
-/-- `marshal` at four words is the parser's form of `hello1.w`'s `.x2`. -/
+/-- `marshal` at four words is the parser's form of `hello1.w`'s `.x0`. -/
 example : marshal 4 "wc_main" = (parse("movq %rax, -16(%rbp)
 movq %rdx, -24(%rbp)
 movq %rcx, -32(%rbp)

@@ -321,7 +321,8 @@ theorem tiWAt_gen {x : Label} {exe : _root_.Executable} [Kraken.Executable.Valid
   case st5 => ist 5 40 113 4
   case ret =>
     dsimp only [TiWAt]; rw [hI.labOk]
-    exact blkW_post hI (by assumption) rfl tiRet_ok hR (by omega) (by omega) (hC _ fun _ _ hJ => hJ.1) hph.ret
+    exact blkW_postA (j := 3) hI (by assumption) rfl tiRet_ok hR (by omega) (by omega) (hC _ fun _ _ hJ => hJ.1)
+      hph.ret
       (hret_of_run tiRet_ok fun _ _ hJ => by
         dsimp only [tiNAt] at hJ ⊢
         rw [(tiRet_walk lab _ hJ.2).1, hra]; exact Int64.ofBitVec_toBitVec _)

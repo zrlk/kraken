@@ -17,9 +17,9 @@ most of `prog_placeOK_9`'s cost.
 * each label of the program is encoded once, into a number (`key`), in one
   table of its index and the cells after it (`tailTab`); a lookup compares
   numbers (`findT`, `findT_tailTab`);
-* a body's blocks are read from the run after its label, found once, in one
-  pass (`bodyInK`, `bodyBlksK`), and the body's blocks are computed once in
-  the phase part (`fnPh1S`);
+* a body's blocks are read from the runs its labels delimit, each label
+  found by key (`bodyInK`, `bodyBlksK`), and the body's blocks are computed
+  once in the phase part (`fnPh1S`);
 * the frame's registers are deduplicated by their keys (`dedupK`,
   `frOfK`), and a register's slot is found by its key (`kslots`, `rsK`);
 * the code addresses come from the keyed table of `Scc/Cert/Rt/PhasesX64.lean`
@@ -32,7 +32,7 @@ evaluation of `a9fast`.
 namespace Scc.Cert.PlaceOK.X64
 
 open Kraken Kraken.Promising Kraken.Promising.X64
-open Spike.Lib.LowerX64 (proL ovfL ovfBlk stDir addDirs retDirs sizesAt blkAt bodyIn bodyBlks isAddChk frOf
+open Spike.Lib.LowerX64 (proL ovfL ovfBlk stDir addDirs retDirs tearDirs retL sizesAt blkAt bodyIn bodyBlks isAddChk frOf
   proInC proInS fnCodeOk getOp rsOf slotOff_state proLabs proPhOk blkLabs fnPh1 fnPhAll fnPhOk labC raL bodyPhOk)
 open Spike.Lib.X64.Flow (prologueIn)
 open Scc.Emit.X64 (Frame Item frameOf labelOf instRegs termRegs outWords i64 xr om mem)
@@ -338,31 +338,42 @@ theorem getOpS_eq (fr : Frame) (t : Reg64) (a : Scc.IR.Operand) : getOpS (rsOf f
       rfl
   | imm v => rfl
 
-/-! ## The body -/
+/-! ## The body
 
-/-- **`bodyIn` at a block check `blk`, sizes `sz` and a slot map `so`**
-(`bodyIn cells fr l` at `blkAt cells l`, `sizesAt cells l` and `rsOf fr`,
-`bodyIn_eq_G`). -/
-def bodyInG (blk : Nat → List Directive → Bool) (sz : Nat → Nat → List Nat) (fr : Frame)
-    (so : Scc.IR.Reg → Option Int) : Nat → List Scc.IR.Inst → List Scc.IR.Operand → Bool
-  | off, [], [w] =>
+The body's blocks lie in the runs its labels delimit (P5): the entry
+label's, then each fresh label's (`retL fr.fn n`). `bodyInG` and
+`bodyBlksG` read them through a block check, sizes and a gap check per
+label; keyed (`bodyInK`, `bodyBlksK`) each label's run is found in `T`. A
+run holds at most two of the body's blocks (a store and the next add, or
+the return's teardown), so the blocks are found from the run's start. -/
+
+/-- **`bodyIn` at a block check `blk`, sizes `sz`, a gap check `gap` and a
+slot map `so`** (`bodyIn cells fr` at `blkAt cells`, `sizesAt cells`,
+`labelGapB cells` and `rsOf fr`, `bodyIn_eq_G`). -/
+def bodyInG (blk : Label → Nat → List Directive → Bool) (sz : Label → Nat → Nat → List Nat)
+    (gap : Label → Label → Nat → Bool) (fr : Frame) (so : Scc.IR.Reg → Option Int) :
+    Label → Nat → Nat → List Scc.IR.Inst → List Scc.IR.Operand → Bool
+  | L, n, o, [], [w] =>
     match getOpS so .rax w with
-    | some lw => blk off (retDirs lw)
+    | some lw =>
+      blk L o (tearDirs lw) &&
+        gap L (retL fr.fn n) (o + (sz L o (tearDirs lw).length).sum) &&
+        blk (retL fr.fn n) 0 [i64 .ret]
     | none => false
-  | off, .addChk d a b :: is, ws =>
+  | L, n, o, .addChk d a b :: is, ws =>
     match getOpS so .rax a, getOpS so .rcx b, so d with
-    | some la, some lb, some o =>
-      blk off (addDirs fr la lb) &&
-        blk (off + (sz off (addDirs fr la lb).length).sum) [stDir o] &&
-        bodyInG blk sz fr so (off + (sz off (addDirs fr la lb).length).sum +
-          (sz (off + (sz off (addDirs fr la lb).length).sum) 1).sum) is ws
+    | some la, some lb, some off =>
+      blk L o (addDirs fr la lb) &&
+        gap L (retL fr.fn n) (o + (sz L o (addDirs fr la lb).length).sum) &&
+        blk (retL fr.fn n) 0 [stDir off] &&
+        bodyInG blk sz gap fr so (retL fr.fn n) (n + 1) (sz (retL fr.fn n) 0 1).sum is ws
     | _, _, _ => false
-  | _, _, _ => false
+  | _, _, _, _, _ => false
 
-theorem bodyIn_eq_G (cells : List (Directive × Nat)) (fr : Frame) (l : String) :
-    bodyIn cells fr l = bodyInG (blkAt cells l) (sizesAt cells l) fr (rsOf fr) := by
-  funext off is ws
-  induction is generalizing off with
+theorem bodyIn_eq_G (cells : List (Directive × Nat)) (fr : Frame) :
+    bodyIn cells fr = bodyInG (blkAt cells) (sizesAt cells) (labelGapB cells) fr (rsOf fr) := by
+  funext L n o is ws
+  induction is generalizing L n o with
   | nil => cases ws with
     | nil => simp [bodyIn, bodyInG]
     | cons w ws => cases ws <;> simp only [bodyIn, bodyInG, getOpS_eq] <;> cases getOp fr .rax w <;> rfl
@@ -371,27 +382,28 @@ theorem bodyIn_eq_G (cells : List (Directive × Nat)) (fr : Frame) (l : String) 
       cases getOp fr .rax _ <;> cases getOp fr .rcx _ <;> cases rsOf fr _ <;> rfl
 
 /-- **`bodyBlks` at sizes `sz` and a slot map `so`** (`bodyBlks_eq_G`). -/
-def bodyBlksG (sz : Nat → Nat → List Nat) (fr : Frame) (so : Scc.IR.Reg → Option Int) :
-    Nat → List Scc.IR.Inst → List Scc.IR.Operand → List (Nat × List (Directive × Nat))
-  | off, [], [w] =>
+def bodyBlksG (sz : Label → Nat → Nat → List Nat) (fr : Frame) (so : Scc.IR.Reg → Option Int) :
+    Label → Nat → Nat → Nat → List Scc.IR.Inst → List Scc.IR.Operand → List (Nat × List (Directive × Nat))
+  | L, n, e, o, [], [w] =>
     match getOpS so .rax w with
-    | some lw => [(off, (retDirs lw).zip (sz off (retDirs lw).length))]
+    | some lw => [(e + o, (tearDirs lw).zip (sz L o (tearDirs lw).length) ++
+        [i64 .ret].zip (sz (retL fr.fn n) 0 1))]
     | none => []
-  | off, .addChk d a b :: is, ws =>
+  | L, n, e, o, .addChk d a b :: is, ws =>
     match getOpS so .rax a, getOpS so .rcx b, so d with
-    | some la, some lb, some o =>
-      (off, (addDirs fr la lb).zip (sz off (addDirs fr la lb).length)) ::
-        (off + (sz off (addDirs fr la lb).length).sum,
-          [stDir o].zip (sz (off + (sz off (addDirs fr la lb).length).sum) 1)) ::
-        bodyBlksG sz fr so (off + (sz off (addDirs fr la lb).length).sum +
-          (sz (off + (sz off (addDirs fr la lb).length).sum) 1).sum) is ws
+    | some la, some lb, some off =>
+      (e + o, (addDirs fr la lb).zip (sz L o (addDirs fr la lb).length)) ::
+        (e + o + (sz L o (addDirs fr la lb).length).sum,
+          [stDir off].zip (sz (retL fr.fn n) 0 1)) ::
+        bodyBlksG sz fr so (retL fr.fn n) (n + 1) (e + o + (sz L o (addDirs fr la lb).length).sum)
+          (sz (retL fr.fn n) 0 1).sum is ws
     | _, _, _ => []
-  | _, _, _ => []
+  | _, _, _, _, _, _ => []
 
-theorem bodyBlks_eq_G (cells : List (Directive × Nat)) (fr : Frame) (l : String) :
-    bodyBlks cells fr l = bodyBlksG (sizesAt cells l) fr (rsOf fr) := by
-  funext off is ws
-  induction is generalizing off with
+theorem bodyBlks_eq_G (cells : List (Directive × Nat)) (fr : Frame) :
+    bodyBlks cells fr = bodyBlksG (sizesAt cells) fr (rsOf fr) := by
+  funext L n e o is ws
+  induction is generalizing L n e o with
   | nil => cases ws with
     | nil => simp [bodyBlks, bodyBlksG]
     | cons w ws => cases ws <;> simp only [bodyBlks, bodyBlksG, getOpS_eq] <;> cases getOp fr .rax w <;> rfl
@@ -399,215 +411,47 @@ theorem bodyBlks_eq_G (cells : List (Directive × Nat)) (fr : Frame) (l : String
     cases i <;> simp only [bodyBlks, bodyBlksG, ih, getOpS_eq] <;>
       cases getOp fr .rax _ <;> cases getOp fr .rcx _ <;> cases rsOf fr _ <;> rfl
 
-/-! ## The body in one pass
+/-- **`bodyIn`, keyed** (`bodyInK_eq`). -/
+def bodyInK (T : List (Nat × Nat × List (Directive × Nat))) (fr : Frame) (so : Scc.IR.Reg → Option Int) :
+    Label → Nat → Nat → List Scc.IR.Inst → List Scc.IR.Operand → Bool :=
+  bodyInG (chkK T) (szK T) (labelGapBK T) fr so
 
-`bodyInG` and `bodyBlksG` at a run's `blkAtR` and `sizesR` find every block
-by `dropBK` from the run's start: quadratic in the body's length. `bodyInO`
-and `bodyBlksO` carry the run from the current block on (`dropBK r off`,
-`bodyInG_O`, `bodyBlksG_O`): a block's successor is `dropBK` of its own
-bytes from it (`dropBK_add`). -/
+theorem bodyInK_eq (cells : List (Directive × Nat)) (fr : Frame) :
+    bodyInK (tailTab cells 0) fr (rsOf fr) = bodyIn cells fr := by
+  have h1 : chkK (tailTab cells 0) = blkAt cells := funext (chkK_eq cells)
+  have h2 : szK (tailTab cells 0) = sizesAt cells := funext (szK_eq cells)
+  have h3 : labelGapBK (tailTab cells 0) = labelGapB cells := by
+    funext a b off; exact labelGapBK_eq cells a b off
+  rw [bodyInK, h1, h2, h3, bodyIn_eq_G]
 
-theorem dropBytes_add : ∀ (r : List (Directive × Nat)) (off s : Nat) {t : List (Directive × Nat)},
-    dropBytes r off = some t → dropBytes r (off + s) = dropBytes t s
-  | r, 0, s, t, h => by
-    simp only [dropBytes, Option.some.injEq] at h
-    subst h; simp
-  | [], _ + 1, _, _, h => by simp [dropBytes] at h
-  | c :: cs, n + 1, s, t, h => by
-    unfold dropBytes at h
-    split at h
-    · rename_i hc
-      rw [show n + 1 + s = (n + s) + 1 by omega]
-      simp only [dropBytes, show c.2 ≤ n + s + 1 by omega, ite_true]
-      rw [show n + s + 1 - c.2 = (n + 1 - c.2) + s by omega]
-      exact dropBytes_add cs _ s h
-    · cases h
+/-- **`bodyBlks`, keyed** (`bodyBlksK_eq`). -/
+def bodyBlksK (T : List (Nat × Nat × List (Directive × Nat))) (fr : Frame) (so : Scc.IR.Reg → Option Int) :
+    Label → Nat → Nat → Nat → List Scc.IR.Inst → List Scc.IR.Operand → List (Nat × List (Directive × Nat)) :=
+  bodyBlksG (szK T) fr so
 
-theorem dropBK_add (r : List (Directive × Nat)) (off s : Nat) {t : List (Directive × Nat)}
-    (h : dropBK r off = some t) : dropBK r (off + s) = dropBK t s := by
-  rw [dropBK_eq] at h ⊢
-  rw [dropBK_eq]
-  exact dropBytes_add r off s h
-
-theorem dropBK_zero (t : List (Directive × Nat)) : dropBK t 0 = some t := by
-  cases t <;> rfl
-
-/-- The sizes of a run's first `n` cells (`sizesR` at the run from a block). -/
-def sizesO : Option (List (Directive × Nat)) → Nat → List Nat
-  | some t, n => (t.take n).map (·.2)
-  | none, _ => []
-
-/-- The run `s` bytes on. -/
-def nextO : Option (List (Directive × Nat)) → Nat → Option (List (Directive × Nat))
-  | some t, s => dropBK t s
-  | none, _ => none
-
-/-- `b` is a prefix of the run (`blkD` at the run from a block). -/
-def blkDO (ot : Option (List (Directive × Nat))) (b : List (Directive × Nat)) : Bool :=
-  match ot with
-  | some t => decide (t.take b.length = b)
-  | none => false
-
-/-- The directives `ds` begin the run (`blkAtR` at the run from a block). -/
-def blkO (ot : Option (List (Directive × Nat))) (ds : List Directive) : Bool :=
-  (sizesO ot ds.length).length == ds.length && blkDO ot (ds.zip (sizesO ot ds.length))
-
-theorem sizesR_O (r : List (Directive × Nat)) (off n : Nat) : sizesR r off n = sizesO (dropBK r off) n := by
-  unfold sizesR sizesO
-  cases dropBK r off <;> rfl
-
-theorem blkAtR_O (r : List (Directive × Nat)) (off : Nat) (ds : List Directive) :
-    blkAtR r off ds = blkO (dropBK r off) ds := by
-  unfold blkAtR blkO sizesR sizesO blkD blkDO
-  cases dropBK r off <;> rfl
-
-theorem dropBK_next (r : List (Directive × Nat)) (off n : Nat) :
-    dropBK r (off + (sizesO (dropBK r off) n).sum) = nextO (dropBK r off) (sizesO (dropBK r off) n).sum := by
-  cases h : dropBK r off with
-  | none => simp [sizesO, nextO, h]
-  | some t => exact dropBK_add r off _ h
-
-theorem dropBK_next2 (r : List (Directive × Nat)) (off n m : Nat) :
-    dropBK r (off + (sizesO (dropBK r off) n).sum +
-        (sizesO (dropBK r (off + (sizesO (dropBK r off) n).sum)) m).sum) =
-      nextO (nextO (dropBK r off) (sizesO (dropBK r off) n).sum)
-        (sizesO (nextO (dropBK r off) (sizesO (dropBK r off) n).sum) m).sum := by
-  rw [dropBK_next r off n]
-  rw [← dropBK_next r off n]
-  exact dropBK_next r _ m
-
-/-- **`bodyInG` in one pass**, `ot` the run from the current block. -/
-def bodyInO (fr : Frame) (so : Scc.IR.Reg → Option Int) :
-    Option (List (Directive × Nat)) → List Scc.IR.Inst → List Scc.IR.Operand → Bool
-  | ot, [], [w] =>
-    match getOpS so .rax w with
-    | some lw => blkO ot (retDirs lw)
-    | none => false
-  | ot, .addChk d a b :: is, ws =>
-    match getOpS so .rax a, getOpS so .rcx b, so d with
-    | some la, some lb, some o =>
-      blkO ot (addDirs fr la lb) &&
-        blkO (nextO ot (sizesO ot (addDirs fr la lb).length).sum) [stDir o] &&
-        bodyInO fr so (nextO (nextO ot (sizesO ot (addDirs fr la lb).length).sum)
-          (sizesO (nextO ot (sizesO ot (addDirs fr la lb).length).sum) 1).sum) is ws
-    | _, _, _ => false
-  | _, _, _ => false
-
-theorem bodyInG_O (r : List (Directive × Nat)) (fr : Frame) (so : Scc.IR.Reg → Option Int) :
-    ∀ (is : List Scc.IR.Inst) (off : Nat) (ws : List Scc.IR.Operand),
-      bodyInG (blkAtR r) (sizesR r) fr so off is ws = bodyInO fr so (dropBK r off) is ws := by
-  intro is
-  induction is with
-  | nil =>
-    intro off ws
-    cases ws with
-    | nil => rfl
-    | cons w ws =>
-      cases ws <;> simp only [bodyInG, bodyInO] <;> cases getOpS so .rax w <;> simp only [blkAtR_O]
-  | cons i is ih =>
-    intro off ws
-    cases i <;> simp only [bodyInG, bodyInO] <;>
-      cases getOpS so .rax _ <;> cases getOpS so .rcx _ <;> cases so _ <;>
-      simp only [blkAtR_O, sizesR_O, ih] <;> (try rw [dropBK_next2, dropBK_next])
-
-theorem bodyInG_false (sz : Nat → Nat → List Nat) (fr : Frame) (so : Scc.IR.Reg → Option Int) (off : Nat)
-    (is : List Scc.IR.Inst) (ws : List Scc.IR.Operand) : bodyInG (fun _ _ => false) sz fr so off is ws = false := by
-  cases is with
-  | nil =>
-    cases ws with
-    | nil => rfl
-    | cons w ws => cases ws <;> simp only [bodyInG] <;> cases getOpS so .rax w <;> rfl
-  | cons i is =>
-    cases i <;> simp only [bodyInG] <;>
-      cases getOpS so .rax _ <;> cases getOpS so .rcx _ <;> cases so _ <;> simp
-
-/-- **`bodyIn` at a label, keyed, in one pass** (`bodyInK_eq`). -/
-def bodyInK (T : List (Nat × Nat × List (Directive × Nat))) (l : Label) (fr : Frame)
-    (so : Scc.IR.Reg → Option Int) (is : List Scc.IR.Inst) (ws : List Scc.IR.Operand) : Bool :=
-  match runK T l with
-  | some r => bodyInO fr so (some r) is ws
-  | none => false
-
-theorem bodyInK_eq (T : List (Nat × Nat × List (Directive × Nat))) (l : Label) (fr : Frame)
-    (so : Scc.IR.Reg → Option Int) (is : List Scc.IR.Inst) (ws : List Scc.IR.Operand) :
-    bodyInK T l fr so is ws = bodyInG (chkK T l) (szK T l) fr so 0 is ws := by
-  unfold bodyInK chkK szK
-  cases runK T l with
-  | some r => dsimp only; rw [bodyInG_O, dropBK_zero]
-  | none => exact (bodyInG_false _ fr so 0 is ws).symm
-
-/-- **`bodyBlksG` in one pass**, `ot` the run from the block at `off`. -/
-def bodyBlksO (fr : Frame) (so : Scc.IR.Reg → Option Int) :
-    Nat → Option (List (Directive × Nat)) → List Scc.IR.Inst → List Scc.IR.Operand →
-      List (Nat × List (Directive × Nat))
-  | off, ot, [], [w] =>
-    match getOpS so .rax w with
-    | some lw => [(off, (retDirs lw).zip (sizesO ot (retDirs lw).length))]
-    | none => []
-  | off, ot, .addChk d a b :: is, ws =>
-    match getOpS so .rax a, getOpS so .rcx b, so d with
-    | some la, some lb, some o =>
-      (off, (addDirs fr la lb).zip (sizesO ot (addDirs fr la lb).length)) ::
-        (off + (sizesO ot (addDirs fr la lb).length).sum,
-          [stDir o].zip (sizesO (nextO ot (sizesO ot (addDirs fr la lb).length).sum) 1)) ::
-        bodyBlksO fr so (off + (sizesO ot (addDirs fr la lb).length).sum +
-            (sizesO (nextO ot (sizesO ot (addDirs fr la lb).length).sum) 1).sum)
-          (nextO (nextO ot (sizesO ot (addDirs fr la lb).length).sum)
-            (sizesO (nextO ot (sizesO ot (addDirs fr la lb).length).sum) 1).sum) is ws
-    | _, _, _ => []
-  | _, _, _, _ => []
-
-theorem bodyBlksG_O (r : List (Directive × Nat)) (fr : Frame) (so : Scc.IR.Reg → Option Int) :
-    ∀ (is : List Scc.IR.Inst) (off : Nat) (ws : List Scc.IR.Operand),
-      bodyBlksG (sizesR r) fr so off is ws = bodyBlksO fr so off (dropBK r off) is ws := by
-  intro is
-  induction is with
-  | nil =>
-    intro off ws
-    cases ws with
-    | nil => rfl
-    | cons w ws =>
-      cases ws <;> simp only [bodyBlksG, bodyBlksO] <;> cases getOpS so .rax w <;> simp only [sizesR_O]
-  | cons i is ih =>
-    intro off ws
-    cases i <;> simp only [bodyBlksG, bodyBlksO] <;>
-      cases getOpS so .rax _ <;> cases getOpS so .rcx _ <;> cases so _ <;>
-      simp only [sizesR_O, ih] <;> (try rw [dropBK_next2, dropBK_next])
-
-/-- **`bodyBlks` at a label, keyed, in one pass** (`bodyBlksK_eq`). -/
-def bodyBlksK (T : List (Nat × Nat × List (Directive × Nat))) (l : Label) (fr : Frame)
-    (so : Scc.IR.Reg → Option Int) (is : List Scc.IR.Inst) (ws : List Scc.IR.Operand) :
-    List (Nat × List (Directive × Nat)) :=
-  match runK T l with
-  | some r => bodyBlksO fr so 0 (some r) is ws
-  | none => bodyBlksG (fun _ _ => []) fr so 0 is ws
-
-theorem bodyBlksK_eq (T : List (Nat × Nat × List (Directive × Nat))) (l : Label) (fr : Frame)
-    (so : Scc.IR.Reg → Option Int) (is : List Scc.IR.Inst) (ws : List Scc.IR.Operand) :
-    bodyBlksK T l fr so is ws = bodyBlksG (szK T l) fr so 0 is ws := by
-  unfold bodyBlksK szK
-  cases runK T l with
-  | some r => dsimp only; rw [bodyBlksG_O, dropBK_zero]
-  | none => rfl
+theorem bodyBlksK_eq (cells : List (Directive × Nat)) (fr : Frame) :
+    bodyBlksK (tailTab cells 0) fr (rsOf fr) = bodyBlks cells fr := by
+  have h2 : szK (tailTab cells 0) = sizesAt cells := funext (szK_eq cells)
+  rw [bodyBlksK, h2, bodyBlks_eq_G]
 
 /-! ## The code part -/
 
 /-- **`fnCodeOk`, keyed** at a labels' table `T`. -/
 def fnCodeOkK (T : List (Nat × Nat × List (Directive × Nat))) (ir : Scc.IR.Program) : Bool :=
-  ir.funcs.all fun f =>
+  (Scc.Cert.Code1X64.starts ir 0 ir.funcs).all fun (f, n) =>
     match f.params, f.checkStack, f.blocks with
     | [], true, [⟨"entry", is, .ret [w]⟩] =>
       if is.all isAddChk then
         let fr := frOfK ir f
         proInSK T fr f.name (labelOf f.name "entry") &&
-          bodyInK T (labelOf f.name "entry") fr (rsK (kslots fr)) is [w] &&
+          bodyInK T fr (rsK (kslots fr)) (labelOf f.name "entry") n 0 is [w] &&
           (is.isEmpty || blkBK T (ovfL fr) 0 ovfBlk)
       else true
     | _, _, _ => true
 
 theorem fnCodeOkK_eq (cells : List (Directive × Nat)) (ir : Scc.IR.Program) :
     fnCodeOkK (tailTab cells 0) ir = fnCodeOk cells ir := by
-  simp only [fnCodeOkK, fnCodeOk, bodyInK_eq, frOfK_eq, rsK_eq, proInSK_eq, chkK_eq, szK_eq, blkBK_eq, bodyIn_eq_G]
+  simp only [fnCodeOkK, fnCodeOk, frOfK_eq, rsK_eq, bodyInK_eq, proInSK_eq, blkBK_eq]
   rfl
 
 /-! ## The phase part -/
@@ -630,32 +474,32 @@ def fnPh1S (okPc : Nat → Bool) (ph : Nat → Nat) (lab : Label → Int64) (res
   | _ => false
 
 theorem fnPh1S_eq (okPc : Nat → Bool) (ph : Nat → Nat) (lab : Label → Int64) (res : String → Bool)
-    (cells : List (Directive × Nat)) (fr : Frame) (fn : String) (is : List Scc.IR.Inst) (w : Scc.IR.Operand)
-    (ra : Int64) :
+    (cells : List (Directive × Nat)) (fr : Frame) (fn : String) (n : Nat) (is : List Scc.IR.Inst)
+    (w : Scc.IR.Operand) (ra : Int64) :
     fnPh1S okPc ph lab res (sizesAt cells (labelOf fr.fn "chk") 0 5)
-      (bodyBlksG (sizesAt cells (labelOf fn "entry")) fr (rsOf fr) 0 is [w]) fr fn is ra =
-      fnPh1 okPc ph lab res cells fr fn is w ra := by
-  simp only [fnPh1S, fnPh1, bodyPhOk, bodyBlks_eq_G]
+      (bodyBlks cells fr (labelOf fn "entry") n 0 0 is [w]) fr fn is ra =
+      fnPh1 okPc ph lab res cells fr fn n is w ra := by
+  simp only [fnPh1S, fnPh1, bodyPhOk]
   rfl
 
 /-- **`fnPhAll`, keyed** (the frames by `frOfK`, the slots by `rsK`, the
 sizes by `szK`, the body's blocks by `bodyBlksK`). -/
 def fnPhAllK (okPc : Nat → Bool) (ph : Nat → Nat) (lab : Label → Int64) (res : String → Bool)
     (T : List (Nat × Nat × List (Directive × Nat))) (ir : Scc.IR.Program) (ra : Int64) : Bool :=
-  ir.funcs.all fun f =>
+  (Scc.Cert.Code1X64.starts ir 0 ir.funcs).all fun (f, n) =>
     match f.params, f.checkStack, f.blocks with
     | [], true, [⟨"entry", is, .ret [w]⟩] =>
       if is.all isAddChk then
         let fr := frOfK ir f
         fnPh1S okPc ph lab res (szK T (labelOf fr.fn "chk") 0 5)
-          (bodyBlksK T (labelOf f.name "entry") fr (rsK (kslots fr)) is [w]) fr f.name is ra
+          (bodyBlksK T fr (rsK (kslots fr)) (labelOf f.name "entry") n 0 0 is [w]) fr f.name is ra
       else true
     | _, _, _ => true
 
 theorem fnPhAllK_eq (okPc : Nat → Bool) (ph : Nat → Nat) (lab : Label → Int64) (res : String → Bool)
     (cells : List (Directive × Nat)) (ir : Scc.IR.Program) (ra : Int64) :
     fnPhAllK okPc ph lab res (tailTab cells 0) ir ra = fnPhAll okPc ph lab res cells ir ra := by
-  simp only [fnPhAllK, fnPhAll, bodyBlksK_eq, frOfK_eq, rsK_eq, szK_eq, fnPh1S_eq]
+  simp only [fnPhAllK, fnPhAll, frOfK_eq, rsK_eq, bodyBlksK_eq, szK_eq, fnPh1S_eq]
   rfl
 
 /-- **`fnPhOk`, keyed**: the code labels by `codeT`, the blocks' sizes by `T`. -/

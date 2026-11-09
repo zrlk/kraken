@@ -22,7 +22,7 @@ standard three):
   state), while `mainExit42` gives `MainExit … 42` at `ret0`'s exit node;
 - `corrupt_wc_body_seg`: in any valid layout of `corruptCells`, `wc_main`'s
   body returns with `%rax = 43` (and `43` in `y`'s slot);
-- `corrupt_exit_seg`: from `.x2` with `%rax = 43`, the `exit_group` tail of
+- `corrupt_exit_seg`: from `.x0` with `%rax = 43`, the `exit_group` tail of
   `corruptCells` is a segment given `main` exits with `43` there off an
   abort site, the `SysOk (.exitGroup 43)` obligation that
   `corrupt_sysOk_false` shows false.
@@ -44,7 +44,7 @@ open Spike.Lib.X64.Flow.Ret0 (mainNX)
 open Spike.Lib.X64.Flow.Ret0.Inst (μ0 labT own mainBody mainEnv exitEnv start_step ret0_exit)
 open Spike.Lib.X64.Flow.Ret0.Mem (ret0Exe ret0End)
 open Spike.Lib.Ret0Src (ret0Src ret0Body)
-open Scc.Cert.Rt.X64 (Lays endOf blockAtB code_field)
+open Scc.Cert.Rt.X64 (Lays endOf blockAtB labelGapB blockAcrossB code_field label_labelGapB)
 open SccCode (ret0Λ ret0Cells ret0Secs ret0Asm ret0Text)
 
 set_option linter.unusedSimpArgs false
@@ -58,8 +58,9 @@ def mov41 : Directive :=
 /-- `mov41` is the parser's form of the text. -/
 example : parse("movq $41, %rax") = [mov41] := by decide
 
-/-- The index of `wc_main`'s `movq $40, %rax` in `ret0Cells`, right after `.Lwc_main.entry`. -/
-def wcIdx : Nat := 1190
+/-- The index of `wc_main`'s `movq $40, %rax` in `ret0Cells`, right after `.Lwc_main.entry`
+(computed from the cells, so it follows a regenerated fixture). -/
+def wcIdx : Nat := ((Scc.Cert.Rt.X64.labelIdx ret0Cells ".Lwc_main.entry").getD 0) + 1
 
 #guard ret0Cells[wcIdx - 1]? == some (.label ".Lwc_main.entry", 0)
 #guard ret0Cells[wcIdx]? == ((parse("movq $40, %rax")).head?.map (·, 7))
@@ -86,8 +87,9 @@ theorem corrupt_size : sizeOkW (Int64.ofNat ret0Λ.code.lo) corruptCells corrupt
 
 theorem corrupt_labels : labelsNodupL (Int64.ofNat ret0Λ.code.lo) corruptCells = true := by decide +kernel
 
-theorem corrupt_quads : quadsOkL (Int64.ofNat ret0Λ.code.lo) corruptCells ret0Secs.rodata = true := by
-  decide +kernel
+theorem corrupt_quads :
+    Scc.Sem.quadsResolve ret0Λ ret0Secs.rodata (Scc.Sem.X64.codeLabel ret0Λ.code.lo corruptCells) = true := by
+  rw [← Scc.Cert.Rt.X64.codeT_eq]; decide +kernel
 
 theorem corrupt_syms : (Scc.Sem.rodataFits ret0Λ ret0Secs.rodata && Scc.Sem.symsAgree ret0Λ ret0Secs.rodata &&
     Scc.Sem.symsAbove ret0Λ.code.lo (Scc.Sem.X64.codeEnd ret0Λ.code.lo corruptCells) (Scc.Sem.loadSyms ret0Λ ret0Secs.rodata) &&
@@ -97,7 +99,7 @@ theorem corrupt_syms : (Scc.Sem.rodataFits ret0Λ ret0Secs.rodata && Scc.Sem.sym
 
 /-- The canonical loader's checks pass on the corrupted program. -/
 theorem corrupt_load : loadOk ret0Λ corruptCells ret0Secs corruptAsm.labelOffs = true :=
-  loadOk_of corrupt_size corrupt_labels corrupt_quads corrupt_syms
+  loadOk_ofR corrupt_size corrupt_labels corrupt_quads corrupt_syms
 
 /-- info: "out=\"\" events=[exit 43] stop=exited steps=277 poolMsgs=0" -/
 #guard_msgs in
@@ -208,14 +210,25 @@ jb .Lwc_main.ovf")).zip [7, 7, 3, 2]
 
 block_spec wcAdd41 (-24) 8 oB wcAdd41
 
-/-- **`wc_main`'s body in `cells`** with `wcAdd41`. -/
+/-- **`wc_main`'s body in `cells`** with `wcAdd41`: `wcBodyIn` with `wcAdd41` for `wcAdd`
+(the return at `.x0`, across the return label `.x1`). -/
 def corruptBodyIn (cells : List (Directive × Nat)) : Bool :=
-  blockAtB cells ".Lwc_main.entry" 0 wcAdd41 && blockAtB cells ".Lwc_main.entry" 19 wcRet
+  blockAtB cells ".Lwc_main.entry" 0 wcAdd41 && labelGapB cells ".Lwc_main.entry" ".Lwc_main.x0" 19 &&
+    blockAcrossB cells ".Lwc_main.x0" 0 (wcRet.take 4) ".Lwc_main.x1" (wcRet.drop 4)
+
+-- The corruption bites at the add and only there: on `ret0Cells` the positive check holds and
+-- the corrupted one fails at its first conjunct (`wcAdd41`), its other two holding; on
+-- `corruptCells` the positive check fails at `wcAdd`.
+#guard wcBodyIn ret0Cells
+#guard !blockAtB ret0Cells ".Lwc_main.entry" 0 wcAdd41 &&
+  labelGapB ret0Cells ".Lwc_main.entry" ".Lwc_main.x0" 19 &&
+  blockAcrossB ret0Cells ".Lwc_main.x0" 0 (wcRet.take 4) ".Lwc_main.x1" (wcRet.drop 4)
+#guard !blockAtB corruptCells ".Lwc_main.entry" 0 wcAdd && !wcBodyIn corruptCells
 
 /-- The body's check on `corruptCells`. -/
 theorem corrupt_bodyIn : corruptBodyIn corruptCells = true := by decide +kernel
 /-- The `exit_group` tail's check on `corruptCells`. -/
-theorem corrupt_exitIn : exitIn corruptCells ".Lscc_rt_main.x2" (-16) 4 4 5 = true := by decide +kernel
+theorem corrupt_exitIn : exitIn corruptCells ".Lscc_rt_main.x0" (-16) 4 4 5 = true := by decide +kernel
 
 section Fn
 variable {p : Prog} {lbl : WeakMem.AllocLabel → Option Nat} {ms : MemSide isa}
@@ -243,12 +256,15 @@ theorem corrupt_wc_body_seg (hp : Lays exe corruptCells) (hend : endPc = endOf e
       SegW (fun _ _ => True) (fun _ _ => False) p lbl ms P (At exe endPc R F n) := fun h =>
     h.mono_post fun _ _ h => h.elim (fun ⟨_, h⟩ => h) fun ⟨e, _⟩ => e.elim
   refine SegW.toSeg (W := fun _ _ => True) (SegW.seq (Q := At exe endPc R F n1) ?_ ?_)
-  · refine one (seg_ndW (by simp [wcAdd41]) wcAdd41_ok hF hR hlo hhi (code_field hp hend hin.1 (ofNat_zero' _))
+  · refine one (seg_ndW (by simp [wcAdd41]) wcAdd41_ok hF hR hlo hhi (code_field hp hend hin.1.1 (ofNat_zero' _))
       BlkW.triv fun σ c hJ => ⟨c, .refl c, .inl ⟨(), ?_, ?_, σ, hJ, ?_⟩⟩)
     · rw [wcAdd41_run]
     · rw [wcAdd41_run]; rfl
     · rw [wcAdd41_run]; refine ⟨rfl, ?_, ?_⟩ <;> simp [Reg64s.set64]
-  · refine one (seg_ndW (n := n1) (by simp [wcRet]) wcRet_ok hF hR hlo hhi (code_field hp hend hin.2 rfl) BlkW.triv
+  have e1 : (_root_.Executable.labels exe).label ".Lwc_main.x0" + Int64.ofNat 0 = pc + 19 := by
+    rw [label_labelGapB hp hin.1.2, ofNat_zero' _]; rfl
+  · refine one (seg_ndW (n := n1) (by simp [wcRet]) wcRet_ok hF hR hlo hhi
+      (Spike.Lib.X64.code_field_blockAcrossB hp hend hin.2 (List.take_append_drop _ _) e1) BlkW.triv
       fun σ c ⟨σ0, hJ, hs, h9, hb⟩ => ⟨c, .refl c, .inl ⟨(), ?_, ?_, hedge σ0 c hJ _ ?_ ?_ ?_ ?_⟩⟩)
     · rw [wcRet_run, hra σ0 c hJ, hs]
     · rw [wcRet_run]; exact ho
@@ -263,9 +279,9 @@ variable {p : Prog} {lbl : WeakMem.AllocLabel → Option Nat} {ms : MemSide isa}
   {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe] {endPc : Int64}
   {R : Spike.Lib.Region} {F : MachineData → Prop}
 
-/-- Back from `wc_main` at `.x2` with `43` in `%rax`. -/
+/-- Back from `wc_main` at `.x0` with `43` in `%rax`. -/
 def exitN43 (lab : Label → Int64) (c0 : Ctl) : ND :=
-  ⟨lab ".Lscc_rt_main.x2", ⟨-40, [(.rbp, -8)]⟩, fun σ c => c = c0 ∧ σ.regs.rax.toBitVec = 43#64⟩
+  ⟨lab ".Lscc_rt_main.x0", ⟨-40, [(.rbp, -8)]⟩, fun σ c => c = c0 ∧ σ.regs.rax.toBitVec = 43#64⟩
 
 /-- **`corruptCells`' `exit_group` tail with `%rax = 43`**: a segment given
 that `main` exits with `43` off an abort site, which is false at `ret0Src`

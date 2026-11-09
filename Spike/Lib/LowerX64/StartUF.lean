@@ -122,14 +122,14 @@ callee's `D`. -/
 theorem userCallW_swF {d : Decl} (hd : Scc.Lower.Accepted0 [d] = true) {fr : Scc.Emit.X64.Frame} {r : Res}
     {fn entry : Label} {zl zf z1 z2 zs : Nat} (hf : FrameOk fr) (h1 : fr.size ≤ 2 ^ 31)
     (hpro : proInC cells fr fn entry zl zf z1 z2 zs = true) (hr : lower0 [(d.arg, .unit, [])] 0 d.body = some r)
-    (hbody : bodyIn cells fr entry 0 r.insts r.ret = true)
+    {m : Nat} (hbody : bodyIn cells fr entry m 0 r.insts r.ret = true)
     {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp) {Dt : State → Prop}
     {lbl : Lbl} {ms : MemSide isa} {Z : Int64} {D L : Int} {tcb top : BitVec 64} {ra : BitVec 64}
     {Fw : _root_.Mem 64 → Prop}
     (hD : (fr.size : Int) + 48 ≤ D) (hD8 : D % 8 = 0)
     (htop : top.toNat % 8 = 0) (hok : (swR top (-L) 0).OK) (hL : 8 + 8 + Z.toInt + 8 + D ≤ L) (hL8 : L % 8 = 0)
     (hZ8 : Z.toInt % 8 = 0) (hZ : 0 ≤ Z.toInt)
-    (hphB : bodyPhOk okPc ph (fun _ => false) lab cells fr entry r.insts r.ret (Int64.ofBitVec ra) = true)
+    (hphB : bodyPhOk okPc ph (fun _ => false) lab cells fr entry m r.insts r.ret (Int64.ofBitVec ra) = true)
     (hphP : ProPh okPc ph lab fn (labelOf fr.fn "chk") (Int64.ofInt fr.size) (proL fr) zl zf z1 z2 zs [])
     (hC0 : CFacts Λ lbl Spike.Lib.X64Consumer.c0)
     (hmr : Scc.Sem.Kernel.mapped (K0 Λ) false ⟨limA (tpOf tcb), 8⟩ = true)

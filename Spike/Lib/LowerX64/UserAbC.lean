@@ -50,17 +50,16 @@ instance : DecidablePred WcL := fun L => inferInstanceAs (Decidable (L.toList.ta
 /-- **A piece of a block's code at `pc` off the write abort's labels, in a
 user function's run**: the code predicate `CdC` at a label `L` none of
 `abLabs` beginning `.Lwc_` (`WcL`), so no runtime run's piece (e.g. `print`'s
-loop, whose `jmp` enters the write abort). -/
+loop, whose `jmp` enters the write abort): `CdCQ` at those labels, each of
+its pieces after one (a checked `+`'s or a `ret`'s fresh label, P5). -/
 def CdCL (cells : List (Directive × Nat)) (okPc : Nat → Bool) (ph : Nat → Nat) (lab : Label → Int64)
     (ra : Int64) (pc : Int64) (blk : List (Directive × Nat)) : Prop :=
-  blk.all (fun c => !c.1.isLabel) = true ∧ ∃ L j off, (L ∉ abLabs ∧ WcL L) ∧ lab L + Int64.ofNat off = pc ∧
-    blockAt cells L j off blk = true ∧ runPhB okPc ph lab pc ra blk = true
+  CdCQ (fun L => L ∉ abLabs ∧ WcL L) cells okPc ph lab ra pc blk
 
 theorem CdCL.toCdC {cells : List (Directive × Nat)} {okPc : Nat → Bool} {ph : Nat → Nat}
     {lab : Label → Int64} {ra pc : Int64} {blk : List (Directive × Nat)} (h : CdCL cells okPc ph lab ra pc blk) :
     CdC cells okPc ph lab ra pc blk :=
-  let ⟨hi, L, j, off, _, he, hb, hr⟩ := h
-  ⟨hi, L, j, off, he, hb, hr⟩
+  CdCQ.toCdC h
 
 theorem SubCd.mono {Cd Cd' : Int64 → List (Directive × Nat) → Prop} (hm : ∀ pc blk, Cd pc blk → Cd' pc blk)
     {pc : Int64} {blk : List (Directive × Nat)} (h : SubCd Cd pc blk) : SubCd Cd' pc blk :=
@@ -73,9 +72,24 @@ theorem posOff_of_subCdL {cells : List (Directive × Nat)} {okPc : Nat → Bool}
     {lab : Label → Int64} {ra pc : Int64} {blk : List (Directive × Nat)}
     (h : SubCd (CdCL cells okPc ph lab ra) pc blk) {i : Nat} (hi : i < blk.length) :
     PosOff cells lab (pc + Int64.ofNat (cellOff blk i)) := by
-  obtain ⟨pc0, pre, post, ⟨-, L, j, off, hL, hpc0, hb, -⟩, rfl⟩ := h
-  have := posOff_of_blockAt (lab := lab) (blockAt_sub hb) hL.1 hi
-  rwa [Int64.ofNat_add, Int64.ofNat_add, ← Int64.add_assoc, ← Int64.add_assoc, hpc0] at this
+  obtain ⟨pc0, pre, post, hc, hpc⟩ := h
+  obtain ⟨-, hat, -⟩ := CdCQ.sub (Q := fun L => L ∉ abLabs ∧ WcL L) hc hpc
+  have h1 : ∀ q b, At1Q (fun L => L ∉ abLabs ∧ WcL L) cells lab q b → ∀ i < b.length,
+      PosOff cells lab (q + Int64.ofNat (cellOff b i)) := by
+    rintro q b ⟨L, j, off, hL, hq, hb⟩ i hi
+    have := posOff_of_blockAt (lab := lab) hb hL.1 hi
+    rwa [Int64.ofNat_add, ← Int64.add_assoc, hq] at this
+  rcases hat with h | ⟨b1, b2, rfl, ha1, ha2⟩
+  · exact h1 _ _ h i hi
+  · by_cases hi1 : i < b1.length
+    · have e : cellOff (b1 ++ b2) i = cellOff b1 i := by
+        unfold cellOff; rw [List.take_append_of_le_length (by omega)]
+      rw [e]; exact h1 _ _ ha1 i hi1
+    · have e : cellOff (b1 ++ b2) i = (b1.map (·.2)).sum + cellOff b2 (i - b1.length) := by
+        unfold cellOff
+        rw [List.take_append, List.take_of_length_le (by omega), List.map_append, List.sum_append]
+      rw [e, Int64.ofNat_add, ← Int64.add_assoc]
+      exact h1 _ _ ha2 _ (by simp at hi; omega)
 
 /-! ## The consumers' `hab` -/
 
@@ -101,17 +115,21 @@ theorem blkW_abSt_subCdL {exe : _root_.Executable} [Kraken.Executable.ValidLayou
           (a = .call "scc_rt_abort" ∧ (arun lab (blk.take k) ⟨n.pc, n.o, σ⟩).σ.regs.get64 .rdi ≠ 4#64)) :
     BlkW (fun s _ => AbSt μ (Ab lab) s) (fun _ _ => False) exe endPc R F n blk := by
   have hcd' := hcd
-  obtain ⟨pc0, pre, post, ⟨-, L, j, off, -, hpc0, hb, hrun⟩, hpc⟩ := hcd'
-  have hc : cellOff (pre ++ blk ++ post) pre.length = (pre.map (·.2)).sum := by
-    simp [cellOff]
-  have hph := Scc.Cert.Ph1X64.blkPh_of_runPhB hrun (classify_of_okBlk hok)
-  rw [hc, ← hpc] at hph
-  have hpc' : lab L + Int64.ofNat (off + (pre.map (·.2)).sum) = n.pc := by
-    rw [hpc, ← hpc0, Int64.ofNat_add, Int64.add_assoc]
-  have hcode : ∀ s : State, s.exe = exe → s.endPc = endPc → CodeAt s n.pc blk := by
-    intro s hs hn
-    have := Scc.Cert.Rt.X64.codeAt_blockAt_lays hI.lays hs (hn.trans hI.endOk) (blockAt_sub hb)
+  obtain ⟨pc0, pre, post, hc0, hpc⟩ := hcd'
+  obtain ⟨-, hat, hrun⟩ := CdCQ.sub (Q := fun L => L ∉ abLabs ∧ WcL L) hc0 hpc
+  have hph := Scc.Cert.Ph1X64.blkPh_of_runPhB (xs := []) (zs := []) (by simpa using hrun)
+    (classify_of_okBlk hok)
+  simp only [List.nil_append, List.append_nil, List.length_nil] at hph
+  rw [show cellOff blk 0 = 0 by simp [cellOff], show Int64.ofNat 0 = 0 from rfl, Int64.add_zero] at hph
+  have h1 : ∀ pc b, At1Q (fun L => L ∉ abLabs ∧ WcL L) cells lab pc b →
+      ∀ s : State, s.exe = exe → s.endPc = endPc → CodeAt s pc b := by
+    rintro _ _ ⟨L, j, off, -, hpc', hb⟩ s hs hn
+    have := Scc.Cert.Rt.X64.codeAt_blockAt_lays hI.lays hs (hn.trans hI.endOk) hb
     rwa [hI.labOk, hpc'] at this
+  have hcode : ∀ s : State, s.exe = exe → s.endPc = endPc → CodeAt s n.pc blk := by
+    rcases hat with h | ⟨b1, b2, rfl, ha1, ha2⟩
+    · exact h1 _ _ h
+    · exact fun s hs hn => Spike.Lib.X64.CodeAt.append (h1 _ _ ha1 s hs hn) (h1 _ _ ha2 s hs hn)
   refine blkW_abSt_pos hI hpr hab hcode hok hR hlo hhi hph hnr ?_
   intro σ c hJ k hk a ha t ht
   by_cases hf : t = n.pc + Int64.ofNat (cellOff blk k) + Int64.ofNat blk[k].2

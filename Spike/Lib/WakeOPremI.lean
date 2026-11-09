@@ -46,7 +46,7 @@ theorem oPrem_WI (hpa : textProgram SccCertificate.asm = .ok o.prog)
     (hwp : textProgram SccCertificate.asm = .ok wakeProg) (hd : dataSections SccCertificate.asm = some o.secs)
     /- instance facts -/
     (hlo : Λ0.code.lo = Spike.Lib.A64.WakePh.lo) (hstat : Λ0.static = fun _ => none)
-    (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
+    (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
     (hsub1 : (WakeOSide.r1W hp i).Sub (Ly).Λ.stackPool) (hc : Spike.Lib.A64.Rt.CtrZ o)
     (hnz : WakeOInit.NtZ Λ0 o = true) (hE : E.clear (Ly).Λ = true)
     {B : Budget} (hB : B.cells = Scc.Cert.PlaceOK.allocCells)

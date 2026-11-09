@@ -43,7 +43,7 @@ def phaseRun : String :=
     s!"stop={r.stop} steps={r.steps}"
   | none => "load refused"
 
-/-- info: "stop=exited steps=294" -/
+/-- info: "stop=exited steps=295" -/
 #guard_msgs in
 #eval phaseRun
 

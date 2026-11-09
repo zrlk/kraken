@@ -23,11 +23,12 @@ from wake's):
 import Spike.Lib.A64WakeWorker
 import Spike.Lib.A64HelloCode
 import Spike.Lib.A64CodeSegs
+import Spike.Lib.A64CodeAcross
 
 namespace Spike.Lib.A64.Flow.Worker.Hello.Labels
 
 open Kraken Kraken.Promising Kraken.Promising.AArch64 Kraken.Promising.Lower.A64
-open Scc.Cert.Rt.A64 (Lays endOf blockAt labelGap label_labelGap)
+open Scc.Cert.Rt.A64 (Lays endOf blockAt labelGap blockAcross label_labelGap)
 open Spike.Lib.A64.Flow Spike.Lib.A64.Flow.Worker
 open Spike.Lib.A64.Flow.Park (swpDir)
 open SccCode (helloProg)
@@ -44,8 +45,10 @@ abbrev unpkIn : Bool :=
   blockAt helloProg ".L11_scc_rt_unpark.0_entry" 9 Unpark.b3 &&
   blockAt helloProg ".L11_scc_rt_unpark.1_wake" 0 Unpark.b4 &&
   blockAt helloProg ".L11_scc_rt_unpark.1_wake" 11 [svcDir] &&
-  blockAt helloProg ".L11_scc_rt_unpark.1_wake" 12 Unpark.b5 &&
-  blockAt helloProg ".L11_scc_rt_unpark.2_done" 0 Unpark.b6
+  blockAcross helloProg ".L11_scc_rt_unpark.1_wake" 12 (Unpark.b5.take 4)
+    ".L11_scc_rt_unpark.x4" (Unpark.b5.drop 4) &&
+  blockAcross helloProg ".L11_scc_rt_unpark.2_done" 0 (Unpark.b6.take 3)
+    ".L11_scc_rt_unpark.x5" (Unpark.b6.drop 3)
 
 theorem hello_unpkIn : unpkIn = true := by decide +kernel
 
@@ -67,8 +70,10 @@ theorem unpkCode {c0 c1 : Ctl} {B x29 ra tp : BitVec 64} : Unpark.Code c0 c1 B x
     code_of hp hend h4 (by simp only [Unpark.N, ofNat4_succ, ofNat4_zero]),
     code_of hp hend h5 (by simp only [Unpark.N, ofNat4_succ, ofNat4_zero]),
     code_of hp hend h6 (by simp only [Unpark.N, Unpark.pcSvc, ofNat4_succ, ofNat4_zero]),
-    code_of hp hend h7 (by simp only [Unpark.N, Unpark.pcSvc, ofNat4_succ, ofNat4_zero]),
-    code_of hp hend h8 (by simp only [Unpark.N, ofNat4_succ, ofNat4_zero])⟩
+    Spike.Lib.A64.code_field_blockAcross hp hend h7 (List.take_append_drop _ _)
+      (by simp only [Unpark.N, Unpark.pcSvc, ofNat4_succ, ofNat4_zero]),
+    Spike.Lib.A64.code_field_blockAcross hp hend h8 (List.take_append_drop _ _)
+      (by simp only [Unpark.N, ofNat4_succ, ofNat4_zero])⟩
 
 omit hend in
 /-- **`scc_rt_unpark`'s frame set-up falls through to `.0_entry`.** -/

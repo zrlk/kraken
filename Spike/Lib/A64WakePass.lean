@@ -48,9 +48,10 @@ set_option linter.unusedSimpArgs false
 from its fourth instruction (past the `stlr`) and its `.sp1`,
 `scc_rt_unpark`, `scc_rt_thr_worker`'s `.sp0` and `.halt4`. -/
 def wakePostRuns : List (Label × Nat × Nat) :=
-  [(WkTailW.pfx0 ++ ".0_entry", 3, 5), (WkTailW.pfx0 ++ ".sp1", 0, 4), ("scc_rt_unpark", 0, 5),
-    (".L11_scc_rt_unpark.0_entry", 0, 10), (".L11_scc_rt_unpark.1_wake", 0, 17),
-    (".L11_scc_rt_unpark.2_done", 0, 4), (ThrTailW.pfx0 ++ ".sp0", 0, 10), (ThrTailW.pfx0 ++ ".halt4", 0, 1)]
+  [(WkTailW.pfx0 ++ ".0_entry", 3, 5), (WkTailW.pfx0 ++ ".sp1", 0, 3), (WkTailW.pfx0 ++ ".x2", 0, 1),
+    ("scc_rt_unpark", 0, 5), (".L11_scc_rt_unpark.0_entry", 0, 10), (".L11_scc_rt_unpark.1_wake", 0, 16),
+    (".L11_scc_rt_unpark.x4", 0, 1), (".L11_scc_rt_unpark.2_done", 0, 3), (".L11_scc_rt_unpark.x5", 0, 1),
+    (ThrTailW.pfx0 ++ ".sp0", 0, 10), (ThrTailW.pfx0 ++ ".halt4", 0, 1)]
 
 theorem wake_runsOk : runsOk wakeProg wakePostRuns = true := by decide +kernel
 
@@ -122,6 +123,24 @@ theorem nodeZ_pass {n : ND} {len : Nat} {l : Label} {k0 : Nat} {b : Bool}
   obtain rfl := hc σ c hJ
   exact pass_at hp hchk hb hk he (hpc ▸ hs)
 
+/-- **`wakePass` at a node across a label**: its first `a` instructions
+`k0 ..` after `l`, the rest from the next label `m` (`labelGap`: `m` right
+after them, a return label, P5). -/
+theorem nodeZ_pass2 {n : ND} {len : Nat} {l m : Label} {k0 a : Nat} {b : Bool}
+    (hpc : n.pc = (_root_.Executable.labels exe).label l + Int64.ofNat (4 * k0))
+    (hg : labelGap wakeProg l m (k0 + a) = true) (hchk1 : passChk l k0 a b = true)
+    (hchk2 : passChk m 0 (len - a) b = true) {c' : Ctl} (hc : ∀ σ c, n.J σ c → c = c')
+    (hb : WPassC c' ↔ b = true) :
+    NodeZ wakePass exe n len := by
+  intro s σ c k hk he hs hJ
+  obtain rfl := hc σ c hJ
+  by_cases hka : k < a
+  · exact pass_at hp hchk1 hb hka he (hpc ▸ hs)
+  · refine pass_at hp hchk2 hb (k := k - a) (by omega) he ?_
+    rw [hs, hpc, label_labelGap hp hg, ofNat4_zero, Int64.add_assoc, Int64.add_assoc, ← Int64.ofNat_add,
+      ← Int64.ofNat_add]
+    exact congrArg (_ + Int64.ofNat ·) (by omega)
+
 /-- **`wakePass` at a prologue** (`fn`'s label is its stack check's, `sc`),
 before the store. -/
 theorem pro_pass {fn sc : Label} (hg : labelGap wakeProg fn sc 0 = true) (hchk : passChk sc 0 11 false = true)
@@ -166,7 +185,8 @@ theorem wk_pass {c1 c2 c3 : Ctl} {A B x29 ra tp : BitVec 64} (h1 : ¬ WPassC c1)
   · refine nodeZ_pass hp (l := (WkTailW.pfx0 ++ ".0_entry")) (k0 := 3) ?_ ?_ ?_ (wp_true h2) <;> zn
   · refine nodeZ_pass hp (l := (WkTailW.pfx0 ++ ".0_entry")) (k0 := 4) ?_ ?_ ?_ (wp_true h2) <;> zn
   · exact nodeZ_nil
-  · refine nodeZ_pass hp (l := (WkTailW.pfx0 ++ ".sp1")) (k0 := 0) ?_ ?_ ?_ (wp_true h3) <;> zn
+  · refine nodeZ_pass2 hp (l := (WkTailW.pfx0 ++ ".sp1")) (m := (WkTailW.pfx0 ++ ".x2")) (k0 := 0) (a := 3)
+      ?_ ?_ ?_ ?_ ?_ (wp_true h3) <;> zn
 
 /-- `wakePass` at `scc_rt_unpark`'s nodes, past the store. -/
 theorem unpk_pass {c2 c3 : Ctl} {B x29 ra tp : BitVec 64} (h2 : WPassC c2) (h3 : WPassC c3) (i : Unpark.PN) :
@@ -179,8 +199,10 @@ theorem unpk_pass {c2 c3 : Ctl} {B x29 ra tp : BitVec 64} (h2 : WPassC c2) (h3 :
   · refine nodeZ_pass hp (l := ".L11_scc_rt_unpark.0_entry") (k0 := 9) ?_ ?_ ?_ (wp_true h3) <;> zn
   · refine nodeZ_pass hp (l := ".L11_scc_rt_unpark.1_wake") (k0 := 0) ?_ ?_ ?_ (wp_true h3) <;> zn
   · refine nodeZ_pass hp (l := ".L11_scc_rt_unpark.1_wake") (k0 := 11) ?_ ?_ ?_ (wp_true h3) <;> zn
-  · refine nodeZ_pass hp (l := ".L11_scc_rt_unpark.1_wake") (k0 := 12) ?_ ?_ ?_ (wp_true h3) <;> zn
-  · refine nodeZ_pass hp (l := ".L11_scc_rt_unpark.2_done") (k0 := 0) ?_ ?_ ?_ (wp_true h3) <;> zn
+  · refine nodeZ_pass2 hp (l := ".L11_scc_rt_unpark.1_wake") (m := ".L11_scc_rt_unpark.x4") (k0 := 12) (a := 4)
+      ?_ ?_ ?_ ?_ ?_ (wp_true h3) <;> zn
+  · refine nodeZ_pass2 hp (l := ".L11_scc_rt_unpark.2_done") (m := ".L11_scc_rt_unpark.x5") (k0 := 0) (a := 3)
+      ?_ ?_ ?_ ?_ ?_ (wp_true h3) <;> zn
 
 /-- `wakePass` at `scc_rt_thr_worker`'s tail, past the store. -/
 theorem tail_pass {c3 : Ctl} {tp : BitVec 64} (h3 : WPassC c3) (i : ThrTailW.PN) :

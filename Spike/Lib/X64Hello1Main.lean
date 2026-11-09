@@ -11,17 +11,17 @@ the cells (`decide +kernel`): the x64 twin of
   `hello1_rodata_pre_segW`; the region based at the pushed return address,
   `-80`: `wc_rodata`'s frame and the allocator's below reach `-288`).
   Exits: `wc_rodata`'s, in its region, for some caller's state at the call.
-- `hello1_main_post_segW`: from `wc_rodata`'s `.x13` after the allocator
+- `hello1_main_post_segW`: from `wc_rodata`'s `.x0` after the allocator
   (in `scc_rt_main`'s region at the call): the rest of `wc_rodata`, its
-  return (`at_leave`), the `.x2` block, `call wc_main` (`hello1_wc_segW`),
+  return (`at_leave`), the `.x0` block, `call wc_main` (`hello1_wc_segW`),
   and `scc_rt_main`'s `exit_group` tail. `print`'s write stays the given
   segment `hsvc`; the source facts are named premises over the user's
   invariants, as are `%rbp`'s offset at the two returns (`hbpr`, `hbpw`).
 - `hello1_main_segW`: the two composed, as two segments: from the entry to
-  the aborts, and from `.x13`'s states (the allocation's continuation
+  the aborts, and from `.x0`'s states (the allocation's continuation
   `ms.xa` holds, `hpost`) to `print`'s abort.
 - `hello1_main_xa_post`, `hello1_main_hxa_of_post`: the bridge between the
-  two, from the allocator's fresh-label landing to `wc_rodata`'s `.x13` of
+  two, from the allocator's fresh-label landing to `wc_rodata`'s `.x0` of
   an invariant the landing implies; the choice of `ms.xa` stays the
   instance's.
 -/
@@ -47,7 +47,7 @@ abbrev mO : SO := ⟨-72, [(.rbp, -8)]⟩
 /-- `scc_rt_main`'s `.entry` block: the call of `wc_rodata`. -/
 def mB0 : List (Directive × Nat) := (parse("call wc_rodata")).zip [5]
 
-/-- `scc_rt_main`'s `.x2` block: `wc_rodata`'s results to the frame and
+/-- `scc_rt_main`'s `.x0` block: `wc_rodata`'s results to the frame and
 back as `wc_main`'s arguments, the thread pointer the fifth, the call of
 `wc_main`. -/
 def mB1 : List (Directive × Nat) := (parse("movq %rax, -16(%rbp)
@@ -67,9 +67,9 @@ block_spec mB1 (-288) 8 mO mB1
 /-- **`scc_rt_main`'s blocks in `cells`**, each call's return label right
 after it. -/
 def mainIn (cells : List (Directive × Nat)) : Bool :=
-  blockAtB cells ".Lscc_rt_main.entry" 0 mB0 && blockAtB cells ".Lscc_rt_main.x2" 0 mB1 &&
-    labelGapB cells ".Lscc_rt_main.entry" ".Lscc_rt_main.x2" 5 &&
-    labelGapB cells ".Lscc_rt_main.x2" ".Lscc_rt_main.x3" 41
+  blockAtB cells ".Lscc_rt_main.entry" 0 mB0 && blockAtB cells ".Lscc_rt_main.x0" 0 mB1 &&
+    labelGapB cells ".Lscc_rt_main.entry" ".Lscc_rt_main.x0" 5 &&
+    labelGapB cells ".Lscc_rt_main.x0" ".Lscc_rt_main.x1" 41
 
 theorem hello1_mainIn : mainIn SccCode.hello1Cells = true := by decide +kernel
 
@@ -89,11 +89,11 @@ variable (lab : Label → Int64) (R : Region) (J : AS → Ctl → Prop)
 def mN0 : ND := ⟨lab ".Lscc_rt_main.entry", mO, wJ R (mJ J)⟩
 
 /-- **The call of `wc_rodata`**: the frame as at `.entry`, `%rsp` past the
-pushed return address `.x2`. -/
+pushed return address `.x0`. -/
 def mNC : ND := ⟨lab "wc_rodata", ⟨-80, []⟩, fun σ c => ∃ σe, J σe c ∧ σ.slot 0 = σe.slot 0 ∧
   σ.slot (-8) = σe.regs.rbp.toBitVec ∧ σ.slot (-16) = σe.regs.rdi.toBitVec ∧
   σ.regs.rsp.toBitVec = σe.regs.rsp.toBitVec - 8#64 - 64#64 - 8#64 ∧ σ.regs.fsBase = σe.regs.fsBase ∧
-  σ.regs.get64 .rbp = R.addr (-8) ∧ σ.slot (-80) = (lab ".Lscc_rt_main.x2").toBitVec⟩
+  σ.regs.get64 .rbp = R.addr (-8) ∧ σ.slot (-80) = (lab ".Lscc_rt_main.x0").toBitVec⟩
 
 end MainNodes
 
@@ -180,7 +180,7 @@ theorem hello1_main_pre_segW {W : Frag isa} {K : State → State → Prop}
   simp only [mainIn, Bool.and_eq_true] at hin
   obtain ⟨⟨⟨h0, -⟩, hg1⟩, -⟩ := hin
   let lab := (_root_.Executable.labels exe).label
-  have e5 : lab ".Lscc_rt_main.x2" = lab ".Lscc_rt_main.entry" + Int64.ofNat 5 := label_labelGapB hp hg1
+  have e5 : lab ".Lscc_rt_main.x0" = lab ".Lscc_rt_main.entry" + Int64.ofNat 5 := label_labelGapB hp hg1
   refine SegW.seq (hello1_main_prologue_segW hp hend (nb := ⟨lab ".Lscc_rt_main.entry", mO, mJ J⟩) hF hR
     (by omega) (by omega) rfl (by show SO.le mO (oF 64) = true; decide) hW.pro ?_)
     (SegW.seq (Q := At exe endPc R F (mNC lab R J))
@@ -231,41 +231,41 @@ theorem hello1_main_pre_segW {W : Frag isa} {K : State → State → Prop}
 
 end MainPre
 
-/-! ## `scc_rt_main` from `wc_rodata`'s `.x13` -/
+/-! ## `scc_rt_main` from `wc_rodata`'s `.x0` -/
 
 section MainPostNodes
 
 variable (lab : Label → Int64) (R : Region) (σC : AS) (Jr Jw : AS → Ctl → Prop)
 
-/-- `wc_rodata`'s `.x13` for the invariant `Jp` (offsets as the allocator's
+/-- `wc_rodata`'s `.x0` for the invariant `Jp` (offsets as the allocator's
 return left them). -/
-def rdX13 (Jp : AS → Ctl → Prop) : ND := ⟨lab ".Lwc_rodata.x13", ⟨-40, []⟩, Jp⟩
+def rdX13 (Jp : AS → Ctl → Prop) : ND := ⟨lab ".Lwc_rodata.x0", ⟨-40, []⟩, Jp⟩
 
-/-- `scc_rt_main`'s `.x2`, after `wc_rodata`'s return (of invariant `Jr`
+/-- `scc_rt_main`'s `.x0`, after `wc_rodata`'s return (of invariant `Jr`
 in its region) left its region (`at_leave`, the caller's state `σC`). -/
-def mS0 : ND := ⟨lab ".Lscc_rt_main.x2", mO, fun σ c => ∃ σx, Jr σx c ∧ σ = leave (mR R) (-80) σC σx⟩
+def mS0 : ND := ⟨lab ".Lscc_rt_main.x0", mO, fun σ c => ∃ σx, Jr σx c ∧ σ = leave (mR R) (-80) σC σx⟩
 
 /-- **The call of `wc_main`**: its arguments `wc_rodata`'s results and the
-saved thread pointer, `%rsp` past the pushed return address `.x3`, `%rbp`
+saved thread pointer, `%rsp` past the pushed return address `.x1`, `%rbp`
 and the thread pointer register as `wc_rodata` returned them. -/
 def mWC : ND := ⟨lab "wc_main", ⟨-80, []⟩, fun σ c => ∃ σx, Jr σx c ∧
   σ.regs.rdi = σx.regs.rax ∧ σ.regs.rsi = σx.regs.rdx ∧ σ.regs.rdx = σx.regs.rcx ∧ σ.regs.rcx = σx.regs.rsi ∧
   σ.regs.r8.toBitVec = σC.slot (-16) ∧ σ.regs.rsp.toBitVec = σx.regs.rsp.toBitVec - 8#64 ∧
   σ.regs.fsBase = σx.regs.fsBase ∧ σ.regs.rbp = σx.regs.rbp ∧
-  σ.slot (-80) = (lab ".Lscc_rt_main.x3").toBitVec⟩
+  σ.slot (-80) = (lab ".Lscc_rt_main.x1").toBitVec⟩
 
 /-- `wc_main`'s entry invariant from the caller's state and control at the
 call. -/
 def wJ0 (g : AS × Ctl) (σ : AS) (c : Ctl) : Prop := σ = enter (-80) g.1 ∧ c = g.2 ∧ (mWC lab σC Jr).J g.1 g.2
 
-/-- `wc_main`'s return to `.x3` (invariant `Jw`). -/
-def wXr : ND := ⟨lab ".Lscc_rt_main.x3", ⟨8, []⟩, Jw⟩
+/-- `wc_main`'s return to `.x1` (invariant `Jw`). -/
+def wXr : ND := ⟨lab ".Lscc_rt_main.x1", ⟨8, []⟩, Jw⟩
 
-/-- `scc_rt_main`'s `.x3`: the registers `wc_main` returned with. -/
-def mS1 : ND := ⟨lab ".Lscc_rt_main.x3", ⟨-72, []⟩, fun σ c => ∃ σx, Jw σx c ∧ σ.regs = σx.regs⟩
+/-- `scc_rt_main`'s `.x1`: the registers `wc_main` returned with. -/
+def mS1 : ND := ⟨lab ".Lscc_rt_main.x1", ⟨-72, []⟩, fun σ c => ∃ σx, Jw σx c ∧ σ.regs = σx.regs⟩
 
-/-- `.x3` with `%rbp` at the saved `%rbp`: the `exit_group` tail's node. -/
-def mS1R : ND := ⟨lab ".Lscc_rt_main.x3", mO, (mS1 lab Jw).J⟩
+/-- `.x1` with `%rbp` at the saved `%rbp`: the `exit_group` tail's node. -/
+def mS1R : ND := ⟨lab ".Lscc_rt_main.x1", mO, (mS1 lab Jw).J⟩
 
 /-- `print`'s abort under `wc_main` under `scc_rt_main`. -/
 def mAb : ND := ⟨lab "scc_rt_abort", ⟨-224, []⟩, fun σ _ => σ.regs.get64 .rdi = 4⟩
@@ -280,8 +280,8 @@ def mPN (lab : Label → Int64) (σC : AS) (Jr Jw : AS → Ctl → Prop) : Bool 
 /-- `wc_main`'s region at the call: based at the pushed return address. -/
 abbrev wR (R : Region) : Region := R.callee (-80) (-144) 8
 
-/-- **`scc_rt_main`'s states from `wc_rodata`'s `.x13` inside `W`**, none
-moved by `K`: `wc_rodata`'s from `.x13` in its region, the `.x2` block's,
+/-- **`scc_rt_main`'s states from `wc_rodata`'s `.x0` inside `W`**, none
+moved by `K`: `wc_rodata`'s from `.x0` in its region, the `.x0` block's,
 `wc_main`'s in its region for every call (the caller's cells outside it
 holding values), and the `exit_group` tail's. -/
 structure MainPostW (W : Frag isa) (K : State → State → Prop) (exe : _root_.Executable) (endPc : Int64)
@@ -293,7 +293,7 @@ structure MainPostW (W : Frag isa) (K : State → State → Prop) (exe : _root_.
     (wJ0 (_root_.Executable.labels exe).label σC Jr g)
   exit : XExitW W K exe endPc R F (mS1R (_root_.Executable.labels exe).label Jw) (-72) (-8) (-48) 4 4 5
 
-/-- `scc_rt_main` from `.x13` is inside the trivial predicate, with no
+/-- `scc_rt_main` from `.x0` is inside the trivial predicate, with no
 outside moves. -/
 theorem MainPostW.triv {exe : _root_.Executable} {endPc : Int64} {R : Region} {F : MachineData → Prop}
     {ms : MemSide isa} {m0 : MachineData} {σC : AS} {Jp J1 J2 J3 J4 Jr Jw : AS → Ctl → Prop} :
@@ -313,13 +313,13 @@ variable {p : Prog} {lbl : WeakMem.AllocLabel → Option Nat} {ms : MemSide isa}
   {exe : _root_.Executable} [Executable.ValidLayout exe] {endPc : Int64}
   {R : Region} {F : MachineData → Prop}
 
-/-- **`scc_rt_main` from `wc_rodata`'s `.x13` is one segment inside `W`**
+/-- **`scc_rt_main` from `wc_rodata`'s `.x0` is one segment inside `W`**
 in any valid layout of `hello1Cells`, for a caller's state `m0`, `σC` at
-`wc_rodata`'s call: `wc_rodata` from `.x13` in its region
-(`hello1_rodata_post_segW` to `scc_rt_main`'s `.x2`, of invariant `Jr`;
+`wc_rodata`'s call: `wc_rodata` from `.x0` in its region
+(`hello1_rodata_post_segW` to `scc_rt_main`'s `.x0`, of invariant `Jr`;
 `hbp`, `hra`, `hmem`, `h1` … `h4`, `hedge` as there), leaving its region
-(`at_leave`; `%rbp` at the saved `%rbp`, `hbpr`), the `.x2` block, the call
-of `wc_main` (`call_nd_FWK`, `hello1_wc_segW` from `wJ0` to `.x3`, of
+(`at_leave`; `%rbp` at the saved `%rbp`, `hbpr`), the `.x0` block, the call
+of `wc_main` (`call_nd_FWK`, `hello1_wc_segW` from `wJ0` to `.x1`, of
 invariant `Jw`: `hlimW`, `hsvc`, `hedgeW` as there; `hedgeW` for every
 call), and the `exit_group` tail (`%rbp` at the saved `%rbp`, `hbpw`;
 `hok`). The only exit is `print`'s abort. Its states lie in `W`, none moved
@@ -331,7 +331,7 @@ theorem hello1_main_post_segW {W : Frag isa} {K : State → State → Prop}
     (hK : ms.K = some Scc.Sem.X64.abi) {m0 : MachineData} {σC : AS} {Jp J1 J2 J3 J4 Jr Jw : AS → Ctl → Prop}
     (hW : MainPostW W K exe endPc R F ms m0 σC Jp J1 J2 J3 J4 Jr Jw)
     (hbp : ∀ σ0 c, Jp σ0 c → σ0.regs.get64 .rbp = (mR R).addr (-8))
-    (hra : ∀ σ0 c, Jp σ0 c → (_root_.Executable.labels exe).label ".Lscc_rt_main.x2" = Int64.ofBitVec (σ0.slot 0))
+    (hra : ∀ σ0 c, Jp σ0 c → (_root_.Executable.labels exe).label ".Lscc_rt_main.x0" = Int64.ofBitVec (σ0.slot 0))
     (hmem : ∀ σ0 c, Jp σ0 c → ∀ i : Int64, (i = 0 ∨ i = 8) →
       ∀ m, mF R F m0 σC m → Mem.loadInt m.dmem (bAddr σ0.regs .rax i) 8 = none)
     (h1 : ∀ σ0 c, Jp σ0 c → ∃ (x : String) (sa : WeakMem.Address) (u : Ty) (v : CoreTerm.At) (e : Expr),
@@ -361,9 +361,9 @@ theorem hello1_main_post_segW {W : Frag isa} {K : State → State → Prop}
       (σx.regs.rsp.toBitVec - 8#64 - 8#64 - (80 : Int64).toBitVec))
     (hsvc : ∀ F' : MachineData → Prop, FStable (pR (wR R)) F' →
       (∀ m, F' m → ((F m ∧ CallerCells R (-80) (-144) 8 m) ∧ CallerCells (wR R) (-96 - 8) (-40) 16 m) ∧
-        Spike.Lib.X64.Rt.WcRa (wR R) ((_root_.Executable.labels exe).label ".Lscc_rt_main.x3") m ∧
+        Spike.Lib.X64.Rt.WcRa (wR R) ((_root_.Executable.labels exe).label ".Lscc_rt_main.x1") m ∧
         Spike.Lib.X64.Rt.WcFp (wR R) (R.addr (-8)) m) →
-      ∀ g' : PG, g'.2.2 = ((_root_.Executable.labels exe).label ".Lwc_main.x15").toBitVec →
+      ∀ g' : PG, g'.2.2 = ((_root_.Executable.labels exe).label ".Lwc_main.x0").toBitVec →
       g'.2.1 = (wR R).addr (-8) →
       SegW W K p lbl ms
         (At exe endPc (pR (wR R)) F' (Print.N (_root_.Executable.labels exe).label g'.1 g'.2.1 g'.2.2 .sys))
@@ -376,7 +376,7 @@ theorem hello1_main_post_segW {W : Frag isa} {K : State → State → Prop}
       ∃ c', LocalRun p c c' ∧ Jw σ' c')
     (hbpw : ∀ σx c, Jw σx c → σx.regs.get64 .rbp = R.addr (-8))
     (hok : ∀ s c σx, Jw σx c →
-      At exe endPc R F ⟨(_root_.Executable.labels exe).label ".Lscc_rt_main.x3" + Int64.ofNat 4 + Int64.ofNat 4 +
+      At exe endPc R F ⟨(_root_.Executable.labels exe).label ".Lscc_rt_main.x1" + Int64.ofNat 4 + Int64.ofNat 4 +
         Int64.ofNat 5, mO, fun _ _ => True⟩ s c → SysOk p ms s c (.exitGroup σx.regs.rax.toNat)) :
     SegW W K p lbl ms (At exe endPc (mR R) (mF R F m0 σC) (rdX13 (_root_.Executable.labels exe).label Jp))
       (At exe endPc R F (mAb (_root_.Executable.labels exe).label)) := by
@@ -384,11 +384,11 @@ theorem hello1_main_post_segW {W : Frag isa} {K : State → State → Prop}
   have hin := hello1_mainIn
   simp only [mainIn, Bool.and_eq_true] at hin
   obtain ⟨⟨⟨-, hb1⟩, -⟩, hg2⟩ := hin
-  have e41 : lab ".Lscc_rt_main.x3" = lab ".Lscc_rt_main.x2" + Int64.ofNat 41 := label_labelGapB hp hg2
+  have e41 : lab ".Lscc_rt_main.x1" = lab ".Lscc_rt_main.x0" + Int64.ofNat 41 := label_labelGapB hp hg2
   obtain ⟨hR', hF'⟩ := mR_ok hR hF hlo hhi m0 σC
   refine SegW.seq (Q := At exe endPc R F (mS0 lab R σC Jr))
     ((hello1_rodata_post_segW hp hend hF' hR' (by show (-208 : Int) ≤ -40; decide)
-      (by show (8 : Int) ≤ 8; decide) (x := ⟨lab ".Lscc_rt_main.x2", ⟨8, []⟩, Jr⟩) rfl hW.rd hbp hra
+      (by show (8 : Int) ≤ 8; decide) (x := ⟨lab ".Lscc_rt_main.x0", ⟨8, []⟩, Jr⟩) rfl hW.rd hbp hra
       hmem h1 h2 h3 h4 hedge).mono_post fun s c h => ?_)
     (SegW.seq (Q := At exe endPc R F (mWC lab σC Jr))
       (seg_oneW (seg_ndW (by simp [mB1]) mB1_ok hF hR hlo hhi
@@ -442,7 +442,7 @@ theorem hello1_main_post_segW {W : Frag isa} {K : State → State → Prop}
             show LimOk ms F' (g.1.regs.fsBase.toBitVec + _) (g.1.regs.rsp.toBitVec - _ - _)
             rw [hfs, hsp]; exact h
           · rintro σ c ⟨rfl, -, σx, -, -, -, -, -, -, -, -, -, h80⟩
-            show lab ".Lscc_rt_main.x3" = Int64.ofBitVec (g.1.slot (-80 + 0))
+            show lab ".Lscc_rt_main.x1" = Int64.ofBitVec (g.1.slot (-80 + 0))
             rw [show (-80 : Int) + 0 = -80 by decide, h80, int64_ofBitVec_toBitVec]
           · rintro σ c ⟨rfl, -, σx, hJr, -, -, -, -, -, -, -, hbp, -⟩
             show g.1.regs.get64 .rbp = _
@@ -474,9 +474,9 @@ end MainPost
 /-! ## From the allocator's fresh-label landing to `scc_rt_main` after it
 
 `hello1_main_pre_segW` ends at an allocation's continuation `ms.xa`
-(`hxa`); `hello1_main_post_segW` starts at `wc_rodata`'s `.x13` in its
+(`hxa`); `hello1_main_post_segW` starts at `wc_rodata`'s `.x0` in its
 region. The bridge leaves the allocator's region (`at_leave`) and lands at
-`.x13` for an invariant `Jp` the landing implies (`hJp`), so the choice of
+`.x0` for an invariant `Jp` the landing implies (`hJp`), so the choice of
 `ms.xa` stays the instance's. -/
 
 section MainBridge
@@ -484,7 +484,7 @@ section MainBridge
 variable {p : Prog} {lbl : WeakMem.AllocLabel → Option Nat} {ms : MemSide isa}
   {exe : _root_.Executable} {endPc : Int64} {R : Region} {F : MachineData → Prop}
 
-/-- **The allocator's fresh-label landing is at `wc_rodata`'s `.x13`**, in
+/-- **The allocator's fresh-label landing is at `wc_rodata`'s `.x0`**, in
 its region at `scc_rt_main`'s call (caller's state `m0`, `σC`): from the
 continuation node `Ea` in the allocator's region, under a frame condition
 `F'` the call hands it (as in `hello1_main_pre_segW`'s `hxa`), the state is
@@ -518,13 +518,13 @@ theorem hello1_main_xa_post {J Jp : AS → Ctl → Prop} {m0 : MachineData} {σC
   obtain ⟨he, hn, hdc, hpc, σ, hA, hD, σx, σ', hJx, ⟨c0, h1, h2⟩, rfl⟩ := h'
   refine ⟨he, hn, hdc, ?_, _, hA, hD, hJp σx σ' c0 c hJx h1 h2⟩
   rw [hpc]
-  show Int64.ofBitVec q.1.ra = (_root_.Executable.labels exe).label ".Lwc_rodata.x13"
+  show Int64.ofBitVec q.1.ra = (_root_.Executable.labels exe).label ".Lwc_rodata.x0"
   rw [← h2.2.2.1]
   show Int64.ofBitVec (σ'.slot (-48 + 0)) = _
   rw [show (-48 : Int) + 0 = -48 by decide, h1.2.2.2.2.2, int64_ofBitVec_toBitVec]
 
-/-- **`hello1_main_pre_segW`'s `hxa` from the landing at `.x13`**: if
-every state at `wc_rodata`'s `.x13` in its region, for some caller's state
+/-- **`hello1_main_pre_segW`'s `hxa` from the landing at `.x0`**: if
+every state at `wc_rodata`'s `.x0` in its region, for some caller's state
 `m0`, `σC` at the call (of an invariant `Jp m0 σC` the landings imply,
 `hJp`), is one a fresh label's allocation continues in (`hpost`), the
 allocator's landings are (`hello1_main_xa_post`). -/
@@ -551,9 +551,9 @@ end MainBridge
 
 /-! ## `scc_rt_main` as a whole
 
-`hello1_main_pre_segW`, then `wc_rodata`'s `.x13` (the allocator's return
+`hello1_main_pre_segW`, then `wc_rodata`'s `.x0` (the allocator's return
 exit, `hret`), then `hello1_main_post_segW`; the allocation's continuation
-`ms.xa` holds `.x13`'s states (`hpost`, through the bridge), which the
+`ms.xa` holds `.x0`'s states (`hpost`, through the bridge), which the
 second segment covers. -/
 
 /-- **`hello1_main_post_segW`'s premises** past the layout's, for a
@@ -564,7 +564,7 @@ structure MainPostP (W : Frag isa) (K : State → State → Prop) (p : Prog) (lb
     (m0 : MachineData) (σC : AS) (Jp J1 J2 J3 J4 Jr Jw : AS → Ctl → Prop) : Prop where
   hW : MainPostW W K exe endPc R F ms m0 σC Jp J1 J2 J3 J4 Jr Jw
   hbp : ∀ σ0 c, Jp σ0 c → σ0.regs.get64 .rbp = (mR R).addr (-8)
-  hra : ∀ σ0 c, Jp σ0 c → (_root_.Executable.labels exe).label ".Lscc_rt_main.x2" = Int64.ofBitVec (σ0.slot 0)
+  hra : ∀ σ0 c, Jp σ0 c → (_root_.Executable.labels exe).label ".Lscc_rt_main.x0" = Int64.ofBitVec (σ0.slot 0)
   hmem : ∀ σ0 c, Jp σ0 c → ∀ i : Int64, (i = 0 ∨ i = 8) →
       ∀ m, mF R F m0 σC m → Mem.loadInt m.dmem (bAddr σ0.regs .rax i) 8 = none
   h1 : ∀ σ0 c, Jp σ0 c → ∃ (x : String) (sa : WeakMem.Address) (u : Ty) (v : CoreTerm.At) (e : Expr),
@@ -594,9 +594,9 @@ structure MainPostP (W : Frag isa) (K : State → State → Prop) (p : Prog) (lb
       (σx.regs.rsp.toBitVec - 8#64 - 8#64 - (80 : Int64).toBitVec)
   hsvc : ∀ F' : MachineData → Prop, FStable (pR (wR R)) F' →
       (∀ m, F' m → ((F m ∧ CallerCells R (-80) (-144) 8 m) ∧ CallerCells (wR R) (-96 - 8) (-40) 16 m) ∧
-        Spike.Lib.X64.Rt.WcRa (wR R) ((_root_.Executable.labels exe).label ".Lscc_rt_main.x3") m ∧
+        Spike.Lib.X64.Rt.WcRa (wR R) ((_root_.Executable.labels exe).label ".Lscc_rt_main.x1") m ∧
         Spike.Lib.X64.Rt.WcFp (wR R) (R.addr (-8)) m) →
-      ∀ g' : PG, g'.2.2 = ((_root_.Executable.labels exe).label ".Lwc_main.x15").toBitVec →
+      ∀ g' : PG, g'.2.2 = ((_root_.Executable.labels exe).label ".Lwc_main.x0").toBitVec →
       g'.2.1 = (wR R).addr (-8) →
       SegW W K p lbl ms
         (At exe endPc (pR (wR R)) F' (Print.N (_root_.Executable.labels exe).label g'.1 g'.2.1 g'.2.2 .sys))
@@ -609,7 +609,7 @@ structure MainPostP (W : Frag isa) (K : State → State → Prop) (p : Prog) (lb
       ∃ c', LocalRun p c c' ∧ Jw σ' c'
   hbpw : ∀ σx c, Jw σx c → σx.regs.get64 .rbp = R.addr (-8)
   hok : ∀ s c σx, Jw σx c →
-      At exe endPc R F ⟨(_root_.Executable.labels exe).label ".Lscc_rt_main.x3" + Int64.ofNat 4 + Int64.ofNat 4 +
+      At exe endPc R F ⟨(_root_.Executable.labels exe).label ".Lscc_rt_main.x1" + Int64.ofNat 4 + Int64.ofNat 4 +
         Int64.ofNat 5, mO, fun _ _ => True⟩ s c → SysOk p ms s c (.exitGroup σx.regs.rax.toNat)
 
 section MainAll
@@ -619,14 +619,14 @@ variable {p : Prog} {lbl : WeakMem.AllocLabel → Option Nat} {ms : MemSide isa}
   {R : Region} {F : MachineData → Prop}
 
 /-- **`scc_rt_main` is two segments inside `W`** in any valid layout of
-`hello1Cells`, for invariants at `wc_rodata`'s `.x13` and after indexed by
+`hello1Cells`, for invariants at `wc_rodata`'s `.x0` and after indexed by
 the caller's state `m0`, `σC` at its call. First, from its entry
 (invariant `J`) to `print`'s abort or the allocator's heap abort
 (`hello1_main_pre_segW`: `hlimM`, `hlimR`, `hq`, `hmem`; the allocator's
-return at `.x13` continuing by `hret` into `hello1_main_post_segW`, of
-premises `hP`). Second, from `.x13`'s states (of `Jp`) to `print`'s abort:
+return at `.x0` continuing by `hret` into `hello1_main_post_segW`, of
+premises `hP`). Second, from `.x0`'s states (of `Jp`) to `print`'s abort:
 the states an allocation of a fresh label continues in. The allocation's
-continuation `ms.xa` stays the instance's: it holds `.x13`'s states
+continuation `ms.xa` stays the instance's: it holds `.x0`'s states
 (`hpost`), which every landing is (`hJp`, `hello1_main_hxa_of_post`).
 VACUOUS at .x13 at `rodata`'s source: see X64Hello1RodataSetupG (`hand_x13_empty`). -/
 theorem hello1_main_segW {W : Frag isa} {K : State → State → Prop}

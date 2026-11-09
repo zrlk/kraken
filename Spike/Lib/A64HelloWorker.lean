@@ -20,13 +20,14 @@ to B5.
 import Spike.Lib.A64WorkerBody
 import Spike.Lib.A64HelloWorkerLabels
 import Scc.Cert.Rt.A64Print
+import Spike.Lib.A64CodeAcross
 
 namespace Spike.Lib.A64.Flow.Worker.Hello.Wk
 
 open CoreLang CoreTerm
 open Kraken Kraken.AArch64.Parser Kraken.Promising Kraken.Promising.AArch64 Kraken.Promising.Lower.A64
 open Spike.Lib Spike.Lib.A64.Flow Spike.Lib.A64.Flow.Worker
-open Scc.Cert.Rt.A64 (Lays endOf blockAt labelGap label_labelGap)
+open Scc.Cert.Rt.A64 (Lays endOf blockAt labelGap blockAcross label_labelGap)
 open Scc.Cert.Rt.A64.Print (printIn code_field add4 add0)
 open SccCode (helloProg)
 
@@ -44,7 +45,7 @@ abbrev wkIn : Bool :=
     [.instr ⟨.W64, .STLR .W64 (.low (.reg .X9) .W64) (.low (.reg .X10) .W64)⟩] &&
   blockAt helloProg ".L20_wc_worker.sp4" 3 HelloTail.b1 &&
   blockAt helloProg ".L20_wc_worker.sp4" 4 HelloTail.b2 &&
-  blockAt helloProg ".L20_wc_worker.sp6" 0 HelloTail.b3 &&
+  blockAcross helloProg ".L20_wc_worker.sp6" 0 (HelloTail.b3.take 3) ".L20_wc_worker.x7" (HelloTail.b3.drop 3) &&
   labelGap helloProg ".L20_wc_worker.sp4" ".L20_wc_worker.sp6" 5
 
 /-- `wc_worker`'s six argument words. -/
@@ -83,7 +84,8 @@ theorem tailCode {c0 c1 c2 : Ctl} {A B x29 ra tp : BitVec 64} :
     code_of hp hend h1 (by simp only [HelloTail.N, ofNat4_succ, ofNat4_zero]),
     code_of hp hend h2 (by simp only [HelloTail.N, ofNat4_succ, ofNat4_zero]),
     code_of hp hend h3 (by simp only [HelloTail.N, HelloTail.pcBl, ofNat4_succ, ofNat4_zero]),
-    code_of hp hend h4 (by simp only [HelloTail.N, ofNat4_succ, ofNat4_zero])⟩
+    Spike.Lib.A64.code_field_blockAcross hp hend h4 (List.take_append_drop _ _)
+      (by simp only [HelloTail.N, ofNat4_succ, ofNat4_zero])⟩
 
 omit hend in
 /-- **`.sp4` right after the `.0_entry` block** (21 instructions). -/
@@ -124,7 +126,8 @@ theorem printCode {c0 : Ctl} {x29 ra : BitVec 64} : PrintF.Code c0 x29 ra exe en
     code_field hp hend h12 (by simp only [PrintF.N, A64.Print.N, add4, add0]),
     code_field hp hend h13 (by simp only [PrintF.N, A64.Print.N, add4, add0]),
     code_field hp hend h14 (by simp only [PrintF.N, A64.Print.N, add4, add0]),
-    code_field hp hend h15 (by simp only [PrintF.N, A64.Print.N, add4, add0]),
+    Spike.Lib.A64.code_field_blockAcross hp hend h15 (List.take_append_drop _ _)
+      (by simp only [PrintF.N, A64.Print.N, add4, add0]),
     code_field hp hend hs (by simp only [PrintF.N, PrintF.pcSvc, add4, add0])⟩
 
 omit hend in

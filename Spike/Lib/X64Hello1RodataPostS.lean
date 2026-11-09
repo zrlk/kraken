@@ -7,7 +7,7 @@ before each exchange's load, for a source that builds each stored word in a
 `Spike/Lib/Hello1RodataSrc.lean`). The x64 twin of
 `Spike/Lib/A64Hello1RodataPostS.lean`.
 
-- `pNL`: `.x13`'s nodes, each exchange's load at the source's control after
+- `pNL`: `.x0`'s nodes, each exchange's load at the source's control after
   the run (`Jp'`, `J2'`);
 - `RdPostLW`, `RdPostLW.triv`: their states inside `W`;
 - `hello1_rodata_post_runW`: the segment, the first block taking a local run
@@ -27,11 +27,11 @@ set_option linter.unusedSimpArgs false
 
 /-! ## `wc_rodata` from the allocator's return, the source advanced -/
 
-/-- **`.x13`'s nodes, the source advanced before each load**: as `pN`,
+/-- **`.x0`'s nodes, the source advanced before each load**: as `pN`,
 the first load at `Jp'` (the control after the first block's run) and the
 second at `J2'` (after the third block's run). -/
 def pNL (lab : Label → Int64) (Jp Jp' J1 J2 J2' J3 J4 : AS → Ctl → Prop) : PN → ND
-  | .l1 => ⟨lab ".Lwc_rodata.x13" + 8, oR, fun σ c => ∃ σ0, (∃ c0, Jp σ0 c0) ∧
+  | .l1 => ⟨lab ".Lwc_rodata.x0" + 8, oR, fun σ c => ∃ σ0, (∃ c0, Jp σ0 c0) ∧
       Jp' σ0 c ∧ rdFr σ0 σ ∧ σ.regs.get64 .rcx = σ0.regs.get64 .rax⟩
   | .l2 => pN lab Jp J1 J2' J3 J4 .l2
   | i => pN lab Jp J1 J2 J3 J4 i
@@ -100,7 +100,7 @@ theorem hello1_rodata_post_runW {W : Frag isa} {K : State → State → Prop}
       σ'.regs.rdx.toBitVec = 0#64 → σ'.regs.rcx.toBitVec = 2#64 → σ'.regs.rsi.toBitVec = 13#64 →
       σ'.regs.rbp.toBitVec = σ0.slot (-8) → σ'.regs.rsp.toBitVec = σ0.regs.rbp.toBitVec + 8#64 + 8#64 →
       ∃ c', LocalRun p c c' ∧ x.J σ' c') :
-    SegW W K p lbl ms (At exe endPc R F ⟨(_root_.Executable.labels exe).label ".Lwc_rodata.x13", ⟨-40, []⟩, Jp⟩)
+    SegW W K p lbl ms (At exe endPc R F ⟨(_root_.Executable.labels exe).label ".Lwc_rodata.x0", ⟨-40, []⟩, Jp⟩)
       (At exe endPc R F x) := by
   have hin := hello1_rpIn
   simp only [rpIn, Bool.and_eq_true] at hin
@@ -126,7 +126,7 @@ theorem hello1_rodata_post_runW {W : Frag isa} {K : State → State → Prop}
     obtain ⟨x, sa, u, v, e, hx, hv, hh, hk⟩ := h1 σ0 c hJ
     refine ⟨hr ▸ hm m hD, x, sa, u, v, e, hx, hr ▸ hv, hh, fun r w' hrd hrep =>
       .inl ⟨PN.s1, ?_, rfl, σ0, ⟨c0', hJp⟩, hr ▸ hk r w' hrd hrep, hfr⟩⟩
-    show lab ".Lwc_rodata.x13" + 11 = lab ".Lwc_rodata.x13" + 8 + Int64.ofNat 3
+    show lab ".Lwc_rodata.x0" + 11 = lab ".Lwc_rodata.x0" + 8 + Int64.ofNat 3
     rw [Int64.add_assoc]; rfl
   case s1 =>
     refine seg_ndW (by simp [rpB1]) rpB1_ok hF hR hlo hhi (code_field hp hend c2 rfl) hW.s1
@@ -148,7 +148,7 @@ theorem hello1_rodata_post_runW {W : Frag isa} {K : State → State → Prop}
     obtain ⟨x, sa, u, v, e, tv, wv, wold, hx, hv, hh, hev, hV, hk⟩ := h2 σ0 c hJ
     refine ⟨hr ▸ hm m hD, x, sa, u, v, e, tv, wv, wold, hx, hr ▸ hv, hr ▸ hh, hev,
       by rw [hax]; exact hV, .inl ⟨PN.s2, ?_, rfl, σ0, ⟨c0', hJp⟩, hk, hfr⟩⟩
-    show lab ".Lwc_rodata.x13" + 32 = lab ".Lwc_rodata.x13" + 29 + Int64.ofNat 3
+    show lab ".Lwc_rodata.x0" + 32 = lab ".Lwc_rodata.x0" + 29 + Int64.ofNat 3
     rw [Int64.add_assoc]; rfl
   case s2 =>
     refine seg_ndW (by simp [rpB2]) rpB2_ok hF hR hlo hhi (code_field hp hend c4 rfl) hW.s2
@@ -167,7 +167,7 @@ theorem hello1_rodata_post_runW {W : Frag isa} {K : State → State → Prop}
     obtain ⟨x, sa, u, v, e, hx, hv, hh, hk⟩ := h3 σ0 c hJ
     refine ⟨hr ▸ hm m hD, x, sa, u, v, e, hx, hr ▸ hv, hh, fun r w' hrd hrep =>
       .inl ⟨PN.s3, ?_, rfl, σ0, ⟨c0', hJp⟩, hr ▸ hk r w' hrd hrep, hfr⟩⟩
-    show lab ".Lwc_rodata.x13" + 40 = lab ".Lwc_rodata.x13" + 36 + Int64.ofNat 4
+    show lab ".Lwc_rodata.x0" + 40 = lab ".Lwc_rodata.x0" + 36 + Int64.ofNat 4
     rw [Int64.add_assoc]; rfl
   case s3 =>
     refine seg_ndW (by simp [rpB3]) rpB3_ok hF hR hlo hhi (code_field hp hend c6 rfl) hW.s3
@@ -189,21 +189,22 @@ theorem hello1_rodata_post_runW {W : Frag isa} {K : State → State → Prop}
     obtain ⟨x, sa, u, v, e, tv, wv, wold, hx, hv, hh, hev, hV, hk⟩ := h4 σ0 c hJ
     refine ⟨hr ▸ hm m hD, x, sa, u, v, e, tv, wv, wold, hx, hr ▸ hv, hr ▸ hh, hev,
       by rw [hax]; exact hV, .inl ⟨PN.s4, ?_, rfl, σ0, ⟨c0', hJp⟩, hk, hfr⟩⟩
-    show lab ".Lwc_rodata.x13" + 62 = lab ".Lwc_rodata.x13" + 58 + Int64.ofNat 4
+    show lab ".Lwc_rodata.x0" + 62 = lab ".Lwc_rodata.x0" + 58 + Int64.ofNat 4
     rw [Int64.add_assoc]; rfl
   case s4 =>
-    refine seg_ndW (by simp [rpB4]) rpB4_ok hF hR hlo hhi (code_field hp hend c8 rfl) hW.s4
+    refine seg_ndW (by simp [rpB4]) rpB4_ok hF hR hlo hhi
+      (Spike.Lib.X64.code_field_blockAcrossB hp hend c8 (List.take_append_drop _ _) rfl) hW.s4
       fun σ c ⟨σ0, ⟨c0', hJp⟩, hJ, hfr⟩ => ?_
     obtain ⟨h16, h8, h0, hbp'⟩ := hfr
     obtain ⟨c', hr, hx⟩ := hedge σ0 c hJ
-      (arun lab rpB4 ⟨lab ".Lwc_rodata.x13" + 62, oR, σ⟩).σ
+      (arun lab rpB4 ⟨lab ".Lwc_rodata.x0" + 62, oR, σ⟩).σ
       (by rw [rpB4_run]; simp [Reg64s.set64, h16]) (by rw [rpB4_run]; simp [Reg64s.set64])
       (by rw [rpB4_run]; simp [Reg64s.set64]) (by rw [rpB4_run]; simp [Reg64s.set64])
       (by rw [rpB4_run]; simp [Reg64s.set64, h8]) (by rw [rpB4_run]; simp [Reg64s.set64, hbp'])
     refine ⟨c', hr, .inr ⟨(), ?_, ?_, hx⟩⟩
-    · show x.pc = (arun lab rpB4 ⟨lab ".Lwc_rodata.x13" + 62, oR, σ⟩).pc
+    · show x.pc = (arun lab rpB4 ⟨lab ".Lwc_rodata.x0" + 62, oR, σ⟩).pc
       rw [rpB4_run, hra σ0 c0' hJp, h0]
-    · show x.o.le (arun lab rpB4 ⟨lab ".Lwc_rodata.x13" + 62, oR, σ⟩).so = true
+    · show x.o.le (arun lab rpB4 ⟨lab ".Lwc_rodata.x0" + 62, oR, σ⟩).so = true
       rw [rpB4_run]; exact ho
 
 end RpFn

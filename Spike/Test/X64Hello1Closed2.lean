@@ -24,14 +24,22 @@ an extern; one kernel run of each lowering. -/
 theorem hello1_out_eq :
     Out.ofEmitted (Scc.Lower.X64.lowerAll SccCertificate.config Spike.Test.Hello1MainSrc.hello1o)
       SccCertificate.sizes SccCertificate.labelOffs = SccCertificate.out := by
-  rw [show SccCertificate.out = _ from SccCertificate.out_eq]
-  rw [show Out.ofEmitted (Scc.Lower.X64.lowerAll SccCertificate.config Spike.Test.Hello1MainSrc.hello1o)
-      SccCertificate.sizes SccCertificate.labelOffs = _ from
-    ofEmitted_of_stages SccCertificate.sizes SccCertificate.labelOffs
-      (lowered1_of_stages (fr := SccCertificate.framesLit) (r := SccCertificate.loweredLit) (by kernel_rfl)
-        (by kernel_rfl))
-      SccCertificate.emitted_eq]
-  kernel_rfl
+  -- `hello1o` lowers, at the certificate's `configW` (`config` with the ranked
+  -- witness `gwLit`), to the certificate's literals: one kernel run of each stage.
+  have hL : lowered1 SccCertificate.configW Spike.Test.Hello1MainSrc.hello1o =
+      some (SccCertificate.loweredLit.1, SccCertificate.loweredLit.2) :=
+    lowered1_of_stages (fr := SccCertificate.framesLit) (by kernel_rfl) (by kernel_rfl)
+  -- scc's run at `config` is the run at `configW` (the tables' stage at the witness succeeds).
+  have hW := Scc.Cert.OutStageWX64.lowerAll_eq_of_tables (cfg := SccCertificate.config) rfl
+    Spike.Test.Hello1MainSrc.hello1o SccCertificate.gwLit
+    (tables_of_stages hL SccCertificate.emitted_eq SccCertificate.tables_eq)
+  -- Both runs at `configW` give the same stage (the certificate's literals).
+  exact (congrArg (fun e => Out.ofEmitted e SccCertificate.sizes SccCertificate.labelOffs) hW).trans
+    ((ofEmitted_of_stages SccCertificate.sizes SccCertificate.labelOffs hL SccCertificate.emitted_eq
+      SccCertificate.tables_eq).trans
+    ((ofEmitted_of_stages SccCertificate.sizes SccCertificate.labelOffs (ir := SccCertificate.loweredLit.1)
+      (setup := SccCertificate.loweredLit.2) SccCertificate.lowered_eq SccCertificate.emitted_eq
+      SccCertificate.tables_eq).symm.trans SccCertificate.out_eqW.symm))
 
 /-- **`hello1` from the statement**: `hello1o` is `Accepted2`
 (`hello1o_accepted2`), its output is the certificate's (`hello1_out_eq`),

@@ -37,8 +37,8 @@ variable {L : RuntimeLayout}
 
 /-- `scc_rt_thread_init`'s labels at the canonical base. -/
 theorem ti_labsH (hlab : ∀ l x, codeOf lo SccCode.helloProg l = some x → L.lab l = Int64.ofNat x) :
-    (_root_.Executable.labels L.exe).label Spike.Lib.A64.Flow.Ret0.ThreadInit.fnL = Int64.ofNat 2165280 ∧
-    (_root_.Executable.labels L.exe).label Spike.Lib.A64.Flow.Ret0.ThreadInit.entryL = Int64.ofNat 2165300 := by
+    (_root_.Executable.labels L.exe).label Spike.Lib.A64.Flow.Ret0.ThreadInit.fnL = Int64.ofNat 2165284 ∧
+    (_root_.Executable.labels L.exe).label Spike.Lib.A64.Flow.Ret0.ThreadInit.entryL = Int64.ofNat 2165304 := by
   refine ⟨hlab _ _ ?_, hlab _ _ ?_⟩ <;> (rw [← codeT_eq]; decide +kernel)
 
 set_option maxHeartbeats 400000 in

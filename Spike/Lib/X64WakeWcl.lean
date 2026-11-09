@@ -3,7 +3,7 @@
 `Spike/Lib/A64WakeWcl.lean`): `HMidPA.wcl` (`H1G.wcl`) at `ofPlaceWX`'s
 layout.
 
-At `wcNS` (`.Lwc_main.x21 + 46`, `syscall`) the state's facts are
+At `wcNS` (`.Lwc_main.x3 + 46`, `syscall`) the state's facts are
 `sfacts_syscallAt` at the constant instance `own2b … 0`, moved to `ownG`
 (which is `own2b … 0` at the pc and the resumption's, `own_x21`,
 `own_res`) and then to `ownG`'s extension `ownGXW` (`Lft2` at the node,
@@ -64,18 +64,18 @@ theorem ab_res : Spike.Lib.X64.AllocG.abLabs.all (fun x => (codeLabel lo wakeCel
   decide +kernel
 
 /-- **The clone's resumption is off the write abort's pcs** at the code labels. -/
-theorem ab_off : List.elem (Int64.ofNat 4203397 + Int64.ofNat 46 + Int64.ofNat 2)
+theorem ab_off : List.elem (Int64.ofNat 4203435 + Int64.ofNat 46 + Int64.ofNat 2)
     (Spike.Lib.X64.WriteAb.abPcs (Spike.Lib.LowerX64.labC lo wakeCells)) = false := by decide +kernel
 
 /-- **`ownG` at the clone's resumption** (`.x21 + 48`) is `own2b L a 0`. -/
 theorem own_res {L : RuntimeLayout} {a : BitVec 64}
     (hlab : ∀ l x, codeLabel lo wakeCells l = some x → L.lab l = Int64.ofNat x) {s : State}
     (hs : s.st.2 = L.lab x21L + 46 + Int64.ofNat 2) : ownG L a s = own2b L a 0 := by
-  have e21 : L.lab x21L = Int64.ofNat 4203397 := lab_x21 hlab
-  have hp : pcOf s = 4203445 := by unfold pcOf; rw [hs, e21]; rfl
+  have e21 : L.lab x21L = Int64.ofNat 4203435 := lab_x21 hlab
+  have hp : pcOf s = 4203483 := by unfold pcOf; rw [hs, e21]; rfl
   obtain ⟨-, -, -, -, -, e6, e7, -, -⟩ := labs_eq hlab (L := L)
   have hg : Good2b L s := .inr (.inl (by unfold Spike.Lib.X64.WakePh.inPc; rw [e6, e7, hp]; omega))
-  rw [ownG_2b hlab hg, hp, ph2b_eq, show ph2bC 4203445 = 0 by decide +kernel]
+  rw [ownG_2b hlab hg, hp, ph2b_eq, show ph2bC 4203483 = 0 by decide +kernel]
 
 variable {pcfg : Scc.Cert.PlaceOK.Config} {o : Scc.Cert.PlaceOK.X64.Out} {Λ0 : Scc.Sem.Layout}
   (asm : Asm) (hp : PlaceWX pcfg Λ0 o) (i : CoreTerm.Expr → String → Nat → Option Nat)
@@ -124,7 +124,7 @@ theorem wcl_W1 (hpa : cellsOf asm = some o.prog) (hwp : cellsOf asm = some wakeC
   have hcode : ∀ s : State, s.exe = (Ly).exe → s.endPc = (Ly).endPc →
       CodeAt s ((Ly).lab x21L + 46) [(op64 .syscall, 2)] :=
     Scc.Cert.Rt.X64.code_field (Ly).lays rfl (Spike.Lib.X64.WakePh.WcSp4W.onProg hpL svcIn) rfl
-  have e21 : (Ly).lab x21L = Int64.ofNat 4203397 := lab_x21 hlab
+  have e21 : (Ly).lab x21L = Int64.ofNat 4203435 := lab_x21 hlab
   have hokpc : Spike.Lib.X64.WakePh.okC ((Ly).lab x21L + 46).toBitVec.toNat = true := by
     rw [e21]; decide +kernel
   have hcell : ∀ s c', At (Ly).exe (Ly).endPc R F (wcNS (Ly).lab c (t2 (Ly).lab) (kOf (Ly).lab) cA m fr) s c' →

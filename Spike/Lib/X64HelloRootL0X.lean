@@ -1,17 +1,19 @@
 /-
 **hello's root, level 0, at `ownGHXW`** (x86-64 only; the `ownGHXW` instance of `X64HelloRootUL`'s live part,
-`X64HelloLandRd`'s landing, `X64HelloLandRU.hW0_RdU` and `X64HelloCtxRdU`'s root pieces): the root's level 0
+`wc_rodata`'s counter add's tail and the level-0 `hW0`, AArch64's `A64HelloLandRU.hW0_RdU`): the root's level 0
 with main owning both TCB self words (`OX := ownGHXW Ly ntA`), at the context
 `CXU := RootUL.CtxU (LandRU.CtxRdHg … OX)`, the child's stack unmapped.
 
-The context keeps `U r1Of`, as `CtxRdU` does at `ownGH`: the counter row (`RootUL.ctrRow_ofFTU`) lands at the
+The context keeps `U r1Of`, as `LandRU.CtxRdU` does at `ownGH`: the counter row (`RootUL.ctrRow_ofFTU`) lands at the
 allocator's `c2`, and that landing is in level 1's statement (`StartH0H1.RdLandHg`) only with `r1Of` unmapped;
 `inv0Hg` does not carry it, the context does.
 
-- `takeU_Hg`, `inv0_upHg`, `hst0_UHg`: `RootUL.takeU_H`, `inv0_upH`, `hst0_UH` at an own map `own` (`W0Hg own`,
-  `inv0Hg own`, `msBotHg own`); the proofs are those, `W0`'s take and `U r1Of` not reading the own map.
-- `HLandRdUg`: `LandRd.HLandRdU` at the reference side `LandRU.refHg own`.
-- `hlandRd_UX`: `LandRd.hlandRd_U` at `OX`: `HLandRdUg OX` at `inv0Hg … OX`, given `wc_rodata`'s `hrd` at
+- `takeU_Hg`, `inv0_upHg`, `hst0_UHg`: the lifts to `RootUL.CtxU` (AArch64 `A64HelloRootUL.takeU_H`, `inv0_upH`,
+  `hst0_UH`) at an own map `own` (`W0Hg own`, `inv0Hg own`, `msBotHg own`); `W0`'s take and `U r1Of` do not read
+  the own map.
+- `HLandRdUg`: `wc_rodata`'s counter add's tail (AArch64 `A64HelloLandRd.HLandRdU`) at the reference side
+  `LandRU.refHg own`.
+- `hlandRd_UX`: `HLandRdUg OX` at `inv0Hg … OX`, given `wc_rodata`'s `hrd` at
   `msUHg OX`, level 1's `h1` at `RdLandHg OX` and `hhabctlRd` at `msBotHg OX`; the heap abort closed by
   `RdHAbX.hello_rd_hab_closedX` (so `hA13`).
 - `hlandRd_rootX`: `hlandRd_UX` at `Ctx := CtxRdHg … OX`, `hrd` by `HrdRootX.hrd_RdHX`.
@@ -23,7 +25,7 @@ allocator's `c2`, and that landing is in level 1's statement (`StartH0H1.RdLandH
 ## Differences from the AArch64 version
 
 AArch64 has no counterpart: main owns no TCB word there, so its root's level 0 is at `ownGH` only
-(`A64HelloCtxRdU`). Against x86-64 at `ownGH` (`X64HelloCtxRdU`): the memory sides own `ownGHXW`, the start's
+(`A64HelloCtxRdU`). Against x86-64 at `ownGH` (`LandRU.CtxRdU`): the memory sides own `ownGHXW`, the start's
 level is `StartWcS.WSg OX`, the heap abort's closure `hello_rd_hab_closedX` (which asks `hA13`), and `hrd` is
 `hrd_RdHX` (no `hctx`).
 -/
@@ -147,7 +149,7 @@ section Own
 
 variable (own : State → List (Loc × Val))
 
-/-- **`W0Hg own`'s outside moves keep `r1Of` unmapped** (`RootUL.takeU_H` at `own`). -/
+/-- **`W0Hg own`'s outside moves keep `r1Of` unmapped** (AArch64 `RootUL.takeU_H` at `own`). -/
 theorem takeU_Hg (E : Entry) (Dt : State → Prop) (Cx : FragS isa) (lsize : Lsize) (frM : TermRun.Frame) :
     ∀ s c fs, W0Hg (asm := asm) hpw IH own E Dt Cx lsize frM s c fs → ∀ s',
       TakeCKS (AX) (Spike.Lib.X64.HelloPh.ClH (Ly)) s s' → U (R1) s → U (R1) s' := by
@@ -172,13 +174,13 @@ variable (E : Entry) (rd : TermRun.Word → Prop) (Ctx : FragS isa) (ls : Lsize)
 set_option hygiene false in
 local notation "I0" => fun Cx => inv0Hg (asm := asm) hpw IH E rd Cx ls ls frM inv1 inv2 own
 
-/-- **`inv0Hg own` at `Ctx` with `r1Of` unmapped is at `CtxU Ctx`** (`RootUL.inv0_upH` at `own`). -/
+/-- **`inv0Hg own` at `Ctx` with `r1Of` unmapped is at `CtxU Ctx`** (AArch64 `RootUL.inv0_upH` at `own`). -/
 theorem inv0_upHg : ∀ s c fs, (I0) Ctx s c fs → U (R1) s → (I0) (CtxU hpw i0 Ctx) s c fs :=
   fun s c fs hi hu => Spike.Lib.X64GfpS.le_gfpS (segInvS_weakW
     (Spike.Lib.X64.WakePh.RootUL.SegInvS.keepUn (fun _ => rfl) Spike.Lib.X64GfpS.segInvS_gfpS
       (takeU_Hg hpw i0 own E _ _ _ _)) fun _ _ _ h => w0_mono h.1 fun hc => ⟨hc, h.2⟩) s c fs ⟨hi, hu⟩
 
-/-- **`hst0` at `CtxU Ctx` from `hst0` at `Ctx`, at `own`** (`RootUL.hst0_UH` at `own`). -/
+/-- **`hst0` at `CtxU Ctx` from `hst0` at `Ctx`, at `own`** (AArch64 `RootUL.hst0_UH` at `own`). -/
 theorem hst0_UHg (hE : E.Ok (Ly).Λ) (hA13 : Scc.Cert.Spawn.X64.a13data (Ly).Λ o.prog o.secs = true)
     (hst0 : SegWS (W0Hg (asm := asm) hpw IH own E DtW Ctx (ls0T ls) frM)
       (TakeCKS (AX) (Spike.Lib.X64.HelloPh.ClH (Ly))) helloSrc (LB)
@@ -204,7 +206,7 @@ end Own
 
 variable (E : Entry) (rd : TermRun.Word → Prop) (ls : Lsize)
 
-/-- **`wc_rodata`'s counter add's tail at an own map `own`** (`LandRd.HLandRdU` at `refHg own`): from the
+/-- **`wc_rodata`'s counter add's tail at an own map `own`** (AArch64 `A64HelloLandRd.HLandRdU`): from the
 allocator's `c2` after a counter add of `wc_rodata`'s buffer call at a memory side `ms0` that is `refHg own fs`
 but for `xa`, with `U r1Of` and `TP`, the state is in `Q` at the frames `fs`. -/
 def HLandRdUg (own : State → List (Loc × Val)) (Q : FragS isa) : Prop :=
@@ -232,7 +234,7 @@ local notation "WP" => WSg (OX) (Ly) (AR) helloSrc DtW (Spike.Lib.X64.HelloPh.Cl
   (X0WH (Ly) (AX))
 
 set_option maxHeartbeats 1600000 in
-/-- **`HLandRdUg OX` at the root's level-0 invariant `inv0Hg … OX`** (`LandRd.hlandRd_U` at `OX`): the
+/-- **`HLandRdUg OX` at the root's level-0 invariant `inv0Hg … OX`** (AArch64 `A64HelloLandRd.hlandRd_U`): the
 allocator's rest from `c2` inside `NoSetFsW` at `tpXa (msUHg OX [FR])`, resumed at `rX .abort`, the thread pointer
 kept, moved to `msBotHg OX` with `r1Of` unmapped, closed by `hello_rd_hab_closedX`. Premises: `wc_rodata`'s `hrd`
 at `msUHg OX`, level 1's `h1` at `RdLandHg OX` and `hhabctlRd` at `msBotHg OX`. -/
@@ -369,8 +371,8 @@ theorem hlandRd_UX (hpa : Scc.Sem.X64.cellsOf asm = some o.prog)
 
 /-! ## Level 1's statement at any fragment -/
 
-/-- **Level 1's entry at `own` does not read the fragment** (`RootL1F.rdLandH_xa` at `own`): `RdLandHg own` moves
-between any two fragments `I`, `I'` (only the call's `Call.OK`, carried over field by field). -/
+/-- **Level 1's entry at `own` does not read the fragment** (AArch64 `RootL1F.rdLandH_xa` at `own`): `RdLandHg own`
+moves between any two fragments `I`, `I'` (only the call's `Call.OK`, carried over field by field). -/
 theorem rdLandHg_xa {own : Spike.Lib.X64Consumer.Own} {E : Entry} {rd : TermRun.Word → Prop}
     {I I' : Spike.Lib.X64ConsumerS.InvS} {ls : Lsize} {J1 : FAS → FAS → Spike.Lib.Ctl → Prop}
     {l : WeakMem.AllocLabel} {b w : Nat} {s : State} {c : Spike.Lib.Ctl}
@@ -379,7 +381,7 @@ theorem rdLandHg_xa {own : Spike.Lib.X64Consumer.Own} {E : Entry} {rd : TermRun.
   obtain ⟨v, m0, σC, q, F', h1, h2, h3, hu, ht⟩ := h
   exact ⟨v, m0, σC, ⟨q.1, { q.2 with }⟩, F', h1, h2, h3, hu, ht⟩
 
-/-- **Level 1's statement at `RdLandHg own` is at any fragment** (`CtxRdU.h1_rdLand_xa` at `own`): `H1StmtHF` is
+/-- **Level 1's statement at `RdLandHg own` is at any fragment** (at `own`): `H1StmtHF` is
 antitone in its entry, and `rdLandHg_xa`. -/
 theorem h1_rdLandg_xa {own : Spike.Lib.X64Consumer.Own} {E : Entry} {rd : TermRun.Word → Prop}
     {I I' : Spike.Lib.X64ConsumerS.InvS} {ls : Lsize} {J1 : FAS → FAS → Spike.Lib.Ctl → Prop}
@@ -431,9 +433,9 @@ set_option hygiene false in
 /-- The root's instance data at `OX`, `Ctx := CtxU CX`, `frM := frH c0S.env`, both levels at `ls`. -/
 local notation "DX" => helloDRg (asm := asm) hpw IH (OX) E (CtxU hpw i0 (CX)) ls (FR) W1 inv1 W2 inv2
 
-/-- **`hW0` at `helloDRg … OX` with `Ctx := CtxU CX`** (`LandRU.hW0_RdU` at `OX`): the counter row by
-`RootUL.ctrRow_ofFTU`, its tail `hR` (`HLandRdUg OX` in `inv0Hg … CX … OX`) lifted by `inv0_upHg` with `U r1Of`
-kept by the add; `hnew` vacuous (the add writes the counter, `CtrF.ctrAtF_wr`). -/
+/-- **`hW0` at `helloDRg … OX` with `Ctx := CtxU CX`** (AArch64 `A64HelloLandRU.hW0_RdU`, here at `OX`): the
+counter row by `RootUL.ctrRow_ofFTU`, its tail `hR` (`HLandRdUg OX` in `inv0Hg … CX … OX`) lifted by `inv0_upHg`
+with `U r1Of` kept by the add; `hnew` vacuous (the add writes the counter, `CtrF.ctrAtF_wr`). -/
 theorem hW0_RdUX (hpa : Scc.Sem.X64.cellsOf asm = some o.prog)
     (hhp : Scc.Sem.X64.cellsOf asm = some SccCode.helloCells)
     (hR : HLandRdUg (asm := asm) hpw i0 E (fun _ => True) ls (OX)
@@ -482,7 +484,7 @@ theorem hst0_rootX (hE : E.Ok (Ly).Λ) (hpa : Scc.Sem.X64.cellsOf asm = some o.p
     (hhp : Scc.Sem.X64.cellsOf asm = some SccCode.helloCells) (hlo0 : Λ0.code.lo = lo)
     (hstat : Λ0.static = fun _ => none) (hA13 : Scc.Cert.Spawn.X64.a13data (Ly).Λ o.prog o.secs = true)
     (hc : Spike.Lib.X64.Rt.CtrZ o) (hm : (Ly).Λ.imms Spike.Lib.X64HelloRodataSrc.eB "m" 0 = some 2)
-    (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
+    (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
     {W1' : WeakMem.AllocLabel → Nat → Nat → FragS isa} {K : State → State → Prop}
     {ms1 : WeakMem.AllocLabel → Nat → Nat → List TermRun.Frame → MemSide isa}
     {I : Spike.Lib.X64ConsumerS.InvS}

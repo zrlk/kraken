@@ -3,16 +3,16 @@
 `Spike/Lib/A64WakeTcb2Call.lean`): `wc_main`'s block at `.x19`, in its
 frame (`subq $64` after `pushq %rbp`; `%rsp` at `-64`, `%rbp` at `0`),
 
-    .Lwc_main.x19:
+    .Lwc_main.x1:
       movq %rax, -24(%rbp)              -- the reserve's result
-      movq $8390915, %rdi               -- %rdi = hdr2 (n = 9, m = 2)
+      movq $8391939, %rdi               -- %rdi = hdr2 (n = 13, m = 2)
       movq $1, %rsi
       call scc_rt_alloc_tcb             -- pushes .x20 at -72
-    .Lwc_main.x20:
+    .Lwc_main.x2:
 
 at the listing level: the block, its code in `wakeCells`, its run, and the
 nodes around the call. The call's ghost record is `tcb2Q g c0 :=
-⟨g, hdr2, 80, c0⟩`, so the TCB the call returns is `pinA + 104`
+⟨g, hdr2, 112, c0⟩`, so the TCB the call returns is `pinA + 136`
 (`tcb2Q_tcbOf`).
 
 Where x86-64 differs from AArch64: the return address is not a register
@@ -56,7 +56,7 @@ abbrev oC : SO := ⟨-72, [(.rbp, 0)]⟩
 
 /-- **The second call's block** at `.x19`. -/
 def tcb2Call : List (Directive × Nat) := (parse("movq %rax, -24(%rbp)
-movq $8390915, %rdi
+movq $8391939, %rdi
 movq $1, %rsi
 call scc_rt_alloc_tcb")).zip [4, 7, 7, 5]
 
@@ -64,7 +64,7 @@ block_spec tcb2Call (-72) 16 oW tcb2Call
 
 /-- **The block's code in `wakeCells`**: at `.x19`, `.x20` right after. -/
 def tcb2CallIn (cells : List (Directive × Nat)) : Bool :=
-  blockAtB cells ".Lwc_main.x19" 0 tcb2Call && labelGapB cells ".Lwc_main.x19" ".Lwc_main.x20" 23
+  blockAtB cells ".Lwc_main.x1" 0 tcb2Call && labelGapB cells ".Lwc_main.x1" ".Lwc_main.x2" 23
 
 theorem wake_tcb2CallIn : tcb2CallIn wakeCells = true := by decide +kernel
 
@@ -102,8 +102,8 @@ end Run
 theorem tcb2Call_ra {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe] {kp : Nat}
     (hp : Lays exe wakeCells kp) (σ : AS) :
     (arun (_root_.Executable.labels exe).label tcb2Call
-        ⟨(_root_.Executable.labels exe).label ".Lwc_main.x19", oW, σ⟩).σ.slot (-72) =
-      ((_root_.Executable.labels exe).label ".Lwc_main.x20").toBitVec := by
+        ⟨(_root_.Executable.labels exe).label ".Lwc_main.x1", oW, σ⟩).σ.slot (-72) =
+      ((_root_.Executable.labels exe).label ".Lwc_main.x2").toBitVec := by
   have hin := wake_tcb2CallIn
   simp only [tcb2CallIn, Bool.and_eq_true] at hin
   rw [label_labelGapB hp hin.2, (tcb2Call_keep _ _ _).2.2, Int64.toBitVec_add]
@@ -112,18 +112,18 @@ theorem tcb2Call_ra {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe
 /-! ## The call's ghost record and the nodes -/
 
 /-- **The second call's ghost record**: the header `hdr2`, the counter's
-old value `80` (the first TCB's eighty bytes). -/
-def tcb2Q (g : Flow.Ret0.AllocTcb.G) (c0 : Ctl) : TcbGG := ⟨g, hdr2, 80#64, c0⟩
+old value `112` (the first TCB's 112 bytes). -/
+def tcb2Q (g : Flow.Ret0.AllocTcb.G) (c0 : Ctl) : TcbGG := ⟨g, hdr2, 112#64, c0⟩
 
-/-- `tcb2Q`'s header word: `pinned + 96`. -/
+/-- `tcb2Q`'s header word: `pinned + 128`. -/
 theorem tcb2Q_hdrA (lab : Label → Int64) (g : Flow.Ret0.AllocTcb.G) (c0 : Ctl) :
-    hdrA lab (tcb2Q g c0) = Flow.Ret0.pinA lab + 96#64 := by
-  show Flow.Ret0.pinA lab + 80#64 + mOf hdr2 <<< 3 = _
+    hdrA lab (tcb2Q g c0) = Flow.Ret0.pinA lab + 128#64 := by
+  show Flow.Ret0.pinA lab + 112#64 + mOf hdr2 <<< 3 = _
   rw [mOf_hdr2, BitVec.add_assoc]; rfl
 
-/-- **`tcb2Q`'s TCB**: `pinned + 104`. -/
+/-- **`tcb2Q`'s TCB**: `pinned + 136`. -/
 theorem tcb2Q_tcbOf (lab : Label → Int64) (g : Flow.Ret0.AllocTcb.G) (c0 : Ctl) :
-    tcbOf lab (tcb2Q g c0) = Flow.Ret0.pinA lab + 104#64 := by
+    tcbOf lab (tcb2Q g c0) = Flow.Ret0.pinA lab + 136#64 := by
   show hdrA lab (tcb2Q g c0) + 8#64 = _
   rw [tcb2Q_hdrA, BitVec.add_assoc]; rfl
 
@@ -133,16 +133,16 @@ variable (lab : Label → Int64)
 
 /-- **At `.x19`**, in `wc_main`'s frame, the source control `c0` and any
 invariant `J` of the state. -/
-def wcN3 (J : AS → Prop) (c0 : Ctl) : ND := ⟨lab ".Lwc_main.x19", oW, fun σ c => c = c0 ∧ J σ⟩
+def wcN3 (J : AS → Prop) (c0 : Ctl) : ND := ⟨lab ".Lwc_main.x1", oW, fun σ c => c = c0 ∧ J σ⟩
 
 /-- **The call node**: at `scc_rt_alloc_tcb`'s label, its arguments `hdr2`
 and `1`, the return address `.x20` pushed at `-72`. -/
 def wcNC (c0 : Ctl) : ND := ⟨lab Flow.Ret0.AllocTcb.fnL, oC, fun σ c => c = c0 ∧
   σ.regs.rdi.toBitVec = hdr2 ∧ σ.regs.rsi.toBitVec = 1#64 ∧
-  σ.slot (-72) = (lab ".Lwc_main.x20").toBitVec⟩
+  σ.slot (-72) = (lab ".Lwc_main.x2").toBitVec⟩
 
 /-- **Back at `.x20`**: `%rax` the TCB of `tcb2Q g c0`. -/
-def wcN4 (g : Flow.Ret0.AllocTcb.G) (c0 : Ctl) : ND := ⟨lab ".Lwc_main.x20", oW, fun σ c => c = c0 ∧
+def wcN4 (g : Flow.Ret0.AllocTcb.G) (c0 : Ctl) : ND := ⟨lab ".Lwc_main.x2", oW, fun σ c => c = c0 ∧
   σ.regs.rax.toBitVec = tcbOf lab (tcb2Q g c0)⟩
 
 end Nodes

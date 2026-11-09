@@ -16,6 +16,7 @@ The limit's offset and `wc_main`'s frame are checked against the thread
 control block's layout and the placement data (`#guard`).
 -/
 import Spike.Lib.A64CodeSegs
+import Spike.Lib.A64CodeAcross
 import Spike.Lib.A64Ret0Rows
 import Spike.Lib.A64Ret0Place
 
@@ -23,7 +24,7 @@ namespace Spike.Lib.A64.Flow
 
 open CoreLang CoreTerm
 open Kraken Kraken.AArch64.Parser Kraken.Promising Kraken.Promising.AArch64 Kraken.Promising.Lower.A64
-open Scc.Cert.Rt.A64 (Lays endOf blockAt)
+open Scc.Cert.Rt.A64 (Lays endOf blockAt labelGap blockAcross label_labelGap)
 
 set_option linter.unusedSimpArgs false
 
@@ -219,9 +220,11 @@ ret") := by decide
 theorem wcRet_ok : okBlk (-32) 0 ⟨-32, []⟩ wcRet = true := by decide
 
 
-/-- **`wc_main`'s body in `prog`**: the add at `.0_entry`, the return after it. -/
+/-- **`wc_main`'s body in `prog`**: the add at `.0_entry`, the return after it (at the label `.x0` that
+follows the checked add, across the return label `.x1` just before `ret`). -/
 def wcBodyIn (prog : List Directive) : Bool :=
-  blockAt prog ".L18_wc_main.0_entry" 0 wcAdd && blockAt prog ".L18_wc_main.0_entry" 4 wcRet
+  blockAt prog ".L18_wc_main.0_entry" 0 wcAdd && labelGap prog ".L18_wc_main.0_entry" ".L18_wc_main.x0" 4 &&
+    blockAcross prog ".L18_wc_main.x0" 0 (wcRet.take 5) ".L18_wc_main.x1" (wcRet.drop 5)
 
 /-- The body's check on `ret0Prog`. -/
 theorem ret0_wcBodyIn : wcBodyIn SccCode.ret0Prog = true := by decide +kernel
@@ -287,13 +290,14 @@ theorem ret0_wc_body_segW {W : Frag isaLSE2} {K : State → State → Prop}
       SegW W K p lbl ms P (At exe endPc R F n) := fun h =>
     h.mono_post fun _ _ h => h.elim (fun ⟨_, h⟩ => h) fun ⟨e, _⟩ => e.elim
   refine SegW.seq (Q := At exe endPc R F n4) ?_ ?_
-  · refine one (seg_ndW (by simp [wcAdd]) wcAdd_ok hF hR hal hlo hhi (code_of hp hend hin.1 (ofNat4_zero _))
+  · refine one (seg_ndW (by simp [wcAdd]) wcAdd_ok hF hR hal hlo hhi (code_of hp hend hin.1.1 (ofNat4_zero _))
       hW.w0 fun σ c hJ => ⟨c, .refl c, .inl ⟨(), ?_, ?_, σ, hJ, ?_⟩⟩)
     · rw [wcAdd_run]
     · rw [wcAdd_run]; rfl
     · rw [wcAdd_run]; exact ⟨rfl, rfl⟩
   · refine one (seg_ndW (n := n4) (by simp [wcRet]) wcRet_ok hF hR hal hlo hhi
-      (code_of hp hend hin.2 (by simp only [ofNat4_succ, ofNat4_zero]; rfl)) hW.w1
+      (Spike.Lib.A64.code_field_blockAcross hp hend hin.2 (List.take_append_drop _ _)
+        (by rw [ofNat4_zero, label_labelGap hp hin.1.2]; simp only [ofNat4_succ, ofNat4_zero]; rfl)) hW.w1
       fun σ c ⟨σ0, hJ, hs, h9⟩ => ⟨c, .refl c, .inl ⟨(), ?_⟩⟩)
     rw [show wcRet = spStr .X9 0 :: retBlk 32 [.slot 0] from rfl, arun_cons]
     rw [show n4.o = ⟨-32, []⟩ from rfl, dstep_spStr0]

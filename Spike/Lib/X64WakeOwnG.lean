@@ -107,11 +107,11 @@ def ownG (L : RuntimeLayout) (a : BitVec 64) (s : State) : List (Loc × Val) :=
     if spPool L s then own2a L a (ph2a (pcOf s)) else ownW L a (phW (pcOf s))
   else if inPc L "scc_rt_thread_init" "scc_rt_stack_release" s then
     if spPool L s then own2b L a (ph2b (pcOf s)) else ownW L a (phW (pcOf s))
-  else if inPc L ".Lwc_main.x20" ".Lwc_main.x21" s then own2a L a (ph2a (pcOf s))
-  else if inPc L ".Lwc_main.x21" ".Lwc_main.stk" s then own2b L a (ph2b (pcOf s))
+  else if inPc L ".Lwc_main.x2" ".Lwc_main.x3" s then own2a L a (ph2a (pcOf s))
+  else if inPc L ".Lwc_main.x3" ".Lwc_main.stk" s then own2b L a (ph2b (pcOf s))
   else if inPc L "scc_rt_abort" "scc_rt_thr_worker" s then
-    if raAt L ".Lscc_rt_alloc_tcb.x5" s ∧ spPool L s then own2a L a (ph2a (pcOf s))
-    else if raAt L ".Lwc_main.x23" s then own2b L a (ph2b (pcOf s))
+    if raAt L ".Lscc_rt_alloc_tcb.x0" s ∧ spPool L s then own2a L a (ph2a (pcOf s))
+    else if raAt L ".Lwc_main.x5" s then own2b L a (ph2b (pcOf s))
     else ownW L a (phW (pcOf s))
   else ownW L a (phW (pcOf s))
 

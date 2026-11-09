@@ -43,7 +43,7 @@ open Spike.Lib.A64.Flow.Ret0.Inst (μ0 labT mainBody mainEnv exitEnv start_step 
 open Spike.Lib.A64.Flow.Ret0.Mem (ret0Exe ret0End)
 open Spike.Lib.A64.Flow.Ret0.Correct (ret0MS)
 open Spike.Lib.Ret0Src (ret0Src ret0Body)
-open Scc.Cert.Rt.A64 (Lays endOf blockAt)
+open Scc.Cert.Rt.A64 (Lays endOf blockAt labelGap blockAcross label_labelGap)
 open SccCode (ret0Λ ret0Prog ret0Secs)
 
 set_option linter.unusedSimpArgs false
@@ -57,8 +57,9 @@ def movz41 : Directive :=
 /-- `movz41` is the parser's form of the text. -/
 example : parseAArch64("movz x9, #41") = [movz41] := by decide
 
-/-- The index of `wc_main`'s `movz x9, #40` in `ret0Prog`, right after `.L18_wc_main.0_entry`. -/
-def wcIdx : Nat := 1281
+/-- The index of `wc_main`'s `movz x9, #40` in `ret0Prog`, right after `.L18_wc_main.0_entry`
+(computed from the program, so it follows a regenerated fixture). -/
+def wcIdx : Nat := ((Scc.Cert.Rt.A64.labelIdx ret0Prog ".L18_wc_main.0_entry").getD 0) + 1
 
 #guard ret0Prog[wcIdx - 1]? == some (.label ".L18_wc_main.0_entry")
 #guard ret0Prog[wcIdx]? == (parseAArch64("movz x9, #40")).head?
@@ -75,7 +76,7 @@ def corruptProg : Program := ret0Prog.set wcIdx movz41
 /-- The canonical loader's checks pass on the corrupted program. -/
 theorem corrupt_load : loadOk ret0Λ corruptProg ret0Secs = true := by decide +kernel
 
-/-- info: "out=\"\" events=[exit 43] stop=exited steps=294 poolMsgs=0" -/
+/-- info: "out=\"\" events=[exit 43] stop=exited steps=295 poolMsgs=0" -/
 #guard_msgs in
 #eval match TPar.load (corruptProg, ret0Secs) ret0Λ with
   | some c =>
@@ -180,9 +181,20 @@ b.hs .L18_wc_main.abort_overflow")
 
 block_spec wcAdd41 (-32) 0 (⟨-32, []⟩ : SO) wcAdd41
 
-/-- **`wc_main`'s body in `prog`** with `wcAdd41`. -/
+/-- **`wc_main`'s body in `prog`** with `wcAdd41`: `wcBodyIn` with `wcAdd41` for `wcAdd`
+(the return at `.x0`, across the return label `.x1`). -/
 def corruptBodyIn (prog : List Directive) : Bool :=
-  blockAt prog ".L18_wc_main.0_entry" 0 wcAdd41 && blockAt prog ".L18_wc_main.0_entry" 4 wcRet
+  blockAt prog ".L18_wc_main.0_entry" 0 wcAdd41 && labelGap prog ".L18_wc_main.0_entry" ".L18_wc_main.x0" 4 &&
+    blockAcross prog ".L18_wc_main.x0" 0 (wcRet.take 5) ".L18_wc_main.x1" (wcRet.drop 5)
+
+-- The corruption bites at the add and only there: on `ret0Prog` the positive check holds and
+-- the corrupted one fails at its first conjunct (`wcAdd41`), its other two holding; on
+-- `corruptProg` the positive check fails at `wcAdd`.
+#guard wcBodyIn ret0Prog
+#guard !blockAt ret0Prog ".L18_wc_main.0_entry" 0 wcAdd41 &&
+  labelGap ret0Prog ".L18_wc_main.0_entry" ".L18_wc_main.x0" 4 &&
+  blockAcross ret0Prog ".L18_wc_main.x0" 0 (wcRet.take 5) ".L18_wc_main.x1" (wcRet.drop 5)
+#guard !blockAt corruptProg ".L18_wc_main.0_entry" 0 wcAdd && !wcBodyIn corruptProg
 
 /-- The body's check on `corruptProg`. -/
 theorem corrupt_bodyIn : corruptBodyIn corruptProg = true := by decide +kernel
@@ -210,13 +222,14 @@ theorem corrupt_wc_body_seg (hp : Lays exe corruptProg) (hend : endPc = endOf ex
   let n4 : ND := ⟨lab ".L18_wc_main.0_entry" + 4 + 4 + 4 + 4, ⟨-32, []⟩, fun σ c => ∃ σ0, J σ0 c ∧
     σ.slot = σ0.slot ∧ σ.regs.X9.toBitVec = 43#64⟩
   refine Seg.seq (Q := At exe endPc R F n4) ?_ ?_
-  · refine seg_one (seg_nd (by simp [wcAdd41]) wcAdd41_ok hF hR hal hlo hhi (code_of hp hend hin.1 (ofNat4_zero _))
+  · refine seg_one (seg_nd (by simp [wcAdd41]) wcAdd41_ok hF hR hal hlo hhi (code_of hp hend hin.1.1 (ofNat4_zero _))
       fun σ c hJ => ⟨c, .refl c, .inl ⟨(), ?_, ?_, σ, hJ, ?_⟩⟩)
     · rw [wcAdd41_run]
     · rw [wcAdd41_run]; rfl
     · rw [wcAdd41_run]; exact ⟨rfl, rfl⟩
   · refine seg_one (seg_nd (n := n4) (by simp [wcRet]) wcRet_ok hF hR hal hlo hhi
-      (code_of hp hend hin.2 (by simp only [ofNat4_succ, ofNat4_zero]; rfl))
+      (Spike.Lib.A64.code_field_blockAcross hp hend hin.2 (List.take_append_drop _ _)
+        (by rw [ofNat4_zero, label_labelGap hp hin.1.2]; simp only [ofNat4_succ, ofNat4_zero]; rfl))
       fun σ c ⟨σ0, hJ, hs, h9⟩ => ⟨c, .refl c, .inl ⟨(), ?_⟩⟩)
     rw [show wcRet = spStr .X9 0 :: retBlk 32 [.slot 0] from rfl, arun_cons]
     rw [show n4.o = ⟨-32, []⟩ from rfl, dstep_spStr0]

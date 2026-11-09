@@ -45,11 +45,11 @@ theorem labs_eqH (hlab : ∀ l x, codeLabel lo helloCells l = some x → L.lab l
     (L.lab "scc_rt_thread_reserve").toBitVec.toNat = 4199484 ∧
     (L.lab "scc_rt_thread_init").toBitVec.toNat = 4199582 ∧
     (L.lab "scc_rt_stack_release").toBitVec.toNat = 4200327 ∧
-    (L.lab ".Lwc_main.x24").toBitVec.toNat = 4203749 ∧
-    (L.lab ".Lwc_main.x25").toBitVec.toNat = 4203774 ∧
-    (L.lab ".Lwc_main.stk").toBitVec.toNat = 4203948 ∧
-    (L.lab "scc_rt_abort").toBitVec.toNat = 4202486 ∧
-    (L.lab "scc_rt_thr_worker").toBitVec.toNat = 4202972 := by
+    (L.lab ".Lwc_main.x2").toBitVec.toNat = 4203787 ∧
+    (L.lab ".Lwc_main.x3").toBitVec.toNat = 4203812 ∧
+    (L.lab ".Lwc_main.stk").toBitVec.toNat = 4203986 ∧
+    (L.lab "scc_rt_abort").toBitVec.toNat = 4202524 ∧
+    (L.lab "scc_rt_thr_worker").toBitVec.toNat = 4203010 := by
   refine ⟨labN hlab ?_ (by decide), labN hlab ?_ (by decide), labN hlab ?_ (by decide), labN hlab ?_ (by decide),
     labN hlab ?_ (by decide), labN hlab ?_ (by decide), labN hlab ?_ (by decide), labN hlab ?_ (by decide),
     labN hlab ?_ (by decide)⟩ <;> (rw [← codeT_eq]; decide +kernel)
@@ -59,8 +59,8 @@ theorem labs_eqH (hlab : ∀ l x, codeLabel lo helloCells l = some x → L.lab l
 `scc_rt_alloc_tcb`'s abort on a pool stack. -/
 def Good2aH (L : RuntimeLayout) (s : State) : Prop :=
   (inPc L "scc_rt_alloc_tcb" "scc_rt_thread_reserve" s ∧ spPool L s) ∨
-    inPc L ".Lwc_main.x24" ".Lwc_main.x25" s ∨
-    (inPc L "scc_rt_abort" "scc_rt_thr_worker" s ∧ raAt L ".Lscc_rt_alloc_tcb.x6" s ∧ spPool L s)
+    inPc L ".Lwc_main.x2" ".Lwc_main.x3" s ∨
+    (inPc L "scc_rt_abort" "scc_rt_thr_worker" s ∧ raAt L ".Lscc_rt_alloc_tcb.x0" s ∧ spPool L s)
 
 /-- **Where `ownGH` picks `own2bH`**: `scc_rt_thread_init` and
 `scc_rt_stack_take` on a pool stack, `wc_main` from `.x25` to `.stk`, the
@@ -68,9 +68,9 @@ abort path from `wc_main`'s spawn failure, off `scc_rt_alloc_tcb`'s abort on
 a pool stack. -/
 def Good2bH (L : RuntimeLayout) (s : State) : Prop :=
   (inPc L "scc_rt_thread_init" "scc_rt_stack_release" s ∧ spPool L s) ∨
-    inPc L ".Lwc_main.x25" ".Lwc_main.stk" s ∨
-    (inPc L "scc_rt_abort" "scc_rt_thr_worker" s ∧ raAt L ".Lwc_main.x27" s ∧
-      ¬ (raAt L ".Lscc_rt_alloc_tcb.x6" s ∧ spPool L s))
+    inPc L ".Lwc_main.x3" ".Lwc_main.stk" s ∨
+    (inPc L "scc_rt_abort" "scc_rt_thr_worker" s ∧ raAt L ".Lwc_main.x5" s ∧
+      ¬ (raAt L ".Lscc_rt_alloc_tcb.x0" s ∧ spPool L s))
 
 /-- **Where `ownGH` picks `ownH`**: the runtime calls off a pool stack, the
 abort path from neither of the second instances' callers, every pc off
@@ -78,10 +78,10 @@ abort path from neither of the second instances' callers, every pc off
 def GoodWH (L : RuntimeLayout) (s : State) : Prop :=
   ((inPc L "scc_rt_alloc_tcb" "scc_rt_thread_reserve" s ∨ inPc L "scc_rt_thread_init" "scc_rt_stack_release" s) ∧
       ¬ spPool L s) ∨
-    (inPc L "scc_rt_abort" "scc_rt_thr_worker" s ∧ ¬ (raAt L ".Lscc_rt_alloc_tcb.x6" s ∧ spPool L s) ∧
-      ¬ raAt L ".Lwc_main.x27" s) ∨
+    (inPc L "scc_rt_abort" "scc_rt_thr_worker" s ∧ ¬ (raAt L ".Lscc_rt_alloc_tcb.x0" s ∧ spPool L s) ∧
+      ¬ raAt L ".Lwc_main.x5" s) ∨
     (¬ inPc L "scc_rt_alloc_tcb" "scc_rt_thread_reserve" s ∧ ¬ inPc L "scc_rt_thread_init" "scc_rt_stack_release" s ∧
-      ¬ inPc L ".Lwc_main.x24" ".Lwc_main.stk" s ∧ ¬ inPc L "scc_rt_abort" "scc_rt_thr_worker" s)
+      ¬ inPc L ".Lwc_main.x2" ".Lwc_main.stk" s ∧ ¬ inPc L "scc_rt_abort" "scc_rt_thr_worker" s)
 
 /-- **`ownGH` is `own2aH`** where it picks it. -/
 theorem ownGH_2a (hlab : ∀ l x, codeLabel lo helloCells l = some x → L.lab l = Int64.ofNat x) (h : Good2aH L s) :

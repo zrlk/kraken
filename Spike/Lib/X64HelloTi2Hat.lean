@@ -1,7 +1,7 @@
 /-
 **`HMidPAH.ti`'s discharger** (x86-64; the twin of `Spike/Lib/A64HelloTi2Hat.lean`, and the hello twin of
 `Spike/Lib/X64WakeTi2Hat.lean`): hello's second `scc_rt_thread_init` call, from `wc_main` on the second TCB `tH`
-returning to `.Lwc_main.x25`, is a segment inside the level and its fence `(W ∧ X) ∧ NoSetFsAt` under the take of
+returning to `.Lwc_main.x3`, is a segment inside the level and its fence `(W ∧ X) ∧ NoSetFsAt` under the take of
 the second stack or a `clone` refusal (`TakeCK site r1Of Cl`), at `tpXa (ms []) tp`, its post the stack `r1Of` in
 private memory.
 
@@ -81,6 +81,13 @@ set_option hygiene false in
 local macro "tn " H:term:max : tactic =>
   `(tactic| exact nodeA hp hend hi $H (by first | rfl | exact ofNat_zero' _) (by decide) (by decide))
 
+set_option hygiene false in
+/-- A block node at its `blockAcrossB` check `H` (a block split by a return label, one segment). -/
+local macro "tbx " H:term:max : tactic =>
+  `(tactic| exact Spike.Lib.X64.Rt.StartU.blkW_wmono (fun _ _ h => ⟨h.1, h.2.1⟩) (hi.noSetFs
+    (Spike.Lib.X64.code_field_blockAcrossB hp hend $H (List.take_append_drop _ _)
+      (by first | rfl | exact ofNat_zero' _)) (by decide)))
+
 set_option maxHeartbeats 1600000 in
 /-- **`scc_rt_thread_init` at the return point `xr` is inside `W ∧ NoSetFsAt`, the take site under `F ∧ P`**
 (wake's `Ti2.tiWAtP_nm` at `.x7`): its blocks and stores by `blkA`/`nodeA` from `threadInitInAt … xr`, the
@@ -118,7 +125,7 @@ theorem tiWAtP_nmAt {xr : Label} (hp : Lays exe cells kp) (hend : endPc = endOf 
   case st4 => tn s4
   case f5 => tb t7
   case st5 => tn s5
-  case ret => tb t8
+  case ret => tbx t8
 
 end NoSetFs
 
@@ -150,8 +157,8 @@ theorem site_ne_clonePcH {L : RuntimeLayout}
     (L.lab siteL).toBitVec.toNat ≠ clonePcH L := by
   obtain ⟨-, -, -, -, -, -, -, -, -, eSite, -, -⟩ := Spike.Lib.X64.HelloPh.StartTi.take_labsH hlab (L := L)
   obtain ⟨-, -, -, -, -, h25, -, -, -⟩ := Spike.Lib.X64.HelloPh.labs_eqH hlab (L := L)
-  have e : clonePcH L = (L.lab ".Lwc_main.x25").toBitVec.toNat + 94 := by
-    show ((L.lab ".Lwc_main.x25").toBitVec + 94#64).toNat = _
+  have e : clonePcH L = (L.lab ".Lwc_main.x3").toBitVec.toNat + 94 := by
+    show ((L.lab ".Lwc_main.x3").toBitVec + 94#64).toNat = _
     rw [BitVec.toNat_add, h25]; rfl
   have es : L.lab siteL = Int64.ofNat 4200314 := eSite
   rw [e, h25, es]; decide
@@ -231,7 +238,7 @@ theorem hti_H {L : RuntimeLayout} {W X : FragS isa} {ms : List TermRun.Frame →
   have hti : Ret0.ThreadInit.threadInitInAt L.prog Spike.Lib.X64.Rt.x8L = true :=
     hp ▸ Spike.Lib.X64.HelloPh.hello_tiIn
   -- the return address `.x25`, from the caller's node
-  have hra : g.ra = (L.lab ".Lwc_main.x25").toBitVec := by
+  have hra : g.ra = (L.lab ".Lwc_main.x3").toBitVec := by
     obtain ⟨σC, c, hw, -, -, -, hx, -⟩ := hpre
     exact hx.symm.trans hw.2.2.1
   -- the take's frame and `r1Of`'s stability
@@ -277,7 +284,7 @@ theorem hti_H {L : RuntimeLayout} {W X : FragS isa} {ms : List TermRun.Frame →
         h4.1 h4.2) s hpc hr hm hP.1 ⟨hP.2, h3⟩)
   -- lifted to `WSHX` (`ti2LH` at the worker's TCB word), then to `NoSetFsAt`
   have htcb : (tiQ (tH L.lab) c0 g).tcb = Spike.Lib.X64HelloOwnLift.tcbWH L := by
-    show Ret0.pinA L.lab + 112#64 = L.pinA + 112#64; rw [L.lab_pin]
+    show Ret0.pinA L.lab + 144#64 = L.pinA + 144#64; rw [L.lab_pin]
   have hL := Spike.Lib.X64.HelloPh.OwnTi2.ti2LH (L := L) (a := a) (ar := ar) (p := p) (Dt := Dt) (Cl := Cw)
     (Ctx := Ctx) (lbl := lbl) (lsize := lsize) (frM := frM c0) (X0 := X0TH L (L.lab siteL))
     (M := StackM (r1Of L.lab)) hp hlab hsite hs.tcb (hs.tcb_a 1 (by decide)) hW

@@ -2,7 +2,7 @@
 **hello.w on x86-64: main after a refused `clone`** (the spawn's refusal
 half, the x86-64 twin of `Spike/Lib/A64HelloSpawnFail.lean`; the parent half
 is `Spike/Lib/X64HelloParent.lean`): back from main's `clone`
-(`Hello.ThreadsAb.cloneAt`, `.Lwc_main.x25 + 94`) with a refusal in `%rax`
+(`Hello.ThreadsAb.cloneAt`, `.Lwc_main.x3 + 94`) with a refusal in `%rax`
 (`ThreadsAb.CloneRef`: `-EAGAIN` or `-ENOMEM`), main runs
 
     testq %rax, %rax                    -- row (test_ndW): ZF clear
@@ -91,9 +91,9 @@ def fN : FN → ND
 
 /-- The nodes' pcs are the threads abort phase's (`Hello.ThreadsAb`'s at hello's
 spawn): the test is `pcRet`, the `je` `pcJe`, `.x26` `pcSt`. -/
-example : (fN lab cP cA m .ts).pc = Spike.Lib.X64.Hello.ThreadsAb.pcRet lab ".Lwc_main" ".x25" 94 ∧
-    (fN lab cP cA m .je).pc = Spike.Lib.X64.Hello.ThreadsAb.pcJe lab ".Lwc_main" ".x25" 94 ∧
-    (fN lab cP cA m .x26).pc = Spike.Lib.X64.Hello.ThreadsAb.pcSt lab ".Lwc_main" ".x26" := by
+example : (fN lab cP cA m .ts).pc = Spike.Lib.X64.Hello.ThreadsAb.pcRet lab ".Lwc_main" ".x3" 94 ∧
+    (fN lab cP cA m .je).pc = Spike.Lib.X64.Hello.ThreadsAb.pcJe lab ".Lwc_main" ".x3" 94 ∧
+    (fN lab cP cA m .x26).pc = Spike.Lib.X64.Hello.ThreadsAb.pcSt lab ".Lwc_main" ".x4" := by
   refine ⟨?_, ?_, rfl⟩ <;> simp only [fN, Spike.Lib.X64.Hello.ThreadsAb.pcRet,
     Spike.Lib.X64.Hello.ThreadsAb.pcJe, Spike.Lib.X64.Hello.ThreadsAb.cloneAt, Int64.add_assoc] <;> rfl
 

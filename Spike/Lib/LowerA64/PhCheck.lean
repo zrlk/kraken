@@ -12,8 +12,9 @@ program at A6's tables (`phOf`, `okPcOf`) and the program's code labels
   `abort_overflow`: its call target `scc_rt_abort` in its phase);
 - the body's phase check (`bodyPhOk`, `Spike/Lib/LowerA64/BodyW.lean`,
   written out here: `fnPh1`'s last conjunct is `bodyPhOk` by `rfl`) at the
-  return address after `scc_rt_main`'s `bl` (`.L1_scc_rt_main.0_entry`
-  plus 4, `raC`);
+  return address after `scc_rt_main`'s first `bl` (`raL`,
+  `.L1_scc_rt_main.0_entry`, plus 4: the user `main`'s on a bare tail, the
+  setup block's after one; A11 checks it as `bareMC.sp0`, `(setupMC sw).sp0`);
 - every label the checks read resolves (`res`: the function's, its check's
   and its body's labels and every branch or call target of the blocks,
   `blkLabs`), so that `labC` is the loader's label on them.
@@ -119,14 +120,18 @@ resolve; `fnPhOk` then fails on every label it reads). -/
 def labC (lo : Nat) (prog : Program) (l : String) : Int64 :=
   Int64.ofNat ((codeOf lo prog l).getD 0)
 
-/-- The label of `scc_rt_main`'s body, whose first instruction is the `bl`
-of the user `main`. -/
+/-- The label of `scc_rt_main`'s body, whose first instruction is its first
+`bl`: of the user `main` on a bare tail (`Spike.Lib.A64.Rt.bareMC.e0`), of the
+setup block after one (`(Spike.Lib.A64.Rt.setupMC sw).e0`), whose return
+label `.sp1` has the phase of `raL` plus 4 (`Spike/Lib/LowerA64/RaMain2.lean`).
+A11 checks the label one instruction after it (`sp0`) at both
+(`Spike/Test/LowerA64PhCheck.lean` pins them to `raL`). -/
 def raL : String := ".L1_scc_rt_main.0_entry"
 
 /-- **A9's phase part**: at A6's phase table and sites of the program at
 `lo` (`false` if either is missing) and its code labels, every
 `func0`-shaped function's phase facts, the return address after
-`scc_rt_main`'s `bl` (`raL` plus 4). -/
+`scc_rt_main`'s first `bl` (`raL` plus 4). -/
 def fnPhOk (lo : Nat) (Λ : Scc.Sem.Layout) (prog : Program) (ir : Scc.IR.Program) : Bool :=
   match Scc.Cert.Rt.A64.phTabOf lo prog, Scc.Cert.Rt.A64.sitesOf lo prog Λ with
   | some T, some ss =>

@@ -5,11 +5,14 @@ words resolved.
 A data section of an assembly text (`.data`, `.rodata`) is a list of
 `DataImage.Item`s: labels, literal bytes (`.byte`, `.ascii`, `.asciz`), zero
 fill (`.zero`, `.skip`), 8-byte words (`.quad v`), label-valued 8-byte words
-(`.quad L`) and alignment (`.balign n`, `.p2align k` as `.align (2 ^ k)`).
+(`.quad L`), label-difference 8-byte words (`.quad A - B`, `.quad A - .`) and
+alignment (`.balign n`, `.p2align k` as `.align (2 ^ k)`).
 Laid out from a base address, every item takes `size` bytes (an alignment
 pads to the next multiple of `n` of the absolute address), every label names
 the address of the item after it, and `image res base items` is the section's
-bytes, little-endian, a `.quad L` being the bytes of `res L`. The resolution
+bytes, little-endian, a `.quad L` being the bytes of `res L`, a `.quad A - B`
+those of `res A - res B` and a `.quad A - .` those of `res A` minus the word's
+own address (modulo `2 ^ 64`: position-independent words). The resolution
 `res` is a parameter: `resolve code base items` takes a data label to its
 address in the section (`dataLabel`) and any other label to `code L`, the
 address of a code label in the program's layout (the ISA files give it from
@@ -23,12 +26,14 @@ Lemmas, the data analogue of `codeAt`:
   image of the items from `n`;
 - `loadBytes_dataMem_item`: in `dataMem`, the bytes at item `n`'s address are
   that item's bytes; `loadInt_quadLabel` / `ofInt_load_quadLabel`: a
-  `.quad L` reads back `res L`, `loadInt_quad` a `.quad v`;
+  `.quad L` reads back `res L`, `loadInt_quad` a `.quad v`,
+  `loadInt_quadDiff` / `ofInt_load_quadDiff` a `.quad A - B` or `.quad A - .`
+  the difference;
 - `dataLabel_addrAt`, `resolve_data`, `resolve_code`: a data label resolves
   to the address of its first occurrence, any other label through `code`;
 - `image_congr`, `image_resolve_congr`: the image depends on the resolution
-  only at the labels its `.quad`s name, so on the code only through those
-  labels' addresses.
+  only at the labels its `.quad`s name (both of a difference), so on the code
+  only through those labels' addresses.
 -/
 import Kraken.Mem
 
@@ -49,6 +54,10 @@ inductive Item
   /-- Zero padding to the next multiple of `n` (`.balign n`; `.p2align k` is
   `.align (2 ^ k)`); no padding for `n = 0`. -/
   | align (n : Nat)
+  /-- The 8-byte difference of two addresses: label `a` minus label `b`
+  (`.quad a - b`, `b = some b`) or minus the word's own address (`.quad a - .`,
+  `b = none`), modulo `2 ^ 64`. -/
+  | quadDiff (a : String) (b : Option String)
   deriving Repr, DecidableEq
 
 /-- The padding from `cur` to the next multiple of `n`. -/
@@ -62,6 +71,7 @@ def size (cur : Nat) : Item → Nat
   | .quad _ => 8
   | .quadLabel _ => 8
   | .align n => padTo cur n
+  | .quadDiff _ _ => 8
 
 /-- The address of item `n` of `items` laid out from `cur` (the end address
 for `n` at or past the length). -/
@@ -92,6 +102,12 @@ def resolve (code : String → BitVec 64) (base : Nat) (items : List Item) (l : 
   | some a => BitVec.ofNat 64 a
   | none => code l
 
+/-- The value of a difference word at address `cur`: `res a` minus `res b`, or
+minus `cur` for `b = none` (the word's own address). -/
+def diffVal (res : String → BitVec 64) (cur : Nat) (a : String) : Option String → Int
+  | some b => (res a).toInt - (res b).toInt
+  | none => (res a).toInt - cur
+
 /-- The bytes of an item at address `cur`, label-valued words through `res`. -/
 def bytesOf (res : String → BitVec 64) (cur : Nat) : Item → List UInt8
   | .label _ => []
@@ -100,6 +116,7 @@ def bytesOf (res : String → BitVec 64) (cur : Nat) : Item → List UInt8
   | .quad v => Int.toBytes 8 v
   | .quadLabel l => Int.toBytes 8 (res l).toInt
   | .align n => List.replicate (padTo cur n) 0
+  | .quadDiff a b => Int.toBytes 8 (diffVal res cur a b)
 
 /-- **The image of a data section** laid out from `cur`: the items' bytes in
 order. -/
@@ -111,10 +128,12 @@ def image (res : String → BitVec 64) : Nat → List Item → List UInt8
 def dataMem (m : Mem 64) (base : Nat) (img : List UInt8) : Mem 64 :=
   m.storeBytes (BitVec.ofNat 64 base) img
 
-/-- The labels the `.quad`s of `items` name. -/
+/-- The labels the `.quad`s of `items` name (both of a difference). -/
 def quadLabels : List Item → List String
   | [] => []
   | .quadLabel l :: is => l :: quadLabels is
+  | .quadDiff a (some b) :: is => a :: b :: quadLabels is
+  | .quadDiff a none :: is => a :: quadLabels is
   | _ :: is => quadLabels is
 
 theorem bytesOf_length (res : String → BitVec 64) (cur : Nat) (i : Item) :
@@ -247,6 +266,28 @@ theorem loadInt_quad (res : String → BitVec 64) (m : Mem 64) (base : Nat) (ite
   rw [Mem.loadInt, this]
   rfl
 
+/-- **A `.quad A - B` or `.quad A - .` word in memory** holds the bytes of the
+difference (`diffVal`, at the word's own address). -/
+theorem loadInt_quadDiff (res : String → BitVec 64) (m : Mem 64) (base : Nat) (items : List Item)
+    (hfit : endAddr base items ≤ 2 ^ 64) {n : Nat} {a : String} {b : Option String}
+    (hn : items[n]? = some (.quadDiff a b)) :
+    (dataMem m base (image res base items)).loadInt (BitVec.ofNat 64 (addrAt base items n)) 8
+      = some (Int.ofBytes (Int.toBytes 8 (diffVal res (addrAt base items n) a b))) := by
+  have := loadBytes_dataMem_item res m base items hfit hn
+  simp only [size, bytesOf] at this
+  rw [Mem.loadInt, this]
+  rfl
+
+/-- **A difference word read as a 64-bit value is the difference** modulo
+`2 ^ 64`. -/
+theorem ofInt_load_quadDiff (res : String → BitVec 64) (m : Mem 64) (base : Nat) (items : List Item)
+    (hfit : endAddr base items ≤ 2 ^ 64) {n : Nat} {a : String} {b : Option String}
+    (hn : items[n]? = some (.quadDiff a b)) :
+    ((dataMem m base (image res base items)).loadInt (BitVec.ofNat 64 (addrAt base items n)) 8).map
+      (BitVec.ofInt 64) = some (BitVec.ofInt 64 (diffVal res (addrAt base items n) a b)) := by
+  rw [loadInt_quadDiff res m base items hfit hn, Option.map_some,
+    BitVec.ofInt_ofBytes_toBytes_eq 64 8 rfl]
+
 /-! ### Labels -/
 
 private theorem lookup_labelsFrom_label :
@@ -306,6 +347,14 @@ theorem image_congr {res res' : String → BitVec 64} :
     | zero _ => simp [image, bytesOf, ih (by simpa [quadLabels] using h)]
     | quad _ => simp [image, bytesOf, ih (by simpa [quadLabels] using h)]
     | align _ => simp [image, bytesOf, ih (by simpa [quadLabels] using h)]
+    | quadDiff a b =>
+      cases b with
+      | some b =>
+        simp only [quadLabels, List.mem_cons, forall_eq_or_imp] at h
+        simp [image, bytesOf, diffVal, h.1, h.2.1, ih h.2.2]
+      | none =>
+        simp only [quadLabels, List.mem_cons, forall_eq_or_imp] at h
+        simp [image, bytesOf, diffVal, h.1, ih h.2]
 
 /-- **Two code layouts that agree on the labels the section's `.quad`s name
 give the same image**: the image does not see the code otherwise. -/

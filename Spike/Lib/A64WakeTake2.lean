@@ -133,9 +133,9 @@ theorem own2b_mod16 (L : RuntimeLayout) (a : BitVec 64) (i : Nat) : own2b L a (i
 `bl scc_rt_thread_init` (`ph2a`, the second instance) at the callee's entry
 (`ph2b`, this one) the lists agree. -/
 theorem own2a_own2b_ph (L : RuntimeLayout) (a : BitVec 64) :
-    own2a L a (ph2a 2169288) = own2b L a (ph2b 2165244) := by
-  have h1 : ph2a 2169288 = 0 := by rw [ph2a_eq]; unfold ph2aC; rw [threadInit2_ph.1]
-  have h2 : ph2b 2165244 = 12 := by rw [ph2b_eq]; unfold ph2bC; rw [threadInit2_ph.2.2]
+    own2a L a (ph2a 2169320) = own2b L a (ph2b 2165248) := by
+  have h1 : ph2a 2169320 = 0 := by rw [ph2a_eq]; unfold ph2aC; rw [threadInit2_ph.1]
+  have h2 : ph2b 2165248 = 12 := by rw [ph2b_eq]; unfold ph2bC; rw [threadInit2_ph.2.2]
   rw [h1, h2]; unfold own2a own2b ownV; simp
 
 /-- **The instance's facts of the second `scc_rt_thread_init` call**:
@@ -228,7 +228,7 @@ theorem takePh2b {L : RuntimeLayout} (hp : L.prog = wakeProg) (hlo : L.Λ.code.l
       L.lab Spike.Lib.A64.Flow.Ret0.ThreadInit.spL = L.lab r := fun _ h => nomatch h
   have hlk : Spike.Lib.A64.Flow.Ret0.lockA L.lab = L.lockA := L.lab_lock
   have hnx : Spike.Lib.A64.Flow.Ret0.nextA L.lab = L.nextA := L.lab_next
-  have hsite : (L.lab siteL).toBitVec.toNat = 2165940 :=
+  have hsite : (L.lab siteL).toBitVec.toNat = 2165944 :=
     pcAt0_eq hlab (by unfold Scc.Cert.Rt.A64.pcAt; rw [← codeT_eq]; decide +kernel)
   have hs12 := ph_of_factOk hlab (hf (.ph Spike.Lib.A64.Rt.Code.Take.spinL 2 12) (by simp [take2Tab]))
   have hs14 := ph_of_factOk hlab (hf (.ph Spike.Lib.A64.Rt.Code.Take.spinL 3 14) (by simp [take2Tab]))
@@ -364,7 +364,7 @@ theorem takePh2b {L : RuntimeLayout} (hp : L.prog = wakeProg) (hlo : L.Λ.code.l
         Ne.symm c4, Ne.symm c5, Ne.symm c6, c7, c8, Ne.symm c7, Ne.symm c8]
       rfl
     siteRel := fun a ha => by
-      have e : (Spike.Lib.A64.PhRec.μ L).site .release = some 2165996 := by
+      have e : (Spike.Lib.A64.PhRec.μ L).site .release = some 2166000 := by
         show codeOf L.Λ.code.lo L.prog "scc_rt_release_site" = _; rw [hp, hlo, ← codeT_eq]; decide +kernel
       rw [e] at ha; cases ha; rw [hsite]; decide
     siteAb := fun k a ha => by

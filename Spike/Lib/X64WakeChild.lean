@@ -1,7 +1,7 @@
 /-
 **wake.w on x86-64: the child after its `clone`** (the spawn's child half,
 the twin of `Spike/Lib/A64WakeChild.lean`'s stub): past the clone's
-`syscall` (`X64WakeClone.wcNS`, `.Lwc_main.x21 + 46`), the child is the
+`syscall` (`X64WakeClone.wcNS`, `.Lwc_main.x3 + 46`), the child is the
 parent's registers with `%rax = 0`, `%rsp` the handed stack's top and
 `fsBase` the TLS (`Spike.Lib.X64Handover.child_st`): `%r12` and `%rbx` still
 hold the worker's two words (the `syscall` writes `%rax`, `%rcx`, `%r11`

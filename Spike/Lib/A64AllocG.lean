@@ -101,6 +101,28 @@ theorem blkW_noWr {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph
   obtain ⟨m', hex, -⟩ := Spike.Lib.A64.Flow.exec_ai haok hR hal hlo hhi hc hreg hA'
   exact noWr_done hex
 
+/-- **A covered block split by a return label writes nothing** (`m`, after
+its first `j` instructions; `blockAcross`): as `blkW_noWr`. -/
+theorem blkW_noWrA {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp) {n : ND}
+    {blk : List Directive} {lo hi : Int} {l m : Label} {k j : Nat}
+    (hb : Scc.Cert.Rt.A64.blockAcross prog l k (blk.take j) m (blk.drop j) = true)
+    (he : lab l + Int64.ofNat (4 * k) = n.pc)
+    (hok : Spike.Lib.A64.Flow.okBlk lo hi n.o blk = true)
+    (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ lo) (hhi : hi ≤ R.hi) :
+    BlkW (fun s _ => ∀ L, ¬ WrAt s L) (fun _ _ => False) exe endPc R F n blk := by
+  have hcode := Spike.Lib.A64.code_field_blockAcross hI.lays hI.endOk hb (List.take_append_drop j blk)
+    (q := n.pc) (by rw [hI.labOk]; exact he)
+  intro s σ c he hn _ _ _ _ _ k hk m hA' _
+  refine ⟨?_, fun _ h => h⟩
+  obtain ⟨a, hca, haok, -⟩ := Spike.Lib.A64.Flow.okBlk_get (_root_.Executable.labels exe).label
+    (am := ⟨n.pc, n.o, σ⟩) hok hk
+  obtain ⟨hdir, hreg⟩ := Spike.Lib.A64.Flow.classify_sound hca
+  have hd : blk[k]? = some blk[k] := List.getElem?_eq_getElem hk
+  have hc : CellAt { s with st := (m, n.pc + Int64.ofNat (4 * k)) } a.toDir 4 :=
+    (hcode s he hn).cell (j := k) (hdir ▸ hd) rfl rfl rfl
+  obtain ⟨m', hex, -⟩ := Spike.Lib.A64.Flow.exec_ai haok hR hal hlo hhi hc hreg hA'
+  exact noWr_done hex
+
 /-- **A single instruction without an event** (`SI`) writes nothing. -/
 theorem nodeW_noWr_si {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp) {n : ND}
     {si : Spike.Lib.A64.Flow.SI} {l : Label} {k : Nat} {p : Int64} (hb : blockAt prog l k [si.toDir] = true)
@@ -158,7 +180,9 @@ section Code
 open Spike.Lib.A64.Alloc
 
 /-- **`allocIn`'s facts**: every block and single instruction of
-`scc_rt_alloc` at its label and offset, and the prologue's fall-through. -/
+`scc_rt_alloc` at its label and offset (the `ret` at the return label
+`allocRetL`, 54 instructions after `.5_ok`), and the prologue's
+fall-through. -/
 theorem allocIn_spec {prog : List Directive} (h : Spike.Lib.A64.Flow.allocIn prog = true) :
     blockAt prog "scc_rt_alloc" 0 b0 = true ∧
     blockAt prog ".L2_scc_rt_alloc.0_entry" 0 b1 = true ∧
@@ -178,7 +202,8 @@ theorem allocIn_spec {prog : List Directive} (h : Spike.Lib.A64.Flow.allocIn pro
     blockAt prog ".L2_scc_rt_alloc.5_ok" 10 b12 = true ∧
     blockAt prog ".L2_scc_rt_alloc.5_ok" 41 [iHdr] = true ∧
     blockAt prog ".L2_scc_rt_alloc.5_ok" 42 b13 = true ∧
-    blockAt prog ".L2_scc_rt_alloc.5_ok" 54 [iRet.toDir] = true ∧
+    (Scc.Cert.Rt.A64.labelGap prog ".L2_scc_rt_alloc.5_ok" Spike.Lib.A64.Flow.allocRetL 54 = true ∧
+      blockAt prog Spike.Lib.A64.Flow.allocRetL 0 [iRet.toDir] = true) ∧
     Scc.Cert.Rt.A64.labelGap prog "scc_rt_alloc" ".L2_scc_rt_alloc.0_entry" 7 = true := by
   simpa only [Spike.Lib.A64.Flow.allocIn, Bool.and_eq_true, and_assoc] using h
 
@@ -304,8 +329,9 @@ theorem allocArena (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
       rw [hdr_addr hq' hle hn28 h10, Spike.Lib.A64.Alloc.Call.hdrAt, ← hheap, ← hoff, hq'.off]
       omega
   · nab h17 b13_ok C
-  · exact NodeW.imp (Spike.Lib.LowerA64.BlkW.nodeW (blkW_noWr hI (blk := [iRet.toDir]) (lo := -160) (hi := 0) h18
-      (by pc_tac) (by dsimp only [N]; decide) hR hal (by omega) (by omega)) (List.cons_ne_nil _ _))
+  · exact NodeW.imp (Spike.Lib.LowerA64.BlkW.nodeW (blkW_noWr hI (blk := [iRet.toDir]) (lo := -160) (hi := 0) h18.2
+      (by rw [← hI.labOk, Scc.Cert.Rt.A64.label_labelGap hI.lays h18.1]; pc_tac) (by dsimp only [N]; decide) hR hal
+      (by omega) (by omega)) (List.cons_ne_nil _ _))
       Spike.Lib.A64.Flow.NodeW.triv C
 
 /-- **`scc_rt_alloc`'s states write the counter only in `Ctx`**, for a
@@ -356,8 +382,9 @@ theorem allocCtr (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
         simp only [Arena.ctrLoc, BitVec.toNat_ofNat]; exact Nat.mod_eq_of_lt h64
       omega
   · nab h17 b13_ok C
-  · exact NodeW.imp (Spike.Lib.LowerA64.BlkW.nodeW (blkW_noWr hI (blk := [iRet.toDir]) (lo := -160) (hi := 0) h18
-      (by pc_tac) (by dsimp only [N]; decide) hR hal (by omega) (by omega)) (List.cons_ne_nil _ _))
+  · exact NodeW.imp (Spike.Lib.LowerA64.BlkW.nodeW (blkW_noWr hI (blk := [iRet.toDir]) (lo := -160) (hi := 0) h18.2
+      (by rw [← hI.labOk, Scc.Cert.Rt.A64.label_labelGap hI.lays h18.1]; pc_tac) (by dsimp only [N]; decide) hR hal
+      (by omega) (by omega)) (List.cons_ne_nil _ _))
       Spike.Lib.A64.Flow.NodeW.triv C
 
 end Alloc

@@ -3,21 +3,21 @@
 in any valid layout of `helloCells`, in `wc_main`'s frame of 128 (`oWH`): wake's `X64WakeTcb2Call`,
 `X64WakeWcSp3Seg`, `X64WakeWcSp4` and `X64WakeWcSp4Seg` (up to the call's return) at hello's listing:
 
-    .Lwc_main.x23:                      -- %rax = the reserve's id 1
+    .Lwc_main.x1:                      -- %rax = the reserve's id 1
       movq %rax, -56(%rbp)
-      movq $12585987, %rdi              -- %rdi = hdrH (n = 12, m = 3)
+      movq $12587011, %rdi              -- %rdi = hdrH (n = 16, m = 3)
       movq $1, %rsi
       call scc_rt_alloc_tcb             -- (tcb2CallH), .x24 pushed at -136; the callee (allocTcbG_segWA)
-    .Lwc_main.x24:                      -- %rax = the TCB t = pinA + 112
+    .Lwc_main.x2:                      -- %rax = the TCB t = pinA + 144
       movq %rax, -64(%rbp); movq -64(%rbp), %rcx; movq -56(%rbp), %rax   (sp4AH)
       movq %rax, 56(%rcx)               -- row: the TCB's tid word (rtst_ndW)
       movq -64(%rbp), %rdi; call scc_rt_thread_init                     (initCallH), the callee `hti`
-    .Lwc_main.x25:                      -- `wcN6H` (X64HelloWcSp6) at the stack top `kOf lab`
+    .Lwc_main.x3:                      -- `wcN6H` (X64HelloWcSp6) at the stack top `kOf lab`
 
 The frame's words `FrWH sl me cA fr` (the five spills, the cell at `-48`, the caller's `%rbp` and return address
 at `0`, `8`) survive both calls (above the callees' regions). The call's ghost record is
-`tcb2QH g c0 := ⟨g, hdrH, 80, c0⟩`: the counter's old value `80` is `scc_rt_start`'s first TCB, so the TCB is
-`pinA + 112` (`tcb2QH_tcbOf`). `scc_rt_thread_init` at the second take returns wake's `kOf lab`.
+`tcb2QH g c0 := ⟨g, hdrH, 112, c0⟩`: the counter's old value `112` is `scc_rt_start`'s first TCB, so the TCB is
+`pinA + 144` (`tcb2QH_tcbOf`). `scc_rt_thread_init` at the second take returns wake's `kOf lab`.
 
 - `oCH`, `tcb2CallH`, `sp4AH`, `initCallH` (`block_spec`); `x23L`, `x24L`; `wcSp3InH`, `hello_wcSp3InH`,
   `hello_allocTcbIn`: the blocks, the row and the labels' gaps in `helloCells`.
@@ -69,14 +69,14 @@ set_option linter.unusedSimpArgs false
 abbrev oCH : SO := ⟨-136, [(.rbp, 0)]⟩
 
 /-- The label of `.x23`. -/
-abbrev x23L : Label := ".Lwc_main.x23"
+abbrev x23L : Label := ".Lwc_main.x1"
 
 /-- The label of `.x24`. -/
-abbrev x24L : Label := ".Lwc_main.x24"
+abbrev x24L : Label := ".Lwc_main.x2"
 
 /-- **The second call's block** at `.x23`. -/
 def tcb2CallH : List (Directive × Nat) := (parse("movq %rax, -56(%rbp)
-movq $12585987, %rdi
+movq $12587011, %rdi
 movq $1, %rsi
 call scc_rt_alloc_tcb")).zip [4, 7, 7, 5]
 
@@ -110,8 +110,8 @@ section Run
 
 variable (lab : Label → Int64) (pc : Int64) (σ : AS)
 
-/-- The run's `%rdi` is the header `12585987`. -/
-theorem tcb2CallH_rdi : (arun lab tcb2CallH ⟨pc, oWH, σ⟩).σ.regs.rdi.toBitVec = 12585987#64 := by
+/-- The run's `%rdi` is the header `12587011`. -/
+theorem tcb2CallH_rdi : (arun lab tcb2CallH ⟨pc, oWH, σ⟩).σ.regs.rdi.toBitVec = 12587011#64 := by
   rw [tcb2CallH_run]; rfl
 
 /-- The run's `%rsi` is `1`. -/
@@ -148,24 +148,24 @@ theorem tcb2CallH_ra {exe : _root_.Executable} [Kraken.Executable.ValidLayout ex
 /-! ## The header, the ghost record, the TCB -/
 
 /-- **The second TCB's header** (`n = 12`, `m = 3`; `X64HelloOwn2.hdr2H`). -/
-abbrev hdrH : BitVec 64 := 12585987#64
+abbrev hdrH : BitVec 64 := 12587011#64
 
 theorem mOf_hdrH : mOf hdrH <<< 3 = 24#64 := by decide
 
-/-- **The second call's ghost record**: the header `hdrH`, the counter's old value `80` (the first TCB's eighty
+/-- **The second call's ghost record**: the header `hdrH`, the counter's old value `112` (the first TCB's 112
 bytes). -/
-def tcb2QH (g : Ret0.AllocTcb.G) (c0 : Ctl) : TcbGG := ⟨g, hdrH, 80#64, c0⟩
+def tcb2QH (g : Ret0.AllocTcb.G) (c0 : Ctl) : TcbGG := ⟨g, hdrH, 112#64, c0⟩
 
-/-- `tcb2QH`'s header word: `pinned + 104`. -/
+/-- `tcb2QH`'s header word: `pinned + 136`. -/
 theorem tcb2QH_hdrA (lab : Label → Int64) (g : Ret0.AllocTcb.G) (c0 : Ctl) :
-    hdrA lab (tcb2QH g c0) = Ret0.pinA lab + 104#64 := by
-  show Ret0.pinA lab + 80#64 + mOf hdrH <<< 3 = _
+    hdrA lab (tcb2QH g c0) = Ret0.pinA lab + 136#64 := by
+  show Ret0.pinA lab + 112#64 + mOf hdrH <<< 3 = _
   rw [mOf_hdrH, BitVec.add_assoc]; rfl
 
-/-- The second TCB: `pinA + 112`. -/
-abbrev tH (lab : Label → Int64) : BitVec 64 := Ret0.pinA lab + 112#64
+/-- The second TCB: `pinA + 144`. -/
+abbrev tH (lab : Label → Int64) : BitVec 64 := Ret0.pinA lab + 144#64
 
-/-- **`tcb2QH`'s TCB**: `pinned + 112`. -/
+/-- **`tcb2QH`'s TCB**: `pinned + 144`. -/
 theorem tcb2QH_tcbOf (lab : Label → Int64) (g : Ret0.AllocTcb.G) (c0 : Ctl) :
     tcbOf lab (tcb2QH g c0) = tH lab := by
   show hdrA lab (tcb2QH g c0) + 8#64 = _
@@ -359,7 +359,7 @@ theorem hello_wc_sp3_segW {W : Frag isa} {K : State → State → Prop}
           change (tcb2QH g c0).g.ra = _
           rw [← hra, ← h136]; rfl
         exact (allocTcbG_segWA hp hend hello_allocTcbIn hF' hR' hlo' hhi' hFF (tcb2QH g c0)
-          (by show (80#64 : BitVec 64).toNat + (Ret0.AllocTcb.lenOf hdrH).toNat ≤ 131072; decide)
+          (by show (112#64 : BitVec 64).toNat + (Ret0.AllocTcb.lenOf hdrH).toNat ≤ 131072; decide)
           (hhdr g) ((htcb g).mono hFF)
           fun i => tcbWG_mono (hW.tcb g hr i) fun m h => ⟨hFF m h, hcc m h, hkeep m h⟩).mono_post
           fun _ _ ⟨x, h⟩ => ⟨x, h, trivial⟩)

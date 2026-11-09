@@ -16,7 +16,7 @@ runtime word off the arena (`CalWf.off_of`).
 Hello's copies (they read hello's labels):
 
 - `x0WH_ti`: `X0WH` across `scc_rt_thread_init … scc_rt_stack_release`, off
-  the take site below hello's clone (`.Lwc_main.x25 + 94`); at the site the
+  the take site below hello's clone (`.Lwc_main.x3 + 94`); at the site the
   range `rS0`, not yet in private memory (`Pz.pz_not_stackM`).
 - `tcb_rtWordH`: a word of the first TCB is a runtime word.
 - `htiWH_place`: `htiW` in `hello_start_wc_place`'s shape.
@@ -34,7 +34,7 @@ Left: `hro`, `hC0`, `hc0`, `hpl0`, `hA13` (as at wake).
   `-48 - 0` (AArch64's `(entryR E).callee oI.sp (-256) 0`).
 - `x0WH_ti`'s site case is stated at `rS0 Ly` and any frame `F` (`startTi_WSPH`'s
   `hXs`); AArch64's at `r0Of` (`RootP.r0Of_rS0` relates them). The clone is the
-  `syscall` at `.Lwc_main.x25 + 94` (AArch64's `svc` at `.L22_wc_main.sp6 + 100`).
+  `syscall` at `.Lwc_main.x3 + 94` (AArch64's `svc` at `.L22_wc_main.sp6 + 100`).
 - The arena's offsets come from `CalWf.off_of` and `ctrSep_of_rtWordsOk` at
   `PlaceWX` (AArch64's `StartH0Ti.offW_arW`).
 -/
@@ -81,14 +81,14 @@ theorem x0WH_ti {L : RuntimeLayout} {ax : Int64}
   simp only [Bool.and_eq_true, decide_eq_true_eq] at hc
   obtain ⟨⟨hs, hb⟩, -⟩ := hc
   obtain ⟨y, hy⟩ := Option.isSome_iff_exists.mp hs
-  have ey : cvH ".Lwc_main.x25" = y := by simp [cvH, hy]
+  have ey : cvH ".Lwc_main.x3" = y := by simp [cvH, hy]
   have e : Spike.Lib.X64HelloPreA.clonePcH L = y + 94 := by
     rw [ey] at hb
-    show (L.lab ".Lwc_main.x25" + 94).toBitVec.toNat = y + 94
+    show (L.lab ".Lwc_main.x3" + 94).toBitVec.toNat = y + 94
     rw [hlab _ y hy]
     show (BitVec.ofNat 64 y + BitVec.ofNat 64 94).toNat = y + 94
     rw [BitVec.toNat_add, BitVec.toNat_ofNat, BitVec.toNat_ofNat]; omega
-  have hd : decide (cvH "scc_rt_stack_release" ≤ cvH ".Lwc_main.x25") = true := by
+  have hd : decide (cvH "scc_rt_stack_release" ≤ cvH ".Lwc_main.x3") = true := by
     unfold cvH; rw [← codeT_eq]; decide +kernel
   simp only [decide_eq_true_eq] at hd
   rw [ey] at hd

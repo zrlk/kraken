@@ -613,7 +613,7 @@ end Disp
 
 namespace MainTail
 
-/-! After `wc_main` returns (`.Lscc_rt_main.x3`, its result `ret` in `%rax`),
+/-! After `wc_main` returns (`.Lscc_rt_main.x1`, its result `ret` in `%rax`),
 `scc_rt_main` stores it, calls `exit_group(ret)` and ends in a dead `ud2`.
 The rest of `scc_rt_main` (the stack check and the calls) is left to the
 call composition. -/
@@ -637,8 +637,8 @@ variable (lab : Label → Int64) (c0 : Ctl) (ret : BitVec 64)
 
 /-- **The nodes**: `ret` in `%rax`, then `exit_group(ret)`. -/
 def MN.nd : MN → ND
-  | .x3 => ⟨lab ".Lscc_rt_main.x3", oM, fun σ c => c = c0 ∧ σ.regs.get64 .rax = ret⟩
-  | .ex => ⟨lab ".Lscc_rt_main.x3" + 13, oM,
+  | .x3 => ⟨lab ".Lscc_rt_main.x1", oM, fun σ c => c = c0 ∧ σ.regs.get64 .rax = ret⟩
+  | .ex => ⟨lab ".Lscc_rt_main.x1" + 13, oM,
       fun σ c => c = c0 ∧ σ.regs.get64 .rax = 231 ∧ σ.regs.get64 .rdi = ret⟩
 
 /-- **The code.** -/

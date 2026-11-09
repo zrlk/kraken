@@ -1,7 +1,7 @@
 /-
 **`wc_waitLoop` inside a state predicate `W`, at any return label** (x64):
 `Spike/Lib/X64WaitLoopW.lean` with the label after the park call (`xl`, wake.w's
-`.Lwc_waitLoop.x16`) a parameter, over `X64WaitLoopX`'s nodes `NX xl` and check `waitInX xl`.
+`.Lwc_waitLoop.x1`) a parameter, over `X64WaitLoopX`'s nodes `NX xl` and check `waitInX xl`.
 
 - `x16NX xl`: the `xl` node with `%rbp`'s offset (`X64WaitLoopW.x16N` at `xl`).
 - `LoopWX xl`: the per-node obligations (`LoopW` at `xl`).
@@ -11,7 +11,7 @@ Every proof step is `X64WaitLoopW`'s.
 
 Unlike AArch64 (`Spike/Lib/A64WaitLoopW.lean`, generic in the label prefix `pfx`), only the one
 numbered label the loop names is a parameter: scc numbers x86-64 local labels per program
-(hello.w's is `.Lwc_waitLoop.x20`).
+(hello.w's is `.Lwc_waitLoop.x1`).
 -/
 import Spike.Lib.X64WaitLoopW
 import Spike.Lib.X64WaitLoopX
@@ -21,7 +21,7 @@ namespace Spike.Lib.X64.WaitLoopX
 open CoreLang CoreTerm
 open Kraken Kraken.Promising Kraken.Promising.X64 Kraken.Promising.Lower Kraken.Promising.Lower.X64
 open Kraken.X64.Parser Spike.Lib.X64 Spike.Lib.X64.Flow
-open Scc.Cert.Rt.X64 (Lays endOf blockAtB labelGapB code_field label_labelGapB)
+open Scc.Cert.Rt.X64 (Lays endOf blockAtB labelGapB code_field label_labelGapB blockAcrossB)
 open Spike.Lib.X64.Flow.Ret0 (LimOk StOk LdOk seg_oneW)
 open Scc.Sem (ValRep)
 open Spike.Lib.X64.WaitLoop
@@ -67,6 +67,14 @@ field; the edge is left. -/
 local macro "nodeLW " b:ident ok:ident hc:ident f:ident : tactic =>
   `(tactic| refine seg_fixLW () (SegLW.ofSegW (seg_ndW (by simp [$b:ident]) $ok hF hR hlo hhi
     (code_field hp hend $hc (by first | rfl | exact ofNat_zero' _)) hLW.$f fun σ c hJ => ⟨c, .refl c, ?_⟩)))
+
+set_option hygiene false in
+/-- `nodeLW` for a block split by a return label after its first `n` rows
+(`blockAcrossB`, `Spike.Lib.X64.code_field_blockAcrossB`). -/
+local macro "nodeLWX " b:ident ok:ident hc:ident f:ident : tactic =>
+  `(tactic| refine seg_fixLW () (SegLW.ofSegW (seg_ndW (by simp [$b:ident]) $ok hF hR hlo hhi
+    (Spike.Lib.X64.code_field_blockAcrossB hp hend $hc (List.take_append_drop _ _)
+      (by first | rfl | exact ofNat_zero' _)) hLW.$f fun σ c hJ => ⟨c, .refl c, ?_⟩)))
 
 /-- Hitting node `j`. -/
 local macro "hit " j:term : tactic =>
@@ -140,7 +148,7 @@ theorem seg_waitLoopWX (hp : Lays exe cells kp) (hend : endPc = endOf exe cells 
       hit PN.n6
   case n6 => nodeLW b6 b6_ok h6 n6; rw [NX, b6_run]; hit PN.else2
   case then1 =>
-    nodeLW b7 b7_ok h7 then1; rw [NX, b7_run]
+    nodeLWX b7 b7_ok h7 then1; rw [NX, b7_run]
     obtain ⟨⟨⟨h8', h0, h16⟩, htp, hbp⟩, hP, h24⟩ := hJ
     refine .inr ⟨PX.ret, ?_, rfl, hP, ?_, ?_, ?_, ?_, h16, h24⟩
     · simp [E, h0]

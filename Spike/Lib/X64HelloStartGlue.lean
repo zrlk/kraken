@@ -23,7 +23,7 @@ the pieces that are fixed to hello's program:
 ## Differences from the AArch64 version
 
 The clone's pc is x86-64's `X64HelloPreA.clonePcH` (the `syscall` at
-`.Lwc_main.x25 + 94`), and a free pc is off it by
+`.Lwc_main.x3 + 94`), and a free pc is off it by
 `X64HelloWcClonePc.ne_clonePc_of_freeNH` (AArch64: `A64HelloWcPreWI`'s);
 code labels are read by `codeLabel lo helloCells` (AArch64's
 `codeOf lo helloProg`). AArch64's `StartEW.toF` (adding `Fw`) has no use

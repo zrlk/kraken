@@ -11,13 +11,12 @@ twin of `Spike/Lib/Rt/A64RtCodeSetup.lean`.
   the runtime's start before `scc_rt_main` read only these.
 - `scc_rt_main`'s own check needs the tail: at a bare one
   `rtCodeOk_bare_of_placeOKAt` (`RtCodeIn.main`).
-- `scc_rt_thread_init`'s needs it too, unlike on AArch64: x86-64 numbers
-  the `.x` labels with one counter over the program, so after a setup
-  block its return point is `.x8`, not the `.x7` the hand check
-  (`Ret0.ThreadInit.threadInitIn`) and its phase record (`TiPh`) name. At a
-  bare tail `RtCodeIn.ti` gives it; at either tail
-  `threadInitInAt_of_placeOKAt` gives `Ret0.ThreadInit.threadInitInAt` at
-  the tail's return point (`tiOf`: `.x7` or `.x8`), and
+- `scc_rt_thread_init`'s is read at the tail's return point too. With the
+  emitter's per-function `.x` labels that point is `.x0` on either tail
+  (`x8L`, the name kept from the program-wide counter, under which a setup
+  block moved it to `.x8`). At a bare tail `RtCodeIn.ti` gives it; at
+  either tail `threadInitInAt_of_placeOKAt` gives
+  `Ret0.ThreadInit.threadInitInAt` at the tail's return point (`tiOf`), and
   `rtCodeTi_of_placeOKAt` `RtCodeIn0` with it (`RtCodeInTi`).
 -/
 import Spike.Lib.Rt.X64RtCode
@@ -90,13 +89,14 @@ theorem threadInitInAt_of_okS {sc : SetupCode} (h : rtCodeOkS cells sc = true) :
   exact threadInitInAt_of (tiGrpsAt_eq sc.ti ▸ h)
 
 /-- `scc_rt_thread_init`'s return point after a setup block (`SetupCode.ti`
-of `setupMC`, whatever the width). -/
-abbrev x8L : Label := ".Lscc_rt_thread_init.x8"
+of `setupMC`, whatever the width): `.x0` under per-function labels, as
+after a bare `scc_rt_main` (the name is the program-wide counter's `.x8`). -/
+abbrev x8L : Label := ".Lscc_rt_thread_init.x0"
 
 theorem setupMC_ti (sw : Nat) : (setupMC sw).ti = x8L := rfl
 
 /-- **`scc_rt_thread_init`'s code from A11 at a `.setup` tail**, its return
-point at `.x8`. -/
+point at `x8L`. -/
 theorem threadInitInAt_of_setupOk {lo : Nat} {Λ : Scc.Sem.Layout} (h : setupOk cells lo Λ = true) :
     Ret0.ThreadInit.threadInitInAt cells x8L = true := by
   obtain ⟨sw, -, h⟩ := List.any_eq_true.mp h
@@ -105,9 +105,9 @@ theorem threadInitInAt_of_setupOk {lo : Nat} {Λ : Scc.Sem.Layout} (h : setupOk 
 end Of
 
 /-- **The runtime's code checks but `scc_rt_main`'s, `scc_rt_thread_init`'s
-with its return point at `x`**: `RtCodeIn0` and `threadInitInAt` (`.x7`
-after a bare `scc_rt_main`, where it is `RtCodeIn.ti`; `.x8` after a setup
-block). -/
+with its return point at `x`**: `RtCodeIn0` and `threadInitInAt` (`x7L`
+after a bare `scc_rt_main`, where it is `RtCodeIn.ti`; `x8L` after a setup
+block; both `.x0`). -/
 structure RtCodeInTi (cells : List (Directive × Nat)) (x : Label) : Prop extends RtCodeIn0 cells where
   ti : Ret0.ThreadInit.threadInitInAt cells x = true
 
@@ -122,8 +122,8 @@ theorem rtCodeInTi_of_okS {cells : List (Directive × Nat)} {sc : SetupCode} (h 
   { rtCodeIn0_of_okS h with ti := threadInitInAt_of_okS h }
 
 /-- **`scc_rt_thread_init`'s return point** at the shape of `scc_rt_main`'s
-tail: `.x7` after a bare `scc_rt_main`, `.x8` after a setup block (the
-emitter's one counter of `.x` labels, `Scc.Emit.X64.freshL`). -/
+tail: `x7L` after a bare `scc_rt_main`, `x8L` after a setup block (both
+`.x0` under the emitter's per-function `.x` labels, `Scc.Emit.X64.freshL`). -/
 def tiOf : Scc.Cert.PlaceOK.X64.MainShape → Label
   | .bare => Code.Ti.x7L
   | .setup => x8L

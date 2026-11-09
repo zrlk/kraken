@@ -10,13 +10,12 @@ whose thread holds that box), its sizes `ls0T`.
   `X64WakeLoadT.init_of_loadAHT` at `helloTh0`, `hello_start`, `hbox0H`).
 - `hinit_Hg`: `X64HelloO.OPremH.hinit`'s shape at the root's choices (`gWH … cTW`, `arW`, `r0W`/`r1W`;
   `X64WakeOHinit.hinit_W`'s twin) at any owned words `own`. Hypotheses: `own` initially owned at the load (`hown0`)
-  and the start in `inv0` (`hst`; at the root `RootH0.hstH`).
-- `hinit_H`: `hinit_Hg` at `ownGH … ntA`, `hown0` by `X64HelloOInit.hown0_H`.
+  and the start in `inv0` (`hst`; at the root `RootH0.hstHg`).
 
 x86-64 twin of `Spike/Lib/HelloOHinit.lean` (same names, namespaces with the `X64` prefix).
 Unlike AArch64, the program is `cellsOf asm` (placed cells, not `textProgram`), the data
 sections are `dataSections asm.text`, `loadParsed` takes the label offsets (`hoffs : asm.labelOffs =
-o.labelOffs` in `hinit_H`), and the link lemma is `Scc.Cert.Link.X64.loadParsed_of_loadOk`.
+o.labelOffs` in `hinit_Hg`), and the link lemma is `Scc.Cert.Link.X64.loadParsed_of_loadOk`.
 -/
 import Spike.Lib.X64WakeOHinit
 import Spike.Lib.X64WakeLoadT
@@ -112,14 +111,14 @@ theorem hinit_Hg {own : Spike.Lib.X64Consumer.Own} (hpa : cellsOf asm = some o.p
     /- instance facts -/
     (hstat : Λ0.static = fun _ => none)
     (hsub1 : (Spike.Lib.X64WakeOSide.r1W hp i).Sub (Ly).Λ.stackPool) (hc : Spike.Lib.X64.Rt.CtrZ o)
-    (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
+    (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
     (arch : WeakMem.Arch) {E : Entry} (hE : E.clear (Ly).Λ = true) (μ : Marks)
     (I : InvS) (ls : Lsize)
     /- `own` initially owned at the load (at `ownGH`: `X64HelloOInit.hown0_H`) -/
     (hown0 : ∀ t0, Scc.Sem.X64.loadParsed (Scc.Sem.X64.kernel 1) E (Ly).Λ o.prog o.secs o.labelOffs = some t0 →
       Spike.Lib.Consumer1.OwnInit
         (own (Scc.Sem.X64.threadAt E (Ly).Λ.code.lo o.prog (Scc.Sem.loadSyms (Ly).Λ o.secs.rodata))) t0.1.mem)
-    /- the start in `I` (at the root `RootH0.hstH`) -/
+    /- the start in `I` (at the root `RootH0.hstHg`) -/
     (hst : I (L0T (Ly).Λ) (ls0T ls) (threadAt E (Ly).Λ.code.lo o.prog (loadSyms (Ly).Λ o.secs.rodata))
       ⟨helloTh0.term, helloTh0.env, none⟩ helloTh0.stack) :
     ∀ d : Cfg, (target (kernel 1) E).load asm (Ly).Λ = some d →
@@ -144,31 +143,6 @@ theorem hinit_Hg {own : Spike.Lib.X64Consumer.Own} (hpa : cellsOf asm = some o.p
   · exact fun a ha => Spike.Lib.X64.Rt.ArenaW.arOf_z0 (PlaceWX.link i hp) hc rfl ha
   · exact Spike.Lib.X64.Rt.ArenaW.arOf_c0 (PlaceWX.link i hp) hc rfl
 
-
-/-- **`OPremH.hinit` at the root's choices** (see the module doc): `hinit_Hg` at `ownGH … ntA`, `hown0` by
-`X64HelloOInit.hown0_H`. -/
-theorem hinit_H (hpa : cellsOf asm = some o.prog)
-    (hhp : cellsOf asm = some SccCode.helloCells) (hd : dataSections asm.text = some o.secs)
-    (hoffs : asm.labelOffs = o.labelOffs)
-    /- instance facts -/
-    (hlo : Λ0.code.lo = Spike.Lib.X64.WakePh.lo) (hstat : Λ0.static = fun _ => none)
-    (hsub1 : (Spike.Lib.X64WakeOSide.r1W hp i).Sub (Ly).Λ.stackPool) (hc : Spike.Lib.X64.Rt.CtrZ o)
-    (hnz : Spike.Lib.X64WakeOInit.NtZ Λ0 o = true)
-    (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
-    (arch : WeakMem.Arch) {E : Entry} (hE : E.clear (Ly).Λ = true) (μ : Marks)
-    (I : InvS) (ls : Lsize)
-    /- the start in `I` (at the root `RootH0.hstH`) -/
-    (hst : I (L0T (Ly).Λ) (ls0T ls) (threadAt E (Ly).Λ.code.lo o.prog (loadSyms (Ly).Λ o.secs.rodata))
-      ⟨helloTh0.term, helloTh0.env, none⟩ helloTh0.stack) :
-    ∀ d : Cfg, (target (kernel 1) E).load asm (Ly).Λ = some d →
-      ∃ s0, (srcS helloSrc arch).init s0 ∧
-        RSAH (Ly).Λ (srcPo 2 arch helloSrc) helloSrc (Spike.Lib.X64HelloGOf2H.gWH hp i (Spike.Lib.X64WakeHG.cTW hp i))
-          (fun s _ => Spike.Lib.X64.HelloPh.ownGH (Ly) (Spike.Lib.X64.Rt.Reserve.ntA (Ly).lab) s) I
-          (HeldOk2 (Ly).Λ (Spike.Lib.X64WakeOSide.r0W hp i) (Spike.Lib.X64WakeOSide.r1W hp i)) μ
-          (Spike.Lib.X64.WakeOD.arW hp i) d s0 :=
-  hinit_Hg hp i hpa hd hoffs hstat hsub1 hc hpin2 arch hE μ I ls
-    (Spike.Lib.X64HelloOInit.hown0_H hp i hpa hhp hlo (Spike.Lib.X64WakeOInit.hnt_of hp i hnz) E) hst
-
 end Place
 
 end Spike.Lib.X64HelloOHinit
@@ -176,12 +150,8 @@ end Spike.Lib.X64HelloOHinit
 /-- info: 'Spike.Lib.X64HelloOHinit.freshH' depends on axioms: [propext] -/
 #guard_msgs in #print axioms Spike.Lib.X64HelloOHinit.freshH
 
-
 /-- info: 'Spike.Lib.X64HelloOHinit.hello_initT' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms Spike.Lib.X64HelloOHinit.hello_initT
 
 /-- info: 'Spike.Lib.X64HelloOHinit.hinit_Hg' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms Spike.Lib.X64HelloOHinit.hinit_Hg
-
-/-- info: 'Spike.Lib.X64HelloOHinit.hinit_H' depends on axioms: [propext, Classical.choice, Quot.sound] -/
-#guard_msgs in #print axioms Spike.Lib.X64HelloOHinit.hinit_H

@@ -28,7 +28,7 @@ open Scc.Cert.Rt.X64 (Lays endOf)
 /-- **`ret0`'s `scc_rt_main`**: frame 32, the exit value at `-16`,
 `wc_main`. -/
 def ret0MC : MainCode :=
-  ⟨32, -16, "wc_main", ".Lscc_rt_main.chk", ".Lscc_rt_main.stk", ".Lscc_rt_main.entry", ".Lscc_rt_main.x2",
+  ⟨32, -16, "wc_main", ".Lscc_rt_main.chk", ".Lscc_rt_main.stk", ".Lscc_rt_main.entry", ".Lscc_rt_main.x0",
     5, 9, 3, 2, 4, [(.rdi, -8, 4)], 4, 4, 5⟩
 
 /-- `ret0`'s `scc_rt_main` passes the code check. -/

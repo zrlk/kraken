@@ -113,8 +113,8 @@ theorem refACH (lbl : Lbl) (l : WeakMem.AllocLabel) (ws : List TermRun.Word) (ar
   obtain ⟨hR', hal', hlo'', hhi'⟩ := callee144 hR hal (by omega) hhi
   have hkc : (-144 : Int) < R.hi := by omega
   obtain ⟨-, -, -, -, -, -, -, -, -, -, -, -, -, -, -, e16⟩ := ab_labsH hlab
-  have hex : L.lab Spike.Lib.A64.Abort.threads.exit = Int64.ofNat 2168584 := e16
-  have hst : L.lab Spike.Lib.A64.Flow.Ret0.StackTake.siteL = Int64.ofNat 2165976 :=
+  have hex : L.lab Spike.Lib.A64.Abort.threads.exit = Int64.ofNat 2168616 := e16
+  have hst : L.lab Spike.Lib.A64.Flow.Ret0.StackTake.siteL = Int64.ofNat 2165980 :=
     hlab _ _ (by rw [← codeT_eq]; decide +kernel)
   have hI := instOk2bPH hp hlo (Spike.Lib.A64.Rt.Reserve.ntA L.lab) (siteH hp hlo hlab) (rS := rSH L)
   have hprog : Scc.Cert.Rt.A64.Abort.abortIn L.prog = true := by rw [hp]; exact SccCode.hello_abort
@@ -187,7 +187,7 @@ theorem refACH (lbl : Lbl) (l : WeakMem.AllocLabel) (ws : List TermRun.Word) (ar
     (lsize := lsize) (al := fun _ => none) (ms := msTH)
     hI hprog hphs hR' hal' hlo'' hhi' hl8 hh8 hF hsub hfit hFO hc (fun s h => h.2)
     (fun a ha => by
-      have e : (Spike.Lib.A64.PhRec.μ L).site .release = some 2166032 := by
+      have e : (Spike.Lib.A64.PhRec.μ L).site .release = some 2166036 := by
         show codeOf L.Λ.code.lo L.prog "scc_rt_release_site" = _
         rw [hp, hlo, ← codeT_eq]; decide +kernel
       rw [e] at ha; cases ha; rw [hex]; decide)

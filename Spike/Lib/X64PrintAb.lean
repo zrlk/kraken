@@ -25,6 +25,7 @@ and no count `1 … len0 - k` is a refusal.
 -/
 import Spike.Lib.X64PrintEmit
 import Spike.Lib.Consumer1
+import Spike.Lib.X64CodeAcross
 
 set_option linter.unusedSimpArgs false
 
@@ -301,7 +302,7 @@ theorem seg_printAb_ofW {W : Frag isa} {K : State → State → Prop} {F : Machi
   · exact Scc.Cert.Rt.X64.code_field hp hend h10 rfl
   · exact Scc.Cert.Rt.X64.code_field hp hend h11 (Scc.Cert.Rt.X64.Print.off0 _)
   · exact Scc.Cert.Rt.X64.code_field hp hend h12 (Scc.Cert.Rt.X64.Print.off0 _)
-  · exact Scc.Cert.Rt.X64.code_field hp hend h13 (Scc.Cert.Rt.X64.Print.off0 _)
+  · exact Spike.Lib.X64.code_field_blockAcrossB hp hend h13 (List.take_append_drop _ _) (Scc.Cert.Rt.X64.Print.off0 _)
   · exact Scc.Cert.Rt.X64.code_field hp hend hs rfl
 
 end Proof

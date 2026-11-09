@@ -157,10 +157,10 @@ theorem tcbWG_wf_pt (E : Scc.Sem.Entry)
     (hoffP : ¬ ((WakeOD.arW hpw i).heap ≤ (Ly).pnA.toNat ∧
         (Ly).pnA.toNat < (WakeOD.arW hpw i).heap + 16 * (WakeOD.arW hpw i).cells) ∧
       (⟨(Ly).pnA, 8⟩ : Loc) ≠ (WakeOD.arW hpw i).ctrLoc)
-    (hunH : ∀ m, F m → Mem.loadInt m.dmem ((Ly).pinA + 96#64) 8 = none)
-    (hoffH : ¬ ((WakeOD.arW hpw i).heap ≤ ((Ly).pinA + 96#64).toNat ∧
-        ((Ly).pinA + 96#64).toNat < (WakeOD.arW hpw i).heap + 16 * (WakeOD.arW hpw i).cells) ∧
-      (⟨(Ly).pinA + 96#64, 8⟩ : Loc) ≠ (WakeOD.arW hpw i).ctrLoc)
+    (hunH : ∀ m, F m → Mem.loadInt m.dmem ((Ly).pinA + 128#64) 8 = none)
+    (hoffH : ¬ ((WakeOD.arW hpw i).heap ≤ ((Ly).pinA + 128#64).toNat ∧
+        ((Ly).pinA + 128#64).toNat < (WakeOD.arW hpw i).heap + 16 * (WakeOD.arW hpw i).cells) ∧
+      (⟨(Ly).pinA + 128#64, 8⟩ : Loc) ≠ (WakeOD.arW hpw i).ctrLoc)
     (c0 : Ctl) (hS : ∃ l' A', S l' A' c0) (g : Spike.Lib.A64.Flow.Ret0.AllocTcb.G)
     (hra : g.ra = ((Ly).lab ".L21_wc_main.sp4").toBitVec)
     (hst : ∀ nd, TcbWG (fun s _ => SFactsSt2 (Ly).Λ (Spike.Lib.A64.PhRec.μ (Ly)) (ownG (Ly) (ntA (Ly).lab)) s) K'
@@ -208,10 +208,10 @@ theorem tcbWG_wf (E : Scc.Sem.Entry)
     (hoffP : ¬ ((WakeOD.arW hpw i).heap ≤ (Ly).pnA.toNat ∧
         (Ly).pnA.toNat < (WakeOD.arW hpw i).heap + 16 * (WakeOD.arW hpw i).cells) ∧
       (⟨(Ly).pnA, 8⟩ : Loc) ≠ (WakeOD.arW hpw i).ctrLoc)
-    (hunH : ∀ m, F m → Mem.loadInt m.dmem ((Ly).pinA + 96#64) 8 = none)
-    (hoffH : ¬ ((WakeOD.arW hpw i).heap ≤ ((Ly).pinA + 96#64).toNat ∧
-        ((Ly).pinA + 96#64).toNat < (WakeOD.arW hpw i).heap + 16 * (WakeOD.arW hpw i).cells) ∧
-      (⟨(Ly).pinA + 96#64, 8⟩ : Loc) ≠ (WakeOD.arW hpw i).ctrLoc)
+    (hunH : ∀ m, F m → Mem.loadInt m.dmem ((Ly).pinA + 128#64) 8 = none)
+    (hoffH : ¬ ((WakeOD.arW hpw i).heap ≤ ((Ly).pinA + 128#64).toNat ∧
+        ((Ly).pinA + 128#64).toNat < (WakeOD.arW hpw i).heap + 16 * (WakeOD.arW hpw i).cells) ∧
+      (⟨(Ly).pinA + 128#64, 8⟩ : Loc) ≠ (WakeOD.arW hpw i).ctrLoc)
     (hst : ∀ c0, (∃ l' A', S l' A' c0) →
       ∀ g : Spike.Lib.A64.Flow.Ret0.AllocTcb.G, g.ra = ((Ly).lab ".L21_wc_main.sp4").toBitVec →
       ∀ nd, TcbWG (fun s _ => SFactsSt2 (Ly).Λ (Spike.Lib.A64.PhRec.μ (Ly)) (ownG (Ly) (ntA (Ly).lab)) s) K'

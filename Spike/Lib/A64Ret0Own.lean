@@ -35,6 +35,8 @@ theorem ret0_above :
     ∀ p ∈ Scc.Sem.loadSyms SccCode.ret0Λ SccCode.ret0Secs.rodata, SccCode.ret0Λ.code.lo ≤ p.2 := by
   decide +kernel
 
+-- The tables grew `.rodata` (R11): the decision recurses past the default depth.
+set_option maxRecDepth 100000 in
 /-- **`ret0`'s layout facts in the loaded thread** (`hpre`, `hpost` of
 `limPath`), any entry state. -/
 theorem ret0_pre_post (E : Scc.Sem.Entry) :
@@ -45,6 +47,8 @@ theorem ret0_pre_post (E : Scc.Sem.Entry) :
   have := Scc.Cert.Link.A64.validLayout_of_loadOk SccCode.ret0Λ_load E
   pre_post_of_layoutOk (Scc.Cert.Rt.A64.lays_threadAt _ _ _ _ ret0_above) rfl ret0_layoutOk
 
+-- The tables grew `.rodata` (R11): the decision recurses past the default depth.
+set_option maxRecDepth 100000 in
 /-- **`ret0`'s loaded thread owns nothing** (`hown0` of `correctK`), any
 entry state. -/
 theorem ret0_own0 (E : Scc.Sem.Entry) (tcb : BitVec 64) (rS : Range) :

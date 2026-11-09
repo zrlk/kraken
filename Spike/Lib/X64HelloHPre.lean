@@ -297,7 +297,7 @@ theorem hpre_ofH {μ : Marks} {Dd : ODataH} {r1c : Range}
       trace := X64HelloNoObs.NoObs.run_nilH hNo hrun h6
       self := fun T W hQ => by
         obtain ⟨rfl, rfl, rfl, hlab, hDo, hexe⟩ := hself w thc.st T W fun i => by rw [hQ]; rfl
-        have hpc' : thc.st.st.2 = L.lab ".Lwc_main.x25" + 94 := by
+        have hpc' : thc.st.st.2 = L.lab ".Lwc_main.x3" + 94 := by
           rw [hpcC, Spike.Lib.X64HelloPreA.cloneAtH, hexe _ _ _ _ _ _ hP]
         have hown : ExtRows.OwnOk (ownGHXW L a thc.st) d.1.mem thc.prom := hDo thc.st th0c.stack ▸ hOwnOk
         exact Spike.Lib.X64.HelloPh.selfWords_clone hlab (Spike.Lib.X64.HelloPh.spPool_of_ownedH hO htop hr0sz) hpc'

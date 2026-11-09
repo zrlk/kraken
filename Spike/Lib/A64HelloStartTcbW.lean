@@ -170,7 +170,7 @@ theorem startTcb_WSH (hΛ : L.Λ.abortLbl = Scc.Cert.Link.abortName) (hs : WSep 
     · intro k hk; dsimp only [Spike.Lib.A64.Flow.Ret0.tcbN]; rw [eOk]; revert k; decide
     · dsimp only [Spike.Lib.A64.Flow.Ret0.tcbN] at hJ ⊢; rw [(atOk_walk _ _ hJ.2.1 hJ.2.2).1, eOk]; decide
   case ret =>
-    refine blkT_WSH (rl := Spike.Lib.A64.Flow.Ret0.sp2L) hp hlo hlab hsite hcl hc0 hpl0 hX0 hbd
+    refine blkT_WSHA (rl := Spike.Lib.A64.Flow.Ret0.sp2L) hp hlo hlab hsite hcl hc0 hpl0 hX0 hbd
       bRet rfl atRet_ok hR' hal' (by omega)
       (by omega) h (okB hP.ret) ?_ (soT atRet oI) (fun σ c hJ s m _ _ _ hs' => ?_) (by decide +kernel)
       (Spike.Lib.A64Consumer.hret_of_run atRet_ok fun σ c hJ => ?_) (fun _ _ h => h.1)

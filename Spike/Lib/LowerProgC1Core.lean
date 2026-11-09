@@ -18,6 +18,7 @@ adds the AArch64 `lowerAll_accepted1_a64` and imports the AArch64 lowering,
 which the x86-64 syntax cannot be imported with).
 -/
 import Scc.Lower.InvC1
+import Scc.Lower.SplitInv1
 import Scc.Lower.InvProg
 
 namespace Spike.Lib.LowerNode
@@ -133,6 +134,22 @@ theorem mapM_lowerDeclMarks_accepted1 {p : Prog} (hp : Accepted1 p = true) (obj 
   rw [externs_accepted1 hp] at h
   exact mapM_ok_of p h
 
+/-- The code blocks of an `Accepted1` program, lowered and split as
+`lowerWithMarks` does (`splitFuncMarks`, without the depth counter), lower to
+`funcs1` with the traces `marksAll1`: the split leaves them as they are
+(`splitFuncMarks_func1`). -/
+theorem mapM_splitLowerDeclMarks_accepted1 {p : Prog} (hp : Accepted1 p = true) (obj : Scc.ObjLayout) :
+    ∃ rs, Pairwise2 (LowC p obj none) p rs ∧
+      p.mapM (fun d => splitFuncMarks <$> lowerDeclMarks p [] d obj) =
+        .ok (List.zipWith (fun d r => (func1 (Names.user d.name) (params1R d) r, marks1 d r)) p rs) := by
+  have h := accepted1_lowerC hp obj none
+  rw [externs_accepted1 hp] at h
+  refine mapM_ok_of p fun d hd => ?_
+  obtain ⟨r, hr, hl⟩ := h d hd
+  refine ⟨r, hr, ?_⟩
+  rw [hl]
+  exact congrArg Except.ok (splitFuncMarks_func1 hp _ rfl hd _ hr)
+
 /-- **The whole-program lowering of an `Accepted1` program**: the runtime
 functions, then `funcs1`; the traces `marksAll1`. -/
 theorem lowerWithMarks_accepted1 (cfg : Config) {p : Prog} (hp : Accepted1 p = true)
@@ -141,7 +158,7 @@ theorem lowerWithMarks_accepted1 (cfg : Config) {p : Prog} (hp : Accepted1 p = t
     ∃ rs, Pairwise2 (LowC p cfg.layout.obj none) p rs ∧
       lowerWithMarks cfg { prog := p, entry := ⟨.unit, true⟩, externs := [], adds := [] } =
         .ok (progOf cfg.layout rt (funcs1 p rs), marksAll1 p rs) := by
-  obtain ⟨rs, hrs, hm⟩ := mapM_lowerDeclMarks_accepted1 hp cfg.layout.obj none
+  obtain ⟨rs, hrs, hm⟩ := mapM_splitLowerDeclMarks_accepted1 hp cfg.layout.obj
   refine ⟨rs, hrs, ?_⟩
   have hh : ¬ (cfg.layout.heapBytes ≥ 2 ^ 32) := by omega
   unfold rtFuncs at hrt
@@ -167,7 +184,7 @@ theorem lowerWithMarks_accepted1_ok (cfg : Config) {p : Prog} (hp : Accepted1 p 
   cases hrt : rtFuncs cfg.arch cfg.layout ⟨.unit, true⟩ 0 with
   | error e =>
     exfalso
-    obtain ⟨rs, -, hm⟩ := mapM_lowerDeclMarks_accepted1 hp cfg.layout.obj none
+    obtain ⟨rs, -, hm⟩ := mapM_splitLowerDeclMarks_accepted1 hp cfg.layout.obj
     have hh : ¬ (cfg.layout.heapBytes ≥ 2 ^ 32) := by omega
     unfold rtFuncs at hrt
     have hf : p.filter (fun d => !(([] : List (String × Frontend.Extern)).any (·.1 == d.name))) = p := by simp

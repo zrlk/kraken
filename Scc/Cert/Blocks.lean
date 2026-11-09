@@ -1083,7 +1083,16 @@ def codeX64 (name asm : String) (sizes : Option (List Nat × List (String × Nat
   let offs := textOrder asm offs
   let offsT := ", ".intercalate (offs.map fun (l, o) => s!"({Gen.quoteLine l}, {o})")
   -- `scc_rt_main`'s tail as `Spike.Lib.X64.MainTail` has it (`Scc.Cert.Rt.X64.Abort.mainIn`)
-  let hasMainTail := (asm.splitOn ".Lscc_rt_main.x3:\n\tmovq %rax, -48(%rbp)\n\tmovq -48(%rbp), %rdi\n\tmovl $231, %eax\n\tsyscall\n").length > 1
+  -- (the second call's return label: `.x1`, labels numbered per function from 0); with a setup block
+  -- (`.entry` calls something other than `wc_main`) the tail must be at `.x1`, else the generator fails
+  -- rather than drop the theorem
+  let hasMainTail :=
+    (asm.splitOn ".Lscc_rt_main.x1:\n\tmovq %rax, -48(%rbp)\n\tmovq -48(%rbp), %rdi\n\tmovl $231, %eax\n\tsyscall\n"
+      ).length > 1
+  let hasSetup := (asm.splitOn ".Lscc_rt_main.entry:\n\tcall ").length > 1 &&
+    (asm.splitOn ".Lscc_rt_main.entry:\n\tcall wc_main\n").length ≤ 1
+  if hasSetup && (asm.splitOn ".Lscc_rt_main.x1:\n\tmovq %rax, -").length ≤ 1 then
+    throw "scc_rt_main has a setup block but no exit tail at .Lscc_rt_main.x1"
   let mainThm := if hasMainTail then s!"
 /-- The tail of `scc_rt_main` (`Scc/Cert/Rt/X64Abort.lean`). -/
 theorem {pfx}_mainTail : Scc.Cert.Rt.X64.Abort.mainIn {pfx}Cells = true := by decide +kernel
@@ -1104,6 +1113,7 @@ theorem {pfx}_printL : Scc.Cert.Rt.X64.PrintL.printLIn {pfx}Cells = true := by d
     | none => ""
   return s!"import Scc.Cert.Rt.CodeX64
 import Scc.Cert.LinkX64
+import Scc.Cert.Rt.PhasesX64
 import Scc.Cert.Rt.X64Print
 import Scc.Cert.Rt.X64Abort
 import Scc.Cert.Rt.X64MorestackIn
@@ -1208,16 +1218,19 @@ theorem {pfx}Λ_aborts : abortsIn {pfx}Cells {pfx}Λ = true := by decide +kernel
 
 theorem {pfx}Λ_image : imageIn {pfx}Cells {pfx}Secs {pfx}Λ = true := by decide +kernel
 
-/-! The loader's checks part by part (`loadOk_of`: one declaration each
-bounds the kernel's memory). -/
+/-! The loader's checks part by part (`loadOk_ofR`: one declaration each
+bounds the kernel's memory; the `.quad` labels by `quadsResolve` with the
+code labels, decided keyed, `Scc.Cert.Rt.X64.codeT_eq`, since the GC tables'
+key words name code labels out of code order). -/
 
 theorem {pfx}Λ_size : sizeOkW (Int64.ofNat {pfx}Λ.code.lo) {pfx}Cells {pfx}Asm.labelOffs = true := by
   decide +kernel
 
 theorem {pfx}Λ_labels : labelsNodupL (Int64.ofNat {pfx}Λ.code.lo) {pfx}Cells = true := by decide +kernel
 
-theorem {pfx}Λ_quads : quadsOkL (Int64.ofNat {pfx}Λ.code.lo) {pfx}Cells {pfx}Secs.rodata = true := by
-  decide +kernel
+theorem {pfx}Λ_quads :
+    Scc.Sem.quadsResolve {pfx}Λ {pfx}Secs.rodata (Scc.Sem.X64.codeLabel {pfx}Λ.code.lo {pfx}Cells) = true := by
+  rw [← Scc.Cert.Rt.X64.codeT_eq]; decide +kernel
 
 theorem {pfx}Λ_syms : (Scc.Sem.rodataFits {pfx}Λ {pfx}Secs.rodata && Scc.Sem.symsAgree {pfx}Λ {pfx}Secs.rodata &&
     Scc.Sem.symsAbove {pfx}Λ.code.lo (Scc.Sem.X64.codeEnd {pfx}Λ.code.lo {pfx}Cells) (Scc.Sem.loadSyms {pfx}Λ {pfx}Secs.rodata) &&
@@ -1226,7 +1239,7 @@ theorem {pfx}Λ_syms : (Scc.Sem.rodataFits {pfx}Λ {pfx}Secs.rodata && Scc.Sem.s
     decide (Scc.Sem.X64.codeEnd {pfx}Λ.code.lo {pfx}Cells < 2 ^ 64)) = true := by decide +kernel
 
 theorem {pfx}Λ_load : loadOk {pfx}Λ {pfx}Cells {pfx}Secs {pfx}Asm.labelOffs = true :=
-  loadOk_of {pfx}Λ_size {pfx}Λ_labels {pfx}Λ_quads {pfx}Λ_syms
+  loadOk_ofR {pfx}Λ_size {pfx}Λ_labels {pfx}Λ_quads {pfx}Λ_syms
 
 end SccCode
 "

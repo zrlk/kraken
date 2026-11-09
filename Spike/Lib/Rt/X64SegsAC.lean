@@ -57,6 +57,15 @@ local macro "inodeWA " b:ident ok:ident l:term:max k:term:max w:term:max : tacti
       $w fun σ c hJ => ⟨c, .refl c, ?_⟩)
 
 set_option hygiene false in
+/-- `inodeWA` for a block split by its return label `r` after `n` rows
+(`blockAcrossB`, `Spike.Lib.X64.code_field_blockAcrossB`). -/
+local macro "inodeWX " b:ident ok:ident l:term:max k:term:max n:term:max r:term:max w:term:max : tactic =>
+  `(tactic| refine seg_ndW (by simp [$b:ident]) $ok hFb hR (by omega) hhi
+    (Spike.Lib.X64.code_field_blockAcrossB hp hend (by simp only [hin']) (l := $l) (m := $r) (off := $k)
+      (List.take_append_drop $n _) (by first | rfl | exact ofNat_zero' _))
+      $w fun σ c hJ => ⟨c, .refl c, ?_⟩)
+
+set_option hygiene false in
 /-- A node at the store of field `i` (`8·i(%rcx)`, `z` bytes) at `x + k`,
 to node `j`, inside `W`, after the take. -/
 local macro "snodeWA " i:term:max d:term:max k:term:max z:term:max v:term:max j:term:max w:term:max : tactic =>
@@ -314,7 +323,7 @@ theorem threadInit_segWAtAC {xr : Label} {W : Frag isa} {rS : Scc.Sem.Range} {kp
       (nodeW_tiSP (hWt TI.st5 nofun))
   case ret =>
     refine seg_fixW b ?_
-    inodeWA ThreadInit.tiRet ThreadInit.tiRet_ok xr 117 (blkW_tiSP (hWt TI.ret nofun))
+    inodeWX ThreadInit.tiRet ThreadInit.tiRet_ok xr 117 3 ThreadInit.retL (blkW_tiSP (hWt TI.ret nofun))
     dsimp only [tiNGAt, tiA, tiNAt, tiXG, tiX] at hJ ⊢
     obtain ⟨rfl, rfl, hJ⟩ := hJ
     obtain ⟨h1, h2, h3⟩ := ThreadInit.tiRet_walk lab _ hJ

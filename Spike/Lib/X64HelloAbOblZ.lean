@@ -54,7 +54,7 @@ include hp hend hlab hμ
 address `.x13` (`hra`), the slice's words times 8 below `2^63` (`hm`). -/
 theorem wcObl_abX {ms : List TermRun.Frame → MemSide isa} {R' : Region} {F' : MachineData → Prop}
     (hR : R'.OK) (hlo : R'.lo ≤ -176) (hhi : 8 ≤ R'.hi) {rbp ra : BitVec 64}
-    (hra : Int64.ofBitVec ra = (_root_.Executable.labels exe).label ".Lscc_rt_thr_worker.x13")
+    (hra : Int64.ofBitVec ra = (_root_.Executable.labels exe).label ".Lscc_rt_thr_worker.x0")
     {w : Words} {tp sp0 : BitVec 64} {w0 w1 w2 w3 w4 : TermRun.Word} {n m : Nat}
     (hm : w.w2.toNat * 8 < 2 ^ 63) :
     WcObl (AbX μ (_root_.Executable.labels exe).label) exe endPc ms R' F' rbp ra w tp sp0 w0 w1 w2 w3 w4 n m where

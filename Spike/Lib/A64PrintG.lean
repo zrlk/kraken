@@ -28,6 +28,8 @@ import Spike.Lib.A64AllocGSt
 import Spike.Lib.A64PrintA
 import Spike.Lib.A64TailPh
 import Spike.Lib.LowerA64.W2Body
+import Spike.Lib.LowerA64.BodyW
+import Spike.Lib.A64CodeAcross
 
 namespace Spike.Lib.A64.PrintG
 
@@ -54,7 +56,8 @@ section Spec
 
 variable {okPc : Nat → Bool} {ph : Nat → Nat} {lab : Label → Int64}
 
-/-- **`printIn`'s facts**, one per block. -/
+/-- **`printIn`'s facts**, one per block (the epilogue `b16` across the
+return label `retL`, `blockAcross`). -/
 theorem printIn_spec {prog : List Directive} (h : Scc.Cert.Rt.A64.Print.printIn prog = true) :
     blockAt prog "scc_rt_print" 0 b0 = true ∧
     blockAt prog ".L9_scc_rt_print.0_entry" 0 b1 = true ∧
@@ -73,7 +76,8 @@ theorem printIn_spec {prog : List Directive} (h : Scc.Cert.Rt.A64.Print.printIn 
     blockAt prog ".L9_scc_rt_print.4_chk3" 4 b12 = true ∧
     blockAt prog ".L9_scc_rt_print.5_adv" 0 b13 = true ∧
     blockAt prog ".L9_scc_rt_print.6_fail" 0 b14 = true ∧
-    blockAt prog ".L9_scc_rt_print.7_done" 0 b16 = true ∧
+    Scc.Cert.Rt.A64.blockAcross prog ".L9_scc_rt_print.7_done" 0 (b16.take 3) Scc.Cert.Rt.A64.Print.retL
+      (b16.drop 3) = true ∧
     labelGap prog "scc_rt_print" ".L9_scc_rt_print.0_entry" 6 = true := by
   simpa only [Scc.Cert.Rt.A64.Print.printIn, Bool.and_eq_true, and_assoc] using h
 
@@ -367,8 +371,10 @@ theorem printNoWr (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
   · exact Spike.Lib.LowerA64.blkW_noSys hI h14 (by ppc_tac) b13_ok
   · exact Spike.Lib.A64.AllocG.blkW_noWr hI h15 (by ppc_tac) b14_ok hR hal hlo hhi
   · exact Spike.Lib.LowerA64.blkW_noSys hI h15 (by ppc_tac) b14_ok
-  · exact Spike.Lib.A64.AllocG.blkW_noWr hI h16 (by ppc_tac) b16_ok hR hal hlo hhi
-  · exact Spike.Lib.LowerA64.blkW_noSys hI h16 (by ppc_tac) b16_ok
+  · exact Spike.Lib.LowerA64.blkW_noWr' (Spike.Lib.A64.code_field_blockAcross hI.lays hI.endOk h16
+      (List.take_append_drop _ _) (by rw [hI.labOk]; ppc_tac)) b16_ok hR hal hlo hhi
+  · exact Spike.Lib.LowerA64.blkW_noSys' (Spike.Lib.A64.code_field_blockAcross hI.lays hI.endOk h16
+      (List.take_append_drop _ _) (by rw [hI.labOk]; ppc_tac)) b16_ok
 
 set_option hygiene false in
 /-- A block of `scc_rt_print` without `ret`, no dead target, at the source
@@ -415,10 +421,16 @@ theorem printSt (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
   · pblk h13 b12_ok p13
   · pblk h14 b13_ok p14
   · pblk h15 b14_ok p15
-  · exact Spike.Lib.A64.AllocG.BlkW.st (Spike.Lib.A64.Rt.blkW_postO hI (lbl := Λ.static)
-      (dead := fun _ => false) (ra := Int64.ofBitVec ra) h16 (by ppc_tac)
-      b16_ok hR hal (by omega) (by omega) (fun _ _ hJ => hJ.1 ▸ cfacts_c0)
-      (blkPh_b16 p16 (by simpa [show Int64.ofNat (4 * 0) = 0 from rfl] using p17) (by simpa using hra))
+  · have he : lab ".L9_scc_rt_print.7_done" + Int64.ofNat (4 * 0) =
+        (dumN (N lab x29 ra buf0 len0 P Q .done)).pc := by ppc_tac
+    have hc := Spike.Lib.A64.code_field_blockAcross hI.lays hI.endOk h16 (List.take_append_drop _ _)
+      (q := (dumN (N lab x29 ra buf0 len0 P Q .done)).pc) (by rw [hI.labOk]; ppc_tac)
+    have hp := blkPh_b16 (ra := Int64.ofBitVec ra) p16
+      (by simpa [show Int64.ofNat (4 * 0) = 0 from rfl] using p17) (by simpa using hra)
+    rw [he] at hp
+    exact Spike.Lib.A64.AllocG.BlkW.st (Spike.Lib.LowerA64.blkW_postO' hI (lbl := Λ.static)
+      (dead := fun _ => false) (ra := Int64.ofBitVec ra) hc
+      b16_ok hR hal (by omega) (by omega) (fun _ _ hJ => hJ.1 ▸ cfacts_c0) hp
       (fun σ _ hJ => by obtain ⟨-, c, -, h8, -⟩ := hJ; exact b16_ret _ _ σ h8) (fun _ _ _ => rfl)
       hl hh hsub hfit hFO)
 

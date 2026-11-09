@@ -230,8 +230,8 @@ theorem take2B_WSH (hΛ : L.Λ.abortLbl = Scc.Cert.Link.abortName) (hs : WSep L 
       (by decide +kernel)
       (fun σ c h => hJ0 .site σ c h nofun) fun s hpc hr hm => hXs s hpc hr hm.1 hm.2
   case ret =>
-    have eSp' : L.lab Spike.Lib.A64.Flow.Ret0.ThreadInit.spL = Int64.ofNat 2165308 := eSp
-    refine blk2_WSH (rl := Spike.Lib.A64.Flow.Ret0.ThreadInit.spL) hp hlo hlab hsite hcl hc0 hpl0
+    have eSp' : L.lab Spike.Lib.A64.Flow.Ret0.ThreadInit.spL = Int64.ofNat 2165312 := eSp
+    refine blk2_WSHA (rl := Spike.Lib.A64.Flow.Ret0.ThreadInit.spL) hp hlo hlab hsite hcl hc0 hpl0
       (fun m m' h hd => hPl m m' h.1 hd) hX0 hbd bRet rfl
       stRet_ok hR hal (by omega) (by omega) h (okPc_of_blkPh hP.ret) ?_ (soT stRet oI)
       (fin2H hlab hbd (fun σ c hJ => ?_) (soT stRet oI)) (by decide +kernel)

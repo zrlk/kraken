@@ -62,7 +62,7 @@ local notation "MS" => fun (B : HelloRootBase (Ly) (LB) (AW) (Spike.Lib.A64.Hell
   => Spike.Lib.A64.KeepTP.tpXa (Spike.Lib.A64.HelloPh.H2Rt.ms2H (asm := asm) hpw IH E B.ls l b n l' b' n' []) t
 
 /-- **`wcMidW_wcGH` at the root instance** (its word premises from the layout, as in `wcWf_I`), with
-`scc_rt_nthreads`, `scc_rt_pinned_next` and the second TCB's header `pinA + 104` unmapped under `F`. -/
+`scc_rt_nthreads`, `scc_rt_pinned_next` and the second TCB's header `pinA + 136` unmapped under `F`. -/
 theorem mid_I (B : HelloRootBase (Ly) (LB) (AW) (Spike.Lib.A64.HelloPh.H2Rt.ms2H (asm := asm) hpw IH E))
     (hA13 : Scc.Cert.Spawn.A64.a13data (Ly).Λ o.prog o.secs = true) (hB : BoxPureH (Ly) B.F0 n' R F J1 t)
     (hG : Spike.Lib.A64.HelloPh.RootHP.GJ1RH (Ly) (Spike.Lib.A64ConsumerA.upd (LB) l b) l R F J1 t) :
@@ -72,7 +72,7 @@ theorem mid_I (B : HelloRootBase (Ly) (LB) (AW) (Spike.Lib.A64.HelloPh.H2Rt.ms2H
         (QBH l' b' (slWsH l)) ∧
       (∀ m, F m → Mem.loadInt m.dmem (ntA (Ly).lab) 8 = none) ∧
       (∀ m, F m → Mem.loadInt m.dmem (Ly).pnA 8 = none) ∧
-      (∀ m, F m → Mem.loadInt m.dmem ((Ly).pinA + 104#64) 8 = none) := by
+      (∀ m, F m → Mem.loadInt m.dmem ((Ly).pinA + 136#64) 8 = none) := by
   obtain ⟨hR, hal, -, hRlo, hhi, hb, -⟩ := hB
   have hwn := Spike.Lib.A64.HelloPh.HelloRootBase.wn_GJ1RH hpw i0 hG
   have hA := Spike.Lib.A64.WakePh.H1Rt.a13_facts hpw IH hA13
@@ -85,9 +85,9 @@ theorem mid_I (B : HelloRootBase (Ly) (LB) (AW) (Spike.Lib.A64.HelloPh.H2Rt.ms2H
   have hun := Spike.Lib.A64.HelloPh.H2Rt.hunSp_H hpw IH hS
   have sp3 := Spike.Lib.A64.WakePh.LdFacts.spawn_fact hpw IH hA13 (spw_mem hpw i0 (j := 3) (by decide)) true
   have sp11 := Spike.Lib.A64.WakePh.LdFacts.spawn_fact hpw IH hA13 (spw_mem hpw i0 (j := 11) (by decide)) true
-  have e3 : (Ly).pinA + BitVec.ofNat 64 (80 + 8 * 3) = (Ly).pinA + 80#64 + 24#64 := by
+  have e3 : (Ly).pinA + BitVec.ofNat 64 (112 + 8 * 3) = (Ly).pinA + 112#64 + 24#64 := by
     rw [BitVec.add_assoc]; rfl
-  have e3' : (Ly).pinA + BitVec.ofNat 64 (80 + 8 * 3) = (Ly).pinA + 104#64 := rfl
+  have e3' : (Ly).pinA + BitVec.ofNat 64 (112 + 8 * 3) = (Ly).pinA + 136#64 := rfl
   have hs := B.hs
   have hunP : ∀ m, F m → Mem.loadInt m.dmem (Ly).pnA 8 = none := fun m h => hFr m h _ (Ly).pn_mem
   exact ⟨Spike.Lib.A64.HelloPh.WcMidWG.wcMidW_wcGH (Λ := (Ly).Λ) B.hp B.hlo B.hΛ B.hlab B.hsite hR hal (by omega)
@@ -153,7 +153,7 @@ theorem tcb_I (B : HelloRootBase (Ly) (LB) (AW) (Spike.Lib.A64.HelloPh.H2Rt.ms2H
   obtain ⟨hR, hal, -, hRlo, hhi, -, -⟩ := hB
   obtain ⟨hR', hal'⟩ := Spike.Lib.A64.Rt.StartU.callee_facts (kc := -144) (lo' := -192) hR hal
     (by omega) (by decide) (by omega) (by decide)
-  have e3' : (Ly).pinA + BitVec.ofNat 64 (80 + 8 * 3) = (Ly).pinA + 104#64 := rfl
+  have e3' : (Ly).pinA + BitVec.ofNat 64 (112 + 8 * 3) = (Ly).pinA + 136#64 := rfl
   exact Spike.Lib.A64.HelloPh.CalW2.tcbWG_W2H (ar := AW) (Dt := B.Dt) (Ctx := fun _ _ _ => False)
     (lbl := lbl2H (LB) l b l' b')
     (lsize := Spike.Lib.A64ConsumerA.updN (Spike.Lib.A64ConsumerA.updN (ls0T B.ls) l n) l' n')

@@ -3,7 +3,7 @@
 `WcW.reserveW_wcGH` (the reserve's nodes inside `SFactsSt2` at `ownGH`, `X64HelloWcResWI`) moved to
 `SFactsSt2` at `ownGHXW` (`Lft2H`). Every state of `scc_rt_thread_reserve` called from `wc_main` is on a pool
 stack (its frame `[-40, 8]`, `hb`) at a pc from `.x1` on in none of `InTH`, `InCH`, `InAbH` (`QPH`; the reserve
-is at `[4199484, 4199582)`, its return `.x23 = 4203726`), so it holds `tcbM` only (`cls_poolH`); its one
+is at `[4199484, 4199582)`, its return `.x23 = 4203764`), so it holds `tcbM` only (`cls_poolH`); its one
 shared write (the `lock xaddq` on the counter `ntA`) misses `tcbM` (`ha`).
 
 - `res_labsH`: the labels the reserve's pcs are decided from.
@@ -15,8 +15,8 @@ The reserve's `ReserveW.imp` is x86-64 wake's (`X64WakeOwnResX`), generic in the
 ## Differences from the AArch64 version
 
 AArch64 has no counterpart: main owns no TCB word there. Against x86-64 wake's `OwnRes`: the reserve returns to
-`.Lwc_main.x23` (wake `.x19`), its labels are hello's, and `hW` is about the worker's word `tcbWH L`
-(`pinA + 112`; wake's `tcb2 L`).
+`.Lwc_main.x1` (wake `.x19`), its labels are hello's, and `hW` is about the worker's word `tcbWH L`
+(`pinA + 144`; wake's `tcb2 L`).
 -/
 import Spike.Lib.X64HelloOwnLft2X
 import Spike.Lib.X64HelloWcResWI
@@ -48,7 +48,7 @@ theorem res_labsH (hlab : ∀ l x, codeLabel lo helloCells l = some x → L.lab 
     (_root_.Executable.labels L.exe).label fnL = Int64.ofNat 4199484 ∧
     (_root_.Executable.labels L.exe).label entryL = Int64.ofNat 4199492 ∧
     (_root_.Executable.labels L.exe).label okL = Int64.ofNat 4199573 ∧
-    (_root_.Executable.labels L.exe).label ".Lwc_main.x23" = Int64.ofNat 4203726 := by
+    (_root_.Executable.labels L.exe).label ".Lwc_main.x1" = Int64.ofNat 4203764 := by
   refine ⟨hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_⟩ <;>
     (rw [← codeT_eq]; decide +kernel)
 
@@ -68,6 +68,16 @@ local macro "rblkXH " bb:term:max ok:term:max blk:term:max oo:term:max el:term:m
     · intro k hk; dsimp only [rvN]; rw [$el:term]; revert k; decide +kernel
     dsimp only [rvN] at hJ ⊢))
 
+set_option hygiene false in
+/-- `rblkXH` for a block split by its return label (`blkL2HA`, `blockAcrossB`). -/
+local macro "rblkXHA " bb:term:max ok:term:max blk:term:max oo:term:max el:term:max : tactic =>
+  `(tactic| (
+    refine blkL2HA hp hlab hsite hsep ha hW (P := PPH) (Q := QPH) $bb (by first | rfl | exact ofNat_zero' _) $ok hR
+      hlo' hhi (fun _ h => h.2) (fun s h => cls_poolH hlab hb s h.1) (cls_poolH hlab hb) ?_
+      (soT $blk $oo) (fun σ c hJ => ?_)
+    · intro k hk; dsimp only [rvN]; rw [$el:term]; revert k; decide +kernel
+    dsimp only [rvN] at hJ ⊢))
+
 section L
 
 variable (hp : L.prog = helloCells)
@@ -81,7 +91,7 @@ set_option maxHeartbeats 1600000 in
 /-- **The reserve's nodes inside `Lft2H`** for `q` at old counter `0` returning to `.x23`: every state on a pool
 stack (`hb`) at a `QPH` pc holds `tcbM` only; the counter's add misses it. -/
 theorem resLH {R : Region} (hb : BandOnP L R (-40) 8) (hR : R.OK) (hlo' : R.lo ≤ -40) (hhi : 8 ≤ R.hi)
-    (q : ResG) (hn : q.n = 0#64) (hra : q.g.ra = (L.lab ".Lwc_main.x23").toBitVec) {F : MachineData → Prop}
+    (q : ResG) (hn : q.n = 0#64) (hra : q.g.ra = (L.lab ".Lwc_main.x1").toBitVec) {F : MachineData → Prop}
     (hunN : ∀ m, F m → Mem.loadInt m.dmem (ntA L.lab) 8 = none) :
     ∀ i, ReserveW (Lft2H Λ L (ntA L.lab) Dt) (fun _ _ => False) L.exe L.endPc R F q i := by
   obtain ⟨eFn, eEn, eOk, eX23⟩ := res_labsH hlab (L := L)
@@ -110,10 +120,10 @@ theorem resLH {R : Region} (hb : BandOnP L R (-40) 8) (hR : R.OK) (hlo' : R.lo �
     show QPH ((_root_.Executable.labels L.exe).label okL).toBitVec.toNat
     rw [eOk]; decide +kernel
   case ok =>
-    rblkXH bOk Spike.Lib.X64.Flow.Reserve.rRet_ok rRet oI eOk
+    rblkXHA bOk Spike.Lib.X64.Flow.Reserve.rRet_ok rRet oI eOk
     rw [(Spike.Lib.X64.Flow.Reserve.rRet_walk _ _ hJ.2).1]
     show QPH (Int64.ofBitVec q.g.ra).toBitVec.toNat
-    rw [hra, Int64.ofBitVec_toBitVec, show L.lab ".Lwc_main.x23" = Int64.ofNat 4203726 from eX23]
+    rw [hra, Int64.ofBitVec_toBitVec, show L.lab ".Lwc_main.x1" = Int64.ofNat 4203764 from eX23]
     decide +kernel
   case entry =>
     refine nodeL2H hsep ha hW (sz := 7) (P := QPH) (cls_poolH hlab hb) (fun s c hAt s' hs => ?_) ⟨?_, ?_⟩
@@ -161,7 +171,7 @@ counter `0` returning to `.x23`, for any frame ghost and control `g`, its frame 
 theorem reserveW_wcGHX {rS : Range} {R : Region} {F : MachineData → Prop}
     (hsepN : ntA L.lab ≠ L.pnA ∧ ntA L.lab ≠ L.lockA ∧ ntA L.lab ≠ L.freeNA ∧ ntA L.lab ≠ L.nextA)
     (hb : BandOnP L R (-40) 8) (hR : R.OK) (hlo' : R.lo ≤ -40) (hhi : 8 ≤ R.hi)
-    (g : Spike.Lib.X64.Flow.Ret0.AllocTcb.G × Spike.Lib.Ctl) (hra : g.1.ra = (L.lab ".Lwc_main.x23").toBitVec)
+    (g : Spike.Lib.X64.Flow.Ret0.AllocTcb.G × Spike.Lib.Ctl) (hra : g.1.ra = (L.lab ".Lwc_main.x1").toBitVec)
     (hmN : Scc.Sem.Kernel.mapped (Spike.Lib.X64Consumer.K0 Λ) true ⟨ntA L.lab, 8⟩ = true)
     (hunN : ∀ m, F m → Mem.loadInt m.dmem (ntA L.lab) 8 = none) :
     ∀ i, ReserveW (fun s _ => SFactsSt2 Λ (Spike.Lib.X64.PhRec.μ L) (ownGHXW L (ntA L.lab)) s)

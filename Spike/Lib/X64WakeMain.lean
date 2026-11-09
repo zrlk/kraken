@@ -61,7 +61,7 @@ def wakeMainIn (cells : List (Directive × Nat)) : Bool :=
   prologueIn cells "scc_rt_main" ".Lscc_rt_main.chk" ".Lscc_rt_main.entry" 32 8 ".Lscc_rt_main.stk" 5 9 3 2 4
       [(.rdi, -8, 4)] &&
     blockAtB cells ".Lscc_rt_main.entry" 0 wB0 &&
-    labelGapB cells ".Lscc_rt_main.entry" ".Lscc_rt_main.x2" 9
+    labelGapB cells ".Lscc_rt_main.entry" ".Lscc_rt_main.x0" 9
 
 theorem wake_mainIn : wakeMainIn SccCode.wakeCells = true := by decide +kernel
 
@@ -90,7 +90,7 @@ def wN0 : ND := ⟨lab ".Lscc_rt_main.entry", ⟨-40, [(.rbp, -8)]⟩, fun σ c 
 /-- The call of `wc_main`: `%rdi` the saved `ThreadId`, the return address
 `.x2` in the slot at `%rsp`, `%rbp` at the saved `%rbp`. -/
 def wNC : ND := ⟨lab "wc_main", ⟨-48, []⟩, fun σ c => wJd J 8#64 σ c ∧
-  σ.regs.rdi.toBitVec = σ.slot (-16) ∧ σ.slot (-48) = (lab ".Lscc_rt_main.x2").toBitVec ∧
+  σ.regs.rdi.toBitVec = σ.slot (-16) ∧ σ.slot (-48) = (lab ".Lscc_rt_main.x0").toBitVec ∧
   σ.regs.get64 .rbp = σ.regs.get64 .rsp + BitVec.ofInt 64 (-8 - -48)⟩
 
 end Nodes
@@ -165,7 +165,7 @@ theorem wake_main_pre_segW {W : Frag isa} {K : State → State → Prop}
   simp only [wakeMainIn, Bool.and_eq_true] at hin
   obtain ⟨⟨hpro, h0⟩, hg1⟩ := hin
   let lab := (_root_.Executable.labels exe).label
-  have e1 : lab ".Lscc_rt_main.x2" = lab ".Lscc_rt_main.entry" + Int64.ofNat 9 := label_labelGapB hp hg1
+  have e1 : lab ".Lscc_rt_main.x0" = lab ".Lscc_rt_main.entry" + Int64.ofNat 9 := label_labelGapB hp hg1
   refine SegW.seq (prologue_seg_ofW hp hend hpro (nb := wN0 lab J) (by decide) hF hR
     (by show R.lo ≤ -8 - (32 : Int64).toInt; rw [show (32 : Int64).toInt = 32 from rfl]; omega) hhi (by decide) rfl
     (by show SO.le ⟨-40, [(.rbp, -8)]⟩ (oF 32) = true; decide) hW.pro ?_)
@@ -196,7 +196,7 @@ theorem wake_main_pre_segW {W : Frag isa} {K : State → State → Prop}
     · simp [Reg64s.set64, h5]
     · simp [Reg64s.set64, upd_apply]
     · simp only [upd_apply, ↓reduceIte]
-      rw [show lab ".Lscc_rt_main.x2" = _ from e1]; rfl
+      rw [show lab ".Lscc_rt_main.x0" = _ from e1]; rfl
     · simp only [Reg64s.get64, Reg64s.set64] at hb ⊢; simp at hb ⊢; rw [hb]; bv_omega
   · -- `wc_main` in its region
     refine SegW.mono_pre (P := fun s c => ∃ G : MachineData × AS, At exe endPc (wR R D) (wF R D F G.1 G.2)

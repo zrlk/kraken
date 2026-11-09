@@ -145,7 +145,7 @@ theorem wake_start_wc_h0 {E : Scc.Sem.Entry} (hE : E.Ok (Ly).Λ)
     (hctr2 : ∀ a ∈ [(Ly).pnA, (Ly).lockA, (Ly).freeNA, (Ly).nextA], a ≠ Spike.Lib.WakeGOf2.lim2A (Ly))
     (hcT : cT ≠ ⟨(Ly).pinA + 16#64, 8⟩)
     (hc : Spike.Lib.A64.Rt.CtrZ o)
-    (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
+    (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
     (hrt0 : ∀ a, ¬ ∃ l b, L0 l = some b ∧ (Scc.Sem.lrange ls0 l b).contains a) (hbx : C0Box c0)
     {P : MachineData → Prop} (hP : Spike.Lib.A64.Flow.FStable (entryR E) P)
     (htiW : ∀ g, g.ra = ((Ly).lab Spike.Lib.A64.Flow.Ret0.sp3L).toBitVec → ∀ j,

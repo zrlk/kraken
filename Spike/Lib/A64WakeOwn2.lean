@@ -9,10 +9,10 @@ their write, chosen by the phase index's bits (`A64PhRec.ownOf`'s): `ownV`.
 Three instances, switched where both give the same list:
 
 - `ownW` (`own1`): `scc_rt_start` and `wc_main` up to the second
-  `bl scc_rt_alloc_tcb`; `scc_rt_pinned_next` `0 → 80`, `scc_rt_stack_next`
+  `bl scc_rt_alloc_tcb`; `scc_rt_pinned_next` `0 → 112`, `scc_rt_stack_next`
   `0 → 16384`, `scc_rt_nthreads` `0 → 1` (`ownW_eq`).
 - `own2a`: the second `scc_rt_alloc_tcb` call and `wc_main` up to the second
-  `bl scc_rt_thread_init`; `scc_rt_pinned_next` `80 → 176` (`80 + lenOf h`
+  `bl scc_rt_thread_init`; `scc_rt_pinned_next` `112 → 240` (`112 + lenOf h`
   at `wc_main`'s header `h = 0x800903`, `pn2_eq`).
 - `own2b`: the second `scc_rt_thread_init` call and after;
   `scc_rt_stack_next` `16384 → 32768`.
@@ -49,34 +49,34 @@ def ownV (L : RuntimeLayout) (a : BitVec 64) (pb pa xb xa nb na : BitVec 64) (i 
 
 /-- **The first instance** is `ownV` at the first thread's values. -/
 theorem ownW_eq (L : RuntimeLayout) (a : BitVec 64) :
-    ownW L a = ownV L a 0#64 80#64 0#64 16384#64 0#64 1#64 := by
+    ownW L a = ownV L a 0#64 112#64 0#64 16384#64 0#64 1#64 := by
   funext i
   unfold ownW ownV Spike.Lib.A64.PhRec.ownOf
   rfl
 
-/-- `wc_main`'s header for the second TCB (`movz x0, #2307; movk x0, #128, lsl #16`). -/
-abbrev hdr2 : BitVec 64 := 8390915#64
+/-- `wc_main`'s header for the second TCB (`movz x0, #3331; movk x0, #128, lsl #16`). -/
+abbrev hdr2 : BitVec 64 := 8391939#64
 
-/-- The second TCB's bytes after the first's eighty. -/
-theorem pn2_eq : 80#64 + Spike.Lib.A64.Flow.Ret0.AllocTcb.lenOf hdr2 = 176#64 := by decide
+/-- The second TCB's bytes after the first's 112. -/
+theorem pn2_eq : 112#64 + Spike.Lib.A64.Flow.Ret0.AllocTcb.lenOf hdr2 = 240#64 := by decide
 
 /-- **The second `scc_rt_alloc_tcb` call's instance**: `scc_rt_pinned_next`
-`80 → 176`, `scc_rt_stack_next` `16384`, `scc_rt_nthreads` `1`. -/
+`112 → 240`, `scc_rt_stack_next` `16384`, `scc_rt_nthreads` `1`. -/
 def own2a (L : RuntimeLayout) (a : BitVec 64) : Nat → List (Loc × Val) :=
-  ownV L a 80#64 176#64 16384#64 16384#64 1#64 1#64
+  ownV L a 112#64 240#64 16384#64 16384#64 1#64 1#64
 
 /-- **The second `scc_rt_thread_init` call's instance**: `scc_rt_pinned_next`
-`176`, `scc_rt_stack_next` `16384 → 32768`, `scc_rt_nthreads` `1`. -/
+`240`, `scc_rt_stack_next` `16384 → 32768`, `scc_rt_nthreads` `1`. -/
 def own2b (L : RuntimeLayout) (a : BitVec 64) : Nat → List (Loc × Val) :=
-  ownV L a 176#64 176#64 16384#64 32768#64 1#64 1#64
+  ownV L a 240#64 240#64 16384#64 32768#64 1#64 1#64
 
 /-- `wc_main`'s second `bl scc_rt_alloc_tcb` and its return point are at
 phase `16`, the callee's entry at `13`. -/
-theorem allocTcb2_ph : phC 2169264 = 16 ∧ phC 2169268 = 16 ∧ phC 2164712 = 13 := by decide +kernel
+theorem allocTcb2_ph : phC 2169296 = 16 ∧ phC 2169300 = 16 ∧ phC 2164712 = 13 := by decide +kernel
 
 /-- `wc_main`'s second `bl scc_rt_thread_init` and its return point are at
 phase `16`, the callee's entry at `12`. -/
-theorem threadInit2_ph : phC 2169288 = 16 ∧ phC 2169292 = 16 ∧ phC 2165244 = 12 := by decide +kernel
+theorem threadInit2_ph : phC 2169320 = 16 ∧ phC 2169324 = 16 ∧ phC 2165248 = 12 := by decide +kernel
 
 /-- **The first switch**: past `wc_main`'s second `bl scc_rt_alloc_tcb`
 (phase `16`, the first instance) at the callee's entry (`13`, the second)

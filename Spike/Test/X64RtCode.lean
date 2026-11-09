@@ -48,16 +48,15 @@ example : RtCodeIn0 SccCode.hello1Cells := rtCodeIn0_of_okS hello1_rtCodeOkS
 example : RtCodeInTi SccCode.hello1Cells x8L := rtCodeInTi_of_okS hello1_rtCodeOkS
 example : RtCodeInTi SccCode.ret0Cells (tiOf .bare) := (rtCodeIn_of_ok ret0_rtCodeOk).toInTi
 
-/-- `hello1.w`'s `scc_rt_thread_init` returns to `.x8` (one counter of `.x`
-labels over the program, the setup call taking one more): its code check at
-`.x8` from the setup pass, and decided; at `.x7` (`threadInitIn`) it
-fails. -/
+/-- `hello1.w`'s `scc_rt_thread_init` returns to `.x0` (per-function `.x`
+labels, as in `ret0.w`): its code check at `x8L` from the setup pass, and
+decided; at `x7L` (`threadInitIn`, the same label) it holds too. -/
 example : Ret0.ThreadInit.threadInitInAt SccCode.hello1Cells x8L = true := by
   have h := threadInitInAt_of_okS hello1_rtCodeOkS; rwa [setupMC_ti] at h
 set_option maxRecDepth 100000 in
 example : Ret0.ThreadInit.threadInitInAt SccCode.hello1Cells x8L = true := by decide +kernel
 set_option maxRecDepth 100000 in
-example : Ret0.ThreadInit.threadInitIn SccCode.hello1Cells = false := by decide +kernel
+example : Ret0.ThreadInit.threadInitIn SccCode.hello1Cells = true := by decide +kernel
 set_option maxRecDepth 100000 in
 example : Ret0.ThreadInit.threadInitInAt SccCode.ret0Cells (tiOf .bare) = true := by decide +kernel
 

@@ -56,7 +56,7 @@ theorem hnz_e : Spike.Lib.X64WakeOInit.NtZ Λe oH = true := by decide +kernel
 
 theorem hA13_e : Scc.Cert.Spawn.X64.a13data Le.Λ oH.prog oH.secs = true := by decide +kernel
 
-theorem hpin2_e : Le.pinA.toNat + 168 ≤ Le.Λ.pinned.lo + Le.Λ.pinned.size := by decide +kernel
+theorem hpin2_e : Le.pinA.toNat + 200 ≤ Le.Λ.pinned.lo + Le.Λ.pinned.size := by decide +kernel
 
 theorem hinit2_e :
     (Spike.Lib.X64.PhRec.m0Of Le.Λ oH.prog oH.secs).initVal ⟨Spike.Lib.X64HelloGOf2H.lim2AH Le, 8⟩ = 0 := by

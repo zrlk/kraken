@@ -79,7 +79,8 @@ def tcbGrpsH : List RGrp := [
     (163, atBnd), (198, atJ2)], none⟩,
   ⟨okL, [(0, [((SI.leaRip .rax "scc_rt_pinned").toDir, 7)]), (7, atO1), (34, [((FI.imul_rr .rax .rcx).toDir, 4)]),
     (38, atO2), (53, [((FI.shl_cl .rax).toDir, 3)]), (56, atO3), (74, [((FI.shl_cl .rax).toDir, 3)]), (77, atO4),
-    (95, [((FI.or_rr .rax .rcx).toDir, 3)]), (98, atO5), (140, hdrBlk), (143, atRet)], none⟩]
+    (95, [((FI.or_rr .rax .rcx).toDir, 3)]), (98, atO5), (140, hdrBlk), (143, atRet.take 11)], some (199, retL)⟩,
+  ⟨retL, [(0, atRet.drop 11)], none⟩]
 
 end Tcb
 
@@ -91,16 +92,18 @@ open Spike.Lib.X64.Flow.Ret0.ThreadInit
 def tiGrpsH : List RGrp := [
   ⟨fnL, [(0, tiPro)], some (12, entryL)⟩,
   ⟨entryL, [(0, tiArg), (7, callBlk)], some (12, x7L)⟩,
-  ⟨x7L, [(0, tiSp), (51, tiF1), (63, tiZ), (78, tiZ), (93, tiF4), (105, tiF5), (117, tiRet)] ++
-    storeOff.zip storeBlks, none⟩]
+  ⟨x7L, [(0, tiSp), (51, tiF1), (63, tiZ), (78, tiZ), (93, tiF4), (105, tiF5), (117, tiRet.take 3)] ++
+    storeOff.zip storeBlks, some (125, retL)⟩,
+  ⟨retL, [(0, tiRet.drop 3)], none⟩]
 
 /-- `scc_rt_thread_init`'s groups with its return point at `x`
 (`threadInitInAt`; `tiGrpsH` at `.x7`). -/
 def tiGrpsHAt (x : Label) : List RGrp := [
   ⟨fnL, [(0, tiPro)], some (12, entryL)⟩,
   ⟨entryL, [(0, tiArg), (7, callBlk)], some (12, x)⟩,
-  ⟨x, [(0, tiSp), (51, tiF1), (63, tiZ), (78, tiZ), (93, tiF4), (105, tiF5), (117, tiRet)] ++
-    storeOff.zip storeBlks, none⟩]
+  ⟨x, [(0, tiSp), (51, tiF1), (63, tiZ), (78, tiZ), (93, tiF4), (105, tiF5), (117, tiRet.take 3)] ++
+    storeOff.zip storeBlks, some (125, retL)⟩,
+  ⟨retL, [(0, tiRet.drop 3)], none⟩]
 
 theorem tiGrpsHAt_x7 : tiGrpsHAt x7L = tiGrpsH := rfl
 
@@ -125,7 +128,8 @@ def takeGrpsH : List RGrp := [
     (38, stAdd), (56, (parse("lock xaddq %rax, (%rcx)")).zip [5]), (61, stBnd), (108, stJ2)], none⟩,
   ⟨okL, [(0, [((SI.leaRip .rax "scc_rt_stacks").toDir, 7)]), (7, stOk)], none⟩,
   ⟨takenL, [(0, stSite)], some (11, siteL)⟩,
-  ⟨siteL, [(0, (parse("nop")).zip [1]), (1, stRet)], none⟩]
+  ⟨siteL, [(0, (parse("nop")).zip [1]), (1, stRet.take 3)], some (12, retL)⟩,
+  ⟨retL, [(0, stRet.drop 3)], none⟩]
 
 end Take
 
@@ -179,14 +183,18 @@ theorem mainUIn_of (h : RtAll cells (mainUGrpsH mc)) : mainUIn cells mc = true :
 /-- `scc_rt_alloc_tcb`'s check from its groups. -/
 theorem allocTcbIn_of (h : RtAll cells tcbGrpsH) : Ret0.AllocTcb.allocTcbIn cells = true := by
   simp only [tcbGrpsH, RtAll, BsOk, GapAt, and_true] at h
-  simp only [Ret0.AllocTcb.allocTcbIn, Ret0.AllocTcb.fiAt, Ret0.AllocTcb.siAt, h, Bool.and_self]
+  have e : ((Ret0.AllocTcb.atRet.take 11).map (·.2)).sum = 56 := by decide
+  simp only [Ret0.AllocTcb.allocTcbIn, Ret0.AllocTcb.fiAt, Ret0.AllocTcb.siAt, Scc.Cert.Rt.X64.blockAcrossB, e,
+    Nat.reduceAdd, h, Bool.and_self]
 
 /-- `scc_rt_thread_init`'s check from its groups. -/
 theorem threadInitIn_of (h : RtAll cells tiGrpsH) : Ret0.ThreadInit.threadInitIn cells = true := by
   simp only [tiGrpsH, Ret0.ThreadInit.storeOff, Ret0.ThreadInit.storeBlks, List.zip_cons_cons, List.zip_nil_left,
     List.cons_append, List.nil_append, RtAll, BsOk, GapAt, and_true] at h
+  have e : ((Ret0.ThreadInit.tiRet.take 3).map (·.2)).sum = 8 := by decide
   simp only [Ret0.ThreadInit.threadInitIn, Ret0.ThreadInit.storeOff, Ret0.ThreadInit.storeBlks,
-    List.zip_cons_cons, List.zip_nil_left, List.all_cons, List.all_nil, h, Bool.and_self]
+    List.zip_cons_cons, List.zip_nil_left, List.all_cons, List.all_nil, Scc.Cert.Rt.X64.blockAcrossB, e,
+    Nat.reduceAdd, h, Bool.and_self]
 
 /-- `scc_rt_thread_init`'s check with its return point at `x` from its
 groups. -/
@@ -194,8 +202,10 @@ theorem threadInitInAt_of {x : Label} (h : RtAll cells (tiGrpsHAt x)) :
     Ret0.ThreadInit.threadInitInAt cells x = true := by
   simp only [tiGrpsHAt, Ret0.ThreadInit.storeOff, Ret0.ThreadInit.storeBlks, List.zip_cons_cons,
     List.zip_nil_left, List.cons_append, List.nil_append, RtAll, BsOk, GapAt, and_true] at h
+  have e : ((Ret0.ThreadInit.tiRet.take 3).map (·.2)).sum = 8 := by decide
   simp only [Ret0.ThreadInit.threadInitInAt, Ret0.ThreadInit.storeOff, Ret0.ThreadInit.storeBlks,
-    List.zip_cons_cons, List.zip_nil_left, List.all_cons, List.all_nil, h, Bool.and_self]
+    List.zip_cons_cons, List.zip_nil_left, List.all_cons, List.all_nil, Scc.Cert.Rt.X64.blockAcrossB, e,
+    Nat.reduceAdd, h, Bool.and_self]
 
 /-- **The return point of `scc_rt_thread_init` is `.entry` + 12** in a
 program with its code at `x`. -/
@@ -207,7 +217,9 @@ theorem gap_of_threadInitInAt {x : Label} (h : Ret0.ThreadInit.threadInitInAt ce
 /-- `scc_rt_stack_take`'s check from its groups. -/
 theorem stackTakeIn_of (h : RtAll cells takeGrpsH) : Ret0.StackTake.stackTakeIn cells = true := by
   simp only [takeGrpsH, RtAll, BsOk, GapAt, and_true] at h
-  simp only [Ret0.StackTake.stackTakeIn, Ret0.AllocTcb.siAt, h, Bool.and_self]
+  have e : ((Ret0.StackTake.stRet.take 3).map (·.2)).sum = 11 := by decide
+  simp only [Ret0.StackTake.stackTakeIn, Ret0.AllocTcb.siAt, Scc.Cert.Rt.X64.blockAcrossB, e, Nat.reduceAdd, h,
+    Bool.and_self]
 
 /-- **Every check from the pass.** -/
 theorem rtCodeIn_of_ok (h : rtCodeOk cells mc = true) : RtCodeIn cells mc := by

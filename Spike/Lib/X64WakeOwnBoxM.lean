@@ -11,7 +11,7 @@ first byte lies in `data` or `pinned` (`words_mapped`); in a well-formed
 layout both are disjoint from the heap. A box cell the allocator may return
 lies in the heap: the memory side's cells in `Λ.heap` (`hH`, `hHi`, `hroom`,
 as `StartGlue.hcellB_of_wordsNone`) and the box's word inside its block
-(`hoB`). The tid word `t2 + 56 = pinA + 160` is `152` bytes past `tcbM`.
+(`hoB`). The tid word `t2 + 56 = pinA + 192` is `184` bytes past `tcbM`.
 
 - `tcbM_byte`: `tcbM`'s first byte in `data` or `pinned`.
 - `ne_tcbM_of_heap`: a heap address is not `tcbM`.
@@ -75,10 +75,10 @@ theorem hboxM_of (hwf : L.Λ.WF) {ms : Spike.Lib.MemSide isa} {lab : Label → I
   have h := box_heap hH hHi hroom (hoB q hP) ho
   ne_tcbM_of_heap hwf h.1 h.2
 
-/-- **The second TCB's tid word is not `tcbM`**: `t2 + 56 = pinA + 160`,
+/-- **The second TCB's tid word is not `tcbM`**: `t2 + 56 = pinA + 192`,
 `tcbM = pinA + 8`. -/
 theorem tid_ne_tcbM (L : RuntimeLayout) : t2 L.lab + 56#64 ≠ tcbM L := by
-  show Spike.Lib.X64.Flow.Ret0.pinA L.lab + 104#64 + 56#64 ≠ L.pinA + 8#64
+  show Spike.Lib.X64.Flow.Ret0.pinA L.lab + 136#64 + 56#64 ≠ L.pinA + 8#64
   rw [L.lab_pin]
   bv_omega
 

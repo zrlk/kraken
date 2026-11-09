@@ -218,11 +218,11 @@ theorem ownG_clone {L : RuntimeLayout} {a : BitVec 64} {s : State}
     ((⟨L.nextA, 8⟩ : Loc), (32768#64 : BitVec 64).setWidth 128) ∈ ownG L a s ∧
       ((⟨a, 8⟩ : Loc), (1#64 : BitVec 64).setWidth 128) ∈ ownG L a s := by
   obtain ⟨-, -, -, -, -, e6, e7, -, -⟩ := labs_eq (L := L) hlab
-  have h6 : pcOf s = 2169344 := by
+  have h6 : pcOf s = 2169376 := by
     rw [hpc, Int64.toBitVec_add, BitVec.toNat_add, e6]; rfl
   have hg : Good2b L s := .inr (.inl (by simp only [inPc, e6, e7, h6]; decide))
   rw [ownG_2b hlab hg, h6]
-  have hb : ph2b 2169344 / 4 % 2 = 0 ∧ ph2b 2169344 / 16 % 2 = 0 := by rw [ph2b_eq]; decide +kernel
+  have hb : ph2b 2169376 / 4 % 2 = 0 ∧ ph2b 2169376 / 16 % 2 = 0 := by rw [ph2b_eq]; decide +kernel
   simp only [own2b, ownV, hb.1, hb.2]
   simp
 

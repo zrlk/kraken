@@ -314,7 +314,8 @@ theorem tcbW_rtX (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
   case hdr =>
     dsimp only [TcbW]; rw [hI.labOk]
     refine nodeW_rtX_st (p := lab okL + Int64.ofNat (4 * 29)) hI bH rfl rfl (hsi _ (by simp [siPcs])).1
-      (by rw [ofNat4_succ']; exact hnx bRet (by decide) (by decide)) (fun σ _ m hJ hF => ?_) (fun σ _ hJ => ?_)
+      (by rw [ofNat4_succ']; exact hnx (blockAt_of_blockAcross bRet) (by decide) (by decide))
+      (fun σ _ m hJ hF => ?_) (fun σ _ hJ => ?_)
       (hc0 .hdr) hpl0
     · have h10 : (σ.regs.getXReg .X10).toBitVec = pinA lab + q.n0 := hJ.2.2.2
       rw [rAddr_zero, h10]; exact hunH m hF
@@ -322,7 +323,7 @@ theorem tcbW_rtX (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
       rw [rAddr_zero, h10]; exact hoffH
   case ret =>
     dsimp only [TcbW]; rw [hI.labOk]
-    exact blkW_rtXG hI hpr hab bRet rfl atRet_ok hR hal (by omega) (by omega) hph.ret (by decide)
+    exact blkW_rtXGA hI hpr hab bRet rfl atRet_ok hR hal (by omega) (by omega) hph.ret (by decide) (by decide)
       (hret_of_run atRet_ok fun _ _ hJ => by
         dsimp only [tcbN] at hJ ⊢
         rw [(atRet_walk lab _ hJ.2).1, hra]; exact Int64.ofBitVec_toBitVec _)
@@ -583,11 +584,11 @@ theorem takeW_rtX (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
     rwa [hg] at this
   case site =>
     dsimp only [TakeW]; rw [hI.labOk]
-    exact site_rtX hI bSite (ofNat4_zero _) rfl (hnx bRet (by decide) (by decide))
+    exact site_rtX hI bSite (ofNat4_zero _) rfl (hnx (blockAt_of_blockAcross bRet) (by decide) (by decide))
       (fun _ _ hJ => hJ.1.trans hq) hpl0
   case ret =>
     dsimp only [TakeW]; rw [hI.labOk]
-    exact blkW_rtXG hI hpr hab bRet rfl stRet_ok hR hal (by omega) (by omega) hph.ret (by decide)
+    exact blkW_rtXGA hI hpr hab bRet rfl stRet_ok hR hal (by omega) (by omega) hph.ret (by decide) (by decide)
       (hret_of_run stRet_ok fun _ _ hJ => by
         dsimp only [takeNG] at hJ ⊢
         rw [(stRet_walk lab _ hJ.2.2).1, hra]; exact Int64.ofBitVec_toBitVec _)
@@ -734,10 +735,10 @@ theorem tiW_rtX (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
     exact blkW_rtX hI hpr hab bF5 rfl tiF5_ok hR hal (by omega) (by omega) hph.f5 tiF5_noRet (by decide)
       (fun _ => posOff_of_blockAt (lab := lab) bS5 (by decide) (i := 0) (by decide)) (labs_nil (by decide))
       (fun _ _ hJ => hJ.1.trans hq) hpl0
-  case st5 => tstX bS5 5 bRet
+  case st5 => tstX bS5 5 (blockAt_of_blockAcross bRet)
   case ret =>
     dsimp only [TiW]; rw [hI.labOk]
-    exact blkW_rtXG hI hpr hab bRet rfl tiRet_ok hR hal (by omega) (by omega) hph.ret (by decide)
+    exact blkW_rtXGA hI hpr hab bRet rfl tiRet_ok hR hal (by omega) (by omega) hph.ret (by decide) (by decide)
       (hret_of_run tiRet_ok fun _ _ hJ => by
         dsimp only [tiN] at hJ ⊢
         rw [(tiRet_walk lab _ hJ.2).1, hra]; exact Int64.ofBitVec_toBitVec _)

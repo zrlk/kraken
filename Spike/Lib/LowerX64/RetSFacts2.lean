@@ -115,19 +115,22 @@ theorem blkW_sfacts_k2 {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K o
     (hfj : ∀ σ c, n.J σ c → FrJ fp ra σ.slot) {blk : List (Directive × Nat)} (hk : Kind2 fr blk)
     (hcd : SubCd (CdC cells okPc ph lab (Int64.ofBitVec ra)) n.pc blk) :
     BlkW (fun s c => SFacts Λ μ own rS Tk lbl s c) K exe endPc R F (dumN n) blk := by
-  obtain ⟨pc0, pre, post, ⟨-, L, j, off, hpc0, hb, hrun⟩, hpc⟩ := hcd
+  obtain ⟨pc0, pre, post, hc0, hpc⟩ := hcd
+  obtain ⟨-, hat, hrun⟩ := CdCQ.sub hc0 hpc
   have hok : okBlk (-(fr.size : Int)) 16 n.o blk = true := hno ▸ okBlk_kind2 hf h1 hk
-  have hc : cellOff (pre ++ blk ++ post) pre.length = (pre.map (·.2)).sum := by
-    simp [cellOff]
-  have hph := Scc.Cert.Ph1X64.blkPh_of_runPhB hrun (classify_of_okBlk hok)
-  rw [hc, ← hpc] at hph
-  have hb' := blockAt_sub hb
-  have hpc' : lab L + Int64.ofNat (off + (pre.map (·.2)).sum) = n.pc := by
-    rw [hpc, ← hpc0, Int64.ofNat_add, Int64.add_assoc]
-  have hcode : ∀ s : State, s.exe = exe → s.endPc = endPc → CodeAt s n.pc blk := by
-    intro s hs hn
-    have := Scc.Cert.Rt.X64.codeAt_blockAt_lays hI.lays hs (hn.trans hI.endOk) hb'
+  have hph := Scc.Cert.Ph1X64.blkPh_of_runPhB (xs := []) (zs := []) (by simpa using hrun)
+    (classify_of_okBlk hok)
+  simp only [List.nil_append, List.append_nil, List.length_nil] at hph
+  rw [show cellOff blk 0 = 0 by simp [cellOff], show Int64.ofNat 0 = 0 from rfl, Int64.add_zero] at hph
+  have hA1 : ∀ pc b, At1Q (fun _ => True) cells lab pc b →
+      ∀ s : State, s.exe = exe → s.endPc = endPc → CodeAt s pc b := by
+    rintro _ _ ⟨L, j, off, -, hpc', hb⟩ s hs hn
+    have := Scc.Cert.Rt.X64.codeAt_blockAt_lays hI.lays hs (hn.trans hI.endOk) hb
     rwa [hI.labOk, hpc'] at this
+  have hcode : ∀ s : State, s.exe = exe → s.endPc = endPc → CodeAt s n.pc blk := by
+    rcases hat with h | ⟨b1, b2, rfl, ha1, ha2⟩
+    · exact hA1 _ _ h
+    · exact fun s hs hn => Spike.Lib.X64.CodeAt.append (hA1 _ _ ha1 s hs hn) (hA1 _ _ ha2 s hs hn)
   exact blkW_sfacts_k2P hI hf h1 hR hR8 hlo hhi hl hh hsub hfit hFO hno hfj hk hcode hph
 
 /-- **`SFacts` at `main`'s `ret` block** (`blkW_sfacts_k2` at `Kind2`'s

@@ -135,7 +135,7 @@ theorem siteW {L : RuntimeLayout} (hp : L.prog = wakeProg) (hlo : L.Λ.code.lo =
     (hlab : ∀ l x, codeOf lo wakeProg l = some x → L.lab l = Int64.ofNat x) :
     (Spike.Lib.A64.PhRec.μ L).site .take =
       some (L.lab Spike.Lib.A64.Flow.Ret0.StackTake.siteL).toBitVec.toNat := by
-  have hsite : (L.lab Spike.Lib.A64.Flow.Ret0.StackTake.siteL).toBitVec.toNat = 2165940 :=
+  have hsite : (L.lab Spike.Lib.A64.Flow.Ret0.StackTake.siteL).toBitVec.toNat = 2165944 :=
     pcAt0_eq hlab (by unfold Scc.Cert.Rt.A64.pcAt; rw [← codeT_eq]; decide +kernel)
   show codeOf L.Λ.code.lo L.prog "scc_rt_take_site" = _
   rw [hp, hlo, hsite, ← codeT_eq]; decide +kernel
@@ -184,7 +184,7 @@ theorem tcbPhW (hΛ : Λ.abortLbl = Scc.Cert.Link.abortName) {L : RuntimeLayout}
       (by simp [Spike.Lib.A64.Rt.tcbPhTab]))
     bnd := blkPh_of_factOk hl hr hn (hf (.blk Rt.Code.Tcb.lenL 38 Rt.Code.Tcb.atBnd none none)
       (by simp [Spike.Lib.A64.Rt.tcbPhTab]))
-    j2 := blkPh_of_factOk hl hr hn (hf (.blk Rt.Code.Tcb.lenL 47 Rt.Code.Tcb.atJ2 none none)
+    j2 := blkPh_of_factOk hl hr hn (hf (.blk Rt.Code.Tcb.lenL 48 Rt.Code.Tcb.atJ2 none none)
       (by simp [Spike.Lib.A64.Rt.tcbPhTab]))
     ok2 := blkPh_of_factOk hl hr hn (hf (.blk Rt.Code.Tcb.okL 2 Rt.Code.Tcb.atOk none none)
       (by simp [Spike.Lib.A64.Rt.tcbPhTab]))
@@ -220,7 +220,10 @@ theorem tcbPhW (hΛ : Λ.abortLbl = Scc.Cert.Link.abortName) {L : RuntimeLayout}
       · rw [rmwPc, Spike.Lib.A64.Flow.Ret0.ofNat4_succ']
         exact noTk_pinW hΛ hlab (l := lenL) (k := 38) (v := 12) (by decide) (by decide)
       · exact noTk_pinW hΛ hlab (l := lenL) (k := 38) (v := 12) (by decide) (by decide)
-      · exact noTk_pinW hΛ hlab (l := lenL) (k := 47) (v := 12) (by decide) (by decide)
+      · -- `.1_len` + 48 is not a pin (A6 pins the bound's branch at + 47): the table's `.ph` fact.
+        have h48 : phW (L.lab lenL + Int64.ofNat (4 * 48)).toBitVec.toNat = 12 :=
+          ph_of_factOk hl (hf (.ph Rt.Code.Tcb.lenL 48 12) (by simp [Spike.Lib.A64.Rt.tcbPhTab]))
+        exact noTk_phW h48 (by decide)
       · exact noTk_pinW hΛ hlab (l := okL) (k := 2) (v := 12) (by decide) (by decide)
       · exact noTk_pinW hΛ hlab (l := okL) (k := 30) (v := 12) (by decide) (by decide)
       · exact noTk_pinW hΛ hlab (l := lenL) (k := 32) (v := 13) (by decide) (by decide)
@@ -324,7 +327,7 @@ theorem takePhW {L : RuntimeLayout} (hp : L.prog = wakeProg) (hlo : L.Λ.code.lo
   have c6 := hs.lock_freeN
   have c7 := hs.lock_a
   have c8 := hs.next_a
-  have hsite : (L.lab siteL).toBitVec.toNat = 2165940 :=
+  have hsite : (L.lab siteL).toBitVec.toNat = 2165944 :=
     pcAt0_eq hlab (by unfold Scc.Cert.Rt.A64.pcAt; rw [← codeT_eq]; decide +kernel)
   have hs12 := ph_pinW hΛ hlab (l := spinL) (k := 2) (v := 12) (by decide)
   have hs14 := ph_pinW hΛ hlab (l := spinL) (k := 3) (v := 14) (by decide)
@@ -461,7 +464,7 @@ theorem takePhW {L : RuntimeLayout} (hp : L.prog = wakeProg) (hlo : L.Λ.code.lo
         Ne.symm c1, Ne.symm c2, Ne.symm c3, Ne.symm c4, Ne.symm c5, Ne.symm c6, Ne.symm c7, Ne.symm c8]
       rfl
     siteRel := fun a ha => by
-      have e : (Spike.Lib.A64.PhRec.μ L).site .release = some 2165996 := by
+      have e : (Spike.Lib.A64.PhRec.μ L).site .release = some 2166000 := by
         show codeOf L.Λ.code.lo L.prog "scc_rt_release_site" = _; rw [hp, hlo, ← codeT_eq]; decide +kernel
       rw [e] at ha; cases ha; rw [hsite]; decide
     siteAb := fun k a ha => by

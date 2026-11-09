@@ -4,7 +4,7 @@ the closed form `lowerC2` (`Spike/Lib/LowerShapeC2.lean`): the runtime
 functions, then `func2` of each compiled code block (every block but the
 output extern and its loop) in program order, and the traces `marks2`.
 
-- `compiled2`, `entry2`, `checked2`, `setupWords2`: the compiled blocks, the
+- `compiled2`, `entry2`, `checked2`, `setupWords2`, `setupMask2`: the compiled blocks, the
   entry shape, the checked program and the setup result's words as
   `checkedOf` and `lowerWithMarks` compute them;
 - `checkedOf_accepted2`: the checked program is `checked2 p`;
@@ -14,6 +14,8 @@ output extern and its loop) in program order, and the traces `marks2`.
 - `mapM_ok_inv`: a successful `mapM`, element by element;
 - `lowerDeclMarks_low2`: each compiled block's lowering is `func2` of its
   closed form (`accepted2_lowerC2`, `lowerDeclMarks_lowerC2`);
+- `splitLowerDeclMarks_low2`: the split leaves it as it is
+  (`splitFuncMarks_accepted2`);
 - `lowerWithMarks_accepted2_ok`, `lowerIR_accepted2`: a successful lowering
   is `progOf … (funcs2 p ws)` with the traces `marksAll2 p ws`;
 - `mem_progOf_funcs2`: compiled block `i`'s function is at index
@@ -27,6 +29,7 @@ not from `Accepted2` alone. `Spike/Lib/LowerProgC2.lean` and
 import Spike.Lib.LowerShapeC2Some
 import Spike.Lib.LowerProgC1Core
 import Spike.Lib.Src.XchgLeaf
+import Spike.Lib.LowerSplitC2Of
 
 namespace Spike.Lib.LowerNode
 
@@ -51,6 +54,11 @@ value words of the setup block `rodata`'s result with a setup block, else
 `0`. -/
 def setupWords2 (p : Prog) : Nat :=
   if (setupOf p).isSome then ((p.find? (·.name == "rodata")).bind fun r => Obj.valWords r.retTy).getD 0 else 0
+/-- The setup result's trace mask `lowerWithMarks` passes `mainThreadF`:
+`Obj.traceMask` of the setup block `rodata`'s result with a setup block, else
+`[]`. -/
+def setupMask2 (p : Prog) : List Bool :=
+  if (setupOf p).isSome then ((p.find? (·.name == "rodata")).bind fun r => Obj.traceMask r.retTy).getD [] else []
 
 /-- **A code block's lowering data**: its argument words `na`, the parameter
 registers' scalar and trace marks `sc`, `hp` (`markR`), its body's closed
@@ -231,13 +239,29 @@ theorem lowerDeclMarks_low2 {p : Prog} (hp : Accepted2 p = true) (obj : ObjLayou
   cases this
   exact ⟨⟨na, sc, hq, r⟩, ⟨hna, hm, hlc⟩, rfl⟩
 
+/-- **Each compiled block's split lowering is `func2` of its closed form**:
+the split leaves it as it is (`splitFuncMarks_accepted2`,
+`lowerDeclMarks_low2`). -/
+theorem splitLowerDeclMarks_low2 {p : Prog} (hp : Accepted2 p = true) (obj : ObjLayout) :
+    ∀ d ∈ compiled2 p, ∀ fm, splitFuncMarks <$> lowerDeclMarks p (Frontend.externs p) d obj = .ok fm →
+      ∃ w, LowC2 p obj d w ∧ fm = (func2 (Names.user d.name) (paramsR d w.na) w.sc w.hp w.r, marks2 d w.na w.r) := by
+  intro d hd fm hl
+  cases hl' : lowerDeclMarks p (Frontend.externs p) d obj with
+  | error e => simp [hl', Functor.map, Except.map] at hl
+  | ok fm' =>
+    simp only [hl', Functor.map, Except.map, Except.ok.injEq] at hl
+    obtain ⟨hdp, hc⟩ := List.mem_filter.1 hd
+    have hc' : ((Frontend.externs p).any (·.1 == d.name)) = false := by simpa using hc
+    rw [← hl, splitFuncMarks_accepted2 hp hdp hc' hl']
+    exact lowerDeclMarks_low2 hp obj d hd fm' hl'
+
 /-- **A successful `lowerWithMarks` of an `Accepted2` program**: the runtime
 functions, then `funcs2`; the traces `marksAll2`. -/
 theorem lowerWithMarks_accepted2_ok (cfg : Config) {p : Prog} (hp : Accepted2 p = true)
     {x : IR.Program × List (Sym × Array (Node × Point))}
     (h : lowerWithMarks cfg (checked2 p) = .ok x) :
     ∃ ws rt, Pairwise2 (LowC2 p cfg.layout.obj) (compiled2 p) ws ∧
-      rtFuncs cfg.arch cfg.layout (entry2 p) (setupWords2 p) = .ok rt ∧
+      rtFuncs cfg.arch cfg.layout (entry2 p) (setupWords2 p) (setupMask2 p) = .ok rt ∧
       x = (progOf cfg.layout rt (funcs2 p ws), marksAll2 p ws) := by
   unfold lowerWithMarks at h
   simp only [checked2, bind, Except.bind, pure, Except.pure] at h
@@ -247,8 +271,9 @@ theorem lowerWithMarks_accepted2_ok (cfg : Config) {p : Prog} (hp : Accepted2 p 
   split at h
   · cases h
   rename_i um hum
-  have hum' : (compiled2 p).mapM (fun d => lowerDeclMarks p (Frontend.externs p) d cfg.layout.obj) = .ok um := hum
-  obtain ⟨ws, hws, rfl⟩ := mapM_ok_inv hum' (lowerDeclMarks_low2 hp cfg.layout.obj)
+  have hum' : (compiled2 p).mapM (fun d => splitFuncMarks <$> lowerDeclMarks p (Frontend.externs p) d cfg.layout.obj) =
+      .ok um := hum
+  obtain ⟨ws, hws, rfl⟩ := mapM_ok_inv hum' (splitLowerDeclMarks_low2 hp cfg.layout.obj)
   rw [spawned_accepted2 hp] at h
   simp only [List.eraseDups_nil, List.mapM_nil, List.isEmpty_nil, Bool.not_true, Bool.and_false, pure,
     Except.pure] at h
@@ -268,16 +293,18 @@ theorem lowerWithMarks_accepted2_ok (cfg : Config) {p : Prog} (hp : Accepted2 p 
         rename_i v hv
         cases h
         have hsw : setupWords2 p = n := by simp [setupWords2, hs, hr, hn]
-        refine ⟨ws, v, hws, by rw [hsw]; exact hv, ?_⟩
+        have hsm : setupMask2 p = (Obj.traceMask dr.retTy).getD [] := by simp [setupMask2, hs, hr]
+        refine ⟨ws, v, hws, by rw [hsw, hsm]; exact hv, ?_⟩
         simp [progOf, funcs2, marksAll2, List.map_zipWith, func2]
   · have harg : (entry2 p).arg = .unit := by simp [entry2, hs]
     have hsw : setupWords2 p = 0 := by simp [setupWords2, hs]
+    have hsm : setupMask2 p = [] := by simp [setupMask2, hs]
     rw [harg] at h
     simp only at h
     repeat' (split at h)
     all_goals try cases h
     rename_i _ v hv
-    refine ⟨ws, v, hws, by rw [hsw]; exact hv, ?_⟩
+    refine ⟨ws, v, hws, by rw [hsw, hsm]; exact hv, ?_⟩
     simp [progOf, funcs2, marksAll2, List.map_zipWith, func2]
 
 /-- **The lowering `lowerAll` starts from, on an `Accepted2` program**, when
@@ -287,7 +314,7 @@ it succeeds: the checked program `checked2 p`, the runtime functions, then
 theorem lowerIR_accepted2 (cfg : Config) {p : Prog} (hp : Accepted2 p = true)
     {l : Lowered} (hl : lowerIR cfg p = .ok l) :
     ∃ ws rt, Pairwise2 (LowC2 p cfg.layout.obj) (compiled2 p) ws ∧
-      rtFuncs cfg.arch cfg.layout (entry2 p) (setupWords2 p) = .ok rt ∧ l.checked = checked2 p ∧
+      rtFuncs cfg.arch cfg.layout (entry2 p) (setupWords2 p) (setupMask2 p) = .ok rt ∧ l.checked = checked2 p ∧
       l.ir = progOf cfg.layout rt (funcs2 p ws) ∧ l.marks = marksAll2 p ws := by
   unfold lowerIR at hl
   rw [checkedOf_accepted2 hp] at hl

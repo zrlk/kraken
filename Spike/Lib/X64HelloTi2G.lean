@@ -17,8 +17,8 @@
 
 ## Differences from the AArch64 version
 
-- The addresses are hello's x86-64 ones (`X64HelloOwnGEq.labs_eqH`; AArch64: `2165280 .. 2166000`, take site
-  `2165976`); labels are resolved by `codeLabel lo helloCells` (AArch64: `codeOf lo helloProg`).
+- The addresses are hello's x86-64 ones (`X64HelloOwnGEq.labs_eqH`; AArch64: `2165284 .. 2166004`, take site
+  `2165980`); labels are resolved by `codeLabel lo helloCells` (AArch64: `codeOf lo helloProg`).
 - As wake's x86-64 `Ti2`: no `hal`; a frame's high end is `8` (the return address; AArch64's `0`); a block's pcs
   are its pc plus `cellOff` (AArch64's `4 * k`); a node's successor is `sz` bytes on (AArch64's `4`); `Keep` is
   `%rsp`/`%rbp`.

@@ -76,7 +76,7 @@ theorem rtC_L1 (hstat : Λ0.static = fun _ => none) (hc : Spike.Lib.A64.Rt.CtrZ 
 /-- **`hq` at `c0H`'s controls** (`MainWcPS.hq`): the box call at a `c0H` control (a `C0Box`) meets `Call.OKB` at
 the level's memory side (`ArWCall.okb_arW`), its counter word the runtime's (`rtC_L1`). -/
 theorem hq_L1 (hstat : Λ0.static = fun _ => none) (hc : Spike.Lib.A64.Rt.CtrZ o)
-    (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
+    (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
     (hb : AllocLand (AR).heap (AR).cells b n) {Jr1 : FAS → Spike.Lib.Ctl → Prop}
     (hJ : ∀ σ c, Jr1 σ c → ∃ w0 w1 w2 mw, c = Spike.Lib.HelloMainPreSrc.c0H w0 w1 w2 mw) :
     ∀ σ c, Jr1 σ c → ∃ q : Call, q.OKB (MS1) (Ly).lab ∧ q.c0 = c ∧

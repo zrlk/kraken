@@ -41,27 +41,28 @@ theorem mainCode_ofPlaceOK {cfg : Scc.Config} {d : Decl} (hd : Scc.Lower.Accepte
     (h : placeOKAt pcfg Λ (Out.ofEmitted (Scc.Lower.X64.lowerAll cfg [d]) sizes labelOffs) = true) :
     let o := Out.ofEmitted (Scc.Lower.X64.lowerAll cfg [d]) sizes labelOffs
     let ir := (Scc.Lower.X64.lowerAll cfg [d]).low.ir
-    ∃ (fr : Scc.Emit.X64.Frame) (r : Res) (entry : String),
+    ∃ (fr : Scc.Emit.X64.Frame) (r : Res) (entry : String) (m : Nat),
       lower0 [(d.arg, .unit, [])] 0 d.body = some r ∧
-      func0 (Scc.Lower.Names.user "main") r ∈ ir.funcs ∧
+      (func0 (Scc.Lower.Names.user "main") r, m) ∈ Scc.Cert.Code1X64.starts ir 0 ir.funcs ∧
       fr = frOf ir (func0 (Scc.Lower.Names.user "main") r) ∧
       FrameOk fr ∧ fr.size ≤ 4096 ∧ fr.size % 16 = 0 ∧
       (∃ zl zf z1 z2 zs, proInC o.prog fr Spike.Lib.X64.Rt.bareMC.fn entry zl zf z1 z2 zs = true) ∧
-      bodyIn o.prog fr entry 0 r.insts r.ret = true ∧
+      bodyIn o.prog fr entry m 0 r.insts r.ret = true ∧
       (r.insts ≠ [] → Scc.Cert.Rt.X64.blockAtB o.prog (ovfL fr) 0 ovfBlk = true) := by
   obtain ⟨r, rt, hr, -, hir, hinv⟩ := main_inv_x64 cfg hd hlow
   obtain ⟨-, hsz, h16, hsl, -, -, hI, -, -, -⟩ := hinv
   have hmem : func0 (Scc.Lower.Names.user "main") r ∈ (Scc.Lower.X64.lowerAll cfg [d]).low.ir.funcs := by
     rw [hir]; simp [Scc.Lower.Inv.progOf]
+  have hm := mem_starts_self (ir := (Scc.Lower.X64.lowerAll cfg [d]).low.ir) (m := 0) hmem
   have hnext := accepted0_next_x64 hd hr
   rw [← hir] at hsz h16 hsl
   have hle : (frOf (Scc.Lower.X64.lowerAll cfg [d]).low.ir (func0 (Scc.Lower.Names.user "main") r)).size ≤ 4096 := by
     simp only [frOf] at hsz hsl ⊢
     omega
   obtain ⟨w, hw⟩ := Scc.Lower.Inv.accepted0_ret_singleton hd hr
-  obtain ⟨hpro, hbody⟩ := fnCode_of_placeOKAt h (lowerAll_place_ir cfg [d] sizes labelOffs) hmem hI hw
-  refine ⟨_, r, _, hr, hmem, rfl, ⟨_, _, rfl, rfl⟩, hle, h16, ?_, hbody, fun hne =>
-    ovfCode_of_placeOKAt h (lowerAll_place_ir cfg [d] sizes labelOffs) hmem hI hw hne⟩
+  obtain ⟨hpro, hbody⟩ := fnCode_of_placeOKAt h (lowerAll_place_ir cfg [d] sizes labelOffs) hm hI hw
+  refine ⟨_, r, _, 0, hr, hm, rfl, ⟨_, _, rfl, rfl⟩, hle, h16, ?_, hbody, fun hne =>
+    ovfCode_of_placeOKAt h (lowerAll_place_ir cfg [d] sizes labelOffs) hm hI hw hne⟩
   rw [← user_main_eq_bareMC_fn]; exact hpro
 
 end Spike.Lib.LowerX64

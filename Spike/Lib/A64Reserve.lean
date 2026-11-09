@@ -26,7 +26,7 @@ open CoreLang CoreTerm
 open Kraken Kraken.AArch64.Parser Kraken.Promising Kraken.Promising.AArch64 Kraken.Promising.Lower.A64
 
 open Spike.Lib.A64.Alloc (subs_c subs_z subs_hi adrp_lo12)
-open Scc.Cert.Rt.A64 (Lays endOf blockAt labelGap)
+open Scc.Cert.Rt.A64 (Lays endOf blockAt labelGap blockAcross)
 open Spike.Lib.A64.Flow.Ret0.AllocTcb (labStep labStep_spec)
 
 set_option linter.unusedSimpArgs false
@@ -172,6 +172,8 @@ abbrev entryL : Label := ".L4_scc_rt_thread_reserve.0_entry"
 abbrev okL : Label := ".L4_scc_rt_thread_reserve.2_ok"
 /-- The abort's label. -/
 abbrev fullL : Label := ".L4_scc_rt_thread_reserve.1_full"
+/-- The return label before the `ret` of `rRet` (after its first 4 instructions). -/
+abbrev retL : Label := ".L4_scc_rt_thread_reserve.x6"
 
 /-- The counter's add `ldaddal x9, x11, [x10]`. -/
 abbrev rmwDir : Directive := ldopDir .ADD .acqRel .X9 .X11 .X10
@@ -186,7 +188,7 @@ def reserveIn (prog : List Directive) : Bool :=
   blockAt prog entryL 0 [(SI.adrp .X9 "scc_rt_nthreads").toDir] &&
   blockAt prog entryL 1 [(SI.addLo12 .X9 .X9 "scc_rt_nthreads").toDir] && blockAt prog entryL 2 rArg &&
   blockAt prog entryL 5 [rmwDir] && blockAt prog entryL 6 rBnd && blockAt prog entryL 15 rJ &&
-  blockAt prog okL 0 rRet
+  blockAcross prog okL 0 (rRet.take 4) retL (rRet.drop 4)
 
 /-- The blocks are A13's (`Scc.Cert.Spawn.A64.reserveGrps`), so `a13code`
 gives `reserveIn` (`Spike/Lib/Rt/A64RtReserve.lean`). -/

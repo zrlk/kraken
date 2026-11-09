@@ -42,7 +42,7 @@ open Spike.Lib.X64Consumer
 open Spike.Lib.X64
 open Spike.Lib.X64.Flow.Hello1.Mem (hello1Exe hello1End hello1_lays)
 open Spike.Lib.X64.OwnLimRt (labIn label_labIn)
-open Scc.Cert.Rt.X64 (labelIdx blockAtB code_field)
+open Scc.Cert.Rt.X64 (labelIdx blockAtB blockAcrossB code_field)
 open SccCode (hello1Λ hello1Cells hello1Asm)
 open Spike.Lib.X64.Flow.Ret0 (TakeK TakeK.pc)
 open Spike.Lib.X64.Flow.Ret0.Inst (inN lookup_mem)
@@ -54,28 +54,28 @@ thread. -/
 def hello1Tab : List (Label × Nat) :=
   [("_start", 4194304), ("scc_rt_start", 4194317), (".Lscc_rt_start.entry", 4194325), (".Lscc_rt_start.x0", 4194391),
     (".Lscc_rt_start.x1", 4194404), ("scc_rt_main", 4194444), (".Lscc_rt_main.chk", 4194448),
-    (".Lscc_rt_main.entry", 4194475), (".Lscc_rt_main.x2", 4194480), (".Lscc_rt_main.x3", 4194521),
-    (".Lscc_rt_main.stk", 4194542), (".Lscc_rt_main.x4", 4194560), ("scc_rt_alloc", 4194570),
+    (".Lscc_rt_main.entry", 4194475), (".Lscc_rt_main.x0", 4194480), (".Lscc_rt_main.x1", 4194521),
+    (".Lscc_rt_main.stk", 4194542), (".Lscc_rt_main.x2", 4194560), ("scc_rt_alloc", 4194570),
     (".Lscc_rt_alloc.entry", 4194593), (".Lscc_rt_alloc.cnt", 4194611), (".Lscc_rt_alloc.slow", 4194672),
-    (".Lscc_rt_alloc.spin", 4194690), (".Lscc_rt_alloc.full", 4194692), (".Lscc_rt_alloc.x5", 4194704),
+    (".Lscc_rt_alloc.spin", 4194690), (".Lscc_rt_alloc.full", 4194692), (".Lscc_rt_alloc.x0", 4194704),
     (".Lscc_rt_alloc.ok", 4194706), ("scc_rt_alloc_tcb", 4194933), (".Lscc_rt_alloc_tcb.entry", 4194952),
-    (".Lscc_rt_alloc_tcb.len", 4194974), (".Lscc_rt_alloc_tcb.full", 4195174), (".Lscc_rt_alloc_tcb.x6", 4195186),
+    (".Lscc_rt_alloc_tcb.len", 4194974), (".Lscc_rt_alloc_tcb.full", 4195174), (".Lscc_rt_alloc_tcb.x0", 4195186),
     (".Lscc_rt_alloc_tcb.ok", 4195188), ("scc_rt_thread_reserve", 4195388), (".Lscc_rt_thread_reserve.entry", 4195396),
-    (".Lscc_rt_thread_reserve.full", 4195463), (".Lscc_rt_thread_reserve.x7", 4195475),
+    (".Lscc_rt_thread_reserve.full", 4195463), (".Lscc_rt_thread_reserve.x0", 4195475),
     (".Lscc_rt_thread_reserve.ok", 4195477), ("scc_rt_thread_init", 4195486), (".Lscc_rt_thread_init.entry", 4195498),
-    (".Lscc_rt_thread_init.x8", 4195510), ("scc_rt_stack_take", 4195636), (".Lscc_rt_stack_take.entry", 4195651),
+    (".Lscc_rt_thread_init.x0", 4195510), ("scc_rt_stack_take", 4195636), (".Lscc_rt_stack_take.entry", 4195651),
     (".Lscc_rt_stack_take.cls5", 4195697), (".Lscc_rt_stack_take.clsnext6", 4195712),
     (".Lscc_rt_stack_take.clsdone7", 4195801), (".Lscc_rt_stack_take.spin14", 4195866),
     (".Lscc_rt_stack_take.locked15", 4195902), (".Lscc_rt_stack_take.pop", 4195931),
-    (".Lscc_rt_stack_take.bump", 4196043), (".Lscc_rt_stack_take.full", 4196153), (".Lscc_rt_stack_take.x9", 4196165),
+    (".Lscc_rt_stack_take.bump", 4196043), (".Lscc_rt_stack_take.full", 4196153), (".Lscc_rt_stack_take.x0", 4196165),
     (".Lscc_rt_stack_take.ok", 4196167), (".Lscc_rt_stack_take.taken", 4196207), ("scc_rt_take_site", 4196218),
-    ("scc_rt_stack_release", 4196231), ("scc_rt_print", 4197934), (".Lscc_rt_print.entry", 4197950),
-    (".Lscc_rt_print.loop", 4197952), (".Lscc_rt_print.write", 4197974), (".Lscc_rt_print.chk2", 4198018),
-    (".Lscc_rt_print.chk3", 4198036), (".Lscc_rt_print.adv", 4198054), (".Lscc_rt_print.fail", 4198089),
-    (".Lscc_rt_print.x12", 4198101), (".Lscc_rt_print.done", 4198103), ("wc_rodata", 4198876),
-    (".Lwc_rodata.chk", 4198880), (".Lwc_rodata.entry", 4198903), (".Lwc_rodata.x13", 4198929),
-    (".Lwc_rodata.stk", 4199021), (".Lwc_rodata.x14", 4199039), ("wc_main", 4199052), (".Lwc_main.chk", 4199056),
-    (".Lwc_main.entry", 4199099), (".Lwc_main.x15", 4199186), (".Lwc_main.stk", 4199198), (".Lwc_main.x16", 4199216)]
+    ("scc_rt_stack_release", 4196231), ("scc_rt_print", 4197972), (".Lscc_rt_print.entry", 4197988),
+    (".Lscc_rt_print.loop", 4197990), (".Lscc_rt_print.write", 4198012), (".Lscc_rt_print.chk2", 4198056),
+    (".Lscc_rt_print.chk3", 4198074), (".Lscc_rt_print.adv", 4198092), (".Lscc_rt_print.fail", 4198127),
+    (".Lscc_rt_print.x0", 4198139), (".Lscc_rt_print.done", 4198141), ("wc_rodata", 4198914),
+    (".Lwc_rodata.chk", 4198918), (".Lwc_rodata.entry", 4198941), (".Lwc_rodata.x0", 4198967),
+    (".Lwc_rodata.stk", 4199059), (".Lwc_rodata.x2", 4199077), ("wc_main", 4199090), (".Lwc_main.chk", 4199094),
+    (".Lwc_main.entry", 4199137), (".Lwc_main.x0", 4199224), (".Lwc_main.stk", 4199236), (".Lwc_main.x2", 4199254)]
 
 /-- Each is a label of the cells at its `labIn` address. -/
 theorem hello1Tab_ok : hello1Tab.all (fun p => (labelIdx hello1Cells p.1).isSome &&
@@ -87,6 +87,8 @@ noncomputable def labT (l : Label) : Int64 :=
   | some n => Int64.ofNat n
   | none => (_root_.Executable.labels hello1Exe).label l
 
+-- The tables grew `.rodata` (R11): the decision recurses past the default depth.
+set_option maxRecDepth 100000 in
 /-- **The loaded thread's labels are `labT`'s.** -/
 theorem hello1_labT : (_root_.Executable.labels hello1Exe).label = labT := by
   funext l
@@ -155,11 +157,11 @@ def μ0 : Marks where
     | .take => some 4196218
     | .release => some 4196258
   abortAt
-    | .overflow => some 4198596
-    | .heap => some 4198664
-    | .stack => some 4198732
-    | .writeErr => some 4198800
-    | .threads => some 4198868
+    | .overflow => some 4198634
+    | .heap => some 4198702
+    | .stack => some 4198770
+    | .writeErr => some 4198838
+    | .threads => some 4198906
 
 /-- **The canonical target's marks of `hello1`** are `μ0`, given the
 loader's parse of the text (`hpa`, the trust boundary). -/
@@ -171,13 +173,13 @@ theorem hello1_marks (hpa : Scc.Sem.X64.cellsOf hello1Asm = some hello1Cells) : 
   · funext k; cases k <;> exact (hr _).trans (by decide +kernel)
 
 /-- **The pcs off the marks' sites.** -/
-def okPc (pc : Nat) : Bool := !([4196218, 4196258, 4198596, 4198664, 4198732, 4198800, 4198868].contains pc)
+def okPc (pc : Nat) : Bool := !([4196218, 4196258, 4198634, 4198702, 4198770, 4198838, 4198906].contains pc)
 
 /-- A pc off the sites is off `μ0`'s, with no take there. -/
 theorem pcOff_of_okPc {rS : Range} : ∀ s : State, okPc (pcOf s) = true →
     PcOff μ0 s ∧ ∀ s', ¬ TakeK (labT Ret0.StackTake.siteL) rS s s' := by
   intro s h
-  have hne : ∀ a ∈ [4196218, 4196258, 4198596, 4198664, 4198732, 4198800, 4198868], pcOf s ≠ a := by
+  have hne : ∀ a ∈ [4196218, 4196258, 4198634, 4198702, 4198770, 4198838, 4198906], pcOf s ≠ a := by
     intro a ha he
     subst he
     simp only [okPc, Bool.not_eq_true', List.contains_eq_any_beq, List.any_eq_false, beq_iff_eq] at h
@@ -214,6 +216,12 @@ theorem codeT {l : Label} {off : Nat} {b : List (Directive × Nat)} (hb : blockA
     {s : State} (hs : s.exe = hello1Exe) (hn : s.endPc = hello1End) : CodeAt s (labT l + Int64.ofNat off) b :=
   code_field hello1_lays rfl hb (by rw [hello1_labT]) s hs hn
 
+/-- A block of the cells across a label (`blockAcrossB`), in the loaded thread. -/
+theorem codeTA {l m : Label} {off j : Nat} {b : List (Directive × Nat)}
+    (hb : blockAcrossB hello1Cells l off (b.take j) m (b.drop j) = true)
+    {s : State} (hs : s.exe = hello1Exe) (hn : s.endPc = hello1End) : CodeAt s (labT l + Int64.ofNat off) b :=
+  Spike.Lib.X64.code_field_blockAcrossB hello1_lays rfl hb (List.take_append_drop j b) (by rw [hello1_labT]) s hs hn
+
 /-- **A covered block of the main path before the take** is inside `Wr`:
 its code (`hb`), its cover (`hok`), the region's facts, the source
 control's facts at the node (`hC`), the phase check (`hph`) and its dead
@@ -234,6 +242,30 @@ theorem blkW_pre {R : Region} {F : MachineData → Prop} {n : ND} {blk : List (D
   rw [he] at hph hT
   have hcode : ∀ s : State, s.exe = hello1Exe → s.endPc = hello1End → CodeAt s n.pc blk := fun s hs hn =>
     he ▸ codeT hb hs hn
+  rw [← hello1_labT] at hph hret hdead
+  obtain ⟨hpc, hph', hsm⟩ := blkPh_sound (μ := μ0) (endPc := hello1End) ph_same pcOff_of_okPc hok hph hret hdead
+  refine blkW_sfacts hcode hok hR hlo hhi hC hpc hph' fun s m _ _ _ k hk s' _ hpc' htk => ?_
+  have := (hsm k hk { s' with st := (s'.st.1, n.pc) } s' rfl hpc').2.mp htk
+  exact absurd this (not_tk (by unfold pcOf; exact hT))
+
+/-- `blkW_pre` for a block split by a return label (`m`, after its first `j`
+rows; `blockAcrossB`). -/
+theorem blkW_preA {R : Region} {F : MachineData → Prop} {n : ND} {blk : List (Directive × Nat)} {lo hi : Int}
+    {dead : Nat → Bool} {ra : Int64} {l m : Label} {off j : Nat}
+    (hb : blockAcrossB hello1Cells l off (blk.take j) m (blk.drop j) = true)
+    (he : labT l + Int64.ofNat off = n.pc)
+    (hok : okBlk lo hi n.o blk = true) (hR : R.OK) (hlo : R.lo ≤ lo) (hhi : hi ≤ R.hi)
+    (hC : ∀ σ c, n.J σ c → CFacts hello1Λ hello1Λ.static c)
+    (hph : blkPh okPc ph dead labT (labT l + Int64.ofNat off) ra blk = true)
+    (hret : ∀ σ c, n.J σ c → ∀ k (hk : k < blk.length), classify blk[k].1 = some .ret →
+      Int64.ofBitVec ((arun labT (blk.take k) ⟨n.pc, n.o, σ⟩).σ.slot (arun labT (blk.take k) ⟨n.pc, n.o, σ⟩).so.sp)
+        = ra)
+    (hdead : ∀ σ c, n.J σ c → dead (arun labT blk ⟨n.pc, n.o, σ⟩).pc.toBitVec.toNat = false)
+    (hT : bT (labT l + Int64.ofNat off).toBitVec.toNat = true) :
+    BlkW (Wr rS) (Kr rS) hello1Exe hello1End R F n blk := by
+  rw [he] at hph hT
+  have hcode : ∀ s : State, s.exe = hello1Exe → s.endPc = hello1End → CodeAt s n.pc blk := fun s hs hn =>
+    he ▸ codeTA hb hs hn
   rw [← hello1_labT] at hph hret hdead
   obtain ⟨hpc, hph', hsm⟩ := blkPh_sound (μ := μ0) (endPc := hello1End) ph_same pcOff_of_okPc hok hph hret hdead
   refine blkW_sfacts hcode hok hR hlo hhi hC hpc hph' fun s m _ _ _ k hk s' _ hpc' htk => ?_
@@ -500,7 +532,8 @@ theorem tcbW (hC0 : CFacts hello1Λ hello1Λ.static c0) {R : Region} (hR : R.OK)
   case ret =>
     show BlkW _ _ _ _ _ _ _ _
     rw [hello1_labT]
-    exact blkW_pre (l := AllocTcb.okL) (off := 143) (dead := fun _ => false) (ra := labT ".Lscc_rt_start.x0")
+    exact blkW_preA (l := AllocTcb.okL) (off := 143) (m := AllocTcb.retL) (j := 11) (dead := fun _ => false)
+      (ra := labT ".Lscc_rt_start.x0")
       (by decide +kernel) rfl AllocTcb.atRet_ok hR (by omega) (by omega) (fun _ _ hJ => hJ.1 ▸ hq ▸ hC0)
       (by decide +kernel)
       (hret_of_run AllocTcb.atRet_ok fun _ _ hJ => by
@@ -528,7 +561,7 @@ structure Hello1PostSrc (W : Frag isa) (K : State → State → Prop) (p : Prog)
     (ms : MemSide isa) (exe : _root_.Executable) (endPc : Int64) (R : Region) (F : MachineData → Prop)
     (m0 : MachineData) (σC : AS) (Jp J1 J2 J3 J4 Jr Jw : AS → Ctl → Prop) : Prop where
   hbp : ∀ σ0 c, Jp σ0 c → σ0.regs.get64 .rbp = (mR R).addr (-8)
-  hra : ∀ σ0 c, Jp σ0 c → (_root_.Executable.labels exe).label ".Lscc_rt_main.x2" = Int64.ofBitVec (σ0.slot 0)
+  hra : ∀ σ0 c, Jp σ0 c → (_root_.Executable.labels exe).label ".Lscc_rt_main.x0" = Int64.ofBitVec (σ0.slot 0)
   hmem : ∀ σ0 c, Jp σ0 c → ∀ i : Int64, (i = 0 ∨ i = 8) →
       ∀ m, mF R F m0 σC m → Mem.loadInt m.dmem (bAddr σ0.regs .rax i) 8 = none
   h1 : ∀ σ0 c, Jp σ0 c → ∃ (x : String) (sa : WeakMem.Address) (u : Ty) (v : CoreTerm.At) (e : Expr),
@@ -558,9 +591,9 @@ structure Hello1PostSrc (W : Frag isa) (K : State → State → Prop) (p : Prog)
       (σx.regs.rsp.toBitVec - 8#64 - 8#64 - (80 : Int64).toBitVec)
   hsvc : ∀ F' : MachineData → Prop, FStable (pR (wR R)) F' →
       (∀ m, F' m → ((F m ∧ CallerCells R (-80) (-144) 8 m) ∧ CallerCells (wR R) (-96 - 8) (-40) 16 m) ∧
-        Spike.Lib.X64.Rt.WcRa (wR R) ((_root_.Executable.labels exe).label ".Lscc_rt_main.x3") m ∧
+        Spike.Lib.X64.Rt.WcRa (wR R) ((_root_.Executable.labels exe).label ".Lscc_rt_main.x1") m ∧
         Spike.Lib.X64.Rt.WcFp (wR R) (R.addr (-8)) m) →
-      ∀ g' : PG, g'.2.2 = ((_root_.Executable.labels exe).label ".Lwc_main.x15").toBitVec →
+      ∀ g' : PG, g'.2.2 = ((_root_.Executable.labels exe).label ".Lwc_main.x0").toBitVec →
       g'.2.1 = (wR R).addr (-8) →
       SegW W K p lbl ms
         (At exe endPc (pR (wR R)) F' (Print.N (_root_.Executable.labels exe).label g'.1 g'.2.1 g'.2.2 .sys))
@@ -573,7 +606,7 @@ structure Hello1PostSrc (W : Frag isa) (K : State → State → Prop) (p : Prog)
       ∃ c', LocalRun p c c' ∧ Jw σ' c'
   hbpw : ∀ σx c, Jw σx c → σx.regs.get64 .rbp = R.addr (-8)
   hok : ∀ s c σx, Jw σx c →
-      At exe endPc R F ⟨(_root_.Executable.labels exe).label ".Lscc_rt_main.x3" + Int64.ofNat 4 + Int64.ofNat 4 +
+      At exe endPc R F ⟨(_root_.Executable.labels exe).label ".Lscc_rt_main.x1" + Int64.ofNat 4 + Int64.ofNat 4 +
         Int64.ofNat 5, mO, fun _ _ => True⟩ s c → SysOk p ms s c (.exitGroup σx.regs.rax.toNat)
 
 /-- **`hello1_main_segW`'s source and frame facts**, the instance's to

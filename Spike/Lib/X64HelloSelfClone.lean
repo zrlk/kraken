@@ -1,6 +1,6 @@
 /-
 **The two TCB self words at main's clone, from the clone's facts** (x86-64 only; the hello counterpart of
-`X64WakeHandover.handover_clone`): at `X64HelloPreA.ClonePreH` (main's `syscall` at `.Lwc_main.x25 + 94` on the
+`X64WakeHandover.handover_clone`): at `X64HelloPreA.ClonePreH` (main's `syscall` at `.Lwc_main.x3 + 94` on the
 first pool stack), the consumer's `OwnOk` of main's pre-spawn own map `ownGHXW L a` gives both self words'
 `OwnVal` (`X64HelloSelfWords.SelfWordsAtClone` at `tcbM L`, `tcbWH L`), the `self` fact the start row consumes.
 
@@ -12,7 +12,7 @@ first pool stack), the consumer's `OwnOk` of main's pre-spawn own map `ownGHXW L
 ## Differences from the AArch64 version
 
 AArch64 has no counterpart (main owns no TCB word there). Against wake's `handover_clone`: hello's `ClonePreH`
-puts `%rsp` `224` bytes below the stack's top (wake: `128`), the clone is at `.Lwc_main.x25 + 94` (wake:
+puts `%rsp` `224` bytes below the stack's top (wake: `128`), the clone is at `.Lwc_main.x3 + 94` (wake:
 `.x21 + 46`), and the conclusion is the bundled `SelfWordsAtClone` (both `OwnVal`s) rather than membership of the
 two words in the own list.
 -/
@@ -49,7 +49,7 @@ theorem selfWords_clonePre {L : RuntimeLayout} {a : BitVec 64}
     ∃ th : Thread isa, d.1.threads = #[th] ∧ SelfWordsAtClone d.1.mem th.prom (tcbM L) (tcbWH L) := by
   obtain ⟨th, -, -, -, -, -, -, -, -, -, -, -, hth, -, hpc, -, -, -, -, -, -, -, -, -, -, -, -, -, hO, -, hXs, -, -,
     htop, hsz, -⟩ := h
-  have hpc' : th.st.st.2 = L.lab ".Lwc_main.x25" + 94 := by
+  have hpc' : th.st.st.2 = L.lab ".Lwc_main.x3" + 94 := by
     rw [hpc, Spike.Lib.X64HelloPreA.cloneAtH, hX _ hXs]
   exact ⟨th, hth, selfWords_clone hlab (spPool_of_ownedH hO htop hsz) hpc' (hown th hth)⟩
 

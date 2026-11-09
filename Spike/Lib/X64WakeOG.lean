@@ -48,7 +48,7 @@ include h
 
 /-- **The value invariant at a placed word** of `.data` or the heap, given
 the second limit word lies in the pinned region (`hpin2`). -/
-theorem hGpl_ofPlaceW2 (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) :
+theorem hGpl_ofPlaceW2 (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) :
     ∀ a v, (Ly).Λ.heap.contains a ∨ (Ly).Λ.data.contains a → GOf2 Ly M0 (Scc.Sem.wordLoc a) v := by
   intro a v ha
   refine gOf2_of (hGpl_ofPlaceWX h i a v ha) fun he => ?_
@@ -59,7 +59,7 @@ theorem hGpl_ofPlaceW2 (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (L
   have hdp' : Λ.data.Disjoint Λ.pinned := hdp
   have hhp' : Λ.heap.Disjoint Λ.pinned := hhp
   have hp : (Ly).pinA.toNat = Λ.pinned.lo := pinA_toNat_ofPlaceWX h i
-  change (Ly).pinA.toNat + 168 ≤ Λ.pinned.lo + Λ.pinned.size at hpin2
+  change (Ly).pinA.toNat + 200 ≤ Λ.pinned.lo + Λ.pinned.size at hpin2
   change Λ.heap.contains a ∨ Λ.data.contains a at ha
   have hx := congrArg (fun l : Loc => l.addr.toNat) he
   simp only [Scc.Sem.wordLoc, lim2A, lim2Off, BitVec.toNat_ofNat, BitVec.toNat_add] at hx
@@ -68,11 +68,11 @@ theorem hGpl_ofPlaceW2 (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (L
   simp only [Scc.Sem.Range.Disjoint] at hdp' hhp'
   have hsm := (Ly).words_small _ (Ly).pin_mem
   have ha64 : a < 2 ^ 64 := by omega
-  rw [Nat.mod_eq_of_lt ha64, Nat.mod_eq_of_lt (by omega : (Ly).pinA.toNat + 112 < 2 ^ 64)] at hx
+  rw [Nat.mod_eq_of_lt ha64, Nat.mod_eq_of_lt (by omega : (Ly).pinA.toNat + 144 < 2 ^ 64)] at hx
   omega
 
 /-- **`OPrem.hGpl` at wake's guarantee.** -/
-theorem hGpl_gW (cT : Loc) (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) :
+theorem hGpl_gW (cT : Loc) (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) :
     ∀ a v, (Ly).Λ.heap.contains a ∨ (Ly).Λ.data.contains a → gW h i cT (Scc.Sem.wordLoc a) v :=
   fun a v ha => .inr (hGpl_ofPlaceW2 h i hpin2 a v ha)
 

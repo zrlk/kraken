@@ -86,12 +86,14 @@ theorem blkW_abSt_subCdLR {exe : _root_.Executable} [Kraken.Executable.ValidLayo
         PosOff prog lab t ∨ (a = .bl "scc_rt_abort" ∧ (arun lab (blk.take k) ⟨n.pc, n.o, σ⟩).σ.regs.X0 ≠ 4)) :
     BlkW (fun s _ => AbSt μ (Ab lab) s) (fun _ _ => False) exe endPc R F n blk := by
   have hcd' := hcd
-  obtain ⟨pc0, pre, suf, ⟨-, L, j, -, hpc0, hb, hrun⟩, hpc⟩ := hcd'
-  have hph := Scc.Cert.Ph1A64.blkPh_of_runPhB hrun (classify_of_okBlk hok)
-  rw [hpc] at hph
-  have he : lab L + Int64.ofNat (4 * (j + pre.length)) = n.pc := by
-    rw [← hpc, ← hpc0, ofNat4_add]
-  have hcode := code_of hI.lays hI.endOk (blockAt_sub hb) (q := n.pc) (by rw [hI.labOk]; exact he)
+  obtain ⟨pc0, pre, suf, hc0, hpc⟩ := hcd'
+  obtain ⟨-, hat, hrun⟩ := CdCQ.sub (Q := fun L => L ∉ Spike.Lib.A64.AllocG.abLabs ∧ WcL L) hc0 hpc.symm
+  have hph := Scc.Cert.Ph1A64.blkPh_of_runPhB (xs := []) (zs := []) (by simpa using hrun)
+    (classify_of_okBlk hok)
+  rw [show n.pc + Int64.ofNat (4 * ([] : List Directive).length) = n.pc by simp] at hph
+  have hcode : ∀ s : State, s.exe = exe → s.endPc = endPc → Spike.Lib.A64.CodeAt s n.pc blk := by
+    rw [← hI.labOk] at hat
+    exact AtQ.cdOf hI.lays hI.endOk _ _ hat
   refine blkW_abSt_posR hI hpr hab hcode hok hR hal hlo hhi hph hret ?_
   intro σ c hJ k hk a ha t ht
   by_cases hr : ∃ r, a = .ret r

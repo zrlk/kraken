@@ -1,18 +1,17 @@
 /-
-**`wc_rodata`'s level obligations at hello's root at `ownGHXW`** (x86-64 only; the `ownGHXW` instance of
-`Spike/Lib/X64HelloHrdS.lean`'s `hrd_WSHF` and `Spike/Lib/X64HelloHrdRoot.lean`'s `hrd_R`, as `X64HelloRdWfSFX` is
-`X64HelloRdWfSF`'s): the root's `hrd` inside the start's level `WSg (ownGHXW Ly ntA)` at the memory side
-`StartH0U.msUHg (ownGHXW Ly ntA)` (`StartH0X.hst0_X`'s `hrd`).
+**`wc_rodata`'s level obligations at hello's root at `ownGHXW`** (x86-64 only; AArch64's
+`A64HelloHrdS.hrd_WSHF` at `ownGHXW`, on `X64HelloHrdS`'s pieces): the root's `hrd` inside the start's level
+`WSg (ownGHXW Ly ntA)` at the memory side `StartH0U.msUHg (ownGHXW Ly ntA)` (`StartH0X.hst0_X`'s `hrd`).
 
-`hrd_WSHX` is `HrdS.hrd_WSHF` through `RdWfSFX.rdPreW_WSHX`, with `ownGHXW`'s separation (`hsep`, `ha`, `hW`), the
-band of `wc_rodata`'s region on the pool (`hb`) and the allocator's words off `tcbM` (`hnoM`). At the root
-(`hrd_RX`) these are discharged from A13's data part: `hsep`, `ha` by `StartPlaceLy.wsep_W`, `hW` by
+`hrd_WSHX` is AArch64 `hrd_WSHF`'s proof through `RdWfSFX.rdPreW_WSHX`, with `ownGHXW`'s separation (`hsep`,
+`ha`, `hW`), the band of `wc_rodata`'s region on the pool (`hb`) and the allocator's words off `tcbM` (`hnoM`). At
+the root (`hrd_RX`) these are discharged from A13's data part: `hsep`, `ha` by `StartPlaceLy.wsep_W`, `hW` by
 `tcbWH_notG_W`; `hb` from `scc_rt_main`'s region on the first stack (`bandRS`); `hnoM` from the counter's
 separation from the runtime words (`ctrSep_of_rtWordsOk`) and the headers inside `.heap` (`ne_tcbM_of_heap`). The
 arena's facts are `HrdArena`'s at `msUH`, carried over by `Call.OK`'s fields (none reads the owned words).
 
 - `bandRS`: `scc_rt_main`'s region at the first stack's top lies on the pool in `[slo, 8]`, `8 - Lsw ≤ slo`.
-- `hrd_WSHX`: `hrd_WSHF` inside `WSHFg (ownGHXW L a)`.
+- `hrd_WSHX`: `wc_rodata` up to the allocator's return inside `WSHFg (ownGHXW L a)`.
 - `hrd_RX`: the root's `hrd` at `msUHg (ownGHXW Ly ntA)`, any context `Ctx`, given `hctx` under the thread pointer.
 - `hrd_RXT`: `hrd_RX` with the allocator's caller's invariant at the first stack's top (`J1 := mRdJ0 (J' TOP)`,
   the shape `StartH0X.hst0_X` asks).
@@ -20,11 +19,18 @@ arena's facts are `HrdArena`'s at `msUH`, carried over by `Call.OK`'s fields (no
 
 ## Differences from the AArch64 version
 
-AArch64 has no counterpart: main owns no TCB word there. Against `X64HelloHrdS`/`X64HelloHrdRoot`: the level is
-`WSg (ownGHXW Ly ntA)` and the memory side `msUHg (ownGHXW Ly ntA)`; the premises `hsep`, `ha`, `hW`, `hb`, `hnoM`
-are new (discharged at the root); `hX0a` is restated at the new memory side (`HrdArena.hX0a_U`'s proof).
-`hrd_RdH`'s twin `hrd_RdHX` is at `LandRU.CtxRdHg (ownGHXW Ly ntA)`, the context at the reference side `refHg` owning
-`ownGHXW`.
+AArch64 has no counterpart at `ownGHXW`: main owns no TCB word there (`A64HelloHrdRoot.hrd_R`, `hrd_RdH`, at
+`ownGH`). Against AArch64's `hrd_WSHF`: the level is `WSg (ownGHXW Ly ntA)` and the memory side
+`msUHg (ownGHXW Ly ntA)`; the premises `hsep`, `ha`, `hW`, `hb`, `hnoM` are new (discharged at the root); `hX0a` is
+restated at the new memory side (`HrdArena.hX0a_U`'s proof). `hrd_RdHX` is at `LandRU.CtxRdHg (ownGHXW Ly ntA)`, the
+context at the reference side `refHg` owning `ownGHXW`.
+
+- `scc_rt_main`'s region at the new stack's base `v` is `MainGlue.RS helloLsw v` (AArch64 `swR v (-helloLsw) 0`),
+  and `wc_rodata`'s caller's entry invariant `rdJH` takes it, so `J'` depends on `v`.
+- `hrd_WSHX` asks the region's `OK` and 8-alignment (`fstable_FS`'s `RS` and the first stack's alignment;
+  AArch64 `hok`, `hal` at 16) and `8 ≤ R.hi`; the allocator's return is `.Lwc_rodata.x0` with `CallerCells`
+  reaching `8` (AArch64 `.L19_wc_rodata.sp0`, `0`).
+- The thread pointer is `%fs`'s base `tpOf (tcbS Ly)` (AArch64 `TPIDR_EL0`); the loader's facts are `cellsOf`.
 -/
 import Spike.Lib.X64HelloHrdRoot
 import Spike.Lib.X64HelloRdWfSFX
@@ -108,8 +114,13 @@ variable {L : RuntimeLayout} {a : BitVec 64} {rS : Scc.Sem.Range} {R : Region} {
 include hp hlo hΛ hlab hsite hcl hX0
 
 /-- **`wc_rodata` up to the allocator's return inside `WSHFg (ownGHXW L a)` at the setup call's frame**
-(`HrdS.hrd_WSHF` through `RdWfSFX.rdPreW_WSHX`): `hrd_WSHF`'s premises, `ownGHXW`'s separation (`hsep`, `ha`, `hW`),
-`wc_rodata`'s region's band on the pool (`hb`), the counter and headers off `tcbM` (`hnoM`). -/
+(`RdWfSFX.rdPreW_WSHX` at `fs = [frH env]`, the placement by `HrdS.rdPreW_frS'`/`frP_mNC`): from `scc_rt_main`'s
+call of `wc_rodata` at `mNC lab R J` in the region `R` (`hRlo`, `hhi`), the frame condition `mF R F m0 σC`, the
+source at `rodata`'s allocation under `frH env`; every entry state of `J` at the thread pointer `tp` with `%rdi`
+representing `me`'s word `w` (`hJ`, `hme`), `m`'s immediate `2` (`hm`), the limit word mapped (`hmr`) and unmapped
+under `F` (`hun`), the memory side's and arena's premises (`hpool`, `hmp`, `hmem`, `hno`, `hX0a`, `hctx`, `hctr` …
+`h64`); `ownGHXW`'s separation (`hsep`, `ha`, `hW`), `wc_rodata`'s region's band on the pool (`hb`), the counter
+and headers off `tcbM` (`hnoM`). -/
 theorem hrd_WSHX (hsep : Spike.Lib.X64.PhRec.TcbSep L) (ha : tcbM L ≠ a)
     (hW : tcbWH L ∉ [L.pnA, L.lockA, L.freeNA, L.nextA, a]) (hb : BandOnP L (mR R) (-208) 8)
     (hR : R.OK) (hR8 : R.base.toNat % 8 = 0) (hRlo : R.lo ≤ -288) (hhi : 8 ≤ R.hi)
@@ -130,11 +141,11 @@ theorem hrd_WSHX (hsep : Spike.Lib.X64.PhRec.TcbSep L) (ha : tcbM L ≠ a)
     (hnoM : ∀ q : Call, q.OK ms L.lab → ∀ w : BitVec 64,
       (w = BitVec.ofNat 64 ms.ctr ∨ ∃ o, o + ms.units q.n q.τ ≤ ms.cells ∧ w.toNat = q.hdrAt ms o) →
       w ≠ tcbM L)
-    (hX0a : ∀ q : Call, q.OK ms L.lab → q.ra = (L.lab ".Lwc_rodata.x15").toBitVec →
+    (hX0a : ∀ q : Call, q.OK ms L.lab → q.ra = (L.lab ".Lwc_rodata.x0").toBitVec →
       AllocW ms q (fun s _ => X0 s) (fun _ _ => False) L.exe L.endPc (aR (mR R))
         (fun m => mF R F m0 σC m ∧ CallerCells (mR R) (-48) (-160) 8 m ∧
           RdCtx ms L.lab (mR R) (mRdJ0 (rdJH L.lab R J) σC) (mRdJ0 (rdJH L.lab R J) σC) q m))
-    (hctx : ∀ q : Call, q.OK ms L.lab → q.ra = (L.lab ".Lwc_rodata.x15").toBitVec →
+    (hctx : ∀ q : Call, q.OK ms L.lab → q.ra = (L.lab ".Lwc_rodata.x0").toBitVec →
       ∀ s c, At L.exe L.endPc (aR (mR R)) (fun m => mF R F m0 σC m ∧ CallerCells (mR R) (-48) (-160) 8 m ∧
         RdCtx ms L.lab (mR R) (mRdJ0 (rdJH L.lab R J) σC) (mRdJ0 (rdJH L.lab R J) σC) q m)
         (N L.lab ms q .rmw) s c → Ctx s c [frH env])
@@ -213,7 +224,7 @@ set_option hygiene false in
 local notation "KR" => Spike.Lib.X64.PhRec.K (Ly) (RS0)
 
 set_option hygiene false in
-/-- `wc_rodata`'s caller's entry invariant at the new stack's base `v` (`LandRd`'s `J'`). -/
+/-- `wc_rodata`'s caller's entry invariant at the new stack's base `v` (the counter add's tail's `J'`). -/
 local notation "J'" => fun v : BitVec 64 => rdJH (Ly).lab (RS helloLsw v) (JS (Ly) 0#64 c0S)
 
 set_option hygiene false in
@@ -247,7 +258,7 @@ theorem hrd_RX (hpa : Scc.Sem.X64.cellsOf asm = some o.prog)
     (hA13 : Scc.Cert.Spawn.X64.a13data (Ly).Λ o.prog o.secs = true)
     (hm : (Ly).Λ.imms Spike.Lib.X64HelloRodataSrc.eB "m" 0 = some 2) {Ctx : FragS isa} {ls0 : Lsize}
     (hctx : ∀ (v : BitVec 64) (m0 : MachineData) (σC : FAS), ∀ q : Call, q.OK (MSX) (Ly).lab →
-      q.ra = ((Ly).lab ".Lwc_rodata.x15").toBitVec →
+      q.ra = ((Ly).lab ".Lwc_rodata.x0").toBitVec →
       ∀ s c, At (Ly).exe (Ly).endPc (aR (mR (RS helloLsw v)))
         (fun m => mF (RS helloLsw v) (FS (Ly) (RS0) helloLsw 0#64 v) m0 σC m ∧
           CallerCells (mR (RS helloLsw v)) (-48) (-160) 8 m ∧
@@ -358,7 +369,7 @@ theorem hrd_RXT (hpa : Scc.Sem.X64.cellsOf asm = some o.prog)
     (hA13 : Scc.Cert.Spawn.X64.a13data (Ly).Λ o.prog o.secs = true)
     (hm : (Ly).Λ.imms Spike.Lib.X64HelloRodataSrc.eB "m" 0 = some 2) {Ctx : FragS isa} {ls0 : Lsize}
     (hctx : ∀ (v : BitVec 64) (m0 : MachineData) (σC : FAS), ∀ q : Call, q.OK (MSX) (Ly).lab →
-      q.ra = ((Ly).lab ".Lwc_rodata.x15").toBitVec →
+      q.ra = ((Ly).lab ".Lwc_rodata.x0").toBitVec →
       ∀ s c, At (Ly).exe (Ly).endPc (aR (mR (RS helloLsw v)))
         (fun m => mF (RS helloLsw v) (FS (Ly) (RS0) helloLsw 0#64 v) m0 σC m ∧
           CallerCells (mR (RS helloLsw v)) (-48) (-160) 8 m ∧

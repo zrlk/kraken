@@ -11,7 +11,9 @@ program at A6's tables (`phOf`, `okPcOf`) and the cells' code labels
 - with an instruction, the local overflow block's `blkPh` (`ovfBlk` at
   `ovfL`: its call target `scc_rt_abort` in its phase);
 - `bodyPhOk` (`Spike/Lib/LowerX64/BodyPh.lean`) at the return address after
-  `scc_rt_main`'s `call` (`.Lscc_rt_main.x2`);
+  `scc_rt_main`'s first `call` (`raL`, `.Lscc_rt_main.x0`: the user `main`'s
+  on a bare tail, the setup block's after one; A11 checks it as `bareMC.sp0`,
+  `(setupMC sw).sp0`);
 - every label the checks read resolves (`res`: the function's, its check's
   and its body's labels and every branch or call target of the blocks,
   `blkLabs`), so that `labC` is the loader's label on them.
@@ -84,32 +86,34 @@ def proLabs (Z : Int64) (L : Label) (zl z1 z2 zs : Nat) (ps : List (Reg64 × Int
   blkLabs xHead ++ blkLabs (xLea Z zl) ++ blkLabs (xCmp L z1 z2) ++ blkLabs (xFr Z zs ps)
 
 /-- **One function's phase facts**, at the frame `fr`, its label `fn`, its
-body `is`/`w`, the return address `ra`, every label read resolving
+body `is`/`w` (its fresh labels numbered from `n`), the return address
+`ra`, every label read resolving
 (`res`): the prologue's at the sizes the listing gives its five cells, with
 an instruction the local overflow block's (`ovfBlk` at `ovfL`, its call into
 `scc_rt_abort`), the body's. -/
 def fnPh1 (okPc : Nat → Bool) (ph : Nat → Nat) (lab : Label → Int64) (res : String → Bool)
-    (cells : List (Directive × Nat)) (fr : Scc.Emit.X64.Frame) (fn : String) (is : List Scc.IR.Inst)
+    (cells : List (Directive × Nat)) (fr : Scc.Emit.X64.Frame) (fn : String) (n : Nat) (is : List Scc.IR.Inst)
     (w : Scc.IR.Operand) (ra : Int64) : Bool :=
   match sizesAt cells (labelOf fr.fn "chk") 0 5 with
   | [zl, zf, z1, z2, zs] =>
     res fn && res (labelOf fr.fn "chk") && res (labelOf fn "entry") &&
       (proLabs (Int64.ofInt fr.size) (proL fr) zl z1 z2 zs []).all res &&
-      (bodyBlks cells fr (labelOf fn "entry") 0 is [w]).all (fun x => (blkLabs x.2).all res) &&
+      (bodyBlks cells fr (labelOf fn "entry") n 0 0 is [w]).all (fun x => (blkLabs x.2).all res) &&
       proPhOk okPc ph lab fn (labelOf fr.fn "chk") (Int64.ofInt fr.size) (proL fr) zl zf z1 z2 zs [] &&
       (is.isEmpty || (res (ovfL fr) && (blkLabs ovfBlk).all res &&
         blkPh okPc ph (fun _ => false) lab (lab (ovfL fr) + Int64.ofNat 0) 0 ovfBlk)) &&
-      bodyPhOk okPc ph (fun _ => false) lab cells fr (labelOf fn "entry") is [w] ra
+      bodyPhOk okPc ph (fun _ => false) lab cells fr (labelOf fn "entry") n is [w] ra
   | _ => false
 
 /-- **Every `func0`-shaped function's phase facts** (the functions
-`fnCodeOk` checks). -/
+`fnCodeOk` checks, each with its first local label number,
+`Code1X64.starts`). -/
 def fnPhAll (okPc : Nat → Bool) (ph : Nat → Nat) (lab : Label → Int64) (res : String → Bool)
     (cells : List (Directive × Nat)) (ir : Scc.IR.Program) (ra : Int64) : Bool :=
-  ir.funcs.all fun f =>
+  (Scc.Cert.Code1X64.starts ir 0 ir.funcs).all fun (f, n) =>
     match f.params, f.checkStack, f.blocks with
     | [], true, [⟨"entry", is, .ret [w]⟩] =>
-      if is.all isAddChk then fnPh1 okPc ph lab res cells (frOf ir f) f.name is w ra else true
+      if is.all isAddChk then fnPh1 okPc ph lab res cells (frOf ir f) f.name n is w ra else true
     | _, _, _ => true
 
 /-- **A code label's address** in the cells at `lo` (`0` if it does not
@@ -117,13 +121,17 @@ resolve; `fnPhOk` then fails on every label it reads). -/
 def labC (lo : Nat) (cells : List (Directive × Nat)) (l : String) : Int64 :=
   Int64.ofNat ((codeLabel lo cells l).getD 0)
 
-/-- The return label of `scc_rt_main`'s `call` of the user `main`. -/
-def raL : String := ".Lscc_rt_main.x2"
+/-- The return label of `scc_rt_main`'s first `call`: of the user `main` on a
+bare tail (`Spike.Lib.X64.Rt.bareMC.sp0`), of the setup block after one
+(`(Spike.Lib.X64.Rt.setupMC sw).sp0`), whose phase `main`'s own return label
+`.x1` shares (`Spike/Lib/LowerX64/RaMain2.lean`). A11 checks the label at
+both (`Spike/Test/LowerX64PhCheck.lean` pins them to `raL`). -/
+def raL : String := ".Lscc_rt_main.x0"
 
 /-- **A9's phase part**: at A6's phase table and sites of the cells at
 `lo` (`false` if either is missing) and the cells' code labels, every
 `func0`-shaped function's phase facts, the return address after
-`scc_rt_main`'s `call`. -/
+`scc_rt_main`'s first `call` (`raL`). -/
 def fnPhOk (lo : Nat) (Λ : Scc.Sem.Layout) (cells : List (Directive × Nat)) (ir : Scc.IR.Program) : Bool :=
   match Scc.Cert.Rt.X64.phTabOf lo cells, Scc.Cert.Rt.X64.sitesOf lo cells Λ with
   | some T, some ss =>
@@ -152,12 +160,14 @@ theorem fnPhOk_parts {lo : Nat} {Λ : Scc.Sem.Layout} {cells : List (Directive �
   · cases h
 
 /-- **`fnPhAll` at a lowered code block**: `func0 name r` a function of
-`ir`, its instructions `addChk`s and its result one operand. -/
+`ir` with first local label number `n`, its instructions `addChk`s and
+its result one operand. -/
 theorem fnPhAll_func0 {okPc : Nat → Bool} {ph : Nat → Nat} {lab : Label → Int64} {res : String → Bool}
     {cells : List (Directive × Nat)} {ir : Scc.IR.Program} {ra : Int64} (h : fnPhAll okPc ph lab res cells ir ra = true)
-    {name : Scc.IR.Sym} {r : Scc.Lower.Inv.Res} (hf : Scc.Lower.Inv.func0 name r ∈ ir.funcs)
+    {name : Scc.IR.Sym} {r : Scc.Lower.Inv.Res} {n : Nat}
+    (hf : (Scc.Lower.Inv.func0 name r, n) ∈ Scc.Cert.Code1X64.starts ir 0 ir.funcs)
     (hI : ∀ i ∈ r.insts, ∃ d a b, i = .addChk d a b) {w : Scc.IR.Operand} (hw : r.ret = [w]) :
-    fnPh1 okPc ph lab res cells (frOf ir (Scc.Lower.Inv.func0 name r)) name r.insts w ra = true := by
+    fnPh1 okPc ph lab res cells (frOf ir (Scc.Lower.Inv.func0 name r)) name n r.insts w ra = true := by
   have hall : r.insts.all isAddChk = true := by
     rw [List.all_eq_true]; intro i hi; obtain ⟨d, a, b, rfl⟩ := hI i hi; rfl
   have := List.all_eq_true.mp h _ hf

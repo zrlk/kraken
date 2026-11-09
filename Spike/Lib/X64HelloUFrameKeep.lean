@@ -2,7 +2,7 @@
 **hello.w's worker frame kept inside `print`** (x86-64; the twin of `Spike/Lib/A64HelloUFrameKeep.lean`): at every
 state `print` reaches from the worker's call of it, the worker's frame (the continuation `workerRestH`, free
 variables `c` and `j`) is still placed. Its places are `wc_worker`'s cells `-40(%rbp)` (`c`, the published cell)
-and `-48(%rbp)` (`j`, the parent's `ThreadId`), read after `.Lwc_worker.x17`. At the call state (the return
+and `-48(%rbp)` (`j`, the parent's `ThreadId`), read after `.Lwc_worker.x0`. At the call state (the return
 address pushed, `%rsp = %rbp - 88`: the frame's 80 bytes and the return address), they are the words `%rsp + 48`
 and `%rsp + 40` (the region's cells `-48`, `-56` with `%rbp` at `-8`, `X64HelloWorkerBody`). `print`'s region is
 `R.callee kc lo' 0`, below the call's `%rsp`, so the cells stay outside it and the call's frame condition keeps

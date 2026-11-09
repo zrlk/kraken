@@ -206,13 +206,13 @@ exit call's site premises are discharged (`hrel_ofPlaceOK`, `htk_ofPlaceOK`,
 theorem userCallW_main_ofPlaceOK {d : Decl} (hd : Scc.Lower.Accepted0 [d] = true) {fr : Scc.Emit.X64.Frame}
     {r : Res} {fn entry : Label} {zl zf z1 z2 zs : Nat} (hf : FrameOk fr) (h1 : fr.size ≤ 2 ^ 31)
     (hpro : proInC o.prog fr fn entry zl zf z1 z2 zs = true) (hr : lower0 [(d.arg, .unit, [])] 0 d.body = some r)
-    (hbody : bodyIn o.prog fr entry 0 r.insts r.ret = true) {rS : Scc.Sem.Range} {Dt : State → Prop}
+    {m : Nat} (hbody : bodyIn o.prog fr entry m 0 r.insts r.ret = true) {rS : Scc.Sem.Range} {Dt : State → Prop}
     {rd : TermRun.Word → Prop} {G : Loc → Val → Prop} {lbl : Lbl} {lsize : Lsize} {R : Region}
     {F : MachineData → Prop} {Z : Int64} {D : Int} {tp : UInt64} {ra : BitVec 64}
     (hR8 : R.base.toNat % 8 = 0) (hZ8 : Z.toInt % 8 = 0) (hD : (fr.size : Int) + 48 ≤ D) (hD8 : D % 8 = 0)
     (hphB : bodyPhOk (Spike.Lib.X64.PhRec.okPc (RuntimeLayout.ofPlaceOK h i))
       (Spike.Lib.X64.PhRec.ph (RuntimeLayout.ofPlaceOK h i)) (fun _ => false) (RuntimeLayout.ofPlaceOK h i).lab
-      o.prog fr entry r.insts r.ret (Int64.ofBitVec ra) = true)
+      o.prog fr entry m r.insts r.ret (Int64.ofBitVec ra) = true)
     (hphP : ProPh (Spike.Lib.X64.PhRec.okPc (RuntimeLayout.ofPlaceOK h i))
       (Spike.Lib.X64.PhRec.ph (RuntimeLayout.ofPlaceOK h i)) (RuntimeLayout.ofPlaceOK h i).lab fn
       (labelOf fr.fn "chk") (Int64.ofInt fr.size) (proL fr) zl zf z1 z2 zs [])

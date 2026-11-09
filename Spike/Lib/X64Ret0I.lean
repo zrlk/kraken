@@ -71,7 +71,7 @@ open Spike.Lib.X64Consumer
 open Spike.Lib.X64
 open Spike.Lib.X64.Flow.Ret0.Mem (ret0Exe ret0End ret0_lays)
 open Spike.Lib.X64.OwnLimRt (labIn label_labIn)
-open Scc.Cert.Rt.X64 (labelIdx blockAtB code_field)
+open Scc.Cert.Rt.X64 (labelIdx blockAtB blockAcrossB code_field)
 open SccCode (ret0Λ ret0Cells ret0Asm)
 
 /-! ## The labels -/
@@ -81,23 +81,27 @@ thread. -/
 def ret0Tab : List (Label × Nat) :=
   [("_start", 4194304), ("scc_rt_start", 4194317), (".Lscc_rt_start.entry", 4194325), (".Lscc_rt_start.x0", 4194391),
     (".Lscc_rt_start.x1", 4194404), ("scc_rt_main", 4194444), (".Lscc_rt_main.chk", 4194448),
-    (".Lscc_rt_main.entry", 4194475), (".Lscc_rt_main.x2", 4194480), (".Lscc_rt_main.stk", 4194501),
-    (".Lscc_rt_main.x3", 4194519), ("scc_rt_alloc", 4194529), (".Lscc_rt_alloc.entry", 4194552),
+    (".Lscc_rt_main.entry", 4194475), (".Lscc_rt_main.x0", 4194480), (".Lscc_rt_main.stk", 4194501),
+    (".Lscc_rt_main.x1", 4194519), ("scc_rt_alloc", 4194529), (".Lscc_rt_alloc.entry", 4194552),
     (".Lscc_rt_alloc.cnt", 4194570), (".Lscc_rt_alloc.slow", 4194631), (".Lscc_rt_alloc.spin", 4194649),
-    (".Lscc_rt_alloc.full", 4194651), (".Lscc_rt_alloc.x4", 4194663), (".Lscc_rt_alloc.ok", 4194665),
+    (".Lscc_rt_alloc.full", 4194651), (".Lscc_rt_alloc.x0", 4194663), (".Lscc_rt_alloc.ok", 4194665),
     ("scc_rt_alloc_tcb", 4194892), (".Lscc_rt_alloc_tcb.entry", 4194911), (".Lscc_rt_alloc_tcb.len", 4194933),
-    (".Lscc_rt_alloc_tcb.full", 4195133), (".Lscc_rt_alloc_tcb.x5", 4195145), (".Lscc_rt_alloc_tcb.ok", 4195147),
+    (".Lscc_rt_alloc_tcb.full", 4195133), (".Lscc_rt_alloc_tcb.x0", 4195145), (".Lscc_rt_alloc_tcb.ok", 4195147),
+    (".Lscc_rt_alloc_tcb.x1", 4195346),
     ("scc_rt_thread_reserve", 4195347), (".Lscc_rt_thread_reserve.entry", 4195355),
-    (".Lscc_rt_thread_reserve.full", 4195422), (".Lscc_rt_thread_reserve.x6", 4195434),
+    (".Lscc_rt_thread_reserve.full", 4195422), (".Lscc_rt_thread_reserve.x0", 4195434),
     (".Lscc_rt_thread_reserve.ok", 4195436), ("scc_rt_thread_init", 4195445), (".Lscc_rt_thread_init.entry", 4195457),
-    (".Lscc_rt_thread_init.x7", 4195469), ("scc_rt_stack_take", 4195595), (".Lscc_rt_stack_take.entry", 4195610),
+    (".Lscc_rt_thread_init.x0", 4195469), (".Lscc_rt_thread_init.x1", 4195594),
+    ("scc_rt_stack_take", 4195595), (".Lscc_rt_stack_take.entry", 4195610),
     (".Lscc_rt_stack_take.cls5", 4195656), (".Lscc_rt_stack_take.clsnext6", 4195671),
     (".Lscc_rt_stack_take.clsdone7", 4195760), (".Lscc_rt_stack_take.spin14", 4195825),
     (".Lscc_rt_stack_take.locked15", 4195861), (".Lscc_rt_stack_take.pop", 4195890),
-    (".Lscc_rt_stack_take.bump", 4196002), (".Lscc_rt_stack_take.full", 4196112), (".Lscc_rt_stack_take.x8", 4196124),
+    (".Lscc_rt_stack_take.bump", 4196002), (".Lscc_rt_stack_take.full", 4196112), (".Lscc_rt_stack_take.x0", 4196124),
     (".Lscc_rt_stack_take.ok", 4196126), (".Lscc_rt_stack_take.taken", 4196166), ("scc_rt_take_site", 4196177),
-    ("scc_rt_stack_release", 4196190), ("wc_main", 4198835), (".Lwc_main.chk", 4198839), (".Lwc_main.entry", 4198862),
-    (".Lwc_main.ovf", 4198894), (".Lwc_main.stk", 4198906), (".Lwc_main.x12", 4198924)]
+    (".Lscc_rt_stack_take.x1", 4196189),
+    ("scc_rt_stack_release", 4196190), ("wc_main", 4198873), (".Lwc_main.chk", 4198877), (".Lwc_main.entry", 4198900),
+    (".Lwc_main.x0", 4198919),
+    (".Lwc_main.ovf", 4198932), (".Lwc_main.stk", 4198944), (".Lwc_main.x2", 4198962)]
 
 /-- Each is a label of the cells at its `labIn` address. -/
 theorem ret0Tab_ok : ret0Tab.all (fun p => (labelIdx ret0Cells p.1).isSome &&
@@ -121,6 +125,8 @@ theorem lookup_mem {l : Label} {n : Nat} : ∀ {L : List (Label × Nat)}, L.look
       exact .head _
     · exact .tail _ (lookup_mem h)
 
+-- The tables grew `.rodata` (R11): the decision recurses past the default depth.
+set_option maxRecDepth 100000 in
 /-- **The loaded thread's labels are `labT`'s.** -/
 theorem ret0_labT : (_root_.Executable.labels ret0Exe).label = labT := by
   funext l
@@ -192,11 +198,11 @@ def μ0 : Marks where
     | .take => some 4196177
     | .release => some 4196217
   abortAt
-    | .overflow => some 4198555
-    | .heap => some 4198623
-    | .stack => some 4198691
-    | .writeErr => some 4198759
-    | .threads => some 4198827
+    | .overflow => some 4198593
+    | .heap => some 4198661
+    | .stack => some 4198729
+    | .writeErr => some 4198797
+    | .threads => some 4198865
 
 /-- **The canonical target's marks of `ret0`** are `μ0`, given the
 loader's parse of the text (`hpa`, the trust boundary). -/
@@ -208,13 +214,13 @@ theorem ret0_marks (hpa : Scc.Sem.X64.cellsOf ret0Asm = some ret0Cells) : T.mark
   · funext k; cases k <;> exact (hr _).trans (by decide +kernel)
 
 /-- **The pcs off the marks' sites.** -/
-def okPc (pc : Nat) : Bool := !([4196177, 4196217, 4198555, 4198623, 4198691, 4198759, 4198827].contains pc)
+def okPc (pc : Nat) : Bool := !([4196177, 4196217, 4198593, 4198661, 4198729, 4198797, 4198865].contains pc)
 
 /-- A pc off the sites is off `μ0`'s, with no take there. -/
 theorem pcOff_of_okPc {rS : Range} : ∀ s : State, okPc (pcOf s) = true →
     PcOff μ0 s ∧ ∀ s', ¬ TakeK (labT StackTake.siteL) rS s s' := by
   intro s h
-  have hne : ∀ a ∈ [4196177, 4196217, 4198555, 4198623, 4198691, 4198759, 4198827], pcOf s ≠ a := by
+  have hne : ∀ a ∈ [4196177, 4196217, 4198593, 4198661, 4198729, 4198797, 4198865], pcOf s ≠ a := by
     intro a ha he
     subst he
     simp only [okPc, Bool.not_eq_true', List.contains_eq_any_beq, List.any_eq_false, beq_iff_eq] at h
@@ -250,6 +256,12 @@ theorem codeT {l : Label} {off : Nat} {b : List (Directive × Nat)} (hb : blockA
     {s : State} (hs : s.exe = ret0Exe) (hn : s.endPc = ret0End) : CodeAt s (labT l + Int64.ofNat off) b :=
   code_field ret0_lays rfl hb (by rw [ret0_labT]) s hs hn
 
+/-- A block of the cells across a label (`blockAcrossB`), in the loaded thread. -/
+theorem codeTA {l m : Label} {off j : Nat} {b : List (Directive × Nat)}
+    (hb : blockAcrossB ret0Cells l off (b.take j) m (b.drop j) = true)
+    {s : State} (hs : s.exe = ret0Exe) (hn : s.endPc = ret0End) : CodeAt s (labT l + Int64.ofNat off) b :=
+  Spike.Lib.X64.code_field_blockAcrossB ret0_lays rfl hb (List.take_append_drop j b) (by rw [ret0_labT]) s hs hn
+
 /-- **A covered block of the main path before the take** is inside `Wr`:
 its code (`hb`), its cover (`hok`), the region's facts, the source
 control's facts at the node (`hC`), the phase check (`hph`) and its dead
@@ -276,6 +288,30 @@ theorem blkW_pre {R : Region} {F : MachineData → Prop} {n : ND} {blk : List (D
   have := (hsm k hk { s' with st := (s'.st.1, n.pc) } s' rfl hpc').2.mp htk
   exact absurd this (not_tk (by unfold pcOf; exact hT))
 
+/-- `blkW_pre` for a block split by a return label (`m`, after its first `j`
+rows; `blockAcrossB`). -/
+theorem blkW_preA {R : Region} {F : MachineData → Prop} {n : ND} {blk : List (Directive × Nat)} {lo hi : Int}
+    {dead : Nat → Bool} {ra : Int64} {l m : Label} {off j : Nat}
+    (hb : blockAcrossB ret0Cells l off (blk.take j) m (blk.drop j) = true)
+    (he : labT l + Int64.ofNat off = n.pc)
+    (hok : okBlk lo hi n.o blk = true) (hR : R.OK) (hlo : R.lo ≤ lo) (hhi : hi ≤ R.hi)
+    (hC : ∀ σ c, n.J σ c → CFacts ret0Λ ret0Λ.static c)
+    (hph : blkPh okPc ph dead labT (labT l + Int64.ofNat off) ra blk = true)
+    (hret : ∀ σ c, n.J σ c → ∀ k (hk : k < blk.length), classify blk[k].1 = some .ret →
+      Int64.ofBitVec ((arun labT (blk.take k) ⟨n.pc, n.o, σ⟩).σ.slot (arun labT (blk.take k) ⟨n.pc, n.o, σ⟩).so.sp)
+        = ra)
+    (hdead : ∀ σ c, n.J σ c → dead (arun labT blk ⟨n.pc, n.o, σ⟩).pc.toBitVec.toNat = false)
+    (hT : bT (labT l + Int64.ofNat off).toBitVec.toNat = true) :
+    BlkW (Wr rS) (Kr rS) ret0Exe ret0End R F n blk := by
+  rw [he] at hph hT
+  have hcode : ∀ s : State, s.exe = ret0Exe → s.endPc = ret0End → CodeAt s n.pc blk := fun s hs hn =>
+    he ▸ codeTA hb hs hn
+  rw [← ret0_labT] at hph hret hdead
+  obtain ⟨hpc, hph', hsm⟩ := blkPh_sound (μ := μ0) (endPc := ret0End) ph_same pcOff_of_okPc hok hph hret hdead
+  refine blkW_sfacts hcode hok hR hlo hhi hC hpc hph' fun s m _ _ _ k hk s' _ hpc' htk => ?_
+  have := (hsm k hk { s' with st := (s'.st.1, n.pc) } s' rfl hpc').2.mp htk
+  exact absurd this (not_tk (by unfold pcOf; exact hT))
+
 /-- **A covered block of the main path after the take** is inside `Wr`: as
 `blkW_pre` without the phase's entry check, its frame condition also
 `StackM rS` (kept by the region's writes, `hSM`) and `rS` in the pool
@@ -295,6 +331,32 @@ theorem blkW_post {R : Region} {F : MachineData → Prop} {n : ND} {blk : List (
   rw [he] at hph
   have hcode : ∀ s : State, s.exe = ret0Exe → s.endPc = ret0End → CodeAt s n.pc blk := fun s hs hn =>
     he ▸ codeT hb hs hn
+  rw [← ret0_labT] at hph hret hdead
+  obtain ⟨hpc, hph', -⟩ := blkPh_sound (μ := μ0) (endPc := ret0End) ph_same pcOff_of_okPc hok hph hret hdead
+  refine blkW_sfacts hcode hok hR hlo hhi hC hpc hph' fun s m hF hD _ k hk s' hm _ _ => ?_
+  refine ⟨hsub, fun a h8 ha ha7 => ?_⟩
+  unfold Scc.Sem.X64.privLoad
+  rw [Option.isSome_map, hm]
+  exact hSM _ _ hF.2 hD a h8 ha ha7
+
+/-- `blkW_post` for a block split by a return label (`m`, after its first `j`
+rows; `blockAcrossB`). -/
+theorem blkW_postA {R : Region} {F : MachineData → Prop} {n : ND} {blk : List (Directive × Nat)} {lo hi : Int}
+    {dead : Nat → Bool} {ra : Int64} {l m : Label} {off j : Nat}
+    (hb : blockAcrossB ret0Cells l off (blk.take j) m (blk.drop j) = true)
+    (he : labT l + Int64.ofNat off = n.pc)
+    (hok : okBlk lo hi n.o blk = true) (hR : R.OK) (hlo : R.lo ≤ lo) (hhi : hi ≤ R.hi)
+    (hC : ∀ σ c, n.J σ c → CFacts ret0Λ ret0Λ.static c)
+    (hph : blkPh okPc ph dead labT (labT l + Int64.ofNat off) ra blk = true)
+    (hret : ∀ σ c, n.J σ c → ∀ k (hk : k < blk.length), classify blk[k].1 = some .ret →
+      Int64.ofBitVec ((arun labT (blk.take k) ⟨n.pc, n.o, σ⟩).σ.slot (arun labT (blk.take k) ⟨n.pc, n.o, σ⟩).so.sp)
+        = ra)
+    (hdead : ∀ σ c, n.J σ c → dead (arun labT blk ⟨n.pc, n.o, σ⟩).pc.toBitVec.toNat = false)
+    (hsub : rS.Sub ret0Λ.stackPool) (hSM : FStable R (StackM rS)) :
+    BlkW (Wr rS) (Kr rS) ret0Exe ret0End R (fun m => F m ∧ StackM rS m) n blk := by
+  rw [he] at hph
+  have hcode : ∀ s : State, s.exe = ret0Exe → s.endPc = ret0End → CodeAt s n.pc blk := fun s hs hn =>
+    he ▸ codeTA hb hs hn
   rw [← ret0_labT] at hph hret hdead
   obtain ⟨hpc, hph', -⟩ := blkPh_sound (μ := μ0) (endPc := ret0End) ph_same pcOff_of_okPc hok hph hret hdead
   refine blkW_sfacts hcode hok hR hlo hhi hC hpc hph' fun s m hF hD _ k hk s' hm _ _ => ?_
@@ -369,6 +431,31 @@ theorem blkW_postO {R : Region} {F : MachineData → Prop} {n : ND} {blk : List 
   rw [he] at hph
   have hcode : ∀ s : State, s.exe = ret0Exe → s.endPc = ret0End → CodeAt s n.pc blk := fun s hs hn =>
     he ▸ codeT hb hs hn
+  rw [← ret0_labT] at hph hret hdead
+  obtain ⟨hpc, hph', -⟩ := blkPh_sound (μ := μ0) (endPc := ret0End) ph_same pcOff_of_okPc hok hph hret hdead
+  refine blkW_sfacts hcode hok hR hlo hhi hC hpc hph' fun s m hF hD hc k hk s' hm _ _ => ?_
+  subst hm
+  exact owned_off hR hR8 hl hh hsub (stackOff_stable hfit _ _ (hFO _ hF) hD) hc
+
+/-- `blkW_postO` for a block split by a return label (`m`, after its first `j`
+rows; `blockAcrossB`). -/
+theorem blkW_postOA {R : Region} {F : MachineData → Prop} {n : ND} {blk : List (Directive × Nat)} {lo hi : Int}
+    {dead : Nat → Bool} {ra : Int64} {l m : Label} {off j : Nat}
+    (hb : blockAcrossB ret0Cells l off (blk.take j) m (blk.drop j) = true)
+    (he : labT l + Int64.ofNat off = n.pc)
+    (hok : okBlk lo hi n.o blk = true) (hR : R.OK) (hlo : R.lo ≤ lo) (hhi : hi ≤ R.hi)
+    (hR8 : R.base.toNat % 8 = 0) (hl : R.lo % 8 = 0) (hh : R.hi % 8 = 0)
+    (hC : ∀ σ c, n.J σ c → CFacts ret0Λ ret0Λ.static c)
+    (hph : blkPh okPc ph dead labT (labT l + Int64.ofNat off) ra blk = true)
+    (hret : ∀ σ c, n.J σ c → ∀ k (hk : k < blk.length), classify blk[k].1 = some .ret →
+      Int64.ofBitVec ((arun labT (blk.take k) ⟨n.pc, n.o, σ⟩).σ.slot (arun labT (blk.take k) ⟨n.pc, n.o, σ⟩).so.sp)
+        = ra)
+    (hdead : ∀ σ c, n.J σ c → dead (arun labT blk ⟨n.pc, n.o, σ⟩).pc.toBitVec.toNat = false)
+    (hsub : rS.Sub ret0Λ.stackPool) (hfit : rS.lo + rS.size ≤ 2 ^ 64) (hFO : ∀ m, F m → StackOff rS R m) :
+    BlkW (Wr rS) (Kr rS) ret0Exe ret0End R F n blk := by
+  rw [he] at hph
+  have hcode : ∀ s : State, s.exe = ret0Exe → s.endPc = ret0End → CodeAt s n.pc blk := fun s hs hn =>
+    he ▸ codeTA hb hs hn
   rw [← ret0_labT] at hph hret hdead
   obtain ⟨hpc, hph', -⟩ := blkPh_sound (μ := μ0) (endPc := ret0End) ph_same pcOff_of_okPc hok hph hret hdead
   refine blkW_sfacts hcode hok hR hlo hhi hC hpc hph' fun s m hF hD hc k hk s' hm _ _ => ?_
@@ -846,7 +933,8 @@ theorem tcbW (hC0 : CFacts ret0Λ ret0Λ.static c0) {R : Region} (hR : R.OK) (hl
   case ret =>
     show BlkW _ _ _ _ _ _ _ _
     rw [ret0_labT]
-    exact blkW_pre (l := AllocTcb.okL) (off := 143) (dead := fun _ => false) (ra := labT ".Lscc_rt_start.x0")
+    exact blkW_preA (l := AllocTcb.okL) (off := 143) (m := AllocTcb.retL) (j := 11) (dead := fun _ => false)
+      (ra := labT ".Lscc_rt_start.x0")
       (by decide +kernel) rfl AllocTcb.atRet_ok hR (by omega) (by omega) (fun _ _ hJ => hJ.1 ▸ hq ▸ hC0)
       (by decide +kernel)
       (hret_of_run AllocTcb.atRet_ok fun _ _ hJ => by
@@ -936,7 +1024,7 @@ source control `c0` (`hC0`, its facts), the frame condition implying
 region's writes (`hSM`). The take site's obligation is `hsite`. -/
 theorem takeW (hC0 : CFacts ret0Λ ret0Λ.static c0) {R : Region} (hR : R.OK) (hlo : R.lo ≤ -200) (hhi : 8 ≤ R.hi)
     (hFr : ∀ m, F m → ret0F m) (q : TakeG) (hq : q.c0 = c0)
-    (hra : q.g.ra = (labT ".Lscc_rt_thread_init.x7").toBitVec)
+    (hra : q.g.ra = (labT ".Lscc_rt_thread_init.x0").toBitVec)
     (hsub : rS.Sub ret0Λ.stackPool) (hSM : FStable R (StackM rS))
     (hsite : TakeW (Wr rS) (Kr rS) ret0Exe ret0End R F (StackM rS) q .site) :
     ∀ i, TakeW (Wr rS) (Kr rS) ret0Exe ret0End R F (StackM rS) q i := by
@@ -1013,8 +1101,8 @@ theorem takeW (hC0 : CFacts ret0Λ ret0Λ.static c0) {R : Region} (hR : R.OK) (h
   case ret =>
     dsimp only [TakeW]
     rw [ret0_labT]
-    exact blkW_post (l := StackTake.siteL) (off := 1) (dead := fun _ => false)
-      (ra := labT ".Lscc_rt_thread_init.x7") (by decide +kernel) rfl StackTake.stRet_ok hR (by omega)
+    exact blkW_postA (l := StackTake.siteL) (off := 1) (m := StackTake.retL) (j := 3) (dead := fun _ => false)
+      (ra := labT ".Lscc_rt_thread_init.x0") (by decide +kernel) rfl StackTake.stRet_ok hR (by omega)
       (by omega) (fun _ _ hJ => hJ.2.1 ▸ hq ▸ hC0) (by decide +kernel)
       (hret_of_run StackTake.stRet_ok fun _ _ hJ => by
         dsimp only [takeNG] at hJ ⊢
@@ -1109,7 +1197,7 @@ theorem tiW (hC0 : CFacts ret0Λ ret0Λ.static c0) {R : Region} (hR : R.OK) (hlo
   case ret =>
     dsimp only [TiW]
     rw [ret0_labT]
-    exact blkW_post (l := ThreadInit.x7L) (off := 117) (dead := fun _ => false)
+    exact blkW_postA (l := ThreadInit.x7L) (off := 117) (m := ThreadInit.retL) (j := 3) (dead := fun _ => false)
       (ra := labT ".Lscc_rt_start.x1") (by decide +kernel) rfl ThreadInit.tiRet_ok hR (by omega)
       (by omega) (fun _ _ hJ => hJ.1 ▸ hq ▸ hC0) (by decide +kernel)
       (hret_of_run ThreadInit.tiRet_ok fun _ _ hJ => by
@@ -1351,8 +1439,8 @@ theorem mainW (hC0 : CFacts ret0Λ ret0Λ.static c0) {top : BitVec 64} (h8 : top
     mblk ".Lwc_main.entry" 0 wcAdd_ok hR' hR8' (fun _ _ hJ => by rw [hJ.1, hc0]; exact hC0) hFO'
   · show BlkW _ _ _ _ _ _ _ _; rw [ret0_labT]
     rw [ret0_labT] at hra
-    exact blkW_postO (l := ".Lwc_main.entry") (off := 19) (dead := fun _ => false)
-      (ra := labT ".Lscc_rt_main.x2") (by decide +kernel) (by pcdec) wcRet_ok hR' (by rdec) (by rdec) hR8'
+    exact blkW_postOA (l := ".Lwc_main.x0") (off := 0) (m := ".Lwc_main.x1") (j := 4) (dead := fun _ => false)
+      (ra := labT ".Lscc_rt_main.x0") (by decide +kernel) (by pcdec) wcRet_ok hR' (by rdec) (by rdec) hR8'
       (by rdec) (by rdec) (fun _ _ ⟨_, hJ, _⟩ => by rw [hJ.1, hc0]; exact hC0) (by decide +kernel)
       (hret_of_run wcRet_ok fun σ _ ⟨σ0, hJ, hs, _⟩ => by
         show (arun labT wcRet ⟨_, oB, σ⟩).pc = _
@@ -1360,11 +1448,11 @@ theorem mainW (hC0 : CFacts ret0Λ ret0Λ.static c0) {top : BitVec 64} (h8 : top
       (fun _ _ _ => rfl) hsub hfit hFO'
   -- the `exit_group` tail
   · show BlkW _ _ _ _ _ _ _ _; rw [ret0_labT]
-    mblk ".Lscc_rt_main.x2" 0 (xExit_ok (lo := -72) (hi := 8) (sp := -40) (b := -8) (-16) 4 4 5 (by decide)) hR
+    mblk ".Lscc_rt_main.x0" 0 (xExit_ok (lo := -72) (hi := 8) (sp := -40) (b := -8) (-16) 4 4 5 (by decide)) hR
       hR8 (fun _ _ hJ => hJ.1 ▸ hC0) hFO
   · show NodeW _ _ _ _ _ _ _; rw [ret0_labT]
-    exact nodeW_syscall_postO (z := 2) (l := ".Lscc_rt_main.x2") (off := 13)
-      (p := labT ".Lscc_rt_main.x2" + Int64.ofNat 13) (by decide +kernel) rfl (by pcdec)
+    exact nodeW_syscall_postO (z := 2) (l := ".Lscc_rt_main.x0") (off := 13)
+      (p := labT ".Lscc_rt_main.x0" + Int64.ofNat 13) (by decide +kernel) rfl (by pcdec)
       (fun _ _ ⟨_, _, hJ, _⟩ => hJ.1 ▸ hC0) (by decide +kernel) (by decide +kernel) hR hR8 (by rdec) (by rdec)
       hsub hFO (fun _ _ h => by rw [h.1]; decide)
 

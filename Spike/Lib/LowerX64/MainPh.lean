@@ -44,12 +44,12 @@ theorem mainPh_ofPlaceOK {cfg : Scc.Config} {d : Decl} (hd : Scc.Lower.Accepted0
     let L := RuntimeLayout.ofPlaceOK h i
     let okPc := Spike.Lib.X64.PhRec.okPc L
     let ph := Spike.Lib.X64.PhRec.ph L
-    ∃ (fr : Scc.Emit.X64.Frame) (r : Res) (entry : String) (zl zf z1 z2 zs : Nat),
+    ∃ (fr : Scc.Emit.X64.Frame) (r : Res) (entry : String) (m zl zf z1 z2 zs : Nat),
       lower0 [(d.arg, .unit, [])] 0 d.body = some r ∧
       FrameOk fr ∧ fr.size ≤ 4096 ∧ fr.size % 16 = 0 ∧
       proInC o.prog fr Spike.Lib.X64.Rt.bareMC.fn entry zl zf z1 z2 zs = true ∧
-      bodyIn o.prog fr entry 0 r.insts r.ret = true ∧
-      bodyPhOk okPc ph (fun _ => false) L.lab o.prog fr entry r.insts r.ret
+      bodyIn o.prog fr entry m 0 r.insts r.ret = true ∧
+      bodyPhOk okPc ph (fun _ => false) L.lab o.prog fr entry m r.insts r.ret
         (Int64.ofBitVec (L.lab Spike.Lib.X64.Rt.bareMC.sp0).toBitVec) = true ∧
       ProPh okPc ph L.lab Spike.Lib.X64.Rt.bareMC.fn (labelOf fr.fn "chk") (Int64.ofInt fr.size) (proL fr)
         zl zf z1 z2 zs [] ∧
@@ -61,6 +61,7 @@ theorem mainPh_ofPlaceOK {cfg : Scc.Config} {d : Decl} (hd : Scc.Lower.Accepted0
   obtain ⟨-, hsz, h16, hsl, -, -, hI, -, -, -⟩ := hinv
   have hmem : func0 (Scc.Lower.Names.user "main") r ∈ (Scc.Lower.X64.lowerAll cfg [d]).low.ir.funcs := by
     rw [hir]; simp [Scc.Lower.Inv.progOf]
+  have hm := mem_starts_self (ir := (Scc.Lower.X64.lowerAll cfg [d]).low.ir) (m := 0) hmem
   have hnext := accepted0_next_x64 hd hr
   rw [← hir] at hsz h16 hsl
   have hle : (frOf (Scc.Lower.X64.lowerAll cfg [d]).low.ir (func0 (Scc.Lower.Names.user "main") r)).size ≤ 4096 := by
@@ -68,12 +69,12 @@ theorem mainPh_ofPlaceOK {cfg : Scc.Config} {d : Decl} (hd : Scc.Lower.Accepted0
     omega
   obtain ⟨w, hw⟩ := Scc.Lower.Inv.accepted0_ret_singleton hd hr
   have hpl := lowerAll_place_ir cfg [d] sizes labelOffs
-  obtain ⟨-, hbody⟩ := fnCode_of_placeOKAt h hpl hmem hI hw
+  obtain ⟨-, hbody⟩ := fnCode_of_placeOKAt h hpl hm hI hw
   obtain ⟨zl, zf, z1, z2, zs, hpro, hP, hovf, hB⟩ :=
-    userPh_of_placeOK h hpl (lab := L.lab) (Spike.Lib.X64.Rt.PhRecOf.hlab_ofPlaceOK h i) hmem hI hw
+    userPh_of_placeOK h hpl (lab := L.lab) (Spike.Lib.X64.Rt.PhRecOf.hlab_ofPlaceOK h i) hm hI hw
   refine ⟨frOf (Scc.Lower.X64.lowerAll cfg [d]).low.ir (func0 (Scc.Lower.Names.user "main") r), r,
-    labelOf (Scc.Lower.Names.user "main") "entry", zl, zf, z1, z2, zs, hr, ⟨_, _, rfl, rfl⟩, hle, h16, ?_, hbody,
-    ?_, ?_, fun hne => ⟨ovfCode_of_placeOKAt h hpl hmem hI hw hne, hovf hne⟩⟩
+    labelOf (Scc.Lower.Names.user "main") "entry", 0, zl, zf, z1, z2, zs, hr, ⟨_, _, rfl, rfl⟩, hle, h16, ?_, hbody,
+    ?_, ?_, fun hne => ⟨ovfCode_of_placeOKAt h hpl hm hI hw hne, hovf hne⟩⟩
   · rw [← user_main_eq_bareMC_fn]; exact hpro
   · rw [hw, bareMC_sp0, Int64.ofBitVec_toBitVec]; exact hB
   · rw [← user_main_eq_bareMC_fn]; exact hP

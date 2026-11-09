@@ -203,7 +203,7 @@ theorem startTcb_WS (hΛ : L.Λ.abortLbl = Scc.Cert.Link.abortName) (hs : WSep L
     tblkW okL bO5 atO5_ok atO5 oI hP.o5 Spike.Lib.X64.Rt.Tcb.atO5_noRet eOk
     rw [(atO5_walk _ _ hJ.2.1 hJ.2.2).1, eOk]; decide +kernel
   case ret =>
-    refine blkT_WS (rl := Spike.Lib.X64.Flow.Ret0.x0L) hp hlo hlab hsite hcl hc0 hpl0 hX0 hbd bRet rfl atRet_ok
+    refine blkT_WSA (rl := Spike.Lib.X64.Flow.Ret0.x0L) hp hlo hlab hsite hcl hc0 hpl0 hX0 hbd bRet rfl atRet_ok
       hR (by omega) (by omega) h (okB hP.ret) ?_ (soT atRet oI) (fun σ c hJ s m _ _ _ hs' => ?_)
       (by decide +kernel) (Spike.Lib.X64Consumer.hret_of_run atRet_ok fun σ c hJ => ?_) (fun σ c h => h.1.trans hq)
     · intro k hk; dsimp only [tcbN]; rw [eOk]; revert k; decide +kernel

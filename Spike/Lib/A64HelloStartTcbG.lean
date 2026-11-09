@@ -32,7 +32,7 @@ open Spike.Lib.A64.WakePh.StartTcb (BandT sp_of_abs)
 
 /-- **`scc_rt_alloc_tcb`'s pcs** at hello's canonical base (`labs_eqH`'s
 `scc_rt_alloc_tcb` up to `scc_rt_thread_reserve`). -/
-def PcTH (p : Int64) : Prop := 2164748 ≤ p.toBitVec.toNat ∧ p.toBitVec.toNat < 2165168
+def PcTH (p : Int64) : Prop := 2164748 ≤ p.toBitVec.toNat ∧ p.toBitVec.toNat < 2165172
 
 instance (p : Int64) : Decidable (PcTH p) := by unfold PcTH; infer_instance
 
@@ -81,7 +81,7 @@ instance: its pcs in `PcTH` (`h1`), its static `sp` offsets in `[-192, 0]`
 (`hso`), `GoodWH` where its run ends (`hfin`). -/
 theorem blkT_ownH (hlab : ∀ l x, codeOf lo SccCode.helloProg l = some x → L.lab l = Int64.ofNat x)
     (hb : BandT L R)
-    (hsite : ∀ x, (Spike.Lib.A64.PhRec.μ L).site .take = some x → x = 2165976)
+    (hsite : ∀ x, (Spike.Lib.A64.PhRec.μ L).site .take = some x → x = 2165980)
     (hS : BlkW (fun s c => SFacts L.Λ (Spike.Lib.A64.PhRec.μ L) (fun s => ownH L a (phH (pcOf s))) rS Tk lbl' s c)
       K L.exe L.endPc R F n blk)
     (hcode : ∀ s : State, s.exe = L.exe → s.endPc = L.endPc → Spike.Lib.A64.CodeAt s n.pc blk)

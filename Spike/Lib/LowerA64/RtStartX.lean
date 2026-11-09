@@ -398,6 +398,143 @@ theorem blkW_rtXG {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph
   obtain rfl := hc0 σ c hJ
   exact ⟨⟨h1.1, hpl0 _, fun L hL => (h2.1 L hL).elim, rfl⟩, fun _ h => h⟩
 
+/-! ## Blocks split by a return label -/
+
+/-- The first part of a block across a label is a block at its label. -/
+theorem blockAt_of_blockAcross {l m : Label} {k : Nat} {a b : List Directive}
+    (h : Scc.Cert.Rt.A64.blockAcross prog l k a m b = true) : blockAt prog l k a = true := by
+  simp only [Scc.Cert.Rt.A64.blockAcross, Bool.and_eq_true] at h
+  exact h.1.1
+
+/-- **An instruction of a block split by a return label is a position off
+the write abort** (`m`, after the block's first `j` instructions;
+`blockAcross`), both labels off the write abort's: before the split in `l`'s
+run, after it in `m`'s. -/
+theorem posOff_of_blockAcross {kp : Nat} (hp : Lays exe prog kp) {l m : Label} {k j i : Nat}
+    {blk : List Directive}
+    (hb : Scc.Cert.Rt.A64.blockAcross prog l k (blk.take j) m (blk.drop j) = true)
+    (hl : l ∉ abLabs) (hm : m ∉ abLabs) (hi : i < blk.length) :
+    PosOff prog (_root_.Executable.labels exe).label
+      ((_root_.Executable.labels exe).label l + Int64.ofNat (4 * (k + i))) := by
+  simp only [Scc.Cert.Rt.A64.blockAcross, Bool.and_eq_true] at hb
+  obtain ⟨⟨h1, hg⟩, h2⟩ := hb
+  by_cases hij : i < j
+  · have hi' : i < (blk.take j).length := by simp; omega
+    exact ⟨l, k + i, inRun_of_blockAt h1 hi', hl, rfl⟩
+  · have hi' : i - j < (blk.drop j).length := by simp; omega
+    have hgap := Scc.Cert.Rt.A64.label_labelGap hp hg
+    refine ⟨m, 0 + (i - j), inRun_of_blockAt h2 hi', hm, ?_⟩
+    rw [hgap, Int64.add_assoc, ← Int64.ofNat_add]
+    exact congrArg (_ + Int64.ofNat ·) (by simp only [List.length_take]; omega)
+
+/-- **`blkW_abSt_tg`'s targets from the place of a block split by a return
+label** (`m`, after its first `j` instructions; `blockAcross`, `m` off the
+write abort's): as `htgt_offR`. -/
+theorem htgt_offRA {kp : Nat} (hp : Lays exe prog kp) (hpr : Scc.Cert.Rt.A64.Print.printIn prog = true)
+    (hab : Scc.Cert.Rt.A64.Abort.abortIn prog = true) {n : ND} {blk : List Directive} {l m : Label}
+    {k j : Nat} {ra : Int64} {lo hi : Int}
+    (hb : Scc.Cert.Rt.A64.blockAcross prog l k (blk.take j) m (blk.drop j) = true)
+    (hok : okBlk lo hi n.o blk = true)
+    (he : (_root_.Executable.labels exe).label l + Int64.ofNat (4 * k) = n.pc) (hl : l ∉ abLabs)
+    (hm : m ∉ abLabs)
+    (hnext : lastFalls blk = true → PosOff prog (_root_.Executable.labels exe).label
+      ((_root_.Executable.labels exe).label l + Int64.ofNat (4 * (k + blk.length))) ∨
+        ∀ σ c, n.J σ c → PosOff prog (_root_.Executable.labels exe).label
+          (Spike.Lib.A64.Flow.arun (_root_.Executable.labels exe).label blk ⟨n.pc, n.o, σ⟩).pc)
+    (hlabs : ∀ L ∈ blkLabs blk, L ≠ "scc_rt_abort" →
+      PosOff prog (_root_.Executable.labels exe).label ((_root_.Executable.labels exe).label L) ∨
+        ∀ σ c, n.J σ c → PosOff prog (_root_.Executable.labels exe).label
+          (Spike.Lib.A64.Flow.arun (_root_.Executable.labels exe).label blk ⟨n.pc, n.o, σ⟩).pc)
+    (hra : noRetBlk blk = false → ra ∉ Spike.Lib.A64.WriteAb.abPcs (_root_.Executable.labels exe).label)
+    (habt : ∀ σ c, n.J σ c → ∀ k' (hk : k' < blk.length) a, classify blk[k'] = some a →
+      aiLab a = some "scc_rt_abort" → a = .bl "scc_rt_abort" ∧
+        (Spike.Lib.A64.Flow.arun (_root_.Executable.labels exe).label (blk.take k') ⟨n.pc, n.o, σ⟩).σ.regs.X0
+          ≠ 4) :
+    ∀ σ c, n.J σ c → ∀ k' (hk : k' < blk.length) a, classify blk[k'] = some a →
+      ∀ t ∈ aiTgts (_root_.Executable.labels exe).label (n.pc + Int64.ofNat (4 * k') + Int64.ofNat 4) ra a,
+        (k' + 1 = blk.length → t = (Spike.Lib.A64.Flow.arun (_root_.Executable.labels exe).label blk
+          ⟨n.pc, n.o, σ⟩).pc) →
+        t ∉ Spike.Lib.A64.WriteAb.abPcs (_root_.Executable.labels exe).label ∨
+          (a = .bl "scc_rt_abort" ∧
+            (Spike.Lib.A64.Flow.arun (_root_.Executable.labels exe).label (blk.take k') ⟨n.pc, n.o, σ⟩).σ.regs.X0
+              ≠ 4) := by
+  intro σ c hJ k' hk a ha t ht hdt
+  by_cases hr : ∃ r, a = .ret r
+  · obtain ⟨r, rfl⟩ := hr
+    left
+    simp only [aiTgts, List.mem_singleton] at ht
+    cases hnr : noRetBlk blk
+    · exact ht ▸ hra hnr
+    · exact (noRet_false hnr k' hk r ha).elim
+  · have hr' : ∀ r, a ≠ .ret r := fun r h => hr ⟨r, h⟩
+    rcases aiTgts_cases hr' ht with ⟨rfl, hf⟩ | ⟨L, hL, rfl⟩
+    · left
+      by_cases hlt : k' + 1 < blk.length
+      · refine notAbPc_of_posOff hp hpr hab ?_
+        rw [← he, ofNat4_succ', ← ofNat4_add]
+        exact posOff_of_blockAcross hp hb hl hm hlt
+      · have hk1 : k' = blk.length - 1 := by omega
+        have hlast : blk.getLast? = some blk[k'] := by
+          rw [List.getLast?_eq_getElem?]; simp [hk1]
+        rcases hnext (by simp only [lastFalls, hlast, ha, Option.map_some, Option.getD_some, hf]) with hn' | hend
+        · refine notAbPc_of_posOff hp hpr hab ?_
+          rw [← he, ofNat4_succ', ← ofNat4_add]
+          rwa [show k + (k' + 1) = k + blk.length by omega]
+        · exact hdt (by omega) ▸ notAbPc_of_posOff hp hpr hab (hend σ c hJ)
+    · have hmem : L ∈ blkLabs blk := List.mem_filterMap.mpr ⟨blk[k'], List.getElem_mem hk, by
+        simp only [ha, Option.bind_some]; exact hL⟩
+      by_cases hab' : L = "scc_rt_abort"
+      · exact .inr (habt σ c hJ k' hk a ha (hab' ▸ hL))
+      · -- a branch is the block's last instruction
+        obtain ⟨a', ha', -, hterm⟩ := okBlk_get (_root_.Executable.labels exe).label (am := ⟨n.pc, n.o, σ⟩) hok hk
+        rw [ha] at ha'
+        cases ha'
+        have hlast : k' + 1 = blk.length := by
+          refine Classical.byContradiction fun hne => ?_
+          have := hterm (by omega)
+          cases a <;> simp_all [aiLab, AI.isTerm]
+        rcases hlabs L hmem hab' with hL' | hend
+        · exact .inl (notAbPc_of_posOff hp hpr hab hL')
+        · exact .inl (hdt hlast ▸ notAbPc_of_posOff hp hpr hab (hend σ c hJ))
+
+/-- **A covered runtime block split by a return label inside `RtX`** (`m`,
+after its first `j` instructions; `blockAcross`, `m` off the write abort's),
+a `ret` and abort calls allowed: as `blkW_rtXG`. -/
+theorem blkW_rtXGA {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
+    (hpr : Scc.Cert.Rt.A64.Print.printIn prog = true) (hab : Scc.Cert.Rt.A64.Abort.abortIn prog = true)
+    {n : ND} {blk : List Directive} {lo hi : Int} {dead : Nat → Bool} {ra : Int64} {l m : Label} {k j : Nat}
+    (hb : Scc.Cert.Rt.A64.blockAcross prog l k (blk.take j) m (blk.drop j) = true)
+    (he : lab l + Int64.ofNat (4 * k) = n.pc)
+    (hok : okBlk lo hi n.o blk = true)
+    (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ lo) (hhi : hi ≤ R.hi)
+    (hph : blkPh okPc ph dead lab n.pc ra blk = true) (hl : l ∉ abLabs) (hm : m ∉ abLabs)
+    (hret : ∀ σ c, n.J σ c → ∀ k (hk : k < blk.length) r, classify blk[k] = some (.ret r) →
+      Int64.ofInt ((Spike.Lib.A64.Flow.arun lab (blk.take k) ⟨n.pc, n.o, σ⟩).σ.regs.getRegOrZr r).signed = ra)
+    (hra : noRetBlk blk = false → ra ∉ Spike.Lib.A64.WriteAb.abPcs lab)
+    (hnext : lastFalls blk = true → PosOff prog lab (lab l + Int64.ofNat (4 * (k + blk.length))) ∨
+      ∀ σ c, n.J σ c → PosOff prog lab (Spike.Lib.A64.Flow.arun lab blk ⟨n.pc, n.o, σ⟩).pc)
+    (hlabs : ∀ L ∈ blkLabs blk, L ≠ "scc_rt_abort" → PosOff prog lab (lab L) ∨
+      ∀ σ c, n.J σ c → PosOff prog lab (Spike.Lib.A64.Flow.arun lab blk ⟨n.pc, n.o, σ⟩).pc)
+    (habt : ∀ σ c, n.J σ c → ∀ k' (hk : k' < blk.length) a, classify blk[k'] = some a →
+      aiLab a = some "scc_rt_abort" → a = .bl "scc_rt_abort" ∧
+        (Spike.Lib.A64.Flow.arun lab (blk.take k') ⟨n.pc, n.o, σ⟩).σ.regs.X0 ≠ 4)
+    (hc0 : ∀ σ c, n.J σ c → c = c0) (hpl0 : ∀ s, PlacedS Λ lbl s c0 []) :
+    BlkW (RtX Λ μ ar lbl lab c0) (fun _ _ => False) exe endPc R F n blk := by
+  have hcode := Spike.Lib.A64.code_field_blockAcross hI.lays hI.endOk hb (List.take_append_drop j blk)
+    (q := n.pc) (by rw [hI.labOk]; exact he)
+  have hW := Spike.Lib.A64.AllocG.blkW_noWrA hI hb he hok hR hal hlo hhi (F := F)
+  have hlays := hI.lays
+  have hA : BlkW (fun s _ => AbSt μ (Ab lab) s) (fun _ _ => False) exe endPc R F n blk := by
+    obtain ⟨-, -, hlab, -, -⟩ := id hI
+    subst hlab
+    exact blkW_abSt_tg hI hpr hab hcode hok hR hal hlo hhi hph hret
+      (htgt_offRA hlays hpr hab hb hok he hl hm hnext hlabs hra habt)
+  intro s σ c hs hn hd hpc hAb hF hJ k' hk m hA' hD
+  have h1 := hA s σ c hs hn hd hpc hAb hF hJ k' hk m hA' hD
+  have h2 := hW s σ c hs hn hd hpc hAb hF hJ k' hk m hA' hD
+  obtain rfl := hc0 σ c hJ
+  exact ⟨⟨h1.1, hpl0 _, fun L hL => (h2.1 L hL).elim, rfl⟩, fun _ h => h⟩
+
 /-! ## Loads, swaps and release stores -/
 
 /-- **A runtime node at a load** `ldr Xt, [Xn, #i]` of a word unmapped in

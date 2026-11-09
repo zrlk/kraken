@@ -115,6 +115,14 @@ local macro "rnodeW " b:ident ok:ident hb:term:max w:term:max : tactic =>
   `(tactic| refine seg_ndW (by simp [$b:ident]) $ok hF hR hal hlo hhi
     (code_of hp hend $hb (by first | rfl | exact ofNat4_zero _)) $w fun σ c hJ => ⟨c, .refl c, ?_⟩)
 
+set_option hygiene false in
+/-- `rnodeW` for `rRet`, split by its return label `retL` after 4
+instructions (`blockAcross`, `Spike.Lib.A64.code_field_blockAcross`). -/
+local macro "rnodeWA " b:ident ok:ident hb:term:max w:term:max : tactic =>
+  `(tactic| refine seg_ndW (by simp [$b:ident]) $ok hF hR hal hlo hhi
+    (Spike.Lib.A64.code_field_blockAcross hp hend $hb (List.take_append_drop 4 _)
+      (by first | rfl | exact ofNat4_zero _)) $w fun σ c hJ => ⟨c, .refl c, ?_⟩)
+
 /-- **`scc_rt_thread_reserve` is one segment inside `W`**: in any valid
 layout of any program with its code (`hin`), from its entry to its return,
 for any region holding its frame of 48 and any frame condition implying
@@ -175,7 +183,7 @@ theorem reserve_segW {W : Frag isaLSE2} {K : State → State → Prop} {prog : L
     rw [rJ_run]
     exact .inl ⟨RN.ok, rfl, rfl, hJ⟩
   case ok =>
-    rnodeW rRet rRet_ok bOk (hW RN.ok)
+    rnodeWA rRet rRet_ok bOk (hW RN.ok)
     dsimp only [rvN, rvX] at hJ ⊢
     obtain ⟨rfl, hJ⟩ := hJ
     obtain ⟨h1, h2, h3⟩ := rRet_walk (_root_.Executable.labels exe).label _ hJ
@@ -284,7 +292,7 @@ theorem reserveW_gen {exe : _root_.Executable} [Kraken.Executable.ValidLayout ex
       (hnr rJ_noRet) (fun _ _ _ => rfl) (hT _ (by simp [resPcs]))
   case ok =>
     dsimp only [ReserveW]; rw [hI.labOk]
-    exact blkW_pre hI bOk (ofNat4_zero _) rRet_ok hR hal (by omega) (by omega) (hC _ fun _ _ hJ => hJ.1) hph.ok
+    exact blkW_preA hI bOk (ofNat4_zero _) rRet_ok hR hal (by omega) (by omega) (hC _ fun _ _ hJ => hJ.1) hph.ok
       (hret_of_run rRet_ok fun _ _ hJ => by
         dsimp only [rvN] at hJ ⊢
         rw [(rRet_walk lab _ hJ.2).1, hra]; exact Int64.ofBitVec_toBitVec _)
@@ -301,11 +309,12 @@ theorem reserveIn_of {prog : List Directive} (h : RtAll prog Scc.Cert.Spawn.A64.
         none⟩,
       ⟨fullL, [(0, parseAArch64("movz x0, #5
 bl scc_rt_abort"))], none⟩,
-      ⟨okL, [(0, rRet)], none⟩] := rfl
+      ⟨okL, [(0, rRet.take 4)], some (4, retL)⟩, ⟨retL, [(0, rRet.drop 4)], none⟩] := rfl
   rw [e] at h
   simp only [Spike.Lib.A64.Rt.labPair, List.cons_append, List.nil_append, Nat.reduceAdd, RtAll, BsOk, GapAt,
     and_true] at h
-  simp only [reserveIn, h, Bool.and_self]
+  have hs : 0 + (rRet.take 4).length = 4 := rfl
+  simp only [reserveIn, Scc.Cert.Rt.A64.blockAcross, hs, h, Bool.and_self]
 
 /-- **`reserveIn` from A13's code part** (`spawnGrps` in the program). -/
 theorem reserveIn_of_a13code {lo : Nat} {prog : List Directive} {Λ : Scc.Sem.Layout}

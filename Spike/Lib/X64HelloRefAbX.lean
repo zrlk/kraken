@@ -2,7 +2,7 @@
 **The threads abort path holds both TCB self words, at hello's level 2** (x86-64 only; the `ownGHXW` companion of
 `Spike/Lib/X64HelloRefAb.lean`, the hello counterpart of wake's `X64WakeRefLft`): on the refusal's threads abort
 path below main's frame (`RefO.TOblH`'s region `R.callee (-136 - 8) (-24) 16`), entered from `.spawnfail5`'s
-`call` (the return address `.Lwc_main.x27`), main holds both words: `tcbM` (on the pool from `.x1` on,
+`call` (the return address `.Lwc_main.x5`), main holds both words: `tcbM` (on the pool from `.x1` on,
 `selfOwnH`) and `tcbWH` (in `scc_rt_abort`'s code with the return address `.x27`, `selfOwnWH`), and no
 instruction of the path writes memory (wake's `tpathW_noW`). So both appended maps may be appended at every node
 (`CstOkH`), which lifts the path's `W2H` to `Wcl2X.W2HX`.
@@ -17,7 +17,7 @@ No absolute address appears in a statement here.
 ## Differences from the AArch64 version
 
 AArch64 has no counterpart: main owns no TCB word there. Against wake's `RefLft`: the return address is
-`.Lwc_main.x27` (wake `.x23`), the worker's word `tcbWH L` (`pinA + 112`; wake `tcb2`), the classes are
+`.Lwc_main.x5` (wake `.x23`), the worker's word `tcbWH L` (`pinA + 144`; wake `tcb2`), the classes are
 `OwnCstX`'s (`CstH`, `cstOkH_of`), the callee's region is at `-144` below main's 128-byte frame (wake `-80`), and
 the conclusion is the pointwise `CstOkH` (wake's `Lft2`, the lift itself) so that the lift is `w2HX_of`.
 -/
@@ -58,15 +58,15 @@ theorem bandIn_preH {R : Region} (hR : R.OK) (hlo : R.lo ≤ -384) (hhi : 16 ≤
 /-- **Both TCB words on the path from `.x27`** in a band on the pool: `selfOwnH` (on the pool, `scc_rt_abort`
 above `.x1`) and `selfOwnWH` (in `scc_rt_abort`'s code with the return address `.x27`). -/
 theorem cst_x27H (hlab : ∀ l x, codeLabel lo helloCells l = some x → L.lab l = Int64.ofNat x)
-    {R : Region} (hb : BandIn L R) {s : State} (h : AbP L R (L.lab ".Lwc_main.x27").toBitVec s) :
+    {R : Region} (hb : BandIn L R) {s : State} (h : AbP L R (L.lab ".Lwc_main.x5").toBitVec s) :
     CstH L (tM L) (tWH L) s := by
-  have eA : L.lab "scc_rt_abort" = Int64.ofNat 4202486 := hlab _ _ (by rw [← codeT_eq]; decide +kernel)
-  have eW : L.lab "scc_rt_thr_worker" = Int64.ofNat 4202972 := hlab _ _ (by rw [← codeT_eq]; decide +kernel)
+  have eA : L.lab "scc_rt_abort" = Int64.ofNat 4202524 := hlab _ _ (by rw [← codeT_eq]; decide +kernel)
+  have eW : L.lab "scc_rt_thr_worker" = Int64.ofNat 4203010 := hlab _ _ (by rw [← codeT_eq]; decide +kernel)
   have hin := h.1
   unfold inPc at hin
   rw [eA, eW] at hin
-  have hA : (Int64.ofNat 4202486).toBitVec.toNat = 4202486 := by decide
-  have hW' : (Int64.ofNat 4202972).toBitVec.toNat = 4202972 := by decide
+  have hA : (Int64.ofNat 4202524).toBitVec.toNat = 4202524 := by decide
+  have hW' : (Int64.ofNat 4203010).toBitVec.toNat = 4203010 := by decide
   rw [hA, hW'] at hin
   exact ⟨ownSH_of_self ((selfOwnH_iffC hlab).mpr (.inl ⟨spPool_of_band hb h.2.2.2, by omega⟩)),
     ownSWH_of_self (.inr (.inr ⟨h.1, (raAt_iff h _).2 rfl⟩))⟩
@@ -93,7 +93,7 @@ theorem refCstH (hs : Spike.Lib.X64.PhRec.TcbSep L) (ha : tcbM L ≠ ntA L.lab)
   have hst := Scc.Cert.Rt.X64.Abort.code_stubs (c0 := c0) hlays (hendH hp) SccCode.hello_abort .threads
   rw [raT_x27H hlab]
   exact TPathW.mapWK (TPathW.and (TPathW.ofAbPT (abPT_x27H hp hlo hlab (c0 := c0) rfl hR' hlo' hhi'))
-    (Spike.Lib.X64.WakePh.tpathW_noW (ra := (L.lab ".Lwc_main.x27").toBitVec) hR' hlo' hhi' hd hst)
+    (Spike.Lib.X64.WakePh.tpathW_noW (ra := (L.lab ".Lwc_main.x5").toBitVec) hR' hlo' hhi' hd hst)
     fun s c h₁ h₂ => And.intro h₁ h₂) fun s _ hw _ =>
     ⟨cstOkH_of hs ha hW (cst_x27H hlab hb hw.1.1) (fun s' hs' => cst_x27H hlab hb (hw.1.2 s' hs'))
       (fun hns tree he => hw.2 hns tree he _), fun _ h => h⟩

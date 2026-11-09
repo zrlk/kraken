@@ -48,8 +48,8 @@ variable {L : RuntimeLayout} {a : BitVec 64} {Λ : Scc.Sem.Layout} {Dt : State �
 
 /-- The labels `.x15`'s and `.x2`'s pcs are decided from, at the canonical base. -/
 theorem rp_labsH (hlab : ∀ l x, codeLabel lo helloCells l = some x → L.lab l = Int64.ofNat x) :
-    L.lab ".Lwc_rodata.x15" = Int64.ofNat 4203184 ∧ L.lab ".Lscc_rt_main.x2" = Int64.ofNat 4198576 ∧
-    L.lab "wc_main" = Int64.ofNat 4203623 := by
+    L.lab ".Lwc_rodata.x0" = Int64.ofNat 4203222 ∧ L.lab ".Lscc_rt_main.x0" = Int64.ofNat 4198576 ∧
+    L.lab "wc_main" = Int64.ofNat 4203661 := by
   refine ⟨hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_⟩ <;> (rw [← codeT_eq]; decide +kernel)
 
 /-- **A load `movq i(%b), %r`** of an unmapped word writes nothing. -/
@@ -93,8 +93,8 @@ omit hsite in
 /-- **A load `movq k(%rcx), %rax` at `.x15 + o` inside `Lft2H`**: its word unmapped under `F` (`hun`), its pc
 and next pc `QPH` (`hpc`). -/
 theorem ldLH (hb : BandOnP L R (-208) 8) {n : ND} {k : Int64} {o z : Nat}
-    (hbl : blockAtB helloCells ".Lwc_rodata.x15" o [(ldDir .rcx k .rax, z)] = true)
-    (he : L.lab ".Lwc_rodata.x15" + Int64.ofNat o = n.pc)
+    (hbl : blockAtB helloCells ".Lwc_rodata.x0" o [(ldDir .rcx k .rax, z)] = true)
+    (he : L.lab ".Lwc_rodata.x0" + Int64.ofNat o = n.pc)
     (hpc : QPH n.pc.toBitVec.toNat ∧ QPH (n.pc + Int64.ofNat z).toBitVec.toNat)
     (hso : -208 ≤ n.o.sp ∧ n.o.sp ≤ 8)
     (hun : ∀ σ c, n.J σ c → ∀ m, F m → Mem.loadInt m.dmem (bAddr σ.regs .rcx k) 8 = none) :
@@ -120,8 +120,8 @@ omit hsite in
 /-- **A store `movq %rax, k(%rcx)` at `.x15 + o` inside `Lft2H`** (as `ldLH`): its word also off `tcbM`
 (`hM`). -/
 theorem stLH (hb : BandOnP L R (-208) 8) {n : ND} {k : Int64} {o z : Nat}
-    (hbl : blockAtB helloCells ".Lwc_rodata.x15" o [(stDir .rcx k .rax, z)] = true)
-    (he : L.lab ".Lwc_rodata.x15" + Int64.ofNat o = n.pc)
+    (hbl : blockAtB helloCells ".Lwc_rodata.x0" o [(stDir .rcx k .rax, z)] = true)
+    (he : L.lab ".Lwc_rodata.x0" + Int64.ofNat o = n.pc)
     (hpc : QPH n.pc.toBitVec.toNat ∧ QPH (n.pc + Int64.ofNat z).toBitVec.toNat)
     (hso : -208 ≤ n.o.sp ∧ n.o.sp ≤ 8)
     (hun : ∀ σ c, n.J σ c → ∀ m, F m → Mem.loadInt m.dmem (bAddr σ.regs .rcx k) 8 = none)
@@ -152,7 +152,7 @@ theorem rdPostLH (hb : BandOnP L R (-208) 8) (hR : R.OK) (hRlo : R.lo ≤ -40) (
     (hun : ∀ σ0 c, Jp σ0 c → ∀ i : Int64, (i = 0 ∨ i = 8) →
       ∀ m, F m → Mem.loadInt m.dmem (bAddr σ0.regs .rax i) 8 = none)
     (hM : ∀ σ0 c, Jp σ0 c → ∀ i : Int64, (i = 0 ∨ i = 8) → bAddr σ0.regs .rax i ≠ tcbM L)
-    (hra : ∀ σ0 c, Jp σ0 c → σ0.slot 0 = (L.lab ".Lscc_rt_main.x2").toBitVec) :
+    (hra : ∀ σ0 c, Jp σ0 c → σ0.slot 0 = (L.lab ".Lscc_rt_main.x0").toBitVec) :
     RdPostW (Lft2H Λ L a Dt) (fun _ _ => False) L.exe L.endPc R F Jp Jp' J1 J2 J2' J3 J4 := by
   obtain ⟨eX, eM, -⟩ := rp_labsH hlab (L := L)
   have hin := hello_rpIn
@@ -162,24 +162,24 @@ theorem rdPostLH (hb : BandOnP L R (-208) 8) (hR : R.OK) (hRlo : R.lo ≤ -40) (
   · refine blkL2H hp hlab hsite hsep ha hW (P := PPH) (Q := QPH) b0 (ofNat_zero' _) rpB0_ok hR hRlo hhi
       (fun _ h => h.2) (fun s h => cls_poolH hlab hb s h.1) (cls_poolH hlab hb) ?_ (soRPH rpB0 oR1)
       (fun σ c _ => ?_)
-    · intro k hk; show PPH (L.lab ".Lwc_rodata.x15" + _).toBitVec.toNat; rw [eX]; revert k; decide +kernel
-    · show QPH (arun L.lab rpB0 ⟨L.lab ".Lwc_rodata.x15", oR1, σ⟩).pc.toBitVec.toNat
+    · intro k hk; show PPH (L.lab ".Lwc_rodata.x0" + _).toBitVec.toNat; rw [eX]; revert k; decide +kernel
+    · show QPH (arun L.lab rpB0 ⟨L.lab ".Lwc_rodata.x0", oR1, σ⟩).pc.toBitVec.toNat
       rw [rpB0_run, eX]; dsimp only; decide +kernel
   · exact ldLH hp hlab hsep ha hW hb (o := 8) bl1 rfl
-      (by show QPH (L.lab ".Lwc_rodata.x15" + 8).toBitVec.toNat ∧
-            QPH (L.lab ".Lwc_rodata.x15" + 8 + Int64.ofNat 3).toBitVec.toNat
+      (by show QPH (L.lab ".Lwc_rodata.x0" + 8).toBitVec.toNat ∧
+            QPH (L.lab ".Lwc_rodata.x0" + 8 + Int64.ofNat 3).toBitVec.toNat
           rw [eX]; decide +kernel)
       (by dsimp only [pN]; decide)
       fun σ c ⟨σ0, ⟨c0, hJp⟩, _, _, hx⟩ => by rw [bAddr_rcx_rax hx]; exact hun σ0 c0 hJp 0 (.inl rfl)
   · refine blkL2H hp hlab hsite hsep ha hW (P := PPH) (Q := QPH) (k := 11) b1 rfl rpB1_ok hR hRlo hhi
       (fun _ h => h.2) (fun s h => cls_poolH hlab hb s h.1) (cls_poolH hlab hb) ?_ (soRPH rpB1 oR1)
       (fun σ c _ => ?_)
-    · intro k hk; show PPH (L.lab ".Lwc_rodata.x15" + 11 + _).toBitVec.toNat; rw [eX]; revert k; decide +kernel
-    · show QPH (arun L.lab rpB1 ⟨L.lab ".Lwc_rodata.x15" + 11, oR1, σ⟩).pc.toBitVec.toNat
+    · intro k hk; show PPH (L.lab ".Lwc_rodata.x0" + 11 + _).toBitVec.toNat; rw [eX]; revert k; decide +kernel
+    · show QPH (arun L.lab rpB1 ⟨L.lab ".Lwc_rodata.x0" + 11, oR1, σ⟩).pc.toBitVec.toNat
       rw [rpB1_run, eX]; dsimp only; decide +kernel
   · exact stLH hp hlab hsep ha hW hb (o := 29) bx1 rfl
-      (by show QPH (L.lab ".Lwc_rodata.x15" + 29).toBitVec.toNat ∧
-            QPH (L.lab ".Lwc_rodata.x15" + 29 + Int64.ofNat 3).toBitVec.toNat
+      (by show QPH (L.lab ".Lwc_rodata.x0" + 29).toBitVec.toNat ∧
+            QPH (L.lab ".Lwc_rodata.x0" + 29 + Int64.ofNat 3).toBitVec.toNat
           rw [eX]; decide +kernel)
       (by dsimp only [pN]; decide)
       (fun σ c ⟨σ0, ⟨c0, hJp⟩, _, _, _, hx⟩ => by rw [bAddr_rcx_rax hx]; exact hun σ0 c0 hJp 0 (.inl rfl))
@@ -187,37 +187,37 @@ theorem rdPostLH (hb : BandOnP L R (-208) 8) (hR : R.OK) (hRlo : R.lo ≤ -40) (
   · refine blkL2H hp hlab hsite hsep ha hW (P := PPH) (Q := QPH) (k := 32) b2 rfl rpB2_ok hR hRlo hhi
       (fun _ h => h.2) (fun s h => cls_poolH hlab hb s h.1) (cls_poolH hlab hb) ?_ (soRPH rpB2 oR1)
       (fun σ c _ => ?_)
-    · intro k hk; show PPH (L.lab ".Lwc_rodata.x15" + 32 + _).toBitVec.toNat; rw [eX]; revert k; decide +kernel
-    · show QPH (arun L.lab rpB2 ⟨L.lab ".Lwc_rodata.x15" + 32, oR1, σ⟩).pc.toBitVec.toNat
+    · intro k hk; show PPH (L.lab ".Lwc_rodata.x0" + 32 + _).toBitVec.toNat; rw [eX]; revert k; decide +kernel
+    · show QPH (arun L.lab rpB2 ⟨L.lab ".Lwc_rodata.x0" + 32, oR1, σ⟩).pc.toBitVec.toNat
       rw [rpB2_run, eX]; dsimp only; decide +kernel
   · exact ldLH hp hlab hsep ha hW hb (o := 36) bl2 rfl
-      (by show QPH (L.lab ".Lwc_rodata.x15" + 36).toBitVec.toNat ∧
-            QPH (L.lab ".Lwc_rodata.x15" + 36 + Int64.ofNat 4).toBitVec.toNat
+      (by show QPH (L.lab ".Lwc_rodata.x0" + 36).toBitVec.toNat ∧
+            QPH (L.lab ".Lwc_rodata.x0" + 36 + Int64.ofNat 4).toBitVec.toNat
           rw [eX]; decide +kernel)
       (by dsimp only [pN]; decide)
       fun σ c ⟨σ0, ⟨c0, hJp⟩, _, _, hx⟩ => by rw [bAddr_rcx_rax hx]; exact hun σ0 c0 hJp 8 (.inr rfl)
   · refine blkL2H hp hlab hsite hsep ha hW (P := PPH) (Q := QPH) (k := 40) b3 rfl rpB3_ok hR hRlo hhi
       (fun _ h => h.2) (fun s h => cls_poolH hlab hb s h.1) (cls_poolH hlab hb) ?_ (soRPH rpB3 oR1)
       (fun σ c _ => ?_)
-    · intro k hk; show PPH (L.lab ".Lwc_rodata.x15" + 40 + _).toBitVec.toNat; rw [eX]; revert k; decide +kernel
-    · show QPH (arun L.lab rpB3 ⟨L.lab ".Lwc_rodata.x15" + 40, oR1, σ⟩).pc.toBitVec.toNat
+    · intro k hk; show PPH (L.lab ".Lwc_rodata.x0" + 40 + _).toBitVec.toNat; rw [eX]; revert k; decide +kernel
+    · show QPH (arun L.lab rpB3 ⟨L.lab ".Lwc_rodata.x0" + 40, oR1, σ⟩).pc.toBitVec.toNat
       rw [rpB3_run, eX]; dsimp only; decide +kernel
   · exact stLH hp hlab hsep ha hW hb (o := 58) bx2 rfl
-      (by show QPH (L.lab ".Lwc_rodata.x15" + 58).toBitVec.toNat ∧
-            QPH (L.lab ".Lwc_rodata.x15" + 58 + Int64.ofNat 4).toBitVec.toNat
+      (by show QPH (L.lab ".Lwc_rodata.x0" + 58).toBitVec.toNat ∧
+            QPH (L.lab ".Lwc_rodata.x0" + 58 + Int64.ofNat 4).toBitVec.toNat
           rw [eX]; decide +kernel)
       (by dsimp only [pN]; decide)
       (fun σ c ⟨σ0, ⟨c0, hJp⟩, _, _, _, hx⟩ => by rw [bAddr_rcx_rax hx]; exact hun σ0 c0 hJp 8 (.inr rfl))
       fun σ c ⟨σ0, ⟨c0, hJp⟩, _, _, _, hx⟩ => by rw [bAddr_rcx_rax hx]; exact hM σ0 c0 hJp 8 (.inr rfl)
   · have hend : ∀ σ c, (pN L.lab Jp Jp' J1 J2 J2' J3 J4 .s4).J σ c →
-        (arun L.lab rpB4 ⟨L.lab ".Lwc_rodata.x15" + 62, oR1, σ⟩).pc = L.lab ".Lscc_rt_main.x2" := by
+        (arun L.lab rpB4 ⟨L.lab ".Lwc_rodata.x0" + 62, oR1, σ⟩).pc = L.lab ".Lscc_rt_main.x0" := by
       rintro σ c ⟨σ0, ⟨c0, hJp⟩, -, hfr⟩
       rw [rpB4_run, hfr.2.2.1, hra σ0 c0 hJp, Int64.ofBitVec_toBitVec]
-    refine blkL2H hp hlab hsite hsep ha hW (P := PPH) (Q := QPH) (k := 62) b4 rfl rpB4_ok hR hRlo hhi
+    refine blkL2HA hp hlab hsite hsep ha hW (P := PPH) (Q := QPH) (k := 62) b4 rfl rpB4_ok hR hRlo hhi
       (fun _ h => h.2) (fun s h => cls_poolH hlab hb s h.1) (cls_poolH hlab hb) ?_ (soRPH rpB4 oR1)
       (fun σ c hJ => ?_)
-    · intro k hk; show PPH (L.lab ".Lwc_rodata.x15" + 62 + _).toBitVec.toNat; rw [eX]; revert k; decide +kernel
-    · show QPH (arun L.lab rpB4 ⟨L.lab ".Lwc_rodata.x15" + 62, oR1, σ⟩).pc.toBitVec.toNat
+    · intro k hk; show PPH (L.lab ".Lwc_rodata.x0" + 62 + _).toBitVec.toNat; rw [eX]; revert k; decide +kernel
+    · show QPH (arun L.lab rpB4 ⟨L.lab ".Lwc_rodata.x0" + 62, oR1, σ⟩).pc.toBitVec.toNat
       rw [hend σ c hJ, eM]; decide +kernel
 
 /-- **`scc_rt_main`'s `.x2` block inside `Lft2H`** (the call of `wc_main`), its band `[-288, 8]` on the pool
@@ -232,8 +232,8 @@ theorem mB1LH (hbM : BandOnP L R (-288) 8) (hR : R.OK) (hRlo : R.lo ≤ -288) (h
   refine blkL2H hp hlab hsite hsep ha hW (P := PPH) (Q := QPH) b1 (ofNat_zero' _) mB1_ok hR hRlo hhi
     (fun _ h => h.2) (fun s h => cls_poolH hlab hbM s h.1) (cls_poolH hlab hbM) ?_ (soMPH mB1 mO1)
     (fun σ c _ => ?_)
-  · intro k hk; show PPH (L.lab ".Lscc_rt_main.x2" + _).toBitVec.toNat; rw [eM]; revert k; decide +kernel
-  · show QPH (arun L.lab mB1 ⟨L.lab ".Lscc_rt_main.x2", mO1, σ⟩).pc.toBitVec.toNat
+  · intro k hk; show PPH (L.lab ".Lscc_rt_main.x0" + _).toBitVec.toNat; rw [eM]; revert k; decide +kernel
+  · show QPH (arun L.lab mB1 ⟨L.lab ".Lscc_rt_main.x0", mO1, σ⟩).pc.toBitVec.toNat
     rw [mB1_run, eW]; dsimp only; decide +kernel
 
 end L
@@ -256,7 +256,7 @@ theorem rdPostW_wcGHX (hb : BandOnP L R (-208) 8) (hR : R.OK) (hRlo : R.lo ≤ -
     {Jp Jp' J1 J2 J2' J3 J4 : Spike.Lib.X64.AS → Spike.Lib.Ctl → Prop}
     (hbuf : ∀ σ0 c, Jp σ0 c → ∀ i : Int64, (i = 0 ∨ i = 8) → WcW.BoxOkH Λ L a F (bAddr σ0.regs .rax i))
     (hbufM : ∀ σ0 c, Jp σ0 c → ∀ i : Int64, (i = 0 ∨ i = 8) → bAddr σ0.regs .rax i ≠ tcbM L)
-    (hra : ∀ σ0 c, Jp σ0 c → σ0.slot 0 = (L.lab ".Lscc_rt_main.x2").toBitVec) :
+    (hra : ∀ σ0 c, Jp σ0 c → σ0.slot 0 = (L.lab ".Lscc_rt_main.x0").toBitVec) :
     RdPostW (fun s _ => SFactsSt2 Λ (Spike.Lib.X64.PhRec.μ L) (ownGHXW L a) s) (Spike.Lib.X64.PhRec.K L rS)
       L.exe L.endPc R F Jp Jp' J1 J2 J2' J3 J4 := by
   have h := WcW.rdPostW_wcGH hp hlo hΛ hlab hsite a (rS := rS) (Jp' := Jp') (J1 := J1) (J2 := J2) (J2' := J2')

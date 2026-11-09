@@ -165,10 +165,10 @@ theorem heldTailCX_main (hp : ProgNoS ZBad p)
     have hh := walk2_head hW'
     have hlb := hL (.ret b, (x, Scc.Lower.opLit lcx.prog lits (.call g is a ts)) :: lits)
       (by simp [Scc.Lower.litWalk2])
-    rcases hrest with hu | ⟨l1, zs, hE, hz, hc⟩
+    rcases hrest with hu | ⟨l1, zs, hE, -⟩ | ⟨ws', lw, zs, hw, hn, hlw, hz, hc⟩
     · cases hu
-    obtain ⟨hn, lw, hlw, hl⟩ := emits_retN hE
-    rw [hl] at hz hc
+    · exact (not_emits_retN hE).elim
+    cases hw
     obtain ⟨pls, hpl, hsa⟩ := sevalAt_ofEnv2G hh.2.2.2.2.1 hab
     refine (SegWS.seq_left (hcallH c0 pc pc' kk kk' env n x g is a ts (.ret b) t w lits cs bufs hG hh0.2.1 hfr hL0
         hh0.2.2.2.1 hh0.2.2.2.2.1 hC ⟨hx, dg, hdg, hrt⟩ ha hi
@@ -187,10 +187,10 @@ theorem heldTailCX_main (hp : ProgNoS ZBad p)
     have hh := walk2_head hW'
     have hlb := hL (.ret b, (x, Scc.Lower.opLit lcx.prog lits (.call g is a ts)) :: lits)
       (by simp [Scc.Lower.litWalk2])
-    rcases hrest with hu | ⟨l1, zs, hE, hz, hc⟩
+    rcases hrest with hu | ⟨l1, zs, hE, -⟩ | ⟨ws', lw, zs, hw, hn, hlw, hz, hc⟩
     · cases hu
-    obtain ⟨hn, lw, hlw, hl⟩ := emits_retN hE
-    rw [hl] at hz hc
+    · exact (not_emits_retN hE).elim
+    cases hw
     obtain ⟨pls, hpl, hsa⟩ := sevalAt_ofEnv2G hh.2.2.2.2.1 hab
     refine (SegWS.seq_left (hprintH c0 pc pc' kk kk' env n x g is a ts (.ret b) xe dg t bo o m cw lits cs bufs hG
         hh0.2.1 hfr hL0 hh0.2.2.2.1 hh0.2.2.2.2.1 hC

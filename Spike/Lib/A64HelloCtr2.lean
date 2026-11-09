@@ -1,7 +1,7 @@
 /-
 **hello.w's counters are not the second limit word** (AArch64): at the placed layout the
 runtime's counter words `pnA`, `lockA`, `freeNA`, `nextA` (`rtWords`) differ from the second TCB's limit word
-`lim2AH = pinA + 120` — that word is `spawnWords`' sixth (`pinA + 80 + 8 * 5`), and A13's data part keeps
+`lim2AH = pinA + 152` — that word is `spawnWords`' sixth (`pinA + 112 + 8 * 5`), and A13's data part keeps
 `spawnWords` apart from `rtWords` (`H1Rt.a13_facts`). This is `HelloGOf2H.hctr2_of_dataH`'s conclusion without its
 `hctrD` (the counters in `.data`): `PlaceW`'s `wordOk` allows a runtime word in `.data` *or* the pinned region, so
 `hctrD` is not a consequence of `PlaceW`, while `hctr2` (its only use, `StartH0G0`/`StartH0G`) follows from `hA13`.
@@ -20,10 +20,10 @@ variable {pcfg : Scc.Cert.PlaceOK.Config} {o : Scc.Cert.PlaceOK.A64.Out} {Λ0 : 
 set_option hygiene false in
 local notation "Ly" => Spike.Lib.A64.Rt.RuntimeLayout.ofPlaceW hp i
 
-/-- **The second limit word is a spawn word** (`pinA + 80 + 8 * 5`). -/
+/-- **The second limit word is a spawn word** (`pinA + 112 + 8 * 5`). -/
 theorem lim2_spawn : Spike.Lib.HelloGOf2H.lim2AH (Ly) ∈ Scc.Cert.Spawn.A64.spawnWords (Ly).pinA := by
   refine List.mem_map.2 ⟨5, List.mem_range.2 (by decide), ?_⟩
-  show (Ly).pinA + BitVec.ofNat 64 (80 + 8 * 5) = (Ly).pinA + 120#64
+  show (Ly).pinA + BitVec.ofNat 64 (112 + 8 * 5) = (Ly).pinA + 152#64
   rfl
 
 /-- (row root-hctrD) **`hctr2` at the instance** (`StartH0G0`/`StartH0G`'s use of `hctrD`), from A13's data part:

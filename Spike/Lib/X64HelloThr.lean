@@ -75,14 +75,14 @@ variable (lab : Label → Int64) (c0 : Ctl) (tp sp : BitVec 64)
 /-- **The nodes.** Ghosts: the source control `c0` (the worker returned), the thread pointer `tp`, the entry
 `%rsp` `sp` (`%rbp = sp - 8`). -/
 def N : PN → ND
-  | .x13 => ⟨lab ".Lscc_rt_thr_worker.x13", oP, fun σ c => c = c0 ∧ σ.regs.fsBase.toBitVec = tp ∧
+  | .x13 => ⟨lab ".Lscc_rt_thr_worker.x0", oP, fun σ c => c = c0 ∧ σ.regs.fsBase.toBitVec = tp ∧
       σ.regs.rbp.toBitVec = sp - 8#64⟩
-  | .n1 => ⟨lab ".Lscc_rt_thr_worker.x13" + 9, oP, fun σ c => c = c0 ∧ σ.regs.get64 .rax = tp ∧
+  | .n1 => ⟨lab ".Lscc_rt_thr_worker.x0" + 9, oP, fun σ c => c = c0 ∧ σ.regs.get64 .rax = tp ∧
       σ.regs.rbp.toBitVec = sp - 8#64⟩
-  | .ex => ⟨lab ".Lscc_rt_thr_worker.x13" + 24, oI, fun σ c => c = c0 ∧ σ.regs.get64 .rcx = tp ∧
+  | .ex => ⟨lab ".Lscc_rt_thr_worker.x0" + 24, oI, fun σ c => c = c0 ∧ σ.regs.get64 .rcx = tp ∧
       σ.regs.get64 .rax = 1#64⟩
-  | .n2 => ⟨lab ".Lscc_rt_thr_worker.x13" + 28, oI, fun _ c => c = c0⟩
-  | .sys => ⟨lab ".Lscc_rt_thr_worker.x13" + 40, oI, fun σ c => c = c0 ∧ σ.regs.get64 .rax = 60#64⟩
+  | .n2 => ⟨lab ".Lscc_rt_thr_worker.x0" + 28, oI, fun _ c => c = c0⟩
+  | .sys => ⟨lab ".Lscc_rt_thr_worker.x0" + 40, oI, fun σ c => c = c0 ∧ σ.regs.get64 .rax = 60#64⟩
 
 /-- **The code**: every block and single instruction at its node's pc. -/
 structure Code (exe : _root_.Executable) (endPc : Int64) : Prop where
@@ -139,12 +139,12 @@ end HThrHead
 /-- `scc_rt_thr_worker`'s blocks. -/
 def thrIn (cells : List (Directive × Nat)) : Bool :=
   blockAtB cells ".Lscc_rt_thr_worker.entry" 0 HThrHead.thE &&
-  labelGapB cells ".Lscc_rt_thr_worker.entry" ".Lscc_rt_thr_worker.x13" 29 &&
-  blockAtB cells ".Lscc_rt_thr_worker.x13" 0 [(fsDir .rax 0, 9)] &&
-  blockAtB cells ".Lscc_rt_thr_worker.x13" 9 HThrTail.b0 &&
-  blockAtB cells ".Lscc_rt_thr_worker.x13" 24 [(stDir .rcx 24 .rax, 4)] &&
-  blockAtB cells ".Lscc_rt_thr_worker.x13" 28 HThrTail.b1 &&
-  blockAtB cells ".Lscc_rt_thr_worker.x13" 40 [(op64 .syscall, 2)]
+  labelGapB cells ".Lscc_rt_thr_worker.entry" ".Lscc_rt_thr_worker.x0" 29 &&
+  blockAtB cells ".Lscc_rt_thr_worker.x0" 0 [(fsDir .rax 0, 9)] &&
+  blockAtB cells ".Lscc_rt_thr_worker.x0" 9 HThrTail.b0 &&
+  blockAtB cells ".Lscc_rt_thr_worker.x0" 24 [(stDir .rcx 24 .rax, 4)] &&
+  blockAtB cells ".Lscc_rt_thr_worker.x0" 28 HThrTail.b1 &&
+  blockAtB cells ".Lscc_rt_thr_worker.x0" 40 [(op64 .syscall, 2)]
 
 /-- The prologue's spills: the six argument registers at `-8 .. -48(%rbp)`, with their sizes. -/
 abbrev thrPs : List (Reg64 × Int64 × Nat) :=
@@ -183,7 +183,7 @@ theorem thECode : ∀ s : State, s.exe = exe → s.endPc = endPc →
 
 omit hend in
 /-- **`.x13` right after `scc_rt_thr_worker`'s `call`.** -/
-theorem hx13 : (_root_.Executable.labels exe).label ".Lscc_rt_thr_worker.x13" =
+theorem hx13 : (_root_.Executable.labels exe).label ".Lscc_rt_thr_worker.x0" =
     (_root_.Executable.labels exe).label ".Lscc_rt_thr_worker.entry" + 29 := by
   have h := hello_thrIn
   simp only [thrIn, Bool.and_eq_true, and_assoc] at h

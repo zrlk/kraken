@@ -99,7 +99,7 @@ theorem msXW_own1 {ι : Type} (ms : MemSide isa) (T W : BitVec 64) (w : ι) (s :
   rfl
 
 /-- **`OwnAt` at the self word**: every pc owns `O` holding `O` (main's
-park, the worker's tail `%fs:0` load at `.Lscc_rt_thr_worker.x12`). -/
+park, the worker's tail `%fs:0` load at `.Lscc_rt_thr_worker.x0`). -/
 theorem ownAt_msXW {ms : MemSide isa} {O T W : BitVec 64} {exe : _root_.Executable} {endPc pc : Int64} :
     Spike.Lib.X64.OwnAt (msXW ms O T W) exe endPc pc O O :=
   ownAt_const fun _ => rfl

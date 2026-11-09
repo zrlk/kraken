@@ -5,15 +5,15 @@ consumer), inside `W`, in any valid layout of `wakeProg`: the call block
 (`allocTcbG_segW` at `tcb2Q g c0`):
 
     .sp3:     str x0, [sp, #16]         -- the reserve's id `1` (tcb2Call_keep)
-              movz x0, #2307
+              movz x0, #3331
               movk x0, #128, lsl #16    -- x0 = hdr2
               movz x1, #1
               bl scc_rt_alloc_tcb       -- the callee (allocTcbG_segW, its frame of 192)
-    .sp4:                               -- `aN .n4` at `t = pinA + 104`
+    .sp4:                               -- `aN .n4` at `t = pinA + 136`
 
 The frame's words `cA`, `m`, `fr` (`FrW`) and the id at `[sp, #16]` survive the
 call (outside the callee's region), so the exit is `A64WakeWcSp4Seg`'s
-entry `aN .n4` at the second TCB `pinA + 104` (`tcb2Q_tcbOf`).
+entry `aN .n4` at the second TCB `pinA + 136` (`tcb2Q_tcbOf`).
 
 - `tcbWG_mono`: `TcbWG` under a stronger frame condition;
 - `j3`, `wcNC'`: `.sp3`'s invariant (`x0 = 1`, the frame's words) and the
@@ -61,8 +61,8 @@ def j3 (σ : AS) : Prop := σ.regs.X0.toBitVec = 1#64 ∧ FrW cA m fr σ
 `[sp, #16]`. -/
 def wcNC' : ND := ⟨(wcNC lab c0).pc, oW, fun σ c => (wcNC lab c0).J σ c ∧ FrW cA m fr σ ∧ σ.slot (-64) = 1#64⟩
 
-/-- The second TCB: `pinA + 104`. -/
-abbrev t2 : BitVec 64 := Ret0.pinA lab + 104#64
+/-- The second TCB: `pinA + 136`. -/
+abbrev t2 : BitVec 64 := Ret0.pinA lab + 136#64
 
 end Nodes
 
@@ -95,9 +95,9 @@ variable {p : Prog} {lbl : WeakMem.AllocLabel → Option Nat} {ms : MemSide isaL
 /-- **`wc_main` from `.sp3` to `.sp4` is one segment inside `W`** in any
 valid layout of `wakeProg`: from `.sp3` (the reserve's id `1` in `x0`, the
 frame's words `cA`, `m`, the source at `c0`) to `A64WakeWcSp4Seg`'s entry
-`aN .n4` at the second TCB `pinA + 104`. `scc_rt_alloc_tcb` at
+`aN .n4` at the second TCB `pinA + 136`. `scc_rt_alloc_tcb` at
 `tcb2Q g c0` writes the header word (`hhdr`) and adds to the counter
-(`htcb`, its old value `80` owned at the `ldadd` node's states), moving only
+(`htcb`, its old value `112` owned at the `ldadd` node's states), moving only
 memory `K` keeps off the caller's cells (`hFK`,
 `hKR`). Its states lie in `W` (`hW`). -/
 theorem wake_wc_sp3_segW {W : Frag isaLSE2} {K : State → State → Prop}
@@ -149,7 +149,7 @@ theorem wake_wc_sp3_segW {W : Frag isaLSE2} {K : State → State → Prop}
         obtain ⟨σC, c, ⟨⟨-, -, -, h30⟩, -, -⟩, ⟨-, -, -, h30', -, -⟩⟩ := hg
         exact (allocTcbG_segWA hp hend Spike.Lib.A64.WakePh.Tcb2W.wake_allocTcbIn hF' hR' hal' hlo' hhi'
           hFF (tcb2Q g c0)
-          (by show (80#64).toNat + (Ret0.AllocTcb.lenOf Spike.Lib.A64.WakePh.hdr2).toNat ≤ 131072; decide)
+          (by show (112#64).toNat + (Ret0.AllocTcb.lenOf Spike.Lib.A64.WakePh.hdr2).toNat ≤ 131072; decide)
           (hhdr g) ((htcb g).mono hFF)
           fun i => tcbWG_mono (hW.tcb g (h30'.symm.trans h30) i) fun m h => ⟨hFF m h, hcc m h, hkeep m h⟩).mono_post
           fun _ _ ⟨x, h⟩ => ⟨x, h, trivial⟩)

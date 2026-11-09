@@ -28,7 +28,7 @@ exit's cell from the instance (`Rt.cellOf`); the region is `[-24, 16)`, no
 alignment premise; the table's exit-call phase equation is decided on the
 resolved exit label (A64's two `.ph` facts); the instance's take phase
 index is `fun _ => False` as A64's; `hpathW_habG`'s two return points are
-`.Lscc_rt_alloc_tcb.x5`, `.Lwc_main.x23` (A64's `.sp13`, `.sp11`).
+`.Lscc_rt_alloc_tcb.x0`, `.Lwc_main.x5` (A64's `.sp13`, `.sp11`).
 -/
 import Spike.Lib.X64WakeHAbW
 import Spike.Lib.X64WakeWcPreWN
@@ -91,7 +91,7 @@ theorem abortPhHW {lab : Label → Int64} (hΛ : Λ.abortLbl = Scc.Cert.Link.abo
       phOne (okPcOf lo wakeCells Λ) phW (lab l + Int64.ofNat o) z = true := fun h => by
     obtain ⟨h1, h2⟩ := step_of_factOk hlab h
     simp only [phOne, h1, h2, beq_self_eq_true, Bool.and_self]
-  have hex : lab "scc_rt_abort_heap_exit" = Int64.ofNat 4202723 := hlab _ _ (by rw [← codeT_eq]; decide +kernel)
+  have hex : lab "scc_rt_abort_heap_exit" = Int64.ofNat 4202761 := hlab _ _ (by rw [← codeT_eq]; decide +kernel)
   unfold abortPhHeapOk
   simp only [Abort.heap]
   rw [blkPh_of_factOk hlab hr hn f0, blkPh_of_factOk hlab hr hn f1, blkPh_of_factOk hlab hr hn f2,
@@ -247,8 +247,8 @@ moved by `abHAgreeW`, from a caller other than the two return points
 theorem hpathW_habG (a : BitVec 64) (hΛ : L.Λ.abortLbl = Scc.Cert.Link.abortName)
     (hlab : ∀ l x, codeLabel lo wakeCells l = some x → L.lab l = Int64.ofNat x) {c0 : Ctl} {ra : BitVec 64}
     (hR : R.OK) (hlo' : R.lo ≤ -24) (hhi : 16 ≤ R.hi)
-    (h5 : ra = (L.lab ".Lscc_rt_alloc_tcb.x5").toBitVec → BandOut L R)
-    (h23 : ra ≠ (L.lab ".Lwc_main.x23").toBitVec) :
+    (h5 : ra = (L.lab ".Lscc_rt_alloc_tcb.x0").toBitVec → BandOut L R)
+    (h23 : ra ≠ (L.lab ".Lwc_main.x5").toBitVec) :
     Abort.Disp.HPathW (fun s _ => SFactsSt2 Λ (Spike.Lib.X64.PhRec.μ L) (ownG L a) s DtW)
       (fun _ _ => False) L.exe L.endPc R F c0 ra := by
   have hsd := SccCode.wake_abort

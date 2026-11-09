@@ -28,7 +28,7 @@ namespace Spike.Lib.X64.WaitLoop
 open CoreLang CoreTerm
 open Kraken Kraken.Promising Kraken.Promising.X64 Kraken.Promising.Lower Kraken.Promising.Lower.X64
 open Kraken.X64.Parser Spike.Lib.X64 Spike.Lib.X64.Flow
-open Scc.Cert.Rt.X64 (Lays endOf blockAtB labelGapB code_field label_labelGapB)
+open Scc.Cert.Rt.X64 (Lays endOf blockAtB labelGapB code_field label_labelGapB blockAcrossB)
 open Spike.Lib.X64.Flow.Ret0 (LimOk StOk LdOk seg_oneW)
 open Scc.Sem (ValRep)
 
@@ -36,7 +36,7 @@ set_option linter.unusedSimpArgs false
 
 /-- The `.x16` node with `%rbp`'s offset (where its block runs from). -/
 def x16N (lab : Label → Int64) (c0 : Ctl) (A fp ra tp sp : BitVec 64) : ND :=
-  ⟨lab ".Lwc_waitLoop.x16", oI, JI c0 A fp ra tp sp⟩
+  ⟨lab ".Lwc_waitLoop.x1", oI, JI c0 A fp ra tp sp⟩
 
 /-- **The loop's states inside `W`**, at one region `R`, frame condition
 `F` and the loop's ghosts: the prologue's (`XProW`), every block node's
@@ -73,6 +73,14 @@ field; the edge is left. -/
 local macro "nodeLW " b:ident ok:ident hc:ident f:ident : tactic =>
   `(tactic| refine seg_fixLW () (SegLW.ofSegW (seg_ndW (by simp [$b:ident]) $ok hF hR hlo hhi
     (code_field hp hend $hc (by first | rfl | exact ofNat_zero' _)) hLW.$f fun σ c hJ => ⟨c, .refl c, ?_⟩)))
+
+set_option hygiene false in
+/-- `nodeLW` for a block split by a return label after its first `n` rows
+(`blockAcrossB`, `Spike.Lib.X64.code_field_blockAcrossB`). -/
+local macro "nodeLWX " b:ident ok:ident hc:ident f:ident : tactic =>
+  `(tactic| refine seg_fixLW () (SegLW.ofSegW (seg_ndW (by simp [$b:ident]) $ok hF hR hlo hhi
+    (Spike.Lib.X64.code_field_blockAcrossB hp hend $hc (List.take_append_drop _ _)
+      (by first | rfl | exact ofNat_zero' _)) hLW.$f fun σ c hJ => ⟨c, .refl c, ?_⟩)))
 
 /-- Hitting node `j`. -/
 local macro "hit " j:term : tactic =>
@@ -146,7 +154,7 @@ theorem seg_waitLoopW (hp : Lays exe cells kp) (hend : endPc = endOf exe cells k
       hit PN.n6
   case n6 => nodeLW b6 b6_ok h6 n6; rw [N, b6_run]; hit PN.else2
   case then1 =>
-    nodeLW b7 b7_ok h7 then1; rw [N, b7_run]
+    nodeLWX b7 b7_ok h7 then1; rw [N, b7_run]
     obtain ⟨⟨⟨h8', h0, h16⟩, htp, hbp⟩, hP, h24⟩ := hJ
     refine .inr ⟨PX.ret, ?_, rfl, hP, ?_, ?_, ?_, ?_, h16, h24⟩
     · simp [E, h0]
@@ -194,7 +202,7 @@ theorem seg_parkCallW (hp : Lays exe cells kp) (hin : waitIn cells = true) {Rd :
     SegW W (fun _ _ => False) p lbl ms
       (At exe endPc R F (N (_root_.Executable.labels exe).label c0 x e ty Rd A fp ra tp sp .park))
       (At exe endPc R F (N (_root_.Executable.labels exe).label c0 x e ty Rd A fp ra tp sp .x16)) := by
-  have hg : labelGapB cells ".Lwc_waitLoop.else2" ".Lwc_waitLoop.x16" 5 = true := by
+  have hg : labelGapB cells ".Lwc_waitLoop.else2" ".Lwc_waitLoop.x1" 5 = true := by
     simp only [waitIn, Bool.and_eq_true] at hin; exact hin.2
   have ex16 := label_labelGapB hp hg
   refine seg_oneW (call_nd_FW (e0 := 0) (lo' := -56) (hi' := 8) (M := fun _ => True)
@@ -222,7 +230,7 @@ theorem seg_parkCallW (hp : Lays exe cells kp) (hin : waitIn cells = true) {Rd :
     refine .inl ⟨(), ?_, by show SO.le oP ⟨-32 - 0 + 8, []⟩ = true; decide, hc'.trans hc.symm,
       ⟨?_, ?_, ?_⟩, ?_, ?_⟩
     · subst hra
-      show (_root_.Executable.labels exe).label ".Lwc_waitLoop.x16" = Int64.ofBitVec (σC.slot (-32))
+      show (_root_.Executable.labels exe).label ".Lwc_waitLoop.x1" = Int64.ofBitVec (σC.slot (-32))
       rw [h32, ex16]; rfl
     · rw [hout (-8) (by decide) (by decide) (by decide)]; exact h8
     · rw [hout 0 (by decide) (by decide) (by decide)]; exact h0

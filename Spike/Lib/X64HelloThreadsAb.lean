@@ -16,9 +16,9 @@ pfx.spawnfail5:
            movq $5, %rdi; call scc_rt_abort
 ```
 
-wake.w's is `cl = ".x21"`, `n = 46`, `st = ".x22"`, `off = -56`; hello.w's
+wake.w's is `cl = ".x3"`, `n = 46`, `st = ".x4"`, `off = -56`; hello.w's
 (`.Lwc_main`, five arguments moved to the clone's registers) is
-`cl = ".x25"`, `n = 94`, `st = ".x26"`, `off = -120`. The fail block, the
+`cl = ".x3"`, `n = 94`, `st = ".x4"`, `off = -120`. The fail block, the
 dispatcher's and the threads stub's pcs, the return address `raT` (its
 `call`'s pc + 12, from `.spawnfail5`) and `RaW` do not depend on them and are
 wake's (`ThreadsAb.failPcs`, `dispTPcs`, `g5Pcs`, `stubPcs`, `raT`, `RaW`,
@@ -83,12 +83,12 @@ def acPcs : List Int64 :=
     dispEPcs lab ++ dispTPcs lab ++ g5Pcs lab ++ stubPcs lab
 
 /-- hello.w's tests of the stored result (`.x26 + 4 … + 18`). -/
-abbrev tailPcsH : List Int64 := tailPcs lab pfx ".x26"
+abbrev tailPcsH : List Int64 := tailPcs lab pfx ".x4"
 /-- **hello.w's threads abort phase** (`.x25 + 94`, `.x26`, the result at
 `-120(%rbp)`). -/
-abbrev AcH (s : State) : Prop := Ac lab pfx ".x25" 94 ".x26" (-120) s
+abbrev AcH (s : State) : Prop := Ac lab pfx ".x3" 94 ".x4" (-120) s
 /-- hello.w's pcs of `AcH`. -/
-abbrev acPcsH : List Int64 := acPcs lab pfx ".x25" 94 ".x26"
+abbrev acPcsH : List Int64 := acPcs lab pfx ".x3" 94 ".x4"
 
 variable {lab pfx cl n st off}
 
@@ -132,8 +132,8 @@ theorem ac_x30 {s : State} (h : Ac lab pfx cl n st off s)
   rcases h with ⟨h | h, -⟩ | ⟨h, -⟩ | ⟨h, -⟩ | h | ⟨-, -, hr⟩ | ⟨-, -, hr⟩ | ⟨-, hr⟩ | ⟨-, hr⟩
   all_goals first | exact hr | (exfalso; apply hn; simp_all)
 
-/-- wake.w's phase is the instance at `".x21" 46 ".x22" (-56)`. -/
-example {s : State} : Ac lab pfx ".x21" 46 ".x22" (-56) s ↔ Spike.Lib.X64.ThreadsAb.Ac lab pfx s :=
+/-- wake.w's phase is the instance at `".x3" 46 ".x4" (-56)`. -/
+example {s : State} : Ac lab pfx ".x3" 46 ".x4" (-56) s ↔ Spike.Lib.X64.ThreadsAb.Ac lab pfx s :=
   Iff.rfl
 
 -- No axioms beyond Lean's.

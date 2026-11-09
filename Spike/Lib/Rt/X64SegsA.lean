@@ -203,6 +203,15 @@ local macro "tnodeW " b:ident ok:ident l:term:max k:term:max w:term:max : tactic
       fun σ c hJ => ⟨c, .refl c, ?_⟩)
 
 set_option hygiene false in
+/-- `tnodeW` for a block split by its return label `r` after `n` rows
+(`blockAcrossB`, `Spike.Lib.X64.code_field_blockAcrossB`). -/
+local macro "tnodeWX " b:ident ok:ident l:term:max k:term:max n:term:max r:term:max w:term:max : tactic =>
+  `(tactic| refine seg_ndW (by simp [$b:ident]) $ok hF hR hlo hhi
+    (Spike.Lib.X64.code_field_blockAcrossB hp hend (by simp only [hin']) (l := $l) (m := $r) (off := $k)
+      (List.take_append_drop $n _) (by first | rfl | exact ofNat_zero' _))
+      $w fun σ c hJ => ⟨c, .refl c, ?_⟩)
+
+set_option hygiene false in
 /-- A node at an instruction with undefined flags writing `%rax` inside `W`, at `l + k`
 (`z` bytes), to node `j`, its obligation `w`; the invariant's facts are left. -/
 local macro "fnodeW " fi:term:max l:term:max k:term:max z:term:max j:term:max w:term:max : tactic =>
@@ -414,7 +423,7 @@ theorem allocTcb_segWA {W : Frag isa} {K : State → State → Prop} {kp : Nat} 
     exact ⟨hhdr.rt, hhdr.mp, hhdr.G, hhdr.unmapped m (hFF m hD), q.c0,
       .refl q.c0, .inl ⟨TN.ret, ofNat_add' _ 140 3, rfl, rfl, hJ⟩⟩
   case ret =>
-    tnodeW AllocTcb.atRet AllocTcb.atRet_ok AllocTcb.okL 143 (hW TN.ret)
+    tnodeWX AllocTcb.atRet AllocTcb.atRet_ok AllocTcb.okL 143 11 AllocTcb.retL (hW TN.ret)
     dsimp only [tcbN, tcbX] at hJ ⊢
     obtain ⟨rfl, hJ⟩ := hJ
     obtain ⟨h1, h2, h3⟩ := AllocTcb.atRet_walk (_root_.Executable.labels exe).label _ hJ
@@ -436,6 +445,15 @@ its code, its obligation; the edge is left. -/
 local macro "knodeW " b:ident ok:ident l:term:max k:term:max w:term:max : tactic =>
   `(tactic| refine seg_ndW (by simp [$b:ident]) $ok hFb hR hlo hhi
     (code_field hp hend (by simp only [hin']) (l := $l) (off := $k) (by first | rfl | exact ofNat_zero' _))
+      $w fun σ c hJ => ⟨c, .refl c, ?_⟩)
+
+set_option hygiene false in
+/-- `knodeW` for a block split by its return label `r` after `n` rows
+(`blockAcrossB`, `Spike.Lib.X64.code_field_blockAcrossB`). -/
+local macro "knodeWX " b:ident ok:ident l:term:max k:term:max n:term:max r:term:max w:term:max : tactic =>
+  `(tactic| refine seg_ndW (by simp [$b:ident]) $ok hFb hR hlo hhi
+    (Spike.Lib.X64.code_field_blockAcrossB hp hend (by simp only [hin']) (l := $l) (m := $r) (off := $k)
+      (List.take_append_drop $n _) (by first | rfl | exact ofNat_zero' _))
       $w fun σ c hJ => ⟨c, .refl c, ?_⟩)
 
 set_option hygiene false in
@@ -505,7 +523,8 @@ theorem stackTake_segWA {W : Frag isa} {rS : Scc.Sem.Range} {kp : Nat} (hp : Lay
     cases i
     case ret =>
       refine seg_fixW true ?_
-      knodeW StackTake.stRet StackTake.stRet_ok StackTake.siteL 1 (blkW_mono (F := fun m => F m ∧ StackM rS m)
+      knodeWX StackTake.stRet StackTake.stRet_ok StackTake.siteL 1 3 StackTake.retL
+        (blkW_mono (F := fun m => F m ∧ StackM rS m)
         (F' := fun m => takeF F rS true m ∧ (true = false → P m)) (hW0 TK.ret nofun) fun m h => ⟨h.1.1, h.1.2 rfl⟩)
       dsimp only [takeNP, takeNG, takeXG] at hJ ⊢
       obtain ⟨-, rfl, hJ⟩ := hJ
@@ -750,6 +769,15 @@ set_option hygiene false in
 local macro "inodeWA " b:ident ok:ident l:term:max k:term:max w:term:max : tactic =>
   `(tactic| refine seg_ndW (by simp [$b:ident]) $ok hFb hR (by omega) hhi
     (code_field hp hend (by simp only [hin']) (l := $l) (off := $k) (by first | rfl | exact ofNat_zero' _))
+      $w fun σ c hJ => ⟨c, .refl c, ?_⟩)
+
+set_option hygiene false in
+/-- `inodeWA` for a block split by its return label `r` after `n` rows
+(`blockAcrossB`, `Spike.Lib.X64.code_field_blockAcrossB`). -/
+local macro "inodeWX " b:ident ok:ident l:term:max k:term:max n:term:max r:term:max w:term:max : tactic =>
+  `(tactic| refine seg_ndW (by simp [$b:ident]) $ok hFb hR (by omega) hhi
+    (Spike.Lib.X64.code_field_blockAcrossB hp hend (by simp only [hin']) (l := $l) (m := $r) (off := $k)
+      (List.take_append_drop $n _) (by first | rfl | exact ofNat_zero' _))
       $w fun σ c hJ => ⟨c, .refl c, ?_⟩)
 
 set_option hygiene false in
@@ -1010,7 +1038,7 @@ theorem threadInit_segWAtA {xr : Label} {W : Frag isa} {rS : Scc.Sem.Range} {kp 
       (nodeW_tiSP (hWt TI.st5 nofun))
   case ret =>
     refine seg_fixW b ?_
-    inodeWA ThreadInit.tiRet ThreadInit.tiRet_ok xr 117 (blkW_tiSP (hWt TI.ret nofun))
+    inodeWX ThreadInit.tiRet ThreadInit.tiRet_ok xr 117 3 ThreadInit.retL (blkW_tiSP (hWt TI.ret nofun))
     dsimp only [tiNGAt, tiA, tiNAt, tiXG, tiX] at hJ ⊢
     obtain ⟨rfl, rfl, hJ⟩ := hJ
     obtain ⟨h1, h2, h3⟩ := ThreadInit.tiRet_walk lab _ hJ

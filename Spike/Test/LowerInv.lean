@@ -105,14 +105,14 @@ example : 0 ≤ 8 * (mainCtx.out : Int) ∧ (8 * (mainCtx.out : Int)) % 8 = 0 �
 -- The code of `main`'s `addChk`, by the generic lemma.
 example : mainCtx.inst 0 (.addChk "y%0" (imm 40) (imm 2)) =
     .ok (movImm .X9 40 ++ movImm .X10 2 ++ addChecked .X9 .X9 .X10 (mainCtx.local "abort_overflow") ++
-      [ins (.STR (rz .W64 .X9) ⟨spW64, .imm ⟨i64 (8 * (mainCtx.out : Int)), none⟩⟩)]) :=
+      [lbl (mainCtx.local s!"x{(0 : Nat)}")] ++ [ins (.STR (rz .W64 .X9) ⟨spW64, .imm ⟨i64 (8 * (mainCtx.out : Int)), none⟩⟩)]) :=
   inst_addChk mainCtx_frameOk mainCtx_small 0 rfl rfl mainCtx_y
 
 -- The code of `main`'s `ret [y%0]` and the frame's exit, by the generic lemmas.
 example : mainCtx.term 0 (.ret [.reg "y%0"]) =
     .ok ([ins (.LDR (rz .W64 .X0) (.addr ⟨spW64, .imm ⟨i64 (8 * (mainCtx.out : Int)), none⟩⟩))] ++
-      mainCtx.leave ++ [ret]) :=
-  term_ret1 0 (getReg_eq mainCtx_frameOk mainCtx_small mainCtx_y .X0)
+      mainCtx.leave ++ [lbl (mainCtx.local s!"x{(0 : Nat)}"), ret]) :=
+  term_ret1 (v := .reg "y%0") 0 (getReg_eq mainCtx_frameOk mainCtx_small mainCtx_y .X0)
 
 example : mainCtx.leave =
     [ins (.LDR (rz .W64 .X29) (.addr ⟨spW64, .imm ⟨i64 ((mainCtx.frame : Int) - 16), none⟩⟩)),

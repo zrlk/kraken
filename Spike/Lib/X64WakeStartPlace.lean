@@ -90,16 +90,16 @@ theorem x0W_tcb {L : RuntimeLayout} {ax : Int64}
   have hc := Spike.Lib.X64.Flow.WakeWc.clone_inCv
   simp only [Bool.and_eq_true, decide_eq_true_eq] at hc
   obtain ⟨y, hy⟩ := Option.isSome_iff_exists.mp hc.1.1
-  have ey : cv ".Lwc_main.x21" = y := by simp [cv, hy]
+  have ey : cv ".Lwc_main.x3" = y := by simp [cv, hy]
   have e : Spike.Lib.X64.Flow.WakeWc.clonePc L = y + 46 := by
     have hb := hc.1.2; rw [ey] at hb
-    show (L.lab ".Lwc_main.x21" + 46).toBitVec.toNat = y + 46
+    show (L.lab ".Lwc_main.x3" + 46).toBitVec.toNat = y + 46
     rw [hlab _ y hy]
     show (BitVec.ofNat 64 y + BitVec.ofNat 64 46).toNat = y + 46
     rw [BitVec.toNat_add, BitVec.toNat_ofNat, BitVec.toNat_ofNat]; omega
   have hd : (decide (cv Spike.Lib.X64.Flow.Ret0.StackTake.siteL < cv "scc_rt_alloc_tcb" ∨
       cv "scc_rt_thread_reserve" ≤ cv Spike.Lib.X64.Flow.Ret0.StackTake.siteL) &&
-      decide (cv "scc_rt_thread_reserve" ≤ cv ".Lwc_main.x21")) = true := by
+      decide (cv "scc_rt_thread_reserve" ≤ cv ".Lwc_main.x3")) = true := by
     unfold cv; rw [← Scc.Cert.Rt.X64.codeT_eq]; decide +kernel
   simp only [Bool.and_eq_true, decide_eq_true_eq] at hd
   unfold Spike.Lib.X64.WakePh.inPc at h

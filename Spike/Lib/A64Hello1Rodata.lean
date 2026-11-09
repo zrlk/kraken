@@ -30,7 +30,7 @@ namespace Spike.Lib.A64.Flow
 open CoreLang CoreTerm
 open Kraken Kraken.AArch64.Parser Kraken.Promising Kraken.Promising.AArch64 Kraken.Promising.Lower.A64
 open Spike.Lib
-open Scc.Cert.Rt.A64 (Lays endOf blockAt label_labelGap labelGap)
+open Scc.Cert.Rt.A64 (Lays endOf blockAt label_labelGap labelGap blockAcross)
 
 set_option linter.unusedSimpArgs false
 
@@ -52,7 +52,7 @@ program `prog` with `allocIn prog = true`. -/
 theorem alloc_code {prog : List Directive} {kp : Nat} (hp : Lays exe prog kp) (hend : endPc = endOf exe prog kp)
     (hprog : allocIn prog = true) : Code ms q exe endPc := by
   simp only [allocIn, Bool.and_eq_true, and_assoc] at hprog
-  obtain ⟨h0, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18, hgap⟩ := hprog
+  obtain ⟨h0, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, hr, h18, -⟩ := hprog
   refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · exact code_field hp hend h0 (by simp only [N, add4, add0])
   · exact code_field hp hend h1 (by simp only [N, add4, add0])
@@ -72,7 +72,7 @@ theorem alloc_code {prog : List Directive} {kp : Nat} (hp : Lays exe prog kp) (h
   · exact code_field hp hend h15 (by simp only [N, add4, add0])
   · exact code_field hp hend h16 (by simp only [N, add4, add0])
   · exact code_field hp hend h17 (by simp only [N, add4, add0])
-  · exact code_field hp hend h18 (by simp only [N, add4, add0])
+  · exact code_field hp hend h18 (by rw [label_labelGap hp hr]; simp only [N, add4, add0])
 
 /-- **`scc_rt_alloc` is one segment inside `W` from any of its nodes `i0`**
 in any valid layout `exe` of a program `prog` with `allocIn prog = true`
@@ -92,7 +92,7 @@ theorem seg_alloc_ofW_at {W : Frag isaLSE2} {K : State → State → Prop} {prog
       (fun s c => ∃ x, At exe endPc R F (E (_root_.Executable.labels exe).label ms q lbl x) s c) := by
   have hcode := alloc_code (ms := ms) (q := q) hp hend hprog
   simp only [allocIn, Bool.and_eq_true, and_assoc] at hprog
-  obtain ⟨-, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, hgap⟩ := hprog
+  obtain ⟨-, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, hgap⟩ := hprog
   exact seg_allocW_at hF hR hal hlo hhi hq hcode (by rw [label_labelGap hp hgap]; simp only [add4, add0]) hmem hxa
     hW i0
 
@@ -364,13 +364,14 @@ block_spec rpB3 (-48) 0 (⟨-48, []⟩ : SO) rpB3
 block_spec rpB4 (-48) 0 (⟨-48, []⟩ : SO) rpB4
 
 /-- **`.sp0` in `prog`**: its blocks and the two exchanges' loads and
-stores at their offsets. -/
+stores at their offsets (the last block across the return label `.x5` just
+before `ret`). -/
 def rpIn (prog : List Directive) : Bool :=
   blockAt prog ".L18_wc_rodata.sp0" 0 rpB0 && blockAt prog ".L18_wc_rodata.sp0" 2 [ldrDir .X9 .X10 0] &&
   blockAt prog ".L18_wc_rodata.sp0" 3 rpB1 && blockAt prog ".L18_wc_rodata.sp0" 9 [strDir .X9 .X10 0] &&
   blockAt prog ".L18_wc_rodata.sp0" 10 rpB2 && blockAt prog ".L18_wc_rodata.sp0" 11 [ldrDir .X9 .X10 8] &&
   blockAt prog ".L18_wc_rodata.sp0" 12 rpB3 && blockAt prog ".L18_wc_rodata.sp0" 17 [strDir .X9 .X10 8] &&
-  blockAt prog ".L18_wc_rodata.sp0" 18 rpB4
+  blockAcross prog ".L18_wc_rodata.sp0" 18 (rpB4.take 7) ".L18_wc_rodata.x5" (rpB4.drop 7)
 
 theorem hello1_rpIn : rpIn SccCode.hello1Prog = true := by decide +kernel
 
@@ -568,7 +569,8 @@ theorem hello1_rodata_post_segW {W : Frag isaLSE2} {K : State → State → Prop
       by rw [Ret0.getRegOrZr_x9, h9]; exact hV, .inl ⟨PN.s4, ?_, rfl, σ0, ⟨c0', hJp⟩, hk, hfr⟩⟩
     simp only [pN]; rw [Int64.add_assoc]; rfl
   case s4 =>
-    refine seg_ndW (by simp [rpB4]) rpB4_ok hF hR hal hlo hhi (code_of hp hend c8 rfl) hW.s4
+    refine seg_ndW (by simp [rpB4]) rpB4_ok hF hR hal hlo hhi
+      (Spike.Lib.A64.code_field_blockAcross hp hend c8 (List.take_append_drop _ _) rfl) hW.s4
       fun σ c ⟨σ0, ⟨c0', hJp⟩, hJ, hfr⟩ => ?_
     simp only [pN]
     obtain ⟨c', hr, hx⟩ := hedge σ0 c hJ

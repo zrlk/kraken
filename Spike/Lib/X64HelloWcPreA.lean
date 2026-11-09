@@ -83,7 +83,7 @@ theorem hello_wc_pre_segWA {W : Frag isa} {K : State → State → Prop}
   simp only [wcEInH, Bool.and_eq_true] at hin
   obtain ⟨h0, hgap⟩ := hin
   let lab := (_root_.Executable.labels exe).label
-  have e26 : lab ".Lwc_main.x22" = lab ".Lwc_main.entry" + Int64.ofNat 26 := label_labelGapB hp hgap
+  have e26 : lab ".Lwc_main.x0" = lab ".Lwc_main.entry" + Int64.ofNat 26 := label_labelGapB hp hgap
   refine SegW.seq (prologue_seg_ofW hp hend hello_wcPro (nb := ⟨lab ".Lwc_main.entry", oWRH, wcJH J0⟩)
     (by decide) hF hR
     (by show R.lo ≤ -8 - (128 : Int64).toInt; rw [show (128 : Int64).toInt = 128 from rfl]; omega) (by omega)
@@ -133,7 +133,7 @@ theorem hello_wc_pre_segWA {W : Frag isa} {K : State → State → Prop}
       (fun R' F' hR' hlo' hhi' hF' _ hFF hR'e hcc g hg hkeep => by
         subst hR'e
         obtain ⟨σC, c, ⟨-, -, -, -, -, h80⟩, ⟨-, -, hra, -⟩⟩ := hg
-        have hr : g.1.ra = (lab ".Lwc_main.x22").toBitVec := by
+        have hr : g.1.ra = (lab ".Lwc_main.x0").toBitVec := by
           rw [← hra, ← h80]; rfl
         exact (Alloc.seg_allocBW hp hend hello_alloc hF' hR' hlo' hhi' g.2
           (fun a ha m hm => hmem g.1 g.2 a ha m (hFF m hm))
@@ -152,7 +152,7 @@ theorem hello_wc_pre_segWA {W : Frag isa} {K : State → State → Prop}
       cases y
       · refine .inr ⟨WX.x18, ?_, by show SO.le ⟨-136, []⟩ ⟨-144 - 0 + 8, []⟩ = true; decide, g,
           ⟨σe, hc ▸ hJe, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩, ?_, ?_⟩
-        · show lab ".Lwc_main.x22" = Int64.ofBitVec g.1.ra
+        · show lab ".Lwc_main.x0" = Int64.ofBitVec g.1.ra
           rw [← hra]
           show _ = Int64.ofBitVec (σC.slot (-144 - 0 + 0))
           rw [show (-144 : Int) - 0 + 0 = -144 by decide, h80, int64_ofBitVec_toBitVec]

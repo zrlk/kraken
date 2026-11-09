@@ -63,7 +63,8 @@ example (lab : String → Int64) (pc : Int64) (σ : AS) :
 theorem ret_main : dirs (ly ++ epiItems) = retBlk [.slot (Int64.ofInt (-8))] := dirs_ret_slot rsOf_y getOp_y
 
 example (s : S) :
-    Scc.Emit.X64.emitTerm mainFr (.ret [.reg "y%0"]) s = .ok ((), { s with out := (ly ++ epiItems).reverse ++ s.out }) :=
+    Scc.Emit.X64.emitTerm mainFr (.ret [.reg "y%0"]) s =
+      .ok ((), { s with out := (ly ++ retItems mainFr.fn s.next).reverse ++ s.out, next := s.next + 1 }) :=
   emitTerm_ret getOp_y s
 
 /-- Covered in the frame's region `[-16, 16)`. -/
@@ -74,10 +75,14 @@ example (zs : List Nat) (hz : zs.length = 4) :
 /-! ## Against the assembler's cells -/
 
 -- The add block is the cells after `.Lwc_main.entry`, at the assembler's
--- sizes; the store into `y%0` follows, then the return block.
+-- sizes; the add's return label `.Lwc_main.x0` follows it, then the store
+-- into `y%0` (4 bytes) and the return block, split by the result's return
+-- label `.Lwc_main.x1` before its `ret` (`blockAcrossB`).
 #guard Scc.Cert.Rt.X64.blockAtB SccCode.ret0Cells ".Lwc_main.entry" 0
   ((dirs (la ++ lb ++ addChecked ovf)).zip [7, 7, 3, 2])
-#guard Scc.Cert.Rt.X64.blockAtB SccCode.ret0Cells ".Lwc_main.entry" 23
-  ((retBlk [.slot (Int64.ofInt (-8))]).zip [4, 3, 1, 1])
+#guard Scc.Cert.Rt.X64.labelGapB SccCode.ret0Cells ".Lwc_main.entry" ".Lwc_main.x0" 19
+#guard Scc.Cert.Rt.X64.blockAcrossB SccCode.ret0Cells ".Lwc_main.x0" 4
+  (((retBlk [.slot (Int64.ofInt (-8))]).zip [4, 3, 1, 1]).take 3) ".Lwc_main.x1"
+  (((retBlk [.slot (Int64.ofInt (-8))]).zip [4, 3, 1, 1]).drop 3)
 
 end Spike.Test.LowerX64Construct

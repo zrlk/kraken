@@ -14,19 +14,23 @@ intermediate term of all four alive: on a large program (`arith.w`) more
 than 5 GB.
 
 `ofStage` computes the output from what it is made of: the lowered IR, the
-emitter's items and safepoints, the stack need table and the shape of
-`scc_rt_main`'s tail. `ofEmitted_of_stages` proves `Out.ofEmitted
-(lowerAll cfg p) = ofStage …` from two equations, each a kernel check of
-one stage on literals:
+emitter's items and safepoints, the GC tables' data, the stack need
+table and the shape of `scc_rt_main`'s tail.
+`ofEmitted_of_stages` proves `Out.ofEmitted (lowerAll cfg p) = ofStage …`
+from three equations, each a kernel check of one stage on literals:
 
 * `lowered1 cfg p = some (ir, setup)`: the lowering (`lowerIR`) gives the
   IR `ir`;
 * `emitItemsMaps ir = .ok (items, sps)`: the emitter, run on the literal
   `ir` (itself checked in stages, `Scc.Emit.A64.emitItemsMaps_of_stages`:
-  the emitter's checks, each function, and the rest).
+  the emitter's checks, each function, and the rest);
+* `tablesOf ir items cfg.gcWit = .ok (tits, tbl)`: the GC tables' stage on the
+  literal items, at the configuration's witness (a certificate's is `some gw`,
+  `emitTablesW`, itself checked in stages,
+  `Scc.Cert.MapsA64.emitTablesW_of_stages`).
 
 A certificate states `ir`, `items` and `sps` as literals (`scc_lit%`,
-untrusted), checks the two equations, and then `ofStage … = outLit` (the
+untrusted), checks the three equations, and then `ofStage … = outLit` (the
 stack need table, the `.text` filter and the offsets fixpoint, on
 literals): three declarations, each with a part of the work. The block
 table can be a fourth (`blocksOfStage`, `ofStage_eq_B`).
@@ -41,9 +45,11 @@ namespace Scc.Cert.PlaceOK.A64
 open Scc.Lower.A64 (Emitted lowerAll lowerAll? emitAll textDirectives)
 open Scc.Emit.A64 (Item Safepoint)
 
-/-- What the output is computed from: the IR, the items, the safepoints,
-the stack need table, whether `scc_rt_main` has a setup block. -/
-abbrev Stage := Scc.IR.Program × List Item × List Safepoint × Option (List (Scc.IR.Sym × Nat × Nat)) × Bool
+/-- What the output is computed from: the IR, the emitter's items, the
+safepoints, the GC tables' data, the stack need table,
+whether `scc_rt_main` has a setup block. -/
+abbrev Stage := Scc.IR.Program × List Item × List Safepoint × List Kraken.DataImage.Item ×
+  Option (List (Scc.IR.Sym × Nat × Nat)) × Bool
 
 /-- **The lowering's part of the output** (`none`: the lowering fails): the
 IR and whether `scc_rt_main` has a setup block. -/
@@ -62,8 +68,8 @@ theorem lowered1_of_stages {cfg : Scc.Config} {p : CoreTerm.Prog} {fr : Nat} {r 
   Scc.Cert.LowerStage.lowerIR_of_stages h1 h2
 /-- **The output computed from a stage** (`Out.ofEmitted`'s fields). -/
 def ofStage : Stage → Out
-  | (ir, items, sps, need, setup) =>
-    let secs := Scc.Emit.Data.Secs.ofProgram ir.data (if ir.growth.isSome then some sps else none)
+  | (ir, items, sps, tbl, need, setup) =>
+    let secs := Scc.Emit.Data.Secs.ofProgram ir.data (if ir.growth.isSome then some sps else none) tbl
     ⟨textDirectives items, ⟨secs.data, secs.bss, secs.rodata⟩, [],
       { blocks := (Data.blocksOf? ir (textDirectives items)).getD []
         need := need.getD []
@@ -71,20 +77,43 @@ def ofStage : Stage → Out
         ir := some ir }⟩
 
 /-- **`out` from its stages**: where the lowering gives the IR `ir` (and the
-setup flag) and the emitter its items and safepoints, scc's output is
+setup flag), the emitter its items and safepoints, and the GC tables' stage
+at the witness `cfg.gcWit` (`tablesOf`) its items `tits` and data `tbl`, scc's output is
 `ofStage` of them, with the stack need table of `ir`. -/
-theorem ofEmitted_of_stages {cfg : Scc.Config} {p : CoreTerm.Prog} {ir : Scc.IR.Program} {setup : Bool}
-    {items : List Item} {sps : List Safepoint}
-    (h1 : lowered1 cfg p = some (ir, setup)) (h2 : Scc.Emit.A64.emitItemsMaps ir = .ok (items, sps)) :
+theorem ofEmitted_of_stages {cfg : Scc.Config} {p : CoreTerm.Prog}
+    {ir : Scc.IR.Program} {setup : Bool} {items tits : List Item} {sps : List Safepoint}
+    {tbl : List Kraken.DataImage.Item}
+    (h1 : lowered1 cfg p = some (ir, setup)) (h2 : Scc.Emit.A64.emitItemsMaps ir = .ok (items, sps))
+    (h3 : Scc.Lower.A64.tablesOf ir items cfg.gcWit = .ok (tits, tbl)) :
     Out.ofEmitted (lowerAll cfg p) =
-      ofStage (ir, items, sps, (Scc.Lower.stackNeed .arm ir).toOption, setup) := by
+      ofStage (ir, items, sps, tbl, (Scc.Lower.stackNeed .arm ir).toOption, setup) := by
+  unfold lowered1 at h1
+  split at h1
+  · rename_i l hl
+    cases h1
+    unfold lowerAll lowerAll?
+    simp only [hl, bind, Except.bind, emitAll, h2, h3, Scc.Lower.A64.tblOf, pure, Except.pure]
+    rfl
+  · cases h1
+
+/-- **The GC tables' stage from its stages**: where the lowering gives the IR
+`ir`, the emitter its items, and the tables' stage at the witness `cfg.gcWit`
+the items `tits` and data `tbl` (the three equations of `ofEmitted_of_stages`),
+scc's tables are `tits` and `tbl` (`Emitted.tables`, which `Emitted.listing`
+appends to the text). -/
+theorem tables_of_stages {cfg : Scc.Config} {p : CoreTerm.Prog}
+    {ir : Scc.IR.Program} {setup : Bool} {items tits : List Item} {sps : List Safepoint}
+    {tbl : List Kraken.DataImage.Item}
+    (h1 : lowered1 cfg p = some (ir, setup)) (h2 : Scc.Emit.A64.emitItemsMaps ir = .ok (items, sps))
+    (h3 : Scc.Lower.A64.tablesOf ir items cfg.gcWit = .ok (tits, tbl)) :
+    (lowerAll cfg p).tables = .ok (tits, tbl) := by
   unfold lowered1 at h1
   split at h1
   · rename_i l hl
     cases h1
     unfold lowerAll lowerAll?
     simp only [hl, bind, Except.bind, emitAll, h2, pure, Except.pure]
-    rfl
+    exact h3
   · cases h1
 
 /-! ## The block table, its own stage
@@ -100,8 +129,8 @@ def blocksOfStage (ir : Scc.IR.Program) (items : List Item) : Option (List Rt.A6
 
 /-- **`ofStage` at the block table `blks`** in place of `blocksOfStage`'s. -/
 def ofStageB : Stage → List Rt.A64.OGrp → Out
-  | (ir, items, sps, need, setup), blks =>
-    let secs := Scc.Emit.Data.Secs.ofProgram ir.data (if ir.growth.isSome then some sps else none)
+  | (ir, items, sps, tbl, need, setup), blks =>
+    let secs := Scc.Emit.Data.Secs.ofProgram ir.data (if ir.growth.isSome then some sps else none) tbl
     ⟨textDirectives items, ⟨secs.data, secs.bss, secs.rodata⟩, [],
       { blocks := blks
         need := need.getD []
@@ -111,9 +140,10 @@ def ofStageB : Stage → List Rt.A64.OGrp → Out
 /-- **`ofStage` from its block table**: where the items' block table is
 `blks`, `ofStage` is `ofStageB` at `blks`. -/
 theorem ofStage_eq_B {ir : Scc.IR.Program} {items : List Item} {sps : List Safepoint}
+    {tbl : List Kraken.DataImage.Item}
     {need : Option (List (Scc.IR.Sym × Nat × Nat))} {setup : Bool} {blks : List Rt.A64.OGrp}
     (h : blocksOfStage ir items = some blks) :
-    ofStage (ir, items, sps, need, setup) = ofStageB (ir, items, sps, need, setup) blks := by
+    ofStage (ir, items, sps, tbl, need, setup) = ofStageB (ir, items, sps, tbl, need, setup) blks := by
   simp only [blocksOfStage] at h
   simp only [ofStage, ofStageB, h, Option.getD_some]
 

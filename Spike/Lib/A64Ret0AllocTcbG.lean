@@ -165,14 +165,14 @@ theorem atArg_walkG (lab : Label → Int64) (pc : Int64) {g : G} {h : BitVec 64}
   simp [Fr1G, Fr0G, Spike.Lib.upd_apply, h1, h2, h3, h4, h5, h6, h7, hP]
 
 /-- **The bound is not crossed** when the counter's old value `n0` (in
-`x11`) has room for `lenOf h` more bytes below `2^17`. -/
+`x11`) has room for `lenOf h` more bytes below `2^17`, so below the pinned area's `163840`. -/
 theorem atBnd_walkG (lab : Label → Int64) (pc : Int64) {g : G} {h : BitVec 64} {σ : AS} {n0 : BitVec 64}
     (hf : Fr1G h g σ) (h11 : σ.regs.X11.toBitVec = n0) (hn : n0.toNat + (lenOf h).toNat ≤ 131072) :
-    (arun lab atBnd ⟨pc, oI, σ⟩).pc = pc + Int64.ofNat (4 * 9) ∧
+    (arun lab atBnd ⟨pc, oI, σ⟩).pc = pc + Int64.ofNat (4 * 10) ∧
     (arun lab atBnd ⟨pc, oI, σ⟩).so = oI ∧ Fr2G h g n0 (arun lab atBnd ⟨pc, oI, σ⟩).σ := by
   obtain ⟨⟨h1, h2, h3, h4, h5⟩, h6, h7⟩ := hf
-  have hc : ¬ ((StatusFlags.subs (n0 + lenOf h - 131072#64) (n0 + lenOf h) 131072#64).c = true ∧
-      (StatusFlags.subs (n0 + lenOf h - 131072#64) (n0 + lenOf h) 131072#64).z = false) := by
+  have hc : ¬ ((StatusFlags.subs (n0 + lenOf h - 163840#64) (n0 + lenOf h) 163840#64).c = true ∧
+      (StatusFlags.subs (n0 + lenOf h - 163840#64) (n0 + lenOf h) 163840#64).z = false) := by
     rw [subs_hi, BitVec.toNat_add]
     simp only [BitVec.toNat_ofNat]
     omega

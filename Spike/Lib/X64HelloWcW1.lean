@@ -17,8 +17,8 @@ No absolute address appears in this file.
 - `WcMainWH` has x86-64's nodes: no fence node `f` (TSO; `WcResWH` has the call block `bl` and the callee only),
   no source parameter `S` (the ghosts' guard is `MidG Q`, `X64HelloWcMid`).
 - The callees' regions and return addresses are x86-64's: the reserve at `rARH R` with caller cells
-  `CallerCells R (-136) (-40) 8`, returning to `.Lwc_main.x23`; the second TCB at `R.callee (-136) (-184) 8`,
-  returning to `.Lwc_main.x24`, its call node `wcNCRH` (`%rbp` from the offsets); AArch64: `-144`, `.sp3`/`.sp4`.
+  `CallerCells R (-136) (-40) 8`, returning to `.Lwc_main.x1`; the second TCB at `R.callee (-136) (-184) 8`,
+  returning to `.Lwc_main.x2`, its call node `wcNCRH` (`%rbp` from the offsets); AArch64: `-144`, `.sp3`/`.sp4`.
 -/
 import Spike.Lib.X64HelloWcMid
 
@@ -61,7 +61,7 @@ theorem WcMidWH.of_mainH {W : Frag isa} {K : State → State → Prop} {exe : _r
     {R : Region} {F F₂ : MachineData → Prop} {ms : MemSide isa} {J1 : AS → Ctl → Prop}
     {Q : WeakMem.AllocLabel → Nat → Ctl → Prop} (hm : WcMainWH W K exe endPc R F F₂ ms J1 Q)
     (hres : ∀ g : Flow.Ret0.AllocTcb.G × Ctl,
-      g.1.ra = ((_root_.Executable.labels exe).label ".Lwc_main.x23").toBitVec →
+      g.1.ra = ((_root_.Executable.labels exe).label ".Lwc_main.x1").toBitVec →
       ∀ i, ReserveW W K exe endPc (rARH R)
         (fun m => F m ∧ CallerCells R (-136) (-40) 8 m ∧ ResCtxH (_root_.Executable.labels exe).label R
           (rNH ms (_root_.Executable.labels exe).label R J1 Q .call).J g m) ⟨g.1, 0#64, g.2⟩ i)
@@ -83,7 +83,7 @@ theorem wcMidW_w1H (W1 : FragS isa) {exe : _root_.Executable} {endPc : Int64} {R
     {Q : WeakMem.AllocLabel → Nat → Ctl → Prop}
     (hwcWf : WcMainWH (fun s c => W1 s c []) (fun _ _ => False) exe endPc R F F₂ ms J1 Q)
     (hres : ∀ g : Flow.Ret0.AllocTcb.G × Ctl,
-      g.1.ra = ((_root_.Executable.labels exe).label ".Lwc_main.x23").toBitVec →
+      g.1.ra = ((_root_.Executable.labels exe).label ".Lwc_main.x1").toBitVec →
       ∀ nd, ReserveW (fun s c => W1 s c []) (fun _ _ => False) exe endPc (rARH R)
         (fun m => F m ∧ CallerCells R (-136) (-40) 8 m ∧ ResCtxH (_root_.Executable.labels exe).label R
           (rNH ms (_root_.Executable.labels exe).label R J1 Q .call).J g m) ⟨g.1, 0#64, g.2⟩ nd)

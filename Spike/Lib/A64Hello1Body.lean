@@ -28,7 +28,7 @@ open Kraken Kraken.AArch64.Parser Kraken.Promising Kraken.Promising.AArch64 Krak
 open Spike.Lib Spike.Lib.A64.Flow
 open Spike.Lib.A64.Flow.Ret0 (CallerCells blkW_mono nodeW_mono LimOk)
 open Spike.Lib.A64.Rt (WcRa)
-open Scc.Cert.Rt.A64 (Lays endOf blockAt label_labelGap labelGap)
+open Scc.Cert.Rt.A64 (Lays endOf blockAt label_labelGap labelGap blockAcross)
 open Scc.Cert.Rt.A64.Print (printIn)
 
 set_option linter.unusedSimpArgs false
@@ -70,9 +70,10 @@ block_spec wcE (-144) 0 (⟨-96, []⟩ : SO) wcE
 block_spec wcR4 (-144) 0 (⟨-96, []⟩ : SO) wcR4
 
 /-- **`wc_main`'s body in `prog`**: the two blocks at their labels, `.sp4`
-right after the call. -/
+right after the call (across the return label `.x5` just before `ret`). -/
 def wcBodyIn (prog : List Directive) : Bool :=
-  blockAt prog ".L19_wc_main.0_entry" 0 wcE && blockAt prog ".L19_wc_main.sp4" 0 wcR4 &&
+  blockAt prog ".L19_wc_main.0_entry" 0 wcE &&
+    blockAcross prog ".L19_wc_main.sp4" 0 (wcR4.take 4) ".L19_wc_main.x5" (wcR4.drop 4) &&
     labelGap prog ".L19_wc_main.0_entry" ".L19_wc_main.sp4" 21
 
 theorem hello1_wcBodyIn : wcBodyIn SccCode.hello1Prog = true := by decide +kernel
@@ -249,7 +250,8 @@ theorem hello1_wc_body_segW {W : Frag isaLSE2} {K : State → State → Prop}
         show σR.regs.X0 = 4
         rw [hreg]; exact h4
   case sp4 =>
-    refine seg_ndW (by simp [wcR4]) wcR4_ok hF hR hal hlo hhi (code_of hp hend h4 (ofNat4_zero _)) hW.sp4
+    refine seg_ndW (by simp [wcR4]) wcR4_ok hF hR hal hlo hhi
+      (Spike.Lib.A64.code_field_blockAcross hp hend h4 (List.take_append_drop _ _) (ofNat4_zero _)) hW.sp4
       fun σ c ⟨σ0, hJ0, hsl⟩ => ?_
     obtain ⟨c', hr, hx⟩ := hedge σ0 c hJ0 (arun lab wcR4 ⟨lab ".L19_wc_main.sp4", ⟨-96, []⟩, σ⟩).σ
       (by rw [wcR4_run]; exact hsl) (by rw [wcR4_run]; rfl)

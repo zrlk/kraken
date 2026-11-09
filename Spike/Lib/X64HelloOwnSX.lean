@@ -1,7 +1,7 @@
 /-
 **hello.w's main thread owning both TCB self words before the spawn** (x86-64 only; the hello counterpart of
 `X64WakeOwnS`'s map, `X64WakeOwnT2`, `X64WakeOwnSW` and `X64WakeOwnT2W`): main's pre-spawn owned words are
-hello's `ownGH` with main's TCB self word `T = tcbM L = pinA + 8` and the worker's `W = tcbWH L = pinA + 112`
+hello's `ownGH` with main's TCB self word `T = tcbM L = pinA + 8` and the worker's `W = tcbWH L = pinA + 144`
 appended where main holds them, so that the consumer's `OwnOk` of main's own map carries both words' latest
 writes to the clone (`X64HelloSelfWords.SelfWordsAtClone`).
 
@@ -20,7 +20,7 @@ writes to the clone (`X64HelloSelfWords.SelfWordsAtClone`).
 - `tcbWH_notG_W`: `hW` at `RuntimeLayout.ofPlaceWX`: `W` is A13's fifth spawn word, clear of the runtime's words
   and of `scc_rt_nthreads` (`X64WakeOwnSW.tcbSep_W`/`tcbM_ne_ntA_W` give `T`'s side).
 - `tcbM_mem_ownGHXW`, `tcbWH_mem_ownGHXW`, `selfOwnWH_clone`, `clone_ownGHXW`: both words in `ownGHXW` at the clone
-  (`.Lwc_main.x25 + 94`, `X64HelloClonePreH.cloneAtH`) on a pool stack;
+  (`.Lwc_main.x3 + 94`, `X64HelloClonePreH.cloneAtH`) on a pool stack;
   `selfWords_clone`: `SelfWordsAtClone` from `OwnOk` of `ownGHXW` there.
 
 The generic pieces (`AppOk`, `SFactsSt.appendS`, `SFactsSt2.appendS`, `BlkW.appendS(2)`, `NodeW.appendS2`,
@@ -29,10 +29,10 @@ The generic pieces (`AppOk`, `SFactsSt.appendS`, `SFactsSt2.appendS`, `BlkW.appe
 ## Differences from the AArch64 version
 
 AArch64 has no counterpart (its park and worker tail take the thread pointer from a register, so main owns no
-TCB word). Against wake's x86-64 maps: hello's second TCB is at `pinA + 112` (wake: `pinA + 104`), A13's fifth
+TCB word). Against wake's x86-64 maps: hello's second TCB is at `pinA + 144` (wake: `pinA + 136`), A13's fifth
 spawn word (wake: the fourth); `scc_rt_thread_init`'s self store is at `.x8 + 48` (wake: `.x7 + 48`); `W` is held
 in `wc_main` from `.x25` to `.stk` and on the abort path from `.x27` (wake: `.x21`, `.x23`); the clone is at
-`.Lwc_main.x25 + 94` (wake: `.x21 + 46`); the base map is hello's `ownGH` (`ownH`, `own2aH`, `own2bH`).
+`.Lwc_main.x3 + 94` (wake: `.x21 + 46`); the base map is hello's `ownGH` (`ownH`, `own2aH`, `own2bH`).
 -/
 import Spike.Lib.X64HelloSelfWords
 import Spike.Lib.X64HelloOwnGEq
@@ -60,7 +60,7 @@ open Spike.Lib.X64HelloSelfWords (SelfWordsAtClone)
 def selfOwnH (L : RuntimeLayout) (s : State) : Prop :=
   (spPool L s ∧ (L.lab ".Lscc_rt_start.x1").toBitVec.toNat ≤ pcOf s) ∨
     inPc L ".Lscc_rt_start.x1" "scc_rt_main" s ∨
-    ((L.lab ".Lscc_rt_thread_init.x8").toBitVec.toNat + 51 ≤ pcOf s ∧
+    ((L.lab ".Lscc_rt_thread_init.x0").toBitVec.toNat + 51 ≤ pcOf s ∧
       pcOf s < (L.lab "scc_rt_stack_take").toBitVec.toNat)
 
 instance (L : RuntimeLayout) (s : State) : Decidable (selfOwnH L s) := by
@@ -98,10 +98,10 @@ abbrev tWH (L : RuntimeLayout) : List (Loc × Val) := [(⟨tcbWH L, 8⟩, (tcbWH
 (`.x8 + 51` up to `scc_rt_stack_take`), in `wc_main` from `.x25` to `.stk`, or in the abort path entered from
 `.x27`. -/
 def selfOwnWH (L : RuntimeLayout) (s : State) : Prop :=
-  (spPool L s ∧ (L.lab ".Lscc_rt_thread_init.x8").toBitVec.toNat + 51 ≤ pcOf s ∧
+  (spPool L s ∧ (L.lab ".Lscc_rt_thread_init.x0").toBitVec.toNat + 51 ≤ pcOf s ∧
       pcOf s < (L.lab "scc_rt_stack_take").toBitVec.toNat) ∨
-    inPc L ".Lwc_main.x25" ".Lwc_main.stk" s ∨
-    (inPc L "scc_rt_abort" "scc_rt_thr_worker" s ∧ raAt L ".Lwc_main.x27" s)
+    inPc L ".Lwc_main.x3" ".Lwc_main.stk" s ∨
+    (inPc L "scc_rt_abort" "scc_rt_thr_worker" s ∧ raAt L ".Lwc_main.x5" s)
 
 instance (L : RuntimeLayout) (s : State) : Decidable (selfOwnWH L s) := by
   unfold selfOwnWH; infer_instance
@@ -297,11 +297,11 @@ private theorem labVH (hlab : ∀ l x, codeLabel lo helloCells l = some x → L.
     {y : Nat} (h : codeT lo helloCells l = some y) : L.lab l = Int64.ofNat y :=
   hlab _ _ (by rw [← codeT_eq]; exact h)
 
-/-- **`selfOwnWH` at the clone's `syscall`** (`.Lwc_main.x25 + 94`, `X64HelloClonePreH.cloneAtH`). -/
+/-- **`selfOwnWH` at the clone's `syscall`** (`.Lwc_main.x3 + 94`, `X64HelloClonePreH.cloneAtH`). -/
 theorem selfOwnWH_clone (hlab : ∀ l x, codeLabel lo helloCells l = some x → L.lab l = Int64.ofNat x)
-    (hpc : s.st.2 = L.lab ".Lwc_main.x25" + 94) : selfOwnWH L s := by
-  have e25 : L.lab ".Lwc_main.x25" = Int64.ofNat 4203774 := labVH hlab (by decide +kernel)
-  have eS : L.lab ".Lwc_main.stk" = Int64.ofNat 4203948 := labVH hlab (by decide +kernel)
+    (hpc : s.st.2 = L.lab ".Lwc_main.x3" + 94) : selfOwnWH L s := by
+  have e25 : L.lab ".Lwc_main.x3" = Int64.ofNat 4203812 := labVH hlab (by decide +kernel)
+  have eS : L.lab ".Lwc_main.stk" = Int64.ofNat 4203986 := labVH hlab (by decide +kernel)
   refine .inr (.inl ?_)
   unfold inPc pcOf
   rw [hpc, e25, eS]
@@ -310,11 +310,11 @@ theorem selfOwnWH_clone (hlab : ∀ l x, codeLabel lo helloCells l = some x → 
 /-- **The clone agreement for both self words**: at the clone's `syscall` on a pool stack, `ownGHXW L a s` holds
 `tcbM` and `tcbWH`, each with its address (`post_startOXW`'s `hT0`, `hW0` at `own₀ = ownGHXW L a s`). -/
 theorem clone_ownGHXW (hlab : ∀ l x, codeLabel lo helloCells l = some x → L.lab l = Int64.ofNat x)
-    (hsp : spPool L s) (hpc : s.st.2 = L.lab ".Lwc_main.x25" + 94) :
+    (hsp : spPool L s) (hpc : s.st.2 = L.lab ".Lwc_main.x3" + 94) :
     (⟨tcbM L, 8⟩, (tcbM L).setWidth 128) ∈ ownGHXW L a s ∧
       (⟨tcbWH L, 8⟩, (tcbWH L).setWidth 128) ∈ ownGHXW L a s :=
   have e1 : L.lab ".Lscc_rt_start.x1" = Int64.ofNat 4198500 := labVH hlab (by decide +kernel)
-  have e25 : L.lab ".Lwc_main.x25" = Int64.ofNat 4203774 := labVH hlab (by decide +kernel)
+  have e25 : L.lab ".Lwc_main.x3" = Int64.ofNat 4203812 := labVH hlab (by decide +kernel)
   have hx : (L.lab ".Lscc_rt_start.x1").toBitVec.toNat ≤ pcOf s := by
     unfold pcOf; rw [hpc, e1, e25]; decide
   ⟨tcbM_mem_ownGHXW (.inl ⟨hsp, hx⟩), tcbWH_mem_ownGHXW (selfOwnWH_clone hlab hpc)⟩
@@ -322,7 +322,7 @@ theorem clone_ownGHXW (hlab : ∀ l x, codeLabel lo helloCells l = some x → L.
 /-- **The two self words at the clone** (`X64HelloSelfWords.SelfWordsAtClone`): from the consumer's `OwnOk` of
 main's pre-spawn own map `ownGHXW L a s` at the clone's `syscall` on a pool stack. -/
 theorem selfWords_clone (hlab : ∀ l x, codeLabel lo helloCells l = some x → L.lab l = Int64.ofNat x)
-    (hsp : spPool L s) (hpc : s.st.2 = L.lab ".Lwc_main.x25" + 94) {mem : Memory} {prom : List Time}
+    (hsp : spPool L s) (hpc : s.st.2 = L.lab ".Lwc_main.x3" + 94) {mem : Memory} {prom : List Time}
     (hown : Spike.Lib.ExtRows.OwnOk (ownGHXW L a s) mem prom) : SelfWordsAtClone mem prom (tcbM L) (tcbWH L) :=
   SelfWordsAtClone.of_ownOk hown (clone_ownGHXW hlab hsp hpc).1 (clone_ownGHXW hlab hsp hpc).2
 

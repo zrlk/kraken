@@ -186,7 +186,7 @@ theorem reserveW_post {exe : _root_.Executable} [Kraken.Executable.ValidLayout e
       (hnr rJ_noRet) (fun _ _ _ => rfl) hsub hSM
   case ok =>
     dsimp only [ReserveW]; rw [hI.labOk]
-    exact blkW_post hI bOk (ofNat_zero' _) rRet_ok hR (by omega) (by omega) (hC _ fun _ _ hJ => hJ.1) hph.ok
+    exact blkW_postA hI bOk (ofNat_zero' _) rRet_ok hR (by omega) (by omega) (hC _ fun _ _ hJ => hJ.1) hph.ok
       (hret_of_run rRet_ok fun _ _ hJ => by
         dsimp only [rvN] at hJ ⊢
         rw [(rRet_walk lab _ hJ.2).1, hra]; exact Int64.ofBitVec_toBitVec _)

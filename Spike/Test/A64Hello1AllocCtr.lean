@@ -99,8 +99,9 @@ theorem allocCtr (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -160)
       omega
   · nab ".L2_scc_rt_alloc.5_ok" 42 b13_ok
   · exact NodeW.imp (Spike.Lib.LowerA64.BlkW.nodeW (blkW_noWr (hello1_instOk (rS := ⟨0, 0⟩))
-      (l := ".L2_scc_rt_alloc.5_ok") (k := 54) (blk := [iRet.toDir]) (lo := -160) (hi := 0) (by decide +kernel)
-      (by dsimp only [N]; decide +kernel) (by dsimp only [N]; decide) hR hal (by omega) (by omega))
+      (l := ".L2_scc_rt_alloc.x22") (k := 0) (blk := [iRet.toDir]) (lo := -160) (hi := 0) (by decide +kernel)
+      (by dsimp only [N]; rw [Spike.Test.A64Hello1RtW.labT_eq_labX]; decide +kernel) (by dsimp only [N]; decide)
+      hR hal (by omega) (by omega))
       (List.cons_ne_nil _ _)) Spike.Lib.A64.Flow.NodeW.triv (fun _ _ h _ hW => (h _ hW).elim)
 
 end Alloc

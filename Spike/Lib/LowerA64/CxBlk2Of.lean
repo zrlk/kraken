@@ -93,14 +93,14 @@ theorem blkW_abSt_k2 {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc
         ∃ t, classify blk[k] = some (.cbnz t L)) → PosOff prog lab (lab L)) :
     BlkW (fun s _ => AbSt μ (Ab lab) s) (fun _ _ => False) exe endPc R F n blk := by
   have hcd' := hcd
-  obtain ⟨pc0, pre, suf, ⟨⟨-, L0, j, -, hpc0, hb, hrun⟩, -⟩, hpc⟩ := hcd'
+  obtain ⟨pc0, pre, suf, ⟨hc0, -⟩, hpc⟩ := hcd'
+  obtain ⟨-, hat, hrun⟩ := CdCQ.sub hc0 hpc.symm
   have hok : okBlk (-(cx.frame : Int)) 0 n.o blk = true := hno ▸ okBlk_kind2 hf h1 h16 hk
-  have hph := Scc.Cert.Ph1A64.blkPh_of_runPhB hrun (classify_of_okBlk hok)
-  rw [hpc] at hph
-  have he : lab L0 + Int64.ofNat (4 * (j + pre.length)) = n.pc := by
-    rw [← hpc, ← hpc0, ofNat4_add]
-  have hcode := Spike.Lib.A64.Flow.code_of hI.lays hI.endOk (blockAt_sub hb) (q := n.pc)
-    (by rw [hI.labOk]; exact he)
+  have hph := Scc.Cert.Ph1A64.blkPh_of_runPhB (xs := []) (zs := []) (by simpa using hrun)
+    (classify_of_okBlk hok)
+  rw [show n.pc + Int64.ofNat (4 * ([] : List Directive).length) = n.pc by simp] at hph
+  rw [← hI.labOk] at hat
+  have hcode := AtQ.cdOf hI.lays hI.endOk _ _ hat
   refine blkW_abSt_posR hI hpr habt hcode hok hR hal hlo hhi hph (hret_kind2 hf h1 h16 hno hfj hk) ?_
   intro σ c hJ k hkl a ha t ht
   refine .inl ?_
@@ -160,11 +160,11 @@ theorem blkW_w2K2 {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph
     BlkW (fun s c => W2 Λ μ p rd G own rS Tk ar J Dt Ab' lbl lsize s c fs) K exe endPc R F n blk := by
   have hS := blkW_sfacts_k2 (lbl := lbl) hI hf h1 h16 hR hal hlo hhi hl hh hsub hfit hFO hno hfj hk hcd
   have hok : okBlk (-(cx.frame : Int)) 0 n.o blk = true := hno ▸ okBlk_kind2 hf h1 h16 hk
-  obtain ⟨pc0, pre, post, ⟨-, L0, j, hpc0, hb, -⟩, hpc⟩ := hcd
-  have he : lab L0 + Int64.ofNat (4 * (j + pre.length)) = n.pc := by
-    rw [← hpc, ← hpc0, Nat.mul_add, Int64.ofNat_add, Int64.add_assoc]
+  obtain ⟨pc0, pre, post, hc0, hpc⟩ := hcd
+  obtain ⟨-, hat, -⟩ := CdCQ.sub hc0 hpc.symm
+  rw [← hI.labOk] at hat
   have hcode : ∀ s : State, s.exe = exe → s.endPc = endPc → CodeAt s n.pc blk :=
-    Spike.Lib.A64.Flow.code_of hI.lays hI.endOk (blockAt_sub hb) (by rw [hI.labOk]; exact he)
+    AtQ.cdOf hI.lays hI.endOk _ _ hat
   have hW : BlkW (fun s _ => ∀ L, ¬ WrAt s L) (fun _ _ => False) exe endPc R F n blk :=
     blkW_noWr' hcode hok hR hal hlo hhi
   have hWN : BlkW (fun s _ => (∀ L, ¬ WrAt s L) ∧ abi.atSys s = false) (fun _ _ => False) exe endPc R F n blk :=

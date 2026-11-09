@@ -66,7 +66,7 @@ set_option hygiene false in
 local notation "MS2" => Spike.Lib.A64.HelloPh.H2Rt.ms2H (asm := SccCode.helloAsm) F.hp (iRdM Λ0) E
 
 /-- **The first TCB in the pinned region** (`hpin2`): `ChildRoot.hpin2_H` at the listing's `.zero`. -/
-theorem hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size :=
+theorem hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size :=
   Spike.Lib.A64.HelloPh.ChildRoot.hpin2_H F.hp (iRdM Λ0) RootLit.hz_H (by decide)
 
 /-- **`hm`** at the root's table. -/

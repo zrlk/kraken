@@ -55,13 +55,14 @@ example (s : S) : (do ld mainFr (.reg "y%0") .rax : E Unit) s =
   ld_reg (mainFr_y s) .rax
 
 example : emitTerm mainFr (.ret [.reg "y%0"]) =
-    (do ld mainFr (.reg "y%0") .rax; epilogue; ins (i64 .ret)) :=
+    (do ld mainFr (.reg "y%0") .rax; epilogue; lbl (← freshL mainFr.fn); ins (i64 .ret)) :=
   emitTerm_ret1 _ _
 
 example : emitInst mainFr none (.addChk "y%0" (imm 40) (imm 2)) = (do
     ld mainFr (imm 40) .rax; ld mainFr (imm 2) .rcx
     ins (i64 (.add (xr .rax) (or_ .rcx)))
     ins (i64 (.jcc .c (labelOf mainFr.fn "ovf")))
+    lbl (← freshL mainFr.fn)
     st mainFr .rax "y%0") :=
   emitInst_addChk _ _ _ _ _
 

@@ -157,7 +157,7 @@ theorem wake_root {arch : WeakMem.Arch} {B : Budget}
     /- instance facts -/
     (hlo : Λ0.code.lo = Spike.Lib.A64.WakePh.lo) (hstat : Λ0.static = fun _ => none)
     (hA13 : Scc.Cert.Spawn.A64.a13data (Ly).Λ o.prog o.secs = true)
-    (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
+    (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
     (hinit2 : (Spike.Lib.A64.PhRec.m0Of (Ly).Λ o.prog o.secs).initVal ⟨Spike.Lib.WakeGOf2.lim2A (Ly), 8⟩ = 0)
     (hwide : Scc.Cert.WideA64.ExeWide (Ly).exe) (hc : Spike.Lib.A64.Rt.CtrZ o)
     (hnz : WakeOInit.NtZ Λ0 o = true) (hB : B.cells = Scc.Cert.PlaceOK.allocCells)
@@ -218,7 +218,7 @@ theorem wake_rootP (hp : PlaceW pcfg Λ0 SccCertificate.outLit) {arch : WeakMem.
     /- instance facts -/
     (hlo : Λ0.code.lo = Spike.Lib.A64.WakePh.lo) (hstat : Λ0.static = fun _ => none)
     (hA13 : Scc.Cert.Spawn.A64.a13data (Ly).Λ SccCertificate.outLit.prog SccCertificate.outLit.secs = true)
-    (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
+    (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
     (hinit2 : (Spike.Lib.A64.PhRec.m0Of (Ly).Λ SccCertificate.outLit.prog SccCertificate.outLit.secs).initVal
       ⟨Spike.Lib.WakeGOf2.lim2A (Ly), 8⟩ = 0)
     (hwide : Scc.Cert.WideA64.ExeWide (Ly).exe)

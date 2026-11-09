@@ -84,17 +84,17 @@ theorem wcL_local (c : Scc.Emit.A64.FnCtx) {n : String} (hn : c.name = Scc.Lower
 /-- **A piece of a user block's code at `pc` off the write abort's labels**:
 the code predicate `CdC` at a label `L` none of `abLabs` and a user
 function's local label (`WcL`; the runtime's code, e.g. `scc_rt_print`'s
-loop branching into the write abort, is never at `CdCL`). -/
+loop branching into the write abort, is never at `CdCL`): `CdCQ` at those
+labels, each of its pieces after one (a checked `+`'s or a `ret`'s fresh
+label, P5). -/
 def CdCL (prog : List Directive) (okPc : Nat → Bool) (ph : Nat → Nat) (lab : Label → Int64) (ra : Int64)
     (pc : Int64) (blk : List Directive) : Prop :=
-  blk.all isIns = true ∧ ∃ L j, (L ∉ abLabs ∧ WcL L) ∧ lab L + Int64.ofNat (4 * j) = pc ∧
-    blockAt prog L j blk = true ∧ runPhB okPc ph lab pc ra blk = true
+  CdCQ (fun L => L ∉ abLabs ∧ WcL L) prog okPc ph lab ra pc blk
 
 theorem CdCL.toCdC {prog : List Directive} {okPc : Nat → Bool} {ph : Nat → Nat} {lab : Label → Int64}
     {ra pc : Int64} {blk : List Directive} (h : CdCL prog okPc ph lab ra pc blk) :
     CdC prog okPc ph lab ra pc blk :=
-  let ⟨hi, L, j, _, he, hb, hr⟩ := h
-  ⟨hi, L, j, he, hb, hr⟩
+  CdCQ.toCdC h
 
 theorem SubCd.mono {Cd Cd' : Int64 → List Directive → Prop} (hm : ∀ pc blk, Cd pc blk → Cd' pc blk)
     {pc : Int64} {blk : List Directive} (h : SubCd Cd pc blk) : SubCd Cd' pc blk :=
@@ -106,9 +106,19 @@ at a position off the write abort.** -/
 theorem posOff_of_subCdL {prog : List Directive} {okPc : Nat → Bool} {ph : Nat → Nat} {lab : Label → Int64}
     {ra pc : Int64} {blk : List Directive} (h : SubCd (CdCL prog okPc ph lab ra) pc blk) {i : Nat}
     (hi : i < blk.length) : PosOff prog lab (pc + Int64.ofNat (4 * i)) := by
-  obtain ⟨pc0, pre, suf, ⟨-, L, j, hL, hpc0, hb, -⟩, rfl⟩ := h
-  have := posOff_of_blockAt (lab := lab) (blockAt_sub hb) hL.1 hi
-  rwa [ofNat4_add, ofNat4_add, hpc0] at this
+  obtain ⟨pc0, pre, suf, hc, hpc⟩ := h
+  obtain ⟨-, hat, -⟩ := CdCQ.sub (Q := fun L => L ∉ abLabs ∧ WcL L) hc hpc.symm
+  have h1 : ∀ q b, At1Q (fun L => L ∉ abLabs ∧ WcL L) prog lab q b → ∀ i < b.length,
+      PosOff prog lab (q + Int64.ofNat (4 * i)) := by
+    rintro q b ⟨L, j, hL, hq, hb⟩ i hi
+    have := posOff_of_blockAt (lab := lab) hb hL.1 hi
+    rwa [ofNat4_add, hq] at this
+  rcases hat with h | ⟨b1, b2, rfl, ha1, ha2⟩
+  · exact h1 _ _ h i hi
+  · by_cases hi1 : i < b1.length
+    · exact h1 _ _ ha1 i hi1
+    · have := h1 _ _ ha2 (i - b1.length) (by simp at hi; omega)
+      rwa [← ofNat4_add, show b1.length + (i - b1.length) = i by omega] at this
 
 /-! ## The consumers' `hab` -/
 
@@ -133,12 +143,14 @@ theorem blkW_abSt_subCdL {exe : _root_.Executable} [Kraken.Executable.ValidLayou
         PosOff prog lab t ∨ (a = .bl "scc_rt_abort" ∧ (arun lab (blk.take k) ⟨n.pc, n.o, σ⟩).σ.regs.X0 ≠ 4)) :
     BlkW (fun s _ => AbSt μ (Ab lab) s) (fun _ _ => False) exe endPc R F n blk := by
   have hcd' := hcd
-  obtain ⟨pc0, pre, suf, ⟨-, L, j, -, hpc0, hb, hrun⟩, hpc⟩ := hcd'
-  have hph := Scc.Cert.Ph1A64.blkPh_of_runPhB hrun (classify_of_okBlk hok)
-  rw [hpc] at hph
-  have he : lab L + Int64.ofNat (4 * (j + pre.length)) = n.pc := by
-    rw [← hpc, ← hpc0, ofNat4_add]
-  have hcode := code_of hI.lays hI.endOk (blockAt_sub hb) (q := n.pc) (by rw [hI.labOk]; exact he)
+  obtain ⟨pc0, pre, suf, hc0, hpc⟩ := hcd'
+  obtain ⟨-, hat, hrun⟩ := CdCQ.sub (Q := fun L => L ∉ abLabs ∧ WcL L) hc0 hpc.symm
+  have hph := Scc.Cert.Ph1A64.blkPh_of_runPhB (xs := []) (zs := []) (by simpa using hrun)
+    (classify_of_okBlk hok)
+  rw [show n.pc + Int64.ofNat (4 * ([] : List Directive).length) = n.pc by simp] at hph
+  have hcode : ∀ s : State, s.exe = exe → s.endPc = endPc → Spike.Lib.A64.CodeAt s n.pc blk := by
+    rw [← hI.labOk] at hat
+    exact AtQ.cdOf hI.lays hI.endOk _ _ hat
   refine blkW_abSt_pos hI hpr hab hcode hok hR hal hlo hhi hph hnr ?_
   intro σ c hJ k hk a ha t ht
   by_cases hf : t = n.pc + Int64.ofNat (4 * k) + Int64.ofNat 4

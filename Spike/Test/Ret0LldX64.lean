@@ -37,7 +37,7 @@ open SccCertificate (asm sizes labelOffs out outLit out_eq placeCfg)
 def elf : Scc.Sem.Layout × String := scc_elf_layout% "Scc/Test/elf/ret0x64lld/ret0"
 
 -- The file read is the executable linked (evaluation, not a proof).
-#guard elf.2 == "56c8308203ba1acd4b83f29ab376a96272362c865cbe16db88ffc7e82ef17f3e"
+#guard elf.2 == "482d4f0f26fcdec9f99639ce6fb8789e04e30d2d8298eb082a609c7d23e0d909"
 
 /-- The linked executable's layout. -/
 abbrev Λe : Scc.Sem.Layout := elf.1

@@ -57,11 +57,11 @@ theorem wcWf_W2Hb (hR : R.OK) (hR8 : R.base.toNat % 8 = 0) (hRlo : R.lo ≤ -320
     (hunN : ∀ m, F m → Mem.loadInt m.dmem (ntA L.lab) 8 = none)
     (hb : Spike.Lib.X64.HelloPh.Tcb2CallW.BandSp3H L R)
     (hsep : L.pnA ≠ L.lockA ∧ L.pnA ≠ L.freeNA ∧ L.pnA ≠ L.nextA ∧ L.pnA ≠ ntA L.lab)
-    (hhdr : L.pinA + 80#64 + 24#64 ∉ [L.pnA, L.lockA, L.freeNA, L.nextA, ntA L.lab])
+    (hhdr : L.pinA + 112#64 + 24#64 ∉ [L.pnA, L.lockA, L.freeNA, L.nextA, ntA L.lab])
     (hmP : Scc.Sem.Kernel.mapped (Spike.Lib.X64Consumer.K0 L.Λ) true ⟨L.pnA, 8⟩ = true)
-    (hmH : Scc.Sem.Kernel.mapped (Spike.Lib.X64Consumer.K0 L.Λ) true ⟨L.pinA + 104#64, 8⟩ = true)
+    (hmH : Scc.Sem.Kernel.mapped (Spike.Lib.X64Consumer.K0 L.Λ) true ⟨L.pinA + 136#64, 8⟩ = true)
     (hunP : ∀ m, F m → Mem.loadInt m.dmem L.pnA 8 = none)
-    (hunH : ∀ m, F m → Mem.loadInt m.dmem (L.pinA + 104#64) 8 = none)
+    (hunH : ∀ m, F m → Mem.loadInt m.dmem (L.pinA + 136#64) 8 = none)
     (hbase : R.base.toNat + 96 = L.stacksA.toNat + 16384)
     (htidW : Scc.Sem.Kernel.mapped (Spike.Lib.X64Consumer.K0 L.Λ) true ⟨tH L.lab + 56#64, 8⟩ = true ∧
       (∀ m', F m' → Mem.loadInt m'.dmem (tH L.lab + 56#64) 8 = none) ∧

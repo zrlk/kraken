@@ -7,7 +7,7 @@ reads it through `%fs:0`, so main's owned words carry it from there on,
 appended to `ownG`'s (`ownGX`). The worker's map is not changed.
 
 - `tcbM`, `mOf_hdr0`, `tcb1Q_tcbOf`, `tcbM_tcbOf`: main's TCB word, as the
-  first call's `tcbOf` (checked by `decide`, `mOf 2307 = 0`).
+  first call's `tcbOf` (checked by `decide`, `mOf 3331 = 0`).
 - `selfOwn L s`: main owns `tcbM` at `s`: on a pool stack at a pc from
   `scc_rt_start`'s `.x1` on (main after `scc_rt_start`'s switch; below
   `.x1`, `_start` and `scc_rt_start`'s head, never on the pool, so there
@@ -72,7 +72,7 @@ theorem tcbM_tcbOf (L : RuntimeLayout) (g : Flow.Ret0.AllocTcb.G) (c0 : Spike.Li
 def selfOwn (L : RuntimeLayout) (s : State) : Prop :=
   (spPool L s ∧ (L.lab ".Lscc_rt_start.x1").toBitVec.toNat ≤ pcOf s) ∨
     inPc L ".Lscc_rt_start.x1" "scc_rt_main" s ∨
-    ((L.lab ".Lscc_rt_thread_init.x7").toBitVec.toNat + 51 ≤ pcOf s ∧
+    ((L.lab ".Lscc_rt_thread_init.x0").toBitVec.toNat + 51 ≤ pcOf s ∧
       pcOf s < (L.lab "scc_rt_stack_take").toBitVec.toNat)
 
 instance (L : RuntimeLayout) (s : State) : Decidable (selfOwn L s) := by

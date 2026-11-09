@@ -71,11 +71,58 @@ theorem codeC2L_of_segB (hm : cx.maps = true)
       (∀ r ∈ runsAux l xs.reverse (directives (c1 ++ c2) ++ zs), ph (lab r.1).toBitVec.toNat = ph ra.toBitVec.toNat) →
       CodeC2 cx (CdCL prog okPc ph lab ra) (BlC2L prog okPc ph lab cx ra) k (lab l + Int64.ofNat (4 * xs.length))
         is tm
-  | [], k, l, c1, c2, xs, zs, hl, _, hi, ht, hseg, hx, hph, _ => by
+  | [], k, l, c1, c2, xs, zs, hl, _, hi, ht, hseg, hx, hph, hrl => by
     simp only [instsItems] at hi
     cases hi
-    simp only [List.nil_append, List.length_nil, Nat.add_zero] at hseg hph ht
-    exact Or.inr ⟨c2, ht, cdCL_at hl hseg hx (term2_allIns htm ht) hph⟩
+    simp only [List.nil_append, List.length_nil, Nat.add_zero] at hseg hph hrl ht
+    by_cases hr : ∀ ws, tm ≠ .ret ws
+    · exact Or.inr (Or.inl ⟨c2, hr, ht, cdCL_at hl hseg hx (term2_allIns htm hr ht) hph⟩)
+    -- a `ret`: its return site's label between the frame exit and `ret` (P5)
+    obtain ⟨ws, rfl⟩ : ∃ ws, tm = .ret ws := by
+      cases htm with
+      | ret ws => exact ⟨ws, rfl⟩
+      | br => exact absurd (fun _ h => by cases h) hr
+    obtain ⟨hn, lw, hg, rfl⟩ := term_retN_inv ht
+    have hQX := local_wc hfi hun s!"x{k}"
+    generalize hX : cx.local s!"x{k}" = X at hseg hph hrl hQX
+    generalize hT : directives (lw ++ cx.leave) = T
+    have hTi : T.all isIns = true := by rw [← hT]; exact allIns_append (allIns_retLoads hg) (allIns_leave cx)
+    have hRi : (directives [ret]).all isIns = true := allIns_ins _
+    have hTR : directives (lw ++ cx.leave ++ [ret]) = T ++ directives [ret] := by rw [← hT, directives_append]
+    have hD : directives (lw ++ cx.leave ++ [lbl X, ret]) = T ++ .label X :: directives [ret] := by
+      rw [← hT, show lw ++ cx.leave ++ [lbl X, ret] = (lw ++ cx.leave) ++ [lbl X] ++ [ret] by simp,
+        directives_append, directives_append, List.append_assoc]; rfl
+    rw [hD] at hseg hph hrl
+    -- the loads and frame exit
+    have hseg1 : segIn prog l (xs ++ T ++ (.label X :: directives [ret] ++ zs)) = true := by
+      simpa only [List.append_assoc, List.cons_append] using hseg
+    have hph1 : ∀ r ∈ runsAux l xs.reverse (T ++ (.label X :: directives [ret] ++ zs)),
+        runPhB okPc ph lab (lab r.1) ra r.2 = true := by
+      simpa only [List.append_assoc, List.cons_append] using hph
+    obtain ⟨hat1, hr1, hp1⟩ := cdCQ_at1 (Q := fun L => L ∉ abLabs ∧ WcL L) hl hseg1 hx hTi hph1
+    have hxT : (xs ++ T).all isIns = true := by rw [List.all_append, hx, hTi]; rfl
+    obtain ⟨hseg2, hsp⟩ := label_at hgap (P := xs ++ T) (R := directives [ret] ++ zs)
+      (by simpa only [List.append_assoc, List.cons_append] using hseg) hxT
+    rw [List.cons_append, runs_label l xs hTi X] at hph1
+    have hrl1 := hrl
+    rw [List.append_assoc, List.cons_append, runs_label l xs hTi X] at hrl1
+    -- `ret`, after the return site's label
+    obtain ⟨hat2, hr2, -⟩ := cdCQ_at1 (Q := fun L => L ∉ abLabs ∧ WcL L) (l := X) (xs := []) hQX
+      (by simpa using hseg2) rfl hRi (fun r hr => hph1 r (List.mem_cons_of_mem _ hr))
+    rw [List.length_nil, ofNat4_zero] at hat2 hr2
+    have hphX : ph (lab X).toBitVec.toNat = ph ra.toBitVec.toNat := by
+      obtain ⟨P, hP⟩ := runsAux_run0 X [] (directives [ret] ++ zs)
+      exact hrl1 _ (List.mem_cons_of_mem _ hP)
+    have hphl : ph (lab l).toBitVec.toNat = ph ra.toBitVec.toNat := hrl1 _ (List.mem_cons_self ..)
+    have hsp' : lab X = lab l + Int64.ofNat (4 * xs.length) + Int64.ofNat (4 * T.length) := by
+      rw [hsp, pc_app]
+    refine Or.inr (Or.inr ⟨ws, lw, rfl, hn, hg, ?_⟩)
+    rw [hTR]
+    refine ⟨by rw [List.all_append, hTi, hRi]; rfl, .inr ⟨T, _, rfl, hat1, by rw [← hsp']; exact hat2⟩, ?_⟩
+    refine runPhB_append hr1 (by rw [← hsp']; exact hr2) ?_
+    by_cases hTe : T = []
+    · subst hTe; simp only [List.length_nil, ofNat4_zero]
+    · rw [← hsp', hphX, hp1 hTe, hphl]
   | i :: is, k, l, c1, c2, xs, zs, hl, hs, hi, ht, hseg, hx, hph, hrl => by
     have hs' := List.forall_mem_cons.mp hs
     simp only [instsItems] at hi
@@ -135,10 +182,58 @@ theorem codeC2L_of_segB (hm : cx.maps = true)
           · have := codeC2L_of_segB hm hgap hfi hun htm is (k + 1) _ c1' c2 (directives ls) zs hK hs'.2 hc1 ht hseg2 hAs
               hrs hrl2
             rwa [hsp] at this
+        by_cases hac : ∃ d a b, i = .addChk d a b
+        · -- a checked `+`: its fall-through's label before the store (P5)
+          obtain ⟨d, a, b, rfl⟩ := hac
+          obtain ⟨la, lb, ls, ha, hb, hs, hds⟩ := inst_addChk_items hci
+          rw [hds] at hseg hph hrl
+          have hQX := local_wc hfi hun s!"x{k}"
+          generalize hDd : directives (c1' ++ c2) = D at hseg hph hrl
+          generalize hX : cx.local s!"x{k}" = X at hseg hph hrl hQX
+          have hAi := allIns_addDirs ha hb
+          have hSi : (directives ls).all isIns = true := allIns_setReg hs
+          -- the checked add
+          have hseg1 : segIn prog l (xs ++ addDirs cx la lb ++ (.label X :: (directives ls ++ D ++ zs))) = true := by
+            simpa only [List.append_assoc, List.cons_append] using hseg
+          have hph1 : ∀ r ∈ runsAux l xs.reverse (addDirs cx la lb ++ .label X :: (directives ls ++ D ++ zs)),
+              runPhB okPc ph lab (lab r.1) ra r.2 = true := by
+            simpa only [List.append_assoc, List.cons_append] using hph
+          have hrl1 : ∀ r ∈ runsAux l xs.reverse (addDirs cx la lb ++ .label X :: (directives ls ++ D ++ zs)),
+              ph (lab r.1).toBitVec.toNat = ph ra.toBitVec.toNat := by
+            simpa only [List.append_assoc, List.cons_append] using hrl
+          have cA := cdCL_at hl hseg1 hx hAi hph1
+          have hxA : (xs ++ addDirs cx la lb).all isIns = true := by rw [List.all_append, hx, hAi]; rfl
+          obtain ⟨hseg2, hsp⟩ := label_at hgap (P := xs ++ addDirs cx la lb) (R := directives ls ++ D ++ zs)
+            (by simpa only [List.append_assoc] using hseg1) hxA
+          rw [runs_label l xs hAi X] at hph1 hrl1
+          have hsp' : lab X = lab l + Int64.ofNat (4 * xs.length) + Int64.ofNat (4 * (addDirs cx la lb).length) := by
+            rw [hsp, pc_app]
+          have hphX : ∀ r ∈ runsAux X [] (directives ls ++ D ++ zs), runPhB okPc ph lab (lab r.1) ra r.2 = true :=
+            fun r hr => hph1 r (List.mem_cons_of_mem _ hr)
+          have hrlX : ∀ r ∈ runsAux X [] (directives ls ++ D ++ zs),
+              ph (lab r.1).toBitVec.toNat = ph ra.toBitVec.toNat :=
+            fun r hr => hrl1 r (List.mem_cons_of_mem _ hr)
+          -- the store, after the fall-through's label
+          have cS := cdCL_at (l := X) (xs := []) (zs := D ++ zs) hQX
+            (by simpa only [List.append_assoc, List.nil_append] using hseg2) rfl hSi
+            (by simpa only [List.append_assoc, List.reverse_nil] using hphX)
+          rw [List.length_nil, ofNat4_zero, hsp'] at cS
+          -- the rest of the block
+          have c3 := codeC2L_of_segB hm hgap hfi hun htm is (k + 1) X c1' c2 (directives ls) zs hQX hs'.2 hc1 ht
+            (by rw [hDd]; simpa only [List.append_assoc] using hseg2) hSi
+            (by
+              rw [hDd, ← List.append_nil (directives ls).reverse, ← runsAux_shift _ _ _ _ (noLabel_of_isIns hSi)]
+              simpa only [List.append_assoc] using hphX)
+            (by
+              rw [hDd, ← List.append_nil (directives ls).reverse, ← runsAux_shift _ _ _ _ (noLabel_of_isIns hSi)]
+              simpa only [List.append_assoc] using hrlX)
+          rw [hsp'] at c3
+          exact Or.inr (Or.inr (Or.inr (Or.inr ⟨d, a, b, la, lb, ls, rfl, ha, hb, hs, cA, cS, c3⟩)))
         by_cases hc : Spike.Lib.LowerShape.isCall i = false
-        · -- an instruction other than a call: instructions only
-          have hA : (directives ci).all isIns = true := inst2_allIns hs'.1 hc hci
-          refine Or.inl ⟨hc, ci, hci, ?_, ?_⟩
+        · -- an instruction other than a call or a checked `+`: instructions only
+          have hna : ∀ d a b, i ≠ .addChk d a b := fun d a b h => hac ⟨d, a, b, h⟩
+          have hA : (directives ci).all isIns = true := inst2_allIns hs'.1 hc hna hci
+          refine Or.inl ⟨hc, hna, ci, hci, ?_, ?_⟩
           · exact cdCL_at (zs := directives (c1' ++ c2) ++ zs) hl (by simpa only [List.append_assoc] using hseg) hx hA
               (by simpa only [List.append_assoc] using hph)
           · have hxA : (xs ++ directives ci).all isIns = true := by rw [List.all_append, hx, hA]; rfl
@@ -170,7 +265,7 @@ theorem codeC2L_of_segB (hm : cx.maps = true)
             cases hsr
             have hAa : AllIns ca := by rw [getArgs_eq (by simp)] at hca; exact allIns_getOps hca
             obtain ⟨h1, h2, -, h4⟩ := hcall hAa allIns_nil hd
-            refine .inr (.inr (.inr ⟨a0, a1, ca, rfl, hca, h1, h2, ?_⟩))
+            refine .inr (.inr (.inr (.inl ⟨a0, a1, ca, rfl, hca, h1, h2, ?_⟩)))
             simpa [directives] using h4
           | _ => exact absurd rfl hc
 

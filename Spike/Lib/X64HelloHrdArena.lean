@@ -1,5 +1,5 @@
 /-
-**hello.w's root: the memory side's and the arena's premises of `HrdS.hrd_WSHF` at `msUH`** (x86-64; the twin of
+**hello.w's root: the memory side's and the arena's premises of the start's `hrd` at `msUH`** (x86-64; the twin of
 `Spike/Lib/A64HelloHrdArena.lean`, the arena cases at `wc_rodata`'s buffer call and the root's memory sides
 `StartH0U.msUH` at any frames).
 
@@ -15,7 +15,7 @@ At `msUH … fs` (`msOfA` at the arena `arW`, the start's frame condition `MainG
 - `hX0a_U`: the allocator's nodes are at free pcs, so in `X0WH` (`WcWfR.allocW_freeH`,
   `StartGlue.x0WH_of_freeNH`).
 
-`hrd_WSHF`'s `hctx` (the counter add inside the root's `Ctx`) is not here: `Ctx` is the root's choice.
+`hrd`'s `hctx` (the counter add inside the root's `Ctx`) is not here: `Ctx` is the root's choice.
 
 **Where this differs from AArch64** (forced by the x86-64 shape):
 - Over `PlaceWX`, `RuntimeLayout.ofPlaceWX`, `X64.WakeOD.arW`, `X64ConsumerA.msOfA` and x86-64's `Alloc.Call`; the
@@ -85,19 +85,19 @@ section Arena
 variable {E : Entry} {rd : TermRun.Word → Prop} {I : Spike.Lib.X64ConsumerS.InvS} {ls : Lsize}
   {fs : List TermRun.Frame}
 
-/-- `hrd_WSHF`'s `hctr`. -/
+/-- `hrd`'s `hctr`. -/
 theorem hctr_U : (MSU).ctr = (AR).ctr := rfl
 
-/-- `hrd_WSHF`'s `hheap`. -/
+/-- `hrd`'s `hheap`. -/
 theorem hheap_U : (MSU).heap = (AR).heap := rfl
 
-/-- `hrd_WSHF`'s `hoff`. -/
+/-- `hrd`'s `hoff`. -/
 theorem hoff_U : ∀ k τ, (MSU).off k τ = (AR).off k τ := fun _ _ => rfl
 
-/-- `hrd_WSHF`'s `hnew`. -/
+/-- `hrd`'s `hnew`. -/
 theorem hnew_U : (MSU).newOk → (AR).newOk := id
 
-/-- **`hrd_WSHF`'s `hlt`**: the counter word lies below the arena, in `.data` below the heap (A8). -/
+/-- **`hrd`'s `hlt`**: the counter word lies below the arena, in `.data` below the heap (A8). -/
 theorem hlt_U (hc : Spike.Lib.X64.Rt.CtrZ o) : (AR).ctr + 8 ≤ (AR).heap := by
   have hpl := Spike.Lib.PlaceWX.link IH hpw
   obtain ⟨-, h2, -⟩ := Spike.Lib.X64.Rt.ArenaW.ctr_item_of_placeW hpl hc
@@ -109,7 +109,7 @@ theorem hlt_U (hc : Spike.Lib.X64.Rt.CtrZ o) : (AR).ctr + 8 ≤ (AR).heap := by
   show Scc.Cert.PlaceOK.heapUseOf (Ly).Λ + 8 ≤ (Ly).Λ.heap.lo
   omega
 
-/-- **`hrd_WSHF`'s `h64`**: the counter word below `2 ^ 64` (in `.data`, below `2 ^ 32`). -/
+/-- **`hrd`'s `h64`**: the counter word below `2 ^ 64` (in `.data`, below `2 ^ 32`). -/
 theorem h64_U (hc : Spike.Lib.X64.Rt.CtrZ o) : (AR).ctr < 2 ^ 64 := by
   have hpl := Spike.Lib.PlaceWX.link IH hpw
   have hdb : (Ly).Λ.data.lo + (Ly).Λ.data.size ≤ 2 ^ 32 := Spike.Lib.X64.Rt.ArenaW.data_below_of_placeW hpl
@@ -118,12 +118,12 @@ theorem h64_U (hc : Spike.Lib.X64.Rt.CtrZ o) : (AR).ctr < 2 ^ 64 := by
   show Scc.Cert.PlaceOK.heapUseOf (Ly).Λ < 2 ^ 64
   omega
 
-/-- **`hrd_WSHF`'s `hpool`**: the stack pool's base is in the address space. -/
+/-- **`hrd`'s `hpool`**: the stack pool's base is in the address space. -/
 theorem hpool_U : (Ly).Λ.stackPool.lo ≤ 2 ^ 64 := by
   have := (Ly).pool_fit
   omega
 
-/-- **`hrd_WSHF`'s `hmp`**: a location the memory side lets the thread write is mapped writable. -/
+/-- **`hrd`'s `hmp`**: a location the memory side lets the thread write is mapped writable. -/
 theorem hmp_U : ∀ l, (MSU).mp l true → Scc.Sem.Kernel.mapped (Spike.Lib.X64Consumer.K0 (Ly).Λ) true l = true :=
   fun _ h => h.1
 
@@ -136,7 +136,7 @@ theorem hoffQ_U : ∀ q : Call, q.OK (MSU) (Ly).lab → (MSU).off q.n q.τ ≤ 1
   show (Spike.Lib.X64.Rt.arOf (Ly).Λ).off q.n q.τ ≤ 16 * (Spike.Lib.X64.Rt.arOf (Ly).Λ).units q.n q.τ
   rw [hf]; omega
 
-/-- **`hrd_WSHF`'s `hmem`** at the start's frame condition `FS`: the counter word and every header word are
+/-- **`hrd`'s `hmem`** at the start's frame condition `FS`: the counter word and every header word are
 unloaded (`WordsNone`, the arena inside `.heap`, the counter inside `.data`). -/
 theorem hmem_U (hc : Spike.Lib.X64.Rt.CtrZ o) {k0 v : BitVec 64} :
     ∀ q : Call, q.OK (MSU) (Ly).lab → ∀ w : BitVec 64,
@@ -156,7 +156,7 @@ theorem hmem_U (hc : Spike.Lib.X64.Rt.CtrZ o) {k0 v : BitVec 64} :
     (by rw [hh, hcl]; omega) (.inr ⟨by rw [hct]; exact ⟨hc1, by omega⟩, by rw [hct]; exact ⟨by omega, by omega⟩⟩)
     (hoffQ_U hpw i0)
 
-/-- **`hrd_WSHF`'s `hno`**: the counter word and every header word are owned at no phase of `ownH`. -/
+/-- **`hrd`'s `hno`**: the counter word and every header word are owned at no phase of `ownH`. -/
 theorem hno_U (hA13 : Scc.Cert.Spawn.X64.a13data (Ly).Λ o.prog o.secs = true) :
     ∀ q : Call, q.OK (MSU) (Ly).lab → ∀ w : BitVec 64,
       (w = BitVec.ofNat 64 (MSU).ctr ∨ ∃ o', o' + (MSU).units q.n q.τ ≤ (MSU).cells ∧ w.toNat = q.hdrAt (MSU) o') →
@@ -181,7 +181,7 @@ section X0
 variable {E : Entry} {rd : TermRun.Word → Prop} {I : Spike.Lib.X64ConsumerS.InvS} {ls : Lsize}
   {fs : List TermRun.Frame}
 
-/-- **`hrd_WSHF`'s `hX0a`**: the allocator's nodes are at free pcs (`WcWfR.allocW_freeH`), so in `X0WH` at the
+/-- **`hrd`'s `hX0a`**: the allocator's nodes are at free pcs (`WcWfR.allocW_freeH`), so in `X0WH` at the
 take site (`StartGlue.x0WH_of_freeNH`), at any region and frame condition. -/
 theorem hX0a_U (hpa : Scc.Sem.X64.cellsOf asm = some o.prog) (hhp : Scc.Sem.X64.cellsOf asm = some helloCells)
     (hlo0 : Λ0.code.lo = lo) {R : Spike.Lib.Region} {F : MachineData → Prop} :

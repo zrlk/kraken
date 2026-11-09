@@ -26,7 +26,7 @@ variable {L : RuntimeLayout} {s : State}
 /-- The two return addresses on the path differ. -/
 private theorem ra_neH (hlab : ∀ l x, codeOf lo SccCode.helloProg l = some x → L.lab l = Int64.ofNat x) :
     (L.lab ".L3_scc_rt_alloc_tcb.sp13").toBitVec ≠ (L.lab ".L22_wc_main.sp15").toBitVec := by
-  rw [hlab _ 2164992 (by rw [← codeT_eq]; decide +kernel), hlab _ 2169880 (by rw [← codeT_eq]; decide +kernel)]
+  rw [hlab _ 2164996 (by rw [← codeT_eq]; decide +kernel), hlab _ 2169912 (by rw [← codeT_eq]; decide +kernel)]
   decide
 
 /-- **`ownGH` picks `own2aH` on the path** from `scc_rt_alloc_tcb`'s abort

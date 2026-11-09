@@ -238,7 +238,7 @@ theorem wake_finalX_WP {arch : WeakMem.Arch} {B : Budget}
     /- instance facts -/
     (hlo : Λ0.code.lo = Spike.Lib.X64.WakePh.lo)
     (hA13 : Scc.Cert.Spawn.X64.a13data (Ly).Λ outLit.prog outLit.secs = true)
-    (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
+    (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
     (hinit2 : (Spike.Lib.X64.PhRec.m0Of (Ly).Λ outLit.prog outLit.secs).initVal
       ⟨Spike.Lib.X64WakeGOf2.lim2A (Ly), 8⟩ = 0)
     (hsub1 : (X64WakeOSide.r1W hp i).Sub (Ly).Λ.stackPool) (hc : Spike.Lib.X64.Rt.CtrZ outLit)
@@ -298,7 +298,7 @@ theorem wake_finalX_G {arch : WeakMem.Arch} {B : Budget}
     (hB : B.cells = Scc.Cert.PlaceOK.allocCells)
     (hlo : Λ0.code.lo = Spike.Lib.X64.WakePh.lo)
     (hA13 : Scc.Cert.Spawn.X64.a13data (Ly).Λ outLit.prog outLit.secs = true)
-    (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
+    (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
     (hinit2 : (Spike.Lib.X64.PhRec.m0Of (Ly).Λ outLit.prog outLit.secs).initVal
       ⟨Spike.Lib.X64WakeGOf2.lim2A (Ly), 8⟩ = 0)
     (hsub1 : (X64WakeOSide.r1W hp i).Sub (Ly).Λ.stackPool) (hc : Spike.Lib.X64.Rt.CtrZ outLit)
@@ -351,7 +351,7 @@ theorem wake_finalX_L {arch : WeakMem.Arch} {B : Budget} (c0 : Ctl)
     (hB : B.cells = Scc.Cert.PlaceOK.allocCells)
     (hlo : Λ0.code.lo = Spike.Lib.X64.WakePh.lo)
     (hA13 : Scc.Cert.Spawn.X64.a13data (Ly).Λ outLit.prog outLit.secs = true)
-    (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
+    (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
     (hinit2 : (Spike.Lib.X64.PhRec.m0Of (Ly).Λ outLit.prog outLit.secs).initVal
       ⟨Spike.Lib.X64WakeGOf2.lim2A (Ly), 8⟩ = 0)
     (hsub1 : (X64WakeOSide.r1W hp i).Sub (Ly).Λ.stackPool) (hc : Spike.Lib.X64.Rt.CtrZ outLit)

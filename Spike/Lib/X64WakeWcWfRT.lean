@@ -128,18 +128,18 @@ theorem wcSp0W_WSOg (hR : R.OK) (hRlo : R.lo ≤ -72) (hhi : 8 ≤ R.hi)
   simp only [wcS0In, Bool.and_eq_true] at hin
   obtain ⟨h0, h3⟩ := hin
   have hI := instOkW hp hlo 0#64 (fun _ => False) hsite (rS := ⟨0, 0⟩)
-  have hb : blockAtB L.prog ".Lwc_main.x18" 15 [(Spike.Lib.X64.stDir .rcx 0 .rax, 3)] = true := by
+  have hb : blockAtB L.prog ".Lwc_main.x0" 15 [(Spike.Lib.X64.stDir .rcx 0 .rax, 3)] = true := by
     rw [hp]; exact h3
   refine ⟨?_, ?_⟩
   · exact Spike.Lib.X64.AllocG.BlkW.imp
-      (Spike.Lib.X64.WakePh.WcWfS.blkW_WSO hp hlo hΛ hlab hsite hcl hX0 (l := ".Lwc_main.x18") (k := 0) h0
+      (Spike.Lib.X64.WakePh.WcWfS.blkW_WSO hp hlo hΛ hlab hsite hcl hX0 (l := ".Lwc_main.x0") (k := 0) h0
         (ofNat_zero' _) wcS0_ok hR hRlo hhi hS.b (by intro j hj; rw [eX]; revert j; decide +kernel)
         (by unfold Spike.Lib.X64.WakeWf.phOffW; decide +kernel) (by decide) (by wcfreeB_dec)
         (fun _ _ ⟨q, ⟨σe, hJe, _⟩, _, o, hc, _⟩ => hc ▸ Spike.Lib.X64.WakePh.WcWfS.cf_hold (hc0J σe _ hJe))
         hpl.b)
       Spike.Lib.X64.BlkW.triv fun _ _ h _ _ => h
   · have hT := Spike.Lib.X64.WakePh.WcWfS.nodeW_WSO hp hlo hΛ hlab hsite hcl hX0 (Dt := Dt) (frM := frM)
-      (n := nT (sN ms L.lab R J0 .st) t) (l := ".Lwc_main.x18") (k := 15) (z := 3) rfl (nodeW_nT hS.st)
+      (n := nT (sN ms L.lab R J0 .st) t) (l := ".Lwc_main.x0") (k := 15) (z := 3) rfl (nodeW_nT hS.st)
       (by rw [eX]; decide +kernel) (by wcfree_dec) (by unfold Spike.Lib.X64.WakeWf.siOffW; decide +kernel)
       (by
         rintro s c ⟨h1, h2, h3', h4', σ, hA, hF, hJ, -⟩
@@ -162,7 +162,7 @@ set_option maxHeartbeats 800000 in
 (`WakeWf.allocW_WS_tp`): the counter's context owed only at `t`. -/
 theorem allocW_WSOg {ms : Spike.Lib.MemSide isa} {q : Call} {t : UInt64}
     (hR : R.OK) (hlo' : R.lo ≤ -160) (hhi : 8 ≤ R.hi)
-    (hra : q.ra = (L.lab ".Lwc_main.x18").toBitVec) (hq : ∀ m, F m → q.OKS ms L.lab)
+    (hra : q.ra = (L.lab ".Lwc_main.x0").toBitVec) (hq : ∀ m, F m → q.OKS ms L.lab)
     (hmem : ∀ a : BitVec 64,
       (a = BitVec.ofNat 64 ms.ctr ∨ ∃ o, o + ms.units q.n q.τ ≤ ms.cells ∧ a.toNat = q.hdrAt ms o) →
       ∀ m, F m → Mem.loadInt m.dmem a 8 = none)
@@ -211,10 +211,10 @@ theorem wcPreW_WSOg (hR : R.OK) (hR8 : R.base.toNat % 8 = 0) (hRlo : R.lo ≤ -2
     (hc0J : ∀ σ c, J0 σ c → (∀ a, c.term ≠ .ret a) ∧ RunWf p c [])
     (hS : WcPreW (fun s _ => SFactsSt2 L.Λ (Spike.Lib.X64.PhRec.μ L) own s) K L.exe L.endPc R F ms J0 J0)
     (hpl : WcPreW (fun s c => PlacedSE L.Λ lbl s c []) (fun _ _ => False) L.exe L.endPc R F ms J0 J0)
-    (hX0a : ∀ q : Call, q.OKB ms L.lab → q.ra = (L.lab ".Lwc_main.x18").toBitVec →
+    (hX0a : ∀ q : Call, q.OKB ms L.lab → q.ra = (L.lab ".Lwc_main.x0").toBitVec →
       AllocW ms q (fun s _ => X0 s) (fun _ _ => False) L.exe L.endPc (wAR R)
         (fun m => F m ∧ CallerCells R (-80) (-160) 8 m ∧ WcCtx ms L.lab R J0 q m))
-    (hctx : ∀ q : Call, q.OKB ms L.lab → q.ra = (L.lab ".Lwc_main.x18").toBitVec →
+    (hctx : ∀ q : Call, q.OKB ms L.lab → q.ra = (L.lab ".Lwc_main.x0").toBitVec →
       ∀ s c, At L.exe L.endPc (wAR R) (fun m => F m ∧ CallerCells R (-80) (-160) 8 m ∧
         WcCtx ms L.lab R J0 q m) (Spike.Lib.X64.Alloc.N L.lab ms q .rmw) s c → TP t s → Ctx s c [])
     (hctr : ms.ctr = ar.ctr) (hheap : ms.heap = ar.heap) (hoff : ∀ k τ, ms.off k τ = ar.off k τ)

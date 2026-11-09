@@ -11,13 +11,13 @@ The region is wake's `childR` (the handed stack's top, offsets `[lo, 0)`); every
 the cell, main's word; the `syscall` writes `%rax`, `%rcx`, `%r11` only), the thread pointer `tls`, `%rsp` the
 top.
 
-- `hello_svcIn`: the clone's `syscall` in hello's cells, at `.Lwc_main.x25 + 94`.
+- `hello_svcIn`: the clone's `syscall` in hello's cells, at `.Lwc_main.x3 + 94`.
 - `child_atH`: the child after a `clone` (at any pc `q` holding the `syscall`) whose stack range is handed is
   at `childN`.
 
 ## Differences from the AArch64 version
 
-- The `syscall` is the 25th cell after `.Lwc_main.x25`, 94 bytes on (A64's `svc`, 25 instructions past
+- The `syscall` is the 25th cell after `.Lwc_main.x3`, 94 bytes on (A64's `svc`, 25 instructions past
   `.sp6`); `childN`'s pc is `q + 2` (A64's `q + 4`); the labels are the listing's own (no `pfx`).
 - The words are read from `%r12, %rbx, %r13, %r14, %r15, %r9` (A64's `x9 .. x14`); the child's registers are
   `retRegs64` with `%rsp` and `fsBase` set (A64's `X0`, `SP`, `TPIDR_EL0`).

@@ -4,7 +4,8 @@ import Spike.Lib.LowerX64.BlocksC1Code
 # The code predicate of an `Accepted1` block with calls on x86-64
 
 `Spike/Lib/LowerX64/BlocksC1Code.lean` at work: `CodeC`'s arms unfolded on
-an `unreachable`, a `ret`, a non-call instruction and a one-word user call.
+an `unreachable`, a `ret`, a non-call instruction, a checked `+` and a
+one-word user call.
 -/
 
 namespace Spike.Test.LowerX64BlocksC1Code
@@ -18,10 +19,23 @@ variable (fr : Scc.Emit.X64.Frame) (Cd : Int64 → List (Directive × Nat) → P
 /-- `unreachable` makes no claim. -/
 example (k : Nat) (pc : Int64) : CodeC fr Cd Bl k pc [] .unreachable := Or.inl rfl
 
-/-- A `ret`'s code at `pc`, at some cell sizes. -/
-example (k : Nat) (pc : Int64) (w : Scc.IR.Operand) (l : List Item) (zs : List Nat)
-    (h : Emits (emitTerm fr (.ret [w])) l) (hz : zs.length = (dirs l).length) (hc : Cd pc ((dirs l).zip zs)) :
-    CodeC fr Cd Bl k pc [] (.ret [w]) := Or.inr ⟨l, zs, h, hz, hc⟩
+/-- A `ret`'s code at `pc`, at some cell sizes: its load, the epilogue and
+`ret` (`retDirs`; its return site's fresh label between the teardown and
+`ret`, P5). -/
+example (k : Nat) (pc : Int64) (w : Scc.IR.Operand) (lw : List Item) (zs : List Nat)
+    (hw : getOp fr .rax w = .ok lw) (hz : zs.length = (retDirs lw).length) (hc : Cd pc ((retDirs lw).zip zs)) :
+    CodeC fr Cd Bl k pc [] (.ret [w]) := Or.inr (Or.inr ⟨w, lw, zs, rfl, hw, hz, hc⟩)
+
+/-- A checked `+` at label counter `k`: the loads and the checked add, then
+the store after its fall-through's label `.L<fn>.x<k>`, the rest from
+`k + 1` (P5). -/
+example (k : Nat) (pc : Int64) (d : Scc.IR.Reg) (a b : Scc.IR.Operand) (la lb : List Item) (off : Int)
+    (zs : List Nat) (z : Nat) (tm : Scc.IR.Term) (ha : getOp fr .rax a = .ok la) (hb : getOp fr .rcx b = .ok lb)
+    (hd : rsOf fr d = some off) (hz : zs.length = (addDirs fr la lb).length)
+    (h1 : Cd pc ((addDirs fr la lb).zip zs)) (h2 : Cd (pc + Int64.ofNat zs.sum) [(stDir off, z)])
+    (hr : CodeC fr Cd Bl (k + 1) (pc + Int64.ofNat zs.sum + Int64.ofNat z) [] tm) :
+    CodeC fr Cd Bl k pc [.addChk d a b] tm :=
+  Or.inr (Or.inr ⟨d, a, b, la, lb, off, zs, z, rfl, ha, hb, hd, hz, h1, h2, hr⟩)
 
 /-- The thread-pointer read, then the block's rest at the same label
 counter. -/
@@ -40,7 +54,7 @@ example (k : Nat) (pc : Int64) (d : Scc.IR.Reg) (g : String) (w : Scc.IR.Operand
     (h3 : Cd (pc + Int64.ofNat zs.sum + Int64.ofNat zc) [(stDir off, z)])
     (hr : CodeC fr Cd Bl (k + 1) (pc + Int64.ofNat zs.sum + Int64.ofNat zc + Int64.ofNat z) [] tm) :
     CodeC fr Cd Bl k pc [.call [d] (Scc.Lower.Names.user g) [w]] tm :=
-  Or.inr ⟨d, g, w, lw, off, zs, zc, z, rfl, hw, hd, hz, h1, h2, h3, hr⟩
+  Or.inr (Or.inl ⟨d, g, w, lw, off, zs, zc, z, rfl, hw, hd, hz, h1, h2, h3, hr⟩)
 
 /--
 info: 'Spike.Lib.LowerX64.emitInst_sm' depends on axioms: [propext]

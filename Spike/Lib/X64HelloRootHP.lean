@@ -1,9 +1,9 @@
 /-
-**hello.w's `HelloRootPrem.hP` at the box's real ghost** (x86-64; twin of `Spike/Lib/A64HelloRootHP.lean`): `H1GAH`
-at the pinned ghost `X64HelloRootHPD.GJ1RH` from the fields that depend on more than the region and frame
+**hello.w's `HelloRootPrem.hP` at the box's real ghost** (x86-64; twin of `Spike/Lib/A64HelloRootHP.lean`):
+`H1GAHG` at the pinned ghost `X64HelloRootHPD.GJ1RH` from the fields that depend on more than the region and frame
 condition (`H1GAH0`, the twin of wake's `WakeH1A.H1GA`), and its splits by who discharges them at the root.
 
-- `H1GAH0`: `H1GAH` without `hi96`, `fcl`, `fcg`, `hR8`, `hFr`, `hunF`, `hF0`, `hpl`, which the pinned ghost's
+- `H1GAH0`: `H1GAHG` at `WSH` without `hi96`, `fcl`, `fcg`, `hR8`, `hFr`, `hunF`, `hF0`, `hpl`, which the pinned ghost's
   region and frame condition discharge.
 - `H1GAH0W`, `H1GAH0W.toH0`: `H1GAH0` but `hWX` (the level lift, a projection at the root's choices), and back given
   `hWX`.
@@ -11,15 +11,15 @@ condition (`H1GAH0`, the twin of wake's `WakeH1A.H1GA`), and its splits by who d
   `h2`'s runtime facts prove), and back given them.
 - `ResV`, `TcbV`: `H1GAH0V.res`'s and `.tcb`'s statements, named so the root's base can carry them as fields.
 - `hCI_RH`: `X64HelloH2CP.cloneInvH_of_mid`'s `hCI` at `GJ1RH` (`h2`'s Box).
-- `hP_of`: `H1GAH` from `GJ1RH` and `H1GAH0`: `hi96`, `hR8` (the region's bounds `-392`, `16`), `fcg`, `fcl`,
-  `hF0` (`BoxRF.wcF_dmemH`, `wcF_takeMemH`, `stackOff_r0_boxH`), `hFr`, `hunF` (`FS`'s `WordsNoneP`,
-  `BoxRF.rtF_of_wn`, `unF_of_wn`) and `hpl` (`GJ1H`'s entry slice, `SpawnPl.hplQ_GJ1H`) are discharged;
-  `hP_ofG`: the same from `H1GAH0W` and a level lift at any start level (`H1GAHG`).
+- `hP_ofG`: `H1GAHG` from `GJ1RH`, `H1GAH0W` and a level lift at any start level: `hi96`, `hR8` (the region's
+  bounds `-392`, `16`), `fcg`, `fcl`, `hF0` (`BoxRF.wcF_dmemH`, `wcF_takeMemH`, `stackOff_r0_boxH`), `hFr`, `hunF`
+  (`FS`'s `WordsNoneP`, `BoxRF.rtF_of_wn`, `unF_of_wn`) and `hpl` (`GJ1H`'s entry slice, `SpawnPl.hplQ_GJ1H`) are
+  discharged (AArch64's `hP_of` is the same at `H1GAH0`).
 
 ## Unlike AArch64
 
-- As `X64HelloH1A.H1GAH` against AArch64's: `wcWf`, `tcb` and `hWX` are at `MidG (QBH l b ws)` (the box is
-  published at `.x25`'s `mfence`; AArch64 `SBH`), the reserve returns to `.Lwc_main.x23` and the TCB's
+- As `X64HelloH1A.H1GAHG` against AArch64's `H1GAH`: `wcWf`, `tcb` and `hWX` are at `MidG (QBH l b ws)` (the box
+  is published at `.x25`'s `mfence`; AArch64 `SBH`), the reserve returns to `.Lwc_main.x1` and the TCB's
   allocation to `x24L` (AArch64 `.sp3`, `.sp4`), the callees sit at `-136` with `hi' = 8` (AArch64 `-144`,
   `hi' = 0`), the stores are `Ret0.StOk (ms []) F` (no `exe`, `endPc`), and the take's ghosts are two
   `Ret0.AllocTcb.G`.
@@ -56,10 +56,10 @@ open Spike.Lib.X64.HelloPh.Ti2 (X0TH)
 /-- `Flow`'s abstract state. -/
 local notation "FAS" => Spike.Lib.X64.AS
 
-/-! ## `H1GAH` without its region and frame condition fields -/
+/-! ## `H1GAHG` without its region and frame condition fields -/
 
-/-- **`H1GAH` but its region and frame condition fields and `hpl`** (`hi96`, `fcl`, `fcg`, `hR8`, `hFr`, `hunF`,
-`hF0`, `hpl`, which the pinned ghost discharges). -/
+/-- **`H1GAHG` at `WSH` but its region and frame condition fields and `hpl`** (`hi96`, `fcl`, `fcg`, `hR8`, `hFr`,
+`hunF`, `hF0`, `hpl`, which the pinned ghost discharges). -/
 structure H1GAH0 (L : RuntimeLayout) (W X : FragS isa) (Wc : Frag isa)
     (ms : List TermRun.Frame → MemSide isa) (p : Prog) (lbl : Lbl) (l : WeakMem.AllocLabel) (b : Nat)
     (ws : List TermRun.Word) (a : BitVec 64) (ar : Arena) (Dt Cw : State → Prop) (Ctx : FragS isa) (lsize : Lsize)
@@ -68,7 +68,7 @@ structure H1GAH0 (L : RuntimeLayout) (W X : FragS isa) (Wc : Frag isa)
   /-- `HMidPAH.wcWf`. -/
   wcWf : WcMainWH (fun s c => W s c []) (fun _ _ => False) L.exe L.endPc R F F (tpXa (ms []) tp) J1 (QBH l b ws)
   /-- `HMidPAH.res`. -/
-  res : ∀ g : Ret0.AllocTcb.G × Ctl, g.1.ra = (L.lab ".Lwc_main.x23").toBitVec →
+  res : ∀ g : Ret0.AllocTcb.G × Ctl, g.1.ra = (L.lab ".Lwc_main.x1").toBitVec →
     ∀ nd, ReserveW (fun s c => W s c []) (fun _ _ => False) L.exe L.endPc (rARH R)
       (fun m => F m ∧ CallerCells R (-136) (-40) 8 m ∧ ResCtxH L.lab R
         (rNH (tpXa (ms []) tp) L.lab R J1 (QBH l b ws) .call).J g m) ⟨g.1, 0#64, g.2⟩ nd
@@ -92,14 +92,14 @@ structure H1GAH0 (L : RuntimeLayout) (W X : FragS isa) (Wc : Frag isa)
   /-- `HMidPAH.wcl`. -/
   wcl : ∀ s c sl me cA fr, At L.exe L.endPc R F (wcNSH L.lab c (tH L.lab) (kOf L.lab) sl me cA fr) s c →
     SpawnSrcH l ws c → cA.toNat = b → FrMGH J1 fr sl me → StackM (r1Of L.lab) s.st.1 → W s c [] ∧ Wc s c
-  /-- The level lift from `WSH` at main's frame, at a state writing off the arena (`hti_HO`'s `hWX`). -/
+  /-- The level lift from `WSH` at main's frame, at a state writing off the arena (`hti_HOX`'s `hWX`). -/
   hWX : ∀ c0 cA, MidG (QBH l b ws) c0 cA → ∀ s c,
     WSH L a ar p Dt Cw Ctx lbl lsize (frM c0) (X0TH L (L.lab siteL)) s c → Spike.Lib.X64.HelloW2.OffW ar s →
       W s c [] ∧ X s c []
-  /-- The thread init's fields (`hti_HO`'s `hfld`). -/
+  /-- The thread init's fields (`hti_HOX`'s `hfld`). -/
   hfld : ∀ e ∈ Ret0.ThreadInit.fields (tH L.lab) (Ret0.stacksA L.lab + 16384#64),
     StOk (ms []) F (tH L.lab + BitVec.ofNat 64 e.1) e.2
-  /-- The take's facts (`hti_HO`'s `htk`). -/
+  /-- The take's facts (`hti_HOX`'s `htk`). -/
   htk : ∀ (c0 : Ctl) (R' : Region) (F' : MachineData → Prop), (∀ m, F' m → F m) →
     R' = R.callee (-136) (-248) 8 → ∀ (g g' : Ret0.AllocTcb.G),
     Spike.Lib.X64.Rt.TakeOkA (ms []) F L.exe L.endPc (R'.callee (-48 - 0) (-200) 8) F'
@@ -114,7 +114,7 @@ structure H1GAH0W (L : RuntimeLayout) (W X : FragS isa) (Wc : Frag isa)
   /-- `HMidPAH.wcWf`. -/
   wcWf : WcMainWH (fun s c => W s c []) (fun _ _ => False) L.exe L.endPc R F F (tpXa (ms []) tp) J1 (QBH l b ws)
   /-- `HMidPAH.res`. -/
-  res : ∀ g : Ret0.AllocTcb.G × Ctl, g.1.ra = (L.lab ".Lwc_main.x23").toBitVec →
+  res : ∀ g : Ret0.AllocTcb.G × Ctl, g.1.ra = (L.lab ".Lwc_main.x1").toBitVec →
     ∀ nd, ReserveW (fun s c => W s c []) (fun _ _ => False) L.exe L.endPc (rARH R)
       (fun m => F m ∧ CallerCells R (-136) (-40) 8 m ∧ ResCtxH L.lab R
         (rNH (tpXa (ms []) tp) L.lab R J1 (QBH l b ws) .call).J g m) ⟨g.1, 0#64, g.2⟩ nd
@@ -138,10 +138,10 @@ structure H1GAH0W (L : RuntimeLayout) (W X : FragS isa) (Wc : Frag isa)
   /-- `HMidPAH.wcl`. -/
   wcl : ∀ s c sl me cA fr, At L.exe L.endPc R F (wcNSH L.lab c (tH L.lab) (kOf L.lab) sl me cA fr) s c →
     SpawnSrcH l ws c → cA.toNat = b → FrMGH J1 fr sl me → StackM (r1Of L.lab) s.st.1 → W s c [] ∧ Wc s c
-  /-- The thread init's fields (`hti_HO`'s `hfld`). -/
+  /-- The thread init's fields (`hti_HOX`'s `hfld`). -/
   hfld : ∀ e ∈ Ret0.ThreadInit.fields (tH L.lab) (Ret0.stacksA L.lab + 16384#64),
     StOk (ms []) F (tH L.lab + BitVec.ofNat 64 e.1) e.2
-  /-- The take's facts (`hti_HO`'s `htk`). -/
+  /-- The take's facts (`hti_HOX`'s `htk`). -/
   htk : ∀ (c0 : Ctl) (R' : Region) (F' : MachineData → Prop), (∀ m, F' m → F m) →
     R' = R.callee (-136) (-248) 8 → ∀ (g g' : Ret0.AllocTcb.G),
     Spike.Lib.X64.Rt.TakeOkA (ms []) F L.exe L.endPc (R'.callee (-48 - 0) (-200) 8) F'
@@ -168,7 +168,7 @@ structure H1GAH0V (L : RuntimeLayout) (W : FragS isa) (Wc : Frag isa)
   /-- `HMidPAH.wcWf`. -/
   wcWf : WcMainWH (fun s c => W s c []) (fun _ _ => False) L.exe L.endPc R F F (tpXa (ms []) tp) J1 (QBH l b ws)
   /-- `HMidPAH.res`. -/
-  res : ∀ g : Ret0.AllocTcb.G × Ctl, g.1.ra = (L.lab ".Lwc_main.x23").toBitVec →
+  res : ∀ g : Ret0.AllocTcb.G × Ctl, g.1.ra = (L.lab ".Lwc_main.x1").toBitVec →
     ∀ nd, ReserveW (fun s c => W s c []) (fun _ _ => False) L.exe L.endPc (rARH R)
       (fun m => F m ∧ CallerCells R (-136) (-40) 8 m ∧ ResCtxH L.lab R
         (rNH (tpXa (ms []) tp) L.lab R J1 (QBH l b ws) .call).J g m) ⟨g.1, 0#64, g.2⟩ nd
@@ -187,7 +187,7 @@ structure H1GAH0V (L : RuntimeLayout) (W : FragS isa) (Wc : Frag isa)
 abbrev ResV (L : RuntimeLayout) (W : FragS isa) (ms : List TermRun.Frame → MemSide isa) (l : WeakMem.AllocLabel)
     (b : Nat) (ws : List TermRun.Word) (R : Region) (F : MachineData → Prop) (J1 : FAS → Ctl → Prop) (tp : UInt64) :
     Prop :=
-  ∀ g : Ret0.AllocTcb.G × Ctl, g.1.ra = (L.lab ".Lwc_main.x23").toBitVec →
+  ∀ g : Ret0.AllocTcb.G × Ctl, g.1.ra = (L.lab ".Lwc_main.x1").toBitVec →
     ∀ nd, ReserveW (fun s c => W s c []) (fun _ _ => False) L.exe L.endPc (rARH R)
       (fun m => F m ∧ CallerCells R (-136) (-40) 8 m ∧ ResCtxH L.lab R
         (rNH (tpXa (ms []) tp) L.lab R J1 (QBH l b ws) .call).J g m) ⟨g.1, 0#64, g.2⟩ nd
@@ -270,7 +270,7 @@ frame condition fields from `GJ1RH`'s `(wcR …).fp (-8)`/`wcF` (`hi96`, `hR8`: 
 id at the TCB (`SpawnPl.hplQ_GJ1H`, at the placement `upd lbl1 l b` and rodata's slice `slWsH lr`), the level lift
 `hWX` from `V`, the rest `H1GAH0W`'s. -/
 theorem hP_ofG (hA13 : Scc.Cert.Spawn.X64.a13data (Ly).Λ o.prog o.secs = true)
-    (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
+    (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
     {W X : FragS isa} {Wc : Frag isa} {ms : List TermRun.Frame → MemSide isa} {p : Prog}
     {l : WeakMem.AllocLabel} {b : Nat} {a : BitVec 64} {ar : Arena} {Dt Cw : State → Prop}
     {Ctx : FragS isa} {lsize : Lsize} {frM : Ctl → TermRun.Frame} {lbl1 : Lbl} {lr : WeakMem.AllocLabel}
@@ -307,23 +307,6 @@ theorem hP_ofG (hA13 : Scc.Cert.Spawn.X64.a13data (Ly).Λ o.prog o.secs = true)
     hfld := h0.hfld
     htk := h0.htk }
 
-/-- **`H1GAH` at the pinned ghost** (`HelloRootPrem.hP`'s conclusion): `hP_ofG` at the start level `WSH`, its
-`hWX` and the rest `H1GAH0`'s. -/
-theorem hP_of (hA13 : Scc.Cert.Spawn.X64.a13data (Ly).Λ o.prog o.secs = true)
-    (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
-    {W X : FragS isa} {Wc : Frag isa} {ms : List TermRun.Frame → MemSide isa} {p : Prog}
-    {l : WeakMem.AllocLabel} {b : Nat} {a : BitVec 64} {ar : Arena} {Dt Cw : State → Prop}
-    {Ctx : FragS isa} {lsize : Lsize} {frM : Ctl → TermRun.Frame} {lbl1 : Lbl} {lr : WeakMem.AllocLabel}
-    {R : Region} {F : MachineData → Prop} {J1 : FAS → Ctl → Prop} {tp : UInt64}
-    (hl : lbl1 l = none) (hmt : lbl1 (Spike.Lib.X64WakeSrcDefs.mainTidLbl 2) = some ((Ly).pinA.toNat + 8))
-    (hG : GJ1RH (Ly) lbl1 lr R F J1 tp)
-    (h0 : H1GAH0 (Ly) W X Wc ms p (Spike.Lib.X64ConsumerA.upd lbl1 l b) l b (Spike.Lib.X64HelloHMid.slWsH lr) a ar
-      Dt Cw Ctx lsize frM R F J1 tp) :
-    Spike.Lib.X64.HelloH1A.H1GAH (Ly) W X Wc ms p (Spike.Lib.X64ConsumerA.upd lbl1 l b) l b
-      (Spike.Lib.X64HelloHMid.slWsH lr) a ar Dt Cw Ctx lsize frM R F J1 tp :=
-  hP_ofG hpw i hA13 hpin2 (a := a) (Dt := Dt) (Cw := Cw) (Ctx := Ctx) (lsize := lsize) (frM := frM) hl hmt hG
-    ⟨h0.wcWf, h0.res, h0.tcb, h0.resA, h0.hdrA, h0.tcbA, h0.tid, h0.wcl, h0.hfld, h0.htk⟩ h0.hWX
-
 end HP
 
 end Spike.Lib.X64.HelloPh.RootHP
@@ -345,6 +328,3 @@ info: 'Spike.Lib.X64.HelloPh.RootHP.H1GAH0V.toW' depends on axioms: [propext, Cl
 
 /-- info: 'Spike.Lib.X64.HelloPh.RootHP.hP_ofG' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms Spike.Lib.X64.HelloPh.RootHP.hP_ofG
-
-/-- info: 'Spike.Lib.X64.HelloPh.RootHP.hP_of' depends on axioms: [propext, Classical.choice, Quot.sound] -/
-#guard_msgs in #print axioms Spike.Lib.X64.HelloPh.RootHP.hP_of

@@ -297,9 +297,9 @@ theorem wcMainW_wf (hpg : o.prog = wakeCells) (hlo : (Ly).Λ.code.lo = lo)
   have hpL : (Ly).prog = wakeCells := hpg
   have hcl : ∀ s, WakeOD.ClW hpw i s → abi.atSys s = true ∧
       ∃ st tl, Scc.Sem.Kernel.decode abi.nrs (abi.nr s) (abi.arg s) = some (.clone st tl) := fun _ h => h.2
-  have e18 : (_root_.Executable.labels (Ly).exe).label ".Lwc_main.x18" = Int64.ofNat 4203326 :=
+  have e18 : (_root_.Executable.labels (Ly).exe).label ".Lwc_main.x0" = Int64.ofNat 4203364 :=
     hlab _ _ (by rw [← Scc.Cert.Rt.X64.codeT_eq]; decide +kernel)
-  have e19 : (_root_.Executable.labels (Ly).exe).label ".Lwc_main.x19" = Int64.ofNat 4203349 :=
+  have e19 : (_root_.Executable.labels (Ly).exe).label ".Lwc_main.x1" = Int64.ofNat 4203387 :=
     hlab _ _ (by rw [← Scc.Cert.Rt.X64.codeT_eq]; decide +kernel)
   have e20 := WakePh.WcSp4W.lab_x20 hlab
   have e21 := WakePh.WcSp4W.lab_x21 hlab

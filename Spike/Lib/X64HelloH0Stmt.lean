@@ -1,18 +1,17 @@
 /-
 **`H0StmtH` at hello's root** (x86-64; the twin of `Spike/Lib/A64HelloH0Stmt.lean`: the level-0 statement
 `HelloHClW.hClH_of` and `HelloSegEnd.hpc_ofR` take as `h0`, assembled from the root's level-0 pieces): the level
-before the allocation `RootH0.inv0H` is a closed invariant inside `W0H` (`RootH0.h0H`), contains the start pair
-(`RootH0.hstH`, given the start segment `hst0`) and is never at the clone (`StartGlue.noCloneH_of`: `W0H`'s
+before the allocation `RootH0.inv0Hg` is a closed invariant inside `W0Hg` (`RootH0.h0Hg`), contains the start pair
+(`RootH0.hstHg`, given the start segment `hst0`) and is never at the clone (`StartGlue.noCloneH_of`: `W0Hg`'s
 per-state facts `X0WH` are off the clone's pc).
 
 - `h0Stmt_rootg`: `H0StmtH` at `W0 := W0Hg own`, `inv0 := inv0Hg own`, `Start := StartPH`, the take `TakeCKS` at
   the site and `ClH`, the side `msHg … own (I3 … (inv0Hg own) inv1 inv2)`, at any own map `own`.
-- `h0Stmt_root`: it at `ownGH` (`W0H`, `inv0H`, `msH`; `HelloRootO.helloDR`'s level 0).
 
 ## Differences from the AArch64 version
 
 - Over x86-64's `isa`, the assembly an `Asm`, the placement a `PlaceWX` (`RuntimeLayout.ofPlaceWX`), as
-  `X64HelloRootH0`; the clone's pc is `X64HelloPreA.clonePcH` (the `syscall` at `.Lwc_main.x25 + 94`). The
+  `X64HelloRootH0`; the clone's pc is `X64HelloPreA.clonePcH` (the `syscall` at `.Lwc_main.x3 + 94`). The
   statement and proof are A64's.
 -/
 import Spike.Lib.X64HelloRootH0
@@ -29,8 +28,8 @@ open Spike.Lib.X64.Rt (RuntimeLayout)
 open Spike.Lib.X64Consumer (Lsize)
 open Spike.Lib.X64ConsumerA (I3 TakeCKS)
 open Spike.Lib.X64.WakeWf (DtW)
-open Spike.Lib.X64.HelloPh.StartH0B (StartPH W0H W0Hg)
-open Spike.Lib.X64.HelloPh.RootH0 (msH msBotH inv0H msHg msBotHg inv0Hg h0Hg hstHg)
+open Spike.Lib.X64.HelloPh.StartH0B (StartPH W0Hg)
+open Spike.Lib.X64.HelloPh.RootH0 (msHg msBotHg inv0Hg h0Hg hstHg)
 open Spike.Lib (FragS SegWS PlaceWX)
 open Spike.Lib.X64WakeLoadT (L0T ls0T)
 open Spike.Lib.X64HelloSrc (helloSrc)
@@ -70,21 +69,7 @@ theorem h0Stmt_rootg {own : State → List (Loc × Val)}
     fun s c fs h => by obtain ⟨rfl, rfl, rfl⟩ := h; exact hstHg hpw i E rd Ctx ls0 ls frM inv1 inv2 own hst0,
     Spike.Lib.X64.HelloPh.StartGlue.noCloneH_of (h0Hg hpw i E rd Ctx ls0 ls frM inv1 inv2 own)⟩
 
-/-- **`H0StmtH` at the root** (module doc), given the start segment `hst0` (`RootH0.hstH`'s): `h0Stmt_rootg` at
-`ownGH`. -/
-theorem h0Stmt_root
-    (hst0 : SegWS (W0H (asm := asm) hpw i E DtW Ctx (ls0T ls0) frM) (TakeCKS (AX) (Spike.Lib.X64.HelloPh.ClH (Ly)))
-      helloSrc (LB) (msBotH (asm := asm) hpw i E rd ls inv1 inv2) (StartPH hpw i E) (fun _ _ _ => False)) :
-    H0StmtH (W0H (asm := asm) hpw i E DtW Ctx (ls0T ls0) frM) (TakeCKS (AX) (Spike.Lib.X64.HelloPh.ClH (Ly))) (LB)
-      (msH (asm := asm) hpw i E rd ls
-        (I3 (AR) (LB) (ls0T ls) (inv0H (asm := asm) hpw i E rd Ctx ls0 ls frM inv1 inv2) inv1 inv2))
-      (Ly) (StartPH hpw i E) (inv0H (asm := asm) hpw i E rd Ctx ls0 ls frM inv1 inv2) :=
-  h0Stmt_rootg hpw i E rd Ctx ls0 ls frM inv1 inv2 hst0
-
 end Spike.Lib.X64.HelloPh.H0Stmt
 
 /-- info: 'Spike.Lib.X64.HelloPh.H0Stmt.h0Stmt_rootg' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms Spike.Lib.X64.HelloPh.H0Stmt.h0Stmt_rootg
-
-/-- info: 'Spike.Lib.X64.HelloPh.H0Stmt.h0Stmt_root' depends on axioms: [propext, Classical.choice, Quot.sound] -/
-#guard_msgs in #print axioms Spike.Lib.X64.HelloPh.H0Stmt.h0Stmt_root

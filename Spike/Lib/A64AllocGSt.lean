@@ -382,11 +382,14 @@ theorem allocStS (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
     obtain ⟨-, hmp', -⟩ := hq'.hdr o.toNat hlo hle
     exact ⟨hmp _ (hofn ▸ hmp'), hmem _ (.inr ⟨o.toNat, hle, hAeq⟩) m hF, hno _ (.inr ⟨o.toNat, hle, hAeq⟩)⟩
   · ablk h17 b13_ok p17
-  · refine NodeW.st (Spike.Lib.LowerA64.BlkW.nodeW (Spike.Lib.A64.Rt.blkW_postO hI
+  · have eR : lab Spike.Lib.A64.Flow.allocRetL + Int64.ofNat (4 * 0) =
+        lab ".L2_scc_rt_alloc.5_ok" + Int64.ofNat (4 * 54) := by
+      rw [← hI.labOk, Scc.Cert.Rt.A64.label_labelGap hI.lays h18.1]; simp
+    refine NodeW.st (Spike.Lib.LowerA64.BlkW.nodeW (Spike.Lib.A64.Rt.blkW_postO hI
       (lbl := Λ.static) (blk := [iRet.toDir]) (lo := -160) (hi := 0) (dead := fun _ => false)
-      (ra := Int64.ofBitVec q.ra) h18
-      (by pcs_tac) (by dsimp only [dumN, N]; decide) hR hal (by omega) (by omega)
-      (fun _ _ hJ => hJ.1 ▸ cfacts_c0) (blkPh_ret p18 (by rw [hra, p19]))
+      (ra := Int64.ofBitVec q.ra) h18.2 (by rw [eR]; pcs_tac)
+      (by dsimp only [dumN, N]; decide) hR hal (by omega) (by omega)
+      (fun _ _ hJ => hJ.1 ▸ cfacts_c0) (blkPh_ret (by rw [eR]; exact p18) (by rw [hra, eR, p19]))
       (hret_of_run (lo := -160) (hi := 0) (by dsimp only [dumN, N]; decide) fun σ c hJ => ?_) (fun _ _ _ => rfl)
       hl hh hsub hfit hFO) (List.cons_ne_nil _ _))
     obtain ⟨-, c, o, -, -, -, -, -, h30⟩ := hJ

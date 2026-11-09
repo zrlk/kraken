@@ -9,8 +9,8 @@ import Spike.Lib.X64CodeSegs
 The x64 twin of `Scc/Cert/Rt/A64RtIn.lean`. The runtime's code checks,
 `Alloc.allocIn` (`scc_rt_alloc`), `Print.printIn` (`scc_rt_print`), `Abort.abortIn` (the abort stubs and
 `scc_rt_abort`) and the tail of `scc_rt_main` (the `exit_group` tail at
-`.Lscc_rt_main.x2`, `Spike.Lib.X64.Flow.exitIn`, or `Abort.mainIn` at
-`.Lscc_rt_main.x3`), as groups of fixed code (`RGrp`) in program order
+`.Lscc_rt_main.x0`, `Spike.Lib.X64.Flow.exitIn`, or `Abort.mainIn` at
+`.Lscc_rt_main.x1`), as groups of fixed code (`RGrp`) in program order
 (`rtTab`), checked by one pass (`rtIn`, `Scc/Cert/Rt/RtPassX64.lean`)
 instead of a search per label. The groups are the checks' facts, regrouped
 by label: `allocIn_of_rtIn`, `printIn_of_rtIn`, `abortIn_of_rtIn`, `mainIn0_of_rtIn`,
@@ -24,31 +24,31 @@ open Kraken Kraken.Promising Kraken.Promising.X64 Kraken.Promising.Lower.X64 Spi
 /-! ## `scc_rt_main`'s tail -/
 
 /-- The tail of `scc_rt_main` without a setup block: the `exit_group` tail
-right after `.Lscc_rt_main.x2`, the result at `-16(%rbp)`
-(`Flow.exitIn cells ".Lscc_rt_main.x2" (-16) 4 4 5`). -/
+right after `.Lscc_rt_main.x0`, the result at `-16(%rbp)`
+(`Flow.exitIn cells ".Lscc_rt_main.x0" (-16) 4 4 5`). -/
 def mainGrps0 : List RGrp :=
-  [⟨".Lscc_rt_main.x2", [(0, Flow.xExit (-16) 4 4 5), (4 + 4 + 5, [(op64 .syscall, 2)])], none⟩]
+  [⟨".Lscc_rt_main.x0", [(0, Flow.xExit (-16) 4 4 5), (4 + 4 + 5, [(op64 .syscall, 2)])], none⟩]
 
 /-- The tail of `scc_rt_main` after a setup block (`Abort.mainIn`). -/
 def mainGrps1 : List RGrp :=
-  [⟨".Lscc_rt_main.x3", [(0, Spike.Lib.X64.Abort.MainTail.m0), (13, [(op64 .syscall, 2)])], none⟩]
+  [⟨".Lscc_rt_main.x1", [(0, Spike.Lib.X64.Abort.MainTail.m0), (13, [(op64 .syscall, 2)])], none⟩]
 
 /-- The slot of `wc_main`'s result in `scc_rt_main`'s frame after a setup
 block of `sw` words: `-8 (sw + 2)` (the `k` of `Spike.Lib.X64.Rt.setupMC sw`). -/
 def mainK (sw : Nat) : Int64 := -Int64.ofNat (8 * (sw + 2))
 
 /-- The tail of `scc_rt_main` after a setup block of `sw` words: the
-`exit_group` tail right after `.Lscc_rt_main.x3`, the result at `mainK sw`
+`exit_group` tail right after `.Lscc_rt_main.x1`, the result at `mainK sw`
 (`mainInS`). At four words it is `mainGrps1` (`mainGrps1_eq`). -/
 def mainGrpsS (sw : Nat) : List RGrp :=
-  [⟨".Lscc_rt_main.x3", [(0, Flow.xExit (mainK sw) 4 4 5), (4 + 4 + 5, [(op64 .syscall, 2)])], none⟩]
+  [⟨".Lscc_rt_main.x1", [(0, Flow.xExit (mainK sw) 4 4 5), (4 + 4 + 5, [(op64 .syscall, 2)])], none⟩]
 
 /-- **The code of the tail of `scc_rt_main` after a setup block of `sw`
-words in `cells`**: `Flow.exitIn` at `.Lscc_rt_main.x3` and `mainK sw`, so
+words in `cells`**: `Flow.exitIn` at `.Lscc_rt_main.x1` and `mainK sw`, so
 `Flow.exitTail_seg_of` runs it. At four words it is `Abort.mainIn`
 (`mainIn_eq_mainInS`). -/
 def mainInS (cells : List (Directive × Nat)) (sw : Nat) : Bool :=
-  Flow.exitIn cells ".Lscc_rt_main.x3" (mainK sw) 4 4 5
+  Flow.exitIn cells ".Lscc_rt_main.x1" (mainK sw) 4 4 5
 
 /-- `Abort.MainTail.m0` (`hello1.w`'s tail, four setup words) is the
 `exit_group` tail at `mainK 4`. -/
@@ -83,7 +83,8 @@ def allocGrps : List RGrp := [
     (32, bO2), (36, [(iHeap.toDir, 7)]), (43, bO3), (58, [((FI.shl_cl .rax).toDir, 3)]), (61, bO4),
     (88, [((FI.imul_rr .rax .rcx).toDir, 4)]), (92, bO5), (107, [((FI.shl_cl .rax).toDir, 3)]), (110, bO6),
     (125, [((FI.shl_cl .rax).toDir, 3)]), (128, bO7), (140, [((FI.or_rr .rax .rcx).toDir, 3)]), (143, bO8),
-    (170, [(iHdr, 3)]), (173, bO9), (226, [(iRet.toDir, 1)])], none⟩]
+    (170, [(iHdr, 3)]), (173, bO9)], some (226, retL)⟩,
+  ⟨retL, [(0, [(iRet.toDir, 1)])], none⟩]
 
 end Alloc
 
@@ -103,7 +104,8 @@ def printGrps : List RGrp := [
   ⟨".Lscc_rt_print.chk3", [(0, x9), (16, x10)], none⟩,
   ⟨".Lscc_rt_print.adv", [(0, x11)], none⟩,
   ⟨".Lscc_rt_print.fail", [(0, x12)], none⟩,
-  ⟨".Lscc_rt_print.done", [(0, x13)], none⟩]
+  ⟨".Lscc_rt_print.done", [(0, x13.take 2)], some (((x13.take 2).map (·.2)).sum, Print.retL)⟩,
+  ⟨Print.retL, [(0, x13.drop 2)], none⟩]
 
 end Print
 
@@ -174,7 +176,7 @@ open Spike.Lib.X64.Print in
 theorem printIn_of_rtIn (h : rtIn cells (rtTab main) = true) : Print.printIn cells = true := by
   have h := (rtAll_parts h).2.1
   simp only [printGrps, RtAll, BsOk, GapAt, and_true] at h
-  simp only [Print.printIn, h, Bool.and_self]
+  simp only [Print.printIn, blockAcrossB, Nat.zero_add, h, Bool.and_self]
 
 open Spike.Lib.X64.Abort in
 theorem stubIn_of {st : Stub} {x1 : List (Directive × Nat)} {rest : List RGrp}
@@ -204,7 +206,7 @@ theorem abortIn_of_rtIn (h : rtIn cells (rtTab main) = true) : Abort.abortIn cel
 
 /-- **`scc_rt_main`'s tail without a setup block** from the pass. -/
 theorem mainIn0_of_rtIn (h : rtIn cells (rtTab mainGrps0) = true) :
-    Flow.exitIn cells ".Lscc_rt_main.x2" (-16) 4 4 5 = true := by
+    Flow.exitIn cells ".Lscc_rt_main.x0" (-16) 4 4 5 = true := by
   have h := (rtAll_parts h).1
   simp only [mainGrps0, RtAll, BsOk, GapAt, and_true] at h
   simp only [Flow.exitIn, h, Bool.and_self]

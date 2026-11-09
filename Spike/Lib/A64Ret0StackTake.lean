@@ -43,7 +43,7 @@ open CoreLang CoreTerm
 open Kraken Kraken.AArch64.Parser Kraken.Promising Kraken.Promising.AArch64 Kraken.Promising.Lower.A64
 open Spike.Lib.A64.Alloc (subs_c subs_z subs_hi)
 open Spike.Lib.A64.Flow.Ret0.AllocTcb (labStep labStep_spec)
-open Scc.Cert.Rt.A64 (Lays endOf blockAt labelGap)
+open Scc.Cert.Rt.A64 (Lays endOf blockAt labelGap blockAcross)
 
 set_option linter.unusedSimpArgs false
 
@@ -428,6 +428,8 @@ abbrev okL : Label := ".L6_scc_rt_stack_take.9_ok"
 abbrev takenL : Label := ".L6_scc_rt_stack_take.10_taken"
 /-- The site's label. -/
 abbrev siteL : Label := "scc_rt_take_site"
+/-- The return's label (just before `ret`). -/
+abbrev retL : Label := ".L6_scc_rt_stack_take.x42"
 
 /-- **The pc of the lock's swap** (`swpal`: the lock `0 → 1`). -/
 abbrev swpPc (lab : Label → Int64) : Int64 := lab spinL + Int64.ofNat (4 * 2)
@@ -464,7 +466,7 @@ def stackTakeIn (prog : List Directive) : Bool :=
   blockAt prog bumpL 21 stJ2 &&
   labIn prog okL 0 "scc_rt_stacks" && blockAt prog okL 2 stOk &&
   blockAt prog takenL 0 stSite && labelGap prog takenL siteL 2 &&
-  blockAt prog siteL 0 (parseAArch64("nop")) && blockAt prog siteL 1 stRet
+  blockAt prog siteL 0 (parseAArch64("nop")) && blockAcross prog siteL 1 (stRet.take 4) retL (stRet.drop 4)
 
 #guard stackTakeIn SccCode.ret0Prog
 

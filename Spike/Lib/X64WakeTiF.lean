@@ -6,7 +6,7 @@ at `F0 := wFU`), the runtime's words and the second TCB's words load none
 word of `.data` and `pinned` unloaded (`RootU.hunB_wFU`).
 
 - `tiAddr_spawn`: a word of the second TCB (`tiAddrs (t2 lab)`, `pinA +
-  104 + 8 k`) is `spawnWords`' word `3 + k`.
+  136 + 8 k`) is `spawnWords`' word `3 + k`.
 - `hFr_U`: `rtF` under `F` (`words_mapped`).
 - `hunF_U`: the second TCB's words load none under `F` (A13's
   `spawnWords`, `H1Rt.a13_facts`).
@@ -33,16 +33,16 @@ set_option hygiene false in
 /-- The layout of `ofPlaceWX`. -/
 local notation "Ly" => RuntimeLayout.ofPlaceWX hp i
 
-/-- **A word of the second TCB is a spawn word**: `pinA + 104 + 8 k` is
+/-- **A word of the second TCB is a spawn word**: `pinA + 136 + 8 k` is
 `spawnWords`' word `3 + k`. -/
 theorem tiAddr_spawn {a : BitVec 64} (ha : a ∈ Spike.Lib.X64.Rt.Ti.tiAddrs (t2 (Ly).lab)) :
     a ∈ Scc.Cert.Spawn.X64.spawnWords (Ly).pinA := by
-  have ht : t2 (Ly).lab = (Ly).pinA + 104#64 := by
-    show Spike.Lib.X64.Flow.Ret0.pinA (Ly).lab + 104#64 = _
+  have ht : t2 (Ly).lab = (Ly).pinA + 136#64 := by
+    show Spike.Lib.X64.Flow.Ret0.pinA (Ly).lab + 136#64 = _
     rw [(Ly).lab_pin]
-  have hadd : ∀ c, (Ly).pinA + 104#64 + BitVec.ofNat 64 c = (Ly).pinA + BitVec.ofNat 64 (104 + c) := fun c => by
+  have hadd : ∀ c, (Ly).pinA + 136#64 + BitVec.ofNat 64 c = (Ly).pinA + BitVec.ofNat 64 (136 + c) := fun c => by
     rw [BitVec.add_assoc]; congr 1; apply BitVec.eq_of_toNat_eq; simp [BitVec.toNat_add]
-  have hw : ∀ k < 6, (Ly).pinA + BitVec.ofNat 64 (104 + 8 * k) ∈ Scc.Cert.Spawn.X64.spawnWords (Ly).pinA :=
+  have hw : ∀ k < 6, (Ly).pinA + BitVec.ofNat 64 (136 + 8 * k) ∈ Scc.Cert.Spawn.X64.spawnWords (Ly).pinA :=
     fun k hk => List.mem_map.2 ⟨3 + k, List.mem_range.2 (by
       have : 9 ≤ 1 + Scc.IR.Tcb.size / 8 + Scc.IR.maxSpawnArgs := by decide
       omega), by congr 2; omega⟩

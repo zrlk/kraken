@@ -4,7 +4,7 @@
 between the one-thread consumer of main's code up to its `clone` and the clone's row, error path and spawn
 (`ChildAt`/`ParentAt`; the spawn obligation).
 
-At main's `syscall` (`.Lwc_main.x25 + 94`: `cloneAtH`, `X64HelloWcSp6.wcNSH`) the one-slot configuration has
+At main's `syscall` (`.Lwc_main.x3 + 94`: `cloneAtH`, `X64HelloWcSp6.wcNSH`) the one-slot configuration has
 one thread, at the system call, asking for `clone(stack, tls)`:
 - `stack = %rsi`, the child's stack top (the top of the second take's range `r1`);
 - `tls = %r8`, the child's TCB;
@@ -28,7 +28,7 @@ The thread's promises are empty.
 
 ## Differences from the AArch64 version
 
-- The x86-64 labels are not numbered per program (`.Lwc_main.x25`), so `cloneAtH` and `ClonePreH` drop
+- The x86-64 labels are not numbered per program (`.Lwc_main.x3`), so `cloneAtH` and `ClonePreH` drop
   AArch64's label prefix `pfx` (as `X64WakePreA` does wake's).
 - The clone's arguments are `%rsi`/`%r8` (AArch64: `x1`/`x3`); the worker's words are in
   `%r12, %rbx, %r13, %r14, %r15, %r9` (AArch64: `x9 .. x14`).
@@ -52,7 +52,7 @@ open Spike.Lib.X64WakeSrcDefs (mainTidLbl)
 open Spike.Lib.X64HelloInst (bufW BufAtSpawn)
 open Spike.Lib.X64.HelloPh.WcSp6 (x25L)
 
-/-- **The clone's address**: the `syscall` at `.Lwc_main.x25 + 94` (`X64HelloWcSp6.wcNSH`: the packet's copy,
+/-- **The clone's address**: the `syscall` at `.Lwc_main.x3 + 94` (`X64HelloWcSp6.wcNSH`: the packet's copy,
 the fence, the loads, the two zeroings and `movl $56`), in executable `exe`. -/
 def cloneAtH (exe : _root_.Executable) : Int64 :=
   (_root_.Executable.labels exe).label x25L + 94

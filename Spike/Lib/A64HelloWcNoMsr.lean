@@ -81,7 +81,8 @@ theorem reserveW_noMsrH {q : ResG} (h : ∀ i, ReserveW W K exe endPc R F q i) :
   · exact node_nm hp hend (h .rmw) r4 rfl (by decide)
   · exact blk_nm hp hend (h .bnd) r5 rfl (by decide)
   · exact blk_nm hp hend (h .j) r6 rfl (by decide)
-  · exact blk_nm hp hend (h .ok) r7 (ofNat4_zero _) (by decide)
+  · exact BlkW.noMsr (h .ok)
+      (Spike.Lib.A64.code_field_blockAcross hp hend r7 (List.take_append_drop 4 _) (ofNat4_zero _)) (by decide)
 
 /-- **From the fence to `.sp3` is inside `NoMsrW W K`**. -/
 theorem WcResWH.noMsr {ms : MemSide isaLSE2} {J1 : AS → Ctl → Prop} {S Q : WeakMem.AllocLabel → Nat → Ctl → Prop}
@@ -114,7 +115,8 @@ theorem tcbWG_noMsrH {q : TcbGG} (h : ∀ i, TcbWG W K exe endPc R F q i) :
   · exact node_nm hp hend (h .ok1) t11 rfl (by decide)
   · exact blk_nm hp hend (h .ok2) t12 rfl (by decide)
   · exact node_nm hp hend (h .hdr) t13 rfl (by decide)
-  · exact blk_nm hp hend (h .ret) t14 rfl (by decide)
+  · exact BlkW.noMsr (h .ret)
+      (Spike.Lib.A64.code_field_blockAcross hp hend t14 (List.take_append_drop 12 _) rfl) (by decide)
 
 /-- **From `.sp3` to `.sp4` is inside `NoMsrW W K`**. -/
 theorem WcSp3WH.noMsr {c0 : Ctl} {sl : BitVec 64 × BitVec 64 × BitVec 64 × BitVec 64} {me cA : BitVec 64}

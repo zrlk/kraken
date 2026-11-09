@@ -36,15 +36,11 @@ theorem lowerIR_checked {cfg : Scc.Config} {p : Prog} {l : Scc.Lower.Lowered}
       · cases h; rfl
 
 /-- **The x86-64 emission keeps the lowering.** -/
-theorem emitAll_low {l : Scc.Lower.Lowered} {e : Scc.Lower.X64.Emitted} (h : Scc.Lower.X64.emitAll l = .ok e) :
+theorem emitAll_low {l : Scc.Lower.Lowered} {gw : Option (List (Array (List Int) × List (List Nat)))}
+    {e : Scc.Lower.X64.Emitted} (h : Scc.Lower.X64.emitAll l gw = .ok e) :
     e.low = l := by
-  unfold Scc.Lower.X64.emitAll at h
-  cases hm : Scc.Emit.X64.emitItemsMaps l.ir with
-  | error _ => rw [hm] at h; cases h
-  | ok r =>
-    rw [hm] at h
-    cases h
-    rfl
+  obtain ⟨_, _, -, rfl⟩ := Scc.Lower.X64.emitAll_ok h
+  rfl
 
 /-- The tail of a successful lowering's output is `.bare` when its checked
 program's entry takes `Unit`. -/
@@ -59,7 +55,7 @@ theorem tail_bare_of_checked {cfg : Scc.Config} {p : Prog} {em : Scc.Lower.X64.E
   | error e => rw [hl] at hlow; cases hlow
   | ok l =>
     rw [hl] at hlow
-    have hlow : Scc.Lower.X64.emitAll l = .ok em := hlow
+    have hlow : Scc.Lower.X64.emitAll l cfg.gcWit = .ok em := hlow
     have hlo := emitAll_low hlow
     have hc' := lowerIR_checked hl
     rw [hc] at hc'

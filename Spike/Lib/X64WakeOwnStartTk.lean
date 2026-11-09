@@ -247,7 +247,7 @@ theorem takeL (hp : L.prog = wakeCells)
     · dsimp only [takeNG]; rw [eSite]; decide +kernel
   case ret =>
     have eX7' : L.lab Spike.Lib.X64.Rt.Code.Ti.x7L = Int64.ofNat 4199569 := eX7
-    refine blkL hp hlab hsite hsep ha hW (P := PT) (Q := NoH) bRet rfl stRet_ok hR (by omega) (by omega)
+    refine blkLA hp hlab hsite hsep ha hW (P := PT) (Q := NoH) bRet rfl stRet_ok hR (by omega) (by omega)
       (fun _ h => h.2) (fun s h => cls_off hlab hbd s h.1) (cls_off hlab hbd) ?_ (soT stRet oI) (fun σ c hJ => ?_)
     · intro k hk; dsimp only [takeNG]; rw [eSite]; revert k; decide +kernel
     · dsimp only [takeNG] at hJ ⊢

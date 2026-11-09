@@ -88,20 +88,27 @@ section Arms
 
 variable {cx : FnCtx} {Cd : Int64 → List Directive → Prop} {Bl : Int64 → Label → Nat → Prop}
 
-/-- **A checked `+`'s code**: the add's block, then the store's, then the rest. -/
+/-- **A checked `+`'s code**: the add's block, then, after its
+fall-through's label (P5), the store's, then the rest. -/
 theorem codeC_addChk (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) {k : Nat} {pc : Int64} {d : Scc.IR.Reg}
     {a b : Scc.IR.Operand} {is : List Scc.IR.Inst} {tm : Scc.IR.Term}
     (h : CodeC cx Cd Bl k pc (.addChk d a b :: is) tm) :
     ∃ la lb off, cx.getOp .X9 a = .ok la ∧ cx.getOp .X10 b = .ok lb ∧ cx.slotOff d = .ok off ∧
       SubCd Cd pc (addDirs cx la lb) ∧ SubCd Cd (pc + Int64.ofNat (4 * (addDirs cx la lb).length)) (strDirs off) ∧
       CodeC cx Cd Bl (k + 1) (pc + Int64.ofNat (4 * (addDirs cx la lb).length) + 4) is tm := by
-  rcases h with ⟨-, l, hl, hc, hrest⟩ | ⟨d', g, w, lw, ls, he, -⟩
-  · obtain ⟨la, lb, off, ha, hb, hd, hds⟩ := inst_addChk_inv hf h1 hl
-    rw [hds] at hc hrest
-    refine ⟨la, lb, off, ha, hb, hd, SubCd.left hc, SubCd.right hc, ?_⟩
-    rw [List.length_append, show (strDirs off).length = 1 from rfl, add_ofNat_four_succ] at hrest
-    exact hrest
+  rcases h with ⟨-, hna, -⟩ | ⟨d', g, w, lw, ls, he, -⟩ | ⟨d', a', b', la, lb, ls, he, ha, hb, hs, hcA, hcS, hrest⟩
+  · exact absurd rfl (hna d a b)
   · cases he
+  · cases he
+    cases hd : cx.slotOff d with
+    | error e => simp [FnCtx.setReg, hd, bind, Except.bind] at hs
+    | ok off =>
+      rw [setReg_eq hf (by omega) hd] at hs
+      cases hs
+      have e : Int64.ofNat (4 * (directives [ins (.STR (rz .W64 .X9) ⟨spW64, .imm ⟨i64 off, none⟩⟩)]).length) = 4 :=
+        rfl
+      rw [e] at hrest
+      exact ⟨la, lb, off, ha, hb, rfl, SubCd.whole hcA, SubCd.whole hcS, hrest⟩
 
 /-- **A saturating `-`'s code**: the subtraction's block, then the store's,
 then the rest. -/
@@ -111,13 +118,15 @@ theorem codeC_subSat (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) {k : Nat} {pc : 
     ∃ la lb off, cx.getOp .X9 a = .ok la ∧ cx.getOp .X10 b = .ok lb ∧ cx.slotOff d = .ok off ∧
       SubCd Cd pc (subDirs la lb) ∧ SubCd Cd (pc + Int64.ofNat (4 * (subDirs la lb).length)) (strDirs off) ∧
       CodeC cx Cd Bl (k + 1) (pc + Int64.ofNat (4 * (subDirs la lb).length) + 4) is tm := by
-  rcases h with ⟨-, l, hl, hc, hrest⟩ | ⟨d', g, w, lw, ls, he, -⟩
+  rcases h with ⟨-, -, l, hl, hc, hrest⟩ | ⟨d', g, w, lw, ls, he, -⟩ | ⟨d', a', b', la, lb, ls, he, -⟩
+  rotate_left
+  · cases he
+  · cases he
   · obtain ⟨la, lb, off, ha, hb, hd, hds⟩ := inst_subSat_inv hf h1 hl
     rw [hds] at hc hrest
     refine ⟨la, lb, off, ha, hb, hd, SubCd.left hc, SubCd.right hc, ?_⟩
     rw [List.length_append, show (strDirs off).length = 1 from rfl, add_ofNat_four_succ] at hrest
     exact hrest
-  · cases he
 
 /-- **An `if`'s code**: the compare-and-branch's block, then the `b` to the
 `else` label. -/
@@ -126,18 +135,21 @@ theorem codeC_br {k : Nat} {pc : Int64} {a b : Scc.IR.Operand} {t f : Scc.IR.Lab
     ∃ la lb T Fl, cx.getOp .X9 a = .ok la ∧ cx.getOp .X10 b = .ok lb ∧
       cx.blockLabel t = .ok T ∧ cx.blockLabel f = .ok Fl ∧ SubCd Cd pc (brDirs la lb T) ∧
       SubCd Cd (pc + Int64.ofNat (4 * (brDirs la lb T).length)) (jmpDirs Fl) := by
-  rcases h with h | ⟨l, hl, hc⟩
+  rcases h with h | ⟨l, -, hl, hc⟩ | ⟨w, lw, he, -⟩
   · cases h
   · obtain ⟨la, lb, T, Fl, ha, hb, hT, hF, hds⟩ := term_br_inv hl
     rw [hds] at hc
     exact ⟨la, lb, T, Fl, ha, hb, hT, hF, SubCd.left hc, SubCd.right hc⟩
+  · cases he
 
-/-- **A one-word `ret`'s code**: the word's load, the frame's exit, `ret`. -/
+/-- **A one-word `ret`'s code**: the word's load, the frame's exit, `ret`
+(around its return site's label, P5: `CodeC`'s `ret` arm). -/
 theorem codeC_ret {k : Nat} {pc : Int64} {w : Scc.IR.Operand} (h : CodeC cx Cd Bl k pc [] (.ret [w])) :
     ∃ l, cx.getOp .X0 w = .ok l ∧ SubCd Cd pc (directives (l ++ cx.leave ++ [ret])) := by
-  rcases h with h | ⟨l, hl, hc⟩
+  rcases h with h | ⟨l, hr, -⟩ | ⟨w', lw, he, hw, hc⟩
   · cases h
-  · obtain ⟨lw, hw, rfl⟩ := term_ret_inv hl
+  · exact absurd rfl (hr _)
+  · cases he
     exact ⟨lw, hw, SubCd.whole hc⟩
 
 end Arms
@@ -382,8 +394,10 @@ theorem bodyC_segS {cx : FnCtx} (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) (h16 
       rcases h with ⟨-, r', hr', rfl⟩ | ⟨fr', r', hfr', -, -⟩
       rotate_left
       · rw [hfrm] at hfr'; cases hfr'
-      rcases hcode with ⟨hc, -⟩ | ⟨d', g', w', lw, ls, he, hw, hs, hcw, hb, hcs, hrest⟩
+      rcases hcode with ⟨hc, -⟩ | ⟨d', g', w', lw, ls, he, hw, hs, hcw, hb, hcs, hrest⟩ | ⟨_, _, _, _, _, _, he, -⟩
       · simp [Spike.Lib.LowerShape.isCall] at hc
+      rotate_left
+      · cases he
       simp only [Scc.IR.Inst.call.injEq, List.cons.injEq, and_true] at he
       obtain ⟨rfl, hg, rfl⟩ := he
       rw [← hg] at hb

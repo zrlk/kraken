@@ -4,11 +4,11 @@
 a runtime load that needs the word owned (`OwnAt … tp tp`). As in wake, each thread's memory side is its side
 with its own self word owned and its runtime writes narrowed to words off both self words (`X64WakeOwnX.msXW`):
 main's `msHX := msXW (msH …) T T W`, the worker's `msWHX := msXW (msWH …) W T W`, at `T = tcbM L = pinA + 8`
-and hello's second TCB `W = tcbWH L = pinA + 112`.
+and hello's second TCB `W = tcbWH L = pinA + 144`.
 
 - `tcbWH`, `tcbM_ne_tcbWH`: hello's second TCB's self word and its distinctness (`X64HelloMs`'s, re-exported).
-- `offTcb_park_tcbWH`, `tcbM_roomH`, `pin_room120_ofPlaceWX`: the park's word `tcbM + 16` misses `tcbWH`'s,
-  `tcbM + 24` fits, and `pinA + 120` fits at a placed output.
+- `offTcb_park_tcbWH`, `tcbM_roomH`, `pin_room152_ofPlaceWX`: the park's word `tcbM + 16` misses `tcbWH`'s,
+  `tcbM + 24` fits, and `pinA + 152` fits at a placed output.
 - `ldOk_msXW`, `limOk_msXW`, `stOk_msXW_park`: the runtime accesses' facts transfer from any memory side to its
   `msXW` (a read's `mp … false` is unchanged; the park's exchange at `T + 16` misses both self words).
 - `msHX`, `msWHX`: the two memory sides at record `w`; `ldOk_msHX`, `limOk_msHX`, `stOk_msHX_park`: the lifts at
@@ -19,8 +19,8 @@ and hello's second TCB `W = tcbWH L = pinA + 112`.
 
 Unlike AArch64, whose park and worker tail read the thread pointer from a register, x86-64's read the TCB's
 self word through `%fs`, so each thread's memory side must own that word. hello's second TCB is at
-`pinA + 112` (its header at `pinA + 104`, `X64HelloGOf2H`), where wake's is at `pinA + 104`, so wake's
-`X64WakeInst.offTcb_park_tcb2` does not apply; `offTcb_park_tcbWH` is its counterpart at `pinA + 112`.
+`pinA + 144` (its header at `pinA + 136`, `X64HelloGOf2H`), where wake's is at `pinA + 136`, so wake's
+`X64WakeInst.offTcb_park_tcb2` does not apply; `offTcb_park_tcbWH` is its counterpart at `pinA + 144`.
 -/
 import Spike.Lib.X64WakeSelfOK
 import Spike.Lib.X64HelloMs
@@ -40,25 +40,25 @@ open Spike.Lib.X64.Flow.Ret0 (LimOk StOk LdOk)
 export Spike.Lib.X64HelloMs (tcbWH tcbM_ne_tcbWH)
 
 /-- **The park's word `tcbM + 16` misses `tcbWH`'s** (no wrap-around). -/
-theorem offTcb_park_tcbWH (L : RuntimeLayout) (hpin : L.pinA.toNat + 120 ≤ 2 ^ 64) :
+theorem offTcb_park_tcbWH (L : RuntimeLayout) (hpin : L.pinA.toNat + 152 ≤ 2 ^ 64) :
     OffTcb (tcbWH L) ⟨tcbM L + 16#64, 8⟩ := by
   left
-  show (L.pinA + 8#64 + 16#64).toNat + 8 ≤ (L.pinA + 112#64).toNat
+  show (L.pinA + 8#64 + 16#64).toNat + 8 ≤ (L.pinA + 144#64).toNat
   simp only [BitVec.toNat_add, BitVec.toNat_ofNat]
   rw [Nat.mod_eq_of_lt (a := L.pinA.toNat + 8 % 2 ^ 64) (by omega),
     Nat.mod_eq_of_lt (a := L.pinA.toNat + 8 % 2 ^ 64 + 16 % 2 ^ 64) (by omega),
-    Nat.mod_eq_of_lt (a := L.pinA.toNat + 112 % 2 ^ 64) (by omega)]
+    Nat.mod_eq_of_lt (a := L.pinA.toNat + 144 % 2 ^ 64) (by omega)]
   omega
 
 /-- **`tcbM + 24` fits** (`stOk_msXW_park`'s `hT`). -/
-theorem tcbM_roomH (L : RuntimeLayout) (hpin : L.pinA.toNat + 120 ≤ 2 ^ 64) :
+theorem tcbM_roomH (L : RuntimeLayout) (hpin : L.pinA.toNat + 152 ≤ 2 ^ 64) :
     (tcbM L).toNat + 24 ≤ 2 ^ 64 :=
   X64WakeInst.tcbM_room L (by omega)
 
-/-- **`pinA + 120` fits at a placed output** (the pinned region below `2 ^ 32`). -/
-theorem pin_room120_ofPlaceWX {pcfg : Scc.Cert.PlaceOK.Config} {o : Scc.Cert.PlaceOK.X64.Out}
+/-- **`pinA + 152` fits at a placed output** (the pinned region below `2 ^ 32`). -/
+theorem pin_room152_ofPlaceWX {pcfg : Scc.Cert.PlaceOK.Config} {o : Scc.Cert.PlaceOK.X64.Out}
     {Λ : Scc.Sem.Layout} (hp : PlaceWX pcfg Λ o) (i : CoreTerm.Expr → String → Nat → Option Nat) :
-    (RuntimeLayout.ofPlaceWX hp i).pinA.toNat + 120 ≤ 2 ^ 64 := by
+    (RuntimeLayout.ofPlaceWX hp i).pinA.toNat + 152 ≤ 2 ^ 64 := by
   have hb := PlaceWX.below32_of_placeWX hp Λ.pinned (by simp [Scc.Sem.Layout.regions])
   have he : (RuntimeLayout.ofPlaceWX hp i).Λ.pinned = Λ.pinned := rfl
   rw [PlaceWX.pinA_toNat_ofPlaceWX hp i, he]
@@ -109,10 +109,10 @@ theorem limOk_msHX {a Z : BitVec 64} (h : LimOk (X64HelloMs.msH L G SR w) F a Z)
     LimOk (msHX L G SR w) F a Z :=
   limOk_msXW h
 
-/-- **The park's exchange at `tcbM + 16` at main's side**, given `pinA + 120` in the address space
-(`pin_room120_ofPlaceWX` at a placed output). -/
+/-- **The park's exchange at `tcbM + 16` at main's side**, given `pinA + 152` in the address space
+(`pin_room152_ofPlaceWX` at a placed output). -/
 theorem stOk_msHX_park (h : StOk (X64HelloMs.msH L G SR w) F (tcbM L + 16#64) 0#64)
-    (hpin : L.pinA.toNat + 120 ≤ 2 ^ 64) : StOk (msHX L G SR w) F (tcbM L + 16#64) 0#64 :=
+    (hpin : L.pinA.toNat + 152 ≤ 2 ^ 64) : StOk (msHX L G SR w) F (tcbM L + 16#64) 0#64 :=
   stOk_msXW_park h (tcbM_roomH L hpin) (offTcb_park_tcbWH L hpin)
 
 /-- **main's side owns `tcbM` holding `tcbM`** at every pc (the park's `%fs:0` load). -/
@@ -143,10 +143,10 @@ end Spike.Lib.X64HelloOwnLift
 /-- info: 'Spike.Lib.X64HelloOwnLift.tcbM_roomH' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms Spike.Lib.X64HelloOwnLift.tcbM_roomH
 
-/-- info: 'Spike.Lib.X64HelloOwnLift.pin_room120_ofPlaceWX'
+/-- info: 'Spike.Lib.X64HelloOwnLift.pin_room152_ofPlaceWX'
   depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs (whitespace := lax) in
-#print axioms Spike.Lib.X64HelloOwnLift.pin_room120_ofPlaceWX
+#print axioms Spike.Lib.X64HelloOwnLift.pin_room152_ofPlaceWX
 
 /-- info: 'Spike.Lib.X64HelloOwnLift.ldOk_msXW' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms Spike.Lib.X64HelloOwnLift.ldOk_msXW

@@ -58,7 +58,7 @@ theorem hstkA_of_placeOKAt {cfg : Scc.Config} {pcfg : Scc.Cert.PlaceOK.Config} {
   have he : Spike.Lib.LowerNode.entry2 p = ⟨.setupTid, true⟩ := by simp [Spike.Lib.LowerNode.entry2, hs]
   rw [he] at hrt
   generalize hir' : (Scc.Lower.A64.lowerAll cfg p).low.ir = ir at hir
-  generalize hf0 : Scc.Lower.Inv.mainThread0 ⟨.setupTid, true⟩ (Spike.Lib.LowerNode.setupWords2 p) = f0
+  generalize hf0 : Scc.Lower.Inv.mainThread0 ⟨.setupTid, true⟩ (Spike.Lib.LowerNode.setupWords2 p) (Spike.Lib.LowerNode.setupMask2 p) = f0
   have hf : (f0, 1) ∈ ir.funcs.zipIdx := by
     rw [List.mem_zipIdx_iff_getElem?, hir, ← hf0]
     simp only [Scc.Lower.Inv.progOf]
@@ -69,7 +69,7 @@ theorem hstkA_of_placeOKAt {cfg : Scc.Config} {pcfg : Scc.Cert.PlaceOK.Config} {
     ((Scc.Cert.PlaceOK.A64.place_ir_ofEmitted _).trans (congrArg some hir'))
   have hok := Scc.Cert.Code1A64.fnOk1_of_fnCode1Ok h12 hf (by rw [← hf0]; rfl)
   subst hf0
-  have hm : (ctxOf ir 1 (Scc.Lower.Inv.mainThread0 ⟨.setupTid, true⟩ (Spike.Lib.LowerNode.setupWords2 p))).maps =
+  have hm : (ctxOf ir 1 (Scc.Lower.Inv.mainThread0 ⟨.setupTid, true⟩ (Spike.Lib.LowerNode.setupWords2 p) (Spike.Lib.LowerNode.setupMask2 p))).maps =
       true := by
     show ir.growth.isSome = true
     rw [hir]; rfl

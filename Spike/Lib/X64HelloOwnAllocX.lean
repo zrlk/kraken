@@ -1,6 +1,6 @@
 /-
 **hello.w's allocator at `ownGHXW`** (x86-64 only; the hello counterpart of `X64WakeOwnAllocX`):
-`WcW.allocW_wcGH` (`scc_rt_alloc` returning to `.Lwc_main.x22` or `.Lwc_rodata.x15`, inside `SFactsSt2` at
+`WcW.allocW_wcGH` (`scc_rt_alloc` returning to `.Lwc_main.x0` or `.Lwc_rodata.x0`, inside `SFactsSt2` at
 `ownGH`, `X64HelloAllocWI`) moved to `SFactsSt2` at `ownGHXW` (`Lft2H`), from outside (`AllocG.AllocW.imp`).
 The allocator's frame `[-160, 8]` is on the pool (`hb : BandOnP L R (-160) 8`):
 - its pcs, the slow path's `.spin` and both return points are from `.x1` on in none of `InTH`, `InCH`, `InAbH`
@@ -19,9 +19,9 @@ The allocator's frame `[-160, 8]` is on the pool (`hb : BandOnP L R (-160) 8`):
 ## Differences from the AArch64 version
 
 AArch64 has no counterpart: main owns no TCB word there. Against x86-64 wake's `OwnAlloc`: hello's allocator has
-two callers (`AllocRetH`: `.Lwc_main.x22` and `.Lwc_rodata.x15`; wake's one, `.x18`), the worker's word is held
+two callers (`AllocRetH`: `.Lwc_main.x0` and `.Lwc_rodata.x0`; wake's one, `.x18`), the worker's word is held
 from the second `scc_rt_thread_init`'s self store at `.x8 + 51` and on the abort path from `.x27` (wake `.x7`,
-`.x23`), and `hW` is about `tcbWH L` (`pinA + 112`; wake's `tcb2 L`).
+`.x23`), and `hW` is about `tcbWH L` (`pinA + 144`; wake's `tcb2 L`).
 -/
 import Spike.Lib.X64HelloOwnLft2X
 import Spike.Lib.X64HelloAllocWI
@@ -64,14 +64,14 @@ theorem cst_abortAH (hlab : ∀ l x, codeLabel lo helloCells l = some x → L.la
     (hsp : spPool L s) (hpc : pcOf s = (L.lab "scc_rt_abort").toBitVec.toNat)
     (hra : privLoad s s.st.1.regs.rsp.toBitVec = some ((L.lab ".Lscc_rt_alloc.full").toBitVec + 12#64)) :
     CstH L (tM L) [] s := by
-  have eA := labNH hlab (l := "scc_rt_abort") (y := 4202486) (by decide +kernel) (by decide)
+  have eA := labNH hlab (l := "scc_rt_abort") (y := 4202524) (by decide +kernel) (by decide)
   have e1 := labNH hlab (l := ".Lscc_rt_start.x1") (y := 4198500) (by decide +kernel) (by decide)
-  have e8 := labNH hlab (l := ".Lscc_rt_thread_init.x8") (y := 4199606) (by decide +kernel) (by decide)
+  have e8 := labNH hlab (l := ".Lscc_rt_thread_init.x0") (y := 4199606) (by decide +kernel) (by decide)
   have eT := labNH hlab (l := "scc_rt_stack_take") (y := 4199732) (by decide +kernel) (by decide)
-  have e25 := labNH hlab (l := ".Lwc_main.x25") (y := 4203774) (by decide +kernel) (by decide)
-  have eK := labNH hlab (l := ".Lwc_main.stk") (y := 4203948) (by decide +kernel) (by decide)
+  have e25 := labNH hlab (l := ".Lwc_main.x3") (y := 4203812) (by decide +kernel) (by decide)
+  have eK := labNH hlab (l := ".Lwc_main.stk") (y := 4203986) (by decide +kernel) (by decide)
   have eF := labNH hlab (l := ".Lscc_rt_alloc.full") (y := 4198788) (by decide +kernel) (by decide)
-  have e27 := labNH hlab (l := ".Lwc_main.x27") (y := 4203909) (by decide +kernel) (by decide)
+  have e27 := labNH hlab (l := ".Lwc_main.x5") (y := 4203947) (by decide +kernel) (by decide)
   refine ⟨ownSH_of_self (.inl ⟨hsp, by rw [hpc, eA, e1]; decide⟩), ownSWH_of_not ?_⟩
   rintro (⟨-, h1, h2⟩ | ⟨h1, h2⟩ | ⟨-, h3⟩)
   · rw [hpc, eA, e8] at h1; rw [hpc, eA, eT] at h2; omega
@@ -94,8 +94,8 @@ theorem alloc_labsH (hlab : ∀ l x, codeLabel lo helloCells l = some x → L.la
     (_root_.Executable.labels L.exe).label fullL = Int64.ofNat 4198788 ∧
     (_root_.Executable.labels L.exe).label okL = Int64.ofNat 4198802 ∧
     (_root_.Executable.labels L.exe).label ".Lscc_rt_alloc.spin" = Int64.ofNat 4198786 ∧
-    (_root_.Executable.labels L.exe).label ".Lwc_main.x22" = Int64.ofNat 4203703 ∧
-    (_root_.Executable.labels L.exe).label ".Lwc_rodata.x15" = Int64.ofNat 4203184 := by
+    (_root_.Executable.labels L.exe).label ".Lwc_main.x0" = Int64.ofNat 4203741 ∧
+    (_root_.Executable.labels L.exe).label ".Lwc_rodata.x0" = Int64.ofNat 4203222 := by
   refine ⟨hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_,
     hlab _ _ ?_, hlab _ _ ?_⟩ <;> (rw [← codeT_eq]; decide +kernel)
 
@@ -282,7 +282,9 @@ theorem allocLH (hR : R.OK) (hlo' : R.lo ≤ -160) (hhi : 8 ≤ R.hi) {ms : Spik
     rw [Spike.Lib.X64.Alloc.bO9_run]; simp only [eOk]; decide +kernel
   · -- The `ret`, to `rl`.
     refine Spike.Lib.LowerX64.BlkW.nodeW (blkL2H hp hlab hsite hsep ha hW (P := PPH) (Q := QPH)
-      (blk := [(iRet.toDir, 1)]) h30 rfl (blo := -160) (bhi := 8) (by dsimp only [N]; decide) hR hlo' hhi
+      (blk := [(iRet.toDir, 1)]) h30.2
+      (by rw [ofNat_zero']; exact (Scc.Cert.Rt.X64.label_labelGapB L.lays (hp ▸ h30.1)).trans rfl)
+      (blo := -160) (bhi := 8) (by dsimp only [N]; decide) hR hlo' hhi
       (fun _ h => h.2) (fun s h => cls_poolH hlab hb s h.1) (cls_poolH hlab hb) ?_ (soA [(iRet.toDir, 1)] oE)
       fun σ c hJ => ?_) (List.cons_ne_nil _ _)
     · intro k hk; dsimp only [N]; simp only [eOk]; revert k; decide +kernel

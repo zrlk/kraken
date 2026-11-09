@@ -1,13 +1,13 @@
 /-
 **The second TCB's words at hello's worker memory side** (AArch64;
 the hello twin of `WakeTcbArea`): `Rt.PreChild.TcbArea` at `HelloMs.msH (LH hp i) (GH hp i (G0H hp i))
-(SRH hp i) w` for main's second `scc_rt_alloc_tcb` (`tcb2QH g c0`: header `pinA + 104`, TCB `tH = pinA + 112`, its
-limit word `lim2AH = pinA + 120`, its id word `pinA + 168`), and so `HelloChildTls.TlsTcb` at the second take
+(SRH hp i) w` for main's second `scc_rt_alloc_tcb` (`tcb2QH g c0`: header `pinA + 136`, TCB `tH = pinA + 144`, its
+limit word `lim2AH = pinA + 152`, its id word `pinA + 200`), and so `HelloChildTls.TlsTcb` at the second take
 `r1Of` with the clone's thread pointer the TCB.
 
-- `hpin3_H`: the pinned region reaches `pinA + 176` (the id word's end) once the `.zero` after `scc_rt_pinned` has
-  `176` bytes; at hello's certificate `hpin3_H hp i CertFacts.pinZ_helloCert (by decide)` (`131072` bytes).
-- `pin3_toNat`, `pin3_contains`, `pin3_unplaced`, `pin3_word`: a word `pinA + c` (`c + 8 ≤ 176`) does not wrap,
+- `hpin3_H`: the pinned region reaches `pinA + 208` (the id word's end) once the `.zero` after `scc_rt_pinned` has
+  `208` bytes; at hello's certificate `hpin3_H hp i CertFacts.pinZ_helloCert (by decide)` (`163840` bytes).
+- `pin3_toNat`, `pin3_contains`, `pin3_unplaced`, `pin3_word`: a word `pinA + c` (`c + 8 ≤ 208`) does not wrap,
   lies in `pinned`, outside every label placed under a memory relation (labels lie in the heap or `.data`), and is
   the runtime's at `msH`, mapped for a write and for a read.
 - `cT_ne_lim2H`: the flag is not the second limit word (`GhOK` places it).
@@ -48,40 +48,40 @@ variable {pcfg : Scc.Cert.PlaceOK.Config} {o : Scc.Cert.PlaceOK.A64.Out} {Λ0 : 
     (hp : PlaceW pcfg Λ0 o) (i : CoreTerm.Expr → String → Nat → Option Nat)
 include hp
 
-/-- **The pinned region reaches `pinA + 176`** once the `.zero` after `scc_rt_pinned` has `176` bytes (wake's
-`StartPlaceLy.hpin2_W` at `176`; hello's id word `pinA + 168` ends there). -/
+/-- **The pinned region reaches `pinA + 208`** once the `.zero` after `scc_rt_pinned` has `208` bytes (wake's
+`StartPlaceLy.hpin2_W`, at `200`; hello's id word `pinA + 200` ends there). -/
 theorem hpin3_H {n : Nat}
     (hz : Scc.Cert.PlaceOK.zeroAfter (o.secs.bss ++ o.secs.data) Scc.Cert.Link.pinnedSym = some n)
-    (hn : 176 ≤ n) : (LH hp i).pinA.toNat + 176 ≤ (LH hp i).Λ.pinned.lo + (LH hp i).Λ.pinned.size := by
+    (hn : 208 ≤ n) : (LH hp i).pinA.toNat + 208 ≤ (LH hp i).Λ.pinned.lo + (LH hp i).Λ.pinned.size := by
   have hreg := PlaceW.regionsTied_of_placeW hp
   simp only [Scc.Cert.PlaceOK.regionsTied, List.all_cons, List.all_nil, Bool.and_true, Bool.and_eq_true,
     decide_eq_true_eq] at hreg
   have hsz : Λ0.pinned.size = n := Option.some.inj (hreg.2.2.2.symm.trans hz)
   have hp0 : (LH hp i).pinA.toNat = Λ0.pinned.lo := PlaceW.pinA_toNat_ofPlaceW hp i
-  show (LH hp i).pinA.toNat + 176 ≤ Λ0.pinned.lo + Λ0.pinned.size
+  show (LH hp i).pinA.toNat + 208 ≤ Λ0.pinned.lo + Λ0.pinned.size
   omega
 
-/-- `pinA + c` for `c ≤ 176` does not wrap. -/
-theorem pin3_toNat {c : Nat} (hc : c ≤ 176) :
+/-- `pinA + c` for `c ≤ 208` does not wrap. -/
+theorem pin3_toNat {c : Nat} (hc : c ≤ 208) :
     ((LH hp i).pinA + BitVec.ofNat 64 c).toNat = (LH hp i).pinA.toNat + c := by
   have := (LH hp i).words_small _ (LH hp i).pin_mem
   rw [BitVec.toNat_add, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega : c < 2 ^ 64), Nat.mod_eq_of_lt (by omega)]
 
-variable (hpin3 : (LH hp i).pinA.toNat + 176 ≤ (LH hp i).Λ.pinned.lo + (LH hp i).Λ.pinned.size)
+variable (hpin3 : (LH hp i).pinA.toNat + 208 ≤ (LH hp i).Λ.pinned.lo + (LH hp i).Λ.pinned.size)
 include hpin3
 
-/-- **An address in `[pinA, pinA + 176)` is in `pinned`.** -/
-theorem pin3_contains {x : Nat} (h0 : (LH hp i).pinA.toNat ≤ x) (h1 : x < (LH hp i).pinA.toNat + 176) :
+/-- **An address in `[pinA, pinA + 208)` is in `pinned`.** -/
+theorem pin3_contains {x : Nat} (h0 : (LH hp i).pinA.toNat ≤ x) (h1 : x < (LH hp i).pinA.toNat + 208) :
     (LH hp i).Λ.pinned.contains x := by
   have hp0 : (LH hp i).pinA.toNat = (LH hp i).Λ.pinned.lo := PlaceW.pinA_toNat_ofPlaceW hp i
   simp only [Scc.Sem.Range.contains]
   omega
 
-/-- **A word of `[pinA, pinA + 176)` is outside every placed label.** -/
+/-- **A word of `[pinA, pinA + 208)` is outside every placed label.** -/
 theorem pin3_unplaced {lbl : WeakMem.AllocLabel → Option Nat} {lsize : WeakMem.AllocLabel → Nat}
     {ts : Nat → Option Nat} {tm : Memory} {sm : WeakMem.Memory} {tp tq sp : List Nat}
     (hm : MemRelP (LH hp i).Λ lbl lsize ts tm sm tp tq sp) {x : Nat} (h0 : (LH hp i).pinA.toNat ≤ x)
-    (h1 : x < (LH hp i).pinA.toNat + 176) :
+    (h1 : x < (LH hp i).pinA.toNat + 208) :
     ¬ ∃ l b, lbl l = some b ∧ (lrange lsize l b).contains x := by
   rintro ⟨l, b, hl, hx⟩
   have hc : (LH hp i).Λ.pinned.contains x := pin3_contains hp i hpin3 h0 h1
@@ -94,10 +94,10 @@ theorem pin3_unplaced {lbl : WeakMem.AllocLabel → Option Nat} {lsize : WeakMem
   simp only [Scc.Sem.Range.Disjoint] at hdp' hhp'
   omega
 
-/-- **A word of `[pinA, pinA + 176)` at `msH`**: runtime, mapped for a write and for a read. -/
+/-- **A word of `[pinA, pinA + 208)` at `msH`**: runtime, mapped for a write and for a read. -/
 theorem pin3_word (G : ιH hp i → Loc → Val → Prop) (w : ιH hp i) {ts : Nat → Option Nat} {tm : Memory}
     {sm : WeakMem.Memory} {tp tq sp : List Nat}
-    (hm : MemRelP (LH hp i).Λ (SRH hp i w).lbl (SRH hp i w).lsize ts tm sm tp tq sp) {c : Nat} (hc1 : c + 8 ≤ 176) :
+    (hm : MemRelP (LH hp i).Λ (SRH hp i w).lbl (SRH hp i w).lsize ts tm sm tp tq sp) {c : Nat} (hc1 : c + 8 ≤ 208) :
     (msH (LH hp i) G (SRH hp i) w).rt ((LH hp i).pinA + BitVec.ofNat 64 c).toNat ∧
       (msH (LH hp i) G (SRH hp i) w).mp ⟨(LH hp i).pinA + BitVec.ofNat 64 c, 8⟩ true ∧
       (msH (LH hp i) G (SRH hp i) w).mp ⟨(LH hp i).pinA + BitVec.ofNat 64 c, 8⟩ false := by
@@ -136,9 +136,9 @@ theorem cT_ne_lim2H (w : ιH hp i) {ts : Nat → Option Nat} {tm : Memory} {sm :
   rw [hT] at he
   have ha := congrArg (fun l : Loc => l.addr.toNat) he
   simp only [Scc.Sem.wordLoc, BitVec.toNat_ofNat, Nat.mod_eq_of_lt hlt] at ha
-  have h120 := pin3_toNat hp i (c := 120) (by decide)
+  have h152 := pin3_toNat hp i (c := 152) (by decide)
   simp only [lim2AH, Spike.Lib.HelloGOf2H.lim2OffH] at ha
-  rw [show (120#64 : BitVec 64) = BitVec.ofNat 64 120 from rfl, h120] at ha
+  rw [show (152#64 : BitVec 64) = BitVec.ofNat 64 152 from rfl, h152] at ha
   exact pin3_unplaced hp i hpin3 hm (x := b + 8 * w.1.cS.offset) (by omega) (by omega) ⟨_, _, hl, hx⟩
 
 /-- **hello's second TCB's words** (`TcbArea`) at `msH` with the root's guarantee `GH (G0H)`, for main's second
@@ -149,35 +149,35 @@ theorem tcbArea_H (hinit2 : (m0Of (LH hp i).Λ o.prog o.secs).initVal ⟨lim2AH 
     (hm : MemRelP (LH hp i).Λ (SRH hp i w).lbl (SRH hp i w).lsize ts tm sm tp tq sp)
     (g : Spike.Lib.A64.Flow.Ret0.AllocTcb.G) (c0 : Ctl) :
     TcbArea (msH (LH hp i) (GH hp i (G0H hp i)) (SRH hp i) w) (LH hp i).lab (tcb2QH g c0) := by
-  have hW := fun c (h1 : c + 8 ≤ 176) => pin3_word hp i hpin3 (GH hp i (G0H hp i)) w hm h1
-  have hT : tcbOf (LH hp i).lab (tcb2QH g c0) = (LH hp i).pinA + 112#64 := by
-    rw [tcb2QH_tcbOf]; show Spike.Lib.A64.Flow.Ret0.pinA (LH hp i).lab + 112#64 = _; rw [(LH hp i).lab_pin]
-  have hH : hdrA (LH hp i).lab (tcb2QH g c0) = (LH hp i).pinA + 104#64 := by
+  have hW := fun c (h1 : c + 8 ≤ 208) => pin3_word hp i hpin3 (GH hp i (G0H hp i)) w hm h1
+  have hT : tcbOf (LH hp i).lab (tcb2QH g c0) = (LH hp i).pinA + 144#64 := by
+    rw [tcb2QH_tcbOf]; show Spike.Lib.A64.Flow.Ret0.pinA (LH hp i).lab + 144#64 = _; rw [(LH hp i).lab_pin]
+  have hH : hdrA (LH hp i).lab (tcb2QH g c0) = (LH hp i).pinA + 136#64 := by
     rw [tcb2QH_hdrA, (LH hp i).lab_pin]
   -- the TCB's words, as `pinA + c`
-  have e : ∀ c : Nat, (LH hp i).pinA + 112#64 + BitVec.ofNat 64 c = (LH hp i).pinA + BitVec.ofNat 64 (112 + c) := by
+  have e : ∀ c : Nat, (LH hp i).pinA + 144#64 + BitVec.ofNat 64 c = (LH hp i).pinA + BitVec.ofNat 64 (144 + c) := by
     intro c; rw [BitVec.add_assoc]; congr 1; apply BitVec.eq_of_toNat_eq; simp [BitVec.toNat_add]
   have hstk : Spike.Lib.A64.Flow.Ret0.stacksA (LH hp i).lab = (LH hp i).stacksA := (LH hp i).lab_stacks
-  have hG : ∀ c : Nat, BitVec.ofNat 64 c ≠ 16#64 → BitVec.ofNat 64 c ≠ 120#64 → ∀ v,
+  have hG : ∀ c : Nat, BitVec.ofNat 64 c ≠ 16#64 → BitVec.ofNat 64 c ≠ 152#64 → ∀ v,
       (msH (LH hp i) (GH hp i (G0H hp i)) (SRH hp i) w).G ⟨(LH hp i).pinA + BitVec.ofNat 64 c, 8⟩ v :=
-    fun c h16 h120 v => .inr (gOf2H_ne (pin_ne h16) (pin_ne2H h120) v)
+    fun c h16 h152 v => .inr (gOf2H_ne (pin_ne h16) (pin_ne2H h152) v)
   refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · intro a ha
     simp only [tidA, hT, hH, Spike.Lib.A64.Rt.Ti.tiAddrs, List.mem_cons, List.not_mem_nil, or_false] at ha
     rcases ha with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
-    · exact (hW 104 (by decide)).1
+    · exact (hW 136 (by decide)).1
     · rw [show (56#64 : BitVec 64) = BitVec.ofNat 64 56 from rfl, e]; exact (hW _ (by decide)).1
     all_goals (rw [e]; exact (hW _ (by decide)).1)
   · intro a ha
     simp only [tidA, hT, hH, Spike.Lib.A64.Rt.Ti.tiAddrs, List.mem_cons, List.not_mem_nil, or_false] at ha
     rcases ha with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
-    · exact (hW 104 (by decide)).2.1
+    · exact (hW 136 (by decide)).2.1
     · rw [show (56#64 : BitVec 64) = BitVec.ofNat 64 56 from rfl, e]; exact (hW _ (by decide)).2.1
     all_goals (rw [e]; exact (hW _ (by decide)).2.1)
   · rw [hT, show (8#64 : BitVec 64) = BitVec.ofNat 64 8 from rfl, e]
     exact (hW _ (by decide)).2.2
   · rw [hH]
-    exact hG 104 (by decide) (by decide) _
+    exact hG 136 (by decide) (by decide) _
   · simp only [tidA, hT]
     rw [show (56#64 : BitVec 64) = BitVec.ofNat 64 56 from rfl, e]
     exact hG _ (by decide) (by decide) _
@@ -205,11 +205,11 @@ theorem tlsTcb_H (hinit2 : (m0Of (LH hp i).Λ o.prog o.secs).initVal ⟨lim2AH (
     (hm : MemRelP (LH hp i).Λ (SRH hp i w).lbl (SRH hp i w).lsize ts tm sm tp tq sp)
     (g : Spike.Lib.A64.Flow.Ret0.AllocTcb.G) (c0 : Ctl) {tls : Nat} (htls : tls = (tH (LH hp i).lab).toNat) :
     TlsTcb (msH (LH hp i) (GH hp i (G0H hp i)) (SRH hp i) w) (LH hp i).lab (tcb2QH g c0) tls (r1Of (LH hp i).lab) := by
-  have hT : tH (LH hp i).lab = (LH hp i).pinA + BitVec.ofNat 64 112 := by
-    show Spike.Lib.A64.Flow.Ret0.pinA (LH hp i).lab + 112#64 = _; rw [(LH hp i).lab_pin]
-  have ht : tls = (LH hp i).pinA.toNat + 112 := by rw [htls, hT, pin3_toNat hp i (by decide)]
+  have hT : tH (LH hp i).lab = (LH hp i).pinA + BitVec.ofNat 64 144 := by
+    show Spike.Lib.A64.Flow.Ret0.pinA (LH hp i).lab + 144#64 = _; rw [(LH hp i).lab_pin]
+  have ht : tls = (LH hp i).pinA.toNat + 144 := by rw [htls, hT, pin3_toNat hp i (by decide)]
   have hsm := (LH hp i).words_small _ (LH hp i).pin_mem
-  have hpool : ∀ x, (LH hp i).pinA.toNat ≤ x → x < (LH hp i).pinA.toNat + 176 →
+  have hpool : ∀ x, (LH hp i).pinA.toNat ≤ x → x < (LH hp i).pinA.toNat + 208 →
       ¬ (LH hp i).Λ.stackPool.contains x := fun x h0 h1 =>
     Spike.Lib.WakeChildXI.notPool (PlaceW.wf_link_of_placeW i hp) (.inr (.inr (pin3_contains hp i hpin3 h0 h1)))
   refine ⟨tcbArea_H hp i hpin3 hinit2 w hm g c0, by rw [tcb2QH_tcbOf, htls], by omega, ?_, room_r1Of _⟩

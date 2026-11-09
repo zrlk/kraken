@@ -17,6 +17,9 @@ of `Spike/Lib/LowerX64/W2Body.lean`): the producer of `BlkW` at `W2`
 
 - `blkW_noSys`: a covered block's states off a system call (`W2Part`'s
   `print` output fact vacuous);
+- `blkW_noWr'`, `blkW_noSys'`, `blkW_w2BP'`: the covered block facts at a
+  block's code (`CodeAt`) rather than its placement (a piece of the code
+  predicate may lie in two pieces around a fresh label, P5);
 - `blkW_w2BP`, `blkW_w2CP`: as `blkW_w2B`, `blkW_w2C` with the placement a premise;
 - `blkW_w2Pend`: at a checked `+`'s pending store (`blkW_placedS_upd`);
 - `nodeW_w2CalleeEntry`: at a callee's entry (its prologue head);
@@ -39,11 +42,92 @@ open Spike.Lib (Region FrameRun)
 open Spike.Lib.Consumer1 Spike.Lib.A64Consumer Spike.Lib.A64ConsumerS Spike.Lib.A64ConsumerA
 open Spike.Lib.A64.Flow (NodeW BlkW ND At okBlk FStable)
 open Spike.Lib.A64.Rt (InstOk)
+open Spike.Lib.A64 (CodeAt)
 open Spike.Lib.A64.AllocG (dumN)
 open Spike.Lib.A64.Flow.Ret0 (StackOff)
 open Spike.Lib.A64.Flow.Ret0.Inst (cfacts_c0)
 open Scc.Cert.Rt.A64 (blockAt)
 open Spike.Lib.LowerNode (FrOk2 ZBad SlotRepAt)
+
+/-! ## Covered blocks at their code -/
+
+section Blk
+
+variable {exe : _root_.Executable} {endPc : Int64}
+  {prog : List Directive} {lab : Label → Int64} {μ : Marks} {own : Own} {Tk : State → Prop}
+  {K : State → State → Prop} {okPc : Nat → Bool} {ph : Nat → Nat} {Λ : Scc.Sem.Layout} {rS : Range} {lbl : Lbl}
+  {R : Region} {F : MachineData → Prop}
+
+/-- **A covered block's states write nothing** (`blkW_noWr` at the block's
+code `hcode`). -/
+theorem blkW_noWr' {n : ND} {blk : List Directive} {lo hi : Int}
+    (hcode : ∀ s : State, s.exe = exe → s.endPc = endPc → CodeAt s n.pc blk)
+    (hok : okBlk lo hi n.o blk = true)
+    (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ lo) (hhi : hi ≤ R.hi) :
+    BlkW (fun s _ => ∀ L, ¬ WrAt s L) (fun _ _ => False) exe endPc R F n blk := by
+  intro s σ c he hn _ _ _ _ _ k hk m hA' _
+  refine ⟨?_, fun _ h => h⟩
+  obtain ⟨a, hca, haok, -⟩ := Spike.Lib.A64.Flow.okBlk_get (_root_.Executable.labels exe).label
+    (am := ⟨n.pc, n.o, σ⟩) hok hk
+  obtain ⟨hdir, hreg⟩ := Spike.Lib.A64.Flow.classify_sound hca
+  have hd : blk[k]? = some blk[k] := List.getElem?_eq_getElem hk
+  have hc : CellAt { s with st := (m, n.pc + Int64.ofNat (4 * k)) } a.toDir 4 :=
+    (hcode s he hn).cell (j := k) (hdir ▸ hd) rfl rfl rfl
+  obtain ⟨m', hex, -⟩ := Spike.Lib.A64.Flow.exec_ai haok hR hal hlo hhi hc hreg hA'
+  exact noWr_done hex
+
+/-- **A covered block's states are off a system call** (`blkW_noSys` at
+the block's code `hcode`). -/
+theorem blkW_noSys' {n : ND} {blk : List Directive} {lo hi : Int}
+    (hcode : ∀ s : State, s.exe = exe → s.endPc = endPc → CodeAt s n.pc blk)
+    (hok : okBlk lo hi n.o blk = true) :
+    BlkW (fun s _ => abi.atSys s = false) (fun _ _ => False) exe endPc R F n blk := by
+  intro s σ c he hn _ _ _ _ _ k hk m _ _
+  refine ⟨?_, fun _ h => h⟩
+  obtain ⟨a, hca, -, -⟩ := Spike.Lib.A64.Flow.okBlk_get (_root_.Executable.labels exe).label
+    (am := ⟨n.pc, n.o, σ⟩) hok hk
+  obtain ⟨hdir, hreg⟩ := Spike.Lib.A64.Flow.classify_sound hca
+  have hd : blk[k]? = some blk[k] := List.getElem?_eq_getElem hk
+  have hc : CellAt { s with st := (m, n.pc + Int64.ofNat (4 * k)) } a.toDir 4 :=
+    (hcode s he hn).cell (j := k) (hdir ▸ hd) rfl rfl rfl
+  refine Scc.Sem.A64.atSvc_false_of_cellAt hc fun imm h => ?_
+  cases a <;> (try simp only [Spike.Lib.A64.Flow.AI.toDir] at h) <;> (try cases h)
+  exact absurd (hreg _ _ rfl) (by simp [Spike.Lib.A64.Flow.RegOnly])
+
+variable {p : Prog} {rd : TermRun.Word → Prop} {G : Loc → Val → Prop} {ar : Arena} {J : InvS}
+  {Dt Ab' : State → Prop} {lsize : Lsize} {fs : List TermRun.Frame}
+
+/-- **A covered block at its code without a `ret` is inside `W2`** at the
+frames `fs`, its states placed (`hP`): `blkW_w2BP` at the block's code
+(`hcode`) rather than its `blockAt` placement. -/
+theorem blkW_w2BP' {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp) {lo hi : Int}
+    (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ lo) (hhi : hi ≤ R.hi)
+    (hl : R.lo % 8 = 0) (hh : R.hi % 8 = 0) (hsub : rS.Sub Λ.stackPool) (hfit : rS.lo + rS.size ≤ 2 ^ 64)
+    (hFO : ∀ m, F m → StackOff rS R m) (hp : ProgNoS Spike.Lib.LowerNode.ZBad p) {n : ND}
+    {ra : Int64} {blk : List Directive}
+    (hcode : ∀ s : State, s.exe = exe → s.endPc = endPc → CodeAt s n.pc blk)
+    (hph : blkPh okPc ph (fun _ => false) lab n.pc ra blk = true) (hok : okBlk lo hi n.o blk = true)
+    (hnr : noRetBlk blk = true)
+    (hab : BlkW (fun s _ => AbSt μ Ab' s) (fun _ _ => False) exe endPc R F n blk)
+    (hP : BlkW (fun s c => PlacedS Λ lbl s c fs) (fun _ _ => False) exe endPc R F n blk)
+    (hJ : ∀ σ c, n.J σ c → (fs = [] → ∀ a, c.term ≠ .ret a) ∧ Spike.Lib.LowerNode.FrOk2 c fs) :
+    BlkW (fun s c => W2 Λ μ p rd G own rS Tk ar J Dt Ab' lbl lsize s c fs) K exe endPc R F n blk := by
+  have hS : BlkW (fun s c => SFacts Λ μ own rS Tk lbl s c) K exe endPc R F (Spike.Lib.A64.AllocG.dumN n) blk :=
+    blkW_postO' (n := Spike.Lib.A64.AllocG.dumN n) (dead := fun _ => false) (ra := ra) hI hcode hok hR
+      hal hlo hhi (fun _ _ h => h.1 ▸ Spike.Lib.A64.Flow.Ret0.Inst.cfacts_c0) hph
+      (fun _ _ _ k hk r hr => (noRet_false hnr k hk r hr).elim) (fun _ _ _ => rfl) hl hh hsub hfit hFO
+  have hW : BlkW (fun s _ => ∀ L, ¬ WrAt s L) (fun _ _ => False) exe endPc R F n blk :=
+    blkW_noWr' hcode hok hR hal hlo hhi
+  have hWN : BlkW (fun s _ => (∀ L, ¬ WrAt s L) ∧ abi.atSys s = false) (fun _ _ => False) exe endPc R F n blk :=
+    Spike.Lib.A64.AllocG.BlkW.imp hW (blkW_noSys' hcode hok) fun _ _ h1 h2 => ⟨h1, h2⟩
+  have hPW : BlkW (fun s c => PlacedS Λ lbl s c fs ∧ (∀ L, ¬ WrAt s L) ∧ abi.atSys s = false)
+      (fun _ _ => False) exe endPc R F n blk :=
+    Spike.Lib.A64.AllocG.BlkW.imp hP hWN fun _ _ h1 h2 => ⟨h1, h2⟩
+  refine BlkW.w2 hp hS ?_ hJ
+  exact Spike.Lib.A64.AllocG.BlkW.imp hab hPW fun s c h1 h2 =>
+    ⟨h1, h2.1, fun _ _ _ _ => wrOkA_of_noWr h2.2.1, fun h => absurd h (by rw [h2.2.2]; decide)⟩
+
+end Blk
 
 section W
 
@@ -132,7 +216,8 @@ theorem blkW_w2B {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph 
 
 /-- **A covered block of the code without a `ret` is inside `W2`** at the
 frames `fs`, its states placed (`hP`): as `blkW_w2C` with the placement a
-premise (`blkW_w2BP`). -/
+premise (`blkW_w2BP'` at the piece's code, whole or in two pieces,
+`AtQ.cdOf`). -/
 theorem blkW_w2CP {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp) {lo hi : Int}
     (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ lo) (hhi : hi ≤ R.hi)
     (hl : R.lo % 8 = 0) (hh : R.hi % 8 = 0) (hsub : rS.Sub Λ.stackPool) (hfit : rS.lo + rS.size ≤ 2 ^ 64)
@@ -144,12 +229,15 @@ theorem blkW_w2CP {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph
     (hP : BlkW (fun s c => PlacedS Λ lbl s c fs) (fun _ _ => False) exe endPc R F n blk)
     (hJ : ∀ σ c, n.J σ c → (fs = [] → ∀ a, c.term ≠ .ret a) ∧ FrOk2 c fs) :
     BlkW (fun s c => W2 Λ μ p rd G own rS Tk ar J Dt Ab lbl lsize s c fs) K exe endPc R F n blk := by
-  obtain ⟨pc0, pre, post, ⟨-, L, j, hpc0, hb, hrun⟩, hpc⟩ := hcd
-  have hph := Scc.Cert.Ph1A64.blkPh_of_runPhB hrun (classify_of_okBlk hok)
-  have he : lab L + Int64.ofNat (4 * (j + pre.length)) = n.pc := by
-    rw [← hpc, ← hpc0, Nat.mul_add, Int64.ofNat_add, Int64.add_assoc]
-  rw [hpc] at hph
-  exact blkW_w2BP hI hR hal hlo hhi hl hh hsub hfit hFO hp (blockAt_sub hb) he hph hok hnr hab hP hJ
+  obtain ⟨pc0, pre, post, hc0, hpc⟩ := hcd
+  obtain ⟨-, hat, hrun⟩ := CdCQ.sub hc0 hpc.symm
+  have hph := Scc.Cert.Ph1A64.blkPh_of_runPhB (xs := []) (zs := []) (by simpa using hrun)
+    (classify_of_okBlk hok)
+  rw [show n.pc + Int64.ofNat (4 * ([] : List Directive).length) = n.pc by simp] at hph
+  have hcode : ∀ s : State, s.exe = exe → s.endPc = endPc → CodeAt s n.pc blk := by
+    rw [← hI.labOk] at hat
+    exact AtQ.cdOf hI.lays hI.endOk _ _ hat
+  exact blkW_w2BP' hI hR hal hlo hhi hl hh hsub hfit hFO hp hcode hph hok hnr hab hP hJ
 
 /-- **A covered block of the code without a `ret` is inside `W2`** at the
 frames `fs` (`blkW_w2B`): a block of the code predicate `CdC` at a return

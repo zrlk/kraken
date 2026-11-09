@@ -24,7 +24,7 @@ node lemmas below are wake's at `instOkH`/`phH`.
 `n1b`); the `write` and exit calls are `syscall`s (`%rdi = 2`, `%rax = 1`;
 `%rax = 231`), the exit's cell from the instance (`Rt.cellOf`); the region
 is `[-24, 16)`, no alignment premise; `hpathW_habGH`'s two return points are
-`.Lscc_rt_alloc_tcb.x6`, `.Lwc_main.x27` (A64's `.sp13`, `.sp15`).
+`.Lscc_rt_alloc_tcb.x0`, `.Lwc_main.x5` (A64's `.sp13`, `.sp15`).
 -/
 import Spike.Lib.X64HelloHAbW
 import Spike.Lib.X64WakeHAbWf
@@ -171,8 +171,8 @@ moved by `abHAgreeWH`, from a caller other than the two return points
 theorem hpathW_habGH (a : BitVec 64) (hΛ : L.Λ.abortLbl = Scc.Cert.Link.abortName)
     (hlab : ∀ l x, codeLabel lo helloCells l = some x → L.lab l = Int64.ofNat x) {c0 : Ctl} {ra : BitVec 64}
     (hR : R.OK) (hlo' : R.lo ≤ -24) (hhi : 16 ≤ R.hi)
-    (h6 : ra = (L.lab ".Lscc_rt_alloc_tcb.x6").toBitVec → BandOut L R)
-    (h27 : ra ≠ (L.lab ".Lwc_main.x27").toBitVec) :
+    (h6 : ra = (L.lab ".Lscc_rt_alloc_tcb.x0").toBitVec → BandOut L R)
+    (h27 : ra ≠ (L.lab ".Lwc_main.x5").toBitVec) :
     Abort.Disp.HPathW (fun s _ => SFactsSt2 Λ (Spike.Lib.X64.PhRec.μ L) (ownGH L a) s DtW)
       (fun _ _ => False) L.exe L.endPc R F c0 ra := by
   have hsd := SccCode.hello_abort

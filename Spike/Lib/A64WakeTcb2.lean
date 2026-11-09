@@ -53,7 +53,7 @@ def tcb2Tab : List PhFact :=
   [.blk Tcb.fnL 0 Tcb.atPro none none, .blk Tcb.entryL 0 Tcb.atChk none (some ".L3_scc_rt_alloc_tcb.2_full"),
     .blk Tcb.entryL 4 Tcb.atJ1 none none, .blk Tcb.lenL 0 Tcb.atLen none none,
     .blk Tcb.lenL 34 Tcb.atArg none none, .blk Tcb.lenL 38 Tcb.atBnd none none,
-    .blk Tcb.lenL 47 Tcb.atJ2 none none, .blk Tcb.okL 2 Tcb.atOk none none,
+    .blk Tcb.lenL 48 Tcb.atJ2 none none, .blk Tcb.okL 2 Tcb.atOk none none,
     .blk Tcb.okL 30 Tcb.atRet (some ".L21_wc_main.sp4") none,
     .ne Tcb.entryL 4 ".L3_scc_rt_alloc_tcb.2_full" 0,
     .step Tcb.lenL 32, .step Tcb.lenL 33, .step Tcb.okL 0, .step Tcb.okL 1, .step Tcb.okL 29,
@@ -87,8 +87,8 @@ theorem own2a_wc (L : RuntimeLayout) (a : BitVec 64) : own2a L a (16 % 4) = own2
 `bl scc_rt_alloc_tcb` (`phW`, the first instance) at the callee's entry
 (`ph2a`, this one) the lists agree. -/
 theorem own1_own2a_ph (L : RuntimeLayout) (a : BitVec 64) :
-    ownW L a (phW 2169264) = own2a L a (ph2a 2164712) := by
-  have h1 : phW 2169264 = 16 := by rw [phW_eq]; exact allocTcb2_ph.1
+    ownW L a (phW 2169296) = own2a L a (ph2a 2164712) := by
+  have h1 : phW 2169296 = 16 := by rw [phW_eq]; exact allocTcb2_ph.1
   have h2 : ph2a 2164712 = 1 := by rw [ph2a_eq]; unfold ph2aC; rw [allocTcb2_ph.2.2]
   rw [h1, h2, ownW_eq]; unfold own2a ownV; simp
 
@@ -110,15 +110,15 @@ theorem instOk2aP {L : RuntimeLayout} (hp : L.prog = wakeProg) (hlo : L.Λ.code.
 theorem mOf_hdr2 : mOf hdr2 <<< 3 = 16#64 := by decide
 
 /-- **The second `scc_rt_alloc_tcb` call's phase facts after the take** at
-`ph2a`, returning to `wc_main`'s `.sp4`, the counter's old value `80`,
+`ph2a`, returning to `wc_main`'s `.sp4`, the counter's old value `112`,
 given the counters distinct (`hsep`) and the header's word none of them
 (`hhdr`). -/
 theorem tcbPh2a {Λ : Scc.Sem.Layout} (hΛ : Λ.abortLbl = Scc.Cert.Link.abortName) {L : RuntimeLayout} {a : BitVec 64}
     (hlab : ∀ l x, codeOf lo wakeProg l = some x → L.lab l = Int64.ofNat x)
     (hsep : L.pnA ≠ L.lockA ∧ L.pnA ≠ L.freeNA ∧ L.pnA ≠ L.nextA ∧ L.pnA ≠ a)
-    (hhdr : L.pinA + 80#64 + 16#64 ∉ [L.pnA, L.lockA, L.freeNA, L.nextA, a]) :
+    (hhdr : L.pinA + 112#64 + 16#64 ∉ [L.pnA, L.lockA, L.freeNA, L.nextA, a]) :
     TcbPhGP (okPcOf lo wakeProg Λ) ph2a (fun _ => True) (own2a L a) L.lab
-      (fun _ => L.lab ".L21_wc_main.sp4") hdr2 80#64 := by
+      (fun _ => L.lab ".L21_wc_main.sp4") hdr2 112#64 := by
   have hf : ∀ f ∈ tcb2Tab, _ := fun f hf => tcb2_fact hΛ (f := f) hf
   have hn : ∀ {d : Nat → Bool} t, Scc.Cert.Rt.A64.deadN (codeOf lo wakeProg) none t = true → d t = true :=
     fun _ h => by simp [Scc.Cert.Rt.A64.deadN] at h
@@ -144,7 +144,8 @@ theorem tcbPh2a {Λ : Scc.Sem.Layout} (hΛ : Λ.abortLbl = Scc.Cert.Link.abortNa
       (by simp [tcb2Tab]))
     arg := blkPh_of_factOk hlab hr hn (hf (.blk Spike.Lib.A64.Rt.Code.Tcb.lenL 34 Spike.Lib.A64.Rt.Code.Tcb.atArg none none) (by simp [tcb2Tab]))
     bnd := blkPh_of_factOk hlab hr hn (hf (.blk Spike.Lib.A64.Rt.Code.Tcb.lenL 38 Spike.Lib.A64.Rt.Code.Tcb.atBnd none none) (by simp [tcb2Tab]))
-    j2 := blkPh_of_factOk hlab hr hn (hf (.blk Spike.Lib.A64.Rt.Code.Tcb.lenL 47 Spike.Lib.A64.Rt.Code.Tcb.atJ2 none none) (by simp [tcb2Tab]))
+    j2 := blkPh_of_factOk hlab hr hn
+      (hf (.blk Spike.Lib.A64.Rt.Code.Tcb.lenL 48 Spike.Lib.A64.Rt.Code.Tcb.atJ2 none none) (by simp [tcb2Tab]))
     ok2 := blkPh_of_factOk hlab hr hn (hf (.blk Spike.Lib.A64.Rt.Code.Tcb.okL 2 Spike.Lib.A64.Rt.Code.Tcb.atOk none none) (by simp [tcb2Tab]))
     ret := blkPh_of_factOk hlab (fun _ h => by cases h; rfl) hn
       (hf (.blk Spike.Lib.A64.Rt.Code.Tcb.okL 30 Spike.Lib.A64.Rt.Code.Tcb.atRet (some ".L21_wc_main.sp4") none) (by simp [tcb2Tab]))
@@ -164,7 +165,7 @@ theorem tcbPh2a {Λ : Scc.Sem.Layout} (hΛ : Λ.abortLbl = Scc.Cert.Link.abortNa
       · exact step_of_factOk hlab (hf (.step Spike.Lib.A64.Rt.Code.Tcb.okL 29) (by simp [tcb2Tab]))
     rmwOk := ok_of_factOk hlab (hf (.ok Spike.Lib.A64.Rt.Code.Tcb.lenL 37) (by simp [tcb2Tab]))
     rmwTk := fun _ _ _ => Iff.rfl
-    rmwIn := ⟨(80#64).setWidth 128, by rw [rmwPc, h1, hpn]; simp [own2a, ownV]⟩
+    rmwIn := ⟨(112#64).setWidth 128, by rw [rmwPc, h1, hpn]; simp [own2a, ownV]⟩
     rmwUpd := by
       rw [rmwPc, Spike.Lib.A64.Flow.Ret0.ofNat4_succ', h1, h0, hpn]
       simp [ownUpdB, own2a, ownV, s1, s2, s3, s4, Ne.symm s1, Ne.symm s2, Ne.symm s3, Ne.symm s4]

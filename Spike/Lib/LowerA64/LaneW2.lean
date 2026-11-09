@@ -8,15 +8,14 @@ not covered blocks; their nodes' facts come from their events at the
 element's word, which is mapped, owned at no state, in a placed label's
 range and not the arena's counter. The blocks `B1` and `B2` are at their
 code (`B2` spans both of the lane's chunks), so their facts come from
-`CodeAt` (`blkW_postO'`, `blkW_noWr'`, `blkW_noSys'`, `blkW_w2BP'`).
+`CodeAt` (`blkW_postO'`, `Spike/Lib/LowerA64/BodyW1.lean`; `blkW_noWr'`,
+`blkW_noSys'`, `blkW_w2BP'`, `Spike/Lib/LowerA64/W2Body.lean`).
 
 - `nodeW_sfacts_ldH`, `nodeW_sfacts_stH`: `SFacts` at a load or store of a
   heap word at the code's pc;
 - `nodeW_ab_ldH`, `nodeW_ab_stH`: the write abort's phase kept there;
 - `nodeW_noWr_ldH`, `nodeW_wr_stH`: the load writes nothing and is off a
   system call; the store writes only its word;
-- `blkW_postO'`, `blkW_noWr'`, `blkW_noSys'`, `blkW_w2BP'`: the covered
-  block facts at a block's code;
 - `blkPh_append`, `blkW_abC`, `noTerm_of_okBlk_snoc`: phase checks of
   consecutive blocks, the write abort's phase kept along a covered block, a
   covered block's instructions before a covered one not branches;
@@ -175,98 +174,6 @@ variable {exe : _root_.Executable} {endPc : Int64}
   {prog : List Directive} {lab : Label → Int64} {μ : Marks} {own : Own} {Tk : State → Prop}
   {K : State → State → Prop} {okPc : Nat → Bool} {ph : Nat → Nat} {Λ : Scc.Sem.Layout} {rS : Range} {lbl : Lbl}
   {R : Region} {F : MachineData → Prop}
-
-/-- **`blkW_postO` at a block's code** (`hcode`) rather than its
-`blockAt` placement. -/
-theorem blkW_postO' {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp) {n : ND}
-    {blk : List Directive} {lo hi : Int} {dead : Nat → Bool} {ra : Int64}
-    (hcode : ∀ s : State, s.exe = exe → s.endPc = endPc → CodeAt s n.pc blk)
-    (hok : okBlk lo hi n.o blk = true)
-    (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ lo) (hhi : hi ≤ R.hi)
-    (hC : ∀ σ c, n.J σ c → CFacts Λ lbl c)
-    (hph : blkPh okPc ph dead lab n.pc ra blk = true)
-    (hret : ∀ σ c, n.J σ c → ∀ k (hk : k < blk.length) r, Spike.Lib.A64.Flow.classify blk[k] =
-      some (Spike.Lib.A64.Flow.AI.ret r) →
-      Int64.ofInt ((Spike.Lib.A64.Flow.arun lab (blk.take k) ⟨n.pc, n.o, σ⟩).σ.regs.getRegOrZr r).signed = ra)
-    (hdead : ∀ σ c, n.J σ c → dead (Spike.Lib.A64.Flow.arun lab blk ⟨n.pc, n.o, σ⟩).pc.toBitVec.toNat = false)
-    (hl : R.lo % 8 = 0) (hh : R.hi % 8 = 0)
-    (hsub : rS.Sub Λ.stackPool) (hfit : rS.lo + rS.size ≤ 2 ^ 64) (hFO : ∀ m, F m → StackOff rS R m) :
-    BlkW (fun s c => SFacts Λ μ own rS Tk lbl s c) K exe endPc R F n blk := by
-  rw [← hI.labOk] at hph hret hdead
-  obtain ⟨hpc, hph', -⟩ := blkPh_sound (μ := μ) (endPc := endPc) hI.same hI.off hok hph hret hdead
-  refine blkW_sfacts hcode hok hR hal hlo hhi hC hpc hph' fun s m hF hD hc k hk s' hm _ _ => ?_
-  subst hm
-  exact Spike.Lib.A64.Rt.owned_off hR (by omega) hl hh hsub
-    (Spike.Lib.A64.Flow.Ret0.stackOff_stable hfit _ _ (hFO _ hF) hD) hc
-
-/-- **A covered block's states write nothing** (`blkW_noWr` at the block's
-code `hcode`). -/
-theorem blkW_noWr' {n : ND} {blk : List Directive} {lo hi : Int}
-    (hcode : ∀ s : State, s.exe = exe → s.endPc = endPc → CodeAt s n.pc blk)
-    (hok : okBlk lo hi n.o blk = true)
-    (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ lo) (hhi : hi ≤ R.hi) :
-    BlkW (fun s _ => ∀ L, ¬ WrAt s L) (fun _ _ => False) exe endPc R F n blk := by
-  intro s σ c he hn _ _ _ _ _ k hk m hA' _
-  refine ⟨?_, fun _ h => h⟩
-  obtain ⟨a, hca, haok, -⟩ := Spike.Lib.A64.Flow.okBlk_get (_root_.Executable.labels exe).label
-    (am := ⟨n.pc, n.o, σ⟩) hok hk
-  obtain ⟨hdir, hreg⟩ := Spike.Lib.A64.Flow.classify_sound hca
-  have hd : blk[k]? = some blk[k] := List.getElem?_eq_getElem hk
-  have hc : CellAt { s with st := (m, n.pc + Int64.ofNat (4 * k)) } a.toDir 4 :=
-    (hcode s he hn).cell (j := k) (hdir ▸ hd) rfl rfl rfl
-  obtain ⟨m', hex, -⟩ := Spike.Lib.A64.Flow.exec_ai haok hR hal hlo hhi hc hreg hA'
-  exact noWr_done hex
-
-/-- **A covered block's states are off a system call** (`blkW_noSys` at
-the block's code `hcode`). -/
-theorem blkW_noSys' {n : ND} {blk : List Directive} {lo hi : Int}
-    (hcode : ∀ s : State, s.exe = exe → s.endPc = endPc → CodeAt s n.pc blk)
-    (hok : okBlk lo hi n.o blk = true) :
-    BlkW (fun s _ => abi.atSys s = false) (fun _ _ => False) exe endPc R F n blk := by
-  intro s σ c he hn _ _ _ _ _ k hk m _ _
-  refine ⟨?_, fun _ h => h⟩
-  obtain ⟨a, hca, -, -⟩ := Spike.Lib.A64.Flow.okBlk_get (_root_.Executable.labels exe).label
-    (am := ⟨n.pc, n.o, σ⟩) hok hk
-  obtain ⟨hdir, hreg⟩ := Spike.Lib.A64.Flow.classify_sound hca
-  have hd : blk[k]? = some blk[k] := List.getElem?_eq_getElem hk
-  have hc : CellAt { s with st := (m, n.pc + Int64.ofNat (4 * k)) } a.toDir 4 :=
-    (hcode s he hn).cell (j := k) (hdir ▸ hd) rfl rfl rfl
-  refine Scc.Sem.A64.atSvc_false_of_cellAt hc fun imm h => ?_
-  cases a <;> (try simp only [Spike.Lib.A64.Flow.AI.toDir] at h) <;> (try cases h)
-  exact absurd (hreg _ _ rfl) (by simp [Spike.Lib.A64.Flow.RegOnly])
-
-variable {p : Prog} {rd : TermRun.Word → Prop} {G : Loc → Val → Prop} {ar : Arena} {J : InvS}
-  {Dt Ab' : State → Prop} {lsize : Lsize} {fs : List TermRun.Frame}
-
-/-- **A covered block at its code without a `ret` is inside `W2`** at the
-frames `fs`, its states placed (`hP`): `blkW_w2BP` at the block's code
-(`hcode`) rather than its `blockAt` placement. -/
-theorem blkW_w2BP' {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp) {lo hi : Int}
-    (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ lo) (hhi : hi ≤ R.hi)
-    (hl : R.lo % 8 = 0) (hh : R.hi % 8 = 0) (hsub : rS.Sub Λ.stackPool) (hfit : rS.lo + rS.size ≤ 2 ^ 64)
-    (hFO : ∀ m, F m → StackOff rS R m) (hp : ProgNoS Spike.Lib.LowerNode.ZBad p) {n : ND}
-    {ra : Int64} {blk : List Directive}
-    (hcode : ∀ s : State, s.exe = exe → s.endPc = endPc → CodeAt s n.pc blk)
-    (hph : blkPh okPc ph (fun _ => false) lab n.pc ra blk = true) (hok : okBlk lo hi n.o blk = true)
-    (hnr : noRetBlk blk = true)
-    (hab : BlkW (fun s _ => AbSt μ Ab' s) (fun _ _ => False) exe endPc R F n blk)
-    (hP : BlkW (fun s c => PlacedS Λ lbl s c fs) (fun _ _ => False) exe endPc R F n blk)
-    (hJ : ∀ σ c, n.J σ c → (fs = [] → ∀ a, c.term ≠ .ret a) ∧ Spike.Lib.LowerNode.FrOk2 c fs) :
-    BlkW (fun s c => W2 Λ μ p rd G own rS Tk ar J Dt Ab' lbl lsize s c fs) K exe endPc R F n blk := by
-  have hS : BlkW (fun s c => SFacts Λ μ own rS Tk lbl s c) K exe endPc R F (Spike.Lib.A64.AllocG.dumN n) blk :=
-    blkW_postO' (n := Spike.Lib.A64.AllocG.dumN n) (dead := fun _ => false) (ra := ra) hI hcode hok hR
-      hal hlo hhi (fun _ _ h => h.1 ▸ Spike.Lib.A64.Flow.Ret0.Inst.cfacts_c0) hph
-      (fun _ _ _ k hk r hr => (noRet_false hnr k hk r hr).elim) (fun _ _ _ => rfl) hl hh hsub hfit hFO
-  have hW : BlkW (fun s _ => ∀ L, ¬ WrAt s L) (fun _ _ => False) exe endPc R F n blk :=
-    blkW_noWr' hcode hok hR hal hlo hhi
-  have hWN : BlkW (fun s _ => (∀ L, ¬ WrAt s L) ∧ abi.atSys s = false) (fun _ _ => False) exe endPc R F n blk :=
-    Spike.Lib.A64.AllocG.BlkW.imp hW (blkW_noSys' hcode hok) fun _ _ h1 h2 => ⟨h1, h2⟩
-  have hPW : BlkW (fun s c => PlacedS Λ lbl s c fs ∧ (∀ L, ¬ WrAt s L) ∧ abi.atSys s = false)
-      (fun _ _ => False) exe endPc R F n blk :=
-    Spike.Lib.A64.AllocG.BlkW.imp hP hWN fun _ _ h1 h2 => ⟨h1, h2⟩
-  refine BlkW.w2 hp hS ?_ hJ
-  exact Spike.Lib.A64.AllocG.BlkW.imp hab hPW fun s c h1 h2 =>
-    ⟨h1, h2.1, fun _ _ _ _ => wrOkA_of_noWr h2.2.1, fun h => absurd h (by rw [h2.2.2]; decide)⟩
 
 /-- **The phase check of two blocks in a row**, the second's start in the
 first's phase. -/
@@ -601,11 +508,11 @@ theorem laneW_w2E {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph
     exact hE _ _ (by omega)
   -- the phases
   have hr1 : runPhB okPc ph lab pc ra (B1 ++ [dL] ++ directives ls) = true := by
-    have := (hcd _ _ hC1).2.choose_spec.choose_spec.2.2
+    have := (hcd _ _ hC1).2.2
     simpa only [B1, List.append_assoc] using this
   have hr2 : runPhB okPc ph lab (pc + Int64.ofNat (4 * (B1.length + 2))) ra
       ((directives lv ++ directives lb ++ directives preS) ++ [dS]) = true := by
-    have := (hcd _ _ hC2).2.choose_spec.choose_spec.2.2
+    have := (hcd _ _ hC2).2.2
     rw [← e2, ← hpc2]; simpa only [List.append_assoc] using this
   have hcl1 := classify_of_okBlk hok1
   have hcl2 := classify_of_okBlk hok2

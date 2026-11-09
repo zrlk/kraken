@@ -18,7 +18,7 @@ and the byte runs `waitRunsL xl`, `flagRunsL xl` (`X64HelloRunsOff`).
 - AArch64 states the loop obligations once, generic in the function's label prefix (`A64WakeMainW`,
   `A64WakeMainR`, `A64WakeMainL`, `A64WakeMainS`, `A64WakeMainF` over `A64WaitLoop`'s `pfx`), so hello reuses
   wake's lemmas. x86-64's wake lemmas are stated at wake's tail label `.Lwc_waitLoop.x16` (`X64WaitLoop.N`);
-  hello's loop returns from the park at `.Lwc_waitLoop.x20`, so the lemmas are restated here over
+  hello's loop returns from the park at `.Lwc_waitLoop.x1`, so the lemmas are restated here over
   `X64WaitLoopWX.LoopWX xl`, generic in `xl` and the listing (`waitInX xl cells`).
 - No `tlsW_*`: x86-64's limit load is the prologue's `w2` node, covered by each lemma's `pro` field
   (`loopWX_flag`'s premise `htp8`).
@@ -204,7 +204,8 @@ theorem loopWX_relW [Executable.ValidLayout exe] {Rd : TermRun.Word → Prop} {c
     ld := nodeW_relW (code_field hp hend hld rfl) fun _ hc => relWS_load hc
     n5 := blkW_relW b5_ok hR hlo hhi (code_field hp hend h5 rfl)
     n6 := blkW_relW b6_ok hR hlo hhi (code_field hp hend h6 rfl)
-    then1 := blkW_relW b7_ok hR hlo hhi (code_field hp hend h7 (ofNat_zero' _))
+    then1 := blkW_relW b7_ok hR hlo hhi
+      (Spike.Lib.X64.code_field_blockAcrossB hp hend h7 (List.take_append_drop _ _) (ofNat_zero' _))
     else2 := blkW_relW b8_ok hR hlo hhi (code_field hp hend h8 (ofNat_zero' _))
     x16 := blkW_relW b9_ok hR hlo hhi (code_field hp hend h9 (ofNat_zero' _)) }
 
@@ -240,7 +241,8 @@ theorem loopWX_sys [Executable.ValidLayout exe] {Rd : TermRun.Word → Prop} {ce
     ld := nodeW_sysCell (code_field hp hend hld rfl) fun _ _ h => by cases h
     n5 := blkW_sys b5_ok hR hlo hhi (code_field hp hend h5 rfl)
     n6 := blkW_sys b6_ok hR hlo hhi (code_field hp hend h6 rfl)
-    then1 := blkW_sys b7_ok hR hlo hhi (code_field hp hend h7 (ofNat_zero' _))
+    then1 := blkW_sys b7_ok hR hlo hhi
+      (Spike.Lib.X64.code_field_blockAcrossB hp hend h7 (List.take_append_drop _ _) (ofNat_zero' _))
     else2 := blkW_sys b8_ok hR hlo hhi (code_field hp hend h8 (ofNat_zero' _))
     x16 := blkW_sys b9_ok hR hlo hhi (code_field hp hend h9 (ofNat_zero' _)) }
 
@@ -348,7 +350,8 @@ theorem loopWX_flag [Executable.ValidLayout exe] {cells : List (Directive × Nat
           rw [ofNat_add']; simp only [NX]; rfl)
     n6 := blkW_flag b6_ok hR hlo hhi (code_field hp hend h6 rfl) h0 (fun _ _ hJ => .inl hJ.1)
       (by ne_blk ".Lwc_waitLoop.entry" 8 29 27 b6)
-    then1 := blkW_flag b7_ok hR hlo hhi (code_field hp hend h7 (ofNat_zero' _)) h0
+    then1 := blkW_flag b7_ok hR hlo hhi
+      (Spike.Lib.X64.code_field_blockAcrossB hp hend h7 (List.take_append_drop _ _) (ofNat_zero' _)) h0
       (fun _ c hJ => .inr (hP c hJ.2.1)) (fun _ _ _ hJ => (hnp hJ.2.1).elim)
     else2 := blkW_flag b8_ok hR hlo hhi (code_field hp hend h8 (ofNat_zero' _)) h0 (fun _ _ hJ => .inl hJ.1)
       (by ne_blk ".Lwc_waitLoop.else2" 0 5 0 b8)

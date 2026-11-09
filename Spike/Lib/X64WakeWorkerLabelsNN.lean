@@ -219,7 +219,7 @@ theorem seg_thrWorkerNN {Q : Frag isa} (hp : Lays exe SccCode.wakeCells kp)
     (hc3 : c3 = ⟨e, (x, ExtName.unpark.sig.2, []) :: c2.env, none⟩)
     {ar : CoreTerm.At} (hret3 : c3.term = .ret ar)
     (hT : LdOk ms F tp)
-    (hown : OwnAt ms exe endPc ((_root_.Executable.labels exe).label ".Lscc_rt_thr_worker.x12") tp tp)
+    (hown : OwnAt ms exe endPc ((_root_.Executable.labels exe).label ".Lscc_rt_thr_worker.x0") tp tp)
     (hSx : StOk ms F (tp + 24#64) 1#64)
     (hZ : ThrZ Z exe c0 c1 c2 c3 A B tp sp0) :
     SegTC (NNZ exe endPc Z) p lbl ms
@@ -264,7 +264,7 @@ theorem seg_thrWorkerNN {Q : Frag isa} (hp : Lays exe SccCode.wakeCells kp)
   · rintro ⟨rbp1, ra1⟩ ⟨⟩ σC c σx c' σR ⟨σ0, c0', ⟨-, -, -, -, hbp, -⟩, -, rfl⟩ ⟨⟨-, -, -, hrb, hra, -⟩, -⟩
       ⟨hc', hrb', htp'⟩ hreg - - -
     refine .inl ⟨(), ?_, by show SO.le ThrTailW.oP ⟨-48 - 0 + 8, []⟩ = true; decide, hc', ?_, ?_⟩
-    · show (_root_.Executable.labels exe).label ".Lscc_rt_thr_worker.x12" = Int64.ofBitVec ra1
+    · show (_root_.Executable.labels exe).label ".Lscc_rt_thr_worker.x0" = Int64.ofBitVec ra1
       have hra' : (enter (-48 - 0) (arun lab ThrHeadW.thE ⟨lab ".Lscc_rt_thr_worker.entry", ThrHeadW.oI, σ0⟩).σ).slot 0
         = ra1 := hra
       rw [← hra', hx12 hp]

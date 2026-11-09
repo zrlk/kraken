@@ -15,8 +15,8 @@ at every label read (`codeOf`); in the kernel those scans are most of
 * each label of the program is encoded once, into a number (`key`), in one
   table of its index and the directives after it (`tailTab`); a lookup
   compares numbers (`findT`, `findT_tailTab`);
-* a body's blocks are read from the run after its label, found once
-  (`chkK`, `bodyInG`);
+* a body's blocks are read from the runs after its labels, each found
+  once (`chkK`, `labelGapK`, `bodyInG`);
 * the code addresses come from the keyed table of `Scc/Cert/Rt/PhasesA64.lean`
   (`codeT`, `codeT_eq`).
 
@@ -273,26 +273,31 @@ theorem getOpS_slotOff (c : FnCtx) (t : XReg) : getOpS c.slotOff t = c.getOp t :
 
 /-! ## The body -/
 
-/-- **`bodyIn` at a block check `chk`** and a slot function `so`
-(`bodyIn prog cx l` at `blockAt prog l` and `cx.slotOff`, `bodyIn_eq_G`). -/
-def bodyInG (chk : Nat → List Directive → Bool) (cx : FnCtx) (so : Scc.IR.Reg → Except String Int) :
-    Nat → List Scc.IR.Inst → List Scc.IR.Operand → Bool
-  | k, [], [w] =>
+/-- **`bodyIn` at a block check `chk`, a gap check `gap` and a slot
+function `so`** (`bodyIn prog cx` at `blockAt prog`, `labelGap prog` and
+`cx.slotOff`, `bodyIn_eq_G`). The body's blocks lie in the runs its labels
+delimit (P5): the entry label's, then each fresh label's (`retL cx n`). -/
+def bodyInG (chk : Label → Nat → List Directive → Bool) (gap : Label → Label → Nat → Bool) (cx : FnCtx)
+    (so : Scc.IR.Reg → Except String Int) :
+    Label → Nat → Nat → List Scc.IR.Inst → List Scc.IR.Operand → Bool
+  | L, n, o, [], [w] =>
     match getOpS so .X0 w with
-    | .ok lw => chk k (directives (lw ++ cx.leave ++ [ret]))
+    | .ok lw =>
+      chk L o (tearDirs cx lw) && gap L (retL cx n) (o + (tearDirs cx lw).length) &&
+        chk (retL cx n) 0 (directives [ret])
     | .error _ => false
-  | k, .addChk d a b :: is, ws =>
+  | L, n, o, .addChk d a b :: is, ws =>
     match getOpS so .X9 a, getOpS so .X10 b, so d with
     | .ok la, .ok lb, .ok off =>
-      chk k (addDirs cx la lb) && chk (k + (addDirs cx la lb).length) (strDirs off) &&
-        bodyInG chk cx so (k + (addDirs cx la lb).length + 1) is ws
+      chk L o (addDirs cx la lb) && gap L (retL cx n) (o + (addDirs cx la lb).length) &&
+        chk (retL cx n) 0 (strDirs off) && bodyInG chk gap cx so (retL cx n) (n + 1) 1 is ws
     | _, _, _ => false
-  | _, _, _ => false
+  | _, _, _, _, _ => false
 
-theorem bodyIn_eq_G (prog : List Directive) (cx : FnCtx) (l : Label) :
-    bodyIn prog cx l = bodyInG (blockAt prog l) cx cx.slotOff := by
-  funext k is ws
-  induction is generalizing k with
+theorem bodyIn_eq_G (prog : List Directive) (cx : FnCtx) :
+    bodyIn prog cx = bodyInG (blockAt prog) (labelGap prog) cx cx.slotOff := by
+  funext L n o is ws
+  induction is generalizing L n o with
   | nil => cases ws with
     | nil => simp [bodyIn, bodyInG]
     | cons w ws => cases ws <;> simp only [bodyIn, bodyInG, getOpS_slotOff] <;> cases cx.getOp .X0 w <;> rfl
@@ -336,14 +341,17 @@ def fnCodeOkK (T : List (Nat × Nat × List Directive)) (ir : Scc.IR.Program) : 
       if is.all isAddChk then
         let c := fnCtxK ir.abortFn ir.growth areas fi f
         proInK T c f.name (c.prefix ++ "0_entry") &&
-          bodyInG (chkK T (c.prefix ++ "0_entry")) c (slotOffK c (c.slots.map key)) 0 is [w] &&
+          bodyInG (chkK T) (labelGapK T) c (slotOffK c (c.slots.map key)) (c.prefix ++ "0_entry") 0 0 is [w] &&
           (is.isEmpty || chkK T (c.local "abort_overflow") 0 ovfBlk)
       else true
     | _, _, _ => true
 
 theorem fnCodeOkK_eq (prog : List Directive) (ir : Scc.IR.Program) :
     fnCodeOkK (tailTab prog 0) ir = fnCodeOk prog ir := by
-  simp only [fnCodeOkK, fnCodeOk, fnCtxK_eq, slotOffK_eq, proInK_eq, chkK_eq, bodyIn_eq_G]
+  have h1 : chkK (tailTab prog 0) = blockAt prog := funext (chkK_eq prog)
+  have h2 : labelGapK (tailTab prog 0) = labelGap prog := by
+    funext a b n; exact labelGapK_eq prog a b n
+  simp only [fnCodeOkK, fnCodeOk, fnCtxK_eq, slotOffK_eq, proInK_eq, chkK_eq, h1, h2, bodyIn_eq_G]
   congr 1
 
 /-! ## The phase part -/

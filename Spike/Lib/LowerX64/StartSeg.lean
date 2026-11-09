@@ -119,12 +119,12 @@ theorem x64_start_segW {d : Decl} (hd : Scc.Lower.Accepted0 [d] = true) (hs : o.
     (h4 : fr.size ≤ 4096) (h16 : fr.size % 16 = 0)
     (hpro : proInC o.prog fr bareMC.fn entry zl zf z1 z2 zs = true)
     (hr : lower0 [(d.arg, .unit, [])] 0 d.body = some r)
-    (hbody : bodyIn o.prog fr entry 0 r.insts r.ret = true)
+    {m : Nat} (hbody : bodyIn o.prog fr entry m 0 r.insts r.ret = true)
     {Dt : State → Prop} {rd : TermRun.Word → Prop} {G : Loc → Val → Prop} {lbl : Lbl} {lsize : Lsize}
     (hfree : Spike.Lib.X64.Rt.RtFree (Ly) lbl lsize)
     {E : Scc.Sem.Entry} (hE : E.Ok (Ly).Λ)
     (hphB : bodyPhOk (Spike.Lib.X64.PhRec.okPc (Ly)) (Spike.Lib.X64.PhRec.ph (Ly)) (fun _ => false) (Ly).lab
-      o.prog fr entry r.insts r.ret (Int64.ofBitVec ((Ly).lab bareMC.sp0).toBitVec) = true)
+      o.prog fr entry m r.insts r.ret (Int64.ofBitVec ((Ly).lab bareMC.sp0).toBitVec) = true)
     (hphP : ProPh (Spike.Lib.X64.PhRec.okPc (Ly)) (Spike.Lib.X64.PhRec.ph (Ly)) (Ly).lab bareMC.fn
       (labelOf fr.fn "chk") (Int64.ofInt fr.size) (proL fr) zl zf z1 z2 zs [])
     (hC0 : CFacts (Ly).Λ lbl Spike.Lib.X64Consumer.c0)

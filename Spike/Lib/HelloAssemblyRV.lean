@@ -102,7 +102,7 @@ theorem hello_obligations_RV {arch : WeakMem.Arch} {B : Budget} {E : Entry} {pas
     (hd : dataSections asm = some o.secs)
     /- instance facts (as `HelloRootO.oPremH_R`) -/
     (hlo : Λ0.code.lo = Spike.Lib.A64.WakePh.lo) (hstat : Λ0.static = fun _ => none)
-    (hpin2 : (LH hp i).pinA.toNat + 168 ≤ (LH hp i).Λ.pinned.lo + (LH hp i).Λ.pinned.size)
+    (hpin2 : (LH hp i).pinA.toNat + 200 ≤ (LH hp i).Λ.pinned.lo + (LH hp i).Λ.pinned.size)
     (hc : Spike.Lib.A64.Rt.CtrZ o) (hnz : Spike.Lib.WakeOInit.NtZ Λ0 o = true)
     (hB : B.cells = Scc.Cert.PlaceOK.allocCells)
     /- row: 5j-start. The entry state is clear of the layout. -/

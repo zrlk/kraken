@@ -16,11 +16,11 @@ Program independent and reused: `WakePh.HPathW.map`, `WakePh.hpathW_hC`, `WakeWf
 
 Unlike AArch64, the stub's `leaq` is one node (no `n1b`, so `HPathW` has 11 obligations), the `write` and
 exit calls are `syscall`s (the exit status in `%rdi`); the exit call's site is told apart from the other
-abort sites on the resolved exit address (`abH_labsH`, `4202760`), as `X64WakeHAbStub.nodeW_exAbWf`, so
+abort sites on the resolved exit address (`abH_labsH`, `4202798`), as `X64WakeHAbStub.nodeW_exAbWf`, so
 A64's `lab_neH` has no twin; the region is `[-24, 16)` with no alignment premise; the return address is
 `.Lscc_rt_alloc.full + 12` (A64's `.L2_scc_rt_alloc.4_full + 8`) and `ownGH`'s two return points are
-`.Lscc_rt_alloc_tcb.x6`, `.Lwc_main.x27` (A64's `.sp13`, `.sp11`); the clone is the `syscall` at
-`.Lwc_main.x25 + 94` (`clone_inCvH`).
+`.Lscc_rt_alloc_tcb.x0`, `.Lwc_main.x5` (A64's `.sp13`, `.sp11`); the clone is the `syscall` at
+`.Lwc_main.x3 + 94` (`clone_inCvH`).
 
 Not twinned (unreachable from the AArch64 root `hello_linkedA`, so twins only live constants):
 `WcHAbStubH`, `wc_heapAb_segWSH`, `wc_heapAbStubKH`.
@@ -126,7 +126,7 @@ theorem nodeW_exAbWfH {ar : Arena} {Ab Ac : State → Prop} {fs : List TermRun.F
   obtain ⟨-, h2⟩ := abH_labsH hlab
   have hc' : c = c0 := hc
   refine ⟨fun k x hx hpcs => ⟨?_, fun v hv => ?_⟩, fun _ h => h⟩
-  · have hpx : x = 4202760 := by
+  · have hpx : x = 4202798 := by
       rw [← hpcs]; unfold pcOf; rw [hpc]; simp only [NT, Abort.N, Abort.heap, h2]; decide
     subst hpx
     rw [e, ← codeT_eq] at hx
@@ -211,8 +211,8 @@ theorem hpathW_hab0H {ar : Arena} {p : Prog} {Cl : State → Prop} {Ctx : FragS 
       R F c0 ra := by
   have hsite := siteH hp hlo hlab
   have ef : L.lab Spike.Lib.X64.Alloc.fullL = Int64.ofNat 4198788 := hlab _ _ (by rw [← codeT_eq]; decide +kernel)
-  have e6 : L.lab ".Lscc_rt_alloc_tcb.x6" = Int64.ofNat 4199282 := hlab _ _ (by rw [← codeT_eq]; decide +kernel)
-  have e27 : L.lab ".Lwc_main.x27" = Int64.ofNat 4203909 := hlab _ _ (by rw [← codeT_eq]; decide +kernel)
+  have e6 : L.lab ".Lscc_rt_alloc_tcb.x0" = Int64.ofNat 4199282 := hlab _ _ (by rw [← codeT_eq]; decide +kernel)
+  have e27 : L.lab ".Lwc_main.x5" = Int64.ofNat 4203947 := hlab _ _ (by rw [← codeT_eq]; decide +kernel)
   have es : L.lab Spike.Lib.X64.Flow.Ret0.StackTake.siteL = Int64.ofNat 4200314 :=
     hlab _ _ (by rw [← codeT_eq]; decide +kernel)
   obtain ⟨-, h2⟩ := abH_labsH hlab
@@ -259,16 +259,16 @@ theorem abort_offH (s : State) (h : inPc L "scc_rt_abort" "scc_rt_thr_worker" s)
   have hc := clone_inCvH
   simp only [Bool.and_eq_true, decide_eq_true_eq] at hc
   obtain ⟨⟨hs, hb⟩, -⟩ := hc
-  have e : Spike.Lib.X64HelloPreA.clonePcH L = cvH ".Lwc_main.x25" + 94 := by
+  have e : Spike.Lib.X64HelloPreA.clonePcH L = cvH ".Lwc_main.x3" + 94 := by
     obtain ⟨y, hy⟩ := Option.isSome_iff_exists.mp hs
-    have ey : cvH ".Lwc_main.x25" = y := by simp [cvH, hy]
+    have ey : cvH ".Lwc_main.x3" = y := by simp [cvH, hy]
     rw [ey] at hb ⊢
-    show (L.lab ".Lwc_main.x25" + 94).toBitVec.toNat = y + 94
+    show (L.lab ".Lwc_main.x3" + 94).toBitVec.toNat = y + 94
     rw [hlab _ y hy]
     show (BitVec.ofNat 64 y + BitVec.ofNat 64 94).toNat = y + 94
     rw [BitVec.toNat_add, BitVec.toNat_ofNat, BitVec.toNat_ofNat]; omega
-  have hcl : ¬ (cvH "scc_rt_abort" ≤ cvH ".Lwc_main.x25" + 94 ∧
-      cvH ".Lwc_main.x25" + 94 < cvH "scc_rt_thr_worker") := by
+  have hcl : ¬ (cvH "scc_rt_abort" ≤ cvH ".Lwc_main.x3" + 94 ∧
+      cvH ".Lwc_main.x3" + 94 < cvH "scc_rt_thr_worker") := by
     unfold cvH; rw [← codeT_eq]; decide +kernel
   have hst := lc Spike.Lib.X64.Flow.Ret0.StackTake.siteL (by unfold cvH; rw [← codeT_eq]; decide +kernel)
   have hsi : ¬ (cvH "scc_rt_abort" ≤ cvH Spike.Lib.X64.Flow.Ret0.StackTake.siteL ∧

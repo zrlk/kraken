@@ -48,23 +48,23 @@ open Kraken.Promising.Lower.X64 (CellAt)
 /-- **The labels `acPcs lab pfx` reads**: the spawn's, the dispatcher's and
 the threads stub's. -/
 def acLabs (pfx : String) : List String :=
-  [pfx ++ ".x25", pfx ++ ".x26", pfx ++ ".spawnfail5", "scc_rt_abort", ".Lscc_rt_abort.entry",
+  [pfx ++ ".x3", pfx ++ ".x4", pfx ++ ".spawnfail5", "scc_rt_abort", ".Lscc_rt_abort.entry",
     ".Lscc_rt_abort.next1", ".Lscc_rt_abort.next3", ".Lscc_rt_abort.next5", ".Lscc_rt_abort.next7",
     ".Lscc_rt_abort.is8", Spike.Lib.X64.Abort.threads.fn, Spike.Lib.X64.Abort.threads.entry,
     Spike.Lib.X64.Abort.threads.exit]
 
 /-- **`acPcs` reads the labels of `acLabs` only.** -/
 theorem acPcs_congr {lab lab' : Label → Int64} {pfx : String} (h : ∀ l ∈ acLabs pfx, lab l = lab' l) :
-    Spike.Lib.X64.Hello.ThreadsAb.acPcs lab pfx ".x25" 94 ".x26" =
-      Spike.Lib.X64.Hello.ThreadsAb.acPcs lab' pfx ".x25" 94 ".x26" := by
+    Spike.Lib.X64.Hello.ThreadsAb.acPcs lab pfx ".x3" 94 ".x4" =
+      Spike.Lib.X64.Hello.ThreadsAb.acPcs lab' pfx ".x3" 94 ".x4" := by
   simp only [Spike.Lib.X64.Hello.ThreadsAb.acPcs, Spike.Lib.X64.Hello.ThreadsAb.pcRet,
     Spike.Lib.X64.Hello.ThreadsAb.pcJe,
     Spike.Lib.X64.Hello.ThreadsAb.cloneAt, Spike.Lib.X64.Hello.ThreadsAb.pcSt,
     Spike.Lib.X64.Hello.ThreadsAb.tailPcs,
     Spike.Lib.X64.ThreadsAb.failPcs, Spike.Lib.X64.WriteAb.dispEPcs, Spike.Lib.X64.ThreadsAb.dispTPcs,
     Spike.Lib.X64.ThreadsAb.g5Pcs, Spike.Lib.X64.ThreadsAb.stubPcs]
-  rw [h (pfx ++ ".x25") (by simp [acLabs]),
-    h (pfx ++ ".x26") (by simp [acLabs]),
+  rw [h (pfx ++ ".x3") (by simp [acLabs]),
+    h (pfx ++ ".x4") (by simp [acLabs]),
     h (pfx ++ ".spawnfail5") (by simp [acLabs]),
     h ("scc_rt_abort") (by simp [acLabs]),
     h (".Lscc_rt_abort.entry") (by simp [acLabs]),
@@ -79,7 +79,7 @@ theorem acPcs_congr {lab lab' : Label → Int64} {pfx : String} (h : ∀ l ∈ a
 
 /-- `ThreadsAcSt.blkAc` (the same definition). -/
 abbrev blkAcC (lab : Label → Int64) (pfx : String) (pc ra : Int64) (blk : List (Directive × Nat)) : Bool :=
-  Spike.Lib.X64ConsumerA.HelloThreadsAcSt.blkAc lab pfx ".x25" 94 ".x26" pc ra blk
+  Spike.Lib.X64ConsumerA.HelloThreadsAcSt.blkAc lab pfx ".x3" 94 ".x4" pc ra blk
 
 /-- **`blkAc` reads the labels at the block's targets and `acLabs` only.** -/
 theorem blkAcC_congr {lab lab' : Label → Int64} {pfx : String} {pc ra : Int64} {blk : List (Directive × Nat)}
@@ -112,7 +112,7 @@ def phOff (lab : Label → Int64) (pfx : String) (l : Label) (k : Nat) (rl : Lab
 at `lab l + k` of size `z`. -/
 def siOff (lab : Label → Int64) (pfx : String) (l : Label) (k z : Nat) : Bool :=
   !(Spike.Lib.X64.WriteAb.abPcs lab).contains (lab l + Int64.ofNat k + Int64.ofNat z) &&
-    !(Spike.Lib.X64.Hello.ThreadsAb.acPcs lab pfx ".x25" 94 ".x26").contains (lab l + Int64.ofNat k + Int64.ofNat z)
+    !(Spike.Lib.X64.Hello.ThreadsAb.acPcs lab pfx ".x3" 94 ".x4").contains (lab l + Int64.ofNat k + Int64.ofNat z)
 
 /-- The labels `phOff` reads. -/
 def phLabs (pfx : String) (l rl : Label) (blk : List (Directive × Nat)) : List String :=

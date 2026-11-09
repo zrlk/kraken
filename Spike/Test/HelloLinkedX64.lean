@@ -69,12 +69,12 @@ def HelloLinkedXGoal (Λ0 : Scc.Sem.Layout) (iH : CoreTerm.Expr → String → N
 /-! ## A layout without an executable (non-vacuity) -/
 
 /-- The static link of hello's listing with GNU `ld`'s section bases: the code at `0x401000`
-(`X64.HelloPh.lo`, `ld`'s default `.text`) of the listing's `5613` bytes, `.rodata` at `0x403000`,
-`.data` at `0x404470`, the arena, pool and pinned region at the canonical bases. A concrete
+(`X64.HelloPh.lo`, `ld`'s default `.text`) of the listing's `5651` bytes, `.rodata` at `0x403000`,
+`.data` at `0x407a10`, the arena, pool and pinned region at the canonical bases. A concrete
 layout at which the placement checks pass, no executable needed. -/
 def Λ1 : Scc.Sem.Layout :=
   Scc.Cert.Link.link
-    { Scc.Cert.Link.canonical with codeLo := 0x401000, codeSize := 5613, roLo := 0x403000, dataLo := 0x404470 }
+    { Scc.Cert.Link.canonical with codeLo := 0x401000, codeSize := 5651, roLo := 0x403000, dataLo := 0x407a10 }
     SccCode.helloSecs (Scc.Sem.X64.codeLabel 0x401000 SccCode.helloCells)
 
 -- hello's output passes `placeOK2At` at `Λ1` (evaluation; the components are decided by the layout modules).

@@ -1,17 +1,17 @@
 /-
 **hello's level 1: the box allocation's words free at the start's `FS`** (x86-64; the twin of
-`Spike/Lib/A64HelloLevel1M.lean`, same names): `Level1HA.hB_landA`'s `hmem0` at the level's memory sides
+`Spike/Lib/A64HelloLevel1M.lean`, same names): `Level1HA.hB_landAg`'s `hmem0` at the level's memory sides
 `msOfA … I (upd LB l b) (updN (ls0T ls) l n) []`, from `WordsNone` (`StartGlue.hmemB_of_wordsNone`): the arena
 (`arOf`, independent of the labels, sizes and frames) inside `.heap`, its counter inside `.data` (`CtrZ`).
 
 - `hmem0_level1g`: `hmem0` at every `l b n`, at any owned words `own` (the proof reads only the arena and the
-  counter); `hmem0_level1`: at `ownGH`.
+  counter).
 
 ## Differences from the AArch64 version
 
 - `FS` is `X64.WakePh.MainGlue.FS` at the first stack's top `topS Ly 0` (its `WordsNoneP` at `.1.1`; AArch64:
   `.1`), and the arena's units and header offset are `LowerX64.arOf_units_pos`/`arOf_off_eq`.
-- The consumer is `Level1HA.hB_landA` (AArch64: `Level1I.hB_land`/`h1_level1`, not twinned on x86-64).
+- The consumer is `Level1HA.hB_landAg` (AArch64: `Level1I.hB_land`/`h1_level1`, not twinned on x86-64).
 - The statement is generic in the owned words (`hmem0_level1g`; AArch64's is at `ownGH` only), so that `ownGHXW`,
   which carries main's and the worker's TCB words, shares it.
 -/
@@ -66,10 +66,6 @@ local notation "MS1g" => fun (own : Spike.Lib.X64ConsumerS.OwnS) (l : WeakMem.Al
     (Spike.Lib.X64HelloGOf2H.gWH hpw IH (Spike.Lib.X64WakeHG.cTW hpw IH))
     own (AR) I (Spike.Lib.X64ConsumerA.upd (LB) l b) (Spike.Lib.X64ConsumerA.updN (ls0T ls) l n) fs
 
-set_option hygiene false in
-/-- The level's memory sides after rodata's allocation of `l` at `b`, `n` words, at the frames `fs`. -/
-local notation "MS1" => (MS1g) (fun s _ => Spike.Lib.X64.HelloPh.ownGH (Ly) (Spike.Lib.X64.Rt.Reserve.ntA (Ly).lab) s)
-
 /-- **`hmem0` at level 1 at any owned words `own`** (module doc): at every allocation `l b n` of rodata, a box
 call's counter and headers at the level's memory side are unloaded under the start's `FS` at the first stack's
 top. -/
@@ -102,19 +98,7 @@ theorem hmem0_level1g {own : Spike.Lib.X64ConsumerS.OwnS} (hc : Spike.Lib.X64.Rt
   have hf : ((MS1g) own l b n []).off q.n q.τ = 8 := Spike.Lib.LowerX64.arOf_off_eq (Λ := (Ly).Λ) hq.toS.accs
   rw [hf]; omega
 
-/-- **`hmem0` at level 1** (`hmem0_level1g` at `ownGH`): at every allocation `l b n` of rodata, a box call's
-counter and headers at the level's memory side are unloaded under the start's `FS` at the first stack's top. -/
-theorem hmem0_level1 (hc : Spike.Lib.X64.Rt.CtrZ o) :
-    ∀ l b n, ∀ q : Call, q.OKB ((MS1) l b n []) (Ly).lab → ∀ a : BitVec 64,
-      (a = BitVec.ofNat 64 ((MS1) l b n []).ctr ∨ ∃ o, o + ((MS1) l b n []).units q.n q.τ ≤ ((MS1) l b n []).cells ∧
-        a.toNat = q.hdrAt ((MS1) l b n []) o) →
-      ∀ m, FS (Ly) (RS0) helloLsw 0#64 (TOP) m → Mem.loadInt m.dmem a 8 = none :=
-  hmem0_level1g hpw i0 E rd I ls hc
-
 end Spike.Lib.X64.HelloPh.Level1I
-
-/-- info: 'Spike.Lib.X64.HelloPh.Level1I.hmem0_level1' depends on axioms: [propext, Classical.choice, Quot.sound] -/
-#guard_msgs in #print axioms Spike.Lib.X64.HelloPh.Level1I.hmem0_level1
 
 /-- info: 'Spike.Lib.X64.HelloPh.Level1I.hmem0_level1g' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms Spike.Lib.X64.HelloPh.Level1I.hmem0_level1g

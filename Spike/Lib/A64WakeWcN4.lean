@@ -46,7 +46,7 @@ theorem seg_allocB_ofW_at {W : Frag isaLSE2} {K : State → State → Prop} {pro
       (fun s c => ∃ x, At exe endPc R F (Alloc.EB (_root_.Executable.labels exe).label ms q x) s c) := by
   have hcode := Spike.Lib.A64.Flow.alloc_code (ms := ms) (q := q) hp hend hprog
   simp only [allocIn, Bool.and_eq_true, and_assoc] at hprog
-  obtain ⟨-, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, hgap⟩ := hprog
+  obtain ⟨-, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, hgap⟩ := hprog
   exact Alloc.seg_allocBW_at hF hR hal hlo hhi hq hcode
     (by rw [label_labelGap hp hgap]; simp only [Scc.Cert.Rt.A64.Print.add4, Scc.Cert.Rt.A64.Print.add0])
     hmem hW i0

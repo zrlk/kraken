@@ -57,7 +57,7 @@ theorem externs_unit {p : Prog} (hn : (p.map (·.name)).Nodup) :
 
 theorem nodup_of_accepted2 {p : Prog} (hp : Scc.Lower.Accepted2 p = true) : (p.map (·.name)).Nodup := by
   simp only [Scc.Lower.Accepted2, Bool.and_eq_true] at hp
-  exact of_decide_eq_true hp.1.1.1.1.1.1.1.1.1
+  exact of_decide_eq_true hp.1.1.1.1.1.1.1.1.1.2
 
 /-- `lowerDeclMarks_immIn2` on the frontend's externs: no `hext` premise. -/
 theorem lowerDeclMarks_immIn2F {p : Prog} (hp : Scc.Lower.Accepted2 p = true)

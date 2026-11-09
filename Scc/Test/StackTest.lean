@@ -199,7 +199,7 @@ def callsOfW (path f : String) : IO (List (String × List Nat)) := do
 info: [("scc_rt_alloc", [256, 1, 2]),
  ("scc_rt_alloc", [256, 1, 2]),
  ("scc_rt_thread_reserve", []),
- ("scc_rt_alloc_tcb", [12585219, 1]),
+ ("scc_rt_alloc_tcb", [12586243, 1]),
  ("scc_rt_thread_init", []),
  ("scc_rt_abort", [5])]
 -/

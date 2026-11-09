@@ -20,7 +20,7 @@ Unlike AArch64 (forced by the x64 shape): the runs are byte ranges (`Spike/Lib/X
 instruction counts, the pc `label + 4k`), so `passChk` takes the list of a node's byte offsets (its block's
 `cellOff`s) and a prologue's check is over its bytes up to the function's `.entry` (`wc_worker`: 55,
 `scc_rt_thr_worker`: 51; AArch64: 15 instructions); the release store is a plain `movq` (TSO; AArch64: `stlr`), at
-`.Lwc_worker.x17 + 11`; labels carry no numbering prefix; `print`'s nodes are stated by `Print.N`'s pc and offsets
+`.Lwc_worker.x0 + 11`; labels carry no numbering prefix; `print`'s nodes are stated by `Print.N`'s pc and offsets
 with any invariant (as `X64HelloRelZP`); and the abort path's runs are left to their module (`off_of_pcIn` at any
 runs disjoint from the store's; AArch64: `abort_off` here).
 -/
@@ -50,15 +50,15 @@ set_option linter.unusedSimpArgs false
 /-- **The pcs past the worker's release store**: `wc_worker`'s `.x17` from byte 14 (past the store's 3 bytes at
 11) and its `.x18`, `scc_rt_unpark`, `scc_rt_thr_worker`'s `.x13` (each to its label's last byte). -/
 def helloPostRuns : List (Label × Nat × Nat) :=
-  [(".Lwc_worker.x17", 14, 23), (".Lwc_worker.x18", 0, 5), ("scc_rt_unpark", 0, 12),
+  [(".Lwc_worker.x0", 14, 23), (".Lwc_worker.x1", 0, 5), ("scc_rt_unpark", 0, 12),
     (".Lscc_rt_unpark.entry", 0, 37), (".Lscc_rt_unpark.wake", 0, 73), (".Lscc_rt_unpark.done", 0, 5),
-    (".Lscc_rt_thr_worker.x13", 0, 48)]
+    (".Lscc_rt_thr_worker.x0", 0, 48)]
 
 theorem hello_runsOk : runsOk SccCode.helloCells helloPostRuns = true := by decide +kernel
 
 /-- `wc_worker`'s `.x17`: the store (3 bytes) at byte 11, then the run of `helloPostRuns` to the label's end at
 byte 23. -/
-theorem hello_storeAt : Scc.Cert.Rt.X64.blockAt SccCode.helloCells ".Lwc_worker.x17" 2 11
+theorem hello_storeAt : Scc.Cert.Rt.X64.blockAt SccCode.helloCells ".Lwc_worker.x0" 2 11
     ((stDir .rcx 0 .rax, 3) :: HelloTail.b1) = true := by decide +kernel
 
 /-- **The target store point**: the pc is past the worker's store (`PassZ`'s `passT`). -/
@@ -170,11 +170,11 @@ theorem tail_b {c0 c1 c2 : Ctl} {A B rbp0 ra tp sp : BitVec 64} (i : HelloTail.P
     NodeZ (PB (tailB i)) exe (HelloTail.NA (_root_.Executable.labels exe).label c0 c1 c2 A B rbp0 ra tp sp i)
       (HelloTail.blkN i) := by
   cases i
-  · exact nodeZ_b hp (l := ".Lwc_worker.x17") (off := 0) (by zb) (by zb)
-  · exact nodeZ_b hp (l := ".Lwc_worker.x17") (off := 11) (by zb) (by zb)
-  · exact nodeZ_b hp (l := ".Lwc_worker.x17") (off := 14) (by zb) (by zb)
+  · exact nodeZ_b hp (l := ".Lwc_worker.x0") (off := 0) (by zb) (by zb)
+  · exact nodeZ_b hp (l := ".Lwc_worker.x0") (off := 11) (by zb) (by zb)
+  · exact nodeZ_b hp (l := ".Lwc_worker.x0") (off := 14) (by zb) (by zb)
   · exact nodeZ_nil
-  · exact nodeZ_b hp (l := ".Lwc_worker.x18") (off := 0) (by zb) (by zb)
+  · exact nodeZ_b hp (l := ".Lwc_worker.x1") (off := 0) (by zb) (by zb)
 
 /-- **`scc_rt_unpark`'s nodes are past the store** (`hZU`). -/
 theorem unpk_b {c1 c2 : Ctl} {B rbp1 ra1 tp : BitVec 64} (i : Unpark.PN) :
@@ -194,11 +194,11 @@ theorem unpk_b {c1 c2 : Ctl} {B rbp1 ra1 tp : BitVec 64} (i : Unpark.PN) :
 theorem thrT_b {c3 : Ctl} {tp sp0 : BitVec 64} (i : HThrTail.PN) :
     NodeZ (PB true) exe (HThrTail.NA (_root_.Executable.labels exe).label c3 tp sp0 i) (HThrTail.blkN i) := by
   cases i
-  · exact nodeZ_b hp (l := ".Lscc_rt_thr_worker.x13") (off := 0) (by zb) (by zb)
-  · exact nodeZ_b hp (l := ".Lscc_rt_thr_worker.x13") (off := 9) (by zb) (by zb)
-  · exact nodeZ_b hp (l := ".Lscc_rt_thr_worker.x13") (off := 24) (by zb) (by zb)
-  · exact nodeZ_b hp (l := ".Lscc_rt_thr_worker.x13") (off := 28) (by zb) (by zb)
-  · exact nodeZ_b hp (l := ".Lscc_rt_thr_worker.x13") (off := 40) (by zb) (by zb)
+  · exact nodeZ_b hp (l := ".Lscc_rt_thr_worker.x0") (off := 0) (by zb) (by zb)
+  · exact nodeZ_b hp (l := ".Lscc_rt_thr_worker.x0") (off := 9) (by zb) (by zb)
+  · exact nodeZ_b hp (l := ".Lscc_rt_thr_worker.x0") (off := 24) (by zb) (by zb)
+  · exact nodeZ_b hp (l := ".Lscc_rt_thr_worker.x0") (off := 28) (by zb) (by zb)
+  · exact nodeZ_b hp (l := ".Lscc_rt_thr_worker.x0") (off := 40) (by zb) (by zb)
 
 /-- **`scc_rt_thr_worker`'s head is before the store** (`hZE`). -/
 theorem thrH_b {J : AS → Ctl → Prop} {L : Ctl → Ctl → Prop} (i : HThrHead.TN) :

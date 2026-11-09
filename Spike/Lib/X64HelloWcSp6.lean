@@ -3,7 +3,7 @@
 `Spike/Lib/A64HelloWcSp6.lean`), at the listing level, in `wc_main`'s frame of 128 (`oWH`: `%rsp` at `-128`,
 `%rbp` at `0`, the saved `%rbp`):
 
-    .Lwc_main.x25:                      -- %rax = the child's stack top k
+    .Lwc_main.x3:                      -- %rax = the child's stack top k
       movq %rax, -72(%rbp)
       movq -16(%rbp), %rax; movq %rax, -80(%rbp)   … -24 → -88, -32 → -96, -48 → -104, -40 → -112   (sp6AH)
       mfence                            -- row: a fence (WcClone.mfence_ndW)
@@ -84,9 +84,9 @@ block_spec cloneLdH (-128) 16 oWH cloneLdH
 block_spec nrBH (-128) 16 oWH nrB
 
 /-- The label of `.x25`. -/
-abbrev x25L : Label := ".Lwc_main.x25"
+abbrev x25L : Label := ".Lwc_main.x3"
 
-/-- **The blocks and rows in `cells`** at `.Lwc_main.x25`: indices `0`, `11`, `12`, `21`, `22`, `23`, `24`,
+/-- **The blocks and rows in `cells`** at `.Lwc_main.x3`: indices `0`, `11`, `12`, `21`, `22`, `23`, `24`,
 byte offsets `0`, `44`, `47`, `84`, `86`, `89`, `94`. -/
 def wcSp6InH (cells : List (Directive × Nat)) : Bool :=
   blockAt cells x25L 0 0 sp6AH && blockAt cells x25L 11 44 fenceB && blockAt cells x25L 12 47 cloneLdH &&

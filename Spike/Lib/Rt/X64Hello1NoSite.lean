@@ -57,7 +57,7 @@ theorem blkSt_off {μ : Marks} {exe : _root_.Executable} {endPc : Int64} {R : Re
 /-- **The tail's labels.** -/
 def tailLabs : List Label :=
   [".Lscc_rt_print.loop", ".Lscc_rt_print.write", ".Lscc_rt_print.chk2", ".Lscc_rt_print.chk3",
-    ".Lscc_rt_print.adv", ".Lscc_rt_print.fail", ".Lscc_rt_print.done", ".Lwc_main.x15", ".Lscc_rt_main.x3",
+    ".Lscc_rt_print.adv", ".Lscc_rt_print.fail", ".Lscc_rt_print.done", ".Lwc_main.x0", ".Lscc_rt_main.x1",
     "scc_rt_abort", ".Lscc_rt_abort.entry", ".Lscc_rt_abort.next1", ".Lscc_rt_abort.next3",
     ".Lscc_rt_abort.next5", ".Lscc_rt_abort.is6", Abort.write.fn, Abort.write.entry, Abort.write.exit]
 
@@ -71,8 +71,8 @@ def printOff (μ : Marks) (lab : Label → Int64) : Bool :=
   blkOff μ (lab ".Lscc_rt_print.chk3") x9 && blkOff μ (lab ".Lscc_rt_print.chk3" + 16) x10 &&
   blkOff μ (lab ".Lscc_rt_print.adv") x11 && blkOff μ (lab ".Lscc_rt_print.fail") x12 &&
   blkOff μ (lab ".Lscc_rt_print.done") x13 &&
-  blkOff μ (lab ".Lwc_main.x15") wcR15 && blkOff μ (lab ".Lscc_rt_main.x3") (Flow.xExit (-48) 4 4 5) &&
-  offSite μ (lab ".Lscc_rt_main.x3" + Int64.ofNat 4 + Int64.ofNat 4 + Int64.ofNat 5) &&
+  blkOff μ (lab ".Lwc_main.x0") wcR15 && blkOff μ (lab ".Lscc_rt_main.x1") (Flow.xExit (-48) 4 4 5) &&
+  offSite μ (lab ".Lscc_rt_main.x1" + Int64.ofNat 4 + Int64.ofNat 4 + Int64.ofNat 5) &&
   blkOff μ (lab "scc_rt_abort") Abort.Disp.d0 && blkOff μ (lab ".Lscc_rt_abort.entry") Abort.Disp.t1 &&
   blkOff μ (lab ".Lscc_rt_abort.entry" + 16) Abort.Disp.j1 && blkOff μ (lab ".Lscc_rt_abort.next1") Abort.Disp.t2 &&
   blkOff μ (lab ".Lscc_rt_abort.next1" + 16) Abort.Disp.j2 && blkOff μ (lab ".Lscc_rt_abort.next3") Abort.Disp.t3 &&
@@ -150,11 +150,17 @@ theorem hello1_tailLabs : tailLabs.all (fun l => (labelIdx SccCode.hello1Cells l
 theorem hello1_printOff : printOff μ0 (labIn SccCode.hello1Λ.code.lo SccCode.hello1Cells) = true := by
   decide +kernel
 
+/-- The loaded thread's executable starts at `hello1`'s code (no data symbol
+below it): rewritten by `threadAt_exe_of_above`, not unfolded past the
+loader's symbols. -/
+theorem hello1Exe_fst : hello1Exe.1 = Int64.ofNat SccCode.hello1Λ.code.lo :=
+  congrArg Prod.fst (Scc.Cert.Link.X64.threadAt_exe_of_above Spike.Lib.X64.Flow.Hello1.Mem.hello1_above)
+
 /-- **`hello1.w`'s write tail is off the transfer sites** at `hello1`'s
 loaded thread and marks. -/
 theorem printDt_noSite_hello1 : ∀ s, PrintDt hello1Exe hello1End s → Kernel.siteAt abi μ0 s = none :=
   printDt_noSite <| (printOff_congr fun l hl =>
-    label_labIn hello1_lays rfl (List.all_eq_true.mp hello1_tailLabs l hl)).trans hello1_printOff
+    label_labIn hello1_lays hello1Exe_fst (List.all_eq_true.mp hello1_tailLabs l hl)).trans hello1_printOff
 
 /-- **`hello1.w`'s write tail is closed under certification** at `hello1`'s
 loaded thread and marks: `printDt_closed_hello1`, off the sites by

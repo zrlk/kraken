@@ -5,7 +5,7 @@ map** (x86-64; twin of `Spike/Lib/A64WakeTcb2W.lean`, its tools in
 `scc_rt_alloc_tcb` at `tcb2Q g c0` for `SFactsSt2` at `ownG`
 (`tcb2W_ownG`), from the instance's (`tcbW_postG` at `instOk2aP`,
 `tcbPh2a`) moved along `ownG = own2a ∘ ph2a` where `ownG` picks `own2a`
-(`Good2a`: the callee's pcs on a pool stack, its return to `.Lwc_main.x20`).
+(`Good2a`: the callee's pcs on a pool stack, its return to `.Lwc_main.x2`).
 
 - `tcb_labs`, `wake_allocTcbIn`: the labels the pcs are decided from; the
   callee's code in `wakeCells`.
@@ -16,10 +16,10 @@ map** (x86-64; twin of `Spike/Lib/A64WakeTcb2W.lean`, its tools in
 slots of `R` at offsets `[-184, 8]` (the frame of 176 at `[-176, -24]`, the
 saved `%rbp`, the return address), the counter's `lock xadd` at `L.pnA`
 (node `rmw`), and the header's store at `hdrA L.lab (tcb2Q g c0) =
-L.pinA + 96` (node `hdr`, `tcb2_hdrA_ne`).
+L.pinA + 128` (node `hdr`, `tcb2_hdrA_ne`).
 
 **Unlike AArch64**: no `hal`; `hlo' : R.lo ≤ -184`, `hhi : 8 ≤ R.hi`
-(A64's `-192`, `0`); the return is to `.Lwc_main.x20` (A64's
+(A64's `-192`, `0`); the return is to `.Lwc_main.x2` (A64's
 `.L21_wc_main.sp4`); 33 nodes (the length computation's flag-clobbering
 instructions and the `leaq`s are nodes of their own, `keep_fi`,
 `keep_lea`); the code's check has 35 conjuncts.
@@ -49,7 +49,7 @@ theorem tcb_labs (hlab : ∀ l x, codeLabel lo wakeCells l = some x → L.lab l 
     (_root_.Executable.labels L.exe).label entryL = Int64.ofNat 4199011 ∧
     (_root_.Executable.labels L.exe).label lenL = Int64.ofNat 4199033 ∧
     (_root_.Executable.labels L.exe).label okL = Int64.ofNat 4199247 ∧
-    (_root_.Executable.labels L.exe).label ".Lwc_main.x20" = Int64.ofNat 4203372 ∧
+    (_root_.Executable.labels L.exe).label ".Lwc_main.x2" = Int64.ofNat 4203410 ∧
     (_root_.Executable.labels L.exe).label Spike.Lib.X64.Flow.Ret0.StackTake.siteL = Int64.ofNat 4200277 := by
   refine ⟨hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_⟩ <;>
     (rw [← codeT_eq]; decide +kernel)
@@ -72,6 +72,17 @@ local macro "tblk2 " bb:term:max ok:term:max blk:term:max oo:term:max el:term:ma
     dsimp only [tcbNG] at hJ ⊢))
 
 set_option hygiene false in
+/-- `tblk2` for a block split by a return label (`m`, after its first `j`
+rows; `blockAcrossB`). -/
+local macro "tblk2A " bb:term:max j:term:max ok:term:max blk:term:max oo:term:max el:term:max : tactic =>
+  `(tactic| (
+    refine blk2a hlab hb hsite' h
+      (Spike.Lib.X64.code_field_blockAcrossB L.lays rfl $bb (List.take_append_drop $j _) rfl)
+      $ok hR (by omega) (by omega) ?_ (fun σ c hJ => ?_) (soT $blk $oo)
+    · intro k hk; dsimp only [tcbNG]; rw [$el:term]; revert k; decide +kernel
+    dsimp only [tcbNG] at hJ ⊢))
+
+set_option hygiene false in
 /-- A single-instruction node of the call (`z` bytes, `bb` its code check,
 `kp` its `Keep` from the cell `hc` and the step `hs`). -/
 local macro "tnode2 " z:term:max bb:term:max el:term:max kp:term : tactic =>
@@ -88,7 +99,7 @@ local macro "tnode2 " z:term:max bb:term:max el:term:max kp:term : tactic =>
 `SFactsSt2` at `ownG`**: `tcbW_postG` at the second call's instance
 (`instOk2aP`, `tcbPh2a`), each node moved to `ownG` where it picks `own2a`
 (`blk2a`, `node2a`): the frame on a pool stack (`hb`), the return to
-`.Lwc_main.x20` (`hra`), the counter's and the header's words mapped
+`.Lwc_main.x2` (`hra`), the counter's and the header's words mapped
 (`hmP`, `hmH`) and off private memory (`hunP`, `hunH`). -/
 theorem tcb2W_ownG (hp : L.prog = wakeCells) (hlo : L.Λ.code.lo = lo) (a : BitVec 64)
     {rS : Range}
@@ -97,11 +108,11 @@ theorem tcb2W_ownG (hp : L.prog = wakeCells) (hlo : L.Λ.code.lo = lo) (a : BitV
     (hΛ : L.Λ.abortLbl = Scc.Cert.Link.abortName)
     (hlab : ∀ l x, codeLabel lo wakeCells l = some x → L.lab l = Int64.ofNat x)
     (hsep : L.pnA ≠ L.lockA ∧ L.pnA ≠ L.freeNA ∧ L.pnA ≠ L.nextA ∧ L.pnA ≠ a)
-    (hhdr : L.pinA + 80#64 + 16#64 ∉ [L.pnA, L.lockA, L.freeNA, L.nextA, a])
+    (hhdr : L.pinA + 112#64 + 16#64 ∉ [L.pnA, L.lockA, L.freeNA, L.nextA, a])
     {Λ : Scc.Sem.Layout} {lbl : Spike.Lib.X64Consumer.Lbl} {c0 : Ctl}
     (hC0 : Spike.Lib.X64Consumer.CFacts Λ lbl c0)
     {R : Region} (hR : R.OK) (hlo' : R.lo ≤ -184) (hhi : 8 ≤ R.hi)
-    (hb : BandA L R) (g : G) (hra : g.ra = (L.lab ".Lwc_main.x20").toBitVec)
+    (hb : BandA L R) (g : G) (hra : g.ra = (L.lab ".Lwc_main.x2").toBitVec)
     {F : MachineData → Prop}
     (hmP : Scc.Sem.Kernel.mapped (Spike.Lib.X64Consumer.K0 Λ) true ⟨L.pnA, 8⟩ = true)
     (hmH : Scc.Sem.Kernel.mapped (Spike.Lib.X64Consumer.K0 Λ) true
@@ -115,7 +126,7 @@ theorem tcb2W_ownG (hp : L.prog = wakeCells) (hlo : L.Λ.code.lo = lo) (a : BitV
   have hpn : Spike.Lib.X64.Flow.Ret0.pnA L.lab = L.pnA := L.lab_pn
   have hT := Spike.Lib.X64.Rt.tcbW_postG (instOk2aP hp hlo a hsite (rS := rS)) (fun _ => rfl)
     (hp ▸ wake_allocTcbIn) hC0 hR hlo' hhi (tcb2Q g c0) rfl
-    (ra := fun _ => L.lab ".Lwc_main.x20") hra (tcbPh2a hΛ hlab hsep hhdr)
+    (ra := fun _ => L.lab ".Lwc_main.x2") hra (tcbPh2a hΛ hlab hsep hhdr)
     (hpn ▸ hmP) hmH (hpn ▸ hunP) hunH hsub hSM
   have hsite' : ∀ x, (Spike.Lib.X64.PhRec.μ L).site .take = some x → x = 4200277 := by
     intro x hx
@@ -165,7 +176,7 @@ theorem tcb2W_ownG (hp : L.prog = wakeCells) (hlo : L.Λ.code.lo = lo) (a : BitV
   case bnd =>
     tblk2 bBnd atBnd_ok atBnd oI eLen
     rw [(atBnd_walkG _ _ hJ.2.1 hJ.2.2
-      (by show (80#64).toNat + (lenOf Spike.Lib.X64.WakePh.hdr2).toNat ≤ 131072; decide)).1, eLen]
+      (by show (112#64).toNat + (lenOf Spike.Lib.X64.WakePh.hdr2).toNat ≤ 131072; decide)).1, eLen]
     decide +kernel
   case j2 =>
     tblk2 bJ2 atJ2_ok atJ2 oI eLen
@@ -186,10 +197,10 @@ theorem tcb2W_ownG (hp : L.prog = wakeCells) (hlo : L.Λ.code.lo = lo) (a : BitV
     tblk2 bO5 atO5_ok atO5 oI eOk
     rw [(atO5_walkG _ _ hJ.2.1 hJ.2.2).1, eOk]; decide +kernel
   case ret =>
-    tblk2 bRet atRet_ok atRet oI eOk
+    tblk2A bRet 11 atRet_ok atRet oI eOk
     rw [(atRet_walkG _ _ hJ.2).1]
     show PcA (Int64.ofBitVec g.ra)
-    rw [hra, Int64.ofBitVec_toBitVec, show L.lab ".Lwc_main.x20" = Int64.ofNat 4203372 from eX20]
+    rw [hra, Int64.ofBitVec_toBitVec, show L.lab ".Lwc_main.x2" = Int64.ofNat 4203410 from eX20]
     decide +kernel
   case shr1 => tnode2 3 fShr1 eLen keep_fi hc rfl hs
   case and1 => tnode2 3 fAnd1 eLen keep_fi hc rfl hs

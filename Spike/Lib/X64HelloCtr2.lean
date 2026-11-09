@@ -1,7 +1,7 @@
 /-
 **hello.w's counters are not the second limit word** (x86-64; the twin of `Spike/Lib/A64HelloCtr2.lean`): at the
 placed layout the runtime's counter words `pnA`, `lockA`, `freeNA`, `nextA` (`rtWords`) differ from the second
-TCB's limit word `lim2AH = pinA + 120` — that word is `spawnWords`' sixth (`pinA + 80 + 8 * 5`), and A13's data
+TCB's limit word `lim2AH = pinA + 152` — that word is `spawnWords`' sixth (`pinA + 112 + 8 * 5`), and A13's data
 part keeps `spawnWords` apart from `rtWords` (`H1Rt.a13_facts`). This is `X64HelloGOf2H.hctr2_of_dataH`'s
 conclusion without its `hctrD` (the counters in `.data`).
 
@@ -9,7 +9,7 @@ conclusion without its `hctrD` (the counters in `.data`).
 - `hctr2_H`: `hctr2` at the instance, from `hA13`.
 
 **Where this differs from AArch64**: the layout is `RuntimeLayout.ofPlaceWX` of a `PlaceWX` (A64: `ofPlaceW` of a
-`PlaceW`), and the spawn words and A13's data check are `Scc.Cert.Spawn.X64`'s. The offsets (`80 + 8 * 5 = 120`)
+`PlaceW`), and the spawn words and A13's data check are `Scc.Cert.Spawn.X64`'s. The offsets (`112 + 8 * 5 = 152`)
 and the proof are A64's.
 -/
 import Spike.Lib.X64WakeH1Rt
@@ -23,13 +23,13 @@ variable {pcfg : Scc.Cert.PlaceOK.Config} {o : Scc.Cert.PlaceOK.X64.Out} {Λ0 : 
 set_option hygiene false in
 local notation "Ly" => Spike.Lib.X64.Rt.RuntimeLayout.ofPlaceWX hp i
 
-/-- **The second limit word is a spawn word** (`pinA + 80 + 8 * 5`). -/
+/-- **The second limit word is a spawn word** (`pinA + 112 + 8 * 5`). -/
 theorem lim2_spawn : Spike.Lib.X64HelloGOf2H.lim2AH (Ly) ∈ Scc.Cert.Spawn.X64.spawnWords (Ly).pinA := by
   refine List.mem_map.2 ⟨5, List.mem_range.2 (by decide), ?_⟩
-  show (Ly).pinA + BitVec.ofNat 64 (80 + 8 * 5) = (Ly).pinA + 120#64
+  show (Ly).pinA + BitVec.ofNat 64 (112 + 8 * 5) = (Ly).pinA + 152#64
   rfl
 
-/-- **`hctr2` at the instance** (`StartH0G0`/`StartH0G`'s use of `hctrD`), from A13's data part: the counters are
+/-- **`hctr2` at the instance** (`StartH0G0X`/`StartH0G`'s use of `hctrD`), from A13's data part: the counters are
 runtime words, the second limit word a spawn word, and the two lists are apart. -/
 theorem hctr2_H (hA13 : Scc.Cert.Spawn.X64.a13data (Ly).Λ o.prog o.secs = true) :
     ∀ a ∈ [(Ly).pnA, (Ly).lockA, (Ly).freeNA, (Ly).nextA], a ≠ Spike.Lib.X64HelloGOf2H.lim2AH (Ly) := by

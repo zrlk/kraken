@@ -6,10 +6,9 @@ facts at depth** (AArch64, H7a calls): the twin of
 `blkW_bodyS1`: a construct's block (`Kind1`) inside a block of `CdC` is a
 block at `Cd1`.
 
-- `blockAt_sub`: a block inside a placed block is placed, `pre.length`
-  instructions further.
 - `cd1_of_subCdC`: a construct's block inside a block of `CdC` (`SubCd`)
-  is at `Cd1` (`kind1_ok`, `runPhB`'s `blkPh_of_runPhB`).
+  is at `Cd1` (`CdCQ.sub`, whole or in two pieces; `kind1_ok`, `runPhB`'s
+  `blkPh_of_runPhB`).
 - `hWbS_of`, `hWsS_of`: the body's construct blocks at its nodes and
   pending stores, from every ghost of `G0` (its pairs at the frames `fs`
   `Good1` with no hold, closed under the frame runs at `fs`), inside
@@ -34,36 +33,27 @@ open Spike.Lib.A64Consumer (CFacts Own Lbl)
 open Spike.Lib.A64.Rt (InstOk)
 open Spike.Lib.A64.Flow.Ret0 (StackOff)
 
-/-- **A block inside a placed block is placed**, `pre.length`
-instructions further. -/
-theorem blockAt_sub {prog : List Directive} {l : Label} {k : Nat} {pre blk post : List Directive}
-    (h : blockAt prog l k (pre ++ blk ++ post) = true) : blockAt prog l (k + pre.length) blk = true := by
-  unfold blockAt at h ⊢
-  simp only [Bool.and_eq_true, decide_eq_true_eq] at h ⊢
-  obtain ⟨hl, hb⟩ := h
-  generalize Scc.Cert.Rt.A64.run prog l = r at hb ⊢
-  have hd : r.drop k = pre ++ blk ++ post ++ (r.drop k).drop (pre ++ blk ++ post).length := by
-    have := List.take_append_drop (pre ++ blk ++ post).length (r.drop k)
-    rw [hb] at this
-    exact this.symm
-  refine ⟨hl, ?_⟩
-  rw [← List.drop_drop, hd]
-  simp
-
 variable {cx : FnCtx} (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) (h16 : cx.frame % 16 = 0)
 include hf h1 h16
 
 /-- **A construct's block inside a block of `CdC` is at `Cd1`**: placed
-(`blockAt_sub`), passing the phase check (`blkPh_of_runPhB`, its
+(`CdCQ.sub`), passing the phase check (`blkPh_of_runPhB`, its
 directives covered by `kind1_ok`). -/
 theorem cd1_of_subCdC {prog : List Directive} {okPc : Nat → Bool} {ph : Nat → Nat}
     {lab : Label → Int64} {ra pc : Int64} {blk : List Directive}
     (h : SubCd (CdC prog okPc ph lab ra) pc blk) (hk : Kind1 cx blk) :
     Cd1 prog okPc ph lab cx ra pc blk := by
-  obtain ⟨pc0, pre, post, ⟨-, L, j, hpc0, hb, hrun⟩, rfl⟩ := h
-  have hph := Scc.Cert.Ph1A64.blkPh_of_runPhB hrun (classify_of_okBlk (kind1_ok hf h1 h16 hk))
-  refine ⟨hk, L, j + pre.length, ?_, blockAt_sub hb, hph⟩
-  rw [← hpc0, Nat.mul_add, Int64.ofNat_add, Int64.add_assoc]
+  obtain ⟨pc0, pre, post, h, hpc⟩ := h
+  obtain ⟨-, hat, hrun⟩ := CdCQ.sub h hpc.symm
+  have hph := Scc.Cert.Ph1A64.blkPh_of_runPhB (xs := []) (zs := []) (by simpa using hrun)
+    (classify_of_okBlk (kind1_ok hf h1 h16 hk))
+  rw [show pc + Int64.ofNat (4 * ([] : List Directive).length) = pc by simp] at hph
+  have h1' : ∀ {pc b}, At1Q (fun _ => True) prog lab pc b → At1 prog lab pc b :=
+    fun ⟨L, j, _, he, hb⟩ => ⟨L, j, he, hb⟩
+  refine ⟨hk, ?_, hph⟩
+  rcases hat with ha | ⟨b1, b2, e, ha1, ha2⟩
+  · exact .inl (h1' ha)
+  · exact .inr ⟨b1, b2, e, h1' ha1, h1' ha2⟩
 
 variable {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe] {endPc : Int64}
   {prog : List Directive} {lab : Label → Int64} {μ : Marks} {own : Own} {Tk : State → Prop}

@@ -64,9 +64,9 @@ def InA (p : Nat) : Prop := 4198500 ≤ p ∧ p < 4198540
 /-- `scc_rt_thread_init`'s `.x7 + 51` to `scc_rt_stack_take`. -/
 def InT (p : Nat) : Prop := 4199620 ≤ p ∧ p < 4199695
 /-- `wc_main`'s `.x21` to `.stk`. -/
-def InC (p : Nat) : Prop := 4203397 ≤ p ∧ p < 4203514
+def InC (p : Nat) : Prop := 4203435 ≤ p ∧ p < 4203552
 /-- `scc_rt_abort` to `scc_rt_thr_worker`. -/
-def InAb (p : Nat) : Prop := 4202449 ≤ p ∧ p < 4202935
+def InAb (p : Nat) : Prop := 4202487 ≤ p ∧ p < 4202973
 
 instance (p : Nat) : Decidable (InA p) := by unfold InA; infer_instance
 instance (p : Nat) : Decidable (InT p) := by unfold InT; infer_instance
@@ -87,7 +87,7 @@ theorem selfOwn_iffC (hlab : ∀ l x, codeLabel lo wakeCells l = some x → L.la
     selfOwn L s ↔ (spPool L s ∧ 4198500 ≤ pcOf s) ∨ InA (pcOf s) ∨ InT (pcOf s) := by
   have e1 : L.lab ".Lscc_rt_start.x1" = Int64.ofNat 4198500 := labC hlab (by decide +kernel)
   have eM : L.lab "scc_rt_main" = Int64.ofNat 4198540 := labC hlab (by decide +kernel)
-  have e7 : L.lab ".Lscc_rt_thread_init.x7" = Int64.ofNat 4199569 := labC hlab (by decide +kernel)
+  have e7 : L.lab ".Lscc_rt_thread_init.x0" = Int64.ofNat 4199569 := labC hlab (by decide +kernel)
   have eT : L.lab "scc_rt_stack_take" = Int64.ofNat 4199695 := labC hlab (by decide +kernel)
   unfold selfOwn inPc InA InT
   rw [e1, eM, e7, eT, ofNat_toNat (by decide), ofNat_toNat (by decide), ofNat_toNat (by decide),
@@ -96,12 +96,12 @@ theorem selfOwn_iffC (hlab : ∀ l x, codeLabel lo wakeCells l = some x → L.la
 /-- **`selfOwnW` by the classes**, off the abort range. -/
 theorem selfOwnW_iffC (hlab : ∀ l x, codeLabel lo wakeCells l = some x → L.lab l = Int64.ofNat x)
     (hab : ¬ InAb (pcOf s)) : selfOwnW L s ↔ (spPool L s ∧ InT (pcOf s)) ∨ InC (pcOf s) := by
-  have e7 : L.lab ".Lscc_rt_thread_init.x7" = Int64.ofNat 4199569 := labC hlab (by decide +kernel)
+  have e7 : L.lab ".Lscc_rt_thread_init.x0" = Int64.ofNat 4199569 := labC hlab (by decide +kernel)
   have eT : L.lab "scc_rt_stack_take" = Int64.ofNat 4199695 := labC hlab (by decide +kernel)
-  have e21 : L.lab ".Lwc_main.x21" = Int64.ofNat 4203397 := labC hlab (by decide +kernel)
-  have eK : L.lab ".Lwc_main.stk" = Int64.ofNat 4203514 := labC hlab (by decide +kernel)
-  have eA : L.lab "scc_rt_abort" = Int64.ofNat 4202449 := labC hlab (by decide +kernel)
-  have eW : L.lab "scc_rt_thr_worker" = Int64.ofNat 4202935 := labC hlab (by decide +kernel)
+  have e21 : L.lab ".Lwc_main.x3" = Int64.ofNat 4203435 := labC hlab (by decide +kernel)
+  have eK : L.lab ".Lwc_main.stk" = Int64.ofNat 4203552 := labC hlab (by decide +kernel)
+  have eA : L.lab "scc_rt_abort" = Int64.ofNat 4202487 := labC hlab (by decide +kernel)
+  have eW : L.lab "scc_rt_thr_worker" = Int64.ofNat 4202973 := labC hlab (by decide +kernel)
   unfold selfOwnW inPc InT InC
   unfold InAb at hab
   rw [e7, eT, e21, eK, eA, eW, ofNat_toNat (by decide), ofNat_toNat (by decide), ofNat_toNat (by decide),

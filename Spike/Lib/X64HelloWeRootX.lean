@@ -1,6 +1,6 @@
 /-
-**`wc_rodata`'s entry states inside the start's level at the root, at `ownGHXW`** (x86-64 only; the `ownGHXW`
-instance of `Spike/Lib/X64HelloWeRoot.lean`'s `hWe_root`, as `X64HelloWeSX` is `X64HelloWeS`'s): at the root's
+**`wc_rodata`'s entry states inside the start's level at the root, at `ownGHXW`** (x86-64; the counterpart of
+`Spike/Lib/A64HelloWeRoot.lean`'s `hWe_root`, as `X64HelloWeSX` is `X64HelloWeS`'s at `ownGHXW`): at the root's
 layout `ofPlaceWX hpw (HelloImms.immsH Λ0 i0)`,
 
 - `hWe_rootX`: the root's `hWe` at `OX := ownGHXW Ly (Reserve.ntA Ly.lab)`, `WeSX.hWe_WSX` at the start's choices
@@ -15,8 +15,13 @@ shifted to `wc_rodata`'s (`Region.callee_addr`).
 
 ## Differences from the AArch64 version
 
-AArch64 has no counterpart: main owns no TCB word there (`A64HelloWeRoot.hWe_root` is at `ownGH`). Against
-`X64HelloWeRoot.hWe_root`: the level is at `ownGHXW`, and `hA13` is a new premise (for `ownGHXW`'s separation).
+- main owns no TCB word on AArch64 (`A64HelloWeRoot.hWe_root` is at `ownGH`); here the level is at `ownGHXW`, and
+  `hA13` is a premise (for `ownGHXW`'s separation).
+- `scc_rt_main` is entered by a `call`, so `mNC`'s region is `MainGlue.RS helloLsw v` (AArch64:
+  `swR v (-helloLsw) 0`), and `mNC` takes it (it records `%rbp`). The thread pointer is `tpOf (tcbS Ly)` (`fsBase`;
+  AArch64 `TPIDR_EL0` at `pinA + 8`); `FS` pins `v` by its conjunct `1.2.1.1` (AArch64 `2.1.1`).
+- The start's control facts are `HelloRdCf.start_ctl c0S.env` (AArch64 `C0S.c0S_ctl`), and the limit word's
+  mapping is a runtime word's (`fld_mem` at `limA_tcb0`, as `X64HelloBoxRF`).
 -/
 import Spike.Lib.X64HelloWeRoot
 import Spike.Lib.X64HelloWeSX

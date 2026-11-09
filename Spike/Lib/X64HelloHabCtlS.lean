@@ -73,8 +73,8 @@ theorem hpathW_hab0HS {ar : Arena} {p : Prog} {Cl : State → Prop} {Ctx : FragS
       R F c0 ra := by
   have hsite := siteH hp hlo hlab
   have ef : L.lab Spike.Lib.X64.Alloc.fullL = Int64.ofNat 4198788 := hlab _ _ (by rw [← codeT_eq]; decide +kernel)
-  have e6 : L.lab ".Lscc_rt_alloc_tcb.x6" = Int64.ofNat 4199282 := hlab _ _ (by rw [← codeT_eq]; decide +kernel)
-  have e27 : L.lab ".Lwc_main.x27" = Int64.ofNat 4203909 := hlab _ _ (by rw [← codeT_eq]; decide +kernel)
+  have e6 : L.lab ".Lscc_rt_alloc_tcb.x0" = Int64.ofNat 4199282 := hlab _ _ (by rw [← codeT_eq]; decide +kernel)
+  have e27 : L.lab ".Lwc_main.x5" = Int64.ofNat 4203947 := hlab _ _ (by rw [← codeT_eq]; decide +kernel)
   have es : L.lab Spike.Lib.X64.Flow.Ret0.StackTake.siteL = Int64.ofNat 4200314 :=
     hlab _ _ (by rw [← codeT_eq]; decide +kernel)
   obtain ⟨-, h2⟩ := abH_labsH hlab

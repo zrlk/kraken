@@ -22,7 +22,7 @@ program-independent pieces are reused: `WcW.blkW_mapC`, `WcW.nodeW_mapC`, `WcW.s
   byte offsets `o ∈ os` (AArch64's `freeAtH l k n`, the `n` pcs `lab l + 4 (k + j)`), `freeBlkH l k blk` a
   block's pcs; `blkW_wcGH` takes `freeBlkH l k blk` and has no `hal`; `nodeAgreeWH`/`nodeW_wcGH` are at a cell
   of size `z` off `syscall` (AArch64: `4`, off `svc`; wake's `succ_pc` replaces `succ_pc4`).
-- `ownGH`'s third range is `.Lwc_main.x24`–`.Lwc_main.stk` (AArch64's `.sp4`–`.stack_grow`), so the blocks
+- `ownGH`'s third range is `.Lwc_main.x2`–`.Lwc_main.stk` (AArch64's `.sp4`–`.stack_grow`), so the blocks
   covered are those before `.x24`: the prologue (`xHead`, `xLea`, the limit's load as a 9-byte `step`, `xCmp`,
   `xFr` with the five spills), the entry block, `.x22`'s block, the box's store (one 3-byte `step`), the
   reserve's call; there is no fence (scc's `# fence st` emits no code under TSO). The `.x23` block
@@ -63,7 +63,7 @@ def inCvH (l₁ l₂ : Label) (x : Nat) : Bool := cvH l₁ ≤ x && x < cvH l₂
 /-- **A pc where `ownGH` picks `ownH` whatever the state**: off `ownGH`'s four ranges, and off the take site. -/
 def freeNH (x : Nat) : Bool :=
   !inCvH "scc_rt_alloc_tcb" "scc_rt_thread_reserve" x && !inCvH "scc_rt_thread_init" "scc_rt_stack_release" x &&
-    !inCvH ".Lwc_main.x24" ".Lwc_main.stk" x && !inCvH "scc_rt_abort" "scc_rt_thr_worker" x &&
+    !inCvH ".Lwc_main.x2" ".Lwc_main.stk" x && !inCvH "scc_rt_abort" "scc_rt_thr_worker" x &&
     x != cvH Spike.Lib.X64.Flow.Ret0.StackTake.siteL
 
 /-- **The pcs `lab l + o` for the byte offsets `o ∈ os` are free.** -/
@@ -114,7 +114,7 @@ theorem freeBlk_pcH (hlab : ∀ l x, codeLabel lo helloCells l = some x → L.la
 /-- The labels `freeNH` reads are helloCells', below `2 ^ 64`. -/
 theorem freeLabsH :
     [("scc_rt_alloc_tcb" : Label), "scc_rt_thread_reserve", "scc_rt_thread_init", "scc_rt_stack_release",
-      ".Lwc_main.x24", ".Lwc_main.stk", "scc_rt_abort", "scc_rt_thr_worker",
+      ".Lwc_main.x2", ".Lwc_main.stk", "scc_rt_abort", "scc_rt_thr_worker",
       Spike.Lib.X64.Flow.Ret0.StackTake.siteL].all
       (fun l => (codeLabel lo helloCells l).isSome && decide (cvH l < 2 ^ 64)) = true := by
   unfold cvH; rw [← codeT_eq]; decide +kernel
@@ -123,7 +123,7 @@ theorem freeLabsH :
 theorem goodW_of_freeNH (hlab : ∀ l x, codeLabel lo helloCells l = some x → L.lab l = Int64.ofNat x)
     (h : freeNH (pcOf s) = true) : GoodWH L s := by
   have hl : ∀ l ∈ [("scc_rt_alloc_tcb" : Label), "scc_rt_thread_reserve", "scc_rt_thread_init",
-      "scc_rt_stack_release", ".Lwc_main.x24", ".Lwc_main.stk", "scc_rt_abort",
+      "scc_rt_stack_release", ".Lwc_main.x2", ".Lwc_main.stk", "scc_rt_abort",
       "scc_rt_thr_worker", Spike.Lib.X64.Flow.Ret0.StackTake.siteL], (L.lab l).toBitVec.toNat = cvH l := by
     intro l hl
     have := List.all_eq_true.mp freeLabsH l hl
@@ -188,9 +188,9 @@ def wcTabWH : List PhFact :=
      (Spike.Lib.X64.Flow.xFr 128 7 [(.rdi, -8, 4), (.rsi, -16, 4), (.rdx, -24, 4), (.rcx, -32, 4), (.r8, -40, 4)])
      none none,
    .blk ".Lwc_main.entry" 0 Spike.Lib.X64.Flow.HelloWc.wcEH none none,
-   .blk ".Lwc_main.x22" 0 Spike.Lib.X64.Flow.HelloWc.wcS0H none none,
-   .step ".Lwc_main.x22" 15 3,
-   .blk ".Lwc_main.x22" 18 Spike.Lib.X64.Flow.HelloWc.resBH none none]
+   .blk ".Lwc_main.x0" 0 Spike.Lib.X64.Flow.HelloWc.wcS0H none none,
+   .step ".Lwc_main.x0" 15 3,
+   .blk ".Lwc_main.x0" 18 Spike.Lib.X64.Flow.HelloWc.resBH none none]
 
 /-- **The blocks' facts hold** at `phC`. -/
 theorem wcFactsWH : wcTabWH.all (factOk (codeT lo helloCells) okC phC) = true := by

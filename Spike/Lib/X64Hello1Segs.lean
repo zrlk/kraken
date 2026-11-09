@@ -27,6 +27,7 @@ import Spike.Lib.X64CodeSegs
 import Spike.Lib.X64Hello1Rows
 import Spike.Lib.X64Hello1CallF
 import Scc.Cert.Rt.X64Print
+import Spike.Lib.X64CodeAcross
 
 namespace Spike.Lib.X64.Flow
 
@@ -63,7 +64,7 @@ abbrev h1WcPro : Bool := prologueIn hello1Cells "wc_main" ".Lwc_main.chk" ".Lwc_
   ".Lwc_main.stk" 5 9 3 2 4 [(.rdi, -8, 4), (.rsi, -16, 4), (.rdx, -24, 4), (.rcx, -32, 4), (.r8, -40, 4)]
 
 /-- `scc_rt_main`'s `exit_group` tail, after `wc_main` returns. -/
-abbrev h1MainExit : Bool := exitIn hello1Cells ".Lscc_rt_main.x3" (-48) 4 4 5
+abbrev h1MainExit : Bool := exitIn hello1Cells ".Lscc_rt_main.x1" (-48) 4 4 5
 
 theorem hello1_mainPro : h1MainPro = true := by decide +kernel
 theorem hello1_rodataPro : h1RodataPro = true := by decide +kernel
@@ -169,7 +170,7 @@ status in `%rax` is matched there (`hok`). Its states lie in `W`, none
 moved by `K` (`hW`). -/
 theorem hello1_main_exit_segW {W : Frag isa} {K : State → State → Prop}
     (hp : Lays exe hello1Cells) (hend : endPc = endOf exe hello1Cells) {n : ND}
-    {Q : Frag isa} {sp : Int} (hpc : n.pc = (_root_.Executable.labels exe).label ".Lscc_rt_main.x3")
+    {Q : Frag isa} {sp : Int} (hpc : n.pc = (_root_.Executable.labels exe).label ".Lscc_rt_main.x1")
     (hno : n.o = ⟨sp, [(.rbp, -8)]⟩) (hK : ms.K = some Scc.Sem.X64.abi) (hF : FStable R F) (hR : R.OK)
     (hlo : R.lo ≤ -72) (hhi : 0 ≤ R.hi)
     (hW : XExitW W K exe endPc R F n sp (-8) (-48) 4 4 5)
@@ -182,7 +183,7 @@ theorem hello1_main_exit_segW {W : Frag isa} {K : State → State → Prop}
 /-- **S6: `scc_rt_main`'s `exit_group` tail** in any valid layout of
 `hello1Cells` (`hello1_main_exit_segW` inside the trivial predicate). -/
 theorem hello1_main_exit_seg (hp : Lays exe hello1Cells) (hend : endPc = endOf exe hello1Cells) {n : ND}
-    {Q : Frag isa} {sp : Int} (hpc : n.pc = (_root_.Executable.labels exe).label ".Lscc_rt_main.x3")
+    {Q : Frag isa} {sp : Int} (hpc : n.pc = (_root_.Executable.labels exe).label ".Lscc_rt_main.x1")
     (hno : n.o = ⟨sp, [(.rbp, -8)]⟩) (hK : ms.K = some Scc.Sem.X64.abi) (hF : FStable R F) (hR : R.OK)
     (hlo : R.lo ≤ -72) (hhi : 0 ≤ R.hi)
     (hok : ∀ s c σ0, n.J σ0 c → At exe endPc R F ⟨n.pc + Int64.ofNat 4 + Int64.ofNat 4 + Int64.ofNat 5,
@@ -235,7 +236,7 @@ theorem seg_print_ofW {W : Frag isa} {K : State → State → Prop} {cells : Lis
   · exact code_field hp hend h10 rfl
   · exact code_field hp hend h11 (off0 _)
   · exact code_field hp hend h12 (off0 _)
-  · exact code_field hp hend h13 (off0 _)
+  · exact Spike.Lib.X64.code_field_blockAcrossB hp hend h13 (List.take_append_drop _ _) (off0 _)
   · exact code_field hp hend hs rfl
 
 end Print

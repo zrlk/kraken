@@ -192,7 +192,7 @@ theorem instsC2_call {fr : Scc.Emit.X64.Frame} {Cd : Int64 → List (Directive �
     have := congrArg (fun s : String => s.toList.head?) h
     simp [Scc.Lower.Names.user, Scc.Lower.Names.print, String.toList_append] at this
   rcases h with ⟨hc, -⟩ | ⟨d', g', w', lw, off, zs, zc, z, he, hw, hd, hz, h1, h2, h3, ⟨hk, hp⟩⟩ |
-      ⟨d', ws, -, -, -, -, -, he, -⟩ | ⟨ws, -, -, -, he, -⟩
+      ⟨d', ws, -, -, -, -, -, he, -⟩ | ⟨ws, -, -, -, he, -⟩ | ⟨_, _, _, _, _, _, _, _, he, -⟩
   · simp [Spike.Lib.LowerShape.isCall] at hc
   · simp only [Scc.IR.Inst.call.injEq, List.cons.injEq, and_true] at he
     obtain ⟨rfl, hg, rfl⟩ := he
@@ -202,6 +202,7 @@ theorem instsC2_call {fr : Scc.Emit.X64.Frame} {Cd : Int64 → List (Directive �
     exact absurd he.2.1 hua
   · simp only [Scc.IR.Inst.call.injEq] at he
     cases he.1
+  · cases he
 
 section Call
 

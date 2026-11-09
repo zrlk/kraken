@@ -25,47 +25,48 @@ open Spike.Lib.X64Consumer (blkPh)
 open Spike.Lib.X64.Flow.Ret0.Inst (okPc ph labT)
 
 /-- The return address: after `scc_rt_main`'s `call wc_main`, the label
-`.Lscc_rt_main.x2`. -/
+`.Lscc_rt_main.x0`. -/
 abbrev raT : Int64 := labT ".Lscc_rt_main.entry" + 5
 
-#guard raT == labT ".Lscc_rt_main.x2"
+#guard raT == labT ".Lscc_rt_main.x0"
 
 /- The body's blocks: three, at byte offsets 0 (the add), 19 (its store),
 23 (the return). -/
-#guard (bodyBlks SccCode.ret0Cells mainFr ".Lwc_main.entry" 0 ret0Res.insts ret0Res.ret).map (·.1) == [0, 19, 23]
+#guard (bodyBlks SccCode.ret0Cells mainFr ".Lwc_main.entry" 0 0 0 ret0Res.insts ret0Res.ret).map (·.1) == [0, 19, 23]
 
 /- The hand placement's tables: the body passes. -/
-#guard bodyPhOk okPc ph (fun _ => false) labT SccCode.ret0Cells mainFr ".Lwc_main.entry" ret0Res.insts
+#guard bodyPhOk okPc ph (fun _ => false) labT SccCode.ret0Cells mainFr ".Lwc_main.entry" 0 ret0Res.insts
   ret0Res.ret raT
 
 /- No pc allowed: the body fails. -/
-#guard !bodyPhOk (fun _ => false) ph (fun _ => false) labT SccCode.ret0Cells mainFr ".Lwc_main.entry"
+#guard !bodyPhOk (fun _ => false) ph (fun _ => false) labT SccCode.ret0Cells mainFr ".Lwc_main.entry" 0
   ret0Res.insts ret0Res.ret raT
 
 /- A phase table moving the body's pcs (`+ 1` everywhere off the body's
 label): the body's blocks leave their phase and fail. -/
 #guard !bodyPhOk okPc (fun pc => if pc == (labT ".Lwc_main.entry").toBitVec.toNat then ph pc else ph pc + 1)
-  (fun _ => false) labT SccCode.ret0Cells mainFr ".Lwc_main.entry" ret0Res.insts ret0Res.ret raT
+  (fun _ => false) labT SccCode.ret0Cells mainFr ".Lwc_main.entry" 0 ret0Res.insts ret0Res.ret raT
 
 /- A return into `scc_rt_stack_take` (phase 12, the stack not taken):
 the return block's target leaves the body's phase 0 and fails. -/
 #guard ph 4195700 == 12 && ph (labT ".Lwc_main.entry").toBitVec.toNat == 0
-#guard !bodyPhOk okPc ph (fun _ => false) labT SccCode.ret0Cells mainFr ".Lwc_main.entry" ret0Res.insts
+#guard !bodyPhOk okPc ph (fun _ => false) labT SccCode.ret0Cells mainFr ".Lwc_main.entry" 0 ret0Res.insts
   ret0Res.ret (Int64.ofNat 4195700)
 
 /- The same return target declared dead: it passes again. -/
-#guard bodyPhOk okPc ph (· == 4195700) labT SccCode.ret0Cells mainFr ".Lwc_main.entry" ret0Res.insts
+#guard bodyPhOk okPc ph (· == 4195700) labT SccCode.ret0Cells mainFr ".Lwc_main.entry" 0 ret0Res.insts
   ret0Res.ret (Int64.ofNat 4195700)
 
 /-- Soundness: every block of the body passes `blkPh` at its pc. -/
-example (h : bodyPhOk okPc ph (fun _ => false) labT SccCode.ret0Cells mainFr ".Lwc_main.entry" ret0Res.insts
-    ret0Res.ret raT = true) : ∀ x ∈ bodyBlks SccCode.ret0Cells mainFr ".Lwc_main.entry" 0 ret0Res.insts ret0Res.ret,
+example (h : bodyPhOk okPc ph (fun _ => false) labT SccCode.ret0Cells mainFr ".Lwc_main.entry" 0 ret0Res.insts
+    ret0Res.ret raT = true) :
+    ∀ x ∈ bodyBlks SccCode.ret0Cells mainFr ".Lwc_main.entry" 0 0 0 ret0Res.insts ret0Res.ret,
     blkPh okPc ph (fun _ => false) labT (labT ".Lwc_main.entry" + Int64.ofNat x.1) raT x.2 = true :=
   fun x hx => blkPh_of_inBody ⟨x.1, rfl, hx⟩ h
 
 /-- `bodyIn` holds at `ret0.w`'s listing, so `mem_bodyBlks`,
 `okBlk_bodyBlks` and `blockAt_of_bodyBlks` apply to its blocks. -/
-example : bodyIn SccCode.ret0Cells mainFr ".Lwc_main.entry" 0 ret0Res.insts ret0Res.ret = true := by
+example : bodyIn SccCode.ret0Cells mainFr ".Lwc_main.entry" 0 0 ret0Res.insts ret0Res.ret = true := by
   decide +kernel
 
 /-- `BodyW0` is satisfiable: at `X64Consumer.c0` (`Quiet`) with `SFacts`

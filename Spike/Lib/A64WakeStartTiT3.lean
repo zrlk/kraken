@@ -36,8 +36,8 @@ theorem bandI_mono {R : Spike.Lib.Region} {lo lo' : Int} (hb : BandI L R lo) (h 
 
 /-- `scc_rt_thread_init`'s labels at the canonical base. -/
 theorem ti_labs (hlab : ∀ l x, codeOf lo wakeProg l = some x → L.lab l = Int64.ofNat x) :
-    (_root_.Executable.labels L.exe).label Spike.Lib.A64.Flow.Ret0.ThreadInit.fnL = Int64.ofNat 2165244 ∧
-    (_root_.Executable.labels L.exe).label Spike.Lib.A64.Flow.Ret0.ThreadInit.entryL = Int64.ofNat 2165264 := by
+    (_root_.Executable.labels L.exe).label Spike.Lib.A64.Flow.Ret0.ThreadInit.fnL = Int64.ofNat 2165248 ∧
+    (_root_.Executable.labels L.exe).label Spike.Lib.A64.Flow.Ret0.ThreadInit.entryL = Int64.ofNat 2165268 := by
   refine ⟨hlab _ _ ?_, hlab _ _ ?_⟩ <;> (rw [← codeT_eq]; decide +kernel)
 
 set_option maxHeartbeats 400000 in

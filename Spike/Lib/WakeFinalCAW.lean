@@ -143,7 +143,7 @@ theorem wake_finalCA_genW {arch : WeakMem.Arch} {B : Budget} {r0 r1 : ιR hp i �
     (hd : dataSections SccCertificate.asm = some o.secs)
     /- instance facts -/
     (hlo : Λ0.code.lo = Spike.Lib.A64.WakePh.lo) (hstat : Λ0.static = fun _ => none)
-    (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
+    (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
     (hinit2 : (Spike.Lib.A64.PhRec.m0Of (Ly).Λ o.prog o.secs).initVal ⟨Spike.Lib.WakeGOf2.lim2A (Ly), 8⟩ = 0)
     (hwide : Scc.Cert.WideA64.ExeWide (Ly).exe)
     (hsub1 : (WakeOSide.r1W hp i).Sub (Ly).Λ.stackPool) (hc : Spike.Lib.A64.Rt.CtrZ o)
@@ -175,7 +175,7 @@ theorem wake_finalCA_genWP (hp : PlaceW pcfg Λ0 SccCertificate.outLit)
     (hP : Scc.Cert.Link.A64.parsesTo SccCertificate.asm SccCertificate.outLit.prog SccCertificate.outLit.secs = true)
     /- instance facts -/
     (hlo : Λ0.code.lo = Spike.Lib.A64.WakePh.lo) (hstat : Λ0.static = fun _ => none)
-    (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
+    (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
     (hinit2 : (Spike.Lib.A64.PhRec.m0Of (Ly).Λ SccCertificate.outLit.prog SccCertificate.outLit.secs).initVal
       ⟨Spike.Lib.WakeGOf2.lim2A (Ly), 8⟩ = 0)
     (hwide : Scc.Cert.WideA64.ExeWide (Ly).exe)
@@ -245,9 +245,9 @@ variable {pcfg : Scc.Cert.PlaceOK.Config} {o : Scc.Cert.PlaceOK.A64.Out} {Λ0 : 
   (hp : PlaceW pcfg Λ0 o) (i i' : CoreTerm.Expr → String → Nat → Option Nat)
 
 /-- `hpin2` does not read the immediate table. -/
-example : ((RuntimeLayout.ofPlaceW hp i).pinA.toNat + 168 ≤
+example : ((RuntimeLayout.ofPlaceW hp i).pinA.toNat + 200 ≤
       (RuntimeLayout.ofPlaceW hp i).Λ.pinned.lo + (RuntimeLayout.ofPlaceW hp i).Λ.pinned.size) =
-    ((RuntimeLayout.ofPlaceW hp i').pinA.toNat + 168 ≤
+    ((RuntimeLayout.ofPlaceW hp i').pinA.toNat + 200 ≤
       (RuntimeLayout.ofPlaceW hp i').Λ.pinned.lo + (RuntimeLayout.ofPlaceW hp i').Λ.pinned.size) := rfl
 
 /-- `hinit2` does not read the immediate table. -/

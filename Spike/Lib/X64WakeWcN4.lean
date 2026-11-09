@@ -2,7 +2,7 @@
 **wake.w's `wc_main` from inside its allocator just past the counter's
 add, the thread pointer kept** (x86-64): `wake_wc_entry_segW`'s tail from a
 state of `scc_rt_alloc`'s `c2` (just past the counter's `lock xadd`) of a
-box call from `wc_main` returning to `.Lwc_main.x18`, to the allocator's
+box call from `wc_main` returning to `.Lwc_main.x0`, to the allocator's
 heap abort. The allocator's rest (`Alloc.seg_allocBW_at` at `c2`), its
 return resumed in `wc_main`'s frame (`seg_resumeW`, the caller known
 through `WcCtx`), then `.x18` (`wake_wc_sp0_segW`), all at `tpXa ms t`
@@ -19,7 +19,7 @@ x86-64 twin of `Spike/Lib/A64WakeWcN4.lean` (namespace
   `.n4`), and the allocator's segment from any node is already
   `Alloc.seg_allocBW_at` (A64 adds `seg_allocB_ofW_at`), so there is no
   `seg_allocB_ofW_at` here;
-- the box call returns to `.Lwc_main.x18` (A64 `.L21_wc_main.sp0`); the
+- the box call returns to `.Lwc_main.x0` (A64 `.L21_wc_main.sp0`); the
   allocator's region `wAR R = R.callee (-80) (-160) 8` with
   `CallerCells R (-80) (-160) 8` (A64 `… 0`), so `8 ≤ R.hi` and no
   alignment premise (A64 `hal`, `0 ≤ R.hi`);
@@ -53,7 +53,7 @@ variable {p : Prog} {lbl : WeakMem.AllocLabel → Option Nat} {ms : MemSide isa}
 /-- **`wc_main` from its allocator's `c2` is one segment inside `W`, the
 thread pointer kept**, in any valid layout of `wakeCells`: from a state of
 the allocator's `c2` (just past the counter's add) for a box call `q`
-returning to `.Lwc_main.x18` (`hq`, `hra`), in the allocator's region under
+returning to `.Lwc_main.x0` (`hq`, `hra`), in the allocator's region under
 `WcPreW.alloc`'s frame condition, with `TP t`, to the allocator's heap
 abort with `TP t`. The box's landing is the `xa` exit (`hxa`). The other
 premises are `wake_wc_entry_segW`'s, `hmem` at the call `q`. -/
@@ -65,7 +65,7 @@ theorem wake_wc_c2_segW {t : UInt64} (hK : ms.K = some Scc.Sem.X64.abi)
     (hWp : WcPreW (NoSetFsW (tpG t W) K) K exe endPc R F (tpXa ms t) J0 J0)
     (hWs : WcSp0W (NoSetFsW (tpG t W) K) K exe endPc R F (tpXa ms t) J0)
     (hq : q.OKB ms (_root_.Executable.labels exe).label)
-    (hra : q.ra = ((_root_.Executable.labels exe).label ".Lwc_main.x18").toBitVec)
+    (hra : q.ra = ((_root_.Executable.labels exe).label ".Lwc_main.x0").toBitVec)
     (hmem : ∀ a : BitVec 64,
       (a = BitVec.ofNat 64 ms.ctr ∨ ∃ o, o + ms.units q.n q.τ ≤ ms.cells ∧ a.toNat = q.hdrAt ms o) →
       ∀ m, F m → Mem.loadInt m.dmem a 8 = none)
@@ -124,7 +124,7 @@ theorem wake_wc_c2_segW {t : UInt64} (hK : ms.K = some Scc.Sem.X64.abi)
     obtain ⟨o, -, -, -, -, hbx⟩ := hx'
     refine .inr ⟨WX.x18, ?_, by show SO.le ⟨-72, []⟩ ⟨-80 + 8, []⟩ = true; decide, ⟨q, hqt⟩,
       ⟨σe, hc ▸ hJe, ?_, ?_, ?_⟩, ?_, ?_⟩
-    · show lab ".Lwc_main.x18" = Int64.ofBitVec q.ra
+    · show lab ".Lwc_main.x0" = Int64.ofBitVec q.ra
       rw [hra, int64_ofBitVec_toBitVec]
     · rw [hsl 0 (by simp only [Region.Off, Region.callee]; omega), h0']
     · rw [hsl (-8) (by simp only [Region.Off, Region.callee]; omega), h8]

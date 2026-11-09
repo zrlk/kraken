@@ -84,12 +84,12 @@ theorem hello_tiPush : blockAtB helloCells "scc_rt_thread_init" 0 tiPush = true 
 /-! ## The pcs at the canonical base -/
 
 /-- `.x24`'s 25 bytes: their values, `ph2aH` `0`, off the sites. -/
-theorem x24_factsH : ∀ k < 25, (Int64.ofNat 4203749 + Int64.ofNat k).toBitVec.toNat = 4203749 + k ∧
-    ph2aHC (4203749 + k) = 0 ∧ okC (4203749 + k) = true := by decide +kernel
+theorem x24_factsH : ∀ k < 25, (Int64.ofNat 4203787 + Int64.ofNat k).toBitVec.toNat = 4203787 + k ∧
+    ph2aHC (4203787 + k) = 0 ∧ okC (4203787 + k) = true := by decide +kernel
 
 /-- `.x25`'s 95 bytes (to the `syscall`): their values, `ph2bH` `0`, off the sites. -/
-theorem x25_factsH : ∀ k < 95, (Int64.ofNat 4203774 + Int64.ofNat k).toBitVec.toNat = 4203774 + k ∧
-    ph2bHC (4203774 + k) = 0 ∧ okC (4203774 + k) = true := by decide +kernel
+theorem x25_factsH : ∀ k < 95, (Int64.ofNat 4203812 + Int64.ofNat k).toBitVec.toNat = 4203812 + k ∧
+    ph2bHC (4203812 + k) = 0 ∧ okC (4203812 + k) = true := by decide +kernel
 
 /-- `scc_rt_thread_init`'s first two pcs: their values, `ph2bH` `12`, the first off the sites. -/
 theorem ti_factsH : (Int64.ofNat 4199582 + Int64.ofNat (cellOff tiPush 0)).toBitVec.toNat = 4199582 ∧
@@ -107,11 +107,11 @@ theorem onProgH {L : RuntimeLayout} (hp : L.prog = helloCells) {l : Label} {k : 
 variable {L : RuntimeLayout} {a : BitVec 64}
 
 theorem lab_x24H (hlab : ∀ l x, codeLabel lo helloCells l = some x → L.lab l = Int64.ofNat x) :
-    (_root_.Executable.labels L.exe).label x24L = Int64.ofNat 4203749 :=
+    (_root_.Executable.labels L.exe).label x24L = Int64.ofNat 4203787 :=
   hlab _ _ (by rw [← codeT_eq]; decide +kernel)
 
 theorem lab_x25H (hlab : ∀ l x, codeLabel lo helloCells l = some x → L.lab l = Int64.ofNat x) :
-    (_root_.Executable.labels L.exe).label x25L = Int64.ofNat 4203774 :=
+    (_root_.Executable.labels L.exe).label x25L = Int64.ofNat 4203812 :=
   hlab _ _ (by rw [← codeT_eq]; decide +kernel)
 
 theorem lab_tiH (hlab : ∀ l x, codeLabel lo helloCells l = some x → L.lab l = Int64.ofNat x) :
@@ -144,7 +144,7 @@ theorem own2a0_eqH (L : RuntimeLayout) (a : BitVec 64) : own2aH L a 0 = own2bH L
 theorem own_x24H (hlab : ∀ l x, codeLabel lo helloCells l = some x → L.lab l = Int64.ofNat x) {s : State} {k : Nat}
     (hk : k < 25) (hs : s.st.2 = (_root_.Executable.labels L.exe).label x24L + Int64.ofNat k) :
     ownGH L a s = own2aH L a 0 := by
-  have hp : pcOf s = 4203749 + k := by unfold pcOf; rw [hs, lab_x24H hlab]; exact (x24_factsH k hk).1
+  have hp : pcOf s = 4203787 + k := by unfold pcOf; rw [hs, lab_x24H hlab]; exact (x24_factsH k hk).1
   obtain ⟨-, -, -, -, e5, e6, -, -, -⟩ := labs_eqH hlab (L := L)
   have hg : Good2aH L s := .inr (.inl (by unfold inPc; rw [e5, e6, hp]; omega))
   rw [ownGH_2a hlab hg, hp, ph2aH_eq, (x24_factsH k hk).2.1]
@@ -153,7 +153,7 @@ theorem own_x24H (hlab : ∀ l x, codeLabel lo helloCells l = some x → L.lab l
 theorem own_x25H (hlab : ∀ l x, codeLabel lo helloCells l = some x → L.lab l = Int64.ofNat x) {s : State} {k : Nat}
     (hk : k < 95) (hs : s.st.2 = (_root_.Executable.labels L.exe).label x25L + Int64.ofNat k) :
     ownGH L a s = own2bH L a 0 := by
-  have hp : pcOf s = 4203774 + k := by unfold pcOf; rw [hs, lab_x25H hlab]; exact (x25_factsH k hk).1
+  have hp : pcOf s = 4203812 + k := by unfold pcOf; rw [hs, lab_x25H hlab]; exact (x25_factsH k hk).1
   obtain ⟨-, -, -, -, -, e6, e7, -, -⟩ := labs_eqH hlab (L := L)
   have hg : Good2bH L s := .inr (.inl (by unfold inPc; rw [e6, e7, hp]; omega))
   rw [ownGH_2b hlab hg, hp, ph2bH_eq, (x25_factsH k hk).2.1]

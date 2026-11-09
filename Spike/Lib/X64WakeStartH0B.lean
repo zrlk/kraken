@@ -438,7 +438,7 @@ fragment), its premises carried: the instance facts (`hstat`, `hpin2`,
 theorem hst0_W (E : Entry) (hE : E.Ok (Ly).Λ) (hpa : cellsOf certAsm = some outLit.prog)
     (hlo : Λ0.code.lo = Spike.Lib.X64.WakePh.lo) (hstat : Λ0.static = fun _ => none)
     (hA13 : Scc.Cert.Spawn.X64.a13data (Ly).Λ outLit.prog outLit.secs = true)
-    (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
+    (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
     (hctrD : ∀ a ∈ [(Ly).pnA, (Ly).lockA, (Ly).freeNA, (Ly).nextA], (Ly).Λ.data.contains a.toNat)
     (hc : Spike.Lib.X64.Rt.CtrZ outLit) {lbl' : Lbl} {F0 : MachineData → Prop}
     (hpl0 : ∀ s, PlacedSE (Ly).Λ (L0T (Ly).Λ) s c0W [])

@@ -1,7 +1,7 @@
 /-
 **Main's spin-wait on x64, at any return label**: `Spike/Lib/X64WaitLoop.lean` with the label
-after the park call (`xl`, wake.w's `.Lwc_waitLoop.x16`) a parameter. scc numbers its local
-labels per program, so the label differs between listings (hello.w's is `.Lwc_waitLoop.x20`);
+after the park call (`xl`, wake.w's `.Lwc_waitLoop.x1`) a parameter. scc numbers its local
+labels per program, so the label differs between listings (hello.w's is `.Lwc_waitLoop.x1`);
 the blocks, the graph's shape and every proof step are `X64WaitLoop`'s.
 
 - `waitInX xl cells`: `X64WaitLoop.waitIn` with `xl` (`waitInX_x16`: wake's is the instance).
@@ -24,7 +24,7 @@ namespace Spike.Lib.X64.WaitLoopX
 open CoreLang CoreTerm
 open Kraken Kraken.Promising Kraken.Promising.X64 Kraken.Promising.Lower Kraken.Promising.Lower.X64
 open Kraken.X64.Parser Spike.Lib.X64 Spike.Lib.X64.Flow
-open Scc.Cert.Rt.X64 (Lays endOf blockAtB labelGapB code_field label_labelGapB)
+open Scc.Cert.Rt.X64 (Lays endOf blockAtB labelGapB code_field label_labelGapB blockAcrossB)
 open Spike.Lib.X64.Flow.Ret0 (LimOk StOk LdOk seg_one)
 open Scc.Sem (ValRep)
 open Spike.Lib.X64.WaitLoop
@@ -38,11 +38,12 @@ def waitInX (xl : Label) (cells : List (Directive × Nat)) : Bool :=
       [(.rdi, -8, 4)] &&
     blockAtB cells ".Lwc_waitLoop.entry" 0 b4 && blockAtB cells ".Lwc_waitLoop.entry" 4 [(ldDir .rcx 0 .rax, 3)] &&
     blockAtB cells ".Lwc_waitLoop.entry" 7 b5 && blockAtB cells ".Lwc_waitLoop.entry" 27 b6 &&
-    blockAtB cells ".Lwc_waitLoop.then1" 0 b7 && blockAtB cells ".Lwc_waitLoop.else2" 0 b8 &&
+    blockAcrossB cells ".Lwc_waitLoop.then1" 0 (b7.take 3) ".Lwc_waitLoop.x0" (b7.drop 3) &&
+    blockAtB cells ".Lwc_waitLoop.else2" 0 b8 &&
     blockAtB cells xl 0 b9 && labelGapB cells ".Lwc_waitLoop.else2" xl 5
 
-/-- wake's check is the instance at `.Lwc_waitLoop.x16`. -/
-theorem waitInX_x16 : waitInX ".Lwc_waitLoop.x16" = waitIn := rfl
+/-- wake's check is the instance at `.Lwc_waitLoop.x1`. -/
+theorem waitInX_x16 : waitInX ".Lwc_waitLoop.x1" = waitIn := rfl
 
 section Spec
 
@@ -64,8 +65,8 @@ def NX : PN → ND
       σ.slot (-32) = (lab ".Lwc_waitLoop.else2").toBitVec + 5#64⟩
   | .x16 => ⟨lab xl, oP, JI c0 A fp ra tp sp⟩
 
-/-- wake's nodes are the instance at `.Lwc_waitLoop.x16`. -/
-theorem NX_x16 : NX ".Lwc_waitLoop.x16" lab c0 x e ty Rd A fp ra tp sp = N lab c0 x e ty Rd A fp ra tp sp := by
+/-- wake's nodes are the instance at `.Lwc_waitLoop.x1`. -/
+theorem NX_x16 : NX ".Lwc_waitLoop.x1" lab c0 x e ty Rd A fp ra tp sp = N lab c0 x e ty Rd A fp ra tp sp := by
   funext n; cases n <;> rfl
 
 end Spec
@@ -85,6 +86,14 @@ left. -/
 local macro "node " b:ident ok:ident hc:ident : tactic =>
   `(tactic| refine seg_fixL () (seg_nd (by simp [$b:ident]) $ok hF hR hlo hhi
     (code_field hp hend $hc (by first | rfl | exact ofNat_zero' _)) fun σ c hJ => ⟨c, .refl c, ?_⟩).toL)
+
+set_option hygiene false in
+/-- `node` for a block split by a return label after its first `n` rows
+(`blockAcrossB`, `Spike.Lib.X64.code_field_blockAcrossB`). -/
+local macro "nodeX " b:ident ok:ident hc:ident : tactic =>
+  `(tactic| refine seg_fixL () (seg_nd (by simp [$b:ident]) $ok hF hR hlo hhi
+    (Spike.Lib.X64.code_field_blockAcrossB hp hend $hc (List.take_append_drop _ _)
+      (by first | rfl | exact ofNat_zero' _)) fun σ c hJ => ⟨c, .refl c, ?_⟩).toL)
 
 /-- Hitting node `j`. -/
 local macro "hit " j:term : tactic =>
@@ -158,7 +167,7 @@ theorem seg_waitLoopX (hp : Lays exe cells kp) (hend : endPc = endOf exe cells k
       hit PN.n6
   case n6 => node b6 b6_ok h6; rw [NX, b6_run]; hit PN.else2
   case then1 =>
-    node b7 b7_ok h7; rw [NX, b7_run]
+    nodeX b7 b7_ok h7; rw [NX, b7_run]
     obtain ⟨⟨⟨h8', h0, h16⟩, htp, hbp⟩, hP, h24⟩ := hJ
     refine .inr ⟨PX.ret, ?_, rfl, hP, ?_, ?_, ?_, ?_, h16, h24⟩
     · simp [E, h0]

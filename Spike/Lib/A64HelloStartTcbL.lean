@@ -95,6 +95,46 @@ theorem blkT_WSH {n : ND} {blk : List Directive} {l rl : Label} {k : Nat} {blo b
   intro s σ c _ _ _ _ _ _ _ j hj m _ _
   exact ⟨hX0 _ (inTH_of hlab (h1 j hj)), fun _ h => h⟩
 
+/-- **A block split by a return label** (`m`, after
+its first `jA` rows; `blockAcross`): as `blkT_WSH`. -/
+theorem blkT_WSHA {n : ND} {blk : List Directive} {l rl m : Label} {k jA : Nat} {blo bhi : Int}
+    (hb : Scc.Cert.Rt.A64.blockAcross SccCode.helloProg l k (blk.take jA) m (blk.drop jA) = true)
+    (he : L.lab l + Int64.ofNat (4 * k) = n.pc)
+    (hok : Spike.Lib.A64.Flow.okBlk blo bhi n.o blk = true) (hR : R.OK) (hal : R.base.toNat % 16 = 0)
+    (hlo' : R.lo ≤ blo) (hhi : bhi ≤ R.hi)
+    (hS : BlkW (fun s c => SFacts L.Λ (Spike.Lib.A64.PhRec.μ L) (fun s => ownH L a (phH (pcOf s))) rS Tk lbl' s c)
+      K L.exe L.endPc R F n blk)
+    (hokpc : ∀ j < blk.length,
+      okPcOf lo SccCode.helloProg L.Λ (L.lab l + Int64.ofNat (4 * k) + Int64.ofNat (4 * j)).toBitVec.toNat = true)
+    (h1 : ∀ j < blk.length, PcTH (n.pc + Int64.ofNat (4 * j)))
+    (hso : ∀ j ≤ blk.length, -192 ≤ (soRun (blk.take j) n.o).sp ∧ (soRun (blk.take j) n.o).sp ≤ 0)
+    (hfin : ∀ σ c, n.J σ c → ∀ (s : State) m,
+      Spike.Lib.A64.Flow.Abs R (Spike.Lib.A64.Flow.arun (_root_.Executable.labels L.exe).label blk ⟨n.pc, n.o, σ⟩).so m
+        (Spike.Lib.A64.Flow.arun (_root_.Executable.labels L.exe).label blk ⟨n.pc, n.o, σ⟩).σ →
+      s.exe = L.exe → s.endPc = L.endPc →
+      s.st = (m, (Spike.Lib.A64.Flow.arun (_root_.Executable.labels L.exe).label blk ⟨n.pc, n.o, σ⟩).pc) →
+      GoodWH L s)
+    (hph : Spike.Lib.A64.HelloWf.phOffHC pfxM l k rl blk = true)
+    (hret : ∀ σ c, n.J σ c → ∀ j (hj : j < blk.length) r, Spike.Lib.A64.Flow.classify blk[j] = some (.ret r) →
+      Int64.ofInt ((Spike.Lib.A64.Flow.arun L.lab (blk.take j) ⟨n.pc, n.o, σ⟩).σ.regs.getRegOrZr r).signed = L.lab rl)
+    (hJ : ∀ σ c, n.J σ c → c = c0) :
+    BlkW (WSH L a ar p Dt Cl Ctx lbl lsize frM X0) K L.exe L.endPc R F n blk := by
+  rw [he] at hokpc
+  have hI := instOkH hp hlo a (fun _ => False) hsite (rS := rS)
+  have hcode := Spike.Lib.A64.code_field_blockAcross L.lays rfl (hp ▸ hb)
+    (List.take_append_drop jA blk) (q := n.pc) he
+  have hst : BlkW (fun s _ => SFactsSt2 L.Λ (Spike.Lib.A64.PhRec.μ L) (ownGH L a) s Dt) K L.exe L.endPc R F n blk :=
+    blkT_ownH hlab hbd (siteTH hlab hsite) hS hcode hok hR hal hlo' hhi h1 hso hfin
+  have hw := Spike.Lib.A64.HelloWf.blkW_wfQHA (Λ := L.Λ) (ar := ar) (p := p) (Ctx := Ctx) (lsize := lsize)
+    (fs := []) hI (hp ▸ hb) he hok hR hal hlo' hhi hst
+    (fun j hj s h1 h2 h3 => (hI.off s (by unfold pcOf; rw [h3]; exact hokpc j hj)).1)
+    (Spike.Lib.A64.HelloWf.phOffHC_sound hlab hph) hret hcl
+    (fun σ c hJ' => by rw [hJ σ c hJ']; exact ⟨fun _ => hc0.1, hc0.2⟩)
+    (fun s σ c _ _ _ _ _ _ hJ' _ _ _ _ _ => by rw [hJ σ c hJ']; exact ⟨hpl0 _, fun _ h => h⟩)
+  refine Spike.Lib.A64.WakeWf.blkW_w0 (.inl rfl) ?_ hw
+  intro s σ c _ _ _ _ _ _ _ j hj m _ _
+  exact ⟨hX0 _ (inTH_of hlab (h1 j hj)), fun _ h => h⟩
+
 omit hp hlo hcl hc0 hpl0 hX0 hbd in
 /-- A pc of the callee is off the take site. -/
 theorem tkTH {q : Int64} (h : PcTH q) :

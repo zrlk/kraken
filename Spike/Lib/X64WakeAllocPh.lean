@@ -21,7 +21,7 @@ allocator is x86-64's (31 nodes: the counter's add a `lock xaddq`
 through `%rcx`, `ctr_addrS`; the header's store through `%rcx`,
 `hdr_addrS`; seven instructions with undefined flags, `fi_step`), so
 `nodeW_stepI` stands for A64's inline `nodeW_phSt` uses; offsets are bytes;
-the return point is `.Lwc_main.x18` (A64's `.L21_wc_main.sp0`), the return
+the return point is `.Lwc_main.x0` (A64's `.L21_wc_main.sp0`), the return
 address at `slot 0` of the `ret`'s node; the region is `[-160, 8)`, no
 alignment premise; the checks are in `X64WakeAllocPhC`.
 -/
@@ -95,7 +95,7 @@ theorem allocAbAcW (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp)
     (hA : Spike.Lib.X64.Alloc.allocIn cells = true) (hph : allocPhOk okPc ph lab = true)
     (hlab : ∀ l a, codeLabel Spike.Lib.X64.WakePh.lo wakeCells l = some a → lab l = Int64.ofNat a)
     (hR : R.OK) (hlo : R.lo ≤ -160) (hhi : 8 ≤ R.hi)
-    (hq : ∀ m, F m → q.OKS ms lab) (hra : q.ra = (lab (pfxM ++ ".x18")).toBitVec)
+    (hq : ∀ m, F m → q.OKS ms lab) (hra : q.ra = (lab (pfxM ++ ".x0")).toBitVec)
     (hmem : ∀ a : BitVec 64,
       (a = BitVec.ofNat 64 ms.ctr ∨ ∃ o, o + ms.units q.n q.τ ≤ ms.cells ∧ a.toNat = q.hdrAt ms o) →
       ∀ m, F m → Mem.loadInt m.dmem a 8 = none) :
@@ -157,7 +157,11 @@ theorem allocAbAcW (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp)
         (N (_root_.Executable.labels exe).label ms q .ret).pc := by pc_tac
     have hok : Spike.Lib.X64.okBlk (-160) 8 (N (_root_.Executable.labels exe).label ms q .ret).o
         [(iRet.toDir, 1)] = true := by dsimp only [N]; decide
-    refine Spike.Lib.LowerX64.BlkW.nodeW (blkW_phSt (fun s hs hn => he ▸ codeOf hI h30 hs hn) hok
+    refine Spike.Lib.LowerX64.BlkW.nodeW (blkW_phSt (fun s hs hn => by
+        rw [← he, ← (show (_root_.Executable.labels exe).label Spike.Lib.X64.Alloc.retL + Int64.ofNat 0 =
+          (_root_.Executable.labels exe).label Spike.Lib.X64.Alloc.okL + Int64.ofNat 226 by
+            rw [Spike.Lib.X64.Flow.ofNat_zero']; exact Scc.Cert.Rt.X64.label_labelGapB hI.lays h30.1)]
+        exact codeOf hI h30.2 hs hn) hok
       hR (by omega) (by omega) (fun j hj s h1 h2 h3 => ?_) he (phOffW_sound hlab chA_ret)
       (hret_of_run hok fun σ c hJ => ?_)) (List.cons_ne_nil _ _)
     · obtain rfl : j = 0 := by simpa using hj

@@ -30,7 +30,7 @@ theorem tail_bare_of_accepted1main {cfg : Scc.Config} {d : Decl}
   | error e => rw [hl] at hlow; cases hlow
   | ok l =>
     rw [hl] at hlow
-    have hlow : Scc.Lower.A64.emitAll l = .ok em := hlow
+    have hlow : Scc.Lower.A64.emitAll l cfg.gcWit = .ok em := hlow
     have hlo := (Scc.Lower.A64.emitAll_frames hlow).1
     have hc := lowerIR_checked hl
     rw [Scc.Lower.Inv.checkedOf_accepted1main hd] at hc

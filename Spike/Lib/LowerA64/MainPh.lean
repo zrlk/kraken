@@ -58,7 +58,7 @@ theorem mainPh_ofPlaceOK {cfg : Scc.Config} {d : Decl} (hd : Scc.Lower.Accepted0
         (func0 (Scc.Lower.Names.user "main") r) ∧
       FrameOk cx ∧ cx.frame ≤ 4095 ∧ cx.frame % 16 = 0 ∧
       proInC o.prog cx bareMC.fn entry = true ∧
-      bodyIn o.prog cx entry 0 r.insts r.ret = true ∧
+      bodyIn o.prog cx entry 0 0 r.insts r.ret = true ∧
       bodyPhOk (Spike.Lib.A64.PhRec.okPc Ly) (Spike.Lib.A64.PhRec.ph Ly) (fun _ => false) Ly.lab cx
         entry r.insts r.ret (Int64.ofBitVec (Ly.lab bareMC.e0 + 4).toBitVec) = true ∧
       ProPh (Spike.Lib.A64.PhRec.okPc Ly) (Spike.Lib.A64.PhRec.ph Ly) Ly.lab

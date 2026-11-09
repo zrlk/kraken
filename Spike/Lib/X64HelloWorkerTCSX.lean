@@ -216,7 +216,7 @@ theorem seg_wcCallSX (hp : Lays exe SccCode.helloCells kp) (hend : endPc = endOf
   · rintro σC c cE fr σR c' ⟨⟨σ0, c0', fl, hJ0, rfl⟩, hKc⟩ hCT hbp hfs hP hsl
     obtain rfl := hJ0.1
     refine ⟨cw, hdone σ0 fl c cE fr c' hJ0 hKc hCT hP, .inl ⟨(), ?_, ?_, ?_⟩⟩
-    · show lab ".Lwc_worker.x17" = Int64.ofBitVec ((Body.wkC lab σ0 fl).slot (-96))
+    · show lab ".Lwc_worker.x0" = Int64.ofBitVec ((Body.wkC lab σ0 fl).slot (-96))
       rw [Body.wkC_ra lab σ0 fl (hgap hp)]
       exact (int64_ofBitVec_toBitVec _).symm
     · show SO.le HelloTail.oP ⟨-96 + 8, []⟩ = true; decide
@@ -310,7 +310,7 @@ theorem seg_wcWorkerSX (hp : Lays exe SccCode.helloCells kp) (hend : endPc = end
     (hZU : ∀ (R' : Region) (F' : MachineData → Prop),
       CallerF R F (HelloTail.N (_root_.Executable.labels exe).label cw c1 c2 w.w4 w.w5 rbp ra tp (R.addr 0) .unpk)
         0 (-40) 8 R' F' →
-      ∀ rbp1 ra1, Int64.ofBitVec ra1 = (_root_.Executable.labels exe).label ".Lwc_worker.x18" →
+      ∀ rbp1 ra1, Int64.ofBitVec ra1 = (_root_.Executable.labels exe).label ".Lwc_worker.x1" →
       ∀ i, NodeZA (fun s c => Z s c []) exe endPc R' F'
         (Unpark.N (_root_.Executable.labels exe).label c1 c2 w.w5 rbp1 ra1 tp i) (Unpark.blkN i))
     (hZX : ∀ s c fs, Z s c fs → XL s c fs)

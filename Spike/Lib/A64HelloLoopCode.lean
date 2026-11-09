@@ -13,6 +13,7 @@ for `MainPost.seg_mainPost`'s `hcode` and `hpcode`. The restatement of
 -/
 import Spike.Lib.A64WaitLoop
 import Spike.Lib.A64CodeSegs
+import Spike.Lib.A64CodeAcross
 import Spike.Lib.A64HelloLabels
 
 namespace Spike.Lib.A64.Flow.Worker.Hello.LoopCode
@@ -21,7 +22,7 @@ open CoreLang CoreTerm
 open Kraken Kraken.Promising Kraken.Promising.AArch64
 open Spike.Lib.A64.Flow Spike.Lib.A64
 open Spike.Lib.A64.Flow.Park (swpDir)
-open Scc.Cert.Rt.A64 (Lays endOf blockAt labelGap label_labelGap)
+open Scc.Cert.Rt.A64 (Lays endOf blockAt labelGap label_labelGap blockAcross)
 open Spike.Lib.A64.HelloLabels (pfx)
 open SccCode (helloProg)
 
@@ -34,7 +35,8 @@ abbrev waitIn : Bool :=
   blockAt helloProg (pfx ++ ".0_entry") 1 [ldarDir .X9 .X10] &&
   blockAt helloProg (pfx ++ ".0_entry") 2 (WaitLoop.b4 pfx) &&
   blockAt helloProg (pfx ++ ".0_entry") 7 (WaitLoop.b5 pfx) &&
-  blockAt helloProg (pfx ++ ".1_then1") 0 WaitLoop.b6 && blockAt helloProg (pfx ++ ".2_else2") 0 WaitLoop.b7 &&
+  blockAcross helloProg (pfx ++ ".1_then1") 0 (WaitLoop.b6.take 4) (pfx ++ ".x2") (WaitLoop.b6.drop 4) &&
+  blockAt helloProg (pfx ++ ".2_else2") 0 WaitLoop.b7 &&
   blockAt helloProg (pfx ++ ".sp3") 0 WaitLoop.b8 && blockAt helloProg (pfx ++ ".stack_grow") 0 WaitLoop.b9 &&
   blockAt helloProg (pfx ++ ".sp_check") 0 (WaitLoop.b10 pfx)
 
@@ -50,8 +52,8 @@ abbrev parkIn : Bool :=
   blockAt helloProg ".L10_scc_rt_park.1_wait" 11 [svcDir] &&
   blockAt helloProg ".L10_scc_rt_park.1_wait" 12 Park.b5 &&
   blockAt helloProg ".L10_scc_rt_park.1_wait" 16 [swpDir .acqRel .X9 .X11 .X10] &&
-  blockAt helloProg ".L10_scc_rt_park.1_wait" 17 Park.b6 &&
-  blockAt helloProg ".L10_scc_rt_park.2_done" 0 Park.b7
+  blockAcross helloProg ".L10_scc_rt_park.1_wait" 17 (Park.b6.take 4) ".L10_scc_rt_park.x6" (Park.b6.drop 4) &&
+  blockAcross helloProg ".L10_scc_rt_park.2_done" 0 (Park.b7.take 3) ".L10_scc_rt_park.x7" (Park.b7.drop 3)
 
 theorem hello_parkIn : parkIn = true := by decide +kernel
 
@@ -73,7 +75,7 @@ theorem waitCode_hello (hp : Lays exe helloProg kp) (hend : endPc = endOf exe he
     code_of hp hend h4 (by simp only [WaitLoop.N]; rfl),
     code_of hp hend h5 (by simp only [WaitLoop.N, Int64.add_assoc]; rfl),
     code_of hp hend h6 (by simp only [WaitLoop.N, Int64.add_assoc]; rfl),
-    code_of hp hend h7 (by simp [WaitLoop.N]),
+    code_field_blockAcross hp hend h7 (List.take_append_drop _ _) (by simp [WaitLoop.N]),
     code_of hp hend h8 (by simp [WaitLoop.N]),
     code_of hp hend h9 (by simp [WaitLoop.N]),
     code_of hp hend h10 (by simp [WaitLoop.N]),
@@ -94,8 +96,9 @@ theorem parkCode_hello (hp : Lays exe helloProg kp) (hend : endPc = endOf exe he
     code_of hp hend h6 (by simp only [Park.N, Park.pcSvc, Int64.add_assoc]; rfl),
     code_of hp hend h7 (by simp only [Park.N, Park.pcSvc, Int64.add_assoc]; rfl),
     code_of hp hend h8 (by simp only [Park.N, Park.pcSvc, Int64.add_assoc]; rfl),
-    code_of hp hend h9 (by simp only [Park.N, Park.pcSvc, Int64.add_assoc]; rfl),
-    code_of hp hend h10 (by simp [Park.N, ])⟩
+    code_field_blockAcross hp hend h9 (List.take_append_drop _ _)
+      (by simp only [Park.N, Park.pcSvc, Int64.add_assoc]; rfl),
+    code_field_blockAcross hp hend h10 (List.take_append_drop _ _) (by simp [Park.N, ])⟩
 
 /-- The wait loop's and the park's label gaps in hello's program. -/
 abbrev loopLabsIn : Bool :=

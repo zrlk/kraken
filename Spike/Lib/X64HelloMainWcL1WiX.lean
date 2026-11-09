@@ -15,8 +15,8 @@ read.
 
 ## Differences from the AArch64 version
 
-AArch64 has no counterpart: main owns no TCB word there, so its level is at `ownGH` only. Against
-`X64HelloMainWcL1Wi`: the level and the memory side are at `ownGHXW`, the context's producers are `X64HelloLand1X`'s
+AArch64 has no counterpart: main owns no TCB word there, so its level is at `ownGH` only. Against AArch64's
+`hWp_L1`/`hWs_L1`: the level and the memory side are at `ownGHXW`, the context's producers are `X64HelloLand1X`'s
 (`ref1HX`), carried to `CtxR1H` by `ctxR1H_of_X`.
 -/
 import Spike.Lib.X64HelloMainWcL1Wi
@@ -155,9 +155,9 @@ theorem ctxR1H_of_X {l : WeakMem.AllocLabel} {b n : Nat} {s : State} {c : Spike.
         let ⟨h1, h2, h3⟩ := hxa l' hl'
         ⟨h1, Spike.Lib.X64.HelloPh.MainWcL1X.at_bXH_of_ownXa rfl h2, h3⟩⟩
 
-/-- **`hWp` at `CtxR1H` at `ownGHXW`** (`hWp_L1` at `ownGHXW`): `MainWcL1Wp.hWp_L1GX` at `Level1I`'s `Jr`, the
-context by `Land.hctx_main1HX` at the caller's slot `-16` main's TCB (`hslot`), carried to `CtxR1H` by
-`ctxR1H_of_X`. -/
+/-- **`hWp` at `CtxR1H` at `ownGHXW`** (AArch64 `A64HelloMainWcL1Wi.hWp_L1` at `ownGHXW`): `MainWcL1Wp.hWp_L1GX` at
+`Level1I`'s `Jr`, the context by `Land.hctx_main1HX` at the caller's slot `-16` main's TCB (`hslot`), carried to
+`CtxR1H` by `ctxR1H_of_X`. -/
 theorem hWp_L1X (hp : o.prog = SccCode.helloCells) (hpa : Scc.Sem.X64.cellsOf asm = some o.prog)
     (hhp : Scc.Sem.X64.cellsOf asm = some SccCode.helloCells) (hlo0 : Λ0.code.lo = lo)
     (hc : Spike.Lib.X64.Rt.CtrZ o) (hA13 : Scc.Cert.Spawn.X64.a13data (Ly).Λ o.prog o.secs = true)
@@ -171,8 +171,9 @@ theorem hWp_L1X (hp : o.prog = SccCode.helloCells) (hpa : Scc.Sem.X64.cellsOf as
       (Spike.Lib.X64.HelloPh.Land.hctx_main1HX (asm := asm) hpw i0 E rd ls hc l b n rfl σC hslot m1 σ1 q hq hra s c
         hAt htp)
 
-/-- **`hWs` at `CtxR1H` at `ownGHXW`** (`hWs_L1` at `ownGHXW`): `MainWcL1Wp.hWs_L1GX`, the box store's obligation
-by `Land.hwr_stH` at `ref1HX`/`GsH1X` (`Land.hctx_st1HX`, carried to `CtxR1H` by `ctxR1H_of_X`). -/
+/-- **`hWs` at `CtxR1H` at `ownGHXW`** (AArch64 `A64HelloMainWcL1Wi.hWs_L1` at `ownGHXW`): `MainWcL1Wp.hWs_L1GX`, the
+box store's obligation by `Land.hwr_stH` at `ref1HX`/`GsH1X` (`Land.hctx_st1HX`, carried to `CtxR1H` by
+`ctxR1H_of_X`). -/
 theorem hWs_L1X (hp : o.prog = SccCode.helloCells) (hpa : Scc.Sem.X64.cellsOf asm = some o.prog)
     (hhp : Scc.Sem.X64.cellsOf asm = some SccCode.helloCells) (hlo0 : Λ0.code.lo = lo)
     (hc : Spike.Lib.X64.Rt.CtrZ o) (hA13 : Scc.Cert.Spawn.X64.a13data (Ly).Λ o.prog o.secs = true)

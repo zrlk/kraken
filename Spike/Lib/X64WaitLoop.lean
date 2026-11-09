@@ -53,6 +53,7 @@ is `seg_waitLoop` with it.
 import Spike.Lib.X64Park
 import Spike.Lib.X64CfgL
 import Spike.Lib.X64CodeSegs
+import Spike.Lib.X64CodeAcross
 import Spike.Lib.X64Call
 import Spike.Lib.X64WakeCode
 import Spike.Lib.SegCommon
@@ -63,7 +64,7 @@ namespace Spike.Lib.X64.WaitLoop
 open CoreLang CoreTerm
 open Kraken Kraken.Promising Kraken.Promising.X64 Kraken.Promising.Lower Kraken.Promising.Lower.X64
 open Kraken.X64.Parser Spike.Lib.X64 Spike.Lib.X64.Flow
-open Scc.Cert.Rt.X64 (Lays endOf blockAtB labelGapB code_field label_labelGapB)
+open Scc.Cert.Rt.X64 (Lays endOf blockAtB labelGapB code_field label_labelGapB blockAcrossB)
 open Spike.Lib.X64.Flow.Ret0 (LimOk StOk LdOk seg_one)
 open Scc.Sem (ValRep)
 
@@ -117,8 +118,9 @@ def waitIn (cells : List (Directive × Nat)) : Bool :=
       [(.rdi, -8, 4)] &&
     blockAtB cells ".Lwc_waitLoop.entry" 0 b4 && blockAtB cells ".Lwc_waitLoop.entry" 4 [(ldDir .rcx 0 .rax, 3)] &&
     blockAtB cells ".Lwc_waitLoop.entry" 7 b5 && blockAtB cells ".Lwc_waitLoop.entry" 27 b6 &&
-    blockAtB cells ".Lwc_waitLoop.then1" 0 b7 && blockAtB cells ".Lwc_waitLoop.else2" 0 b8 &&
-    blockAtB cells ".Lwc_waitLoop.x16" 0 b9 && labelGapB cells ".Lwc_waitLoop.else2" ".Lwc_waitLoop.x16" 5
+    blockAcrossB cells ".Lwc_waitLoop.then1" 0 (b7.take 3) ".Lwc_waitLoop.x0" (b7.drop 3) &&
+    blockAtB cells ".Lwc_waitLoop.else2" 0 b8 &&
+    blockAtB cells ".Lwc_waitLoop.x1" 0 b9 && labelGapB cells ".Lwc_waitLoop.else2" ".Lwc_waitLoop.x1" 5
 
 theorem wake_waitIn : waitIn SccCode.wakeCells = true := by decide +kernel
 
@@ -169,7 +171,7 @@ def N : PN → ND
   | .else2 => ⟨lab ".Lwc_waitLoop.else2", oI, JI c0 A fp ra tp sp⟩
   | .park => ⟨lab "scc_rt_park", ⟨-32, [(.rbp, -8)]⟩, fun σ c => JI c0 A fp ra tp sp σ c ∧
       σ.slot (-32) = (lab ".Lwc_waitLoop.else2").toBitVec + 5#64⟩
-  | .x16 => ⟨lab ".Lwc_waitLoop.x16", oP, JI c0 A fp ra tp sp⟩
+  | .x16 => ⟨lab ".Lwc_waitLoop.x1", oP, JI c0 A fp ra tp sp⟩
 
 /-- **The exit**: back at the caller, `%rsp` past the return address, the
 source past its load, `%rax = 0`, `%rbp` and the thread pointer as at entry;
@@ -305,7 +307,10 @@ theorem seg_waitLoop (hp : Lays exe cells kp) (hend : endPc = endOf exe cells kp
       hit PN.n6
   case n6 => node b6 b6_ok h6; rw [N, b6_run]; hit PN.else2
   case then1 =>
-    node b7 b7_ok h7; rw [N, b7_run]
+    refine seg_fixL () (seg_nd (by simp [b7]) b7_ok hF hR hlo hhi
+      (Spike.Lib.X64.code_field_blockAcrossB hp hend h7 (List.take_append_drop _ _) (ofNat_zero' _))
+      fun σ c hJ => ⟨c, .refl c, ?_⟩).toL
+    rw [N, b7_run]
     obtain ⟨⟨⟨h8', h0, h16⟩, htp, hbp⟩, hP, h24⟩ := hJ
     refine .inr ⟨PX.ret, ?_, rfl, hP, ?_, ?_, ?_, ?_, h16, h24⟩
     · simp [E, h0]
@@ -349,7 +354,7 @@ theorem seg_parkCall (hp : Lays exe cells kp) (hin : waitIn cells = true) {Rd : 
       (_root_.Executable.labels exe).label "scc_rt_park" + 8) :
     Seg p lbl ms (At exe endPc R F (N (_root_.Executable.labels exe).label c0 x e ty Rd A fp ra tp sp .park))
       (At exe endPc R F (N (_root_.Executable.labels exe).label c0 x e ty Rd A fp ra tp sp .x16)) := by
-  have hg : labelGapB cells ".Lwc_waitLoop.else2" ".Lwc_waitLoop.x16" 5 = true := by
+  have hg : labelGapB cells ".Lwc_waitLoop.else2" ".Lwc_waitLoop.x1" 5 = true := by
     simp only [waitIn, Bool.and_eq_true] at hin; exact hin.2
   have ex16 := label_labelGapB hp hg
   refine seg_one (call_nd_F (e0 := 0) (lo' := -56) (hi' := 8)
@@ -373,7 +378,7 @@ theorem seg_parkCall (hp : Lays exe cells kp) (hin : waitIn cells = true) {Rd : 
     refine .inl ⟨(), ?_, by show SO.le oP ⟨-32 - 0 + 8, []⟩ = true; decide, hc'.trans hc.symm,
       ⟨?_, ?_, ?_⟩, ?_, ?_⟩
     · subst hra
-      show (_root_.Executable.labels exe).label ".Lwc_waitLoop.x16" = Int64.ofBitVec (σC.slot (-32))
+      show (_root_.Executable.labels exe).label ".Lwc_waitLoop.x1" = Int64.ofBitVec (σC.slot (-32))
       rw [h32, ex16]; rfl
     · rw [hout (-8) (by decide) (by decide) (by decide)]; exact h8
     · rw [hout 0 (by decide) (by decide) (by decide)]; exact h0

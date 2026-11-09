@@ -123,7 +123,7 @@ theorem refACH (lbl : Lbl) (l : WeakMem.AllocLabel) (ws : List TermRun.Word) (ar
   obtain ⟨hR', hlo'', hhi''⟩ := callee_ofPreH hpre
   obtain ⟨hsrc, hsl, hcA, hme, hR, hal, hlo', hhi, -⟩ := hpre
   have hkc : (-136 - 8 : Int) < R.hi := by omega
-  have hex : L.lab Spike.Lib.X64.Abort.threads.exit = Int64.ofNat 4202964 :=
+  have hex : L.lab Spike.Lib.X64.Abort.threads.exit = Int64.ofNat 4203002 :=
     hlab _ _ (by rw [← codeT_eq]; decide +kernel)
   have hst : L.lab Spike.Lib.X64.Flow.Ret0.StackTake.siteL = Int64.ofNat 4200314 :=
     hlab _ _ (by rw [← codeT_eq]; decide +kernel)
@@ -197,7 +197,7 @@ theorem refACH (lbl : Lbl) (l : WeakMem.AllocLabel) (ws : List TermRun.Word) (ar
       (fun _ _ _ _ => Spike.Lib.X64.WakeWf.dtW_of_fd2 (UInt64.toBitVec_inj.mp h0) (UInt64.toBitVec_inj.mp h1))
       hAc (fun h => h.2), hP.2⟩
   have hT := Spike.Lib.X64.Hello.StubW.stubTW_sfactsACG (own := fun s _ => ownWH L s) (frs := [])
-    (Dt := Spike.Lib.X64.WakeWf.DtW) (pfx := ".Lwc_main") (cl := ".x25") (n := 94) (st := ".x26") (off := -120)
+    (Dt := Spike.Lib.X64.WakeWf.DtW) (pfx := ".Lwc_main") (cl := ".x3") (n := 94) (st := ".x4") (off := -120)
     (Cl := Spike.Lib.X64.HelloPh.ClH L) (p := helloSrc) (rd := fun _ => True) (G := fun _ _ => True)
     (ar := ar) (J := fun _ _ _ _ _ => False) (lsize := lsize) (al := fun _ => none) (ms := msTH)
     hI hprog hphs hR' hR8 hlo'' hhi'' hl8 hh8 hF hsub hfit hFO hc (fun s h => h.2)

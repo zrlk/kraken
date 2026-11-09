@@ -62,7 +62,7 @@ local notation "DE" => DX hp i cTR ls0 Ctx frM inv0 E
 
 /-- **`OpenX.hG` at the root's `cT`** (`X64WakeHG.memInv_gW`): `DX`'s
 guarantee is `gW` at `cTW`. -/
-theorem hG_W (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) (E : Entry)
+theorem hG_W (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) (E : Entry)
     {R : Cfg → TermRun.Cfg → Prop} :
     ∀ d s (th : Thread isa) (th0 : TermRun.TTh) (lbl : Lbl) (lsize : Lsize) ts hd l T S pT cw,
       R d s → d.1.threads = #[th] → s.ths = #[th0] →
@@ -82,7 +82,7 @@ theorem openX_of {arch : WeakMem.Arch} {B : Budget}
     (hP : Scc.Cert.Link.X64.parsesTo certAsm outLit.prog outLit.secs = true)
     (hB : B.cells = Scc.Cert.PlaceOK.allocCells)
     (hlo : Λ0.code.lo = Spike.Lib.X64.WakePh.lo) (hstat : Λ0.static = fun _ => none)
-    (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
+    (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
     (hsub1 : (X64WakeOSide.r1W hp i).Sub (Ly).Λ.stackPool) (hc : Spike.Lib.X64.Rt.CtrZ outLit)
     (hnz : X64WakeOInit.NtZ Λ0 outLit = true)
     (E : Entry) (hE : E.Ok (Ly).Λ)
@@ -120,7 +120,7 @@ theorem wake_finalX_LUO {arch : WeakMem.Arch} {B : Budget} (c0 : Ctl)
     (hB : B.cells = Scc.Cert.PlaceOK.allocCells)
     (hlo : Λ0.code.lo = Spike.Lib.X64.WakePh.lo) (hstat : Λ0.static = fun _ => none)
     (hA13 : Scc.Cert.Spawn.X64.a13data (Ly).Λ outLit.prog outLit.secs = true)
-    (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
+    (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
     (hinit2 : (Spike.Lib.X64.PhRec.m0Of (Ly).Λ outLit.prog outLit.secs).initVal
       ⟨Spike.Lib.X64WakeGOf2.lim2A (Ly), 8⟩ = 0)
     (hsub1 : (X64WakeOSide.r1W hp i).Sub (Ly).Λ.stackPool) (hc : Spike.Lib.X64.Rt.CtrZ outLit)

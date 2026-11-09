@@ -23,15 +23,18 @@ of `Spike/Lib/LowerA64/BlocksC1.lean`.
   `w`'s load into `%rdi`, `callq f`, the return label `.L<fn>.x<k>` (`k`
   the label counter before the call) and the store of `%rax` into `d`'s
   slot;
-- `emitInst_allIns`: every other `InstC` instruction's code is label-free
-  and the same from every state; `emitTerm_allIns`: so is every `TermC`
-  terminator's (`unreachable` is `ud2`);
-- `instsCode_allIns`: the code of `InstC` instructions without a call;
+- `emitInst_allIns`: every other `InstC` instruction's code but a checked
+  `+`'s is label-free and the same from every state; `emitTerm_allIns`: so
+  is every `TermC` terminator's but `ret`'s (`unreachable` is `ud2`); a
+  checked `+`'s fall-through and a `ret`'s return site take fresh labels
+  (P5, `emitInst_add_cases`, `emitTerm_ret`);
+- `instsCode_allIns`: the code of `InstC` instructions without a call nor
+  a checked `+`;
 - `callBlk_code`: the code of a call block `call{n+5}` numbered from `k`
   is `A ++ [callq g, .L<fn>.x<k>:] ++ B ++ C`: `A` the new depth's store
   and `w`'s load into `%rdi`, `B` the result's store, the thread-pointer
-  read and the old depth's store, `C` the code of the rest of the block and
-  its terminator (all label-free); the next label number is `k + 1`;
+  read and the old depth's store (label-free), `C` the code of the rest of
+  the block and its terminator;
 - `callSite_run`: with that, `callSite1`'s split of the block's code at its
   `callq` has no label before it (`Xd = []`, `L` the block's label) and its
   run before the `callq` is `A`'s directives.
@@ -40,9 +43,8 @@ Where x86-64 differs from AArch64: the emitter is a state monad (`E`), so
 an instruction's code is stated as the items it appends from every state
 (`Emits`) rather than an `Except` value; the argument register is `%rdi`
 and the result register `%rax`; the return label is the label counter's
-`.L<fn>.x<k>` (no call before it in the block takes a label); the
-`unreachable` terminator is one `ud2` (no halt label), so every `TermC`
-terminator is label-free; label-freeness is all `call_blockAt` needs
+`.L<fn>.x<k>` (`k` the label counter); the
+`unreachable` terminator is one `ud2` (no halt label); label-freeness is all `call_blockAt` needs
 (`isLabel`, no `isIns`).
 -/
 import Spike.Lib.LowerX64.Blocks1
@@ -314,17 +316,15 @@ theorem emitInst_call1_inv {fr : Scc.Emit.X64.Frame} (hm : fr.maps = true) {sm :
 /-! ## Every other instruction, every terminator -/
 
 /-- **The code of every other `InstC` instruction** is the same items from
-every state, label-free: a checked `+`, a saturating `-`, the
-thread-pointer read, the depth's plain 64-bit load, store and increment. -/
+every state, label-free: a saturating `-`, the thread-pointer read, the
+depth's plain 64-bit load, store and increment (not a checked `+`, whose
+fall-through takes a fresh label, P5). -/
 theorem emitInst_allIns {fr : Scc.Emit.X64.Frame} {sm : Option Scc.IR.StackMap.Entry} {i : Scc.IR.Inst}
-    (hi : InstC i) (hc : isCall i = false) {s s' : S} (h : emitInst fr sm i s = .ok ((), s')) :
+    (hi : InstC i) (hc : isCall i = false) (ha : ∀ d p q, i ≠ .addChk d p q) {s s' : S}
+    (h : emitInst fr sm i s = .ok ((), s')) :
     ∃ c, Emits (emitInst fr sm i) c ∧ AllIns c := by
   cases hi with
-  | addChk d p q =>
-    obtain ⟨la, lb, off, ha, hb, hd, -⟩ := emitInst_add_cases fr sm d p q s h
-    rw [Scc.Lower.InvX64.emitInst_addChk]
-    exact ⟨_, (emits_ld ha).seq ((emits_ld hb).seq ((emits_ins _).seq ((emits_ins _).seq (emits_st hd)))),
-      by allIns_tac⟩
+  | addChk d p q => exact absurd rfl (ha d p q)
   | subSat d p q =>
     obtain ⟨la, lb, off, ha, hb, hd, -⟩ := emitInst_sub_cases fr sm d p q s h
     simp only [emitInst]
@@ -361,17 +361,14 @@ theorem emitInst_allIns {fr : Scc.Emit.X64.Frame} {sm : Option Scc.IR.StackMap.E
   | call d g w => simp [isCall] at hc
   | abort => simp [isCall] at hc
 
-/-- **The code of every `TermC` terminator** is the same items from every
-state, label-free: a one-word `ret`, a `br` (an `if`'s, the bracket's) and
-`unreachable`'s `ud2`. -/
+/-- **The code of every `TermC` terminator but `ret`** is the same items
+from every state, label-free: a `br` (an `if`'s, the bracket's) and
+`unreachable`'s `ud2` (a `ret`'s return site takes a fresh label, P5). -/
 theorem emitTerm_allIns {fr : Scc.Emit.X64.Frame} {frames : Option Nat} {t : Scc.IR.Term} (ht : TermC frames t)
-    {s s' : S} (h : emitTerm fr t s = .ok ((), s')) : ∃ c, Emits (emitTerm fr t) c ∧ AllIns c := by
+    (hr : ∀ ws, t ≠ .ret ws) {s s' : S} (h : emitTerm fr t s = .ok ((), s')) :
+    ∃ c, Emits (emitTerm fr t) c ∧ AllIns c := by
   cases ht with
-  | ret w =>
-    rw [emitTerm_ret1] at h ⊢
-    obtain ⟨u1, s1, h1, h⟩ := bind_inv h
-    obtain ⟨l, hl⟩ := ld_ok h1
-    exact ⟨_, (emits_ld hl).seq ((((emits_ins _).seq (emits_ins _))).seq (emits_ins _)), by allIns_tac⟩
+  | ret w => exact absurd rfl (hr _)
   | br p q t f =>
     simp only [emitTerm, cmpAB] at h ⊢
     obtain ⟨u1, s1, h1, h⟩ := bind_inv h
@@ -401,19 +398,20 @@ theorem instsCode_nil_ms (fr : Scc.Emit.X64.Frame) (is : List Scc.IR.Inst) (s : 
 theorem emits_nil {x : E Unit} (h : ∀ s, x s = .ok ((), s)) : Emits x [] := by
   intro s; rw [h]; rfl
 
-/-- **The code of instructions without a call** (`InstC`, no `call`) is the
-same items from every state, label-free. -/
+/-- **The code of instructions without a call nor a checked `+`**
+(`InstC`) is the same items from every state, label-free. -/
 theorem instsCode_allIns {fr : Scc.Emit.X64.Frame} :
     ∀ {is : List Scc.IR.Inst} {ms : List (Option Scc.IR.StackMap.Entry)} {s s' : S},
-      (∀ i ∈ is, InstC i) → NoCall is → instsCode fr is ms s = .ok ((), s') →
-        ∃ c, Emits (instsCode fr is ms) c ∧ AllIns c
-  | [], ms, _, _, _, _, _ => ⟨[], emits_nil (instsCode_nil fr ms), allIns_nil⟩
-  | _ :: _, [], _, _, _, _, _ => ⟨[], emits_nil (instsCode_nil_ms fr _), allIns_nil⟩
-  | i :: is, m :: ms, s, s', hs, hn, h => by
+      (∀ i ∈ is, InstC i) → NoCall is → (∀ i ∈ is, ∀ d p q, i ≠ .addChk d p q) →
+        instsCode fr is ms s = .ok ((), s') → ∃ c, Emits (instsCode fr is ms) c ∧ AllIns c
+  | [], ms, _, _, _, _, _, _ => ⟨[], emits_nil (instsCode_nil fr ms), allIns_nil⟩
+  | _ :: _, [], _, _, _, _, _, _ => ⟨[], emits_nil (instsCode_nil_ms fr _), allIns_nil⟩
+  | i :: is, m :: ms, s, s', hs, hn, ha, h => by
     rw [instsCode_cons] at h ⊢
     obtain ⟨u, s1, h1, h2⟩ := bind_inv h
-    obtain ⟨ci, ei, ai⟩ := emitInst_allIns (hs i (by simp)) (hn i (by simp)) h1
-    obtain ⟨cr, er, ar⟩ := instsCode_allIns (fun j hj => hs j (by simp [hj])) (fun j hj => hn j (by simp [hj])) h2
+    obtain ⟨ci, ei, ai⟩ := emitInst_allIns (hs i (by simp)) (hn i (by simp)) (ha i (by simp)) h1
+    obtain ⟨cr, er, ar⟩ := instsCode_allIns (fun j hj => hs j (by simp [hj])) (fun j hj => hn j (by simp [hj]))
+      (fun j hj => ha j (by simp [hj])) h2
     exact ⟨_, ei.seq er, allIns_append ai ar⟩
 
 /-! ## A call block -/
@@ -423,24 +421,23 @@ on, a map for each of its first four instructions), split at its `callq`:
 `A` (the new depth's store `c0`, then `w`'s load `lw` into `%rdi`), `callq
 g`, the return label `.L<fn>.x<k>`, `B` (`%rax`'s store into `r%n`'s slot
 `off`, the thread-pointer read `c2` and the old depth's store `c3`), and
-`C`, the code `cr` of the rest of the block and its terminator's `ct`; each
-instruction's and the terminator's code the same from every state, all
-label-free, and the next label number `k + 1`. -/
-theorem callBlk_code {fr : Scc.Emit.X64.Frame} (hm : fr.maps = true) {frames : Option Nat} {k n : Nat}
+`C`, the code of the rest of the block and its terminator; each of the
+first four instructions' code the same from every state, `A` and `B`
+label-free. (`C` may take fresh labels: a checked `+`'s fall-through, a
+`ret`'s return site, P5.) -/
+theorem callBlk_code {fr : Scc.Emit.X64.Frame} (hm : fr.maps = true) {k n : Nat}
     {g : String} {w : Scc.IR.Operand} {rest : List Scc.IR.Inst} {t : Scc.IR.Term}
     {m0 m1 m2 m3 : Option Scc.IR.StackMap.Entry} {ms : List (Option Scc.IR.StackMap.Entry)}
     {code : List Item} {n' : Nat}
-    (hr : ∀ i ∈ rest, InstC i) (hn : NoCall rest) (ht : TermC frames t)
     (h : Scc.Cert.Code1X64.blockItems fr k (callBlk n g w rest t) (m0 :: m1 :: m2 :: m3 :: ms) = .ok (code, n')) :
-    ∃ c0 lw off c2 c3 cr ct,
+    ∃ c0 lw off c2 c3 C,
       Emits (emitInst fr m0 ((Scc.Lower.Inv.callPost g w n)[0]'(by simp [Scc.Lower.Inv.callPost]))) c0 ∧
       getOp fr .rdi w = .ok lw ∧ rsOf fr (Scc.Lower.Inv.regName "r" n) = some off ∧
       Emits (emitInst fr m2 ((Scc.Lower.Inv.callPost g w n)[2]'(by simp [Scc.Lower.Inv.callPost]))) c2 ∧
       Emits (emitInst fr m3 ((Scc.Lower.Inv.callPost g w n)[3]'(by simp [Scc.Lower.Inv.callPost]))) c3 ∧
-      Emits (instsCode fr rest ms) cr ∧ Emits (emitTerm fr t) ct ∧
-      AllIns (c0 ++ lw) ∧ AllIns ([Item.d (stDir off)] ++ c2 ++ c3) ∧ AllIns (cr ++ ct) ∧ n' = k + 1 ∧
+      AllIns (c0 ++ lw) ∧ AllIns ([Item.d (stDir off)] ++ c2 ++ c3) ∧
       code = (c0 ++ lw) ++ [Item.d (i64 (.call (rel (Scc.Lower.Names.user g)))),
-        Item.d (.label s!".L{fr.fn}.x{k}")] ++ ([Item.d (stDir off)] ++ c2 ++ c3) ++ (cr ++ ct) := by
+        Item.d (.label s!".L{fr.fn}.x{k}")] ++ ([Item.d (stDir off)] ++ c2 ++ c3) ++ C := by
   unfold Scc.Cert.Code1X64.blockItems at h
   split at h
   · rename_i s hrun
@@ -452,25 +449,24 @@ theorem callBlk_code {fr : Scc.Emit.X64.Frame} (hm : fr.maps = true) {frames : O
     simp only [Scc.Lower.Inv.callPost, List.cons_append, List.nil_append] at hI
     rw [instsCode_cons] at hI
     obtain ⟨u0, t0, h0, hI⟩ := bind_inv hI
-    obtain ⟨c0, e0, a0⟩ := emitInst_allIns (.store _ _) rfl h0
+    obtain ⟨c0, e0, a0⟩ := emitInst_allIns (.store _ _) rfl (fun _ _ _ h => by cases h) h0
     rw [e0] at h0; cases h0
     rw [instsCode_cons] at hI
     obtain ⟨u1, t1, h1, hI⟩ := bind_inv hI
     obtain ⟨lw, off, mp, hw, hd, aw, rfl⟩ := emitInst_call1_inv hm h1
     rw [instsCode_cons] at hI
     obtain ⟨u2, t2, h2, hI⟩ := bind_inv hI
-    obtain ⟨c2, e2, a2⟩ := emitInst_allIns (.getTp _) rfl h2
+    obtain ⟨c2, e2, a2⟩ := emitInst_allIns (.getTp _) rfl (fun _ _ _ h => by cases h) h2
     rw [e2] at h2; cases h2
     rw [instsCode_cons] at hI
     obtain ⟨u3, t3, h3, hI⟩ := bind_inv hI
-    obtain ⟨c3, e3, a3⟩ := emitInst_allIns (.store _ _) rfl h3
+    obtain ⟨c3, e3, a3⟩ := emitInst_allIns (.store _ _) rfl (fun _ _ _ h => by cases h) h3
     rw [e3] at h3; cases h3
-    obtain ⟨cr, er, ar⟩ := instsCode_allIns hr hn hI
-    rw [er] at hI; cases hI
-    obtain ⟨ct, et, at'⟩ := emitTerm_allIns ht hT
-    rw [et] at hT; cases hT
-    refine ⟨c0, lw, off, c2, c3, cr, ct, e0, hw, hd, e2, e3, er, et, allIns_append a0 aw,
-      allIns_append (allIns_append (allIns_d rfl) a2) a3, allIns_append ar at', rfl, ?_⟩
+    obtain ⟨cr, hcr⟩ := (instsCode_pre fr rest ms).out _ _ _ hI
+    obtain ⟨ct, hct⟩ := (emitTerm_pre fr t).out _ _ _ hT
+    refine ⟨c0, lw, off, c2, c3, (ct ++ cr).reverse, e0, hw, hd, e2, e3, allIns_append a0 aw,
+      allIns_append (allIns_append (allIns_d rfl) a2) a3, ?_⟩
+    rw [hct, hcr]
     simp [List.reverse_append, List.append_assoc]
   · cases h
 

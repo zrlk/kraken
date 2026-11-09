@@ -20,7 +20,7 @@ clause), and `x3` is the second TCB (`hx3`, the level-3 clone clause `X2H` is to
 - `x14_ofR`, `x3_ofR`: main's `x14` and `x3` at the clone from the fragment.
 - `hCP_root`: `hCP` with the `FrH Dd` antecedent. Open: `hx3` (clone side, the `X2H` clause);
   layout facts `hinit2` (the second limit word's initial value) and
-  `hn3` (the pinned `.zero` reaching the second TCB's id word, `176` bytes; `131072` at the listing).
+  `hn3` (the pinned `.zero` reaching the second TCB's id word, `208` bytes; `163840` at the listing).
 -/
 import Spike.Lib.A64HelloChildHlimR
 import Spike.Lib.A64HelloChildStW
@@ -152,7 +152,7 @@ variable {arch : WeakMem.Arch} {R1 : Cfg → TermRun.Cfg → Prop} {cT : ιH hp 
 theorem hCP_root (hpa : textProgram asm = .ok o.prog) (hhp : textProgram asm = .ok helloProg)
     (hA13 : Scc.Cert.Spawn.A64.a13data (Ly).Λ o.prog o.secs = true)
     {nZ : Nat} (hz : Scc.Cert.PlaceOK.zeroAfter (o.secs.bss ++ o.secs.data) Scc.Cert.Link.pinnedSym = some nZ)
-    (hn3 : 176 ≤ nZ)
+    (hn3 : 208 ≤ nZ)
     /- layout fact (as wake's root): the second limit word starts at `0` -/
     (hinit2 : (m0Of (Ly).Λ o.prog o.secs).initVal ⟨lim2AH (Ly), 8⟩ = 0)
     (hR1 : ∀ d s, R1 d s → R1OH arch (Ly).Λ μ Dd XH d s)
@@ -230,9 +230,9 @@ theorem hCP_root (hpa : textProgram asm = .ok o.prog) (hhp : textProgram asm = .
   -- `hS`/`htp4`/`hSx`
   have hmeW : BitVec.ofNat 64 (th.st.st.1.regs.getXReg .X14).toNat = (Ly).pinA + 8#64 := by
     rw [h14', BitVec.ofNat_toNat, BitVec.setWidth_eq]
-  have htlsB : BitVec.ofNat 64 tls = (Ly).pinA + 112#64 := by
+  have htlsB : BitVec.ofNat 64 tls = (Ly).pinA + 144#64 := by
     rw [htls, BitVec.ofNat_toNat, BitVec.setWidth_eq]
-    show Spike.Lib.A64.Flow.Ret0.pinA (Ly).lab + 112#64 = _
+    show Spike.Lib.A64.Flow.Ret0.pinA (Ly).lab + 144#64 = _
     rw [(Ly).lab_pin]
   obtain ⟨hS, htp4, hSx⟩ := Spike.Lib.HelloChildStW.childPrem_St hp i hm
     (Spike.Lib.A64.HelloPh.ChildRoot.hpin2_H hp i hz (by omega))

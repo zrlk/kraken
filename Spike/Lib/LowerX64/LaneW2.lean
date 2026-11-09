@@ -177,10 +177,14 @@ variable {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe] {endPc : 
 theorem codeAt_cdC {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp) {ra pc : Int64}
     {blk : List (Directive × Nat)} (h : CdC cells okPc ph lab ra pc blk) :
     ∀ s : State, s.exe = exe → s.endPc = endPc → CodeAt s pc blk := by
-  obtain ⟨-, L, j, off, hpc, hb, -⟩ := h
-  intro s hs hn
-  have := Scc.Cert.Rt.X64.codeAt_blockAt_lays hI.lays hs (hn.trans hI.endOk) hb
-  rwa [hI.labOk, hpc] at this
+  have h1 : ∀ pc b, At1Q (fun _ => True) cells lab pc b →
+      ∀ s : State, s.exe = exe → s.endPc = endPc → CodeAt s pc b := by
+    rintro _ _ ⟨L, j, off, -, hpc', hb⟩ s hs hn
+    have := Scc.Cert.Rt.X64.codeAt_blockAt_lays hI.lays hs (hn.trans hI.endOk) hb
+    rwa [hI.labOk, hpc'] at this
+  rcases h.2.1 with h | ⟨b1, b2, rfl, ha1, ha2⟩
+  · exact h1 _ _ h
+  · exact fun s hs hn => Spike.Lib.X64.CodeAt.append (h1 _ _ ha1 s hs hn) (h1 _ _ ha2 s hs hn)
 
 omit [Kraken.Executable.ValidLayout exe] in
 /-- **The phase check of two blocks in a row**, the second's start in the
@@ -420,8 +424,8 @@ theorem laneW_w2E {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc p
   obtain ⟨hcB1, hcL, hcB2, hcS⟩ := lane_code (codeAt_cdC hI hC1) (codeAt_cdC hI hC2)
   have hcb : (Spike.Lib.X64.classify db).isSome = true := classify_of_okBlk hok1 _ (List.mem_singleton_self _)
   have hcw : (Spike.Lib.X64.classify dw).isSome = true := classify_of_okBlk hok2 (dw, z2) (by simp)
-  have hr1 := hC1.2.choose_spec.choose_spec.choose_spec.2.2
-  have hr2 := hC2.2.choose_spec.choose_spec.choose_spec.2.2
+  have hr1 := hC1.2.2
+  have hr2 := hC2.2.2
   obtain ⟨hph1, hokL, hphL, hph2, hokS, hphS⟩ := lane_ph hr1 hr2 hcb hcw
   have nxB1 : ∀ k < [(db, z0)].length, pc + Int64.ofNat (cellOff [(db, z0)] (k + 1)) ∉ abPcs lab := by
     intro k hk

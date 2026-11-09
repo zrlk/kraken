@@ -116,6 +116,8 @@ def symAt (l : Label) (a : BitVec 64) : Bool :=
   | some n => decide (BitVec.ofNat 64 ret0Λ.code.lo + BitVec.ofNat 64 ((ret0Cells'.take n).map (·.2)).sum = a)
   | none => false
 
+-- The tables grew `.rodata` (R11): the decision recurses past the default depth.
+set_option maxRecDepth 100000 in
 theorem lab_of_symAt {l : Label} {a : BitVec 64} (h : symAt l a = true) : (labOf ret0Exe l).toBitVec = a := by
   unfold symAt at h
   split at h

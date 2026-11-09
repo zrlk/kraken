@@ -43,7 +43,7 @@ structure TcbPhGP (okPc : Nat → Bool) (ph : Nat → Nat) (Tk : State → Prop)
   len : blkPh okPc ph (tcbDead lab lenL 0) lab (lab lenL + Int64.ofNat (4 * 0)) (ra lenL) atLen = true
   arg : blkPh okPc ph (tcbDead lab lenL 34) lab (lab lenL + Int64.ofNat (4 * 34)) (ra lenL) atArg = true
   bnd : blkPh okPc ph (tcbDead lab lenL 38) lab (lab lenL + Int64.ofNat (4 * 38)) (ra lenL) atBnd = true
-  j2 : blkPh okPc ph (tcbDead lab lenL 47) lab (lab lenL + Int64.ofNat (4 * 47)) (ra lenL) atJ2 = true
+  j2 : blkPh okPc ph (tcbDead lab lenL 48) lab (lab lenL + Int64.ofNat (4 * 48)) (ra lenL) atJ2 = true
   ok2 : blkPh okPc ph (tcbDead lab okL 2) lab (lab okL + Int64.ofNat (4 * 2)) (ra okL) atOk = true
   ret : blkPh okPc ph (tcbDead lab okL 30) lab (lab okL + Int64.ofNat (4 * 30)) (ra okL) atRet = true
   fullNe : (lab entryL + Int64.ofNat (4 * 4)).toBitVec.toNat ≠ (lab fullL).toBitVec.toNat
@@ -168,7 +168,7 @@ theorem tcbW_postG {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe]
     exact hJ.2.2.2
   case ret =>
     dsimp only [TcbWG]; rw [hI.labOk]
-    exact blkW_post hI bRet rfl atRet_ok hR hal (by omega) (by omega) (hC _ fun _ _ hJ => hJ.1) hph.ret
+    exact blkW_postA hI bRet rfl atRet_ok hR hal (by omega) (by omega) (hC _ fun _ _ hJ => hJ.1) hph.ret
       (hret_of_run atRet_ok fun _ _ hJ => by
         dsimp only [tcbNG] at hJ ⊢
         rw [(atRet_walkG lab _ hJ.2).1, hra]; exact Int64.ofBitVec_toBitVec _)

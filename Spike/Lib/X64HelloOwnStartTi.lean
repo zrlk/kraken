@@ -20,7 +20,7 @@ AArch64 has no counterpart: main owns no TCB word there (its thread pointer is a
 `OwnSt` (`StartTi`): the code is helloCells (`hello_tiIn`, `ti_labsH`, `take_labsH`); hello's `scc_rt_main` has a
 setup block, so `scc_rt_thread_init` returns to `.x8` (`Rt.x8L`, `4199606`; wake's `.x7`) and its pcs are wake's
 `+ 37` (`.st0` at `4199654`, `InTH` from `4199657`); the take site is at `4200314`; the classes are `CstH`, `NoHH`,
-`InAH`/`InTH`/`InCH`/`InAbH`; `hW` is about the worker's word `tcbWH L` (`pinA + 112`). `st0_atH` and
+`InAH`/`InTH`/`InCH`/`InAbH`; `hW` is about the worker's word `tcbWH L` (`pinA + 144`). `st0_atH` and
 `tcbM_notGH` are new (wake's `st0_at`/`tcbM_notG` read wakeCells/`ownG`). Wake's `tiX` (`TiWAt.imp` at `WS`) has no
 twin: hello's start takes `scc_rt_thread_init` as `Rt.TiWAtP` (`OwnSt.tiXPH`).
 -/
@@ -289,7 +289,7 @@ theorem tiLH (hbdI : BandI L R (-248)) (hR : R.OK) (hRlo : R.lo ≤ -248) (hhi :
     · dsimp only [Spike.Lib.X64.Rt.tiNAt] at hJ ⊢; rw [(tiF5_walk _ _ hJ.2).1, eX8]; decide +kernel
   case st5 => tstL bS5 TI.st5 5 40 4 113
   case ret =>
-    refine blkLH hp hlab hsite hsep ha hW (P := PMH) (Q := QMH) bRet rfl tiRet_ok hR (by omega) (by omega)
+    refine blkLHA hp hlab hsite hsep ha hW (P := PMH) (Q := QMH) bRet rfl tiRet_ok hR (by omega) (by omega)
       (fun _ h => h.2) (fun s h => cls_offMH hlab hbd48 s h.1) (cls_offMH hlab hbd48) ?_ (soI tiRet oI)
       (fun σ c hJ => ?_)
     · intro k hk; dsimp only [Spike.Lib.X64.Rt.tiNAt]; rw [eX8]; revert k; decide +kernel

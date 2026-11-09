@@ -77,7 +77,7 @@ structure ZXObl (X : FragS isa) (exe : _root_.Executable) (endPc : Int64) (R : R
     Prop where
   hwcX : ∀ (R' : Region) (F' : MachineData → Prop), R'.OK → R'.lo ≤ -176 → 8 ≤ R'.hi →
       FStable R' F' → (∀ m, F' m → F m) → ∀ rbp ra : BitVec 64,
-      Int64.ofBitVec ra = (_root_.Executable.labels exe).label ".Lscc_rt_thr_worker.x13" →
+      Int64.ofBitVec ra = (_root_.Executable.labels exe).label ".Lscc_rt_thr_worker.x0" →
       WcXObl X exe endPc R' F' rbp ra w tp w0 w1 w2 w3 w4 n m
 
 /-- **Two `ZXObl`s combine** (`X₁ ∧ X₂`). -/

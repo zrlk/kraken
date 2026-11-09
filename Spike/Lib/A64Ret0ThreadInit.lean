@@ -31,7 +31,7 @@ namespace Spike.Lib.A64.Flow.Ret0.ThreadInit
 
 open CoreLang CoreTerm
 open Kraken Kraken.AArch64.Parser Kraken.Promising Kraken.Promising.AArch64 Kraken.Promising.Lower.A64
-open Scc.Cert.Rt.A64 (Lays endOf blockAt labelGap)
+open Scc.Cert.Rt.A64 (Lays endOf blockAt labelGap blockAcross)
 
 set_option linter.unusedSimpArgs false
 
@@ -244,6 +244,8 @@ abbrev fnL : Label := "scc_rt_thread_init"
 abbrev entryL : Label := ".L5_scc_rt_thread_init.0_entry"
 /-- The label after the call. -/
 abbrev spL : Label := ".L5_scc_rt_thread_init.sp0"
+/-- The return's label (just before `ret`). -/
+abbrev retL : Label := ".L5_scc_rt_thread_init.x9"
 
 /-- **`scc_rt_thread_init`'s code in `prog`**: its blocks, its stores and
 the fall-through into `.0_entry`. -/
@@ -255,7 +257,7 @@ def threadInitIn (prog : List Directive) : Bool :=
   blockAt prog spL 18 tiF3 && blockAt prog spL 20 (parseAArch64("str x9, [x10, #24]")) &&
   blockAt prog spL 21 tiF4 && blockAt prog spL 23 (parseAArch64("str x9, [x10, #32]")) &&
   blockAt prog spL 24 tiF5 && blockAt prog spL 26 (parseAArch64("str x9, [x10, #40]")) &&
-  blockAt prog spL 27 tiRet
+  blockAcross prog spL 27 (tiRet.take 4) retL (tiRet.drop 4)
 
 #guard threadInitIn SccCode.ret0Prog
 

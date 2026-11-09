@@ -12,8 +12,8 @@ wake's program-independent pieces are reused (`Tcb2W.blkW_toSt2`,
 `keep_hdr`). The call site's block and nodes are `Spike/Lib/A64HelloWcSp3.lean`'s
 (`tcb2CallH`, `tcb2QH`, `wcN3H`, `wcNCH`), so there is no separate twin of
 `A64WakeTcb2Call`. hello's pcs: `scc_rt_alloc_tcb` at `2164748` (`.0_entry`
-`2164772`, `.1_len` `2164792`, `.3_ok` `2164996`), `.sp4` `2169716`, `.sp6`
-`2169740`, the take site `2165976`; the header word at `pinA + 80 + 24`.
+`2164772`, `.1_len` `2164792`, `.3_ok` `2165000`), `.sp4` `2169748`, `.sp6`
+`2169772`, the take site `2165980`; the header word at `pinA + 80 + 24`.
 
 - `PcAH`, `BandAH`, `good2aH_of`: where `Good2aH` holds by the pc and `sp`.
 - `good2aH_blk`, `hpcH_of`, `good2aH_node`: `Good2aH` at a block's (a node's)
@@ -48,8 +48,8 @@ open Spike.Lib.A64.Flow (HelloWc.tcb2QH HelloWc.hello_allocTcbIn)
 /-- **The pcs where `ownGH` picks `own2aH`**: `scc_rt_alloc_tcb`'s (on a pool
 stack) or `wc_main`'s from `.sp4` to `.sp6`, at the canonical base. -/
 def PcAH (p : Int64) : Prop :=
-  (2164748 ≤ p.toBitVec.toNat ∧ p.toBitVec.toNat < 2165168) ∨
-    (2169716 ≤ p.toBitVec.toNat ∧ p.toBitVec.toNat < 2169740)
+  (2164748 ≤ p.toBitVec.toNat ∧ p.toBitVec.toNat < 2165172) ∨
+    (2169748 ≤ p.toBitVec.toNat ∧ p.toBitVec.toNat < 2169772)
 
 instance (p : Int64) : Decidable (PcAH p) := by unfold PcAH; infer_instance
 
@@ -143,15 +143,15 @@ variable {Λ : Scc.Sem.Layout} {μ : Marks} {a : BitVec 64} {rS : Range} {Tk : S
   {K : State → State → Prop} {exe : _root_.Executable} {endPc : Int64} {R : Region} {F : MachineData → Prop}
   {n : ND}
 
-/-- `PcAH` is off the take site (`scc_rt_take_site` at `2165976`). -/
-theorem pcAH_ne {p : Int64} (h : PcAH p) : p.toBitVec.toNat ≠ 2165976 := by
+/-- `PcAH` is off the take site (`scc_rt_take_site` at `2165980`). -/
+theorem pcAH_ne {p : Int64} (h : PcAH p) : p.toBitVec.toNat ≠ 2165980 := by
   unfold PcAH at h; omega
 
 /-- **A block of the call at `ownGH`** from the instance's `SFacts`: the
 block's pcs in `PcAH` (`h1`), where its run ends (`h2`), its static `sp`
-offsets in `[-192, 0]` (`hso`), the take site at `2165976` (`hsite`). -/
+offsets in `[-192, 0]` (`hso`), the take site at `2165980` (`hsite`). -/
 theorem blk2aH (hlab : ∀ l x, codeOf lo SccCode.helloProg l = some x → L.lab l = Int64.ofNat x) (hb : BandAH L R)
-    (hsite : ∀ x, μ.site .take = some x → x = 2165976) {blk : List Directive} {blo bhi : Int}
+    (hsite : ∀ x, μ.site .take = some x → x = 2165980) {blk : List Directive} {blo bhi : Int}
     (h : BlkW (fun s c => SFacts Λ μ (fun s => own2aH L a (ph2aH (pcOf s))) rS Tk lbl s c) K exe endPc R F n blk)
     (hcode : ∀ s : State, s.exe = exe → s.endPc = endPc → Spike.Lib.A64.CodeAt s n.pc blk)
     (hok : Spike.Lib.A64.Flow.okBlk blo bhi n.o blk = true) (hR : R.OK) (hal : R.base.toNat % 16 = 0)
@@ -188,9 +188,9 @@ theorem tcb_labsH (hlab : ∀ l x, codeOf lo SccCode.helloProg l = some x → L.
     (_root_.Executable.labels L.exe).label fnL = Int64.ofNat 2164748 ∧
     (_root_.Executable.labels L.exe).label entryL = Int64.ofNat 2164772 ∧
     (_root_.Executable.labels L.exe).label lenL = Int64.ofNat 2164792 ∧
-    (_root_.Executable.labels L.exe).label okL = Int64.ofNat 2164996 ∧
-    (_root_.Executable.labels L.exe).label ".L22_wc_main.sp4" = Int64.ofNat 2169716 ∧
-    (_root_.Executable.labels L.exe).label Spike.Lib.A64.Flow.Ret0.StackTake.siteL = Int64.ofNat 2165976 := by
+    (_root_.Executable.labels L.exe).label okL = Int64.ofNat 2165000 ∧
+    (_root_.Executable.labels L.exe).label ".L22_wc_main.sp4" = Int64.ofNat 2169748 ∧
+    (_root_.Executable.labels L.exe).label Spike.Lib.A64.Flow.Ret0.StackTake.siteL = Int64.ofNat 2165980 := by
   refine ⟨hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_⟩ <;>
     (rw [← codeT_eq]; decide +kernel)
 
@@ -214,7 +214,7 @@ theorem tcb2W_ownGH {L : RuntimeLayout} (hp : L.prog = SccCode.helloProg) (hlo :
     (hΛ : L.Λ.abortLbl = Scc.Cert.Link.abortName)
     (hlab : ∀ l x, codeOf lo SccCode.helloProg l = some x → L.lab l = Int64.ofNat x)
     (hsep : L.pnA ≠ L.lockA ∧ L.pnA ≠ L.freeNA ∧ L.pnA ≠ L.nextA ∧ L.pnA ≠ a)
-    (hhdr : L.pinA + 80#64 + 24#64 ∉ [L.pnA, L.lockA, L.freeNA, L.nextA, a])
+    (hhdr : L.pinA + 112#64 + 24#64 ∉ [L.pnA, L.lockA, L.freeNA, L.nextA, a])
     {Λ : Scc.Sem.Layout} {lbl : Lbl} {c0 : Ctl} (hC0 : Spike.Lib.A64Consumer.CFacts Λ lbl c0)
     {R : Region} (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo' : R.lo ≤ -192) (hhi : 0 ≤ R.hi)
     (hb : BandAH L R) (g : Spike.Lib.A64.Flow.Ret0.AllocTcb.G) (hra : g.ra = (L.lab ".L22_wc_main.sp4").toBitVec)
@@ -233,9 +233,9 @@ theorem tcb2W_ownGH {L : RuntimeLayout} (hp : L.prog = SccCode.helloProg) (hlo :
     (hp ▸ HelloWc.hello_allocTcbIn) hC0 hR hal hlo' hhi (HelloWc.tcb2QH g c0) rfl
     (ra := fun _ => L.lab ".L22_wc_main.sp4") hra (tcbPh2aH hΛ hlab hsep hhdr)
     (hpn ▸ hmP) hmH (hpn ▸ hunP) hunH hsub hSM
-  have hsite' : ∀ x, (Spike.Lib.A64.PhRec.μ L).site .take = some x → x = 2165976 := by
+  have hsite' : ∀ x, (Spike.Lib.A64.PhRec.μ L).site .take = some x → x = 2165980 := by
     intro x hx
-    rw [hsite, show L.lab Spike.Lib.A64.Flow.Ret0.StackTake.siteL = Int64.ofNat 2165976 from eSite] at hx
+    rw [hsite, show L.lab Spike.Lib.A64.Flow.Ret0.StackTake.siteL = Int64.ofNat 2165980 from eSite] at hx
     cases hx; rfl
   have hin := hp ▸ HelloWc.hello_allocTcbIn
   simp only [allocTcbIn, Bool.and_eq_true] at hin
@@ -274,7 +274,7 @@ theorem tcb2W_ownGH {L : RuntimeLayout} (hp : L.prog = SccCode.helloProg) (hlo :
       atBnd_ok hR hal (by omega) (by omega) ?_ (fun σ c hJ => ?_) (soT atBnd oI)
     · intro k hk; dsimp only [Spike.Lib.A64.Rt.tcbNG]; rw [eLen]; revert k; decide
     · dsimp only [Spike.Lib.A64.Rt.tcbNG] at hJ ⊢
-      rw [(atBnd_walkG _ _ hJ.2.1 hJ.2.2 (by show (80#64).toNat + (lenOf hdr2H).toNat ≤ 131072; decide)).1, eLen]
+      rw [(atBnd_walkG _ _ hJ.2.1 hJ.2.2 (by show (112#64).toNat + (lenOf hdr2H).toNat ≤ 131072; decide)).1, eLen]
       decide
   case j2 =>
     refine blk2aH hlab hb hsite' h (Spike.Lib.A64.Flow.code_of L.lays rfl bJ2 rfl)
@@ -287,13 +287,14 @@ theorem tcb2W_ownGH {L : RuntimeLayout} (hp : L.prog = SccCode.helloProg) (hlo :
     · intro k hk; dsimp only [Spike.Lib.A64.Rt.tcbNG]; rw [eOk]; revert k; decide
     · dsimp only [Spike.Lib.A64.Rt.tcbNG] at hJ ⊢; rw [(atOk_walkG _ _ hJ.2.1 hJ.2.2).1, eOk]; decide
   case ret =>
-    refine blk2aH hlab hb hsite' h (Spike.Lib.A64.Flow.code_of L.lays rfl bRet rfl)
+    refine blk2aH hlab hb hsite' h
+      (Spike.Lib.A64.code_field_blockAcross L.lays rfl bRet (List.take_append_drop 12 _) rfl)
       atRet_ok hR hal (by omega) (by omega) ?_ (fun σ c hJ => ?_) (soT atRet oI)
     · intro k hk; dsimp only [Spike.Lib.A64.Rt.tcbNG]; rw [eOk]; revert k; decide
     · dsimp only [Spike.Lib.A64.Rt.tcbNG] at hJ ⊢
       rw [(atRet_walkG _ _ hJ.2).1]
       show PcAH (Int64.ofBitVec g.ra)
-      rw [hra, Int64.ofBitVec_toBitVec, show L.lab ".L22_wc_main.sp4" = Int64.ofNat 2169716 from eSp4]; decide
+      rw [hra, Int64.ofBitVec_toBitVec, show L.lab ".L22_wc_main.sp4" = Int64.ofNat 2169748 from eSp4]; decide
   case adrp =>
     refine node2aH hlab hb h (fun s c hAt s' hs => ?_) ⟨?_, ?_⟩ (by dsimp only [Spike.Lib.A64.Rt.tcbNG]; decide)
     · obtain ⟨he, hn, -, hp', -⟩ := hAt

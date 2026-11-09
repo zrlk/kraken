@@ -108,7 +108,7 @@ in the pool, not wrapping and off the callee's region (`hsub`, `hfit`,
 theorem userCallW_of_fn {d : Decl} (hd : Scc.Lower.Accepted0 [d] = true) {cx : FnCtx} {r : Res} {fn entry : Label}
     (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) (h16 : cx.frame % 16 = 0)
     (hpro : proInC prog cx fn entry = true) (hr : lower0 [(d.arg, .unit, [])] 0 d.body = some r)
-    (hbody : bodyIn prog cx entry 0 r.insts r.ret = true)
+    (hbody : bodyIn prog cx entry 0 0 r.insts r.ret = true)
     {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp) {Dt : State → Prop}
     {lbl : Lbl} {ms : MemSide isaLSE2} {R : Region} {F : MachineData → Prop} {Z : Int64} {D : Int}
     {tp : UInt64} {ra : BitVec 64} (hD : (cx.frame : Int) + 48 ≤ D) (hD8 : D % 8 = 0)

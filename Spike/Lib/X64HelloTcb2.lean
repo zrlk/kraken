@@ -17,7 +17,7 @@ header's word is at `pinA + 80 + 24`, wake's `+ 16`).
 
 - The table is x86-64's `scc_rt_alloc_tcb` (`X64WakeTcb2.tcb2Tab`'s blocks,
   steps and the `lock xadd` phases at `.len + 158`), returning to
-  `.Lwc_main.x24` (A64: `.L22_wc_main.sp4`).
+  `.Lwc_main.x2` (A64: `.L22_wc_main.sp4`).
 - The projection `ph2aH`, `own2aH_mod4` and the first switch
   `own1_own2aH_ph` are in `X64HelloOwn2`; A64's `own2aH_wc` (dead) is not
   twinned.
@@ -50,7 +50,7 @@ def tcb2TabH : List PhFact :=
     .blk Tcb.lenL 198 Tcb.atJ2 none none, .blk Tcb.okL 7 Tcb.atO1 none none,
     .blk Tcb.okL 38 Tcb.atO2 none none, .blk Tcb.okL 56 Tcb.atO3 none none,
     .blk Tcb.okL 77 Tcb.atO4 none none, .blk Tcb.okL 98 Tcb.atO5 none none,
-    .blk Tcb.okL 143 Tcb.atRet (some (".Lwc_main.x24", 0)) none,
+    .blk Tcb.okL 143 Tcb.atRet (some (".Lwc_main.x2", 0)) none,
     .ne Tcb.entryL 20 tcbFullL 0,
     .step Tcb.lenL 11 3, .step Tcb.lenL 29 3, .step Tcb.lenL 47 3, .step Tcb.lenL 65 3, .step Tcb.lenL 95 4,
     .step Tcb.lenL 132 3, .step Tcb.lenL 139 7, .step Tcb.okL 0 7, .step Tcb.okL 34 4, .step Tcb.okL 53 3,
@@ -86,21 +86,21 @@ theorem mOf_hdr2H : mOf hdr2H <<< 3 = 24#64 := by decide
 
 open Spike.Lib.X64.Rt in
 /-- **The second `scc_rt_alloc_tcb` call's phase facts after the take** at
-`ph2aH`, returning to `wc_main`'s `.x24`, the counter's old value `80`,
+`ph2aH`, returning to `wc_main`'s `.x24`, the counter's old value `112`,
 given the counters distinct (`hsep`) and the header's word none of them
 (`hhdr`). -/
 theorem tcbPh2aH {Λ : Scc.Sem.Layout} (hΛ : Λ.abortLbl = Scc.Cert.Link.abortName) {L : RuntimeLayout}
     {a : BitVec 64}
     (hlab : ∀ l x, codeLabel lo helloCells l = some x → L.lab l = Int64.ofNat x)
     (hsep : L.pnA ≠ L.lockA ∧ L.pnA ≠ L.freeNA ∧ L.pnA ≠ L.nextA ∧ L.pnA ≠ a)
-    (hhdr : L.pinA + 80#64 + 24#64 ∉ [L.pnA, L.lockA, L.freeNA, L.nextA, a]) :
+    (hhdr : L.pinA + 112#64 + 24#64 ∉ [L.pnA, L.lockA, L.freeNA, L.nextA, a]) :
     TcbPhGP (okPcOf lo helloCells Λ) ph2aH (fun _ => True) (own2aH L a) L.lab
-      (fun _ => L.lab ".Lwc_main.x24") hdr2H 80#64 := by
+      (fun _ => L.lab ".Lwc_main.x2") hdr2H 112#64 := by
   have hf : ∀ f ∈ tcb2TabH, _ := fun f hf => tcb2_factH hΛ (f := f) hf
   have hn : ∀ {d : Nat → Bool} t, Scc.Cert.Rt.X64.deadN (codeLabel lo helloCells) none t = true → d t = true :=
     fun _ h => by simp [Scc.Cert.Rt.X64.deadN] at h
   have hr : ∀ r o', (none : Option (String × Nat)) = some (r, o') →
-      L.lab ".Lwc_main.x24" = L.lab r + Int64.ofNat o' := fun _ _ h => nomatch h
+      L.lab ".Lwc_main.x2" = L.lab r + Int64.ofNat o' := fun _ _ h => nomatch h
   have hpn : Spike.Lib.X64.Flow.Ret0.pnA L.lab = L.pnA := L.lab_pn
   have hpin : Spike.Lib.X64.Flow.Ret0.pinA L.lab = L.pinA := L.lab_pin
   have h1 := ph_of_factOk hlab (hf (.ph Code.Tcb.lenL 158 1) (by simp [tcb2TabH]))
@@ -136,7 +136,7 @@ theorem tcbPh2aH {Λ : Scc.Sem.Layout} (hΛ : Λ.abortLbl = Scc.Cert.Link.abortN
     o4 := blkPh_of_factOk hlab hr hn (hf (.blk Code.Tcb.okL 77 Code.Tcb.atO4 none none) (by simp [tcb2TabH]))
     o5 := blkPh_of_factOk hlab hr hn (hf (.blk Code.Tcb.okL 98 Code.Tcb.atO5 none none) (by simp [tcb2TabH]))
     ret := blkPh_of_factOk hlab (fun _ _ h => by cases h; exact (Spike.Lib.X64.Flow.ofNat_zero' _).symm) hn
-      (hf (.blk Code.Tcb.okL 143 Code.Tcb.atRet (some (".Lwc_main.x24", 0)) none) (by simp [tcb2TabH]))
+      (hf (.blk Code.Tcb.okL 143 Code.Tcb.atRet (some (".Lwc_main.x2", 0)) none) (by simp [tcb2TabH]))
     fullNe := by
       have := ne_of_factOk hlab (hf (.ne Code.Tcb.entryL 20 tcbFullL 0) (by simp [tcb2TabH]))
       rw [Spike.Lib.X64.Flow.ofNat_zero'] at this
@@ -160,7 +160,7 @@ theorem tcbPh2aH {Λ : Scc.Sem.Layout} (hΛ : Λ.abortLbl = Scc.Cert.Link.abortN
       · exact step_of_factOk hlab (hf (.step Code.Tcb.okL 140 3) (by simp [tcb2TabH]))
     rmwOk := ok_of_factOk hlab (hf (.ok Code.Tcb.lenL 158) (by simp [tcb2TabH]))
     rmwTk := fun _ _ _ => Iff.rfl
-    rmwIn := ⟨(80#64).setWidth 128, by rw [rmwPc, h1, hpn]; simp [own2aH, ownV]⟩
+    rmwIn := ⟨(112#64).setWidth 128, by rw [rmwPc, h1, hpn]; simp [own2aH, ownV]⟩
     rmwUpd := by
       rw [e5, rmwPc, h1, h0, hpn]
       simp [ownUpdB, own2aH, ownV, s1, s2, s3, s4, Ne.symm s1, Ne.symm s2, Ne.symm s3, Ne.symm s4]

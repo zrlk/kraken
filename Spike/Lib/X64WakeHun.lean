@@ -49,9 +49,9 @@ variable {F : MachineData → Prop} (hF : HunB hp i F)
 include hF
 
 omit hF in
-/-- `t2 + 56` is `pinA + 160`. -/
-theorem t2_56 : Spike.Lib.X64.Flow.WakeWc.t2 (Ly).lab + 56#64 = (Ly).pinA + BitVec.ofNat 64 160 := by
-  show Spike.Lib.X64.Flow.Ret0.pinA (Ly).lab + 104#64 + 56#64 = _
+/-- `t2 + 56` is `pinA + 192`. -/
+theorem t2_56 : Spike.Lib.X64.Flow.WakeWc.t2 (Ly).lab + 56#64 = (Ly).pinA + BitVec.ofNat 64 192 := by
+  show Spike.Lib.X64.Flow.Ret0.pinA (Ly).lab + 136#64 + 56#64 = _
   rw [(Ly).lab_pin, BitVec.add_assoc]; rfl
 
 /-- **`hunN`**: `scc_rt_nthreads`. -/
@@ -65,10 +65,10 @@ theorem hunP_W : ∀ m, F m → Mem.loadInt m.dmem (Ly).pnA 8 = none :=
 
 /-- **`hunH`**: the second TCB's header `pinA + 96`. -/
 theorem hunH_W (hA13 : Scc.Cert.Spawn.X64.a13data (Ly).Λ o.prog o.secs = true) :
-    ∀ m, F m → Mem.loadInt m.dmem ((Ly).pinA + 96#64) 8 = none :=
+    ∀ m, F m → Mem.loadInt m.dmem ((Ly).pinA + 128#64) 8 = none :=
   hF _ ((H1Rt.a13_facts hp i hA13).2.1 _ (List.mem_map.2 ⟨2, List.mem_range.2 (by decide), rfl⟩))
 
-/-- **`hunT`**: the second TCB's id word `t2 + 56 = pinA + 160`. -/
+/-- **`hunT`**: the second TCB's id word `t2 + 56 = pinA + 192`. -/
 theorem hunT_W (hA13 : Scc.Cert.Spawn.X64.a13data (Ly).Λ o.prog o.secs = true) :
     ∀ m, F m → Mem.loadInt m.dmem (Spike.Lib.X64.Flow.WakeWc.t2 (Ly).lab + 56#64) 8 = none := by
   rw [t2_56 hp i]

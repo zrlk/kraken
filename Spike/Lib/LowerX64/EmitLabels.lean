@@ -268,13 +268,13 @@ theorem emitFuncAt_labels {p : Scc.IR.Program} {areas} {f : Scc.IR.Func} {n : Na
     (h : emitFuncAt p areas f n = .ok r) :
     (∀ it ∈ r.1, textN it = true) ∧ Item.d (.label f.name) ∈ r.1 := by
   unfold emitFuncAt at h
-  cases hr : (emitFunc p.abortFn p.growth areas f).run { next := n } with
+  cases hr : (emitFunc p.abortFn p.growth areas f).run {} with
   | error e => rw [hr] at h; cases h
   | ok v =>
     obtain ⟨⟨⟩, s⟩ := v
     rw [hr] at h
     cases h
-    have h' : emitFunc p.abortFn p.growth areas f { next := n } = .ok ((), s) := hr
+    have h' : emitFunc p.abortFn p.growth areas f {} = .ok ((), s) := hr
     obtain ⟨c, hc, hp⟩ := (emitFunc_prep _ _ _ f).out _ _ _ h'
     refine ⟨fun it hi => hp it ?_, List.mem_reverse.mpr (emitFunc_label h')⟩
     simp only [List.append_nil] at hc
@@ -406,7 +406,7 @@ theorem dir_lit (s : String) (h : textN (.dir s) = true) : PreP textN (dir s) :=
 
 /-- The header stays in `.text`. -/
 theorem emitHead_prep (p : Scc.IR.Program) : PreP textN (emitHead p) := by
-  simp only [emitHead]
+  simp only [emitHead, emitKabi]
   repeat (first | exact dir_lit _ (by decide) | prep_fn_step)
 
 /-- `emitItemsMaps`'s items: `.text` header items, the functions' blocks, the rest. -/

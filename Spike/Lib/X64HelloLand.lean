@@ -24,7 +24,7 @@ frame and `wc_main`'s box call at no frames. Wake's `WakeCtr.CtrAt` is at no fra
   `fstable_FS` gives `swR`'s and `RS`'s `OK` and no alignment (x86-64's `Hello1.mR_ok` asks none).
 - No import of `HelloHrdArena`: this part uses none of its constants (AArch64 imports it for the chain only).
 - `GcRdH`'s caller invariant `StartWcS.rdJH` takes `scc_rt_main`'s region (x86-64's `mNC` pins `%rbp` in it), so
-  it is `rdJH lab (RS helloLsw v) …` at the call's base `v`; the call returns to `.Lwc_rodata.x15` (AArch64
+  it is `rdJH lab (RS helloLsw v) …` at the call's base `v`; the call returns to `.Lwc_rodata.x0` (AArch64
   `.L19_wc_rodata.sp0`) and its `CallerCells` reach `8` (AArch64 `0`).
 - Not twinned (unreachable from the AArch64 root, so twins only live constants): `GcMH`, `GsH`, `CtxRH`,
   `ctrAtF_of_ctrAt`, `hctx_rdH`, `hctx_mainH`, `hctx_stH`, `hctx_rdU`, `hctx_mainU`.
@@ -112,7 +112,7 @@ set_option hygiene false in
 local notation "FR" => Spike.Lib.X64HelloRdCf.frH Spike.Lib.X64.HelloPh.C0S.c0S.env
 
 /-- **`wc_rodata`'s buffer call**: under main's frame, a buffer allocation (`Call.OK`) returning to
-`.Lwc_rodata.x15`, in the region `aR (mR (RS helloLsw v))` with `wc_rodata`'s frame condition at the start's `FS`
+`.Lwc_rodata.x0`, in the region `aR (mR (RS helloLsw v))` with `wc_rodata`'s frame condition at the start's `FS`
 and the caller's entry invariant `J' v`. -/
 def GcRdH (fs : List TermRun.Frame) (ms0 : MemSide isa) (R : Region) (F : MachineData → Prop) (q : Call) :
     Prop :=
@@ -120,7 +120,7 @@ def GcRdH (fs : List TermRun.Frame) (ms0 : MemSide isa) (R : Region) (F : Machin
     F = (fun m => mF (RS helloLsw v) (FS (Ly) (RS0) helloLsw 0#64 v) m0 σC m ∧
       CallerCells (mR (RS helloLsw v)) (-48) (-160) 8 m ∧
       RdCtx ms0 (Ly).lab (mR (RS helloLsw v)) (mRdJ0 ((J') v) σC) (mRdJ0 ((J') v) σC) q m) ∧
-    q.ra = ((Ly).lab ".Lwc_rodata.x15").toBitVec
+    q.ra = ((Ly).lab ".Lwc_rodata.x0").toBitVec
 
 /-- **The counter word is unloaded under the start's `FS`** at the root's reference side (`WordsNoneP`, the
 counter inside `.data`). -/

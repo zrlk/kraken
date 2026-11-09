@@ -40,7 +40,7 @@ theorem ab_res : Spike.Lib.A64.AllocG.abLabs.all
     (fun x => (Scc.Cert.Link.A64.codeOf Spike.Lib.A64.WakePh.lo wakeProg x).isSome) = true := by decide +kernel
 
 /-- **The clone's resumption is off the write abort's pcs** at the code labels. -/
-theorem ab_off : Int64.ofNat 2169292 + Int64.ofNat (4 * 13) + Int64.ofNat 4 ∉
+theorem ab_off : Int64.ofNat 2169324 + Int64.ofNat (4 * 13) + Int64.ofNat 4 ∉
     Spike.Lib.A64.WriteAb.abPcs (Spike.Lib.LowerA64.labC Spike.Lib.A64.WakePh.lo wakeProg) := by decide +kernel
 
 /-- **`ownG` at the clone's resumption** is `own2b L a 0`. -/
@@ -48,10 +48,10 @@ theorem own_svc4 {L : Spike.Lib.A64.Rt.RuntimeLayout} {a : BitVec 64}
     (hlab : ∀ l x, Scc.Cert.Link.A64.codeOf Spike.Lib.A64.WakePh.lo wakeProg l = some x → L.lab l = Int64.ofNat x)
     {s : State} (hs : s.st.2 = L.lab ".L21_wc_main.sp6" + Int64.ofNat (4 * 13) + Int64.ofNat 4) :
     ownG L a s = own2b L a 0 := by
-  have hp : pcOf s = 2169348 := by unfold pcOf; rw [hs, Spike.Lib.A64.WakePh.WcSp4W.lab_sp6 hlab]; rfl
+  have hp : pcOf s = 2169380 := by unfold pcOf; rw [hs, Spike.Lib.A64.WakePh.WcSp4W.lab_sp6 hlab]; rfl
   obtain ⟨-, -, -, -, -, e6, e7, -, -⟩ := labs_eq hlab (L := L)
   have hg : Good2b L s := .inr (.inl (by unfold inPc; rw [e6, e7, hp]; omega))
-  rw [ownG_2b hlab hg, hp, ph2b_eq, show ph2bC 2169348 = 0 by decide +kernel]
+  rw [ownG_2b hlab hg, hp, ph2b_eq, show ph2bC 2169380 = 0 by decide +kernel]
 
 variable {pcfg : Scc.Cert.PlaceOK.Config} {o : Scc.Cert.PlaceOK.A64.Out} {Λ0 : Scc.Sem.Layout}
   (hp : PlaceW pcfg Λ0 o) (i : CoreTerm.Expr → String → Nat → Option Nat)
@@ -89,7 +89,7 @@ theorem wcl_W1 (hd : WakeWcW1I.Ld hp i) {l : WeakMem.AllocLabel} {b n : Nat} {R 
   change s.st.2 = (Ly).lab ".L21_wc_main.sp6" + Int64.ofNat (4 * 13) at hpc
   have e6 := Spike.Lib.A64.WakePh.WcSp4W.lab_sp6 hd.lab
   have h13 := Spike.Lib.A64.WakePh.WcSp4W.sp6_facts 13 (by decide)
-  have hP : pcOf s = 2169344 := by unfold pcOf; rw [hpc, e6, h13.1]
+  have hP : pcOf s = 2169376 := by unfold pcOf; rw [hpc, e6, h13.1]
   have hpo := ((instOkW (L := Ly) hd.pg hd.lo (ntA (Ly).lab) (fun _ => False) hd.site (rS := ⟨0, 0⟩)).off s
     (by rw [okPc_eq hd.Λ, hP]; exact h13.2.2)).1
   have hsys := hCl.2.1

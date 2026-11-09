@@ -149,7 +149,7 @@ reserve's call block) through `.x19`, `.x20` and `.x21` up to the clone's
 and `scc_rt_thread_init`'s labels, each up to the next of the two points
 (the take site, the clone's `syscall`) in wake's cells. -/
 def ckRuns : List (Label × Nat × Nat) :=
-  [(".Lwc_main.x18", 18, 117), (".Lwc_main.x19", 0, 94), (WakePh.WcSp4.x20L, 0, 71),
+  [(".Lwc_main.x0", 18, 117), (".Lwc_main.x1", 0, 94), (WakePh.WcSp4.x20L, 0, 71),
    (WakePh.WcClone.x21L, 0, 46),
    (Flow.Reserve.fnL, 0, 830), (Flow.Reserve.entryL, 0, 822), (Flow.Reserve.okL, 0, 741),
    (Ret0.AllocTcb.fnL, 0, 1285), (Ret0.AllocTcb.entryL, 0, 1266), (Ret0.AllocTcb.lenL, 0, 1244),

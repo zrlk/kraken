@@ -100,16 +100,19 @@ def CalleeF (p : Prog) (lbl : WeakMem.AllocLabel → Option Nat) (fr : Scc.Emit.
 
 /-! ## The code predicate's call arm -/
 
-/-- **A non-call instruction's arm of `CodeC`**: its items at `pc` (`Cd`),
-then the rest at the pc past them. -/
+/-- **A non-call instruction's arm of `CodeC`** (not a checked `+`, which
+takes a fresh label, P5): its items at `pc` (`Cd`), then the rest at the
+pc past them. -/
 theorem codeC_inst {fr : Scc.Emit.X64.Frame} {Cd : Int64 → List (Directive × Nat) → Prop}
     {Bl : Int64 → Nat → Label → Nat → Prop} {k : Nat} {pc : Int64} {i : Scc.IR.Inst} {is : List Scc.IR.Inst}
-    {tm : Scc.IR.Term} (h : CodeC fr Cd Bl k pc (i :: is) tm) (hc : Spike.Lib.LowerShape.isCall i = false) :
+    {tm : Scc.IR.Term} (h : CodeC fr Cd Bl k pc (i :: is) tm) (hc : Spike.Lib.LowerShape.isCall i = false)
+    (ha : ∀ d a b, i ≠ .addChk d a b) :
     ∃ l zs, Emits (emitInst fr none i) l ∧ zs.length = (dirs l).length ∧ Cd pc ((dirs l).zip zs) ∧
       CodeC fr Cd Bl k (pc + Int64.ofNat zs.sum) is tm := by
-  rcases h with ⟨-, h⟩ | ⟨d, g, w, lw, off, zs, zc, z, rfl, -⟩
+  rcases h with ⟨-, h⟩ | ⟨d, g, w, lw, off, zs, zc, z, rfl, -⟩ | ⟨d, a, b, -, -, -, -, -, rfl, -⟩
   · exact h
   · simp [Spike.Lib.LowerShape.isCall] at hc
+  · exact (ha d a b rfl).elim
 
 /-- **A one-word user call's arm of `CodeC`**: the argument's load into
 `%rdi` at `pc` (`Cd`), `callq g` with the return label `.L<fn>.x<k>` after
@@ -122,7 +125,8 @@ theorem codeC_call {fr : Scc.Emit.X64.Frame} {Cd : Int64 → List (Directive × 
       Cd pc ((dirs lw).zip zs) ∧ Bl (pc + Int64.ofNat zs.sum) zc (Scc.Lower.Names.user g) k ∧
       Cd (pc + Int64.ofNat zs.sum + Int64.ofNat zc) [(stDir off, z)] ∧
       CodeC fr Cd Bl (k + 1) (pc + Int64.ofNat zs.sum + Int64.ofNat zc + Int64.ofNat z) is tm := by
-  rcases h with ⟨hc, -⟩ | ⟨d', g', w', lw, off, zs, zc, z, he, hw, hd, hz, h1, h2, h3, h4⟩
+  rcases h with ⟨hc, -⟩ | ⟨d', g', w', lw, off, zs, zc, z, he, hw, hd, hz, h1, h2, h3, h4⟩ |
+    ⟨_, _, _, _, _, _, _, _, he, -⟩
   · simp [Spike.Lib.LowerShape.isCall] at hc
   · have hu : Scc.Lower.Names.user g = Scc.Lower.Names.user g' ∧ d = d' ∧ w = w' := by
       simp only [Scc.IR.Inst.call.injEq, List.cons.injEq, and_true] at he
@@ -130,6 +134,7 @@ theorem codeC_call {fr : Scc.Emit.X64.Frame} {Cd : Int64 → List (Directive × 
     obtain ⟨hg, rfl, rfl⟩ := hu
     rw [← hg] at h2
     exact ⟨lw, off, zs, zc, z, hw, hd, hz, h1, h2, h3, h4⟩
+  · cases he
 
 /-! ## Steps between the nodes -/
 

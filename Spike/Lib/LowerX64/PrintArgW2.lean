@@ -196,11 +196,11 @@ theorem print_ph (hCd : ∀ pc blk, Cd pc blk → CdC cells okPc ph lab ra pc bl
   rw [hpost] at hok2
   have cl1 := Spike.Lib.LowerX64.classify_of_okBlk hok1
   have cl2 := Spike.Lib.LowerX64.classify_of_okBlk hok2
-  obtain ⟨-, -, -, -, -, -, r1⟩ := hCd _ _ hc1
-  obtain ⟨-, -, -, -, -, -, r2⟩ := hCd _ _ hc2
-  obtain ⟨-, -, -, -, -, -, r3⟩ := hCd _ _ hc3
-  obtain ⟨-, -, -, -, -, -, r4⟩ := hCd _ _ hc4
-  obtain ⟨-, -, -, -, -, -, r5⟩ := hCd _ _ hc5
+  obtain ⟨-, -, r1⟩ := hCd _ _ hc1
+  obtain ⟨-, -, r2⟩ := hCd _ _ hc2
+  obtain ⟨-, -, r3⟩ := hCd _ _ hc3
+  obtain ⟨-, -, r4⟩ := hCd _ _ hc4
+  obtain ⟨-, -, r5⟩ := hCd _ _ hc5
   obtain ⟨-, -, -, -, -, -, hbph, -⟩ := hBl _ _ _ _ hbl
   -- the chunks' phase checks and fall-throughs
   have p1 := blkPh_of_run r1 fun d hd => cl1 d (List.mem_append_left _ (List.mem_append_left _ hd))

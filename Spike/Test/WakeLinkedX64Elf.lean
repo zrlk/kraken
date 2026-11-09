@@ -29,7 +29,7 @@ open SccCertificate (asm outLit)
 def path : String := "Scc/Test/elf/wakex64/wake"
 
 /-- The executable's SHA-256. -/
-def sha : String := "4e03ea547bb951eadf5d644865f05acbe8a7b29ba0f36f50fc4a0137a1ed243e"
+def sha : String := "672d383f79277aa56cdd19471dc6208fd501e893e2f2b3bf12302659675d3fbd"
 
 -- The executable is the one linked (evaluation, not a proof).
 /-- info: true -/

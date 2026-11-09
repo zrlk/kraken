@@ -41,6 +41,13 @@ local macro "tb " H:term:max : tactic =>
   `(tactic| exact blkA hp hend hi $H (by first | rfl | exact ofNat_zero' _) (by decide))
 
 set_option hygiene false in
+/-- A block node at its `blockAcrossB` check `H` (a block split by a return label, one segment). -/
+local macro "tbx " H:term:max : tactic =>
+  `(tactic| exact Spike.Lib.X64.Rt.StartU.blkW_wmono (fun _ _ h => ⟨h.1, h.2.1⟩) (hi.noSetFs
+    (Spike.Lib.X64.code_field_blockAcrossB hp hend $H (List.take_append_drop _ _)
+      (by first | rfl | exact ofNat_zero' _)) (by decide)))
+
+set_option hygiene false in
 /-- A single-instruction node at its `blockAtB` check `H`. -/
 local macro "tn " H:term:max : tactic =>
   `(tactic| exact nodeA hp hend hi $H (by first | rfl | exact ofNat_zero' _) (by decide) (by decide))
@@ -90,7 +97,7 @@ theorem takeWP_nm (hp : Lays exe cells kp) (hend : endPc = endOf exe cells kp)
     obtain ⟨he, hn, -, hpc, -⟩ := id hA
     exact ⟨hi s c hA, noSetFsAt_of_code (code_field hp hend tn (ofNat_zero' _) s he hn) (by decide) (j := 0)
       (by decide) rfl rfl (by rw [hpc]; simp [Spike.Lib.X64.cellOff]; rfl)⟩
-  case ret => tb t17
+  case ret => tbx t17
 
 set_option maxHeartbeats 1600000 in
 /-- **`scc_rt_thread_init` at `.x7` is inside `W ∧ NoSetFsAt`, the take
@@ -129,7 +136,7 @@ theorem tiWAtP_nm (hp : Lays exe cells kp) (hend : endPc = endOf exe cells kp)
   case st4 => tn s4
   case f5 => tb t7
   case st5 => tn s5
-  case ret => tb t8
+  case ret => tbx t8
 
 end Spike.Lib.X64.WakePh.Ti2
 

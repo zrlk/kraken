@@ -70,6 +70,21 @@ theorem nodeZ_ab {n : ND} {len : Nat} {l : Label} {k0 : Nat}
     (hchk : abChk l k0 len = true) : NodeZ (AbOffL (_root_.Executable.labels exe).label) exe n len :=
   fun _ _ _ _ hk he hs _ => abOff_at hp hchk hk he (hpc ▸ hs)
 
+/-- **`AbOffL` at a node across a label**: its first `a` instructions
+`k0 ..` after `l`, the rest from the next label `m` (`labelGap`: `m` right
+after them, a return label, P5). -/
+theorem nodeZ_ab2 {n : ND} {len : Nat} {l m : Label} {k0 a : Nat}
+    (hpc : n.pc = (_root_.Executable.labels exe).label l + Int64.ofNat (4 * k0))
+    (hg : labelGap wakeProg l m (k0 + a) = true) (hchk1 : abChk l k0 a = true)
+    (hchk2 : abChk m 0 (len - a) = true) : NodeZ (AbOffL (_root_.Executable.labels exe).label) exe n len := by
+  intro s σ c k hk he hs _
+  by_cases hka : k < a
+  · exact abOff_at hp hchk1 hka he (hpc ▸ hs)
+  · refine abOff_at hp hchk2 (k := k - a) (by omega) he ?_
+    rw [hs, hpc, label_labelGap hp hg, ofNat4_zero, Int64.add_assoc, Int64.add_assoc, ← Int64.ofNat_add,
+      ← Int64.ofNat_add]
+    exact congrArg (_ + Int64.ofNat ·) (by omega)
+
 /-- **`AbOffL` at a prologue** (`fn`'s label is its stack check's, `sc`). -/
 theorem pro_ab {fn sc : Label} (hg : labelGap wakeProg fn sc 0 = true) (hchk : abChk sc 0 11 = true)
     {J : AS → Ctl → Prop} :
@@ -107,7 +122,8 @@ theorem wk_ab {c1 c2 c3 : Ctl} {A B x29 ra tp : BitVec 64} (i : WkTailW.PN) :
   · refine nodeZ_ab hp (l := (WkTailW.pfx0 ++ ".0_entry")) (k0 := 3) ?_ ?_ <;> za
   · refine nodeZ_ab hp (l := (WkTailW.pfx0 ++ ".0_entry")) (k0 := 4) ?_ ?_ <;> za
   · exact Pass.nodeZ_nil
-  · refine nodeZ_ab hp (l := (WkTailW.pfx0 ++ ".sp1")) (k0 := 0) ?_ ?_ <;> za
+  · refine nodeZ_ab2 hp (l := (WkTailW.pfx0 ++ ".sp1")) (m := (WkTailW.pfx0 ++ ".x2")) (k0 := 0) (a := 3)
+      ?_ ?_ ?_ ?_ <;> za
 
 /-- `AbOffL` at `scc_rt_unpark`'s nodes. -/
 theorem unpk_ab {c2 c3 : Ctl} {B x29 ra tp : BitVec 64} (i : Unpark.PN) :
@@ -121,8 +137,10 @@ theorem unpk_ab {c2 c3 : Ctl} {B x29 ra tp : BitVec 64} (i : Unpark.PN) :
   · refine nodeZ_ab hp (l := ".L11_scc_rt_unpark.0_entry") (k0 := 9) ?_ ?_ <;> za
   · refine nodeZ_ab hp (l := ".L11_scc_rt_unpark.1_wake") (k0 := 0) ?_ ?_ <;> za
   · refine nodeZ_ab hp (l := ".L11_scc_rt_unpark.1_wake") (k0 := 11) ?_ ?_ <;> za
-  · refine nodeZ_ab hp (l := ".L11_scc_rt_unpark.1_wake") (k0 := 12) ?_ ?_ <;> za
-  · refine nodeZ_ab hp (l := ".L11_scc_rt_unpark.2_done") (k0 := 0) ?_ ?_ <;> za
+  · refine nodeZ_ab2 hp (l := ".L11_scc_rt_unpark.1_wake") (m := ".L11_scc_rt_unpark.x4") (k0 := 12) (a := 4)
+      ?_ ?_ ?_ ?_ <;> za
+  · refine nodeZ_ab2 hp (l := ".L11_scc_rt_unpark.2_done") (m := ".L11_scc_rt_unpark.x5") (k0 := 0) (a := 3)
+      ?_ ?_ ?_ ?_ <;> za
 
 /-- `AbOffL` at `scc_rt_thr_worker`'s tail. -/
 theorem tail_ab {c3 : Ctl} {tp : BitVec 64} (i : ThrTailW.PN) :

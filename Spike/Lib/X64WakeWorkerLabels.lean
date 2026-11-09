@@ -8,8 +8,8 @@ cells out (`Lays exe SccCode.wakeCells kp`).
 
 - `wkCode`, `thrCode`, `unpkCode`: `WkTailW.Code`, `ThrTailW.Code`,
   `Unpark.Code`; `thECode`: the `.entry` block of `scc_rt_thr_worker`.
-- `hx14` (`.Lwc_worker.x14` right after `wc_worker`'s `call`), `hx12`
-  (`.Lscc_rt_thr_worker.x12` right after `scc_rt_thr_worker`'s `call`),
+- `hx14` (`.Lwc_worker.x0` right after `wc_worker`'s `call`), `hx12`
+  (`.Lscc_rt_thr_worker.x0` right after `scc_rt_thr_worker`'s `call`),
   `hpentry` (`scc_rt_unpark`'s frame set-up falls through to `.entry`).
 - `wc_prologue_seg`, `thr_prologue_seg`: the stack-checked prologues of
   `wc_worker` (frame 16) and `scc_rt_thr_worker` (frame 32), `%rdi`/`%rsi`
@@ -43,6 +43,7 @@ cells out (`Lays exe SccCode.wakeCells kp`).
   the thread pointer's load from the TCB's self word (`hT`, `hown`).
 -/
 import Spike.Lib.X64WakeWorker
+import Spike.Lib.X64CodeAcross
 
 namespace Spike.Lib.X64.Flow.Worker.Wake.Labels
 
@@ -50,7 +51,7 @@ open CoreLang CoreTerm
 open Kraken Kraken.Promising Kraken.Promising.X64 Kraken.Promising.Lower Kraken.Promising.Lower.X64
 open Kraken.X64.Parser Spike.Lib.X64
 open Scc.Sem (ValRep)
-open Scc.Cert.Rt.X64 (Lays endOf blockAtB labelGapB code_field label_labelGapB)
+open Scc.Cert.Rt.X64 (Lays endOf blockAtB labelGapB code_field label_labelGapB blockAcrossB)
 open Spike.Lib Spike.Lib.X64.Flow Spike.Lib.X64.Flow.Worker Spike.Lib.X64.Flow.Worker.Wake
 open Spike.Lib.X64.Flow.Ret0 (StOk LdOk LimOk)
 
@@ -63,18 +64,18 @@ def wkIn (cells : List (Directive × Nat)) : Bool :=
   blockAtB cells ".Lwc_worker.entry" 0 WkTailW.b0 &&
   blockAtB cells ".Lwc_worker.entry" 11 [(stDir .rcx 0 .rax, 3)] &&
   blockAtB cells ".Lwc_worker.entry" 14 WkTailW.b1 &&
-  blockAtB cells ".Lwc_worker.x14" 0 WkTailW.b2 &&
-  labelGapB cells ".Lwc_worker.entry" ".Lwc_worker.x14" 23
+  blockAcrossB cells ".Lwc_worker.x0" 0 (WkTailW.b2.take 2) ".Lwc_worker.x1" (WkTailW.b2.drop 2) &&
+  labelGapB cells ".Lwc_worker.entry" ".Lwc_worker.x0" 23
 
 /-- `scc_rt_thr_worker`'s blocks. -/
 def thrIn (cells : List (Directive × Nat)) : Bool :=
   blockAtB cells ".Lscc_rt_thr_worker.entry" 0 ThrHeadW.thE &&
-  labelGapB cells ".Lscc_rt_thr_worker.entry" ".Lscc_rt_thr_worker.x12" 13 &&
-  blockAtB cells ".Lscc_rt_thr_worker.x12" 0 [(fsDir .rax 0, 9)] &&
-  blockAtB cells ".Lscc_rt_thr_worker.x12" 9 ThrTailW.b0 &&
-  blockAtB cells ".Lscc_rt_thr_worker.x12" 24 [(stDir .rcx 24 .rax, 4)] &&
-  blockAtB cells ".Lscc_rt_thr_worker.x12" 28 ThrTailW.b1 &&
-  blockAtB cells ".Lscc_rt_thr_worker.x12" 40 [(op64 .syscall, 2)]
+  labelGapB cells ".Lscc_rt_thr_worker.entry" ".Lscc_rt_thr_worker.x0" 13 &&
+  blockAtB cells ".Lscc_rt_thr_worker.x0" 0 [(fsDir .rax 0, 9)] &&
+  blockAtB cells ".Lscc_rt_thr_worker.x0" 9 ThrTailW.b0 &&
+  blockAtB cells ".Lscc_rt_thr_worker.x0" 24 [(stDir .rcx 24 .rax, 4)] &&
+  blockAtB cells ".Lscc_rt_thr_worker.x0" 28 ThrTailW.b1 &&
+  blockAtB cells ".Lscc_rt_thr_worker.x0" 40 [(op64 .syscall, 2)]
 
 /-- `scc_rt_unpark`'s blocks. -/
 def unpkIn (cells : List (Directive × Nat)) : Bool :=
@@ -86,8 +87,8 @@ def unpkIn (cells : List (Directive × Nat)) : Bool :=
   blockAtB cells ".Lscc_rt_unpark.entry" 35 Unpark.b3 &&
   blockAtB cells ".Lscc_rt_unpark.wake" 0 Unpark.b4 &&
   blockAtB cells ".Lscc_rt_unpark.wake" 62 [(op64 .syscall, 2)] &&
-  blockAtB cells ".Lscc_rt_unpark.wake" 64 Unpark.b5 &&
-  blockAtB cells ".Lscc_rt_unpark.done" 0 Unpark.b6
+  blockAcrossB cells ".Lscc_rt_unpark.wake" 64 (Unpark.b5.take 3) ".Lscc_rt_unpark.x0" (Unpark.b5.drop 3) &&
+  blockAcrossB cells ".Lscc_rt_unpark.done" 0 (Unpark.b6.take 2) ".Lscc_rt_unpark.x1" (Unpark.b6.drop 2)
 
 /-- `wc_worker`'s prologue: frame 16, `c` and `j` at `-8(%rbp)`, `-16(%rbp)`. -/
 def wcPro (cells : List (Directive × Nat)) : Bool :=
@@ -121,7 +122,7 @@ theorem wkCode {c0 c1 c2 : Ctl} {A B rbp0 ra tp sp : BitVec 64} :
   simp only [wkIn, Bool.and_eq_true, and_assoc] at h
   obtain ⟨h0, h1, h2, h3, -⟩ := h
   exact ⟨code_field hp hend h0 (ofNat_zero' _), code_field hp hend h1 rfl, code_field hp hend h2 rfl,
-    code_field hp hend h3 (ofNat_zero' _)⟩
+    Spike.Lib.X64.code_field_blockAcrossB hp hend h3 (List.take_append_drop _ _) (ofNat_zero' _)⟩
 
 /-- **`scc_rt_thr_worker`'s tail code**, any ghosts. -/
 theorem thrCode {c0 : Ctl} {tp sp : BitVec 64} : ThrTailW.Code c0 tp sp exe endPc := by
@@ -145,11 +146,12 @@ theorem unpkCode {c0 c1 : Ctl} {B rbp0 ra tp : BitVec 64} : Unpark.Code c0 c1 B 
   obtain ⟨h0, -, h1, h2, h3, h4, h5, h6, h7, h8⟩ := h
   exact ⟨code_field hp hend h0 (ofNat_zero' _), code_field hp hend h1 (ofNat_zero' _), code_field hp hend h2 rfl,
     code_field hp hend h3 rfl, code_field hp hend h4 rfl, code_field hp hend h5 (ofNat_zero' _),
-    code_field hp hend h6 rfl, code_field hp hend h7 rfl, code_field hp hend h8 (ofNat_zero' _)⟩
+    code_field hp hend h6 rfl, Spike.Lib.X64.code_field_blockAcrossB hp hend h7 (List.take_append_drop _ _) rfl,
+    Spike.Lib.X64.code_field_blockAcrossB hp hend h8 (List.take_append_drop _ _) (ofNat_zero' _)⟩
 
 omit hend in
 /-- **`.x14` right after `wc_worker`'s `call`.** -/
-theorem hx14 : (_root_.Executable.labels exe).label ".Lwc_worker.x14" =
+theorem hx14 : (_root_.Executable.labels exe).label ".Lwc_worker.x0" =
     (_root_.Executable.labels exe).label ".Lwc_worker.entry" + 14 + 9 := by
   have h := wake_wkIn
   simp only [wkIn, Bool.and_eq_true, and_assoc] at h
@@ -157,7 +159,7 @@ theorem hx14 : (_root_.Executable.labels exe).label ".Lwc_worker.x14" =
 
 omit hend in
 /-- **`.x12` right after `scc_rt_thr_worker`'s `call`.** -/
-theorem hx12 : (_root_.Executable.labels exe).label ".Lscc_rt_thr_worker.x12" =
+theorem hx12 : (_root_.Executable.labels exe).label ".Lscc_rt_thr_worker.x0" =
     (_root_.Executable.labels exe).label ".Lscc_rt_thr_worker.entry" + 13 := by
   have h := wake_thrIn
   simp only [thrIn, Bool.and_eq_true, and_assoc] at h
@@ -359,7 +361,7 @@ theorem seg_thrWorker {Q : Frag isa} (hp : Lays exe SccCode.wakeCells kp)
     (hc3 : c3 = ⟨e, (x, ExtName.unpark.sig.2, []) :: c2.env, none⟩)
     {ar : CoreTerm.At} (hret3 : c3.term = .ret ar)
     (hT : LdOk ms F tp)
-    (hown : OwnAt ms exe endPc ((_root_.Executable.labels exe).label ".Lscc_rt_thr_worker.x12") tp tp)
+    (hown : OwnAt ms exe endPc ((_root_.Executable.labels exe).label ".Lscc_rt_thr_worker.x0") tp tp)
     (hSx : StOk ms F (tp + 24#64) 1#64) :
     SegT p lbl ms (At exe endPc R F ⟨(_root_.Executable.labels exe).label "scc_rt_thr_worker", ⟨0, []⟩,
         thrJE c0 A B tp sp0⟩) Q := by
@@ -401,7 +403,7 @@ theorem seg_thrWorker {Q : Frag isa} (hp : Lays exe SccCode.wakeCells kp)
   · rintro ⟨rbp1, ra1⟩ ⟨⟩ σC c σx c' σR ⟨σ0, c0', ⟨-, -, -, -, hbp, -⟩, -, rfl⟩ ⟨⟨-, -, -, hrb, hra, -⟩, -⟩
       ⟨hc', hrb', htp'⟩ hreg - - -
     refine .inl ⟨(), ?_, by show SO.le ThrTailW.oP ⟨-48 - 0 + 8, []⟩ = true; decide, hc', ?_, ?_⟩
-    · show (_root_.Executable.labels exe).label ".Lscc_rt_thr_worker.x12" = Int64.ofBitVec ra1
+    · show (_root_.Executable.labels exe).label ".Lscc_rt_thr_worker.x0" = Int64.ofBitVec ra1
       have hra' : (enter (-48 - 0) (arun lab ThrHeadW.thE ⟨lab ".Lscc_rt_thr_worker.entry", ThrHeadW.oI, σ0⟩).σ).slot 0
         = ra1 := hra
       rw [← hra', hx12 hp]

@@ -91,7 +91,7 @@ theorem compiled2_facts {p : Prog} (hp : Scc.Lower.Accepted2 p = true) {d : Decl
   refine ⟨hd, hne, ?_⟩
   have hp' := hp
   simp only [Scc.Lower.Accepted2, Bool.and_eq_true] at hp'
-  obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨-, -⟩, hds⟩, -⟩, -⟩, -⟩, -⟩, -⟩, -⟩, -⟩ := hp'
+  obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨-, -⟩, -⟩, hds⟩, -⟩, -⟩, -⟩, -⟩, -⟩, -⟩, -⟩ := hp'
   rintro ⟨hpr, hnm⟩
   obtain ⟨E, hE⟩ := decl2_of_decls2 hds d hd
   unfold Scc.Lower.decl2 at hE

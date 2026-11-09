@@ -186,7 +186,7 @@ theorem tcbA_W (hb : Tcb2CallW.BandSp3 (Ly) R) (hunP : ∀ m, F m → Mem.loadIn
 
 omit hpa hwp hlo0 in
 /-- **`H1G.hdrA`**: the second TCB's header `pinA + 96`. -/
-theorem hdrA_W (hunH : ∀ m, F m → Mem.loadInt m.dmem ((Ly).pinA + 96#64) 8 = none) :
+theorem hdrA_W (hunH : ∀ m, F m → Mem.loadInt m.dmem ((Ly).pinA + 128#64) 8 = none) :
     ∀ c0 g, StOk ms1 F (hdrA (Ly).lab (tcb2Q g c0)) ((tcb2Q g c0).h ||| 1#64 <<< 36) := by
   intro c0 g
   rw [Tcb2Call.tcb2Q_hdrA, (Ly).lab_pin]
@@ -195,16 +195,16 @@ theorem hdrA_W (hunH : ∀ m, F m → Mem.loadInt m.dmem ((Ly).pinA + 96#64) 8 =
     (Spike.Lib.X64.PhRec.pin_ne (by decide)) (Spike.Lib.X64WakeGOf2.pin_ne2 (by decide)) hunH
 
 omit hpa hwp hlo0 in
-/-- **`H1G.tid`**: the second TCB's id word `t2 + 56 = pinA + 160`. -/
+/-- **`H1G.tid`**: the second TCB's id word `t2 + 56 = pinA + 192`. -/
 theorem tid_W (hunT : ∀ m', F m' → Mem.loadInt m'.dmem (t2 (Ly).lab + 56#64) 8 = none) :
     (ms1).rt (t2 (Ly).lab + 56#64).toNat ∧ (ms1).mp ⟨t2 (Ly).lab + 56#64, 8⟩ true ∧
       (ms1).G ⟨t2 (Ly).lab + 56#64, 8⟩ ((1#64).setWidth 128) ∧
       ∀ m', F m' → Mem.loadInt m'.dmem (t2 (Ly).lab + 56#64) 8 = none := by
-  have e : t2 (Ly).lab + 56#64 = (Ly).pinA + BitVec.ofNat 64 160 := by
-    show Spike.Lib.X64.Flow.Ret0.pinA (Ly).lab + 104#64 + 56#64 = _
+  have e : t2 (Ly).lab + 56#64 = (Ly).pinA + BitVec.ofNat 64 192 := by
+    show Spike.Lib.X64.Flow.Ret0.pinA (Ly).lab + 136#64 + 56#64 = _
     rw [(Ly).lab_pin, BitVec.add_assoc]; rfl
   rw [e] at hunT ⊢
-  have h : StOk ms1 F ((Ly).pinA + BitVec.ofNat 64 160) 1#64 :=
+  have h : StOk ms1 F ((Ly).pinA + BitVec.ofNat 64 192) 1#64 :=
     stOk_W asm hp i E cT ls0 hstat hland
       ((a13_facts hp i hA13).2.1 _ (List.mem_map.2 ⟨10, List.mem_range.2 (by decide), rfl⟩))
       (Spike.Lib.X64.PhRec.pin_ne (by decide)) (Spike.Lib.X64WakeGOf2.pin_ne2 (by decide)) hunT

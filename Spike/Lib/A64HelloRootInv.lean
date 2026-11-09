@@ -215,7 +215,7 @@ local notation "QQ" => QH hp (IH0) (G0H hp (IH0)) (PS) (ZS) (XS) (hS) arch (R1R)
 | `hlo`, `hstat`, `hnz`, `hA13`, `hp` | at `Λe` (`.text` linked at `0x210550`) |
 | `hc` | DONE: `RootLit.hc_H` |
 | `hB` | `B.cells`, as wake's `wake_linked` |
-| `hz`, `hn` | DONE: `RootLit.hz_H` (`131072`), `hn` by `decide` |
+| `hz`, `hn` | DONE: `RootLit.hz_H` (`163840`), `hn` by `decide` |
 | `hE` | `E.Ok` at the layout (`hello_correctE_clear`'s); `hE.1` the old `.clear` |
 | (`msB`, `hokb`, `hg`) | DONE: derived, `RootOkb.msBH`/`hokb_H`/`hg_H` |
 | (`res`, `tcb`) | DONE: derived, `CalRootI.res_I`/`tcb_I` in `RootInstW.h0V_I` |
@@ -300,7 +300,7 @@ theorem hello_root_inv {arch : WeakMem.Arch} {B : Budget} {E : Entry}
     (hA13 : Scc.Cert.Spawn.A64.a13data (Ly).Λ o.prog o.secs = true)
     /- loader: the pinned region's `.zero` (`ChildRoot.hpin2_H`; at the certificate `CertFacts.pinZ_helloCert`) -/
     {nZ : Nat} (hz : Scc.Cert.PlaceOK.zeroAfter (o.secs.bss ++ o.secs.data) Scc.Cert.Link.pinnedSym = some nZ)
-    (hn3 : 176 ≤ nZ)
+    (hn3 : 208 ≤ nZ)
     /- row: imms-m (the table's `m` at rodata's `newBuf`; `ImmsMe` at `iRdM`). `HrdRoot.hrd_RdH`'s, rodata's
     placement's (`HabCtlRdI.placedS_rdCN`). -/
     (hm : (Ly).Λ.imms Spike.Lib.HelloRodataSrc.eB "m" 0 = some 2)
@@ -316,7 +316,7 @@ theorem hello_root_inv {arch : WeakMem.Arch} {B : Budget} {E : Entry}
     (hI : Spike.Lib.A64.HelloPh.XHFSeg.ImmsKid (Ly).Λ) :
     WakeObligationsR arch (Ly).Λ B asm (QQ) E
       (fun t tr => TiPre (AbH hp (IH0)) (AcH hp (IH0)) t tr ∧ TwH (Ly).Λ E (AbH hp (IH0)) t tr) helloSrc := by
-  have hn : 168 ≤ nZ := by omega
+  have hn : 200 ≤ nZ := by omega
   have hpin2 := Spike.Lib.A64.HelloPh.ChildRoot.hpin2_H hp (IH0) hz hn
   have hWe := Spike.Lib.A64.HelloPh.WeRoot.hWe_rootRdH hp i0 hpa hhp hlo E ls
   -- the base's frame condition (`F0H`; `hF0` by construction)

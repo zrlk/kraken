@@ -14,11 +14,11 @@ counter `pnA`, the header `hdrA (tcb2QH g c0)`) miss `tcbM` (`PhRec.TcbSep`, `Tc
 ## Differences from the AArch64 version
 
 AArch64 has no counterpart: main owns no TCB word there (its thread pointer is a register). Against x86-64 wake's
-`OwnTcb2`: the code is helloCells (`hello_allocTcbIn`, `tcb_labsH`); the call block is at `.x23` (`4203726`, wake
+`OwnTcb2`: the code is helloCells (`hello_allocTcbIn`, `tcb_labsH`); the call block is at `.x23` (`4203764`, wake
 `.x19`) in wc_main's frame addressed from `%rbp` (`oWH`, `%rsp` from `-128`; the callee's return pushed at `-136`,
-wake `[-72, -64]`), its node `wcN3H` carrying the frame's words; the callee returns to `.x24` (`4203749`, wake
+wake `[-72, -64]`), its node `wcN3H` carrying the frame's words; the callee returns to `.x24` (`4203787`, wake
 `.x20`); the header is `hdr2H` at `pinA + 80 + 24` (wake `+ 16`); the classes are `CstH`/`QPH`/`PPH` and `hW` is
-about the worker's word `tcbWH L` (`pinA + 112`). The producers take the separation premises (`hsep`, `ha`, `hW`)
+about the worker's word `tcbWH L` (`pinA + 144`). The producers take the separation premises (`hsep`, `ha`, `hW`)
 besides `Tcb2CallW`'s.
 -/
 import Spike.Lib.X64HelloOwnLft2X
@@ -66,6 +66,16 @@ local macro "tblkX " bb:term:max ok:term:max blk:term:max oo:term:max el:term:ma
     dsimp only [tcbNG] at hJ ⊢))
 
 set_option hygiene false in
+/-- `tblkX` for a block split by its return label (`blkL2HA`, `blockAcrossB`). -/
+local macro "tblkXA " bb:term:max ok:term:max blk:term:max oo:term:max el:term:max : tactic =>
+  `(tactic| (
+    refine blkL2HA hp hlab hsite hsep ha hW (P := PPH) (Q := QPH) $bb (by first | rfl | exact ofNat_zero' _) $ok hR
+      (by omega) (by omega) (fun _ h => h.2) (fun s h => cls_poolH hlab hb s h.1) (cls_poolH hlab hb) ?_
+      (soT $blk $oo) (fun σ c hJ => ?_)
+    · intro k hk; dsimp only [tcbNG]; rw [$el:term]; revert k; decide +kernel
+    dsimp only [tcbNG] at hJ ⊢))
+
+set_option hygiene false in
 /-- A single-instruction node of the call (`z` bytes, `bb` its code check,
 `el` its label's value, `hw` its write condition, `kp` its `Keep` from the
 cell `hc` and the step `hs`). -/
@@ -103,7 +113,7 @@ set_option maxHeartbeats 3200000 in
 state on a pool stack (`hb`) at a `QP` pc holds `tcbM` only; the counter's
 and the header's stores miss it. -/
 theorem tcb2LH {R : Region} (hb : BandAH L R) (hR : R.OK) (hlo' : R.lo ≤ -184) (hhi : 8 ≤ R.hi)
-    (g : G) (c0 : Ctl) (hra : g.ra = (L.lab ".Lwc_main.x24").toBitVec) {F : MachineData → Prop}
+    (g : G) (c0 : Ctl) (hra : g.ra = (L.lab ".Lwc_main.x2").toBitVec) {F : MachineData → Prop}
     (hunP : ∀ m, F m → Mem.loadInt m.dmem L.pnA 8 = none)
     (hunH : ∀ m, F m → Mem.loadInt m.dmem (Spike.Lib.X64.Rt.hdrA L.lab (tcb2QH g c0)) 8 = none) :
     ∀ i, Spike.Lib.X64.Rt.TcbWG (Lft2H Λ L a Dt) (fun _ _ => False) L.exe L.endPc R F (tcb2QH g c0) i := by
@@ -160,7 +170,7 @@ theorem tcb2LH {R : Region} (hb : BandAH L R) (hR : R.OK) (hlo' : R.lo ≤ -184)
   case bnd =>
     tblkX cBnd atBnd_ok atBnd oI eLen
     rw [(atBnd_walkG _ _ hJ.2.1 hJ.2.2
-      (by show (80#64).toNat + (lenOf Spike.Lib.X64.HelloPh.hdr2H).toNat ≤ 131072; decide)).1, eLen]
+      (by show (112#64).toNat + (lenOf Spike.Lib.X64.HelloPh.hdr2H).toNat ≤ 131072; decide)).1, eLen]
     decide +kernel
   case j2 =>
     tblkX cJ2 atJ2_ok atJ2 oI eLen
@@ -182,10 +192,10 @@ theorem tcb2LH {R : Region} (hb : BandAH L R) (hR : R.OK) (hlo' : R.lo ≤ -184)
     tblkX cO5 atO5_ok atO5 oI eOk
     rw [(atO5_walkG _ _ hJ.2.1 hJ.2.2).1, eOk]; decide +kernel
   case ret =>
-    tblkX cRet atRet_ok atRet oI eOk
+    tblkXA cRet atRet_ok atRet oI eOk
     rw [(atRet_walkG _ _ hJ.2).1]
     show QPH (Int64.ofBitVec g.ra).toBitVec.toNat
-    rw [hra, Int64.ofBitVec_toBitVec, show L.lab ".Lwc_main.x24" = Int64.ofNat 4203749 from eX20]
+    rw [hra, Int64.ofBitVec_toBitVec, show L.lab ".Lwc_main.x2" = Int64.ofNat 4203787 from eX20]
     decide +kernel
   case shr1 => tnodeX 3 fShr1 eLen hw_fi keep_fi hc rfl hs
   case and1 => tnodeX 3 fAnd1 eLen hw_fi keep_fi hc rfl hs
@@ -256,9 +266,9 @@ theorem tcb2CallLH {R : Region} (hR : R.OK) (hlo3 : R.lo ≤ -136) (hhi : 16 ≤
     (fun k hk => (show ∀ k ≤ tcb2CallH.length, -136 ≤ (soRun (tcb2CallH.take k) oWH).sp ∧
       (soRun (tcb2CallH.take k) oWH).sp ≤ -128 by decide +kernel) k hk) (fun σ c hJ => ?_)
   · intro k hk
-    show PPH ((_root_.Executable.labels L.exe).label ".Lwc_main.x23" + _).toBitVec.toNat
+    show PPH ((_root_.Executable.labels L.exe).label ".Lwc_main.x1" + _).toBitVec.toNat
     rw [lab_sp3H hlab]; revert k; decide +kernel
-  · rw [show (wcN3H L.lab c0 sl me cA fr).pc = (_root_.Executable.labels L.exe).label ".Lwc_main.x23" from rfl,
+  · rw [show (wcN3H L.lab c0 sl me cA fr).pc = (_root_.Executable.labels L.exe).label ".Lwc_main.x1" from rfl,
       show (wcN3H L.lab c0 sl me cA fr).o = oWH from rfl,
       (tcb2CallH_pc (_root_.Executable.labels L.exe).label _ σ).1]
     show QPH ((_root_.Executable.labels L.exe).label fnL).toBitVec.toNat
@@ -270,10 +280,10 @@ theorem tcb2CallLH {R : Region} (hR : R.OK) (hlo3 : R.lo ≤ -136) (hhi : 16 ≤
 theorem tcb2W_ownGXH (hlo : L.Λ.code.lo = lo) {rS : Range} (rS' : Range)
     (hΛ : L.Λ.abortLbl = Scc.Cert.Link.abortName)
     (hsepP : L.pnA ≠ L.lockA ∧ L.pnA ≠ L.freeNA ∧ L.pnA ≠ L.nextA ∧ L.pnA ≠ a)
-    (hhdr : L.pinA + 80#64 + 24#64 ∉ [L.pnA, L.lockA, L.freeNA, L.nextA, a])
+    (hhdr : L.pinA + 112#64 + 24#64 ∉ [L.pnA, L.lockA, L.freeNA, L.nextA, a])
     {lbl : Lbl} {c0 : Ctl} (hC0 : CFacts Λ lbl c0)
     {R : Region} (hR : R.OK) (hlo' : R.lo ≤ -184) (hhi : 8 ≤ R.hi)
-    (hb : BandAH L R) (g : G) (hra : g.ra = (L.lab ".Lwc_main.x24").toBitVec)
+    (hb : BandAH L R) (g : G) (hra : g.ra = (L.lab ".Lwc_main.x2").toBitVec)
     {F : MachineData → Prop}
     (hmP : Scc.Sem.Kernel.mapped (Spike.Lib.X64Consumer.K0 Λ) true ⟨L.pnA, 8⟩ = true)
     (hmH : Scc.Sem.Kernel.mapped (Spike.Lib.X64Consumer.K0 Λ) true

@@ -286,7 +286,8 @@ theorem allocAgree (a : BitVec 64) {ms : Spike.Lib.MemSide isaLSE2} {q : Call}
     rw [arun_pc_last _ b13_ok (n := 11) rfl rfl]
     exact freeAt_succ hlab (l := ".L2_scc_rt_alloc.5_ok") (k := 42) (m := 13) (by free_dec) (j := 11) (by omega)
   · have he : L.lab ".L2_scc_rt_alloc.5_ok" + Int64.ofNat (4 * 54) = (N L.lab ms q .ret).pc := by pc_tac
-    refine Spike.Lib.LowerA64.BlkW.nodeW (blkAgreeL hp hlab hsite a (blk := [iRet.toDir]) h18 he
+    refine Spike.Lib.LowerA64.BlkW.nodeW (blkAgreeL hp hlab hsite a (blk := [iRet.toDir]) h18.2
+      (by rw [Spike.Lib.A64.Flow.ofNat4_zero]; exact (Scc.Cert.Rt.A64.label_labelGap L.lays (hp ▸ h18.1)).trans he)
       (blo := -160) (bhi := 0) (by dsimp only [N]; decide) hR hal (by omega) (by omega) (by free_dec)
       fun σ c hJ => ?_) (List.cons_ne_nil _ _)
     obtain ⟨o, -, -, -, -, -, h30, -⟩ := hJ

@@ -77,7 +77,7 @@ loader facts, the callee `ti` at each box ghost, `RefObl`. -/
 theorem hB1_W (hpa : Scc.Sem.X64.cellsOf asm = some o.prog) (hwp : Scc.Sem.X64.cellsOf asm = some wakeCells)
     (hlo0 : Λ0.code.lo = Spike.Lib.X64.WakePh.lo) (hstat : Λ0.static = fun _ => none)
     (hA13 : Scc.Cert.Spawn.X64.a13data (Ly).Λ o.prog o.secs = true)
-    (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) (hc : Spike.Lib.X64.Rt.CtrZ o)
+    (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) (hc : Spike.Lib.X64.Rt.CtrZ o)
     (hti : ∀ l b n, L0T (Ly).Λ l = none →
       AllocLand (Spike.Lib.X64.WakeOD.arW hp i).heap (Spike.Lib.X64.WakeOD.arW hp i).cells b n →
       ∀ (R : Region) (F : MachineData → Prop) (J0 : AS → Ctl → Prop) (t : UInt64),

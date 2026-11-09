@@ -14,8 +14,11 @@ runtime's words' separation (A8) and the sites' distinctness do not give:
   its abort branch dead;
 - the single instructions without an event and the stores
   (`PhFact.step`), the atomic accesses' pcs off the sites (`PhFact.ok`),
-  the abort branch off the check's jump (`PhFact.ne`), and
-  `scc_rt_thread_init`'s entries before the take (`PhFact.ph`, phase `12`);
+  the abort branch off the check's jump (`PhFact.ne`),
+  `scc_rt_alloc_tcb`'s jump to `.3_ok` (`.1_len` + 48) before the take
+  (`PhFact.ph`, phase `12`; A6's pins have `.1_len` + 47, the bound's
+  branch), and `scc_rt_thread_init`'s entries before the take (`PhFact.ph`,
+  phase `12`);
 - `_start`'s and `scc_rt_start`'s blocks and nodes up to the switch, with
   their pcs' phases (`13` before the TCB's allocation, `12` at `.sp2`);
 - `scc_rt_main`'s facts at `mc`, none without one (a program whose
@@ -39,11 +42,11 @@ def tcbPhTab : List PhFact :=
   [.blk Tcb.fnL 0 Tcb.atPro none none, .blk Tcb.entryL 0 Tcb.atChk none (some ".L3_scc_rt_alloc_tcb.2_full"),
     .blk Tcb.entryL 4 Tcb.atJ1 none none, .blk Tcb.lenL 0 Tcb.atLen none none,
     .blk Tcb.lenL 34 Tcb.atArg none none, .blk Tcb.lenL 38 Tcb.atBnd none none,
-    .blk Tcb.lenL 47 Tcb.atJ2 none none, .blk Tcb.okL 2 Tcb.atOk none none,
+    .blk Tcb.lenL 48 Tcb.atJ2 none none, .blk Tcb.okL 2 Tcb.atOk none none,
     .blk Tcb.okL 30 Tcb.atRet (some Start.sp2L) none,
     .ne Tcb.entryL 4 ".L3_scc_rt_alloc_tcb.2_full" 0,
     .step Tcb.lenL 32, .step Tcb.lenL 33, .step Tcb.okL 0, .step Tcb.okL 1, .step Tcb.okL 29,
-    .ok Tcb.lenL 37]
+    .ok Tcb.lenL 37, .ph Tcb.lenL 48 12]
 
 /-- **`scc_rt_stack_take`'s facts** (`TakePh`): the free count's load
 (`.5_locked15` + 1) a single step. -/

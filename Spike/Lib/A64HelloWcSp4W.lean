@@ -72,40 +72,40 @@ theorem hello_tiSub : blockAt SccCode.helloProg "scc_rt_thread_init" 0 tiSub = t
 /-! ## The pcs at the canonical base -/
 
 /-- `.sp4`'s six pcs: their values, `ph2aH` `0`, off the sites. -/
-theorem sp4_factsH : ∀ k < 6, (Int64.ofNat 2169716 + Int64.ofNat (4 * k)).toBitVec.toNat = 2169716 + 4 * k ∧
-    ph2aHC (2169716 + 4 * k) = 0 ∧ okC (2169716 + 4 * k) = true := by decide +kernel
+theorem sp4_factsH : ∀ k < 6, (Int64.ofNat 2169748 + Int64.ofNat (4 * k)).toBitVec.toNat = 2169748 + 4 * k ∧
+    ph2aHC (2169748 + 4 * k) = 0 ∧ okC (2169748 + 4 * k) = true := by decide +kernel
 
 /-- `.sp6`'s twenty-six pcs (to the `svc`): their values, `ph2bH` `0`. -/
-theorem sp6_factsH : ∀ k < 26, (Int64.ofNat 2169740 + Int64.ofNat (4 * k)).toBitVec.toNat = 2169740 + 4 * k ∧
-    ph2bHC (2169740 + 4 * k) = 0 := by decide +kernel
+theorem sp6_factsH : ∀ k < 26, (Int64.ofNat 2169772 + Int64.ofNat (4 * k)).toBitVec.toNat = 2169772 + 4 * k ∧
+    ph2bHC (2169772 + 4 * k) = 0 := by decide +kernel
 
 /-- `.sp6`'s pcs before the `svc` are off the sites. -/
-theorem sp6_okH : ∀ k < 25, okC (2169740 + 4 * k) = true := by decide +kernel
+theorem sp6_okH : ∀ k < 25, okC (2169772 + 4 * k) = true := by decide +kernel
 
 /-- `scc_rt_thread_init`'s first two pcs: their values, `ph2bH` `12`, the first off the sites. -/
-theorem ti_factsH : (Int64.ofNat 2165280 + Int64.ofNat (4 * 0)).toBitVec.toNat = 2165280 ∧
-    (Int64.ofNat 2165280 + 4).toBitVec.toNat = 2165284 ∧ ph2bHC 2165280 = 12 ∧ ph2bHC 2165284 = 12 ∧
-    okC 2165280 = true := by decide +kernel
+theorem ti_factsH : (Int64.ofNat 2165284 + Int64.ofNat (4 * 0)).toBitVec.toNat = 2165284 ∧
+    (Int64.ofNat 2165284 + 4).toBitVec.toNat = 2165288 ∧ ph2bHC 2165284 = 12 ∧ ph2bHC 2165288 = 12 ∧
+    okC 2165284 = true := by decide +kernel
 
 /-- The take site at the canonical base. -/
-theorem site_toNatH : (Int64.ofNat 2165976).toBitVec.toNat = 2165976 := rfl
+theorem site_toNatH : (Int64.ofNat 2165980).toBitVec.toNat = 2165980 := rfl
 
 variable {L : RuntimeLayout} {a : BitVec 64}
 
 theorem lab_sp4H (hlab : ∀ l x, codeOf lo SccCode.helloProg l = some x → L.lab l = Int64.ofNat x) :
-    L.lab ".L22_wc_main.sp4" = Int64.ofNat 2169716 :=
+    L.lab ".L22_wc_main.sp4" = Int64.ofNat 2169748 :=
   hlab _ _ (by rw [← codeT_eq]; decide +kernel)
 
 theorem lab_sp6H (hlab : ∀ l x, codeOf lo SccCode.helloProg l = some x → L.lab l = Int64.ofNat x) :
-    L.lab ".L22_wc_main.sp6" = Int64.ofNat 2169740 :=
+    L.lab ".L22_wc_main.sp6" = Int64.ofNat 2169772 :=
   hlab _ _ (by rw [← codeT_eq]; decide +kernel)
 
 theorem lab_tiH (hlab : ∀ l x, codeOf lo SccCode.helloProg l = some x → L.lab l = Int64.ofNat x) :
-    L.lab "scc_rt_thread_init" = Int64.ofNat 2165280 :=
+    L.lab "scc_rt_thread_init" = Int64.ofNat 2165284 :=
   hlab _ _ (by rw [← codeT_eq]; decide +kernel)
 
 theorem lab_siteH (hlab : ∀ l x, codeOf lo SccCode.helloProg l = some x → L.lab l = Int64.ofNat x) :
-    L.lab Spike.Lib.A64.Flow.Ret0.StackTake.siteL = Int64.ofNat 2165976 :=
+    L.lab Spike.Lib.A64.Flow.Ret0.StackTake.siteL = Int64.ofNat 2165980 :=
   hlab _ _ (by rw [← codeT_eq]; decide +kernel)
 
 /-! ## `ownGH` at the pcs -/
@@ -118,7 +118,7 @@ theorem own2a0_eqH (L : RuntimeLayout) (a : BitVec 64) : own2aH L a 0 = own2bH L
 theorem own_sp4H (hlab : ∀ l x, codeOf lo SccCode.helloProg l = some x → L.lab l = Int64.ofNat x) {s : State}
     {k : Nat} (hk : k < 6) (hs : s.st.2 = L.lab ".L22_wc_main.sp4" + Int64.ofNat (4 * k)) :
     ownGH L a s = own2aH L a 0 := by
-  have hp : pcOf s = 2169716 + 4 * k := by unfold pcOf; rw [hs, lab_sp4H hlab]; exact (sp4_factsH k hk).1
+  have hp : pcOf s = 2169748 + 4 * k := by unfold pcOf; rw [hs, lab_sp4H hlab]; exact (sp4_factsH k hk).1
   obtain ⟨-, -, -, -, e5, e6, -, -, -⟩ := labs_eqH hlab (L := L)
   have hg : Good2aH L s := .inr (.inl (by unfold inPc; rw [e5, e6, hp]; omega))
   rw [ownGH_2a hlab hg, hp, ph2aH_eq, (sp4_factsH k hk).2.1]
@@ -127,7 +127,7 @@ theorem own_sp4H (hlab : ∀ l x, codeOf lo SccCode.helloProg l = some x → L.l
 theorem own_sp6H (hlab : ∀ l x, codeOf lo SccCode.helloProg l = some x → L.lab l = Int64.ofNat x) {s : State}
     {k : Nat} (hk : k < 26) (hs : s.st.2 = L.lab ".L22_wc_main.sp6" + Int64.ofNat (4 * k)) :
     ownGH L a s = own2bH L a 0 := by
-  have hp : pcOf s = 2169740 + 4 * k := by unfold pcOf; rw [hs, lab_sp6H hlab]; exact (sp6_factsH k hk).1
+  have hp : pcOf s = 2169772 + 4 * k := by unfold pcOf; rw [hs, lab_sp6H hlab]; exact (sp6_factsH k hk).1
   obtain ⟨-, -, -, -, -, e6, e7, -, -⟩ := labs_eqH hlab (L := L)
   have hg : Good2bH L s := .inr (.inl (by unfold inPc; rw [e6, e7, hp]; omega))
   rw [ownGH_2b hlab hg, hp, ph2bH_eq, (sp6_factsH k hk).2]
@@ -135,7 +135,7 @@ theorem own_sp6H (hlab : ∀ l x, codeOf lo SccCode.helloProg l = some x → L.l
 /-- **`ownGH` at `scc_rt_thread_init`'s first two pcs on a pool stack** is
 `own2bH L a 12`. -/
 theorem own_tiH (hlab : ∀ l x, codeOf lo SccCode.helloProg l = some x → L.lab l = Int64.ofNat x) {s : State}
-    (hp : pcOf s = 2165280 ∨ pcOf s = 2165284) (hsp : spPool L s) : ownGH L a s = own2bH L a 12 := by
+    (hp : pcOf s = 2165284 ∨ pcOf s = 2165288) (hsp : spPool L s) : ownGH L a s = own2bH L a 12 := by
   obtain ⟨-, -, e3, e4, -, -, -, -, -⟩ := labs_eqH hlab (L := L)
   have hg : Good2bH L s := .inl ⟨by unfold inPc; rw [e3, e4]; omega, hsp⟩
   rw [ownGH_2b hlab hg, ph2bH_eq]

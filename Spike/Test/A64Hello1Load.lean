@@ -166,9 +166,9 @@ theorem hello1_hGpl {Fix : List (Nat × Val)} {m0 : Memory}
   subst hb
   omega
 
-/-- The take site's label is at `4196232`, `μ0`'s take site. -/
+/-- The take site's label is at `4196236`, `μ0`'s take site. -/
 theorem labT_siteL :
-    (Spike.Lib.A64.Flow.Hello1.Inst.labT Spike.Lib.A64.Flow.Ret0.StackTake.siteL).toBitVec.toNat = 4196232 := by
+    (Spike.Lib.A64.Flow.Hello1.Inst.labT Spike.Lib.A64.Flow.Ret0.StackTake.siteL).toBitVec.toNat = 4196236 := by
   decide +kernel
 
 /-- **`hμ`**: the canonical target's take site of `hello1` is the site

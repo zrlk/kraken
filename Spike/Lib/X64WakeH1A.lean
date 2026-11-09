@@ -60,7 +60,7 @@ structure H1GA (l : WeakMem.AllocLabel) (b n : Nat) (R : Region) (F : MachineDat
   /-- `scc_rt_pinned_next` unmapped under `F` (`H1G.hunP`). -/
   hunP : ∀ m, F m → Mem.loadInt m.dmem (Ly).pnA 8 = none
   /-- `scc_rt_pinned + 96` unmapped under `F` (`H1G.hunH`). -/
-  hunH : ∀ m, F m → Mem.loadInt m.dmem ((Ly).pinA + 96#64) 8 = none
+  hunH : ∀ m, F m → Mem.loadInt m.dmem ((Ly).pinA + 128#64) 8 = none
   /-- `H1G.resA`. -/
   resA : ∀ g : Ret0.AllocTcb.G × Ctl, ResOkA ms1 F (Ly).exe eR (rAR R) F ⟨g.1, 0#64, g.2⟩
   /-- `H1G.hdrA`. -/
@@ -80,7 +80,7 @@ freshness. -/
 theorem h1G_ofA (hpa : cellsOf asm = some o.prog) (hwp : cellsOf asm = some wakeCells)
     (hlo0 : Λ0.code.lo = Spike.Lib.X64.WakePh.lo)
     (hA13 : Scc.Cert.Spawn.X64.a13data (Ly).Λ o.prog o.secs = true)
-    (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) (hcz : Spike.Lib.X64.Rt.CtrZ o)
+    (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) (hcz : Spike.Lib.X64.Rt.CtrZ o)
     {l : WeakMem.AllocLabel} {b n : Nat} {F0 : MachineData → Prop} {R : Region} {F : MachineData → Prop}
     {J0 : AS → Ctl → Prop} {t : UInt64} (hB : BoxPure (Ly) F0 n R F J0 t) (hl : L0T (Ly).Λ l = none)
     (hG : H1GA asm hp i E cT Dt Ctx ls0 l b n R F t) : H1G asm hp i E cT Dt Ctx ls0 l b n R F J0 t :=
@@ -94,7 +94,7 @@ freshness (`hMidP_of` at `h1G_ofA`). -/
 theorem hMidPA_of (hpa : cellsOf asm = some o.prog) (hwp : cellsOf asm = some wakeCells)
     (hlo0 : Λ0.code.lo = Spike.Lib.X64.WakePh.lo)
     (hA13 : Scc.Cert.Spawn.X64.a13data (Ly).Λ o.prog o.secs = true)
-    (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) (hcz : Spike.Lib.X64.Rt.CtrZ o)
+    (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) (hcz : Spike.Lib.X64.Rt.CtrZ o)
     {l : WeakMem.AllocLabel} {b n : Nat} {F0 : MachineData → Prop} {R : Region} {F : MachineData → Prop}
     {J0 : AS → Ctl → Prop} {t : UInt64} (hB : BoxPure (Ly) F0 n R F J0 t) (hl : L0T (Ly).Λ l = none)
     (hG : H1GA asm hp i E cT Dt Ctx ls0 l b n R F t) :
@@ -110,7 +110,7 @@ theorem wake_h1A {ms0 : MemSide isa} {F0 : MachineData → Prop}
     (hpa : cellsOf asm = some o.prog) (hwp : cellsOf asm = some wakeCells)
     (hlo0 : Λ0.code.lo = Spike.Lib.X64.WakePh.lo)
     (hA13 : Scc.Cert.Spawn.X64.a13data (Ly).Λ o.prog o.secs = true)
-    (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) (hcz : Spike.Lib.X64.Rt.CtrZ o)
+    (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) (hcz : Spike.Lib.X64.Rt.CtrZ o)
     (hokb : ∀ l b n, L0T (Ly).Λ l = none → AllocLand (WakeOD.arW hp i).heap (WakeOD.arW hp i).cells b n →
       ∀ q : Spike.Lib.X64.Alloc.Call, q.OKB ms0 (Ly).lab → q.OKB (WakeH1Inv.ms1W asm hp i E cT ls0 l b n []) (Ly).lab)
     (hg : ms0.heap = (WakeOD.arW hp i).heap ∧ ms0.cells = (WakeOD.arW hp i).cells ∧

@@ -76,7 +76,7 @@ local macro "thit " j:term : tactic =>
 /-- **`ThrTailW.seg_thrTailW`'s twin off the transfer sites.** -/
 theorem seg_thrTailNN {Q : Frag isa} (hF : FStable R F) (hR : R.OK) (hlo : R.lo ≤ -72) (hhi : 8 ≤ R.hi)
     (hK : ms.K = some Scc.Sem.X64.abi) (hT : LdOk ms F tp)
-    (hown : OwnAt ms exe endPc ((_root_.Executable.labels exe).label ".Lscc_rt_thr_worker.x13") tp tp)
+    (hown : OwnAt ms exe endPc ((_root_.Executable.labels exe).label ".Lscc_rt_thr_worker.x0") tp tp)
     (hS : StOk ms F (tp + 24#64) 1#64) {a : CoreTerm.At} (ht : c0.term = .ret a)
     (hcode : Code c0 tp (R.addr 0) exe endPc)
     (hZ : ∀ i, NodeZA Z exe endPc R F (NA (_root_.Executable.labels exe).label c0 tp (R.addr 0) i) (blkN i)) :

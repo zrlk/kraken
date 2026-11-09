@@ -129,11 +129,11 @@ theorem seg_unparkCallNN (hF : FStable R F) (hR : R.OK) (hlo : R.lo ≤ -136) (h
     {c0' c1' : Ctl} {B' rbp0' ra' tp' : BitVec 64} (hpcode : Unpark.Code c0' c1' B' rbp0' ra' tp' exe endPc)
     (hpentry : (_root_.Executable.labels exe).label ".Lscc_rt_unpark.entry" =
       (_root_.Executable.labels exe).label "scc_rt_unpark" + 12)
-    (hx18 : (_root_.Executable.labels exe).label ".Lwc_worker.x18" =
-      (_root_.Executable.labels exe).label ".Lwc_worker.x17" + 14 + 9)
+    (hx18 : (_root_.Executable.labels exe).label ".Lwc_worker.x1" =
+      (_root_.Executable.labels exe).label ".Lwc_worker.x0" + 14 + 9)
     (hZU : ∀ (R' : Region) (F' : MachineData → Prop),
       CallerF R F (N (_root_.Executable.labels exe).label c0 c1 c2 A B rbp0 ra tp sp .unpk) 0 (-40) 8 R' F' →
-      ∀ rbp1 ra1, Int64.ofBitVec ra1 = (_root_.Executable.labels exe).label ".Lwc_worker.x18" →
+      ∀ rbp1 ra1, Int64.ofBitVec ra1 = (_root_.Executable.labels exe).label ".Lwc_worker.x1" →
       ∀ i, NodeZA Z exe endPc R' F' (Unpark.N (_root_.Executable.labels exe).label c1 c2 B rbp1 ra1 tp i)
         (Unpark.blkN i)) :
     SegTC (NNZ exe endPc Z) p lbl ms
@@ -143,7 +143,7 @@ theorem seg_unparkCallNN (hF : FStable R F) (hR : R.OK) (hlo : R.lo ≤ -136) (h
     (N := fun _ : Unit => N (_root_.Executable.labels exe).label c0 c1 c2 A B rbp0 ra tp sp .x18)
     (E := fun e : Empty => e.elim)
     (Ne := fun g : {g : BitVec 64 × BitVec 64 //
-        Int64.ofBitVec g.2 = (_root_.Executable.labels exe).label ".Lwc_worker.x18"} =>
+        Int64.ofBitVec g.2 = (_root_.Executable.labels exe).label ".Lwc_worker.x1"} =>
       Unpark.N (_root_.Executable.labels exe).label c1 c2 B g.1.1 g.1.2 tp .e)
     (Ex := fun g y => Unpark.E c2 g.1.1 g.1.2 tp y)
     hR hF (by show R.lo ≤ -96 - 0 + -40; omega) (by decide) (by show (-96 : Int) - 0 < R.hi; omega)
@@ -157,7 +157,7 @@ theorem seg_unparkCallNN (hF : FStable R F) (hR : R.OK) (hlo : R.lo ≤ -136) (h
     refine ⟨⟨(σC.regs.rbp.toBitVec, σC.slot (-96 - 0 + 0)), ?_⟩, rfl, rfl, hdi, rfl, rfl, htp⟩
     -- the pushed return address is `.x18` (the node's slot `-96`)
     refine Eq.symm ?_
-    show (_root_.Executable.labels exe).label ".Lwc_worker.x18" = Int64.ofBitVec (σC.slot (-96))
+    show (_root_.Executable.labels exe).label ".Lwc_worker.x1" = Int64.ofBitVec (σC.slot (-96))
     rw [h96, hx18]; rfl
   · rintro ⟨⟨rbp1, ra1⟩, _hg⟩ ⟨⟩ σC c σx c' σR ⟨⟨rfl, h8, h0, h48, h56, -, hbp⟩, -, h96⟩ ⟨hc, -, hrb, hra, -⟩
       ⟨hc', hrb', htp'⟩ hreg - - hslot
@@ -167,7 +167,7 @@ theorem seg_unparkCallNN (hF : FStable R F) (hR : R.OK) (hlo : R.lo ≤ -136) (h
     refine .inl ⟨(), ?_, by show SO.le oP ⟨-96 - 0 + 8, []⟩ = true; decide, hc',
       ?_, ?_, ?_, ?_, ?_, ?_⟩
     · subst hra
-      show (_root_.Executable.labels exe).label ".Lwc_worker.x18" = Int64.ofBitVec (σC.slot (-96))
+      show (_root_.Executable.labels exe).label ".Lwc_worker.x1" = Int64.ofBitVec (σC.slot (-96))
       rw [h96, hx18]; rfl
     · rw [hout (-8) (by decide) (by decide) (by decide)]; exact h8
     · rw [hout 0 (by decide) (by decide) (by decide)]; exact h0
@@ -199,13 +199,13 @@ theorem seg_wkTailUNN (hF : FStable R F) (hR : R.OK) (hlo : R.lo ≤ -136) (hhi 
     {c0' c1' : Ctl} {B' rbp0' ra' tp' : BitVec 64} (hpcode : Unpark.Code c0' c1' B' rbp0' ra' tp' exe endPc)
     (hpentry : (_root_.Executable.labels exe).label ".Lscc_rt_unpark.entry" =
       (_root_.Executable.labels exe).label "scc_rt_unpark" + 12)
-    (hx18 : (_root_.Executable.labels exe).label ".Lwc_worker.x18" =
-      (_root_.Executable.labels exe).label ".Lwc_worker.x17" + 14 + 9)
+    (hx18 : (_root_.Executable.labels exe).label ".Lwc_worker.x1" =
+      (_root_.Executable.labels exe).label ".Lwc_worker.x0" + 14 + 9)
     (hZ : ∀ i, NodeZA Z exe endPc R F (NA (_root_.Executable.labels exe).label c0 c1 c2 A B rbp0 ra tp (R.addr 0) i)
       (blkN i))
     (hZU : ∀ (R' : Region) (F' : MachineData → Prop),
       CallerF R F (N (_root_.Executable.labels exe).label c0 c1 c2 A B rbp0 ra tp (R.addr 0) .unpk) 0 (-40) 8 R' F' →
-      ∀ rbp1 ra1, Int64.ofBitVec ra1 = (_root_.Executable.labels exe).label ".Lwc_worker.x18" →
+      ∀ rbp1 ra1, Int64.ofBitVec ra1 = (_root_.Executable.labels exe).label ".Lwc_worker.x1" →
       ∀ i, NodeZA Z exe endPc R' F' (Unpark.N (_root_.Executable.labels exe).label c1 c2 B rbp1 ra1 tp i)
         (Unpark.blkN i)) :
     SegTC (NNZ exe endPc Z) p lbl ms

@@ -15,7 +15,7 @@ the callees' pcs off a pool stack), so a node's `SFacts` at the first instance (
 
 ## Differences from the AArch64 version
 
-- hello's x86-64 addresses (the take site `4200314`, `X64HelloTcb2W.tcb_labsH`; AArch64: `2165976`); labels by
+- hello's x86-64 addresses (the take site `4200314`, `X64HelloTcb2W.tcb_labsH`; AArch64: `2165980`); labels by
   `codeLabel lo helloCells`.
 - As wake's x86-64 `StartTi`: no `hal`; a frame's high end is `8`; a block's pcs are its pc plus `cellOff`; a
   node's successor is `sz` bytes on; `Keep` is `%rsp`/`%rbp`.

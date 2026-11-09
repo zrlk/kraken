@@ -14,8 +14,11 @@ no pc allowed, with the phases moved, with a return into `scc_rt_stack_take`'s
 phase, and with a label the check reads unresolved (the overflow branch, the
 check label, `scc_rt_abort`); and with `scc_rt_abort` moved off the local
 overflow block's phase. The certificates (`Spike/Test/Cert/A64*Cert.lean`)
-decide `fnPhOk` itself inside A9 at A6's tables. (Twin of
-`Spike/Test/LowerX64PhCheck.lean`.)
+decide `fnPhOk` itself inside A9 at A6's tables. `raL` is the label of
+`scc_rt_main`'s first `bl`, which A11 checks one instruction before its
+return label, per shape of the tail: `bareMC.e0`/`sp0` on a bare tail,
+`(setupMC sw).e0`/`sp0` after a setup block of `sw` words (every `sw`
+`setupOk` tries). (Twin of `Spike/Test/LowerX64PhCheck.lean`.)
 -/
 
 namespace Spike.Test.LowerA64PhCheck
@@ -34,6 +37,18 @@ abbrev resT : String → Bool := fun _ => true
 
 /-- The return address. -/
 abbrev raT : Int64 := labT raL + 4
+
+/- `raL` is the label of `scc_rt_main`'s first `bl`, one instruction before
+the return label A11 checks (the `bl` group's gap of 1 ends at `sp0`), per
+shape: on a bare tail (`bareMC`, the `bl` of `wc_main`) and after a setup
+block (`setupMC sw`, the `bl` of `wc_rodata`; `main`'s own return label is
+`sp1`). -/
+#guard Spike.Lib.A64.Rt.bareMC.e0 == raL
+#guard (Spike.Lib.A64.Rt.mainUGrps Spike.Lib.A64.Rt.bareMC).any fun g =>
+  g.l == raL && g.gap == some (1, Spike.Lib.A64.Rt.bareMC.sp0)
+#guard (List.range 8).all fun sw => (Spike.Lib.A64.Rt.setupMC sw).e0 == raL
+#guard (List.range 8).all fun sw => (Spike.Lib.A64.Rt.mainSGrps (Spike.Lib.A64.Rt.setupMC sw)).any fun g =>
+  g.l == raL && g.gap == some (1, (Spike.Lib.A64.Rt.setupMC sw).sp0)
 
 /- The labels the checks read: the prologue's growth branch, the body's
 overflow branch. -/

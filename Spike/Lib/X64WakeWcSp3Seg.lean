@@ -4,16 +4,16 @@ of `Spike/Lib/A64WakeWcSp3Seg.lean`), inside `W`, in any valid layout of
 `wakeCells`: the call block (`Spike/Lib/X64WakeTcb2Call.lean`) and the
 second `scc_rt_alloc_tcb` call (`allocTcbG_segWA` at `tcb2Q g c0`):
 
-    .Lwc_main.x19:
+    .Lwc_main.x1:
       movq %rax, -24(%rbp)              -- the reserve's id `1` (tcb2Call_keep)
-      movq $8390915, %rdi               -- %rdi = hdr2
+      movq $8391939, %rdi               -- %rdi = hdr2
       movq $1, %rsi
       call scc_rt_alloc_tcb             -- the callee, `.x20` pushed at -72
-    .Lwc_main.x20:                      -- `aN .n20` at `t = pinA + 104`
+    .Lwc_main.x2:                      -- `aN .n20` at `t = pinA + 136`
 
 The frame's words `cA`, `m`, `fr` (`FrV`) and the id at `-24` survive the
 call (above the callee's region), so the exit is `X64WakeWcSp4Seg`'s entry
-`aN .n20` at the second TCB `pinA + 104` (`tcb2Q_tcbOf`).
+`aN .n20` at the second TCB `pinA + 136` (`tcb2Q_tcbOf`).
 
 Where x86-64 differs from AArch64: the callee's region is
 `R.callee (-72) (-184) 8` (based at the pushed return address; A64's
@@ -80,8 +80,8 @@ def wcNC' : ND := ⟨(wcNC lab c0).pc, oC, fun σ c => (wcNC lab c0).J σ c ∧ 
 def wcNCR : ND := ⟨(wcNC' lab c0 cA m fr).pc, oC, fun σ c => (wcNC' lab c0 cA m fr).J σ c ∧
   σ.regs.get64 .rbp = σ.regs.get64 .rsp + BitVec.ofInt 64 (0 - -72)⟩
 
-/-- The second TCB: `pinA + 104`. -/
-abbrev t2 : BitVec 64 := Ret0.pinA lab + 104#64
+/-- The second TCB: `pinA + 136`. -/
+abbrev t2 : BitVec 64 := Ret0.pinA lab + 136#64
 
 /-- **Back at `.x20`** with only `%rsp`'s offset known: `aN .n20`'s facts at
 `t2`, `%rbp` `64` bytes above `%rsp` (`At.rbp` makes it `aN .n20`). -/
@@ -104,7 +104,7 @@ callee's (in its region, for any return to `.x20`). -/
 structure WcSp3W (W : Frag isa) (K : State → State → Prop) (exe : _root_.Executable) (endPc : Int64)
     (R : Region) (F : MachineData → Prop) (c0 : Ctl) (cA m : BitVec 64) (fr : BitVec 64 × BitVec 64) : Prop where
   blk : BlkW W K exe endPc R F (wcN3 (_root_.Executable.labels exe).label (j3 cA m fr) c0) tcb2Call
-  tcb : ∀ g : Ret0.AllocTcb.G, g.ra = ((_root_.Executable.labels exe).label ".Lwc_main.x20").toBitVec →
+  tcb : ∀ g : Ret0.AllocTcb.G, g.ra = ((_root_.Executable.labels exe).label ".Lwc_main.x2").toBitVec →
     ∀ i, TcbWG W K exe endPc (R.callee (-72) (-184) 8)
       (fun mm => F mm ∧ CallerCells R (-72) (-184) 8 mm ∧
         TcbCtx (_root_.Executable.labels exe).label R (wcNCR (_root_.Executable.labels exe).label c0 cA m fr).J c0
@@ -128,9 +128,9 @@ variable {p : Prog} {lbl : WeakMem.AllocLabel → Option Nat} {ms : MemSide isa}
 /-- **`wc_main` from `.x19` to `.x20` is one segment inside `W`** in any
 valid layout of `wakeCells`: from `.x19` (the reserve's id `1` in `%rax`,
 the frame's words `cA`, `m`, `fr`, the source at `c0`) to
-`X64WakeWcSp4Seg`'s entry `aN .n20` at the second TCB `pinA + 104`.
+`X64WakeWcSp4Seg`'s entry `aN .n20` at the second TCB `pinA + 136`.
 `scc_rt_alloc_tcb` at `tcb2Q g c0` writes the header word (`hhdr`) and adds
-to the counter (`htcb`, its old value `80` owned at the `lock xadd` node's
+to the counter (`htcb`, its old value `112` owned at the `lock xadd` node's
 states), moving only memory `K` keeps off the caller's cells (`hFK`, `hKR`).
 Its states lie in `W` (`hW`). -/
 theorem wake_wc_sp3_segW {W : Frag isa} {K : State → State → Prop}
@@ -155,15 +155,15 @@ theorem wake_wc_sp3_segW {W : Frag isa} {K : State → State → Prop}
     refine Ret0.seg_oneW (seg_ndW (by simp [tcb2Call]) tcb2Call_ok hF hR (by omega) hhi
       (code_field hp hend hin.1 (ofNat_zero' _)) hW.blk fun σ c hJ => ⟨c, .refl c, .inl ⟨(), ?_⟩⟩)
     obtain ⟨h1, h2, h3⟩ := tcb2Call_wcNC hp hJ
-    obtain ⟨-, -, hsl⟩ := tcb2Call_keep lab (lab ".Lwc_main.x19") σ
+    obtain ⟨-, -, hsl⟩ := tcb2Call_keep lab (lab ".Lwc_main.x1") σ
     obtain ⟨-, hax, h16, h8, h0, h8'⟩ := hJ
     refine ⟨h1.symm, ?_, h3, ?_, ?_⟩
-    · show SO.le oC (arun lab tcb2Call ⟨lab ".Lwc_main.x19", oW, σ⟩).so = true
-      rw [(WakePh.Tcb2Call.tcb2Call_pc lab (lab ".Lwc_main.x19") σ).2]; decide
-    · show FrV cA m fr (arun lab tcb2Call ⟨lab ".Lwc_main.x19", oW, σ⟩).σ
+    · show SO.le oC (arun lab tcb2Call ⟨lab ".Lwc_main.x1", oW, σ⟩).so = true
+      rw [(WakePh.Tcb2Call.tcb2Call_pc lab (lab ".Lwc_main.x1") σ).2]; decide
+    · show FrV cA m fr (arun lab tcb2Call ⟨lab ".Lwc_main.x1", oW, σ⟩).σ
       simp only [FrV, hsl, upd_apply]
       exact ⟨h16, h8, h0, h8'⟩
-    · show (arun lab tcb2Call ⟨lab ".Lwc_main.x19", oW, σ⟩).σ.slot (-24) = 1#64
+    · show (arun lab tcb2Call ⟨lab ".Lwc_main.x1", oW, σ⟩).σ.slot (-24) = 1#64
       simp only [hsl, upd_apply]
       exact hax
   -- the call
@@ -179,11 +179,11 @@ theorem wake_wc_sp3_segW {W : Frag isa} {K : State → State → Prop}
       (fun R' F' hR' hlo' hhi' hF' _ hFF hR'e hcc g hg hkeep => by
         subst hR'e
         obtain ⟨σC, c, ⟨⟨⟨-, -, -, h72⟩, -, -⟩, -⟩, ⟨-, -, -, hra, -, -⟩⟩ := hg
-        have hr : g.ra = (lab ".Lwc_main.x20").toBitVec := by
+        have hr : g.ra = (lab ".Lwc_main.x2").toBitVec := by
           change (tcb2Q g c0).g.ra = _
           rw [← hra, ← h72]; rfl
         exact (allocTcbG_segWA hp hend WakePh.Tcb2W.wake_allocTcbIn hF' hR' hlo' hhi' hFF (tcb2Q g c0)
-          (by show (80#64 : BitVec 64).toNat + (Ret0.AllocTcb.lenOf WakePh.hdr2).toNat ≤ 131072; decide)
+          (by show (112#64 : BitVec 64).toNat + (Ret0.AllocTcb.lenOf WakePh.hdr2).toNat ≤ 131072; decide)
           (hhdr g) ((htcb g).mono hFF)
           fun i => tcbWG_mono (hW.tcb g hr i) fun m h => ⟨hFF m h, hcc m h, hkeep m h⟩).mono_post
           fun _ _ ⟨x, h⟩ => ⟨x, h, trivial⟩)
@@ -248,7 +248,7 @@ theorem rX_wcN3 {exe : _root_.Executable} {endPc : Int64} {R : Region} {F : Mach
   obtain ⟨he, hn, hdc, hpc, σ, hA, hD, ⟨l, A, ⟨q, ⟨σe, hJ0, h8, h0, hm8⟩, h16, -, -⟩, hS⟩, hb, hax⟩ := h
   refine ⟨σ.slot (-16), σ.slot (-8), (σ.slot 0, σ.slot 8), ⟨l, A, hS, h16⟩, ⟨σe, _, hJ0, Prod.ext h0 h8⟩,
     ⟨σe, _, hJ0, Prod.ext h0 h8, hm8⟩, ?_⟩
-  have h1 : At exe endPc R F ⟨(_root_.Executable.labels exe).label ".Lwc_main.x19", ⟨-64, []⟩, fun σ' c' =>
+  have h1 : At exe endPc R F ⟨(_root_.Executable.labels exe).label ".Lwc_main.x1", ⟨-64, []⟩, fun σ' c' =>
       (wcN3 (_root_.Executable.labels exe).label (j3 (σ.slot (-16)) (σ.slot (-8)) (σ.slot 0, σ.slot 8)) c).J σ' c' ∧
         σ'.regs.get64 .rbp = R.addr 0⟩ s c :=
     ⟨he, hn, hdc, hpc, σ, hA, hD, ⟨rfl, hax, rfl, rfl, rfl, rfl⟩, hb⟩

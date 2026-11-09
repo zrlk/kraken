@@ -43,6 +43,13 @@ theorem hello1_above :
     ∀ p ∈ Scc.Sem.loadSyms SccCode.hello1Λ SccCode.hello1Secs.rodata, SccCode.hello1Λ.code.lo ≤ p.2 := by
   decide +kernel
 
+/-- The loaded thread's executable starts at `hello1`'s code (no data symbol
+below it, `hello1_above`): rewritten, not unfolded, past the loader's symbols. -/
+theorem hello1_exe_fst (E : Scc.Sem.Entry) :
+    (Scc.Sem.X64.threadAt E SccCode.hello1Λ.code.lo SccCode.hello1Cells
+      (Scc.Sem.loadSyms SccCode.hello1Λ SccCode.hello1Secs.rodata)).exe.1 = Int64.ofNat SccCode.hello1Λ.code.lo := by
+  rw [Scc.Cert.Link.X64.threadAt_exe_of_above hello1_above]
+
 /-- **`hello1`'s layout facts in the loaded thread** (`hpre`, `hpost` of
 `limPath`), any entry state. -/
 theorem hello1_pre_post (E : Scc.Sem.Entry) :
@@ -51,7 +58,8 @@ theorem hello1_pre_post (E : Scc.Sem.Entry) :
     preStore (labOf exe) (limPc (labOf exe)).toBitVec.toNat = true ∧
       preStore (labOf exe) (limPc (labOf exe) + Int64.ofNat 4).toBitVec.toNat = false :=
   have := Scc.Cert.Link.X64.validLayout_of_loadOk SccCode.hello1Λ_load E
-  pre_post_of_layoutOk (Scc.Cert.Link.X64.lays_threadAt _ _ _ _ hello1_above) rfl hello1_layoutOk
+  pre_post_of_layoutOk (Scc.Cert.Link.X64.lays_threadAt _ _ _ _ hello1_above) (hello1_exe_fst E)
+    hello1_layoutOk
 
 /-- **`hello1`'s loaded thread owns nothing** (`hown0` of `correctK`), any
 entry state. -/
@@ -60,7 +68,8 @@ theorem hello1_own0 (E : Scc.Sem.Entry) (tcb : BitVec 64) (rS : Range) :
       (Scc.Sem.loadSyms SccCode.hello1Λ SccCode.hello1Secs.rodata)
     hello1_own s0.exe tcb rS s0 = [] :=
   have := Scc.Cert.Link.X64.validLayout_of_loadOk SccCode.hello1Λ_load E
-  ownLim_of_not (not_lim_of_layoutOk (Scc.Cert.Link.X64.lays_threadAt _ _ _ _ hello1_above) rfl hello1_layoutOk
+  ownLim_of_not (not_lim_of_layoutOk (Scc.Cert.Link.X64.lays_threadAt _ _ _ _ hello1_above) (hello1_exe_fst E)
+    hello1_layoutOk
     (by decide +kernel) rfl rfl)
 
 /-- **`hello1`'s owned words at load** (`OwnInit`, `hown0` of `correctK`):

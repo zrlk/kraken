@@ -23,13 +23,13 @@ the phase facts are decided by the kernel against helloCells' labels
 
 - There is no publish fence: scc's `# fence st` emits no code under TSO
   (`HelloRd.pN` has no fence node), so AArch64's `fenW_rpGH` has no twin.
-- Offsets are bytes: the free pcs are `freeAtH ".Lwc_rodata.x15" os` at
+- Offsets are bytes: the free pcs are `freeAtH ".Lwc_rodata.x0" os` at
   `.x15`'s node offsets (AArch64's `freeSp0H` over `4 k`, `k < 20`), and the
   loads and stores are the generic `ldW_rpGH`/`stW_rpGH` at an offset `o` and
   size `z` (`movq k(%rcx), %rax` / `movq %rax, k(%rcx)`; AArch64's
   `ldr`/`str x9, [x10, #i]`).
-- The block after the allocator's return is `.Lwc_rodata.x15` (AArch64's
-  `.L19_wc_rodata.sp0`) and the return label `.Lscc_rt_main.x2` (AArch64's
+- The block after the allocator's return is `.Lwc_rodata.x0` (AArch64's
+  `.L19_wc_rodata.sp0`) and the return label `.Lscc_rt_main.x0` (AArch64's
   `.L1_scc_rt_main.sp0`); `ret` reads the return address at the stack top, so
   `hra` is about `σ0.slot 0` (AArch64's saved `x30` at `-8`).
 - No 16-alignment; the bounds are x86-64's: `R.lo ≤ -40`, `8 ≤ R.hi` for
@@ -63,16 +63,16 @@ open Spike.Lib.X64.Flow.Hello1 (rpB0 rpB0_ok rpB0_run rpB1 rpB1_ok rpB1_run rpB2
 /-- **`.x15`'s blocks and single instructions, and `scc_rt_main`'s `.x2`
 block**: the last block of `wc_rodata` returns to `scc_rt_main`'s `.x2`. -/
 def rpTabH : List PhFact :=
-  [.blk ".Lwc_rodata.x15" 0 rpB0 none none,
-   .step ".Lwc_rodata.x15" 8 3,
-   .blk ".Lwc_rodata.x15" 11 rpB1 none none,
-   .step ".Lwc_rodata.x15" 29 3,
-   .blk ".Lwc_rodata.x15" 32 rpB2 none none,
-   .step ".Lwc_rodata.x15" 36 4,
-   .blk ".Lwc_rodata.x15" 40 rpB3 none none,
-   .step ".Lwc_rodata.x15" 58 4,
-   .blk ".Lwc_rodata.x15" 62 rpB4 (some (".Lscc_rt_main.x2", 0)) none,
-   .blk ".Lscc_rt_main.x2" 0 mB1 none none]
+  [.blk ".Lwc_rodata.x0" 0 rpB0 none none,
+   .step ".Lwc_rodata.x0" 8 3,
+   .blk ".Lwc_rodata.x0" 11 rpB1 none none,
+   .step ".Lwc_rodata.x0" 29 3,
+   .blk ".Lwc_rodata.x0" 32 rpB2 none none,
+   .step ".Lwc_rodata.x0" 36 4,
+   .blk ".Lwc_rodata.x0" 40 rpB3 none none,
+   .step ".Lwc_rodata.x0" 58 4,
+   .blk ".Lwc_rodata.x0" 62 rpB4 (some (".Lscc_rt_main.x0", 0)) none,
+   .blk ".Lscc_rt_main.x0" 0 mB1 none none]
 
 /-- **The blocks' facts hold** at `phC`. -/
 theorem rpFactsH : rpTabH.all (factOk (codeT lo helloCells) okC phC) = true := by
@@ -137,8 +137,46 @@ theorem blkW_rpGH (hp : L.prog = helloCells) (hlo : L.Λ.code.lo = lo)
   exact blkW_mapC (n' := n') rfl rfl h2 fun σ c hJ =>
     ⟨Spike.Lib.X64Consumer.c0, show _ ∧ _ from ⟨rfl, c, hJ⟩, fun _ h => h⟩
 
+/-- **A block split by a return label** (`m`, after
+its first `jA` rows; `blockAcrossB`): as `blkW_rpGH`. -/
+theorem blkW_rpGHA (hp : L.prog = helloCells) (hlo : L.Λ.code.lo = lo)
+    (hΛ : L.Λ.abortLbl = Scc.Cert.Link.abortName)
+    (hlab : ∀ l x, codeLabel lo helloCells l = some x → L.lab l = Int64.ofNat x) (a : BitVec 64)
+    (hsite : (Spike.Lib.X64.PhRec.μ L).site .take =
+      some (L.lab Spike.Lib.X64.Flow.Ret0.StackTake.siteL).toBitVec.toNat)
+    {n : ND} {blk : List (Directive × Nat)} {l m : Label} {k jA : Nat} {blo bhi : Int}
+    {ra : Option (String × Nat)} {rapc : Int64}
+    (hb : Scc.Cert.Rt.X64.blockAcrossB helloCells l k (blk.take jA) m (blk.drop jA) = true)
+    (he : L.lab l + Int64.ofNat k = n.pc)
+    (hok : okBlk blo bhi n.o blk = true) (hR : R.OK) (hlo' : R.lo ≤ blo) (hhi : bhi ≤ R.hi)
+    (hf : PhFact.blk l k blk ra none ∈ rpTabH) (hra : ∀ r o', ra = some (r, o') → rapc = L.lab r + Int64.ofNat o')
+    (hret : ∀ σ c, n.J σ c → ∀ j (hj : j < blk.length), Spike.Lib.X64.classify blk[j].1 = some .ret →
+      Int64.ofBitVec ((arun L.lab (blk.take j) ⟨n.pc, n.o, σ⟩).σ.slot (arun L.lab (blk.take j) ⟨n.pc, n.o, σ⟩).so.sp)
+        = rapc)
+    (hfree : freeBlkH l k blk = true)
+    (hlast : ∀ σ c, n.J σ c →
+      freeNH (arun L.lab blk ⟨n.pc, n.o, σ⟩).pc.toBitVec.toNat = true) :
+    BlkW (fun s _ => SFactsSt2 Λ (Spike.Lib.X64.PhRec.μ L) (ownGH L a) s) (Spike.Lib.X64.PhRec.K L rS)
+      L.exe L.endPc R F n blk := by
+  let n' : ND := ⟨n.pc, n.o, fun σ c => c = Spike.Lib.X64Consumer.c0 ∧ ∃ c', n.J σ c'⟩
+  have hph := blkPh_of_factOk hlab (rapc := rapc) (dset := fun _ => false) hra
+    (fun _ h => by simp [Scc.Cert.Rt.X64.deadN] at h) (rpW_factH hΛ hf)
+  have hW := Spike.Lib.X64.Rt.blkW_preA (instOkH hp hlo a (fun _ => False) hsite (rS := rS)) (Λ := Λ)
+    (lbl := fun _ => none) (rS := rS) (F := F) (n := n') (hp ▸ hb) he hok hR hlo' hhi
+    (fun _ _ hJ => hJ.1 ▸ Spike.Lib.X64.Flow.Ret0.Inst.cfacts_c0) hph
+    (fun σ _ hJ => let ⟨c', hJ'⟩ := hJ.2; hret σ c' hJ') (fun _ _ _ => rfl)
+    (fun _ _ h => h)
+  have hcode := Spike.Lib.X64.code_field_blockAcrossB L.lays rfl (hp ▸ hb)
+    (List.take_append_drop jA blk) (q := n.pc) he
+  have hag := blkAgreeWH (a := a) (μ := Spike.Lib.X64.PhRec.μ L) (F := F) (n := n') hlab hcode hok hR hlo' hhi
+    hsite (fun j hj => by rw [← he]; exact freeBlk_pcH hlab hfree hj)
+    (fun σ c hJ => let ⟨_, hJ'⟩ := hJ.2; hlast σ _ hJ')
+  have h2 := Spike.Lib.X64ConsumerA.BlkW.ownCongr2 (Spike.Lib.X64.WakePh.Tcb2W.blkW_toSt2 hW) hag
+  exact blkW_mapC (n' := n') rfl rfl h2 fun σ c hJ =>
+    ⟨Spike.Lib.X64Consumer.c0, show _ ∧ _ from ⟨rfl, c, hJ⟩, fun _ h => h⟩
+
 /-- `.x15`'s node pcs and its return label `.x2` are free. -/
-theorem freeX15H : freeAtH ".Lwc_rodata.x15" [0, 8, 11, 29, 32, 36, 40, 58, 62] = true := by
+theorem freeX15H : freeAtH ".Lwc_rodata.x0" [0, 8, 11, 29, 32, 36, 40, 58, 62] = true := by
   wcfreeH_dec
 
 section Inst
@@ -153,14 +191,14 @@ include hp hlo hΛ hlab hsite
 `SFactsSt2` at `ownGH`: `BoxOkH` at its address at every state (`hbox`), its
 pc and next pc free (`hfr`). -/
 theorem ldW_rpGH (a : BitVec 64) {n : ND} {k : Int64} {o z : Nat}
-    (hb : blockAtB helloCells ".Lwc_rodata.x15" o [(Spike.Lib.X64.ldDir .rcx k .rax, z)] = true)
-    (he : n.pc = L.lab ".Lwc_rodata.x15" + Int64.ofNat o)
-    (hf : PhFact.step ".Lwc_rodata.x15" o z ∈ rpTabH) (hfr : freeAtH ".Lwc_rodata.x15" [o, o + z] = true)
+    (hb : blockAtB helloCells ".Lwc_rodata.x0" o [(Spike.Lib.X64.ldDir .rcx k .rax, z)] = true)
+    (he : n.pc = L.lab ".Lwc_rodata.x0" + Int64.ofNat o)
+    (hf : PhFact.step ".Lwc_rodata.x0" o z ∈ rpTabH) (hfr : freeAtH ".Lwc_rodata.x0" [o, o + z] = true)
     (hbox : ∀ σ c, n.J σ c → BoxOkH Λ L a F (bAddr σ.regs .rcx k)) :
     NodeW (fun s _ => SFactsSt2 Λ (Spike.Lib.X64.PhRec.μ L) (ownGH L a) s) (Spike.Lib.X64.PhRec.K L rS)
       L.exe L.endPc R F n := by
   have hI := instOkH hp hlo a (fun _ => False) hsite (rS := rS)
-  have hb' : blockAtB L.prog ".Lwc_rodata.x15" o [(Spike.Lib.X64.ldDir .rcx k .rax, z)] = true := by
+  have hb' : blockAtB L.prog ".Lwc_rodata.x0" o [(Spike.Lib.X64.ldDir .rcx k .rax, z)] = true := by
     rw [hp]; exact hb
   have hs := step_of_factOk hlab (rpW_factH hΛ hf)
   have f0 := freeAt_pcH hlab hfr (o := o) (by simp)
@@ -189,14 +227,14 @@ theorem ldW_rpGH (a : BitVec 64) {n : ND} {k : Int64} {o z : Nat}
 /-- **A store `movq %rax, k(%rcx)` at `.x15 + o` of a word `BoxOkH`** inside
 `SFactsSt2` at `ownGH` (as `ldW_rpGH`). -/
 theorem stW_rpGH (a : BitVec 64) {n : ND} {k : Int64} {o z : Nat}
-    (hb : blockAtB helloCells ".Lwc_rodata.x15" o [(Spike.Lib.X64.stDir .rcx k .rax, z)] = true)
-    (he : n.pc = L.lab ".Lwc_rodata.x15" + Int64.ofNat o)
-    (hf : PhFact.step ".Lwc_rodata.x15" o z ∈ rpTabH) (hfr : freeAtH ".Lwc_rodata.x15" [o, o + z] = true)
+    (hb : blockAtB helloCells ".Lwc_rodata.x0" o [(Spike.Lib.X64.stDir .rcx k .rax, z)] = true)
+    (he : n.pc = L.lab ".Lwc_rodata.x0" + Int64.ofNat o)
+    (hf : PhFact.step ".Lwc_rodata.x0" o z ∈ rpTabH) (hfr : freeAtH ".Lwc_rodata.x0" [o, o + z] = true)
     (hbox : ∀ σ c, n.J σ c → BoxOkH Λ L a F (bAddr σ.regs .rcx k)) :
     NodeW (fun s _ => SFactsSt2 Λ (Spike.Lib.X64.PhRec.μ L) (ownGH L a) s) (Spike.Lib.X64.PhRec.K L rS)
       L.exe L.endPc R F n := by
   have hI := instOkH hp hlo a (fun _ => False) hsite (rS := rS)
-  have hb' : blockAtB L.prog ".Lwc_rodata.x15" o [(Spike.Lib.X64.stDir .rcx k .rax, z)] = true := by
+  have hb' : blockAtB L.prog ".Lwc_rodata.x0" o [(Spike.Lib.X64.stDir .rcx k .rax, z)] = true := by
     rw [hp]; exact hb
   have hs := step_of_factOk hlab (rpW_factH hΛ hf)
   have f0 := freeAt_pcH hlab hfr (o := o) (by simp)
@@ -228,14 +266,14 @@ return address at the stack top `scc_rt_main`'s `.x2` (`hra`). -/
 theorem rdPostW_wcGH (a : BitVec 64) (hR : R.OK) (hRlo : R.lo ≤ -40) (hhi : 8 ≤ R.hi)
     {Jp Jp' J1 J2 J2' J3 J4 : Spike.Lib.X64.AS → Spike.Lib.Ctl → Prop}
     (hbuf : ∀ σ0 c, Jp σ0 c → ∀ i : Int64, (i = 0 ∨ i = 8) → BoxOkH Λ L a F (bAddr σ0.regs .rax i))
-    (hra : ∀ σ0 c, Jp σ0 c → σ0.slot 0 = (L.lab ".Lscc_rt_main.x2").toBitVec) :
+    (hra : ∀ σ0 c, Jp σ0 c → σ0.slot 0 = (L.lab ".Lscc_rt_main.x0").toBitVec) :
     RdPostW (fun s _ => SFactsSt2 Λ (Spike.Lib.X64.PhRec.μ L) (ownGH L a) s) (Spike.Lib.X64.PhRec.K L rS)
       L.exe L.endPc R F Jp Jp' J1 J2 J2' J3 J4 := by
   have hin := hello_rpIn
   simp only [rpIn, Bool.and_eq_true] at hin
   obtain ⟨⟨⟨⟨⟨⟨⟨⟨b0, bl1⟩, b1⟩, bx1⟩, b2⟩, bl2⟩, b3⟩, bx2⟩, b4⟩ := hin
   have fx : ∀ o, o ∈ [0, 8, 11, 29, 32, 36, 40, 58, 62] →
-      freeNH (L.lab ".Lwc_rodata.x15" + Int64.ofNat o).toBitVec.toNat = true :=
+      freeNH (L.lab ".Lwc_rodata.x0" + Int64.ofNat o).toBitVec.toNat = true :=
     fun o ho => freeAt_pcH hlab freeX15H ho
   have nr : ∀ {blk : List (Directive × Nat)}, Spike.Lib.X64Consumer.noRetBlk blk = true → ∀ {n : ND},
       ∀ σ c, n.J σ c → ∀ j (hj : j < blk.length), Spike.Lib.X64.classify blk[j].1 = some .ret →
@@ -245,41 +283,41 @@ theorem rdPostW_wcGH (a : BitVec 64) (hR : R.OK) (hRlo : R.lo ≤ -40) (hhi : 8 
   refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · refine blkW_rpGH hp hlo hΛ hlab a hsite (k := 0) (ra := none) (rapc := 0) b0 (ofNat_zero' _) rpB0_ok hR
       hRlo hhi (by decide) (fun _ _ h => by cases h) (nr (by decide)) (by wcfreeBH_dec) fun σ c _ => ?_
-    show freeNH (arun L.lab rpB0 ⟨L.lab ".Lwc_rodata.x15", Spike.Lib.X64.Flow.Hello1.oR, σ⟩).pc.toBitVec.toNat = true
+    show freeNH (arun L.lab rpB0 ⟨L.lab ".Lwc_rodata.x0", Spike.Lib.X64.Flow.Hello1.oR, σ⟩).pc.toBitVec.toNat = true
     rw [rpB0_run]; exact fx 8 (by simp)
   · exact ldW_rpGH hp hlo hΛ hlab hsite a (o := 8) bl1 rfl (by decide) (by wcfreeH_dec)
       fun σ c ⟨σ0, ⟨c0, hJp⟩, _, _, hx⟩ => by rw [bAddr_rcx_rax hx]; exact hbuf σ0 c0 hJp 0 (.inl rfl)
   · refine blkW_rpGH hp hlo hΛ hlab a hsite (k := 11) (ra := none) (rapc := 0) b1 rfl rpB1_ok hR hRlo hhi
       (by decide) (fun _ _ h => by cases h) (nr (by decide)) (by wcfreeBH_dec) fun σ c _ => ?_
-    show freeNH (arun L.lab rpB1 ⟨L.lab ".Lwc_rodata.x15" + 11, Spike.Lib.X64.Flow.Hello1.oR, σ⟩).pc.toBitVec.toNat
+    show freeNH (arun L.lab rpB1 ⟨L.lab ".Lwc_rodata.x0" + 11, Spike.Lib.X64.Flow.Hello1.oR, σ⟩).pc.toBitVec.toNat
       = true
     rw [rpB1_run, Int64.add_assoc]; exact fx 29 (by simp)
   · exact stW_rpGH hp hlo hΛ hlab hsite a (o := 29) bx1 rfl (by decide) (by wcfreeH_dec)
       fun σ c ⟨σ0, ⟨c0, hJp⟩, _, _, _, hx⟩ => by rw [bAddr_rcx_rax hx]; exact hbuf σ0 c0 hJp 0 (.inl rfl)
   · refine blkW_rpGH hp hlo hΛ hlab a hsite (k := 32) (ra := none) (rapc := 0) b2 rfl rpB2_ok hR hRlo hhi
       (by decide) (fun _ _ h => by cases h) (nr (by decide)) (by wcfreeBH_dec) fun σ c _ => ?_
-    show freeNH (arun L.lab rpB2 ⟨L.lab ".Lwc_rodata.x15" + 32, Spike.Lib.X64.Flow.Hello1.oR, σ⟩).pc.toBitVec.toNat
+    show freeNH (arun L.lab rpB2 ⟨L.lab ".Lwc_rodata.x0" + 32, Spike.Lib.X64.Flow.Hello1.oR, σ⟩).pc.toBitVec.toNat
       = true
     rw [rpB2_run, Int64.add_assoc]; exact fx 36 (by simp)
   · exact ldW_rpGH hp hlo hΛ hlab hsite a (o := 36) bl2 rfl (by decide) (by wcfreeH_dec)
       fun σ c ⟨σ0, ⟨c0, hJp⟩, _, _, hx⟩ => by rw [bAddr_rcx_rax hx]; exact hbuf σ0 c0 hJp 8 (.inr rfl)
   · refine blkW_rpGH hp hlo hΛ hlab a hsite (k := 40) (ra := none) (rapc := 0) b3 rfl rpB3_ok hR hRlo hhi
       (by decide) (fun _ _ h => by cases h) (nr (by decide)) (by wcfreeBH_dec) fun σ c _ => ?_
-    show freeNH (arun L.lab rpB3 ⟨L.lab ".Lwc_rodata.x15" + 40, Spike.Lib.X64.Flow.Hello1.oR, σ⟩).pc.toBitVec.toNat
+    show freeNH (arun L.lab rpB3 ⟨L.lab ".Lwc_rodata.x0" + 40, Spike.Lib.X64.Flow.Hello1.oR, σ⟩).pc.toBitVec.toNat
       = true
     rw [rpB3_run, Int64.add_assoc]; exact fx 58 (by simp)
   · exact stW_rpGH hp hlo hΛ hlab hsite a (o := 58) bx2 rfl (by decide) (by wcfreeH_dec)
       fun σ c ⟨σ0, ⟨c0, hJp⟩, _, _, _, hx⟩ => by rw [bAddr_rcx_rax hx]; exact hbuf σ0 c0 hJp 8 (.inr rfl)
   · have hend : ∀ σ c, (pN L.lab Jp Jp' J1 J2 J2' J3 J4 .s4).J σ c →
-        (arun L.lab rpB4 ⟨L.lab ".Lwc_rodata.x15" + 62, Spike.Lib.X64.Flow.Hello1.oR, σ⟩).pc =
-          L.lab ".Lscc_rt_main.x2" := by
+        (arun L.lab rpB4 ⟨L.lab ".Lwc_rodata.x0" + 62, Spike.Lib.X64.Flow.Hello1.oR, σ⟩).pc =
+          L.lab ".Lscc_rt_main.x0" := by
       rintro σ c ⟨σ0, ⟨c0, hJp⟩, -, hfr⟩
       rw [rpB4_run, hfr.2.2.1, hra σ0 c0 hJp, Int64.ofBitVec_toBitVec]
-    refine blkW_rpGH hp hlo hΛ hlab a hsite (k := 62) (ra := some (".Lscc_rt_main.x2", 0))
-      (rapc := L.lab ".Lscc_rt_main.x2") b4 rfl rpB4_ok hR hRlo hhi (by decide)
+    refine blkW_rpGHA hp hlo hΛ hlab a hsite (k := 62) (ra := some (".Lscc_rt_main.x0", 0))
+      (rapc := L.lab ".Lscc_rt_main.x0") b4 rfl rpB4_ok hR hRlo hhi (by decide)
       (fun _ _ h => by cases h; exact (ofNat_zero' _).symm) (Spike.Lib.X64Consumer.hret_of_run rpB4_ok hend)
       (by wcfreeBH_dec) fun σ c hJ => ?_
-    show freeNH (arun L.lab rpB4 ⟨L.lab ".Lwc_rodata.x15" + 62, Spike.Lib.X64.Flow.Hello1.oR, σ⟩).pc.toBitVec.toNat
+    show freeNH (arun L.lab rpB4 ⟨L.lab ".Lwc_rodata.x0" + 62, Spike.Lib.X64.Flow.Hello1.oR, σ⟩).pc.toBitVec.toNat
       = true
     rw [hend σ c hJ]; exact freeAt_labH hlab (by wcfreeH_dec)
 
@@ -296,7 +334,7 @@ theorem mB1W_wcGH (a : BitVec 64) (hR : R.OK) (hRlo : R.lo ≤ -288) (hhi : 8 �
     (by decide) (fun _ _ h => by cases h)
     (fun _ _ _ j hj hr => (Spike.Lib.X64Consumer.noRet_false (by decide) j hj hr).elim) (by wcfreeBH_dec)
     fun σ c _ => ?_
-  show freeNH (arun L.lab mB1 ⟨L.lab ".Lscc_rt_main.x2", Spike.Lib.X64.Flow.Hello1.mO, σ⟩).pc.toBitVec.toNat = true
+  show freeNH (arun L.lab mB1 ⟨L.lab ".Lscc_rt_main.x0", Spike.Lib.X64.Flow.Hello1.mO, σ⟩).pc.toBitVec.toNat = true
   rw [mB1_run]; exact freeAt_labH hlab (by wcfreeH_dec)
 
 end Inst

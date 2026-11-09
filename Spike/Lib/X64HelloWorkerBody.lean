@@ -3,7 +3,7 @@
 hello.w's `wc_worker` from `.Lwc_worker.entry` (after its prologue: `%rsp`
 at the frame's base, offset `-88`, `%rbp` at the saved `%rbp`, `-8`; the
 six arguments in the words `-16 … -56`) to the call of `scc_rt_print`,
-whose return point is `.Lwc_worker.x17` (`Spike/Lib/X64HelloWkTail.lean`).
+whose return point is `.Lwc_worker.x0` (`Spike/Lib/X64HelloWkTail.lean`).
 
 The `.entry` block is `hello1`'s `wc_main` `.entry` block
 (`Spike/Lib/X64Hello1Body.lean`) with its scratch words moved down by 8
@@ -132,8 +132,8 @@ theorem wkC_fs (lab : Label → Int64) (σ : AS) (fl : StatusFlags) :
 
 /-- The call pushes `.x17`, the next instruction, `87` bytes on. -/
 theorem wkC_ra (lab : Label → Int64) (σ : AS) (fl : StatusFlags)
-    (e : lab ".Lwc_worker.x17" = lab ".Lwc_worker.entry" + Int64.ofNat 87) :
-    (wkC lab σ fl).slot (-96) = (lab ".Lwc_worker.x17").toBitVec := by
+    (e : lab ".Lwc_worker.x0" = lab ".Lwc_worker.entry" + Int64.ofNat 87) :
+    (wkC lab σ fl).slot (-96) = (lab ".Lwc_worker.x0").toBitVec := by
   rw [wkC_eq, wkE2_run, e]
   simp only [Spike.Lib.upd_apply, ↓reduceIte, Int64.toBitVec_add, BitVec.add_assoc]
   rfl

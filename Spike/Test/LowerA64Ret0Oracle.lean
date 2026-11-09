@@ -29,7 +29,7 @@ open Kraken Kraken.AArch64.Parser Kraken.Promising Kraken.Promising.AArch64 Krak
 open Spike.Lib Spike.Lib.A64.Flow
 open Spike.Lib.A64 (CodeAt)
 open Scc.Emit.A64 Scc.Lower.InvA64
-open Scc.Cert.Rt.A64 (Lays endOf blockAt)
+open Scc.Cert.Rt.A64 (Lays endOf blockAt labelGap blockAcross)
 open Spike.Lib.Form (opdVal NodeJ SEnv sevalAt lookupS WordPl WordsRep WordRep SRep)
 open Spike.Lib.LowerNode Spike.Lib.LowerA64
 open Spike.Test.LowerInv (mainCtx mainCtx_frameOk mainCtx_y main0 ret0Res ret0_lower0)
@@ -63,10 +63,22 @@ theorem ret_eq : directives ([ins (.LDR (rz .W64 .X0) (.addr ⟨spW64, .imm ⟨i
     [ret]) = retBlk 32 [.slot 0] := by
   rw [directives_ret_slot mainCtx_frameOk (by rw [mainCtx_frame]; decide) slotY getOpY, mainCtx_frame]; rfl
 
-/-- The store and the return block in `ret0Prog`, after the add. -/
-theorem ret0_strIn : blockAt SccCode.ret0Prog ".L18_wc_main.0_entry" 4
+/-- The store and the return block in `ret0Prog`, after the add: the add's
+return label `.x0` right after it, the store at `.x0`, then the return block
+split by the result's return label `.x1` before its `ret` (`blockAcross`). -/
+theorem ret0_x0Gap : labelGap SccCode.ret0Prog ".L18_wc_main.0_entry" ".L18_wc_main.x0" 4 = true := by
+  decide +kernel
+theorem ret0_strIn : blockAt SccCode.ret0Prog ".L18_wc_main.x0" 0
     (directives [ins (.STR (rz .W64 .X9) ⟨spW64, .imm ⟨i64 0, none⟩⟩)]) = true := by decide +kernel
-theorem ret0_retIn : blockAt SccCode.ret0Prog ".L18_wc_main.0_entry" 5 (retBlk 32 [.slot 0]) = true := by
+theorem ret0_retIn : blockAcross SccCode.ret0Prog ".L18_wc_main.x0" 1 ((retBlk 32 [.slot 0]).take 4)
+    ".L18_wc_main.x1" ((retBlk 32 [.slot 0]).drop 4) = true := by
+  decide +kernel
+
+/-! ## The body's placement from `mainCtx` -/
+
+#guard bodyIn SccCode.ret0Prog mainCtx ".L18_wc_main.0_entry" 0 0 ret0Res.insts ret0Res.ret
+
+theorem ret0_bodyIn : bodyIn SccCode.ret0Prog mainCtx ".L18_wc_main.0_entry" 0 0 ret0Res.insts ret0Res.ret = true := by
   decide +kernel
 
 section Fn
@@ -79,13 +91,7 @@ variable {p : Prog} {lbl : WeakMem.AllocLabel → Option Nat} {ms : MemSide isaL
 theorem ret0_bodyCode (hp : Lays exe SccCode.ret0Prog) (hend : endPc = endOf exe SccCode.ret0Prog) :
     BodyCode mainCtx (CdOf exe endPc) ((_root_.Executable.labels exe).label ".L18_wc_main.0_entry")
       ret0Res.insts ret0Res.ret := by
-  have hin := ret0_wcBodyIn
-  simp only [wcBodyIn, Bool.and_eq_true] at hin
-  have hlen : (wcAdd).length = 4 := rfl
-  refine ⟨movImm .X9 40, movImm .X10 2, 0, getOp40, getOp2, slotY, ?_, ?_, _, getOpY, ?_⟩
-  · rw [add_eq]; exact code_of hp hend hin.1 (ofNat4_zero _)
-  · rw [add_eq, hlen]; exact code_of hp hend ret0_strIn rfl
-  · rw [add_eq, hlen, ret_eq, ← ofNat4_succ]; exact code_of hp hend ret0_retIn rfl
+  exact bodyCode_of hp hend ret0_bodyIn
 
 /-- **The symbolic body segment at `ret0.w`'s `main`**: from
 `.0_entry` (`main`'s body, `u` bound to the unit) to the saved return
@@ -189,20 +195,12 @@ theorem ret0_proInC_eq : proInC SccCode.ret0Prog mainCtx "wc_main" ".L18_wc_main
       ".L18_wc_main.stack_grow" [] := by
   decide +kernel
 
-/-! ### The body's placement from `mainCtx` -/
-
-#guard bodyIn SccCode.ret0Prog mainCtx ".L18_wc_main.0_entry" 0 ret0Res.insts ret0Res.ret
-
-theorem ret0_bodyIn : bodyIn SccCode.ret0Prog mainCtx ".L18_wc_main.0_entry" 0 ret0Res.insts ret0Res.ret = true := by
-  decide +kernel
-
 /-- `ret0_bodyCode` again, from the generic check. -/
 theorem ret0_bodyCode' {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe] {endPc : Int64}
     (hp : Lays exe SccCode.ret0Prog) (hend : endPc = endOf exe SccCode.ret0Prog) :
     BodyCode mainCtx (CdOf exe endPc) ((_root_.Executable.labels exe).label ".L18_wc_main.0_entry")
       ret0Res.insts ret0Res.ret := by
-  have := bodyCode_of hp hend _ 0 _ ret0_bodyIn
-  rwa [ofNat4_zero] at this
+  exact bodyCode_of hp hend ret0_bodyIn
 
 /-! ### The whole function from the generic checks -/
 

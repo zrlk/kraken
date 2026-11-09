@@ -1,13 +1,22 @@
 /-
-**`MainWcPS.hWp`, `hWs` at `Level1I`'s choices at `ownGHXW`, the placement and the context left** (x86-64 only;
-the `ownGHXW` counterpart of `X64HelloMainWcL1Wp`): `wc_main` up to the allocator's return and its `.x22` lie in
-the level `W1Hg (ownGHXW Ly ntA) … Ctx1 … l b n` at no frame (which is `WSHX`), guarded by main's thread pointer,
-inside `NoSetFsW`, at the level's memory side owning `ownGHXW`'s words.
+**`MainWcPS.hWp`, `hWs` at `Level1I`'s choices at `ownGHXW`, the placement and the context left** (x86-64; the
+twin of `Spike/Lib/A64HelloMainWcL1Wp.lean`'s statements, at `ownGHXW`): at any `PlaceWX` output's runtime layout
+`Ly := RuntimeLayout.ofPlaceWX hpw (HelloImms.immsH Λ0 i0)`, the arena `arW`, hello's value invariant `gWH`, any
+marks `μ`, the level's labels `upd (L0T Ly.Λ) l b` / `updN (ls0T ls) l n` (the memory side) and `updN lsW l n` (the
+level), at the first stack's top, `wc_main` up to the allocator's return and its `.x22` lie in the level
+`W1Hg (ownGHXW Ly ntA) … Ctx1 … l b n` at no frame (which is `WSHX`), guarded by main's thread pointer, inside
+`NoSetFsW`, at the level's memory side owning `ownGHXW`'s words.
 
-`WcWfRX.wcPreW_WSgHX`/`wcSp0W_WSgHX` at the level, the premises discharged as in `X64HelloMainWcL1Wp`, plus
-`ownGHXW`'s separation (`StartPlaceLy.wsep_W`, `tcbWH_notG_W`, from A13), `wc_main`'s band on the pool
-(`bandOnP_RW`), the counter and header words off `tcbM` (the runtime words' separation, `ne_tcbM_of_heap`) and the
-box's cell off `tcbM` (`WakePh.hboxM_of`). Left: the placement `hpl` and the level's context `hctx`/`hwr`.
+`WcWfRX.wcPreW_WSgHX`/`wcSp0W_WSgHX` at the level, every premise discharged here (the region by
+`MainWcL1Wp.wcR_L1`, the limit word by the layout's fields and `HrdR.hun_FS`, the counter and header words by
+`WordsNone` and `HrdArena.offH_own`, the box's cell by `MainWcL1Q.hcell0_L1`, the controls by `hJr` at `Jr` and
+`c1J_L1` at `c0H`, the allocator's free pcs by `WcWfR.allocW_freeH`), plus `ownGHXW`'s separation
+(`StartPlaceLy.wsep_W`, `tcbWH_notG_W`, from A13), `wc_main`'s band on the pool (`bandOnP_RW`), the counter and
+header words off `tcbM` (the runtime words' separation, `ne_tcbM_of_heap`) and the box's cell off `tcbM`
+(`WakePh.hboxM_of`). Left:
+- `hpl`: the placement;
+- `hctx` (`hWp`), `hwr` (`hWs`): the level's context `Ctx1` at the counter add and the box's store (at the root's
+  context `Land.CtxR1H` by `Land.hctx_main1H` and `Land3.hwr_stH`/`Land.hctx_st1H`, `MainWcL1WiX`).
 
 - `hoffQ_L1X`: the arena's offset within its units at the level's memory side at `ownGHXW`, at a box call.
 - `bandOnP_RW`: `wc_main`'s region at the first stack's top on the pool over `[-304, 8]`.
@@ -16,9 +25,13 @@ box's cell off `tcbM` (`WakePh.hboxM_of`). Left: the placement `hpl` and the lev
 
 ## Differences from the AArch64 version
 
-AArch64 has no counterpart: main owns no TCB word there, so its level is at `ownGH` only. Against
-`X64HelloMainWcL1Wp`: the level and the memory side are at `ownGHXW`, and the producers take the separation, band
-and `tcbM` facts above, all discharged here from A13 and the layout.
+- AArch64's level is at `ownGH` (main owns no TCB word there); here the level and the memory side are at
+  `ownGHXW`, and the producers take the separation, band and `tcbM` facts above, all discharged here from A13 and
+  the layout.
+- The regions, the thread pointer and `wcR_ok`'s alignment are `X64HelloMainWcL1Wp`'s differences; the outside-move
+  guard is `NoSetFsW` (AArch64 `NoMsrW`, `WcWfS.wcPreW_nsH`/`wcSp0W_nsH`), and `JrT` takes `scc_rt_main`'s region.
+- The allocator returns to `.Lwc_main.x0` (AArch64 `.L22_wc_main.sp0`), its `CallerCells` reaching `8`.
+- The program is `helloCells`, its labels `codeLabel` (`X64HelloOInit.hlab_H`); the take site is `HelloPh.siteH`.
 -/
 import Spike.Lib.X64HelloMainWcL1Wp
 import Spike.Lib.X64HelloWcWfRX
@@ -149,7 +162,7 @@ theorem bandOnP_RW : BandOnP (Ly) (RW) (-304) 8 := by
   have e : (RW).addr k = (RM).addr (-80 + k) := Region.callee_addr _ (-80) (-helloD) 8 k
   rw [e]; exact hbRS _ (by omega) (by omega)
 
-/-- **`hWp` at the level at `ownGHXW`, the placement and the context left** (`hWp_L1G` at `ownGHXW` by
+/-- **`hWp` at the level at `ownGHXW`, the placement and the context left** (AArch64 `hWp_L1G` at `ownGHXW` by
 `WcWfRX.wcPreW_WSgHX`; `ownGHXW`'s separation from A13, the band by `bandOnP_RW`, the allocator's words off
 `tcbM`). -/
 theorem hWp_L1GX (hp : o.prog = SccCode.helloCells) (hpa : Scc.Sem.X64.cellsOf asm = some o.prog)
@@ -159,7 +172,7 @@ theorem hWp_L1GX (hp : o.prog = SccCode.helloCells) (hpa : Scc.Sem.X64.cellsOf a
     /- named premise: `wc_main` up to the allocator's return placed -/
     (hpl : WcPreWH (PL) (fun _ _ => False) (Ly).exe (Ly).endPc (RW) (FW) (MS) (J0) (J1))
     /- the level's context at the counter add (`Land.hctx_main1H` at `CtxR1H`) -/
-    (hctx : ∀ q : Call, q.OKB (MS) (Ly).lab → q.ra = ((Ly).lab ".Lwc_main.x22").toBitVec →
+    (hctx : ∀ q : Call, q.OKB (MS) (Ly).lab → q.ra = ((Ly).lab ".Lwc_main.x0").toBitVec →
       ∀ s c, At (Ly).exe (Ly).endPc (wARH (RW)) (fun m => (FW) m ∧ CallerCells (RW) (-144) (-160) 8 m ∧
         WcCtxH (MS) (Ly).lab (RW) (J0) (J1) q m) (Spike.Lib.X64.Alloc.N (Ly).lab (MS) q .rmw) s c → TP (TV) s →
         Ctx1 l b n s c []) :
@@ -247,8 +260,8 @@ theorem hWp_L1GX (hp : o.prog = SccCode.helloCells) (hpa : Scc.Sem.X64.cellsOf a
       simpa using hn
   exact Spike.Lib.X64.HelloPh.WcWfS.wcPreW_nsH hprog h
 
-/-- **`hWs` at the level at `ownGHXW`, the placement and the store's context left** (`hWs_L1G` at `ownGHXW` by
-`WcWfRX.wcSp0W_WSgHX`): the box's cell mapped, unloaded (`MainWcL1Q.hcell0_L1`), owned at no phase (in the arena's
+/-- **`hWs` at the level at `ownGHXW`, the placement and the store's context left** (AArch64 `hWs_L1G` at `ownGHXW`
+by `WcWfRX.wcSp0W_WSgHX`): the box's cell mapped, unloaded (`MainWcL1Q.hcell0_L1`), owned at no phase (in the arena's
 cells, `HrdArena.offH_own`) and off `tcbM` (`WakePh.hboxM_of`). -/
 theorem hWs_L1GX (hp : o.prog = SccCode.helloCells) (hpa : Scc.Sem.X64.cellsOf asm = some o.prog)
     (hhp : Scc.Sem.X64.cellsOf asm = some SccCode.helloCells) (hlo0 : Λ0.code.lo = lo)

@@ -9,7 +9,7 @@
 - `WcHAbStubHA`, `wc_heapAb_segWSHA`: the heap abort's obligations and its segment with no return, at `wXA`.
 - `HabCtlHA`: the control facts at `wXA` with the placement under the path's frame condition.
 - `wc_heapAbStubKHAg`: `WcHAbStubHA` under `PhRec.K` from `HabCtlHA` at any owned words `own`, the path's
-  placement facts (`hP0`) a premise; `wc_heapAbStubKHA`: at `ownGH` (`hP0` by `HabCtlS.hpathW_hab0HS`).
+  placement facts (`hP0`) a premise.
 - `placeVal_slot_keptA`: a slot of `wc_main`'s frame at or above `-296` on the abort path is `σ`'s.
 - `placedSE_c0H`: `c0H` on a slice at `l` placed at four slots (`z` immediate).
 - `habCtlHA_c0H`: `HabCtlHA` below `wc_main`'s entry whose caller's controls are `c0H` on the slice at `l`
@@ -55,7 +55,7 @@ open Spike.Lib.X64.Flow.Hello1 (mWC)
 open Spike.Lib.X64.Flow.HelloM (wcJ0)
 open Spike.Lib.X64.Flow.HelloJr1 (SlRegs)
 open Spike.Lib.X64.HelloPh.StartWf (pfxM)
-open Spike.Lib.X64.HelloPh (lo ownGH)
+open Spike.Lib.X64.HelloPh (lo)
 open Spike.Lib.X64.HelloPh.HAbStub (hpathW_hXH abort_offH)
 open Spike.Lib.X64HelloMainPreSrc (c0H c0H_term boxTermH newTerm)
 open Spike.Lib.X64HelloSrc (helloSrc)
@@ -159,30 +159,6 @@ theorem wc_heapAbStubKHAg {own : Spike.Lib.X64Consumer.Own} {R : Region} {F : Ma
     fun _ _ h => h.1
   exact Spike.Lib.X64.StubW.stubHRW_of_code L.lays rfl (by rw [hp]; exact SccCode.hello_abort) hK hF' hpath
     fun s _ ⟨_, _, _, hpc, _⟩ => hab s hpc
-
-/-- **`WcHAbStubHA` from `HabCtlHA`** (as `X64WakeHAbStubK.wc_heapAbStubK`): `wc_heapAbStubKHAg` at `ownGH L a`,
-the path inside `W0` with the placement at the path's frame condition by `HabCtlS.hpathW_hab0HS`. -/
-theorem wc_heapAbStubKHA {R : Region} {F : MachineData → Prop} {ar : Arena} {p : Prog} {Cl : State → Prop}
-    {Ctx : FragS isa} {L0 : Lbl} {ls0 : Lsize} {frM : TermRun.Frame} {X0 : State → Prop}
-    {fs : List TermRun.Frame} {lbl : WeakMem.AllocLabel → Option Nat} {ms : List TermRun.Frame → MemSide isa}
-    {J1 : FAS → Ctl → Prop} {rS : Scc.Sem.Range} (a : BitVec 64)
-    (hΛ : L.Λ.abortLbl = Scc.Cert.Link.abortName)
-    (hF : FStable R F) (hR : R.OK) (hlo' : R.lo ≤ -336) (hhi : -296 ≤ R.hi)
-    (hK : (ms fs).K = some abi) (hfs : fs = [] ∨ fs = [frM])
-    (hcl : ∀ s, Cl s → abi.atSys s = true ∧
-      ∃ st tl, Scc.Sem.Kernel.decode abi.nrs (abi.nr s) (abi.arg s) = some (.clone st tl))
-    (hctl : HabCtlHA (ms fs) L.lab p L.Λ L0 ar fs J1 R F)
-    (hab : ∀ s : State, s.st.2 = L.lab "scc_rt_abort_heap_exit" → (ms fs).abortAt s)
-    (hX0 : ∀ s, Spike.Lib.X64.WakePh.inPc L "scc_rt_abort" "scc_rt_thr_worker" s → X0 s) :
-    WcHAbStubHA (W0 L.Λ (Spike.Lib.X64.PhRec.μ L) (ownGH L a) ar p DtW (Spike.Lib.X64.WriteAb.Ab L.lab) Cl
-      (Spike.Lib.X64.Hello.ThreadsAb.AcH L.lab pfxM) Ctx L0 ls0 frM X0) (Spike.Lib.X64.PhRec.K L rS) p lbl ms L.exe
-      L.endPc R F fs J1 :=
-  have hR' : (R.callee (-304 - 8) (-24) 16).OK :=
-    Region.callee_ok hR (by omega) (by decide) (by omega) (by omega)
-  wc_heapAbStubKHAg hp hlo hlab hF hR hlo' hhi hK hctl hab fun F' c0 hF' hc0 hpl hobl =>
-    HabCtlS.hpathW_hab0HS (ar := ar) (p := p) (Cl := Cl) (Ctx := Ctx) (L0 := L0) (ls0 := ls0) (frM := frM)
-      (X0 := X0) (F := F') hp hlo hlab a hΛ hR' (by simp [Region.callee]) (by simp [Region.callee]) rfl hfs hcl hc0
-      hF' hpl hobl hX0
 
 end Inst
 
@@ -364,9 +340,6 @@ end Spike.Lib.X64.HelloPh.HabCtlA
 
 /-- info: 'Spike.Lib.X64.HelloPh.HabCtlA.wc_heapAbStubKHAg' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms Spike.Lib.X64.HelloPh.HabCtlA.wc_heapAbStubKHAg
-
-/-- info: 'Spike.Lib.X64.HelloPh.HabCtlA.wc_heapAbStubKHA' depends on axioms: [propext, Classical.choice, Quot.sound] -/
-#guard_msgs in #print axioms Spike.Lib.X64.HelloPh.HabCtlA.wc_heapAbStubKHA
 
 /-- info: 'Spike.Lib.X64.HelloPh.HabCtlA.placeVal_slot_keptA'
   depends on axioms: [propext, Classical.choice, Quot.sound] -/

@@ -24,7 +24,7 @@ open Spike.Test.LowerX64AbortCall (labT_labR ret0_hprog ret0_hphs)
 open SccCode (ret0Cells)
 
 /-- The exit call's pc at `ret0`. -/
-theorem ret0_exit : (labT Abort.overflow.exit).toBitVec.toNat = 4198555 := by
+theorem ret0_exit : (labT Abort.overflow.exit).toBitVec.toNat = 4198593 := by
   rw [labT_labR]; exact Spike.Lib.X64.StubW.Test.ret0_exit
 
 theorem ret0_hrel : ∀ a, μ0.site .release = some a → (labT Abort.overflow.exit).toBitVec.toNat ≠ a := by
@@ -54,10 +54,10 @@ set_option maxRecDepth 100000
 
 /-- The tail's pcs at `ret0`. -/
 theorem ret0_pcs :
-    (Abort.pcSys labT Abort.overflow).toBitVec.toNat = 4198537 ∧
-    (labT Abort.overflow.entry + 36).toBitVec.toNat = 4198539 ∧
-    (labT Abort.overflow.entry + 40).toBitVec.toNat = 4198543 ∧
-    (labT Abort.overflow.entry + 47).toBitVec.toNat = 4198550 := by
+    (Abort.pcSys labT Abort.overflow).toBitVec.toNat = 4198575 ∧
+    (labT Abort.overflow.entry + 36).toBitVec.toNat = 4198577 ∧
+    (labT Abort.overflow.entry + 40).toBitVec.toNat = 4198581 ∧
+    (labT Abort.overflow.entry + 47).toBitVec.toNat = 4198588 := by
   rw [labT_labR]; decide +kernel
 
 /-- **Satisfiable**: the tail holds at the two moves and at the exit call. -/
@@ -125,7 +125,7 @@ example (m : MachineData) (ha : m.regs.get64 .rax ≠ 1) :
 /-- **Negative**: past the exit call no state is in the tail. -/
 example (m : MachineData) : ¬ OvfDt ret0Exe ret0End labT (at0 m (labT Abort.overflow.exit + 2)) := by
   have hp := ret0_pcs
-  have hx : (labT Abort.overflow.exit + 2).toBitVec.toNat = 4198557 := by rw [labT_labR]; decide +kernel
+  have hx : (labT Abort.overflow.exit + 2).toBitVec.toNat = 4198595 := by rw [labT_labR]; decide +kernel
   have hx' := ret0_exit
   rintro ⟨-, -, ⟨h, -⟩ | ⟨h, -⟩ | h | h | ⟨h, -⟩⟩
   all_goals

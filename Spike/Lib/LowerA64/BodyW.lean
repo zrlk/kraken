@@ -15,9 +15,11 @@ one before `SegW.lag` (`Spike/Lib/SegLag.lean`) holds the control back at
   body (`bodyBlks`, `blkPh` at its offset after the body's label, a `ret`'s
   target the return address `ra`), and a block of the body (`InBody`)
   passes it.
-- `mem_bodyBlks`, `blockAt_of_bodyBlks`, `okBlk_bodyBlks`: a block of the
-  body is the checked `+`'s, its store or the return's; `bodyIn` places it;
-  its cover at the frame's offsets.
+- `mem_bodyBlks`, `okBlk_bodyBlks`: a block of the body is the checked
+  `+`'s, its store or the return's; its cover at the frame's offsets (its
+  code from `bodyIn`: `cdOf_bodyBlks`, `Spike/Lib/LowerA64/BodyIn.lean`).
+- `blkW_postO'`: `blkW_postO` at a block's code rather than its `blockAt`
+  placement (the return's block runs across its label, P5).
 - `blkW_body0`: a block of the body at any node with the frame's offsets
   whose controls a local run from `c0` reaches, the saved pair `fp`/`ra`
   in their cells, is inside `BodyW0` (`blkW_postO` at `c0`; the return
@@ -95,36 +97,6 @@ theorem mem_bodyBlks : ∀ {is : List Scc.IR.Inst} {k : Nat} {ws : List Scc.IR.O
         · exact mem_bodyBlks h
     all_goals simp [bodyBlks] at h
 
-/-- **`bodyIn` places every block of the body** at its offset. -/
-theorem blockAt_of_bodyBlks {prog : List Directive} {l : Label} :
-    ∀ {is : List Scc.IR.Inst} {k : Nat} {ws : List Scc.IR.Operand} {j : Nat} {blk : List Directive},
-    bodyIn prog cx l k is ws = true → (j, blk) ∈ bodyBlks cx k is ws → blockAt prog l j blk = true
-  | [], k, ws, j, blk, hi, h => by
-    match ws, hi, h with
-    | [w], hi, h =>
-      cases hg : cx.getOp .X0 w with
-      | error e => simp [bodyBlks, hg] at h
-      | ok lw =>
-        simp only [bodyBlks, hg, List.mem_singleton, Prod.mk.injEq] at h
-        obtain ⟨rfl, rfl⟩ := h
-        simpa only [bodyIn, hg] using hi
-    | [], _, h => simp [bodyBlks] at h
-    | _ :: _ :: _, _, h => simp [bodyBlks] at h
-  | i :: is, k, ws, j, blk, hi, h => by
-    cases i
-    case addChk d a b =>
-      cases ha : cx.getOp .X9 a <;> cases hb : cx.getOp .X10 b <;> cases hd : cx.slotOff d <;>
-        simp only [bodyBlks, ha, hb, hd, List.not_mem_nil] at h
-      case ok.ok.ok la lb off =>
-        simp only [bodyIn, ha, hb, hd, Bool.and_eq_true] at hi
-        obtain ⟨⟨h1, h2⟩, h3⟩ := hi
-        simp only [List.mem_cons, Prod.mk.injEq] at h
-        rcases h with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ | h
-        · exact h1
-        · exact h2
-        · exact blockAt_of_bodyBlks h3 h
-    all_goals simp [bodyBlks] at h
-
 variable (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) (h16 : cx.frame % 16 = 0)
 include hf h1 h16
 
@@ -194,6 +166,41 @@ theorem bodyW0_lag {Λ : Scc.Sem.Layout} {μ : Marks} {own : Own} {rS : Range} {
       exact h.2.wrTail ha 1 buf n hd)
     fun _ _ _ h _ hc => hc ▸ h.2
 
+/-! ## Covered blocks at their code -/
+
+section Blk
+
+variable {exe : _root_.Executable} {endPc : Int64}
+  {prog : List Directive} {lab : Label → Int64} {μ : Marks} {own : Own} {Tk : State → Prop}
+  {K : State → State → Prop} {okPc : Nat → Bool} {ph : Nat → Nat} {Λ : Scc.Sem.Layout} {rS : Range} {lbl : Lbl}
+  {R : Region} {F : MachineData → Prop}
+
+/-- **`blkW_postO` at a block's code** (`hcode`) rather than its
+`blockAt` placement. -/
+theorem blkW_postO' {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp) {n : ND}
+    {blk : List Directive} {lo hi : Int} {dead : Nat → Bool} {ra : Int64}
+    (hcode : ∀ s : State, s.exe = exe → s.endPc = endPc → Spike.Lib.A64.CodeAt s n.pc blk)
+    (hok : okBlk lo hi n.o blk = true)
+    (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ lo) (hhi : hi ≤ R.hi)
+    (hC : ∀ σ c, n.J σ c → CFacts Λ lbl c)
+    (hph : blkPh okPc ph dead lab n.pc ra blk = true)
+    (hret : ∀ σ c, n.J σ c → ∀ k (hk : k < blk.length) r, Spike.Lib.A64.Flow.classify blk[k] =
+      some (Spike.Lib.A64.Flow.AI.ret r) →
+      Int64.ofInt ((Spike.Lib.A64.Flow.arun lab (blk.take k) ⟨n.pc, n.o, σ⟩).σ.regs.getRegOrZr r).signed = ra)
+    (hdead : ∀ σ c, n.J σ c → dead (Spike.Lib.A64.Flow.arun lab blk ⟨n.pc, n.o, σ⟩).pc.toBitVec.toNat = false)
+    (hl : R.lo % 8 = 0) (hh : R.hi % 8 = 0)
+    (hsub : rS.Sub Λ.stackPool) (hfit : rS.lo + rS.size ≤ 2 ^ 64) (hFO : ∀ m, F m → StackOff rS R m) :
+    BlkW (fun s c => SFacts Λ μ own rS Tk lbl s c) K exe endPc R F n blk := by
+  rw [← hI.labOk] at hph hret hdead
+  obtain ⟨hpc, hph', -⟩ := Spike.Lib.A64Consumer.blkPh_sound (μ := μ) (endPc := endPc) hI.same hI.off hok hph
+    hret hdead
+  refine Spike.Lib.A64Consumer.blkW_sfacts hcode hok hR hal hlo hhi hC hpc hph' fun s m hF hD hc k hk s' hm _ _ => ?_
+  subst hm
+  exact Spike.Lib.A64.Rt.owned_off hR (by omega) hl hh hsub
+    (Spike.Lib.A64.Flow.Ret0.stackOff_stable hfit _ _ (hFO _ hF) hD) hc
+
+end Blk
+
 section W
 
 variable {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe] {endPc : Int64} {prog : List Directive}
@@ -209,7 +216,7 @@ block placed by `bodyIn` (`hbody`), its phase check `bodyPhOk` with no dead
 target and the return address `ra` (`hph`), the controls a local run from
 `c0` reaches `Quiet` (`hQ`). -/
 theorem blkW_body0 {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp) (hf : FrameOk cx) (h1 : cx.frame ≤ 4095)
-    (h16 : cx.frame % 16 = 0) (hbody : bodyIn prog cx l 0 is ws = true)
+    (h16 : cx.frame % 16 = 0) (hbody : bodyIn prog cx l 0 0 is ws = true)
     (hph : bodyPhOk okPc ph (fun _ => false) lab cx l is ws (Int64.ofBitVec ra) = true)
     (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -(cx.frame : Int)) (hhi : 0 ≤ R.hi)
     (hl : R.lo % 8 = 0) (hh : R.hi % 8 = 0) (hsub : rS.Sub Λ.stackPool) (hfit : rS.lo + rS.size ≤ 2 ^ 64)
@@ -248,8 +255,11 @@ theorem blkW_body0 {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc p
       rw [h8, show -(cx.frame : Int) + (cx.frame - 8) = -8 by omega] at hpc'
       rw [hpc']
       exact congrArg Int64.ofBitVec hfj.2
-  have H := blkW_postO (n := n') (dead := fun _ => false) (ra := Int64.ofBitVec ra) (l := l) (k := j) hI
-    (blockAt_of_bodyBlks hbody hj) hpc.symm hok hR hal hlo hhi (fun _ _ h => h.1 ▸ hC0) (hpc ▸ hphb)
+  have hcode : CdOf exe endPc n'.pc blk := by
+    have := cdOf_bodyBlks hI.lays hI.endOk is l 0 0 0 ws hbody (ofNat4_zero _).symm hj
+    rwa [hI.labOk, ← hpc] at this
+  have H := blkW_postO' (n := n') (dead := fun _ => false) (ra := Int64.ofBitVec ra) hI
+    hcode hok hR hal hlo hhi (fun _ _ h => h.1 ▸ hC0) hphb
     hret (fun _ _ _ => rfl) hl hh hsub hfit hFO
   intro s σ c he hn hd hp hA hF hJn k hk m hA' hD
   obtain ⟨hW, hK⟩ := H s σ c0 he hn hd hp hA hF ⟨rfl, c, hJn⟩ k hk m hA' hD
@@ -257,7 +267,7 @@ theorem blkW_body0 {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc p
 
 /-- **`fn0_seg`'s `hWb`**: the body's blocks at its nodes inside `BodyW0`. -/
 theorem hWb_of {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp) (hf : FrameOk cx) (h1 : cx.frame ≤ 4095)
-    (h16 : cx.frame % 16 = 0) (hbody : bodyIn prog cx l 0 is ws = true)
+    (h16 : cx.frame % 16 = 0) (hbody : bodyIn prog cx l 0 0 is ws = true)
     (hph : bodyPhOk okPc ph (fun _ => false) lab cx l is ws (Int64.ofBitVec ra) = true)
     (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -(cx.frame : Int)) (hhi : 0 ≤ R.hi)
     (hl : R.lo % 8 = 0) (hh : R.hi % 8 = 0) (hsub : rS.Sub Λ.stackPool) (hfit : rS.lo + rS.size ≤ 2 ^ 64)
@@ -271,7 +281,7 @@ theorem hWb_of {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp
 /-- **`fn0_seg`'s `hWs`**: the body's blocks at its pending stores inside
 `BodyW0`. -/
 theorem hWs_of {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp) (hf : FrameOk cx) (h1 : cx.frame ≤ 4095)
-    (h16 : cx.frame % 16 = 0) (hbody : bodyIn prog cx l 0 is ws = true)
+    (h16 : cx.frame % 16 = 0) (hbody : bodyIn prog cx l 0 0 is ws = true)
     (hph : bodyPhOk okPc ph (fun _ => false) lab cx l is ws (Int64.ofBitVec ra) = true)
     (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -(cx.frame : Int)) (hhi : 0 ≤ R.hi)
     (hl : R.lo % 8 = 0) (hh : R.hi % 8 = 0) (hsub : rS.Sub Λ.stackPool) (hfit : rS.lo + rS.size ≤ 2 ^ 64)

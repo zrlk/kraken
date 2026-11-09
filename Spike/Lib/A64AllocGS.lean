@@ -44,10 +44,13 @@ local macro "nsi " hb:term:max C:term : tactic =>
   `(tactic| exact NodeW.imp (nodeW_noWr_si hI $hb rfl (by pc_tac)) Spike.Lib.A64.Flow.NodeW.triv $C)
 
 set_option hygiene false in
-/-- The allocator's `ret`, writing nothing, as `W`'s component `C`. -/
+/-- The allocator's `ret`, writing nothing, as `W`'s component `C`: its
+code at the return label `allocRetL` 54 instructions after `.5_ok` (`hb`,
+`allocIn_spec`'s pair). -/
 local macro "nret " hb:term:max C:term : tactic =>
   `(tactic| exact NodeW.imp (Spike.Lib.LowerA64.BlkW.nodeW (blkW_noWr hI (blk := [iRet.toDir]) (lo := -160) (hi := 0)
-    $hb (by pc_tac) (by dsimp only [N]; decide) hR hal (by omega) (by omega)) (List.cons_ne_nil _ _))
+    ($hb).2 (by rw [← hI.labOk, Scc.Cert.Rt.A64.label_labelGap hI.lays ($hb).1]; pc_tac)
+    (by dsimp only [N]; decide) hR hal (by omega) (by omega)) (List.cons_ne_nil _ _))
     Spike.Lib.A64.Flow.NodeW.triv $C)
 
 /-- **`scc_rt_alloc`'s states allow `ArenaWr0`** at every frame list and

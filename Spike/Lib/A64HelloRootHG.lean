@@ -4,7 +4,7 @@ instance's guarantee `HelloGOf2H.gWH` at the dummy heap word `WakeHG.cTW` gives 
 invariant `HelloAssemblyI.GH … (G0H …) w` (the twin of wake's `WakeHG.memInv_gW`).
 
 - `gWH_le`: every value `gWH` allows at the heap word `cTW` is one `GOf2H` allows (`hGpl_ofPlaceW2H`, given the
-  pinned region reaches `pinA + 168`), so it is one `wakeG (GOf2H …) cT'` allows at every flag word `cT'`.
+  pinned region reaches `pinA + 200`), so it is one `wakeG (GOf2H …) cT'` allows at every flag word `cT'`.
 - `hG_H`: the root's `hG`.
 -/
 import Spike.Lib.HelloAssemblyIM
@@ -26,7 +26,7 @@ set_option hygiene false in
 local notation "Ly" => RuntimeLayout.ofPlaceW hp i
 
 /-- **`gWH` at the dummy heap word is below every flag word's `wakeG`** at `GOf2H`. -/
-theorem gWH_le (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) (cT' : Loc) :
+theorem gWH_le (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) (cT' : Loc) :
     ∀ L v, gWH hp i (Spike.Lib.WakeHG.cTW hp i) L v →
       Spike.Lib.WakeG.wakeG (GOf2H (Ly) (Spike.Lib.A64.PhRec.m0Of (Ly).Λ o.prog o.secs)) cT' L v := by
   rintro L v (rfl | h)
@@ -35,7 +35,7 @@ theorem gWH_le (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pi
 
 /-- **The root's `hG`** (`hello_obligations_IM`'s, at `Dd.G := gWH (cTW)`): `MemInv` of the instance's guarantee
 gives `MemInv` of every record's value invariant. -/
-theorem hG_H (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) :
+theorem hG_H (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) :
     ∀ (w : ιH hp i) (m : Memory), MemInv (gWH hp i (Spike.Lib.WakeHG.cTW hp i)) m →
       MemInv (GH hp i (G0H hp i) w) m :=
   fun w _ h => ⟨fun l => gWH_le hp i hpin2 w.1.cT _ _ (h.1 l), fun x hx => gWH_le hp i hpin2 w.1.cT _ _ (h.2 x hx)⟩

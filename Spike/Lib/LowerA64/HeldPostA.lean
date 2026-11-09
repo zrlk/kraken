@@ -274,8 +274,9 @@ theorem mainTailA_segV (hp : ProgNoS ZBad p) {kp : Nat}
   have hcode : ∀ st : State, st.exe = exe → st.endPc = endPc →
       CodeAt st pc (directives (ls ++ cx.leave ++ [ret])) :=
     SubCd.cdOf (fun _ _ h => by
-      obtain ⟨-, L, j, hpc, hb, -⟩ := CdCL.toCdC h
-      exact Spike.Lib.A64.Flow.code_of hI.lays hI.endOk hb (by rw [hI.labOk]; exact hpc)) hcd
+      have hat := h.2.1
+      rw [← hI.labOk] at hat
+      exact AtQ.cdOf hI.lays hI.endOk _ _ hat) hcd
   have hS := blkW_sfacts_ret2 (lbl := lbl)
     (n := heldRN p fs ((bodyN2 p lbl lsize i cx fp ra c0' pc (.ret a)
       (ofEnv2 ((x, .int, [.reg (regName "r" nr)]) :: env)) lits cs bufs).withTp tp))
@@ -315,8 +316,9 @@ theorem mainTailA_segPV (hp : ProgNoS ZBad p) {kp : Nat}
   have hcode : ∀ st : State, st.exe = exe → st.endPc = endPc →
       CodeAt st pc (directives (ls ++ cx.leave ++ [ret])) :=
     SubCd.cdOf (fun _ _ h => by
-      obtain ⟨-, L, j, hpc, hb, -⟩ := CdCL.toCdC h
-      exact Spike.Lib.A64.Flow.code_of hI.lays hI.endOk hb (by rw [hI.labOk]; exact hpc)) hcd
+      have hat := h.2.1
+      rw [← hI.labOk] at hat
+      exact AtQ.cdOf hI.lays hI.endOk _ _ hat) hcd
   have hfj : ∀ σ c, (heldRNU p fs ((bodyN2 p lbl lsize i cx fp ra c0' pc (.ret a) s lits cs bufs).withTp
       tp)).J σ c → FrJ fp ra σ.slot := fun _ _ ⟨_, _, _, _, ⟨⟨_, hfj, _⟩, _⟩⟩ => hfj
   have hS := blkW_sfacts_ret2 (lbl := lbl) hI hf h1 h16 hR hal hlo hhi hl8 hh8 hsub hfit hFO rfl hfj hl

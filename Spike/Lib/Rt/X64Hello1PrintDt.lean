@@ -12,10 +12,10 @@ state alone).
 
 - `PrintDt exe endPc`: for some `R0` (`OK`, `R0.lo ≤ -256`, `0 ≤ R0.hi`),
   `print`'s pieces (the caller's `%rbp` `wc_main`'s frame pointer, the
-  return address `.x15`, under `CP`), `RetDt` or `AbIn`; or the `write`
+  return address `.x0`, under `CP`), `RetDt` or `AbIn`; or the `write`
   stub's `StubDt`;
 - `printDt_closed`: closed under certification, given the code (`Print.Code`,
-  `Abort.Disp.Code`, the `write` stub's `Abort.Code`, `wc_main`'s `.x15`
+  `Abort.Disp.Code`, the `write` stub's `Abort.Code`, `wc_main`'s `.x0`
   block, `scc_rt_main`'s `exit_group` tail) and `PrintDt` off the transfer
   sites (`hns`);
 - `printDt_of_at`: `print`'s `write` node (`At … (Print.N … .sys)` in
@@ -28,6 +28,7 @@ import Spike.Lib.Rt.X64Hello1AbDt
 import Spike.Lib.X64Hello1Segs
 import Scc.Cert.Rt.X64Abort
 import Scc.Cert.Rt.X64Print
+import Spike.Lib.X64CodeAcross
 
 namespace Spike.Lib.X64.Rt
 
@@ -43,7 +44,7 @@ open Scc.Cert.Rt.X64 (Lays endOf code_field)
 def PrintDt (exe : _root_.Executable) (endPc : Int64) (s : State) : Prop :=
   (∃ R0 : Region, R0.OK ∧ R0.lo ≤ -256 ∧ 0 ≤ R0.hi ∧
     (PrintIn exe endPc (pR (wR R0)) ((wR R0).addr (-8))
-        ((_root_.Executable.labels exe).label ".Lwc_main.x15").toBitVec (CP exe R0) s ∨
+        ((_root_.Executable.labels exe).label ".Lwc_main.x0").toBitVec (CP exe R0) s ∨
       RetDt exe endPc R0 s ∨ AbIn exe endPc (aR R0) s)) ∨
   StubDt exe endPc (_root_.Executable.labels exe).label Abort.write s
 
@@ -56,9 +57,9 @@ code it runs through and the tail off the transfer sites. -/
 theorem printDt_closed {c0 c1 c2 : Ctl} {rbp0 ra : BitVec 64} (hpc : Print.Code c0 rbp0 ra exe endPc)
     (hdc : Abort.Disp.Code c1 exe endPc) (hsc : Abort.Code Abort.write c2 Abort.x1Write exe endPc)
     (hc15 : ∀ s : State, s.exe = exe → s.endPc = endPc →
-      CodeAt s ((_root_.Executable.labels exe).label ".Lwc_main.x15") wcR15)
+      CodeAt s ((_root_.Executable.labels exe).label ".Lwc_main.x0") wcR15)
     (hcx : ∀ s : State, s.exe = exe → s.endPc = endPc →
-      CodeAt s ((_root_.Executable.labels exe).label ".Lscc_rt_main.x3") (Flow.xExit (-48) 4 4 5))
+      CodeAt s ((_root_.Executable.labels exe).label ".Lscc_rt_main.x1") (Flow.xExit (-48) 4 4 5))
     (hcs : ∀ s : State, s.exe = exe → s.endPc = endPc → CodeAt s (pcX exe) [(op64 .syscall, 2)])
     (hns : ∀ s, PrintDt exe endPc s → Kernel.siteAt abi μ s = none) (x : Kernel.KState) :
     ClosedC Arch.tso (Kernel.certSem abi Arch.tso μ x 0) 0 (PrintDt exe endPc) := by
@@ -68,13 +69,13 @@ theorem printDt_closed {c0 c1 c2 : Ctl} {rbp0 ra : BitVec 64} (hpc : Print.Code 
   have hG : ∀ R0 : Region, R0.OK → R0.lo ≤ -256 → 0 ≤ R0.hi →
       ClosedC Arch.tso (Kernel.certSem abi Arch.tso μ x 0) 0 (fun s =>
         PrintIn exe endPc (pR (wR R0)) ((wR R0).addr (-8))
-          ((_root_.Executable.labels exe).label ".Lwc_main.x15").toBitVec (CP exe R0) s ∨
+          ((_root_.Executable.labels exe).label ".Lwc_main.x0").toBitVec (CP exe R0) s ∨
         RetDt exe endPc R0 s ∨ AbIn exe endPc (aR R0) s ∨
         StubDt exe endPc (_root_.Executable.labels exe).label Abort.write s) := by
     intro R0 hR hlo hhi
     have hin : ∀ {D : State → Prop}, (∀ s, D s → RetDt exe endPc R0 s ∨ AbIn exe endPc (aR R0) s ∨
         PrintIn exe endPc (pR (wR R0)) ((wR R0).addr (-8))
-          ((_root_.Executable.labels exe).label ".Lwc_main.x15").toBitVec (CP exe R0) s) →
+          ((_root_.Executable.labels exe).label ".Lwc_main.x0").toBitVec (CP exe R0) s) →
         ∀ s, D s → Kernel.siteAt abi μ s = none := fun hD s h => hns s (.inl ⟨R0, hR, hlo, hhi, by
           rcases hD s h with h | h | h
           · exact .inr (.inl h)
@@ -110,12 +111,12 @@ end Closed
 
 /-- **`print`'s `write` node is in the tail**: in `print`'s region
 `pR (wR R0)`, under a frame condition giving `CP`, the ghost `%rbp`
-`wc_main`'s frame pointer and the return address `.x15`. -/
+`wc_main`'s frame pointer and the return address `.x0`. -/
 theorem printDt_of_at {exe : _root_.Executable} {endPc : Int64} {R0 : Region} {F : MachineData → Prop}
     {c0 c : Ctl} {rbp0 : BitVec 64} {s : State} (hR : R0.OK) (hlo : R0.lo ≤ -256) (hhi : 0 ≤ R0.hi)
     (hF : ∀ m, F m → CP exe R0 m) (hrbp : rbp0 = (wR R0).addr (-8))
     (hAt : At exe endPc (pR (wR R0)) F (Print.N (_root_.Executable.labels exe).label c0 rbp0
-      ((_root_.Executable.labels exe).label ".Lwc_main.x15").toBitVec .sys) s c) :
+      ((_root_.Executable.labels exe).label ".Lwc_main.x0").toBitVec .sys) s c) :
     PrintDt exe endPc s := by
   subst hrbp
   obtain ⟨he, hn, -, hpc, σ, hA, hD, ⟨-, h0, h8⟩, h1, h2⟩ := hAt
@@ -142,7 +143,7 @@ theorem printDt_closed_hello1 (c0 : Ctl) (hp : Lays exe SccCode.hello1Cells)
       code_field hp hend h3 rfl, code_field hp hend h4 (off0 _), code_field hp hend h5 rfl,
       code_field hp hend h6 rfl, code_field hp hend h7 (off0 _),
       code_field hp hend h8 rfl, code_field hp hend h9 (off0 _), code_field hp hend h10 rfl,
-      code_field hp hend h11 (off0 _), code_field hp hend h12 (off0 _), code_field hp hend h13 (off0 _),
+      code_field hp hend h11 (off0 _), code_field hp hend h12 (off0 _), Spike.Lib.X64.code_field_blockAcrossB hp hend h13 (List.take_append_drop _ _) (off0 _),
       code_field hp hend hs rfl⟩
   have hab := SccCode.hello1_abort
   have hdc : Abort.Disp.Code c0 exe endPc := by
@@ -154,7 +155,8 @@ theorem printDt_closed_hello1 (c0 : Ctl) (hp : Lays exe SccCode.hello1Cells)
   simp only [Flow.Hello1.wcBodyIn, Bool.and_eq_true] at hwc
   have hmx := Flow.hello1_mainExit
   simp only [Flow.exitIn, Bool.and_eq_true] at hmx
-  refine printDt_closed hpc hdc hsc (code_field hp hend hwc.1.2 (off0 _))
+  refine printDt_closed hpc hdc hsc
+    (Spike.Lib.X64.code_field_blockAcrossB hp hend hwc.1.2 (List.take_append_drop _ _) (off0 _))
     (code_field hp hend hmx.1 (off0 _))
     (code_field hp hend hmx.2 ?_) hns x
   show _ + Int64.ofNat (4 + 4 + 5) = _ + Int64.ofNat 4 + Int64.ofNat 4 + Int64.ofNat 5

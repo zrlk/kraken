@@ -98,7 +98,7 @@ theorem h0W_I (B : HelloRootBase (Ly) (LB) (AW) (Spike.Lib.A64.HelloPh.H2Rt.ms2H
 bind, `hstat_tablesOf` and `hstat_elf`; the arena is `arW`, the base's parameter, its `har` by `har_W`). -/
 noncomputable def toPrem (B : HelloRootBase (Ly) (LB) (AW) (Spike.Lib.A64.HelloPh.H2Rt.ms2H (asm := asm) hpw IH E))
     (hA13 : Scc.Cert.Spawn.A64.a13data (Ly).Λ o.prog o.secs = true)
-    (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) (hstat : Λ0.static = fun _ => none) :
+    (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) (hstat : Λ0.static = fun _ => none) :
     HelloRootPrem (Ly) (LB) where
     hp := B.hp
     hlo := B.hlo
@@ -139,7 +139,7 @@ noncomputable def toPrem (B : HelloRootBase (Ly) (LB) (AW) (Spike.Lib.A64.HelloP
 
 variable {hpw i0 E} (B : HelloRootBase (Ly) (LB) (AW) (Spike.Lib.A64.HelloPh.H2Rt.ms2H (asm := asm) hpw IH E))
   (hA13 : Scc.Cert.Spawn.A64.a13data (Ly).Λ o.prog o.secs = true)
-  (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) (hstat : Λ0.static = fun _ => none)
+  (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) (hstat : Λ0.static = fun _ => none)
 
 /-- `h2Stmt_root`'s `hX2` at `toPrem` (`ls0 := ls0T B.ls`). -/
 theorem toPrem_X2 : (B.toPrem hpw i0 E hA13 hpin2 hstat).X2 = fun l b n l' b' n' =>

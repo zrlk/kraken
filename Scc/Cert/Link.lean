@@ -123,6 +123,9 @@ def step (B : Bases) (code : String → Option Nat) (w : Walk) : Item → Walk
   | .bytes bs => { w with cur := w.cur + bs.length, img := addBytes w.img w.cur (bs.map UInt8.toNat) }
   | .quad v => { w with cur := w.cur + 8, img := addBytes w.img w.cur (bytes8 (v % 2 ^ 64).toNat) }
   | .quadLabel l => { w with cur := w.cur + 8, img := addBytes w.img w.cur (bytes8 ((code l).getD 0 % 2 ^ 64)) }
+  | .quadDiff a b =>
+    let base : Int := match b with | some b => (code b).getD 0 | none => w.cur
+    { w with cur := w.cur + 8, img := addBytes w.img w.cur (bytes8 ((((code a).getD 0 : Int) - base) % 2 ^ 64).toNat) }
 
 /-- The walk over items from `w`. -/
 def walk (B : Bases) (code : String → Option Nat) (w : Walk) (items : List Item) : Walk :=

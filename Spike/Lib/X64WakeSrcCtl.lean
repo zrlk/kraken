@@ -394,9 +394,9 @@ theorem codeLabel_base (b : Nat) (cells : List (Directive × Nat)) (l : String) 
     codeLabel b cells l = (codeLabel 0 cells l).map (b + ·) := by
   unfold codeLabel; simpa using labelAddr_add (fun c : Directive × Nat => labelName c.1) (·.2) l cells b 0
 
-/-- `.Lwc_main.x21` in wake's cells at `0` (the clone's `syscall` is 46 bytes
+/-- `.Lwc_main.x3` in wake's cells at `0` (the clone's `syscall` is 46 bytes
 past it). -/
-theorem codeLabel_x21 : codeLabel 0 wakeCells Spike.Lib.X64.WakePh.WcClone.x21L = some 4997 := by
+theorem codeLabel_x21 : codeLabel 0 wakeCells Spike.Lib.X64.WakePh.WcClone.x21L = some 5035 := by
   rw [← Scc.Cert.Rt.X64.codeT_eq]; decide +kernel
 
 /-- The take site in wake's cells at `0`. -/
@@ -404,7 +404,7 @@ theorem codeLabel_site : codeLabel 0 wakeCells Spike.Lib.X64.Flow.Ret0.StackTake
   rw [← Scc.Cert.Rt.X64.codeT_eq]; decide +kernel
 
 /-- Wake's cells' total size. -/
-theorem wakeCells_size : (wakeCells.map (·.2)).sum = 5179 := by decide +kernel
+theorem wakeCells_size : (wakeCells.map (·.2)).sum = 5217 := by decide +kernel
 
 section Place
 
@@ -431,7 +431,7 @@ labels resolved in wake's cells (`hlab_ofPlaceWX`) at offsets that differ. -/
 theorem cloneAt_ne_site (ho : o.prog = wakeCells) :
     (Spike.Lib.X64WakePreA.cloneAt (Ly).exe).toBitVec.toNat ≠
       ((Ly).lab Spike.Lib.X64.Flow.Ret0.StackTake.siteL).toBitVec.toNat := by
-  have h1 := PlaceWX.hlab_ofPlaceWX hp i Spike.Lib.X64.WakePh.WcClone.x21L ((Ly).Λ.code.lo + 4997)
+  have h1 := PlaceWX.hlab_ofPlaceWX hp i Spike.Lib.X64.WakePh.WcClone.x21L ((Ly).Λ.code.lo + 5035)
     (by rw [ho, codeLabel_base, codeLabel_x21]; rfl)
   have h2 := PlaceWX.lab_toNat hp i (l := Spike.Lib.X64.Flow.Ret0.StackTake.siteL)
     (a := (Ly).Λ.code.lo + 1877) (by rw [ho, codeLabel_base, codeLabel_site]; rfl)

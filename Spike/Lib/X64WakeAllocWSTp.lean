@@ -10,7 +10,7 @@ rest as `allocW_WS`.
   pointer in its `CtrAt` disjunct, so its `hctx` needs `TP t s`).
 
 **Where this differs from AArch64** (forced by the x86-64 shape): as
-`allocW_WS` (`wakeCells`' labels, `.Lwc_main.x18`, `[-160, 8)` with `hR8`);
+`allocW_WS` (`wakeCells`' labels, `.Lwc_main.x0`, `[-160, 8)` with `hR8`);
 the thread pointer is `fsBase` (`KeepTP.TP`, `WakeTP.tpG`; A64's `TPIDR_EL0`,
 `WakeWc.tpG`).
 -/
@@ -48,7 +48,7 @@ theorem allocW_WS_tp (hp : L.prog = wakeCells) (hlo : L.Λ.code.lo = Spike.Lib.X
     (a : BitVec 64) {ms : Spike.Lib.MemSide isa} {q : Call} {t : UInt64}
     (hR : R.OK) (hR8 : R.base.toNat % 8 = 0) (hlo' : R.lo ≤ -160) (hhi : 8 ≤ R.hi)
     (hl : R.lo % 8 = 0) (hh : R.hi % 8 = 0) (hpool : L.Λ.stackPool.lo ≤ 2 ^ 64)
-    (hra : q.ra = (L.lab ".Lwc_main.x18").toBitVec) (hq : ∀ m, F m → q.OKS ms L.lab)
+    (hra : q.ra = (L.lab ".Lwc_main.x0").toBitVec) (hq : ∀ m, F m → q.OKS ms L.lab)
     (hmp : ∀ l, ms.mp l true → Scc.Sem.Kernel.mapped (Spike.Lib.X64Consumer.K0 L.Λ) true l = true)
     (hmem : ∀ a : BitVec 64,
       (a = BitVec.ofNat 64 ms.ctr ∨ ∃ o, o + ms.units q.n q.τ ≤ ms.cells ∧ a.toNat = q.hdrAt ms o) →

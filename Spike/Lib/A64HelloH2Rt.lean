@@ -10,13 +10,13 @@ words `ownGH … ntA`, arena `arW`, at the twice extended placement `lbl2H` and 
   (off both limit words: any value), the runtime's to store (`StOk`) when unmapped under `F`.
 - `lim2H_mem`, `sepCtr_H`, `hoffSp_H`, `hoff56_H`: hello's second limit word is a spawn word; A13's spawn words are
   apart from the arena's counter, so off the arena (`CalWf.off_of`); in particular the id word `tH + 56 =
-  pinA + 168` (`wcWf_W2H`'s `hoff56`; from A13, no new layout fact).
+  pinA + 200` (`wcWf_W2H`'s `hoff56`; from A13, no new layout fact).
 - `ph_rmw2H`: the phase fact at `scc_rt_alloc_tcb`'s counter add (bit `0` of `ph2aH` set: before
   `scc_rt_pinned_next`'s add).
 - `resA_H2`, `hdrA_H`, `tcbA_H`, `tid_H`, `hfld_H`: the fields. The reserve's counter by `ResA.resA_H`; the
-  second TCB's header `pinA + 104` (`tcb2QH_hdrA`), its counter add on a pool stack (`BandSp3H`, `good2aH_of`,
-  `ownGH_2a`), its id word `pinA + 168`, its six fields `tH + 8 k` (`pinA + 112 … 152`), the limit field
-  `pinA + 120` holding `lim2V` (`gOf2H_lim2V`), the others off both limit words.
+  second TCB's header `pinA + 136` (`tcb2QH_hdrA`), its counter add on a pool stack (`BandSp3H`, `good2aH_of`,
+  `ownGH_2a`), its id word `pinA + 200`, its six fields `tH + 8 k` (`pinA + 144 … 184`), the limit field
+  `pinA + 152` holding `lim2V` (`gOf2H_lim2V`), the others off both limit words.
 
 - `ctr_stH`, `ctr_ldH`, `ph_takeH`, `htk_H`: the second take's counters (`lockA`, `freeNA`, `nextA`, runtime
   words off both limit words) and their ownership at the take's nodes on the first stack (`BoxPureH`'s
@@ -153,34 +153,35 @@ theorem hoffSp_H (hA13 : Scc.Cert.Spawn.A64.a13data (Ly).Λ o.prog o.secs = true
     (by simpa using (Spike.Lib.A64.WakePh.H1Rt.a13_facts hp i hA13).2.1 x hx 0 (by decide))
     (Spike.Lib.A64.WakePh.CalWf.ne_of_sep (sepCtr_H hp i hA13 x hx))
 
-/-- **The second TCB's id word `tH + 56 = pinA + 168` is off the arena** (`wcWf_W2H`'s `hoff56`). -/
+/-- **The second TCB's id word `tH + 56 = pinA + 200` is off the arena** (`wcWf_W2H`'s `hoff56`). -/
 theorem hoff56_H (hA13 : Scc.Cert.Spawn.A64.a13data (Ly).Λ o.prog o.secs = true) :
     ¬ ((Spike.Lib.WakeOD.arW hp i).heap ≤ (tH (Ly).lab + 56#64).toNat ∧
         (tH (Ly).lab + 56#64).toNat < (Spike.Lib.WakeOD.arW hp i).heap + 16 * (Spike.Lib.WakeOD.arW hp i).cells) ∧
       (⟨tH (Ly).lab + 56#64, 8⟩ : Loc) ≠ (Spike.Lib.WakeOD.arW hp i).ctrLoc := by
-  have e : tH (Ly).lab + 56#64 = (Ly).pinA + BitVec.ofNat 64 (80 + 8 * 11) := by
-    show Spike.Lib.A64.Flow.Ret0.pinA (Ly).lab + 112#64 + 56#64 = _
+  have e : tH (Ly).lab + 56#64 = (Ly).pinA + BitVec.ofNat 64 (112 + 8 * 11) := by
+    show Spike.Lib.A64.Flow.Ret0.pinA (Ly).lab + 144#64 + 56#64 = _
     rw [(Ly).lab_pin, BitVec.add_assoc]; rfl
   rw [e]
   exact hoffSp_H hp i hA13 (List.mem_map.2 ⟨11, List.mem_range.2 (by decide), rfl⟩)
 
 /-- **The second TCB's words unmapped from the spawn words'** (`hS`, one frame fact for the root): the header
-`pinA + 104` (`hdrA_H`'s `hunH`), the id word `tH + 56` (`tid_H`'s `hunT`) and the six fields (`hfld_H`'s
+`pinA + 136` (`hdrA_H`'s `hunH`), the id word `tH + 56` (`tid_H`'s `hunT`) and the six fields (`hfld_H`'s
 `hunF`), spawn words `3`, `11` and `4` to `9`. -/
 theorem hunSp_H {F : MachineData → Prop}
     (hS : ∀ m, F m → ∀ x ∈ Scc.Cert.Spawn.A64.spawnWords (Ly).pinA, Mem.loadInt m.dmem x 8 = none) :
-    (∀ m, F m → Mem.loadInt m.dmem ((Ly).pinA + 104#64) 8 = none) ∧
+    (∀ m, F m → Mem.loadInt m.dmem ((Ly).pinA + 136#64) 8 = none) ∧
       (∀ m, F m → Mem.loadInt m.dmem (tH (Ly).lab + 56#64) 8 = none) ∧
       ∀ e ∈ Spike.Lib.A64.Flow.Ret0.ThreadInit.fields (tH (Ly).lab)
         (Spike.Lib.A64.Flow.Ret0.stacksA (Ly).lab + 16384#64),
         ∀ m, F m → Mem.loadInt m.dmem (tH (Ly).lab + BitVec.ofNat 64 e.1) 8 = none := by
-  have hq : ∀ k : Nat, tH (Ly).lab + BitVec.ofNat 64 k = (Ly).pinA + (112#64 + BitVec.ofNat 64 k) := by
-    intro k; show Spike.Lib.A64.Flow.Ret0.pinA (Ly).lab + 112#64 + _ = _; rw [(Ly).lab_pin, BitVec.add_assoc]
-  have hw : ∀ j < 16, ∀ m, F m → Mem.loadInt m.dmem ((Ly).pinA + BitVec.ofNat 64 (80 + 8 * j)) 8 = none :=
-    fun j hj m hm => hS m hm _ (List.mem_map.2 ⟨j, List.mem_range.2 hj, rfl⟩)
+  have hq : ∀ k : Nat, tH (Ly).lab + BitVec.ofNat 64 k = (Ly).pinA + (144#64 + BitVec.ofNat 64 k) := by
+    intro k; show Spike.Lib.A64.Flow.Ret0.pinA (Ly).lab + 144#64 + _ = _; rw [(Ly).lab_pin, BitVec.add_assoc]
+  have hw : ∀ j < 16, ∀ m, F m → Mem.loadInt m.dmem ((Ly).pinA + BitVec.ofNat 64 (112 + 8 * j)) 8 = none :=
+    fun j hj m hm => hS m hm _ (List.mem_map.2 ⟨j, List.mem_range.2 (by
+      simp only [Scc.IR.Tcb.size, Scc.IR.maxSpawnArgs]; omega), rfl⟩)
   refine ⟨hw 3 (by decide), ?_, fun e he => ?_⟩
   · have h := hw 11 (by decide)
-    rwa [show (Ly).pinA + BitVec.ofNat 64 (80 + 8 * 11) = tH (Ly).lab + 56#64 by rw [hq]; rfl] at h
+    rwa [show (Ly).pinA + BitVec.ofNat 64 (112 + 8 * 11) = tH (Ly).lab + 56#64 by rw [hq]; rfl] at h
   simp only [Spike.Lib.A64.Flow.Ret0.ThreadInit.fields, List.mem_cons, List.not_mem_nil, or_false] at he
   rcases he with rfl | rfl | rfl | rfl | rfl | rfl <;> dsimp only <;> rw [hq]
   · exact hw 4 (by decide)
@@ -209,8 +210,8 @@ theorem resA_H2 (hunN : ∀ m, F m → Mem.loadInt m.dmem (ntA (Ly).lab) 8 = non
       (hA.2.2.2.1 _ (lim2H_mem hp i)) hunN)
 
 omit hlab in
-/-- **`H1GAH0W.hdrA`**: the second TCB's header `pinA + 104`. -/
-theorem hdrA_H (hunH : ∀ m, F m → Mem.loadInt m.dmem ((Ly).pinA + 104#64) 8 = none) :
+/-- **`H1GAH0W.hdrA`**: the second TCB's header `pinA + 136`. -/
+theorem hdrA_H (hunH : ∀ m, F m → Mem.loadInt m.dmem ((Ly).pinA + 136#64) 8 = none) :
     ∀ c0 g, Spike.Lib.A64.Flow.Ret0.StOk ms2 F (Ly).exe (Ly).endPc (hdrA (Ly).lab (tcb2QH g c0))
       ((tcb2QH g c0).h ||| 1#64 <<< 36) := by
   intro c0 g
@@ -220,22 +221,22 @@ theorem hdrA_H (hunH : ∀ m, F m → Mem.loadInt m.dmem ((Ly).pinA + 104#64) 8 
     (Spike.Lib.A64.PhRec.pin_ne (by decide)) (Spike.Lib.HelloGOf2H.pin_ne2H (by decide)) hunH
 
 omit hlab in
-/-- **`H1GAH0W.tid`**: the second TCB's id word `tH + 56 = pinA + 168`. -/
+/-- **`H1GAH0W.tid`**: the second TCB's id word `tH + 56 = pinA + 200`. -/
 theorem tid_H (hunT : ∀ m', F m' → Mem.loadInt m'.dmem (tH (Ly).lab + 56#64) 8 = none) :
     (ms2).rt (tH (Ly).lab + 56#64).toNat ∧ (ms2).mp ⟨tH (Ly).lab + 56#64, 8⟩ true ∧
       (ms2).G ⟨tH (Ly).lab + 56#64, 8⟩ ((1#64).setWidth 128) ∧
       ∀ m', F m' → Mem.loadInt m'.dmem (tH (Ly).lab + 56#64) 8 = none := by
-  have e : tH (Ly).lab + 56#64 = (Ly).pinA + BitVec.ofNat 64 168 := by
-    show Spike.Lib.A64.Flow.Ret0.pinA (Ly).lab + 112#64 + 56#64 = _
+  have e : tH (Ly).lab + 56#64 = (Ly).pinA + BitVec.ofNat 64 200 := by
+    show Spike.Lib.A64.Flow.Ret0.pinA (Ly).lab + 144#64 + 56#64 = _
     rw [(Ly).lab_pin, BitVec.add_assoc]; rfl
   rw [e] at hunT ⊢
-  have h : Spike.Lib.A64.Flow.Ret0.StOk ms2 F (Ly).exe (Ly).endPc ((Ly).pinA + BitVec.ofNat 64 168) 1#64 :=
+  have h : Spike.Lib.A64.Flow.Ret0.StOk ms2 F (Ly).exe (Ly).endPc ((Ly).pinA + BitVec.ofNat 64 200) 1#64 :=
     stOk_H hp i E ls hstat hf
       ((Spike.Lib.A64.WakePh.H1Rt.a13_facts hp i hA13).2.1 _ (List.mem_map.2 ⟨11, List.mem_range.2 (by decide), rfl⟩))
       (Spike.Lib.A64.PhRec.pin_ne (by decide)) (Spike.Lib.HelloGOf2H.pin_ne2H (by decide)) hunT
   exact ⟨h.rt, h.mp, h.G, h.unmapped⟩
 
-/-- **`H1GAH0W.tcbA`**: the second TCB's counter `scc_rt_pinned_next` at old value `80`, its add on a pool stack
+/-- **`H1GAH0W.tcbA`**: the second TCB's counter `scc_rt_pinned_next` at old value `112`, its add on a pool stack
 (`hb`). -/
 theorem tcbA_H (hb : BandSp3H (Ly) R) (hunP : ∀ m, F m → Mem.loadInt m.dmem (Ly).pnA 8 = none) :
     ∀ c0 g, TcbOkGA ms2 F (Ly).exe (Ly).endPc (R.callee (-144) (-192) 0) F (tcb2QH g c0) := by
@@ -262,8 +263,8 @@ theorem tcbA_H (hb : BandSp3H (Ly) R) (hunP : ∀ m, F m → Mem.loadInt m.dmem 
   simp [own2aH, Spike.Lib.A64.WakePh.ownV, hf', (Ly).lab_pn, tcb2QH]
 
 omit hlab in
-/-- **`H1GAH0W.hfld`**: `scc_rt_thread_init`'s six fields of the second TCB `tH = pinA + 112` (spawn words `4`
-to `9`), the limit field `pinA + 120` holding the second stack's limit (`gOf2H_lim2V`), the others off both limit
+/-- **`H1GAH0W.hfld`**: `scc_rt_thread_init`'s six fields of the second TCB `tH = pinA + 144` (spawn words `4`
+to `9`), the limit field `pinA + 152` holding the second stack's limit (`gOf2H_lim2V`), the others off both limit
 words. -/
 theorem hfld_H (hunF : ∀ e ∈ Spike.Lib.A64.Flow.Ret0.ThreadInit.fields (tH (Ly).lab)
       (Spike.Lib.A64.Flow.Ret0.stacksA (Ly).lab + 16384#64),
@@ -272,8 +273,8 @@ theorem hfld_H (hunF : ∀ e ∈ Spike.Lib.A64.Flow.Ret0.ThreadInit.fields (tH (
       (Spike.Lib.A64.Flow.Ret0.stacksA (Ly).lab + 16384#64),
       Spike.Lib.A64.Flow.Ret0.StOk ms2 F (Ly).exe (Ly).endPc (tH (Ly).lab + BitVec.ofNat 64 e.1) e.2 := by
   have hA := (Spike.Lib.A64.WakePh.H1Rt.a13_facts hp i hA13).2.1
-  have hq : ∀ k : Nat, tH (Ly).lab + BitVec.ofNat 64 k = (Ly).pinA + (112#64 + BitVec.ofNat 64 k) := by
-    intro k; show Spike.Lib.A64.Flow.Ret0.pinA (Ly).lab + 112#64 + _ = _; rw [(Ly).lab_pin, BitVec.add_assoc]
+  have hq : ∀ k : Nat, tH (Ly).lab + BitVec.ofNat 64 k = (Ly).pinA + (144#64 + BitVec.ofNat 64 k) := by
+    intro k; show Spike.Lib.A64.Flow.Ret0.pinA (Ly).lab + 144#64 + _ = _; rw [(Ly).lab_pin, BitVec.add_assoc]
   intro e he
   have hun := hunF e he
   simp only [Spike.Lib.A64.Flow.Ret0.ThreadInit.fields, List.mem_cons, List.not_mem_nil, or_false] at he
@@ -365,7 +366,7 @@ private theorem sp_ofH {L : RuntimeLayout} {ep : Int64} {R : Spike.Lib.Region} {
 
 /-- **In `scc_rt_thread_init` … `scc_rt_stack_release` at phase `ph`** (`ph2bH`), a decided pc check. -/
 def tkChk (ph : Option Nat) (t : Nat) : Bool :=
-  decide (2165280 ≤ t ∧ t < 2166000) && ph.all (ph2bH t == ·)
+  decide (2165284 ≤ t ∧ t < 2166004) && ph.all (ph2bH t == ·)
 
 /-- **The phase facts at the take's three owned nodes**: the lock's swap at phase `12`, the free count's load,
 the next offset's store at phase `12`, all inside `scc_rt_thread_init` … `scc_rt_stack_release`. -/

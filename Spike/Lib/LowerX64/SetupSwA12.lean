@@ -413,19 +413,19 @@ theorem sw_eq_setupWords2 {cfg : Scc.Config} {pcfg : Scc.Cert.PlaceOK.Config} {p
   have he : Spike.Lib.LowerNode.entry2 p = ⟨.setupTid, true⟩ := by simp [Spike.Lib.LowerNode.entry2, hs]
   rw [he] at hrt
   generalize hir' : (Scc.Lower.X64.lowerAll cfg p).low.ir = ir at hir
-  have hf : Scc.Lower.Inv.mainThread0 ⟨.setupTid, true⟩ (Spike.Lib.LowerNode.setupWords2 p) ∈ ir.funcs := by
+  have hf : Scc.Lower.Inv.mainThread0 ⟨.setupTid, true⟩ (Spike.Lib.LowerNode.setupWords2 p) (Spike.Lib.LowerNode.setupMask2 p) ∈ ir.funcs := by
     rw [hir]
     exact List.mem_append_left _ (Spike.Lib.mainThread0_mem hrt)
   obtain ⟨n, hn⟩ := mem_starts ir 0 hf
   have h12 := Scc.Cert.PlaceOK.X64.fnCode1_of_placeOKAt h
     ((Scc.Cert.PlaceOK.X64.place_ir_ofEmitted _ _ _).trans (congrArg some hir'))
   have hok := Scc.Cert.Code1X64.fnOk1_of_fnCode1Ok h12 hn rfl
-  have hm : (frOf ir (Scc.Lower.Inv.mainThread0 ⟨.setupTid, true⟩ (Spike.Lib.LowerNode.setupWords2 p))).maps =
+  have hm : (frOf ir (Scc.Lower.Inv.mainThread0 ⟨.setupTid, true⟩ (Spike.Lib.LowerNode.setupWords2 p) (Spike.Lib.LowerNode.setupMask2 p))).maps =
       true := by
     show ir.growth.isSome = true
     rw [hir]; rfl
   obtain ⟨ms, hms, hml⟩ := callMaps_single (f := Scc.Lower.Inv.mainThread0 ⟨.setupTid, true⟩
-    (Spike.Lib.LowerNode.setupWords2 p)) rfl
+    (Spike.Lib.LowerNode.setupWords2 p) (Spike.Lib.LowerNode.setupMask2 p)) rfl
   unfold Scc.Cert.Code1X64.fnOk1 at hok
   split at hok
   case h_2 => cases hok
@@ -434,7 +434,7 @@ theorem sw_eq_setupWords2 {cfg : Scc.Config} {pcfg : Scc.Cert.PlaceOK.Config} {p
   case h_2 => cases hok
   simp only [Bool.and_eq_true] at hok
   have hbl : Scc.Cert.Code1X64.blocksOk (Scc.Cert.PlaceOK.X64.Out.ofEmitted (Scc.Lower.X64.lowerAll cfg p) sizes
-      labelOffs).prog (frOf ir (Scc.Lower.Inv.mainThread0 ⟨.setupTid, true⟩ (Spike.Lib.LowerNode.setupWords2 p))) n
+      labelOffs).prog (frOf ir (Scc.Lower.Inv.mainThread0 ⟨.setupTid, true⟩ (Spike.Lib.LowerNode.setupWords2 p) (Spike.Lib.LowerNode.setupMask2 p))) n
       ([] ++ (⟨"entry", Scc.Lower.Inv.mainInsts ⟨.setupTid, true⟩ (Spike.Lib.LowerNode.setupWords2 p),
         .unreachable⟩, ms) :: []) = true := by
     have := hok.1.1.1.2

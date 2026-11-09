@@ -121,6 +121,14 @@ local macro "rnodeW " b:ident ok:ident hb:term:max w:term:max : tactic =>
   `(tactic| refine seg_ndW (by simp [$b:ident]) $ok hF hR hlo hhi
     (code_field hp hend $hb (by first | rfl | exact ofNat_zero' _)) $w fun σ c hJ => ⟨c, .refl c, ?_⟩)
 
+set_option hygiene false in
+/-- `rnodeW` for `rRet`, split by its return label `retL` after 3 rows
+(`blockAcrossB`, `Spike.Lib.X64.code_field_blockAcrossB`). -/
+local macro "rnodeWX " b:ident ok:ident hb:term:max w:term:max : tactic =>
+  `(tactic| refine seg_ndW (by simp [$b:ident]) $ok hF hR hlo hhi
+    (Spike.Lib.X64.code_field_blockAcrossB hp hend $hb (List.take_append_drop 3 _)
+      (by first | rfl | exact ofNat_zero' _)) $w fun σ c hJ => ⟨c, .refl c, ?_⟩)
+
 /-- **`scc_rt_thread_reserve` is one segment inside `W`**: in any valid
 layout of any cells with its code (`hin`), from its entry to its return,
 for any region holding its frame of 32, the saved `%rbp` and the return
@@ -183,7 +191,7 @@ theorem reserve_segW {W : Frag isa} {K : State → State → Prop} {kp : Nat}
     obtain ⟨h1, h2, h3⟩ := rJ_walk (_root_.Executable.labels exe).label _ hJ
     exact .inl ⟨RN.ok, h1.symm, by rw [h2]; rfl, rfl, h3⟩
   case ok =>
-    rnodeW rRet rRet_ok bOk (hW RN.ok)
+    rnodeWX rRet rRet_ok bOk (hW RN.ok)
     dsimp only [rvN, rvX] at hJ ⊢
     obtain ⟨rfl, hJ⟩ := hJ
     obtain ⟨h1, h2, h3⟩ := rRet_walk (_root_.Executable.labels exe).label _ hJ
@@ -290,7 +298,7 @@ theorem reserveW_gen {exe : _root_.Executable} [Kraken.Executable.ValidLayout ex
       (hnr rJ_noRet) (fun _ _ _ => rfl) (hT _ (by simp [resPcs]))
   case ok =>
     dsimp only [ReserveW]; rw [hI.labOk]
-    exact blkW_pre hI bOk (ofNat_zero' _) rRet_ok hR (by omega) (by omega) (hC _ fun _ _ hJ => hJ.1) hph.ok
+    exact blkW_preA hI bOk (ofNat_zero' _) rRet_ok hR (by omega) (by omega) (hC _ fun _ _ hJ => hJ.1) hph.ok
       (hret_of_run rRet_ok fun _ _ hJ => by
         dsimp only [rvN] at hJ ⊢
         rw [(rRet_walk lab _ hJ.2).1, hra]; exact Int64.ofBitVec_toBitVec _)
@@ -307,10 +315,11 @@ theorem reserveIn_of {cells : List (Directive × Nat)} (h : RtAll cells Scc.Cert
         (65, rJ)], none⟩,
       ⟨fullL, [(0, (parse("movq $5, %rdi
 call scc_rt_abort")).zip [7, 5])], none⟩,
-      ⟨okL, [(0, rRet)], none⟩] := rfl
+      ⟨okL, [(0, rRet.take 3)], some (8, retL)⟩, ⟨retL, [(0, rRet.drop 3)], none⟩] := rfl
   rw [e] at h
   simp only [RtAll, BsOk, GapAt, and_true] at h
-  simp only [reserveIn, siAt, h, Bool.and_self]
+  have hs : 0 + ((rRet.take 3).map (·.2)).sum = 8 := rfl
+  simp only [reserveIn, siAt, Scc.Cert.Rt.X64.blockAcrossB, hs, h, Bool.and_self]
 
 /-- **`reserveIn` from A13's code part** (`spawnGrps` in the cells). -/
 theorem reserveIn_of_a13code {lo : Nat} {cells : List (Directive × Nat)} {Λ : Scc.Sem.Layout}

@@ -50,6 +50,7 @@ def hello1Asm : String := "\
   \t.text\n\
   \t.globl _start\n\
   \t.p2align 4\n\
+  scc_text_start:\n\
   _start:\n\
   \tb scc_rt_start\n\
   \t.p2align 2\n\
@@ -70,7 +71,7 @@ def hello1Asm : String := "\
   \tmovz x8, #134\n\
   \tsvc #0\n\
   \tstr x0, [sp, #8]\n\
-  \tmovz x0, #2307\n\
+  \tmovz x0, #3331\n\
   \tmovz x1, #1\n\
   \tbl scc_rt_alloc_tcb\n\
   .L0_scc_rt_start.sp2:\n\
@@ -253,6 +254,7 @@ def hello1Asm : String := "\
   \tldr x29, [sp, #144]\n\
   \tldr x30, [sp, #152]\n\
   \tadd sp, sp, #160\n\
+  .L2_scc_rt_alloc.x22:\n\
   \tret\n\
   \t.p2align 2\n\
   \t.type scc_rt_alloc_tcb, %function\n\
@@ -314,7 +316,8 @@ def hello1Asm : String := "\
   \tadd x9, x9, x10\n\
   \tstr x9, [sp, #96]\n\
   \tldr x9, [sp, #96]\n\
-  \tmovz x10, #2, lsl #16\n\
+  \tmovz x10, #32768\n\
+  \tmovk x10, #2, lsl #16\n\
   \tsubs xzr, x9, x10\n\
   \tb.hi .L3_scc_rt_alloc_tcb.2_full\n\
   \tb .L3_scc_rt_alloc_tcb.3_ok\n\
@@ -367,6 +370,7 @@ def hello1Asm : String := "\
   \tldr x29, [sp, #176]\n\
   \tldr x30, [sp, #184]\n\
   \tadd sp, sp, #192\n\
+  .L3_scc_rt_alloc_tcb.x25:\n\
   \tret\n\
   \t.p2align 2\n\
   \t.type scc_rt_thread_reserve, %function\n\
@@ -403,6 +407,7 @@ def hello1Asm : String := "\
   \tldr x29, [sp, #32]\n\
   \tldr x30, [sp, #40]\n\
   \tadd sp, sp, #48\n\
+  .L4_scc_rt_thread_reserve.x6:\n\
   \tret\n\
   \t.p2align 2\n\
   \t.type scc_rt_thread_init, %function\n\
@@ -447,6 +452,7 @@ def hello1Asm : String := "\
   \tldr x29, [sp, #32]\n\
   \tldr x30, [sp, #40]\n\
   \tadd sp, sp, #48\n\
+  .L5_scc_rt_thread_init.x9:\n\
   \tret\n\
   \t.p2align 2\n\
   \t.type scc_rt_stack_take, %function\n\
@@ -605,6 +611,7 @@ def hello1Asm : String := "\
   \tldr x29, [sp, #192]\n\
   \tldr x30, [sp, #200]\n\
   \tadd sp, sp, #208\n\
+  .L6_scc_rt_stack_take.x42:\n\
   \tret\n\
   \t.p2align 2\n\
   \t.type scc_rt_stack_release, %function\n\
@@ -717,6 +724,7 @@ def hello1Asm : String := "\
   \tldr x29, [sp, #144]\n\
   \tldr x30, [sp, #152]\n\
   \tadd sp, sp, #160\n\
+  .L7_scc_rt_stack_release.x29:\n\
   \tret\n\
   \t.p2align 2\n\
   \t.type scc_rt_grow, %function\n\
@@ -871,130 +879,137 @@ def hello1Asm : String := "\
   \tldr x10, [sp, #128]\n\
   \tldr x9, [x10, #8]\n\
   \tstr x9, [sp, #200]\n\
-  \tmovz x9, #0\n\
+  \tadrp x9, scc_text_start\n\
+  \tadd x9, x9, :lo12:scc_text_start\n\
   \tstr x9, [sp, #208]\n\
-  \tldr x9, [sp, #144]\n\
+  \tldr x9, [sp, #200]\n\
+  \tldr x10, [sp, #208]\n\
+  \tsub x9, x9, x10\n\
+  \tstr x9, [sp, #200]\n\
+  \tmovz x9, #0\n\
   \tstr x9, [sp, #216]\n\
+  \tldr x9, [sp, #144]\n\
+  \tstr x9, [sp, #224]\n\
   \tb .L8_scc_rt_grow.12_bs\n\
   .L8_scc_rt_grow.12_bs:\n\
-  \tldr x9, [sp, #208]\n\
-  \tldr x10, [sp, #216]\n\
+  \tldr x9, [sp, #216]\n\
+  \tldr x10, [sp, #224]\n\
   \tsubs xzr, x9, x10\n\
   \tb.hs .L8_scc_rt_grow.23_next\n\
   \tb .L8_scc_rt_grow.13_bs1\n\
   .L8_scc_rt_grow.13_bs1:\n\
-  \tldr x9, [sp, #208]\n\
-  \tldr x10, [sp, #216]\n\
+  \tldr x9, [sp, #216]\n\
+  \tldr x10, [sp, #224]\n\
   \tadd x9, x9, x10\n\
-  \tstr x9, [sp, #224]\n\
-  \tldr x9, [sp, #224]\n\
-  \tmovz x10, #1\n\
-  \tlsrv x9, x9, x10\n\
   \tstr x9, [sp, #232]\n\
   \tldr x9, [sp, #232]\n\
+  \tmovz x10, #1\n\
+  \tlsrv x9, x9, x10\n\
+  \tstr x9, [sp, #240]\n\
+  \tldr x9, [sp, #240]\n\
   \tmovz x10, #32\n\
   \tmadd x9, x9, x10, xzr\n\
-  \tstr x9, [sp, #240]\n\
+  \tstr x9, [sp, #248]\n\
   \tldr x9, [sp, #136]\n\
-  \tldr x10, [sp, #240]\n\
-  \tadd x9, x9, x10\n\
-  \tstr x9, [sp, #248]\n\
-  \tldr x9, [sp, #248]\n\
-  \tmovz x10, #8\n\
-  \tadd x9, x9, x10\n\
-  \tstr x9, [sp, #248]\n\
   \tldr x10, [sp, #248]\n\
-  \tldr x9, [x10]\n\
+  \tadd x9, x9, x10\n\
   \tstr x9, [sp, #256]\n\
   \tldr x9, [sp, #256]\n\
+  \tmovz x10, #8\n\
+  \tadd x9, x9, x10\n\
+  \tstr x9, [sp, #256]\n\
+  \tldr x10, [sp, #256]\n\
+  \tldr x9, [x10]\n\
+  \tstr x9, [sp, #264]\n\
+  \tldr x9, [sp, #264]\n\
   \tldr x10, [sp, #200]\n\
   \tsubs xzr, x9, x10\n\
   \tb.eq .L8_scc_rt_grow.17_found\n\
   \tb .L8_scc_rt_grow.14_bs2\n\
   .L8_scc_rt_grow.14_bs2:\n\
-  \tldr x9, [sp, #256]\n\
+  \tldr x9, [sp, #264]\n\
   \tldr x10, [sp, #200]\n\
   \tsubs xzr, x9, x10\n\
   \tb.lo .L8_scc_rt_grow.15_bslo\n\
   \tb .L8_scc_rt_grow.16_bshi\n\
   .L8_scc_rt_grow.15_bslo:\n\
-  \tldr x9, [sp, #232]\n\
+  \tldr x9, [sp, #240]\n\
   \tmovz x10, #1\n\
   \tadd x9, x9, x10\n\
-  \tstr x9, [sp, #208]\n\
-  \tb .L8_scc_rt_grow.12_bs\n\
-  .L8_scc_rt_grow.16_bshi:\n\
-  \tldr x9, [sp, #232]\n\
   \tstr x9, [sp, #216]\n\
   \tb .L8_scc_rt_grow.12_bs\n\
+  .L8_scc_rt_grow.16_bshi:\n\
+  \tldr x9, [sp, #240]\n\
+  \tstr x9, [sp, #224]\n\
+  \tb .L8_scc_rt_grow.12_bs\n\
   .L8_scc_rt_grow.17_found:\n\
-  \tldr x10, [sp, #248]\n\
+  \tldr x10, [sp, #256]\n\
   \tldr x9, [x10, #8]\n\
-  \tstr x9, [sp, #264]\n\
-  \tldr x10, [sp, #248]\n\
-  \tldr x9, [x10, #24]\n\
   \tstr x9, [sp, #272]\n\
-  \tldr x9, [sp, #272]\n\
-  \tmovz x10, #3\n\
-  \tlslv x9, x9, x10\n\
+  \tldr x10, [sp, #256]\n\
+  \tldr x9, [x10, #24]\n\
   \tstr x9, [sp, #280]\n\
   \tldr x9, [sp, #280]\n\
+  \tmovz x10, #3\n\
+  \tlslv x9, x9, x10\n\
+  \tstr x9, [sp, #288]\n\
+  \tldr x9, [sp, #288]\n\
   \tldr x10, [sp, #168]\n\
   \tadd x9, x9, x10\n\
-  \tstr x9, [sp, #280]\n\
-  \tmovz x9, #0\n\
   \tstr x9, [sp, #288]\n\
+  \tmovz x9, #0\n\
+  \tstr x9, [sp, #296]\n\
   \tb .L8_scc_rt_grow.18_fix\n\
   .L8_scc_rt_grow.18_fix:\n\
-  \tldr x9, [sp, #288]\n\
-  \tldr x10, [sp, #264]\n\
+  \tldr x9, [sp, #296]\n\
+  \tldr x10, [sp, #272]\n\
   \tsubs xzr, x9, x10\n\
   \tb.hs .L8_scc_rt_grow.23_next\n\
   \tb .L8_scc_rt_grow.19_fix1\n\
   .L8_scc_rt_grow.19_fix1:\n\
-  \tldr x10, [sp, #280]\n\
+  \tldr x10, [sp, #288]\n\
   \tldr x9, [x10]\n\
-  \tstr x9, [sp, #296]\n\
-  \tldr x9, [sp, #176]\n\
-  \tldr x10, [sp, #296]\n\
-  \tadd x9, x9, x10\n\
   \tstr x9, [sp, #304]\n\
+  \tldr x9, [sp, #176]\n\
   \tldr x10, [sp, #304]\n\
-  \tldr x9, [x10]\n\
+  \tadd x9, x9, x10\n\
   \tstr x9, [sp, #312]\n\
-  \tldr x9, [sp, #312]\n\
+  \tldr x10, [sp, #312]\n\
+  \tldr x9, [x10]\n\
+  \tstr x9, [sp, #320]\n\
+  \tldr x9, [sp, #320]\n\
   \tldr x10, [sp, #24]\n\
   \tsubs xzr, x9, x10\n\
   \tb.lo .L8_scc_rt_grow.22_skip\n\
   \tb .L8_scc_rt_grow.20_fix2\n\
   .L8_scc_rt_grow.20_fix2:\n\
-  \tldr x9, [sp, #312]\n\
+  \tldr x9, [sp, #320]\n\
   \tldr x10, [sp, #32]\n\
   \tsubs xzr, x9, x10\n\
   \tb.hs .L8_scc_rt_grow.22_skip\n\
   \tb .L8_scc_rt_grow.21_fix3\n\
   .L8_scc_rt_grow.21_fix3:\n\
-  \tldr x9, [sp, #304]\n\
-  \tldr x10, [sp, #96]\n\
-  \tadd x9, x9, x10\n\
-  \tstr x9, [sp, #320]\n\
   \tldr x9, [sp, #312]\n\
   \tldr x10, [sp, #96]\n\
   \tadd x9, x9, x10\n\
   \tstr x9, [sp, #328]\n\
-  \tldr x9, [sp, #328]\n\
-  \tldr x10, [sp, #320]\n\
+  \tldr x9, [sp, #320]\n\
+  \tldr x10, [sp, #96]\n\
+  \tadd x9, x9, x10\n\
+  \tstr x9, [sp, #336]\n\
+  \tldr x9, [sp, #336]\n\
+  \tldr x10, [sp, #328]\n\
   \tstr x9, [x10]\n\
   \tb .L8_scc_rt_grow.22_skip\n\
   .L8_scc_rt_grow.22_skip:\n\
-  \tldr x9, [sp, #288]\n\
+  \tldr x9, [sp, #296]\n\
   \tmovz x10, #1\n\
   \tadd x9, x9, x10\n\
-  \tstr x9, [sp, #288]\n\
-  \tldr x9, [sp, #280]\n\
+  \tstr x9, [sp, #296]\n\
+  \tldr x9, [sp, #288]\n\
   \tmovz x10, #8\n\
   \tadd x9, x9, x10\n\
-  \tstr x9, [sp, #280]\n\
+  \tstr x9, [sp, #288]\n\
   \tb .L8_scc_rt_grow.18_fix\n\
   .L8_scc_rt_grow.23_next:\n\
   \tldr x9, [sp, #176]\n\
@@ -1010,8 +1025,8 @@ def hello1Asm : String := "\
   \tldr x9, [sp, #80]\n\
   \tmovz x10, #4096\n\
   \tadd x9, x9, x10\n\
-  \tstr x9, [sp, #336]\n\
-  \tldr x9, [sp, #336]\n\
+  \tstr x9, [sp, #344]\n\
+  \tldr x9, [sp, #344]\n\
   \tldr x10, [sp, #16]\n\
   \tstr x9, [x10, #8]\n\
   \tldr x0, [sp, #96]\n\
@@ -1020,6 +1035,7 @@ def hello1Asm : String := "\
   \tldr x29, [sp, #352]\n\
   \tldr x30, [sp, #360]\n\
   \tadd sp, sp, #368\n\
+  .L8_scc_rt_grow.x83:\n\
   \tret\n\
   \t.p2align 2\n\
   \t.type scc_rt_print, %function\n\
@@ -1089,6 +1105,7 @@ def hello1Asm : String := "\
   \tldr x29, [sp, #32]\n\
   \tldr x30, [sp, #40]\n\
   \tadd sp, sp, #48\n\
+  .L9_scc_rt_print.x12:\n\
   \tret\n\
   \t.p2align 2\n\
   \t.type scc_rt_park, %function\n\
@@ -1132,11 +1149,13 @@ def hello1Asm : String := "\
   \tldr x29, [sp, #48]\n\
   \tldr x30, [sp, #56]\n\
   \tadd sp, sp, #64\n\
+  .L10_scc_rt_park.x6:\n\
   \tret\n\
   .L10_scc_rt_park.2_done:\n\
   \tldr x29, [sp, #48]\n\
   \tldr x30, [sp, #56]\n\
   \tadd sp, sp, #64\n\
+  .L10_scc_rt_park.x7:\n\
   \tret\n\
   \t.p2align 2\n\
   \t.type scc_rt_unpark, %function\n\
@@ -1174,11 +1193,13 @@ def hello1Asm : String := "\
   \tldr x29, [sp, #32]\n\
   \tldr x30, [sp, #40]\n\
   \tadd sp, sp, #48\n\
+  .L11_scc_rt_unpark.x4:\n\
   \tret\n\
   .L11_scc_rt_unpark.2_done:\n\
   \tldr x29, [sp, #32]\n\
   \tldr x30, [sp, #40]\n\
   \tadd sp, sp, #48\n\
+  .L11_scc_rt_unpark.x5:\n\
   \tret\n\
   \t.p2align 2\n\
   \t.type scc_rt_abort, %function\n\
@@ -1410,6 +1431,7 @@ def hello1Asm : String := "\
   \tldr x29, [sp, #32]\n\
   \tldr x30, [sp, #40]\n\
   \tadd sp, sp, #48\n\
+  .L18_wc_rodata.x5:\n\
   \tret\n\
   .L18_wc_rodata.stack_grow:\n\
   \tsub sp, sp, #80\n\
@@ -1484,6 +1506,7 @@ def hello1Asm : String := "\
   \tldr x29, [sp, #80]\n\
   \tldr x30, [sp, #88]\n\
   \tadd sp, sp, #96\n\
+  .L19_wc_main.x5:\n\
   \tret\n\
   .L19_wc_main.stack_grow:\n\
   \tsub sp, sp, #80\n\
@@ -1531,7 +1554,9 @@ def hello1Asm : String := "\
   \tldr x29, [sp]\n\
   \tldr x30, [sp, #8]\n\
   \tadd sp, sp, #16\n\
+  .Lscc_rt_morestack.ret:\n\
   \tret\n\
+  scc_text_end:\n\
   \t.data\n\
   \t.balign 16\n\
   \t.bss\n\
@@ -1588,8 +1613,8 @@ def hello1Asm : String := "\
   \t.balign 16\n\
   \t.type scc_rt_pinned, %object\n\
   scc_rt_pinned:\n\
-  \t.zero 131072\n\
-  \t.size scc_rt_pinned, 131072\n\
+  \t.zero 163840\n\
+  \t.size scc_rt_pinned, 163840\n\
   \t.bss\n\
   \t.balign 16\n\
   \t.type scc_rt_stacks, %object\n\
@@ -1634,28 +1659,1456 @@ def hello1Asm : String := "\
   \t.balign 8\n\
   scc_stackmap:\n\
   \t.quad 17\n\
-  \t.quad .L0_scc_rt_start.sp2, 0, 0, 0\n\
-  \t.quad .L0_scc_rt_start.sp3, 0, 1, 0\n\
-  \t.quad .L1_scc_rt_main.sp0, 0, 1, 1\n\
-  \t.quad .L1_scc_rt_main.sp1, 0, 0, 2\n\
-  \t.quad .L1_scc_rt_main.sp_check, 0, 1, 2\n\
-  \t.quad .L2_scc_rt_alloc.sp7, 0, 0, 3\n\
-  \t.quad .L3_scc_rt_alloc_tcb.sp13, 0, 0, 3\n\
-  \t.quad .L4_scc_rt_thread_reserve.sp4, 0, 0, 3\n\
-  \t.quad .L5_scc_rt_thread_init.sp0, 0, 1, 3\n\
-  \t.quad .L6_scc_rt_stack_take.sp36, 0, 0, 4\n\
-  \t.quad .L8_scc_rt_grow.sp13, 0, 0, 4\n\
-  \t.quad .L8_scc_rt_grow.sp15, 0, 0, 4\n\
-  \t.quad .L9_scc_rt_print.sp10, 0, 0, 4\n\
-  \t.quad .L18_wc_rodata.sp0, 0, 0, 4\n\
-  \t.quad .L18_wc_rodata.sp_check, 0, 0, 4\n\
-  \t.quad .L19_wc_main.sp4, 0, 0, 4\n\
-  \t.quad .L19_wc_main.sp_check, 0, 1, 4\n\
+  \t.quad .L0_scc_rt_start.sp2 - scc_text_start, 0, 0, 0\n\
+  \t.quad .L0_scc_rt_start.sp3 - scc_text_start, 0, 1, 0\n\
+  \t.quad .L1_scc_rt_main.sp0 - scc_text_start, 0, 1, 1\n\
+  \t.quad .L1_scc_rt_main.sp1 - scc_text_start, 0, 0, 2\n\
+  \t.quad .L1_scc_rt_main.sp_check - scc_text_start, 0, 1, 2\n\
+  \t.quad .L2_scc_rt_alloc.sp7 - scc_text_start, 0, 0, 3\n\
+  \t.quad .L3_scc_rt_alloc_tcb.sp13 - scc_text_start, 0, 0, 3\n\
+  \t.quad .L4_scc_rt_thread_reserve.sp4 - scc_text_start, 0, 0, 3\n\
+  \t.quad .L5_scc_rt_thread_init.sp0 - scc_text_start, 0, 1, 3\n\
+  \t.quad .L6_scc_rt_stack_take.sp36 - scc_text_start, 0, 0, 4\n\
+  \t.quad .L8_scc_rt_grow.sp13 - scc_text_start, 0, 0, 4\n\
+  \t.quad .L8_scc_rt_grow.sp15 - scc_text_start, 0, 0, 4\n\
+  \t.quad .L9_scc_rt_print.sp10 - scc_text_start, 0, 0, 4\n\
+  \t.quad .L18_wc_rodata.sp0 - scc_text_start, 0, 0, 4\n\
+  \t.quad .L18_wc_rodata.sp_check - scc_text_start, 0, 0, 4\n\
+  \t.quad .L19_wc_main.sp4 - scc_text_start, 0, 0, 4\n\
+  \t.quad .L19_wc_main.sp_check - scc_text_start, 0, 1, 4\n\
   \t.quad -16\n\
   \t.quad -64\n\
   \t.quad -64\n\
   \t.quad -32\n\
   \t.quad -64\n\
+  \t.section .rodata\n\
+  \t.balign 8\n\
+  scc_gc_maps:\n\
+  \t.quad 1\n\
+  \t.quad 162\n\
+  \t.quad 24\n\
+  \t.quad scc_rt_start - scc_text_start\n\
+  \t.quad 256\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad .L0_scc_rt_start.0_entry - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad .L0_scc_rt_start.sp2 - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 1\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad .L0_scc_rt_start.sp2 - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 1\n\
+  \t.quad 1\n\
+  \t.quad 0\n\
+  \t.quad .L0_scc_rt_start.sp3 - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 1\n\
+  \t.quad 2\n\
+  \t.quad 0\n\
+  \t.quad .L0_scc_rt_start.sp3 - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 1\n\
+  \t.quad 3\n\
+  \t.quad 0\n\
+  \t.quad .L0_scc_rt_start.halt4 - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 4\n\
+  \t.quad 0\n\
+  \t.quad .L1_scc_rt_main.stack_check - scc_text_start\n\
+  \t.quad 256\n\
+  \t.quad 1\n\
+  \t.quad 4\n\
+  \t.quad 0\n\
+  \t.quad .L1_scc_rt_main.0_entry - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 1\n\
+  \t.quad 5\n\
+  \t.quad 0\n\
+  \t.quad .L1_scc_rt_main.sp0 - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 2\n\
+  \t.quad 6\n\
+  \t.quad 0\n\
+  \t.quad .L1_scc_rt_main.sp0 - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 2\n\
+  \t.quad 8\n\
+  \t.quad 0\n\
+  \t.quad .L1_scc_rt_main.sp1 - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 0\n\
+  \t.quad 10\n\
+  \t.quad 0\n\
+  \t.quad .L1_scc_rt_main.sp1 - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 10\n\
+  \t.quad 0\n\
+  \t.quad .L1_scc_rt_main.halt3 - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 10\n\
+  \t.quad 0\n\
+  \t.quad .L1_scc_rt_main.sp_check - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 1\n\
+  \t.quad 10\n\
+  \t.quad 0\n\
+  \t.quad scc_rt_alloc - scc_text_start\n\
+  \t.quad 256\n\
+  \t.quad 0\n\
+  \t.quad 11\n\
+  \t.quad 0\n\
+  \t.quad .L2_scc_rt_alloc.0_entry - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 11\n\
+  \t.quad 0\n\
+  \t.quad .L2_scc_rt_alloc.1_cnt - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 11\n\
+  \t.quad 0\n\
+  \t.quad .L2_scc_rt_alloc.2_slow - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 11\n\
+  \t.quad 0\n\
+  \t.quad .L2_scc_rt_alloc.3_spin - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 11\n\
+  \t.quad 0\n\
+  \t.quad .L2_scc_rt_alloc.4_full - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 11\n\
+  \t.quad 0\n\
+  \t.quad .L2_scc_rt_alloc.halt8 - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 0\n\
+  \t.quad 11\n\
+  \t.quad 0\n\
+  \t.quad .L2_scc_rt_alloc.halt8 - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 11\n\
+  \t.quad 0\n\
+  \t.quad .L2_scc_rt_alloc.5_ok - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 11\n\
+  \t.quad 0\n\
+  \t.quad .L2_scc_rt_alloc.x22 - scc_text_start\n\
+  \t.quad 258\n\
+  \t.quad 1\n\
+  \t.quad 11\n\
+  \t.quad 0\n\
+  \t.quad scc_rt_alloc_tcb - scc_text_start\n\
+  \t.quad 256\n\
+  \t.quad 0\n\
+  \t.quad 12\n\
+  \t.quad 0\n\
+  \t.quad .L3_scc_rt_alloc_tcb.0_entry - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 12\n\
+  \t.quad 0\n\
+  \t.quad .L3_scc_rt_alloc_tcb.1_len - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 12\n\
+  \t.quad 0\n\
+  \t.quad .L3_scc_rt_alloc_tcb.2_full - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 12\n\
+  \t.quad 0\n\
+  \t.quad .L3_scc_rt_alloc_tcb.halt14 - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 0\n\
+  \t.quad 12\n\
+  \t.quad 0\n\
+  \t.quad .L3_scc_rt_alloc_tcb.halt14 - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 12\n\
+  \t.quad 0\n\
+  \t.quad .L3_scc_rt_alloc_tcb.3_ok - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 12\n\
+  \t.quad 0\n\
+  \t.quad .L3_scc_rt_alloc_tcb.x25 - scc_text_start\n\
+  \t.quad 258\n\
+  \t.quad 1\n\
+  \t.quad 12\n\
+  \t.quad 0\n\
+  \t.quad scc_rt_thread_reserve - scc_text_start\n\
+  \t.quad 256\n\
+  \t.quad 0\n\
+  \t.quad 13\n\
+  \t.quad 0\n\
+  \t.quad .L4_scc_rt_thread_reserve.0_entry - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 13\n\
+  \t.quad 0\n\
+  \t.quad .L4_scc_rt_thread_reserve.1_full - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 13\n\
+  \t.quad 0\n\
+  \t.quad .L4_scc_rt_thread_reserve.halt5 - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 0\n\
+  \t.quad 13\n\
+  \t.quad 0\n\
+  \t.quad .L4_scc_rt_thread_reserve.halt5 - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 13\n\
+  \t.quad 0\n\
+  \t.quad .L4_scc_rt_thread_reserve.2_ok - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 13\n\
+  \t.quad 0\n\
+  \t.quad .L4_scc_rt_thread_reserve.x6 - scc_text_start\n\
+  \t.quad 258\n\
+  \t.quad 0\n\
+  \t.quad 13\n\
+  \t.quad 0\n\
+  \t.quad scc_rt_thread_init - scc_text_start\n\
+  \t.quad 256\n\
+  \t.quad 1\n\
+  \t.quad 13\n\
+  \t.quad 0\n\
+  \t.quad .L5_scc_rt_thread_init.0_entry - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 1\n\
+  \t.quad 14\n\
+  \t.quad 0\n\
+  \t.quad .L5_scc_rt_thread_init.sp0 - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 1\n\
+  \t.quad 15\n\
+  \t.quad 0\n\
+  \t.quad .L5_scc_rt_thread_init.sp0 - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 1\n\
+  \t.quad 16\n\
+  \t.quad 0\n\
+  \t.quad .L5_scc_rt_thread_init.x9 - scc_text_start\n\
+  \t.quad 258\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad scc_rt_stack_take - scc_text_start\n\
+  \t.quad 256\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L6_scc_rt_stack_take.0_entry - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L6_scc_rt_stack_take.1_cls5 - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L6_scc_rt_stack_take.2_clsnext6 - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L6_scc_rt_stack_take.3_clsdone7 - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L6_scc_rt_stack_take.4_spin14 - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L6_scc_rt_stack_take.5_locked15 - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L6_scc_rt_stack_take.6_pop - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L6_scc_rt_stack_take.7_bump - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L6_scc_rt_stack_take.8_full - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L6_scc_rt_stack_take.halt37 - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L6_scc_rt_stack_take.halt37 - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L6_scc_rt_stack_take.9_ok - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L6_scc_rt_stack_take.10_taken - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L6_scc_rt_stack_take.x42 - scc_text_start\n\
+  \t.quad 258\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad scc_rt_stack_release - scc_text_start\n\
+  \t.quad 256\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L7_scc_rt_stack_release.0_entry - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L7_scc_rt_stack_release.1_cls4 - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L7_scc_rt_stack_release.2_clsnext5 - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L7_scc_rt_stack_release.3_clsdone6 - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L7_scc_rt_stack_release.4_spin13 - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L7_scc_rt_stack_release.5_locked14 - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L7_scc_rt_stack_release.x29 - scc_text_start\n\
+  \t.quad 258\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad scc_rt_grow - scc_text_start\n\
+  \t.quad 256\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L8_scc_rt_grow.0_entry - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L8_scc_rt_grow.1_dbl - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L8_scc_rt_grow.2_dbl2 - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L8_scc_rt_grow.3_cap - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L8_scc_rt_grow.4_full - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L8_scc_rt_grow.halt14 - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L8_scc_rt_grow.halt14 - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L8_scc_rt_grow.5_take - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L8_scc_rt_grow.sp15 - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L8_scc_rt_grow.sp15 - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L8_scc_rt_grow.6_copy - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L8_scc_rt_grow.7_copy1 - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L8_scc_rt_grow.8_walk0 - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L8_scc_rt_grow.9_walk - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L8_scc_rt_grow.10_walk1 - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L8_scc_rt_grow.11_walk2 - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L8_scc_rt_grow.12_bs - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L8_scc_rt_grow.13_bs1 - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L8_scc_rt_grow.14_bs2 - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L8_scc_rt_grow.15_bslo - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L8_scc_rt_grow.16_bshi - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L8_scc_rt_grow.17_found - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L8_scc_rt_grow.18_fix - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L8_scc_rt_grow.19_fix1 - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L8_scc_rt_grow.20_fix2 - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L8_scc_rt_grow.21_fix3 - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L8_scc_rt_grow.22_skip - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L8_scc_rt_grow.23_next - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L8_scc_rt_grow.24_done - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L8_scc_rt_grow.x83 - scc_text_start\n\
+  \t.quad 258\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad scc_rt_print - scc_text_start\n\
+  \t.quad 256\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L9_scc_rt_print.0_entry - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L9_scc_rt_print.1_loop - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L9_scc_rt_print.2_write - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L9_scc_rt_print.3_chk2 - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L9_scc_rt_print.4_chk3 - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L9_scc_rt_print.5_adv - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L9_scc_rt_print.6_fail - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L9_scc_rt_print.halt11 - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L9_scc_rt_print.halt11 - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L9_scc_rt_print.7_done - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L9_scc_rt_print.x12 - scc_text_start\n\
+  \t.quad 258\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad scc_rt_park - scc_text_start\n\
+  \t.quad 256\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L10_scc_rt_park.0_entry - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L10_scc_rt_park.1_wait - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L10_scc_rt_park.x6 - scc_text_start\n\
+  \t.quad 258\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L10_scc_rt_park.2_done - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L10_scc_rt_park.x7 - scc_text_start\n\
+  \t.quad 258\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad scc_rt_unpark - scc_text_start\n\
+  \t.quad 256\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L11_scc_rt_unpark.0_entry - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L11_scc_rt_unpark.1_wake - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L11_scc_rt_unpark.x4 - scc_text_start\n\
+  \t.quad 258\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L11_scc_rt_unpark.2_done - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L11_scc_rt_unpark.x5 - scc_text_start\n\
+  \t.quad 258\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad scc_rt_abort - scc_text_start\n\
+  \t.quad 256\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L12_scc_rt_abort.0_entry - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L12_scc_rt_abort.1_is0 - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L12_scc_rt_abort.2_next1 - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L12_scc_rt_abort.3_is2 - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L12_scc_rt_abort.4_next3 - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L12_scc_rt_abort.5_is4 - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L12_scc_rt_abort.6_next5 - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L12_scc_rt_abort.7_is6 - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L12_scc_rt_abort.8_next7 - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L12_scc_rt_abort.9_is8 - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L12_scc_rt_abort.halt10 - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad scc_rt_abort_overflow - scc_text_start\n\
+  \t.quad 256\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L13_scc_rt_abort_overflow.0_entry - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L13_scc_rt_abort_overflow.halt3 - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad scc_rt_abort_heap - scc_text_start\n\
+  \t.quad 256\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L14_scc_rt_abort_heap.0_entry - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L14_scc_rt_abort_heap.halt3 - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad scc_rt_abort_stack - scc_text_start\n\
+  \t.quad 256\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L15_scc_rt_abort_stack.0_entry - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L15_scc_rt_abort_stack.halt3 - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad scc_rt_abort_write - scc_text_start\n\
+  \t.quad 256\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L16_scc_rt_abort_write.0_entry - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L16_scc_rt_abort_write.halt3 - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad scc_rt_abort_threads - scc_text_start\n\
+  \t.quad 256\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L17_scc_rt_abort_threads.0_entry - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L17_scc_rt_abort_threads.halt3 - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L18_wc_rodata.stack_check - scc_text_start\n\
+  \t.quad 256\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L18_wc_rodata.0_entry - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L18_wc_rodata.sp0 - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 1\n\
+  \t.quad 17\n\
+  \t.quad 0\n\
+  \t.quad .L18_wc_rodata.sp0 - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 1\n\
+  \t.quad 18\n\
+  \t.quad 0\n\
+  \t.quad .L18_wc_rodata.x5 - scc_text_start\n\
+  \t.quad 258\n\
+  \t.quad 1\n\
+  \t.quad 19\n\
+  \t.quad 0\n\
+  \t.quad .L18_wc_rodata.sp_check - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 0\n\
+  \t.quad 20\n\
+  \t.quad 0\n\
+  \t.quad .L19_wc_main.stack_check - scc_text_start\n\
+  \t.quad 256\n\
+  \t.quad 2\n\
+  \t.quad 20\n\
+  \t.quad 0\n\
+  \t.quad .L19_wc_main.0_entry - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 1\n\
+  \t.quad 22\n\
+  \t.quad 0\n\
+  \t.quad .L19_wc_main.sp4 - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 0\n\
+  \t.quad 23\n\
+  \t.quad 0\n\
+  \t.quad .L19_wc_main.sp4 - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 23\n\
+  \t.quad 0\n\
+  \t.quad .L19_wc_main.x5 - scc_text_start\n\
+  \t.quad 258\n\
+  \t.quad 0\n\
+  \t.quad 23\n\
+  \t.quad 0\n\
+  \t.quad .L19_wc_main.sp_check - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 1\n\
+  \t.quad 23\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad -62\n\
+  \t.quad -62\n\
+  \t.quad 0\n\
+  \t.quad -254\n\
+  \t.quad -254\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad -254\n\
+  \t.quad -254\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad -126\n\
+  \t.quad -126\n\
+  \t.quad -126\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 0\n\
+  \t.quad 16\n\
+  \t.quad -318\n\
+  \t.quad -254\n\
+  scc_gc_succs:\n\
+  \t.quad 134\n\
+  \t.quad 170\n\
+  \t.quad scc_rt_start - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 0\n\
+  \t.quad .L0_scc_rt_start.0_entry - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 1\n\
+  \t.quad .L0_scc_rt_start.sp2 - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 2\n\
+  \t.quad .L0_scc_rt_start.sp3 - scc_text_start\n\
+  \t.quad 0\n\
+  \t.quad 3\n\
+  \t.quad .L0_scc_rt_start.halt4 - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 3\n\
+  \t.quad .L1_scc_rt_main.stack_check - scc_text_start\n\
+  \t.quad 2\n\
+  \t.quad 4\n\
+  \t.quad .L1_scc_rt_main.0_entry - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 6\n\
+  \t.quad .L1_scc_rt_main.sp0 - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 7\n\
+  \t.quad .L1_scc_rt_main.sp1 - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 8\n\
+  \t.quad .L1_scc_rt_main.halt3 - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 9\n\
+  \t.quad .L1_scc_rt_main.sp_check - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 10\n\
+  \t.quad scc_rt_alloc - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 11\n\
+  \t.quad .L2_scc_rt_alloc.0_entry - scc_text_start\n\
+  \t.quad 2\n\
+  \t.quad 12\n\
+  \t.quad .L2_scc_rt_alloc.1_cnt - scc_text_start\n\
+  \t.quad 2\n\
+  \t.quad 14\n\
+  \t.quad .L2_scc_rt_alloc.2_slow - scc_text_start\n\
+  \t.quad 2\n\
+  \t.quad 16\n\
+  \t.quad .L2_scc_rt_alloc.3_spin - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 18\n\
+  \t.quad .L2_scc_rt_alloc.4_full - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 19\n\
+  \t.quad .L2_scc_rt_alloc.halt8 - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 20\n\
+  \t.quad .L2_scc_rt_alloc.5_ok - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 21\n\
+  \t.quad scc_rt_alloc_tcb - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 22\n\
+  \t.quad .L3_scc_rt_alloc_tcb.0_entry - scc_text_start\n\
+  \t.quad 2\n\
+  \t.quad 23\n\
+  \t.quad .L3_scc_rt_alloc_tcb.1_len - scc_text_start\n\
+  \t.quad 2\n\
+  \t.quad 25\n\
+  \t.quad .L3_scc_rt_alloc_tcb.2_full - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 27\n\
+  \t.quad .L3_scc_rt_alloc_tcb.halt14 - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 28\n\
+  \t.quad .L3_scc_rt_alloc_tcb.3_ok - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 29\n\
+  \t.quad scc_rt_thread_reserve - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 30\n\
+  \t.quad .L4_scc_rt_thread_reserve.0_entry - scc_text_start\n\
+  \t.quad 2\n\
+  \t.quad 31\n\
+  \t.quad .L4_scc_rt_thread_reserve.1_full - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 33\n\
+  \t.quad .L4_scc_rt_thread_reserve.halt5 - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 34\n\
+  \t.quad .L4_scc_rt_thread_reserve.2_ok - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 35\n\
+  \t.quad scc_rt_thread_init - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 36\n\
+  \t.quad .L5_scc_rt_thread_init.0_entry - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 37\n\
+  \t.quad .L5_scc_rt_thread_init.sp0 - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 38\n\
+  \t.quad scc_rt_stack_take - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 39\n\
+  \t.quad .L6_scc_rt_stack_take.0_entry - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 40\n\
+  \t.quad .L6_scc_rt_stack_take.1_cls5 - scc_text_start\n\
+  \t.quad 2\n\
+  \t.quad 41\n\
+  \t.quad .L6_scc_rt_stack_take.2_clsnext6 - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 43\n\
+  \t.quad .L6_scc_rt_stack_take.3_clsdone7 - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 44\n\
+  \t.quad .L6_scc_rt_stack_take.4_spin14 - scc_text_start\n\
+  \t.quad 2\n\
+  \t.quad 45\n\
+  \t.quad .L6_scc_rt_stack_take.5_locked15 - scc_text_start\n\
+  \t.quad 2\n\
+  \t.quad 47\n\
+  \t.quad .L6_scc_rt_stack_take.6_pop - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 49\n\
+  \t.quad .L6_scc_rt_stack_take.7_bump - scc_text_start\n\
+  \t.quad 2\n\
+  \t.quad 50\n\
+  \t.quad .L6_scc_rt_stack_take.8_full - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 52\n\
+  \t.quad .L6_scc_rt_stack_take.halt37 - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 53\n\
+  \t.quad .L6_scc_rt_stack_take.9_ok - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 54\n\
+  \t.quad .L6_scc_rt_stack_take.10_taken - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 55\n\
+  \t.quad scc_rt_stack_release - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 56\n\
+  \t.quad .L7_scc_rt_stack_release.0_entry - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 57\n\
+  \t.quad .L7_scc_rt_stack_release.1_cls4 - scc_text_start\n\
+  \t.quad 2\n\
+  \t.quad 58\n\
+  \t.quad .L7_scc_rt_stack_release.2_clsnext5 - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 60\n\
+  \t.quad .L7_scc_rt_stack_release.3_clsdone6 - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 61\n\
+  \t.quad .L7_scc_rt_stack_release.4_spin13 - scc_text_start\n\
+  \t.quad 2\n\
+  \t.quad 62\n\
+  \t.quad .L7_scc_rt_stack_release.5_locked14 - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 64\n\
+  \t.quad scc_rt_grow - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 65\n\
+  \t.quad .L8_scc_rt_grow.0_entry - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 66\n\
+  \t.quad .L8_scc_rt_grow.1_dbl - scc_text_start\n\
+  \t.quad 2\n\
+  \t.quad 67\n\
+  \t.quad .L8_scc_rt_grow.2_dbl2 - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 69\n\
+  \t.quad .L8_scc_rt_grow.3_cap - scc_text_start\n\
+  \t.quad 2\n\
+  \t.quad 70\n\
+  \t.quad .L8_scc_rt_grow.4_full - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 72\n\
+  \t.quad .L8_scc_rt_grow.halt14 - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 73\n\
+  \t.quad .L8_scc_rt_grow.5_take - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 74\n\
+  \t.quad .L8_scc_rt_grow.sp15 - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 75\n\
+  \t.quad .L8_scc_rt_grow.6_copy - scc_text_start\n\
+  \t.quad 2\n\
+  \t.quad 76\n\
+  \t.quad .L8_scc_rt_grow.7_copy1 - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 78\n\
+  \t.quad .L8_scc_rt_grow.8_walk0 - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 79\n\
+  \t.quad .L8_scc_rt_grow.9_walk - scc_text_start\n\
+  \t.quad 2\n\
+  \t.quad 80\n\
+  \t.quad .L8_scc_rt_grow.10_walk1 - scc_text_start\n\
+  \t.quad 2\n\
+  \t.quad 82\n\
+  \t.quad .L8_scc_rt_grow.11_walk2 - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 84\n\
+  \t.quad .L8_scc_rt_grow.12_bs - scc_text_start\n\
+  \t.quad 2\n\
+  \t.quad 85\n\
+  \t.quad .L8_scc_rt_grow.13_bs1 - scc_text_start\n\
+  \t.quad 2\n\
+  \t.quad 87\n\
+  \t.quad .L8_scc_rt_grow.14_bs2 - scc_text_start\n\
+  \t.quad 2\n\
+  \t.quad 89\n\
+  \t.quad .L8_scc_rt_grow.15_bslo - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 91\n\
+  \t.quad .L8_scc_rt_grow.16_bshi - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 92\n\
+  \t.quad .L8_scc_rt_grow.17_found - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 93\n\
+  \t.quad .L8_scc_rt_grow.18_fix - scc_text_start\n\
+  \t.quad 2\n\
+  \t.quad 94\n\
+  \t.quad .L8_scc_rt_grow.19_fix1 - scc_text_start\n\
+  \t.quad 2\n\
+  \t.quad 96\n\
+  \t.quad .L8_scc_rt_grow.20_fix2 - scc_text_start\n\
+  \t.quad 2\n\
+  \t.quad 98\n\
+  \t.quad .L8_scc_rt_grow.21_fix3 - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 100\n\
+  \t.quad .L8_scc_rt_grow.22_skip - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 101\n\
+  \t.quad .L8_scc_rt_grow.23_next - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 102\n\
+  \t.quad .L8_scc_rt_grow.24_done - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 103\n\
+  \t.quad scc_rt_print - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 104\n\
+  \t.quad .L9_scc_rt_print.0_entry - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 105\n\
+  \t.quad .L9_scc_rt_print.1_loop - scc_text_start\n\
+  \t.quad 2\n\
+  \t.quad 106\n\
+  \t.quad .L9_scc_rt_print.2_write - scc_text_start\n\
+  \t.quad 2\n\
+  \t.quad 108\n\
+  \t.quad .L9_scc_rt_print.3_chk2 - scc_text_start\n\
+  \t.quad 2\n\
+  \t.quad 110\n\
+  \t.quad .L9_scc_rt_print.4_chk3 - scc_text_start\n\
+  \t.quad 2\n\
+  \t.quad 112\n\
+  \t.quad .L9_scc_rt_print.5_adv - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 114\n\
+  \t.quad .L9_scc_rt_print.6_fail - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 115\n\
+  \t.quad .L9_scc_rt_print.halt11 - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 116\n\
+  \t.quad .L9_scc_rt_print.7_done - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 117\n\
+  \t.quad scc_rt_park - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 118\n\
+  \t.quad .L10_scc_rt_park.0_entry - scc_text_start\n\
+  \t.quad 2\n\
+  \t.quad 119\n\
+  \t.quad .L10_scc_rt_park.1_wait - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 121\n\
+  \t.quad .L10_scc_rt_park.2_done - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 122\n\
+  \t.quad scc_rt_unpark - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 123\n\
+  \t.quad .L11_scc_rt_unpark.0_entry - scc_text_start\n\
+  \t.quad 2\n\
+  \t.quad 124\n\
+  \t.quad .L11_scc_rt_unpark.1_wake - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 126\n\
+  \t.quad .L11_scc_rt_unpark.2_done - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 127\n\
+  \t.quad scc_rt_abort - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 128\n\
+  \t.quad .L12_scc_rt_abort.0_entry - scc_text_start\n\
+  \t.quad 2\n\
+  \t.quad 129\n\
+  \t.quad .L12_scc_rt_abort.1_is0 - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 131\n\
+  \t.quad .L12_scc_rt_abort.2_next1 - scc_text_start\n\
+  \t.quad 2\n\
+  \t.quad 132\n\
+  \t.quad .L12_scc_rt_abort.3_is2 - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 134\n\
+  \t.quad .L12_scc_rt_abort.4_next3 - scc_text_start\n\
+  \t.quad 2\n\
+  \t.quad 135\n\
+  \t.quad .L12_scc_rt_abort.5_is4 - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 137\n\
+  \t.quad .L12_scc_rt_abort.6_next5 - scc_text_start\n\
+  \t.quad 2\n\
+  \t.quad 138\n\
+  \t.quad .L12_scc_rt_abort.7_is6 - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 140\n\
+  \t.quad .L12_scc_rt_abort.8_next7 - scc_text_start\n\
+  \t.quad 2\n\
+  \t.quad 141\n\
+  \t.quad .L12_scc_rt_abort.9_is8 - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 143\n\
+  \t.quad .L12_scc_rt_abort.halt10 - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 144\n\
+  \t.quad scc_rt_abort_overflow - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 145\n\
+  \t.quad .L13_scc_rt_abort_overflow.0_entry - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 146\n\
+  \t.quad .L13_scc_rt_abort_overflow.halt3 - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 147\n\
+  \t.quad scc_rt_abort_heap - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 148\n\
+  \t.quad .L14_scc_rt_abort_heap.0_entry - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 149\n\
+  \t.quad .L14_scc_rt_abort_heap.halt3 - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 150\n\
+  \t.quad scc_rt_abort_stack - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 151\n\
+  \t.quad .L15_scc_rt_abort_stack.0_entry - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 152\n\
+  \t.quad .L15_scc_rt_abort_stack.halt3 - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 153\n\
+  \t.quad scc_rt_abort_write - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 154\n\
+  \t.quad .L16_scc_rt_abort_write.0_entry - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 155\n\
+  \t.quad .L16_scc_rt_abort_write.halt3 - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 156\n\
+  \t.quad scc_rt_abort_threads - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 157\n\
+  \t.quad .L17_scc_rt_abort_threads.0_entry - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 158\n\
+  \t.quad .L17_scc_rt_abort_threads.halt3 - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 159\n\
+  \t.quad .L18_wc_rodata.stack_check - scc_text_start\n\
+  \t.quad 2\n\
+  \t.quad 160\n\
+  \t.quad .L18_wc_rodata.0_entry - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 162\n\
+  \t.quad .L18_wc_rodata.sp0 - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 163\n\
+  \t.quad .L18_wc_rodata.sp_check - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 164\n\
+  \t.quad .L19_wc_main.stack_check - scc_text_start\n\
+  \t.quad 2\n\
+  \t.quad 165\n\
+  \t.quad .L19_wc_main.0_entry - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 167\n\
+  \t.quad .L19_wc_main.sp4 - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 168\n\
+  \t.quad .L19_wc_main.sp_check - scc_text_start\n\
+  \t.quad 1\n\
+  \t.quad 169\n\
+  \t.quad .L0_scc_rt_start.0_entry - scc_text_start\n\
+  \t.quad .L0_scc_rt_start.sp2 - scc_text_start\n\
+  \t.quad .L0_scc_rt_start.sp3 - scc_text_start\n\
+  \t.quad .L0_scc_rt_start.halt4 - scc_text_start\n\
+  \t.quad .L1_scc_rt_main.sp_check - scc_text_start\n\
+  \t.quad .L1_scc_rt_main.0_entry - scc_text_start\n\
+  \t.quad .L1_scc_rt_main.sp0 - scc_text_start\n\
+  \t.quad .L1_scc_rt_main.sp1 - scc_text_start\n\
+  \t.quad .L1_scc_rt_main.halt3 - scc_text_start\n\
+  \t.quad .L1_scc_rt_main.halt3 - scc_text_start\n\
+  \t.quad .L1_scc_rt_main.stack_check - scc_text_start\n\
+  \t.quad .L2_scc_rt_alloc.0_entry - scc_text_start\n\
+  \t.quad .L2_scc_rt_alloc.4_full - scc_text_start\n\
+  \t.quad .L2_scc_rt_alloc.1_cnt - scc_text_start\n\
+  \t.quad .L2_scc_rt_alloc.2_slow - scc_text_start\n\
+  \t.quad .L2_scc_rt_alloc.5_ok - scc_text_start\n\
+  \t.quad .L2_scc_rt_alloc.3_spin - scc_text_start\n\
+  \t.quad .L2_scc_rt_alloc.4_full - scc_text_start\n\
+  \t.quad .L2_scc_rt_alloc.3_spin - scc_text_start\n\
+  \t.quad .L2_scc_rt_alloc.halt8 - scc_text_start\n\
+  \t.quad .L2_scc_rt_alloc.halt8 - scc_text_start\n\
+  \t.quad .L2_scc_rt_alloc.x22 - scc_text_start\n\
+  \t.quad .L3_scc_rt_alloc_tcb.0_entry - scc_text_start\n\
+  \t.quad .L3_scc_rt_alloc_tcb.2_full - scc_text_start\n\
+  \t.quad .L3_scc_rt_alloc_tcb.1_len - scc_text_start\n\
+  \t.quad .L3_scc_rt_alloc_tcb.2_full - scc_text_start\n\
+  \t.quad .L3_scc_rt_alloc_tcb.3_ok - scc_text_start\n\
+  \t.quad .L3_scc_rt_alloc_tcb.halt14 - scc_text_start\n\
+  \t.quad .L3_scc_rt_alloc_tcb.halt14 - scc_text_start\n\
+  \t.quad .L3_scc_rt_alloc_tcb.x25 - scc_text_start\n\
+  \t.quad .L4_scc_rt_thread_reserve.0_entry - scc_text_start\n\
+  \t.quad .L4_scc_rt_thread_reserve.1_full - scc_text_start\n\
+  \t.quad .L4_scc_rt_thread_reserve.2_ok - scc_text_start\n\
+  \t.quad .L4_scc_rt_thread_reserve.halt5 - scc_text_start\n\
+  \t.quad .L4_scc_rt_thread_reserve.halt5 - scc_text_start\n\
+  \t.quad .L4_scc_rt_thread_reserve.x6 - scc_text_start\n\
+  \t.quad .L5_scc_rt_thread_init.0_entry - scc_text_start\n\
+  \t.quad .L5_scc_rt_thread_init.sp0 - scc_text_start\n\
+  \t.quad .L5_scc_rt_thread_init.x9 - scc_text_start\n\
+  \t.quad .L6_scc_rt_stack_take.0_entry - scc_text_start\n\
+  \t.quad .L6_scc_rt_stack_take.1_cls5 - scc_text_start\n\
+  \t.quad .L6_scc_rt_stack_take.2_clsnext6 - scc_text_start\n\
+  \t.quad .L6_scc_rt_stack_take.3_clsdone7 - scc_text_start\n\
+  \t.quad .L6_scc_rt_stack_take.1_cls5 - scc_text_start\n\
+  \t.quad .L6_scc_rt_stack_take.4_spin14 - scc_text_start\n\
+  \t.quad .L6_scc_rt_stack_take.5_locked15 - scc_text_start\n\
+  \t.quad .L6_scc_rt_stack_take.4_spin14 - scc_text_start\n\
+  \t.quad .L6_scc_rt_stack_take.7_bump - scc_text_start\n\
+  \t.quad .L6_scc_rt_stack_take.6_pop - scc_text_start\n\
+  \t.quad .L6_scc_rt_stack_take.10_taken - scc_text_start\n\
+  \t.quad .L6_scc_rt_stack_take.8_full - scc_text_start\n\
+  \t.quad .L6_scc_rt_stack_take.9_ok - scc_text_start\n\
+  \t.quad .L6_scc_rt_stack_take.halt37 - scc_text_start\n\
+  \t.quad .L6_scc_rt_stack_take.halt37 - scc_text_start\n\
+  \t.quad .L6_scc_rt_stack_take.10_taken - scc_text_start\n\
+  \t.quad .L6_scc_rt_stack_take.x42 - scc_text_start\n\
+  \t.quad .L7_scc_rt_stack_release.0_entry - scc_text_start\n\
+  \t.quad .L7_scc_rt_stack_release.1_cls4 - scc_text_start\n\
+  \t.quad .L7_scc_rt_stack_release.2_clsnext5 - scc_text_start\n\
+  \t.quad .L7_scc_rt_stack_release.3_clsdone6 - scc_text_start\n\
+  \t.quad .L7_scc_rt_stack_release.1_cls4 - scc_text_start\n\
+  \t.quad .L7_scc_rt_stack_release.4_spin13 - scc_text_start\n\
+  \t.quad .L7_scc_rt_stack_release.5_locked14 - scc_text_start\n\
+  \t.quad .L7_scc_rt_stack_release.4_spin13 - scc_text_start\n\
+  \t.quad .L7_scc_rt_stack_release.x29 - scc_text_start\n\
+  \t.quad .L8_scc_rt_grow.0_entry - scc_text_start\n\
+  \t.quad .L8_scc_rt_grow.1_dbl - scc_text_start\n\
+  \t.quad .L8_scc_rt_grow.2_dbl2 - scc_text_start\n\
+  \t.quad .L8_scc_rt_grow.3_cap - scc_text_start\n\
+  \t.quad .L8_scc_rt_grow.1_dbl - scc_text_start\n\
+  \t.quad .L8_scc_rt_grow.4_full - scc_text_start\n\
+  \t.quad .L8_scc_rt_grow.5_take - scc_text_start\n\
+  \t.quad .L8_scc_rt_grow.halt14 - scc_text_start\n\
+  \t.quad .L8_scc_rt_grow.halt14 - scc_text_start\n\
+  \t.quad .L8_scc_rt_grow.sp15 - scc_text_start\n\
+  \t.quad .L8_scc_rt_grow.6_copy - scc_text_start\n\
+  \t.quad .L8_scc_rt_grow.8_walk0 - scc_text_start\n\
+  \t.quad .L8_scc_rt_grow.7_copy1 - scc_text_start\n\
+  \t.quad .L8_scc_rt_grow.6_copy - scc_text_start\n\
+  \t.quad .L8_scc_rt_grow.9_walk - scc_text_start\n\
+  \t.quad .L8_scc_rt_grow.24_done - scc_text_start\n\
+  \t.quad .L8_scc_rt_grow.10_walk1 - scc_text_start\n\
+  \t.quad .L8_scc_rt_grow.24_done - scc_text_start\n\
+  \t.quad .L8_scc_rt_grow.11_walk2 - scc_text_start\n\
+  \t.quad .L8_scc_rt_grow.12_bs - scc_text_start\n\
+  \t.quad .L8_scc_rt_grow.23_next - scc_text_start\n\
+  \t.quad .L8_scc_rt_grow.13_bs1 - scc_text_start\n\
+  \t.quad .L8_scc_rt_grow.17_found - scc_text_start\n\
+  \t.quad .L8_scc_rt_grow.14_bs2 - scc_text_start\n\
+  \t.quad .L8_scc_rt_grow.15_bslo - scc_text_start\n\
+  \t.quad .L8_scc_rt_grow.16_bshi - scc_text_start\n\
+  \t.quad .L8_scc_rt_grow.12_bs - scc_text_start\n\
+  \t.quad .L8_scc_rt_grow.12_bs - scc_text_start\n\
+  \t.quad .L8_scc_rt_grow.18_fix - scc_text_start\n\
+  \t.quad .L8_scc_rt_grow.23_next - scc_text_start\n\
+  \t.quad .L8_scc_rt_grow.19_fix1 - scc_text_start\n\
+  \t.quad .L8_scc_rt_grow.22_skip - scc_text_start\n\
+  \t.quad .L8_scc_rt_grow.20_fix2 - scc_text_start\n\
+  \t.quad .L8_scc_rt_grow.22_skip - scc_text_start\n\
+  \t.quad .L8_scc_rt_grow.21_fix3 - scc_text_start\n\
+  \t.quad .L8_scc_rt_grow.22_skip - scc_text_start\n\
+  \t.quad .L8_scc_rt_grow.18_fix - scc_text_start\n\
+  \t.quad .L8_scc_rt_grow.9_walk - scc_text_start\n\
+  \t.quad .L8_scc_rt_grow.x83 - scc_text_start\n\
+  \t.quad .L9_scc_rt_print.0_entry - scc_text_start\n\
+  \t.quad .L9_scc_rt_print.1_loop - scc_text_start\n\
+  \t.quad .L9_scc_rt_print.7_done - scc_text_start\n\
+  \t.quad .L9_scc_rt_print.2_write - scc_text_start\n\
+  \t.quad .L9_scc_rt_print.1_loop - scc_text_start\n\
+  \t.quad .L9_scc_rt_print.3_chk2 - scc_text_start\n\
+  \t.quad .L9_scc_rt_print.1_loop - scc_text_start\n\
+  \t.quad .L9_scc_rt_print.4_chk3 - scc_text_start\n\
+  \t.quad .L9_scc_rt_print.6_fail - scc_text_start\n\
+  \t.quad .L9_scc_rt_print.5_adv - scc_text_start\n\
+  \t.quad .L9_scc_rt_print.1_loop - scc_text_start\n\
+  \t.quad .L9_scc_rt_print.halt11 - scc_text_start\n\
+  \t.quad .L9_scc_rt_print.halt11 - scc_text_start\n\
+  \t.quad .L9_scc_rt_print.x12 - scc_text_start\n\
+  \t.quad .L10_scc_rt_park.0_entry - scc_text_start\n\
+  \t.quad .L10_scc_rt_park.2_done - scc_text_start\n\
+  \t.quad .L10_scc_rt_park.1_wait - scc_text_start\n\
+  \t.quad .L10_scc_rt_park.x6 - scc_text_start\n\
+  \t.quad .L10_scc_rt_park.x7 - scc_text_start\n\
+  \t.quad .L11_scc_rt_unpark.0_entry - scc_text_start\n\
+  \t.quad .L11_scc_rt_unpark.1_wake - scc_text_start\n\
+  \t.quad .L11_scc_rt_unpark.2_done - scc_text_start\n\
+  \t.quad .L11_scc_rt_unpark.x4 - scc_text_start\n\
+  \t.quad .L11_scc_rt_unpark.x5 - scc_text_start\n\
+  \t.quad .L12_scc_rt_abort.0_entry - scc_text_start\n\
+  \t.quad .L12_scc_rt_abort.1_is0 - scc_text_start\n\
+  \t.quad .L12_scc_rt_abort.2_next1 - scc_text_start\n\
+  \t.quad scc_rt_abort_overflow - scc_text_start\n\
+  \t.quad .L12_scc_rt_abort.3_is2 - scc_text_start\n\
+  \t.quad .L12_scc_rt_abort.4_next3 - scc_text_start\n\
+  \t.quad scc_rt_abort_heap - scc_text_start\n\
+  \t.quad .L12_scc_rt_abort.5_is4 - scc_text_start\n\
+  \t.quad .L12_scc_rt_abort.6_next5 - scc_text_start\n\
+  \t.quad scc_rt_abort_stack - scc_text_start\n\
+  \t.quad .L12_scc_rt_abort.7_is6 - scc_text_start\n\
+  \t.quad .L12_scc_rt_abort.8_next7 - scc_text_start\n\
+  \t.quad scc_rt_abort_write - scc_text_start\n\
+  \t.quad .L12_scc_rt_abort.9_is8 - scc_text_start\n\
+  \t.quad .L12_scc_rt_abort.halt10 - scc_text_start\n\
+  \t.quad scc_rt_abort_threads - scc_text_start\n\
+  \t.quad .L12_scc_rt_abort.halt10 - scc_text_start\n\
+  \t.quad .L13_scc_rt_abort_overflow.0_entry - scc_text_start\n\
+  \t.quad .L13_scc_rt_abort_overflow.halt3 - scc_text_start\n\
+  \t.quad .L13_scc_rt_abort_overflow.halt3 - scc_text_start\n\
+  \t.quad .L14_scc_rt_abort_heap.0_entry - scc_text_start\n\
+  \t.quad .L14_scc_rt_abort_heap.halt3 - scc_text_start\n\
+  \t.quad .L14_scc_rt_abort_heap.halt3 - scc_text_start\n\
+  \t.quad .L15_scc_rt_abort_stack.0_entry - scc_text_start\n\
+  \t.quad .L15_scc_rt_abort_stack.halt3 - scc_text_start\n\
+  \t.quad .L15_scc_rt_abort_stack.halt3 - scc_text_start\n\
+  \t.quad .L16_scc_rt_abort_write.0_entry - scc_text_start\n\
+  \t.quad .L16_scc_rt_abort_write.halt3 - scc_text_start\n\
+  \t.quad .L16_scc_rt_abort_write.halt3 - scc_text_start\n\
+  \t.quad .L17_scc_rt_abort_threads.0_entry - scc_text_start\n\
+  \t.quad .L17_scc_rt_abort_threads.halt3 - scc_text_start\n\
+  \t.quad .L17_scc_rt_abort_threads.halt3 - scc_text_start\n\
+  \t.quad .L18_wc_rodata.sp_check - scc_text_start\n\
+  \t.quad .L18_wc_rodata.0_entry - scc_text_start\n\
+  \t.quad .L18_wc_rodata.sp0 - scc_text_start\n\
+  \t.quad .L18_wc_rodata.x5 - scc_text_start\n\
+  \t.quad .L18_wc_rodata.stack_check - scc_text_start\n\
+  \t.quad .L19_wc_main.sp_check - scc_text_start\n\
+  \t.quad .L19_wc_main.0_entry - scc_text_start\n\
+  \t.quad .L19_wc_main.sp4 - scc_text_start\n\
+  \t.quad .L19_wc_main.x5 - scc_text_start\n\
+  \t.quad .L19_wc_main.stack_check - scc_text_start\n\
+  scc_gc_rseq:\n\
+  \t.quad 0\n\
+  scc_gc_desc:\n\
+  \t.quad 3554259586674541395\n\
+  \t.quad 1\n\
+  \t.quad scc_text_start - .\n\
+  \t.quad scc_text_end - .\n\
+  \t.quad scc_gc_maps - .\n\
+  \t.quad scc_gc_succs - .\n\
+  \t.quad scc_gc_rseq - .\n\
+  \t.quad scc_stackmap - .\n\
+  \t.quad scc_rt_morestack - .\n\
+  \t.quad .Lscc_rt_morestack.ret - .\n\
   "
 
 /-- The program the canonical loader reads from `hello1Asm`. -/
@@ -1669,9 +3122,9 @@ def hello1Secs : Scc.Sem.DataSecs := scc_data_secs% hello1Asm
 /-- The program writes words only (`Scc/Cert/Rt/WideA64.lean`). -/
 theorem hello1_wide : Scc.Cert.WideA64.wideIn hello1Prog = true := by decide +kernel
 
-/-- The blocks of `_start`. -/
-def hello1T_start : List Grp := [
-  ⟨"_start", [(0, parseAArch64("b scc_rt_start")) /- _start_0 -/]⟩
+/-- The blocks of `scc_text_start`. -/
+def hello1T_scc_text_start : List Grp := [
+  ⟨"_start", [(0, parseAArch64("b scc_rt_start")) /- scc_text_start_0 -/]⟩
 ]
 
 /-- The blocks of `scc_rt_start`. -/
@@ -1687,7 +3140,7 @@ movz x2, #0
 movz x3, #8
 movz x8, #134")) /- scc_rt_start_1 -/,
     (9, parseAArch64("str x0, [sp, #8]
-movz x0, #2307
+movz x0, #3331
 movz x1, #1
 bl scc_rt_alloc_tcb")) /- scc_rt_start_2 -/]⟩,
   ⟨".L0_scc_rt_start.sp2", [(0, parseAArch64("str x0, [sp, #16]
@@ -1843,8 +3296,8 @@ str x9, [sp, #136]
 ldr x0, [sp, #136]
 ldr x29, [sp, #144]
 ldr x30, [sp, #152]
-add sp, sp, #160
-ret")) /- scc_rt_alloc_13 -/]⟩
+add sp, sp, #160")) /- scc_rt_alloc_13 -/]⟩,
+  ⟨".L2_scc_rt_alloc.x22", [(0, parseAArch64("ret")) /- scc_rt_alloc_14 -/]⟩
 ]
 
 /-- The blocks of `scc_rt_alloc_tcb`. -/
@@ -1901,10 +3354,11 @@ ldr x10, [sp, #72]
 add x9, x9, x10
 str x9, [sp, #96]
 ldr x9, [sp, #96]
-movz x10, #2, lsl #16
+movz x10, #32768
+movk x10, #2, lsl #16
 subs xzr, x9, x10
 b.hi .L3_scc_rt_alloc_tcb.2_full")) /- scc_rt_alloc_tcb_5 -/,
-    (47, parseAArch64("b .L3_scc_rt_alloc_tcb.3_ok")) /- scc_rt_alloc_tcb_6 -/]⟩,
+    (48, parseAArch64("b .L3_scc_rt_alloc_tcb.3_ok")) /- scc_rt_alloc_tcb_6 -/]⟩,
   ⟨".L3_scc_rt_alloc_tcb.2_full", [(0, parseAArch64("movz x0, #5
 bl scc_rt_abort")) /- scc_rt_alloc_tcb_7 -/]⟩,
   ⟨".L3_scc_rt_alloc_tcb.halt14", [(0, parseAArch64("b .L3_scc_rt_alloc_tcb.halt14")) /- scc_rt_alloc_tcb_8 -/]⟩,
@@ -1946,8 +3400,8 @@ str x9, [sp, #168]
 ldr x0, [sp, #168]
 ldr x29, [sp, #176]
 ldr x30, [sp, #184]
-add sp, sp, #192
-ret")) /- scc_rt_alloc_tcb_10 -/]⟩
+add sp, sp, #192")) /- scc_rt_alloc_tcb_10 -/]⟩,
+  ⟨".L3_scc_rt_alloc_tcb.x25", [(0, parseAArch64("ret")) /- scc_rt_alloc_tcb_11 -/]⟩
 ]
 
 /-- The blocks of `scc_rt_thread_reserve`. -/
@@ -1975,8 +3429,8 @@ bl scc_rt_abort")) /- scc_rt_thread_reserve_4 -/]⟩,
   ⟨".L4_scc_rt_thread_reserve.2_ok", [(0, parseAArch64("ldr x0, [sp, #16]
 ldr x29, [sp, #32]
 ldr x30, [sp, #40]
-add sp, sp, #48
-ret")) /- scc_rt_thread_reserve_6 -/]⟩
+add sp, sp, #48")) /- scc_rt_thread_reserve_6 -/]⟩,
+  ⟨".L4_scc_rt_thread_reserve.x6", [(0, parseAArch64("ret")) /- scc_rt_thread_reserve_7 -/]⟩
 ]
 
 /-- The blocks of `scc_rt_thread_init`. -/
@@ -2012,8 +3466,8 @@ ldr x10, [sp]")) /- scc_rt_thread_init_7 -/,
     (27, parseAArch64("ldr x0, [sp, #24]
 ldr x29, [sp, #32]
 ldr x30, [sp, #40]
-add sp, sp, #48
-ret")) /- scc_rt_thread_init_8 -/]⟩
+add sp, sp, #48")) /- scc_rt_thread_init_8 -/]⟩,
+  ⟨".L5_scc_rt_thread_init.x9", [(0, parseAArch64("ret")) /- scc_rt_thread_init_9 -/]⟩
 ]
 
 /-- The blocks of `scc_rt_stack_take`. -/
@@ -2135,8 +3589,8 @@ ldr x1, [sp]")) /- scc_rt_stack_take_26 -/]⟩,
   ⟨"scc_rt_take_site", [(1, parseAArch64("ldr x0, [sp, #128]
 ldr x29, [sp, #192]
 ldr x30, [sp, #200]
-add sp, sp, #208
-ret")) /- scc_rt_stack_take_27 -/]⟩
+add sp, sp, #208")) /- scc_rt_stack_take_27 -/]⟩,
+  ⟨".L6_scc_rt_stack_take.x42", [(0, parseAArch64("ret")) /- scc_rt_stack_take_28 -/]⟩
 ]
 
 /-- The blocks of `scc_rt_stack_release`. -/
@@ -2227,8 +3681,8 @@ movz x9, #0
 ldr x10, [sp, #136]")) /- scc_rt_stack_release_15 -/,
     (27, parseAArch64("ldr x29, [sp, #144]
 ldr x30, [sp, #152]
-add sp, sp, #160
-ret")) /- scc_rt_stack_release_16 -/]⟩
+add sp, sp, #160")) /- scc_rt_stack_release_16 -/]⟩,
+  ⟨".L7_scc_rt_stack_release.x29", [(0, parseAArch64("ret")) /- scc_rt_stack_release_17 -/]⟩
 ]
 
 /-- The blocks of `scc_rt_grow`. -/
@@ -2357,135 +3811,140 @@ str x9, [sp, #192]
 ldr x9, [sp, #192]
 ldr x10, [sp, #184]")) /- scc_rt_grow_26 -/,
     (11, parseAArch64("ldr x10, [sp, #128]")) /- scc_rt_grow_27 -/,
-    (13, parseAArch64("str x9, [sp, #200]
+    (13, parseAArch64("str x9, [sp, #200]")) /- scc_rt_grow_28 -/,
+    (16, parseAArch64("str x9, [sp, #208]
+ldr x9, [sp, #200]
+ldr x10, [sp, #208]
+sub x9, x9, x10
+str x9, [sp, #200]
 movz x9, #0
-str x9, [sp, #208]
-ldr x9, [sp, #144]
 str x9, [sp, #216]
-b .L8_scc_rt_grow.12_bs")) /- scc_rt_grow_28 -/]⟩,
-  ⟨".L8_scc_rt_grow.12_bs", [(0, parseAArch64("ldr x9, [sp, #208]
-ldr x10, [sp, #216]
-subs xzr, x9, x10
-b.hs .L8_scc_rt_grow.23_next")) /- scc_rt_grow_29 -/,
-    (4, parseAArch64("b .L8_scc_rt_grow.13_bs1")) /- scc_rt_grow_30 -/]⟩,
-  ⟨".L8_scc_rt_grow.13_bs1", [(0, parseAArch64("ldr x9, [sp, #208]
-ldr x10, [sp, #216]
-add x9, x9, x10
+ldr x9, [sp, #144]
 str x9, [sp, #224]
-ldr x9, [sp, #224]
-movz x10, #1
-lsrv x9, x9, x10
+b .L8_scc_rt_grow.12_bs")) /- scc_rt_grow_29 -/]⟩,
+  ⟨".L8_scc_rt_grow.12_bs", [(0, parseAArch64("ldr x9, [sp, #216]
+ldr x10, [sp, #224]
+subs xzr, x9, x10
+b.hs .L8_scc_rt_grow.23_next")) /- scc_rt_grow_30 -/,
+    (4, parseAArch64("b .L8_scc_rt_grow.13_bs1")) /- scc_rt_grow_31 -/]⟩,
+  ⟨".L8_scc_rt_grow.13_bs1", [(0, parseAArch64("ldr x9, [sp, #216]
+ldr x10, [sp, #224]
+add x9, x9, x10
 str x9, [sp, #232]
 ldr x9, [sp, #232]
+movz x10, #1
+lsrv x9, x9, x10
+str x9, [sp, #240]
+ldr x9, [sp, #240]
 movz x10, #32
 madd x9, x9, x10, xzr
-str x9, [sp, #240]
-ldr x9, [sp, #136]
-ldr x10, [sp, #240]
-add x9, x9, x10
 str x9, [sp, #248]
-ldr x9, [sp, #248]
+ldr x9, [sp, #136]
+ldr x10, [sp, #248]
+add x9, x9, x10
+str x9, [sp, #256]
+ldr x9, [sp, #256]
 movz x10, #8
 add x9, x9, x10
-str x9, [sp, #248]
-ldr x10, [sp, #248]")) /- scc_rt_grow_31 -/,
-    (22, parseAArch64("str x9, [sp, #256]
-ldr x9, [sp, #256]
+str x9, [sp, #256]
+ldr x10, [sp, #256]")) /- scc_rt_grow_32 -/,
+    (22, parseAArch64("str x9, [sp, #264]
+ldr x9, [sp, #264]
 ldr x10, [sp, #200]
 subs xzr, x9, x10
-b.eq .L8_scc_rt_grow.17_found")) /- scc_rt_grow_32 -/,
-    (27, parseAArch64("b .L8_scc_rt_grow.14_bs2")) /- scc_rt_grow_33 -/]⟩,
-  ⟨".L8_scc_rt_grow.14_bs2", [(0, parseAArch64("ldr x9, [sp, #256]
+b.eq .L8_scc_rt_grow.17_found")) /- scc_rt_grow_33 -/,
+    (27, parseAArch64("b .L8_scc_rt_grow.14_bs2")) /- scc_rt_grow_34 -/]⟩,
+  ⟨".L8_scc_rt_grow.14_bs2", [(0, parseAArch64("ldr x9, [sp, #264]
 ldr x10, [sp, #200]
 subs xzr, x9, x10
-b.lo .L8_scc_rt_grow.15_bslo")) /- scc_rt_grow_34 -/,
-    (4, parseAArch64("b .L8_scc_rt_grow.16_bshi")) /- scc_rt_grow_35 -/]⟩,
-  ⟨".L8_scc_rt_grow.15_bslo", [(0, parseAArch64("ldr x9, [sp, #232]
+b.lo .L8_scc_rt_grow.15_bslo")) /- scc_rt_grow_35 -/,
+    (4, parseAArch64("b .L8_scc_rt_grow.16_bshi")) /- scc_rt_grow_36 -/]⟩,
+  ⟨".L8_scc_rt_grow.15_bslo", [(0, parseAArch64("ldr x9, [sp, #240]
 movz x10, #1
 add x9, x9, x10
-str x9, [sp, #208]
-b .L8_scc_rt_grow.12_bs")) /- scc_rt_grow_36 -/]⟩,
-  ⟨".L8_scc_rt_grow.16_bshi", [(0, parseAArch64("ldr x9, [sp, #232]
 str x9, [sp, #216]
 b .L8_scc_rt_grow.12_bs")) /- scc_rt_grow_37 -/]⟩,
-  ⟨".L8_scc_rt_grow.17_found", [(0, parseAArch64("ldr x10, [sp, #248]")) /- scc_rt_grow_38 -/,
-    (2, parseAArch64("str x9, [sp, #264]
-ldr x10, [sp, #248]")) /- scc_rt_grow_39 -/,
-    (5, parseAArch64("str x9, [sp, #272]
-ldr x9, [sp, #272]
+  ⟨".L8_scc_rt_grow.16_bshi", [(0, parseAArch64("ldr x9, [sp, #240]
+str x9, [sp, #224]
+b .L8_scc_rt_grow.12_bs")) /- scc_rt_grow_38 -/]⟩,
+  ⟨".L8_scc_rt_grow.17_found", [(0, parseAArch64("ldr x10, [sp, #256]")) /- scc_rt_grow_39 -/,
+    (2, parseAArch64("str x9, [sp, #272]
+ldr x10, [sp, #256]")) /- scc_rt_grow_40 -/,
+    (5, parseAArch64("str x9, [sp, #280]
+ldr x9, [sp, #280]
 movz x10, #3
 lslv x9, x9, x10
-str x9, [sp, #280]
-ldr x9, [sp, #280]
+str x9, [sp, #288]
+ldr x9, [sp, #288]
 ldr x10, [sp, #168]
 add x9, x9, x10
-str x9, [sp, #280]
-movz x9, #0
 str x9, [sp, #288]
-b .L8_scc_rt_grow.18_fix")) /- scc_rt_grow_40 -/]⟩,
-  ⟨".L8_scc_rt_grow.18_fix", [(0, parseAArch64("ldr x9, [sp, #288]
-ldr x10, [sp, #264]
+movz x9, #0
+str x9, [sp, #296]
+b .L8_scc_rt_grow.18_fix")) /- scc_rt_grow_41 -/]⟩,
+  ⟨".L8_scc_rt_grow.18_fix", [(0, parseAArch64("ldr x9, [sp, #296]
+ldr x10, [sp, #272]
 subs xzr, x9, x10
-b.hs .L8_scc_rt_grow.23_next")) /- scc_rt_grow_41 -/,
-    (4, parseAArch64("b .L8_scc_rt_grow.19_fix1")) /- scc_rt_grow_42 -/]⟩,
-  ⟨".L8_scc_rt_grow.19_fix1", [(0, parseAArch64("ldr x10, [sp, #280]")) /- scc_rt_grow_43 -/,
-    (2, parseAArch64("str x9, [sp, #296]
+b.hs .L8_scc_rt_grow.23_next")) /- scc_rt_grow_42 -/,
+    (4, parseAArch64("b .L8_scc_rt_grow.19_fix1")) /- scc_rt_grow_43 -/]⟩,
+  ⟨".L8_scc_rt_grow.19_fix1", [(0, parseAArch64("ldr x10, [sp, #288]")) /- scc_rt_grow_44 -/,
+    (2, parseAArch64("str x9, [sp, #304]
 ldr x9, [sp, #176]
-ldr x10, [sp, #296]
+ldr x10, [sp, #304]
 add x9, x9, x10
-str x9, [sp, #304]
-ldr x10, [sp, #304]")) /- scc_rt_grow_44 -/,
-    (9, parseAArch64("str x9, [sp, #312]
-ldr x9, [sp, #312]
+str x9, [sp, #312]
+ldr x10, [sp, #312]")) /- scc_rt_grow_45 -/,
+    (9, parseAArch64("str x9, [sp, #320]
+ldr x9, [sp, #320]
 ldr x10, [sp, #24]
 subs xzr, x9, x10
-b.lo .L8_scc_rt_grow.22_skip")) /- scc_rt_grow_45 -/,
-    (14, parseAArch64("b .L8_scc_rt_grow.20_fix2")) /- scc_rt_grow_46 -/]⟩,
-  ⟨".L8_scc_rt_grow.20_fix2", [(0, parseAArch64("ldr x9, [sp, #312]
+b.lo .L8_scc_rt_grow.22_skip")) /- scc_rt_grow_46 -/,
+    (14, parseAArch64("b .L8_scc_rt_grow.20_fix2")) /- scc_rt_grow_47 -/]⟩,
+  ⟨".L8_scc_rt_grow.20_fix2", [(0, parseAArch64("ldr x9, [sp, #320]
 ldr x10, [sp, #32]
 subs xzr, x9, x10
-b.hs .L8_scc_rt_grow.22_skip")) /- scc_rt_grow_47 -/,
-    (4, parseAArch64("b .L8_scc_rt_grow.21_fix3")) /- scc_rt_grow_48 -/]⟩,
-  ⟨".L8_scc_rt_grow.21_fix3", [(0, parseAArch64("ldr x9, [sp, #304]
-ldr x10, [sp, #96]
-add x9, x9, x10
-str x9, [sp, #320]
-ldr x9, [sp, #312]
+b.hs .L8_scc_rt_grow.22_skip")) /- scc_rt_grow_48 -/,
+    (4, parseAArch64("b .L8_scc_rt_grow.21_fix3")) /- scc_rt_grow_49 -/]⟩,
+  ⟨".L8_scc_rt_grow.21_fix3", [(0, parseAArch64("ldr x9, [sp, #312]
 ldr x10, [sp, #96]
 add x9, x9, x10
 str x9, [sp, #328]
-ldr x9, [sp, #328]
-ldr x10, [sp, #320]")) /- scc_rt_grow_49 -/,
-    (11, parseAArch64("b .L8_scc_rt_grow.22_skip")) /- scc_rt_grow_50 -/]⟩,
-  ⟨".L8_scc_rt_grow.22_skip", [(0, parseAArch64("ldr x9, [sp, #288]
-movz x10, #1
-add x9, x9, x10
-str x9, [sp, #288]
-ldr x9, [sp, #280]
-movz x10, #8
-add x9, x9, x10
-str x9, [sp, #280]
-b .L8_scc_rt_grow.18_fix")) /- scc_rt_grow_51 -/]⟩,
-  ⟨".L8_scc_rt_grow.23_next", [(0, parseAArch64("ldr x9, [sp, #176]
-str x9, [sp, #128]
-b .L8_scc_rt_grow.9_walk")) /- scc_rt_grow_52 -/]⟩,
-  ⟨".L8_scc_rt_grow.24_done", [(0, parseAArch64("ldr x9, [sp, #80]
-ldr x10, [sp, #16]")) /- scc_rt_grow_53 -/,
-    (3, parseAArch64("ldr x9, [sp, #88]
-ldr x10, [sp, #16]")) /- scc_rt_grow_54 -/,
-    (6, parseAArch64("ldr x9, [sp, #80]
-movz x10, #4096
+ldr x9, [sp, #320]
+ldr x10, [sp, #96]
 add x9, x9, x10
 str x9, [sp, #336]
 ldr x9, [sp, #336]
+ldr x10, [sp, #328]")) /- scc_rt_grow_50 -/,
+    (11, parseAArch64("b .L8_scc_rt_grow.22_skip")) /- scc_rt_grow_51 -/]⟩,
+  ⟨".L8_scc_rt_grow.22_skip", [(0, parseAArch64("ldr x9, [sp, #296]
+movz x10, #1
+add x9, x9, x10
+str x9, [sp, #296]
+ldr x9, [sp, #288]
+movz x10, #8
+add x9, x9, x10
+str x9, [sp, #288]
+b .L8_scc_rt_grow.18_fix")) /- scc_rt_grow_52 -/]⟩,
+  ⟨".L8_scc_rt_grow.23_next", [(0, parseAArch64("ldr x9, [sp, #176]
+str x9, [sp, #128]
+b .L8_scc_rt_grow.9_walk")) /- scc_rt_grow_53 -/]⟩,
+  ⟨".L8_scc_rt_grow.24_done", [(0, parseAArch64("ldr x9, [sp, #80]
+ldr x10, [sp, #16]")) /- scc_rt_grow_54 -/,
+    (3, parseAArch64("ldr x9, [sp, #88]
 ldr x10, [sp, #16]")) /- scc_rt_grow_55 -/,
+    (6, parseAArch64("ldr x9, [sp, #80]
+movz x10, #4096
+add x9, x9, x10
+str x9, [sp, #344]
+ldr x9, [sp, #344]
+ldr x10, [sp, #16]")) /- scc_rt_grow_56 -/,
     (13, parseAArch64("ldr x0, [sp, #96]
 ldr x1, [sp, #24]
 ldr x2, [sp, #40]
 ldr x29, [sp, #352]
 ldr x30, [sp, #360]
-add sp, sp, #368
-ret")) /- scc_rt_grow_56 -/]⟩
+add sp, sp, #368")) /- scc_rt_grow_57 -/]⟩,
+  ⟨".L8_scc_rt_grow.x83", [(0, parseAArch64("ret")) /- scc_rt_grow_58 -/]⟩
 ]
 
 /-- The blocks of `scc_rt_print`. -/
@@ -2542,8 +4001,8 @@ bl scc_rt_abort")) /- scc_rt_print_12 -/]⟩,
   ⟨".L9_scc_rt_print.halt11", [(0, parseAArch64("b .L9_scc_rt_print.halt11")) /- scc_rt_print_13 -/]⟩,
   ⟨".L9_scc_rt_print.7_done", [(0, parseAArch64("ldr x29, [sp, #32]
 ldr x30, [sp, #40]
-add sp, sp, #48
-ret")) /- scc_rt_print_14 -/]⟩
+add sp, sp, #48")) /- scc_rt_print_14 -/]⟩,
+  ⟨".L9_scc_rt_print.x12", [(0, parseAArch64("ret")) /- scc_rt_print_15 -/]⟩
 ]
 
 /-- The blocks of `scc_rt_park`. -/
@@ -2581,12 +4040,12 @@ add x10, x10, #16")) /- scc_rt_park_5 -/,
     (17, parseAArch64("str x11, [sp, #32]
 ldr x29, [sp, #48]
 ldr x30, [sp, #56]
-add sp, sp, #64
-ret")) /- scc_rt_park_6 -/]⟩,
+add sp, sp, #64")) /- scc_rt_park_6 -/]⟩,
+  ⟨".L10_scc_rt_park.x6", [(0, parseAArch64("ret")) /- scc_rt_park_7 -/]⟩,
   ⟨".L10_scc_rt_park.2_done", [(0, parseAArch64("ldr x29, [sp, #48]
 ldr x30, [sp, #56]
-add sp, sp, #64
-ret")) /- scc_rt_park_7 -/]⟩
+add sp, sp, #64")) /- scc_rt_park_8 -/]⟩,
+  ⟨".L10_scc_rt_park.x7", [(0, parseAArch64("ret")) /- scc_rt_park_9 -/]⟩
 ]
 
 /-- The blocks of `scc_rt_unpark`. -/
@@ -2619,12 +4078,12 @@ movz x8, #98")) /- scc_rt_unpark_4 -/,
     (12, parseAArch64("str x0, [sp, #24]
 ldr x29, [sp, #32]
 ldr x30, [sp, #40]
-add sp, sp, #48
-ret")) /- scc_rt_unpark_5 -/]⟩,
+add sp, sp, #48")) /- scc_rt_unpark_5 -/]⟩,
+  ⟨".L11_scc_rt_unpark.x4", [(0, parseAArch64("ret")) /- scc_rt_unpark_6 -/]⟩,
   ⟨".L11_scc_rt_unpark.2_done", [(0, parseAArch64("ldr x29, [sp, #32]
 ldr x30, [sp, #40]
-add sp, sp, #48
-ret")) /- scc_rt_unpark_6 -/]⟩
+add sp, sp, #48")) /- scc_rt_unpark_7 -/]⟩,
+  ⟨".L11_scc_rt_unpark.x5", [(0, parseAArch64("ret")) /- scc_rt_unpark_8 -/]⟩
 ]
 
 /-- The blocks of `scc_rt_abort`. -/
@@ -2806,8 +4265,8 @@ movz x2, #2
 movz x3, #13
 ldr x29, [sp, #32]
 ldr x30, [sp, #40]
-add sp, sp, #48
-ret")) /- wc_rodata_8 -/]⟩,
+add sp, sp, #48")) /- wc_rodata_8 -/]⟩,
+  ⟨".L18_wc_rodata.x5", [(0, parseAArch64("ret")) /- wc_rodata_9 -/]⟩,
   ⟨".L18_wc_rodata.stack_grow", [(0, parseAArch64("sub sp, sp, #80
 str x0, [sp]
 str x1, [sp, #8]
@@ -2821,7 +4280,7 @@ str x29, [sp, #64]
 str x30, [sp, #72]
 add x29, sp, #64
 movz x0, #48
-bl scc_rt_morestack")) /- wc_rodata_9 -/]⟩,
+bl scc_rt_morestack")) /- wc_rodata_10 -/]⟩,
   ⟨".L18_wc_rodata.sp_check", [(0, parseAArch64("ldr x0, [sp]
 ldr x1, [sp, #8]
 ldr x2, [sp, #16]
@@ -2833,7 +4292,7 @@ ldr x7, [sp, #56]
 ldr x29, [sp, #64]
 ldr x30, [sp, #72]
 add sp, sp, #80
-b .L18_wc_rodata.stack_check")) /- wc_rodata_10 -/]⟩
+b .L18_wc_rodata.stack_check")) /- wc_rodata_11 -/]⟩
 ]
 
 /-- The blocks of `wc_main`. -/
@@ -2875,8 +4334,8 @@ bl scc_rt_print")) /- wc_main_3 -/]⟩,
   ⟨".L19_wc_main.sp4", [(0, parseAArch64("movz x0, #0
 ldr x29, [sp, #80]
 ldr x30, [sp, #88]
-add sp, sp, #96
-ret")) /- wc_main_4 -/]⟩,
+add sp, sp, #96")) /- wc_main_4 -/]⟩,
+  ⟨".L19_wc_main.x5", [(0, parseAArch64("ret")) /- wc_main_5 -/]⟩,
   ⟨".L19_wc_main.stack_grow", [(0, parseAArch64("sub sp, sp, #80
 str x0, [sp]
 str x1, [sp, #8]
@@ -2890,7 +4349,7 @@ str x29, [sp, #64]
 str x30, [sp, #72]
 add x29, sp, #64
 movz x0, #96
-bl scc_rt_morestack")) /- wc_main_5 -/]⟩,
+bl scc_rt_morestack")) /- wc_main_6 -/]⟩,
   ⟨".L19_wc_main.sp_check", [(0, parseAArch64("ldr x0, [sp]
 ldr x1, [sp, #8]
 ldr x2, [sp, #16]
@@ -2902,7 +4361,7 @@ ldr x7, [sp, #56]
 ldr x29, [sp, #64]
 ldr x30, [sp, #72]
 add sp, sp, #80
-b .L19_wc_main.stack_check")) /- wc_main_6 -/]⟩
+b .L19_wc_main.stack_check")) /- wc_main_7 -/]⟩
 ]
 
 /-- The blocks of `scc_rt_morestack`. -/
@@ -2920,13 +4379,13 @@ orr x1, xzr, x2
 bl scc_rt_stack_release")) /- scc_rt_morestack_2 -/,
     (12, parseAArch64("ldr x29, [sp]
 ldr x30, [sp, #8]
-add sp, sp, #16
-ret")) /- scc_rt_morestack_3 -/]⟩
+add sp, sp, #16")) /- scc_rt_morestack_3 -/]⟩,
+  ⟨".Lscc_rt_morestack.ret", [(0, parseAArch64("ret")) /- scc_rt_morestack_4 -/]⟩
 ]
 
 /-- All the blocks of the program. -/
 def hello1T : List Grp :=
-  hello1T_start ++
+  hello1T_scc_text_start ++
   hello1T_scc_rt_start ++
   hello1T_scc_rt_main ++
   hello1T_scc_rt_alloc ++

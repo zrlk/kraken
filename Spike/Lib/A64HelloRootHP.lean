@@ -401,7 +401,7 @@ local notation "Ly" => RuntimeLayout.ofPlaceW hpw i
 placement `hpl` from `GJ1H` at the box's label `l` fresh at `lbl1` and main's id at the TCB (`SpawnPl.hpl_GJ1H`, at
 the placement `upd lbl1 l b` and rodata's slice `slWsH lr`), the rest `H1GAH0`'s. -/
 theorem hP_of (hA13 : Scc.Cert.Spawn.A64.a13data (Ly).Λ o.prog o.secs = true)
-    (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
+    (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
     {W X : FragS isaLSE2} {Wc : Frag isaLSE2} {ms : List TermRun.Frame → MemSide isaLSE2} {p : Prog}
     {l : WeakMem.AllocLabel} {b : Nat} {a : BitVec 64} {ar : Arena} {Dt Cw : State → Prop}
     {Ctx : FragS isaLSE2} {lsize : Lsize} {frM : Ctl → TermRun.Frame} {lbl1 : Lbl} {lr : WeakMem.AllocLabel}

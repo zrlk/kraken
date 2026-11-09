@@ -60,7 +60,7 @@ theorem cTW_heap : (Ly).Λ.heap.contains (Ly).Λ.heap.lo := by
 
 /-- **The pre-spawn guarantee at a heap or `.data` word is below every
 flag word's.** -/
-theorem gW_le (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) {a : Nat}
+theorem gW_le (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) {a : Nat}
     (ha : (Ly).Λ.heap.contains a ∨ (Ly).Λ.data.contains a) (cT' : Loc) :
     ∀ L v, X64WakeOG.gW hp i (Scc.Sem.wordLoc a) L v →
       WakeG.wakeG (X64WakeGOf2.GOf2 (Ly) (Spike.Lib.X64.PhRec.m0Of (Ly).Λ o.prog o.secs)) cT' L v := by
@@ -70,7 +70,7 @@ theorem gW_le (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pin
 
 /-- **`hpre_of`'s `hG`**: `MemInv` of the pre-spawn guarantee at the dummy
 word gives `MemInv` of every record's `wakeG'`. -/
-theorem memInv_gW (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) (g : Gh)
+theorem memInv_gW (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) (g : Gh)
     {m : Memory} (h : MemInv (X64WakeOG.gW hp i (cTW hp i)) m) : MemInv (wakeG' hp i g) m :=
   ⟨fun l => gW_le hp i hpin2 (.inl (cTW_heap hp i)) g.cT _ _ (h.1 l),
     fun w hw => gW_le hp i hpin2 (.inl (cTW_heap hp i)) g.cT _ _ (h.2 w hw)⟩

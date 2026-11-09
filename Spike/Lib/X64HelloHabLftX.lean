@@ -5,10 +5,10 @@
 there is `W0` at `ownGHXW` (`W0.liftHX`). With `HabCtlS.hpathW_hab0HS` this gives the path inside `W0` at
 `ownGHXW`, the `hP0` of `HabCtlA.wc_heapAbStubKHAg` at `own := ownGHXW L a`.
 
-- `cst_abHH`: on the heap path in a band on the pool, from a caller other than `.Lwc_main.x27`, main's word only
+- `cst_abHH`: on the heap path in a band on the pool, from a caller other than `.Lwc_main.x5`, main's word only
   (`CstH L (tM L) []`): `selfOwnH` from the pool above `.x1`, not `selfOwnWH` (past `scc_rt_stack_take`, before
-  `.Lwc_main.x25`, the return address not `.x27`).
-- `raAbH_ne_x27`: the heap abort's return address `.Lscc_rt_alloc.full + 12` is not `.Lwc_main.x27`'s.
+  `.Lwc_main.x3`, the return address not `.x27`).
+- `raAbH_ne_x27`: the heap abort's return address `.Lscc_rt_alloc.full + 12` is not `.Lwc_main.x5`'s.
 - `hpathW_cstOkH`: `CstOkH` at every node of the heap abort path (`abPHH`'s `AbP`, wake's `hpathW_noW`,
   `cstOkH_of`).
 - `hpathW_hab0HSX`: `HabCtlS.hpathW_hab0HS` inside `W0` at `ownGHXW`.
@@ -19,7 +19,7 @@ there is `W0` at `ownGHXW` (`W0.liftHX`). With `HabCtlS.hpathW_hab0HS` this give
 AArch64 has no counterpart: its level owns `ownGH` (main owns no TCB word there), so its heap abort path needs no
 lift. Against x86-64 wake's `HabLft`: the code is helloCells (`abPHH`, `SccCode.hello_abort`), the classes are
 `CstH` (`Spike/Lib/X64HelloOwnCstX.lean`), the worker's word is held from the abort range only under the return
-address `.Lwc_main.x27` (wake `.x23`), and the region is any region with its band on the pool (`BandIn`; wake:
+address `.Lwc_main.x5` (wake `.x23`), and the region is any region with its band on the pool (`BandIn`; wake:
 `wc_main`'s frame at the first stack's top), so the statement is the path fact itself rather than wake's `HabLft`.
 -/
 import Spike.Lib.X64HelloHabCtlS
@@ -47,19 +47,19 @@ open Spike.Lib.X64HelloOwnLift (tcbWH)
 
 variable {L : RuntimeLayout} {R : Region} {F : MachineData → Prop} {c0 : Ctl} {ra : BitVec 64}
 
-/-- The heap abort's return point (`.Lscc_rt_alloc.full` plus `12`) lies below `.Lwc_main.x27` in hello's code at
+/-- The heap abort's return point (`.Lscc_rt_alloc.full` plus `12`) lies below `.Lwc_main.x5` in hello's code at
 `lo`. -/
 def raAbChkH : Bool :=
-  match codeLabel lo helloCells ".Lscc_rt_alloc.full", codeLabel lo helloCells ".Lwc_main.x27" with
+  match codeLabel lo helloCells ".Lscc_rt_alloc.full", codeLabel lo helloCells ".Lwc_main.x5" with
   | some x, some y => decide (x + 12 < y ∧ y < 2 ^ 63)
   | _, _ => false
 
 theorem raAbChkH_true : raAbChkH = true := by
   unfold raAbChkH; simp only [← codeT_eq]; decide +kernel
 
-/-- **The heap abort's return address is not `.Lwc_main.x27`'s.** -/
+/-- **The heap abort's return address is not `.Lwc_main.x5`'s.** -/
 theorem raAbH_ne_x27 (hlab : ∀ l x, codeLabel lo helloCells l = some x → L.lab l = Int64.ofNat x) :
-    (L.lab Spike.Lib.X64.Alloc.fullL + 12).toBitVec ≠ (L.lab ".Lwc_main.x27").toBitVec := by
+    (L.lab Spike.Lib.X64.Alloc.fullL + 12).toBitVec ≠ (L.lab ".Lwc_main.x5").toBitVec := by
   have h := raAbChkH_true
   unfold raAbChkH at h
   split at h
@@ -76,28 +76,28 @@ theorem raAbH_ne_x27 (hlab : ∀ l x, codeLabel lo helloCells l = some x → L.l
     omega
   · cases h
 
-/-- **Main's word only on the heap path** in a band on the pool, from a caller other than `.Lwc_main.x27`:
+/-- **Main's word only on the heap path** in a band on the pool, from a caller other than `.Lwc_main.x5`:
 `selfOwnH` (on the pool, `scc_rt_abort` above `.x1`), not `selfOwnWH` (`scc_rt_abort` past `scc_rt_stack_take`,
-before `.Lwc_main.x25`, the return address not `.x27`). -/
+before `.Lwc_main.x3`, the return address not `.x27`). -/
 theorem cst_abHH (hlab : ∀ l x, codeLabel lo helloCells l = some x → L.lab l = Int64.ofNat x)
-    (hb : BandIn L R) (h27 : ra ≠ (L.lab ".Lwc_main.x27").toBitVec) {s : State} (h : AbP L R ra s) :
+    (hb : BandIn L R) (h27 : ra ≠ (L.lab ".Lwc_main.x5").toBitVec) {s : State} (h : AbP L R ra s) :
     CstH L (tM L) [] s := by
-  have eA : L.lab "scc_rt_abort" = Int64.ofNat 4202486 := hlab _ _ (by rw [← codeT_eq]; decide +kernel)
-  have eW : L.lab "scc_rt_thr_worker" = Int64.ofNat 4202972 := hlab _ _ (by rw [← codeT_eq]; decide +kernel)
+  have eA : L.lab "scc_rt_abort" = Int64.ofNat 4202524 := hlab _ _ (by rw [← codeT_eq]; decide +kernel)
+  have eW : L.lab "scc_rt_thr_worker" = Int64.ofNat 4203010 := hlab _ _ (by rw [← codeT_eq]; decide +kernel)
   have e1 : L.lab ".Lscc_rt_start.x1" = Int64.ofNat 4198500 := hlab _ _ (by rw [← codeT_eq]; decide +kernel)
   have eT : L.lab "scc_rt_stack_take" = Int64.ofNat 4199732 := hlab _ _ (by rw [← codeT_eq]; decide +kernel)
-  have e25 : L.lab ".Lwc_main.x25" = Int64.ofNat 4203774 := hlab _ _ (by rw [← codeT_eq]; decide +kernel)
+  have e25 : L.lab ".Lwc_main.x3" = Int64.ofNat 4203812 := hlab _ _ (by rw [← codeT_eq]; decide +kernel)
   have hin := h.1
   unfold inPc at hin
   rw [eA, eW] at hin
-  have hA : (Int64.ofNat 4202486).toBitVec.toNat = 4202486 := by decide
-  have hW' : (Int64.ofNat 4202972).toBitVec.toNat = 4202972 := by decide
+  have hA : (Int64.ofNat 4202524).toBitVec.toNat = 4202524 := by decide
+  have hW' : (Int64.ofNat 4203010).toBitVec.toNat = 4203010 := by decide
   rw [hA, hW'] at hin
   have hsp := spPool_of_band hb h.2.2.2
   refine ⟨ownSH_of_self ((selfOwnH_iffC hlab).mpr (.inl ⟨hsp, by omega⟩)), ownSWH_of_not ?_⟩
   unfold selfOwnWH inPc
   rw [eT, e25, show (Int64.ofNat 4199732).toBitVec.toNat = 4199732 by decide,
-    show (Int64.ofNat 4203774).toBitVec.toNat = 4203774 by decide]
+    show (Int64.ofNat 4203812).toBitVec.toNat = 4203812 by decide]
   rintro (⟨-, -, h'⟩ | ⟨h', -⟩ | ⟨-, h'⟩)
   · omega
   · omega
@@ -114,7 +114,7 @@ include hp hlo hlab
 `ha`) and `tcbWH` off `ownGHX`'s (`hW`). -/
 theorem hpathW_cstOkH {a : BitVec 64} (hsep : Spike.Lib.X64.PhRec.TcbSep L) (ha : tcbM L ≠ a)
     (hW : tcbWH L ∉ [L.pnA, L.lockA, L.freeNA, L.nextA, a]) (hb : BandIn L R)
-    (hR : R.OK) (hlo' : R.lo ≤ -24) (hhi : 16 ≤ R.hi) (h27 : ra ≠ (L.lab ".Lwc_main.x27").toBitVec) :
+    (hR : R.OK) (hlo' : R.lo ≤ -24) (hhi : 16 ≤ R.hi) (h27 : ra ≠ (L.lab ".Lwc_main.x5").toBitVec) :
     HPathW (fun s _ => CstOkH (Spike.Lib.X64.PhRec.μ L) L a s) (fun _ _ => False) L.exe L.endPc R F c0 ra := by
   have hsd := SccCode.hello_abort
   simp only [Scc.Cert.Rt.X64.Abort.abortIn, Bool.and_eq_true] at hsd
@@ -126,8 +126,8 @@ theorem hpathW_cstOkH {a : BitVec 64} (hsep : Spike.Lib.X64.PhRec.TcbSep L) (ha 
   obtain ⟨-, h2⟩ := Spike.Lib.X64.HelloPh.abH_labsH hlab
   have es : L.lab Spike.Lib.X64.Flow.Ret0.StackTake.siteL = Int64.ofNat 4200314 :=
     hlab _ _ (by rw [← codeT_eq]; decide +kernel)
-  have eA : L.lab "scc_rt_abort" = Int64.ofNat 4202486 := hlab _ _ (by rw [← codeT_eq]; decide +kernel)
-  have eW : L.lab "scc_rt_thr_worker" = Int64.ofNat 4202972 := hlab _ _ (by rw [← codeT_eq]; decide +kernel)
+  have eA : L.lab "scc_rt_abort" = Int64.ofNat 4202524 := hlab _ _ (by rw [← codeT_eq]; decide +kernel)
+  have eW : L.lab "scc_rt_thr_worker" = Int64.ofNat 4203010 := hlab _ _ (by rw [← codeT_eq]; decide +kernel)
   have hP : Spike.Lib.X64.WakePh.AbPH L (Spike.Lib.X64.PhRec.μ L) L.endPc R F c0 ra :=
     abPHH hlab hR hlo' hhi (fun a' h' => by rw [hsite] at h'; cases h'; rw [es, eA, eW]; decide) hd hst
   have h := Spike.Lib.X64.Abort.Disp.HPathW.and

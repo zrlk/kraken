@@ -1,7 +1,7 @@
 /-
 **hello.w's `wc_main` own nodes inside the root's third level `RootWX.W2H` on x86-64** (the twin of
 `Spike/Lib/A64HelloWcW2.lean`; wake's x86-64 version of the node lemmas is `Spike/Lib/X64WakeWcW1I.lean`):
-`H1GAH.wcWf` at the root's level `W2Hg own L ar helloSrc Dt (ClH L) Ctx lbl lsize` at any owned words `own` (`W2H
+`H1GAHG.wcWf` at the root's level `W2Hg own L ar helloSrc Dt (ClH L) Ctx lbl lsize` at any owned words `own` (`W2H
 L (ntA L.lab) …` at `ownGH L (ntA L.lab)`), at no frames and no outside moves.
 
 Each node is `WcWfX.blkW_wfCX`/`nodeW_wfCX` (the tid store `HelloWf.nodeW_wfStH`) at its `SFactsSt2` at
@@ -17,7 +17,7 @@ the published `boxPubCtlH c0 ty l` (at `p0Term`) past it (`ctlH`, by `HelloH1A.b
   instruction inside `W2H`.
 - `wcMainW_W2H`: `WcMainWH` inside `W2H` from `hst`, `hpl` and the tid word's two facts (`htid`: unmapped under
   `F`, `hoff56`: off the arena).
-- `wcWf_W2H`: `H1GAH.wcWf`'s statement (at `ownGH L (ntA L.lab)`), `hst` by `WcMidWG.wcMidW_wcGH` at its word
+- `wcWf_W2H`: `H1GAHG.wcWf`'s statement (at `ownGH L (ntA L.lab)`), `hst` by `WcMidWG.wcMidW_wcGH` at its word
   premises.
 
 The pcs are decided at the canonical base (`hlab`); no absolute address appears in a statement.
@@ -232,9 +232,9 @@ local notation "W2c" => fun s c => W2H L (ntA L.lab) ar helloSrc Dt (Spike.Lib.X
 include hp hlo hΛ hlab hsite
 
 set_option maxHeartbeats 3200000 in
-/-- **`wc_main`'s own nodes inside `W2H`** at no frames and no move (`H1GAH.wcWf`'s statement at the root's
+/-- **`wc_main`'s own nodes inside `W2H`** at no frames and no move (`H1GAHG.wcWf`'s statement at the root's
 level): every node's `SFactsSt2` at `own` (`hst`, at the move of any range `rK`), its frames
-placed (`hpl`), and the tid word `tH + 56` unmapped under `F` (`htid`, `H1GAH.tid`'s last conjunct) and off the
+placed (`hpl`), and the tid word `tH + 56` unmapped under `F` (`htid`, `H1GAHG.tid`'s last conjunct) and off the
 arena (`hoff56`). -/
 theorem wcMainW_W2H (hR : R.OK) (hRlo : R.lo ≤ -136) (hhi : 16 ≤ R.hi) {rK : Scc.Sem.Range}
     (hst : WcMidWH (fun s _ => SFactsSt2 L.Λ (Spike.Lib.X64.PhRec.μ L) own s)
@@ -245,14 +245,14 @@ theorem wcMainW_W2H (hR : R.OK) (hRlo : R.lo ≤ -136) (hhi : 16 ≤ R.hi) {rK :
     (hoff56 : ¬ (ar.heap ≤ (tH L.lab + 56#64).toNat ∧ (tH L.lab + 56#64).toNat < ar.heap + 16 * ar.cells) ∧
       (⟨tH L.lab + 56#64, 8⟩ : Loc) ≠ ar.ctrLoc) :
     WcMainWH W2 (fun _ _ => False) L.exe L.endPc R F F ms J1 (QBH l b ws) := by
-  have e22 : (_root_.Executable.labels L.exe).label ".Lwc_main.x22" = Int64.ofNat 4203703 :=
+  have e22 : (_root_.Executable.labels L.exe).label ".Lwc_main.x0" = Int64.ofNat 4203741 :=
     hlab _ _ (by rw [← codeT_eq]; decide +kernel)
   have e3 := Spike.Lib.X64.HelloPh.Tcb2CallW.lab_sp3H hlab (L := L)
   have e4 := Spike.Lib.X64.HelloPh.WcSp4W.lab_x24H hlab (L := L)
   have e6 := Spike.Lib.X64.HelloPh.WcSp4W.lab_x25H hlab (L := L)
   have hin := Spike.Lib.X64.HelloPh.WcSp4W.sp4InH
-  have hbl : blockAtB helloCells ".Lwc_main.x22" 18 resBH = true := by decide +kernel
-  have hb3 : blockAtB helloCells ".Lwc_main.x23" 0 tcb2CallH = true := by decide +kernel
+  have hbl : blockAtB helloCells ".Lwc_main.x0" 18 resBH = true := by decide +kernel
+  have hb3 : blockAtB helloCells ".Lwc_main.x1" 0 tcb2CallH = true := by decide +kernel
   refine ⟨?_, fun c0 sl me cA fr hM => ?_, fun c0 sl me cA fr hM => ⟨?_, ?_, ?_⟩,
     fun c0 ty l' sl me cA fr hM => ⟨?_, ?_, ?_, ?_, ?_, ?_⟩⟩
   -- the reserve's call
@@ -278,7 +278,7 @@ theorem wcMainW_W2H (hR : R.OK) (hRlo : R.lo ≤ -136) (hhi : 16 ≤ R.hi) {rK :
   · obtain ⟨_, _, hq, -⟩ := hM.1
     have hI := Spike.Lib.X64.HelloPh.instOkH hp hlo (ntA L.lab) (fun _ => False) hsite (rS := ⟨0, 0⟩)
     have hpc : ((_root_.Executable.labels L.exe).label Spike.Lib.X64.Flow.HelloWc.x24L + 12).toBitVec.toNat =
-        4203749 + 12 := by
+        4203787 + 12 := by
       rw [e4]; rfl
     have hok : okPcOf lo helloCells L.Λ
         ((_root_.Executable.labels L.exe).label Spike.Lib.X64.Flow.HelloWc.x24L + 12).toBitVec.toNat = true := by
@@ -349,21 +349,21 @@ theorem wcMainW_W2H (hR : R.OK) (hRlo : R.lo ≤ -136) (hhi : 16 ≤ R.hi) {rK :
       (hpl.sp6 c0 ty l' sl me cA fr hM).nr
     intro j hj; dsimp only [wcNrH]; rw [e6]; revert j; decide +kernel
 
-/-- **`H1GAH.wcWf` at the root's level** (`wcMainW_W2H`, its `hst` by `WcMidWG.wcMidW_wcGH`): `wc_main`'s own nodes
+/-- **`H1GAHG.wcWf` at the root's level** (`wcMainW_W2H`, its `hst` by `WcMidWG.wcMidW_wcGH`): `wc_main`'s own nodes
 inside `W2H` from the frames placed (`hpl`), the tid word off the arena (`hoff56`), and `wcMidW_wcGH`'s word
 premises (`hsepN`, `hmN`, `hunN`, `hb`, `hsep`, `hhdr`, `hmP`, `hmH`, `hunP`, `hunH`, `hband`, `htidW`; `htidW`'s
-second conjunct is `H1GAH.tid`'s last). -/
+second conjunct is `H1GAHG.tid`'s last). -/
 theorem wcWf_W2H (hR : R.OK) (hR8 : R.base.toNat % 8 = 0) (hRlo : R.lo ≤ -320) (hhi : 16 ≤ R.hi)
     (hsepN : ntA L.lab ≠ L.pnA ∧ ntA L.lab ≠ L.lockA ∧ ntA L.lab ≠ L.freeNA ∧ ntA L.lab ≠ L.nextA)
     (hmN : Scc.Sem.Kernel.mapped (Spike.Lib.X64Consumer.K0 L.Λ) true ⟨ntA L.lab, 8⟩ = true)
     (hunN : ∀ m, F m → Mem.loadInt m.dmem (ntA L.lab) 8 = none)
     (hb : Spike.Lib.X64.HelloPh.Tcb2CallW.BandSp3H L R)
     (hsep : L.pnA ≠ L.lockA ∧ L.pnA ≠ L.freeNA ∧ L.pnA ≠ L.nextA ∧ L.pnA ≠ ntA L.lab)
-    (hhdr : L.pinA + 80#64 + 24#64 ∉ [L.pnA, L.lockA, L.freeNA, L.nextA, ntA L.lab])
+    (hhdr : L.pinA + 112#64 + 24#64 ∉ [L.pnA, L.lockA, L.freeNA, L.nextA, ntA L.lab])
     (hmP : Scc.Sem.Kernel.mapped (Spike.Lib.X64Consumer.K0 L.Λ) true ⟨L.pnA, 8⟩ = true)
-    (hmH : Scc.Sem.Kernel.mapped (Spike.Lib.X64Consumer.K0 L.Λ) true ⟨L.pinA + 104#64, 8⟩ = true)
+    (hmH : Scc.Sem.Kernel.mapped (Spike.Lib.X64Consumer.K0 L.Λ) true ⟨L.pinA + 136#64, 8⟩ = true)
     (hunP : ∀ m, F m → Mem.loadInt m.dmem L.pnA 8 = none)
-    (hunH : ∀ m, F m → Mem.loadInt m.dmem (L.pinA + 104#64) 8 = none)
+    (hunH : ∀ m, F m → Mem.loadInt m.dmem (L.pinA + 136#64) 8 = none)
     (hband : Spike.Lib.X64.HelloPh.WcSp4W.BandTiH L R)
     (htidW : Scc.Sem.Kernel.mapped (Spike.Lib.X64Consumer.K0 L.Λ) true ⟨tH L.lab + 56#64, 8⟩ = true ∧
       (∀ m', F m' → Mem.loadInt m'.dmem (tH L.lab + 56#64) 8 = none) ∧

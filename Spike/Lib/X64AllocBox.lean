@@ -81,7 +81,7 @@ namespace Spike.Lib.X64.Alloc
 open CoreLang CoreTerm
 open Kraken Kraken.Promising Kraken.Promising.X64 Kraken.Promising.Lower Kraken.Promising.Lower.X64
 open Kraken.X64.Parser Spike.Lib.X64
-open Scc.Cert.Rt.X64 (Lays endOf code_field)
+open Scc.Cert.Rt.X64 (Lays endOf code_field label_labelGapB)
 
 /-- **The call's premises at a box allocation**: the site premises
 (`Call.OKS`), the memory side allowing box rows, the source at
@@ -129,7 +129,9 @@ theorem seg_allocBW_at {W : Frag isa} {K : State → State → Prop} {F : Machin
   refine seg_allocW_genR hp hend hin hF hR hlo hhi hq.toS hmem hW (lbl := lbl) (Ex := EB _ ms q)
     (fun _ _ ⟨hpc, ho, h2, hf⟩ hs => ⟨hpc, ho, h2, hf, hs⟩) ?_ i0
   refine ai_ndW (a := .ret) (z := 1) (lo := -160) (hi := 8) rfl (by rintro w op ⟨⟩) hF hR hlo hhi
-    (code_field hp hend (by simp only [hin']) (l := okL) (off := 226) rfl) hW.ret
+    (code_field hp hend (by simp only [hin']) (l := retL) (off := 0)
+      (by rw [label_labelGapB (a := okL) (b := retL) (off := 226) hp (by simp only [hin'])]
+          exact Spike.Lib.X64.Flow.ofNat_zero' _)) hW.ret
     fun σ c hJ => ⟨c, .refl c, .inr ⟨AX.ret, ?_⟩⟩
   obtain ⟨o, rfl, hle, hn28, h0, h29, h30, hlo'⟩ := hJ
   have hk := Call.k_toNat hq.toS.n_lt

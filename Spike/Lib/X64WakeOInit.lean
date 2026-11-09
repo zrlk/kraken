@@ -17,8 +17,8 @@ counters at their loaded `0` and `scc_rt_nthreads` at `0`.
 x86-64 twin of `Spike/Lib/WakeOInit.lean`. **Unlike AArch64**:
 - `own` is `ownGXW` (`ownG` with main's TCB word `ownS` and the worker's
   `ownSW`), so `ownGXW_lo` also rules out `selfOwn`/`selfOwnW` (each needs
-  a pc at or above `.Lscc_rt_start.x1`, `.Lscc_rt_thread_init.x7 + 51`,
-  `.Lwc_main.x21` or `scc_rt_abort`);
+  a pc at or above `.Lscc_rt_start.x1`, `.Lscc_rt_thread_init.x0 + 51`,
+  `.Lwc_main.x3` or `scc_rt_abort`);
 - the load takes the label offsets (`loadParsed … offs`), and the layout is
   `ofPlaceWX` at `PlaceWX`; labels are `codeLabel lo wakeCells`
   (`X64WakeOAb.hlab_W`, from `cellsOf`).
@@ -62,11 +62,11 @@ theorem ownGXW_lo {L : RuntimeLayout} (hlab : ∀ l x, codeLabel lo wakeCells l 
     simp [Nat.mod_eq_of_lt hlt]
   have h1 := e "scc_rt_alloc_tcb" 4198992 (by rw [← codeT_eq]; decide +kernel) (by decide)
   have h2 := e "scc_rt_thread_init" 4199545 (by rw [← codeT_eq]; decide +kernel) (by decide)
-  have h3 := e ".Lwc_main.x20" 4203372 (by rw [← codeT_eq]; decide +kernel) (by decide)
-  have h4 := e ".Lwc_main.x21" 4203397 (by rw [← codeT_eq]; decide +kernel) (by decide)
-  have h5 := e "scc_rt_abort" 4202449 (by rw [← codeT_eq]; decide +kernel) (by decide)
+  have h3 := e ".Lwc_main.x2" 4203410 (by rw [← codeT_eq]; decide +kernel) (by decide)
+  have h4 := e ".Lwc_main.x3" 4203435 (by rw [← codeT_eq]; decide +kernel) (by decide)
+  have h5 := e "scc_rt_abort" 4202487 (by rw [← codeT_eq]; decide +kernel) (by decide)
   have h6 := e ".Lscc_rt_start.x1" 4198500 (by rw [← codeT_eq]; decide +kernel) (by decide)
-  have h7 := e ".Lscc_rt_thread_init.x7" 4199569 (by rw [← codeT_eq]; decide +kernel) (by decide)
+  have h7 := e ".Lscc_rt_thread_init.x0" 4199569 (by rw [← codeT_eq]; decide +kernel) (by decide)
   unfold ownGXW ownGX ownG ownS ownSW selfOwn selfOwnW inPc
   simp [hpc, h1, h2, h3, h4, h5, h6, h7, phW_lo, lo]
 

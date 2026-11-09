@@ -5,20 +5,19 @@ place where hello's root discharges them, for the runtime layout `L` and the sta
 
 - the layout's facts: helloCells (`hp`), the code base (`hlo`), the abort label (`hΛ`), the labels (`hlab`), the
   take site (`hsite`), `.rodata` off the stack pool (`hro`);
-- the level after the allocation (`W1`);
 - `hmid`'s premises at the box's level (`h2`: after rodata's allocation `l` and the box's `l'`): the arena `ar`,
   the box's landing side and frame condition (`msB`, `F0`), the level `W2`, its fence's extra `X2`, its memory side
   `ms2`, the box's extra ghost facts `G`, the level's extra fact at the clone `Wc`, and the named premises `hK2`,
   `hpub2`, `x2_off`, `hXr`, `hokb`, `hg`, `hP`; the clone's refusal is fixed, `ClH`;
-- the callee's (`X64HelloTi2HatO.hti_HO`'s) layout and level facts: the start's level parameters `Dt`, `Ctx`,
+- the callee's (`X64HelloTi2HatO.hti_HOX`'s) layout and level facts: the start's level parameters `Dt`, `Ctx`,
   `lsize`, `frM` (generic), the words' separation `hs`, the second stack in the pool `hsub`, the second TCB's
   words and the counters off the arena (`hmF`, `hnoF`, `hoffT`, `hoffL`, `hoffX`).
 
 - `HelloRootPremG WS`: the premises with `hP` at the start level `WS` (`X64.HelloH1A.H1GAHG`); `HelloRootPrem` is
   it at `StartWf.WSH` (main's owned words `ownGH`), `HelloRootPremX` at `WSHX` (`ownGHXW`).
 - `HelloRootPremG.hmidG`: `X64HelloHatA.hmid_boxAH` at the root's premises, given each ghost's `HMidPAH`;
-  `HelloRootPrem.hmid` by `X64.HelloH1A.hMidPAH_of`, `HelloRootPremX.hmid` by `hMidPAH_ofX` (given the worker's
-  TCB word off the counters).
+  `HelloRootPremX.hmid` by `X64.HelloH1A.hMidPAH_ofX` (given the worker's TCB word off the counters; the root is at
+  `ownGHXW`).
 
 `ClH`, `Fresh2H`, `lbl2H` live in `Spike/Lib/X64HelloClH.lean` (same namespace).
 
@@ -26,8 +25,8 @@ place where hello's root discharges them, for the runtime layout `L` and the sta
 
 - The code is `helloCells` with labels by `codeLabel` (AArch64 `helloProg`, `codeOf`); the kernel at `h2` is
   `X64.abi` (`hK2`); the source is `X64HelloSrc.helloSrc`.
-- `hP`'s `H1GAH` is x86-64's (`X64.HelloH1A.H1GAH`: the box published at `.x25`'s `mfence`, the callees at `-136`),
-  and the callee's take is `hti_HO` inside `W ∧ X ∧ NoSetFsAt` (AArch64 `NoMsrAt`).
+- `hP`'s `H1GAHG` is x86-64's (`X64.HelloH1A.H1GAHG`: the box published at `.x25`'s `mfence`, the callees at `-136`),
+  and the callee's take is `hti_HOX` inside `W ∧ X ∧ NoSetFsAt` (AArch64 `NoMsrAt`).
 - AArch64 imports `A64HelloWcPl`, which nothing here reads; it has no twin.
 - main also owns its own and the worker's TCB words up to the clone, so the premises are generic in the start
   level (`HelloRootPremG`), at `WSHX` for the root (AArch64: `HelloRootPrem` at `WSH` only).
@@ -63,10 +62,8 @@ structure HelloRootPremG
   hlab : ∀ l x, codeLabel lo SccCode.helloCells l = some x → L.lab l = Int64.ofNat x
   hsite : (Spike.Lib.X64.PhRec.μ L).site .take =
     some (L.lab Spike.Lib.X64.Flow.Ret0.StackTake.siteL).toBitVec.toNat
-  /-- `.rodata` off the stack pool (`hti_HO`'s `hro`). -/
+  /-- `.rodata` off the stack pool (`hti_HOX`'s `hro`). -/
   hro : L.Λ.rodata.Disjoint L.Λ.stackPool
-  /-- The level after the allocation. -/
-  W1 : Spike.Lib.FragS isa
   /-- The allocator's arena. -/
   ar : Spike.Lib.Arena
   /-- The arena's geometry: the counter off its cells, the box sizes. -/
@@ -115,10 +112,10 @@ structure HelloRootPremG
   hs : Spike.Lib.X64.WakePh.WSep L (Spike.Lib.X64.Rt.Reserve.ntA L.lab)
   /-- The second stack in the pool. -/
   hsub : (r1Of L.lab).Sub L.Λ.stackPool
-  /-- The second TCB's words mapped (`hti_HO`'s `hmF`). -/
+  /-- The second TCB's words mapped (`hti_HOX`'s `hmF`). -/
   hmF : ∀ a ∈ Spike.Lib.X64.Rt.Ti.tiAddrs (tH L.lab),
     Scc.Sem.Kernel.mapped (Spike.Lib.X64Consumer.K0 L.Λ) true ⟨a, 8⟩ = true
-  /-- The second TCB's words off the owned words (`hti_HO`'s `hnoF`). -/
+  /-- The second TCB's words off the owned words (`hti_HOX`'s `hnoF`). -/
   hnoF : ∀ b ∈ Spike.Lib.X64.Rt.Ti.tiAddrs (tH L.lab), ∀ j w,
     (⟨b, 8⟩, w) ∉ own2bH L (Spike.Lib.X64.Rt.Reserve.ntA L.lab) j
   /-- The second TCB's words off the arena. -/
@@ -135,9 +132,9 @@ structure HelloRootPremG
     X2 l b n l' b' n' s c [] → s.st.2 = L.lab Spike.Lib.X64.Flow.Ret0.StackTake.siteL →
     Scc.Sem.Kernel.siteRange Scc.Sem.X64.abi s = r1Of L.lab
   /-- `h1`'s open premises at every ghost of the box: `X64.HelloH1A.H1GAHG` at `h2`'s level, side and placement,
-  the start level `WS` at `ntA`, `ar`, `Dt`, `ClH`, `Ctx`, `lsize`, `frM`; at `WS := WSH` (`H1GAH`)
-  `hMidPAH_of` makes `X64HelloHatA.HMidPAH` of it (the callee `ti` by `hti_HO`, inside `W ∧ X ∧ NoSetFsAt` under
-  `TakeCK site r1Of ClH`), at `WS := WSHX` (`H1GAHX`) `hMidPAH_ofX`.
+  the start level `WS` at `ntA`, `ar`, `Dt`, `ClH`, `Ctx`, `lsize`, `frM`; at `WS := WSHX` (`H1GAHX`)
+  `hMidPAH_ofX` makes `X64HelloHatA.HMidPAH` of it (the callee `ti` by `hti_HOX`, inside `W ∧ X ∧ NoSetFsAt` under
+  `TakeCK site r1Of ClH`).
 
   Satisfiable: the antecedent `BoxPureH ∧ G` is exactly the ghost part of `BoxMH` at the box's landing (`hmid`'s
   pre), so `hP` is consumed only at the ghosts of the real run's landing; with `G := H1GAHG …` itself,
@@ -193,27 +190,6 @@ theorem hmidG {l : WeakMem.AllocLabel} {b n : Nat} {l' : WeakMem.AllocLabel} {b'
 
 end HelloRootPremG
 
-namespace HelloRootPrem
-
-variable {L : RuntimeLayout} {lbl : Lbl} (P : HelloRootPrem L lbl)
-
-/-- **`hmid` at `h2`'s indices** (`X64HelloHatA.hmid_boxAH` at the root's premises, `HMidPAH` by
-`X64.HelloH1A.hMidPAH_of`): from the box's landing with the second stack unmapped (`KeepUn.U r1Of`) past its store
-to main's clone inside `W2 ∧ X2` under the take of the site's range or a refusal at `ClH`, the box's slice at
-rodata's words `slWsH l`. -/
-theorem hmid {l : WeakMem.AllocLabel} {b n : Nat} {l' : WeakMem.AllocLabel} {b' n' : Nat}
-    (hf : Fresh2H P.ar lbl l b n l' b' n') :
-    Spike.Lib.SegWS (fun s c fs => P.W2 l b n l' b' n' s c fs ∧ P.X2 l b n l' b' n' s c fs)
-      (Spike.Lib.X64ConsumerA.TakeCKS (L.lab Spike.Lib.X64.Flow.Ret0.StackTake.siteL) (ClH L))
-      Spike.Lib.X64HelloSrc.helloSrc (lbl2H lbl l b l' b') (P.ms2 l b n l' b' n')
-      (fun s c fs => BoxMH L (P.msB l b n) P.F0 (P.G l b n l' b' n') l' b' (slWsH l) n' s c ∧
-        Spike.Lib.X64.KeepUn.U (r1Of L.lab) s ∧ fs = [])
-      (CloneMidH L P.F0 (P.G l b n l' b' n') (P.W2 l b n l' b' n') (P.Wc l b n l' b' n') l' b' (slWsH l) n') :=
-  HelloRootPremG.hmidG P hf fun _ _ _ _ hB hG => Spike.Lib.X64.HelloH1A.hMidPAH_of P.hp P.hlo P.hlab P.hsite P.hΛ
-    (fun _ h => h.2) (fun _ h => ClH.pc h) P.hs P.hro P.hsub P.hmF P.hnoF P.hoffT P.hoffL P.hoffX hB hG
-
-end HelloRootPrem
-
 namespace HelloRootPremX
 
 variable {L : RuntimeLayout} {lbl : Lbl} (P : HelloRootPremX L lbl)
@@ -242,6 +218,3 @@ end Spike.Lib.X64.HelloPh
 
 /-- info: 'Spike.Lib.X64.HelloPh.HelloRootPremX.hmid' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms Spike.Lib.X64.HelloPh.HelloRootPremX.hmid
-
-/-- info: 'Spike.Lib.X64.HelloPh.HelloRootPrem.hmid' depends on axioms: [propext, Classical.choice, Quot.sound] -/
-#guard_msgs in #print axioms Spike.Lib.X64.HelloPh.HelloRootPrem.hmid

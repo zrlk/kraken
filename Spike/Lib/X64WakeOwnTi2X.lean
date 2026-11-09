@@ -1,7 +1,7 @@
 /-
 **wc_main's second `scc_rt_thread_init` call lifted to `ownGXW`** (x86-64;
 X64-OwnW Ti2 group): the call from `wc_main` (returning to
-`.Lwc_main.x21`) on the worker's TCB (`q.tcb = tcb2`), its frames `[-248,
+`.Lwc_main.x3`) on the worker's TCB (`q.tcb = tcb2`), its frames `[-248,
 8]` on the pool. Before the take store (`.st0`, `.x7 + 48`) every state
 owns `tcbM` only (`QP`, `cls_pool`), the nested `scc_rt_stack_take` call
 too (`takeL2`, its shared writes off `tcbM`); `.st0` takes the worker's word
@@ -381,7 +381,7 @@ theorem takeL2 (hp : L.prog = wakeCells)
         exact (code_field L.lays rfl (hp ▸ bSite) (ofNat_zero' _) s he hn).cell0 rfl rfl hp'
   case ret =>
     have eX7' : L.lab Spike.Lib.X64.Rt.Code.Ti.x7L = Int64.ofNat 4199569 := eX7
-    refine blkL hp hlab hsite hsep ha hW (P := PP) (Q := QP) bRet rfl stRet_ok hR (by omega) (by omega)
+    refine blkLA hp hlab hsite hsep ha hW (P := PP) (Q := QP) bRet rfl stRet_ok hR (by omega) (by omega)
       (fun _ h => h.2) (fun s h => cls_pool hlab hbd s h.1) (cls_pool hlab hbd) ?_ (soT stRet oI) (fun σ c hJ => ?_)
     · intro k hk; dsimp only [takeNG]; rw [eSite]; revert k; decide +kernel
     · dsimp only [takeNG] at hJ ⊢
@@ -436,6 +436,16 @@ set_option hygiene false in
 local macro "tblkW " bb:term:max ok:term:max blk:term:max oo:term:max el:term:max : tactic =>
   `(tactic| (
     refine blkL hp hlab hsite hsep ha hW (P := PW) (Q := QW) $bb (by first | rfl | exact ofNat_zero' _) $ok hR
+      (by omega) (by omega) (fun _ h => h.2) (fun s h => cls_poolW hlab hbd48 s h.1) (cls_poolW hlab hbd48) ?_
+      (soI $blk $oo) (fun σ c hJ => ?_)
+    · intro k hk; dsimp only [tiN]; rw [$el:term]; revert k; decide +kernel
+    dsimp only [tiN] at hJ ⊢))
+
+set_option hygiene false in
+/-- `tblkW` on a block split by a return label (`blkLA`). -/
+local macro "tblkWA " bb:term:max ok:term:max blk:term:max oo:term:max el:term:max : tactic =>
+  `(tactic| (
+    refine blkLA hp hlab hsite hsep ha hW (P := PW) (Q := QW) $bb (by first | rfl | exact ofNat_zero' _) $ok hR
       (by omega) (by omega) (fun _ h => h.2) (fun s h => cls_poolW hlab hbd48 s h.1) (cls_poolW hlab hbd48) ?_
       (soI $blk $oo) (fun σ c hJ => ?_)
     · intro k hk; dsimp only [tiN]; rw [$el:term]; revert k; decide +kernel
@@ -533,12 +543,12 @@ theorem ti2L (hbdI : Spike.Lib.X64.WakePh.Ti2.BandP L R (-248)) (hR : R.OK) (hRl
     (hhi : 8 ≤ R.hi) (hFr : ∀ m, F m → Spike.Lib.X64.Rt.rtF L m) {M : MachineData → Prop} (q : TiG)
     (htcb : q.tcb = tcb2 L)
     (hunT : ∀ b ∈ Spike.Lib.X64.Rt.Ti.tiAddrs q.tcb, ∀ m, F m → Mem.loadInt m.dmem b 8 = none)
-    (hra : q.g.ra = (L.lab ".Lwc_main.x21").toBitVec) :
+    (hra : q.g.ra = (L.lab ".Lwc_main.x3").toBitVec) :
     ∀ i, TiW (Lft L a ar p Dt Cl Ctx lbl lsize frM X0) (fun _ _ => False) L.exe L.endPc R F M q i := by
   have hbd48 : BandOnP L R (-48) 8 := Spike.Lib.X64.WakePh.Ti2.bandP_mono hbdI (by decide)
   obtain ⟨eFn, eEn⟩ := ti_labs hlab (L := L)
   obtain ⟨eT, -, -, -, -, -, -, -, -, -, -, eX7⟩ := take_labs hlab (L := L)
-  have e21 : L.lab ".Lwc_main.x21" = Int64.ofNat 4203397 :=
+  have e21 : L.lab ".Lwc_main.x3" = Int64.ofNat 4203435 :=
     hlab _ _ (by rw [← Scc.Cert.Rt.X64.codeT_eq]; decide +kernel)
   have hin := wake_tiIn
   simp only [threadInitIn, storeOff, storeBlks_eq, List.zip_cons_cons, List.zip_nil_right, List.all_cons,
@@ -593,7 +603,7 @@ theorem ti2L (hbdI : Spike.Lib.X64.WakePh.Ti2.BandP L R (-248)) (hR : R.OK) (hRl
     rw [(tiF5_walk _ _ hJ.2).1, eX7]; decide +kernel
   case st5 => tstX bS5 TI.st5 5 40 4
   case ret =>
-    tblkW bRet tiRet_ok tiRet oI eX7
+    tblkWA bRet tiRet_ok tiRet oI eX7
     rw [(tiRet_walk _ _ hJ.2).1, hra, Int64.ofBitVec_toBitVec, e21]; decide +kernel
 
 /-- **`StartTi.ti2_WS`'s obligations inside `WS` are inside `WSX`** at the
@@ -602,7 +612,7 @@ theorem ti2X (hbdI : Spike.Lib.X64.WakePh.Ti2.BandP L R (-248)) (hR : R.OK) (hRl
     (hhi : 8 ≤ R.hi) (hFr : ∀ m, F m → Spike.Lib.X64.Rt.rtF L m) {K : State → State → Prop}
     {M : MachineData → Prop} (q : TiG) (htcb : q.tcb = tcb2 L)
     (hunT : ∀ b ∈ Spike.Lib.X64.Rt.Ti.tiAddrs q.tcb, ∀ m, F m → Mem.loadInt m.dmem b 8 = none)
-    (hra : q.g.ra = (L.lab ".Lwc_main.x21").toBitVec)
+    (hra : q.g.ra = (L.lab ".Lwc_main.x3").toBitVec)
     (h : ∀ i, TiW (WS L a ar p Dt Cl Ctx lbl lsize frM X0) K L.exe L.endPc R F M q i) :
     ∀ i, TiW (WSX L a ar p Dt Cl Ctx lbl lsize frM X0) K L.exe L.endPc R F M q i := fun i =>
   TiW.imp (h i) (ti2L hp hlab hsite hsep ha hW hbdI hR hRlo hhi hFr q htcb hunT hra i) fun _ _ h1 h2 => h2 h1

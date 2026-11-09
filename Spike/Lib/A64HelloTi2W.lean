@@ -234,7 +234,7 @@ theorem ti2_WSH (hΛ : L.Λ.abortLbl = Scc.Cert.Link.abortName) (hs : WSep L a)
     · dsimp only [tiN] at hJ ⊢; rw [(tiF5_walk _ _ hJ.2).1, eSp]; decide
   case st5 => tstW bS5 5
   case ret =>
-    refine blk2_WSH (rl := ".L22_wc_main.sp6") hp hlo hlab hsite hcl hc0 hpl0 hPl2 hX0 hbd48 bRet rfl tiRet_ok
+    refine blk2_WSHA (rl := ".L22_wc_main.sp6") hp hlo hlab hsite hcl hc0 hpl0 hPl2 hX0 hbd48 bRet rfl tiRet_ok
       hR hal (by omega) (by omega) h (okPc_of_blkPh hP.ret) ?_ (soI tiRet oI) (fun σ c hJ s m _ _ _ hs' => ?_)
       (by decide +kernel) (Spike.Lib.A64Consumer.hret_of_run tiRet_ok fun σ c hJ => ?_) (fun σ c h => h.1.trans hq)
     · intro k hk; dsimp only [tiN]; rw [eSp]; revert k; decide

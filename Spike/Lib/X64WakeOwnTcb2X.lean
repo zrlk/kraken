@@ -58,6 +58,16 @@ local macro "tblkX " bb:term:max ok:term:max blk:term:max oo:term:max el:term:ma
     dsimp only [tcbNG] at hJ ⊢))
 
 set_option hygiene false in
+/-- `tblkX` for a block split by its return label (`blkL2A`, `blockAcrossB`). -/
+local macro "tblkXA " bb:term:max ok:term:max blk:term:max oo:term:max el:term:max : tactic =>
+  `(tactic| (
+    refine blkL2A hp hlab hsite hsep ha hW (P := PP) (Q := QP) $bb (by first | rfl | exact ofNat_zero' _) $ok hR
+      (by omega) (by omega) (fun _ h => h.2) (fun s h => cls_pool hlab hb s h.1) (cls_pool hlab hb) ?_
+      (soT $blk $oo) (fun σ c hJ => ?_)
+    · intro k hk; dsimp only [tcbNG]; rw [$el:term]; revert k; decide +kernel
+    dsimp only [tcbNG] at hJ ⊢))
+
+set_option hygiene false in
 /-- A single-instruction node of the call (`z` bytes, `bb` its code check,
 `el` its label's value, `hw` its write condition, `kp` its `Keep` from the
 cell `hc` and the step `hs`). -/
@@ -95,7 +105,7 @@ set_option maxHeartbeats 3200000 in
 state on a pool stack (`hb`) at a `QP` pc holds `tcbM` only; the counter's
 and the header's stores miss it. -/
 theorem tcb2L {R : Region} (hb : BandA L R) (hR : R.OK) (hlo' : R.lo ≤ -184) (hhi : 8 ≤ R.hi)
-    (g : G) (c0 : Ctl) (hra : g.ra = (L.lab ".Lwc_main.x20").toBitVec) {F : MachineData → Prop}
+    (g : G) (c0 : Ctl) (hra : g.ra = (L.lab ".Lwc_main.x2").toBitVec) {F : MachineData → Prop}
     (hunP : ∀ m, F m → Mem.loadInt m.dmem L.pnA 8 = none)
     (hunH : ∀ m, F m → Mem.loadInt m.dmem (Spike.Lib.X64.Rt.hdrA L.lab (tcb2Q g c0)) 8 = none) :
     ∀ i, Spike.Lib.X64.Rt.TcbWG (Lft2 Λ L a Dt) (fun _ _ => False) L.exe L.endPc R F (tcb2Q g c0) i := by
@@ -152,7 +162,7 @@ theorem tcb2L {R : Region} (hb : BandA L R) (hR : R.OK) (hlo' : R.lo ≤ -184) (
   case bnd =>
     tblkX cBnd atBnd_ok atBnd oI eLen
     rw [(atBnd_walkG _ _ hJ.2.1 hJ.2.2
-      (by show (80#64).toNat + (lenOf Spike.Lib.X64.WakePh.hdr2).toNat ≤ 131072; decide)).1, eLen]
+      (by show (112#64).toNat + (lenOf Spike.Lib.X64.WakePh.hdr2).toNat ≤ 131072; decide)).1, eLen]
     decide +kernel
   case j2 =>
     tblkX cJ2 atJ2_ok atJ2 oI eLen
@@ -174,10 +184,10 @@ theorem tcb2L {R : Region} (hb : BandA L R) (hR : R.OK) (hlo' : R.lo ≤ -184) (
     tblkX cO5 atO5_ok atO5 oI eOk
     rw [(atO5_walkG _ _ hJ.2.1 hJ.2.2).1, eOk]; decide +kernel
   case ret =>
-    tblkX cRet atRet_ok atRet oI eOk
+    tblkXA cRet atRet_ok atRet oI eOk
     rw [(atRet_walkG _ _ hJ.2).1]
     show QP (Int64.ofBitVec g.ra).toBitVec.toNat
-    rw [hra, Int64.ofBitVec_toBitVec, show L.lab ".Lwc_main.x20" = Int64.ofNat 4203372 from eX20]
+    rw [hra, Int64.ofBitVec_toBitVec, show L.lab ".Lwc_main.x2" = Int64.ofNat 4203410 from eX20]
     decide +kernel
   case shr1 => tnodeX 3 fShr1 eLen hw_fi keep_fi hc rfl hs
   case and1 => tnodeX 3 fAnd1 eLen hw_fi keep_fi hc rfl hs
@@ -248,9 +258,9 @@ theorem tcb2CallL {R : Region} (hR : R.OK) (hlo3 : R.lo ≤ -72) (hhi : 16 ≤ R
     (fun k hk => (show ∀ k ≤ tcb2Call.length, -72 ≤ (soRun (tcb2Call.take k) Tcb2Call.oW).sp ∧
       (soRun (tcb2Call.take k) Tcb2Call.oW).sp ≤ -64 by decide +kernel) k hk) (fun σ c hJ => ?_)
   · intro k hk
-    show PP ((_root_.Executable.labels L.exe).label ".Lwc_main.x19" + _).toBitVec.toNat
+    show PP ((_root_.Executable.labels L.exe).label ".Lwc_main.x1" + _).toBitVec.toNat
     rw [lab_sp3 hlab]; revert k; decide +kernel
-  · rw [show (wcN3 L.lab J c0).pc = (_root_.Executable.labels L.exe).label ".Lwc_main.x19" from rfl,
+  · rw [show (wcN3 L.lab J c0).pc = (_root_.Executable.labels L.exe).label ".Lwc_main.x1" from rfl,
       show (wcN3 L.lab J c0).o = Tcb2Call.oW from rfl,
       (tcb2Call_pc (_root_.Executable.labels L.exe).label _ σ).1]
     show QP ((_root_.Executable.labels L.exe).label fnL).toBitVec.toNat
@@ -262,10 +272,10 @@ theorem tcb2CallL {R : Region} (hR : R.OK) (hlo3 : R.lo ≤ -72) (hhi : 16 ≤ R
 theorem tcb2W_ownGX (hlo : L.Λ.code.lo = lo) {rS : Range} (rS' : Range)
     (hΛ : L.Λ.abortLbl = Scc.Cert.Link.abortName)
     (hsepP : L.pnA ≠ L.lockA ∧ L.pnA ≠ L.freeNA ∧ L.pnA ≠ L.nextA ∧ L.pnA ≠ a)
-    (hhdr : L.pinA + 80#64 + 16#64 ∉ [L.pnA, L.lockA, L.freeNA, L.nextA, a])
+    (hhdr : L.pinA + 112#64 + 16#64 ∉ [L.pnA, L.lockA, L.freeNA, L.nextA, a])
     {lbl : Lbl} {c0 : Ctl} (hC0 : CFacts Λ lbl c0)
     {R : Region} (hR : R.OK) (hlo' : R.lo ≤ -184) (hhi : 8 ≤ R.hi)
-    (hb : BandA L R) (g : G) (hra : g.ra = (L.lab ".Lwc_main.x20").toBitVec)
+    (hb : BandA L R) (g : G) (hra : g.ra = (L.lab ".Lwc_main.x2").toBitVec)
     {F : MachineData → Prop}
     (hmP : Scc.Sem.Kernel.mapped (Spike.Lib.X64Consumer.K0 Λ) true ⟨L.pnA, 8⟩ = true)
     (hmH : Scc.Sem.Kernel.mapped (Spike.Lib.X64Consumer.K0 Λ) true

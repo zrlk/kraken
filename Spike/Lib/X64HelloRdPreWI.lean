@@ -4,7 +4,7 @@
 `SFactsSt2` component of the pre-spawn chain's `W` for `HelloRd.RdPreW`:
 the prologue (frame 32, nothing spilled), the entry block, and
 `scc_rt_alloc` at the allocator's region `aR R` returning to
-`.Lwc_rodata.x15` (`allocW_wcGH` at `AllocRetH`'s first return point). The
+`.Lwc_rodata.x0` (`allocW_wcGH` at `AllocRetH`'s first return point). The
 twin of `X64HelloWcPreWI`'s `proW_wcGH`/`eW_wcGH` and
 `X64HelloWcPreG.wcPreW_wcGH` at `wc_rodata`, with its own phase table
 (`rdTabH`). The checks are decided by the kernel against helloCells'

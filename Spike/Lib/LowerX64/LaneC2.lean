@@ -131,9 +131,9 @@ theorem insts_xchg {fr : Scc.Emit.X64.Frame} {Cd : Int64 → List (Directive × 
       zs2.length = (dirs l2).length ∧ Cd (pc + Int64.ofNat zs1.sum) ((dirs l2).zip zs2) ∧
       kk' = kk ∧ pc' = pc + Int64.ofNat zs1.sum + Int64.ofNat zs2.sum := by
   rcases h with ⟨-, l1, zs1, hE1, hz1, hc1, h⟩ | ⟨_, _, _, _, _, _, _, _, hi, _⟩ |
-    ⟨_, _, _, _, _, _, _, hi, _⟩ | ⟨_, _, _, _, hi, _⟩
+    ⟨_, _, _, _, _, _, _, hi, _⟩ | ⟨_, _, _, _, hi, _⟩ | ⟨_, _, _, _, _, _, _, _, hi, _⟩
   · rcases h with ⟨-, l2, zs2, hE2, hz2, hc2, ⟨rfl, rfl⟩⟩ | ⟨_, _, _, _, _, _, _, _, hi, _⟩ |
-      ⟨_, _, _, _, _, _, _, hi, _⟩ | ⟨_, _, _, _, hi, _⟩
+      ⟨_, _, _, _, _, _, _, hi, _⟩ | ⟨_, _, _, _, hi, _⟩ | ⟨_, _, _, _, _, _, _, _, hi, _⟩
     · exact ⟨l1, zs1, l2, zs2, hE1, hz1, hc1, hE2, hz2, hc2, rfl, rfl⟩
     all_goals cases hi
   all_goals cases hi

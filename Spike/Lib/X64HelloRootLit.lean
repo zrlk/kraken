@@ -3,7 +3,7 @@
 literal `SccCode.helloAsm` (`Spike/Lib/X64HelloCode.lean`), its output `oH` and placement configuration `pcfgH`
 (`Spike/Lib/X64HelloOut.lean`), generic in the layout `Λ0` and the immediates `i0`.
 
-- `hz_H`, `hc_H`: the pinned region's `.zero` (`131072` bytes) and the counter's zeroed item, by `decide +kernel`
+- `hz_H`, `hc_H`: the pinned region's `.zero` (`163840` bytes) and the counter's zeroed item, by `decide +kernel`
   on `helloSecs`.
 - `QRoot`: the root's relation (`hello_root_inv`'s `QQ` at the listing), named so the final statement reads without
   unfolding.
@@ -55,9 +55,9 @@ open SccCode (helloAsm)
 open Spike.Lib.X64.HelloPh.RootInv (hello_root_inv)
 open Scc.Cert.Link.X64 (parsesTo parsed_of_parsesTo)
 
-/-- **The pinned region's `.zero`** after `scc_rt_pinned` has `131072` bytes (the root's `hz`). -/
+/-- **The pinned region's `.zero`** after `scc_rt_pinned` has `163840` bytes (the root's `hz`). -/
 theorem hz_H :
-    Scc.Cert.PlaceOK.zeroAfter (oH.secs.bss ++ oH.secs.data) Scc.Cert.Link.pinnedSym = some 131072 := by
+    Scc.Cert.PlaceOK.zeroAfter (oH.secs.bss ++ oH.secs.data) Scc.Cert.Link.pinnedSym = some 163840 := by
   decide +kernel
 
 private theorem lookup_mem {β : Type} : ∀ {l : List (String × β)} {k : String} {b : β},
@@ -224,7 +224,7 @@ theorem hello_root_lit {arch : WeakMem.Arch} {B : Budget} {E : Entry} {ls : Lsiz
     (hI : Spike.Lib.X64.HelloPh.XHFSeg.ImmsKid (Ly).Λ) :
     WakeObligationsR arch (Ly).Λ B helloAsm (QQ) E
       (fun t tr => TiPre (AbH hp (IH0)) (AcH hp (IH0)) t tr ∧ TwH (Ly).Λ E (AbH hp (IH0)) t tr) helloSrc :=
-  hello_root_inv (asm := helloAsm) (o := oH) (nZ := 131072) (arch := arch) (B := B) (E := E)
+  hello_root_inv (asm := helloAsm) (o := oH) (nZ := 163840) (arch := arch) (B := B) (E := E)
     (ls := ls) hp i0 (hpaH) (hpaH) (parsed_of_parsesTo hparse).2 rfl hlo hstat
     hc_H hnz hB hE hA13 hz_H (by decide) hm hRdI hme hzI hinit2 hI
 

@@ -52,8 +52,8 @@ variable {L : RuntimeLayout} {a : BitVec 64} {Λ : Scc.Sem.Layout} {Dt : State �
 
 /-- The labels `wc_rodata`'s pcs are decided from, at the canonical base. -/
 theorem rd_labsH (hlab : ∀ l x, codeLabel lo helloCells l = some x → L.lab l = Int64.ofNat x) :
-    L.lab "wc_rodata" = Int64.ofNat 4203131 ∧ L.lab ".Lwc_rodata.chk" = Int64.ofNat 4203135 ∧
-    L.lab ".Lwc_rodata.entry" = Int64.ofNat 4203158 ∧ L.lab ".Lwc_rodata.stk" = Int64.ofNat 4203276 ∧
+    L.lab "wc_rodata" = Int64.ofNat 4203169 ∧ L.lab ".Lwc_rodata.chk" = Int64.ofNat 4203173 ∧
+    L.lab ".Lwc_rodata.entry" = Int64.ofNat 4203196 ∧ L.lab ".Lwc_rodata.stk" = Int64.ofNat 4203314 ∧
     L.lab "scc_rt_alloc" = Int64.ofNat 4198666 := by
   refine ⟨hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_⟩ <;>
     (rw [← codeT_eq]; decide +kernel)

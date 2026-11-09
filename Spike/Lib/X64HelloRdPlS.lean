@@ -1,6 +1,6 @@
 /-
 **hello.w's `wc_rodata` placement from the allocator's return, at the setup call's frame** (x86-64; twin of
-`Spike/Lib/A64HelloRdPlS.lean`; `RdWfSF.rdPostW_WSHF`'s `hpl` at `fs = [HelloRdCf.frH env]`): every node of
+`Spike/Lib/A64HelloRdPlS.lean`; `RdWfSFX.rdPostW_WSHX`'s `hpl` at `fs = [HelloRdCf.frH env]`): every node of
 `wc_rodata` from `.x15` is placed (`PlacedSE` at the frame) once each of its seven invariants' controls is one of
 rodata's controls past the allocation (`RdCH`) at a label `l` the labels put at `.x15`'s `%rax` (`hC`).
 
@@ -336,7 +336,7 @@ theorem keeps16 : keepsSlot (-16) Spike.Lib.X64.Flow.Hello1.oR rpB1 = true ∧
   decide +kernel
 
 /-- **`wc_rodata` from the allocator's return inside the placement at the setup call's frame**
-(`RdWfSF.rdPostW_WSHF`'s `hpl` at `[frH env]`, region `Hello1.mR R`, frame condition `Hello1.mF R F m0 σC`):
+(`RdWfSFX.rdPostW_WSHX`'s `hpl` at `[frH env]`, region `Hello1.mR R`, frame condition `Hello1.mF R F m0 σC`):
 every control of the seven invariants is one of rodata's past the allocation at a label the labels put at
 `.x15`'s `%rax` (`hC`), the layout's immediates are rodata's (`hI`), the frame's `me` is a caller's slot (`hP`). -/
 theorem rdPostW_plS {exe : _root_.Executable} {endPc : Int64} {R : Region} {F : MachineData → Prop}

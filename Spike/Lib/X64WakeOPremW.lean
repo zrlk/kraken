@@ -102,7 +102,7 @@ theorem oPrem_W (hpa : cellsOf asm = some o.prog)
     (hwp : cellsOf asm = some wakeCells) (hd : dataSections asm.text = some o.secs)
     /- instance facts -/
     (hlo : Λ0.code.lo = Spike.Lib.X64.WakePh.lo)
-    (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
+    (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
     (hsub1 : (X64WakeOSide.r1W hp i).Sub (Ly).Λ.stackPool) (hc : Spike.Lib.X64.Rt.CtrZ o)
     {B : Budget} (hB : B.cells = Scc.Cert.PlaceOK.allocCells)
     /- OPEN: the segments and the take facts -/

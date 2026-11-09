@@ -58,7 +58,8 @@ import Spike.Lib.X64HelloRootHPL
 import Spike.Lib.X64HelloLandRU
 import Spike.Lib.X64HelloRootH0
 import Spike.Lib.X64HelloWorkerDHF
-import Spike.Lib.X64HelloCtxRdU
+import Spike.Lib.X64HelloHrdRoot
+import Spike.Lib.X64HelloRootUL
 import Spike.Lib.X64WakeHClC
 import Spike.Lib.X64HelloHfp
 
@@ -79,8 +80,6 @@ open Spike.Lib.X64HelloAssemblyI (LH ιH endH SRH GH PaH DH MH QH hcwH hemH μH)
 open Spike.Lib.X64HelloAssemblyIM (G0H)
 open Spike.Lib.X64WakeLoadT (L0T ls0T)
 open Spike.Lib.X64.WakeWf (DtW)
-open Spike.Lib.X64.HelloPh.RootH0 (msBotH)
-open Spike.Lib.X64HelloRootO (helloDR oPremH_R)
 open Spike.Lib.X64.Rt (RuntimeLayout)
 open Spike.Lib.X64HelloSrcOPrem (hello_hookOK hello_srcSafeS)
 open Spike.Lib.X64HelloOAb (AbH AcH hti0_H)
@@ -208,7 +207,7 @@ theorem rootInvX_of {arch : WeakMem.Arch} {B : Budget} {E : Entry} {ls : Lsize}
     (hE : E.Ok (Ly).Λ)
     (hA13 : Scc.Cert.Spawn.X64.a13data (Ly).Λ o.prog o.secs = true)
     {nZ : Nat} (hz : Scc.Cert.PlaceOK.zeroAfter (o.secs.bss ++ o.secs.data) Scc.Cert.Link.pinnedSym = some nZ)
-    (hn3 : 176 ≤ nZ)
+    (hn3 : 208 ≤ nZ)
     (hm : (Ly).Λ.imms Spike.Lib.X64HelloRodataSrc.eB "m" 0 = some 2)
     (hRdI : Spike.Lib.X64.HelloPh.RdPlS.RdImms (Ly).Λ)
     (hme : (Ly).Λ.imms Spike.Lib.SrcCalls.setupCont "me" 0 = some (Spike.Lib.X64WakeLoadT.tcb0 (Ly).Λ))
@@ -225,7 +224,7 @@ theorem rootInvX_of {arch : WeakMem.Arch} {B : Budget} {E : Entry} {ls : Lsize}
           (Spike.Lib.X64.Rt.Reserve.ntA (Ly).lab) s) (fun _ _ => False)) :
     WakeObligationsR arch (Ly).Λ B asm (QQ) E
       (fun t tr => TiPre (AbH hp (IH0)) (AcH hp (IH0)) t tr ∧ TwH (Ly).Λ E (AbH hp (IH0)) t tr) helloSrc := by
-  have hn : 168 ≤ nZ := by omega
+  have hn : 200 ≤ nZ := by omega
   have hpin2 := Spike.Lib.X64.HelloPh.ChildRoot.hpin2_H hp (IH0) hz hn
   have hF0 : ∀ v m1 σ1 m, Spike.Lib.X64.Flow.HelloM.wcF
       (Spike.Lib.X64.WakePh.MainGlue.RS Spike.Lib.X64.HelloPh.StartH0G.helloLsw v)
@@ -252,7 +251,7 @@ theorem rootInvX_of {arch : WeakMem.Arch} {B : Budget} {E : Entry} {ls : Lsize}
       (Spike.Lib.X64.HelloPh.RefO.refExH hpL hloL hlabL hΛL (by rw [hpL]; exact hhp) _ _ _ _ _ _ _)
       (fun ws => hcblk _ _ ws) (fun ws => hcst _ _ ws)
   let R : Spike.Lib.X64.HelloPh.RootPlug.RootRest (Ly) (LB) (AW) (Spike.Lib.X64.HelloPh.H2RtX.ms2HX asm hp (IH0) E) :=
-    { W1 := fun _ _ _ => True, Dt := DtW, Ctx := CR, ls := ls, frM := FM, F0 := F0R,
+    { Dt := DtW, Ctx := CR, ls := ls, frM := FM, F0 := F0R,
       msB := Spike.Lib.X64.HelloPh.RootOkb.msBH (asm := asm) hp i0 E ls,
       hokb := Spike.Lib.X64.HelloPh.RootPlugX.hokb_HX hp i0 E ls hc,
       hg := Spike.Lib.X64.HelloPh.RootPlugX.hg_HX hp i0 E ls }
@@ -383,7 +382,7 @@ theorem rootInvX_ofB {arch : WeakMem.Arch} {B : Budget} {E : Entry} {ls : Lsize}
     (hE : E.Ok (Ly).Λ)
     (hA13 : Scc.Cert.Spawn.X64.a13data (Ly).Λ o.prog o.secs = true)
     {nZ : Nat} (hz : Scc.Cert.PlaceOK.zeroAfter (o.secs.bss ++ o.secs.data) Scc.Cert.Link.pinnedSym = some nZ)
-    (hn3 : 176 ≤ nZ)
+    (hn3 : 208 ≤ nZ)
     (hm : (Ly).Λ.imms Spike.Lib.X64HelloRodataSrc.eB "m" 0 = some 2)
     (hRdI : Spike.Lib.X64.HelloPh.RdPlS.RdImms (Ly).Λ)
     (hme : (Ly).Λ.imms Spike.Lib.SrcCalls.setupCont "me" 0 = some (Spike.Lib.X64WakeLoadT.tcb0 (Ly).Λ))
@@ -413,7 +412,7 @@ theorem hello_root_inv {arch : WeakMem.Arch} {B : Budget} {E : Entry} {ls : Lsiz
     (hE : E.Ok (Ly).Λ)
     (hA13 : Scc.Cert.Spawn.X64.a13data (Ly).Λ o.prog o.secs = true)
     {nZ : Nat} (hz : Scc.Cert.PlaceOK.zeroAfter (o.secs.bss ++ o.secs.data) Scc.Cert.Link.pinnedSym = some nZ)
-    (hn3 : 176 ≤ nZ)
+    (hn3 : 208 ≤ nZ)
     (hm : (Ly).Λ.imms Spike.Lib.X64HelloRodataSrc.eB "m" 0 = some 2)
     (hRdI : Spike.Lib.X64.HelloPh.RdPlS.RdImms (Ly).Λ)
     (hme : (Ly).Λ.imms Spike.Lib.SrcCalls.setupCont "me" 0 = some (Spike.Lib.X64WakeLoadT.tcb0 (Ly).Λ))

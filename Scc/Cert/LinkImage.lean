@@ -11,7 +11,9 @@ label up to the next label or alignment (`symItems`): its bytes `itemBytes`,
 symbol of `.bss` and `.data` but the three regions of their own (`symRanges`)
 has its item's bytes at its address in `Λ.image` (`image_symbols`; the words
 of an 8-aligned item, `image_word`), inside `Λ.data` (`image_sub`), the
-items disjoint (`image_disj`).
+items disjoint (`image_disj`). A difference word (`.quad A - B`, `.quad A - .`:
+the GC tables', in `.rodata`) is not supported in `.bss` or `.data`: its
+`itemBytes` are 256s, which no image byte equals, so `imageOk` refuses it.
 
 `scc_data_secs%` runs the loader's data-section reader on a listing at
 elaboration time, for the generated code checks of both ISAs.
@@ -61,6 +63,8 @@ def itemBytes (code : String → Option Nat) : List Item → List Nat
   | .zero n :: is => List.replicate n 0 ++ itemBytes code is
   | .quad v :: is => bytes8 (v % 2 ^ 64).toNat ++ itemBytes code is
   | .quadLabel l :: is => bytes8 ((code l).getD 0 % 2 ^ 64) ++ itemBytes code is
+  -- a difference word in `.bss` / `.data` is refused: no image byte is 256
+  | .quadDiff _ _ :: is => List.replicate 8 256 ++ itemBytes code is
   | _ :: is => itemBytes code is
 
 /-- The size of an item (`itemBytes`' length, without building it). -/
@@ -70,6 +74,7 @@ def itemLen : List Item → Nat
   | .zero n :: is => n + itemLen is
   | .quad _ :: is => 8 + itemLen is
   | .quadLabel _ :: is => 8 + itemLen is
+  | .quadDiff _ _ :: is => 8 + itemLen is
   | _ :: is => itemLen is
 
 theorem itemLen_eq (code : String → Option Nat) : ∀ is : List Item, itemLen is = (itemBytes code is).length
@@ -78,6 +83,7 @@ theorem itemLen_eq (code : String → Option Nat) : ∀ is : List Item, itemLen 
   | .zero n :: is => by simp [itemLen, itemBytes, itemLen_eq code is]
   | .quad _ :: is => by simp [itemLen, itemBytes, bytes8, itemLen_eq code is]
   | .quadLabel _ :: is => by simp [itemLen, itemBytes, bytes8, itemLen_eq code is]
+  | .quadDiff _ _ :: is => by simp [itemLen, itemBytes, itemLen_eq code is]; omega
   | .label _ :: is => by simp [itemLen, itemBytes, itemLen_eq code is]
   | .align _ :: is => by simp [itemLen, itemBytes, itemLen_eq code is]
 
@@ -128,6 +134,7 @@ theorem allZero_bytes {code : String → Option Nat} : ∀ {its : List Item}, al
   | .bytes _ :: _, h, _, _ => by simp [allZero] at h
   | .quad _ :: _, h, _, _ => by simp [allZero] at h
   | .quadLabel _ :: _, h, _, _ => by simp [allZero] at h
+  | .quadDiff _ _ :: _, h, _, _ => by simp [allZero] at h
 
 theorem bytesFrom_spec {img : List (Nat × Nat)} : ∀ {a : Nat} {bs : List Nat}, bytesFrom img a bs = true →
     ∀ i (h : i < bs.length), byteAt img (a + i) = bs[i]

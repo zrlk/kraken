@@ -77,12 +77,14 @@ theorem instsC2_newBuf {k k' : Nat} {pc pc' : Int64} {d : Scc.IR.Reg} {h : Nat} 
       Cd (pc + Int64.ofNat zs.sum + Int64.ofNat zc) [(stDir off, z)] ∧ k' = k + 1 ∧
       pc' = pc + Int64.ofNat zs.sum + Int64.ofNat zc + Int64.ofNat z := by
   rcases hi with ⟨hc, -⟩ | ⟨_, _, _, _, _, _, _, _, he, -⟩ |
-      ⟨d', ws, lw, off, zs, zc, z, he, -, hl, ho, hz, h1, h2, h3, ⟨hk, hp⟩⟩ | ⟨_, _, _, _, he, -⟩
+      ⟨d', ws, lw, off, zs, zc, z, he, -, hl, ho, hz, h1, h2, h3, ⟨hk, hp⟩⟩ | ⟨_, _, _, _, he, -⟩ |
+      ⟨_, _, _, _, _, _, _, _, he, -⟩
   · simp [Spike.Lib.LowerShape.isCall, newBufCall] at hc
   · simp [newBufCall] at he
   · simp only [newBufCall, Scc.IR.Inst.call.injEq, List.cons.injEq, and_true, true_and] at he
     obtain ⟨rfl, rfl⟩ := he
     exact ⟨lw, off, zs, zc, z, hl, ho, hz, h1, h2, h3, hk, hp⟩
+  · simp [newBufCall] at he
   · simp [newBufCall] at he
 
 /-- **The call's three argument loads**: `a` into `%rdi`, `b` into `%rsi`,

@@ -12,8 +12,8 @@ the thread counter's word stays at `0` throughout.
 
 The program-independent parts are wake's (`WakePh.pinTab`,
 `WakePh.startTabW`, `WakePh.pin_memW`, `WakePh.WSep`,
-`WakePh.tcb_not_ownW`); hello.w's take site is at `2165976` and its release
-site at `2166032` (wake.w's `2165940`, `2165996`).
+`WakePh.tcb_not_ownW`); hello.w's take site is at `2165980` and its release
+site at `2166036` (wake.w's `2165944`, `2166000`).
 
 - `startFactsH`, `startH_fact`: the start's, the callees' and A6's pinned
   facts, decided at `phC`.
@@ -92,7 +92,7 @@ theorem siteH {L : RuntimeLayout} (hp : L.prog = SccCode.helloProg) (hlo : L.Λ.
     (hlab : ∀ l x, codeOf lo SccCode.helloProg l = some x → L.lab l = Int64.ofNat x) :
     (Spike.Lib.A64.PhRec.μ L).site .take =
       some (L.lab Spike.Lib.A64.Flow.Ret0.StackTake.siteL).toBitVec.toNat := by
-  have hsite : (L.lab Spike.Lib.A64.Flow.Ret0.StackTake.siteL).toBitVec.toNat = 2165976 :=
+  have hsite : (L.lab Spike.Lib.A64.Flow.Ret0.StackTake.siteL).toBitVec.toNat = 2165980 :=
     pcAt0_eq hlab (by unfold Scc.Cert.Rt.A64.pcAt; rw [← codeT_eq]; decide +kernel)
   show codeOf L.Λ.code.lo L.prog "scc_rt_take_site" = _
   rw [hp, hlo, hsite, ← codeT_eq]; decide +kernel
@@ -141,7 +141,7 @@ theorem tcbPhH (hΛ : Λ.abortLbl = Scc.Cert.Link.abortName) {L : RuntimeLayout}
       (by simp [Spike.Lib.A64.Rt.tcbPhTab]))
     bnd := blkPh_of_factOk hl hr hn (hf (.blk Rt.Code.Tcb.lenL 38 Rt.Code.Tcb.atBnd none none)
       (by simp [Spike.Lib.A64.Rt.tcbPhTab]))
-    j2 := blkPh_of_factOk hl hr hn (hf (.blk Rt.Code.Tcb.lenL 47 Rt.Code.Tcb.atJ2 none none)
+    j2 := blkPh_of_factOk hl hr hn (hf (.blk Rt.Code.Tcb.lenL 48 Rt.Code.Tcb.atJ2 none none)
       (by simp [Spike.Lib.A64.Rt.tcbPhTab]))
     ok2 := blkPh_of_factOk hl hr hn (hf (.blk Rt.Code.Tcb.okL 2 Rt.Code.Tcb.atOk none none)
       (by simp [Spike.Lib.A64.Rt.tcbPhTab]))
@@ -177,7 +177,10 @@ theorem tcbPhH (hΛ : Λ.abortLbl = Scc.Cert.Link.abortName) {L : RuntimeLayout}
       · rw [rmwPc, Spike.Lib.A64.Flow.Ret0.ofNat4_succ']
         exact noTk_pinH hΛ hlab (l := lenL) (k := 38) (v := 12) (by decide) (by decide)
       · exact noTk_pinH hΛ hlab (l := lenL) (k := 38) (v := 12) (by decide) (by decide)
-      · exact noTk_pinH hΛ hlab (l := lenL) (k := 47) (v := 12) (by decide) (by decide)
+      · -- `.1_len` + 48 is not a pin (A6 pins the bound's branch at + 47): the table's `.ph` fact.
+        have h48 : phH (L.lab lenL + Int64.ofNat (4 * 48)).toBitVec.toNat = 12 :=
+          ph_of_factOk hl (hf (.ph Rt.Code.Tcb.lenL 48 12) (by simp [Spike.Lib.A64.Rt.tcbPhTab]))
+        exact noTk_phH h48 (by decide)
       · exact noTk_pinH hΛ hlab (l := okL) (k := 2) (v := 12) (by decide) (by decide)
       · exact noTk_pinH hΛ hlab (l := okL) (k := 30) (v := 12) (by decide) (by decide)
       · exact noTk_pinH hΛ hlab (l := lenL) (k := 32) (v := 13) (by decide) (by decide)
@@ -281,7 +284,7 @@ theorem takePhH {L : RuntimeLayout} (hp : L.prog = SccCode.helloProg) (hlo : L.�
   have c6 := hs.lock_freeN
   have c7 := hs.lock_a
   have c8 := hs.next_a
-  have hsite : (L.lab siteL).toBitVec.toNat = 2165976 :=
+  have hsite : (L.lab siteL).toBitVec.toNat = 2165980 :=
     pcAt0_eq hlab (by unfold Scc.Cert.Rt.A64.pcAt; rw [← codeT_eq]; decide +kernel)
   have hs12 := ph_pinH hΛ hlab (l := spinL) (k := 2) (v := 12) (by decide)
   have hs14 := ph_pinH hΛ hlab (l := spinL) (k := 3) (v := 14) (by decide)
@@ -418,7 +421,7 @@ theorem takePhH {L : RuntimeLayout} (hp : L.prog = SccCode.helloProg) (hlo : L.�
         Ne.symm c1, Ne.symm c2, Ne.symm c3, Ne.symm c4, Ne.symm c5, Ne.symm c6, Ne.symm c7, Ne.symm c8]
       rfl
     siteRel := fun a ha => by
-      have e : (Spike.Lib.A64.PhRec.μ L).site .release = some 2166032 := by
+      have e : (Spike.Lib.A64.PhRec.μ L).site .release = some 2166036 := by
         show codeOf L.Λ.code.lo L.prog "scc_rt_release_site" = _; rw [hp, hlo, ← codeT_eq]; decide +kernel
       rw [e] at ha; cases ha; rw [hsite]; decide
     siteAb := fun k a ha => by
@@ -682,32 +685,32 @@ The assumptions `n0 = 80` (the pinned bump's offset at `scc_rt_alloc_tcb`'s
 second call, `HelloWc.tcb2QH`) and `k0 = 16384` (the stack bump's at
 `scc_rt_thread_init`'s, `hti`) are the values `ownH` gives at `wc_main`'s
 `.sp3`, `.sp4` and `.sp6` (phase `16`: bits `0` and `2` clear, after the
-start's first TCB of header `2307`, of length `80`, and its first stack of
+start's first TCB of header `3331`, of length `112`, and its first stack of
 `16384`). The discharge of `hti`/`htcb` at helloProg (the `Tcb2W`/`Ti2`
 chain) is elsewhere. -/
 
-/-- **The start's first TCB is `80` bytes** (header `2307`, `scc_rt_start`). -/
-theorem lenOf_start : Spike.Lib.A64.Flow.Ret0.AllocTcb.lenOf 2307#64 =
+/-- **The start's first TCB is `112` bytes** (header `3331`, `scc_rt_start`). -/
+theorem lenOf_start : Spike.Lib.A64.Flow.Ret0.AllocTcb.lenOf 3331#64 =
     Spike.Lib.A64.Flow.Ret0.AllocTcb.tcbLen := by decide
 
 /-- `wc_main`'s spawn points at helloProg and their phase `16`. -/
-theorem spawn_ph : codeOf lo SccCode.helloProg ".L22_wc_main.sp3" = some 2169696 ∧
-    codeOf lo SccCode.helloProg ".L22_wc_main.sp4" = some 2169716 ∧
-    codeOf lo SccCode.helloProg ".L22_wc_main.sp6" = some 2169740 ∧
-    phC 2169696 = 16 ∧ phC 2169716 = 16 ∧ phC 2169740 = 16 := by
+theorem spawn_ph : codeOf lo SccCode.helloProg ".L22_wc_main.sp3" = some 2169728 ∧
+    codeOf lo SccCode.helloProg ".L22_wc_main.sp4" = some 2169748 ∧
+    codeOf lo SccCode.helloProg ".L22_wc_main.sp6" = some 2169772 ∧
+    phC 2169728 = 16 ∧ phC 2169748 = 16 ∧ phC 2169772 = 16 := by
   rw [← Scc.Cert.Rt.A64.codeT_eq]; decide +kernel
 
 /-- **The owned words at phase `16`**: `scc_rt_pinned_next` at `80`
 (`tcb2QH`'s `n0`), the lock free, no free stacks, `scc_rt_stack_next` at
 `16384` (`hti`'s `k0`) and one thread reserved. -/
 theorem ownH_16 (L : RuntimeLayout) (a : BitVec 64) :
-    ownH L a 16 = [(⟨L.pnA, 8⟩, (80#64).setWidth 128), (⟨L.lockA, 8⟩, (0#64).setWidth 128),
+    ownH L a 16 = [(⟨L.pnA, 8⟩, (112#64).setWidth 128), (⟨L.lockA, 8⟩, (0#64).setWidth 128),
       (⟨L.freeNA, 8⟩, (0#64).setWidth 128), (⟨L.nextA, 8⟩, (16384#64).setWidth 128),
       (⟨a, 8⟩, (1#64).setWidth 128)] := by
   simp [ownH, Spike.Lib.A64.WakePh.ownW, Spike.Lib.A64.PhRec.ownOf]
 
 /-- **At `wc_main`'s spawn points** the owned words are `ownH_16`'s. -/
-theorem ownH_spawn (L : RuntimeLayout) (a : BitVec 64) {p : Nat} (hp : p = 2169696 ∨ p = 2169716 ∨ p = 2169740) :
+theorem ownH_spawn (L : RuntimeLayout) (a : BitVec 64) {p : Nat} (hp : p = 2169728 ∨ p = 2169748 ∨ p = 2169772) :
     ownH L a (phH p) = ownH L a 16 := by
   obtain ⟨-, -, -, h3, h4, h6⟩ := spawn_ph
   rw [phH_eq]; rcases hp with rfl | rfl | rfl <;> simp only [h3, h4, h6]

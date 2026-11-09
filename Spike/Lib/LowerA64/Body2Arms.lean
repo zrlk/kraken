@@ -5,7 +5,8 @@ an `if` and a `ret` of any number of words in a block of `CodeC2`, the
 `codeC_subSat`, `codeC_br` and `codeC_ret`.
 
 - `retLoads`, `term_retN_inv`: a `ret`'s terminator code is its words'
-  loads into `x0`, `x1`, … (`retLoads`), the frame's exit and `ret`.
+  loads into `x0`, `x1`, … (`retLoads`), the frame's exit, its return
+  site's label `x{k}` and `ret` (P5).
 - `codeC2_addChk`, `codeC2_subSat`, `codeC2_br`, `codeC2_ret`, `codeC2_retN`.
 -/
 import Spike.Lib.LowerA64.BodyC
@@ -37,10 +38,12 @@ theorem forIn_retLoads (cx : FnCtx) :
       cases retLoads cx ps <;> simp [Except.map]
 
 /-- **A `ret`'s terminator code**: at most `maxRets` words, their loads
-into `x0`, `x1`, … (`retLoads`), the frame's exit and `ret`. -/
+into `x0`, `x1`, … (`retLoads`), the frame's exit, the return site's label
+`x{k}` (P5) and `ret`. -/
 theorem term_retN_inv {cx : FnCtx} {k : Nat} {vs : List Scc.IR.Operand} {c2 : List Item}
     (h : cx.term k (.ret vs) = .ok c2) :
-    vs.length ≤ Scc.IR.maxRets ∧ ∃ ls, retLoads cx (vs.zip argRegs) = .ok ls ∧ c2 = ls ++ cx.leave ++ [ret] := by
+    vs.length ≤ Scc.IR.maxRets ∧ ∃ ls, retLoads cx (vs.zip argRegs) = .ok ls ∧
+      c2 = ls ++ cx.leave ++ [lbl (cx.local s!"x{k}"), ret] := by
   simp only [FnCtx.term] at h
   split at h
   · simp [throw, throwThe, MonadExceptOf.throw, bind, Except.bind] at h
@@ -50,7 +53,7 @@ theorem term_retN_inv {cx : FnCtx} {k : Nat} {vs : List Scc.IR.Operand} {c2 : Li
     | error e => simp [hr, Except.map, bind, Except.bind] at h
     | ok ls =>
       simp [hr, Except.map, bind, Except.bind, pure, Except.pure] at h
-      exact ⟨by omega, ls, rfl, by rw [← h, List.append_assoc]⟩
+      exact ⟨by omega, ls, rfl, by rw [← h, List.append_assoc]; rfl⟩
 
 /-! ## `CodeC2`'s arms -/
 
@@ -66,16 +69,22 @@ theorem codeC2_addChk (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) {k : Nat} {pc :
     ∃ la lb off, cx.getOp .X9 a = .ok la ∧ cx.getOp .X10 b = .ok lb ∧ cx.slotOff d = .ok off ∧
       SubCd Cd pc (addDirs cx la lb) ∧ SubCd Cd (pc + Int64.ofNat (4 * (addDirs cx la lb).length)) (strDirs off) ∧
       CodeC2 cx Cd Bl (k + 1) (pc + Int64.ofNat (4 * (addDirs cx la lb).length) + 4) is tm := by
-  rcases h with ⟨-, l, hl, hc, hrest⟩ | ⟨_, _, _, _, _, he, -⟩ | ⟨_, _, _, _, _, _, he, -⟩ |
-    ⟨_, _, _, he, -⟩
-  · obtain ⟨la, lb, off, ha, hb, hd, hds⟩ := inst_addChk_inv hf h1 hl
-    rw [hds] at hc hrest
-    refine ⟨la, lb, off, ha, hb, hd, SubCd.left hc, SubCd.right hc, ?_⟩
-    rw [List.length_append, show (strDirs off).length = 1 from rfl, add_ofNat_four_succ] at hrest
-    exact hrest
+  rcases h with ⟨-, hna, -⟩ | ⟨_, _, _, _, _, he, -⟩ | ⟨_, _, _, _, _, _, he, -⟩ | ⟨_, _, _, he, -⟩ |
+    ⟨d', a', b', la, lb, ls, he, ha, hb, hs, hcA, hcS, hrest⟩
+  · exact absurd rfl (hna d a b)
   · cases he
   · simp [Spike.Lib.LowerShape.newBufCall] at he
   · cases he
+  · cases he
+    cases hd : cx.slotOff d with
+    | error e => simp [FnCtx.setReg, hd, bind, Except.bind] at hs
+    | ok off =>
+      rw [setReg_eq hf (by omega) hd] at hs
+      cases hs
+      have e : Int64.ofNat (4 * (directives [ins (.STR (rz .W64 .X9) ⟨spW64, .imm ⟨i64 off, none⟩⟩)]).length) = 4 :=
+        rfl
+      rw [e] at hrest
+      exact ⟨la, lb, off, ha, hb, rfl, SubCd.whole hcA, SubCd.whole hcS, hrest⟩
 
 /-- **A saturating `-`'s code** in `CodeC2`: the subtraction's block, then
 the store's, then the rest. -/
@@ -85,8 +94,8 @@ theorem codeC2_subSat (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) {k : Nat} {pc :
     ∃ la lb off, cx.getOp .X9 a = .ok la ∧ cx.getOp .X10 b = .ok lb ∧ cx.slotOff d = .ok off ∧
       SubCd Cd pc (subDirs la lb) ∧ SubCd Cd (pc + Int64.ofNat (4 * (subDirs la lb).length)) (strDirs off) ∧
       CodeC2 cx Cd Bl (k + 1) (pc + Int64.ofNat (4 * (subDirs la lb).length) + 4) is tm := by
-  rcases h with ⟨-, l, hl, hc, hrest⟩ | ⟨_, _, _, _, _, he, -⟩ | ⟨_, _, _, _, _, _, he, -⟩ |
-    ⟨_, _, _, he, -⟩
+  rcases h with ⟨-, -, l, hl, hc, hrest⟩ | ⟨_, _, _, _, _, he, -⟩ | ⟨_, _, _, _, _, _, he, -⟩ |
+    ⟨_, _, _, he, -⟩ | ⟨_, _, _, _, _, _, he, -⟩
   · obtain ⟨la, lb, off, ha, hb, hd, hds⟩ := inst_subSat_inv hf h1 hl
     rw [hds] at hc hrest
     refine ⟨la, lb, off, ha, hb, hd, SubCd.left hc, SubCd.right hc, ?_⟩
@@ -95,6 +104,7 @@ theorem codeC2_subSat (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) {k : Nat} {pc :
   · cases he
   · simp [Spike.Lib.LowerShape.newBufCall] at he
   · cases he
+  · cases he
 
 /-- **An `if`'s code** in `CodeC2`: the compare-and-branch's block, then the
 `b` to the `else` label. -/
@@ -102,25 +112,37 @@ theorem codeC2_br {k : Nat} {pc : Int64} {a b : Scc.IR.Operand} {t f : Scc.IR.La
     (h : CodeC2 cx Cd Bl k pc [] (.br .eq a b t f)) :
     ∃ la lb T Fl, cx.getOp .X9 a = .ok la ∧ cx.getOp .X10 b = .ok lb ∧
       cx.blockLabel t = .ok T ∧ cx.blockLabel f = .ok Fl ∧ SubCd Cd pc (brDirs la lb T) ∧
-      SubCd Cd (pc + Int64.ofNat (4 * (brDirs la lb T).length)) (jmpDirs Fl) :=
-  codeC_br (Bl := Bl) h
+      SubCd Cd (pc + Int64.ofNat (4 * (brDirs la lb T).length)) (jmpDirs Fl) := by
+  rcases h with h | ⟨l, -, hl, hc⟩ | ⟨_, _, he, -⟩
+  · cases h
+  · obtain ⟨la, lb, T, Fl, ha, hb, hT, hF, hds⟩ := term_br_inv hl
+    rw [hds] at hc
+    exact ⟨la, lb, T, Fl, ha, hb, hT, hF, SubCd.left hc, SubCd.right hc⟩
+  · cases he
+
+/-- **A `ret`'s code** in `CodeC2`, of any number of words: at most
+`maxRets`, their loads into `x0`, `x1`, … (`retLoads`), the frame's exit,
+`ret` (around its return site's label, P5: `CodeC2`'s `ret` arm). -/
+theorem codeC2_retN {k : Nat} {pc : Int64} {ws : List Scc.IR.Operand} (h : CodeC2 cx Cd Bl k pc [] (.ret ws)) :
+    ws.length ≤ Scc.IR.maxRets ∧ ∃ ls, retLoads cx (ws.zip argRegs) = .ok ls ∧
+      SubCd Cd pc (directives (ls ++ cx.leave ++ [ret])) := by
+  rcases h with h | ⟨l, hr, -⟩ | ⟨vs, ls, he, hn, hl, hc⟩
+  · cases h
+  · exact absurd rfl (hr _)
+  · cases he
+    exact ⟨hn, ls, hl, SubCd.whole hc⟩
 
 /-- **A one-word `ret`'s code** in `CodeC2`: the word's load, the frame's
 exit, `ret`. -/
 theorem codeC2_ret {k : Nat} {pc : Int64} {w : Scc.IR.Operand} (h : CodeC2 cx Cd Bl k pc [] (.ret [w])) :
-    ∃ l, cx.getOp .X0 w = .ok l ∧ SubCd Cd pc (directives (l ++ cx.leave ++ [ret])) :=
-  codeC_ret (Bl := Bl) h
-
-/-- **A `ret`'s code** in `CodeC2`, of any number of words: at most
-`maxRets`, their loads into `x0`, `x1`, … (`retLoads`), the frame's exit,
-`ret`. -/
-theorem codeC2_retN {k : Nat} {pc : Int64} {ws : List Scc.IR.Operand} (h : CodeC2 cx Cd Bl k pc [] (.ret ws)) :
-    ws.length ≤ Scc.IR.maxRets ∧ ∃ ls, retLoads cx (ws.zip argRegs) = .ok ls ∧
-      SubCd Cd pc (directives (ls ++ cx.leave ++ [ret])) := by
-  rcases h with h | ⟨l, hl, hc⟩
-  · cases h
-  · obtain ⟨hn, ls, hr, rfl⟩ := term_retN_inv hl
-    exact ⟨hn, ls, hr, SubCd.whole hc⟩
+    ∃ l, cx.getOp .X0 w = .ok l ∧ SubCd Cd pc (directives (l ++ cx.leave ++ [ret])) := by
+  obtain ⟨-, ls, hl, hc⟩ := codeC2_retN h
+  cases hw : cx.getOp .X0 w with
+  | error e => simp [argRegs, xregs, retLoads, hw, bind, Except.bind] at hl
+  | ok lw =>
+    simp [argRegs, xregs, retLoads, hw, bind, Except.bind, pure, Except.pure] at hl
+    subst hl
+    exact ⟨lw, rfl, hc⟩
 
 end Arms
 

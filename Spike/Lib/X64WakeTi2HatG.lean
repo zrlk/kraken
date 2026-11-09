@@ -20,7 +20,7 @@ x86-64 twin of `Spike/Lib/A64WakeTi2HatG.lean` (same names, namespace
 `Spike.Lib.X64.WakePh.Ti2`).
 
 **Unlike AArch64**: the labels are resolved by `codeLabel lo wakeCells`
-(A64 `codeOf lo wakeProg`); the clone's pc is `.Lwc_main.x21 + 46`
+(A64 `codeOf lo wakeProg`); the clone's pc is `.Lwc_main.x3 + 46`
 (`WakePreA.cloneAt`; A64 `.L21_wc_main.sp6 + 52`); `pz_fstable_ti2`'s
 region is `R.callee (-72) (-248) 8` (`wake_wc_mid_hatW`'s `hti`; A64
 `R.callee (-80) (-256) 0`) and `R`'s base is `56` below `r1Of` (A64 `48`,
@@ -60,8 +60,8 @@ theorem r0_owned {F : MachineData → Prop}
 theorem ne_clonePc_ti (hlab : ∀ l x, codeLabel lo wakeCells l = some x → L.lab l = Int64.ofNat x) {s : State}
     (h : inPc L "scc_rt_thread_init" "scc_rt_stack_release" s) : pcOf s ≠ clonePc L := by
   obtain ⟨-, -, -, hr, -, h21, -, -, -⟩ := labs_eq hlab (L := L)
-  have e : clonePc L = (L.lab ".Lwc_main.x21").toBitVec.toNat + 46 := by
-    show ((L.lab ".Lwc_main.x21").toBitVec + 46#64).toNat = _
+  have e : clonePc L = (L.lab ".Lwc_main.x3").toBitVec.toNat + 46 := by
+    show ((L.lab ".Lwc_main.x3").toBitVec + 46#64).toNat = _
     rw [BitVec.toNat_add, h21]; rfl
   rw [e, h21]; unfold inPc at h; rw [hr] at h; omega
 

@@ -246,7 +246,7 @@ theorem spawn_R {asm : String} {E : Entry} {arch : WeakMem.Arch} {R1 : Cfg → T
     (hMcw : ∀ w, M.cw w = w.1.cwM)
     /- instance facts -/
     (hprog : o.prog = wakeProg) (hlo : (RuntimeLayout.ofPlaceW hp i).Λ.code.lo = Spike.Lib.A64.WakePh.lo)
-    (hpin2 : (RuntimeLayout.ofPlaceW hp i).pinA.toNat + 168 ≤
+    (hpin2 : (RuntimeLayout.ofPlaceW hp i).pinA.toNat + 200 ≤
       (RuntimeLayout.ofPlaceW hp i).Λ.pinned.lo + (RuntimeLayout.ofPlaceW hp i).Λ.pinned.size)
     (hinit2 : (Spike.Lib.A64.PhRec.m0Of (RuntimeLayout.ofPlaceW hp i).Λ o.prog o.secs).initVal
       ⟨Spike.Lib.WakeGOf2.lim2A (RuntimeLayout.ofPlaceW hp i), 8⟩ = 0)
@@ -319,7 +319,8 @@ theorem spawn_R {asm : String} {E : Entry} {arch : WeakMem.Arch} {R1 : Cfg → T
     simp [handed, hheld]
   have hsub := hO1.1
   have hst : ∀ {a : BitVec 64}, (a = (RuntimeLayout.ofPlaceW hp i).pinA + 24#64 ∨
-      a = (RuntimeLayout.ofPlaceW hp i).pinA + 128#64) → Spike.Lib.A64.Flow.Ret0.StOk (wakeMs hp i (recW T S lbl lsize l' pT w1))
+      a = (RuntimeLayout.ofPlaceW hp i).pinA + 160#64) →
+      Spike.Lib.A64.Flow.Ret0.StOk (wakeMs hp i (recW T S lbl lsize l' pT w1))
         (DFrame (Worker.Wake.Child.childR ((r1Of (RuntimeLayout.ofPlaceW hp i).lab).lo +
             (r1Of (RuntimeLayout.ofPlaceW hp i).lab).size) (-16384))
           (childAfter abi d.2 0 th ((r1Of (RuntimeLayout.ofPlaceW hp i).lab).lo +
@@ -328,7 +329,7 @@ theorem spawn_R {asm : String} {E : Entry} {arch : WeakMem.Arch} {R1 : Cfg → T
         (endR hp i) a 1#64 :=
     fun ha => WakeChildSt.childSt_I hp i (recW T S lbl lsize l' pT w1) hm hpin2 ha hh hsub rfl
   have e128 : BitVec.ofNat 64 (tcbOf (RuntimeLayout.ofPlaceW hp i).lab q).toNat + 24#64 =
-      (RuntimeLayout.ofPlaceW hp i).pinA + 128#64 := by
+      (RuntimeLayout.ofPlaceW hp i).pinA + 160#64 := by
     rw [BitVec.ofNat_toNat, BitVec.setWidth_eq, WakeTcbArea.tcbOf_q2 hp i hR.hq, BitVec.add_assoc]; rfl
   obtain ⟨hg', hW⟩ := hk s1 Ty w1 w2 hm hR.hin hR.hS hS.term1 hR.env1 hR.hw1 hR.hw2 (fun th' hth' => by
     have e : th' = th := by
@@ -429,7 +430,7 @@ theorem wake_obligations_RS {Ab Ac : State → Prop} {arch : WeakMem.Arch} {B : 
     (O : Pre1T arch (RuntimeLayout.ofPlaceW hp i).Λ B SccCertificate.asm E R1 Ab Ac)
     /- instance facts -/
     (hlo : (RuntimeLayout.ofPlaceW hp i).Λ.code.lo = Spike.Lib.A64.WakePh.lo)
-    (hpin2 : (RuntimeLayout.ofPlaceW hp i).pinA.toNat + 168 ≤
+    (hpin2 : (RuntimeLayout.ofPlaceW hp i).pinA.toNat + 200 ≤
       (RuntimeLayout.ofPlaceW hp i).Λ.pinned.lo + (RuntimeLayout.ofPlaceW hp i).Λ.pinned.size)
     (hinit2 : (Spike.Lib.A64.PhRec.m0Of (RuntimeLayout.ofPlaceW hp i).Λ o.prog o.secs).initVal
       ⟨Spike.Lib.WakeGOf2.lim2A (RuntimeLayout.ofPlaceW hp i), 8⟩ = 0)

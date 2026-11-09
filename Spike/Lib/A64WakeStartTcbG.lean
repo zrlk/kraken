@@ -34,7 +34,7 @@ open Spike.Lib.A64.WakePh.Tcb2W (soRun arun_so)
 checked against the labels only by `inT_of` (`labs_eq`, decided from `hlab`),
 and every `PcT` fact is decided on pcs from `Tcb2W.tcb_labs`, so a `.text`
 shift fails those decisions loudly. -/
-def PcT (p : Int64) : Prop := 2164712 ≤ p.toBitVec.toNat ∧ p.toBitVec.toNat < 2165132
+def PcT (p : Int64) : Prop := 2164712 ≤ p.toBitVec.toNat ∧ p.toBitVec.toNat < 2165136
 
 instance (p : Int64) : Decidable (PcT p) := by unfold PcT; infer_instance
 
@@ -63,9 +63,9 @@ theorem goodWT_of (hlab : ∀ l x, codeOf lo wakeProg l = some x → L.lab l = I
 theorem siteT (hlab : ∀ l x, codeOf lo wakeProg l = some x → L.lab l = Int64.ofNat x)
     (hsite : (Spike.Lib.A64.PhRec.μ L).site .take =
       some (L.lab Spike.Lib.A64.Flow.Ret0.StackTake.siteL).toBitVec.toNat) :
-    ∀ x, (Spike.Lib.A64.PhRec.μ L).site .take = some x → x = 2165940 := by
+    ∀ x, (Spike.Lib.A64.PhRec.μ L).site .take = some x → x = 2165944 := by
   intro x hx
-  rw [hsite, show L.lab Spike.Lib.A64.Flow.Ret0.StackTake.siteL = Int64.ofNat 2165940 from
+  rw [hsite, show L.lab Spike.Lib.A64.Flow.Ret0.StackTake.siteL = Int64.ofNat 2165944 from
     (Tcb2W.tcb_labs hlab).2.2.2.2.2] at hx
   cases hx; rfl
 
@@ -99,7 +99,7 @@ theorem finT (hlab : ∀ l x, codeOf lo wakeProg l = some x → L.lab l = Int64.
 instance: its pcs in `PcT` (`h1`), its static `sp` offsets in `[-192, 0]`
 (`hso`), `GoodW` where its run ends (`hfin`). -/
 theorem blkT_own (hlab : ∀ l x, codeOf lo wakeProg l = some x → L.lab l = Int64.ofNat x) (hb : BandT L R)
-    (hsite : ∀ x, (Spike.Lib.A64.PhRec.μ L).site .take = some x → x = 2165940)
+    (hsite : ∀ x, (Spike.Lib.A64.PhRec.μ L).site .take = some x → x = 2165944)
     (hS : BlkW (fun s c => SFacts L.Λ (Spike.Lib.A64.PhRec.μ L) (fun s => ownW L a (phW (pcOf s))) rS Tk lbl' s c)
       K L.exe L.endPc R F n blk)
     (hcode : ∀ s : State, s.exe = L.exe → s.endPc = L.endPc → Spike.Lib.A64.CodeAt s n.pc blk)

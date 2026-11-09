@@ -40,8 +40,8 @@ theorem hstat : Λe.static = fun _ => none := rfl
 /-- `scc_rt_nthreads` starts at `0`. -/
 theorem hnz : Spike.Lib.WakeOInit.NtZ Λe oH = true := by decide +kernel
 
-/-- The first TCB's 168 bytes fit the pinned region. -/
-theorem hpin2 : Le.pinA.toNat + 168 ≤ Le.Λ.pinned.lo + Le.Λ.pinned.size := by decide +kernel
+/-- The first 200 bytes fit the pinned region. -/
+theorem hpin2 : Le.pinA.toNat + 200 ≤ Le.Λ.pinned.lo + Le.Λ.pinned.size := by decide +kernel
 
 /-- hello's second TCB's limit word starts at `0`. -/
 theorem hinit2 : (Spike.Lib.A64.PhRec.m0Of Le.Λ oH.prog oH.secs).initVal

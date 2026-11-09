@@ -70,8 +70,8 @@ theorem hello_obligations_IM {arch : WeakMem.Arch} {B : Budget} {asm : Asm} {E :
     (hd : dataSections asm.text = some o.secs) (hoffs : asm.labelOffs = o.labelOffs)
     /- The entry state is clear of the layout. -/
     (hE : E.clear (LH hp i).Λ = true)
-    /- The pinned region reaches `pinA + 168` (the records' `SelfOK`). -/
-    (hpin2 : (LH hp i).pinA.toNat + 168 ≤ (LH hp i).Λ.pinned.lo + (LH hp i).Λ.pinned.size)
+    /- The pinned region reaches `pinA + 200` (the records' `SelfOK`). -/
+    (hpin2 : (LH hp i).pinA.toNat + 200 ≤ (LH hp i).Λ.pinned.lo + (LH hp i).Λ.pinned.size)
     /- The code is placed at hello's `lo`. -/
     (hlo : Λ0.code.lo = Spike.Lib.X64.HelloPh.lo)
     /- The pre-spawn half. -/

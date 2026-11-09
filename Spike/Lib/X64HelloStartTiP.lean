@@ -234,7 +234,7 @@ theorem takeB_WSnsH (hΛ : L.Λ.abortLbl = Scc.Cert.Link.abortName) (hs : WSep L
   case site => exact absurd rfl hsi
   case ret =>
     have eX8' : L.lab Spike.Lib.X64.Rt.x8L = Int64.ofNat 4199606 := eX8
-    refine blkI_WSH (rl := Spike.Lib.X64.Rt.x8L) hp hlo hlab hsite hcl hc0 hpl0 hX0 hbd bRet rfl
+    refine blkI_WSHA (rl := Spike.Lib.X64.Rt.x8L) hp hlo hlab hsite hcl hc0 hpl0 hX0 hbd bRet rfl
       stRet_ok hR (by omega) (by omega) h (okPc_of_blkPh hP.ret) ?_ (soT stRet oI)
       (finIH hlab hbd (fun σ c hJ => ?_) (soT stRet oI)) (by decide +kernel)
       (Spike.Lib.X64Consumer.hret_of_run stRet_ok fun σ c hJ => ?_) (fun _ _ h => h.2.1.trans hq)
@@ -553,7 +553,7 @@ theorem startTi_WSncH (hΛ : L.Λ.abortLbl = Scc.Cert.Link.abortName) (hs : WSep
     · dsimp only [tiNAt] at hJ ⊢; rw [(tiF5_walk _ _ hJ.2).1, eX8]; decide +kernel
   case st5 => tstW bS5 TI.st5 5 40 4 113
   case ret =>
-    refine blkI_WSH (rl := Spike.Lib.X64.Flow.Ret0.x1L) hp hlo hlab hsite hcl hc0 hpl0 hX0 hbd48 bRet rfl tiRet_ok
+    refine blkI_WSHA (rl := Spike.Lib.X64.Flow.Ret0.x1L) hp hlo hlab hsite hcl hc0 hpl0 hX0 hbd48 bRet rfl tiRet_ok
       hR (by omega) (by omega) h (okPc_of_blkPh hP.ret) ?_ (soI tiRet oI) (fun σ c hJ s m _ _ _ hs' => ?_)
       (by decide +kernel) (Spike.Lib.X64Consumer.hret_of_run tiRet_ok fun σ c hJ => ?_) (fun σ c h => h.1.trans hq)
     · intro k hk; dsimp only [tiNAt]; rw [eX8]; revert k; decide +kernel

@@ -170,7 +170,8 @@ theorem loopW_relW [Executable.ValidLayout exe] {cells : List (Directive × Nat)
     ld := nodeW_relW (code_field hp hend hld rfl) fun _ hc => relWS_load hc
     n5 := blkW_relW b5_ok hR hlo hhi (code_field hp hend h5 rfl)
     n6 := blkW_relW b6_ok hR hlo hhi (code_field hp hend h6 rfl)
-    then1 := blkW_relW b7_ok hR hlo hhi (code_field hp hend h7 (ofNat_zero' _))
+    then1 := blkW_relW b7_ok hR hlo hhi
+      (Spike.Lib.X64.code_field_blockAcrossB hp hend h7 (List.take_append_drop _ _) (ofNat_zero' _))
     else2 := blkW_relW b8_ok hR hlo hhi (code_field hp hend h8 (ofNat_zero' _))
     x16 := blkW_relW b9_ok hR hlo hhi (code_field hp hend h9 (ofNat_zero' _)) }
 

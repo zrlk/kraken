@@ -40,7 +40,7 @@ example : X64.placeOK placeCfg out = true := SccCertificate.prog_placeOK
 def elf : Scc.Sem.Layout × String := scc_elf_layout% "Scc/Test/elf/frame0x64/frame0"
 
 -- The file read is the executable linked (evaluation, not a proof).
-#guard elf.2 == "2ad728ee19b7ec8ff1e7140856e6ea54971b25a598f114da4a6d260867bec6a2"
+#guard elf.2 == "ba1d5c484845f22e4ac87f14aa7d53095787f768a29f03cd904a3f1f2f0f4041"
 
 /-- The linked executable's layout. -/
 abbrev Λe : Scc.Sem.Layout := elf.1

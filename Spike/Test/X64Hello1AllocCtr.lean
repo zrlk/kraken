@@ -119,8 +119,14 @@ theorem allocCtr (hR : R.OK) (hlo : R.lo ≤ -160) (hhi : 8 ≤ R.hi)
       have : ar.ctrLoc.addr.toNat = ar.ctr := by decide
       omega
   · nab okL 173 bO9_ok
-  · exact Spike.Lib.X64.NodeW.imp (BlkW.nodeW (blkW_noWr (hello1_instOk (rS := ⟨0, 0⟩))
-      (l := okL) (off := 226) (blk := [(iRet.toDir, 1)]) (lo := -160) (hi := 8) (by decide +kernel) rfl
+  · -- the `ret` past the return label `.x1` (P5), `226` bytes past `.ok`
+    have eR : labT Spike.Lib.X64.Alloc.retL + Int64.ofNat 0 = labT okL + Int64.ofNat 226 := by
+      rw [← hello1_labT, Scc.Cert.Rt.X64.label_labelGapB Spike.Lib.X64.Flow.Hello1.Mem.hello1_lays
+        (show Scc.Cert.Rt.X64.labelGapB SccCode.hello1Cells okL Spike.Lib.X64.Alloc.retL 226 = true by decide +kernel)]
+      exact Spike.Lib.X64.Flow.ofNat_zero' _
+    exact Spike.Lib.X64.NodeW.imp (BlkW.nodeW (blkW_noWr (hello1_instOk (rS := ⟨0, 0⟩))
+      (l := Spike.Lib.X64.Alloc.retL) (off := 0) (blk := [(iRet.toDir, 1)]) (lo := -160) (hi := 8)
+      (by decide +kernel) eR
       (show Spike.Lib.X64.okBlk (-160) 8 Spike.Lib.X64.Alloc.oE [(iRet.toDir, 1)] = true by decide) hR
       (by omega) (by omega)) (List.cons_ne_nil _ _)) Spike.Lib.X64.NodeW.triv (fun _ _ h _ hW => (h _ hW).elim)
 

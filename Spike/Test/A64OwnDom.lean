@@ -28,8 +28,8 @@ def check (asm : String) : Option DomRun :=
   ((target (kernel slots) Entry.linux).load asm Λ).map fun c =>
     checkRun abi Arch.armv8 pcOf (marksIn prog) Entry.linux.stack 4000 0 c {}
 
-/-- info: (some { steps := 294, stop := "exited", cheap := 295, full := 3, takes := 1, releases := 0, bad := none },
- some { steps := 517, stop := "exited", cheap := 518, full := 3, takes := 1, releases := 0, bad := none }) -/
+/-- info: (some { steps := 295, stop := "exited", cheap := 296, full := 3, takes := 1, releases := 0, bad := none },
+ some { steps := 518, stop := "exited", cheap := 519, full := 3, takes := 1, releases := 0, bad := none }) -/
 #guard_msgs in
 #eval (check SccCode.ret0Asm, check SccCode.hello1Asm)
 

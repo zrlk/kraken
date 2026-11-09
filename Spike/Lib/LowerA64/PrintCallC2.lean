@@ -96,34 +96,45 @@ theorem print_code {cx : FnCtx} {Cd : Int64 → List Directive → Prop} {Bl : I
       pc' = pc + Int64.ofNat (4 * (directives L).length) + 4 := by
   unfold printInsts at hi
   rw [InstsC2] at hi
-  rcases hi with ⟨-, l1, c1, hc1, hi⟩ | ⟨_, _, _, _, _, he, -⟩ | ⟨_, _, _, _, _, _, he, -⟩ | ⟨_, _, _, he, -⟩
+  rcases hi with ⟨-, -, l1, c1, hc1, hi⟩ | ⟨_, _, _, _, _, he, -⟩ | ⟨_, _, _, _, _, _, he, -⟩ | ⟨_, _, _, he, -⟩ |
+    ⟨_, _, _, _, _, _, he, -⟩
   rotate_left
   · cases he
   · simp [Spike.Lib.LowerShape.newBufCall] at he
   · cases he
+  · cases he
   rw [InstsC2] at hi
-  rcases hi with ⟨-, l2, c2, hc2, hi⟩ | ⟨_, _, _, _, _, he, -⟩ | ⟨_, _, _, _, _, _, he, -⟩ | ⟨_, _, _, he, -⟩
+  rcases hi with ⟨-, -, l2, c2, hc2, hi⟩ | ⟨_, _, _, _, _, he, -⟩ | ⟨_, _, _, _, _, _, he, -⟩ | ⟨_, _, _, he, -⟩ |
+    ⟨_, _, _, _, _, _, he, -⟩
   rotate_left
   · cases he
   · simp [Spike.Lib.LowerShape.newBufCall] at he
   · cases he
+  · cases he
   rw [InstsC2] at hi
-  rcases hi with ⟨-, l3, c3, hc3, hi⟩ | ⟨_, _, _, _, _, he, -⟩ | ⟨_, _, _, _, _, _, he, -⟩ | ⟨_, _, _, he, -⟩
+  rcases hi with ⟨-, -, l3, c3, hc3, hi⟩ | ⟨_, _, _, _, _, he, -⟩ | ⟨_, _, _, _, _, _, he, -⟩ | ⟨_, _, _, he, -⟩ |
+    ⟨_, _, _, _, _, _, he, -⟩
   rotate_left
   · cases he
   · simp [Spike.Lib.LowerShape.newBufCall] at he
   · cases he
+  · cases he
   rw [InstsC2] at hi
-  rcases hi with ⟨-, l4, c4, hc4, hi⟩ | ⟨_, _, _, _, _, he, -⟩ | ⟨_, _, _, _, _, _, he, -⟩ | ⟨_, _, _, he, -⟩
+  rcases hi with ⟨-, -, l4, c4, hc4, hi⟩ | ⟨_, _, _, _, _, he, -⟩ | ⟨_, _, _, _, _, _, he, -⟩ | ⟨_, _, _, he, -⟩ |
+    ⟨_, _, _, _, _, _, he, -⟩
   rotate_left
   · cases he
   · simp [Spike.Lib.LowerShape.newBufCall] at he
   · cases he
+  · cases he
   rw [InstsC2] at hi
-  rcases hi with ⟨hc, -⟩ | ⟨_, _, _, _, _, he, -⟩ | ⟨_, _, _, _, _, _, he, -⟩ | ⟨a0, a1, l5, he, c5, hc5, hb5, hp⟩
+  rcases hi with ⟨hc, -⟩ | ⟨_, _, _, _, _, he, -⟩ | ⟨_, _, _, _, _, _, he, -⟩ | ⟨a0, a1, l5, he, c5, hc5, hb5, hp⟩ |
+    ⟨_, _, _, _, _, _, he, -⟩
   · simp [Spike.Lib.LowerShape.isCall] at hc
   · simp at he
   · simp [Spike.Lib.LowerShape.newBufCall] at he
+  rotate_left
+  · cases he
   simp only [Scc.IR.Inst.call.injEq, List.cons.injEq, and_true, true_and] at he
   obtain ⟨rfl, rfl⟩ := he
   refine ⟨l1 ++ l2 ++ l3 ++ l4 ++ l5, ⟨_, _, _, _, l1, l2, l3, l4, l5, c1, c2, c3, c4, c5, rfl⟩, ?_, ?_⟩

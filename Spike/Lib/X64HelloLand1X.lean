@@ -121,13 +121,13 @@ def CtxR1HX (l : WeakMem.AllocLabel) (b n : Nat) : FragS isa := fun s c fs =>
 /-! ## The level's obligations into the context -/
 
 /-- **`hctx_main1H` at `CtxR1HX`** (at `ref1HX`): a counter add of a box call from `wc_main` returning to
-`.Lwc_main.x22`, at no frames, under main's thread pointer, at the first stack's top, the caller's slot `-16`
+`.Lwc_main.x0`, at no frames, under main's thread pointer, at the first stack's top, the caller's slot `-16`
 main's TCB (`hslot`), is `CtxR1HX`'s counter disjunct (the counter word does not read the own map,
 `ctr_none_FS`). -/
 theorem hctx_main1HX (hc : Spike.Lib.X64.Rt.CtrZ o) (l : WeakMem.AllocLabel) (b n : Nat) {ms : MemSide isa}
     (hms : ms = { ref1HX (asm := asm) hpw i0 E rd ls l b n [] with xa := ms.xa }) (σC : FAS)
     (hslot : σC.slot (-16) = pinA (Ly).lab + 0#64 + 8#64) (m1 : MachineData) (σ1 : FAS) :
-    ∀ q : Call, q.OKB ms (Ly).lab → q.ra = ((Ly).lab ".Lwc_main.x22").toBitVec →
+    ∀ q : Call, q.OKB ms (Ly).lab → q.ra = ((Ly).lab ".Lwc_main.x0").toBitVec →
       ∀ s c, At (Ly).exe (Ly).endPc (wARH (wcR (RM) helloD))
         (fun m => wcF (RM) helloD (FS (Ly) (RS0) helloLsw 0#64 (TOP)) m1 σ1 m ∧
           CallerCells (wcR (RM) helloD) (-144) (-160) 8 m ∧
@@ -151,7 +151,7 @@ theorem hctx_main1HX (hc : Spike.Lib.X64.Rt.CtrZ o) (l : WeakMem.AllocLabel) (b 
 example (I : Spike.Lib.X64ConsumerS.InvS) (l : WeakMem.AllocLabel) (b n : Nat) (t : UInt64) (σC : FAS)
     (hslot : σC.slot (-16) = pinA (Ly).lab + 0#64 + 8#64) (m1 : MachineData) (σ1 : FAS) (q : Call)
     (hq : q.OKB (Spike.Lib.X64.KeepTP.tpXa ((MS1X) I l b n []) t) (Ly).lab)
-    (hra : q.ra = ((Ly).lab ".Lwc_main.x22").toBitVec) :
+    (hra : q.ra = ((Ly).lab ".Lwc_main.x0").toBitVec) :
     GcM1H hpw i0 l b [] (Spike.Lib.X64.KeepTP.tpXa ((MS1X) I l b n []) t) (wARH (wcR (RM) helloD))
       (fun m => wcF (RM) helloD (FS (Ly) (RS0) helloLsw 0#64 (TOP)) m1 σ1 m ∧
         CallerCells (wcR (RM) helloD) (-144) (-160) 8 m ∧

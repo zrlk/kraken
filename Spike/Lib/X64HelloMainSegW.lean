@@ -178,7 +178,7 @@ theorem parent_keepH (l : String → Int64) (pc : Int64) (σ : AS) {blk : List (
 `syscall` (`.x25 + 96` to `+ 101`), `.x26`'s block and its `jmp` (`.x26` to
 `+ 22`), `.spawned6` (13 bytes). -/
 def parentRunsH : List (String × Nat × Nat) :=
-  [(".Lwc_main.x25", 96, 101), (".Lwc_main.x26", 0, 22), (".Lwc_main.spawned6", 0, 13)]
+  [(".Lwc_main.x3", 96, 101), (".Lwc_main.x4", 0, 22), (".Lwc_main.spawned6", 0, 13)]
 
 set_option hygiene false in
 /-- A parent block's pcs from `parentRunsH`: the run `(l, lo, hi)`, the

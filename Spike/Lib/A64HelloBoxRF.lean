@@ -6,8 +6,8 @@ region `helloD = 400` deep, the switched stack `helloLsw = 480` deep), and the r
 These are `HelloH1A.H1GAH`'s region/frame fields at the box's real ghost (`RootHP.hP_of`).
 
 - `rtF_of_wn`: `WordsNoneP` gives `rtF` (every runtime word's bytes are in `.data` or `pinned`, `words_mapped`).
-- `unF_of_wn`: `WordsNoneP` gives the second TCB's words (`tH = pinA + 112`, six words) unmapped, given the pinned
-  region reaches `pinA + 168` (`hpin2`).
+- `unF_of_wn`: `WordsNoneP` gives the second TCB's words (`tH = pinA + 144`, six words) unmapped, given the pinned
+  region reaches `pinA + 200` (`hpin2`).
 - `wcF_dmemH`: the frame condition reads memory only (`fcg`).
 - `wcF_takeMemH`: the frame condition survives the child's stack take (`fcl`).
 - `stackOff_r0_boxH`: main's stack mapped off `wc_main`'s region under it (`hF0`).
@@ -46,15 +46,15 @@ local notation "RS" => Spike.Lib.A64.Rt.rS0 (Ly)
 set_option hygiene false in
 local notation "R1" => Spike.Lib.A64.Rt.PreChild.r1Of (Ly).lab
 
-/-- **`WordsNoneP` gives the second TCB's words unmapped** (`H1GAH.hunF`): `tH = pinA + 112` and its six words lie
-in `[pinA + 112, pinA + 160)`, inside the pinned region (`pinA` its base, `hpin2` its reach). -/
-theorem unF_of_wn (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) {m : MachineData}
+/-- **`WordsNoneP` gives the second TCB's words unmapped** (`H1GAH.hunF`): `tH = pinA + 144` and its six words lie
+in `[pinA + 144, pinA + 192)`, inside the pinned region (`pinA` its base, `hpin2` its reach). -/
+theorem unF_of_wn (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) {m : MachineData}
     (h : WordsNoneP (Ly).Λ m.dmem) :
     ∀ a ∈ Spike.Lib.A64.Rt.Ti.tiAddrs (Spike.Lib.A64.Flow.HelloWc.tH (Ly).lab), Mem.loadInt m.dmem a 8 = none := by
   have hp0 : (Ly).pinA.toNat = (Ly).Λ.pinned.lo := Spike.Lib.PlaceW.pinA_toNat_ofPlaceW hpw i
   have hs := (Ly).words_small _ (Ly).pin_mem
-  have hT : (Spike.Lib.A64.Flow.HelloWc.tH (Ly).lab).toNat = (Ly).pinA.toNat + 112 := by
-    show (Spike.Lib.A64.Flow.Ret0.pinA (_root_.Executable.labels (Ly).exe).label + 112#64).toNat = _
+  have hT : (Spike.Lib.A64.Flow.HelloWc.tH (Ly).lab).toNat = (Ly).pinA.toNat + 144 := by
+    show (Spike.Lib.A64.Flow.Ret0.pinA (_root_.Executable.labels (Ly).exe).label + 144#64).toNat = _
     rw [(Ly).lab_pin, BitVec.toNat_add, BitVec.toNat_ofNat]
     simp only [Nat.reducePow, Nat.reduceMod]
     omega
@@ -66,7 +66,7 @@ theorem unF_of_wn (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ
   obtain ⟨k, hk, rfl⟩ := hk
   intro j hj
   have ha : (Spike.Lib.A64.Flow.HelloWc.tH (Ly).lab + BitVec.ofNat 64 (8 * k)).toNat =
-      (Ly).pinA.toNat + 112 + 8 * k := by
+      (Ly).pinA.toNat + 144 + 8 * k := by
     rw [BitVec.toNat_add, hT, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega), Nat.mod_eq_of_lt (by omega)]
   rw [ha]
   unfold Spike.Lib.DmemPriv.PrivB Scc.Sem.Range.contains

@@ -248,7 +248,8 @@ theorem allocAbAcW (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
         (N (_root_.Executable.labels exe).label ms q .ret).pc := by pc_tac
     have hok : Spike.Lib.A64.Flow.okBlk (-160) 0 (N (_root_.Executable.labels exe).label ms q .ret).o
         [iRet.toDir] = true := by dsimp only [N]; decide
-    refine Spike.Lib.LowerA64.BlkW.nodeW (blkW_phSt (Spike.Lib.A64.Flow.code_of hI.lays hI.endOk h18 he) hok
+    refine Spike.Lib.LowerA64.BlkW.nodeW (blkW_phSt (Spike.Lib.A64.Flow.code_of hI.lays hI.endOk h18.2
+      (by rw [Spike.Lib.A64.Flow.ofNat4_zero, Scc.Cert.Rt.A64.label_labelGap hI.lays h18.1]; exact he)) hok
       hR hal (by omega) (by omega) (fun j hj s h1 h2 h3 => ?_) he (phOffW_sound hlab chA_ret)
       (hret_of_run hok fun σ c hJ => ?_)) (List.cons_ne_nil _ _)
     · obtain rfl : j = 0 := by simpa using hj

@@ -85,12 +85,12 @@ theorem wake_tiPush : blockAtB wakeCells "scc_rt_thread_init" 0 tiPush = true :=
 /-! ## The pcs at the canonical base -/
 
 /-- `.x20`'s 25 bytes: their values, `ph2a` `0`, off the sites. -/
-theorem x20_facts : ∀ k < 25, (Int64.ofNat 4203372 + Int64.ofNat k).toBitVec.toNat = 4203372 + k ∧
-    ph2aC (4203372 + k) = 0 ∧ okC (4203372 + k) = true := by decide +kernel
+theorem x20_facts : ∀ k < 25, (Int64.ofNat 4203410 + Int64.ofNat k).toBitVec.toNat = 4203410 + k ∧
+    ph2aC (4203410 + k) = 0 ∧ okC (4203410 + k) = true := by decide +kernel
 
 /-- `.x21`'s 47 bytes (to the `syscall`): their values, `ph2b` `0`, off the sites. -/
-theorem x21_facts : ∀ k < 47, (Int64.ofNat 4203397 + Int64.ofNat k).toBitVec.toNat = 4203397 + k ∧
-    ph2bC (4203397 + k) = 0 ∧ okC (4203397 + k) = true := by decide +kernel
+theorem x21_facts : ∀ k < 47, (Int64.ofNat 4203435 + Int64.ofNat k).toBitVec.toNat = 4203435 + k ∧
+    ph2bC (4203435 + k) = 0 ∧ okC (4203435 + k) = true := by decide +kernel
 
 /-- `scc_rt_thread_init`'s first two pcs: their values, `ph2b` `12`, the first off the sites. -/
 theorem ti_facts : (Int64.ofNat 4199545 + Int64.ofNat (cellOff tiPush 0)).toBitVec.toNat = 4199545 ∧
@@ -110,11 +110,11 @@ theorem onProg {L : RuntimeLayout} (hp : L.prog = wakeCells) {l : Label} {k : Na
 variable {L : RuntimeLayout} {a : BitVec 64}
 
 theorem lab_x20 (hlab : ∀ l x, codeLabel lo wakeCells l = some x → L.lab l = Int64.ofNat x) :
-    (_root_.Executable.labels L.exe).label x20L = Int64.ofNat 4203372 :=
+    (_root_.Executable.labels L.exe).label x20L = Int64.ofNat 4203410 :=
   hlab _ _ (by rw [← codeT_eq]; decide +kernel)
 
 theorem lab_x21 (hlab : ∀ l x, codeLabel lo wakeCells l = some x → L.lab l = Int64.ofNat x) :
-    (_root_.Executable.labels L.exe).label x21L = Int64.ofNat 4203397 :=
+    (_root_.Executable.labels L.exe).label x21L = Int64.ofNat 4203435 :=
   hlab _ _ (by rw [← codeT_eq]; decide +kernel)
 
 theorem lab_ti (hlab : ∀ l x, codeLabel lo wakeCells l = some x → L.lab l = Int64.ofNat x) :
@@ -142,7 +142,7 @@ theorem okP_x21 (hΛ : L.Λ.abortLbl = Scc.Cert.Link.abortName)
 /-- The two second instances' owned words at the second switch. -/
 theorem own2a0_eq (L : RuntimeLayout) (a : BitVec 64) : own2a L a 0 = own2b L a 12 := by
   have h := own2a_own2b_ph L a
-  have h1 : ph2a 4203392 = 0 := by rw [ph2a_eq]; unfold ph2aC; rw [threadInit2_ph.1]
+  have h1 : ph2a 4203430 = 0 := by rw [ph2a_eq]; unfold ph2aC; rw [threadInit2_ph.1]
   have h2 : ph2b 4199545 = 12 := by rw [ph2b_eq]; unfold ph2bC; rw [threadInit2_ph.2.2]
   rwa [h1, h2] at h
 
@@ -150,7 +150,7 @@ theorem own2a0_eq (L : RuntimeLayout) (a : BitVec 64) : own2a L a 0 = own2b L a 
 theorem own_x20 (hlab : ∀ l x, codeLabel lo wakeCells l = some x → L.lab l = Int64.ofNat x) {s : State} {k : Nat}
     (hk : k < 25) (hs : s.st.2 = (_root_.Executable.labels L.exe).label x20L + Int64.ofNat k) :
     ownG L a s = own2a L a 0 := by
-  have hp : pcOf s = 4203372 + k := by unfold pcOf; rw [hs, lab_x20 hlab]; exact (x20_facts k hk).1
+  have hp : pcOf s = 4203410 + k := by unfold pcOf; rw [hs, lab_x20 hlab]; exact (x20_facts k hk).1
   obtain ⟨-, -, -, -, e5, e6, -, -, -⟩ := labs_eq hlab (L := L)
   have hg : Good2a L s := .inr (.inl (by unfold inPc; rw [e5, e6, hp]; omega))
   rw [ownG_2a hlab hg, hp, ph2a_eq, (x20_facts k hk).2.1]
@@ -159,7 +159,7 @@ theorem own_x20 (hlab : ∀ l x, codeLabel lo wakeCells l = some x → L.lab l =
 theorem own_x21 (hlab : ∀ l x, codeLabel lo wakeCells l = some x → L.lab l = Int64.ofNat x) {s : State} {k : Nat}
     (hk : k < 47) (hs : s.st.2 = (_root_.Executable.labels L.exe).label x21L + Int64.ofNat k) :
     ownG L a s = own2b L a 0 := by
-  have hp : pcOf s = 4203397 + k := by unfold pcOf; rw [hs, lab_x21 hlab]; exact (x21_facts k hk).1
+  have hp : pcOf s = 4203435 + k := by unfold pcOf; rw [hs, lab_x21 hlab]; exact (x21_facts k hk).1
   obtain ⟨-, -, -, -, -, e6, e7, -, -⟩ := labs_eq hlab (L := L)
   have hg : Good2b L s := .inr (.inl (by unfold inPc; rw [e6, e7, hp]; omega))
   rw [ownG_2b hlab hg, hp, ph2b_eq, (x21_facts k hk).2.1]

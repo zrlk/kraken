@@ -1,4 +1,5 @@
 import Scc.Cert.Rt.A64Morestack
+import Spike.Lib.A64CodeAcross
 
 /-!
 # The segment theorems of `Scc.Cert.Rt.A64Morestack`
@@ -136,7 +137,8 @@ theorem seg_morestack {F : MachineData → Prop} {F' : BitVec 64 → MachineData
     (seg_switch (hF'' v) (code_field hp hend hs (by simp only [nSw, pc0, add4, add0])))).seq
     (sw_seg fun v' h16 hok => ?_)
   exact (seg_new (hF'' v') h16 hok (code_field hp hend h2 (by simp only [n2, pc0, add4, add0]))
-    (code_field hp hend h3 (by simp only [nR1, pc0, add4, add0])) (hrel v' ob osz)).mono_post
+    (Spike.Lib.A64.code_field_blockAcross hp hend h3 (List.take_append_drop _ _)
+      (by simp only [nR1, pc0, add4, add0])) (hrel v' ob osz)).mono_post
     fun _ _ h => ⟨v', h⟩
 
 end Proof

@@ -187,7 +187,7 @@ theorem own_QH (arch : WeakMem.Arch) (R1 : Cfg → TermRun.Cfg → Prop) (E : En
 /-- `msHX` is wake's `msXW` at `msH`, owning `tcbM` (`own_QH`'s thread 0 side). -/
 example (G : ιH hp i → Loc → Val → Prop) (w : ιH hp i) :
     msHX (LH hp i) G (SRH hp i) w = X64WakeOwnX.msXW (X64HelloMs.msH (LH hp i) G (SRH hp i) w)
-      (Spike.Lib.X64.WakePh.tcbM (LH hp i)) (Spike.Lib.X64.WakePh.tcbM (LH hp i)) ((LH hp i).pinA + 112#64) := rfl
+      (Spike.Lib.X64.WakePh.tcbM (LH hp i)) (Spike.Lib.X64.WakePh.tcbM (LH hp i)) ((LH hp i).pinA + 144#64) := rfl
 
 /-- **The assembly at the placed instance** (see the module doc). -/
 theorem hello_obligations_I {arch : WeakMem.Arch} {B : Budget} {asm : Asm} {E : Entry}
@@ -200,8 +200,8 @@ theorem hello_obligations_I {arch : WeakMem.Arch} {B : Budget} {asm : Asm} {E : 
     (hd : dataSections asm.text = some o.secs) (hoffs : asm.labelOffs = o.labelOffs)
     /- The entry state is clear of the layout. -/
     (hE : E.clear (LH hp i).Λ = true)
-    /- The pinned region reaches `pinA + 168` (the records' `SelfOK`, `X64HelloSelfOK.selfOK_placedH`). -/
-    (hpin2 : (LH hp i).pinA.toNat + 168 ≤ (LH hp i).Λ.pinned.lo + (LH hp i).Λ.pinned.size)
+    /- The pinned region reaches `pinA + 200` (the records' `SelfOK`, `X64HelloSelfOK.selfOK_placedH`). -/
+    (hpin2 : (LH hp i).pinA.toNat + 200 ≤ (LH hp i).Λ.pinned.lo + (LH hp i).Λ.pinned.size)
     /- The code is placed at hello's `lo` (`X64HelloOInit.hlab_H`, the labels for `hpre_ofH`'s `hself`). -/
     (hlo : Λ0.code.lo = Spike.Lib.X64.HelloPh.lo)
     /- The pre-spawn half. -/

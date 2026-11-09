@@ -58,7 +58,7 @@ theorem not_spPool_of_band {R : Region} (hb : BandOut L R) (h : SpAt R (-48) 0 s
 /-- The two return addresses on the path differ. -/
 private theorem ra_ne (hlab : ∀ l x, codeOf lo wakeProg l = some x → L.lab l = Int64.ofNat x) :
     (L.lab ".L3_scc_rt_alloc_tcb.sp13").toBitVec ≠ (L.lab ".L21_wc_main.sp11").toBitVec := by
-  rw [hlab _ 2164956 (by rw [← codeT_eq]; decide +kernel), hlab _ 2169384 (by rw [← codeT_eq]; decide +kernel)]
+  rw [hlab _ 2164960 (by rw [← codeT_eq]; decide +kernel), hlab _ 2169416 (by rw [← codeT_eq]; decide +kernel)]
   decide
 
 /-- **`ownG` picks `own2a` on the path** from `scc_rt_alloc_tcb`'s abort on a

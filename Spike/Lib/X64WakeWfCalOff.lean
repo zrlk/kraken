@@ -11,11 +11,11 @@ counter's word.
   the arena and not its counter word.
 - `hoffP_W`: `scc_rt_pinned_next` (a runtime word: `words_mapped`, A8's
   `ctrSep`).
-- `pin2_toNat`, `pin2_contains`: `pinA + c` for `c ≤ 168` does not wrap, and
-  an address of `[pinA, pinA + 168)` is in `pinned` (`hpin2`).
-- `hoffPin_W`, `hoffH_W`, `hoffT_W`: a word of `[pinA, pinA + 168)`, in
+- `pin2_toNat`, `pin2_contains`: `pinA + c` for `c ≤ 200` does not wrap, and
+  an address of `[pinA, pinA + 200)` is in `pinned` (`hpin2`).
+- `hoffPin_W`, `hoffH_W`, `hoffT_W`: a word of `[pinA, pinA + 200)`, in
   `pinned` (`hpin2`), the counter in `.data` (`CtrZ`); the second TCB's
-  header `pinA + 96` and its id word `t2 + 56 = pinA + 160`.
+  header `pinA + 128` and its id word `t2 + 56 = pinA + 192`.
 - `NtOff`, `ntOff_of_a13`, `ntA_of`, `hoffN_W`, `sepN_W`, `hmN_W`:
   `scc_rt_nthreads` is no runtime word of A8; A13's data part
   (`Spawn.X64.a13data`, decided at the concrete layout) places it (`NtOff`: a
@@ -89,24 +89,24 @@ theorem hoffP_W :
     (ne_of_sep (Scc.Cert.Rt.X64.ctrSep_of_rtWordsOk (Spike.Lib.PlaceWX.rtWordsOk_link_of_placeWX i hpw) _
       (Ly).pn_mem))
 
-/-- `pinA + c` for `c ≤ 168` does not wrap. -/
-theorem pin2_toNat {c : Nat} (hc : c ≤ 168) :
+/-- `pinA + c` for `c ≤ 200` does not wrap. -/
+theorem pin2_toNat {c : Nat} (hc : c ≤ 200) :
     ((Ly).pinA + BitVec.ofNat 64 c).toNat = (Ly).pinA.toNat + c := by
   have := (Ly).words_small _ (Ly).pin_mem
   rw [BitVec.toNat_add, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega : c < 2 ^ 64), Nat.mod_eq_of_lt (by omega)]
 
-/-- **An address in `[pinA, pinA + 168)` is in `pinned`.** -/
-theorem pin2_contains (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) {x : Nat}
-    (h0 : (Ly).pinA.toNat ≤ x) (h1 : x < (Ly).pinA.toNat + 168) : (Ly).Λ.pinned.contains x := by
+/-- **An address in `[pinA, pinA + 200)` is in `pinned`.** -/
+theorem pin2_contains (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) {x : Nat}
+    (h0 : (Ly).pinA.toNat ≤ x) (h1 : x < (Ly).pinA.toNat + 200) : (Ly).Λ.pinned.contains x := by
   have hp0 : (Ly).pinA.toNat = (Ly).Λ.pinned.lo := Spike.Lib.PlaceWX.pinA_toNat_ofPlaceWX hpw i
   simp only [Scc.Sem.Range.contains]
   omega
 
-/-- **A word of `[pinA, pinA + 168)` is off wake's arena**, given `pinned`
+/-- **A word of `[pinA, pinA + 200)` is off wake's arena**, given `pinned`
 holds it (`hpin2`) and the counter's zeroed item (`CtrZ`, the counter in
 `.data`). -/
-theorem hoffPin_W (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
-    (hcz : Spike.Lib.X64.Rt.CtrZ o) {c : Nat} (hc : c + 8 ≤ 168) :
+theorem hoffPin_W (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
+    (hcz : Spike.Lib.X64.Rt.CtrZ o) {c : Nat} (hc : c + 8 ≤ 200) :
     ¬ ((WakeOD.arW hpw i).heap ≤ ((Ly).pinA + BitVec.ofNat 64 c).toNat ∧
         ((Ly).pinA + BitVec.ofNat 64 c).toNat < (WakeOD.arW hpw i).heap + 16 * (WakeOD.arW hpw i).cells) ∧
       (⟨(Ly).pinA + BitVec.ofNat 64 c, 8⟩ : Loc) ≠ (WakeOD.arW hpw i).ctrLoc := by
@@ -125,24 +125,24 @@ theorem hoffPin_W (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ
   rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)] at h2
   omega
 
-/-- **`hoffH`**: the second TCB's header `scc_rt_pinned + 96` is off wake's
+/-- **`hoffH`**: the second TCB's header `scc_rt_pinned + 128` is off wake's
 arena (`hoffPin_W`). -/
-theorem hoffH_W (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
+theorem hoffH_W (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
     (hcz : Spike.Lib.X64.Rt.CtrZ o) :
-    ¬ ((WakeOD.arW hpw i).heap ≤ ((Ly).pinA + 96#64).toNat ∧
-        ((Ly).pinA + 96#64).toNat < (WakeOD.arW hpw i).heap + 16 * (WakeOD.arW hpw i).cells) ∧
-      (⟨(Ly).pinA + 96#64, 8⟩ : Loc) ≠ (WakeOD.arW hpw i).ctrLoc :=
-  hoffPin_W hpw i hpin2 hcz (c := 96) (by decide)
+    ¬ ((WakeOD.arW hpw i).heap ≤ ((Ly).pinA + 128#64).toNat ∧
+        ((Ly).pinA + 128#64).toNat < (WakeOD.arW hpw i).heap + 16 * (WakeOD.arW hpw i).cells) ∧
+      (⟨(Ly).pinA + 128#64, 8⟩ : Loc) ≠ (WakeOD.arW hpw i).ctrLoc :=
+  hoffPin_W hpw i hpin2 hcz (c := 128) (by decide)
 
-/-- **`offT`**: the second TCB's id word `t2 + 56 = scc_rt_pinned + 160` is
+/-- **`offT`**: the second TCB's id word `t2 + 56 = scc_rt_pinned + 192` is
 off wake's arena (`hoffPin_W`). -/
-theorem hoffT_W (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
+theorem hoffT_W (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
     (hcz : Spike.Lib.X64.Rt.CtrZ o) :
-    ¬ ((WakeOD.arW hpw i).heap ≤ (Spike.Lib.X64.Flow.Ret0.pinA (Ly).lab + 104#64 + 56#64).toNat ∧
-        (Spike.Lib.X64.Flow.Ret0.pinA (Ly).lab + 104#64 + 56#64).toNat <
+    ¬ ((WakeOD.arW hpw i).heap ≤ (Spike.Lib.X64.Flow.Ret0.pinA (Ly).lab + 136#64 + 56#64).toNat ∧
+        (Spike.Lib.X64.Flow.Ret0.pinA (Ly).lab + 136#64 + 56#64).toNat <
           (WakeOD.arW hpw i).heap + 16 * (WakeOD.arW hpw i).cells) ∧
-      (⟨Spike.Lib.X64.Flow.Ret0.pinA (Ly).lab + 104#64 + 56#64, 8⟩ : Loc) ≠ (WakeOD.arW hpw i).ctrLoc := by
-  have e : Spike.Lib.X64.Flow.Ret0.pinA (Ly).lab + 104#64 + 56#64 = (Ly).pinA + BitVec.ofNat 64 160 := by
+      (⟨Spike.Lib.X64.Flow.Ret0.pinA (Ly).lab + 136#64 + 56#64, 8⟩ : Loc) ≠ (WakeOD.arW hpw i).ctrLoc := by
+  have e : Spike.Lib.X64.Flow.Ret0.pinA (Ly).lab + 136#64 + 56#64 = (Ly).pinA + BitVec.ofNat 64 192 := by
     rw [(Ly).lab_pin, BitVec.add_assoc]; rfl
   rw [e]
   exact hoffPin_W hpw i hpin2 hcz (by decide)

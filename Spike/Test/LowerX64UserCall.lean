@@ -10,7 +10,7 @@ import Spike.Test.LowerX64UserW
 interface `SwUW` from the generic `swUW_gen` with its user premise `hU`
 discharged by `userCallW_of_fn` at the lowering's facts (`ret0_lower0`,
 `ret0_proInC`, `ret0_bodyIn`), the hand instance (`ret0_instOk`) and the
-phase facts at the return address `.Lscc_rt_main.x2` (`ret0_bodyPh`,
+phase facts at the return address `.Lscc_rt_main.x0` (`ret0_bodyPh`,
 `ret0_proPh`); the overflow abort `hab` left a premise. The switch's other
 stack values than its top are dead (`swF`), so the user function there is
 vacuous.
@@ -36,9 +36,9 @@ open Spike.Test.LowerX64MainSeg (main0_accepted)
 open Scc.Emit.X64 (labelOf)
 open SccCode (ret0Λ ret0Cells)
 
-/-- **The body's phase facts at the return address** `.Lscc_rt_main.x2`. -/
-theorem ret0_bodyPh : bodyPhOk okPc ph (fun _ => false) labT ret0Cells mainFr ".Lwc_main.entry" ret0Res.insts
-    ret0Res.ret (labT ".Lscc_rt_main.x2") = true := by decide +kernel
+/-- **The body's phase facts at the return address** `.Lscc_rt_main.x0`. -/
+theorem ret0_bodyPh : bodyPhOk okPc ph (fun _ => false) labT ret0Cells mainFr ".Lwc_main.entry" 0 ret0Res.insts
+    ret0Res.ret (labT ".Lscc_rt_main.x0") = true := by decide +kernel
 
 /-- **The prologue's phase facts at `main`'s frame.** -/
 theorem ret0_proPhFr : ProPh okPc ph labT "wc_main" (labelOf mainFr.fn "chk") (Int64.ofInt mainFr.size)
@@ -78,7 +78,7 @@ theorem ret0_userCallW {top : BitVec 64} (h8 : top.toNat % 8 = 0) (hok : (swR to
   have hR : (mR top).OK := Region.callee_ok hok (by show (-80 : Int) ≤ _; decide) (by decide)
     (by show _ < (0 : Int); decide) (by show _ ≤ (0 : Int); decide)
   have hb8 : (mR top).base.toNat % 8 = 0 := addr_toNat_mod8 _ h8 (by decide)
-  have hph : bodyPhOk okPc ph (fun _ => false) labT ret0Cells mainFr ".Lwc_main.entry" ret0Res.insts ret0Res.ret
+  have hph : bodyPhOk okPc ph (fun _ => false) labT ret0Cells mainFr ".Lwc_main.entry" 0 ret0Res.insts ret0Res.ret
       (Int64.ofBitVec ((_root_.Executable.labels ret0Exe).label ret0MC.sp0).toBitVec) = true := by
     rw [Spike.Lib.X64.Flow.Ret0.Inst.ret0_labT]; exact ret0_bodyPh
   exact userCallW_of_fn main0_accepted mainFr_ok mainFr_small ret0_proInC ret0_lower0 ret0_bodyIn ret0_instOk

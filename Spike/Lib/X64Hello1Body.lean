@@ -8,7 +8,7 @@ the cells (`decide +kernel`): the x64 twin of
   at the frame's base, offset `-88`, `%rbp` at the saved `%rbp`, `-8`;
   offsets from `%rsp` at `wc_main`'s entry): the block computing `print`'s
   arguments and its call of `scc_rt_print` (`call_nd_FWK`, `print`'s region
-  based at its saved `%rbp`, `-104`, reaching `-144`), and `.x15`'s
+  based at its saved `%rbp`, `-104`, reaching `-144`), and `.x0`'s
   `%rax = 0` and return. Exits: the return to the saved return address
   (`%rsp` at `8`), and `print`'s abort (to `scc_rt_abort` with `%rdi = 4`,
   `%rsp` at `-144`). The source stutters up to the return block, where it
@@ -33,7 +33,7 @@ open Kraken Kraken.Promising Kraken.Promising.X64 Kraken.Promising.Lower Kraken.
 open Kraken.X64.Parser Spike.Lib Spike.Lib.X64 Spike.Lib.X64.Flow
 open Spike.Lib.X64.Flow.Ret0 (CallerCells blkW_mono)
 open Spike.Lib.X64.Rt (WcRa WcFp)
-open Scc.Cert.Rt.X64 (Lays endOf blockAtB labelGapB code_field label_labelGapB)
+open Scc.Cert.Rt.X64 (Lays endOf blockAtB labelGapB code_field label_labelGapB blockAcrossB)
 
 set_option linter.unusedSimpArgs false
 
@@ -70,7 +70,7 @@ movq -56(%rbp), %rdi
 movq -72(%rbp), %rsi
 call scc_rt_print")).zip [4, 4, 4, 4, 4, 3, 3, 4, 4, 4, 4, 5]
 
-/-- `wc_main`'s `.x15` block: `%rax = 0`, the epilogue, `ret`. -/
+/-- `wc_main`'s `.x0` block: `%rax = 0`, the epilogue, `ret`. -/
 def wcR15 : List (Directive × Nat) := (parse("movq $0, %rax
 movq %rbp, %rsp
 popq %rbp
@@ -85,11 +85,13 @@ block_spec wcE2 (-144) 8 oB wcE2
 block_spec wcR15 (-144) 8 oB wcR15
 
 /-- **`wc_main`'s body in `cells`**: the two blocks and the multiply between
-them at `.entry`, `.x15`'s block, `.x15` right after the call. -/
+them at `.entry`, `.x0`'s block (across the return label `.x1` just before `ret`), `.x0` right after the
+call. -/
 def wcBodyIn (cells : List (Directive × Nat)) : Bool :=
   blockAtB cells ".Lwc_main.entry" 0 wcE1 && blockAtB cells ".Lwc_main.entry" 36 [(wcMul.toDir, 4)] &&
-    blockAtB cells ".Lwc_main.entry" 40 wcE2 && blockAtB cells ".Lwc_main.x15" 0 wcR15 &&
-    labelGapB cells ".Lwc_main.entry" ".Lwc_main.x15" 87
+    blockAtB cells ".Lwc_main.entry" 40 wcE2 &&
+    blockAcrossB cells ".Lwc_main.x0" 0 (wcR15.take 3) ".Lwc_main.x1" (wcR15.drop 3) &&
+    labelGapB cells ".Lwc_main.entry" ".Lwc_main.x0" 87
 
 theorem hello1_wcBodyIn : wcBodyIn SccCode.hello1Cells = true := by decide +kernel
 
@@ -124,10 +126,10 @@ theorem wcC_rbp (lab : Label → Int64) (σ : AS) (fl : StatusFlags) :
   rw [wcC_eq, wcE2_run]
   simp [FI.step, wcS1, wcE1_run, FI.regs, Reg64s.get64_set64_ne]
 
-/-- The call pushes `.x15`, the next instruction, `87` bytes on. -/
+/-- The call pushes `.x0`, the next instruction, `87` bytes on. -/
 theorem wcC_ra (lab : Label → Int64) (σ : AS) (fl : StatusFlags)
-    (e : lab ".Lwc_main.x15" = lab ".Lwc_main.entry" + Int64.ofNat 87) :
-    (wcC lab σ fl).slot (-96) = (lab ".Lwc_main.x15").toBitVec := by
+    (e : lab ".Lwc_main.x0" = lab ".Lwc_main.entry" + Int64.ofNat 87) :
+    (wcC lab σ fl).slot (-96) = (lab ".Lwc_main.x0").toBitVec := by
   rw [wcC_eq, wcE2_run, e]
   simp only [Spike.Lib.upd_apply, ↓reduceIte, Int64.toBitVec_add, BitVec.add_assoc]
   rfl
@@ -154,7 +156,7 @@ def wN (lab : Label → Int64) (R : Region) (J : AS → Ctl → Prop) : WN → N
   | .mul => ⟨lab ".Lwc_main.entry" + 36, oB, fun σ c => ∃ σ0, wJ R J σ0 c ∧ σ = wcS1 lab σ0⟩
   | .e2 => ⟨lab ".Lwc_main.entry" + 40, oB, fun σ c => ∃ σ0 fl, wJ R J σ0 c ∧ σ = wcMul.step (wcS1 lab σ0) fl⟩
   | .call => ⟨lab "scc_rt_print", ⟨-96, []⟩, fun σ c => ∃ σ0 fl, wJ R J σ0 c ∧ σ = wcC lab σ0 fl⟩
-  | .x15 => ⟨lab ".Lwc_main.x15", ⟨-88, []⟩, fun σ c => ∃ σ0, wJ R J σ0 c ∧
+  | .x15 => ⟨lab ".Lwc_main.x0", ⟨-88, []⟩, fun σ c => ∃ σ0, wJ R J σ0 c ∧
       σ.regs.get64 .rbp = R.addr (-8) ∧ ∀ k, -88 ≤ k → k < 8 → k % 8 = 0 → σ.slot k = wcSl lab σ0 k⟩
 
 /-- **The body's exits**: the caller's node `x`, and `print`'s abort. -/
@@ -168,17 +170,17 @@ above. -/
 abbrev pR (R : Region) : Region := R.callee (-96 - 8) (-40) 16
 
 /-- **`wc_main`'s body's states inside `W`**, none moved by `K`: the
-blocks', and `print`'s in its region (for every ghost returning to `.x15`,
+blocks', and `print`'s in its region (for every ghost returning to `.x0`,
 the caller's cells outside it holding values). -/
 structure WcBody1W (W : Frag isa) (K : State → State → Prop) (exe : _root_.Executable) (endPc : Int64)
     (R : Region) (F : MachineData → Prop) (J : AS → Ctl → Prop) : Prop where
   e : BlkW W K exe endPc R F (wN (_root_.Executable.labels exe).label R J .e) wcE1
   mul : NodeW W K exe endPc R F (wN (_root_.Executable.labels exe).label R J .mul)
   e2 : BlkW W K exe endPc R F (wN (_root_.Executable.labels exe).label R J .e2) wcE2
-  print : ∀ g : PG, g.2.2 = ((_root_.Executable.labels exe).label ".Lwc_main.x15").toBitVec →
+  print : ∀ g : PG, g.2.2 = ((_root_.Executable.labels exe).label ".Lwc_main.x0").toBitVec →
     Print.PrintW g.1 g.2.1 g.2.2 W K exe endPc (pR R) (fun m => F m ∧ CallerCells R (-96 - 8) (-40) 16 m)
   x15 : BlkW W K exe endPc R F
-    ⟨(_root_.Executable.labels exe).label ".Lwc_main.x15", oB,
+    ⟨(_root_.Executable.labels exe).label ".Lwc_main.x0", oB,
       (wN (_root_.Executable.labels exe).label R J .x15).J⟩ wcR15
 
 /-- The body is inside the trivial predicate, with no outside moves. -/
@@ -244,7 +246,7 @@ theorem hello1_wc_body_segW {W : Frag isa} {K : State → State → Prop}
     {fp : BitVec 64} (hfp : ∀ σ c, J σ c → σ.slot (-8) = fp)
     (hsys : ∀ F' : MachineData → Prop, FStable (pR R) F' →
       (∀ m, F' m → (F m ∧ CallerCells R (-96 - 8) (-40) 16 m) ∧ WcRa R x.pc m ∧ WcFp R fp m) →
-      ∀ g : PG, g.2.2 = ((_root_.Executable.labels exe).label ".Lwc_main.x15").toBitVec → g.2.1 = R.addr (-8) →
+      ∀ g : PG, g.2.2 = ((_root_.Executable.labels exe).label ".Lwc_main.x0").toBitVec → g.2.1 = R.addr (-8) →
       SegW W K p lbl ms (At exe endPc (pR R) F' (Print.N (_root_.Executable.labels exe).label g.1 g.2.1 g.2.2 .sys))
         (At exe endPc (pR R) F' (Print.N (_root_.Executable.labels exe).label g.1 g.2.1 g.2.2 .n5)))
     (hedge : ∀ σ c, J σ c → σ.regs.get64 .rbp = R.addr (-8) → ∀ σ' : AS,
@@ -258,7 +260,7 @@ theorem hello1_wc_body_segW {W : Frag isa} {K : State → State → Prop}
   simp only [wcBodyIn, Bool.and_eq_true] at hin
   obtain ⟨⟨⟨⟨h0, hm⟩, h2⟩, h15⟩, hgap⟩ := hin
   let lab := (_root_.Executable.labels exe).label
-  have e15 : lab ".Lwc_main.x15" = lab ".Lwc_main.entry" + Int64.ofNat 87 := label_labelGapB hp hgap
+  have e15 : lab ".Lwc_main.x0" = lab ".Lwc_main.entry" + Int64.ofNat 87 := label_labelGapB hp hgap
   refine (fn_segW (N := wN lab R J) (E := wX lab J x) (fun i => ?_) WN.e).mono_pre
     fun _ _ h => At.reg_addr (r := .rbp) (k := -8) rfl h
   cases i
@@ -289,7 +291,7 @@ theorem hello1_wc_body_segW {W : Frag isa} {K : State → State → Prop}
       (fun R' F' hR' hlo' hhi' hF' _ hFF hR'e hcc g hg hab => by
         subst hR'e
         obtain ⟨σC, c, ⟨σ0, fl, hJ0, hσ⟩, ⟨-, hb, h8⟩⟩ := hg
-        have hg2 : g.2.2 = (lab ".Lwc_main.x15").toBitVec := by
+        have hg2 : g.2.2 = (lab ".Lwc_main.x0").toBitVec := by
           rw [← h8]; show σC.slot (-96 - 8 + 8) = _; rw [hσ]; exact wcC_ra lab σ0 fl e15
         -- `print`'s saved `%rbp`: `wc_main`'s, at offset `-8`
         have hg1 : g.2.1 = R.addr (-8) := by
@@ -317,7 +319,7 @@ theorem hello1_wc_body_segW {W : Frag isa} {K : State → State → Prop}
       cases y
       · obtain ⟨rfl, hbx⟩ := hx
         refine .inl ⟨WN.x15, ?_, rfl, σ0, hc ▸ hJ0, ?_, fun k h1 h2 h3 => ?_⟩
-        · show lab ".Lwc_main.x15" = Int64.ofBitVec g.2.2
+        · show lab ".Lwc_main.x0" = Int64.ofBitVec g.2.2
           rw [← h8]
           show _ = Int64.ofBitVec (σC.slot (-96 - 8 + 8))
           rw [show (-96 : Int) - 8 + 8 = -96 by decide, hσ, wcC_ra lab σ0 fl e15, int64_ofBitVec_toBitVec]
@@ -330,20 +332,21 @@ theorem hello1_wc_body_segW {W : Frag isa} {K : State → State → Prop}
         refine .inr ⟨WX.abort, rfl, rfl, ?_, σ0, hc ▸ hJ0.1⟩
         rw [hreg]; exact h4
   case x15 =>
-    refine (seg_ndW (n := ⟨lab ".Lwc_main.x15", oB, (wN lab R J .x15).J⟩) (by simp [wcR15]) wcR15_ok hF hR hlo
-      hhi (code_field hp hend h15 (ofNat_zero' _)) hW.x15 fun σ c ⟨σ0, hJ0, hb, hsl⟩ => ?_).mono_pre
+    refine (seg_ndW (n := ⟨lab ".Lwc_main.x0", oB, (wN lab R J .x15).J⟩) (by simp [wcR15]) wcR15_ok hF hR hlo
+      hhi (Spike.Lib.X64.code_field_blockAcrossB hp hend h15 (List.take_append_drop _ _) (ofNat_zero' _)) hW.x15
+      fun σ c ⟨σ0, hJ0, hb, hsl⟩ => ?_).mono_pre
       fun _ _ h => At.rbp_addr h fun _ _ ⟨_, _, hb, _⟩ => hb
     have e8 : σ.slot (-8) = σ0.slot (-8) := by rw [hsl _ (by decide) (by decide) (by decide), (wcSl_rec lab σ0).1]
     have e0 : σ.slot 0 = σ0.slot 0 := by rw [hsl _ (by decide) (by decide) (by decide), (wcSl_rec lab σ0).2]
     have hbb : σ.regs.rbp.toBitVec = σ0.regs.rbp.toBitVec := by
       show σ.regs.get64 .rbp = σ0.regs.get64 .rbp; rw [hb, hJ0.2]
-    obtain ⟨c', hr, hx⟩ := hedge σ0 c hJ0.1 hJ0.2 (arun lab wcR15 ⟨lab ".Lwc_main.x15", oB, σ⟩).σ
+    obtain ⟨c', hr, hx⟩ := hedge σ0 c hJ0.1 hJ0.2 (arun lab wcR15 ⟨lab ".Lwc_main.x0", oB, σ⟩).σ
       (by rw [wcR15_run]; exact hsl) (by rw [wcR15_run]; simp [Reg64s.set64])
       (by rw [wcR15_run]; simp [Reg64s.set64, e8]) (by rw [wcR15_run]; simp [Reg64s.set64, hbb])
     refine ⟨c', hr, .inr ⟨WX.ret, ?_, ?_, hx⟩⟩
-    · show x.pc = (arun lab wcR15 ⟨lab ".Lwc_main.x15", oB, σ⟩).pc
+    · show x.pc = (arun lab wcR15 ⟨lab ".Lwc_main.x0", oB, σ⟩).pc
       rw [wcR15_run, hra σ0 c hJ0.1, e0]
-    · show x.o.le (arun lab wcR15 ⟨lab ".Lwc_main.x15", oB, σ⟩).so = true
+    · show x.o.le (arun lab wcR15 ⟨lab ".Lwc_main.x0", oB, σ⟩).so = true
       rw [wcR15_run]; exact ho
 
 end Fn
@@ -395,7 +398,7 @@ theorem hello1_wc_segW {W : Frag isa} {K : State → State → Prop}
     {fp : BitVec 64} (hfp : ∀ σ c, J0 σ c → σ.regs.rbp.toBitVec = fp)
     (hsys : ∀ F' : MachineData → Prop, FStable (pR R) F' →
       (∀ m, F' m → (F m ∧ CallerCells R (-96 - 8) (-40) 16 m) ∧ WcRa R x.pc m ∧ WcFp R fp m) →
-      ∀ g : PG, g.2.2 = ((_root_.Executable.labels exe).label ".Lwc_main.x15").toBitVec → g.2.1 = R.addr (-8) →
+      ∀ g : PG, g.2.2 = ((_root_.Executable.labels exe).label ".Lwc_main.x0").toBitVec → g.2.1 = R.addr (-8) →
       SegW W K p lbl ms (At exe endPc (pR R) F' (Print.N (_root_.Executable.labels exe).label g.1 g.2.1 g.2.2 .sys))
         (At exe endPc (pR R) F' (Print.N (_root_.Executable.labels exe).label g.1 g.2.1 g.2.2 .n5)))
     (hedge : ∀ σ c, wcJ J0 σ c → σ.regs.get64 .rbp = R.addr (-8) → ∀ σ' : AS,

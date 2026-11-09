@@ -589,7 +589,7 @@ def tcbN : TN → ND
       AllocTcb.Fr1 q.g σ ∧ σ.regs.X9.toBitVec = AllocTcb.tcbLen ∧ σ.regs.X10.toBitVec = pnA lab⟩
   | .bnd => ⟨lab AllocTcb.lenL + Int64.ofNat (4 * 38), AllocTcb.oI, fun σ c => c = q.c0 ∧
       AllocTcb.Fr1 q.g σ ∧ σ.regs.X11.toBitVec = q.n0⟩
-  | .j2 => ⟨lab AllocTcb.lenL + Int64.ofNat (4 * 47), AllocTcb.oI, fun σ c => c = q.c0 ∧ AllocTcb.Fr2 q.g q.n0 σ⟩
+  | .j2 => ⟨lab AllocTcb.lenL + Int64.ofNat (4 * 48), AllocTcb.oI, fun σ c => c = q.c0 ∧ AllocTcb.Fr2 q.g q.n0 σ⟩
   | .ok => ⟨lab AllocTcb.okL, AllocTcb.oI, fun σ c => c = q.c0 ∧ AllocTcb.Fr2 q.g q.n0 σ⟩
   | .ok1 => ⟨lab AllocTcb.okL + Int64.ofNat (4 * 1), AllocTcb.oI, fun σ c => c = q.c0 ∧
       ∃ σ0, AllocTcb.Fr2 q.g q.n0 σ0 ∧ σ = (SI.adrp .X9 "scc_rt_pinned").step lab σ0⟩
@@ -655,6 +655,16 @@ local macro "tnode " b:ident ok:ident l:term:max k:term:max : tactic =>
   `(tactic| refine seg_nd (by simp [$b:ident]) $ok hF hR hal hlo hhi
     (code_of hp hend (by simp only [AllocTcb.allocTcbIn, Bool.and_eq_true] at hin; simp only [hin])
       (l := $l) (k := $k) (by first | rfl | exact ofNat4_zero _)) fun σ c hJ => ⟨c, .refl c, ?_⟩)
+
+set_option hygiene false in
+/-- `tnode` for a block split by its return label `r` after `n` instructions
+(`blockAcross`, `Spike.Lib.A64.code_field_blockAcross`). -/
+local macro "tnodeA " b:ident ok:ident l:term:max k:term:max n:term:max r:term:max : tactic =>
+  `(tactic| refine seg_nd (by simp [$b:ident]) $ok hF hR hal hlo hhi
+    (Spike.Lib.A64.code_field_blockAcross hp hend
+      (by simp only [AllocTcb.allocTcbIn, Bool.and_eq_true] at hin; simp only [hin])
+      (l := $l) (m := $r) (k := $k) (List.take_append_drop $n _)
+      (by first | rfl | exact ofNat4_zero _)) fun σ c hJ => ⟨c, .refl c, ?_⟩)
 
 /-- **`scc_rt_alloc_tcb` is one segment** in any valid layout of `ret0Prog`,
 from its entry to its return, for any region holding its frame of 192 and
@@ -729,7 +739,7 @@ theorem alloc_tcb_seg (hp : Lays exe SccCode.ret0Prog) (hend : endPc = endOf exe
     obtain ⟨h1, h2, h3⟩ := AllocTcb.atBnd_walk (_root_.Executable.labels exe).label _ hJ h11 hn
     exact .inl ⟨TN.j2, by rw [h1, ← ofNat4_add]; rfl, by rw [h2]; rfl, rfl, h3⟩
   case j2 =>
-    tnode AllocTcb.atJ2 AllocTcb.atJ2_ok AllocTcb.lenL 47
+    tnode AllocTcb.atJ2 AllocTcb.atJ2_ok AllocTcb.lenL 48
     dsimp only [tcbN, tcbX] at hJ ⊢
     rw [AllocTcb.atJ2_run]
     exact .inl ⟨TN.ok, rfl, rfl, hJ⟩
@@ -762,7 +772,7 @@ theorem alloc_tcb_seg (hp : Lays exe SccCode.ret0Prog) (hend : endPc = endOf exe
       rw [← h9]; simp [Reg64s.getXReg]
     rw [this]; exact hhdr.G
   case ret =>
-    tnode AllocTcb.atRet AllocTcb.atRet_ok AllocTcb.okL 30
+    tnodeA AllocTcb.atRet AllocTcb.atRet_ok AllocTcb.okL 30 12 AllocTcb.retL
     dsimp only [tcbN, tcbX] at hJ ⊢
     obtain ⟨rfl, hJ⟩ := hJ
     obtain ⟨h1, h2, h3⟩ := AllocTcb.atRet_walk (_root_.Executable.labels exe).label _ hJ
@@ -776,6 +786,16 @@ local macro "tnodeW " b:ident ok:ident l:term:max k:term:max w:term:max : tactic
   `(tactic| refine seg_ndW (by simp [$b:ident]) $ok hF hR hal hlo hhi
     (code_of hp hend (by simp only [AllocTcb.allocTcbIn, Bool.and_eq_true] at hin; simp only [hin])
       (l := $l) (k := $k) (by first | rfl | exact ofNat4_zero _)) $w fun σ c hJ => ⟨c, .refl c, ?_⟩)
+
+set_option hygiene false in
+/-- `tnodeW` for a block split by its return label `r` after `n` instructions
+(`blockAcross`, `Spike.Lib.A64.code_field_blockAcross`). -/
+local macro "tnodeWA " b:ident ok:ident l:term:max k:term:max n:term:max r:term:max w:term:max : tactic =>
+  `(tactic| refine seg_ndW (by simp [$b:ident]) $ok hF hR hal hlo hhi
+    (Spike.Lib.A64.code_field_blockAcross hp hend
+      (by simp only [AllocTcb.allocTcbIn, Bool.and_eq_true] at hin; simp only [hin])
+      (l := $l) (m := $r) (k := $k) (List.take_append_drop $n _)
+      (by first | rfl | exact ofNat4_zero _)) $w fun σ c hJ => ⟨c, .refl c, ?_⟩)
 
 /-- **`scc_rt_alloc_tcb` is one segment inside `W`** (`alloc_tcb_seg`, its
 states' obligations `hW`): in any valid layout of `ret0Prog`,
@@ -852,7 +872,7 @@ theorem alloc_tcb_segW {W : Frag isaLSE2} {K : State → State → Prop} (hp : L
     obtain ⟨h1, h2, h3⟩ := AllocTcb.atBnd_walk (_root_.Executable.labels exe).label _ hJ h11 hn
     exact .inl ⟨TN.j2, by rw [h1, ← ofNat4_add]; rfl, by rw [h2]; rfl, rfl, h3⟩
   case j2 =>
-    tnodeW AllocTcb.atJ2 AllocTcb.atJ2_ok AllocTcb.lenL 47 (hW TN.j2)
+    tnodeW AllocTcb.atJ2 AllocTcb.atJ2_ok AllocTcb.lenL 48 (hW TN.j2)
     dsimp only [tcbN, tcbX] at hJ ⊢
     rw [AllocTcb.atJ2_run]
     exact .inl ⟨TN.ok, rfl, rfl, hJ⟩
@@ -885,7 +905,7 @@ theorem alloc_tcb_segW {W : Frag isaLSE2} {K : State → State → Prop} (hp : L
       rw [← h9]; simp [Reg64s.getXReg]
     rw [this]; exact hhdr.G
   case ret =>
-    tnodeW AllocTcb.atRet AllocTcb.atRet_ok AllocTcb.okL 30 (hW TN.ret)
+    tnodeWA AllocTcb.atRet AllocTcb.atRet_ok AllocTcb.okL 30 12 AllocTcb.retL (hW TN.ret)
     dsimp only [tcbN, tcbX] at hJ ⊢
     obtain ⟨rfl, hJ⟩ := hJ
     obtain ⟨h1, h2, h3⟩ := AllocTcb.atRet_walk (_root_.Executable.labels exe).label _ hJ
@@ -897,7 +917,7 @@ end TcbProof
 
 /-- `scc_rt_start`'s call of `scc_rt_alloc_tcb` with the header and `k = 1`. -/
 def startCall : List Directive := parseAArch64("str x0, [sp, #8]
-movz x0, #2307
+movz x0, #3331
 movz x1, #1
 bl scc_rt_alloc_tcb")
 
@@ -1361,6 +1381,16 @@ local macro "knode " b:ident ok:ident l:term:max k:term:max : tactic =>
     (code_of hp hend (by simp only [StackTake.stackTakeIn, Bool.and_eq_true] at hin; simp only [hin])
       (l := $l) (k := $k) (by first | rfl | exact ofNat4_zero _)) fun σ c hJ => ⟨c, .refl c, ?_⟩)
 
+set_option hygiene false in
+/-- `knode` for a block split by its return label `r` after `n` instructions
+(`blockAcross`, `Spike.Lib.A64.code_field_blockAcross`). -/
+local macro "knodeA " b:ident ok:ident l:term:max k:term:max n:term:max r:term:max : tactic =>
+  `(tactic| refine seg_nd (by simp [$b:ident]) $ok hF hR hal hlo hhi
+    (Spike.Lib.A64.code_field_blockAcross hp hend
+      (by simp only [StackTake.stackTakeIn, Bool.and_eq_true] at hin; simp only [hin])
+      (l := $l) (m := $r) (k := $k) (List.take_append_drop $n _)
+      (by first | rfl | exact ofNat4_zero _)) fun σ c hJ => ⟨c, .refl c, ?_⟩)
+
 /-- **`scc_rt_stack_take` is one segment** in any valid layout of
 `ret0Prog`, from its entry to its return, for any region holding its frame
 of 208 and any frame condition implying `F0`, given room for the stack below
@@ -1549,7 +1579,7 @@ theorem stack_take_seg (hp : Lays exe SccCode.ret0Prog) (hend : endPc = endOf ex
     refine si_nd (si := .nop) hF (code_of hp hend hNop
       (ofNat4_zero _)) fun σ c hJ => ⟨c, .refl c, .inl ⟨TK.ret, rfl, rfl, hJ.1, hJ.2.1⟩⟩
   case ret =>
-    knode StackTake.stRet StackTake.stRet_ok StackTake.siteL 1
+    knodeA StackTake.stRet StackTake.stRet_ok StackTake.siteL 1 4 StackTake.retL
     dsimp only [takeN, takeX] at hJ ⊢
     obtain ⟨rfl, hJ⟩ := hJ
     obtain ⟨h1, h2, h3⟩ := StackTake.stRet_walk lab _ hJ
@@ -1562,6 +1592,16 @@ local macro "knodeW " b:ident ok:ident l:term:max k:term:max w:term:max : tactic
   `(tactic| refine seg_ndW (by simp [$b:ident]) $ok hFb hR hal hlo hhi
     (code_of hp hend (by simp only [StackTake.stackTakeIn, Bool.and_eq_true] at hin; simp only [hin])
       (l := $l) (k := $k) (by first | rfl | exact ofNat4_zero _)) $w fun σ c hJ => ⟨c, .refl c, ?_⟩)
+
+set_option hygiene false in
+/-- `knodeW` for a block split by its return label `r` after `n` instructions
+(`blockAcross`, `Spike.Lib.A64.code_field_blockAcross`). -/
+local macro "knodeWA " b:ident ok:ident l:term:max k:term:max n:term:max r:term:max w:term:max : tactic =>
+  `(tactic| refine seg_ndW (by simp [$b:ident]) $ok hFb hR hal hlo hhi
+    (Spike.Lib.A64.code_field_blockAcross hp hend
+      (by simp only [StackTake.stackTakeIn, Bool.and_eq_true] at hin; simp only [hin])
+      (l := $l) (m := $r) (k := $k) (List.take_append_drop $n _)
+      (by first | rfl | exact ofNat4_zero _)) $w fun σ c hJ => ⟨c, .refl c, ?_⟩)
 
 /-- A frame condition, and after the take (`b`) the stack range in private
 memory. -/
@@ -1703,7 +1743,8 @@ theorem stack_take_segW {W : Frag isaLSE2} {rS : Scc.Sem.Range} (hp : Lays exe S
     cases i
     case ret =>
       refine seg_fixW true ?_
-      knodeW StackTake.stRet StackTake.stRet_ok StackTake.siteL 1 (blkW_mono (F := fun m => F m ∧ StackM rS m)
+      knodeWA StackTake.stRet StackTake.stRet_ok StackTake.siteL 1 4 StackTake.retL
+        (blkW_mono (F := fun m => F m ∧ StackM rS m)
         (F' := fun m => takeF F rS true m ∧ (true = false → P m)) (hW TK.ret) fun m h => ⟨h.1.1, h.1.2 rfl⟩)
       dsimp only [takeNP, takeNG, takeXG] at hJ ⊢
       obtain ⟨-, rfl, hJ⟩ := hJ
@@ -1995,6 +2036,16 @@ local macro "inode " b:ident ok:ident l:term:max k:term:max : tactic =>
     (code_of hp hend (by simp only [ThreadInit.threadInitIn, Bool.and_eq_true] at hin; simp only [hin])
       (l := $l) (k := $k) (by first | rfl | exact ofNat4_zero _)) fun σ c hJ => ⟨c, .refl c, ?_⟩)
 
+set_option hygiene false in
+/-- `inode` for a block split by its return label `r` after `n` instructions
+(`blockAcross`, `Spike.Lib.A64.code_field_blockAcross`). -/
+local macro "inodeA " b:ident ok:ident l:term:max k:term:max n:term:max r:term:max : tactic =>
+  `(tactic| refine seg_nd (by simp [$b:ident]) $ok hF hR hal (by omega) hhi
+    (Spike.Lib.A64.code_field_blockAcross hp hend
+      (by simp only [ThreadInit.threadInitIn, Bool.and_eq_true] at hin; simp only [hin])
+      (l := $l) (m := $r) (k := $k) (List.take_append_drop $n _)
+      (by first | rfl | exact ofNat4_zero _)) fun σ c hJ => ⟨c, .refl c, ?_⟩)
+
 /-- **`scc_rt_thread_init` is one segment** in any valid layout of
 `ret0Prog`, from its entry to its return, for any region holding its frame
 of 48 and `scc_rt_stack_take`'s of 208 below, and any frame condition
@@ -2164,7 +2215,7 @@ theorem thread_init_seg (hp : Lays exe SccCode.ret0Prog) (hend : endPc = endOf e
     exact ⟨hfi.rt, hfi.mp, hfi.G, hfi.unmapped m (hFF m hD), q.c0, .refl q.c0,
       .inl ⟨TI.ret, (ofNat4_succ' _ _).symm, rfl, rfl, hJ⟩⟩
   case ret =>
-    inode ThreadInit.tiRet ThreadInit.tiRet_ok ThreadInit.spL 27
+    inodeA ThreadInit.tiRet ThreadInit.tiRet_ok ThreadInit.spL 27 4 ThreadInit.retL
     dsimp only [tiN, tiX] at hJ ⊢
     obtain ⟨rfl, hJ⟩ := hJ
     obtain ⟨h1, h2, h3⟩ := ThreadInit.tiRet_walk lab _ hJ
@@ -2310,6 +2361,16 @@ local macro "inodeW " b:ident ok:ident l:term:max k:term:max w:term:max : tactic
   `(tactic| refine seg_ndW (by simp [$b:ident]) $ok hFb hR hal (by omega) hhi
     (code_of hp hend (by simp only [ThreadInit.threadInitIn, Bool.and_eq_true] at hin; simp only [hin])
       (l := $l) (k := $k) (by first | rfl | exact ofNat4_zero _)) $w fun σ c hJ => ⟨c, .refl c, ?_⟩)
+
+set_option hygiene false in
+/-- `inodeW` for a block split by its return label `r` after `n` instructions
+(`blockAcross`, `Spike.Lib.A64.code_field_blockAcross`). -/
+local macro "inodeWA " b:ident ok:ident l:term:max k:term:max n:term:max r:term:max w:term:max : tactic =>
+  `(tactic| refine seg_ndW (by simp [$b:ident]) $ok hFb hR hal (by omega) hhi
+    (Spike.Lib.A64.code_field_blockAcross hp hend
+      (by simp only [ThreadInit.threadInitIn, Bool.and_eq_true] at hin; simp only [hin])
+      (l := $l) (m := $r) (k := $k) (List.take_append_drop $n _)
+      (by first | rfl | exact ofNat4_zero _)) $w fun σ c hJ => ⟨c, .refl c, ?_⟩)
 
 /-- **`scc_rt_thread_init` is one segment inside `W`, the take its outside
 move**: `thread_init_seg` with `stack_take_segW` at the call, so at the
@@ -2557,7 +2618,8 @@ theorem thread_init_segW {W : Frag isaLSE2} {rS : Scc.Sem.Range} (hp : Lays exe 
       .inl ⟨TI.ret, (ofNat4_succ' _ _).symm, rfl, rfl, rfl, hJ⟩⟩
   case ret =>
     refine seg_fixW b ?_
-    inodeW ThreadInit.tiRet ThreadInit.tiRet_ok ThreadInit.spL 27 (fun s σ c he hn hdc hpc hA hD hJ => blkW_tiS (hW TI.ret) s σ c he hn hdc hpc hA hD.1 hJ)
+    inodeWA ThreadInit.tiRet ThreadInit.tiRet_ok ThreadInit.spL 27 4 ThreadInit.retL
+      (fun s σ c he hn hdc hpc hA hD hJ => blkW_tiS (hW TI.ret) s σ c he hn hdc hpc hA hD.1 hJ)
     dsimp only [tiNG, tiA, tiN, tiXG, tiX] at hJ ⊢
     obtain ⟨rfl, rfl, hJ⟩ := hJ
     obtain ⟨h1, h2, h3⟩ := ThreadInit.tiRet_walk lab _ hJ

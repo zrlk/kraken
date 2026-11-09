@@ -3,7 +3,7 @@
 (x86-64; the twin of `Spike/Lib/A64HelloWcN4A.lean`, after `Spike/Lib/X64WakeWcN4.lean`'s `wake_wc_c2_segW`, with
 the heap abort keeping `wc_main`'s spills as `Spike/Lib/X64HelloWcPreA.lean`'s `hello_wc_pre_segWA`): from a state
 of `scc_rt_alloc`'s `c2` (just past the counter's `lock xadd`) of a box call from `wc_main` returning to
-`.Lwc_main.x22`, in the allocator's region under `WcPreWH.alloc`'s frame condition, with `TP t`, to `wXA` with
+`.Lwc_main.x0`, in the allocator's region under `WcPreWH.alloc`'s frame condition, with `TP t`, to `wXA` with
 `TP t`. The allocator's rest (`Alloc.seg_allocBW_at` at `c2`), its exits resumed in `wc_main`'s frame
 (`seg_resumeW`, the caller known through `WcCtxH`; the spill slots `-48 … -16` are outside the allocator's region,
 so `leave` keeps them), then `.x22` (`hello_wc_sp0_segW`), all at `tpXa ms t` inside `NoSetFsW (tpG t W) K`
@@ -15,7 +15,7 @@ so `leave` keeps them), then `.x22` (`hello_wc_sp0_segW`), all at `tpXa ms t` in
 
 - The allocator's node just past the counter's add is `Alloc.AN.c2` (AArch64: `.n4`), and the allocator's segment
   from any node is `Alloc.seg_allocBW_at` (AArch64: `WakeWc.seg_allocB_ofW_at`).
-- The box call returns to `.Lwc_main.x22` (AArch64: `.L22_wc_main.sp0`); the allocator's region is
+- The box call returns to `.Lwc_main.x0` (AArch64: `.L22_wc_main.sp0`); the allocator's region is
   `wARH R = R.callee (-144) (-160) 8` with `CallerCells R (-144) (-160) 8` (AArch64: `… 0`), so `8 ≤ R.hi` and
   there is no alignment premise (AArch64: `hal`, `0 ≤ R.hi`).
 - The spills are at `-16 … -48` (AArch64: `-144 … -112`); `wc_main`'s return exit `wXH .x18` takes the region `R`
@@ -48,7 +48,7 @@ variable {p : Prog} {lbl : WeakMem.AllocLabel → Option Nat} {ms : MemSide isa}
   {R : Region} {F : MachineData → Prop} {q : Call}
 
 /-- **`wc_main` from its box allocator's `c2` is one segment inside `W`, the thread pointer kept, the heap abort at
-`wXA`** (module doc): from a state of the allocator's `c2` for a box call `q` returning to `.Lwc_main.x22` (`hq`,
+`wXA`** (module doc): from a state of the allocator's `c2` for a box call `q` returning to `.Lwc_main.x0` (`hq`,
 `hra`), in the allocator's region under `WcPreWH.alloc`'s frame condition, with `TP t`, to `wXA` with `TP t`. The
 box's landing is the `xa` exit (`hxa`). The other premises are `hello_wc_entry_segWA`'s, `hmem` at the call `q`. -/
 theorem hello_wc_n4_segWA {t : UInt64} (hK : ms.K = some Scc.Sem.X64.abi)
@@ -59,7 +59,7 @@ theorem hello_wc_n4_segWA {t : UInt64} (hK : ms.K = some Scc.Sem.X64.abi)
     (hWp : WcPreWH (NoSetFsW (tpG t W) K) K exe endPc R F (tpXa ms t) J0 J1)
     (hWs : WcSp0WH (NoSetFsW (tpG t W) K) K exe endPc R F (tpXa ms t) J1)
     (hq : q.OKB ms (_root_.Executable.labels exe).label)
-    (hra : q.ra = ((_root_.Executable.labels exe).label ".Lwc_main.x22").toBitVec)
+    (hra : q.ra = ((_root_.Executable.labels exe).label ".Lwc_main.x0").toBitVec)
     (hmem : ∀ a : BitVec 64,
       (a = BitVec.ofNat 64 ms.ctr ∨ ∃ o, o + ms.units q.n q.τ ≤ ms.cells ∧ a.toNat = q.hdrAt ms o) →
       ∀ m, F m → Mem.loadInt m.dmem a 8 = none)
@@ -121,7 +121,7 @@ theorem hello_wc_n4_segWA {t : UInt64} (hK : ms.K = some Scc.Sem.X64.abi)
     obtain ⟨o, -, -, -, -, hbx⟩ := hx'
     refine .inr ⟨WX.x18, ?_, by show SO.le ⟨-136, []⟩ ⟨-144 + 8, []⟩ = true; decide, ⟨q, hqt⟩,
       ⟨σe, hc ▸ hJe, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩, ?_, ?_⟩
-    · show lab ".Lwc_main.x22" = Int64.ofBitVec q.ra
+    · show lab ".Lwc_main.x0" = Int64.ofBitVec q.ra
       rw [hra, int64_ofBitVec_toBitVec]
     · exact (hk 0 (by decide) (by decide)).trans h0'
     · exact (hk (-8) (by decide) (by decide)).trans h8

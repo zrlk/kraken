@@ -113,7 +113,7 @@ theorem alloc_code_of [Kraken.Executable.ValidLayout exe] {prog : List Directive
     (hp : Lays exe prog kp) (hend : endPc = endOf exe prog kp) (hprog : allocIn prog = true) :
     Code ms q exe endPc := by
   simp only [allocIn, Bool.and_eq_true, and_assoc] at hprog
-  obtain ⟨h0, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18, -⟩ := hprog
+  obtain ⟨h0, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, hr, h18, -⟩ := hprog
   refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · exact code_field hp hend h0 (by simp only [N, add4, add0])
   · exact code_field hp hend h1 (by simp only [N, add4, add0])
@@ -133,7 +133,7 @@ theorem alloc_code_of [Kraken.Executable.ValidLayout exe] {prog : List Directive
   · exact code_field hp hend h15 (by simp only [N, add4, add0])
   · exact code_field hp hend h16 (by simp only [N, add4, add0])
   · exact code_field hp hend h17 (by simp only [N, add4, add0])
-  · exact code_field hp hend h18 (by simp only [N, add4, add0])
+  · exact code_field hp hend h18 (by rw [label_labelGap hp hr]; simp only [N, add4, add0])
 
 /-- **`scc_rt_alloc` at its code is inside `NoMsrW W K`**: none of its
 blocks is an `MSR`. -/
@@ -198,7 +198,7 @@ theorem RdPostLW.noMsr (hp : Lays exe SccCode.hello1Prog) (hend : endPc = endOf 
     NodeW.noMsr h.l2 (code_of hp hend c5 rfl) (by simp) (by decide),
     BlkW.noMsr h.s3 (code_of hp hend c6 rfl) (by decide),
     NodeW.noMsr h.x2 (code_of hp hend c7 rfl) (by simp) (by decide),
-    BlkW.noMsr h.s4 (code_of hp hend c8 rfl) (by decide)⟩
+    BlkW.noMsr h.s4 (Spike.Lib.A64.code_field_blockAcross hp hend c8 (List.take_append_drop _ _) rfl) (by decide)⟩
 
 end Hello1
 

@@ -1,7 +1,7 @@
 /-
 **hello.w's refusal path inside the third level** (x86-64; the twin of `Spike/Lib/A64HelloRefBlk.lean`, the
 hello twin of `Spike/Lib/X64WakeRefBlk.lean`): the `testq` row `ts` at `.x25 + 96`, the `je` block at
-`.x25 + 99`, `.x26`'s block and `.spawnfail5`'s, inside `RootWX.W2H ∧ X2H` (the root's `W2I ∧ X2I`) under no
+`.x25 + 99`, `.x26`'s block and `.spawnfail5`'s, inside `RootWX.W2H ∧ X2H` (the root's `W2Ig own ∧ X2I`) under no
 `TakeCKS` move. `W2H`'s `Wf` by `WakeWf.blkW_wf`/`nodeW_wf`: `SFactsSt2` at `ownGH` by `WcSp4W.blk_cH`/`node_cH`
 at `own2bH … 0`, where `ownGH` agrees with it (`agreeBlkH`, `own_refH`); the write abort's phase kept
 (`AllocG.blkW_ab`/`nodeW_ab_fi`, the targets off `abPcs` decided at the code labels, `refAbOkH`; `.spawnfail5`'s
@@ -25,7 +25,7 @@ No absolute address appears in a statement here.
 - the write abort's phase is `AllocG.blkW_ab` with a decided target check (`refAbOkH`; AArch64's
   `blkW_dispAbI` with `dChkAH`), the exit call's target the dispatcher at `%rdi = 5` (`not_ab_abort`; AArch64's
   `hE`);
-- `.spawnfail5`'s run ends at `scc_rt_abort` with `.Lwc_main.x27` pushed at `-136` (`raAt`, a private word;
+- `.spawnfail5`'s run ends at `scc_rt_abort` with `.Lwc_main.x5` pushed at `-136` (`raAt`, a private word;
   AArch64: `x30At` of `.L22_wc_main.sp15`), so `Good2bH`'s abort disjunct is proved here (`fl_lastH`);
 - the pcs are decided at the code labels (`clH`: `.x25`, `.stk`, `scc_rt_abort`, the take site, the clone's
   `syscall` at `.x25 + 94`, `refRangeH`), the blocks' `%rbp` frame bounds `[-136, 16)` (AArch64: `[-144, 0)`
@@ -93,10 +93,10 @@ theorem codeLabel_clH {l : Label} (h : clOkH l = true) :
 `scc_rt_thr_worker` and at `ph2bH` `0`, the two return addresses of the abort path different. -/
 theorem refRangeH :
     clOkH x25L = true ∧ clOkH ".Lwc_main.stk" = true ∧ clOkH siteL = true ∧ clOkH "scc_rt_abort" = true ∧
-      clOkH "scc_rt_thr_worker" = true ∧ clOkH ".Lwc_main.x27" = true ∧ clOkH ".Lscc_rt_alloc_tcb.x6" = true ∧
+      clOkH "scc_rt_thr_worker" = true ∧ clOkH ".Lwc_main.x5" = true ∧ clOkH ".Lscc_rt_alloc_tcb.x0" = true ∧
       clH siteL < clH x25L + 94 ∧ clH x25L + 96 < clH ".Lwc_main.stk" ∧
       clH "scc_rt_abort" < clH "scc_rt_thr_worker" ∧ ph2bHC (clH "scc_rt_abort") = 0 ∧
-      clH ".Lwc_main.x27" ≠ clH ".Lscc_rt_alloc_tcb.x6" := by
+      clH ".Lwc_main.x5" ≠ clH ".Lscc_rt_alloc_tcb.x0" := by
   decide +kernel
 
 /-- **A refusal pc**: past the clone's `syscall` and before `.stk` (`[.x25 + 96, .stk)`), off the sites, at
@@ -416,7 +416,7 @@ theorem ts1H {l : WeakMem.AllocLabel} {ws : List TermRun.Word} {R : Region} {m0 
     Spike.Lib.X64.Flow.WakeWc.takeCKS_none (fun _ h => h.1) (fun h => ha (by unfold pcOf; rw [h])) hc⟩
 
 omit hp hlo hΛ in
-/-- **`.spawnfail5`'s run ends at `scc_rt_abort`** with `ownGH` `own2bH … 0`: the return address `.Lwc_main.x27`
+/-- **`.spawnfail5`'s run ends at `scc_rt_abort`** with `ownGH` `own2bH … 0`: the return address `.Lwc_main.x5`
 pushed at `-136` (`raAt`, `Good2bH`'s abort disjunct). -/
 theorem fl_lastH {R : Region} {cP : Spike.Lib.Ctl} {sl : BitVec 64 × BitVec 64 × BitVec 64 × BitVec 64}
     {cA me : BitVec 64} (hRlo : R.lo ≤ -136) (hhi : 16 ≤ R.hi) (σ : Spike.Lib.X64.AS) (s : State) (m : MachineData)
@@ -434,7 +434,7 @@ theorem fl_lastH {R : Region} {cP : Spike.Lib.Ctl} {sl : BitVec 64 × BitVec 64 
   have hpc : pcOf s = (L.lab "scc_rt_abort").toBitVec.toNat := by unfold pcOf; rw [hs]
   have hin : pcOf s ∈ raSp L := by rw [hpc]; simp [raSp, abFns]
   have hrA : raAddr L s = s.st.1.regs.rsp.toBitVec := by simp only [raAddr, hin, ↓reduceIte]
-  have hld : privLoad s (raAddr L s) = some (L.lab ".Lwc_main.x27").toBitVec := by
+  have hld : privLoad s (raAddr L s) = some (L.lab ".Lwc_main.x5").toBitVec := by
     rw [hrA, hm, rsp_of_abs hA]
     obtain ⟨j, hj1, hj2⟩ := hA.slot (-136) ⟨by decide, by omega, by omega⟩
     unfold privLoad

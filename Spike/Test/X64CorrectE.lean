@@ -15,22 +15,22 @@ namespace Spike.Test.X64CorrectE
 
 open Scc.Sem SccCode
 
-example : Entry.Ok ⟨⟨2 ^ 32, 65536⟩⟩ ret0Λ := by decide
+example : Entry.Ok ⟨⟨2 ^ 32, 65536⟩⟩ ret0Λ := by decide +kernel
 
-example : Entry.Ok ⟨⟨2 ^ 32, 65536⟩⟩ ret0Λ := Entry.ok_witness (by decide)
+example : Entry.Ok ⟨⟨2 ^ 32, 65536⟩⟩ ret0Λ := Entry.ok_witness (by decide +kernel)
 
-example : Entry.linux.Ok ret0Λ := by decide
+example : Entry.linux.Ok ret0Λ := by decide +kernel
 
 /-- The stack pointer `2 ^ 32 + 65544` is not 16-aligned. -/
-example : ¬ Entry.Ok ⟨⟨2 ^ 32 + 8, 65536⟩⟩ ret0Λ := by decide
+example : ¬ Entry.Ok ⟨⟨2 ^ 32 + 8, 65536⟩⟩ ret0Λ := by decide +kernel
 
 /-- 4 KiB of initial stack is too little. -/
-example : ¬ Entry.Ok ⟨⟨2 ^ 32, 4096⟩⟩ ret0Λ := by decide
+example : ¬ Entry.Ok ⟨⟨2 ^ 32, 4096⟩⟩ ret0Λ := by decide +kernel
 
 /-- A stack pointer at `2 ^ 63` is not a user address. -/
-example : ¬ Entry.Ok ⟨⟨2 ^ 63 - 65536, 65536⟩⟩ ret0Λ := by decide
+example : ¬ Entry.Ok ⟨⟨2 ^ 63 - 65536, 65536⟩⟩ ret0Λ := by decide +kernel
 
 /-- A stack over the text is not clear of the layout. -/
-example : ¬ Entry.Ok ⟨⟨ret0Λ.code.lo, 65536⟩⟩ ret0Λ := by decide
+example : ¬ Entry.Ok ⟨⟨ret0Λ.code.lo, 65536⟩⟩ ret0Λ := by decide +kernel
 
 end Spike.Test.X64CorrectE

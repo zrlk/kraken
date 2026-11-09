@@ -45,12 +45,12 @@ def hello1D : PlaceData := placeDataOf (Scc.Lower.A64.lowerAll { arch := .arm } 
 #guard !hello1Src.isEmpty
 
 #guard sameGrps ret0D.blocks (withEvs (ofGrps SccCode.ret0T SccCode.ret0Offs) SccCode.ret0Evs)
-#guard ret0D.blocks.length == 141
+#guard ret0D.blocks.length == 156
 #guard ret0D.need == SccCode.ret0Need
 #guard decide (ret0D.tail = .bare)
 
 #guard sameGrps hello1D.blocks (withEvs (ofGrps SccCode.hello1T SccCode.hello1Offs) SccCode.hello1Evs)
-#guard hello1D.blocks.length == 146
+#guard hello1D.blocks.length == 161
 #guard hello1D.need == SccCode.hello1Need
 #guard decide (hello1D.tail = .setup)
 

@@ -1,8 +1,8 @@
 /-
-**`MainWcPS.hW.sp0` at rodata's own label** (x86-64; the twin of `Spike/Lib/A64HelloMainWcL1S.lean`):
-`scc_rt_main`'s `.x2` block `mB1` (the call of `wc_main`) inside `WSHF … []`, at `wc_rodata`'s return invariant
-`JrT (JrRL lbl env l) t R'` (the wrapper's continuation `setupCont` with `r` bound to the slice `slW l`, the slice
-in `%rax`, `%rcx`, `%rsi`).
+**The placement of `MainWcPS.hW.sp0` at rodata's own label** (x86-64; the twin of
+`Spike/Lib/A64HelloMainWcL1S.lean`): `scc_rt_main`'s `.x2` block `mB1` (the call of `wc_main`) at `wc_rodata`'s
+return invariant `JrT (JrRL lbl env l) t R'` (the wrapper's continuation `setupCont` with `r` bound to the slice
+`slW l`, the slice in `%rax`, `%rcx`, `%rsi`).
 
 The placement is state dependent (so "placed at every state" does not apply): `r`'s three words are at `%rax`,
 `%rcx`, `%rsi` before `mB1`'s sixth instruction, and at the cells `-24`, `-40`, `-48` (`-16(%rbp)`, `-32(%rbp)`,
@@ -12,8 +12,7 @@ The placement is state dependent (so "placed at every state" does not apply): `r
 - `mB1_regs`: `%rax`, `%rcx`, `%rsi` before each of `mB1`'s first six instructions are the entry's, and the cells
   `-24`, `-40`, `-48` hold them from the fifth on.
 - `placed_jrRL`: the continuation is placed at any three places holding the slice and `me`'s immediate.
-- `hplB1_L1`: `mB1W_WSHF`'s `hpl` at `JrT (JrRL …)`.
-- `sp0_L1`: `MainPostS`'s `sp0` (`RdWfSF.mB1W_WSHF` at `fs = []`, the controls' facts `HelloRdCf.cont_ctl`).
+- `hplB1_L1`: `RdWfSFX.mB1W_WSHX`'s `hpl` at `JrT (JrRL …)`.
 - `valRep_upd`: a representation survives placing a fresh label (for `hmw` at the level's labels).
 - an `example`: `hplB1_L1`'s premises at the root's layout, the level's labels and `c0S.env`.
 
@@ -24,8 +23,8 @@ The placement is state dependent (so "placed at every state" does not apply): `r
   sixth load overwrites `%rsi` (and its eighth `%rcx`), so the slice is placed at the registers before the sixth
   instruction and at the cells `-24`, `-40`, `-48` after the fourth store (AArch64: at `x0`, `x2`, `x3`
   throughout). `mB1_regs` states both, and `placed_jrRL` takes the three places as parameters.
-- `hplB1_L1` takes the region's bounds `R.lo ≤ -48`, `-16 ≤ R.hi` (the three cells are offsets of `R`); `sp0_L1`
-  takes `mB1W_WSHF`'s (`-288`, `8`; AArch64 `-80`, `0` and `hal`).
+- `hplB1_L1` takes the region's bounds `R.lo ≤ -48`, `-16 ≤ R.hi` (the three cells are offsets of `R`).
+- AArch64's `sp0_L1` (at `WSHF`, `ownGH`) is restated at `ownGHXW` inside `X64HelloMainWcL1RX.hW_L1X`.
 - The root's layout is `ofPlaceWX hp (iRdM Λ0)` (`HelloImms`; AArch64 `ImmsMe`).
 -/
 import Spike.Lib.X64HelloMainPostT
@@ -40,13 +39,10 @@ namespace Spike.Lib.X64.HelloPh.MainWcL1S
 open CoreLang CoreTerm
 open Kraken Kraken.Promising Kraken.Promising.X64
 open Scc.Sem (ValRep Place placeVal)
-open Scc.Sem.X64 (codeLabel pcOf)
 open Spike.Lib.X64.Rt (RuntimeLayout)
-open Spike.Lib.X64Consumer (Lbl Lsize Placed)
+open Spike.Lib.X64Consumer (Lbl Placed)
 open Spike.Lib.X64ConsumerS (PlacedSE PlacedS)
 open Spike.Lib.X64 (AS BlkW arun leave)
-open Spike.Lib.X64.HelloPh.WcW (freeNH)
-open Spike.Lib.X64.HelloWf (WSHF)
 open Spike.Lib.X64.Flow.Hello1 (mB1 mO mS0 mR)
 open Spike.Lib.X64.Flow.HelloM (JrT)
 open Spike.Lib.X64.Flow.HelloJr1 (JrRL)
@@ -54,7 +50,7 @@ open Spike.Lib.X64WakeMainW (M1 placeVal_reg)
 open Spike.Lib.X64.WakeSrcCtl (Tbl rep_at placeVal_slot_abs)
 open Spike.Lib.X64HelloRdCf (slW)
 open Spike.Lib.X64HelloSplit (slTy)
-open Spike.Lib (Arena FragS Ctl Region)
+open Spike.Lib (Ctl Region)
 
 set_option linter.unusedSimpArgs false
 
@@ -160,7 +156,7 @@ section Sp0
 variable {Λ : Scc.Sem.Layout} {lbl : Lbl} {env : TermRun.Env} {l : WeakMem.AllocLabel} {exe : _root_.Executable}
   {endPc : Int64} {R R' : Region} {F : MachineData → Prop} {σC : AS} {t : UInt64}
 
-/-- **`mB1W_WSHF`'s `hpl` at `wc_rodata`'s return** (module doc): `mB1` from `JrT (JrRL lbl env l) t R'` is
+/-- **`mB1W_WSHX`'s `hpl` at `wc_rodata`'s return** (module doc): `mB1` from `JrT (JrRL lbl env l) t R'` is
 placed at no frame, the slice at the registers before the sixth instruction and at the cells after the fourth,
 `me`'s word `mw` in `env` (`hme`) the layout's immediate at `setupCont` (`himm`, `hmw`). -/
 theorem hplB1_L1 (hRlo : R.lo ≤ -48) (hhi : -16 ≤ R.hi) {tm : Ty} {mw : TermRun.Word} {n : Nat}
@@ -172,7 +168,7 @@ theorem hplB1_L1 (hRlo : R.lo ≤ -48) (hhi : -16 ≤ R.hi) {tm : Ty} {mw : Term
   refine ⟨.inl (PlacedS.ofFrames ?_ Spike.Lib.X64.Flow.Hello1.SFactsN.framesPlaced_nil), fun _ h => h⟩
   obtain ⟨σx, ⟨⟨rfl, h0, -, h2, h3⟩, -⟩, rfl⟩ := hJ
   obtain ⟨e0, er, es⟩ := mB1_regs (_root_.Executable.labels exe).label
-    ((_root_.Executable.labels exe).label ".Lscc_rt_main.x2") (leave (mR R) (-80) σC σx) k hk
+    ((_root_.Executable.labels exe).label ".Lscc_rt_main.x0") (leave (mR R) (-80) σC σx) k hk
   simp only [mS0] at hA
   have hr := hA.regs
   by_cases hk5 : k ≤ 5
@@ -199,39 +195,6 @@ theorem hplB1_L1 (hRlo : R.lo ≤ -48) (hhi : -16 ≤ R.hi) {tm : Ty} {mw : Term
       exact congrArg some h3
 
 end Sp0
-
-section W
-
-variable {L : RuntimeLayout} {a : BitVec 64} {rS : Scc.Sem.Range} {R R' : Region} {F : MachineData → Prop}
-  {ar : Arena} {Dt Cl : State → Prop} {Ctx : FragS isa} {lbl : Lbl} {lsize : Lsize} {X0 : State → Prop}
-  {frM : TermRun.Frame} {env : TermRun.Env} {l : WeakMem.AllocLabel} {σC : AS} {t : UInt64}
-  (hp : L.prog = SccCode.helloCells) (hlo : L.Λ.code.lo = Spike.Lib.X64.HelloPh.lo)
-  (hΛ : L.Λ.abortLbl = Scc.Cert.Link.abortName)
-  (hlab : ∀ l x, codeLabel Spike.Lib.X64.HelloPh.lo SccCode.helloCells l = some x → L.lab l = Int64.ofNat x)
-  (hsite : (Spike.Lib.X64.PhRec.μ L).site .take =
-    some (L.lab Spike.Lib.X64.Flow.Ret0.StackTake.siteL).toBitVec.toNat)
-  (hcl : ∀ s, Cl s → Scc.Sem.X64.abi.atSys s = true ∧
-    ∃ st tl, Scc.Sem.Kernel.decode Scc.Sem.X64.abi.nrs (Scc.Sem.X64.abi.nr s) (Scc.Sem.X64.abi.arg s) =
-      some (.clone st tl))
-  (hX0 : ∀ s, freeNH (pcOf s) = true → X0 s)
-
-include hp hlo hΛ hlab hsite hcl hX0
-
-/-- **`MainPostS`'s `sp0` at rodata's label** (module doc): `scc_rt_main`'s `.x2` block inside `WSHF … []` at
-`wc_rodata`'s return invariant `JrT (JrRL lbl env l) t R'`, in `scc_rt_main`'s region `R`. -/
-theorem sp0_L1 (hR : R.OK) (hRlo : R.lo ≤ -288) (hhi : 8 ≤ R.hi)
-    {tm : Ty} {mw : TermRun.Word} {n : Nat} (hme : TermRun.lookupE env "me" = some (tm, [mw]))
-    (himm : L.Λ.imms Spike.Lib.SrcCalls.setupCont "me" 0 = some n) (hmw : ValRep lbl mw.val n) :
-    BlkW (WSHF L a ar Spike.Lib.X64HelloSrc.helloSrc Dt Cl Ctx lbl lsize frM X0 []) (Spike.Lib.X64.PhRec.K L rS)
-      L.exe L.endPc R F (mS0 L.lab R σC (JrT (JrRL lbl env l) t R')) mB1 :=
-  Spike.Lib.X64.HelloPh.RdWfSF.mB1W_WSHF (fs := []) (frM := frM) (rS := rS) hp hlo hΛ hlab hsite hcl hX0
-    (.inl rfl) hR hRlo hhi
-    (fun σ c ⟨⟨hc, _⟩, _⟩ => by
-      rw [hc]
-      exact ⟨fun _ => (Spike.Lib.X64HelloRdCf.cont_ctl _ none).1, (Spike.Lib.X64HelloRdCf.cont_ctl _ none).2⟩)
-    (hplB1_L1 (by omega) (by omega) hme himm hmw)
-
-end W
 
 /-! ## At the root's labels -/
 
@@ -273,9 +236,6 @@ end Spike.Lib.X64.HelloPh.MainWcL1S
 
 /-- info: 'Spike.Lib.X64.HelloPh.MainWcL1S.hplB1_L1' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms Spike.Lib.X64.HelloPh.MainWcL1S.hplB1_L1
-
-/-- info: 'Spike.Lib.X64.HelloPh.MainWcL1S.sp0_L1' depends on axioms: [propext, Classical.choice, Quot.sound] -/
-#guard_msgs in #print axioms Spike.Lib.X64.HelloPh.MainWcL1S.sp0_L1
 
 /-- info: 'Spike.Lib.X64.HelloPh.MainWcL1S.valRep_upd' depends on axioms: [propext, Quot.sound] -/
 #guard_msgs in #print axioms Spike.Lib.X64.HelloPh.MainWcL1S.valRep_upd

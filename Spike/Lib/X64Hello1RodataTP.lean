@@ -189,7 +189,10 @@ theorem AllocW.noSetFs {cells : List (Directive × Nat)} {kp : Nat} (hp : Lays e
   · anf BlkW.noSetFs h.o8 okL 143
   · ann h.hdr okL 170 [(iHdr, 3)]
   · anf BlkW.noSetFs h.o9 okL 173
-  · ann h.ret okL 226 [(iRet.toDir, 1)]
+  · exact NodeW.noSetFs h.ret
+      (code_field hp hend (b := [(iRet.toDir, 1)]) (by simp only [hin']) (l := retL) (off := 0)
+        (by rw [label_labelGapB (a := okL) (b := retL) (off := 226) hp (by simp only [hin'])]; exact ofNat_zero' _))
+      (by simp) (by decide)
 
 end Alloc
 
@@ -242,7 +245,8 @@ theorem RdPostLW.noSetFs (hp : Lays exe SccCode.hello1Cells) (hend : endPc = end
     NodeW.noSetFs h.l2 (code_field hp hend c5 rfl) (by simp) (by decide),
     BlkW.noSetFs h.s3 (code_field hp hend c6 rfl) (by decide),
     NodeW.noSetFs h.x2 (code_field hp hend c7 rfl) (by simp) (by decide),
-    BlkW.noSetFs h.s4 (code_field hp hend c8 rfl) (by decide)⟩
+    BlkW.noSetFs h.s4 (Spike.Lib.X64.code_field_blockAcrossB hp hend c8 (List.take_append_drop _ _) rfl)
+      (by decide)⟩
 
 end Hello1
 

@@ -14,7 +14,7 @@ pieces (`WakePh.AbW`, `AbPT`, `abP_blk'`, `abP_node`, `ns_of`, `raOK_bp`,
 - `abPTH`: `AbPT` at hello's labels.
 - `AgWH`, `AbAgreeH`, `abAgreeH`: the agreement at every node of the path
   from where `ownGH` picks the instance there; `abAgree2bH` (from
-  `.Lwc_main.x27`).
+  `.Lwc_main.x5`).
 
 **Deviation from the A64 file.** As in `X64WakeOwnGAbT`: the return address
 is the region's word at offset `8` (`slot 8`, `RaOK`), so `abPTH`
@@ -48,24 +48,24 @@ variable {L : RuntimeLayout}
 /-- **The threads abort path's labels**, resolved at hello's base, with the
 other stubs' and the taken tests' (`raSp`, `raSp8`). -/
 theorem ab_labsH (hlab : ∀ l x, codeLabel lo helloCells l = some x → L.lab l = Int64.ofNat x) :
-    L.lab "scc_rt_abort" = Int64.ofNat 4202486 ∧ L.lab "scc_rt_thr_worker" = Int64.ofNat 4202972 ∧
-    L.lab ".Lscc_rt_abort.entry" = Int64.ofNat 4202498 ∧
-    L.lab ".Lscc_rt_abort.is0" = Int64.ofNat 4202516 ∧
-    L.lab ".Lscc_rt_abort.next1" = Int64.ofNat 4202522 ∧
-    L.lab ".Lscc_rt_abort.is2" = Int64.ofNat 4202540 ∧
-    L.lab ".Lscc_rt_abort.next3" = Int64.ofNat 4202549 ∧
-    L.lab ".Lscc_rt_abort.is4" = Int64.ofNat 4202567 ∧
-    L.lab ".Lscc_rt_abort.next5" = Int64.ofNat 4202576 ∧
-    L.lab ".Lscc_rt_abort.is6" = Int64.ofNat 4202594 ∧
-    L.lab ".Lscc_rt_abort.next7" = Int64.ofNat 4202603 ∧
-    L.lab ".Lscc_rt_abort.is8" = Int64.ofNat 4202621 ∧
-    L.lab "scc_rt_abort_overflow" = Int64.ofNat 4202632 ∧
-    L.lab "scc_rt_abort_heap" = Int64.ofNat 4202700 ∧
-    L.lab "scc_rt_abort_stack" = Int64.ofNat 4202768 ∧
-    L.lab "scc_rt_abort_write" = Int64.ofNat 4202836 ∧
-    L.lab "scc_rt_abort_threads" = Int64.ofNat 4202904 ∧
-    L.lab ".Lscc_rt_abort_threads.entry" = Int64.ofNat 4202912 ∧
-    L.lab "scc_rt_abort_threads_exit" = Int64.ofNat 4202964 := by
+    L.lab "scc_rt_abort" = Int64.ofNat 4202524 ∧ L.lab "scc_rt_thr_worker" = Int64.ofNat 4203010 ∧
+    L.lab ".Lscc_rt_abort.entry" = Int64.ofNat 4202536 ∧
+    L.lab ".Lscc_rt_abort.is0" = Int64.ofNat 4202554 ∧
+    L.lab ".Lscc_rt_abort.next1" = Int64.ofNat 4202560 ∧
+    L.lab ".Lscc_rt_abort.is2" = Int64.ofNat 4202578 ∧
+    L.lab ".Lscc_rt_abort.next3" = Int64.ofNat 4202587 ∧
+    L.lab ".Lscc_rt_abort.is4" = Int64.ofNat 4202605 ∧
+    L.lab ".Lscc_rt_abort.next5" = Int64.ofNat 4202614 ∧
+    L.lab ".Lscc_rt_abort.is6" = Int64.ofNat 4202632 ∧
+    L.lab ".Lscc_rt_abort.next7" = Int64.ofNat 4202641 ∧
+    L.lab ".Lscc_rt_abort.is8" = Int64.ofNat 4202659 ∧
+    L.lab "scc_rt_abort_overflow" = Int64.ofNat 4202670 ∧
+    L.lab "scc_rt_abort_heap" = Int64.ofNat 4202738 ∧
+    L.lab "scc_rt_abort_stack" = Int64.ofNat 4202806 ∧
+    L.lab "scc_rt_abort_write" = Int64.ofNat 4202874 ∧
+    L.lab "scc_rt_abort_threads" = Int64.ofNat 4202942 ∧
+    L.lab ".Lscc_rt_abort_threads.entry" = Int64.ofNat 4202950 ∧
+    L.lab "scc_rt_abort_threads_exit" = Int64.ofNat 4203002 := by
   refine ⟨hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_,
     hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_,
     hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_⟩ <;>
@@ -212,8 +212,8 @@ theorem abAgreeH {a : BitVec 64} {own : State → List (Loc × Val)} {μ : Scc.S
 failure. -/
 theorem abAgree2bH (hlab : ∀ l x, codeLabel lo helloCells l = some x → L.lab l = Int64.ofNat x) {a : BitVec 64}
     {μ : Scc.Sem.Marks} {endPc : Int64} {R : Region} {F : MachineData → Prop} {c0 : Ctl}
-    (h : AbPT L μ endPc R F c0 (L.lab ".Lwc_main.x27").toBitVec) :
-    AbAgreeH L a (fun s => own2bH L a (ph2bH (pcOf s))) μ endPc R F c0 (L.lab ".Lwc_main.x27").toBitVec :=
+    (h : AbPT L μ endPc R F c0 (L.lab ".Lwc_main.x5").toBitVec) :
+    AbAgreeH L a (fun s => own2bH L a (ph2bH (pcOf s))) μ endPc R F c0 (L.lab ".Lwc_main.x5").toBitVec :=
   abAgreeH h fun _ hs => ownGH_2b hlab (good2bH_ab hlab hs)
 
 end Spike.Lib.X64.HelloPh

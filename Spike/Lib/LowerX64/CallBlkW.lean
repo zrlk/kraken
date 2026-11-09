@@ -130,18 +130,21 @@ theorem blkW_bodySC {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc
     (hcd : SubCd (CdC cells okPc ph lab ra) n.pc blk) (hok : okBlk lo hi n.o blk = true)
     (hnr : noRetBlk blk = true) :
     BlkW (fun s c => BodyWS0 Λ μ p own rS Tk lbl cl ctr c0 s c fs) K exe endPc R F n blk := by
-  obtain ⟨pc0, pre, post, ⟨-, L, j, off, hpc0, hb, hrun⟩, hpc⟩ := hcd
-  have hc : cellOff (pre ++ blk ++ post) pre.length = (pre.map (·.2)).sum := by
-    simp [cellOff]
-  have hph := Scc.Cert.Ph1X64.blkPh_of_runPhB hrun (classify_of_okBlk hok)
-  rw [hc, ← hpc] at hph
-  have hb' := blockAt_sub hb
-  have hpc' : lab L + Int64.ofNat (off + (pre.map (·.2)).sum) = n.pc := by
-    rw [hpc, ← hpc0, Int64.ofNat_add, Int64.add_assoc]
-  have hcode : ∀ s : State, s.exe = exe → s.endPc = endPc → CodeAt s n.pc blk := by
-    intro s hs hn
-    have := Scc.Cert.Rt.X64.codeAt_blockAt_lays hI.lays hs (hn.trans hI.endOk) hb'
+  obtain ⟨pc0, pre, post, hc0, hpc⟩ := hcd
+  obtain ⟨-, hat, hrun⟩ := CdCQ.sub hc0 hpc
+  have hph := Scc.Cert.Ph1X64.blkPh_of_runPhB (xs := []) (zs := []) (by simpa using hrun)
+    (classify_of_okBlk hok)
+  simp only [List.nil_append, List.append_nil, List.length_nil] at hph
+  rw [show cellOff blk 0 = 0 by simp [cellOff], show Int64.ofNat 0 = 0 from rfl, Int64.add_zero] at hph
+  have h1 : ∀ pc b, At1Q (fun _ => True) cells lab pc b →
+      ∀ s : State, s.exe = exe → s.endPc = endPc → CodeAt s pc b := by
+    rintro _ _ ⟨L, j, off, -, hpc', hb⟩ s hs hn
+    have := Scc.Cert.Rt.X64.codeAt_blockAt_lays hI.lays hs (hn.trans hI.endOk) hb
     rwa [hI.labOk, hpc'] at this
+  have hcode : ∀ s : State, s.exe = exe → s.endPc = endPc → CodeAt s n.pc blk := by
+    rcases hat with h | ⟨b1, b2, rfl, ha1, ha2⟩
+    · exact h1 _ _ h
+    · exact fun s hs hn => Spike.Lib.X64.CodeAt.append (h1 _ _ ha1 s hs hn) (h1 _ _ ha2 s hs hn)
   refine BlkW.bodyS hp hg0 hJ ?_
   exact blkW_postO' (n := ⟨n.pc, n.o, fun σ c => c = c0 ∧ ∃ c1, n.J σ c1⟩) (dead := fun _ => false) (ra := ra)
     hI hcode hok hR hlo hhi hR8 hl hh (fun _ _ h => h.1 ▸ hC0) hph

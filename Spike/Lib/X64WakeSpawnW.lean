@@ -65,7 +65,7 @@ theorem spawn_workerPost {pcfg : Scc.Cert.PlaceOK.Config} {o : Scc.Cert.PlaceOK.
     {Λ0 : Scc.Sem.Layout} (hpl : PlaceWX pcfg Λ0 o)
     (i : CoreTerm.Expr → String → Nat → Option Nat)
     (hA13 : Scc.Cert.Spawn.X64.a13data (RuntimeLayout.ofPlaceWX hpl i).Λ o.prog o.secs = true)
-    (hpin2 : (RuntimeLayout.ofPlaceWX hpl i).pinA.toNat + 168 ≤
+    (hpin2 : (RuntimeLayout.ofPlaceWX hpl i).pinA.toNat + 200 ≤
       (RuntimeLayout.ofPlaceWX hpl i).Λ.pinned.lo + (RuntimeLayout.ofPlaceWX hpl i).Λ.pinned.size)
     {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe] {endPc : Int64} {kp : Nat}
     (hp : Lays exe SccCode.wakeCells kp) (hend : endPc = endOf exe SccCode.wakeCells kp)
@@ -145,7 +145,7 @@ theorem spawn_workerPost {pcfg : Scc.Cert.PlaceOK.Config} {o : Scc.Cert.PlaceOK.
   have hv2 : ValRep lbl w2.val meW' := by rw [hjw]; exact hvm
   have e24 : BitVec.ofNat 64 meW' + 16#64 = (RuntimeLayout.ofPlaceWX hpl i).pinA + 24#64 := by
     rw [hme, tcbM, BitVec.add_assoc]; rfl
-  have e128 : tcb2 (RuntimeLayout.ofPlaceWX hpl i) + 24#64 = (RuntimeLayout.ofPlaceWX hpl i).pinA + 128#64 := by
+  have e128 : tcb2 (RuntimeLayout.ofPlaceWX hpl i) + 24#64 = (RuntimeLayout.ofPlaceWX hpl i).pinA + 160#64 := by
     rw [tcb2, BitVec.add_assoc]; rfl
   have hS1 := X64WakeChildSt.childSt_I hpl i (T := tcbM (RuntimeLayout.ofPlaceWX hpl i))
     (W := tcb2 (RuntimeLayout.ofPlaceWX hpl i)) rfl rfl (recW T S lbl lsize l pT w1) hm hpin2

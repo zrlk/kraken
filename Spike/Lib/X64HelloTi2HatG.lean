@@ -1,7 +1,7 @@
 /-
 **The second `scc_rt_thread_init` call's fence at hello** (x86-64; the twin of `Spike/Lib/A64HelloTi2HatG.lean`,
 and the hello twin of `Spike/Lib/X64WakeTi2HatG.lean`): the per-state facts the second thread init's node
-obligations carry inside hello's level, off hello's clone (`.Lwc_main.x25 + 94`, `X64HelloPreA.clonePcH`) and at
+obligations carry inside hello's level, off hello's clone (`.Lwc_main.x3 + 94`, `X64HelloPreA.clonePcH`) and at
 the take site with the child's stack `r1Of` the site's range, main's stack owned and the child's not yet in
 private memory.
 
@@ -17,7 +17,7 @@ Hello's copies (they read hello's labels or `wc_main`'s frame):
   base `96` below `r1Of` (`BoxPureH`'s geometry, the call's return slot `-136`, `wcNIH`).
 
 Unlike AArch64: the labels are resolved by `codeLabel lo helloCells` (A64 `codeOf lo helloProg`), read off
-`HelloPh.labs_eqH`; the clone is the `syscall` at `.Lwc_main.x25 + 94` (A64's `svc` at `.L22_wc_main.sp6 + 100`),
+`HelloPh.labs_eqH`; the clone is the `syscall` at `.Lwc_main.x3 + 94` (A64's `svc` at `.L22_wc_main.sp6 + 100`),
 past `scc_rt_stack_release`; the thread init's region is `R.callee (-136) (-248) 8`, its high end `8` the return
 address (A64 `R.callee (-144) (-256) 0`), and `R`'s base is `96` below `r1Of` (A64 `80`).
 -/
@@ -42,14 +42,14 @@ variable {L : RuntimeLayout}
 theorem ne_clonePc_tiH (hlab : ∀ l x, codeLabel lo helloCells l = some x → L.lab l = Int64.ofNat x) {s : State}
     (h : inPc L "scc_rt_thread_init" "scc_rt_stack_release" s) : pcOf s ≠ clonePcH L := by
   obtain ⟨-, -, -, hr, -, h25, -, -, -⟩ := labs_eqH hlab (L := L)
-  have e : clonePcH L = (L.lab ".Lwc_main.x25").toBitVec.toNat + 94 := by
-    show ((L.lab ".Lwc_main.x25").toBitVec + 94#64).toNat = _
+  have e : clonePcH L = (L.lab ".Lwc_main.x3").toBitVec.toNat + 94 := by
+    show ((L.lab ".Lwc_main.x3").toBitVec + 94#64).toNat = _
     rw [BitVec.toNat_add, h25]; rfl
   rw [e, h25]; unfold inPc at h; rw [hr] at h; omega
 
 /-- **The fence of the second `scc_rt_thread_init` call at hello**: off hello's clone's pc, and at the take pc
 `a` the child's stack the site's range, main's stack owned, the child's not in private memory. Unlike AArch64,
-the clone's pc is `X64HelloPreA.clonePcH`'s (`.Lwc_main.x25 + 94`). -/
+the clone's pc is `X64HelloPreA.clonePcH`'s (`.Lwc_main.x3 + 94`). -/
 def X0TH (L : RuntimeLayout) (a : Int64) (s : State) : Prop :=
   pcOf s ≠ clonePcH L ∧ (pcOf s = a.toBitVec.toNat →
     Scc.Sem.Kernel.siteRange abi s = Spike.Lib.X64.Rt.PreChild.r1Of L.lab ∧

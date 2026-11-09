@@ -65,7 +65,7 @@ theorem handover_I {ok : Gh → Prop} {arch : WeakMem.Arch} {R1 : Cfg → TermRu
     {r0 r1 : {g : Gh // ok g} → Range} {passT : State → Prop} (w : {g : Gh // ok g}) {a : BitVec 64}
     {s : State}
     (hlab : ∀ l x, codeLabel Spike.Lib.X64.WakePh.lo wakeCells l = some x → (Ly).lab l = Int64.ofNat x)
-    (hsp : spPool (Ly) s) (hpc : s.st.2 = (Ly).lab ".Lwc_main.x21" + 46) :
+    (hsp : spPool (Ly) s) (hpc : s.st.2 = (Ly).lab ".Lwc_main.x3" + 46) :
     (wakeQI hp i (tcbM (Ly)) (tcb2 (Ly)) ok arch R1 μT M D r0 r1 passT).own =
         wakeOwnXW (tcbM (Ly)) (tcb2 (Ly)) ∧
       (⟨tcbM (Ly), 8⟩ : Loc) ≠ ⟨tcb2 (Ly), 8⟩ ∧
@@ -89,7 +89,7 @@ theorem handover_clone (hlo : (Ly).Λ.code.lo = Spike.Lib.X64.WakePh.lo) (hprog 
   obtain ⟨th, -, -, -, -, -, hth, -, hpc, -, -, -, -, -, -, -, -, -, hO, -, hXs, -, -, htop, hsz, -⟩ := h
   have hlab : ∀ l x, codeLabel Spike.Lib.X64.WakePh.lo wakeCells l = some x → (Ly).lab l = Int64.ofNat x :=
     fun l x hx => PlaceWX.hlab_ofPlaceWX hp i l x (by rw [hlo, hprog]; exact hx)
-  have hpc' : th.st.st.2 = (Ly).lab ".Lwc_main.x21" + 46 := by
+  have hpc' : th.st.st.2 = (Ly).lab ".Lwc_main.x3" + 46 := by
     rw [hpc, hX _ hXs]; rfl
   exact ⟨th, hth, fun a => Spike.Lib.X64.WakePh.clone_ownGXW hlab (spPool_of_owned hO htop hsz) hpc'⟩
 
@@ -105,7 +105,7 @@ theorem post_start_I {ok : Gh → Prop} {arch : WeakMem.Arch} {R1 : Cfg → Term
     {lbl : WeakMem.AllocLabel → Option Nat} {lsize : WeakMem.AllocLabel → Nat}
     {ts : Nat → Option Nat} {d : Cfg} {th : Thread isa} {stack tls : Nat} {r : BitVec 64}
     {s : TermRun.Cfg} {s0 s1 : TermRun.TTh}
-    (hsp : spPool (Ly) th.st) (hpc : th.st.st.2 = (Ly).lab ".Lwc_main.x21" + 46)
+    (hsp : spPool (Ly) th.st) (hpc : th.st.st.2 = (Ly).lab ".Lwc_main.x3" + 46)
     (hSR : (wakeQI hp i (tcbM (Ly)) (tcb2 (Ly)) ok arch R1 μT M D r0 r1 passT).SR w =
       ⟨d.1.mem.last, s.mem.size, lbl, lsize⟩)
     (h1 : d.1.threads = #[th]) (hs : s.ths = #[s0, s1])

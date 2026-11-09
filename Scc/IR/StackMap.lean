@@ -59,11 +59,15 @@ the moved save area and repeats the check.
 ```
 tableSym:  N                                 -- number of entries
            N entries of 4 words, sorted by return address (ascending):
-             ret, nStack, nHeap, first
+             ret - textStartSym, nStack, nHeap, first
            the offsets: one array of words, shared by all entries
 ```
 
-Entry `e` describes the frame that its return address `ret` returns into:
+Entry `e` describes the frame that its return address `ret` returns into.
+Its first word is `ret` relative to the start of the text (`textStartSym`,
+`.quad L - scc_text_start`), so the table's words do not depend on where the
+text is loaded; the grow routine subtracts the text's start from a frame's
+return address before it searches.  Then:
 its offsets are words `first, …, first + nStack - 1` (the slots holding stack
 addresses) and `first + nStack, …, first + nStack + nHeap - 1` (the slots
 holding heap references) of the offsets array, each a signed byte offset
@@ -103,6 +107,16 @@ def tableSym : Sym := "scc_stackmap"
 /-- The symbol of the emitter's trampoline between a failed prologue check
 and `Growth.grow`. -/
 def morestackSym : Sym := "scc_rt_morestack"
+
+/-- The label of the trampoline's return instruction (the key of its GC
+table `ret` map; defined by the emitter). -/
+def msRetLabel : Sym := ".Lscc_rt_morestack.ret"
+
+/-- The labels of the start and the end of the text (defined by the
+emitter: the first and the last item of `.text`; the GC tables' descriptor
+names them). -/
+def textStartSym : Sym := "scc_text_start"
+def textEndSym : Sym := "scc_text_end"
 
 /-- Bytes of one table entry. -/
 def entryBytes : Nat := 32

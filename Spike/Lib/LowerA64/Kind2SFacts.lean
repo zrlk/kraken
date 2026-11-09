@@ -136,7 +136,8 @@ theorem blkW_sfacts_k2P {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K o
 
 /-- **`SFacts` at a `Kind2` block of the code** (`blkW_sfacts_k2P`): a
 block of the code predicate `CdC` at the saved return address (`SubCd`,
-its phase from the run's check, as `blkW_w2CP`). -/
+whole or in two pieces, `AtQ.cdOf`; its phase from the run's check, as
+`blkW_w2CP`). -/
 theorem blkW_sfacts_k2 {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
     (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) (h16 : cx.frame % 16 = 0)
     (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -(cx.frame : Int)) (hhi : 0 ≤ R.hi)
@@ -145,14 +146,15 @@ theorem blkW_sfacts_k2 {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K ok
     (hfj : ∀ σ c, n.J σ c → FrJ fp ra σ.slot) {blk : List Directive} (hk : Kind2 cx blk)
     (hcd : SubCd (CdC prog okPc ph lab (Int64.ofBitVec ra)) n.pc blk) :
     BlkW (fun s c => SFacts Λ μ own rS Tk lbl s c) K exe endPc R F (dumN n) blk := by
-  obtain ⟨pc0, pre, post, ⟨-, L, j, hpc0, hb, hrun⟩, hpc⟩ := hcd
+  obtain ⟨pc0, pre, post, hc0, hpc⟩ := hcd
+  obtain ⟨-, hat, hrun⟩ := CdCQ.sub hc0 hpc.symm
   have hok : okBlk (-(cx.frame : Int)) 0 n.o blk = true := hno ▸ okBlk_kind2 hf h1 h16 hk
-  have hph := Scc.Cert.Ph1A64.blkPh_of_runPhB hrun (classify_of_okBlk hok)
-  have he : lab L + Int64.ofNat (4 * (j + pre.length)) = n.pc := by
-    rw [← hpc, ← hpc0, Nat.mul_add, Int64.ofNat_add, Int64.add_assoc]
-  rw [hpc] at hph
+  have hph := Scc.Cert.Ph1A64.blkPh_of_runPhB (xs := []) (zs := []) (by simpa using hrun)
+    (classify_of_okBlk hok)
+  rw [show n.pc + Int64.ofNat (4 * ([] : List Directive).length) = n.pc by simp] at hph
+  rw [← hI.labOk] at hat
   exact blkW_sfacts_k2P hI hf h1 h16 hR hal hlo hhi hl hh hsub hfit hFO hno hfj hk
-    (Spike.Lib.A64.Flow.code_of hI.lays hI.endOk (blockAt_sub hb) (by rw [hI.labOk]; exact he)) hph
+    (AtQ.cdOf hI.lays hI.endOk _ _ hat) hph
 
 end K2
 

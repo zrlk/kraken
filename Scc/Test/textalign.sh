@@ -17,7 +17,7 @@
 set -u
 LAKE=${LAKE:-lake}
 cd "$(dirname "$0")/../.."
-REGRESS="hello1 tailwide"
+REGRESS="hello1 tailloop"
 "$LAKE" build scc >/dev/null || { echo "textalign: lake build scc failed"; exit 1; }
 T=$(mktemp -d)
 trap 'rm -rf "$T"' EXIT

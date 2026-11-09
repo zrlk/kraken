@@ -137,13 +137,22 @@ theorem hTg_of_tgOkB {cells : List (Directive × Nat)} (hc : tgOkB cells = true)
         ∃ cc, classify blk[k].1 = some (.jcc cc L)) → PosOff cells lab' (lab' L) := by
   intro pc blk hsub hk k hkl L hj
   obtain ⟨pc0, pre, post, hcd, -⟩ := hsub
-  obtain ⟨⟨-, L0, j, off, ⟨hL0, hW⟩, -, hb, -⟩, -⟩ := hCd _ _ hcd
+  obtain ⟨⟨-, hat, -⟩, -⟩ := hCd _ _ hcd
+  have h1 : blk[k] ∈ pre ++ blk ++ post :=
+    List.mem_append_left _ (List.mem_append_right _ (List.getElem_mem hkl))
+  -- the piece holding the block's `k`th cell, after a label off `abLabs` (P5: one of two)
+  obtain ⟨L0, j, off, X, ⟨hL0, hW⟩, hb, h1⟩ : ∃ L0 j off X, (L0 ∉ abLabs ∧ WcL L0) ∧
+      blockAt cells L0 j off X = true ∧ blk[k] ∈ X := by
+    rcases hat with ⟨L0, j, off, hQ, -, hb⟩ | ⟨b1, b2, e, ⟨L1, j1, o1, hQ1, -, hb1⟩, ⟨L2, j2, o2, hQ2, -, hb2⟩⟩
+    · exact ⟨L0, j, off, _, hQ, hb, h1⟩
+    · rw [e] at h1
+      rcases List.mem_append.mp h1 with h | h
+      · exact ⟨L1, j1, o1, _, hQ1, hb1, h⟩
+      · exact ⟨L2, j2, o2, _, hQ2, hb2, h⟩
   simp only [blockAt, Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq] at hb
   obtain ⟨⟨hl, -⟩, hb⟩ := hb
   -- the block's `k`th cell is in `L0`'s run
   have hmem : blk[k] ∈ run cells L0 := by
-    have h1 : blk[k] ∈ pre ++ blk ++ post :=
-      List.mem_append_left _ (List.mem_append_right _ (List.getElem_mem hkl))
     rw [← hb] at h1
     exact List.mem_of_mem_drop (List.mem_of_mem_take h1)
   -- `label L0` is a cell

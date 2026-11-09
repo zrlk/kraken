@@ -6,7 +6,7 @@ clone with the child's id (`Parent.pN … .ts`), main runs
     Parent.seg_parent            -- the tests, the frame left, `jmp wc_waitLoop`
     WaitLoop.seg_waitLoopP       -- the acquire-load loop, its park calls
     ret                          -- to `scc_rt_main`'s `.x2`, `%rax = 0`
-    .Lscc_rt_main.x2: movq %rax, -16(%rbp); movq -16(%rbp), %rdi; movl $231, %eax; syscall
+    .Lscc_rt_main.x0: movq %rax, -16(%rbp); movq -16(%rbp), %rdi; movl $231, %eax; syscall
 
 and does not come back: the `exit_group(0)` there is main's exit
 (`hexit`). The whole path is one `SegL` (the load-or-stutter row of the
@@ -55,7 +55,7 @@ open Spike.Lib.X64.Flow.Ret0 (LimOk StOk LdOk)
 open Scc.Sem (ValRep)
 
 /-- `scc_rt_main`'s return point after `call wc_main`. -/
-abbrev mainX2 : Label := ".Lscc_rt_main.x2"
+abbrev mainX2 : Label := ".Lscc_rt_main.x0"
 
 /-- **The `exit_group` tail at `scc_rt_main`'s return point** in wake's
 cells, the value spilled at `-16(%rbp)`. -/

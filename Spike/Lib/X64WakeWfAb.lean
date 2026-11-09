@@ -97,7 +97,7 @@ theorem dispTPcs_congr (h : ∀ l ∈ abLabs, lab l = lab' l) : WriteAb.dispTPcs
 theorem spPcs_congr (h : ∀ l ∈ acLabs pfx, lab l = lab' l) : spPcs lab pfx = spPcs lab' pfx := by
   simp only [spPcs, ThreadsAb.pcRet, ThreadsAb.pcJe, ThreadsAb.cloneAt, ThreadsAb.pcSt, ThreadsAb.tailPcs,
     ThreadsAb.failPcs]
-  rw [h _ (by simp [acLabs] : pfx ++ ".x21" ∈ acLabs pfx), h _ (by simp [acLabs] : pfx ++ ".x22" ∈ acLabs pfx),
+  rw [h _ (by simp [acLabs] : pfx ++ ".x3" ∈ acLabs pfx), h _ (by simp [acLabs] : pfx ++ ".x4" ∈ acLabs pfx),
     h _ (by simp [acLabs] : pfx ++ ".spawnfail5" ∈ acLabs pfx)]
 
 theorem tOk_congr {E T : List Nat} (ha : ∀ l ∈ abLabs, lab l = lab' l) (hc : ∀ l ∈ acLabs pfx, lab l = lab' l) :

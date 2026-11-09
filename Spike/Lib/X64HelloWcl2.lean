@@ -1,10 +1,10 @@
 /-
 **hello.w's `wc_main` at its `clone`'s `syscall` inside the root's third level `RootWX.W2H`** (x86-64; the twin
 of `Spike/Lib/A64HelloWcl2.lean`, the hello twin of `Spike/Lib/X64WakeWcl.lean` at `helloCells`, frame 128):
-`H1GAH.wcl` at the root's level `W2H L (ntA L.lab) ar helloSrc Dt (ClH L) Ctx lbl lsize` and the clone fact
+`H1GAHG.wcl` at the root's level `W2H L (ntA L.lab) ar helloSrc Dt (ClH L) Ctx lbl lsize` and the clone fact
 `StackM (r1Of L.lab)`.
 
-The `syscall` is at `.Lwc_main.x25 + 94` (`WcSp6.wcNSH`), its resumption at `.x25 + 96`. Its source
+The `syscall` is at `.Lwc_main.x3 + 94` (`WcSp6.wcNSH`), its resumption at `.x25 + 96`. Its source
 `SpawnSrcH l ws c` is placed at `wc_main`'s slots (`WcSp6.FrWH` in `wcNSH`, `slots_absH`), given the frame's
 cell is the box's (`cA.toNat = b`) and the slice and main's word are an entry state's (`FrMGH`), as wake's
 `WclA` (`cA.toNat = b`, `m.toNat = tcb0`).
@@ -68,8 +68,8 @@ open Spike.Lib.X64HelloSrc (helloSrc)
 open Kraken.Promising.Lower.X64 (CellAt op64)
 
 /-- **The `syscall`'s pc** at the canonical base: its value, off the sites; the resumption's `ph2bH` `0`. -/
-theorem svc_factsH : (Int64.ofNat 4203774 + Int64.ofNat 94).toBitVec.toNat = 4203868 ∧
-    Spike.Lib.X64.HelloPh.okC 4203868 = true ∧ Spike.Lib.X64.HelloPh.ph2bHC 4203870 = 0 := by decide +kernel
+theorem svc_factsH : (Int64.ofNat 4203812 + Int64.ofNat 94).toBitVec.toNat = 4203906 ∧
+    Spike.Lib.X64.HelloPh.okC 4203906 = true ∧ Spike.Lib.X64.HelloPh.ph2bHC 4203908 = 0 := by decide +kernel
 
 /-- The clone's `syscall` in hello's cells. -/
 theorem svcInH : blockAtB helloCells x25L 94 [(op64 .syscall, 2)] = true := by decide +kernel
@@ -84,9 +84,9 @@ theorem own_svc4H {a : BitVec 64}
     (hlab : ∀ l x, codeLabel Spike.Lib.X64.HelloPh.lo helloCells l = some x → L.lab l = Int64.ofNat x)
     {s : State} (hs : s.st.2 = L.lab x25L + 94 + Int64.ofNat 2) :
     Spike.Lib.X64.HelloPh.ownGH L a s = Spike.Lib.X64.HelloPh.own2bH L a 0 := by
-  have hp : pcOf s = 4203870 := by
+  have hp : pcOf s = 4203908 := by
     unfold pcOf
-    rw [hs, show L.lab x25L = Int64.ofNat 4203774 from Spike.Lib.X64.HelloPh.WcSp4W.lab_x25H hlab]; rfl
+    rw [hs, show L.lab x25L = Int64.ofNat 4203812 from Spike.Lib.X64.HelloPh.WcSp4W.lab_x25H hlab]; rfl
   obtain ⟨-, -, -, -, -, e6, e7, -, -⟩ := Spike.Lib.X64.HelloPh.labs_eqH hlab (L := L)
   have hg : Spike.Lib.X64.HelloPh.Good2bH L s :=
     .inr (.inl (by unfold Spike.Lib.X64.WakePh.inPc; rw [e6, e7, hp]; omega))
@@ -134,7 +134,7 @@ variable {ar : Arena} {Dt : State → Prop} {Ctx : FragS isa} {lbl : Lbl} {lsize
 include hp hlo hΛ hlab hsite
 
 set_option maxHeartbeats 1600000 in
-/-- **`H1GAH.wcl` at the root's level** (wake's `wcl_W1`): at the clone's `syscall` (`wcNSH`), the frame's cell
+/-- **`H1GAHG.wcl` at the root's level** (wake's `wcl_W1`): at the clone's `syscall` (`wcNSH`), the frame's cell
 the box's (`hcA`) and its slice and main's word an entry state's (`hFr`), the source at `SpawnSrcH l ws`, `W2H`
 at no frames (its placement by `Hs` at the slots, as `SpawnPl.hpl_GJ1H`) and the clone fact `StackM`. -/
 theorem wcl_W2H (hRlo : R.lo ≤ -48) (hhi : 0 ≤ R.hi)
@@ -150,8 +150,8 @@ theorem wcl_W2H (hRlo : R.lo ≤ -48) (hhi : 0 ≤ R.hi)
   obtain ⟨hc, hCl⟩ := svc_clH hp hA
   have hsys : abi.atSys s = true := Scc.Sem.X64.atSyscall_of_cellAt hc
   have hpc : s.st.2 = L.lab x25L + 94 := hA.2.2.2.1
-  have e25 : L.lab x25L = Int64.ofNat 4203774 := Spike.Lib.X64.HelloPh.WcSp4W.lab_x25H hlab
-  have hP : pcOf s = 4203868 := by unfold pcOf; rw [hpc, e25]; exact svc_factsH.1
+  have e25 : L.lab x25L = Int64.ofNat 4203812 := Spike.Lib.X64.HelloPh.WcSp4W.lab_x25H hlab
+  have hP : pcOf s = 4203906 := by unfold pcOf; rw [hpc, e25]; exact svc_factsH.1
   have hpo := ((Spike.Lib.X64.HelloPh.instOkH hp hlo (ntA L.lab) (fun _ => False) hsite (rS := ⟨0, 0⟩)).off s
     (by rw [Spike.Lib.X64.HelloPh.okPc_eq hΛ, hP]; exact svc_factsH.2.1)).1
   -- the state's facts at `ownGH`
@@ -197,7 +197,7 @@ theorem wcl_W2H (hRlo : R.lo ≤ -48) (hhi : 0 ≤ R.hi)
   exact ⟨⟨rfl, Spike.Lib.X64.WakeWf.Wf.intro hst hab hac (fun _ h => h.2) (fun _ => hctl.1) hpl hwr.1 hwr.2
     hctl.2 (Spike.Lib.X64.WakeWf.abortWf_of_off hpo.noAbort)⟩, hSM⟩
 
-/-- **`H1GAH.wcl` at a ghost of `GJ1H`** (rodata's label `lr`, the box's `l'` fresh at `lbl1`, main's id at the
+/-- **`H1GAHG.wcl` at a ghost of `GJ1H`** (rodata's label `lr`, the box's `l'` fresh at `lbl1`, main's id at the
 TCB): `wcl_W2H` at the twice extended placement `upd lbl1 l' b'` (`SpawnPl.hpl_GJ1H`). -/
 theorem wcl_W2GJ1H (hRlo : R.lo ≤ -48) (hhi : 0 ≤ R.hi) {lbl1 : Lbl} {lr l' : WeakMem.AllocLabel} {b' : Nat}
     {F' : MachineData → Prop} {tp : UInt64} (hl' : lbl1 l' = none)

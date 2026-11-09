@@ -1,5 +1,5 @@
 /-
-**`HrdS.hrd_WSHF`'s source and frame facts at the root** (x86-64; the twin of the live part of
+**The start's `hrd`'s source and frame facts at the root** (x86-64; the twin of the live part of
 `Spike/Lib/A64HelloHrdR.lean`): at the root's layout `ofPlaceWX hpw (HelloImms.immsH Λ0 i0)`, its start's choices
 (`JS (Ly) 0#64 c0`, `c0S`'s environment):
 

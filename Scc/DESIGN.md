@@ -857,7 +857,7 @@ Where the implementation is more specific than the list above:
   | the pool bytes are the kernel state's at the step, fixed for the run: a range released and re-taken in one certification run reads stale bytes | under-approximates | obligation `NoRetakeAfterRelease` (no certification run takes a range it released earlier in the same run); unreachable for the programs certified so far (no release site reached) |
   | the thread's own held ranges at `clone` | under-approximates | obligation `NoTouchAfterHandoff`; moot while `clone` is a dead end |
   | `clone` a dead end (no promise across it) | under-approximates | argued hardware claim (§4, *No promise across `clone`*; §6, 44) |
-  | `write` a dead end (no promise across it) | under-approximates | argued hardware claim on x64 (§4, *No promise across `clone`*; §6, 44); on AArch64 faithful for one thread only, a full barrier before `write`'s `svc` needed before any multi-threaded target (§9.0, *Verdict*) |
+  | `write` a dead end (no promise across it) | under-approximates | argued hardware claim (§4, *No promise across `clone`*; §6, 44); on AArch64 with the `dmb ish` that `printF` emits before `write`'s `svc`, subject to the known remaining points of §4 (unproved §9.0 *Verdict* (i) obligation; kernel reads of a `pub` buffer another thread may write; output serialisation) |
 
   What the proofs give on top (`Scc/Sem/CertLift.lean`,
   `Scc/Sem/CertSys.lean`): after a take whose range's pool bytes are zero,
@@ -942,12 +942,22 @@ Where the implementation is more specific than the list above:
   before `.clone`), which on hardware orders every earlier access before
   every later one, and so excludes the load-buffering and message-passing
   shapes across the call that the dead end removes from the model.
-  `write` is a dead end too (§6, 44), but fact (2) does not hold there:
-  `scc_rt_print` has no barrier before its `svc`/`syscall`. On x64 fact (1)
-  and TSO suffice (§9.0, *x86-64*). On AArch64 the dead end at `write`
-  removes `MP+svceret+addr` and `LB+svc-erets` across the call (§9.0), so
-  it is faithful only for one thread (no observer); a `dmb ish` before
-  `scc_rt_print`'s `svc` is needed before any multi-threaded target.
+  `write` is a dead end too (§6, 44). On x64 fact (1) and TSO suffice
+  (§9.0, *x86-64*). On AArch64 fact (2) holds for `scc_rt_print`'s
+  `write`: `printF` emits `dmb ish` immediately before its `svc` in every
+  AArch64 program, and the placement check verifies it (`printIn`), which
+  excludes `MP+svceret+addr` and `LB+svc-erets` across the call (§9.0).
+  The abort routines' `write` needs no barrier, since only `exit_group`
+  follows it. Known remaining points: (i) the model obligation of §9.0
+  *Verdict* (i), that a promise of a write program-order after a
+  `fence .sy` is never needed, is not proved; (ii) the barrier does not
+  order the kernel's reads of the buffer before a store after the call, so
+  the dead end is faithful provided no other thread writes a printed byte
+  after observing such a store; typing guarantees this for an `own` slice
+  but not for a `pub` one, since any holder may store to a `pub` cell;
+  (iii) when several threads print, the model orders the outputs as the
+  threads' causal order, which on hardware rests on the kernel serialising
+  writes to one file.
 - The loader `T.load`: that the Linux loader maps the executable as its
   program headers say, and that the layout `Λ` read from the executable
   (`Scc.Cert.Elf`) is where it puts the text, the image, the regions (K10,
@@ -980,9 +990,17 @@ Where the implementation is more specific than the list above:
   of the layout, and (`refuseBelowCode := false`) data symbols below the
   code, which `wfB` and the placement check's A2 (`symsAround`, `noClash`)
   then constrain.
-- For results transferred through `R` (not for `Correct` itself): WeakCore's
-  `CertWinCN`/`CertWinPN` and `storeDepRts = true`, the hypotheses of its
-  token-soundness theorems.
+- For results transferred through `R` (not for `Correct` itself): the
+  hypotheses of WeakCore's token-soundness theorems, as vendored
+  (`ExtArmZ`'s `_em0` forms, `SpawnArmZ`'s `_spawn` forms): the machine
+  knob `storeDepRts = true`, the start premise (`InitOK`, or `StartOKX`
+  for the `_spawn` forms; `startOKX_of_initOK`), and `ObligationsFX`: the
+  checker accepts the program (`checkProg p = .ok ()`, from which `ProgT`
+  follows by `TermScope.progT_of_check`), the program is in the supported
+  fragment (`ProgScopeOKW`), and the start configuration is in scope
+  (`RunScope`).
+  The certificate-window conditions `CertWinCN`/`CertWinPN` are no longer
+  hypotheses: `ObligationsFX.toObligationsCX` discharges them.
 - Lean, and `lake env lean` for certificates.
 
 Not trusted: the emitter, the printer, the IR, and the acceptance check beyond
@@ -1255,11 +1273,12 @@ and are to be reopened at the trigger given:
     of `sysStep_solo` at `write` (the buffer loaded in one certification
     step against one byte per kernel step, views raised by `readByte`,
     and mid-write `wr > 0`) is not needed. Justification: on x64 as for
-    `clone`; on AArch64 fact (2) of §4 does not hold (no barrier before
-    `scc_rt_print`'s `svc`), so the extension is faithful only for one
-    thread, and a `dmb ish` before that `svc` (§9.0, *Verdict* (i)) is
-    needed before any multi-threaded target. The fallback is
-    certification that tracks `wr` (§9.0, A1).
+    `clone`; on AArch64 fact (2) of §4 holds with the `dmb ish` that
+    `printF` emits before the `svc` (§9.0, *Verdict* (i)), subject to the
+    known remaining points of §4: the unproved model obligation, the
+    kernel's reads of a buffer another thread may write after observing a
+    later store of the printer, and the kernel's serialisation of output.
+    The fallback is certification that tracks `wr` (§9.0, A1).
 
 ## 7. Open points for WeakCore
 
@@ -2521,7 +2540,9 @@ results are stated over promise-free `Arch.tso` runs, and no general
     and a later fulfilment must lie above them (`writeSuccs`, `ok`). That
     kills the early promises the hardware also forbids, for example in
     `ldr x; dmb; svc; str y` against the LB partner. The cost is one
-    barrier per system call, negligible beside the call itself.
+    barrier per system call, negligible beside the call itself. The tree
+    fences `write` in `scc_rt_print` and `clone`; the abort routines'
+    `write` is followed only by `exit_group` and needs none.
   - (ii) Keep certification across system calls, and discharge
     `SvcNoProm` instead by making the kernel return the branch the
     certification run chose (`Kernel.certSuccs` over-approximates the

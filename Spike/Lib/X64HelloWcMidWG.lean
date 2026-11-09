@@ -25,7 +25,7 @@ Main's range `rS` of `tcb2Call_ownGH` and `tcb2W_ownGKH` is the empty range at t
   `WcW.wcResW_wcGH` is the reserve's field as it is.
 - `.x25`'s field is `WcSp6PW` (the publication at the `mfence`), assembled by `wcSp6PW_wcGH` from two instances of
   `wcSp6W_wcGH` (A64: `WcSp6W` at `c0`, `wcSp6W_wcGH` directly); its frame condition is `F₂`.
-- The header word is `pinned + 104` (`tcb2QH_hdrA`), the second call's block at `.Lwc_main.x23`.
+- The header word is `pinned + 104` (`tcb2QH_hdrA`), the second call's block at `.Lwc_main.x1`.
 -/
 import Spike.Lib.X64HelloWcMidW
 import Spike.Lib.X64HelloTcb2CallW
@@ -92,17 +92,17 @@ theorem wcSp3W_wcGH (a : BitVec 64) (hR : R.OK) (hRlo : R.lo ≤ -320) (hhi : 16
     (hsub : rS.Sub Λ.stackPool) (hSM : Spike.Lib.X64.FStable R (StackM rS))
     (hSMc : Spike.Lib.X64.FStable (R.callee (-136) (-184) 8) (StackM rS)) (hb : BandSp3H L R)
     (hsep : L.pnA ≠ L.lockA ∧ L.pnA ≠ L.freeNA ∧ L.pnA ≠ L.nextA ∧ L.pnA ≠ a)
-    (hhdr : L.pinA + 80#64 + 24#64 ∉ [L.pnA, L.lockA, L.freeNA, L.nextA, a])
+    (hhdr : L.pinA + 112#64 + 24#64 ∉ [L.pnA, L.lockA, L.freeNA, L.nextA, a])
     (hmP : Scc.Sem.Kernel.mapped (Spike.Lib.X64Consumer.K0 Λ) true ⟨L.pnA, 8⟩ = true)
-    (hmH : Scc.Sem.Kernel.mapped (Spike.Lib.X64Consumer.K0 Λ) true ⟨L.pinA + 104#64, 8⟩ = true)
+    (hmH : Scc.Sem.Kernel.mapped (Spike.Lib.X64Consumer.K0 Λ) true ⟨L.pinA + 136#64, 8⟩ = true)
     (hunP : ∀ m, F m → Mem.loadInt m.dmem L.pnA 8 = none)
-    (hunH : ∀ m, F m → Mem.loadInt m.dmem (L.pinA + 104#64) 8 = none)
+    (hunH : ∀ m, F m → Mem.loadInt m.dmem (L.pinA + 136#64) 8 = none)
     (c0 : Ctl) (sl : BitVec 64 × BitVec 64 × BitVec 64 × BitVec 64) (me cA : BitVec 64)
     (fr : BitVec 64 × BitVec 64) :
     WcSp3WH (fun s _ => SFactsSt2 Λ (Spike.Lib.X64.PhRec.μ L) (ownGH L a) s) (Spike.Lib.X64.PhRec.K L rK)
       L.exe L.endPc R F c0 sl me cA fr := by
   have hFF : ∀ m, F m → F m ∧ StackM rS m := fun m h => ⟨h, hFS m h⟩
-  have eH : ∀ g c, Spike.Lib.X64.Rt.hdrA L.lab (tcb2QH g c) = L.pinA + 104#64 := fun g c => by
+  have eH : ∀ g c, Spike.Lib.X64.Rt.hdrA L.lab (tcb2QH g c) = L.pinA + 136#64 := fun g c => by
     rw [tcb2QH_hdrA, L.lab_pin]
   have hRc : (R.callee (-136) (-184) 8).OK :=
     Spike.Lib.Region.callee_ok hR (by omega) (by decide) (by omega) (by omega)
@@ -150,11 +150,11 @@ theorem wcMidW_wcGH (hR : R.OK) (hR8 : R.base.toNat % 8 = 0) (hRlo : R.lo ≤ -3
     (hunN : ∀ m, F m → Mem.loadInt m.dmem (ntA L.lab) 8 = none)
     (hb : BandSp3H L R)
     (hsep : L.pnA ≠ L.lockA ∧ L.pnA ≠ L.freeNA ∧ L.pnA ≠ L.nextA ∧ L.pnA ≠ ntA L.lab)
-    (hhdr : L.pinA + 80#64 + 24#64 ∉ [L.pnA, L.lockA, L.freeNA, L.nextA, ntA L.lab])
+    (hhdr : L.pinA + 112#64 + 24#64 ∉ [L.pnA, L.lockA, L.freeNA, L.nextA, ntA L.lab])
     (hmP : Scc.Sem.Kernel.mapped (Spike.Lib.X64Consumer.K0 Λ) true ⟨L.pnA, 8⟩ = true)
-    (hmH : Scc.Sem.Kernel.mapped (Spike.Lib.X64Consumer.K0 Λ) true ⟨L.pinA + 104#64, 8⟩ = true)
+    (hmH : Scc.Sem.Kernel.mapped (Spike.Lib.X64Consumer.K0 Λ) true ⟨L.pinA + 136#64, 8⟩ = true)
     (hunP : ∀ m, F m → Mem.loadInt m.dmem L.pnA 8 = none)
-    (hunH : ∀ m, F m → Mem.loadInt m.dmem (L.pinA + 104#64) 8 = none)
+    (hunH : ∀ m, F m → Mem.loadInt m.dmem (L.pinA + 136#64) 8 = none)
     (hband : BandTiH L R)
     (htidW : Scc.Sem.Kernel.mapped (Spike.Lib.X64Consumer.K0 Λ) true ⟨tH L.lab + 56#64, 8⟩ = true ∧
       (∀ m', F m' → Mem.loadInt m'.dmem (tH L.lab + 56#64) 8 = none) ∧

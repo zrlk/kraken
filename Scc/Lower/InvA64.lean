@@ -149,13 +149,13 @@ theorem setReg_eq {c : FnCtx} (hf : FrameOk c) (hs : c.frame ≤ 32768) {r : IR.
   rw [strOff_scaled (w := .W64) (slotOff_scaled hf hs h)]
 
 /-- **The code of `addChk d a b`**: load `a` into `x9` and `b` into `x10`,
-`adds x9, x9, x10`, `b.cs` to the function's overflow abort, store `x9`
-into `d`'s slot. -/
+`adds x9, x9, x10`, `b.cs` to the function's overflow abort, the
+fall-through's label `x{k}`, store `x9` into `d`'s slot. -/
 theorem inst_addChk {c : FnCtx} (hf : FrameOk c) (hs : c.frame ≤ 32768) (k : Nat)
     {d : IR.Reg} {a b : IR.Operand} {la lb : List Item} {off : Int}
     (ha : c.getOp .X9 a = .ok la) (hb : c.getOp .X10 b = .ok lb) (hd : c.slotOff d = .ok off) :
     c.inst k (.addChk d a b) = .ok (la ++ lb ++ addChecked .X9 .X9 .X10 (c.local "abort_overflow") ++
-      [ins (.STR (rz .W64 .X9) ⟨spW64, .imm ⟨i64 off, none⟩⟩)]) := by
+      [lbl (c.local s!"x{k}")] ++ [ins (.STR (rz .W64 .X9) ⟨spW64, .imm ⟨i64 off, none⟩⟩)]) := by
   simp only [FnCtx.inst, ha, hb, setReg_eq hf hs hd, bind, Except.bind, pure, Except.pure]
 
 /-- **The frame's exit** in a frame of at most 32 KiB: reload `x29` and `x30`
@@ -176,9 +176,11 @@ theorem leave_eq {c : FnCtx} (hf : FrameOk c) (hs : c.frame ≤ 32768) :
     refine ⟨⟨by omega, by omega⟩, by omega⟩
 
 /-- **The code of `ret [v]`** (one result word, as an `Accepted0` body
-returns): `v` into `x0`, then the frame's exit `c.leave` and `ret`. -/
+returns): `v` into `x0`, then the frame's exit `c.leave`, the return
+site's label `x{k}` and `ret`. -/
 theorem term_ret1 {c : FnCtx} (k : Nat) {v : IR.Operand} {l : List Item}
-    (hv : c.getOp .X0 v = .ok l) : c.term k (.ret [v]) = .ok (l ++ c.leave ++ [ret]) := by
+    (hv : c.getOp .X0 v = .ok l) :
+    c.term k (.ret [v]) = .ok (l ++ c.leave ++ [lbl (c.local s!"x{k}"), ret]) := by
   have ha : argRegs = .X0 :: argRegs.tail := rfl
   simp only [FnCtx.term]
   rw [ha]
@@ -196,10 +198,9 @@ theorem lowerAll?_low_a64 {cfg : Config} {p : Prog} {e : Scc.Lower.A64.Emitted}
   cases hl : lowerIR cfg p with
   | error m => simp only [hl, bind, Except.bind] at h; cases h
   | ok l =>
-    simp only [hl, bind, Except.bind, Scc.Lower.A64.emitAll] at h
-    cases hi : Scc.Emit.A64.emitItemsMaps l.ir with
-    | error m => simp only [hi] at h; cases h
-    | ok v => simp only [hi, pure, Except.pure] at h; cases h; rfl
+    rw [hl] at h
+    obtain ⟨_, _, -, rfl⟩ := Scc.Lower.A64.emitAll_ok (gw := cfg.gcWit) h
+    rfl
 
 /-- **`lowerAll`'s IR on an `Accepted0` program** (AArch64), when the
 lowering and emission succeed: the runtime functions, then `func0 main r`. -/
@@ -394,7 +395,8 @@ theorem ctxOf_frameOk (p : IR.Program) (fi : Nat) (f : Func) : FrameOk (A64.ctxO
 every entry of `e.frames` is at most 32768, so is the frame of the context
 each function is emitted in (`A64.ctxOf`, the context
 `Scc.Emit.A64.emitItemsMaps` passes to `emitFunc`). -/
-theorem frame_le_of_frames {l : Lowered} {e : A64.Emitted} (h : A64.emitAll l = .ok e)
+theorem frame_le_of_frames {l : Lowered} {gw : Option (List (Array (List Int) × List (List Nat)))}
+    {e : A64.Emitted} (h : A64.emitAll l gw = .ok e)
     (hb : ∀ n ∈ e.frames, n ≤ 32768) {f : Func} {fi : Nat} (hm : (f, fi) ∈ l.ir.funcs.zipIdx) :
     (A64.ctxOf l.ir fi f).frame ≤ 32768 := by
   obtain ⟨-, hf⟩ := A64.emitAll_frames h

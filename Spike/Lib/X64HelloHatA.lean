@@ -72,7 +72,7 @@ structure HMidPAH (L : RuntimeLayout) (W X : FragS isa) (Wc : Frag isa)
   /-- `wc_main`'s nodes inside `W` (`wcMidW_w1H`'s `hwcWf`). -/
   wcWf : WcMainWH (fun s c => W s c []) (fun _ _ => False) L.exe L.endPc R F F (tpXa (ms []) tp) J1 (QBH l b ws)
   /-- The reserve's nodes inside `W` (`wcMidW_w1H`'s `hres`). -/
-  res : ∀ g : Ret0.AllocTcb.G × Ctl, g.1.ra = (L.lab ".Lwc_main.x23").toBitVec →
+  res : ∀ g : Ret0.AllocTcb.G × Ctl, g.1.ra = (L.lab ".Lwc_main.x1").toBitVec →
     ∀ nd, ReserveW (fun s c => W s c []) (fun _ _ => False) L.exe L.endPc (rARH R)
       (fun m => F m ∧ CallerCells R (-136) (-40) 8 m ∧ ResCtxH L.lab R
         (rNH (tpXa (ms []) tp) L.lab R J1 (QBH l b ws) .call).J g m) ⟨g.1, 0#64, g.2⟩ nd

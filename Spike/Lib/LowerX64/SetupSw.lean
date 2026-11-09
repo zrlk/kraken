@@ -2,7 +2,7 @@
 **The setup words `rtCodeOkS` fixes** (x86-64): the twin of
 `Spike/Lib/LowerA64/SetupSw.lean`. The runtime's code after a setup block
 holds at one `setupMC sw` at most (`rtCodeOkS_sw_unique`: the marshalling
-block's label gap of `marshalSz sw` bytes to `.x3`), so A11 at a `.setup`
+block's label gap of `marshalSz sw` bytes to `.x1`), so A11 at a `.setup`
 tail holds at any `sw` the code passes (`setupIn_sw_eq`).
 -/
 import Spike.Lib.LowerX64.SetupOfPlaceOK
@@ -12,12 +12,12 @@ namespace Spike.Lib.X64.Rt
 open Kraken
 open Scc.Cert.Rt.X64 (RtAll GapAt rtIn_sound labelGap labelGapB)
 
-/-- **At most one `sw` passes `rtCodeOkS`**: `scc_rt_main`'s `.x2` group
-puts `.x3` `marshalSz sw` bytes after it. -/
+/-- **At most one `sw` passes `rtCodeOkS`**: `scc_rt_main`'s `.x0` group
+puts `.x1` `marshalSz sw` bytes after it. -/
 theorem rtCodeOkS_sw_unique {cells : List (Directive × Nat)} {a b : Nat}
     (ha : rtCodeOkS cells (setupMC a) = true) (hb : rtCodeOkS cells (setupMC b) = true) : a = b := by
   have gap : ∀ {n}, rtCodeOkS cells (setupMC n) = true →
-      labelGapB cells ".Lscc_rt_main.x2" ".Lscc_rt_main.x3" (marshalSz n) = true := fun h => by
+      labelGapB cells ".Lscc_rt_main.x0" ".Lscc_rt_main.x1" (marshalSz n) = true := fun h => by
     have h := rtIn_sound h
     unfold rtCodeTabS at h
     exact (RtAll.append (RtAll.append (RtAll.append (RtAll.append h).1).1).1).2.2.2.2.2.2.2.2.1

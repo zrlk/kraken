@@ -1,7 +1,7 @@
 /-
 **`scc_rt_alloc_tcb` in `ret0.w` on AArch64, block by block**: the walks
 of the runtime's TCB allocator along its one feasible path when
-`scc_rt_start` calls it with the header `2307` and `k = 1`, the named entry
+`scc_rt_start` calls it with the header `3331` and `k = 1`, the named entry
 and exit predicates of its segment (S2), and the pcs of its writes outside
 the frame. The nodes at its single instructions (the label addresses, the
 counter's add, the header's store) are the composition's; each walk takes
@@ -9,10 +9,10 @@ the facts they establish as hypotheses.
 
     scc_rt_alloc_tcb(h = x0, k = x1):        frame of 192, x29/x30 at 176/184
       .0_entry: if k ≥ 2^28 goto full                       (atChk: not taken)
-      .1_len:   d = (k·(((h >> 8) & 16383) + m) + 1)·8,     (atLen: d = 80)
+      .1_len:   d = (k·(((h >> 8) & 16383) + m) + 1)·8,     (atLen: d = 112)
                 m = (h >> 22) & 16383                       (m = 0)
                 old = ldaddal [scc_rt_pinned_next], d       (rmwPc)
-                if old + d > 2^17 goto full                 (atBnd: not taken)
+                if old + d > 163840 goto full               (atBnd: not taken)
       .3_ok:    str (h | k << 36), [pinned + old + 8·k·m]   (hdrPc)
                 x0 = pinned + old + 8·k·m + 8; ret          (atRet)
 
@@ -40,7 +40,7 @@ open CoreLang CoreTerm
 open Kraken Kraken.AArch64.Parser Kraken.Promising Kraken.Promising.AArch64 Kraken.Promising.Lower.A64
 
 open Spike.Lib.A64.Alloc (subs_c subs_z subs_hi adrp_lo12)
-open Scc.Cert.Rt.A64 (Lays endOf blockAt labelGap)
+open Scc.Cert.Rt.A64 (Lays endOf blockAt labelGap blockAcross)
 
 set_option linter.unusedSimpArgs false
 
@@ -107,14 +107,15 @@ def atArg : List Directive := parseAArch64("str x9, [sp, #80]
 ldr x9, [sp, #72]
 ldr x10, [sp, #80]")
 
-/-- The counter's old value saved; past the pinned area (`2^17` bytes) goes to the abort. -/
+/-- The counter's old value saved; past the pinned area (`163840` bytes) goes to the abort. -/
 def atBnd : List Directive := parseAArch64("str x11, [sp, #88]
 ldr x9, [sp, #88]
 ldr x10, [sp, #72]
 add x9, x9, x10
 str x9, [sp, #96]
 ldr x9, [sp, #96]
-movz x10, #2, lsl #16
+movz x10, #32768
+movk x10, #2, lsl #16
 subs xzr, x9, x10
 b.hi .L3_scc_rt_alloc_tcb.2_full")
 
@@ -187,12 +188,12 @@ structure G where
   ra : BitVec 64
 
 /-- The header `scc_rt_start` passes. -/
-abbrev hdr0 : BitVec 64 := 2307#64
+abbrev hdr0 : BitVec 64 := 3331#64
 
 /-- The TCB's length in bytes the code computes for `hdr0` and `k = 1`. -/
-abbrev tcbLen : BitVec 64 := 80#64
+abbrev tcbLen : BitVec 64 := 112#64
 
-/-- **Entry**: `sp`, `x29`, `x30` the ghosts', `x0 = 2307`, `x1 = 1`. The
+/-- **Entry**: `sp`, `x29`, `x30` the ghosts', `x0 = 3331`, `x1 = 1`. The
 own word `scc_rt_pinned_next` holds `n0` (the map's, not the state's). -/
 def Pre (g : G) (_n0 : BitVec 64) (σ : AS) : Prop :=
   σ.regs.SP.toBitVec = g.sp ∧ σ.regs.X29.toBitVec = g.fp ∧ σ.regs.X30.toBitVec = g.ra ∧
@@ -263,14 +264,14 @@ theorem atArg_walk (lab : Label → Int64) (pc : Int64) {g : G} {σ : AS} {P : B
   simp [Fr1, Fr0, Spike.Lib.upd_apply, h1, h2, h3, h4, h5, h6, h7, hP]
 
 /-- **The bound is not crossed** when the counter's old value `n0` (in
-`x11`) has room for `tcbLen` more bytes below `2^17`. -/
+`x11`) has room for 80 more bytes below `2^17`, so for `tcbLen` more below `163840`. -/
 theorem atBnd_walk (lab : Label → Int64) (pc : Int64) {g : G} {σ : AS} {n0 : BitVec 64} (h : Fr1 g σ)
     (h11 : σ.regs.X11.toBitVec = n0) (hn : n0.toNat + 80 ≤ 131072) :
-    (arun lab atBnd ⟨pc, oI, σ⟩).pc = pc + Int64.ofNat (4 * 9) ∧
+    (arun lab atBnd ⟨pc, oI, σ⟩).pc = pc + Int64.ofNat (4 * 10) ∧
     (arun lab atBnd ⟨pc, oI, σ⟩).so = oI ∧ Fr2 g n0 (arun lab atBnd ⟨pc, oI, σ⟩).σ := by
   obtain ⟨⟨h1, h2, h3, h4, h5⟩, h6, h7⟩ := h
-  have hc : ¬ ((StatusFlags.subs (n0 + tcbLen - 131072#64) (n0 + tcbLen) 131072#64).c = true ∧
-      (StatusFlags.subs (n0 + tcbLen - 131072#64) (n0 + tcbLen) 131072#64).z = false) := by
+  have hc : ¬ ((StatusFlags.subs (n0 + tcbLen - 163840#64) (n0 + tcbLen) 163840#64).c = true ∧
+      (StatusFlags.subs (n0 + tcbLen - 163840#64) (n0 + tcbLen) 163840#64).z = false) := by
     rw [subs_hi, BitVec.toNat_add]
     simp only [BitVec.toNat_ofNat]
     omega
@@ -339,6 +340,8 @@ abbrev entryL : Label := ".L3_scc_rt_alloc_tcb.0_entry"
 abbrev lenL : Label := ".L3_scc_rt_alloc_tcb.1_len"
 /-- The header's label. -/
 abbrev okL : Label := ".L3_scc_rt_alloc_tcb.3_ok"
+/-- The return's label (just before `ret`). -/
+abbrev retL : Label := ".L3_scc_rt_alloc_tcb.x25"
 /-- The abort's label. -/
 abbrev fullL : Label := ".L3_scc_rt_alloc_tcb.2_full"
 
@@ -359,10 +362,10 @@ def allocTcbIn (prog : List Directive) : Bool :=
   blockAt prog entryL 4 atJ1 && blockAt prog lenL 0 atLen &&
   blockAt prog lenL 32 [(SI.adrp .X9 "scc_rt_pinned_next").toDir] &&
   blockAt prog lenL 33 [(SI.addLo12 .X9 .X9 "scc_rt_pinned_next").toDir] && blockAt prog lenL 34 atArg &&
-  blockAt prog lenL 37 [rmwDir] && blockAt prog lenL 38 atBnd && blockAt prog lenL 47 atJ2 &&
+  blockAt prog lenL 37 [rmwDir] && blockAt prog lenL 38 atBnd && blockAt prog lenL 48 atJ2 &&
   blockAt prog okL 0 [(SI.adrp .X9 "scc_rt_pinned").toDir] &&
   blockAt prog okL 1 [(SI.addLo12 .X9 .X9 "scc_rt_pinned").toDir] && blockAt prog okL 2 atOk &&
-  blockAt prog okL 29 [hdrDir] && blockAt prog okL 30 atRet
+  blockAt prog okL 29 [hdrDir] && blockAcross prog okL 30 (atRet.take 12) retL (atRet.drop 12)
 
 #guard allocTcbIn SccCode.ret0Prog
 

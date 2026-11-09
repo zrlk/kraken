@@ -8,7 +8,7 @@ from the loader's facts the root carries (the program's two parses, the code bas
   and the take site (`siteH`).
 - `hro_H`, `hs_H`, `hsub_H`: `.rodata` off the stack pool (A1), the words' separation at `scc_rt_nthreads` and the
   second stack in the pool (A13's data part).
-- `tiH_word`: the second TCB `tH = pinA + 112` is `spawnWords`' words `4` to `9`.
+- `tiH_word`: the second TCB `tH = pinA + 144` is `spawnWords`' words `4` to `9`.
 - `hmF_H`, `hnoF_H`, `hoffT_H`: the second TCB's words mapped (A13's data part: in `.data` or `pinned`), none of
   `own2bH`'s, off `arW` (`H2Rt.hoffSp_H`).
 - `hoffL_H`, `hoffX_H`: the stack lock and cursor off `arW` (`StartH0Ti.offW_arW`).
@@ -110,11 +110,11 @@ theorem hsub_H : (r1Of (Ly).lab).Sub (Ly).Λ.stackPool :=
   Spike.Lib.A64.WakePh.StartPlaceLy.hsub1_W hpw IH hA13
 
 omit hA13 in
-/-- **A word of the second TCB** `tH = pinA + 112` is `pinA + 80 + 8 (4 + k)`, `spawnWords`' word `4 + k`. -/
+/-- **A word of the second TCB** `tH = pinA + 144` is `pinA + 112 + 8 (4 + k)`, `spawnWords`' word `4 + k`. -/
 theorem tiH_word {a : BitVec 64} (ha : a ∈ Spike.Lib.A64.Rt.Ti.tiAddrs (tH (Ly).lab)) :
-    ∃ k < 6, a = (Ly).pinA + BitVec.ofNat 64 (80 + 8 * (4 + k)) := by
-  have e : ∀ c : Nat, tH (Ly).lab + BitVec.ofNat 64 c = (Ly).pinA + BitVec.ofNat 64 (112 + c) := fun c => by
-    show Spike.Lib.A64.Flow.Ret0.pinA (Ly).lab + 112#64 + BitVec.ofNat 64 c = _
+    ∃ k < 6, a = (Ly).pinA + BitVec.ofNat 64 (112 + 8 * (4 + k)) := by
+  have e : ∀ c : Nat, tH (Ly).lab + BitVec.ofNat 64 c = (Ly).pinA + BitVec.ofNat 64 (144 + c) := fun c => by
+    show Spike.Lib.A64.Flow.Ret0.pinA (Ly).lab + 144#64 + BitVec.ofNat 64 c = _
     rw [(Ly).lab_pin, BitVec.add_assoc]; congr 1; apply BitVec.eq_of_toNat_eq; simp [BitVec.toNat_add]
   simp only [Spike.Lib.A64.Rt.Ti.tiAddrs, List.mem_cons, List.not_mem_nil, or_false] at ha
   rcases ha with rfl | rfl | rfl | rfl | rfl | rfl

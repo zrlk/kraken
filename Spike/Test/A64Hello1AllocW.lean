@@ -210,10 +210,11 @@ theorem allocSt (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -160) 
     exact ⟨hmp _ (hofn ▸ hmp'), hmem _ (.inr ⟨o.toNat, hle, hAeq⟩) m hF, hno _ (.inr ⟨o.toNat, hle, hAeq⟩)⟩
   · ablk ".L2_scc_rt_alloc.5_ok" 42 b13_ok
   · refine NodeW.st (Spike.Lib.LowerA64.BlkW.nodeW (Spike.Lib.A64.Rt.blkW_postO hello1_instOk
-      (l := ".L2_scc_rt_alloc.5_ok") (k := 54) (blk := [iRet.toDir]) (lo := -160) (hi := 0)
+      (l := ".L2_scc_rt_alloc.x22") (k := 0) (blk := [iRet.toDir]) (lo := -160) (hi := 0)
       (dead := fun _ => false) (ra := labT ".L18_wc_rodata.sp0") (by decide +kernel)
-      (by dsimp only [dumN, N]; decide +kernel) (by dsimp only [dumN, N]; decide) hR hal (by omega) (by omega)
-      (fun _ _ hJ => hJ.1 ▸ cfacts_c0) (by decide +kernel)
+      (by dsimp only [dumN, N]; rw [Spike.Test.A64Hello1RtW.labT_eq_labX]; decide +kernel)
+      (by dsimp only [dumN, N]; decide) hR hal (by omega) (by omega)
+      (fun _ _ hJ => hJ.1 ▸ cfacts_c0) (by rw [Spike.Test.A64Hello1RtW.labT_eq_labX]; decide +kernel)
       (hret_of_run (lo := -160) (hi := 0) (by dsimp only [dumN, N]; decide) fun σ c hJ => ?_) (fun _ _ _ => rfl)
       hl hh hsub hfit hFO) (List.cons_ne_nil _ _))
     obtain ⟨-, c, o, -, -, -, -, -, h30⟩ := hJ

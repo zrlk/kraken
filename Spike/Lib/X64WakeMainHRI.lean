@@ -146,7 +146,7 @@ theorem hMainR_I {asm : Asm} {E : Entry} {arch : WeakMem.Arch} {R1 : Cfg → Ter
       hS0.G, hS0.unmapped⟩
   rw [htpT] at hSw
   have hS := Spike.Lib.X64WakeInst.stOk_msM_park hp i (T := tcbM (Ly)) (W := tcb2 (Ly)) hSw
-    (Spike.Lib.X64WakeInst.tcbM_room _ hroom) (Spike.Lib.X64WakeInst.offTcb_park_tcb2 _ hroom)
+    (Spike.Lib.X64WakeInst.tcbM_room _ (by omega)) (Spike.Lib.X64WakeInst.offTcb_park_tcb2 _ hroom)
   -- `hlim`
   obtain ⟨-, -, -, ⟨b, hl, ho, hT⟩, -⟩ := hg
   have hZ' : (Ly).stacksA.toNat + 4096 ≤ (((RW Rm).fp 8).addr 0 - 8#64 - (16 : Int64).toBitVec).toNat := by

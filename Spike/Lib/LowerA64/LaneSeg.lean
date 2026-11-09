@@ -11,7 +11,8 @@ d` and `ld x9 ← w; ldr x10 ← rb; strOff x9, [x10, disp]`
 `B2 = [str x9 → d; ld x9 ← w; ldr x10 ← rb] ++ preS` (across the two
 instructions' code), the store.
 
-- `CodeAt.append`, `CdOf.append`: a code segment's concatenation;
+- `CdOf.take`, `CdOf.drop`: a code segment's prefix and suffix (its
+  concatenation, `CodeAt.append` and `CdOf.append`, is in `Blocks1.lean`);
 - `inst_xchgLoad_inv`, `inst_xchgStore_inv`: the instructions' items;
 - `LaneW`: the memory side's states at one lane's nodes in `W₀`;
 - `lane_segW`: the segment from the node before the load to the node after
@@ -34,20 +35,6 @@ open Spike.Lib.Form (opdVal)
 open Scc.Sem (ValRep)
 
 /-! ## Code segments, joined -/
-
-/-- **A code segment's concatenation**: `a` at `pc`, `b` right after it. -/
-theorem CodeAt.append {st : State} {pc : Int64} {a b : List Directive} (ha : CodeAt st pc a)
-    (hb : CodeAt st (pc + Int64.ofNat (4 * a.length)) b) : CodeAt st pc (a ++ b) := by
-  intro j d hd
-  rw [List.getElem?_append] at hd
-  split at hd
-  · exact ha j d hd
-  · have := hb (j - a.length) d hd
-    rwa [Int64.add_assoc, ← Int64.ofNat_add, ← Nat.mul_add, Nat.add_sub_cancel' (by omega)] at this
-
-theorem CdOf.append {exe : _root_.Executable} {endPc pc : Int64} {a b : List Directive} (ha : CdOf exe endPc pc a)
-    (hb : CdOf exe endPc (pc + Int64.ofNat (4 * a.length)) b) : CdOf exe endPc pc (a ++ b) :=
-  fun s he hn => CodeAt.append (ha s he hn) (hb s he hn)
 
 theorem CdOf.take {exe : _root_.Executable} {endPc pc : Int64} {a : List Directive} (h : CdOf exe endPc pc a)
     (k : Nat) : CdOf exe endPc pc (a.take k) :=

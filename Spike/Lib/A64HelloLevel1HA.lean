@@ -113,7 +113,7 @@ theorem hello_hab_closedLA {LB : Lbl} {E : Scc.Sem.Entry} {rd : TermRun.Word →
     rw [Spike.Lib.A64.Rt.stacksA_lab0]; exact Spike.Lib.A64.Rt.rt_hokD _ (by decide) (by decide)
   have hab : ∀ s : State, s.st.2 = (Ly).lab "scc_rt_abort_heap_exit" → ((MSf) []).abortAt s := fun s hs => by
     obtain ⟨-, -, -, -, -, -, -, -, e9, -⟩ := Spike.Lib.A64.HelloPh.abH_labsH hlab
-    refine ⟨.heap, 2168368, ?_, by rw [pcOf, hs, e9]; rfl⟩
+    refine ⟨.heap, 2168400, ?_, by rw [pcOf, hs, e9]; rfl⟩
     rw [Spike.Lib.A64.Flow.Worker.Wake.AbOffW.marks_target (Ly) hpL]
     show codeOf (Ly).Λ.code.lo (Ly).prog ((Ly).Λ.abortLbl .heap) = _
     rw [hprog, hlo, hΛ, ← codeT_eq]; decide +kernel

@@ -7,9 +7,9 @@ of 8 bytes.
 
 - `lowerWithMarks_data`, `lowerIR_data`: a successful lowering's data is
   `Runtime.data` at the configuration's layout;
-- `ctr_secs`: `Secs.ofProgram (Runtime.data lay) maps` gives
+- `ctr_secs`: `Secs.ofProgram (Runtime.data lay) maps tbl` gives
   `scc_rt_heap_use` an all-zero item of at least a word in `.bss ++ .data`,
-  for every layout and stack-map table.
+  for every layout, stack-map table and GC tables' data.
 
 The ISA modules `Spike/Lib/Rt/A64CtrZOfEmitted.lean` and
 `Spike/Lib/Rt/X64CtrZOfEmitted.lean` derive the `CtrZ` fact of an emitted
@@ -53,9 +53,10 @@ theorem lowerIR_data {cfg : Scc.Config} {p : CoreTerm.Prog} {l : Scc.Lower.Lower
 /-- **The runtime's data sections give the counter a zeroed word**: in
 `Secs.ofProgram (Runtime.data lay) maps`, `scc_rt_heap_use` labels the
 item `[.zero 8]` in `.bss`. -/
-theorem ctr_secs (lay : Scc.Layout) (maps : Option (List (String × List Int × List Int))) :
-    ∃ its, (heapUseSym, its) ∈ symItems ((Scc.Emit.Data.Secs.ofProgram (Scc.Lower.Runtime.data lay) maps).bss ++
-      (Scc.Emit.Data.Secs.ofProgram (Scc.Lower.Runtime.data lay) maps).data) ∧
+theorem ctr_secs (lay : Scc.Layout) (maps : Option (List (String × List Int × List Int)))
+    (tbl : List Kraken.DataImage.Item := []) :
+    ∃ its, (heapUseSym, its) ∈ symItems ((Scc.Emit.Data.Secs.ofProgram (Scc.Lower.Runtime.data lay) maps tbl).bss ++
+      (Scc.Emit.Data.Secs.ofProgram (Scc.Lower.Runtime.data lay) maps tbl).data) ∧
       allZero its = true ∧ 8 ≤ itemLen its := by
   refine ⟨[.zero 8], ?_, rfl, by decide⟩
   simp [Scc.Emit.Data.Secs.ofProgram, Scc.Lower.Runtime.data, Scc.Emit.Data.datumItems, symItems, isEnd,

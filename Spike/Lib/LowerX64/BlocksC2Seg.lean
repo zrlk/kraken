@@ -6,8 +6,11 @@ the `Accepted2` twin of `Spike/Lib/LowerX64/BlocksC1Code.lean`'s
 `Spike/Lib/LowerA64/BlocksC2Seg.lean`.
 
 - `emitInst2_allIns`, `emitTerm2_allIns`: the code of every non-call
-  `InstC2` instruction and of every `TermC2` terminator is the same
-  label-free items from every state (`Emits`), a terminator's not empty.
+  `InstC2` instruction but a checked `+` and of every `TermC2` terminator
+  but a `ret` is the same label-free items from every state (`Emits`), a
+  terminator's not empty; `emitTerm_retN`, `emitTerm_retN_ok`: a `ret` of
+  up to six words, its return site's fresh label `.L<fn>.x<k>` between the
+  teardown and `ret` (P5).
 - `emitInst_callN1_inv`, `emitInst_callN0_inv`: a call of up to six words
   with one result (the allocator's) or none (the output call's): the
   arguments' loads (`getOps`), `callq`, the return label `.L<fn>.x<k>` at the
@@ -22,7 +25,9 @@ the `Accepted2` twin of `Spike/Lib/LowerX64/BlocksC1Code.lean`'s
 - `codeC2_of_seg`, `codeC2_block`: at `BlC2` (`Spike/Lib/LowerX64/AllocRa.lean`);
   `CdCQ`, `cdCQ_at`, `codeC2_of_segQ`, `codeC2_blockQ`: each piece after a
   label of a predicate `Q` (the block's and the return labels), at `CdCQ Q`;
-  `CodeC2.monoCd`: monotone in the code predicate.
+  `CodeC2.monoCd`: monotone in the code predicate. A checked `+`'s
+  fall-through label and a `ret`'s return site label (P5) are fresh labels
+  of `Q` too (`hQK`).
 
 Where x86-64 differs from AArch64: as in `BlocksC1Code.lean`, the emitter
 is a state monad (`Emits`), blocks are sized, the return label is the label
@@ -56,19 +61,16 @@ section Emit
 
 variable {fr : Scc.Emit.X64.Frame}
 
-/-- **The code of every non-call `InstC2` instruction** is the same items
-from every state, label-free: a checked `+`, a saturating `-`, a lane's
-load and store, the output block's `ext32`, `+`, `· 8` and unsigned
-`min`. -/
+/-- **The code of every non-call `InstC2` instruction but a checked `+`**
+(which takes a fresh label, P5) is the same items from every state,
+label-free: a saturating `-`, a lane's load and store, the output block's
+`ext32`, `+`, `· 8` and unsigned `min`. -/
 theorem emitInst2_allIns {sm : Option Scc.IR.StackMap.Entry} {i : Scc.IR.Inst} (hi : InstC2 i)
-    (hc : isCall i = false) {s s' : S} (h : emitInst fr sm i s = .ok ((), s')) :
+    (hc : isCall i = false) (hA : ∀ d a b, i ≠ .addChk d a b) {s s' : S}
+    (h : emitInst fr sm i s = .ok ((), s')) :
     ∃ c, Emits (emitInst fr sm i) c ∧ AllIns c := by
   cases hi with
-  | addChk d p q =>
-    obtain ⟨la, lb, off, ha, hb, hd, -⟩ := emitInst_add_cases fr sm d p q s h
-    rw [Scc.Lower.InvX64.emitInst_addChk]
-    exact ⟨_, (emits_ld ha).seq ((emits_ld hb).seq ((emits_ins _).seq ((emits_ins _).seq (emits_st hd)))),
-      by allIns_tac⟩
+  | addChk d p q => exact absurd rfl (hA d p q)
   | subSat d p q =>
     obtain ⟨la, lb, off, ha, hb, hd, -⟩ := emitInst_sub_cases fr sm d p q s h
     simp only [emitInst]
@@ -134,28 +136,47 @@ theorem emitInst2_allIns {sm : Option Scc.IR.StackMap.Entry} {i : Scc.IR.Inst} (
   | newBuf p h' kv u => simp [isCall, newBufCall] at hc
   | print a0 a1 => simp [isCall] at hc
 
-/-- **The code of every `TermC2` terminator** is the same items from every
-state, label-free and not empty: a `ret` of up to six words (their loads
-into the result registers, the epilogue, `ret`) and an `if`'s `br`. -/
-theorem emitTerm2_allIns {t : Scc.IR.Term} (ht : TermC2 t) {s s' : S} (h : emitTerm fr t s = .ok ((), s')) :
+/-- **A `ret` of up to six words' code** from a state `s` (P5): the words'
+loads `lw` into the result registers, the teardown, the return site's
+fresh label `.L<fn>.x<k>` at the label counter `k` of `s`, `ret`; the
+counter `k + 1` after it. -/
+theorem emitTerm_retN {ws : List Scc.IR.Operand} (hn : ws.length ≤ Scc.Emit.X64.retRegs.length) {lw : List Item}
+    (hlw : getOps fr (ws.zip Scc.Emit.X64.retRegs) = .ok lw) (s : S) :
+    emitTerm fr (.ret ws) s =
+      .ok ((), { s with out := (lw ++ retItems fr.fn s.next).reverse ++ s.out, next := s.next + 1 }) := by
+  have hgt : ¬ ws.length > Scc.Emit.X64.retRegs.length := by omega
+  have hl : Scc.Emit.X64.loadArgs fr Scc.Emit.X64.retRegs ws "ret" =
+      (ldsLoop fr (ws.zip Scc.Emit.X64.retRegs) >>= fun _ => pure ()) := by
+    simp only [Scc.Emit.X64.loadArgs, hgt, ite_false]
+  simp only [emitTerm, hl]
+  rw [bind_ok (ldsLoop_emits hlw s)]
+  simp only [bind, StateT.bind, Scc.Emit.X64.epilogue, Scc.Emit.X64.movRR, ins, Scc.Emit.X64.item, modify,
+    modifyGet, MonadStateOf.modifyGet, StateT.modifyGet, pure, StateT.pure, Except.pure, Except.bind,
+    Scc.Emit.X64.lbl, Scc.Emit.X64.freshL, get, getThe, MonadStateOf.get, StateT.get, set, StateT.set]
+  simp [retItems, retL]
+
+/-- **A `ret` succeeds only at up to six words with their loads**
+(`getOps` into the result registers). -/
+theorem emitTerm_retN_ok {ws : List Scc.IR.Operand} {s s' : S} (h : emitTerm fr (.ret ws) s = .ok ((), s')) :
+    ws.length ≤ Scc.Emit.X64.retRegs.length ∧ ∃ lw, getOps fr (ws.zip Scc.Emit.X64.retRegs) = .ok lw := by
+  by_cases hgt : ws.length > Scc.Emit.X64.retRegs.length
+  · simp only [emitTerm, Scc.Emit.X64.loadArgs, hgt, ite_true] at h
+    cases h
+  have hl : Scc.Emit.X64.loadArgs fr Scc.Emit.X64.retRegs ws "ret" =
+      (ldsLoop fr (ws.zip Scc.Emit.X64.retRegs) >>= fun _ => pure ()) := by
+    simp only [Scc.Emit.X64.loadArgs, hgt, ite_false]
+  simp only [emitTerm, hl] at h
+  obtain ⟨u, s1, h1, -⟩ := bind_inv h
+  exact ⟨by omega, ldsLoop_ok h1⟩
+
+/-- **The code of every `TermC2` terminator but a `ret`** (which takes a
+fresh label, P5) is the same items from every state, label-free and not
+empty: an `if`'s `br`. -/
+theorem emitTerm2_allIns {t : Scc.IR.Term} (ht : TermC2 t) (hr : ∀ ws, t ≠ .ret ws) {s s' : S}
+    (h : emitTerm fr t s = .ok ((), s')) :
     ∃ c, Emits (emitTerm fr t) c ∧ AllIns c ∧ directives c ≠ [] := by
   cases ht with
-  | ret ws =>
-    by_cases hgt : ws.length > Scc.Emit.X64.retRegs.length
-    · simp only [emitTerm, Scc.Emit.X64.loadArgs, hgt, ite_true] at h
-      cases h
-    have hl : Scc.Emit.X64.loadArgs fr Scc.Emit.X64.retRegs ws "ret" =
-        (ldsLoop fr (ws.zip Scc.Emit.X64.retRegs) >>= fun _ => pure ()) := by
-      simp only [Scc.Emit.X64.loadArgs, hgt, ite_false]
-    have he : emitTerm fr (.ret ws) =
-        ((ldsLoop fr (ws.zip Scc.Emit.X64.retRegs) >>= fun _ => pure ()) >>= fun _ =>
-          (do Scc.Emit.X64.epilogue; Scc.Emit.X64.ins (Scc.Emit.X64.i64 .ret))) := by
-      simp only [emitTerm, hl]
-    rw [he] at h ⊢
-    obtain ⟨u, s1, h1, -⟩ := bind_inv h
-    obtain ⟨lw, hlw⟩ := ldsLoop_ok h1
-    refine ⟨_, (ldsLoop_emits hlw).seq emits_retTail, allIns_append (allIns_getOps hlw) (by rfl), ?_⟩
-    simp [directives_eq_dirs, dirs_append, epiItems, dirs]
+  | ret ws => exact absurd rfl (hr ws)
   | br p q l l' =>
     simp only [emitTerm, cmpAB] at h ⊢
     obtain ⟨u1, s1, h1, h⟩ := bind_inv h
@@ -286,8 +307,10 @@ theorem CodeC2.mono {fr : Scc.Emit.X64.Frame} {Cd : Int64 → List (Directive ×
     .inr (.inl ⟨d, g, w, lw, off, zs, zc, z, hi, hl, ho, hz, hcd, hB _ _ _ _ hb, hs, CodeC2.mono hB h⟩)
   | _, _, _ :: _, _, .inr (.inr (.inl ⟨d, ws, lw, off, zs, zc, z, hi, hn, hl, ho, hz, hcd, hb, hs, h⟩)) =>
     .inr (.inr (.inl ⟨d, ws, lw, off, zs, zc, z, hi, hn, hl, ho, hz, hcd, hB _ _ _ _ hb, hs, CodeC2.mono hB h⟩))
-  | _, _, _ :: _, _, .inr (.inr (.inr ⟨ws, lw, zs, zc, hi, hn, hl, hz, hcd, hb, h⟩)) =>
-    .inr (.inr (.inr ⟨ws, lw, zs, zc, hi, hn, hl, hz, hcd, hB _ _ _ _ hb, CodeC2.mono hB h⟩))
+  | _, _, _ :: _, _, .inr (.inr (.inr (.inl ⟨ws, lw, zs, zc, hi, hn, hl, hz, hcd, hb, h⟩))) =>
+    .inr (.inr (.inr (.inl ⟨ws, lw, zs, zc, hi, hn, hl, hz, hcd, hB _ _ _ _ hb, CodeC2.mono hB h⟩)))
+  | _, _, _ :: _, _, .inr (.inr (.inr (.inr ⟨d, a, b, la, lb, off, zs, z, hi, ha, hb, ho, hz, hcd, hs, h⟩))) =>
+    .inr (.inr (.inr (.inr ⟨d, a, b, la, lb, off, zs, z, hi, ha, hb, ho, hz, hcd, hs, CodeC2.mono hB h⟩)))
 
 /-- **`CodeC2` is monotone in its code predicate.** -/
 theorem CodeC2.monoCd {fr : Scc.Emit.X64.Frame} {Cd Cd' : Int64 → List (Directive × Nat) → Prop}
@@ -295,15 +318,19 @@ theorem CodeC2.monoCd {fr : Scc.Emit.X64.Frame} {Cd Cd' : Int64 → List (Direct
     ∀ {k : Nat} {pc : Int64} {is : List Scc.IR.Inst} {tm : Scc.IR.Term},
       CodeC2 fr Cd Bl k pc is tm → CodeC2 fr Cd' Bl k pc is tm
   | _, _, [], _, .inl h => .inl h
-  | _, _, [], _, .inr ⟨c, zs, hE, hz, hcd⟩ => .inr ⟨c, zs, hE, hz, hC _ _ hcd⟩
+  | _, _, [], _, .inr (.inl ⟨c, zs, hE, hz, hcd⟩) => .inr (.inl ⟨c, zs, hE, hz, hC _ _ hcd⟩)
+  | _, _, [], _, .inr (.inr ⟨ws, lw, zs, hw, hn, hl, hz, hcd⟩) => .inr (.inr ⟨ws, lw, zs, hw, hn, hl, hz, hC _ _ hcd⟩)
   | _, _, _ :: _, _, .inl ⟨hc, l, zs, hE, hz, hcd, h⟩ => .inl ⟨hc, l, zs, hE, hz, hC _ _ hcd, CodeC2.monoCd hC h⟩
   | _, _, _ :: _, _, .inr (.inl ⟨d, g, w, lw, off, zs, zc, z, hi, hl, ho, hz, hcd, hb, hs, h⟩) =>
     .inr (.inl ⟨d, g, w, lw, off, zs, zc, z, hi, hl, ho, hz, hC _ _ hcd, hb, hC _ _ hs, CodeC2.monoCd hC h⟩)
   | _, _, _ :: _, _, .inr (.inr (.inl ⟨d, ws, lw, off, zs, zc, z, hi, hn, hl, ho, hz, hcd, hb, hs, h⟩)) =>
     .inr (.inr (.inl ⟨d, ws, lw, off, zs, zc, z, hi, hn, hl, ho, hz, hC _ _ hcd, hb, hC _ _ hs,
       CodeC2.monoCd hC h⟩))
-  | _, _, _ :: _, _, .inr (.inr (.inr ⟨ws, lw, zs, zc, hi, hn, hl, hz, hcd, hb, h⟩)) =>
-    .inr (.inr (.inr ⟨ws, lw, zs, zc, hi, hn, hl, hz, hC _ _ hcd, hb, CodeC2.monoCd hC h⟩))
+  | _, _, _ :: _, _, .inr (.inr (.inr (.inl ⟨ws, lw, zs, zc, hi, hn, hl, hz, hcd, hb, h⟩))) =>
+    .inr (.inr (.inr (.inl ⟨ws, lw, zs, zc, hi, hn, hl, hz, hC _ _ hcd, hb, CodeC2.monoCd hC h⟩)))
+  | _, _, _ :: _, _, .inr (.inr (.inr (.inr ⟨d, a, b, la, lb, off, zs, z, hi, ha, hb, ho, hz, hcd, hs, h⟩))) =>
+    .inr (.inr (.inr (.inr ⟨d, a, b, la, lb, off, zs, z, hi, ha, hb, ho, hz, hC _ _ hcd, hC _ _ hs,
+      CodeC2.monoCd hC h⟩)))
 
 /-! ## The code's first directive -/
 
@@ -342,14 +369,29 @@ theorem code2_head {fr : Scc.Emit.X64.Frame} (hm : fr.maps = true) {tm : Scc.IR.
     obtain ⟨u, s1, hI, hT⟩ := bind_inv h
     rw [instsCode_nil] at hI
     cases hI
-    obtain ⟨ct, et, act, hne⟩ := emitTerm2_allIns htm hT
-    rw [et] at hT
+    by_cases hr : ∀ ws, tm ≠ .ret ws
+    · obtain ⟨ct, et, act, hne⟩ := emitTerm2_allIns htm hr hT
+      rw [et] at hT
+      cases hT
+      have hc : c = ct := by
+        have h2 := List.append_cancel_right hD.symm
+        rw [← List.reverse_reverse c, h2, List.reverse_reverse]
+      subst hc
+      exact headIns_of_all act hne
+    -- a `ret`: its loads, then the teardown (P5)
+    obtain ⟨ws, rfl⟩ : ∃ ws, tm = .ret ws := by
+      cases htm with
+      | ret ws => exact ⟨ws, rfl⟩
+      | br => exact absurd (fun _ h => by cases h) hr
+    obtain ⟨hn, lw, hlw⟩ := emitTerm_retN_ok hT
+    rw [emitTerm_retN hn hlw] at hT
     cases hT
-    have hc : c = ct := by
+    have hc : c = lw ++ retItems fr.fn s.next := by
       have h2 := List.append_cancel_right hD.symm
       rw [← List.reverse_reverse c, h2, List.reverse_reverse]
     subst hc
-    exact headIns_of_all act hne
+    rw [directives_eq_dirs, dirs_append]
+    exact headIns_append_all (allIns_getOps hlw) ⟨_, _, rfl, rfl⟩
   | i :: is, ms, s, s', c, hs, hms, h, hD => by
     obtain ⟨m, ms, rfl⟩ : ∃ m ms', ms = m :: ms' := by
       cases ms with
@@ -378,8 +420,19 @@ theorem code2_head {fr : Scc.Emit.X64.Frame} (hm : fr.maps = true) {tm : Scc.IR.
       rw [hsplit _ hci, directives_eq_dirs, dirs_append, dirs_append]
       rw [List.append_assoc]
       refine headIns_append_all aw ⟨_, _, rfl, isLabel_callq g⟩
+    by_cases hac : ∃ d a b, i = .addChk d a b
+    · -- a checked `+`: its label-free loads and add, then its fall-through's label (P5)
+      obtain ⟨d, a, b, rfl⟩ := hac
+      obtain ⟨la, lb, off, hla, hlb, -, rfl⟩ := emitInst_add_cases fr m d a b s hE
+      have hA : AllIns (la ++ lb ++ addChecked (ovfL fr)) :=
+        allIns_append (allIns_append (allIns_getOp hla) (allIns_getOp hlb)) (by unfold addChecked; allIns_tac)
+      rw [hsplit (la ++ lb ++ addChecked (ovfL fr) ++
+        [Item.d (.label (retL fr.fn s.next)), Item.d (stDir off)]) rfl, directives_eq_dirs, dirs_append,
+        dirs_append]
+      refine headIns_append (headIns_append (headIns_of_all hA ?_))
+      simp [addChecked, dirs_append, dirs]
     by_cases hc : isCall i = false
-    · obtain ⟨ci, ei, ai⟩ := emitInst2_allIns hs'.1 hc hE
+    · obtain ⟨ci, ei, ai⟩ := emitInst2_allIns hs'.1 hc (fun d a b h => hac ⟨d, a, b, h⟩) hE
       rw [ei] at hE
       cases hE
       rw [hsplit ci rfl, directives_eq_dirs, dirs_append]
@@ -418,60 +471,6 @@ theorem inRunB0_of_segIn {l : Label} {R zs : List Directive} (h : segIn cells l 
     rw [List.length_map] at this
     rw [this]; simp
   simpa using inRunB_of_blockAt hb hlen
-
-/-- **A piece of a block's code at `pc` after a label of `Q`**: `CdC` with
-its label `L` satisfying `Q` (`UserAbC`'s `CdCL` at `Q := (· ∉ abLabs)`). -/
-def CdCQ (Q : Label → Prop) (cells : List (Directive × Nat)) (okPc : Nat → Bool) (ph : Nat → Nat)
-    (lab : Label → Int64) (ra : Int64) (pc : Int64) (blk : List (Directive × Nat)) : Prop :=
-  blk.all (fun c => !c.1.isLabel) = true ∧ ∃ L j off, Q L ∧ lab L + Int64.ofNat off = pc ∧
-    blockAt cells L j off blk = true ∧ runPhB okPc ph lab pc ra blk = true
-
-theorem CdCQ.toCdC {Q : Label → Prop} {pc : Int64} {blk : List (Directive × Nat)}
-    (h : CdCQ Q cells okPc ph lab ra pc blk) : CdC cells okPc ph lab ra pc blk :=
-  let ⟨hi, L, j, off, _, he, hb, hr⟩ := h
-  ⟨hi, L, j, off, he, hb, hr⟩
-
-/-- **`cdC_at` after a label of `Q`**: the piece is at `CdCQ Q` (its label
-is the segment's, `l`). -/
-theorem cdCQ_at {Q : Label → Prop} {l : Label} (hQ : Q l) {t : List (Directive × Nat)}
-    (ht : after l cells = some t) {xs c zs : List Directive}
-    (hseg : segIn cells l (xs ++ c ++ zs) = true) (hx : xs.all (fun d => !d.isLabel) = true)
-    (hc : c.all (fun d => !d.isLabel) = true)
-    (hph : ∀ r ∈ runsAux l (t.take xs.length).reverse ((t.drop xs.length).take (c ++ zs).length),
-      runPhB okPc ph lab (lab r.1) ra r.2 = true) :
-    ∃ zc, zc.length = c.length ∧
-      CdCQ Q cells okPc ph lab ra (lab l + Int64.ofNat (cellOff t xs.length)) (c.zip zc) ∧
-      lab l + Int64.ofNat (cellOff t xs.length) + Int64.ofNat zc.sum =
-        lab l + Int64.ofNat (cellOff t (xs ++ c).length) := by
-  have hY := seg_slice ht hseg
-  have hYe := zip_fst_snd ((t.drop xs.length).take c.length)
-  rw [hY] at hYe
-  have hlenT : (xs ++ c ++ zs).length ≤ t.length := by
-    have := congrArg List.length (seg_take ht hseg)
-    simp only [List.length_map, List.length_take] at this
-    omega
-  have hS := slice_noLabel hY hc
-  refine ⟨((t.drop xs.length).take c.length).map (·.2), by simp; simp at hlenT; omega, ?_, ?_⟩
-  · rw [hYe]
-    refine ⟨List.all_eq_true.mpr fun d hd => by simp [hS d hd], l, xs.length, cellOff t xs.length, hQ, rfl, ?_,
-      ?_⟩
-    · obtain ⟨t', ht', -, hb⟩ := blockAt_of_segIn hseg hx hc
-      rw [ht] at ht'
-      cases ht'
-      exact hb
-    · rw [List.length_append, List.take_add, runsAux_shift _ _ _ _ hS] at hph
-      obtain ⟨P, hP⟩ := runsAux_run0 l (((t.drop xs.length).take c.length).reverse ++ (t.take xs.length).reverse)
-        (((t.drop xs.length).drop c.length).take zs.length)
-      have hr := hph _ hP
-      simp only [List.reverse_append, List.reverse_reverse] at hr
-      have := runPhB_sub (xs := t.take xs.length) (ys := (t.drop xs.length).take c.length) (zs := P)
-        (by simpa only [List.append_assoc] using hr)
-      have e : cellOff (t.take xs.length ++ (t.drop xs.length).take c.length ++ P) (t.take xs.length).length =
-          cellOff t xs.length := by
-        unfold cellOff
-        rw [List.append_assoc, List.take_left' rfl]
-      rwa [e] at this
-  · rw [List.length_append, pc_step]
 
 /-- **A call in a segment** (`codeC_of_seg`'s call arm): the code `lw`,
 `callq g`, the return label `.L<fn>.x<k>`, then `R` (beginning with a
@@ -632,20 +631,81 @@ theorem codeC2_of_segQ (hm : fr.maps = true)
         ph (lab r.1).toBitVec.toNat = ph ra.toBitVec.toNat) →
       CodeC2 fr (CdCQ Q cells okPc ph lab ra) (BlC2 cells okPc ph lab fr ra) s.next
         (lab l + Int64.ofNat (cellOff t xs.length)) is tm
-  | [], ms, s, s', code, l, t, xs, zs, hQ, _, _, h, hD, ht, hseg, hx, hph, _ => by
+  | [], ms, s, s', code, l, t, xs, zs, hQ, _, _, h, hD, ht, hseg, hx, hph, hrl => by
     obtain ⟨u, s1, hI, hT⟩ := bind_inv h
     rw [instsCode_nil] at hI
     cases hI
-    obtain ⟨ct, et, act, -⟩ := emitTerm2_allIns htm hT
-    rw [et] at hT
+    by_cases hr : ∀ ws, tm ≠ .ret ws
+    · obtain ⟨ct, et, act, -⟩ := emitTerm2_allIns htm hr hT
+      rw [et] at hT
+      cases hT
+      have hc : code = ct := by
+        have h1 : code.reverse ++ s.out = ct.reverse ++ s.out := hD.symm
+        have h2 := List.append_cancel_right h1
+        rw [← List.reverse_reverse code, h2, List.reverse_reverse]
+      subst hc
+      obtain ⟨zc, hz, hcd, -⟩ := cdCQ_at hQ ht hseg hx act hph
+      exact Or.inr (Or.inl ⟨code, zc, et, hz, hcd⟩)
+    -- a `ret`: its return site's label between the teardown and `ret` (P5)
+    obtain ⟨ws, rfl⟩ : ∃ ws, tm = .ret ws := by
+      cases htm with
+      | ret ws => exact ⟨ws, rfl⟩
+      | br => exact absurd (fun _ h => by cases h) hr
+    obtain ⟨hn, lw, hlw⟩ := emitTerm_retN_ok hT
+    rw [emitTerm_retN hn hlw] at hT
     cases hT
-    have hc : code = ct := by
-      have h1 : code.reverse ++ s.out = ct.reverse ++ s.out := hD.symm
+    have hc : code = lw ++ retItems fr.fn s.next := by
+      have h1 : code.reverse ++ s.out = (lw ++ retItems fr.fn s.next).reverse ++ s.out := hD.symm
       have h2 := List.append_cancel_right h1
       rw [← List.reverse_reverse code, h2, List.reverse_reverse]
     subst hc
-    obtain ⟨zc, hz, hcd, -⟩ := cdCQ_at hQ ht hseg hx act hph
-    exact Or.inr ⟨code, zc, et, hz, hcd⟩
+    have eT : dirs (lw ++ tearItems) = tearDirs lw := rfl
+    rw [directives_eq_dirs, dirs_retItems, eT] at hseg hph hrl
+    have hRe : retDirs lw = tearDirs lw ++ [i64 .ret] := by rw [retDirs, dirs_epiItems_split, ← tearDirs]
+    have hTl : (tearDirs lw).all (fun d => !d.isLabel) = true :=
+      (allIns_append (allIns_getOps hlw) (by unfold tearItems; allIns_tac) : AllIns (lw ++ tearItems))
+    have hTne : tearDirs lw ≠ [] := by
+      rw [tearDirs, dirs_append]; simp [tearItems, dirs]
+    -- the loads and teardown
+    have hseg1 : segIn cells l (xs ++ tearDirs lw ++ .label (retL fr.fn s.next) :: ([i64 .ret] ++ zs)) = true := by
+      simpa only [List.append_assoc, List.cons_append, List.singleton_append, List.nil_append] using hseg
+    have hph1 : ∀ r ∈ runsAux l (t.take xs.length).reverse
+        ((t.drop xs.length).take (tearDirs lw ++ .label (retL fr.fn s.next) :: ([i64 .ret] ++ zs)).length),
+        runPhB okPc ph lab (lab r.1) ra r.2 = true := by
+      simpa only [List.append_assoc, List.cons_append, List.singleton_append, List.nil_append] using hph
+    have hrl1 : ∀ r ∈ runsAux l (t.take xs.length).reverse
+        ((t.drop xs.length).take (tearDirs lw ++ .label (retL fr.fn s.next) :: ([i64 .ret] ++ zs)).length),
+        ph (lab r.1).toBitVec.toNat = ph ra.toBitVec.toNat := by
+      simpa only [List.append_assoc, List.cons_append, List.singleton_append, List.nil_append] using hrl
+    obtain ⟨z1, hz1, ha1, hat1, hr1, hpc1, hp1⟩ := cdCQ_at1 hQ ht hseg1 hx hTl hph1
+    have hxT : (xs ++ tearDirs lw).all (fun d => !d.isLabel) = true := by rw [List.all_append, hx, hTl]; rfl
+    obtain ⟨ht2, hseg2, hsp⟩ := label_at hgap ht (by simpa only [List.append_assoc] using hseg1) hxT
+    obtain ⟨-, hafter⟩ := runs_label ht hseg1 hTl hph1
+    obtain ⟨-, hrafter⟩ := runs_label ht hseg1 hTl hrl1
+    generalize t.drop ((xs ++ tearDirs lw).length + 1) = t2 at ht2 hafter hrafter
+    -- `ret`, after the return site's label
+    have hph2 : ∀ r ∈ runsAux (retL fr.fn s.next) (t2.take ([] : List Directive).length).reverse
+        ((t2.drop ([] : List Directive).length).take ([i64 .ret] ++ zs).length),
+        runPhB okPc ph lab (lab r.1) ra r.2 = true := by simpa using hafter
+    have hQr : Q (retL fr.fn s.next) := hQK s.next
+    obtain ⟨z2, hz2, ha2, hat2, hr2, -, -⟩ := cdCQ_at1 (Q := Q) (xs := []) hQr ht2
+      (by simpa using hseg2) rfl rfl hph2
+    simp only [List.length_nil, Spike.Lib.X64.cellOff_zero, show Int64.ofNat 0 = 0 from rfl, Int64.add_zero]
+      at hat2 hr2
+    have hphR : ph (lab (retL fr.fn s.next)).toBitVec.toNat = ph ra.toBitVec.toNat := by
+      obtain ⟨y, hy⟩ := runsAux_head (retL fr.fn s.next) [] _
+      exact hrafter _ hy
+    have hphl : ph (lab l).toBitVec.toNat = ph ra.toBitVec.toNat := by
+      obtain ⟨y, hy⟩ := runsAux_head l _ _
+      exact hrl _ hy
+    have hsp' : lab (retL fr.fn s.next) = lab l + Int64.ofNat (cellOff t xs.length) + Int64.ofNat z1.sum := by
+      rw [hpc1, hsp]
+    have hs1 : (((tearDirs lw).zip z1).map (·.2)).sum = z1.sum := by
+      rw [List.map_snd_zip (by omega)]
+    refine Or.inr (Or.inr ⟨ws, lw, z1 ++ z2, rfl, hn, hlw, by rw [hRe]; simp [hz1, hz2], ?_⟩)
+    rw [hRe, List.zip_append hz1.symm]
+    refine ⟨by rw [List.all_append, ha1, ha2]; rfl, .inr ⟨_, _, rfl, hat1, by rw [hs1, ← hsp']; exact hat2⟩, ?_⟩
+    exact runPhB_append hr1 (by rw [hs1, ← hsp']; exact hr2) (by rw [hs1, ← hsp', hphR, hp1 hTne, hphl])
   | i :: is, ms, s, s', code, l, t, xs, zs, hQ, hs, hms, h, hD, ht, hseg, hx, hph, hrl => by
     obtain ⟨m, ms, rfl⟩ : ∃ m ms', ms = m :: ms' := by
       cases ms with
@@ -660,9 +720,75 @@ theorem codeC2_of_segQ (hm : fr.maps = true)
       rw [bind_ok hI]; exact hT
     obtain ⟨c', hc'⟩ := (Pre.bind' (instsCode_pre fr is ms) fun _ => emitTerm_pre fr tm).out _ _ _ hrest
     have hD' : s'.out = c'.reverse.reverse ++ s2.out := by rw [List.reverse_reverse]; exact hc'
+    by_cases hac : ∃ d a b, i = .addChk d a b
+    · -- a checked `+`: its fall-through's label before the store (P5)
+      obtain ⟨d, a, b, rfl⟩ := hac
+      obtain ⟨la, lb, off, hla, hlb, hd, rfl⟩ := emitInst_add_cases fr m d a b s hE
+      have hcode : code = (la ++ lb ++ addChecked (ovfL fr) ++
+          [Item.d (.label (retL fr.fn s.next)), Item.d (stDir off)]) ++ c'.reverse := by
+        have h1 : code.reverse ++ s.out = (c' ++ (la ++ lb ++ addChecked (ovfL fr) ++
+            [Item.d (.label (retL fr.fn s.next)), Item.d (stDir off)]).reverse) ++ s.out := by
+          rw [← hD, hc']; simp
+        have h2 := List.append_cancel_right h1
+        rw [← List.reverse_reverse code, h2]; simp
+      subst hcode
+      generalize hDd : directives c'.reverse = D at hseg hph hrl
+      have hdd : directives ((la ++ lb ++ addChecked (ovfL fr) ++
+          [Item.d (.label (retL fr.fn s.next)), Item.d (stDir off)]) ++ c'.reverse) =
+          addDirs fr la lb ++ .label (retL fr.fn s.next) :: stDir off :: D := by
+        rw [← hDd]
+        simp only [directives_eq_dirs, dirs_append, addDirs, List.append_assoc]
+        rfl
+      rw [hdd] at hseg hph hrl
+      have hAl : (addDirs fr la lb).all (fun d => !d.isLabel) = true :=
+        (allIns_append (allIns_append (allIns_getOp hla) (allIns_getOp hlb)) (by unfold addChecked; allIns_tac) :
+          AllIns (la ++ lb ++ addChecked (ovfL fr)))
+      have hSl : (stDir off).isLabel = false := rfl
+      -- the checked add
+      have hseg1 : segIn cells l (xs ++ addDirs fr la lb ++ .label (retL fr.fn s.next) :: ([stDir off] ++ (D ++ zs))) =
+          true := by
+        simpa only [List.append_assoc, List.cons_append, List.singleton_append, List.nil_append] using hseg
+      have hph1 : ∀ r ∈ runsAux l (t.take xs.length).reverse
+          ((t.drop xs.length).take (addDirs fr la lb ++ .label (retL fr.fn s.next) :: ([stDir off] ++ (D ++ zs))).length),
+          runPhB okPc ph lab (lab r.1) ra r.2 = true := by
+        simpa only [List.append_assoc, List.cons_append, List.singleton_append, List.nil_append] using hph
+      have hrl1 : ∀ r ∈ runsAux l (t.take xs.length).reverse
+          ((t.drop xs.length).take (addDirs fr la lb ++ .label (retL fr.fn s.next) :: ([stDir off] ++ (D ++ zs))).length),
+          ph (lab r.1).toBitVec.toNat = ph ra.toBitVec.toNat := by
+        simpa only [List.append_assoc, List.cons_append, List.singleton_append, List.nil_append] using hrl
+      obtain ⟨zl, hzl, hcdl, hpcl⟩ := cdCQ_at hQ ht hseg1 hx hAl hph1
+      have hxA : (xs ++ addDirs fr la lb).all (fun d => !d.isLabel) = true := by rw [List.all_append, hx, hAl]; rfl
+      obtain ⟨ht2, hseg2, hsp⟩ := label_at hgap ht (by simpa only [List.append_assoc] using hseg1) hxA
+      obtain ⟨-, hafter⟩ := runs_label ht hseg1 hAl hph1
+      obtain ⟨-, hrafter⟩ := runs_label ht hseg1 hAl hrl1
+      generalize t.drop ((xs ++ addDirs fr la lb).length + 1) = t2 at ht2 hafter hrafter
+      -- the store, after the fall-through's label
+      have hsegS : segIn cells (retL fr.fn s.next) ([] ++ [stDir off] ++ (D ++ zs)) = true := by simpa using hseg2
+      have hphS : ∀ r ∈ runsAux (retL fr.fn s.next) (t2.take ([] : List Directive).length).reverse
+          ((t2.drop ([] : List Directive).length).take ([stDir off] ++ (D ++ zs)).length),
+          runPhB okPc ph lab (lab r.1) ra r.2 = true := by simpa using hafter
+      have hrlS : ∀ r ∈ runsAux (retL fr.fn s.next) (t2.take ([] : List Directive).length).reverse
+          ((t2.drop ([] : List Directive).length).take ([stDir off] ++ (D ++ zs)).length),
+          ph (lab r.1).toBitVec.toNat = ph ra.toBitVec.toNat := by simpa using hrafter
+      have hQr : Q (retL fr.fn s.next) := hQK s.next
+      obtain ⟨zst, hzst, hcds, hpcs⟩ := cdCQ_at (Q := Q) hQr ht2 hsegS rfl (by simp [hSl]) hphS
+      obtain ⟨z, rfl⟩ := length_one hzst
+      -- the rest of the block, the label counter at `k + 1`
+      have hSS := slice_noLabel (seg_slice ht2 hsegS) (by simp [hSl])
+      rw [show ([stDir off] ++ (D ++ zs)).length = [stDir off].length + (D ++ zs).length from
+        List.length_append, runs_step hSS] at hphS hrlS
+      have := codeC2_of_segQ hm hgap htm hQK is ms _ s' c'.reverse (retL fr.fn s.next) _ [stDir off] zs hQr hs'.2
+        hms' hrest hD' ht2 (by rw [hDd]; simpa using hsegS) (by simp [hSl]) (by rw [hDd]; simpa using hphS)
+        (by rw [hDd]; simpa using hrlS)
+      simp only [List.length_nil, List.nil_append, List.length_singleton, Spike.Lib.X64.cellOff_zero] at hpcs hcds this
+      have hsp' : lab (retL fr.fn s.next) = lab l + Int64.ofNat (cellOff t xs.length) + Int64.ofNat zl.sum := by
+        rw [hpcl, hsp]
+      refine Or.inr (Or.inr (Or.inr (Or.inr ⟨d, a, b, la, lb, off, zl, z, rfl, hla, hlb, hd, hzl, hcdl, ?_, ?_⟩)))
+      · rw [← hsp']; simpa using hcds
+      · rw [← hsp']; rw [← hpcs] at this; simpa using this
     by_cases hc : isCall i = false
-    · -- an instruction other than a call: label-free items
-      obtain ⟨ci, ei, ai⟩ := emitInst2_allIns hs'.1 hc hE
+    · -- an instruction other than a call or a checked `+`: label-free items
+      obtain ⟨ci, ei, ai⟩ := emitInst2_allIns hs'.1 hc (fun d a b h => hac ⟨d, a, b, h⟩) hE
       rw [ei] at hE
       cases hE
       have hcode : code = ci ++ c'.reverse := by
@@ -777,7 +903,7 @@ theorem codeC2_of_segQ (hm : fr.maps = true)
         obtain ⟨zl, zc, zr, hzl, hcdl, hbl, hzr, -, hcode⟩ := hcall lw [] Scc.Lower.Names.print mp
           (allIns_getOps hw) allIns_nil (by rw [hs2]; simp)
         obtain rfl : zr = [] := List.eq_nil_of_length_eq_zero hzr
-        exact .inr (.inr (.inr ⟨[a0, a1], lw, zl, zc, rfl, rfl, hw, hzl, hcdl, hbl, by simpa using hcode⟩))
+        exact .inr (.inr (.inr (.inl ⟨[a0, a1], lw, zl, zc, rfl, rfl, hw, hzl, hcdl, hbl, by simpa using hcode⟩)))
       | _ => exact absurd rfl hc
 
 /-- **`codeC2_of_segQ` at `CdC`** (any label). -/

@@ -37,12 +37,30 @@ info: "\
 -- their digests, and states the lowerability theorem.
 #guard
   let c := render { arch := .x64 } "t.w" "src\n" "asm\n" none [] { hasNeed := true }
-  c.startsWith "import Scc.Cert.X64\nimport Scc.Cert.OutStageX64\nimport Scc.Cert.SrcTerm\n" &&
+  c.startsWith "import Scc.Cert.X64\nimport Scc.Cert.OutStageX64\nimport Scc.Cert.OutStageWX64\nimport Scc.Cert.MapsPartX64\nimport Scc.Cert.SrcTerm\n" &&
   (c.splitOn "-- SHA-256 (UTF-8): ").length == 3 &&
   (c.splitOn "theorem lowerable : Scc.Emit.X64.ProgramWCLowerable prog := by decide +kernel").length == 2 &&
   (c.splitOn "#guard Scc.Cert.X64.reproduces config source asm").length == 2
 #guard (render { arch := .arm } "t.w" "" "" none [] { hasNeed := true }).startsWith
-  "import Scc.Cert.Arm\nimport Scc.Cert.OutStageA64\nimport Scc.Cert.SrcTerm\n"
+  "import Scc.Cert.Arm\nimport Scc.Cert.OutStageA64\nimport Scc.Cert.OutStageWA64\nimport Scc.Cert.MapsPartA64\nimport Scc.Cert.SrcTerm\n"
+
+-- On both ISAs a file with a stack need table states the GC tables at
+-- `configW` (`prog_tablesW`), that run's agreement with scc's
+-- (`prog_sameAsScc`) and the tables at `config` (`prog_tablesOk`), each once,
+-- and pins the axioms of the last two (the expected list with its
+-- `#guard_msgs` check); with `spawn`, the spawn module is imported between
+-- `OutStage` and `OutStageW`.
+#guard [Arch.x64, Arch.arm].all fun a =>
+  let c := render { arch := a } "t.w" "" "" none [] { hasNeed := true }
+  (c.splitOn "theorem prog_tablesW ").length == 2 &&
+  (c.splitOn "theorem prog_sameAsScc ").length == 2 &&
+  (c.splitOn "theorem prog_tablesOk ").length == 2 &&
+  (c.splitOn "/-- info: 'SccCertificate.prog_sameAsScc' depends on axioms: [propext, Classical.choice, Quot.sound] -/\n#guard_msgs in #print axioms prog_sameAsScc\n").length == 2 &&
+  (c.splitOn "/-- info: 'SccCertificate.prog_tablesOk' depends on axioms: [propext, Classical.choice, Quot.sound] -/\n#guard_msgs in #print axioms prog_tablesOk\n").length == 2
+#guard (render { arch := .x64 } "t.w" "" "" none [] { hasNeed := true, spawn := true }).startsWith
+  "import Scc.Cert.X64\nimport Scc.Cert.OutStageX64\nimport Scc.Cert.SpawnX64\nimport Scc.Cert.OutStageWX64\n"
+#guard (render { arch := .arm } "t.w" "" "" none [] { hasNeed := true, spawn := true }).startsWith
+  "import Scc.Cert.Arm\nimport Scc.Cert.OutStageA64\nimport Scc.Cert.SpawnA64\nimport Scc.Cert.OutStageWA64\n"
 
 -- It states acceptance, placement and both together for an accepted
 -- program with a stack need table; for another, its non-acceptance and
@@ -107,6 +125,24 @@ info: "\
   (c.splitOn "loweredLit.1.funcs[1]! emitLit_0.2.1 = .ok emitLit_1").length == 2 &&
   (c.splitOn "Scc.Emit.X64.emitFuncs_cons emit_eq_1 <|\n    rfl").length == 2 &&
   (c.splitOn "Scc.Emit.X64.emitItemsMaps_of_stages pre_eq funcs_eq post_eq").length == 2
+-- The tables are checked per function (`tablesPart`): three parts each,
+-- chained to `tables_ok`, on the ISA's slice; none without the staged emitter's
+-- functions.
+#guard
+  let c := render { arch := .arm } "t.w" "" "" none [] { hasNeed := true, funcs := 2 }
+  (c.splitOn "import Scc.Cert.MapsPartA64").length == 2 &&
+  (c.splitOn "theorem tables_s_").length == 3 && (c.splitOn "theorem tables_w_").length == 3 &&
+  (c.splitOn "theorem tables_c_").length == 3 && (c.splitOn "theorem tables_g_").length == 3 &&
+  (c.splitOn "theorem tables_t_").length == 3 &&
+  (c.splitOn "theorem tails_eq : loweredLit.1.funcs.map (·.name) = tailsLit := by kernel_rfl").length == 2 &&
+  (c.splitOn "Scc.Cert.Maps.fnsOkFrom_cons tables_fn_1 <|\n    rfl").length == 2 &&
+  (c.splitOn "theorem tables_ok : Scc.Cert.Maps.FnsOk (loweredLit.1.funcs.map (·.name)) (Scc.Cert.MapsA64.sliceFn loweredLit.1 areasLit emittedLit.1 emittedLit.2) loweredLit.1.funcs.length :=").length == 2
+#guard
+  let c := render { arch := .x64 } "t.w" "" "" (some ([], [])) [] { hasNeed := true, funcs := 2 }
+  (c.splitOn "theorem tables_ok : Scc.Cert.Maps.FnsOk (loweredLit.1.funcs.map (·.name)) (Scc.Cert.MapsX64.sliceFn loweredLit.1 emittedLit.1 emittedLit.2 sizes) loweredLit.1.funcs.length :=").length == 2
+#guard
+  let c := render { arch := .arm } "t.w" "" "" none [] { hasNeed := true }
+  (c.splitOn "tables_ok").length == 1
 -- The size table's labels are checked `sizesChunk` per kernel run.
 #guard
   let offs := (List.range 70).map fun i => (s!"L{i}", i)

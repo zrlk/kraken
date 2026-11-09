@@ -9,7 +9,7 @@ decided once on the cells (`decide +kernel`). The wake twin of
                       movq %rdi, -8(%rbp)              (the prologue, wcPro)
     .Lwc_main.entry:  movq $256, %rdi; movq $1, %rsi; movq $2, %rdx
                       call scc_rt_alloc                (wcE)
-    .Lwc_main.x18:                                     -- the exit `wX .x18`
+    .Lwc_main.x0:                                     -- the exit `wX .x18`
 
 The region `R` is `wc_main`'s as handed over at the call
 (`X64WakeMain.wR`): based at the return address's cell, so the saved
@@ -75,7 +75,7 @@ block_spec wcE (-240) 8 oWR wcE
 
 /-- **`wc_main`'s entry block in `cells`**, `.x18` right after the call. -/
 def wcEIn (cells : List (Directive × Nat)) : Bool :=
-  blockAtB cells ".Lwc_main.entry" 0 wcE && labelGapB cells ".Lwc_main.entry" ".Lwc_main.x18" 26
+  blockAtB cells ".Lwc_main.entry" 0 wcE && labelGapB cells ".Lwc_main.entry" ".Lwc_main.x0" 26
 
 theorem wake_wcEIn : wcEIn SccCode.wakeCells = true := by decide +kernel
 
@@ -108,13 +108,13 @@ def wN : WN → ND
   | .e => ⟨lab ".Lwc_main.entry", oWR, Hello1.wJ R (wcJ J0)⟩
   | .call => ⟨lab "scc_rt_alloc", ⟨-80, []⟩, fun σ c => wcJ J0 σ c ∧ σ.regs.get64 .rbp = R.addr (-8) ∧
       σ.regs.rdi.toBitVec = 256#64 ∧ σ.regs.rsi.toBitVec = 1#64 ∧ σ.regs.rdx.toBitVec = 2#64 ∧
-      σ.slot (-80) = (lab ".Lwc_main.x18").toBitVec⟩
+      σ.slot (-80) = (lab ".Lwc_main.x0").toBitVec⟩
 
 /-- **The exits**: the allocator's return at `.x18` (its return's facts,
 the frame record and `%rbp` kept), and its heap abort (the return address
 `.Lscc_rt_alloc.full + 12` its `call scc_rt_abort` pushed, at `-240`). -/
 def wX : WX → ND
-  | .x18 => ⟨lab ".Lwc_main.x18", ⟨-72, []⟩, fun σ c => ∃ q : AGB ms lab, wcJ J0 σ q.1.c0 ∧
+  | .x18 => ⟨lab ".Lwc_main.x0", ⟨-72, []⟩, fun σ c => ∃ q : AGB ms lab, wcJ J0 σ q.1.c0 ∧
       σ.regs.get64 .rbp = R.addr (-8) ∧ (Alloc.EB lab ms q.1 .ret).J σ c⟩
   | .abort => ⟨lab "scc_rt_abort", ⟨-240, []⟩, fun σ c => σ.regs.rdi.toBitVec = 2#64 ∧
       σ.slot (-240) = (lab ".Lscc_rt_alloc.full" + 12).toBitVec ∧
@@ -142,7 +142,7 @@ structure WcPreW (W : Frag isa) (K : State → State → Prop) (exe : _root_.Exe
     ".Lwc_main.stk" 5 9 3 6 4 [(.rdi, -8, 4)] J0
   e : BlkW W K exe endPc R F (wN (_root_.Executable.labels exe).label R J0 .e) wcE
   alloc : ∀ q : Call, q.OKB ms (_root_.Executable.labels exe).label →
-    q.ra = ((_root_.Executable.labels exe).label ".Lwc_main.x18").toBitVec →
+    q.ra = ((_root_.Executable.labels exe).label ".Lwc_main.x0").toBitVec →
     AllocW ms q W K exe endPc (wAR R)
       (fun m => F m ∧ CallerCells R (-80) (-160) 8 m ∧ WcCtx ms (_root_.Executable.labels exe).label R Jc q m)
 
@@ -299,7 +299,7 @@ theorem wake_wc_pre_segW {W : Frag isa} {K : State → State → Prop}
   simp only [wcEIn, Bool.and_eq_true] at hin
   obtain ⟨h0, hgap⟩ := hin
   let lab := (_root_.Executable.labels exe).label
-  have e26 : lab ".Lwc_main.x18" = lab ".Lwc_main.entry" + Int64.ofNat 26 := label_labelGapB hp hgap
+  have e26 : lab ".Lwc_main.x0" = lab ".Lwc_main.entry" + Int64.ofNat 26 := label_labelGapB hp hgap
   refine SegW.seq (prologue_seg_ofW hp hend wake_wcPro (nb := ⟨lab ".Lwc_main.entry", oWR, wcJ J0⟩)
     (by decide) hF hR
     (by show R.lo ≤ -8 - (64 : Int64).toInt; rw [show (64 : Int64).toInt = 64 from rfl]; omega) (by omega)
@@ -341,7 +341,7 @@ theorem wake_wc_pre_segW {W : Frag isa} {K : State → State → Prop}
       (fun R' F' hR' hlo' hhi' hF' _ hFF hR'e hcc g hg hkeep => by
         subst hR'e
         obtain ⟨σC, c, ⟨-, -, -, -, -, h80⟩, ⟨-, -, hra, -⟩⟩ := hg
-        have hr : g.1.ra = (lab ".Lwc_main.x18").toBitVec := by
+        have hr : g.1.ra = (lab ".Lwc_main.x0").toBitVec := by
           rw [← hra, ← h80]; rfl
         exact (Alloc.seg_allocBW hp hend wake_alloc hF' hR' hlo' hhi' g.2
           (fun a ha m hm => hmem g.1 g.2 a ha m (hFF m hm))
@@ -358,7 +358,7 @@ theorem wake_wc_pre_segW {W : Frag isa} {K : State → State → Prop}
       cases y
       · refine .inr ⟨WX.x18, ?_, by show SO.le ⟨-72, []⟩ ⟨-80 - 0 + 8, []⟩ = true; decide, g,
           ⟨σe, hc ▸ hJe, ?_, ?_, ?_⟩, ?_, ?_⟩
-        · show lab ".Lwc_main.x18" = Int64.ofBitVec g.1.ra
+        · show lab ".Lwc_main.x0" = Int64.ofBitVec g.1.ra
           rw [← hra]
           show _ = Int64.ofBitVec (σC.slot (-80 - 0 + 0))
           rw [show (-80 : Int) - 0 + 0 = -80 by decide, h80, int64_ofBitVec_toBitVec]

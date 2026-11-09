@@ -11,12 +11,11 @@ allocation landings, where it occurs positively (`X64GfpS.segInvS_mono_xa`).
 - `I0H_le`: `I0H` is inside `I3 … inv0 inv1 inv2` (at the root, `IH D`).
 - `h1_bridge`: a segment under `msOfA … I` is one under `msOfA … I'` for `I ⊆ I'` (level 1 at `I0H` to `IH D`).
 - `h1_bridgeP`: the same for the publishing segment invariant `SegWPub.SegInvSP` (x86-64's level 1).
-- `rdLandH_xa`: level 1's entry `StartH0H1.RdLandH` (`h1`'s `Rd`) does not read the fragment: it moves between
-  any two (the call's premises and the allocator's nodes read `msUH`'s geometry, not `xa`).
 
 ## Differences from the AArch64 version
 
-- The layout is `RuntimeLayout.ofPlaceWX` (AArch64 `ofPlaceW`); `RdLandH` is x86-64's (`StartH0H1`, the call's
+- AArch64's `rdLandH_xa` (level 1's entry `RdLandH` at `ownGH` does not read the fragment) is at the owned words
+  `own` here, `Level1IU.rdLandHg_xa` and `RootL0X.rdLandHg_xa`; x86-64's `RdLandHg` is `StartH0H1`'s (the call's
   region `mR (RS helloLsw v)` at offsets `⟨-48, []⟩`, its frame kept by `CKept … (-48) (-160) 8`).
 - AArch64's closing `example` (the box store's landing at `I0H` is `RootHP.hland2_boxMRU`'s, at
   `LandR1U.HLand2U`) is not repeated: neither has an x86-64 version yet.
@@ -28,7 +27,7 @@ import Spike.Lib.X64SegWPub
 namespace Spike.Lib.X64.HelloPh.RootL1F
 
 open Kraken.Promising Kraken.Promising.X64
-open Spike.Lib (FragS Arena PlaceWX)
+open Spike.Lib (FragS Arena)
 open Spike.Lib.X64Consumer (Lbl Lsize)
 open Spike.Lib.X64ConsumerA (SegInvS msOfA I3)
 open Spike.Lib.X64ConsumerS (InvS)
@@ -74,20 +73,6 @@ theorem h1_bridgeP {Λ : Scc.Sem.Layout} {μ : Scc.Sem.Marks} {rd : TermRun.Word
   Spike.Lib.X64SegWPub.SegInvSP.mono_xa h (fun fs => Spike.Lib.X64GfpS.msOfA_with_xa fs)
     fun fs _ _ _ _ _ hx => Spike.Lib.X64GfpS.msOfA_xa_mono hI fs hx
 
-variable {pcfg : Scc.Cert.PlaceOK.Config} {o : Scc.Cert.PlaceOK.X64.Out} {Λ0 : Scc.Sem.Layout}
-  (hpw : PlaceWX pcfg Λ0 o) (i0 : CoreTerm.Expr → String → Nat → Option Nat)
-
-/-- **Level 1's entry does not read the fragment** (`RdLandH` at `I` is `RdLandH` at `I'`): its call's premises
-and the allocator's nodes read `msUH`'s geometry, which `msOfA` takes off the arena whatever `I`. Level 1 is at
-`I0H`, level 0's landing at `IH D`: this moves the entry across. -/
-theorem rdLandH_xa {asm : Scc.Sem.X64.Asm} {E : Scc.Sem.Entry} {rd : TermRun.Word → Prop} {I I' : InvS}
-    {ls : Lsize} {J1 : Spike.Lib.X64.AS → Spike.Lib.X64.AS → Spike.Lib.Ctl → Prop} {l : WeakMem.AllocLabel}
-    {b w : Nat} {s : State} {c : Spike.Lib.Ctl}
-    (h : Spike.Lib.X64.HelloPh.StartH0H1.RdLandH (asm := asm) hpw i0 E rd I ls J1 l b w s c) :
-    Spike.Lib.X64.HelloPh.StartH0H1.RdLandH (asm := asm) hpw i0 E rd I' ls J1 l b w s c := by
-  obtain ⟨v, m0, σC, q, F', h1, h2, h3, hu, ht⟩ := h
-  exact ⟨v, m0, σC, ⟨q.1, { q.2 with }⟩, F', h1, h2, h3, hu, ht⟩
-
 end Spike.Lib.X64.HelloPh.RootL1F
 
 /-- info: 'Spike.Lib.X64.HelloPh.RootL1F.I0H_le' depends on axioms: [propext, Classical.choice, Quot.sound] -/
@@ -97,9 +82,6 @@ end Spike.Lib.X64.HelloPh.RootL1F
 info: 'Spike.Lib.X64.HelloPh.RootL1F.h1_bridge' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in #print axioms Spike.Lib.X64.HelloPh.RootL1F.h1_bridge
-
-/-- info: 'Spike.Lib.X64.HelloPh.RootL1F.rdLandH_xa' depends on axioms: [propext, Classical.choice, Quot.sound] -/
-#guard_msgs in #print axioms Spike.Lib.X64.HelloPh.RootL1F.rdLandH_xa
 
 /--
 info: 'Spike.Lib.X64.HelloPh.RootL1F.h1_bridgeP' depends on axioms: [propext, Classical.choice, Quot.sound]

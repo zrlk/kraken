@@ -172,7 +172,7 @@ theorem hti_W {R : Region} {F : MachineData → Prop} {t : UInt64} (hpg : o.prog
   obtain ⟨l', A', hS⟩ := hQB
   have hc := hSctl _ _ _ hS
   -- the return address `.x21`, from the caller's node
-  have hra : g.ra = ((Ly).lab ".Lwc_main.x21").toBitVec := by
+  have hra : g.ra = ((Ly).lab ".Lwc_main.x3").toBitVec := by
     obtain ⟨σC, c, hw, -, -, -, hx, -⟩ := hpre
     exact hx.symm.trans hw.2.2.1
   -- the take's frame and `r1W`'s stability
@@ -216,7 +216,7 @@ theorem hti_W {R : Region} {F : MachineData → Prop} {t : UInt64} (hpg : o.prog
         h4.1 h4.2) s hpc hr hm hP.1 ⟨hP.2, h3⟩)
   -- lifted to `WSX`, then to `NoSetFsAt`
   have htcb : (tiQ (t2 (Ly).lab) c0 g).tcb = Spike.Lib.X64.WakePh.tcb2 (Ly) := by
-    show Ret0.pinA (Ly).lab + 104#64 = (Ly).pinA + 104#64; rw [(Ly).lab_pin]
+    show Ret0.pinA (Ly).lab + 136#64 = (Ly).pinA + 136#64; rw [(Ly).lab_pin]
   have hL := Spike.Lib.X64.WakePh.OwnTi2.ti2L (L := Ly) (a := Spike.Lib.X64.Rt.Reserve.ntA (Ly).lab)
     (ar := WakeOD.arW hp i) (p := X64WakeT1.wakeSrc) (Dt := Dt)
     (Cl := WakeOD.ClW hp i) (Ctx := fun _ _ _ => False) (lbl := Spike.Lib.X64ConsumerA.upd (L0T (Ly).Λ) l b)

@@ -4,8 +4,8 @@ of `Spike/Lib/A64HelloStartH0B.lean`): the start pair at hello's loaded thread a
 marks, the definitions the root is written over.
 
 - `StartPH`: the start pair (`WakeRoot.StartP`'s twin at `helloTh0`).
-- `W0Hg`: `W0` at the entry's marks, hello's choices, at an own map; `W0H`: it at `ownGH`
-  (`X64.WakeOPremW.W0W`'s twin).
+- `W0Hg`: `W0` at the entry's marks, hello's choices, at an own map (`X64.WakeOPremW.W0W`'s twin; the root takes
+  `ownGHXW`).
 - `pz_rS0_loadH`: `Pz rS0` at the loaded thread (`X64.WakePh.RootP.pz_rS0_load`).
 - `entry_atH`: the start pair is at `_start`'s node with `F = FWN ∧ Pz rS0` (the start segment's entry).
 - `takeCKS_iffH`: the take at the site label is `PhRec.K` at `X0WH`'s states.
@@ -81,7 +81,7 @@ def StartPH (E : Entry) : FragS isa := fun s c fs =>
 
 /-- **hello's level before the allocation at the entry's marks, at an own map `own`**: `W0` at `own`, `arW`,
 `helloSrc`, the write abort phase, `ClH`, hello's threads abort phase `AcH … pfxM`, `X0WH` at the take site.
-`W0H` is it at `ownGH`; the start with both TCB self words owned is it at `ownGHXW`. -/
+The start with both TCB self words owned is it at `ownGHXW`. -/
 abbrev W0Hg (own : State → List (Loc × Val)) (E : Entry) (Dt : State → Prop) (Ctx : FragS isa) (lsize : Lsize)
     (frM : TermRun.Frame) : FragS isa :=
   Spike.Lib.X64.WakeWf.W0 (Ly).Λ ((Scc.Sem.X64.target (Scc.Sem.X64.kernel 2) E).marks asm (Ly).Λ)
@@ -89,13 +89,6 @@ abbrev W0Hg (own : State → List (Loc × Val)) (E : Entry) (Dt : State → Prop
     helloSrc Dt (Spike.Lib.X64.WriteAb.Ab (Ly).lab) (Spike.Lib.X64.HelloPh.ClH (Ly))
     (Spike.Lib.X64.Hello.ThreadsAb.AcH (Ly).lab Spike.Lib.X64.HelloPh.StartWf.pfxM) Ctx (L0T (Ly).Λ) lsize frM
     (X0WH (Ly) (AX))
-
-/-- **hello's level before the allocation at the entry's marks** (`X64.WakeOPremW.W0W`'s twin): `W0Hg` at
-`ownGH`. -/
-abbrev W0H (E : Entry) (Dt : State → Prop) (Ctx : FragS isa) (lsize : Lsize) (frM : TermRun.Frame) :
-    FragS isa :=
-  W0Hg (asm := asm) hpw i (Spike.Lib.X64.HelloPh.ownGH (Ly) (Spike.Lib.X64.Rt.Reserve.ntA (Ly).lab)) E Dt Ctx
-    lsize frM
 
 /-- **`Pz rS0` at the loaded thread**: main's stack, in the pool, is off the entry stack's memory
 (`X64.WakePh.RootP.pz_rS0_load`, at any base, cells and symbols). -/

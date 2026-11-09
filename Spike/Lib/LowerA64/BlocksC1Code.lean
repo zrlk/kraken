@@ -6,10 +6,14 @@ instruction, a one-word user call split at its `bl`; next to
 `Spike/Lib/LowerA64/Body1.lean`'s call-free `Code1`.
 
 - `CodeC`: the code of the instructions `is` numbered from `k` at `pc`, then
-  the terminator's: each non-call instruction's code (`Cd`), or a call's
-  argument load (`Cd`), its `bl` and return label (`Bl`) and its result's
-  store (`Cd`); the instruction number `k` goes up by one per instruction
-  (`instsItems`), and the return label of the call numbered `k` is `spK`;
+  the terminator's: each instruction's code but a call's and a checked
+  `+`'s (`Cd`), or a call's argument load (`Cd`), its `bl` and return label
+  (`Bl`) and its result's store (`Cd`); a checked `+`'s add (`addDirs`,
+  `Cd`) and, after its fall-through's label `x{k}`, its store (`Cd`); the
+  instruction number `k` goes up by one per instruction (`instsItems`), and
+  the return label of the call numbered `k` is `spK`; the terminator's code
+  but a `ret`'s (`Cd`), or a `ret [w]`'s load, frame exit and `ret` as one
+  instruction-only `Cd` piece around its return site's label `x{k}` (P5);
 - `BlC`: the `Bl` instance: the `bl` is code `j` instructions after a label
   `L` (`blockAt`), the label `spK` follows `L` after `j + 1` instructions
   (`labelGap`), the `bl` passes its phase check (`blkPh`), as
@@ -17,12 +21,17 @@ instruction, a one-word user call split at its `bl`; next to
   (`blC_ph`; `cdOf_blC` puts the `bl` in the code of a laid-out program);
 - `BlocksCodeC`: every block not ending in `unreachable` (the bracket's dead
   abort block `deepBlock`) is at its label, at some instruction number;
-- `CdC`: the `Cd` instance: an instruction-only piece of code after a label
-  (`blockAt`) passing its run's phase check (`runPhB`); `cdOf_cdC` puts it in
-  the code of a laid-out program;
+- `At1Q`, `AtQ`, `CdCQ`, `CdC`: the `Cd` instance: an instruction-only
+  piece of code after a label of `Q` (`blockAt`), whole or in two pieces
+  around a fresh label (`AtQ`), passing its phase check from its pc
+  (`runPhB`); `CdC` at any labels; `.mono`, `.sub` (a sub-piece,
+  `blockAt_sub`), `CdCQ.toCdC`; `cdCQ_at1`, `cdCQ_at`, `cdC_at`: a piece of
+  a segment; `AtQ.cdOf`, `cdOf_cdC` put it in the code of a laid-out
+  program;
 - `codeC_of_seg`: a block's code after its label (`segIn`), every run from
   there passing `runPhB`, gives `CodeC` at `CdC` and `BlC` (each call's return
-  label `spK` starting a new run, at the address `labelGap` gives, `hgap`;
+  label `spK`, checked `+`'s fall-through label and `ret`'s return site label
+  `x{k}` starting a new run, at the address `labelGap` gives, `hgap`;
   `hgap_of_lays` on a laid-out program);
 - `codeC_block`, `blocksCodeC`, `entryCodeC`: from a block's `blocksOk` and
   `blocksPh` (as `Blocks1.lean`'s `code1_block`), a block of `lowerC`'s
@@ -58,25 +67,37 @@ set_option linter.unusedSimpArgs false
 /-! ## The code predicate -/
 
 /-- **The code of a block's instructions `is` numbered from `k` at `pc`,
-then of its terminator `tm`**. A non-call instruction: its code `l` is at
-`pc` (`Cd`). A one-word user call `call [d] g [w]`: `w`'s load `lw` into
-`x0` at `pc` (`Cd`), the `bl g` after it with the return label `spK`
-(`Bl`), then `x0`'s store `ls` into `d` (`Cd`). The terminator: an
-`unreachable` (no claim), or its code at `pc` (`Cd`).
+then of its terminator `tm`**. An instruction other than a call or a
+checked `+`: its code `l` is at `pc` (`Cd`). A one-word user call
+`call [d] g [w]`: `w`'s load `lw` into `x0` at `pc` (`Cd`), the `bl g` after
+it with the return label `spK` (`Bl`), then `x0`'s store `ls` into `d`
+(`Cd`). A checked `+` `addChk d a b` (P5): the operands' loads and the
+checked add (`addDirs`) at `pc` (`Cd`), then, after its fall-through's label
+`x{k}`, `x9`'s store `ls` into `d` (`Cd`). The terminator: an
+`unreachable` (no claim), its code at `pc` if not a `ret` (`Cd`), or a
+`ret [w]`'s load `lw`, frame exit and `ret` (instructions only, its return
+site's label `x{k}` between the frame exit and `ret`) at `pc` (`Cd`).
 `Cd pc blk`: `blk` is the code at `pc`; `Bl pc g k`: `bl g` is the code at
 `pc`, followed by the label `spK`. -/
 def CodeC (cx : FnCtx) (Cd : Int64 → List Directive → Prop) (Bl : Int64 → Label → Nat → Prop) :
     Nat → Int64 → List Scc.IR.Inst → Scc.IR.Term → Prop
-  | k, pc, [], tm => tm = .unreachable ∨ ∃ l, cx.term k tm = .ok l ∧ Cd pc (directives l)
+  | k, pc, [], tm => tm = .unreachable ∨
+      (∃ l, (∀ ws, tm ≠ .ret ws) ∧ cx.term k tm = .ok l ∧ Cd pc (directives l)) ∨
+      (∃ w lw, tm = .ret [w] ∧ cx.getOp .X0 w = .ok lw ∧ Cd pc (directives (lw ++ cx.leave ++ [ret])))
   | k, pc, i :: is, tm =>
-    (Spike.Lib.LowerShape.isCall i = false ∧ ∃ l, cx.inst k i = .ok l ∧ Cd pc (directives l) ∧
-      CodeC cx Cd Bl (k + 1) (pc + Int64.ofNat (4 * (directives l).length)) is tm) ∨
+    (Spike.Lib.LowerShape.isCall i = false ∧ (∀ d a b, i ≠ .addChk d a b) ∧ ∃ l, cx.inst k i = .ok l ∧
+      Cd pc (directives l) ∧ CodeC cx Cd Bl (k + 1) (pc + Int64.ofNat (4 * (directives l).length)) is tm) ∨
     (∃ d g w lw ls, i = .call [d] (Scc.Lower.Names.user g) [w] ∧ cx.getOp .X0 w = .ok lw ∧
       cx.setReg d .X0 = .ok ls ∧ Cd pc (directives lw) ∧
       Bl (pc + Int64.ofNat (4 * (directives lw).length)) (Scc.Lower.Names.user g) k ∧
       Cd (pc + Int64.ofNat (4 * (directives lw).length) + 4) (directives ls) ∧
       CodeC cx Cd Bl (k + 1)
-        (pc + Int64.ofNat (4 * (directives lw).length) + 4 + Int64.ofNat (4 * (directives ls).length)) is tm)
+        (pc + Int64.ofNat (4 * (directives lw).length) + 4 + Int64.ofNat (4 * (directives ls).length)) is tm) ∨
+    (∃ d a b la lb ls, i = .addChk d a b ∧ cx.getOp .X9 a = .ok la ∧ cx.getOp .X10 b = .ok lb ∧
+      cx.setReg d .X9 = .ok ls ∧ Cd pc (addDirs cx la lb) ∧
+      Cd (pc + Int64.ofNat (4 * (addDirs cx la lb).length)) (directives ls) ∧
+      CodeC cx Cd Bl (k + 1)
+        (pc + Int64.ofNat (4 * (addDirs cx la lb).length) + Int64.ofNat (4 * (directives ls).length)) is tm)
 
 /-- **A call's `bl g` at `pc` with the return label `spK` after it**: `j`
 instructions after a label `L` (`blockAt`), with `spK` after `L` at
@@ -100,14 +121,32 @@ def BlocksCodeC (cx : FnCtx) (Cd : Int64 → List Directive → Prop) (Bl : Int6
 
 /-! ## The code predicate instance -/
 
-/-- **A piece of a block's code at `pc`**: instructions only, `j`
-instructions after a label `L` (`blockAt`), passing the run's phase check
-from `pc` (`runPhB`: an instruction `classify` does not cover, a load or
-store off `x10`, falls through) with the return address `ra`. -/
-def CdC (prog : List Directive) (okPc : Nat → Bool) (ph : Nat → Nat) (lab : Label → Int64) (ra : Int64)
-    (pc : Int64) (blk : List Directive) : Prop :=
-  blk.all isIns = true ∧ ∃ L j, lab L + Int64.ofNat (4 * j) = pc ∧ blockAt prog L j blk = true ∧
-    runPhB okPc ph lab pc ra blk = true
+/-- **`blk` is placed at `pc` after a label of `Q`**: `j` instructions
+after a label `L` of `Q` (`blockAt`). -/
+def At1Q (Q : Label → Prop) (prog : List Directive) (lab : Label → Int64) (pc : Int64) (blk : List Directive) :
+    Prop :=
+  ∃ L j, Q L ∧ lab L + Int64.ofNat (4 * j) = pc ∧ blockAt prog L j blk = true
+
+/-- **`blk` is placed at `pc` after labels of `Q`**, whole (`At1Q`) or in
+two pieces, the second right after the first (a `ret`'s code around its
+return site's label, P5). -/
+def AtQ (Q : Label → Prop) (prog : List Directive) (lab : Label → Int64) (pc : Int64) (blk : List Directive) :
+    Prop :=
+  At1Q Q prog lab pc blk ∨ ∃ b1 b2, blk = b1 ++ b2 ∧ At1Q Q prog lab pc b1 ∧
+    At1Q Q prog lab (pc + Int64.ofNat (4 * b1.length)) b2
+
+/-- **A piece of a block's code at `pc` after labels of `Q`**: instructions
+only, placed after labels of `Q` (`AtQ`), passing the run's phase check from
+`pc` (`runPhB`: an instruction `classify` does not cover, a load or store
+off `x10`, falls through) with the return address `ra`. -/
+def CdCQ (Q : Label → Prop) (prog : List Directive) (okPc : Nat → Bool) (ph : Nat → Nat) (lab : Label → Int64)
+    (ra : Int64) (pc : Int64) (blk : List Directive) : Prop :=
+  blk.all isIns = true ∧ AtQ Q prog lab pc blk ∧ runPhB okPc ph lab pc ra blk = true
+
+/-- **A piece of a block's code at `pc`**: `CdCQ` at any labels. -/
+abbrev CdC (prog : List Directive) (okPc : Nat → Bool) (ph : Nat → Nat) (lab : Label → Int64) (ra : Int64) :
+    Int64 → List Directive → Prop :=
+  CdCQ (fun _ => True) prog okPc ph lab ra
 
 /-- The stack abort's call (the deep block's). -/
 abbrev abortI : Scc.IR.Inst :=
@@ -117,36 +156,6 @@ abbrev abortI : Scc.IR.Inst :=
 abbrev blD (g : String) : Directive := .instr ⟨.W64, .BL (.label g)⟩
 
 /-! ## Runs -/
-
-theorem noLabel_of_isIns {c : List Directive} (h : c.all isIns = true) : ∀ d ∈ c, ∀ l', d ≠ .label l' := by
-  intro d hd l' he
-  subst he
-  have := List.all_eq_true.mp h _ hd
-  simp [isIns] at this
-
-/-- **A label-free prefix joins the current run.** -/
-theorem runsAux_shift : ∀ (l : Label) (acc c S : List Directive), (∀ d ∈ c, ∀ l', d ≠ .label l') →
-    runsAux l acc (c ++ S) = runsAux l (c.reverse ++ acc) S
-  | l, acc, [], S, _ => by simp
-  | l, acc, d :: c, S, h => by
-    have hd : ∀ l', d ≠ .label l' := h d (List.mem_cons_self ..)
-    have ih := runsAux_shift l (d :: acc) c S fun d' hd' => h d' (List.mem_cons_of_mem _ hd')
-    cases d with
-    | label l'' => exact absurd rfl (hd l'')
-    | instr i => simp only [List.cons_append, runsAux]; rw [ih]; simp
-    | byteArray a => simp only [List.cons_append, runsAux]; rw [ih]; simp
-
-/-- **The current run** of `runsAux l acc S`: `acc` (reversed) and the
-directives of `S` up to its first label. -/
-theorem runsAux_run0 : ∀ (l : Label) (acc S : List Directive), ∃ P, (l, acc.reverse ++ P) ∈ runsAux l acc S
-  | l, acc, [] => ⟨[], by simp [runsAux]⟩
-  | l, acc, .label _ :: _ => ⟨[], by simp [runsAux]⟩
-  | l, acc, .instr i :: S => by
-    obtain ⟨P, hP⟩ := runsAux_run0 l (.instr i :: acc) S
-    exact ⟨.instr i :: P, by simpa [runsAux] using hP⟩
-  | l, acc, .byteArray a :: S => by
-    obtain ⟨P, hP⟩ := runsAux_run0 l (.byteArray a :: acc) S
-    exact ⟨.byteArray a :: P, by simpa [runsAux] using hP⟩
 
 /-- **`runPhB` of a sub-run**: in a run `xs ++ ys ++ zs` passing `runPhB`,
 `ys` at its pc passes `runPhB` (every pc and target in the same phase). -/
@@ -174,29 +183,191 @@ theorem runPhB_sub {okPc : Nat → Bool} {ph : Nat → Nat} {lab : Label → Int
   simp only [Bool.and_eq_true, beq_iff_eq, List.all_eq_true, h0]
   exact ⟨⟨h1, h2⟩, h3⟩
 
+/-- **`runPhB` of two runs, one right after the other**, the second's pc
+in the first's phase. -/
+theorem runPhB_append {okPc : Nat → Bool} {ph : Nat → Nat} {lab : Label → Int64} {pc ra : Int64}
+    {a b : List Directive} (ha : runPhB okPc ph lab pc ra a = true)
+    (hb : runPhB okPc ph lab (pc + Int64.ofNat (4 * a.length)) ra b = true)
+    (he : ph (pc + Int64.ofNat (4 * a.length)).toBitVec.toNat = ph pc.toBitVec.toNat) :
+    runPhB okPc ph lab pc ra (a ++ b) = true := by
+  unfold runPhB at ha hb ⊢
+  rw [List.all_eq_true] at ha hb ⊢
+  intro k hk
+  have hk' := List.mem_range.mp hk
+  rw [List.length_append] at hk'
+  rcases Nat.lt_or_ge k a.length with h' | h'
+  · rw [List.getElem?_append_left h']
+    exact ha k (List.mem_range.mpr h')
+  · obtain ⟨j, rfl⟩ := Nat.exists_eq_add_of_le h'
+    have := hb j (List.mem_range.mpr (by omega))
+    rw [he, ← ofNat4_add] at this
+    rw [List.getElem?_append_right (by omega), Nat.add_sub_cancel_left]
+    simpa only [ofNat4_add, Int64.add_assoc] using this
+
+/-- **A block inside a placed block is placed**, `pre.length`
+instructions further. -/
+theorem blockAt_sub {prog : List Directive} {l : Label} {k : Nat} {pre blk post : List Directive}
+    (h : blockAt prog l k (pre ++ blk ++ post) = true) : blockAt prog l (k + pre.length) blk = true := by
+  unfold blockAt at h ⊢
+  simp only [Bool.and_eq_true, decide_eq_true_eq] at h ⊢
+  obtain ⟨hl, hb⟩ := h
+  generalize Scc.Cert.Rt.A64.run prog l = r at hb ⊢
+  have hd : r.drop k = pre ++ blk ++ post ++ (r.drop k).drop (pre ++ blk ++ post).length := by
+    have := List.take_append_drop (pre ++ blk ++ post).length (r.drop k)
+    rw [hb] at this
+    exact this.symm
+  refine ⟨hl, ?_⟩
+  rw [← List.drop_drop, hd]
+  simp
+
+section Q
+
+variable {Q : Label → Prop} {prog : List Directive} {okPc : Nat → Bool} {ph : Nat → Nat}
+  {lab : Label → Int64} {ra : Int64}
+
+theorem At1Q.mono {Q' : Label → Prop} (hQ : ∀ L, Q L → Q' L) {pc : Int64} {blk : List Directive}
+    (h : At1Q Q prog lab pc blk) : At1Q Q' prog lab pc blk :=
+  let ⟨L, j, hL, he, hb⟩ := h
+  ⟨L, j, hQ L hL, he, hb⟩
+
+theorem AtQ.mono {Q' : Label → Prop} (hQ : ∀ L, Q L → Q' L) {pc : Int64} {blk : List Directive}
+    (h : AtQ Q prog lab pc blk) : AtQ Q' prog lab pc blk := by
+  rcases h with h | ⟨b1, b2, e, h1, h2⟩
+  · exact .inl (h.mono hQ)
+  · exact .inr ⟨b1, b2, e, h1.mono hQ, h2.mono hQ⟩
+
+theorem CdCQ.mono {Q' : Label → Prop} (hQ : ∀ L, Q L → Q' L) {pc : Int64} {blk : List Directive}
+    (h : CdCQ Q prog okPc ph lab ra pc blk) : CdCQ Q' prog okPc ph lab ra pc blk :=
+  ⟨h.1, h.2.1.mono hQ, h.2.2⟩
+
+/-- **`CdCQ` forgets its labels' predicate.** -/
+theorem CdCQ.toCdC {pc : Int64} {blk : List Directive}
+    (h : CdCQ Q prog okPc ph lab ra pc blk) : CdC prog okPc ph lab ra pc blk :=
+  h.mono fun _ _ => trivial
+
+/-- **A block inside a placed block is placed** (`blockAt_sub`). -/
+theorem At1Q.sub {pc0 pc : Int64} {pre blk post : List Directive}
+    (h : At1Q Q prog lab pc0 (pre ++ blk ++ post)) (hpc : pc = pc0 + Int64.ofNat (4 * pre.length)) :
+    At1Q Q prog lab pc blk := by
+  obtain ⟨L, j, hL, he, hb⟩ := h
+  refine ⟨L, j + pre.length, hL, ?_, blockAt_sub hb⟩
+  rw [hpc, ← he, ofNat4_add]
+
+/-- **A block inside a block placed in pieces is placed in pieces**: inside
+one piece, or across the two. -/
+theorem AtQ.sub {pc0 pc : Int64} {pre blk post : List Directive}
+    (h : AtQ Q prog lab pc0 (pre ++ blk ++ post)) (hpc : pc = pc0 + Int64.ofNat (4 * pre.length)) :
+    AtQ Q prog lab pc blk := by
+  subst hpc
+  rcases h with h | ⟨b1, b2, e, h1, h2⟩
+  · exact .inl (h.sub rfl)
+  · rcases List.append_eq_append_iff.mp e with ⟨a1, rfl, rfl⟩ | ⟨c1, e2, rfl⟩
+    · exact .inl (h1.sub rfl)
+    · rcases List.append_eq_append_iff.mp e2 with ⟨a1, rfl, rfl⟩ | ⟨c2, rfl, rfl⟩
+      · refine .inr ⟨a1, c1, rfl, At1Q.sub (pre := pre) (post := []) (by rwa [List.append_nil]) rfl, ?_⟩
+        refine At1Q.sub (pre := []) (post := post) (by rwa [List.nil_append]) ?_
+        rw [List.length_nil, ofNat4_zero, List.length_append, ofNat4_add]
+      · refine .inl (h2.sub (pre := c2) (post := post) ?_)
+        rw [List.length_append, ofNat4_add]
+
+/-- **A block inside a piece at `CdCQ` is at `CdCQ`** (`AtQ.sub`,
+`runPhB_sub`). -/
+theorem CdCQ.sub {pc0 pc : Int64} {pre blk post : List Directive}
+    (h : CdCQ Q prog okPc ph lab ra pc0 (pre ++ blk ++ post))
+    (hpc : pc = pc0 + Int64.ofNat (4 * pre.length)) : CdCQ Q prog okPc ph lab ra pc blk := by
+  obtain ⟨hl, hat, hr⟩ := h
+  refine ⟨?_, hat.sub hpc, ?_⟩
+  · simp only [List.all_append, Bool.and_eq_true] at hl
+    exact hl.1.2
+  · rw [hpc]; exact runPhB_sub hr
+
+end Q
+
 section Code
 
 variable {cx : FnCtx} {prog : List Directive} {okPc : Nat → Bool} {ph : Nat → Nat} {lab : Label → Int64}
   {ra : Int64}
+
+/-- **A piece `c` of a run, after one label of `Q`**: after the
+instructions `xs` in the code after `l` of `Q` (`segIn`), the runs from
+there passing `runPhB`: placed after `l` (`At1Q`), passing `runPhB`, and
+its pc in the phase of `l`'s if it is not empty. -/
+theorem cdCQ_at1 {Q : Label → Prop} {l : Label} (hQ : Q l) {xs c zs : List Directive}
+    (hseg : segIn prog l (xs ++ c ++ zs) = true) (hx : xs.all isIns = true) (hc : c.all isIns = true)
+    (hph : ∀ r ∈ runsAux l xs.reverse (c ++ zs), runPhB okPc ph lab (lab r.1) ra r.2 = true) :
+    At1Q Q prog lab (lab l + Int64.ofNat (4 * xs.length)) c ∧
+      runPhB okPc ph lab (lab l + Int64.ofNat (4 * xs.length)) ra c = true ∧
+      (c ≠ [] → ph (lab l + Int64.ofNat (4 * xs.length)).toBitVec.toNat = ph (lab l).toBitVec.toNat) := by
+  obtain ⟨P, hP⟩ := runsAux_run0 l (c.reverse ++ xs.reverse) zs
+  rw [← runsAux_shift _ _ _ _ (noLabel_of_isIns hc)] at hP
+  have hr := hph _ hP
+  simp only [List.reverse_append, List.reverse_reverse] at hr
+  have hr' : runPhB okPc ph lab (lab l) ra (xs ++ c ++ P) = true := by simpa only [List.append_assoc] using hr
+  refine ⟨⟨l, xs.length, hQ, rfl, blockAt_of_segIn hseg hx hc⟩, runPhB_sub hr', fun hne => ?_⟩
+  have hlen : xs.length < (xs ++ c ++ P).length := by
+    have : c.length ≠ 0 := fun h => hne (List.eq_nil_of_length_eq_zero h)
+    simp only [List.length_append]; omega
+  exact (runPhB_get hr' hlen).2.1
+
+/-- **A piece `c` of a run is at `CdCQ Q`** (`cdCQ_at1`). -/
+theorem cdCQ_at {Q : Label → Prop} {l : Label} (hQ : Q l) {xs c zs : List Directive}
+    (hseg : segIn prog l (xs ++ c ++ zs) = true) (hx : xs.all isIns = true) (hc : c.all isIns = true)
+    (hph : ∀ r ∈ runsAux l xs.reverse (c ++ zs), runPhB okPc ph lab (lab r.1) ra r.2 = true) :
+    CdCQ Q prog okPc ph lab ra (lab l + Int64.ofNat (4 * xs.length)) c :=
+  let ⟨hat, hr, _⟩ := cdCQ_at1 hQ hseg hx hc hph
+  ⟨hc, .inl hat, hr⟩
 
 /-- **A piece `c` of a run is at `CdC`**: after the instructions `xs` in the
 code after `l` (`segIn`), the runs from there passing `runPhB`. -/
 theorem cdC_at {l : Label} {xs c zs : List Directive} (hseg : segIn prog l (xs ++ c ++ zs) = true)
     (hx : xs.all isIns = true) (hc : c.all isIns = true)
     (hph : ∀ r ∈ runsAux l xs.reverse (c ++ zs), runPhB okPc ph lab (lab r.1) ra r.2 = true) :
-    CdC prog okPc ph lab ra (lab l + Int64.ofNat (4 * xs.length)) c := by
-  obtain ⟨P, hP⟩ := runsAux_run0 l (c.reverse ++ xs.reverse) zs
-  rw [← runsAux_shift _ _ _ _ (noLabel_of_isIns hc)] at hP
-  have hr := hph _ hP
-  simp only [List.reverse_append, List.reverse_reverse] at hr
-  exact ⟨hc, l, xs.length, rfl, blockAt_of_segIn hseg hx hc, runPhB_sub hr⟩
+    CdC prog okPc ph lab ra (lab l + Int64.ofNat (4 * xs.length)) c :=
+  cdCQ_at trivial hseg hx hc hph
+
+/-- **A frame's exit is instructions only.** -/
+theorem allIns_leave (c : FnCtx) : AllIns c.leave := by
+  unfold AllIns FnCtx.leave
+  rw [directives_append, directives_append, List.all_append, List.all_append]
+  have := allIns_ldrOff .W64 .X29 spW64 ((c.frame : Int) - 16)
+  have := allIns_ldrOff .W64 .X30 spW64 ((c.frame : Int) - 8)
+  unfold AllIns at *
+  simp only [*, Bool.true_and]
+  unfold addImm
+  split
+  · simp [directives, ins, isIns]
+  · simp [directives, ins, isIns]
+  · exact allIns_append (allIns_movImm _ _) (allIns_ins _)
+
+/-- **The code of a checked `+`** (at any frame): the operands' loads and
+the checked add (`addDirs`), the fall-through's label `x{k}` (P5), then
+`x9`'s store `ls` into `d`. -/
+theorem inst_addChk_items {k : Nat} {d : Scc.IR.Reg} {a b : Scc.IR.Operand} {ci : List Item}
+    (h : cx.inst k (.addChk d a b) = .ok ci) :
+    ∃ la lb ls, cx.getOp .X9 a = .ok la ∧ cx.getOp .X10 b = .ok lb ∧ cx.setReg d .X9 = .ok ls ∧
+      directives ci = addDirs cx la lb ++ .label (cx.local s!"x{k}") :: directives ls := by
+  simp only [FnCtx.inst] at h
+  obtain ⟨la, ha, h⟩ := bind_eq_ok h
+  obtain ⟨lb, hb, h⟩ := bind_eq_ok h
+  obtain ⟨ls, hs, h⟩ := bind_eq_ok h
+  cases ok_inj h
+  refine ⟨la, lb, ls, ha, hb, hs, ?_⟩
+  simp only [addDirs, directives_append, List.append_assoc]
+  rfl
+
+/-- **A checked `+`'s add is instructions only.** -/
+theorem allIns_addDirs {a b : Scc.IR.Operand} {la lb : List Item} (ha : cx.getOp .X9 a = .ok la)
+    (hb : cx.getOp .X10 b = .ok lb) : (addDirs cx la lb).all isIns = true :=
+  allIns_append (allIns_append (allIns_getOp ha) (allIns_getOp hb)) (by simp [AllIns, directives_addChecked, isIns])
 
 /-- **A block's code after its label gives `CodeC`**: the code `c1` of its
 instructions numbered from `k` (`instsItems`, `InstC` but the stack abort's
 call) and `c2` of its terminator (`TermC`), after the instructions `xs` and
 before `zs` in the code after `l` (`segIn`), every run from there passing
-`runPhB` at `lab` (`hph`); the stack maps on (`hm`), and `lab` following the
-labels' gaps (`hgap`). -/
+`runPhB` at `lab` (`hph`) in the phase of `ra` (`hrl`); the stack maps on
+(`hm`), and `lab` following the labels' gaps (`hgap`). Each call's return
+label, checked `+`'s fall-through label and `ret`'s return site label
+starts a new run. -/
 theorem codeC_of_seg (hm : cx.maps = true)
     (hgap : ∀ a b n, labelGap prog a b n = true → lab b = lab a + Int64.ofNat (4 * n))
     {frames : Option Nat} {tm : Scc.IR.Term} (htm : TermC frames tm) :
@@ -208,13 +379,60 @@ theorem codeC_of_seg (hm : cx.maps = true)
       (∀ r ∈ runsAux l xs.reverse (directives (c1 ++ c2) ++ zs), ph (lab r.1).toBitVec.toNat = ph ra.toBitVec.toNat) →
       CodeC cx (CdC prog okPc ph lab ra) (BlC prog okPc ph lab cx ra) k (lab l + Int64.ofNat (4 * xs.length))
         is tm
-  | [], k, l, c1, c2, xs, zs, _, hi, ht, hseg, hx, hph, _ => by
+  | [], k, l, c1, c2, xs, zs, _, hi, ht, hseg, hx, hph, hrl => by
     simp only [instsItems] at hi
     cases hi
-    simp only [List.nil_append, List.length_nil, Nat.add_zero] at hseg hph ht
+    simp only [List.nil_append, List.length_nil, Nat.add_zero] at hseg hph hrl ht
     by_cases hu : tm = .unreachable
     · exact Or.inl hu
-    · exact Or.inr ⟨c2, ht, cdC_at hseg hx (term_allIns htm hu ht) hph⟩
+    by_cases hr : ∀ ws, tm ≠ .ret ws
+    · exact Or.inr (Or.inl ⟨c2, hr, ht, cdC_at hseg hx (term_allIns htm hu hr ht) hph⟩)
+    -- `ret [w]`: its return site's label between the frame exit and `ret` (P5)
+    obtain ⟨w, rfl⟩ : ∃ w, tm = .ret [w] := by
+      cases htm with
+      | ret w _ => exact ⟨w, rfl⟩
+      | unreachable => exact absurd rfl hu
+      | _ => exact absurd (fun _ h => by cases h) hr
+    obtain ⟨lw, hg, rfl⟩ := term_ret_inv ht
+    generalize hX : cx.local s!"x{k}" = X at hseg hph hrl
+    generalize hT : directives (lw ++ cx.leave) = T
+    have hTi : T.all isIns = true := by rw [← hT]; exact allIns_append (allIns_getOp hg) (allIns_leave cx)
+    have hRi : (directives [ret]).all isIns = true := allIns_ins _
+    have hTR : directives (lw ++ cx.leave ++ [ret]) = T ++ directives [ret] := by rw [← hT, directives_append]
+    have hD : directives (lw ++ cx.leave ++ [lbl X, ret]) = T ++ .label X :: directives [ret] := by
+      rw [← hT, show lw ++ cx.leave ++ [lbl X, ret] = (lw ++ cx.leave) ++ [lbl X] ++ [ret] by simp,
+        directives_append, directives_append, List.append_assoc]; rfl
+    rw [hD] at hseg hph hrl
+    -- the load and frame exit
+    have hseg1 : segIn prog l (xs ++ T ++ (.label X :: directives [ret] ++ zs)) = true := by
+      simpa only [List.append_assoc, List.cons_append] using hseg
+    have hph1 : ∀ r ∈ runsAux l xs.reverse (T ++ (.label X :: directives [ret] ++ zs)),
+        runPhB okPc ph lab (lab r.1) ra r.2 = true := by
+      simpa only [List.append_assoc, List.cons_append] using hph
+    obtain ⟨hat1, hr1, hp1⟩ := cdCQ_at1 (Q := fun _ => True) trivial hseg1 hx hTi hph1
+    have hxT : (xs ++ T).all isIns = true := by rw [List.all_append, hx, hTi]; rfl
+    obtain ⟨hseg2, hsp⟩ := label_at hgap (P := xs ++ T) (R := directives [ret] ++ zs)
+      (by simpa only [List.append_assoc, List.cons_append] using hseg) hxT
+    rw [List.cons_append, runs_label l xs hTi X] at hph1
+    have hrl1 := hrl
+    rw [List.append_assoc, List.cons_append, runs_label l xs hTi X] at hrl1
+    -- `ret`, after the return site's label
+    obtain ⟨hat2, hr2, -⟩ := cdCQ_at1 (Q := fun _ => True) (l := X) (xs := []) trivial (by simpa using hseg2) rfl
+      hRi (fun r hr => hph1 r (List.mem_cons_of_mem _ hr))
+    rw [List.length_nil, ofNat4_zero] at hat2 hr2
+    have hphX : ph (lab X).toBitVec.toNat = ph ra.toBitVec.toNat := by
+      obtain ⟨P, hP⟩ := runsAux_run0 X [] (directives [ret] ++ zs)
+      exact hrl1 _ (List.mem_cons_of_mem _ hP)
+    have hphl : ph (lab l).toBitVec.toNat = ph ra.toBitVec.toNat := hrl1 _ (List.mem_cons_self ..)
+    have hsp' : lab X = lab l + Int64.ofNat (4 * xs.length) + Int64.ofNat (4 * T.length) := by
+      rw [hsp, pc_app]
+    refine Or.inr (Or.inr ⟨w, lw, rfl, hg, ?_⟩)
+    rw [hTR]
+    refine ⟨by rw [List.all_append, hTi, hRi]; rfl, .inr ⟨T, _, rfl, hat1, by rw [← hsp']; exact hat2⟩, ?_⟩
+    refine runPhB_append hr1 (by rw [← hsp']; exact hr2) ?_
+    by_cases hTe : T = []
+    · subst hTe; simp only [List.length_nil, ofNat4_zero]
+    · rw [← hsp', hphX, hp1 hTe, hphl]
   | i :: is, k, l, c1, c2, xs, zs, hs, hi, ht, hseg, hx, hph, hrl => by
     have hs' := List.forall_mem_cons.mp hs
     simp only [instsItems] at hi
@@ -230,10 +448,57 @@ theorem codeC_of_seg (hm : cx.maps = true)
         have hD : directives (ci ++ c1' ++ c2) = directives ci ++ directives (c1' ++ c2) := by
           rw [List.append_assoc, directives_append]
         rw [hD] at hseg hph hrl
+        by_cases hac : ∃ d a b, i = .addChk d a b
+        · -- a checked `+`: its fall-through's label before the store (P5)
+          obtain ⟨d, a, b, rfl⟩ := hac
+          obtain ⟨la, lb, ls, ha, hb, hs, hds⟩ := inst_addChk_items hci
+          rw [hds] at hseg hph hrl
+          generalize hDd : directives (c1' ++ c2) = D at hseg hph hrl
+          generalize hX : cx.local s!"x{k}" = X at hseg hph hrl
+          have hAi := allIns_addDirs ha hb
+          have hSi : (directives ls).all isIns = true := allIns_setReg hs
+          -- the checked add
+          have hseg1 : segIn prog l (xs ++ addDirs cx la lb ++ (.label X :: (directives ls ++ D ++ zs))) = true := by
+            simpa only [List.append_assoc, List.cons_append] using hseg
+          have hph1 : ∀ r ∈ runsAux l xs.reverse (addDirs cx la lb ++ .label X :: (directives ls ++ D ++ zs)),
+              runPhB okPc ph lab (lab r.1) ra r.2 = true := by
+            simpa only [List.append_assoc, List.cons_append] using hph
+          have hrl1 : ∀ r ∈ runsAux l xs.reverse (addDirs cx la lb ++ .label X :: (directives ls ++ D ++ zs)),
+              ph (lab r.1).toBitVec.toNat = ph ra.toBitVec.toNat := by
+            simpa only [List.append_assoc, List.cons_append] using hrl
+          have cA := cdC_at hseg1 hx hAi hph1
+          have hxA : (xs ++ addDirs cx la lb).all isIns = true := by rw [List.all_append, hx, hAi]; rfl
+          obtain ⟨hseg2, hsp⟩ := label_at hgap (P := xs ++ addDirs cx la lb) (R := directives ls ++ D ++ zs)
+            (by simpa only [List.append_assoc] using hseg1) hxA
+          rw [runs_label l xs hAi X] at hph1 hrl1
+          have hsp' : lab X = lab l + Int64.ofNat (4 * xs.length) + Int64.ofNat (4 * (addDirs cx la lb).length) := by
+            rw [hsp, pc_app]
+          have hphX : ∀ r ∈ runsAux X [] (directives ls ++ D ++ zs), runPhB okPc ph lab (lab r.1) ra r.2 = true :=
+            fun r hr => hph1 r (List.mem_cons_of_mem _ hr)
+          have hrlX : ∀ r ∈ runsAux X [] (directives ls ++ D ++ zs),
+              ph (lab r.1).toBitVec.toNat = ph ra.toBitVec.toNat :=
+            fun r hr => hrl1 r (List.mem_cons_of_mem _ hr)
+          -- the store, after the fall-through's label
+          have cS := cdC_at (l := X) (xs := []) (zs := D ++ zs)
+            (by simpa only [List.append_assoc, List.nil_append] using hseg2) rfl hSi
+            (by simpa only [List.append_assoc, List.reverse_nil] using hphX)
+          rw [List.length_nil, ofNat4_zero, hsp'] at cS
+          -- the rest of the block
+          have c3 := codeC_of_seg hm hgap htm is (k + 1) X c1' c2 (directives ls) zs hs'.2 hc1 ht
+            (by rw [hDd]; simpa only [List.append_assoc] using hseg2) hSi
+            (by
+              rw [hDd, ← List.append_nil (directives ls).reverse, ← runsAux_shift _ _ _ _ (noLabel_of_isIns hSi)]
+              simpa only [List.append_assoc] using hphX)
+            (by
+              rw [hDd, ← List.append_nil (directives ls).reverse, ← runsAux_shift _ _ _ _ (noLabel_of_isIns hSi)]
+              simpa only [List.append_assoc] using hrlX)
+          rw [hsp'] at c3
+          exact Or.inr (Or.inr ⟨d, a, b, la, lb, ls, rfl, ha, hb, hs, cA, cS, c3⟩)
         by_cases hc : Spike.Lib.LowerShape.isCall i = false
-        · -- an instruction other than a call: instructions only
-          have hA : (directives ci).all isIns = true := inst_allIns hs'.1.1 hc hci
-          refine Or.inl ⟨hc, ci, hci, ?_, ?_⟩
+        · -- an instruction other than a call or a checked `+`: instructions only
+          have hna : ∀ d a b, i ≠ .addChk d a b := fun d a b h => hac ⟨d, a, b, h⟩
+          have hA : (directives ci).all isIns = true := inst_allIns hs'.1.1 hc hna hci
+          refine Or.inl ⟨hc, hna, ci, hci, ?_, ?_⟩
           · exact cdC_at (zs := directives (c1' ++ c2) ++ zs) (by simpa only [List.append_assoc] using hseg) hx hA
               (by simpa only [List.append_assoc] using hph)
           · have hxA : (xs ++ directives ci).all isIns = true := by rw [List.all_append, hx, hA]; rfl
@@ -293,9 +558,9 @@ theorem codeC_of_seg (hm : cx.maps = true)
               have := hgap _ _ _ (labelGap_of_segIn hseg' hxwb)
               rwa [List.length_append, List.length_append, List.length_singleton, ofNat4_succ, ofNat4_add] at this
             have hseg2 : segIn prog spK (directives ls ++ D ++ zs) = true := segIn_label hseg'
-            refine Or.inr ⟨d, g, w, lw, ls, rfl, hw, hsr, ?_, ?_, ?_, ?_⟩
+            refine Or.inr (Or.inl ⟨d, g, w, lw, ls, rfl, hw, hsr, ?_, ?_, ?_, ?_⟩)
             · -- the argument's load
-              refine ⟨hAw', l, xs.length, rfl, ?_, ?_⟩
+              refine ⟨hAw', .inl ⟨l, xs.length, trivial, rfl, ?_⟩, ?_⟩
               · exact blockAt_of_segIn (zs := [B] ++ .label spK :: (directives ls ++ D ++ zs))
                   (by simpa only [List.append_assoc] using hseg') hx hAw'
               · exact runPhB_sub (zs := [B]) (by simpa only [List.append_assoc] using hr0)
@@ -344,12 +609,23 @@ theorem hgap_of_lays (hp : Scc.Cert.Rt.A64.Lays exe prog kp) :
       (_root_.Executable.labels exe).label b = (_root_.Executable.labels exe).label a + Int64.ofNat (4 * n) :=
   fun _ _ _ h => Scc.Cert.Rt.A64.label_labelGap hp h
 
+/-- **A piece placed after labels of `Q` is in the code** of a laid-out
+program, at its labels, whole or in its two pieces (`CdOf.append`). -/
+theorem AtQ.cdOf (hp : Scc.Cert.Rt.A64.Lays exe prog kp) {endPc : Int64}
+    (hend : endPc = Scc.Cert.Rt.A64.endOf exe prog kp) {Q : Label → Prop} :
+    ∀ pc blk, AtQ Q prog (_root_.Executable.labels exe).label pc blk → CdOf exe endPc pc blk := by
+  have hat : ∀ pc blk, At1Q Q prog (_root_.Executable.labels exe).label pc blk → CdOf exe endPc pc blk :=
+    fun _ _ ⟨_, _, _, hpc, hb⟩ => Spike.Lib.A64.Flow.code_of hp hend hb hpc
+  rintro pc _ (ha | ⟨b1, b2, rfl, ha1, ha2⟩)
+  · exact hat _ _ ha
+  · exact CdOf.append (hat _ _ ha1) (hat _ _ ha2)
+
 /-- **A piece at `CdC` is in the code** of a laid-out program, at its
 labels. -/
 theorem cdOf_cdC (hp : Scc.Cert.Rt.A64.Lays exe prog kp) {endPc : Int64}
     (hend : endPc = Scc.Cert.Rt.A64.endOf exe prog kp) {okPc : Nat → Bool} {ph : Nat → Nat} {ra : Int64} :
     ∀ pc blk, CdC prog okPc ph (_root_.Executable.labels exe).label ra pc blk → CdOf exe endPc pc blk :=
-  fun _ _ ⟨_, _, _, hpc, hb, _⟩ => Spike.Lib.A64.Flow.code_of hp hend hb hpc
+  fun pc blk h => AtQ.cdOf hp hend pc blk h.2.1
 
 /-- **A call at `BlC` is in the code** of a laid-out program, at its
 labels (`callPre_of`'s `hBl`). -/
@@ -368,25 +644,6 @@ theorem blC_ph {prog : List Directive} {okPc : Nat → Bool} {ph : Nat → Nat} 
   h.choose_spec.choose_spec.2.2.2.2
 
 /-! ## From the placement checks -/
-
-/-- **`runPhB` reads the labels at the run's targets only.** -/
-theorem runPhB_congr {okPc : Nat → Bool} {ph : Nat → Nat} {lab lab' : Label → Int64} {pc ra : Int64}
-    {blk : List Directive} (h : ∀ L ∈ blkLabs blk, lab L = lab' L) :
-    runPhB okPc ph lab pc ra blk = runPhB okPc ph lab' pc ra blk := by
-  unfold runPhB
-  congr 1
-  funext k
-  congr 1
-  cases hk : blk[k]? with
-  | none => rfl
-  | some d =>
-    simp only
-    cases hc : classify d with
-    | none => rfl
-    | some a =>
-      simp only
-      rw [aiTgts_congr fun L hL => h L ?_]
-      exact List.mem_filterMap.mpr ⟨d, List.mem_of_getElem? hk, by rw [hc]; exact hL⟩
 
 /-- An instruction other than a call is not the stack abort's call. -/
 theorem ne_abortI_of_isCall {i : Scc.IR.Inst} (h : Spike.Lib.LowerShape.isCall i = false) : i ≠ abortI := by

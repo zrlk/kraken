@@ -1,7 +1,7 @@
 /-
 **wake.w on x86-64: main after its `clone`** (the spawn's parent half, the
 twin of `Spike/Lib/A64WakeParent.lean`): back from the clone's `syscall`
-(`X64WakeClone.wcNS`, `.Lwc_main.x21 + 46`) with the child's id
+(`X64WakeClone.wcNS`, `.Lwc_main.x3 + 46`) with the child's id
 `0 < %rax < pidMax` (`Spike.Lib.X64Handover.parent_st`), main runs
 
     testq %rax, %rax                    -- row (test_ndW): ZF clear
@@ -64,7 +64,7 @@ block_spec x22B (-64) 16 oW x22B
 block_spec bsB (-64) 16 oW bsB
 block_spec spB (-64) 16 oW spB
 
-abbrev x22L : Label := ".Lwc_main.x22"
+abbrev x22L : Label := ".Lwc_main.x4"
 abbrev spL : Label := ".Lwc_main.spawned6"
 
 /-- **The parent's blocks and rows in `cells`**: the test and the `je` at

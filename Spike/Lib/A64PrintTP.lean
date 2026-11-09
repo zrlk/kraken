@@ -20,6 +20,7 @@ thread pointer across the call.
 import Spike.Lib.A64PrintByteOut
 import Spike.Lib.A64PrintEmpty
 import Spike.Lib.A64Hello1RodataTP
+import Spike.Lib.A64CodeAcross
 
 namespace Spike.Lib.A64.Flow
 
@@ -65,7 +66,8 @@ theorem PrintAW.noMsr {W : Frag isaLSE2} {K : State → State → Prop} {prog : 
     BlkW.noMsr h.n12 (code_field hp hend h12 (by simp only [PrintA.N, add4, add0])) (by decide),
     BlkW.noMsr h.adv (code_field hp hend h13 (by simp only [PrintA.N, add4, add0])) (by decide),
     BlkW.noMsr h.fail (code_field hp hend h14 (by simp only [PrintA.N, add4, add0])) (by decide),
-    BlkW.noMsr h.done (code_field hp hend h15 (by simp only [PrintA.N, add4, add0])) (by decide)⟩
+    BlkW.noMsr h.done (Spike.Lib.A64.code_field_blockAcross hp hend h15 (List.take_append_drop _ _)
+      (by simp only [PrintA.N, add4, add0])) (by decide)⟩
 
 /-- **A state at `print`'s system call is at a cell other than an `MSR`**
 (the cell is `svc`). -/

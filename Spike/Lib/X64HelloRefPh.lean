@@ -56,7 +56,7 @@ def abortRefTabH : List PhFact :=
    .blk ".Lscc_rt_abort.is8" 0 Abort.Disp.g5 none none, .blk "scc_rt_abort_threads" 0 Abort.x0 none none,
    .step ".Lscc_rt_abort_threads.entry" 0 7, .blk ".Lscc_rt_abort_threads.entry" 7 Abort.x1Threads none none,
    .step ".Lscc_rt_abort_threads.entry" 34 2, .blk ".Lscc_rt_abort_threads.entry" 36 Abort.x2 none none,
-   .step ".Lwc_main.x25" 96 3, .blk ".Lwc_main.x25" 99 jeB none none, .blk ".Lwc_main.x26" 0 x26B none none,
+   .step ".Lwc_main.x3" 96 3, .blk ".Lwc_main.x3" 99 jeB none none, .blk ".Lwc_main.x4" 0 x26B none none,
    .blk ".Lwc_main.spawnfail5" 0 flB none none]
 
 /-- The table's facts hold at the resolved phases. -/
@@ -93,7 +93,7 @@ theorem abortPhTH (hΛ : Λ.abortLbl = Scc.Cert.Link.abortName)
   have h := facts hΛ
   simp only [abortRefTabH, List.all_cons, List.all_nil, Bool.and_true, Bool.and_eq_true] at h
   obtain ⟨f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, -⟩ := h
-  have hex : lab "scc_rt_abort_threads_exit" = Int64.ofNat 4202964 :=
+  have hex : lab "scc_rt_abort_threads_exit" = Int64.ofNat 4203002 :=
     hlab _ _ (by rw [← codeT_eq]; decide +kernel)
   unfold abortPhThreadsOk
   simp only [Abort.threads]
@@ -108,7 +108,7 @@ theorem abortPhTH (hΛ : Λ.abortLbl = Scc.Cert.Link.abortName)
 check at `ph2bH`. -/
 theorem refPh_tsH (hΛ : Λ.abortLbl = Scc.Cert.Link.abortName)
     (hlab : ∀ l x, codeLabel lo helloCells l = some x → lab l = Int64.ofNat x) :
-    phOne (okPcOf lo helloCells Λ) ph2bH (lab ".Lwc_main.x25" + Int64.ofNat 96) 3 = true := by
+    phOne (okPcOf lo helloCells Λ) ph2bH (lab ".Lwc_main.x3" + Int64.ofNat 96) 3 = true := by
   have h := facts hΛ
   simp only [abortRefTabH, List.all_cons, List.all_nil, Bool.and_true, Bool.and_eq_true] at h
   exact so hlab h.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1
@@ -116,7 +116,7 @@ theorem refPh_tsH (hΛ : Λ.abortLbl = Scc.Cert.Link.abortName)
 /-- **The `je` block at `.x25 + 99`**: its phase check at `ph2bH`. -/
 theorem refPh_jeH (hΛ : Λ.abortLbl = Scc.Cert.Link.abortName)
     (hlab : ∀ l x, codeLabel lo helloCells l = some x → lab l = Int64.ofNat x) :
-    blkPh (okPcOf lo helloCells Λ) ph2bH (fun _ => false) lab (lab ".Lwc_main.x25" + Int64.ofNat 99) 0 jeB =
+    blkPh (okPcOf lo helloCells Λ) ph2bH (fun _ => false) lab (lab ".Lwc_main.x3" + Int64.ofNat 99) 0 jeB =
       true := by
   have h := facts hΛ
   simp only [abortRefTabH, List.all_cons, List.all_nil, Bool.and_true, Bool.and_eq_true] at h
@@ -125,7 +125,7 @@ theorem refPh_jeH (hΛ : Λ.abortLbl = Scc.Cert.Link.abortName)
 /-- **`.x26`'s block**: its phase check at `ph2bH`. -/
 theorem refPh_x26H (hΛ : Λ.abortLbl = Scc.Cert.Link.abortName)
     (hlab : ∀ l x, codeLabel lo helloCells l = some x → lab l = Int64.ofNat x) :
-    blkPh (okPcOf lo helloCells Λ) ph2bH (fun _ => false) lab (lab ".Lwc_main.x26" + Int64.ofNat 0) 0 x26B =
+    blkPh (okPcOf lo helloCells Λ) ph2bH (fun _ => false) lab (lab ".Lwc_main.x4" + Int64.ofNat 0) 0 x26B =
       true := by
   have h := facts hΛ
   simp only [abortRefTabH, List.all_cons, List.all_nil, Bool.and_true, Bool.and_eq_true] at h

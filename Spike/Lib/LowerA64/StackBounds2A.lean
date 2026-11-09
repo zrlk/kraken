@@ -77,14 +77,14 @@ emitted frame (`ctxOf ir 1`), at most `4095` and 16-aligned. -/
 theorem mainZ_eq_frameA {cfg : Scc.Config} {pcfg : Scc.Cert.PlaceOK.Config} {p : Prog} {Λ : Scc.Sem.Layout}
     (h : placeOKAt pcfg Λ (Out.ofEmitted (Scc.Lower.A64.lowerAll cfg p)) = true)
     (hp : Scc.Lower.Accepted2 p = true) (hs : (Scc.Lower.setupOf p).isSome = true) :
-    (Scc.Lower.Inv.mainThread0 ⟨.setupTid, true⟩ (Spike.Lib.LowerNode.setupWords2 p), 1) ∈
+    (Scc.Lower.Inv.mainThread0 ⟨.setupTid, true⟩ (Spike.Lib.LowerNode.setupWords2 p) (Spike.Lib.LowerNode.setupMask2 p), 1) ∈
         (Scc.Lower.A64.lowerAll cfg p).low.ir.funcs.zipIdx ∧
       (setupMC (Spike.Lib.LowerNode.setupWords2 p)).Z = Int64.ofInt (ctxOf (Scc.Lower.A64.lowerAll cfg p).low.ir 1
-        (Scc.Lower.Inv.mainThread0 ⟨.setupTid, true⟩ (Spike.Lib.LowerNode.setupWords2 p))).frame ∧
+        (Scc.Lower.Inv.mainThread0 ⟨.setupTid, true⟩ (Spike.Lib.LowerNode.setupWords2 p) (Spike.Lib.LowerNode.setupMask2 p))).frame ∧
       (ctxOf (Scc.Lower.A64.lowerAll cfg p).low.ir 1
-        (Scc.Lower.Inv.mainThread0 ⟨.setupTid, true⟩ (Spike.Lib.LowerNode.setupWords2 p))).frame ≤ 4095 ∧
+        (Scc.Lower.Inv.mainThread0 ⟨.setupTid, true⟩ (Spike.Lib.LowerNode.setupWords2 p) (Spike.Lib.LowerNode.setupMask2 p))).frame ≤ 4095 ∧
       (ctxOf (Scc.Lower.A64.lowerAll cfg p).low.ir 1
-        (Scc.Lower.Inv.mainThread0 ⟨.setupTid, true⟩ (Spike.Lib.LowerNode.setupWords2 p))).frame % 16 = 0 := by
+        (Scc.Lower.Inv.mainThread0 ⟨.setupTid, true⟩ (Spike.Lib.LowerNode.setupWords2 p) (Spike.Lib.LowerNode.setupMask2 p))).frame % 16 = 0 := by
   have hc := rtCodeOkS_setupWords2A h hp hs
   obtain ⟨em, hem⟩ := lowerAll?_ok_of_placeOKC h
   obtain ⟨ws, rt, -, hrt, -, hir, -⟩ := Spike.Lib.LowerNode.lowerAll_accepted2_a64 cfg hp hem
@@ -93,7 +93,7 @@ theorem mainZ_eq_frameA {cfg : Scc.Config} {pcfg : Scc.Cert.PlaceOK.Config} {p :
   have h12 := fnCode1_of_placeOKAt h (place_ir_ofEmitted _)
   generalize (Scc.Lower.A64.lowerAll cfg p).low.ir = ir at hir h12 ⊢
   generalize Spike.Lib.LowerNode.setupWords2 p = sw at hrt hc ⊢
-  have hf : (Scc.Lower.Inv.mainThread0 ⟨.setupTid, true⟩ sw, 1) ∈ ir.funcs.zipIdx := by
+  have hf : (Scc.Lower.Inv.mainThread0 ⟨.setupTid, true⟩ sw (Spike.Lib.LowerNode.setupMask2 p), 1) ∈ ir.funcs.zipIdx := by
     rw [List.mem_zipIdx_iff_getElem?, hir]
     simp only [Scc.Lower.Inv.progOf]
     have h1 := mainThread0_idx hrt
@@ -116,7 +116,7 @@ theorem mainZ_eq_frameA {cfg : Scc.Config} {pcfg : Scc.Cert.PlaceOK.Config} {p :
   have hG := (Scc.Cert.Rt.A64.RtAll.append (Scc.Cert.Rt.A64.RtAll.append (Scc.Cert.Rt.A64.RtAll.append
     (Scc.Cert.Rt.A64.RtAll.append hR).1).1).1).2
   have hb2 : blockAt _ (setupMC sw).sc 0 (chkHead (setupMC sw).Z) = true := hG.2.2.1.1
-  have el : (ctxOf ir 1 (Scc.Lower.Inv.mainThread0 ⟨.setupTid, true⟩ sw)).local "stack_check" = (setupMC sw).sc := by
+  have el : (ctxOf ir 1 (Scc.Lower.Inv.mainThread0 ⟨.setupTid, true⟩ sw (Spike.Lib.LowerNode.setupMask2 p))).local "stack_check" = (setupMC sw).sc := by
     rw [mainLocal]; show _ = ".L1_scc_rt_main.stack_check"; decide +kernel
   rw [el] at hb1
   exact ⟨chkHead_inj (blockAt_same hb2 hb1 rfl), hok.1.1.1.1.1.2, hok.1.1.1.1.2⟩
@@ -158,7 +158,7 @@ theorem calleeRowA {cfg : Scc.Config} {pcfg : Scc.Cert.PlaceOK.Config} {p : Prog
     (hp : Scc.Lower.Accepted2 p = true) (hs : (Scc.Lower.setupOf p).isSome = true) (hcfg : CfgNeedOkA pcfg = true)
     {f : Scc.IR.Func} {fi : Nat} (hf : (f, fi) ∈ (Scc.Lower.A64.lowerAll cfg p).low.ir.funcs.zipIdx)
     (hck : f.checkStack = true)
-    (hcall : f.name ∈ (callees (Scc.Lower.Inv.mainThread0 ⟨.setupTid, true⟩ (Spike.Lib.LowerNode.setupWords2 p))).1) :
+    (hcall : f.name ∈ (callees (Scc.Lower.Inv.mainThread0 ⟨.setupTid, true⟩ (Spike.Lib.LowerNode.setupWords2 p) (Spike.Lib.LowerNode.setupMask2 p))).1) :
     ∃ l n, Scc.Cert.NeedA64.row? (Out.ofEmitted (Scc.Lower.A64.lowerAll cfg p)).place.need f.name =
         some (l, (ctxOf (Scc.Lower.A64.lowerAll cfg p).low.ir fi f).frame, n) ∧
       (ctxOf (Scc.Lower.A64.lowerAll cfg p).low.ir fi f).frame ≤ n ∧
@@ -174,8 +174,8 @@ theorem calleeRowA {cfg : Scc.Config} {pcfg : Scc.Cert.PlaceOK.Config} {p : Prog
   have he := List.all_eq_true.mp hA.1 _ (List.contains_iff_mem.mp hcfg.1)
   generalize (ctxOf (Scc.Lower.A64.lowerAll cfg p).low.ir fi f).frame = fr at h1 ⊢
   generalize (ctxOf (Scc.Lower.A64.lowerAll cfg p).low.ir 1
-    (Scc.Lower.Inv.mainThread0 ⟨.setupTid, true⟩ (Spike.Lib.LowerNode.setupWords2 p))).frame = sg at h2 ⊢
-  have hn0 : (Scc.Lower.Inv.mainThread0 ⟨.setupTid, true⟩ (Spike.Lib.LowerNode.setupWords2 p)).name =
+    (Scc.Lower.Inv.mainThread0 ⟨.setupTid, true⟩ (Spike.Lib.LowerNode.setupWords2 p) (Spike.Lib.LowerNode.setupMask2 p))).frame = sg at h2 ⊢
+  have hn0 : (Scc.Lower.Inv.mainThread0 ⟨.setupTid, true⟩ (Spike.Lib.LowerNode.setupWords2 p) (Spike.Lib.LowerNode.setupMask2 p)).name =
       Scc.Lower.Names.mainThread := rfl
   rw [hn0] at h2
   unfold needOk1 at h1 h2
@@ -196,9 +196,9 @@ theorem calleeRowA {cfg : Scc.Config} {pcfg : Scc.Cert.PlaceOK.Config} {p : Prog
 
 /-- **`scc_rt_main` calls the setup block and `main`** (after a setup block
 of `sw` words). -/
-theorem user_mem_calleesA (sw : Nat) :
-    Scc.Lower.Names.user "rodata" ∈ (callees (Scc.Lower.Inv.mainThread0 ⟨.setupTid, true⟩ sw)).1 ∧
-      Scc.Lower.Names.user "main" ∈ (callees (Scc.Lower.Inv.mainThread0 ⟨.setupTid, true⟩ sw)).1 := by
+theorem user_mem_calleesA (sw : Nat) (m : List Bool := []) :
+    Scc.Lower.Names.user "rodata" ∈ (callees (Scc.Lower.Inv.mainThread0 ⟨.setupTid, true⟩ sw m)).1 ∧
+      Scc.Lower.Names.user "main" ∈ (callees (Scc.Lower.Inv.mainThread0 ⟨.setupTid, true⟩ sw m)).1 := by
   simp [callees, Scc.Lower.Inv.mainThread0, mainInsts_setupA]
 
 /-! ## The bounds -/
@@ -286,11 +286,11 @@ theorem stackBounds2A {cfg : Scc.Config} {pcfg : Scc.Cert.PlaceOK.Config} {p : P
         (-(setupMC (Spike.Lib.LowerNode.setupWords2 p)).Z.toInt) := by
   obtain ⟨-, hZ, h4, h16⟩ := mainZ_eq_frameA h hp hs
   have hge : 16 ≤ (ctxOf (Scc.Lower.A64.lowerAll cfg p).low.ir 1
-      (Scc.Lower.Inv.mainThread0 ⟨.setupTid, true⟩ (Spike.Lib.LowerNode.setupWords2 p))).frame := by
+      (Scc.Lower.Inv.mainThread0 ⟨.setupTid, true⟩ (Spike.Lib.LowerNode.setupWords2 p) (Spike.Lib.LowerNode.setupMask2 p))).frame := by
     simp only [ctxOf, Scc.Emit.A64.fnCtx, Scc.Emit.A64.align16]; omega
   have hZi := toInt_ofNat_le4095 h4
   have hZb := toBitVec_ofInt_toNat (k := (ctxOf (Scc.Lower.A64.lowerAll cfg p).low.ir 1
-      (Scc.Lower.Inv.mainThread0 ⟨.setupTid, true⟩ (Spike.Lib.LowerNode.setupWords2 p))).frame) (by omega)
+      (Scc.Lower.Inv.mainThread0 ⟨.setupTid, true⟩ (Spike.Lib.LowerNode.setupWords2 p) (Spike.Lib.LowerNode.setupMask2 p))).frame) (by omega)
   rw [← hZ] at hZi hZb
   -- the callees' rows
   obtain ⟨ty, hty⟩ := Option.isSome_iff_exists.mp hs
@@ -300,7 +300,7 @@ theorem stackBounds2A {cfg : Scc.Config} {pcfg : Scc.Cert.PlaceOK.Config} {p : P
   obtain ⟨fm, im, hfm, hckm, hnm'⟩ := userFn2A h hp hdm
   rw [hnr] at hnr'
   rw [hnm] at hnm'
-  obtain ⟨hcr, hcm⟩ := user_mem_calleesA (Spike.Lib.LowerNode.setupWords2 p)
+  obtain ⟨hcr, hcm⟩ := user_mem_calleesA (Spike.Lib.LowerNode.setupWords2 p) (Spike.Lib.LowerNode.setupMask2 p)
   obtain ⟨lS, nS, hrS, hfS, hnS⟩ := calleeRowA h hp hs hcfg hfr hckr (hnr' ▸ hcr)
   obtain ⟨lM, nM, hrM, hfM, hnM⟩ := calleeRowA h hp hs hcfg hfm hckm (hnm' ▸ hcm)
   rw [hnr'] at hrS

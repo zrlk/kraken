@@ -59,12 +59,12 @@ theorem blkPh_labC {lo : Nat} {cells : List (Directive × Nat)} {lab : Label →
 `ProPh` at the listing's sizes and the body's `bodyPhOk`. -/
 theorem fnPh1_sound {okPc : Nat → Bool} {ph : Nat → Nat} {lo : Nat} {cells : List (Directive × Nat)}
     {lab : Label → Int64} (hlab : ∀ l a, codeLabel lo cells l = some a → lab l = Int64.ofNat a)
-    {fr : Scc.Emit.X64.Frame} {fn : String} {is : List Scc.IR.Inst} {w : Scc.IR.Operand} {ra : Int64}
-    (h : fnPh1 okPc ph (labC lo cells) (fun l => (codeLabel lo cells l).isSome) cells fr fn is w ra = true) :
+    {fr : Scc.Emit.X64.Frame} {fn : String} {n : Nat} {is : List Scc.IR.Inst} {w : Scc.IR.Operand} {ra : Int64}
+    (h : fnPh1 okPc ph (labC lo cells) (fun l => (codeLabel lo cells l).isSome) cells fr fn n is w ra = true) :
     ∃ zl zf z1 z2 zs, sizesAt cells (labelOf fr.fn "chk") 0 5 = [zl, zf, z1, z2, zs] ∧
       ProPh okPc ph lab fn (labelOf fr.fn "chk") (Int64.ofInt fr.size) (proL fr) zl zf z1 z2 zs [] ∧
       (is ≠ [] → blkPh okPc ph (fun _ => false) lab (lab (ovfL fr) + Int64.ofNat 0) 0 ovfBlk = true) ∧
-      bodyPhOk okPc ph (fun _ => false) lab cells fr (labelOf fn "entry") is [w] ra = true := by
+      bodyPhOk okPc ph (fun _ => false) lab cells fr (labelOf fn "entry") n is [w] ra = true := by
   unfold fnPh1 at h
   split at h
   · next zl zf z1 z2 zs hs =>
@@ -104,7 +104,8 @@ where
 
 open Scc.Cert.PlaceOK.X64 in
 /-- **The user functions' phase premises from `PlaceOK`**: at a `func0`
-block of a placed output, its prologue at the listing's sizes (`proInC`)
+block of a placed output (its first local label number `n`,
+`Scc.Cert.Code1X64.starts`), its prologue at the listing's sizes (`proInC`)
 with its `ProPh`, and its body's `bodyPhOk`, at A6's `okPcOf`/`phOf`, any
 label map agreeing with the code labels (`hlab`), the return address the
 label after `scc_rt_main`'s `call`. -/
@@ -112,7 +113,8 @@ theorem userPh_of_placeOK {cfg : Scc.Cert.PlaceOK.Config} {o : Scc.Cert.PlaceOK.
     (h : placeOKAt cfg Λ o = true)
     {ir : Scc.IR.Program} (hir : o.place.ir = some ir) {lab : Label → Int64}
     (hlab : ∀ l a, codeLabel Λ.code.lo o.prog l = some a → lab l = Int64.ofNat a)
-    {name : Scc.IR.Sym} {r : Scc.Lower.Inv.Res} (hf : Scc.Lower.Inv.func0 name r ∈ ir.funcs)
+    {name : Scc.IR.Sym} {r : Scc.Lower.Inv.Res} {n : Nat}
+    (hf : (Scc.Lower.Inv.func0 name r, n) ∈ Scc.Cert.Code1X64.starts ir 0 ir.funcs)
     (hI : ∀ i ∈ r.insts, ∃ d a b, i = .addChk d a b) {w : Scc.IR.Operand} (hw : r.ret = [w]) :
     let fr := frOf ir (Scc.Lower.Inv.func0 name r)
     let okPc := Scc.Cert.Rt.X64.okPcOf Λ.code.lo o.prog Λ
@@ -121,7 +123,7 @@ theorem userPh_of_placeOK {cfg : Scc.Cert.PlaceOK.Config} {o : Scc.Cert.PlaceOK.
       ProPh okPc ph lab name (labelOf fr.fn "chk") (Int64.ofInt fr.size) (proL fr) zl zf z1 z2 zs [] ∧
       (r.insts ≠ [] → blkPh okPc ph (fun _ => false) lab (lab (ovfL fr) + Int64.ofNat 0) 0
         Spike.Lib.X64.Abort.Local.lb = true) ∧
-      bodyPhOk okPc ph (fun _ => false) lab o.prog fr (labelOf name "entry") r.insts [w] (lab raL) = true := by
+      bodyPhOk okPc ph (fun _ => false) lab o.prog fr (labelOf name "entry") n r.insts [w] (lab raL) = true := by
   intro fr okPc ph
   obtain ⟨ir', hir', hok⟩ := fnCodeOk_of_placeOKAt h
   rw [hir] at hir'; cases hir'

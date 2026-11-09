@@ -235,7 +235,7 @@ theorem tcbW_gen {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe] {
     simp [bAddr, Reg64s.get64, he]
   case ret =>
     dsimp only [TcbW]; rw [hI.labOk]
-    exact blkW_pre hI (by assumption) rfl atRet_ok hR hlo hhi (hC _ fun _ _ hJ => hJ.1) hph.ret
+    exact blkW_preA (j := 11) hI (by assumption) rfl atRet_ok hR hlo hhi (hC _ fun _ _ hJ => hJ.1) hph.ret
       (hret_of_run atRet_ok fun _ _ hJ => by
         dsimp only [tcbN] at hJ ⊢
         rw [(atRet_walk lab _ hJ.2).1, hra]; exact Int64.ofBitVec_toBitVec _)

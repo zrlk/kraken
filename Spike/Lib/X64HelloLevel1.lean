@@ -1,13 +1,13 @@
 /-
 **hello's level 1 from rodata's landing, generic part** (x86-64; the twin of `Spike/Lib/A64HelloLevel1.lean`'s
 live part): the allocator's landing `Ea` under `wc_rodata`'s frame `fr` (level 0's hand-off,
-`StartH0H1.RdLandH`'s shape), and the invariant at `wc_rodata`'s `.x15` its images imply.
+`StartH0H1.RdLandHg`'s shape), and the invariant at `wc_rodata`'s `.x15` its images imply.
 
 The landing is the allocator's return past the source's `new` (`Ea ms₀ q l b w`, `ms₀` the memory side the
 allocation was taken at, level 0's). Leaving the allocator's region (`StartWcS.xa_post`, `at_leave`), it is
 `wc_rodata`'s `.x15` (`pN … .s0`) at an invariant `Jp` the landings imply (`hJp`).
 
-- `LandF`: the landing at the caller's state `m0`, `σC`, under `fr` (`RdLandH`'s body, any `ms₀`, `R`, `F`).
+- `LandF`: the landing at the caller's state `m0`, `σC`, under `fr` (`RdLandHg`'s body, any `ms₀`, `R`, `F`).
 - `JpL`, `jpL_of`: the canonical `Jp` (the landings' images at `.x15`), for which `hJp` holds by definition.
 
 ## Differences from the AArch64 version
@@ -36,7 +36,7 @@ section Gen
 
 variable {ms₀ : MemSide isa} {R : Region}
 
-/-- **The allocator's landing under `wc_rodata`'s frame** at the caller's state `m0`, `σC` (`RdLandH`'s body):
+/-- **The allocator's landing under `wc_rodata`'s frame** at the caller's state `m0`, `σC` (`RdLandHg`'s body):
 some call `q` at `ms₀`, a frame condition `F'` inside `wc_rodata`'s and its call context's, the landing `Ea` at
 the label `l`, base `b`, words `w`. -/
 def LandF (ms₀ : MemSide isa) (exe : _root_.Executable) (endPc : Int64) (R : Region) (F : MachineData → Prop)

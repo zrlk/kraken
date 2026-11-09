@@ -175,7 +175,7 @@ theorem hra_alloc
     (lab ".L2_scc_rt_alloc.4_full" + 8).toBitVec ≠ Spike.Lib.A64.ThreadsAb.raT lab pfxM := by
   have h1 : lab ".L2_scc_rt_alloc.4_full" = Int64.ofNat 2164480 :=
     hlab _ _ (by rw [← codeT_eq]; decide +kernel)
-  have h2 : lab (pfxM ++ ".1_spawnfail5") = Int64.ofNat 2169376 :=
+  have h2 : lab (pfxM ++ ".1_spawnfail5") = Int64.ofNat 2169408 :=
     hlab _ _ (by rw [← codeT_eq]; decide +kernel)
   simp only [Spike.Lib.A64.ThreadsAb.raT, h1, h2]
   decide

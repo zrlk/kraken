@@ -142,7 +142,7 @@ theorem userCallW1_swF {d : Decl} (hd : Scc.Lower.Accepted1 [d] = true) {cx : Fn
 theorem userCallW_swF {d : Decl} (hd : Scc.Lower.Accepted0 [d] = true) {cx : FnCtx} {r : Scc.Lower.Inv.Res}
     {fn entry : Label} (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) (h16 : cx.frame % 16 = 0)
     (hpro : proInC prog cx fn entry = true) (hr : Scc.Lower.Inv.lower0 [(d.arg, .unit, [])] 0 d.body = some r)
-    (hbody : bodyIn prog cx entry 0 r.insts r.ret = true)
+    (hbody : bodyIn prog cx entry 0 0 r.insts r.ret = true)
     {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp) {Dt : State → Prop}
     {lbl : Lbl} {ms : MemSide isaLSE2} {Z : Int64} {D L : Int} {tcb top : BitVec 64} {ra : BitVec 64} {Fw : _root_.Mem 64 → Prop}
     (hD : (cx.frame : Int) + 48 ≤ D) (hD8 : D % 8 = 0)

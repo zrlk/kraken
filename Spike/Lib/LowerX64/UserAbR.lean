@@ -92,17 +92,21 @@ theorem blkW_abSt_subCdLR {exe : _root_.Executable} [Kraken.Executable.ValidLayo
           (a = .call "scc_rt_abort" ∧ (arun lab (blk.take k) ⟨n.pc, n.o, σ⟩).σ.regs.get64 .rdi ≠ 4#64)) :
     BlkW (fun s _ => AbSt μ (Ab lab) s) (fun _ _ => False) exe endPc R F n blk := by
   have hcd' := hcd
-  obtain ⟨pc0, pre, post, ⟨-, L, j, off, -, hpc0, hb, hrun⟩, hpc⟩ := hcd'
-  have hc : cellOff (pre ++ blk ++ post) pre.length = (pre.map (·.2)).sum := by
-    simp [cellOff]
-  have hph := Scc.Cert.Ph1X64.blkPh_of_runPhB hrun (classify_of_okBlk hok)
-  rw [hc, ← hpc] at hph
-  have hpc' : lab L + Int64.ofNat (off + (pre.map (·.2)).sum) = n.pc := by
-    rw [hpc, ← hpc0, Int64.ofNat_add, Int64.add_assoc]
-  have hcode : ∀ s : State, s.exe = exe → s.endPc = endPc → CodeAt s n.pc blk := by
-    intro s hs hn
-    have := Scc.Cert.Rt.X64.codeAt_blockAt_lays hI.lays hs (hn.trans hI.endOk) (blockAt_sub hb)
+  obtain ⟨pc0, pre, post, hc0, hpc⟩ := hcd'
+  obtain ⟨-, hat, hrun⟩ := CdCQ.sub (Q := fun L => L ∉ Spike.Lib.X64.AllocG.abLabs ∧ WcL L) hc0 hpc
+  have hph := Scc.Cert.Ph1X64.blkPh_of_runPhB (xs := []) (zs := []) (by simpa using hrun)
+    (classify_of_okBlk hok)
+  simp only [List.nil_append, List.append_nil, List.length_nil] at hph
+  rw [show cellOff blk 0 = 0 by simp [cellOff], show Int64.ofNat 0 = 0 from rfl, Int64.add_zero] at hph
+  have h1 : ∀ pc b, At1Q (fun L => L ∉ Spike.Lib.X64.AllocG.abLabs ∧ WcL L) cells lab pc b →
+      ∀ s : State, s.exe = exe → s.endPc = endPc → CodeAt s pc b := by
+    rintro _ _ ⟨L, j, off, -, hpc', hb⟩ s hs hn
+    have := Scc.Cert.Rt.X64.codeAt_blockAt_lays hI.lays hs (hn.trans hI.endOk) hb
     rwa [hI.labOk, hpc'] at this
+  have hcode : ∀ s : State, s.exe = exe → s.endPc = endPc → CodeAt s n.pc blk := by
+    rcases hat with h | ⟨b1, b2, rfl, ha1, ha2⟩
+    · exact h1 _ _ h
+    · exact fun s hs hn => Spike.Lib.X64.CodeAt.append (h1 _ _ ha1 s hs hn) (h1 _ _ ha2 s hs hn)
   refine blkW_abSt_posR hI hpr hab hcode hok hR hlo hhi hph hret ?_
   intro σ c hJ k hk a ha t ht
   by_cases hr : a = .ret

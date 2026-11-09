@@ -56,7 +56,7 @@ abbrev lo : Nat := 0x401000
 /-- **The pcs after the thread counter's add**, by the cells' labels. -/
 def wakeR : List PhRange :=
   [⟨".Lscc_rt_thread_reserve.entry", 27, "scc_rt_thread_init", 0⟩,
-    ⟨".Lwc_main.x19", 0, ".Lwc_main.stk", 0⟩]
+    ⟨".Lwc_main.x1", 0, ".Lwc_main.stk", 0⟩]
 
 /-- The pc is in `wakeR` (resolved in the cells at the canonical base). -/
 def inR (pc : Nat) : Bool :=
@@ -68,7 +68,7 @@ def inR (pc : Nat) : Bool :=
 def phW : Nat → Nat := phExt (phOf lo wakeCells) inR
 
 /-- The resolved ranges. -/
-def RC : List (Nat × Nat) := [(4199482, 4199545), (4203349, 4203514)]
+def RC : List (Nat × Nat) := [(4199482, 4199545), (4203387, 4203552)]
 
 /-- The canonical phase table of the cells. -/
 def TC : PhTab where
@@ -78,7 +78,7 @@ def TC : PhTab where
   t := [(4198400, 4198500), (4198992, 4199447), (4199545, 4199569), (4199695, 4200278)]
 
 /-- The sites (`siteLabels` at `Link.abortName`). -/
-def SC : List Nat := [4200277, 4200317, 4202655, 4202723, 4202791, 4202859, 4202927]
+def SC : List Nat := [4200277, 4200317, 4202693, 4202761, 4202829, 4202897, 4202965]
 
 theorem wakeR_eq : wakeR.mapM (PhRange.resolve (codeLabel lo wakeCells)) = some RC := by
   rw [← codeT_eq]; decide +kernel
@@ -129,11 +129,11 @@ def ownW (L : RuntimeLayout) (a : BitVec 64) (i : Nat) : List (Loc × Val) :=
 
 /-- The reserve's blocks' checks at `phW`, returning to `wc_main`'s `.x19`. -/
 theorem resBlks :
-    blkOkN (codeT lo wakeCells) okC phC 4199447 0 rPro (some (".Lwc_main.x19", 0)) none = true ∧
-    blkOkN (codeT lo wakeCells) okC phC 4199455 7 rArg (some (".Lwc_main.x19", 0)) none = true ∧
-    blkOkN (codeT lo wakeCells) okC phC 4199455 27 rBnd (some (".Lwc_main.x19", 0)) none = true ∧
-    blkOkN (codeT lo wakeCells) okC phC 4199455 65 rJ (some (".Lwc_main.x19", 0)) none = true ∧
-    blkOkN (codeT lo wakeCells) okC phC 4199536 0 rRet (some (".Lwc_main.x19", 0)) none = true := by
+    blkOkN (codeT lo wakeCells) okC phC 4199447 0 rPro (some (".Lwc_main.x1", 0)) none = true ∧
+    blkOkN (codeT lo wakeCells) okC phC 4199455 7 rArg (some (".Lwc_main.x1", 0)) none = true ∧
+    blkOkN (codeT lo wakeCells) okC phC 4199455 27 rBnd (some (".Lwc_main.x1", 0)) none = true ∧
+    blkOkN (codeT lo wakeCells) okC phC 4199455 65 rJ (some (".Lwc_main.x1", 0)) none = true ∧
+    blkOkN (codeT lo wakeCells) okC phC 4199536 0 rRet (some (".Lwc_main.x1", 0)) none = true := by
   decide +kernel
 
 /-- The reserve's labels. -/
@@ -161,7 +161,7 @@ theorem resPhW (hΛ : Λ.abortLbl = Scc.Cert.Link.abortName) {L : RuntimeLayout}
     (hlab : ∀ l a, codeLabel lo wakeCells l = some a → lab l = Int64.ofNat a)
     (hsep : ntA lab ≠ L.pnA ∧ ntA lab ≠ L.lockA ∧ ntA lab ≠ L.freeNA ∧ ntA lab ≠ L.nextA)
     (noTk : ∀ p ∈ resPcs lab, ∀ s : State, pcOf s = p.toBitVec.toNat → ¬ Tk s) :
-    ResPh (okPcOf lo wakeCells Λ) phW Tk (ownW L (ntA lab)) lab (lab ".Lwc_main.x19") := by
+    ResPh (okPcOf lo wakeCells Λ) phW Tk (ownW L (ntA lab)) lab (lab ".Lwc_main.x1") := by
   obtain ⟨bE, bA, bB, bJ, bO⟩ := resBlks
   obtain ⟨lF, lE, lO⟩ := resLabs
   obtain ⟨s0, s22, p22, p27⟩ := resSteps
@@ -170,8 +170,8 @@ theorem resPhW (hΛ : Λ.abortLbl = Scc.Cert.Link.abortName) {L : RuntimeLayout}
   rw [← phW_eq] at p22 p27
   have hn : ∀ {d : Nat → Bool} t, Scc.Cert.Rt.X64.deadN (codeLabel lo wakeCells) none t = true → d t = true :=
     fun _ h => by simp [Scc.Cert.Rt.X64.deadN] at h
-  have hr : ∀ r o', some (".Lwc_main.x19", 0) = some (r, o') →
-      lab ".Lwc_main.x19" = lab r + Int64.ofNat o' := fun _ _ h => by
+  have hr : ∀ r o', some (".Lwc_main.x1", 0) = some (r, o') →
+      lab ".Lwc_main.x1" = lab r + Int64.ofNat o' := fun _ _ h => by
     cases h; exact (Spike.Lib.X64.Flow.ofNat_zero' _).symm
   have hrmw : (rmwPc lab).toBitVec.toNat = 4199477 := pc_eq hlab lE 22
   have hrmw5 : (rmwPc lab + Int64.ofNat 5).toBitVec.toNat = 4199482 := by

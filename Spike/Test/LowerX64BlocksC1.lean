@@ -73,7 +73,7 @@ info: 'Spike.Lib.LowerX64.emitInst_allIns' depends on axioms: [propext, Classica
 #print axioms emitInst_allIns
 
 /--
-info: 'Spike.Lib.LowerX64.emitTerm_allIns' depends on axioms: [propext, Quot.sound]
+info: 'Spike.Lib.LowerX64.emitTerm_allIns' depends on axioms: [propext]
 -/
 #guard_msgs in
 #print axioms emitTerm_allIns

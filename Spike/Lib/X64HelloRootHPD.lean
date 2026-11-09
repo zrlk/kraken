@@ -3,7 +3,7 @@
 `GJ1RH`, the box's ghost `GJ1H` with the region and frame condition pinned. `R` is `wc_main`'s frame based at the
 saved `%rbp`, `(wcR (RS helloLsw v) helloD).fp (-8)` (where the box's landing `bXH` is stated), and `F` its
 frame condition at the call over the start's `FS` at `v`, from the caller's state `m1`, `σ1`. The rest of `RootHP`
-(the landing at the pinned ghost, `H1GAH0`, `hP_of`) is in `X64HelloRootHP`, which imports this module.
+(the landing at the pinned ghost, `H1GAH0`, `hP_ofG`) is in `X64HelloRootHP`, which imports this module.
 
 - `RbpPinH`: the caller's invariant's `%rbp` pinned at `scc_rt_main`'s saved `%rbp`, `(RS helloLsw v).addr (-8)`.
 - `GJ1RH`: the pinned ghost (with `RbpPinH` at its switch base).

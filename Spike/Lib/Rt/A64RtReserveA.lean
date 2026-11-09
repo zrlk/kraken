@@ -54,6 +54,14 @@ local macro "rnodeW " b:ident ok:ident hb:term:max w:term:max : tactic =>
   `(tactic| refine seg_ndW (by simp [$b:ident]) $ok hF hR hal hlo hhi
     (code_of hp hend $hb (by first | rfl | exact ofNat4_zero _)) $w fun σ c hJ => ⟨c, .refl c, ?_⟩)
 
+set_option hygiene false in
+/-- `rnodeW` for `rRet`, split by its return label `retL` after 4
+instructions (`blockAcross`, `Spike.Lib.A64.code_field_blockAcross`). -/
+local macro "rnodeWA " b:ident ok:ident hb:term:max w:term:max : tactic =>
+  `(tactic| refine seg_ndW (by simp [$b:ident]) $ok hF hR hal hlo hhi
+    (Spike.Lib.A64.code_field_blockAcross hp hend $hb (List.take_append_drop 4 _)
+      (by first | rfl | exact ofNat4_zero _)) $w fun σ c hJ => ⟨c, .refl c, ?_⟩)
+
 /-- **`scc_rt_thread_reserve` is one segment inside `W`, the counter owned
 at the `ldadd` node's states** (`reserve_segW` at `ResOkA`). -/
 theorem reserve_segWA {W : Frag isaLSE2} {K : State → State → Prop} {prog : List Directive} {kp : Nat}
@@ -112,7 +120,7 @@ theorem reserve_segWA {W : Frag isaLSE2} {K : State → State → Prop} {prog : 
     rw [rJ_run]
     exact .inl ⟨RN.ok, rfl, rfl, hJ⟩
   case ok =>
-    rnodeW rRet rRet_ok bOk (hW RN.ok)
+    rnodeWA rRet rRet_ok bOk (hW RN.ok)
     dsimp only [rvN, rvX] at hJ ⊢
     obtain ⟨rfl, hJ⟩ := hJ
     obtain ⟨h1, h2, h3⟩ := rRet_walk (_root_.Executable.labels exe).label _ hJ

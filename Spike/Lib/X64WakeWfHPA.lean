@@ -205,7 +205,7 @@ theorem hra_alloc
     (hlab : ∀ l a, codeLabel Spike.Lib.X64.WakePh.lo wakeCells l = some a → lab l = Int64.ofNat a) :
     (lab ".Lscc_rt_alloc.full" + 12).toBitVec ≠ ThreadsAb.raT lab pfxM := by
   have h1 : lab ".Lscc_rt_alloc.full" = Int64.ofNat 4198751 := hlab _ _ (by decide +kernel)
-  have h2 : lab (pfxM ++ ".spawnfail5") = Int64.ofNat 4203472 := hlab _ _ (by decide +kernel)
+  have h2 : lab (pfxM ++ ".spawnfail5") = Int64.ofNat 4203510 := hlab _ _ (by decide +kernel)
   simp only [ThreadsAb.raT, h1, h2]
   decide
 

@@ -4,7 +4,7 @@ X64-OwnW Wc group): `WcW`'s producers at `SFactsSt2`/`ownG`
 (`proW_wcG`, `eW_wcG`, `wcSp0W_wcG`, `resBlW_wcG`) moved to `SFactsSt2` at
 `ownGXW` (`Lft2`), from outside (`XProW.imp`, `BlkW.imp`, `NodeW.imp` with
 a second obligation inside `Lft2`): `wc_main` from its entry to the
-reserve's call (`[4203265, 4203349]`) and the blocks' ends (`.Lwc_main.stk`,
+reserve's call (`[4203303, 4203387]`) and the blocks' ends (`.Lwc_main.stk`,
 `scc_rt_alloc`, `scc_rt_thread_reserve`) are `QP` pcs, its frame's band
 `[-80, 8]` on the pool (`hb`), so every state holds `tcbM` only
 (`cls_pool`); the limit's `%fs` load writes nothing, and the box store
@@ -49,9 +49,9 @@ variable {L : RuntimeLayout} {a : BitVec 64} {Λ : Scc.Sem.Layout} {Dt : State �
 
 /-- The labels `wc_main`'s pcs are decided from, at the canonical base. -/
 theorem wc_labs (hlab : ∀ l x, codeLabel lo wakeCells l = some x → L.lab l = Int64.ofNat x) :
-    L.lab "wc_main" = Int64.ofNat 4203265 ∧ L.lab ".Lwc_main.chk" = Int64.ofNat 4203269 ∧
-    L.lab ".Lwc_main.entry" = Int64.ofNat 4203300 ∧ L.lab ".Lwc_main.x18" = Int64.ofNat 4203326 ∧
-    L.lab ".Lwc_main.stk" = Int64.ofNat 4203514 ∧ L.lab "scc_rt_alloc" = Int64.ofNat 4198629 ∧
+    L.lab "wc_main" = Int64.ofNat 4203303 ∧ L.lab ".Lwc_main.chk" = Int64.ofNat 4203307 ∧
+    L.lab ".Lwc_main.entry" = Int64.ofNat 4203338 ∧ L.lab ".Lwc_main.x0" = Int64.ofNat 4203364 ∧
+    L.lab ".Lwc_main.stk" = Int64.ofNat 4203552 ∧ L.lab "scc_rt_alloc" = Int64.ofNat 4198629 ∧
     L.lab "scc_rt_thread_reserve" = Int64.ofNat 4199447 := by
   refine ⟨hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_⟩ <;>
     (rw [← codeT_eq]; decide +kernel)
@@ -207,13 +207,13 @@ theorem sp0bL (hb : BandOnP L R (-80) 8) (hR : R.OK) (hRlo : R.lo ≤ -72) (hhi 
     {ms : Spike.Lib.MemSide isa} {J0 : Spike.Lib.X64.AS → Spike.Lib.Ctl → Prop} :
     BlkW (Lft2 Λ L a Dt) (fun _ _ => False) L.exe L.endPc R F (sN ms L.lab R J0 .b) wcS0 := by
   obtain ⟨-, -, -, e18, -, -, -⟩ := wc_labs hlab (L := L)
-  refine blkL2 hp hlab hsite hsep ha hW (P := PP) (Q := QP) (l := ".Lwc_main.x18") (k := 0)
+  refine blkL2 hp hlab hsite hsep ha hW (P := PP) (Q := QP) (l := ".Lwc_main.x0") (k := 0)
     (by have := wake_wcS0In; simp only [wcS0In, Bool.and_eq_true] at this; exact this.1)
     (ofNat_zero' _) wcS0_ok hR hRlo hhi (fun _ h => h.2) (fun s h => cls_pool hlab hb s h.1) (cls_pool hlab hb) ?_
     (soW wcS0 oWR) (fun σ c _ => ?_)
-  · intro k hk; show PP (L.lab ".Lwc_main.x18" + _).toBitVec.toNat; rw [e18]; revert k; decide +kernel
+  · intro k hk; show PP (L.lab ".Lwc_main.x0" + _).toBitVec.toNat; rw [e18]; revert k; decide +kernel
   · show QP (arun _ wcS0 ⟨_, oWR, σ⟩).pc.toBitVec.toNat
-    rw [wcS0_run]; show QP (L.lab ".Lwc_main.x18" + Int64.ofNat 15).toBitVec.toNat; rw [e18]; decide +kernel
+    rw [wcS0_run]; show QP (L.lab ".Lwc_main.x0" + Int64.ofNat 15).toBitVec.toNat; rw [e18]; decide +kernel
 
 omit hsite in
 /-- **The box store inside `Lft2`**: every cell the allocator may return
@@ -255,8 +255,8 @@ theorem sp0stL (hb : BandOnP L R (-80) 8) {ms : Spike.Lib.MemSide isa}
   · obtain ⟨hc, hea, hun', hd⟩ := hE s c hAt
     have hK : Keep s s' := StartTi.keep_st hc hd hea hun' hs
     exact ⟨hK, by rw [keep_pc hc hK, hAt.2.2.2.1]⟩
-  · show QP (L.lab ".Lwc_main.x18" + Int64.ofNat 15).toBitVec.toNat; rw [e18]; decide +kernel
-  · show QP (L.lab ".Lwc_main.x18" + Int64.ofNat 15 + Int64.ofNat 3).toBitVec.toNat; rw [e18]; decide +kernel
+  · show QP (L.lab ".Lwc_main.x0" + Int64.ofNat 15).toBitVec.toNat; rw [e18]; decide +kernel
+  · show QP (L.lab ".Lwc_main.x0" + Int64.ofNat 15 + Int64.ofNat 3).toBitVec.toNat; rw [e18]; decide +kernel
 
 /-- **The reserve's call block inside `Lft2`.** -/
 theorem resBlL (hb : BandOnP L R (-80) 8) (hR : R.OK) (hRlo : R.lo ≤ -72) (hhi : 16 ≤ R.hi)
@@ -264,11 +264,11 @@ theorem resBlL (hb : BandOnP L R (-80) 8) (hR : R.OK) (hRlo : R.lo ≤ -72) (hhi
     {Q : WeakMem.AllocLabel → Nat → Spike.Lib.Ctl → Prop} :
     BlkW (Lft2 Λ L a Dt) (fun _ _ => False) L.exe L.endPc R F (rN ms L.lab R J0 Q .bl) resB := by
   obtain ⟨-, -, -, e18, -, -, eR⟩ := wc_labs hlab (L := L)
-  refine blkL2 hp hlab hsite hsep ha hW (P := PP) (Q := QP) (l := ".Lwc_main.x18") (k := 18)
+  refine blkL2 hp hlab hsite hsep ha hW (P := PP) (Q := QP) (l := ".Lwc_main.x0") (k := 18)
     (by have := wake_wcResIn; simp only [wcResIn, Bool.and_eq_true] at this; exact this.1)
     rfl resB_ok hR hRlo hhi (fun _ h => h.2) (fun s h => cls_pool hlab hb s h.1) (cls_pool hlab hb) ?_
     (soW resB (⟨-64, [(.rbp, 0)]⟩ : Spike.Lib.X64.SO)) (fun σ c _ => ?_)
-  · intro k hk; show PP (L.lab ".Lwc_main.x18" + Int64.ofNat 18 + _).toBitVec.toNat; rw [e18]; revert k
+  · intro k hk; show PP (L.lab ".Lwc_main.x0" + Int64.ofNat 18 + _).toBitVec.toNat; rw [e18]; revert k
     decide +kernel
   · show QP (arun _ resB ⟨_, ⟨-64, [(.rbp, 0)]⟩, σ⟩).pc.toBitVec.toNat
     rw [resB_run]; show QP (L.lab "scc_rt_thread_reserve").toBitVec.toNat; rw [eR]; decide +kernel

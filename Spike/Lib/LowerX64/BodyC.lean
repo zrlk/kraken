@@ -19,8 +19,9 @@
 
 Where x86-64 differs from AArch64: an instruction's code is the items it
 emits from every state (`Emits`), split here into the per-construct blocks
-(`emits_add`, `emits_sub`, `emits_br`, `emits_ret`) and their sized cells
-(`subCd_split`).
+(`emits_sub`, `emits_br`) and their sized cells (`subCd_split`); a checked
+`+` and a `ret` take a fresh label (P5, `not_emits_add`, `not_emits_ret`)
+and `CodeC` gives their pieces directly.
 -/
 import Spike.Lib.LowerX64.BlocksC1Code
 import Spike.Lib.LowerX64.NodeTp
@@ -121,14 +122,27 @@ theorem emits_out {x : E Unit} {l l' : List Item} (h : Emits x l) (h' : x {} = .
 
 theorem dirs_d (x : Directive) : dirs [Item.d x] = [x] := rfl
 
-/-- **The items of a checked `+`.** -/
-theorem emits_add {fr : Scc.Emit.X64.Frame} {sm} {d : Scc.IR.Reg} {a b : Scc.IR.Operand} {l : List Item}
-    (h : Emits (emitInst fr sm (.addChk d a b)) l) :
-    ∃ la lb off, getOp fr .rax a = .ok la ∧ getOp fr .rcx b = .ok lb ∧ rsOf fr d = some off ∧
-      dirs l = addDirs fr la lb ++ [stDir off] := by
-  obtain ⟨la, lb, off, ha, hb, hd, hs⟩ := emitInst_add_cases fr sm d a b {} (h {})
-  refine ⟨la, lb, off, ha, hb, hd, ?_⟩
-  rw [emits_out h (by rw [← hs]; exact h {}), dirs_append, dirs_d, addDirs]
+/-- **A checked `+` takes a fresh label** (its fall-through's, P5), so its
+code is not the same items from every state (`Emits`). -/
+theorem not_emits_add {fr : Scc.Emit.X64.Frame} {sm} {d : Scc.IR.Reg} {a b : Scc.IR.Operand} {l : List Item}
+    (h : Emits (emitInst fr sm (.addChk d a b)) l) : False := by
+  have h0 := h {}
+  obtain ⟨la, lb, off, -, -, -, hs⟩ := emitInst_add_cases fr sm d a b {} h0
+  have := congrArg S.next hs
+  simp at this
+
+/-- **A one-word `ret` takes a fresh label** (its return site's, P5), so
+its code is not the same items from every state (`Emits`). -/
+theorem not_emits_ret {fr : Scc.Emit.X64.Frame} {w : Scc.IR.Operand} {l : List Item}
+    (h : Emits (emitTerm fr (.ret [w])) l) : False := by
+  have h0 := h {}
+  rcases ld_cases fr w .rax {} with ⟨lw, hw, -⟩ | ⟨e, he⟩
+  · rw [emitTerm_ret hw] at h0
+    simp only [Except.ok.injEq, Prod.mk.injEq, true_and] at h0
+    have := congrArg S.next h0
+    simp at this
+  · rw [Scc.Lower.InvX64.emitTerm_ret1, bind_err he] at h0
+    cases h0
 
 /-- **The items of a saturating `-`.** -/
 theorem emits_sub {fr : Scc.Emit.X64.Frame} {sm} {d : Scc.IR.Reg} {a b : Scc.IR.Operand} {l : List Item}
@@ -138,16 +152,6 @@ theorem emits_sub {fr : Scc.Emit.X64.Frame} {sm} {d : Scc.IR.Reg} {a b : Scc.IR.
   obtain ⟨la, lb, off, ha, hb, hd, hs⟩ := emitInst_sub_cases fr sm d a b {} (h {})
   refine ⟨la, lb, off, ha, hb, hd, ?_⟩
   rw [emits_out h (by rw [← hs]; exact h {}), dirs_append, dirs_d, subDirs]
-
-/-- **The items of a one-word `ret`.** -/
-theorem emits_ret {fr : Scc.Emit.X64.Frame} {w : Scc.IR.Operand} {l : List Item}
-    (h : Emits (emitTerm fr (.ret [w])) l) :
-    ∃ lw, getOp fr .rax w = .ok lw ∧ dirs l = retDirs lw := by
-  rcases ld_cases fr w .rax {} with ⟨lw, hw, -⟩ | ⟨e, he⟩
-  · exact ⟨lw, hw, by rw [emits_out h (emitTerm_ret hw {}), retDirs]⟩
-  · have h0 := h {}
-    rw [Scc.Lower.InvX64.emitTerm_ret1, bind_err he] at h0
-    cases h0
 
 theorem ld_err {fr : Scc.Emit.X64.Frame} {a : Scc.IR.Operand} {t : Reg64} {e : String}
     (hg : getOp fr t a = .error e) (s : S) : ∃ e', ld fr a t s = .error e' := by
@@ -381,13 +385,14 @@ theorem bodyC_segS {fr : Scc.Emit.X64.Frame} (hf : FrameOk fr) (h1 : fr.size ≤
     | add a b =>
       have hr0 := hr
       obtain ⟨ta, pa, tb, pb, r', ha, hb, hr', rfl⟩ := lowerC_add_inv hr
-      obtain ⟨-, l1, zs, hE, hz, hc, hrest⟩ :=
-        hcode.resolve_right fun ⟨_, _, _, _, _, _, _, _, hi, _⟩ => by cases hi
-      obtain ⟨la, lb, off, hla, hlb, hd, hl⟩ := emits_add hE
-      rw [hl] at hz hc
-      obtain ⟨zs1, zs2, rfl, hz1, hz2, hc1, hc2⟩ := subCd_split hz (SubCd.whole hc)
-      match zs2, hz2 with
-      | [z], _ =>
+      -- a checked `+` takes a fresh label (P5): `CodeC`'s add arm
+      rcases hcode with ⟨-, l1, zs, hE, -⟩ | ⟨_, _, _, _, _, _, _, _, hi, _⟩ |
+          ⟨d', a', b', la, lb, off, zs1, z, hi, hla, hlb, hd, hz1, hc1, hc2, hrest⟩
+      · exact (not_emits_add hE).elim
+      · cases hi
+      cases hi
+      replace hc1 := SubCd.whole hc1
+      replace hc2 := SubCd.whole hc2
       have hfv := lowerC_fv lcx (.let_ x (.add a b) e) env n l k _ hr0
       have hadd := ((add_edge (p := p) (lbl := lbl) (fp := fp) (ra := ra) (c0 := c0) (x := x) (e := e)
         hf h1 hla hlb hd hz1 (_root_.Executable.labels exe).label
@@ -399,13 +404,10 @@ theorem bodyC_segS {fr : Scc.Emit.X64.Frame} (hf : FrameOk fr) (h1 : fr.size ≤
         (t := e) (s := (x, .int, [.one (.reg (regName x n))]) :: ofEnv env)
         hf h1 hd (_root_.Executable.labels exe).label).tp tp).seg (W := W₀) (K := K) (lbl := lbl) (ms := ms fs)
         hF hR hlo hhi (hCd' _ _ hc2)
-        (BlkW.withTp (hWp c0 hG _ _ _ _ _ hc2 (kind1_zip (.inr (.inl ⟨_, off, hd, rfl⟩)) rfl)) tp))
+        (BlkW.withTp (hWp c0 hG _ _ _ _ _ hc2 (kind1_zip (zs := [z]) (.inr (.inl ⟨_, off, hd, rfl⟩)) rfl)) tp))
       have hseg := SegW.seq_left (hadd.mono_post fun s c h => h.elim (fun ⟨_, h⟩ => .inl h)
         fun ⟨_, h⟩ => .inr h) hst
-      have hpc : pc + Int64.ofNat (zs1 ++ [z]).sum = pc + Int64.ofNat zs1.sum + Int64.ofNat z := by
-        rw [List.sum_append, Int64.ofNat_add, Int64.add_assoc]; simp
-      rw [hpc] at hrest
-      have ih' := ih _ (n + 1) l (k + 1) r' kk _ hr' (hfr.add x)
+      have ih' := ih _ (n + 1) l (k + 1) r' (kk + 1) _ hr' (hfr.add x)
         hrest hbl (immIn_tailC_add hImm) (immIn_tailC_add hOne) c0 hG
       rw [ofEnv_cons] at ih'
       refine (SegWS.seq_left (SegWS.liftS_or fs hseg hW₀) ih').mono_post fun s c fs' h => ?_
@@ -416,7 +418,8 @@ theorem bodyC_segS {fr : Scc.Emit.X64.Frame} (hf : FrameOk fr) (h1 : fr.size ≤
     | sub a b =>
       obtain ⟨ta, pa, tb, pb, r', ha, hb, hr', rfl⟩ := lowerC_sub_inv hr
       obtain ⟨-, l1, zs, hE, hz, hc, hrest⟩ :=
-        hcode.resolve_right fun ⟨_, _, _, _, _, _, _, _, hi, _⟩ => by cases hi
+        hcode.resolve_right fun h => h.elim (fun ⟨_, _, _, _, _, _, _, _, hi, _⟩ => by cases hi)
+          fun ⟨_, _, _, _, _, _, _, _, hi, _⟩ => by cases hi
       obtain ⟨la, lb, off, hla, hlb, hd, hl⟩ := emits_sub hE
       rw [hl] at hz hc
       obtain ⟨zs1, zs2, rfl, hz1, hz2, hc1, hc2⟩ := subCd_split hz (SubCd.whole hc)
@@ -465,7 +468,9 @@ theorem bodyC_segS {fr : Scc.Emit.X64.Frame} (hf : FrameOk fr) (h1 : fr.size ≤
   | ifeq a b yes no ihy ihn =>
     intro env n l k r kk pc hr hfr hcode hbl hImm hOne c0 hG
     obtain ⟨ta, pa, tb, pb, ry, rn, ha, hb, hy, hn, rfl⟩ := lowerC_ifeq_inv hr
-    rcases hcode with hu | ⟨l1, zs, hE, hz, hc⟩
+    rcases hcode with hu | ⟨l1, zs, hE, hz, hc⟩ | ⟨_, _, _, hu, -⟩
+    · cases hu
+    rotate_left
     · cases hu
     obtain ⟨la, lb, hla, hlb, hl⟩ := emits_br hE
     rw [hl] at hz hc
@@ -502,10 +507,10 @@ theorem bodyC_segS {fr : Scc.Emit.X64.Frame} (hf : FrameOk fr) (h1 : fr.size ≤
     obtain ⟨t', w, ha'⟩ := immIn_headC hOne a rfl
     rw [ha] at ha'
     cases ha'
-    rcases hcode with hu | ⟨l1, zs, hE, hz, hc⟩
+    rcases hcode with hu | ⟨l1, zs, hE, -⟩ | ⟨w', lw, zs, hw, hlw, hz, hc⟩
     · cases hu
-    obtain ⟨lw, hlw, hl⟩ := emits_ret hE
-    rw [hl] at hz hc
+    · exact (not_emits_ret hE).elim
+    cases hw
     exact (SegWS.liftS fs (SegW.of_next1E (((ret_edge (p := p) (lbl := lbl) (fp := fp) (ra := ra) (c0 := c0)
       hf h1 hlw hz (_root_.Executable.labels exe).label (sevalAt_ofEnv ha)).tp tp).seg (W := W₀) (K := K)
       (lbl := lbl) (ms := ms fs) hF hR hlo hhi (hCd _ _ hc)

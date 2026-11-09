@@ -3,11 +3,11 @@
 `Spike/Lib/A64WakeWcSp4.lean`'s `.sp4` half), at the listing level, in
 `wc_main`'s frame (`oW`: `%rsp` at `-64`, `%rbp` at `0`):
 
-    .Lwc_main.x20:                      -- %rax = the second TCB t
+    .Lwc_main.x2:                      -- %rax = the second TCB t
       movq %rax, -32(%rbp); movq -32(%rbp), %rcx; movq -24(%rbp), %rax   (x20A)
       movq %rax, 56(%rcx)               -- row: the TCB's tid word
       movq -32(%rbp), %rdi; call scc_rt_thread_init                     (initCall)
-    .Lwc_main.x21:                      -- %rax = the child's stack top k
+    .Lwc_main.x3:                      -- %rax = the child's stack top k
 
 The `.x21` half (to the clone's `syscall`) is `Spike/Lib/X64WakeClone.lean`
 (`WcClone.wcN21` … `wcNS`). The tid store is a row (a store off the frame),
@@ -47,7 +47,7 @@ open SccCode (wakeCells)
 abbrev oC : SO := ⟨-72, [(.rbp, 0)]⟩
 
 /-- The label of `.x20`. -/
-abbrev x20L : Label := ".Lwc_main.x20"
+abbrev x20L : Label := ".Lwc_main.x2"
 
 /-- `.x20`'s first block: the TCB to `-32` and `%rcx`, the reserve's id to `%rax`. -/
 def x20A : List (Directive × Nat) := (parse("movq %rax, -32(%rbp)
@@ -154,12 +154,12 @@ theorem ownG_clone {L : RuntimeLayout} {a : BitVec 64} {s : State}
     ((⟨L.nextA, 8⟩ : Loc), (32768#64 : BitVec 64).setWidth 128) ∈ ownG L a s ∧
       ((⟨a, 8⟩ : Loc), (1#64 : BitVec 64).setWidth 128) ∈ ownG L a s := by
   obtain ⟨-, -, -, -, -, e6, e7, -, -⟩ := labs_eq (L := L) hlab
-  have e6' : L.lab x21L = Int64.ofNat 4203397 := by
-    rw [hlab _ 4203397 (by rw [← Scc.Cert.Rt.X64.codeT_eq]; decide +kernel)]
-  have h6 : pcOf s = 4203443 := by rw [hpc, e6']; rfl
+  have e6' : L.lab x21L = Int64.ofNat 4203435 := by
+    rw [hlab _ 4203435 (by rw [← Scc.Cert.Rt.X64.codeT_eq]; decide +kernel)]
+  have h6 : pcOf s = 4203481 := by rw [hpc, e6']; rfl
   have hg : Good2b L s := .inr (.inl (by simp only [inPc, e6, e7, h6]; decide))
   rw [ownG_2b hlab hg, h6]
-  have hb : ph2b 4203443 / 4 % 2 = 0 ∧ ph2b 4203443 / 16 % 2 = 0 := by rw [ph2b_eq]; decide +kernel
+  have hb : ph2b 4203481 / 4 % 2 = 0 ∧ ph2b 4203481 / 16 % 2 = 0 := by rw [ph2b_eq]; decide +kernel
   simp only [own2b, ownV, hb.1, hb.2]
   simp
 

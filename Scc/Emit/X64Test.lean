@@ -471,32 +471,32 @@ def byPlacement (before after : String) : String :=
 
 -- `Scc/Test/arith.w`
 #guard summary arithItems == byPlacement
-  "items 2130: instr 1729, label 215, directive 163, comment 1, blank 22, raw 0\n  round trip: ok\n  meaning: ok"
-  "items 2138: instr 1737, label 215, directive 163, comment 1, blank 22, raw 0\n  round trip: ok\n  meaning: ok"
+  "items 2187: instr 1735, label 266, directive 163, comment 1, blank 22, raw 0\n  round trip: ok\n  meaning: ok"
+  "items 2195: instr 1743, label 266, directive 163, comment 1, blank 22, raw 0\n  round trip: ok\n  meaning: ok"
 
 -- `Scc/Test/hello.w`
 #guard summary helloItems == byPlacement
-  "items 1782: instr 1349, label 188, directive 216, comment 3, blank 26, raw 0\n  round trip: ok\n  meaning: ok"
-  "items 1790: instr 1357, label 188, directive 216, comment 3, blank 26, raw 0\n  round trip: ok\n  meaning: ok"
+  "items 1806: instr 1355, label 206, directive 216, comment 3, blank 26, raw 0\n  round trip: ok\n  meaning: ok"
+  "items 1814: instr 1363, label 206, directive 216, comment 3, blank 26, raw 0\n  round trip: ok\n  meaning: ok"
 
 -- `Scc/Test/handoff.w`
 #guard summary handoffItems == byPlacement
-  "items 1683: instr 1265, label 181, directive 209, comment 3, blank 25, raw 0\n  round trip: ok\n  meaning: ok"
-  "items 1691: instr 1273, label 181, directive 209, comment 3, blank 25, raw 0\n  round trip: ok\n  meaning: ok"
+  "items 1706: instr 1271, label 198, directive 209, comment 3, blank 25, raw 0\n  round trip: ok\n  meaning: ok"
+  "items 1714: instr 1279, label 198, directive 209, comment 3, blank 25, raw 0\n  round trip: ok\n  meaning: ok"
 
 -- `Scc/Test/overflow.w`
 #guard summary overflowItems == byPlacement
-  "items 1428: instr 1090, label 152, directive 163, comment 1, blank 22, raw 0\n  round trip: ok\n  meaning: ok"
-  "items 1436: instr 1098, label 152, directive 163, comment 1, blank 22, raw 0\n  round trip: ok\n  meaning: ok"
+  "items 1451: instr 1096, label 169, directive 163, comment 1, blank 22, raw 0\n  round trip: ok\n  meaning: ok"
+  "items 1459: instr 1104, label 169, directive 163, comment 1, blank 22, raw 0\n  round trip: ok\n  meaning: ok"
 
 -- `Scc/Test/tailloop.w`
 #guard summary tailloopItems == byPlacement
-  "items 1494: instr 1142, label 160, directive 168, comment 1, blank 23, raw 0\n  round trip: ok\n  meaning: ok"
-  "items 1502: instr 1150, label 160, directive 168, comment 1, blank 23, raw 0\n  round trip: ok\n  meaning: ok"
+  "items 1518: instr 1148, label 178, directive 168, comment 1, blank 23, raw 0\n  round trip: ok\n  meaning: ok"
+  "items 1526: instr 1156, label 178, directive 168, comment 1, blank 23, raw 0\n  round trip: ok\n  meaning: ok"
 
 -- `helloIR`
 /--
-info: items 137: instr 84, label 14, directive 33, comment 1, blank 5, raw 0
+info: items 139: instr 84, label 16, directive 33, comment 1, blank 5, raw 0
   round trip: ok
   meaning: ok
 -/
@@ -505,7 +505,7 @@ info: items 137: instr 84, label 14, directive 33, comment 1, blank 5, raw 0
 
 -- `allOpsIR` (one of its functions has a zero-byte frame: its `subq $0, %rsp` is counted)
 /--
-info: items 639: instr 540, label 37, directive 47, comment 7, blank 8, raw 0
+info: items 651: instr 540, label 49, directive 47, comment 7, blank 8, raw 0
   round trip: ok
   meaning: ok
 -/
@@ -598,10 +598,23 @@ def tailloopX64 : _root_.Program := x64_reparsed_w% "Scc/Test/tailloop.w"
 def helloX64 : _root_.Program := x64_reparsed% helloIR
 def allOpsX64 : _root_.Program := x64_reparsed% allOpsIR
 
--- The literals are the emitter's Kraken programs (the re-parse drops exactly
--- the directive lines).
-#guard [(arithX64, arithItems), (helloWX64, helloItems), (handoffX64, handoffItems),
-    (overflowX64, overflowItems), (tailloopX64, tailloopItems),
+/-- The items of `scc --arch x64`'s listing of a WeakCore source text (`Cert.X64.compile`'s):
+the emitter's, then the GC tables' (`Lower.X64.Emitted.listing`). -/
+def listingW (src : String) : Except String (List Item) := do
+  let c ← match Frontend.run src with
+    | .ok c => pure c
+    | .error ds => throw (String.intercalate "\n" (ds.map (·.render "input")))
+  let l ← Lower.lowerIR { arch := .x64 } c.prog
+  let e ← Lower.X64.emitAll l
+  let (tits, _) ← e.tables
+  pure (e.items ++ tits)
+
+-- The literals are the listings' Kraken programs (the re-parse drops exactly
+-- the directive lines; the `.w` programs' listings end with the GC tables).
+#guard [(arithX64, listingW (w_src% "Scc/Test/arith.w")), (helloWX64, listingW (w_src% "Scc/Test/hello.w")),
+    (handoffX64, listingW (w_src% "Scc/Test/handoff.w")),
+    (overflowX64, listingW (w_src% "Scc/Test/overflow.w")),
+    (tailloopX64, listingW (w_src% "Scc/Test/tailloop.w")),
     (helloX64, emitItems helloIR), (allOpsX64, emitItems allOpsIR)].all fun
   | (p, .ok items) => decide (p = directives items)
   | (_, .error _) => false

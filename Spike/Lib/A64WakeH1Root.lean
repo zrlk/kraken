@@ -81,7 +81,7 @@ structure H1G (l : WeakMem.AllocLabel) (b n : Nat) (R : Region) (F : MachineData
   /-- `scc_rt_pinned_next` is unmapped under `F` (`tcbWG_wf`'s `hunP`). -/
   hunP : ∀ m, F m → Mem.loadInt m.dmem (Ly).pnA 8 = none
   /-- `scc_rt_pinned + 96` is unmapped under `F` (`tcbWG_wf`'s `hunH`). -/
-  hunH : ∀ m, F m → Mem.loadInt m.dmem ((Ly).pinA + 96#64) 8 = none
+  hunH : ∀ m, F m → Mem.loadInt m.dmem ((Ly).pinA + 128#64) 8 = none
   /-- The second TCB's per-node `SFactsSt2` at no move (`tcbWG_wf`'s `hst`). See `Tcb2CallW.tcb2W_ownGK`. -/
   hstT : ∀ c0, (∃ l' A', SB l b l' A' c0) →
     ∀ g : Ret0.AllocTcb.G, g.ra = ((Ly).lab ".L21_wc_main.sp4").toBitVec →
@@ -142,9 +142,9 @@ theorem hMidP_of (hpa : textProgram SccCertificate.asm = .ok o.prog)
     (hoffP : ¬ ((WakeOD.arW hp i).heap ≤ (Ly).pnA.toNat ∧
         (Ly).pnA.toNat < (WakeOD.arW hp i).heap + 16 * (WakeOD.arW hp i).cells) ∧
       (⟨(Ly).pnA, 8⟩ : Loc) ≠ (WakeOD.arW hp i).ctrLoc)
-    (hoffH : ¬ ((WakeOD.arW hp i).heap ≤ ((Ly).pinA + 96#64).toNat ∧
-        ((Ly).pinA + 96#64).toNat < (WakeOD.arW hp i).heap + 16 * (WakeOD.arW hp i).cells) ∧
-      (⟨(Ly).pinA + 96#64, 8⟩ : Loc) ≠ (WakeOD.arW hp i).ctrLoc)
+    (hoffH : ¬ ((WakeOD.arW hp i).heap ≤ ((Ly).pinA + 128#64).toNat ∧
+        ((Ly).pinA + 128#64).toNat < (WakeOD.arW hp i).heap + 16 * (WakeOD.arW hp i).cells) ∧
+      (⟨(Ly).pinA + 128#64, 8⟩ : Loc) ≠ (WakeOD.arW hp i).ctrLoc)
     {l : WeakMem.AllocLabel} {b n : Nat} {F0 : MachineData → Prop} {R : Region} {F : MachineData → Prop}
     {J0 : AS → Ctl → Prop} {t : UInt64} (hB : BoxPure (Ly) F0 n R F J0 t)
     (hG : H1G hp i E cT Dt Ctx ls0 l b n R F J0 t) : HMidP hp i E cT Dt Ctx ls0 l b n R F J0 t := by
@@ -176,7 +176,7 @@ Loader facts, owned by the integration/assembly layer:
   wake's.
 - `hlo0`: the code base.
 - `hA13`: A13's data part.
-- `hpin2`: the pinned region reaches `pinA + 168` (`StartPlaceLy.hpin2_W`).
+- `hpin2`: the pinned region reaches `pinA + 200` (`StartPlaceLy.hpin2_W`).
 - `hcz`: the counter's zeroed item (`CtrZ`).
 From these, `hmN`, `hoffN`, `hoffP`, `hoffH` come from `CalWf.hmN_W`,
 `hoffN_W`, `hoffP_W`, `hoffH_W`.
@@ -193,7 +193,7 @@ theorem wake_h1 {ms0 : MemSide isaLSE2} {F0 : MachineData → Prop}
     (hpa : textProgram SccCertificate.asm = .ok o.prog)
     (hwp : textProgram SccCertificate.asm = .ok wakeProg) (hlo0 : Λ0.code.lo = Spike.Lib.A64.WakePh.lo)
     (hA13 : Scc.Cert.Spawn.A64.a13data (Ly).Λ o.prog o.secs = true)
-    (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) (hcz : Spike.Lib.A64.Rt.CtrZ o)
+    (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) (hcz : Spike.Lib.A64.Rt.CtrZ o)
     (hokb : ∀ l b n, L0T (Ly).Λ l = none → AllocLand (WakeOD.arW hp i).heap (WakeOD.arW hp i).cells b n →
       ∀ q : Spike.Lib.A64.Alloc.Call, q.OKB ms0 (Ly).lab → q.OKB (WakeH1Inv.ms1W hp i E cT ls0 l b n []) (Ly).lab)
     (hg : ms0.heap = (WakeOD.arW hp i).heap ∧ ms0.cells = (WakeOD.arW hp i).cells ∧

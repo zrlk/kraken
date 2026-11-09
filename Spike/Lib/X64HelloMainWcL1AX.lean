@@ -17,10 +17,10 @@ and `X64HelloMainWcL1A`'s own-generic ones for the other fields (`hbp`, `hsl`, `
 ## Differences from the AArch64 version
 
 AArch64 has no counterpart: main owns no TCB word there, so its root's `h1` is at `ownGH` only
-(`A64HelloMainWcL1A.h1_level1P`). Against `X64HelloMainWcL1A.h1_level1P`: the level and its memory sides are at
+(`A64HelloMainWcL1A.h1_level1P`). Against that: the level and its memory sides are at
 `ownGHXW`, the landing's entry is `StartH0H1.RdLandHg … ownGHXW`, `hX` is at the level's `xa` at `ownGHXW`, and the
-heap abort's path is `HabLftX.hP0X` (inside `W0` at `ownGHXW`; `h1_level1U` closes it at `ownGH` in
-`Level1HA.hB_landA`).
+heap abort's path is `HabLftX.hP0X` (inside `W0` at `ownGHXW`; AArch64 closes it at `ownGH` in
+`A64HelloLevel1HA.hB_landA`).
 -/
 import Spike.Lib.X64HelloMainWcL1XX
 import Spike.Lib.X64HelloMainWcL1WjX
@@ -53,10 +53,9 @@ open Spike.Lib.X64.Flow.Ret0 (tpOf)
 open Spike.Lib.X64.HelloPh.StartWcS (rdJH)
 open Spike.Lib.X64.HelloPh.StartH0G (helloD helloLsw)
 open Spike.Lib.X64.HelloPh.StartH0U (msUH invUH)
-open Spike.Lib.X64.HelloPh.StartH0H1 (RdLandH)
 open Spike.Lib.X64.HelloPh.MainGlueS (MainWcPS)
 open Spike.Lib.X64.HelloPh.Level1 (JpL JpT)
-open Spike.Lib.X64.HelloPh.Level1I (W1R XR)
+open Spike.Lib.X64.HelloPh.Level1I (XR)
 open Spike.Lib.X64.HelloPh.RdPlS (RdImms)
 open Spike.Lib.HeapLand (AllocLand)
 open Spike.Lib.X64WakeLoadT (L0T ls0T tcb0)
@@ -196,16 +195,16 @@ theorem hbuf_L1X (hA13 : Scc.Cert.Spawn.X64.a13data (Ly).Λ o.prog o.secs = true
 
 /-! ## `hP` and the root's `h1` at `ownGHXW` -/
 
-/-- **`hP_level1` at `ownGHXW`** (`Level1IU.h1_level1Ug`'s `hP` at `own := ownGHXW Ly ntA`): `MainWcPS` at
+/-- **The root's `hP` at `ownGHXW`** (`Level1IU.h1_level1Ug`'s `hP` at `own := ownGHXW Ly ntA`): `MainWcPS` at
 `W1Rg … ownGHXW` and the level's memory sides at `ownGHXW` at `invUH I`, from the `ownGHXW` producers
 (`hW`: `MainWcL1RX.hW_L1X`; `hmem`: `hbuf_L1X`; `hWp`, `hWs`: `MainWcL1Wj.hWp_L1PX`, `hWs_L1PX`; `hxa`: `hxa_IUX`)
-and `hP_level1`'s own-generic ones. -/
+and the own-generic ones (`X64HelloMainWcL1A`'s module doc). -/
 theorem hP_level1X
     (hpa : cellsOf asm = some o.prog)
     (hhp : cellsOf asm = some SccCode.helloCells)
     (hlo0 : Λ0.code.lo = lo) (hstat : Λ0.static = fun _ => none) (hc : Spike.Lib.X64.Rt.CtrZ o)
     (hA13 : Scc.Cert.Spawn.X64.a13data (Ly).Λ o.prog o.secs = true)
-    (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
+    (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
     (hI : RdImms (Ly).Λ) (himm : (Ly).Λ.imms Spike.Lib.SrcCalls.setupCont "me" 0 = some (tcb0 (Ly).Λ))
     (hz : (Ly).Λ.imms newTerm "z" 0 = some 0)
     (hX : ∀ l b n, (LB) l = none → AllocLand (AR).heap (AR).cells b n →
@@ -263,7 +262,7 @@ theorem h1_level1PX
     (hhp : cellsOf asm = some SccCode.helloCells)
     (hlo0 : Λ0.code.lo = lo) (hstat : Λ0.static = fun _ => none) (hc : Spike.Lib.X64.Rt.CtrZ o)
     (hA13 : Scc.Cert.Spawn.X64.a13data (Ly).Λ o.prog o.secs = true)
-    (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
+    (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
     (hI : RdImms (Ly).Λ) (himm : (Ly).Λ.imms Spike.Lib.SrcCalls.setupCont "me" 0 = some (tcb0 (Ly).Λ))
     /- the certificate table's `z` at `newTerm` (at the root's table: `HabCtlA.hz_i0M`) -/
     (hz : i0 newTerm "z" 0 = some 0)

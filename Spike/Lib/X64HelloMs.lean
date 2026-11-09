@@ -6,7 +6,7 @@ records: any runtime layout `L`, value invariant `G`, placement `lbl`/`lsize`).
 - `helloMs L G lbl lsize`: the consumer's `msOf` at read side the numbers (`∃ n, w.val = .num n`), value
   invariant `G`, no owned word, the placement, with its runtime writes narrowed to words outside every placed
   label (as `wakeMs`, at `L`'s layout and marks `PhRec.μ L`).
-- `tcbWH L`: hello's second TCB's self word `pinA + 112`; `tcbM_ne_tcbWH`.
+- `tcbWH L`: hello's second TCB's self word `pinA + 144`; `tcbM_ne_tcbWH`.
 - `helloLocs L lbl lsize cT cS`: `X64WakeOwnX.wakeLocsXW` at `tcbM L`, `tcbWH L` (main owns `⟨tcbM L, 8⟩`, the
   worker `⟨tcbWH L, 8⟩`; each thread's other footprint the words `helloMs` lets it write, off both self words);
   `helloLocs_ok` (given both self words off every placed label and `cT` not main's word), `helloLocs_okG` (at a
@@ -52,13 +52,13 @@ def helloMs (L : RuntimeLayout) (G : Loc → Val → Prop) (lbl : WeakMem.AllocL
     mp := fun Lc w => Scc.Sem.Kernel.mapped (K0 L.Λ) w Lc = true ∧
       (w = true → Consumer1.LocIn L.Λ.shared Lc ∧ ¬ InLabel lbl lsize Lc) }
 
-/-- **hello's second TCB's self word** `pinA + 112` (the second `scc_rt_alloc_tcb`'s TCB, its header at
-`pinA + 104`; `X64HelloWcSp3.tH` at the layout's labels). -/
-abbrev tcbWH (L : RuntimeLayout) : BitVec 64 := L.pinA + 112#64
+/-- **hello's second TCB's self word** `pinA + 144` (the second `scc_rt_alloc_tcb`'s TCB, its header at
+`pinA + 136`; `X64HelloWcSp3.tH` at the layout's labels). -/
+abbrev tcbWH (L : RuntimeLayout) : BitVec 64 := L.pinA + 144#64
 
 /-- The two TCB words differ. -/
 theorem tcbM_ne_tcbWH (L : RuntimeLayout) : tcbM L ≠ tcbWH L := by
-  show L.pinA + 8#64 ≠ L.pinA + 112#64
+  show L.pinA + 8#64 ≠ L.pinA + 144#64
   bv_omega
 
 /-- **The location data** (`X64WakeOwnX.wakeLocsXW` at `T := tcbM L`, `W := tcbWH L`): main owns `⟨tcbM L, 8⟩`,

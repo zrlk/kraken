@@ -1,7 +1,8 @@
 /-
-**hello.w's `wc_rodata` up to the allocator's return inside the start's level at `ownGHXW`** (x86-64 only; the
-`ownGHXW` instance of `Spike/Lib/X64HelloRdWfSF.lean`, as `X64HelloWcWfSX` is `X64HelloWcWfS`'s): `HelloRd.RdPreW`
-at `AllocWSF.WSHFg (ownGHXW L a) … fs` (`fs` one of `[]` and `[frM]`, `hfs`), moved only by the take. Each node is
+**hello.w's `wc_rodata` up to the allocator's return inside the start's level at `ownGHXW`** (x86-64; the twin of
+`Spike/Lib/A64HelloRdWfSF.lean`, at `ownGHXW`): `HelloRd.RdPreW` at `AllocWSF.WSHFg (ownGHXW L a) … fs` (`fs` one
+of `[]` and `[frM]`, `hfs`), moved only by the take (`PhRec.K L rS`). rodata runs under the setup block's frame
+`HelloRdCf.frH env`, so its states are at `[frH env]` (`fs := [frH env]`, `frM := frH env`). Each node is
 `WcWfX.blkW_wfCX`/`nodeW_wfCX` at its `SFactsSt2` at `ownGHXW` from `OwnRd.proW_rdGHX` / `eW_rdGHX`; the allocator
 is `HelloWf.allocW_WSHFg` at `OwnAlloc.allocW_wcGHX`. The frames are on the pool: `hb : BandOnP L R (-208) 8`
 (`wc_rodata`'s and the allocator's region `aR R`'s, `OwnRd.bandOnP_aR`).
@@ -12,11 +13,24 @@ is `HelloWf.allocW_WSHFg` at `OwnAlloc.allocW_wcGHX`. The frames are on the pool
 
 ## Differences from the AArch64 version
 
-AArch64 has no counterpart: main owns no TCB word there. Against `X64HelloRdWfSF`: the level is
-`WSHFg (ownGHXW L a)`; the producers take `ownGHXW`'s separation premises (`hsep`, `ha`, `hW`) and the band `hb`;
-the allocator's counter and headers are also off `tcbM` (`hnoM`).
+- AArch64's level is at `ownGH` (main owns no TCB word there); here it is `WSHFg (ownGHXW L a)`, and the producers
+  take `ownGHXW`'s separation premises (`hsep`, `ha`, `hW`) and the band `hb`; the allocator's counter and headers
+  are also off `tcbM` (`hnoM`).
+- The prologue is x86-64's five nodes (`XProW`: `xHead` at `wc_rodata`, the check's `xLea`, the limit's `%fs`
+  load, `xCmp`, `xFr` at `.Lwc_rodata.chk`'s byte offsets 0, 5, 14, 19; AArch64's four-node `ProW` at
+  `.L19_wc_rodata.stack_check`), so `proW_rdWSHX` has five cases and its load is a `movq %fs:8, %r11` (AArch64:
+  `ldr`).
+- Offsets are bytes and cells sized: a block's free pcs are `freeBlkH l k blk` (AArch64's
+  `freeAtH l k blk.length`), a node's `freeAtH l [k]`, its fact `PhFact.step l k z` and its phase check
+  `siOffW pfxM l k z`; the phase checks are `HelloWf.phOffW` / `siOffW` (AArch64's `phOffHC` / `siOffHC`).
+- No 16-alignment (`hal`); the allocator's region `aR R` needs the caller's base 8-aligned (`hR8`,
+  `WcW.aRH_ok`) and `8 ≤ R.hi` (the return address pushed by `call`); the allocator returns to
+  `.Lwc_rodata.x0` (AArch64's `.L19_wc_rodata.sp0`); the caller's cells are `CallerCells R (-48) (-160) 8`.
 -/
-import Spike.Lib.X64HelloRdWfSF
+import Spike.Lib.X64HelloRdPreWI
+import Spike.Lib.X64HelloAllocWSF
+import Spike.Lib.X64HelloWcWf
+import Spike.Lib.X64SetupPlaced
 import Spike.Lib.X64HelloRdPreWIX
 import Spike.Lib.X64HelloWcWfX
 
@@ -68,7 +82,7 @@ include hp hlo hΛ hlab hsite hcl hX0 hfs
 
 /-! ## A block and a node inside `WSHX` -/
 
-/-- **A covered `ret`-free block of `wc_rodata` inside `WSHX`** (`WcWf.blkW_wfCH` at `rdTabH`): its
+/-- **A covered `ret`-free block of `wc_rodata` inside `WSHX`** (`WcWfX.blkW_wfCX` at `rdTabH`): its
 `SFactsSt2` at `ownGH` (`hst`), its phase fact in `rdTabH` (`hf`), its abort phases' check (`hph`), its pcs
 free (`hfree`), its controls' facts (`hJ`), its frames placed (`hpl`). -/
 theorem blkW_rdWSHFg {n : ND} {blk : List (Directive × Nat)} {l : Label} {k : Nat} {blo bhi : Int}
@@ -95,7 +109,7 @@ theorem blkW_rdWSHFg {n : ND} {blk : List (Directive × Nat)} {l : Label} {k : N
   show freeNH (n.pc + Int64.ofNat (cellOff blk j)).toBitVec.toNat = true
   rw [← he]; exact freeBlk_pcH hlab hfree hj
 
-/-- **A single instruction of `wc_rodata` without an event inside `WSHX`** (`WcWf.nodeW_wfCH` at
+/-- **A single instruction of `wc_rodata` without an event inside `WSHX`** (`WcWfX.nodeW_wfCX` at
 `rdTabH`). -/
 theorem nodeW_rdWSHFg {n : ND} {l : Label} {k z : Nat} (he : L.lab l + Int64.ofNat k = n.pc)
     (hst : NodeW (fun s _ => SFactsSt2 L.Λ (Spike.Lib.X64.PhRec.μ L) own s) K L.exe L.endPc R F n)
@@ -219,7 +233,7 @@ theorem eW_rdWSHX
 omit hX0 in
 /-- **The allocator inside `WSHX`** at `wc_rodata`'s call (`HelloWf.allocW_WSHFg` at `OwnAlloc.allocW_wcGHX`, the
 allocator's region
-`aR R`, return label `.Lwc_rodata.x15`), its controls' facts from the call context's (`hc1J`, through `RdCtx`:
+`aR R`, return label `.Lwc_rodata.x0`), its controls' facts from the call context's (`hc1J`, through `RdCtx`:
 the allocator's `c0` that of a `J1` state). -/
 theorem allocW_rdWSHX
     (hsep : Spike.Lib.X64.PhRec.TcbSep L) (ha : tcbM L ≠ a) (hW : tcbWH L ∉ [L.pnA, L.lockA, L.freeNA, L.nextA, a])
@@ -227,7 +241,7 @@ theorem allocW_rdWSHX
     (hR : R.OK) (hR8 : R.base.toNat % 8 = 0) (hRlo : R.lo ≤ -208) (hhi : 8 ≤ R.hi)
     (hpool : L.Λ.stackPool.lo ≤ 2 ^ 64) {ms : Spike.Lib.MemSide isa}
     {J0 J1 : Spike.Lib.X64.AS → Ctl → Prop} {q : Call} (hq : q.OK ms L.lab)
-    (hra : q.ra = (L.lab ".Lwc_rodata.x15").toBitVec)
+    (hra : q.ra = (L.lab ".Lwc_rodata.x0").toBitVec)
     (hmp : ∀ l, ms.mp l true → Scc.Sem.Kernel.mapped (Spike.Lib.X64Consumer.K0 L.Λ) true l = true)
     (hmem : ∀ w : BitVec 64,
       (w = BitVec.ofNat 64 ms.ctr ∨ ∃ o, o + ms.units q.n q.τ ≤ ms.cells ∧ w.toNat = q.hdrAt ms o) →
@@ -297,10 +311,10 @@ theorem rdPreW_WSHX
     (hc0J : ∀ σ c, J0 σ c → (fs = [] → ∀ a, c.term ≠ .ret a) ∧ RunWf p c fs)
     (hc1J : ∀ σ c, J1 σ c → (fs = [] → ∀ a, c.term ≠ .ret a) ∧ RunWf p c fs)
     (hpl : RdPreW (fun s c => PlacedSE L.Λ lbl s c fs) (fun _ _ => False) L.exe L.endPc R F ms J0 J1)
-    (hX0a : ∀ q : Call, q.OK ms L.lab → q.ra = (L.lab ".Lwc_rodata.x15").toBitVec →
+    (hX0a : ∀ q : Call, q.OK ms L.lab → q.ra = (L.lab ".Lwc_rodata.x0").toBitVec →
       AllocW ms q (fun s _ => X0 s) (fun _ _ => False) L.exe L.endPc (aR R)
         (fun m => F m ∧ CallerCells R (-48) (-160) 8 m ∧ RdCtx ms L.lab R J0 J1 q m))
-    (hctx : ∀ q : Call, q.OK ms L.lab → q.ra = (L.lab ".Lwc_rodata.x15").toBitVec →
+    (hctx : ∀ q : Call, q.OK ms L.lab → q.ra = (L.lab ".Lwc_rodata.x0").toBitVec →
       ∀ s c, At L.exe L.endPc (aR R) (fun m => F m ∧ CallerCells R (-48) (-160) 8 m ∧
         RdCtx ms L.lab R J0 J1 q m) (Spike.Lib.X64.Alloc.N L.lab ms q .rmw) s c → Ctx s c fs)
     (hctr : ms.ctr = ar.ctr) (hheap : ms.heap = ar.heap) (hoff : ∀ k τ, ms.off k τ = ar.off k τ)

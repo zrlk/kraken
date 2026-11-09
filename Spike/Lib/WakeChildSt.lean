@@ -14,12 +14,12 @@ under the frame of the child's first memory after the `clone` that handed
   every placed label, which lie in `.data`/heap; mapped in `K0`, shared;
   off the child's handed range, which lies in the pool).
 - `childSt_I`: at main's permit word `pinA + 24` (`meW + 16`, `meW` the
-  first TCB `pinA + 8`) and the second TCB's word `pinA + 128`
-  (`tcb2 + 24`, `tcb2 = pinA + 104`: the header `8390915` has `mOf = 2`),
+  first TCB `pinA + 8`) and the second TCB's word `pinA + 160`
+  (`tcb2 + 24`, `tcb2 = pinA + 136`: the header `8391939` has `mOf = 2`),
   value `1`; the value invariant off the limit words (`gOf_ne`, or `WakeGOf2.gOf2_ne` once `wakeG'` is at `GOf2`).
 - `childSt_al`: `pinA + 24` is 4-aligned (`htp4`).
 
-Open (premises): `hpin2` (the pinned region reaches `pinA + 168`, through the tid word `tcb2 + 56`).
+Open (premises): `hpin2` (the pinned region reaches `pinA + 200`, through the tid word `tcb2 + 56`).
 -/
 import Spike.Lib.WakeInst
 import Spike.Lib.WakeQ
@@ -122,13 +122,13 @@ where
     Spike.Lib.A64Consumer.mapped_K0_of_mem fun k hk => .inr (ha k hk)
 
 /-- **`hS`/`hSx` at the instance**: main's permit word `pinA + 24` and the
-second TCB's word `pinA + 128` take the store of `1` in the child's frame. -/
+second TCB's word `pinA + 160` take the store of `1` in the child's frame. -/
 theorem childSt_I (g : Gh) {ts : Nat → Option Nat} {tm : Memory} {sm : WeakMem.Memory} {tp tq sp : List Nat}
     (hm : MemRelP (RuntimeLayout.ofPlaceW hpl i).Λ g.lbl g.lsize ts tm sm tp tq sp)
-    (hpin2 : (RuntimeLayout.ofPlaceW hpl i).pinA.toNat + 168 ≤
+    (hpin2 : (RuntimeLayout.ofPlaceW hpl i).pinA.toNat + 200 ≤
       (RuntimeLayout.ofPlaceW hpl i).Λ.pinned.lo + (RuntimeLayout.ofPlaceW hpl i).Λ.pinned.size)
     {a : BitVec 64} (ha : a = (RuntimeLayout.ofPlaceW hpl i).pinA + 24#64 ∨
-      a = (RuntimeLayout.ofPlaceW hpl i).pinA + 128#64)
+      a = (RuntimeLayout.ofPlaceW hpl i).pinA + 160#64)
     {x : KState} {tid : Nat} {th : Thread isaLSE2} {r1 : Range} {tls : Nat}
     (hh : handed x tid (r1.lo + r1.size) = some (tid, r1))
     (hsub : r1.Sub (RuntimeLayout.ofPlaceW hpl i).Λ.stackPool) (hsz : r1.size = 16384)
@@ -146,7 +146,7 @@ theorem childSt_I (g : Gh) {ts : Nat → Option Nat} {tm : Memory} {sm : WeakMem
         | exact Spike.Lib.WakeGOf2.gOf2_ne (Spike.Lib.A64.PhRec.pin_ne (by decide))
             (Spike.Lib.WakeGOf2.pin_ne2 (by decide)) _
   · refine stOk_pinned hpl i g hm (fun k hk => ?_) (.inr ?_) hh hsub hsz
-    · rw [show (128#64 : BitVec 64) = BitVec.ofNat 64 128 from rfl, pinA_add hpl i (by decide)]
+    · rw [show (160#64 : BitVec 64) = BitVec.ofNat 64 160 from rfl, pinA_add hpl i (by decide)]
       simp only [Range.contains]; omega
     · first
         | exact Spike.Lib.A64.PhRec.gOf_ne (Spike.Lib.A64.PhRec.pin_ne (by decide)) _

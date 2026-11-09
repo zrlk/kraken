@@ -379,11 +379,11 @@ theorem codeOf_base (b : Nat) (prog : _root_.Program) (l : String) :
   unfold Scc.Cert.Link.A64.codeOf; simpa using labelAddr_add Scc.Sem.A64.labelName Directive.fakeSize l prog b 0
 
 /-- The clone's `svc` (13 instructions past `.sp6`) in wake's program at `0`. -/
-theorem codeOf_sp6 : codeOf 0 wakeProg (Spike.Lib.A64.Flow.Worker.Wake.Child.pfxM ++ ".sp6") = some 5244 := by
+theorem codeOf_sp6 : codeOf 0 wakeProg (Spike.Lib.A64.Flow.Worker.Wake.Child.pfxM ++ ".sp6") = some 5276 := by
   decide +kernel
 
 /-- The take site in wake's program at `0`. -/
-theorem codeOf_site : codeOf 0 wakeProg Spike.Lib.A64.Flow.Ret0.StackTake.siteL = some 1892 := by
+theorem codeOf_site : codeOf 0 wakeProg Spike.Lib.A64.Flow.Ret0.StackTake.siteL = some 1896 := by
   decide +kernel
 
 include hp in
@@ -392,12 +392,12 @@ resolved in wake's program (`hlab_ofPlaceW`) at offsets that differ. -/
 theorem cloneAt_ne_site (ho : o.prog = wakeProg) :
     (Spike.Lib.WakePreA.cloneAt Spike.Lib.A64.Flow.Worker.Wake.Child.pfxM (Ly).exe).toBitVec.toNat ≠
       ((Ly).lab Spike.Lib.A64.Flow.Ret0.StackTake.siteL).toBitVec.toNat := by
-  have h1 := Spike.Lib.PlaceW.hlab_ofPlaceW hp i _ ((Ly).Λ.code.lo + 5244)
+  have h1 := Spike.Lib.PlaceW.hlab_ofPlaceW hp i _ ((Ly).Λ.code.lo + 5276)
     (by rw [ho, codeOf_base, codeOf_sp6]; rfl)
   have h2 := Spike.Lib.PlaceW.lab_toNat hp i (l := Spike.Lib.A64.Flow.Ret0.StackTake.siteL)
-    (a := (Ly).Λ.code.lo + 1892) (by rw [ho, codeOf_base, codeOf_site]; rfl)
+    (a := (Ly).Λ.code.lo + 1896) (by rw [ho, codeOf_base, codeOf_site]; rfl)
   have hend := Spike.Lib.PlaceW.codeEnd_lt hp i
-  have hs : (wakeProg.map Directive.fakeSize).sum = 5548 := by decide +kernel
+  have hs : (wakeProg.map Directive.fakeSize).sum = 5580 := by decide +kernel
   rw [ho] at hend; unfold Scc.Sem.A64.codeEnd at hend; rw [hs] at hend
   unfold Spike.Lib.WakePreA.cloneAt
   change ((Ly).lab _ + _).toBitVec.toNat ≠ ((Ly).lab _).toBitVec.toNat

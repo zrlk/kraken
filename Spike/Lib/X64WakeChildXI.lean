@@ -23,7 +23,7 @@ worker's `msW hpl i T W g` (`childSeg_XI`).
   (`htpW`) and `tcb2` (`hW2`), and per pair the flag's cell in the heap
   (`hheap`) and `me` main's TCB (`hme`), discharged at the spawn.
 - The child's own-word facts at the TCB (`LdOk` at `W`, `OwnAt` at
-  `.Lscc_rt_thr_worker.x12`) are per-pair antecedents beside the `StOk`
+  `.Lscc_rt_thr_worker.x0`) are per-pair antecedents beside the `StOk`
   ones (the x86-64 child reads its TCB self word).
 - There is no alignment premise (`hal`) to discharge.
 - `PreChild` (`TcbArea`, which maps the TCB word for a write) is at main's
@@ -170,7 +170,7 @@ theorem childSeg_XL
           LdOk ms (DFrame (childR ((r1Of (Ly).lab).lo + (r1Of (Ly).lab).size) (-16384))
               (childAfter abi t.2 0 th ((r1Of (Ly).lab).lo + (r1Of (Ly).lab).size)
                 (tcbOf (Ly).lab q).toNat).st.st.1) W →
-          OwnAt ms exe endPc ((_root_.Executable.labels exe).label ".Lscc_rt_thr_worker.x12") W W →
+          OwnAt ms exe endPc ((_root_.Executable.labels exe).label ".Lscc_rt_thr_worker.x0") W W →
           StOk ms (DFrame (childR ((r1Of (Ly).lab).lo + (r1Of (Ly).lab).size) (-16384))
               (childAfter abi t.2 0 th ((r1Of (Ly).lab).lo + (r1Of (Ly).lab).size)
                 (tcbOf (Ly).lab q).toNat).st.st.1)
@@ -262,7 +262,7 @@ theorem childSeg_XI (T' : BitVec 64) (g : Gh)
           LdOk (msW hpl i T' W g) (DFrame (childR ((r1Of (Ly).lab).lo + (r1Of (Ly).lab).size) (-16384))
               (childAfter abi t.2 0 th ((r1Of (Ly).lab).lo + (r1Of (Ly).lab).size)
                 (tcbOf (Ly).lab q).toNat).st.st.1) W →
-          OwnAt (msW hpl i T' W g) exe endPc ((_root_.Executable.labels exe).label ".Lscc_rt_thr_worker.x12") W W →
+          OwnAt (msW hpl i T' W g) exe endPc ((_root_.Executable.labels exe).label ".Lscc_rt_thr_worker.x0") W W →
           StOk (msW hpl i T' W g) (DFrame (childR ((r1Of (Ly).lab).lo + (r1Of (Ly).lab).size) (-16384))
               (childAfter abi t.2 0 th ((r1Of (Ly).lab).lo + (r1Of (Ly).lab).size)
                 (tcbOf (Ly).lab q).toNat).st.st.1)

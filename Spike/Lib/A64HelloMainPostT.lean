@@ -49,7 +49,7 @@ theorem rdPostW_noMsr {exe : _root_.Executable} [Kraken.Executable.ValidLayout e
     BlkW.noMsr h.s3 (code_of hp hend c6 rfl) (by decide),
     NodeW.noMsr h.x2 (code_of hp hend c7 rfl) (by simp) (by decide),
     NodeW.noMsr h.f (code_of hp hend (WakeWc.pubF_eq ▸ cf) rfl) (by simp) (by decide),
-    BlkW.noMsr h.s4 (code_of hp hend c8 rfl) (by decide)⟩
+    BlkW.noMsr h.s4 (Spike.Lib.A64.code_field_blockAcross hp hend c8 (List.take_append_drop _ _) rfl) (by decide)⟩
 
 /-- **`wc_rodata`'s return invariant at the thread pointer `t` and `scc_rt_main`'s `sp`** (`R.addr (-80)`, the
 call's `sp` in `scc_rt_main`'s region `R`). -/

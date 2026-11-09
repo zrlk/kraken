@@ -25,7 +25,7 @@ takes `freeBlk l k blk` (A64's `freeAt l k blk.length`); the prologue is
 x86-64's (`xHead` at `wc_main`, `xLea`, the limit's load as a `step` of 9
 bytes, `xCmp`, `xFr`); there is no fence block (scc's `# fence st` emits
 no code under TSO, `X64WakeWcRes`), the box's store is one `step` of 3
-bytes (A64's two), and the reserve's call is at `.Lwc_main.x18 + 18`;
+bytes (A64's two), and the reserve's call is at `.Lwc_main.x0 + 18`;
 `blkW_wcG` has no `hal`.
 -/
 import Spike.Lib.X64WakeFree
@@ -58,9 +58,9 @@ def wcTabW : List PhFact :=
    .blk ".Lwc_main.chk" 14 (Spike.Lib.X64.Flow.xCmp ".Lwc_main.stk" 3 6) none none,
    .blk ".Lwc_main.chk" 23 (Spike.Lib.X64.Flow.xFr 64 4 [(.rdi, -8, 4)]) none none,
    .blk ".Lwc_main.entry" 0 Spike.Lib.X64.Flow.WakeWc.wcE none none,
-   .blk ".Lwc_main.x18" 0 Spike.Lib.X64.Flow.WakeWc.wcS0 none none,
-   .step ".Lwc_main.x18" 15 3,
-   .blk ".Lwc_main.x18" 18 Spike.Lib.X64.Flow.WakeWc.resB none none]
+   .blk ".Lwc_main.x0" 0 Spike.Lib.X64.Flow.WakeWc.wcS0 none none,
+   .step ".Lwc_main.x0" 15 3,
+   .blk ".Lwc_main.x0" 18 Spike.Lib.X64.Flow.WakeWc.resB none none]
 
 /-- **The blocks' facts hold** at `phC`. -/
 theorem wcFactsW : wcTabW.all (factOk (codeT lo wakeCells) okC phC) = true := by

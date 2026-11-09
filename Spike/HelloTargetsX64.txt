@@ -4,7 +4,6 @@ Spike.Lib.X64HelloSrc
 Spike.Test.Cert.X64HelloCert
 Spike.Lib.X64HelloThreadsAb
 Spike.Lib.X64HelloObligR
-Spike.Lib.X64HelloAbOffL
 Spike.Lib.X64HelloPh
 Spike.Lib.X64HelloRefAbT
 Spike.Lib.X64WakeCloneSp
@@ -247,7 +246,6 @@ Spike.Lib.X64HelloPostWit
 Spike.Lib.X64HelloW1StoreZ
 Spike.Lib.X64HelloAllocWSF
 Spike.Lib.X64HelloWcWf
-Spike.Lib.X64HelloRdWfSF
 Spike.Lib.X64HelloRdPostWfSF
 Spike.Lib.X64HelloRdPlS
 Spike.Lib.X64HelloMainPostT
@@ -411,8 +409,6 @@ Spike.Lib.X64HelloRootL1F
 Spike.Lib.X64HelloStackW
 Spike.Lib.X64HelloCtrF
 Spike.Lib.X64HelloLandR
-Spike.Lib.X64HelloRdHAbC
-Spike.Lib.X64HelloLandRd
 Spike.Lib.X64HelloWcPl2
 Spike.Lib.X64HelloRootInstW
 Spike.Lib.X64HelloAssemblyIM
@@ -478,7 +474,6 @@ Spike.Lib.X64HelloRootDHF
 Spike.Lib.X64HelloRootHG
 Spike.Lib.X64HelloSegEnd
 Spike.Lib.X64HelloHfp
-Spike.Lib.X64HelloStartWcS0
 Spike.Lib.X64SegWPubTP
 Spike.Lib.X64HelloMainWcL1Q
 Spike.Lib.X64HelloMainWcL1Hq
@@ -494,8 +489,6 @@ Spike.Lib.X64HelloOwnSX
 Spike.Lib.X64HelloOwnCstX
 Spike.Lib.X64HelloOwnImpX
 Spike.Lib.X64HelloSelfClone
-Spike.Lib.X64HelloStartH0U0
-Spike.Lib.X64HelloStartH0U1
 Spike.Lib.X64HelloLandM1U
 Spike.Lib.X64HelloSelfWords
 Spike.Lib.X64HelloOwnLftCX
@@ -516,8 +509,6 @@ Spike.Lib.X64HelloOwnWcMidX
 Spike.Lib.X64HelloWcWfX
 Spike.Lib.X64HelloWcWfSX
 Spike.Lib.X64HelloStartPlace
-Spike.Lib.X64HelloStartPlace0
-Spike.Lib.X64HelloStartH0G0
 Spike.Lib.X64HelloOwnTi2X
 Spike.Lib.X64HelloMainPreX
 Spike.Lib.X64HelloStartOwnAX
@@ -529,8 +520,6 @@ Spike.Lib.X64HelloHxaX
 Spike.Lib.X64HelloWcl2X
 Spike.Lib.X64HelloStartH0G0X
 Spike.Lib.X64HelloHabLftX
-Spike.Lib.X64HelloHabCtlAX
-Spike.Lib.X64HelloCtxRdU
 Spike.Lib.X64HelloAssemblyRS
 Spike.Lib.X64HelloOwnZ
 Spike.Lib.X64HelloOwnZP
@@ -566,3 +555,4 @@ Spike.Test.HelloLinkedX64BaseInh
 Spike.Lib.X64HelloRootLit
 Spike.Lib.X64HelloRootFinal
 Spike.Test.HelloLinkedX64Root
+Spike.Test.HelloRootL0XInh

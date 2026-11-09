@@ -56,7 +56,7 @@ theorem insts_newBuf {cx : FnCtx} {Cd : Int64 → List Directive → Prop} {Bl :
       Cd (pc + Int64.ofNat (4 * (directives la).length) + 4) (directives ls) ∧
       pc' = pc + Int64.ofNat (4 * (directives la).length) + 4 + Int64.ofNat (4 * (directives ls).length) := by
   rcases hi with ⟨hc, -⟩ | ⟨_, _, _, _, _, he, -⟩ | ⟨d', h', kv', u', la, ls, he, ha, hs, h1, h2, h3, hp⟩ |
-      ⟨_, _, _, he, -⟩
+      ⟨_, _, _, he, -⟩ | ⟨_, _, _, _, _, _, he, -⟩
   · simp [Spike.Lib.LowerShape.isCall, Spike.Lib.LowerShape.newBufCall] at hc
   · simp [Spike.Lib.LowerShape.newBufCall] at he
   · simp only [Spike.Lib.LowerShape.newBufCall, Scc.IR.Inst.call.injEq, List.cons.injEq, and_true,
@@ -65,6 +65,7 @@ theorem insts_newBuf {cx : FnCtx} {Cd : Int64 → List Directive → Prop} {Bl :
     cases hk
     rw [hh]
     exact ⟨la, ls, ha, hs, h1, h2, h3, hp⟩
+  · simp [Spike.Lib.LowerShape.newBufCall] at he
   · simp [Spike.Lib.LowerShape.newBufCall] at he
 
 /-- **Three register arguments**: `a` into `x0`, `b` into `x1`, `w` into

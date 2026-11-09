@@ -15,7 +15,7 @@ start's assemblies at `ownGH` are mirrored node for node.
 AArch64 has no counterpart: main owns no TCB word there (its thread pointer is a register). Against x86-64 wake's
 `blkL`/`nodeL`/`nodeL0`: the code is helloCells, the take site is at `4200314` (wake `4200277`), the classes are
 `CstH` (`Spike/Lib/X64HelloOwnCstX.lean`) and the separation premise `hW` is about the worker's word `tcbWH L`
-(`pinA + 112`; wake's `tcb2 L`).
+(`pinA + 144`; wake's `tcb2 L`).
 -/
 import Spike.Lib.X64HelloOwnImpX
 
@@ -68,6 +68,32 @@ theorem blkLH {n : ND} {blk : List (Directive × Nat)} {l : Label} {k : Nat} {bl
     BlkW (LftH L a ar p Dt Cl Ctx lbl lsize frM X0) (fun _ _ => False) L.exe L.endPc R F n blk := by
   refine BlkW.lftH (blkW_cstOkHB hs ha hW (fun s hs' hn => code_field L.lays rfl (hp ▸ hb) he s hs' hn) hok hR hlo
     hhi ?_ hcls h1 hso ?_)
+  · intro a' ha' j hj
+    rw [hsite] at ha'; cases ha'
+    rw [siteVH hlab]; exact hP _ (h1 j hj)
+  · intro σ c hJ s m hA _ _ hs'
+    have ho := hso blk.length (Nat.le_refl _)
+    rw [List.take_length, ← arun_so (_root_.Executable.labels L.exe).label _ ⟨n.pc, n.o, σ⟩] at ho
+    refine hclsQ s (by unfold pcOf; rw [hs']; exact hfin σ c hJ) ⟨_, ho.1, ho.2, ?_⟩
+    rw [hs']; exact rsp_of_abs hA
+
+/-- **`blkLH` on a block split by a return label** (`m`, after its first
+`jA` rows; `blockAcrossB`). -/
+theorem blkLHA {n : ND} {blk : List (Directive × Nat)} {l m : Label} {k jA : Nat} {blo bhi slo shi : Int}
+    {c1 c2 : List (Loc × Val)} {P Q : Nat → Prop}
+    (hb : Scc.Cert.Rt.X64.blockAcrossB helloCells l k (blk.take jA) m (blk.drop jA) = true)
+    (he : L.lab l + Int64.ofNat k = n.pc)
+    (hok : okBlk blo bhi n.o blk = true) (hR : R.OK) (hlo : R.lo ≤ blo) (hhi : bhi ≤ R.hi)
+    (hP : ∀ q, P q → q ≠ 4200314)
+    (hcls : ∀ s : State, P (pcOf s) → SpAt R slo shi s → CstH L c1 c2 s)
+    (hclsQ : ∀ s : State, Q (pcOf s) → SpAt R slo shi s → CstH L c1 c2 s)
+    (h1 : ∀ j < blk.length, P (n.pc + Int64.ofNat (cellOff blk j)).toBitVec.toNat)
+    (hso : ∀ j ≤ blk.length, slo ≤ (soRun (blk.take j) n.o).sp ∧ (soRun (blk.take j) n.o).sp ≤ shi)
+    (hfin : ∀ σ c, n.J σ c → Q (arun (_root_.Executable.labels L.exe).label blk ⟨n.pc, n.o, σ⟩).pc.toBitVec.toNat) :
+    BlkW (LftH L a ar p Dt Cl Ctx lbl lsize frM X0) (fun _ _ => False) L.exe L.endPc R F n blk := by
+  refine BlkW.lftH (blkW_cstOkHB hs ha hW (fun s hs' hn =>
+    Spike.Lib.X64.code_field_blockAcrossB L.lays rfl (hp ▸ hb) (List.take_append_drop jA blk) he s hs' hn) hok hR
+    hlo hhi ?_ hcls h1 hso ?_)
   · intro a' ha' j hj
     rw [hsite] at ha'; cases ha'
     rw [siteVH hlab]; exact hP _ (h1 j hj)

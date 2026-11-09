@@ -63,14 +63,14 @@ theorem cst_abortA (hlab : ∀ l x, codeLabel lo wakeCells l = some x → L.lab 
     (hsp : spPool L s) (hpc : pcOf s = (L.lab "scc_rt_abort").toBitVec.toNat)
     (hra : privLoad s s.st.1.regs.rsp.toBitVec = some ((L.lab ".Lscc_rt_alloc.full").toBitVec + 12#64)) :
     Cst L (tM L) [] s := by
-  have eA := labN hlab (l := "scc_rt_abort") (y := 4202449) (by decide +kernel) (by decide)
+  have eA := labN hlab (l := "scc_rt_abort") (y := 4202487) (by decide +kernel) (by decide)
   have e1 := labN hlab (l := ".Lscc_rt_start.x1") (y := 4198500) (by decide +kernel) (by decide)
-  have e7 := labN hlab (l := ".Lscc_rt_thread_init.x7") (y := 4199569) (by decide +kernel) (by decide)
+  have e7 := labN hlab (l := ".Lscc_rt_thread_init.x0") (y := 4199569) (by decide +kernel) (by decide)
   have eT := labN hlab (l := "scc_rt_stack_take") (y := 4199695) (by decide +kernel) (by decide)
-  have e21 := labN hlab (l := ".Lwc_main.x21") (y := 4203397) (by decide +kernel) (by decide)
-  have eK := labN hlab (l := ".Lwc_main.stk") (y := 4203514) (by decide +kernel) (by decide)
+  have e21 := labN hlab (l := ".Lwc_main.x3") (y := 4203435) (by decide +kernel) (by decide)
+  have eK := labN hlab (l := ".Lwc_main.stk") (y := 4203552) (by decide +kernel) (by decide)
   have eF := labN hlab (l := ".Lscc_rt_alloc.full") (y := 4198751) (by decide +kernel) (by decide)
-  have e23 := labN hlab (l := ".Lwc_main.x23") (y := 4203484) (by decide +kernel) (by decide)
+  have e23 := labN hlab (l := ".Lwc_main.x5") (y := 4203522) (by decide +kernel) (by decide)
   refine ⟨ownS_of_self (.inl ⟨hsp, by rw [hpc, eA, e1]; decide⟩), ownSW_of_not ?_⟩
   rintro (⟨-, h1, h2⟩ | ⟨h1, h2⟩ | ⟨-, h3⟩)
   · rw [hpc, eA, e7] at h1; rw [hpc, eA, eT] at h2; omega
@@ -93,7 +93,7 @@ theorem alloc_labs (hlab : ∀ l x, codeLabel lo wakeCells l = some x → L.lab 
     (_root_.Executable.labels L.exe).label fullL = Int64.ofNat 4198751 ∧
     (_root_.Executable.labels L.exe).label okL = Int64.ofNat 4198765 ∧
     (_root_.Executable.labels L.exe).label ".Lscc_rt_alloc.spin" = Int64.ofNat 4198749 ∧
-    (_root_.Executable.labels L.exe).label ".Lwc_main.x18" = Int64.ofNat 4203326 := by
+    (_root_.Executable.labels L.exe).label ".Lwc_main.x0" = Int64.ofNat 4203364 := by
   refine ⟨hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_,
     hlab _ _ ?_⟩ <;> (rw [← codeT_eq]; decide +kernel)
 
@@ -145,7 +145,7 @@ set_option maxHeartbeats 3200000 in
 abort's entry (`cst_abortA`), holds `tcbM` only; the counter's add and the
 header's store miss it (`hnoM`). -/
 theorem allocL (hR : R.OK) (hlo' : R.lo ≤ -160) (hhi : 8 ≤ R.hi) {ms : Spike.Lib.MemSide isa} {q : Call}
-    (hra : q.ra = (L.lab ".Lwc_main.x18").toBitVec) (hq : ∀ m, F m → q.OKS ms L.lab)
+    (hra : q.ra = (L.lab ".Lwc_main.x0").toBitVec) (hq : ∀ m, F m → q.OKS ms L.lab)
     (hmem : ∀ a : BitVec 64,
       (a = BitVec.ofNat 64 ms.ctr ∨ ∃ o, o + ms.units q.n q.τ ≤ ms.cells ∧ a.toNat = q.hdrAt ms o) →
       ∀ m, F m → Mem.loadInt m.dmem a 8 = none)
@@ -282,7 +282,9 @@ theorem allocL (hR : R.OK) (hlo' : R.lo ≤ -160) (hhi : 8 ≤ R.hi) {ms : Spike
     rw [Spike.Lib.X64.Alloc.bO9_run]; simp only [eOk]; decide +kernel
   · -- The `ret`, to `.x18`.
     refine Spike.Lib.LowerX64.BlkW.nodeW (blkL2 hp hlab hsite hsep ha hW (P := PP) (Q := QP)
-      (blk := [(iRet.toDir, 1)]) h30 rfl (blo := -160) (bhi := 8) (by dsimp only [N]; decide) hR hlo' hhi
+      (blk := [(iRet.toDir, 1)]) h30.2
+      (by rw [ofNat_zero']; exact (Scc.Cert.Rt.X64.label_labelGapB L.lays (hp ▸ h30.1)).trans rfl)
+      (blo := -160) (bhi := 8) (by dsimp only [N]; decide) hR hlo' hhi
       (fun _ h => h.2) (fun s h => cls_pool hlab hb s h.1) (cls_pool hlab hb) ?_ (soA [(iRet.toDir, 1)] oE)
       fun σ c hJ => ?_) (List.cons_ne_nil _ _)
     · intro k hk; dsimp only [N]; simp only [eOk]; revert k; decide +kernel
@@ -299,7 +301,7 @@ theorem allocW_wcGX (hlo : L.Λ.code.lo = lo) (hΛ : L.Λ.abortLbl = Scc.Cert.Li
     {ms : Spike.Lib.MemSide isa} {q : Call}
     (hR : R.OK) (hR8 : R.base.toNat % 8 = 0) (hlo' : R.lo ≤ -160) (hhi : 8 ≤ R.hi)
     (hl : R.lo % 8 = 0) (hh : R.hi % 8 = 0) (hpool : Λ.stackPool.lo ≤ 2 ^ 64)
-    (hra : q.ra = (L.lab ".Lwc_main.x18").toBitVec) (hq : ∀ m, F m → q.OKS ms L.lab)
+    (hra : q.ra = (L.lab ".Lwc_main.x0").toBitVec) (hq : ∀ m, F m → q.OKS ms L.lab)
     (hmp : ∀ l, ms.mp l true → Scc.Sem.Kernel.mapped (Spike.Lib.X64Consumer.K0 Λ) true l = true)
     (hmem : ∀ a : BitVec 64,
       (a = BitVec.ofNat 64 ms.ctr ∨ ∃ o, o + ms.units q.n q.τ ≤ ms.cells ∧ a.toNat = q.hdrAt ms o) →

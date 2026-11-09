@@ -156,15 +156,17 @@ theorem dirs_cons_d (x : Directive) (l : List Item) : dirs (Item.d x :: l) = x :
 
 theorem dirs_nil : dirs [] = [] := rfl
 
-/-- **A plain instruction's code** at `InstsC2`: its items' directives at
-`pc`, the rest after them. -/
+/-- **A plain instruction's code** at `InstsC2` (not a checked `+`, which
+takes a fresh label, P5): its items' directives at `pc`, the rest after
+them. -/
 theorem insts_cons_plain {i : Scc.IR.Inst} {is : List Scc.IR.Inst} {k k' : Nat} {pc pc' : Int64}
-    (hi : isCall i = false) (h : InstsC2 fr Cd Bl k pc (i :: is) k' pc') :
+    (hi : isCall i = false) (ha : ∀ d a b, i ≠ .addChk d a b) (h : InstsC2 fr Cd Bl k pc (i :: is) k' pc') :
     ∃ l zs, Emits (emitInst fr none i) l ∧ zs.length = (dirs l).length ∧ Cd pc ((dirs l).zip zs) ∧
       InstsC2 fr Cd Bl k (pc + Int64.ofNat zs.sum) is k' pc' := by
-  rcases h with ⟨-, h⟩ | ⟨_, _, _, _, _, _, _, _, rfl, -⟩ | ⟨_, _, _, _, _, _, _, rfl, -⟩ | ⟨_, _, _, _, rfl, -⟩
+  rcases h with ⟨-, h⟩ | ⟨_, _, _, _, _, _, _, _, rfl, -⟩ | ⟨_, _, _, _, _, _, _, rfl, -⟩ | ⟨_, _, _, _, rfl, -⟩ |
+    ⟨d, a, b, _, _, _, _, _, rfl, -⟩
   · exact h
-  all_goals simp [isCall] at hi
+  all_goals first | exact (ha _ _ _ rfl).elim | simp [isCall] at hi
 
 /-- **`print`'s call** at `InstsC2`: its argument loads at `pc`, the
 call's block after them, the rest after it. -/
@@ -174,9 +176,11 @@ theorem insts_print_call {ws : List Scc.IR.Operand} {is : List Scc.IR.Inst} {k k
       Cd pc ((dirs lw).zip zs) ∧ Bl (pc + Int64.ofNat zs.sum) zc Scc.Lower.Names.print k ∧
       InstsC2 fr Cd Bl (k + 1) (pc + Int64.ofNat zs.sum + Int64.ofNat zc) is k' pc' := by
   rcases h with ⟨hc, -⟩ | ⟨_, _, _, _, _, _, _, _, hi, -⟩ | ⟨_, _, _, _, _, _, _, hi, -⟩ |
-    ⟨ws', lw, zs, zc, hi, -, hg, hz, hc, hb, hr⟩
+    ⟨ws', lw, zs, zc, hi, -, hg, hz, hc, hb, hr⟩ | ⟨_, _, _, _, _, _, _, _, hi, -⟩
   · simp [isCall] at hc
   · simp at hi
+  · simp at hi
+  rotate_left
   · simp at hi
   · simp only [Scc.IR.Inst.call.injEq, true_and] at hi
     subst hi
@@ -209,10 +213,10 @@ theorem print_code {exe : _root_.Executable} {endPc : Int64} (hCd : ∀ pc blk, 
       CdOf exe endPc (pc + Int64.ofNat zs1.sum + Int64.ofNat zM + Int64.ofNat zs2.sum) [(callD, zc)] ∧
       kk' = kk + 1 ∧ pc' = pc + Int64.ofNat zs1.sum + Int64.ofNat zM + Int64.ofNat zs2.sum + Int64.ofNat zc := by
   simp only [printInsts] at h
-  obtain ⟨l1, zs1, hE1, hz1, hc1, h⟩ := insts_cons_plain rfl h
-  obtain ⟨l2, zs2, hE2, hz2, hc2, h⟩ := insts_cons_plain rfl h
-  obtain ⟨l3, zs3, hE3, hz3, hc3, h⟩ := insts_cons_plain rfl h
-  obtain ⟨l4, zs4, hE4, hz4, hc4, h⟩ := insts_cons_plain rfl h
+  obtain ⟨l1, zs1, hE1, hz1, hc1, h⟩ := insts_cons_plain rfl (fun _ _ _ h => by cases h) h
+  obtain ⟨l2, zs2, hE2, hz2, hc2, h⟩ := insts_cons_plain rfl (fun _ _ _ h => by cases h) h
+  obtain ⟨l3, zs3, hE3, hz3, hc3, h⟩ := insts_cons_plain rfl (fun _ _ _ h => by cases h) h
+  obtain ⟨l4, zs4, hE4, hz4, hc4, h⟩ := insts_cons_plain rfl (fun _ _ _ h => by cases h) h
   obtain ⟨lw, zs5, zc, hg, hz5, hc5, hbl, h⟩ := insts_print_call h
   obtain ⟨rfl, rfl⟩ := h
   obtain ⟨lO, olo, hO, hlo, rfl⟩ := emits_ext32 hE1
@@ -331,10 +335,10 @@ theorem print_codeC {kk kk' : Nat} {pc pc' : Int64} {n : Nat} {b : Scc.IR.Operan
     {m c : Scc.IR.Operand} (h : InstsC2 fr Cd Bl kk pc (printInsts n b (.reg o) m c) kk' pc') :
     ∃ B, PrintCodeC fr Cd Bl kk pc n b o m c B ∧ kk' = kk + 1 ∧ pc' = B.pc3 + Int64.ofNat B.zc := by
   simp only [printInsts] at h
-  obtain ⟨l1, zs1, hE1, hz1, hc1, h⟩ := insts_cons_plain rfl h
-  obtain ⟨l2, zs2, hE2, hz2, hc2, h⟩ := insts_cons_plain rfl h
-  obtain ⟨l3, zs3, hE3, hz3, hc3, h⟩ := insts_cons_plain rfl h
-  obtain ⟨l4, zs4, hE4, hz4, hc4, h⟩ := insts_cons_plain rfl h
+  obtain ⟨l1, zs1, hE1, hz1, hc1, h⟩ := insts_cons_plain rfl (fun _ _ _ h => by cases h) h
+  obtain ⟨l2, zs2, hE2, hz2, hc2, h⟩ := insts_cons_plain rfl (fun _ _ _ h => by cases h) h
+  obtain ⟨l3, zs3, hE3, hz3, hc3, h⟩ := insts_cons_plain rfl (fun _ _ _ h => by cases h) h
+  obtain ⟨l4, zs4, hE4, hz4, hc4, h⟩ := insts_cons_plain rfl (fun _ _ _ h => by cases h) h
   obtain ⟨lw, zs5, zc, hg, hz5, hc5, hbl, h⟩ := insts_print_call h
   obtain ⟨rfl, rfl⟩ := h
   obtain ⟨lO, olo, hO, hlo, rfl⟩ := emits_ext32 hE1

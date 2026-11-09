@@ -40,12 +40,12 @@ theorem marksL_H {asm : String} (hpa : textProgram asm = .ok o.prog) (hhp : text
     exact (PlaceW.lab_toNat hp i ha).symm
   wexit k hk := by
     have hl := Spike.Lib.HelloOInit.hlab_H hp i hpa hhp hlo
-    rw [hl "scc_rt_abort_write_exit" 2168512 (by decide +kernel)]
+    rw [hl "scc_rt_abort_write_exit" 2168544 (by decide +kernel)]
     cases k
-    · rw [hl _ 2168296 (by decide +kernel)]; decide
-    · rw [hl _ 2168368 (by decide +kernel)]; decide
-    · rw [hl _ 2168440 (by decide +kernel)]; decide
-    · rw [hl _ 2168584 (by decide +kernel)]; decide
+    · rw [hl _ 2168328 (by decide +kernel)]; decide
+    · rw [hl _ 2168400 (by decide +kernel)]; decide
+    · rw [hl _ 2168472 (by decide +kernel)]; decide
+    · rw [hl _ 2168616 (by decide +kernel)]; decide
     · exact absurd rfl hk
 
 /-- **`MarksL` at the canonical target's marks** (`μE` of `HelloAssemblyRS`/`RV`): they are `PhRec.μ`

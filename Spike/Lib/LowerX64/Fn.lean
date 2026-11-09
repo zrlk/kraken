@@ -3,7 +3,7 @@
 the frame; the twin of `Spike/Lib/LowerA64/Fn.lean`.
 
 `fn0_seg`: `prologue_body_seg_of` (the emitted prologue, `proInC`) then
-`body_seg` (the lowered body, its code from `bodyIn` by `bodyCode_of`),
+`body_seg` (the lowered body, its code from `bodyIn` by `bodyCode_inBody`),
 from the function's label (`%rsp` at 0) to the return's exit at the saved
 return address or the overflow abort label. The source's body `e` is
 lowered by `lower0` from the environment `env` (fresh above `n`); the
@@ -46,7 +46,7 @@ theorem fn0_seg {fr : Scc.Emit.X64.Frame} (hf : FrameOk fr) (h1 : fr.size ≤ 2 
     {kp : Nat} (hp : Lays exe cells kp) (hend : endPc = endOf exe cells kp) {fn entry : String} {zl zf z1 z2 zs : Nat}
     (hpro : proInC cells fr fn entry zl zf z1 z2 zs = true)
     {e : Expr} {env : Scc.Lower.Env} {n : Nat} {r : Res} (hr : lower0 env n e = some r) (hfr : Fresh env n)
-    (hbody : bodyIn cells fr entry 0 r.insts r.ret = true)
+    {m : Nat} (hbody : bodyIn cells fr entry m 0 r.insts r.ret = true)
     {i : Expr → String → Nat → Option Nat} {T : Expr → Prop}
     (hImm : ∀ q ∈ lowerEnvs env n e, ImmIn i (ofEnv q.2.1) q.1 ∧ T q.1)
     (hF : FStable R F) (hR : R.OK) (hlo : R.lo ≤ -8 - (fr.size : Int)) (hhi : 8 ≤ R.hi)
@@ -54,10 +54,10 @@ theorem fn0_seg {fr : Scc.Emit.X64.Frame} (hf : FrameOk fr) (h1 : fr.size ≤ 2 
     (hWp : XProW W K exe endPc R F ms ((_root_.Executable.labels exe).label fn) (Int64.ofInt fr.size)
       (Int64.ofNat Scc.IR.Tcb.stackLimit) (proL fr) zl zf z1 z2 zs [] J)
     (hWb : ∀ pc t s blk, CdOf exe endPc pc blk →
-      InBody (_root_.Executable.labels exe).label cells fr entry r.insts r.ret pc blk →
+      InBody (_root_.Executable.labels exe).label cells fr entry m r.insts r.ret pc blk →
       BlkW W K exe endPc (rbR R) F (bodyN p lbl fr fp ra c0 pc t s) blk)
     (hWs : ∀ pc t s k blk, CdOf exe endPc pc blk →
-      InBody (_root_.Executable.labels exe).label cells fr entry r.insts r.ret pc blk →
+      InBody (_root_.Executable.labels exe).label cells fr entry m r.insts r.ret pc blk →
       BlkW W K exe endPc (rbR R) F (pendN p lbl fr fp ra c0 pc t s k) blk)
     (hedge : ∀ σ c, J σ c →
       (ms.rt (σ.regs.fsBase.toBitVec + (Int64.ofNat Scc.IR.Tcb.stackLimit).toBitVec).toNat ∧

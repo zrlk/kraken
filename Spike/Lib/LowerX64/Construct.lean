@@ -300,18 +300,51 @@ theorem add_block {fr : Scc.Emit.X64.Frame} (hf : FrameOk fr) (h1 : fr.size ≤ 
 
 /-! ## `ret` -/
 
-/-- The epilogue's items (`epilogue`, then `ret`). -/
+/-- The epilogue's items (`epilogue`, then `ret`), without the return
+site's label: the instructions the return runs, one code segment
+(`retItems` is the emitted list, with the label). -/
 def epiItems : List Item := [.d (i64 (.mov (xr .rsp) (or_ .rbp))), .d (i64 (.pop (xr .rbp))), .d (i64 .ret)]
 
+/-- The return site's label (P5): the `n`th fresh label of `fn`. -/
+def retL (fn : String) (n : Nat) : String := s!".L{fn}.x{n}"
+
+/-- **The emitted items of the epilogue** (P5): `epilogue`, the return
+site's fresh label, `ret`. -/
+def retItems (fn : String) (n : Nat) : List Item :=
+  [.d (i64 (.mov (xr .rsp) (or_ .rbp))), .d (i64 (.pop (xr .rbp))), .d (.label (retL fn n)), .d (i64 .ret)]
+
+/-- The teardown (`epilogue` without `ret`): the cells before the return
+site's label. -/
+def tearItems : List Item := [.d (i64 (.mov (xr .rsp) (or_ .rbp))), .d (i64 (.pop (xr .rbp)))]
+
+theorem retItems_eq (fn : String) (n : Nat) :
+    retItems fn n = tearItems ++ [.d (.label (retL fn n)), .d (i64 .ret)] := rfl
+
+theorem epiItems_eq : epiItems = tearItems ++ [.d (i64 .ret)] := rfl
+
 /-- **The code of `ret [v]`**: the operand's load into `%rax`, the
-epilogue, `ret`. -/
+epilogue, the return site's fresh label (`retL fr.fn s.next`), `ret`; the
+next fresh label is `s.next + 1`. -/
 theorem emitTerm_ret {fr : Scc.Emit.X64.Frame} {v : Scc.IR.Operand} {l : List Item}
     (hl : getOp fr .rax v = .ok l) (s : S) :
-    emitTerm fr (.ret [v]) s = .ok ((), { s with out := (l ++ epiItems).reverse ++ s.out }) := by
+    emitTerm fr (.ret [v]) s =
+      .ok ((), { s with out := (l ++ retItems fr.fn s.next).reverse ++ s.out, next := s.next + 1 }) := by
   rw [emitTerm_ret1]
   simp only [bind, StateT.bind, ld_getOp hl s, epilogue, Scc.Emit.X64.movRR, ins, Scc.Emit.X64.item, modify,
-    modifyGet, MonadStateOf.modifyGet, StateT.modifyGet, pure, StateT.pure, Except.pure, Except.bind]
-  simp [epiItems]
+    modifyGet, MonadStateOf.modifyGet, StateT.modifyGet, pure, StateT.pure, Except.pure, Except.bind,
+    Scc.Emit.X64.lbl, Scc.Emit.X64.freshL, get, getThe, MonadStateOf.get, StateT.get, set, StateT.set]
+  simp [retItems, retL]
+
+/-- **The return's emitted directives, split at its label**: the operand's
+load and the teardown, the return site's label, `ret`. -/
+theorem dirs_retItems (l : List Item) (fn : String) (n : Nat) :
+    dirs (l ++ retItems fn n) = dirs (l ++ tearItems) ++ .label (retL fn n) :: [i64 .ret] := by
+  rw [retItems_eq, ← List.append_assoc, dirs_append]; rfl
+
+/-- **The return's segment without its label**: the load, the teardown,
+`ret` (what `dirs (l ++ epiItems)` reads as one block). -/
+theorem dirs_epiItems_split (l : List Item) : dirs (l ++ epiItems) = dirs (l ++ tearItems) ++ [i64 .ret] := by
+  rw [epiItems_eq, ← List.append_assoc, dirs_append]; rfl
 
 /-- **`ret` of a slot register**: the emitted code is `retBlk`. -/
 theorem dirs_ret_slot {fr : Scc.Emit.X64.Frame} {r : Scc.IR.Reg} {off : Int} (h : rsOf fr r = some off)

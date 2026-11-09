@@ -49,7 +49,7 @@ def siPcs (lab : Label → Int64) : List Int64 :=
 def tcbPcs (lab : Label → Int64) : List Int64 :=
   [lab fnL + Int64.ofNat (4 * 0), lab entryL + Int64.ofNat (4 * 0), lab entryL + Int64.ofNat (4 * 4),
     lab lenL + Int64.ofNat (4 * 0), lab lenL + Int64.ofNat (4 * 34), rmwPc lab, rmwPc lab + Int64.ofNat 4,
-    lab lenL + Int64.ofNat (4 * 38), lab lenL + Int64.ofNat (4 * 47), lab okL + Int64.ofNat (4 * 2),
+    lab lenL + Int64.ofNat (4 * 38), lab lenL + Int64.ofNat (4 * 48), lab okL + Int64.ofNat (4 * 2),
     lab okL + Int64.ofNat (4 * 30)] ++ siPcs lab
 
 /-- **`scc_rt_alloc_tcb`'s phase facts** at labels `lab`, phase index `ph`,
@@ -63,7 +63,7 @@ structure TcbPh (okPc : Nat → Bool) (ph : Nat → Nat) (Tk : State → Prop) (
   len : blkPh okPc ph (tcbDead lab lenL 0) lab (lab lenL + Int64.ofNat (4 * 0)) (ra lenL) atLen = true
   arg : blkPh okPc ph (tcbDead lab lenL 34) lab (lab lenL + Int64.ofNat (4 * 34)) (ra lenL) atArg = true
   bnd : blkPh okPc ph (tcbDead lab lenL 38) lab (lab lenL + Int64.ofNat (4 * 38)) (ra lenL) atBnd = true
-  j2 : blkPh okPc ph (tcbDead lab lenL 47) lab (lab lenL + Int64.ofNat (4 * 47)) (ra lenL) atJ2 = true
+  j2 : blkPh okPc ph (tcbDead lab lenL 48) lab (lab lenL + Int64.ofNat (4 * 48)) (ra lenL) atJ2 = true
   ok2 : blkPh okPc ph (tcbDead lab okL 2) lab (lab okL + Int64.ofNat (4 * 2)) (ra okL) atOk = true
   ret : blkPh okPc ph (tcbDead lab okL 30) lab (lab okL + Int64.ofNat (4 * 30)) (ra okL) atRet = true
   fullNe : (lab entryL + Int64.ofNat (4 * 4)).toBitVec.toNat ≠ (lab fullL).toBitVec.toNat
@@ -196,7 +196,7 @@ theorem tcbW_gen {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe] {
     exact hJ.2.2.2
   case ret =>
     dsimp only [TcbW]; rw [hI.labOk]
-    exact blkW_pre hI bRet rfl atRet_ok hR hal (by omega) (by omega) (hC _ fun _ _ hJ => hJ.1) hph.ret
+    exact blkW_preA hI bRet rfl atRet_ok hR hal (by omega) (by omega) (hC _ fun _ _ hJ => hJ.1) hph.ret
       (hret_of_run atRet_ok fun _ _ hJ => by
         dsimp only [tcbN] at hJ ⊢
         rw [(atRet_walk lab _ hJ.2).1, hra]; exact Int64.ofBitVec_toBitVec _)

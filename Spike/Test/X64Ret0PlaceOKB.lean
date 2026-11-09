@@ -97,10 +97,17 @@ at the code base (`start_at_lo_of_placeOK`). -/
 example : Scc.Sem.X64.codeLabel ret0LΛ.code.lo ret0Cells "_start" = some 4194304 ∧ ret0LΛ.code.lo = 4194304 :=
   ⟨start_at_lo_of_placeOK ret0_placeOK, rfl⟩
 
+/-- The cells' first instruction (whatever labels lead the text), as a one-cell list. -/
+def firstInstr : List (Directive × Nat) :=
+  (ret0Cells.find? fun dz => match dz.1 with | .instr _ => true | _ => false).toList
+
+-- It is an instruction of 2 bytes (`_start`'s `xorl %ebp, %ebp`).
+#guard (firstInstr.map (·.2)) == [2] && firstInstr.all fun dz => match dz.1 with | .instr _ => true | _ => false
+
 /-- A1's `_start` check fails closed: with an instruction before `_start`
 (`_start` then 2 bytes past the code base) or with `_start` renamed, A1 fails. -/
 example :
-    let p := (ret0Cells.drop 1).take 1 ++ ret0Cells
+    let p := firstInstr ++ ret0Cells
     let q := ret0Cells.map fun dz => if dz.1 == .label "_start" then (.label "_strt", dz.2) else dz
     let lo := ret0LΛ.code.lo
     (Scc.Sem.X64.codeLabel lo p "_start", Scc.Sem.X64.codeLabel lo q "_start",
@@ -112,7 +119,7 @@ example :
   decide +kernel
 
 example :
-    placeOK Config.canonical ⟨(ret0Cells.drop 1).take 1 ++ ret0Cells, ret0Secs, ret0Asm.labelOffs, ret0Place⟩ =
+    placeOK Config.canonical ⟨firstInstr ++ ret0Cells, ret0Secs, ret0Asm.labelOffs, ret0Place⟩ =
       false :=
   placeOK_eq_false_of_a1 (by decide +kernel)
 

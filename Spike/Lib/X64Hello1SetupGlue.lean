@@ -10,7 +10,7 @@ before the setup block (`setupCall`), after the runtime's start
 At `scc_rt_main`'s entry the source is at `let r = call rodata u in e`
 with no frame; the call and `rodata`'s first steps are taken there
 (`setupCall_run`), so `wc_rodata` runs under the pushed frame
-`setupFrame e env`. The allocator's return at `.x13` continues into cut B
+`setupFrame e env`. The allocator's return at `.x0` continues into cut B
 (`hret`, as `hello1_main_segW`'s); the heap abort is an exit at the frame,
 `print`'s abort an exit with none.
 
@@ -36,7 +36,7 @@ condition from `mainE_ok`), so the start's depth is `L ≥ 296` (`8` more than
 `scc_rt_main`'s `288`) and `8 ∣ L`; there is no alignment premise; the
 premise structures carry x86-64's (`%rsp`/`%fs` base in the limit words,
 `%rbp`'s offset at the returns: `hbp`, `hbpr`, `hbpw`); the allocator's
-return is at `.x13` (`rdX13`); `setupL` is x86-64's (`80 + 208 + 32`).
+return is at `.x0` (`rdX13`); `setupL` is x86-64's (`80 + 208 + 32`).
 -/
 import Spike.Lib.X64Hello1SetupPost
 import Spike.Lib.Rt.X64StartE
@@ -119,7 +119,7 @@ structure SetupPostP (W : FragS isa) (K : State → State → Prop) (p : Prog)
     (Jp J1 J2 J3 J4 Jr Jw : AS → Ctl → Prop) : Prop where
   hW : MainPostSW W K exe endPc R F ms fr m0 σC Jp J1 J2 J3 J4 Jr Jw
   hbp : ∀ σ0 c, Jp σ0 c → σ0.regs.get64 .rbp = (mR R).addr (-8)
-  hra : ∀ σ0 c, Jp σ0 c → (_root_.Executable.labels exe).label ".Lscc_rt_main.x2" = Int64.ofBitVec (σ0.slot 0)
+  hra : ∀ σ0 c, Jp σ0 c → (_root_.Executable.labels exe).label ".Lscc_rt_main.x0" = Int64.ofBitVec (σ0.slot 0)
   hmem : ∀ σ0 c, Jp σ0 c → ∀ i : Int64, (i = 0 ∨ i = 8) →
     ∀ m, mF R F m0 σC m → Mem.loadInt m.dmem (bAddr σ0.regs .rax i) 8 = none
   h1 : ∀ σ0 c, Jp σ0 c → ∃ (x : String) (sa : WeakMem.Address) (u : Ty) (v : CoreTerm.At) (e : Expr),
@@ -149,9 +149,9 @@ structure SetupPostP (W : FragS isa) (K : State → State → Prop) (p : Prog)
     (σx.regs.rsp.toBitVec - 8#64 - 8#64 - (80 : Int64).toBitVec)
   hsvc : ∀ F' : MachineData → Prop, FStable (pR (wR R)) F' →
     (∀ m, F' m → ((F m ∧ CallerCells R (-80) (-144) 8 m) ∧ CallerCells (wR R) (-96 - 8) (-40) 16 m) ∧
-      Spike.Lib.X64.Rt.WcRa (wR R) ((_root_.Executable.labels exe).label ".Lscc_rt_main.x3") m ∧
+      Spike.Lib.X64.Rt.WcRa (wR R) ((_root_.Executable.labels exe).label ".Lscc_rt_main.x1") m ∧
       Spike.Lib.X64.Rt.WcFp (wR R) (R.addr (-8)) m) →
-    ∀ g' : PG, g'.2.2 = ((_root_.Executable.labels exe).label ".Lwc_main.x15").toBitVec →
+    ∀ g' : PG, g'.2.2 = ((_root_.Executable.labels exe).label ".Lwc_main.x0").toBitVec →
     g'.2.1 = (wR R).addr (-8) →
     SegW (fun s c => W s c []) K p lbl (ms [])
       (At exe endPc (pR (wR R)) F' (Print.N (_root_.Executable.labels exe).label g'.1 g'.2.1 g'.2.2 .sys))
@@ -164,7 +164,7 @@ structure SetupPostP (W : FragS isa) (K : State → State → Prop) (p : Prog)
     ∃ c', LocalRun p c c' ∧ Jw σ' c'
   hbpw : ∀ σx c, Jw σx c → σx.regs.get64 .rbp = R.addr (-8)
   hok : ∀ s c σx, Jw σx c →
-    At exe endPc R F ⟨(_root_.Executable.labels exe).label ".Lscc_rt_main.x3" + Int64.ofNat 4 + Int64.ofNat 4 +
+    At exe endPc R F ⟨(_root_.Executable.labels exe).label ".Lscc_rt_main.x1" + Int64.ofNat 4 + Int64.ofNat 4 +
       Int64.ofNat 5, mO, fun _ _ => True⟩ s c → SysOk p (ms []) s c (.exitGroup σx.regs.rax.toNat)
 
 /-- **The source at `rodata`'s allocation**, `scc_rt_main`'s entry `%rsp`

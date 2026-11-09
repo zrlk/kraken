@@ -185,7 +185,7 @@ theorem wake_hab_closed {asm : Scc.Sem.X64.Asm} {E : Scc.Sem.Entry} {rd : TermRu
   have hwf := Spike.Lib.PlaceWX.wf_link_of_placeWX i hpw
   have hab : ∀ s : State, s.st.2 = (Ly).lab "scc_rt_abort_heap_exit" → ((MSf) []).abortAt s := fun s hs => by
     obtain ⟨-, e9⟩ := Spike.Lib.X64.WakePh.abH_labs hlab
-    refine ⟨.heap, 4202723, ?_, by unfold pcOf; rw [hs, e9]; rfl⟩
+    refine ⟨.heap, 4202761, ?_, by unfold pcOf; rw [hs, e9]; rfl⟩
     rw [Spike.Lib.X64.Flow.Worker.Wake.AbOffW.marks_target (Ly) hpa]
     show codeLabel (Ly).Λ.code.lo (Ly).prog ((Ly).Λ.abortLbl .heap) = _
     rw [hprog, hlo, hΛ, ← codeT_eq]; decide +kernel

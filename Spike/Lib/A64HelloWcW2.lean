@@ -124,7 +124,7 @@ end NoK
 theorem htk_ofC {L : RuntimeLayout} (hlab : ∀ l x, codeOf lo SccCode.helloProg l = some x → L.lab l = Int64.ofNat x)
     (hsite : (Spike.Lib.A64.PhRec.μ L).site .take =
       some (L.lab Spike.Lib.A64.Flow.Ret0.StackTake.siteL).toBitVec.toNat) {pc : Int64}
-    (h : pc.toBitVec.toNat ≠ 2165976) :
+    (h : pc.toBitVec.toNat ≠ 2165980) :
     ∀ x, (Spike.Lib.A64.PhRec.μ L).site .take = some x → pc.toBitVec.toNat ≠ x := fun x hx => by
   rw [hsite, Spike.Lib.A64.HelloPh.WcSp4W.lab_siteH hlab, Spike.Lib.A64.HelloPh.WcSp4W.site_toNatH] at hx
   cases hx; exact h
@@ -235,9 +235,9 @@ theorem wcMainW_W2H (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hRlo : R.lo ≤ -
       (⟨tH L.lab + 56#64, 8⟩ : Loc) ≠ ar.ctrLoc) :
     WcMainWH W2 (fun _ _ => False) L.exe L.endPc R F F ms J1 (SBH l b ws) (QBH l b ws) := by
   have e3 := Spike.Lib.A64.HelloPh.Tcb2CallW.lab_sp3H hlab (L := L)
-  have e4 : (_root_.Executable.labels L.exe).label ".L22_wc_main.sp4" = Int64.ofNat 2169716 :=
+  have e4 : (_root_.Executable.labels L.exe).label ".L22_wc_main.sp4" = Int64.ofNat 2169748 :=
     Spike.Lib.A64.HelloPh.WcSp4W.lab_sp4H hlab
-  have e6 : (_root_.Executable.labels L.exe).label ".L22_wc_main.sp6" = Int64.ofNat 2169740 :=
+  have e6 : (_root_.Executable.labels L.exe).label ".L22_wc_main.sp6" = Int64.ofNat 2169772 :=
     Spike.Lib.A64.HelloPh.WcSp4W.lab_sp6H hlab
   have hin := Spike.Lib.A64.HelloPh.WcSp4W.sp4InH
   have h3 := Spike.Lib.A64.Flow.HelloWc.hello_wcSp3InH
@@ -285,7 +285,7 @@ theorem wcMainW_W2H (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hRlo : R.lo ≤ -
   · have hc := ctl_of_mid hM.1
     have hI := Spike.Lib.A64.HelloPh.instOkH hp hlo (ntA L.lab) (fun _ => False) hsite (rS := ⟨0, 0⟩)
     have hpc : ((_root_.Executable.labels L.exe).label ".L22_wc_main.sp4" + Int64.ofNat (4 * 3)).toBitVec.toNat =
-        2169716 + 4 * 3 := by
+        2169748 + 4 * 3 := by
       rw [e4]; exact (Spike.Lib.A64.HelloPh.WcSp4W.sp4_factsH 3 (by decide)).1
     have hok : okPcOf lo SccCode.helloProg L.Λ
         ((_root_.Executable.labels L.exe).label ".L22_wc_main.sp4" + Int64.ofNat (4 * 3)).toBitVec.toNat = true := by
@@ -330,7 +330,7 @@ theorem wcMainW_W2H (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hRlo : R.lo ≤ -
   -- the fence before the clone
   · have hc := ctl_of_mid hM.1
     have hpc : ((_root_.Executable.labels L.exe).label ".L22_wc_main.sp6" + Int64.ofNat (4 * 11)).toBitVec.toNat =
-        2169740 + 4 * 11 := by
+        2169772 + 4 * 11 := by
       rw [e6]; exact (Spike.Lib.A64.HelloPh.WcSp4W.sp6_factsH 11 (by decide)).1
     exact nodeW_dmbW2H hp hlo hΛ hlab hin.2.2.2.2.1 rfl (hst.sp6 c0 sl me cA fr hM).n6f
       (htk_ofC hlab hsite (by
@@ -360,11 +360,11 @@ theorem wcWf_W2H (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hRlo : R.lo ≤ -336
     (hunN : ∀ m, F m → Mem.loadInt m.dmem (ntA L.lab) 8 = none)
     (hb : Spike.Lib.A64.HelloPh.Tcb2CallW.BandSp3H L R)
     (hsep : L.pnA ≠ L.lockA ∧ L.pnA ≠ L.freeNA ∧ L.pnA ≠ L.nextA ∧ L.pnA ≠ ntA L.lab)
-    (hhdr : L.pinA + 80#64 + 24#64 ∉ [L.pnA, L.lockA, L.freeNA, L.nextA, ntA L.lab])
+    (hhdr : L.pinA + 112#64 + 24#64 ∉ [L.pnA, L.lockA, L.freeNA, L.nextA, ntA L.lab])
     (hmP : Scc.Sem.Kernel.mapped (Spike.Lib.A64Consumer.K0 L.Λ) true ⟨L.pnA, 8⟩ = true)
-    (hmH : Scc.Sem.Kernel.mapped (Spike.Lib.A64Consumer.K0 L.Λ) true ⟨L.pinA + 104#64, 8⟩ = true)
+    (hmH : Scc.Sem.Kernel.mapped (Spike.Lib.A64Consumer.K0 L.Λ) true ⟨L.pinA + 136#64, 8⟩ = true)
     (hunP : ∀ m, F m → Mem.loadInt m.dmem L.pnA 8 = none)
-    (hunH : ∀ m, F m → Mem.loadInt m.dmem (L.pinA + 104#64) 8 = none)
+    (hunH : ∀ m, F m → Mem.loadInt m.dmem (L.pinA + 136#64) 8 = none)
     (hband : Spike.Lib.A64.HelloPh.WcSp4W.BandTiH L R)
     (htidW : Scc.Sem.Kernel.mapped (Spike.Lib.A64Consumer.K0 L.Λ) true ⟨tH L.lab + 56#64, 8⟩ = true ∧
       (∀ m', F m' → Mem.loadInt m'.dmem (tH L.lab + 56#64) 8 = none) ∧

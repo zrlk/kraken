@@ -1,7 +1,7 @@
 /-
 **hello's `wc_main` entry invariants at rodata's own label** (x86-64; the twin of `Spike/Lib/A64HelloJr1L.lean`):
 `HelloJr1`'s `JrR`/`Jr1H` with the slice's label fixed to the label `l` rodata allocated (level 1 is stated per
-`l`, from `RdLandH … l b n`, whose `Ea` binds rodata's buffer to `⟨l, 0⟩`), so `wc_main`'s box `new` is on `slW l`
+`l`, from `RdLandHg … l b n`, whose `Ea` binds rodata's buffer to `⟨l, 0⟩`), so `wc_main`'s box `new` is on `slW l`
 itself, not on some label.
 
 - `JrRL lbl env l`, `Jr1L lbl mw l`: `JrR`, `Jr1H` at the label `l`.

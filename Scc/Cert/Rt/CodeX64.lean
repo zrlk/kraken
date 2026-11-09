@@ -410,6 +410,14 @@ theorem blockAt_of_blockAtB {cells : List (Directive × Nat)} {l : Label} {off :
 def labelGapB (cells : List (Directive × Nat)) (a b : Label) (off : Nat) : Bool :=
   labelGap cells a b (run cells a).length off
 
+/-- **A block across a label**: `a` `off` bytes after the first `label l`,
+the first `label m` right after it, and `b` after `label m` (a run of code
+split by a label that emits nothing, such as a return label; one code
+segment `a ++ b`, `Spike.Lib.X64.codeAt_blockAcrossB`). -/
+def blockAcrossB (cells : List (Directive × Nat)) (l : Label) (off : Nat) (a : List (Directive × Nat)) (m : Label)
+    (b : List (Directive × Nat)) : Bool :=
+  blockAtB cells l off a && labelGapB cells l m (off + (a.map (·.2)).sum) && blockAtB cells m 0 b
+
 /-- A block found by `blockAtB` is code at `label l + off`. -/
 theorem codeAt_blockAtB {exe : _root_.Executable} [Executable.ValidLayout exe]
     {cells : List (Directive × Nat)} {kp : Nat} (hp : Lays exe cells kp) {st : State} (he : st.exe = exe)

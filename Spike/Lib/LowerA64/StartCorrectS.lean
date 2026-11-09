@@ -152,7 +152,7 @@ theorem tail_bare_of_accepted1 (hp : Scc.Lower.Accepted1 p = true) {em : Scc.Low
   | error e => rw [hl] at hlow; cases hlow
   | ok l =>
     rw [hl] at hlow
-    have hlow : Scc.Lower.A64.emitAll l = .ok em := hlow
+    have hlow : Scc.Lower.A64.emitAll l cfg.gcWit = .ok em := hlow
     have hlo := (Scc.Lower.A64.emitAll_frames hlow).1
     have hc := lowerIR_checked hl
     rw [Spike.Lib.LowerNode.checkedOf_accepted1 hp] at hc

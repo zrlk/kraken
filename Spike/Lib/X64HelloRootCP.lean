@@ -21,11 +21,11 @@ and `%r8` is the second TCB (`X2H`'s clone clause).
 - `stOk_msXW`: a runtime store's facts at `msXW`, the word off both self words.
 - `r9_r8_ofR`: main's `%r9` and `%r8` at the clone from the fragment.
 - `hCP_root`: the child premise with the `FrH Dd` antecedent. Open (layout facts): `hinit2` (the second limit
-  word's initial value) and `hn3` (the pinned `.zero` reaching the second TCB's id word, `176` bytes).
+  word's initial value) and `hn3` (the pinned `.zero` reaching the second TCB's id word, `208` bytes).
 
 ## Differences from the AArch64 version
 
-- The memory side is `msWHX` (owning the worker's TCB self word `pinA + 112`), not `msWH`: x86-64's `ChildPrem`
+- The memory side is `msWHX` (owning the worker's TCB self word `pinA + 144`), not `msWH`: x86-64's `ChildPrem`
   has `hT` (the self word's load) and `hown` (its ownership), and its `hlimT`/`hlimW` are `LimOk`.
 - The frame's depth is `-272`, as AArch64's (x86-64's `ChildD.ok` asks `lo ≤ -264`).
 - The thread pointer is `%r8`, carried by the level-3 clone clause `X2H` (AArch64: `x3`, a premise `hx3`); main's
@@ -102,21 +102,21 @@ local notation "Ly" => LH hp i
 set_option hygiene false in
 local notation "LB" => L0T (Ly).Λ
 
-/-- **The two child stores' words are off both self words**: `pinA + 24` and `pinA + 136` miss `pinA + 8`'s and
-`pinA + 112`'s words. -/
-theorem offTcb_childSt {c : Nat} (hc : c = 24 ∨ c = 136) :
+/-- **The two child stores' words are off both self words**: `pinA + 24` and `pinA + 168` miss `pinA + 8`'s and
+`pinA + 144`'s words. -/
+theorem offTcb_childSt {c : Nat} (hc : c = 24 ∨ c = 168) :
     OffTcb (Spike.Lib.X64.WakePh.tcbM (Ly)) ⟨(Ly).pinA + BitVec.ofNat 64 c, 8⟩ ∧
       OffTcb (tcbWH (Ly)) ⟨(Ly).pinA + BitVec.ofNat 64 c, 8⟩ := by
   have hsm := (Ly).words_small _ (Ly).pin_mem
-  have hc' : c ≤ 136 := by omega
-  have e : ∀ k, k ≤ 176 → ((Ly).pinA + BitVec.ofNat 64 k).toNat = (Ly).pinA.toNat + k := fun k hk => by
+  have hc' : c ≤ 168 := by omega
+  have e : ∀ k, k ≤ 208 → ((Ly).pinA + BitVec.ofNat 64 k).toNat = (Ly).pinA.toNat + k := fun k hk => by
     rw [BitVec.toNat_add, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega : k < 2 ^ 64),
       Nat.mod_eq_of_lt (by omega)]
   have e8 := e 8 (by decide)
-  have e112 := e 112 (by decide)
+  have e144 := e 144 (by decide)
   have ec := e c (by omega)
-  show OffTcb ((Ly).pinA + BitVec.ofNat 64 8) _ ∧ OffTcb ((Ly).pinA + BitVec.ofNat 64 112) _
-  simp only [OffTcb, ec, e8, e112]
+  show OffTcb ((Ly).pinA + BitVec.ofNat 64 8) _ ∧ OffTcb ((Ly).pinA + BitVec.ofNat 64 144) _
+  simp only [OffTcb, ec, e8, e144]
   omega
 
 section Frag
@@ -181,7 +181,7 @@ variable {arch : WeakMem.Arch} {R1 : Cfg → TermRun.Cfg → Prop} {cT : ιH hp 
 theorem hCP_root (hpa : Scc.Sem.X64.cellsOf asm = some o.prog) (hhp : Scc.Sem.X64.cellsOf asm = some SccCode.helloCells)
     (hA13 : Scc.Cert.Spawn.X64.a13data (Ly).Λ o.prog o.secs = true)
     {nZ : Nat} (hz : Scc.Cert.PlaceOK.zeroAfter (o.secs.bss ++ o.secs.data) Scc.Cert.Link.pinnedSym = some nZ)
-    (hn3 : 176 ≤ nZ)
+    (hn3 : 208 ≤ nZ)
     /- layout fact (as wake's root): the second limit word starts at `0` -/
     (hinit2 : (m0Of (Ly).Λ o.prog o.secs).initVal ⟨lim2AH (Ly), 8⟩ = 0)
     (hR1 : ∀ d s, R1 d s → R1OH arch (Ly).Λ μ Dd XH d s)
@@ -258,7 +258,7 @@ theorem hCP_root (hpa : Scc.Sem.X64.cellsOf asm = some o.prog) (hhp : Scc.Sem.X6
   -- `hS`/`htp4`/`hSx`
   have hmeW : BitVec.ofNat 64 (th.st.st.1.regs.get64 .r9).toNat = (Ly).pinA + 8#64 := by
     rw [h9', BitVec.ofNat_toNat, BitVec.setWidth_eq]
-  have htlsB : BitVec.ofNat 64 tls = (Ly).pinA + 112#64 := Spike.Lib.X64HelloChildLimX.tls_tcbWH hp i htls
+  have htlsB : BitVec.ofNat 64 tls = (Ly).pinA + 144#64 := Spike.Lib.X64HelloChildLimX.tls_tcbWH hp i htls
   obtain ⟨hS, htp4, hSx⟩ := Spike.Lib.X64HelloChildStW.childPrem_St hp i hm
     (Spike.Lib.X64.HelloPh.ChildRoot.hpin2_H hp i hz (by omega))
     (G := GH hp i (G0H hp i) w) (fun a ha => Spike.Lib.X64.HelloPh.ChildRoot.hG_childH' hp i w.1.cT ha)
@@ -269,7 +269,7 @@ theorem hCP_root (hpa : Scc.Sem.X64.cellsOf asm = some o.prog) (hhp : Scc.Sem.X6
   rw [htop] at hS hSx
   have e24 : th.st.st.1.regs.get64 .r9 + 16#64 = (Ly).pinA + BitVec.ofNat 64 24 := by
     rw [← e9, hmeW]; bv_omega
-  have e136 : BitVec.ofNat 64 tls + 24#64 = (Ly).pinA + BitVec.ofNat 64 136 := by rw [htlsB]; bv_omega
+  have e168 : BitVec.ofNat 64 tls + 24#64 = (Ly).pinA + BitVec.ofNat 64 168 := by rw [htlsB]; bv_omega
   -- the slice words
   obtain ⟨hv0, hv1, hv2⟩ := Spike.Lib.X64HelloCPWords.hv012_preRH hV hR h0w h1w h2w
   exact {
@@ -299,7 +299,7 @@ theorem hCP_root (hpa : Scc.Sem.X64.cellsOf asm = some o.prog) (hhp : Scc.Sem.X6
       exact stOk_msXW hS (offTcb_childSt hp i (.inl rfl)).1 (offTcb_childSt hp i (.inl rfl)).2
     htp4 := htp4
     hSx := by
-      rw [e136] at hSx ⊢
+      rw [e168] at hSx ⊢
       exact stOk_msXW hSx (offTcb_childSt hp i (.inr rfl)).1 (offTcb_childSt hp i (.inr rfl)).2
     habt := Spike.Lib.X64HelloAssemblyI.habt_I hp i (G0H hp i) w }
 

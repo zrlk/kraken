@@ -20,7 +20,7 @@ with the exit call at an abort site of the memory side (`ExH`) and the test and 
 - `BlkH`, `ACH`, `AgH`, `AbStH`, `NoWrH`, `AbWH`, `MapH`, `ExH`: the pieces.
 - `mapWKH`: a path obligation under a pointwise change (`TPathW.mapWK`).
 - `callee144`: the callee's region of a region of `PreH`'s shape.
-- `raT_x27H`: the refusal's return address is `.Lwc_main.x27`.
+- `raT_x27H`: the refusal's return address is `.Lwc_main.x5`.
 - `refOblH_of`: `RefOblH` from the pieces, given `RefPreH ⊆ PreH` (`hpre`) and the kernel (`hK`).
 
 No absolute address appears in a statement here.
@@ -34,7 +34,7 @@ No absolute address appears in a statement here.
   `raT lab pfxM`); `callee144` has no alignment conclusion.
 - `PreH`'s region facts are `BoxPureH`'s x86-64 ones: `R.lo ≤ -384`, `16 ≤ R.hi`, the base `96` below stack
   0's top (AArch64: `-400`, `0`, `80`).
-- The refusal's return address is `.Lwc_main.x27` (`raT_x27H`, the label of the `ud2` after `.spawnfail5`'s
+- The refusal's return address is `.Lwc_main.x5` (`raT_x27H`, the label of the `ud2` after `.spawnfail5`'s
   `call`; AArch64: `.L22_wc_main.sp15`).
 -/
 import Spike.Lib.X64HelloRefH
@@ -89,10 +89,10 @@ theorem callee144 {R : Region} (hR : R.OK) (hlo : R.lo ≤ -168) (hhi : 16 ≤ R
 `ud2` after the call. -/
 theorem raT_x27H {L : RuntimeLayout}
     (hlab : ∀ l x, codeLabel Spike.Lib.X64.HelloPh.lo SccCode.helloCells l = some x → L.lab l = Int64.ofNat x) :
-    raT L.lab ".Lwc_main" = (L.lab ".Lwc_main.x27").toBitVec := by
-  have h5 : L.lab (".Lwc_main" ++ ".spawnfail5") = Int64.ofNat 4203897 :=
+    raT L.lab ".Lwc_main" = (L.lab ".Lwc_main.x5").toBitVec := by
+  have h5 : L.lab (".Lwc_main" ++ ".spawnfail5") = Int64.ofNat 4203935 :=
     hlab _ _ (by rw [← codeT_eq]; decide +kernel)
-  have h27 : L.lab ".Lwc_main.x27" = Int64.ofNat 4203909 := hlab _ _ (by rw [← codeT_eq]; decide +kernel)
+  have h27 : L.lab ".Lwc_main.x5" = Int64.ofNat 4203947 := hlab _ _ (by rw [← codeT_eq]; decide +kernel)
   unfold raT
   rw [h5, h27]
   decide

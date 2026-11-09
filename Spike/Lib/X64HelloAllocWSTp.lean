@@ -14,7 +14,7 @@ that context); the level's other conjuncts come from `allocW_wcGH` (`SFactsSt2` 
 **Where this differs from AArch64** (forced by the x86-64 shape): the cells are
 `helloCells` (labels by `codeLabel`), the region is `[-160, 8)` with an 8-aligned
 base (`hR8`, `8 ≤ R.hi`; A64's 16-aligned `hal`, `0 ≤ R.hi`); the two return points
-are `.Lwc_rodata.x15` and `.Lwc_main.x22` (`AllocRetH`); the thread pointer is
+are `.Lwc_rodata.x0` and `.Lwc_main.x0` (`AllocRetH`); the thread pointer is
 `fsBase` (`KeepTP.TP`, `WakeTP.tpG`; A64's `TPIDR_EL0`, `WakeWc.tpG`). There is no
 separate `allocW_WSH` module: its body is folded into this proof, as on AArch64
 only the thread-pointer form is used. `allocW_WSHX_tp` is x86-64 only (main owns its TCB's self word; AArch64

@@ -419,7 +419,7 @@ theorem hra_allocH
     (lab ".L2_scc_rt_alloc.4_full" + 8).toBitVec ≠ ThreadsAb.raT lab pfxM := by
   have h1 : lab ".L2_scc_rt_alloc.4_full" = Int64.ofNat 2164516 :=
     hlab _ _ (by rw [← codeT_eq]; decide +kernel)
-  have h2 : lab (pfxM ++ ".1_spawnfail5") = Int64.ofNat 2169872 :=
+  have h2 : lab (pfxM ++ ".1_spawnfail5") = Int64.ofNat 2169904 :=
     hlab _ _ (by rw [← codeT_eq]; decide +kernel)
   simp only [ThreadsAb.raT, h1, h2]
   decide

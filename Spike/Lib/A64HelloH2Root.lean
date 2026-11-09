@@ -66,23 +66,23 @@ local notation "S2" => fun (l : WeakMem.AllocLabel) (n : Nat) (l' : WeakMem.Allo
 /-- The clone's `.sp6` (the `svc` 25 instructions past it) in hello's program at `0`. -/
 theorem codeOf_sp6H :
     Scc.Cert.Link.A64.codeOf 0 SccCode.helloProg (Spike.Lib.A64.Flow.Worker.Hello.Child.pfxM ++ ".sp6") =
-      some 5692 := by
+      some 5724 := by
   decide +kernel
 
 /-- The take site in hello's program at `0`. -/
 theorem codeOf_siteH :
-    Scc.Cert.Link.A64.codeOf 0 SccCode.helloProg Spike.Lib.A64.Flow.Ret0.StackTake.siteL = some 1928 := by
+    Scc.Cert.Link.A64.codeOf 0 SccCode.helloProg Spike.Lib.A64.Flow.Ret0.StackTake.siteL = some 1932 := by
   decide +kernel
 
 /-- **The clone's `svc` is not the take site** (`WakeSrcCtl.cloneAt_ne_site`'s twin): both labels resolved in
 hello's program at offsets that differ. -/
 theorem hna_H (ho : o.prog = SccCode.helloProg) : clonePcH (Ly) ≠ ((AT)).toBitVec.toNat := by
-  have h1 := Spike.Lib.PlaceW.hlab_ofPlaceW hpw IH _ ((Ly).Λ.code.lo + 5692)
+  have h1 := Spike.Lib.PlaceW.hlab_ofPlaceW hpw IH _ ((Ly).Λ.code.lo + 5724)
     (by rw [ho, Spike.Lib.WakeSrcCtl.codeOf_base, codeOf_sp6H]; rfl)
   have h2 := Spike.Lib.PlaceW.lab_toNat hpw IH (l := Spike.Lib.A64.Flow.Ret0.StackTake.siteL)
-    (a := (Ly).Λ.code.lo + 1928) (by rw [ho, Spike.Lib.WakeSrcCtl.codeOf_base, codeOf_siteH]; rfl)
+    (a := (Ly).Λ.code.lo + 1932) (by rw [ho, Spike.Lib.WakeSrcCtl.codeOf_base, codeOf_siteH]; rfl)
   have hend := Spike.Lib.PlaceW.codeEnd_lt hpw IH
-  have hs : (SccCode.helloProg.map Directive.fakeSize).sum = 6060 := by decide +kernel
+  have hs : (SccCode.helloProg.map Directive.fakeSize).sum = 6092 := by decide +kernel
   rw [ho] at hend; unfold Scc.Sem.A64.codeEnd at hend; rw [hs] at hend
   unfold clonePcH Spike.Lib.HelloPreA.cloneAtH
   change ((Ly).lab _ + _).toBitVec.toNat ≠ ((Ly).lab _).toBitVec.toNat

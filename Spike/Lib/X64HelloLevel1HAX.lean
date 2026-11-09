@@ -1,6 +1,6 @@
 /-
-**hello's heap abort at `wXA` closed at `ownGHXW`** (x86-64 only; the `ownGHXW` instance of
-`Spike/Lib/X64HelloLevel1HA.lean`'s `hello_hab_closedLA`): `Level1HA.hello_hab_closedLAg` at
+**hello's heap abort at `wXA` closed at `ownGHXW`** (x86-64 only; AArch64's
+`A64HelloLevel1HA.hello_hab_closedLA` at `ownGHXW`): `Level1HA.hello_hab_closedLAg` at
 `ownW := ownGHXW Ly (Reserve.ntA Ly.lab)`, the stub's path inside the level (`hP0`) by `HabLftX.hP0X`.
 
 - `bandIn_wcAb`: the heap abort's dispatcher band below `wc_main`'s region at the first stack's top is on the
@@ -11,7 +11,7 @@
 ## Differences from the AArch64 version
 
 AArch64 has no counterpart: its level owns `ownGH` (main owns no TCB word there), so `A64HelloLevel1HA`'s
-`hello_hab_closedLA` is the only form. Against `X64HelloLevel1HA.hello_hab_closedLA`: the level is at `ownGHXW`,
+`hello_hab_closedLA` is the only form. Against it: the level is at `ownGHXW`,
 `hA13` is a new premise, and the abort path's band on the pool is proved here (`bandIn_wcAb`).
 -/
 import Spike.Lib.X64HelloLevel1HA

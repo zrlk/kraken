@@ -248,7 +248,7 @@ section Thr
 
 /-- **The thread worker's pcs**: its tail from `.x13` (42 bytes) and its `.entry` block (29). -/
 def thrRuns : List (Label × Nat × Nat) :=
-  [(".Lscc_rt_thr_worker.x13", 0, 42), (".Lscc_rt_thr_worker.entry", 0, 29)]
+  [(".Lscc_rt_thr_worker.x0", 0, 42), (".Lscc_rt_thr_worker.entry", 0, 29)]
 
 theorem thrRuns_chk : runsNeChk helloCells thrRuns abPtsA = true := by decide +kernel
 
@@ -261,22 +261,22 @@ theorem thrProRuns_chk :
 /-! The thread worker's blocks' and cells' targets off the write abort's pcs (decided at helloCells' code
 labels). -/
 
-theorem thC_b0 : abOffHC ".Lscc_rt_thr_worker.x13" 9 ".Lscc_rt_thr_worker.x13" HThrTail.b0 = true := by
+theorem thC_b0 : abOffHC ".Lscc_rt_thr_worker.x0" 9 ".Lscc_rt_thr_worker.x0" HThrTail.b0 = true := by
   simp only [abOffHC, ← Scc.Cert.Rt.X64.codeT_eq]; decide +kernel
 
-theorem thC_b1 : abOffHC ".Lscc_rt_thr_worker.x13" 28 ".Lscc_rt_thr_worker.x13" HThrTail.b1 = true := by
+theorem thC_b1 : abOffHC ".Lscc_rt_thr_worker.x0" 28 ".Lscc_rt_thr_worker.x0" HThrTail.b1 = true := by
   simp only [abOffHC, ← Scc.Cert.Rt.X64.codeT_eq]; decide +kernel
 
 theorem thC_thE : abOffHC ".Lscc_rt_thr_worker.entry" 0 ".Lscc_rt_thr_worker.entry" HThrHead.thE = true := by
   simp only [abOffHC, ← Scc.Cert.Rt.X64.codeT_eq]; decide +kernel
 
-theorem thS_x13 : Spike.Lib.X64.HelloWf.siAbH ".Lscc_rt_thr_worker.x13" 0 9 = true := by
+theorem thS_x13 : Spike.Lib.X64.HelloWf.siAbH ".Lscc_rt_thr_worker.x0" 0 9 = true := by
   simp only [Spike.Lib.X64.HelloWf.siAbH, ← Scc.Cert.Rt.X64.codeT_eq]; decide +kernel
 
-theorem thS_ex : Spike.Lib.X64.HelloWf.siAbH ".Lscc_rt_thr_worker.x13" 24 4 = true := by
+theorem thS_ex : Spike.Lib.X64.HelloWf.siAbH ".Lscc_rt_thr_worker.x0" 24 4 = true := by
   simp only [Spike.Lib.X64.HelloWf.siAbH, ← Scc.Cert.Rt.X64.codeT_eq]; decide +kernel
 
-theorem thS_sys : Spike.Lib.X64.HelloWf.siAbH ".Lscc_rt_thr_worker.x13" 40 2 = true := by
+theorem thS_sys : Spike.Lib.X64.HelloWf.siAbH ".Lscc_rt_thr_worker.x0" 40 2 = true := by
   simp only [Spike.Lib.X64.HelloWf.siAbH, ← Scc.Cert.Rt.X64.codeT_eq]; decide +kernel
 
 theorem thP_c0 : abOffHC "scc_rt_thr_worker" 0 "scc_rt_thr_worker" xHead = true := by
@@ -340,30 +340,30 @@ theorem thrTail_abX {R : Region} {F : MachineData → Prop} (hR : R.OK) (hlo : R
       (HThrTail.NA (_root_.Executable.labels exe).label c3 tp sp0 i) (HThrTail.blkN i) := by
   have hc := thrCode hp hend (c0 := c3) (tp := tp) (sp := sp0)
   have hoff := runsOffA_of_chk hp thrRuns_chk
-  have hm : (".Lscc_rt_thr_worker.x13", 0, 42) ∈ thrRuns := List.Mem.head _
-  have hsi : ∀ {k z : Nat}, Spike.Lib.X64.HelloWf.siAbH ".Lscc_rt_thr_worker.x13" k z = true →
-      (_root_.Executable.labels exe).label ".Lscc_rt_thr_worker.x13" + Int64.ofNat k + Int64.ofNat z ∉
+  have hm : (".Lscc_rt_thr_worker.x0", 0, 42) ∈ thrRuns := List.Mem.head _
+  have hsi : ∀ {k z : Nat}, Spike.Lib.X64.HelloWf.siAbH ".Lscc_rt_thr_worker.x0" k z = true →
+      (_root_.Executable.labels exe).label ".Lscc_rt_thr_worker.x0" + Int64.ofNat k + Int64.ofNat z ∉
         Spike.Lib.X64.WriteAb.abPcs (_root_.Executable.labels exe).label :=
     fun h => Spike.Lib.X64.HelloWf.siAbH_sound hlab h
   cases i
-  · exact cellZA_abXD (l := ".Lscc_rt_thr_worker.x13") (k := 0) hμ hc.x13
+  · exact cellZA_abXD (l := ".Lscc_rt_thr_worker.x0") (k := 0) hμ hc.x13
       (pcOffA_at hoff hm (Nat.le_refl 0) (by decide) (ofNat_zero' _).symm) (ofNat_zero' _) (hsi thS_x13)
       (fun w w' h => by unfold fsDir op64 at h; cases h) fun _ hc hd => movfs_leaf hc hd
-  · exact blkW_abX (l := ".Lscc_rt_thr_worker.x13") (k := 9) (rl := ".Lscc_rt_thr_worker.x13") hμ hc.n1
+  · exact blkW_abX (l := ".Lscc_rt_thr_worker.x0") (k := 9) (rl := ".Lscc_rt_thr_worker.x0") hμ hc.n1
       HThrTail.b0_ok hR hlo hhi
       (fun j hj => pcOffA_add hoff hm (Nat.zero_le 9) (by revert j; decide) rfl)
       rfl (abOffHC_sound hlab thC_b0)
       (fun _ _ _ j hj hr => (Spike.Lib.X64Consumer.noRet_false (by decide) j hj hr).elim)
-  · exact cellZA_abXD (l := ".Lscc_rt_thr_worker.x13") (k := 24) hμ hc.ex
+  · exact cellZA_abXD (l := ".Lscc_rt_thr_worker.x0") (k := 24) hμ hc.ex
       (pcOffA_at hoff hm (Nat.zero_le 24) (by decide) rfl) rfl (hsi thS_ex)
       (fun w w' h => by unfold stDir Spike.Lib.X64.AI.toDir op64 at h; cases h) fun _ hc hd => st_leaf hc hd
-  · exact blkW_abX (l := ".Lscc_rt_thr_worker.x13") (k := 28) (rl := ".Lscc_rt_thr_worker.x13") hμ hc.n2
+  · exact blkW_abX (l := ".Lscc_rt_thr_worker.x0") (k := 28) (rl := ".Lscc_rt_thr_worker.x0") hμ hc.n2
       HThrTail.b1_ok hR hlo hhi
       (fun j hj => pcOffA_add hoff hm (Nat.zero_le 28) (by revert j; decide) rfl)
       rfl (abOffHC_sound hlab thC_b1)
       (fun _ _ _ j hj hr => (Spike.Lib.X64Consumer.noRet_false (by decide) j hj hr).elim)
   · exact nodeZA_abX_sys (n := HThrTail.NA (_root_.Executable.labels exe).label c3 tp sp0 .sys)
-      (l := ".Lscc_rt_thr_worker.x13") (k := 40) hμ hc.sys
+      (l := ".Lscc_rt_thr_worker.x0") (k := 40) hμ hc.sys
       (pcOffA_at hoff hm (Nat.zero_le 40) (by decide) rfl) rfl (hsi thS_sys)
 
 end Thr

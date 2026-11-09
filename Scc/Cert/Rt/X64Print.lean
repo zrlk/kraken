@@ -30,9 +30,16 @@ theorem off_eq (a : Int64) (n : Nat) : a + Int64.ofNat n = a + OfNat.ofNat n := 
 theorem off0 (a : Int64) : a + Int64.ofNat 0 = a := by
   rw [show Int64.ofNat 0 = 0 by decide, Int64.add_zero]
 
+/-- The return label before `scc_rt_print`'s `ret` (a GC table key, P5):
+the function's second local label (`.Lscc_rt_print.x0` is the return
+site of `.fail`'s call). -/
+abbrev retL : Label := ".Lscc_rt_print.x1"
+
 /-- **The code of `scc_rt_print` in `cells`**: its blocks at their labels
-and offsets (the `write` system call 20 bytes after `.write` among them),
-and the prologue's fall-through. -/
+and offsets (the `write` system call 20 bytes after `.write` among them;
+the last block `x13` across the return label `retL`: its teardown at
+`.done`, `retL` right after it, its `ret` at `retL`, `blockAcrossB`), and the prologue's
+fall-through. -/
 def printIn (cells : List (Directive × Nat)) : Bool :=
   blockAtB cells "scc_rt_print" 0 x0 &&
   blockAtB cells ".Lscc_rt_print.entry" 0 x1 &&
@@ -48,7 +55,7 @@ def printIn (cells : List (Directive × Nat)) : Bool :=
   blockAtB cells ".Lscc_rt_print.chk3" 16 x10 &&
   blockAtB cells ".Lscc_rt_print.adv" 0 x11 &&
   blockAtB cells ".Lscc_rt_print.fail" 0 x12 &&
-  blockAtB cells ".Lscc_rt_print.done" 0 x13 &&
+  blockAcrossB cells ".Lscc_rt_print.done" 0 (x13.take 2) retL (x13.drop 2) &&
   labelGapB cells "scc_rt_print" ".Lscc_rt_print.entry" 16
 
 end Scc.Cert.Rt.X64.Print

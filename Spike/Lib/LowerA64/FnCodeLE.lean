@@ -44,7 +44,8 @@ theorem term2_endJ {cx : FnCtx} {k : Nat} {t : Scc.IR.Term} (ht : TermC2 t) {c2 
   cases ht with
   | ret ws =>
     obtain ⟨-, ls, -, rfl⟩ := term_retN_inv h
-    rw [directives_append]
+    rw [show ls ++ cx.leave ++ [lbl (cx.local s!"x{k}"), ret] = (ls ++ cx.leave ++ [lbl (cx.local s!"x{k}")]) ++ [ret]
+      by simp, directives_append]
     exact endJ_snoc _ _ ▸ rfl
   | br p q l l' =>
     obtain ⟨la, lb, T, Fl, -, -, -, -, hd⟩ := term_br_inv h
@@ -75,18 +76,26 @@ theorem codeC2_cdCLE (hBl : ∀ pc g k, Bl pc g k → PosOff prog lab pc) {tm : 
     ∀ (is : List Scc.IR.Inst) (k : Nat) (pc : Int64), CodeC2 cx (CdCL prog okPc ph lab ra) Bl k pc is tm →
       CodeC2 cx (CdCLE prog okPc ph lab ra) Bl k pc is tm ∧ PosOff prog lab pc
   | [], _, pc, h => by
-    rcases h with h | ⟨l, hl, hcd⟩
+    rcases h with h | ⟨l, hr, hl, hcd⟩ | ⟨vs, ls, he, hn, hls, hcd⟩
     · subst h; cases htm
-    have hj := term2_endJ htm hl
-    have hne : directives l ≠ [] := by
-      intro h0; rw [h0] at hj; cases hj
-    exact ⟨.inr ⟨l, hl, hcd, fun h => absurd hj (by rw [h]; decide)⟩, posOff_start hcd hne⟩
+    · have hj := term2_endJ htm hl
+      have hne : directives l ≠ [] := by
+        intro h0; rw [h0] at hj; cases hj
+      exact ⟨.inr (.inl ⟨l, hr, hl, hcd, fun h => absurd hj (by rw [h]; decide)⟩), posOff_start hcd hne⟩
+    · -- a `ret`: its code ends with `ret` (P5: around its return site's label)
+      have hj : endJ (directives (ls ++ cx.leave ++ [ret])) = true := by
+        rw [directives_append]; exact endJ_snoc _ _ ▸ rfl
+      have hne : directives (ls ++ cx.leave ++ [ret]) ≠ [] := by
+        intro h0; rw [h0] at hj; cases hj
+      exact ⟨.inr (.inr ⟨vs, ls, he, hn, hls, hcd, fun h => absurd hj (by rw [h]; decide)⟩),
+        posOff_start hcd hne⟩
   | i :: is, k, pc, h => by
-    rcases h with ⟨hc, l, hl, hcd, hr⟩ | ⟨d, g, w, lw, ls, hi, hw, hs, hcd, hb, hs2, hr⟩ |
-      ⟨p, h, kv, u, la, ls, hi, ha, hs, hcd, hb, hs2, hr⟩ | ⟨a0, a1, la, hi, ha, hcd, hb, hr⟩
+    rcases h with ⟨hc, hn, l, hl, hcd, hr⟩ | ⟨d, g, w, lw, ls, hi, hw, hs, hcd, hb, hs2, hr⟩ |
+      ⟨p, h, kv, u, la, ls, hi, ha, hs, hcd, hb, hs2, hr⟩ | ⟨a0, a1, la, hi, ha, hcd, hb, hr⟩ |
+      ⟨d, a, b, la, lb, ls, hi, ha, hb, hs, hcd, hs2, hr⟩
     · obtain ⟨hr', hp⟩ := codeC2_cdCLE hBl htm is (k + 1) _ hr
       obtain ⟨hcd', hp0⟩ := cdCLE_of hcd hp
-      exact ⟨.inl ⟨hc, l, hl, hcd', hr'⟩, hp0⟩
+      exact ⟨.inl ⟨hc, hn, l, hl, hcd', hr'⟩, hp0⟩
     · obtain ⟨hr', hp⟩ := codeC2_cdCLE hBl htm is (k + 1) _ hr
       obtain ⟨hcd', hp0⟩ := cdCLE_of hcd (hBl _ _ _ hb)
       obtain ⟨hs2', -⟩ := cdCLE_of hs2 hp
@@ -97,7 +106,12 @@ theorem codeC2_cdCLE (hBl : ∀ pc g k, Bl pc g k → PosOff prog lab pc) {tm : 
       exact ⟨.inr (.inr (.inl ⟨p, h, kv, u, la, ls, hi, ha, hs, hcd', hb, hs2', hr'⟩)), hp0⟩
     · obtain ⟨hr', -⟩ := codeC2_cdCLE hBl htm is (k + 1) _ hr
       obtain ⟨hcd', hp0⟩ := cdCLE_of hcd (hBl _ _ _ hb)
-      exact ⟨.inr (.inr (.inr ⟨a0, a1, la, hi, ha, hcd', hb, hr'⟩)), hp0⟩
+      exact ⟨.inr (.inr (.inr (.inl ⟨a0, a1, la, hi, ha, hcd', hb, hr'⟩))), hp0⟩
+    · -- a checked `+`: the add, then the store after its fall-through's label (P5)
+      obtain ⟨hr', hp⟩ := codeC2_cdCLE hBl htm is (k + 1) _ hr
+      obtain ⟨hs2', hpS⟩ := cdCLE_of hs2 hp
+      obtain ⟨hcd', hp0⟩ := cdCLE_of hcd hpS
+      exact ⟨.inr (.inr (.inr (.inr ⟨d, a, b, la, lb, ls, hi, ha, hb, hs, hcd', hs2', hr'⟩))), hp0⟩
 
 /-- **`BlocksCodeC2` at `CdCL` gives it at `CdCLE`**, every block's
 terminator a `TermC2`. -/

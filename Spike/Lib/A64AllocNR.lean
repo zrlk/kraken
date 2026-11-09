@@ -121,7 +121,7 @@ theorem seg_alloc_ofW_atNR {W : Frag isaLSE2} {K : State → State → Prop} {pr
       (At exe endPc R F (EX30 (_root_.Executable.labels exe).label ms q lbl .abort)) := by
   have hcode := alloc_code (ms := ms) (q := q) hp hend hprog
   simp only [allocIn, Bool.and_eq_true, and_assoc] at hprog
-  obtain ⟨-, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, hgap⟩ := hprog
+  obtain ⟨-, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, hgap⟩ := hprog
   exact seg_allocW_atNR hF hR hal hlo hhi hq hcode (by rw [label_labelGap hp hgap]; simp only [add4, add0]) hmem
     hxa hW i0
 

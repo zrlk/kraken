@@ -4,7 +4,7 @@ spawn's pcs** (x86-64; the twin of `Spike/Lib/A64HelloStubTAC.lean`):
 `Spike/Lib/X64StubTAC.lean`'s `stubTW_sfactsAC` at `W := SFactsAC … frs Dt
 (fun _ => False) Cl (Hello.ThreadsAb.Ac lab pfx cl n st off)`
 (`Spike/Lib/X64HelloThreadsAb.lean`), hello's (`AcH`) at
-`".x25" 94 ".x26" (-120)`. The path (the dispatcher from its prologue and
+`".x3" 94 ".x4" (-120)`. The path (the dispatcher from its prologue and
 the threads stub to its exit call) reads none of the spawn's pcs, so the
 proof is wake's with the phase's introductions at the generic `Ac`
 (`ac_g5G`, `ac_stubG` here, `HelloThreadsAcSt.ac_dispEA`, `ac_dispTA`).

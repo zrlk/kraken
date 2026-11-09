@@ -55,7 +55,7 @@ variable {L : RuntimeLayout} {a : BitVec 64} {R : Region} {F : MachineData → P
 /-- The labels hello's `scc_rt_main`'s pcs are decided from, at the canonical base. -/
 theorem main_labsH (hlab : ∀ l x, codeLabel lo helloCells l = some x → L.lab l = Int64.ofNat x) :
     L.lab "scc_rt_main" = Int64.ofNat 4198540 ∧ L.lab ".Lscc_rt_main.stk" = Int64.ofNat 4198638 ∧
-    L.lab ".Lscc_rt_main.entry" = Int64.ofNat 4198571 ∧ L.lab "wc_rodata" = Int64.ofNat 4203131 := by
+    L.lab ".Lscc_rt_main.entry" = Int64.ofNat 4198571 ∧ L.lab "wc_rodata" = Int64.ofNat 4203169 := by
   refine ⟨hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_⟩ <;> (rw [← codeT_eq]; decide +kernel)
 
 /-- `hso` of a block at offsets `o`, decided. -/

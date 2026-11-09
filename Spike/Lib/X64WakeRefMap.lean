@@ -18,8 +18,8 @@ the worker's TCB words appended to `ownG`), so the state facts at `ownG`
 are lifted by the path's `Lft2` (`RefMap`'s last hypothesis, from
 `RefLft`); `SFactsSt2.congr` is stated here (x86-64 has `SFactsSt.congr`
 only); the pcs are compared at the resolved addresses (`scc_rt_abort` at
-`4202449`, `scc_rt_thr_worker` at `4202935`, the clone's `syscall` at
-`.Lwc_main.x21 + 46 = 4203443`, the take site at `4200277`); the parses are
+`4202487`, `scc_rt_thr_worker` at `4202973`, the clone's `syscall` at
+`.Lwc_main.x3 + 46 = 4203481`, the take site at `4200277`); the parses are
 on `cellsOf asm`.
 -/
 import Spike.Lib.X64WakeRefLay
@@ -96,19 +96,19 @@ theorem refMap (hpa : cellsOf asm = some o.prog) (hwp : cellsOf asm = some wakeC
   obtain ⟨e1, e2, -⟩ := Spike.Lib.X64.WakePh.ab_labs hlab
   have hst : (Ly).lab Spike.Lib.X64.Flow.Ret0.StackTake.siteL = Int64.ofNat 4200277 :=
     hlab _ _ (by rw [← codeT_eq]; decide +kernel)
-  have h21 : (Ly).lab Spike.Lib.X64.WakePh.WcClone.x21L = Int64.ofNat 4203397 :=
+  have h21 : (Ly).lab Spike.Lib.X64.WakePh.WcClone.x21L = Int64.ofNat 4203435 :=
     hlab _ _ (by rw [← codeT_eq]; decide +kernel)
   have haW := Spike.Lib.X64WakeOSide.aW_site hp i hpa E
   -- `scc_rt_abort`'s code is between the take's and the clone's pcs.
   obtain ⟨⟨hin1, hin2⟩, -, -⟩ := habw.1
   rw [e1] at hin1
   rw [e2] at hin2
-  have hn1 : (Int64.ofNat 4202449).toBitVec.toNat = 4202449 := rfl
-  have hn2 : (Int64.ofNat 4202935).toBitVec.toNat = 4202935 := rfl
+  have hn1 : (Int64.ofNat 4202487).toBitVec.toNat = 4202487 := rfl
+  have hn2 : (Int64.ofNat 4202973).toBitVec.toNat = 4202973 := rfl
   rw [hn1] at hin1
   rw [hn2] at hin2
   have hcl : pcOf s ≠ Spike.Lib.X64.Flow.WakeWc.clonePc (Ly) := by
-    have : Spike.Lib.X64.Flow.WakeWc.clonePc (Ly) = 4203443 := by
+    have : Spike.Lib.X64.Flow.WakeWc.clonePc (Ly) = 4203481 := by
       unfold Spike.Lib.X64.Flow.WakeWc.clonePc Spike.Lib.X64WakePreA.cloneAt
       show ((Ly).lab Spike.Lib.X64.WakePh.WcClone.x21L + 46).toBitVec.toNat = _
       rw [h21]; rfl

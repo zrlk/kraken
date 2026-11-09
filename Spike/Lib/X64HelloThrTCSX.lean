@@ -124,14 +124,14 @@ theorem seg_thrWorkerSX {Q : FragS isa} (hp : Lays exe SccCode.helloCells kp)
     (hZX : ∀ s c fs, Z s c fs → X s c fs)
     (hwk : ∀ (R' : Region) (F' : MachineData → Prop), R'.OK → R'.lo ≤ -176 → 8 ≤ R'.hi →
       FStable R' F' → (∀ m, F' m → F m) → ∀ rbp ra : BitVec 64,
-        Int64.ofBitVec ra = (_root_.Executable.labels exe).label ".Lscc_rt_thr_worker.x13" →
+        Int64.ofBitVec ra = (_root_.Executable.labels exe).label ".Lscc_rt_thr_worker.x0" →
         SegTCSX (SH exe endPc Z) X p lbl ms
           ((At exe endPc R' F' ⟨(_root_.Executable.labels exe).label "wc_worker", ⟨0, []⟩,
             fun σ c => wcJE c1 w rbp ra tp σ c ∧ σ.regs.rsp.toBitVec = sp0 - 80#64⟩).at [])
           (Frag.at (fun s c => ∃ x, At exe endPc R' F' (HelloTail.E c3 rbp ra tp x) s c) []))
     (hK : (ms []).K = some Scc.Sem.X64.abi) {ar : CoreTerm.At} (hret3 : c3.term = .ret ar)
     (hT : LdOk (ms []) F tp)
-    (hown : OwnAt (ms []) exe endPc ((_root_.Executable.labels exe).label ".Lscc_rt_thr_worker.x13") tp tp)
+    (hown : OwnAt (ms []) exe endPc ((_root_.Executable.labels exe).label ".Lscc_rt_thr_worker.x0") tp tp)
     (hSx : StOk (ms []) F (tp + 24#64) 1#64)
     (hz : XProW (fun s c => Z s c []) (fun _ _ => False) exe endPc R F (ms [])
       ((_root_.Executable.labels exe).label "scc_rt_thr_worker") 64 8 ".Lscc_rt_thr_worker.stk" 5 9 3 2 4 thrPs
@@ -172,7 +172,7 @@ theorem seg_thrWorkerSX {Q : FragS isa} (hp : Lays exe SccCode.helloCells kp)
   refine SegTCSX.seq (HThrHead.seg_thrHeadSX (N := fun _ : Unit => HThrTail.N lab c3 tp (R.addr 0) .x13)
     (E := (nofun : Empty → ND)) hF hR hlo hhi (fun σ c hJ => ⟨c1, by rw [hJ.1]; exact hsplit, rfl⟩)
     (thECode hp hend) hZX
-    (Ne := fun g : {g : BitVec 64 × BitVec 64 // Int64.ofBitVec g.2 = lab ".Lscc_rt_thr_worker.x13"} =>
+    (Ne := fun g : {g : BitVec 64 × BitVec 64 // Int64.ofBitVec g.2 = lab ".Lscc_rt_thr_worker.x0"} =>
       ⟨lab "wc_worker", ⟨0, []⟩,
         fun σ c => wcJE c1 w g.1.1 g.1.2 tp σ c ∧ σ.regs.rsp.toBitVec = R.addr 0 - 80#64⟩)
     (Ex := fun g y => HelloTail.E c3 g.1.1 g.1.2 tp y)
@@ -181,8 +181,8 @@ theorem seg_thrWorkerSX {Q : FragS isa} (hp : Lays exe SccCode.helloCells kp)
   · rintro σC c ⟨σ0, c0', ⟨-, h16, h24, h32, h40, h48, h56, htp, -, hsp⟩, hc, rfl⟩
     refine ⟨⟨(_, _), ?_⟩, rfl, ⟨hc, ?_, ?_, ?_, ?_, ?_, ?_, rfl, rfl, ?_⟩, ?_⟩
     · show Int64.ofBitVec ((enter (-80) (arun lab HThrHead.thE
-        ⟨lab ".Lscc_rt_thr_worker.entry", HThrHead.oI, σ0⟩).σ).slot 0) = lab ".Lscc_rt_thr_worker.x13"
-      rw [show lab ".Lscc_rt_thr_worker.x13" = lab ".Lscc_rt_thr_worker.entry" + 29 from hx13 hp]
+        ⟨lab ".Lscc_rt_thr_worker.entry", HThrHead.oI, σ0⟩).σ).slot 0) = lab ".Lscc_rt_thr_worker.x0"
+      rw [show lab ".Lscc_rt_thr_worker.x0" = lab ".Lscc_rt_thr_worker.entry" + 29 from hx13 hp]
       simp only [enter, HThrHead.thE_run, upd_apply]
       rfl
     all_goals simp [enter, HThrHead.thE_run, Reg64s.set64, Reg64s.get64, h16, h24, h32, h40, h48, h56, htp, hsp]

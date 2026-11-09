@@ -172,10 +172,10 @@ open Spike.Test.A64Hello1RtW (labX labT_eq_labX)
 /-- The labels of the write abort's pcs off `labX`'s tables: the
 dispatcher's tests, its jump to the write stub and the stub's. -/
 def abTabX : List (Label × Nat) :=
-  [(".L12_scc_rt_abort.0_entry", 4198308), (".L12_scc_rt_abort.2_next1", 4198344),
-   (".L12_scc_rt_abort.4_next3", 4198380), (".L12_scc_rt_abort.6_next5", 4198416),
-   (".L12_scc_rt_abort.7_is6", 4198436), ("scc_rt_abort_write", 4198708),
-   (".L16_scc_rt_abort_write.0_entry", 4198724), ("scc_rt_abort_write_exit", 4198768)]
+  [(".L12_scc_rt_abort.0_entry", 4198340), (".L12_scc_rt_abort.2_next1", 4198376),
+   (".L12_scc_rt_abort.4_next3", 4198412), (".L12_scc_rt_abort.6_next5", 4198448),
+   (".L12_scc_rt_abort.7_is6", 4198468), ("scc_rt_abort_write", 4198740),
+   (".L16_scc_rt_abort_write.0_entry", 4198756), ("scc_rt_abort_write_exit", 4198800)]
 
 theorem abTabX_ok : abTabX.all tabChk = true := by decide +kernel
 
@@ -196,7 +196,7 @@ theorem labT_eq_labY : labT = labY := by
     simp only [tabChk, Bool.and_eq_true, beq_iff_eq] at h
     show _ = Int64.ofNat n
     rw [← h.2, ← hello1_labT]
-    exact Spike.Lib.A64.OwnLimRt.label_labIn hello1_lays rfl h.1
+    exact Spike.Lib.A64.OwnLimRt.label_labIn hello1_lays Spike.Test.A64Hello1RtW.hello1Exe_fst h.1
   | none => exact congrFun labT_eq_labX l
 
 end Lab
@@ -314,10 +314,10 @@ theorem allocAb (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ -160) 
     exact hmem _ (.inr ⟨o.toNat, hle, hAeq⟩) m hF
   · bab ".L2_scc_rt_alloc.5_ok" 42 b13_ok
   · refine Spike.Lib.LowerA64.BlkW.nodeW (blkW_ab (hello1_instOk (rS := ⟨0, 0⟩))
-      (l := ".L2_scc_rt_alloc.5_ok") (k := 54) (blk := [iRet.toDir]) (lo := -160) (hi := 0)
+      (l := ".L2_scc_rt_alloc.x22") (k := 0) (blk := [iRet.toDir]) (lo := -160) (hi := 0)
       (dead := fun _ => false) (ra := labT ".L18_wc_rodata.sp0") (by decide +kernel)
-      (by dsimp only [N]; decide +kernel) (by dsimp only [N]; decide) hR hal (by omega) (by omega)
-      (by decide +kernel)
+      (by dsimp only [N]; rw [labT_eq_labX]; decide +kernel) (by dsimp only [N]; decide) hR hal (by omega)
+      (by omega) (by rw [labT_eq_labX]; decide +kernel)
       (hret_of_run (lo := -160) (hi := 0) (by dsimp only [N]; decide) fun σ c hJ => ?_) (fun _ _ _ => rfl)
       (by rw [labT_eq_labY]; decide +kernel)) (List.cons_ne_nil _ _)
     obtain ⟨o, -, -, -, -, -, h30⟩ := hJ

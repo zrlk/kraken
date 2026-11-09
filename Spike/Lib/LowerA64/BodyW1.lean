@@ -6,8 +6,9 @@
 
 - `blkW_body1`: a construct's block at `Cd1` at any node with the frame's
   offsets whose controls a local run from `c0` reaches, the saved pair
-  `fp`/`ra` in their cells, is inside `BodyW0` (`blkW_postO` at `c0`; the
-  return block's `ret` to `ra` by `FrJ`, the others without `ret`).
+  `fp`/`ra` in their cells, is inside `BodyW0` (`blkW_postO'` at `c0`, at
+  the block's code, whole or in two pieces, `cdOf_cd1`; the return block's
+  `ret` to `ra` by `FrJ`, the others without `ret`).
 - `hWb1_of`, `hWs1_of`: `body1_seg`'s `hW`, `hWp` from it.
 - `quiet_c1`: their `hQ` for a main-only `Accepted1` program from the
   consumer's start (`quiet_of_accepted1main`, `Spike/Lib/Quiet1.lean`).
@@ -35,6 +36,16 @@ variable {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe] {endPc : 
   {okPc : Nat → Bool} {ph : Nat → Nat} {Λ : Scc.Sem.Layout} {rS : Range} {lbl : Lbl}
   {R : Region} {F : MachineData → Prop} {p : Prog} {c0 : Ctl} {cx : FnCtx} {fp ra : BitVec 64}
 
+/-- **`body1_seg`'s `hCd`**: a block at `Cd1` is in the code, whole or in
+its two pieces (`CdOf.append`). -/
+theorem cdOf_cd1 {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp) {ra' : Int64} :
+    ∀ pc blk, Cd1 prog okPc ph lab cx ra' pc blk → CdOf exe endPc pc blk := by
+  have hat : ∀ pc blk, At1 prog lab pc blk → CdOf exe endPc pc blk :=
+    fun _ _ ⟨_, _, hpc, hb⟩ => code_of hI.lays hI.endOk hb (by rw [hI.labOk]; exact hpc)
+  rintro pc _ ⟨_, ha | ⟨b1, b2, rfl, ha1, ha2⟩, _⟩
+  · exact hat _ _ ha
+  · exact CdOf.append (hat _ _ ha1) (hat _ _ ha2)
+
 /-- **A construct's block of a call-free `Accepted1` body is inside
 `BodyW0`** at any node with the frame's offsets (`hno`) whose controls a
 local run from `c0` reaches, the saved pair in its cells (`hJ`): the block
@@ -47,7 +58,8 @@ theorem blkW_body1 {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc p
     {n : ND} (hno : n.o = oF cx) (hJ : ∀ σ c, n.J σ c → LocalRun p c0 c ∧ FrJ fp ra σ.slot)
     {blk : List Directive} (hcd : Cd1 prog okPc ph lab cx (Int64.ofBitVec ra) n.pc blk) :
     BlkW (BodyW0 Λ μ own rS Tk lbl c0) K exe endPc R F n blk := by
-  obtain ⟨hk, l, j, hpc, hb, hphb⟩ := hcd
+  have hcode : ∀ s : State, s.exe = exe → s.endPc = endPc → Spike.Lib.A64.CodeAt s n.pc blk := cdOf_cd1 hI _ _ hcd
+  obtain ⟨hk, -, hphb⟩ := hcd
   have hok : okBlk (-(cx.frame : Int)) 0 n.o blk = true := hno ▸ kind1_ok hf h1 h16 hk
   let n' : ND := ⟨n.pc, n.o, fun σ c => c = c0 ∧ ∃ c1, n.J σ c1⟩
   have hret : ∀ σ c, n'.J σ c → ∀ k (hk : k < blk.length) r, A64.Flow.classify blk[k] = some (.ret r) →
@@ -95,8 +107,8 @@ theorem blkW_body1 {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc p
       rw [h8, show -(cx.frame : Int) + (cx.frame - 8) = -8 by omega] at hpc'
       rw [hpc']
       exact congrArg Int64.ofBitVec hfj.2
-  have H := blkW_postO (n := n') (dead := fun _ => false) (ra := Int64.ofBitVec ra) (l := l) (k := j) hI
-    hb hpc hok hR hal hlo hhi (fun _ _ h => h.1 ▸ hC0) (hpc ▸ hphb)
+  have H := blkW_postO' (n := n') (dead := fun _ => false) (ra := Int64.ofBitVec ra) hI
+    hcode hok hR hal hlo hhi (fun _ _ h => h.1 ▸ hC0) hphb
     hret (fun _ _ _ => rfl) hl hh hsub hfit hFO
   intro s σ c he hn hd hp hA hF hJn k hk m hA' hD
   obtain ⟨hW, hK⟩ := H s σ c0 he hn hd hp hA hF ⟨rfl, c, hJn⟩ k hk m hA' hD
@@ -127,11 +139,6 @@ theorem hWs1_of {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph k
       BlkW (BodyW0 Λ μ own rS Tk lbl c0) K exe endPc R F (pendN p al cx fp ra c0 pc t s k) blk :=
   fun _ _ _ _ _ hcd => blkW_body1 hI hf h1 h16 hR hal hlo hhi hl hh hsub hfit hFO hC0 hQ rfl
     (fun _ _ (h : _ ∧ _ ∧ _) => ⟨h.2.2, h.2.1⟩) hcd
-
-/-- **`body1_seg`'s `hCd`**: a block at `Cd1` is in the code. -/
-theorem cdOf_cd1 {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp) {ra' : Int64} :
-    ∀ pc blk, Cd1 prog okPc ph lab cx ra' pc blk → CdOf exe endPc pc blk :=
-  fun _ _ ⟨_, _, _, hpc, hb, _⟩ => code_of hI.lays hI.endOk hb (by rw [hI.labOk]; exact hpc)
 
 end W
 

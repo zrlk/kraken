@@ -99,11 +99,11 @@ theorem wcMidW_st (hpa : Scc.Sem.A64.textProgram SccCertificate.asm = .ok o.prog
     {J0 : AS → Ctl → Prop} {t : UInt64} (hB : BoxPure (Ly) F0 n R F J0 t)
     (hunN : ∀ m, F m → Mem.loadInt m.dmem (ntA (Ly).lab) 8 = none)
     (hb : Spike.Lib.A64.WakePh.Tcb2CallW.BandSp3 (Ly) R)
-    (hhdr : (Ly).pinA + 80#64 + 16#64 ∉ [(Ly).pnA, (Ly).lockA, (Ly).freeNA, (Ly).nextA, ntA (Ly).lab])
+    (hhdr : (Ly).pinA + 112#64 + 16#64 ∉ [(Ly).pnA, (Ly).lockA, (Ly).freeNA, (Ly).nextA, ntA (Ly).lab])
     (hmP : Scc.Sem.Kernel.mapped (Spike.Lib.A64Consumer.K0 (Ly).Λ) true ⟨(Ly).pnA, 8⟩ = true)
-    (hmH : Scc.Sem.Kernel.mapped (Spike.Lib.A64Consumer.K0 (Ly).Λ) true ⟨(Ly).pinA + 96#64, 8⟩ = true)
+    (hmH : Scc.Sem.Kernel.mapped (Spike.Lib.A64Consumer.K0 (Ly).Λ) true ⟨(Ly).pinA + 128#64, 8⟩ = true)
     (hunP : ∀ m, F m → Mem.loadInt m.dmem (Ly).pnA 8 = none)
-    (hunH : ∀ m, F m → Mem.loadInt m.dmem ((Ly).pinA + 96#64) 8 = none)
+    (hunH : ∀ m, F m → Mem.loadInt m.dmem ((Ly).pinA + 128#64) 8 = none)
     (hband : Spike.Lib.A64.WakePh.WcSp4W.BandTi (Ly) R)
     (htidW : Scc.Sem.Kernel.mapped (Spike.Lib.A64Consumer.K0 (Ly).Λ) true ⟨t2 (Ly).lab + 56#64, 8⟩ = true ∧
       (∀ m', F m' → Mem.loadInt m'.dmem (t2 (Ly).lab + 56#64) 8 = none) ∧
@@ -154,7 +154,7 @@ theorem ld_of (hpa : Scc.Sem.A64.textProgram SccCertificate.asm = .ok o.prog)
     by show Scc.Cert.Rt.A64.endOf _ (Ly).prog _ = _; rw [WakeSrcCtl.prog_W hp i hpa hwp], hpa⟩
 
 /-- `.L21_wc_main.sp0` at the canonical base. -/
-theorem lab_sp0 (hd : Ld hp i) : (Ly).lab ".L21_wc_main.sp0" = Int64.ofNat 2169224 :=
+theorem lab_sp0 (hd : Ld hp i) : (Ly).lab ".L21_wc_main.sp0" = Int64.ofNat 2169256 :=
   hd.lab _ _ (by rw [← Scc.Cert.Rt.A64.codeT_eq]; decide +kernel)
 
 set_option maxHeartbeats 1600000 in
@@ -214,8 +214,8 @@ theorem blkG (hd : Ld hp i) {l : WeakMem.AllocLabel} {b n : Nat} {R : Region} {F
   exact Spike.Lib.A64.WakePh.CalWf.blkW_noK hW fun _ _ h => h
 
 /-- `.L21_wc_main.sp3`, `.sp4`, `.sp6` at the canonical base. -/
-theorem labs (hd : Ld hp i) : (Ly).lab ".L21_wc_main.sp3" = Int64.ofNat 2169248 ∧
-    (Ly).lab ".L21_wc_main.sp4" = Int64.ofNat 2169268 ∧ (Ly).lab ".L21_wc_main.sp6" = Int64.ofNat 2169292 :=
+theorem labs (hd : Ld hp i) : (Ly).lab ".L21_wc_main.sp3" = Int64.ofNat 2169280 ∧
+    (Ly).lab ".L21_wc_main.sp4" = Int64.ofNat 2169300 ∧ (Ly).lab ".L21_wc_main.sp6" = Int64.ofNat 2169324 :=
   ⟨hd.lab _ _ (by rw [← Scc.Cert.Rt.A64.codeT_eq]; decide +kernel),
     hd.lab _ _ (by rw [← Scc.Cert.Rt.A64.codeT_eq]; decide +kernel),
     hd.lab _ _ (by rw [← Scc.Cert.Rt.A64.codeT_eq]; decide +kernel)⟩
@@ -358,7 +358,7 @@ set_option maxHeartbeats 1600000 in
 and `scc_rt_thread_init`'s `sub` (`nodeG`), the tid store `n4s`
 (`CalWf.nodeCst`, its word unmapped under `F` by `htidW`, off the arena by
 `hoffT_W`). -/
-theorem nodes_W1 (hd : Ld hp i) (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
+theorem nodes_W1 (hd : Ld hp i) (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
     (hcz : Spike.Lib.A64.Rt.CtrZ o) {l : WeakMem.AllocLabel} {b n : Nat} {R : Region} {F : MachineData → Prop}
     {J0 : AS → Ctl → Prop} {t : UInt64} (hst : STW) (hpl : PLW)
     (htid : ∀ m', F m' → Mem.loadInt m'.dmem (t2 (Ly).lab + 56#64) 8 = none) :
@@ -419,17 +419,17 @@ theorem wcMainW_wf (hpa : Scc.Sem.A64.textProgram SccCertificate.asm = .ok o.pro
     (hwp : Scc.Sem.A64.textProgram SccCertificate.asm = .ok wakeProg)
     (hlo0 : Λ0.code.lo = Spike.Lib.A64.WakePh.lo)
     (hA13 : Scc.Cert.Spawn.A64.a13data (Ly).Λ o.prog o.secs = true)
-    (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) (hcz : Spike.Lib.A64.Rt.CtrZ o)
+    (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) (hcz : Spike.Lib.A64.Rt.CtrZ o)
     {l : WeakMem.AllocLabel} {b n : Nat} {F0 : MachineData → Prop} {R : Region} {F : MachineData → Prop}
     {J0 : AS → Ctl → Prop} {t : UInt64} (hB : BoxPure (Ly) F0 n R F J0 t)
     (hl : Spike.Lib.WakeLoadT.L0T (Ly).Λ l = none)
     (hunN : ∀ m, F m → Mem.loadInt m.dmem (ntA (Ly).lab) 8 = none)
     (hb : Spike.Lib.A64.WakePh.Tcb2CallW.BandSp3 (Ly) R)
-    (hhdr : (Ly).pinA + 80#64 + 16#64 ∉ [(Ly).pnA, (Ly).lockA, (Ly).freeNA, (Ly).nextA, ntA (Ly).lab])
+    (hhdr : (Ly).pinA + 112#64 + 16#64 ∉ [(Ly).pnA, (Ly).lockA, (Ly).freeNA, (Ly).nextA, ntA (Ly).lab])
     (hmP : Scc.Sem.Kernel.mapped (Spike.Lib.A64Consumer.K0 (Ly).Λ) true ⟨(Ly).pnA, 8⟩ = true)
-    (hmH : Scc.Sem.Kernel.mapped (Spike.Lib.A64Consumer.K0 (Ly).Λ) true ⟨(Ly).pinA + 96#64, 8⟩ = true)
+    (hmH : Scc.Sem.Kernel.mapped (Spike.Lib.A64Consumer.K0 (Ly).Λ) true ⟨(Ly).pinA + 128#64, 8⟩ = true)
     (hunP : ∀ m, F m → Mem.loadInt m.dmem (Ly).pnA 8 = none)
-    (hunH : ∀ m, F m → Mem.loadInt m.dmem ((Ly).pinA + 96#64) 8 = none)
+    (hunH : ∀ m, F m → Mem.loadInt m.dmem ((Ly).pinA + 128#64) 8 = none)
     (hband : Spike.Lib.A64.WakePh.WcSp4W.BandTi (Ly) R)
     (htidW : Scc.Sem.Kernel.mapped (Spike.Lib.A64Consumer.K0 (Ly).Λ) true ⟨t2 (Ly).lab + 56#64, 8⟩ = true ∧
       (∀ m', F m' → Mem.loadInt m'.dmem (t2 (Ly).lab + 56#64) 8 = none) ∧

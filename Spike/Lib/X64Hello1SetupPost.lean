@@ -9,24 +9,24 @@ the frame its source call pushed (`setupCall`,
 `hello1_main_post_segW` runs `wc_rodata`'s rest and `scc_rt_main`'s rest as
 one frameless segment, the source's return out of `rodata` a local run
 (`hedge`). Here `rodata`'s return pops the frame `fr`: `wc_rodata`'s rest
-is a segment at `[fr]` (`SegWS.liftS`), its exit at `.x2` a pair whose
+is a segment at `[fr]` (`SegWS.liftS`), its exit at `.x0` a pair whose
 source is at `ret a` with `fr`'s continuation of invariant `Jr` (`retJ`),
 the return taken with the row that lands there (`FrameStep.ret`,
 `SegWS.post_run`); `scc_rt_main`'s rest is a segment at `[]`.
 
-- `MainX2W`, `MainPostW.x2W`: `scc_rt_main`'s states from `.x2` inside
+- `MainX2W`, `MainPostW.x2W`: `scc_rt_main`'s states from `.x0` inside
   `W` (`MainPostW` without `wc_rodata`'s).
-- `hello1_main_x2_segW`: `scc_rt_main` from `.x2` (of `wc_rodata`'s
+- `hello1_main_x2_segW`: `scc_rt_main` from `.x0` (of `wc_rodata`'s
   return invariant `Jr`, left its region) to `print`'s abort, frameless
   (`hello1_main_post_segW`'s second part).
 - `retJ`: at `ret a`, the frame `fr`'s continuation of invariant `Jr`.
 - `MainPostSW`: `wc_rodata`'s states at `[fr]`, `scc_rt_main`'s at `[]`.
-- `hello1_main_post_segWS`: from `wc_rodata`'s `.x13` at `[fr]` to
+- `hello1_main_post_segWS`: from `wc_rodata`'s `.x0` at `[fr]` to
   `print`'s abort at `[]`.
 
 Where x86-64 differs from AArch64: `scc_rt_main`'s block after the return is
-`.x2` (AArch64's `.sp0`, hence `MainX2W`, `hello1_main_x2_segW`), and
-`wc_rodata`'s rest starts at `.x13` (`rdX13`); `%rbp`'s offset at the two
+`.x0` (AArch64's `.sp0`, hence `MainX2W`, `hello1_main_x2_segW`), and
+`wc_rodata`'s rest starts at `.x0` (`rdX13`); `%rbp`'s offset at the two
 returns is a premise (`hbpr`, `hbpw`, as in `hello1_main_post_segW`), the
 return's `At` carrying it (`At.rbp_addr`); `8 ≤ R.hi`, no alignment.
 -/
@@ -43,9 +43,9 @@ open Scc.Cert.Rt.X64 (Lays endOf code_field label_labelGapB)
 
 set_option linter.unusedSimpArgs false
 
-/-! ## `scc_rt_main` from `.x2`, frameless -/
+/-! ## `scc_rt_main` from `.x0`, frameless -/
 
-/-- **`scc_rt_main`'s states from `.x2` inside `W`**, none moved by `K`:
+/-- **`scc_rt_main`'s states from `.x0` inside `W`**, none moved by `K`:
 `MainPostW`'s without `wc_rodata`'s. -/
 structure MainX2W (W : Frag isa) (K : State → State → Prop) (exe : _root_.Executable) (endPc : Int64)
     (R : Region) (F : MachineData → Prop) (ms : MemSide isa) (σC : AS) (Jr Jw : AS → Ctl → Prop) : Prop where
@@ -54,7 +54,7 @@ structure MainX2W (W : Frag isa) (K : State → State → Prop) (exe : _root_.Ex
     (wJ0 (_root_.Executable.labels exe).label σC Jr g)
   exit : XExitW W K exe endPc R F (mS1R (_root_.Executable.labels exe).label Jw) (-72) (-8) (-48) 4 4 5
 
-/-- `MainPostW`'s states from `.x2`. -/
+/-- `MainPostW`'s states from `.x0`. -/
 theorem MainPostW.x2W {W : Frag isa} {K : State → State → Prop} {exe : _root_.Executable} {endPc : Int64}
     {R : Region} {F : MachineData → Prop} {ms : MemSide isa} {m0 : MachineData} {σC : AS}
     {Jp J1 J2 J3 J4 Jr Jw : AS → Ctl → Prop} (h : MainPostW W K exe endPc R F ms m0 σC Jp J1 J2 J3 J4 Jr Jw) :
@@ -67,10 +67,10 @@ variable {p : Prog} {lbl : WeakMem.AllocLabel → Option Nat} {ms : MemSide isa}
   {exe : _root_.Executable} [Executable.ValidLayout exe] {endPc : Int64}
   {R : Region} {F : MachineData → Prop}
 
-/-- **`scc_rt_main` from `.x2` is one segment inside `W`** in any valid
+/-- **`scc_rt_main` from `.x0` is one segment inside `W`** in any valid
 layout of `hello1Cells`, for a caller's state `σC` at `wc_rodata`'s call:
-from `.x2` (`wc_rodata`'s return of invariant `Jr`, left its region, `%rbp`
-at the saved `%rbp`, `hbpr`), the `.x2` block, the call of `wc_main`
+from `.x0` (`wc_rodata`'s return of invariant `Jr`, left its region, `%rbp`
+at the saved `%rbp`, `hbpr`), the `.x0` block, the call of `wc_main`
 (`hlimW`, `hsvc`, `hedgeW`) and the `exit_group` tail (`hbpw`, `hok`), as in
 `hello1_main_post_segW`. The only exit is `print`'s abort. Its states lie in `W`, none moved by `K` (`hW`). -/
 theorem hello1_main_x2_segW {W : Frag isa} {K : State → State → Prop}
@@ -83,9 +83,9 @@ theorem hello1_main_x2_segW {W : Frag isa} {K : State → State → Prop}
       (σx.regs.rsp.toBitVec - 8#64 - 8#64 - (80 : Int64).toBitVec))
     (hsvc : ∀ F' : MachineData → Prop, FStable (pR (wR R)) F' →
       (∀ m, F' m → ((F m ∧ CallerCells R (-80) (-144) 8 m) ∧ CallerCells (wR R) (-96 - 8) (-40) 16 m) ∧
-        Spike.Lib.X64.Rt.WcRa (wR R) ((_root_.Executable.labels exe).label ".Lscc_rt_main.x3") m ∧
+        Spike.Lib.X64.Rt.WcRa (wR R) ((_root_.Executable.labels exe).label ".Lscc_rt_main.x1") m ∧
         Spike.Lib.X64.Rt.WcFp (wR R) (R.addr (-8)) m) →
-      ∀ g' : PG, g'.2.2 = ((_root_.Executable.labels exe).label ".Lwc_main.x15").toBitVec →
+      ∀ g' : PG, g'.2.2 = ((_root_.Executable.labels exe).label ".Lwc_main.x0").toBitVec →
       g'.2.1 = (wR R).addr (-8) →
       SegW W K p lbl ms
         (At exe endPc (pR (wR R)) F' (Print.N (_root_.Executable.labels exe).label g'.1 g'.2.1 g'.2.2 .sys))
@@ -98,7 +98,7 @@ theorem hello1_main_x2_segW {W : Frag isa} {K : State → State → Prop}
       ∃ c', LocalRun p c c' ∧ Jw σ' c')
     (hbpw : ∀ σx c, Jw σx c → σx.regs.get64 .rbp = R.addr (-8))
     (hok : ∀ s c σx, Jw σx c →
-      At exe endPc R F ⟨(_root_.Executable.labels exe).label ".Lscc_rt_main.x3" + Int64.ofNat 4 + Int64.ofNat 4 +
+      At exe endPc R F ⟨(_root_.Executable.labels exe).label ".Lscc_rt_main.x1" + Int64.ofNat 4 + Int64.ofNat 4 +
         Int64.ofNat 5, mO, fun _ _ => True⟩ s c → SysOk p ms s c (.exitGroup σx.regs.rax.toNat)) :
     SegW W K p lbl ms (At exe endPc R F (mS0 (_root_.Executable.labels exe).label R σC Jr))
       (At exe endPc R F (mAb (_root_.Executable.labels exe).label)) := by
@@ -106,7 +106,7 @@ theorem hello1_main_x2_segW {W : Frag isa} {K : State → State → Prop}
   have hin := hello1_mainIn
   simp only [mainIn, Bool.and_eq_true] at hin
   obtain ⟨⟨⟨-, hb1⟩, -⟩, hg2⟩ := hin
-  have e41 : lab ".Lscc_rt_main.x3" = lab ".Lscc_rt_main.x2" + Int64.ofNat 41 := label_labelGapB hp hg2
+  have e41 : lab ".Lscc_rt_main.x1" = lab ".Lscc_rt_main.x0" + Int64.ofNat 41 := label_labelGapB hp hg2
   refine SegW.seq (Q := At exe endPc R F (mWC lab σC Jr))
     (seg_oneW (seg_ndW (by simp [mB1]) mB1_ok hF hR hlo hhi
       (code_field hp hend hb1 (ofNat_zero' _)) hW.x2 fun σ c hJ => ⟨c, .refl c, .inl ⟨(), ?_, ?_, ?_⟩⟩))
@@ -153,7 +153,7 @@ theorem hello1_main_x2_segW {W : Frag isa} {K : State → State → Prop}
             show LimOk ms F' (g.1.regs.fsBase.toBitVec + _) (g.1.regs.rsp.toBitVec - _ - _)
             rw [hfs, hsp]; exact h
           · rintro σ c ⟨rfl, -, σx, -, -, -, -, -, -, -, -, -, h80⟩
-            show lab ".Lscc_rt_main.x3" = Int64.ofBitVec (g.1.slot (-80 + 0))
+            show lab ".Lscc_rt_main.x1" = Int64.ofBitVec (g.1.slot (-80 + 0))
             rw [show (-80 : Int) + 0 = -80 by decide, h80, int64_ofBitVec_toBitVec]
           · rintro σ c ⟨rfl, -, σx, hJr, -, -, -, -, -, -, -, hbp, -⟩
             show g.1.regs.get64 .rbp = _
@@ -190,9 +190,9 @@ def retJ (fr : TermRun.Frame) (Jr : AS → Ctl → Prop) (σ : AS) (c : Ctl) : P
   ∃ (a : CoreTerm.At) (t : Ty) (ws : List TermRun.Word), c.term = .ret a ∧ TermRun.evalAt c.env a = some (t, ws) ∧
     Jr σ ⟨fr.body, (fr.x, fr.ty, ws) :: fr.env, none⟩
 
-/-- **`scc_rt_main`'s states from `wc_rodata`'s `.x13` with frames**:
+/-- **`scc_rt_main`'s states from `wc_rodata`'s `.x0` with frames**:
 `wc_rodata`'s under the frame `fr` its source call pushed, `scc_rt_main`'s
-from `.x2` with none. -/
+from `.x0` with none. -/
 structure MainPostSW (W : FragS isa) (K : State → State → Prop) (exe : _root_.Executable) (endPc : Int64)
     (R : Region) (F : MachineData → Prop) (ms : List TermRun.Frame → MemSide isa) (fr : TermRun.Frame)
     (m0 : MachineData) (σC : AS) (Jp J1 J2 J3 J4 Jr Jw : AS → Ctl → Prop) : Prop where
@@ -205,10 +205,10 @@ variable {p : Prog} {lbl : WeakMem.AllocLabel → Option Nat} {ms : List TermRun
   {exe : _root_.Executable} [Executable.ValidLayout exe] {endPc : Int64}
   {R : Region} {F : MachineData → Prop}
 
-/-- **`scc_rt_main` from `wc_rodata`'s `.x13` at depth**: from `.x13` in
+/-- **`scc_rt_main` from `wc_rodata`'s `.x0` at depth**: from `.x0` in
 `wc_rodata`'s region under the frame `fr` (no type variables, `hfr`) to
 `print`'s abort with no frame. `wc_rodata`'s rest at `[fr]` under `ms [fr]`
-(`hello1_rodata_post_segW` to `scc_rt_main`'s `.x2` of invariant
+(`hello1_rodata_post_segW` to `scc_rt_main`'s `.x0` of invariant
 `retJ fr Jr`: `hbp`, `hra`, `hmem`, `h1` … `h4`, `hedge` as there), leaving
 its region (`at_leave`; `%rbp` at the saved `%rbp`, `hbpr`) and returning
 into `fr` (`FrameStep.ret`, `SegWS.post_run`); then `hello1_main_x2_segW`
@@ -221,7 +221,7 @@ theorem hello1_main_post_segWS {W : FragS isa} {K : State → State → Prop} {f
     {m0 : MachineData} {σC : AS} {Jp J1 J2 J3 J4 Jr Jw : AS → Ctl → Prop}
     (hW : MainPostSW W K exe endPc R F ms fr m0 σC Jp J1 J2 J3 J4 Jr Jw)
     (hbp : ∀ σ0 c, Jp σ0 c → σ0.regs.get64 .rbp = (mR R).addr (-8))
-    (hra : ∀ σ0 c, Jp σ0 c → (_root_.Executable.labels exe).label ".Lscc_rt_main.x2" = Int64.ofBitVec (σ0.slot 0))
+    (hra : ∀ σ0 c, Jp σ0 c → (_root_.Executable.labels exe).label ".Lscc_rt_main.x0" = Int64.ofBitVec (σ0.slot 0))
     (hmem : ∀ σ0 c, Jp σ0 c → ∀ i : Int64, (i = 0 ∨ i = 8) →
       ∀ m, mF R F m0 σC m → Mem.loadInt m.dmem (bAddr σ0.regs .rax i) 8 = none)
     (h1 : ∀ σ0 c, Jp σ0 c → ∃ (x : String) (sa : WeakMem.Address) (u : Ty) (v : CoreTerm.At) (e : Expr),
@@ -251,9 +251,9 @@ theorem hello1_main_post_segWS {W : FragS isa} {K : State → State → Prop} {f
       (σx.regs.rsp.toBitVec - 8#64 - 8#64 - (80 : Int64).toBitVec))
     (hsvc : ∀ F' : MachineData → Prop, FStable (pR (wR R)) F' →
       (∀ m, F' m → ((F m ∧ CallerCells R (-80) (-144) 8 m) ∧ CallerCells (wR R) (-96 - 8) (-40) 16 m) ∧
-        Spike.Lib.X64.Rt.WcRa (wR R) ((_root_.Executable.labels exe).label ".Lscc_rt_main.x3") m ∧
+        Spike.Lib.X64.Rt.WcRa (wR R) ((_root_.Executable.labels exe).label ".Lscc_rt_main.x1") m ∧
         Spike.Lib.X64.Rt.WcFp (wR R) (R.addr (-8)) m) →
-      ∀ g' : PG, g'.2.2 = ((_root_.Executable.labels exe).label ".Lwc_main.x15").toBitVec →
+      ∀ g' : PG, g'.2.2 = ((_root_.Executable.labels exe).label ".Lwc_main.x0").toBitVec →
       g'.2.1 = (wR R).addr (-8) →
       SegW (fun s c => W s c []) K p lbl (ms [])
         (At exe endPc (pR (wR R)) F' (Print.N (_root_.Executable.labels exe).label g'.1 g'.2.1 g'.2.2 .sys))
@@ -266,7 +266,7 @@ theorem hello1_main_post_segWS {W : FragS isa} {K : State → State → Prop} {f
       ∃ c', LocalRun p c c' ∧ Jw σ' c')
     (hbpw : ∀ σx c, Jw σx c → σx.regs.get64 .rbp = R.addr (-8))
     (hok : ∀ s c σx, Jw σx c →
-      At exe endPc R F ⟨(_root_.Executable.labels exe).label ".Lscc_rt_main.x3" + Int64.ofNat 4 + Int64.ofNat 4 +
+      At exe endPc R F ⟨(_root_.Executable.labels exe).label ".Lscc_rt_main.x1" + Int64.ofNat 4 + Int64.ofNat 4 +
         Int64.ofNat 5, mO, fun _ _ => True⟩ s c → SysOk p (ms []) s c (.exitGroup σx.regs.rax.toNat)) :
     SegWS W K p lbl ms
       ((At exe endPc (mR R) (mF R F m0 σC) (rdX13 (_root_.Executable.labels exe).label Jp)).at [fr])
@@ -277,7 +277,7 @@ theorem hello1_main_post_segWS {W : FragS isa} {K : State → State → Prop} {f
     (SegWS.liftS [] (hello1_main_x2_segW hp hend hF hR hlo hhi hK hW.tl hbpr hlimW hsvc hedgeW hbpw hok)
       fun _ _ h => h)
   refine (SegWS.liftS [fr] (hello1_rodata_post_segW hp hend hF' hR' (by show (-208 : Int) ≤ -40; decide)
-    (by show (8 : Int) ≤ 8; decide) (x := ⟨lab ".Lscc_rt_main.x2", ⟨8, []⟩, retJ fr Jr⟩) rfl hW.rd hbp hra
+    (by show (8 : Int) ≤ 8; decide) (x := ⟨lab ".Lscc_rt_main.x0", ⟨8, []⟩, retJ fr Jr⟩) rfl hW.rd hbp hra
     hmem h1 h2 h3 h4 hedge) fun _ _ h => h).mono_post ?_
   rintro s c fs ⟨h, rfl⟩
   obtain ⟨he, hn, hdc, hpc, σ, hA, hD, σx, σC', ⟨a, t, ws, hc, ha, hJ⟩, rfl, hσ⟩ :=

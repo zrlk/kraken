@@ -1,7 +1,7 @@
 /-
 **hello.w's `wc_main` second `scc_rt_alloc_tcb` call block inside the global owned-words map on x86-64** (the twin
 of `Spike/Lib/A64HelloTcb2CallW.lean`; wake's x86-64 version is `Spike/Lib/X64WakeTcb2CallW.lean`): the block
-`HelloWc.tcb2CallH` at `.Lwc_main.x23` (`Spike/Lib/X64HelloWcSp3.lean`, `wc_main`'s frame `oWH`) inside
+`HelloWc.tcb2CallH` at `.Lwc_main.x1` (`Spike/Lib/X64HelloWcSp3.lean`, `wc_main`'s frame `oWH`) inside
 `SFactsSt2` at `ownGH` (`tcb2Call_ownGH`), proved at the first instance's constant owned words `ownH L a 16`
 (wake's generic `blk_switch2`) and moved to `ownGH`, which picks them at the block's pcs (`phH = 16`) and at the
 callee's entry on a pool stack (`own2aH (ph2aH 4199029)`, `own1_own2aH_ph`); and the callee's node obligations
@@ -9,16 +9,16 @@ at the outside move of any range (`tcb2W_ownGKH`, wake's `tcbWG_takeK`).
 
 - `BandSp3H`: main's frame at `.x23` on a pool stack, `BandAH` of the callee's region `R.callee (-136) (-184) 8`.
 - `sp3_factsH`, `lab_sp3H`, `own_sp3H`, `own_fnH`: `ownGH` is `ownH L a 16` at the block's pcs (`.x23` at
-  `4203726`) and at the callee's entry.
+  `4203764`) and at the callee's entry.
 - `tcb2Call_ownGH`, `tcb2W_ownGKH`: the results.
 
 ## Differences from the AArch64 version
 
-- As wake's x86-64 version: the names keep A64's `sp3` though the block is at `.Lwc_main.x23`; the block has 4
+- As wake's x86-64 version: the names keep A64's `sp3` though the block is at `.Lwc_main.x1`; the block has 4
   cells (`movq`, `movq`, `movq`, `call`; A64's 5), its pcs `.x23 + cellOff`; the callee's region is
   `R.callee (-136) (-184) 8` (based at the pushed return address, `oCH`; A64's `R.callee (-144) (-192) 0`); the
   block's bounds are `hlo3 : R.lo ≤ -136`, `hhi : 16 ≤ R.hi` (A64's `-144`, `0`); no `hal`; `tcb2W_ownGKH` takes
-  `tcb2W_ownGH`'s x86-64 premises (`hlo' : R.lo ≤ -184`, `hhi : 8 ≤ R.hi`, the return to `.Lwc_main.x24`).
+  `tcb2W_ownGH`'s x86-64 premises (`hlo' : R.lo ≤ -184`, `hhi : 8 ≤ R.hi`, the return to `.Lwc_main.x2`).
 - `HelloWc.wcSp3InH` checks the block with `blockAt`; `blk_switch2` and `code_field` take `blockAtB`, decided
   here on `helloCells` directly.
 -/
@@ -56,24 +56,24 @@ abbrev BandSp3H (L : RuntimeLayout) (R : Region) : Prop := BandAH L (R.callee (-
 /-- The block's pcs at the canonical base: their values, the phase `16`,
 off the sites, at most 18 bytes on. -/
 theorem sp3_factsH : ∀ k < 4,
-    (Int64.ofNat 4203726 + Int64.ofNat (cellOff tcb2CallH k)).toBitVec.toNat = 4203726 + cellOff tcb2CallH k ∧
-    phC (4203726 + cellOff tcb2CallH k) = 16 ∧ okC (4203726 + cellOff tcb2CallH k) = true ∧
+    (Int64.ofNat 4203764 + Int64.ofNat (cellOff tcb2CallH k)).toBitVec.toNat = 4203764 + cellOff tcb2CallH k ∧
+    phC (4203764 + cellOff tcb2CallH k) = 16 ∧ okC (4203764 + cellOff tcb2CallH k) = true ∧
     cellOff tcb2CallH k ≤ 18 := by decide +kernel
 
 variable {L : RuntimeLayout}
 
 /-- `.x23` at the canonical base. -/
 theorem lab_sp3H (hlab : ∀ l x, codeLabel lo helloCells l = some x → L.lab l = Int64.ofNat x) :
-    (_root_.Executable.labels L.exe).label ".Lwc_main.x23" = Int64.ofNat 4203726 :=
+    (_root_.Executable.labels L.exe).label ".Lwc_main.x1" = Int64.ofNat 4203764 :=
   hlab _ _ (by rw [← codeT_eq]; decide +kernel)
 
 /-- **`ownGH` at the block's pcs** is `ownH L a 16` (no range of `ownGH`'s
 holds, `phH = 16`). -/
 theorem own_sp3H (hlab : ∀ l x, codeLabel lo helloCells l = some x → L.lab l = Int64.ofNat x) {a : BitVec 64}
     {s : State} {k : Nat} (hk : k < 4)
-    (hs : s.st.2 = (_root_.Executable.labels L.exe).label ".Lwc_main.x23" + Int64.ofNat (cellOff tcb2CallH k)) :
+    (hs : s.st.2 = (_root_.Executable.labels L.exe).label ".Lwc_main.x1" + Int64.ofNat (cellOff tcb2CallH k)) :
     ownGH L a s = ownH L a 16 := by
-  have hp : pcOf s = 4203726 + cellOff tcb2CallH k := by
+  have hp : pcOf s = 4203764 + cellOff tcb2CallH k := by
     unfold pcOf; rw [hs, lab_sp3H hlab]; exact (sp3_factsH k hk).1
   have hc := (sp3_factsH k hk).2.2.2
   obtain ⟨e1, e2, e3, e4, e5, -, e7, e8, e9⟩ := labs_eqH hlab (L := L)
@@ -118,7 +118,7 @@ theorem tcb2Call_ownGH (hp : L.prog = helloCells) (hlo : L.Λ.code.lo = lo) (a :
     (ofNat_zero' _) tcb2CallH_ok hR hlo3 hhi (fun _ _ hJ => hJ.1 ▸ hC0) (by decide +kernel)
     (by decide +kernel) (fun k hk => ?_) hsub hSM ?_
   · show okPcOf lo helloCells L.Λ
-      ((_root_.Executable.labels L.exe).label ".Lwc_main.x23" + Int64.ofNat (cellOff tcb2CallH k)).toBitVec.toNat
+      ((_root_.Executable.labels L.exe).label ".Lwc_main.x1" + Int64.ofNat (cellOff tcb2CallH k)).toBitVec.toNat
         = true
     rw [okPc_eq hΛ, e3, (sp3_factsH k (hlen ▸ hk)).1]; exact (sp3_factsH k (hlen ▸ hk)).2.2.1
   refine Spike.Lib.X64ConsumerA.BlkW.leaf (code_field L.lays rfl hin (ofNat_zero' _)) tcb2CallH_ok hR hlo3 hhi
@@ -126,7 +126,7 @@ theorem tcb2Call_ownGH (hp : L.prog = helloCells) (hlo : L.Λ.code.lo = lo) (a :
   · intro x hx k hk
     rw [hsite, show L.lab Spike.Lib.X64.Flow.Ret0.StackTake.siteL = Int64.ofNat 4200314 from eSite] at hx
     cases hx
-    show ((_root_.Executable.labels L.exe).label ".Lwc_main.x23" + Int64.ofNat (cellOff tcb2CallH k)).toBitVec.toNat
+    show ((_root_.Executable.labels L.exe).label ".Lwc_main.x1" + Int64.ofNat (cellOff tcb2CallH k)).toBitVec.toNat
       ≠ _
     rw [e3, (sp3_factsH k (hlen ▸ hk)).1]
     have : (Int64.ofNat 4200314).toBitVec.toNat = 4200314 := rfl
@@ -140,10 +140,10 @@ theorem tcb2Call_ownGH (hp : L.prog = helloCells) (hlo : L.Λ.code.lo = lo) (a :
     · have ht : tcb2CallH.take (k + 1) = tcb2CallH := List.take_of_length_le (by omega)
       rw [ht] at hA hs
       obtain ⟨h1, h2⟩ := tcb2CallH_pc (_root_.Executable.labels L.exe).label
-        ((_root_.Executable.labels L.exe).label ".Lwc_main.x23") σ
+        ((_root_.Executable.labels L.exe).label ".Lwc_main.x1") σ
       refine own_fnH hlab hb (by rw [hs]; exact h1) ?_
       have e := Spike.Lib.X64ConsumerA.rsp_of_abs hA
-      rw [show (wcN3H L.lab c0 sl me cA fr).pc = (_root_.Executable.labels L.exe).label ".Lwc_main.x23" from rfl,
+      rw [show (wcN3H L.lab c0 sl me cA fr).pc = (_root_.Executable.labels L.exe).label ".Lwc_main.x1" from rfl,
         show (wcN3H L.lab c0 sl me cA fr).o = oWH from rfl, h2] at e
       rw [hs]; exact e
 
@@ -157,10 +157,10 @@ theorem tcb2W_ownGKH (hp : L.prog = helloCells) (hlo : L.Λ.code.lo = lo) (a : B
     (hΛ : L.Λ.abortLbl = Scc.Cert.Link.abortName)
     (hlab : ∀ l x, codeLabel lo helloCells l = some x → L.lab l = Int64.ofNat x)
     (hsep : L.pnA ≠ L.lockA ∧ L.pnA ≠ L.freeNA ∧ L.pnA ≠ L.nextA ∧ L.pnA ≠ a)
-    (hhdr : L.pinA + 80#64 + 24#64 ∉ [L.pnA, L.lockA, L.freeNA, L.nextA, a])
+    (hhdr : L.pinA + 112#64 + 24#64 ∉ [L.pnA, L.lockA, L.freeNA, L.nextA, a])
     {Λ : Scc.Sem.Layout} {lbl : Lbl} {c0 : Ctl} (hC0 : CFacts Λ lbl c0)
     {R : Region} (hR : R.OK) (hlo' : R.lo ≤ -184) (hhi : 8 ≤ R.hi)
-    (hb : BandAH L R) (g : Spike.Lib.X64.Flow.Ret0.AllocTcb.G) (hra : g.ra = (L.lab ".Lwc_main.x24").toBitVec)
+    (hb : BandAH L R) (g : Spike.Lib.X64.Flow.Ret0.AllocTcb.G) (hra : g.ra = (L.lab ".Lwc_main.x2").toBitVec)
     {F : MachineData → Prop}
     (hmP : Scc.Sem.Kernel.mapped (Spike.Lib.X64Consumer.K0 Λ) true ⟨L.pnA, 8⟩ = true)
     (hmH : Scc.Sem.Kernel.mapped (Spike.Lib.X64Consumer.K0 Λ) true

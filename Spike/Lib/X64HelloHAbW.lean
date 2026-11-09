@@ -14,7 +14,7 @@ program-independent pieces (`WakePh.AbPH`, `AbW`, `abP_blk'`, `abP_node`,
 - `abPHH`: `AbPH` at hello's labels.
 - `AbHAgreeH`, `abHAgreeH`, `abHAgreeWH`: the agreement at every node of the
   path from where `ownGH` picks the instance there (`ownH` from a caller
-  other than `.Lscc_rt_alloc_tcb.x6` on a pool stack and `.Lwc_main.x27`).
+  other than `.Lscc_rt_alloc_tcb.x0` on a pool stack and `.Lwc_main.x5`).
 - `abortHTabH`, `abortHFactsH`, `abortPhHH`: `abortPhHeapOk` at `phH`.
 
 **Deviation from the A64 file.** As in `X64WakeHAbW`: the return address is
@@ -51,8 +51,8 @@ variable {L : RuntimeLayout}
 
 /-- **The heap stub's entry and exit labels**, resolved at hello's base. -/
 theorem abH_labsH (hlab : ∀ l x, codeLabel lo helloCells l = some x → L.lab l = Int64.ofNat x) :
-    L.lab ".Lscc_rt_abort_heap.entry" = Int64.ofNat 4202708 ∧
-    L.lab "scc_rt_abort_heap_exit" = Int64.ofNat 4202760 := by
+    L.lab ".Lscc_rt_abort_heap.entry" = Int64.ofNat 4202746 ∧
+    L.lab "scc_rt_abort_heap_exit" = Int64.ofNat 4202798 := by
   refine ⟨hlab _ _ ?_, hlab _ _ ?_⟩ <;> (rw [← codeT_eq]; decide +kernel)
 
 /-- The abstract run's simp set over the path's blocks
@@ -179,8 +179,8 @@ the two return points `ownGH` reads there (`h6`, `h27`). -/
 theorem abHAgreeWH (hlab : ∀ l x, codeLabel lo helloCells l = some x → L.lab l = Int64.ofNat x)
     {a : BitVec 64} {μ : Scc.Sem.Marks} {endPc : Int64} {R : Region} {F : MachineData → Prop} {c0 : Ctl}
     {ra : BitVec 64} (h : AbPH L μ endPc R F c0 ra)
-    (h6 : ra = (L.lab ".Lscc_rt_alloc_tcb.x6").toBitVec → BandOut L R)
-    (h27 : ra ≠ (L.lab ".Lwc_main.x27").toBitVec) :
+    (h6 : ra = (L.lab ".Lscc_rt_alloc_tcb.x0").toBitVec → BandOut L R)
+    (h27 : ra ≠ (L.lab ".Lwc_main.x5").toBitVec) :
     AbHAgreeH L a (fun s => ownH L a (phH (pcOf s))) μ endPc R F c0 ra :=
   abHAgreeH h fun _ hs => ownGH_W hlab (goodWH_ab hs h6 h27)
 
@@ -217,7 +217,7 @@ theorem abortPhHH {Λ : Scc.Sem.Layout} {lab : Label → Int64} (hΛ : Λ.abortL
       phOne (okPcOf lo helloCells Λ) phH (lab l + Int64.ofNat o) z = true := fun h => by
     obtain ⟨h1, h2⟩ := step_of_factOk hlab h
     simp only [phOne, h1, h2, beq_self_eq_true, Bool.and_self]
-  have hex : lab "scc_rt_abort_heap_exit" = Int64.ofNat 4202760 := hlab _ _ (by rw [← codeT_eq]; decide +kernel)
+  have hex : lab "scc_rt_abort_heap_exit" = Int64.ofNat 4202798 := hlab _ _ (by rw [← codeT_eq]; decide +kernel)
   unfold abortPhHeapOk
   simp only [Abort.heap]
   rw [blkPh_of_factOk hlab hr hn f0, blkPh_of_factOk hlab hr hn f1, blkPh_of_factOk hlab hr hn f2,

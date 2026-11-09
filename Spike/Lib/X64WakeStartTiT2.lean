@@ -214,7 +214,7 @@ theorem takeB_WS (hΛ : L.Λ.abortLbl = Scc.Cert.Link.abortName) (hs : WSep L a)
     exact ⟨hK, by rw [keep_pc hc hK, hp']⟩
   case ret =>
     have eX7' : L.lab Spike.Lib.X64.Rt.Code.Ti.x7L = Int64.ofNat 4199569 := eX7
-    refine blkI_WS (rl := Spike.Lib.X64.Rt.Code.Ti.x7L) hp hlo hlab hsite hcl hc0 hpl0 hX0 hbd bRet rfl
+    refine blkI_WSA (rl := Spike.Lib.X64.Rt.Code.Ti.x7L) hp hlo hlab hsite hcl hc0 hpl0 hX0 hbd bRet rfl
       stRet_ok hR (by omega) (by omega) h (okPc_of_blkPh hP.ret) ?_ (soT stRet oI)
       (finI hlab hbd (fun σ c hJ => ?_) (soT stRet oI)) (by decide +kernel)
       (Spike.Lib.X64Consumer.hret_of_run stRet_ok fun σ c hJ => ?_) (fun _ _ h => h.2.1.trans hq)

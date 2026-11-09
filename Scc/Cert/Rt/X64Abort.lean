@@ -18,7 +18,7 @@ fixed distances):
 the code cells (`blockAtB`, `labelGapB` of `Scc/Cert/Rt/CodeX64.lean`), and
 `mainIn cells` the tail's, each decided once per program by
 `decide +kernel`. The tail is Spike's (`MainTail`) as `hello1.w` compiles:
-`.x3` after `wc_main`'s call, the result at `-48(%rbp)`, so `mainIn` holds
+`.x1` after `wc_main`'s call, the result at `-48(%rbp)`, so `mainIn` holds
 only for programs whose `scc_rt_main` has that shape (one with `wc_rodata`
 before `wc_main`). The `seg_*_of` theorems are the Spike theorems in any
 valid layout of code cells with `abortIn cells = true` (`mainIn cells =
@@ -75,7 +75,7 @@ def dispIn (cells : List (Directive × Nat)) : Bool :=
 /-- **The code of the tail of `scc_rt_main` in `cells`** (`hello1.w`'s
 shape: see the module docstring). -/
 def mainIn (cells : List (Directive × Nat)) : Bool :=
-  blockAtB cells ".Lscc_rt_main.x3" 0 MainTail.m0 && blockAtB cells ".Lscc_rt_main.x3" 13 [(op64 .syscall, 2)]
+  blockAtB cells ".Lscc_rt_main.x1" 0 MainTail.m0 && blockAtB cells ".Lscc_rt_main.x1" 13 [(op64 .syscall, 2)]
 
 /-- **The stubs and `scc_rt_abort` in `cells`.** -/
 def abortIn (cells : List (Directive × Nat)) : Bool :=

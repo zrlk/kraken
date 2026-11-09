@@ -29,8 +29,8 @@ open Scc.Cert.Link.A64 (codeOf)
 theorem raT_sp11 {L : RuntimeLayout}
     (hlab : ∀ l x, codeOf Spike.Lib.A64.WakePh.lo wakeProg l = some x → L.lab l = Int64.ofNat x) :
     raT L.lab pfxM = (L.lab ".L21_wc_main.sp11").toBitVec := by
-  have h5 : L.lab (pfxM ++ ".1_spawnfail5") = Int64.ofNat 2169376 := hlab _ _ (by rw [← codeT_eq]; decide +kernel)
-  have h11 : L.lab ".L21_wc_main.sp11" = Int64.ofNat 2169384 := hlab _ _ (by rw [← codeT_eq]; decide +kernel)
+  have h5 : L.lab (pfxM ++ ".1_spawnfail5") = Int64.ofNat 2169408 := hlab _ _ (by rw [← codeT_eq]; decide +kernel)
+  have h11 : L.lab ".L21_wc_main.sp11" = Int64.ofNat 2169416 := hlab _ _ (by rw [← codeT_eq]; decide +kernel)
   unfold raT
   rw [h5, h11]
   decide
@@ -70,7 +70,7 @@ theorem refAg (hpa : textProgram SccCertificate.asm = .ok o.prog)
   have hsd := Spike.Lib.A64.WakePh.abortIn_wakeR
   simp only [Scc.Cert.Rt.A64.Abort.abortIn, Bool.and_eq_true] at hsd
   obtain ⟨e1, -⟩ := Spike.Lib.A64.WakePh.ab_labs hlab
-  have hst : (Ly).lab Spike.Lib.A64.Flow.Ret0.StackTake.siteL = Int64.ofNat 2165940 :=
+  have hst : (Ly).lab Spike.Lib.A64.Flow.Ret0.StackTake.siteL = Int64.ofNat 2165944 :=
     hlab _ _ (by rw [← codeT_eq]; decide +kernel)
   have hP := Spike.Lib.A64.WakePh.abPT (μ := Spike.Lib.A64.PhRec.μ (Ly))
     (F := fun m => DFrame R m0 m ∧ CKept R (-80) (-48) 0 m1 m ∧ Abs R oP m1 σC) (c0 := c0)

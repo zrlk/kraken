@@ -21,7 +21,7 @@ a build-id note. It runs (`qemu-aarch64`), prints `Hello, world` and exits
 with 0.
 
 The emitter opens `.text` with `.p2align 4`, so `ld.lld` puts it at
-`0x210410` and the reader accepts the file (checked below; with the old
+`0x213080` and the reader accepts the file (checked below; with the old
 `.p2align 2` it was at `0x210408` and refused by `Link.wfB`, which asks each
 region to be 16-aligned). Its layout `Λe` is read off the file at
 elaboration time (`scc_elf_layout%`, fail closed). At `Λe`, each by
@@ -49,7 +49,7 @@ open Scc.Cert.PlaceOK
 open SccCertificate (asm out outLit out_eq placeCfg)
 
 -- The executable is the one linked (evaluation, not a proof).
-/-- info: 6b9eb48ab07cd56a98e693879e507f51ce69911586f344ec3d79f40f19c25e24 -/
+/-- info: fba4fbc8d108ad3869ef54aa5ce30e2d923e34d4b36a0ac207ec31e440e87efc -/
 #guard_msgs in
 #eval do IO.println (Scc.Cert.Sha256.ofBytes (← IO.FS.readBinFile "Scc/Test/elf/hello1a64/hello1"))
 
@@ -58,7 +58,7 @@ open SccCertificate (asm out outLit out_eq placeCfg)
 #guard_msgs in
 #eval do IO.println ((← IO.FS.readFile "Scc/Test/elf/hello1a64/hello1.s") == asm)
 
--- `.text` is 16-aligned (at `0x210410`): the reader accepts the executable.
+-- `.text` is 16-aligned (at `0x213080`): the reader accepts the executable.
 /-- info: accepted -/
 #guard_msgs in
 #eval Scc.Test.Elf.verdict "Scc/Test/elf/hello1a64/hello1" pure
@@ -70,15 +70,18 @@ read at elaboration time, the reader evaluated by the elaborator). -/
 def elf : Scc.Sem.Layout × String := scc_elf_layout% "Scc/Test/elf/hello1a64/hello1"
 
 -- The file read is the executable linked (evaluation, not a proof).
-#guard elf.2 == "6b9eb48ab07cd56a98e693879e507f51ce69911586f344ec3d79f40f19c25e24"
+#guard elf.2 == "fba4fbc8d108ad3869ef54aa5ce30e2d923e34d4b36a0ac207ec31e440e87efc"
 
 /-- The linked executable's layout. -/
 abbrev Λe : Scc.Sem.Layout := elf.1
 
--- `ld.lld`'s default layout: `.rodata`, and the data symbol `scc_stackmap` in it, below the code.
+-- `ld.lld`'s default layout: `.rodata`, and its data symbols (the stack map `scc_stackmap` and the GC
+-- tables `scc_gc_maps`, `scc_gc_succs`, `scc_gc_rseq`, `scc_gc_desc`), below the code.
 #guard Λe.rodata.lo + Λe.rodata.size ≤ Λe.code.lo
 #guard Λe.code.lo % 16 == 0
-#guard (Scc.Sem.loadSyms Λe outLit.secs.rodata).filter (·.2 < Λe.code.lo) == [("scc_stackmap", Λe.rodata.lo)]
+#guard (Scc.Sem.loadSyms Λe outLit.secs.rodata).filter (·.2 < Λe.code.lo) ==
+  [("scc_stackmap", Λe.rodata.lo), ("scc_gc_maps", Λe.rodata.lo + 0x250), ("scc_gc_succs", Λe.rodata.lo + 0x1c78),
+   ("scc_gc_rseq", Λe.rodata.lo + 0x2e68), ("scc_gc_desc", Λe.rodata.lo + 0x2e70)]
 
 /-! One kernel check per component: a single `decide +kernel` over the
 conjunction peaks above 4 GB, each component alone at most about 3 GB. -/
@@ -130,20 +133,27 @@ theorem hello1_e2eOk : Scc.Cert.E2E.A64.e2eOk placeCfg Λe outLit = true := by
 /-- The static link's layout (`tablesOf`). -/
 abbrev Λs : Scc.Sem.Layout := (A64.tablesOf placeCfg outLit).Λ
 
-/-- `Λs` with `.rodata` moved below the code, where `ld.lld` puts it. -/
-abbrev Λlo : Scc.Sem.Layout := { Λs with rodata := ⟨0x200000, 0x1000⟩ }
+/-- `Λs` with `.rodata` moved below the code, where `ld.lld` puts it (`0x3000` bytes: the image's
+`0x2ec0` rounded up to a page; it ends at `0x203000`, below `Λs`'s code at `0x400000`). -/
+abbrev Λlo : Scc.Sem.Layout := { Λs with rodata := ⟨0x200000, 0x3000⟩ }
 
-/-- `scc_stackmap` renamed `_start`, the program's first code label. -/
+/-- `scc_stackmap` renamed `_start`, the program's first code label: the `.rodata` label and the
+`.rodata` words naming it (`scc_gc_desc`'s `.quad scc_stackmap - .`), so the image stays closed
+(`quadsResolve`). -/
 def ren : Kraken.DataImage.Item → Kraken.DataImage.Item
   | .label "scc_stackmap" => .label "_start"
+  | .quadLabel "scc_stackmap" => .quadLabel "_start"
+  | .quadDiff "scc_stackmap" b => .quadDiff "_start" b
   | i => i
 
 /-- `hello1`'s output with its `.rodata` label renamed (`ren`). -/
 def outRen : A64.Out := { outLit with secs := { outLit.secs with rodata := outLit.secs.rodata.map ren } }
 
--- `.rodata` and its one label `scc_stackmap` below the code at `Λlo`; `_start` a code label.
+-- `.rodata` and its labels (`scc_stackmap` first) below the code at `Λlo`; `_start` a code label.
 #guard Λlo.rodata.lo + Λlo.rodata.size ≤ Λlo.code.lo
-#guard (Scc.Sem.loadSyms Λlo outLit.secs.rodata).filter (·.2 < Λlo.code.lo) == [("scc_stackmap", 0x200000)]
+#guard (Scc.Sem.loadSyms Λlo outLit.secs.rodata).filter (·.2 < Λlo.code.lo) ==
+  [("scc_stackmap", 0x200000), ("scc_gc_maps", 0x200250), ("scc_gc_succs", 0x201c78), ("scc_gc_rseq", 0x202e68),
+   ("scc_gc_desc", 0x202e70)]
 #guard (Scc.Cert.Link.A64.codeOf Λlo.code.lo outLit.prog "_start").isSome
 
 -- A2 accepts the output with `.rodata` below the code; renamed like a code label it is refused,

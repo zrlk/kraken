@@ -29,11 +29,11 @@ theorem mem_of_mapM_ok {α : Type} : ∀ {l : List (Except String α)} {rt : Lis
 
 /-- **`scc_rt_main` is one of the runtime's functions** (`rtFuncs`' second). -/
 theorem mainThread0_mem {arch : Scc.Arch} {lay : Scc.Layout} {e : Scc.Frontend.Entry} {sw : Nat}
-    {rt : List Scc.IR.Func} (h : Scc.Lower.Inv.rtFuncs arch lay e sw = .ok rt) :
-    Scc.Lower.Inv.mainThread0 e sw ∈ rt := by
+    {m : List Bool} {rt : List Scc.IR.Func} (h : Scc.Lower.Inv.rtFuncs arch lay e sw m = .ok rt) :
+    Scc.Lower.Inv.mainThread0 e sw m ∈ rt := by
   unfold Scc.Lower.Inv.rtFuncs at h
   refine mem_of_mapM_ok h ?_
-  rw [← Scc.Lower.Inv.mainThreadF_eq]
+  rw [← Scc.Lower.Inv.mainThreadF_eq e sw m]
   simp
 
 end Spike.Lib

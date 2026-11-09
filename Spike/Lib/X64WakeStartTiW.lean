@@ -226,7 +226,7 @@ theorem startTi_WS (hΛ : L.Λ.abortLbl = Scc.Cert.Link.abortName) (hs : WSep L 
     · dsimp only [tiN] at hJ ⊢; rw [(tiF5_walk _ _ hJ.2).1, eX7]; decide +kernel
   case st5 => tstW bS5 TI.st5 5 40 4 113
   case ret =>
-    refine blkI_WS (rl := Spike.Lib.X64.Flow.Ret0.x1L) hp hlo hlab hsite hcl hc0 hpl0 hX0 hbd48 bRet rfl tiRet_ok
+    refine blkI_WSA (rl := Spike.Lib.X64.Flow.Ret0.x1L) hp hlo hlab hsite hcl hc0 hpl0 hX0 hbd48 bRet rfl tiRet_ok
       hR (by omega) (by omega) h (okPc_of_blkPh hP.ret) ?_ (soI tiRet oI) (fun σ c hJ s m _ _ _ hs' => ?_)
       (by decide +kernel) (Spike.Lib.X64Consumer.hret_of_run tiRet_ok fun σ c hJ => ?_) (fun σ c h => h.1.trans hq)
     · intro k hk; dsimp only [tiN]; rw [eX7]; revert k; decide +kernel

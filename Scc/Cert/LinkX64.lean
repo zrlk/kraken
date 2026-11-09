@@ -723,6 +723,37 @@ theorem quadsResolve_of_quadsOkL {Λ : Scc.Sem.Layout} {cells : List (Directive 
     | some _ => simp
   · simp at h
 
+/-- `quadsOkL` implies `quadsResolve` with the code labels alone. -/
+theorem quadsResolve_code_of_quadsOkL {Λ : Scc.Sem.Layout} {cells : List (Directive × Nat)}
+    {items : List Kraken.DataImage.Item} (h : quadsOkL (Int64.ofNat Λ.code.lo) cells items = true) :
+    quadsResolve Λ items (codeLabel Λ.code.lo cells) = true := by
+  unfold quadsOkL at h
+  split at h
+  · rename_i ls n hw
+    obtain ⟨-, -, hl⟩ := cellsWalk_spec _ cells 0 ls n hw
+    simp only [quadsResolve, List.all_eq_true, Bool.or_eq_true]
+    intro l hm
+    right
+    have h1 := lookup_isSome_of_mem ((strSubseqB_sublist h).subset hm)
+    rw [hl, Option.isSome_map] at h1
+    exact codeLabel_isSome Λ.code.lo h1
+  · simp at h
+
+/-- `quadsResolve` with the code labels alone implies it with `quadCode`'s
+(the code labels, else `Λ`'s symbols). -/
+theorem quadsResolve_quadCode {Λ : Scc.Sem.Layout} {cells : List (Directive × Nat)}
+    {items : List Kraken.DataImage.Item} (h : quadsResolve Λ items (codeLabel Λ.code.lo cells) = true) :
+    quadsResolve Λ items (quadCode Λ cells) = true := by
+  simp only [quadsResolve, List.all_eq_true, Bool.or_eq_true] at h ⊢
+  intro l hm
+  rcases h l hm with h | h
+  · exact Or.inl h
+  · right
+    simp only [quadCode]
+    cases hc : codeLabel Λ.code.lo cells l with
+    | none => rw [hc] at h; cases h
+    | some _ => simp
+
 /-- A name `codeLabel` does not resolve labels no cell of the code. -/
 theorem ne_label_of_codeLabel {x : String} : ∀ {lo : Nat} {cells : List (Directive × Nat)},
     codeLabel lo cells x = none → ∀ c ∈ cells, c.1 ≠ .label x
@@ -749,7 +780,9 @@ def noClash (lo : Nat) (cells : List (Directive × Nat)) (syms : List (String ×
 the entry state's (`Scc.Sem.X64.target`): the size table (`sizeOkL`, at the
 code's base, with the label offsets `offs` in the code's order), the
 `.rodata` image fits, `Λ.symbols` agrees with it, every `.quad` label
-resolves (`quadsOkL`: a code label, in code order), every data symbol
+resolves (`quadsResolve`: a `.rodata` label or a code label; the GC tables'
+key words name code labels out of code order, and their descriptor's words
+`.rodata` labels), every data symbol
 is outside the code; the data symbols placed around the code
 (`symsAround`), so that the loaded thread's cells are a valid layout, with
 no name clash (`noClash`); the code's end in the address space. -/
@@ -758,12 +791,29 @@ def loadOk (Λ : Scc.Sem.Layout) (cells : List (Directive × Nat)) (secs : DataS
   let ro := secs.rodata
   let syms := loadSyms Λ ro
   sizeOkL (Int64.ofNat Λ.code.lo) cells offs && rodataFits Λ ro && symsAgree Λ ro &&
-    quadsOkL (Int64.ofNat Λ.code.lo) cells ro && symsAbove Λ.code.lo (codeEnd Λ.code.lo cells) syms &&
+    quadsResolve Λ ro (codeLabel Λ.code.lo cells) && symsAbove Λ.code.lo (codeEnd Λ.code.lo cells) syms &&
     symsAround Λ.code.lo cells syms && noClash Λ.code.lo cells syms && decide (codeEnd Λ.code.lo cells < 2 ^ 64)
 
 /-- `loadOk` from its parts, each decided in its own declaration by a
 generated file (the kernel's cache is per declaration, so its memory is the
-largest part's). -/
+largest part's); the `.quad` labels by `quadsResolve` with the code labels
+(a certificate decides it keyed, `Scc.Cert.Rt.X64.codeT_eq`). -/
+theorem loadOk_ofR {Λ : Scc.Sem.Layout} {cells : List (Directive × Nat)} {secs : DataSecs}
+    {offs : List (String × Nat)}
+    (hw : sizeOkW (Int64.ofNat Λ.code.lo) cells offs = true)
+    (hl : labelsNodupL (Int64.ofNat Λ.code.lo) cells = true)
+    (hq : quadsResolve Λ secs.rodata (codeLabel Λ.code.lo cells) = true)
+    (hr : (rodataFits Λ secs.rodata && symsAgree Λ secs.rodata &&
+      symsAbove Λ.code.lo (codeEnd Λ.code.lo cells) (loadSyms Λ secs.rodata) &&
+      symsAround Λ.code.lo cells (loadSyms Λ secs.rodata) && noClash Λ.code.lo cells (loadSyms Λ secs.rodata) &&
+      decide (codeEnd Λ.code.lo cells < 2 ^ 64)) = true) :
+    loadOk Λ cells secs offs = true := by
+  simp only [Bool.and_eq_true] at hr
+  obtain ⟨⟨⟨⟨⟨h1, h2⟩, h3⟩, h4⟩, h5⟩, h6⟩ := hr
+  simp only [loadOk, sizeOkL, hw, hl, hq, h1, h2, h3, h4, h5, h6, Bool.and_self]
+
+/-- `loadOk` from its parts, the `.quad` labels by the linear `quadsOkL` (code
+labels in code order: a `.rodata` without the GC tables). -/
 theorem loadOk_of {Λ : Scc.Sem.Layout} {cells : List (Directive × Nat)} {secs : DataSecs}
     {offs : List (String × Nat)}
     (hw : sizeOkW (Int64.ofNat Λ.code.lo) cells offs = true)
@@ -773,10 +823,8 @@ theorem loadOk_of {Λ : Scc.Sem.Layout} {cells : List (Directive × Nat)} {secs 
       symsAbove Λ.code.lo (codeEnd Λ.code.lo cells) (loadSyms Λ secs.rodata) &&
       symsAround Λ.code.lo cells (loadSyms Λ secs.rodata) && noClash Λ.code.lo cells (loadSyms Λ secs.rodata) &&
       decide (codeEnd Λ.code.lo cells < 2 ^ 64)) = true) :
-    loadOk Λ cells secs offs = true := by
-  simp only [Bool.and_eq_true] at hr
-  obtain ⟨⟨⟨⟨⟨h1, h2⟩, h3⟩, h4⟩, h5⟩, h6⟩ := hr
-  simp only [loadOk, sizeOkL, hw, hl, hq, h1, h2, h3, h4, h5, h6, Bool.and_self]
+    loadOk Λ cells secs offs = true :=
+  loadOk_ofR hw hl (quadsResolve_code_of_quadsOkL hq) hr
 
 /-- The data symbols pass `symsAround` when the checks pass. -/
 theorem symsAround_of_loadOk {Λ : Scc.Sem.Layout} {cells : List (Directive × Nat)} {secs : DataSecs}
@@ -849,7 +897,7 @@ theorem loadParsed_of_loadOk {H : Hooks isa} {E : Entry} {Λ : Scc.Sem.Layout}
   have h0' := sizeCheck_of_sizeOkC (sizeOkC_of_sizeOkL h0)
   have h3' : quadsResolve Λ secs.rodata
       (fun l => (codeLabel Λ.code.lo cells l).orElse fun _ => Λ.symbols.lookup l) = true :=
-    quadsResolve_of_quadsOkL h3
+    quadsResolve_quadCode h3
   unfold loadParsed
   simp only [h0', h1, h2, h3', h4, hE, Bool.and_self, ↓reduceIte]
   rfl

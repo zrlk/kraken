@@ -98,7 +98,7 @@ example : okBlk (-192) 0 Ret0.AllocTcb.oI Ret0.AllocTcb.atBnd = true :=
   okBlk_of_rowIn_placeOK (b := ⟨38, (-192), 0, Ret0.AllocTcb.oI, Ret0.AllocTcb.atBnd⟩)
     (l := ".L3_scc_rt_alloc_tcb.1_len") ret0_placeOK (by decide +kernel)
 example : okBlk (-192) 0 Ret0.AllocTcb.oI Ret0.AllocTcb.atJ2 = true :=
-  okBlk_of_rowIn_placeOK (b := ⟨47, (-192), 0, Ret0.AllocTcb.oI, Ret0.AllocTcb.atJ2⟩)
+  okBlk_of_rowIn_placeOK (b := ⟨48, (-192), 0, Ret0.AllocTcb.oI, Ret0.AllocTcb.atJ2⟩)
     (l := ".L3_scc_rt_alloc_tcb.1_len") ret0_placeOK (by decide +kernel)
 example : okBlk (-192) 0 Ret0.AllocTcb.oI Ret0.AllocTcb.atOk = true :=
   okBlk_of_rowIn_placeOK (b := ⟨2, (-192), 0, Ret0.AllocTcb.oI, Ret0.AllocTcb.atOk⟩)
@@ -106,9 +106,12 @@ example : okBlk (-192) 0 Ret0.AllocTcb.oI Ret0.AllocTcb.atOk = true :=
 example : okBlk (-192) 0 Ret0.AllocTcb.oE Ret0.AllocTcb.atPro = true :=
   okBlk_of_rowIn_placeOK (b := ⟨0, (-192), 0, Ret0.AllocTcb.oE, Ret0.AllocTcb.atPro⟩)
     (l := "scc_rt_alloc_tcb") ret0_placeOK (by decide +kernel)
-example : okBlk (-192) 0 Ret0.AllocTcb.oI Ret0.AllocTcb.atRet = true :=
-  okBlk_of_rowIn_placeOK (b := ⟨30, (-192), 0, Ret0.AllocTcb.oI, Ret0.AllocTcb.atRet⟩)
+example : okBlk (-192) 0 Ret0.AllocTcb.oI (Ret0.AllocTcb.atRet.take 12) = true :=
+  okBlk_of_rowIn_placeOK (b := ⟨30, (-192), 0, Ret0.AllocTcb.oI, Ret0.AllocTcb.atRet.take 12⟩)
     (l := ".L3_scc_rt_alloc_tcb.3_ok") ret0_placeOK (by decide +kernel)
+example : okBlk (-192) 0 ⟨0, []⟩ (Ret0.AllocTcb.atRet.drop 12) = true :=
+  okBlk_of_rowIn_placeOK (b := ⟨0, (-192), 0, ⟨0, []⟩, Ret0.AllocTcb.atRet.drop 12⟩)
+    (l := Ret0.AllocTcb.retL) ret0_placeOK (by decide +kernel)
 example : okBlk 0 0 Abort.oE Ret0.entryB = true :=
   okBlk_of_rowIn_placeOK (b := ⟨0, 0, 0, Abort.oE, Ret0.entryB⟩) (l := "_start") ret0_placeOK (by decide +kernel)
 example : okBlk (-208) 0 Ret0.StackTake.oI Ret0.StackTake.stAdd = true :=
@@ -132,9 +135,12 @@ example : okBlk (-208) 0 Ret0.StackTake.oI Ret0.StackTake.stOk = true :=
 example : okBlk (-208) 0 Ret0.StackTake.oE Ret0.StackTake.stPro = true :=
   okBlk_of_rowIn_placeOK (b := ⟨0, (-208), 0, Ret0.StackTake.oE, Ret0.StackTake.stPro⟩)
     (l := "scc_rt_stack_take") ret0_placeOK (by decide +kernel)
-example : okBlk (-208) 0 Ret0.StackTake.oI Ret0.StackTake.stRet = true :=
-  okBlk_of_rowIn_placeOK (b := ⟨1, (-208), 0, Ret0.StackTake.oI, Ret0.StackTake.stRet⟩)
+example : okBlk (-208) 0 Ret0.StackTake.oI (Ret0.StackTake.stRet.take 4) = true :=
+  okBlk_of_rowIn_placeOK (b := ⟨1, (-208), 0, Ret0.StackTake.oI, Ret0.StackTake.stRet.take 4⟩)
     (l := "scc_rt_take_site") ret0_placeOK (by decide +kernel)
+example : okBlk (-208) 0 ⟨0, []⟩ (Ret0.StackTake.stRet.drop 4) = true :=
+  okBlk_of_rowIn_placeOK (b := ⟨0, (-208), 0, ⟨0, []⟩, Ret0.StackTake.stRet.drop 4⟩)
+    (l := Ret0.StackTake.retL) ret0_placeOK (by decide +kernel)
 example : okBlk (-208) 0 Ret0.StackTake.oI Ret0.StackTake.stSite = true :=
   okBlk_of_rowIn_placeOK (b := ⟨0, (-208), 0, Ret0.StackTake.oI, Ret0.StackTake.stSite⟩)
     (l := ".L6_scc_rt_stack_take.10_taken") ret0_placeOK (by decide +kernel)
@@ -176,9 +182,12 @@ example : okBlk (-48) 0 Print.oI Print.b13 = true :=
 example : okBlk (-48) 0 Print.oI Print.b14 = true :=
   okBlk_of_rowIn_placeOK (b := ⟨0, (-48), 0, Print.oI, Print.b14⟩)
     (l := ".L9_scc_rt_print.6_fail") ret0_placeOK (by decide +kernel)
-example : okBlk (-48) 0 Print.oI Print.b16 = true :=
-  okBlk_of_rowIn_placeOK (b := ⟨0, (-48), 0, Print.oI, Print.b16⟩)
-    (l := ".L11_scc_rt_unpark.2_done") ret0_placeOK (by decide +kernel)
+example : okBlk (-48) 0 Print.oI (Print.b16.take 3) = true :=
+  okBlk_of_rowIn_placeOK (b := ⟨0, (-48), 0, Print.oI, Print.b16.take 3⟩)
+    (l := ".L9_scc_rt_print.7_done") ret0_placeOK (by decide +kernel)
+example : okBlk (-48) 0 ⟨0, []⟩ (Print.b16.drop 3) = true :=
+  okBlk_of_rowIn_placeOK (b := ⟨0, (-48), 0, ⟨0, []⟩, Print.b16.drop 3⟩)
+    (l := Scc.Cert.Rt.A64.Print.retL) ret0_placeOK (by decide +kernel)
 example : okBlk (-48) 0 Print.oI Print.b2 = true :=
   okBlk_of_rowIn_placeOK (b := ⟨0, (-48), 0, Print.oI, Print.b2⟩)
     (l := ".L9_scc_rt_print.1_loop") ret0_placeOK (by decide +kernel)
@@ -290,10 +299,17 @@ at the code base (`start_at_lo_of_placeOK`). -/
 example : codeOf ret0LΛ.code.lo ret0Prog "_start" = some 4194304 ∧ ret0LΛ.code.lo = 4194304 :=
   ⟨start_at_lo_of_placeOK ret0_placeOK, rfl⟩
 
+/-- The program's first instruction (whatever labels lead the text), as a one-directive list. -/
+def firstInstr : List Directive :=
+  (ret0Prog.find? fun d => match d with | .instr _ => true | _ => false).toList
+
+-- It is a single instruction.
+#guard firstInstr.length == 1 && firstInstr.all fun d => match d with | .instr _ => true | _ => false
+
 /-- A1's `_start` check fails closed: with an instruction before `_start`
 (`_start` then 4 bytes past the code base) or with `_start` renamed, A1 fails. -/
 example :
-    let p := (ret0Prog.drop 1).take 1 ++ ret0Prog
+    let p := firstInstr ++ ret0Prog
     let q := ret0Prog.map fun d => if d == .label "_start" then .label "_strt" else d
     let lo := ret0LΛ.code.lo
     (codeOf lo p "_start", codeOf lo q "_start",
@@ -302,7 +318,7 @@ example :
       (some (4194304 + 4), none, false, false) := by
   decide +kernel
 
-example : placeOK Config.canonical ⟨(ret0Prog.drop 1).take 1 ++ ret0Prog, ret0Secs, [], ret0Place⟩ = false :=
+example : placeOK Config.canonical ⟨firstInstr ++ ret0Prog, ret0Secs, [], ret0Place⟩ = false :=
   placeOK_eq_false_of_a1 (by decide +kernel)
 
 /-- A8's `rtOffOk` holds on `ret0.w`: the limit word (`scc_rt_pinned + 16`) is in

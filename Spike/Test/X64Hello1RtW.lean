@@ -11,19 +11,22 @@ it from, a row's dead targets those off its entry's phase. The twin of
 - `hello1_instOk`: the instance's facts, as `ret0_instOk`
   (`Spike/Test/X64RtW.lean`).
 - `hello1Rows`: the placement data's groups at a label of the hand table
-  (`hello1Tab`); the groups off it (`scc_rt_grow`, `scc_rt_park`, …) are
-  not reached on hello1's path.
-- `hello1Ra`: the return points (`scc_rt_alloc` to `wc_rodata`'s `.x13`,
-  `wc_rodata` to `scc_rt_main`'s `.x2`, `scc_rt_print` to `wc_main`'s
-  `.x15`, `wc_main` to `scc_rt_main`'s `.x3`, and the runtime start's
+  (`hello1Tab`) or at a return label of `hello1TabX`; the groups off them
+  (`scc_rt_grow`, `scc_rt_park`, …) are not reached on hello1's path.
+- `hello1Ra`: the return points, keyed by each function's return label
+  (`.x1`, P5) (`scc_rt_alloc` to `wc_rodata`'s `.x0`,
+  `wc_rodata` to `scc_rt_main`'s `.x0`, `scc_rt_print` to `wc_main`'s
+  `.x0`, `wc_main` to `scc_rt_main`'s `.x1`, and the runtime start's
   three as for `ret0.x`, `scc_rt_stack_take` returning to
-  `scc_rt_thread_init`'s `.x8`); `0` at a group without a `ret`, and at
+  `scc_rt_thread_init`'s `.x0`); `0` at a group without a `ret`, and at
   `scc_rt_thread_reserve` (no caller on hello1's path).
 - `hello1Dead`: a row's dead targets, as `ret0Dead`
   (`Spike/Test/X64RtNodes.lean`), at the row's byte offset.
 - `labX`: the hand labels extended by the two branch targets off the hand
-  table (`hello1TabX`: `scc_rt_abort`, `scc_rt_morestack`), equal to
-  `labT` (`labT_eq_labX`), so the kernel reduces every row's targets.
+  table and the return labels on hello1's path (`hello1TabX`:
+  `scc_rt_abort`, `scc_rt_morestack`, the `.x1` labels P5 puts before each
+  function's `ret`), equal to `labT` (`labT_eq_labX`), so the kernel
+  reduces every row's targets.
 - `hello1_rtNodesOk`: every row passes, one kernel decision at `labX`.
 -/
 import Spike.Lib.Rt.X64RtW
@@ -46,20 +49,31 @@ variable {rS : Range}
 theorem hello1_instOk : InstOk hello1Exe hello1End hello1Cells labT μ0 own Tk (Kr rS) okPc ph :=
   ⟨hello1_lays, rfl, hello1_labT, ph_same, pcOff_of_okPc⟩
 
-/-- The rows of `hello1.x`'s placement data at a label of the hand table. -/
+/-- The labels the rows branch to off the hand table, the abort's and
+`scc_rt_morestack`'s, and the return labels of the functions on hello1's
+path (P5: `.x1` before each `ret`), at their `labIn` addresses. -/
+def hello1TabX : List (Label × Nat) :=
+  [("scc_rt_abort", 4198428), ("scc_rt_morestack", 4199267), (".Lscc_rt_alloc.x1", 4194932),
+    (".Lscc_rt_alloc_tcb.x1", 4195387), (".Lscc_rt_thread_init.x1", 4195635),
+    (".Lscc_rt_stack_take.x1", 4196230), (".Lscc_rt_print.x1", 4198145), (".Lwc_rodata.x1", 4199058),
+    (".Lwc_main.x1", 4199235)]
+
+/-- The rows of `hello1.x`'s placement data at a label of the hand table or
+a return label of `hello1TabX`. -/
 def hello1Rows : List Scc.Cert.Rt.X64.OGrp :=
-  Scc.Cert.PlaceOK.X64.Test.hello1Place.blocks.filter fun g => (hello1Tab.lookup g.l).isSome
+  Scc.Cert.PlaceOK.X64.Test.hello1Place.blocks.filter fun g =>
+    (hello1Tab.lookup g.l).isSome || (g.l.startsWith ".L" && (hello1TabX.lookup g.l).isSome)
 
 /-- **The return points on hello1's path**, keyed by the group holding the
-`ret`. -/
+`ret` (its return label). -/
 noncomputable def hello1Ra : Label → Int64
-  | ".Lscc_rt_alloc.ok" => labT ".Lwc_rodata.x13"
-  | ".Lscc_rt_alloc_tcb.ok" => labT ".Lscc_rt_start.x0"
-  | ".Lscc_rt_thread_init.x8" => labT ".Lscc_rt_start.x1"
-  | "scc_rt_take_site" => labT ".Lscc_rt_thread_init.x8"
-  | ".Lscc_rt_print.done" => labT ".Lwc_main.x15"
-  | ".Lwc_rodata.x13" => labT ".Lscc_rt_main.x2"
-  | ".Lwc_main.x15" => labT ".Lscc_rt_main.x3"
+  | ".Lscc_rt_alloc.x1" => labT ".Lwc_rodata.x0"
+  | ".Lscc_rt_alloc_tcb.x1" => labT ".Lscc_rt_start.x0"
+  | ".Lscc_rt_thread_init.x1" => labT ".Lscc_rt_start.x1"
+  | ".Lscc_rt_stack_take.x1" => labT ".Lscc_rt_thread_init.x0"
+  | ".Lscc_rt_print.x1" => labT ".Lwc_main.x0"
+  | ".Lwc_rodata.x1" => labT ".Lscc_rt_main.x0"
+  | ".Lwc_main.x1" => labT ".Lscc_rt_main.x1"
   | _ => 0
 
 /-- A row's dead targets: those off its entry's phase. -/
@@ -70,10 +84,6 @@ noncomputable def hello1Dead (l : Label) (k : Nat) (t : Nat) : Bool :=
 /-- A label of the cells at its `labIn` address. -/
 noncomputable def tabChk (p : Label × Nat) : Bool :=
   (labelIdx hello1Cells p.1).isSome && labIn hello1Λ.code.lo hello1Cells p.1 == Int64.ofNat p.2
-
-/-- The labels the rows branch to off the hand table: the abort's and
-`scc_rt_morestack`'s, at their `labIn` addresses. -/
-def hello1TabX : List (Label × Nat) := [("scc_rt_abort", 4198390), ("scc_rt_morestack", 4199229)]
 
 theorem hello1TabX_ok : hello1TabX.all tabChk = true := by decide +kernel
 
@@ -99,7 +109,8 @@ theorem labT_eq_labX : labT = labX := by
       simp only [tabChk, Bool.and_eq_true, beq_iff_eq] at h
       show _ = Int64.ofNat n
       rw [← h.2]
-      exact label_labIn hello1_lays rfl h.1
+      exact label_labIn hello1_lays
+        (congrArg Prod.fst (Scc.Cert.Link.X64.threadAt_exe_of_above Spike.Lib.X64.Flow.Hello1.Mem.hello1_above)) h.1
     | none => rfl
 
 /-- **`hello1.x`'s rows pass their phase checks.** -/

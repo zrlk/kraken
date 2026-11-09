@@ -34,19 +34,19 @@ variable {L : RuntimeLayout}
 /-- **The heap abort path's labels**, resolved at the canonical base (with the take and release
 sites, off the path, and the callers' return points and `wc_main`'s clone block, off it too). -/
 theorem abH_labs (hlab : ∀ l x, codeOf lo wakeProg l = some x → L.lab l = Int64.ofNat x) :
-    L.lab "scc_rt_abort" = Int64.ofNat 2167996 ∧ L.lab "scc_rt_thr_worker" = Int64.ofNat 2168560 ∧
-    L.lab ".L12_scc_rt_abort.0_entry" = Int64.ofNat 2168016 ∧
-    L.lab ".L12_scc_rt_abort.1_is0" = Int64.ofNat 2168036 ∧
-    L.lab ".L12_scc_rt_abort.2_next1" = Int64.ofNat 2168052 ∧
-    L.lab ".L12_scc_rt_abort.3_is2" = Int64.ofNat 2168072 ∧
-    L.lab "scc_rt_abort_heap" = Int64.ofNat 2168272 ∧
-    L.lab ".L14_scc_rt_abort_heap.0_entry" = Int64.ofNat 2168288 ∧
-    L.lab "scc_rt_abort_heap_exit" = Int64.ofNat 2168332 ∧
-    codeOf lo wakeProg "scc_rt_take_site" = some 2165940 ∧
-    codeOf lo wakeProg "scc_rt_release_site" = some 2165996 ∧
+    L.lab "scc_rt_abort" = Int64.ofNat 2168028 ∧ L.lab "scc_rt_thr_worker" = Int64.ofNat 2168592 ∧
+    L.lab ".L12_scc_rt_abort.0_entry" = Int64.ofNat 2168048 ∧
+    L.lab ".L12_scc_rt_abort.1_is0" = Int64.ofNat 2168068 ∧
+    L.lab ".L12_scc_rt_abort.2_next1" = Int64.ofNat 2168084 ∧
+    L.lab ".L12_scc_rt_abort.3_is2" = Int64.ofNat 2168104 ∧
+    L.lab "scc_rt_abort_heap" = Int64.ofNat 2168304 ∧
+    L.lab ".L14_scc_rt_abort_heap.0_entry" = Int64.ofNat 2168320 ∧
+    L.lab "scc_rt_abort_heap_exit" = Int64.ofNat 2168364 ∧
+    codeOf lo wakeProg "scc_rt_take_site" = some 2165944 ∧
+    codeOf lo wakeProg "scc_rt_release_site" = some 2166000 ∧
     L.lab ".L2_scc_rt_alloc.4_full" = Int64.ofNat 2164480 ∧
-    L.lab ".L3_scc_rt_alloc_tcb.sp13" = Int64.ofNat 2164956 ∧
-    L.lab ".L21_wc_main.sp11" = Int64.ofNat 2169384 ∧ L.lab ".L21_wc_main.sp6" = Int64.ofNat 2169292 := by
+    L.lab ".L3_scc_rt_alloc_tcb.sp13" = Int64.ofNat 2164960 ∧
+    L.lab ".L21_wc_main.sp11" = Int64.ofNat 2169416 ∧ L.lab ".L21_wc_main.sp6" = Int64.ofNat 2169324 := by
   refine ⟨hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_,
     hlab _ _ ?_, hlab _ _ ?_, ?_, ?_, hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_⟩ <;>
     (rw [← codeT_eq]; decide +kernel)

@@ -4,7 +4,7 @@
 `Spike/Lib/A64WakeStart.lean`, on the pattern of
 `Spike/Lib/X64WakeTake2.lean`'s `tiPh2b` / `takePh2b`): the call from
 `scc_rt_start` (returning to `.Lscc_rt_start.x1`) and its nested
-`scc_rt_stack_take` call (returning to `.Lscc_rt_thread_init.x7`) at the
+`scc_rt_stack_take` call (returning to `.Lscc_rt_thread_init.x0`) at the
 first instance's phase `phW` with `ownW`, the take's phase bit `3` clear.
 Both callees lie outside `wakeR`, so `phW` is the canonical phase there.
 

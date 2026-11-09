@@ -26,7 +26,7 @@ The spawned configuration is `spawnCfg s 0 th0 "t" mTail "worker" [] Ty
 **Premises**:
 
 - `hR1`: `R1` below `R1O arch L.Λ μ' D`;
-- `hpin2` (instance fact, root tier): the pinned region reaches `pinA + 168`;
+- `hpin2` (instance fact, root tier): the pinned region reaches `pinA + 200`;
 - `hr0`, `hr1` (`rfl` at constant ranges): the record's ranges are
   the data's;
 - `hown`: the data's ownership `D.own` is `ownGXW L a` (the runtime's
@@ -78,8 +78,8 @@ local notation "Ly" => RuntimeLayout.ofPlaceWX hp i
 theorem hpre_of {asm : Asm} {E : Entry} {arch : WeakMem.Arch} {R1 : Cfg → TermRun.Cfg → Prop} {μ : Marks}
     {M : X64WakeM0.MSide (ιR hp i)} {r0 r1 : ιR hp i → Range} {D : X64WakeO.OData} {μ' : Marks}
     (hR1 : ∀ d s, R1 d s → X64WakeO.R1O arch (Ly).Λ μ' D d s)
-    /- (instance fact) the pinned region reaches `pinA + 168` -/
-    (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
+    /- (instance fact) the pinned region reaches `pinA + 200` -/
+    (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
     /- the record's ranges are the data's -/
     (hr0 : ∀ w, r0 w = D.r0) (hr1 : ∀ w, r1 w = r1Of (Ly).lab)
     /- the data's ownership is the runtime's owned words before the spawn -/

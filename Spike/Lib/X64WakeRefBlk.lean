@@ -39,7 +39,7 @@ data part `hA13` (the TCB words off the counters, `tcbM_ne_ntA_W`,
 `tcb2_notG_W`) besides A64's premises; the write abort's phase is
 `AllocG.blkW_ab` with a decided target check (A64's `blkW_dispAbI`), the
 exit call's target the dispatcher at `%rdi = 5` (`not_ab_abort`, A64's
-`hE`); `.spawnfail5`'s run ends at `scc_rt_abort` with `.Lwc_main.x23`
+`hE`); `.spawnfail5`'s run ends at `scc_rt_abort` with `.Lwc_main.x5`
 pushed at `-72` (`raAt`, a private word; A64's `x30At`); the pcs are
 decided at the code labels (`cl`: `.x21`, `.stk`, `scc_rt_abort`, the
 take site, the clone's `syscall` at `.x21 + 46`, `refRange`); the assembly
@@ -487,7 +487,7 @@ theorem ts1 (hpa : cellsOf asm = some o.prog) (hwp : cellsOf asm = some wakeCell
 set_option maxHeartbeats 1600000 in
 /-- **`.spawnfail5`'s run ends at `scc_rt_abort`** with `ownG` `own2b … 0`
 and both TCB words: `%rsp` on the pool (the band), the return address
-`.Lwc_main.x23` pushed at `-72` (`raAt`, `Good2b`'s abort disjunct). -/
+`.Lwc_main.x5` pushed at `-72` (`raAt`, `Good2b`'s abort disjunct). -/
 theorem fl_last (hlab : ∀ l x, codeLabel lo wakeCells l = some x → (Ly).lab l = Int64.ofNat x)
     {R : Region} {cP : Spike.Lib.Ctl} {cA mT : BitVec 64} (hband : BandOnP (Ly) R (-72) 8) (hlo' : R.lo ≤ -320)
     (hhi : 16 ≤ R.hi) (σ : Spike.Lib.X64.AS) (s : State) (m : MachineData)
@@ -509,7 +509,7 @@ theorem fl_last (hlab : ∀ l x, codeLabel lo wakeCells l = some x → (Ly).lab 
     unfold spPool; rw [hk]; exact hband k hk1 hk2
   have hin : pcOf s ∈ Spike.Lib.X64.WakePh.raSp (Ly) := by rw [hpc]; simp [Spike.Lib.X64.WakePh.raSp, abFns]
   have hrA : raAddr (Ly) s = s.st.1.regs.rsp.toBitVec := by simp only [raAddr, hin, ↓reduceIte]
-  have hra : raAt (Ly) ".Lwc_main.x23" s := by
+  have hra : raAt (Ly) ".Lwc_main.x5" s := by
     unfold raAt
     rw [hrA, hm, rsp_of_abs hA]
     obtain ⟨j, hj1, hj2⟩ := hA.slot (-72) ⟨by decide, by omega, by omega⟩

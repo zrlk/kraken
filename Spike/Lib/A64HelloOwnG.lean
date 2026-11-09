@@ -51,8 +51,8 @@ theorem ownGH_labs :
     ["scc_rt_alloc_tcb", "scc_rt_thread_reserve", "scc_rt_thread_init", "scc_rt_stack_release",
       ".L22_wc_main.sp4", ".L22_wc_main.sp6", ".L22_wc_main.stack_grow", "scc_rt_abort", "scc_rt_thr_worker",
       ".L3_scc_rt_alloc_tcb.sp13", ".L22_wc_main.sp15"].map (codeOf lo SccCode.helloProg) =
-    [some 2164748, some 2165168, some 2165280, some 2166000, some 2169716, some 2169740, some 2169904,
-      some 2168032, some 2168596, some 2164992, some 2169880] := by
+    [some 2164748, some 2165172, some 2165284, some 2166004, some 2169748, some 2169772, some 2169936,
+      some 2168064, some 2168628, some 2164996, some 2169912] := by
   decide +kernel
 
 end Spike.Lib.A64.HelloPh

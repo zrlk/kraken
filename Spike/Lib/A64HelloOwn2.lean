@@ -7,13 +7,13 @@ hello.w's listing (`SccCode.helloProg`).
 
 The values are wake's (`WakePh.ownV`, ISA- and program-generic) except the
 second TCB's length: hello's `wc_main` header is `0xC00C03`
-(`movz x0, #3075; movk x0, #192, lsl #16`: twelve words of the thread's
-record, three of its arguments), so `scc_rt_pinned_next` goes `80 → 208`
-(wake's `80 → 176`).
+(`movz x0, #4099; movk x0, #192, lsl #16`: twelve words of the thread's
+record, three of its arguments), so `scc_rt_pinned_next` goes `112 → 272`
+(wake's `112 → 240`).
 
 - `hdr2H`, `pn2H_eq`: the header and the pinned counter after the second TCB.
 - `own2aH` (the second `scc_rt_alloc_tcb` call: `scc_rt_pinned_next`
-  `80 → 208`), `own2bH` (the second `scc_rt_thread_init` call:
+  `112 → 272`), `own2bH` (the second `scc_rt_thread_init` call:
   `scc_rt_stack_next` `16384 → 32768`).
 - `ph2aH := phH % 4`, `ph2bH := phH % 16` (the instances' phase
   projections, wake's `WakeTcb2.ph2a` / `WakeTake2.ph2b`), their table
@@ -39,21 +39,21 @@ open Spike.Lib.A64.WakePh (ownV ownW ownW_eq)
 
 /-! ## The values -/
 
-/-- `wc_main`'s header for the second TCB in hello.w (`movz x0, #3075; movk x0, #192, lsl #16`). -/
-abbrev hdr2H : BitVec 64 := 12585987#64
+/-- `wc_main`'s header for the second TCB in hello.w (`movz x0, #4099; movk x0, #192, lsl #16`). -/
+abbrev hdr2H : BitVec 64 := 12587011#64
 
-/-- The second TCB's bytes after the first's eighty. -/
-theorem pn2H_eq : 80#64 + Spike.Lib.A64.Flow.Ret0.AllocTcb.lenOf hdr2H = 208#64 := by decide
+/-- The second TCB's bytes after the first's 112. -/
+theorem pn2H_eq : 112#64 + Spike.Lib.A64.Flow.Ret0.AllocTcb.lenOf hdr2H = 272#64 := by decide
 
 /-- **The second `scc_rt_alloc_tcb` call's instance**: `scc_rt_pinned_next`
-`80 → 208`, `scc_rt_stack_next` `16384`, `scc_rt_nthreads` `1`. -/
+`112 → 272`, `scc_rt_stack_next` `16384`, `scc_rt_nthreads` `1`. -/
 def own2aH (L : RuntimeLayout) (a : BitVec 64) : Nat → List (Loc × Val) :=
-  ownV L a 80#64 208#64 16384#64 16384#64 1#64 1#64
+  ownV L a 112#64 272#64 16384#64 16384#64 1#64 1#64
 
 /-- **The second `scc_rt_thread_init` call's instance**: `scc_rt_pinned_next`
-`208`, `scc_rt_stack_next` `16384 → 32768`, `scc_rt_nthreads` `1`. -/
+`272`, `scc_rt_stack_next` `16384 → 32768`, `scc_rt_nthreads` `1`. -/
 def own2bH (L : RuntimeLayout) (a : BitVec 64) : Nat → List (Loc × Val) :=
-  ownV L a 208#64 208#64 16384#64 32768#64 1#64 1#64
+  ownV L a 272#64 272#64 16384#64 32768#64 1#64 1#64
 
 /-! ## The phase projections -/
 
@@ -98,20 +98,20 @@ theorem own2bH_mod16 (L : RuntimeLayout) (a : BitVec 64) (i : Nat) : own2bH L a 
 
 /-- `wc_main`'s second `bl scc_rt_alloc_tcb` (`.sp3 + 16`) and its return
 point `.sp4` are at phase `16`, the callee's entry at `13`. -/
-theorem allocTcb2H_ph : phC 2169712 = 16 ∧ phC 2169716 = 16 ∧ phC 2164748 = 13 := by decide +kernel
+theorem allocTcb2H_ph : phC 2169744 = 16 ∧ phC 2169748 = 16 ∧ phC 2164748 = 13 := by decide +kernel
 
 /-- `wc_main`'s second `bl scc_rt_thread_init` (`.sp4 + 20`) and its return
 point `.sp6` are at phase `16`, the callee's entry at `12`. -/
-theorem threadInit2H_ph : phC 2169736 = 16 ∧ phC 2169740 = 16 ∧ phC 2165280 = 12 := by decide +kernel
+theorem threadInit2H_ph : phC 2169768 = 16 ∧ phC 2169772 = 16 ∧ phC 2165284 = 12 := by decide +kernel
 
 /-- The pcs above are the listing's (`.sp3`, `.sp4`, `.sp6`, the callees'
 labels at the canonical base). -/
 theorem switch_pcs :
-    Scc.Cert.Link.A64.codeOf lo SccCode.helloProg ".L22_wc_main.sp3" = some (2169712 - 16) ∧
-    Scc.Cert.Link.A64.codeOf lo SccCode.helloProg ".L22_wc_main.sp4" = some 2169716 ∧
-    Scc.Cert.Link.A64.codeOf lo SccCode.helloProg ".L22_wc_main.sp6" = some 2169740 ∧
+    Scc.Cert.Link.A64.codeOf lo SccCode.helloProg ".L22_wc_main.sp3" = some (2169744 - 16) ∧
+    Scc.Cert.Link.A64.codeOf lo SccCode.helloProg ".L22_wc_main.sp4" = some 2169748 ∧
+    Scc.Cert.Link.A64.codeOf lo SccCode.helloProg ".L22_wc_main.sp6" = some 2169772 ∧
     Scc.Cert.Link.A64.codeOf lo SccCode.helloProg "scc_rt_alloc_tcb" = some 2164748 ∧
-    Scc.Cert.Link.A64.codeOf lo SccCode.helloProg "scc_rt_thread_init" = some 2165280 := by
+    Scc.Cert.Link.A64.codeOf lo SccCode.helloProg "scc_rt_thread_init" = some 2165284 := by
   rw [← Scc.Cert.Rt.A64.codeT_eq]; decide +kernel
 
 /-- **The first switch**: past `wc_main`'s second `bl scc_rt_alloc_tcb`
@@ -129,17 +129,17 @@ theorem own2a_own2bH (L : RuntimeLayout) (a : BitVec 64) : own2aH L a 16 = own2b
 /-- **The first switch at the two phase maps**: `ownH` through `phH` at the
 `bl`, `own2aH` through `ph2aH` at the callee's entry. -/
 theorem own1_own2aH_ph (L : RuntimeLayout) (a : BitVec 64) :
-    ownH L a (phH 2169712) = own2aH L a (ph2aH 2164748) := by
-  have h1 : phH 2169712 = 16 := by rw [phH_eq]; exact allocTcb2H_ph.1
+    ownH L a (phH 2169744) = own2aH L a (ph2aH 2164748) := by
+  have h1 : phH 2169744 = 16 := by rw [phH_eq]; exact allocTcb2H_ph.1
   have h2 : ph2aH 2164748 = 1 := by rw [ph2aH_eq]; unfold ph2aHC; rw [allocTcb2H_ph.2.2]
   rw [h1, h2, ownH, ownW_eq]; unfold own2aH ownV; simp
 
 /-- **The second switch at the two phase maps**: `own2aH` through `ph2aH` at
 the `bl`, `own2bH` through `ph2bH` at the callee's entry. -/
 theorem own2a_own2bH_ph (L : RuntimeLayout) (a : BitVec 64) :
-    own2aH L a (ph2aH 2169736) = own2bH L a (ph2bH 2165280) := by
-  have h1 : ph2aH 2169736 = 0 := by rw [ph2aH_eq]; unfold ph2aHC; rw [threadInit2H_ph.1]
-  have h2 : ph2bH 2165280 = 12 := by rw [ph2bH_eq]; unfold ph2bHC; rw [threadInit2H_ph.2.2]
+    own2aH L a (ph2aH 2169768) = own2bH L a (ph2bH 2165284) := by
+  have h1 : ph2aH 2169768 = 0 := by rw [ph2aH_eq]; unfold ph2aHC; rw [threadInit2H_ph.1]
+  have h2 : ph2bH 2165284 = 12 := by rw [ph2bH_eq]; unfold ph2bHC; rw [threadInit2H_ph.2.2]
   rw [h1, h2]; unfold own2aH own2bH ownV; simp
 
 /-! ## The instances -/

@@ -104,7 +104,7 @@ theorem hinit_H (hpa : textProgram asm = .ok o.prog)
     (hlo : Λ0.code.lo = Spike.Lib.A64.WakePh.lo) (hstat : Λ0.static = fun _ => none)
     (hsub1 : (Spike.Lib.WakeOSide.r1W hp i).Sub (Ly).Λ.stackPool) (hc : Spike.Lib.A64.Rt.CtrZ o)
     (hnz : Spike.Lib.WakeOInit.NtZ Λ0 o = true)
-    (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
+    (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
     (arch : WeakMem.Arch) {E : Entry} (hE : E.clear (Ly).Λ = true) (μ : Marks)
     (I : InvS) (ls : Lsize)
     /- open: the start in `I` (at the root `RootH0.hstH`) -/

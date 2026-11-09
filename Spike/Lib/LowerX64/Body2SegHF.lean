@@ -103,10 +103,10 @@ theorem retSegH {lsize : WeakMem.AllocLabel → Nat} {fr : Scc.Emit.X64.Frame} (
       ((At exe endPc R F (heldRN p fs ((retNSL p lbl fp ra c0 ty).withTp tp))).at fs) := by
   have hsc : InLits lits a := hlp.1 a (by simp [headAtoms])
   have hlit : ∀ k, a = .lit k → k < 2 ^ 64 := fun k hk => hlp.2.2.2 k (by subst hk; simp [headAtoms])
-  rcases hcode with hu | ⟨l1, zs, hE, hz, hc⟩
+  rcases hcode with hu | ⟨l1, zs, hE, -⟩ | ⟨ws', lw, zs, hw, hn, hlw, hz, hc⟩
   · cases hu
-  obtain ⟨hn, lw, hlw, hl⟩ := emits_retN hE
-  rw [hl] at hz hc
+  · exact (not_emits_retN hE).elim
+  cases hw
   obtain ⟨pls, hpl, hsa⟩ := sevalAt_ofEnv2G hg ha
   have hk : Kind2 fr ((retDirs lw).zip zs) := by
     unfold Kind2

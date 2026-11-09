@@ -21,7 +21,8 @@ inductive Arch
 inductive Host
   /-- A freestanding static Linux binary: `_start`, raw system calls, no libc. -/
   | linux
-  /-- Bare metal with scc's own scheduler (not implemented). -/
+  /-- The raw ABI: a unit a kernel loads and enters with a TCB installed, the
+  runtime routines the kernel's (`Scc.Lower.Raw`; not certified). -/
   | raw
   deriving Repr, BEq, DecidableEq, Inhabited
 
@@ -105,6 +106,19 @@ structure Config where
   host : Host := .linux
   gc : Gc := .none
   layout : Layout := {}
+  /-- A GC liveness witness with ranks for the GC tables' stage
+  (`Scc.Cert.Maps.GcWit`, spelled out here: per IR function, its liveness
+  and ranks). `none` runs the reference stage `Scc.Cert.MapsX64.emitTables`
+  (`Scc.Cert.MapsA64.emitTables`); `some gw` runs `emitTablesW` from `gw`,
+  which refuses any witness that is not every function's least fixpoint
+  (`Scc.Cert.Maps.leastOk`), so a wrong witness makes the pipeline fail.
+  scc's own run leaves it `none`. A certificate's proofs set it (the kernel
+  cannot afford the reference fixpoint iteration on the runtime's routines)
+  and state their results at scc's configuration: where the stage from the
+  witness succeeds, the whole pipeline's output is the reference run's
+  (`Scc.Cert.OutStageWX64.lowerAll_eq_of_tables`,
+  `Scc.Cert.OutStageWA64.lowerAll_eq_of_tables`). -/
+  gcWit : Option (List (Array (List Int) × List (List Nat))) := none
   deriving Repr, Inhabited
 
 end Scc

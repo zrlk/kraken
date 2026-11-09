@@ -15,7 +15,7 @@ its base 8-aligned from stack 0's 16-aligned top (`stacks_al`) rather than
 from a `Pre` alignment conjunct; the `write` call is the stub's `syscall`
 at `entry + 34` with `%rdi = 2`, `%rax = 1` (`dtW_of_fd2` on `UInt64`s);
 its `Ac` membership needs the return address's position (`RaPos`, the
-`raBPcs` class); the threads exit is at `4202927`, the release and take
+`raBPcs` class); the threads exit is at `4202965`, the release and take
 sites at `4200317`, `4200277`; the parses are on `cellsOf asm`.
 -/
 import Spike.Lib.X64WakeRefLay
@@ -75,7 +75,7 @@ theorem refAC {asm : Asm} (hpa : cellsOf asm = some o.prog) (hwp : cellsOf asm =
   have hΛ : (Ly).Λ.abortLbl = Scc.Cert.Link.abortName :=
     Spike.Lib.PlaceWX.abortLbl_of_placeWX (Spike.Lib.PlaceWX.link i hp)
   have hEnd : endR hp i = (Ly).endPc := (endR_eq hp i hpa hwp).symm
-  have hex : (Ly).lab Spike.Lib.X64.Abort.threads.exit = Int64.ofNat 4202927 :=
+  have hex : (Ly).lab Spike.Lib.X64.Abort.threads.exit = Int64.ofNat 4202965 :=
     hlab _ _ (by rw [← codeT_eq]; decide +kernel)
   have hst : (Ly).lab Spike.Lib.X64.Flow.Ret0.StackTake.siteL = Int64.ofNat 4200277 :=
     hlab _ _ (by rw [← codeT_eq]; decide +kernel)

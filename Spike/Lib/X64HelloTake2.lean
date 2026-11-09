@@ -4,7 +4,7 @@
 (`Spike/Lib/X64HelloOwn2.lean`) at the phase projection `ph2bH := phH % 16`
 with the canonical take's phase (bit `3` clear), and the phase facts of
 `scc_rt_thread_init` (`TiPhAt` at `.x8`, returning to `wc_main`'s `.x25`) and
-`scc_rt_stack_take` (`TakePh`, returning to `.Lscc_rt_thread_init.x8`)
+`scc_rt_stack_take` (`TakePh`, returning to `.Lscc_rt_thread_init.x0`)
 there. hello.w's take site is at `4200314`, its release site at `4200354`.
 
 - `x8L`: `scc_rt_thread_init`'s return point from the take.
@@ -18,7 +18,7 @@ there. hello.w's take site is at `4200314`, its release site at `4200354`.
 
 - The tables are x86-64's (`X64WakeTake2`'s, sized cells), with
   `scc_rt_thread_init`'s return point `.x8` (wake.w's `.x7`, A64 hello's
-  `spL`) and the return to `.Lwc_main.x25` (A64: `.L22_wc_main.sp6`).
+  `spL`) and the return to `.Lwc_main.x3` (A64: `.L22_wc_main.sp6`).
 - The pin rows are `takeTkRows` (as in `X64WakeTake2`), not listed out;
   the private `ph_rowH`, `noTk_rowH` decide them.
 - `tiPh2bH` is `TiPhAt` at `x8L` (A64: `TiPh`), x86-64 numbering the
@@ -40,7 +40,7 @@ open Spike.Lib.X64.WakePh (ownV)
 
 /-- hello.w's `scc_rt_thread_init` return point from `scc_rt_stack_take`
 (wake.w's `.x7`). -/
-abbrev x8L : Label := ".Lscc_rt_thread_init.x8"
+abbrev x8L : Label := ".Lscc_rt_thread_init.x0"
 
 open Spike.Lib.X64.Rt.Code in
 /-- **The second `scc_rt_stack_take` call's facts**: `takePhTab` and the
@@ -55,7 +55,7 @@ def ti2TabH : List PhFact :=
   [.blk Ti.fnL 0 Ti.tiPro none none, .blk Ti.entryL 0 Ti.tiArg none none, .blk Ti.entryL 7 Ti.callBlk none none,
     .blk x8L 0 Ti.tiSp none none, .blk x8L 51 Ti.tiF1 none none, .blk x8L 63 Ti.tiZ none none,
     .blk x8L 78 Ti.tiZ none none, .blk x8L 93 Ti.tiF4 none none, .blk x8L 105 Ti.tiF5 none none,
-    .blk x8L 117 Ti.tiRet (some (".Lwc_main.x25", 0)) none,
+    .blk x8L 117 Ti.tiRet (some (".Lwc_main.x3", 0)) none,
     .step x8L 48 3, .step x8L 59 4, .step x8L 74 4, .step x8L 89 4, .step x8L 101 4,
     .step x8L 113 4,
     .ph Ti.fnL 0 12, .ph Ti.entryL 0 12, .ph Ti.entryL 7 12]
@@ -111,12 +111,12 @@ open Spike.Lib.X64.Rt in
 theorem tiPh2bH {L : RuntimeLayout} (hΛ : L.Λ.abortLbl = Scc.Cert.Link.abortName)
     (hlab : ∀ l x, codeLabel lo helloCells l = some x → L.lab l = Int64.ofNat x) :
     TiPhAt (okPcOf lo helloCells L.Λ) ph2bH (fun s => ph2bH (pcOf s) / 8 % 2 = 0) L.lab
-      (fun _ => L.lab ".Lwc_main.x25") x8L := by
+      (fun _ => L.lab ".Lwc_main.x3") x8L := by
   have hf : ∀ f ∈ ti2TabH, _ := fun f hf => ti2_factH hΛ (f := f) hf
   have hn : ∀ t, Scc.Cert.Rt.X64.deadN (codeLabel lo helloCells) none t = true → (fun _ => false) t = true :=
     fun _ h => by simp [Scc.Cert.Rt.X64.deadN] at h
   have hr : ∀ r o', (none : Option (String × Nat)) = some (r, o') →
-      L.lab ".Lwc_main.x25" = L.lab r + Int64.ofNat o' := fun _ _ h => nomatch h
+      L.lab ".Lwc_main.x3" = L.lab r + Int64.ofNat o' := fun _ _ h => nomatch h
   exact {
     e := blkPh_of_factOk hlab hr hn (hf (.blk Code.Ti.fnL 0 Code.Ti.tiPro none none) (by simp [ti2TabH]))
     entry := blkPh_of_factOk hlab hr hn (hf (.blk Code.Ti.entryL 0 Code.Ti.tiArg none none) (by simp [ti2TabH]))
@@ -128,7 +128,7 @@ theorem tiPh2bH {L : RuntimeLayout} (hΛ : L.Λ.abortLbl = Scc.Cert.Link.abortNa
     f4 := blkPh_of_factOk hlab hr hn (hf (.blk x8L 93 Code.Ti.tiF4 none none) (by simp [ti2TabH]))
     f5 := blkPh_of_factOk hlab hr hn (hf (.blk x8L 105 Code.Ti.tiF5 none none) (by simp [ti2TabH]))
     ret := blkPh_of_factOk hlab (fun _ _ h => by cases h; exact (Spike.Lib.X64.Flow.ofNat_zero' _).symm) hn
-      (hf (.blk x8L 117 Code.Ti.tiRet (some (".Lwc_main.x25", 0)) none) (by simp [ti2TabH]))
+      (hf (.blk x8L 117 Code.Ti.tiRet (some (".Lwc_main.x3", 0)) none) (by simp [ti2TabH]))
     st := by
       intro pz hp
       simp only [stPcsAt, List.mem_cons, List.not_mem_nil, or_false] at hp

@@ -1,11 +1,11 @@
 /-
-**hello.w on x86-64 from `_start` to `wc_rodata`'s heap abort at depth, level 0, at `ownGHXW`** (the `ownGHXW`
-instance of `Spike/Lib/X64HelloStartWcS0.lean`, the hello counterpart of `Spike/Lib/X64WakeMainGlueX.lean`):
-`StartWcS0.hello_start_rd_segWS0` with the start's level `StartWf.WSH` (at `ownGH`) replaced, at every frame list,
-by `AllocWSF.WSHFg` at `ownGHXW` (main's and the worker's TCB words appended; `WSHX` at `[]`): the start up to the
-switch by `OwnSt.startEXPH` (from `StartWf.startEWP_W0SH` inside `WSH`, the callees' states inside `WSHX`),
-`scc_rt_main` up to `call wc_rodata` by `MainPreX.mainPreWHX` (from `MainWf.mainPreWH_W0SH`), then
-`HelloM.hello_main_pre_segWSTF` (generic in the level) through `wc_rodata` at `[fr]` to its heap abort.
+**hello.w on x86-64 from `_start` to `wc_rodata`'s heap abort at depth, level 0, at `ownGHXW`** (the twin of
+`Spike/Lib/A64HelloStartWcS0.lean` at `ownGHXW`, the hello counterpart of `Spike/Lib/X64WakeMainGlueX.lean`): AArch64
+`StartWcS0.hello_start_rd_segWS0` with the start's level `StartWf.WSH` (at `ownGH`) replaced, at every frame list, by
+`AllocWSF.WSHFg` at `ownGHXW` (main's and the worker's TCB words appended; `WSHX` at `[]`): the start up to the switch
+by `OwnSt.startEXPH` (from `StartWf.startEWP_W0SH` inside `WSH`, the callees' states inside `WSHX`), `scc_rt_main` up to
+`call wc_rodata` by `MainPreX.mainPreWHX` (from `MainWf.mainPreWH_W0SH`), then `HelloM.hello_main_pre_segWSTF` (generic
+in the level) through `wc_rodata` at `[fr]` to its heap abort.
 
 - `bandRS80`: `scc_rt_main`'s region band `[-80, 8]` at the new stack's top lies on the pool (`mainPreWHX`'s `hb`).
 - `hello_start_rd_segWS0X`: the composed segment inside `WSHFg (ownGHXW L a)`.
@@ -18,9 +18,34 @@ AArch64's start owns `ownGH` throughout (`A64HelloStartWcS0`). x86-64's main als
 needed inside both levels (`htcb`, `hti` inside `WSH`; `htcbX`, `htiX` inside `WSHX`); `ownGHXW`'s separation
 (`hsep`, `ha`, `hW`) is carried; `hWe` and `hrd` are at the new level. Against x86-64 wake's `MainGlueX`: hello's
 glue goes through `wc_rodata` at `[fr]` and ends at its heap abort (wake: on to `wc_main`'s), and `scc_rt_main`'s
-band is `[-80, 8]` (`bandRS80`, `88 ≤ Lsw`; wake `bandRS`, `[-48, 8]`). The rest is `hello_start_rd_segWS0`'s.
+band is `[-80, 8]` (`bandRS80`, `88 ≤ Lsw`; wake `bandRS`, `[-48, 8]`).
+
+Forced by the x86-64 shape, as for every level:
+- `scc_rt_main` runs in `call scc_rt_main`'s callee region `RS Lsw v` (`Rt.MainEF`; AArch64: `swR v (-Lsw) 0`)
+  under `FS`, which carries the caller's cells (`CallerCells`); its entry ghosts are `gS` (top less the return
+  address). `MainEF` pins `v` to the new stack's top (`swF`), so only `v = topS L k0` is reached; the other
+  bases are empty (`SegWS.empty`).
+- The start's callees run in `R.callee (-8) (-296) 8`'s callee regions (`hoffP`, `htcb`, `hti`, `htcbO`, `htk`;
+  AArch64: `R.callee oI.sp …`). `htcb` and `hti` are `startEWP_W0SH`'s (any `F'` stable in the start's region,
+  `scc_rt_thread_init` returning to `x8L` with `P`; AArch64: `htcbW`, `htiW` at `F`), so `hSM`, `hSMi`, `hSMt`
+  are not asked.
+- The new top is `8`-aligned (`h8`; AArch64: `16`, `h16`), and the depth is `296 ≤ Lsw` so that `RS`'s low end
+  `8 - Lsw` is at most `-288` (AArch64: `288 ≤ Lsw`).
+- The limit words are at `tpOf (pinA + 8)`'s `limA`, with bounds `top - 8 - 8 - 64` (`hlimM`) and
+  `top - 8 - 8 - 64 - 8 - 8 - 32` (`hlimR`), `scc_rt_main`'s `%rsp` at entry being `top - 8` (AArch64: `hlim80`,
+  `hlim128` at `top - 80`, `top - 80 - 48`).
+- `hxa`'s kept cells are `CKept (mR (RS Lsw v)) (-48) (-160) 8` (AArch64: `0`), and `mNC` takes the region.
+- `rodata`'s call invariant `J'` is indexed by the switch base (`J' v`, AArch64: one `J'`): `mNC` at `RS Lsw v`
+  pins `%rbp` to `(RS Lsw v).addr (-8)`, so a `v`-independent `J'` meeting `hJ'` at every `v` would be empty. The
+  callers' `J' v := StartWcS.rdJH lab (RS Lsw v) J` (the `example` after `hello_start_rd_segWS0X`).
 -/
-import Spike.Lib.X64HelloStartWcS0
+import Spike.Lib.X64HelloStartWcS
+import Spike.Lib.X64HelloMainPreTF
+import Spike.Lib.X64HelloStartWfP
+import Spike.Lib.X64HelloMainWf
+import Spike.Lib.X64WakeMainGlue
+import Spike.Lib.X64WordsNone
+import Spike.Lib.X64HelloFrameD
 import Spike.Lib.X64HelloOwnStartEP
 import Spike.Lib.X64HelloMainPreX
 import Spike.Lib.X64HelloAllocWSF
@@ -109,7 +134,7 @@ local notation "WSXL" => fun s c fs =>
 set_option maxHeartbeats 1600000 in
 /-- **From `_start` to `wc_rodata`'s heap abort inside the start's level with frames, level 0**: the start up to
 `scc_rt_main`'s entry at `[]` (`startEWP_W0SH`, `Rt.startEF_segWA` lifted), then at the new stack's top `topS L k0`
-`HelloM.hello_main_pre_segWSTF` at `WS` from `scc_rt_main`'s entry in `RS Lsw (topS L k0)` (`mainPreWH_W0SH`;
+`HelloM.hello_main_pre_segWSTF` at `WSHFg` from `scc_rt_main`'s entry in `RS Lsw (topS L k0)` (`mainPreWH_W0SH`;
 `hWe` at `call wc_rodata`'s target), the source's call of `rodata` pushing `fr` into `J' v` (`hrun`, `hJ'`),
 `wc_rodata` at `[fr]` (`hrd`), and its fresh-label landings in `ms [fr]`'s allocation fragment (`hxa`). Level 0
 ends at rodata's landing, so the only exit is `wc_rodata`'s heap abort at `[fr]`. -/
@@ -255,6 +280,19 @@ theorem hello_start_rd_segWS0X (hΛ : L.Λ.abortLbl = Scc.Cert.Link.abortName)
   exact ⟨⟨topS L k0, m0, σC, h, ht⟩, rfl⟩
 
 end GenX
+
+/-- `hello_start_rd_segWS0X`'s `J'` is indexed by the switch base: at the callers' shape
+`J' v := StartWcS.rdJH lab (RS helloLsw v) J` (main's `mNC` at `v`, whose `%rbp` is `(RS helloLsw v).addr (-8)`),
+`hJ'` is `rdJH`'s second conjunct and `hrun` is `StartWcS.rdJH_run` at each `v` (non-vacuity of the indexing). -/
+example {lab : Label → Int64} {J : FAS → Ctl → Prop} {env : TermRun.Env}
+    (hJ : ∀ σ c, J σ c → c = ⟨Scc.Sem.SrcSem.setupTerm, env, none⟩)
+    (hu : TermRun.evalAt env (.var "u") = some (.unit, [])) :
+    (∀ v σ c', Spike.Lib.X64.HelloPh.StartWcS.rdJH lab (RS Spike.Lib.X64.HelloPh.StartH0G.helloLsw v) J σ c' →
+      ∃ c, (mNC lab (RS Spike.Lib.X64.HelloPh.StartH0G.helloLsw v) J).J σ c) ∧
+    (∀ v σ c, (mNC lab (RS Spike.Lib.X64.HelloPh.StartH0G.helloLsw v) J).J σ c →
+      ∃ c', FrameRun Spike.Lib.X64HelloSrc.helloSrc (c, []) (c', [Spike.Lib.X64HelloRdCf.frH env]) ∧
+        Spike.Lib.X64.HelloPh.StartWcS.rdJH lab (RS Spike.Lib.X64.HelloPh.StartH0G.helloLsw v) J σ c') :=
+  ⟨fun _ _ _ h => h.2, fun _ => Spike.Lib.X64.HelloPh.StartWcS.rdJH_run hJ hu⟩
 
 end Spike.Lib.X64.HelloPh.StartWcS0
 

@@ -89,7 +89,8 @@ theorem reserveW_noSetFsH {q : ResG} (h : ∀ i, ReserveW W K exe endPc R F q i)
   · exact node_ns hp hend (h .rmw) r3 rfl (by decide)
   · exact blk_ns hp hend (h .bnd) r4 rfl (by decide)
   · exact blk_ns hp hend (h .j) r5 rfl (by decide)
-  · exact blk_ns hp hend (h .ok) r6 (ofNat_zero' _) (by decide)
+  · exact BlkW.noSetFs (h .ok)
+      (Spike.Lib.X64.code_field_blockAcrossB hp hend r6 (List.take_append_drop 3 _) (ofNat_zero' _)) (by decide)
 
 /-- **The reserve's call and the reserve are inside `NoSetFsW W K`**. -/
 theorem WcResWH.noSetFs {ms : MemSide isa} {J1 : AS → Ctl → Prop} {Q : WeakMem.AllocLabel → Nat → Ctl → Prop}
@@ -140,7 +141,8 @@ theorem tcbWG_noSetFsH {q : TcbGG} (h : ∀ i, TcbWG W K exe endPc R F q i) :
   · exact node_ns hp hend (h .or1) t29 rfl (by decide)
   · exact blk_ns hp hend (h .o5) t30 rfl (by decide)
   · exact node_ns hp hend (h .hdr) t31 rfl (by decide)
-  · exact blk_ns hp hend (h .ret) t32 rfl (by decide)
+  · exact BlkW.noSetFs (h .ret)
+      (Spike.Lib.X64.code_field_blockAcrossB hp hend t32 (List.take_append_drop 11 _) rfl) (by decide)
 
 /-- **From `.x23` to `.x24` is inside `NoSetFsW W K`**: the call block and `scc_rt_alloc_tcb`. -/
 theorem WcSp3WH.noSetFs {c0 : Ctl} {sl : BitVec 64 × BitVec 64 × BitVec 64 × BitVec 64} {me cA : BitVec 64}

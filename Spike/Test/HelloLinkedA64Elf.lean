@@ -22,7 +22,7 @@ namespace Spike.Test.HelloLinkedA64
 def path : String := "Scc/Test/elf/helloa64/hello"
 
 /-- The executable's SHA-256. -/
-def sha : String := "3ccb878eb218d2988d1a564d7b414e7e6872b6024c0d71fa3079330055dbd2d3"
+def sha : String := "c9f1ff20504013e24bda252250fa866f6303e42060680dec7f3d52c443812aa5"
 
 -- The executable is the one linked (evaluation, not a proof).
 /-- info: true -/

@@ -37,7 +37,7 @@ read at elaboration time, the reader evaluated by the elaborator). -/
 def elf : Scc.Sem.Layout × String := scc_elf_layout% "Scc/Test/elf/ret0x64/ret0"
 
 -- The file read is the executable linked (evaluation, not a proof).
-#guard elf.2 == "f202a51eacf84e00d088804784ef574adf1039d12f1beed89a2f22e526d23679"
+#guard elf.2 == "79c52e1aa6be931ee159283eb5730a84a1a5a907da66076e1e846182402193f6"
 
 /-- The linked executable's layout. -/
 abbrev Λe : Scc.Sem.Layout := elf.1

@@ -31,7 +31,7 @@ open Spike.Lib.X64.HelloPh.RootLit (oH pcfgH)
 def path : String := "Scc/Test/elf/hellox64/hello"
 
 /-- The executable's SHA-256. -/
-def sha : String := "369c53adb293c74787d4bc06c9a908cb23b9165e639cb77b2e6b6569f81d4d3f"
+def sha : String := "8fb245f06bdc23695fb87a76688e9f66cfe38e95d0f0eab3d81fa637e8842ef8"
 
 -- The executable is the one linked (evaluation, not a proof).
 /-- info: true -/

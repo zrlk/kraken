@@ -4,7 +4,7 @@
 `AbSt μ (WriteAb.Ab lab) ∧ AcSt μ Cl (Hello.ThreadsAb.AcH lab ".Lwc_main")`, none moved, for an executable with
 `InstOk`, its cells holding the allocator's code (`allocIn`) and passing its phase check (`allocPhOk`), its labels
 hello's code labels where they resolve (`hlab`), for a call returning to one of the two allocation sites
-(`HelloPh.WcW.AllocRetH`: `.Lwc_rodata.x15`, `.Lwc_main.x22`).
+(`HelloPh.WcW.AllocRetH`: `.Lwc_rodata.x0`, `.Lwc_main.x0`).
 
 Every block's and single instruction's targets are off both phases' pcs (`blkW_phIH`, `nodeW_siIH`,
 `nodeW_stepIH`; the `ret`'s is the caller's return point). The heap abort's `movq $2, %rdi; call scc_rt_abort`
@@ -21,7 +21,7 @@ the label facts are one decided check (`fullChkH`, `chAH_full`). Each check is d
 - the allocator is x86-64's (31 nodes, `X64Alloc`): eighteen blocks and eleven single instructions (seven with
   undefined flags, `nodeW_stepIH` with `fi_step`; the counter's `lock xaddq` and the header's store through
   `%rcx`, `xadd_step`, `st_step`), offsets in bytes;
-- the return points are `.Lwc_rodata.x15` and `.Lwc_main.x22` (A64's `.L19_wc_rodata.sp0`, `.L22_wc_main.sp0`);
+- the return points are `.Lwc_rodata.x0` and `.Lwc_main.x0` (A64's `.L19_wc_rodata.sp0`, `.L22_wc_main.sp0`);
 - the call's return address is the word it pushes at `slot (-160)`, read by `ThreadsAb.RaW` at `0(%rsp)` at the
   dispatcher's entry (`WakeWf.sp0_slotG`), not `x30`: `fullChkH` also puts `scc_rt_abort` off `RaW`'s other pcs
   (`raPPcs`, `raBPcs`), and the spawn's own pcs include the `je` after the `testq` (`pcJe`);
@@ -89,22 +89,22 @@ theorem chAH_o8 : phOffW ".Lwc_main" okL 143 okL bO8 = true := by ph_dec
 theorem chAH_hdr : siOffW ".Lwc_main" okL 170 3 = true := by si_dec
 theorem chAH_o9 : phOffW ".Lwc_main" okL 173 okL bO9 = true := by ph_dec
 /-- The `ret` to rodata's `.x15`. -/
-theorem chAH_retR : phOffW ".Lwc_main" okL 226 ".Lwc_rodata.x15" [(iRet.toDir, 1)] = true := by ph_dec
+theorem chAH_retR : phOffW ".Lwc_main" okL 226 ".Lwc_rodata.x0" [(iRet.toDir, 1)] = true := by ph_dec
 /-- The `ret` to `wc_main`'s `.x22`. -/
-theorem chAH_retM : phOffW ".Lwc_main" okL 226 ".Lwc_main.x22" [(iRet.toDir, 1)] = true := by ph_dec
+theorem chAH_retM : phOffW ".Lwc_main" okL 226 ".Lwc_main.x0" [(iRet.toDir, 1)] = true := by ph_dec
 
 /-! ## The heap abort's call's label facts -/
 
 /-- The spawn's own pcs of hello's threads abort (`Hello.ThreadsAb.ac_x30`'s). -/
 def spPcsH (lab : Label → Int64) (pfx : String) : List Int64 :=
-  Hello.ThreadsAb.pcRet lab pfx ".x25" 94 :: Hello.ThreadsAb.pcJe lab pfx ".x25" 94 ::
-    Hello.ThreadsAb.pcSt lab pfx ".x26" :: Hello.ThreadsAb.tailPcs lab pfx ".x26" ++ ThreadsAb.failPcs lab pfx
+  Hello.ThreadsAb.pcRet lab pfx ".x3" 94 :: Hello.ThreadsAb.pcJe lab pfx ".x3" 94 ::
+    Hello.ThreadsAb.pcSt lab pfx ".x4" :: Hello.ThreadsAb.tailPcs lab pfx ".x4" ++ ThreadsAb.failPcs lab pfx
 
 theorem spPcsH_congr {lab lab' : Label → Int64} {pfx : String} (h : ∀ l ∈ acLabs pfx, lab l = lab' l) :
     spPcsH lab pfx = spPcsH lab' pfx := by
   simp only [spPcsH, Hello.ThreadsAb.pcRet, Hello.ThreadsAb.pcJe, Hello.ThreadsAb.cloneAt, Hello.ThreadsAb.pcSt,
     Hello.ThreadsAb.tailPcs, ThreadsAb.failPcs]
-  rw [h _ (by simp [acLabs] : pfx ++ ".x25" ∈ acLabs pfx), h _ (by simp [acLabs] : pfx ++ ".x26" ∈ acLabs pfx),
+  rw [h _ (by simp [acLabs] : pfx ++ ".x3" ∈ acLabs pfx), h _ (by simp [acLabs] : pfx ++ ".x4" ∈ acLabs pfx),
     h _ (by simp [acLabs] : pfx ++ ".spawnfail5" ∈ acLabs pfx)]
 
 /-- **The heap abort's call's label facts**: its target off the write abort's pcs but the dispatcher's prologue,
@@ -383,7 +383,11 @@ theorem allocAbAcH (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp)
       rcases hrl with rfl | rfl
       · exact phOffW_sound hlab chAH_retR
       · exact phOffW_sound hlab chAH_retM
-    refine Spike.Lib.LowerX64.BlkW.nodeW (blkW_phSt (fun s hs hn => he ▸ Spike.Lib.X64.Rt.codeOf hI h30 hs hn) hok
+    refine Spike.Lib.LowerX64.BlkW.nodeW (blkW_phSt (fun s hs hn => by
+        rw [← he, ← (show (_root_.Executable.labels exe).label Spike.Lib.X64.Alloc.retL + Int64.ofNat 0 =
+          (_root_.Executable.labels exe).label Spike.Lib.X64.Alloc.okL + Int64.ofNat 226 by
+            rw [Spike.Lib.X64.Flow.ofNat_zero']; exact Scc.Cert.Rt.X64.label_labelGapB hI.lays h30.1)]
+        exact Spike.Lib.X64.Rt.codeOf hI h30.2 hs hn) hok
       hR (by omega) (by omega) (fun j hj s h1 h2 h3 => ?_) he hch
       (hret_of_run hok fun σ c hJ => ?_)) (List.cons_ne_nil _ _)
     · obtain rfl : j = 0 := by simpa using hj

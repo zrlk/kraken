@@ -98,7 +98,8 @@ theorem takeW_nm (hp : Lays exe prog kp) (hend : endPc = endOf exe prog kp)
     obtain ⟨he, hn, -, hpc, -⟩ := id hA
     exact ⟨hi s c hA, noMsrAt_of_code (code_of hp hend tn (ofNat4_zero _) s he hn) (by decide) (j := 0)
       (by decide) rfl rfl (by rw [ofNat4_zero]; exact hpc)⟩
-  case ret => exact blkA hp hend hi t21 rfl (by decide)
+  case ret => exact blkW_wmono (fun _ _ h => ⟨h.1, h.2.1⟩) (BlkW.noMsr hi
+    (Spike.Lib.A64.code_field_blockAcross hp hend t21 (List.take_append_drop 4 _) rfl) (by decide))
 
 set_option maxHeartbeats 1600000 in
 /-- **`scc_rt_thread_init` is inside `W ∧ NoMsrAt`**: its blocks and stores
@@ -126,7 +127,8 @@ theorem tiW_nm (hp : Lays exe prog kp) (hend : endPc = endOf exe prog kp)
   case st4 => exact nodeA hp hend hi s4 rfl (by decide)
   case f5 => exact blkA hp hend hi t7 rfl (by decide)
   case st5 => exact nodeA hp hend hi s5 rfl (by decide)
-  case ret => exact blkA hp hend hi t8 rfl (by decide)
+  case ret => exact blkW_wmono (fun _ _ h => ⟨h.1, h.2.1⟩) (BlkW.noMsr hi
+    (Spike.Lib.A64.code_field_blockAcross hp hend t8 (List.take_append_drop 4 _) rfl) (by decide))
 
 end Spike.Lib.A64.WakePh.Ti2
 

@@ -50,7 +50,7 @@ theorem wake_finalCA_genO (hp : PlaceW pcfg Λ0 o)
     (hd : dataSections SccCertificate.asm = some o.secs)
     /- instance facts -/
     (hlo : (RuntimeLayout.ofPlaceW hp i).Λ.code.lo = Spike.Lib.A64.WakePh.lo)
-    (hpin2 : (RuntimeLayout.ofPlaceW hp i).pinA.toNat + 168 ≤
+    (hpin2 : (RuntimeLayout.ofPlaceW hp i).pinA.toNat + 200 ≤
       (RuntimeLayout.ofPlaceW hp i).Λ.pinned.lo + (RuntimeLayout.ofPlaceW hp i).Λ.pinned.size)
     (hinit2 : (Spike.Lib.A64.PhRec.m0Of (RuntimeLayout.ofPlaceW hp i).Λ o.prog o.secs).initVal
       ⟨Spike.Lib.WakeGOf2.lim2A (RuntimeLayout.ofPlaceW hp i), 8⟩ = 0)
@@ -87,7 +87,7 @@ theorem wake_finalCA_genOP (hp : PlaceW pcfg Λ0 SccCertificate.outLit)
     (hP : Scc.Cert.Link.A64.parsesTo SccCertificate.asm SccCertificate.outLit.prog SccCertificate.outLit.secs = true)
     /- instance facts -/
     (hlo : (RuntimeLayout.ofPlaceW hp i).Λ.code.lo = Spike.Lib.A64.WakePh.lo)
-    (hpin2 : (RuntimeLayout.ofPlaceW hp i).pinA.toNat + 168 ≤
+    (hpin2 : (RuntimeLayout.ofPlaceW hp i).pinA.toNat + 200 ≤
       (RuntimeLayout.ofPlaceW hp i).Λ.pinned.lo + (RuntimeLayout.ofPlaceW hp i).Λ.pinned.size)
     (hinit2 : (Spike.Lib.A64.PhRec.m0Of (RuntimeLayout.ofPlaceW hp i).Λ SccCertificate.outLit.prog SccCertificate.outLit.secs).initVal
       ⟨Spike.Lib.WakeGOf2.lim2A (RuntimeLayout.ofPlaceW hp i), 8⟩ = 0)

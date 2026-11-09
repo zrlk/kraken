@@ -39,7 +39,7 @@ label cell has size `0` in a valid layout only, so the label lemma takes
 of their own (the AArch64 table starts its site groups after the `nop`), so
 the check skips them (`siteRow`) and `rowPhOk_of_phasesOk` holds for every
 other row; the ranges avoid the program-numbered local
-labels of `scc_rt_thread_init` (`.Lscc_rt_thread_init.x7` in `ret0`), naming
+labels of `scc_rt_thread_init` (`.Lscc_rt_thread_init.x0` in `ret0`), naming
 the byte offset from the function's label instead.
 -/
 

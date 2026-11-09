@@ -23,6 +23,7 @@ import Spike.Lib.A64CodeSegs
 import Spike.Lib.A64Hello1Rows
 import Spike.Lib.A64Hello1Place
 import Scc.Cert.Rt.A64Print
+import Spike.Lib.A64CodeAcross
 import Spike.Lib.A64PrintD
 
 namespace Spike.Lib.A64.Flow
@@ -221,7 +222,8 @@ theorem seg_print_ofW {W : Frag isaLSE2} {K : State → State → Prop} {prog : 
   · exact code_field hp hend h12 (by simp only [PrintD.N, N, add4, add0])
   · exact code_field hp hend h13 (by simp only [PrintD.N, N, add4, add0])
   · exact code_field hp hend h14 (by simp only [PrintD.N, N, add4, add0])
-  · exact code_field hp hend h15 (by simp only [PrintD.N, N, add4, add0])
+  · exact Spike.Lib.A64.code_field_blockAcross hp hend h15 (List.take_append_drop _ _)
+      (by simp only [PrintD.N, N, add4, add0])
   · exact code_field hp hend hs (by simp only [PrintD.N, PrintD.pcSvc, add4, add0])
 
 end Print

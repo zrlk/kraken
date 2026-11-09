@@ -10,7 +10,7 @@ Most of wake's glue is layout-generic and is reused as is (no hello copy):
 `WakePh.StartGlue.StartEW.toF`, `hmemB_of_wordsNone` (`wc_main`'s box call;
 rodata's buffer call takes `Alloc.hmem_of_wordsNone` / `hbuf_of_wordsNone`
 directly), `hcellB_of_wordsNone`. wake's `room_gW`, `room_gW_top` are stated at
-wake's value invariant `GOf2`, which pins wake's second limit word `pinA + 112`
+wake's value invariant `GOf2`, which pins wake's second limit word `pinA + 144`
 (hello's TCB field `0`); hello uses their twins at `GOf2H`,
 `HelloGOf2H.room_gWH`, `room_gWH_top`. This file has the pieces that are
 fixed to wake's program:

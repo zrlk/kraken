@@ -169,17 +169,17 @@ theorem addC2_ofQ {fr : Scc.Emit.X64.Frame} (hf : FrameOk fr) (h1 : fr.size ≤ 
     AddC2 p lbl lsize lcx fr Cd Bl exe endPc R F W K ms fp ra tp fs G0 i T Ab := by
   intro c0 pc pc' kk kk' env n x a b e ta tb pa pb lits cs bufs hP ha hb hi hcf
   obtain ⟨hG, hTt, hfr, hL, -, hg, -, hImm, hfv⟩ := hP
-  rcases hi with ⟨-, l, zs, hE, hz, hc, -, rfl⟩ | ⟨_, _, _, _, _, _, _, _, he, -⟩ |
-    ⟨_, _, _, _, _, _, _, he, -⟩ | ⟨_, _, _, _, he, -⟩
-  rotate_left
+  -- a checked `+` takes a fresh label (P5): `InstsC2`'s add arm
+  rcases hi with ⟨-, l, zs, hE, -⟩ | ⟨_, _, _, _, _, _, _, _, he, -⟩ |
+    ⟨_, _, _, _, _, _, _, he, -⟩ | ⟨_, _, _, _, he, -⟩ |
+    ⟨d', a', b', la, lb, off, zs1, z, he, hla, hlb, hd, hz1, hc1, hc2, -, rfl⟩
+  · exact (not_emits_add hE).elim
   · cases he
   · cases he
   · cases he
-  obtain ⟨la, lb, off, hla, hlb, hd, hl⟩ := emits_add hE
-  rw [hl] at hz hc
-  obtain ⟨zs1, zs2, rfl, hz1, hz2, hc1, hc2⟩ := subCd_split hz (SubCd.whole hc)
-  match zs2, hz2 with
-  | [z], _ =>
+  cases he
+  replace hc1 := SubCd.whole hc1
+  replace hc2 := SubCd.whole hc2
   have hCd' := cdOf_subCd hCd
   have hadd := ((add_edge2E (p := p) (lbl := lbl) (lsize := lsize) (fp := fp) (ra := ra) (c0 := c0) (x := x) (e := e)
     (lits := lits) (cs := cs) (bufs := bufs) hf h1 hla hlb hd hz1 (_root_.Executable.labels exe).label
@@ -195,11 +195,10 @@ theorem addC2_ofQ {fr : Scc.Emit.X64.Frame} (hf : FrameOk fr) (h1 : fr.size ≤ 
     (bufs := Scc.Lower.bufsAfter x cs bufs (.add a b)) (i := i) (z := z) hf h1 hd
     (_root_.Executable.labels exe).label).tp tp).seg (W := W₀) (K := K) (lbl := lbl) (ms := ms fs)
     hF hR hlo hhi (hCd' _ _ hc2)
-    (BlkW.withTp (hWp c0 hG _ _ _ _ _ _ _ _ hc2 (Kind2.of1 (kind1_zip (.inr (.inl ⟨_, off, hd, rfl⟩)) rfl))
+    (BlkW.withTp (hWp c0 hG _ _ _ _ _ _ _ _ hc2 (Kind2.of1 (kind1_zip (zs := [z]) (.inr (.inl ⟨_, off, hd, rfl⟩)) rfl))
       (by simp) (hQ x a b e hTt).2) tp))
   have h0 := SegW.seq_left (hadd.mono_post fun s c h => h.elim (fun ⟨_, h⟩ => .inl h)
     fun ⟨_, h⟩ => .inr h) hst
-  rw [pc_append1]
   refine (SegWS.liftS fs h0 hW₀).mono_post fun s c fs' ⟨h, hfs⟩ => ?_
   rcases h with h | h
   · exact .inl ⟨hfs, c0, .refl _, h⟩
@@ -224,8 +223,9 @@ theorem subC2_ofQ {fr : Scc.Emit.X64.Frame} (hf : FrameOk fr) (h1 : fr.size ≤ 
   intro c0 pc pc' kk kk' env n x a b e ta tb pa pb lits cs bufs hP ha hb hi hcf
   obtain ⟨hG, hTt, hfr, hL, -, hg, -, -, -⟩ := hP
   rcases hi with ⟨-, l, zs, hE, hz, hc, -, rfl⟩ | ⟨_, _, _, _, _, _, _, _, he, -⟩ |
-    ⟨_, _, _, _, _, _, _, he, -⟩ | ⟨_, _, _, _, he, -⟩
+    ⟨_, _, _, _, _, _, _, he, -⟩ | ⟨_, _, _, _, he, -⟩ | ⟨_, _, _, _, _, _, _, _, he, -⟩
   rotate_left
+  · cases he
   · cases he
   · cases he
   · cases he
@@ -273,7 +273,9 @@ theorem ifC2_ofQ {fr : Scc.Emit.X64.Frame} (hf : FrameOk fr) (h1 : fr.size ≤ 2
     IfC2 p lbl lsize lcx fr Cd Bl exe endPc R F W K ms fp ra tp fs G0 i T := by
   intro c0 pc kk env n a b yes no ta tb pa pb lits cs bufs hP ha hb hcode
   obtain ⟨hG, hTt, -, hL, -, hg, -, -, -⟩ := hP
-  rcases hcode with hu | ⟨l1, zs, hE, hz, hc⟩
+  rcases hcode with hu | ⟨l1, zs, hE, hz, hc⟩ | ⟨_, _, _, hu, -⟩
+  · cases hu
+  rotate_left
   · cases hu
   obtain ⟨la, lb, hla, hlb, hl⟩ := emits_br hE
   rw [hl] at hz hc
@@ -371,10 +373,10 @@ theorem retC2_of {fr : Scc.Emit.X64.Frame} (hf : FrameOk fr) (h1 : fr.size ≤ 2
     RetC2 p lbl lsize lcx fr Cd Bl exe endPc R F W K ms fp ra tp fs G0 i T Ab := by
   intro c0 pc kk env n a t ws lits cs bufs hP hok ha hcode
   obtain ⟨hG, -, -, -, -, hg, -, -, -⟩ := hP
-  rcases hcode with hu | ⟨l1, zs, hE, hz, hc⟩
+  rcases hcode with hu | ⟨l1, zs, hE, -⟩ | ⟨ws', lw, zs, hw, hn, hlw, hz, hc⟩
   · cases hu
-  obtain ⟨hn, lw, hlw, hl⟩ := emits_retN hE
-  rw [hl] at hz hc
+  · exact (not_emits_retN hE).elim
+  cases hw
   obtain ⟨t', ws', ha', -, hgr⟩ := hok a rfl
   rw [ha] at ha'
   cases ha'

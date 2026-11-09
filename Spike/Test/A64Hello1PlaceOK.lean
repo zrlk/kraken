@@ -55,7 +55,10 @@ private theorem hello1_a1 : (PlaceOK.a1 (tablesOf Config.canonical hello1O) &&
 private theorem hello1_a2 : (loadOk (linkOf hello1Prog hello1Secs) hello1Prog hello1Secs &&
     abortsIn hello1Prog (linkOf hello1Prog hello1Secs) && imageIn hello1Prog hello1Secs (linkOf hello1Prog hello1Secs))
       = true := by
-  exact hello1_part2
+  have h := hello1_part2
+  unfold a2 at h
+  rw [tablesOf_canonical] at h
+  exact h
 private theorem hello1_a3 :
     (decide (blocksIn hello1Prog (toGrps hello1Place.blocks)) && coverOk hello1Prog hello1Place.blocks) = true := by
   exact hello1_part3
@@ -78,7 +81,7 @@ example : loadOk hello1Λ hello1Prog hello1Secs = true := by
   have h := hello1_a2; simp only [Bool.and_eq_true] at h
   exact (loadOk_withImms (linkOf hello1Prog hello1Secs) hello1Imms hello1Prog hello1Secs).trans h.1.1
 example : Scc.Sem.Entry.linux.clear hello1Λ = true := by
-  have h := hello1_a1; simp only [Bool.and_eq_true] at h
+  have h := hello1_a1; simp only [Bool.and_eq_true, tablesOf_canonical] at h
   exact (clear_withImms (linkOf hello1Prog hello1Secs) hello1Imms).trans
     (Scc.Cert.PlaceOK.clear_of_below32 (Scc.Cert.PlaceOK.below32_of_layoutOk h.2))
 example : Scc.Cert.WideA64.wideIn hello1Prog = true := by

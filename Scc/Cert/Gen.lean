@@ -102,6 +102,9 @@ structure Isa where
   /-- The placement data module and its namespace. -/
   place : String
   placeNs : String
+  /-- The module relating scc's run to the run at the certificate's ranked witness
+  (`lowerAll_eq_of_tables`), its namespace the same. -/
+  placeW : String
   /-- The lowering's namespace (`lowerAll`) and the link's (`parsesTo`). -/
   lower : String
   link : String
@@ -137,6 +140,12 @@ structure Isa where
   `Scc/Cert/A2StageA64.lean`) instead of by the kernel's evaluation of `a2`
   itself. -/
   a2fast : Bool := false
+  /-- Whether A2 is proved part by part (`a2_of_parts`, the loader's checks by
+  `loadOk_ofR`, each part its own declaration, the `.quad` labels keyed by
+  `Scc.Cert.Rt.X64.codeT_eq`, as the code check file's) instead of by the
+  kernel's evaluation of `a2` itself: with the GC tables in `.rodata`, the whole
+  of `a2` is the certificate's peak. -/
+  a2split : Bool := false
   /-- Whether the block table is its own stage of `out_eq` (`blocks_eq`, on a
   literal, then `ofStage_eq_B`) instead of a part of the last step. -/
   blocksStaged : Bool := false
@@ -160,28 +169,36 @@ structure Isa where
   `Scc/Cert/SpawnA64.lean`), imported and stated with `Placement.spawn`. -/
   spawnMod : String := ""
   spawnNs : String := ""
+  /-- The module of the tables' per-function slice (`tablesPart`:
+  `Scc/Cert/MapsPartX64.lean`, `Scc/Cert/MapsPartA64.lean`). -/
+  tablesMod : String := "Scc.Cert.MapsPart"
 
 def isaOf : Arch → Isa
   | .x64 => {
       module := "Scc.Cert.X64", ns := "Scc.Cert.X64", reparse := "scc_x64_reparse%"
-      place := "Scc.Cert.OutStageX64", placeNs := "Scc.Cert.PlaceOK.X64", staged := true
+      place := "Scc.Cert.OutStageX64", placeNs := "Scc.Cert.PlaceOK.X64", staged := true,
+      placeW := "Scc.Cert.OutStageWX64"
       emit := "Scc.Emit.X64", safepoint := "(String × List Int × List Int)"
       lower := "Scc.Lower.X64", link := "Scc.Cert.Link.X64"
       predicate := "Scc.Emit.X64.ProgramWCLowerable prog", a9 := true, a9fast := true, a12 := true
       emitStaged := true, emitCounter := true, blocksStagedLarge := true, rt := "Scc.Cert.Rt.X64"
+      a2split := true
       spawnMod := "Scc.Cert.SpawnX64", spawnNs := "Scc.Cert.Spawn.X64"
+      tablesMod := "Scc.Cert.MapsPartX64"
       predicateDoc := "`Scc.Emit.X64.ProgramWCLowerable` (`Scc/Emit/X64Lowerable.lean`: \
         every memory RMW is locked, no `movnti`)"
       dropped := "the assembler directive lines (sections, symbols, data, the stack-map \
         table); every instruction is parsed" }
   | .arm => {
       module := "Scc.Cert.Arm", ns := "Scc.Cert.Arm", reparse := "scc_arm_reparse%"
-      place := "Scc.Cert.OutStageA64", placeNs := "Scc.Cert.PlaceOK.A64", staged := true
+      place := "Scc.Cert.OutStageA64", placeNs := "Scc.Cert.PlaceOK.A64", staged := true,
+      placeW := "Scc.Cert.OutStageWA64"
       emit := "Scc.Emit.A64", safepoint := "Scc.Emit.A64.Safepoint"
       lower := "Scc.Lower.A64", link := "Scc.Cert.Link.A64"
       predicate := "prog.WCLowerable", cover := true, a9 := true, a9fast := true, a12 := true
       emitStaged := true, blocksStaged := true, a2fast := true, rt := "Scc.Cert.Rt.A64"
       spawnMod := "Scc.Cert.SpawnA64", spawnNs := "Scc.Cert.Spawn.A64"
+      tablesMod := "Scc.Cert.MapsPartA64"
       predicateDoc := "Kraken's `Program.WCLowerable` (`Kraken/Promising/Lower/Lowerable.lean`: \
         the AArch64 forms a WeakCore lowering may emit)"
       dropped := "the assembler directive lines (sections, symbols, data, the stack-map \
@@ -317,9 +334,14 @@ def docstring (cfg : Config) (name srcHash asmHash : String) (sized : Bool := fa
    of `{isa.lower}.lowerAll config prog_src`{sizedOut}), `out_eq` proves it
    equal to the literal `outLit` (its value, computed at elaboration time){stagedText},
    and {placeProof}: the canonical configuration with the program's thread
-   entries and their stack budget. The
-   loader's parse of `asm` is `out`'s code and data sections (`parsesTo`, by
-   evaluation: the trust boundary).{readyText}"
+   entries and their stack budget. `prog_tablesOk` proves that the GC
+   tables' stage of `lowerAll config prog_src` (scc's own run) succeeds, with
+   the data `tblLit` that ends `outLit`'s `.rodata`. The proofs run the
+   pipeline at `configW`, `config` with the ranked witness `gwLit` (the
+   tables' stage `emitTablesW`: every function's witness its least fixpoint),
+   and `prog_sameAsScc` proves that run is scc's. The
+   loader's parse of `asm` is `out`'s code and data sections, the GC tables
+   included (`parsesTo`, by evaluation: the trust boundary).{readyText}"
   s!"/-!
 # scc certificate skeleton: `{name}`, `--arch {cfg.arch.name}`
 
@@ -673,6 +695,385 @@ theorem prog_placeOK{sfx}_12 : {ns}.a12 outLit {t} = true :=
     ({chain "p" "a12phFrom_skip"}prog_placeOK{sfx}_12p_end)
 "
 
+/-- A function's slice, as `tablesPart` names it: `Scc.Cert.MapsX64.sliceFn`
+(x86-64: on the sizes) or `Scc.Cert.MapsA64.sliceFn` (AArch64: on the
+argument areas) of the literal IR and the emitter's items and safepoints. -/
+def tablesSlice : Arch → String
+  | .x64 => "Scc.Cert.MapsX64.sliceFn loweredLit.1 emittedLit.1 emittedLit.2 sizes"
+  | .arm => "Scc.Cert.MapsA64.sliceFn loweredLit.1 areasLit emittedLit.1 emittedLit.2"
+
+/-- The IR's function symbols, as `tablesPart` names them: a tail jump's
+possible targets (`Succs.tail`), the list scc's whole-text tables use
+(`Scc.Cert.Maps.fnNames` of every function's tags: its entry label, its name). -/
+def tablesNames : String := "loweredLit.1.funcs.map (·.name)"
+
+/-- The tables part of a certificate (`Scc/Cert/MapsPart.lean`),
+for the `n` functions of the lowered IR (`Placement.funcs`; with
+`Isa.emitStaged`, whose stage gives `areasLit`): `tables_ok`, every
+function's rebased slice computes and has a liveness witness and tables that
+pass `fnOk`. Per function `i`, three kernel checks on literals, each its own
+declaration so that the kernel holds one part's terms at a time: the slice
+(`tables_s_i`, `sliceLit_i`), the witness (`tables_w_i`, `wLit_i`: a
+post-fixpoint of slot liveness on the body) and the tables (`tables_c_i`,
+`tLit_i`, `computeW`'s from the witness; `tables_g_i`, of the format's
+shape); `fnOk_of_lit` joins them (`tables_fn_i`), `fnsOkFrom_cons` chains the
+functions and `fnsOk_of_from` gives `tables_ok`. A jump out of a slice's
+body names its target (`Succs.tail`), and `tables_t_i` checks that it is one
+of the IR's function symbols (`tailsLit`, `tails_eq`: `loweredLit`'s names,
+the list scc's whole-text checker uses; a jump out of a body to anything else
+fails `fnOk`), so the per-function tables merged are the whole text's by
+construction.
+The witness and tables theorems name only the slice's and the names' literals,
+so that a runtime routine's (the same in every program, rebased; its tail
+targets by name) can come from a fixed module instead; `tables_ok`'s statement
+names no literal, and it is stated of the IR's own function count
+(`loweredLit.1.funcs.length`, checked against the chain's length by
+`kernel_rfl`), not of `n`, which only generates the per-function parts. -/
+def tablesPart (arch : Arch) (n : Nat) : String :=
+  let sl := tablesSlice arch
+  let names := tablesNames
+  let m := "Scc.Cert.Maps"
+  let r := s!"(Nat × List {m}.Item × {m}.FnTags)"
+  let each := String.join ((List.range n).map fun i => s!"
+/-- Function {i}'s rebased slice (entry address, items, tags), at elaboration
+time. -/
+def sliceVal_{i} : Option {r} := ({sl} {i}).toOption
+
+/-- Function {i}'s rebased slice, as a literal (untrusted, checked by
+`tables_s_{i}`). -/
+def sliceLit_{i} : {r} := (scc_lit% sliceVal_{i}).get!
+
+/-- Function {i}'s slice is `sliceLit_{i}` (kernel-checked). -/
+theorem tables_s_{i} : {sl} {i} = .ok sliceLit_{i} := by kernel_rfl
+
+/-- Function {i}'s liveness witness, at elaboration time (scc's: the least
+fixpoint). -/
+def wVal_{i} : Array (List Int) := ({m}.witness [sliceLit_{i}.2.2] sliceLit_{i}.2.1).headD #[]
+
+/-- Function {i}'s liveness witness, as a literal (untrusted, checked by
+`tables_w_{i}`). -/
+def wLit_{i} : Array (List Int) := scc_lit% wVal_{i}
+
+/-- `wLit_{i}` is a post-fixpoint of slot liveness on function {i}'s body
+(kernel-checked). -/
+theorem tables_w_{i} : {m}.liveOk ({m}.bodyOf sliceLit_{i}.2.2 sliceLit_{i}.2.1) wLit_{i} = true := by
+  decide +kernel
+
+/-- Function {i}'s tables from `wLit_{i}`, at elaboration time. -/
+def tVal_{i} : Option {m}.Tables :=
+  ({m}.computeW [sliceLit_{i}.2.2] sliceLit_{i}.2.1 [wLit_{i}]).toOption
+
+/-- Function {i}'s tables, as a literal (untrusted, checked by `tables_c_{i}`). -/
+def tLit_{i} : {m}.Tables := (scc_lit% tVal_{i}).get!
+
+/-- The tables `computeW` builds from `wLit_{i}` on function {i}'s slice are
+`tLit_{i}` (kernel-checked). -/
+theorem tables_c_{i} : {m}.computeW [sliceLit_{i}.2.2] sliceLit_{i}.2.1 [wLit_{i}] = .ok tLit_{i} := by
+  kernel_rfl
+
+/-- `tLit_{i}` has the format's shape (kernel-checked). -/
+theorem tables_g_{i} : tLit_{i}.g1Ok = true := by decide +kernel
+
+/-- `tLit_{i}`'s tail names are among `tailsLit`: every jump out of function
+{i}'s body enters a function of the IR (kernel-checked). -/
+theorem tables_t_{i} : tLit_{i}.tailsIn tailsLit = true := by decide +kernel
+
+/-- Function {i} passes `fnOk` (its parts above). -/
+theorem tables_fn_{i} : {m}.fnOk ({names}) ({sl} {i}) wLit_{i} tLit_{i} = true :=
+  {m}.fnOk_of_lit tails_eq tables_s_{i} tables_w_{i} tables_c_{i} tables_g_{i} tables_t_{i}
+")
+  let ws := ",\n    ".intercalate ((List.range n).map fun i => s!"(wLit_{i}, tLit_{i})")
+  let chain := String.join ((List.range n).map (s!"{m}.fnsOkFrom_cons tables_fn_{·} <|\n    ")) ++ "rfl"
+  s!"
+/-! ## The tables, per function
+
+The statement of `Scc/Cert/MapsPart.lean`. Proved here, for each function `i` of
+the lowered IR (`loweredLit`), on its slice of the emitter's text
+(`emittedLit`) rebased to its entry label, with its tags from the IR (the tags
+are trusted from the IR: they are not checked against the code): the slice
+computes; the witness `wLit_i` is a post-fixpoint of slot liveness on the
+body (`liveOk`); `tLit_i` is the tables `computeW` builds from it (each
+safepoint's maps from the witness, the successors of the body's blocks and of
+its exits) and has the format's shape (`Tables.g1Ok`). A jump out of a
+slice's body names its target, which is one of the IR's function symbols
+(`tailsLit`, `tails_eq`); scc's whole-text checker requires the same names,
+so the per-function tables merged are the whole text's tail successors
+included.
+
+Not proved here (W1, checked by scc, untrusted): that `wLit_i` is the least
+fixpoint (`tLit_i` is `compute`'s tables; any post-fixpoint lists every slot
+the least one does, `liveSlots_le`), that the tables scc emits are the
+per-function tables put back at their entries and merged in address order,
+and that a runtime routine's tables are the constant ones scc's runtime
+expects.
+-/
+{each}
+/-- Every function's witness and tables, from function 0 on, pass `fnOk`
+(`tables_fn_i`, chained). -/
+theorem tables_from : {m}.fnsOkFrom ({names}) ({sl}) 0 [
+    {ws}] = true :=
+  {chain}
+
+/-- **The tables of the IR's functions** (see the section's docstring),
+stated of the IR's own function count (`loweredLit.1.funcs.length`, so every
+tail name enters a function whose tables are among those checked): each
+function's rebased slice computes and has a witness and tables that pass
+`fnOk`. -/
+theorem tables_ok : {m}.FnsOk ({names}) ({sl}) loweredLit.1.funcs.length :=
+  {m}.fnsOk_of_from tables_from (by kernel_rfl)
+"
+
+/-- The ranked witness part of a certificate (`render`), before `configW`: the GC tables'
+ranked witness scc computes for `source` (`gcWitOf`, at `config`), one literal per function
+of the lowered IR (`n`, `Placement.funcs`), so that each function's least-fixpoint check
+(`gcStage`'s `gc_least_i`) names its own; `gwLit` lists them, and `configW` carries it
+(`Scc.Config.gcWit`). Untrusted: `emitTablesW` refuses any witness that is not every function's
+least fixpoint. -/
+def gwPart (isa : Isa) (n : Nat) : String :=
+  let w := "(Array (List Int) × List (List Nat))"
+  let each := String.join ((List.range n).map fun i => s!"
+/-- Function {i}'s ranked witness, as a literal (untrusted, checked by `gc_least_{i}`). -/
+def gwLit_{i} : {w} := scc_lit% gwVal_{i}
+")
+  let vals := String.join ((List.range n).map fun i => s!"
+/-- Function {i}'s ranked witness, at elaboration time. -/
+def gwVal_{i} : {w} := gwVal.getD {i} default
+")
+  let lits := ", ".intercalate ((List.range n).map (s!"gwLit_{·}"))
+  s!"
+/-- The GC tables' ranked witness of `source`, at elaboration time (scc's:
+`{isa.ns}.gcWitOf`, the reference liveness and its ranks per IR function). -/
+def gwVal : Scc.Cert.Maps.GcWit := ({isa.ns}.gcWitOf config source).toOption.getD []
+{vals}{each}
+/-- The ranked witness, one entry per function of the lowered IR, in order. -/
+def gwLit : Scc.Cert.Maps.GcWit := [{lits}]
+"
+
+/-- The GC tables' stage of a staged `out_eq` (`Isa.staged`, `Isa.emitStaged`), after the
+emitter's: `tablesOf` of the literal IR and items at `configW`'s witness (`emitTablesW`) is
+`(titsLit, tblLit)`, from its stages (`emitTablesW_of_stages`), each a kernel check on literals:
+the items, the `scc_stackmap` table and each function's tags (`fnTags*_of_stages`); each
+function's least-fixpoint check of its witness (`gc_least_i`, chained by `leastFrom_cons`); the
+stubs, each function's maps and exit successors and their sort (`computeW_of_stages`,
+`computeWR_of_least`); the label map and the serialiser. `tables_eq` is the stage `out_eq`
+takes (`tblLit` ends `outLit`'s `.rodata`); `prog_tablesW` states it of
+`lowerAll configW prog_src` (`tables_of_stages`), and `prog_sameAsScc` relates that run to
+scc's (`lowerAll_eq_of_tables`), which `out_eq` and `prog_tablesOk` (`placePart`) are about.
+`n` is the IR's function count. -/
+def gcStage (isa : Isa) (arch : Arch) (n : Nat) : String :=
+  let m := "Scc.Cert.Maps"
+  let mx := match arch with | .x64 => "Scc.Cert.MapsX64" | .arm => "Scc.Cert.MapsA64"
+  let its := match arch with
+    | .x64 => s!"emittedLit.1 ({mx}.unitSizes emittedLit.1)"
+    | .arm => "emittedLit.1"
+  let tagsPre := match arch with
+    | .x64 => s!"{mx}.tagsOf loweredLit.1 gcItemsLit gcStblLit"
+    | .arm => s!"{mx}.tagsOf loweredLit.1 areasLit gcItemsLit gcStblLit"
+  let fnArg (i : Nat) := match arch with
+    | .x64 => s!"loweredLit.1.funcs[{i}]!"
+    | .arm => s!"(loweredLit.1.funcs[{i}]!, {i})"
+  let fnsGoal := match arch with
+    | .x64 => s!"loweredLit.1.funcs.mapM ({tagsPre})"
+    | .arm => s!"loweredLit.1.funcs.zipIdx.mapM ({tagsPre})"
+  let fnsRw := match arch with | .x64 => "fns_eq" | .arm => "zip_eq"
+  let tagsThm := match arch with
+    | .x64 => s!"{mx}.fnTagsX64 loweredLit.1 emittedLit.1 ({mx}.unitSizes emittedLit.1) = .ok (gcItemsLit, gcFnsLit) :=
+  {mx}.fnTagsX64_of_stages gc_items_eq gc_stbl_eq gc_fns_eq"
+    | .arm => s!"{mx}.fnTagsA64 loweredLit.1 emittedLit.1 = .ok (gcItemsLit, gcFnsLit) :=
+  {mx}.fnTagsA64_of_stages pre_eq gc_items_eq gc_stbl_eq gc_fns_eq"
+  let sec := match arch with | .x64 => ".dir" | .arm => ".raw"
+  let mapM := "Scc.Cert.OutLit.mapM_ok_cons"
+  let each := String.join ((List.range n).map fun i => s!"
+/-- Function {i}'s tags, at elaboration time. -/
+def gcFnVal_{i} : Option {m}.FnTags := ({tagsPre} {fnArg i}).toOption
+
+/-- Function {i}'s tags, as a literal (untrusted, checked by `gc_fn_eq_{i}`). -/
+def gcFnLit_{i} : {m}.FnTags := (scc_lit% gcFnVal_{i}).get!
+
+/-- Function {i}'s tags are `gcFnLit_{i}` (kernel-checked). -/
+theorem gc_fn_eq_{i} : {tagsPre} {fnArg i} = .ok gcFnLit_{i} := by kernel_rfl
+")
+  let fnLits := ", ".intercalate ((List.range n).map (s!"gcFnLit_{·}"))
+  let fnChain := String.join ((List.range n).map (s!"{mapM} gc_fn_eq_{·} <|\n    ")) ++ "rfl"
+  let least := String.join ((List.range n).map fun i => s!"
+/-- Function {i}'s ranked witness is the least fixpoint of slot liveness on its body
+(kernel-checked: `leastOk`, a post-fixpoint, every slot justified at its rank, the ranks below
+the fuel). -/
+theorem gc_least_{i} : {m}.leastOk ({m}.bodyOf gcFnLit_{i} gcItemsLit) gwLit_{i}.1 gwLit_{i}.2 = true := by
+  decide +kernel
+")
+  let leastChain := String.join ((List.range n).map (s!"{m}.leastFrom_cons gc_least_{·} <|\n    ")) ++ "rfl"
+  let maps := String.join ((List.range n).map fun i => s!"
+/-- Function {i}'s root maps from its witness, at elaboration time. -/
+def gcMsVal_{i} : Option (List {m}.RootMap) := ({m}.fnMapsW gcFnLit_{i} gcItemsLit gwLit_{i}.1).toOption
+
+/-- Function {i}'s root maps, as a literal (untrusted, checked by `gc_ms_eq_{i}`). -/
+def gcMsLit_{i} : List {m}.RootMap := (scc_lit% gcMsVal_{i}).get!
+
+/-- Function {i}'s root maps are `gcMsLit_{i}` (kernel-checked). -/
+theorem gc_ms_eq_{i} : {m}.fnMapsW gcFnLit_{i} gcItemsLit gwLit_{i}.1 = .ok gcMsLit_{i} := by kernel_rfl
+
+/-- Function {i}'s exit successors, at elaboration time. -/
+def gcOsVal_{i} : Option (List {m}.Succs) :=
+  ({m}.outSuccs gcFnLit_{i} gcItemsLit (gcMsLit_{i}.map fun (r : {m}.RootMap) => r.pt.addr)).toOption
+
+/-- Function {i}'s exit successors, as a literal (untrusted, checked by `gc_os_eq_{i}`). -/
+def gcOsLit_{i} : List {m}.Succs := (scc_lit% gcOsVal_{i}).get!
+
+/-- Function {i}'s exit successors are `gcOsLit_{i}` (kernel-checked). -/
+theorem gc_os_eq_{i} :
+    {m}.outSuccs gcFnLit_{i} gcItemsLit (gcMsLit_{i}.map fun (r : {m}.RootMap) => r.pt.addr) = .ok gcOsLit_{i} := by
+  kernel_rfl
+
+/-- Function {i}'s block successors, at elaboration time. -/
+def gcFsVal_{i} : List {m}.Succs := {m}.fnSuccs gcFnLit_{i} gcItemsLit
+
+/-- Function {i}'s block successors, as a literal (untrusted, checked by `gc_fs_eq_{i}`). -/
+def gcFsLit_{i} : List {m}.Succs := scc_lit% gcFsVal_{i}
+
+/-- Function {i}'s block successors are `gcFsLit_{i}` (kernel-checked). -/
+theorem gc_fs_eq_{i} : {m}.fnSuccs gcFnLit_{i} gcItemsLit = gcFsLit_{i} := by kernel_rfl
+")
+  let fsLits := ", ".intercalate ((List.range n).map (s!"gcFsLit_{·}"))
+  let fsRws := ", ".intercalate ((List.range n).map (s!"gc_fs_eq_{·}"))
+  let msLits := ", ".intercalate ((List.range n).map (s!"gcMsLit_{·}"))
+  let osLits := ", ".intercalate ((List.range n).map (s!"gcOsLit_{·}"))
+  let msChain := String.join ((List.range n).map (s!"{mapM} gc_ms_eq_{·} <|\n    ")) ++ "rfl"
+  let osChain := String.join ((List.range n).map (s!"{mapM} gc_os_eq_{·} <|\n    ")) ++ "rfl"
+  s!"
+/-! ### The GC tables
+
+`tablesOf` of the literal IR and items at `configW`'s ranked witness (`emitTablesW`), in stages
+(`emitTablesW_of_stages`): the items, the `scc_stackmap` table and the tags; every function's
+witness the least fixpoint (`leastOk`); the tables from the witnesses, each function's maps,
+exit successors and block successors apart (`computeW_of_stagesF`, `computeWR_of_least`); the
+label map and the serialiser. -/
+
+-- The witness in `configW` is scc's for the literal IR and items (evaluation, not a proof:
+-- `gc_least_i` checks what the certificate relies on).
+#guard decide (({mx}.gcWitness loweredLit.1 emittedLit.1).toOption = some gwLit)
+
+/-- The tables' items, at elaboration time. -/
+def gcItemsVal : Option (List {m}.Item) := ({mx}.itemsOf {its}).toOption
+
+/-- The tables' items, as a literal (untrusted, checked by `gc_items_eq`). -/
+def gcItemsLit : List {m}.Item := (scc_lit% gcItemsVal).get!
+
+/-- The tables' items are `gcItemsLit` (kernel-checked). -/
+theorem gc_items_eq : {mx}.itemsOf {its} = .ok gcItemsLit := by kernel_rfl
+
+/-- The `scc_stackmap` table, at elaboration time. -/
+def gcStblVal : Option (List (Nat × List Int × List Int)) := ({mx}.stackTable emittedLit.1 gcItemsLit).toOption
+
+/-- The `scc_stackmap` table, as a literal (untrusted, checked by `gc_stbl_eq`). -/
+def gcStblLit : List (Nat × List Int × List Int) := (scc_lit% gcStblVal).get!
+
+/-- The `scc_stackmap` table is `gcStblLit` (kernel-checked). -/
+theorem gc_stbl_eq : {mx}.stackTable emittedLit.1 gcItemsLit = .ok gcStblLit := by kernel_rfl
+{each}
+/-- The functions' tags, in order. -/
+def gcFnsLit : List {m}.FnTags := [{fnLits}]
+
+/-- The tags of every function (`gc_fn_eq_i`, chained). -/
+theorem gc_fns_eq : {fnsGoal} = .ok gcFnsLit := by
+  rw [{fnsRw}]
+  exact {fnChain}
+
+/-- The items and the tags (`fnTags*_of_stages`). -/
+theorem gc_tags_eq : {tagsThm}
+{least}
+/-- Every function's ranked witness is its least fixpoint (`gc_least_i`, chained). -/
+theorem gc_least : {m}.leastFrom gcItemsLit gcFnsLit gwLit = true :=
+  {leastChain}
+
+/-- No conditional branch leaves a body but to a stub (kernel-checked). -/
+theorem gc_stubs : {m}.stubsOk gcFnsLit gcItemsLit = .ok () := by kernel_rfl
+
+/-- One witness per function (kernel-checked). -/
+theorem gc_len : (gwLit.map (·.1)).length = gcFnsLit.length := by kernel_rfl
+{maps}
+/-- Every function's root maps (`gc_ms_eq_i`, chained). -/
+theorem gc_ms : (gcFnsLit.zip (gwLit.map (·.1))).mapM (fun (t, w) => {m}.fnMapsW t gcItemsLit w) =
+    .ok [{msLits}] :=
+  {msChain}
+
+/-- Every function's exit successors (`gc_os_eq_i`, chained). -/
+theorem gc_os : (gcFnsLit.zip [{msLits}]).mapM (fun (p : {m}.FnTags × List {m}.RootMap) =>
+    {m}.outSuccs p.1 gcItemsLit (p.2.map fun (r : {m}.RootMap) => r.pt.addr)) = .ok [{osLits}] :=
+  {osChain}
+
+/-- Every function's block successors (`gc_fs_eq_i`, together). -/
+theorem gc_fs : gcFnsLit.flatMap (fun t => {m}.fnSuccs t gcItemsLit) = [{fsLits}].flatten := by
+  simp only [gcFnsLit, List.flatMap_cons, List.flatMap_nil, List.flatten_cons, List.flatten_nil,
+    {fsRws}]
+
+/-- The tables from the witnesses, at elaboration time. -/
+def gcTVal : Option {m}.Tables := ({m}.computeW gcFnsLit gcItemsLit (gwLit.map (·.1))).toOption
+
+/-- The tables, as a literal (untrusted, checked by `gc_w_eq`). -/
+def gcTLit : {m}.Tables := (scc_lit% gcTVal).get!
+
+/-- The tables from the witnesses are `gcTLit` (`computeW_of_stagesF`; the sort kernel-checked). -/
+theorem gc_w_eq : {m}.computeW gcFnsLit gcItemsLit (gwLit.map (·.1)) = .ok gcTLit :=
+  ({m}.computeW_of_stagesF gc_stubs gc_len gc_ms gc_os gc_fs).trans (by kernel_rfl)
+
+/-- The tables from the ranked witness (`computeWR_of_least`). -/
+theorem gc_wr_eq : {m}.computeWR gcFnsLit gcItemsLit gwLit = .ok gcTLit :=
+  {m}.computeWR_of_least gc_least gc_w_eq
+
+/-- The IR's function symbols, a tail jump's possible targets, at elaboration
+time. -/
+def tailsVal : List String := {tablesNames}
+
+/-- The IR's function symbols, as a literal (untrusted, checked by
+`tails_eq`). -/
+def tailsLit : List String := scc_lit% tailsVal
+
+/-- The function symbols are `tailsLit` (kernel-checked). -/
+theorem tails_eq : {tablesNames} = tailsLit := by kernel_rfl
+
+/-- **The merged tables' shape and tail names** (kernel-checked): `gcTLit`, the tables
+`computeWR` builds from the ranked witness and the serialiser writes into `tblLit`, has the
+format's shape (`Tables.g1Ok`), and every tail successor it names is one of the IR's
+function symbols (`tailsLit`). The tables' stage does not check these on the merged
+tables; the certificate does, here. -/
+theorem prog_tables_merged : gcTLit.g1Ok && gcTLit.tailsIn tailsLit = true := by
+  decide +kernel
+
+/-- The label map, at elaboration time. -/
+def gcLabsVal : List (Nat × String) := {m}.labelMap gcItemsLit
+
+/-- The label map, as a literal (untrusted, checked by `gc_labs_eq`). -/
+def gcLabsLit : List (Nat × String) := scc_lit% gcLabsVal
+
+/-- The label map is `gcLabsLit` (kernel-checked). -/
+theorem gc_labs_eq : {m}.labelMap gcItemsLit = gcLabsLit := by kernel_rfl
+
+/-- The tables' data, at elaboration time. -/
+def tblVal : Option (List Kraken.DataImage.Item) :=
+  ({m}.tableItems gcTLit ({m}.labelIn gcLabsLit) (\{} : {m}.DescLabels)
+    (fun g => ({m}.labelAddr gcItemsLit g).isSome)).toOption
+
+/-- The tables' data, as a literal (untrusted, checked by `gc_ser_eq`): the end of `outLit`'s
+`.rodata`. -/
+def tblLit : List Kraken.DataImage.Item := (scc_lit% tblVal).get!
+
+/-- The serialiser gives `tblLit` (kernel-checked). -/
+theorem gc_ser_eq : {m}.tableItems gcTLit ({m}.labelIn gcLabsLit) (\{} : {m}.DescLabels)
+    (fun g => ({m}.labelAddr gcItemsLit g).isSome) = .ok tblLit := by kernel_rfl
+
+/-- The lowering has a stack growth (kernel-checked). -/
+theorem gc_growth : loweredLit.1.growth.isSome = true := by decide +kernel
+
+/-- The tables' items the listing appends to the emitter's. -/
+def titsLit : List {isa.emit}.Item := {sec} \".section .rodata\" :: tblLit.map {mx}.dataItem
+
+/-- The tables' stage at `configW`'s witness gives `(titsLit, tblLit)` (`emitTablesW_of_stages`:
+the stages above). -/
+theorem tables_eq : {isa.lower}.tablesOf loweredLit.1 emittedLit.1 configW.gcWit = .ok (titsLit, tblLit) :=
+  {mx}.emitTablesW_of_stages gc_growth gc_tags_eq gc_wr_eq gc_labs_eq gc_ser_eq
+"
+
 /-- The acceptance and placement part of a certificate (`render`): the
 source program as a term, its acceptance, `out`, the parse check, the
 placement decisions and, for an accepted program, `prog_cert_ready`. -/
@@ -701,7 +1102,46 @@ theorem prog_accepted1 : Scc.Lower.Accepted1 prog_src = true := by decide +kerne
 theorem prog_placeOK_9 : {ns}.a9 outLit {t} = true :={a9Pf}
 " else ""
   let a9Arg := if isa.a9 then " prog_placeOK_9" else ""
-  let a2Pf := if isa.a2fast then s!"\n  {ns}.a2_of_fast (by decide +kernel)" else " by\n  decide +kernel"
+  let a2Pf := if isa.a2fast then s!"\n  {ns}.a2_of_fast (by decide +kernel)"
+    else if isa.a2split then s!"\n  {ns}.a2_of_parts ({isa.link}.loadOk_ofR prog_placeOK_2w prog_placeOK_2l prog_placeOK_2q
+    prog_placeOK_2r) prog_placeOK_2a prog_placeOK_2i"
+    else " by\n  decide +kernel"
+  -- A2 part by part (`Isa.a2split`): each part its own declaration, so the peak is the
+  -- largest part's
+  let lΛ := s!"{t}.Λ"
+  let syms := s!"(Scc.Sem.loadSyms {lΛ} outLit.secs.rodata)"
+  let codeEnd := s!"(Scc.Sem.X64.codeEnd {lΛ}.code.lo outLit.prog)"
+  let a2Parts := if isa.a2split && !isa.a2fast then s!"
+/-- A2's code sizes against the assembler's label offsets (kernel-checked). -/
+theorem prog_placeOK_2w : {isa.link}.sizeOkW (Int64.ofNat {lΛ}.code.lo) outLit.prog outLit.labelOffs = true := by
+  decide +kernel
+
+/-- A2's code labels, each once (kernel-checked). -/
+theorem prog_placeOK_2l : {isa.link}.labelsNodupL (Int64.ofNat {lΛ}.code.lo) outLit.prog = true := by
+  decide +kernel
+
+/-- A2's `.quad` labels resolve (kernel-checked, the code labels keyed:
+`Scc.Cert.Rt.X64.codeT_eq`; the GC tables' key words name code labels out of code order). -/
+theorem prog_placeOK_2q :
+    Scc.Sem.quadsResolve {lΛ} outLit.secs.rodata (Scc.Sem.X64.codeLabel {lΛ}.code.lo outLit.prog) = true := by
+  rw [← Scc.Cert.Rt.X64.codeT_eq]; decide +kernel
+
+/-- A2's `.rodata` and data symbols against the layout and the code (kernel-checked). -/
+theorem prog_placeOK_2r : (Scc.Sem.rodataFits {lΛ} outLit.secs.rodata && Scc.Sem.symsAgree {lΛ} outLit.secs.rodata &&
+    Scc.Sem.symsAbove {lΛ}.code.lo {codeEnd} {syms} &&
+    {isa.link}.symsAround {lΛ}.code.lo outLit.prog {syms} &&
+    {isa.link}.noClash {lΛ}.code.lo outLit.prog {syms} &&
+    decide ({codeEnd} < 2 ^ 64)) = true := by
+  decide +kernel
+
+/-- A2's abort labels in the cells (kernel-checked). -/
+theorem prog_placeOK_2a : {isa.link}.abortsIn outLit.prog {lΛ} = true := by
+  decide +kernel
+
+/-- A2's image (kernel-checked). -/
+theorem prog_placeOK_2i : {isa.link}.imageIn outLit.prog outLit.secs {lΛ} = true := by
+  decide +kernel
+" else ""
   let a12Parts := if split then s!"
 /-- A12's code part of `outLit` (kernel-checked). -/
 theorem prog_placeOK_12c : {ns}.a12code outLit = true := by
@@ -724,26 +1164,61 @@ theorem prog_placeOK_12 : {ns}.a12 outLit {t} = true :={a12Pf}
   let a12Arg := if isa.a12 then " prog_placeOK_12" else ""
   let blocksSt := isa.blocksStaged || (isa.blocksStagedLarge && pl.parts != 0)
   let outLast := if blocksSt then s!"{blocksStage ns isa.rt (if sized then "sizes " else "") pl.parts}
-/-- `out` is `outLit` (kernel-checked in four steps, `ofEmitted_of_stages`
-and `ofStage_eq_B`: the lowering, the emitter and the block table above,
+/-- `out` is `outLit` (kernel-checked in five steps, `ofEmitted_of_stages`
+and `ofStage_eq_B`: the lowering, the emitter, the GC tables and the block table above,
 and here the stack need table and the `.text` filter on the literals; the
 decisions below read `outLit`). -/
 theorem out_eq : out = outLit := by
-  rw [show out = _ from {ns}.ofEmitted_of_stages{outArgs} (ir := loweredLit.1) (setup := loweredLit.2)
-    (items := emittedLit.1) (sps := emittedLit.2) lowered_eq emitted_eq, {ns}.ofStage_eq_B blocks_eq]
+  rw [out_eqW, {ns}.ofEmitted_of_stages{outArgs} (ir := loweredLit.1) (setup := loweredLit.2)
+    (items := emittedLit.1) (sps := emittedLit.2) lowered_eq emitted_eq tables_eq, {ns}.ofStage_eq_B blocks_eq]
   kernel_rfl
 " else s!"
-/-- `out` is `outLit` (kernel-checked in three steps, `ofEmitted_of_stages`:
-the lowering and the emitter above, and here the stack need table, the
+/-- `out` is `outLit` (kernel-checked in four steps, `ofEmitted_of_stages`:
+the lowering, the emitter and the GC tables above, and here the stack need table, the
 `.text` filter and the block table on the literals; the decisions below
 read `outLit`). -/
 theorem out_eq : out = outLit := by
-  rw [show out = _ from {ns}.ofEmitted_of_stages{outArgs} lowered_eq emitted_eq]
+  rw [out_eqW, {ns}.ofEmitted_of_stages{outArgs} lowered_eq emitted_eq tables_eq]
   kernel_rfl
+"
+  let tablesW := s!"
+/-- The GC tables of the pipeline at `configW` (the ranked witness `gwLit`, `emitTablesW`):
+the items `titsLit` and the data `tblLit` (`tables_of_stages`: the lowering, the emitter and
+the tables' stages above). -/
+theorem prog_tablesW : ({isa.lower}.lowerAll configW prog_src).tables = .ok (titsLit, tblLit) :=
+  {ns}.tables_of_stages lowered_eq emitted_eq tables_eq
+
+/-- **scc's run is the certificate's**: the pipeline at scc's configuration `config` gives
+what it gives at `configW` (`{isa.placeW}.lowerAll_eq_of_tables`: the tables' stage at the
+witness succeeds, `prog_tablesW`, and whatever `emitTablesW` gives is the reference
+`emitTables`' result). -/
+theorem prog_sameAsScc : {isa.lower}.lowerAll config prog_src = {isa.lower}.lowerAll configW prog_src :=
+  {isa.placeW}.lowerAll_eq_of_tables rfl prog_src gwLit prog_tablesW
+
+/-- `out` is the placement view of the run at `configW` (`prog_sameAsScc`). -/
+theorem out_eqW : out = {ns}.Out.ofEmitted ({isa.lower}.lowerAll configW prog_src){outArgs} :=
+  congrArg (fun e => {ns}.Out.ofEmitted e{outArgs}) prog_sameAsScc
+"
+  let tablesOk := s!"
+/-- **The GC tables of `scc`'s output** for `prog_src`: the tables' stage of
+`{isa.lower}.lowerAll config prog_src` (scc's configuration: the reference stage
+`emitTables`) succeeds, with the items `titsLit` the listing appends and the data `tblLit`
+that ends `outLit`'s `.rodata` (`prog_sameAsScc`, `prog_tablesW`). -/
+theorem prog_tablesOk : ({isa.lower}.lowerAll config prog_src).tables = .ok (titsLit, tblLit) := by
+  rw [prog_sameAsScc]; exact prog_tablesW
+
+/-- info: 'SccCertificate.prog_sameAsScc' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in #print axioms prog_sameAsScc
+
+/-- info: 'SccCertificate.prog_tablesOk' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in #print axioms prog_tablesOk
+
+/-- info: 'SccCertificate.prog_tables_merged' depends on axioms: [propext] -/
+#guard_msgs in #print axioms prog_tables_merged
 "
   let outEq := if isa.staged then s!"
 /-- The lowering of `prog_src`, at elaboration time. -/
-def loweredVal : Option (Scc.IR.Program × Bool) := {ns}.lowered1 config prog_src
+def loweredVal : Option (Scc.IR.Program × Bool) := {ns}.lowered1 configW prog_src
 
 /-- The lowering's IR and setup flag, as a literal (untrusted, checked by
 `lowered_eq`). -/
@@ -758,25 +1233,25 @@ def emittedVal : Option (List {isa.emit}.Item × List {isa.safepoint}) :=
 def emittedLit : List {isa.emit}.Item × List {isa.safepoint} := (scc_lit% emittedVal).get!
 
 /-- The stack budget's depth limit, at elaboration time. -/
-def framesVal : Option Nat := Scc.Cert.LowerStage.frames1 config prog_src
+def framesVal : Option Nat := Scc.Cert.LowerStage.frames1 configW prog_src
 
 /-- The depth limit as a literal (untrusted, checked by `frames_eq`). -/
 def framesLit : Nat := (scc_lit% framesVal).get!
 
 /-- The budget gives the depth limit `framesLit` (kernel-checked: the kernel
 runs the lowering for the frames, here). -/
-theorem frames_eq : Scc.Cert.LowerStage.frames1 config prog_src = some framesLit := by kernel_rfl
+theorem frames_eq : Scc.Cert.LowerStage.frames1 configW prog_src = some framesLit := by kernel_rfl
 
 /-- The lowering gives `loweredLit` (kernel-checked: the kernel runs the
 lowering, here). -/
-theorem ir_eq : Scc.Cert.LowerStage.ir1 config prog_src = some loweredLit := by kernel_rfl
+theorem ir_eq : Scc.Cert.LowerStage.ir1 configW prog_src = some loweredLit := by kernel_rfl
 
 /-- The lowering gives `loweredLit` (`lowered1_of_stages`: the budget and
 the lowering above). -/
-theorem lowered_eq : {ns}.lowered1 config prog_src = some loweredLit :=
+theorem lowered_eq : {ns}.lowered1 configW prog_src = some loweredLit :=
   {ns}.lowered1_of_stages frames_eq ir_eq
 
-{emitStage isa pl.funcs}{outLast}" else "
+{emitStage isa pl.funcs}{gcStage isa cfg.arch pl.funcs}{tablesW}{outLast}{tablesOk}" else "
 /-- `out` is `outLit` (kernel-checked: the kernel runs the lowering once,
 here, and the decisions below read the literal). -/
 theorem out_eq : out = outLit := by kernel_rfl
@@ -798,6 +1273,7 @@ so that the kernel keeps one component's terms alive at a time). -/
 theorem prog_placeOK_1 : {ns}.a1 outLit {t} = true := by
   decide +kernel
 
+{a2Parts}
 /-- A2 of `outLit` (kernel-checked). -/
 theorem prog_placeOK_2 : {ns}.a2 outLit {t} = true :={a2Pf}
 
@@ -878,6 +1354,10 @@ theorem prog_not_placeOK : {ns}.placeOK {can} out = false := by
   rw [out_eq]
   exact {ns}.placeOK_eq_false_of_a{n} prog_placeOK_{n}
 "
+  -- The tables per function (`tablesPart`): on the staged emitter's literals
+  -- (`areasLit`), x86-64 with its sizes.
+  let tables := if isa.staged && isa.emitStaged && pl.funcs != 0 && (sized || cfg.arch == .arm) then
+    tablesPart cfg.arch pl.funcs else ""
   let place := s!"
 /-- The configuration of the placement check: the canonical one, with the
 program's thread entries and their stack budget (`needOk`'s). -/
@@ -887,7 +1367,7 @@ def placeCfg : Scc.Cert.PlaceOK.Config :=
 /-- `out` as a literal: its value computed at elaboration time (`scc_lit%`,
 untrusted), trusted through `out_eq`. -/
 def outLit : {ns}.Out := scc_lit% out
-{outEq}{match pl.fails with | some n => negative n | none => if pl.spawn then positive2 else positive}"
+{outEq}{tables}{match pl.fails with | some n => negative n | none => if pl.spawn then positive2 else positive}"
   let ready := if accepted && pl.fails.isNone then
     if pl.spawn then s!"
 /-- **Acceptance and placement** of `prog_src`'s compilation. -/
@@ -975,6 +1455,8 @@ def render (cfg : Config) (name src asm : String)
   let spawnImport := if pl.spawn then s!"\nimport {isa.spawnMod}" else ""
   s!"import {isa.module}
 import {isa.place}{spawnImport}
+import {isa.placeW}
+import {isa.tablesMod}
 import Scc.Cert.SrcTerm
 
 {docstring cfg name srcHash asmHash sizes.isSome pl}
@@ -993,8 +1475,14 @@ def source : String := {quote src}
 /-- The assembler text `scc --arch {cfg.arch.name}` wrote, verbatim. -/
 def asm : String := {quote asm}
 
-/-- The configuration `scc` compiled with. -/
+/-- The configuration `scc` compiled with: every statement of the certificate is at it. -/
 def config : Scc.Config := {cfgTerm cfg}
+{gwPart isa pl.funcs}
+/-- The configuration the certificate's proofs run the pipeline at: `config`, with the GC
+tables' ranked witness `gwLit` (`Scc.Config.gcWit`: the tables' stage is `emitTablesW`'s from
+it, which refuses unless every function's witness is its least fixpoint). `prog_sameAsScc`
+proves the run at it is the run at `config`. -/
+def configW : Scc.Config := \{ config with gcWit := some gwLit }
 
 -- Reproducibility check (evaluation, not a proof): `source` compiles to
 -- exactly `asm`.

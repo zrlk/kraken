@@ -53,7 +53,7 @@ open Spike.Lib (Region)
 every range `freeN` excludes and the take site. -/
 theorem freeN_alloc {x : Nat} (h : 4198629 ≤ x ∧ x < 4198992) : freeN x = true := by
   have hc : 4198992 ≤ cv "scc_rt_alloc_tcb" ∧ 4198992 ≤ cv "scc_rt_thread_init" ∧
-      4198992 ≤ cv ".Lwc_main.x20" ∧ 4198992 ≤ cv "scc_rt_abort" ∧
+      4198992 ≤ cv ".Lwc_main.x2" ∧ 4198992 ≤ cv "scc_rt_abort" ∧
       4198992 ≤ cv Spike.Lib.X64.Flow.Ret0.StackTake.siteL := by
     unfold cv; rw [← codeT_eq]; decide +kernel
   obtain ⟨h1, h2, h3, h4, h5⟩ := hc

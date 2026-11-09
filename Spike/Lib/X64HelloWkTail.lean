@@ -3,9 +3,9 @@
 `Spike/Lib/A64HelloWkTail.lean`): wake.w's x86-64 `WkTailW`
 (`Spike/Lib/X64WakeWorker.lean`) at hello.w's labels and frame. hello.w's
 `wc_worker` prints its slice first (`.entry`, ending in `call scc_rt_print`);
-its tail starts at the print's return point `.Lwc_worker.x17`: the store of
+its tail starts at the print's return point `.Lwc_worker.x0`: the store of
 `1` to the cell `c` (`-40(%rbp)`), the call of `scc_rt_unpark` with the tid
-`j` (`-48(%rbp)`), the epilogue at `.Lwc_worker.x18`.
+`j` (`-48(%rbp)`), the epilogue at `.Lwc_worker.x1`.
 
     .x17:  %rcx = c (-40(%rbp)); %rax = 1
            movq %rax, (%rcx)               -- the source's `store rel c 1`
@@ -31,7 +31,7 @@ thread pointer `tp` and the entry `%rsp` `sp` (`%rbp = sp - 8`).
   epilogue node `.x18` at offsets knowing `%rsp` alone (`oP`), the
   invariant carrying `%rbp = sp - 8`; AArch64's `.n3`/`.bl` are one node
   `.n3` (`movq -48(%rbp), %rdi; call scc_rt_unpark` is one block).
-- The labels are hello.w's x86-64 ones (`.Lwc_worker.x17`, `.x18`; A64:
+- The labels are hello.w's x86-64 ones (`.Lwc_worker.x0`, `.x18`; A64:
   `.L20_wc_worker.sp4`, `.sp6`), the frame 80 bytes (A64: 96 with `x29`/`x30`
   saved at its top).
 - The store is a plain `movq` (TSO; A64: `stlr`), the thread pointer
@@ -92,17 +92,17 @@ def JI (c' : Ctl) (σ : AS) (c : Ctl) : Prop :=
     σ.regs.fsBase.toBitVec = tp ∧ σ.regs.rbp.toBitVec = sp - 8#64
 
 /-- The return address of the call. -/
-abbrev raU : BitVec 64 := (lab ".Lwc_worker.x17" + 14).toBitVec + 9#64
+abbrev raU : BitVec 64 := (lab ".Lwc_worker.x0" + 14).toBitVec + 9#64
 
 /-- **The nodes.** -/
 def N : PN → ND
-  | .e => ⟨lab ".Lwc_worker.x17", oI, JI A B rbp0 ra tp sp c0⟩
-  | .st => ⟨lab ".Lwc_worker.x17" + 11, oI, fun σ c => JI A B rbp0 ra tp sp c0 σ c ∧
+  | .e => ⟨lab ".Lwc_worker.x0", oI, JI A B rbp0 ra tp sp c0⟩
+  | .st => ⟨lab ".Lwc_worker.x0" + 11, oI, fun σ c => JI A B rbp0 ra tp sp c0 σ c ∧
       σ.regs.get64 .rcx = A ∧ σ.regs.get64 .rax = 1#64⟩
-  | .n3 => ⟨lab ".Lwc_worker.x17" + 14, oI, JI A B rbp0 ra tp sp c1⟩
+  | .n3 => ⟨lab ".Lwc_worker.x0" + 14, oI, JI A B rbp0 ra tp sp c1⟩
   | .unpk => ⟨lab "scc_rt_unpark", oS, fun σ c => JI A B rbp0 ra tp sp c1 σ c ∧ σ.regs.get64 .rdi = B ∧
       σ.slot (-96) = raU lab⟩
-  | .x18 => ⟨lab ".Lwc_worker.x18", oP, JI A B rbp0 ra tp sp c2⟩
+  | .x18 => ⟨lab ".Lwc_worker.x1", oP, JI A B rbp0 ra tp sp c2⟩
 
 /-- **The exit**: the return to `ra` with `%rsp` past the return address,
 `%rbp` and the thread pointer as at entry, the source past its `unpark`. -/

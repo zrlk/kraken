@@ -4,7 +4,7 @@ box at the `mfence`** (x86-64; the publication of
 `Spike/Lib/WakePubFence.lean`, moved): `X64WakeCloneSeg.wake_wc_clone_segW`'s
 segment with the source, at `boxTerm` (`let c = publish o in …`, `o` bound
 to the box's owned locative, no hold) up to the fence, taking its
-publication step at `wc_main`'s `mfence` (`.Lwc_main.x21+12`,
+publication step at `wc_main`'s `mfence` (`.Lwc_main.x3+12`,
 `Out.fence .sy`, `FenceRun.pub` under `ms.pub`) and standing at
 `boxPubCtl c0 ty l` (`let p = pair c me in spawnTerm`) from there to the
 `syscall`.

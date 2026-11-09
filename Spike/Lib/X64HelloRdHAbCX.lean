@@ -1,22 +1,28 @@
 /-
-**`wc_rodata`'s heap abort at hello's root closes, at `ownGHXW`** (x86-64 only; the `ownGHXW` instance of
-`Spike/Lib/X64HelloRdHAbC.lean`): from `wc_rodata`'s `rX .abort` at the frames `[FR]`, a segment inside the
+**`wc_rodata`'s heap abort at hello's root closes, at `ownGHXW`** (x86-64; the twin of the third part of
+`Spike/Lib/A64HelloRdHAb.lean`, at `ownGHXW`): from `wc_rodata`'s `rX .abort` at the frames `[FR]`, a segment inside the
 start's level at `ownGHXW` (`StartWcS.WSg (ownGHXW Ly ntA)`, which is `WSHFg (ownGHXW …)` at the frames) under the
 take move, with no exit. The heap abort path is lifted to `ownGHXW` by `HabLftX.hpathW_hab0HSX`.
 
 - `bandRSd`: `scc_rt_main`'s region band `[-d, 8]` on the pool (`MainGlueX.bandRS80` at any depth).
 - `heapAbStubK_atX`: `HAbStub.heapAbStubK_at` inside `W0` at `ownGHXW`, given `ownGHXW`'s separations and the
   dispatcher band on the pool.
-- `hello_rd_hab_closedX`: `RdHAb.hello_rd_hab_closed` at `WSg (ownGHXW Ly ntA)`; the separations from A13's data
+- `hello_rd_hab_closedX`: AArch64 `RdHAb.hello_rd_hab_closed` at `WSg (ownGHXW Ly ntA)`; the separations from A13's data
   part (`hA13`: `wsep_W`, `tcbWH_notG_W`), the band at `scc_rt_main`'s region at the first stack's top
   (`bandRSd` at `336`).
 
 ## Differences from the AArch64 version
 
-AArch64 has no counterpart: its level owns `ownGH` (main owns no TCB word there), so `A64HelloRdHAb`'s closure is
-the only one. Against x86-64's `hello_rd_hab_closed` at `ownGH`: the path's states are lifted to `ownGHXW`
-(`CstOkH`: main's word held on the abort path, the worker's not, the return address `.Lscc_rt_alloc.full + 12`),
-which asks `hA13` for the separations; the proof is otherwise `hello_rd_hab_closed`'s.
+- AArch64's level owns `ownGH` (main owns no TCB word there); here the path's states are lifted to `ownGHXW`
+  (`CstOkH`: main's word held on the abort path, the worker's not, the return address `.Lscc_rt_alloc.full + 12`),
+  which asks `hA13` for the separations.
+- `scc_rt_main`'s region at the new stack's base `v` is `MainGlue.RS helloLsw v` (AArch64 `swR v (-helloLsw) 0`)
+  and `wc_rodata`'s is `Hello1.mR` of it; its frame condition `FS` and `FStable` come from `Land.fstable_FS`
+  (AArch64: `wordsNoneP_swFSL_fstable` and `rt_h16` in place).
+- `seg_jabort2RW_up` takes the callee's region's top `hi' = 8` and the return address's slot (`hoff`, `hra`;
+  AArch64 `hi' = 0` and `x30`); the dispatcher's region is `R.callee (-296) (-24) 16`, with no base alignment.
+- `HelloRd.rX` and `HabCtlRdH` take `wc_rodata`'s region (unused at `.abort`).
+- The loader's facts are the two parses `cellsOf asm = some o.prog`, `some helloCells` (AArch64 `textProgram`).
 -/
 import Spike.Lib.X64HelloRdHAb
 import Spike.Lib.X64HelloHAbW
@@ -27,7 +33,6 @@ import Spike.Lib.X64HelloRodata
 import Spike.Lib.X64HelloC0S
 import Spike.Lib.X64WakeAbOffW
 import Spike.Lib.X64HelloClH
-import Spike.Lib.X64HelloRdHAbC
 import Spike.Lib.X64HelloHabLftX
 import Spike.Lib.X64HelloOwnSX
 import Spike.Lib.X64WakeStartPlaceLy
@@ -206,7 +211,7 @@ theorem hello_rd_hab_closedX {asm : Scc.Sem.X64.Asm} {E : Scc.Sem.Entry} {rd : T
   have hab : ∀ s : State, s.st.2 = (Ly).lab Spike.Lib.X64.Abort.heap.exit → ((MSf) [FR]).abortAt s :=
     fun s hs => by
       obtain ⟨-, e9⟩ := Spike.Lib.X64.HelloPh.abH_labsH hlab (L := Ly)
-      refine ⟨.heap, 4202760, ?_, by unfold pcOf; rw [hs]; erw [e9]; rfl⟩
+      refine ⟨.heap, 4202798, ?_, by unfold pcOf; rw [hs]; erw [e9]; rfl⟩
       rw [Spike.Lib.X64.Flow.Worker.Wake.AbOffW.marks_target (Ly) hpa]
       show codeLabel (Ly).Λ.code.lo (Ly).prog ((Ly).Λ.abortLbl .heap) = _
       rw [hprog, hlo, hΛ, ← codeT_eq]; decide +kernel

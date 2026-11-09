@@ -4,16 +4,16 @@ block at `.sp3`, in its 80-byte frame,
 
     .L21_wc_main.sp3:
       str x0, [sp, #16]                 -- the reserve's result
-      movz x0, #2307
-      movk x0, #128, lsl #16            -- x0 = hdr2 = 8390915 (n = 9, m = 2)
+      movz x0, #3331
+      movk x0, #128, lsl #16            -- x0 = hdr2 = 8391939 (n = 13, m = 2)
       movz x1, #1
       bl scc_rt_alloc_tcb               -- x30 = .sp4
     .L21_wc_main.sp4:
 
 at the listing level: the block, its code in `wakeProg`, its run, and the
 nodes around the call. The call's ghost record is `tcb2Q g c0 :=
-⟨g, hdr2, 80, c0⟩` (`Q2` by `rfl`), so the TCB the call returns is
-`pinA + 104` (`tcb2Q_tcbOf`). The node obligations inside `W` (the
+⟨g, hdr2, 112, c0⟩` (`Q2` by `rfl`), so the TCB the call returns is
+`pinA + 136` (`tcb2Q_tcbOf`). The node obligations inside `W` (the
 callee by `tcbW_postG` at `tcbPh2a`, the owned words by
 `A64WakeOwnGAgree`) are on top of these (`A64WakeWcMid`
 reuses the nodes). The listing is wake.w's certificate
@@ -48,7 +48,7 @@ abbrev oW : SO := ⟨-80, []⟩
 
 /-- **The second call's block** at `.sp3`. -/
 def tcb2Call : List Directive := parseAArch64("str x0, [sp, #16]
-movz x0, #2307
+movz x0, #3331
 movk x0, #128, lsl #16
 movz x1, #1
 bl scc_rt_alloc_tcb")
@@ -106,18 +106,18 @@ theorem tcb2Call_x30 {exe : _root_.Executable} [Kraken.Executable.ValidLayout ex
 /-! ## The call's ghost record and the nodes -/
 
 /-- **The second call's ghost record**: the header `hdr2`, the counter's
-old value `80` (the first TCB's eighty bytes). -/
-def tcb2Q (g : Ret0.AllocTcb.G) (c0 : Ctl) : TcbGG := ⟨g, hdr2, 80#64, c0⟩
+old value `112` (the first TCB's 112 bytes). -/
+def tcb2Q (g : Ret0.AllocTcb.G) (c0 : Ctl) : TcbGG := ⟨g, hdr2, 112#64, c0⟩
 
-/-- `tcb2Q`'s header word: `pinned + 96`. -/
+/-- `tcb2Q`'s header word: `pinned + 128`. -/
 theorem tcb2Q_hdrA (lab : Label → Int64) (g : Ret0.AllocTcb.G) (c0 : Ctl) :
-    hdrA lab (tcb2Q g c0) = Ret0.pinA lab + 96#64 := by
-  show Ret0.pinA lab + 80#64 + mOf hdr2 <<< 3 = _
+    hdrA lab (tcb2Q g c0) = Ret0.pinA lab + 128#64 := by
+  show Ret0.pinA lab + 112#64 + mOf hdr2 <<< 3 = _
   rw [mOf_hdr2, BitVec.add_assoc]; rfl
 
-/-- **`tcb2Q`'s TCB**: `pinned + 104`. -/
+/-- **`tcb2Q`'s TCB**: `pinned + 136`. -/
 theorem tcb2Q_tcbOf (lab : Label → Int64) (g : Ret0.AllocTcb.G) (c0 : Ctl) :
-    tcbOf lab (tcb2Q g c0) = Ret0.pinA lab + 104#64 := by
+    tcbOf lab (tcb2Q g c0) = Ret0.pinA lab + 136#64 := by
   show hdrA lab (tcb2Q g c0) + 8#64 = _
   rw [tcb2Q_hdrA, BitVec.add_assoc]; rfl
 

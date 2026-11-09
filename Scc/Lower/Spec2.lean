@@ -525,14 +525,92 @@ def setupArgOk2 (p : Prog) : Bool :=
   | some _ => p.all fun d => d.name != "main" || mainArgOk d
   | none => true
 
-/-- **The fragment `Accepted2`** (see the module docstring): distinct block
-names, one of them `main`, every block `decl2` in program order, the setup
-block present when `main` takes its result, coherent immediates, layouts
-that agree with the walk, no refined products, calls and returns that
-agree with the walk, every locative paired with its buffer's count, and
-`main` not reading its thread word. -/
+/-! ## Bounded blocks
+
+As `blocksOk1` (`Scc/Lower/Spec1.lean`), on the IR function a compiled
+block lowers to without the depth counter (`lowerC2`, `func2`): block
+`entry` from the body after the moves of its parameter words (the
+argument's runtime words, `Obj.valWords`), and one block per arm of each
+`if`, each up to the next `if` or `ret`. The weights are
+`Scc.IR.instWeight`'s and `Scc.IR.termWeight`'s of what each construct
+lowers to (`lowerC2`, on which `accepted2_lowerC2` puts every compiled
+block of an `Accepted2` program):
+
+* the constructs without code (`let`s of an atom, `nameI`, a pair, `pack`,
+  `asLanes`; `split`, `unpack`): nothing;
+* `+`, `-`: 1 unit each;
+* a call of a block: `call [r] g [w]`, 3 units. An ordinary callee
+  (`callee2`: declared earlier, not `main`, not reserved, so neither the
+  setup block nor the extern) is `plain2`, `Int` to `Int`, so the call has
+  one argument and one result word (`lowerC2` lowers no other call);
+* the extern call (`print` in a program with the extern, `printInsts`):
+  `ext`, `add`, `mul`, a `select` (2) and `call [] print [s, k]` (3),
+  8 units;
+* `newBuf` (constant count): its allocation call `call [p] alloc [h, k, u]`,
+  5 units;
+* `xchg b[i] v`: its load and store, 2 units;
+* an `if`: its `br`, 1 unit;
+* `ret a`: a `ret` of the block's result words (`rw`, the result type's
+  runtime words, `Obj.valWords`), `1 + rw` units. -/
+
+/-- **The weight of the block starting at `e`**, up to its first `if` or
+`ret`, for a block of `rw` result words in a program with the extern or not
+(`ext`; see the section docstring). The catch-all `| _ => 0` (and the
+`let`s weighed 0) are sound only because `blocksOk2` is conjoined in
+`Accepted2` with `decls2`/`decl2` (`body2`), which reject every construct
+not listed in the section docstring: on an `Accepted2` body no other
+construct reaches them. -/
+def openW2 (ext : Bool) (rw : Nat) : Expr → Nat
+  | .let_ _ (.add _ _) e => openW2 ext rw e + 1
+  | .let_ _ (.sub _ _) e => openW2 ext rw e + 1
+  | .let_ _ (.call g ..) e => openW2 ext rw e + (if ext && g == "print" then 8 else 3)
+  | .let_ _ (.newBuf ..) e => openW2 ext rw e + 5
+  | .let_ _ (.xchgAt ..) e => openW2 ext rw e + 2
+  | .let_ _ _ e => openW2 ext rw e
+  | .split _ _ _ e => openW2 ext rw e
+  | .unpack _ _ _ e => openW2 ext rw e
+  | .ifeq .. => 1
+  | .ret _ => 1 + rw
+  | _ => 0
+
+/-- **The heaviest block started inside `e`**: by an arm of an `if` of
+`e` (`openW2` of the arm), `0` if there is none. -/
+def armsW2 (ext : Bool) (rw : Nat) : Expr → Nat
+  | .let_ _ _ e => armsW2 ext rw e
+  | .split _ _ _ e => armsW2 ext rw e
+  | .unpack _ _ _ e => armsW2 ext rw e
+  | .ifeq _ _ y n =>
+      max (max (openW2 ext rw y) (armsW2 ext rw y)) (max (openW2 ext rw n) (armsW2 ext rw n))
+  | _ => 0
+
+/-- **Bounded blocks**: for every compiled block (not the extern or its
+loop, which scc does not compile), its first block with its parameter words,
+and every other block, within `Scc.IR.maxBlockLen`; its parameter and result
+words are its argument and result types' runtime words (`Obj.valWords`, as
+`lowerDeclMarks`). The defaults `(Obj.valWords ty).getD 0` (and `openW2`'s
+catch-all) are sound only because `blocksOk2` is conjoined in `Accepted2`
+with `decls2`/`decl2`, which reject every other construct and fix each
+compiled block's argument and result types (`plain2`, `main2`, `setup2`):
+a default is never what a lowered block's bound depends on, since
+`lowerDeclMarks` fails, producing no IR, on a type without runtime words
+(`Obj.valWords … = none`). The exemption of `printL` (with the extern) is
+the extern's loop only: `decl2` requires it to be `printLoopD` textually, so
+`Frontend.externOf` names it the extern, it is in `Frontend.externs`, and
+`lowerProgram` does not compile it. -/
+def blocksOk2 (p : Prog) : Bool :=
+  p.all fun d => isPrintExt d || (hasPrint p && d.name == "printL") ||
+    (decide ((Scc.Obj.valWords d.argTy).getD 0 +
+        openW2 (hasPrint p) ((Scc.Obj.valWords d.retTy).getD 0) d.body ≤ Scc.IR.maxBlockLen) &&
+      decide (armsW2 (hasPrint p) ((Scc.Obj.valWords d.retTy).getD 0) d.body ≤ Scc.IR.maxBlockLen))
+
+/-- **The fragment `Accepted2`** (see the module docstring): bounded blocks
+(`blocksOk2`), distinct block names, one of them `main`, every block
+`decl2` in program order, the setup block present when `main` takes its
+result, coherent immediates, layouts that agree with the walk, no refined
+products, calls and returns that agree with the walk, every locative paired
+with its buffer's count, and `main` not reading its thread word. -/
 def Accepted2 (p : Prog) : Bool :=
-  (p.map (·.name)).Nodup && p.any (·.name == "main") && decls2 [] (setupOf p) (hasPrint p) p &&
+  blocksOk2 p && (p.map (·.name)).Nodup && p.any (·.name == "main") && decls2 [] (setupOf p) (hasPrint p) p &&
     setupPresent p && immsCoherent2 p && layoutOk2 p && refOk2 p && callsOk2 p &&
     countsOk2 p && setupArgOk2 p
 
@@ -944,6 +1022,44 @@ it. -/
 theorem setupArgOk2_of_decls1 {p : Prog} (h : decls1 [] p = true) : setupArgOk2 p = true := by
   simp [setupArgOk2, setupOf_none h]
 
+/-- On an `Accepted1` body, of an `Int`, without the extern, `openW2` and
+`armsW2` are `openW1` and `armsW1`. -/
+theorem openW2_of_body1 (E : List String) (e : Expr) :
+    ∀ scope, body1 E scope e = true → openW2 false 1 e = openW1 e ∧ armsW2 false 1 e = armsW1 e := by
+  induction e with
+  | let_ x op e ih =>
+    intro scope h
+    cases op <;> simp only [body1, Bool.and_eq_true, Bool.false_eq_true] at h
+    all_goals
+      obtain ⟨ho, ha⟩ := ih _ h.2
+      simp [openW2, openW1, armsW2, armsW1, ho, ha]
+  | ifeq a b y n ihy ihn =>
+    intro scope h
+    simp only [body1, Bool.and_eq_true] at h
+    obtain ⟨hoy, hay⟩ := ihy _ h.1.2
+    obtain ⟨hon, han⟩ := ihn _ h.2
+    simp [openW2, openW1, armsW2, armsW1, hoy, hay, hon, han]
+  | ret a => intro _ _; simp [openW2, openW1, armsW2, armsW1]
+  | _ => intro _ h; simp [body1] at h
+
+/-- `blocksOk1` is `blocksOk2` on an `Accepted1` program: no extern, every
+block takes `Unit` or `Int` and returns one word. -/
+theorem blocksOk2_of_blocksOk1 {p : Prog} (hds : decls1 [] p = true) (h : blocksOk1 p = true) :
+    blocksOk2 p = true := by
+  simp only [blocksOk1, blocksOk2, hasPrint_false hds, List.all_eq_true, Bool.and_eq_true,
+    decide_eq_true_eq, Bool.false_and, Bool.or_false, Bool.or_eq_true] at h ⊢
+  intro d hd
+  obtain ⟨E, hE⟩ := decl1_of_decls1 hds d hd
+  have hE' := hE
+  simp only [decl1, Bool.and_eq_true, beq_iff_eq] at hE'
+  obtain ⟨⟨⟨-, hr⟩, -⟩, hb⟩ := hE'
+  obtain ⟨ho, ha⟩ := openW2_of_body1 E d.body _ hb
+  right
+  have hw := h d hd
+  rw [hr]
+  rcases decl1_argTy' hE with ha' | ha' <;>
+    simpa [ha', params1, Scc.Obj.valWords, Scc.Obj.slots, ho, ha] using hw
+
 /-- **Every `Accepted1` program is in `Accepted2`**: its blocks take `Unit`
 or `Int`, so it has neither a setup block nor the extern, and `body2`,
 `termKey2` and `litWalk2` agree with `body1`, `termKey` and `litWalk` on
@@ -951,7 +1067,7 @@ its bodies, which have no `pack` or `asLanes` for `layoutOk2` to check. -/
 theorem accepted2_of_accepted1 {p : Prog} (h : Accepted1 p = true) : Accepted2 p = true := by
   have h1 := h
   simp only [Accepted1, Bool.and_eq_true] at h
-  obtain ⟨⟨⟨hnd, hm⟩, hds⟩, hc⟩ := h
+  obtain ⟨⟨⟨⟨hb1, hnd⟩, hm⟩, hds⟩, hc⟩ := h
   obtain ⟨hw, hk⟩ := litWalks2_of_decls1 hds
   have hc2 : immsCoherent2 p = true := by
     simp only [immsCoherent, List.all_eq_true] at hc
@@ -971,7 +1087,7 @@ theorem accepted2_of_accepted1 {p : Prog} (h : Accepted1 p = true) : Accepted2 p
       rw [hn] at this
       rw [imms2Of_eq_imms1Of h1 (hk q hq)]; exact this
     · rfl
-  simp only [Accepted2, hnd, hm, setupOf_none hds, hasPrint_false hds, decls2_of_decls1 hds, setupPresent,
+  simp only [Accepted2, blocksOk2_of_blocksOk1 hds hb1, hnd, hm, setupOf_none hds, hasPrint_false hds, decls2_of_decls1 hds, setupPresent,
     hc2, layoutOk2_of_decls1 hds, refOk2_of_decls1 hds, callsOk2_of_decls1 hds,
     countsOk2_of_decls1 hds, setupArgOk2_of_decls1 hds, Bool.and_self]
 

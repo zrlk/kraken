@@ -82,7 +82,7 @@ theorem mainInstH_GX {lbl : WeakMem.AllocLabel → Option Nat} {lsize : WeakMem.
         (WakePh.tcbM (Ly)) (WakePh.tcbM (Ly)) (tcbWH (Ly)))
       m0 Rm tp w := by
   have htpM : tp = WakePh.tcbM (Ly) := htp.trans (by rw [BitVec.add_zero])
-  have hpin := X64HelloOwnLift.pin_room120_ofPlaceWX hp i
+  have hpin := X64HelloOwnLift.pin_room152_ofPlaceWX hp i
   refine ⟨?_, ?_, ?_, ?_, X64HelloMainInstD.htp4_IH hp i htp, fun s c h hX =>
     X64HelloMainInstD.hexit_IH (G := WakeG.wakeG (X64HelloGOf2H.GOf2H (Ly) (m0Of (Ly).Λ o.prog o.secs)) cT)
       (lsize := lsize) s c h hX⟩

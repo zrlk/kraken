@@ -90,18 +90,22 @@ theorem blkW_abSt_k2 {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okP
         ∃ cc, classify blk[k].1 = some (.jcc cc L)) → PosOff cells lab (lab L)) :
     BlkW (fun s _ => AbSt μ (Ab lab) s) (fun _ _ => False) exe endPc R F n blk := by
   have hcd' := hcd
-  obtain ⟨pc0, pre, post, ⟨⟨-, L0, j, off, -, hpc0, hb, hrun⟩, -⟩, hpc⟩ := hcd'
+  obtain ⟨pc0, pre, post, ⟨hc0, -⟩, hpc⟩ := hcd'
+  obtain ⟨-, hat, hrun⟩ := CdCQ.sub hc0 hpc
   have hok : okBlk (-(fr.size : Int)) 16 n.o blk = true := hno ▸ okBlk_kind2 hf h1 hk
-  have hc : cellOff (pre ++ blk ++ post) pre.length = (pre.map (·.2)).sum := by
-    simp [cellOff]
-  have hph := Scc.Cert.Ph1X64.blkPh_of_runPhB hrun (classify_of_okBlk hok)
-  rw [hc, ← hpc] at hph
-  have hpc' : lab L0 + Int64.ofNat (off + (pre.map (·.2)).sum) = n.pc := by
-    rw [hpc, ← hpc0, Int64.ofNat_add, Int64.add_assoc]
-  have hcode : ∀ s : State, s.exe = exe → s.endPc = endPc → CodeAt s n.pc blk := by
-    intro s hs hn
-    have := Scc.Cert.Rt.X64.codeAt_blockAt_lays hI.lays hs (hn.trans hI.endOk) (blockAt_sub hb)
+  have hph := Scc.Cert.Ph1X64.blkPh_of_runPhB (xs := []) (zs := []) (by simpa using hrun)
+    (classify_of_okBlk hok)
+  simp only [List.nil_append, List.append_nil, List.length_nil] at hph
+  rw [show cellOff blk 0 = 0 by simp [cellOff], show Int64.ofNat 0 = 0 from rfl, Int64.add_zero] at hph
+  have hA1 : ∀ pc b, At1Q (fun L => L ∉ Spike.Lib.X64.AllocG.abLabs ∧ WcL L) cells lab pc b →
+      ∀ s : State, s.exe = exe → s.endPc = endPc → CodeAt s pc b := by
+    rintro _ _ ⟨L, j, off, -, hpc', hb⟩ s hs hn
+    have := Scc.Cert.Rt.X64.codeAt_blockAt_lays hI.lays hs (hn.trans hI.endOk) hb
     rwa [hI.labOk, hpc'] at this
+  have hcode : ∀ s : State, s.exe = exe → s.endPc = endPc → CodeAt s n.pc blk := by
+    rcases hat with h | ⟨b1, b2, rfl, ha1, ha2⟩
+    · exact hA1 _ _ h
+    · exact fun s hs hn => Spike.Lib.X64.CodeAt.append (hA1 _ _ ha1 s hs hn) (hA1 _ _ ha2 s hs hn)
   refine blkW_abSt_posR hI hpr habt hcode hok hR hlo (by omega) hph (hret_kind2 hf h1 hno hfj hk) ?_
   intro σ c hJ k hkl a ha t ht
   refine .inl ?_
@@ -157,13 +161,17 @@ theorem blkW_w2K2 {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc p
     BlkW (fun s c => W2 Λ μ p rd G own rS Tk ar J Dt Ab' lbl lsize s c fs) K exe endPc R F n blk := by
   have hS := blkW_sfacts_k2 (lbl := lbl) hI hf h1 hR hR8 hlo hhi hl hh hsub hfit hFO hno hfj hk hcd
   have hok : okBlk (-(fr.size : Int)) 16 n.o blk = true := hno ▸ okBlk_kind2 hf h1 hk
-  obtain ⟨pc0, pre, post, ⟨-, L0, j, off, hpc0, hb, -⟩, hpc⟩ := hcd
-  have hpc' : lab L0 + Int64.ofNat (off + (pre.map (·.2)).sum) = n.pc := by
-    rw [hpc, ← hpc0, Int64.ofNat_add, Int64.add_assoc]
-  have hcode : ∀ s : State, s.exe = exe → s.endPc = endPc → CodeAt s n.pc blk := by
-    intro s hs hn
-    have := Scc.Cert.Rt.X64.codeAt_blockAt_lays hI.lays hs (hn.trans hI.endOk) (blockAt_sub hb)
+  obtain ⟨pc0, pre, post, hc0, hpc⟩ := hcd
+  obtain ⟨-, hat, -⟩ := CdCQ.sub hc0 hpc
+  have hA1 : ∀ pc b, At1Q (fun _ => True) cells lab pc b →
+      ∀ s : State, s.exe = exe → s.endPc = endPc → CodeAt s pc b := by
+    rintro _ _ ⟨L, j, off, -, hpc', hb⟩ s hs hn
+    have := Scc.Cert.Rt.X64.codeAt_blockAt_lays hI.lays hs (hn.trans hI.endOk) hb
     rwa [hI.labOk, hpc'] at this
+  have hcode : ∀ s : State, s.exe = exe → s.endPc = endPc → CodeAt s n.pc blk := by
+    rcases hat with h | ⟨b1, b2, rfl, ha1, ha2⟩
+    · exact hA1 _ _ h
+    · exact fun s hs hn => Spike.Lib.X64.CodeAt.append (hA1 _ _ ha1 s hs hn) (hA1 _ _ ha2 s hs hn)
   have hW : BlkW (fun s _ => ∀ L, ¬ WrAt s L) (fun _ _ => False) exe endPc R F n blk :=
     blkW_noWr' hcode hok hR hlo (by omega)
   have hWN : BlkW (fun s _ => (∀ L, ¬ WrAt s L) ∧ abi.atSys s = false) (fun _ _ => False) exe endPc R F n blk :=

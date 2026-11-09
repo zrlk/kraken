@@ -132,7 +132,9 @@ theorem allocNoSys (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp)
   · sblk h27 bO8_ok
   · ssi h28
   · sblk h29 bO9_ok
-  · ssi h30
+  · exact nodeW_noSys1 hI h30.2 (by
+      rw [Spike.Lib.X64.Flow.ofNat_zero']; show lab _ = lab _ + Int64.ofNat 226
+      rw [← hI.labOk]; exact Scc.Cert.Rt.X64.label_labelGapB hI.lays h30.1) (fun _ _ h => by cases h)
 
 omit [Kraken.Executable.ValidLayout exe] in
 /-- **At the call's control or its hold**, for a call `q` with its premises

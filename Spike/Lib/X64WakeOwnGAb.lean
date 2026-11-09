@@ -114,26 +114,26 @@ theorem not_spPool_of_band {R : Region} (hb : BandOut L R) (h : SpAt R (-32) 8 s
 
 /-- The two return addresses on the path differ. -/
 theorem ra_ne (hlab : ∀ l x, codeLabel lo wakeCells l = some x → L.lab l = Int64.ofNat x) :
-    (L.lab ".Lscc_rt_alloc_tcb.x5").toBitVec ≠ (L.lab ".Lwc_main.x23").toBitVec := by
-  rw [hlab _ 4199245 (by rw [← codeT_eq]; decide +kernel), hlab _ 4203484 (by rw [← codeT_eq]; decide +kernel)]
+    (L.lab ".Lscc_rt_alloc_tcb.x0").toBitVec ≠ (L.lab ".Lwc_main.x5").toBitVec := by
+  rw [hlab _ 4199245 (by rw [← codeT_eq]; decide +kernel), hlab _ 4203522 (by rw [← codeT_eq]; decide +kernel)]
   decide
 
 /-- **`ownG` picks `own2a` on the path** from `scc_rt_alloc_tcb`'s abort on a
 pool stack. -/
-theorem good2a_ab {R : Region} (h : AbP L R (L.lab ".Lscc_rt_alloc_tcb.x5").toBitVec s) (hb : BandIn L R) :
+theorem good2a_ab {R : Region} (h : AbP L R (L.lab ".Lscc_rt_alloc_tcb.x0").toBitVec s) (hb : BandIn L R) :
     Good2a L s :=
   .inr (.inr ⟨h.1, (raAt_iff h _).2 rfl, spPool_of_band hb h.2.2.2⟩)
 
 /-- **`ownG` picks `own2b` on the path** from `wc_main`'s spawn failure. -/
 theorem good2b_ab (hlab : ∀ l x, codeLabel lo wakeCells l = some x → L.lab l = Int64.ofNat x) {R : Region}
-    (h : AbP L R (L.lab ".Lwc_main.x23").toBitVec s) : Good2b L s :=
+    (h : AbP L R (L.lab ".Lwc_main.x5").toBitVec s) : Good2b L s :=
   .inr (.inr ⟨h.1, (raAt_iff h _).2 rfl, fun ⟨hx, _⟩ => ra_ne hlab ((raAt_iff h _).1 hx)⟩)
 
 /-- **`ownG` picks `ownW` on the path** from any other caller, or from
 `scc_rt_alloc_tcb`'s abort off the pool stacks. -/
 theorem goodW_ab {R : Region} {ra : BitVec 64} (h : AbP L R ra s)
-    (h5 : ra = (L.lab ".Lscc_rt_alloc_tcb.x5").toBitVec → BandOut L R)
-    (h23 : ra ≠ (L.lab ".Lwc_main.x23").toBitVec) : GoodW L s := by
+    (h5 : ra = (L.lab ".Lscc_rt_alloc_tcb.x0").toBitVec → BandOut L R)
+    (h23 : ra ≠ (L.lab ".Lwc_main.x5").toBitVec) : GoodW L s := by
   refine .inr (.inl ⟨h.1, fun ⟨hx, hp⟩ => ?_, fun hx => h23 ((raAt_iff h _).1 hx).symm⟩)
   exact not_spPool_of_band (h5 ((raAt_iff h _).1 hx).symm) h.2.2.2 hp
 

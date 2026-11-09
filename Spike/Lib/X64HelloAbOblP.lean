@@ -54,7 +54,7 @@ def okPcH (p : Nat) : Bool :=
 
 /-- The labels `printPhOk` and `abPcs` read, `abPtsA`'s and `wc_worker`'s return label `.x17`. -/
 def printPLabs : List String :=
-  Spike.Lib.X64.PrintG.printLabs ++ Spike.Lib.X64.AllocG.abLabs ++ abPtsA.map Prod.fst ++ [".Lwc_worker.x17"]
+  Spike.Lib.X64.PrintG.printLabs ++ Spike.Lib.X64.AllocG.abLabs ++ abPtsA.map Prod.fst ++ [".Lwc_worker.x0"]
 
 theorem printPLabs_chk :
     printPLabs.all (fun x => (codeLabel Spike.Lib.X64.HelloPh.lo helloCells x).isSome) = true := by
@@ -76,7 +76,7 @@ theorem printRuns_chk : runsNeChk helloCells printRuns abPtsA = true := by decid
 /-- `wc_worker`'s return address from `print` (`.x17`), off the write abort's pcs. -/
 theorem wcRet_chk :
     !(Spike.Lib.X64.WriteAb.abPcs (labC Spike.Lib.X64.HelloPh.lo helloCells)).contains
-      (labC Spike.Lib.X64.HelloPh.lo helloCells ".Lwc_worker.x17") = true := by
+      (labC Spike.Lib.X64.HelloPh.lo helloCells ".Lwc_worker.x0") = true := by
   decide +kernel
 
 /-! ## A single cell's node -/

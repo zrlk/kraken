@@ -61,7 +61,7 @@ namespace Spike.Lib.X64.Flow.Ret0
 open CoreLang CoreTerm
 open Kraken Kraken.Promising Kraken.Promising.X64 Kraken.Promising.Lower Kraken.Promising.Lower.X64
 open Kraken.X64.Parser Spike.Lib.X64
-open Scc.Cert.Rt.X64 (Lays endOf blockAtB labelGapB code_field label_labelGapB)
+open Scc.Cert.Rt.X64 (Lays endOf blockAtB labelGapB code_field label_labelGapB blockAcrossB)
 
 set_option linter.unusedSimpArgs false
 
@@ -203,7 +203,7 @@ block_spec mainCall (-48) 0 oM mainCall
 /-- **`scc_rt_main`'s call in `cells`**: `call wc_main` at `.entry`, `.x2`
 right after it. -/
 def mainIn (cells : List (Directive × Nat)) : Bool :=
-  blockAtB cells ".Lscc_rt_main.entry" 0 mainCall && labelGapB cells ".Lscc_rt_main.entry" ".Lscc_rt_main.x2" 5
+  blockAtB cells ".Lscc_rt_main.entry" 0 mainCall && labelGapB cells ".Lscc_rt_main.entry" ".Lscc_rt_main.x0" 5
 
 theorem ret0_mainIn : mainIn SccCode.ret0Cells = true := by decide +kernel
 
@@ -229,16 +229,16 @@ def mainN1 (g : MainG) : ND := ⟨lab ".Lscc_rt_main.entry", oM, fun σ c =>
 /-- The call node: at `wc_main`'s label, the return address `.x2` pushed. -/
 def mainNC (g : MainG) : ND := ⟨lab "wc_main", ⟨-48, []⟩, fun σ c =>
   (c = g.c0 ∧ σ.regs.rsp.toBitVec = g.sp0 - 8#64 - (32 : Int64).toBitVec - 8#64 ∧ σ.regs.fsBase = g.tp) ∧
-    σ.slot (-48) = (lab ".Lscc_rt_main.x2").toBitVec ∧
+    σ.slot (-48) = (lab ".Lscc_rt_main.x0").toBitVec ∧
     σ.regs.get64 .rbp = σ.regs.get64 .rsp + BitVec.ofInt 64 (-8 - -48)⟩
 
 /-- Back from `wc_main`, at `.x2`: `%rbp` at the saved `%rbp`, `%rax = 42`. -/
-def mainNR (g : MainG) : ND := ⟨lab ".Lscc_rt_main.x2", ⟨-40, []⟩, fun σ c =>
+def mainNR (g : MainG) : ND := ⟨lab ".Lscc_rt_main.x0", ⟨-40, []⟩, fun σ c =>
   c = g.c0 ∧ σ.regs.get64 .rbp = σ.regs.get64 .rsp + BitVec.ofInt 64 (-8 - -40) ∧ σ.regs.rax.toBitVec = 42#64⟩
 
 /-- The `exit_group` call of `scc_rt_main`'s tail (after its block of
 three): `main`'s result `42` in `%rdi`, the status. -/
-def mainNX : ND := ⟨lab ".Lscc_rt_main.x2" + Int64.ofNat 4 + Int64.ofNat 4 + Int64.ofNat 5, ⟨-40, [(.rbp, -8)]⟩,
+def mainNX : ND := ⟨lab ".Lscc_rt_main.x0" + Int64.ofNat 4 + Int64.ofNat 4 + Int64.ofNat 5, ⟨-40, [(.rbp, -8)]⟩,
   fun σ _ => σ.regs.rdi.toBitVec = 42#64⟩
 
 end Main
@@ -272,7 +272,7 @@ theorem main_seg (hp : Lays exe SccCode.ret0Cells) (hend : endPc = endOf exe Scc
     (by show SO.le oM (oF 32) = true; decide) ?_)
     (Seg.seq (Q := At exe endPc R F (mainNC lab g)) ?_
       (Seg.seq (Q := At exe endPc R F (mainNR lab g)) ?_
-        ((ret0_main_exit_seg hp hend (n := ⟨lab ".Lscc_rt_main.x2", ⟨-40, [(.rbp, -8)]⟩, (mainNR lab g).J⟩)
+        ((ret0_main_exit_seg hp hend (n := ⟨lab ".Lscc_rt_main.x0", ⟨-40, [(.rbp, -8)]⟩, (mainNR lab g).J⟩)
             rfl rfl hK hF hR hlo40 hhi fun s c σ0 hJ0 hs => ?_).mono_pre
           fun _ _ h => At.rbp h fun _ _ h => h.2.1)))
   · -- the prologue
@@ -295,7 +295,7 @@ theorem main_seg (hp : Lays exe SccCode.ret0Cells) (hend : endPc = endOf exe Scc
       · simp [Reg64s.set64, hsp]
       · simp [Reg64s.set64, htp]
       · simp only [upd_apply, ↓reduceIte]
-        rw [show lab ".Lscc_rt_main.x2" = _ from ex2]; rfl
+        rw [show lab ".Lscc_rt_main.x0" = _ from ex2]; rfl
       · simp only [Reg64s.get64, Reg64s.set64] at hb ⊢; rw [hb]; bv_omega
   · -- the call
     refine seg_one (call_nd_F (e0 := 0) (lo' := -24) (hi' := 8) (Ne := wcN0 ms F lab) (Ex := fun g _ => wcNx g)
@@ -314,7 +314,7 @@ theorem main_seg (hp : Lays exe SccCode.ret0Cells) (hend : endPc = endOf exe Scc
         - - -
       refine .inl ⟨(), ?_, by show SO.le ⟨-40, []⟩ ⟨-48 - 0 + 8, []⟩ = true; decide, hc'.trans hc.symm, ?_,
         by rw [hregs]; exact h42⟩
-      · show lab ".Lscc_rt_main.x2" = Int64.ofBitVec g'.ra
+      · show lab ".Lscc_rt_main.x0" = Int64.ofBitVec g'.ra
         rw [← hra]
         show lab _ = Int64.ofBitVec (σC.slot (-48 - 0 + 0))
         rw [show (-48 : Int) - 0 + 0 = -48 by decide, h48, int64_ofBitVec_toBitVec]
@@ -396,10 +396,10 @@ def tcbN : TN → ND
   | .len => ⟨lab lenL, oI, fun σ c => c = q.c0 ∧ Fr q.g (s0 q.g) σ⟩
   | .shr1 => ⟨lab lenL + Int64.ofNat 11, oI, fun σ c => c = q.c0 ∧ Fr q.g (s0 q.g) σ ∧
       σ.regs.rax.toBitVec = hdr0 ∧ σ.regs.rcx.toBitVec = 8#64⟩
-  | .l1 => ⟨lab lenL + Int64.ofNat 14, oI, fun σ c => c = q.c0 ∧ Fr q.g (s0 q.g) σ ∧ σ.regs.rax.toBitVec = 9#64⟩
+  | .l1 => ⟨lab lenL + Int64.ofNat 14, oI, fun σ c => c = q.c0 ∧ Fr q.g (s0 q.g) σ ∧ σ.regs.rax.toBitVec = 13#64⟩
   | .and1 => ⟨lab lenL + Int64.ofNat 29, oI, fun σ c => c = q.c0 ∧ Fr q.g (s0 q.g) σ ∧
-      σ.regs.rax.toBitVec = 9#64 ∧ σ.regs.rcx.toBitVec = 16383#64⟩
-  | .l2 => ⟨lab lenL + Int64.ofNat 32, oI, fun σ c => c = q.c0 ∧ Fr q.g (s0 q.g) σ ∧ σ.regs.rax.toBitVec = 9#64⟩
+      σ.regs.rax.toBitVec = 13#64 ∧ σ.regs.rcx.toBitVec = 16383#64⟩
+  | .l2 => ⟨lab lenL + Int64.ofNat 32, oI, fun σ c => c = q.c0 ∧ Fr q.g (s0 q.g) σ ∧ σ.regs.rax.toBitVec = 13#64⟩
   | .shr2 => ⟨lab lenL + Int64.ofNat 47, oI, fun σ c => c = q.c0 ∧ Fr q.g (sA q.g) σ ∧
       σ.regs.rax.toBitVec = hdr0 ∧ σ.regs.rcx.toBitVec = 22#64⟩
   | .l3 => ⟨lab lenL + Int64.ofNat 50, oI, fun σ c => c = q.c0 ∧ Fr q.g (sA q.g) σ ∧ σ.regs.rax.toBitVec = 0#64⟩
@@ -407,10 +407,10 @@ def tcbN : TN → ND
       σ.regs.rax.toBitVec = 0#64 ∧ σ.regs.rcx.toBitVec = 16383#64⟩
   | .l4 => ⟨lab lenL + Int64.ofNat 68, oI, fun σ c => c = q.c0 ∧ Fr q.g (sA q.g) σ ∧ σ.regs.rax.toBitVec = 0#64⟩
   | .imul1 => ⟨lab lenL + Int64.ofNat 95, oI, fun σ c => c = q.c0 ∧ Fr q.g (s1 q.g) σ ∧
-      σ.regs.rax.toBitVec = 1#64 ∧ σ.regs.rcx.toBitVec = 9#64⟩
-  | .l5 => ⟨lab lenL + Int64.ofNat 99, oI, fun σ c => c = q.c0 ∧ Fr q.g (s1 q.g) σ ∧ σ.regs.rax.toBitVec = 9#64⟩
+      σ.regs.rax.toBitVec = 1#64 ∧ σ.regs.rcx.toBitVec = 13#64⟩
+  | .l5 => ⟨lab lenL + Int64.ofNat 99, oI, fun σ c => c = q.c0 ∧ Fr q.g (s1 q.g) σ ∧ σ.regs.rax.toBitVec = 13#64⟩
   | .shl1 => ⟨lab lenL + Int64.ofNat 132, oI, fun σ c => c = q.c0 ∧ Fr q.g (s1 q.g) σ ∧
-      σ.regs.rax.toBitVec = 10#64 ∧ σ.regs.rcx.toBitVec = 3#64⟩
+      σ.regs.rax.toBitVec = 14#64 ∧ σ.regs.rcx.toBitVec = 3#64⟩
   | .l6 => ⟨lab lenL + Int64.ofNat 135, oI, fun σ c => c = q.c0 ∧ Fr q.g (s1 q.g) σ ∧
       σ.regs.rax.toBitVec = tcbLen⟩
   | .lea1 => ⟨lab lenL + Int64.ofNat 139, oI, fun σ c => c = q.c0 ∧ Fr q.g (s2 q.g) σ⟩
@@ -519,6 +519,15 @@ set_option hygiene false in
 local macro "tnode " b:ident ok:ident l:term:max k:term:max : tactic =>
   `(tactic| refine seg_nd (by simp [$b:ident]) $ok hF hR hlo hhi
     (code_field hp hend (by simp only [hin']) (l := $l) (off := $k) (by first | rfl | exact ofNat_zero' _))
+      fun σ c hJ => ⟨c, .refl c, ?_⟩)
+
+set_option hygiene false in
+/-- `tnode` for a block split by its return label `r` after `n` instructions
+(`blockAcrossB`, `Spike.Lib.X64.code_field_blockAcrossB`). -/
+local macro "tnodeA " b:ident ok:ident l:term:max k:term:max n:term:max r:term:max : tactic =>
+  `(tactic| refine seg_nd (by simp [$b:ident]) $ok hF hR hlo hhi
+    (Spike.Lib.X64.code_field_blockAcrossB hp hend (by simp only [hin']) (l := $l) (m := $r) (off := $k)
+      (List.take_append_drop $n _) (by first | rfl | exact ofNat_zero' _))
       fun σ c hJ => ⟨c, .refl c, ?_⟩)
 
 set_option hygiene false in
@@ -734,7 +743,7 @@ theorem alloc_tcb_seg (hp : Lays exe SccCode.ret0Cells) (hend : endPc = endOf ex
     exact ⟨hhdr.rt, hhdr.mp, hhdr.G, hhdr.unmapped m (hFF m hD), q.c0,
       .refl q.c0, .inl ⟨TN.ret, ofNat_add' _ 140 3, rfl, rfl, hJ⟩⟩
   case ret =>
-    tnode AllocTcb.atRet AllocTcb.atRet_ok AllocTcb.okL 143
+    tnodeA AllocTcb.atRet AllocTcb.atRet_ok AllocTcb.okL 143 11 AllocTcb.retL
     dsimp only [tcbN, tcbX] at hJ ⊢
     obtain ⟨rfl, hJ⟩ := hJ
     obtain ⟨h1, h2, h3⟩ := AllocTcb.atRet_walk (_root_.Executable.labels exe).label _ hJ
@@ -747,6 +756,15 @@ obligation; the edge is left. -/
 local macro "tnodeW " b:ident ok:ident l:term:max k:term:max w:term:max : tactic =>
   `(tactic| refine seg_ndW (by simp [$b:ident]) $ok hF hR hlo hhi
     (code_field hp hend (by simp only [hin']) (l := $l) (off := $k) (by first | rfl | exact ofNat_zero' _)) $w
+      fun σ c hJ => ⟨c, .refl c, ?_⟩)
+
+set_option hygiene false in
+/-- `tnodeW` for a block split by its return label `r` after `n` instructions
+(`blockAcrossB`, `Spike.Lib.X64.code_field_blockAcrossB`). -/
+local macro "tnodeWA " b:ident ok:ident l:term:max k:term:max n:term:max r:term:max w:term:max : tactic =>
+  `(tactic| refine seg_ndW (by simp [$b:ident]) $ok hF hR hlo hhi
+    (Spike.Lib.X64.code_field_blockAcrossB hp hend (by simp only [hin']) (l := $l) (m := $r) (off := $k)
+      (List.take_append_drop $n _) (by first | rfl | exact ofNat_zero' _)) $w
       fun σ c hJ => ⟨c, .refl c, ?_⟩)
 
 set_option hygiene false in
@@ -964,7 +982,7 @@ theorem alloc_tcb_segW {W : Frag isa} {K : State → State → Prop} (hp : Lays 
     exact ⟨hhdr.rt, hhdr.mp, hhdr.G, hhdr.unmapped m (hFF m hD), q.c0,
       .refl q.c0, .inl ⟨TN.ret, ofNat_add' _ 140 3, rfl, rfl, hJ⟩⟩
   case ret =>
-    tnodeW AllocTcb.atRet AllocTcb.atRet_ok AllocTcb.okL 143 (hW TN.ret)
+    tnodeWA AllocTcb.atRet AllocTcb.atRet_ok AllocTcb.okL 143 11 AllocTcb.retL (hW TN.ret)
     dsimp only [tcbN, tcbX] at hJ ⊢
     obtain ⟨rfl, hJ⟩ := hJ
     obtain ⟨h1, h2, h3⟩ := AllocTcb.atRet_walk (_root_.Executable.labels exe).label _ hJ
@@ -976,7 +994,7 @@ end TcbProof
 
 /-- `scc_rt_start`'s call of `scc_rt_alloc_tcb` with the header and `k = 1`. -/
 def startCall : List (Directive × Nat) := (parse("movq %rax, -16(%rbp)
-movq $2307, %rdi
+movq $3331, %rdi
 movq $1, %rsi
 call scc_rt_alloc_tcb")).zip [4, 7, 7, 5]
 
@@ -1410,6 +1428,15 @@ local macro "knode " b:ident ok:ident l:term:max k:term:max : tactic =>
       fun σ c hJ => ⟨c, .refl c, ?_⟩)
 
 set_option hygiene false in
+/-- `knode` for a block split by its return label `r` after `n` instructions
+(`blockAcrossB`, `Spike.Lib.X64.code_field_blockAcrossB`). -/
+local macro "knodeA " b:ident ok:ident l:term:max k:term:max n:term:max r:term:max : tactic =>
+  `(tactic| refine seg_nd (by simp [$b:ident]) $ok hF hR hlo hhi
+    (Spike.Lib.X64.code_field_blockAcrossB hp hend (by simp only [hin']) (l := $l) (m := $r) (off := $k)
+      (List.take_append_drop $n _) (by first | rfl | exact ofNat_zero' _))
+      fun σ c hJ => ⟨c, .refl c, ?_⟩)
+
+set_option hygiene false in
 /-- A node at a label's address into `%rax` at `l + k`, to node `j`; the
 invariant's facts are left. -/
 local macro "lnode " L:term:max l:term:max k:term:max j:term:max : tactic =>
@@ -1629,7 +1656,7 @@ theorem stack_take_seg (hp : Lays exe SccCode.ret0Cells) (hend : endPc = endOf e
     rw [nopBlk_run]
     exact .inl ⟨TK.ret, rfl, rfl, hJ.1, hJ.2.1⟩
   case ret =>
-    knode StackTake.stRet StackTake.stRet_ok StackTake.siteL 1
+    knodeA StackTake.stRet StackTake.stRet_ok StackTake.siteL 1 3 StackTake.retL
     dsimp only [takeN, takeX] at hJ ⊢
     obtain ⟨rfl, hJ⟩ := hJ
     obtain ⟨h1, h2, h3⟩ := StackTake.stRet_walk lab _ hJ
@@ -1641,6 +1668,15 @@ its code, its obligation; the edge is left. -/
 local macro "knodeW " b:ident ok:ident l:term:max k:term:max w:term:max : tactic =>
   `(tactic| refine seg_ndW (by simp [$b:ident]) $ok hFb hR hlo hhi
     (code_field hp hend (by simp only [hin']) (l := $l) (off := $k) (by first | rfl | exact ofNat_zero' _))
+      $w fun σ c hJ => ⟨c, .refl c, ?_⟩)
+
+set_option hygiene false in
+/-- `knodeW` for a block split by its return label `r` after `n` instructions
+(`blockAcrossB`, `Spike.Lib.X64.code_field_blockAcrossB`). -/
+local macro "knodeWA " b:ident ok:ident l:term:max k:term:max n:term:max r:term:max w:term:max : tactic =>
+  `(tactic| refine seg_ndW (by simp [$b:ident]) $ok hFb hR hlo hhi
+    (Spike.Lib.X64.code_field_blockAcrossB hp hend (by simp only [hin']) (l := $l) (m := $r) (off := $k)
+      (List.take_append_drop $n _) (by first | rfl | exact ofNat_zero' _))
       $w fun σ c hJ => ⟨c, .refl c, ?_⟩)
 
 set_option hygiene false in
@@ -2000,8 +2036,8 @@ theorem stack_take_segW {W : Frag isa} {rS : Scc.Sem.Range} (hp : Lays exe SccCo
     cases b
     · exact seg_falseW.mono_pre fun _ _ ⟨_, _, _, _, _, _, _, h, _⟩ => Bool.false_ne_true h
     refine seg_fixW true ?_
-    knodeW StackTake.stRet StackTake.stRet_ok StackTake.siteL 1 (blkW_mono (F := fun m => F m ∧ StackM rS m)
-      (F' := takeF F rS true) (hW TK.ret) fun m h => ⟨h.1, h.2 rfl⟩)
+    knodeWA StackTake.stRet StackTake.stRet_ok StackTake.siteL 1 3 StackTake.retL
+      (blkW_mono (F := fun m => F m ∧ StackM rS m) (F' := takeF F rS true) (hW TK.ret) fun m h => ⟨h.1, h.2 rfl⟩)
     dsimp only [takeNG, takeXG] at hJ ⊢
     obtain ⟨-, rfl, hJ⟩ := hJ
     obtain ⟨h1, h2, h3⟩ := StackTake.stRet_walk lab _ hJ
@@ -2098,6 +2134,15 @@ set_option hygiene false in
 local macro "inode " b:ident ok:ident l:term:max k:term:max : tactic =>
   `(tactic| refine seg_nd (by simp [$b:ident]) $ok hF hR (by omega) hhi
     (code_field hp hend (by simp only [hin']) (l := $l) (off := $k) (by first | rfl | exact ofNat_zero' _))
+      fun σ c hJ => ⟨c, .refl c, ?_⟩)
+
+set_option hygiene false in
+/-- `inode` for a block split by its return label `r` after `n` instructions
+(`blockAcrossB`, `Spike.Lib.X64.code_field_blockAcrossB`). -/
+local macro "inodeA " b:ident ok:ident l:term:max k:term:max n:term:max r:term:max : tactic =>
+  `(tactic| refine seg_nd (by simp [$b:ident]) $ok hF hR (by omega) hhi
+    (Spike.Lib.X64.code_field_blockAcrossB hp hend (by simp only [hin']) (l := $l) (m := $r) (off := $k)
+      (List.take_append_drop $n _) (by first | rfl | exact ofNat_zero' _))
       fun σ c hJ => ⟨c, .refl c, ?_⟩)
 
 set_option hygiene false in
@@ -2253,7 +2298,7 @@ theorem thread_init_seg (hp : Lays exe SccCode.ret0Cells) (hend : endPc = endOf 
     exact .inl ⟨TI.st5, by rw [h1]; exact ofNat_add' _ 105 8, by rw [h2]; rfl, rfl, h3, h4, h5⟩
   case st5 => snode 5 40 113 4 (tiBase (_root_.Executable.labels exe).label q + 16384#64) TI.ret
   case ret =>
-    inode ThreadInit.tiRet ThreadInit.tiRet_ok ThreadInit.x7L 117
+    inodeA ThreadInit.tiRet ThreadInit.tiRet_ok ThreadInit.x7L 117 3 ThreadInit.retL
     dsimp only [tiN, tiX] at hJ ⊢
     obtain ⟨rfl, hJ⟩ := hJ
     obtain ⟨h1, h2, h3⟩ := ThreadInit.tiRet_walk lab _ hJ
@@ -2382,6 +2427,15 @@ set_option hygiene false in
 local macro "inodeW " b:ident ok:ident l:term:max k:term:max w:term:max : tactic =>
   `(tactic| refine seg_ndW (by simp [$b:ident]) $ok hFb hR (by omega) hhi
     (code_field hp hend (by simp only [hin']) (l := $l) (off := $k) (by first | rfl | exact ofNat_zero' _))
+      $w fun σ c hJ => ⟨c, .refl c, ?_⟩)
+
+set_option hygiene false in
+/-- `inodeW` for a block split by its return label `r` after `n` instructions
+(`blockAcrossB`, `Spike.Lib.X64.code_field_blockAcrossB`). -/
+local macro "inodeWA " b:ident ok:ident l:term:max k:term:max n:term:max r:term:max w:term:max : tactic =>
+  `(tactic| refine seg_ndW (by simp [$b:ident]) $ok hFb hR (by omega) hhi
+    (Spike.Lib.X64.code_field_blockAcrossB hp hend (by simp only [hin']) (l := $l) (m := $r) (off := $k)
+      (List.take_append_drop $n _) (by first | rfl | exact ofNat_zero' _))
       $w fun σ c hJ => ⟨c, .refl c, ?_⟩)
 
 set_option hygiene false in
@@ -2617,7 +2671,7 @@ theorem thread_init_segW {W : Frag isa} {rS : Scc.Sem.Range} (hp : Lays exe SccC
       (nodeW_tiS (hW TI.st5))
   case ret =>
     refine seg_fixW b ?_
-    inodeW ThreadInit.tiRet ThreadInit.tiRet_ok ThreadInit.x7L 117 (blkW_tiS (hW TI.ret))
+    inodeWA ThreadInit.tiRet ThreadInit.tiRet_ok ThreadInit.x7L 117 3 ThreadInit.retL (blkW_tiS (hW TI.ret))
     dsimp only [tiNG, tiA, tiN, tiXG, tiX] at hJ ⊢
     obtain ⟨rfl, rfl, hJ⟩ := hJ
     obtain ⟨h1, h2, h3⟩ := ThreadInit.tiRet_walk lab _ hJ
@@ -3041,7 +3095,7 @@ def mainN1R (lab : Label → Int64) (g : MainG) : ND := ⟨lab ".Lscc_rt_main.en
 /-- Back from `wc_main` with `%rbp`'s offset fixed (`At.rbp`): the node the
 `exit_group` tail runs from. -/
 def mainNRR (lab : Label → Int64) (g : MainG) : ND :=
-  ⟨lab ".Lscc_rt_main.x2", ⟨-40, [(.rbp, -8)]⟩, (mainNR lab g).J⟩
+  ⟨lab ".Lscc_rt_main.x0", ⟨-40, [(.rbp, -8)]⟩, (mainNR lab g).J⟩
 
 /-- **`scc_rt_main`'s states inside `W`**, none moved by `K`: its prologue's,
 the call block's, `wc_main`'s in the callee's region (for every ghost with
@@ -3052,7 +3106,7 @@ structure MainW (W : Frag isa) (K : State → State → Prop) (exe : _root_.Exec
   pro : XProW W K exe endPc R F ms ((_root_.Executable.labels exe).label "scc_rt_main") 32 8 ".Lscc_rt_main.stk"
     5 9 3 2 4 [(.rdi, -8, 4)] (mainN0 (_root_.Executable.labels exe).label g).J
   call : BlkW W K exe endPc R F (mainN1R (_root_.Executable.labels exe).label g) mainCall
-  wc : ∀ g', g'.ra = ((_root_.Executable.labels exe).label ".Lscc_rt_main.x2").toBitVec →
+  wc : ∀ g', g'.ra = ((_root_.Executable.labels exe).label ".Lscc_rt_main.x0").toBitVec →
     g'.c0 = g.c0 → g'.tp = g.tp →
       WcW W K exe endPc (R.callee (-48 - 0) (-24) 8) (fun m => F m ∧ CallerCells R (-48 - 0) (-24) 8 m) ms g'
   exit : XExitW W K exe endPc R F (mainNRR (_root_.Executable.labels exe).label g) (-40) (-8) (-16) 4 4 5
@@ -3155,7 +3209,7 @@ theorem main_segW {W : Frag isa} {K : State → State → Prop} (hp : Lays exe S
       · simp [Reg64s.set64, hsp]
       · simp [Reg64s.set64, htp]
       · simp only [upd_apply, ↓reduceIte]
-        rw [show lab ".Lscc_rt_main.x2" = _ from ex2]; rfl
+        rw [show lab ".Lscc_rt_main.x0" = _ from ex2]; rfl
       · simp only [Reg64s.get64, Reg64s.set64] at hb ⊢; rw [hb]; bv_omega
   · -- the call
     refine seg_oneW (call_nd_FWK (KC := False) (e0 := 0) (lo' := -24) (hi' := 8) (M := fun _ => True)
@@ -3166,8 +3220,8 @@ theorem main_segW {W : Frag isa} {K : State → State → Prop} (hp : Lays exe S
       (fun R' F' hR' hlo' hhi' hF' _ hFF hR'e hcc g' hg' _ => by
         subst hR'e
         obtain ⟨σC, c, ⟨⟨hc, -, htp⟩, h48, -⟩, ⟨⟨hc', -, hra, -, htp'⟩, -⟩⟩ := hg'
-        have hr : g'.ra = (lab ".Lscc_rt_main.x2").toBitVec := by
-          have e : lab ".Lscc_rt_main.x2" = Int64.ofBitVec g'.ra := by
+        have hr : g'.ra = (lab ".Lscc_rt_main.x0").toBitVec := by
+          have e : lab ".Lscc_rt_main.x0" = Int64.ofBitVec g'.ra := by
             rw [← hra]
             show lab _ = Int64.ofBitVec (σC.slot (-48 - 0 + 0))
             rw [show (-48 : Int) - 0 + 0 = -48 by decide, h48, int64_ofBitVec_toBitVec]
@@ -3185,7 +3239,7 @@ theorem main_segW {W : Frag isa} {K : State → State → Prop} (hp : Lays exe S
         - - -
       refine .inl ⟨(), ?_, by show SO.le ⟨-40, []⟩ ⟨-48 - 0 + 8, []⟩ = true; decide, hc'.trans hc.symm, ?_,
         by rw [hregs]; exact h42⟩
-      · show lab ".Lscc_rt_main.x2" = Int64.ofBitVec g'.ra
+      · show lab ".Lscc_rt_main.x0" = Int64.ofBitVec g'.ra
         rw [← hra]
         show lab _ = Int64.ofBitVec (σC.slot (-48 - 0 + 0))
         rw [show (-48 : Int) - 0 + 0 = -48 by decide, h48, int64_ofBitVec_toBitVec]

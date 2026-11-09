@@ -21,7 +21,8 @@ from `print`'s `write` only by `x8`.
   check that a node's are none of them.
 - `endOff_run`, `endOff_pcIn`: a pc of a run of the listing is not its end.
 - `node0F`, `node0T`, `nodeFr`, `pro0`: `Z0` at a node on no frame (before /
-  past the store), on a frame, at a prologue.
+  past the store), on a frame, at a prologue; `pc_past`, `node0T2`, `nodeFr2`:
+  a node across a return label.
 - `wc_hz`, `wc_hZE`, `wc_hZC`, `wc_hZP`, `wc_hZA`, `wc_hZu`, `wc_hZW`,
   `wc_hZU`: `seg_wcWorkerS`'s premises at `Z := Z0 exe kp`.
 - `thr_hz`, `thr_hZE`, `thr_hZT`, `child_hZc`: the thread worker's and the
@@ -192,6 +193,45 @@ theorem nodeFr {fr : TermRun.Frame} {n : ND} {len : Nat} {l : Label} {k0 : Nat}
     fun h => absurd h (List.cons_ne_nil _ _), fun _ => hu σ c hJ,
     endOff_run hp hl (k := k0 + k) (by omega) (by rw [hs', ofNat4_add])⟩
 
+/-- **A node's pc past a return label**: the instruction `k` (`a ≤ k`) of a
+node at `l + k0` is the instruction `k - a` after the label `m` right after
+its first `a` (`labelGap`). -/
+theorem pc_past {n : ND} {l m : Label} {k0 a k : Nat}
+    (hpc : n.pc = (_root_.Executable.labels exe).label l + Int64.ofNat (4 * k0))
+    (hg : labelGap helloProg l m (k0 + a) = true) (hka : a ≤ k) :
+    n.pc + Int64.ofNat (4 * k) =
+      (_root_.Executable.labels exe).label m + Int64.ofNat (4 * 0) + Int64.ofNat (4 * (k - a)) := by
+  rw [hpc, label_labelGap hp hg, ofNat4_zero, Int64.add_assoc, Int64.add_assoc, ← Int64.ofNat_add,
+    ← Int64.ofNat_add]
+  exact congrArg (_ + Int64.ofNat ·) (by omega)
+
+/-- **`node0T` across a return label**: its first `a` instructions `k0 ..`
+after `l`, the rest from the label `m` right after them (`labelGap`), as
+`A64WakePass.nodeZ_pass2`. -/
+theorem node0T2 {n : ND} {len : Nat} {l m : Label} {k0 a : Nat}
+    (hpc : n.pc = (_root_.Executable.labels exe).label l + Int64.ofNat (4 * k0))
+    (hg : labelGap helloProg l m (k0 + a) = true)
+    (hchk1 : passChk l k0 a true = true) (hchk2 : passChk m 0 (len - a) true = true)
+    (hab1 : offChk abWRuns l k0 a = true) (hab2 : offChk abWRuns m 0 (len - a) = true)
+    (hb : ∀ σ c, n.J σ c → HPassC c) : NodeZ (fun s c => Z0 exe kp s c []) exe n len := by
+  intro s σ c k hk he hs hJ
+  by_cases hka : k < a
+  · exact node0T hp hpc hchk1 hab1 hb s σ c k hka he hs hJ
+  · exact node0T hp (n := { n with pc := _ }) rfl hchk2 hab2 hb s σ c (k - a) (by omega) he
+      (hs.trans (pc_past hp hpc hg (by omega))) hJ
+
+/-- **`nodeFr` across a return label**, as `node0T2`. -/
+theorem nodeFr2 {fr : TermRun.Frame} {n : ND} {len : Nat} {l m : Label} {k0 a : Nat}
+    (hpc : n.pc = (_root_.Executable.labels exe).label l + Int64.ofNat (4 * k0))
+    (hg : labelGap helloProg l m (k0 + a) = true)
+    (hchk1 : passChk l k0 a false = true) (hchk2 : passChk m 0 (len - a) false = true)
+    (hu : ∀ σ c, n.J σ c → NotUnpk c) : NodeZ (fun s c => Z0 exe kp s c [fr]) exe n len := by
+  intro s σ c k hk he hs hJ
+  by_cases hka : k < a
+  · exact nodeFr hp hpc hchk1 hu s σ c k hka he hs hJ
+  · exact nodeFr hp (n := { n with pc := _ }) rfl hchk2 hu s σ c (k - a) (by omega) he
+      (hs.trans (pc_past hp hpc hg (by omega))) hJ
+
 /-- **`Z0` at a prologue** (`fn`'s label is its stack check's, `sc`), its
 fifteen instructions, the control not past the store. -/
 theorem pro0 {fn sc : Label} (hg : labelGap helloProg fn sc 0 = true) (hchk : passChk sc 0 15 false = true)
@@ -305,7 +345,8 @@ theorem wc_hZP {fr : TermRun.Frame} {Pc Qc : AS → Nat → Ctl → Prop} {σC :
   · exact nodeFr hp (l := ".L9_scc_rt_print.4_chk3") (k0 := 4) (by zc) (by zc) hu
   · exact nodeFr hp (l := ".L9_scc_rt_print.5_adv") (k0 := 0) (by zc) (by zc) hu
   · exact nodeFr hp (l := ".L9_scc_rt_print.6_fail") (k0 := 0) (by zc) (by zc) hu
-  · exact nodeFr hp (l := ".L9_scc_rt_print.7_done") (k0 := 0) (by zc) (by zc) hu
+  · exact nodeFr2 hp (l := ".L9_scc_rt_print.7_done") (m := ".L9_scc_rt_print.x12") (k0 := 0) (a := 3)
+      (by zc) (by zc) (by zc) (by zc) hu
 
 /-- **The abort path** (`hZA`), the abort's controls at no `unpark`
 binding. -/
@@ -327,8 +368,10 @@ theorem wc_hZW {cw c1 c2 : Ctl} {A B x29 ra tp : BitVec 64} (hw : ¬ HPassC cw) 
   · exact node0T hp (l := ".L20_wc_worker.sp4") (k0 := 3) (by zc) (by zc) (by zc) (by zp h1)
   · exact node0T hp (l := ".L20_wc_worker.sp4") (k0 := 4) (by zc) (by zc) (by zc) (by zp h1)
   · exact nodeZ_nil
-  · exact node0T hp (l := ".L20_wc_worker.sp6") (k0 := 0) (by zc) (by zc) (by zc) (by zp h2)
+  · exact node0T2 hp (l := ".L20_wc_worker.sp6") (m := ".L20_wc_worker.x7") (k0 := 0) (a := 3)
+      (by zc) (by zc) (by zc) (by zc) (by zc) (by zc) (by zp h2)
 
+set_option maxHeartbeats 800000 in
 /-- **`scc_rt_unpark`'s nodes** (`hZU`), past the store. -/
 theorem wc_hZU {c1 c2 : Ctl} {B x29 ra tp : BitVec 64} (h1 : HPassC c1) (h2 : HPassC c2) (i : Unpark.PN) :
     NodeZ (fun s c => Z0 exe kp s c []) exe (Unpark.N (_root_.Executable.labels exe).label c1 c2 B x29 ra tp i)
@@ -341,8 +384,10 @@ theorem wc_hZU {c1 c2 : Ctl} {B x29 ra tp : BitVec 64} (h1 : HPassC c1) (h2 : HP
   · exact node0T hp (l := ".L11_scc_rt_unpark.0_entry") (k0 := 9) (by zc) (by zc) (by zc) (by zp h2)
   · exact node0T hp (l := ".L11_scc_rt_unpark.1_wake") (k0 := 0) (by zc) (by zc) (by zc) (by zp h2)
   · exact node0T hp (l := ".L11_scc_rt_unpark.1_wake") (k0 := 11) (by zc) (by zc) (by zc) (by zp h2)
-  · exact node0T hp (l := ".L11_scc_rt_unpark.1_wake") (k0 := 12) (by zc) (by zc) (by zc) (by zp h2)
-  · exact node0T hp (l := ".L11_scc_rt_unpark.2_done") (k0 := 0) (by zc) (by zc) (by zc) (by zp h2)
+  · exact node0T2 hp (l := ".L11_scc_rt_unpark.1_wake") (m := ".L11_scc_rt_unpark.x4") (k0 := 12) (a := 4)
+      (by zc) (by zc) (by zc) (by zc) (by zc) (by zc) (by zp h2)
+  · exact node0T2 hp (l := ".L11_scc_rt_unpark.2_done") (m := ".L11_scc_rt_unpark.x5") (k0 := 0) (a := 3)
+      (by zc) (by zc) (by zc) (by zc) (by zc) (by zc) (by zp h2)
 
 /-! ## The thread worker's and the child's premises -/
 

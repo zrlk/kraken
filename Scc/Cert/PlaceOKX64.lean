@@ -184,10 +184,10 @@ def a4 (cfg : Config) (o : Out) (_ : Tables) : Bool :=
   WideX64.wideIn (o.prog.map (·.1)) && NeedX64.needOk o.prog o.place.need cfg.needBudget cfg.entries
 
 /-- **The tail of `scc_rt_main` without a setup block**: the `exit_group`
-tail right after `.Lscc_rt_main.x2` (the call's return), the result at
+tail right after `.Lscc_rt_main.x0` (the call's return), the result at
 `-16(%rbp)` (`Spike.Lib.X64.Flow.exitIn`). -/
 def mainIn0 (cells : List (Directive × Nat)) : Bool :=
-  Spike.Lib.X64.Flow.exitIn cells ".Lscc_rt_main.x2" (-16) 4 4 5
+  Spike.Lib.X64.Flow.exitIn cells ".Lscc_rt_main.x0" (-16) 4 4 5
 
 /-- The groups of `scc_rt_main`'s tail in the shape the placement data
 names (`RtIn.mainGrps0`/`mainGrps1`); `hello1.w`'s, four setup words, at
@@ -261,11 +261,11 @@ def mcOf : MainShape → Option Spike.Lib.X64.Rt.MainCode
 `mcOf`, `scc_rt_alloc_tcb`, `scc_rt_thread_init`, `scc_rt_stack_take`)
 checked in one pass over the cells (`Spike.Lib.X64.Rt.rtCodeOk`). The groups
 name the runtime's local return points as today's single-thread emitter
-numbers them (`.Lscc_rt_thread_init.x7`); the numbering is per program.
+numbers them (`.Lscc_rt_thread_init.x0`); the numbering is per function.
 With it, `scc_rt_main`'s phase facts at `mcOf` (`rtPhOk` at `mainPhTab`).
 On a `.setup` tail, the same with `scc_rt_main` after a setup block
 (`Spike.Lib.X64.Rt.setupOk`: `rtCodeOkS` and `mainPhTabS` at `setupMC sw`
-for some `sw`, `scc_rt_thread_init`'s return point one later, `.x8`). -/
+for some `sw`, `scc_rt_thread_init`'s return point still `.x0`). -/
 def a11 (o : Out) (t : Tables) : Bool :=
   match mcOf o.place.tail with
   | some mc =>
@@ -661,15 +661,17 @@ theorem fnPh_of_placeOKAt (h : placeOKAt cfg Λ o = true) {ir : Scc.IR.Program} 
   exact h9.2
 
 /-- **A9** at a lowered code block: `func0 name r`, a function of the
-output's IR returning one operand, has its emitted prologue (at some cell
-sizes) and body in the cells, at its frame recomputed from the IR. -/
+output's IR returning one operand (its first local label number `n`,
+`Code1X64.starts`), has its emitted prologue (at some cell sizes) and body
+in the cells, at its frame recomputed from the IR. -/
 theorem fnCode_of_placeOKAt (h : placeOKAt cfg Λ o = true) {ir : Scc.IR.Program} (hir : o.place.ir = some ir)
-    {name : Scc.IR.Sym} {r : Scc.Lower.Inv.Res} (hf : Scc.Lower.Inv.func0 name r ∈ ir.funcs)
+    {name : Scc.IR.Sym} {r : Scc.Lower.Inv.Res} {n : Nat}
+    (hf : (Scc.Lower.Inv.func0 name r, n) ∈ Scc.Cert.Code1X64.starts ir 0 ir.funcs)
     (hI : ∀ i ∈ r.insts, ∃ d a b, i = .addChk d a b) {w : Scc.IR.Operand} (hw : r.ret = [w]) :
     (∃ zl zf z1 z2 zs, Spike.Lib.LowerX64.proInC o.prog (Spike.Lib.LowerX64.frOf ir (Scc.Lower.Inv.func0 name r))
         name (Scc.Emit.X64.labelOf name "entry") zl zf z1 z2 zs = true) ∧
       Spike.Lib.LowerX64.bodyIn o.prog (Spike.Lib.LowerX64.frOf ir (Scc.Lower.Inv.func0 name r))
-        (Scc.Emit.X64.labelOf name "entry") 0 r.insts r.ret = true := by
+        (Scc.Emit.X64.labelOf name "entry") n 0 r.insts r.ret = true := by
   obtain ⟨ir', hir', hok⟩ := fnCodeOk_of_placeOKAt h
   rw [hir] at hir'; cases hir'
   have := Spike.Lib.LowerX64.fnCodeOk_func0 hok hf hI hw
@@ -679,7 +681,8 @@ theorem fnCode_of_placeOKAt (h : placeOKAt cfg Λ o = true) {ir : Scc.IR.Program
 function of the output's IR returning one operand, has its local overflow
 block (`Spike.Lib.LowerX64.ovfBlk`) at `ovfL` in the cells. -/
 theorem ovfCode_of_placeOKAt (h : placeOKAt cfg Λ o = true) {ir : Scc.IR.Program} (hir : o.place.ir = some ir)
-    {name : Scc.IR.Sym} {r : Scc.Lower.Inv.Res} (hf : Scc.Lower.Inv.func0 name r ∈ ir.funcs)
+    {name : Scc.IR.Sym} {r : Scc.Lower.Inv.Res} {n : Nat}
+    (hf : (Scc.Lower.Inv.func0 name r, n) ∈ Scc.Cert.Code1X64.starts ir 0 ir.funcs)
     (hI : ∀ i ∈ r.insts, ∃ d a b, i = .addChk d a b) {w : Scc.IR.Operand} (hw : r.ret = [w])
     (hne : r.insts ≠ []) :
     Rt.X64.blockAtB o.prog (Spike.Lib.LowerX64.ovfL (Spike.Lib.LowerX64.frOf ir (Scc.Lower.Inv.func0 name r))) 0
@@ -1173,17 +1176,19 @@ theorem fnPh1_of_placeOK (h : placeOK cfg o = true) {ir : Scc.IR.Program} (hir :
 
 /-- `fnCode_of_placeOKAt` at the static link. -/
 theorem fnCode_of_placeOK (h : placeOK cfg o = true) {ir : Scc.IR.Program} (hir : o.place.ir = some ir)
-    {name : Scc.IR.Sym} {r : Scc.Lower.Inv.Res} (hf : Scc.Lower.Inv.func0 name r ∈ ir.funcs)
+    {name : Scc.IR.Sym} {r : Scc.Lower.Inv.Res} {n : Nat}
+    (hf : (Scc.Lower.Inv.func0 name r, n) ∈ Scc.Cert.Code1X64.starts ir 0 ir.funcs)
     (hI : ∀ i ∈ r.insts, ∃ d a b, i = .addChk d a b) {w : Scc.IR.Operand} (hw : r.ret = [w]) :
     (∃ zl zf z1 z2 zs, Spike.Lib.LowerX64.proInC o.prog (Spike.Lib.LowerX64.frOf ir (Scc.Lower.Inv.func0 name r))
         name (Scc.Emit.X64.labelOf name "entry") zl zf z1 z2 zs = true) ∧
       Spike.Lib.LowerX64.bodyIn o.prog (Spike.Lib.LowerX64.frOf ir (Scc.Lower.Inv.func0 name r))
-        (Scc.Emit.X64.labelOf name "entry") 0 r.insts r.ret = true :=
+        (Scc.Emit.X64.labelOf name "entry") n 0 r.insts r.ret = true :=
   fnCode_of_placeOKAt (Λ := (tablesOf cfg o).Λ) h hir hf hI hw
 
 /-- `ovfCode_of_placeOKAt` at the static link. -/
 theorem ovfCode_of_placeOK (h : placeOK cfg o = true) {ir : Scc.IR.Program} (hir : o.place.ir = some ir)
-    {name : Scc.IR.Sym} {r : Scc.Lower.Inv.Res} (hf : Scc.Lower.Inv.func0 name r ∈ ir.funcs)
+    {name : Scc.IR.Sym} {r : Scc.Lower.Inv.Res} {n : Nat}
+    (hf : (Scc.Lower.Inv.func0 name r, n) ∈ Scc.Cert.Code1X64.starts ir 0 ir.funcs)
     (hI : ∀ i ∈ r.insts, ∃ d a b, i = .addChk d a b) {w : Scc.IR.Operand} (hw : r.ret = [w])
     (hne : r.insts ≠ []) :
     Rt.X64.blockAtB o.prog (Spike.Lib.LowerX64.ovfL (Spike.Lib.LowerX64.frOf ir (Scc.Lower.Inv.func0 name r))) 0

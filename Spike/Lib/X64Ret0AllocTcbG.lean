@@ -77,8 +77,8 @@ theorem lenOf_lt (h : BitVec 64) : (lenOf h).toNat < 262152 := by
   have := Nat.mod_lt (h.toNat >>> 22) (show 0 < 16384 by decide)
   omega
 
-/-- At `scc_rt_start`'s header: `n = 9`, `d = tcbLen`, `m = 0`. -/
-theorem nOf_hdr0 : nOf hdr0 = 9#64 := by decide
+/-- At `scc_rt_start`'s header: `n = 13`, `d = tcbLen`, `m = 0`. -/
+theorem nOf_hdr0 : nOf hdr0 = 13#64 := by decide
 theorem lenOf_hdr0 : lenOf hdr0 = tcbLen := by decide
 theorem mOf_hdr0 : mOf hdr0 = 0#64 := by decide
 

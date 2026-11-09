@@ -70,18 +70,27 @@ theorem addC2_ofQ {cx : FnCtx} (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) (h16 :
     AddC2 p lbl lsize lcx cx Cd Bl exe endPc R F W K ms fp ra tp fs G0 i T Ab := by
   intro c0 pc pc' kk env n x a b e ta tb pa pb lits cs bufs hP ha hb hi hcf
   obtain ⟨hG, hTt, hfr, hL, -, hg, -, hImm, hfv⟩ := hP
-  rcases hi with ⟨-, l, hl, hc, hpc'⟩ | ⟨_, _, _, _, _, he, -⟩ | ⟨_, _, _, _, _, _, he, -⟩ | ⟨_, _, _, he, -⟩
-  rotate_left
+  rcases hi with ⟨-, hna, -⟩ | ⟨_, _, _, _, _, he, -⟩ | ⟨_, _, _, _, _, _, he, -⟩ | ⟨_, _, _, he, -⟩ |
+    ⟨d', a', b', la, lb, ls, he, hla, hlb, hs, hcA, hcS, hpc'⟩
+  · exact absurd rfl (hna _ _ _)
   · cases he
   · simp [newBufCall] at he
   · cases he
-  obtain ⟨la, lb, off, hla, hlb, hd, hds⟩ := inst_addChk_inv hf h1 hl
-  rw [hds] at hc hpc'
+  cases he
+  -- the add, then the store after its fall-through's label (P5)
+  obtain ⟨off, hd⟩ : ∃ off, cx.slotOff (regName x n) = .ok off := by
+    cases hd : cx.slotOff (regName x n) with
+    | error e => simp [FnCtx.setReg, hd, bind, Except.bind] at hs
+    | ok off => exact ⟨off, rfl⟩
+  rw [setReg_eq hf (by omega) hd] at hs
+  cases hs
   simp only [InstsC2] at hpc'
-  rw [List.length_append, show (strDirs off).length = 1 from rfl, add_ofNat_four_succ] at hpc'
+  have e4 : Int64.ofNat (4 * (directives [ins (.STR (rz .W64 .X9) ⟨spW64, .imm ⟨i64 off, none⟩⟩)]).length) = 4 :=
+    rfl
+  rw [e4] at hpc'
   subst hpc'
-  have hc1 := SubCd.left hc
-  have hc2 := SubCd.right hc
+  have hc1 := SubCd.whole hcA
+  have hc2 : SubCd Cd (pc + Int64.ofNat (4 * (addDirs cx la lb).length)) (strDirs off) := SubCd.whole hcS
   have hCd' : ∀ {pc blk}, SubCd Cd pc blk → CdOf exe endPc pc blk := fun h => SubCd.cdOf hCd h
   have hia : InLits lits a := hL.1 a (by simp [headAtoms])
   have hib : InLits lits b := hL.1 b (by simp [headAtoms])
@@ -125,10 +134,12 @@ theorem subC2_ofQ {cx : FnCtx} (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) (h16 :
     SubC2 p lbl lsize lcx cx Cd Bl exe endPc R F W K ms fp ra tp fs G0 i T Ab := by
   intro c0 pc pc' kk env n x a b e ta tb pa pb lits cs bufs hP ha hb hi hcf
   obtain ⟨hG, hTt, hfr, hL, -, hg, -, -, -⟩ := hP
-  rcases hi with ⟨-, l, hl, hc, hpc'⟩ | ⟨_, _, _, _, _, he, -⟩ | ⟨_, _, _, _, _, _, he, -⟩ | ⟨_, _, _, he, -⟩
+  rcases hi with ⟨-, -, l, hl, hc, hpc'⟩ | ⟨_, _, _, _, _, he, -⟩ | ⟨_, _, _, _, _, _, he, -⟩ | ⟨_, _, _, he, -⟩ |
+    ⟨_, _, _, _, _, _, he, -⟩
   rotate_left
   · cases he
   · simp [newBufCall] at he
+  · cases he
   · cases he
   obtain ⟨la, lb, off, hla, hlb, hd, hds⟩ := inst_subSat_inv hf h1 hl
   rw [hds] at hc hpc'

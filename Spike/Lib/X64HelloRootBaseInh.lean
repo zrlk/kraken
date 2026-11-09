@@ -82,7 +82,6 @@ local notation "CR" => Spike.Lib.X64.HelloPh.RootUL.CtxU F.hp (i0M Λ0)
 /-- **The base's rest at `hello_root_inv`'s choices** (its `let R`). -/
 noncomputable def restEX (E : Scc.Sem.Entry) (ls : Spike.Lib.X64Consumer.Lsize) :
     RootPlug.RootRest (Ly) (L0T (Ly).Λ) (AW) (MS2) where
-  W1 := fun _ _ _ => True
   Dt := Spike.Lib.X64.WakeWf.DtW
   Ctx := CR
   ls := ls

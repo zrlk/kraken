@@ -10,7 +10,7 @@ so are the nodes at the six stores.
 
     scc_rt_thread_init(tcb = %rdi):             frame of 32 below %rbp
       .entry: base = scc_rt_stack_take(16384)                (tiArg, the call)
-      .x7:    limit = base + 4096, top = base + 16384        (tiSp)
+      .x0:    limit = base + 4096, top = base + 16384        (tiSp)
               tcb[0] = tcb, tcb[8] = limit, tcb[16] = 0,
               tcb[24] = 0, tcb[32] = base, tcb[40] = top     (storePc 0 … 5)
               %rax = top; ret                                (tiRet)
@@ -28,7 +28,7 @@ so are the nodes at the six stores.
 - **The code** (`threadInitIn`, `ret0_threadInitIn`): every block, the
   call and the stores at their label and byte offset in `ret0Cells`,
   decided by the kernel; `threadInitInAt` the same with the return point
-  at any label (`.x8` after a setup block).
+  at any label.
 -/
 import Spike.Lib.X64Ret0StackTake
 import Scc.IR.Core
@@ -38,7 +38,7 @@ namespace Spike.Lib.X64.Flow.Ret0.ThreadInit
 open CoreLang CoreTerm
 open Kraken Kraken.Promising Kraken.Promising.X64 Kraken.Promising.Lower Kraken.Promising.Lower.X64
 open Kraken.X64.Parser Spike.Lib.X64
-open Scc.Cert.Rt.X64 (Lays endOf blockAtB labelGapB)
+open Scc.Cert.Rt.X64 (Lays endOf blockAtB labelGapB blockAcrossB)
 open Spike.Lib.X64.Flow.Ret0.AllocTcb (G)
 
 set_option linter.unusedSimpArgs false
@@ -124,12 +124,12 @@ two zeros, the stack's base and top. -/
 def fields (tcb base : BitVec 64) : List (Nat × BitVec 64) :=
   [(0, tcb), (8, base + 4096#64), (16, 0#64), (24, 0#64), (32, base), (40, base + 16384#64)]
 
-/-- The stores' byte offsets after `.x7`. -/
+/-- The stores' byte offsets after `.x0`. -/
 def storeOff : List Nat := [48, 59, 74, 89, 101, 113]
 
 /-- **The pc of the store of field `i`** (`movq %rax, 8·i(%rcx)`). -/
 abbrev storePc (lab : Label → Int64) (i : Nat) : Int64 :=
-  lab ".Lscc_rt_thread_init.x7" + Int64.ofNat (storeOff.getD i 0)
+  lab ".Lscc_rt_thread_init.x0" + Int64.ofNat (storeOff.getD i 0)
 
 /-- **The frame**: `%rsp` at the frame's base, `%rbp` at the saved `%rbp`,
 the cells `ss` (offsets from the entry's `%rsp`). -/
@@ -237,8 +237,11 @@ theorem tiRet_walk (lab : String → Int64) (pc : Int64) {g : G} {tcb base : Bit
 abbrev fnL : Label := "scc_rt_thread_init"
 /-- Its entry label. -/
 abbrev entryL : Label := ".Lscc_rt_thread_init.entry"
-/-- The label after the call. -/
-abbrev x7L : Label := ".Lscc_rt_thread_init.x7"
+/-- The label after the call (`.x0`: labels are numbered per function;
+the name is the one it had when the numbering ran over the program). -/
+abbrev x7L : Label := ".Lscc_rt_thread_init.x0"
+/-- The return's label (just before `ret`). -/
+abbrev retL : Label := ".Lscc_rt_thread_init.x1"
 
 /-- The call `call scc_rt_stack_take`. -/
 def callBlk : List (Directive × Nat) := (parse("call scc_rt_stack_take")).zip [5]
@@ -250,34 +253,33 @@ def storeBlks : List (List (Directive × Nat)) :=
    (parse("movq %rax, 32(%rcx)")).zip [4], (parse("movq %rax, 40(%rcx)")).zip [4]]
 
 /-- **`scc_rt_thread_init`'s code in `cells`**: its blocks, the call, the
-stores and the fall-throughs into `.entry` and `.x7`. -/
+stores and the fall-throughs into `.entry` and `.x0`. -/
 def threadInitIn (cells : List (Directive × Nat)) : Bool :=
   labelGapB cells fnL entryL 12 && blockAtB cells fnL 0 tiPro && blockAtB cells entryL 0 tiArg &&
   blockAtB cells entryL 7 callBlk && labelGapB cells entryL x7L 12 &&
   blockAtB cells x7L 0 tiSp && blockAtB cells x7L 51 tiF1 && blockAtB cells x7L 63 tiZ &&
   blockAtB cells x7L 78 tiZ && blockAtB cells x7L 93 tiF4 && blockAtB cells x7L 105 tiF5 &&
-  blockAtB cells x7L 117 tiRet &&
+  blockAcrossB cells x7L 117 (tiRet.take 3) retL (tiRet.drop 3) &&
   (storeOff.zip storeBlks).all fun (o, b) => blockAtB cells x7L o b
 
 /-- **`scc_rt_thread_init`'s code in `cells` with its return point at
-`x`**: `threadInitIn` with `.x7` replaced by `x`. x86-64 numbers the `.x`
-labels with one counter over the program, so the return point is `.x7`
-after a bare `scc_rt_main` and `.x8` after a setup block
-(`Spike.Lib.X64.Rt.SetupCode.ti`); at `.x7` it is `threadInitIn`
+`x`**: `threadInitIn` with `.x0` replaced by `x`. x86-64 numbers the `.x`
+labels per function, so the return point is `.x0` with or without a setup
+block (`Spike.Lib.X64.Rt.SetupCode.ti`); at `.x0` it is `threadInitIn`
 (`threadInitInAt_x7`). -/
 def threadInitInAt (cells : List (Directive × Nat)) (x : Label) : Bool :=
   labelGapB cells fnL entryL 12 && blockAtB cells fnL 0 tiPro && blockAtB cells entryL 0 tiArg &&
   blockAtB cells entryL 7 callBlk && labelGapB cells entryL x 12 &&
   blockAtB cells x 0 tiSp && blockAtB cells x 51 tiF1 && blockAtB cells x 63 tiZ &&
   blockAtB cells x 78 tiZ && blockAtB cells x 93 tiF4 && blockAtB cells x 105 tiF5 &&
-  blockAtB cells x 117 tiRet &&
+  blockAcrossB cells x 117 (tiRet.take 3) retL (tiRet.drop 3) &&
   (storeOff.zip storeBlks).all fun (o, b) => blockAtB cells x o b
 
 theorem threadInitInAt_x7 (cells : List (Directive × Nat)) : threadInitInAt cells x7L = threadInitIn cells := rfl
 
 #guard threadInitIn SccCode.ret0Cells
 #guard threadInitInAt SccCode.ret0Cells x7L
-#guard !threadInitInAt SccCode.ret0Cells ".Lscc_rt_thread_init.x8"
+#guard !threadInitInAt SccCode.ret0Cells ".Lscc_rt_thread_init.x7"
 
 /-- The code's check on `ret0Cells`. -/
 theorem ret0_threadInitIn : threadInitIn SccCode.ret0Cells = true := by decide +kernel

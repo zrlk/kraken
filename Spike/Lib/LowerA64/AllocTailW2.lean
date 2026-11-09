@@ -107,7 +107,8 @@ theorem allocNoCtrT (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
       omega
   · tblk h17 b13_ok
   · exact Spike.Lib.A64.AllocG.NodeW.imp (Spike.Lib.LowerA64.BlkW.nodeW (blkW_noWr hI (blk := [iRet.toDir])
-      (lo := -160) (hi := 0) h18 (by pc_tac) (by dsimp only [N]; decide) hR hal (by omega) (by omega))
+      (lo := -160) (hi := 0) h18.2 (by rw [← hI.labOk, Scc.Cert.Rt.A64.label_labelGap hI.lays h18.1]; pc_tac)
+      (by dsimp only [N]; decide) hR hal (by omega) (by omega))
       (List.cons_ne_nil _ _)) Spike.Lib.A64.Flow.NodeW.triv fun _ _ h _ hW => h _ hW
 
 /-- **The allocator's tail inside `W2`** at the frames `fs`, any write tail

@@ -2,7 +2,7 @@
 **`RefLft`: `SFactsSt2` at `ownG` lifting to `ownGXW` on the threads abort
 path** (x86-64, wake.w; no A64 counterpart): `Lft2` at every node of the
 dispatcher at code `5` and the threads stub, below main's frame, entered
-from `.Lwc_main.spawnfail5`'s `call` (the return address `.Lwc_main.x23`).
+from `.Lwc_main.spawnfail5`'s `call` (the return address `.Lwc_main.x5`).
 On that path main holds both TCB words: `tcbM` (on the pool from `.x1` on,
 `selfOwn`) and `tcb2` (in `scc_rt_abort`'s code with the return address
 `.x23`, `selfOwnW`), and no instruction of the path writes memory.
@@ -145,7 +145,7 @@ theorem bandIn_pre {L : RuntimeLayout} {R : Region} (hR : R.OK) (hlo : R.lo ≤ 
 `selfOwn` (on the pool, `scc_rt_abort` above `.x1`) and `selfOwnW` (in
 `scc_rt_abort`'s code with the return address `.x23`). -/
 theorem cst_x23 {L : RuntimeLayout} (hlab : ∀ l x, codeLabel lo wakeCells l = some x → L.lab l = Int64.ofNat x)
-    {R : Region} (hb : BandIn L R) {s : State} (h : AbP L R (L.lab ".Lwc_main.x23").toBitVec s) :
+    {R : Region} (hb : BandIn L R) {s : State} (h : AbP L R (L.lab ".Lwc_main.x5").toBitVec s) :
     Cst L (tM L) (tW L) s := by
   have hx1 := Spike.Lib.X64.WakeRefAbW.lab_lt hlab (l₁ := ".Lscc_rt_start.x1") (l₂ := "scc_rt_abort")
     (by unfold Spike.Lib.X64.WakeRefAbW.labLt; rw [← codeT_eq]; decide +kernel)

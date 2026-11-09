@@ -15,7 +15,7 @@ instance** (x86-64): the allocator's node obligations (`AllocW`,
   RMW is `nodeW_ab_ldop`).
 - `labY`, `labT_eq_labY`: `labX` extended by the write abort's labels off
   its tables (`abTabX`), so the kernel reduces `abPcs`.
-- `allocAb_ret`: the `ret` to `wc_rodata`'s `.x13`.
+- `allocAb_ret`: the `ret` to `wc_rodata`'s `.x0`.
 - `allocAb`: every node of `scc_rt_alloc`; its heap abort's call
   (`movq $2, %rdi; call scc_rt_abort`) enters the dispatcher with `%rdi = 2`,
   not the write abort's `4`.
@@ -190,10 +190,10 @@ open Spike.Test.X64Hello1RtW (labX labT_eq_labX tabChk)
 /-- The labels of the write abort's pcs off `labX`'s tables: the
 dispatcher's tests, its jump to the write stub and the stub's. -/
 def abTabX : List (Label × Nat) :=
-  [(".Lscc_rt_abort.entry", 4198402), (".Lscc_rt_abort.next1", 4198426),
-   (".Lscc_rt_abort.next3", 4198453), (".Lscc_rt_abort.next5", 4198480),
-   (".Lscc_rt_abort.is6", 4198498), ("scc_rt_abort_write", 4198740),
-   (".Lscc_rt_abort_write.entry", 4198748), ("scc_rt_abort_write_exit", 4198800)]
+  [(".Lscc_rt_abort.entry", 4198440), (".Lscc_rt_abort.next1", 4198464),
+   (".Lscc_rt_abort.next3", 4198491), (".Lscc_rt_abort.next5", 4198518),
+   (".Lscc_rt_abort.is6", 4198536), ("scc_rt_abort_write", 4198778),
+   (".Lscc_rt_abort_write.entry", 4198786), ("scc_rt_abort_write_exit", 4198838)]
 
 theorem abTabX_ok : abTabX.all tabChk = true := by decide +kernel
 
@@ -214,7 +214,8 @@ theorem labT_eq_labY : labT = labY := by
     simp only [tabChk, Bool.and_eq_true, beq_iff_eq] at h
     show _ = Int64.ofNat n
     rw [← h.2, ← hello1_labT]
-    exact Spike.Lib.X64.OwnLimRt.label_labIn hello1_lays rfl h.1
+    exact Spike.Lib.X64.OwnLimRt.label_labIn hello1_lays
+      (congrArg Prod.fst (Scc.Cert.Link.X64.threadAt_exe_of_above Spike.Lib.X64.Flow.Hello1.Mem.hello1_above)) h.1
   | none => exact congrFun labT_eq_labX l
 
 end Lab
@@ -257,33 +258,39 @@ local macro "bfi " fi:term:max z:term:max l:term:max k:term:max : tactic =>
     (by rw [labT_eq_labY]; decide +kernel))
 
 /-- `scc_rt_alloc`'s `ret` keeps the write abort's phase: it returns to
-`wc_rodata`'s `.x13` (`hra`). -/
+`wc_rodata`'s `.x0` (`hra`). -/
 theorem allocAb_ret (hR : R.OK) (hlo : R.lo ≤ -160) (hhi : 8 ≤ R.hi)
-    (hra : q.ra = (labT ".Lwc_rodata.x13").toBitVec) :
+    (hra : q.ra = (labT ".Lwc_rodata.x0").toBitVec) :
     NodeW (fun s _ => AbSt μ0 (Ab labT) s) (fun _ _ => False) hello1Exe hello1End R F
       (Spike.Lib.X64.Alloc.N labT ms q .ret) := by
-  have hab : blkAb labT (labT okL + Int64.ofNat 226) (labT ".Lwc_rodata.x13") [(iRet.toDir, 1)] = true := by
+  have hab : blkAb labT (labT okL + Int64.ofNat 226) (labT ".Lwc_rodata.x0") [(iRet.toDir, 1)] = true := by
     rw [labT_eq_labY]; decide +kernel
-  have hph : blkPh okPc ph (fun _ => false) labT (labT okL + Int64.ofNat 226) (labT ".Lwc_rodata.x13")
+  have hph : blkPh okPc ph (fun _ => false) labT (labT okL + Int64.ofNat 226) (labT ".Lwc_rodata.x0")
       [(iRet.toDir, 1)] = true := by
     rw [labT_eq_labX]; decide +kernel
   have hok : Spike.Lib.X64.okBlk (-160) 8 (Spike.Lib.X64.Alloc.N labT ms q .ret).o [(iRet.toDir, 1)] = true :=
     show Spike.Lib.X64.okBlk (-160) 8 Spike.Lib.X64.Alloc.oE [(iRet.toDir, 1)] = true by decide
-  have hret := hret_of_run (lab := labT) (ra := labT ".Lwc_rodata.x13") hok fun σ c hJ => by
+  have hret := hret_of_run (lab := labT) (ra := labT ".Lwc_rodata.x0") hok fun σ c hJ => by
     obtain ⟨o, -, -, -, -, -, h0, -⟩ := hJ
     show Int64.ofBitVec (σ.slot 0) = _
     rw [h0, hra]
     exact Int64.ofBitVec_toBitVec _
-  exact BlkW.nodeW (blkW_ab (hello1_instOk (rS := ⟨0, 0⟩)) (l := okL) (off := 226) (dead := fun _ => false)
-    (by decide +kernel) rfl hok hR (by omega) (by omega) hph hret (fun _ _ _ => rfl) hab) (List.cons_ne_nil _ _)
+  -- the `ret` past the return label `.x1` (P5), `226` bytes past `.ok`
+  have eR : labT Spike.Lib.X64.Alloc.retL + Int64.ofNat 0 = labT okL + Int64.ofNat 226 := by
+    rw [← hello1_labT, Scc.Cert.Rt.X64.label_labelGapB Spike.Lib.X64.Flow.Hello1.Mem.hello1_lays
+      (show Scc.Cert.Rt.X64.labelGapB SccCode.hello1Cells okL Spike.Lib.X64.Alloc.retL 226 = true by decide +kernel)]
+    exact Spike.Lib.X64.Flow.ofNat_zero' _
+  exact BlkW.nodeW (blkW_ab (hello1_instOk (rS := ⟨0, 0⟩)) (l := Spike.Lib.X64.Alloc.retL) (off := 0)
+    (dead := fun _ => false) (by decide +kernel) eR hok hR (by omega) (by omega) (eR ▸ hph) hret (fun _ _ _ => rfl)
+    (eR ▸ hab)) (List.cons_ne_nil _ _)
 
 /-- **`scc_rt_alloc`'s states keep the write abort's phase**, none moved,
-for a call `q` returning to `wc_rodata`'s `.x13` (`hra`), in a region of
+for a call `q` returning to `wc_rodata`'s `.x0` (`hra`), in a region of
 the allocator's frame, the counter and every header the code may store
 unmapped in private memory (`hmem`, `hq`). -/
 theorem allocAb (hR : R.OK) (hlo : R.lo ≤ -160) (hhi : 8 ≤ R.hi)
     (hq : ∀ m, F m → q.OK ms (_root_.Executable.labels hello1Exe).label)
-    (hra : q.ra = (labT ".Lwc_rodata.x13").toBitVec)
+    (hra : q.ra = (labT ".Lwc_rodata.x0").toBitVec)
     (hmem : ∀ a : BitVec 64,
       (a = BitVec.ofNat 64 ms.ctr ∨ ∃ o, o + ms.units q.n q.τ ≤ ms.cells ∧ a.toNat = q.hdrAt ms o) →
       ∀ m, F m → Mem.loadInt m.dmem a 8 = none) :

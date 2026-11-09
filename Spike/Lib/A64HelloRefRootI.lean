@@ -45,7 +45,7 @@ local notation "AT" => (Ly).lab Spike.Lib.A64.Flow.Ret0.StackTake.siteL
 
 variable {hpw i0 E} (B : HelloRootBase (Ly) (LB) (AW) (Spike.Lib.A64.HelloPh.H2Rt.ms2H (asm := asm) hpw IH E))
   (hA13 : Scc.Cert.Spawn.A64.a13data (Ly).Λ o.prog o.secs = true)
-  (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) (hstat : Λ0.static = fun _ => none)
+  (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) (hstat : Λ0.static = fun _ => none)
 
 /-- **`h2Stmt_root`'s `hobl` at `toPrem`** (`refOblH_root` at the base's choices): `hhp` the text `asm` parsing to
 hello's program (for `refExH` at `ms2H`'s marks), `hDt` the base's debts covering `DtW`. -/

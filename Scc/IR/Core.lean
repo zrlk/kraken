@@ -1,3 +1,5 @@
+import Scc.Config
+
 /-!
 # The scc intermediate representation
 
@@ -255,8 +257,46 @@ release so that `size` and the pinned block do not move; it goes with the
 next layout change.  Nothing reads or writes it; it is 0 (the pinned region
 is zero-filled and never reused). -/
 def depth : Nat := 64
-/-- The size of a TCB in bytes (a spawned thread's argument words follow). -/
-def size : Nat := 72
+/-- The allocation block pointer, for the inline allocation sequence (platform
+decision 1): written by the platform, never by the thread.  Not used by any
+code yet (0). -/
+def allocBlk : Nat := 72
+/-- The armed restart descriptor of the inline allocation sequence, 0 when
+none is armed: written by the platform, never by the thread.  Not used by any
+code yet (0). -/
+def rseqDesc : Nat := 80
+/-- The checkpoint state (the thread's expected mark state and a pending
+flag): kernel-owned.  Not used by any code yet (0). -/
+def ckpt : Nat := 88
+/-- `--host raw`: the address of the kernel routine table (`struct scc_kabi`,
+one function pointer per routine slot), written by the kernel before the
+thread's first instruction and never by the thread.  Under `--host linux` it
+is 0 and never read. -/
+def kabi : Nat := 96
+/-- `--host raw`: the kernel routine table's slots (C name
+`enum scc_kabi_slot`), each routine's symbol with its slot: the routine at
+slot `n` is the word at byte `8·n` of the table `kabi` points to.  The order
+never changes.  The emitters write one trampoline per slot, in this order
+(`Scc.Emit.X64.emitKabi`, `Scc.Emit.A64.kabiItems`); the raw lowering
+(`Scc.Lower.Raw.slots`) checks the symbols against the runtime's names. -/
+def kabiSlots : List (String × Nat) :=
+  [("scc_rt_alloc", 0), ("scc_rt_alloc_tcb", 1), ("scc_rt_print", 2), ("scc_rt_park", 3),
+   ("scc_rt_unpark", 4), ("scc_rt_abort", 5), ("scc_rt_exit_thread", 6),
+   ("scc_rt_exit_process", 7), ("scc_rt_stack_take", 8), ("scc_rt_stack_release", 9),
+   ("scc_rt_grow", 10), ("scc_rt_thread_reserve", 11), ("scc_rt_thread_init", 12),
+   ("scc_rt_spawn", 13)]
+/-- `--host raw`: the global labels around the trampolines of `kabiSlots`
+(the first and the one after the last), right after the start of the text. -/
+def kabiStartSym : String := "scc_kabi_start"
+def kabiEndSym : String := "scc_kabi_end"
+/-- `--host raw`: the symbol of the thread start routine of `kabiSlots`
+(`Scc.Lower.Names.spawn`).  The emitters treat its calls as any other call;
+the full fence before a spawn is the lowering's (`Scc.Lower.Raw.rawInsts`). -/
+def spawnSym : String := "scc_rt_spawn"
+/-- The size of a TCB's fields in bytes: a spawned thread's argument words
+follow (scalar words from here, `Term.tcbLayout`).  The words from 72 to 96
+are the platform's (`allocBlk`, `rseqDesc`, `ckpt`, `kabi`). -/
+def size : Nat := 104
 /-- Bytes of stack reserved below `stackLimit` for the paths that run without
 a stack check: the abort routine, and the grow routine with the pool
 operations it calls (it runs on the old stack, below the frame that did not
@@ -434,9 +474,10 @@ structure Growth where
   release : Sym
   deriving Repr, BEq, Inhabited
 
-/-- A whole program.  The emitter writes `_start`, which jumps to `start`
-(with the stack pointer the kernel provides, 16-byte aligned, and no
-arguments); `start` never returns. -/
+/-- A whole program.  For `--host linux` the emitter writes `_start`, which
+jumps to `start` (with the stack pointer the kernel provides, 16-byte
+aligned, and no arguments); `start` never returns.  For `--host raw` there is
+no `_start`: the kernel enters `start` itself (`host`). -/
 structure Program where
   funcs : List Func
   data : List Data
@@ -448,6 +489,12 @@ structure Program where
   instead of aborting, and the emitter writes the stack-map table
   (`StackMap.tableSym`) and the trampoline (`StackMap.morestackSym`). -/
   growth : Option Growth := none
+  /-- The host the program is emitted for (`Scc.Host`).  `linux`: the
+  emitter writes `_start`.  `raw`: no `_start`; `start`
+  is the unit's entry (`scc_rt_main`, which the kernel calls with the TCB
+  installed), and the kernel provides the runtime routines (the lowering does
+  not emit them). -/
+  host : Host := .linux
   deriving Repr, BEq, Inhabited
 
 end Scc.IR

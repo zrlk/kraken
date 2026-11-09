@@ -2,7 +2,7 @@
 **hello's `wc_main` callee fields of the root's open premise at the instance** (x86-64; the twin of
 `Spike/Lib/A64HelloCalRootI.lean`): `RootHP.H1GAH0V`'s `res` and `tcb` (`RootHP.ResV`, `RootHP.TcbV`) at the root
 instance's choices (`HelloRootBase` at `PlaceWX`'s layout, the start's labels `L0T`, the arena `arW`, `h2`'s side
-`H2Rt.ms2H`), at every box ghost `h0` quantifies over, at the level `W2I … l b n l' b' n'`.
+`H2Rt.ms2H`), at every box ghost `h0` quantifies over, at the level `W2Ig own … l b n l' b' n'`.
 
 The callees' nodes are `CalW2.reserveW_W2H` / `tcbWG_W2H` inside `RootWX.W2H` at the empty context, `lbl2H` and the
 twice extended sizes: their `SFactsSt2` at `ownGH` from `WcMidWG.wcMidW_wcGH` (`res`, `sp3`'s `tcb`), their
@@ -15,9 +15,6 @@ the arena (`CalWf.hoffN_W`, `CalWf.hoffP_W`, `H2Rt.hoffSp_H` at spawn word `3`).
 - `mid_IX`: the same at `ownGHXW` (`OwnMid.wcMidW_wcGHX`), so `res_Ig`/`tcb_Ig` hold at the self words.
 - `res_Ig`, `tcb_Ig`: `H1GAH0V.res`, `.tcb` at the instance at any owned words `own` (level `W2Ig own`), given
   `mid_I`'s statement at `own`.
-- `res_I`: `H1GAH0V.res` at the instance (`res_Ig` at `ownGH`).
-- `tcb_I`: `H1GAH0V.tcb` at the instance (`tcb_Ig` at `ownGH`).
-- `h0V_I`: `H1GAH0V` at the instance (with `WcRootI.wcWf_I`, `wcl_I`).
 - `wcWf_IX`, `wcl_IX`, `h0V_IX`: `H1GAH0V.wcWf`, `.wcl` and `H1GAH0V` at the self words (level `W2Ig ownGHXW`;
   `WcW2.wcMainW_W2H` at `mid_IX`, `Wcl2X.wcl_W2GJ1HX`).
 
@@ -29,8 +26,8 @@ Every lemma is generic in `h2`'s memory side family `ms2` (the base's parameter;
 - The callees' source facts are the box's (`QBH`, at the fence) rather than the clone's (`SBH`): the controls come
   from `WcW2.ctlH` (A64's `HelloH1A.spawnSrcH_ctl` and `WcW2.ctl_of_mid`), the placement from
   `SpawnPl.hplQ_GJ1H` (A64's `hpl_GJ1H`).
-- The reserve returns to `.Lwc_main.x23` in `rARH R = R.callee (-136) (-40) 8` (A64's `.sp3`, `[-48, 0]` at
-  `-144`), the second `scc_rt_alloc_tcb` to `.Lwc_main.x24` in `R.callee (-136) (-184) 8` (A64's `.sp4`,
+- The reserve returns to `.Lwc_main.x1` in `rARH R = R.callee (-136) (-40) 8` (A64's `.sp3`, `[-48, 0]` at
+  `-144`), the second `scc_rt_alloc_tcb` to `.Lwc_main.x2` in `R.callee (-136) (-184) 8` (A64's `.sp4`,
   `[-192, 0]`); there is no alignment premise, the callee regions' bounds are `Region.callee_ok`'s.
 - `res`/`tcb` are generic in the owned words (`res_Ig`, `tcb_Ig`; AArch64: at `ownGH`), their `SFactsSt2` a
   premise.
@@ -93,7 +90,7 @@ local notation "MS" => fun (B : HelloRootBase (Ly) (LB) (AW) (MS2)) =>
   Spike.Lib.X64.KeepTP.tpXa (MS2 B.ls l b n l' b' n' []) t
 
 /-- **`wcMidW_wcGH` at the root instance** (its word premises from the layout and A13), with
-`scc_rt_nthreads`, `scc_rt_pinned_next` and the second TCB's header `pinA + 104` unmapped under `F`. -/
+`scc_rt_nthreads`, `scc_rt_pinned_next` and the second TCB's header `pinA + 136` unmapped under `F`. -/
 theorem mid_I (B : HelloRootBase (Ly) (LB) (AW) (MS2))
     (hA13 : Scc.Cert.Spawn.X64.a13data (Ly).Λ o.prog o.secs = true) (hB : BoxPureH (Ly) B.F0 n' R F J1 t)
     (hG : Spike.Lib.X64.HelloPh.RootHP.GJ1RH (Ly) (Spike.Lib.X64ConsumerA.upd (LB) l b) l R F J1 t) :
@@ -103,7 +100,7 @@ theorem mid_I (B : HelloRootBase (Ly) (LB) (AW) (MS2))
         (Spike.Lib.X64.PhRec.K (Ly) ⟨0, 0⟩) (Ly).exe (Ly).endPc R F F (MS B) J1 (QBH l' b' (slWsH l)) ∧
       (∀ m, F m → Mem.loadInt m.dmem (ntA (Ly).lab) 8 = none) ∧
       (∀ m, F m → Mem.loadInt m.dmem (Ly).pnA 8 = none) ∧
-      (∀ m, F m → Mem.loadInt m.dmem ((Ly).pinA + 104#64) 8 = none) := by
+      (∀ m, F m → Mem.loadInt m.dmem ((Ly).pinA + 136#64) 8 = none) := by
   obtain ⟨hR, hal, -, hRlo, hhi, hb, -⟩ := hB
   have hwn := Spike.Lib.X64.HelloPh.HelloRootBase.wn_GJ1RH hpw i0 hG
   have hA := Spike.Lib.X64.WakePh.H1Rt.a13_facts hpw IH hA13
@@ -116,9 +113,9 @@ theorem mid_I (B : HelloRootBase (Ly) (LB) (AW) (MS2))
   have hun := Spike.Lib.X64.HelloPh.H2Rt.hunSp_H hpw IH hS
   have sp3 := Spike.Lib.X64.WakePh.LdFacts.spawn_fact hpw IH hA13 (spw_mem hpw i0 (j := 3) (by decide)) true
   have sp11 := Spike.Lib.X64.WakePh.LdFacts.spawn_fact hpw IH hA13 (spw_mem hpw i0 (j := 11) (by decide)) true
-  have e3 : (Ly).pinA + BitVec.ofNat 64 (80 + 8 * 3) = (Ly).pinA + 80#64 + 24#64 := by
+  have e3 : (Ly).pinA + BitVec.ofNat 64 (112 + 8 * 3) = (Ly).pinA + 112#64 + 24#64 := by
     rw [BitVec.add_assoc]; rfl
-  have e3' : (Ly).pinA + BitVec.ofNat 64 (80 + 8 * 3) = (Ly).pinA + 104#64 := rfl
+  have e3' : (Ly).pinA + BitVec.ofNat 64 (112 + 8 * 3) = (Ly).pinA + 136#64 := rfl
   have hs := B.hs
   have hunP : ∀ m, F m → Mem.loadInt m.dmem (Ly).pnA 8 = none := fun m h => hFr m h _ (Ly).pn_mem
   exact ⟨Spike.Lib.X64.HelloPh.WcMidWG.wcMidW_wcGH (Λ := (Ly).Λ) B.hp B.hlo B.hΛ B.hlab B.hsite hR
@@ -140,7 +137,7 @@ theorem mid_IX (B : HelloRootBase (Ly) (LB) (AW) (MS2))
         (Spike.Lib.X64.PhRec.K (Ly) ⟨0, 0⟩) (Ly).exe (Ly).endPc R F F (MS B) J1 (QBH l' b' (slWsH l)) ∧
       (∀ m, F m → Mem.loadInt m.dmem (ntA (Ly).lab) 8 = none) ∧
       (∀ m, F m → Mem.loadInt m.dmem (Ly).pnA 8 = none) ∧
-      (∀ m, F m → Mem.loadInt m.dmem ((Ly).pinA + 104#64) 8 = none) := by
+      (∀ m, F m → Mem.loadInt m.dmem ((Ly).pinA + 136#64) 8 = none) := by
   have hband := Spike.Lib.X64.HelloPh.OwnBand.band320_of_boxH hB
   obtain ⟨hR, hal, -, hRlo, hhi, hb, -⟩ := hB
   have hwn := Spike.Lib.X64.HelloPh.HelloRootBase.wn_GJ1RH hpw i0 hG
@@ -154,9 +151,9 @@ theorem mid_IX (B : HelloRootBase (Ly) (LB) (AW) (MS2))
   have hun := Spike.Lib.X64.HelloPh.H2Rt.hunSp_H hpw IH hS
   have sp3 := Spike.Lib.X64.WakePh.LdFacts.spawn_fact hpw IH hA13 (spw_mem hpw i0 (j := 3) (by decide)) true
   have sp11 := Spike.Lib.X64.WakePh.LdFacts.spawn_fact hpw IH hA13 (spw_mem hpw i0 (j := 11) (by decide)) true
-  have e3 : (Ly).pinA + BitVec.ofNat 64 (80 + 8 * 3) = (Ly).pinA + 80#64 + 24#64 := by
+  have e3 : (Ly).pinA + BitVec.ofNat 64 (112 + 8 * 3) = (Ly).pinA + 112#64 + 24#64 := by
     rw [BitVec.add_assoc]; rfl
-  have e3' : (Ly).pinA + BitVec.ofNat 64 (80 + 8 * 3) = (Ly).pinA + 104#64 := rfl
+  have e3' : (Ly).pinA + BitVec.ofNat 64 (112 + 8 * 3) = (Ly).pinA + 136#64 := rfl
   have hs := B.hs
   have hunP : ∀ m, F m → Mem.loadInt m.dmem (Ly).pnA 8 = none := fun m h => hFr m h _ (Ly).pn_mem
   exact ⟨Spike.Lib.X64.HelloPh.OwnMid.wcMidW_wcGHX (Λ := (Ly).Λ) B.hp B.hlo B.hΛ B.hlab B.hsite
@@ -179,7 +176,7 @@ theorem res_Ig {own : Spike.Lib.X64Consumer.Own} (B : HelloRootBase (Ly) (LB) (A
         (Spike.Lib.X64.PhRec.K (Ly) ⟨0, 0⟩) (Ly).exe (Ly).endPc R F F (MS B) J1 (QBH l' b' (slWsH l)) ∧
       (∀ m, F m → Mem.loadInt m.dmem (ntA (Ly).lab) 8 = none) ∧
       (∀ m, F m → Mem.loadInt m.dmem (Ly).pnA 8 = none) ∧
-      (∀ m, F m → Mem.loadInt m.dmem ((Ly).pinA + 104#64) 8 = none)) :
+      (∀ m, F m → Mem.loadInt m.dmem ((Ly).pinA + 136#64) 8 = none)) :
     Spike.Lib.X64.HelloPh.RootHP.ResV (Ly) (W2Ig own (Ly) (AW) B.Dt B.Ctx (LB) (ls0T B.ls) l b n l' b' n')
       (MS2 B.ls l b n l' b' n') l' b' (slWsH l) R F J1 t := by
   intro g hra nd
@@ -203,15 +200,6 @@ theorem res_Ig {own : Spike.Lib.X64Consumer.Own} (B : HelloRootBase (Ly) (LB) (A
     obtain ⟨_, _, _, _, c, _, ⟨⟨l1, A1, _, hq⟩, _⟩, hE, _⟩ := hm
     exact ⟨l1, A1, by rw [← show c = g.2 from hE.1]; exact hq⟩
 
-/-- **`H1GAH0V.res` at the root instance**: `res_Ig` at `ownGH` (`mid_I`). -/
-theorem res_I (B : HelloRootBase (Ly) (LB) (AW) (MS2))
-    (hA13 : Scc.Cert.Spawn.X64.a13data (Ly).Λ o.prog o.secs = true) (hf : Fresh2H (AW) (LB) l b n l' b' n')
-    (hB : BoxPureH (Ly) B.F0 n' R F J1 t)
-    (hG : Spike.Lib.X64.HelloPh.RootHP.GJ1RH (Ly) (Spike.Lib.X64ConsumerA.upd (LB) l b) l R F J1 t) :
-    Spike.Lib.X64.HelloPh.RootHP.ResV (Ly) (W2I (Ly) (AW) B.Dt B.Ctx (LB) (ls0T B.ls) l b n l' b' n')
-      (MS2 B.ls l b n l' b' n') l' b' (slWsH l) R F J1 t :=
-  res_Ig hpw i0 B hA13 hf hB hG (mid_I hpw i0 (n := n) (l' := l') (b' := b') B hA13 hB hG)
-
 /-- **`H1GAH0V.tcb` at the root instance, at any owned words `own`**: the second `scc_rt_alloc_tcb`'s nodes inside
 the level `W2Ig own` at every box ghost and every ghost of `MidG`, `FrMGH`, from `CalW2.tcbWG_W2H` at the empty
 context, `lbl2H` and the twice extended sizes (see the module doc), given `mid_I`'s statement at `own` (`hmid`). -/
@@ -224,14 +212,14 @@ theorem tcb_Ig {own : Spike.Lib.X64Consumer.Own} (B : HelloRootBase (Ly) (LB) (A
         (Spike.Lib.X64.PhRec.K (Ly) ⟨0, 0⟩) (Ly).exe (Ly).endPc R F F (MS B) J1 (QBH l' b' (slWsH l)) ∧
       (∀ m, F m → Mem.loadInt m.dmem (ntA (Ly).lab) 8 = none) ∧
       (∀ m, F m → Mem.loadInt m.dmem (Ly).pnA 8 = none) ∧
-      (∀ m, F m → Mem.loadInt m.dmem ((Ly).pinA + 104#64) 8 = none)) :
+      (∀ m, F m → Mem.loadInt m.dmem ((Ly).pinA + 136#64) 8 = none)) :
     Spike.Lib.X64.HelloPh.RootHP.TcbV (Ly) (W2Ig own (Ly) (AW) B.Dt B.Ctx (LB) (ls0T B.ls) l b n l' b' n') l' b'
       (slWsH l) R F J1 := by
   intro c0 sl me cA fr hMG g hra
   have hM := hmid.1
   obtain ⟨-, hunP, hunH⟩ := hmid.2
   obtain ⟨hR, -, -, hRlo, hhi, -, -⟩ := hB
-  have e3' : (Ly).pinA + BitVec.ofNat 64 (80 + 8 * 3) = (Ly).pinA + 104#64 := rfl
+  have e3' : (Ly).pinA + BitVec.ofNat 64 (112 + 8 * 3) = (Ly).pinA + 136#64 := rfl
   obtain ⟨_, _, hq, -⟩ := hMG.1
   exact Spike.Lib.X64.HelloPh.CalW2.tcbWG_W2H (ar := AW) (Dt := B.Dt) (Ctx := fun _ _ _ => False)
     (lbl := lbl2H (LB) l b l' b')
@@ -245,33 +233,12 @@ theorem tcb_Ig {own : Spike.Lib.X64Consumer.Own} (B : HelloRootBase (Ly) (LB) (A
     (fun nd => Spike.Lib.X64.HelloPh.CalPl.tcbWG_placedH hR (by omega) (by omega)
       (Spike.Lib.X64.HelloPh.SpawnPl.hplQ_GJ1H hf.2.2.1 (Spike.Lib.X64.HelloPh.Box.hmt_H hpw i0 hf.1) hG.1) hMG nd)
 
-/-- **`H1GAH0V.tcb` at the root instance**: `tcb_Ig` at `ownGH` (`mid_I`). -/
-theorem tcb_I (B : HelloRootBase (Ly) (LB) (AW) (MS2))
-    (hA13 : Scc.Cert.Spawn.X64.a13data (Ly).Λ o.prog o.secs = true) (hf : Fresh2H (AW) (LB) l b n l' b' n')
-    (hB : BoxPureH (Ly) B.F0 n' R F J1 t)
-    (hG : Spike.Lib.X64.HelloPh.RootHP.GJ1RH (Ly) (Spike.Lib.X64ConsumerA.upd (LB) l b) l R F J1 t) :
-    Spike.Lib.X64.HelloPh.RootHP.TcbV (Ly) (W2I (Ly) (AW) B.Dt B.Ctx (LB) (ls0T B.ls) l b n l' b' n') l' b'
-      (slWsH l) R F J1 :=
-  tcb_Ig hpw i0 B hA13 hf hB hG (mid_I hpw i0 (n := n) (l' := l') (b' := b') B hA13 hB hG)
-
-/-- **`H1GAH0V` at the root instance, inhabited**: the root's open premise at every box ghost, from
-`WcRootI.wcWf_I`, `res_I`, `tcb_I`, `WcRootI.wcl_I`; its residual premises are the instance's (`HelloRootBase`, A13's
-data part) and the box ghost's (`Fresh2H`, `BoxPureH`, `GJ1RH`). -/
-theorem h0V_I (B : HelloRootBase (Ly) (LB) (AW) (MS2))
-    (hA13 : Scc.Cert.Spawn.X64.a13data (Ly).Λ o.prog o.secs = true) (hf : Fresh2H (AW) (LB) l b n l' b' n')
-    (hB : BoxPureH (Ly) B.F0 n' R F J1 t)
-    (hG : Spike.Lib.X64.HelloPh.RootHP.GJ1RH (Ly) (Spike.Lib.X64ConsumerA.upd (LB) l b) l R F J1 t) :
-    Spike.Lib.X64.HelloPh.RootHP.H1GAH0V (Ly) (W2I (Ly) (AW) B.Dt B.Ctx (LB) (ls0T B.ls) l b n l' b' n') (WcI (Ly))
-      (MS2 B.ls l b n l' b' n') l' b' (slWsH l) R F J1 t :=
-  ⟨Spike.Lib.X64.HelloPh.WcRootI.wcWf_I hpw i0 B hA13 hf hB hG, res_I hpw i0 B hA13 hf hB hG,
-    tcb_I hpw i0 B hA13 hf hB hG, Spike.Lib.X64.HelloPh.WcRootI.wcl_I hpw i0 B hf hB hG⟩
-
 set_option hygiene false in
 /-- main's owned words with the self words. -/
 local notation "OX" => ownGHXW (Ly) (ntA (Ly).lab)
 
 /-- **`H1GAH0V.wcWf` at the root instance at the self words**: `WcW2.wcMainW_W2H` at `ownGHXW` from `mid_IX`'s
-`WcMidWH`, the placement `WcPl2.wcMainW_plGJ1H` as `WcRootI.wcWf_I`'s. -/
+`WcMidWH`, the placement `WcPl2.wcMainW_plGJ1H` at the box's source facts `QBH`. -/
 theorem wcWf_IX (B : HelloRootBase (Ly) (LB) (AW) (MS2))
     (hA13 : Scc.Cert.Spawn.X64.a13data (Ly).Λ o.prog o.secs = true) (hf : Fresh2H (AW) (LB) l b n l' b' n')
     (hB : BoxPureH (Ly) B.F0 n' R F J1 t)
@@ -294,8 +261,8 @@ theorem wcWf_IX (B : HelloRootBase (Ly) (LB) (AW) (MS2))
       (Spike.Lib.X64.HelloPh.Box.hmt_H hpw i0 hf.1) hG.1)
     hun.2.1 (Spike.Lib.X64.HelloPh.H2Rt.hoff56_H hpw IH hA13)
 
-/-- **`H1GAH0V.wcl` at the root instance at the self words**: `Wcl2X.wcl_W2GJ1HX` as `WcRootI.wcl_I`'s
-`wcl_W2GJ1H`, main's TCB word apart from the runtime's words (`tcbSep_W`, `tcbM_ne_ntA_W`), the worker's
+/-- **`H1GAH0V.wcl` at the root instance at the self words**: `Wcl2X.wcl_W2GJ1HX` (AArch64 `WcRootI.wcl_I`'s
+`wcl_W2GJ1H`), main's TCB word apart from the runtime's words (`tcbSep_W`, `tcbM_ne_ntA_W`), the worker's
 (`tcbWH_notG_W`), the frames on the pool (`band320_of_boxH`). -/
 theorem wcl_IX (B : HelloRootBase (Ly) (LB) (AW) (MS2))
     (hA13 : Scc.Cert.Spawn.X64.a13data (Ly).Λ o.prog o.secs = true) (hf : Fresh2H (AW) (LB) l b n l' b' n')
@@ -345,15 +312,6 @@ end Spike.Lib.X64.HelloPh.CalRootI
 
 /-- info: 'Spike.Lib.X64.HelloPh.CalRootI.tcb_Ig' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms Spike.Lib.X64.HelloPh.CalRootI.tcb_Ig
-
-/-- info: 'Spike.Lib.X64.HelloPh.CalRootI.res_I' depends on axioms: [propext, Classical.choice, Quot.sound] -/
-#guard_msgs in #print axioms Spike.Lib.X64.HelloPh.CalRootI.res_I
-
-/-- info: 'Spike.Lib.X64.HelloPh.CalRootI.tcb_I' depends on axioms: [propext, Classical.choice, Quot.sound] -/
-#guard_msgs in #print axioms Spike.Lib.X64.HelloPh.CalRootI.tcb_I
-
-/-- info: 'Spike.Lib.X64.HelloPh.CalRootI.h0V_I' depends on axioms: [propext, Classical.choice, Quot.sound] -/
-#guard_msgs in #print axioms Spike.Lib.X64.HelloPh.CalRootI.h0V_I
 
 /-- info: 'Spike.Lib.X64.HelloPh.CalRootI.wcWf_IX' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms Spike.Lib.X64.HelloPh.CalRootI.wcWf_IX

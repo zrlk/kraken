@@ -99,4 +99,57 @@ def twoDecls (a b : Nat) : CoreTerm.Prog :=
 -- `Accepted1` by the kernel through the keyed form (`accepted1_of_K`).
 example : Accepted1 (twoDecls 3 3) = true := accepted1_of_K (by decide +kernel)
 
+/-! ## Bounded blocks (`blocksOk1`) -/
+
+/-- `k` checked `+`s of `x` from `x0`, then `tail`. -/
+def adds (k : Nat) (x0 : CoreTerm.At) (tail : CoreTerm.Expr) : CoreTerm.Expr :=
+  match k with
+  | 0 => .let_ "s" (.atom x0) tail
+  | k + 1 => .let_ "s" (.add x0 (.lit 1)) (adds k (.var "s") tail)
+
+/-- `main` of `k` checked `+`s and `ret`: one block of `k + 2` units. -/
+def chain (k : Nat) : CoreTerm.Prog :=
+  [{ name := "main", idx := [], arg := "u", argTy := .unit, retTy := .int,
+     body := adds k (.lit 0) (.ret (.var "s")) }]
+
+/-- `f(n : Int)` of `k` checked `+`s and `ret` (its parameter costs one
+unit in block `entry`), and `main` calling it. -/
+def chainF (k : Nat) : CoreTerm.Prog :=
+  [{ name := "f", idx := [], arg := "n", argTy := .int, retTy := .int,
+     body := adds k (.var "n") (.ret (.var "s")) },
+   { name := "main", idx := [], arg := "u", argTy := .unit, retTy := .int,
+     body := .let_ "r" (.call "f" [] (.lit 0)) (.ret (.var "r")) }]
+
+/-- `main` with an `if` whose `then` arm is `k` checked `+`s and `ret`:
+block `entry` is the `br` (1 unit), the arm `k + 2` units. -/
+def chainArm (k : Nat) : CoreTerm.Prog :=
+  [{ name := "main", idx := [], arg := "u", argTy := .unit, retTy := .int,
+     body := .let_ "v" (.atom (.lit 0)) <|
+       .ifeq (.var "v") (.lit 0) (adds k (.lit 0) (.ret (.var "s"))) (.ret (.var "v")) }]
+
+-- The bound is exact: 510 `+`s and the `ret` are 512 units, 511 are 513.
+#guard Accepted1 (chain 510) && !Accepted1 (chain 511) && !blocksOk1 (chain 511)
+-- The parameter counts in the first block.
+#guard Accepted1 (chainF 509) && !Accepted1 (chainF 510)
+-- An arm of an `if` is a block of its own.
+#guard Accepted1 (chainArm 510) && !Accepted1 (chainArm 511)
+-- Every `Accepted0` program is bounded (`maxAdds0` = 508).
+#guard Accepted0 (chain 508) && blocksOk1 (chain 508)
+
+/-- `Scc.IR.blocksOk` of the IR functions `p`'s code blocks lower to
+(`lowerDeclMarks`, without the depth counter), `none` if one fails. -/
+def loweredOk (p : CoreTerm.Prog) : Option Bool :=
+  p.foldlM (fun ok d => match lowerDeclMarks p [] d with
+    | .ok (f, _) => some (ok && Scc.IR.blocksOk f)
+    | .error _ => none) true
+
+-- `blocksOk1` is the bound on the lowered code, accepted or refused, with
+-- calls, `-`, `if`s and the parameter.
+#guard [chain 510, chain 511, chainF 509, chainF 510, chainArm 510, chainArm 511, callProg true,
+    twoArms 1 1, twoDecls 3 3].all fun p => loweredOk p == some (blocksOk1 p)
+#guard verdicts (w_src% "Scc/Test/call1.w") == some (false, true) &&
+  (match Scc.Frontend.run (w_src% "Scc/Test/call1.w") with
+   | .ok c => loweredOk c.prog == some true
+   | .error _ => false)
+
 end Scc.Test.Spec1

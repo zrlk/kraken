@@ -188,6 +188,10 @@ abbrev cntL : Label := ".Lscc_rt_alloc.cnt"
 abbrev slowL : Label := ".Lscc_rt_alloc.slow"
 abbrev fullL : Label := ".Lscc_rt_alloc.full"
 abbrev okL : Label := ".Lscc_rt_alloc.ok"
+/-- The return label before `ret` (a GC table key, P5): the function's
+second local label (`.Lscc_rt_alloc.x0` is the return site of `.full`'s
+call). -/
+abbrev retL : Label := ".Lscc_rt_alloc.x1"
 
 /-- An instruction with undefined flags at `l + off`. -/
 def fiAt (cells : List (Directive × Nat)) (l : Label) (off : Nat) (fi : FI) (z : Nat) : Bool :=
@@ -206,6 +210,7 @@ def allocIn (cells : List (Directive × Nat)) : Bool :=
   blockAtB cells okL 61 bO4 && fiAt cells okL 88 (.imul_rr .rax .rcx) 4 && blockAtB cells okL 92 bO5 &&
   fiAt cells okL 107 (.shl_cl .rax) 3 && blockAtB cells okL 110 bO6 && fiAt cells okL 125 (.shl_cl .rax) 3 &&
   blockAtB cells okL 128 bO7 && fiAt cells okL 140 (.or_rr .rax .rcx) 3 && blockAtB cells okL 143 bO8 &&
-  blockAtB cells okL 170 [(iHdr, 3)] && blockAtB cells okL 173 bO9 && blockAtB cells okL 226 [(iRet.toDir, 1)]
+  blockAtB cells okL 170 [(iHdr, 3)] && blockAtB cells okL 173 bO9 && labelGapB cells okL retL 226 &&
+  blockAtB cells retL 0 [(iRet.toDir, 1)]
 
 end Spike.Lib.X64.Alloc

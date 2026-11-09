@@ -136,9 +136,12 @@ example : okBlk (-40) 16 Print.oI Print.x11 = true :=
 example : okBlk (-40) 16 Print.oI Print.x12 = true :=
   okBlk_of_rowIn_placeOK (b := ⟨0, 0, (-40), 16, Print.oI, Print.x12⟩)
     (l := ".Lscc_rt_print.fail") ret0_placeOK (by decide +kernel)
-example : okBlk (-40) 16 Print.oI Print.x13 = true :=
-  okBlk_of_rowIn_placeOK (b := ⟨0, 0, (-40), 16, Print.oI, Print.x13⟩)
+example : okBlk (-40) 16 Print.oI (Print.x13.take 2) = true :=
+  okBlk_of_rowIn_placeOK (b := ⟨0, 0, (-40), 16, Print.oI, Print.x13.take 2⟩)
     (l := ".Lscc_rt_print.done") ret0_placeOK (by decide +kernel)
+example : okBlk (-40) 16 ⟨8, []⟩ (Print.x13.drop 2) = true :=
+  okBlk_of_rowIn_placeOK (b := ⟨0, 0, (-40), 16, ⟨8, []⟩, Print.x13.drop 2⟩)
+    (l := Print.retL) ret0_placeOK (by decide +kernel)
 example : okBlk (-40) 16 Print.oI Print.x1 = true :=
   okBlk_of_rowIn_placeOK (b := ⟨0, 0, (-40), 16, Print.oI, Print.x1⟩)
     (l := ".Lscc_rt_print.entry") ret0_placeOK (by decide +kernel)

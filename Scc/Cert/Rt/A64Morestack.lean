@@ -82,14 +82,19 @@ block_spec b1 (-16) 0 oF b1
 block_spec b2 0 16 SO.entry b2
 block_spec b3 0 16 SO.entry b3
 
+/-- The return label before the trampoline's `ret` (`Scc.IR.StackMap.msRetLabel`). -/
+abbrev retL : Label := ".Lscc_rt_morestack.ret"
+
 /-- **The code of `scc_rt_morestack` in `prog`**: its blocks and the switch
-at their offsets from its label. -/
+at their offsets from its label. The last block runs across the return label
+`retL` (a GC table key, P5; `blockAcross`): its teardown (`b3.take 3`) at
+offset 12, then `retL` right after it, then its `ret` (`b3.drop 3`). -/
 def morestackIn (prog : List Directive) : Bool :=
   blockAt prog "scc_rt_morestack" 0 b0 &&
   blockAt prog "scc_rt_morestack" 7 b1 &&
   blockAt prog "scc_rt_morestack" 8 bs &&
   blockAt prog "scc_rt_morestack" 9 b2 &&
-  blockAt prog "scc_rt_morestack" 12 b3
+  blockAcross prog "scc_rt_morestack" 12 (b3.take 3) retL (b3.drop 3)
 
 /-! ## The specification -/
 

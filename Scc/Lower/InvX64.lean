@@ -145,19 +145,21 @@ theorem st_eq {fr : Frame} {d : IR.Reg} {s : S} {off : Int} (h : fr.slotOff d s 
 /-! ## The code of the constructs -/
 
 /-- **The code of `addChk d a b`**: `a` into `%rax`, `b` into `%rcx`,
-`addq %rcx, %rax`, `jc` to the function's overflow abort, `%rax` into
-`d`. -/
+`addq %rcx, %rax`, `jc` to the function's overflow abort, a fresh label
+(the fall-through's), `%rax` into `d`. -/
 theorem emitInst_addChk (fr : Frame) (sm : Option StackMap.Entry) (d : IR.Reg)
     (a b : IR.Operand) :
     emitInst fr sm (.addChk d a b) = (do
       ld fr a .rax; ld fr b .rcx
       ins (i64 (.add (xr .rax) (or_ .rcx)))
       ins (i64 (.jcc .c (labelOf fr.fn "ovf")))
+      lbl (← freshL fr.fn)
       st fr .rax d) := rfl
 
-/-- **The code of `ret [v]`**: `v` into `%rax`, the epilogue, `ret`. -/
+/-- **The code of `ret [v]`**: `v` into `%rax`, the epilogue, a fresh label
+(the return site's), `ret`. -/
 theorem emitTerm_ret1 (fr : Frame) (v : IR.Operand) :
-    emitTerm fr (.ret [v]) = (do ld fr v .rax; epilogue; ins (i64 .ret)) := by
+    emitTerm fr (.ret [v]) = (do ld fr v .rax; epilogue; lbl (← freshL fr.fn); ins (i64 .ret)) := by
   have ha : retRegs = .rax :: retRegs.tail := rfl
   simp only [emitTerm, loadArgs]
   rw [ha]
@@ -175,10 +177,9 @@ theorem lowerAll?_low_x64 {cfg : Config} {p : Prog} {e : Scc.Lower.X64.Emitted}
   cases hl : lowerIR cfg p with
   | error m => simp only [hl, bind, Except.bind] at h; cases h
   | ok l =>
-    simp only [hl, bind, Except.bind, Scc.Lower.X64.emitAll] at h
-    cases hi : Scc.Emit.X64.emitItemsMaps l.ir with
-    | error m => simp only [hi] at h; cases h
-    | ok v => simp only [hi, pure, Except.pure] at h; cases h; rfl
+    rw [hl] at h
+    obtain ⟨_, _, -, rfl⟩ := Scc.Lower.X64.emitAll_ok (gw := cfg.gcWit) h
+    rfl
 
 /-- **`lowerAll`'s IR on an `Accepted0` program** (x86-64), when the
 lowering and emission succeed: the runtime functions, then `func0 main r`. -/

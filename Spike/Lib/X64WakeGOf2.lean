@@ -5,9 +5,9 @@ TCB's limit word `pinA + 16`) with the second TCB's limit word
 `lim2A L = pinA + lim2Off` also pinned, to its initial value or the limit
 main's second `scc_rt_thread_init` stores there, `lim2V L` (the second
 stack's base plus the guard). wake's second `scc_rt_alloc_tcb` takes the
-header `8390915` (`movq $8390915, %rdi`: `mOf = 2`) at
-`scc_rt_pinned_next = 80` (`tcbLen`), so the header is `pinA + 96`, the
-second TCB `pinA + 104` and its limit field `pinA + 112` (`lim2Off`, the one
+header `8391939` (`movq $8391939, %rdi`: `mOf = 2`) at
+`scc_rt_pinned_next = 112` (`tcbLen`), so the header is `pinA + 128`, the
+second TCB `pinA + 136` and its limit field `pinA + 144` (`lim2Off`, the one
 place this offset is written). With it the child's prologue
 bound (`Rt.PreChild.TcbArea.lim`) holds of every value the invariant allows.
 
@@ -32,12 +32,12 @@ open Spike.Lib.X64.Rt (RuntimeLayout)
 open Spike.Lib.X64.PhRec (GOf limW limV gOf_ne pin_ne)
 
 /-- **The second TCB's limit word's offset** in the pinned region: the
-header `pinA + 80 + 8·mOf` (`mOf 8390915 = 2`), the TCB one word on, its
+header `pinA + 112 + 8·mOf` (`mOf 8391939 = 2`), the TCB one word on, its
 field `1` one more. -/
-abbrev lim2Off : BitVec 64 := 112#64
+abbrev lim2Off : BitVec 64 := 144#64
 
 /-- **The second TCB's limit word** (`scc_rt_thread_init`'s field `1` of
-the TCB `pinA + 104`). -/
+the TCB `pinA + 136`). -/
 abbrev lim2A (L : RuntimeLayout) : BitVec 64 := L.pinA + lim2Off
 
 /-- **The limit main's second `scc_rt_thread_init` stores**: the second

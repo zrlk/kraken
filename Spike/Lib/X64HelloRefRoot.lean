@@ -1,6 +1,6 @@
 /-
 **The refusal path's obligations at hello's root level** (x86-64; twin of `Spike/Lib/A64HelloRefRoot.lean`; wake's
-`WakeRefStub.refObl` at its root): `RefH.RefOblH` at the root's third level `W2I ∧ X2I` under
+`WakeRefStub.refObl` at its root): `RefH.RefOblH` at the root's third level `W2Ig own ∧ X2I` under
 `TakeCKS (L.lab siteL) (ClH L)`, the ghosts `GJ1RH` and `h2`'s placement `lbl2H`, from `RefO.refOblH_of` and its
 pieces: the blocks (`RefBlkH.refBlkH`), `SFactsAC` (`refACH`), `ownGH`'s agreement, the abort's phase, no write,
 the abort band (`refAgH`, `refAbStH`, `refNoWrH`, `refAbWH`), the map into the level (`refMapH`).
@@ -9,12 +9,11 @@ the abort band (`refAgH`, `refAbStH`, `refNoWrH`, `refAbWH`), the map into the l
 caller's entry state (`FrMGH`) by `X64HelloH2G.hG_of` at `GJ1RH`'s `GJ1H`; the box at `b'` by `upd`.
 
 - `preH_of`: `refOblH_of`'s `hpre` at `GJ1RH` and `lbl2H`.
-- `refOblH_root`: `RefOblH` at the root's level, generic in the memory side `ms` (its kernel `hK`, the exit call
-  an abort site `hex`, e.g. `refExH`) and given the level's debts cover `DtW` (`hDt`).
 - `refOblH_ofX`: `refOblH_of` with `CstOkH` at the blocks and along the threads abort path, at a level `Wn` that
   `Wb` with `CstOkH` gives.
-- `refOblH_rootX`: `RefOblH` at the root's level at the self words (`W2Ig ownGHXW`), given `CstOkH` at the blocks and
-  along the path.
+- `refOblH_rootX`: `RefOblH` at the root's level at the self words (`W2Ig ownGHXW`), generic in the memory side `ms`
+  (its kernel `hK`, the exit call an abort site `hex`, e.g. `refExH`), the level's debts covering `DtW` (`hDt`),
+  given `CstOkH` at the blocks and along the path.
 
 No absolute address appears in a statement here.
 
@@ -24,7 +23,7 @@ No absolute address appears in a statement here.
 - `BoxPureH`'s and `PreH`'s region facts are x86-64's (`R.lo ≤ -384`, `16 ≤ R.hi`, base `96` below stack 0's top;
   AArch64 `-400`, `0`, `80`); `preH_of` moves them unchanged.
 - main also holds its own and the worker's TCB words on the refusal path (`ownGHXW`), so the root's level there is
-  `W2Ig ownGHXW` (`refOblH_ofX`, `refOblH_rootX`; AArch64 `refOblH_root` only).
+  `W2Ig ownGHXW` (`refOblH_ofX`, `refOblH_rootX`; AArch64 `refOblH_root`, at `ownGH`).
 -/
 import Spike.Lib.X64HelloRefMap
 import Spike.Lib.X64HelloRefBlk
@@ -43,7 +42,7 @@ open Spike.Lib.X64.Rt (RuntimeLayout)
 open Spike.Lib.X64Consumer (Lbl Lsize)
 open Spike.Lib.X64ConsumerA (TakeCKS updN)
 open Spike.Lib.X64.Flow.Ret0.StackTake (siteL)
-open Spike.Lib.X64.HelloPh (ClH lo lbl2H W2I X2I)
+open Spike.Lib.X64.HelloPh (ClH lo lbl2H X2I)
 open Spike.Lib.X64.HelloPh.RootHP (GJ1RH)
 open Spike.Lib.X64.HelloPh.RefH (RefPreH RefOblH)
 open Spike.Lib.X64HelloHMid (slWsH)
@@ -68,31 +67,6 @@ variable {L : RuntimeLayout} (hp : L.prog = SccCode.helloCells) (hlo : L.Λ.code
   (hΛ : L.Λ.abortLbl = Scc.Cert.Link.abortName)
   (hlab : ∀ l x, codeLabel lo SccCode.helloCells l = some x → L.lab l = Int64.ofNat x)
   (hsite : (Spike.Lib.X64.PhRec.μ L).site .take = some (L.lab siteL).toBitVec.toNat)
-
-include hp hlo hΛ hlab in
-/-- **`RefOblH` at the root's level** (`h2Stmt_root`'s `hobl` at `W2I ∧ X2I`, `GJ1RH`, `lbl2H`, given the memory
-side's kernel `hK` and its exit abort site `hex`): `refOblH_of` at the pieces, the level's debts covering `DtW`
-(`hDt`). `W2I` is `RootWX.W2H` at the empty context and the sizes `updN (updN lsize l n) l' n'`
-(`HelloW2.w2H_def`, by unfolding), so the pieces are taken there. -/
-theorem refOblH_root {F0 : MachineData → Prop} {ar : Arena} {Dt : State → Prop} {Ctx : FragS isa} {lbl : Lbl}
-    {lsize : Lsize} {l : WeakMem.AllocLabel} {b n : Nat} {l' : WeakMem.AllocLabel} {b' n' : Nat}
-    {ms : List TermRun.Frame → MemSide isa} (hl' : Spike.Lib.X64ConsumerA.upd lbl l b l' = none)
-    (hmt : Spike.Lib.X64ConsumerA.upd lbl l b (mainTidLbl 2) = some (L.pinA.toNat + 8))
-    (hDt : ∀ s, Spike.Lib.X64.WakeWf.DtW s → Dt s) (hK : (ms []).K = some abi) (hex : ExH L (ms [])) :
-    RefOblH L F0 (GJ1RH L (Spike.Lib.X64ConsumerA.upd lbl l b) l) l' b' (slWsH l) n'
-      (fun s c fs => W2I L ar Dt Ctx lbl lsize l b n l' b' n' s c fs ∧ X2I L lbl lsize l b n l' b' n' s c fs)
-      (TakeCKS (L.lab siteL) (ClH L)) (lbl2H lbl l b l' b') ms := by
-  exact refOblH_of (F0 := F0) (n := n') (ar := ar) (lsize := updN (updN lsize l n) l' n')
-    (Ctx := fun _ _ _ => False)
-    (Ws := fun s c fs => Spike.Lib.X64.HelloPh.RootWX.W2H L (Spike.Lib.X64.Rt.Reserve.ntA L.lab) ar
-      Spike.Lib.X64HelloSrc.helloSrc Dt (ClH L) (fun _ _ _ => False) (lbl2H lbl l b l' b')
-        (updN (updN lsize l n) l' n') s c fs ∧
-      X2I L lbl lsize l b n l' b' n' s c fs) hp hK
-    (preH_of hl' hmt) (Spike.Lib.X64.HelloPh.RefBlkH.refBlkH hp hlo hΛ hlab)
-    (refACH hp hlo hlab hΛ _ _ _ ar _) (refAgH hp hlo hlab _ _ _) (refAbStH hp hlo hlab _ _ _ hΛ)
-    (refNoWrH hp hlo hlab _ _ _ ar _ _) (refAbWH hp hlo hlab _ _ _)
-    (refMapH hlab hDt (lbl2H lbl l b l' b') ar (updN (updN lsize l n) l' n') (fun _ _ _ => False) L.endPc
-      (lbl2H lbl l b l' b') (updN (updN lsize l n) l' n')) hex
 
 section OfX
 
@@ -162,9 +136,10 @@ theorem refOblH_ofX (hp : L.prog = SccCode.helloCells) (hK : (ms []).K = some ab
     fun s _ ⟨_, _, _, hpc, _⟩ => hex s hpc
 
 include hp hlo hΛ hlab in
-/-- **`RefOblH` at the root's level at the self words** (`h2Stmt_rootX`'s `hobl` at `W2Ig ownGHXW ∧ X2I`): as
-`refOblH_root`, by `refOblH_ofX` at `refOblH_root`'s pieces, given `CstOkH` at the four blocks (`hcblk`) and along
-the threads abort path (`hcst`); `W2H` with `CstOkH` is the level at `ownGHXW` (`Wf.appendS` twice). -/
+/-- **`RefOblH` at the root's level at the self words** (`h2Stmt_rootX`'s `hobl` at `W2Ig ownGHXW ∧ X2I`, `GJ1RH`,
+`lbl2H`): `refOblH_ofX` at the pieces (`preH_of`, `RefBlkH.refBlkH`, `refACH`, `refAgH`, `refAbStH`, `refNoWrH`,
+`refAbWH`, `refMapH`), given `CstOkH` at the four blocks (`hcblk`) and along the threads abort path (`hcst`); `W2H`
+with `CstOkH` is the level at `ownGHXW` (`Wf.appendS` twice). -/
 theorem refOblH_rootX {Dt : State → Prop} {l : WeakMem.AllocLabel} {b n : Nat} {l' : WeakMem.AllocLabel}
     {b' n' : Nat}
     (hl' : Spike.Lib.X64ConsumerA.upd lbl l b l' = none)
@@ -201,9 +176,6 @@ end Spike.Lib.X64.HelloPh.RefO
 
 /-- info: 'Spike.Lib.X64.HelloPh.RefO.preH_of' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms Spike.Lib.X64.HelloPh.RefO.preH_of
-
-/-- info: 'Spike.Lib.X64.HelloPh.RefO.refOblH_root' depends on axioms: [propext, Classical.choice, Quot.sound] -/
-#guard_msgs in #print axioms Spike.Lib.X64.HelloPh.RefO.refOblH_root
 
 /-- info: 'Spike.Lib.X64.HelloPh.RefO.refOblH_ofX' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms Spike.Lib.X64.HelloPh.RefO.refOblH_ofX

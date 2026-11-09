@@ -15,7 +15,7 @@ start's control (`dumN`, `BlkW.st`, `NodeW.st`,
   `nodeW_ldop_postA`).
 - `BlkW.nodeW`: a node's states inside `W` from its block's (the first).
 - `allocSt`: every node of `scc_rt_alloc` for a call `q` returning to
-  `wc_rodata`'s `.x13`, in a region of the allocator's frame whose frame
+  `wc_rodata`'s `.x0`, in a region of the allocator's frame whose frame
   condition gives the stack range off it, the call's premises (`Call.OK`)
   and the counter and headers unmapped in private memory.
 -/
@@ -163,7 +163,7 @@ local macro "afi " fi:term:max z:term:max l:term:max k:term:max : tactic =>
     (fun _ _ hJ => hJ.1 ▸ cfacts_c0) (by decide +kernel) (by decide +kernel) hR hR8 hl hh hsub hFO))
 
 /-- **`scc_rt_alloc`'s states carry the state's facts** at any control, none
-moved by the take, for a call `q` returning to `wc_rodata`'s `.x13`
+moved by the take, for a call `q` returning to `wc_rodata`'s `.x0`
 (`hra`), in a region of the allocator's frame (8-aligned) whose frame
 condition gives the stack range off it (`hFO`) and the call's premises
 (`hq`), the counter and every header the code may store unmapped in private
@@ -172,7 +172,7 @@ words mapped (`hmp`). -/
 theorem allocSt (hR : R.OK) (hR8 : R.base.toNat % 8 = 0) (hlo : R.lo ≤ -160) (hhi : 8 ≤ R.hi)
     (hl : R.lo % 8 = 0) (hh : R.hi % 8 = 0) (hsub : rS.Sub hello1Λ.stackPool) (hfit : rS.lo + rS.size ≤ 2 ^ 64)
     (hFO : ∀ m, F m → StackOff rS R m) (hq : ∀ m, F m → q.OK ms (_root_.Executable.labels hello1Exe).label)
-    (hra : q.ra = (labT ".Lwc_rodata.x13").toBitVec)
+    (hra : q.ra = (labT ".Lwc_rodata.x0").toBitVec)
     (hmp : ∀ L, ms.mp L true → Kernel.mapped (K0 hello1Λ) true L = true)
     (hmem : ∀ a : BitVec 64,
       (a = BitVec.ofNat 64 ms.ctr ∨ ∃ o, o + ms.units q.n q.τ ≤ ms.cells ∧ a.toNat = q.hdrAt ms o) →
@@ -242,10 +242,15 @@ theorem allocSt (hR : R.OK) (hR8 : R.base.toNat % 8 = 0) (hlo : R.lo ≤ -160) (
     obtain ⟨-, hmp', -⟩ := hq'.hdr o.toNat hlo hle
     exact ⟨hmp _ (hofn ▸ hmp'), hmem _ (.inr ⟨o.toNat, hle, hAeq⟩) m hF, hno _ (.inr ⟨o.toNat, hle, hAeq⟩)⟩
   · ablk okL 173 bO9_ok
-  · refine NodeW.st (BlkW.nodeW (Spike.Lib.X64.Rt.blkW_postO hello1_instOk (l := okL) (off := 226)
+  · -- the `ret` past the return label `.x1` (P5), `226` bytes past `.ok`
+    have eR : labT Spike.Lib.X64.Alloc.retL + Int64.ofNat 0 = labT okL + Int64.ofNat 226 := by
+      rw [← hello1_labT, Scc.Cert.Rt.X64.label_labelGapB Spike.Lib.X64.Flow.Hello1.Mem.hello1_lays
+        (show Scc.Cert.Rt.X64.labelGapB hello1Cells okL Spike.Lib.X64.Alloc.retL 226 = true by decide +kernel)]
+      exact Spike.Lib.X64.Flow.ofNat_zero' _
+    refine NodeW.st (BlkW.nodeW (Spike.Lib.X64.Rt.blkW_postO hello1_instOk (l := Spike.Lib.X64.Alloc.retL) (off := 0)
       (blk := [(iRet.toDir, 1)]) (lo := -160) (hi := 8) (dead := fun _ => false)
-      (ra := labT ".Lwc_rodata.x13") (by decide +kernel) rfl (by dsimp only [dumN, Spike.Lib.X64.Alloc.N]; decide)
-      hR hlo hhi hR8 hl hh (fun _ _ hJ => hJ.1 ▸ cfacts_c0) (by decide +kernel)
+      (ra := labT ".Lwc_rodata.x0") (by decide +kernel) eR (by dsimp only [dumN, Spike.Lib.X64.Alloc.N]; decide)
+      hR hlo hhi hR8 hl hh (fun _ _ hJ => hJ.1 ▸ cfacts_c0) (by rw [eR]; decide +kernel)
       (hret_of_run (lo := -160) (hi := 8) (by dsimp only [dumN, Spike.Lib.X64.Alloc.N]; decide) fun σ c hJ => ?_)
       (fun _ _ _ => rfl) hsub hfit hFO) (List.cons_ne_nil _ _))
     obtain ⟨-, c, o, -, -, -, -, -, h0, -⟩ := hJ

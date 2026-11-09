@@ -22,7 +22,7 @@ off the pool, `hoffP`, or on it, wake's `OwnSt.pool_m8`):
 AArch64 has no counterpart: main owns no TCB word there (its thread pointer is a register). Against x86-64 wake's
 `OwnSt` (`StartE`): the code is helloCells (`hello_rtCodeIn0`, `HelloPh.instOkH`), whose start is wake's up to the
 callees' addresses (`scc_rt_alloc_tcb` at `4199029`, `scc_rt_thread_init` at `4199582`); the take site is at
-`4200314`; the classes are `CstH`/`InAH`; `hW` is about the worker's word `tcbWH L` (`pinA + 112`). Wake's
+`4200314`; the classes are `CstH`/`InAH`; `hW` is about the worker's word `tcbWH L` (`pinA + 144`). Wake's
 `writeTree_silent`, `StartLft` and `pool_m8` read no program and are used as they are; wake's `startEX` (the `P`-free
 start) has no twin: hello's root takes the start as `Rt.StartEWFP` (`OwnSt.startEXPH`).
 -/

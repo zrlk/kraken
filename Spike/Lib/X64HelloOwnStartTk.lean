@@ -13,7 +13,7 @@ take's frame `[-200, 8]` off the pool) owns neither TCB word at any of its state
 AArch64 has no counterpart: main owns no TCB word there (its thread pointer is a register). Against x86-64 wake's
 `OwnSt.takeL`: the code is helloCells (`hello_takeIn`, `take_labsH`), the take site is at `4200314` (wake
 `4200277`), the take returns to `scc_rt_thread_init`'s `.x8` (`Rt.x8L`, `4199606`; wake's `.x7`), the classes are
-`CstH`/`NoHH` and `hW` is about the worker's word `tcbWH L` (`pinA + 112`). Wake's `takeX` (`TakeW.imp` at `WS`)
+`CstH`/`NoHH` and `hW` is about the worker's word `tcbWH L` (`pinA + 144`). Wake's `takeX` (`TakeW.imp` at `WS`)
 has no twin: hello's start reaches the take only through `Rt.TakeWP` (`OwnSt.tiXPH`).
 -/
 import Spike.Lib.X64HelloOwnLftCX
@@ -252,7 +252,7 @@ theorem takeLH (hp : L.prog = helloCells)
     · dsimp only [takeNG]; rw [eSite]; decide +kernel
   case ret =>
     have eX8' : L.lab Spike.Lib.X64.Rt.x8L = Int64.ofNat 4199606 := eX8
-    refine blkLH hp hlab hsite hsep ha hW (P := PTH) (Q := NoHH) bRet rfl stRet_ok hR (by omega) (by omega)
+    refine blkLHA hp hlab hsite hsep ha hW (P := PTH) (Q := NoHH) bRet rfl stRet_ok hR (by omega) (by omega)
       (fun _ h => h.2) (fun s h => cls_offH hlab hbd s h.1) (cls_offH hlab hbd) ?_ (soT stRet oI) (fun σ c hJ => ?_)
     · intro k hk; dsimp only [takeNG]; rw [eSite]; revert k; decide +kernel
     · dsimp only [takeNG] at hJ ⊢

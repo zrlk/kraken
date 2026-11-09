@@ -61,6 +61,14 @@ def labelGap (prog : List Directive) (a b : Label) (n : Nat) : Bool :=
   | some i, some j => j == i + 1 + n && ((prog.drop (i + 1)).take n).all isIns
   | _, _ => false
 
+/-- **A block across a label**: `a` from the `k`-th instruction after the
+first `label l`, the first `label m` right after it, and `b` after `label m`
+(a run of code split by a label that emits nothing, such as a return label;
+one code segment `a ++ b`, `Spike.Lib.A64.codeAt_blockAcross`). -/
+def blockAcross (prog : List Directive) (l : Label) (k : Nat) (a : List Directive) (m : Label)
+    (b : List Directive) : Bool :=
+  blockAt prog l k a && labelGap prog l m (k + a.length) && blockAt prog m 0 b
+
 theorem labelIdx_spec : ∀ {prog : List Directive} {l : Label} {n : Nat}, labelIdx prog l = some n →
     prog[n]? = some (.label l) ∧ ∀ d ∈ prog.take n, d ≠ .label l
   | [], _, _, h => by simp [labelIdx] at h

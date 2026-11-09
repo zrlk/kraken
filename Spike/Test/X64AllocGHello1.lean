@@ -70,12 +70,12 @@ theorem allocPc_hello1 :
   Spike.Lib.X64.AllocG.allocPc (hello1_instOk (rS := ⟨0, 0⟩)) hello1_allocPhOk
 
 /-- **`hello1.x`'s `allocSt`** from the generic one: the return address
-`wc_rodata`'s `.x13` in the allocator's phase. -/
+`wc_rodata`'s `.x0` in the allocator's phase. -/
 theorem allocSt_hello1 {rS : Range} (hR : R.OK) (hR8 : R.base.toNat % 8 = 0) (hlo : R.lo ≤ -160)
     (hhi : 8 ≤ R.hi) (hl : R.lo % 8 = 0) (hh : R.hi % 8 = 0) (hsub : rS.Sub hello1Λ.stackPool)
     (hfit : rS.lo + rS.size ≤ 2 ^ 64) (hFO : ∀ m, F m → StackOff rS R m)
     (hq : ∀ m, F m → q.OK ms (_root_.Executable.labels hello1Exe).label)
-    (hra : q.ra = (labT ".Lwc_rodata.x13").toBitVec)
+    (hra : q.ra = (labT ".Lwc_rodata.x0").toBitVec)
     (hmp : ∀ L, ms.mp L true → Kernel.mapped (K0 hello1Λ) true L = true)
     (hmem : ∀ a : BitVec 64,
       (a = BitVec.ofNat 64 ms.ctr ∨ ∃ o, o + ms.units q.n q.τ ≤ ms.cells ∧ a.toNat = q.hdrAt ms o) →
@@ -89,11 +89,11 @@ theorem allocSt_hello1 {rS : Range} (hR : R.OK) (hR8 : R.base.toNat % 8 = 0) (hl
     (by rw [hra, Int64.ofBitVec_toBitVec, Spike.Test.X64Hello1RtW.labT_eq_labX]; decide +kernel) hmp hmem hno
 
 /-- **`hello1.x`'s `allocAb`** from the generic one: the return address
-`wc_rodata`'s `.x13`, in the allocator's phase and off the write abort's
+`wc_rodata`'s `.x0`, in the allocator's phase and off the write abort's
 pcs. -/
 theorem allocAb_hello1 (hR : R.OK) (hlo : R.lo ≤ -160) (hhi : 8 ≤ R.hi)
     (hq : ∀ m, F m → q.OK ms (_root_.Executable.labels hello1Exe).label)
-    (hra : q.ra = (labT ".Lwc_rodata.x13").toBitVec)
+    (hra : q.ra = (labT ".Lwc_rodata.x0").toBitVec)
     (hmem : ∀ a : BitVec 64,
       (a = BitVec.ofNat 64 ms.ctr ∨ ∃ o, o + ms.units q.n q.τ ≤ ms.cells ∧ a.toNat = q.hdrAt ms o) →
       ∀ m, F m → Mem.loadInt m.dmem a 8 = none) :

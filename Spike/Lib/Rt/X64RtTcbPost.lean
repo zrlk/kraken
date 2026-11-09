@@ -220,7 +220,7 @@ theorem tcbW_postG {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe]
     simp [bAddr, Reg64s.get64, he]
   case ret =>
     dsimp only [TcbWG]; rw [hI.labOk]
-    exact blkW_post hI (by assumption) rfl atRet_ok hR hlo hhi (hC _ fun _ _ hJ => hJ.1) hph.ret
+    exact blkW_postA hI (by assumption) rfl atRet_ok hR hlo hhi (hC _ fun _ _ hJ => hJ.1) hph.ret
       (hret_of_run atRet_ok fun _ _ hJ => by
         dsimp only [tcbNG] at hJ ⊢
         rw [(atRet_walkG lab _ hJ.2).1, hra]; exact Int64.ofBitVec_toBitVec _)

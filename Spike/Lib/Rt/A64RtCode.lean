@@ -72,8 +72,9 @@ def tcbGrpsH : List RGrp := [
   ⟨fnL, [(0, atPro)], some (6, entryL)⟩,
   ⟨entryL, [(0, atChk), (4, atJ1)], none⟩,
   ⟨lenL, [(0, atLen)] ++ labPair 32 "scc_rt_pinned_next" ++
-    [(34, atArg), (37, [rmwDir]), (38, atBnd), (47, atJ2)], none⟩,
-  ⟨okL, labPair 0 "scc_rt_pinned" ++ [(2, atOk), (29, [hdrDir]), (30, atRet)], none⟩]
+    [(34, atArg), (37, [rmwDir]), (38, atBnd), (48, atJ2)], none⟩,
+  ⟨okL, labPair 0 "scc_rt_pinned" ++ [(2, atOk), (29, [hdrDir]), (30, atRet.take 12)], some (42, retL)⟩,
+  ⟨retL, [(0, atRet.drop 12)], none⟩]
 
 end Tcb
 
@@ -89,7 +90,8 @@ def tiGrpsH : List RGrp := [
     (14, parseAArch64("str x9, [x10, #8]")), (15, tiF2), (17, parseAArch64("str x9, [x10, #16]")),
     (18, tiF3), (20, parseAArch64("str x9, [x10, #24]")), (21, tiF4),
     (23, parseAArch64("str x9, [x10, #32]")), (24, tiF5), (26, parseAArch64("str x9, [x10, #40]")),
-    (27, tiRet)], none⟩]
+    (27, tiRet.take 4)], some (31, retL)⟩,
+  ⟨retL, [(0, tiRet.drop 4)], none⟩]
 
 end Ti
 
@@ -111,7 +113,8 @@ def takeGrpsH : List RGrp := [
     [(8, stAdd), (11, parseAArch64("ldaddal x9, x11, [x10]")), (12, stBnd), (21, stJ2)], none⟩,
   ⟨okL, labPair 0 "scc_rt_stacks" ++ [(2, stOk)], none⟩,
   ⟨takenL, [(0, stSite)], some (2, siteL)⟩,
-  ⟨siteL, [(0, parseAArch64("nop")), (1, stRet)], none⟩]
+  ⟨siteL, [(0, parseAArch64("nop")), (1, stRet.take 4)], some (5, retL)⟩,
+  ⟨retL, [(0, stRet.drop 4)], none⟩]
 
 end Take
 
@@ -158,19 +161,24 @@ theorem mainUIn_of (h : RtAll prog (mainUGrpsH mc)) : mainUIn prog mc = true := 
 /-- `scc_rt_alloc_tcb`'s check from its groups. -/
 theorem allocTcbIn_of (h : RtAll prog tcbGrpsH) : Ret0.AllocTcb.allocTcbIn prog = true := by
   simp only [tcbGrpsH, labPair, List.cons_append, List.nil_append, Nat.reduceAdd, RtAll, BsOk, GapAt, and_true] at h
-  simp only [Ret0.AllocTcb.allocTcbIn, h, Bool.and_self]
+  have e : (Ret0.AllocTcb.atRet.take 12).length = 12 := by decide
+  simp only [Ret0.AllocTcb.allocTcbIn, Scc.Cert.Rt.A64.blockAcross, e, Nat.reduceAdd, h, Bool.and_self]
 
 /-- `scc_rt_thread_init`'s checks from its groups. -/
 theorem threadInitIn_of (h : RtAll prog tiGrpsH) :
     Ret0.ThreadInit.threadInitIn prog = true ∧ tiSpIn prog = true := by
   simp only [tiGrpsH, RtAll, BsOk, GapAt, and_true] at h
-  simp only [Ret0.ThreadInit.threadInitIn, tiSpIn, h, Bool.and_self, and_self]
+  have e : (Ret0.ThreadInit.tiRet.take 4).length = 4 := by decide
+  simp only [Ret0.ThreadInit.threadInitIn, tiSpIn, Scc.Cert.Rt.A64.blockAcross, e, Nat.reduceAdd, h, Bool.and_self,
+    and_self]
 
 /-- `scc_rt_stack_take`'s check from its groups. -/
 theorem stackTakeIn_of (h : RtAll prog takeGrpsH) : Ret0.StackTake.stackTakeIn prog = true := by
   simp only [takeGrpsH, labPair, List.cons_append, List.nil_append, Nat.reduceAdd, RtAll, BsOk, GapAt,
     and_true] at h
-  simp only [Ret0.StackTake.stackTakeIn, Ret0.StackTake.labIn, h, Bool.and_self]
+  have e : (Ret0.StackTake.stRet.take 4).length = 4 := by decide
+  simp only [Ret0.StackTake.stackTakeIn, Ret0.StackTake.labIn, Scc.Cert.Rt.A64.blockAcross, e, Nat.reduceAdd, h,
+    Bool.and_self]
 
 /-- **Every check from the pass.** -/
 theorem rtCodeIn_of_ok (h : rtCodeOk prog mc = true) : RtCodeIn prog mc := by

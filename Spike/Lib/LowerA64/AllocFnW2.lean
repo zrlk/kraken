@@ -105,7 +105,8 @@ theorem allocNoSys (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
   · sblk h15 b12_ok
   · ssi h16
   · sblk h17 b13_ok
-  · ssi h18
+  · exact nodeW_noSys1 hI h18.2 (by rw [← hI.labOk, Scc.Cert.Rt.A64.label_labelGap hI.lays h18.1]; pc_tac) rfl
+      (fun _ h => by cases h)
 
 omit [Kraken.Executable.ValidLayout exe] in
 /-- **At the call's control or its hold**, for a call `q` with its premises

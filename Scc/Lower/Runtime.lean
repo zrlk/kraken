@@ -212,7 +212,11 @@ where
     let hp ← if o.headerBeforeTrace then pure s else binR .add s tr "hp"
     emit (.store .plain .w64 ⟨← inReg hp, 0⟩ hdr)
     let b1 ← binR .add s tr "b"
-    terminate (.ret [← binR .add b1 (imm 8) "base"])
+    let base ← binR .add b1 (imm 8) "base"
+    -- the result is a trace word (the caller's destination is one too): tagged, so that the
+    -- allocator's own `ret` map lists it
+    if let .reg r := base then markHeap r
+    terminate (.ret [base])
 
 /-! ## The stack pool
 
@@ -448,6 +452,10 @@ def growF (lay : Layout) : Except String Func :=
     emit (.store .plain .w64 ⟨← inReg np, 0⟩ (← binR .add (.reg s) delta "ns"))
     let ra ← fresh "ra"
     emit (.load .plain .w64 ra ⟨p, 8⟩)
+    -- The table keys a return address relative to the text's start.
+    let ts ← fresh "ts"
+    emit (.la ts StackMap.textStartSym)
+    emit (.bin .sub ra (.reg ra) (.reg ts))
     -- Bisection for the entry of return address ra.
     let lo ← fresh "lo"
     let hi ← fresh "hi"
@@ -617,7 +625,28 @@ def startF (lay : Layout) : Except String Func :=
     emit (.call [top] Names.threadInit [.reg tcb])
     terminate (.switchTo (.reg top) (.reg tcb) Names.mainThread (.reg tcb))
 
-def mainThreadF (entry : Frontend.Entry) (setupWords : Nat) : Except String Func :=
+/-- The registers of `ds` whose bit in `bs` (by position) is `b`; those past
+the end of `bs` are in neither list. -/
+def maskRegs (b : Bool) (ds : List Reg) (bs : List Bool) : List Reg :=
+  (ds.zip bs).filterMap fun (d, b') => if b' == b then some d else none
+
+/-- Record the kind of each register of `ds`, fresh ones, by the bit of `bs`
+at its position: a trace word (`Func.heapRegs`) for `true`, a scalar word
+(`Func.scalarRegs`) for `false`; registers past the end of `bs` stay
+unmarked.  As `markHeap` / `markScalar` per register, for registers not yet
+marked. -/
+def markBits (ds : List Reg) (bs : List Bool) : B Unit :=
+  modify fun s => { s with heapRegs := s.heapRegs ++ (maskRegs true ds bs).toArray,
+                           scalarRegs := s.scalarRegs ++ (maskRegs false ds bs).toArray }
+
+/-- The main thread's runtime function: the setup call (with a setup block),
+the call of `main`, `exit_group` of its result (or 0).  `setupMask` is the
+setup result's trace mask (`Obj.traceMask` of `rodata`'s result type): the
+setup result registers are marked by it (`markBits`), so the stack maps list
+the trace words among them at the call of `main`; with `[]` none is
+marked. -/
+def mainThreadF (entry : Frontend.Entry) (setupWords : Nat) (setupMask : List Bool := []) :
+    Except String Func :=
   buildFunc Names.mainThread ["tcb"] true do
     markHeap "tcb"
     let args ← match entry.arg with
@@ -625,6 +654,7 @@ def mainThreadF (entry : Frontend.Entry) (setupWords : Nat) : Except String Func
       | .tid => pure [Operand.reg "tcb"]
       | .setupTid => do
           let ds ← (List.range setupWords).mapM fun _ => fresh "s"
+          markBits ds setupMask
           emit (.call ds (Names.user "rodata") [])
           pure (ds.map Operand.reg ++ [.reg "tcb"])
     let code ← if entry.retInt then do

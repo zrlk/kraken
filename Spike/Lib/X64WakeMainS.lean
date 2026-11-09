@@ -148,7 +148,8 @@ theorem loopW_sys [Executable.ValidLayout exe] {cells : List (Directive × Nat)}
     ld := nodeW_sysCell (code_field hp hend hld rfl) fun _ _ h => by cases h
     n5 := blkW_sys b5_ok hR hlo hhi (code_field hp hend h5 rfl)
     n6 := blkW_sys b6_ok hR hlo hhi (code_field hp hend h6 rfl)
-    then1 := blkW_sys b7_ok hR hlo hhi (code_field hp hend h7 (ofNat_zero' _))
+    then1 := blkW_sys b7_ok hR hlo hhi
+      (Spike.Lib.X64.code_field_blockAcrossB hp hend h7 (List.take_append_drop _ _) (ofNat_zero' _))
     else2 := blkW_sys b8_ok hR hlo hhi (code_field hp hend h8 (ofNat_zero' _))
     x16 := blkW_sys b9_ok hR hlo hhi (code_field hp hend h9 (ofNat_zero' _)) }
 

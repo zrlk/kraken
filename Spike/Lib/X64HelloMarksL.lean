@@ -48,12 +48,12 @@ theorem marksL_H {asm : Scc.Sem.X64.Asm} (hpa : Scc.Sem.X64.cellsOf asm = some o
     exact (PlaceWX.lab_toNat hp i ha).symm
   wexit k hk := by
     have hl := Spike.Lib.X64HelloOInit.hlab_H hp i hpa hhp hlo
-    rw [hl "scc_rt_abort_write_exit" 4202896 (by rw [← codeT_eq]; decide +kernel)]
+    rw [hl "scc_rt_abort_write_exit" 4202934 (by rw [← codeT_eq]; decide +kernel)]
     cases k
-    · rw [hl _ 4202692 (by rw [← codeT_eq]; decide +kernel)]; decide
-    · rw [hl _ 4202760 (by rw [← codeT_eq]; decide +kernel)]; decide
-    · rw [hl _ 4202828 (by rw [← codeT_eq]; decide +kernel)]; decide
-    · rw [hl _ 4202964 (by rw [← codeT_eq]; decide +kernel)]; decide
+    · rw [hl _ 4202730 (by rw [← codeT_eq]; decide +kernel)]; decide
+    · rw [hl _ 4202798 (by rw [← codeT_eq]; decide +kernel)]; decide
+    · rw [hl _ 4202866 (by rw [← codeT_eq]; decide +kernel)]; decide
+    · rw [hl _ 4203002 (by rw [← codeT_eq]; decide +kernel)]; decide
     · exact absurd rfl hk
 
 /-- **`MarksL` at the canonical target's marks** (`μE` of the assembly rows): they are `PhRec.μ`

@@ -121,7 +121,7 @@ theorem resA_HX (hunN : ∀ m, F m → Mem.loadInt m.dmem (ntA (Ly).lab) 8 = non
 
 include hstat hA13 hf in
 /-- `H2Rt.hdrA_H` at `ms2HX`. -/
-theorem hdrA_HX (hunH : ∀ m, F m → Mem.loadInt m.dmem ((Ly).pinA + 104#64) 8 = none) :
+theorem hdrA_HX (hunH : ∀ m, F m → Mem.loadInt m.dmem ((Ly).pinA + 136#64) 8 = none) :
     ∀ c0 g, StOk ms2 F (hdrA (Ly).lab (tcb2QH g c0)) ((tcb2QH g c0).h ||| 1#64 <<< 36) :=
   fun c0 g => stOk_own (H2Rt.hdrA_H asm hp i E ls hstat hA13 hf hunH c0 g)
 

@@ -66,37 +66,37 @@ theorem wake_tiSub : blockAt wakeProg "scc_rt_thread_init" 0 tiSub = true := by 
 /-! ## The pcs at the canonical base -/
 
 /-- `.sp4`'s six pcs: their values, `ph2a` `0`, off the sites. -/
-theorem sp4_facts : ∀ k < 6, (Int64.ofNat 2169268 + Int64.ofNat (4 * k)).toBitVec.toNat = 2169268 + 4 * k ∧
-    ph2aC (2169268 + 4 * k) = 0 ∧ okC (2169268 + 4 * k) = true := by decide +kernel
+theorem sp4_facts : ∀ k < 6, (Int64.ofNat 2169300 + Int64.ofNat (4 * k)).toBitVec.toNat = 2169300 + 4 * k ∧
+    ph2aC (2169300 + 4 * k) = 0 ∧ okC (2169300 + 4 * k) = true := by decide +kernel
 
 /-- `.sp6`'s fourteen pcs (to the `svc`): their values, `ph2b` `0`, off the sites. -/
-theorem sp6_facts : ∀ k < 14, (Int64.ofNat 2169292 + Int64.ofNat (4 * k)).toBitVec.toNat = 2169292 + 4 * k ∧
-    ph2bC (2169292 + 4 * k) = 0 ∧ okC (2169292 + 4 * k) = true := by decide +kernel
+theorem sp6_facts : ∀ k < 14, (Int64.ofNat 2169324 + Int64.ofNat (4 * k)).toBitVec.toNat = 2169324 + 4 * k ∧
+    ph2bC (2169324 + 4 * k) = 0 ∧ okC (2169324 + 4 * k) = true := by decide +kernel
 
 /-- `scc_rt_thread_init`'s first two pcs: their values, `ph2b` `12`, the first off the sites. -/
-theorem ti_facts : (Int64.ofNat 2165244 + Int64.ofNat (4 * 0)).toBitVec.toNat = 2165244 ∧
-    (Int64.ofNat 2165244 + 4).toBitVec.toNat = 2165248 ∧ ph2bC 2165244 = 12 ∧ ph2bC 2165248 = 12 ∧
-    okC 2165244 = true := by decide +kernel
+theorem ti_facts : (Int64.ofNat 2165248 + Int64.ofNat (4 * 0)).toBitVec.toNat = 2165248 ∧
+    (Int64.ofNat 2165248 + 4).toBitVec.toNat = 2165252 ∧ ph2bC 2165248 = 12 ∧ ph2bC 2165252 = 12 ∧
+    okC 2165248 = true := by decide +kernel
 
 /-- The take site at the canonical base. -/
-theorem site_toNat : (Int64.ofNat 2165940).toBitVec.toNat = 2165940 := rfl
+theorem site_toNat : (Int64.ofNat 2165944).toBitVec.toNat = 2165944 := rfl
 
 variable {L : RuntimeLayout} {a : BitVec 64}
 
 theorem lab_sp4 (hlab : ∀ l x, codeOf lo wakeProg l = some x → L.lab l = Int64.ofNat x) :
-    L.lab ".L21_wc_main.sp4" = Int64.ofNat 2169268 :=
+    L.lab ".L21_wc_main.sp4" = Int64.ofNat 2169300 :=
   hlab _ _ (by rw [← codeT_eq]; decide +kernel)
 
 theorem lab_sp6 (hlab : ∀ l x, codeOf lo wakeProg l = some x → L.lab l = Int64.ofNat x) :
-    L.lab ".L21_wc_main.sp6" = Int64.ofNat 2169292 :=
+    L.lab ".L21_wc_main.sp6" = Int64.ofNat 2169324 :=
   hlab _ _ (by rw [← codeT_eq]; decide +kernel)
 
 theorem lab_ti (hlab : ∀ l x, codeOf lo wakeProg l = some x → L.lab l = Int64.ofNat x) :
-    L.lab "scc_rt_thread_init" = Int64.ofNat 2165244 :=
+    L.lab "scc_rt_thread_init" = Int64.ofNat 2165248 :=
   hlab _ _ (by rw [← codeT_eq]; decide +kernel)
 
 theorem lab_site (hlab : ∀ l x, codeOf lo wakeProg l = some x → L.lab l = Int64.ofNat x) :
-    L.lab Spike.Lib.A64.Flow.Ret0.StackTake.siteL = Int64.ofNat 2165940 :=
+    L.lab Spike.Lib.A64.Flow.Ret0.StackTake.siteL = Int64.ofNat 2165944 :=
   hlab _ _ (by rw [← codeT_eq]; decide +kernel)
 
 /-- Two offsets from a label as one. -/
@@ -111,14 +111,14 @@ theorem snd_of {s : State} {m : MachineData} {p : Int64} (h : s.st = (m, p)) : s
 /-- The two second instances' owned words at the second switch. -/
 theorem own2a0_eq (L : RuntimeLayout) (a : BitVec 64) : own2a L a 0 = own2b L a 12 := by
   have h := own2a_own2b_ph L a
-  have h1 : ph2a 2169288 = 0 := by rw [ph2a_eq]; unfold ph2aC; rw [threadInit2_ph.1]
-  have h2 : ph2b 2165244 = 12 := by rw [ph2b_eq]; unfold ph2bC; rw [threadInit2_ph.2.2]
+  have h1 : ph2a 2169320 = 0 := by rw [ph2a_eq]; unfold ph2aC; rw [threadInit2_ph.1]
+  have h2 : ph2b 2165248 = 12 := by rw [ph2b_eq]; unfold ph2bC; rw [threadInit2_ph.2.2]
   rwa [h1, h2] at h
 
 /-- **`ownG` at `.sp4`'s pcs** is `own2a L a 0`. -/
 theorem own_sp4 (hlab : ∀ l x, codeOf lo wakeProg l = some x → L.lab l = Int64.ofNat x) {s : State} {k : Nat}
     (hk : k < 6) (hs : s.st.2 = L.lab ".L21_wc_main.sp4" + Int64.ofNat (4 * k)) : ownG L a s = own2a L a 0 := by
-  have hp : pcOf s = 2169268 + 4 * k := by unfold pcOf; rw [hs, lab_sp4 hlab]; exact (sp4_facts k hk).1
+  have hp : pcOf s = 2169300 + 4 * k := by unfold pcOf; rw [hs, lab_sp4 hlab]; exact (sp4_facts k hk).1
   obtain ⟨-, -, -, -, e5, e6, -, -, -⟩ := labs_eq hlab (L := L)
   have hg : Good2a L s := .inr (.inl (by unfold inPc; rw [e5, e6, hp]; omega))
   rw [ownG_2a hlab hg, hp, ph2a_eq, (sp4_facts k hk).2.1]
@@ -126,7 +126,7 @@ theorem own_sp4 (hlab : ∀ l x, codeOf lo wakeProg l = some x → L.lab l = Int
 /-- **`ownG` at `.sp6`'s pcs to the `svc`** is `own2b L a 0`. -/
 theorem own_sp6 (hlab : ∀ l x, codeOf lo wakeProg l = some x → L.lab l = Int64.ofNat x) {s : State} {k : Nat}
     (hk : k < 14) (hs : s.st.2 = L.lab ".L21_wc_main.sp6" + Int64.ofNat (4 * k)) : ownG L a s = own2b L a 0 := by
-  have hp : pcOf s = 2169292 + 4 * k := by unfold pcOf; rw [hs, lab_sp6 hlab]; exact (sp6_facts k hk).1
+  have hp : pcOf s = 2169324 + 4 * k := by unfold pcOf; rw [hs, lab_sp6 hlab]; exact (sp6_facts k hk).1
   obtain ⟨-, -, -, -, -, e6, e7, -, -⟩ := labs_eq hlab (L := L)
   have hg : Good2b L s := .inr (.inl (by unfold inPc; rw [e6, e7, hp]; omega))
   rw [ownG_2b hlab hg, hp, ph2b_eq, (sp6_facts k hk).2.1]
@@ -134,7 +134,7 @@ theorem own_sp6 (hlab : ∀ l x, codeOf lo wakeProg l = some x → L.lab l = Int
 /-- **`ownG` at `scc_rt_thread_init`'s first two pcs on a pool stack** is
 `own2b L a 12`. -/
 theorem own_ti (hlab : ∀ l x, codeOf lo wakeProg l = some x → L.lab l = Int64.ofNat x) {s : State}
-    (hp : pcOf s = 2165244 ∨ pcOf s = 2165248) (hsp : spPool L s) : ownG L a s = own2b L a 12 := by
+    (hp : pcOf s = 2165248 ∨ pcOf s = 2165252) (hsp : spPool L s) : ownG L a s = own2b L a 12 := by
   obtain ⟨-, -, e3, e4, -, -, -, -, -⟩ := labs_eq hlab (L := L)
   have hg : Good2b L s := .inl ⟨by unfold inPc; rw [e3, e4]; omega, hsp⟩
   rw [ownG_2b hlab hg, ph2b_eq]

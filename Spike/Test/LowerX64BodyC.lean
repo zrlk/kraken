@@ -16,9 +16,10 @@ open Spike.Lib.LowerX64
 example (Cd : Int64 → List (Directive × Nat) → Prop) (pc : Int64) (blk : List (Directive × Nat))
     (h : Cd pc blk) : SubCd Cd pc blk := SubCd.whole h
 
-/-- A `ret`'s items are the load into `%rax`, the epilogue and `ret`. -/
+/-- A `ret` takes a fresh label (P5): its items are not the same from
+every state. -/
 example (fr : Scc.Emit.X64.Frame) (w : Scc.IR.Operand) (l : List Item) (h : Emits (emitTerm fr (.ret [w])) l) :
-    ∃ lw, getOp fr .rax w = .ok lw ∧ dirs l = retDirs lw := emits_ret h
+    False := not_emits_ret h
 
 /-- info: 'Spike.Lib.LowerX64.cdOf_sub' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in

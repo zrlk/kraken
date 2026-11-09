@@ -35,10 +35,10 @@ stack slot at `%rsp` (`blkC`'s `hret`); `pfxM` is `StartWf.pfxM`
 xaddq`), whose `hoff` takes the memory `m` (as `WakeWf.nodeW_wfXadd`), and
 the store's address is `bAddr` (A64's `rAddr`); `nodeCfi` is new (the
 length's and the header's flag-clobbering instructions, nodes of their own
-on x86-64). The reserve returns to `.Lwc_main.x19` in a region with the
+on x86-64). The reserve returns to `.Lwc_main.x1` in a region with the
 frame `[-40, 8]` (A64's `.sp3`, `[-48, 0]`), and its add's address is
 `%rcx` (A64's `x1`); `scc_rt_alloc_tcb` has 33 nodes (A64's 15) and
-returns to `.Lwc_main.x20` in a region with the frame `[-184, 8]` (A64's
+returns to `.Lwc_main.x2` in a region with the frame `[-184, 8]` (A64's
 `.sp4`, `[-192, 0]`). The owned words are any `own` (A64's `ownG`, with
 `nodeC` and the `ret`-free blocks through `WcWf`): x86-64's `W1W` owns
 `ownGXW` (`ownG` with the TCB self words). The statements are otherwise
@@ -153,6 +153,28 @@ theorem blkC {n : ND} {blk : List (Directive × Nat)} {l rl : Label} {k : Nat} {
     (fun j hj s h1 h2 h3 => (hI.off s (by rw [okPc_eq hΛ]; unfold pcOf; rw [h3]; exact hokpc j hj)).1)
     (Spike.Lib.X64.WakeWf.phOffW_sound hlab hph) hret hcl hJ hpl
 
+/-- **A covered block of wakeCells split by a return label inside `Wf`**
+(`m`, after its first `jA` rows; `blockAcrossB`): as `blkC`. -/
+private theorem blkCA {n : ND} {blk : List (Directive × Nat)} {l rl m : Label} {k jA : Nat} {blo bhi : Int}
+    (hb : Scc.Cert.Rt.X64.blockAcrossB wakeCells l k (blk.take jA) m (blk.drop jA) = true)
+    (he : L.lab l + Int64.ofNat k = n.pc)
+    (hok : okBlk blo bhi n.o blk = true) (hR : R.OK) (hlo' : R.lo ≤ blo) (hhi : bhi ≤ R.hi)
+    (hst : BlkW (fun s _ => SFactsSt2 L.Λ (Spike.Lib.X64.PhRec.μ L) own s) K L.exe L.endPc R F n blk)
+    (hokpc : ∀ j < blk.length, okC (n.pc + Int64.ofNat (cellOff blk j)).toBitVec.toNat = true)
+    (hph : Spike.Lib.X64.WakeWf.phOffW pfxM l k rl blk = true)
+    (hret : ∀ σ c, n.J σ c → ∀ j (hj : j < blk.length), Spike.Lib.X64.classify blk[j].1 = some .ret →
+      Int64.ofBitVec ((arun L.lab (blk.take j) ⟨n.pc, n.o, σ⟩).σ.slot (arun L.lab (blk.take j) ⟨n.pc, n.o, σ⟩).so.sp)
+        = L.lab rl)
+    (hJ : ∀ σ c, n.J σ c → (fs = [] → ∀ a, c.term ≠ .ret a) ∧ RunWf p c fs)
+    (hpl : BlkW (fun s c => PlacedSE L.Λ lbl s c fs) (fun _ _ => False) L.exe L.endPc R F n blk) :
+    BlkW (fun s c => Wf L.Λ (Spike.Lib.X64.PhRec.μ L) own ar p Dt (Spike.Lib.X64.WriteAb.Ab L.lab) Cl
+      (Spike.Lib.X64.ThreadsAb.Ac L.lab pfxM) Ctx lbl lsize s c fs) K L.exe L.endPc R F n blk := by
+  have hI := instOkW hp hlo 0#64 (fun _ => False) hsite (rS := ⟨0, 0⟩)
+  exact Spike.Lib.X64.WakeWf.blkW_wfQA (Λ := L.Λ) (ar := ar) (p := p) (Ctx := Ctx) (lsize := lsize)
+    (fs := fs) hI (hp ▸ hb) he hok hR hlo' hhi (blkW_dt hst)
+    (fun j hj s h1 h2 h3 => (hI.off s (by rw [okPc_eq hΛ]; unfold pcOf; rw [h3]; exact hokpc j hj)).1)
+    (Spike.Lib.X64.WakeWf.phOffW_sound hlab hph) hret hcl hJ hpl
+
 /-- **A covered `ret`-free block of wakeCells inside `Wf`** (`blkC` at its
 own label, no `ret` to aim). -/
 theorem blkCn {n : ND} {blk : List (Directive × Nat)} {l : Label} {k : Nat} {blo bhi : Int}
@@ -244,7 +266,7 @@ node's `SFactsSt2` (`hst`) and placement (`hpl`), the control `q.c0` not
 `scc_rt_nthreads` unmapped under `F` (`hunN`) and off the arena and not its
 counter word (`hoffN`). -/
 theorem reserveW_wfG (hR : R.OK) (hlo' : R.lo ≤ -40) (hhi : 8 ≤ R.hi) (q : ResG)
-    (hra : q.g.ra = (L.lab ".Lwc_main.x19").toBitVec)
+    (hra : q.g.ra = (L.lab ".Lwc_main.x1").toBitVec)
     (hc0 : (fs = [] → ∀ a, q.c0.term ≠ .ret a) ∧ RunWf p q.c0 fs)
     (hunN : ∀ m, F m → Mem.loadInt m.dmem (ntA L.lab) 8 = none)
     (hoffN : ¬ (ar.heap ≤ (ntA L.lab).toNat ∧ (ntA L.lab).toNat < ar.heap + 16 * ar.cells) ∧
@@ -281,7 +303,7 @@ theorem reserveW_wfG (hR : R.OK) (hlo' : R.lo ≤ -40) (hhi : 8 ≤ R.hi) (q : R
   case bnd => cblk bBnd rBnd_ok rBnd_noRet eE
   case j => cblk bJ rJ_ok rJ_noRet eE
   case ok =>
-    refine blkC hp hlo hΛ hlab hsite hcl (rl := ".Lwc_main.x19") bOk (ofNat_zero' _) rRet_ok hR (by omega)
+    refine blkCA hp hlo hΛ hlab hsite hcl (rl := ".Lwc_main.x1") bOk (ofNat_zero' _) rRet_ok hR (by omega)
       (by omega) h1 ?_ (by decide +kernel)
       (Spike.Lib.X64Consumer.hret_of_run rRet_ok fun σ c hJ' => ?_) (hJ _ fun _ _ h => h.1) h2
     · intro j hj; dsimp only [rvN]; rw [eO]; revert j; decide +kernel
@@ -300,13 +322,13 @@ placement (`hpl`), the control `c0` (`hc0`), the counter
 unmapped under `F` (`hunP`, `hunH`) and off the arena and not its counter
 word (`hoffP`, `hoffH`). -/
 theorem tcbWG_wfG (hR : R.OK) (hlo' : R.lo ≤ -184) (hhi : 8 ≤ R.hi)
-    (g : G) (c0 : Ctl) (hra : g.ra = (L.lab ".Lwc_main.x20").toBitVec)
+    (g : G) (c0 : Ctl) (hra : g.ra = (L.lab ".Lwc_main.x2").toBitVec)
     (hc0 : (fs = [] → ∀ a, c0.term ≠ .ret a) ∧ RunWf p c0 fs)
     (hunP : ∀ m, F m → Mem.loadInt m.dmem L.pnA 8 = none)
     (hoffP : ¬ (ar.heap ≤ L.pnA.toNat ∧ L.pnA.toNat < ar.heap + 16 * ar.cells) ∧ (⟨L.pnA, 8⟩ : Loc) ≠ ar.ctrLoc)
-    (hunH : ∀ m, F m → Mem.loadInt m.dmem (L.pinA + 96#64) 8 = none)
-    (hoffH : ¬ (ar.heap ≤ (L.pinA + 96#64).toNat ∧ (L.pinA + 96#64).toNat < ar.heap + 16 * ar.cells) ∧
-      (⟨L.pinA + 96#64, 8⟩ : Loc) ≠ ar.ctrLoc)
+    (hunH : ∀ m, F m → Mem.loadInt m.dmem (L.pinA + 128#64) 8 = none)
+    (hoffH : ¬ (ar.heap ≤ (L.pinA + 128#64).toNat ∧ (L.pinA + 128#64).toNat < ar.heap + 16 * ar.cells) ∧
+      (⟨L.pinA + 128#64, 8⟩ : Loc) ≠ ar.ctrLoc)
     (hst : ∀ i, TcbWG (fun s _ => SFactsSt2 L.Λ (Spike.Lib.X64.PhRec.μ L) own s) K L.exe L.endPc R F
       (Tcb2Call.tcb2Q g c0) i)
     (hpl : ∀ i, TcbWG (fun s c => PlacedSE L.Λ lbl s c fs) (fun _ _ => False) L.exe L.endPc R F
@@ -368,7 +390,7 @@ theorem tcbWG_wfG (hR : R.OK) (hlo' : R.lo ≤ -184) (hhi : 8 ≤ R.hi)
     dsimp only [tcbNG, rmwPc]; rw [eLen]; decide +kernel
   case hdr =>
     have hA' : ∀ σ c, (tcbNG (_root_.Executable.labels L.exe).label (Tcb2Call.tcb2Q g c0) .hdr).J σ c →
-        bAddr σ.regs .rcx 0 = L.pinA + 96#64 := fun σ c hJ' => by
+        bAddr σ.regs .rcx 0 = L.pinA + 128#64 := fun σ c hJ' => by
       dsimp only [tcbNG] at hJ'
       rw [Spike.Lib.X64.Flow.Ret0.bAddr_rcx hJ'.2.2.2, ← hpin, ← Tcb2Call.tcb2Q_hdrA _ g c0]
       first | exact BitVec.add_zero _ | simp
@@ -376,7 +398,7 @@ theorem tcbWG_wfG (hR : R.OK) (hlo' : R.lo ≤ -184) (hhi : 8 ≤ R.hi)
       (fun σ c m hJ' hF => by rw [hA' σ c hJ']; exact hunH _ hF) (fun σ c m hJ' _ => by rw [hA' σ c hJ']; exact hoffH)
     dsimp only [tcbNG, hdrPc]; rw [eOk]; decide +kernel
   case ret =>
-    refine blkC hp hlo hΛ hlab hsite hcl (rl := ".Lwc_main.x20") bRet rfl atRet_ok hR (by omega) (by omega) h1 ?_
+    refine blkCA hp hlo hΛ hlab hsite hcl (rl := ".Lwc_main.x2") bRet rfl atRet_ok hR (by omega) (by omega) h1 ?_
       (by decide +kernel) (Spike.Lib.X64Consumer.hret_of_run atRet_ok fun σ c hJ' => ?_) (hJ _ fun _ _ h => h.1) h2
     · intro j hj; dsimp only [tcbNG]; rw [eOk]; revert j; decide +kernel
     · dsimp only [tcbNG] at hJ' ⊢

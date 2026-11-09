@@ -23,18 +23,19 @@ open Kraken Kraken.Promising Kraken.Promising.X64 Kraken.Promising.Lower.X64
 open Spike.Lib.X64Consumer (blkPh)
 
 /-- **Every block of a lowered body passes `blkPh`** at its byte offset
-after the body's label `l` (at `lab l`). -/
+after the body's label `l` (at `lab l`), its fresh labels numbered
+from `n`. -/
 def bodyPhOk (okPc : Nat → Bool) (ph : Nat → Nat) (dead : Nat → Bool) (lab : String → Int64)
-    (cells : List (Directive × Nat)) (fr : Scc.Emit.X64.Frame) (l : String)
+    (cells : List (Directive × Nat)) (fr : Scc.Emit.X64.Frame) (l : String) (n : Nat)
     (is : List Scc.IR.Inst) (ws : List Scc.IR.Operand) (ra : Int64) : Bool :=
-  (bodyBlks cells fr l 0 is ws).all fun x => blkPh okPc ph dead lab (lab l + Int64.ofNat x.1) ra x.2
+  (bodyBlks cells fr l n 0 0 is ws).all fun x => blkPh okPc ph dead lab (lab l + Int64.ofNat x.1) ra x.2
 
 /-- **`bodyPhOk` is sound**: a block of the body (`InBody`) at `pc` passes
 `blkPh` at `pc`. -/
 theorem blkPh_of_inBody {okPc : Nat → Bool} {ph : Nat → Nat} {dead : Nat → Bool} {lab : String → Int64}
-    {cells : List (Directive × Nat)} {fr : Scc.Emit.X64.Frame} {l : String}
+    {cells : List (Directive × Nat)} {fr : Scc.Emit.X64.Frame} {l : String} {n : Nat}
     {is : List Scc.IR.Inst} {ws : List Scc.IR.Operand} {ra pc : Int64} {blk : List (Directive × Nat)}
-    (hb : InBody lab cells fr l is ws pc blk) (h : bodyPhOk okPc ph dead lab cells fr l is ws ra = true) :
+    (hb : InBody lab cells fr l n is ws pc blk) (h : bodyPhOk okPc ph dead lab cells fr l n is ws ra = true) :
     blkPh okPc ph dead lab pc ra blk = true := by
   obtain ⟨j, rfl, hj⟩ := hb
   exact List.all_eq_true.mp h _ hj

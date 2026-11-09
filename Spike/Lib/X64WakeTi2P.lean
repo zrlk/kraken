@@ -204,7 +204,7 @@ theorem take2B_WSns (hΛ : L.Λ.abortLbl = Scc.Cert.Link.abortName) (hs : WSep L
   case site => exact absurd rfl hsi
   case ret =>
     have eX7' : L.lab Spike.Lib.X64.Rt.Code.Ti.x7L = Int64.ofNat 4199569 := eX7
-    refine blk2_WS (rl := Spike.Lib.X64.Rt.Code.Ti.x7L) hp hlo hlab hsite hcl hc0 hpl0
+    refine blk2_WSA (rl := Spike.Lib.X64.Rt.Code.Ti.x7L) hp hlo hlab hsite hcl hc0 hpl0
       (fun m m' h hd => hPl m m' h.1 hd) hX0 hbd bRet rfl
       stRet_ok hR (by omega) (by omega) h (okPc_of_blkPh hP.ret) ?_ (soT stRet oI)
       (fin2 hlab hbd (fun σ c hJ => ?_) (soT stRet oI)) (by decide +kernel)
@@ -416,7 +416,7 @@ theorem ti2_WSnc (hΛ : L.Λ.abortLbl = Scc.Cert.Link.abortName) (hs : WSep L a)
       Scc.Sem.Kernel.mapped (Spike.Lib.X64Consumer.K0 L.Λ) true ⟨b, 8⟩ = true)
     (hunF : ∀ b ∈ Spike.Lib.X64.Rt.Ti.tiAddrs q.tcb, ∀ m, F m → Mem.loadInt m.dmem b 8 = none)
     (hnoF : ∀ b ∈ Spike.Lib.X64.Rt.Ti.tiAddrs q.tcb, ∀ j w, (⟨b, 8⟩, w) ∉ own2b L a j)
-    (hra : q.g.ra = (L.lab ".Lwc_main.x21").toBitVec)
+    (hra : q.g.ra = (L.lab ".Lwc_main.x3").toBitVec)
     (hrS : rS = ⟨(stacksA L.lab + q.k0).toNat, 16384⟩) (hsub : rS.Sub L.Λ.stackPool)
     (hSM : Spike.Lib.X64.FStable R (StackM rS))
     (hSMt : Spike.Lib.X64.FStable (R.callee (-48 - 0) (-200) 8) (StackM rS))
@@ -524,7 +524,7 @@ theorem ti2_WSnc (hΛ : L.Λ.abortLbl = Scc.Cert.Link.abortName) (hs : WSep L a)
     · dsimp only [tiN] at hJ ⊢; rw [(tiF5_walk _ _ hJ.2).1, eX7]; decide +kernel
   case st5 => tstW bS5 TI.st5 5 40 4 113
   case ret =>
-    refine blk2_WS (rl := ".Lwc_main.x21") hp hlo hlab hsite hcl hc0 hpl0 hPl2 hX0 hbd48 bRet rfl tiRet_ok
+    refine blk2_WSA (rl := ".Lwc_main.x3") hp hlo hlab hsite hcl hc0 hpl0 hPl2 hX0 hbd48 bRet rfl tiRet_ok
       hR (by omega) (by omega) h (okPc_of_blkPh hP.ret) ?_ (soI tiRet oI) (fun σ c hJ s m _ _ _ hs' => ?_)
       (by decide +kernel) (Spike.Lib.X64Consumer.hret_of_run tiRet_ok fun σ c hJ => ?_) (fun σ c h => h.1.trans hq)
     · intro k hk; dsimp only [tiN]; rw [eX7]; revert k; decide +kernel
@@ -547,7 +547,7 @@ theorem ti2_WSP (hΛ : L.Λ.abortLbl = Scc.Cert.Link.abortName) (hs : WSep L a)
       Scc.Sem.Kernel.mapped (Spike.Lib.X64Consumer.K0 L.Λ) true ⟨b, 8⟩ = true)
     (hunF : ∀ b ∈ Spike.Lib.X64.Rt.Ti.tiAddrs q.tcb, ∀ m, F m → Mem.loadInt m.dmem b 8 = none)
     (hnoF : ∀ b ∈ Spike.Lib.X64.Rt.Ti.tiAddrs q.tcb, ∀ j w, (⟨b, 8⟩, w) ∉ own2b L a j)
-    (hra : q.g.ra = (L.lab ".Lwc_main.x21").toBitVec)
+    (hra : q.g.ra = (L.lab ".Lwc_main.x3").toBitVec)
     (hrS : rS = ⟨(stacksA L.lab + q.k0).toNat, 16384⟩) (hsub : rS.Sub L.Λ.stackPool)
     (hSM : Spike.Lib.X64.FStable R (StackM rS))
     (hSMt : Spike.Lib.X64.FStable (R.callee (-48 - 0) (-200) 8) (StackM rS))

@@ -59,7 +59,7 @@ theorem spawn_workerPostQ {pcfg : Scc.Cert.PlaceOK.Config} {o : Scc.Cert.PlaceOK
     (hwide : Scc.Cert.WideX64.ExeWide exe)
     /- the instance's facts (decided at the concrete layout) -/
     (hprog : o.prog = wakeCells) (hlo : (RuntimeLayout.ofPlaceWX hpl i).Λ.code.lo = Spike.Lib.X64.WakePh.lo)
-    (hpin2 : (RuntimeLayout.ofPlaceWX hpl i).pinA.toNat + 168 ≤
+    (hpin2 : (RuntimeLayout.ofPlaceWX hpl i).pinA.toNat + 200 ≤
       (RuntimeLayout.ofPlaceWX hpl i).Λ.pinned.lo + (RuntimeLayout.ofPlaceWX hpl i).Λ.pinned.size)
     (hinit2 : (Spike.Lib.X64.PhRec.m0Of (RuntimeLayout.ofPlaceWX hpl i).Λ o.prog o.secs).initVal
       ⟨Spike.Lib.X64WakeGOf2.lim2A (RuntimeLayout.ofPlaceWX hpl i), 8⟩ = 0)

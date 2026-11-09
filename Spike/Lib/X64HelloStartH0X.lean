@@ -1,6 +1,6 @@
 /-
-**hello's start segment at `ownGHXW`, level 0, and `RootH0.hstHg`'s `hst0` there** (x86-64 only; the `ownGHXW`
-instance of `Spike/Lib/X64HelloStartH0U0.lean` and `Spike/Lib/X64HelloStartH0U1.lean`): the start segment
+**hello's start segment at `ownGHXW`, level 0, and `RootH0.hstHg`'s `hst0` there** (x86-64; the counterpart of
+AArch64's `A64HelloStartH0U0` and `A64HelloStartH0U1`, at `ownGHXW`): the start segment
 `StartH0G0X.hello_start_rd_h0G0X` (the level `WSHFg (ownGHXW Ly ntA)`) at the root's memory sides with the child's
 stack unmapped (`StartH0U.msUHg OX`, `OX := ownGHXW Ly ntA`), `KeepUnS.SegWS.mono_xa`/`keepUn` carrying it back to
 the root's `ms`, its one exit (`wc_rodata`'s heap abort) closed by `RdHAbX.hello_rd_hab_closedX`, ending in
@@ -10,24 +10,45 @@ Left as premises: the loader's facts (`hpa`, `hhp`, `hlo0`, `hstat`, `hA13`, `hc
 premises `hWe`, `hrd`, `hloc`, `hq` at `msUHg OX`, `hhabctlRd`, and `hRdU` (in `hst0_X`: level 1's statement `h1`
 at `RdLandHg OX`, through `StartH0H1.hRdU_of_h1Fg`).
 
-- `hst0_ofHU0X_i0`: `StartH0U0.hst0_ofHU0_i0` at `OX`.
+- `hst0_ofHU0X_i0`: the start segment at `OX` (AArch64 `StartH0U0.hst0_ofHU0_i0`; `hRdU` may assume main's
+  thread pointer at the landing), at `HelloImms.immsH Λ0 i0`.
 - `hst0_X`: `RootH0.hstHg`'s `hst0` at `OX` (`I3 … ⊥ inv1 inv2`, the memory side `RootH0.msBotHg … OX`), from
   `h1`.
 
 ## Differences from the AArch64 version
 
 AArch64's root owns `ownGH` (`A64HelloStartH0U0`, `A64HelloStartH0U1`); x86-64's main also holds its own and the
-worker's TCB words, so the memory sides own `ownGHXW` and the level is `W0Hg (ownGHXW …)`. Against x86-64's
-`StartH0U0`/`StartH0U1` at `ownGH`: the start segment is `hello_start_rd_h0G0X` (no thread-init premise, by
-`OwnSt.tiXPH`), the abort closure `hello_rd_hab_closedX` (the abort path lifted by `HabLftX`), which asks `hA13`;
-`hst0_X` takes `I3`'s `inv0` disjunct `⊥` as `RootH0.hstHg` asks. The rest is `StartH0U0`'s differences.
+worker's TCB words, so the memory sides own `ownGHXW` and the level is `W0Hg (ownGHXW …)`. The start segment is
+`hello_start_rd_h0G0X` (no thread-init premise, by `OwnSt.tiXPH`), the abort closure `hello_rd_hab_closedX` (the
+abort path lifted by `HabLftX`), which asks `hA13`; `hst0_X` takes `I3`'s `inv0` disjunct `⊥` as `RootH0.hstHg`
+asks.
+
+- `scc_rt_main`'s region at the new stack's base `v` is `MainGlue.RS helloLsw v` (AArch64 `swR v (-helloLsw) 0`);
+  `wc_rodata`'s caller's entry invariant `rdJH` takes it, so `J'` depends on `v` (`hrd`, `hRdU` at `J' v`; `hloc`
+  only at the first stack's top `J' TOP`, the only base the start reaches), `rN` takes `wc_rodata`'s region and
+  the kept cells reach `8` (AArch64 `0`).
+- The thread pointer is `%fs`'s base `tpOf (tcbS Ly)` (AArch64 `TPIDR_EL0` at `pinA + 8`), and `hrd` is asked
+  inside `WakeTP.tpG` (AArch64 `WakeWc.tpG`).
+- `hhabctlRd` takes `wc_rodata`'s region at the first stack's top (`HabCtlRdH`'s).
+- The stacks' bound is `X64WakeHClC.hbd_W`; the entry's `U r1Of` is `WakePh.StartH0X.entry_U` (AArch64
+  `wideSt_threadAt` and `WakeOHinit.unowned_stack` inline, through `hsub1_W`); `SegWS`'s `mono_K`/`mono_W` are
+  `WakePh.Land5.segWS_mono_K`/`segWS_mono_W`; `hxa`'s arena bounds are `HxaX.hxa_ofRdU`'s (AArch64 inline).
+- The loader's facts are the two parses `cellsOf asm` (AArch64 `textProgram`).
+- `StartH0G0X.hello_start_rd_h0G0X` also asks `me` in the immediate table; at `immsH Λ0 i0` that is
+  `HelloImms.immsH_start`, so it is not a premise here.
 -/
 import Spike.Lib.X64HelloStartH0U
 import Spike.Lib.X64HelloStartH0G0X
 import Spike.Lib.X64HelloHxaX
 import Spike.Lib.X64HelloStartH0B
 import Spike.Lib.X64HelloRootH0
-import Spike.Lib.X64HelloStartWcS0
+import Spike.Lib.X64HelloStartWcS
+import Spike.Lib.X64HelloMainPreTF
+import Spike.Lib.X64HelloStartWfP
+import Spike.Lib.X64HelloMainWf
+import Spike.Lib.X64WakeMainGlue
+import Spike.Lib.X64WordsNone
+import Spike.Lib.X64HelloFrameD
 import Spike.Lib.X64HelloRdHAbCX
 import Spike.Lib.X64HelloStartH0H1
 import Spike.Lib.X64KeepUnS
@@ -173,7 +194,7 @@ theorem hst0_ofHU0X_i0 (E : Entry) (hE : E.Ok (Ly).Λ)
     (hq : ∀ σC σ c, J1 σC σ c → ∃ q : Call, q.OK ((MSU) [FR]) (Ly).lab ∧ q.c0 = c ∧
       q.h = 257#64 ∧ q.k = 2#64 ∧ q.u ((MSU) [FR]) = 3#64)
     /- a landing the arena hands out, the child's stack unmapped, under main's thread pointer, is in `I` at the
-    fresh label (`StartH0H1.hRdU_of_h1F`) -/
+    fresh label (`StartH0H1.hRdU_of_h1Fg`) -/
     (hRdU : ∀ v m0 σC, ∀ q : AG ((MSU) [FR]) (Ly).lab, ∀ F' : MachineData → Prop,
       (∀ m, F' m → mF (RM v) (FS (Ly) (RS0) helloLsw 0#64 v) m0 σC m) →
       (∀ m, F' m → ∃ mC σ c, Abs (mR (RM v)) ⟨-48, []⟩ mC σ ∧
@@ -210,7 +231,7 @@ theorem hst0_ofHU0X_i0 (E : Entry) (hE : E.Ok (Ly).Λ)
     fun _ _ _ _ _ _ h hU => ⟨h.1, h.2 hU⟩
   have hG := Spike.Lib.X64.KeepUnS.SegWS.keepUn (fun _ => rfl) hG1 fun _ _ _ _ s' hk hs => by
     obtain ⟨-, pm, rfl⟩ := hk; exact Spike.Lib.X64.KeepUn.take_un pm hd hw1 hwS hs
-  -- the exits at `ms`, closed; the take as `TakeCKS`; `WS` as `W0H`; the start pair as `hG`'s entry
+  -- the exits at `ms`, closed; the take as `TakeCKS`; `WS` as `W0Hg`; the start pair as `hG`'s entry
   have hprog : (Ly).prog = SccCode.helloCells := Option.some.inj (hpa.symm.trans hhp)
   have hpL : Scc.Sem.X64.cellsOf asm = some (Ly).prog := by rw [hprog]; exact hhp
   have hC := Spike.Lib.X64.HelloPh.RdHAbX.hello_rd_hab_closedX hpw IH (Ctx := Ctx) (ls0 := ls0) (J1 := J1) hpa hhp

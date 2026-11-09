@@ -33,6 +33,7 @@ code's `jle` separates it from a refusal.
 -/
 import Spike.Lib.X64Print
 import Scc.Cert.Rt.X64Print
+import Spike.Lib.X64CodeAcross
 
 set_option linter.unusedSimpArgs false
 
@@ -381,7 +382,7 @@ theorem seg_printA_ofW {W : Frag isa} {K : State → State → Prop} {F : Machin
   · exact Scc.Cert.Rt.X64.code_field hp hend h10 rfl
   · exact Scc.Cert.Rt.X64.code_field hp hend h11 (Scc.Cert.Rt.X64.Print.off0 _)
   · exact Scc.Cert.Rt.X64.code_field hp hend h12 (Scc.Cert.Rt.X64.Print.off0 _)
-  · exact Scc.Cert.Rt.X64.code_field hp hend h13 (Scc.Cert.Rt.X64.Print.off0 _)
+  · exact Spike.Lib.X64.code_field_blockAcrossB hp hend h13 (List.take_append_drop _ _) (Scc.Cert.Rt.X64.Print.off0 _)
   · exact Scc.Cert.Rt.X64.code_field hp hend hs rfl
 
 end Proof

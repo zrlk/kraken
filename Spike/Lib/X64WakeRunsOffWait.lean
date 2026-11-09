@@ -24,7 +24,7 @@ open Spike.Lib.X64.RunsOff (runsNeChk abPtsA runsOffA_of_chk)
 /-- **`wc_waitLoop`'s byte runs**: from each of its labels to the next. -/
 def waitRuns : List (String × Nat × Nat) :=
   [("wc_waitLoop", 0, 31), (".Lwc_waitLoop.entry", 0, 29), (".Lwc_waitLoop.then1", 0, 12),
-    (".Lwc_waitLoop.else2", 0, 5), (".Lwc_waitLoop.x16", 0, 10)]
+    (".Lwc_waitLoop.else2", 0, 5), (".Lwc_waitLoop.x1", 0, 10)]
 
 /-- `wc_waitLoop`'s byte runs miss `PcOffA`'s points. -/
 theorem wait_chkA : runsNeChk SccCode.wakeCells waitRuns abPtsA = true := by decide +kernel

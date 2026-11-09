@@ -12,7 +12,7 @@ reserve's return point `.sp3` up to `.stack_grow`, and the child stub
 `.child13` up to `scc_rt_morestack`. Every fact is decided by
 `decide +kernel` on the program's labels (through `codeT`, `codeT_eq`); no
 pc range is a hypothesis. hello.w's pcs are wake.w's past `wc_waitLoop`
-shifted (the reserve at `2165168`, wake's `2165132`).
+shifted (the reserve at `2165172`, wake's `2165136`).
 
 - `RC`, `TC`, `SC`: the resolved ranges, the canonical phase table and the
   sites (`helloR_eq`, `phTab_eq`, `sites_eq`); `phH_eq`, `okPc_eq`.
@@ -58,17 +58,17 @@ def inR (pc : Nat) : Bool :=
 def phH : Nat → Nat := phExt (phOf lo SccCode.helloProg) inR
 
 /-- The resolved ranges. -/
-def RC : List (Nat × Nat) := [(2165208, 2165280), (2169696, 2169904), (2170008, 2170044)]
+def RC : List (Nat × Nat) := [(2165212, 2165284), (2169728, 2169936), (2170040, 2170076)]
 
 /-- The canonical phase table of SccCode.helloProg. -/
 def TC : PhTab where
   p := [(2164048, 2164120), (2164748, 2164944)]
-  l := [(2165680, 2165860)]
-  n := [(2164048, 2164132), (2164748, 2165168), (2165280, 2165308), (2165436, 2165884)]
-  t := [(2164048, 2164132), (2164748, 2165168), (2165280, 2165308), (2165436, 2165980)]
+  l := [(2165684, 2165864)]
+  n := [(2164048, 2164132), (2164748, 2165172), (2165284, 2165312), (2165440, 2165888)]
+  t := [(2164048, 2164132), (2164748, 2165172), (2165284, 2165312), (2165440, 2165984)]
 
 /-- The sites (`siteLabels` at `Link.abortName`). -/
-def SC : List Nat := [2165976, 2166032, 2168296, 2168368, 2168440, 2168512, 2168584]
+def SC : List Nat := [2165980, 2166036, 2168328, 2168400, 2168472, 2168544, 2168616]
 
 theorem helloR_eq : helloR.mapM (PhRange.resolve (codeOf lo SccCode.helloProg)) = some RC := by
   rw [← codeT_eq]; decide +kernel
@@ -118,22 +118,22 @@ abbrev ownH (L : RuntimeLayout) (a : BitVec 64) (i : Nat) : List (Loc × Val) :=
 
 /-- The reserve's blocks' checks at `phH`, returning to `wc_main`'s `.sp3`. -/
 theorem resBlks :
-    blkOkN (codeT lo SccCode.helloProg) okC phC 2165168 0 rPro (some ".L22_wc_main.sp3") none = true ∧
-    blkOkN (codeT lo SccCode.helloProg) okC phC 2165184 2 rArg (some ".L22_wc_main.sp3") none = true ∧
-    blkOkN (codeT lo SccCode.helloProg) okC phC 2165184 6 rBnd (some ".L22_wc_main.sp3") none = true ∧
-    blkOkN (codeT lo SccCode.helloProg) okC phC 2165184 15 rJ (some ".L22_wc_main.sp3") none = true ∧
-    blkOkN (codeT lo SccCode.helloProg) okC phC 2165260 0 rRet (some ".L22_wc_main.sp3") none = true := by
+    blkOkN (codeT lo SccCode.helloProg) okC phC 2165172 0 rPro (some ".L22_wc_main.sp3") none = true ∧
+    blkOkN (codeT lo SccCode.helloProg) okC phC 2165188 2 rArg (some ".L22_wc_main.sp3") none = true ∧
+    blkOkN (codeT lo SccCode.helloProg) okC phC 2165188 6 rBnd (some ".L22_wc_main.sp3") none = true ∧
+    blkOkN (codeT lo SccCode.helloProg) okC phC 2165188 15 rJ (some ".L22_wc_main.sp3") none = true ∧
+    blkOkN (codeT lo SccCode.helloProg) okC phC 2165264 0 rRet (some ".L22_wc_main.sp3") none = true := by
   decide +kernel
 
 /-- The reserve's labels. -/
-theorem resLabs : codeOf lo SccCode.helloProg fnL = some 2165168 ∧ codeOf lo SccCode.helloProg entryL = some 2165184 ∧
-    codeOf lo SccCode.helloProg okL = some 2165260 := by
+theorem resLabs : codeOf lo SccCode.helloProg fnL = some 2165172 ∧ codeOf lo SccCode.helloProg entryL = some 2165188 ∧
+    codeOf lo SccCode.helloProg okL = some 2165264 := by
   rw [← codeT_eq]; decide +kernel
 
 /-- The reserve's single steps and the add off the sites, at `phH`. -/
 theorem resSteps : factOk (codeT lo SccCode.helloProg) okC phC (.step entryL 0) = true ∧
     factOk (codeT lo SccCode.helloProg) okC phC (.step entryL 1) = true ∧
-    factOk (codeT lo SccCode.helloProg) okC phC (.ok entryL 5) = true ∧ phC 2165204 = 0 ∧ phC 2165208 = 16 := by
+    factOk (codeT lo SccCode.helloProg) okC phC (.ok entryL 5) = true ∧ phC 2165208 = 0 ∧ phC 2165212 = 16 := by
   decide +kernel
 
 variable {Λ : Scc.Sem.Layout} {lab : Label → Int64}
@@ -161,8 +161,8 @@ theorem resPhH (hΛ : Λ.abortLbl = Scc.Cert.Link.abortName) {L : RuntimeLayout}
   have hn : ∀ {d : Nat → Bool} t, Scc.Cert.Rt.A64.deadN (codeOf lo SccCode.helloProg) none t = true → d t = true :=
     fun _ h => by simp [Scc.Cert.Rt.A64.deadN] at h
   have hr : ∀ r, some ".L22_wc_main.sp3" = some r → lab ".L22_wc_main.sp3" = lab r := fun _ h => by cases h; rfl
-  have hrmw : (rmwPc lab).toBitVec.toNat = 2165204 := pc_eq hlab lE 5
-  have hrmw4 : (rmwPc lab + Int64.ofNat 4).toBitVec.toNat = 2165208 := by
+  have hrmw : (rmwPc lab).toBitVec.toNat = 2165208 := pc_eq hlab lE 5
+  have hrmw4 : (rmwPc lab + Int64.ofNat 4).toBitVec.toNat = 2165212 := by
     unfold rmwPc; rw [hlab _ _ lE, Int64.add_assoc, ← Int64.ofNat_add, toNat_add]
   exact {
     e := blkPh_of_blkOkN hlab lF hr hn bE

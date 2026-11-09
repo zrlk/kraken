@@ -32,7 +32,7 @@ frame condition with `TcbCtx … wcNCR`, so `tcbWG_wf` is used, not
 `tcbWG_wf_pt`; the assembly is a parameter `asm` (`cellsOf asm`); the
 regions are x86-64's (`R.callee (-72) (-184) 8`, caller cells at
 `-72 … -40` and `-72 … -184` above `8`); the ghost of the reserve is
-`Ret0.AllocTcb.G × Ctl` and the return labels are `.Lwc_main.x19`/`.x20`.
+`Ret0.AllocTcb.G × Ctl` and the return labels are `.Lwc_main.x1`/`.x20`.
 -/
 import Spike.Lib.X64WakeHatA
 import Spike.Lib.X64WakeWfCalW1
@@ -108,28 +108,28 @@ structure H1G (l : WeakMem.AllocLabel) (b n : Nat) (R : Region) (F : MachineData
   /-- `scc_rt_nthreads` is unmapped under `F` (`reserveW_wf`'s `hunN`). -/
   hunN : ∀ m, F m → Mem.loadInt m.dmem (ntA (Ly).lab) 8 = none
   /-- The reserve's per-node `SFactsSt2` at `ownGXW` (`reserveW_wf`'s `hst`). -/
-  hstR : ∀ g : Ret0.AllocTcb.G × Ctl, g.1.ra = ((Ly).lab ".Lwc_main.x19").toBitVec →
+  hstR : ∀ g : Ret0.AllocTcb.G × Ctl, g.1.ra = ((Ly).lab ".Lwc_main.x1").toBitVec →
     ∀ nd, ReserveW SG (fun _ _ => False) (Ly).exe (Ly).endPc (rAR R)
       (fun m => F m ∧ CallerCells R (-72) (-40) 8 m ∧ WakeWc.ResCtx (Ly).lab R
         (WakeWc.rN (tpXa ms1 t) (Ly).lab R J0 (QB l b) .call).J g m) ⟨g.1, 0#64, g.2⟩ nd
   /-- The reserve's frames are placed (`reserveW_wf`'s `hpl`). -/
-  hplR : ∀ g : Ret0.AllocTcb.G × Ctl, g.1.ra = ((Ly).lab ".Lwc_main.x19").toBitVec →
+  hplR : ∀ g : Ret0.AllocTcb.G × Ctl, g.1.ra = ((Ly).lab ".Lwc_main.x1").toBitVec →
     ∀ nd, ReserveW PG (fun _ _ => False) (Ly).exe (Ly).endPc (rAR R)
       (fun m => F m ∧ CallerCells R (-72) (-40) 8 m ∧ WakeWc.ResCtx (Ly).lab R
         (WakeWc.rN (tpXa ms1 t) (Ly).lab R J0 (QB l b) .call).J g m) ⟨g.1, 0#64, g.2⟩ nd
   /-- `scc_rt_pinned_next` is unmapped under `F` (`tcbWG_wf`'s `hunP`). -/
   hunP : ∀ m, F m → Mem.loadInt m.dmem (Ly).pnA 8 = none
   /-- `scc_rt_pinned + 96` is unmapped under `F` (`tcbWG_wf`'s `hunH`). -/
-  hunH : ∀ m, F m → Mem.loadInt m.dmem ((Ly).pinA + 96#64) 8 = none
+  hunH : ∀ m, F m → Mem.loadInt m.dmem ((Ly).pinA + 128#64) 8 = none
   /-- The second TCB's per-node `SFactsSt2` at `ownGXW` (`tcbWG_wf`'s `hst`). -/
   hstT : ∀ c0 cA m fr, MidG (QB l b) c0 cA ∧ FrG J0 fr ∧ FrMG J0 fr m →
-    ∀ g : Ret0.AllocTcb.G, g.ra = ((Ly).lab ".Lwc_main.x20").toBitVec →
+    ∀ g : Ret0.AllocTcb.G, g.ra = ((Ly).lab ".Lwc_main.x2").toBitVec →
     ∀ nd, TcbWG SG (fun _ _ => False) (Ly).exe (Ly).endPc (R.callee (-72) (-184) 8)
       (fun mm => F mm ∧ CallerCells R (-72) (-184) 8 mm ∧
         WakeWc.TcbCtx (Ly).lab R (WakeWc.wcNCR (Ly).lab c0 cA m fr).J c0 g mm) (tcb2Q g c0) nd
   /-- The second TCB's frames are placed (`tcbWG_wf`'s `hpl`). -/
   hplT : ∀ c0 cA m fr, MidG (QB l b) c0 cA ∧ FrG J0 fr ∧ FrMG J0 fr m →
-    ∀ g : Ret0.AllocTcb.G, g.ra = ((Ly).lab ".Lwc_main.x20").toBitVec →
+    ∀ g : Ret0.AllocTcb.G, g.ra = ((Ly).lab ".Lwc_main.x2").toBitVec →
     ∀ nd, TcbWG PG (fun _ _ => False) (Ly).exe (Ly).endPc (R.callee (-72) (-184) 8)
       (fun mm => F mm ∧ CallerCells R (-72) (-184) 8 mm ∧
         WakeWc.TcbCtx (Ly).lab R (WakeWc.wcNCR (Ly).lab c0 cA m fr).J c0 g mm) (tcb2Q g c0) nd
@@ -177,9 +177,9 @@ theorem hMidP_of (hpa : cellsOf asm = some o.prog) (hwp : cellsOf asm = some wak
     (hoffP : ¬ ((WakeOD.arW hp i).heap ≤ (Ly).pnA.toNat ∧
         (Ly).pnA.toNat < (WakeOD.arW hp i).heap + 16 * (WakeOD.arW hp i).cells) ∧
       (⟨(Ly).pnA, 8⟩ : Loc) ≠ (WakeOD.arW hp i).ctrLoc)
-    (hoffH : ¬ ((WakeOD.arW hp i).heap ≤ ((Ly).pinA + 96#64).toNat ∧
-        ((Ly).pinA + 96#64).toNat < (WakeOD.arW hp i).heap + 16 * (WakeOD.arW hp i).cells) ∧
-      (⟨(Ly).pinA + 96#64, 8⟩ : Loc) ≠ (WakeOD.arW hp i).ctrLoc)
+    (hoffH : ¬ ((WakeOD.arW hp i).heap ≤ ((Ly).pinA + 128#64).toNat ∧
+        ((Ly).pinA + 128#64).toNat < (WakeOD.arW hp i).heap + 16 * (WakeOD.arW hp i).cells) ∧
+      (⟨(Ly).pinA + 128#64, 8⟩ : Loc) ≠ (WakeOD.arW hp i).ctrLoc)
     {l : WeakMem.AllocLabel} {b n : Nat} {F0 : MachineData → Prop} {R : Region} {F : MachineData → Prop}
     {J0 : AS → Ctl → Prop} {t : UInt64} (hB : BoxPure (Ly) F0 n R F J0 t)
     (hG : H1G asm hp i E cT Dt Ctx ls0 l b n R F J0 t) : HMidPA asm hp i E cT Dt Ctx ls0 l b n R F J0 t := by
@@ -206,7 +206,7 @@ Loader facts, owned by the integration/assembly layer:
 - `hpa`, `hwp`: the assembly's cells are the output's program and wake's.
 - `hlo0`: the code base.
 - `hA13`: A13's data part.
-- `hpin2`: the pinned region reaches `pinA + 168` (`StartPlaceLy.hpin2_W`).
+- `hpin2`: the pinned region reaches `pinA + 200` (`StartPlaceLy.hpin2_W`).
 - `hcz`: the counter's zeroed item (`CtrZ`).
 From these, `hoffN`, `hoffP`, `hoffH` come from `CalWf.hoffN_W`,
 `hoffP_W`, `hoffH_W`.
@@ -221,7 +221,7 @@ theorem wake_h1 {ms0 : MemSide isa} {F0 : MachineData → Prop}
     (hpa : cellsOf asm = some o.prog) (hwp : cellsOf asm = some wakeCells)
     (hlo0 : Λ0.code.lo = Spike.Lib.X64.WakePh.lo)
     (hA13 : Scc.Cert.Spawn.X64.a13data (Ly).Λ o.prog o.secs = true)
-    (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) (hcz : Spike.Lib.X64.Rt.CtrZ o)
+    (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) (hcz : Spike.Lib.X64.Rt.CtrZ o)
     (hokb : ∀ l b n, L0T (Ly).Λ l = none → AllocLand (WakeOD.arW hp i).heap (WakeOD.arW hp i).cells b n →
       ∀ q : Spike.Lib.X64.Alloc.Call, q.OKB ms0 (Ly).lab → q.OKB (WakeH1Inv.ms1W asm hp i E cT ls0 l b n []) (Ly).lab)
     (hg : ms0.heap = (WakeOD.arW hp i).heap ∧ ms0.cells = (WakeOD.arW hp i).cells ∧

@@ -37,7 +37,7 @@ def tcb2TabH : List PhFact :=
   [.blk Tcb.fnL 0 Tcb.atPro none none, .blk Tcb.entryL 0 Tcb.atChk none (some ".L3_scc_rt_alloc_tcb.2_full"),
     .blk Tcb.entryL 4 Tcb.atJ1 none none, .blk Tcb.lenL 0 Tcb.atLen none none,
     .blk Tcb.lenL 34 Tcb.atArg none none, .blk Tcb.lenL 38 Tcb.atBnd none none,
-    .blk Tcb.lenL 47 Tcb.atJ2 none none, .blk Tcb.okL 2 Tcb.atOk none none,
+    .blk Tcb.lenL 48 Tcb.atJ2 none none, .blk Tcb.okL 2 Tcb.atOk none none,
     .blk Tcb.okL 30 Tcb.atRet (some ".L22_wc_main.sp4") none,
     .ne Tcb.entryL 4 ".L3_scc_rt_alloc_tcb.2_full" 0,
     .step Tcb.lenL 32, .step Tcb.lenL 33, .step Tcb.okL 0, .step Tcb.okL 1, .step Tcb.okL 29,
@@ -77,15 +77,15 @@ theorem mOf_hdr2H : mOf hdr2H <<< 3 = 24#64 := by decide
 
 open Spike.Lib.A64.Rt.Code in
 /-- **The second `scc_rt_alloc_tcb` call's phase facts after the take** at
-`ph2aH`, returning to `wc_main`'s `.sp4`, the counter's old value `80`,
+`ph2aH`, returning to `wc_main`'s `.sp4`, the counter's old value `112`,
 given the counters distinct (`hsep`) and the header's word none of them
 (`hhdr`). -/
 theorem tcbPh2aH {Λ : Scc.Sem.Layout} (hΛ : Λ.abortLbl = Scc.Cert.Link.abortName) {L : RuntimeLayout} {a : BitVec 64}
     (hlab : ∀ l x, codeOf lo SccCode.helloProg l = some x → L.lab l = Int64.ofNat x)
     (hsep : L.pnA ≠ L.lockA ∧ L.pnA ≠ L.freeNA ∧ L.pnA ≠ L.nextA ∧ L.pnA ≠ a)
-    (hhdr : L.pinA + 80#64 + 24#64 ∉ [L.pnA, L.lockA, L.freeNA, L.nextA, a]) :
+    (hhdr : L.pinA + 112#64 + 24#64 ∉ [L.pnA, L.lockA, L.freeNA, L.nextA, a]) :
     TcbPhGP (okPcOf lo SccCode.helloProg Λ) ph2aH (fun _ => True) (own2aH L a) L.lab
-      (fun _ => L.lab ".L22_wc_main.sp4") hdr2H 80#64 := by
+      (fun _ => L.lab ".L22_wc_main.sp4") hdr2H 112#64 := by
   have hf : ∀ f ∈ tcb2TabH, _ := fun f hf => tcb2_factH hΛ (f := f) hf
   have hn : ∀ {d : Nat → Bool} t, Scc.Cert.Rt.A64.deadN (codeOf lo SccCode.helloProg) none t = true → d t = true :=
     fun _ h => by simp [Scc.Cert.Rt.A64.deadN] at h
@@ -111,7 +111,7 @@ theorem tcbPh2aH {Λ : Scc.Sem.Layout} (hΛ : Λ.abortLbl = Scc.Cert.Link.abortN
       (by simp [tcb2TabH]))
     arg := blkPh_of_factOk hlab hr hn (hf (.blk Tcb.lenL 34 Tcb.atArg none none) (by simp [tcb2TabH]))
     bnd := blkPh_of_factOk hlab hr hn (hf (.blk Tcb.lenL 38 Tcb.atBnd none none) (by simp [tcb2TabH]))
-    j2 := blkPh_of_factOk hlab hr hn (hf (.blk Tcb.lenL 47 Tcb.atJ2 none none) (by simp [tcb2TabH]))
+    j2 := blkPh_of_factOk hlab hr hn (hf (.blk Tcb.lenL 48 Tcb.atJ2 none none) (by simp [tcb2TabH]))
     ok2 := blkPh_of_factOk hlab hr hn (hf (.blk Tcb.okL 2 Tcb.atOk none none) (by simp [tcb2TabH]))
     ret := blkPh_of_factOk hlab (fun _ h => by cases h; rfl) hn
       (hf (.blk Tcb.okL 30 Tcb.atRet (some ".L22_wc_main.sp4") none) (by simp [tcb2TabH]))
@@ -131,7 +131,7 @@ theorem tcbPh2aH {Λ : Scc.Sem.Layout} (hΛ : Λ.abortLbl = Scc.Cert.Link.abortN
       · exact step_of_factOk hlab (hf (.step Tcb.okL 29) (by simp [tcb2TabH]))
     rmwOk := ok_of_factOk hlab (hf (.ok Tcb.lenL 37) (by simp [tcb2TabH]))
     rmwTk := fun _ _ _ => Iff.rfl
-    rmwIn := ⟨(80#64).setWidth 128, by rw [rmwPc, h1, hpn]; simp [own2aH, ownV]⟩
+    rmwIn := ⟨(112#64).setWidth 128, by rw [rmwPc, h1, hpn]; simp [own2aH, ownV]⟩
     rmwUpd := by
       rw [rmwPc, Spike.Lib.A64.Flow.Ret0.ofNat4_succ', h1, h0, hpn]
       simp [ownUpdB, own2aH, ownV, s1, s2, s3, s4, Ne.symm s1, Ne.symm s2, Ne.symm s3, Ne.symm s4]

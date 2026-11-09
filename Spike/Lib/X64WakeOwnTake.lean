@@ -136,13 +136,13 @@ theorem st0_at (hp : L.prog = wakeCells)
     s.st.2 = Int64.ofNat 4199617 ∧ Kraken.Promising.Lower.X64.CellAt s (stDir .rcx 0 .rax) 3 ∧
       Kraken.Promising.Lower.X64.eaddr s 3 (mB .rcx 0) = q.tcb := by
   obtain ⟨hse, hsn, -, hpc, σ, hA, -, hJ⟩ := hAt
-  have e7 : L.lab ".Lscc_rt_thread_init.x7" = Int64.ofNat 4199569 := labV hlab (by decide +kernel)
+  have e7 : L.lab ".Lscc_rt_thread_init.x0" = Int64.ofNat 4199569 := labV hlab (by decide +kernel)
   have hpc' : s.st.2 = Int64.ofNat 4199617 := by
-    rw [hpc]; show L.lab ".Lscc_rt_thread_init.x7" + Int64.ofNat 48 = _; rw [e7]; decide
-  have hb : blockAtB L.prog ".Lscc_rt_thread_init.x7" 48 [(stDir .rcx 0 .rax, 3)] = true := by
+    rw [hpc]; show L.lab ".Lscc_rt_thread_init.x0" + Int64.ofNat 48 = _; rw [e7]; decide
+  have hb : blockAtB L.prog ".Lscc_rt_thread_init.x0" 48 [(stDir .rcx 0 .rax, 3)] = true := by
     rw [hp]; decide +kernel
   refine ⟨hpc', (code_field L.lays rfl hb (q := Int64.ofNat 4199617)
-    (by show L.lab ".Lscc_rt_thread_init.x7" + Int64.ofNat 48 = _; rw [e7]; decide) s hse hsn).cell0
+    (by show L.lab ".Lscc_rt_thread_init.x0" + Int64.ofNat 48 = _; rw [e7]; decide) s hse hsn).cell0
     rfl rfl hpc', ?_⟩
   have hz : BitVec.ofInt 64 (0 : Int64).toInt = 0#64 := by decide
   refine (eaddr_mB (s : State) 3 .rcx 0).trans ?_
@@ -171,7 +171,7 @@ theorem nodeW_st0X (hp : L.prog = wakeCells)
   obtain ⟨hpc', hc, ha'⟩ := st0_at hp hlab hAt
   rw [htcb] at ha'
   obtain ⟨-, -, hdc, -, σ, hA, hD, hJ⟩ := hAt
-  have e7 : L.lab ".Lscc_rt_thread_init.x7" = Int64.ofNat 4199569 := labV hlab (by decide +kernel)
+  have e7 : L.lab ".Lscc_rt_thread_init.x0" = Int64.ofNat 4199569 := labV hlab (by decide +kernel)
   have eT : L.lab "scc_rt_stack_take" = Int64.ofNat 4199695 := labV hlab (by decide +kernel)
   have eS : L.lab "scc_rt_take_site" = Int64.ofNat 4200277 := labV hlab (by decide +kernel)
   have e1 : L.lab ".Lscc_rt_start.x1" = Int64.ofNat 4198500 := labV hlab (by decide +kernel)
@@ -197,7 +197,7 @@ theorem nodeW_st0X (hp : L.prog = wakeCells)
   have hs' : ownS L (after s 3 s.st.1) = [(⟨tcbM L, 8⟩, (tcbM L).setWidth 128)] := by
     unfold ownS
     refine ite_eq_left (.inr (.inr ?_))
-    show (L.lab ".Lscc_rt_thread_init.x7").toBitVec.toNat + 51 ≤ (s.st.2 + Int64.ofNat 3).toBitVec.toNat ∧
+    show (L.lab ".Lscc_rt_thread_init.x0").toBitVec.toNat + 51 ≤ (s.st.2 + Int64.ofNat 3).toBitVec.toNat ∧
       (s.st.2 + Int64.ofNat 3).toBitVec.toNat < (L.lab "scc_rt_stack_take").toBitVec.toNat
     rw [hpc', e7, eT]; decide
   have hsys : abi.atSys s = false := atSyscall_false_of_cellAt hc (by intro w w' h; cases h)

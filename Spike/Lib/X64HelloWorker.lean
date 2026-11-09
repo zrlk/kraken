@@ -32,6 +32,7 @@ layout `exe` laying the cells out (`Lays exe helloCells kp`).
 import Spike.Lib.X64HelloWorkerBody
 import Spike.Lib.X64HelloWorkerLabels
 import Spike.Lib.X64Print
+import Spike.Lib.X64CodeAcross
 
 namespace Spike.Lib.X64.Flow.Worker.Hello.Wk
 
@@ -51,7 +52,7 @@ def wkIn (cells : List (Directive × Nat)) : Bool :=
   blockAtB cells ".Lwc_worker.entry" 0 Body.wkE1 &&
   blockAtB cells ".Lwc_worker.entry" 36 [(Body.wkMul.toDir, 4)] &&
   blockAtB cells ".Lwc_worker.entry" 40 Body.wkE2 &&
-  labelGapB cells ".Lwc_worker.entry" ".Lwc_worker.x17" 87 &&
+  labelGapB cells ".Lwc_worker.entry" ".Lwc_worker.x0" 87 &&
   wkTailIn cells
 
 /-- `wc_worker`'s six argument registers, spilled at `-8 … -48(%rbp)`, with
@@ -98,7 +99,7 @@ theorem wkE2Code : ∀ s : State, s.exe = exe → s.endPc = endPc →
 
 omit hend in
 /-- **`.x17` right after the `.entry` block** (87 bytes). -/
-theorem hgap : (_root_.Executable.labels exe).label ".Lwc_worker.x17" =
+theorem hgap : (_root_.Executable.labels exe).label ".Lwc_worker.x0" =
     (_root_.Executable.labels exe).label ".Lwc_worker.entry" + Int64.ofNat 87 := by
   have h := hello_wkIn
   simp only [wkIn, Bool.and_eq_true, and_assoc] at h
@@ -114,7 +115,9 @@ theorem printCode {c0 : Ctl} {rbp0 ra : BitVec 64} : Print.Code c0 rbp0 ra exe e
     code_field hp hend h3 rfl, code_field hp hend h4 (off0 _), code_field hp hend h5 rfl,
     code_field hp hend h6 rfl, code_field hp hend h7 (off0 _), code_field hp hend h8 rfl,
     code_field hp hend h9 (off0 _), code_field hp hend h10 rfl, code_field hp hend h11 (off0 _),
-    code_field hp hend h12 (off0 _), code_field hp hend h13 (off0 _), code_field hp hend hs rfl⟩
+    code_field hp hend h12 (off0 _),
+    Spike.Lib.X64.code_field_blockAcrossB hp hend h13 (List.take_append_drop _ _) (off0 _),
+    code_field hp hend hs rfl⟩
 
 omit hend in
 /-- **`scc_rt_print`'s frame set-up falls through to `.entry`.** -/

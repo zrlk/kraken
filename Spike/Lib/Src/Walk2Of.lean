@@ -70,7 +70,7 @@ theorem decl2_setup {p : Prog} (hp : Scc.Lower.Accepted2 p = true) {cx : Scc.Low
     CxOK cx p ∧ layoutOk2 p = true ∧ refOk2 p = true ∧ callsOk2 p = true ∧
       ∃ cx2, body2 cx2 [] [] (params2 d) d.body = true ∧ (d.argTy = .unit ∨ Scc.Lower.simpleTy d.argTy = true) := by
   simp only [Scc.Lower.Accepted2, Bool.and_eq_true] at hp
-  obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨-, -⟩, hds⟩, hsp⟩, -⟩, hlay⟩, href⟩, hcalls⟩, -⟩, -⟩ := hp
+  obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨-, -⟩, -⟩, hds⟩, hsp⟩, -⟩, hlay⟩, href⟩, hcalls⟩, -⟩, -⟩ := hp
   have hcx : CxOK cx p := ⟨hprog, fun d' hd' => by
     obtain ⟨E, hE⟩ := decl2_of_decls2 hds d' hd'
     exact retTy_decl2 hE, hext⟩
@@ -744,7 +744,7 @@ theorem decl2_src {p : Prog} (hp : Scc.Lower.Accepted2 p = true) {d : Decl} (hd 
     (hne : Scc.Lower.isPrintExt d = false) (hnl : ¬(Scc.Lower.hasPrint p = true ∧ d.name = "printL")) :
     layoutOk2 p = true ∧ Scc.Lower.countsOk2 p = true ∧ ∃ cx2, body2 cx2 [] [] (params2 d) d.body = true := by
   simp only [Scc.Lower.Accepted2, Bool.and_eq_true] at hp
-  obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨_, _⟩, hds⟩, hsp⟩, _⟩, hlay⟩, _⟩, _⟩, hcnt⟩, _⟩ := hp
+  obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨-, _⟩, _⟩, hds⟩, hsp⟩, _⟩, hlay⟩, _⟩, _⟩, hcnt⟩, _⟩ := hp
   obtain ⟨E, hE⟩ := decl2_of_decls2 hds d hd
   obtain ⟨cx2, hb, -⟩ := body_decl2 hE hne hnl (setup_simple hds hsp)
   exact ⟨hlay, hcnt, cx2, hb⟩

@@ -35,11 +35,15 @@ noncomputable def hello1_own (exe : _root_.Executable) (tcb : BitVec 64) (rS : R
 /-- **`hello1`'s layout check** at its link's code address. -/
 theorem hello1_layoutOk : layoutOk SccCode.hello1Λ.code.lo SccCode.hello1Prog = true := by decide +kernel
 
+-- The tables grew `.rodata` (R11): the decision recurses past the default depth.
+set_option maxRecDepth 100000 in
 /-- `hello1`'s symbols all lie at or above its code (by `decide +kernel`). -/
 theorem hello1_above :
     ∀ p ∈ Scc.Sem.loadSyms SccCode.hello1Λ SccCode.hello1Secs.rodata, SccCode.hello1Λ.code.lo ≤ p.2 := by
   decide +kernel
 
+-- The tables grew `.rodata` (R11): the decision recurses past the default depth.
+set_option maxRecDepth 100000 in
 /-- **`hello1`'s layout facts in the loaded thread** (`hpre`, `hpost` of
 `limPath`), any entry state. -/
 theorem hello1_pre_post (E : Scc.Sem.Entry) :
@@ -50,6 +54,8 @@ theorem hello1_pre_post (E : Scc.Sem.Entry) :
   have := Scc.Cert.Link.A64.validLayout_of_loadOk SccCode.hello1Λ_load E
   pre_post_of_layoutOk (Scc.Cert.Rt.A64.lays_threadAt _ _ _ _ hello1_above) rfl hello1_layoutOk
 
+-- The tables grew `.rodata` (R11): the decision recurses past the default depth.
+set_option maxRecDepth 100000 in
 /-- **`hello1`'s loaded thread owns nothing** (`hown0` of `correctK`), any
 entry state. -/
 theorem hello1_own0 (E : Scc.Sem.Entry) (tcb : BitVec 64) (rS : Range) :

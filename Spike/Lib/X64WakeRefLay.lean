@@ -4,7 +4,7 @@ and code facts that the `X64WakeRefStub` pieces' proofs share (the twin of
 `A64WakeRefAg`'s `raT_sp11` and the layout steps of A64's pieces; the region
 is `X64WakeRefCallee.callee_of_pre`).
 
-- `raT_x23`: the return address of the refusal's call is `.Lwc_main.x23`'s
+- `raT_x23`: the return address of the refusal's call is `.Lwc_main.x5`'s
   (`raT` is `.Lwc_main.spawnfail5 + 12`).
 - `lays_W`, `endR_eq`: wake's cells laid out in `ofPlaceWX`'s executable,
   whose end is `WakeH1Inv.endR` (from the parses `hpa`, `hwp`).
@@ -12,8 +12,8 @@ is `X64WakeRefCallee.callee_of_pre`).
   `hsite`).
 
 **Where this differs from AArch64**: the return address is `spawnfail5 + 12` (`call` is 5 bytes after a 7-byte `leaq`; A64's
-`+ 8`); labels are compared at the resolved addresses (`4203472`,
-`4203484`, the take site at `4200277`).
+`+ 8`); labels are compared at the resolved addresses (`4203510`,
+`4203522`, the take site at `4200277`).
 -/
 import Spike.Lib.X64WakeRefCallee
 import Spike.Lib.X64WakeOAb
@@ -30,12 +30,12 @@ open Spike.Lib.X64.WakePh (lo)
 open Scc.Cert.Rt.X64 (codeT_eq)
 open SccCode (wakeCells)
 
-/-- **The return address of the refusal's call is `.Lwc_main.x23`'s.** -/
+/-- **The return address of the refusal's call is `.Lwc_main.x5`'s.** -/
 theorem raT_x23 {L : RuntimeLayout} (hlab : ∀ l x, codeLabel lo wakeCells l = some x → L.lab l = Int64.ofNat x) :
-    raT L.lab ".Lwc_main" = (L.lab ".Lwc_main.x23").toBitVec := by
-  have h5 : L.lab (".Lwc_main" ++ ".spawnfail5") = Int64.ofNat 4203472 :=
+    raT L.lab ".Lwc_main" = (L.lab ".Lwc_main.x5").toBitVec := by
+  have h5 : L.lab (".Lwc_main" ++ ".spawnfail5") = Int64.ofNat 4203510 :=
     hlab _ _ (by rw [← codeT_eq]; decide +kernel)
-  have h23 : L.lab ".Lwc_main.x23" = Int64.ofNat 4203484 := hlab _ _ (by rw [← codeT_eq]; decide +kernel)
+  have h23 : L.lab ".Lwc_main.x5" = Int64.ofNat 4203522 := hlab _ _ (by rw [← codeT_eq]; decide +kernel)
   unfold raT
   rw [h5, h23]
   decide

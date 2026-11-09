@@ -77,7 +77,7 @@ theorem a64_start_segW {d : Decl} (hd : Scc.Lower.Accepted0 [d] = true) (hs : o.
     {entry : Label} (hf : FrameOk cx) (h1 : cx.frame ≤ 4095) (h16 : cx.frame % 16 = 0)
     (hpro : proInC o.prog cx bareMC.fn entry = true)
     (hr : Scc.Lower.Inv.lower0 [(d.arg, .unit, [])] 0 d.body = some r)
-    (hbody : bodyIn o.prog cx entry 0 r.insts r.ret = true)
+    (hbody : bodyIn o.prog cx entry 0 0 r.insts r.ret = true)
     {Dt : State → Prop} {rd : TermRun.Word → Prop} {G : Loc → Val → Prop} {lbl : Lbl} {lsize : Lsize}
     (hfree : Spike.Lib.A64.Rt.RtFree (Ly) lbl lsize)
     {E : Scc.Sem.Entry} (hE : E.Ok (Ly).Λ)

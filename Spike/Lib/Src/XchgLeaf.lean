@@ -234,7 +234,7 @@ theorem lowerDeclMarks_walkQ {Q : Expr × List (String × LitV) → Bool} (hlet 
     (h : Scc.Lower.lowerDeclMarks p externs d obj frames = .ok (f, marks)) :
     ∀ q ∈ litWalk2 p ((params2 d).map (·, shapeOf d.argTy)) d.body, Q q = true := by
   simp only [Scc.Lower.Accepted2, Bool.and_eq_true] at hp
-  obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨-, -⟩, hds⟩, hsp⟩, -⟩, hlay⟩, href⟩, -⟩, -⟩, -⟩ := hp
+  obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨-, -⟩, -⟩, hds⟩, hsp⟩, -⟩, hlay⟩, href⟩, -⟩, -⟩, -⟩ := hp
   obtain ⟨hsig, hpk⟩ := refOk2_parts href
   obtain ⟨E, hE⟩ := decl2_of_decls2 hds d hd
   obtain ⟨cx2, hb, harg⟩ := body_decl2 hE hne hnl (setup_simple hds hsp)
@@ -389,7 +389,13 @@ theorem walkQ_of_lowerWithMarks {Q : Expr × List (String × LitV) → Bool} {p 
       subst this
       exact hpl q hq
     · have hc := compiled_of_accepted2 hp hd hne hnl
-      obtain ⟨⟨f, ms⟩, hl⟩ := mapM_ok_mem hum d (List.mem_filter.2 ⟨hd, by simp only [hc]; rfl⟩)
+      obtain ⟨y, hl⟩ := mapM_ok_mem hum d (List.mem_filter.2 ⟨hd, by simp only [hc]; rfl⟩)
+      -- the split (`splitFuncMarks`) maps the lowering's result
+      obtain ⟨⟨f, ms⟩, hl⟩ : ∃ z, Scc.Lower.lowerDeclMarks p (Scc.Frontend.externs p) d cfg.layout.obj =
+          .ok z := by
+        cases hx : Scc.Lower.lowerDeclMarks p (Scc.Frontend.externs p) d cfg.layout.obj with
+        | error e => rw [hx] at hl; cases hl
+        | ok z => exact ⟨z, rfl⟩
       exact lowerDeclMarks_walkQ hlet hoth hp (externs_unit (nodup_of_accepted2 hp)) hd hne hnl hl q hq
   · simp only [hne, ↓reduceIte, Bool.and_eq_true] at hE'
     have := Scc.Frontend.declIs_eq hE'.1

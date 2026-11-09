@@ -4,7 +4,7 @@ map, the tools** (x86-64; the first half of the twin of
 `Spike/Lib/A64WakeTcb2W.lean`, the result in
 `Spike/Lib/X64WakeTcb2W.lean`): a node's obligations at the instance's map
 `own2a ∘ ph2a` moved to `ownG` where `ownG` picks `own2a` (`Good2a`: the
-callee's pcs on a pool stack, its return to `.Lwc_main.x20`).
+callee's pcs on a pool stack, its return to `.Lwc_main.x2`).
 
 - `blkW_toSt2`, `nodeW_toSt2`: a node's `SFacts` as `SFactsSt2`.
 - `nodeW_ownCongr2`: `BlkW.ownCongr2` for a node.
@@ -76,7 +76,7 @@ end Congr
 stack) or `wc_main`'s from `.x20` to `.x21`, at the canonical base. -/
 def PcA (p : Int64) : Prop :=
   (4198992 ≤ p.toBitVec.toNat ∧ p.toBitVec.toNat < 4199447) ∨
-    (4203372 ≤ p.toBitVec.toNat ∧ p.toBitVec.toNat < 4203397)
+    (4203410 ≤ p.toBitVec.toNat ∧ p.toBitVec.toNat < 4203435)
 
 instance (p : Int64) : Decidable (PcA p) := by unfold PcA; infer_instance
 

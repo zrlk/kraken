@@ -5,9 +5,9 @@ hello twin of `WakeGOf2` and `WakeOG`): `GOf2H L m0`, the consumer's `GOf` (`Fix
 or the limit main's second `scc_rt_thread_init` stores there, `lim2V L` (the second stack's base plus the guard,
 the same value as wake's).
 
-hello's second `scc_rt_alloc_tcb` takes its header at `pinA + 104` (`tcb2QH_hdrA`), one word past wake's
-`pinA + 96`, so the second TCB is `tH = pinA + 112` and its limit field (`ThreadInit.fields`' offset `8`)
-`pinA + 120` (`lim2OffH`, the one place this offset is written). wake's `GOf2` pins `pinA + 112`, which in hello
+hello's second `scc_rt_alloc_tcb` takes its header at `pinA + 136` (`tcb2QH_hdrA`), one word past wake's
+`pinA + 128`, so the second TCB is `tH = pinA + 144` and its limit field (`ThreadInit.fields`' offset `8`)
+`pinA + 152` (`lim2OffH`, the one place this offset is written). wake's `GOf2` pins `pinA + 144`, which in hello
 is the TCB's field `0` (it holds the TCB's own address after `scc_rt_thread_init`), so hello's root cannot use
 wake's guarantee `WakeOG.gW`; `gWH` is its twin.
 
@@ -17,8 +17,8 @@ wake's guarantee `WakeOG.gW`; `gWH` is its twin.
 - `gOf2H_lim2V`, `gOf2H_lim2`: the second limit word's values; `gOf2H_lim2_le`: at most the second stack's base
   plus 4096, given the word's initial value is `0` (`hinit2`).
 - `gWH`: hello's guarantee at `ofPlaceW`, the flag at `cT`; `hGpl_ofPlaceW2H`, `hGpl_gWH`: `GOf2H` (`gWH`) of any
-  value at a placed word of `.data` or the heap, given the pinned region reaches `pinA + 168` (`hpin2`, the
-  root's existing layout fact; `pinA + 128` would do).
+  value at a placed word of `.data` or the heap, given the pinned region reaches `pinA + 200` (`hpin2`, the
+  root's existing layout fact; `pinA + 160` would do).
 - `hGh_ofPlaceW2H`, `hGf_ofPlaceW2H`, `hGt_ofPlaceW2H`, `hG1_ofPlaceW2H`, `hG0_ofPlaceW2H`, `hGn_ofPlaceW2H`:
   main's first TCB and counter stores at `GOf2H` (`PlaceW.hG*_ofPlaceW2`'s twins; the counters off hello's second
   limit word, `hctr2`).
@@ -37,11 +37,11 @@ open Spike.Lib.A64.PhRec (GOf limW limV pin_ne m0Of)
 open Spike.Lib.WakeGOf2 (lim2V)
 open Spike.Lib.PlaceW
 
-/-- **hello's second TCB's limit word's offset** in the pinned region: the header `pinA + 104`, the TCB
-`tH = pinA + 112` one word on, its field `1` one more. -/
-abbrev lim2OffH : BitVec 64 := 120#64
+/-- **hello's second TCB's limit word's offset** in the pinned region: the header `pinA + 136`, the TCB
+`tH = pinA + 144` one word on, its field `1` one more. -/
+abbrev lim2OffH : BitVec 64 := 152#64
 
-/-- **hello's second TCB's limit word** (`scc_rt_thread_init`'s field `1` of the TCB `tH = pinA + 112`). -/
+/-- **hello's second TCB's limit word** (`scc_rt_thread_init`'s field `1` of the TCB `tH = pinA + 144`). -/
 abbrev lim2AH (L : RuntimeLayout) : BitVec 64 := L.pinA + lim2OffH
 
 /-- **hello's runtime value invariant**: both TCBs' limit words hold their initial value or their limit; any value
@@ -139,7 +139,7 @@ include h
 
 /-- **The value invariant at a placed word** of `.data` or the heap, given the second limit word lies in the
 pinned region (`hpin2`). -/
-theorem hGpl_ofPlaceW2H (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) :
+theorem hGpl_ofPlaceW2H (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) :
     ∀ a v, (Ly).Λ.heap.contains a ∨ (Ly).Λ.data.contains a → GOf2H Ly M0 (Scc.Sem.wordLoc a) v := by
   intro a v ha
   refine gOf2H_of (hGpl_ofPlaceW h i a v ha) fun he => ?_
@@ -150,7 +150,7 @@ theorem hGpl_ofPlaceW2H (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (
   have hdp' : Λ.data.Disjoint Λ.pinned := hdp
   have hhp' : Λ.heap.Disjoint Λ.pinned := hhp
   have hp : (Ly).pinA.toNat = Λ.pinned.lo := pinA_toNat_ofPlaceW h i
-  change (Ly).pinA.toNat + 168 ≤ Λ.pinned.lo + Λ.pinned.size at hpin2
+  change (Ly).pinA.toNat + 200 ≤ Λ.pinned.lo + Λ.pinned.size at hpin2
   change Λ.heap.contains a ∨ Λ.data.contains a at ha
   have hx := congrArg (fun l : Loc => l.addr.toNat) he
   simp only [Scc.Sem.wordLoc, lim2AH, lim2OffH, BitVec.toNat_ofNat, BitVec.toNat_add] at hx
@@ -159,29 +159,29 @@ theorem hGpl_ofPlaceW2H (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (
   simp only [Scc.Sem.Range.Disjoint] at hdp' hhp'
   have hsm := (Ly).words_small _ (Ly).pin_mem
   have ha64 : a < 2 ^ 64 := by omega
-  rw [Nat.mod_eq_of_lt ha64, Nat.mod_eq_of_lt (by omega : (Ly).pinA.toNat + 120 < 2 ^ 64)] at hx
+  rw [Nat.mod_eq_of_lt ha64, Nat.mod_eq_of_lt (by omega : (Ly).pinA.toNat + 152 < 2 ^ 64)] at hx
   omega
 
 /-- **`OPrem.hGpl` at hello's guarantee.** -/
-theorem hGpl_gWH (cT : Loc) (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) :
+theorem hGpl_gWH (cT : Loc) (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) :
     ∀ a v, (Ly).Λ.heap.contains a ∨ (Ly).Λ.data.contains a → gWH h i cT (Scc.Sem.wordLoc a) v :=
   fun a v ha => .inr (hGpl_ofPlaceW2H h i hpin2 a v ha)
 
 /-- **`hctr2` at hello's second limit word** (`StartPlaceLy.hctr2_of_data`'s twin) from the counters in `.data`
-and the pinned region reaching `pinA + 168` (`hpin2`): `.data` and the pinned region are disjoint (`Layout.WF`),
+and the pinned region reaching `pinA + 200` (`hpin2`): `.data` and the pinned region are disjoint (`Layout.WF`),
 `pinA` the pinned region's base. -/
-theorem hctr2_of_dataH (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
+theorem hctr2_of_dataH (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
     (hctrD : ∀ a ∈ [(Ly).pnA, (Ly).lockA, (Ly).freeNA, (Ly).nextA], (Ly).Λ.data.contains a.toNat) :
     ∀ a ∈ [(Ly).pnA, (Ly).lockA, (Ly).freeNA, (Ly).nextA], a ≠ lim2AH (Ly) := by
   intro a ha he
   have hd : Λ.data.contains a.toNat := hctrD a ha
-  have hpz : (Ly).pinA.toNat + 168 ≤ Λ.pinned.lo + Λ.pinned.size := hpin2
+  have hpz : (Ly).pinA.toNat + 200 ≤ Λ.pinned.lo + Λ.pinned.size := hpin2
   have hp0 : (Ly).pinA.toNat = Λ.pinned.lo := pinA_toNat_ofPlaceW h i
   have hdp : Λ.data.Disjoint Λ.pinned := (wf_link_of_placeW i h).disjoint.2.2.2.2.2.2.2.1
   have hs := (Ly).words_small _ (Ly).pin_mem
-  have hb : a.toNat = (Ly).pinA.toNat + 120 := by
+  have hb : a.toNat = (Ly).pinA.toNat + 152 := by
     rw [he]
-    show ((Ly).pinA + 120#64).toNat = _
+    show ((Ly).pinA + 152#64).toNat = _
     rw [BitVec.toNat_add]
     simp only [BitVec.toNat_ofNat, Nat.reducePow, Nat.reduceMod]
     omega

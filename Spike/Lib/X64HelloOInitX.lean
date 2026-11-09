@@ -3,7 +3,7 @@
 `X64.HelloPh.ownGHXW`, the map with main's own TCB word `ownSH` and the worker's `ownSWH`).
 
 At the code's base the loaded thread's pc is below every label `selfOwnH` / `selfOwnWH` test
-(`.Lscc_rt_start.x1`, `.Lscc_rt_thread_init.x8`, `.Lwc_main.x25`, `scc_rt_abort`), so neither TCB word is owned
+(`.Lscc_rt_start.x1`, `.Lscc_rt_thread_init.x0`, `.Lwc_main.x3`, `scc_rt_abort`), so neither TCB word is owned
 there and `ownGHXW` is `ownGH`; the load's owned words are `X64HelloOInit.hown0_H`'s.
 
 - `ownGHXW_lo`: at the code's base `ownGHXW` is `ownGH`.
@@ -37,9 +37,9 @@ theorem ownGHXW_lo {L : RuntimeLayout}
     rw [hlab _ _ hx]
     simp [Nat.mod_eq_of_lt hlt]
   have h1 := e ".Lscc_rt_start.x1" 4198500 (by rw [← codeT_eq]; decide +kernel) (by decide)
-  have h2 := e ".Lscc_rt_thread_init.x8" 4199606 (by rw [← codeT_eq]; decide +kernel) (by decide)
-  have h3 := e ".Lwc_main.x25" 4203774 (by rw [← codeT_eq]; decide +kernel) (by decide)
-  have h4 := e "scc_rt_abort" 4202486 (by rw [← codeT_eq]; decide +kernel) (by decide)
+  have h2 := e ".Lscc_rt_thread_init.x0" 4199606 (by rw [← codeT_eq]; decide +kernel) (by decide)
+  have h3 := e ".Lwc_main.x3" 4203812 (by rw [← codeT_eq]; decide +kernel) (by decide)
+  have h4 := e "scc_rt_abort" 4202524 (by rw [← codeT_eq]; decide +kernel) (by decide)
   have hS : ¬ selfOwnH L s := by
     unfold selfOwnH inPc; rw [hpc, h1, h2]; simp only [lo]; omega
   have hW : ¬ selfOwnWH L s := by

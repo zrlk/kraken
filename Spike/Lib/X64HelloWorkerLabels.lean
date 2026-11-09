@@ -30,7 +30,7 @@ namespace Spike.Lib.X64.Flow.Worker.Hello.Labels
 
 open Kraken Kraken.Promising Kraken.Promising.X64 Kraken.Promising.Lower Kraken.Promising.Lower.X64
 open Spike.Lib.X64
-open Scc.Cert.Rt.X64 (Lays endOf blockAtB labelGapB code_field label_labelGapB)
+open Scc.Cert.Rt.X64 (Lays endOf blockAtB labelGapB code_field label_labelGapB blockAcrossB)
 open Spike.Lib Spike.Lib.X64.Flow Spike.Lib.X64.Flow.Worker
 open Spike.Lib.X64.Flow.Worker.Wake.Labels (unpkIn)
 
@@ -40,11 +40,11 @@ set_option linter.unusedSimpArgs false
 
 /-- `wc_worker`'s tail blocks, from `.x17`. -/
 def wkTailIn (cells : List (Directive × Nat)) : Bool :=
-  blockAtB cells ".Lwc_worker.x17" 0 HelloTail.b0 &&
-  blockAtB cells ".Lwc_worker.x17" 11 [(stDir .rcx 0 .rax, 3)] &&
-  blockAtB cells ".Lwc_worker.x17" 14 HelloTail.b1 &&
-  blockAtB cells ".Lwc_worker.x18" 0 HelloTail.b2 &&
-  labelGapB cells ".Lwc_worker.x17" ".Lwc_worker.x18" 23
+  blockAtB cells ".Lwc_worker.x0" 0 HelloTail.b0 &&
+  blockAtB cells ".Lwc_worker.x0" 11 [(stDir .rcx 0 .rax, 3)] &&
+  blockAtB cells ".Lwc_worker.x0" 14 HelloTail.b1 &&
+  blockAcrossB cells ".Lwc_worker.x1" 0 (HelloTail.b2.take 2) ".Lwc_worker.x2" (HelloTail.b2.drop 2) &&
+  labelGapB cells ".Lwc_worker.x0" ".Lwc_worker.x1" 23
 
 theorem hello_unpkIn : unpkIn SccCode.helloCells = true := by decide +kernel
 
@@ -65,7 +65,8 @@ theorem unpkCode {c0 c1 : Ctl} {B rbp0 ra tp : BitVec 64} : Unpark.Code c0 c1 B 
   obtain ⟨h0, -, h1, h2, h3, h4, h5, h6, h7, h8⟩ := h
   exact ⟨code_field hp hend h0 (ofNat_zero' _), code_field hp hend h1 (ofNat_zero' _), code_field hp hend h2 rfl,
     code_field hp hend h3 rfl, code_field hp hend h4 rfl, code_field hp hend h5 (ofNat_zero' _),
-    code_field hp hend h6 rfl, code_field hp hend h7 rfl, code_field hp hend h8 (ofNat_zero' _)⟩
+    code_field hp hend h6 rfl, Spike.Lib.X64.code_field_blockAcrossB hp hend h7 (List.take_append_drop _ _) rfl,
+    Spike.Lib.X64.code_field_blockAcrossB hp hend h8 (List.take_append_drop _ _) (ofNat_zero' _)⟩
 
 /-- **`wc_worker`'s tail code**, any ghosts. -/
 theorem wkTailCode {c0 c1 c2 : Ctl} {A B rbp0 ra tp sp : BitVec 64} :
@@ -74,12 +75,12 @@ theorem wkTailCode {c0 c1 c2 : Ctl} {A B rbp0 ra tp sp : BitVec 64} :
   simp only [wkTailIn, Bool.and_eq_true, and_assoc] at h
   obtain ⟨h0, h1, h2, h3, -⟩ := h
   exact ⟨code_field hp hend h0 (ofNat_zero' _), code_field hp hend h1 rfl, code_field hp hend h2 rfl,
-    code_field hp hend h3 (ofNat_zero' _)⟩
+    Spike.Lib.X64.code_field_blockAcrossB hp hend h3 (List.take_append_drop _ _) (ofNat_zero' _)⟩
 
 omit hend in
 /-- **`.x18` right after the tail's `call`.** -/
-theorem hx18 : (_root_.Executable.labels exe).label ".Lwc_worker.x18" =
-    (_root_.Executable.labels exe).label ".Lwc_worker.x17" + 14 + 9 := by
+theorem hx18 : (_root_.Executable.labels exe).label ".Lwc_worker.x1" =
+    (_root_.Executable.labels exe).label ".Lwc_worker.x0" + 14 + 9 := by
   have h := hello_wkTailIn
   simp only [wkTailIn, Bool.and_eq_true, and_assoc] at h
   rw [label_labelGapB hp h.2.2.2.2, Int64.add_assoc]; rfl

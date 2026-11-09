@@ -3,7 +3,7 @@
 `Spike/Lib/A64StartOfPlaceOK2.lean`, same names): the value-invariant
 premises of `X64StartOfPlaceOK` restated at wake's invariant
 `X64WakeGOf2.GOf2` (the second TCB's limit word `lim2A = pinA + lim2Off`,
-`pinA + 112`, pinned too), at the runtime's layout of an output passing
+`pinA + 144`, pinned too), at the runtime's layout of an output passing
 `placeOK`. Each is the `GOf` lemma, by `gOf2_of` off `lim2A` or
 `gOf_of_gOf2` at the first limit word.
 
@@ -139,7 +139,7 @@ theorem pinA_toNat_ofPlaceOK2 : (Ly).pinA.toNat = (Ly).Λ.pinned.lo := by
 
 /-- **The value invariant at a placed word** of `.data` or the heap, given
 the second limit word lies in the pinned region (`hpin2`). -/
-theorem hGpl_ofPlaceOK2 (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) :
+theorem hGpl_ofPlaceOK2 (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) :
     ∀ a v, (Ly).Λ.heap.contains a ∨ (Ly).Λ.data.contains a → GOf2 Ly M0 (Scc.Sem.wordLoc a) v := by
   intro a v ha
   refine gOf2_of (Spike.Lib.X64.PhRec.hGpl_ofPlaceOK h i (Spike.Lib.X64.PhRec.hclr_ofPlaceOK h i) a v ha)
@@ -151,7 +151,7 @@ theorem hGpl_ofPlaceOK2 (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (
   have hdp' : Λ.data.Disjoint Λ.pinned := hdp
   have hhp' : Λ.heap.Disjoint Λ.pinned := hhp
   have hp : (Ly).pinA.toNat = Λ.pinned.lo := pinA_toNat_ofPlaceOK2 h i
-  change (Ly).pinA.toNat + 168 ≤ Λ.pinned.lo + Λ.pinned.size at hpin2
+  change (Ly).pinA.toNat + 200 ≤ Λ.pinned.lo + Λ.pinned.size at hpin2
   change Λ.heap.contains a ∨ Λ.data.contains a at ha
   have hx := congrArg (fun l : Loc => l.addr.toNat) he
   simp only [Scc.Sem.wordLoc, lim2A, lim2Off, BitVec.toNat_ofNat, BitVec.toNat_add] at hx
@@ -160,7 +160,7 @@ theorem hGpl_ofPlaceOK2 (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (
   simp only [Scc.Sem.Range.Disjoint] at hdp' hhp'
   have hsm := (Ly).words_small _ (Ly).pin_mem
   have ha64 : a < 2 ^ 64 := by omega
-  rw [Nat.mod_eq_of_lt ha64, Nat.mod_eq_of_lt (by omega : (Ly).pinA.toNat + 112 < 2 ^ 64)] at hx
+  rw [Nat.mod_eq_of_lt ha64, Nat.mod_eq_of_lt (by omega : (Ly).pinA.toNat + 144 < 2 ^ 64)] at hx
   omega
 
 end Place

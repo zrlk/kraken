@@ -112,6 +112,28 @@ theorem blkC {n : ND} {blk : List Directive} {l rl : Label} {k : Nat} {blo bhi :
     (fun j hj s h1 h2 h3 => (hI.off s (by rw [okPc_eq hΛ]; unfold pcOf; rw [h3]; exact hokpc j hj)).1)
     (Spike.Lib.A64.WakeWf.phOffW_sound hlab hph) hret hcl hJ hpl
 
+/-- **A block split by a return label** (`m`, after
+its first `jA` rows; `blockAcross`): as `blkC`. -/
+theorem blkCA {n : ND} {blk : List Directive} {l rl m : Label} {k jA : Nat} {blo bhi : Int}
+    (hb : Scc.Cert.Rt.A64.blockAcross wakeProg l k (blk.take jA) m (blk.drop jA) = true)
+    (he : L.lab l + Int64.ofNat (4 * k) = n.pc)
+    (hok : Spike.Lib.A64.Flow.okBlk blo bhi n.o blk = true) (hR : R.OK) (hal : R.base.toNat % 16 = 0)
+    (hlo' : R.lo ≤ blo) (hhi : bhi ≤ R.hi)
+    (hst : BlkW (fun s _ => SFactsSt2 L.Λ (Spike.Lib.A64.PhRec.μ L) own s) K L.exe L.endPc R F n blk)
+    (hokpc : ∀ j < blk.length, okC (n.pc + Int64.ofNat (4 * j)).toBitVec.toNat = true)
+    (hph : Spike.Lib.A64.WakeWf.phOffW pfxM l k rl blk = true)
+    (hret : ∀ σ c, n.J σ c → ∀ j (hj : j < blk.length) r, Spike.Lib.A64.Flow.classify blk[j] = some (.ret r) →
+      Int64.ofInt ((Spike.Lib.A64.Flow.arun L.lab (blk.take j) ⟨n.pc, n.o, σ⟩).σ.regs.getRegOrZr r).signed = L.lab rl)
+    (hJ : ∀ σ c, n.J σ c → (fs = [] → ∀ a, c.term ≠ .ret a) ∧ RunWf p c fs)
+    (hpl : BlkW (fun s c => PlacedSE L.Λ lbl s c fs) (fun _ _ => False) L.exe L.endPc R F n blk) :
+    BlkW (fun s c => Wf L.Λ (Spike.Lib.A64.PhRec.μ L) own ar p Dt (Spike.Lib.A64.WriteAb.Ab L.lab) Cl
+      (Spike.Lib.A64.ThreadsAb.Ac L.lab pfxM) Ctx lbl lsize s c fs) K L.exe L.endPc R F n blk := by
+  have hI := instOkW hp hlo 0#64 (fun _ => False) hsite (rS := ⟨0, 0⟩)
+  exact Spike.Lib.A64.WakeWf.blkW_wfQA (Λ := L.Λ) (ar := ar) (p := p) (Ctx := Ctx) (lsize := lsize)
+    (fs := fs) hI (hp ▸ hb) he hok hR hal hlo' hhi (blkW_dt hst)
+    (fun j hj s h1 h2 h3 => (hI.off s (by rw [okPc_eq hΛ]; unfold pcOf; rw [h3]; exact hokpc j hj)).1)
+    (Spike.Lib.A64.WakeWf.phOffW_sound hlab hph) hret hcl hJ hpl
+
 /-- **A silent single instruction of wakeProg inside `Wf`** at `ownG`
 (`WcWf.nodeW_wfC_si` at a pc `okC`). -/
 theorem nodeC {n : ND} {si : Spike.Lib.A64.Flow.SI} {l : Label} {k : Nat}
@@ -184,9 +206,9 @@ theorem reserveW_wfG (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo' : R.lo ≤ 
     ∀ i, ReserveW (fun s c => Wf L.Λ (Spike.Lib.A64.PhRec.μ L) (ownG L a) ar p Dt (Spike.Lib.A64.WriteAb.Ab L.lab) Cl
       (Spike.Lib.A64.ThreadsAb.Ac L.lab pfxM) Ctx lbl lsize s c fs) K L.exe L.endPc R F q i := by
   obtain ⟨lF, lE, lO⟩ := resLabs
-  have eF : (_root_.Executable.labels L.exe).label fnL = Int64.ofNat 2165132 := hlab _ _ lF
-  have eE : (_root_.Executable.labels L.exe).label entryL = Int64.ofNat 2165148 := hlab _ _ lE
-  have eO : (_root_.Executable.labels L.exe).label okL = Int64.ofNat 2165224 := hlab _ _ lO
+  have eF : (_root_.Executable.labels L.exe).label fnL = Int64.ofNat 2165136 := hlab _ _ lF
+  have eE : (_root_.Executable.labels L.exe).label entryL = Int64.ofNat 2165152 := hlab _ _ lE
+  have eO : (_root_.Executable.labels L.exe).label okL = Int64.ofNat 2165228 := hlab _ _ lO
   have hin := WcW.wake_reserveIn'
   simp only [Spike.Lib.A64.Flow.Reserve.reserveIn, Bool.and_eq_true] at hin
   obtain ⟨⟨⟨⟨⟨⟨⟨⟨-, bE⟩, bA⟩, bA1⟩, bArg⟩, bRmw⟩, bBnd⟩, bJ⟩, bOk⟩ := hin
@@ -231,7 +253,7 @@ theorem reserveW_wfG (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo' : R.lo ≤ 
       Spike.Lib.A64.Rt.Reserve.rJ_noRet hcl (hJ _ fun _ _ h => h.1) h2
     intro j hj; dsimp only [rvN]; rw [okPc_eq hΛ, eE]; revert j; decide
   case ok =>
-    refine blkC hp hlo hΛ hlab hsite hcl (rl := ".L21_wc_main.sp3") bOk (Spike.Lib.A64.Flow.ofNat4_zero _)
+    refine blkCA hp hlo hΛ hlab hsite hcl (rl := ".L21_wc_main.sp3") bOk (Spike.Lib.A64.Flow.ofNat4_zero _)
       Spike.Lib.A64.Flow.Reserve.rRet_ok hR hal (by omega) (by omega) h1 ?_ (by decide +kernel)
       (Spike.Lib.A64Consumer.hret_of_run Spike.Lib.A64.Flow.Reserve.rRet_ok fun σ c hJ' => ?_)
       (hJ _ fun _ _ h => h.1) h2
@@ -255,9 +277,9 @@ theorem tcbWG_wfG (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo' : R.lo ≤ -19
     (hc0 : (fs = [] → ∀ a, c0.term ≠ .ret a) ∧ RunWf p c0 fs)
     (hunP : ∀ m, F m → Mem.loadInt m.dmem L.pnA 8 = none)
     (hoffP : ¬ (ar.heap ≤ L.pnA.toNat ∧ L.pnA.toNat < ar.heap + 16 * ar.cells) ∧ (⟨L.pnA, 8⟩ : Loc) ≠ ar.ctrLoc)
-    (hunH : ∀ m, F m → Mem.loadInt m.dmem (L.pinA + 96#64) 8 = none)
-    (hoffH : ¬ (ar.heap ≤ (L.pinA + 96#64).toNat ∧ (L.pinA + 96#64).toNat < ar.heap + 16 * ar.cells) ∧
-      (⟨L.pinA + 96#64, 8⟩ : Loc) ≠ ar.ctrLoc)
+    (hunH : ∀ m, F m → Mem.loadInt m.dmem (L.pinA + 128#64) 8 = none)
+    (hoffH : ¬ (ar.heap ≤ (L.pinA + 128#64).toNat ∧ (L.pinA + 128#64).toNat < ar.heap + 16 * ar.cells) ∧
+      (⟨L.pinA + 128#64, 8⟩ : Loc) ≠ ar.ctrLoc)
     (hst : ∀ i, TcbWG (fun s _ => SFactsSt2 L.Λ (Spike.Lib.A64.PhRec.μ L) (ownG L a) s) K L.exe L.endPc R F
       (Tcb2Call.tcb2Q g c0) i)
     (hpl : ∀ i, TcbWG (fun s c => PlacedSE L.Λ lbl s c fs) (fun _ _ => False) L.exe L.endPc R F
@@ -348,7 +370,7 @@ theorem tcbWG_wfG (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo' : R.lo ≤ -19
       rw [Spike.Lib.A64.Rt.Tcb.rAddr_zero]; simp only [Reg64s.getXReg]
       rw [hJ'.2.2.2, Tcb2Call.tcb2Q_hdrA, hpin]; exact hoffH
   case ret =>
-    refine blkC hp hlo hΛ hlab hsite hcl (rl := ".L21_wc_main.sp4") bRet rfl
+    refine blkCA hp hlo hΛ hlab hsite hcl (rl := ".L21_wc_main.sp4") bRet rfl
       Spike.Lib.A64.Flow.Ret0.AllocTcb.atRet_ok hR hal (by omega) (by omega) h1 ?_ (by decide +kernel)
       (Spike.Lib.A64Consumer.hret_of_run Spike.Lib.A64.Flow.Ret0.AllocTcb.atRet_ok fun σ c hJ' => ?_)
       (hJ _ fun _ _ h => h.1) h2

@@ -16,9 +16,9 @@ open SccCode (ret0Λ ret0Prog ret0Asm)
 
 /-- `ret0`'s resolved phase table: the hand ranges. -/
 theorem ret0_phTab : Scc.Cert.Rt.A64.phTabOf ret0Λ.code.lo ret0Prog = some
-    ⟨[(4194304, 4194376), (4194964, 4195160)], [(4195896, 4196076)],
-      [(4194304, 4194388), (4194964, 4195384), (4195496, 4195524), (4195652, 4196100)],
-      [(4194304, 4194388), (4194964, 4195384), (4195496, 4195524), (4195652, 4196196)]⟩ := by
+    ⟨[(4194304, 4194376), (4194964, 4195160)], [(4195900, 4196080)],
+      [(4194304, 4194388), (4194964, 4195388), (4195500, 4195528), (4195656, 4196104)],
+      [(4194304, 4194388), (4194964, 4195388), (4195500, 4195528), (4195656, 4196200)]⟩ := by
   decide +kernel
 
 /-- **The record's phases are the hand ones.** -/
@@ -34,7 +34,7 @@ theorem ret0_ph : ph ret0L = Spike.Lib.A64.Flow.Ret0.Inst.ph := by
 
 /-- `ret0`'s sites: the hand ones. -/
 theorem ret0_sites : Scc.Cert.Rt.A64.sitesOf ret0Λ.code.lo ret0Prog ret0Λ =
-    some [4196192, 4196248, 4198512, 4198584, 4198656, 4198728, 4198800] := by
+    some [4196196, 4196252, 4198544, 4198616, 4198688, 4198760, 4198832] := by
   decide +kernel
 
 /-- **The record's off-site pcs are the hand ones.** -/

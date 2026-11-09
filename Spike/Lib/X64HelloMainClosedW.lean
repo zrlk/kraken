@@ -3,7 +3,7 @@
 `Spike/Lib/A64HelloMainClosedW.lean`, at hello.w's listing `SccCode.helloCells`): back from the clone at
 `Hello.Parent.pN … .ts` (`Hello.Parent.parent_at_preH`, main's region based 128 above `%rsp`), main's path to
 its `exit_group` is one `SegLW` to nothing inside `X64HelloMainInv.mainWRH` (hello's parent, frame 128;
-`wc_waitLoop` with the park's return at `.Lwc_waitLoop.x20` and `scc_rt_park`; the exit tail at `.x3`), so
+`wc_waitLoop` with the park's return at `.Lwc_waitLoop.x1` and `scc_rt_park`; the exit tail at `.x3`), so
 main's invariant `X64HelloMainInv.mainInvP p … (mainWRH …)` holds at the parent.
 
 - `mainRunsH`: the pcs of the path (the loop's, the park's, the parent's and the exit tail's runs);

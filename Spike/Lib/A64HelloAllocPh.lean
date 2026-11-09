@@ -329,7 +329,8 @@ theorem allocAbAcH (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp)
       rcases hrl with rfl | rfl
       · exact phOffHC_sound hlab chAH_retR
       · exact phOffHC_sound hlab chAH_retM
-    refine Spike.Lib.LowerA64.BlkW.nodeW (blkW_phStH (Spike.Lib.A64.Flow.code_of hI.lays hI.endOk h18 he) hok
+    refine Spike.Lib.LowerA64.BlkW.nodeW (blkW_phStH (Spike.Lib.A64.Flow.code_of hI.lays hI.endOk h18.2
+      (by rw [Spike.Lib.A64.Flow.ofNat4_zero, Scc.Cert.Rt.A64.label_labelGap hI.lays h18.1]; exact he)) hok
       hR hal (by omega) (by omega) (fun j hj s h1 h2 h3 => ?_) he hch
       (hret_of_run hok fun σ c hJ => ?_)) (List.cons_ne_nil _ _)
     · obtain rfl : j = 0 := by simpa using hj

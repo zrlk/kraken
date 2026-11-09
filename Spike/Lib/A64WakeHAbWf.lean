@@ -167,7 +167,7 @@ theorem hpathW_habSt (a : BitVec 64) (hΛ : L.Λ.abortLbl = Scc.Cert.Link.abortN
     have h' : codeOf L.Λ.code.lo L.prog k.label = some a' := ha
     rw [hp, hlo, hx] at h'
     exact (Option.some.inj h').symm
-  have hex : (NT L.lab Abort.heap c0 ra .ex).pc.toBitVec.toNat = 2168332 := by
+  have hex : (NT L.lab Abort.heap c0 ra .ex).pc.toBitVec.toNat = 2168364 := by
     simp only [NT, Abort.heap, e9]; decide
   refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · exact blkW_habSt hp hlo hsite a hd0 (by simp only [DN.nd2R, add0]) Abort.Disp.d0_ok hR hal (by omega)

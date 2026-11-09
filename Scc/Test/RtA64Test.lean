@@ -25,11 +25,12 @@ def helloAsm : String :=
 /-- The listing, parsed by Kraken. -/
 def helloProg : Program := scc_arm_reparse% helloAsm
 
--- No `printIn` for `hello.w`: it spawns, so its `scc_rt_print` has the
--- barrier before `write` (`Runtime.printF`), which `printIn` (the unfenced
--- routine) does not describe. Removed until the fenced variant `printInF`
---; `hello1.w`'s print keeps `printIn`
--- (`Spike/Test/A64Hello1Print.lean`).
+-- No `printIn` theorem for `hello.w` here (yet). `printIn` now describes the
+-- one AArch64 `scc_rt_print` every program has, spawning or not: `.2_write`
+-- is led by the barrier `bF` (`dmb ish`, `Runtime.printF`) at offset 0, the
+-- rest of the block one instruction on (`Scc/Cert/Rt/A64Print.lean`). So it is
+-- the statement for `hello.w`'s print as for `hello1.w`'s
+-- (`Spike/Test/A64Hello1Print.lean`); no separate fenced variant is needed.
 
 theorem hello_morestackIn : Scc.Cert.Rt.A64.Morestack.morestackIn helloProg = true := by decide +kernel
 

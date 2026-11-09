@@ -180,13 +180,13 @@ structure HMidP (R : Region) (F : MachineData → Prop) (J0 : AS → Ctl → Pro
   wcWf : WcMainW (fun s c => W1W asm hp i E Dt Ctx ls0 l b n s c []) (fun _ _ => False) (Ly).exe eR R F F
     (tpXa ms1 t) J0 (QB l b)
   /-- The reserve's nodes inside `W1W`. -/
-  res : ∀ g : Ret0.AllocTcb.G × Ctl, g.1.ra = ((Ly).lab ".Lwc_main.x19").toBitVec →
+  res : ∀ g : Ret0.AllocTcb.G × Ctl, g.1.ra = ((Ly).lab ".Lwc_main.x1").toBitVec →
     ∀ nd, ReserveW (fun s c => W1W asm hp i E Dt Ctx ls0 l b n s c []) (fun _ _ => False) (Ly).exe eR (rAR R)
       (fun m => F m ∧ CallerCells R (-72) (-40) 8 m ∧ WakeWc.ResCtx (Ly).lab R
         (WakeWc.rN (tpXa ms1 t) (Ly).lab R J0 (QB l b) .call).J g m) ⟨g.1, 0#64, g.2⟩ nd
   /-- The second TCB's nodes inside `W1W`. -/
   tcb : ∀ c0 cA m fr, MidG (QB l b) c0 cA ∧ FrG J0 fr ∧ FrMG J0 fr m →
-    ∀ g : Ret0.AllocTcb.G, g.ra = ((Ly).lab ".Lwc_main.x20").toBitVec →
+    ∀ g : Ret0.AllocTcb.G, g.ra = ((Ly).lab ".Lwc_main.x2").toBitVec →
     ∀ nd, TcbWG (fun s c => W1W asm hp i E Dt Ctx ls0 l b n s c []) (fun _ _ => False) (Ly).exe eR
       (R.callee (-72) (-184) 8) (fun mm => F mm ∧ CallerCells R (-72) (-184) 8 mm ∧
         WakeWc.TcbCtx (Ly).lab R (WakeWc.wcNCR (Ly).lab c0 cA m fr).J c0 g mm) (tcb2Q g c0) nd

@@ -58,28 +58,28 @@ def hello1Tab : List (Label × Nat) :=
     (".L2_scc_rt_alloc.3_spin", 4194768), (".L2_scc_rt_alloc.4_full", 4194772), (".L2_scc_rt_alloc.sp7", 4194780),
     (".L2_scc_rt_alloc.halt8", 4194780), (".L2_scc_rt_alloc.5_ok", 4194784), ("scc_rt_alloc_tcb", 4195004),
     (".L3_scc_rt_alloc_tcb.0_entry", 4195028), (".L3_scc_rt_alloc_tcb.1_len", 4195048),
-    (".L3_scc_rt_alloc_tcb.2_full", 4195240), (".L3_scc_rt_alloc_tcb.sp13", 4195248),
-    (".L3_scc_rt_alloc_tcb.halt14", 4195248), (".L3_scc_rt_alloc_tcb.3_ok", 4195252),
-    ("scc_rt_thread_reserve", 4195424), (".L4_scc_rt_thread_reserve.0_entry", 4195440),
-    (".L4_scc_rt_thread_reserve.1_full", 4195504), (".L4_scc_rt_thread_reserve.sp4", 4195512),
-    (".L4_scc_rt_thread_reserve.halt5", 4195512), (".L4_scc_rt_thread_reserve.2_ok", 4195516),
-    ("scc_rt_thread_init", 4195536), (".L5_scc_rt_thread_init.0_entry", 4195556),
-    (".L5_scc_rt_thread_init.sp0", 4195564), ("scc_rt_stack_take", 4195692),
-    (".L6_scc_rt_stack_take.0_entry", 4195712), (".L6_scc_rt_stack_take.1_cls5", 4195748),
-    (".L6_scc_rt_stack_take.2_clsnext6", 4195768), (".L6_scc_rt_stack_take.3_clsdone7", 4195852),
-    (".L6_scc_rt_stack_take.4_spin14", 4195924), (".L6_scc_rt_stack_take.5_locked15", 4195960),
-    (".L6_scc_rt_stack_take.6_pop", 4195992), (".L6_scc_rt_stack_take.7_bump", 4196092),
-    (".L6_scc_rt_stack_take.8_full", 4196180), (".L6_scc_rt_stack_take.sp36", 4196188),
-    (".L6_scc_rt_stack_take.halt37", 4196188), (".L6_scc_rt_stack_take.9_ok", 4196192),
-    (".L6_scc_rt_stack_take.10_taken", 4196224), ("scc_rt_take_site", 4196232), ("scc_rt_stack_release", 4196256),
-    ("scc_rt_print", 4197752), (".L9_scc_rt_print.0_entry", 4197776), (".L9_scc_rt_print.1_loop", 4197780),
-    (".L9_scc_rt_print.2_write", 4197800), (".L9_scc_rt_print.3_chk2", 4197860), (".L9_scc_rt_print.4_chk3", 4197892),
-    (".L9_scc_rt_print.5_adv", 4197912), (".L9_scc_rt_print.6_fail", 4197948), (".L9_scc_rt_print.sp10", 4197956),
-    (".L9_scc_rt_print.halt11", 4197956), (".L9_scc_rt_print.7_done", 4197960), ("wc_rodata", 4198852),
-    (".L18_wc_rodata.stack_check", 4198852), (".L18_wc_rodata.0_entry", 4198888), (".L18_wc_rodata.sp0", 4198904),
-    (".L18_wc_rodata.stack_grow", 4199008), (".L18_wc_rodata.sp_check", 4199064), ("wc_main", 4199112),
-    (".L19_wc_main.stack_check", 4199112), (".L19_wc_main.0_entry", 4199168), (".L19_wc_main.sp4", 4199252),
-    (".L19_wc_main.stack_grow", 4199272), (".L19_wc_main.sp_check", 4199328)]
+    (".L3_scc_rt_alloc_tcb.2_full", 4195244), (".L3_scc_rt_alloc_tcb.sp13", 4195252),
+    (".L3_scc_rt_alloc_tcb.halt14", 4195252), (".L3_scc_rt_alloc_tcb.3_ok", 4195256),
+    ("scc_rt_thread_reserve", 4195428), (".L4_scc_rt_thread_reserve.0_entry", 4195444),
+    (".L4_scc_rt_thread_reserve.1_full", 4195508), (".L4_scc_rt_thread_reserve.sp4", 4195516),
+    (".L4_scc_rt_thread_reserve.halt5", 4195516), (".L4_scc_rt_thread_reserve.2_ok", 4195520),
+    ("scc_rt_thread_init", 4195540), (".L5_scc_rt_thread_init.0_entry", 4195560),
+    (".L5_scc_rt_thread_init.sp0", 4195568), ("scc_rt_stack_take", 4195696),
+    (".L6_scc_rt_stack_take.0_entry", 4195716), (".L6_scc_rt_stack_take.1_cls5", 4195752),
+    (".L6_scc_rt_stack_take.2_clsnext6", 4195772), (".L6_scc_rt_stack_take.3_clsdone7", 4195856),
+    (".L6_scc_rt_stack_take.4_spin14", 4195928), (".L6_scc_rt_stack_take.5_locked15", 4195964),
+    (".L6_scc_rt_stack_take.6_pop", 4195996), (".L6_scc_rt_stack_take.7_bump", 4196096),
+    (".L6_scc_rt_stack_take.8_full", 4196184), (".L6_scc_rt_stack_take.sp36", 4196192),
+    (".L6_scc_rt_stack_take.halt37", 4196192), (".L6_scc_rt_stack_take.9_ok", 4196196),
+    (".L6_scc_rt_stack_take.10_taken", 4196228), ("scc_rt_take_site", 4196236), ("scc_rt_stack_release", 4196260),
+    ("scc_rt_print", 4197784), (".L9_scc_rt_print.0_entry", 4197808), (".L9_scc_rt_print.1_loop", 4197812),
+    (".L9_scc_rt_print.2_write", 4197832), (".L9_scc_rt_print.3_chk2", 4197892), (".L9_scc_rt_print.4_chk3", 4197924),
+    (".L9_scc_rt_print.5_adv", 4197944), (".L9_scc_rt_print.6_fail", 4197980), (".L9_scc_rt_print.sp10", 4197988),
+    (".L9_scc_rt_print.halt11", 4197988), (".L9_scc_rt_print.7_done", 4197992), ("wc_rodata", 4198884),
+    (".L18_wc_rodata.stack_check", 4198884), (".L18_wc_rodata.0_entry", 4198920), (".L18_wc_rodata.sp0", 4198936),
+    (".L18_wc_rodata.stack_grow", 4199040), (".L18_wc_rodata.sp_check", 4199096), ("wc_main", 4199144),
+    (".L19_wc_main.stack_check", 4199144), (".L19_wc_main.0_entry", 4199200), (".L19_wc_main.sp4", 4199284),
+    (".L19_wc_main.stack_grow", 4199304), (".L19_wc_main.sp_check", 4199360)]
 
 /-- The table's check of one entry: a label of the program at its `labIn` address. -/
 noncomputable def tabChk (p : Label × Nat) : Bool :=
@@ -116,6 +116,8 @@ noncomputable def labT (l : Label) : Int64 :=
   | some n => Int64.ofNat n
   | none => (_root_.Executable.labels hello1Exe).label l
 
+-- The tables grew `.rodata` (R11): the decision recurses past the default depth.
+set_option maxRecDepth 100000 in
 /-- **The loaded thread's labels are `labT`'s.** -/
 theorem hello1_labT : (_root_.Executable.labels hello1Exe).label = labT := by
   funext l
@@ -137,19 +139,19 @@ def bP (pc : Nat) : Bool := inN 4194304 4194376 pc || inN 4195004 4195200 pc
 
 /-- **The stack lock is held**: past the `swpal` of `scc_rt_stack_take` up
 to and including the `stlr` of its bump path. -/
-def bL (pc : Nat) : Bool := inN 4195936 4196116 pc
+def bL (pc : Nat) : Bool := inN 4195940 4196120 pc
 
 /-- **`scc_rt_stack_next` is still `0`**: up to `.sp3` of `scc_rt_start`,
 `scc_rt_alloc_tcb` (and `scc_rt_thread_reserve`), `scc_rt_thread_init` up
 to the return of its call, and `scc_rt_stack_take` up to and including the
 add. -/
 def bN (pc : Nat) : Bool :=
-  inN 4194304 4194388 pc || inN 4195004 4195424 pc || inN 4195536 4195564 pc || inN 4195692 4196140 pc
+  inN 4194304 4194388 pc || inN 4195004 4195428 pc || inN 4195540 4195568 pc || inN 4195696 4196144 pc
 
 /-- **The stack is not taken yet**: as `bN`, and `scc_rt_stack_take` up to
 and including the take site. -/
 def bT (pc : Nat) : Bool :=
-  inN 4194304 4194388 pc || inN 4195004 4195424 pc || inN 4195536 4195564 pc || inN 4195692 4196236 pc
+  inN 4194304 4194388 pc || inN 4195004 4195428 pc || inN 4195540 4195568 pc || inN 4195696 4196240 pc
 
 /-- **The phase index of a pc**: its four bits. -/
 def ph (pc : Nat) : Nat := (bP pc).toNat + 2 * (bL pc).toNat + 4 * (bN pc).toNat + 8 * (bT pc).toNat
@@ -189,11 +191,11 @@ def tkCross : List (Nat × Nat) :=
 
 /-- **The only crossings.** -/
 theorem tkCross_eq :
-    tkCross = [(4195244, 4198288), (4196184, 4198288), (4196232, 4196236), (4196880, 4195692)] := by
+    tkCross = [(4195248, 4198320), (4196188, 4198320), (4196236, 4196240), (4196884, 4195696)] := by
   decide +kernel
 
 /-- The take site's fall-through owns what the site owns. -/
-theorem ownOf_site : ownOf (ph 4196236) = ownOf (ph 4196232) := by decide
+theorem ownOf_site : ownOf (ph 4196240) = ownOf (ph 4196236) := by decide
 
 /-! ## The marks -/
 
@@ -201,14 +203,14 @@ theorem ownOf_site : ownOf (ph 4196236) = ownOf (ph 4196232) := by decide
 abort sites. -/
 def μ0 : Marks where
   site
-    | .take => some 4196232
-    | .release => some 4196288
+    | .take => some 4196236
+    | .release => some 4196292
   abortAt
-    | .overflow => some 4198552
-    | .heap => some 4198624
-    | .stack => some 4198696
-    | .writeErr => some 4198768
-    | .threads => some 4198840
+    | .overflow => some 4198584
+    | .heap => some 4198656
+    | .stack => some 4198728
+    | .writeErr => some 4198800
+    | .threads => some 4198872
 
 /-- **The canonical target's marks of `hello1`** are `μ0`, given the
 loader's parse of the listing (`hpa`, the trust boundary). -/
@@ -221,13 +223,13 @@ theorem hello1_marks (hpa : Scc.Sem.A64.textProgram hello1Asm = .ok hello1Prog) 
   · funext k; cases k <;> exact (hr _).trans (by decide +kernel)
 
 /-- **The pcs off the marks' sites.** -/
-def okPc (pc : Nat) : Bool := !([4196232, 4196288, 4198552, 4198624, 4198696, 4198768, 4198840].contains pc)
+def okPc (pc : Nat) : Bool := !([4196236, 4196292, 4198584, 4198656, 4198728, 4198800, 4198872].contains pc)
 
 /-- A pc off the sites is off `μ0`'s, with no take there. -/
 theorem pcOff_of_okPc {rS : Range} : ∀ s : State, okPc (pcOf s) = true →
     PcOff μ0 s ∧ ∀ s', ¬ TakeK (labT Ret0.StackTake.siteL) rS s s' := by
   intro s h
-  have hne : ∀ a ∈ [4196232, 4196288, 4198552, 4198624, 4198696, 4198768, 4198840], pcOf s ≠ a := by
+  have hne : ∀ a ∈ [4196236, 4196292, 4198584, 4198656, 4198728, 4198800, 4198872], pcOf s ≠ a := by
     intro a ha he
     subst he
     simp only [okPc, Bool.not_eq_true', List.contains_eq_any_beq, List.any_eq_false, beq_iff_eq] at h
@@ -237,7 +239,7 @@ theorem pcOff_of_okPc {rS : Range} : ∀ s : State, okPc (pcOf s) = true →
   · cases ha; exact hne _ (by simp)
   · cases k <;> cases ha <;> exact hne _ (by simp)
   · have := congrArg (fun x : Int64 => x.toBitVec.toNat) (TakeK.pc hk)
-    exact hne 4196232 (by simp) (by unfold pcOf; rw [this]; decide +kernel)
+    exact hne 4196236 (by simp) (by unfold pcOf; rw [this]; decide +kernel)
 
 /-! ## The per-state facts -/
 
@@ -266,7 +268,7 @@ section Node
 
 open Spike.Lib.A64.Flow
 open Spike.Lib.A64.Flow.Ret0
-open Scc.Cert.Rt.A64 (blockAt)
+open Scc.Cert.Rt.A64 (blockAt blockAcross)
 open Kraken.Promising.Lower.A64 (CellAt after exec_str_agrees exec_ldop access_agrees)
 open Spike.Lib.A64.Flow.Hello1.Mem (hello1Words hello1F hello1Words_mapped)
 
@@ -291,6 +293,30 @@ theorem blkW_pre {R : Region} {F : MachineData → Prop} {n : ND} {blk : List Di
     BlkW (Wr rS) (Kr rS) hello1Exe hello1End R F n blk := by
   rw [he] at hph hT
   have hcode := code_of (exe := hello1Exe) hello1_lays rfl hb (q := n.pc) (by rw [hello1_labT]; exact he)
+  rw [← hello1_labT] at hph hret hdead
+  obtain ⟨hpc, hph', hsm⟩ := blkPh_sound (μ := μ0) (endPc := hello1End) ph_same pcOff_of_okPc hok hph hret hdead
+  refine blkW_sfacts hcode hok hR hal hlo hhi hC hpc hph' fun s m _ _ _ k hk s' _ hpc' htk => ?_
+  have := (hsm k hk { s' with st := (s'.st.1, n.pc) } s' rfl hpc').2.mp htk
+  exact absurd this (not_tk (by unfold pcOf; exact hT))
+
+/-- `blkW_pre` for a block split by a return label (`m`, after its first `j`
+instructions; `blockAcross`). -/
+theorem blkW_preA {R : Region} {F : MachineData → Prop} {n : ND} {blk : List Directive} {lo hi : Int}
+    {dead : Nat → Bool} {ra : Int64} {l m : Label} {k j : Nat}
+    (hb : blockAcross hello1Prog l k (blk.take j) m (blk.drop j) = true)
+    (he : labT l + Int64.ofNat (4 * k) = n.pc)
+    (hok : okBlk lo hi n.o blk = true)
+    (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ lo) (hhi : hi ≤ R.hi)
+    (hC : ∀ σ c, n.J σ c → CFacts hello1Λ hello1Λ.static c)
+    (hph : blkPh okPc ph dead labT (labT l + Int64.ofNat (4 * k)) ra blk = true)
+    (hret : ∀ σ c, n.J σ c → ∀ k (hk : k < blk.length) r, classify blk[k] = some (.ret r) →
+      Int64.ofInt ((arun labT (blk.take k) ⟨n.pc, n.o, σ⟩).σ.regs.getRegOrZr r).signed = ra)
+    (hdead : ∀ σ c, n.J σ c → dead (arun labT blk ⟨n.pc, n.o, σ⟩).pc.toBitVec.toNat = false)
+    (hT : bT (labT l + Int64.ofNat (4 * k)).toBitVec.toNat = true) :
+    BlkW (Wr rS) (Kr rS) hello1Exe hello1End R F n blk := by
+  rw [he] at hph hT
+  have hcode := Spike.Lib.A64.code_field_blockAcross (exe := hello1Exe) hello1_lays rfl hb
+    (List.take_append_drop j blk) (q := n.pc) (by rw [hello1_labT]; exact he)
   rw [← hello1_labT] at hph hret hdead
   obtain ⟨hpc, hph', hsm⟩ := blkPh_sound (μ := μ0) (endPc := hello1End) ph_same pcOff_of_okPc hok hph hret hdead
   refine blkW_sfacts hcode hok hR hal hlo hhi hC hpc hph' fun s m _ _ _ k hk s' _ hpc' htk => ?_
@@ -470,7 +496,7 @@ theorem tcbW (hC0 : CFacts hello1Λ hello1Λ.static c0) {R : Region} (hR : R.OK)
   case entry =>
     show BlkW _ _ _ _ _ _ _ _
     rw [hello1_labT]
-    exact blkW_pre (l := AllocTcb.entryL) (k := 0) (dead := fun t => t == 4195240) (ra := 0) (by decide +kernel)
+    exact blkW_pre (l := AllocTcb.entryL) (k := 0) (dead := fun t => t == 4195244) (ra := 0) (by decide +kernel)
       rfl AllocTcb.atChk_ok hR hal (by omega) (by omega) (fun _ _ hJ => hJ.1 ▸ hq ▸ hC0) (by decide +kernel)
       (fun _ _ _ k hk r hr => (noRet_false (by decide) k hk r hr).elim)
       (fun _ _ hJ => by dsimp only [tcbN] at hJ ⊢; rw [(AllocTcb.atChk_walk labT _ hJ.2).1]; decide +kernel)
@@ -493,7 +519,7 @@ theorem tcbW (hC0 : CFacts hello1Λ hello1Λ.static c0) {R : Region} (hR : R.OK)
     rw [hJ.2.2.1]
     decide +kernel
   case bnd => show BlkW _ _ _ _ _ _ _ _; rw [hello1_labT]; tblk AllocTcb.lenL 38 AllocTcb.atBnd_ok
-  case j2 => show BlkW _ _ _ _ _ _ _ _; rw [hello1_labT]; tblk AllocTcb.lenL 47 AllocTcb.atJ2_ok
+  case j2 => show BlkW _ _ _ _ _ _ _ _; rw [hello1_labT]; tblk AllocTcb.lenL 48 AllocTcb.atJ2_ok
   case ok => show NodeW _ _ _ _ _ _ _; rw [hello1_labT]; tsi (SI.adrp .X9 "scc_rt_pinned") AllocTcb.okL 0
   case ok1 => show NodeW _ _ _ _ _ _ _; rw [hello1_labT]; tsi (SI.addLo12 .X9 .X9 "scc_rt_pinned") AllocTcb.okL 1
   case ok2 => show BlkW _ _ _ _ _ _ _ _; rw [hello1_labT]; tblk AllocTcb.okL 2 AllocTcb.atOk_ok
@@ -512,7 +538,8 @@ theorem tcbW (hC0 : CFacts hello1Λ hello1Λ.static c0) {R : Region} (hR : R.OK)
   case ret =>
     show BlkW _ _ _ _ _ _ _ _
     rw [hello1_labT]
-    exact blkW_pre (l := AllocTcb.okL) (k := 30) (dead := fun _ => false) (ra := labT ".L0_scc_rt_start.sp2")
+    exact blkW_preA (l := AllocTcb.okL) (k := 30) (m := AllocTcb.retL) (j := 12) (dead := fun _ => false)
+      (ra := labT ".L0_scc_rt_start.sp2")
       (by decide +kernel) rfl AllocTcb.atRet_ok hR hal (by omega) (by omega) (fun _ _ hJ => hJ.1 ▸ hq ▸ hC0)
       (by decide +kernel)
       (hret_of_run AllocTcb.atRet_ok fun _ _ hJ => by

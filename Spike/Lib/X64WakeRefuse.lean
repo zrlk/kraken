@@ -1,7 +1,7 @@
 /-
 **wake.w on x86-64: main back from a refused `clone`** (the spawn's refusal
 half; the twin of `Spike/Lib/A64WakeRefuse.lean`): main at the clone's
-`syscall` (`.Lwc_main.x21 + 46`, `wcNS` in its frame), once the kernel
+`syscall` (`.Lwc_main.x3 + 46`, `wcNS` in its frame), once the kernel
 returns a refusal `r` (`ThreadsAb.CloneRef`: `-EAGAIN` or `-ENOMEM`;
 `abi.ret` writes `%rax`, `%rcx`, `%r11` and moves past the `syscall`), is at
 the refusal path's first node `SpawnFail.fN … .ts`

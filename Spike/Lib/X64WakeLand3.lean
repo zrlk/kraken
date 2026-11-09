@@ -15,7 +15,7 @@ frame condition), at any memory side that is `refW` but for `xa`
 - `fstable_wAR`: the allocator's frame condition at `wc_main`'s call
   (`F ∧ CallerCells ∧ WcCtx`) is stable in its region.
 - `hctx_R`: at the counter add of a call from `wc_main` returning to
-  `.Lwc_main.x18` under main's thread pointer, `CtxR` (its `CtrAt`
+  `.Lwc_main.x0` under main's thread pointer, `CtxR` (its `CtrAt`
   disjunct: `GcW` by construction, `CtrOk` by `fstable_wAR` at the first
   stack's top and `WordsNoneP` at the counter).
 
@@ -23,7 +23,7 @@ x86-64 twin of `Spike/Lib/A64WakeLand3.lean` (namespace
 `Spike.Lib.X64.WakePh.Land`). **Unlike AArch64**:
 - generic in `wc_main`'s entry control `c0` with `hbx : C0Box c0` (A64 at
   `c0W`, `box_c0W`); `c0_of_wcJ` is `WcPl.c0_wJ0` under `wcJ`;
-- the store is `movq %rax, (%rcx)` at `.Lwc_main.x18 + 15` (A64: `str x9,
+- the store is `movq %rax, (%rcx)` at `.Lwc_main.x0 + 15` (A64: `str x9,
   [x10]` at `.L21_wc_main.sp0 + 12`), its landing `bXR` on `R`, moved to
   `GsW`'s `bX` on `R.fp (-8)` by `bXR_rebase`; the value's
   representation is `ValRep lbl w.val 0` (`%rax = 0`);
@@ -144,10 +144,10 @@ theorem hwr_R (hprog : (Ly).prog = SccCode.wakeCells) (hc : Spike.Lib.X64.Rt.Ctr
       TP (TV) s, ⟨v, m0, σC, rfl⟩, ?_⟩
     refine Spike.Lib.X64.Alloc.newStM_nd (b := .rcx) (r := .rax) (k := 0) (z := 3) (R := wR (RS wcLsw v) wcD)
       (F := wF (RS wcLsw v) wcD (FS (Ly) (RS0) wcLsw 0#64 v) m0 σC)
-      (n := ⟨(Ly).lab ".Lwc_main.x18" + Int64.ofNat 15, oWR, fun σ c =>
+      (n := ⟨(Ly).lab ".Lwc_main.x0" + Int64.ofNat 15, oWR, fun σ c =>
         (sN { refW asm hp i ls0 E with xa := X } (Ly).lab (wR (RS wcLsw v) wcD) ((JW) σC) .st).J σ c ∧
           σ.regs.fsBase = TV⟩)
-      (fun l A => ⟨(Ly).lab ".Lwc_main.x18" + Int64.ofNat 18, oWR, fun σ c =>
+      (fun l A => ⟨(Ly).lab ".Lwc_main.x0" + Int64.ofNat 18, oWR, fun σ c =>
         (bXR (refW asm hp i ls0 E) (Ly).lab ((JW) σC) l A).J σ c ∧ σ.regs.fsBase = TV⟩)
       (code_field hpS hendS hin.2 rfl) ?_ ?_ ?_
     · rintro l A s' c' - ⟨he, hn, hdc, hpc, σ, hA', hD, hJ, htp'⟩
@@ -184,7 +184,7 @@ theorem hwr_R (hprog : (Ly).prog = SccCode.wakeCells) (hc : Spike.Lib.X64.Rt.Ctr
           hle⟩, htp'⟩⟩
       · have : (σ.regs.get64 .rax).toNat = 0 := by simp [Reg64s.get64, h0]
         rw [this, hw0]; exact ⟨by decide, rfl⟩
-      · show (Ly).lab ".Lwc_main.x18" + Int64.ofNat 18 = (Ly).lab ".Lwc_main.x18" + Int64.ofNat 15 + Int64.ofNat 3
+      · show (Ly).lab ".Lwc_main.x0" + Int64.ofNat 18 = (Ly).lab ".Lwc_main.x0" + Int64.ofNat 15 + Int64.ofNat 3
         rw [Int64.add_assoc]; rfl
     · obtain ⟨he, hn, hdc, hpc, σ, hA', hD, hJ⟩ := hAt
       exact ⟨he, hn, hdc, hpc, σ, hA', hD, hJ, by rw [← hA'.regs]; exact htp⟩
@@ -196,12 +196,12 @@ theorem hwr_R (hprog : (Ly).prog = SccCode.wakeCells) (hc : Spike.Lib.X64.Rt.Ctr
 
 set_option linter.unusedSimpArgs false in
 /-- **`WcWfS.wcPreW_WSO`'s `hctx` at `CtxR`**: a counter add of a box call
-from `wc_main` (on the first stack) returning to `.Lwc_main.x18`, under
+from `wc_main` (on the first stack) returning to `.Lwc_main.x0`, under
 main's thread pointer, is `CtxR`'s `CtrAt`. -/
 theorem hctx_R (hc : Spike.Lib.X64.Rt.CtrZ o) (E : Entry)
     {ms : MemSide isa} (hms : ms = { refW asm hp i ls0 E with xa := ms.xa })
     (v : BitVec 64) (m0 : MachineData) (σC : Spike.Lib.X64.AS) :
-    ∀ q : Spike.Lib.X64.Alloc.Call, q.OKB ms (Ly).lab → q.ra = ((Ly).lab ".Lwc_main.x18").toBitVec →
+    ∀ q : Spike.Lib.X64.Alloc.Call, q.OKB ms (Ly).lab → q.ra = ((Ly).lab ".Lwc_main.x0").toBitVec →
       ∀ s c, Spike.Lib.X64.At (Ly).exe (Ly).endPc (wAR (wR (RS wcLsw v) wcD))
         (fun m => wF (RS wcLsw v) wcD (FS (Ly) (RS0) wcLsw 0#64 v) m0 σC m ∧
           CallerCells (wR (RS wcLsw v) wcD) (-80) (-160) 8 m ∧

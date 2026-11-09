@@ -2,7 +2,7 @@
 **`hello.w`'s `wc_rodata` on x86-64**, inside `W`, in any valid layout of `helloCells`
 (`Spike/Lib/X64HelloCode.lean`), from checks decided once on the cells (`decide +kernel`). It is the x86-64 twin
 of `Spike/Lib/A64HelloRodata.lean`, and the label-shifted twin of hello1's x86-64 forms with the source's local
-runs (`X64Hello1RodataS`, `X64Hello1RodataPostS`) at hello's labels (`.Lwc_rodata.x15`, hello1's `.x13`).
+runs (`X64Hello1RodataS`, `X64Hello1RodataPostS`) at hello's labels (`.Lwc_rodata.x0`, hello1's `.x13`).
 hello1's blocks (`Hello1.rdE`, `rpB0` … `rpB4`), their specifications and the frame facts (`rdJ`, `rdFr`) are
 reused; only the label-carrying pieces are restated.
 
@@ -44,7 +44,7 @@ open Spike.Lib.X64.Flow.Ret0 (CallerCells LimOk)
 open Spike.Lib.X64.Alloc (Call AllocW Ea Jfull)
 open Spike.Lib.X64.Flow.Hello1 (rdE rdE_ok rdE_run rdJ AG RN RX aR oR rdFr wJ rpB0 rpB0_ok rpB0_run rpB1 rpB1_ok
   rpB1_run rpB2 rpB2_ok rpB2_run rpB3 rpB3_ok rpB3_run rpB4 rpB4_ok rpB4_run rpK1 rpK2 bAddr_rcx_rax allocW_mono PN)
-open Scc.Cert.Rt.X64 (Lays endOf blockAtB labelGapB code_field label_labelGapB)
+open Scc.Cert.Rt.X64 (Lays endOf blockAtB labelGapB code_field label_labelGapB blockAcrossB)
 
 set_option linter.unusedSimpArgs false
 
@@ -60,18 +60,18 @@ theorem hello_rdPro : rdPro = true := by decide +kernel
 
 /-- **`wc_rodata`'s entry block in `cells`**, `.x15` right after the call. -/
 def rdEIn (cells : List (Directive × Nat)) : Bool :=
-  blockAtB cells ".Lwc_rodata.entry" 0 rdE && labelGapB cells ".Lwc_rodata.entry" ".Lwc_rodata.x15" 26
+  blockAtB cells ".Lwc_rodata.entry" 0 rdE && labelGapB cells ".Lwc_rodata.entry" ".Lwc_rodata.x0" 26
 
 theorem hello_rdEIn : rdEIn SccCode.helloCells = true := by decide +kernel
 
 /-- **`.x15` in `cells`**: its blocks and the two exchanges' loads and stores at their offsets (hello1's
 `rpIn` at `.x15`; the `# fence st` comment emits nothing, so the last block follows the second store). -/
 def rpIn (cells : List (Directive × Nat)) : Bool :=
-  blockAtB cells ".Lwc_rodata.x15" 0 rpB0 && blockAtB cells ".Lwc_rodata.x15" 8 [(ldDir .rcx 0 .rax, 3)] &&
-  blockAtB cells ".Lwc_rodata.x15" 11 rpB1 && blockAtB cells ".Lwc_rodata.x15" 29 [(stDir .rcx 0 .rax, 3)] &&
-  blockAtB cells ".Lwc_rodata.x15" 32 rpB2 && blockAtB cells ".Lwc_rodata.x15" 36 [(ldDir .rcx 8 .rax, 4)] &&
-  blockAtB cells ".Lwc_rodata.x15" 40 rpB3 && blockAtB cells ".Lwc_rodata.x15" 58 [(stDir .rcx 8 .rax, 4)] &&
-  blockAtB cells ".Lwc_rodata.x15" 62 rpB4
+  blockAtB cells ".Lwc_rodata.x0" 0 rpB0 && blockAtB cells ".Lwc_rodata.x0" 8 [(ldDir .rcx 0 .rax, 3)] &&
+  blockAtB cells ".Lwc_rodata.x0" 11 rpB1 && blockAtB cells ".Lwc_rodata.x0" 29 [(stDir .rcx 0 .rax, 3)] &&
+  blockAtB cells ".Lwc_rodata.x0" 32 rpB2 && blockAtB cells ".Lwc_rodata.x0" 36 [(ldDir .rcx 8 .rax, 4)] &&
+  blockAtB cells ".Lwc_rodata.x0" 40 rpB3 && blockAtB cells ".Lwc_rodata.x0" 58 [(stDir .rcx 8 .rax, 4)] &&
+  blockAcrossB cells ".Lwc_rodata.x0" 62 (rpB4.take 6) ".Lwc_rodata.x1" (rpB4.drop 6)
 
 theorem hello_rpIn : rpIn SccCode.helloCells = true := by decide +kernel
 
@@ -88,12 +88,12 @@ def rN : RN → ND
   | .e => ⟨lab ".Lwc_rodata.entry", oR, wJ R (rdJ J0)⟩
   | .call => ⟨lab "scc_rt_alloc", ⟨-48, []⟩, fun σ c => rdJ J1 σ c ∧ σ.regs.get64 .rbp = R.addr (-8) ∧
       σ.regs.rdi.toBitVec = 257#64 ∧ σ.regs.rsi.toBitVec = 2#64 ∧ σ.regs.rdx.toBitVec = 3#64 ∧
-      σ.slot (-48) = (lab ".Lwc_rodata.x15").toBitVec⟩
+      σ.slot (-48) = (lab ".Lwc_rodata.x0").toBitVec⟩
 
 /-- **The exits**: the allocator's return at `.x15` (its return's facts, the frame record and `%rbp` kept),
 and its heap abort (the return address `.Lscc_rt_alloc.full + 12` its `call scc_rt_abort` pushed, at `-208`). -/
 def rX : RX → ND
-  | .x13 => ⟨lab ".Lwc_rodata.x15", ⟨-40, []⟩, fun σ c => ∃ q : AG ms lab, rdJ J1 σ q.1.c0 ∧
+  | .x13 => ⟨lab ".Lwc_rodata.x0", ⟨-40, []⟩, fun σ c => ∃ q : AG ms lab, rdJ J1 σ q.1.c0 ∧
       σ.regs.get64 .rbp = R.addr (-8) ∧ (Alloc.E lab ms q.1 lbl .ret).J σ c⟩
   | .abort => ⟨lab "scc_rt_abort", ⟨-208, []⟩, fun σ c => σ.regs.rdi.toBitVec = 2#64 ∧
       σ.slot (-208) = (lab ".Lscc_rt_alloc.full" + 12).toBitVec ∧
@@ -102,7 +102,7 @@ def rX : RX → ND
 /-- **The exits at a level-ending call**: `rX`'s, with no state at `.x15` (the allocator's return is its
 allocation, landing in `ms.xa`: `Alloc.ENR`). -/
 def rXF : RX → ND
-  | .x13 => ⟨lab ".Lwc_rodata.x15", ⟨-40, []⟩, fun _ _ => False⟩
+  | .x13 => ⟨lab ".Lwc_rodata.x0", ⟨-40, []⟩, fun _ _ => False⟩
   | .abort => rX ms lab lbl R J1 .abort
 
 end Rd
@@ -122,7 +122,7 @@ structure RdPreW (W : Frag isa) (K : State → State → Prop) (exe : _root_.Exe
     ".Lwc_rodata.stk" 5 9 3 2 4 [] J0
   e : BlkW W K exe endPc R F (rN (_root_.Executable.labels exe).label R J0 J1 .e) rdE
   alloc : ∀ q : Call, q.OK ms (_root_.Executable.labels exe).label →
-    q.ra = ((_root_.Executable.labels exe).label ".Lwc_rodata.x15").toBitVec →
+    q.ra = ((_root_.Executable.labels exe).label ".Lwc_rodata.x0").toBitVec →
     AllocW ms q W K exe endPc (aR R)
       (fun m => F m ∧ CallerCells R (-48) (-160) 8 m ∧ RdCtx ms (_root_.Executable.labels exe).label R J0 J1 q m)
 
@@ -173,7 +173,7 @@ theorem hello_rodata_pre_runWF {W : Frag isa} {K : State → State → Prop}
   simp only [rdEIn, Bool.and_eq_true] at hin
   obtain ⟨h0, hgap⟩ := hin
   let lab := (_root_.Executable.labels exe).label
-  have e26 : lab ".Lwc_rodata.x15" = lab ".Lwc_rodata.entry" + Int64.ofNat 26 := label_labelGapB hp hgap
+  have e26 : lab ".Lwc_rodata.x0" = lab ".Lwc_rodata.entry" + Int64.ofNat 26 := label_labelGapB hp hgap
   refine (SegW.seq (prologue_seg_ofW hp hend hello_rdPro (nb := ⟨lab ".Lwc_rodata.entry", oR, rdJ J0⟩)
     (by decide) hF hR
     (by show R.lo ≤ -8 - (32 : Int64).toInt; rw [show (32 : Int64).toInt = 32 from rfl]; omega) (by omega)
@@ -215,7 +215,7 @@ theorem hello_rodata_pre_runWF {W : Frag isa} {K : State → State → Prop}
         (fun R' F' hR' hlo' hhi' hF' _ hFF hR'e hcc g hg hkeep => by
           subst hR'e
           obtain ⟨σC, c, ⟨-, -, -, -, -, h48⟩, ⟨-, -, hra, -⟩⟩ := hg
-          have hr : g.1.ra = (lab ".Lwc_rodata.x15").toBitVec := by
+          have hr : g.1.ra = (lab ".Lwc_rodata.x0").toBitVec := by
             rw [← hra, ← h48]; rfl
           exact (seg_alloc_ofW_atNR hp hend hello_alloc hF' hR' hlo' hhi' g.2
             (fun a ha m hm => hmem g.1 g.2 a ha m (hFF m hm))
@@ -254,19 +254,19 @@ end RdFnF
 state and the control). There is no fence node: the source's `publish b` emits no code (see the module
 docstring), so `J4` is the source invariant at the last block (`hello_rodata_post_runW` takes it at `J4P J4 J4x`). -/
 def pN (lab : Label → Int64) (Jp Jp' J1 J2 J2' J3 J4 : AS → Ctl → Prop) : PN → ND
-  | .s0 => ⟨lab ".Lwc_rodata.x15", oR, Jp⟩
-  | .l1 => ⟨lab ".Lwc_rodata.x15" + 8, oR, fun σ c => ∃ σ0, (∃ c0, Jp σ0 c0) ∧
+  | .s0 => ⟨lab ".Lwc_rodata.x0", oR, Jp⟩
+  | .l1 => ⟨lab ".Lwc_rodata.x0" + 8, oR, fun σ c => ∃ σ0, (∃ c0, Jp σ0 c0) ∧
       Jp' σ0 c ∧ rdFr σ0 σ ∧ σ.regs.get64 .rcx = σ0.regs.get64 .rax⟩
-  | .s1 => ⟨lab ".Lwc_rodata.x15" + 11, oR, fun σ c => ∃ σ0, (∃ c0, Jp σ0 c0) ∧ J1 σ0 c ∧ rdFr σ0 σ⟩
-  | .x1 => ⟨lab ".Lwc_rodata.x15" + 29, oR, fun σ c => ∃ σ0, (∃ c0, Jp σ0 c0) ∧
+  | .s1 => ⟨lab ".Lwc_rodata.x0" + 11, oR, fun σ c => ∃ σ0, (∃ c0, Jp σ0 c0) ∧ J1 σ0 c ∧ rdFr σ0 σ⟩
+  | .x1 => ⟨lab ".Lwc_rodata.x0" + 29, oR, fun σ c => ∃ σ0, (∃ c0, Jp σ0 c0) ∧
       J1 σ0 c ∧ rdFr σ0 σ ∧ σ.regs.get64 .rax = rpK1 ∧ σ.regs.get64 .rcx = σ0.regs.get64 .rax⟩
-  | .s2 => ⟨lab ".Lwc_rodata.x15" + 32, oR, fun σ c => ∃ σ0, (∃ c0, Jp σ0 c0) ∧ J2 σ0 c ∧ rdFr σ0 σ⟩
-  | .l2 => ⟨lab ".Lwc_rodata.x15" + 36, oR, fun σ c => ∃ σ0, (∃ c0, Jp σ0 c0) ∧
+  | .s2 => ⟨lab ".Lwc_rodata.x0" + 32, oR, fun σ c => ∃ σ0, (∃ c0, Jp σ0 c0) ∧ J2 σ0 c ∧ rdFr σ0 σ⟩
+  | .l2 => ⟨lab ".Lwc_rodata.x0" + 36, oR, fun σ c => ∃ σ0, (∃ c0, Jp σ0 c0) ∧
       J2' σ0 c ∧ rdFr σ0 σ ∧ σ.regs.get64 .rcx = σ0.regs.get64 .rax⟩
-  | .s3 => ⟨lab ".Lwc_rodata.x15" + 40, oR, fun σ c => ∃ σ0, (∃ c0, Jp σ0 c0) ∧ J3 σ0 c ∧ rdFr σ0 σ⟩
-  | .x2 => ⟨lab ".Lwc_rodata.x15" + 58, oR, fun σ c => ∃ σ0, (∃ c0, Jp σ0 c0) ∧
+  | .s3 => ⟨lab ".Lwc_rodata.x0" + 40, oR, fun σ c => ∃ σ0, (∃ c0, Jp σ0 c0) ∧ J3 σ0 c ∧ rdFr σ0 σ⟩
+  | .x2 => ⟨lab ".Lwc_rodata.x0" + 58, oR, fun σ c => ∃ σ0, (∃ c0, Jp σ0 c0) ∧
       J3 σ0 c ∧ rdFr σ0 σ ∧ σ.regs.get64 .rax = rpK2 ∧ σ.regs.get64 .rcx = σ0.regs.get64 .rax⟩
-  | .s4 => ⟨lab ".Lwc_rodata.x15" + 62, oR, fun σ c => ∃ σ0, (∃ c0, Jp σ0 c0) ∧ J4 σ0 c ∧ rdFr σ0 σ⟩
+  | .s4 => ⟨lab ".Lwc_rodata.x0" + 62, oR, fun σ c => ∃ σ0, (∃ c0, Jp σ0 c0) ∧ J4 σ0 c ∧ rdFr σ0 σ⟩
 
 /-- **`wc_rodata`'s states from the allocator's return inside `W`**, none moved by `K`: one obligation per
 node. -/
@@ -360,7 +360,7 @@ theorem hello_rodata_post_runW {W : Frag isa} {K : State → State → Prop}
       σ'.regs.rbp.toBitVec = σ0.slot (-8) → σ'.regs.rsp.toBitVec = σ0.regs.rbp.toBitVec + 8#64 + 8#64 →
       ∃ c', LocalRun p c c' ∧ x.J σ' c') :
     Spike.Lib.X64SegWPub.SegWP W K p lbl ms
-      (At exe endPc R F ⟨(_root_.Executable.labels exe).label ".Lwc_rodata.x15", ⟨-40, []⟩, Jp⟩)
+      (At exe endPc R F ⟨(_root_.Executable.labels exe).label ".Lwc_rodata.x0", ⟨-40, []⟩, Jp⟩)
       (At exe endPc R F x) := by
   have hin := hello_rpIn
   simp only [rpIn, Bool.and_eq_true] at hin
@@ -372,21 +372,21 @@ theorem hello_rodata_post_runW {W : Frag isa} {K : State → State → Prop}
       (At exe endPc R F x) := by
     refine (seg_ndW (n := pN lab Jp Jp' J1 J2 J2' J3 (J4P J4L J4x) .s4) (N := fun _ : Unit => x)
       (E := fun _ : Unit => x) (by simp [rpB4]) rpB4_ok hF hR hlo hhi
-      (code_field hp hend c8 rfl)
+      (Spike.Lib.X64.code_field_blockAcrossB hp hend c8 (List.take_append_drop _ _) rfl)
       (fun s σ c he hn hd hpc hA hD ⟨σ0, hJp, hJ, hfr⟩ =>
         hW.s4 s σ c he hn hd hpc hA hD ⟨σ0, hJp, hJ.imp And.left id, hfr⟩)
       fun σ c ⟨σ0, ⟨c0', hJp⟩, hJ, hfr⟩ => ?_).mono_post fun _ _ h => h.elim (fun ⟨_, h⟩ => h) fun ⟨_, h⟩ => h
     obtain ⟨c₁, hr₁, hJ5⟩ := hJ.elim And.right (hlocx σ0 c)
     obtain ⟨h16, h8, h0, hbp'⟩ := hfr
     obtain ⟨c', hr, hx⟩ := hedge σ0 c₁ ⟨c0', hJp⟩ hJ5
-      (arun lab rpB4 ⟨lab ".Lwc_rodata.x15" + 62, oR, σ⟩).σ
+      (arun lab rpB4 ⟨lab ".Lwc_rodata.x0" + 62, oR, σ⟩).σ
       (by rw [rpB4_run]; simp [Reg64s.set64, h16]) (by rw [rpB4_run]; simp [Reg64s.set64])
       (by rw [rpB4_run]; simp [Reg64s.set64]) (by rw [rpB4_run]; simp [Reg64s.set64])
       (by rw [rpB4_run]; simp [Reg64s.set64, h8]) (by rw [rpB4_run]; simp [Reg64s.set64, hbp'])
     refine ⟨c', hr₁.trans hr, .inr ⟨(), ?_, ?_, hx⟩⟩
-    · show x.pc = (arun lab rpB4 ⟨lab ".Lwc_rodata.x15" + 62, oR, σ⟩).pc
+    · show x.pc = (arun lab rpB4 ⟨lab ".Lwc_rodata.x0" + 62, oR, σ⟩).pc
       rw [rpB4_run, hra σ0 c0' hJp, h0]
-    · show x.o.le (arun lab rpB4 ⟨lab ".Lwc_rodata.x15" + 62, oR, σ⟩).so = true
+    · show x.o.le (arun lab rpB4 ⟨lab ".Lwc_rodata.x0" + 62, oR, σ⟩).so = true
       rw [rpB4_run]; exact ho
   -- at the publication: a stutter into `hB`'s controls, or already past it
   have hC := SegW.pubP (P₀ := At exe endPc R F (pN lab Jp Jp' J1 J2 J2' J3 J4 .s4)) hB fun s c hs => by
@@ -402,10 +402,11 @@ theorem hello_rodata_post_runW {W : Frag isa} {K : State → State → Prop}
     | loc hr => exact .inl ⟨he, hn, hdc, hpc, σ, hA, hD, σ0, hJp, .inl ⟨hJ4, c', hr, hJ5⟩, hfr⟩
     | pub hP hps _ =>
       refine .inr ⟨?_, hP, _, hps, he, hn, hdc, hpc, σ, hA, hD, σ0, hJp, .inr (hpubx σ0 c _ hJ4 hps), hfr⟩
-      have hcell := code_field hp hend c8 rfl s he hn 0 (rpB4[0]'(by simp [rpB4])).1 (rpB4[0]'(by simp [rpB4])).2
+      have hcell := Spike.Lib.X64.code_field_blockAcrossB hp hend c8 (List.take_append_drop _ _) rfl s he hn 0
+        (rpB4[0]'(by simp [rpB4])).1 (rpB4[0]'(by simp [rpB4])).2
         (List.getElem?_eq_getElem (by simp [rpB4]))
       have hns := Scc.Sem.X64.atSyscall_false_of_cellAt hcell (by intro w w' h; first | cases h | simp [rpB4] at h)
-      have hs1 := self_of_pc (s := s) (pc := lab ".Lwc_rodata.x15" + Int64.ofNat 62) (hpc.trans rfl)
+      have hs1 := self_of_pc (s := s) (pc := lab ".Lwc_rodata.x0" + Int64.ofNat 62) (hpc.trans rfl)
       try simp only [e0] at hns
       rw [hs1] at hns
       exact hns
@@ -431,7 +432,7 @@ theorem hello_rodata_post_runW {W : Frag isa} {K : State → State → Prop}
     obtain ⟨x, sa, u, v, e, hx, hv, hh, hk⟩ := h1 σ0 c hJ
     refine ⟨hr ▸ hm m hD, x, sa, u, v, e, hx, hr ▸ hv, hh, fun r w' hrd hrep =>
       .inl ⟨PN.s1, ?_, rfl, σ0, ⟨c0', hJp⟩, hr ▸ hk r w' hrd hrep, hfr⟩⟩
-    show lab ".Lwc_rodata.x15" + 11 = lab ".Lwc_rodata.x15" + 8 + Int64.ofNat 3
+    show lab ".Lwc_rodata.x0" + 11 = lab ".Lwc_rodata.x0" + 8 + Int64.ofNat 3
     rw [Int64.add_assoc]; rfl
   case s1 =>
     refine seg_ndW (by simp [rpB1]) rpB1_ok hF hR hlo hhi (code_field hp hend c2 rfl) hW.s1
@@ -453,7 +454,7 @@ theorem hello_rodata_post_runW {W : Frag isa} {K : State → State → Prop}
     obtain ⟨x, sa, u, v, e, tv, wv, wold, hx, hv, hh, hev, hV, hk⟩ := h2 σ0 c hJ
     refine ⟨hr ▸ hm m hD, x, sa, u, v, e, tv, wv, wold, hx, hr ▸ hv, hr ▸ hh, hev,
       by rw [hax]; exact hV, .inl ⟨PN.s2, ?_, rfl, σ0, ⟨c0', hJp⟩, hk, hfr⟩⟩
-    show lab ".Lwc_rodata.x15" + 32 = lab ".Lwc_rodata.x15" + 29 + Int64.ofNat 3
+    show lab ".Lwc_rodata.x0" + 32 = lab ".Lwc_rodata.x0" + 29 + Int64.ofNat 3
     rw [Int64.add_assoc]; rfl
   case s2 =>
     refine seg_ndW (by simp [rpB2]) rpB2_ok hF hR hlo hhi (code_field hp hend c4 rfl) hW.s2
@@ -472,7 +473,7 @@ theorem hello_rodata_post_runW {W : Frag isa} {K : State → State → Prop}
     obtain ⟨x, sa, u, v, e, hx, hv, hh, hk⟩ := h3 σ0 c hJ
     refine ⟨hr ▸ hm m hD, x, sa, u, v, e, hx, hr ▸ hv, hh, fun r w' hrd hrep =>
       .inl ⟨PN.s3, ?_, rfl, σ0, ⟨c0', hJp⟩, hr ▸ hk r w' hrd hrep, hfr⟩⟩
-    show lab ".Lwc_rodata.x15" + 40 = lab ".Lwc_rodata.x15" + 36 + Int64.ofNat 4
+    show lab ".Lwc_rodata.x0" + 40 = lab ".Lwc_rodata.x0" + 36 + Int64.ofNat 4
     rw [Int64.add_assoc]; rfl
   case s3 =>
     refine seg_ndW (by simp [rpB3]) rpB3_ok hF hR hlo hhi (code_field hp hend c6 rfl) hW.s3
@@ -494,7 +495,7 @@ theorem hello_rodata_post_runW {W : Frag isa} {K : State → State → Prop}
     obtain ⟨x, sa, u, v, e, tv, wv, wold, hx, hv, hh, hev, hV, hk⟩ := h4 σ0 c hJ
     refine ⟨hr ▸ hm m hD, x, sa, u, v, e, tv, wv, wold, hx, hr ▸ hv, hr ▸ hh, hev,
       by rw [hax]; exact hV, .inr ⟨(), ?_, rfl, σ0, ⟨c0', hJp⟩, hk, hfr⟩⟩
-    show lab ".Lwc_rodata.x15" + 62 = lab ".Lwc_rodata.x15" + 58 + Int64.ofNat 4
+    show lab ".Lwc_rodata.x0" + 62 = lab ".Lwc_rodata.x0" + 58 + Int64.ofNat 4
     rw [Int64.add_assoc]; rfl
   case s4 =>
     exact SegW.empty fun _ _ ⟨_, _, _, _, _, _, _, _, _, h, _⟩ => h

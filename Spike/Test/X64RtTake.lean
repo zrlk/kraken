@@ -18,8 +18,8 @@ open Spike.Lib.X64.Flow.Ret0 (TakeG TakeW StackM stacksA)
 open Spike.Lib.X64.Flow.Ret0.Mem (ret0Exe ret0End ret0F ret0Words_mapped)
 open SccCode (ret0Λ)
 
-/-- `scc_rt_stack_take` returns to `scc_rt_thread_init`'s `.x7`. -/
-abbrev ret0TakeRa : Label → Int64 := fun _ => labT ".Lscc_rt_thread_init.x7"
+/-- `scc_rt_stack_take` returns to `scc_rt_thread_init`'s `.x0`. -/
+abbrev ret0TakeRa : Label → Int64 := fun _ => labT ".Lscc_rt_thread_init.x0"
 
 /-- Every pc of the function before the take. -/
 theorem ret0_takeBT : ∀ p ∈ takePcs labT, bT p.toBitVec.toNat = true := by decide +kernel
@@ -68,7 +68,7 @@ variable {rS : Range} {c0 : Ctl} {F : MachineData → Prop}
 /-- **The hand `takeSiteW` and `takeW` from the generic one.** -/
 example (hC0 : CFacts ret0Λ ret0Λ.static c0) {R : Region} (hR : R.OK) (hlo : R.lo ≤ -200) (hhi : 8 ≤ R.hi)
     (hFr : ∀ m, F m → ret0F m) (q : TakeG) (hq : q.c0 = c0)
-    (hra : q.g.ra = (labT ".Lscc_rt_thread_init.x7").toBitVec)
+    (hra : q.g.ra = (labT ".Lscc_rt_thread_init.x0").toBitVec)
     (hrS : rS = ⟨(stacksA labT + q.k0).toNat, 16384⟩)
     (hsub : rS.Sub ret0Λ.stackPool) (hSM : FStable R (StackM rS)) :
     ∀ i, TakeW (Wr rS) (Kr rS) ret0Exe ret0End R F (StackM rS) q i :=

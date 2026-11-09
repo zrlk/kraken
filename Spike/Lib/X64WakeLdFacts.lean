@@ -1,7 +1,7 @@
 /-
 **The second TCB's loader facts at `ofPlaceWX`** (wake.w, x86-64; twin of
 `Spike/Lib/A64WakeLdFacts.lean`): the second TCB's header `pinA + 96` and
-id word `t2 + 56 = pinA + 160` are words of A13's `spawnWords`
+id word `t2 + 56 = pinA + 192` are words of A13's `spawnWords`
 (`Spawn.X64.a13data`, a check of the concrete layout), so apart from the
 four counters and `scc_rt_nthreads` and mapped; `scc_rt_pinned_next` is
 mapped (A8's `words_mapped`). These are `wc_main`'s second-TCB premises
@@ -60,18 +60,18 @@ theorem spawn_fact (hA13 : Scc.Cert.Spawn.X64.a13data (Ly).Λ o.prog o.secs = tr
   exact ⟨hs _ (Ly).pn_mem, hs _ (Ly).lock_mem, hs _ (Ly).freeN_mem, hs _ (Ly).next_mem, hn⟩
 
 /-- The second TCB's header is a word of `spawnWords`. -/
-theorem hdr_mem : (Ly).pinA + 80#64 + 16#64 ∈ Scc.Cert.Spawn.X64.spawnWords (Ly).pinA :=
+theorem hdr_mem : (Ly).pinA + 112#64 + 16#64 ∈ Scc.Cert.Spawn.X64.spawnWords (Ly).pinA :=
   List.mem_map.2 ⟨2, List.mem_range.2 (by decide), by rw [BitVec.add_assoc]; rfl⟩
 
 /-- The second TCB's id word is a word of `spawnWords`. -/
 theorem tid_mem : t2 (Ly).lab + 56#64 ∈ Scc.Cert.Spawn.X64.spawnWords (Ly).pinA :=
   List.mem_map.2 ⟨10, List.mem_range.2 (by decide), by
-    show _ = Spike.Lib.X64.Flow.Ret0.pinA (Ly).lab + 104#64 + 56#64
+    show _ = Spike.Lib.X64.Flow.Ret0.pinA (Ly).lab + 136#64 + 56#64
     rw [(Ly).lab_pin, BitVec.add_assoc]; rfl⟩
 
 /-- **`hhdr`**: the second TCB's header apart from the counters and `ntA`. -/
 theorem hhdr_W (hA13 : Scc.Cert.Spawn.X64.a13data (Ly).Λ o.prog o.secs = true) :
-    (Ly).pinA + 80#64 + 16#64 ∉ [(Ly).pnA, (Ly).lockA, (Ly).freeNA, (Ly).nextA, ntA (Ly).lab] :=
+    (Ly).pinA + 112#64 + 16#64 ∉ [(Ly).pnA, (Ly).lockA, (Ly).freeNA, (Ly).nextA, ntA (Ly).lab] :=
   (spawn_fact hp i hA13 (hdr_mem hp i) true).1
 
 /-- **`hmP`**: `scc_rt_pinned_next` mapped writable (A8's `words_mapped`). -/
@@ -80,8 +80,8 @@ theorem hmP_W : Scc.Sem.Kernel.mapped (Spike.Lib.X64Consumer.K0 (Ly).Λ) true �
 
 /-- **`hmH`**: the second TCB's header mapped writable. -/
 theorem hmH_W (hA13 : Scc.Cert.Spawn.X64.a13data (Ly).Λ o.prog o.secs = true) :
-    Scc.Sem.Kernel.mapped (Spike.Lib.X64Consumer.K0 (Ly).Λ) true ⟨(Ly).pinA + 96#64, 8⟩ = true :=
-  BitVec.add_assoc (Ly).pinA 80#64 16#64 ▸ (spawn_fact hp i hA13 (hdr_mem hp i) true).2
+    Scc.Sem.Kernel.mapped (Spike.Lib.X64Consumer.K0 (Ly).Λ) true ⟨(Ly).pinA + 128#64, 8⟩ = true :=
+  BitVec.add_assoc (Ly).pinA 112#64 16#64 ▸ (spawn_fact hp i hA13 (hdr_mem hp i) true).2
 
 /-- **`htidW.1`**: the second TCB's id word mapped writable. -/
 theorem htid1_W (hA13 : Scc.Cert.Spawn.X64.a13data (Ly).Λ o.prog o.secs = true) :

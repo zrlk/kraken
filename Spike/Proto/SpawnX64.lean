@@ -571,11 +571,11 @@ example : (spawnGrps.flatMap fun g => g.bs.filter fun (_, b) => !b.all (fun d =>
   decide
 
 /-- **The words the second thread adds**: the thread counter, and the
-second allocation of `scc_rt_alloc_tcb` from `scc_rt_pinned` + 80 (after
-the first TCB's ten words, `Runtime.allocF` at `2307`) up to its header,
-its TCB and `maxSpawnArgs` argument words: sixteen words. -/
+second allocation of `scc_rt_alloc_tcb` from `scc_rt_pinned` + 112 (after
+the first TCB's fourteen words, `Runtime.allocF` at `3331`) up to its header,
+its TCB and `maxSpawnArgs` argument words: twenty words. -/
 def spawnWords (pinA : BitVec 64) : List (BitVec 64) :=
-  (List.range (1 + Scc.IR.Tcb.size / 8 + Scc.IR.maxSpawnArgs)).map fun i => pinA + BitVec.ofNat 64 (80 + 8 * i)
+  (List.range (1 + Scc.IR.Tcb.size / 8 + Scc.IR.maxSpawnArgs)).map fun i => pinA + BitVec.ofNat 64 (112 + 8 * i)
 
 /-- **The words of a `scc_rt_alloc_tcb(h, k)` allocation** (`Runtime.allocF`
 at the TCB layout, as `scc_rt_alloc_tcb`'s code computes them): the header,
@@ -583,7 +583,7 @@ then `k` times the `n` traced and `m` untraced words of `h`. -/
 def tcbWords (h k : Nat) : Nat := k * ((h >>> 8) % 16384 + (h >>> 22) % 16384) + 1
 
 /-- **Every TCB allocation fits `spawnWords`**: each call of
-`scc_rt_alloc_tcb` has immediate arguments and at most sixteen words. -/
+`scc_rt_alloc_tcb` has immediate arguments and at most twenty words. -/
 def allocFit (ir : Scc.IR.Program) : Bool :=
   ir.funcs.all fun f => f.blocks.all fun b => b.insts.all fun
     | .call _ g args => g != "scc_rt_alloc_tcb" || match args with
@@ -591,10 +591,10 @@ def allocFit (ir : Scc.IR.Program) : Bool :=
       | _ => false
     | _ => true
 
-/-- The first TCB (`scc_rt_start`'s, `2307`) is ten words, `wake.w`'s
-spawn twelve, a spawn of `maxSpawnArgs` words (`9 + 6` fields) sixteen. -/
-example : (tcbWords 2307 1, tcbWords 8390915 1, tcbWords (9 * 256 + 6 * 2 ^ 22 + 3) 1,
-    1 + Scc.IR.Tcb.size / 8 + Scc.IR.maxSpawnArgs) = (10, 12, 16, 16) := by decide
+/-- The first TCB (`scc_rt_start`'s, `3331`) is fourteen words, `wake.w`'s
+spawn sixteen, a spawn of `maxSpawnArgs` words (`13 + 6` fields) twenty. -/
+example : (tcbWords 3331 1, tcbWords 8391939 1, tcbWords (13 * 256 + 6 * 2 ^ 22 + 3) 1,
+    1 + Scc.IR.Tcb.size / 8 + Scc.IR.maxSpawnArgs) = (14, 16, 20, 20) := by decide
 
 /-- **A13's data part**: `scc_rt_nthreads` a decided data symbol; its word
 and the second allocation's passing `wordOk`, clear of the runtime's words

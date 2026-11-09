@@ -36,8 +36,9 @@ theorem ret0_fnCodeOk_hello1 : fnCodeOk SccCode.hello1Cells ret0IR = false := by
 /-! The local overflow block (`ovfBlk` at `ovfL`) is checked: a listing
 with a wrong abort code, a wrong callee or without the block's label fails. -/
 
-/-- The index of `main`'s `.Lwc_main.ovf` label in `ret0Cells`. -/
-def ovfIdx : Nat := 1199
+/-- The index of `main`'s `.Lwc_main.ovf` label in `ret0Cells` (found, so
+that it follows the regenerated layout; the guard below pins it). -/
+def ovfIdx : Nat := (SccCode.ret0Cells.findIdx? (·.1 == .label ".Lwc_main.ovf")).getD 0
 
 #guard SccCode.ret0Cells[ovfIdx]? == some (.label ".Lwc_main.ovf", 0)
 #guard (SccCode.ret0Cells.drop (ovfIdx + 1)).take 2 == ovfBlk

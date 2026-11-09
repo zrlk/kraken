@@ -24,7 +24,7 @@ theorem hms_printL {γ : Sort _} {Rg : γ → Region} {Fg : γ → MachineData �
     (hcode : Code exe endPc)
     (hR : ∀ g, (Rg g).OK) (hF : ∀ g, FStable (Rg g) (Fg g))
     (hlo : ∀ g, (Rg g).lo ≤ -120) (hhi : ∀ g, 16 ≤ (Rg g).hi)
-    (hx18 : (_root_.Executable.labels exe).label ".Lwc_printL.x18" =
+    (hx18 : (_root_.Executable.labels exe).label ".Lwc_printL.x3" =
       (_root_.Executable.labels exe).label ".Lwc_printL.stk" + 18)
     (hgrow : ∀ g need, Seg p lbl ms
       (At exe endPc (msR (Rg g) (-56)) (Fms (Fg g) (Rg g) (-56) (rb g) ra)

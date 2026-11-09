@@ -14,8 +14,9 @@ Both emitters write the same data sections (`Scc.Emit.X64.emitData`,
 * `.data`: `.balign 16`, then per initialised datum, `.balign a`, its label,
   its bytes as `.byte` lines of at most 16 (`.zero 1` when it has none);
 * `.rodata` (only with growable stacks): `.balign 8`, `scc_stackmap`, the
-  entry count, per safepoint `.quad label, #stack, #heap, first`, then every
-  map offset as a `.quad`.
+  entry count, per safepoint `.quad label - scc_text_start, #stack, #heap,
+  first` (the return address relative to the text's start), then every
+  map offset as a `.quad`; then the GC tables (`Secs.ofProgram`'s `tbl`).
 
 `Secs.ofProgram` gives the same sections as `Kraken.DataImage.Item` lists,
 one item per directive (a `.quad` with several operands is one item per
@@ -52,17 +53,21 @@ def datumItems (d : IR.Data) : Bool × List Item :=
 `ms` (label, stack offsets, heap offsets), in emission order. -/
 def mapItems (ms : List (String × List Int × List Int)) : List Item :=
   let entries := (ms.foldl (fun (acc, first) (l, st, hp) =>
-      (acc ++ [Item.quadLabel l, .quad st.length, .quad hp.length, .quad first],
+      (acc ++ [Item.quadDiff l (some IR.StackMap.textStartSym), .quad st.length, .quad hp.length, .quad first],
        first + st.length + hp.length)) (([] : List Item), (0 : Nat))).1
   [.align 8, .label IR.StackMap.tableSym, .quad ms.length] ++ entries ++
     ms.flatMap fun (_, st, hp) => (st ++ hp).map .quad
 
 /-- The data sections of a program with data `ds` and, with growable stacks,
-the safepoints `maps` (`.data` and `.bss` each opened with `.balign 16`). -/
-def Secs.ofProgram (ds : List IR.Data) (maps : Option (List (String × List Int × List Int))) : Secs :=
+the safepoints `maps` (`.data` and `.bss` each opened with `.balign 16`),
+then in `.rodata` the GC tables' items `tbl` (the emitter's table stage's
+data, `Scc.Cert.MapsX64.emitTables` / `Scc.Cert.MapsA64.emitTables`: the
+same list it renders). -/
+def Secs.ofProgram (ds : List IR.Data) (maps : Option (List (String × List Int × List Int)))
+    (tbl : List Item := []) : Secs :=
   let its := ds.map datumItems
   { data := .align 16 :: its.flatMap fun (b, is) => if b then [] else is
     bss := .align 16 :: its.flatMap fun (b, is) => if b then is else []
-    rodata := match maps with | some ms => mapItems ms | none => [] }
+    rodata := (match maps with | some ms => mapItems ms | none => []) ++ tbl }
 
 end Scc.Emit.Data

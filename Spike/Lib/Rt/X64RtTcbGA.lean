@@ -61,6 +61,15 @@ local macro "tnodeW " b:ident ok:ident l:term:max k:term:max w:term:max : tactic
       fun σ c hJ => ⟨c, .refl c, ?_⟩)
 
 set_option hygiene false in
+/-- `tnodeW` for a block split by its return label `r` after `n` rows
+(`blockAcrossB`, `Spike.Lib.X64.code_field_blockAcrossB`). -/
+local macro "tnodeWX " b:ident ok:ident l:term:max k:term:max n:term:max r:term:max w:term:max : tactic =>
+  `(tactic| refine seg_ndW (by simp [$b:ident]) $ok hF hR hlo hhi
+    (Spike.Lib.X64.code_field_blockAcrossB hp hend (by simp only [hin']) (l := $l) (m := $r) (off := $k)
+      (List.take_append_drop $n _) (by first | rfl | exact ofNat_zero' _))
+      $w fun σ c hJ => ⟨c, .refl c, ?_⟩)
+
+set_option hygiene false in
 /-- A node at an instruction with undefined flags writing `%rax` inside `W`, at `l + k`
 (`z` bytes), to node `j`, its obligation `w`; the invariant's facts are left. -/
 local macro "fnodeW " fi:term:max l:term:max k:term:max z:term:max j:term:max w:term:max : tactic =>
@@ -271,7 +280,7 @@ theorem allocTcbG_segWA {W : Frag isa} {K : State → State → Prop} {kp : Nat}
     exact ⟨hhdr.rt, hhdr.mp, hhdr.G, hhdr.unmapped m (hFF m hD), q.c0,
       .refl q.c0, .inl ⟨TN.ret, ofNat_add' _ 140 3, rfl, rfl, hJ⟩⟩
   case ret =>
-    tnodeW AllocTcb.atRet AllocTcb.atRet_ok AllocTcb.okL 143 (hW TN.ret)
+    tnodeWX AllocTcb.atRet AllocTcb.atRet_ok AllocTcb.okL 143 11 AllocTcb.retL (hW TN.ret)
     dsimp only [tcbNG, tcbXG] at hJ ⊢
     obtain ⟨rfl, hJ⟩ := hJ
     obtain ⟨h1, h2, h3⟩ := AllocTcb.atRet_walkG (_root_.Executable.labels exe).label _ hJ

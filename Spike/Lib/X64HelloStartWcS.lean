@@ -2,8 +2,8 @@
 **hello.w on x86-64: the start's level with frames, `wc_rodata`'s allocation landing and the setup's call of
 `rodata`** (the twin of `Spike/Lib/A64HelloStartWcS.lean`'s live part).
 
-- `WSg`: the start's level with frames at an own map `own`; `WS`: it at `ownGH`, `HelloWf.WSHF` as a level with
-  frames (`WS … s c fs = WSHF … fs s c` by `rfl`).
+- `WSg`: the start's level with frames at an own map `own`, `HelloWf.WSHFg own` as a level with frames
+  (`WSg own … s c fs = WSHFg own … fs s c` by `rfl`; the root takes `ownGHXW`).
 - `xa_post`: the allocator's fresh-label landing `Ea` in its region is at `wc_rodata`'s `.x15` (`HelloRd.pN .s0`)
   under `scc_rt_main`'s frame, at any entry invariant `J0` of `wc_rodata` (`Hello1.hello1_main_xa_post` at hello's
   labels).
@@ -28,7 +28,7 @@ open CoreLang CoreTerm
 open Kraken Kraken.Promising Kraken.Promising.X64
 open Spike.Lib.X64.Rt (RuntimeLayout)
 open Spike.Lib.X64Consumer (Lbl Lsize)
-open Spike.Lib.X64.HelloWf (WSHF)
+open Spike.Lib.X64.HelloWf (WSHFg)
 open Spike.Lib.X64 (At enter leave CKept Abs)
 open Spike.Lib.X64.Flow.Hello1 (AG mR mF mNC aR)
 open Spike.Lib.X64.Flow.HelloRd (rN pN)
@@ -38,22 +38,17 @@ open Spike.Lib (Arena FragS FrameRun)
 local notation "FAS" => Spike.Lib.X64.AS
 
 /-- **The start's level with frames at an own map `own`**: `W0` at `own`, `PhRec.μ L`, the write abort phase and
-hello's threads abort phase `AcH … pfxM`. `WS` is it at `ownGH L a`. -/
+hello's threads abort phase `AcH … pfxM`. The root takes it at `ownGHXW`. -/
 abbrev WSg (own : State → List (Loc × Val)) (L : RuntimeLayout) (ar : Arena) (p : Prog) (Dt Cl : State → Prop)
     (Ctx : FragS isa) (lbl : Lbl) (lsize : Lsize) (frM : TermRun.Frame) (X0 : State → Prop) : FragS isa :=
   fun s c fs => Spike.Lib.X64.WakeWf.W0 L.Λ (Spike.Lib.X64.PhRec.μ L) own ar p Dt (Spike.Lib.X64.WriteAb.Ab L.lab)
     Cl (Spike.Lib.X64.Hello.ThreadsAb.AcH L.lab Spike.Lib.X64.HelloPh.StartWf.pfxM) Ctx lbl lsize frM X0 s c fs
 
-/-- **The start's level as a level with frames**: `WSHF … fs` at the frames `fs` (`WSg` at `ownGH L a`). -/
-abbrev WS (L : RuntimeLayout) (a : BitVec 64) (ar : Arena) (p : Prog) (Dt Cl : State → Prop)
-    (Ctx : FragS isa) (lbl : Lbl) (lsize : Lsize) (frM : TermRun.Frame) (X0 : State → Prop) : FragS isa :=
-  WSg (Spike.Lib.X64.HelloPh.ownGH L a) L ar p Dt Cl Ctx lbl lsize frM X0
-
-/-- `WS` is `WSHF` at the frames, by definition. -/
-example (L : RuntimeLayout) (a : BitVec 64) (ar : Arena) (p : Prog) (Dt Cl : State → Prop) (Ctx : FragS isa)
-    (lbl : Lbl) (lsize : Lsize) (frM : TermRun.Frame) (X0 : State → Prop) (s : State) (c : Spike.Lib.Ctl)
-    (fs : List TermRun.Frame) :
-    WS L a ar p Dt Cl Ctx lbl lsize frM X0 s c fs ↔ WSHF L a ar p Dt Cl Ctx lbl lsize frM X0 fs s c :=
+/-- `WSg own` is `WSHFg own` at the frames, by definition. -/
+example (own : Spike.Lib.X64Consumer.Own) (L : RuntimeLayout) (ar : Arena) (p : Prog) (Dt Cl : State → Prop)
+    (Ctx : FragS isa) (lbl : Lbl) (lsize : Lsize) (frM : TermRun.Frame) (X0 : State → Prop) (s : State)
+    (c : Spike.Lib.Ctl) (fs : List TermRun.Frame) :
+    WSg own L ar p Dt Cl Ctx lbl lsize frM X0 s c fs ↔ WSHFg own L ar p Dt Cl Ctx lbl lsize frM X0 fs s c :=
   Iff.rfl
 
 /-! ## The allocator's fresh-label landing at any `wc_rodata` entry invariant -/
@@ -91,10 +86,10 @@ theorem xa_post {J0 J1 : FAS → FAS → Ctl → Prop} {Jp Jp' J1' J2 J2' J3 J4 
       exact ⟨hFF m hm, mC, σ, _, hK, hA, c0, h1, h2⟩) h
   obtain ⟨he, hn, hdc, hpc, σ, hA, hD, σx, σ', hJx, ⟨c0, h1, h2⟩, rfl⟩ := h'
   have h40 : At exe endPc (mR R) (mF R F m0 σC)
-      ⟨(_root_.Executable.labels exe).label ".Lwc_rodata.x15", ⟨-40, []⟩, Jp⟩ s c := by
+      ⟨(_root_.Executable.labels exe).label ".Lwc_rodata.x0", ⟨-40, []⟩, Jp⟩ s c := by
     refine ⟨he, hn, hdc, ?_, _, hA, hD, hJp σx σ' c0 c hJx h1 h2⟩
     rw [hpc]
-    show Int64.ofBitVec q.1.ra = (_root_.Executable.labels exe).label ".Lwc_rodata.x15"
+    show Int64.ofBitVec q.1.ra = (_root_.Executable.labels exe).label ".Lwc_rodata.x0"
     rw [← h2.2.2.1]
     show Int64.ofBitVec (σ'.slot (-48 + 0)) = _
     rw [show (-48 : Int) + 0 = -48 by decide, h1.2.2.2.2.2, Spike.Lib.int64_ofBitVec_toBitVec]

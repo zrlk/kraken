@@ -97,7 +97,7 @@ theorem toNat_labH {l : Label} {x : Nat} (h : codeOf lo SccCode.helloProg l = so
 
 /-- **`scc_rt_alloc_tcb`'s abort return address is not the refusal's.** -/
 theorem sp13_ne_sp15 : (lab ".L3_scc_rt_alloc_tcb.sp13").toBitVec ≠ (lab ".L22_wc_main.sp15").toBitVec := by
-  rw [hlab _ 2164992 (by rw [← codeT_eq]; decide +kernel), hlab _ 2169880 (by rw [← codeT_eq]; decide +kernel)]
+  rw [hlab _ 2164996 (by rw [← codeT_eq]; decide +kernel), hlab _ 2169912 (by rw [← codeT_eq]; decide +kernel)]
   decide
 
 end Lab

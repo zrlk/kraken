@@ -189,7 +189,7 @@ theorem tiW_gen {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe] {e
   case st5 => tst bS5 5
   case ret =>
     dsimp only [TiW]; rw [hI.labOk]
-    exact blkW_post hI bRet rfl tiRet_ok hR hal (by omega) (by omega) (hC _ fun _ _ hJ => hJ.1) hph.ret
+    exact blkW_postA hI bRet rfl tiRet_ok hR hal (by omega) (by omega) (hC _ fun _ _ hJ => hJ.1) hph.ret
       (hret_of_run tiRet_ok fun _ _ hJ => by
         dsimp only [tiN] at hJ ⊢
         rw [(tiRet_walk lab _ hJ.2).1, hra]; exact Int64.ofBitVec_toBitVec _)

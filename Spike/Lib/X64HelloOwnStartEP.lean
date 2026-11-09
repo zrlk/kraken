@@ -9,7 +9,7 @@
 
 AArch64 has no counterpart: main owns no TCB word there (its thread pointer is a register). Against x86-64 wake's
 `OwnSt.startEXP`: the level is hello's (`WSH`/`WSHX`, `startLH`), `scc_rt_thread_init` returns to `.x8`
-(`Rt.x8L`; wake's `.x7`), the code is helloCells and `hW` is about the worker's word `tcbWH L` (`pinA + 112`).
+(`Rt.x8L`; wake's `.x7`), the code is helloCells and `hW` is about the worker's word `tcbWH L` (`pinA + 144`).
 -/
 import Spike.Lib.X64HelloOwnStartE
 import Spike.Lib.X64WakeOwnStartEP

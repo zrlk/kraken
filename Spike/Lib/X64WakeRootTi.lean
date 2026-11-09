@@ -58,11 +58,11 @@ open Spike.Lib (Arena FragS Region)
 
 variable {L : RuntimeLayout}
 
-/-- **The clone's pc** at the canonical base (`.Lwc_main.x21 + 46`). -/
+/-- **The clone's pc** at the canonical base (`.Lwc_main.x3 + 46`). -/
 theorem clonePc_eq (hlab : ∀ l x, codeLabel lo wakeCells l = some x → L.lab l = Int64.ofNat x) :
-    Spike.Lib.X64.Flow.WakeWc.clonePc L = 4203443 := by
-  show (L.lab ".Lwc_main.x21" + 46).toBitVec.toNat = _
-  rw [hlab ".Lwc_main.x21" 4203397 (by rw [← codeT_eq]; decide +kernel)]
+    Spike.Lib.X64.Flow.WakeWc.clonePc L = 4203481 := by
+  show (L.lab ".Lwc_main.x3" + 46).toBitVec.toNat = _
+  rw [hlab ".Lwc_main.x3" 4203435 (by rw [← codeT_eq]; decide +kernel)]
   decide
 
 /-- **The take site's pc** at the canonical base (`Tcb2W.tcb_labs`). -/

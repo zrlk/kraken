@@ -123,13 +123,13 @@ abbrev sJ0 : AS → Ctl → Prop := (Spike.Lib.X64.Rt.uN0 lab ms F0 "wc_rodata" 
 /-- At the allocation: an entry state, the source at `rdCN`. -/
 def sJ1 (J0 : AS → Ctl → Prop) (σ : AS) (c : Ctl) : Prop := (∃ c0, J0 σ c0) ∧ c = rdCN
 
-/-- **`.x13`'s facts** for label `l`: `%rax` its base `A`, in the arena's
+/-- **`.x0`'s facts** for label `l`: `%rax` its base `A`, in the arena's
 cells, the frame record the caller's and `%rbp` at the saved `%rbp`. -/
 def RdF (σ0 : AS) (l : WeakMem.AllocLabel) : Prop :=
   ∃ A old : Nat, lbl l = some A ∧ σ0.regs.rax.toNat = A ∧ A = ms.heap + 16 * old + ms.off 2 τ8 ∧
     old + ms.units 2 τ8 ≤ ms.cells ∧ σ0.slot (-8) = g.fp ∧ σ0.slot 0 = g.ra ∧ σ0.regs.get64 .rbp = R.addr (-8)
 
-/-- At `.x13`: the source past the allocation. -/
+/-- At `.x0`: the source past the allocation. -/
 def sJp (σ0 : AS) (c : Ctl) : Prop := ∃ l ini, RdF lbl ms g R σ0 l ∧ c = rdCA l ini
 
 /-- Before the first exchange's load. -/
@@ -181,7 +181,7 @@ variable {p : Prog} {lbl : WeakMem.AllocLabel → Option Nat} {ms : MemSide isa}
   {exe : _root_.Executable} [Executable.ValidLayout exe] {endPc : Int64}
   {R : Region} {F : MachineData → Prop}
 
-/-- **The allocator's return at `.x13` is `sJp`'s**: the label already
+/-- **The allocator's return at `.x0` is `sJp`'s**: the label already
 placed, its base in `%rax`, the source past the allocation. -/
 theorem x13_sJp {lab : Label → Int64} {F0 : MachineData → Prop} {g : WcG} {t : UInt64} {σ : AS} {c : Ctl}
     (h : (rX (tpXa ms t) lab lbl R (sJ1 (sJ0 lab ms F0 g)) .x13).J σ c) :
@@ -273,9 +273,9 @@ theorem hello1_rodata_setupW {W : Frag isa} {K : State → State → Prop}
         rw [hu])
       (fun q hq a ha m hm => hmem q (callOK_untp hq) a ha m hm)
       (fun q F' h1 h2 l b w s c hl hAt htp => hxa ⟨q.1, callOK_untp q.2⟩ F' h1 h2 l b w s c hl hAt htp)
-  -- the second segment: from `.x13` to the return
+  -- the second segment: from `.x0` to the return
   have hpost : SegW (NoSetFsW W K) K p lbl ms'
-      (At exe endPc R F ⟨lab ".Lwc_rodata.x13", ⟨-40, []⟩, sJp lbl ms g R⟩)
+      (At exe endPc R F ⟨lab ".Lwc_rodata.x0", ⟨-40, []⟩, sJp lbl ms g R⟩)
       (At exe endPc R F (sX lbl ms g)) := by
     refine hello1_rodata_post_runW hp hend hF hR (by omega) hhi (show SO.le ⟨8, []⟩ ⟨8, []⟩ = true by decide)
       (RdPostLW.noSetFs hp hend hWpost)

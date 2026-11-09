@@ -364,13 +364,13 @@ theorem tcbW_rtX (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp)
       simp [Spike.Lib.X64.bAddr, Reg64s.get64, he]
     refine nodeW_rtX_st (p := lab okL + Int64.ofNat 140) hI bHdr rfl rfl
       (hstep (lab okL + Int64.ofNat 140, 3) (by simp [stepPcs])).1
-      (by rw [← ofNat_add']; exact hnx bRet (by decide) (by decide))
+      (by rw [← ofNat_add']; exact hnx (blockAtB_of_blockAcrossB bRet) (by decide) (by decide))
       (fun σ c m hJ hF => ?_) (fun σ c hJ => ?_) (hc0 .hdr) hpl0
     · rw [hA σ c hJ]; exact hunH m hF
     · rw [hA σ c hJ]; exact hoffH
   case ret =>
     dsimp only [TcbW]; rw [hI.labOk]
-    exact blkW_rtXG hI hpr hab bRet rfl atRet_ok hR (by omega) (by omega) hph.ret (by decide)
+    exact blkW_rtXGA hI hpr hab bRet rfl atRet_ok hR (by omega) (by omega) hph.ret (by decide) (by decide)
       (hret_of_run atRet_ok fun _ _ hJ => by
         dsimp only [tcbN] at hJ ⊢
         rw [(atRet_walk lab _ hJ.2).1, hra]; exact Int64.ofBitVec_toBitVec _)
@@ -593,10 +593,11 @@ theorem takeW_rtX (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp)
     rwa [hg] at this
   case site =>
     dsimp only [TakeW]; rw [hI.labOk]
-    exact site_rtX hI bSite (ofNat_zero' _) rfl (hnx bRet (by decide) (by decide)) (hc0 .site) hpl0
+    exact site_rtX hI bSite (ofNat_zero' _) rfl 
+      (hnx (blockAtB_of_blockAcrossB bRet) (by decide) (by decide)) (hc0 .site) hpl0
   case ret =>
     dsimp only [TakeW]; rw [hI.labOk]
-    exact blkW_rtXG hI hpr hab bRet rfl stRet_ok hR (by omega) (by omega) hph.ret (by decide)
+    exact blkW_rtXGA hI hpr hab bRet rfl stRet_ok hR (by omega) (by omega) hph.ret (by decide) (by decide)
       (hret_of_run stRet_ok fun _ _ hJ => by
         dsimp only [takeNG] at hJ ⊢
         rw [(stRet_walk lab _ hJ.2.2).1, hra]; exact Int64.ofBitVec_toBitVec _)
@@ -743,10 +744,10 @@ theorem tiWAt_rtX {x : Label} (hI : InstOk exe endPc cells lab μ own Tk K okPc 
   case f4 => iblk bF4 tiF4_ok hph.f4 tiF4_noRet s4
   case st4 => ist s4 4 101 4 bF5
   case f5 => iblk bF5 tiF5_ok hph.f5 tiF5_noRet s5
-  case st5 => ist s5 5 113 4 bRet
+  case st5 => ist s5 5 113 4 (blockAtB_of_blockAcrossB bRet)
   case ret =>
     dsimp only [TiWAt]; rw [hI.labOk]
-    exact blkW_rtXG hI hpr hab bRet rfl tiRet_ok hR (by omega) (by omega) hph.ret hx
+    exact blkW_rtXGA hI hpr hab bRet rfl tiRet_ok hR (by omega) (by omega) hph.ret hx (by decide)
       (hret_of_run tiRet_ok fun _ _ hJ => by
         dsimp only [tiNAt] at hJ ⊢
         rw [(tiRet_walk lab _ hJ.2).1, hra]; exact Int64.ofBitVec_toBitVec _)

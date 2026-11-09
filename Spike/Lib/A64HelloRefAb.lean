@@ -55,7 +55,7 @@ theorem site_outH : ∀ a, (Spike.Lib.A64.PhRec.μ L).site .take = some a →
   rw [siteH hp hlo hlab]
   rintro a ⟨⟩
   obtain ⟨e1, -⟩ := ab_labsH hlab
-  rw [e1, hlab _ 2165976 (by rw [← codeT_eq]; decide +kernel)]
+  rw [e1, hlab _ 2165980 (by rw [← codeT_eq]; decide +kernel)]
   left; decide
 
 include hp hlo hlab in
@@ -66,7 +66,7 @@ theorem exit_offH : ∀ a, (Spike.Lib.A64.PhRec.μ L).site .take = some a →
   rintro a ⟨⟩
   obtain ⟨-, -, -, -, -, -, -, -, -, -, -, -, -, -, -, e16⟩ := ab_labsH hlab
   show (L.lab "scc_rt_abort_threads_exit").toBitVec.toNat ≠ _
-  rw [e16, hlab _ 2165976 (by rw [← codeT_eq]; decide +kernel)]
+  rw [e16, hlab _ 2165980 (by rw [← codeT_eq]; decide +kernel)]
   decide
 
 omit hp hlo hlab in

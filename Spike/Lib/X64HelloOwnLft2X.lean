@@ -19,7 +19,7 @@ The write conditions of a flag-only instruction, a `leaq` and a `lock xaddq` off
 AArch64 has no counterpart: main owns no TCB word there. Against x86-64 wake's `Lft2`/`QP`/`PP`/`blkL2`/`nodeL2`:
 the code is helloCells, the classes are `CstH` with hello's ranges (`InTH`, `InCH`, `InAbH`,
 `Spike/Lib/X64HelloOwnCstX.lean`), the take site is at `4200314` (wake `4200277`) and `hW` is about the worker's
-word `tcbWH L` (`pinA + 112`; wake's `tcb2 L`).
+word `tcbWH L` (`pinA + 144`; wake's `tcb2 L`).
 -/
 import Spike.Lib.X64HelloOwnLftCX
 import Spike.Lib.X64SFactsACH
@@ -111,6 +111,32 @@ theorem blkL2H {n : ND} {blk : List (Directive × Nat)} {l : Label} {k : Nat} {b
     refine hclsQ s (by unfold pcOf; rw [hs']; exact hfin σ c hJ) ⟨_, ho.1, ho.2, ?_⟩
     rw [hs']; exact rsp_of_abs hA
 
+/-- **`Lft2` along a covered block split by a return label** (`m`, after its
+first `jA` rows; `blockAcrossB`): as `blkL2H`. -/
+theorem blkL2HA {n : ND} {blk : List (Directive × Nat)} {l m : Label} {k jA : Nat} {blo bhi slo shi : Int}
+    {c1 c2 : List (Loc × Val)} {P Q : Nat → Prop}
+    (hb : Scc.Cert.Rt.X64.blockAcrossB helloCells l k (blk.take jA) m (blk.drop jA) = true)
+    (he : L.lab l + Int64.ofNat k = n.pc)
+    (hok : okBlk blo bhi n.o blk = true) (hR : R.OK) (hlo : R.lo ≤ blo) (hhi : bhi ≤ R.hi)
+    (hP : ∀ q, P q → q ≠ 4200314)
+    (hcls : ∀ s : State, P (pcOf s) → SpAt R slo shi s → CstH L c1 c2 s)
+    (hclsQ : ∀ s : State, Q (pcOf s) → SpAt R slo shi s → CstH L c1 c2 s)
+    (h1 : ∀ j < blk.length, P (n.pc + Int64.ofNat (cellOff blk j)).toBitVec.toNat)
+    (hso : ∀ j ≤ blk.length, slo ≤ (soRun (blk.take j) n.o).sp ∧ (soRun (blk.take j) n.o).sp ≤ shi)
+    (hfin : ∀ σ c, n.J σ c → Q (arun (_root_.Executable.labels L.exe).label blk ⟨n.pc, n.o, σ⟩).pc.toBitVec.toNat) :
+    BlkW (Lft2H Λ L a Dt) (fun _ _ => False) L.exe L.endPc R F n blk := by
+  refine BlkW.lft2H (blkW_cstOkHB hs ha hW
+    (Spike.Lib.X64.code_field_blockAcrossB L.lays rfl (hp ▸ hb) (List.take_append_drop jA blk) he) hok hR hlo
+    hhi ?_ hcls h1 hso ?_)
+  · intro a' ha' j hj
+    rw [hsite] at ha'; cases ha'
+    rw [siteVH hlab]; exact hP _ (h1 j hj)
+  · intro σ c hJ s m hA _ _ hs'
+    have ho := hso blk.length (Nat.le_refl _)
+    rw [List.take_length, ← arun_so (_root_.Executable.labels L.exe).label _ ⟨n.pc, n.o, σ⟩] at ho
+    refine hclsQ s (by unfold pcOf; rw [hs']; exact hfin σ c hJ) ⟨_, ho.1, ho.2, ?_⟩
+    rw [hs']; exact rsp_of_abs hA
+
 omit hp hlab hsite in
 /-- **`Lft2H` at a node** whose successors keep `%rsp` and `%rbp` `sz` bytes on (`nodeLH` at `Lft2H`). -/
 theorem nodeL2H {n : ND} {sz : Nat} {slo shi : Int} {c1 c2 : List (Loc × Val)} {P : Nat → Prop}
@@ -133,10 +159,13 @@ end Spike.Lib.X64.HelloPh
 /-- info: 'Spike.Lib.X64.HelloPh.blkL2H' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms Spike.Lib.X64.HelloPh.blkL2H
 
+/-- info: 'Spike.Lib.X64.HelloPh.blkL2HA' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in #print axioms Spike.Lib.X64.HelloPh.blkL2HA
+
 /-- info: 'Spike.Lib.X64.HelloPh.nodeL2H' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms Spike.Lib.X64.HelloPh.nodeL2H
 
-/-- `QPH` and `PPH` are not vacuous: `wc_main`'s entry (`4203623`) is in both, the take site in `QPH` only. -/
-example : Spike.Lib.X64.HelloPh.PPH 4203623 ∧ Spike.Lib.X64.HelloPh.QPH 4200314 ∧
+/-- `QPH` and `PPH` are not vacuous: `wc_main`'s entry (`4203661`) is in both, the take site in `QPH` only. -/
+example : Spike.Lib.X64.HelloPh.PPH 4203661 ∧ Spike.Lib.X64.HelloPh.QPH 4200314 ∧
     ¬ Spike.Lib.X64.HelloPh.PPH 4200314 := by
   decide

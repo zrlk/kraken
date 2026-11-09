@@ -1,6 +1,6 @@
 /-
 **hello.w's level-1 context** (x86-64; the twin of `Spike/Lib/A64HelloLand1.lean`'s live part): the context
-`Ctx1 l b n` that `HelloWf.W1H` asks at every write of the counter word at level 1, after rodata's allocation of
+`Ctx1 l b n` that `HelloWf.W1Hg` asks at every write of the counter word at level 1, after rodata's allocation of
 `l` at `b` with `n` cells, and the level's obligations into it.
 
 Level 0 ends at rodata's landing, and `wc_main`'s box allocation is inside level 1: its counter add (at no frames,
@@ -15,7 +15,7 @@ and cannot be reused. Rodata's counter add is level 0's, so it is not here.
   at `ref1H … []` (`wc_main`'s entry pinned: `Jr1LH` and the TCB at the caller's slot `-16`); the context:
   `wc_main`'s counter add under main's thread pointer, or the box's store.
 - `jr1LH_rbp`, `jr1LH_loc`: `Jr1LH`'s `%rbp`; `MainWcPS.hloc` at `Jr1LH` (from `JrT (JrRL …)` at `RM`).
-- `hctx_main1H`: `WcWfR.wcPreW_WSgH`'s `hctx` at `CtxR1H` (at `ref1H`), at the pinned call.
+- `hctx_main1H`: `WcWfRX.wcPreW_WSgHX`'s `hctx` at `CtxR1H` (at `ref1H`), at the pinned call.
 - `hctx_st1H`: `Land3.hwr_stH`'s `hCtx` at `CtxR1H`.
 
 ## Differences from the AArch64 version
@@ -29,7 +29,7 @@ and cannot be reused. Rodata's counter add is level 0's, so it is not here.
 - `Jr1LH l b` is `HelloJr1.Jr1L (upd LB l b) mwH l` (AArch64 spells it out) with `%rbp` at `RM.addr (-8)`
   (`HelloM.JrT`'s, kept by the local run to the box's `new`): `RootHP.GJ1RH` pins `%rbp` at the box's landing
   (AArch64's ghost has no such pin), so `jr1LH_rbp` and `jr1LH_loc` are stated here.
-- The box call returns to `.Lwc_main.x22` (`HelloWc`'s box call's `ra`; AArch64 `.L22_wc_main.sp0`).
+- The box call returns to `.Lwc_main.x0` (`HelloWc`'s box call's `ra`; AArch64 `.L22_wc_main.sp0`).
 - Not twinned (unreachable from the AArch64 root, so twins only live constants): `GcM1H.gcMH`, `jr1LH_jr1H`,
   `hctx_main1U`.
 -/
@@ -136,7 +136,7 @@ theorem jr1LH_loc {env : TermRun.Env} {tm : Ty} {l : WeakMem.AllocLabel} {b : Na
   exact ⟨c', hr, hj, h.2.2.2⟩
 
 /-- **`wc_main`'s box call at level 1**: at no frames, a box allocation (`Call.OKB`) returning to
-`.Lwc_main.x22`, at the first stack's top, the caller's slot `-16` holding main's TCB `pinA + 8`, in the region
+`.Lwc_main.x0`, at the first stack's top, the caller's slot `-16` holding main's TCB `pinA + 8`, in the region
 `wARH (wcR RM helloD)` with `wc_main`'s frame condition at the start's `FS`, `wc_main`'s entry invariant at
 `JrT (JrRL (upd LB l b) c0S.env l)` (`wc_rodata`'s return on the slice at `l`) and its caller's at `Jr1LH l b`.
 These are the values its only producer supplies (through `hctx_main1H`). -/
@@ -150,7 +150,7 @@ def GcM1H (l : WeakMem.AllocLabel) (b : Nat) (fs : List TermRun.Frame) (ms0 : Me
         (wcJ0 (mWC (Ly).lab σC (JrT (JrRL (Spike.Lib.X64ConsumerA.upd (LB) l b)
           Spike.Lib.X64.HelloPh.C0S.c0S.env l) (TV) (RM))).J σ1)
         (wcJ0 (mWC (Ly).lab σC (Jr1LH hpw i0 l b)).J σ1) q m) ∧
-    q.ra = ((Ly).lab ".Lwc_main.x22").toBitVec
+    q.ra = ((Ly).lab ".Lwc_main.x0").toBitVec
 
 /-- **The box store's landings at level 1** (at `ref1H`): `bXH` at `ref1H l b n []` on `wc_main`'s frame at the
 saved `%rbp` and its frame condition at the start's `FS`, under main's thread pointer, for one cell. `wc_main`'s
@@ -165,7 +165,7 @@ def GsH1 (l : WeakMem.AllocLabel) (b n : Nat) (Lnd : WeakMem.AllocLabel → Nat 
         (bXH (ref1H (asm := asm) hpw i0 E rd ls l b n []) (Ly).lab
           (wcJ0 (mWC (Ly).lab σC (Jr1LH hpw i0 l b)).J σ1) l' A) s c ∧ TP (TV) s
 
-/-- **The level-1 context** (`HelloWf.W1H`'s `Ctx1`): `wc_main`'s counter add (`GcM1H`, at no frames) under main's
+/-- **The level-1 context** (`HelloWf.W1Hg`'s `Ctx1`): `wc_main`'s counter add (`GcM1H`, at no frames) under main's
 thread pointer, or the box's store at `GsH1`, both at `ref1H l b n`. -/
 def CtxR1H (l : WeakMem.AllocLabel) (b n : Nat) : FragS isa := fun s c fs =>
   (CtrAtF (ref1H (asm := asm) hpw i0 E rd ls l b n) (Ly).exe (Ly).endPc (GcM1H hpw i0 l b) s c fs ∧ TP (TV) s) ∨
@@ -174,15 +174,15 @@ def CtxR1H (l : WeakMem.AllocLabel) (b n : Nat) : FragS isa := fun s c fs =>
 
 /-! ## The level's obligations into the context -/
 
-/-- **`WcWfR.wcPreW_WSgH`'s `hctx` at `CtxR1H`**: a counter add of a box call from `wc_main` returning to
-`.Lwc_main.x22`, at no frames, under main's thread pointer, at the first stack's top, the caller's slot `-16`
+/-- **`WcWfRX.wcPreW_WSgHX`'s `hctx` at `CtxR1H`**: a counter add of a box call from `wc_main` returning to
+`.Lwc_main.x0`, at no frames, under main's thread pointer, at the first stack's top, the caller's slot `-16`
 main's TCB (`hslot`), `wc_main`'s entry at `JrT (JrRL (upd LB l b) c0S.env l)` and its caller's at `Jr1LH l b`,
 is `CtxR1H`'s counter disjunct (`GcM1H` by construction; `CtrOkS` by `fstable_wARH` at the first stack's top and
 `WordsNoneP` at the counter, `ctr_none_FS`). -/
 theorem hctx_main1H (hc : Spike.Lib.X64.Rt.CtrZ o) (l : WeakMem.AllocLabel) (b n : Nat) {ms : MemSide isa}
     (hms : ms = { ref1H (asm := asm) hpw i0 E rd ls l b n [] with xa := ms.xa }) (σC : FAS)
     (hslot : σC.slot (-16) = pinA (Ly).lab + 0#64 + 8#64) (m1 : MachineData) (σ1 : FAS) :
-    ∀ q : Call, q.OKB ms (Ly).lab → q.ra = ((Ly).lab ".Lwc_main.x22").toBitVec →
+    ∀ q : Call, q.OKB ms (Ly).lab → q.ra = ((Ly).lab ".Lwc_main.x0").toBitVec →
       ∀ s c, At (Ly).exe (Ly).endPc (wARH (wcR (RM) helloD))
         (fun m => wcF (RM) helloD (FS (Ly) (RS0) helloLsw 0#64 (TOP)) m1 σ1 m ∧
           CallerCells (wcR (RM) helloD) (-144) (-160) 8 m ∧
@@ -203,12 +203,12 @@ theorem hctx_main1H (hc : Spike.Lib.X64.Rt.CtrZ o) (l : WeakMem.AllocLabel) (b n
     exact ctr_none_FS (asm := asm) hpw i0 E rd ls hc (fs := []) (X := X) m hm.1.1
 
 /-- **`GcM1H` is inhabited at the level's call** (the producer's values, `hctx_main1H`'s): at the level's memory
-side, a box call returning to `.Lwc_main.x22` from the caller `σC` whose slot `-16` holds main's TCB (`hslot`),
+side, a box call returning to `.Lwc_main.x0` from the caller `σC` whose slot `-16` holds main's TCB (`hslot`),
 any `m1`, `σ1`. -/
 example (I : Spike.Lib.X64ConsumerS.InvS) (l : WeakMem.AllocLabel) (b n : Nat) (t : UInt64) (σC : FAS)
     (hslot : σC.slot (-16) = pinA (Ly).lab + 0#64 + 8#64) (m1 : MachineData) (σ1 : FAS) (q : Call)
     (hq : q.OKB (Spike.Lib.X64.KeepTP.tpXa ((MS1) I l b n []) t) (Ly).lab)
-    (hra : q.ra = ((Ly).lab ".Lwc_main.x22").toBitVec) :
+    (hra : q.ra = ((Ly).lab ".Lwc_main.x0").toBitVec) :
     GcM1H hpw i0 l b [] (Spike.Lib.X64.KeepTP.tpXa ((MS1) I l b n []) t) (wARH (wcR (RM) helloD))
       (fun m => wcF (RM) helloD (FS (Ly) (RS0) helloLsw 0#64 (TOP)) m1 σ1 m ∧
         CallerCells (wcR (RM) helloD) (-144) (-160) 8 m ∧

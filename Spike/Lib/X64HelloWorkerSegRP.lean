@@ -85,7 +85,7 @@ structure WcObl (X : FragS isa) (exe : _root_.Executable) (endPc : Int64)
   hZU : ∀ (R'' : Region) (F'' : MachineData → Prop),
       CallerF R' F' (HelloTail.N (_root_.Executable.labels exe).label (wcR w0 w1 w2 w3 w4) (cS1 w0 w1 w2 w3 w4)
         (cS2 w0 w1 w2 w3 w4) w.w4 w.w5 rbp ra tp (R'.addr 0) .unpk) 0 (-40) 8 R'' F'' →
-      ∀ rbp1 ra1, Int64.ofBitVec ra1 = (_root_.Executable.labels exe).label ".Lwc_worker.x18" → ∀ i,
+      ∀ rbp1 ra1, Int64.ofBitVec ra1 = (_root_.Executable.labels exe).label ".Lwc_worker.x1" → ∀ i,
       NodeZA (fun s c => X s c []) exe endPc R'' F''
         (Unpark.N (_root_.Executable.labels exe).label (cS1 w0 w1 w2 w3 w4) (cS2 w0 w1 w2 w3 w4) w.w5 rbp1 ra1 tp i)
         (Unpark.blkN i)
@@ -108,7 +108,7 @@ structure ZObl (X : FragS isa) (exe : _root_.Executable) (endPc : Int64)
       (HThrTail.NA (_root_.Executable.labels exe).label (cS2 w0 w1 w2 w3 w4) tp (sp0 - 8#64) i) (HThrTail.blkN i)
   hwc : ∀ (R' : Region) (F' : MachineData → Prop), R'.OK → R'.lo ≤ -176 → 8 ≤ R'.hi →
       FStable R' F' → (∀ m, F' m → F m) → ∀ rbp ra : BitVec 64,
-      Int64.ofBitVec ra = (_root_.Executable.labels exe).label ".Lscc_rt_thr_worker.x13" →
+      Int64.ofBitVec ra = (_root_.Executable.labels exe).label ".Lscc_rt_thr_worker.x0" →
       WcObl X exe endPc ms R' F' rbp ra w tp (sp0 - 8#64) w0 w1 w2 w3 w4 n m
 
 /-- **Two `WcObl`s combine** (`X₁ ∧ X₂`). -/

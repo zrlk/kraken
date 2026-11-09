@@ -3,6 +3,7 @@
 	.text
 	.globl _start
 	.p2align 4
+scc_text_start:
 _start:
 	b scc_rt_start
 	.p2align 2
@@ -23,7 +24,7 @@ scc_rt_start:
 	movz x8, #134
 	svc #0
 	str x0, [sp, #8]
-	movz x0, #2307
+	movz x0, #3331
 	movz x1, #1
 	bl scc_rt_alloc_tcb
 .L0_scc_rt_start.sp2:
@@ -206,6 +207,7 @@ scc_rt_alloc:
 	ldr x29, [sp, #144]
 	ldr x30, [sp, #152]
 	add sp, sp, #160
+.L2_scc_rt_alloc.x22:
 	ret
 	.p2align 2
 	.type scc_rt_alloc_tcb, %function
@@ -267,7 +269,8 @@ scc_rt_alloc_tcb:
 	add x9, x9, x10
 	str x9, [sp, #96]
 	ldr x9, [sp, #96]
-	movz x10, #2, lsl #16
+	movz x10, #32768
+	movk x10, #2, lsl #16
 	subs xzr, x9, x10
 	b.hi .L3_scc_rt_alloc_tcb.2_full
 	b .L3_scc_rt_alloc_tcb.3_ok
@@ -320,6 +323,7 @@ scc_rt_alloc_tcb:
 	ldr x29, [sp, #176]
 	ldr x30, [sp, #184]
 	add sp, sp, #192
+.L3_scc_rt_alloc_tcb.x25:
 	ret
 	.p2align 2
 	.type scc_rt_thread_reserve, %function
@@ -356,6 +360,7 @@ scc_rt_thread_reserve:
 	ldr x29, [sp, #32]
 	ldr x30, [sp, #40]
 	add sp, sp, #48
+.L4_scc_rt_thread_reserve.x6:
 	ret
 	.p2align 2
 	.type scc_rt_thread_init, %function
@@ -400,6 +405,7 @@ scc_rt_thread_init:
 	ldr x29, [sp, #32]
 	ldr x30, [sp, #40]
 	add sp, sp, #48
+.L5_scc_rt_thread_init.x9:
 	ret
 	.p2align 2
 	.type scc_rt_stack_take, %function
@@ -558,6 +564,7 @@ scc_rt_take_site:
 	ldr x29, [sp, #192]
 	ldr x30, [sp, #200]
 	add sp, sp, #208
+.L6_scc_rt_stack_take.x42:
 	ret
 	.p2align 2
 	.type scc_rt_stack_release, %function
@@ -670,6 +677,7 @@ scc_rt_release_site:
 	ldr x29, [sp, #144]
 	ldr x30, [sp, #152]
 	add sp, sp, #160
+.L7_scc_rt_stack_release.x29:
 	ret
 	.p2align 2
 	.type scc_rt_grow, %function
@@ -824,130 +832,137 @@ scc_rt_grow:
 	ldr x10, [sp, #128]
 	ldr x9, [x10, #8]
 	str x9, [sp, #200]
-	movz x9, #0
+	adrp x9, scc_text_start
+	add x9, x9, :lo12:scc_text_start
 	str x9, [sp, #208]
-	ldr x9, [sp, #144]
+	ldr x9, [sp, #200]
+	ldr x10, [sp, #208]
+	sub x9, x9, x10
+	str x9, [sp, #200]
+	movz x9, #0
 	str x9, [sp, #216]
+	ldr x9, [sp, #144]
+	str x9, [sp, #224]
 	b .L8_scc_rt_grow.12_bs
 .L8_scc_rt_grow.12_bs:
-	ldr x9, [sp, #208]
-	ldr x10, [sp, #216]
+	ldr x9, [sp, #216]
+	ldr x10, [sp, #224]
 	subs xzr, x9, x10
 	b.hs .L8_scc_rt_grow.23_next
 	b .L8_scc_rt_grow.13_bs1
 .L8_scc_rt_grow.13_bs1:
-	ldr x9, [sp, #208]
-	ldr x10, [sp, #216]
+	ldr x9, [sp, #216]
+	ldr x10, [sp, #224]
 	add x9, x9, x10
-	str x9, [sp, #224]
-	ldr x9, [sp, #224]
-	movz x10, #1
-	lsrv x9, x9, x10
 	str x9, [sp, #232]
 	ldr x9, [sp, #232]
+	movz x10, #1
+	lsrv x9, x9, x10
+	str x9, [sp, #240]
+	ldr x9, [sp, #240]
 	movz x10, #32
 	madd x9, x9, x10, xzr
-	str x9, [sp, #240]
+	str x9, [sp, #248]
 	ldr x9, [sp, #136]
-	ldr x10, [sp, #240]
-	add x9, x9, x10
-	str x9, [sp, #248]
-	ldr x9, [sp, #248]
-	movz x10, #8
-	add x9, x9, x10
-	str x9, [sp, #248]
 	ldr x10, [sp, #248]
-	ldr x9, [x10]
+	add x9, x9, x10
 	str x9, [sp, #256]
 	ldr x9, [sp, #256]
+	movz x10, #8
+	add x9, x9, x10
+	str x9, [sp, #256]
+	ldr x10, [sp, #256]
+	ldr x9, [x10]
+	str x9, [sp, #264]
+	ldr x9, [sp, #264]
 	ldr x10, [sp, #200]
 	subs xzr, x9, x10
 	b.eq .L8_scc_rt_grow.17_found
 	b .L8_scc_rt_grow.14_bs2
 .L8_scc_rt_grow.14_bs2:
-	ldr x9, [sp, #256]
+	ldr x9, [sp, #264]
 	ldr x10, [sp, #200]
 	subs xzr, x9, x10
 	b.lo .L8_scc_rt_grow.15_bslo
 	b .L8_scc_rt_grow.16_bshi
 .L8_scc_rt_grow.15_bslo:
-	ldr x9, [sp, #232]
+	ldr x9, [sp, #240]
 	movz x10, #1
 	add x9, x9, x10
-	str x9, [sp, #208]
-	b .L8_scc_rt_grow.12_bs
-.L8_scc_rt_grow.16_bshi:
-	ldr x9, [sp, #232]
 	str x9, [sp, #216]
 	b .L8_scc_rt_grow.12_bs
+.L8_scc_rt_grow.16_bshi:
+	ldr x9, [sp, #240]
+	str x9, [sp, #224]
+	b .L8_scc_rt_grow.12_bs
 .L8_scc_rt_grow.17_found:
-	ldr x10, [sp, #248]
+	ldr x10, [sp, #256]
 	ldr x9, [x10, #8]
-	str x9, [sp, #264]
-	ldr x10, [sp, #248]
-	ldr x9, [x10, #24]
 	str x9, [sp, #272]
-	ldr x9, [sp, #272]
-	movz x10, #3
-	lslv x9, x9, x10
+	ldr x10, [sp, #256]
+	ldr x9, [x10, #24]
 	str x9, [sp, #280]
 	ldr x9, [sp, #280]
+	movz x10, #3
+	lslv x9, x9, x10
+	str x9, [sp, #288]
+	ldr x9, [sp, #288]
 	ldr x10, [sp, #168]
 	add x9, x9, x10
-	str x9, [sp, #280]
-	movz x9, #0
 	str x9, [sp, #288]
+	movz x9, #0
+	str x9, [sp, #296]
 	b .L8_scc_rt_grow.18_fix
 .L8_scc_rt_grow.18_fix:
-	ldr x9, [sp, #288]
-	ldr x10, [sp, #264]
+	ldr x9, [sp, #296]
+	ldr x10, [sp, #272]
 	subs xzr, x9, x10
 	b.hs .L8_scc_rt_grow.23_next
 	b .L8_scc_rt_grow.19_fix1
 .L8_scc_rt_grow.19_fix1:
-	ldr x10, [sp, #280]
+	ldr x10, [sp, #288]
 	ldr x9, [x10]
-	str x9, [sp, #296]
-	ldr x9, [sp, #176]
-	ldr x10, [sp, #296]
-	add x9, x9, x10
 	str x9, [sp, #304]
+	ldr x9, [sp, #176]
 	ldr x10, [sp, #304]
-	ldr x9, [x10]
+	add x9, x9, x10
 	str x9, [sp, #312]
-	ldr x9, [sp, #312]
+	ldr x10, [sp, #312]
+	ldr x9, [x10]
+	str x9, [sp, #320]
+	ldr x9, [sp, #320]
 	ldr x10, [sp, #24]
 	subs xzr, x9, x10
 	b.lo .L8_scc_rt_grow.22_skip
 	b .L8_scc_rt_grow.20_fix2
 .L8_scc_rt_grow.20_fix2:
-	ldr x9, [sp, #312]
+	ldr x9, [sp, #320]
 	ldr x10, [sp, #32]
 	subs xzr, x9, x10
 	b.hs .L8_scc_rt_grow.22_skip
 	b .L8_scc_rt_grow.21_fix3
 .L8_scc_rt_grow.21_fix3:
-	ldr x9, [sp, #304]
-	ldr x10, [sp, #96]
-	add x9, x9, x10
-	str x9, [sp, #320]
 	ldr x9, [sp, #312]
 	ldr x10, [sp, #96]
 	add x9, x9, x10
 	str x9, [sp, #328]
-	ldr x9, [sp, #328]
-	ldr x10, [sp, #320]
+	ldr x9, [sp, #320]
+	ldr x10, [sp, #96]
+	add x9, x9, x10
+	str x9, [sp, #336]
+	ldr x9, [sp, #336]
+	ldr x10, [sp, #328]
 	str x9, [x10]
 	b .L8_scc_rt_grow.22_skip
 .L8_scc_rt_grow.22_skip:
-	ldr x9, [sp, #288]
+	ldr x9, [sp, #296]
 	movz x10, #1
 	add x9, x9, x10
-	str x9, [sp, #288]
-	ldr x9, [sp, #280]
+	str x9, [sp, #296]
+	ldr x9, [sp, #288]
 	movz x10, #8
 	add x9, x9, x10
-	str x9, [sp, #280]
+	str x9, [sp, #288]
 	b .L8_scc_rt_grow.18_fix
 .L8_scc_rt_grow.23_next:
 	ldr x9, [sp, #176]
@@ -963,8 +978,8 @@ scc_rt_grow:
 	ldr x9, [sp, #80]
 	movz x10, #4096
 	add x9, x9, x10
-	str x9, [sp, #336]
-	ldr x9, [sp, #336]
+	str x9, [sp, #344]
+	ldr x9, [sp, #344]
 	ldr x10, [sp, #16]
 	str x9, [x10, #8]
 	ldr x0, [sp, #96]
@@ -973,6 +988,7 @@ scc_rt_grow:
 	ldr x29, [sp, #352]
 	ldr x30, [sp, #360]
 	add sp, sp, #368
+.L8_scc_rt_grow.x83:
 	ret
 	.p2align 2
 	.type scc_rt_print, %function
@@ -1042,6 +1058,7 @@ scc_rt_print:
 	ldr x29, [sp, #32]
 	ldr x30, [sp, #40]
 	add sp, sp, #48
+.L9_scc_rt_print.x12:
 	ret
 	.p2align 2
 	.type scc_rt_park, %function
@@ -1085,11 +1102,13 @@ scc_rt_park:
 	ldr x29, [sp, #48]
 	ldr x30, [sp, #56]
 	add sp, sp, #64
+.L10_scc_rt_park.x6:
 	ret
 .L10_scc_rt_park.2_done:
 	ldr x29, [sp, #48]
 	ldr x30, [sp, #56]
 	add sp, sp, #64
+.L10_scc_rt_park.x7:
 	ret
 	.p2align 2
 	.type scc_rt_unpark, %function
@@ -1127,11 +1146,13 @@ scc_rt_unpark:
 	ldr x29, [sp, #32]
 	ldr x30, [sp, #40]
 	add sp, sp, #48
+.L11_scc_rt_unpark.x4:
 	ret
 .L11_scc_rt_unpark.2_done:
 	ldr x29, [sp, #32]
 	ldr x30, [sp, #40]
 	add sp, sp, #48
+.L11_scc_rt_unpark.x5:
 	ret
 	.p2align 2
 	.type scc_rt_abort, %function
@@ -1363,6 +1384,7 @@ wc_rodata:
 	ldr x29, [sp, #32]
 	ldr x30, [sp, #40]
 	add sp, sp, #48
+.L18_wc_rodata.x5:
 	ret
 .L18_wc_rodata.stack_grow:
 	sub sp, sp, #80
@@ -1437,6 +1459,7 @@ wc_main:
 	ldr x29, [sp, #80]
 	ldr x30, [sp, #88]
 	add sp, sp, #96
+.L19_wc_main.x5:
 	ret
 .L19_wc_main.stack_grow:
 	sub sp, sp, #80
@@ -1484,7 +1507,9 @@ scc_rt_morestack:
 	ldr x29, [sp]
 	ldr x30, [sp, #8]
 	add sp, sp, #16
+.Lscc_rt_morestack.ret:
 	ret
+scc_text_end:
 	.data
 	.balign 16
 	.bss
@@ -1541,8 +1566,8 @@ scc_rt_heap:
 	.balign 16
 	.type scc_rt_pinned, %object
 scc_rt_pinned:
-	.zero 131072
-	.size scc_rt_pinned, 131072
+	.zero 163840
+	.size scc_rt_pinned, 163840
 	.bss
 	.balign 16
 	.type scc_rt_stacks, %object
@@ -1587,25 +1612,1453 @@ scc_rt_msg5:
 	.balign 8
 scc_stackmap:
 	.quad 17
-	.quad .L0_scc_rt_start.sp2, 0, 0, 0
-	.quad .L0_scc_rt_start.sp3, 0, 1, 0
-	.quad .L1_scc_rt_main.sp0, 0, 1, 1
-	.quad .L1_scc_rt_main.sp1, 0, 0, 2
-	.quad .L1_scc_rt_main.sp_check, 0, 1, 2
-	.quad .L2_scc_rt_alloc.sp7, 0, 0, 3
-	.quad .L3_scc_rt_alloc_tcb.sp13, 0, 0, 3
-	.quad .L4_scc_rt_thread_reserve.sp4, 0, 0, 3
-	.quad .L5_scc_rt_thread_init.sp0, 0, 1, 3
-	.quad .L6_scc_rt_stack_take.sp36, 0, 0, 4
-	.quad .L8_scc_rt_grow.sp13, 0, 0, 4
-	.quad .L8_scc_rt_grow.sp15, 0, 0, 4
-	.quad .L9_scc_rt_print.sp10, 0, 0, 4
-	.quad .L18_wc_rodata.sp0, 0, 0, 4
-	.quad .L18_wc_rodata.sp_check, 0, 0, 4
-	.quad .L19_wc_main.sp4, 0, 0, 4
-	.quad .L19_wc_main.sp_check, 0, 1, 4
+	.quad .L0_scc_rt_start.sp2 - scc_text_start, 0, 0, 0
+	.quad .L0_scc_rt_start.sp3 - scc_text_start, 0, 1, 0
+	.quad .L1_scc_rt_main.sp0 - scc_text_start, 0, 1, 1
+	.quad .L1_scc_rt_main.sp1 - scc_text_start, 0, 0, 2
+	.quad .L1_scc_rt_main.sp_check - scc_text_start, 0, 1, 2
+	.quad .L2_scc_rt_alloc.sp7 - scc_text_start, 0, 0, 3
+	.quad .L3_scc_rt_alloc_tcb.sp13 - scc_text_start, 0, 0, 3
+	.quad .L4_scc_rt_thread_reserve.sp4 - scc_text_start, 0, 0, 3
+	.quad .L5_scc_rt_thread_init.sp0 - scc_text_start, 0, 1, 3
+	.quad .L6_scc_rt_stack_take.sp36 - scc_text_start, 0, 0, 4
+	.quad .L8_scc_rt_grow.sp13 - scc_text_start, 0, 0, 4
+	.quad .L8_scc_rt_grow.sp15 - scc_text_start, 0, 0, 4
+	.quad .L9_scc_rt_print.sp10 - scc_text_start, 0, 0, 4
+	.quad .L18_wc_rodata.sp0 - scc_text_start, 0, 0, 4
+	.quad .L18_wc_rodata.sp_check - scc_text_start, 0, 0, 4
+	.quad .L19_wc_main.sp4 - scc_text_start, 0, 0, 4
+	.quad .L19_wc_main.sp_check - scc_text_start, 0, 1, 4
 	.quad -16
 	.quad -64
 	.quad -64
 	.quad -32
 	.quad -64
+	.section .rodata
+	.balign 8
+scc_gc_maps:
+	.quad 1
+	.quad 162
+	.quad 24
+	.quad scc_rt_start - scc_text_start
+	.quad 256
+	.quad 0
+	.quad 0
+	.quad 0
+	.quad .L0_scc_rt_start.0_entry - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 0
+	.quad 0
+	.quad .L0_scc_rt_start.sp2 - scc_text_start
+	.quad 1
+	.quad 1
+	.quad 0
+	.quad 0
+	.quad .L0_scc_rt_start.sp2 - scc_text_start
+	.quad 0
+	.quad 1
+	.quad 1
+	.quad 0
+	.quad .L0_scc_rt_start.sp3 - scc_text_start
+	.quad 1
+	.quad 1
+	.quad 2
+	.quad 0
+	.quad .L0_scc_rt_start.sp3 - scc_text_start
+	.quad 0
+	.quad 1
+	.quad 3
+	.quad 0
+	.quad .L0_scc_rt_start.halt4 - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 4
+	.quad 0
+	.quad .L1_scc_rt_main.stack_check - scc_text_start
+	.quad 256
+	.quad 1
+	.quad 4
+	.quad 0
+	.quad .L1_scc_rt_main.0_entry - scc_text_start
+	.quad 0
+	.quad 1
+	.quad 5
+	.quad 0
+	.quad .L1_scc_rt_main.sp0 - scc_text_start
+	.quad 1
+	.quad 2
+	.quad 6
+	.quad 0
+	.quad .L1_scc_rt_main.sp0 - scc_text_start
+	.quad 0
+	.quad 2
+	.quad 8
+	.quad 0
+	.quad .L1_scc_rt_main.sp1 - scc_text_start
+	.quad 1
+	.quad 0
+	.quad 10
+	.quad 0
+	.quad .L1_scc_rt_main.sp1 - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 10
+	.quad 0
+	.quad .L1_scc_rt_main.halt3 - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 10
+	.quad 0
+	.quad .L1_scc_rt_main.sp_check - scc_text_start
+	.quad 1
+	.quad 1
+	.quad 10
+	.quad 0
+	.quad scc_rt_alloc - scc_text_start
+	.quad 256
+	.quad 0
+	.quad 11
+	.quad 0
+	.quad .L2_scc_rt_alloc.0_entry - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 11
+	.quad 0
+	.quad .L2_scc_rt_alloc.1_cnt - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 11
+	.quad 0
+	.quad .L2_scc_rt_alloc.2_slow - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 11
+	.quad 0
+	.quad .L2_scc_rt_alloc.3_spin - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 11
+	.quad 0
+	.quad .L2_scc_rt_alloc.4_full - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 11
+	.quad 0
+	.quad .L2_scc_rt_alloc.halt8 - scc_text_start
+	.quad 1
+	.quad 0
+	.quad 11
+	.quad 0
+	.quad .L2_scc_rt_alloc.halt8 - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 11
+	.quad 0
+	.quad .L2_scc_rt_alloc.5_ok - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 11
+	.quad 0
+	.quad .L2_scc_rt_alloc.x22 - scc_text_start
+	.quad 258
+	.quad 1
+	.quad 11
+	.quad 0
+	.quad scc_rt_alloc_tcb - scc_text_start
+	.quad 256
+	.quad 0
+	.quad 12
+	.quad 0
+	.quad .L3_scc_rt_alloc_tcb.0_entry - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 12
+	.quad 0
+	.quad .L3_scc_rt_alloc_tcb.1_len - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 12
+	.quad 0
+	.quad .L3_scc_rt_alloc_tcb.2_full - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 12
+	.quad 0
+	.quad .L3_scc_rt_alloc_tcb.halt14 - scc_text_start
+	.quad 1
+	.quad 0
+	.quad 12
+	.quad 0
+	.quad .L3_scc_rt_alloc_tcb.halt14 - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 12
+	.quad 0
+	.quad .L3_scc_rt_alloc_tcb.3_ok - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 12
+	.quad 0
+	.quad .L3_scc_rt_alloc_tcb.x25 - scc_text_start
+	.quad 258
+	.quad 1
+	.quad 12
+	.quad 0
+	.quad scc_rt_thread_reserve - scc_text_start
+	.quad 256
+	.quad 0
+	.quad 13
+	.quad 0
+	.quad .L4_scc_rt_thread_reserve.0_entry - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 13
+	.quad 0
+	.quad .L4_scc_rt_thread_reserve.1_full - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 13
+	.quad 0
+	.quad .L4_scc_rt_thread_reserve.halt5 - scc_text_start
+	.quad 1
+	.quad 0
+	.quad 13
+	.quad 0
+	.quad .L4_scc_rt_thread_reserve.halt5 - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 13
+	.quad 0
+	.quad .L4_scc_rt_thread_reserve.2_ok - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 13
+	.quad 0
+	.quad .L4_scc_rt_thread_reserve.x6 - scc_text_start
+	.quad 258
+	.quad 0
+	.quad 13
+	.quad 0
+	.quad scc_rt_thread_init - scc_text_start
+	.quad 256
+	.quad 1
+	.quad 13
+	.quad 0
+	.quad .L5_scc_rt_thread_init.0_entry - scc_text_start
+	.quad 0
+	.quad 1
+	.quad 14
+	.quad 0
+	.quad .L5_scc_rt_thread_init.sp0 - scc_text_start
+	.quad 1
+	.quad 1
+	.quad 15
+	.quad 0
+	.quad .L5_scc_rt_thread_init.sp0 - scc_text_start
+	.quad 0
+	.quad 1
+	.quad 16
+	.quad 0
+	.quad .L5_scc_rt_thread_init.x9 - scc_text_start
+	.quad 258
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad scc_rt_stack_take - scc_text_start
+	.quad 256
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L6_scc_rt_stack_take.0_entry - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L6_scc_rt_stack_take.1_cls5 - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L6_scc_rt_stack_take.2_clsnext6 - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L6_scc_rt_stack_take.3_clsdone7 - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L6_scc_rt_stack_take.4_spin14 - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L6_scc_rt_stack_take.5_locked15 - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L6_scc_rt_stack_take.6_pop - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L6_scc_rt_stack_take.7_bump - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L6_scc_rt_stack_take.8_full - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L6_scc_rt_stack_take.halt37 - scc_text_start
+	.quad 1
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L6_scc_rt_stack_take.halt37 - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L6_scc_rt_stack_take.9_ok - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L6_scc_rt_stack_take.10_taken - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L6_scc_rt_stack_take.x42 - scc_text_start
+	.quad 258
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad scc_rt_stack_release - scc_text_start
+	.quad 256
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L7_scc_rt_stack_release.0_entry - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L7_scc_rt_stack_release.1_cls4 - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L7_scc_rt_stack_release.2_clsnext5 - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L7_scc_rt_stack_release.3_clsdone6 - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L7_scc_rt_stack_release.4_spin13 - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L7_scc_rt_stack_release.5_locked14 - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L7_scc_rt_stack_release.x29 - scc_text_start
+	.quad 258
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad scc_rt_grow - scc_text_start
+	.quad 256
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L8_scc_rt_grow.0_entry - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L8_scc_rt_grow.1_dbl - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L8_scc_rt_grow.2_dbl2 - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L8_scc_rt_grow.3_cap - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L8_scc_rt_grow.4_full - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L8_scc_rt_grow.halt14 - scc_text_start
+	.quad 1
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L8_scc_rt_grow.halt14 - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L8_scc_rt_grow.5_take - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L8_scc_rt_grow.sp15 - scc_text_start
+	.quad 1
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L8_scc_rt_grow.sp15 - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L8_scc_rt_grow.6_copy - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L8_scc_rt_grow.7_copy1 - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L8_scc_rt_grow.8_walk0 - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L8_scc_rt_grow.9_walk - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L8_scc_rt_grow.10_walk1 - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L8_scc_rt_grow.11_walk2 - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L8_scc_rt_grow.12_bs - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L8_scc_rt_grow.13_bs1 - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L8_scc_rt_grow.14_bs2 - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L8_scc_rt_grow.15_bslo - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L8_scc_rt_grow.16_bshi - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L8_scc_rt_grow.17_found - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L8_scc_rt_grow.18_fix - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L8_scc_rt_grow.19_fix1 - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L8_scc_rt_grow.20_fix2 - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L8_scc_rt_grow.21_fix3 - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L8_scc_rt_grow.22_skip - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L8_scc_rt_grow.23_next - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L8_scc_rt_grow.24_done - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L8_scc_rt_grow.x83 - scc_text_start
+	.quad 258
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad scc_rt_print - scc_text_start
+	.quad 256
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L9_scc_rt_print.0_entry - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L9_scc_rt_print.1_loop - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L9_scc_rt_print.2_write - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L9_scc_rt_print.3_chk2 - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L9_scc_rt_print.4_chk3 - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L9_scc_rt_print.5_adv - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L9_scc_rt_print.6_fail - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L9_scc_rt_print.halt11 - scc_text_start
+	.quad 1
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L9_scc_rt_print.halt11 - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L9_scc_rt_print.7_done - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L9_scc_rt_print.x12 - scc_text_start
+	.quad 258
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad scc_rt_park - scc_text_start
+	.quad 256
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L10_scc_rt_park.0_entry - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L10_scc_rt_park.1_wait - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L10_scc_rt_park.x6 - scc_text_start
+	.quad 258
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L10_scc_rt_park.2_done - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L10_scc_rt_park.x7 - scc_text_start
+	.quad 258
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad scc_rt_unpark - scc_text_start
+	.quad 256
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L11_scc_rt_unpark.0_entry - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L11_scc_rt_unpark.1_wake - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L11_scc_rt_unpark.x4 - scc_text_start
+	.quad 258
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L11_scc_rt_unpark.2_done - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L11_scc_rt_unpark.x5 - scc_text_start
+	.quad 258
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad scc_rt_abort - scc_text_start
+	.quad 256
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L12_scc_rt_abort.0_entry - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L12_scc_rt_abort.1_is0 - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L12_scc_rt_abort.2_next1 - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L12_scc_rt_abort.3_is2 - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L12_scc_rt_abort.4_next3 - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L12_scc_rt_abort.5_is4 - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L12_scc_rt_abort.6_next5 - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L12_scc_rt_abort.7_is6 - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L12_scc_rt_abort.8_next7 - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L12_scc_rt_abort.9_is8 - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L12_scc_rt_abort.halt10 - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad scc_rt_abort_overflow - scc_text_start
+	.quad 256
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L13_scc_rt_abort_overflow.0_entry - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L13_scc_rt_abort_overflow.halt3 - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad scc_rt_abort_heap - scc_text_start
+	.quad 256
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L14_scc_rt_abort_heap.0_entry - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L14_scc_rt_abort_heap.halt3 - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad scc_rt_abort_stack - scc_text_start
+	.quad 256
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L15_scc_rt_abort_stack.0_entry - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L15_scc_rt_abort_stack.halt3 - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad scc_rt_abort_write - scc_text_start
+	.quad 256
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L16_scc_rt_abort_write.0_entry - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L16_scc_rt_abort_write.halt3 - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad scc_rt_abort_threads - scc_text_start
+	.quad 256
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L17_scc_rt_abort_threads.0_entry - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L17_scc_rt_abort_threads.halt3 - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L18_wc_rodata.stack_check - scc_text_start
+	.quad 256
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L18_wc_rodata.0_entry - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 17
+	.quad 0
+	.quad .L18_wc_rodata.sp0 - scc_text_start
+	.quad 1
+	.quad 1
+	.quad 17
+	.quad 0
+	.quad .L18_wc_rodata.sp0 - scc_text_start
+	.quad 0
+	.quad 1
+	.quad 18
+	.quad 0
+	.quad .L18_wc_rodata.x5 - scc_text_start
+	.quad 258
+	.quad 1
+	.quad 19
+	.quad 0
+	.quad .L18_wc_rodata.sp_check - scc_text_start
+	.quad 1
+	.quad 0
+	.quad 20
+	.quad 0
+	.quad .L19_wc_main.stack_check - scc_text_start
+	.quad 256
+	.quad 2
+	.quad 20
+	.quad 0
+	.quad .L19_wc_main.0_entry - scc_text_start
+	.quad 0
+	.quad 1
+	.quad 22
+	.quad 0
+	.quad .L19_wc_main.sp4 - scc_text_start
+	.quad 1
+	.quad 0
+	.quad 23
+	.quad 0
+	.quad .L19_wc_main.sp4 - scc_text_start
+	.quad 0
+	.quad 0
+	.quad 23
+	.quad 0
+	.quad .L19_wc_main.x5 - scc_text_start
+	.quad 258
+	.quad 0
+	.quad 23
+	.quad 0
+	.quad .L19_wc_main.sp_check - scc_text_start
+	.quad 1
+	.quad 1
+	.quad 23
+	.quad 0
+	.quad 0
+	.quad 0
+	.quad -62
+	.quad -62
+	.quad 0
+	.quad -254
+	.quad -254
+	.quad 0
+	.quad 0
+	.quad -254
+	.quad -254
+	.quad 0
+	.quad 0
+	.quad 0
+	.quad -126
+	.quad -126
+	.quad -126
+	.quad 0
+	.quad 0
+	.quad 0
+	.quad 0
+	.quad 16
+	.quad -318
+	.quad -254
+scc_gc_succs:
+	.quad 134
+	.quad 170
+	.quad scc_rt_start - scc_text_start
+	.quad 1
+	.quad 0
+	.quad .L0_scc_rt_start.0_entry - scc_text_start
+	.quad 1
+	.quad 1
+	.quad .L0_scc_rt_start.sp2 - scc_text_start
+	.quad 1
+	.quad 2
+	.quad .L0_scc_rt_start.sp3 - scc_text_start
+	.quad 0
+	.quad 3
+	.quad .L0_scc_rt_start.halt4 - scc_text_start
+	.quad 1
+	.quad 3
+	.quad .L1_scc_rt_main.stack_check - scc_text_start
+	.quad 2
+	.quad 4
+	.quad .L1_scc_rt_main.0_entry - scc_text_start
+	.quad 1
+	.quad 6
+	.quad .L1_scc_rt_main.sp0 - scc_text_start
+	.quad 1
+	.quad 7
+	.quad .L1_scc_rt_main.sp1 - scc_text_start
+	.quad 1
+	.quad 8
+	.quad .L1_scc_rt_main.halt3 - scc_text_start
+	.quad 1
+	.quad 9
+	.quad .L1_scc_rt_main.sp_check - scc_text_start
+	.quad 1
+	.quad 10
+	.quad scc_rt_alloc - scc_text_start
+	.quad 1
+	.quad 11
+	.quad .L2_scc_rt_alloc.0_entry - scc_text_start
+	.quad 2
+	.quad 12
+	.quad .L2_scc_rt_alloc.1_cnt - scc_text_start
+	.quad 2
+	.quad 14
+	.quad .L2_scc_rt_alloc.2_slow - scc_text_start
+	.quad 2
+	.quad 16
+	.quad .L2_scc_rt_alloc.3_spin - scc_text_start
+	.quad 1
+	.quad 18
+	.quad .L2_scc_rt_alloc.4_full - scc_text_start
+	.quad 1
+	.quad 19
+	.quad .L2_scc_rt_alloc.halt8 - scc_text_start
+	.quad 1
+	.quad 20
+	.quad .L2_scc_rt_alloc.5_ok - scc_text_start
+	.quad 1
+	.quad 21
+	.quad scc_rt_alloc_tcb - scc_text_start
+	.quad 1
+	.quad 22
+	.quad .L3_scc_rt_alloc_tcb.0_entry - scc_text_start
+	.quad 2
+	.quad 23
+	.quad .L3_scc_rt_alloc_tcb.1_len - scc_text_start
+	.quad 2
+	.quad 25
+	.quad .L3_scc_rt_alloc_tcb.2_full - scc_text_start
+	.quad 1
+	.quad 27
+	.quad .L3_scc_rt_alloc_tcb.halt14 - scc_text_start
+	.quad 1
+	.quad 28
+	.quad .L3_scc_rt_alloc_tcb.3_ok - scc_text_start
+	.quad 1
+	.quad 29
+	.quad scc_rt_thread_reserve - scc_text_start
+	.quad 1
+	.quad 30
+	.quad .L4_scc_rt_thread_reserve.0_entry - scc_text_start
+	.quad 2
+	.quad 31
+	.quad .L4_scc_rt_thread_reserve.1_full - scc_text_start
+	.quad 1
+	.quad 33
+	.quad .L4_scc_rt_thread_reserve.halt5 - scc_text_start
+	.quad 1
+	.quad 34
+	.quad .L4_scc_rt_thread_reserve.2_ok - scc_text_start
+	.quad 1
+	.quad 35
+	.quad scc_rt_thread_init - scc_text_start
+	.quad 1
+	.quad 36
+	.quad .L5_scc_rt_thread_init.0_entry - scc_text_start
+	.quad 1
+	.quad 37
+	.quad .L5_scc_rt_thread_init.sp0 - scc_text_start
+	.quad 1
+	.quad 38
+	.quad scc_rt_stack_take - scc_text_start
+	.quad 1
+	.quad 39
+	.quad .L6_scc_rt_stack_take.0_entry - scc_text_start
+	.quad 1
+	.quad 40
+	.quad .L6_scc_rt_stack_take.1_cls5 - scc_text_start
+	.quad 2
+	.quad 41
+	.quad .L6_scc_rt_stack_take.2_clsnext6 - scc_text_start
+	.quad 1
+	.quad 43
+	.quad .L6_scc_rt_stack_take.3_clsdone7 - scc_text_start
+	.quad 1
+	.quad 44
+	.quad .L6_scc_rt_stack_take.4_spin14 - scc_text_start
+	.quad 2
+	.quad 45
+	.quad .L6_scc_rt_stack_take.5_locked15 - scc_text_start
+	.quad 2
+	.quad 47
+	.quad .L6_scc_rt_stack_take.6_pop - scc_text_start
+	.quad 1
+	.quad 49
+	.quad .L6_scc_rt_stack_take.7_bump - scc_text_start
+	.quad 2
+	.quad 50
+	.quad .L6_scc_rt_stack_take.8_full - scc_text_start
+	.quad 1
+	.quad 52
+	.quad .L6_scc_rt_stack_take.halt37 - scc_text_start
+	.quad 1
+	.quad 53
+	.quad .L6_scc_rt_stack_take.9_ok - scc_text_start
+	.quad 1
+	.quad 54
+	.quad .L6_scc_rt_stack_take.10_taken - scc_text_start
+	.quad 1
+	.quad 55
+	.quad scc_rt_stack_release - scc_text_start
+	.quad 1
+	.quad 56
+	.quad .L7_scc_rt_stack_release.0_entry - scc_text_start
+	.quad 1
+	.quad 57
+	.quad .L7_scc_rt_stack_release.1_cls4 - scc_text_start
+	.quad 2
+	.quad 58
+	.quad .L7_scc_rt_stack_release.2_clsnext5 - scc_text_start
+	.quad 1
+	.quad 60
+	.quad .L7_scc_rt_stack_release.3_clsdone6 - scc_text_start
+	.quad 1
+	.quad 61
+	.quad .L7_scc_rt_stack_release.4_spin13 - scc_text_start
+	.quad 2
+	.quad 62
+	.quad .L7_scc_rt_stack_release.5_locked14 - scc_text_start
+	.quad 1
+	.quad 64
+	.quad scc_rt_grow - scc_text_start
+	.quad 1
+	.quad 65
+	.quad .L8_scc_rt_grow.0_entry - scc_text_start
+	.quad 1
+	.quad 66
+	.quad .L8_scc_rt_grow.1_dbl - scc_text_start
+	.quad 2
+	.quad 67
+	.quad .L8_scc_rt_grow.2_dbl2 - scc_text_start
+	.quad 1
+	.quad 69
+	.quad .L8_scc_rt_grow.3_cap - scc_text_start
+	.quad 2
+	.quad 70
+	.quad .L8_scc_rt_grow.4_full - scc_text_start
+	.quad 1
+	.quad 72
+	.quad .L8_scc_rt_grow.halt14 - scc_text_start
+	.quad 1
+	.quad 73
+	.quad .L8_scc_rt_grow.5_take - scc_text_start
+	.quad 1
+	.quad 74
+	.quad .L8_scc_rt_grow.sp15 - scc_text_start
+	.quad 1
+	.quad 75
+	.quad .L8_scc_rt_grow.6_copy - scc_text_start
+	.quad 2
+	.quad 76
+	.quad .L8_scc_rt_grow.7_copy1 - scc_text_start
+	.quad 1
+	.quad 78
+	.quad .L8_scc_rt_grow.8_walk0 - scc_text_start
+	.quad 1
+	.quad 79
+	.quad .L8_scc_rt_grow.9_walk - scc_text_start
+	.quad 2
+	.quad 80
+	.quad .L8_scc_rt_grow.10_walk1 - scc_text_start
+	.quad 2
+	.quad 82
+	.quad .L8_scc_rt_grow.11_walk2 - scc_text_start
+	.quad 1
+	.quad 84
+	.quad .L8_scc_rt_grow.12_bs - scc_text_start
+	.quad 2
+	.quad 85
+	.quad .L8_scc_rt_grow.13_bs1 - scc_text_start
+	.quad 2
+	.quad 87
+	.quad .L8_scc_rt_grow.14_bs2 - scc_text_start
+	.quad 2
+	.quad 89
+	.quad .L8_scc_rt_grow.15_bslo - scc_text_start
+	.quad 1
+	.quad 91
+	.quad .L8_scc_rt_grow.16_bshi - scc_text_start
+	.quad 1
+	.quad 92
+	.quad .L8_scc_rt_grow.17_found - scc_text_start
+	.quad 1
+	.quad 93
+	.quad .L8_scc_rt_grow.18_fix - scc_text_start
+	.quad 2
+	.quad 94
+	.quad .L8_scc_rt_grow.19_fix1 - scc_text_start
+	.quad 2
+	.quad 96
+	.quad .L8_scc_rt_grow.20_fix2 - scc_text_start
+	.quad 2
+	.quad 98
+	.quad .L8_scc_rt_grow.21_fix3 - scc_text_start
+	.quad 1
+	.quad 100
+	.quad .L8_scc_rt_grow.22_skip - scc_text_start
+	.quad 1
+	.quad 101
+	.quad .L8_scc_rt_grow.23_next - scc_text_start
+	.quad 1
+	.quad 102
+	.quad .L8_scc_rt_grow.24_done - scc_text_start
+	.quad 1
+	.quad 103
+	.quad scc_rt_print - scc_text_start
+	.quad 1
+	.quad 104
+	.quad .L9_scc_rt_print.0_entry - scc_text_start
+	.quad 1
+	.quad 105
+	.quad .L9_scc_rt_print.1_loop - scc_text_start
+	.quad 2
+	.quad 106
+	.quad .L9_scc_rt_print.2_write - scc_text_start
+	.quad 2
+	.quad 108
+	.quad .L9_scc_rt_print.3_chk2 - scc_text_start
+	.quad 2
+	.quad 110
+	.quad .L9_scc_rt_print.4_chk3 - scc_text_start
+	.quad 2
+	.quad 112
+	.quad .L9_scc_rt_print.5_adv - scc_text_start
+	.quad 1
+	.quad 114
+	.quad .L9_scc_rt_print.6_fail - scc_text_start
+	.quad 1
+	.quad 115
+	.quad .L9_scc_rt_print.halt11 - scc_text_start
+	.quad 1
+	.quad 116
+	.quad .L9_scc_rt_print.7_done - scc_text_start
+	.quad 1
+	.quad 117
+	.quad scc_rt_park - scc_text_start
+	.quad 1
+	.quad 118
+	.quad .L10_scc_rt_park.0_entry - scc_text_start
+	.quad 2
+	.quad 119
+	.quad .L10_scc_rt_park.1_wait - scc_text_start
+	.quad 1
+	.quad 121
+	.quad .L10_scc_rt_park.2_done - scc_text_start
+	.quad 1
+	.quad 122
+	.quad scc_rt_unpark - scc_text_start
+	.quad 1
+	.quad 123
+	.quad .L11_scc_rt_unpark.0_entry - scc_text_start
+	.quad 2
+	.quad 124
+	.quad .L11_scc_rt_unpark.1_wake - scc_text_start
+	.quad 1
+	.quad 126
+	.quad .L11_scc_rt_unpark.2_done - scc_text_start
+	.quad 1
+	.quad 127
+	.quad scc_rt_abort - scc_text_start
+	.quad 1
+	.quad 128
+	.quad .L12_scc_rt_abort.0_entry - scc_text_start
+	.quad 2
+	.quad 129
+	.quad .L12_scc_rt_abort.1_is0 - scc_text_start
+	.quad 1
+	.quad 131
+	.quad .L12_scc_rt_abort.2_next1 - scc_text_start
+	.quad 2
+	.quad 132
+	.quad .L12_scc_rt_abort.3_is2 - scc_text_start
+	.quad 1
+	.quad 134
+	.quad .L12_scc_rt_abort.4_next3 - scc_text_start
+	.quad 2
+	.quad 135
+	.quad .L12_scc_rt_abort.5_is4 - scc_text_start
+	.quad 1
+	.quad 137
+	.quad .L12_scc_rt_abort.6_next5 - scc_text_start
+	.quad 2
+	.quad 138
+	.quad .L12_scc_rt_abort.7_is6 - scc_text_start
+	.quad 1
+	.quad 140
+	.quad .L12_scc_rt_abort.8_next7 - scc_text_start
+	.quad 2
+	.quad 141
+	.quad .L12_scc_rt_abort.9_is8 - scc_text_start
+	.quad 1
+	.quad 143
+	.quad .L12_scc_rt_abort.halt10 - scc_text_start
+	.quad 1
+	.quad 144
+	.quad scc_rt_abort_overflow - scc_text_start
+	.quad 1
+	.quad 145
+	.quad .L13_scc_rt_abort_overflow.0_entry - scc_text_start
+	.quad 1
+	.quad 146
+	.quad .L13_scc_rt_abort_overflow.halt3 - scc_text_start
+	.quad 1
+	.quad 147
+	.quad scc_rt_abort_heap - scc_text_start
+	.quad 1
+	.quad 148
+	.quad .L14_scc_rt_abort_heap.0_entry - scc_text_start
+	.quad 1
+	.quad 149
+	.quad .L14_scc_rt_abort_heap.halt3 - scc_text_start
+	.quad 1
+	.quad 150
+	.quad scc_rt_abort_stack - scc_text_start
+	.quad 1
+	.quad 151
+	.quad .L15_scc_rt_abort_stack.0_entry - scc_text_start
+	.quad 1
+	.quad 152
+	.quad .L15_scc_rt_abort_stack.halt3 - scc_text_start
+	.quad 1
+	.quad 153
+	.quad scc_rt_abort_write - scc_text_start
+	.quad 1
+	.quad 154
+	.quad .L16_scc_rt_abort_write.0_entry - scc_text_start
+	.quad 1
+	.quad 155
+	.quad .L16_scc_rt_abort_write.halt3 - scc_text_start
+	.quad 1
+	.quad 156
+	.quad scc_rt_abort_threads - scc_text_start
+	.quad 1
+	.quad 157
+	.quad .L17_scc_rt_abort_threads.0_entry - scc_text_start
+	.quad 1
+	.quad 158
+	.quad .L17_scc_rt_abort_threads.halt3 - scc_text_start
+	.quad 1
+	.quad 159
+	.quad .L18_wc_rodata.stack_check - scc_text_start
+	.quad 2
+	.quad 160
+	.quad .L18_wc_rodata.0_entry - scc_text_start
+	.quad 1
+	.quad 162
+	.quad .L18_wc_rodata.sp0 - scc_text_start
+	.quad 1
+	.quad 163
+	.quad .L18_wc_rodata.sp_check - scc_text_start
+	.quad 1
+	.quad 164
+	.quad .L19_wc_main.stack_check - scc_text_start
+	.quad 2
+	.quad 165
+	.quad .L19_wc_main.0_entry - scc_text_start
+	.quad 1
+	.quad 167
+	.quad .L19_wc_main.sp4 - scc_text_start
+	.quad 1
+	.quad 168
+	.quad .L19_wc_main.sp_check - scc_text_start
+	.quad 1
+	.quad 169
+	.quad .L0_scc_rt_start.0_entry - scc_text_start
+	.quad .L0_scc_rt_start.sp2 - scc_text_start
+	.quad .L0_scc_rt_start.sp3 - scc_text_start
+	.quad .L0_scc_rt_start.halt4 - scc_text_start
+	.quad .L1_scc_rt_main.sp_check - scc_text_start
+	.quad .L1_scc_rt_main.0_entry - scc_text_start
+	.quad .L1_scc_rt_main.sp0 - scc_text_start
+	.quad .L1_scc_rt_main.sp1 - scc_text_start
+	.quad .L1_scc_rt_main.halt3 - scc_text_start
+	.quad .L1_scc_rt_main.halt3 - scc_text_start
+	.quad .L1_scc_rt_main.stack_check - scc_text_start
+	.quad .L2_scc_rt_alloc.0_entry - scc_text_start
+	.quad .L2_scc_rt_alloc.4_full - scc_text_start
+	.quad .L2_scc_rt_alloc.1_cnt - scc_text_start
+	.quad .L2_scc_rt_alloc.2_slow - scc_text_start
+	.quad .L2_scc_rt_alloc.5_ok - scc_text_start
+	.quad .L2_scc_rt_alloc.3_spin - scc_text_start
+	.quad .L2_scc_rt_alloc.4_full - scc_text_start
+	.quad .L2_scc_rt_alloc.3_spin - scc_text_start
+	.quad .L2_scc_rt_alloc.halt8 - scc_text_start
+	.quad .L2_scc_rt_alloc.halt8 - scc_text_start
+	.quad .L2_scc_rt_alloc.x22 - scc_text_start
+	.quad .L3_scc_rt_alloc_tcb.0_entry - scc_text_start
+	.quad .L3_scc_rt_alloc_tcb.2_full - scc_text_start
+	.quad .L3_scc_rt_alloc_tcb.1_len - scc_text_start
+	.quad .L3_scc_rt_alloc_tcb.2_full - scc_text_start
+	.quad .L3_scc_rt_alloc_tcb.3_ok - scc_text_start
+	.quad .L3_scc_rt_alloc_tcb.halt14 - scc_text_start
+	.quad .L3_scc_rt_alloc_tcb.halt14 - scc_text_start
+	.quad .L3_scc_rt_alloc_tcb.x25 - scc_text_start
+	.quad .L4_scc_rt_thread_reserve.0_entry - scc_text_start
+	.quad .L4_scc_rt_thread_reserve.1_full - scc_text_start
+	.quad .L4_scc_rt_thread_reserve.2_ok - scc_text_start
+	.quad .L4_scc_rt_thread_reserve.halt5 - scc_text_start
+	.quad .L4_scc_rt_thread_reserve.halt5 - scc_text_start
+	.quad .L4_scc_rt_thread_reserve.x6 - scc_text_start
+	.quad .L5_scc_rt_thread_init.0_entry - scc_text_start
+	.quad .L5_scc_rt_thread_init.sp0 - scc_text_start
+	.quad .L5_scc_rt_thread_init.x9 - scc_text_start
+	.quad .L6_scc_rt_stack_take.0_entry - scc_text_start
+	.quad .L6_scc_rt_stack_take.1_cls5 - scc_text_start
+	.quad .L6_scc_rt_stack_take.2_clsnext6 - scc_text_start
+	.quad .L6_scc_rt_stack_take.3_clsdone7 - scc_text_start
+	.quad .L6_scc_rt_stack_take.1_cls5 - scc_text_start
+	.quad .L6_scc_rt_stack_take.4_spin14 - scc_text_start
+	.quad .L6_scc_rt_stack_take.5_locked15 - scc_text_start
+	.quad .L6_scc_rt_stack_take.4_spin14 - scc_text_start
+	.quad .L6_scc_rt_stack_take.7_bump - scc_text_start
+	.quad .L6_scc_rt_stack_take.6_pop - scc_text_start
+	.quad .L6_scc_rt_stack_take.10_taken - scc_text_start
+	.quad .L6_scc_rt_stack_take.8_full - scc_text_start
+	.quad .L6_scc_rt_stack_take.9_ok - scc_text_start
+	.quad .L6_scc_rt_stack_take.halt37 - scc_text_start
+	.quad .L6_scc_rt_stack_take.halt37 - scc_text_start
+	.quad .L6_scc_rt_stack_take.10_taken - scc_text_start
+	.quad .L6_scc_rt_stack_take.x42 - scc_text_start
+	.quad .L7_scc_rt_stack_release.0_entry - scc_text_start
+	.quad .L7_scc_rt_stack_release.1_cls4 - scc_text_start
+	.quad .L7_scc_rt_stack_release.2_clsnext5 - scc_text_start
+	.quad .L7_scc_rt_stack_release.3_clsdone6 - scc_text_start
+	.quad .L7_scc_rt_stack_release.1_cls4 - scc_text_start
+	.quad .L7_scc_rt_stack_release.4_spin13 - scc_text_start
+	.quad .L7_scc_rt_stack_release.5_locked14 - scc_text_start
+	.quad .L7_scc_rt_stack_release.4_spin13 - scc_text_start
+	.quad .L7_scc_rt_stack_release.x29 - scc_text_start
+	.quad .L8_scc_rt_grow.0_entry - scc_text_start
+	.quad .L8_scc_rt_grow.1_dbl - scc_text_start
+	.quad .L8_scc_rt_grow.2_dbl2 - scc_text_start
+	.quad .L8_scc_rt_grow.3_cap - scc_text_start
+	.quad .L8_scc_rt_grow.1_dbl - scc_text_start
+	.quad .L8_scc_rt_grow.4_full - scc_text_start
+	.quad .L8_scc_rt_grow.5_take - scc_text_start
+	.quad .L8_scc_rt_grow.halt14 - scc_text_start
+	.quad .L8_scc_rt_grow.halt14 - scc_text_start
+	.quad .L8_scc_rt_grow.sp15 - scc_text_start
+	.quad .L8_scc_rt_grow.6_copy - scc_text_start
+	.quad .L8_scc_rt_grow.8_walk0 - scc_text_start
+	.quad .L8_scc_rt_grow.7_copy1 - scc_text_start
+	.quad .L8_scc_rt_grow.6_copy - scc_text_start
+	.quad .L8_scc_rt_grow.9_walk - scc_text_start
+	.quad .L8_scc_rt_grow.24_done - scc_text_start
+	.quad .L8_scc_rt_grow.10_walk1 - scc_text_start
+	.quad .L8_scc_rt_grow.24_done - scc_text_start
+	.quad .L8_scc_rt_grow.11_walk2 - scc_text_start
+	.quad .L8_scc_rt_grow.12_bs - scc_text_start
+	.quad .L8_scc_rt_grow.23_next - scc_text_start
+	.quad .L8_scc_rt_grow.13_bs1 - scc_text_start
+	.quad .L8_scc_rt_grow.17_found - scc_text_start
+	.quad .L8_scc_rt_grow.14_bs2 - scc_text_start
+	.quad .L8_scc_rt_grow.15_bslo - scc_text_start
+	.quad .L8_scc_rt_grow.16_bshi - scc_text_start
+	.quad .L8_scc_rt_grow.12_bs - scc_text_start
+	.quad .L8_scc_rt_grow.12_bs - scc_text_start
+	.quad .L8_scc_rt_grow.18_fix - scc_text_start
+	.quad .L8_scc_rt_grow.23_next - scc_text_start
+	.quad .L8_scc_rt_grow.19_fix1 - scc_text_start
+	.quad .L8_scc_rt_grow.22_skip - scc_text_start
+	.quad .L8_scc_rt_grow.20_fix2 - scc_text_start
+	.quad .L8_scc_rt_grow.22_skip - scc_text_start
+	.quad .L8_scc_rt_grow.21_fix3 - scc_text_start
+	.quad .L8_scc_rt_grow.22_skip - scc_text_start
+	.quad .L8_scc_rt_grow.18_fix - scc_text_start
+	.quad .L8_scc_rt_grow.9_walk - scc_text_start
+	.quad .L8_scc_rt_grow.x83 - scc_text_start
+	.quad .L9_scc_rt_print.0_entry - scc_text_start
+	.quad .L9_scc_rt_print.1_loop - scc_text_start
+	.quad .L9_scc_rt_print.7_done - scc_text_start
+	.quad .L9_scc_rt_print.2_write - scc_text_start
+	.quad .L9_scc_rt_print.1_loop - scc_text_start
+	.quad .L9_scc_rt_print.3_chk2 - scc_text_start
+	.quad .L9_scc_rt_print.1_loop - scc_text_start
+	.quad .L9_scc_rt_print.4_chk3 - scc_text_start
+	.quad .L9_scc_rt_print.6_fail - scc_text_start
+	.quad .L9_scc_rt_print.5_adv - scc_text_start
+	.quad .L9_scc_rt_print.1_loop - scc_text_start
+	.quad .L9_scc_rt_print.halt11 - scc_text_start
+	.quad .L9_scc_rt_print.halt11 - scc_text_start
+	.quad .L9_scc_rt_print.x12 - scc_text_start
+	.quad .L10_scc_rt_park.0_entry - scc_text_start
+	.quad .L10_scc_rt_park.2_done - scc_text_start
+	.quad .L10_scc_rt_park.1_wait - scc_text_start
+	.quad .L10_scc_rt_park.x6 - scc_text_start
+	.quad .L10_scc_rt_park.x7 - scc_text_start
+	.quad .L11_scc_rt_unpark.0_entry - scc_text_start
+	.quad .L11_scc_rt_unpark.1_wake - scc_text_start
+	.quad .L11_scc_rt_unpark.2_done - scc_text_start
+	.quad .L11_scc_rt_unpark.x4 - scc_text_start
+	.quad .L11_scc_rt_unpark.x5 - scc_text_start
+	.quad .L12_scc_rt_abort.0_entry - scc_text_start
+	.quad .L12_scc_rt_abort.1_is0 - scc_text_start
+	.quad .L12_scc_rt_abort.2_next1 - scc_text_start
+	.quad scc_rt_abort_overflow - scc_text_start
+	.quad .L12_scc_rt_abort.3_is2 - scc_text_start
+	.quad .L12_scc_rt_abort.4_next3 - scc_text_start
+	.quad scc_rt_abort_heap - scc_text_start
+	.quad .L12_scc_rt_abort.5_is4 - scc_text_start
+	.quad .L12_scc_rt_abort.6_next5 - scc_text_start
+	.quad scc_rt_abort_stack - scc_text_start
+	.quad .L12_scc_rt_abort.7_is6 - scc_text_start
+	.quad .L12_scc_rt_abort.8_next7 - scc_text_start
+	.quad scc_rt_abort_write - scc_text_start
+	.quad .L12_scc_rt_abort.9_is8 - scc_text_start
+	.quad .L12_scc_rt_abort.halt10 - scc_text_start
+	.quad scc_rt_abort_threads - scc_text_start
+	.quad .L12_scc_rt_abort.halt10 - scc_text_start
+	.quad .L13_scc_rt_abort_overflow.0_entry - scc_text_start
+	.quad .L13_scc_rt_abort_overflow.halt3 - scc_text_start
+	.quad .L13_scc_rt_abort_overflow.halt3 - scc_text_start
+	.quad .L14_scc_rt_abort_heap.0_entry - scc_text_start
+	.quad .L14_scc_rt_abort_heap.halt3 - scc_text_start
+	.quad .L14_scc_rt_abort_heap.halt3 - scc_text_start
+	.quad .L15_scc_rt_abort_stack.0_entry - scc_text_start
+	.quad .L15_scc_rt_abort_stack.halt3 - scc_text_start
+	.quad .L15_scc_rt_abort_stack.halt3 - scc_text_start
+	.quad .L16_scc_rt_abort_write.0_entry - scc_text_start
+	.quad .L16_scc_rt_abort_write.halt3 - scc_text_start
+	.quad .L16_scc_rt_abort_write.halt3 - scc_text_start
+	.quad .L17_scc_rt_abort_threads.0_entry - scc_text_start
+	.quad .L17_scc_rt_abort_threads.halt3 - scc_text_start
+	.quad .L17_scc_rt_abort_threads.halt3 - scc_text_start
+	.quad .L18_wc_rodata.sp_check - scc_text_start
+	.quad .L18_wc_rodata.0_entry - scc_text_start
+	.quad .L18_wc_rodata.sp0 - scc_text_start
+	.quad .L18_wc_rodata.x5 - scc_text_start
+	.quad .L18_wc_rodata.stack_check - scc_text_start
+	.quad .L19_wc_main.sp_check - scc_text_start
+	.quad .L19_wc_main.0_entry - scc_text_start
+	.quad .L19_wc_main.sp4 - scc_text_start
+	.quad .L19_wc_main.x5 - scc_text_start
+	.quad .L19_wc_main.stack_check - scc_text_start
+scc_gc_rseq:
+	.quad 0
+scc_gc_desc:
+	.quad 3554259586674541395
+	.quad 1
+	.quad scc_text_start - .
+	.quad scc_text_end - .
+	.quad scc_gc_maps - .
+	.quad scc_gc_succs - .
+	.quad scc_gc_rseq - .
+	.quad scc_stackmap - .
+	.quad scc_rt_morestack - .
+	.quad .Lscc_rt_morestack.ret - .

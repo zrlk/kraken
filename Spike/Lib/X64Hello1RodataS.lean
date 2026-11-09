@@ -69,7 +69,7 @@ theorem hello1_rodata_pre_runW {W : Frag isa} {K : State → State → Prop}
   simp only [rdEIn, Bool.and_eq_true] at hin
   obtain ⟨h0, hgap⟩ := hin
   let lab := (_root_.Executable.labels exe).label
-  have e26 : lab ".Lwc_rodata.x13" = lab ".Lwc_rodata.entry" + Int64.ofNat 26 := label_labelGapB hp hgap
+  have e26 : lab ".Lwc_rodata.x0" = lab ".Lwc_rodata.entry" + Int64.ofNat 26 := label_labelGapB hp hgap
   refine SegW.seq (hello1_rodata_prologue_segW hp hend (nb := ⟨lab ".Lwc_rodata.entry", oR, rdJ J0⟩)
     hF hR (by omega) (by omega) rfl (by show SO.le oR (oF 32) = true; decide) hW.pro ?_)
     ((fn_segW (N := rNL lab R J0 J1) (E := rX ms lab lbl R J1) (fun i => ?_) RN.e).mono_pre
@@ -109,7 +109,7 @@ theorem hello1_rodata_pre_runW {W : Frag isa} {K : State → State → Prop}
       (fun R' F' hR' hlo' hhi' hF' _ hFF hR'e hcc g hg hkeep => by
         subst hR'e
         obtain ⟨σC, c, ⟨-, -, -, -, -, h48⟩, ⟨-, -, hra, -⟩⟩ := hg
-        have hr : g.1.ra = (lab ".Lwc_rodata.x13").toBitVec := by
+        have hr : g.1.ra = (lab ".Lwc_rodata.x0").toBitVec := by
           rw [← hra, ← h48]; rfl
         exact (Alloc.seg_allocW hp hend Alloc.hello1_allocIn hF' hR' hlo' hhi' g.2
           (fun a ha m hm => hmem g.1 g.2 a ha m (hFF m hm))
@@ -125,7 +125,7 @@ theorem hello1_rodata_pre_runW {W : Frag isa} {K : State → State → Prop}
       cases y
       · refine .inr ⟨RX.x13, ?_, by show SO.le ⟨-40, []⟩ ⟨-48 - 0 + 8, []⟩ = true; decide, g,
           ⟨σe, hc ▸ hJe, ?_, ?_⟩, ?_, ?_⟩
-        · show lab ".Lwc_rodata.x13" = Int64.ofBitVec g.1.ra
+        · show lab ".Lwc_rodata.x0" = Int64.ofBitVec g.1.ra
           rw [← hra]
           show _ = Int64.ofBitVec (σC.slot (-48 - 0 + 0))
           rw [show (-48 : Int) - 0 + 0 = -48 by decide, h48, int64_ofBitVec_toBitVec]

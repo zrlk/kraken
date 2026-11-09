@@ -15,7 +15,7 @@ generic in the fragments and are used as they are, at `W2 := LftH`.
 
 AArch64 has no counterpart (main owns no TCB word there). Against wake's `WSX`/`Lft`: the start's level is hello's
 `WSH` (`ownGH`, hello's threads-abort phases `Hello.ThreadsAb.AcH` at hello's `pfxM`), lifted to `ownGHXW`
-through `CstOkH` (the worker's word at `pinA + 112`).
+through `CstOkH` (the worker's word at `pinA + 144`).
 -/
 import Spike.Lib.X64HelloOwnCstX
 import Spike.Lib.X64HelloStartWfL

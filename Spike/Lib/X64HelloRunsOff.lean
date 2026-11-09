@@ -4,9 +4,9 @@
 sub-list of main's byte runs (one `decide +kernel` each), at any executable laying them out (`Lays`).
 
 - `waitRunsL xl`, `flagRunsL xl`: `X64WakeRunsOff.waitRuns`'s and `X64WakeMainF.flagRuns`' byte runs with the
-  tail-call label `xl` (`waitRunsL ".Lwc_waitLoop.x16"` is wake's, by `rfl`); `waitRunsH`, `flagRunsH` at
+  tail-call label `xl` (`waitRunsL ".Lwc_waitLoop.x1"` is wake's, by `rfl`); `waitRunsH`, `flagRunsH` at
   hello's `LoopCode.waitXL` (`.x20`).
-- `exitRunsH`: `scc_rt_main`'s `exit_group` tail at hello's return point `.Lscc_rt_main.x3` (15 bytes).
+- `exitRunsH`: `scc_rt_main`'s `exit_group` tail at hello's return point `.Lscc_rt_main.x1` (15 bytes).
 - `wait_chk`, `park_chk`, `exit_chk`; `wait_off`, `park_off`, `exit_off`: the checks and their `RunsOffA`.
 - `flag_chk`, `hello_flag_ne`: the flag load's pc (byte `7` of `.entry`) is off `flagRunsH`.
 
@@ -41,8 +41,8 @@ def flagRunsL (xl : Label) : List (String × Nat × Nat) :=
     (".Lwc_waitLoop.else2", 0, 5), (xl, 0, 10)] ++ parkRuns
 
 /-- At wake's label the runs are wake's. -/
-example : waitRunsL ".Lwc_waitLoop.x16" = Spike.Lib.X64.WakeRunsOff.waitRuns ∧
-    flagRunsL ".Lwc_waitLoop.x16" = Spike.Lib.X64WakeMainF.flagRuns := ⟨rfl, rfl⟩
+example : waitRunsL ".Lwc_waitLoop.x1" = Spike.Lib.X64.WakeRunsOff.waitRuns ∧
+    flagRunsL ".Lwc_waitLoop.x1" = Spike.Lib.X64WakeMainF.flagRuns := ⟨rfl, rfl⟩
 
 /-- hello's wait-loop runs. -/
 abbrev waitRunsH : List (String × Nat × Nat) := waitRunsL waitXL
@@ -51,7 +51,7 @@ abbrev waitRunsH : List (String × Nat × Nat) := waitRunsL waitXL
 abbrev flagRunsH : List (String × Nat × Nat) := flagRunsL waitXL
 
 /-- **The `exit_group` tail's byte run** at `scc_rt_main`'s return point from `wc_main`. -/
-def exitRunsH : List (String × Nat × Nat) := [(".Lscc_rt_main.x3", 0, 15)]
+def exitRunsH : List (String × Nat × Nat) := [(".Lscc_rt_main.x1", 0, 15)]
 
 /-- `wc_waitLoop`'s runs are off the exits. -/
 theorem wait_chk : runsNeChk SccCode.helloCells waitRunsH abPtsA = true := by decide +kernel

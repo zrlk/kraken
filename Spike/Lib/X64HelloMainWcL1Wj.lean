@@ -1,8 +1,8 @@
 /-
-**`MainWcPS.hWp`, `hWs` at the root's context with the placement discharged** (x86-64; the twin of
-`Spike/Lib/A64HelloMainWcL1Wj.lean`, same names): `MainWcL1Wi.hWp_L1`/`hWs_L1` at `Level1I`'s `Jr` (`JrRL` at the
-level's labels and the start's environment `c0S.env`) and `Jr1` (`Land.Jr1LH`), their `hpl` by
-`WcPlS.hplP_S`/`hplS_S`:
+**The placement of `MainWcPS.hWp`, `hWs` at the root's context** (x86-64; the twin of
+`Spike/Lib/A64HelloMainWcL1Wj.lean`, same names): the facts `WcPlS.hplP_S`/`hplS_S` take at `Level1I`'s `Jr`
+(`JrRL` at the level's labels and the start's environment `c0S.env`) and `Jr1` (`Land.Jr1LH`), for
+`X64HelloMainWcL1WjX`'s statements:
 - the entry's controls (`JrRL`'s setup continuation, `Jr1LH`'s `c0H`) are placed at the slice's registers and `me`
   at `%r8`, the caller's slot `-16` (`WcPlS.plE_cont`, `plE_c0H`);
 - `me`'s word `mwH` is represented at that slot: the slot is main's TCB (`hslot`), the TCB's label main's id
@@ -14,7 +14,6 @@ level's labels and the start's environment `c0S.env`) and `Jr1` (`Land.Jr1LH`), 
 - `wcR_L1`: `wc_main`'s region's facts.
 - `hmeE_c0S`: `me`'s binding in `c0S.env` (AArch64 closes it by `rfl` inline).
 - `plE_J0`, `plE_J1`: the entry controls placed (`WcPlS.PlE`), with an inhabitation `example` at concrete places.
-- `hWp_L1P`, `hWs_L1P`: the statements.
 
 ## Differences from the AArch64 version
 
@@ -24,8 +23,9 @@ level's labels and the start's environment `c0S.env`) and `Jr1` (`Land.Jr1LH`), 
   `PlaceWX.pinA_toNat_ofPlaceWX` (AArch64: `WakeHClW.hme_W`, which has no x86-64 version).
 - `wc_main`'s region is `wcR (RS helloLsw TOP) helloD` (AArch64: `wcR (swR TOP (-helloLsw) 0) helloD`), its top at
   `8` (AArch64 `0`).
-- The level is inside `NoSetFsW` (no `arch_prctl`; AArch64 `NoMsrW`). `hWp_L1P`/`hWs_L1P` take `MainWcL1Wi`'s
-  certificate premises: the cells (`hpa`, `hhp`) besides `hp`, and `hA13`.
+- The level is inside `NoSetFsW` (no `arch_prctl`; AArch64 `NoMsrW`). The statements (AArch64 `hWp_L1P`,
+  `hWs_L1P`, at `ownGH`) are at `ownGHXW` only, `X64HelloMainWcL1WjX`'s `hWp_L1PX`/`hWs_L1PX`, and take
+  `MainWcL1Wi`'s certificate premises: the cells (`hpa`, `hhp`) besides `hp`, and `hA13`.
 -/
 import Spike.Lib.X64HelloWcPlS
 import Spike.Lib.X64HelloMainWcL1S
@@ -43,19 +43,12 @@ open Spike.Lib.X64.Rt (RuntimeLayout)
 open Spike.Lib.X64Consumer (Lbl Lsize)
 open Spike.Lib (PlaceWX)
 open Spike.Lib.X64.Flow.Hello1 (mWC)
-open Spike.Lib.X64.HelloPh (lo)
-open Spike.Lib.X64.WakeWf (DtW)
-open Spike.Lib.X64.Flow.HelloM (wcJ0 wcR wcF JrT)
-open Spike.Lib.X64.Flow.HelloWc (WcPreWH WcSp0WH)
-open Spike.Lib.X64.WakeTP (tpG)
-open Spike.Lib.X64.KeepTP (tpXa)
-open Spike.Lib.X64.HelloPh.StartGlue (X0WH)
-open Spike.Lib.X64HelloSrc (helloSrc)
+open Spike.Lib.X64.Flow.HelloM (wcJ0 wcR JrT)
 open Spike.Lib.X64.Flow.HelloJr1 (JrRL)
-open Spike.Lib.X64.WakePh.MainGlue (FS RS tcbS topS)
+open Spike.Lib.X64.WakePh.MainGlue (RS tcbS topS)
 open Spike.Lib.X64.Flow.Ret0 (tpOf)
 open Spike.Lib.X64.HelloPh.StartH0G (helloD helloLsw)
-open Spike.Lib.X64WakeLoadT (L0T ls0T)
+open Spike.Lib.X64WakeLoadT (L0T)
 open Spike.Lib.X64WakeSrcDefs (mainTidLbl)
 open Spike.Lib.X64.HelloPh.C0S (c0S)
 open Spike.Lib.X64HelloMainPreSrc (newTerm)
@@ -74,19 +67,7 @@ set_option hygiene false in
 local notation "Ly" => RuntimeLayout.ofPlaceWX hpw IH
 
 set_option hygiene false in
-local notation "RS0" => Spike.Lib.X64.Rt.rS0 (Ly)
-
-set_option hygiene false in
 local notation "LB" => L0T (Ly).Λ
-
-set_option hygiene false in
-local notation "AR" => Spike.Lib.X64.WakeOD.arW hpw IH
-
-set_option hygiene false in
-local notation "NT" => Spike.Lib.X64.Rt.Reserve.ntA (Ly).lab
-
-set_option hygiene false in
-local notation "AX" => (Ly).lab Spike.Lib.X64.Flow.Ret0.StackTake.siteL
 
 set_option hygiene false in
 /-- main's thread pointer. -/
@@ -99,27 +80,6 @@ local notation "TOP" => topS (Ly) 0#64
 set_option hygiene false in
 /-- `wc_main`'s region at the call. -/
 local notation "RW" => wcR (RS helloLsw (TOP)) helloD
-
-set_option hygiene false in
-/-- `wc_main`'s frame condition at the caller's state `m1`, `σ1`. -/
-local notation "FW" => wcF (RS helloLsw (TOP)) helloD (FS (Ly) (RS0) helloLsw 0#64 (TOP)) m1 σ1
-
-set_option hygiene false in
-/-- The level's marks (`E`'s at `asm`). -/
-local notation "MU" => (Scc.Sem.X64.target (Scc.Sem.X64.kernel 2) E).marks asm (Ly).Λ
-
-set_option hygiene false in
-/-- The level's memory side at no frame, under main's thread pointer. -/
-local notation "MS" => tpXa (Spike.Lib.X64ConsumerA.msOfA (Ly).Λ (MU) rd
-  (Spike.Lib.X64HelloGOf2H.gWH hpw IH (Spike.Lib.X64WakeHG.cTW hpw IH))
-  (fun s _ => Spike.Lib.X64.HelloPh.ownGH (Ly) (NT) s)
-  (AR) I (Spike.Lib.X64ConsumerA.upd (LB) l b) (Spike.Lib.X64ConsumerA.updN (ls0T ls) l n) []) (TV)
-
-set_option hygiene false in
-/-- The level at the root's context, no frame. -/
-local notation "WL" => fun s c => Spike.Lib.X64.HelloWf.W1H (Ly) (NT) (AR) helloSrc DtW
-  (Spike.Lib.X64.HelloPh.ClH (Ly)) (Spike.Lib.X64.HelloPh.Land.CtxR1H (asm := asm) hpw i0 E rd ls) (LB) (ls0T ls)
-  (Spike.Lib.X64HelloRdCf.frH c0S.env) (X0WH (Ly) (AX)) l b n s c []
 
 set_option hygiene false in
 /-- `wc_main`'s entry invariant at `Level1I`'s `Jr` (`wc_rodata`'s return on the slice at `l`). -/
@@ -179,31 +139,6 @@ example (hl : (LB) l = none) (hslot : σC.slot (-16) = Spike.Lib.X64.Flow.Ret0.p
     Spike.Lib.X64ConsumerS.PlacedSE (Ly).Λ (Spike.Lib.X64ConsumerA.upd (LB) l b) s c [] :=
   Spike.Lib.X64.HelloPh.WcPlS.plE_regs (plE_J0 hpw i0 hl hslot) hJ s fun r _ => by rw [hs]
 
-/-- **`hWp` at `CtxR1H`, placed** (module doc): `MainWcL1Wi.hWp_L1` at `Level1I`'s `Jr`, `hpl` by
-`WcPlS.hplP_S`. -/
-theorem hWp_L1P (hp : o.prog = SccCode.helloCells) (hpa : Scc.Sem.X64.cellsOf asm = some o.prog)
-    (hhp : Scc.Sem.X64.cellsOf asm = some SccCode.helloCells) (hlo0 : Λ0.code.lo = lo)
-    (hc : Spike.Lib.X64.Rt.CtrZ o) (hA13 : Scc.Cert.Spawn.X64.a13data (Ly).Λ o.prog o.secs = true)
-    (hz : (Ly).Λ.imms newTerm "z" 0 = some 0) (hl : (LB) l = none)
-    (hslot : σC.slot (-16) = Spike.Lib.X64.Flow.Ret0.pinA (Ly).lab + 0#64 + 8#64) :
-    WcPreWH (Spike.Lib.X64.NoSetFsW (tpG (TV) (WL)) (Spike.Lib.X64.PhRec.K (Ly) (RS0)))
-      (Spike.Lib.X64.PhRec.K (Ly) (RS0)) (Ly).exe (Ly).endPc (RW) (FW) (MS) (J0) (J1) :=
-  have hR := wcR_L1 hpw i0 m1 σ1
-  Spike.Lib.X64.HelloPh.MainWcL1Wi.hWp_L1 hpw i0 E rd ls hp hpa hhp hlo0 hc hA13 hslot
-    (Spike.Lib.X64.HelloPh.WcPlS.hplP_S hR.1 hR.2.1 hR.2.2 (plE_J0 hpw i0 hl hslot) (plE_J1 hpw i0 hz hl hslot))
-
-/-- **`hWs` at `CtxR1H`, placed** (module doc): `MainWcL1Wi.hWs_L1`, `hpl` by `WcPlS.hplS_S`. -/
-theorem hWs_L1P (hp : o.prog = SccCode.helloCells) (hpa : Scc.Sem.X64.cellsOf asm = some o.prog)
-    (hhp : Scc.Sem.X64.cellsOf asm = some SccCode.helloCells) (hlo0 : Λ0.code.lo = lo)
-    (hc : Spike.Lib.X64.Rt.CtrZ o) (hA13 : Scc.Cert.Spawn.X64.a13data (Ly).Λ o.prog o.secs = true)
-    (hz : (Ly).Λ.imms newTerm "z" 0 = some 0) (hl : (LB) l = none)
-    (hslot : σC.slot (-16) = Spike.Lib.X64.Flow.Ret0.pinA (Ly).lab + 0#64 + 8#64) :
-    WcSp0WH (Spike.Lib.X64.NoSetFsW (tpG (TV) (WL)) (Spike.Lib.X64.PhRec.K (Ly) (RS0)))
-      (Spike.Lib.X64.PhRec.K (Ly) (RS0)) (Ly).exe (Ly).endPc (RW) (FW) (MS) (J1) :=
-  have hR := wcR_L1 hpw i0 m1 σ1
-  Spike.Lib.X64.HelloPh.MainWcL1Wi.hWs_L1 hpw i0 E rd ls hp hpa hhp hlo0 hc hA13 hslot
-    (Spike.Lib.X64.HelloPh.WcPlS.hplS_S (by have := hR.2.1; omega) hR.2.2 (plE_J1 hpw i0 hz hl hslot))
-
 end Spike.Lib.X64.HelloPh.MainWcL1Wj
 
 /-- info: 'Spike.Lib.X64.HelloPh.MainWcL1Wj.hme_slot' depends on axioms: [propext, Classical.choice, Quot.sound] -/
@@ -220,9 +155,3 @@ end Spike.Lib.X64.HelloPh.MainWcL1Wj
 
 /-- info: 'Spike.Lib.X64.HelloPh.MainWcL1Wj.plE_J1' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms Spike.Lib.X64.HelloPh.MainWcL1Wj.plE_J1
-
-/-- info: 'Spike.Lib.X64.HelloPh.MainWcL1Wj.hWp_L1P' depends on axioms: [propext, Classical.choice, Quot.sound] -/
-#guard_msgs in #print axioms Spike.Lib.X64.HelloPh.MainWcL1Wj.hWp_L1P
-
-/-- info: 'Spike.Lib.X64.HelloPh.MainWcL1Wj.hWs_L1P' depends on axioms: [propext, Classical.choice, Quot.sound] -/
-#guard_msgs in #print axioms Spike.Lib.X64.HelloPh.MainWcL1Wj.hWs_L1P

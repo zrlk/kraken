@@ -21,7 +21,7 @@ at `[fr]`, and `scc_rt_main`'s rest with `wc_main` at `[]` again (`HelloM.hello_
 - `hbp` (`%rbp` at `mR R`'s saved-`%rbp` slot at `.sp0`) and `hsl` (`.sp0`'s `slot (-8)`, the `%rbp` the
   return restores, at `R`'s) are new: `scc_rt_main`'s rest addresses its frame off `%rbp`. `hsl` is asked of
   `Jp`, not of `Jr`: the source's return `Jr` does not know `%rbp`.
-- `hra` is `.Lscc_rt_main.x2`, the return address pushed at `slot 0` (AArch64: `.L1_scc_rt_main.sp0` at
+- `hra` is `.Lscc_rt_main.x0`, the return address pushed at `slot 0` (AArch64: `.L1_scc_rt_main.sp0` at
   `slot (-8)`, `x30`); `hmem`'s cells are off `%rax` (`bAddr`; AArch64: `rAddr … .X0`).
 - The thread pointer is `fsBase` (`hJpT`), the box's segment inside `NoSetFsW (tpG t W) K` (AArch64:
   `TPIDR_EL0`, `NoMsrW`); `hlim`'s limit word is at `fsBase + 8`, bounded by `Jr`'s `%rsp - 8 - 8 - 128`
@@ -73,7 +73,7 @@ structure MainWcPS (W : FragS isa) (K : State → State → Prop) (p : Prog) (lb
   hW : MainPostSWH W K exe endPc R F fr m0 σC Jp Jp' J1 J2 J2' J3 (Spike.Lib.X64.Flow.HelloRd.J4P J4 J4x)
     (JrT Jr t R)
   hbp : ∀ σ0 c, Jp σ0 c → σ0.regs.get64 .rbp = (mR R).addr (-8)
-  hra : ∀ σ0 c, Jp σ0 c → (_root_.Executable.labels exe).label ".Lscc_rt_main.x2" = Int64.ofBitVec (σ0.slot 0)
+  hra : ∀ σ0 c, Jp σ0 c → (_root_.Executable.labels exe).label ".Lscc_rt_main.x0" = Int64.ofBitVec (σ0.slot 0)
   hmem : ∀ σ0 c, Jp σ0 c → ∀ i : Int64, (i = 0 ∨ i = 8) →
     ∀ m, mF R F m0 σC m → Mem.loadInt m.dmem (bAddr σ0.regs .rax i) 8 = none
   hr0 : ∀ σ0 c, Jp σ0 c → ∃ c', LocalRun p c c' ∧ Jp' σ0 c'

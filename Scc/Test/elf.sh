@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # The ELF layout reader (`Scc.Cert.Elf.elfParts`) against `readelf`.
 #
-# Usage: Scc/Test/elf.sh [--relink | --relink-check]
+# Usage: Scc/Test/elf.sh [--relink | --relink-check | --raw-check]
 #
 # With `--relink-check` it only relinks every fixture into a temporary
 # directory with its recorded command (below) and compares the result with
@@ -42,12 +42,24 @@
 # `Spike/Test/HelloLinkedA64Elf.lean`), and `hellox64/hello` from
 # `hellox64/hello.s` (the x86-64 `hello` listing `SccCode.helloText`, linked
 # as `run.sh` links x86-64 binaries, GNU `ld`'s default `.text` at
-# `0x401000`, `Spike/Test/HelloLinkedX64Elf.lean`); the digests in `ElfTest.lean`,
+# `0x401000`, `Spike/Test/HelloLinkedX64Elf.lean`), and `hello1rawx64/hello1`
+# and `hello1rawa64/hello1` from `hello1rawx64/hello1.s` and
+# `hello1rawa64/hello1.s` (`scc --host raw -S` of `hello1`, uncertified;
+# linked with `raw.ld`: the text at 0, `.rodata` and the data on fresh 64 KiB
+# granules; `Spike/Test/Hello1RawLinkedX64.lean`,
+# `Spike/Test/Hello1RawLinkedA64.lean`); the digests in `ElfTest.lean`,
 # `Ret0LinkedX64.lean`, `Frame0LinkedX64.lean`, `Ret0LldX64.lean`,
 # `Ret0LinkedA64.lean`, `Hello1LinkedA64.lean`, `Call1LinkedA64.lean` and
 # `Call1LinkedX64.lean`, `Hello1LinkedX64.lean`, `WakeLinkedA64Elf.lean`, `WakeLinkedX64Elf.lean`,
-# `HelloLinkedA64Elf.lean`, `HelloLinkedX64Elf.lean` then
+# `HelloLinkedA64Elf.lean`, `HelloLinkedX64Elf.lean`,
+# `Hello1RawLinkedX64.lean`, `Hello1RawLinkedA64.lean` then
 # need updating if the tools changed. Exits 1 on a mismatch.
+#
+# With `--raw-check` it runs `Scc/Test/rawcheck.py` on the two raw fixtures,
+# each against the same ISA's Linux `hello1` fixture (`hello1x64/hello1`,
+# `hello1a64/hello1`), with the fixture's assembler text and `raw.ld` for the
+# position-independence checks (relocations of the object; the same bytes
+# linked at two other bases), and exits 1 when a check fails.
 set -eu
 LAKE=${LAKE:-lake}
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
@@ -60,11 +72,11 @@ trap 'rm -rf "$TMP"' EXIT
 # (`link F OUT`: write fixture F under the directory OUT).
 FIXTURES="x a a_def a_bid ret0x64/ret0 ret0a64/ret0 hello1a64/hello1 call1a64/call1 frame0x64/frame0 call1x64/call1"
 FIXTURES="$FIXTURES ret0x64lld/ret0 hello1x64/hello1 wakea64/wake wakex64/wake helloa64/hello"
-FIXTURES="$FIXTURES hellox64/hello"
+FIXTURES="$FIXTURES hellox64/hello hello1rawx64/hello1 hello1rawa64/hello1"
 tools() {
   case "$1" in
-    x|ret0x64/ret0|frame0x64/frame0|call1x64/call1|hello1x64/hello1|wakex64/wake|hellox64/hello) echo "as ld" ;;
-    a|a_def|a_bid|ret0a64/ret0|hello1a64/hello1|call1a64/call1|wakea64/wake|helloa64/hello) echo "clang ld.lld" ;;
+    x|ret0x64/ret0|frame0x64/frame0|call1x64/call1|hello1x64/hello1|wakex64/wake|hellox64/hello|hello1rawx64/hello1) echo "as ld" ;;
+    a|a_def|a_bid|ret0a64/ret0|hello1a64/hello1|call1a64/call1|wakea64/wake|helloa64/hello|hello1rawa64/hello1) echo "clang ld.lld" ;;
     ret0x64lld/ret0) echo "as ld.lld" ;;
   esac
 }
@@ -104,6 +116,14 @@ link() {
        $A64_CC $(a64_flags 1) -o "$2/helloa64/hello" "$D/helloa64/hello.s" ;;
     hellox64/hello) mkdir -p "$2/hellox64" && as -o "$TMP/hello.o" "$D/hellox64/hello.s" &&
        ld -static -o "$2/hellox64/hello" "$TMP/hello.o" ;;
+    hello1rawx64/hello1) mkdir -p "$2/hello1rawx64" &&
+       as -o "$TMP/hello1raw.o" "$D/hello1rawx64/hello1.s" &&
+       ld -static -T "$D/raw.ld" -z max-page-size=65536 -z noexecstack \
+         -o "$2/hello1rawx64/hello1" "$TMP/hello1raw.o" ;;
+    hello1rawa64/hello1) mkdir -p "$2/hello1rawa64" &&
+       clang --target=aarch64-linux-gnu -march=armv8.4-a -nostdlib -static -fuse-ld=lld \
+         -Wl,-T,"$D/raw.ld",-z,max-page-size=65536,--build-id=none \
+         -o "$2/hello1rawa64/hello1" "$D/hello1rawa64/hello1.s" ;;
   esac
 }
 if [ "${1:-}" = --relink ]; then
@@ -127,6 +147,15 @@ elif [ "${1:-}" = --relink-check ]; then
   done
   [ $bad = 0 ] && { echo "elf.sh: relink check ok"; exit 0; }
   echo "elf.sh: relink check: a fixture differs (toolchain drift? relink with --relink and update the digests)"; exit 1
+elif [ "${1:-}" = --raw-check ]; then
+  # The raw fixtures against the Linux ones (`Scc/Test/rawcheck.py`).
+  bad=0
+  python3 "$ROOT/Scc/Test/rawcheck.py" x64 "$D/hello1rawx64/hello1" "$D/hello1x64/hello1" \
+    "$D/hello1rawx64/hello1.s" "$D/raw.ld" || bad=1
+  python3 "$ROOT/Scc/Test/rawcheck.py" arm "$D/hello1rawa64/hello1" "$D/hello1a64/hello1" \
+    "$D/hello1rawa64/hello1.s" "$D/raw.ld" || bad=1
+  [ $bad = 0 ] && { echo "elf.sh: raw check ok"; exit 0; }
+  echo "elf.sh: raw check: a check fails"; exit 1
 fi
 cat >"$TMP/q.lean" <<'EOF'
 import Scc.Cert.Elf

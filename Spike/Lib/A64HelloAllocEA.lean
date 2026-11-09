@@ -100,7 +100,7 @@ theorem seg_alloc_ofW_atA {W : Frag isaLSE2} {K : State → State → Prop} {pro
       (fun s c => ∃ x, At exe endPc R F (EX30 (_root_.Executable.labels exe).label ms q lbl x) s c) := by
   have hcode := alloc_code (ms := ms) (q := q) hp hend hprog
   simp only [allocIn, Bool.and_eq_true, and_assoc] at hprog
-  obtain ⟨-, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, hgap⟩ := hprog
+  obtain ⟨-, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, hgap⟩ := hprog
   exact seg_allocW_atA hF hR hal hlo hhi hq hcode (by rw [label_labelGap hp hgap]; simp only [add4, add0]) hmem hxa
     hW i0
 

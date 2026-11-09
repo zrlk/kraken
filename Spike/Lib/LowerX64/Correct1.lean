@@ -128,8 +128,8 @@ theorem x64_lower_correctE1 (hd : Scc.Lower.Accepted1 [d] = true) (hfr : MainFra
     (Scc.Lower.Inv.envScalar_nil _) hr
   obtain ⟨G, hzip, hG⟩ := zip_callMaps (Scc.Lower.Inv.func1 (Scc.Lower.Names.user "main") [] r)
   rw [hzip] at hbo hbp
-  have hcode := entryCode1 (b := ⟨"entry", r.insts, r.term⟩) (bs := r.blocks) hf (by omega) hlab hG hbo hbp hsh.1
-  have hbl := blocksCode1 (pre := [⟨"entry", r.insts, r.term⟩]) (bs := r.blocks) hf (by omega) hlab hG hbo hbp
+  have hcode := entryCode1 (b := ⟨"entry", r.insts, r.term⟩) (bs := r.blocks) hf (by omega) (hgap_ofPlaceOK h _) hlab hG hbo hbp hsh.1
+  have hbl := blocksCode1 (pre := [⟨"entry", r.insts, r.term⟩]) (bs := r.blocks) hf (by omega) (hgap_ofPlaceOK h _) hlab hG hbo hbp
     hsh.2
   have hfn : fr.fn = Scc.Lower.Names.user "main" := by rw [hfrq]; rfl
   have hra : (Ly h).lab raL = Int64.ofBitVec ((Ly h).lab bareMC.sp0).toBitVec := by

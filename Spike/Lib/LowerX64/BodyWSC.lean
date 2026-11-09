@@ -5,10 +5,9 @@ facts at depth** (x86-64, H7a calls): `fnC_segS`' premises `hWb`/`hWs`
 `blkW_bodyS1`: a construct's block (`Kind1`) inside a block of `CdC` is a
 block at `Cd1`.
 
-- `blockAt_sub`: a block inside a placed block is placed, past the cells
-  before it.
 - `cd1_of_subCdC`: a construct's block inside a block of `CdC` (`SubCd`)
-  is at `Cd1` (`kind1_ok`, `runPhB_sub`'s `blkPh_of_runPhB`).
+  is at `Cd1` (`CdCQ.sub`, then `kind1_ok`'s `blkPh_of_runPhB`), whole or
+  in its two pieces (`AtQ`, P5).
 - `hWbS_of`, `hWsS_of`: the body's construct blocks at its nodes and
   pending stores, from every ghost of `G0` (its pairs at the frames `fs`
   `Good1` with no hold, closed under the frame runs at `fs`), inside
@@ -30,46 +29,26 @@ open Spike.Lib.X64.Rt (InstOk)
 open Spike.Lib.X64.Flow.Ret0 (StackOff)
 open Spike.Lib.LowerNode (NJ)
 
-/-- **A block inside a placed block is placed**, `pre.length` cells and
-`pre`'s bytes further. -/
-theorem blockAt_sub {cells : List (Directive × Nat)} {l : Label} {k off : Nat}
-    {pre blk post : List (Directive × Nat)} (h : blockAt cells l k off (pre ++ blk ++ post) = true) :
-    blockAt cells l (k + pre.length) (off + (pre.map (·.2)).sum) blk = true := by
-  unfold blockAt at h ⊢
-  simp only [Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq] at h ⊢
-  obtain ⟨⟨hl, hoff⟩, hb⟩ := h
-  generalize Scc.Cert.Rt.X64.run cells l = r at hoff hb ⊢
-  have hlen : (pre ++ blk ++ post).length ≤ (r.drop k).length := by
-    have := congrArg List.length hb
-    simp only [List.length_take] at this
-    omega
-  have hd : r.drop k = pre ++ blk ++ post ++ (r.drop k).drop (pre ++ blk ++ post).length := by
-    have := List.take_append_drop (pre ++ blk ++ post).length (r.drop k)
-    rw [hb] at this
-    exact this.symm
-  refine ⟨⟨hl, ?_⟩, ?_⟩
-  · rw [List.take_add, List.map_append, List.sum_append, hoff, hd]
-    simp
-  · rw [← List.drop_drop, hd]
-    simp
-
 variable {fr : Scc.Emit.X64.Frame} (hf : FrameOk fr) (h1 : fr.size ≤ 2 ^ 31)
 include hf h1
 
 /-- **A construct's block inside a block of `CdC` is at `Cd1`**: placed
-(`blockAt_sub`), passing the phase check (`runPhB_sub`'s
-`blkPh_of_runPhB`, its directives covered by `kind1_ok`). -/
+(`CdCQ.sub`, whole or in two pieces), passing the phase check
+(`blkPh_of_runPhB`, its directives covered by `kind1_ok`). -/
 theorem cd1_of_subCdC {cells : List (Directive × Nat)} {okPc : Nat → Bool} {ph : Nat → Nat}
     {lab : Label → Int64} {ra pc : Int64} {blk : List (Directive × Nat)}
     (h : SubCd (CdC cells okPc ph lab ra) pc blk) (hk : Kind1 fr blk) :
     Cd1 cells okPc ph lab fr ra pc blk := by
-  obtain ⟨pc0, pre, post, ⟨-, L, j, off, hpc0, hb, hrun⟩, rfl⟩ := h
-  have hc : cellOff (pre ++ blk ++ post) pre.length = (pre.map (·.2)).sum := by
-    simp [cellOff]
-  have hph := Scc.Cert.Ph1X64.blkPh_of_runPhB hrun (classify_of_okBlk (kind1_ok hf h1 hk))
-  rw [hc] at hph
-  refine ⟨hk, L, j + pre.length, off + (pre.map (·.2)).sum, ?_, blockAt_sub hb, hph⟩
-  rw [← hpc0, Int64.ofNat_add, Int64.add_assoc]
+  obtain ⟨pc0, pre, post, hc, hpc⟩ := h
+  obtain ⟨-, hat, hrun⟩ := CdCQ.sub hc hpc
+  have hph := Scc.Cert.Ph1X64.blkPh_of_runPhB (xs := []) (zs := []) (by simpa using hrun)
+    (classify_of_okBlk (kind1_ok hf h1 hk))
+  have a1 : ∀ {q b}, At1Q (fun _ => True) cells lab q b → At1 cells lab q b :=
+    fun ⟨L, j, off, _, he, hb⟩ => ⟨L, j, off, he, hb⟩
+  refine ⟨hk, ?_, by simpa [cellOff] using hph⟩
+  rcases hat with h | ⟨b1, b2, e, h1', h2'⟩
+  · exact .inl (a1 h)
+  · exact .inr ⟨b1, b2, e, a1 h1', a1 h2'⟩
 
 variable {exe : _root_.Executable} [Kraken.Executable.ValidLayout exe] {endPc : Int64}
   {cells : List (Directive × Nat)} {lab : Label → Int64} {μ : Marks} {own : Own} {Tk : State → Prop}

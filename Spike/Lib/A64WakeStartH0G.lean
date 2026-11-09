@@ -89,7 +89,7 @@ theorem wake_start_wc_h0W {E : Scc.Sem.Entry} (hE : E.Ok (Ly).Λ)
     (hpa : textProgram SccCertificate.asm = .ok o.prog) (hwp : textProgram SccCertificate.asm = .ok wakeProg)
     (hlo0 : Λ0.code.lo = lo) (hstat : Λ0.static = fun _ => none)
     (hA13 : Scc.Cert.Spawn.A64.a13data (Ly).Λ o.prog o.secs = true)
-    (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
+    (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
     (hctrD : ∀ a ∈ [(Ly).pnA, (Ly).lockA, (Ly).freeNA, (Ly).nextA], (Ly).Λ.data.contains a.toNat)
     (hc : Spike.Lib.A64.Rt.CtrZ o)
     /- named premise: `c0W` placed at every state -/

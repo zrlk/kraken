@@ -203,7 +203,7 @@ example (i : CoreTerm.Expr → String → Nat → Option Nat) (E : Entry) (cT : 
       (RuntimeLayout.ofPlaceW Spike.Lib.WakeFinalCAO.placeW_cert i).freeNA,
       (RuntimeLayout.ofPlaceW Spike.Lib.WakeFinalCAO.placeW_cert i).nextA],
         a ≠ lim2A (RuntimeLayout.ofPlaceW Spike.Lib.WakeFinalCAO.placeW_cert i))
-    (hpin2 : (RuntimeLayout.ofPlaceW Spike.Lib.WakeFinalCAO.placeW_cert i).pinA.toNat + 168 ≤
+    (hpin2 : (RuntimeLayout.ofPlaceW Spike.Lib.WakeFinalCAO.placeW_cert i).pinA.toNat + 200 ≤
       (RuntimeLayout.ofPlaceW Spike.Lib.WakeFinalCAO.placeW_cert i).Λ.pinned.lo +
         (RuntimeLayout.ofPlaceW Spike.Lib.WakeFinalCAO.placeW_cert i).Λ.pinned.size)
     (hland : AllocLand (WakeOD.arW Spike.Lib.WakeFinalCAO.placeW_cert i).heap

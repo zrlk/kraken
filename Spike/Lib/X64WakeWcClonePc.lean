@@ -1,8 +1,8 @@
 /-
 **wake.w's `clone` pc off the free pcs** (x86-64; the `clonePc` of
 `Spike/Lib/A64WakeWcInv.lean` and `ne_clonePc_of_freeN` of
-`Spike/Lib/A64WakeWcPreWI.lean`): main's `syscall` at `.Lwc_main.x21 + 46`
-(`X64WakePreA.cloneAt`) lies in `ownG`'s range `[.Lwc_main.x20,
+`Spike/Lib/A64WakeWcPreWI.lean`): main's `syscall` at `.Lwc_main.x3 + 46`
+(`X64WakePreA.cloneAt`) lies in `ownG`'s range `[.Lwc_main.x2,
 .Lwc_main.stk)`, so no free pc (`WcW.freeN`) is it. Checked by the kernel
 against the certificate's labels, no absolute address in this file.
 
@@ -28,8 +28,8 @@ def clonePc (L : RuntimeLayout) : Nat := (Spike.Lib.X64WakePreA.cloneAt L.exe).t
 
 /-- The clone's pc in `[.x20, .stk)`, below `2 ^ 64`. -/
 theorem clone_inCv :
-    ((codeLabel lo wakeCells ".Lwc_main.x21").isSome && decide (cv ".Lwc_main.x21" + 46 < 2 ^ 64) &&
-    inCv ".Lwc_main.x20" ".Lwc_main.stk" (cv ".Lwc_main.x21" + 46)) = true := by
+    ((codeLabel lo wakeCells ".Lwc_main.x3").isSome && decide (cv ".Lwc_main.x3" + 46 < 2 ^ 64) &&
+    inCv ".Lwc_main.x2" ".Lwc_main.stk" (cv ".Lwc_main.x3" + 46)) = true := by
   unfold inCv cv; rw [← codeT_eq]; decide +kernel
 
 /-- **A free pc is not the clone's** (`ownG`'s `[.x20, .stk)` range
@@ -40,11 +40,11 @@ theorem ne_clonePc_of_freeN {L : RuntimeLayout}
   have hc := clone_inCv
   simp only [Bool.and_eq_true, decide_eq_true_eq] at hc
   obtain ⟨⟨hs, hb⟩, hin⟩ := hc
-  have e : clonePc L = cv ".Lwc_main.x21" + 46 := by
+  have e : clonePc L = cv ".Lwc_main.x3" + 46 := by
     obtain ⟨y, hy⟩ := Option.isSome_iff_exists.mp hs
-    have ey : cv ".Lwc_main.x21" = y := by simp [cv, hy]
+    have ey : cv ".Lwc_main.x3" = y := by simp [cv, hy]
     rw [ey] at hb ⊢
-    show (L.lab ".Lwc_main.x21" + 46).toBitVec.toNat = y + 46
+    show (L.lab ".Lwc_main.x3" + 46).toBitVec.toNat = y + 46
     rw [hlab _ y hy]
     show (BitVec.ofNat 64 y + BitVec.ofNat 64 46).toNat = y + 46
     rw [BitVec.toNat_add, BitVec.toNat_ofNat, BitVec.toNat_ofNat]; omega

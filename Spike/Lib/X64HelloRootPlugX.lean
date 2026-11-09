@@ -110,7 +110,6 @@ noncomputable def toBaseX (asm : Scc.Sem.X64.Asm) (E : Scc.Sem.Entry)
   hlab := hlab_H hpw i0 hpa hhp hlo0
   hsite := hsite_H hpw i0 hpa hhp hlo0
   hro := hro_H hpw i0
-  W1 := B.W1
   har := Spike.Lib.X64.HelloPh.HelloRootBase.har_W hpw i0 hc
   Dt := B.Dt
   Ctx := B.Ctx

@@ -3,34 +3,45 @@
 This note states what this release of `scc` proves, what it trusts, and what
 it does not cover. Statements are quoted from the source tree.
 
-## New in this release: `hello.w` on x86-64, and `certify.sh` certifies `hello.w`
+## New in this release: GC tables, relinked executables, memory, raw-host executables, and `write` after a barrier
 
-`Scc/Test/hello.w`, the two-thread hello-world (a worker prints the
-published bytes `Hello, world\n` and wakes `main`), is now also proved on
-x86-64, at the executable checked in under `Scc/Test/elf/hellox64/hello`
-(§0, §1 `hello`, x86-64). `certify.sh --instantiate` now certifies
-`hello.w` on both ISAs when the run's text and executable are the checked-in
-ones (§2, §4); any other build of `hello.w` is refused, as for `wake.w`.
-The AArch64 link in `run.sh` and `certify.sh` places `.text` at hello's and
-wake's phase base through one shared script (`Scc/Test/a64link.sh`, §3).
-The AArch64 `hello` executable is relinked by that script, with the
-build-id note placed as well: `.text` stays at `0x210550` and the statement
-is unchanged, but the file's bytes, and so its pinned SHA-256, change
-(`3ccb878e…`, §2). The ELF reader's refusal now names the failing check
-(§3), and `certify_test.sh`'s linker matrix is stricter and compares each
-linked `.text` with the assembled listing (`Scc/Test/textcheck.py`, §4).
-One proof declaration is renamed: `XProW.noSetFs` in
-`Spike/Lib/X64Hello1RodataTP.lean` is now `XProW.noSetFs1` (the old name
-clashed with `Flow.XProW.noSetFs` of `Spike/Lib/X64KeepTPW.lean`).
+The statements of the final theorems in §1 are those of the previous
+release, word for word, and so are their axioms; the layouts and SHA-256
+pins they are instantiated at change with the relink below. One premise of
+the `wake` and `hello` root statements quoted in §1 changes: the bytes
+required inside the pinned region from the first TCB's address grow from
+168 to 200 (`hpin2`; §1 `hello`, x86-64). WeakCore stays at 621ec97a (next
+section, unchanged).
 
-Nothing else is new: the statements quoted in §1 for `wake`, `hello`
-(AArch64), `hello1` and `ret0` are unchanged, word for word, and so are their
-axioms; WeakCore stays at 621ec97a.
+- **GC tables are checked against scc's reference.** scc emits GC tables
+  (the call maps at return addresses, successors and the descriptor
+  `scc_gc_desc` in `.rodata`). Each certificate proves that the tables in
+  its text are those scc's reference tables stage computes for the program
+  (`prog_tablesOk`, `prog_sameAsScc`). It does so without running the
+  reference iteration, by checking a least-fixpoint witness. Nothing reads
+  the tables at run time, and no statement is about a collector (§5,
+  *GC tables*).
+- **Twelve executables are relinked.** `ret0` (x86-64 with GNU `ld`, x86-64
+  with `ld.lld`, AArch64), `call1` (x86-64, AArch64), `frame0` (x86-64),
+  `hello1` (x86-64, AArch64), `hello` (AArch64, x86-64) and `wake`
+  (AArch64, x86-64). Their `.s` files are regenerated with the GC tables,
+  and their SHA-256 pins and the layouts quoted in §1 and §2 change with
+  them. `Scc/Test/elf.sh --relink-check` reproduces them byte for byte.
+- **Building needs more memory.** The largest module, `WeakCore.TermStep`,
+  needs about 6 GiB of anonymous memory, and the certificate modules
+  2.0–5.4 GiB each (§4).
+- **Raw-host executables.** `scc --host raw` builds of `hello1.w` for both
+  ISAs are checked in (`Scc/Test/elf/hello1raw{x64,a64}/hello1`). They are
+  pinned and compared with the Linux build, not certified (§4, §5).
+- **`write` and promises.** On AArch64 the print routine issues `dmb ish`
+  immediately before its `write`, and the placement check verifies it
+  (`printIn`). What this argues and what remains open is in §5.
 
-## WeakCore 621ec97a
+## WeakCore 621ec97a (unchanged since the previous release)
 
-The vendored WeakCore (`WeakCore/`) is upstream 621ec97a, and scc and its
-proofs are adapted to it.
+This section is carried over from the previous release; nothing in it
+changes in this one. The vendored WeakCore (`WeakCore/`) is upstream
+621ec97a, and scc and its proofs are adapted to it.
 
 What changes for users:
 
@@ -40,9 +51,10 @@ What changes for users:
   annotation is missing") and one whose annotation is not the value's type.
   The test programs now write, for example, `let o = new[Int] z`. scc lowers
   `new[T] a` as it lowered `new a`: the emitted assembly of the `Scc/Test`
-  programs is unchanged on both ISAs, and so are the checked-in texts and
-  executables (`Scc/Test/elf.sh --relink-check`, the `regen_*.sh --check`
-  runs). The wake certificate's `source` changes by that line; its `asm` does
+  programs was unchanged on both ISAs by this change, and so were the
+  checked-in texts and executables at the time (`Scc/Test/elf.sh
+  --relink-check`, the `regen_*.sh --check` runs); this release regenerates
+  them for the GC tables (above). The wake certificate's `source` changes by that line; its `asm` does
   not.
 - **Certificate windows are proved.** WeakCore's soundness theorems assumed
   the certificate-window conditions `CertWinCN` and `CertWinPN` (and their
@@ -305,6 +317,30 @@ WeakCore semantics of `wakeSrc`, the frontend's reading of `Scc/Test/wake.w`
 (`Spike.Lib.WakeSrc.wakeSrcOk`, `#guard`), with two thread slots and `main`
 started on its own `ThreadId` (`Spike/Lib/WakeA64.lean`, §3 item 14).
 
+Root statement (`Spike/Lib/WakeFinalCAW.lean`):
+
+```lean
+theorem wake_finalCA_genWP (hp : PlaceW pcfg Λ0 SccCertificate.outLit)
+    {arch : WeakMem.Arch} {B : Budget} {r0 r1 : ιR hp i → Range}
+    /- the loader's check of the certificate (the trust boundary) -/
+    (hP : Scc.Cert.Link.A64.parsesTo SccCertificate.asm SccCertificate.outLit.prog SccCertificate.outLit.secs = true)
+    /- instance facts -/
+    (hlo : Λ0.code.lo = Spike.Lib.A64.WakePh.lo) (hstat : Λ0.static = fun _ => none)
+    (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
+    (hinit2 : (Spike.Lib.A64.PhRec.m0Of (Ly).Λ SccCertificate.outLit.prog SccCertificate.outLit.secs).initVal
+      ⟨Spike.Lib.WakeGOf2.lim2A (Ly), 8⟩ = 0)
+    (hwide : Scc.Cert.WideA64.ExeWide (Ly).exe)
+    (hsub1 : (WakeOSide.r1W hp i).Sub (Ly).Λ.stackPool) (hc : Spike.Lib.A64.Rt.CtrZ SccCertificate.outLit)
+    (hnz : WakeOInit.NtZ Λ0 SccCertificate.outLit = true) (hB : B.cells = Scc.Cert.PlaceOK.allocCells)
+    /- OPEN: the pre-spawn premises at `DW` -/
+    (hO : ∀ E : Entry, E.Ok (Ly).Λ → OpenW hp i cT ls0 Ctx frM inv0 inv1 arch
+      (WakeAssemblyR.MR hp i (WakeSpawnRP.parsed_outLit hP).1) r0 r1 E)
+    /- the root's choices -/
+    (hcT : ∀ E, cT E = WakeHG.cTW hp i) (hr0 : ∀ w, r0 w = WakeOSide.r0W hp i)
+    (hr1 : ∀ w, r1 w = WakeOSide.r1W hp i) :
+    CorrectE 2 (wakeS arch) (Ly).Λ B SccCertificate.asm
+```
+
 ### `wake`, x86-64
 
 `Spike/Test/WakeLinkedX64Root.lean` proves
@@ -350,6 +386,34 @@ two thread slots and `main` started on its own `ThreadId`. Unlike AArch64,
 it uses `Scc.Sem.SrcSem.srcPo` itself, not a local copy; the proof's own
 source semantics is identified with it by `WakeLinkedX64Br.wakeSrc_eq` and
 `wakeS_eq`.
+
+Root statement (`Spike/Lib/X64WakeLandU.lean`):
+
+```lean
+theorem wake_finalX_land {arch : WeakMem.Arch} {B : Budget}
+    (hP : Scc.Cert.Link.X64.parsesTo certAsm outLit.prog outLit.secs = true)
+    (hB : B.cells = Scc.Cert.PlaceOK.allocCells)
+    (hlo : Λ0.code.lo = Spike.Lib.X64.WakePh.lo) (hstat : Λ0.static = fun _ => none)
+    (hA13 : Scc.Cert.Spawn.X64.a13data (Ly).Λ outLit.prog outLit.secs = true)
+    (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
+    (hinit2 : (Spike.Lib.X64.PhRec.m0Of (Ly).Λ outLit.prog outLit.secs).initVal
+      ⟨Spike.Lib.X64WakeGOf2.lim2A (Ly), 8⟩ = 0)
+    (hsub1 : (Spike.Lib.X64WakeOSide.r1W hp i).Sub (Ly).Λ.stackPool) (hc : Spike.Lib.X64.Rt.CtrZ outLit)
+    (hnz : Spike.Lib.X64WakeOInit.NtZ Λ0 outLit = true)
+    (hpl0 : ∀ s, PlacedSE (Ly).Λ (L0T (Ly).Λ) s c0W [])
+    (hlft : Spike.Lib.X64.WakePh.StartH0C.HabLft (Ly)) {F0 : MachineData → Prop}
+    (hB1 : ∀ E : Entry, E.Ok (Ly).Λ → HB1) (hF0 : HF0)
+    (hst : ∀ E : Entry, E.Ok (Ly).Λ →
+      inv0G hp i (cTR) ls0 (CtxRU hp i c0W ls0) frM E
+        (threadAt E (Ly).Λ.code.lo outLit.prog (loadSyms (Ly).Λ outLit.secs.rodata))
+        ⟨Spike.Lib.X64WakePreAsm.wakeTh0.term, Spike.Lib.X64WakePreAsm.wakeTh0.env, none⟩
+        Spike.Lib.X64WakePreAsm.wakeTh0.stack) :
+    CorrectE 2 (wakeS arch) (Ly).Λ B certAsm
+```
+
+At this level some premises are still open: `wake_finalCA_genWP`'s `hO`,
+and `wake_finalX_land`'s `hpl0`, `hlft`, `hB1`, `hF0` and `hst`.
+`wake_linkedU` and `wake_linkedX` discharge them at `Λe`.
 
 ### `hello`, AArch64
 
@@ -478,8 +542,9 @@ theorem hello_root_final {Λ0 : Scc.Sem.Layout} (F : LayoutEX Λ0) {arch : WeakM
 facts: `PlaceWX` (every component of `placeOK2At`), `.text` at hello's phase
 base `X64.HelloPh.lo` (`0x401000`, GNU `ld`'s default), no static words,
 `scc_rt_nthreads` starting at 0, A13's data part at the placed layout, the
-first TCB's 168 bytes inside the pinned region, the second TCB's limit word
-starting at 0, and the child's stack range inside the stack pool.
+200 bytes from the first TCB's address `pinA` inside the pinned region
+(`hpin2`), the second TCB's limit word starting at 0, and the child's stack
+range inside the stack pool.
 
 - `hparse` is the loader's parse of `helloAsm` into `helloCells` and
   `helloSecs`, the trust boundary as for AArch64; it is `#guard`-checked by
@@ -853,8 +918,8 @@ decided at the layout of the binary actually linked.
    current scc. Likewise `ret0.s` for the three `ret0` fixtures.
 2. The links (no linker script in any), as recorded in `Scc/Test/elf.sh`:
    - `hello1`, AArch64 (`run.sh`'s command; `ld.lld`'s default script puts
-     `.rodata` and the stack map `scc_stackmap` below `.text` and adds a
-     build-id note):
+     `.rodata` (the stack map `scc_stackmap` and the GC tables) below
+     `.text` and adds a build-id note):
 
      ```
      clang --target=aarch64-linux-gnu -march=armv8.4-a -nostdlib -static -fuse-ld=lld \
@@ -876,15 +941,19 @@ decided at the layout of the binary actually linked.
    natively, AArch64 under `qemu-aarch64`).
 3. The ELF reader reads `Λe` off the file (`scc_elf_layout%`, fail closed)
    and accepts it (`#eval` verdict guard); a `#guard elf.2 == …` pins the
-   file's SHA-256: `hello1` AArch64 `60378da8…`, `hello1` x86-64
-   `e1b2ff37…`; `ret0` AArch64 `6087ccf2…`, x86-64 GNU `ld` `f202a51e…`,
-   x86-64 `ld.lld` `56c83082…`. Guarded about the `hello1` layouts:
+   file's SHA-256: `hello1` AArch64 `fba4fbc8…`, `hello1` x86-64
+   `98182ede…`; `ret0` AArch64 `d0cb524c…`, x86-64 GNU `ld` `79c52e1a…`,
+   x86-64 `ld.lld` `482d4f0f…`. Guarded about the `hello1` layouts:
    - x86-64: `Λe.code.lo == 0x401000`, `.rodata` at or above the code's end,
      and every `.rodata` symbol at or above the code's start;
    - AArch64: `.rodata` ends at or below the code's start, the code's start
-     is 16-aligned, and the only symbol below the code is `scc_stackmap`, at
-     `.rodata`'s start. (The module doc gives `.text` at `0x210410`; that
-     address is not guarded.)
+     is 16-aligned, and the symbols below the code are exactly `.rodata`'s
+     labels, the stack map `scc_stackmap` at `.rodata`'s start and then the
+     GC tables `scc_gc_maps`, `scc_gc_succs`, `scc_gc_rseq` and
+     `scc_gc_desc` at their offsets. (The module doc gives `.text` at
+     `0x213080`; that address is not guarded.) The same module checks, at
+     the static link with `.rodata` moved below the code (`Λlo`, `.rodata`
+     of `0x3000` bytes), that A2 accepts the output.
 4. The kernel decides `placeOKAt placeCfg Λe out` component by component
    (`decide +kernel` per component, A1–A9, A11 and A12, combined by
    `placeOKAt_of`), including A1's `codeFits` and A2's loader check
@@ -924,7 +993,7 @@ What this chain still trusts is in §3.
    above. The executable runs under `qemu-aarch64`, prints nothing and
    exits 0.
 3. The ELF reader reads `Λe` off the file (`scc_elf_layout%`, fail closed);
-   a guard pins its SHA-256, `a5cd1cd9…` (`WakeLinkedA64Elf`).
+   a guard pins its SHA-256, `7843e1f7…` (`WakeLinkedA64Elf`).
 4. The kernel decides the placement facts the proof uses at `Λe`, one
    `decide +kernel` per component (`PlaceW`: A1, A2, A4, A6, A8 in
    `WakeLinkedA64A1` … `A8`; the thread counter, the pinned region and the
@@ -951,7 +1020,7 @@ What this chain still trusts is in §3.
    `elf.sh --relink-check` reproduces it byte for byte with the toolchain
    above. The executable runs, prints nothing and exits 0.
 3. The ELF reader reads `Λe` off the file (`scc_elf_layout%`, fail closed);
-   a guard pins its SHA-256, `4e03ea54…` (`WakeLinkedX64Elf`). `.text` is at
+   a guard pins its SHA-256, `672d383f…` (`WakeLinkedX64Elf`). `.text` is at
    `0x401000` (`#guard`).
 4. The kernel decides the placement facts at `Λe`, one `decide +kernel` per
    component: **all** of `placeOK2`'s components, A1–A9, A11′, A12′ (code
@@ -988,7 +1057,7 @@ What this chain still trusts is in §3.
    above. Under `qemu-aarch64` the executable prints `Hello, world` and
    exits 0.
 3. The ELF reader reads `Λe` off the file (`scc_elf_layout%`, fail closed);
-   a guard pins its SHA-256, `3ccb878e…` (`HelloLinkedA64Elf`). Guarded:
+   a guard pins its SHA-256, `c9f1ff20…` (`HelloLinkedA64Elf`). Guarded:
    `.text` at `0x210550`, `.rodata` ending at or below it.
 4. The kernel decides the layout facts at `Λe` (`HelloLinkedA64`): `PlaceW`
    from A1, A2, A4, A6, A8 (`HelloLinkedA64A1` … `A8`, one `decide +kernel`
@@ -1022,7 +1091,7 @@ What this chain still trusts is in §3.
    `elf.sh --relink-check` reproduces it byte for byte with the toolchain
    above. The executable prints `Hello, world` and exits 0.
 3. The ELF reader reads `Λe` off the file (`scc_elf_layout%`, fail closed);
-   a guard pins its SHA-256, `369c53ad…` (`HelloLinkedX64Elf`). Guarded:
+   a guard pins its SHA-256, `8fb245f0…` (`HelloLinkedX64Elf`). Guarded:
    `.text` at `0x401000`, 16-aligned, `.rodata` above the code.
 4. The kernel decides the layout facts at `Λe` (`HelloLinkedX64Le`):
    `placeOK2At` from its components (`HelloLinkedX64A1` … `A13`, one
@@ -1053,7 +1122,7 @@ specification. In addition:
 
 1. **The ELF layout reader** (`Scc/Cert/Elf.lean`). Its refusal names the
    failing conjunct of `wfB` (`Link.wfBWhy`, diagnostics only; `wfB` and
-   `wfB_sound` are unchanged). Evaluated by the
+   `wfB_sound` are unchanged by this). Evaluated by the
    elaborator (`scc_elf_layout%`), not replayed by the kernel: a `#guard`'s
    trust. It reads the System V gABI header, program, section and symbol
    tables of an ELF64 LE `ET_EXEC` file (`EM_AARCH64` or `EM_X86_64`) and
@@ -1094,9 +1163,9 @@ specification. In addition:
    refused, and a `.data`/`.bss` symbol below the code is refused by `wfB`.
    Trusted: that Linux's loader puts those symbols where the target's
    `placeBelow` does. Proved, not trusted: A2's `symsAround` and `noClash`.
-   **Exercised** by `scc_stackmap` below the code in both AArch64 fixtures
-   (`ret0`, `hello1`) and by `.rodata`'s labels in the x86-64 `ld.lld`
-   fixture.
+   **Exercised** by `.rodata`'s labels (`scc_stackmap` and the GC tables'
+   labels) below the code in the AArch64 fixtures (`ret0`, `call1`,
+   `hello1`) and in the x86-64 `ld.lld` fixture.
 5. **Evaluated, not kernel-checked, on the chain to each fixture** (each a
    `#guard`/`#eval` or elaboration-time evaluation; their trust is that of
    Lean's compiled evaluator):
@@ -1162,7 +1231,7 @@ specification. In addition:
     that keep the stack lock's bit) and **A13** (the thread counter, the
     second stack in the pool, the second TCB's words, and the code and
     phase facts of `scc_rt_thread_reserve`, `scc_rt_park` and
-    `scc_rt_unpark`), the other checks unchanged. They are part of the
+    `scc_rt_unpark`), the other checks as for `hello1`. They are part of the
     certificate's statement; for `wake` the AArch64 proof uses the
     components it needs, the x86-64 proof all of them, each decided at `Λe`
     (§2). `hello`'s AArch64 proof uses `PlaceW` (A1, A2, A4, A6, A8), A13's
@@ -1195,7 +1264,7 @@ specification. In addition:
 15. **WeakCore's machine and language layer.** The bodies of `TermRun.tstep`
     (with `new`), `CoreTerm.scan`, `CoreTerm.annNew`, `CoreTerm.progTgts` and
     `TermRun.tysOf` are part of the source semantics and are not covered by
-    WeakCore's premise guard (see "WeakCore 621ec97a"). This is the
+    WeakCore's premise guard (see "WeakCore 621ec97a (unchanged since the previous release)"). This is the
     definition text of WeakCore 621ec97a as vendored.
 
 16. **The AArch64 link of `wake` and `hello`** (`Scc/Test/a64link.sh`,
@@ -1203,8 +1272,7 @@ specification. In addition:
     with `.text` at `0x210550`, so their executables are linked with the
     build-id note, `.rodata` and `.text` placed at fixed addresses (the
     note's and `.rodata`'s are `ld.lld`'s defaults); with the three
-    placements `ld.lld` writes its default script's segments, and `wake`'s
-    executable is its default link byte for byte. A `.rodata` larger than
+    placements `ld.lld` writes its default script's segments. A `.rodata` larger than
     about 66 KiB makes the placed link fail. Other programs are linked at
     `ld.lld`'s default. x86-64 needs no placement: GNU `ld` puts `.text` at
     `0x401000` whatever the size of `.rodata`.
@@ -1221,13 +1289,25 @@ quantifier) and its notes on AArch64 alignment.
 ## 4. Reproducing
 
 **Building.** `lake build Kraken KrakenAArch64 WeakCore Scc Spike scc`
-(5872 jobs), then `lake build scc_x64 scc_arm` and the test modules. In
-this release's cold build, no module outside the table below went above
-2.5 GB of anonymous memory, and the certificate modules took 1.63–1.79 GB
-each with `LEAN_NUM_THREADS=1`. Memory: on a cold build with `LEAN_NUM_THREADS=1`, most modules
-stay under 2.5 GiB of anonymous memory per `lean` process (the resident size
-also counts the mapped `.olean` files). These modules need more, even
-single-threaded (peak anonymous memory / peak resident size):
+(5953 jobs), then `lake build scc_x64 scc_arm` and the test modules.
+
+**Memory.** Build with `LEAN_NUM_THREADS=1`: Lake may run several `lean`
+processes at once, each single-threaded, and the figures below are per
+process. The WeakCore and certificate modules in the tables below were built alone,
+once their imports were built; the third table is from the release build,
+where several single-threaded `lean` processes ran at once. The largest module, `WeakCore.TermStep`, needs about
+6 GiB of anonymous memory; the largest certificate module,
+`Spike.Test.Cert.A64Chain5Cert`, about 5.4 GiB.
+The resident size also counts the mapped `.olean` files. Build each module
+below alone once its imports are built, e.g.
+`LEAN_NUM_THREADS=1 lake build WeakCore.TermStep`, with about 8 GB of memory
+free and nothing else heavy running. To bound the total of a whole build,
+build serially, e.g. `LEAN_NUM_THREADS=1 taskset -c 0 lake build Scc Spike`.
+No module outside the three tables below needs more than 3.5 GiB of anonymous
+memory.
+
+WeakCore (unchanged since the previous release; peak anonymous memory / peak
+resident size):
 
 | Module | Anonymous | Resident |
 |---|---|---|
@@ -1235,20 +1315,49 @@ single-threaded (peak anonymous memory / peak resident size):
 | `WeakCore.GenLayer` | 4.5 GiB | 6.1 GiB |
 | `WeakCore.TermScopeFHM` | 4.0 GiB | 6.1 GiB |
 | `WeakCore.TermPlant` | 2.9 GiB | 4.5 GiB |
-| `Spike.Test.A64Hello1TgOk` | 3.1 GiB | 5.8 GiB |
-| `Spike.Test.A64Hello1PlaceOKELit` | 2.9 GiB | 5.2 GiB |
-| `Spike.Test.A64Ret0PlaceOKELit` | 2.7 GiB | 5.0 GiB |
-| `Spike.Test.X64Hello1PlaceOK` | 2.6 GiB | 4.9 GiB |
 
-Build each of them alone and single-threaded once its imports are built,
-e.g. `LEAN_NUM_THREADS=1 lake build WeakCore.TermStep`, with nothing else
-heavy running. A cold build of `WeakCore` with the nine guard-only modules
-took 52 minutes on 16 cores. The certificate modules (`Spike.Test.Cert.*`)
-need about 1.7 GiB anonymous (4.0 GiB resident) each with
-`LEAN_NUM_THREADS=1`, and more at default threads; build them one at a time
-with `LEAN_NUM_THREADS=1` and not alongside other heavy jobs. To bound the total
-of a parallel build, build serially, e.g. `LEAN_NUM_THREADS=1 taskset -c 0
-lake build Scc Spike`.
+A cold build of `WeakCore` with the nine guard-only modules took 52 minutes
+on 16 cores.
+
+The certificate modules need more memory than in the previous release. Peak
+anonymous memory per module, each built alone with `LEAN_NUM_THREADS=1` once
+its imports are built:
+
+| Certificate module | Peak anonymous memory |
+|---|---|
+| `Spike.Test.Cert.A64Chain5Cert` | 5.4 GiB (5525 MB) |
+| `Spike.Test.Cert.A64HelloCert` | 4.6 GiB (4742 MB) |
+| `Spike.Test.Cert.A64WakeCert` | 4.0 GiB (4119 MB) |
+| `Spike.Test.Cert.X64HelloCert` | 3.9 GiB (4040 MB) |
+| `Spike.Test.Cert.X64WakeCert` | 3.5 GiB (3545 MB) |
+| `Spike.Test.Cert.A64Hello1Cert` | 2.9 GiB (2953 MB) |
+| `Spike.Test.Cert.A64Call1Cert` | 2.6 GiB (2659 MB) |
+| `Spike.Test.Cert.X64Hello1Cert` | 2.5 GiB (2554 MB) |
+| `Spike.Test.Cert.A64Ret0Cert` | 2.3 GiB (2378 MB) |
+| `Spike.Test.Cert.X64Call1Cert` | 2.3 GiB (2307 MB) |
+| `Spike.Test.Cert.X64Frame0Cert` | 2.0 GiB (2097 MB) |
+| `Spike.Test.Cert.X64Ret0Cert` | 2.0 GiB (2092 MB) |
+
+`Spike.Test.Cert.A64Chain5Cert` takes about 11 minutes.
+
+These other modules need more than 3.5 GiB each (peak anonymous memory per
+process in the release build):
+
+| Module | Peak anonymous memory |
+|---|---|
+| `Spike.Test.X64Hello1PlaceOK` | 5.2 GiB (5291 MB) |
+| `Spike.Test.A64HelloRootLitSmoke` | 4.0 GiB (4132 MB) |
+| `Spike.Test.A64HelloRootBaseInhSmoke` | 4.0 GiB (4129 MB) |
+| `Spike.Test.Call1LinkedX64` | 3.9 GiB (4019 MB) |
+| `Spike.Lib.A64HelloCode` | 3.9 GiB (3967 MB) |
+| `Spike.Test.Ret0LinkedA64` | 3.8 GiB (3927 MB) |
+| `Spike.Test.WakeLinkedX64A2` | 3.8 GiB (3901 MB) |
+| `Spike.Test.Ret0LldX64` | 3.8 GiB (3884 MB) |
+| `Spike.Test.WakeLinkedA64A2` | 3.8 GiB (3873 MB) |
+| `Spike.Test.Ret0LinkedX64` | 3.7 GiB (3811 MB) |
+| `Spike.Test.Frame0LinkedX64` | 3.7 GiB (3768 MB) |
+| `Spike.Test.WakeLinkedX64Load` | 3.7 GiB (3761 MB) |
+| `Spike.Lib.A64WakeCode` | 3.6 GiB (3692 MB) |
 
 **Checking the `hello1` theorems.**
 
@@ -1299,11 +1408,9 @@ LEAN_NUM_THREADS=1 lake build Spike.Test.WakeLinkedA64Root
 
 builds `wake_linkedU` with its `#print axioms` guard, the linked layout
 (`Spike.Test.WakeLinkedA64Elf`, which reads the checked-in executable and
-checks its SHA-256) and the certificate. On a checkout with nothing under
-`Spike` built it takes about 73 minutes with `LEAN_NUM_THREADS=1`, at a peak of
-about 1.8 GB RssAnon per `lean` process (4.0 GB including mapped `.olean`
-files); the placement modules `WakeLinkedA64A1` … `A8` each stay under
-1.1 GB RssAnon (about 3.3 GB including mapped `.olean` files).
+checks its SHA-256) and the certificate. A cold build time was not measured for this release. Its
+largest module is the certificate `Spike.Test.Cert.A64WakeCert` (table
+above), and no other module it builds needs more than 3.8 GiB RssAnon.
 
 ```
 LEAN_NUM_THREADS=1 lake build Spike.Test.WakeLinkedX64Root
@@ -1311,10 +1418,10 @@ LEAN_NUM_THREADS=1 lake build Spike.Test.WakeLinkedX64Root
 
 builds `wake_linkedX` with its `#print axioms` guard, the linked layout
 (`Spike.Test.WakeLinkedX64Elf`, which reads the checked-in executable and
-checks its SHA-256) and the certificate. On a checkout with nothing under
-`Spike` built it takes about 80 minutes with `LEAN_NUM_THREADS=1`, at a
-peak of about 1.8 GB RssAnon per `lean` process (4.0 GB including mapped
-`.olean` files); no x86-64 `wake` module needs more than 2.5 GiB.
+checks its SHA-256) and the certificate. A cold build time was not measured for this release. Its
+largest modules are `Spike.Test.WakeLinkedX64A2` and the certificate
+`Spike.Test.Cert.X64WakeCert` (tables above), and no other module it builds
+needs more than 3.2 GiB.
 
 **Checking the `hello` theorem (AArch64).**
 
@@ -1324,13 +1431,13 @@ LEAN_NUM_THREADS=1 lake build Spike.Test.HelloLinkedA64Root
 
 builds `hello_linkedA` with its `#print axioms` guard, the linked layout
 (`Spike.Test.HelloLinkedA64Elf`, which reads the checked-in executable and
-checks its SHA-256) and the listing. On a checkout with nothing under
-`Spike` built it takes about 120 minutes with `LEAN_NUM_THREADS=1`
-(about 115 minutes plus about 5 minutes for the certificate module
-`Spike.Test.Cert.A64WakeCert` it depends on), at a peak of about 1.7 GiB
-RssAnon per `lean` process (4.4 GiB including mapped `.olean` files); the
+checks its SHA-256) and the listing, and the certificate module
+`Spike.Test.Cert.A64WakeCert` it depends on (table above). A cold build time was not measured for this release. The
 placement modules `HelloLinkedA64A1` … `A8` each stay at or under about
-1.2 GiB RssAnon, and no `hello` module needs more than 2.5 GiB.
+1.4 GiB RssAnon; A2's loader check is split into one module
+per conjunct, `Spike.Test.HelloLinkedA64A2{load,abort,image}`,
+each under 1 GB in our build. No other module it builds needs more than 3.9 GiB
+(`Spike.Lib.A64HelloCode`, table above).
 
 **Checking the x86-64 `hello` theorem.**
 
@@ -1341,13 +1448,13 @@ LEAN_NUM_THREADS=1 lake build Spike.Test.HelloLinkedX64Root
 builds `hello_linkedX` and `hello_linkedX_linux` with their `#print axioms`
 guards, the linked layout (`Spike.Test.HelloLinkedX64Elf`, which reads the
 checked-in executable and checks its SHA-256) and the listing. The x86-64
-`hello` development's modules are listed in `Spike/HelloTargetsX64.txt` (568
-modules, some of them outside this root's import closure). On a checkout
-with nothing under `Spike` built it takes about 140 minutes with
-`LEAN_NUM_THREADS=1` (about 136 minutes plus about 4.5 minutes for the
-certificate module `Spike.Test.Cert.X64WakeCert` it depends on), at a peak
-of about 1.8 GiB RssAnon per `lean` process; no x86-64 `hello` module needs
-more than 2.5 GiB.
+`hello` development's modules are listed in `Spike/HelloTargetsX64.txt` (557
+modules, some of them outside this root's import closure). It depends on
+the certificate module `Spike.Test.Cert.X64WakeCert` (table above). A cold build time was not measured for this release. A2's loader
+checks at `Λe` and at `Λ1` are split into one module per conjunct,
+`Spike.Test.HelloLinkedX64A2{size,nodup,quad,rest,abort,image}` and
+`Spike.Test.HelloLinkedX64L1A2{size,nodup,quad,rest,abort,image}`, each
+under 1 GB in our build. No other module it builds needs more than 3.2 GiB.
 
 **Certifying a fresh build** (`Accepted0`/`Accepted1` programs,
 `hello1.w`, and `wake.w` and `hello.w` on both ISAs at their checked-in executables). The last line is the verdict, followed by time and peak RssAnon
@@ -1355,21 +1462,21 @@ of the checking Lean process:
 
 | Command | Verdict |
 |---|---|
-| `Scc/Test/certify.sh --arch arm --instantiate Scc/Test/ret0.w` | **certified** (66 s, 2009 MB) |
-| `Scc/Test/certify.sh --arch x64 --instantiate Scc/Test/ret0.w` | **certified** (59 s, 2052 MB) |
-| `Scc/Test/certify.sh --arch arm --instantiate Spike/Gen/frame0.w` | **certified** (63 s, 2010 MB) |
-| `Scc/Test/certify.sh --arch x64 --instantiate Spike/Gen/frame0.w` | **certified** (57 s, 2057 MB) |
-| `Scc/Test/certify.sh --arch arm --instantiate Scc/Test/hello1.w` | **certified** (41 s, 1971 MB) |
-| `Scc/Test/certify.sh --arch x64 --instantiate Scc/Test/hello1.w` | **certified** (33 s, 1977 MB) |
-| `Scc/Test/certify.sh --arch arm --instantiate Scc/Test/wake.w` | **certified** (3.6 s, 130 MB) |
-| `Scc/Test/certify.sh --arch x64 --instantiate Scc/Test/wake.w` | **certified** (6.1 s, 141 MB) |
-| `Scc/Test/certify.sh --arch arm --instantiate Scc/Test/hello.w` | **certified** (2.86 s, 158 MB) |
-| `Scc/Test/certify.sh --arch x64 --instantiate Scc/Test/hello.w` | **certified** (2.51 s, 154 MB) |
+| `Scc/Test/certify.sh --arch arm --instantiate Scc/Test/ret0.w` | **certified** (426 s, 2532 MB) |
+| `Scc/Test/certify.sh --arch x64 --instantiate Scc/Test/ret0.w` | **certified** (321 s, 4173 MB) |
+| `Scc/Test/certify.sh --arch arm --instantiate Spike/Gen/frame0.w` | **certified** (405 s, 2518 MB) |
+| `Scc/Test/certify.sh --arch x64 --instantiate Spike/Gen/frame0.w` | **certified** (315 s, 4125 MB) |
+| `Scc/Test/certify.sh --arch arm --instantiate Scc/Test/hello1.w` | **certified** (44 s, 2283 MB) |
+| `Scc/Test/certify.sh --arch x64 --instantiate Scc/Test/hello1.w` | **certified** (50 s, 4044 MB) |
+| `Scc/Test/certify.sh --arch arm --instantiate Scc/Test/wake.w` | **certified** (3 s, 148 MB) |
+| `Scc/Test/certify.sh --arch x64 --instantiate Scc/Test/wake.w` | **certified** (3 s, 143 MB) |
+| `Scc/Test/certify.sh --arch arm --instantiate Scc/Test/hello.w` | **certified** (3 s, 160 MB) |
+| `Scc/Test/certify.sh --arch x64 --instantiate Scc/Test/hello.w` | **certified** (3 s, 153 MB) |
 
 For `hello1.w`, the first run builds `Spike.Test.X64Hello1FinalC` /
-`Spike.Test.A64Hello1FinalCA` if they are not built (on a checkout with
-nothing under `Spike` built: about 47 minutes for x86-64, then 31 for
-AArch64, with `LEAN_NUM_THREADS=1`; peak about 4 GiB).
+`Spike.Test.A64Hello1FinalCA` if they are not built (peak 3.4 GiB RssAnon,
+`Spike.Test.A64Hello1TgOk`; the cold build time was not measured for this
+release).
 
 `certify.sh -v` prints every command it runs and the Lean files it writes,
 so a run can be repeated by hand. Any other program outside `Accepted1`,
@@ -1382,16 +1489,19 @@ times in the table are with it built.
 
 **Tests.**
 
-- `#print axioms` over every non-test module (3372 modules) reports only
+- `#print axioms` over every non-test module (3404 modules) reports only
   `propext`, `Classical.choice` and `Quot.sound`.
-- `Scc/Test/run.sh`, both ISAs: 60 checks, 54 passed, 0 failed, 6 not
-  certifiable; certificates 15 certified, 6 not certifiable (`deeprec`,
-  `growmany`, `spill`, `stackcap` and `stackdepth` without a stack need
-  table, `tailwide` refused by A12).
+- `Scc/Test/run.sh`, both ISAs: 60 checks, 54 passed, 0 failed,
+  6 not certifiable; certificates 15 certified, 6 not certifiable
+  (`deeprec`, `growmany`, `spill`, `stackcap` and `stackdepth` without a
+  stack need table, `tailwide` refused by A12). Its `arith` certificate
+  check peaks at about 10 GB of anonymous memory on x86-64 (9 GB on
+  AArch64).
 - `Scc/Test/blocks.sh --check`: 42 passed; `Spike/Gen/drift.sh`: clean;
   `Scc/Test/elf.sh`: ok; `Scc/Test/elf.sh --relink-check`: ok;
-  `Scc/Test/textalign.sh`: ok (21 programs).
-- `Scc/Test/certify_test.sh`: all passed, 108 ok, 0 failed, 0 skipped,
+  `Scc/Test/elf.sh --raw-check`: ok; `Scc/Test/textalign.sh`: ok
+  (21 programs).
+- `Scc/Test/certify_test.sh`: 109 ok, 0 failed, 0 skipped,
   without `CERTIFY_TEST_SKIP_MISSING` (including `-v`, `hello1.w` on both ISAs at its `run.sh` link and at a
   moved link, `wake.w` and `hello.w` certified on both ISAs at their
   checked-in executables, `hello.w` refused at another link or with one byte
@@ -1402,9 +1512,8 @@ times in the table are with it built.
   failure unless `CERTIFY_TEST_SKIP_MISSING=1` is set, and a `.text` that
   differs from the assembled listing outside relocated fields
   (`Scc/Test/textcheck.py`) is a failure.
-- `tools/diff_place.sh`: the placement samples of `diff.sh` match their
-  pinned outcomes on both ISAs, wide and narrow (narrow: 21 certifiable,
-  9 without a stack need table, 0 failed).
+- `tools/diff_place.sh`: ok on both ISAs (narrow: 21 certifiable, 9 without a
+  stack need table, 0 failed).
 - `Kraken/AArch64/Test/asm_tests.py`: 66/66; `Kraken/X64/Test/asm_tests.py`:
   63/63.
 - `Scc/Test/diff.sh -n 300`, each ISA: 300/300 agree with the reference
@@ -1434,6 +1543,42 @@ files byte for byte.
   respectively, only, and each covers its listing only. The canonical
   static link (`Scc.Cert.Link.canonical`, code at `0x400000`) is not such a
   layout.
+- **No `.text` granule pass in this release.** `scc` does not lay `.text`
+  out in 64 KiB granules and writes no granule descriptor words. The layouts
+  of §2 are the executables' as linked, and no statement mentions granules.
+- **The GC tables have no consumer.** The tables in `.rodata` (call maps at
+  return addresses, successors, the descriptor) are proved equal to what
+  scc's reference tables stage (`emitTables`) computes for the program
+  (next item); this is not a claim about any collector's correctness. Nothing in this release
+  reads them at run time, and no statement is about a collector.
+- **GC tables.** A certificate does not run the reference liveness
+  iteration. It checks a ranked witness per function
+  (`Scc.Cert.Maps.leastOk`: a post-fixpoint whose every slot is justified at
+  a rank below the iteration bound) and builds the tables from it.
+  - The witness stage's result is the reference stage's
+    (`emitTables_of_emitTablesW`, via `leastOk_mem` and
+    `compute_of_computeWR`).
+  - So the certificate's run is scc's run (`lowerAll_eq_of_tables`, the
+    generated `prog_sameAsScc`, and `prog_tablesOk` gives the tables' data
+    `tblLit` that ends the certificate's `.rodata`), and the statements are
+    at scc's configuration.
+  - The witness is untrusted: a wrong one makes the stage fail, and the
+    certificate does not check.
+- **Raw-host executables are not certified.**
+  `Scc/Test/elf/hello1rawx64/hello1` and `Scc/Test/elf/hello1rawa64/hello1`
+  (`scc --host raw`, linked with `Scc/Test/elf/raw.ld`) are only:
+  - checked against the raw pipeline's listing and pinned by SHA-256
+    (`Spike/Test/Hello1RawLinked{X64,A64}.lean`);
+  - compared with the Linux build by `Scc/Test/elf.sh --raw-check`.
+
+  The layout reader refuses them, because the entry is not the start of
+  `.text`, and no placement check runs on them.
+- **`wake`'s and `hello`'s root theorems.** `wake_linkedU`/`wake_linkedX`
+  and `hello_linkedA`/`hello_linkedX` instantiate the root statements quoted
+  in §1 (`wake_finalCA_genWP`, `wake_finalX_land` and the two
+  `hello_root_final`) at `Λe`. Their premises are the boundary facts of §2,
+  discharged at `Λe` by the `*Linked*` modules; the premises still open at
+  the root level of `wake` are listed in §1.
 - **Among the spawning programs, only `wake.w` and `hello.w` are proved**,
   on both ISAs, at their checked-in executables; `certify.sh` refuses any
   other spawning program (verdict 3 with `--instantiate`).
@@ -1492,6 +1637,10 @@ files byte for byte.
   (a store after an `emit`, promised before that `emit` runs,
   `TermRun.LBE`) are not part of the source semantics, and WeakCore lists
   them as not covered.
+- **`write` and promises.** On AArch64, hello's print routine issues a full barrier (`dmb ish`) before its `write` system call, and only one thread prints a buffer that no thread writes after publishing it. So, for hello, the model's rule that no promise is outstanding across `write` rests on the same argued hardware facts as for `clone`, plus one model lemma about promises after a full barrier that is not yet proved.
+
+  The argument and its known remaining points are in `Scc/DESIGN.md` §4 (*No promise across `clone`*, the
+  paragraph on `write`), its trusted-base table, and §6 item 44.
 - **Recursion depth.** Certificates set `maxRecDepth` right after the
   namespace: the reparse of a large asm can exceed the default. It changes no
   statement.

@@ -172,13 +172,14 @@ theorem instsC2_call {cx : FnCtx} {Cd : Int64 → List Directive → Prop} {Bl :
       Cd (pc + Int64.ofNat (4 * (directives lw).length) + 4) (directives ls) ∧
       pc' = pc + Int64.ofNat (4 * (directives lw).length) + 4 + Int64.ofNat (4 * (directives ls).length) := by
   rcases h with ⟨hc, -⟩ | ⟨d', g', w', lw, ls, he, hw, hs, h1, h2, h3, hp⟩ |
-      ⟨_, _, _, _, _, _, he, -⟩ | ⟨_, _, _, he, -⟩
+      ⟨_, _, _, _, _, _, he, -⟩ | ⟨_, _, _, he, -⟩ | ⟨_, _, _, _, _, _, he, -⟩
   · simp [Spike.Lib.LowerShape.isCall] at hc
   · simp only [Scc.IR.Inst.call.injEq, List.cons.injEq, and_true] at he
     obtain ⟨rfl, hg, rfl⟩ := he
     rw [← hg] at h2
     exact ⟨lw, ls, hw, hs, h1, h2, h3, hp⟩
   · simp [Spike.Lib.LowerShape.newBufCall] at he
+  · cases he
   · cases he
 
 section Call

@@ -19,10 +19,10 @@ wake's (`X64WakeOwnWcSp4X`, `X64WakeOwnTi2X`), generic in the code.
 ## Differences from the AArch64 version
 
 AArch64 has no counterpart: main owns no TCB word there. Against x86-64 wake's `OwnSp4`: hello's frame is 128
-bytes (wake 64), so the band is `[-144, 8]` (wake `[-80, 8]`); the call is at `.x24` (`4203749`, wake `.x20`) and
-the clone at `.x25` (`4203774`, wake `.x21`), whose pcs to `.stk` are exactly `InCH`, so the clone's class is
+bytes (wake 64), so the band is `[-144, 8]` (wake `[-80, 8]`); the call is at `.x24` (`4203787`, wake `.x20`) and
+the clone at `.x25` (`4203812`, wake `.x21`), whose pcs to `.stk` are exactly `InCH`, so the clone's class is
 `InCH` itself (wake `PW`/`QW`); `WcSp4WH` has no `nI` field, so `nIH_wcGHX` and `wcSp6W_wcGHX` are separate
-results (wake's `clone` field); the producers take `hW` about the worker's word `tcbWH L` (`pinA + 112`).
+results (wake's `clone` field); the producers take `hW` about the worker's word `tcbWH L` (`pinA + 144`).
 -/
 import Spike.Lib.X64HelloOwnLft2X
 import Spike.Lib.X64HelloWcSp4W

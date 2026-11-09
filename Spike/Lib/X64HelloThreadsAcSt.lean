@@ -3,8 +3,8 @@
 (x86-64; the twin of `Spike/Lib/A64HelloThreadsAcSt.lean`):
 `Spike/Lib/X64ThreadsAcSt.lean`'s check and introductions at
 `Hello.ThreadsAb.Ac lab pfx cl n st off` (`Spike/Lib/X64HelloThreadsAb.lean`),
-wake's at `".x21" 46 ".x22" (-56)`, hello's (`AcH`) at
-`".x25" 94 ".x26" (-120)`.
+wake's at `".x3" 46 ".x4" (-56)`, hello's (`AcH`) at
+`".x3" 94 ".x4" (-120)`.
 
 - `blkAc`, `blkAc_sound`: as wake's, with `cl n st` (the check reads only
   the pcs) and `off` (the soundness theorem's phase). The node of the

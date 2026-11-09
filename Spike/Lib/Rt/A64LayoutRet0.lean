@@ -67,6 +67,8 @@ theorem ret0L_F : rtF ret0L = ret0F := by
 
 theorem ret0L_end : ret0L.endPc = ret0End := rfl
 
+-- The tables grew `.rodata` (R11): the decision recurses past the default depth.
+set_option maxRecDepth 100000 in
 theorem ret0L_ok : Scc.Sem.Entry.linux.Ok ret0L.Λ := by decide
 
 theorem ret0L_entryR : entryR Scc.Sem.Entry.linux = Spike.Lib.A64.Flow.Ret0.Inst.entryR := rfl

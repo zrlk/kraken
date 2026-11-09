@@ -37,8 +37,9 @@ theorem ret0_fnCodeOk : fnCodeOk SccCode.ret0Prog ret0IR = true := by decide +ke
 listing with a wrong abort code, a wrong callee or without the block's
 label fails. -/
 
-/-- The index of `main`'s `.L18_wc_main.abort_overflow` label in `ret0Prog`. -/
-def ovfIdx : Nat := 1319
+/-- The index of `main`'s `.L18_wc_main.abort_overflow` label in `ret0Prog`
+(found, so that it follows the regenerated layout; the guard below pins it). -/
+def ovfIdx : Nat := (SccCode.ret0Prog.findIdx? (· == .label ".L18_wc_main.abort_overflow")).getD 0
 
 #guard SccCode.ret0Prog[ovfIdx]? == some (.label ".L18_wc_main.abort_overflow")
 #guard (SccCode.ret0Prog.drop (ovfIdx + 1)).take 2 == ovfBlk

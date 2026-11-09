@@ -197,7 +197,9 @@ theorem allocNoCtrT (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp)
       omega
   · tblk h29 bO9_ok
   · exact Spike.Lib.X64.AllocG.NodeW.imp (Spike.Lib.LowerX64.BlkW.nodeW (blkW_noWr hI (blk := [(iRet.toDir, 1)])
-      (lo := -160) (hi := 8) h30 rfl
+      (lo := -160) (hi := 8) h30.2 (by
+        rw [Spike.Lib.X64.Flow.ofNat_zero']; show lab _ = lab _ + Int64.ofNat 226
+        rw [← hI.labOk]; exact Scc.Cert.Rt.X64.label_labelGapB hI.lays h30.1)
       (show Spike.Lib.X64.okBlk (-160) 8 Spike.Lib.X64.Alloc.oE [(iRet.toDir, 1)] = true by decide) hR
       (by omega) (by omega)) (List.cons_ne_nil _ _)) Spike.Lib.X64.NodeW.triv fun _ _ h _ hW => h _ hW
 

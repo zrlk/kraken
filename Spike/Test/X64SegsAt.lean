@@ -2,10 +2,10 @@
 **The x86-64 runtime segments at any return point**
 (`Spike/Lib/Rt/X64SegsAt.lean`): at `ret0.w`'s cells the `.x7` corollaries
 give the hand `thread_init_segW` (as `Spike/Lib/Rt/X64SegsRet0.lean` does
-from `threadInit_segW`), and at `hello1.w`'s cells, whose
-`scc_rt_thread_init` returns to `.x8` (a setup block), `threadInit_segWAt`
-applies with its code check from `rtCodeInTi_of_okS`, where
-`threadInit_segW` does not (`threadInitIn` fails there).
+from `threadInit_segW`), and at `hello1.w`'s cells (a setup block)
+`threadInit_segWAt` applies with its code check from `rtCodeInTi_of_okS`;
+under per-function labels `scc_rt_thread_init` returns to `.x0` in both
+programs, so `threadInitIn` holds at `hello1.w`'s cells too.
 -/
 import Spike.Lib.Rt.X64SegsAt
 import Spike.Test.X64RtCode
@@ -44,7 +44,7 @@ example {W : Frag isa} {rS : Scc.Sem.Range} (hp : Lays exe SccCode.ret0Cells)
     hfld htk hW hRS hfit hout hFt
 
 /-- `hello1.w`'s `scc_rt_thread_init` is one segment, its return point at
-`.x8`: the code checks from `hello1`'s `rtCodeOkS`. -/
+`x8L` (`.x0`): the code checks from `hello1`'s `rtCodeOkS`. -/
 example {W : Frag isa} {rS : Scc.Sem.Range} (hp : Lays exe SccCode.hello1Cells)
     (hend : endPc = endOf exe SccCode.hello1Cells)
     (hF : FStable R F) (hR : R.OK) (hlo : R.lo ≤ -248) (hhi : 8 ≤ R.hi)
@@ -66,7 +66,8 @@ example {W : Frag isa} {rS : Scc.Sem.Range} (hp : Lays exe SccCode.hello1Cells)
   have hc := rtCodeInTi_of_okS Test.hello1_rtCodeOkS
   threadInit_segWAt hp hend hc.ti hc.take hF hR hlo hhi hFF q hk hfld htk hW hRS hfit hout hFt
 
-/-- The `.x7` check fails on `hello1.w`: only the `At` form applies there. -/
-example : ThreadInit.threadInitIn SccCode.hello1Cells = false := by decide +kernel
+/-- The `x7L` check holds on `hello1.w` as well: `x7L` and `x8L` are both
+`.x0` under per-function labels. -/
+example : ThreadInit.threadInitIn SccCode.hello1Cells = true := by decide +kernel
 
 end Spike.Lib.X64.Rt.SegsAtTest

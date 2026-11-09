@@ -2,17 +2,16 @@
 **`OpenW.hW0` at hello's level-0 root context, the child's stack unmapped** (x86-64; the twin of
 `Spike/Lib/A64HelloLandRU.lean`): level 0 ends at `wc_rodata`'s landing, so its only counter add is
 `wc_rodata`'s, under main's frame and thread pointer (`CtxRdH`; `wc_main`'s add and the box's store are level
-1's). The root's context is `CtxRdU := RootUL.CtxU CtxRdH` (`r1Of` unmapped).
+1's). The root's context is `RootUL.CtxU CtxRdHg` (`r1Of` unmapped; `CtxRdU` at `ownGH`).
 
-At `CtxRdU` the counter row is `RootUL.ctrRow_ofFTU` (the add keeps `TP` and `U r1Of` into `c2`), its tail
-`LandRd.HLandRdU` (in `inv0H` at `CtxRdH`) moved up by `RootUL.inv0_upH`; the add writes the counter
-(`CtrF.ctrAtF_wr`), so `hnew` is vacuous.
+At it the counter row is `RootUL.ctrRow_ofFTU` (the add keeps `TP` and `U r1Of` into `c2`) and the add writes the
+counter (`CtrF.ctrAtF_wr`), so `hnew` is vacuous; the root's `hW0` at the self words is
+`X64HelloRootL0X.hW0_RdUX`.
 
 - `refHg`, `CtxRdHg`: the reference side and the level-0 context at an own map `own` (`refH`, `CtxRdH` at `ownGH`).
 - `CtxRdH`, `CtxRdU`: the level-0 context, with `r1Of` unmapped.
 - `hctx_rdRHg`, `hctx_rdRH`: a counter add of `wc_rodata`'s buffer call under main's frame and thread pointer is in
   `CtxRdHg own` (`CtxRdH`).
-- `hW0_RdU`: `hW0` at `helloDR` with `Ctx := CtxRdU`, given `HLandRdU` at `inv0H … CtxRdH …`.
 
 ## Differences from the AArch64 version
 
@@ -21,11 +20,11 @@ At `CtxRdU` the counter row is `RootUL.ctrRow_ofFTU` (the add keeps `TP` and `U 
   `endOf`, `allocIn`) under `(Ly).valid`.
 - main's thread pointer is `tpOf (tcbS Ly)` (`%fs`'s base; AArch64 `pinA + 8` in `TPIDR_EL0`).
 - `wc_rodata`'s call is in `scc_rt_main`'s region `RS helloLsw v` (AArch64 `swR v (-helloLsw) 0`), its caller's
-  invariant `rdJH` at that region, returning to `.Lwc_rodata.x15` with `CallerCells` reaching `8` (AArch64
+  invariant `rdJH` at that region, returning to `.Lwc_rodata.x0` with `CallerCells` reaching `8` (AArch64
   `.L19_wc_rodata.sp0`, `0`); the regions' stability is `Land.fstable_FS`, `Hello1.mR_ok`, `Land.fstable_aRH` (`Land3`)
   with no alignment.
-- The counter add's tail starts at `c2` (AArch64 `n4`); `inv0_upH` takes no `a13data` premise, so neither does
-  `hW0_RdU`.
+- The counter add's tail starts at `c2` (AArch64 `n4`).
+- AArch64's `hW0_RdU` (at `ownGH`) is at `ownGHXW` here: `X64HelloRootL0X.hW0_RdUX`.
 -/
 import Spike.Lib.X64HelloRootUL
 import Spike.Lib.X64HelloRootO
@@ -40,7 +39,6 @@ open Kraken Kraken.Promising Kraken.Promising.X64
 open Scc.Sem (Entry)
 open Spike.Lib.X64.Rt (RuntimeLayout)
 open Spike.Lib.X64Consumer (Lsize)
-open Spike.Lib.X64ConsumerA (SFactsACH)
 open Spike.Lib (FragS MemSide PlaceWX)
 open Spike.Lib.X64 (At)
 open Spike.Lib.X64.Flow.Ret0 (CallerCells tpOf)
@@ -52,13 +50,8 @@ open Spike.Lib.X64.KeepTP (TP)
 open Spike.Lib.X64.HelloPh.Land (CtrAtF refH GcRdH)
 open Spike.Lib.X64.HelloPh.StartH0G (helloLsw)
 open Spike.Lib.X64.HelloPh.StartWcS (rdJH)
-open Spike.Lib.X64.HelloPh.RootH0 (inv0H)
 open Spike.Lib.X64.HelloPh.RootUL (CtxU)
-open Spike.Lib.X64.HelloPh.LandRd (HLandRdU)
 open Spike.Lib.X64.HelloPh.C0S (c0S)
-open Spike.Lib.X64WakeLoadT (L0T)
-open Spike.Lib.X64HelloSrc (helloSrc)
-open Spike.Lib.X64HelloRootO (helloDR)
 
 /-- `Flow`'s abstract state. -/
 local notation "FAS" => Spike.Lib.X64.AS
@@ -112,12 +105,12 @@ example : CtxRdH (asm := asm) hpw i0 E rd ls =
   rfl
 
 /-- **A counter add of `wc_rodata`'s buffer call is in `CtxRdHg own`**: a buffer allocation from `wc_rodata`
-returning to `.Lwc_rodata.x15`, under main's frame and thread pointer, at a memory side that is `refHg own` but for
+returning to `.Lwc_rodata.x0`, under main's frame and thread pointer, at a memory side that is `refHg own` but for
 `xa`. -/
 theorem hctx_rdRHg (own : State → List (Loc × Val)) (hc : Spike.Lib.X64.Rt.CtrZ o) {ms : MemSide isa}
     (hms : ms = { refHg (asm := asm) hpw i0 E rd ls own [FR] with xa := ms.xa }) (v : BitVec 64)
     (m0 : MachineData) (σC : FAS) :
-    ∀ q : Call, q.OK ms (Ly).lab → q.ra = ((Ly).lab ".Lwc_rodata.x15").toBitVec →
+    ∀ q : Call, q.OK ms (Ly).lab → q.ra = ((Ly).lab ".Lwc_rodata.x0").toBitVec →
       ∀ s c, At (Ly).exe (Ly).endPc (aR (mR (RS helloLsw v)))
         (fun m => mF (RS helloLsw v) (FS (Ly) (RS0) helloLsw 0#64 v) m0 σC m ∧
           CallerCells (mR (RS helloLsw v)) (-48) (-160) 8 m ∧
@@ -138,53 +131,17 @@ theorem hctx_rdRHg (own : State → List (Loc × Val)) (hc : Spike.Lib.X64.Rt.Ct
     exact Spike.Lib.X64.HelloPh.Land.ctr_none_FS (asm := asm) hpw i0 E rd ls hc (fs := [FR]) (X := X) m hm.1.1
 
 /-- **A counter add of `wc_rodata`'s buffer call is in `CtxRdH`**: a buffer allocation from `wc_rodata`
-returning to `.Lwc_rodata.x15`, under main's frame and thread pointer (`hctx_rdRHg` at `ownGH`). -/
+returning to `.Lwc_rodata.x0`, under main's frame and thread pointer (`hctx_rdRHg` at `ownGH`). -/
 theorem hctx_rdRH (hc : Spike.Lib.X64.Rt.CtrZ o) {ms : MemSide isa}
     (hms : ms = { refH (asm := asm) hpw i0 E rd ls [FR] with xa := ms.xa }) (v : BitVec 64) (m0 : MachineData)
     (σC : FAS) :
-    ∀ q : Call, q.OK ms (Ly).lab → q.ra = ((Ly).lab ".Lwc_rodata.x15").toBitVec →
+    ∀ q : Call, q.OK ms (Ly).lab → q.ra = ((Ly).lab ".Lwc_rodata.x0").toBitVec →
       ∀ s c, At (Ly).exe (Ly).endPc (aR (mR (RS helloLsw v)))
         (fun m => mF (RS helloLsw v) (FS (Ly) (RS0) helloLsw 0#64 v) m0 σC m ∧
           CallerCells (mR (RS helloLsw v)) (-48) (-160) 8 m ∧
           RdCtx ms (Ly).lab (mR (RS helloLsw v)) (mRdJ0 ((J') v) σC) (mRdJ0 ((J') v) σC) q m)
         (N (Ly).lab ms q .rmw) s c → TP (TV) s → CtxRdH (asm := asm) hpw i0 E rd ls s c [FR] :=
   hctx_rdRHg hpw i0 E rd ls _ hc hms v m0 σC
-
-variable {W1 inv1 : WeakMem.AllocLabel → Nat → Nat → FragS isa}
-  {W2 inv2 : WeakMem.AllocLabel → Nat → Nat → WeakMem.AllocLabel → Nat → Nat → FragS isa}
-
-set_option hygiene false in
-/-- The root's instance data at `Ctx := CtxRdU`, `frM := frH c0S.env`, both levels at `ls`. -/
-local notation "D" => helloDR (asm := asm) hpw TI E (CtxRdU (asm := asm) hpw i0 E (fun _ => True)
-    ls) ls (FR) W1 inv1 W2 inv2
-
-set_option hygiene false in
-local notation "μE" => (Scc.Sem.X64.target (Scc.Sem.X64.kernel 2) E).marks asm (Ly).Λ
-
-/-- **`hW0` at `Ctx := CtxRdU`** (`WakeWf.hW0`): the counter row by `ctrRow_ofFTU`, its tail `hR` (`HLandRdU` in
-`inv0H` at `CtxRdH`) lifted by `inv0_upH` with `U r1Of` kept by the add; `hnew` vacuous (the add writes the
-counter, `ctrAtF_wr`). -/
-theorem hW0_RdU (hpa : Scc.Sem.X64.cellsOf asm = some o.prog)
-    (hhp : Scc.Sem.X64.cellsOf asm = some SccCode.helloCells)
-    (hR : HLandRdU (asm := asm) hpw i0 E (fun _ => True) ls
-      (inv0H (asm := asm) hpw TI E (fun _ => True) (CtxRdH (asm := asm) hpw i0 E (fun _ => True) ls) ls ls (FR)
-        inv1 inv2)) :
-    ∀ s c fs, (D).inv0 s c fs → (D).W0 s c fs →
-      SFactsACH (Ly).Λ (μE) helloSrc (D).rd (D).G (D).own (D).ar (Spike.Lib.X64HelloO.IH (D)) (D).L0 (D).ls0 s c fs
-        (D).Dt (Spike.Lib.X64.WriteAb.Ab (Ly).lab) (D).Cl
-        (Spike.Lib.X64.Hello.ThreadsAb.AcH (Ly).lab Spike.Lib.X64.HelloPh.StartWf.pfxM) := by
-  haveI := (Ly).valid
-  obtain ⟨hp, hend, hin⟩ := Spike.Lib.X64.HelloPh.LandR.hcode_H hpw i0 hpa hhp
-  exact Spike.Lib.X64.WakeWf.hW0
-    (fun _ _ _ _ hC _ _ _ hr _ =>
-      Spike.Lib.X64.HelloPh.RootUL.ctrRow_ofFTU hp hend hin (fun _ => rfl)
-        (fun fs ms0 R F q hms hG hok s c hA ht hu => .inl ⟨rfl, rfl,
-          Spike.Lib.X64.HelloPh.RootUL.inv0_upH hpw i0 E (fun _ => True)
-            (CtxRdH (asm := asm) hpw i0 E (fun _ => True) ls) ls (FR) inv1 inv2 s c fs
-            (hR fs ms0 R F q hms hG hok s c hA hu ht) hu⟩)
-        hC.1.1 hC.1.2 hC.2 hr)
-    (fun s c fs _ hC hW _ _ _ _ _ _ _ =>
-      (hW (Spike.Lib.X64.HelloPh.CtrF.ctrAtF_wr hp hend hin (fun _ => rfl) s c fs hC.1.1)).elim)
 
 end Spike.Lib.X64.HelloPh.LandRU
 
@@ -193,6 +150,3 @@ end Spike.Lib.X64.HelloPh.LandRU
 
 /-- info: 'Spike.Lib.X64.HelloPh.LandRU.hctx_rdRH' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms Spike.Lib.X64.HelloPh.LandRU.hctx_rdRH
-
-/-- info: 'Spike.Lib.X64.HelloPh.LandRU.hW0_RdU' depends on axioms: [propext, Classical.choice, Quot.sound] -/
-#guard_msgs in #print axioms Spike.Lib.X64.HelloPh.LandRU.hW0_RdU

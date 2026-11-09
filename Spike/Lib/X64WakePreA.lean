@@ -4,7 +4,7 @@
 one-thread consumer of main's code up to its `clone` and the clone's
 spawn (`X64WakeParentAt.parent_at`, `X64WakeChildAt.child_at`).
 
-At main's `syscall` (`.Lwc_main.x21 + 46`: `cloneAt`) the one-slot
+At main's `syscall` (`.Lwc_main.x3 + 46`: `cloneAt`) the one-slot
 configuration has one thread, at the system call, asking for
 `clone(flags, stack, 0, 0, tls)` with `stack = %rsi` the child's stack top
 (the top of the range `r1` the second take holds) and `tls = %r8` the
@@ -21,7 +21,7 @@ at the clone is 128 bytes below the top; `wc_main`'s frame, its 64 bytes
 below `%rbp` and the saved `%rbp` and return address above it, is the 80
 bytes at `%rsp`.
 
-The x64 labels are not numbered per program (`.Lwc_main.x21`), so there is
+The x64 labels are not numbered per program (`.Lwc_main.x3`), so there is
 no label prefix: `cloneAt` and `ClonePre` drop A64's `pfx` argument.
 `spawnTerm` and `mainTidLbl` are `Spike.Lib.X64WakeSrcDefs`' (ISA-free
 restatements of the neutral ones, checked against them by `rfl` in
@@ -45,7 +45,7 @@ open Spike.Lib.X64WakeA64 (Cfg)
 open Spike.Lib.X64.WakePh.WcClone (x21L)
 open Spike.Lib.X64WakeSrcDefs (spawnTerm mainTidLbl)
 
-/-- **The clone's address**: the `syscall` at `.Lwc_main.x21 + 46` (after
+/-- **The clone's address**: the `syscall` at `.Lwc_main.x3 + 46` (after
 the stores, the `mfence`, the loads, the two zeroings and `movl $56`), in
 executable `exe`. -/
 def cloneAt (exe : _root_.Executable) : Int64 :=

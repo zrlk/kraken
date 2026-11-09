@@ -1,20 +1,19 @@
 /-
 **hello.w on x86-64: the state at `wc_rodata`'s entry after `call wc_rodata` inside the start's level at
-`ownGHXW`** (x86-64 only; the `ownGHXW` instance of `Spike/Lib/X64HelloWeS.lean`, as `X64HelloRdWfSFX` is
-`X64HelloRdWfSF`'s): a state at `Hello1.mNC` is inside `WSHFg (ownGHXW L a) … []`, so inside
-`StartWcS.WSg (ownGHXW L a) … []`.
+`ownGHXW`** (x86-64 only; AArch64's `A64HelloWeS` at `ownGHXW`, on `X64HelloWeS`'s pieces): a state at
+`Hello1.mNC` is inside `WSHFg (ownGHXW L a) … []`, so inside `StartWcS.WSg (ownGHXW L a) … []`.
 
-The proof is `WeS.hWe_W0SH`'s, through `RdWfSFX.proW_rdWSHX` in place of `RdWfSF.proW_rdWSHF`: the state is the
-prologue's first block at its first instruction (`WeS.blkW_at0`) at the entry invariant `WeS.rdJe`, placed at every
-state (`hpl0`, `WeS.proW_ofCtl`).
+The proof is AArch64 `hWe_W0SH`'s, through `RdWfSFX.proW_rdWSHX`: the state is the prologue's first block at its
+first instruction (`WeS.blkW_at0`) at the entry invariant `WeS.rdJe`, placed at every state (`hpl0`,
+`WeS.proW_ofCtl`).
 
 - `hWe_W0SHX`: `mNC`'s states inside `WSHFg (ownGHXW L a) … []`.
 - `hWe_WSX`: the same at `StartWcS.WSg (ownGHXW L a) … []`.
 
 ## Differences from the AArch64 version
 
-AArch64 has no counterpart: main owns no TCB word there. Against `X64HelloWeS`: the level is at `ownGHXW L a`, and
-the premises `hsep`, `ha`, `hW` (`ownGHXW`'s separation) and `hb` (`wc_rodata`'s region's band on the pool) are
+Against `A64HelloWeS.hWe_W0SH` (at `WSH`; main owns no TCB word there): the level is at `ownGHXW L a`, and the
+premises `hsep`, `ha`, `hW` (`ownGHXW`'s separation) and `hb` (`wc_rodata`'s region's band on the pool) are
 new, as `RdWfSFX.proW_rdWSHX` asks them (discharged at the root as `HrdRootX.hrd_RX` does).
 -/
 import Spike.Lib.X64HelloWeS
@@ -58,9 +57,9 @@ variable {L : RuntimeLayout} {a : BitVec 64} {R : Region} {F : MachineData → P
 
 include hp hlo hΛ hlab hsite hcl hX0 hc0 hpl0
 
-/-- **`mNC`'s states inside `WSHFg (ownGHXW L a)`** (`WeS.hWe_W0SH` through `RdWfSFX.proW_rdWSHX`): `hWe_W0SH`'s
-premises, `ownGHXW`'s separation (`hsep`, `ha`, `hW`), and the band of `wc_rodata`'s region `mR R` on the pool
-(`hb`). -/
+/-- **`mNC`'s states inside `WSHFg (ownGHXW L a)`** (through `RdWfSFX.proW_rdWSHX`): the loader's and
+the start's premises, `ownGHXW`'s separation (`hsep`, `ha`, `hW`), and the band of `wc_rodata`'s region `mR R` on
+the pool (`hb`). -/
 theorem hWe_W0SHX (hsep : Spike.Lib.X64.PhRec.TcbSep L) (ha : tcbM L ≠ a)
     (hW : tcbWH L ∉ [L.pnA, L.lockA, L.freeNA, L.nextA, a]) (hb : BandOnP L (mR R) (-208) 8)
     (hR : R.OK) (hRlo : R.lo ≤ -288) (hhi : 8 ≤ R.hi)

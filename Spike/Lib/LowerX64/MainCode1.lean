@@ -65,11 +65,7 @@ theorem mainFrame1Ok_size {cfg : Scc.Config} {d : Decl} (h : MainFrame1Ok cfg d 
 theorem mem_starts (ir : Scc.IR.Program) {f : Scc.IR.Func} :
     ∀ {fs : List Scc.IR.Func} (m : Nat), f ∈ fs → ∃ n, (f, n) ∈ starts ir m fs
   | [], _, h => by cases h
-  | g :: fs, m, h => by
-    rcases List.mem_cons.mp h with rfl | h
-    · exact ⟨m, by simp [starts]⟩
-    · obtain ⟨n, hn⟩ := mem_starts ir (m + Scc.Cert.Code1X64.fnLabs ir g) h
-      exact ⟨n, by simp only [starts]; exact List.mem_cons_of_mem _ hn⟩
+  | _ :: _, m, h => ⟨m, mem_starts_self h⟩
 
 /-- **The prologue's cell sizes of a parameterless function** passing
 `fnOk1`: exactly five. -/

@@ -3,13 +3,13 @@
 frame** (x86-64, wake.w; the twin of `Spike/Lib/A64WakeRefAg.lean`):
 `X64WakeRefStub.RefAg`, from `WakePh.abAgree2b` at `WakePh.abPT` in the
 callee's region (`callee_of_pre`), the return address `raT` being
-`.Lwc_main.x23` (`raT_x23`).
+`.Lwc_main.x5` (`raT_x23`).
 
 - `refAg`: `RefAg`.
 
 **Where this differs from AArch64**: the callee's region is
 `R.callee (-72 - 8) (-24) 16` with no alignment; the return address is
-`.Lwc_main.x23` (A64's `.L21_wc_main.sp11`); the take site's check is
+`.Lwc_main.x5` (A64's `.L21_wc_main.sp11`); the take site's check is
 `siteOff_W` at the resolved addresses; the parses are on `cellsOf asm`.
 -/
 import Spike.Lib.X64WakeRefLay
@@ -44,7 +44,7 @@ theorem refAg {asm : Asm} (hpa : cellsOf asm = some o.prog) (hwp : cellsOf asm =
   simp only [Scc.Cert.Rt.X64.Abort.abortIn, Bool.and_eq_true] at hsd
   have hP := Spike.Lib.X64.WakePh.abPT (μ := Spike.Lib.X64.PhRec.μ (Ly))
     (F := fun m => DFrame R m0 m ∧ CKept R (-72 - 8) (-24) 16 m1 m ∧ Abs R ⟨-72, [(.rbp, 0)]⟩ m1 σC)
-    (c0 := c0) (ra := ((Ly).lab ".Lwc_main.x23").toBitVec) (endPc := Spike.Lib.X64.WakeH1Inv.endR hp i)
+    (c0 := c0) (ra := ((Ly).lab ".Lwc_main.x5").toBitVec) (endPc := Spike.Lib.X64.WakeH1Inv.endR hp i)
     hlab hR' (by omega) (by omega) (siteOff_W hp i hlab)
     (Scc.Cert.Rt.X64.Abort.code_disp hl rfl hsd.2)
     (Scc.Cert.Rt.X64.Abort.code_stubs hl rfl SccCode.wake_abort .threads)

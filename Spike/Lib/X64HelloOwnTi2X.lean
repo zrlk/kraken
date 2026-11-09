@@ -1,6 +1,6 @@
 /-
 **wc_main's second `scc_rt_thread_init` call lifted to `ownGHXW`** (x86-64 only; the hello twin of
-`Spike/Lib/X64WakeOwnTi2X.lean`): the call from `wc_main` (returning to `.Lwc_main.x25`) on the worker's TCB
+`Spike/Lib/X64WakeOwnTi2X.lean`): the call from `wc_main` (returning to `.Lwc_main.x3`) on the worker's TCB
 (`q.tcb = tcbWH`), its frames `[-248, 8]` on the pool. Before the take store (`.st0`, `.x8 + 48`) every state owns
 `tcbM` only (`QPH`, `cls_poolH`), the nested `scc_rt_stack_take` call too (`takeL2H`, its shared writes off
 `tcbM`); `.st0` takes the worker's word (`st0WH`: `W0.appendS` of the constant `tM`, then `W0.takeS` of `tWH`);
@@ -19,8 +19,8 @@ AArch64 has no counterpart: main owns no TCB word there (its thread pointer is a
 `OwnTi2`: the code is helloCells (`hello_tiIn`, `hello_takeIn`, `ti_labsH`, `take_labsH`); `scc_rt_thread_init`
 returns to `.x8` (`Rt.x8L`, `4199606`; wake `.x7`), so its nodes are `Rt.tiNAt … x8L` and its obligations
 `Rt.TiWAt … x8L` (wake: `Ret0.TiW`), `.st0` at `4199654`, `InTH` from `4199657`; the call returns to `.x25`
-(`4203774`, wake `.x21`); the take site is at `4200314`; the classes are `CstH`, `QPH`/`PPH`, `QWH`/`PWH`; the
-worker's word is `tcbWH L` (`pinA + 112`, wake `tcb2 L = pinA + 104`). Wake's write conditions (`hw_st`, `hw_stK`,
+(`4203812`, wake `.x21`); the take site is at `4200314`; the classes are `CstH`, `QPH`/`PPH`, `QWH`/`PWH`; the
+worker's word is `tcbWH L` (`pinA + 144`, wake `tcb2 L = pinA + 136`). Wake's write conditions (`hw_st`, `hw_stK`,
 `hw_xchg`, `hw_ld`, `hw_rmw`, `hw_nop`) and `notIn_tM`, `notIn_nil` read no program and are used as they are;
 wake's `TiW.imp` / `ti2X` have no twins (hello's consumer takes `TiWAtP`, as wake's `Ti2Hat` does, from `ti2LH`
 and `TiWAtP.imp`).
@@ -299,7 +299,7 @@ theorem takeL2H (hp : L.prog = helloCells)
         exact (code_field L.lays rfl (hp ▸ bSite) (ofNat_zero' _) s he hn).cell0 rfl rfl hp'
   case ret =>
     have eX8' : L.lab Spike.Lib.X64.Rt.x8L = Int64.ofNat 4199606 := eX8
-    refine blkLH hp hlab hsite hsep ha hW (P := PPH) (Q := QPH) bRet rfl stRet_ok hR (by omega) (by omega)
+    refine blkLHA hp hlab hsite hsep ha hW (P := PPH) (Q := QPH) bRet rfl stRet_ok hR (by omega) (by omega)
       (fun _ h => h.2) (fun s h => cls_poolH hlab hbd s h.1) (cls_poolH hlab hbd) ?_ (soT stRet oI) (fun σ c hJ => ?_)
     · intro k hk; dsimp only [takeNG]; rw [eSite]; revert k; decide +kernel
     · dsimp only [takeNG] at hJ ⊢
@@ -345,6 +345,16 @@ set_option hygiene false in
 local macro "tblkW " bb:term:max ok:term:max blk:term:max oo:term:max el:term:max : tactic =>
   `(tactic| (
     refine blkLH hp hlab hsite hsep ha hW (P := PWH) (Q := QWH) $bb (by first | rfl | exact ofNat_zero' _) $ok hR
+      (by omega) (by omega) (fun _ h => h.2) (fun s h => cls_poolWH hlab hbd48 s h.1) (cls_poolWH hlab hbd48) ?_
+      (soI $blk $oo) (fun σ c hJ => ?_)
+    · intro k hk; dsimp only [Spike.Lib.X64.Rt.tiNAt]; rw [$el:term]; revert k; decide +kernel
+    dsimp only [Spike.Lib.X64.Rt.tiNAt] at hJ ⊢))
+
+set_option hygiene false in
+/-- `tblkW` on a block split by a return label (`blkLHA`). -/
+local macro "tblkWA " bb:term:max ok:term:max blk:term:max oo:term:max el:term:max : tactic =>
+  `(tactic| (
+    refine blkLHA hp hlab hsite hsep ha hW (P := PWH) (Q := QWH) $bb (by first | rfl | exact ofNat_zero' _) $ok hR
       (by omega) (by omega) (fun _ h => h.2) (fun s h => cls_poolWH hlab hbd48 s h.1) (cls_poolWH hlab hbd48) ?_
       (soI $blk $oo) (fun σ c hJ => ?_)
     · intro k hk; dsimp only [Spike.Lib.X64.Rt.tiNAt]; rw [$el:term]; revert k; decide +kernel
@@ -442,13 +452,13 @@ theorem ti2LH (hbdI : BandP L R (-248)) (hR : R.OK) (hRlo : R.lo ≤ -248)
     (hhi : 8 ≤ R.hi) (hFr : ∀ m, F m → Spike.Lib.X64.Rt.rtF L m) {M : MachineData → Prop} (q : TiG)
     (htcb : q.tcb = tcbWH L)
     (hunT : ∀ b ∈ Spike.Lib.X64.Rt.Ti.tiAddrs q.tcb, ∀ m, F m → Mem.loadInt m.dmem b 8 = none)
-    (hra : q.g.ra = (L.lab ".Lwc_main.x25").toBitVec) :
+    (hra : q.g.ra = (L.lab ".Lwc_main.x3").toBitVec) :
     ∀ i, Spike.Lib.X64.Rt.TiWAt (LftH L a ar p Dt Cl Ctx lbl lsize frM X0) (fun _ _ => False) L.exe L.endPc R F M
       q Spike.Lib.X64.Rt.x8L i := by
   have hbd48 : BandOnP L R (-48) 8 := bandP_mono hbdI (by decide)
   obtain ⟨eFn, eEn⟩ := ti_labsH hlab (L := L)
   obtain ⟨eT, -, -, -, -, -, -, -, -, -, -, eX8⟩ := take_labsH hlab (L := L)
-  have e25 : L.lab ".Lwc_main.x25" = Int64.ofNat 4203774 :=
+  have e25 : L.lab ".Lwc_main.x3" = Int64.ofNat 4203812 :=
     hlab _ _ (by rw [← Scc.Cert.Rt.X64.codeT_eq]; decide +kernel)
   have hin := hello_tiIn
   simp only [threadInitInAt, storeOff, storeBlks_eq, List.zip_cons_cons, List.zip_nil_right, List.all_cons,
@@ -503,7 +513,7 @@ theorem ti2LH (hbdI : BandP L R (-248)) (hR : R.OK) (hRlo : R.lo ≤ -248)
     rw [(tiF5_walk _ _ hJ.2).1, eX8]; decide +kernel
   case st5 => tstX bS5 TI.st5 5 40 4
   case ret =>
-    tblkW bRet tiRet_ok tiRet oI eX8
+    tblkWA bRet tiRet_ok tiRet oI eX8
     rw [(tiRet_walk _ _ hJ.2).1, hra, Int64.ofBitVec_toBitVec, e25]; decide +kernel
 
 end Ti

@@ -382,7 +382,7 @@ theorem loopW_main (hruns : RunsOffA (_root_.Executable.labels exe).label waitRu
     rw [placeVal_cell hA' o16 _ rfl, arun_one (by rfl) hk, h16]
   x16 := by
     have o16 : R.Off (-16) := ⟨by decide, by omega, by omega⟩
-    refine blkW_main (by pc_blk ".Lwc_waitLoop.x16" 10 0 b9) hwide fun s σ c _ _ _ hJ k hk m hA' => ?_
+    refine blkW_main (by pc_blk ".Lwc_waitLoop.x1" 10 0 b9) hwide fun s σ c _ _ _ hJ k hk m hA' => ?_
     obtain ⟨rfl, ⟨-, -, h16⟩, -, -⟩ := hJ
     refine ⟨hc0, placed_c0 (pc := .slot (R.addr (-16)).toNat) hfv0 hl hloc ?_⟩
     erw [placeVal_cell hA' o16 _ rfl, b9_slot _ _ _ hk, h16]

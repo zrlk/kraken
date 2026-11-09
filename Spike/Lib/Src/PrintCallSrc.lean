@@ -64,7 +64,7 @@ theorem printDecl_of_accepted2 {p : Prog} (hacc : Accepted2 p = true) (hP : hasP
   have hm := printExt_mem hacc hP
   have hnd : (p.map (·.name)).Nodup := by
     simp only [Accepted2, Bool.and_eq_true, decide_eq_true_eq] at hacc
-    exact hacc.1.1.1.1.1.1.1.1.1
+    exact hacc.1.1.1.1.1.1.1.1.1.2
   cases h : p.find? (·.name == "print") with
   | none => exact absurd (List.find?_eq_none.1 h _ hm) (by decide)
   | some d =>

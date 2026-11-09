@@ -47,18 +47,18 @@ def pNeb (σC : AS) : ND :=
 
 /-- **`wc_main`'s body's states inside `W`**, none moved by `K`: the
 blocks', the multiply's, and `print`'s in its region (for every call state
-returning to `.x15`, the caller's cells outside it holding values). -/
+returning to `.x0`, the caller's cells outside it holding values). -/
 structure WcBodyAbW (W : Frag isa) (K : State → State → Prop) (exe : _root_.Executable) (endPc : Int64)
     (F : MachineData → Prop) : Prop where
   e : BlkW W K exe endPc R F (aN (_root_.Executable.labels exe).label R J Pr .e) wcE1
   mul : NodeW W K exe endPc R F (aN (_root_.Executable.labels exe).label R J Pr .mul)
   e2 : BlkW W K exe endPc R F (aN (_root_.Executable.labels exe).label R J Pr .e2) wcE2
-  print : ∀ σC : AS, σC.slot (-96) = ((_root_.Executable.labels exe).label ".Lwc_main.x15").toBitVec →
+  print : ∀ σC : AS, σC.slot (-96) = ((_root_.Executable.labels exe).label ".Lwc_main.x0").toBitVec →
     PrintAb.PrintAbW σC.regs.rbp.toBitVec (σC.slot (-96)) (σC.regs.get64 .rdi) (σC.regs.get64 .rsi).toNat
       (pP (_root_.Executable.labels exe).label R J Pr σC) (pP (_root_.Executable.labels exe).label R J Qr σC)
       W K exe endPc (pR R) (fun m => F m ∧ CallerCells R (-96 - 8) (-40) 16 m)
   x15 : BlkW W K exe endPc R F
-    ⟨(_root_.Executable.labels exe).label ".Lwc_main.x15", oB,
+    ⟨(_root_.Executable.labels exe).label ".Lwc_main.x0", oB,
       (aN (_root_.Executable.labels exe).label R J Pr .x15).J⟩ wcR15
 
 /-- The body is inside the trivial predicate, with no outside moves. -/
@@ -91,7 +91,7 @@ theorem hello1_wc_bodyAb_segW {W : Frag isa} {K : State → State → Prop}
     (hcall : ∀ σ c, J σ c → ∃ c', LocalRun p c c' ∧ Pr σ 0 c')
     (hsys : ∀ F' : MachineData → Prop, FStable (pR R) F' →
       (∀ m, F' m → F m ∧ CallerCells R (-96 - 8) (-40) 16 m) →
-      ∀ σC : AS, σC.slot (-96) = ((_root_.Executable.labels exe).label ".Lwc_main.x15").toBitVec →
+      ∀ σC : AS, σC.slot (-96) = ((_root_.Executable.labels exe).label ".Lwc_main.x0").toBitVec →
       SegW W K p lbl ms (At exe endPc (pR R) F' (pNAb (_root_.Executable.labels exe).label R J Pr Qr σC .sys))
         (At exe endPc (pR R) F' (pNAb (_root_.Executable.labels exe).label R J Pr Qr σC .n5)))
     (hedge : ∀ σ0 c0, J σ0 c0 → σ0.regs.get64 .rbp = R.addr (-8) → ∀ c, Pr σ0 (wcLen σ0) c → ∀ σ' : AS,
@@ -105,7 +105,7 @@ theorem hello1_wc_bodyAb_segW {W : Frag isa} {K : State → State → Prop}
   simp only [wcBodyIn, Bool.and_eq_true] at hin
   obtain ⟨⟨⟨⟨h0, hmu⟩, h2⟩, h15⟩, hgap⟩ := hin
   let lab := (_root_.Executable.labels exe).label
-  have e15 : lab ".Lwc_main.x15" = lab ".Lwc_main.entry" + Int64.ofNat 87 := label_labelGapB hp hgap
+  have e15 : lab ".Lwc_main.x0" = lab ".Lwc_main.entry" + Int64.ofNat 87 := label_labelGapB hp hgap
   refine (fn_segW (N := aN lab R J Pr) (E := aX lab J Qr x) (fun i => ?_) WN.e).mono_pre
     fun _ _ h => At.reg_addr (r := .rbp) (k := -8) rfl h
   cases i
@@ -149,7 +149,7 @@ theorem hello1_wc_bodyAb_segW {W : Frag isa} {K : State → State → Prop}
         rw [← wcC_slot lab σ1 fl1, ← wcC_slot lab σ0 fl, hg1, hσ]
       have hl : (σC.regs.get64 .rsi).toNat = wcLen σ1 := by rw [← hg1, wcC_len]
       refine .inl ⟨WN.x15, ?_, rfl, σ1, c1, hJ1, hl ▸ hP1, ?_, fun k h1 h2 h3 => by rw [hw]; exact hsl' k h1 h2 h3⟩
-      · show lab ".Lwc_main.x15" = Int64.ofBitVec (σC.slot (-96))
+      · show lab ".Lwc_main.x0" = Int64.ofBitVec (σC.slot (-96))
         rw [hσ, wcC_ra lab σ0 fl e15, int64_ofBitVec_toBitVec]
       · show σR.regs.get64 .rbp = R.addr (-8)
         rw [hbx, hσ]
@@ -158,20 +158,21 @@ theorem hello1_wc_bodyAb_segW {W : Frag isa} {K : State → State → Prop}
     · rintro σC c σR c' k - h4 ⟨σ1, c1, fl1, hJ1, -, hQ1⟩ -
       exact .inr ⟨WX.abort, rfl, rfl, h4, σ1, c1, k, hJ1.1, hQ1⟩
   case x15 =>
-    refine (seg_ndW (n := ⟨lab ".Lwc_main.x15", oB, (aN lab R J Pr .x15).J⟩) (by simp [wcR15]) wcR15_ok hF hR
-      hlo hhi (code_field hp hend h15 (ofNat_zero' _)) hW.x15 fun σ c ⟨σ0, c0, hJ0, hP, hb, hsl⟩ => ?_).mono_pre
+    refine (seg_ndW (n := ⟨lab ".Lwc_main.x0", oB, (aN lab R J Pr .x15).J⟩) (by simp [wcR15]) wcR15_ok hF hR
+      hlo hhi (Spike.Lib.X64.code_field_blockAcrossB hp hend h15 (List.take_append_drop _ _) (ofNat_zero' _)) hW.x15
+      fun σ c ⟨σ0, c0, hJ0, hP, hb, hsl⟩ => ?_).mono_pre
       fun _ _ h => At.rbp_addr h fun _ _ ⟨_, _, _, _, hb, _⟩ => hb
     have e8 : σ.slot (-8) = σ0.slot (-8) := by rw [hsl _ (by decide) (by decide) (by decide), (wcSl_rec lab σ0).1]
     have e0 : σ.slot 0 = σ0.slot 0 := by rw [hsl _ (by decide) (by decide) (by decide), (wcSl_rec lab σ0).2]
     have hbb : σ.regs.rbp.toBitVec = σ0.regs.rbp.toBitVec := by
       show σ.regs.get64 .rbp = σ0.regs.get64 .rbp; rw [hb, hJ0.2]
-    obtain ⟨c', hr, hx⟩ := hedge σ0 c0 hJ0.1 hJ0.2 c hP (arun lab wcR15 ⟨lab ".Lwc_main.x15", oB, σ⟩).σ
+    obtain ⟨c', hr, hx⟩ := hedge σ0 c0 hJ0.1 hJ0.2 c hP (arun lab wcR15 ⟨lab ".Lwc_main.x0", oB, σ⟩).σ
       (by rw [wcR15_run]; exact hsl) (by rw [wcR15_run]; simp [Reg64s.set64])
       (by rw [wcR15_run]; simp [Reg64s.set64, e8]) (by rw [wcR15_run]; simp [Reg64s.set64, hbb])
     refine ⟨c', hr, .inr ⟨WX.ret, ?_, ?_, hx⟩⟩
-    · show x.pc = (arun lab wcR15 ⟨lab ".Lwc_main.x15", oB, σ⟩).pc
+    · show x.pc = (arun lab wcR15 ⟨lab ".Lwc_main.x0", oB, σ⟩).pc
       rw [wcR15_run, hra σ0 c0 hJ0.1, e0]
-    · show x.o.le (arun lab wcR15 ⟨lab ".Lwc_main.x15", oB, σ⟩).so = true
+    · show x.o.le (arun lab wcR15 ⟨lab ".Lwc_main.x0", oB, σ⟩).so = true
       rw [wcR15_run]; exact ho
 
 end Fn
@@ -216,7 +217,7 @@ theorem hello1_wcAb_segW {W : Frag isa} {K : State → State → Prop}
     (hcall : ∀ σ c, wcJ J0 σ c → ∃ c', LocalRun p c c' ∧ Pr σ 0 c')
     (hsys : ∀ F' : MachineData → Prop, FStable (pR R) F' →
       (∀ m, F' m → F m ∧ CallerCells R (-96 - 8) (-40) 16 m) →
-      ∀ σC : AS, σC.slot (-96) = ((_root_.Executable.labels exe).label ".Lwc_main.x15").toBitVec →
+      ∀ σC : AS, σC.slot (-96) = ((_root_.Executable.labels exe).label ".Lwc_main.x0").toBitVec →
       SegW W K p lbl ms
         (At exe endPc (pR R) F' (pNAb (_root_.Executable.labels exe).label R (wcJ J0) Pr Qr σC .sys))
         (At exe endPc (pR R) F' (pNAb (_root_.Executable.labels exe).label R (wcJ J0) Pr Qr σC .n5)))

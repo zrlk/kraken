@@ -29,14 +29,14 @@ private theorem labN (hlab : ∀ l x, codeOf lo wakeProg l = some x → L.lab l 
 /-- **The labels `ownG` reads**, resolved at the canonical base. -/
 theorem labs_eq (hlab : ∀ l x, codeOf lo wakeProg l = some x → L.lab l = Int64.ofNat x) :
     (L.lab "scc_rt_alloc_tcb").toBitVec.toNat = 2164712 ∧
-    (L.lab "scc_rt_thread_reserve").toBitVec.toNat = 2165132 ∧
-    (L.lab "scc_rt_thread_init").toBitVec.toNat = 2165244 ∧
-    (L.lab "scc_rt_stack_release").toBitVec.toNat = 2165964 ∧
-    (L.lab ".L21_wc_main.sp4").toBitVec.toNat = 2169268 ∧
-    (L.lab ".L21_wc_main.sp6").toBitVec.toNat = 2169292 ∧
-    (L.lab ".L21_wc_main.stack_grow").toBitVec.toNat = 2169408 ∧
-    (L.lab "scc_rt_abort").toBitVec.toNat = 2167996 ∧
-    (L.lab "scc_rt_thr_worker").toBitVec.toNat = 2168560 := by
+    (L.lab "scc_rt_thread_reserve").toBitVec.toNat = 2165136 ∧
+    (L.lab "scc_rt_thread_init").toBitVec.toNat = 2165248 ∧
+    (L.lab "scc_rt_stack_release").toBitVec.toNat = 2165968 ∧
+    (L.lab ".L21_wc_main.sp4").toBitVec.toNat = 2169300 ∧
+    (L.lab ".L21_wc_main.sp6").toBitVec.toNat = 2169324 ∧
+    (L.lab ".L21_wc_main.stack_grow").toBitVec.toNat = 2169440 ∧
+    (L.lab "scc_rt_abort").toBitVec.toNat = 2168028 ∧
+    (L.lab "scc_rt_thr_worker").toBitVec.toNat = 2168592 := by
   refine ⟨labN hlab ?_ (by decide), labN hlab ?_ (by decide), labN hlab ?_ (by decide), labN hlab ?_ (by decide),
     labN hlab ?_ (by decide), labN hlab ?_ (by decide), labN hlab ?_ (by decide), labN hlab ?_ (by decide),
     labN hlab ?_ (by decide)⟩ <;> (rw [← codeT_eq]; decide +kernel)

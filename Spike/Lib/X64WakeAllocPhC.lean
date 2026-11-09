@@ -20,7 +20,7 @@ abort's `5`) and the return address it pushes past itself (not `raT`,
 - the allocator is x86-64's (31 nodes, `X64Alloc`): eighteen blocks and
   eleven single instructions (seven with undefined flags, the counter's
   `lock xaddq`, the header's store, two moves), offsets in bytes;
-- the return point is `.Lwc_main.x18` (A64's `.L21_wc_main.sp0`);
+- the return point is `.Lwc_main.x0` (A64's `.L21_wc_main.sp0`);
 - the call's return address is the word it pushes at `slot (-160)`, read by
   `ThreadsAb.RaW` at `0(%rsp)` (`sp0_slotG`, `rA_full`), not `x30`
   (A64's `ac_x30`, `b9_x30`); the target is out of the threads abort's
@@ -86,7 +86,7 @@ theorem chA_f7 : siOffW pfxM okL 140 3 = true := by si_dec
 theorem chA_o8 : phOffW pfxM okL 143 okL bO8 = true := by ph_dec
 theorem chA_hdr : siOffW pfxM okL 170 3 = true := by si_dec
 theorem chA_o9 : phOffW pfxM okL 173 okL bO9 = true := by ph_dec
-theorem chA_ret : phOffW pfxM okL 226 (pfxM ++ ".x18") [(iRet.toDir, 1)] = true := by ph_dec
+theorem chA_ret : phOffW pfxM okL 226 (pfxM ++ ".x0") [(iRet.toDir, 1)] = true := by ph_dec
 
 /-! ## The heap abort's call -/
 

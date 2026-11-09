@@ -6,7 +6,8 @@ parameter `Rk`, and its instance at the exit by placements (`retNS`,
 `Spike/Lib/LowerX64/RetS.lean`): a `ret` of any words the result type
 places (a locative two operands), as the setup block returns.
 
-- `emits_retN`: the items of a `ret` of up to six words;
+- `not_emits_retN`: a `ret` takes a fresh label (P5), so its code is not
+  `Emits`'s (its items in `CodeC2`'s `ret` arm instead);
 - `RetCX`: a `ret` to the exits `X` (`RetC2` at `X`, `Rk`);
 - `seg_contX`, `body2_segS_ofX`: `seg_cont` and `body2_segS_of` at `X`;
 - `ExitC2S`, `ExitC2S.trans`: the body's exits at `retNS`;
@@ -38,34 +39,31 @@ open Spike.Lib.Form (SEnv lookupS)
 theorem emits_retTail : Emits (do epilogue; Scc.Emit.X64.ins (Scc.Emit.X64.i64 .ret)) epiItems :=
   (emits_ins _).seq ((emits_ins _).seq (emits_ins _))
 
-/-- **The items of a `ret` of up to six words**: the words' loads into the
-result registers (`getOps` into `retRegs`), the epilogue, `ret`. -/
-theorem emits_retN {fr : Scc.Emit.X64.Frame} {ws : List Scc.IR.Operand} {l : List Item}
-    (h : Emits (emitTerm fr (.ret ws)) l) :
-    ws.length ≤ Scc.Emit.X64.retRegs.length ∧
-      ∃ lw, getOps fr (ws.zip Scc.Emit.X64.retRegs) = .ok lw ∧ dirs l = retDirs lw := by
+/-- **A `ret` takes a fresh label** (its return site's, P5), so its code
+is not the same items from every state (`Emits`): from the empty state its
+label counter moves (or it fails). -/
+theorem not_emits_retN {fr : Scc.Emit.X64.Frame} {ws : List Scc.IR.Operand} {l : List Item}
+    (h : Emits (emitTerm fr (.ret ws)) l) : False := by
   have h0 := h {}
   by_cases hgt : ws.length > Scc.Emit.X64.retRegs.length
   · simp only [emitTerm, loadArgs, hgt, ite_true] at h0
     cases h0
-  have hle : ws.length ≤ Scc.Emit.X64.retRegs.length := by omega
   have hl : loadArgs fr Scc.Emit.X64.retRegs ws "ret" =
       (ldsLoop fr (ws.zip Scc.Emit.X64.retRegs) >>= fun _ => pure ()) := by
     simp only [loadArgs, hgt, ite_false]
-  have he : emitTerm fr (.ret ws) =
-      ((ldsLoop fr (ws.zip Scc.Emit.X64.retRegs) >>= fun _ => pure ()) >>= fun _ =>
-        (do epilogue; Scc.Emit.X64.ins (Scc.Emit.X64.i64 .ret))) := by
-    simp only [emitTerm, hl]
-  rw [he] at h0
-  obtain ⟨u, s1, h1, -⟩ := bind_inv h0
+  simp only [emitTerm, hl] at h0
+  obtain ⟨u, s1, h1, h2⟩ := bind_inv h0
   obtain ⟨lw, hlw⟩ := ldsLoop_ok h1
-  refine ⟨hle, lw, hlw, ?_⟩
-  have h2 := ((ldsLoop_emits hlw).seq emits_retTail) {}
-  rw [h0] at h2
+  have hs1 := ldsLoop_emits hlw {}
+  rw [h1] at hs1
+  simp only [Except.ok.injEq, Prod.mk.injEq] at hs1
+  obtain ⟨-, rfl⟩ := hs1
+  simp only [bind, StateT.bind, epilogue, Scc.Emit.X64.movRR, Scc.Emit.X64.ins, Scc.Emit.X64.item, modify,
+    modifyGet, MonadStateOf.modifyGet, StateT.modifyGet, pure, StateT.pure, Except.pure, Except.bind,
+    Scc.Emit.X64.lbl, Scc.Emit.X64.freshL, get, getThe, MonadStateOf.get, StateT.get, set, StateT.set] at h2
   simp only [Except.ok.injEq, Prod.mk.injEq, true_and] at h2
-  have ho := congrArg S.out h2
-  simp only [List.append_cancel_right_eq, List.reverse_inj] at ho
-  rw [ho, retDirs]
+  have := congrArg S.next h2
+  simp at this
 
 section Body2SegX
 
@@ -366,10 +364,10 @@ theorem retC2S_of {fr : Scc.Emit.X64.Frame} (hf : FrameOk fr) (h1 : fr.size ≤ 
       (fun c0 => ExitC2S p lbl exe endPc R F fp ra tp c0 fs Ab) := by
   intro c0 pc kk env n a t ws lits cs bufs hP _ _ ha hcode
   obtain ⟨hG, -, -, -, -, hg, -, -, -⟩ := hP
-  rcases hcode with hu | ⟨l1, zs, hE, hz, hc⟩
+  rcases hcode with hu | ⟨l1, zs, hE, -⟩ | ⟨ws', lw, zs, hw, hn, hlw, hz, hc⟩
   · cases hu
-  obtain ⟨hn, lw, hlw, hl⟩ := emits_retN hE
-  rw [hl] at hz hc
+  · exact (not_emits_retN hE).elim
+  cases hw
   obtain ⟨pls, hpl, hsa⟩ := sevalAt_ofEnv2G hg ha
   have hk : Kind2 fr ((retDirs lw).zip zs) := by
     unfold Kind2
@@ -428,8 +426,8 @@ end Body2SegX
 
 -- No axioms beyond Lean's.
 
-/-- info: 'Spike.Lib.LowerX64.emits_retN' depends on axioms: [propext, Quot.sound] -/
-#guard_msgs in #print axioms emits_retN
+/-- info: 'Spike.Lib.LowerX64.not_emits_retN' depends on axioms: [propext, Quot.sound] -/
+#guard_msgs in #print axioms not_emits_retN
 
 /-- info: 'Spike.Lib.LowerX64.body2_segS_ofX' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms body2_segS_ofX

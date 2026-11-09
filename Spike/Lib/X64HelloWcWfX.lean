@@ -1,10 +1,10 @@
 /-
-**hello.w's `wc_main` node and block obligations inside `Wf` at any owned words** (x86-64 only; the generic
-counterpart of `X64HelloWcWf`): `WcWf.blkW_wfCH`, `nodeW_wfCH`, `nodeW_wfC_siH` with the owned-words map a
-parameter `own` (in the nodes' `SFactsSt2`, `hst`, and in `Wf`), so the same lemmas serve hello's levels at `ownGH`
-and at `ownGHXW` (`ownGH ++ ownSH ++ ownSWH`). The proofs are `X64HelloWcWf`'s: `StartWf.blkW_wfQH` and
-`WakeWf.nodeW_wf` are generic in the owned words, and the code instance (`instOkH`) is used only for the code facts
-(its owned words are any, here those at `0`).
+**hello.w's `wc_main` node and block obligations inside `Wf` at any owned words** (x86-64; twin of
+`Spike/Lib/A64HelloWcWf.lean`'s node and block lemmas): AArch64 `WcWf.blkW_wfCH`, `nodeW_wfCH`, `nodeW_wfC_siH` with the
+owned-words map a parameter `own` (in the nodes' `SFactsSt2`, `hst`, and in `Wf`), so the same lemmas serve hello's
+levels at `ownGH` and at `ownGHXW` (`ownGH ++ ownSH ++ ownSWH`). `StartWf.blkW_wfQH` and `WakeWf.nodeW_wf` are generic
+in the owned words, and the code instance (`instOkH`) is used only for the code facts (its owned words are any, here
+those at `0`).
 
 - `blkW_wfCX`: a covered `ret`-free block inside `Wf` at `own`.
 - `nodeW_wfCX`: a single instruction without an event stepping to `pc + z` inside `Wf` at `own`, its writes'
@@ -13,8 +13,15 @@ and at `ownGHXW` (`ownGH ++ ownSH ++ ownSWH`). The proofs are `X64HelloWcWf`'s: 
 
 ## Differences from the AArch64 version
 
-AArch64 has no counterpart: main owns no TCB word there, so its levels are at `ownGH` only. Against
-`X64HelloWcWf`: the owned words are a parameter (as x86-64 wake's generic `WcWfS`/`CalWf` lemmas).
+AArch64's are at `ownGH` only (main owns no TCB word there); here the owned words are a parameter (as x86-64
+wake's generic `WcWfS`/`CalWf` lemmas).
+- As `X64WakeWcWf` against `A64WakeWcWf`: a block sits at a byte offset `k` of a label (`blockAtB helloCells
+  l k blk`, `lab l + k`), its instructions at `cellOff blk j`; a single instruction has a size `z`
+  (`[(si.toDir, z)]`, steps to `pc + z`, its phase check `siOffW pfxM l k z`), and its cell is not a
+  `syscall` (AArch64: not an `SVC`); no `hal` (no 16-alignment of the region's base).
+- `pfxM` is `HelloPh.StartWf.pfxM` (`.Lwc_main`; AArch64 takes it from `Hello.Child`), and the quiet-block
+  lemma is `HelloPh.StartWf.blkW_wfQH` (AArch64's `HelloWf.blkW_wfQH`). `nodeW_wfCX` goes through
+  `HelloWf.nodeW_phSt` (AArch64's `nodeW_phStH`).
 -/
 import Spike.Lib.X64HelloWcWf
 

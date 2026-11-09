@@ -1,6 +1,6 @@
 /-
-**`MainWcPS.hW` at `Level1I`'s choices at `ownGHXW`** (x86-64 only; the `ownGHXW` instance of
-`Spike/Lib/X64HelloMainWcL1R.lean`'s `hW_L1`): `wc_rodata`'s rest from `.x15` (`MainPostSWH.rd`,
+**`MainWcPS.hW` at `Level1I`'s choices at `ownGHXW`** (x86-64 only; AArch64's
+`A64HelloMainWcL1R.hW_L1` at `ownGHXW`): `wc_rodata`'s rest from `.x15` (`MainPostSWH.rd`,
 `RdWfSFX.rdPostW_WSHX`) and `scc_rt_main`'s `.x2` block (`MainPostSWH.sp0`, `RdWfSFX.mB1W_WSHX`) inside the level
 `W1Rg (ownGHXW Ly ntA)` at the root's layout, the level's labels `upd LB l b` at a fresh label `l` (`hl`),
 `c0S`'s environment, the landing's memory side `msUHg (ownGHXW Ly ntA)`.
@@ -9,19 +9,20 @@
   `WakePh.ne_tcbM_of_heap`).
 - `hbuf_L1X`, `hbufM_L1X`: `rdPostW_WSHX`'s `hbuf` and `hbufM` at `hW_L1X`'s `.x15` invariant (`MainWcL1B.hbuf_L1`'s
   proof at `msUHg (ownGHXW Ly ntA)`).
-- `hW_L1X`: `MainPostSWH` at `W1Rg (ownGHXW Ly ntA) … l b n`, with `MainWcL1R.hW_L1`'s invariants at the memory
-  side `msUHg (ownGHXW Ly ntA) … [FR]`. Premises: `hW_L1`'s; `ownGHXW`'s separation (`StartPlaceLy.wsep_W`,
-  `tcbWH_notG_W`) from `hA13`, the frames' bands on the pool from `HrdRootX.bandRS`, the buffer off `tcbM` from
-  `hbufM_L1X`.
-- `hbp_L1X`, `hsl_L1X`: `MainWcPS.hbp`, `hsl` at `hW_L1X`'s `.x15` invariant (`MainWcL1R.hbp_L1`/`hsl_L1`'s proofs).
+- `hW_L1X`: `MainPostSWH` at `W1Rg (ownGHXW Ly ntA) … l b n`, the region `RS helloLsw TOP`, the start's `FS`,
+  `.x15`'s invariant `JpT (JpL … (mRdJ0 J' σC) (mRdJ0 J' σC) l b n) TV` at the memory side
+  `msUHg (ownGHXW Ly ntA) … [FR]`, `RdSrcL1`'s invariants (the last block's `J4P jC4 jC5`) and `wc_main`'s entry at
+  `JrT (JrRL (upd LB l b) c0S.env l) TV`. Premises: the certificate's (`hpa`, `hhp`, `hlo0`, `hc`, `hA13`), the
+  immediates (`hI`, `himm`), `hl`; `ownGHXW`'s separation (`StartPlaceLy.wsep_W`, `tcbWH_notG_W`) from `hA13`,
+  the frames' bands on the pool from `HrdRootX.bandRS`, the buffer off `tcbM` from `hbufM_L1X`.
 
 ## Differences from the AArch64 version
 
-AArch64 has no counterpart: main owns no TCB word there. Against `X64HelloMainWcL1R.hW_L1`: the level is
-`W1Rg (ownGHXW Ly ntA)` (not `W1R`, at `ownGH`) and the landing's memory side `msUHg (ownGHXW Ly ntA)` (not
-`msUH`); `rdPostW_WSHX`/`mB1W_WSHX`'s extra premises (`hsep`, `ha`, `hW`, `hb`, `hbM`, `hbufM`) are discharged
-inside, from `hA13` and the layout, so the premises are `hW_L1`'s. `MainWcL1W.rdPostW_L1` and
-`MainWcL1S.sp0_L1` are at `WSHF` (`ownGH`), so their bodies are inlined here at `WSHFg (ownGHXW …)`.
+Against `A64HelloMainWcL1R.hW_L1`: the level is `W1Rg (ownGHXW Ly ntA)` (AArch64 `W1R`, at `ownGH`; main owns no
+TCB word there) and the landing's memory side `msUHg (ownGHXW Ly ntA)` (AArch64 `msUH`); `rdPostW_WSHX`/
+`mB1W_WSHX`'s extra premises (`hsep`, `ha`, `hW`, `hb`, `hbM`, `hbufM`) are discharged inside, from `hA13` and the
+layout, so the premises are AArch64's. AArch64's `rdPostW_L1` and `sp0_L1` are at `WSHF` (`ownGH`); their
+bodies are inlined here at `WSHFg (ownGHXW …)`.
 -/
 import Spike.Lib.X64HelloMainWcL1R
 import Spike.Lib.X64HelloRdPostWfSFX
@@ -187,7 +188,7 @@ theorem hW_L1X (hpa : Scc.Sem.X64.cellsOf asm = some o.prog)
       (JpT (JpL (R := RR) (MSUX) (Ly).lab (mRdJ0 (J') σC) (mRdJ0 (J') σC) l b n) (TV))
       (jP' (LBL) l) (jX1 (LBL) l) (jC2 (LBL) l) (jC2' (LBL) l) (jX3 (LBL) l) (J4P (jC4 (LBL) l) (jC5 (LBL) l))
       (JrT (JrRL (LBL) c0S.env l) (TV) (RR)) := by
-  -- the layout's facts (as `hW_L1`)
+  -- the layout's facts
   have hp : o.prog = SccCode.helloCells := Option.some.inj (hpa.symm.trans hhp)
   have hprog : (Ly).prog = SccCode.helloCells := hp
   have hlo : (Ly).Λ.code.lo = lo := hlo0
@@ -221,7 +222,7 @@ theorem hW_L1X (hpa : Scc.Sem.X64.cellsOf asm = some o.prog)
     hA13 (l := l) (b := b) (n := n) (m0 := m0) (σC := σC)
   have hbufM := hbufM_L1X (asm := asm) hpw i0 (E := E) (rd := rd) (I := I) (ls := ls)
     (l := l) (b := b) (n := n) (σC := σC)
-  -- `scc_rt_main`'s `.x2` block (`MainWcL1S.sp0_L1`'s body at `ownGHXW`)
+  -- `scc_rt_main`'s `.x2` block (AArch64 `sp0_L1`'s body at `ownGHXW`)
   refine ⟨?_, Spike.Lib.X64.HelloPh.RdWfSFX.mB1W_WSHX (fs := []) (frM := FR) (rS := RS0) hprog hlo hΛ hlab hsite
     hcl hX0 (.inl rfl) hsep ha hW hbM hok hRlo hhi
     (fun σ c ⟨⟨hc, _⟩, _⟩ => by
@@ -230,7 +231,7 @@ theorem hW_L1X (hpa : Scc.Sem.X64.cellsOf asm = some o.prog)
     (Spike.Lib.X64.HelloPh.MainWcL1S.hplB1_L1 (by omega) (by omega) (env := c0S.env) (tm := .tid)
       (mw := TermRun.cst (.loc ⟨Spike.Lib.X64WakeT1.mainTidLbl 2, 0⟩ 0)) rfl himm
       (Spike.Lib.X64.HelloPh.MainWcL1S.valRep_upd hl (Spike.Lib.X64.WakeImmsC0.valRep_me _)))⟩
-  -- `wc_rodata`'s rest (`MainWcL1W.rdPostW_L1`'s body at `ownGHXW`)
+  -- `wc_rodata`'s rest (AArch64 `rdPostW_L1`'s body at `ownGHXW`)
   refine Spike.Lib.X64.HelloPh.MainWcL1R.rdPostW_of_inh fun hinh => ?_
   obtain ⟨σi, ci, hi⟩ := hinh
   obtain ⟨hAL, hn2, c', hN⟩ := Spike.Lib.X64.HelloPh.MainWcL1R.jpL_land (ms₀ := MSUX) rfl rfl hi.1
@@ -263,20 +264,6 @@ theorem hW_L1X (hpa : Scc.Sem.X64.cellsOf asm = some o.prog)
     (Spike.Lib.X64.HelloPh.XchgWr.nodeW_wrC_rdX2 hprog hlo (NT) hsite har (hmem 8 (.inr rfl))
       (Spike.Lib.X64.HelloPh.MainWcL1R.inArL_jX3 hAL' hn2))
 
-/-- **`MainWcPS.hbp` at `hW_L1X`'s `.x15` invariant**: `.x15`'s `%rbp` is `wc_rodata`'s saved-`%rbp` slot
-(`Level1A.jpL_rbp`). -/
-theorem hbp_L1X {l : WeakMem.AllocLabel} {b n : Nat} {σC : FAS} :
-    ∀ σ0 c, JpT (JpL (R := RR) (MSUX) (Ly).lab (mRdJ0 (J') σC) (mRdJ0 (J') σC) l b n) (TV) σ0 c →
-      σ0.regs.get64 .rbp = (mR (RR)).addr (-8) :=
-  fun _ _ h => Spike.Lib.X64.HelloPh.Level1.jpL_rbp h.1
-
-/-- **`MainWcPS.hsl` at `hW_L1X`'s `.x15` invariant**: `.x15`'s saved-`%rbp` cell is `scc_rt_main`'s saved-`%rbp`
-address (`MainWcL1R.jpL_slot8`). -/
-theorem hsl_L1X {l : WeakMem.AllocLabel} {b n : Nat} {σC : FAS} :
-    ∀ σ0 c, JpT (JpL (R := RR) (MSUX) (Ly).lab (mRdJ0 (J') σC) (mRdJ0 (J') σC) l b n) (TV) σ0 c →
-      σ0.slot (-8) = (RR).addr (-8) :=
-  fun _ _ h => Spike.Lib.X64.HelloPh.MainWcL1R.jpL_slot8 h.1
-
 end Root
 
 end Spike.Lib.X64.HelloPh.MainWcL1RX
@@ -294,9 +281,3 @@ end Spike.Lib.X64.HelloPh.MainWcL1RX
 
 /-- info: 'Spike.Lib.X64.HelloPh.MainWcL1RX.hW_L1X' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms Spike.Lib.X64.HelloPh.MainWcL1RX.hW_L1X
-
-/-- info: 'Spike.Lib.X64.HelloPh.MainWcL1RX.hbp_L1X' depends on axioms: [propext, Classical.choice, Quot.sound] -/
-#guard_msgs in #print axioms Spike.Lib.X64.HelloPh.MainWcL1RX.hbp_L1X
-
-/-- info: 'Spike.Lib.X64.HelloPh.MainWcL1RX.hsl_L1X' depends on axioms: [propext, Classical.choice, Quot.sound] -/
-#guard_msgs in #print axioms Spike.Lib.X64.HelloPh.MainWcL1RX.hsl_L1X

@@ -272,9 +272,17 @@ if lmneed gold; then
 fi
 if lmneed lld; then
   lmlink ld.lld -static -o "$L/wake.x64.lld" "$L/wake.x64.o"
-  run 3 "not certifiable: no proved theorem at this executable's layout (wake's theorem" \
+  # ld.lld's default layout puts .text in the segment after .rodata's, at the file offset
+  # that follows .rodata; the listing's .text has alignment 1, so code.lo is 16-aligned only
+  # when .rodata's end is (ret0 and ifsub1 above: yes; wake and hello1: no, and the reader
+  # refuses by wfB).
+  run 1 "failed: the ELF reader refuses wake: the layout is not well-formed (wfB): code.lo" \
     --arch x64 --instantiate --elf "$ROOT/$L/wake.x64.lld" Scc/Test/wake.w
 fi
+# wake on x86-64 at a layout other than its theorem's (GNU ld, moved): exit 3.
+lmlink ld -static -Ttext-segment=0x800000 -o "$L/wake.x64.moved" "$L/wake.x64.o"
+run 3 "not certifiable: no proved theorem at this executable's layout (wake's theorem" \
+  --arch x64 --instantiate --elf "$ROOT/$L/wake.x64.moved" Scc/Test/wake.w
 if lmneed clang; then
   lmlink $A64_CC -Wl,--image-base=0x800000 -o "$L/wake.arm.moved" Scc/Test/elf/wakea64/wake.s
   run 3 "not certifiable: no proved theorem at this executable's layout (wake's theorem" \

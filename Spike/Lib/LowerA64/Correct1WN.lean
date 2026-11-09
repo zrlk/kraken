@@ -114,8 +114,11 @@ theorem a64_lower_correctE1_wn (hd : Scc.Lower.Accepted1 [d] = true) {em : Scc.L
     mainPh1_ofPlaceOK hd hlow h (Scc.Lower.imms1Of [d])
   have hsh := lower1_shape d.body [] _ 0 r (Scc.Lower.Inv.accepted1_main hd).2.2.2.2.2.2
     (Scc.Lower.Inv.envScalar_nil _) hr
-  have hcode := entryCode1 hf h1 h16 hlab hent hbo hbp hsh.1
-  have hbl := blocksCode1 (pre := [⟨"entry", r.insts, r.term⟩]) hf h1 h16 hlab hbo hbp hsh.2
+  have hI := Spike.Lib.A64.PhRec.instOk_ofPlaceOK h (Scc.Lower.imms1Of [d]) (rS := Spike.Lib.A64.Rt.rS0 (Ly h))
+  have hgap : ∀ a b n, Scc.Cert.Rt.A64.labelGap (O).prog a b n = true → (Ly h).lab b = (Ly h).lab a + Int64.ofNat (4 * n) :=
+    fun _ _ _ hg => by rw [← hI.labOk]; exact Scc.Cert.Rt.A64.label_labelGap hI.lays hg
+  have hcode := entryCode1 hf h1 h16 hgap hlab hent hbo hbp hsh.1
+  have hbl := blocksCode1 (pre := [⟨"entry", r.insts, r.term⟩]) hf h1 h16 hgap hlab hbo hbp hsh.2
   have hss0 : imageOk (Ly h).Λ (O).secs (Scc.Cert.Link.A64.codeOf (Ly h).Λ.code.lo (O).prog) = true :=
     imageIn_link_of_placeOKAt (i := Scc.Lower.imms1Of [d]) h
   have hss : Scc.Sem.StaticSyms (Ly h).Λ (O).secs (Scc.Cert.Link.A64.codeOf (Ly h).Λ.code.lo (O).prog)

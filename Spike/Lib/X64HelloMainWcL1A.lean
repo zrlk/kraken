@@ -1,23 +1,18 @@
 /-
-**`Level1IU.h1_level1U`'s `hP` assembled** (x86-64; the twin of `Spike/Lib/A64HelloMainWcL1A.lean`, same names):
-`MainGlueS.MainWcPS` at the level's memory sides at the fragment `invUH I` (`I` asked only with the child's stack
-`r1Of` unmapped), the root's rodata entry `J1 := mRdJ0 J'`, from the level-1 producers, all generic in the fragment
-and so taken at `invUH I`:
-- `hW`: `MainWcL1R.hW_L1`; `hbp`, `hsl`: `MainWcL1R.hbp_L1`, `hsl_L1`; `hra`, `hmem`: `MainWcL1W.hra_jpL`,
-  `MainWcL1B.hbuf_L1`;
-- `hr0` … `hedge`: `RdSrcL1`'s rows at `upd LB l b` (`hfen`'s publication `arW`'s; the publication's targets
-  `J4x := jC5`, `hpubx_rd`, `hlocx_rd`);
-- `hJpT`: `Level1.jpT_tp`; `hWp`, `hWs`: `MainWcL1Wj.hWp_L1P`, `hWs_L1P`;
-- `hlim`: `MainWcL1Q.hlim_L1` (`rtFree_L1`); `hloc`: `Land.jr1LH_loc` (`me`'s word in `c0S.env`);
-- `hq`: `MainWcL1Hq.hq_L1`; `hbox`, `hcell0`: `MainWcL1Q.hbox_L1`, `hcell0_L1`;
+**`MainWcPS.hxa` at `invUH I` and the layout's `z`** (x86-64; the twin of `Spike/Lib/A64HelloMainWcL1A.lean`):
+the own-generic pieces of `Level1IU.h1_level1Ug`'s `hP` (`MainGlueS.MainWcPS`) that `X64HelloMainWcL1AX`'s
+`hP_level1X` and `X64HelloMainWcL1XX`'s `hxa_IUX` build on, at the level's memory sides at the fragment `invUH I`
+(`I` asked only with the child's stack `r1Of` unmapped):
 - `hxa` (`hxa_IU`): the landing's arena cell is the arena's (`AllocLand`, from `bXH`'s allocator fact: `off = 8`,
   one unit at least, two cells), and with `r1Of` unmapped `I`'s, from `MainWcL1X.hxa_L1` at `LandR1U.HLand2U`.
 
 - `hxa_IU`: `MainWcPS.hxa` at `invUH I` from `HLand2U` at `I`'s `xa`.
-- `hP_level1`: `h1_level1U`'s `hP` at `J1 := mRdJ0 J'`.
 - `hzL`: the layout's `z` from the certificate table's `i0`.
-- `h1_level1P`: `h1_level1U` with `hP` discharged (`hJ1` by `Level1I.slot16_rdJ`, `hmem0` by
-  `Level1I.hmem0_level1`); no control premise (the heap abort at `wXA`, `Level1HA.hB_landA`).
+
+The root's `hP` and `h1` are at `ownGHXW` (`X64HelloMainWcL1AX`: `hP_level1X`, `h1_level1PX`); the producers of
+`hP`'s other fields are `MainWcL1RX.hW_L1X`, `MainWcL1R.hbp_L1`/`hsl_L1`, `MainWcL1W.hra_jpL`,
+`MainWcL1B.hbuf_L1`, `RdSrcL1`'s rows, `Level1.jpT_tp`, `MainWcL1Wj.hWp_L1PX`/`hWs_L1PX`,
+`MainWcL1Q.hlim_L1`/`hbox_L1`/`hcell0_L1`, `Land.jr1LH_loc` and `MainWcL1Hq.hq_L1`.
 
 ## Differences from the AArch64 version
 
@@ -26,9 +21,7 @@ and so taken at `invUH I`:
 - The region is `RS helloLsw TOP` (AArch64 `swR TOP (-helloLsw) 0`), the caller's TCB slot `-16` (AArch64 `-80`),
   the thread pointer `tpOf (tcbS Ly)`; `hxa` is on `wc_main`'s frame based at the saved `%rbp`
   (`(wcR R D).fp (-8)`).
-- The certificate is x86-64's (`cellsOf asm`, `helloCells`); `h1_level1U` takes no `hA13` (`LandR1U.takeU_X`),
-  the producers `hbuf_L1`, `hWp_L1P`, `hWs_L1P`, `hW_L1` still do.
-- `hloc` is `Land.jr1LH_loc` (`Jr1LH` carries `scc_rt_main`'s `%rbp`; AArch64 `HelloJr1.jr1L_loc`).
+- The root's `hP`/`h1` (AArch64 `hP_level1`/`h1_level1P` at `ownGH`) are at `ownGHXW` in `X64HelloMainWcL1AX`.
 -/
 import Spike.Lib.X64HelloLevel1IU
 import Spike.Lib.X64HelloLevel1M
@@ -63,10 +56,9 @@ open Spike.Lib.X64.Flow.Ret0 (tpOf)
 open Spike.Lib.X64.HelloPh.StartWcS (rdJH)
 open Spike.Lib.X64.HelloPh.StartH0G (helloD helloLsw)
 open Spike.Lib.X64.HelloPh.StartH0U (msUH invUH)
-open Spike.Lib.X64.HelloPh.StartH0H1 (RdLandH)
 open Spike.Lib.X64.HelloPh.MainGlueS (MainWcPS)
 open Spike.Lib.X64.HelloPh.Level1 (JpL JpT)
-open Spike.Lib.X64.HelloPh.Level1I (W1R XR)
+open Spike.Lib.X64.HelloPh.Level1I (XR)
 open Spike.Lib.X64.HelloPh.RdPlS (RdImms)
 open Spike.Lib.HeapLand (AllocLand)
 open Spike.Lib.X64WakeLoadT (L0T ls0T tcb0)
@@ -100,15 +92,6 @@ set_option hygiene false in
 local notation "LB" => L0T (Ly).Λ
 
 set_option hygiene false in
-local notation "AX" => (Ly).lab Spike.Lib.X64.Flow.Ret0.StackTake.siteL
-
-set_option hygiene false in
-local notation "FR" => Spike.Lib.X64HelloRdCf.frH c0S.env
-
-set_option hygiene false in
-local notation "KR" => Spike.Lib.X64.PhRec.K (Ly) (RS0)
-
-set_option hygiene false in
 /-- The child's stack. -/
 local notation "R1" => Spike.Lib.X64.Rt.PreChild.r1Of (Ly).lab
 
@@ -125,15 +108,8 @@ set_option hygiene false in
 local notation "RM" => RS helloLsw (TOP)
 
 set_option hygiene false in
-local notation "J'" => rdJH (Ly).lab (RM) (JS (Ly) 0#64 c0S)
-
-set_option hygiene false in
 /-- The fragment `I` asked only with `r1Of` unmapped. -/
 local notation "IU" => invUH hpw i0 I
-
-set_option hygiene false in
-/-- Level 0's memory sides at a fragment `J` (the landing's). -/
-local notation "MSU" => fun (J : Spike.Lib.X64ConsumerS.InvS) => msUH (asm := asm) hpw i0 E rd J ls
 
 set_option hygiene false in
 /-- The level's memory sides at a fragment `J` after rodata's allocation of `l` at `b`, `n` words, at `fs`. -/
@@ -175,71 +151,7 @@ theorem hxa_IU {l : WeakMem.AllocLabel} {b n : Nat} {σC : FAS}
     1 + 1 ≤ ((MS1) (IU) l b n []).cells
   rw [hf] at hAo; omega
 
-/-! ## `hP` -/
-
-/-- **`h1_level1U`'s `hP` at the root's rodata entry** (module doc): `MainWcPS` at `invUH I`, `J1 := mRdJ0 J'`,
-`Jp'` … `J5` `RdSrcL1`'s at the level's labels (`J4x := jC5`), `Jr` `wc_rodata`'s return `JrRL` on the slice at
-`l`. -/
-theorem hP_level1
-    (hpa : cellsOf asm = some o.prog)
-    (hhp : cellsOf asm = some SccCode.helloCells)
-    (hlo0 : Λ0.code.lo = lo) (hstat : Λ0.static = fun _ => none) (hc : Spike.Lib.X64.Rt.CtrZ o)
-    (hA13 : Scc.Cert.Spawn.X64.a13data (Ly).Λ o.prog o.secs = true)
-    (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
-    /- the layout's immediates (loader; at the root's table: `HelloImms`, `HabCtlA.hz_i0M`) -/
-    (hI : RdImms (Ly).Λ) (himm : (Ly).Λ.imms Spike.Lib.SrcCalls.setupCont "me" 0 = some (tcb0 (Ly).Λ))
-    (hz : (Ly).Λ.imms newTerm "z" 0 = some 0)
-    /- the box store's landings at level 1 with `r1Of` unmapped -/
-    (hX : ∀ l b n, (LB) l = none → AllocLand (AR).heap (AR).cells b n →
-      Spike.Lib.X64.HelloPh.LandR1U.HLand2U (asm := asm) hpw i0 E rd ls l b n ((MS1) I l b n []).xa) :
-    ∀ l b n m0 σC, (LB) l = none → AllocLand (AR).heap (AR).cells b n →
-      σC.slot (-16) = Spike.Lib.X64.Flow.Ret0.pinA (Ly).lab + 0#64 + 8#64 →
-      ∃ Jp' Jx1 J2 J2' J3 J4 J4x J5 Jr : FAS → Spike.Lib.Ctl → Prop,
-      MainWcPS (W1R (asm := asm) hpw i0 E rd ls l b n) (KR) helloSrc (Spike.Lib.X64ConsumerA.upd (LB) l b)
-        ((MS1) (IU) l b n) (Ly).exe (Ly).endPc (RM) helloD (FS (Ly) (RS0) helloLsw 0#64 (TOP)) (FR) m0 σC
-        (JpT (JpL (R := RM) ((MSU) (IU) [FR]) (Ly).lab (mRdJ0 (J') σC) (mRdJ0 (J') σC) l b n) (TV))
-        Jp' Jx1 J2 J2' J3 J4 J4x J5 Jr (Spike.Lib.X64.HelloPh.Land.Jr1LH hpw i0 l b) (TV) := by
-  intro l b n m0 σC hl hb hslot
-  have hp : o.prog = SccCode.helloCells := Option.some.inj (hpa.symm.trans hhp)
-  have hJ : ∀ σ c, Spike.Lib.X64.HelloPh.Land.Jr1LH hpw i0 l b σ c →
-      ∃ w0 w1 w2 mw, c = Spike.Lib.X64HelloMainPreSrc.c0H w0 w1 w2 mw := fun _ _ h => ⟨_, _, _, _, h.1.1⟩
-  have hbuf := Spike.Lib.X64.HelloPh.MainWcL1B.hbuf_L1 (asm := asm) hpw i0 (E := E) (rd := rd) (I := IU) (ls := ls)
-    hA13 (l := l) (b := b) (n := n) (m0 := m0) (σC := σC)
-  have hJp := Spike.Lib.X64.HelloPh.RdJpL.jpT_rb (L0 := LB) (R := RM)
-    (ms₀ := (MSU) (IU) [FR]) (lab := (Ly).lab) (J0 := mRdJ0 (J') σC) (J1 := mRdJ0 (J') σC) (l := l) (b := b)
-    (w := n) (t := TV) (Spike.Lib.X64.HelloPh.RdJpL.rdJH_rdCN (lab := (Ly).lab) (J := JS (Ly) 0#64 c0S) (σC := σC))
-  exact ⟨_, _, _, _, _, _, _, _, _, {
-    hW := Spike.Lib.X64.HelloPh.MainWcL1R.hW_L1 hpw i0 (E := E) (rd := rd) (I := IU) (ls := ls) hpa hhp hlo0 hc
-      hA13 hI himm (m0 := m0) (σC := σC) (n := n) hl
-    hbp := Spike.Lib.X64.HelloPh.MainWcL1R.hbp_L1 hpw i0
-    hra := fun σ0 c h => Spike.Lib.X64.HelloPh.MainWcL1W.hra_jpL h.1
-    hmem := fun σ0 c h i hi => (hbuf σ0 c h i hi).2.1
-    hr0 := Spike.Lib.X64.HelloPh.RdSrcL1.hr0_rd (l := l) hJp
-    h1 := Spike.Lib.X64.HelloPh.RdSrcL1.h1_rd (l := l)
-    h2 := Spike.Lib.X64.HelloPh.RdSrcL1.h2_rd (l := l)
-    hr2 := Spike.Lib.X64.HelloPh.RdSrcL1.hr2_rd (l := l)
-    h3 := Spike.Lib.X64.HelloPh.RdSrcL1.h3_rd (l := l)
-    h4 := Spike.Lib.X64.HelloPh.RdSrcL1.h4_rd (l := l)
-    hfen := Spike.Lib.X64.HelloPh.RdSrcL1.hfen_rd (l := l) (Spike.Lib.X64.WakeOD.arW_pub hpw IH)
-    hpubx := Spike.Lib.X64.HelloPh.RdSrcL1.hpubx_rd (l := l)
-    hlocx := Spike.Lib.X64.HelloPh.RdSrcL1.hlocx_rd (l := l)
-    hedge := Spike.Lib.X64.HelloPh.RdSrcL1.hedge_rd (l := l)
-    hsl := Spike.Lib.X64.HelloPh.MainWcL1R.hsl_L1 hpw i0
-    hJpT := Spike.Lib.X64.HelloPh.Level1.jpT_tp
-    hWp := fun m1 σ1 => Spike.Lib.X64.HelloPh.MainWcL1Wj.hWp_L1P hpw i0 E rd ls (I := IU) (m1 := m1) (σ1 := σ1)
-      hp hpa hhp hlo0 hc hA13 hz hl hslot
-    hWs := fun m1 σ1 => Spike.Lib.X64.HelloPh.MainWcL1Wj.hWs_L1P hpw i0 E rd ls (I := IU) (m1 := m1) (σ1 := σ1)
-      hp hpa hhp hlo0 hc hA13 hz hl hslot
-    hlim := Spike.Lib.X64.HelloPh.MainWcL1Q.hlim_L1 hpw IH
-      (Spike.Lib.X64.HelloPh.MainWcL1Q.rtFree_L1 hpw IH hstat ls hb)
-    hloc := Spike.Lib.X64.HelloPh.Land.jr1LH_loc hpw i0 (tm := .tid)
-      (by simp [Spike.Lib.X64.HelloPh.C0S.c0S_env, TermRun.evalAt, TermRun.lookupE])
-    hq := Spike.Lib.X64.HelloPh.MainWcL1Hq.hq_L1 hpw IH hstat hc hpin2 hb hJ
-    hbox := Spike.Lib.X64.HelloPh.MainWcL1Q.hbox_L1 hJ
-    hcell0 := Spike.Lib.X64.HelloPh.MainWcL1Q.hcell0_L1 hpw IH hJ
-    hxa := hxa_IU hpw i0 E rd I ls (hX l b n hl hb) hslot }⟩
-
-/-! ## The root's `h1` -/
+/-! ## The layout's `z` -/
 
 /-- **The layout's `z` at `newTerm` from the certificate table's** (`IH`'s `z` is `i0`'s off the read's
 entries; `HabCtlA.habCtlHA_jr1L`'s step). -/
@@ -250,41 +162,11 @@ theorem hzL (hz : i0 newTerm "z" 0 = some 0) : (Ly).Λ.imms newTerm "z" 0 = some
   · next h => exact absurd h.2.1 (by decide)
   · exact hz
 
-/-- **The root's `h1` with `hP` discharged** (`Level1IU.h1_level1U` at `J1 := mRdJ0 J'`, `hP_level1`; `hJ1` by
-`Level1I.slot16_rdJ`, `hmem0` by `Level1I.hmem0_level1`; the heap abort's controls at `wXA` by
-`HabCtlA.habCtlHA_jr1L` from `hz`). -/
-theorem h1_level1P
-    (hpa : cellsOf asm = some o.prog)
-    (hhp : cellsOf asm = some SccCode.helloCells)
-    (hlo0 : Λ0.code.lo = lo) (hstat : Λ0.static = fun _ => none) (hc : Spike.Lib.X64.Rt.CtrZ o)
-    (hA13 : Scc.Cert.Spawn.X64.a13data (Ly).Λ o.prog o.secs = true)
-    (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size)
-    (hI : RdImms (Ly).Λ) (himm : (Ly).Λ.imms Spike.Lib.SrcCalls.setupCont "me" 0 = some (tcb0 (Ly).Λ))
-    /- the certificate table's `z` at `newTerm` (at the root's table: `HabCtlA.hz_i0M`) -/
-    (hz : i0 newTerm "z" 0 = some 0)
-    /- the box store's landings at level 1 with `r1Of` unmapped -/
-    (hX : ∀ l b n, (LB) l = none → AllocLand (AR).heap (AR).cells b n →
-      Spike.Lib.X64.HelloPh.LandR1U.HLand2U (asm := asm) hpw i0 E rd ls l b n ((MS1) I l b n []).xa) :
-    Spike.Lib.X64HelloPreA.H1StmtHF (W1R (asm := asm) hpw i0 E rd ls)
-      (TakeCKS (AX) (Spike.Lib.X64.HelloPh.ClH (Ly))) (AR) (LB) ((MS1) I) (Ly)
-      (RdLandH (asm := asm) hpw i0 E rd I ls (mRdJ0 (J')))
-      (Spike.Lib.X64HelloPreA.H1Gfp.inv1G (W1R (asm := asm) hpw i0 E rd ls) (XR hpw i0)
-        (TakeCKS (AX) (Spike.Lib.X64.HelloPh.ClH (Ly))) (LB) ((MS1) I)) [FR] :=
-  Spike.Lib.X64.HelloPh.Level1IU.h1_level1U hpw i0 E rd I ls hpa hhp hlo0
-    (Spike.Lib.X64.HelloPh.Level1I.slot16_rdJ hpw i0 (RM))
-    (hP_level1 hpw i0 E rd I ls hpa hhp hlo0 hstat hc hA13 hpin2 hI himm (hzL hpw i0 hz) hX)
-    (Spike.Lib.X64.HelloPh.Level1I.hmem0_level1 hpw i0 E rd I ls hc) hz
-
 end Spike.Lib.X64.HelloPh.MainWcL1A
 
 /-- info: 'Spike.Lib.X64.HelloPh.MainWcL1A.hxa_IU' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms Spike.Lib.X64.HelloPh.MainWcL1A.hxa_IU
 
-/-- info: 'Spike.Lib.X64.HelloPh.MainWcL1A.hP_level1' depends on axioms: [propext, Classical.choice, Quot.sound] -/
-#guard_msgs in #print axioms Spike.Lib.X64.HelloPh.MainWcL1A.hP_level1
-
 /-- info: 'Spike.Lib.X64.HelloPh.MainWcL1A.hzL' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms Spike.Lib.X64.HelloPh.MainWcL1A.hzL
 
-/-- info: 'Spike.Lib.X64.HelloPh.MainWcL1A.h1_level1P' depends on axioms: [propext, Classical.choice, Quot.sound] -/
-#guard_msgs in #print axioms Spike.Lib.X64.HelloPh.MainWcL1A.h1_level1P

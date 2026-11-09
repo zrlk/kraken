@@ -9,7 +9,7 @@ region `wcR (swR v (-helloLsw) 0) helloD` (only `v` at the stack's top occurs, `
 
 Reused from wake as is (layout generic): `SegWS.exists_pre`/`empty`/`mono_pre`, `Rt.wordsNoneP_swFSL_fstable`,
 `Rt.rt_hokD`/`rS0_subRD`/`rt_houtD`/`rt_h16`/`rt_hfit`/`fitS_of_sub`, `Worker.Wake.AbOffW.marks_target`.
-Hello's: `HelloM.wcR_ok` at `helloD`, `abH_labsH` (the heap exit at `2168368`), `x0WH_abort`.
+Hello's: `HelloM.wcR_ok` at `helloD`, `abH_labsH` (the heap exit at `2168400`), `x0WH_abort`.
 
 - `hello_hab_closed`: the exit's pairs at the frames `[]` start a segment with no exit, at the memory side
   `msOfA` of the entry's marks (any `rd`, `G`, `own`, `I`, `ls`). Premises: the loader's facts (`hpa`, `hhp`,
@@ -107,7 +107,7 @@ theorem hello_hab_closed {E : Scc.Sem.Entry} {rd : TermRun.Word → Prop} {G : L
     rw [Spike.Lib.A64.Rt.stacksA_lab0]; exact Spike.Lib.A64.Rt.rt_hokD _ (by decide) (by decide)
   have hab : ∀ s : State, s.st.2 = (Ly).lab "scc_rt_abort_heap_exit" → ((MSf) []).abortAt s := fun s hs => by
     obtain ⟨-, -, -, -, -, -, -, -, e9, -⟩ := Spike.Lib.A64.HelloPh.abH_labsH hlab
-    refine ⟨.heap, 2168368, ?_, by rw [pcOf, hs, e9]; rfl⟩
+    refine ⟨.heap, 2168400, ?_, by rw [pcOf, hs, e9]; rfl⟩
     rw [Spike.Lib.A64.Flow.Worker.Wake.AbOffW.marks_target (Ly) hpL]
     show codeOf (Ly).Λ.code.lo (Ly).prog ((Ly).Λ.abortLbl .heap) = _
     rw [hprog, hlo, hΛ, ← codeT_eq]; decide +kernel

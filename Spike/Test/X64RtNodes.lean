@@ -25,13 +25,14 @@ def ret0RtRows : List Scc.Cert.Rt.X64.OGrp :=
 example : ((rtCodeTab bareMC).map (·.l)).filter (fun l => !(ret0RtRows.any (·.l == l))) = [] := by
   decide +kernel
 
-/-- The return points on the main path: `scc_rt_alloc_tcb` to `.x0`,
-`scc_rt_thread_init` to `.x1`, `scc_rt_stack_take` to `scc_rt_thread_init`'s
-`.x7`; no `ret` elsewhere. -/
+/-- The return points on the main path, keyed by the group holding each
+function's `ret` (its return label `.x1`): `scc_rt_alloc_tcb` to
+`scc_rt_start`'s `.x0`, `scc_rt_thread_init` to its `.x1`,
+`scc_rt_stack_take` to `scc_rt_thread_init`'s `.x0`; no `ret` elsewhere. -/
 def ret0Ra : Label → Int64
-  | ".Lscc_rt_alloc_tcb.ok" => labT ".Lscc_rt_start.x0"
-  | ".Lscc_rt_thread_init.x7" => labT ".Lscc_rt_start.x1"
-  | "scc_rt_take_site" => labT ".Lscc_rt_thread_init.x7"
+  | ".Lscc_rt_alloc_tcb.x1" => labT ".Lscc_rt_start.x0"
+  | ".Lscc_rt_thread_init.x1" => labT ".Lscc_rt_start.x1"
+  | ".Lscc_rt_stack_take.x1" => labT ".Lscc_rt_thread_init.x0"
   | _ => 0
 
 /-- The take site's first row, its `nop` at offset 0 (unlike AArch64's

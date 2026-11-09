@@ -187,7 +187,8 @@ theorem hello1_rodata_post_runW {W : Frag isaLSE2} {K : State → State → Prop
       by rw [Ret0.getRegOrZr_x9, h9]; exact hV, .inl ⟨PN.s4, ?_, rfl, σ0, ⟨c0', hJp⟩, hk, hfr⟩⟩
     simp only [pNL, pN]; rw [Int64.add_assoc]; rfl
   case s4 =>
-    refine seg_ndW (by simp [rpB4]) rpB4_ok hF hR hal hlo hhi (code_of hp hend c8 rfl) hW.s4
+    refine seg_ndW (by simp [rpB4]) rpB4_ok hF hR hal hlo hhi
+      (Spike.Lib.A64.code_field_blockAcross hp hend c8 (List.take_append_drop _ _) rfl) hW.s4
       fun σ c ⟨σ0, ⟨c0', hJp⟩, hJ, hfr⟩ => ?_
     simp only [pNL, pN]
     obtain ⟨c', hr, hx⟩ := hedge σ0 c hJ

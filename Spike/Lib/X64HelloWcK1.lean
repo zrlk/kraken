@@ -97,7 +97,7 @@ end Map
 `.x24` and `.x25` up to the clone's `syscall` (`.x25 + 94`), and `scc_rt_thread_reserve`'s, `scc_rt_alloc_tcb`'s
 and `scc_rt_thread_init`'s labels, each up to the take site, in hello's cells. -/
 def ckRunsH : List (Label × Nat × Nat) :=
-  [(".Lwc_main.x22", 18, 165), (".Lwc_main.x23", 0, 142), (".Lwc_main.x24", 0, 119), (".Lwc_main.x25", 0, 94),
+  [(".Lwc_main.x0", 18, 165), (".Lwc_main.x1", 0, 142), (".Lwc_main.x2", 0, 119), (".Lwc_main.x3", 0, 94),
    (Flow.Reserve.fnL, 0, 830), (Flow.Reserve.entryL, 0, 822), (Flow.Reserve.okL, 0, 741),
    (Ret0.AllocTcb.fnL, 0, 1285), (Ret0.AllocTcb.entryL, 0, 1266), (Ret0.AllocTcb.lenL, 0, 1244),
    (Ret0.AllocTcb.okL, 0, 1030), (Ret0.ThreadInit.fnL, 0, 732)]
@@ -105,7 +105,7 @@ def ckRunsH : List (Label × Nat × Nat) :=
 /-- **The runs' pcs are neither the clone's** (`.x25 + 94`) **nor the take site's** (`scc_rt_take_site`), on
 hello's cells. -/
 theorem ckH_chk : Spike.Lib.X64.RunsOff.runsNeChk SccCode.helloCells ckRunsH
-    [(".Lwc_main.x25", 94), (Ret0.StackTake.siteL, 0)] = true := by
+    [(".Lwc_main.x3", 94), (Ret0.StackTake.siteL, 0)] = true := by
   decide +kernel
 
 /-- **`n` bytes from `l + k` lie in one of the runs.** -/

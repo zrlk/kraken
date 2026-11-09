@@ -223,7 +223,8 @@ cli() {  # name, expected message, args...
   if [ $rc -eq 2 ] && [ "$(head -n 1 cli.err)" = "$msg" ]; then ok "$name"
   else bad "$name" "exit $rc: $(cat cli.err)"; fi
 }
-cli "--host raw" "scc: --host raw: not implemented" --host raw hello.w
+cli "--host raw --cert" "scc: --host raw: --cert, --blocks and --code are not available (a raw unit is not certified)" \
+  --host raw --cert raw.lean hello.w
 cli "--gc unknown" "scc: --gc copying: unknown collector (available: none)" --gc copying hello.w
 cli "--arch unknown" "scc: --arch sparc: unknown architecture (available: x64, arm)" --arch sparc hello.w
 cli "no input" "scc: no input file"

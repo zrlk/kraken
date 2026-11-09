@@ -70,7 +70,7 @@ theorem tlsTcb_msWH {G : ιH hp i → Loc → Val → Prop} {w : ιH hp i} {q : 
 /-- **Both prologues' limit facts at the root's clone data** (module doc): the worker's memory side `msWH`, the
 thread pointer the second TCB `tH`, the stack the second take's top, held first for `tid`. -/
 theorem hlim_cloneH
-    (hpin3 : (LH hp i).pinA.toNat + 176 ≤ (LH hp i).Λ.pinned.lo + (LH hp i).Λ.pinned.size)
+    (hpin3 : (LH hp i).pinA.toNat + 208 ≤ (LH hp i).Λ.pinned.lo + (LH hp i).Λ.pinned.size)
     (hinit2 : (m0Of (LH hp i).Λ o.prog o.secs).initVal ⟨lim2AH (LH hp i), 8⟩ = 0)
     (hsub1 : (r1Of (LH hp i).lab).Sub (LH hp i).Λ.stackPool)
     (w : ιH hp i) {ts : Nat → Option Nat} {tm : Memory} {sm : WeakMem.Memory} {tp tq sp : List Nat}

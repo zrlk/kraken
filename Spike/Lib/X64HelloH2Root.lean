@@ -5,9 +5,9 @@
 
 - the box's landing `Box := BoxMH … (P.G …) l' b' (slWsH l) n' ∧ KeepUn.U r1Of` (`hmid`'s pre; a `GsH1` landing with
   `r1Of` unmapped is one by `RootHP.boxMH_landingRH`);
-- `hmid` by `HelloRootPrem.hmid`, `CP := CloneMidH …`;
+- `hmid` by `HelloRootPremX.hmid`, `CP := CloneMidH …`;
 - `hCP` by `X64HelloH2CP.hCP_of`, its `hCI` by `RootHP.hCI_RH` (the root's ghosts `P.G = GJ1RH (Ly) (upd LB l b) l`,
-  `GJ1H` with the region and frame condition pinned, so that `HelloRootPrem.hP` is `RootHP.hP_of`), its `hSeg` by
+  `GJ1H` with the region and frame condition pinned, so that `HelloRootPrem.hP` is `RootHP.hP_ofG`'s), its `hSeg` by
   `X64HelloCloneSeg.cloneSegH_of_mid` (the first stack in the address space, `X64WakeHClC.hbd_W`);
 - `Ref := RefH.RefH …`, `hret` by `RefH.hret_H`, `hseg` by `RefH.seg_refH` at the refusal path's obligations
   `hobl`.
@@ -17,12 +17,12 @@ extra fact at the clone the child's stack private (`hWc`, `Ret0.StackM r1Of`); t
 (`hna_H`, decided offsets). Nothing here reads the child's memory side.
 
 - `hna_H`: the clone's `syscall` is not the take site.
-- `h2Stmt_rootG`: the statement at any start level, given `hmid`; `h2Stmt_root` at `HelloRootPrem.hmid`,
-  `h2Stmt_rootX` at `HelloRootPremX.hmid` (the root at the self words).
+- `h2Stmt_rootG`: the statement at any start level, given `hmid`; `h2Stmt_rootX` at `HelloRootPremX.hmid` (the root
+  at the self words).
 
 ## Unlike AArch64
 
-- `hna_H` reads both pcs off the root's labels `hlab` (`.Lwc_main.x25 + 94`, the take site's label; `cvH`), so it
+- `hna_H` reads both pcs off the root's labels `hlab` (`.Lwc_main.x3 + 94`, the take site's label; `cvH`), so it
   takes `hlab` rather than the output's program (AArch64: `PlaceW.hlab_ofPlaceW` at `codeOf 0`).
 - `hCP_of`'s `hSeg` (the clone's segment-end facts) is a premise on x86-64; it is `cloneSegH_of_mid` at `GJ1RH`.
   Its `hFp` (the parent's saved frame pointer at the clone frame) is `X64HelloHfp.hfp_of_parts` at `RootHP.hpin_RH`.
@@ -55,18 +55,18 @@ open Spike.Lib.X64WakeLoadT (L0T)
 open Scc.Cert.Rt.X64 (codeT_eq)
 
 /-- **The clone's `syscall` is not the take site**: at labels placing hello's cells at `lo` (`hlab`), the clone's
-pc is `.Lwc_main.x25 + 94` and the take site its label, at offsets that differ. -/
+pc is `.Lwc_main.x3 + 94` and the take site its label, at offsets that differ. -/
 theorem hna_H {L : RuntimeLayout}
     (hlab : ∀ l x, codeLabel lo SccCode.helloCells l = some x → L.lab l = Int64.ofNat x) :
     clonePcH L ≠ (L.lab Spike.Lib.X64.Flow.Ret0.StackTake.siteL).toBitVec.toNat := by
   have hc := clone_inCvH
   simp only [Bool.and_eq_true, decide_eq_true_eq] at hc
   obtain ⟨⟨hs, hb⟩, -⟩ := hc
-  have e : clonePcH L = cvH ".Lwc_main.x25" + 94 := by
+  have e : clonePcH L = cvH ".Lwc_main.x3" + 94 := by
     obtain ⟨y, hy⟩ := Option.isSome_iff_exists.mp hs
-    have ey : cvH ".Lwc_main.x25" = y := by simp [cvH, hy]
+    have ey : cvH ".Lwc_main.x3" = y := by simp [cvH, hy]
     rw [ey] at hb ⊢
-    show (L.lab ".Lwc_main.x25" + 94).toBitVec.toNat = y + 94
+    show (L.lab ".Lwc_main.x3" + 94).toBitVec.toNat = y + 94
     rw [hlab _ y hy]
     show (BitVec.ofNat 64 y + BitVec.ofNat 64 94).toNat = y + 94
     rw [BitVec.toNat_add, BitVec.toNat_ofNat, BitVec.toNat_ofNat]; omega
@@ -96,8 +96,8 @@ set_option hygiene false in
 local notation "S2" => fun (l : WeakMem.AllocLabel) (n : Nat) (l' : WeakMem.AllocLabel) (n' : Nat) =>
   Spike.Lib.X64ConsumerA.updN (Spike.Lib.X64ConsumerA.updN ls0 l n) l' n'
 
-/-- **`H2StmtH` at hello's root at any start level** (see the module doc), given `hmid` (`HelloRootPrem.hmid`,
-`HelloRootPremX.hmid`). -/
+/-- **`H2StmtH` at hello's root at any start level** (see the module doc), given `hmid`
+(`HelloRootPremX.hmid`). -/
 theorem h2Stmt_rootG {WS} (P : HelloRootPremG WS (Ly) (LB)) {ls0 : Lsize}
     (hmid : ∀ l b n l' b' n', Spike.Lib.X64.HelloPh.Fresh2H P.ar (LB) l b n l' b' n' →
       SegWS (fun s c fs => P.W2 l b n l' b' n' s c fs ∧ P.X2 l b n l' b' n' s c fs) (TakeCKS (AT) (ClH (Ly)))
@@ -148,21 +148,6 @@ theorem h2Stmt_rootG {WS} (P : HelloRootPremG WS (Ly) (LB)) {ls0 : Lsize}
     rw [hX2] at h
     exact h
 
-/-- **`H2StmtH` at hello's root** (`h2Stmt_rootG` at `HelloRootPrem.hmid`). -/
-theorem h2Stmt_root (P : HelloRootPrem (Ly) (LB)) {ls0 : Lsize}
-    (hX2 : P.X2 = fun l b n l' b' n' => X2H (Ly) (AT) (Ly).endPc (lbl2H (LB) l b l' b') ((S2) l n l' n'))
-    (hG : P.G = fun l b _ _ _ _ => GJ1RH (Ly) (Spike.Lib.X64ConsumerA.upd (LB) l b) l)
-    (hWc : ∀ l b n l' b' n' s c, P.Wc l b n l' b' n' s c → Spike.Lib.X64.Flow.Ret0.StackM (r1Of (Ly).lab) s.st.1)
-    (hobl : ∀ l b n l' b' n', Spike.Lib.X64.HelloPh.Fresh2H P.ar (LB) l b n l' b' n' →
-      RefOblH (Ly) P.F0 (P.G l b n l' b' n') l' b' (slWsH l) n'
-        (fun s c fs => P.W2 l b n l' b' n' s c fs ∧ P.X2 l b n l' b' n' s c fs) (TakeCKS (AT) (ClH (Ly)))
-        (lbl2H (LB) l b l' b') (P.ms2 l b n l' b' n')) :
-    H2StmtH P.W2 (TakeCKS (AT) (ClH (Ly))) P.ar (LB) P.ms2 (Ly) (Ly).endPc
-      (fun l b n l' b' n' s c => BoxMH (Ly) (P.msB l b n) P.F0 (P.G l b n l' b' n') l' b' (slWsH l) n' s c ∧
-        Spike.Lib.X64.KeepUn.U (r1Of (Ly).lab) s)
-      (inv2H P.W2 (TakeCKS (AT) (ClH (Ly))) P.ms2 (Ly) (AT) (Ly).endPc (LB) ls0) :=
-  h2Stmt_rootG hpw i0 P (fun _ _ _ _ _ _ hf => P.hmid hf) hX2 hG hWc hobl
-
 /-- **`H2StmtH` at hello's root at the self words** (`h2Stmt_rootG` at `HelloRootPremX.hmid`, given the worker's
 TCB word off the counters and `ntA`). -/
 theorem h2Stmt_rootX (P : Spike.Lib.X64.HelloPh.HelloRootPremX (Ly) (LB)) {ls0 : Lsize}
@@ -182,9 +167,6 @@ theorem h2Stmt_rootX (P : Spike.Lib.X64.HelloPh.HelloRootPremX (Ly) (LB)) {ls0 :
   h2Stmt_rootG hpw i0 P (fun _ _ _ _ _ _ hf => Spike.Lib.X64.HelloPh.HelloRootPremX.hmid P hW hf) hX2 hG hWc hobl
 
 end Spike.Lib.X64.HelloPh.H2Root
-
-/-- info: 'Spike.Lib.X64.HelloPh.H2Root.h2Stmt_root' depends on axioms: [propext, Classical.choice, Quot.sound] -/
-#guard_msgs in #print axioms Spike.Lib.X64.HelloPh.H2Root.h2Stmt_root
 
 /-- info: 'Spike.Lib.X64.HelloPh.H2Root.h2Stmt_rootG' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms Spike.Lib.X64.HelloPh.H2Root.h2Stmt_rootG

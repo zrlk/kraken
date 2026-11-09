@@ -13,9 +13,9 @@ outside every placed label and the flag's word inside its label.
 - `selfOK_of`: `SelfOK` from the words distinct, both outside every placed
   label and the flag's word inside one.
 - `tcbM_ne_tcb2`, `offTcb_park_tcb2`, `tcbM_room`: the two TCB words differ
-  (unconditionally), the park's word `tcbM + 16` misses `tcb2`'s and
-  `tcbM + 24` fits (for `pinA + 112` in the address space).
-- `pin_room_ofPlaceWX`: `pinA + 112` fits at a placed output (the pinned
+  (unconditionally), the park's word `tcbM + 16` misses `tcb2`'s (for
+  `pinA + 144` in the address space) and `tcbM + 24` fits (for `pinA + 112`).
+- `pin_room_ofPlaceWX`: `pinA + 144` fits at a placed output (the pinned
   region below `2 ^ 32`).
 - `selfOK_tcb`: `SelfOK (tcbM L) (tcb2 L) g` from the two words being
   `wakeMs`' runtime words (`LdOk.rt` at main's `%fs:0` and the worker's) and
@@ -82,14 +82,14 @@ theorem tcbM_ne_tcb2 (L : RuntimeLayout) : tcbM L ≠ tcb2 L := by
   bv_omega
 
 /-- **The park's word `tcbM + 16` misses `tcb2`'s** (no wrap-around). -/
-theorem offTcb_park_tcb2 (L : RuntimeLayout) (hpin : L.pinA.toNat + 112 ≤ 2 ^ 64) :
+theorem offTcb_park_tcb2 (L : RuntimeLayout) (hpin : L.pinA.toNat + 144 ≤ 2 ^ 64) :
     OffTcb (tcb2 L) ⟨tcbM L + 16#64, 8⟩ := by
   left
-  show (L.pinA + 8#64 + 16#64).toNat + 8 ≤ (L.pinA + 104#64).toNat
+  show (L.pinA + 8#64 + 16#64).toNat + 8 ≤ (L.pinA + 136#64).toNat
   simp only [BitVec.toNat_add, BitVec.toNat_ofNat]
   rw [Nat.mod_eq_of_lt (a := L.pinA.toNat + 8 % 2 ^ 64) (by omega),
     Nat.mod_eq_of_lt (a := L.pinA.toNat + 8 % 2 ^ 64 + 16 % 2 ^ 64) (by omega),
-    Nat.mod_eq_of_lt (a := L.pinA.toNat + 104 % 2 ^ 64) (by omega)]
+    Nat.mod_eq_of_lt (a := L.pinA.toNat + 136 % 2 ^ 64) (by omega)]
   omega
 
 /-- **`tcbM + 24` fits** (`stOk_msM_park`'s `hT`). -/
@@ -100,10 +100,10 @@ theorem tcbM_room (L : RuntimeLayout) (hpin : L.pinA.toNat + 112 ≤ 2 ^ 64) :
   rw [Nat.mod_eq_of_lt (a := L.pinA.toNat + 8 % 2 ^ 64) (by omega)]
   omega
 
-/-- **`pinA + 112` fits at a placed output** (the pinned region below `2 ^ 32`). -/
+/-- **`pinA + 144` fits at a placed output** (the pinned region below `2 ^ 32`). -/
 theorem pin_room_ofPlaceWX {pcfg : Scc.Cert.PlaceOK.Config} {o : Scc.Cert.PlaceOK.X64.Out}
     {Λ : Scc.Sem.Layout} (hp : PlaceWX pcfg Λ o) (i : CoreTerm.Expr → String → Nat → Option Nat) :
-    (RuntimeLayout.ofPlaceWX hp i).pinA.toNat + 112 ≤ 2 ^ 64 := by
+    (RuntimeLayout.ofPlaceWX hp i).pinA.toNat + 144 ≤ 2 ^ 64 := by
   have hb := PlaceWX.below32_of_placeWX hp Λ.pinned (by simp [Scc.Sem.Layout.regions])
   have he : (RuntimeLayout.ofPlaceWX hp i).Λ.pinned = Λ.pinned := rfl
   rw [PlaceWX.pinA_toNat_ofPlaceWX hp i, he]

@@ -38,7 +38,7 @@ theorem ret0_ph : ph ret0L = Spike.Lib.X64.Flow.Ret0.Inst.ph := by
 
 /-- `ret0.x`'s sites: the hand ones. -/
 theorem ret0_sites : Scc.Cert.Rt.X64.sitesOf ret0Λ.code.lo ret0Cells ret0Λ =
-    some [4196177, 4196217, 4198555, 4198623, 4198691, 4198759, 4198827] := by
+    some [4196177, 4196217, 4198593, 4198661, 4198729, 4198797, 4198865] := by
   decide +kernel
 
 /-- **The record's off-site pcs are the hand ones.** -/

@@ -4,7 +4,7 @@
 to `SFactsSt2` at `ownGXW` (`Lft2`): every state of `scc_rt_thread_reserve`
 called from `.x19` is on a pool stack (its frame `[-40, 8]`, `hb`) at a pc
 from `.x1` on in none of `InT`, `InC`, `InAb` (`QP`; the reserve is at
-`[4199447, 4199555)`, its return `.x19 = 4203349`), so it holds `tcbM` only
+`[4199447, 4199555)`, its return `.x19 = 4203387`), so it holds `tcbM` only
 (`cls_pool`); its one shared write (the `lock xaddq` on the counter
 `ntA`) misses `tcbM` (`ha`).
 
@@ -44,7 +44,7 @@ theorem res_labs (hlab : ∀ l x, codeLabel lo wakeCells l = some x → L.lab l 
     (_root_.Executable.labels L.exe).label fnL = Int64.ofNat 4199447 ∧
     (_root_.Executable.labels L.exe).label entryL = Int64.ofNat 4199455 ∧
     (_root_.Executable.labels L.exe).label okL = Int64.ofNat 4199536 ∧
-    (_root_.Executable.labels L.exe).label ".Lwc_main.x19" = Int64.ofNat 4203349 := by
+    (_root_.Executable.labels L.exe).label ".Lwc_main.x1" = Int64.ofNat 4203387 := by
   refine ⟨hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_, hlab _ _ ?_⟩ <;>
     (rw [← codeT_eq]; decide +kernel)
 
@@ -74,6 +74,16 @@ local macro "rblkX " bb:term:max ok:term:max blk:term:max oo:term:max el:term:ma
     · intro k hk; dsimp only [rvN]; rw [$el:term]; revert k; decide +kernel
     dsimp only [rvN] at hJ ⊢))
 
+set_option hygiene false in
+/-- `rblkX` for a block split by its return label (`blkL2A`, `blockAcrossB`). -/
+local macro "rblkXA " bb:term:max ok:term:max blk:term:max oo:term:max el:term:max : tactic =>
+  `(tactic| (
+    refine blkL2A hp hlab hsite hsep ha hW (P := PP) (Q := QP) $bb (by first | rfl | exact ofNat_zero' _) $ok hR
+      hlo' hhi (fun _ h => h.2) (fun s h => cls_pool hlab hb s h.1) (cls_pool hlab hb) ?_
+      (soT $blk $oo) (fun σ c hJ => ?_)
+    · intro k hk; dsimp only [rvN]; rw [$el:term]; revert k; decide +kernel
+    dsimp only [rvN] at hJ ⊢))
+
 section L
 
 variable (hp : L.prog = wakeCells)
@@ -88,7 +98,7 @@ set_option maxHeartbeats 1600000 in
 returning to `.x19`: every state on a pool stack (`hb`) at a `QP` pc holds
 `tcbM` only; the counter's add misses it. -/
 theorem resL {R : Region} (hb : BandOnP L R (-40) 8) (hR : R.OK) (hlo' : R.lo ≤ -40) (hhi : 8 ≤ R.hi)
-    (q : ResG) (hn : q.n = 0#64) (hra : q.g.ra = (L.lab ".Lwc_main.x19").toBitVec) {F : MachineData → Prop}
+    (q : ResG) (hn : q.n = 0#64) (hra : q.g.ra = (L.lab ".Lwc_main.x1").toBitVec) {F : MachineData → Prop}
     (hunN : ∀ m, F m → Mem.loadInt m.dmem (ntA L.lab) 8 = none) :
     ∀ i, ReserveW (Lft2 Λ L (ntA L.lab) Dt) (fun _ _ => False) L.exe L.endPc R F q i := by
   obtain ⟨eFn, eEn, eOk, eX19⟩ := res_labs hlab (L := L)
@@ -117,10 +127,10 @@ theorem resL {R : Region} (hb : BandOnP L R (-40) 8) (hR : R.OK) (hlo' : R.lo �
     show QP ((_root_.Executable.labels L.exe).label okL).toBitVec.toNat
     rw [eOk]; decide +kernel
   case ok =>
-    rblkX bOk Spike.Lib.X64.Flow.Reserve.rRet_ok rRet oI eOk
+    rblkXA bOk Spike.Lib.X64.Flow.Reserve.rRet_ok rRet oI eOk
     rw [(Spike.Lib.X64.Flow.Reserve.rRet_walk _ _ hJ.2).1]
     show QP (Int64.ofBitVec q.g.ra).toBitVec.toNat
-    rw [hra, Int64.ofBitVec_toBitVec, show L.lab ".Lwc_main.x19" = Int64.ofNat 4203349 from eX19]
+    rw [hra, Int64.ofBitVec_toBitVec, show L.lab ".Lwc_main.x1" = Int64.ofNat 4203387 from eX19]
     decide +kernel
   case entry =>
     refine nodeL2 hlab hsep ha hW (sz := 7) (P := QP) (cls_pool hlab hb) (fun s c hAt s' hs => ?_) ⟨?_, ?_⟩
@@ -169,7 +179,7 @@ frame ghost and control `g`, its frame `[-40, 8]` on the pool (`hb`). -/
 theorem reserveW_wcGX {rS : Range} {R : Region} {F : MachineData → Prop}
     (hsepN : ntA L.lab ≠ L.pnA ∧ ntA L.lab ≠ L.lockA ∧ ntA L.lab ≠ L.freeNA ∧ ntA L.lab ≠ L.nextA)
     (hb : BandOnP L R (-40) 8) (hR : R.OK) (hlo' : R.lo ≤ -40) (hhi : 8 ≤ R.hi)
-    (g : Spike.Lib.X64.Flow.Ret0.AllocTcb.G × Spike.Lib.Ctl) (hra : g.1.ra = (L.lab ".Lwc_main.x19").toBitVec)
+    (g : Spike.Lib.X64.Flow.Ret0.AllocTcb.G × Spike.Lib.Ctl) (hra : g.1.ra = (L.lab ".Lwc_main.x1").toBitVec)
     (hmN : Scc.Sem.Kernel.mapped (Spike.Lib.X64Consumer.K0 Λ) true ⟨ntA L.lab, 8⟩ = true)
     (hunN : ∀ m, F m → Mem.loadInt m.dmem (ntA L.lab) 8 = none) :
     ∀ i, ReserveW (fun s _ => SFactsSt2 Λ (Spike.Lib.X64.PhRec.μ L) (ownGXW L (ntA L.lab)) s)

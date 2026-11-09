@@ -1,8 +1,8 @@
 /-
 **`hello1.w`'s write tail after `scc_rt_print` returns** (x86-64): from
-`print`'s return (`Print.x13`'s `ret`, at `wc_main`'s `.x15` with `%rsp`
-past the return address in `print`'s region), `wc_main`'s `.x15` block
-(`%rax = 0`, the epilogue, `ret` to `scc_rt_main`'s `.x3`), and
+`print`'s return (`Print.x13`'s `ret`, at `wc_main`'s `.x0` with `%rsp`
+past the return address in `print`'s region), `wc_main`'s `.x0` block
+(`%rax = 0`, the epilogue, `ret` to `scc_rt_main`'s `.x1`), and
 `scc_rt_main`'s `exit_group` tail (`xExit`, then the `syscall`), the states
 step among themselves under the certification steps and stop at the
 `exit_group` call (`ClosedC`). The pieces are `Spike/Lib/Rt/X64TailDt.lean`'s,
@@ -17,7 +17,7 @@ return address and `%rbp` (`WcRa`, `WcFp`).
   read off the memory);
 - `Abs.add_rbp`, `Abs.drop_regs`: adding `%rbp`'s offset from its value,
   forgetting the registers' offsets;
-- `RetDt exe endPc R0`: `wc_main`'s `.x15` block in its region `wR R0`,
+- `RetDt exe endPc R0`: `wc_main`'s `.x0` block in its region `wR R0`,
   `scc_rt_main`'s `exit_group` tail in its region `R0`, the `exit_group`
   call; `retDt_closed`: closed under certification, given the blocks'
   code and the pieces off the transfer sites;
@@ -121,10 +121,10 @@ section Pieces
 
 variable (exe : _root_.Executable) (endPc : Int64) (R0 : Region)
 
-/-- **`wc_main`'s frame at `.x15`**: the return address `scc_rt_main`'s
-`.x3`, the saved `%rbp` `scc_rt_main`'s (`R0.addr (-8)`). -/
+/-- **`wc_main`'s frame at `.x0`**: the return address `scc_rt_main`'s
+`.x1`, the saved `%rbp` `scc_rt_main`'s (`R0.addr (-8)`). -/
 def WJ (σ : AS) : Prop :=
-  Int64.ofBitVec (σ.slot 0) = (_root_.Executable.labels exe).label ".Lscc_rt_main.x3" ∧ σ.slot (-8) = R0.addr (-8)
+  Int64.ofBitVec (σ.slot 0) = (_root_.Executable.labels exe).label ".Lscc_rt_main.x1" ∧ σ.slot (-8) = R0.addr (-8)
 
 /-- **`print`'s frame condition** in `hello1.w`: the callers' cells outside
 their callees' regions hold values (`scc_rt_main`'s outside `wc_main`'s,
@@ -133,18 +133,18 @@ their callees' regions hold values (`scc_rt_main`'s outside `wc_main`'s,
 hands `print`'s `write`, without the caller's `F`). -/
 def CP (m : MachineData) : Prop :=
   (CallerCells R0 (-80) (-144) 8 m ∧ CallerCells (wR R0) (-96 - 8) (-40) 16 m) ∧
-    WcRa (wR R0) ((_root_.Executable.labels exe).label ".Lscc_rt_main.x3") m ∧ WcFp (wR R0) (R0.addr (-8)) m
+    WcRa (wR R0) ((_root_.Executable.labels exe).label ".Lscc_rt_main.x1") m ∧ WcFp (wR R0) (R0.addr (-8)) m
 
 /-- The `exit_group` call's pc: after `xExit`'s three instructions. -/
 abbrev pcX : Int64 :=
-  (_root_.Executable.labels exe).label ".Lscc_rt_main.x3" + Int64.ofNat 4 + Int64.ofNat 4 + Int64.ofNat 5
+  (_root_.Executable.labels exe).label ".Lscc_rt_main.x1" + Int64.ofNat 4 + Int64.ofNat 4 + Int64.ofNat 5
 
-/-- **After `print`'s return**: `wc_main`'s `.x15` block in its region,
+/-- **After `print`'s return**: `wc_main`'s `.x0` block in its region,
 `scc_rt_main`'s `exit_group` tail in its region, the `exit_group` call. -/
 def RetDt (s : State) : Prop :=
-  BlkSt exe endPc (wR R0) ((_root_.Executable.labels exe).label ".Lwc_main.x15") oB wcR15 (WJ exe R0)
+  BlkSt exe endPc (wR R0) ((_root_.Executable.labels exe).label ".Lwc_main.x0") oB wcR15 (WJ exe R0)
     (CallerCells R0 (-80) (-144) 8) s ∨
-  BlkSt exe endPc R0 ((_root_.Executable.labels exe).label ".Lscc_rt_main.x3") mO (Flow.xExit (-48) 4 4 5)
+  BlkSt exe endPc R0 ((_root_.Executable.labels exe).label ".Lscc_rt_main.x1") mO (Flow.xExit (-48) 4 4 5)
     (fun _ => True) (fun _ => True) s ∨
   ExitSt exe endPc (pcX exe) s
 
@@ -183,10 +183,10 @@ theorem cp_stable (hR : R0.OK) (hlo : R0.lo ≤ -224) (hhi : 0 ≤ R0.hi) :
 
 /-- **`print`'s return lands after it**: `x13`'s run from `print`'s frame
 (the caller's `%rbp` `wc_main`'s frame pointer, the return address
-`.x15`) under `print`'s frame condition is `wc_main`'s `.x15` block's entry
+`.x0`) under `print`'s frame condition is `wc_main`'s `.x0` block's entry
 in its region (the `hret` of `printIn_steps`). -/
 theorem retDt_of_ret (σ0 : AS) (hJ : PJ ((wR R0).addr (-8))
-      ((_root_.Executable.labels exe).label ".Lwc_main.x15").toBitVec σ0)
+      ((_root_.Executable.labels exe).label ".Lwc_main.x0").toBitVec σ0)
     (s : State) (m : MachineData) (he : s.exe = exe) (hn : s.endPc = endPc)
     (hA : Abs (pR (wR R0)) (arun (_root_.Executable.labels exe).label Print.x13
         ⟨(_root_.Executable.labels exe).label ".Lscc_rt_print.done", Print.oI, σ0⟩).so m
@@ -209,14 +209,14 @@ theorem retDt_of_ret (σ0 : AS) (hJ : PJ ((wR R0).addr (-8))
   · rw [leave_cellsAS_slot (by simp [Region.Off, Region.callee]) hj']; exact hv'
 
 /-- **After `print`'s return the states stop at the `exit_group` call**:
-`RetDt` is closed under certification, given `wc_main`'s `.x15` block and
+`RetDt` is closed under certification, given `wc_main`'s `.x0` block and
 `scc_rt_main`'s `exit_group` tail at their labels (`hc15`, `hcx`, `hcs`)
 and the pieces off the transfer sites (`hns`). -/
 theorem retDt_closed (hR : R0.OK) (hlo : R0.lo ≤ -224) (hhi : 0 ≤ R0.hi)
     (hc15 : ∀ s : State, s.exe = exe → s.endPc = endPc →
-      CodeAt s ((_root_.Executable.labels exe).label ".Lwc_main.x15") wcR15)
+      CodeAt s ((_root_.Executable.labels exe).label ".Lwc_main.x0") wcR15)
     (hcx : ∀ s : State, s.exe = exe → s.endPc = endPc →
-      CodeAt s ((_root_.Executable.labels exe).label ".Lscc_rt_main.x3") (Flow.xExit (-48) 4 4 5))
+      CodeAt s ((_root_.Executable.labels exe).label ".Lscc_rt_main.x1") (Flow.xExit (-48) 4 4 5))
     (hcs : ∀ s : State, s.exe = exe → s.endPc = endPc → CodeAt s (pcX exe) [(op64 .syscall, 2)])
     (hns : ∀ s, RetDt exe endPc R0 s → Kernel.siteAt abi μ s = none) :
     ClosedC A (Kernel.certSem abi A μ x tid) tid (RetDt exe endPc R0) := by
@@ -237,7 +237,7 @@ theorem retDt_closed (hR : R0.OK) (hlo : R0.lo ≤ -224) (hhi : 0 ≤ R0.hi)
       simp [leave, hfp])
     exact .inl (blkSt_entry (by decide) he hn hra trivial hL' trivial)
   · obtain ⟨hpc, hrax, -⟩ := Flow.xExit_run (_root_.Executable.labels exe).label
-      ((_root_.Executable.labels exe).label ".Lscc_rt_main.x3") (-72) (-8) σ0 (-48) 4 4 5
+      ((_root_.Executable.labels exe).label ".Lscc_rt_main.x1") (-72) (-8) σ0 (-48) 4 4 5
     refine ⟨he, hn, hpc, ?_⟩
     show m.regs.get64 .rax = 231
     rw [hA.regs]

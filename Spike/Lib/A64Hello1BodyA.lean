@@ -172,7 +172,8 @@ theorem hello1_wc_bodyA_segW {W : Frag isaLSE2} {K : State → State → Prop}
     · rintro σC c σR c' k - h4 ⟨σ1, c1, hJ1, -, hQ1⟩ -
       exact .inr ⟨WX.abort, rfl, rfl, h4, σ1, c1, k, hJ1, hQ1⟩
   case sp4 =>
-    refine seg_ndW (by simp [wcR4]) wcR4_ok hF hR hal hlo hhi (code_of hp hend h4 (ofNat4_zero _)) hW.sp4
+    refine seg_ndW (by simp [wcR4]) wcR4_ok hF hR hal hlo hhi
+      (Spike.Lib.A64.code_field_blockAcross hp hend h4 (List.take_append_drop _ _) (ofNat4_zero _)) hW.sp4
       fun σ c ⟨σ0, c0, hJ0, hP, hsl⟩ => ?_
     obtain ⟨c', hr, hx⟩ := hedge σ0 c0 hJ0 c hP (arun lab wcR4 ⟨lab ".L19_wc_main.sp4", ⟨-96, []⟩, σ⟩).σ
       (by rw [wcR4_run]; exact hsl) (by rw [wcR4_run]; rfl)

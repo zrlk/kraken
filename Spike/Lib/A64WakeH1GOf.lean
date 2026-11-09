@@ -88,7 +88,7 @@ theorem hstT_of (hpa : Scc.Sem.A64.textProgram SccCertificate.asm = .ok o.prog)
     {l : WeakMem.AllocLabel} {b n : Nat} {F0 : MachineData → Prop} {R : Region} {F : MachineData → Prop}
     {J0 : AS → Ctl → Prop} {t : UInt64} (hB : BoxPure (Ly) F0 n R F J0 t)
     (hunP : ∀ m, F m → Mem.loadInt m.dmem (Ly).pnA 8 = none)
-    (hunH : ∀ m, F m → Mem.loadInt m.dmem ((Ly).pinA + 96#64) 8 = none) :
+    (hunH : ∀ m, F m → Mem.loadInt m.dmem ((Ly).pinA + 128#64) 8 = none) :
     ∀ c0, (∃ l' A', SB l b l' A' c0) →
     ∀ g : Ret0.AllocTcb.G, g.ra = ((Ly).lab ".L21_wc_main.sp4").toBitVec →
     ∀ nd, TcbWG (fun s _ => A64ConsumerA.SFactsSt2 (Ly).Λ (Spike.Lib.A64.PhRec.μ (Ly))
@@ -102,7 +102,7 @@ theorem hstT_of (hpa : Scc.Sem.A64.textProgram SccCertificate.asm = .ok o.prog)
   have hs := Spike.Lib.A64.WakePh.StartPlaceLy.wsep_W hp i hA13
   obtain ⟨hRc, halc⟩ := Spike.Lib.A64.Flow.Ret0.Inst.callee_facts hR hal (kc := -80) (lo' := -192)
     (by omega) (by decide) (by omega) (by decide)
-  have eH : hdrA (Ly).lab (tcb2Q g Spike.Lib.A64Consumer.c0) = (Ly).pinA + 96#64 := by
+  have eH : hdrA (Ly).lab (tcb2Q g Spike.Lib.A64Consumer.c0) = (Ly).pinA + 128#64 := by
     rw [Spike.Lib.A64.WakePh.Tcb2Call.tcb2Q_hdrA, (Ly).lab_pin]
   have h := Spike.Lib.A64.WakePh.Tcb2CallW.tcb2W_ownGK (L := Ly) hpg hlo (ntA (Ly).lab) ⟨0, 0⟩
     (Spike.Lib.PlaceW.site_ofPlaceW hp i) (Spike.Lib.PlaceW.abortLbl_of_placeW (Spike.Lib.PlaceW.link i hp))
@@ -123,12 +123,12 @@ theorem h1G_of (hpa : Scc.Sem.A64.textProgram SccCertificate.asm = .ok o.prog)
     (hwp : Scc.Sem.A64.textProgram SccCertificate.asm = .ok wakeProg)
     (hlo0 : Λ0.code.lo = Spike.Lib.A64.WakePh.lo)
     (hA13 : Scc.Cert.Spawn.A64.a13data (Ly).Λ o.prog o.secs = true)
-    (hpin2 : (Ly).pinA.toNat + 168 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) (hcz : Spike.Lib.A64.Rt.CtrZ o)
+    (hpin2 : (Ly).pinA.toNat + 200 ≤ (Ly).Λ.pinned.lo + (Ly).Λ.pinned.size) (hcz : Spike.Lib.A64.Rt.CtrZ o)
     {l : WeakMem.AllocLabel} {b n : Nat} {F0 : MachineData → Prop} {R : Region} {F : MachineData → Prop}
     {J0 : AS → Ctl → Prop} {t : UInt64} (hB : BoxPure (Ly) F0 n R F J0 t) (hl : L0T (Ly).Λ l = none)
     (hunN : ∀ m, F m → Mem.loadInt m.dmem (ntA (Ly).lab) 8 = none)
     (hunP : ∀ m, F m → Mem.loadInt m.dmem (Ly).pnA 8 = none)
-    (hunH : ∀ m, F m → Mem.loadInt m.dmem ((Ly).pinA + 96#64) 8 = none)
+    (hunH : ∀ m, F m → Mem.loadInt m.dmem ((Ly).pinA + 128#64) 8 = none)
     (resA : ∀ g : Reserve.G × Ctl, ResOkA ms1 F (Ly).exe (WakeSpawnR.endR hp i) (rAR R) F ⟨g.1, 0#64, g.2⟩)
     (hdrA' : ∀ c0 g, Ret0.StOk ms1 F (Ly).exe (WakeSpawnR.endR hp i) (hdrA (Ly).lab (tcb2Q g c0))
       ((tcb2Q g c0).h ||| 1#64 <<< 36))

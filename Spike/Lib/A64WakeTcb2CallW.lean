@@ -125,14 +125,14 @@ abbrev BandSp3 (L : RuntimeLayout) (R : Region) : Prop := BandA L (R.callee (-80
 
 /-- The block's pcs at the canonical base: their values, the phase `16`,
 off the sites. -/
-theorem sp3_facts : ∀ k < 5, (Int64.ofNat 2169248 + Int64.ofNat (4 * k)).toBitVec.toNat = 2169248 + 4 * k ∧
-    phC (2169248 + 4 * k) = 16 ∧ okC (2169248 + 4 * k) = true := by decide +kernel
+theorem sp3_facts : ∀ k < 5, (Int64.ofNat 2169280 + Int64.ofNat (4 * k)).toBitVec.toNat = 2169280 + 4 * k ∧
+    phC (2169280 + 4 * k) = 16 ∧ okC (2169280 + 4 * k) = true := by decide +kernel
 
 variable {L : RuntimeLayout}
 
 /-- `.sp3` at the canonical base. -/
 theorem lab_sp3 (hlab : ∀ l x, codeOf lo wakeProg l = some x → L.lab l = Int64.ofNat x) :
-    (_root_.Executable.labels L.exe).label ".L21_wc_main.sp3" = Int64.ofNat 2169248 :=
+    (_root_.Executable.labels L.exe).label ".L21_wc_main.sp3" = Int64.ofNat 2169280 :=
   hlab _ _ (by rw [← codeT_eq]; decide +kernel)
 
 /-- **`ownG` at the block's pcs** is `ownW L a 16` (no range of `ownG`'s
@@ -141,7 +141,7 @@ theorem own_sp3 (hlab : ∀ l x, codeOf lo wakeProg l = some x → L.lab l = Int
     {s : State} {k : Nat} (hk : k < 5)
     (hs : s.st.2 = (_root_.Executable.labels L.exe).label ".L21_wc_main.sp3" + Int64.ofNat (4 * k)) :
     ownG L a s = ownW L a 16 := by
-  have hp : pcOf s = 2169248 + 4 * k := by
+  have hp : pcOf s = 2169280 + 4 * k := by
     unfold pcOf; rw [hs, lab_sp3 hlab]; exact (sp3_facts k hk).1
   obtain ⟨e1, e2, e3, e4, e5, -, e7, e8, e9⟩ := labs_eq hlab (L := L)
   rw [ownG_W hlab (.inr (.inr ⟨?_, ?_, ?_, ?_⟩)), hp, phW_eq, (sp3_facts k hk).2.1] <;> unfold inPc <;> omega
@@ -193,11 +193,11 @@ theorem tcb2Call_ownG (hp : L.prog = wakeProg) (hlo : L.Λ.code.lo = lo) (a : Bi
   refine Spike.Lib.A64ConsumerA.BlkW.leaf (Spike.Lib.A64.Flow.code_of L.lays rfl hin.1
     (Spike.Lib.A64.Flow.ofNat4_zero _)) tcb2Call_ok hR hal hlo3 hhi ?_ ?_ ?_
   · intro x hx k hk
-    rw [hsite, show L.lab Spike.Lib.A64.Flow.Ret0.StackTake.siteL = Int64.ofNat 2165940 from eSite] at hx
+    rw [hsite, show L.lab Spike.Lib.A64.Flow.Ret0.StackTake.siteL = Int64.ofNat 2165944 from eSite] at hx
     cases hx
     show ((_root_.Executable.labels L.exe).label ".L21_wc_main.sp3" + Int64.ofNat (4 * k)).toBitVec.toNat ≠ _
     rw [e3, (sp3_facts k (hlen ▸ hk)).1]
-    have : (Int64.ofNat 2165940).toBitVec.toNat = 2165940 := rfl
+    have : (Int64.ofNat 2165944).toBitVec.toNat = 2165944 := rfl
     omega
   · intro σ c hJ k hk s m hA he hn hs
     exact own_sp3 hlab (hlen ▸ hk) (by rw [hs]; rfl)
@@ -224,7 +224,7 @@ theorem tcb2W_ownGK (hp : L.prog = wakeProg) (hlo : L.Λ.code.lo = lo) (a : BitV
     (hΛ : L.Λ.abortLbl = Scc.Cert.Link.abortName)
     (hlab : ∀ l x, codeOf lo wakeProg l = some x → L.lab l = Int64.ofNat x)
     (hsep : L.pnA ≠ L.lockA ∧ L.pnA ≠ L.freeNA ∧ L.pnA ≠ L.nextA ∧ L.pnA ≠ a)
-    (hhdr : L.pinA + 80#64 + 16#64 ∉ [L.pnA, L.lockA, L.freeNA, L.nextA, a])
+    (hhdr : L.pinA + 112#64 + 16#64 ∉ [L.pnA, L.lockA, L.freeNA, L.nextA, a])
     {Λ : Scc.Sem.Layout} {lbl : Lbl} {c0 : Ctl} (hC0 : CFacts Λ lbl c0)
     {R : Region} (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo' : R.lo ≤ -192) (hhi : 0 ≤ R.hi)
     (hb : BandA L R) (g : Spike.Lib.A64.Flow.Ret0.AllocTcb.G) (hra : g.ra = (L.lab ".L21_wc_main.sp4").toBitVec)

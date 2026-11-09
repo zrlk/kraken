@@ -130,7 +130,8 @@ theorem resAgree (a : BitVec 64) (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo'
     rw [Spike.Lib.A64.Flow.Reserve.rJ_run]
     exact freeAt_lab hlab (l := okL) (by free_dec)
   case ok =>
-    refine blkAgreeW hlab (Spike.Lib.A64.Flow.code_of L.lays rfl (hp ▸ bOk) (ofNat4_zero _))
+    refine blkAgreeW hlab
+      (Spike.Lib.A64.code_field_blockAcross L.lays rfl (hp ▸ bOk) (List.take_append_drop 4 _) (ofNat4_zero _))
       Spike.Lib.A64.Flow.Reserve.rRet_ok hR hal (by omega) (by omega) hsite
       (fun j hj => by
         have := freeAt_pc hlab (l := okL) (k := 0) (n := 5) (by free_dec) (j := j) (by simp [rRet] at hj ⊢; omega)

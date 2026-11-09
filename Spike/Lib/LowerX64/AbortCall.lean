@@ -168,12 +168,12 @@ the abort block's premises only for a nonempty body (`insts_ne_of_add_suffix`). 
 theorem userCallW_main {d : Decl} (hd : Scc.Lower.Accepted0 [d] = true) {fr : Scc.Emit.X64.Frame} {r : Res}
     {fn entry : Label} {zl zf z1 z2 zs : Nat} (hf : FrameOk fr) (h1 : fr.size ≤ 2 ^ 31)
     (hpro : proInC cells fr fn entry zl zf z1 z2 zs = true) (hr : lower0 [(d.arg, .unit, [])] 0 d.body = some r)
-    (hbody : bodyIn cells fr entry 0 r.insts r.ret = true)
+    {m : Nat} (hbody : bodyIn cells fr entry m 0 r.insts r.ret = true)
     {kp : Nat} (hI : InstOk exe endPc cells lab μ own Tk K okPc ph kp) {Dt : State → Prop}
     {lbl : Lbl} {ms : MemSide isa} {R : Region} {F : MachineData → Prop} {Z : Int64} {D : Int}
     {tp : UInt64} {ra : BitVec 64} (hR8 : R.base.toNat % 8 = 0) (hZ8 : Z.toInt % 8 = 0)
     (hD : (fr.size : Int) + 48 ≤ D) (hD8 : D % 8 = 0)
-    (hphB : bodyPhOk okPc ph (fun _ => false) lab cells fr entry r.insts r.ret (Int64.ofBitVec ra) = true)
+    (hphB : bodyPhOk okPc ph (fun _ => false) lab cells fr entry m r.insts r.ret (Int64.ofBitVec ra) = true)
     (hphP : ProPh okPc ph lab fn (labelOf fr.fn "chk") (Int64.ofInt fr.size) (proL fr) zl zf z1 z2 zs [])
     (hC0 : CFacts Λ lbl Spike.Lib.X64Consumer.c0)
     (hmr : Scc.Sem.Kernel.mapped (K0 Λ) false ⟨limA tp, 8⟩ = true)

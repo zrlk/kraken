@@ -2,6 +2,7 @@ import Scc.Config
 import Scc.Frontend
 import Scc.Lower.Spec
 import Scc.Lower.Spec1
+import Scc.Lower.Raw
 import Scc.Cert.Gen
 import Scc.Cert.Blocks
 import Scc.Cert.Place
@@ -15,7 +16,10 @@ scc --check c.lean
 ```
 
 Defaults: `--arch x64 --host linux --gc none`, output `prog.s` (the input
-name with `.w` replaced by `.s`).  `-o -` or `-S` writes the assembly listing
+name with `.w` replaced by `.s`).  `--host raw` emits a unit for the raw ABI
+(`Scc.Lower.Raw`: no `_start`, the kernel routines through the TCB's routine
+table); it is not certified, and `--cert`, `--blocks` and `--code` refuse it.
+`-o -` or `-S` writes the assembly listing
 to standard output instead, and then nothing else goes there (so
 `scc -S prog.w | as -o prog.o` works).  `--report` prints every `Int` `+` site (each
 keeps its overflow check: the places where the program can take the abort
@@ -78,7 +82,7 @@ def usage : String :=
 def help : String := usage ++ "
 
   --arch x64|arm     target architecture (default x64; arm is AArch64 with FEAT_LSE2)
-  --host linux|raw   target host (default linux; raw is not implemented)
+  --host linux|raw   target host (default linux; raw: a unit for the raw ABI, uncertified)
   --gc none          memory manager (default none: a bump allocator that never frees)
   -o out.s           write the assembly to out.s (default: prog.s next to prog.w)
   -o -, -S           write the assembly listing to standard output
@@ -106,7 +110,6 @@ def parseArgs : List String → Opts → Except String Opts
       | none => throw s!"scc: --arch {v}: unknown architecture (available: x64, arm)"
   | "--host" :: v :: rest, o =>
       match Host.ofString? v with
-      | some .raw => throw "scc: --host raw: not implemented"
       | some h => parseArgs rest { o with cfg := { o.cfg with host := h } }
       | none => throw s!"scc: --host {v}: unknown host (available: linux, raw)"
   | "--gc" :: v :: rest, o =>
@@ -188,7 +191,8 @@ def spawnShape (ir : IR.Program) : Bool :=
 /-- The compiler for architecture `arch`, with its emission `emit` (the
 ISA's half of `lowerAll`: `Scc.Lower.A64.emitAll`, `Scc.Lower.X64.emitAll`,
 with the text and the other outputs, `Scc.Lower.Listing`).  The program is
-lowered by `Scc.Lower.lowerIR`, then emitted by `emit`, so that what `scc`
+lowered by `Scc.Lower.lowerIRHost` (`Scc.Lower.lowerIR` for `--host linux`),
+then emitted by `emit`, so that what `scc`
 writes is the output of the ISA's `lowerAll` (`Scc/Lower/SpecA64.lean`,
 `Scc/Lower/SpecX64.lean`).  Without
 `--arch` it compiles for `arch`; with another `--arch` it refuses (status
@@ -210,6 +214,9 @@ def run (arch : Arch) (emit : Lower.Lowered → Except String Lower.Listing) (ar
       err s!"scc: --arch {o.cfg.arch.name}: this executable emits {arch.name} only (use scc)"
       return 2
     if let some f := o.check then return ← checkCert f
+    if o.cfg.host == .raw && (o.cert.isSome || o.blocks.isSome || o.code.isSome) then
+      err "scc: --host raw: --cert, --blocks and --code are not available (a raw unit is not certified)"
+      return 2
     let toStdout := o.out == some "-"
     let info (s : String) : IO Unit := if toStdout then IO.eprintln s else IO.println s
     let some input := o.input | err s!"scc: no input file\n{usage}"; return 2
@@ -225,7 +232,7 @@ def run (arch : Arch) (emit : Lower.Lowered → Except String Lower.Listing) (ar
       let nb := (c.adds.filter (·.boundable)).length
       info s!"{input}: {c.adds.length} checked `+` site(s), {nb} boundable by index facts"
       for s in c.adds do info (s.render input)
-    let low ← match Lower.lowerIR o.cfg c.prog with
+    let low ← match Lower.lowerIRHost o.cfg c.prog with
       | .ok l => pure l
       | .error m => err s!"{input}: error: {m}"; return 1
     let lst ← match emit low with

@@ -27,7 +27,7 @@ labels, with no absolute address in this file.
 counter's add a `lock xaddq`, the header's store `movq %rax, (%rcx)`, seven
 instructions with undefined flags, `nodeFiL`, and the `ret` a one-cell
 block); offsets are bytes (`freeAt l os`, `freeBlk`, `freeAt_add`; A64's
-`freeAt l k m`, `freeAt_succ`); the return point is `.Lwc_main.x18`
+`freeAt l k m`, `freeAt_succ`); the return point is `.Lwc_main.x0`
 (A64's `.sp0`); the heap abort's return address is the stack word the
 `call` pushes (the region's slot `-160`, read by `raAt` through `raAddr`
 at `%rsp`), not `x30` (`goodW_abort`: `.Lscc_rt_alloc.full + 12`, A64's
@@ -73,10 +73,10 @@ theorem freeAt_add (hlab : ∀ l x, codeLabel lo wakeCells l = some x → L.lab 
 
 /-- The labels the heap abort's entry reads, below `2 ^ 64` (with room for `+ 12`). -/
 theorem abortLabs (l : Label) (h : l ∈ [("scc_rt_abort" : Label), "scc_rt_thr_worker", ".Lscc_rt_alloc.full",
-    ".Lscc_rt_alloc_tcb.x5", ".Lwc_main.x23"]) :
+    ".Lscc_rt_alloc_tcb.x0", ".Lwc_main.x5"]) :
     (codeLabel lo wakeCells l).isSome = true ∧ cv l + 12 < 2 ^ 64 := by
-  have : [("scc_rt_abort" : Label), "scc_rt_thr_worker", ".Lscc_rt_alloc.full", ".Lscc_rt_alloc_tcb.x5",
-      ".Lwc_main.x23"].all (fun l => (codeLabel lo wakeCells l).isSome && decide (cv l + 12 < 2 ^ 64)) = true := by
+  have : [("scc_rt_abort" : Label), "scc_rt_thr_worker", ".Lscc_rt_alloc.full", ".Lscc_rt_alloc_tcb.x0",
+      ".Lwc_main.x5"].all (fun l => (codeLabel lo wakeCells l).isSome && decide (cv l + 12 < 2 ^ 64)) = true := by
     unfold cv; rw [← codeT_eq]; decide +kernel
   have := List.all_eq_true.mp this l h
   simpa only [Bool.and_eq_true, decide_eq_true_eq] using this
@@ -84,11 +84,11 @@ theorem abortLabs (l : Label) (h : l ∈ [("scc_rt_abort" : Label), "scc_rt_thr_
 /-- The abort range is nonempty and the return address past the abort's
 `call` is neither return point `ownG` reads. -/
 theorem abortCv : cv "scc_rt_abort" < cv "scc_rt_thr_worker" ∧
-    cv ".Lscc_rt_alloc.full" + 12 ≠ cv ".Lscc_rt_alloc_tcb.x5" ∧
-    cv ".Lscc_rt_alloc.full" + 12 ≠ cv ".Lwc_main.x23" := by
+    cv ".Lscc_rt_alloc.full" + 12 ≠ cv ".Lscc_rt_alloc_tcb.x0" ∧
+    cv ".Lscc_rt_alloc.full" + 12 ≠ cv ".Lwc_main.x5" := by
   have : (decide (cv "scc_rt_abort" < cv "scc_rt_thr_worker") &&
-    decide (cv ".Lscc_rt_alloc.full" + 12 ≠ cv ".Lscc_rt_alloc_tcb.x5") &&
-    decide (cv ".Lscc_rt_alloc.full" + 12 ≠ cv ".Lwc_main.x23")) = true := by
+    decide (cv ".Lscc_rt_alloc.full" + 12 ≠ cv ".Lscc_rt_alloc_tcb.x0") &&
+    decide (cv ".Lscc_rt_alloc.full" + 12 ≠ cv ".Lwc_main.x5")) = true := by
     unfold cv; rw [← codeT_eq]; decide +kernel
   simpa only [Bool.and_eq_true, decide_eq_true_eq, and_assoc] using this
 
@@ -103,8 +103,8 @@ theorem goodW_abort (hlab : ∀ l x, codeLabel lo wakeCells l = some x → L.lab
   obtain ⟨sA, bA⟩ := abortLabs "scc_rt_abort" (by simp)
   obtain ⟨sT, bT⟩ := abortLabs "scc_rt_thr_worker" (by simp)
   obtain ⟨sF, bF⟩ := abortLabs ".Lscc_rt_alloc.full" (by simp)
-  obtain ⟨s5, b5⟩ := abortLabs ".Lscc_rt_alloc_tcb.x5" (by simp)
-  obtain ⟨s23, b23⟩ := abortLabs ".Lwc_main.x23" (by simp)
+  obtain ⟨s5, b5⟩ := abortLabs ".Lscc_rt_alloc_tcb.x0" (by simp)
+  obtain ⟨s23, b23⟩ := abortLabs ".Lwc_main.x5" (by simp)
   obtain ⟨hAT, h5, h23⟩ := abortCv
   have eA := lab_cv hlab sA (by omega)
   have eT := lab_cv hlab sT (by omega)
@@ -200,7 +200,7 @@ unmapped under `F` (`hq`, `hmem`, for the add's and the header store's
 steps), in a region of the allocator's frame. -/
 theorem allocAgree (a : BitVec 64) {ms : Spike.Lib.MemSide isa} {q : Call}
     (hR : R.OK) (hlo' : R.lo ≤ -160) (hhi : 8 ≤ R.hi)
-    (hra : q.ra = (L.lab ".Lwc_main.x18").toBitVec) (hq : ∀ m, F m → q.OKS ms L.lab)
+    (hra : q.ra = (L.lab ".Lwc_main.x0").toBitVec) (hq : ∀ m, F m → q.OKS ms L.lab)
     (hmem : ∀ a : BitVec 64,
       (a = BitVec.ofNat 64 ms.ctr ∨ ∃ o, o + ms.units q.n q.τ ≤ ms.cells ∧ a.toNat = q.hdrAt ms o) →
       ∀ m, F m → Mem.loadInt m.dmem a 8 = none) :
@@ -320,14 +320,15 @@ theorem allocAgree (a : BitVec 64) {ms : Spike.Lib.MemSide isa} {q : Call}
   · refine blkAgreeL hp hlab hsite a h29 (by pc_tac) bO9_ok hR hlo' hhi (by wcfreeB_dec) fun σ c _ => ?_
     dsimp only [N]; rw [Spike.Lib.X64.Alloc.bO9_run]; fadd okL 173 53
   · -- The `ret`, to `.x18`.
-    refine Spike.Lib.LowerX64.BlkW.nodeW (blkAgreeL hp hlab hsite a (blk := [(iRet.toDir, 1)]) h30 rfl
+    refine Spike.Lib.LowerX64.BlkW.nodeW (blkAgreeL hp hlab hsite a (blk := [(iRet.toDir, 1)]) h30.2
+      (by rw [ofNat_zero']; exact (Scc.Cert.Rt.X64.label_labelGapB L.lays (hp ▸ h30.1)).trans rfl)
       (blo := -160) (bhi := 8) (by dsimp only [N]; decide) hR hlo' hhi (by wcfreeB_dec)
       fun σ c hJ => ?_) (List.cons_ne_nil _ _)
     obtain ⟨o, -, -, -, -, -, h30', -⟩ := hJ
     have hc : Spike.Lib.X64.classify iRet.toDir = some iRet := rfl
     simp only [Spike.Lib.X64.arun, List.foldl, Spike.Lib.X64.dstep, hc]
     simp only [N, iRet, Spike.Lib.X64.AI.tgt, h30', hra, Int64.ofBitVec_toBitVec]
-    flab ".Lwc_main.x18"
+    flab ".Lwc_main.x0"
 
 end Agree
 
@@ -343,7 +344,7 @@ def allocTabW : List PhFact :=
    .step okL 36 7, .blk okL 43 bO3 none none, .step okL 58 3, .blk okL 61 bO4 none none, .step okL 88 4,
    .blk okL 92 bO5 none none, .step okL 107 3, .blk okL 110 bO6 none none, .step okL 125 3,
    .blk okL 128 bO7 none none, .step okL 140 3, .blk okL 143 bO8 none none, .step okL 170 3,
-   .blk okL 173 bO9 none none, .ok okL 226, .ph okL 226 0, .ph fnL 0 0, .ph ".Lwc_main.x18" 0 0]
+   .blk okL 173 bO9 none none, .ok okL 226, .ph okL 226 0, .ph fnL 0 0, .ph ".Lwc_main.x0" 0 0]
 
 /-- The table's facts hold at the resolved phases. -/
 theorem allocFactsW : allocTabW.all (factOk (codeT lo wakeCells) okC phC) = true := by decide +kernel
@@ -383,7 +384,7 @@ theorem allocPhW : Spike.Lib.X64.AllocG.allocPhOk (okPcOf lo wakeCells Λ) phW l
   rfl
 
 /-- **`wc_main`'s return point is in the phase of the allocator's entry.** -/
-theorem allocRaW : phW (lab ".Lwc_main.x18").toBitVec.toNat = phW (lab fnL).toBitVec.toNat := by
+theorem allocRaW : phW (lab ".Lwc_main.x0").toBitVec.toNat = phW (lab fnL).toBitVec.toNat := by
   have h := allocFactsW
   rw [codeT_eq, ← okPc_eq hΛ, ← phW_eq] at h
   simp only [allocTabW, List.all_cons, List.all_nil, Bool.and_true, Bool.and_eq_true] at h
@@ -416,7 +417,7 @@ counter and the headers unmapped under `F` (`hmem`) and off the owned words
 theorem allocW_wcG (a : BitVec 64) {ms : Spike.Lib.MemSide isa} {q : Call}
     (hR : R.OK) (hR8 : R.base.toNat % 8 = 0) (hlo' : R.lo ≤ -160) (hhi : 8 ≤ R.hi)
     (hl : R.lo % 8 = 0) (hh : R.hi % 8 = 0) (hpool : Λ.stackPool.lo ≤ 2 ^ 64)
-    (hra : q.ra = (L.lab ".Lwc_main.x18").toBitVec) (hq : ∀ m, F m → q.OKS ms L.lab)
+    (hra : q.ra = (L.lab ".Lwc_main.x0").toBitVec) (hq : ∀ m, F m → q.OKS ms L.lab)
     (hmp : ∀ l, ms.mp l true → Scc.Sem.Kernel.mapped (Spike.Lib.X64Consumer.K0 Λ) true l = true)
     (hmem : ∀ a : BitVec 64,
       (a = BitVec.ofNat 64 ms.ctr ∨ ∃ o, o + ms.units q.n q.τ ≤ ms.cells ∧ a.toNat = q.hdrAt ms o) →

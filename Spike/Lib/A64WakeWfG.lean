@@ -116,6 +116,36 @@ theorem blkW_wfQ (hI : InstOk exe endPc prog lab μ' own' Tk K' okPc ph kp) {n :
       (hpl s σ c a b d e f g hJc j hj m hA hD).1, (hJ σ c hJc).2⟩, fun _ h => h⟩)
     (blkW_noWrC (Spike.Lib.A64.AllocG.blkW_noWr hI hb he hok hR hal hlo hhi)) (blkW_abortWf hpc)
 
+/-- **A block split by a return label** (`m`, after
+its first `jA` rows; `blockAcross`): as `blkW_wfQ`. -/
+theorem blkW_wfQA (hI : InstOk exe endPc prog lab μ' own' Tk K' okPc ph kp) {n : ND} {blk : List Directive}
+    {lo hi : Int} {l rl m : Label} {k jA : Nat}
+    (hb : Scc.Cert.Rt.A64.blockAcross prog l k (blk.take jA) m (blk.drop jA) = true)
+    (he : lab l + Int64.ofNat (4 * k) = n.pc) (hok : Spike.Lib.A64.Flow.okBlk lo hi n.o blk = true)
+    (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ lo) (hhi : hi ≤ R.hi)
+    (hst : BlkW (fun s _ => SFactsSt2 Λ μ own s Dt) K exe endPc R F n blk)
+    (hpc : ∀ j < blk.length, ∀ s : State, s.exe = exe → s.endPc = endPc → s.st.2 = n.pc + Int64.ofNat (4 * j) →
+      PcOff μ s)
+    (hph : phOff lab pfx l k rl blk = true)
+    (hret : ∀ σ c, n.J σ c → ∀ j (hj : j < blk.length) r, Spike.Lib.A64.Flow.classify blk[j] = some (.ret r) →
+      Int64.ofInt ((Spike.Lib.A64.Flow.arun lab (blk.take j) ⟨n.pc, n.o, σ⟩).σ.regs.getRegOrZr r).signed = lab rl)
+    (hcl : ∀ s, Cl s → abi.atSys s = true ∧
+      ∃ st tl, Kernel.decode abi.nrs (abi.nr s) (abi.arg s) = some (.clone st tl))
+    (hJ : ∀ σ c, n.J σ c → (fs = [] → ∀ a, c.term ≠ .ret a) ∧ RunWf p c fs)
+    (hpl : BlkW (fun s c => PlacedSE Λ lbl s c fs) (fun _ _ => False) exe endPc R F n blk) :
+    BlkW (fun s c => Wf Λ μ own ar p Dt (Spike.Lib.A64.WriteAb.Ab lab) Cl (Spike.Lib.A64.ThreadsAb.Ac lab pfx) Ctx
+      lbl lsize s c fs) K exe endPc R F n blk := by
+  have hl := hI.labOk
+  subst hl
+  have hcode := Spike.Lib.A64.code_field_blockAcross hI.lays hI.endOk hb (List.take_append_drop jA blk)
+    (q := n.pc) (by rw [hI.labOk]; exact he)
+  have hP := blkW_phSt (Cl := Cl) (F := F) hcode hok hR hal hlo hhi hpc he hph hret
+  refine blkW_wf hst (fun s σ c a b d e f g hJc j hj m hA hD => ⟨(hP s σ c a b d e f g hJc j hj m hA hD).1.1,
+    fun _ h => h⟩) (fun s σ c a b d e f g hJc j hj m hA hD => ⟨(hP s σ c a b d e f g hJc j hj m hA hD).1.2,
+    fun _ h => h⟩) hcl (fun s σ c a b d e f g hJc j hj m hA hD => ⟨⟨(hJ σ c hJc).1,
+      (hpl s σ c a b d e f g hJc j hj m hA hD).1, (hJ σ c hJc).2⟩, fun _ h => h⟩)
+    (blkW_noWrC (Spike.Lib.A64.AllocG.blkW_noWrA hI hb he hok hR hal hlo hhi)) (blkW_abortWf hpc)
+
 /-- **A quiet single instruction's states inside `Wf`** at the frames `fs`:
 an instruction without an event (`hb`) whose states have the state's facts
 (`hst`, moved by `K`), its pc off the take and abort sites (`htk`,
@@ -169,6 +199,9 @@ end Spike.Lib.A64.WakeWf
 
 /-- info: 'Spike.Lib.A64.WakeWf.blkW_wfQ' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms Spike.Lib.A64.WakeWf.blkW_wfQ
+
+/-- info: 'Spike.Lib.A64.WakeWf.blkW_wfQA' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in #print axioms Spike.Lib.A64.WakeWf.blkW_wfQA
 
 /-- info: 'Spike.Lib.A64.WakeWf.nodeW_wfQ' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms Spike.Lib.A64.WakeWf.nodeW_wfQ

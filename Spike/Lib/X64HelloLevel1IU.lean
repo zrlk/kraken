@@ -1,20 +1,20 @@
 /-
 **hello's level 1 at the root's choices, its landings asked only with the child's stack unmapped** (x86-64; the
-twin of `Spike/Lib/A64HelloLevel1IU.lean`, same names): `Level1HA.hB_landA` with `MainWcPS` (`hP`) at the
+twin of `Spike/Lib/A64HelloLevel1IU.lean`): `Level1HA.hB_landAg` with `MainWcPS` (`hP`) at the
 fragment `invUH I` (`I` asked only with `r1Of` unmapped, `StartH0U.invUH`), where its box landings `hxa` are
 `LandR1U.HLand2U`'s (`MainWcL1X.hxa_L1`), the conclusion at the level's memory sides at `I`.
 
-`hB_landA` at `invUH I` is the landing segment under `msOfA … (invUH I)`; its landings give `I`'s at states with
+`hB_landAg` at `invUH I` is the landing segment under `msOfA … (invUH I)`; its landings give `I`'s at states with
 `r1Of` unmapped, so `SegWSP.mono_xa` moves it to `KeepUn.unXa (msOfA … I) r1Of` and `SegWSP.keepUn` (the take
 keeps `r1Of` unmapped at `X0WH` states, `LandR1U.takeU_X`) back to `msOfA … I`. The entry's `U r1Of` is
-`RdLandH`'s own conjunct, and `RdLandH` and `hmem0` do not read the fragment (`RootL1F.rdLandH_xa`, `okb_xa`):
+`RdLandHg`'s own conjunct, and `RdLandHg` and `hmem0` do not read the fragment (`rdLandHg_xa`, `okb_xa`):
 they are asked at `I`.
 
 - `okb_xa`: a box call's premises do not read the memory side's `xa`;
 - `rdLandHg_xa`: `StartH0H1.RdLandHg own` does not read the fragment;
-- `hB_landU`: `hB_landA` with `hP` at `invUH I`, at the level's memory sides at `I`; `hB_landUg`: the same at any
-  owned words `own` (`hB_landAg`, its stub path `hP0` a premise);
-- `h1_level1U`: the root's `h1` (`H1StmtHF` at `inv1G`) from it; `h1_level1Ug`: at any owned words `own`.
+- `hB_landUg`: `hB_landAg` with `hP` at `invUH I`, at the level's memory sides at `I`, at any owned words `own`
+  (its stub path `hP0` a premise);
+- `h1_level1Ug`: the root's `h1` (`H1StmtHF` at `inv1G`) from it, at any owned words `own`.
 
 ## Differences from the AArch64 version
 
@@ -24,13 +24,13 @@ they are asked at `I`.
 - `LandR1U.takeU_X` takes no `a13data` premise (the stacks' bound is `X64WakeHClC.hbd_W`), so there is no `hA13`.
 - `MainWcPS` has the last block's controls past the publication `J4x` (`hP`'s existential; AArch64 has the fence
   node's invariant instead). The region is `RS helloLsw TOP` and the caller's TCB slot `-16`, the thread pointer
-  `tpOf (tcbS Ly)` (AArch64 `swR TOP (-helloLsw) 0`, `-80`, `pinA + 8`), as in `Level1HA.hB_landA`.
-- `rdLandH_invU` is `RootL1F.rdLandH_xa` (any two fragments) and is not restated. `habCtlH_xa` is not twinned:
-  `hB_landA` asks no `HabCtlH` (the abort's controls come from the certificate table's `z`, `hz`), so it is dead.
+  `tpOf (tcbS Ly)` (AArch64 `swR TOP (-helloLsw) 0`, `-80`, `pinA + 8`), as in `Level1HA.hB_landAg`.
+- `rdLandH_invU` is `rdLandHg_xa` (any two fragments). `habCtlH_xa` is not twinned:
+  `hB_landAg` asks no `HabCtlH` (the abort's controls come from the certificate table's `z`, `hz`), so it is dead.
   The closing `example` against `Level1I.h1_level1` is not repeated: `h1_level1` has no x86-64 version (dead).
-- `hB_landUg`, `h1_level1Ug`, `rdLandHg_xa` are generic in the owned words (AArch64's are at `ownGH` only), so that
-  `ownGHXW`, which carries main's and the worker's TCB words, shares them; `hB_landUg` takes `hB_landAg`'s stub
-  path `hP0` (at `ownGH` discharged inside `hB_landA`).
+- `hB_landUg`, `h1_level1Ug`, `rdLandHg_xa` are generic in the owned words (AArch64's are at `ownGH` only), so
+  that `ownGHXW`, which carries main's and the worker's TCB words, shares them; `hB_landUg` takes `hB_landAg`'s
+  stub path `hP0` (AArch64 discharges it at `ownGH` inside `hB_landA`).
 -/
 import Spike.Lib.X64HelloLevel1HA
 import Spike.Lib.X64HelloLandR1U
@@ -61,10 +61,9 @@ open Spike.Lib.X64.Flow.Ret0 (tpOf)
 open Spike.Lib.X64.HelloPh.StartWcS (rdJH)
 open Spike.Lib.X64.HelloPh.StartH0G (helloD helloLsw)
 open Spike.Lib.X64.HelloPh.StartH0U (msUH invUH)
-open Spike.Lib.X64.HelloPh.StartH0H1 (RdLandH)
 open Spike.Lib.X64.HelloPh.MainGlueS (MainWcPS)
 open Spike.Lib.X64.HelloPh.Level1 (JpL JpT)
-open Spike.Lib.X64.HelloPh.Level1I (W1R XR)
+open Spike.Lib.X64.HelloPh.Level1I (XR)
 open Spike.Lib.X64.Flow.HelloM (wcR)
 open Spike.Lib.X64.WakeWf (DtW)
 open Spike.Lib.X64.HelloPh.StartGlue (X0WH)
@@ -166,7 +165,7 @@ local notation "MS1g" => fun (own : Spike.Lib.X64Consumer.Own) (J : Spike.Lib.X6
     (fun s _ => own s)
     (AR) J (Spike.Lib.X64ConsumerA.upd (LB) l b) (Spike.Lib.X64ConsumerA.updN (ls0T ls) l n) fs
 
-/-- **`RdLandHg own` does not read the fragment** (`RootL1F.rdLandH_xa` at any owned words). -/
+/-- **`RdLandHg own` does not read the fragment** (AArch64 `RootL1F.rdLandH_xa` at any owned words). -/
 theorem rdLandHg_xa {own : Spike.Lib.X64Consumer.Own} {I' : Spike.Lib.X64ConsumerS.InvS}
     {J1 : FAS → FAS → Spike.Lib.Ctl → Prop} {l : WeakMem.AllocLabel} {b w : Nat} {s : State} {c : Spike.Lib.Ctl}
     (h : Spike.Lib.X64.HelloPh.StartH0H1.RdLandHg (asm := asm) hpw i0 own E rd I ls J1 l b w s c) :
@@ -174,86 +173,20 @@ theorem rdLandHg_xa {own : Spike.Lib.X64Consumer.Own} {I' : Spike.Lib.X64Consume
   obtain ⟨v, m0, σC, q, F', h1, h2, h3, hu, ht⟩ := h
   exact ⟨v, m0, σC, ⟨q.1, { q.2 with }⟩, F', h1, h2, h3, hu, ht⟩
 
-/-- **`invUH I` is not vacuous at level 1's entry**: at rodata's landing `r1Of` is unmapped (`RdLandH`'s own
+/-- **`invUH I` is not vacuous at level 1's entry**: at rodata's landing `r1Of` is unmapped (`RdLandHg`'s own
 conjunct), so there `invUH I` is `I`. -/
-example {J1 : FAS → FAS → Spike.Lib.Ctl → Prop} {l : WeakMem.AllocLabel} {b w : Nat} {s : State}
-    {c : Spike.Lib.Ctl} (h : RdLandH (asm := asm) hpw i0 E rd I ls J1 l b w s c) (L : Lbl) (S : Lsize)
+example {own : Spike.Lib.X64Consumer.Own} {J1 : FAS → FAS → Spike.Lib.Ctl → Prop} {l : WeakMem.AllocLabel}
+    {b w : Nat} {s : State} {c : Spike.Lib.Ctl}
+    (h : Spike.Lib.X64.HelloPh.StartH0H1.RdLandHg (asm := asm) hpw i0 own E rd I ls J1 l b w s c) (L : Lbl) (S : Lsize)
     (fs : List TermRun.Frame) : U (R1) s ∧ ((IU) L S s c fs ↔ I L S s c fs) := by
   obtain ⟨-, -, -, -, -, -, -, -, hu, -⟩ := h
   exact ⟨hu, fun hi => hi hu, fun hi _ => hi⟩
 
 /-! ## The landing segment -/
 
-/-- **Level 1's landing segment with `hP` at `invUH I`** (module doc): `Level1HA.hB_landA` at `invUH I`, carried
-to the level's memory sides at `I` with `r1Of` unmapped. -/
-theorem hB_landU {J1 : FAS → FAS → Spike.Lib.Ctl → Prop}
-    (hpa : cellsOf asm = some o.prog)
-    (hhp : cellsOf asm = some SccCode.helloCells)
-    (hlo0 : Λ0.code.lo = lo)
-    /- the landing's caller holds main's TCB at its slot `-16` (`Level1I.slot16_rdJ` at `J1 := mRdJ0 J'`) -/
-    (hJ1 : ∀ σC σ c, J1 σC σ c → σC.slot (-16) = Spike.Lib.X64.Flow.Ret0.pinA (Ly).lab + 0#64 + 8#64)
-    /- `MainWcPS` at the level at `invUH I` -/
-    (hP : ∀ l b n m0 σC, (LB) l = none → AllocLand (AR).heap (AR).cells b n →
-      σC.slot (-16) = Spike.Lib.X64.Flow.Ret0.pinA (Ly).lab + 0#64 + 8#64 →
-      ∃ Jp' Jx1 J2 J2' J3 J4 J4x J5 Jr : FAS → Spike.Lib.Ctl → Prop,
-      MainWcPS (W1R (asm := asm) hpw i0 E rd ls l b n) (KR) helloSrc (Spike.Lib.X64ConsumerA.upd (LB) l b)
-        ((MS1) (IU) l b n) (Ly).exe (Ly).endPc (RS helloLsw (TOP)) helloD (FS (Ly) (RS0) helloLsw 0#64 (TOP))
-        (FR) m0 σC
-        (JpT (JpL (R := RS helloLsw (TOP)) ((MSU) (IU) [FR]) (Ly).lab (mRdJ0 (J') σC) (J1 σC) l b n) (TV))
-        Jp' Jx1 J2 J2' J3 J4 J4x J5 Jr (Spike.Lib.X64.HelloPh.Land.Jr1LH hpw i0 l b) (TV))
-    /- the box allocation's words free at `FS` (`Level1M.hmem0_level1`) -/
-    (hmem0 : ∀ l b n, ∀ q : Call, q.OKB ((MS1) I l b n []) (Ly).lab → ∀ a : BitVec 64,
-      (a = BitVec.ofNat 64 ((MS1) I l b n []).ctr ∨ ∃ o, o + ((MS1) I l b n []).units q.n q.τ ≤
-        ((MS1) I l b n []).cells ∧ a.toNat = q.hdrAt ((MS1) I l b n []) o) →
-      ∀ m, FS (Ly) (RS0) helloLsw 0#64 (TOP) m → Mem.loadInt m.dmem a 8 = none)
-    /- the certificate table's `z` at `newTerm` (`Level1HA.hB_landA`'s; at the root `HabCtlA.hz_i0M`) -/
-    (hz : i0 newTerm "z" 0 = some 0) :
-    ∀ l b n, (LB) l = none → AllocLand (AR).heap (AR).cells b n →
-      SegWSP (fun s c fs => W1R (asm := asm) hpw i0 E rd ls l b n s c fs ∧ XR hpw i0 l b n s c fs)
-        (TakeCKS (AX) (Spike.Lib.X64.HelloPh.ClH (Ly))) helloSrc (Spike.Lib.X64ConsumerA.upd (LB) l b)
-        ((MS1) I l b n) (Frag.at (RdLandH (asm := asm) hpw i0 E rd I ls J1 l b n) [FR]) (fun _ _ _ => False) := by
-  intro l b n hl hb
-  have h := Spike.Lib.X64.HelloPh.Level1HA.hB_landA hpw i0 E rd (IU) ls hpa hhp hlo0 hz hJ1 hP
-    (fun l b n q hq => hmem0 l b n q (okb_xa rfl hq)) l b n hl hb
-  have hX := SegWSP.mono_xa (ms' := fun fs => unXa ((MS1) I l b n fs) (R1)) h
-    (fun _ => rfl) fun _ _ _ _ _ _ hx hu => ⟨hx.1, hx.2 hu⟩
-  have hU := SegWSP.keepUn (fun _ => rfl) hX
-    fun s _ _ hW s' hk hu => Spike.Lib.X64.HelloPh.LandR1U.takeU_X hpw i0 s s' hW.2 hk hu
-  refine SegWSP.mono_post (SegWSP.mono_pre hU fun s c fs ⟨hR, hfs⟩ =>
-    ⟨⟨Spike.Lib.X64.HelloPh.RootL1F.rdLandH_xa hpw i0 hR, hfs⟩, ?_⟩) fun _ _ _ h => h.1
-  obtain ⟨-, -, -, -, -, -, -, -, hu, -⟩ := hR
-  exact hu
-
-/-- **The root's `h1` with `hP` at `invUH I`** (`H1StmtHF` at `inv1G`, from `hB_landU`; module doc). -/
-theorem h1_level1U {J1 : FAS → FAS → Spike.Lib.Ctl → Prop}
-    (hpa : cellsOf asm = some o.prog)
-    (hhp : cellsOf asm = some SccCode.helloCells)
-    (hlo0 : Λ0.code.lo = lo)
-    (hJ1 : ∀ σC σ c, J1 σC σ c → σC.slot (-16) = Spike.Lib.X64.Flow.Ret0.pinA (Ly).lab + 0#64 + 8#64)
-    (hP : ∀ l b n m0 σC, (LB) l = none → AllocLand (AR).heap (AR).cells b n →
-      σC.slot (-16) = Spike.Lib.X64.Flow.Ret0.pinA (Ly).lab + 0#64 + 8#64 →
-      ∃ Jp' Jx1 J2 J2' J3 J4 J4x J5 Jr : FAS → Spike.Lib.Ctl → Prop,
-      MainWcPS (W1R (asm := asm) hpw i0 E rd ls l b n) (KR) helloSrc (Spike.Lib.X64ConsumerA.upd (LB) l b)
-        ((MS1) (IU) l b n) (Ly).exe (Ly).endPc (RS helloLsw (TOP)) helloD (FS (Ly) (RS0) helloLsw 0#64 (TOP))
-        (FR) m0 σC
-        (JpT (JpL (R := RS helloLsw (TOP)) ((MSU) (IU) [FR]) (Ly).lab (mRdJ0 (J') σC) (J1 σC) l b n) (TV))
-        Jp' Jx1 J2 J2' J3 J4 J4x J5 Jr (Spike.Lib.X64.HelloPh.Land.Jr1LH hpw i0 l b) (TV))
-    (hmem0 : ∀ l b n, ∀ q : Call, q.OKB ((MS1) I l b n []) (Ly).lab → ∀ a : BitVec 64,
-      (a = BitVec.ofNat 64 ((MS1) I l b n []).ctr ∨ ∃ o, o + ((MS1) I l b n []).units q.n q.τ ≤
-        ((MS1) I l b n []).cells ∧ a.toNat = q.hdrAt ((MS1) I l b n []) o) →
-      ∀ m, FS (Ly) (RS0) helloLsw 0#64 (TOP) m → Mem.loadInt m.dmem a 8 = none)
-    (hz : i0 newTerm "z" 0 = some 0) :
-    Spike.Lib.X64HelloPreA.H1StmtHF (W1R (asm := asm) hpw i0 E rd ls)
-      (TakeCKS (AX) (Spike.Lib.X64.HelloPh.ClH (Ly))) (AR) (LB)
-      ((MS1) I) (Ly) (RdLandH (asm := asm) hpw i0 E rd I ls J1)
-      (Spike.Lib.X64HelloPreA.H1Gfp.inv1G (W1R (asm := asm) hpw i0 E rd ls) (XR hpw i0)
-        (TakeCKS (AX) (Spike.Lib.X64.HelloPh.ClH (Ly))) (LB) ((MS1) I)) [FR] :=
-  Spike.Lib.X64HelloPreA.H1Gfp.h1StmtHF_of_segWSP (fun _ _ _ _ _ _ h => h.1)
-    (hB_landU hpw i0 E rd I ls hpa hhp hlo0 hJ1 hP hmem0 hz)
-
-/-- **Level 1's landing segment with `hP` at `invUH I`, at the owned words `own`** (`hB_landU` at any `own`):
-`Level1HA.hB_landAg` at `invUH I`, carried to the level's memory sides at `I` with `r1Of` unmapped; the stub's
-path inside the level `hP0` (`hB_landAg`'s) is a premise. -/
+/-- **Level 1's landing segment with `hP` at `invUH I`, at the owned words `own`** (AArch64's
+landing segment at any `own`): `Level1HA.hB_landAg` at `invUH I`, carried to the level's memory sides at `I` with
+`r1Of` unmapped; the stub's path inside the level `hP0` (`hB_landAg`'s) is a premise. -/
 theorem hB_landUg {own : Spike.Lib.X64Consumer.Own} {J1 : FAS → FAS → Spike.Lib.Ctl → Prop}
     (hpa : cellsOf asm = some o.prog)
     (hhp : cellsOf asm = some SccCode.helloCells)
@@ -304,8 +237,8 @@ theorem hB_landUg {own : Spike.Lib.X64Consumer.Own} {J1 : FAS → FAS → Spike.
   obtain ⟨-, -, -, -, -, -, -, -, hu, -⟩ := hR
   exact hu
 
-/-- **The root's `h1` with `hP` at `invUH I`, at the owned words `own`** (`h1_level1U` at any `own`, from
-`hB_landUg`). -/
+/-- **The root's `h1` with `hP` at `invUH I`, at the owned words `own`** (AArch64's `h1`
+at any `own`, from `hB_landUg`). -/
 theorem h1_level1Ug {own : Spike.Lib.X64Consumer.Own} {J1 : FAS → FAS → Spike.Lib.Ctl → Prop}
     (hpa : cellsOf asm = some o.prog)
     (hhp : cellsOf asm = some SccCode.helloCells)
@@ -349,12 +282,6 @@ end Spike.Lib.X64.HelloPh.Level1IU
 
 /-- info: 'Spike.Lib.X64.HelloPh.Level1IU.okb_xa' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms Spike.Lib.X64.HelloPh.Level1IU.okb_xa
-
-/-- info: 'Spike.Lib.X64.HelloPh.Level1IU.hB_landU' depends on axioms: [propext, Classical.choice, Quot.sound] -/
-#guard_msgs in #print axioms Spike.Lib.X64.HelloPh.Level1IU.hB_landU
-
-/-- info: 'Spike.Lib.X64.HelloPh.Level1IU.h1_level1U' depends on axioms: [propext, Classical.choice, Quot.sound] -/
-#guard_msgs in #print axioms Spike.Lib.X64.HelloPh.Level1IU.h1_level1U
 
 /-- info: 'Spike.Lib.X64.HelloPh.Level1IU.rdLandHg_xa' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms Spike.Lib.X64.HelloPh.Level1IU.rdLandHg_xa

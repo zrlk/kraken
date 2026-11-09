@@ -87,6 +87,7 @@ abbrev fnL : Label := "scc_rt_alloc_tcb"
 abbrev entryL : Label := ".L3_scc_rt_alloc_tcb.0_entry"
 abbrev lenL : Label := ".L3_scc_rt_alloc_tcb.1_len"
 abbrev okL : Label := ".L3_scc_rt_alloc_tcb.3_ok"
+abbrev retL : Label := ".L3_scc_rt_alloc_tcb.x25"
 
 /-- The prologue: a frame of 192, `x29`/`x30` saved at 176/184, `h`/`k` at 0/8. -/
 def atPro : List Directive := parseAArch64("sub sp, sp, #192
@@ -144,14 +145,15 @@ def atArg : List Directive := parseAArch64("str x9, [sp, #80]
 ldr x9, [sp, #72]
 ldr x10, [sp, #80]")
 
-/-- The counter's old value saved; past the pinned area (`2^17` bytes) goes to the abort. -/
+/-- The counter's old value saved; past the pinned area (`163840` bytes) goes to the abort. -/
 def atBnd : List Directive := parseAArch64("str x11, [sp, #88]
 ldr x9, [sp, #88]
 ldr x10, [sp, #72]
 add x9, x9, x10
 str x9, [sp, #96]
 ldr x9, [sp, #96]
-movz x10, #2, lsl #16
+movz x10, #32768
+movk x10, #2, lsl #16
 subs xzr, x9, x10
 b.hi .L3_scc_rt_alloc_tcb.2_full")
 
@@ -218,6 +220,7 @@ abbrev bumpL : Label := ".L6_scc_rt_stack_take.7_bump"
 abbrev okL : Label := ".L6_scc_rt_stack_take.9_ok"
 abbrev takenL : Label := ".L6_scc_rt_stack_take.10_taken"
 abbrev siteL : Label := "scc_rt_take_site"
+abbrev retL : Label := ".L6_scc_rt_stack_take.x42"
 
 /-- The prologue: a frame of 208, `x29`/`x30` saved at 192/200, the size `a` at 0. -/
 def stPro : List Directive := parseAArch64("sub sp, sp, #208
@@ -337,6 +340,7 @@ namespace Ti
 abbrev fnL : Label := "scc_rt_thread_init"
 abbrev entryL : Label := ".L5_scc_rt_thread_init.0_entry"
 abbrev spL : Label := ".L5_scc_rt_thread_init.sp0"
+abbrev retL : Label := ".L5_scc_rt_thread_init.x9"
 
 /-- The prologue: a frame of 48, `x29`/`x30` saved at 32/40, the TCB's address at 0. -/
 def tiPro : List Directive := parseAArch64("sub sp, sp, #48
@@ -400,7 +404,7 @@ abbrev sp3L : Label := ".L0_scc_rt_start.sp3"
 
 /-- `scc_rt_start`'s call of `scc_rt_alloc_tcb` with the header and `k = 1`. -/
 def startCall : List Directive := parseAArch64("str x0, [sp, #8]
-movz x0, #2307
+movz x0, #3331
 movz x1, #1
 bl scc_rt_alloc_tcb")
 
@@ -463,8 +467,10 @@ def tcbGrps : List RGrp := [
   ⟨Tcb.fnL, [(0, Tcb.atPro)], some (6, Tcb.entryL)⟩,
   ⟨Tcb.entryL, [(0, Tcb.atChk), (4, Tcb.atJ1)], none⟩,
   ⟨Tcb.lenL, [(0, Tcb.atLen)] ++ labPair 32 "scc_rt_pinned_next" ++
-    [(34, Tcb.atArg), (37, [ldopDir .ADD .acqRel .X9 .X11 .X10]), (38, Tcb.atBnd), (47, Tcb.atJ2)], none⟩,
-  ⟨Tcb.okL, labPair 0 "scc_rt_pinned" ++ [(2, Tcb.atOk), (29, [strDir .X9 .X10 0]), (30, Tcb.atRet)], none⟩]
+    [(34, Tcb.atArg), (37, [ldopDir .ADD .acqRel .X9 .X11 .X10]), (38, Tcb.atBnd), (48, Tcb.atJ2)], none⟩,
+  ⟨Tcb.okL, labPair 0 "scc_rt_pinned" ++ [(2, Tcb.atOk), (29, [strDir .X9 .X10 0]), (30, Tcb.atRet.take 12)],
+    some (42, Tcb.retL)⟩,
+  ⟨Tcb.retL, [(0, Tcb.atRet.drop 12)], none⟩]
 
 /-- `scc_rt_thread_init`'s groups (`threadInitIn`, `tiSpIn`). -/
 def tiGrps : List RGrp := [
@@ -474,7 +480,8 @@ def tiGrps : List RGrp := [
     (14, parseAArch64("str x9, [x10, #8]")), (15, Ti.tiF2), (17, parseAArch64("str x9, [x10, #16]")),
     (18, Ti.tiF3), (20, parseAArch64("str x9, [x10, #24]")), (21, Ti.tiF4),
     (23, parseAArch64("str x9, [x10, #32]")), (24, Ti.tiF5), (26, parseAArch64("str x9, [x10, #40]")),
-    (27, Ti.tiRet)], none⟩]
+    (27, Ti.tiRet.take 4)], some (31, Ti.retL)⟩,
+  ⟨Ti.retL, [(0, Ti.tiRet.drop 4)], none⟩]
 
 /-- `scc_rt_stack_take`'s groups (`stackTakeIn`). -/
 def takeGrps : List RGrp := [
@@ -490,7 +497,8 @@ def takeGrps : List RGrp := [
     [(8, Take.stAdd), (11, parseAArch64("ldaddal x9, x11, [x10]")), (12, Take.stBnd), (21, Take.stJ2)], none⟩,
   ⟨Take.okL, labPair 0 "scc_rt_stacks" ++ [(2, Take.stOk)], none⟩,
   ⟨Take.takenL, [(0, Take.stSite)], some (2, Take.siteL)⟩,
-  ⟨Take.siteL, [(0, parseAArch64("nop")), (1, Take.stRet)], none⟩]
+  ⟨Take.siteL, [(0, parseAArch64("nop")), (1, Take.stRet.take 4)], some (5, Take.retL)⟩,
+  ⟨Take.retL, [(0, Take.stRet.drop 4)], none⟩]
 
 end Grps
 

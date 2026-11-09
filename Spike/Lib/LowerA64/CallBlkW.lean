@@ -160,11 +160,12 @@ theorem BlkW.bodyS {n : ND} {blk : List Directive} (hp : Scc.Lower.Accepted1 p =
 
 /-- **A covered block of the code without a `ret` is inside `BodyWS0`**
 at the frames `fs`: a block of the code predicate `CdC` at a return address
-`ra` (`SubCd`, its phase from the run's check, `blkPh_of_runPhB`), covered
+`ra` (`SubCd`, whole or in two pieces, `AtQ.cdOf`; its phase from the
+run's check, `blkPh_of_runPhB`), covered
 at its node's offsets (`hok`), with no `ret` (`hnr`), at a node whose pairs
-at `fs` are `Good1` with no hold (`hJ`): `blkW_postO` at the held-back
-control `c0` (`Good1` with no frame, its facts `hC0`), lifted to `BodyWS0`
-(`BlkW.bodyS`). -/
+at `fs` are `Good1` with no hold (`hJ`): the post-call facts at the held-back
+control `c0` (`Good1` with no frame, its facts `hC0`; `blkW_postO'` at
+its code), lifted to `BodyWS0` (`BlkW.bodyS`). -/
 theorem blkW_bodySC {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc ph kp) {lo hi : Int}
     (hR : R.OK) (hal : R.base.toNat % 16 = 0) (hlo : R.lo ≤ lo) (hhi : hi ≤ R.hi)
     (hl : R.lo % 8 = 0) (hh : R.hi % 8 = 0) (hsub : rS.Sub Λ.stackPool) (hfit : rS.lo + rS.size ≤ 2 ^ 64)
@@ -174,14 +175,17 @@ theorem blkW_bodySC {kp : Nat} (hI : InstOk exe endPc prog lab μ own Tk K okPc 
     (hcd : SubCd (CdC prog okPc ph lab ra) n.pc blk) (hok : okBlk lo hi n.o blk = true)
     (hnr : noRetBlk blk = true) :
     BlkW (fun s c => BodyWS0 Λ μ p own rS Tk lbl cl ctr c0 s c fs) K exe endPc R F n blk := by
-  obtain ⟨pc0, pre, post, ⟨-, L, j, hpc0, hb, hrun⟩, hpc⟩ := hcd
-  have hph := Scc.Cert.Ph1A64.blkPh_of_runPhB hrun (classify_of_okBlk hok)
-  have he : lab L + Int64.ofNat (4 * (j + pre.length)) = n.pc := by
-    rw [← hpc, ← hpc0, Nat.mul_add, Int64.ofNat_add, Int64.add_assoc]
-  rw [hpc, ← he] at hph
+  obtain ⟨pc0, pre, post, hc0, hpc⟩ := hcd
+  obtain ⟨-, hat, hrun⟩ := CdCQ.sub hc0 hpc.symm
+  have hph := Scc.Cert.Ph1A64.blkPh_of_runPhB (xs := []) (zs := []) (by simpa using hrun)
+    (classify_of_okBlk hok)
+  rw [show n.pc + Int64.ofNat (4 * ([] : List Directive).length) = n.pc by simp] at hph
+  have hcode : ∀ s : State, s.exe = exe → s.endPc = endPc → Spike.Lib.A64.CodeAt s n.pc blk := by
+    rw [← hI.labOk] at hat
+    exact AtQ.cdOf hI.lays hI.endOk _ _ hat
   refine BlkW.bodyS hp hg0 hJ ?_
-  exact Spike.Lib.A64.Rt.blkW_postO (n := ⟨n.pc, n.o, fun σ c => c = c0 ∧ ∃ c1, n.J σ c1⟩)
-    (dead := fun _ => false) (ra := ra) hI (blockAt_sub hb) he hok hR hal hlo hhi (fun _ _ h => h.1 ▸ hC0) hph
+  exact blkW_postO' (n := ⟨n.pc, n.o, fun σ c => c = c0 ∧ ∃ c1, n.J σ c1⟩)
+    (dead := fun _ => false) (ra := ra) hI hcode hok hR hal hlo hhi (fun _ _ h => h.1 ▸ hC0) hph
     (fun _ _ _ k hk r hr => (noRet_false hnr k hk r hr).elim) (fun _ _ _ => rfl) hl hh hsub hfit hFO
 
 /-- **A call's `bl g` is inside `BodyWS0`** at the frames `fs`: at `BlC`
