@@ -112,9 +112,9 @@ theorem spec (hpl : Program.PlacedIn body) (k : Nat) (hk : k ≤ 2 ^ 32)
   · rintro R ra t₀ s hcall ⟨hsp, hbp, hsv, hO⟩
     have hw : 0x40 ≤ (t₀.regs.get64 .rsp).toNat := by
       have := CallPre.le hcall; unfold initNeed at this; omega
-    rcases hO with ⟨h1, r, h2, h4, ha, hs, h3⟩ | ⟨h1, h3⟩ | ⟨h1, p, bc, bf, l1, l2, h3⟩
+    rcases hO with ⟨h1, r, h2, hA, h4, ha, hs, h3⟩ | ⟨h1, h3⟩ | ⟨h1, p, bc, bf, l1, l2, h3⟩
       | ⟨h1, p, c, f, bc, bf, l1, l2, h3⟩
-    · exact Or.inl ⟨h1, r, h2, h4, ha, hs, hsp, hbp, hsv, post_mem hw h3⟩
+    · exact Or.inl ⟨h1, r, h2, hA, h4, ha, hs, hsp, hbp, hsv, post_mem hw h3⟩
     · exact Or.inr (Or.inl ⟨h1, hsp, hbp, hsv, post_mem hw h3⟩)
     · refine Or.inr (Or.inr (Or.inl ⟨h1, p, bc, bf, l1, l2, hsp, hbp, hsv, ?_⟩))
       have h := post_mem hw h3

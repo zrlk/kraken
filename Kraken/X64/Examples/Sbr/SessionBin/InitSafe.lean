@@ -95,6 +95,16 @@ theorem initSafe_sep_r2 {A B P Q : Mem 64 → Prop} (h : ∀ m, P m → Q m) {m 
 
 /-! ## Init, composed -/
 
+omit [CodeEnv] in
+/-- The allocator's facts for init's block (`0x88ba0` bytes) give the element's address facts. -/
+theorem elemOK_of_aok {p : BitVec 64} (h : AOK p) : ElemOK p := by
+  obtain ⟨ha, hr⟩ := h
+  refine ⟨ha, ?_, ?_⟩
+  · have h1 : (p + 0x28920#64 + 0x5fcc0#64).toNat = p.toNat + 0x885e0 := by
+      simp only [BitVec.toNat_add, BitVec.toNat_ofNat]; omega
+    rw [BitVec.toInt_eq_toNat_cond, h1]; split <;> omega
+  · simp only [BitVec.toNat_add, BitVec.toNat_ofNat]; omega
+
 /-- **Init, composed.** A call of `ff_aac_sbr_ctx_alloc_init(ac, che, id)` with the caller's
 parts returns to `ra` with `InitQ` (and reaches no stop). -/
 theorem init_safe {S : Setup} {X : Mem 64 → Prop} (hpl : Program.PlacedIn Init.body)
@@ -104,8 +114,8 @@ theorem init_safe {S : Setup} {X : Mem 64 → Prop} (hpl : Program.PlacedIn Init
     Ends "ff_aac_sbr_ctx_alloc_init" t₀ ra (InitQ S X Rest avctx fdsp er ps ra t₀) NoStops := by
   refine eventually_weaken _ _ _ _ (fun st hs => Or.inl ⟨hs.1, ?_⟩)
     (Init.spec hpl S.k hx.kle _ _ _ hx.init _ ra t₀ hpre)
-  rcases hs.2 with ⟨h0, r, hpsd, hsl, hta, hts, h1, h2, h3, hm⟩ | h | h | h
-  · exact Or.inl ⟨h0, r.p, h1, h2, h3,
+  rcases hs.2 with ⟨h0, r, hpsd, hA, hsl, hta, hts, h1, h2, h3, hm⟩ | h | h | h
+  · exact Or.inl ⟨h0, r.p, elemOK_of_aok hA, h1, h2, h3,
       initSafe_sep_r2 (fun m hm' => init_live_elem (envOK_envOf hx hta hts hsl) hpsd hm') hm⟩
   · exact Or.inr (Or.inl h)
   · exact Or.inr (Or.inr (Or.inl h))

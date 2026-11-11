@@ -1,4 +1,5 @@
--- #print axioms of the final theorem, every ProcSpec theorem and the witnesses (run by ci.sh;
+-- #print axioms of the final theorems, every ProcSpec theorem, the witnesses and the
+-- per-procedure theorems of SessionBin/Api.lean (run by ci.sh;
 -- the output must equal baseline/axioms.txt).
 import Kraken.X64.Examples.Sbr.Link
 import Kraken.X64.Examples.Sbr.Witness
@@ -20,6 +21,7 @@ import Kraken.X64.Examples.Sbr.Parse.GridJtWit
 import Kraken.X64.Examples.Sbr.SessionBin.SInit
 import Kraken.X64.Examples.Sbr.SessionBin.InitSafe
 import Kraken.X64.Examples.Sbr.SessionBin.Top
+import Kraken.X64.Examples.Sbr.SessionBin.Api
 open Kraken.Examples.Sbr
 #print axioms ff_aac_sbr_apply_linked
 #print axioms applyCallees_of_link
@@ -90,3 +92,11 @@ open Kraken.Examples.Sbr
 #print axioms Kraken.Examples.Sbr.SessionBin.session_init
 #print axioms Kraken.Examples.Sbr.SessionBin.init_safe
 #print axioms Kraken.Examples.Sbr.SessionBin.sbr_session_safe
+#print axioms Kraken.Examples.Sbr.SessionBin.SbrReady.initialized
+#print axioms Kraken.Examples.Sbr.SessionBin.ff_aac_sbr_ctx_alloc_init_spec
+#print axioms Kraken.Examples.Sbr.SessionBin.ff_aac_sbr_decode_extension_spec
+#print axioms Kraken.Examples.Sbr.SessionBin.ff_aac_sbr_decode_usac_data_spec
+#print axioms Kraken.Examples.Sbr.SessionBin.ff_aac_sbr_config_usac_spec
+#print axioms Kraken.Examples.Sbr.SessionBin.ff_aac_sbr_apply_spec
+#print axioms Kraken.Examples.Sbr.SessionBin.ff_aac_sbr_apply_only_its_regions
+#print axioms Kraken.Examples.Sbr.SessionBin.ff_aac_sbr_apply_keeps_the_rest

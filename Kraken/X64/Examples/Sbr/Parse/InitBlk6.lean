@@ -27,7 +27,7 @@ theorem blk_L123 (k : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab X : Mem 
   measure_hb "L123"
     intro n
     refine Triple.pin fun s₀ hs₀ => ?_
-    obtain ⟨⟨hR, c, f, c', f', htf, hm⟩, hn⟩ := hs₀
+    obtain ⟨⟨hR, hA, c, f, c', f', htf, hm⟩, hn⟩ := hs₀
     rw [M_BE2] at hm
     have hP := dsp_pre (ElemS_out_ps hm rfl)
     have hpush := fun w => Block.storeInt_val hP (Split.here _ _) w
@@ -61,13 +61,14 @@ theorem blk_L123 (k : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab X : Mem 
       refine MachineWP.nil_spec.le_wp s' ?_
       simp only [e1, e1', hsp] at hm'
       obtain ⟨bs, hl, hq⟩ := hback _ hm'
-      refine ⟨⟨⟨?_, ?_, ?_, ?_, ?_, ?_⟩, ?_⟩, Nat.le_refl 0⟩
+      refine ⟨⟨⟨?_, ?_, ?_, ?_, ?_, ?_⟩, ?_, ?_⟩, Nat.le_refl 0⟩
       · rw [hsp', e1]; exact ret_sp _
       · exact hbp'.trans hbp
       · exact h14'.trans h14
       · exact h15'.trans h15
       · exact h12'.trans h12
       · exact h13'.trans h13
+      · rw [hbx']; exact hA
       · rw [hbx']
         exact ⟨c, f, c', f', bs, htf, hl, hq⟩
     · rw [e1]; exact hld
@@ -79,7 +80,7 @@ theorem blk_L12f (k : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab X : Mem 
   measure_hb "L12f"
     intro n
     refine Triple.pin fun s₀ hs₀ => ?_
-    obtain ⟨⟨hR, c, f, c', f', psd, htf, hpl, hm⟩, hn⟩ := hs₀
+    obtain ⟨⟨hR, hA, c, f, c', f', psd, htf, hpl, hm⟩, hn⟩ := hs₀
     rw [M_BE2] at hm
     have hP := dsp_pre (ElemS_out_dsp hm rfl)
     have hpush := fun w => Block.storeInt_val hP (Split.here _ _) w
@@ -117,13 +118,14 @@ theorem blk_L12f (k : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab X : Mem 
       refine MachineWP.nil_spec.le_wp s' ?_
       simp only [e1, e1', hsp, ead] at hm'
       have hq := hback _ sl hm'
-      refine ⟨⟨⟨?_, ?_, ?_, ?_, ?_, ?_⟩, ?_⟩, Nat.le_refl 0⟩
+      refine ⟨⟨⟨?_, ?_, ?_, ?_, ?_, ?_⟩, ?_, ?_⟩, Nat.le_refl 0⟩
       · rw [hsp', e1]; exact ret_sp _
       · exact hbp'.trans hbp
       · exact h14'.trans h14
       · exact h15'.trans h15
       · exact h12'.trans h12
       · exact h13'.trans h13
+      · rw [hbx']; exact hA
       · rw [hbx']
         exact ⟨c, f, c', f', psd, sl, htf, hpl, hok, hq⟩
     · rw [e1]; exact hld

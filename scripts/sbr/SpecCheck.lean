@@ -1,9 +1,11 @@
 import Kraken.X64.Examples.Sbr.Link
 import Kraken.X64.Examples.Sbr.SessionBin.Top
+import Kraken.X64.Examples.Sbr.SessionBin.Api
 
 /-! Where the trusted closures live (run by ci.sh, step `spec`).
 
-The trusted closures of `ff_aac_sbr_apply_linked` and `SessionBin.sbr_session_safe` (as in
+The trusted closures of `ff_aac_sbr_apply_linked`, `SessionBin.sbr_session_safe` and the
+per-procedure theorems of `SessionBin/Api.lean` (as in
 `Tcb.lean`: every declaration reachable from the statement through statements and definition
 bodies, not through proofs) consist of three kinds of declarations:
 
@@ -75,7 +77,15 @@ partial def importClosure (env : Environment) (m : Name) : NameSet := Id.run do
 def main : MetaM Unit := do
   let env ← getEnv
   let roots := [`Kraken.Examples.Sbr.ff_aac_sbr_apply_linked,
-    `Kraken.Examples.Sbr.SessionBin.sbr_session_safe]
+    `Kraken.Examples.Sbr.SessionBin.sbr_session_safe,
+    `Kraken.Examples.Sbr.SessionBin.ff_aac_sbr_ctx_alloc_init_spec,
+    `Kraken.Examples.Sbr.SessionBin.ff_aac_sbr_decode_extension_spec,
+    `Kraken.Examples.Sbr.SessionBin.ff_aac_sbr_decode_usac_data_spec,
+    `Kraken.Examples.Sbr.SessionBin.ff_aac_sbr_config_usac_spec,
+    `Kraken.Examples.Sbr.SessionBin.ff_aac_sbr_apply_spec,
+    `Kraken.Examples.Sbr.SessionBin.ff_aac_sbr_apply_only_its_regions,
+    `Kraken.Examples.Sbr.SessionBin.ff_aac_sbr_apply_keeps_the_rest,
+    `Kraken.Examples.Sbr.SessionBin.SbrReady.initialized]
   let mut errs : Array String := #[]
   let mut textMods : NameSet := {}
   let mut nSpec := 0

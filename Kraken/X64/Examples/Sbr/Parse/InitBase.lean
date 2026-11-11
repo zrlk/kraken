@@ -143,7 +143,7 @@ abbrev TF (k : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab : Mem 64 → Pr
 /-- The four outcomes with the result `ret`, the memory `Mk B` around the body `B`. -/
 def Out (k : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab : Mem 64 → Prop) (t₀ : MachineData)
     (Mk : (Mem 64 → Prop) → Mem 64 → Prop) (ret : BitVec 32) (m : Mem 64) : Prop :=
-  (ret = 0#32 ∧ ∃ r : IR, r.psd.length = 64 ∧ DspSlotsOK r.sl
+  (ret = 0#32 ∧ ∃ r : IR, r.psd.length = 64 ∧ AOK r.p ∧ DspSlotsOK r.sl
     ∧ TxSpec Ctx TxTab k r.anaFn ∧ TxSpec Ctx TxTab k r.synFn
     ∧ (m =⋆ Mk (InitOK Ctx (arg1 t₀) (idOf t₀) r)))
   ∨ (ret = 0xfffffff4#32 ∧ (m =⋆ Mk (8 ?@ arg1 t₀)))
@@ -162,54 +162,58 @@ abbrev table (k : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab X R : Mem 64
       ∧ (t₀.dmem =⋆ MF k TxTab X t₀ (FrB t₀) (8 ?@ arg1 t₀) (Rest R ra t₀))
   | "ff_aac_sbr_ctx_alloc_init.L22", s => Rs t₀ s ∧ rbx s = rbx t₀
       ∧ ((s.regs.get64 .rax = 0#64 ∧ (s.dmem =⋆ M k TxTab X R ra t₀ (8 ?@ arg1 t₀)))
-        ∨ (s.regs.get64 .rax ≠ 0#64
+        ∨ (s.regs.get64 .rax ≠ 0#64 ∧ AOK (s.regs.get64 .rax)
           ∧ (s.dmem =⋆ M k TxTab X R ra t₀ (8 ?@ arg1 t₀ ⋆ zs 0x88ba0 =@ s.regs.get64 .rax))))
-  | "ff_aac_sbr_ctx_alloc_init.L2b", s => Rs t₀ s ∧ rbx s = rbx t₀ ∧ s.regs.get64 .rax ≠ 0#64
+  | "ff_aac_sbr_ctx_alloc_init.L2b", s => Rs t₀ s ∧ AOK (s.regs.get64 .rax) ∧ rbx s = rbx t₀
+      ∧ s.regs.get64 .rax ≠ 0#64
       ∧ (s.dmem =⋆ M k TxTab X R ra t₀ (8 ?@ arg1 t₀ ⋆ zs 0x88ba0 =@ s.regs.get64 .rax))
-  | "ff_aac_sbr_ctx_alloc_init.L3e", s => Rs t₀ s
+  | "ff_aac_sbr_ctx_alloc_init.L3e", s => Rs t₀ s ∧ AOK (rbx s)
       ∧ (s.dmem =⋆ M k TxTab X R ra t₀ (BE0 t₀ (rbx s) (evA (rbx s))))
-  | "ff_aac_sbr_ctx_alloc_init.L58", s => Rs t₀ s
+  | "ff_aac_sbr_ctx_alloc_init.L58", s => Rs t₀ s ∧ AOK (rbx s)
       ∧ (s.dmem =⋆ M k TxTab X R ra t₀ (BE0 t₀ (rbx s) (evB (rbx s))))
-  | "ff_aac_sbr_ctx_alloc_init.L67", s => Rs t₀ s ∧ s.regs.get64 .rax = 0#64
+  | "ff_aac_sbr_ctx_alloc_init.L67", s => Rs t₀ s ∧ AOK (rbx s) ∧ s.regs.get64 .rax = 0#64
       ∧ (s.dmem =⋆ M k TxTab X R ra t₀ (BE0 t₀ (rbx s) (evC (rbx s) (idOf t₀))))
-  | "ff_aac_sbr_ctx_alloc_init.L78", s => Rs t₀ s ∧ s.regs.get64 .rax = 0#64
+  | "ff_aac_sbr_ctx_alloc_init.L78", s => Rs t₀ s ∧ AOK (rbx s) ∧ s.regs.get64 .rax = 0#64
       ∧ (s.dmem =⋆ M k TxTab X R ra t₀ (BE0 t₀ (rbx s) (evD (rbx s) (idOf t₀))))
-  | "ff_aac_sbr_ctx_alloc_init.L89", s => Rs t₀ s ∧ s.regs.get64 .rax = 0#64
+  | "ff_aac_sbr_ctx_alloc_init.L89", s => Rs t₀ s ∧ AOK (rbx s) ∧ s.regs.get64 .rax = 0#64
       ∧ s.regs.get64 .rcx = 0xffffffff#64
       ∧ (s.dmem =⋆ M k TxTab X R ra t₀ (BE0 t₀ (rbx s) (evE (rbx s) (idOf t₀))))
-  | "ff_aac_sbr_ctx_alloc_init.L95", s => Rs t₀ s ∧ s.regs.get64 .rax = 0#64
+  | "ff_aac_sbr_ctx_alloc_init.L95", s => Rs t₀ s ∧ AOK (rbx s) ∧ s.regs.get64 .rax = 0#64
       ∧ (s.dmem =⋆ M k TxTab X R ra t₀ (BE0 t₀ (rbx s) (evF (rbx s) (idOf t₀))))
-  | "ff_aac_sbr_ctx_alloc_init.La9", s => Rs t₀ s ∧ s.regs.get64 .rax = 0#64
+  | "ff_aac_sbr_ctx_alloc_init.La9", s => Rs t₀ s ∧ AOK (rbx s) ∧ s.regs.get64 .rax = 0#64
       ∧ s.regs.get64 .rcx = 0x480#64
       ∧ (s.dmem =⋆ M k TxTab X R ra t₀ (BE0 t₀ (rbx s) (evG (rbx s) (idOf t₀))))
-  | "ff_aac_sbr_ctx_alloc_init.Lba", s => Rs t₀ s ∧ s.regs.get64 .rax = 0#64
+  | "ff_aac_sbr_ctx_alloc_init.Lba", s => Rs t₀ s ∧ AOK (rbx s) ∧ s.regs.get64 .rax = 0#64
       ∧ s.regs.get64 .r9 = t₀.regs.get64 .rsp - 0x24#64
       ∧ (s.dmem =⋆ M k TxTab X R ra t₀ (BE0 t₀ (rbx s) (evH (rbx s) (idOf t₀))))
-  | "ff_aac_sbr_ctx_alloc_init.Le1", s => Rs t₀ s
+  | "ff_aac_sbr_ctx_alloc_init.Le1", s => Rs t₀ s ∧ AOK (rbx s)
       ∧ ((0 ≤ (eax s).toInt ∧ ∃ c f, TxSpec Ctx TxTab k f
           ∧ (s.dmem =⋆ M k TxTab X R ra t₀ (BE1 Ctx t₀ (rbx s) (evS (rbx s) (idOf t₀) c f) c)))
         ∨ ((eax s).toInt < 0 ∧ ∃ bc bf : List UInt8, bc.length = 8 ∧ bf.length = 8
           ∧ (s.dmem =⋆ M k TxTab X R ra t₀ (BF1 t₀ (rbx s) bc bf))))
-  | "ff_aac_sbr_ctx_alloc_init.Le9", s => Rs t₀ s ∧ ∃ c f, TxSpec Ctx TxTab k f
+  | "ff_aac_sbr_ctx_alloc_init.Le9", s => Rs t₀ s ∧ AOK (rbx s) ∧ ∃ c f, TxSpec Ctx TxTab k f
       ∧ (s.dmem =⋆ M k TxTab X R ra t₀ (BE1 Ctx t₀ (rbx s) (evS (rbx s) (idOf t₀) c f) c))
-  | "ff_aac_sbr_ctx_alloc_init.L11f", s => Rs t₀ s
+  | "ff_aac_sbr_ctx_alloc_init.L11f", s => Rs t₀ s ∧ AOK (rbx s)
       ∧ ((0 ≤ (eax s).toInt ∧ ∃ c f c' f', TF k Ctx TxTab f f'
           ∧ (s.dmem =⋆ M k TxTab X R ra t₀
             (BE2 Ctx t₀ (rbx s) (evT (rbx s) (idOf t₀) c f c' f') c c')))
         ∨ ((eax s).toInt < 0 ∧ ∃ (c : BitVec 64) (f : Int64) (bc bf : List UInt8), bc.length = 8
           ∧ bf.length = 8 ∧ (s.dmem =⋆ M k TxTab X R ra t₀ (BF2 Ctx t₀ (rbx s) c f bc bf))))
-  | "ff_aac_sbr_ctx_alloc_init.L123", s => Rs t₀ s ∧ ∃ c f c' f', TF k Ctx TxTab f f'
+  | "ff_aac_sbr_ctx_alloc_init.L123", s => Rs t₀ s ∧ AOK (rbx s) ∧ ∃ c f c' f', TF k Ctx TxTab f f'
       ∧ (s.dmem =⋆ M k TxTab X R ra t₀
         (BE2 Ctx t₀ (rbx s) (evT (rbx s) (idOf t₀) c f c' f') c c'))
-  | "ff_aac_sbr_ctx_alloc_init.L12f", s => Rs t₀ s ∧ ∃ c f c' f' psd, TF k Ctx TxTab f f'
+  | "ff_aac_sbr_ctx_alloc_init.L12f", s => Rs t₀ s ∧ AOK (rbx s)
+      ∧ ∃ c f c' f' psd, TF k Ctx TxTab f f'
       ∧ psd.length = 64
       ∧ (s.dmem =⋆ M k TxTab X R ra t₀
         (BE2 Ctx t₀ (rbx s) (evU (rbx s) (idOf t₀) c f c' f' psd) c c'))
-  | "ff_aac_sbr_ctx_alloc_init.L13e", s => Rs t₀ s ∧ ∃ c f c' f' psd sl, TF k Ctx TxTab f f'
+  | "ff_aac_sbr_ctx_alloc_init.L13e", s => Rs t₀ s ∧ AOK (rbx s)
+      ∧ ∃ c f c' f' psd sl, TF k Ctx TxTab f f'
       ∧ psd.length = 64
       ∧ DspSlotsOK sl ∧ (s.dmem =⋆ M k TxTab X R ra t₀
         (BE2 Ctx t₀ (rbx s) (evV (rbx s) (idOf t₀) c f c' f' psd sl.bytes) c c'))
-  | "ff_aac_sbr_ctx_alloc_init.L15a", s => Rs t₀ s ∧ ∃ c f c' f' psd sl, TF k Ctx TxTab f f'
+  | "ff_aac_sbr_ctx_alloc_init.L15a", s => Rs t₀ s ∧ AOK (rbx s)
+      ∧ ∃ c f c' f' psd sl, TF k Ctx TxTab f f'
       ∧ psd.length = 64
       ∧ DspSlotsOK sl ∧ (s.dmem =⋆ M k TxTab X R ra t₀
         (BE2 Ctx t₀ (rbx s) (evW (rbx s) (idOf t₀) c f c' f' psd sl.bytes) c c'))

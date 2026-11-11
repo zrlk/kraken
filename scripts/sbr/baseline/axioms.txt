@@ -67,3 +67,21 @@
 'Kraken.Examples.Sbr.SessionBin.session_init' depends on axioms: [propext, Classical.choice, Quot.sound]
 'Kraken.Examples.Sbr.SessionBin.init_safe' depends on axioms: [propext, Classical.choice, Quot.sound]
 'Kraken.Examples.Sbr.SessionBin.sbr_session_safe' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Kraken.Examples.Sbr.SessionBin.SbrReady.initialized' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Kraken.Examples.Sbr.SessionBin.ff_aac_sbr_ctx_alloc_init_spec' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Kraken.Examples.Sbr.SessionBin.ff_aac_sbr_decode_extension_spec' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Kraken.Examples.Sbr.SessionBin.ff_aac_sbr_decode_usac_data_spec' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Kraken.Examples.Sbr.SessionBin.ff_aac_sbr_config_usac_spec' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Kraken.Examples.Sbr.SessionBin.ff_aac_sbr_apply_spec' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Kraken.Examples.Sbr.SessionBin.ff_aac_sbr_apply_only_its_regions' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Kraken.Examples.Sbr.SessionBin.ff_aac_sbr_apply_keeps_the_rest' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]

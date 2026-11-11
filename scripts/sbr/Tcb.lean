@@ -1,9 +1,11 @@
 import Kraken.X64.Examples.Sbr.Link
 import Kraken.X64.Examples.Sbr.SessionBin.Top
+import Kraken.X64.Examples.Sbr.SessionBin.Api
 
-/-! The trusted closures of the two top theorems (run by ci.sh, step `tcb`).
+/-! The trusted closures of the top theorems (run by ci.sh, step `tcb`).
 
-For each root, `ff_aac_sbr_apply_linked` and then `SessionBin.sbr_session_safe`, collects
+For each root, `ff_aac_sbr_apply_linked`, `SessionBin.sbr_session_safe`, and the per-procedure
+theorems of `SessionBin/Api.lean` (together, as one closure), collects
 every declaration reachable from its statement through statements and definition bodies, but
 not through proofs: the definitions whose meaning the theorem depends on. Prints, per project
 module (`Kraken*`), the source lines those declarations span and their number; program texts
@@ -12,9 +14,10 @@ validation) are counted on their own rows.
 
 Each table ends with a fingerprint line, a hash of the closure's names, types and definition
 bodies (independent of which module or line a declaration sits in): `FINGERPRINT` for
-`ff_aac_sbr_apply_linked`, `FINGERPRINT_SESSION` for `sbr_session_safe`. It changes exactly
-when the meaning of the statement can change; ci.sh compares them with
-`baseline/tcb_fingerprint.txt` and `baseline/tcb_fingerprint_session.txt`. After an intended
+`ff_aac_sbr_apply_linked`, `FINGERPRINT_SESSION` for `sbr_session_safe`, `FINGERPRINT_API` for
+the per-procedure theorems. It changes exactly when the meaning of the statement can change;
+ci.sh compares them with `baseline/tcb_fingerprint.txt`, `baseline/tcb_fingerprint_session.txt`
+and `baseline/tcb_fingerprint_api.txt`. After an intended
 change to the specification, the machine model or a program text, re-record it
 (`lake env lean scripts/sbr/Tcb.lean`) and review the change.
 
@@ -90,11 +93,14 @@ partial def norm (env : Environment) (e : Expr) : Expr :=
     | _ => none
 end
 
-/-- The table and the fingerprint line (`tag`) of `root`'s closure. -/
-def report (root : Name) (tag : String) : MetaM Unit := do
+/-- The table and the fingerprint line (`tag`) of the union of the `roots`' closures. -/
+def reportAll (roots : List Name) (tag : String) : MetaM Unit := do
   let env ← getEnv
-  let seen := closure env root
-  if seen.isEmpty then throwError "{root} not found"
+  let mut seen : NameSet := {}
+  for root in roots do
+    let c := closure env root
+    if c.isEmpty then throwError "{root} not found"
+    seen := c.toList.foldl (fun acc n => acc.insert n) seen
   let mut byMod : Std.HashMap Name (Array (Nat × Nat)) := {}
   let mut cnt : Std.HashMap Name Nat := {}
   let mut fp : UInt64 := 0
@@ -138,10 +144,23 @@ def report (root : Name) (tag : String) : MetaM Unit := do
   for h in aux.toList do fp := fp + mixHash (hash "aux") h
   IO.println s!"{tag} {fp}"
 
+/-- The per-procedure theorems of `SessionBin/Api.lean`. -/
+def apiRoots : List Name := [
+    `Kraken.Examples.Sbr.SessionBin.ff_aac_sbr_ctx_alloc_init_spec,
+    `Kraken.Examples.Sbr.SessionBin.ff_aac_sbr_decode_extension_spec,
+    `Kraken.Examples.Sbr.SessionBin.ff_aac_sbr_decode_usac_data_spec,
+    `Kraken.Examples.Sbr.SessionBin.ff_aac_sbr_config_usac_spec,
+    `Kraken.Examples.Sbr.SessionBin.ff_aac_sbr_apply_spec,
+    `Kraken.Examples.Sbr.SessionBin.ff_aac_sbr_apply_only_its_regions,
+    `Kraken.Examples.Sbr.SessionBin.ff_aac_sbr_apply_keeps_the_rest,
+    `Kraken.Examples.Sbr.SessionBin.SbrReady.initialized]
+
 def main : MetaM Unit := do
-  report `Kraken.Examples.Sbr.ff_aac_sbr_apply_linked "FINGERPRINT"
+  reportAll [`Kraken.Examples.Sbr.ff_aac_sbr_apply_linked] "FINGERPRINT"
   IO.println "== sbr_session_safe"
-  report `Kraken.Examples.Sbr.SessionBin.sbr_session_safe "FINGERPRINT_SESSION"
+  reportAll [`Kraken.Examples.Sbr.SessionBin.sbr_session_safe] "FINGERPRINT_SESSION"
+  IO.println "== the per-procedure theorems"
+  reportAll apiRoots "FINGERPRINT_API"
 
 end SbrTcb
 

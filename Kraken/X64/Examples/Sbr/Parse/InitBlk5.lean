@@ -24,7 +24,7 @@ theorem blk_Le9 (k : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab X : Mem 6
   measure_hb "Le9"
     intro n
     refine Triple.pin fun s₀ hs₀ => ?_
-    obtain ⟨⟨hR, c, f, htf, hm⟩, hn⟩ := hs₀
+    obtain ⟨⟨hR, hA, c, f, htf, hm⟩, hn⟩ := hs₀
     rw [M_BE1, ← Std.ExtHashMap.sep_assoc (c8 (arg1 t₀) (rbx s₀)) (Ctx c)] at hm
     have hoks := (Mo_scale2 hm 0).1
     have hS := fun u => (Mo_scale2 hm u).2
@@ -57,13 +57,14 @@ theorem blk_Le9 (k : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab X : Mem 6
       refine MachineWP.nil_spec.le_wp s' ?_
       simp only [e1', e2, ea, hsp] at hm'
       have hq := tx_post hm'
-      refine ⟨⟨⟨?_, ?_, ?_, ?_, ?_, ?_⟩, ?_⟩, Nat.le_refl 0⟩
+      refine ⟨⟨⟨?_, ?_, ?_, ?_, ?_, ?_⟩, ?_, ?_⟩, Nat.le_refl 0⟩
       · rw [hsp', e1]; bv_omega
       · rw [hbp', hbp]
       · rw [h14', h14]
       · rw [h15', h15]
       · rw [h12', h12]
       · rw [h13', h13]
+      · rw [hbx']; exact hA
       · rw [hbx']
         by_cases hc : 0 ≤ (BitVec.setWidth 32 (s'.regs.get64 .rax)).toInt
         · rw [if_pos hc] at hq
@@ -80,7 +81,7 @@ theorem blk_L11f (k : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab X : Mem 
   measure_hb "L11f"
     intro n
     refine Triple.pin fun s₀ hs₀ => ?_
-    obtain ⟨⟨hR, hm⟩, hn⟩ := hs₀
+    obtain ⟨⟨hR, hA, hm⟩, hn⟩ := hs₀
     vcgen
     all_goals try call_simp
     all_goals try subst_vars
@@ -98,7 +99,7 @@ theorem blk_L11f (k : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab X : Mem 
       rw [BitVec.msb_eq_toInt] at hz
       have hpos := Int.not_lt.mp (of_decide_eq_false hz)
       rcases hm with ⟨-, c, f, c', f', htf, hm⟩ | ⟨hl, -⟩
-      · exact ⟨⟨hR, c, f, c', f', htf, hm⟩, Nat.le_refl 0⟩
+      · exact ⟨⟨hR, hA, c, f, c', f', htf, hm⟩, Nat.le_refl 0⟩
       · exact absurd hl (Int.not_lt.mpr hpos)
 
 end Kraken.Examples.Sbr.Init

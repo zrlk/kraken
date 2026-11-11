@@ -51,12 +51,12 @@ theorem blk_entry (k : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab X : Mem
       have hn : (BitVec.setWidth 64 (BitVec.setWidth 32 (Int64.toBitVec 560032))).toNat
           = 560032 := by decide
       rcases hpost with ⟨hax, hsp, hbp, ⟨hbx, h12, h13, h14, h15⟩, hm⟩
-        | ⟨hax, hsp, hbp, ⟨hbx, h12, h13, h14, h15⟩, hm⟩
+        | ⟨hax, hal, hrng, hsp, hbp, ⟨hbx, h12, h13, h14, h15⟩, hm⟩
       · exact ⟨⟨⟨by rw [hsp]; bv_omega, hbp, h14, h15, h12, h13⟩, hbx, Or.inl ⟨hax, Mem.ac hm⟩⟩,
           Nat.le_refl 0⟩
-      · rw [hn] at hm
-        exact ⟨⟨⟨by rw [hsp]; bv_omega, hbp, h14, h15, h12, h13⟩, hbx, Or.inr ⟨hax, Mem.ac hm⟩⟩,
-          Nat.le_refl 0⟩
+      · rw [hn] at hm hrng
+        exact ⟨⟨⟨by rw [hsp]; bv_omega, hbp, h14, h15, h12, h13⟩, hbx,
+          Or.inr ⟨hax, And.intro hal hrng, Mem.ac hm⟩⟩, Nat.le_refl 0⟩
     · rw [e64]; exact hld
 
 end Kraken.Examples.Sbr.Init

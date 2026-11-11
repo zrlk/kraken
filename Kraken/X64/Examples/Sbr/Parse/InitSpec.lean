@@ -85,13 +85,17 @@ def InitOK (Ctx : BitVec 64 → Mem 64 → Prop) (che : BitVec 64) (idAac : BitV
     Mem 64 → Prop :=
   c8 che r.p ⋆ (ElemS r.p (evInit idAac r) ⋆ (Ctx r.anaCtx ⋆ Ctx r.synCtx))
 
+/-- The element's address: 32-aligned, the block in the lower half of the address space, from
+`av_mallocz`. -/
+def AOK (p : BitVec 64) : Prop := isAligned 32 p = true ∧ p.toNat + 0x88ba0 ≤ 2 ^ 63
+
 /-! ## The specification -/
 
 /-- The four outcomes (the result is `eax`). -/
 abbrev InitPost (k : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab X : Mem 64 → Prop)
     (R : Mem 64 → Prop) (ra : Int64) (t s : MachineData) : Prop :=
   let ret := (s.regs.get64 .rax).setWidth 32
-  (ret = 0#32 ∧ ∃ r : IR, r.psd.length = 64 ∧ DspSlotsOK r.sl
+  (ret = 0#32 ∧ ∃ r : IR, r.psd.length = 64 ∧ AOK r.p ∧ DspSlotsOK r.sl
       ∧ TxSpec Ctx TxTab k r.anaFn ∧ TxSpec Ctx TxTab k r.synFn
       ∧ CallPost (initNeed k) ((InitOK Ctx (arg1 t) (idOf t) r ⋆ (TxTab ⋆ X)) ⋆ R) ra t s)
   ∨ (ret = 0xfffffff4#32 ∧ CallPost (initNeed k) ((8 ?@ arg1 t ⋆ (TxTab ⋆ X)) ⋆ R) ra t s)

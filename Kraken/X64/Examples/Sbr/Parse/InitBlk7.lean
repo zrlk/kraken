@@ -24,7 +24,7 @@ theorem blk_L13e (k : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab X : Mem 
   measure_hb "L13e"
     intro n
     refine Triple.pin fun s₀ hs₀ => ?_
-    obtain ⟨⟨hR, c, f, c', f', psd, sl, htf, hpl, hok, hm⟩, hn⟩ := hs₀
+    obtain ⟨⟨hR, hA, c, f, c', f', psd, sl, htf, hpl, hok, hm⟩, hn⟩ := hs₀
     rw [M_BE2] at hm
     have hld1 : (s₀.dmem.loadInt (rbx s₀ + 0x88b70#64) 8).isSome = true := by
       rw [ElemS_ld_c0 hm rfl]; rfl
@@ -47,7 +47,7 @@ theorem blk_L13e (k : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab X : Mem 
       BitVec.add_zero, add0, BitVec.setWidth_eq] at *
     · exact hld1
     · exact hld2 _
-    · exact ⟨⟨hR, c, f, c', f', psd, sl, htf, hpl, hok, hfin _ _ rfl rfl⟩, Nat.le_refl 0⟩
+    · exact ⟨⟨hR, hA, c, f, c', f', psd, sl, htf, hpl, hok, hfin _ _ rfl rfl⟩, Nat.le_refl 0⟩
 
 theorem blk_L15a (k : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab X : Mem 64 → Prop)
     (R : Mem 64 → Prop) (ra : Int64) (t₀ : MachineData) :
@@ -56,7 +56,7 @@ theorem blk_L15a (k : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab X : Mem 
   measure_hb "L15a"
     intro n
     refine Triple.pin fun s₀ hs₀ => ?_
-    obtain ⟨⟨hR, c, f, c', f', psd, sl, htf, hpl, hok, hm⟩, hn⟩ := hs₀
+    obtain ⟨⟨hR, hA, c, f, c', f', psd, sl, htf, hpl, hok, hm⟩, hn⟩ := hs₀
     rw [M_BE2] at hm
     have hld1 : (s₀.dmem.loadInt (rbx s₀ + 0x88b80#64) 8).isSome = true := by
       rw [ElemS_ld_c2 hm rfl]; rfl
@@ -65,14 +65,14 @@ theorem blk_L15a (k : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab X : Mem 
         (rbx s₀ + 0x88b88#64) 8).isSome = true := fun w => by rw [ElemS_ld_c3 (h1 w) rfl]; rfl
     have hfin : ∀ w1 w2, Int.toBytes 8 w1 = fb (entry "sbr_x_gen")
         → Int.toBytes 8 w2 = fb (entry "sbr_hf_inverse_filter")
-        → ∃ r : IR, r.psd.length = 64 ∧ DspSlotsOK r.sl
+        → ∃ r : IR, r.psd.length = 64 ∧ AOK r.p ∧ DspSlotsOK r.sl
           ∧ TxSpec Ctx TxTab k r.anaFn ∧ TxSpec Ctx TxTab k r.synFn
           ∧ ((s₀.dmem.storeInt (rbx s₀ + 0x88b80#64) 8 w1).storeInt (rbx s₀ + 0x88b88#64) 8 w2
             =⋆ M k TxTab X R ra t₀ (InitOK Ctx (arg1 t₀) (idOf t₀) r)) := by
       intro w1 w2 e1 e2
       have h := BE2_st Ctx (ElemS_st_c3 (h1 w1) rfl w2)
       rw [e1, e2] at h
-      exact ⟨⟨rbx s₀, c', f', c, f, sl, psd⟩, hpl, hok, htf.2, htf.1, h⟩
+      exact ⟨⟨rbx s₀, c', f', c, f, sl, psd⟩, hpl, hA, hok, htf.2, htf.1, h⟩
     clear hm h1
     vcgen
     all_goals try call_simp

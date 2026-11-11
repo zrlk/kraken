@@ -1,0 +1,21 @@
+{
+  "challenge_module": "KrakenSbrChallenge.Challenge",
+  "solution_module": "KrakenSbrChallenge.Solution",
+  "theorem_names": [
+    "Kraken.Examples.Sbr.ff_aac_sbr_apply_linked",
+    "Kraken.Examples.Sbr.SessionBin.sbr_session_safe",
+    "Kraken.Examples.Sbr.SessionBin.SbrReady.initialized",
+    "Kraken.Examples.Sbr.SessionBin.ff_aac_sbr_ctx_alloc_init_spec",
+    "Kraken.Examples.Sbr.SessionBin.ff_aac_sbr_decode_extension_spec",
+    "Kraken.Examples.Sbr.SessionBin.ff_aac_sbr_decode_usac_data_spec",
+    "Kraken.Examples.Sbr.SessionBin.ff_aac_sbr_config_usac_spec",
+    "Kraken.Examples.Sbr.SessionBin.ff_aac_sbr_apply_spec",
+    "Kraken.Examples.Sbr.SessionBin.ff_aac_sbr_apply_only_its_regions",
+    "Kraken.Examples.Sbr.SessionBin.ff_aac_sbr_apply_keeps_the_rest"
+  ],
+  "permitted_axioms": [
+    "propext",
+    "Quot.sound",
+    "Classical.choice"
+  ]
+}

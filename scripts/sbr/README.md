@@ -26,8 +26,8 @@ Run it from anywhere inside the repository; everything is resolved from the repo
 | heartbeats | `hbscan.py`: the generated per-block `maxHeartbeats` of the Apply shards equal `baseline/hb_table.txt`; no other `maxHeartbeats`/`maxRecDepth` option beyond `baseline/hb_baseline.txt` |
 | srcscan | `srcscan.py`: no `sorry`, `admit`, `axiom`, `native_decide`, `bv_decide`, and none of the kernel-bypassing `debug.*` options (e.g. `debug.skipKernelTC`), `implemented_by`, `@[extern]`, `unsafe`, in `Kraken/X64/Examples/Sbr/`; elsewhere in `Kraken/` nothing beyond `baseline/srcscan_baseline.txt` (19 upstream uses, one an `unsafe def` in `Eval.lean`). `closure.py` prints which of those files the proof imports (`Rules/IntMisc.lean`, `Specs.lean`; the axioms step shows none of their `bv_decide` lemmas is used) |
 | regen | `apply/check_regen.sh` and `hfasm/check_regen.sh`: the generators regenerate `ApplyText.lean`, `ApplyTable.lean`, `Apply.lean`, `Apply/*.lean`, and `HfAssemble.lean`, `HfAssemble/{Base,Part1,Part2}.lean`, into a scratch directory; they must equal the checked-in files byte for byte (no Lean run) |
-| spec | `SpecCheck.lean`: every declaration of the two trusted closures that is neither the machine model (`Kraken.*` outside `Kraken.X64.Examples`, and Lean) nor a program text is defined in `SessionSpec.lean` or `SessionSpecData.lean`; the modules holding the program texts import (transitively) only the machine model and other text modules; `SessionSpec`/`SessionSpecData` import only those. Also `spec_text.py`: `parse/init/foot.py --spec` (the generated `EV`, `ElemS`) must appear verbatim in `SessionSpec.lean`, and the statement of `sbr_session_safe` quoted in its module docstring must equal the one in `SessionBin/Top.lean` (up to `:=`, whitespace-normalized) |
-| tcb | `Tcb.lean`: the trusted closures of the two final theorems, `ff_aac_sbr_apply_linked` and `SessionBin.sbr_session_safe`, i.e. every declaration reachable from a statement through statements and definition bodies but not proofs, with its source lines per module, and a fingerprint of each closure's names, types and bodies. The fingerprints must equal `baseline/tcb_fingerprint.txt` (`FINGERPRINT`) and `baseline/tcb_fingerprint_session.txt` (`FINGERPRINT_SESSION`). They change exactly when the specification, the machine model or a program text changes; review such a change, then re-record the printed line |
+| spec | `SpecCheck.lean`: every declaration of the trusted closures that is neither the machine model (`Kraken.*` outside `Kraken.X64.Examples`, and Lean) nor a program text is defined in `SessionSpec.lean` or `SessionSpecData.lean`; the modules holding the program texts import (transitively) only the machine model and other text modules; `SessionSpec`/`SessionSpecData` import only those. Also `spec_text.py`: `parse/init/foot.py --spec` (the generated `EV`, `ElemS`) must appear verbatim in `SessionSpec.lean`, and the statement of `sbr_session_safe` quoted in its module docstring must equal the one in `SessionBin/Top.lean` (up to `:=`, whitespace-normalized) |
+| tcb | `Tcb.lean`: the trusted closures of the final theorems, `ff_aac_sbr_apply_linked`, `SessionBin.sbr_session_safe` and (together) the per-procedure theorems of `SessionBin/Api.lean`, i.e. every declaration reachable from a statement through statements and definition bodies but not proofs, with its source lines per module, and a fingerprint of each closure's names, types and bodies. The fingerprints must equal `baseline/tcb_fingerprint.txt` (`FINGERPRINT`), `baseline/tcb_fingerprint_session.txt` (`FINGERPRINT_SESSION`) and `baseline/tcb_fingerprint_api.txt` (`FINGERPRINT_API`). They change exactly when the specification, the machine model or a program text changes; review such a change, then re-record the printed line |
 
 ## What to review
 
@@ -35,7 +35,7 @@ The kernel checks every proof; what it cannot check is what the statement means.
 reviewer reads the trusted closure (`tcb` step), not the proofs:
 
 - the specification: `SessionSpec.lean`, with the Huffman tables in `SessionSpecData.lean`.
-  It holds every definition the two final statements depend on other than the machine model and
+  It holds every definition the final statements depend on other than the machine model and
   the program texts, in dependency order, one section per proof module (callee contracts,
   `ApplySpec`, the placement and slot facts, the session vocabulary `Live`/`Ready`/`AcFields`,
   the models, the parser contracts, and the parts of `sbr_session_safe`); its module docstring
@@ -44,11 +44,18 @@ reviewer reads the trusted closure (`tcb` step), not the proofs:
   and the machine model) and `SessionSpecData`; the `spec` step checks all of this. The final
   statements are in `Link.lean` (`ff_aac_sbr_apply_linked`) and `SessionBin/Top.lean`
   (`sbr_session_safe`);
+- the per-procedure theorems, `SessionBin/Api.lean`: one theorem per entry point, stated for a
+  reader new to the development (arguments as registers, memory as a flat list of disjoint
+  regions, the vocabulary in `SessionSpec.lean` §26), and two corollaries for
+  `ff_aac_sbr_apply` that state the memory-safety reading directly. Its module docstring gives
+  the protocol, how to read the theorems as memory safety, and what they do not claim;
 - the machine model this work added to: `Kraken/X64/Semantics.lean`, `Syntax.lean`;
 - not the program texts themselves but the checker that matches them to the objects:
   `tv/tv.py`, `tv/tv_data.py`, `tv/tv.sh`, `tv/Export.lean`, `tv/Fresh.lean`,
   `Kraken/X64/PrintIntel.lean`;
-- these scripts: `Ax.lean` with `baseline/axioms.txt`, `srcscan.py`, `Tcb.lean`;
+- these scripts: `Ax.lean` with `baseline/axioms.txt`, `srcscan.py`, `Tcb.lean`, and for the
+  optional comparator step `challenge.py`, `challenge.sh` and the statements in
+  `KrakenSbrChallenge/Challenge.lean`;
 - for adequacy: whether the `SbrAssumed` contracts hold of the real routines (an over-strong
   one makes the theorem vacuous; see FD1) and the statements, not the proofs, of
   the satisfiability witnesses (`Witness.lean`, `Linked.lean`).
@@ -74,6 +81,7 @@ Block proofs, label tables and entry assertions, helper lemmas, the generated `A
 |---|---|
 | `SBR_OBJ_DIR` | required: directory with `aacsbr.rela.o`, `aacsbr.pic.o`, `aacsbr.g.o`, `aacps_common.rela.o`, `aacps_common.pic.o`, `aacps_common.g.o`, `log2_tab.g.o`, `sbrdsp.o`, `float_dsp.o` (hashes in `baseline/objects.sha256`) |
 | `LLVM_BIN` | directory of `llvm-objdump`, `llvm-objcopy`, `llvm-mc`, `llvm-readelf` (LLVM 21 was used); default: from `PATH` |
+| `SBR_CHALLENGE` | optional: `1` adds the `challenge` step (`challenge.sh`, `lake challenge`; needs `bwrap`) |
 | `SBR_CAP_CMD` | optional command prefix for every `lake`/`lean` call, e.g. a memory cap. Without it lean runs uncapped. The largest module (`Apply.GainAsm`) peaks at about 9.5 GB, so modules must be built one at a time (`ci.sh` does); a plain parallel `lake build` of the Apply shards runs out of memory on ordinary machines |
 | `SBR_FFMPEG_SRC`, `SBR_FFMPEG_INC` | optional: the FFmpeg n8.1 source tree (and extra include directories, space-separated) for the tv check of the Huffman tables `SessionSpecData.lean` (`vlc/gen.py --check`); without it that check is skipped and says so |
 | `SBR_OUT` | scratch and output, default `.lake/sbr-ci` |
@@ -173,6 +181,32 @@ each be caught. Adding a text: one entry in `real/real_lib.py`'s `TEXTS` and one
 `Real.rTexts`, then regenerate `RealData.lean` with `gen.py`.
 
 `SbrSlots` stays a hypothesis: the slots are written at run time by the initialisation code.
+
+## Optional: the comparator check
+
+Off by default. `SBR_CHALLENGE=1` adds a step `challenge` (`challenge.sh`) that judges the proof
+with Lake's built-in comparator, `lake challenge` (needs `bwrap`):
+
+```
+SBR_CHALLENGE=1 SBR_OBJ_DIR=… scripts/sbr/ci.sh
+```
+
+`KrakenSbrChallenge/Challenge.lean` states the theorems over the specification alone, each with
+`sorry` as its proof: `ff_aac_sbr_apply_linked`, `sbr_session_safe`, and the per-procedure
+theorems of `SessionBin/Api.lean`. `KrakenSbrChallenge/Solution.lean` only imports the proof.
+`KrakenSbrChallenge` is its own `lean_lib`, not a default target, outside `Kraken/`, so the
+`sorry`s are not part of the proof and `srcscan.py` does not see them. The step:
+
+1. `challenge.py`: the challenge file states exactly the theorems `challenge.json` names, each
+   proof is `by sorry`, and it has no other forbidden token; the solution file has only imports;
+2. builds both modules under `SBR_CAP_CMD`;
+3. `lake challenge --config scripts/sbr/challenge.json`: in a sandbox, checks that each named
+   theorem of the solution has the challenge's statement and uses only `propext`,
+   `Classical.choice` and `Quot.sound`, and replays the solution through the kernel
+   (`leanchecker`) in a separate process. About 70 minutes, most of it in the replay.
+
+A statement change in `SessionBin/Api.lean`, `SessionBin/Top.lean` or `Link.lean` needs the same
+change in `Challenge.lean`; otherwise this step rejects.
 
 ## Line counts
 

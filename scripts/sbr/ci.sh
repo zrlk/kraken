@@ -13,19 +13,23 @@
 #   5. srcscan     srcscan.py against baseline/srcscan_baseline.txt, and which baseline
 #                  files are imported by Link/Witness/Linked (closure.py)
 #   5a. regen      apply/ and hfasm/check_regen.sh: the generators reproduce the checked-in files
-#   5b. tcb        Tcb.lean: the trusted closures of ff_aac_sbr_apply_linked and
-#                  sbr_session_safe (what a reviewer reads); their fingerprints equal
-#                  baseline/tcb_fingerprint.txt and baseline/tcb_fingerprint_session.txt
-#   5c. spec       SpecCheck.lean: every declaration of the two closures outside the machine
+#   5b. tcb        Tcb.lean: the trusted closures of ff_aac_sbr_apply_linked,
+#                  sbr_session_safe and the per-procedure theorems of SessionBin/Api.lean
+#                  (what a reviewer reads); their fingerprints equal baseline/tcb_fingerprint.txt,
+#                  tcb_fingerprint_session.txt and tcb_fingerprint_api.txt
+#   5c. spec       SpecCheck.lean: every declaration of the closures outside the machine
 #                  model and the program texts is in SessionSpec.lean/SessionSpecData.lean;
 #                  text modules and SessionSpec import no proof module; spec_text.py: the
 #                  generated part of SessionSpec.lean equals `parse/init/foot.py --spec`, and
 #                  the statement it quotes equals sbr_session_safe's in SessionBin/Top.lean
 #   6. real        OPTIONAL, only with SBR_REAL=1: real/check.sh, the proofs about a real
 #                  linked binary (SBR_BIN) and their check against it
+#   7. challenge   OPTIONAL, only with SBR_CHALLENGE=1: challenge.sh, Lake's comparator
+#                  (`lake challenge`) judges the top and per-procedure theorems against the
+#                  statements in KrakenSbrChallenge/Challenge.lean (about 70 minutes)
 # Env: SBR_OBJ_DIR (required), LLVM_BIN, SBR_OUT, SBR_CAP_CMD, SBR_SKIP_BUILD=1,
 #      SBR_JOBS, SBR_MEM_BUDGET_GB, SBR_MEM_RESERVE_GB (see pbuild.py),
-#      SBR_REAL=1 with SBR_BIN (optional step 6).
+#      SBR_REAL=1 with SBR_BIN (optional step 6), SBR_CHALLENGE=1 (optional step 7).
 set -u
 . "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 OUT=$SBR_OUT/ci
@@ -144,7 +148,7 @@ MODS="ApplyText Dsp.NegOdd64Text Dsp.Sum64x5Text Dsp.SumSquareText Dsp.QmfPreShu
  SessionBin.SApply SessionBin.SConfig SessionBin.SDec SessionBin.BridgeU SessionBin.UsacAsmS
  SessionBin.FUsac SessionBin.SUsac SessionBin.Main
  SessionBin.SInit SessionBin.TopDefs SessionBin.InitSafe SessionBin.TopCalls
- SessionBin.Top"
+ SessionBin.Top SessionBin.Api"
 # tv/Export.lean imports Kraken.X64.PrintIntel (tv/Fresh.lean checks its olean), which no
 # module in MODS imports: build it first, alone, so it never races with the module builds
 tvlib=ok
@@ -224,7 +228,8 @@ cat "$OUT/regen.txt"
 "${CAP[@]}" lake env lean "$SBR_DIR/Tcb.lean" > "$OUT/tcb.txt" 2>&1; rc=$?
 grep -E '^(TOTAL|FINGERPRINT|== )' "$OUT/tcb.txt"
 tcbok=1
-for pair in "FINGERPRINT:tcb_fingerprint.txt" "FINGERPRINT_SESSION:tcb_fingerprint_session.txt"; do
+for pair in "FINGERPRINT:tcb_fingerprint.txt" "FINGERPRINT_SESSION:tcb_fingerprint_session.txt" \
+    "FINGERPRINT_API:tcb_fingerprint_api.txt"; do
   tag=${pair%%:*}; base=${pair#*:}
   fpn=$(sed -n "s/^$tag //p" "$OUT/tcb.txt"); fpb=$(cat "$SBR_DIR/baseline/$base" 2>/dev/null)
   if [ $rc = 0 ] && [ -n "$fpn" ] && [ "$fpn" = "$fpb" ]; then
@@ -250,6 +255,14 @@ if [ "${SBR_REAL:-0}" = 1 ]; then
   cat "$OUT/real.txt"
   [ $rc = 0 ] && mark real ok || mark real FAIL
   STEPS="$STEPS real"
+fi
+
+# ---- 7. challenge (optional)
+if [ "${SBR_CHALLENGE:-0}" = 1 ]; then
+  bash "$SBR_DIR/challenge.sh" > "$OUT/challenge.txt" 2>&1; rc=$?
+  cat "$OUT/challenge.txt"
+  [ $rc = 0 ] && mark challenge ok || mark challenge FAIL
+  STEPS="$STEPS challenge"
 fi
 
 echo

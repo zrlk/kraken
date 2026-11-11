@@ -24,7 +24,7 @@ theorem blk_L58 (k : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab X : Mem 6
   measure_hb "L58"
     intro n
     refine Triple.pin fun s₀ hs₀ => ?_
-    obtain ⟨⟨hR, hm⟩, hn⟩ := hs₀
+    obtain ⟨⟨hR, hA, hm⟩, hn⟩ := hs₀
     rw [M_BE0] at hm
     have eid : (BitVec.setWidth 32 (s₀.regs.get64 .r14)).toInt = (idOf t₀).toInt := by
       rw [hR.2.2.1]; simp [idOf, BitVec.setWidth_setWidth_of_le]
@@ -48,7 +48,7 @@ theorem blk_L58 (k : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab X : Mem 6
       BitVec.add_zero, add0, BitVec.setWidth_eq] at *
     · exact hok1
     · exact hok2 _
-    · exact ⟨⟨hR, by simp, hfin _ _ (by rw [eid]) (by simp)⟩, Nat.le_refl 0⟩
+    · exact ⟨⟨hR, hA, by simp, hfin _ _ (by rw [eid]) (by simp)⟩, Nat.le_refl 0⟩
 
 theorem blk_L67 (k : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab X : Mem 64 → Prop)
     (R : Mem 64 → Prop) (ra : Int64) (t₀ : MachineData) :
@@ -57,7 +57,7 @@ theorem blk_L67 (k : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab X : Mem 6
   measure_hb "L67"
     intro n
     refine Triple.pin fun s₀ hs₀ => ?_
-    obtain ⟨⟨hR, hax, hm⟩, hn⟩ := hs₀
+    obtain ⟨⟨hR, hA, hax, hm⟩, hn⟩ := hs₀
     rw [M_BE0] at hm
     have hok1 : (s₀.dmem.loadInt (rbx s₀ + 0x28924#64) 8).isSome = true := by
       rw [ElemS_ld_sr hm rfl]; rfl
@@ -80,7 +80,7 @@ theorem blk_L67 (k : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab X : Mem 6
     · exact hok1
     · trace_state
       exact hok2 _
-    · exact ⟨⟨hR, hax, hfin _ _ (by rw [hax]; rfl) (by decide)⟩, Nat.le_refl 0⟩
+    · exact ⟨⟨hR, hA, hax, hfin _ _ (by rw [hax]; rfl) (by decide)⟩, Nat.le_refl 0⟩
 
 theorem blk_L78 (k : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab X : Mem 64 → Prop)
     (R : Mem 64 → Prop) (ra : Int64) (t₀ : MachineData) :
@@ -89,7 +89,7 @@ theorem blk_L78 (k : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab X : Mem 6
   measure_hb "L78"
     intro n
     refine Triple.pin fun s₀ hs₀ => ?_
-    obtain ⟨⟨hR, hax, hm⟩, hn⟩ := hs₀
+    obtain ⟨⟨hR, hA, hax, hm⟩, hn⟩ := hs₀
     rw [M_BE0] at hm
     have hok1 : (s₀.dmem.loadInt (rbx s₀ + 0x28980#64) 4).isSome = true := by
       rw [ElemS_ld_m1 hm rfl]; rfl
@@ -111,7 +111,7 @@ theorem blk_L78 (k : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab X : Mem 6
       BitVec.add_zero, add0, BitVec.setWidth_eq] at *
     · exact hok1
     · exact hok2 _
-    · exact ⟨⟨hR, hax, by decide, hfin _ _ (by rw [hax]; rfl) (by decide)⟩, Nat.le_refl 0⟩
+    · exact ⟨⟨hR, hA, hax, by decide, hfin _ _ (by rw [hax]; rfl) (by decide)⟩, Nat.le_refl 0⟩
 
 theorem blk_L89 (k : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab X : Mem 64 → Prop)
     (R : Mem 64 → Prop) (ra : Int64) (t₀ : MachineData) :
@@ -120,7 +120,7 @@ theorem blk_L89 (k : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab X : Mem 6
   measure_hb "L89"
     intro n
     refine Triple.pin fun s₀ hs₀ => ?_
-    obtain ⟨⟨hR, hax, hcx, hm⟩, hn⟩ := hs₀
+    obtain ⟨⟨hR, hA, hax, hcx, hm⟩, hn⟩ := hs₀
     rw [M_BE0] at hm
     have hok1 : (s₀.dmem.loadInt (rbx s₀ + 0x2c2a8#64) 4).isSome = true := by
       rw [ElemS_ld_e0 hm rfl]; rfl
@@ -142,7 +142,7 @@ theorem blk_L89 (k : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab X : Mem 6
       BitVec.add_zero, add0, BitVec.setWidth_eq] at *
     · exact hok1
     · exact hok2 _
-    · exact ⟨⟨hR, hax, hfin _ _ (by rw [hcx]; decide) (by rw [hcx]; decide)⟩, Nat.le_refl 0⟩
+    · exact ⟨⟨hR, hA, hax, hfin _ _ (by rw [hcx]; decide) (by rw [hcx]; decide)⟩, Nat.le_refl 0⟩
 
 theorem blk_L95 (k : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab X : Mem 64 → Prop)
     (R : Mem 64 → Prop) (ra : Int64) (t₀ : MachineData) :
@@ -151,7 +151,7 @@ theorem blk_L95 (k : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab X : Mem 6
   measure_hb "L95"
     intro n
     refine Triple.pin fun s₀ hs₀ => ?_
-    obtain ⟨⟨hR, hax, hm⟩, hn⟩ := hs₀
+    obtain ⟨⟨hR, hA, hax, hm⟩, hn⟩ := hs₀
     rw [M_BE0] at hm
     have hok1 : (s₀.dmem.loadInt (rbx s₀ + 0x28940#64) 2).isSome = true := by
       rw [ElemS_ld_spHi hm rfl]; rfl
@@ -173,7 +173,7 @@ theorem blk_L95 (k : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab X : Mem 6
       BitVec.add_zero, add0, BitVec.setWidth_eq] at *
     · exact hok1
     · exact hok2 _
-    · exact ⟨⟨hR, hax, by decide, hfin _ _ (by decide) (by decide)⟩, Nat.le_refl 0⟩
+    · exact ⟨⟨hR, hA, hax, by decide, hfin _ _ (by decide) (by decide)⟩, Nat.le_refl 0⟩
 
 theorem blk_La9 (k : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab X : Mem 64 → Prop)
     (R : Mem 64 → Prop) (ra : Int64) (t₀ : MachineData) :
@@ -182,7 +182,7 @@ theorem blk_La9 (k : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab X : Mem 6
   measure_hb "La9"
     intro n
     refine Triple.pin fun s₀ hs₀ => ?_
-    obtain ⟨⟨hR, hax, hcx, hm⟩, hn⟩ := hs₀
+    obtain ⟨⟨hR, hA, hax, hcx, hm⟩, hn⟩ := hs₀
     rw [M_BE0] at hm
     have hok1 : (s₀.dmem.loadInt (rbx s₀ + 0x41d60#64) 4).isSome = true := by
       rw [ElemS_ld_v1 hm rfl]; rfl
@@ -205,6 +205,6 @@ theorem blk_La9 (k : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab X : Mem 6
       BitVec.add_zero, add0] at *
     · exact hok1
     · rw [ea]; exact hok2 _
-    · rw [ea]; exact ⟨⟨hR, hax, rfl, hfin _ (by rw [hcx]; decide) _⟩, Nat.le_refl 0⟩
+    · rw [ea]; exact ⟨⟨hR, hA, hax, rfl, hfin _ (by rw [hcx]; decide) _⟩, Nat.le_refl 0⟩
 
 end Kraken.Examples.Sbr.Init

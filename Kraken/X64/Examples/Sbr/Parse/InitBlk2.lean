@@ -36,9 +36,9 @@ theorem blk_L22 (k : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab X : Mem 6
       · simp [CondCode.interp, StatusFlags.from_result] at hz
         exact absurd hz h
     · rename_i hz
-      rcases hm with ⟨h, -⟩ | ⟨h, hm⟩
+      rcases hm with ⟨h, -⟩ | ⟨h, hA, hm⟩
       · simp [CondCode.interp, StatusFlags.from_result, h] at hz
-      · exact ⟨⟨hR, hbx, h, hm⟩, Nat.le_refl 0⟩
+      · exact ⟨⟨hR, hA, hbx, h, hm⟩, Nat.le_refl 0⟩
 
 theorem blk_L2b (k : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab X : Mem 64 → Prop)
     (R : Mem 64 → Prop) (ra : Int64) (t₀ : MachineData) :
@@ -47,7 +47,7 @@ theorem blk_L2b (k : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab X : Mem 6
   measure_hb "L2b"
     intro n
     refine Triple.pin fun s₀ hs₀ => ?_
-    obtain ⟨⟨hR, hbx, hax, hm⟩, hn⟩ := hs₀
+    obtain ⟨⟨hR, hA, hbx, hax, hm⟩, hn⟩ := hs₀
     obtain ⟨hok1, hok2, hfin⟩ := L2b_mem hR.2.2.2.1 hm
     clear hm
     vcgen
@@ -56,7 +56,7 @@ theorem blk_L2b (k : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab X : Mem 6
     all_goals try simp only [Int64.toBitVec_ofNat_norm, BitVec.add_zero, BitVec.setWidth_eq]
     · exact hok1
     · exact hok2
-    · exact ⟨⟨hR, hfin⟩, Nat.le_refl 0⟩
+    · exact ⟨⟨hR, hA, hfin⟩, Nat.le_refl 0⟩
 
 theorem blk_L3e (k : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab X : Mem 64 → Prop)
     (R : Mem 64 → Prop) (ra : Int64) (t₀ : MachineData) :
@@ -65,7 +65,7 @@ theorem blk_L3e (k : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab X : Mem 6
   measure_hb "L3e"
     intro n
     refine Triple.pin fun s₀ hs₀ => ?_
-    obtain ⟨⟨hR, hm⟩, hn⟩ := hs₀
+    obtain ⟨⟨hR, hA, hm⟩, hn⟩ := hs₀
     rw [M_BE0] at hm
     have hok1 : (s₀.dmem.loadInt (rbx s₀ + 0x13c00#64) 8).isSome = true := by
       rw [ElemS_ld_pr1 hm rfl]; rfl
@@ -86,6 +86,6 @@ theorem blk_L3e (k : Nat) (Ctx : BitVec 64 → Mem 64 → Prop) (TxTab X : Mem 6
       [show (BitVec.setWidth 32 (BitVec.setWidth 64 (BitVec.ofInt 32 0))).toInt = 0 by decide]
     · exact hok1
     · exact hok3 _
-    · exact ⟨⟨hR, hfin _ _⟩, Nat.le_refl 0⟩
+    · exact ⟨⟨hR, hA, hfin _ _⟩, Nat.le_refl 0⟩
 
 end Kraken.Examples.Sbr.Init

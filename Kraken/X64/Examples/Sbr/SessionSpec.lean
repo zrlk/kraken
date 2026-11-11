@@ -1577,12 +1577,16 @@ variable [CodeEnv]
 
 /-- Assumed: `av_mallocz(size)` (`libavutil/mem.c`) returns `NULL`, or a new address holding
 `size` zero bytes, disjoint from the caller's memory; it uses the external state `X` and gives it
-back. -/
+back. A non-null result is 32-aligned, and the block lies in the lower half of the address
+space (it ends at or below `2^63`). This requires an allocator whose alignment is at least 32;
+`av_malloc` aligns to `ALIGN` (`libavutil/mem.c`). -/
 abbrev AvMalloczSpec (X : Mem 64 → Prop) (need : Nat) : Prop :=
   cenv.ProcSpec (entry "av_mallocz")
     (fun (R : Mem 64 → Prop) ra t => CallPre need (X ⋆ R) ra t)
     (fun R ra t s => (s.regs.get64 .rax = 0#64 ∧ CallPost need (X ⋆ R) ra t s)
       ∨ (s.regs.get64 .rax ≠ 0#64
+        ∧ isAligned 32 (s.regs.get64 .rax) = true
+        ∧ (s.regs.get64 .rax).toNat + (arg0 t).toNat ≤ 2 ^ 63
         ∧ CallPost need ((zs (arg0 t).toNat =@ s.regs.get64 .rax ⋆ X) ⋆ R) ra t s))
 
 /-- What `av_tx_init` reads or writes besides `*ctx` and `*tx`: `*scale` (4 bytes at `r9`), the
@@ -2477,8 +2481,8 @@ abbrev InitOwn (S : Setup) (ac avctx fdsp : BitVec 64) (er ps : BitVec 32)
 /-- What `ff_aac_sbr_ctx_alloc_init(ac, che, id)` (called in `t`, returning to `ra`) leaves in
 `s`. In every branch the caller gets back everything of `InitOwn`, the transforms' tables and
 init's state `X`.
-* `0`: an address `p` such that the element at `p` (of `ac`) is live, with the caller's `ac`
-  fields, the cell `*che = p`, `X` and the rest.
+* `0`: an address `p` such that the element at `p` (of `ac`) is live and its address facts
+  hold (`ElemOK p`), with the caller's `ac` fields, the cell `*che = p`, `X` and the rest.
 * `-12` (`AVERROR(ENOMEM)`), `av_mallocz` failed: nothing was allocated; the caller owns the 8
   bytes at `che` as before.
 * A negative result, the first `av_tx_init` (`sbr->mdct`) failed: the caller owns `*che = p` and
@@ -2492,7 +2496,7 @@ init's state `X`.
 branch holds. -/
 def InitQ (S : Setup) (X Rest : Mem 64 → Prop) (avctx fdsp : BitVec 64) (er ps : BitVec 32)
     (ra : Int64) (t s : MachineData) : Prop :=
-  (ret32 s = 0#32 ∧ ∃ p : BitVec 64, CallPost (initNeed S.k) (Live S p (arg0 t)
+  (ret32 s = 0#32 ∧ ∃ p : BitVec 64, ElemOK p ∧ CallPost (initNeed S.k) (Live S p (arg0 t)
       ⋆ (AcFields (arg0 t) avctx er ps ⋆ (Apply.c8 (arg1 t) p ⋆ (X ⋆ Rest)))) ra t s)
   ∨ (ret32 s = 0xfffffff4#32 ∧ CallPost (initNeed S.k)
       ((8 ?@ arg1 t ⋆ (S.env.TxTab ⋆ X)) ⋆ InitOwn S (arg0 t) avctx fdsp er ps Rest) ra t s)
@@ -2587,6 +2591,142 @@ def ApplySafe (S : Setup) : Prop :=
       ra t →
     Ends "ff_aac_sbr_apply" t ra (fun s => CallPost (applyStack S.k)
       (Ready S che ac ⋆ (AcFields ac avctx er ps ⋆ (OutBufs t ⋆ Rc))) ra t s) NoStops
+
+end Kraken.Examples.Sbr.SessionBin
+
+end
+
+/-! ## §26. The per-procedure statements' vocabulary
+
+The words the five theorems in `SessionBin/Api.lean` are stated in: the caller's stack, the
+ABI's return, the caller's initialized data, the data shared with the element, and the SBR
+element's state. Each is a regrouping of the definitions above, with no new content. -/
+
+section
+
+open Kraken Kraken.SysV Mem Kraken.X64.Parser Std.WP MachineWP
+open Kraken.Examples.Sbr Kraken.Examples.Sbr.Apply Kraken.Examples.Sbr.ParseModel
+open Kraken.Examples.Sbr.Session Kraken.Examples.Sbr.Parse Kraken.Examples.Sbr.Init
+namespace Kraken.Examples.Sbr.SessionBin
+variable [CodeEnv]
+
+/-- **The caller's stack at a call**: the return address `ra` at `rsp`, and the `d` bytes
+below `rsp`, free for the callee. -/
+abbrev StackAt (ra : Int64) (rsp : BitVec 64) (d : Nat) : Mem 64 → Prop :=
+  RetCell ra rsp ⋆ Reserve d rsp
+
+/-- **The same stack region after the return**: the 8 bytes at `rsp` (the popped return
+address) and the `d` bytes below, owned by the caller again, contents unspecified. -/
+abbrev StackAfter (rsp : BitVec 64) (d : Nat) : Mem 64 → Prop :=
+  8 ?@ rsp ⋆ Reserve d rsp
+
+/-- **The System V return**: `rsp` past the return address, `rbp` and the callee-saved
+registers `rbx`, `r12`–`r15` as at the call `t`. -/
+abbrev AbiReturn (t s : MachineData) : Prop :=
+  s.regs.get64 .rsp = t.regs.get64 .rsp + 8 ∧ s.regs.get64 .rbp = t.regs.get64 .rbp
+  ∧ SavedRegs t s
+
+/-- **Every run returns**: every run of the code entered at `f` in state `t` reaches the return
+address `ra` in a state `s` with `Q s`. -/
+abbrev Returns (f : Label) (t : MachineData) (ra : Int64) (Q : MachineData → Prop) : Prop :=
+  Ends f t ra Q NoStops
+
+/-- `ff_aac_sbr_ctx_alloc_init`'s stack: its own frame (`0x40` bytes) and the external
+routines' `k`. -/
+abbrev initStack (k : Nat) : Nat := initNeed k
+
+/-- **`*ac` as the AAC decoder initialized it**, the parts the SBR code uses:
+`ac->avctx`, `ac->oc[1].m4ac.ext_sample_rate`, `ac->oc[1].m4ac.ps` (`AcFields`), and
+`ac->fdsp` pointing to the `float_dsp` routine table (`FdspW`). -/
+abbrev AcInit (S : Setup) (ac avctx fdsp : BitVec 64) (er ps : BitVec 32) : Mem 64 → Prop :=
+  AcFields ac avctx er ps ⋆ (c8 (ac + 0x2550#64) fdsp ⋆ FdspW S.env fdsp)
+
+/-- **The data the SBR element shares with the rest of the decoder**: the transforms' tables,
+the PS tables, `av_log`'s state, the float constants, and the parser's static tables (jump
+table, Huffman tables, `sbr_reset`'s constants). The caller owns it before
+`ff_aac_sbr_ctx_alloc_init`; after a successful call it is part of the element
+(`SbrInitialized`), and no entry point gives it back. -/
+abbrev SharedData (S : Setup) : Mem 64 → Prop :=
+  S.env.TxTab ⋆ (S.env.PsTab ⋆ (S.env.Ext ⋆ (CstW ⋆ PStat S.vs S.vp)))
+
+/-- **The SBR element at `che` is initialized**: `ff_aac_sbr_ctx_alloc_init` created it, at an
+address with the element's address facts (`ElemOK`: 32-aligned, in the lower half of the address
+space), and since then only the SBR entry points changed it (`Live`). Besides the element's own
+allocation it owns the shared data (`SharedData`), the cell `ac->fdsp` and the `float_dsp`
+routine table it points to, so these statements describe one initialized element at a time. -/
+def SbrInitialized (S : Setup) (che ac : BitVec 64) : Mem 64 → Prop :=
+  fun m => ElemOK che ∧ Live S che ac m
+
+/-- **The SBR element at `che` is ready**: initialized, and the last parse succeeded, so
+`ff_aac_sbr_apply` may run (`Ready`). -/
+def SbrReady (S : Setup) (che ac : BitVec 64) : Mem 64 → Prop :=
+  fun m => ElemOK che ∧ Ready S che ac m
+
+/-- **The stack bound**: the deepest call chain (`sbr_reset`'s `0x9d0` bytes of frames plus the
+external routines' `k`) fits in 32 bits. -/
+abbrev StackBound (S : Setup) : Prop := 0x9d0 + S.k ≤ 2 ^ 32
+
+/-- **The stack is 16-aligned at the call** (System V): `rsp + 8` is a multiple of 16. -/
+abbrev StackAligned (rsp : BitVec 64) : Prop := isAligned 16 (rsp + 8#64) = true
+
+/-- **Every run returns or stops at a trap**: as `Returns`, but a run may also end at FFmpeg's
+`abort` (an `av_assert0` in `read_sbr_grid`) or at the bounds trap `ud1` of
+`read_sbr_envelope`. -/
+abbrev ReturnsOrTraps (f : Label) (t : MachineData) (ra : Int64) (Q : MachineData → Prop) :
+    Prop :=
+  Ends f t ra Q Traps
+
+/-- **The bit reader's bounds**: `index ≤ size_in_bits_plus8 < 2^31`, and the buffer has at
+least `size_in_bits_plus8 / 8 + 4` bytes (the reader loads 4 bytes at `buffer + index / 8`). -/
+def ReaderOK (i p8 : BitVec 32) (L : Nat) : Prop :=
+  i.toNat ≤ p8.toNat ∧ p8.toNat < 2 ^ 31 ∧ p8.toNat / 8 + 4 ≤ L ∧ L < 2 ^ 32
+
+/-- **`ff_aac_sbr_decode_extension`'s bit reader** `*gb` at `gb`: `buffer = buf`, `index = i`,
+`size_in_bits = sib`, `size_in_bits_plus8 = p8`, the 4 bytes after it `pad`; and the `L` bytes
+of the buffer, owned, contents unspecified. -/
+abbrev DecReader (gb buf : BitVec 64) (i sib p8 pad : BitVec 32) (L : Nat) : Mem 64 → Prop :=
+  (Apply.c8 gb buf ⋆ (cell4 (gb + 8#64) i ⋆ (cell4 (gb + 0xc#64) sib
+    ⋆ (cell4 (gb + 0x10#64) p8 ⋆ cell4 (gb + 0x14#64) pad)))) ⋆ Blocks [(buf, L)]
+
+/-- **`ff_aac_sbr_decode_usac_data`'s bit reader** `*gb` at `gb`: `buffer = buf`, `index = i`,
+`size_in_bits` any value, `size_in_bits_plus8 = p8`; and the `L` bytes of the buffer, owned,
+contents unspecified. Unlike `DecReader` it does not include the 4 bytes after
+`size_in_bits_plus8`, which this entry point does not touch. -/
+abbrev UsacReader (gb buf : BitVec 64) (i p8 : BitVec 32) (L : Nat) : Mem 64 → Prop :=
+  (Apply.c8 gb buf ⋆ (cell4 (gb + 8#64) i ⋆ (4 ?@ (gb + 0xc#64) ⋆ cell4 (gb + 0x10#64) p8)))
+    ⋆ Blocks [(buf, L)]
+
+/-- **Fields `ff_aac_sbr_decode_extension` may write in passing**: `ac->oc[1].m4ac.sample_rate`
+and `ac->warned_he_aac_mono` in `*ac`, and `profile` in `*ac->avctx`; owned by the caller,
+contents unspecified (`AcX`). -/
+abbrev DecScratch (ac avctx : BitVec 64) : Mem 64 → Prop := AcX ac avctx
+
+/-- **`ue->sbr`'s twelve bytes are in range**: its default header's `bs_start_freq` (4 bits),
+`bs_freq_scale`, `bs_limiter_bands`, `bs_limiter_gains` (2 bits each). -/
+def UsacSbrOK (uev : List UInt8) : Prop :=
+  uev.length = 12 ∧ u8 uev 1 < 16 ∧ u8 uev 3 ≤ 3 ∧ u8 uev 6 < 4 ∧ u8 uev 7 < 4
+
+/-- **`ff_aac_sbr_apply`'s output buffers** `L` and `R`: 2048 floats each, owned, contents
+unspecified. -/
+abbrev OutBuffers (L R : BitVec 64) : Mem 64 → Prop := Blocks [(L, 8192), (R, 8192)]
+
+/-- **The 8 bytes at `a` hold the pointer `p`.** -/
+abbrev PtrAt (a p : BitVec 64) : Mem 64 → Prop := Apply.c8 a p
+
+/-- **What a failed `ff_aac_sbr_ctx_alloc_init(ac, che, id_aac)` leaves at `che`**, for the
+caller to free: either the 8 bytes at `che`, owned by the caller again with unspecified
+contents (`av_mallocz` failed), or `*che = p`
+and the partly built element at `p` (one of the two `av_tx_init` calls failed; after the
+second, with the first transform's context `c`). -/
+def InitFailed (S : Setup) (che : BitVec 64) (id_aac : BitVec 32) : Mem 64 → Prop :=
+  fun m => (8 ?@ che) m
+    ∨ (∃ (p : BitVec 64) (bc bf : List UInt8), bc.length = 8 ∧ bf.length = 8
+        ∧ (c8 che p ⋆ ElemS p { evPre id_aac p with synC := bc, synF := bf }) m)
+    ∨ (∃ (p c : BitVec 64) (f : Int64) (bc bf : List UInt8), bc.length = 8 ∧ bf.length = 8
+        ∧ (c8 che p ⋆ (ElemS p
+            { evPre id_aac p with
+              synC := Int.toBytes 8 c.toInt, synF := fb f, anaC := bc, anaF := bf }
+          ⋆ S.env.Ctx c)) m)
 
 end Kraken.Examples.Sbr.SessionBin
 
