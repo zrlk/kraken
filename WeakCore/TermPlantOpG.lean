@@ -54,7 +54,7 @@ theorem plantOp_of {Q : Cfg → GEnv → (Nat → Ts → Res) → (Nat → Ts �
     (hq : Q c Eg cr pl) (hOF : TermPlant.OwnFrOp (CE η) cx th) (lab : AllocLabel) (cl : Cell) (hsto : (CE η).sto lab = some cl)
     (hown : cl.owner = some (CE η).tid) (hpf : (CE η).pfr lab ≠ none) (htg : TermPlant.OpTgt th lab) :
     TermPlant.PlantOp (gOf p k arch c i) c.mem c.pairs th (CE η) (fun t => cr i t + pl i t) (· = r) lab cl := by
-  obtain ⟨cl1, hsto1, hown1, hkey⟩ := hK X Y hOF.1 htg
+  obtain ⟨cl1, hsto1, hown1, hkey⟩ := hK X Y hOF.1 hOF.2.1 htg
   obtain ⟨wB, hAo, hB, hC⟩ := hA X Y hsto hown hpf
   obtain ⟨Gs, hnd, hit, hcov⟩ := hG X Y hq hOF lab cl hsto hown hpf htg wB hAo hB hC
   obtain ⟨mB, hmB, hwB, hle⟩ := hC hkey

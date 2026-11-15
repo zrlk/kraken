@@ -48,7 +48,7 @@ theorem stp_uaIP {p : Prog} {ρ : Nat → Nat} {η : TEnv} {σs : List Ty} {K : 
     TermPlantF.UnitsAtI η b [.two] := by
   have hp : ∃ t, cx.peek a = .ok t := by cases hop <;> exact ⟨_, ‹_›⟩
   obtain ⟨t', hp⟩ := hp
-  obtain ⟨μ, r, P, ht, -⟩ := hsc t' hp
+  obtain ⟨μ, r, P, ht⟩ := hsc t' hp
   exact pair_uaIP hi.2.1 hp ht (.inl ⟨r, P, rfl⟩) hea hb
 
 theorem casp_uaIP {p : Prog} {ρ : Nat → Nat} {η : TEnv} {σs : List Ty} {K : TEnv → List Word → Prop}
@@ -60,7 +60,7 @@ theorem casp_uaIP {p : Prog} {ρ : Nat → Nat} {η : TEnv} {σs : List Ty} {K :
     TermPlantF.UnitsAtI η A [.two] := by
   have hp : ∃ t, cx.peek w = .ok t := by cases hT <;> exact ⟨_, ‹_›⟩
   obtain ⟨t, hp⟩ := hp
-  obtain ⟨μ, u, ht, -, hu⟩ := hsc t hp
+  obtain ⟨μ, u, ht, hu⟩ := hsc t hp
   exact pair_uaIP hi.2.1 hp ht hu hea hb
 
 /-- The slot of a buffer component (`IniAt`, at offset `ad.offset`): word `j` of slot `jv` lies

@@ -199,6 +199,11 @@ theorem ValidLayout.of_mask {e e' : Kraken.Executable Directive} [hv : Kraken.Ex
     · simp only at hz
       subst hz
       exact Kraken.Executable.ValidLayout.size_pos i c.1 c.2 hc (by rintro l h; rw [h] at hl; cases hl)
+  zeros_size i n z h := by
+    obtain ⟨c, hc, hcm⟩ := forall₂_getElem? hm.cells i h
+    rcases hcm with h' | ⟨-, ⟨b, hb⟩, -⟩
+    · rw [← h'] at hc; exact hv.zeros_size i n z hc
+    · cases hb
   no_wrap := by rw [sizes_mask hm.cells]; exact hv.no_wrap
 
 /-! ## Steps of the mask -/

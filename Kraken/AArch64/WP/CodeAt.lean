@@ -37,7 +37,7 @@ private theorem addrOf_succ_label (e : Kraken.Executable Directive) [hv : ValidL
     rw [addrOf_succ e hc, hv.label_size n l z hc]
     show e.addrOf n + 0 = _
     exact Int64.add_zero _
-  | instr _ | byteArray _ => simp [Directive.isLabel] at hl
+  | instr _ | byteArray _ | zeros _ => simp [Directive.isLabel] at hl
 
 /-- Every cell in `[j, n)` a label: indices `j` and `n` share an address. -/
 private theorem addrOf_eq_of_labels (e : Kraken.Executable Directive) [ValidLayout e] {j : Nat} :

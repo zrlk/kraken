@@ -15,31 +15,31 @@ open WeakMem (Msg Memory Address Ts AllocLabel)
 
 /-! ## (B2) `sNo` transfer -/
 
-/-- A noOwn, rgnFree type is shallow-pub. -/
-theorem sNo_of_noOwn : ∀ (t : Ty) (ke : KEnv), Ty.noOwnIn ke t = true → rgnFree t = true → sNo t = true := by
+/-- A noOwn type is shallow-pub (M8: `mPub (.rgn _) = true`, so region references are shallow-pub). -/
+theorem sNo_of_noOwn : ∀ (t : Ty) (ke : KEnv), Ty.noOwnIn ke t = true → sNo t = true := by
   intro t
   induction t with
-  | ptr μ u _ => intro ke h1 h2; cases μ <;> simp_all [Ty.noOwnIn, rgnFree, sNo, mPub]
-  | ptrOpt μ u _ => intro ke h1 h2; cases μ <;> simp_all [Ty.noOwnIn, rgnFree, sNo, mPub]
-  | loc μ u _ => intro ke h1 h2; cases μ <;> simp_all [Ty.noOwnIn, rgnFree, sNo, mPub]
+  | ptr μ u _ => intro ke h1; cases μ <;> simp_all [Ty.noOwnIn, sNo, mPub]
+  | ptrOpt μ u _ => intro ke h1; cases μ <;> simp_all [Ty.noOwnIn, sNo, mPub]
+  | loc μ u _ => intro ke h1; cases μ <;> simp_all [Ty.noOwnIn, sNo, mPub]
   | prod a b iha ihb =>
-      intro ke h1 h2
-      simp only [Ty.noOwnIn, rgnFree, sNo, Bool.and_eq_true] at h1 h2 ⊢
-      exact ⟨iha ke h1.1 h2.1, ihb ke h1.2 h2.2⟩
+      intro ke h1
+      simp only [Ty.noOwnIn, sNo, Bool.and_eq_true] at h1 ⊢
+      exact ⟨iha ke h1.1, ihb ke h1.2⟩
   | sum a b iha ihb =>
-      intro ke h1 h2
-      simp only [Ty.noOwnIn, rgnFree, sNo, Bool.and_eq_true] at h1 h2 ⊢
-      exact ⟨iha ke h1.1 h2.1, ihb ke h1.2 h2.2⟩
-  | refine t _ ih => intro ke h1 h2; simp only [Ty.noOwnIn, rgnFree, sNo] at h1 h2 ⊢; exact ih ke h1 h2
-  | iall t ih => intro ke h1 h2; simp only [Ty.noOwnIn, rgnFree, sNo] at h1 h2 ⊢; exact ih ke h1 h2
-  | iex t ih => intro ke h1 h2; simp only [Ty.noOwnIn, rgnFree, sNo] at h1 h2 ⊢; exact ih ke h1 h2
-  | mu t ih => intro ke h1 h2; simp only [Ty.noOwnIn, rgnFree, sNo] at h1 h2 ⊢; exact ih _ h1 h2
+      intro ke h1
+      simp only [Ty.noOwnIn, sNo, Bool.and_eq_true] at h1 ⊢
+      exact ⟨iha ke h1.1, ihb ke h1.2⟩
+  | refine t _ ih => intro ke h1; simp only [Ty.noOwnIn, sNo] at h1 ⊢; exact ih ke h1
+  | iall t ih => intro ke h1; simp only [Ty.noOwnIn, sNo] at h1 ⊢; exact ih ke h1
+  | iex t ih => intro ke h1; simp only [Ty.noOwnIn, sNo] at h1 ⊢; exact ih ke h1
+  | mu t ih => intro ke h1; simp only [Ty.noOwnIn, sNo] at h1 ⊢; exact ih _ h1
   | tex κ t ih =>
-      intro ke h1 h2
-      simp only [Ty.noOwnIn, rgnFree, sNo, Bool.and_eq_true] at h1 h2 ⊢
-      exact ⟨h1.1, ih _ h1.2 h2⟩
-  | array i t ih => intro ke h1 h2; simp only [Ty.noOwnIn, rgnFree, sNo] at h1 h2 ⊢; exact ih ke h1 h2
-  | _ => intro ke _ _; simp [sNo]
+      intro ke h1
+      simp only [Ty.noOwnIn, sNo, Bool.and_eq_true] at h1 ⊢
+      exact ⟨h1.1, ih _ h1.2⟩
+  | array i t ih => intro ke h1; simp only [Ty.noOwnIn, sNo] at h1 ⊢; exact ih ke h1
+  | _ => intro ke _; simp [sNo]
 
 theorem mPub_skelM (μ : Mode) : mPub (skelM μ) = mPub μ := by cases μ <;> rfl
 
@@ -266,31 +266,31 @@ theorem sNo_lay {σs : List Ty} {t rt : Ty} {ws : List Word} (hl : Lay σs t rt 
   rw [e]; exact h
 
 /-- **(B2) at a store**: the runtime type `rt` of a value stored, at a subtype `tv` of the
-pointee `u`, into a component `U` (at some offset) of a noOwn, rgnFree cell type `T`, the pointee
+pointee `u`, into a component `U` (at some offset) of a noOwn cell type `T`, the pointee
 folding `U` and its two renditions agreeing (`sig_WitL`), is shallow-pub. -/
 theorem sNo_store {T U u tv rt : Ty} {o : Nat} {σs : List Ty} {ρ : Nat → Nat} {W : Nat → Ty} {cx : Cx}
-    {ws : List Word} (hno : Ty.noOwnIn [] T = true) (hrf : rgnFree T = true) (hat : AtOff T o U)
+    {ws : List Word} (hno : Ty.noOwnIn [] T = true) (hat : AtOff T o U)
     (hfd : Fd U (cl ρ W 0 0 u)) (hsig : sig (close σs u) = sig (cl ρ W 0 0 u)) (hsub : SubS cx tv u)
     (hl : Lay σs tv rt ws) : sNo rt = true := by
-  have h1 : sNo (cl ρ W 0 0 u) = true := sNo_Fd hfd (sNo_AtOff hat (sNo_of_noOwn T [] hno hrf))
+  have h1 : sNo (cl ρ W 0 0 u) = true := sNo_Fd hfd (sNo_AtOff hat (sNo_of_noOwn T [] hno))
   have h2 : sNo (close σs u) = true := by rw [sNo_of_sig hsig]; exact h1
   exact sNo_lay hl (sNo_substTs_sub hsub σs 0 0 h2)
 
 /-- The pointer form (`VR` at `ptr`: `Fd c.ty (cl … u)`, offset 0 at the whole cell). -/
 theorem sNo_store_ptr {T u tv rt : Ty} {σs : List Ty} {ρ : Nat → Nat} {W : Nat → Ty} {cx : Cx}
-    {ws : List Word} (hno : Ty.noOwnIn [] T = true) (hrf : rgnFree T = true)
+    {ws : List Word} (hno : Ty.noOwnIn [] T = true)
     (hfd : Fd T (cl ρ W 0 0 u)) (hsig : sig (close σs u) = sig (cl ρ W 0 0 u)) (hsub : SubS cx tv u)
     (hl : Lay σs tv rt ws) : sNo rt = true := by
-  have h1 : sNo (cl ρ W 0 0 u) = true := sNo_Fd hfd (sNo_of_noOwn T [] hno hrf)
+  have h1 : sNo (cl ρ W 0 0 u) = true := sNo_Fd hfd (sNo_of_noOwn T [] hno)
   have h2 : sNo (close σs u) = true := by rw [sNo_of_sig hsig]; exact h1
   exact sNo_lay hl (sNo_substTs_sub hsub σs 0 0 h2)
 
 /-- At such a store, every word of the stored value counts. -/
 theorem pubWords_store {T U u tv rt : Ty} {o : Nat} {σs : List Ty} {ρ : Nat → Nat} {W : Nat → Ty} {cx : Cx}
-    {ws : List Word} (hno : Ty.noOwnIn [] T = true) (hrf : rgnFree T = true) (hat : AtOff T o U)
+    {ws : List Word} (hno : Ty.noOwnIn [] T = true) (hat : AtOff T o U)
     (hfd : Fd U (cl ρ W 0 0 u)) (hsig : sig (close σs u) = sig (cl ρ W 0 0 u)) (hsub : SubS cx tv u)
     (hl : Lay σs tv rt ws) : pubWords rt ws = ws :=
-  pubWords_of_sNo (sNo_store hno hrf hat hfd hsig hsub hl) ws
+  pubWords_of_sNo (sNo_store hno hat hfd hsig hsub hl) ws
 
 /-! ## (B2) glue: from the typing of a stored operand -/
 
@@ -309,34 +309,41 @@ theorem sNo_of_use {ρ : Nat → Nat} {η : TEnv} {σs : List Ty} {K : TEnv → 
   have h2 : sNo (close σs u) = true := by rw [sNo_of_sig hsig]; exact hU
   exact sNo_lay hl (sNo_substTs_sub hsub σs 0 0 h2)
 
-/-- A cell of a noOwn, rgnFree type folding to the pointee's closure: the closure is shallow-pub. -/
-theorem sNo_cl_of_Fd {T U : Ty} (hno : Ty.noOwnIn [] T = true) (hrf : rgnFree T = true) (h : Fd T U) :
+/-- A cell of a noOwn type folding to the pointee's closure: the closure is shallow-pub. -/
+theorem sNo_cl_of_Fd {T U : Ty} (hno : Ty.noOwnIn [] T = true) (h : Fd T U) :
     sNo U = true :=
-  sNo_Fd h (sNo_of_noOwn T [] hno hrf)
+  sNo_Fd h (sNo_of_noOwn T [] hno)
 
-/-- A component of a noOwn, rgnFree cell type: shallow-pub. -/
-theorem sNo_cl_of_AtOff {T U : Ty} {o : Nat} (hno : Ty.noOwnIn [] T = true) (hrf : rgnFree T = true)
+/-- A component of a noOwn cell type: shallow-pub. -/
+theorem sNo_cl_of_AtOff {T U : Ty} {o : Nat} (hno : Ty.noOwnIn [] T = true)
     (h : AtOff T o U) : sNo U = true :=
-  sNo_AtOff h (sNo_of_noOwn T [] hno hrf)
+  sNo_AtOff h (sNo_of_noOwn T [] hno)
 
 /-! ## Discharging `FulSNo` -/
 
-theorem sNo_cl_adapt : ∀ (u : Ty) (r : Idx) (ρ : Nat → Nat) (W : Nat → Ty) (c d : Nat),
-    sNo (cl ρ W c d (adapt r u)) = sNo (cl ρ W c d u) := by
+/-- (M8) `adapt` keeps shallow pub-ness: an `own` reference becomes a region one, which is pub. -/
+theorem sNo_cl_adapt_of : ∀ (u : Ty) (r : Idx) (ρ : Nat → Nat) (W : Nat → Ty) (c d : Nat),
+    sNo (cl ρ W c d u) = true → sNo (cl ρ W c d (adapt r u)) = true := by
   intro u
   induction u with
-  | ptr μ t _ => intro r ρ W c d; cases μ <;> simp only [adapt, cl, sNo, mPub_clM] <;> rfl
-  | ptrOpt μ t _ => intro r ρ W c d; cases μ <;> simp only [adapt, cl, sNo, mPub_clM] <;> rfl
-  | loc μ t _ => intro r ρ W c d; cases μ <;> simp only [adapt, cl, sNo, mPub_clM] <;> rfl
-  | prod a b iha ihb => intro r ρ W c d; simp only [adapt, cl, sNo, iha, ihb]
-  | sum a b iha ihb => intro r ρ W c d; simp only [adapt, cl, sNo, iha, ihb]
-  | array i t ih => intro r ρ W c d; simp only [adapt, cl, sNo, ih]
-  | iex t ih => intro r ρ W c d; simp only [adapt, cl, sNo, ih]
-  | iall t ih => intro r ρ W c d; simp only [adapt, cl, sNo, ih]
-  | tex κ t ih => intro r ρ W c d; simp only [adapt, cl, sNo, ih]
-  | refine t ψ ih => intro r ρ W c d; simp only [adapt, cl, sNo, ih]
-  | mu t ih => intro r ρ W c d; simp only [adapt, cl, sNo, ih]
-  | _ => intro r ρ W c d; rfl
+  | ptr μ t _ => intro r ρ W c d h; cases μ <;> simp_all [adapt, cl, clM, sNo, mPub]
+  | ptrOpt μ t _ => intro r ρ W c d h; cases μ <;> simp_all [adapt, cl, clM, sNo, mPub]
+  | loc μ t _ => intro r ρ W c d h; cases μ <;> simp_all [adapt, cl, clM, sNo, mPub]
+  | prod a b iha ihb =>
+    intro r ρ W c d h; simp only [adapt, cl, sNo, Bool.and_eq_true] at h ⊢
+    exact ⟨iha _ _ _ _ _ h.1, ihb _ _ _ _ _ h.2⟩
+  | sum a b iha ihb =>
+    intro r ρ W c d h; simp only [adapt, cl, sNo, Bool.and_eq_true] at h ⊢
+    exact ⟨iha _ _ _ _ _ h.1, ihb _ _ _ _ _ h.2⟩
+  | array i t ih => intro r ρ W c d h; simp only [adapt, cl, sNo] at h ⊢; exact ih _ _ _ _ _ h
+  | iex t ih => intro r ρ W c d h; simp only [adapt, cl, sNo] at h ⊢; exact ih _ _ _ _ _ h
+  | iall t ih => intro r ρ W c d h; simp only [adapt, cl, sNo] at h ⊢; exact ih _ _ _ _ _ h
+  | tex κ t ih =>
+    intro r ρ W c d h; simp only [adapt, cl, sNo, Bool.and_eq_true] at h ⊢
+    exact ⟨h.1, ih _ _ _ _ _ h.2⟩
+  | refine t ψ ih => intro r ρ W c d h; simp only [adapt, cl, sNo] at h ⊢; exact ih _ _ _ _ _ h
+  | mu t ih => intro r ρ W c d h; simp only [adapt, cl, sNo] at h ⊢; exact ih _ _ _ _ _ h
+  | _ => intro r ρ W c d h; exact h
 
 theorem tb_adapt : ∀ (u : Ty) (r : Idx) (c : Nat), tb c (adapt r u) = tb c u := by
   intro u
@@ -394,12 +401,12 @@ theorem sNo_close_intOf : ∀ (t : Ty) (σs : List Ty) (c d : Nat) (o : Option I
   | int => intro σs c d o _; rfl
   | _ => intro σs c d o h; simp [intOf] at h
 
-/-- The cell reached through a reference at `t`, a noOwn, rgnFree cell: the pointee's closure is
+/-- The cell reached through a reference at `t`, a noOwn cell: the pointee's closure is
 shallow-pub. -/
 theorem sNo_cell {ρ : Nat → Nat} {η : TEnv} {t : Ty} {sh : Shp} {ws : List Word} {μ : Mode} {u : Ty} {pw : Word}
     {b : Address} {sto : Sto} {ca : Cell} (hv : VR ρ η t sh ws) (hc : cellOf t = some (μ, u)) (hws : ws = [pw])
     (hb : addrOf pw = some b) (hsto : ∀ l c, η.sto l = some c → sto l = some c) (hca : sto b.label = some ca)
-    (hno : Ty.noOwnIn [] ca.ty = true) (hrf : rgnFree ca.ty = true) : sNo (cl ρ η.wit 0 0 u) = true := by
+    (hno : Ty.noOwnIn [] ca.ty = true) : sNo (cl ρ η.wit 0 0 u) = true := by
   subst hws
   cases t with
   | ptr μ' u' =>
@@ -412,7 +419,7 @@ theorem sNo_cell {ρ : Nat → Nat} {η : TEnv} {t : Ty} {sh : Shp} {ws : List W
     subst hb
     rw [hsto _ _ hs, Option.some.injEq] at hca
     subst hca
-    exact sNo_cl_of_Fd hno hrf hfd
+    exact sNo_cl_of_Fd hno hfd
   | loc μ' u' =>
     simp only [cellOf, Option.some.injEq, Prod.mk.injEq] at hc
     obtain ⟨rfl, rfl⟩ := hc
@@ -425,10 +432,10 @@ theorem sNo_cell {ρ : Nat → Nat} {η : TEnv} {t : Ty} {sh : Shp} {ws : List W
       subst hb
       rw [hsto _ _ hs, Option.some.injEq] at hca
       subst hca
-      exact sNo_Fd hfd (sNo_cl_of_AtOff hno hrf hat)
+      exact sNo_Fd hfd (sNo_cl_of_AtOff hno hat)
   | _ => simp [cellOf] at hc
 
-/-- A store through a reference at a noOwn, rgnFree cell, of a variable at a subtype of the
+/-- A store through a reference at a noOwn cell, of a variable at a subtype of the
 pointee (or of its region adaptation): the stored entry is shallow-pub. -/
 theorem sNo_store_gen {ρ : Nat → Nat} {η : TEnv} {σs : List Ty} {K : TEnv → List Word → Prop} {cx c₁ : Cx}
     {env : Env} {a : At} {x : String} {t tv u t0 rt : Ty} {μ : Mode} {ws : List Word} {pw : Word} {b : Address}
@@ -437,23 +444,23 @@ theorem sNo_store_gen {ρ : Nat → Nat} {η : TEnv} {σs : List Ty} {K : TEnv �
     (hsub : SubS c₁ tv u ∨ ∃ r, SubS c₁ tv (adapt r u)) (hlk : lookupE env x = some (rt, ws))
     (hea : evalAt env a = some (t0, [pw])) (hb : addrOf pw = some b)
     (hsto : ∀ l c, η.sto l = some c → sto l = some c) (hca : sto b.label = some ca)
-    (hno : Ty.noOwnIn [] ca.ty = true) (hrf : rgnFree ca.ty = true) : sNo rt = true := by
+    (hno : Ty.noOwnIn [] ca.ty = true) : sNo rt = true := by
   obtain ⟨rta, wsa, hev, hvr, -⟩ := peek_VR hi.2.1 hpk
   rw [hea, Option.some.injEq, Prod.mk.injEq] at hev
-  have hU := sNo_cell hvr hc hev.2.symm hb hsto hca hno hrf
+  have hU := sNo_cell hvr hc hev.2.symm hb hsto hca hno
   have htb := tb_cellOf (peek_tb htv hpk) hc
   have hotv : cx.opaqueOK tv = true :=
     peek_opaqueOK htv (use_inv (ρ := ρ) (η := η) (σs := σs) (env := env) hu).1
   rcases hsub with hsub | ⟨r, hsub⟩
   · exact sNo_of_use hi hu hlk hsub (sub_opaqueOK hsub hotv) htb hU
   · exact sNo_of_use hi hu hlk hsub (sub_opaqueOK hsub hotv) (by rw [tb_adapt]; exact htb)
-      (by rw [sNo_cl_adapt]; exact hU)
+      (sNo_cl_adapt_of u r ρ η.wit 0 0 hU)
 
-/-- The element type of a buffer reached through a locative at a noOwn, rgnFree cell. -/
+/-- The element type of a buffer reached through a locative at a noOwn cell. -/
 theorem sNo_buf {ρ : Nat → Nat} {η : TEnv} {t : Ty} {sh : Shp} {ws : List Word} {n k : Idx} {u : Ty} {pw : Word}
     {b : Address} {sto : Sto} {ca : Cell} (hv : VR ρ η t sh ws) (hbo : bufOf t = some (.own, n, u, k))
     (hws : ws = [pw]) (hb : addrOf pw = some b) (hsto : ∀ l c, η.sto l = some c → sto l = some c)
-    (hca : sto b.label = some ca) (hno : Ty.noOwnIn [] ca.ty = true) (hrf : rgnFree ca.ty = true) :
+    (hca : sto b.label = some ca) (hno : Ty.noOwnIn [] ca.ty = true) :
     sNo (cl ρ η.wit 0 0 u) = true ∧ ∀ c, tb c t = true → tb c u = true := by
   have ht : t = .refine (.loc .own (.array n u)) (.ini k) := by
     unfold bufOf at hbo
@@ -465,7 +472,7 @@ theorem sNo_buf {ρ : Nat → Nat} {η : TEnv} {t : Ty} {sh : Shp} {ws : List Wo
   subst ht
   have hv1 : VR ρ η (.loc .own (.array n u)) sh ws := by simp only [VR] at hv ⊢; exact hv.1
   have h := sNo_cell hv1 (rfl : cellOf (.loc .own (.array n u)) = some (.own, .array n u)) hws hb hsto
-    hca hno hrf
+    hca hno
   simp only [cl, sNo] at h
   exact ⟨h, fun c hc => by simpa [tb] using hc⟩
 
@@ -486,17 +493,18 @@ theorem sNo_word {ρ : Nat → Nat} {η : TEnv} {σs : List Ty} {K : TEnv → Li
   sNo_wordP (use_FInv hu hi).1 hii hlk
 
 /-- **The discharge of `FulSNo`**: the environment entry a typed thread's data word comes from,
-written into a noOwn, rgnFree cell, is shallow-pub. -/
+written into a noOwn cell, is shallow-pub (after M8 a region reference counts as pub, `mPub (.rgn _)`). -/
 theorem sNo_writeFrom {p : Prog} {E : TEnv} {sto : Sto} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
     {x : String} {rt : Ty} {ws : List Word} {w : Word} {loc : Address}
     (hsto : ∀ l c, E.sto l = some c → sto l = some c) (hT : ThInvE p E th)
     (hW : TermNoFul.WriteFrom g mem pairs th x rt ws w loc)
-    (hca : ∃ ca, sto loc.label = some ca ∧ Ty.noOwnIn [] ca.ty = true ∧ rgnFree ca.ty = true) :
+    (hca : ∃ ca, sto loc.label = some ca ∧ Ty.noOwnIn [] ca.ty = true) :
     sNo rt = true := by
   obtain ⟨ρ, η, cx, hE, -, hTy, htv, hi, -⟩ := hT
   subst hE
+  replace hTy := hTy.1
   have hsto' : ∀ l c, η.sto l = some c → sto l = some c := hsto
-  obtain ⟨ca, hca, hno, hrf⟩ := hca
+  obtain ⟨ca, hca, hno⟩ := hca
   obtain ⟨hlk, -, ⟨y, op, e, pw, b, rel, us, j, hterm, hdv, hU, -, -, hl⟩ |
     ⟨acq, rel, wa, e, tn, ok, fail, t1, t2, pw, ew, hterm, -, hwa, -, hpw⟩⟩ := hW
   · subst hl
@@ -508,19 +516,19 @@ theorem sNo_writeFrom {p : Prog} {E : TEnv} {sto : Sto} {g : G} {mem : Memory} {
     | storeOwn hpk _ hc _ hu hsub _ =>
       simp only [TermNoFul.DataVar] at hdv; subst hdv
       obtain ⟨-, _, _, _, _, hea, -, -, hb, -⟩ := hU
-      exact sNo_store_gen hi htv hpk hc hu (Or.inl hsub) hlk hea hb hsto' hcab hno hrf
+      exact sNo_store_gen hi htv hpk hc hu (Or.inl hsub) hlk hea hb hsto' hcab hno
     | storePub hpk _ hc _ hu hsub _ _ =>
       simp only [TermNoFul.DataVar] at hdv; subst hdv
       obtain ⟨-, _, _, _, _, hea, -, -, hb, -⟩ := hU
-      exact sNo_store_gen hi htv hpk hc hu (Or.inl hsub) hlk hea hb hsto' hcab hno hrf
+      exact sNo_store_gen hi htv hpk hc hu (Or.inl hsub) hlk hea hb hsto' hcab hno
     | storeRgn hpk _ hc _ hu _ hsub _ =>
       simp only [TermNoFul.DataVar] at hdv; subst hdv
       obtain ⟨-, _, _, _, _, hea, -, -, hb, -⟩ := hU
-      exact sNo_store_gen hi htv hpk hc hu (hsub.imp id fun h => ⟨_, h⟩) hlk hea hb hsto' hcab hno hrf
+      exact sNo_store_gen hi htv hpk hc hu (hsub.imp id fun h => ⟨_, h⟩) hlk hea hb hsto' hcab hno
     | storeCap hpk _ hc _ hu _ _ hsub _ =>
       simp only [TermNoFul.DataVar] at hdv; subst hdv
       obtain ⟨-, _, _, _, _, hea, -, -, hb, -⟩ := hU
-      exact sNo_store_gen hi htv hpk hc hu (hsub.imp id fun h => ⟨_, h⟩) hlk hea hb hsto' hcab hno hrf
+      exact sNo_store_gen hi htv hpk hc hu (hsub.imp id fun h => ⟨_, h⟩) hlk hea hb hsto' hcab hno
     | storeWordGive _ _ hu _ hii _ _ _ _ _ _ _ _ _ =>
       simp only [TermNoFul.DataVar] at hdv; subst hdv
       exact sNo_word hi hu hii hlk
@@ -535,16 +543,16 @@ theorem sNo_writeFrom {p : Prog} {E : TEnv} {sto : Sto} {g : G} {mem : Memory} {
       obtain ⟨-, _, _, _, _, hea, -, -, hb, -⟩ := hU
       cases hxc with
       | own _ hc _ =>
-        exact sNo_store_gen hi htv hpk hc hu (Or.inl (hsub.elim id id)) hlk hea hb hsto' hcab hno hrf
+        exact sNo_store_gen hi htv hpk hc hu (Or.inl (hsub.elim id id)) hlk hea hb hsto' hcab hno
       | rgn _ hc _ _ _ =>
-        exact sNo_store_gen hi htv hpk hc hu (hsub.imp id fun h => ⟨_, h⟩) hlk hea hb hsto' hcab hno hrf
+        exact sNo_store_gen hi htv hpk hc hu (hsub.imp id fun h => ⟨_, h⟩) hlk hea hb hsto' hcab hno
     | xchgAt hpk hbo _ _ _ _ hu hsub _ =>
       simp only [TermNoFul.DataVar] at hdv; subst hdv
       obtain ⟨-, _, _, _, _, _, _, _, _, hea, -, -, -, -, hb, -, hbb⟩ := hU
       subst hbb
       obtain ⟨rta, wsa, hev, hvr, -⟩ := peek_VR hi.2.1 hpk
       rw [hea, Option.some.injEq, Prod.mk.injEq] at hev
-      obtain ⟨hU', htb'⟩ := sNo_buf hvr hbo hev.2.symm hb hsto' hcab hno hrf
+      obtain ⟨hU', htb'⟩ := sNo_buf hvr hbo hev.2.symm hb hsto' hcab hno
       have hotv : cx.opaqueOK _ = true :=
         peek_opaqueOK htv (use_inv (ρ := ρ) (η := η) (σs := th.σs) (env := th.env) hu).1
       exact sNo_of_use hi hu hlk hsub (sub_opaqueOK hsub hotv) (htb' _ (peek_tb htv hpk)) hU'
@@ -554,7 +562,7 @@ theorem sNo_writeFrom {p : Prog} {E : TEnv} {sto : Sto} {g : G} {mem : Memory} {
       subst hbb
       obtain ⟨rta, wsa, hev, hvr, -⟩ := peek_VR hi.2.1 hpk
       rw [hea, Option.some.injEq, Prod.mk.injEq] at hev
-      obtain ⟨hU', htb'⟩ := sNo_buf hvr hbo hev.2.symm hb hsto' hcab hno hrf
+      obtain ⟨hU', htb'⟩ := sNo_buf hvr hbo hev.2.symm hb hsto' hcab hno
       have hotv : cx.opaqueOK _ = true :=
         peek_opaqueOK htv (use_inv (ρ := ρ) (η := η) (σs := th.σs) (env := th.env) hu).1
       exact sNo_of_use hi hu hlk hsub (sub_opaqueOK hsub hotv)
@@ -566,7 +574,7 @@ theorem sNo_writeFrom {p : Prog} {E : TEnv} {sto : Sto} {g : G} {mem : Memory} {
       have hpk := (use_inv (ρ := ρ) (η := η) (σs := th.σs) (env := th.env) hub).1
       obtain ⟨rta, wsa, hev, hvr, -⟩ := peek_VR hi.2.1 hpk
       rw [hea, Option.some.injEq, Prod.mk.injEq] at hev
-      obtain ⟨hU', htb'⟩ := sNo_buf hvr hbo hev.2.symm hb hsto' hcab hno hrf
+      obtain ⟨hU', htb'⟩ := sNo_buf hvr hbo hev.2.symm hb hsto' hcab hno
       have hi1 := (use_FInv hub hi).1
       obtain ⟨htv1, -, hke⟩ := use_TvOK hub htv
       have hotv : _ = true :=
@@ -579,8 +587,8 @@ theorem sNo_writeFrom {p : Prog} {E : TEnv} {sto : Sto} {g : G} {mem : Memory} {
     cases hTy with
     | casCell hpk _ hc _ _ _ hu _ hsub _ _ _ _ =>
       rcases hc with hc' | ⟨_, hc', _⟩
-      · exact sNo_store_gen hi htv hpk hc' hu (Or.inl hsub) hlk hwa hpw hsto' hcab hno hrf
-      · exact sNo_store_gen hi htv hpk hc' hu (Or.inl hsub) hlk hwa hpw hsto' hcab hno hrf
+      · exact sNo_store_gen hi htv hpk hc' hu (Or.inl hsub) hlk hwa hpw hsto' hcab hno
+      · exact sNo_store_gen hi htv hpk hc' hu (Or.inl hsub) hlk hwa hpw hsto' hcab hno
     | casShare _ _ _ _ hii _ _ _ _ _ _ _ _ _ _ => exact sNo_wordP hi hii hlk
     | casTake _ _ _ _ hii _ _ _ _ _ _ _ _ _ _ _ _ _ => exact sNo_wordP hi hii hlk
     | casEpoch _ _ _ _ _ hii _ _ _ _ _ _ => exact sNo_wordP hi hii hlk

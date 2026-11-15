@@ -116,7 +116,7 @@ noncomputable def labT (l : Label) : Int64 :=
   | some n => Int64.ofNat n
   | none => (_root_.Executable.labels hello1Exe).label l
 
--- The tables grew `.rodata` (R11): the decision recurses past the default depth.
+-- The tables grew `.rodata`: the decision recurses past the default depth.
 set_option maxRecDepth 100000 in
 /-- **The loaded thread's labels are `labT`'s.** -/
 theorem hello1_labT : (_root_.Executable.labels hello1Exe).label = labT := by

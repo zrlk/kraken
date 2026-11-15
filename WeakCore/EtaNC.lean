@@ -20,14 +20,14 @@ theorem tstepM_newNCN {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : 
     {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {x : String} {a : At} {T : Option Ty} {e : Expr}
     (hterm : th.term = .let_ x (.new a T) e)
     (hniA : ∀ t c₁, cx.use a = .ok (t, c₁) → noIallV t = true) (hP : ProgT p) (hn : 0 < g.n)
-    (hT : Typed p cx th.term) (hi : FInvB g.lbase g.n g.i ρ η th.σs (ResumeBN g.lbase g.n g.i p th.stack) cx th.env)
+    (hT : Typed p cx th.term) (hCk : TermA4.CkW p η.wit cx th.term) (hi : FInvB g.lbase g.n g.i ρ η th.σs (ResumeBN g.lbase g.n g.i p th.stack) cx th.env)
     (hE : EnvOKB p η) (htv : TvOK cx) (hm : MemInvB g (CE η) (stOf mem pairs th)) (hRP : RetPwN th.σs th.stack cx.ret) (hPS : PwSkel) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
     tstep g mem pairs th ≠ [] ∧ ∀ r ∈ tstep g mem pairs th, ∃ E', NewCellSto g ρ η th E' ∧ FreshArr g ρ η th E' r ∧ EFootCN g th (CE η) E' (stOf mem pairs th) (stOf r.1 r.2.1 r.2.2) ∧
       ThInvEBN g.lbase g.n g.i p E' r.2.2 ∧ MemInvB g E' (stOf r.1 r.2.1 r.2.2) := by
-  rw [hterm] at hT
+  rw [hterm] at hT hCk
   cases hT with
   | let_ hop he =>
-  rename_i c'
+  obtain ⟨c', -, hop, he, hck, -⟩ := TermA4.CkW_let hCk
   have htv' := OpT_TvOK hP hop htv
   have hRk := OpT_retSk hop
   cases hop with
@@ -161,7 +161,7 @@ theorem tstepM_newNCN {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : 
         noIallV_cl (WitAF.ni hi.2.2.2.2.2.2.1) tv 0 0 (hniA tv _ hu), trivial⟩ (alloc_newT hal hwcT) (alloc_undefT hal hwcT) l) (fun _ => .inl rfl)
         (fun _ => ⟨Nat.le_refl _, .inl rfl⟩),
       ⟨ρ, η.withStoB (allocE (CE η) (freshLabel g.lbase g.n g.i th.nalloc) (cl ρ η.wit 0 0 tv)).sto, c', rfl,
-        ⟨hE.1, hx.1, hx.2.2.2.2.2.2.2.2.2.2.1⟩, he, htv', ?_, retPwN_skel hPS hRP (skel_subst_eq hRk th.σs 0 0 0), hDy.letW hterm rfl⟩, ?_⟩
+        ⟨hE.1, hx.1, hx.2.2.2.2.2.2.2.2.2.2.1⟩, ⟨he, hck⟩, htv', ?_, retPwN_skel hPS hRP (skel_subst_eq hRk th.σs 0 0 0), hDy.letW hterm rfl⟩, ?_⟩
     · refine bind_FInvB hb (FInv_extB hE.2.1 hx hi1) ?_ ?_
       · simp only [VRF, VRb2]
         exact ⟨⟨freshLabel g.lbase g.n g.i th.nalloc, 0⟩, ⟨cl ρ η.wit 0 0 tv, some η.tid⟩, by simp [cst, Promises.TVal.mk0], rfl,

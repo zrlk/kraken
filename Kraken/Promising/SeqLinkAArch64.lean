@@ -734,6 +734,7 @@ theorem directive_sim (hL : L.WF) [Labels] (dir : Directive) (p : Std.Rco Int64)
   | instr i => exact instr_sim hL i p hk hj hrel h
   | label l => exact hk _ _ _ _ _ hrel h
   | byteArray b => exact h.elim
+  | zeros n => exact h.elim
 
 theorem directives_sim (hL : L.WF) [Labels] (ds : List (Directive × Nat)) :
     ∀ (pc : Int64) {r : Reg64s} {f : StatusFlags} {D d : DataMem} {m : Memory}

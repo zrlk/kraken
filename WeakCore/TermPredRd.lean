@@ -159,14 +159,19 @@ theorem cell_eq {t u u' : Ty} {μ μ' : Mode} (h1 : t = .ptr μ u ∨ t = .loc �
 theorem foot_ptr {ρ : Nat → Nat} {η : TEnv} {σs : List Ty} {cx : Cx} {env : Env} {a : At} {t : Ty} {μ : Mode}
     {u rt : Ty} {pw : Word} {b0 b : Address} {us : List Acc} {j : Nat} {mem : Memory} {K : Ts}
     (hvars : VarsOK ρ η σs cx.vars env) (hp : cx.peek a = .ok t) (ht : t = .ptr μ u ∨ t = .loc μ u)
-    (hμ : μ = .own ∨ μ = .pub) (hea : evalAt env a = some (rt, [pw])) (hb0 : addrOf pw = some b0)
+    (hea : evalAt env a = some (rt, [pw])) (hb0 : addrOf pw = some b0)
     (hus : accs (cl ρ η.wit 0 0 u) = some us) (hj : j < nWords us) (hb : b = offs b0 (0 + j))
     (hrd : RdV mem b K pw.view) : Foot η mem K b pw := by
   obtain ⟨c, U, hsto, hat, hFd, hmo, hini⟩ := TermPredStoreFree.ptr_targetM hvars hp ht hea hb0
-  refine foot_mk hsto hat ((Fd_accs hFd).trans hus) hj hb ?_ hmo hini
-  rcases hμ with rfl | rfl
-  · exact .inl rfl
-  · exact .inr ⟨rfl, hrd⟩
+  cases μ with
+  | own => exact foot_mk hsto hat ((Fd_accs hFd).trans hus) hj hb (.inl rfl) hmo hini
+  | pub => exact foot_mk hsto hat ((Fd_accs hFd).trans hus) hj hb (.inr ⟨rfl, hrd⟩) hmo hini
+  | rgn r =>
+    -- a region reference reads as `pub` (`ModeOK_eq_pubG`, `modeIni_eq_pubG`)
+    have hne : Mode.rgn r ≠ .own := fun h => Mode.noConfusion h
+    rw [ModeOK_eq_pubG hne] at hmo
+    rw [modeIni_eq_pubG hne] at hini
+    exact foot_mk hsto hat ((Fd_accs hFd).trans hus) hj hb (.inr ⟨rfl, hrd⟩) hmo hini
 
 theorem accs_word {ρ : Nat → Nat} {W : Nat → Ty} {r : Idx} {P : Proto} (hg : P.ghost = false) :
     accs (cl ρ W 0 0 (.word r P)) = some [.one] := by simp [cl, accs, hg]
@@ -187,32 +192,31 @@ theorem one_lt : 0 < nWords [Acc.one] := by simp [nWords, Acc.size]
 /-- Loads. -/
 theorem load_foot {p : Prog} {g : G} {ρ : Nat → Nat} {η : TEnv} {σs : List Ty} {K : TEnv → List Word → Prop}
     {cx c' : Cx} {env : Env} {s : St} {x : String} {acq : Bool} {a : At} {b : Address} {mem : Memory} {Kt : Ts}
-    (hop : OpT p cx x (.load acq a) c') (hsc : OpScope cx (.load acq a))
+    (hop : OpT p cx x (.load acq a) c') (hoq : ∀ t r u, cx.peek a = .ok t → wordOf t = none → cellOf t = some (.rgn r, u) → cx.opaqueOK u = true)
     (hi : FInv ρ η σs K cx env) (hE : EnvOK p η) (htv : TvOK cx)
     (hrd : RdOp g env s (.load acq a) b)
     (hR : ∀ t pw, evalAt env a = some (t, [pw]) → RdV mem b Kt pw.view) : ∃ pw, Foot η mem Kt b pw := by
   obtain ⟨rt, pw, μr, ru, b0, us, j, hea, hcr, hb0, hus, hj, hb⟩ := hrd
-  have go : ∀ {t u : Ty} {μ : Mode}, cx.peek a = .ok t → cellOf t = some (μ, u) → (μ = .own ∨ μ = .pub) →
+  have go : ∀ {t u : Ty} {μ : Mode}, cx.peek a = .ok t → cellOf t = some (μ, u) →
       cx.opaqueOK u = true → ∃ pw, Foot η mem Kt b pw := by
-    intro t u μ hp hc hμ hop
+    intro t u μ hp hc hop
     have hacc : accs (cl ρ η.wit 0 0 u) = some us :=
       (pub_accs hi.2.2.2.1 hi.2.2.2.2.1 (fun k => (hE.2.1 k).1) hi.2.1 htv hp hc hop hea hcr).symm.trans hus
-    exact ⟨pw, foot_ptr hi.2.1 hp (cell_cases hc) hμ hea hb0 hacc hj hb (hR _ _ hea)⟩
+    exact ⟨pw, foot_ptr hi.2.1 hp (cell_cases hc) hea hb0 hacc hj hb (hR _ _ hea)⟩
   cases hop with
-  | loadOwn hp _ hc _ hbind => exact go hp hc (.inl rfl) (bind_opaqueOK hbind)
-  | loadPub hp _ hc _ _ hbind => exact go hp hc (.inr rfl) (bind_opaqueOK hbind)
-  | loadRgn hp _ hc => exact absurd hc (hsc _ hp _ _)
-  | loadCap hp _ hc => exact absurd hc (hsc _ hp _ _)
-  | loadTorn hp _ hc => exact absurd hc (hsc _ hp _ _)
+  | loadOwn hp _ hc _ hbind => exact go hp hc (bind_opaqueOK hbind)
+  | loadPub hp _ hc _ _ hbind => exact go hp hc (bind_opaqueOK hbind)
+  -- a region-cell load reads its cell (payload `opaqueOK` through `adapt`)
+  | loadRgn hp _ hc _ _ hbind =>
+      exact go hp hc (by have h2 := bind_opaqueOK hbind; rwa [opaqueOK_adaptT] at h2)
+  | loadCap hp _ hc _ _ _ hbind =>
+      exact go hp hc (by have h2 := bind_opaqueOK hbind; rwa [opaqueOK_adaptT] at h2)
+  -- a torn region load reads its cell too (payload `opaqueOK` from ruleA, `hoq`)
+  | loadTorn hp hnw hc _ _ _ => exact go hp hc (hoq _ _ _ hp hnw hc)
   | @loadWord _ _ _ _ tw rP hp hw hg _ =>
       obtain ⟨μ, ht⟩ := wordOf_cases hw
       have hc : cellOf tw = some (μ, Ty.word rP.1 rP.2) := by rcases ht with rfl | rfl <;> rfl
-      have hμ : μ = .own ∨ μ = .pub := by
-        cases μ with
-        | own => exact .inl rfl
-        | pub => exact .inr rfl
-        | rgn r => exact absurd hc (hsc _ hp _ _)
-      exact go hp hc hμ (by simp [Cx.opaqueOK, Ty.guardT])
+      exact go hp hc (by simp [Cx.opaqueOK, Ty.guardT])
 
 #print axioms load_foot
 
@@ -395,28 +399,27 @@ theorem fetch_foot {p : Prog} {g : G} {mem0 : Memory} {pairs : List Ts} {th : TT
   have hb' : b = offs b (0 + 0) := (TermReadCls.offs_zero b).symm
   cases hop with
   | @fetchCell _ _ _ _ _ _ _ _ tw _ hp _ hc =>
-      obtain ⟨μ', u', ht', hμ'⟩ := hsc _ hp
+      obtain ⟨μ', u', ht'⟩ := hsc _ hp
       obtain ⟨μ, hc0⟩ : ∃ μ, cellOf tw = some (μ, Ty.int) := by
         rcases hc with hc0 | ⟨r, hc0, -⟩
         · exact ⟨_, hc0⟩
         · exact ⟨_, hc0⟩
       obtain ⟨-, rfl⟩ := cell_eq (cell_cases hc0) ht'
-      exact foot_ptr hi.2.1 hp ht' hμ' hea hb accs_int one_lt hb' hrd
+      exact foot_ptr hi.2.1 hp ht' hea hb accs_int one_lt hb' hrd
   | fetchEpoch hp hw hep =>
-      obtain ⟨μ', u', ht', hμ'⟩ := hsc _ hp
+      obtain ⟨μ', u', ht'⟩ := hsc _ hp
       obtain ⟨μ, ht⟩ := wordOf_cases hw
       simp only at ht
-      have hμ := word_mode ht ht' hμ'
-      have hg := pwf_epoch_ghost (wordRef_pwf hp ht hμ hi hE htv hm) hep
+      have hg := pwf_epoch_ghost (wordRef_pwf hp ht hi hE htv hm) hep
       obtain ⟨-, rfl⟩ := cell_eq ht ht'
-      exact foot_ptr hi.2.1 hp ht' hμ' hea hb (accs_word hg) one_lt hb' hrd
+      exact foot_ptr hi.2.1 hp ht' hea hb (accs_word hg) one_lt hb' hrd
   | fetchShare hp hw _ _ _ hok =>
-      obtain ⟨μ', u', ht', hμ'⟩ := hsc _ hp
+      obtain ⟨μ', u', ht'⟩ := hsc _ hp
       obtain ⟨μ, ht⟩ := wordOf_cases hw
       simp only at ht
       simp only [fetchOK, Bool.and_eq_true, Bool.not_eq_true'] at hok
       obtain ⟨-, rfl⟩ := cell_eq ht ht'
-      exact foot_ptr hi.2.1 hp ht' hμ' hea hb (accs_word hok.1.1.1.1) one_lt hb' hrd
+      exact foot_ptr hi.2.1 hp ht' hea hb (accs_word hok.1.1.1.1) one_lt hb' hrd
 
 #print axioms fetch_foot
 
@@ -431,35 +434,35 @@ theorem cas_foot {p : Prog} {g : G} {mem0 : Memory} {pairs : List Ts} {th : TTh}
     (hea : evalAt th.env w = some (t, [pw])) (hb : addrOf pw = some b)
     (hrd : RdV mem b Kt pw.view) : Foot η mem Kt b pw := by
   have hb' : b = offs b (0 + 0) := (TermReadCls.offs_zero b).symm
-  have sc : ∀ {tw}, cx.peek w = .ok tw → ∃ μ' u', (tw = .ptr μ' u' ∨ tw = .loc μ' u') ∧ (μ' = .own ∨ μ' = .pub) := by
+  have sc : ∀ {tw}, cx.peek w = .ok tw → ∃ μ' u', (tw = .ptr μ' u' ∨ tw = .loc μ' u') := by
     intro tw hp
-    rcases hsc _ hp with ⟨μ', r', P', ht', hμ'⟩ | ⟨u, ht', -⟩
-    · exact ⟨μ', _, ht', hμ'⟩
-    · exact ⟨.pub, u, ht', .inr rfl⟩
+    rcases hsc _ hp with ⟨μ', r', P', ht'⟩ | ⟨u, ht', -⟩ | ⟨r0, u0, ht', -⟩
+    · exact ⟨μ', _, ht'⟩
+    · exact ⟨.pub, u, ht'⟩
+    -- the region-cell cas (StepScope's third disjunct)
+    · exact ⟨.rgn r0, u0, ht'⟩
   have word : ∀ {tw r P}, cx.peek w = .ok tw → wordOf tw = some (r, P) → P.ghost = false →
       Foot η mem Kt b pw := by
     intro tw r P hp hw hg
-    obtain ⟨μ', u', ht', hμ'⟩ := sc hp
+    obtain ⟨μ', u', ht'⟩ := sc hp
     obtain ⟨μ, ht⟩ := wordOf_cases hw
     obtain ⟨-, rfl⟩ := cell_eq ht ht'
-    exact foot_ptr hi.2.1 hp ht' hμ' hea hb (accs_word hg) one_lt hb' hrd
+    exact foot_ptr hi.2.1 hp ht' hea hb (accs_word hg) one_lt hb' hrd
   cases hT with
   | @casCell _ _ _ _ _ _ _ _ _ _ _ tw u _ _ hp _ hc hraw _ =>
-      obtain ⟨μ', u', ht', hμ'⟩ := sc hp
+      obtain ⟨μ', u', ht'⟩ := sc hp
       obtain ⟨μ, hc0⟩ : ∃ μ, cellOf tw = some (μ, u) := by
         rcases hc with hc0 | ⟨r, hc0, -⟩
         · exact ⟨_, hc0⟩
         · exact ⟨_, hc0⟩
       obtain ⟨-, rfl⟩ := cell_eq (cell_cases hc0) ht'
-      exact foot_ptr hi.2.1 hp ht' hμ' hea hb (accs_cl_one hraw) one_lt hb' hrd
+      exact foot_ptr hi.2.1 hp ht' hea hb (accs_cl_one hraw) one_lt hb' hrd
   | casShare hp hw hg => exact word hp hw hg
   | casTake hp hw hg => exact word hp hw hg
   | casEpoch hp hw hep =>
-      obtain ⟨μ', u', ht', hμ'⟩ := sc hp
       obtain ⟨μ, ht⟩ := wordOf_cases hw
       simp only at ht
-      have hμ := word_mode ht ht' hμ'
-      exact word hp hw (pwf_epoch_ghost (wordRef_pwf hp ht hμ hi hE htv hm) hep)
+      exact word hp hw (pwf_epoch_ghost (wordRef_pwf hp ht hi hE htv hm) hep)
 
 #print axioms cas_foot
 
@@ -468,6 +471,7 @@ theorem cas_foot {p : Prog} {g : G} {mem0 : Memory} {pairs : List Ts} {th : TTh}
 theorem op_foot {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {ρ : Nat → Nat} {η : TEnv}
     {K : TEnv → List Word → Prop} {cx c' : Cx} {x : String} {op : Op} {e : Expr} {b : Address} {Kt : Ts}
     (hop : OpT p cx x op c') (hsc : OpScope cx op ∨ OpScopeR th.σs cx op)
+    (hoq : ∀ acq a, op = .load acq a → ∀ t r u, cx.peek a = .ok t → wordOf t = none → cellOf t = some (.rgn r, u) → cx.opaqueOK u = true)
     (hi : FInv ρ η th.σs K cx th.env) (hE : EnvOK p η) (htv : TvOK cx)
     (hm : MemInv g (CE η) (stOf mem pairs th)) (hrd : RdOp g th.env (stOf mem pairs th) op b)
     (hR : ∀ a t pw, PtrTerm (.let_ x op e) a → evalAt th.env a = some (t, [pw]) → RdV mem b Kt pw.view) :
@@ -475,15 +479,15 @@ theorem op_foot {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {
   cases op
   case load acq a =>
     rcases hsc with h | h
-    · exact .inl (load_foot hop h hi hE htv hrd fun t pw hea => hR a t pw (.inl ⟨x, acq, e, rfl⟩) hea)
+    · exact .inl (load_foot hop (hoq acq a rfl) hi hE htv hrd fun t pw hea => hR a t pw (.inl ⟨x, acq, e, rfl⟩) hea)
     · simp only [OpScopeR] at h
   case ldp acq a n0 n1 =>
     obtain ⟨rt, pw, b0, j, hea, -, hb0, hj, hb⟩ := hrd
     rcases hsc with h | h
     · cases hop with
       | ldp hp _ _ =>
-          obtain ⟨μ, u, ht, hμ, hu⟩ := h _ hp
-          exact .inl ⟨pw, foot_ptr hi.2.1 hp ht hμ hea hb0 (accs_pair hu) hj hb
+          obtain ⟨μ, u, ht, hu⟩ := h _ hp
+          exact .inl ⟨pw, foot_ptr hi.2.1 hp ht hea hb0 (accs_pair hu) hj hb
             (hR _ _ _ (.inr (.inl ⟨x, acq, n0, n1, e, rfl⟩)) hea)⟩
     · simp only [OpScopeR] at h
   case fetch o acq rel a v =>
@@ -516,7 +520,8 @@ theorem op_foot {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {
 /-- **PredRd, step form.** -/
 theorem tstep_predRd {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {ρ : Nat → Nat}
     {η : TEnv} {K : TEnv → List Word → Prop} {cx : Cx} {r : Memory × List Ts × TTh} {b : Address} {cl : Cell}
-    (hE : EnvOK p η) (hT : Typed p cx th.term) (htv : TvOK cx) (hi : FInv ρ η th.σs K cx th.env)
+    (hE : EnvOK p η) (hT : Typed p cx th.term) (hCk : TermA4.CkW p η.wit cx th.term) (htv : TvOK cx)
+    (hi : FInv ρ η th.σs K cx th.env)
     (hm : MemInv g (CE η) (stOf mem pairs th)) (hsc : StepScope cx th.term ∨ StepScopeR th.σs cx th.term)
     (h : r ∈ tstep g mem pairs th)
     (hsto : (CE η).sto b.label = some cl) (ho : cl.owner = some η.tid) (hq : PredU (CE η) b)
@@ -533,10 +538,11 @@ theorem tstep_predRd {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : T
       ⟨acq, rel, w, e, v, tn, ok, fail, t, pw, hterm, hea, hb⟩ |
       ⟨acq, rel, w, e0, e1, v0, v1, tn, ok, fail, t, pw, b0, hterm, hea, hb0, hb⟩
   · have hR' := hR
-    rw [hterm] at hT hsc hR'
+    rw [hterm] at hT hsc hR' hCk
     cases hT with
     | let_ hop _ =>
-        rcases op_foot hop hsc hi hE htv hm hrd hR' with ⟨pw, hf⟩ | hn
+        rcases op_foot hop hsc (fun acq' a' he t r u hp hnw hc => by
+            cases he; exact (TermC1.rgnLoad_ruleA hCk.1 hp hnw hc).1) hi hE htv hm hrd hR' with ⟨pw, hf⟩ | hn
         · exact fin pw hf
         · exact nn hn
   · rw [hterm] at hT
@@ -552,9 +558,9 @@ theorem tstep_predRd {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : T
     rw [hterm] at hT hsc
     obtain ⟨tw, hp⟩ : ∃ tw, cx.peek w = .ok tw := by cases hT <;> exact ⟨_, by assumption⟩
     rcases hsc with hs | hs
-    · obtain ⟨μ, u, ht, hμ, hu⟩ := hs _ hp
+    · obtain ⟨μ, u, ht, hu⟩ := hs _ hp
       obtain ⟨j, hj, hbj⟩ := offs_pair hb
-      exact fin pw (foot_ptr hi.2.1 hp ht hμ hea hb0 (accs_pair hu) hj hbj hrd)
+      exact fin pw (foot_ptr hi.2.1 hp ht hea hb0 (accs_pair hu) hj hbj hrd)
     · simp only [StepScopeR] at hs
 
 #print axioms tstep_predRd
@@ -600,7 +606,7 @@ theorem tctx_predRd (hsc : StepScopeF p k arch Sp Init MintOK c0) : PredRdFE p k
   have ho2 : cl.owner = some η2.tid := by rw [Y2.2.1]; exact ho
   have hq2 : PredU (CE η2) b :=
     PredU_congr hst (by rw [Y.1, hce2]; rfl) (by rw [Y.1, hce2]; rfl) (by rw [Y.1, hce2]; rfl) hq
-  exact tstep_predRd hE2 hT2.1 htv2 hFi hm hs0 X.hr (by rw [hst]; exact hsto) ho2 hq2 hno h1 h2 h3
+  exact tstep_predRd hE2 hT2.1 hT2.2 htv2 hFi hm hs0 X.hr (by rw [hst]; exact hsto) ho2 hq2 hno h1 h2 h3
 
 #print axioms tctx_predRd
 

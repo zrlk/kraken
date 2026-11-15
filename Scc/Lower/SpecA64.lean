@@ -1,5 +1,6 @@
 import Scc.Lower.Spec
 import Scc.Emit.A64
+import Scc.Emit.PostA64
 import Scc.Cert.PlaceA64
 import Scc.Cert.MapsEmitA64
 
@@ -37,7 +38,7 @@ open Scc.IR
 
 namespace Scc.Lower.A64
 
-open Scc.Emit.A64 (Item Safepoint emitItemsMaps render dataSecs kabiFirst)
+open Scc.Emit.A64 (Item Safepoint emitItemsMaps render dataSecs kabiFirst postEmit)
 
 /-- The program of the `.text` sections of an item list: the Kraken
 directives (instructions and labels) after a `.text` line or before any
@@ -193,11 +194,15 @@ def lowerAll (cfg : Config) (p : Prog) : Emitted :=
 rendered (`Scc.Emit.A64.render`, which refuses an item that does not print
 back), the GC tables' items after them (refused where the tables' stage
 fails, `tables`), the placement data and the stack need table. `--host raw`: refused
-unless the trampolines precede every block entry (`Scc.Emit.A64.kabiFirst`). -/
-def Emitted.listing (e : Emitted) : Except String Listing := do
+unless the trampolines precede every block entry (`Scc.Emit.A64.kabiFirst`). With
+`granule` (`scc --granule`), the emitter's items go through the
+post-emission pipeline (`Scc.Emit.A64.postEmit`: the granule pass) before the tables
+are appended; `items`, `prog` and `secs` stay the emitter's. -/
+def Emitted.listing (e : Emitted) (granule : Bool := false) : Except String Listing := do
   if e.low.ir.host == .raw then kabiFirst e.items
   let (tits, _) ← e.tables
-  pure { text := ← render (e.items ++ tits), places := some e.places, need := e.need }
+  let items ← if granule then Prod.fst <$> postEmit e.low.ir e.items e.safepoints else pure e.items
+  pure { text := ← render (items ++ tits), places := some e.places, need := e.need }
 
 /-- **A successful emission from its stages**: the emitter's items and
 safepoints, and the fields of the emission computed from them. -/

@@ -31,15 +31,53 @@ theorem tstep_publish_vWr {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {y
          | head => exact ⟨rfl, rfl⟩
          | tail _ h => cases h)
 
+/-- An `intoRgn` step keeps `vWr` and the promises (the same release fence as `publish`). -/
+theorem tstep_intoRgn_vWr {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {y rn : String} {a : At}
+    {e : Expr} {r : Memory × List Ts × TTh} (hterm : th.term = .let_ y (.intoRgn rn a) e)
+    (hr : r ∈ tstep g mem pairs th) :
+    r.2.2.vs.vWr = th.vs.vWr ∧ r.2.2.promises = th.promises := by
+  simp only [tstep, hterm, evalOp, List.mem_map] at hr
+  obtain ⟨⟨s', t', ws⟩, hs, rfl⟩ := hr
+  cases hev : evalAt th.env a with
+  | none => simp [hev, ol] at hs
+  | some q =>
+    obtain ⟨t0, ws0⟩ := q
+    simp only [hev, ol, bind, Option.bind, pure] at hs
+    split at hs
+    all_goals first
+      | (simp at hs; done)
+      | (cases hs with
+         | head => exact ⟨rfl, rfl⟩
+         | tail _ h => cases h)
+
+/-- A `region` step keeps `vWr` and the promises (`region`'s release fence). -/
+theorem tstep_region_vWr {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {a : At} {rn pn tn : String}
+    {e : Expr} {r : Memory × List Ts × TTh} (hterm : th.term = .region a rn pn tn e)
+    (hr : r ∈ tstep g mem pairs th) :
+    r.2.2.vs.vWr = th.vs.vWr ∧ r.2.2.promises = th.promises := by
+  simp only [tstep, hterm] at hr
+  split at hr
+  all_goals first
+    | (simp at hr; done)
+    | (cases hr with
+       | head => exact ⟨rfl, rfl⟩
+       | tail _ h => cases h)
+
 /-- The publish case of `NoFulT`. -/
 theorem noFul_pub {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {r : Memory × List Ts × TTh}
     {l : AllocLabel} {t : Ts} {mP : Msg} (hpub : TermOwnG0Defs.PubAt th l) (hr : r ∈ tstep g mem pairs th)
     (ht : t ∈ th.promises) (hle : th.vs.vWr ≤ mP.view) :
     t ∈ r.2.2.promises ∧ r.2.2.vs.vWr ≤ mP.view := by
-  obtain ⟨y, a, e, -, -, -, hterm, -⟩ := hpub
-  obtain ⟨h1, h2⟩ := tstep_publish_vWr hterm hr
-  rw [h1, h2]
-  exact ⟨ht, hle⟩
+  obtain ⟨a, -, -, -, ⟨y, e, hterm⟩ | ⟨rn, pn, tn, e, hterm⟩ | ⟨y, rn, e, hterm⟩, -⟩ := hpub
+  · obtain ⟨h1, h2⟩ := tstep_publish_vWr hterm hr
+    rw [h1, h2]
+    exact ⟨ht, hle⟩
+  · obtain ⟨h1, h2⟩ := tstep_region_vWr hterm hr
+    rw [h1, h2]
+    exact ⟨ht, hle⟩
+  · obtain ⟨h1, h2⟩ := tstep_intoRgn_vWr hterm hr
+    rw [h1, h2]
+    exact ⟨ht, hle⟩
 
 /-- The plant message persists along every solo run from `c'` (`hmB` of `winLe_gen`). -/
 theorem mem_along {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {l : AllocLabel}

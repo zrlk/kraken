@@ -40,13 +40,13 @@ theorem bufInitPubT_of [TermTyped.WrIniC] {p : Prog} {k : Promises.Knobs} {arch 
   rotate_left
   · exact TermNoBufOwn.noBufT_noKey (hV0 := hV0) hP hsc hw X hsto (.inl ho) hk0 hPS hSub hSig c1 h1 hc1 th1 hth1 hb
   obtain ⟨y, bb, ib, v', e, rt, w', ad, g, hterm, hea, hwv, hl⟩ := hb
-  rcases hz with ⟨hpub, hsto⟩ | ⟨cl, y', a', e', rt', ws, ad', g', hsto, hown, hterm', hea', hws, hx⟩
+  rcases hz with ⟨hpub, hsto⟩ | ⟨cl, a', rt', ws, ad', g', hsto, hown, hterm', hea', hws, hx⟩
   · obtain ⟨S, hS⟩ := X.inv.thr i th X.hth
     obtain ⟨th2, hth2, h⟩ := ownXLe0_run_noOwnUse hP (winQC hsc hw X hS) (TermViewInv.viewInv_run hV0 X.run)
       (TermOwnX2.ownXLe_start_pub X.inv X.hth hS hpub hsto) (TermMain.tidAt_cut X.inv i S) (.thread X.hc' h1) hc1 hPS hSub hSig
     obtain rfl : th2 = th1 := Option.some.inj (hth2.symm.trans hth1)
     exact bufInit_ne_of_use hterm h rt w' ad g hea hwv hl
-  · exact bufInitIniT_pub (hV0 := hV0) hP hsc hw X hsto hown hterm' hea' hws hx h1 hc1 hth1 hterm hPS hSub hSig rt w' ad g hea hwv hl
+  · exact bufInitIniT_fence (hV0 := hV0) hP hsc hw X hsto hown hterm' hea' hws hx h1 hc1 hth1 hterm hPS hSub hSig rt w' ad g hea hwv hl
 
 end TermIniOpK
 

@@ -41,11 +41,11 @@ theorem ThInvMFWA.toW {p : Prog} {g : G} {ρ : Nat → Nat} {η : TEnv} {th0 : T
 /-- (G1) **`tstepMF_stepW` with `FreshArr`.** -/
 theorem tstepMF_stepWFA {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
     {cx : Cx} {ρ : Nat → Nat} {η : TEnv}
-    [ProgRetIall p] (hP : ProgT p) (hp : g.p = p) (hn : 0 < g.n) (hnd : isDone th = false)
+    [ProgRetIall p] [TermA4.ProgCkWC p] (hP : ProgT p) (hp : g.p = p) (hn : 0 < g.n) (hnd : isDone th = false)
     (hsc : StepScope cx th.term)
-    (hT : Typed p cx th.term) (hi : FInv ρ η th.σs (Resume p th.stack) cx th.env)
+    (hT : TypedK p η cx th.term) (hi : FInv ρ η th.σs (Resume p th.stack) cx th.env)
     (hE : EnvOK p η) (htv : TvOK cx) (hm : MemInv g (CE η) (stOf mem pairs th)) (hbf : g.boxFence = true)
-    (hpx : PAx g mem pairs th) (hwin : PubWinT3 (CE η) (stOf mem pairs th) th)
+    (hpx : PAx g mem pairs th) (hwin : PubWinT3 (CE η) (stOf mem pairs th) th) (hrs : RgnSide (CE η) (stOf mem pairs th) g th)
     (hRP : RetPw th.σs th.stack cx.ret) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) (hTy : TyOKE g (CE η)) (hZ : ∀ l, BufInitOn th l → ¬ g.zf l := by exact fun _ _ h => h)
     (hPb : ∀ y a e rt ws ad, th.term = .let_ y (.publish a) e → evalAt th.env a = some (rt, ws) →
       ws.map (·.val) = [.loc ad 0] → g.pf ad.label := by exact fun _ _ _ _ _ _ _ _ _ => trivial) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
@@ -54,11 +54,11 @@ theorem tstepMF_stepWFA {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th 
   have gen : NotAllocT th.term → tstep g mem pairs th ≠ [] ∧ ∀ r ∈ tstep g mem pairs th,
       PromAbove (stOf r.1 r.2.1 r.2.2) → ThInvMFWA p g ρ η th (CE η) (stOf mem pairs th) r.1 r.2.1 r.2.2 :=
     fun hna =>
-      let h := tstepMF_stepW (hDy := hDy) (hZ := hZ) (hPb := hPb) hP hp hn hnd hsc hT hi hE htv hm hbf hpx hwin hRP hPS hSub hSig hTy
+      let h := tstepMF_stepW (hDy := hDy) (hZ := hZ) (hPb := hPb) hP hp hn hnd hsc hT hi hE htv hm hbf hpx hwin hrs hRP hPS hSub hSig hTy
       ⟨h.1, fun r hr hpa =>
         let ⟨E', h1, h2, h3⟩ := h.2 r hr hpa
         ⟨E', FreshArr_vac (tstep_nallocEq hr hna), h1, h2, h3⟩⟩
-  have hT0 := hT
+  have hT0 := hT.1
   generalize ht : th.term = t0 at hT0 hsc
   cases hT0 with
   | let_ hop _ =>
@@ -85,11 +85,11 @@ theorem tstepMF_stepWFA {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th 
 witness also satisfies `FreshArr` for the old thread. -/
 theorem tstep_footprintWFA {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
     {cx : Cx} {ρ : Nat → Nat} {η : TEnv}
-    [ProgRetIall p] (hP : ProgT p) (hp : g.p = p) (hn : 0 < g.n) (hnd : isDone th = false)
+    [ProgRetIall p] [TermA4.ProgCkWC p] (hP : ProgT p) (hp : g.p = p) (hn : 0 < g.n) (hnd : isDone th = false)
     (hsc : ScopeD th.σs cx th.term)
-    (hT : Typed p cx th.term) (hi : FInv ρ η th.σs (Resume p th.stack) cx th.env)
+    (hT : TypedK p η cx th.term) (hi : FInv ρ η th.σs (Resume p th.stack) cx th.env)
     (hE : EnvOK p η) (htv : TvOK cx) (hm : MemInv g (CE η) (stOf mem pairs th)) (hbf : g.boxFence = true)
-    (hpx : PAx g mem pairs th) (hwin : PubWinT3 (CE η) (stOf mem pairs th) th)
+    (hpx : PAx g mem pairs th) (hwin : PubWinT3 (CE η) (stOf mem pairs th) th) (hrs : RgnSide (CE η) (stOf mem pairs th) g th)
     (hRP : RetPw th.σs th.stack cx.ret) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) (hTy : TyOKE g (CE η)) (hZ : ∀ l, BufInitOn th l → ¬ g.zf l := by exact fun _ _ h => h)
     (hPb : ∀ y a e rt ws ad, th.term = .let_ y (.publish a) e → evalAt th.env a = some (rt, ws) →
       ws.map (·.val) = [.loc ad 0] → g.pf ad.label := by exact fun _ _ _ _ _ _ _ _ _ => trivial) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
@@ -103,7 +103,7 @@ theorem tstep_footprintWFA {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {
     have hF : FootW g (CE η) (CE η) (stOf mem pairs th) (stOf r.1 r.2.1 r.2.2) :=
       ⟨(EFoot.weak EFoot_refl), fun l hl => fresh_blank hm hl⟩
     exact ⟨CE η, hF, FootW_ext hF, (k.2 r hr).1, MemInv_same hm (k.2 r hr).2, FreshArr_eq hm fun _ => rfl⟩
-  have h := tstepMF_stepWFA (hDy := hDy) (hZ := hZ) (hPb := hPb) (hbf := hbf) hP hp hn hnd hsc hT hi hE htv hm hpx hwin hRP hPS hSub hSig hTy
+  have h := tstepMF_stepWFA (hDy := hDy) (hZ := hZ) (hPb := hPb) (hbf := hbf) hP hp hn hnd hsc hT hi hE htv hm hpx hwin hrs hRP hPS hSub hSig hTy
   refine ⟨h.1, fun r hr hpa => ?_⟩
   obtain ⟨E', fa, hF, h1, h2⟩ := h.2 r hr hpa
   have hF' : FootW g (CE η) E' (stOf mem pairs th) (stOf r.1 r.2.1 r.2.2) := ⟨hF, fun l hl => fresh_blank hm hl⟩

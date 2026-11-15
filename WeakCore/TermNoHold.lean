@@ -94,7 +94,7 @@ theorem gOf_solo {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c c' :
 thread `i`'s invariant holds at an extension of `E0`, and every cell new
 since `E0` is one of `i`'s labels of index at least `na0`. -/
 theorem solo_typedXF {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c : Cfg} {E0 : TEnv} {Eu Ea : TEnv}
-    {n0 v0 na0 : Nat} {Z : AllocLabel → Prop} {H : AllocLabel → Nat → Ts → Prop} [ProgRetIall p] [WrIniC] (hP : ProgT p)
+    {n0 v0 na0 : Nat} {Z : AllocLabel → Prop} {H : AllocLabel → Nat → Ts → Prop} [ProgRetIall p] [TermA4.ProgCkWC p] [WrIniC] (hP : ProgT p)
     (hsc : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → ScopeAt p i c0) (hvI : TermViewInv.ViewInv c)
     (hwin : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → NoHoldPubA p k arch Eu Ea i c0)
     (h0 : InvAtXFZ Z p k arch i E0 n0 v0 na0 c H (Ea := Ea) (Eu := Eu)) (hTA : TermTyped.TidAt i c E0) {c2 : Cfg} (h : Solo p k arch i c c2)
@@ -122,7 +122,7 @@ theorem solo_typedXF {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c 
     obtain ⟨E', hF, hx', hT', hm', hbB, hN⟩ := hstep r hr hpa
     have hTyN := TermTyped.tyRun_thread (hDy := hDy) (hC := fun k => (hE.2.1 k).1) (hN := hN) (g := { gOf p k arch c0 i with zf := Z }) hs hth e3 rfl rfl rfl rfl
       (Nat.lt_of_le_of_lt (Nat.zero_le _) (Cfg.lt_n (arr_lt hth))) hr hF.1 hTyR hRcR
-    have hA' := anchR_tstep hF hm' hbB hE hT htv hi hm hscope (TermViewInv.envVR_solo hvI hc0 hth) hr (frRunA_ext hfr hx) hfr.2.1
+    have hA' := anchR_tstep hF hm' hbB hE hT.1 htv hi hm hscope (TermViewInv.envVR_solo hvI hc0 hth) hr (frRunA_ext hfr hx) hfr.2.1
     have hwu := tstep_wrUp _ _ _ _ r hr
     have hfb' := FrBound_foot hF hwu hfb hfr.1
     have hg := TermTyped.gOf_thread hs
@@ -242,7 +242,7 @@ theorem xfz_of_foot {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {E0 
 
 /-- (shared) **`xfz_thread` with the allocation records**: also `TyOKE` and `RecFresh` at the new environment. -/
 theorem xfz_threadT {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {E0 E Eu Ea : TEnv} {n0 v0 na0 : Nat}
-    {Z W : AllocLabel → Prop} {H : AllocLabel → Nat → Ts → Prop} {c0 c0' : Cfg} {th : TTh} [ProgRetIall p] [WrIniC]
+    {Z W : AllocLabel → Prop} {H : AllocLabel → Nat → Ts → Prop} {c0 c0' : Cfg} {th : TTh} [ProgRetIall p] [TermA4.ProgCkWC p] [WrIniC]
     (hP : ProgT p) (hsc0 : ScopeAt p i c0) (hvI0 : TermViewInv.ViewInv c0) (hwin0 : NoHoldPubA p k arch Eu Ea i c0)
     (hth : c0.ths[i]? = some th) (hx : Ext E0 E) (hTE : ThInvE p E th)
     (hm : MemInv (gOf p k arch c0 i) E (stOf c0.mem c0.pairs th)) (hSC : StoClo E)
@@ -282,7 +282,7 @@ theorem xfz_threadT {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {E0 
     xfz_of_foot (Q := fun th' E' => c0'.ths[i]? = some th' →
         TyOKE (gOf p k arch c0' i) E' ∧ RecFresh (gOf p k arch c0' i) i th'.nalloc) hth hx hSC hbo hfb hfr hna hfresh hIL hIH hs hc0' hHr
       (fun r hr hpa => let ⟨E', a1, a2, a3, a4, a5, a6, a7⟩ := hstep r hr hpa
-        ⟨E', a1, a2, a3, a4, a5, anchR_tstep a1 a4 a6 hE hT htv hi hm hscope (TermViewInv.envVR_solo (p := p) (k := k) (arch := arch) hvI0 (.refl _) hth) hr (frRunA_ext hfr hx) hfr.2.1,
+        ⟨E', a1, a2, a3, a4, a5, anchR_tstep a1 a4 a6 hE hT.1 htv hi hm hscope (TermViewInv.envVR_solo (p := p) (k := k) (arch := arch) hvI0 (.refl _) hth) hr (frRunA_ext hfr hx) hfr.2.1,
           fun hth' => TermTyped.tyRun_thread (hDy := hDy) (hC := fun k => (hE.2.1 k).1) (hN := a7) (g := { ({ gOf p k arch c0 i with zf := fun l => Z l ∨ W l } : G) with
             pf := fun l => TermOwnG0Defs.PubAt th l }) hs hth hth' rfl rfl rfl rfl
             (Nat.lt_of_le_of_lt (Nat.zero_le _) (Cfg.lt_n (arr_lt hth))) hr a1.1 hTy hRc⟩)
@@ -293,7 +293,7 @@ theorem xfz_threadT {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {E0 
 a footprint whose ghost `zf` is `Z ∨ W` and whose `pf` is the stepper's `publish` labels: the caller
 excludes a `bufInit` at `Z ∨ W` (`hZW`) and carries its own provenance facts along `hF`/`hD`/`hvw`. -/
 theorem xfz_thread {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {E0 E Eu Ea : TEnv} {n0 v0 na0 : Nat}
-    {Z W : AllocLabel → Prop} {H : AllocLabel → Nat → Ts → Prop} {c0 c0' : Cfg} {th : TTh} [ProgRetIall p] [WrIniC]
+    {Z W : AllocLabel → Prop} {H : AllocLabel → Nat → Ts → Prop} {c0 c0' : Cfg} {th : TTh} [ProgRetIall p] [TermA4.ProgCkWC p] [WrIniC]
     (hP : ProgT p) (hsc0 : ScopeAt p i c0) (hvI0 : TermViewInv.ViewInv c0) (hwin0 : NoHoldPubA p k arch Eu Ea i c0)
     (hth : c0.ths[i]? = some th) (hx : Ext E0 E) (hTE : ThInvE p E th)
     (hm : MemInv (gOf p k arch c0 i) E (stOf c0.mem c0.pairs th)) (hSC : StoClo E)
@@ -346,7 +346,7 @@ theorem xfz_prom {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {E0 E E
   · exact frRunA_prom hth hfr
 
 theorem solo_typedXFP {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c : Cfg} {E0 : TEnv}
-    {n0 v0 na0 : Nat} {Z : AllocLabel → Prop} {H : AllocLabel → Nat → Ts → Prop} [ProgRetIall p] [WrIniC] (hP : ProgT p)
+    {n0 v0 na0 : Nat} {Z : AllocLabel → Prop} {H : AllocLabel → Nat → Ts → Prop} [ProgRetIall p] [TermA4.ProgCkWC p] [WrIniC] (hP : ProgT p)
     (hsc : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → ScopeAt p i c0) (hvI : TermViewInv.ViewInv c)
     (hwin : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → NoHoldPubA p k arch E0 E0 i c0)
     {st : Cfg} (h0 : InvAtXFP Z p k arch i E0 n0 v0 na0 st c H) (hTA : TermTyped.TidAt i c E0) {c2 : Cfg} (h : Solo p k arch i c c2)
@@ -408,7 +408,7 @@ configuration (`certified_fulfilC`, `solo_typedXF`), which lands on a cell of
 that configuration's environment (`SWOne_holds`); that cell is `E0`'s or new
 in the run (`FreshRun`). -/
 theorem certified_promLoc {p : Prog} {k : Promises.Knobs} {arch : Arch} {c : Cfg} {i : Nat} {E0 : TEnv} {Eu Ea : TEnv}
-    {n0 v0 na0 : Nat} [ProgRetIall p] [WrIniC] (hP : ProgT p)
+    {n0 v0 na0 : Nat} [ProgRetIall p] [TermA4.ProgCkWC p] [WrIniC] (hP : ProgT p)
     (hsc : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → ScopeAt p i c0) (hvI : TermViewInv.ViewInv c)
     (hwin : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → NoHoldPubA p k arch Eu Ea i c0)
     (h0 : InvAtXF p k arch i E0 n0 v0 na0 c (Ea := Ea) (Eu := Eu)) (hTA : TermTyped.TidAt i c E0) (hc : Certified p k arch c i)
@@ -424,7 +424,7 @@ theorem certified_promLoc {p : Prog} {k : Promises.Knobs} {arch : Arch} {c : Cfg
   cases hth1'
   have hscope := hsc c1 h1 hc1 th1 hth1 (TermTyped.not_spawnT_of_steps hth1 h2) ρ η cx hE hT htv hi
   obtain ⟨cl, -, -, -, -, hcl, -⟩ :=
-    SWOne_holds p _ _ _ _ ρ η cx _ _ hE hT htv hi hmi1 (TermTyped.scopeD_SW hscope hsw) (certified_promAboveSt hc1 hth1) hsw
+    SWOne_holds p _ _ _ _ ρ η cx _ _ hE hT.1 htv hi hmi1 (TermTyped.scopeD_SW hscope hsw) (certified_promAboveSt hc1 hth1) hsw
   cases e : E0.sto m.loc.label with
   | some cl0 => exact .inl ⟨cl0, rfl⟩
   | none =>
@@ -463,7 +463,7 @@ theorem TCtxX.tyPost {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} 
 /-- **The `PromLocF`** at a promise step, from `certified_promLoc` at
 the promised configuration, started at the promiser's cut (`SysInvN.thr`).
 Run hypothesis `hrun`: scope and `NoHoldPub` along the certificate. -/
-theorem promLocP (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [WrIniC] (hP : ProgT p)
+theorem promLocP (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [WrIniC] (hP : ProgT p)
     (hrun : ∀ {c : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {j : Nat} {th : TTh}
       {a : Address} {v : WeakMem.Val} {w : Ts},
       PCtxX p k arch Sp Init MintOK c0 c Eg Tot HP HS cr db j th a v w →
@@ -497,7 +497,7 @@ theorem promLocP (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [Wr
 at the source lies at a cell of its cut or at one of its labels yet to
 allocate.  Certification of the source: the step followed by the
 successor's certificate. -/
-theorem promLocT (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [WrIniC] (hP : ProgT p)
+theorem promLocT (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [WrIniC] (hP : ProgT p)
     {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {i : Nat}
     {th : TTh} {r : Memory × List Ts × TTh} (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r)
     (hrun : ∀ S, ThSysAt p (gOf p k arch c i) c.mem c.pairs th Eg (Tot i) (HP i) HS (cr i) (db i) S →
@@ -528,7 +528,7 @@ def CertRunP (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → Cfg →
       ScopeAt p j c1 ∧ NoHoldPubA p k arch (Cut Eg j S) (Cut Eg j S) j c1
 
 /-- **The `PromLocF` discharged** from `ProgT` and `CertRunP`. -/
-theorem promLocF_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [WrIniC] (hP : ProgT p) (hrun : CertRunP p k arch Sp Init MintOK c0) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) : PromLocF p k arch Sp Init MintOK c0 :=
+theorem promLocF_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [WrIniC] (hP : ProgT p) (hrun : CertRunP p k arch Sp Init MintOK c0) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) : PromLocF p k arch Sp Init MintOK c0 :=
   fun X => promLocP (hV0 := hV0) hP hrun X hPS hSub hSig
 
 end
@@ -590,7 +590,7 @@ theorem WordAt_ext {E E' : TEnv} (hx : Ext E E') {a : Address} {n : Nat} {P : Pr
 
 /-- **The epoch predecessor from the certificate.** -/
 theorem certified_promPredE {p : Prog} {k : Promises.Knobs} {arch : Arch} {c : Cfg} {i : Nat} {E0 : TEnv}
-    {n0 v0 na0 : Nat} [ProgRetIall p] [WrIniC] (hP : ProgT p) (hstep : StepPredNum p)
+    {n0 v0 na0 : Nat} [ProgRetIall p] [TermA4.ProgCkWC p] [WrIniC] (hP : ProgT p) (hstep : StepPredNum p)
     (hsc : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → ScopeAt p i c0) (hvI : TermViewInv.ViewInv c)
     (hwin : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → NoHoldPubA p k arch E0 E0 i c0)
     (h0 : InvAtXF p k arch i E0 n0 v0 na0 c) (hTA : TermTyped.TidAt i c E0) (hc : Certified p k arch c i)
@@ -621,7 +621,7 @@ theorem certified_promPredE {p : Prog} {k : Promises.Knobs} {arch : Arch} {c : C
       simp only [stOf] at e
       exact absurd (e ▸ ht1) hn
   obtain ⟨c0, hc0, -⟩ := id hW
-  obtain ⟨w, hpw, hnum⟩ := hstep (gOf p k arch c1 i) c1.mem c1.pairs th1 ρ η cx rfl hE hT htv hi hmi1 hscope
+  obtain ⟨w, hpw, hnum⟩ := hstep (gOf p k arch c1 i) c1.mem c1.pairs th1 ρ η cx rfl hE hT.1 htv hi hmi1 hscope
     (certified_promAboveSt hc1 hth1) r hr hpa t m ht1 hn hm1 (IniWr_ext hx1 hc0 hIW) n P (WordAt_ext hx1 hW) hep
   obtain ⟨th0, -, hth0, -⟩ := h0
   obtain ⟨-, -, -, -, -, hme, -⟩ := solo_winInv h1 (winInv_refl hth0)
@@ -633,7 +633,7 @@ theorem certified_promPredE {p : Prog} {k : Promises.Knobs} {arch : Arch} {c : C
 
 /-- **`PromPredE` at a thread step** (field form, at the stepper's cut). -/
 theorem promPredT {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {MintOK : Res → Prop} {c0 : Cfg} (hV0 : TermViewInv.ViewInvR p k arch Sp c0)
-    [ProgRetIall p] [WrIniC] (hP : ProgT p) (hstep : StepPredNum p)
+    [ProgRetIall p] [TermA4.ProgCkWC p] [WrIniC] (hP : ProgT p) (hstep : StepPredNum p)
     {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {i : Nat}
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r)

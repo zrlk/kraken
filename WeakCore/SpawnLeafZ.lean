@@ -19,11 +19,11 @@ namespace SpawnLeafZ
 open CoreLang CoreTerm TermRun TermStep TermMain TermSpawnStep A9SpawnFinal
 open WeakMem (Msg Memory Address VState Ts Arch AllocLabel)
 
-theorem spLeafArms_spawn {p : Prog} {k : Promises.Knobs} {arch : Arch} {cap : Nat} :
+theorem spLeafArms_spawn {p : Prog} {k : Promises.Knobs} {arch : Arch} {cap : Nat} (hp : TermScope.ProgScopeOK p = true) :
     SpLeafArms (Spawn p k arch cap) :=
   SpawnLeaf.spLeafArms_of_shape (fun _ _ h => SpawnShapeZ.spawn_shapeT h)
     (fun _ _ h hv => Z2SpawnV.viewInv_spawnStep h hv)
-    (fun _ _ h hd => TermSpawnScope.runScope_spawnStep h hd)
+    (fun _ _ h hd => TermSpawnScope.runScope_spawnStep hp h hd)
 
 #print axioms spLeafArms_spawn
 end SpawnLeafZ

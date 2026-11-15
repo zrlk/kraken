@@ -13,6 +13,7 @@ import WeakCore.TermLiveCertScen
 import WeakCore.TermLiveC
 import WeakCore.TermLiveG3
 import WeakCore.SceProof
+
 -- device start + DMA ring finals
 import WeakCore.TermStartD
 import WeakCore.DmaRing
@@ -24,7 +25,7 @@ For each user-facing final, the constants in its statement are expanded transiti
 stopping at the machine/language layer, which is listed but not expanded.  The closure is
 pretty-printed deterministically to `OUT/<final>.txt`; `guard.sh` compares md5s with the
 frozen `premises.md5` and fails unless `WM_APPROVE_PREMISES=<reason>` is set, in which case it
-re-freezes and prints the diff for the gate log.  Run:
+re-freezes and prints the diff.  Run:
   LEAN_PATH=<oleans> lean CheckPremises.lean   (≈15 s)
 -/
 open Lean Meta
@@ -68,7 +69,9 @@ def forceBody : List Name :=
    -- (guard fix) StartOK reads it; mutual (rendered via its `eq_def`)
    `CoreLang.zeroableIn,
    -- (guard fix) zeroableIn's mutual block: they decide its sum arm
-   `CoreLang.zeroArmP, `CoreLang.Ty.payloadFree]
+   `CoreLang.zeroArmP, `CoreLang.Ty.payloadFree,
+   -- the c1 region-free test that replaces `TermScope.drf` in the premises (TermC1.drf1, CoreTerm)
+   `TermC1.drf1]
 
 /-- Extra roots, each frozen in its own file with its own text forced (the stop-module
 language/machine layer's `spawn` and striping text).  Forcing is local to the root's file, so the finals'
@@ -76,36 +79,7 @@ files are unaffected.  A root absent from the environment is frozen as the text 
 removal changes that file's md5 and is caught; and the same tool runs on pre-spawn / pre-M0 baselines).
 The gate runs with `WM_GUARD_STRICT=1`: then an absent root is an error unless listed in `lang_absent_ok.txt`. -/
 def langRoots : List Name :=
-  [`CoreTerm.Op, `CoreTerm.checkOp, `CoreTerm.tailCheck, `CoreTyping.OpT, `TermRun.evalOp,
-   -- (M0) the machine's label striping: the `cap` field, `Cfg.n`, `gOf`'s stride, `freshLabel`
-   `TermRun.Cfg, `TermRun.Cfg.n, `TermRun.gOf, `TermRun.freshLabel,
-   -- POR: the silent-step test's `spawn` arm
-   `TermRun.touchesMem,
-   -- the extern step and its run layer, moved into / living in TermRun
-   -- (a stop module): the extern successor, its gate, the run relations and the event/exit text
-   `TermRun.extCfg, `TermRun.curCfg, `TermRun.ExtNeedsNoProm, `TermRun.extSteps,
-   `CoreTerm.ExtName.events, `CoreTerm.ExtName.res, `CoreTerm.ExtName.sig, `TermRun.exitCode,
-   `TermRun.Event, `TermRun.Solo, `TermRun.Step, `TermRun.Certified,
-   -- the run layer's promise
-   -- step, thread-step successor and certificate end test
-   `TermRun.promise, `TermRun.threadSteps, `TermRun.noPromises,
-   -- the explorer/certificate move set and the device/permit layer, which frozen texts
-   -- name but never print; `CoreTerm.ExtName.res` is now ABSENT (replaced by `Admits`)
-   `TermRun.extSuccs, `TermRun.extRs, `TermRun.wakeSuccs, `TermRun.certB, `TermRun.successorsAll,
-   `TermRun.atChoiceCutB, `TermRun.wakeCut, `TermRun.nodeTrunc, `TermRun.extCut, `TermRun.certCut,
-   `CoreTerm.devCells, `CoreTerm.devCellOK, `CoreTerm.exprNoDevOnly, `CoreTerm.exprNoDevFnptr,
-   `CoreTerm.ExtName.Admits, `CoreTerm.ExtName.resultsL, `CoreTerm.ExtName.ok, `CoreTerm.ExtName.deviceOnly,
-   `CoreTerm.ExtName.isChoice, `CoreTerm.ExtName.pure, `TermRun.ExtEnabled, `TermRun.setPermit, `TermRun.wake,
-   -- (user) the permit's release/acquire views
-   `TermRun.relView, `TermRun.parkVs,
-   `TermRun.thrOfTid, `TermRun.wordNum, `TermRun.lastDevWrite, `TermRun.lastMmioW, `TermRun.Event.observable,
-   `TermRun.obsTrace, `TermProgress.ExtBy, `TermLiveL3.SpuriousWake, `TermLiveCert.ScriptedRun,
-   -- the restricted-function checker's kind pass (25; `CoreTerm.ExtName.pure` above, already a root)
-   `CoreTerm.opAllocates, `CoreTerm.opWrites, `CoreTerm.Expr.binders, `CoreTerm.noShadow, `CoreTerm.argPosOf,
-   `CoreTerm.tyAt, `CoreTerm.Tail, `CoreTerm.Tail.merge, `CoreTerm.idxArgOf, `CoreTerm.selfBoundW, `CoreTerm.selfBound,
-   `CoreTerm.restrictedOK, `CoreTerm.fuelOf, `CoreTerm.declFuel, `CoreTerm.argFuelOf, `CoreTerm.loopBound,
-   `CoreTerm.fuelDecl, `CoreTerm.restrictedDeclOK, `CoreTerm.checkerIdxNames, `CoreTerm.Expr.idxBinders,
-   `CoreTerm.Decl.allNames, `CoreTerm.callBad, `CoreTerm.loopCallBad, `CoreTerm.loopCallsOK, `CoreTerm.RestrictedProg]
+  [`CoreTerm.Op, `CoreTerm.checkOp, `CoreTerm.tailCheck, `CoreTyping.OpT, `TermRun.evalOp, `TermRun.Cfg, `TermRun.Cfg.n, `TermRun.gOf, `TermRun.freshLabel, `TermRun.touchesMem, `TermRun.extCfg, `TermRun.curCfg, `TermRun.ExtNeedsNoProm, `TermRun.extSteps, `CoreTerm.ExtName.events, `CoreTerm.ExtName.res, `CoreTerm.ExtName.sig, `TermRun.exitCode, `TermRun.Event, `TermRun.Solo, `TermRun.Step, `TermRun.Certified, `TermRun.promise, `TermRun.threadSteps, `TermRun.noPromises, `TermRun.extSuccs, `TermRun.extRs, `TermRun.wakeSuccs, `TermRun.certB, `TermRun.successorsAll, `TermRun.atChoiceCutB, `TermRun.wakeCut, `TermRun.nodeTrunc, `TermRun.extCut, `TermRun.certCut, `CoreTerm.devCells, `CoreTerm.devCellOK, `CoreTerm.exprNoDevOnly, `CoreTerm.exprNoDevFnptr, `CoreTerm.ExtName.Admits, `CoreTerm.ExtName.resultsL, `CoreTerm.ExtName.ok, `CoreTerm.ExtName.deviceOnly, `CoreTerm.ExtName.isChoice, `CoreTerm.ExtName.pure, `TermRun.ExtEnabled, `TermRun.setPermit, `TermRun.wake, `TermRun.relView, `TermRun.parkVs, `TermRun.thrOfTid, `TermRun.wordNum, `TermRun.lastDevWrite, `TermRun.lastMmioW, `TermRun.Event.observable, `TermRun.obsTrace, `TermProgress.ExtBy, `TermLiveL3.SpuriousWake, `TermLiveCert.ScriptedRun, `CoreTerm.opAllocates, `CoreTerm.opWrites, `CoreTerm.Expr.binders, `CoreTerm.noShadow, `CoreTerm.argPosOf, `CoreTerm.tyAt, `CoreTerm.Tail, `CoreTerm.Tail.merge, `CoreTerm.idxArgOf, `CoreTerm.selfBoundW, `CoreTerm.selfBound, `CoreTerm.restrictedOK, `CoreTerm.fuelOf, `CoreTerm.declFuel, `CoreTerm.argFuelOf, `CoreTerm.loopBound, `CoreTerm.fuelDecl, `CoreTerm.restrictedDeclOK, `CoreTerm.checkerIdxNames, `CoreTerm.Expr.idxBinders, `CoreTerm.Decl.allNames, `CoreTerm.callBad, `CoreTerm.loopCallBad, `CoreTerm.loopCallsOK, `CoreTerm.RestrictedProg]
 
 /-- Stop rule for a constant: stop module, unless forced. -/
 def stopC (env : Environment) (force : List Name) (n : Name) : Bool :=
@@ -309,41 +283,4 @@ end CheckPremises
 
 -- The user-facing finals (statement-level roots).  Add a name here when a final is added.
 #eval CheckPremises.freeze "premises.out"
-  [``TermMain.machine_tokens_mainF, ``TermMain.token_unique_netF, ``TermMain.token_unique_finalF,
-   ``TermMain.reachable_typedF, ``TermMain.initOK_of, ``TermSpawn.machine_tokens_mainS,
-   ``TermSpawn.startOK_of_initOK, ``TermSpawn.startOK_spawnS,
-   -- premises frozen individually, so a diff names the premise that moved
-   ``TermMain.InitOK, ``TermMain.ObligationsF, ``TermInit.InitShape, ``TermSpawn.StartOK, ``TermSpawn.KidOK,
-   -- user-facing spawn finals only (generic-`Sp` A9SpawnFinal.* finals are NOT roots:
-   -- their SpLeafArms/SpawnArmX hypotheses are internal).  At `Sp := Spawn p k arch c0.cap` (SpawnArmZ; no staged hyps):
-   ``SpawnArmZ.machine_tokens_main_spawn, ``SpawnArmZ.token_unique_net_spawn, ``SpawnArmZ.token_unique_final_spawn,
-   ``SpawnArmZ.reachable_typed_spawn, ``SpawnArmZ.machine_tokens_main_spawn_init,
-   -- StartOKX routes (as TermSpawn.startOK_of_initOK / startOK_spawnS are rooted)
-   ``A9SpawnFinal.startOKX_of_initOK,
-   -- (StartOKX/ObligationsFX/TCtxX/PCtxX/CertWin*X enter through these finals' closures; not rooted separately)
-   ``A9SpawnFinal.startOKX_spawnS, ``A9NoSpawn.stepsX_iff_steps_of_noSpawn,
-   -- (E2, EM0) at `Sp := Spawn p k arch c0.cap ∨ Ext p k arch` (ExtArmZ; from InitOK)
-   ``ExtArmZ.machine_tokens_main_em0, ``ExtArmZ.token_unique_net_em0, ``ExtArmZ.token_unique_final_em0,
-   ``ExtArmZ.reachable_typed_em0,
-   -- progress on EM0 runs, its sharpness, configuration level (renamed progress_em0 -> progress_main)
-   ``TermProgress.progress_main, ``TermProgress.stuck_sharp, ``TermProgress.progress_main_cfg,
-   -- liveness headlines: the robust branch,
-   -- the certificate theorems on promise-free runs, the forced wait (with its caveat),
-   -- and the M3d instances behind `live def` (theorems and definitions, so a diff names the def that moved)
-   ``TermLiveL3.robust_touchedFree_thm, ``TermLiveL3.no_induced_livelock_robust2_thm,
-   ``TermLiveL3.no_induced_livelock_robust2_scenario,
-   ``TermLiveCert.no_livelock_of_check, ``TermLiveCert.no_livelock_of_check_fair, ``TermLiveCert.reach_of_check,
-   ``TermLiveCert.outcome_of_check, ``TermLiveCert.terminates_of_check, ``TermLiveCert.cfgCoh_scenario,
-   ``TermLiveC.forced_wait_held_thm,
-   -- critical-section form: scope 1 (TokPath), scope 2
-   -- (TokPathCall), and the seqlock / mutex / lockD-incrD instances; the 7 path defs are explicit roots so a diff names the def that moved
-   ``TermLiveC.forced_wait_in_critical_section, ``TermLiveC.forced_wait_in_critical_section_call,
-   ``TermLiveC.seqlock_forced_wait_in_critical_section, ``TermLiveC.mutex_forced_wait_in_critical_section,
-   ``TermLiveC.mutex_incr_forced_wait_in_critical_section,
-   ``TermLiveC.opSafe, ``TermLiveC.noUseOf, ``TermLiveC.tokEnd, ``TermLiveC.pathStep, ``TermLiveC.TokPath,
-   ``TermLiveC.callEnd, ``TermLiveC.TokPathCall,
-   ``SceProof.MainInst, ``SceProof.ScenInst, ``SceProof.mainInst, ``SceProof.scenInst,
-   -- device start + DMA ring
-   ``TermStartD.token_unique_net_board, ``TermStartD.token_unique_final_board,
-   ``TermStartD.machine_tokens_main_board, ``TermStartD.reachable_typed_board,
-   ``DmaRing.dma_ring_tokens_unique_net]
+  [``TermMain.machine_tokens_mainF, ``TermMain.token_unique_netF, ``TermMain.token_unique_finalF, ``TermMain.reachable_typedF, ``TermMain.initOK_of, ``TermSpawn.machine_tokens_mainS, ``TermSpawn.startOK_of_initOK, ``TermSpawn.startOK_spawnS, ``TermMain.InitOK, ``TermMain.ObligationsF, ``TermInit.InitShape, ``TermSpawn.StartOK, ``TermSpawn.KidOK, ``SpawnArmZ.machine_tokens_main_spawn, ``SpawnArmZ.token_unique_net_spawn, ``SpawnArmZ.token_unique_final_spawn, ``SpawnArmZ.reachable_typed_spawn, ``SpawnArmZ.machine_tokens_main_spawn_init, ``A9SpawnFinal.startOKX_of_initOK, ``A9SpawnFinal.startOKX_spawnS, ``A9NoSpawn.stepsX_iff_steps_of_noSpawn, ``ExtArmZ.machine_tokens_main_em0, ``ExtArmZ.token_unique_net_em0, ``ExtArmZ.token_unique_final_em0, ``ExtArmZ.reachable_typed_em0, ``TermProgress.progress_main, ``TermProgress.stuck_sharp, ``TermProgress.progress_main_cfg, ``TermLiveL3.robust_touchedFree_thm, ``TermLiveL3.no_induced_livelock_robust2_thm, ``TermLiveL3.no_induced_livelock_robust2_scenario, ``TermLiveCert.no_livelock_of_check, ``TermLiveCert.no_livelock_of_check_fair, ``TermLiveCert.reach_of_check, ``TermLiveCert.outcome_of_check, ``TermLiveCert.terminates_of_check, ``TermLiveCert.cfgCoh_scenario, ``TermLiveC.forced_wait_held_thm, ``TermLiveC.forced_wait_in_critical_section, ``TermLiveC.forced_wait_in_critical_section_call, ``TermLiveC.seqlock_forced_wait_in_critical_section, ``TermLiveC.mutex_forced_wait_in_critical_section, ``TermLiveC.mutex_incr_forced_wait_in_critical_section, ``TermLiveC.opSafe, ``TermLiveC.noUseOf, ``TermLiveC.tokEnd, ``TermLiveC.pathStep, ``TermLiveC.TokPath, ``TermLiveC.callEnd, ``TermLiveC.TokPathCall, ``SceProof.MainInst, ``SceProof.ScenInst, ``SceProof.mainInst, ``SceProof.scenInst, ``TermStartD.token_unique_net_board, ``TermStartD.token_unique_final_board, ``TermStartD.machine_tokens_main_board, ``TermStartD.reachable_typed_board, ``DmaRing.dma_ring_tokens_unique_net]

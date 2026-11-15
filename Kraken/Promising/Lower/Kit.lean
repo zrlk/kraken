@@ -95,6 +95,7 @@ instance emptyExe_valid : Kraken.Executable.ValidLayout emptyExe where
   label_size _ _ _ h := by simp [emptyExe] at h
   instr_size _ _ _ h := by simp [emptyExe] at h
   data_size _ _ _ h := by simp [emptyExe] at h
+  zeros_size _ _ _ h := by simp [emptyExe] at h
   no_wrap := by simp [emptyExe]
 
 /-- The relPure specification of a lowered thread. -/

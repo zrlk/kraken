@@ -27,6 +27,7 @@ def protosOp : Op → List Proto
   | .packT _ σ t => protosTy σ ++ protosTy t
   | .call _ _ _ ts => ts.flatMap protosTy
   | .spawn _ _ T ts => protosTy T ++ ts.flatMap protosTy
+  | .spawnI _ _ _ T ts => protosTy T ++ ts.flatMap protosTy
   | .mkTicket _ N P _ _ => [N, P]
   | .mkEPair _ (.word P) _ _ => [P]
   | _ => []
@@ -663,7 +664,8 @@ theorem progTypedM_step {p : Prog} {k : Promises.Knobs} {arch : WeakMem.Arch} {M
         exact progTypedM_set (y := { th with promises := th.promises ++ [c.mem.size] }) hc (hc i th hth) hj
 
 theorem progTypedM_spawn {p : Prog} {k : Promises.Knobs} {arch : WeakMem.Arch} {cap : Nat} {M : List Proto}
-    {c c' : Cfg} (hc : ProgTypedM M c) (h : Spawn p k arch cap c c') : ProgTypedM M c' := by
+    {c c' : Cfg} (hM : ∀ P ∈ protosOf p, P ∈ M) (hc : ProgTypedM M c) (h : Spawn p k arch cap c c') :
+    ProgTypedM M c' := by
   cases h with
   | mk i x f a T ts e th rt ws h1 h2 h3 h4 h5 =>
       obtain ⟨hT, hσ, hE, hS⟩ := hc i th h1
@@ -685,6 +687,38 @@ theorem progTypedM_spawn {p : Prog} {k : Promises.Knobs} {arch : WeakMem.Arch} {
           subst hb
           exact fun P hP => hT P (.inl (.inl hP))
         · intro f hf; simp [spawnKid] at hf
+      · refine progTypedM_set (y := spawnPar c i th x e) hc ⟨fun P hP => hT P (.inr hP), hσ, ?_, hS⟩ hj
+        intro b hb
+        simp only [spawnPar, withS, List.mem_cons] at hb
+        rcases hb with rfl | hb
+        · intro P hP; simp [protosTy] at hP
+        · exact hE b hb
+  | mkI i x f is a T ts e th d rt ws h1 h2 h3 h4 h5 h6 =>
+      obtain ⟨hT, hσ, hE, hS⟩ := hc i th h1
+      rw [h2] at hT
+      simp only [protosExpr, protosOp, List.mem_append, List.mem_flatMap] at hT
+      intro j t hj
+      simp only [spawnT, Array.getElem?_push] at hj
+      split at hj
+      · simp only [Option.some.injEq] at hj
+        subst hj
+        unfold ThProvM
+        refine ⟨?_, ?_, ?_, ?_⟩
+        · intro P hP
+          simp only [spawnKidI, protosExpr, List.mem_flatMap] at hP
+          exact hT P (.inl (.inr hP))
+        · intro σ hσ; simp [spawnKidI] at hσ
+        · intro b hb
+          simp only [spawnKidI, List.mem_singleton] at hb
+          subst hb
+          intro P hP
+          rcases protosTy_close hP with hP1 | ⟨σ, hσm, hP1⟩
+          · exact hM P ((mem_protosOf (List.mem_of_find?_eq_some h5)).1 P hP1)
+          · obtain ⟨t0, ht0, rfl⟩ := List.mem_map.1 (List.mem_reverse.1 hσm)
+            rcases protosTy_close hP1 with hP2 | ⟨σ1, hσ1, -⟩
+            · exact hT P (.inl (.inr ⟨t0, ht0, hP2⟩))
+            · cases hσ1
+        · intro f hf; simp [spawnKidI] at hf
       · refine progTypedM_set (y := spawnPar c i th x e) hc ⟨fun P hP => hT P (.inr hP), hσ, ?_, hS⟩ hj
         intro b hb
         simp only [spawnPar, withS, List.mem_cons] at hb
@@ -733,7 +767,7 @@ theorem progTypedM_stepsE {p : Prog} {k : Promises.Knobs} {arch : WeakMem.Arch} 
     (hM : ∀ P ∈ protosOf p, P ∈ M) {c0 c : Cfg} (h0 : ProgTypedM M c0) (hr : StepsE p k arch cap c0 c) :
     ProgTypedM M c :=
   stepsG_pres (fun _ _ hs hc => progTypedM_step hM hc hs)
-    (fun _ _ hs hc => hs.elim (progTypedM_spawn hc) (progTypedM_ext hc)) hr h0
+    (fun _ _ hs hc => hs.elim (progTypedM_spawn hM hc) (progTypedM_ext hc)) hr h0
 
 theorem thProv_iff {p : Prog} {th : TTh} : ThProv p th ↔ ThProvM (protosOf p) th := Iff.rfl
 

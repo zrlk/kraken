@@ -50,20 +50,18 @@ theorem ext_of_site {p : Prog} {E : TEnv} {th th' : TTh} {Tot : Res} {x : String
       rw [hret, hps]; exact hpw fr rest hst ws1
   · obtain ⟨ρ, η, cx, hCE, hE, hT, htv, hi, hpw, hDy⟩ := hE'
     rw [hterm] at hT
-    cases hT with
-    | let_ hop he =>
-      rename_i c'
-      cases hop with
-      | ext hu _ hsub hb =>
-        have hret : c'.ret = cx.ret := (bind_ret hb).trans (use_ret hu)
-        have htv1 := use_TvOK hu htv
-        have htv' := (bind_TvOK hb htv1.1 (by cases n <;> simp [ExtName.sig, tb]) hmg).1
-        obtain ⟨hi1, -⟩ := use_FInv hu hi
-        refine ⟨ρ, η, c', hCE, hE, by rw [hpt]; exact he, htv',
-          by rw [hps, hpe, hpk]; exact bind_FInv hb hi1 (hvr ρ η hCE).1 hl, ?_⟩
-        refine ⟨?_, by rw [hpt, hps]; exact hDy.letW hterm rfl⟩
-        show RetPw th'.σs th'.stack c'.ret
-        rw [hret, hps, hpk]; exact hpw
+    obtain ⟨c', -, hop, he, hck, -⟩ := TermA4.CkW_let hT.2
+    cases hop with
+    | ext hu _ hsub hb =>
+      have hret : c'.ret = cx.ret := (bind_ret hb).trans (use_ret hu)
+      have htv1 := use_TvOK hu htv
+      have htv' := (bind_TvOK hb htv1.1 (by cases n <;> simp [ExtName.sig, tb]) hmg).1
+      obtain ⟨hi1, -⟩ := use_FInv hu hi
+      refine ⟨ρ, η, c', hCE, hE, ⟨by rw [hpt]; exact he, by rw [hpt]; exact hck⟩, htv',
+        by rw [hps, hpe, hpk]; exact bind_FInv hb hi1 (hvr ρ η hCE).1 hl, ?_⟩
+      refine ⟨?_, by rw [hpt, hps]; exact hDy.letW hterm rfl⟩
+      show RetPw th'.σs th'.stack c'.ret
+      rw [hret, hps, hpk]; exact hpw
 
 theorem vrr_unit {ρ : Nat → Nat} {η : TEnv} : VRR ρ η .unit (shp .unit) [] .zero := by
   simp [VRR]

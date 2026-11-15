@@ -173,37 +173,36 @@ theorem cellOf_of_wordOf {t : Ty} {r : Idx} {P : Proto} (h : wordOf t = some (r,
   · cases h; exact ⟨_, rfl⟩
   · cases h
 
-/-- A typed, in-scope store's reference: a non-region reference type whose pointee passes `opaqueOK`. -/
+/-- A typed store's reference: a reference type whose pointee passes `opaqueOK` (any mode: a region
+store's value is a subtype of the payload or of its adaptation, `opaqueOK_subR`; StepScope fallout). -/
 theorem store_target {p : Prog} {ρ : Nat → Nat} {η : TEnv} {σs : List Ty} {K : TEnv → Nat → List Word → Res → Prop}
     {cx : Cx} {env : Env} {Rf : Res} {x : String} {rel : Bool} {a v : At} {tok : Option At} {e : Expr}
     (hT : Typed p cx (.let_ x (.store rel a v tok) e)) (hi : FInvR ρ η σs K cx env Rf) (htv : TvOK cx)
     (hsc : StepScope cx (.let_ x (.store rel a v tok) e) ∨ StepScopeR σs cx (.let_ x (.store rel a v tok) e)) :
-    ∃ t μ u, cx.peek a = .ok t ∧ cellOf t = some (μ, u) ∧ cx.opaqueOK u = true ∧ ∀ r, μ ≠ .rgn r := by
-  have hns : ∀ t, cx.peek a = .ok t → ∀ r u, cellOf t ≠ some (.rgn r, u) := by
-    rcases hsc with h | h
-    · exact h
-    · exact h.elim
+    ∃ t μ u, cx.peek a = .ok t ∧ cellOf t = some (μ, u) ∧ cx.opaqueOK u = true := by
   have _ := hi
+  have _ := hsc
   cases hT with
   | let_ hop he =>
   cases hop with
   | storeWordGive hp hw =>
     obtain ⟨μ, hc⟩ := cellOf_of_wordOf hw
-    exact ⟨_, μ, _, hp, hc, by simp [Cx.opaqueOK, Ty.guardT], fun r e => hns _ hp r _ (e ▸ hc)⟩
+    exact ⟨_, μ, _, hp, hc, by simp [Cx.opaqueOK, Ty.guardT]⟩
   | storeWordKeep hp hw =>
     obtain ⟨μ, hc⟩ := cellOf_of_wordOf hw
-    exact ⟨_, μ, _, hp, hc, by simp [Cx.opaqueOK, Ty.guardT], fun r e => hns _ hp r _ (e ▸ hc)⟩
+    exact ⟨_, μ, _, hp, hc, by simp [Cx.opaqueOK, Ty.guardT]⟩
   | storeWordHand hp hw =>
     obtain ⟨μ, hc⟩ := cellOf_of_wordOf hw
-    exact ⟨_, μ, _, hp, hc, by simp [Cx.opaqueOK, Ty.guardT], fun r e => hns _ hp r _ (e ▸ hc)⟩
+    exact ⟨_, μ, _, hp, hc, by simp [Cx.opaqueOK, Ty.guardT]⟩
   | storeOwn hp _ hc _ hu hsub =>
     exact ⟨_, _, _, hp, hc, sub_opaqueOK hsub
-      (peek_opaqueOK htv (use_inv (ρ := ρ) (η := η) (σs := σs) (env := env) hu).1), fun r e => by cases e⟩
+      (peek_opaqueOK htv (use_inv (ρ := ρ) (η := η) (σs := σs) (env := env) hu).1)⟩
   | storePub hp _ hc _ hu hsub =>
     exact ⟨_, _, _, hp, hc, sub_opaqueOK hsub
-      (peek_opaqueOK htv (use_inv (ρ := ρ) (η := η) (σs := σs) (env := env) hu).1), fun r e => by cases e⟩
-  | storeRgn hp _ hc => exact (hns _ hp _ _ hc).elim
-  | storeCap hp _ hc => exact (hns _ hp _ _ hc).elim
+      (peek_opaqueOK htv (use_inv (ρ := ρ) (η := η) (σs := σs) (env := env) hu).1)⟩
+  | storeRgn hp _ hc _ hu _ hsub _ | storeCap hp _ hc _ hu _ _ hsub _ =>
+    exact ⟨_, _, _, hp, hc, TermTyped.opaqueOK_subR
+      (peek_opaqueOK htv (use_inv (ρ := ρ) (η := η) (σs := σs) (env := env) hu).1) hsub⟩
 
 /-- A unit of an `IniAt` target lies in an initialised slot. -/
 theorem slot_lt {ini : AllocLabel → Nat} {cl : Cell} {ad : Address} {U : Ty} {us : List Acc} {j : Nat}
@@ -307,7 +306,7 @@ theorem seenHid_of {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {M
     simp only [TEnv.rc, hE'.2.2.1, hE'.2.2.2.1, e1, e2]
   have hs := hsc ⟨hCE, htid, hE, hT, htv, hFI, hsum⟩
   rw [hterm] at hs hT
-  obtain ⟨t, μs, u, hpk, hcu, ho, hnr⟩ := store_target hT.1 hFI htv hs
+  obtain ⟨t, μs, u, hpk, hcu, ho⟩ := store_target hT.1 hFI htv hs
   have hi0 := hFI.1
   obtain ⟨rt', ws, hea, hvr', -⟩ := peek_VR hi0.2.1 hpk
   have hea' := hea
@@ -359,8 +358,7 @@ theorem seenHid_of {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {M
             Classical.byContradiction fun h3 => hx ⟨N, e, us', h1, h2, h3⟩
         cases μs with
         | own => exact absurd (slot_lt hini husU hj N e us' hty he) hge
-        | rgn r0 => exact absurd rfl (hnr r0)
-        | pub =>
+        | pub | rgn _ =>
           have hI := slot_lt hini husU hj
           have hlt : (CE η).rc ad.label < (CE η).ini ad.label := by
             refine Nat.lt_of_not_le fun hle => hge ?_
@@ -374,8 +372,7 @@ theorem seenHid_of {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {M
             exact hid_of_hidden hnw (hh _ hI) hfB hnp (msg_of_undef hnw (hh _ hI) hfB hnp hU)
     · cases μs with
       | own => exact absurd hmode hown
-      | rgn r0 => exact absurd rfl (hnr r0)
-      | pub =>
+      | pub | rgn _ =>
         obtain ⟨f, hf, hsv⟩ := hmode
         rcases hsv with hsn | hv
         · rcases hPI.1 ad.label hsn with ⟨c2, h2, h3⟩ | ⟨h2, -⟩
@@ -432,8 +429,7 @@ theorem seenHid_of {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {M
       exact ⟨_, mc, hcohV, hmc, hml⟩
     cases μs with
     | own => exact absurd (slot_lt hini husU hj N e us' hty he) hge
-    | rgn r0 => exact absurd rfl (hnr r0)
-    | pub =>
+    | pub | rgn _ =>
       have hI := slot_lt hini husU hj
       have hlt : (CE η).rc ad.label < (CE η).ini ad.label := by
         refine Nat.lt_of_not_le fun hle => hge ?_
@@ -458,5 +454,220 @@ theorem seenHid_of {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {M
 #print axioms msg_of_undef
 #print axioms hid_of_latest
 #print axioms seenHid_of
+
+/-! ## (G2) `SeenHidX`: the twin of `seenHid_of` at an `xchg` -/
+
+/-- A cell type either is no `N`-array with accessible elements whose slot bound `o < r * nWords us'` fails,
+or names the failing array: a structural split (`Nat.lt_or_ge`), no excluded middle. -/
+theorem arr_splitX (T : Ty) (r o : Nat) :
+    (∀ N e us', T = .array (.lit N) e → accs e = some us' → o < r * nWords us') ∨
+      ∃ N e us', T = .array (.lit N) e ∧ accs e = some us' ∧ ¬ (o < r * nWords us') := by
+  cases T with
+  | array i e =>
+    cases i with
+    | lit N =>
+      cases he : accs e with
+      | none => exact Or.inl fun N' e' us' h1 h2 => by cases h1; rw [he] at h2; cases h2
+      | some us' =>
+        rcases Nat.lt_or_ge o (r * nWords us') with hlt | hge
+        · exact Or.inl fun N' e' us2 h1 h2 => by cases h1; rw [he] at h2; cases h2; exact hlt
+        · exact Or.inr ⟨N, e, us', rfl, he, Nat.not_lt.2 hge⟩
+    | _ => exact Or.inl fun N' e' us' h1 _ => by cases h1
+  | _ => exact Or.inl fun N' e' us' h1 _ => by cases h1
+
+/-- Any typed `xchg`'s reference peeks at a cell type. -/
+theorem xchg_tgtX {p : Prog} {cx : Cx} {x : String} {a v : At} {e : Expr}
+    (hT : Typed p cx (.let_ x (.xchg a v) e)) : ∃ t μ u, cx.peek a = .ok t ∧ cellOf t = some (μ, u) := by
+  cases hT with
+  | let_ hop _ =>
+  cases hop with
+  | xchg hp hx _ _ _ =>
+    cases hx with
+    | own _ hc _ => exact ⟨_, _, _, hp, hc⟩
+    | rgn _ hc _ _ _ => exact ⟨_, _, _, hp, hc⟩
+
+/-- Any typed `xchg`'s pointee passes `opaqueOK` (own: a subtype of `u`; region: of `u` or `adapt r u`). -/
+theorem xchg_opqX {p : Prog} {ρ : Nat → Nat} {η : TEnv} {σs : List Ty} {env : Env}
+    {cx : Cx} {x : String} {a v : At} {e : Expr} {t u : Ty} {μ : Mode}
+    (hT : Typed p cx (.let_ x (.xchg a v) e)) (htv : TvOK cx)
+    (hpk : cx.peek a = .ok t) (hcu : cellOf t = some (μ, u)) : cx.opaqueOK u = true := by
+  cases hT with
+  | let_ hop _ =>
+  cases hop with
+  | xchg hp hx hu hsub _ =>
+    rw [hpk] at hp; cases hp
+    have hotv := peek_opaqueOK htv (use_inv (ρ := ρ) (η := η) (σs := σs) (env := env) hu).1
+    cases hx with
+    | own _ hc _ =>
+      rw [hc] at hcu; cases hcu
+      rcases hsub with hs | hs <;> exact sub_opaqueOK hs hotv
+    | rgn _ hc _ _ _ =>
+      rw [hc] at hcu; cases hcu
+      rcases hsub with hs | hs
+      · exact sub_opaqueOK hs hotv
+      · have ho' := sub_opaqueOK hs hotv
+        rw [TermTyped.opaqueOK_adaptT] at ho'
+        exact ho'
+
+/-- **`SeenHidX` at every reachable `xchg`** (twin of `seenHid_of`; the target and `opaqueOK` come from the
+`xchg` typing, so no scope premise; the real-count case split is `arr_splitX`, not excluded middle). -/
+theorem seenHidX_of {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {MintOK : Res → Prop}
+    {c0 c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {i : Nat}
+    {th : TTh} {r : Memory × List Ts × TTh}
+    (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r)
+    (hvr : EnvVR th) {E' : TEnv}
+    (hE' : E'.sto = cutSto Eg i ∧ E'.pfr = Eg.pfr ∧ E'.ini = Eg.ini ∧ E'.rini = Eg.rini ∧ E'.tid = i)
+    (hall : UndefAt E' c.mem) :
+    SeenHidX k arch E' c.mem th := by
+  intro x a v e hterm rt pw ad μ ru us j hev had hc hus hj hguard
+  obtain ⟨S, ρ, η, cx, Rf, Rs, hCE, htid, hE, hT, htv, hFI, hsum, -, hm, -, -⟩ :=
+    (X.inv.thr i th X.hth).env X.inv.clo
+  have hsto : (CE η).sto = cutSto Eg i := by rw [hCE]; rfl
+  have hsto' : ∀ l, E'.sto l = η.sto l := fun l => by
+    show E'.sto l = (CE η).sto l
+    rw [hsto, hE'.1]
+  have hrc' : ∀ l, E'.rc l = (CE η).rc l := fun l => by
+    have e1 : (CE η).ini = Eg.ini := by rw [hCE]; rfl
+    have e2 : (CE η).rini = Eg.rini := by rw [hCE]; rfl
+    simp only [TEnv.rc, hE'.2.2.1, hE'.2.2.2.1, e1, e2]
+  rw [hterm] at hT
+  obtain ⟨t, μs, u, hpk, hcu⟩ := xchg_tgtX hT.1
+  have ho : cx.opaqueOK u = true :=
+    xchg_opqX (ρ := ρ) (η := η) (σs := th.σs) (env := th.env) hT.1 htv hpk hcu
+  have hi0 := hFI.1
+  obtain ⟨rt', ws, hea, hvr', -⟩ := peek_VR hi0.2.1 hpk
+  have hea' := hea
+  rw [hev] at hea'
+  simp only [Option.some.injEq, Prod.mk.injEq] at hea'
+  obtain ⟨rfl, rfl⟩ := hea'
+  have hacc : accs ru = accs (cl ρ η.wit 0 0 u) :=
+    pub_accs hi0.2.2.2.1 hi0.2.2.2.2.1 (fun k => (hE.2.1 k).1) hi0.2.1 htv hpk hcu ho hev hc
+  have husU : accs (cl ρ η.wit 0 0 u) = some us := hacc ▸ hus
+  have hnb : ∀ n e, ¬ Fd (.array (.lit n) e) (cl ρ η.wit 0 0 u) := fun n e hF => by
+    have h := Fd_accs hF
+    rw [husU] at h; simp [accs] at h
+  obtain ⟨ad', cl0, hws, hcl, hatU, hmode, hini⟩ := cell_target hcu hnb hvr'
+  have hpw : pw.val = .loc ad' 0 := by simpa using hws
+  have had' : ad' = ad := by simp only [addrOf, hpw, Option.some.injEq] at had; exact had
+  rw [had'] at hcl hatU hmode hini
+  have hcohV : th.vs.coh (offs ad j) ≤ Bnd k arch pw th.vs (offs ad j) :=
+    Nat.le_trans (Nat.le_max_left _ _) (Nat.le_max_right _ _)
+  have hfV : ∀ f, f ≤ pw.view → f ≤ Bnd k arch pw th.vs (offs ad j) := by
+    intro f hf
+    have hd : f ≤ dep k pw := by
+      have hvr0 := hvr a rt [pw] pw hev (List.mem_singleton_self _)
+      unfold dep; split
+      · exact Nat.le_trans hf hvr0
+      · exact hf
+    exact Nat.le_trans hd (Nat.le_trans (Nat.le_max_right _ _) (Nat.le_max_right _ _))
+  have hnp : ∀ (t : Nat) (m : Msg), t ∈ (stOf c.mem c.pairs th).promises → c.mem[t]? = some m →
+      m.val ≠ .undef :=
+    fun t m ht hm => X.inv.promNU i th t m X.hth ht hm
+  obtain ⟨-, hOwn, -, -, -, hHid, hPub, -, hPI, -, -⟩ := hm
+  rcases hguard with ⟨n, P, hW⟩ | ⟨hPU, hDS⟩
+  · -- a protocol-word unit
+    have hU := hall _ n P hW
+    obtain ⟨cW, hcW, hatW, hgW⟩ := hW
+    have hcW0 : η.sto ad.label = some cW := (hsto' _).symm.trans hcW
+    have hcc : cW = cl0 := by rw [hcl] at hcW0; exact (Option.some.inj hcW0).symm
+    rw [hcc] at hatW
+    have hnw : ∀ w : Word, w.val = .undef → ¬ WordOK (CE η) cl0.ty (offs ad j).offset w :=
+      fun w hw => undef_not_wordOK hatW hgW hw
+    by_cases hown : cl0.owner = some η.tid
+    · rcases arr_splitX cl0.ty ((CE η).rc ad.label) (ad.offset + j) with hrc | ⟨N, e, us', hty, he, hge⟩
+      · obtain ⟨vals, hcell, hlat, -⟩ := hOwn ad.label cl0 hcl hown
+        obtain ⟨w, hw, hwu⟩ := own_val hcell hatW hgW hrc
+        exact hid_of_latest hnw (hlat _ w hw) hwu hcohV hnp
+      · have hge := hge
+        cases μs with
+        | own => exact absurd (slot_lt hini husU hj N e us' hty he) hge
+        | pub | rgn _ =>
+          have hI := slot_lt hini husU hj
+          have hlt : (CE η).rc ad.label < (CE η).ini ad.label := by
+            refine Nat.lt_of_not_le fun hle => hge ?_
+            exact Nat.lt_of_lt_of_le (hI N e us' hty he) (Nat.mul_le_mul_right _ hle)
+          obtain ⟨f, hf, hns, hh⟩ := hHid.2 ad.label cl0 hcl hown hlt
+          obtain ⟨f', hf', hsv⟩ := hmode
+          have hff : f' = f := Option.some.inj (hf'.symm.trans hf)
+          rcases hsv with hsn | hv
+          · exact absurd hsn (hns (ZW.not_of_initR hcl hI))
+          · have hfB := hfV f (hff ▸ hv pw (List.mem_singleton_self _))
+            exact hid_of_hidden hnw (hh _ hI) hfB hnp (msg_of_undef hnw (hh _ hI) hfB hnp hU)
+    · cases μs with
+      | own => exact absurd hmode hown
+      | pub | rgn _ =>
+        obtain ⟨f, hf, hsv⟩ := hmode
+        rcases hsv with hsn | hv
+        · rcases hPI.1 ad.label hsn with ⟨c2, h2, h3⟩ | ⟨h2, -⟩
+          · have h2' : η.sto ad.label = some c2 := h2
+            rw [hcl] at h2'; cases h2'; exact absurd h3 hown
+          · have h2' : η.sto ad.label = none := h2
+            rw [hcl] at h2'; cases h2'
+        · have hfB := hfV f (hv pw (List.mem_singleton_self _))
+          exact hid_of_hidden hnw (hPub ad.label cl0 f hcl hown hf _ (slot_lt hini husU hj)) hfB hnp
+            (msg_of_undef hnw (hPub ad.label cl0 f hcl hown hf _ (slot_lt hini husU hj)) hfB hnp hU)
+  · -- (H) a designated start of a predicted unit: an own all-`.one` buffer, past the real count
+    obtain ⟨⟨c1, hc1, hown1⟩, hds⟩ := hDS
+    have hcc : c1 = cl0 := Option.some.inj (((hsto' _).symm.trans hc1).symm.trans hcl)
+    rw [hcc] at hown1
+    have hown : cl0.owner = some η.tid := by rw [hown1, hE'.2.2.2.2, htid]; rfl
+    obtain ⟨N, e, us', hty, he, h1⟩ : ∃ N e us', cl0.ty = .array (.lit N) e ∧ accs e = some us' ∧
+        ∀ u ∈ us', u = .one := by
+      rcases hds with ⟨U, c2, N, e, us', j', o', w', h2, h3, h4, h5, -⟩ | ⟨c2, N, e, us', h2, h3, h4, -, h5, -⟩
+      · have hc2 : c2 = cl0 := Option.some.inj (((hsto' _).symm.trans h2).symm.trans hcl)
+        rw [hc2] at h3
+        exact ⟨N, e, us', h3, h4, h5⟩
+      · have hc2 : c2 = cl0 := Option.some.inj (((hsto' _).symm.trans h2).symm.trans hcl)
+        rw [hc2] at h3
+        exact ⟨N, e, us', h3, h4, h5⟩
+    have hge : ¬ (ad.offset + j < (CE η).rc ad.label * nWords us') := by
+      intro hlt
+      apply hPU.2.2
+      intro c2 N2 e2 us2 h2 h3 h4
+      have hc2 : c2 = cl0 := Option.some.inj (((hsto' _).symm.trans h2).symm.trans hcl)
+      rw [hc2, hty] at h3
+      simp only [Ty.array.injEq, Idx.lit.injEq] at h3
+      obtain ⟨-, he2⟩ := h3
+      rw [← he2, he] at h4
+      cases h4
+      rw [hrc']
+      exact hlt
+    have hnw : ∀ w : Word, w.val = .undef → ¬ WordOK (CE η) cl0.ty (offs ad j).offset w :=
+      fun w hw => undef_not_wordOK_buf hty he h1 hw
+    have hU : ∃ (t : Nat) (m : Msg), t ≤ Bnd k arch pw th.vs (offs ad j) ∧ c.mem[t]? = some m ∧
+        m.loc = offs ad j := by
+      obtain ⟨vals, hcell, hlat, -⟩ := hOwn ad.label cl0 hcl hown
+      have hlt := off_lt_buf hatU hty he husU hj
+      have hlen : vals.length = N * nWords us' := by
+        rcases hcell with ⟨hwc, -⟩ | ⟨N2, e2, us2, hty2, hus2, -, hlen, -⟩
+        · rw [hty] at hwc; simp [wc, accs] at hwc
+        · rw [hty] at hty2
+          simp only [Ty.array.injEq, Idx.lit.injEq] at hty2
+          obtain ⟨hN2, he2⟩ := hty2
+          rw [← he2, he] at hus2
+          cases hus2
+          rw [hlen, hN2]
+      have hlt' : ad.offset + j < vals.length := by rw [hlen]; exact hlt
+      obtain ⟨⟨mc, hmc, hml, -⟩, -, -⟩ := hlat _ _ (List.getElem?_eq_getElem hlt')
+      exact ⟨_, mc, hcohV, hmc, hml⟩
+    cases μs with
+    | own => exact absurd (slot_lt hini husU hj N e us' hty he) hge
+    | pub | rgn _ =>
+      have hI := slot_lt hini husU hj
+      have hlt : (CE η).rc ad.label < (CE η).ini ad.label := by
+        refine Nat.lt_of_not_le fun hle => hge ?_
+        exact Nat.lt_of_lt_of_le (hI N e us' hty he) (Nat.mul_le_mul_right _ hle)
+      obtain ⟨f, hf, hns, hh⟩ := hHid.2 ad.label cl0 hcl hown hlt
+      obtain ⟨f', hf', hsv⟩ := hmode
+      have hff : f' = f := Option.some.inj (hf'.symm.trans hf)
+      rcases hsv with hsn | hv
+      · exact absurd hsn (hns (ZW.not_of_initR hcl hI))
+      · have hfB := hfV f (hff ▸ hv pw (List.mem_singleton_self _))
+        exact hid_of_hidden hnw (hh _ hI) hfB hnp hU
+
+#print axioms arr_splitX
+#print axioms xchg_tgtX
+#print axioms xchg_opqX
+#print axioms seenHidX_of
 
 end TermSeenHid

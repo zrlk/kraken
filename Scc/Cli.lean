@@ -11,7 +11,7 @@ import Scc.Cert.Place
 # The scc command line
 
 ```
-scc [--arch x64|arm] [--host linux|raw] [--gc none] [-o out.s | -o - | -S] [--report] [--cert c.lean] [--blocks b.lean] [--code c.lean] prog.w
+scc [--arch x64|arm] [--host linux|raw] [--gc none] [--granule] [-o out.s | -o - | -S] [--report] [--cert c.lean] [--blocks b.lean] [--code c.lean] prog.w
 scc --check c.lean
 ```
 
@@ -19,6 +19,10 @@ Defaults: `--arch x64 --host linux --gc none`, output `prog.s` (the input
 name with `.w` replaced by `.s`).  `--host raw` emits a unit for the raw ABI
 (`Scc.Lower.Raw`: no `_start`, the kernel routines through the TCB's routine
 table); it is not certified, and `--cert`, `--blocks` and `--code` refuse it.
+`--granule` passes the emitted items through the post-emission pipeline
+(the granule pass) before the GC tables are appended; for
+now `--host raw`, `--blocks` and `--code` refuse it; `--cert` writes a certificate about the
+post-pass output (`Cert.Gen.Placement.granule`).
 `-o -` or `-S` writes the assembly listing
 to standard output instead, and then nothing else goes there (so
 `scc -S prog.w | as -o prog.o` works).  `--report` prints every `Int` `+` site (each
@@ -75,15 +79,21 @@ structure Opts where
   code : Option String := none
   check : Option String := none
   certFails : Option Nat := none
+  /-- `--granule`: the text goes through the post-emission pipeline (the
+  granule pass) before the GC tables (`Scc.Lower.A64.Emitted.listing`,
+  `Scc.Lower.X64.Emitted.listing`). -/
+  granule : Bool := false
 
 def usage : String :=
-  "usage: scc [--arch x64|arm] [--host linux|raw] [--gc none] [-o out.s | -o - | -S] [--report] [--cert c.lean] [--blocks b.lean] [--code c.lean] prog.w\n       scc --check c.lean"
+  "usage: scc [--arch x64|arm] [--host linux|raw] [--gc none] [--granule] [-o out.s | -o - | -S] [--report] [--cert c.lean] [--blocks b.lean] [--code c.lean] prog.w\n       scc --check c.lean"
 
 def help : String := usage ++ "
 
   --arch x64|arm     target architecture (default x64; arm is AArch64 with FEAT_LSE2)
   --host linux|raw   target host (default linux; raw: a unit for the raw ABI, uncertified)
   --gc none          memory manager (default none: a bump allocator that never frees)
+  --granule          pass the text through the granule pass (descriptor words at the end of
+                     every 64 KiB granule); --host raw, --blocks and --code refuse it for now
   -o out.s           write the assembly to out.s (default: prog.s next to prog.w)
   -o -, -S           write the assembly listing to standard output
   --report           list the Int `+` sites (all checked) and which are boundable
@@ -116,6 +126,7 @@ def parseArgs : List String → Opts → Except String Opts
       match Gc.ofString? v with
       | some g => parseArgs rest { o with cfg := { o.cfg with gc := g } }
       | none => throw s!"scc: --gc {v}: unknown collector (available: none)"
+  | "--granule" :: rest, o => parseArgs rest { o with granule := true }
   | "-o" :: v :: rest, o => parseArgs rest { o with out := some v }
   | "--report" :: rest, o => parseArgs rest { o with report := true }
   | "--cert" :: v :: rest, o => parseArgs rest { o with cert := some v }
@@ -190,7 +201,8 @@ def spawnShape (ir : IR.Program) : Bool :=
 
 /-- The compiler for architecture `arch`, with its emission `emit` (the
 ISA's half of `lowerAll`: `Scc.Lower.A64.emitAll`, `Scc.Lower.X64.emitAll`,
-with the text and the other outputs, `Scc.Lower.Listing`).  The program is
+with the text and the other outputs, `Scc.Lower.Listing`; its first argument
+is `--granule`).  The program is
 lowered by `Scc.Lower.lowerIRHost` (`Scc.Lower.lowerIR` for `--host linux`),
 then emitted by `emit`, so that what `scc`
 writes is the output of the ISA's `lowerAll` (`Scc/Lower/SpecA64.lean`,
@@ -201,7 +213,7 @@ writes is the output of the ISA's `lowerAll` (`Scc/Lower/SpecA64.lean`,
 given. The listing's placement data, if any, gives the frames and labels of
 `--blocks`' placement file (`Scc.Cert.Place.FnPlace`, on AArch64). `wide`, if any, is `--code`'s
 one-word fragment check of the listing (`Scc.Cert.Blocks.code`). -/
-def run (arch : Arch) (emit : Lower.Lowered → Except String Lower.Listing) (args : List String)
+def run (arch : Arch) (emit : Bool → Lower.Lowered → Except String Lower.Listing) (args : List String)
     (sizer : Option (String → String → IO (Except String (List Nat × List (String × Nat)))) := none)
     (wide : Option (String → Except String Unit) := none) :
     IO UInt32 := do
@@ -216,6 +228,9 @@ def run (arch : Arch) (emit : Lower.Lowered → Except String Lower.Listing) (ar
     if let some f := o.check then return ← checkCert f
     if o.cfg.host == .raw && (o.cert.isSome || o.blocks.isSome || o.code.isSome) then
       err "scc: --host raw: --cert, --blocks and --code are not available (a raw unit is not certified)"
+      return 2
+    if o.granule && (o.cfg.host == .raw || o.blocks.isSome || o.code.isSome) then
+      err "scc: --granule: --host raw, --blocks and --code are not available yet"
       return 2
     let toStdout := o.out == some "-"
     let info (s : String) : IO Unit := if toStdout then IO.eprintln s else IO.println s
@@ -235,7 +250,7 @@ def run (arch : Arch) (emit : Lower.Lowered → Except String Lower.Listing) (ar
     let low ← match Lower.lowerIRHost o.cfg c.prog with
       | .ok l => pure l
       | .error m => err s!"{input}: error: {m}"; return 1
-    let lst ← match emit low with
+    let lst ← match emit o.granule low with
       | .ok l => pure l
       | .error m => err s!"scc: --arch {o.cfg.arch.name}: {m}"; return 2
     let asm := lst.text
@@ -256,7 +271,8 @@ def run (arch : Arch) (emit : Lower.Lowered → Except String Lower.Listing) (ar
           entries := Lower.threadEntries low.ir,
           budget := o.cfg.layout.stackBytes - IR.Tcb.headroom,
           fails := o.certFails, funcs := low.ir.funcs.length, parts := lst.parts,
-          checked := low.ir.funcs.map (·.checkStack), spawn := spawnShape low.ir }
+          checked := low.ir.funcs.map (·.checkStack), spawn := spawnShape low.ir,
+          granule := o.granule }
       match ← (IO.FS.writeFile cf (Cert.Gen.render o.cfg name src asm sizesT c.prog pl)).toBaseIO with
       | .ok () => pure ()
       | .error e => err s!"scc: cannot write {cf}: {e}"; return 2

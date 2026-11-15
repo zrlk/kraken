@@ -386,11 +386,14 @@ def lkN {α : Type} : List (Nat × α) → Nat → Option α
   | [], _ => none
   | (j, a) :: l, k => if Nat.beq j k then some a else lkN l k
 
-/-- An item of a function: a label (with its key), or an instruction cell
-with its class (`clsOf`) and the key of the label it branches to. -/
+/-- An item of a function: a label (with its key), an instruction cell
+with its class (`clsOf`) and the key of the label it branches to, or a data
+cell of `z` bytes (the granule pass's fillers and words; scc's own text has
+none). -/
 inductive It where
   | lab (l : Label) (key : Nat)
   | ins (i : Instr) (z : Nat) (c : K) (tgt : Nat)
+  | dat (z : Nat)
 
 /-- The item of an instruction cell. -/
 def It.ofIns (i : Instr) (z : Nat) : It :=
@@ -399,7 +402,8 @@ def It.ofIns (i : Instr) (z : Nat) : It :=
 
 /-- **The functions of the cells** (`Blocks.functions`): a function starts
 at a label whose key is in `decl` or at the first label; cells before the
-first label are dropped. -/
+first label are dropped. A data cell is an item of its function (`It.dat`),
+so that indices from a label count every cell, as A3's coverage does. -/
 def splitFns (decl : List Nat) (cells : List (Directive × Nat)) : List (Label × List It) :=
   go cells none []
 where
@@ -412,7 +416,7 @@ where
       if decl.any (Nat.beq · k) then go ds (some (l, [.lab l k])) ((f, its.reverse) :: acc)
       else go ds (some (f, .lab l k :: its)) acc
     | (.instr i, z) :: ds, cur, acc => go ds (cur.map fun (f, its) => (f, It.ofIns i z :: its)) acc
-    | (.byteArray _, _) :: ds, cur, acc => go ds cur acc
+    | (.byteArray _, z) :: ds, cur, acc => go ds (cur.map fun (f, its) => (f, .dat z :: its)) acc
 
 /-! ## The offsets before every item -/
 
@@ -438,6 +442,7 @@ def passItem (st : PassSt) : It → PassSt
   | .lab _ k =>
     let (a, n, ch) := flow st.atLabel k st.o
     { st with atLabel := a, o := n, changed := st.changed || ch, before := st.o :: st.before }
+  | .dat _ => { st with before := st.o :: st.before }
   | .ins i _ c tgt =>
     let st := { st with before := st.o :: st.before }
     if st.o == .none then st else
@@ -552,6 +557,7 @@ one whose offsets `step` loses) is a single instruction of the label's
 group, at its index from the label. -/
 def cutItem (regions : List (Nat × Int × Int)) (st : CutSt) : It × Pt → CutSt
   | (.lab l k, _) => { st.close with lab := l, key := k, site := isSite l, cnt := 0, off := 0 }
+  | (.dat z, _) => { st.flush with ev := st.cnt :: st.ev, cnt := st.cnt + 1, off := st.off + z }
   | (.ins i z c _, o) =>
     let single : CutSt := { st.flush with ev := st.cnt :: st.ev }
     let st' : CutSt :=

@@ -39,22 +39,6 @@ theorem pubWords_Fd {T U : Ty} (h : Fd T U) : ∀ L, pubWords T L = pubWords U L
   | refl => intro L; rfl
   | fold hW hg _ _ ih => intro L; rw [ih L]; exact TermCntEmb.pubWords_cl_unfold hW hg L
 
-theorem guardT_adapt : ∀ (u : Ty) (r : Idx) (k : Nat), (adapt r u).guardT k = u.guardT k := by
-  intro u
-  induction u with
-  | ptr μ t _ => intro r k; cases μ <;> rfl
-  | ptrOpt μ t _ => intro r k; cases μ <;> rfl
-  | loc μ t _ => intro r k; cases μ <;> rfl
-  | prod a b iha ihb => intro r k; simp only [adapt, Ty.guardT, iha, ihb]
-  | sum a b iha ihb => intro r k; simp only [adapt, Ty.guardT, iha, ihb]
-  | array i t ih => intro r k; simp only [adapt, Ty.guardT, ih]
-  | iex t ih => intro r k; simp only [adapt, Ty.guardT, ih]
-  | iall t ih => intro r k; simp only [adapt, Ty.guardT, ih]
-  | tex κ t ih => intro r k; simp only [adapt, Ty.guardT, ih]
-  | refine t ψ ih => intro r k; simp only [adapt, Ty.guardT, ih]
-  | mu t ih => intro r k; simp only [adapt, Ty.guardT, ih]
-  | _ => intro r k; rfl
-
 /-- **The counting transfer**: a counted slot at offset `o + j` of a cell of type `T`, holding
 `w`'s value, where `U` is the component at `o` (units `us`, `j` a one-word unit), is counted at
 `j` in any value `ws ∋ w` of a type `rt` counting as `U`. -/
@@ -120,12 +104,13 @@ theorem fin {η : TEnv} {sto : Sto} {b : Address} {us : List Acc} {rt : Ty} {ws 
   exact TermCntPub.cnt_pubWords (cnt_core hat hus hpw hwc hsh hone hwj rfl hc hv) hwj hn
 
 /-- A cell operation through a pointer/locative at `t` (pointee `u`), of a variable at a subtype of
-`u` or of its region adaptation. -/
+`u` or of its region adaptation (M8: at a noOwn cell, so the pointee closes shallow-pub). -/
 theorem cell_pw {ρ : Nat → Nat} {η : TEnv} {σs : List Ty} {K : TEnv → List Word → Prop} {cx c₁ : Cx}
     {env : Env} {a : At} {x : String} {t u t0 tv rt : Ty} {μ : Mode} {ws : List Word} {pw : Word}
     {b : Address} {us : List Acc}
     (hi : FInv ρ η σs K cx env) (htv : TvOK cx) (hp : cx.peek a = .ok t) (hc : cellOf t = some (μ, u))
-    (hu : cx.use (.var x) = .ok (tv, c₁)) (hsub : SubS c₁ tv u ∨ ∃ r, SubS c₁ tv (adapt r u))
+    (hu : cx.use (.var x) = .ok (tv, c₁))
+    (hsub : SubS c₁ tv u ∨ ∃ r, SubS c₁ tv (adapt r u) ∧ ∃ ca, η.sto b.label = some ca ∧ Ty.noOwnIn [] ca.ty = true)
     (hlk : lookupE env x = some (rt, ws)) (hea : evalAt env a = some (t0, [pw])) (hb : addrOf pw = some b)
     (hacc : cx.opaqueOK u = true → accs (cl ρ η.wit 0 0 u) = some us) :
     PWAt η b us rt ws := by
@@ -141,21 +126,54 @@ theorem cell_pw {ρ : Nat → Nat} {η : TEnv} {σs : List Ty} {K : TEnv → Lis
     rcases hsub with hsub | ⟨r, hsub⟩
     · have ho := sub_opaqueOK hsub hotv
       exact ⟨ho, TermBufPW.pw_chain hi hl hsub ho htb⟩
-    · have ho' := sub_opaqueOK hsub hotv
+    · obtain ⟨hsub, ca, hca, hno⟩ := hsub
+      have ho' := sub_opaqueOK hsub hotv
       have ho : cx.opaqueOK u = true := by
         unfold Cx.opaqueOK at ho' ⊢; simpa only [guardT_adapt] using ho'
       have h2 := TermBufPW.pw_chain hi hl hsub ho' (by rw [tb_adapt]; exact htb)
-      have h3 := TermAdaptPW.pubWords_cl_adapt0 u r ρ η.wit
+      have hs : sNo (cl ρ η.wit 0 0 u) = true := by
+        obtain ⟨rta, wsa, hev, hvr, -⟩ := peek_VR hi.2.1 hp
+        rw [hea, Option.some.injEq, Prod.mk.injEq] at hev
+        exact TermPubOnly.sNo_cell hvr hc hev.2.symm hb (fun _ _ h => h) hca hno
+      have h3 := TermAdaptPW.pubWords_cl_adapt0 u r ρ η.wit hs
       exact ⟨ho, fun L => (h3.1 L).symm.trans (h2.1 L), h2.2.trans h3.2⟩
   obtain ⟨ho, hpw, hwc⟩ := key
   refine ⟨c, U, hsto, hat, by rw [Fd_accs hFd]; exact hacc ho, fun L => (pubWords_Fd hFd L).trans (hpw L),
     hwc.trans (by unfold wc; rw [Fd_accs hFd]), hl.1⟩
 
+/-- (M8) A region reference's cell has a frontier (`ModeOK .rgn`), so `PubCpl` makes it noOwn. -/
+theorem rgn_cellNoOwn {ρ : Nat → Nat} {η : TEnv} {σs : List Ty} {cx : Cx} {env : Env} {a : At} {t u t0 : Ty}
+    {r : Idx} {pw : Word} {b : Address} {g : G} {s : St} (hv : VarsOK ρ η σs cx.vars env)
+    (hm : MemInv g (CE η) s) (hp : cx.peek a = .ok t) (hc : cellOf t = some (.rgn r, u))
+    (hea : evalAt env a = some (t0, [pw])) (hb : addrOf pw = some b) :
+    ∃ ca, η.sto b.label = some ca ∧ Ty.noOwnIn [] ca.ty = true := by
+  have hpc : ∀ l c f, η.sto l = some c → η.pfr l = some f → Ty.noOwnIn [] c.ty = true :=
+    fun l c f h1 h2 => (hm.2.2.2.2.2.2.2.2.1.2.2.1 l c f h1 h2).2.2.2.1
+  obtain ⟨rt', ws, hea', hvr, -⟩ := peek_VR hv hp
+  rw [hea, Option.some.injEq, Prod.mk.injEq] at hea'
+  obtain ⟨-, rfl⟩ := hea'
+  rcases cell_cases hc with rfl | rfl
+  · simp only [TermSound.VR, ModeOK] at hvr
+    obtain ⟨a', c, hval, -, hs, -, ⟨f, hf, -⟩, -⟩ := hvr
+    simp only [List.map, List.cons.injEq] at hval
+    simp only [addrOf, hval.1, Option.some.injEq] at hb
+    subst hb
+    exact ⟨c, hs, hpc _ _ _ hs hf⟩
+  · simp only [TermSound.VR, ModeOK] at hvr
+    rcases hvr with ⟨hval, -⟩ | ⟨a', c, U, hval, hs, -, -, ⟨f, hf, -⟩, -⟩
+    · simp only [List.map, List.cons.injEq] at hval
+      simp [addrOf, hval.1] at hb
+    · simp only [List.map, List.cons.injEq] at hval
+      simp only [addrOf, hval.1, Option.some.injEq] at hb
+      subst hb
+      exact ⟨c, hs, hpc _ _ _ hs hf⟩
+
 /-- **`FulCntR` holds.** -/
 theorem fulCntR_of (p : Prog) : TermK2a.FulCntR p := by
-  intro E sto g mem pairs th x rt ws w m cl a h1 hT _ hW hv hn hcl _ hcnt
+  intro E sto g mem pairs th x rt ws w m cl a h1 hT hm hW hv hn hcl _ hcnt
   obtain ⟨ρ, η, cx, hE, hEo, hTy, htv, hi, -⟩ := hT
   subst hE
+  replace hTy := hTy.1
   have hsto' : ∀ l c, η.sto l = some c → sto l = some c := h1
   have hfast : sNo rt = true → ∃ w' ∈ pubWords rt ws, Names a w' ∧ w'.rts = w.rts := fun hs =>
     ⟨w, by rw [pubWords_of_sNo hs]; exact hW.2.1, hn, rfl⟩
@@ -181,12 +199,14 @@ theorem fulCntR_of (p : Prog) : TermK2a.FulCntR p := by
     | storeRgn hpk _ hc0 _ hu _ hsub _ =>
       simp only [TermNoFul.DataVar] at hdv; subst hdv
       obtain ⟨-, _, _, _, _, hea, -, hcr, hb, hus⟩ := hU
-      exact hfin (cell_pw hi htv hpk hc0 hu (hsub.imp id fun h => ⟨_, h⟩) hlk hea hb fun ho =>
+      exact hfin (cell_pw hi htv hpk hc0 hu
+        (hsub.imp id fun h => ⟨_, h, rgn_cellNoOwn hi.2.1 hm hpk hc0 hea hb⟩) hlk hea hb fun ho =>
         (pub_accs hi.2.2.2.1 hi.2.2.2.2.1 (fun k => (hEo.2.1 k).1) hi.2.1 htv hpk hc0 ho hea hcr).symm.trans hus)
     | storeCap hpk _ hc0 _ hu _ _ hsub _ =>
       simp only [TermNoFul.DataVar] at hdv; subst hdv
       obtain ⟨-, _, _, _, _, hea, -, hcr, hb, hus⟩ := hU
-      exact hfin (cell_pw hi htv hpk hc0 hu (hsub.imp id fun h => ⟨_, h⟩) hlk hea hb fun ho =>
+      exact hfin (cell_pw hi htv hpk hc0 hu
+        (hsub.imp id fun h => ⟨_, h, rgn_cellNoOwn hi.2.1 hm hpk hc0 hea hb⟩) hlk hea hb fun ho =>
         (pub_accs hi.2.2.2.1 hi.2.2.2.2.1 (fun k => (hEo.2.1 k).1) hi.2.1 htv hpk hc0 ho hea hcr).symm.trans hus)
     | storeWordGive _ _ hu _ hii _ _ _ _ _ _ _ _ _ =>
       simp only [TermNoFul.DataVar] at hdv; subst hdv
@@ -205,7 +225,8 @@ theorem fulCntR_of (p : Prog) : TermK2a.FulCntR p := by
         exact hfin (cell_pw hi htv hpk hc0 hu (Or.inl (hsub.elim id id)) hlk hea hb fun ho =>
           (pub_accs hi.2.2.2.1 hi.2.2.2.2.1 (fun k => (hEo.2.1 k).1) hi.2.1 htv hpk hc0 ho hea hcr).symm.trans hus)
       | rgn _ hc0 _ _ _ =>
-        exact hfin (cell_pw hi htv hpk hc0 hu (hsub.imp id fun h => ⟨_, h⟩) hlk hea hb fun ho =>
+        exact hfin (cell_pw hi htv hpk hc0 hu
+          (hsub.imp id fun h => ⟨_, h, rgn_cellNoOwn hi.2.1 hm hpk hc0 hea hb⟩) hlk hea hb fun ho =>
           (pub_accs hi.2.2.2.1 hi.2.2.2.2.1 (fun k => (hEo.2.1 k).1) hi.2.1 htv hpk hc0 ho hea hcr).symm.trans hus)
     | xchgAt =>
       simp only [TermNoFul.DataVar] at hdv; subst hdv

@@ -89,15 +89,15 @@ def OwnFreshZ (c : Cfg) (Tot HP : Nat → Res) (HS : Res) (cr : Nat → Ts → R
       HS (.own (freshLabel c.lbase c.n q j)) = 0
 
 /-- (replaces the `ObligationsF` field `plantClos`) **Promise closure**: an outstanding promise
-of `j` at a cell of `j`'s cut (`GEnv.InCut`) whose type holds no `own` or region reference
-(`noOwnIn`, `rgnFree`), whose value names one of `j`'s cells, names a cell with a frontier (the
+of `j` at a cell of `j`'s cut (`GEnv.InCut`) whose type holds no `own` reference
+(`noOwnIn`), whose value names one of `j`'s cells, names a cell with a frontier (the
 plant of `TermPlantF.plantOf` fired at the promise; kept by `TermPromClos.promClos_thread` /
 `promClos_prom`). -/
 def PromClosG (Eg : GEnv) (c : Cfg) : Prop :=
   ∀ (j : Nat) (th : TTh) (t : Ts) (m : Msg), c.ths[j]? = some th → t ∈ th.promises → c.mem[t]? = some m →
     ∀ (a' : Address) (g : Nat), m.val = .loc a' g → ∀ cl, Eg.sto a'.label = some cl → cl.owner = some j →
       ∀ cm, Eg.sto m.loc.label = some cm → (cm.owner = some j ∨ Eg.Shared m.loc.label) →
-        Ty.noOwnIn [] cm.ty = true → rgnFree cm.ty = true → ∃ f, Eg.pfr a'.label = some f
+        Ty.noOwnIn [] cm.ty = true → ∃ f, Eg.pfr a'.label = some f
 
 /-- What an outstanding promise of `i` may name (the conclusion of `FgnPromClosG`): a cell
 with a frontier, a cell of `i`, a box, or one of `i`'s labels holding no cell yet. -/
@@ -105,13 +105,13 @@ def TgtOK (Eg : GEnv) (c : Cfg) (i : Nat) (l : AllocLabel) : Prop :=
   (∃ f, Eg.pfr l = some f) ∨ (∃ cl, Eg.sto l = some cl ∧ cl.owner = some i) ∨ (∃ B, Eg.box l = some B) ∨
     ∃ n, l = freshLabel c.lbase c.n i n ∧ Eg.sto l = none
 
-/-- **Foreign promise closure**: an outstanding promise of `i` at a cell of a `noOwnIn`/`rgnFree`
+/-- **Foreign promise closure**: an outstanding promise of `i` at a cell of a `noOwnIn`
 type whose value is a pointer names a target `TgtOK` (`TermFgnClos.fgnClos_thread` /
 `fgnClos_prom` keep it; `fgnClos_use` is the consumer form). -/
 def FgnPromClosG (Eg : GEnv) (c : Cfg) : Prop :=
   ∀ (i : Nat) (th : TTh) (t : Ts) (m : Msg), c.ths[i]? = some th → t ∈ th.promises → c.mem[t]? = some m →
     ∀ (a' : Address) (g : Nat), m.val = .loc a' g → ∀ cm, Eg.sto m.loc.label = some cm →
-      Ty.noOwnIn [] cm.ty = true → rgnFree cm.ty = true → TgtOK Eg c i a'.label
+      Ty.noOwnIn [] cm.ty = true → TgtOK Eg c i a'.label
 
 /-- (K1a, D-B) **Foreign promise closure at counted slots**: an outstanding promise of `i` at a
 single-word counted slot of a cell of Σ whose value is a pointer names a target `TgtOK`

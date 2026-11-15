@@ -47,7 +47,18 @@
 # `hello1rawa64/hello1.s` (`scc --host raw -S` of `hello1`, uncertified;
 # linked with `raw.ld`: the text at 0, `.rodata` and the data on fresh 64 KiB
 # granules; `Spike/Test/Hello1RawLinkedX64.lean`,
-# `Spike/Test/Hello1RawLinkedA64.lean`); the digests in `ElfTest.lean`,
+# `Spike/Test/Hello1RawLinkedA64.lean`), and `hello1x64g/hello1` and
+# `hello1a64g/hello1` from `hello1x64g/hello1.s` and `hello1a64g/hello1.s`
+# (`scc --granule -S` of `hello1`, the post-pass text; linked as
+# `hello1x64/hello1` and `hello1a64/hello1` are, with no pin: the pass's
+# `.p2align 16` gives `.text` a 64 KiB alignment, so GNU `ld` and lld place it
+# on a granule, `0x410000` and `0x220000` today), and in the same way
+# `ret0x64g/ret0`, `ret0a64g/ret0` and `ret0x64lldg/ret0` from their `ret0.s`
+# (`scc --granule -S` of `ret0`; linked as `ret0x64/ret0`, `ret0a64/ret0` and
+# `ret0x64lld/ret0` are, `ld.lld` placing `.text` at `0x210000`), and
+# `call1x64g/call1`, `call1a64g/call1` and `frame0x64g/frame0` from their
+# `call1.s` and `frame0.s` (`scc --granule -S` of `call1` and `frame0`; linked
+# as `call1x64/call1`, `call1a64/call1` and `frame0x64/frame0` are); the digests in `ElfTest.lean`,
 # `Ret0LinkedX64.lean`, `Frame0LinkedX64.lean`, `Ret0LldX64.lean`,
 # `Ret0LinkedA64.lean`, `Hello1LinkedA64.lean`, `Call1LinkedA64.lean` and
 # `Call1LinkedX64.lean`, `Hello1LinkedX64.lean`, `WakeLinkedA64Elf.lean`, `WakeLinkedX64Elf.lean`,
@@ -73,11 +84,13 @@ trap 'rm -rf "$TMP"' EXIT
 FIXTURES="x a a_def a_bid ret0x64/ret0 ret0a64/ret0 hello1a64/hello1 call1a64/call1 frame0x64/frame0 call1x64/call1"
 FIXTURES="$FIXTURES ret0x64lld/ret0 hello1x64/hello1 wakea64/wake wakex64/wake helloa64/hello"
 FIXTURES="$FIXTURES hellox64/hello hello1rawx64/hello1 hello1rawa64/hello1"
+FIXTURES="$FIXTURES hello1x64g/hello1 hello1a64g/hello1 ret0x64g/ret0 ret0a64g/ret0 ret0x64lldg/ret0"
+FIXTURES="$FIXTURES call1x64g/call1 call1a64g/call1 frame0x64g/frame0"
 tools() {
   case "$1" in
-    x|ret0x64/ret0|frame0x64/frame0|call1x64/call1|hello1x64/hello1|wakex64/wake|hellox64/hello|hello1rawx64/hello1) echo "as ld" ;;
-    a|a_def|a_bid|ret0a64/ret0|hello1a64/hello1|call1a64/call1|wakea64/wake|helloa64/hello|hello1rawa64/hello1) echo "clang ld.lld" ;;
-    ret0x64lld/ret0) echo "as ld.lld" ;;
+    x|ret0x64/ret0|frame0x64/frame0|call1x64/call1|hello1x64/hello1|wakex64/wake|hellox64/hello|hello1rawx64/hello1|hello1x64g/hello1|ret0x64g/ret0|call1x64g/call1|frame0x64g/frame0) echo "as ld" ;;
+    a|a_def|a_bid|ret0a64/ret0|hello1a64/hello1|call1a64/call1|wakea64/wake|helloa64/hello|hello1rawa64/hello1|hello1a64g/hello1|ret0a64g/ret0|call1a64g/call1) echo "clang ld.lld" ;;
+    ret0x64lld/ret0|ret0x64lldg/ret0) echo "as ld.lld" ;;
   esac
 }
 link() {
@@ -91,23 +104,42 @@ link() {
        ld.lld -static --build-id -o "$2/a_bid" "$TMP/a.o" "$D/bid.ld" ;;
     ret0x64/ret0) mkdir -p "$2/ret0x64" && as -o "$TMP/ret0.o" "$D/ret0x64/ret0.s" &&
        ld -static -o "$2/ret0x64/ret0" "$TMP/ret0.o" ;;
+    ret0x64g/ret0) mkdir -p "$2/ret0x64g" && as -o "$TMP/ret0g.o" "$D/ret0x64g/ret0.s" &&
+       ld -static -o "$2/ret0x64g/ret0" "$TMP/ret0g.o" ;;
     frame0x64/frame0) mkdir -p "$2/frame0x64" && as -o "$TMP/frame0.o" "$D/frame0x64/frame0.s" &&
        ld -static -o "$2/frame0x64/frame0" "$TMP/frame0.o" ;;
+    frame0x64g/frame0) mkdir -p "$2/frame0x64g" && as -o "$TMP/frame0g.o" "$D/frame0x64g/frame0.s" &&
+       ld -static -o "$2/frame0x64g/frame0" "$TMP/frame0g.o" ;;
     call1x64/call1) mkdir -p "$2/call1x64" && as -o "$TMP/call1.o" "$D/call1x64/call1.s" &&
        ld -static -o "$2/call1x64/call1" "$TMP/call1.o" ;;
+    call1x64g/call1) mkdir -p "$2/call1x64g" && as -o "$TMP/call1g.o" "$D/call1x64g/call1.s" &&
+       ld -static -o "$2/call1x64g/call1" "$TMP/call1g.o" ;;
     hello1x64/hello1) mkdir -p "$2/hello1x64" && as -o "$TMP/hello1.o" "$D/hello1x64/hello1.s" &&
        ld -static -o "$2/hello1x64/hello1" "$TMP/hello1.o" ;;
+    hello1x64g/hello1) mkdir -p "$2/hello1x64g" && as -o "$TMP/hello1g.o" "$D/hello1x64g/hello1.s" &&
+       ld -static -o "$2/hello1x64g/hello1" "$TMP/hello1g.o" ;;
     ret0x64lld/ret0) mkdir -p "$2/ret0x64lld" && as -o "$TMP/ret0.o" "$D/ret0x64lld/ret0.s" &&
        ld.lld -static -o "$2/ret0x64lld/ret0" "$TMP/ret0.o" ;;
+    ret0x64lldg/ret0) mkdir -p "$2/ret0x64lldg" && as -o "$TMP/ret0g.o" "$D/ret0x64lldg/ret0.s" &&
+       ld.lld -static -o "$2/ret0x64lldg/ret0" "$TMP/ret0g.o" ;;
     ret0a64/ret0) mkdir -p "$2/ret0a64" &&
        clang --target=aarch64-linux-gnu -march=armv8.4-a -nostdlib -static -fuse-ld=lld \
          -o "$2/ret0a64/ret0" "$D/ret0a64/ret0.s" ;;
+    ret0a64g/ret0) mkdir -p "$2/ret0a64g" &&
+       clang --target=aarch64-linux-gnu -march=armv8.4-a -nostdlib -static -fuse-ld=lld \
+         -o "$2/ret0a64g/ret0" "$D/ret0a64g/ret0.s" ;;
     hello1a64/hello1) mkdir -p "$2/hello1a64" &&
        clang --target=aarch64-linux-gnu -march=armv8.4-a -nostdlib -static -fuse-ld=lld \
          -o "$2/hello1a64/hello1" "$D/hello1a64/hello1.s" ;;
+    hello1a64g/hello1) mkdir -p "$2/hello1a64g" &&
+       clang --target=aarch64-linux-gnu -march=armv8.4-a -nostdlib -static -fuse-ld=lld \
+         -o "$2/hello1a64g/hello1" "$D/hello1a64g/hello1.s" ;;
     call1a64/call1) mkdir -p "$2/call1a64" &&
        clang --target=aarch64-linux-gnu -march=armv8.4-a -nostdlib -static -fuse-ld=lld \
          -o "$2/call1a64/call1" "$D/call1a64/call1.s" ;;
+    call1a64g/call1) mkdir -p "$2/call1a64g" &&
+       clang --target=aarch64-linux-gnu -march=armv8.4-a -nostdlib -static -fuse-ld=lld \
+         -o "$2/call1a64g/call1" "$D/call1a64g/call1.s" ;;
     wakea64/wake) mkdir -p "$2/wakea64" &&
        $A64_CC $(a64_flags 1) -o "$2/wakea64/wake" "$D/wakea64/wake.s" ;;
     wakex64/wake) mkdir -p "$2/wakex64" && as -o "$TMP/wake.o" "$D/wakex64/wake.s" &&

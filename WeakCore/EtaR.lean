@@ -44,11 +44,11 @@ theorem ThInvEBN_ext {p : Prog} {E : TEnv} {th : TTh} {x : String} {n : ExtName}
     (hterm : th.term = .let_ x (.ext n a) e) (hev : evalAt th.env a = some (rt, ws)) (hrs : rs ∈ n.resultsL i ws tr)
     (hR : ThInvEBN glb gnum gi p E th) :
     ThInvEBN glb gnum gi p E { th with term := e, env := (x, n.sig.2, rs) :: th.env, vs := vv, permit := pm } := by
-  obtain ⟨ρ, η, cx, hCE, hE, hT, htv, hi, hpw, hDy⟩ := hR
-  rw [hterm] at hT
+  obtain ⟨ρ, η, cx, hCE, hE, ⟨hT, hCk⟩, htv, hi, hpw, hDy⟩ := hR
+  rw [hterm] at hT hCk
   cases hT with
   | let_ hop he =>
-  rename_i c'
+  obtain ⟨c', -, hop, he, hck, -⟩ := TermA4.CkW_let hCk
   cases hop with
   | ext hu _ hsub hb =>
     have hret : c'.ret = cx.ret := (bind_ret hb).trans (use_ret hu)
@@ -58,7 +58,7 @@ theorem ThInvEBN_ext {p : Prog} {E : TEnv} {th : TTh} {x : String} {n : ExtName}
     rw [hev] at hev1; cases hev1
     obtain ⟨hz, hl⟩ := ext_resB (bkG := False) (σs := th.σs) hn (VR_subB (bkG := False) hi1.1 hsub _ _ hvr1)
       hl1.2.2.1 hrs
-    refine ⟨ρ, η, c', hCE, hE, he, htv', bind_FInvB hb hi1 (VRR_VRB _ (RLink_ofB hE.2.1 hE.2.2) hz) hl, ?_, hDy.letW hterm rfl⟩
+    refine ⟨ρ, η, c', hCE, hE, ⟨he, hck⟩, htv', bind_FInvB hb hi1 (VRR_VRB _ (RLink_ofB hE.2.1 hE.2.2) hz) hl, ?_, hDy.letW hterm rfl⟩
     show RetPwN th.σs th.stack c'.ret
     rw [hret]; exact hpw
 
@@ -66,12 +66,12 @@ theorem ThInvEBN_cur {p : Prog} {E : TEnv} {th : TTh} {x : String} {a : At} {e :
     {l : AllocLabel} (hterm : th.term = .let_ x (.ext .current a) e) (hs : E.sto l = some ⟨.unit, none⟩)
     (hp : E.pfr l = some 0) (hR : ThInvEBN glb gnum gi p E th) :
     ThInvEBN glb gnum gi p E { th with term := e, env := (x, .tid, [cst (.loc ⟨l, 0⟩ 0)]) :: th.env } := by
-  obtain ⟨ρ, η, cx, hCE, hE, hT, htv, hi, hpw, hDy⟩ := hR
+  obtain ⟨ρ, η, cx, hCE, hE, ⟨hT, hCk⟩, htv, hi, hpw, hDy⟩ := hR
   subst hCE
-  rw [hterm] at hT
+  rw [hterm] at hT hCk
   cases hT with
   | let_ hop he =>
-  rename_i c'
+  obtain ⟨c', -, hop, he, hck, -⟩ := TermA4.CkW_let hCk
   cases hop with
   | ext hu _ hsub hb =>
     have hret : c'.ret = cx.ret := (bind_ret hb).trans (use_ret hu)
@@ -83,7 +83,7 @@ theorem ThInvEBN_cur {p : Prog} {E : TEnv} {th : TTh} {x : String} {a : At} {e :
     have hlay : Lay th.σs .tid .tid [cst (.loc ⟨l, 0⟩ 0)] :=
       ⟨fun us h => by simp [accs] at h; subst h; rfl, by first | rfl | simp [etok, close, substTs, skel],
         by simp [wc, accs], trivial, by first | rfl | simp [etok, close, substTs, lyt]⟩
-    refine ⟨ρ, η, c', rfl, hE, he, htv', bind_FInvB hb hi1 hvr hlay, ?_, hDy.letW hterm rfl⟩
+    refine ⟨ρ, η, c', rfl, hE, ⟨he, hck⟩, htv', bind_FInvB hb hi1 hvr hlay, ?_, hDy.letW hterm rfl⟩
     show RetPwN th.σs th.stack c'.ret
     rw [hret]; exact hpw
 
@@ -101,12 +101,12 @@ theorem eta_ext {p : Prog} {k : Promises.Knobs} {arch : Arch} {E0 : TEnv} {i : N
 
 /-! ### (L4) thread steps -/
 
-theorem eta_step {p : Prog} [ProgRetIall p] (hP : ProgT p) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig)
+theorem eta_step {p : Prog} [ProgRetIall p] [TermA4.ProgCkWC p] (hP : ProgT p) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig)
     {k : Promises.Knobs} {arch : Arch} {E0 : TEnv} {i : Nat} {x : AllocLabel} {c c' : Cfg}
-    (hrs : TermScope.RunScope c) (hI : EtaInv p k arch E0 i x c) (hs : c' ∈ threadSteps p k arch c i)
+    (hrs : TermScope.RunScopeI c) (hI : EtaInv p k arch E0 i x c) (hs : c' ∈ threadSteps p k arch c i)
     (hc : Certified p k arch c' i) (hsx : E0.sto x ≠ none)
     (hnb : ∀ th, c.ths[i]? = some th → ¬ BufInitL th x) : EtaInv p k arch E0 i x c' := by
-  obtain ⟨th, E, hth, ⟨ρ, η, cx, hCE, hE, hT, htv, hi, hRP, hDy⟩, hm, hbf, hx0, hini, hrini, hTy, hRc⟩ := hI
+  obtain ⟨th, E, hth, ⟨ρ, η, cx, hCE, hE, ⟨hT, hCk⟩, htv, hi, hRP, hDy⟩, hm, hbf, hx0, hini, hrini, hTy, hRc⟩ := hI
   subst hCE
   obtain ⟨th', r, hth', hr, e1, e2, e3, hpa⟩ := taken_promAbove hs hc
   rw [hth] at hth'
@@ -126,7 +126,7 @@ theorem eta_step {p : Prog} [ProgRetIall p] (hP : ProgT p) (hPS : PwSkel) (hSub 
   have hns := TermTyped.not_spawnT_of_steps hth hs
   have hsD : ScopeD th.σs cx th.term := by
     have h := hrs i th hth
-    exact TermCertScope.scopeD_of h.ok (TermScope.Flat.scope_termVB hT hi.2.1 h.ok h.env hns)
+    exact TermCertScope.scopeD_of h.ok (TermScope.Flat.scope_termVB hT hCk hi.2.1 h.ok h.env hns)
   have hnone : (CE η).sto (freshLabel (gOf p k arch c i).lbase (gOf p k arch c i).n (gOf p k arch c i).i th.nalloc) = none :=
     (hm.2.2.2.1.1 th.nalloc (Nat.le_refl _)).1
   have hsub := TermTyped.tysOf_thread hs hth e3 hRc
@@ -146,7 +146,7 @@ theorem eta_step {p : Prog} [ProgRetIall p] (hP : ProgT p) (hPS : PwSkel) (hSub 
   by_cases hpub : ∃ y a e, th.term = .let_ y (.publish a) e
   · obtain ⟨y, a, e, hterm⟩ := hpub
     have hpsc : PubScope cx a := TermOwnK4.pubScope_of (by rw [← hterm]; exact hsD)
-    obtain ⟨-, hR⟩ := pub_stepN (g := gOf p k arch c i) (mem := c.mem) (pairs := c.pairs) hterm hP hT hi hE htv hm
+    obtain ⟨-, hR⟩ := pub_stepN (g := gOf p k arch c i) (mem := c.mem) (pairs := c.pairs) hterm hP hT hCk hi hE htv hm
       hpsc hRP hPS hDy
     obtain ⟨E1, h1, h2, h3⟩ := hR r hr
     have hk := tyOKE_tstepB (W := fun _ => True) hn hr EFoot_reflB hTy hRc
@@ -156,10 +156,34 @@ theorem eta_step {p : Prog} [ProgRetIall p] (hP : ProgT p) (hPS : PwSkel) (hSub 
     · exact fin _ h1 h2 (ext_shE η lab V) (Nat.le_refl _) (Nat.le_refl _) (TyOKE_stoD (shE_sto η lab V) hk.1) hk.2
   · have hnp : ∀ y a e, th.term ≠ .let_ y (.publish a) e := fun y a e h => hpub ⟨y, a, e, h⟩
     rcases hsD with hst | ⟨-, hcap⟩
-    · by_cases hnw : ∃ x a T e, th.term = .let_ x (.new a T) e
+    · cases hrB : isRgnB th.term
+      case true =>
+        obtain ⟨a, rn, pn, tn, e, hterm⟩ := isRgnB_true hrB
+        have hsc2 : PubScope cx a ∧ RgnCpl cx a := by rw [hterm] at hst; exact hst
+        obtain ⟨-, hR⟩ := rgn_stepN (g := gOf p k arch c i) (mem := c.mem) (pairs := c.pairs) hterm hT hCk hi hE
+          htv hm hsc2.2 hsc2.1 hRP hPS hDy
+        obtain ⟨E1, h1, h2, h3⟩ := hR r hr
+        have hk := tyOKE_tstepB (W := fun _ => True) hn hr EFoot_reflB hTy hRc
+          (hnew_none hr hRc (fun _ _ _ _ h => by rw [hterm] at h; cases h))
+        rcases h3 with rfl | ⟨lab, V, hl, rfl⟩
+        · exact fin _ h1 h2 (Ext_reflB (Coh_CEB η) (CohR_CEB η)) (Nat.le_refl _) (Nat.le_refl _) hk.1 hk.2
+        · exact fin _ h1 h2 (ext_shE η lab V) (Nat.le_refl _) (Nat.le_refl _) (TyOKE_stoD (shE_sto η lab V) hk.1) hk.2
+      cases hiB : isIntoB th.term
+      case true =>
+        obtain ⟨x0, rn, a, e, hterm⟩ := isIntoB_true hiB
+        have hsc2 : PubScope cx a ∧ RgnCpl cx a := by rw [hterm] at hst; exact hst
+        obtain ⟨-, hR⟩ := into_stepN (g := gOf p k arch c i) (mem := c.mem) (pairs := c.pairs) hterm hP hT hCk hi
+          hE htv hm hsc2.2 hsc2.1 hRP hPS hDy
+        obtain ⟨E1, h1, h2, h3⟩ := hR r hr
+        have hk := tyOKE_tstepB (W := fun _ => True) hn hr EFoot_reflB hTy hRc
+          (hnew_none hr hRc (fun _ _ _ _ h => by rw [hterm] at h; cases h))
+        rcases h3 with rfl | ⟨lab, V, hl, rfl⟩
+        · exact fin _ h1 h2 (Ext_reflB (Coh_CEB η) (CohR_CEB η)) (Nat.le_refl _) (Nat.le_refl _) hk.1 hk.2
+        · exact fin _ h1 h2 (ext_shE η lab V) (Nat.le_refl _) (Nat.le_refl _) (TyOKE_stoD (shE_sto η lab V) hk.1) hk.2
+      by_cases hnw : ∃ x a T e, th.term = .let_ x (.new a T) e
       · obtain ⟨x1, a, T, e, hterm⟩ := hnw
         obtain ⟨-, hR⟩ := tstepM_newNCN (g := gOf p k arch c i) (mem := c.mem) (pairs := c.pairs) hterm
-          (by rw [hterm] at hst; exact hst) hP hn hT hi hE htv hm hRP hPS hDy
+          (by rw [hterm] at hst; exact hst) hP hn hT hCk hi hE htv hm hRP hPS hDy
         obtain ⟨E', hNC, -, ⟨hfoot, hcnt⟩, h1, h2⟩ := hR r hr
         have h1' := h1
         obtain ⟨ρ', η', cx', hCE', -⟩ := h1'
@@ -172,7 +196,9 @@ theorem eta_step {p : Prog} [ProgRetIall p] (hP : ProgT p) (hPS : PwSkel) (hSub 
         exact fin _ h1 h2 hext c4 c5 hk.1 hk.2
       · have hnn : ∀ x a T e, th.term ≠ .let_ x (.new a T) e := fun x a T e h => hnw ⟨x, a, T, e, h⟩
         obtain ⟨-, hR⟩ := tstepMF_stepBN (g := gOf p k arch c i) (mem := c.mem) (pairs := c.pairs) hP rfl hn hnd hst
-          hT hi hE htv hm hbf (PAx_of_step hs hc hth) (fun _ _ _ _ _ _ h => absurd h (hnp _ _ _)) hRP hPS hSub hSig hTy
+          hT hCk hi hE htv hm hbf (PAx_of_step hs hc hth)
+          ⟨fun _ _ _ _ _ _ h => absurd h (hnp _ _ _), fun _ _ _ _ _ _ _ _ h => absurd h (isRgnB_false hrB _ _ _ _ _),
+            fun _ _ _ _ _ _ _ h => absurd h (isIntoB_false hiB _ _ _ _)⟩ hRP hPS hSub hSig hTy
           (hDy := hDy)
         obtain ⟨E', ⟨hfoot, hcnt⟩, h1, h2⟩ := hR r hr hpa
         have h1' := h1
@@ -182,7 +208,7 @@ theorem eta_step {p : Prog} [ProgRetIall p] (hP : ProgT p) (hPS : PwSkel) (hSub 
         obtain ⟨c4, c5⟩ := hcnt x hsxE (hnb th hth)
         have hk := tyOKE_tstepB hn hr hfoot hTy hRc (hnew_none hr hRc hnn)
         exact fin _ h1 h2 hext c4 c5 hk.1 hk.2
-    · obtain ⟨-, hR⟩ := tstep_capBN (g := gOf p k arch c i) (mem := c.mem) (pairs := c.pairs) hP hcap hT hi hE htv hDy
+    · obtain ⟨-, hR⟩ := tstep_capBN (g := gOf p k arch c i) (mem := c.mem) (pairs := c.pairs) hP hcap hT hCk hi hE htv hDy
       obtain ⟨h1, hsm⟩ := hR r hr
       have hk := tyOKE_tstepB (W := fun _ => True) hn hr EFoot_reflB hTy hRc
         (fun c0 t hc0 _ => by rw [hnone] at hc0; cases hc0)
@@ -191,10 +217,10 @@ theorem eta_step {p : Prog} [ProgRetIall p] (hP : ProgT p) (hPS : PwSkel) (hSub 
 
 /-! ### The lineage along a certified solo run (the oracle `¬ BufInitL` at every certified source) -/
 
-theorem eta_solo {p : Prog} [ProgRetIall p] (hP : ProgT p) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig)
+theorem eta_solo {p : Prog} [ProgRetIall p] [TermA4.ProgCkWC p] (hP : ProgT p) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig)
     (hps : TermScope.ProgScopeOK p = true) {k : Promises.Knobs} {arch : Arch} {E0 : TEnv} {i : Nat}
     {x : AllocLabel} (hsx : E0.sto x ≠ none) {c c2 : Cfg} (h : Solo p k arch i c c2) :
-    Certified p k arch c2 i → TermScope.RunScope c → TermTyped.TidAt i c E0 →
+    Certified p k arch c2 i → TermScope.RunScopeI c → TermTyped.TidAt i c E0 →
     (∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → ∀ th, c0.ths[i]? = some th → ¬ BufInitL th x) →
     EtaInv p k arch E0 i x c → EtaInv p k arch E0 i x c2 := by
   induction h with

@@ -28,7 +28,7 @@ def FInvBs (lb n i : Nat) (ρ : Nat → Nat) (η : TEnv) (σs : List Ty) (K : TE
 /-- Local mirror of `ResumeB`. -/
 def ResumeBs (lb n i : Nat) (p : Prog) : List Frame → TEnv → List Word → Prop
   | [], _, _ => True
-  | f :: rest, E, ws => ∃ ρ η c, CE η = E ∧ EnvOKB p η ∧ Typed p c f.body ∧ TvOK c ∧
+  | f :: rest, E, ws => ∃ ρ η c, CE η = E ∧ EnvOKB p η ∧ TypedK p η c f.body ∧ TvOK c ∧
       FInvBs Sup lb n i ρ η f.σs (ResumeBs lb n i p rest) c ((f.x, f.ty, ws) :: f.env) ∧
       (∀ (f' : Frame) (rest' : List Frame), rest = f' :: rest' → ∀ ws,
         TermPtrRts.pubWords f'.ty ws = TermPtrRts.pubWords (close f.σs c.ret) ws) ∧

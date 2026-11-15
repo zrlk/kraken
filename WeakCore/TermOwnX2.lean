@@ -585,7 +585,14 @@ def opPkg : Op → Nat
 def exprPkg : Expr → Nat
   | .let_ _ op _ => opPkg op
   | .case _ _ _ _ _ | .cas _ _ _ _ _ _ _ _ | .casp _ _ _ _ _ _ _ _ _ _ => 4
+  -- `region` moves (frame) to TermOwnK4 (its step publishes the cell: env changes).
+  | .region _ _ _ _ _ => 4
   | _ => 1
+
+/-- the `region` term (decidable test for the dispatch). -/
+def isRegion : Expr → Bool
+  | .region _ _ _ _ _ => true
+  | _ => false
 
 theorem exprPkg_cases (e : Expr) : exprPkg e = 1 ∨ exprPkg e = 2 ∨ exprPkg e = 3 ∨ exprPkg e = 4 := by
   cases e with

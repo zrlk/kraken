@@ -66,7 +66,7 @@ theorem oFresh_of {p : Prog} [ProgRetIall p] [TermA4.ProgCkWC p] (hP : ProgT p)
     {S : AllocLabel → Prop} (hinv : SysInvN p k arch Init MintOK c Eg Tot HP HS cr db)
     (hth : c.ths[i]? = some th)
     (hS : ThSysAt p (gOf p k arch c i) c.mem c.pairs th Eg (Tot i) (HP i) HS (cr i) (db i) S)
-    (hrs : TermScope.RunScope c) (hvI : TermViewInv.ViewInv c) (hK : FlatAnchor.ContB c.lbase c.n i p th (Cut Eg i S)) :
+    (hrs : TermScope.RunScopeI c) (hvI : TermViewInv.ViewInv c) (hK : FlatAnchor.ContB c.lbase c.n i p th (Cut Eg i S)) :
     OFresh p k arch i c th := by
   intro c1 th1 y a e rt ws ad j hsolo hc1 hth1 hterm hea hws hj hjl
   have hPS := TermMain.pwSkel_ok

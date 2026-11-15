@@ -20,9 +20,9 @@ def shPT (PT : Nat → Shp → List Word → Nat → Bool) : Nat → Shp → Lis
 `bx` the box map). -/
 def pp (PT : Nat → Shp → List Word → Nat → Bool) (bx : WeakMem.AllocLabel → Option Box) :
     Ty → Shp → List Word → Nat → Bool
-  | .ptr μ _, _, _ => match μ with | .pub => fun i => decide (i = 0) | _ => fun _ => false
-  | .ptrOpt μ _, _, _ => match μ with | .pub => fun i => decide (i = 0) | _ => fun _ => false
-  | .loc μ _, _, _ => match μ with | .pub => fun i => decide (i = 0) | _ => fun _ => false
+  | .ptr μ _, _, _ => match μ with | .pub => fun i => decide (i = 0) | .rgn _ => fun i => decide (i = 0) | _ => fun _ => false
+  | .ptrOpt μ _, _, _ => match μ with | .pub => fun i => decide (i = 0) | .rgn _ => fun i => decide (i = 0) | _ => fun _ => false
+  | .loc μ _, _, _ => match μ with | .pub => fun i => decide (i = 0) | .rgn _ => fun i => decide (i = 0) | _ => fun _ => false
   | .refine t _, rt, ws => pp PT bx t rt ws
   | .iex b, rt, ws => match rt with | .iex _ rb => pp PT bx b rb ws | _ => fun _ => false
   | .prod a b, rt, ws => match rt with

@@ -10,17 +10,24 @@ readelf/nm/objdump that
   (a) `.text` starts at a multiple of G = 64 KiB;
   (b) for every granule G·k .. G·(k+1) that `.text` touches, `.text` reaches
       the granule end and its last 8 bytes hold the little-endian 64-bit
-      value `desc - .`, where `desc` is the descriptor symbol (`--desc`) and
-      `.` the address of the word;
+      address of the descriptor symbol (`--desc`, default `scc_gc_desc`):
+      the word line `.quad scc_gc_desc`;
   (c) no instruction straddles the reserved bytes: no decoded instruction
       starts before `G·(k+1) - 8` and ends after it.
 
 (c) reads a linear-sweep disassembly; the reserved word itself decodes as
 data, so an x64 sweep may resynchronise a few instructions after a granule
-end.  That only affects decoding after the word, never the instruction that
-precedes it.
+end.  The zero filler before a word decodes as `add` on x64 (`00 xx`) and
+may run into the word: a decoded instruction whose bytes before the word are
+all zero is filler, not code, and is not reported.  (scc never emits an
+instruction starting with a zero byte before a word: the pass puts filler,
+never code, there.)
 
-Usage: granule_check.py [--arch x64|arm|both] [--desc SYM] [--keep DIR] T.w
+`--asm S` assembles and links `S` (for that one arch) instead of running scc
+on `T.w`, for checking a granule pass's output before scc emits it; `T.w`
+still names the expected exit status (`T.code`).
+
+Usage: granule_check.py [--arch x64|arm|both] [--desc SYM] [--keep DIR] [--asm S] T.w
 Exit status 0 iff every check passes on every requested arch.
 """
 
@@ -48,10 +55,13 @@ def sh(cmd, **kw):
     return subprocess.run(cmd, check=True, capture_output=True, text=True, **kw).stdout
 
 
-def build(arch, src, work):
+def build(arch, src, work, asm=None):
     s = os.path.join(work, f"{arch}.s")
     exe = os.path.join(work, arch)
-    sh([SCC, "--arch", arch, "-o", s, src])
+    if asm:
+        shutil.copyfile(asm, s)
+    else:
+        sh([SCC, "--arch", arch, "-o", s, src])
     if arch == "x64":
         o = os.path.join(work, "x64.o")
         sh(["as", "-o", o, s])
@@ -102,12 +112,12 @@ def insns(arch, exe):
     return res
 
 
-def check(arch, src, desc, keep):
+def check(arch, src, desc, keep, asm=None):
     work = keep or tempfile.mkdtemp(prefix="granule_")
     os.makedirs(work, exist_ok=True)
     fails = []
     try:
-        exe = build(arch, src, work)
+        exe = build(arch, src, work, asm)
         code_file = os.path.splitext(src)[0] + ".code"
         rc = run(arch, exe)
         if os.path.exists(code_file):
@@ -133,9 +143,9 @@ def check(arch, src, desc, keep):
             if w < addr or w + 8 > end:
                 bad_b.append(f"granule {k}: word at 0x{w:x} outside .text")
                 continue
-            got = struct.unpack_from("<q", blob, off + (w - addr))[0]
-            if d is None or got != d - w:
-                bad_b.append(f"granule {k}: word at 0x{w:x} = 0x{got & (2**64 - 1):016x}")
+            got = struct.unpack_from("<Q", blob, off + (w - addr))[0]
+            if d is None or got != d:
+                bad_b.append(f"granule {k}: word at 0x{w:x} = 0x{got:016x}")
         if bad_b:
             fails.append(f"(b) {len(bad_b)} of {last - first + 1} granule words wrong: "
                          + "; ".join(bad_b[:4]) + (" ..." if len(bad_b) > 4 else ""))
@@ -153,7 +163,7 @@ def check(arch, src, desc, keep):
             fails.append("(c) disassembly produced no instructions")
         for s, n in decoded:
             for w in words:
-                if s < w < s + n:
+                if s < w < s + n and any(blob[off + (s - addr):off + (w - addr)]):
                     bad_c.append(f"insn 0x{s:x}+{n} straddles 0x{w:x}")
         if bad_c:
             fails.append(f"(c) {len(bad_c)} straddling instruction(s): " + "; ".join(bad_c[:4]))
@@ -172,15 +182,19 @@ def check(arch, src, desc, keep):
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--arch", default="both", choices=["x64", "arm", "both"])
-    ap.add_argument("--desc", default="scc_desc", help="descriptor symbol (default scc_desc)")
+    ap.add_argument("--desc", default="scc_gc_desc", help="descriptor symbol (default scc_gc_desc)")
+    ap.add_argument("--asm", help="assembly file to link instead of running scc (one arch only)")
     ap.add_argument("--keep", help="keep build products in this directory")
     ap.add_argument("src")
     a = ap.parse_args()
-    if not os.path.exists(SCC):
+    if a.asm and a.arch == "both":
+        sys.exit("--asm needs --arch x64 or --arch arm")
+    if not a.asm and not os.path.exists(SCC):
         sys.exit(f"{SCC} missing: run `lake build scc scc_x64 scc_arm` first")
     archs = ["x64", "arm"] if a.arch == "both" else [a.arch]
     ok = all([check(arch, os.path.abspath(a.src), a.desc,
-                    a.keep and os.path.join(a.keep, arch)) for arch in archs])
+                    a.keep and os.path.join(a.keep, arch), a.asm and os.path.abspath(a.asm))
+              for arch in archs])
     sys.exit(0 if ok else 1)
 
 

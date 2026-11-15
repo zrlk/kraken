@@ -163,6 +163,7 @@ theorem directivesFromAddress_end_labels [layout : _root_.Layout] {p : Program}
       | label l => exact hv.label_size i l _ hc
       | instr _ => simp [Directive.isLabel] at hl
       | byteArray _ => simp [Directive.isLabel] at hl
+      | zeros _ => simp [Directive.isLabel] at hl
   have hj : ∀ m, m ≤ k → (layout p).addrOf (p.length - k) = (layout p).addrOf (p.length - k + m) := by
     intro m
     induction m with

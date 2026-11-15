@@ -445,14 +445,14 @@ theorem sysInvN_box {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {
     · exact .inl a
     · exact .inr ⟨f, by rw [EgB_pfr_ne e]; exact hf⟩
   case promClos =>
-    intro j t u m hj hu hm a' g hv cl hc ho cm hcm hsh hno hrg
+    intro j t u m hj hu hm a' g hv cl hc ho cm hcm hsh hno
     obtain ⟨t0, h0, hp, -⟩ := thB_get hth hj; rw [hp] at hu
     by_cases ea : a'.label = l
     · exact ⟨0, by rw [ea]; exact EgB_pfr_self⟩
     · have em := hmsg u m hm
       rw [EgB_sto_ne ea] at hc; rw [EgB_sto_ne em] at hcm
       obtain ⟨f, hf⟩ := h.promClos j t0 u m h0 hu hm a' g hv cl hc ho cm hcm
-        (hsh.imp_right fun hs => by obtain ⟨f, hf⟩ := hs; exact ⟨f, by rwa [EgB_pfr_ne em] at hf⟩) hno hrg
+        (hsh.imp_right fun hs => by obtain ⟨f, hf⟩ := hs; exact ⟨f, by rwa [EgB_pfr_ne em] at hf⟩) hno
       exact ⟨f, by rw [EgB_pfr_ne ea]; exact hf⟩
   case stoNI =>
     intro x cl hx
@@ -473,10 +473,10 @@ theorem sysInvN_box {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {
     intro t m cl ht hc
     rw [EgB_sto_ne (hmsg t m ht)] at hc; exact h.msgWords t m cl ht hc
   case fgnClos =>
-    intro j t u m hj hu hm a' g hv cm hcm hno hrg
+    intro j t u m hj hu hm a' g hv cm hcm hno
     obtain ⟨t0, h0, hp, -⟩ := thB_get hth hj; rw [hp] at hu
     rw [EgB_sto_ne (hmsg u m hm)] at hcm
-    exact tgtOK_box (c := c) rfl setC_n (h.fgnClos j t0 u m h0 hu hm a' g hv cm hcm hno hrg)
+    exact tgtOK_box (c := c) rfl setC_n (h.fgnClos j t0 u m h0 hu hm a' g hv cm hcm hno)
   case cellOwn =>
     unfold CellOwnerLiveM
     simp only [setC_size, setC_mem]

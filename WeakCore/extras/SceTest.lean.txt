@@ -31,17 +31,19 @@ def files : List (String × String) := [
   ("s.w", "def f(x : Word[0, Mutex] + Unit) : Unit =\n  ret ()\n"),
   ("s.u", "def f(x : Word[0, Mutex] + Unit) : Unit =\n  ret ()\n"),
   ("pbad.w", "def f(x : Int) : Int =\n  let y = load acq x\n  ret y\n"),
-  ("live.u", "scenario Spin = { setup = init(()) ; threads = [spin(()), setter(())] ; depth = 60 ; live = 0 }\nscenario Stuck = { setup = init(()) ; threads = [spin(())] ; depth = 60 ; live = 1 }\ndef init(u : Unit) : Ptr pub Int =\n  let z = zero[Int]\n  let o = new[Int] z\n  let c = publish o\n  ret c\nlive[Spin] def spin(c : Ptr pub Int) : Int =\n  let d = load acq c\n  if d = 1 then\n    ret 0\n  else\n    tail spin(c)\nlive def setter(c : Ptr pub Int) : Unit =\n  let d = store rel c 1\n  ret ()\ndef bump(c : Ptr pub Int) : Unit =\n  let d = load acq c\n  let e = d + 1\n  let u = store rel c e\n  tail bump(c)\n"),
+  ("live.u", "scenario Spin = { setup = init(()) ; threads = [spin(()), setter(())] ; depth = 60 ; live = 0 }\nscenario Stuck = { setup = init(()) ; threads = [spin(())] ; depth = 60 ; live = 1 }\ndef init(u : Unit) : Ptr pub Int =\n  let z = zero[Int]\n  let o = new[Int] z\n  let c = publish o\n  ret c\nlive[Spin] def spin(c : Ptr pub Int) : Int =\n  let d = load acq c\n  if d = 1 then\n    ret 0\n  else\n    tail spin(c)\nlive def setter(c : Ptr pub Int) : Unit =\n  let d = store rel c 1\n  ret ()\ndef bump(c : Ptr pub Int) : Unit =\n  let d = load acq c\n  let e = d + 1\n  let u = store rel c e\n  tail bump(c)\ndef main(u : Unit) : Int =\n  ret 0\n"),
   ("nos.u", "live[T] def f(x : Int) : Int =\n  ret x\n"),
   ("warn.u", "scenario W = { setup = g(1) ; threads = [g(2)] ; live = 0 }\ndef g(x : Int) : Int =\n  ret x\n"),
   ("live.w", "def g(x : Int) : Int =\n  ret x\n"),
-  ("ep.u", "live def f{r}(w : Ptr pub Word[r, <k! ; 0->0+1 ; robust, epoch>]) : Unit =\n  ret ()\n"),
+  ("ep.u", "live def f{r}(w : Ptr pub Word[r, <k! ; 0->0+1 ; robust, epoch>]) : Unit =\n  ret ()\ndef main(u : Unit) : Int =\n  ret 0\n"),
   ("mx.u", "live def g{r}(w : Ptr pub Word[r, Mutex]) : Unit =\n  ret ()\n"),
   ("kid.u", "scenario K = { setup = init(()) ; threads = [h(())] ; depth = 20 ; live = 0 }\ndef init(u : Unit) : Ptr pub Int =\n  let z = zero[Int]\n  let o = new[Int] z\n  let c = publish o\n  ret c\nlive[K] def h(x : Int) : Int =\n  ret x\n"),
-  ("cert1.u", "scenario S = { setup = init(()) ; threads = [spin(()), setter(())] ; depth = 60 ; live = 0 ; cert = 20000 }\nscenario U = { setup = init(()) ; threads = [spin(())] ; depth = 60 ; cert = 5 }\ndef init(u : Unit) : Ptr pub Int =\n  let z = zero[Int]\n  let o = new[Int] z\n  let c = publish o\n  ret c\nlive[S] def spin(c : Ptr pub Int) : Int =\n  let d = load acq c\n  if d = 1 then\n    ret 0\n  else\n    tail spin(c)\nlive def setter(c : Ptr pub Int) : Unit =\n  let d = store rel c 1\n  ret ()\n"),
-  ("cert2.u", "scenario S = { setup = init(()) ; threads = [spin(()), setter(())] ; depth = 60 ; cert = 3 }\ndef init(u : Unit) : Ptr pub Int =\n  let z = zero[Int]\n  let o = new[Int] z\n  let c = publish o\n  ret c\nlive[S] def spin(c : Ptr pub Int) : Int =\n  let d = load acq c\n  if d = 1 then\n    ret 0\n  else\n    tail spin(c)\nlive def setter(c : Ptr pub Int) : Unit =\n  let d = store rel c 1\n  ret ()\n"),
-  ("cert3.u", "scenario S = { setup = init(()) ; threads = [spin(()), setter(())] ; depth = 60 ; promises = 1 ; cert = 100 }\ndef init(u : Unit) : Ptr pub Int =\n  let z = zero[Int]\n  let o = new[Int] z\n  let c = publish o\n  ret c\nlive[S] def spin(c : Ptr pub Int) : Int =\n  let d = load acq c\n  if d = 1 then\n    ret 0\n  else\n    tail spin(c)\nlive def setter(c : Ptr pub Int) : Unit =\n  let d = store rel c 1\n  ret ()\n"),
-  ("cert4.u", "scenario S = { setup = init(()) ; threads = [spin(())] ; depth = 60 ; live = 1 ; cert = 100 }\ndef init(u : Unit) : Ptr pub Int =\n  let z = zero[Int]\n  let o = new[Int] z\n  let c = publish o\n  ret c\nlive[S] def spin(c : Ptr pub Int) : Int =\n  let d = load acq c\n  if d = 1 then\n    ret 0\n  else\n    tail spin(c)\nlive def setter(c : Ptr pub Int) : Unit =\n  let d = store rel c 1\n  ret ()\n")]
+  -- a trivial `main` (appended, so no line moves) gives the main instance an initial state: the main instance
+  -- is then not vacuous, but says nothing about f unless `main` reaches f
+  ("cert1.u", "scenario S = { setup = init(()) ; threads = [spin(()), setter(())] ; depth = 60 ; live = 0 ; cert = 20000 }\nscenario U = { setup = init(()) ; threads = [spin(())] ; depth = 60 ; cert = 5 }\ndef init(u : Unit) : Ptr pub Int =\n  let z = zero[Int]\n  let o = new[Int] z\n  let c = publish o\n  ret c\nlive[S] def spin(c : Ptr pub Int) : Int =\n  let d = load acq c\n  if d = 1 then\n    ret 0\n  else\n    tail spin(c)\nlive def setter(c : Ptr pub Int) : Unit =\n  let d = store rel c 1\n  ret ()\ndef main(u : Unit) : Int =\n  ret 0\n"),
+  ("cert2.u", "scenario S = { setup = init(()) ; threads = [spin(()), setter(())] ; depth = 60 ; cert = 3 }\ndef init(u : Unit) : Ptr pub Int =\n  let z = zero[Int]\n  let o = new[Int] z\n  let c = publish o\n  ret c\nlive[S] def spin(c : Ptr pub Int) : Int =\n  let d = load acq c\n  if d = 1 then\n    ret 0\n  else\n    tail spin(c)\nlive def setter(c : Ptr pub Int) : Unit =\n  let d = store rel c 1\n  ret ()\ndef main(u : Unit) : Int =\n  ret 0\n"),
+  ("cert3.u", "scenario S = { setup = init(()) ; threads = [spin(()), setter(())] ; depth = 60 ; promises = 1 ; cert = 100 }\ndef init(u : Unit) : Ptr pub Int =\n  let z = zero[Int]\n  let o = new[Int] z\n  let c = publish o\n  ret c\nlive[S] def spin(c : Ptr pub Int) : Int =\n  let d = load acq c\n  if d = 1 then\n    ret 0\n  else\n    tail spin(c)\nlive def setter(c : Ptr pub Int) : Unit =\n  let d = store rel c 1\n  ret ()\ndef main(u : Unit) : Int =\n  ret 0\n"),
+  ("cert4.u", "scenario S = { setup = init(()) ; threads = [spin(())] ; depth = 60 ; live = 1 ; cert = 100 }\ndef init(u : Unit) : Ptr pub Int =\n  let z = zero[Int]\n  let o = new[Int] z\n  let c = publish o\n  ret c\nlive[S] def spin(c : Ptr pub Int) : Int =\n  let d = load acq c\n  if d = 1 then\n    ret 0\n  else\n    tail spin(c)\nlive def setter(c : Ptr pub Int) : Unit =\n  let d = store rel c 1\n  ret ()\ndef main(u : Unit) : Int =\n  ret 0\n")]
 
 def fsOf (fl : List (String × String)) : FS := fun f => match fl.find? (·.1 == f) with
   | some (_, s) => .ok s
@@ -121,7 +123,7 @@ def usageTail : String := SceText.usageError
   { stderr := "live.u:1:10: scenario Spin: scenario start: setup init(), threads spin(), setter()\n  bounded search: promise-free runs only, 10 configurations, search complete\n  verdict: no fair livelock found\n  thread 0 spin(…): results {0}\n  thread 1 setter(…): results {()}\n  final states, 1 distinct (thread results; memory):\n    spin setter c\n    0    ()     1\nlive def spin: PROVED (under the standard obligations)\nlive[Spin] def spin: PROVED (under the standard obligations)\nlive def setter: PROVED (under the standard obligations)\n" }
 -- live[T] naming no scenario
 #guard run ["nos.u"] fs ==
-  { stderr := "nos.u:1:13: in f: live: live[T] names no scenario T\n1 | live[T] def f(x : Int) : Int =\n  |             ^\nlive def f: PROVED (under the standard obligations)\n",
+  { stderr := "nos.u:1:13: in f: live: live[T] names no scenario T\n1 | live[T] def f(x : Int) : Int =\n  |             ^\nnos.u:1:13: note: in f: live def f: no main-start instance: the start wrapper's call `main(())` is not accepted by the checker (no `main`, a `main` whose argument is not `Unit` or that takes index or type parameters, or a `main` whose call or result the checker refuses); at most the live[T] scenario instance is proved\n1 | live[T] def f(x : Int) : Int =\n  |             ^\n",
     code := 5 }
 -- a scenario thread with no live annotation: a warning; a scenario no live[S] names does not run
 #guard run ["warn.u"] fs ==
@@ -165,7 +167,7 @@ def verdictOf (r : Result) (k : Nat) : String :=
   | some l => (l.drop 11).toString
   | none => "?"
 def has (s t : String) : Bool := (s.splitOn t).length > 1
-#guard liveProg.length == 4
+#guard liveProg.length == 5
 #guard let o := Doc.threads liveProg "init" .unit [] [("spin", ptrTy, []), ("setter", ptrTy, [])] (depth := 60) (live := some 0)
   o.err.isNone && has o.tex "10 configurations" && has o.tex (verdictOf (run ["--check-only", "live.u"] fs) 0) &&
     verdictOf (run ["--check-only", "live.u"] fs) 0 != "?"
@@ -183,19 +185,23 @@ def has (s t : String) : Bool := (s.splitOn t).length > 1
   { stderr := "mx.u:1:10: in g: live: live def g: no instance: protocol Mutex is neither robust nor an epoch counter (the held branch is not proved yet)\n1 | live def g{r}(w : Ptr pub Word[r, Mutex]) : Unit =\n  |          ^\n",
     code := 5 }
 #guard run ["--live-proof", "mx.u"] fs == run ["mx.u"] fs
--- a thread outside the kid shapes: the search still runs; exit 5; the main instance still gets its PROVED line
+-- a thread outside the kid shapes: the search still runs; exit 5; kid.u has no `main`, so no main instance either
+-- (a note; before, the main instance's PROVED line was vacuous: no start state)
 #guard run ["--check-only", "kid.u"] fs ==
-  { stderr := "kid.u:1:10: scenario K: scenario start: setup init(), threads h()\n  bounded search: promise-free runs only, 2 configurations, search complete\n  verdict: no fair livelock found\n  thread 0 h(…): results {ℓ0}\nkid.u:7:13: in h: live: live[K] def h: no scenario instance: thread h's argument type Int is not the setup's result, a pair of it and the literals, or the literals alone\n7 | live[K] def h(x : Int) : Int =\n  |             ^\nlive def h: PROVED (under the standard obligations)\n",
+  { stderr := "kid.u:1:10: scenario K: scenario start: setup init(), threads h()\n  bounded search: promise-free runs only, 2 configurations, search complete\n  verdict: no fair livelock found\n  thread 0 h(…): results {ℓ0}\nkid.u:7:13: note: in h: live def h: no main-start instance: the start wrapper's call `main(())` is not accepted by the checker (no `main`, a `main` whose argument is not `Unit` or that takes index or type parameters, or a `main` whose call or result the checker refuses); at most the live[K] scenario instance is proved\n7 | live[K] def h(x : Int) : Int =\n  |             ^\nkid.u:7:13: in h: live: live[K] def h: no scenario instance: thread h's argument type Int is not the setup's result, a pair of it and the literals, or the literals alone\n7 | live[K] def h(x : Int) : Int =\n  |             ^\n",
     code := 5 }
 -- --check-only --live-proof: a usage error
 #guard run ["--check-only", "--live-proof", "ep.u"] fs ==
   { stderr := "sce: --check-only: --live-proof emits a file\n" ++ usageTail, code := 4 }
 -- --live-proof with exit 5 elsewhere: the instances that hold are still built (the main one; not the refused one)
-#guard let r := run ["--live-proof", "kid.u"] fs
+#guard let r := run ["--live-proof", "kid2.u"] (fsOf [("kid2.u", (srcOf fs "kid.u") ++ "def main(u : Unit) : Int =\n  ret 0\n")])
   r.code == 5 && r.proved == ["live def h: PROVED (under the standard obligations)"] &&
   match r.proof with
   | some (_, t) => has t "theorem «live_h» : SceProof.MainInst prog" && !has t "«kids_h»"
   | none => false
+-- kid.u itself (no main): nothing holds, nothing written
+#guard let r := run ["--live-proof", "kid.u"] fs
+  r.code == 5 && r.proved == [] && r.proof == none
 -- nothing proved: nothing written
 #guard (run ["--live-proof", "mx.u"] fs).proof == none
 -- --live-proof: the run is unchanged except that the PROVED lines wait for the instance file (`Result.proved`,
@@ -211,8 +217,41 @@ def has (s t : String) : Bool := (s.splitOn t).length > 1
   | some (f, t) => f == "live.live.lean" && has t "theorem «live_spin_Spin» : SceProof.ScenInst prog «kids_spin»" &&
       has t "theorem «live_setter» : SceProof.MainInst prog" && !has t "«kids_setter»"
   | none => false
-#guard (run ["--live-proof", "lib/sub/x.u"] (fsOf [("lib/sub/x.u", "live def f(x : Int) : Int =\n  ret x\n")])).proof.map (·.1) ==
+#guard (run ["--live-proof", "lib/sub/x.u"] (fsOf [("lib/sub/x.u", "live def f(x : Int) : Int =\n  ret x\ndef main(u : Unit) : Int =\n  ret 0\n")])).proof.map (·.1) ==
   some "lib/sub/x.live.lean"
+
+/-! ## The main-start instance needs a `main` the start wrapper can call (`SceRun.mainCallable`) -/
+
+-- a bare `live def` with no `main`, a `main` taking `Int`, a `main` with an index or a type parameter: exit 5, no
+-- PROVED line
+#guard run ["--check-only", "nm.u"] (fsOf [("nm.u", "live def f(x : Int) : Int =\n  ret x\n")]) ==
+  { stderr := "nm.u:1:10: in f: live: live def f: no main-start instance: the start wrapper's call `main(())` is not accepted by the checker (no `main`, a `main` whose argument is not `Unit` or that takes index or type parameters, or a `main` whose call or result the checker refuses)\n1 | live def f(x : Int) : Int =\n  |          ^\n",
+    code := 5 }
+#guard run ["--check-only", "nm.u"] (fsOf [("nm.u", "live def f(x : Int) : Int =\n  ret x\ndef main(x : Int) : Int =\n  ret x\n")]) ==
+  { stderr := "nm.u:1:10: in f: live: live def f: no main-start instance: the start wrapper's call `main(())` is not accepted by the checker (no `main`, a `main` whose argument is not `Unit` or that takes index or type parameters, or a `main` whose call or result the checker refuses)\n1 | live def f(x : Int) : Int =\n  |          ^\n",
+    code := 5 }
+#guard run ["--check-only", "nm.u"] (fsOf [("nm.u", "live def f(x : Int) : Int =\n  ret x\ndef main{r}(u : Unit) : Int =\n  ret 0\n")]) ==
+  { stderr := "nm.u:1:10: in f: live: live def f: no main-start instance: the start wrapper's call `main(())` is not accepted by the checker (no `main`, a `main` whose argument is not `Unit` or that takes index or type parameters, or a `main` whose call or result the checker refuses)\n1 | live def f(x : Int) : Int =\n  |          ^\n",
+    code := 5 }
+#guard run ["--check-only", "nm.u"] (fsOf [("nm.u", "live def f(x : Int) : Int =\n  ret x\ndef main[a : *](u : Unit) : Int =\n  ret 0\n")]) ==
+  { stderr := "nm.u:1:10: in f: live: live def f: no main-start instance: the start wrapper's call `main(())` is not accepted by the checker (no `main`, a `main` whose argument is not `Unit` or that takes index or type parameters, or a `main` whose call or result the checker refuses)\n1 | live def f(x : Int) : Int =\n  |          ^\n",
+    code := 5 }
+-- with a `main(u : Unit)`: the main instance holds (it is about runs from `main`: it says nothing about f unless
+-- `main` reaches f)
+#guard run ["--check-only", "nm.u"] (fsOf [("nm.u", "live def f(x : Int) : Int =\n  ret x\ndef main(u : Unit) : Int =\n  ret 0\n")]) ==
+  { stderr := "live def f: PROVED (under the standard obligations)\n" }
+-- a `live[S]` def with no `main` and a passing scenario: a note, the scenario instance PROVED, exit 0; its
+-- instance file holds the scenario theorem only
+def spinU : String := "scenario S = { setup = init(()) ; threads = [spin(()), setter(())] ; depth = 60 ; live = 0 }\ndef init(u : Unit) : Ptr pub Int =\n  let z = zero[Int]\n  let o = new[Int] z\n  let c = publish o\n  ret c\nlive[S] def spin(c : Ptr pub Int) : Int =\n  let d = load acq c\n  if d = 1 then\n    ret 0\n  else\n    tail spin(c)\nlive[S] def setter(c : Ptr pub Int) : Unit =\n  let d = store rel c 1\n  ret ()\n"
+#guard run ["--check-only", "spin.u"] (fsOf [("spin.u", spinU)]) ==
+  { stderr := "spin.u:1:10: scenario S: scenario start: setup init(), threads spin(), setter()\n  bounded search: promise-free runs only, 10 configurations, search complete\n  verdict: no fair livelock found\n  thread 0 spin(…): results {0}\n  thread 1 setter(…): results {()}\nspin.u:7:13: note: in spin: live def spin: no main-start instance: the start wrapper's call `main(())` is not accepted by the checker (no `main`, a `main` whose argument is not `Unit` or that takes index or type parameters, or a `main` whose call or result the checker refuses); at most the live[S] scenario instance is proved\n7 | live[S] def spin(c : Ptr pub Int) : Int =\n  |             ^~~~\nspin.u:13:13: note: in setter: live def setter: no main-start instance: the start wrapper's call `main(())` is not accepted by the checker (no `main`, a `main` whose argument is not `Unit` or that takes index or type parameters, or a `main` whose call or result the checker refuses); at most the live[S] scenario instance is proved\n13 | live[S] def setter(c : Ptr pub Int) : Unit =\n   |             ^~~~~~\nlive[S] def spin: PROVED (under the standard obligations)\nlive[S] def setter: PROVED (under the standard obligations)\n" }
+#guard let r := run ["--live-proof", "spin.u"] (fsOf [("spin.u", spinU)])
+  r.code == 0 && r.proved == ["live[S] def spin: PROVED (under the standard obligations)",
+    "live[S] def setter: PROVED (under the standard obligations)"] &&
+  match r.proof with
+  | some (_, t) => has t "theorem «live_spin_S» : SceProof.ScenInst prog «kids_spin»" &&
+      !has t "SceProof.MainInst" && !has t "#print axioms «live_spin»\n"
+  | none => false
 
 /-! ## Certificates: mode A's lines and refusals; `--live-proof`'s files -/
 

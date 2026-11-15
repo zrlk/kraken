@@ -1,4 +1,5 @@
 import WeakCore.TermClose
+import WeakCore.TermDyDefs
 
 /-!
 # TermTv — context types stay in scope (T3c-4, option 2)
@@ -95,6 +96,23 @@ theorem tb_adapt (t : Ty) : ∀ (r : Idx) (c : Nat), tb c (adapt r t) = tb c t :
   | ptrOpt μ t ih => intro r c; cases μ <;> simp [adapt, tb]
   | loc μ t ih => intro r c; cases μ <;> simp [adapt, tb]
   | _ => intro r c; simp [adapt, tb]
+
+/-- `guardT` ignores `adapt` (moved here from `TermFulCntROf`). -/
+theorem guardT_adapt : ∀ (u : Ty) (r : Idx) (k : Nat), (adapt r u).guardT k = u.guardT k := by
+  intro u
+  induction u with
+  | ptr μ t _ => intro r k; cases μ <;> rfl
+  | ptrOpt μ t _ => intro r k; cases μ <;> rfl
+  | loc μ t _ => intro r k; cases μ <;> rfl
+  | prod a b iha ihb => intro r k; simp only [adapt, Ty.guardT, iha, ihb]
+  | sum a b iha ihb => intro r k; simp only [adapt, Ty.guardT, iha, ihb]
+  | array i t ih => intro r k; simp only [adapt, Ty.guardT, ih]
+  | iex t ih => intro r k; simp only [adapt, Ty.guardT, ih]
+  | iall t ih => intro r k; simp only [adapt, Ty.guardT, ih]
+  | tex κ t ih => intro r k; simp only [adapt, Ty.guardT, ih]
+  | refine t ψ ih => intro r k; simp only [adapt, Ty.guardT, ih]
+  | mu t ih => intro r k; simp only [adapt, Ty.guardT, ih]
+  | _ => intro r k; rfl
 
 /-- Shifting type variables up, under one more bound. -/
 theorem tb_shiftT_up (t : Ty) : ∀ (k c : Nat), tb c t = true → tb (c + 1) (t.shiftT k) = true := by
@@ -899,6 +917,28 @@ theorem endCx_TvOK {cx : Cx} (y : String) (hv : TvOK cx) : TvOK (cx.endCx y) := 
   obtain ⟨⟨z, u, b⟩, ⟨h0, -⟩, rfl⟩ := he
   exact ⟨(z, u, b), h0, by dsimp only; split <;> rfl⟩
 
+/-- Handing a second-class argument off to a `spawnI` child keeps a sublist of the variables. -/
+theorem handOffR_TvOK {cx : Cx} (T : Ty) (hv : TvOK cx) : TvOK (cx.handOffR T) := by
+  unfold Cx.handOffR Cx.handOff
+  split
+  · exact hv
+  split
+  · split
+    · refine TvOK_of hv rfl rfl (fun e he => ?_) (fun tn htn => ⟨tn, htn, rfl⟩) rfl
+      exact ⟨e, (List.mem_filter.mp he).1, rfl⟩
+    · exact hv
+  · refine TvOK_of hv rfl rfl (fun e he => ?_) (fun tn htn => ⟨tn, htn, rfl⟩) rfl
+    exact ⟨e, (List.mem_filter.mp he).1, rfl⟩
+
+theorem ite_handOffR_TvOK {cx : Cx} (b : Bool) (T : Ty) (hv : TvOK cx) :
+    TvOK (if b = true then cx.handOffR T else cx) ∧ (if b = true then cx.handOffR T else cx).ke = cx.ke := by
+  cases b
+  · exact ⟨hv, rfl⟩
+  · refine ⟨handOffR_TvOK T hv, ?_⟩
+    show (Cx.handOffR cx T).ke = cx.ke
+    unfold Cx.handOffR Cx.handOff
+    split <;> (try split) <;> (try split) <;> rfl
+
 theorem nzCx_TvOK {cx : Cx} (u : Nat) (hv : TvOK cx) : TvOK (nzCx cx u) := push_TvOK "_nz" hv
 
 theorem NoCx_TvOK {cx c' : Cx} {i j : Idx} (h : NoCx cx i j c') (hv : TvOK cx) : TvOK c' := by
@@ -1221,7 +1261,7 @@ theorem OpT_TvOK {p : Prog} (hP : ProgT p) {cx c' : Cx} {x : String} {op : Op}
   | call hfind hinst hu _ _ hb =>
       have hr := (instantiate_tb hinst (hP _ (find_mem hfind))).2
       obtain ⟨h1, -, hk⟩ := use_TvOK hu hv
-      exact (bind_TvOK hb h1 (by rw [hk]; exact hr) (instantiate_mg hinst (hP _ (find_mem hfind))).2).1
+      exact (bind_TvOK hb (ite_handOffR_TvOK _ _ h1).1 (by rw [(ite_handOffR_TvOK _ _ h1).2, hk]; exact hr) (instantiate_mg hinst (hP _ (find_mem hfind))).2).1
   | borrow _ _ _ hu hb =>
       obtain ⟨h1, -, -⟩ := use_TvOK hu hv
       exact (bind_TvOK hb h1 (by simp [tb]) (by simp [mg])).1
@@ -1244,11 +1284,13 @@ theorem OpT_TvOK {p : Prog} (hP : ProgT p) {cx c' : Cx} {x : String} {op : Op}
   | callc hp hc hu _ _ hb =>
       have hτ := (tb_codeOf (peek_tb hv hp) hc).2
       obtain ⟨h1, -, hk⟩ := use_TvOK hu hv
-      exact (bind_TvOK hb h1 (by rw [hk]; exact hτ) (mg_codeOf (peek_mg hv hp) hc).2).1
+      exact (bind_TvOK hb (ite_handOffR_TvOK _ _ h1).1 (by rw [(ite_handOffR_TvOK _ _ h1).2, hk]; exact hτ) (mg_codeOf (peek_mg hv hp) hc).2).1
   | rem _ _ _ _ hb =>
       exact (bind_TvOK hb (push_TvOK x (push_TvOK (x ++ "_d") hv)) (by simp [tb]) (by simp [mg])).1
   | nameI _ hb => exact (bind_TvOK hb (push_TvOK x hv) (by simp [tb]) (by simp [mg])).1
   | spawn hu _ _ _ _ _ _ _ _ _ _ _ _ _ _ hb => exact (bind_TvOK hb (use_TvOK hu hv).1 (by simp [tb]) (by simp [mg])).1
+  | spawnI _ _ hu _ _ _ _ _ _ _ _ _ hb =>
+      exact (bind_TvOK hb (handOffR_TvOK _ (use_TvOK hu hv).1) (by simp [tb]) (by simp [mg])).1
   | ext hu _ _ hb => exact (bind_TvOK hb (use_TvOK hu hv).1 (extSig_tb _ _) (extSig_mg _)).1
   | xchgAt hp hbuf _ _ _ _ hu _ hb =>
       have hu' := tb_bufOf (peek_tb hv hp) hbuf
@@ -1361,11 +1403,11 @@ theorem ifnull_TvOK {cx c₁ c₂ : Cx} {a : At} {y : String} {μ : Mode} {u : T
 /-- (P1) Every code block's return type is `∀`-free at value positions
 (`noIallV`; from `ProgScopeOK`'s `drf d.retTy`).  A class, so that the step
 lemmas carry it to `declCx_TvOK` without changing their call sites.  It also carries the
-checker's verdict on the whole program (its opened-type-package allocation check keeps the
-per-frame invariant `DyFr` closed under calls, as `ProgCkWC.checked`). -/
+program-wide type-test cleanliness `TermSound.DyClean` (what keeps the per-frame invariant `DyFr`
+closed under calls, as `ProgCkWC.dy`). -/
 class ProgRetIall (p : Prog) : Prop where
   ret : ∀ d ∈ p, noIallV d.retTy = true
-  checked : checkProg p = .ok ()
+  dy : TermSound.DyClean p
 
 /-- A declaration's body context: its signature is well formed. -/
 theorem declCx_TvOK {p : Prog} {d : Decl} (h : DeclT p d) (hR : noIallV d.retTy = true) : TvOK (declCx d) := by

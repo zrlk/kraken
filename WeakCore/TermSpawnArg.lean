@@ -34,6 +34,33 @@ theorem noOR_of_aff : ∀ (T : Ty) (ke : KEnv), Ty.affineIn ke T = false → rgn
   | .word2 _ _, _, _, _ | .tok2 _ _ _ _, _, _, _ | .epair _ _, _, _, _ | .tokE _ _ _, _, _, _
   | .tvar _, _, _, _ | .code _ _ _, _, _, _ | .opq _, _, _, _ => by simp [noOR]
 
+/-- `noOR` from copyability and `drf1`: region pointers are `noOR` as they stand, `own` ones are affine. -/
+theorem noOR_of_aff1 : ∀ (T : Ty) (ke : KEnv), Ty.affineIn ke T = false → TermC1.drf1 T = true → noOR T = true
+  | .ptr μ _, _, h1, h2 => by cases μ <;> simp_all [Ty.affineIn, TermC1.drf1, noOR]
+  | .ptrOpt μ _, _, h1, h2 => by cases μ <;> simp_all [Ty.affineIn, TermC1.drf1, noOR]
+  | .loc μ _, _, h1, h2 => by cases μ <;> simp_all [Ty.affineIn, TermC1.drf1, TermScope.drfM, noOR]
+  | .prod a b, ke, h1, h2 => by
+      simp only [Ty.affineIn, TermC1.drf1, noOR, Bool.and_eq_true, Bool.or_eq_false_iff] at h1 h2 ⊢
+      exact ⟨noOR_of_aff1 a ke h1.1 h2.1, noOR_of_aff1 b ke h1.2 h2.2⟩
+  | .sum a b, ke, h1, h2 => by
+      simp only [Ty.affineIn, TermC1.drf1, noOR, Bool.and_eq_true, Bool.or_eq_false_iff] at h1 h2 ⊢
+      exact ⟨noOR_of_aff1 a ke h1.1 h2.1, noOR_of_aff1 b ke h1.2 h2.2⟩
+  | .array _ t, ke, h1, h2 => by
+      simp only [Ty.affineIn, TermC1.drf1, noOR] at h1 h2 ⊢; exact noOR_of_aff1 t ke h1 h2
+  | .mu t, ke, h1, h2 => by
+      simp only [Ty.affineIn, TermC1.drf1, noOR] at h1 h2 ⊢; exact noOR_of_aff1 t _ h1 h2
+  | .tex κ t, ke, h1, h2 => by
+      simp only [Ty.affineIn, TermC1.drf1, noOR] at h1 h2 ⊢; exact noOR_of_aff1 t _ h1 h2
+  | .iall _, _, _, h2 => by simp [TermC1.drf1] at h2
+  | .iex t, ke, h1, h2 => by
+      simp only [Ty.affineIn, TermC1.drf1, noOR] at h1 h2 ⊢; exact noOR_of_aff1 t ke h1 h2
+  | .refine t _, ke, h1, h2 => by
+      simp only [Ty.affineIn, TermC1.drf1, noOR] at h1 h2 ⊢; exact noOR_of_aff1 t ke h1 h2
+  | .intS _, _, _, _ | .int, _, _, _ | .tid, _, _, _ | .fix _ _, _, _, _ | .lanes _ _, _, _, _ | .unit, _, _, _
+  | .void, _, _, _ | .share _, _, _, _ | .cap _ _, _, _, _ | .word _ _, _, _, _ | .tok _ _, _, _, _
+  | .word2 _ _, _, _, _ | .tok2 _ _ _ _, _, _, _ | .epair _ _, _, _, _ | .tokE _ _ _, _, _, _
+  | .tvar _, _, _, _ | .code _ _ _, _, _, _ | .opq _, _, _, _ => by simp [noOR]
+
 theorem WLe_bumpS (V : Ts) : ∀ ws : List Word, WLe ws (ws.map (bumpW V))
   | [] => WLe_refl []
   | _ :: ws => ⟨⟨rfl, fun _ _ _ => Nat.le_max_left _ _⟩, WLe_bumpS V ws⟩
@@ -88,7 +115,7 @@ theorem kid_val {p : Prog} {Eg Eg2 : GEnv} {S S2 : AllocLabel → Prop} {j : Nat
         (((if kd.useRes then res else []) ++ kd.vals.map cst).map (bumpW V)) .zero ∧
       Lay [] kd.ty kd.ty (((if kd.useRes then res else []) ++ kd.vals.map cst).map (bumpW V)) := by
   obtain ⟨ha, htb, hd, -, -, -, -, hc⟩ := hok
-  have hn : noOR kd.ty = true := noOR_of_aff _ [] ha (TermScope.rgnFree_of_drf _ hd)
+  have hn : noOR kd.ty = true := noOR_of_aff1 _ [] ha hd
   suffices H : VR (fun _ => 0) (Cut Eg2 j S2) kd.ty (shp kd.ty)
         (((if kd.useRes then res else []) ++ kd.vals.map cst).map (bumpW V)) ∧
       Lay [] kd.ty kd.ty (((if kd.useRes then res else []) ++ kd.vals.map cst).map (bumpW V)) from

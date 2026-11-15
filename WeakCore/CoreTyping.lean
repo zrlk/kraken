@@ -1542,7 +1542,8 @@ inductive OpT (p : Prog) : Cx → String → Op → Cx → Prop
   | call {cx c₁ c' : Cx} {x f : String} {is : List String} {a : At} {ts : List Ty} {d : Decl}
       {at_ rt t : Ty} :
       p.find f = .ok d → instantiate cx d is ts = .ok (at_, rt) → cx.use a = .ok (t, c₁) →
-      NoLeak c₁ t → SubS c₁ t at_ → c₁.bind x rt = .ok c' → OpT p cx x (.call f is a ts) c'
+      NoLeak c₁ t → SubS c₁ t at_ → (if t.secondClass && maySpawnI p f then c₁.handOffR t else c₁).bind x rt = .ok c' →
+      OpT p cx x (.call f is a ts) c'
   /-- A runtime spawn (`checkOp`'s `.spawn`): the child's body is checked by `tailCheck`. -/
   | spawn {cx c₁ c' : Cx} {x f : String} {a : At} {T : Ty} {ts : List Ty} {t : Ty} {d : Decl} {at_ rt : Ty} :
       cx.use a = .ok (t, c₁) → SubS c₁ t T → (affine c₁.ke t || affine c₁.ke T) = false →
@@ -1554,6 +1555,18 @@ inductive OpT (p : Prog) : Cx → String → Op → Cx → Prop
       tailCheck p { vars := [("a", T, true)], ret := rt } f [] (.var "a") ts = .ok () →
       (TermClose.tb 0 rt && TermTv.mg rt && TermTv.noIallV rt) = true →
       c₁.bind x .tid = .ok c' → OpT p cx x (.spawn f a T ts) c'
+  /-- A spawn at the callee's own signature (`checkOp`'s `.spawnI`): a second-class argument
+  is handed off (`Cx.handOffR`); the child's body is checked by `tailCheck`. -/
+  | spawnI {cx c₁ c' : Cx} {x f : String} {is : List String} {a : At} {T : Ty} {ts : List Ty} {t : Ty}
+      {d : Decl} {at_ rt : Ty} :
+      p.find f = .ok d → instantiate cx d is ts = .ok (at_, rt) → cx.use a = .ok (t, c₁) →
+      SubS c₁ t T → SubS c₁ T at_ → Ty.noOwnIn c₁.ke T = true →
+      ts.all (·.wf c₁.ke.length 0) = true → ts.all (TermClose.tb 0) = true →
+      TermScope.wrapOK T = true → ts.all TermScope.argOK = true →
+      tailCheck p { inames := d.idx.reverse, vars := [("a", substTs ts.reverse 0 0 d.argTy, true)], ret := substTs ts.reverse 0 0 d.retTy } f d.idx (.var "a") ts = .ok () →
+      (TermClose.tb 0 (substTs ts.reverse 0 0 d.retTy) && TermTv.mg (substTs ts.reverse 0 0 d.retTy) &&
+        TermTv.noIallV (substTs ts.reverse 0 0 d.retTy)) = true →
+      (c₁.handOffR T).bind x .tid = .ok c' → OpT p cx x (.spawnI f is a T ts) c'
   /-- (E1) A trusted extern (`checkOp`'s `.ext`): the argument at the extern's type. -/
   | ext {cx c₁ c' : Cx} {x : String} {n : ExtName} {a : At} {t : Ty} :
       cx.use a = .ok (t, c₁) → n.ok = true → SubS c₁ t n.sig.1 → c₁.bind x n.sig.2 = .ok c' →
@@ -1581,7 +1594,8 @@ inductive OpT (p : Prog) : Cx → String → Op → Cx → Prop
   /-- A call through a code value: `call`'s rule at the value's signature. -/
   | callc {cx c₁ c' : Cx} {x : String} {f a : At} {tf σ τ t : Ty} :
       cx.peek f = .ok tf → codeOf tf = some (σ, τ) → cx.use a = .ok (t, c₁) → NoLeak c₁ t →
-      SubS c₁ t σ → c₁.bind x τ = .ok c' → OpT p cx x (.callc f a) c'
+      SubS c₁ t σ → (if t.secondClass && codeMaySpawnI p then c₁.handOffR t else c₁).bind x τ = .ok c' →
+      OpT p cx x (.callc f a) c'
   /-- `a mod n` for `n = v + 1`: fresh `d` then `k`, and `v := k + d`, so `k < n`. -/
   | rem {cx c' : Cx} {x : String} {a n : At} {ta : Ty} {o : Option Idx} {j : Idx} {v : Nat} :
       cx.peek a = .ok ta → intOf ta = some o → IntIdx cx n j → EqI cx j (.add (.var v) (.lit 1)) →
@@ -2539,6 +2553,39 @@ theorem checkOp_sound (p : Prog) (cx : Cx) (x : String) (op : Op) (cx' : Cx)
       obtain ⟨hD1, hD2⟩ := nor hb5
       obtain ⟨hK1, hK2⟩ := nor hb6
       exact .spawn h1 (sub_sound _ _ _ hsb) hb2 hW1 hW2 hT1 hT2 hD1 hD2 hK1 hK2 hd hi hc hb7 h
+  | spawnI f is a T ts =>
+      simp only [checkOp, bind_ok_iff] at h
+      obtain ⟨d, hd, ⟨at_, rt⟩, hi, ⟨t, c₁⟩, h1, h⟩ := h
+      have nor : ∀ {b c : Bool}, (!b || !c) = false → b = true ∧ c = true := by
+        intro b c h; cases b <;> cases c <;> first | exact ⟨rfl, rfl⟩ | exact absurd h (by decide)
+      dsimp only at h
+      generalize hb1 : (!sub c₁ t T || !sub c₁ T at_) = b1 at h
+      cases b1
+      case true => cases h
+      rw [if_neg (by decide)] at h
+      generalize hb2 : Ty.noOwnIn c₁.ke T = b2 at h
+      cases b2
+      · cases h
+      rw [if_neg (by decide)] at h
+      generalize hb3 : (!ts.all (fun x => Ty.wf c₁.ke.length 0 x) || !ts.all (TermClose.tb 0)) = b3 at h
+      cases b3
+      case true => cases h
+      rw [if_neg (by decide)] at h
+      generalize hb6 : (!TermScope.wrapOK T || !ts.all TermScope.argOK) = b6 at h
+      cases b6
+      case true => cases h
+      rw [if_neg (by decide)] at h
+      simp only [bind_ok_iff] at h
+      obtain ⟨u, hc, h⟩ := h
+      generalize hb7 : (TermClose.tb 0 (substTs ts.reverse 0 0 d.retTy) && TermTv.mg (substTs ts.reverse 0 0 d.retTy) &&
+        TermTv.noIallV (substTs ts.reverse 0 0 d.retTy)) = b7 at h
+      cases b7
+      · cases h
+      rw [if_neg (by decide)] at h
+      obtain ⟨hS1, hS2⟩ := nor hb1
+      obtain ⟨hW, hT⟩ := nor hb3
+      obtain ⟨hK1, hK2⟩ := nor hb6
+      exact .spawnI hd hi h1 (sub_sound _ _ _ hS1) (sub_sound _ _ _ hS2) hb2 hW hT hK1 hK2 hc hb7 h
   | ext n a =>
       simp only [checkOp, bind_ok_iff] at h
       obtain ⟨⟨t, c₁⟩, h1, h⟩ := h
@@ -2572,7 +2619,9 @@ theorem checkOp_sound (p : Prog) (cx : Cx) (x : String) (op : Op) (cx' : Cx)
       split at h
       · simp at h
       · rename_i hl
-        exact .endBorrow hy (by simpa using hl) h
+        split at h
+        · simp at h
+        · exact .endBorrow hy (by simpa using hl) h
   | xchg a v =>
       simp only [checkOp, bind_ok_iff] at h
       obtain ⟨t, ht, ⟨u, o⟩, hx, ⟨tv, c₁⟩, h1, h⟩ := h

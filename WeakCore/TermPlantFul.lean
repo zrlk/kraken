@@ -33,7 +33,7 @@ def OwnKeyT (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → Cfg → 
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {lab : AllocLabel},
     TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
-    OwnOpT cx th.term → TermPlant.OpTgt th lab →
+    OwnOpT cx th.term → TermPlant.OwnXT cx th.term → TermPlant.OpTgt th lab →
     ∃ cl, (CE η).sto lab = some cl ∧ cl.owner = some (CE η).tid ∧ 1 ≤ Rf (.own lab)
 
 /-- (stage A, per step) At an own cell with a frontier whose own key the stepper still
@@ -71,8 +71,8 @@ theorem plantFulfil_of (h0 : TermPlantF.PromViewLtR p k arch Sp c0) (hS : OwnKey
     {ρ : Nat → Nat} {η : TEnv} {cx : Cx} {Rf Rs : Res}
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r) (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs) :
     TermPlant.OwnFrOp (CE η) cx th → r.1 = c.mem := by
-  rintro ⟨hop, lab, hpf, htg⟩
-  obtain ⟨cl, hsto, hown, hns⟩ := hS X Y hop htg
+  rintro ⟨hop, hX, lab, hpf, htg⟩
+  obtain ⟨cl, hsto, hown, hns⟩ := hS X Y hop hX htg
   obtain ⟨t, ht, m, hm, hle⟩ := hP X Y hsto hown hpf hns
   obtain ⟨-, hme, hsub, -, happ⟩ := TermCert.tstep_appUp X.hr
   have ht0 : t ∈ th.promises := hsub t ht
@@ -170,7 +170,7 @@ theorem ownKey_frame {p : Prog} {ρ : Nat → Nat} {η : TEnv} {cx : Cx} {th : T
     {K : TEnv → Nat → List Word → Res → Prop} {lab : AllocLabel}
     (hT : Typed p cx th.term) (hi : FInvR ρ η th.σs K cx th.env Rf)
     (hsc : StepScope cx th.term ∨ StepScopeR th.σs cx th.term)
-    (hop : OwnOpT cx th.term) (htg : TermPlant.OpTgt th lab) :
+    (hop : OwnOpT cx th.term) (hX : TermPlant.OwnXT cx th.term) (htg : TermPlant.OpTgt th lab) :
     ∃ cl, η.sto lab = some cl ∧ cl.owner = some η.tid ∧ 1 ≤ Rf (.own lab) := by
   obtain ⟨q, rt, w, ad, off, hq, he, hw, rfl⟩ := htg
   have hH := hi.2.2
@@ -180,6 +180,7 @@ theorem ownKey_frame {p : Prog} {ρ : Nat → Nat} {η : TEnv} {cx : Cx} {th : T
   rcases hop with ⟨x, e, ⟨a, v, ht⟩ | ⟨b, i, v, ht⟩ | ⟨b, i, q', v, ht⟩ | ⟨b, wi, jl, v, ht⟩ | ⟨b, i, v, ht⟩ |
       ⟨b, i, v, ht⟩⟩ | ⟨x, rel, a, v, tok, e, u, ht, ⟨hpk, -⟩ | ⟨hpk, -⟩⟩
   · -- xchg
+    have hX0 := hX _ _ _ _ ht
     rw [ht] at hq hT hsc
     simp only [TermPlant.opAtom, Option.some.injEq] at hq; subst hq
     have hsc' := hsc.resolve_right (by simp only [StepScopeR, OpScopeR]; exact fun h => h)
@@ -188,7 +189,8 @@ theorem ownKey_frame {p : Prog} {ρ : Nat → Nat} {η : TEnv} {cx : Cx} {th : T
     cases hop with
     | xchg hpk hx =>
     cases hx with
-    | rgn _ hc => exact absurd hc (hsc' _ hpk _ _)
+    | rgn _ hc =>
+      obtain ⟨u', h1 | h1⟩ := hX0 <;> rcases cell_cases hc with rfl | rfl <;> rw [h1] at hpk <;> cases hpk
     | own _ hc =>
       rcases cell_cases hc with rfl | rfl
       · exact fin _ hpk (Or.inl ⟨_, rfl⟩)
@@ -250,8 +252,8 @@ theorem ownKeyT_of
       StepScope cx th.term ∨ StepScopeR th.σs cx th.term) :
     OwnKeyT p k arch Sp Init MintOK c0 :=
   by
-    intro c c' Eg Tot HP HS cr db i th r S ρ η cx Rf Rs lab X Y hop htg
-    exact ownKey_frame (η := η) Y.2.2.2.1.1 Y.2.2.2.2.2.1 (hsc X Y) hop htg
+    intro c c' Eg Tot HP HS cr db i th r S ρ η cx Rf Rs lab X Y hop hX htg
+    exact ownKey_frame (η := η) Y.2.2.2.1.1 Y.2.2.2.2.2.1 (hsc X Y) hop hX htg
 
 end
 
@@ -307,11 +309,11 @@ theorem plantOp_W1T (hK : OwnKeyT p k arch Sp Init MintOK c0) (hA : PlantAtT p k
     {cr db : Nat → Ts → Res} {i : Nat} {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop}
     {ρ : Nat → Nat} {η : TEnv} {cx : Cx} {Rf Rs : Res} {lab : AllocLabel}
     (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r) (Y : EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs)
-    (hop : OwnOpT cx th.term) (htg : TermPlant.OpTgt th lab) (hpf : (CE η).pfr lab ≠ none) :
+    (hop : OwnOpT cx th.term) (hX : TermPlant.OwnXT cx th.term) (htg : TermPlant.OpTgt th lab) (hpf : (CE η).pfr lab ≠ none) :
     ∃ wB : Ts, (∀ t, t ∈ th.promises → t ∉ r.2.2.promises → t < wB) ∧
       (∀ t m, c.mem[t]? = some m → m.loc.label = lab → th.vs.coh m.loc < t → t ≤ wB → t ∈ th.promises) ∧
       (∀ t m, t ∈ FpAt (CE η) ⟨lab, 0⟩ → c.mem[t]? = some m → m.loc.label = lab → wB < t) := by
-  obtain ⟨cl, hsto, hown, hkey⟩ := hK X Y hop htg
+  obtain ⟨cl, hsto, hown, hkey⟩ := hK X Y hop hX htg
   obtain ⟨wB, hAo, hB, hC⟩ := hA X Y hsto hown hpf
   obtain ⟨mB, hmB, hwB, hle⟩ := hC hkey
   obtain ⟨-, hme, hsub, hful, -⟩ := TermCert.tstep_appUp X.hr

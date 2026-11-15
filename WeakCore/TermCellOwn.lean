@@ -62,7 +62,7 @@ theorem nonPromLbl_ofM {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res
     (X : SysInvN p k arch Init MintOK c Eg Tot HP HS cr db) (hCO : CellOwnerLiveM Eg c)
     {j : Nat} {th : TTh} (hth : c.ths[j]? = some th) : NonPromLbl Eg c := by
   intro u m L hmu hE hall
-  obtain ⟨⟨ca, hca, -, -⟩, -⟩ := id hE
+  obtain ⟨⟨ca, hca, -⟩, -⟩ := id hE
   obtain ⟨hlive, hsh⟩ := hCO _ ca hca (.inl ⟨u, m, hmu, rfl⟩)
   cases ho : ca.owner with
   | some i =>

@@ -338,6 +338,7 @@ theorem directive_dom [Labels] {d : Directive} {p : Std.Rco Int64} {s : MachineD
   cases d with
   | label l => exact hk _ _ h hd
   | byteArray bs => simp only [Directive.interp, Effects.AllEnv] at h
+  | zeros n => simp only [Directive.interp, Effects.AllEnv] at h
   | instr i =>
     simp only [Directive.interp, Instr.interp, Effects.AllEnv] at h ⊢
     exact operation_dom hI hd hk hj h

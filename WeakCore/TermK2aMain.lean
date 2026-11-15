@@ -63,7 +63,7 @@ theorem ful_edge_ge {p : Prog} {g : G} {E : TEnv} {sto : Sto} {mem : Memory} {pa
     (hm : mem[u]? = some m) (hpe : PlantEdge sto m a) : t ≤ u := by
   have hlt := TermStep.MemInv_promLt hM
   have hpp := TermStep.MemInv_nopair hM
-  obtain ⟨⟨ca, hca, hno, hrf⟩, a', n, hv, ha'⟩ := hpe
+  obtain ⟨⟨ca, hca, hno⟩, a', n, hv, ha'⟩ := hpe
   obtain ⟨-, rem⟩ := TermNoFul.tstep_fulT hlt hpp hr
   obtain ⟨m2, hm2, hw⟩ := rem u hup hn
   have e : m2 = m := Option.some.inj (hm2.symm.trans hm)
@@ -77,7 +77,7 @@ theorem ful_edge_ge {p : Prog} {g : G} {E : TEnv} {sto : Sto} {mem : Memory} {pa
     have hwm : w ∈ ws := List.mem_of_getElem? hwj
     obtain ⟨x, rt, hdv, hx⟩ := TermNoFul.unitsOp_var hU hwm hnames
     have hs := hF E sto g mem pairs th x rt ws w m2.loc a hsto hT hM
-      ⟨hx, hwm, Or.inl ⟨y, op, e, pw, b, rel, us, j, hterm, hdv, hU, hj, hwj, hl⟩⟩ hnames ⟨ca, hca, hno, hrf⟩
+      ⟨hx, hwm, Or.inl ⟨y, op, e, pw, b, rel, us, j, hterm, hdv, hU, hj, hwj, hl⟩⟩ hnames ⟨ca, hca, hno⟩
     have hle := hRts.1 x rt ws (TermNoFul.lookupE_mem hx) w (by rw [pubWords_of_sNo hs]; exact hwm) hnames
     exact Nat.le_of_lt (Nat.lt_of_le_of_lt hle (hrts hk a' n hwv))
   · obtain ⟨o, -, -, -, -, -, mr, nw, hval⟩ := hW
@@ -88,7 +88,7 @@ theorem ful_edge_ge {p : Prog} {g : G} {E : TEnv} {sto : Sto} {mem : Memory} {pa
     obtain ⟨x, rfl, hx⟩ := TermNoFul.evalAt_names h3 (List.mem_singleton_self nw) hnames
     have hs := hF E sto g mem pairs th x t3 [nw] nw m2.loc a hsto hT hM
       ⟨hx, List.mem_singleton_self nw, Or.inr ⟨acq, rel, wa, ee, tn, ok, fail, t1, t2, pw, ew, hterm, rfl, h1,
-        h2, hb⟩⟩ hnames ⟨ca, hca, hno, hrf⟩
+        h2, hb⟩⟩ hnames ⟨ca, hca, hno⟩
     have hle := hRts.1 x t3 [nw] (TermNoFul.lookupE_mem hx) nw
       (by rw [pubWords_of_sNo hs]; exact List.mem_singleton_self nw) hnames
     exact Nat.le_of_lt (Nat.lt_of_le_of_lt hle (hrts hk a' n hnv))
@@ -114,7 +114,7 @@ theorem memRts_step {p : Prog} {g : G} {E E' : TEnv} {sto sto' : Sto} {mem : Mem
   · have hmu0 : mem[u]? = some m := TermFul.memExt_back hext hus hmu
     by_cases hup : u ∈ th.promises
     · exact ful_edge_ge hk (fun l c h => h3 l c (h1 l c h)) hT hm hRts hr hup hnP hmu0 he
-    · obtain ⟨⟨ca, hca, hno, hrf⟩, hnm⟩ := he
+    · obtain ⟨⟨ca, hca, hno⟩, hnm⟩ := he
       have hcl0 : sto m.loc.label = some ca := by
         cases e : sto m.loc.label with
         | some c0 => rw [h3 _ _ e] at hca; rw [hca]
@@ -124,7 +124,7 @@ theorem memRts_step {p : Prog} {g : G} {E E' : TEnv} {sto sto' : Sto} {mem : Mem
           rcases hF.1.2.2.1 m.loc.label with h | ⟨⟨j, hj, -, hl⟩, -⟩
           · rw [h, hEn] at hE'; cases hE'
           · exact hup ((hm.2.2.2.1.1 j hj).2.1 u m hmu0 hl)
-      exact hM u m hmu0 ⟨⟨ca, hcl0, hno, hrf⟩, hnm⟩ hup
+      exact hM u m hmu0 ⟨⟨ca, hcl0, hno⟩, hnm⟩ hup
   · exact Nat.le_of_lt (Nat.lt_of_lt_of_le htlt hus)
 
 end TermK2aMain

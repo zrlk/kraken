@@ -1,17 +1,19 @@
 /-
-**Programs without `publish`** discharge WeakCore's two certificate-window
-obligations (`TermCertScope.CertWinCNX`, `CertWinPNX`), so that M1 takes its
+**Programs without `publish`, `region` binder or `intoRgn`** discharge WeakCore's
+two certificate-window obligations (`TermCertScope.CertWinCNX`, `CertWinPNX`), so that M1 takes its
 typing facts (`Scc/Sem/Typing.lean` `SrcTyped`) from WeakCore's token
 soundness theorems (`SpawnArmZ.machine_tokens_main_spawn`,
 `TermMain.machine_tokens_mainF`) with no named run fact left.
 
 The windows ask, along every certified solo run, for `NoHoldPubN`: at every
-typing of the thread, `PubWinTN`, a premise about a thread whose term is
-`let x = publish a in e`. A thread none of whose code contains `publish`
-never is at one, so the premise is vacuous. The proof is TermScope's
+typing of the thread, `PubWinTN`, premises about a thread whose term is
+`let x = publish a in e`, a `region` binder or `let x = intoRgn r a in e`. A
+thread none of whose code contains any of the three never is at one, so the
+premises are vacuous (scc's fragment has no `region` and no `intoRgn`). The proof is TermScope's
 `RunScope` argument with `allOK` replaced by `pubFree`:
 
-- **The check.** `pubFree`: no `let _ = publish _` in any subterm (TermScope's
+- **The check.** `pubFree`: no `let _ = publish _`, `region` or
+  `let _ = intoRgn _ _` in any subterm (TermScope's
   `allOK` shape); `ProgPubFree p`: every code block's body (decidable).
 - **The invariant.** `ThPF`: a thread's term and every stack frame's body are
   `pubFree`; `RunPF`: every thread. `tstep_pf`: a thread step keeps `ThPF`
@@ -43,13 +45,20 @@ def isPublish : Op → Bool
   | .publish _ => true
   | _ => false
 
-/-- **No `publish` in the term** (any subterm; TermScope's `allOK` shape). -/
+/-- Is the operation `intoRgn`? -/
+def isIntoRgn : Op → Bool
+  | .intoRgn _ _ => true
+  | _ => false
+
+/-- **No `publish` in the term** (any subterm; TermScope's `allOK` shape), and no
+`region` binder or `intoRgn`, the other two binders over an address that
+`PubWinTN` constrains (neither is in scc's fragment). -/
 def pubFree : Expr → Bool
-  | .let_ _ op e => !isPublish op && pubFree e
+  | .let_ _ op e => !isPublish op && !isIntoRgn op && pubFree e
   | .split _ _ _ e => pubFree e
   | .unpack _ _ _ e => pubFree e
   | .unpackT _ _ _ e => pubFree e
-  | .region _ _ _ _ e => pubFree e
+  | .region _ _ _ _ _ => false
   | .openPub _ _ _ _ e => pubFree e
   | .case _ _ e₁ _ e₂ => pubFree e₁ && pubFree e₂
   | .ifnull _ e₁ _ e₂ => pubFree e₁ && pubFree e₂
@@ -60,7 +69,8 @@ def pubFree : Expr → Bool
   | .ret _ => true
   | .tail _ _ _ _ => true
 
-/-- **The program has no `publish`**: no code block's body has one. -/
+/-- **The program has no `publish`, `region` binder or `intoRgn`**: no code block's body has
+one (`pubFree`). -/
 def ProgPubFree (p : Prog) : Prop := p.all (fun d => pubFree d.body) = true
 
 instance (p : Prog) : Decidable (ProgPubFree p) := inferInstanceAs (Decidable (_ = true))
@@ -70,12 +80,13 @@ theorem ProgPubFree.decl {p : Prog} (hp : ProgPubFree p) {d : Decl} (hd : d ∈ 
 
 /-! ## The invariant -/
 
-/-- **A thread without `publish`**: its term and every suspended frame's body. -/
+/-- **A thread without `publish`, `region` binder or `intoRgn`**: its term and every suspended
+frame's body. -/
 structure ThPF (th : TTh) : Prop where
   term : pubFree th.term = true
   stk : ∀ f ∈ th.stack, pubFree f.body = true
 
-/-- **Every thread without `publish`.** -/
+/-- **Every thread without `publish`, `region` binder or `intoRgn`.** -/
 def RunPF (c : Cfg) : Prop := ∀ (i : Nat) (th : TTh), c.ths[i]? = some th → ThPF th
 
 /-- Entering a code block of a publish-free program. -/
@@ -191,13 +202,10 @@ theorem tstep_pf {g : G} {mem : WeakMem.Memory} {pairs : List Ts} {th : TTh}
     split at hr
     · simp only [List.mem_singleton] at hr; subst hr; exact ⟨hok, hstk⟩
     · simp at hr
-  · -- region
+  · -- region (not publish-free)
     rename_i _ a rn pn tn e heq
     rw [heq] at hok
-    split at hr
-    · simp only [List.mem_singleton] at hr; subst hr; exact ⟨hok, hstk⟩
-    · simp only [List.mem_singleton] at hr; subst hr; exact ⟨hok, hstk⟩
-    · simp at hr
+    simp [pubFree] at hok
   · -- openPub
     rename_i _ a rn pn cn e heq
     rw [heq] at hok
@@ -372,20 +380,28 @@ theorem runPF_step {c1 c2 : Cfg} (hp : ProgPubFree p) (h0 : RunPF c1) (hs : Step
 /-- **A spawn keeps `RunPF`**: the parent continues with the `let`'s body,
 the child runs a `tail`, with no stack. -/
 theorem runPF_spawnStep {cap : Nat} {c c' : Cfg} (h : Spawn p k arch cap c c') (hc : RunPF c) : RunPF c' := by
-  obtain ⟨i, x, f, a, T, ts, e, th, rt, ws, hth, ht, -, -, -, rfl⟩ := h.elim
-  have hT := hc i th hth
-  have hok := hT.term
-  rw [ht] at hok
-  simp only [pubFree, Bool.and_eq_true] at hok
-  intro j th0 hj
-  simp only [spawnCfg, spawnT] at hj
-  rw [Array.getElem?_push] at hj
-  split at hj
-  · cases hj
-    exact ⟨rfl, fun f hf => by simp [spawnKid] at hf⟩
-  · rcases TermViewInv.getElem?_set!_cases hj with rfl | hj
-    · exact ⟨hok.2, hT.stk⟩
-    · exact hc j th0 hj
+  -- both forms (`spawn`, `spawnI`): the parent at the `let`'s body, a child at a `tail` with no stack
+  have key : ∀ (i : Nat) (x : String) (op : Op) (e : Expr) (th kid : TTh), c.ths[i]? = some th →
+      th.term = .let_ x op e → pubFree kid.term = true → kid.stack = [] →
+      RunPF (spawnT c i (spawnPar c i th x e) kid) := by
+    intro i x op e th kid hth ht hk hks
+    have hT := hc i th hth
+    have hok := hT.term
+    rw [ht] at hok
+    simp only [pubFree, Bool.and_eq_true] at hok
+    intro j th0 hj
+    simp only [spawnT] at hj
+    rw [Array.getElem?_push] at hj
+    split at hj
+    · cases hj
+      exact ⟨hk, fun f hf => by rw [hks] at hf; cases hf⟩
+    · rcases TermViewInv.getElem?_set!_cases hj with rfl | hj
+      · exact ⟨hok.2, hT.stk⟩
+      · exact hc j th0 hj
+  rcases h.elim with ⟨i, x, f, a, T, ts, e, th, rt, ws, hth, ht, -, -, -, rfl⟩ |
+      ⟨i, x, f, is, a, T, ts, e, th, d, rt, ws, hth, ht, -, -, -, -, rfl⟩
+  · exact key i x _ e th _ hth ht rfl rfl
+  · exact key i x _ e th _ hth ht rfl rfl
 
 /-- **`RunPF` at every configuration reachable from `cs`** by machine steps and `Sp` steps. -/
 def RunPFR (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → Cfg → Prop) (cs : Cfg) : Prop :=
@@ -422,13 +438,23 @@ section
 variable {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {MintOK : Res → Prop} {c0 : Cfg}
 variable {Sp : Cfg → Cfg → Prop}
 
-/-- **At a configuration without `publish`, `NoHoldPubN` holds** (its premise
-asks for a thread at `let x = publish a in e`). -/
+/-- **At a configuration without `publish`, `region` binder or `intoRgn`, `NoHoldPubN` holds**:
+it asks for `PubWinTN`, whose three conjuncts each assume the thread's term has one form
+(`let x = publish a in e`, a `region` binder, `let x = intoRgn r a in e`), and `RunPF` refutes
+each assumption. -/
 theorem noHoldPubN_of {E0 E1 : TEnv} {i : Nat} {c : Cfg} (h : RunPF c) : NoHoldPubN p k arch E0 E1 i c := by
-  intro th hth _ _ _ _ _ _ _ _ _ _ _ _ _ _ x a e _ _ _ ht _ _ _
+  intro th hth _ _ _ _ _ _ _ _ _ _ _ _ _ _
   have hpf := (h i th hth).term
-  rw [ht] at hpf
-  simp [pubFree, isPublish] at hpf
+  refine ⟨?_, ?_, ?_⟩
+  · intro x a e _ _ _ ht _ _ _
+    rw [ht] at hpf
+    simp [pubFree, isPublish] at hpf
+  · intro a r pn tn e _ _ _ ht _ _ _
+    rw [ht] at hpf
+    simp [pubFree] at hpf
+  · intro x r a e _ _ _ ht _ _ _
+    rw [ht] at hpf
+    simp [pubFree, isIntoRgn] at hpf
 
 /-- **`CertWinCNX` holds for a publish-free program** from a `RunPF` start. -/
 theorem certWinCNX_of_noPublish (hp : ProgPubFree p) (h0 : RunPFR p k arch Sp c0) :
@@ -462,7 +488,7 @@ initial scope invariant remain. -/
 theorem obligationsFX_of_noPublish (hck : checkProg p = .ok ()) (hsc : TermScope.ProgScopeOKW p = true)
     (hrs : TermScope.RunScope c0) (hp : ProgPubFree p) (hpf : RunPF c0) :
     ObligationsFX p k arch (Spawn p k arch c0.cap) Init (fun _ => True) c0 :=
-  ⟨hck, hsc, hrs⟩
+  ⟨(TermSound.typed_dy_of_checked hck).1, (TermSound.typed_dy_of_checked hck).2, hsc, hrs⟩
 
 /-- **Every thread is typed along every run with spawns** of a publish-free
 program (`machine_tokens_main_spawn`'s per-thread conjunct). -/
@@ -480,7 +506,7 @@ theorem srcTyped_spawn_of_noPublish (hck : checkProg p = .ok ()) (hsc : TermScop
 theorem obligationsF_of_noPublish (hck : checkProg p = .ok ()) (hsc : TermScope.ProgScopeOKW p = true)
     (hrs : TermScope.RunScope c0) (hp : ProgPubFree p) (hpf : RunPF c0) :
     ObligationsF p k arch Init (fun _ => True) c0 :=
-  ⟨hck, hsc, hrs⟩
+  ⟨(TermSound.typed_dy_of_checked hck).1, (TermSound.typed_dy_of_checked hck).2, hsc, hrs⟩
 
 /-- **Every thread is typed along every run without spawns** of a
 publish-free program (`machine_tokens_mainF`'s per-thread conjunct). -/
@@ -505,7 +531,7 @@ def allocD : Decl where
   retTy := .int
   body := lets [("p", .new (v "x") (some .int))] (.ret (v "x"))
 
-/-- A one-block program without `publish` passes the check. -/
+/-- A one-block program with no `publish`, `region` binder or `intoRgn` passes the check. -/
 theorem progPubFree_alloc : ProgPubFree [allocD] := by decide
 
 /-- WeakCore's `leakD` publishes, so a program containing it fails the check. -/

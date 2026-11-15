@@ -69,7 +69,7 @@ theorem InvAtXC_of {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {E : 
 -- TermNoHold.solo_typedXF), plus `PfrRun`.
 /-- **The tied typed run with new cells, boxes and frontiers tracked.** -/
 theorem solo_typedXC {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c : Cfg} {E0 : TEnv}
-    {n0 v0 na0 : Nat} [ProgRetIall p] [WrIniC] (hP : ProgT p)
+    {n0 v0 na0 : Nat} [ProgRetIall p] [TermA4.ProgCkWC p] [WrIniC] (hP : ProgT p)
     (hsc : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → ScopeAt p i c0) (hvI : TermViewInv.ViewInv c)
     (hwin : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → NoHoldPubA p k arch E0 E0 i c0)
     (h0 : InvAtXC p k arch i E0 n0 v0 na0 c) (hTA : TermTyped.TidAt i c E0) {c2 : Cfg} (h : Solo p k arch i c c2)
@@ -91,7 +91,7 @@ theorem solo_typedXC {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c 
     obtain ⟨E', hF, hx', hT', hm', hbB, hN⟩ := hstep r hr hpa
     have hTyN := TermTyped.tyRun_thread (hDy := hDy) (hC := fun k => (hE.2.1 k).1) (hN := hN) (g := { gOf p k arch c0 i with zf := fun _ => False }) hs hth e3 rfl rfl rfl rfl
       (Nat.lt_of_le_of_lt (Nat.zero_le _) (Cfg.lt_n (arr_lt hth))) hr hF.1 hTyR hRcR
-    have hA' := anchR_tstep hF hm' hbB hE hT htv hi hm hscope (TermViewInv.envVR_solo hvI hc0 hth) hr (frRunA_ext hfr hx) hfr.2.1
+    have hA' := anchR_tstep hF hm' hbB hE hT.1 htv hi hm hscope (TermViewInv.envVR_solo hvI hc0 hth) hr (frRunA_ext hfr hx) hfr.2.1
     have hwu := tstep_wrUp _ _ _ _ r hr
     have hfb' := FrBound_foot hF hwu hfb hfr.1
     have hg := TermTyped.gOf_thread hs
@@ -143,7 +143,7 @@ theorem solo_typedXC {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c 
 /-- **A certified promise's pointer value at a single-word counted slot of a start cell** names, in an
 extension `E2` of the start `E0`, a frontier or a box; new cells, boxes and frontiers are tracked. -/
 theorem certified_promTgtC {p : Prog} {k : Promises.Knobs} {arch : Arch} {c : Cfg} {i : Nat} {E0 : TEnv}
-    {n0 v0 na0 : Nat} [ProgRetIall p] [WrIniC] (hP : ProgT p)
+    {n0 v0 na0 : Nat} [ProgRetIall p] [TermA4.ProgCkWC p] [WrIniC] (hP : ProgT p)
     (hsc : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → ScopeAt p i c0) (hvI : TermViewInv.ViewInv c)
     (hwin : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → NoHoldPubA p k arch E0 E0 i c0)
     (h0 : InvAtXC p k arch i E0 n0 v0 na0 c) (hTA : TermTyped.TidAt i c E0) (hc : Certified p k arch c i)
@@ -187,7 +187,7 @@ variable {Sp : TermRun.Cfg → TermRun.Cfg → Prop}
 
 /-- **A promise step keeps `FgnPromCntG`**: as `fgnClos_prom`, through `certified_promTgtC`; a frontier
 of `E2` missing from `E_g` is new in the certificate run, so at a cell of `E2` or a fresh label. -/
-theorem fgnCnt_prom (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [WrIniC] (hP : ProgT p) (hrun : CertRunP p k arch Sp Init MintOK c0)
+theorem fgnCnt_prom (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [WrIniC] (hP : ProgT p) (hrun : CertRunP p k arch Sp Init MintOK c0)
     {c : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {j : Nat}
     {th : TTh} {a : Address} {v : WeakMem.Val} {w : Ts} {P : AllocLabel → Option Ts} {N : AllocLabel → Nat}
     (X : PCtxX p k arch Sp Init MintOK c0 c Eg Tot HP HS cr db j th a v w) (hF : FgnPromCntG Eg c) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) :

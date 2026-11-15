@@ -288,4 +288,33 @@ def m1UP : Prog := match m1UR with | .ok r => elabProg r.unit.decls | .error _ =
     | .error e => (e.splitOn "inadmissible extern").length > 1
   | .error _ => false
 
+-- `{swap r}` in a `.u` signature reaches the core `Decl` (`swapIdx`); `swap` is a keyword here too
+#guard match parseUnit "def f{swap r, i}(x : Int) : Int = ret x" with
+  | .ok r => (elabProg r.unit.decls).map (·.swapIdx) == [["r"]] | .error _ => false
+#guard (parseUnit "def f(swap : Int) : Int = ret swap") matches .error _
+
+-- `spawnI` and `isTy` in `.u`: operands for atoms; the elaboration survives the core printer and parser
+def spiU : String := "
+def kid0(a : Int) : Unit = ret ()
+def kid{r}(a : Int) : Unit = ret ()
+def kidT[α : *]{r}(a : α) : Unit = ret ()
+def par{i}(n : Int) : Int =
+  let t0 = spawnI kid0(n) : Int
+  let t1 = spawnI kid{i}(n + 1) : Int
+  let t2 = spawnI kidT[Ptr[i] Int]{i}(n) : Ptr[i] Int
+  let t3 = spawnI kidT[Int](0) : Int
+  let b = isTy[Int] n
+  let c = isTy[Ptr[i] Int] (n + 1)
+  ret b
+"
+def spiUP : Prog := match parseUnit spiU with | .ok r => elabProg r.unit.decls | .error _ => []
+#guard (parseUnit spiU) matches .ok _
+#guard spiUP.length == 4
+#guard match parseProg (showProg spiUP) with
+  | .ok p => p.length == 4 && (p.zip spiUP).all fun (a, b) => sameDecl a b
+  | .error _ => false
+#guard ((blockW spiUP "par").splitOn "spawnI kidT[Ptr[i] Int]{i}(n) : Ptr[i] Int").length == 2
+#guard ((blockW spiUP "par").splitOn "isTy[Int] n").length == 2
+#guard (parseUnit "def f(isTy : Int) : Int = ret isTy") matches .error _
+
 end USyntaxTest

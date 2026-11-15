@@ -23,14 +23,6 @@ def WitOK1 (κ : Kind) (s : Ty) : Prop := s.arrFree = true ∧ (κ.share = true 
     (κ.copy = true → Ty.affine s = false) ∧ (κ.noOwn = true → Ty.noOwn s = true) ∧
     drf1 s = true ∧ noIallV s = true ∧ TermTv.mg s = true
 
-theorem ask_true_iff (ke : KEnv) (k : Nat) : ke.ask k true (fun _ => true) = true ↔ k < ke.length := by
-  unfold KEnv.ask
-  cases e : ke[k]? with
-  | none => simp only [List.getElem?_eq_none_iff] at e; simp; omega
-  | some o =>
-      have := (List.getElem?_eq_some_iff.mp e).1
-      cases o <;> simp [this]
-
 /-- `WitR1` in index form. -/
 theorem WitR1_iff {ke : KEnv} {η : TEnv} : WitR1 ke η ↔ ∀ k, k < ke.length → drf1 (η.wit k) = true :=
   ⟨fun h k hk => h k ((ask_true_iff ke k).2 hk), fun h k hk => h k ((ask_true_iff ke k).1 hk)⟩
@@ -41,22 +33,6 @@ theorem WitR1_nil (η : TEnv) : WitR1 [] η := WitR1_iff.2 (fun k hk => absurd h
 /-- Along any change that keeps the witnesses (store extensions, `withSto`, `unsee`, ...). -/
 theorem WitR1_wit {ke : KEnv} {η η' : TEnv} (he : ∀ k, η'.wit k = η.wit k) (h : WitR1 ke η) :
     WitR1 ke η' := fun k hk => by rw [he k]; exact h k hk
-
-/-- A type variable a `tb c` type mentions is below `c`. -/
-theorem mentions_lt : ∀ (t : Ty) (c j : Nat), tb c t = true → t.tyMentions j = true → j < c := by
-  intro t
-  induction t with
-  | tvar k => intro c j h hm; simp only [tb, decide_eq_true_eq] at h; simp only [Ty.tyMentions, beq_iff_eq] at hm; omega
-  | prod a b iha ihb | sum a b iha ihb | code a b _ iha ihb =>
-      intro c j h hm; simp only [tb, Bool.and_eq_true] at h; simp only [Ty.tyMentions, Bool.or_eq_true] at hm
-      rcases hm with hm | hm
-      · exact iha c j h.1 hm
-      · exact ihb c j h.2 hm
-  | array _ t ih | ptr _ t ih | ptrOpt _ t ih | loc _ t ih | iall t ih | iex t ih | refine t _ ih =>
-      intro c j h hm; simp only [tb] at h; simp only [Ty.tyMentions] at hm; exact ih c j h hm
-  | mu t ih | tex _ t ih =>
-      intro c j h hm; simp only [tb] at h; simp only [Ty.tyMentions] at hm; have := ih (c + 1) (j + 1) h hm; omega
-  | _ => intro c j _ hm; simp [Ty.tyMentions] at hm
 
 /-- The witnesses a frame's type mentions are `drf1` (`rgnPay_cl0`'s `hD`). -/
 theorem WitR1_occ {ke : KEnv} {η : TEnv} {u : Ty} (h : WitR1 ke η) (ht : tb ke.length u = true) :
@@ -71,10 +47,10 @@ theorem drf1_cl_frame (ρ : Nat → Nat) {ke : KEnv} {η : TEnv} {σ : Ty} (h : 
 /-- **A region payload in a frame**: `rgnPay_cl0` with `FInv`'s `WitSh`/`WitC` and `WitR1`. -/
 theorem rgnPay_cl0_frame (ρ : Nat → Nat) {ke : KEnv} {η : TEnv} {u : Ty} (hC : ∀ k, Clo (η.wit k))
     (hS : WitSh ke η) (hc : WitC ke η) (hR : WitR1 ke η)
-    (hp : rgnPay ke u = true) (hd : drf1 u = true) (ht : tb ke.length u = true) :
+    (hp : rgnPay ke u = true) (ha : affine ke u = false) (hd : drf1 u = true) (ht : tb ke.length u = true) :
     Ty.coupledOK (cl ρ η.wit 0 0 u) = true ∧ Ty.affine (cl ρ η.wit 0 0 u) = false ∧
       drf1 (cl ρ η.wit 0 0 u) = true :=
-  rgnPay_cl0 ρ hC hS hc (WitR1_occ hR ht) hp hd ht
+  rgnPay_cl0 ρ hC hS hc (WitR1_occ hR ht) hp ha hd ht
 
 /-- A callee frame's witness at a parameter position is the closure of a checked type argument. -/
 theorem subE_wit_call {ρ₀ : Nat → Nat} {η : TEnv} {cx : Cx} {d : Decl} {is : List String} {ts : List Ty}
@@ -146,12 +122,13 @@ theorem opOK1_tys {op : Op} (h : opOK1 op = true) (hn : ∀ μ τ, op ≠ .null 
   all_goals first
     | (simp [opOK1] at h; done)
     | (exact absurd rfl (hn _ _))
-    | (intro σ hσ; simp only [opOK1, List.all_eq_true] at h; exact h σ hσ)
+    | (intro σ hσ; simp only [opOK1, List.all_eq_true, Bool.and_eq_true] at h
+       first | exact h σ hσ | exact h.1 σ hσ)
 
 /-- `allOK1` checks `tail`'s type arguments. -/
 theorem allOK1_tail {f : String} {is : List String} {x : At} {ts : List Ty} (h : allOK1 (.tail f is x ts) = true) :
     ∀ σ ∈ ts, drf1 σ = true := by
-  simp only [allOK1, List.all_eq_true] at h; exact h
+  simp only [allOK1, List.all_eq_true, Bool.and_eq_true] at h; exact h.1
 
 /-- The scope's check at `packT` under c1: the witness of a type existential is `drf1`. -/
 def PackTOK1 (σ : Ty) : Ty → Prop

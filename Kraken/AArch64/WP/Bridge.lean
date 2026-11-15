@@ -191,6 +191,7 @@ private theorem addrOf_add_of_labels (e : Kraken.Executable Directive) [Executab
           simp
         | instr i => simp [Directive.isLabel] at hlab
         | byteArray a => simp [Directive.isLabel] at hlab
+        | zeros n => simp [Directive.isLabel] at hlab
     rw [show k + (n + 1) = k + n + 1 from rfl, hstep]
     exact ih (fun i a hi hg => h i a (by omega) hg)
 
@@ -205,6 +206,7 @@ theorem Kraken.Executable.codeWF_of_valid (e : Kraken.Executable Directive) [hv 
     | label l => exact hv.label_size i l z hi
     | instr i' => simp [Directive.isLabel] at hlab
     | byteArray a => simp [Directive.isLabel] at hlab
+    | zeros n => simp [Directive.isLabel] at hlab
   advance := by
     intro pc d z rest hcode
     have hne : e.directivesFromAddress pc ≠ [] := by
@@ -266,6 +268,7 @@ theorem Kraken.Executable.sits_cons_of_not_label {e : Kraken.Executable Directiv
   | label l => simp [Directive.isLabel] at hd
   | instr i => rfl
   | byteArray a => rfl
+  | zeros n => rfl
 
 /-- Unfold the fall-through address past a cell that is not a label. -/
 theorem Kraken.Executable.after_cons_of_not_label {e : Kraken.Executable Directive} {pc : Int64} {d : Directive}
@@ -276,6 +279,7 @@ theorem Kraken.Executable.after_cons_of_not_label {e : Kraken.Executable Directi
   | label l => simp [Directive.isLabel] at hd
   | instr i => simp only [Executable.after, hcode]
   | byteArray a => simp only [Executable.after, hcode]
+  | zeros n => simp only [Executable.after, hcode]
 
 /-! ### Walking a laid-out program
 
@@ -381,6 +385,7 @@ theorem Kraken.Executable.walk_addrOf [layout : _root_.Layout] {p : Program}
         | label l => exact ⟨l, rfl⟩
         | instr i' => simp [Directive.isLabel] at hd
         | byteArray a => simp [Directive.isLabel] at hd
+        | zeros n => simp [Directive.isLabel] at hd
       have hstep : (layout p).addrOf (i + 1) = (layout p).addrOf i := by
         rw [addrOf_step hp, size_label hp]
         simp
@@ -419,6 +424,7 @@ private theorem consume {e : Kraken.Executable Directive} (hwf : e.CodeWF) :
         | label l => exact ⟨l, rfl⟩
         | instr i => simp [Directive.isLabel] at hd
         | byteArray a => simp [Directive.isLabel] at hd
+        | zeros n => simp [Directive.isLabel] at hd
       obtain ⟨pre, hpre, hcnt⟩ := ih pc hsits
       exact ⟨pre, hpre, by simpa [List.countP_cons, Directive.isLabel] using hcnt⟩
     · have hdf : d.isLabel = false := by simpa using hd

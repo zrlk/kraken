@@ -47,8 +47,10 @@ theorem mstepX_cap {cap : Nat} {c c' : Cfg} {l : Nat × Bool} (h : mstepX p k ar
   · exact machine_cap (l := (i, false)) h
   · rcases h with h | h
     · exact machine_cap (l := (i, true)) h
-    · obtain ⟨x, f, a, T, ts, e, th, rt, ws, -, -, -, -, -, rfl⟩ := h
-      exact spawnCfg_cap c i th x e f ts T ws
+    · rcases h with ⟨x, f, a, T, ts, e, th, rt, ws, -, -, -, -, -, rfl⟩ |
+          ⟨_, _, _, _, _, _, _, _, _, _, _, -, -, -, -, -, -, rfl⟩
+      · exact spawnCfg_cap c i th x e f ts T ws
+      · rfl
 
 /-- **(M0) The spawn machine is a growing sound system with capacity `Cfg.cap`.** -/
 theorem machineXC_sound (p : Prog) (k : Promises.Knobs) (arch : Arch) :

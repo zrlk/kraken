@@ -79,7 +79,7 @@ theorem invAtXRB_ext {E0 : TEnv} {n0 v0 : Nat} {mem0 : Memory} {P0 : List Ts} {l
 /-- **The typed run before `publish r`, with the unplanted frontier**: along `SoloNP r` from `c`,
 the tracked `InvAtXR` witness keeps `pfr r = none`. -/
 theorem solo_typedXRP {cP c : Cfg} {E0 : TEnv} {n0 v0 : Nat} {thP : TTh} {l : AllocLabel} {cl cr : Cell}
-    [ProgRetIall p] [TermTyped.WrIniC] (hP : ProgT p)
+    [ProgRetIall p] [TermA4.ProgCkWC p] [TermTyped.WrIniC] (hP : ProgT p)
     (hsc : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → ScopeAt p i c0) (hvI : TermViewInv.ViewInv c)
     (hwin : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → NoHoldPubA p k arch E0 E0 i c0)
     (hthP : cP.ths[i]? = some thP) (hpl : ∀ t, t ∈ thP.promises → t < cP.mem.size)
@@ -108,11 +108,15 @@ theorem solo_typedXRP {cP c : Cfg} {E0 : TEnv} {n0 v0 : Nat} {thP : TTh} {l : Al
       (Nat.lt_of_le_of_lt (Nat.zero_le _) (Cfg.lt_n (arr_lt hth)))
       (tstep_notDone hr) hscope hT hi hE htv hm hbo (PAx_of_step hs hc0' hth)
       (hwin c0 hc0 hcert0 th hth ρ η cx hE hT htv hi hm (frRunA_ext hfr hx) hfr.2.1.1 hfr.2.1.2.2.1 hTyR hDy hrp)
-      (hPb := fun y a e rt ws ad ht hea hws hEq => hnp th hth ⟨y, a, e, rt, ws, ad, ht, hea, hws, hEq⟩)
+      (hPb := fun y a e rt ws ad ht hea hws hEq => hnp th hth ⟨a, rt, ws, ad, Or.inl ⟨y, e, ht⟩, hea, hws, hEq⟩)
+      (hPbR := fun a rn pn tn e rt ws ad ht hea hws hEq =>
+        hnp th hth ⟨a, rt, ws, ad, Or.inr (Or.inl ⟨rn, pn, tn, e, ht⟩), hea, hws, hEq⟩)
+      (hPbI := fun x rn a e rt ws ad ht hea hws hEq =>
+        hnp th hth ⟨a, rt, ws, ad, Or.inr (Or.inr ⟨x, rn, e, ht⟩), hea, hws, hEq⟩)
     obtain ⟨E', hF, hx', hT', hm', hbB, hN⟩ := hstep rs hr hpa
     have hTyN := TermTyped.tyRun_thread (hDy := hDy) (hC := fun k => (hE.2.1 k).1) (hN := hN) (g := { gOf p k arch c0 i with pf := fun l' => l' ≠ r }) hs hth e3 rfl rfl rfl rfl
       (Nat.lt_of_le_of_lt (Nat.zero_le _) (Cfg.lt_n (arr_lt hth))) hr hF.1 hTyR hRcR
-    have hA' := anchR_tstep hF hm' hbB hE hT htv hi hm hscope (TermViewInv.envVR_solo hvI hc0 hth) hr (frRunA_ext hfr hx) hfr.2.1
+    have hA' := anchR_tstep hF hm' hbB hE hT.1 htv hi hm hscope (TermViewInv.envVR_solo hvI hc0 hth) hr (frRunA_ext hfr hx) hfr.2.1
     have hcrE : (CE η).sto r ≠ none := by rw [hx.2.2.2.2.1 _ _ hcr]; exact fun h => by cases h
     have hpf' : E'.pfr r = none := Classical.byContradiction fun hne => by
       have h3 : r ≠ r := hF.1.pfrG r hcrE (by rw [hpf0]; exact hne)
@@ -155,7 +159,7 @@ theorem solo_typedXRP {cP c : Cfg} {E0 : TEnv} {n0 v0 : Nat} {thP : TTh} {l : Al
 
 /-- **`PfrX` discharged**: from a start witness at the plant with no frontier at `r`. -/
 theorem PfrX_of {cP : Cfg} {thP : TTh} {a0 : Address} {v0 : WeakMem.Val} {w : Ts} {E0 : TEnv} {n0 vw : Nat}
-    {l : AllocLabel} {cl cr : Cell} [ProgRetIall p] [TermTyped.WrIniC] (hP : ProgT p)
+    {l : AllocLabel} {cl cr : Cell} [ProgRetIall p] [TermA4.ProgCkWC p] [TermTyped.WrIniC] (hP : ProgT p)
     (hsc : ∀ c0, Solo p k arch i (promise cP i a0 v0 w) c0 → Certified p k arch c0 i → ScopeAt p i c0) (hvI : TermViewInv.ViewInv (promise cP i a0 v0 w))
     (hwin : ∀ c0, Solo p k arch i (promise cP i a0 v0 w) c0 → Certified p k arch c0 i →
       NoHoldPubA p k arch E0 E0 i c0)
@@ -174,7 +178,7 @@ theorem PfrX_of {cP : Cfg} {thP : TTh} {a0 : Address} {v0 : WeakMem.Val} {w : Ts
 /-- **G-0 at any planted root edge**, `PfrX` discharged (`PfrX_of`), unused premises pruned. -/
 theorem g0WinT_ofP {cP : Cfg} {thP : TTh} {a0 b a' : Address} {v0 : WeakMem.Val} {g : Nat} {w wt : Ts}
     {E0 : TEnv} {ca cr : Cell} {n0 vw : Nat} {l : AllocLabel} {cl : Cell} {t : Nat}
-    [ProgRetIall p] [TermTyped.WrIniC] (hP : ProgT p)
+    [ProgRetIall p] [TermA4.ProgCkWC p] [TermTyped.WrIniC] (hP : ProgT p)
     (hsc : ∀ c0, Solo p k arch i (promise cP i a0 v0 w) c0 → Certified p k arch c0 i → ScopeAt p i c0) (hvI : TermViewInv.ViewInv (promise cP i a0 v0 w))
     (hwin : ∀ c0, Solo p k arch i (promise cP i a0 v0 w) c0 → Certified p k arch c0 i →
       NoHoldPubA p k arch E0 E0 i c0)
@@ -183,19 +187,19 @@ theorem g0WinT_ofP {cP : Cfg} {thP : TTh} {a0 b a' : Address} {v0 : WeakMem.Val}
     (h0P : ∃ th E, (promise cP i a0 v0 w).ths[i]? = some th ∧
       InvAtXRB p k arch i E0 n0 vw cP.mem thP.promises l cl (promise cP i a0 v0 w) th E ∧ E.pfr r = none)
     (hmt : (promise cP i a0 v0 w).mem[t]? = some ⟨b, .loc a' g, wt⟩) (ha : a'.label = r)
-    (hca : E0.sto b.label = some ca) (hno : Ty.noOwnIn [] ca.ty = true) (hrf : rgnFree ca.ty = true)
+    (hca : E0.sto b.label = some ca) (hno : Ty.noOwnIn [] ca.ty = true)
     (hcr : E0.sto r = some cr) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) (hTA : TermTyped.TidAt i cP E0) :
     G0WinW p k arch cP i a0 v0 w r wt := by
   have hPfr := PfrX_of (n0 := n0) (vw := vw) hP hsc hvI hwin hthP hpl hcl hcr hW h0P hPS hSub hSig hTA
   intro c th hs hc hth
   obtain ⟨c', hrun, hn⟩ := hc
   have hNo := fun c th hs hc hth => noFulT (p := p) (k := k) (arch := arch) hthP hmt ha
-    hca hno hrf hcr hPfr (c := c) (th := th) hs hc hth
+    hca hno hcr hPfr (c := c) (th := th) hs hc hth
   exact winLe_cert hNo (fun c hs => memT hthP hmt hs.toSolo) hrun hn hs th hth (hNo c th hs ⟨c', hrun, hn⟩ hth)
 
 /-- **G-0** for `B` itself, `PfrX` discharged: `g0WinT_ofP` at `t = cP.mem.size`. -/
 theorem g0Win_ofP {cP : Cfg} {thP : TTh} {a0 a' : Address} {g : Nat} {w : Ts} {E0 : TEnv} {ca cr : Cell}
-    {n0 vw : Nat} {l : AllocLabel} {cl : Cell} [ProgRetIall p] [TermTyped.WrIniC] (hP : ProgT p)
+    {n0 vw : Nat} {l : AllocLabel} {cl : Cell} [ProgRetIall p] [TermA4.ProgCkWC p] [TermTyped.WrIniC] (hP : ProgT p)
     (hsc : ∀ c0, Solo p k arch i (promise cP i a0 (.loc a' g) w) c0 → Certified p k arch c0 i → ScopeAt p i c0) (hvI : TermViewInv.ViewInv (promise cP i a0 (.loc a' g) w))
     (hwin : ∀ c0, Solo p k arch i (promise cP i a0 (.loc a' g) w) c0 → Certified p k arch c0 i →
       NoHoldPubA p k arch E0 E0 i c0)
@@ -205,11 +209,11 @@ theorem g0Win_ofP {cP : Cfg} {thP : TTh} {a0 a' : Address} {g : Nat} {w : Ts} {E
       InvAtXRB p k arch i E0 n0 vw cP.mem thP.promises l cl (promise cP i a0 (.loc a' g) w) th E ∧
       E.pfr r = none)
     (ha : a'.label = r)
-    (hca : E0.sto a0.label = some ca) (hno : Ty.noOwnIn [] ca.ty = true) (hrf : rgnFree ca.ty = true)
+    (hca : E0.sto a0.label = some ca) (hno : Ty.noOwnIn [] ca.ty = true)
     (hcr : E0.sto r = some cr) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) (hTA : TermTyped.TidAt i cP E0) :
     G0Win p k arch cP i a0 (.loc a' g) w r :=
   g0WinT_ofP (g := g) (wt := w) (t := cP.mem.size) hP hsc hvI hwin hthP hpl hcl hW h0P
-    (by simp only [promise, hthP, Array.getElem?_push_size]) ha hca hno hrf hcr hPS hSub hSig hTA
+    (by simp only [promise, hthP, Array.getElem?_push_size]) ha hca hno hcr hPS hSub hSig hTA
 
 end
 

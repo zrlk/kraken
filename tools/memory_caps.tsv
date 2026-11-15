@@ -1,0 +1,72 @@
+# Per-module memory caps for single-threaded (LEAN_NUM_THREADS=1) lean processes, in MiB of RssAnon.
+#
+# Columns: module, peak_mib, cap_mib, mode.
+#   peak_mib  the highest RssAnon seen for the module's lean process (sampled every 10 s, so a lower
+#             bound) over two full single-threaded builds of the release base.
+#   cap_mib   the cap the gate's memory watch enforces: the smallest tier of 4096 / 5120 / 6144 / 8192
+#             at or above peak * 1.1; certificate modules keep the caps tools outside this file
+#             already allow for them (cert_build-style builds, one at a time), so a few have less
+#             than 10 % headroom.
+#   mode      parallel  may build alongside other leans (cap 4096, the default)
+#             solo      build alone (its imports first), only with enough MemAvailable
+#             cert      certificate module: built alone through the certificate build wrapper
+# Every cap is at most 6144 except WeakCore.TermStep (8192), which is approved only built alone,
+# single-threaded, with at least 20 GiB of MemAvailable.
+# The WeakCore peaks are from its current release.
+# Every module whose peak is above 2500 MiB is listed; any other module gets the `*` row.
+# A module killed at its cap gets one solo re-run at the next tier; killed again, the gate stops and
+# the row must be re-measured and updated here (in the same commit as the change that grew it).
+# The scc-blocks rows are Scc/Test/blocks.sh's per-program Lean checks of scc's AArch64 code output
+# (.lake/scc-blocks/<prog>.arm.code.lean), run one at a time; peaks are the highest over five
+# gate runs. Cap 6144 (under 10 % headroom for printidx and arith); why these checks need this much
+# memory is not yet understood.
+module	peak_mib	cap_mib	mode
+WeakCore.TermStep	6460	8192	solo
+.lake.scc-blocks.printidx.arm.code	5708	6144	solo
+.lake.scc-blocks.arith.arm.code	5681	6144	solo
+Spike.Test.Cert.A64Chain5Cert	5505	6144	cert
+.lake.scc-blocks.chain5.arm.code	5360	6144	solo
+Spike.Test.X64Hello1PlaceOK	5291	6144	solo
+WeakCore.GenLayer	4936	6144	solo
+Spike.Test.Cert.A64HelloCert	4722	5120	cert
+.lake.scc-blocks.growmany.arm.code	4545	6144	solo
+.lake.scc-blocks.spill.arm.code	4488	6144	solo
+WeakCore.TermScopeFHM	4140	5120	solo
+Spike.Test.A64HelloRootLitSmoke	4132	5120	solo
+Spike.Test.A64HelloRootBaseInhSmoke	4129	5120	solo
+Spike.Test.Cert.A64WakeCert	4113	5120	cert
+Spike.Test.Cert.X64HelloCert	4047	5120	cert
+Spike.Test.Call1LinkedX64	4019	5120	solo
+Spike.Lib.A64HelloCode	3967	5120	solo
+Spike.Test.Ret0LinkedA64	3927	5120	solo
+Spike.Test.WakeLinkedX64A2	3901	5120	solo
+Spike.Test.Ret0LldX64	3884	5120	solo
+Spike.Test.WakeLinkedA64A2	3873	5120	solo
+Spike.Test.Ret0LinkedX64	3811	5120	solo
+Spike.Test.Frame0LinkedX64	3768	5120	solo
+Spike.Test.WakeLinkedX64Load	3761	5120	solo
+Spike.Lib.A64WakeCode	3692	4096	parallel
+Spike.Test.A64Hello1PlaceOKELit	3572	4096	parallel
+Spike.Test.Cert.X64WakeCert	3532	5120	cert
+Spike.Test.A64Hello1TgOk	3428	4096	parallel
+Spike.Test.X64Hello1PlaceOKE	3408	4096	parallel
+Spike.Test.Hello1LinkedX64	3364	4096	parallel
+Spike.Test.Hello1LinkedA64	3299	4096	parallel
+Spike.Test.A64Ret0PlaceOKELit	3250	4096	parallel
+Spike.Test.A64Hello1PlaceOKE	3246	4096	parallel
+Spike.Test.A64Hello1PlaceOK	3243	4096	parallel
+Spike.Test.X64Ret0PlaceOKBase	3203	4096	parallel
+Spike.Test.X64Ret0PlaceOKE	3195	4096	parallel
+Spike.Test.X64Hello1PlaceOKELit	3166	4096	parallel
+Spike.Lib.A64Hello1Code	3107	4096	parallel
+Spike.Test.X64Ret0PlaceOKELit	3101	4096	parallel
+Spike.Test.A64Ret0PlaceOKE	3057	4096	parallel
+Spike.Test.A64Ret0PlaceOK	3046	4096	parallel
+WeakCore.TermPlant	2967	4096	solo
+Spike.Test.Cert.A64Hello1Cert	2959	4096	cert
+Spike.Lib.A64Ret0Code	2917	4096	parallel
+Spike.Test.A64Ret0Negative	2876	4096	parallel
+Spike.Test.Cert.A64Call1Cert	2657	4096	cert
+Spike.Test.Cert.X64Hello1Cert	2562	4096	cert
+WeakCore.TermSound	2536	4096	solo
+*	-	4096	parallel

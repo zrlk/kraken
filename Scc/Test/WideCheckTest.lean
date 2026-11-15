@@ -5,8 +5,9 @@ import Scc.Cert.Blocks
 /-!
 # `scc --code`'s fragment check reads the program the loader reads
 
-`Scc.Cert.WideCheckA64.progOf` restates the canonical loader's parser
-(`scc-arm` cannot import the loader's modules); the equations hold by `rfl`.
+`Scc.Cert.WideCheckA64.progOf` is the canonical loader's parser
+(`Scc/Sem/TextA64.lean`, which `scc-arm` imports without the loader's
+target module); the equations hold by `rfl`.
 `Scc.Cert.Blocks.code` with the check refuses a listing outside the
 fragment.
 -/

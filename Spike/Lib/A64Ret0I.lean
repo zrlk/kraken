@@ -91,7 +91,7 @@ theorem lookup_mem {l : Label} {n : Nat} : ∀ {L : List (Label × Nat)}, L.look
       exact .head _
     · exact .tail _ (lookup_mem h)
 
--- The tables grew `.rodata` (R11): the decision recurses past the default depth.
+-- The tables grew `.rodata`: the decision recurses past the default depth.
 set_option maxRecDepth 100000 in
 /-- **The loaded thread's labels are `labT`'s.** -/
 theorem ret0_labT : (_root_.Executable.labels ret0Exe).label = labT := by

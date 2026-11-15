@@ -89,7 +89,8 @@ a delta per half, `*` for a half it forgets.
 `cas acq rel w e -> v as t then e else e`,
 `casp acq rel w (e0, e1) -> (v0, v1) as t then e else e`, `ret a`, `tail f[τ…]{r…}(a)`.
 
-**Code blocks**: `def f[α : κ, …]{r, …}(x : σ) : τ = e`.  A program is a
+**Code blocks**: `def f[α : κ, …]{r, …}(x : σ) : τ = e`; `{swap r, …}` declares the
+index parameter `r` swap-flagged (`Decl.swapIdx`).  A program is a
 sequence of code blocks, with `type Name = τ` and `proto Name = P` in between
 to name things for what follows.
 
@@ -326,8 +327,8 @@ def keywords : List String :=
    "cvt", "toInt", "asLanes", "fop", "fcmp", "fop1", "lane", "setLane", "ldl", "stl", "ldlw",
    "stlw", "unpack", "region", "openPub", "type", "proto", "exists", "forall", "mu",
    "mkWord2", "ldp", "stp", "casp", "mkEPair", "mkTicket", "claim", "fetch",
-   "spawn", "emit", "current", "exitEv",
-   "park", "unpark", "mmioRead", "mmioWrite", "regAt", "devRecv", "devWrite", "devChoice", "devIrq", "devOut"]
+   "spawn", "spawnI", "isTy", "emit", "current", "exitEv",
+   "park", "unpark", "mmioRead", "mmioWrite", "regAt", "devRecv", "devWrite", "devChoice", "devIrq", "devOut", "swap"]
 
 def validName (s : String) : Bool :=
   match s.toList with
@@ -934,6 +935,12 @@ def pOp (env : Env) (sc : Sc) : P Op := do
         bump; let f ← pName
         let ts ← if ← eatSym "[" then do let ts ← sepBy (pTy env sc) ","; expectSym "]"; pure ts else pure []
         let a ← a1; expectSym ":"; pure (.spawn f a (← pTy env sc) ts)
+    | "spawnI" =>
+        -- `spawnI f[ts]{is}(a) : T`: the call form `f[ts]{is}(a)` (as `showCall` prints it), then the checked type
+        bump; let f ← pName
+        let (ts, is, a) ← pCallRest env sc
+        expectSym ":"; pure (.spawnI f is a (← pTy env sc) ts)
+    | "isTy" => bump; let t ← pBrTy env sc; pure (.isTy (← a1) t)
     | "emit" => bump; pure (.ext .emit (← a1))
     | "current" => bump; pure (.ext .current (← a1))
     | "exitEv" => bump; pure (.ext .exitEv (← a1))
@@ -1114,16 +1121,21 @@ def pDecl (env : Env) : P Decl := do
         pure (a, κ)) ","
       expectSym "]"; pure ps
     else pure []
-  let idx ← if ← eatSym "{" then do let is ← sepBy pName ","; expectSym "}"; pure is else pure []
+  -- index binders `{r, …}`; `{swap r, …}` declares `r` swap-flagged (`Decl.swapIdx`, in binder order)
+  let ibs ← if ← eatSym "{" then do
+      let is ← sepBy (do let sw ← eatKw "swap"; let r ← pName; pure (r, sw)) ","; expectSym "}"; pure is
+    else pure []
+  let idx := ibs.map (·.1)
+  let swapIdx := (ibs.filter (·.2)).map (·.1)
   let sc : Sc := { tvs := (tps.map (·.1)).reverse, ivs := idx.reverse.map some }
   expectSym "("; let x ← pName; expectSym ":"; let at_ ← pTy env sc; expectSym ")"
   expectSym ":"; let rt ← pTy env sc
   expectSym "="
   -- The signature, for the body's scope (and its own recursive calls).
   let sig : Decl := { name, tparams := tps.map (·.2), idx, arg := x, argTy := at_, retTy := rt,
-                      body := Scope.hole, kind }
+                      body := Scope.hole, kind, swapIdx }
   let body ← pExpr { env with lib := sig :: env.lib } { sc with cx := some (Scope.start sig) }
-  pure { name, tparams := tps.map (·.2), idx, arg := x, argTy := at_, retTy := rt, body, kind }
+  pure { name, tparams := tps.map (·.2), idx, arg := x, argTy := at_, retTy := rt, body, kind, swapIdx }
 
 /-- Code blocks, with `type N = τ` and `proto N = P` naming things for what follows. -/
 partial def pProg (env : Env) (acc : List Decl) : P (List Decl × Env) := do
@@ -1346,6 +1358,7 @@ def showOp (env : Env) (sc : Sc) : Op → String
   | .spawn f a T ts => "spawn " ++ nameStr f ++
       (if ts.isEmpty then "" else "[" ++ ", ".intercalate (ts.map (showTy env sc 0)) ++ "]") ++
       " " ++ showAt a ++ " : " ++ showTy env sc 0 T
+  | .spawnI f is a T ts => "spawnI " ++ showCall env sc f is a ts ++ " : " ++ showTy env sc 0 T
   | .ext (.regAt n w acc st tk k) a =>
       "regAt[" ++ toString k ++ " of " ++ showTy env sc 0 (.opq (.blk n w acc st tk)) ++ "] " ++ showAt a
   | .ext n a => n.name ++ " " ++ showAt a
@@ -1467,7 +1480,8 @@ def showDecl (d : Decl) (env : Env := {}) : String :=
           (match lp with | some B => s!", loop {B}" | none => "") ++ (if ro then ", ro" else "") ++ "] ") ++
     "def " ++ nameStr d.name ++
     (if tps.isEmpty then "" else "[" ++ ", ".intercalate tps ++ "]") ++
-    (if d.idx.isEmpty then "" else "{" ++ ", ".intercalate (d.idx.map nameStr) ++ "}") ++
+    (if d.idx.isEmpty then "" else "{" ++ ", ".intercalate (d.idx.map fun r =>
+      (if d.swapIdx.contains r then "swap " else "") ++ nameStr r) ++ "}") ++
     "(" ++ nameStr d.arg ++ " : " ++ showTy env sc 0 d.argTy ++ ") : " ++ showTy env sc 0 d.retTy ++ " ="
   render ((0, head) :: showExprLines { env with lib := d :: env.lib } sc 1 d.body)
 
@@ -1487,7 +1501,8 @@ def showExpr (e : Expr) (env : Env := {}) (idx : List String := []) : String :=
 def sameExpr (a b : Expr) : Bool := toString (repr a) == toString (repr b)
 def sameOp (a b : Op) : Bool := toString (repr a) == toString (repr b)
 def sameDecl (a b : Decl) : Bool :=
-  a.name == b.name && a.kind == b.kind && a.tparams == b.tparams && a.idx == b.idx && a.arg == b.arg &&
+  a.name == b.name && a.kind == b.kind && a.tparams == b.tparams && a.idx == b.idx && a.swapIdx == b.swapIdx &&
+  a.arg == b.arg &&
   a.argTy == b.argTy && a.retTy == b.retTy && sameExpr a.body b.body
 
 /-- `parse (show d) = d`. -/
@@ -1520,6 +1535,24 @@ def roundTripReport (d : Decl) (env : Env := {}) : String :=
   | .ok d => d.kind == .device && roundTrips d | .error _ => false
 #guard match parseDecl "restricted[fuel 64, stack 8] def g(x : Int) : Unit = ret ()" with
   | .ok d => d.kind == .restricted 64 8 false none && roundTrips d | .error _ => false
+-- `{swap r, …}`: swap-flagged index binders, in binder order; they print and reparse to themselves
+#guard match parseDecl "def f{swap r, i, d}(x : Int) : Int = ret x" with
+  | .ok d => d.idx == ["r", "i", "d"] && d.swapIdx == ["r"] && roundTrips d | .error _ => false
+#guard match parseDecl "def f{r, swap i, swap d}(x : Int) : Int = ret x" with
+  | .ok d => d.swapIdx == ["i", "d"] && roundTrips d &&
+      (showDecl d).startsWith "def f{r, swap i, swap d}(x : Int) : Int =" | .error _ => false
+#guard match parseDecl "def f{r, i}(x : Int) : Int = ret x" with
+  | .ok d => d.swapIdx == [] && roundTrips d && (showDecl d).startsWith "def f{r, i}(" | .error _ => false
+-- `swap` is a keyword: refused as a name (block, parameter, index); `«swap»` is a name; `{swap}` names nothing
+#guard match parseDecl "def swap(x : Int) : Int = ret x" with
+  | .error e => (e.msg.splitOn "'swap' is a keyword").length > 1 | .ok _ => false
+#guard match parseDecl "def f(swap : Int) : Int = ret swap" with
+  | .error e => (e.msg.splitOn "'swap' is a keyword").length > 1 | .ok _ => false
+#guard (parseDecl "def f{swap}(x : Int) : Int = ret x") matches .error _
+#guard (parseDecl "def f{swap swap r}(x : Int) : Int = ret x") matches .error _
+#guard match parseDecl "def «swap»{«swap», swap r}(x : Int) : Int = ret x" with
+  | .ok d => d.name == "swap" && d.idx == ["swap", "r"] && d.swapIdx == ["r"] && roundTrips d &&
+      (showDecl d).startsWith "def «swap»{«swap», swap r}(" | .error _ => false
 #guard match parseDecl "device def h(b : Blk[16, 32, rw, stride 8; 0 3]) : Unit = let r = regAt[1 of Blk[16, 32, rw, stride 8; 0 3]] b let v = mmioRead[32, rw, acq] r let u = park v ret ()" with
   | .ok d => roundTrips d | .error _ => false
 -- `regAt` admissibility: index 3 is already taken in `Blk[16, 32, rw, stride 8; 0 3]` (refused); 1 is fresh

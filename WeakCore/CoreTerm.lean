@@ -93,6 +93,28 @@ def argOK (t : Ty) : Bool := wrapOK t && !rcar t
 
 end TermScope
 
+namespace TermC1
+
+open CoreLang TermScope
+
+/-- (T1, c1) `drf` with the region-reference arms by plain recursion. -/
+def drf1 : Ty → Bool
+  | .prod a b => drf1 a && drf1 b
+  | .sum a b => drf1 a && drf1 b
+  | .code a b _ => drf1 a && drf1 b
+  | .array _ t => drf1 t
+  | .ptr _ t => drf1 t
+  | .ptrOpt _ t => drf1 t
+  | .loc μ t => drfM μ && drf1 t
+  | .mu t => drf1 t
+  | .tex _ t => drf1 t
+  | .iall _ => false
+  | .iex t => drf1 t
+  | .refine t _ => drf1 t
+  | _ => true
+
+end TermC1
+
 namespace TermClose
 open CoreLang
 
@@ -797,6 +819,13 @@ inductive Op
   | claim (a : At) (tok : At)               -- acquisition by observation: ticket `tok`, owner `a` seen at ticket − 1
   | fetch (o : FetchOp) (acq rel : Bool) (a v : At)  -- atomic `old ⊕ v` into a cell or protocol word; the old value
   | spawn (f : String) (a : At) (T : Ty) (ts : List Ty := [])  -- start thread `f` on a copy of `a` at the checked type `T`: `ThreadId` (the child's index); several args: a pair
+  /-- Start thread `f` at the parent's indices `is` on a copy of `a : T`.  Affine values move to
+  the child; the second-class capabilities in `T` end in the parent (`Cx.handOffR`): the tokens and
+  shares they were lent from are erased from `lent` and never made live again.  To keep a region
+  releasable, move its token to the child rather than lending a capability: a capability handed off
+  under a linear lend leaves its region held for ever, as a dropped token does (see `linear`
+  and `noDrop`: a liveness matter, not a safety one). -/
+  | spawnI (f : String) (is : List String) (a : At) (T : Ty) (ts : List Ty := [])
   | ext (n : ExtName) (a : At)              -- (E1) a trusted extern on `a : n.sig.1`, result `n.sig.2`: a configuration step (`TermExtStep.Ext`)
   | isTy (a : At) (τ : Ty)                 -- `Ptr? pub τ`: `a`'s slot reference if its object was allocated at `τ`
   deriving Repr
@@ -833,6 +862,7 @@ structure Decl where
   retTy : Ty
   body  : Expr
   kind : DeclKind := .plain   -- `device`: may call device-only externs; `restricted`: checked by `restrictedDeclOK`
+  swapIdx : List String := []   -- index parameters declared `{swap r}`, in binder order; no check reads them yet
 
 abbrev Prog := List Decl
 
@@ -1037,6 +1067,23 @@ def _root_.CoreLang.Ty.guardT (k : Nat) : Ty → Bool
   | .refine t _  => t.guardT k
   | _            => true
 
+/-- `T` carries no key: no `tok`/`tok2`/`tokE`/`share`/`word`/`word2`
+leaf, through the components and binders, with `ke` the kinds of the type variables bound so far.
+As `TermC1.keyFreeIn`: a `μ`-bound variable answers `true` (the least fixpoint: the rest of the type is
+still checked), a `∃(α : κ)`-bound one answers `κ.copy` (a copy kind admits no key), and a variable
+outside `ke` (free) answers `false`. -/
+def keyFreeTE (ke : KEnv) : Ty → Bool
+  | .tok _ _ | .tok2 _ _ _ _ | .tokE _ _ _ | .share _ | .word _ _ | .word2 _ _ => false
+  | .prod a b | .sum a b => keyFreeTE ke a && keyFreeTE ke b
+  | .array _ t | .ptr _ t | .ptrOpt _ t | .loc _ t | .refine t _ | .iex t | .iall t => keyFreeTE ke t
+  | .tex κ t => keyFreeTE (some κ :: ke) t
+  | .mu t => keyFreeTE (none :: ke) t
+  | .tvar k => ke.ask k true (·.copy)
+  | _ => true
+
+/-- `keyFreeTE` from the empty environment: every free type variable answers `false`. -/
+def keyFreeT (T : Ty) : Bool := keyFreeTE [] T
+
 namespace Cx
 
 /-- A new index variable, `var 0`; everything else moves up one. -/
@@ -1158,7 +1205,7 @@ def isCapOf (cx : Cx) (r : Idx) (w : Bool) : String × Ty × Bool → Bool
 
 def hasCap (cx : Cx) (r : Idx) (w : Bool) : Bool := cx.vars.any (cx.isCapOf r w)
 
-/-- A `bor` capability for `r`: lent from a token, so this thread's alone. -/
+/-- A `bor` capability for `r`: lent from a token, or a `pub` capability passed where a `bor` is expected (then shared, not this thread's alone; region `xchg` through it is limited by `checkW1`'s guard). -/
 def isBorOf (cx : Cx) (r : Idx) : String × Ty × Bool → Bool
   | (_, .cap c q, true) => c == .bor && cx.eqI r q
   | _ => false
@@ -1172,6 +1219,13 @@ def firstOK (vars : List (String × Ty × Bool)) (e : String × Ty × Bool) : Bo
   | some e0 => !e0.2.1.secondClass
   | none => true
 
+/-- Keep `e` iff the first entry named `e.1` passes `q` (`firstOK` with any test): on a context
+without shadowing this is `q e`, and every entry of one name is kept or dropped together. -/
+def firstKeep (vars : List (String × Ty × Bool)) (q : String × Ty × Bool → Bool) (e : String × Ty × Bool) : Bool :=
+  match vars.find? (·.1 == e.1) with
+  | some e0 => q e0
+  | none => true
+
 /-- `endBorrow y`: `y` is live again, and every second-class capability goes
 (conservatively, whatever its region).  An entry goes iff the first entry under its name is
 second-class (`firstOK`); without shadowing, which `bind` guarantees, that is every
@@ -1181,6 +1235,32 @@ def endCx (cx : Cx) (y : String) : Cx :=
     lent := cx.lent.erase y
     vars := (cx.vars.filter (firstOK cx.vars)).map fun (z, t, b) =>
       if z == y then (z, t, true) else (z, t, b) }
+
+def handOff (cx : Cx) (T : Ty) : Cx :=
+  if T.secondClass then { cx with lent := [], vars := cx.vars.filter (firstOK cx.vars) } else cx
+def lowN (d : Nat) (r : Idx) : Option Idx :=
+  if (List.range d).any (r.mentions ·) then none else some ((List.range d).foldl (fun i _ => i.lower 0) r)
+def capRgnsD (d : Nat) : Ty → List (Option Idx)
+  | .cap c r => if c.second then [lowN d r] else []
+  | .prod a b | .sum a b => capRgnsD d a ++ capRgnsD d b
+  | .code _ b _ => capRgnsD d b
+  | .array _ t | .ptr _ t | .ptrOpt _ t | .loc _ t | .refine t _ | .mu t | .tex _ t => capRgnsD d t
+  | .iall t | .iex t => capRgnsD (d + 1) t
+  | _ => []
+def owners (cx : Cx) (o : Option Idx) : List String :=
+  match o with
+  | none => []
+  | some r => cx.lent.filter fun y => match cx.vars.find? (·.1 == y) with
+      | some (_, .tok q _, _) | some (_, .tok2 q _ _ _, _) => cx.eqI r q
+      | _ => false
+def keepR (cx : Cx) (ho : List String) (u : Ty) : Bool :=
+  (capRgnsD 0 u).all fun o => !(owners cx o).isEmpty && !(owners cx o).any (ho.contains ·)
+def handOffR (cx : Cx) (T : Ty) : Cx :=
+  -- nothing reaches the child: no capability and no key, so the parent's frame is unchanged
+  if (capRgnsD 0 T).isEmpty && keyFreeT T then cx else
+  if (capRgnsD 0 T).any (fun o => (owners cx o).isEmpty) then handOff cx T else
+  { cx with lent := cx.lent.filter (fun y => !((capRgnsD 0 T).flatMap (owners cx)).contains y),
+            vars := cx.vars.filter (firstKeep cx.vars fun e => !e.2.1.secondClass || keepR cx ((capRgnsD 0 T).flatMap (owners cx)) e.2.1) }
 
 def sealedR (cx : Cx) (r : Idx) : Bool := !cx.unsealed.any (cx.eqI r ·)
 
@@ -1399,6 +1479,15 @@ def linear2 (cx : Cx) (s : Proto2 × Option (Idx × Idx)) : Bool :=
     match classify2M cx s.1 i j with
     | .ok (c, _, _) => exits2 s.1 c
     | .error _ => true
+
+/-- The live entries `endBorrow` would sweep (second-class by `Cx.firstOK`) that still hold a
+linear token: `endCx` erases them, so `noDrop` would never see them.  `endBorrow` refuses
+when there is one. -/
+def sweptDrop (cx : Cx) : Option String :=
+  match cx.vars.find? (fun (y, t, b) => b && !Cx.firstOK cx.vars (y, t, b) &&
+      ((takenOf 0 t).any (linear cx) || (taken2Of 0 t).any (linear2 cx))) with
+  | some (y, _, _) => some y
+  | none => none
 
 def noDrop (cx : Cx) : M Unit :=
   match cx.vars.find? (fun (y, t, b) =>
@@ -1632,6 +1721,70 @@ def tailCheck (p : Prog) (cx : Cx) (f : String) (is : List String) (a : At) (ts 
       noDrop cx
       if !sub cx t at_ then throw s!"tail call {f}: argument type mismatch"
       if !sub cx rt cx.ret then throw s!"tail call {f}: return type mismatch"
+
+/-! ### Which calls may hand a capability to a thread
+
+A second-class capability is frame-scoped, but a thread started by `spawnI` outlives the frame that
+started it.  When a callee may (transitively) reach `spawnI`, the lends behind the second-class
+capabilities passed to it end at the call: the call arm applies `Cx.handOffR` to the argument's type,
+as `spawnI` itself does, so the caller cannot take a token back (`endBorrow`) while a child may still
+hold a capability lent from it.  A `callc` counts when some code block that can be a code value (no
+index or type parameters: `fnptr`'s rule, and an entry argument of `code` type may name any of them)
+may reach `spawnI`.  On a program without `spawnI` the set is empty and nothing changes
+(`spawnSet_nil_of_noSpawnI`). -/
+
+/-- The direct and tail callees of a body, whether it has a `spawnI`, and whether it has a `callc`. -/
+def Expr.callsS : Expr → List String × Bool × Bool
+  | .let_ _ op e =>
+      let r := e.callsS
+      ((match op with | .call f _ _ _ => [f] | _ => []) ++ r.1,
+       (match op with | .spawnI .. => true | _ => false) || r.2.1,
+       (match op with | .callc .. => true | _ => false) || r.2.2)
+  | .split _ _ _ e | .unpack _ _ _ e | .unpackT _ _ _ e | .region _ _ _ _ e | .openPub _ _ _ _ e => e.callsS
+  | .case _ _ e₁ _ e₂ | .ifnull _ e₁ _ e₂ | .parity _ _ e₁ e₂ | .ifeq _ _ e₁ e₂
+  | .cas _ _ _ _ _ _ e₁ e₂ | .casp _ _ _ _ _ _ _ _ e₁ e₂ =>
+      let r₁ := e₁.callsS; let r₂ := e₂.callsS; (r₁.1 ++ r₂.1, r₁.2.1 || r₂.2.1, r₁.2.2 || r₂.2.2)
+  | .ret _ => ([], false, false)
+  | .tail f _ _ _ => ([f], false, false)
+
+/-- A code block that can be a code value: `fnptr`'s rule (no index or type parameters). -/
+def Decl.codeable (d : Decl) : Bool := d.tparams.isEmpty && d.idx.isEmpty
+
+/-- The names that reach `spawnI` in at most `n` rounds (call, tail, and `callc` through any codeable
+block); monotone in `n`. -/
+def spawnSet (p : Prog) : Nat → List String
+  | 0 => []
+  | n + 1 =>
+      let s := spawnSet p n
+      let codeIn := p.any fun d => d.codeable && s.contains d.name
+      p.filterMap fun d =>
+        let r := d.body.callsS
+        if r.2.1 || r.1.any s.contains || (r.2.2 && codeIn) then some d.name else none
+
+/-- `f` may reach `spawnI`: the fixpoint, reached within `p.length` rounds (a name joins per round). -/
+def maySpawnI (p : Prog) (f : String) : Bool := (spawnSet p p.length).contains f
+
+/-- Some code value of the program may reach `spawnI`: a `callc` may. -/
+def codeMaySpawnI (p : Prog) : Bool := p.any fun d => d.codeable && maySpawnI p d.name
+
+/-- Without `spawnI` the set is empty at every round: the call-site hand-off changes nothing on such a program. -/
+theorem spawnSet_nil_of_noSpawnI (p : Prog) (h : ∀ d ∈ p, d.body.callsS.2.1 = false) :
+    ∀ n, spawnSet p n = []
+  | 0 => rfl
+  | n + 1 => by
+      have ih := spawnSet_nil_of_noSpawnI p h n
+      simp only [spawnSet, ih]
+      apply List.filterMap_eq_nil_iff.2
+      intro d hd
+      simp [h d hd]
+
+theorem maySpawnI_of_noSpawnI (p : Prog) (h : ∀ d ∈ p, d.body.callsS.2.1 = false) (f : String) :
+    maySpawnI p f = false := by
+  simp [maySpawnI, spawnSet_nil_of_noSpawnI p h]
+
+theorem codeMaySpawnI_of_noSpawnI (p : Prog) (h : ∀ d ∈ p, d.body.callsS.2.1 = false) :
+    codeMaySpawnI p = false := by
+  simp [codeMaySpawnI, maySpawnI_of_noSpawnI p h]
 
 /-- The rule for one operation: the context after `let x = op`. -/
 def checkOp (p : Prog) (cx : Cx) (x : String) : Op → M Cx
@@ -2061,7 +2214,8 @@ def checkOp (p : Prog) (cx : Cx) (x : String) : Op → M Cx
       let (t, cx) ← cx.use a
       noLeak cx t
       if !sub cx t at_ then throw s!"call {f}: argument type mismatch"
-      cx.bind x rt
+      -- a callee that may reach `spawnI` takes the argument's lends with it
+      (if t.secondClass && maySpawnI p f then cx.handOffR t else cx).bind x rt
   | .borrow c a => do
       let y ← varOf a
       let t ← cx.peek a
@@ -2195,7 +2349,9 @@ def checkOp (p : Prog) (cx : Cx) (x : String) : Op → M Cx
   | .endBorrow a => do
       let y ← varOf a
       if !cx.lent.contains y then throw "endBorrow: nothing is lent from this variable"
-      (cx.endCx y).bind x .unit
+      match sweptDrop cx with
+      | some z => throw s!"{z} still holds a token at endBorrow, which would drop it (a token that can be given back must be)"
+      | none => (cx.endCx y).bind x .unit
   | .xchg a v => do
       let t ← cx.peek a
       let (u, o) ← xchgCell cx t
@@ -2214,7 +2370,8 @@ def checkOp (p : Prog) (cx : Cx) (x : String) : Op → M Cx
           let (t, cx) ← cx.use a
           noLeak cx t
           if !sub cx t σ then throw "callc: argument type mismatch"
-          cx.bind x τ
+          -- as `call`, when some codeable block may reach `spawnI`
+          (if t.secondClass && codeMaySpawnI p then cx.handOffR t else cx).bind x τ
       | none => throw "callc needs a code value"
   | .rem a n => do
       -- `k = a mod n` with `n = v + 1`: fresh `d` then `k`, and `v := k + d`, so
@@ -2344,6 +2501,21 @@ def checkOp (p : Prog) (cx : Cx) (x : String) : Op → M Cx
       if !(TermClose.tb 0 rt && TermTv.mg rt && TermTv.noIallV rt) then
         throw "spawn: the callee's return type must be closed, guarded and without a value-position ∀"
       cx.bind x .tid
+  | .spawnI f is a T ts => do
+      -- see `Op.spawnI`: a capability handed off under a linear lend leaves its region held for ever
+      let d ← p.find f
+      let (at_, _) ← instantiate cx d is ts
+      let (t, cx) ← cx.use a
+      if !sub cx t T || !sub cx T at_ then throw "spawnI: the argument does not have the callee's type"
+      if !Ty.noOwnIn cx.ke T then throw "spawnI: an own reference cannot cross to the child (as at spawn)"
+      if !ts.all (·.wf cx.ke.length 0) || !ts.all (TermClose.tb 0) then throw "spawnI: the type arguments must be closed"
+      if !TermScope.wrapOK T || !ts.all TermScope.argOK then
+        throw "spawnI: a key-carrying wrapper or type argument may not cross to the child"
+      let rk := substTs ts.reverse 0 0 d.retTy
+      tailCheck p { inames := d.idx.reverse, vars := [("a", substTs ts.reverse 0 0 d.argTy, true)], ret := rk } f d.idx (.var "a") ts
+      if !(TermClose.tb 0 rk && TermTv.mg rk && TermTv.noIallV rk) then
+        throw "spawnI: the callee's return type must be closed, guarded and without a value-position ∀"
+      (cx.handOffR T).bind x .tid
   | .ext n a => do
       -- (E1) A trusted extern step (`TermExtStep.Ext`): no memory, no fence; `emit`/`exitEv` record an event.
       let (t, cx) ← cx.use a
@@ -2940,7 +3112,7 @@ def devCellOK : Ty → Bool
 `(p.find? (·.name = f)).map (·.kind = .device)`. Every `Expr` form, nested branches included. -/
 def exprNoDevOnly (isDev : String → Bool) : Expr → Bool
   | .let_ _ (.ext n _) e => !n.deviceOnly && exprNoDevOnly isDev e
-  | .let_ _ (.call f _ _ _) e | .let_ _ (.fnptr f) e | .let_ _ (.spawn f _ _ _) e => !isDev f && exprNoDevOnly isDev e
+  | .let_ _ (.call f _ _ _) e | .let_ _ (.fnptr f) e | .let_ _ (.spawn f _ _ _) e | .let_ _ (.spawnI f _ _ _ _) e => !isDev f && exprNoDevOnly isDev e
   | .let_ _ _ e | .split _ _ _ e | .unpack _ _ _ e | .unpackT _ _ _ e | .region _ _ _ _ e | .openPub _ _ _ _ e =>
       exprNoDevOnly isDev e
   | .case _ _ e₁ _ e₂ | .ifnull _ e₁ _ e₂ | .parity _ _ e₁ e₂ | .ifeq _ _ e₁ e₂ =>
@@ -2963,7 +3135,7 @@ def exprNoDevFnptr (isDev : String → Bool) : Expr → Bool
 
 /-- Allocation and thread creation: refused in every restricted body. -/
 def opAllocates : Op → Bool
-  | .new _ _ | .newBuf _ _ | .mkWord .. | .mkWord2 .. | .mkEPair .. | .mkTicket .. | .spawn .. | .intoRgn .. | .publish _ => true
+  | .new _ _ | .newBuf _ _ | .mkWord .. | .mkWord2 .. | .mkEPair .. | .mkTicket .. | .spawn .. | .spawnI .. | .intoRgn .. | .publish _ => true
   | .isTy _ _ => false
   | _ => false
 /-- Stores and protocol advances: refused in READ-ONLY bodies. -/
@@ -3228,7 +3400,7 @@ def At.names : At → List String
 def Op.names : Op → List String
   | .atom a | .inl _ a | .inr _ a | .new a _ | .fold a _ | .publish a | .intoRgn _ a | .newBuf a _ | .fld _ a | .load _ a
   | .pack a _ _ | .packT a _ _ | .call _ _ a _ | .borrow _ a | .endBorrow a | .nameI a | .bit1 _ a | .freeze a
-  | .cvt _ _ a | .toInt a | .asLanes _ _ a | .fop1 _ a | .spawn _ a _ _ | .ext _ a | .isTy a _ => a.names
+  | .cvt _ _ a | .toInt a | .asLanes _ _ a | .fop1 _ a | .spawn _ a _ _ | .spawnI _ _ a _ _ | .ext _ a | .isTy a _ => a.names
   | .pair a b | .add a b | .sub a b | .idx a b | .xchg a b | .callc a b | .rem a b | .loadAt a b | .bits _ a b
   | .band a b | .loadAtF a b _ | .fop _ a b | .fcmp _ a b | .lane a b | .ldl a b | .claim a b | .mkWord _ _ a b
   | .mkEPair _ _ a b | .mkTicket _ _ _ a b => a.names ++ b.names
@@ -3326,8 +3498,6 @@ def checkDecl (p : Prog) (d : Decl) : M Unit := do
                              ke := d.tparams.reverse.map some } d.body
   -- the kind rules; no rule mentions a decl by name (`isDev` is by KIND)
   let isDev : String → Bool := fun f => ((p.find? (·.name == f)).map (·.kind == .device)).getD false
-  if d.kind == .device && !(devCells d.argTy).all devCellOK then
-    throw s!"{d.name}: a device function may only be given cells of plain bits, protocol words or word pairs"
   if d.kind != .device && !exprNoDevOnly isDev d.body then
     throw s!"{d.name}: device externs and device functions may be used only inside a device function"
   if !exprNoDevFnptr isDev d.body then
@@ -3421,8 +3591,6 @@ theorem checkDecl_eq (p : Prog) (d : Decl) : checkDecl p d = (do
   let tbl ← checkBinders p { inames := d.idx.reverse, vars := [(d.arg, d.argTy, true)], ret := d.retTy,
                              ke := d.tparams.reverse.map some } d.body
   let isDev : String → Bool := fun f => ((p.find? (·.name == f)).map (·.kind == .device)).getD false
-  if d.kind == .device && !(devCells d.argTy).all devCellOK then
-    throw s!"{d.name}: a device function may only be given cells of plain bits, protocol words or word pairs"
   if d.kind != .device && !exprNoDevOnly isDev d.body then
     throw s!"{d.name}: device externs and device functions may be used only inside a device function"
   if !exprNoDevFnptr isDev d.body then
@@ -3551,6 +3719,7 @@ def taintOf (bad : List Nat) (ts : List Ty) : List Nat :=
 def opCalls (bad : List Nat) : Op → List (String × List Nat)
   | .call f _ _ ts => [(f, taintOf bad ts)]
   | .spawn f _ _ ts => [(f, taintOf bad ts)]
+  | .spawnI f _ _ _ ts => [(f, taintOf bad ts)]
   | _ => []
 
 abbrev Scan := List Ty × List (String × List Nat)
@@ -3804,6 +3973,31 @@ def seqLib : Prog := [readD, writeD, mkSeqD]
 #guard rejects (checkDecl mutexLib { incrD with
     body := lets [("t", .call "lock" ["r"] (v "m")), ("p", .pair (v "m") (v "t"))] (.ret .unit) })
   "still holds a token"
+-- ... nor by pairing it with a borrow and ending the borrow (the sweep would erase the pair).
+def cellTwo (n : Nat) : Ty := .ptr .pub (.prod (.word (.var n) mutexP) (.ptr (.rgn (.var n)) .int))
+def twoD (nm : String) (body : Expr) : Decl :=
+  { name := nm, idx := ["r", "s"], arg := "a", argTy := .prod (cellTwo 1) (cellTwo 0), retTy := .unit, body := body }
+def pairBorrowPre : List (String × Op) := [("t1", .call "lock" ["r"] (v "m1")), ("t2", .call "lock" ["s"] (v "m2")),
+  ("k", .borrow .rd (v "t2")), ("p", .pair (v "t1") (v "k"))]
+#guard rejects (checkDecl mutexLib (twoD "v1" (.split (v "a") "m1" "m2" (lets (pairBorrowPre ++
+    [("e", .endBorrow (v "t2")), ("q", .pair (v "m2") (v "t2")), ("u", .call "unlock" ["s"] (v "q"))]) (.ret .unit)))))
+  "still holds a token at endBorrow"
+-- Taking the pair apart first is fine: the token stays, only the capability goes.
+#guard accepts (checkDecl mutexLib (twoD "sp" (.split (v "a") "m1" "m2" (lets pairBorrowPre
+    (.split (v "p") "t1b" "kb" (lets [("e", .endBorrow (v "t2")),
+      ("q1", .pair (v "m1") (v "t1b")), ("u1", .call "unlock" ["r"] (v "q1")),
+      ("q", .pair (v "m2") (v "t2")), ("u", .call "unlock" ["s"] (v "q"))] (.ret .unit)))))))
+-- A pair holding a borrow but no token is still swept silently.
+#guard accepts (checkDecl mutexLib { incrD with name := "nt", body := lets [("t", .call "lock" ["r"] (v "m")),
+    ("k", .borrow .rd (v "t")), ("c", .pair (v "k") (.lit 0)),
+    ("d0", .fld 1 (v "m")), ("d", .load false (v "d0")), ("x", .load false (v "d")),
+    ("e", .endBorrow (v "t")), ("q", .pair (v "m") (v "t")), ("u", .call "unlock" ["r"] (v "q"))] (.ret .unit) })
+-- An affine token (a fresh region token: no move out) paired with a borrow may still be swept: linear only.
+#guard accepts (checkDecl mutexLib { incrD with name := "af", body := (lets [("t", .call "lock" ["r"] (v "m")),
+    ("d0", .fld 1 (v "m")), ("d", .load false (v "d0")), ("x", .load false (v "d")),
+    ("k", .borrow .rd (v "t")), ("p0", .new (v "x") (some .int))]
+    (.region (v "p0") "r2" "d2" "t0" (lets [("c", .pair (v "t0") (v "k")),
+      ("e", .endBorrow (v "t")), ("q", .pair (v "m") (v "t")), ("u", .call "unlock" ["r"] (v "q"))] (.ret .unit)))) })
 -- Taking without acquire, giving back without release.
 #guard rejects (checkDecl mutexLib { lockD with
     body := lets [("w", .fld 0 (v "m"))]

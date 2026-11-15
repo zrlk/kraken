@@ -319,6 +319,7 @@ theorem all_dinterp [Labels] {d : Directive} (hd : dNoMsr d = true) (p : Std.Rco
     simp only [Instr.interp, require_exec_access, EAll]
     exact all_interp _ hd p hs hn hj
   · simp only [EAll]
+  · simp only [EAll]
 
 theorem all_dinterpLSE2? [Labels] {d : Directive} (p : Std.Rco Int64)
     {s : MachineData} {next : MachineData → Effects} {e : Effects}

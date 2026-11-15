@@ -113,6 +113,23 @@ CoreTyping.Rel2Holds : CoreLang.Rel2 → Nat → Nat → Prop
 CoreTyping.ev : CoreTyping.Val → CoreLang.Idx → Nat
 Promises.TVal.val : Promises.TVal → WeakMem.Val
 Promises.TVal.view : Promises.TVal → WeakMem.Ts
+TermC1.drf1 : CoreLang.Ty → Bool
+  eq_def ∀ (x : CoreLang.Ty),
+  TermC1.drf1 x =
+    match x with
+    | a.prod b => TermC1.drf1 a && TermC1.drf1 b
+    | a.sum b => TermC1.drf1 a && TermC1.drf1 b
+    | a.code b k => TermC1.drf1 a && TermC1.drf1 b
+    | CoreLang.Ty.array i t => TermC1.drf1 t
+    | CoreLang.Ty.ptr μ t => TermC1.drf1 t
+    | CoreLang.Ty.ptrOpt μ t => TermC1.drf1 t
+    | CoreLang.Ty.loc μ t => TermScope.drfM μ && TermC1.drf1 t
+    | t.mu => TermC1.drf1 t
+    | CoreLang.Ty.tex κ t => TermC1.drf1 t
+    | τ.iall => false
+    | t.iex => TermC1.drf1 t
+    | t.refine ψ => TermC1.drf1 t
+    | x => true
 TermClose.Clo : CoreLang.Ty → Prop
   := fun s => TermClose.tb 0 s = true ∧ ∀ (ρ : Nat → Nat) (W : Nat → CoreLang.Ty) (e f : Nat), TermClose.cl ρ W e f s = s
 TermClose.addF : CoreLang.Idx → CoreLang.Idx → CoreLang.Idx
@@ -409,7 +426,7 @@ TermSound.ModeOK : Nat →
   match x, x_1, x_2, x_3 with
   | CoreLang.Mode.own, x, c, x_4 => c.owner = some i
   | CoreLang.Mode.pub, l, x, ws => ∃ f, P l = some f ∧ (S l ∨ ∀ (w : TermRun.Word), w ∈ ws → f ≤ w.view)
-  | CoreLang.Mode.rgn r, x, x_4, x_5 => True
+  | CoreLang.Mode.rgn r, l, x, ws => ∃ f, P l = some f ∧ (S l ∨ ∀ (w : TermRun.Word), w ∈ ws → f ≤ w.view)
 TermSound.PayOK : CoreLang.Ty → List TermRun.Word → Prop
   := fun a p =>
   a.rawWords = some p.length ∧
@@ -838,8 +855,7 @@ TermSound.WitOK : CoreLang.Kind → CoreLang.Ty → Prop
   s.arrFree = true ∧
     (κ.share = true → s.coupledOK = true) ∧
       (κ.copy = true → s.affine = false) ∧
-        (κ.noOwn = true → s.noOwn = true) ∧
-          (κ.share = true → TermSound.rgnFree s = true) ∧ TermTv.noIallV s = true ∧ TermTv.mg s = true
+        (κ.noOwn = true → s.noOwn = true) ∧ TermC1.drf1 s = true ∧ TermTv.noIallV s = true ∧ TermTv.mg s = true
 TermSound.Word2Holds : CoreLang.Proto2 → List WeakMem.Val → Prop
   := fun P vs =>
   ∃ n0 n1 c cl k0 k1,
@@ -994,22 +1010,6 @@ TermSound.rf : CoreLang.Ty → CoreLang.Ty
   match x with
   | CoreLang.Ty.int => CoreLang.Ty.int
   | t => t.refine CoreLang.Pred.tt
-TermSound.rgnFree : CoreLang.Ty → Bool
-  eq_def ∀ (x : CoreLang.Ty),
-  TermSound.rgnFree x =
-    match x with
-    | CoreLang.Ty.ptr (CoreLang.Mode.rgn r) τ => false
-    | CoreLang.Ty.ptrOpt (CoreLang.Mode.rgn r) τ => false
-    | CoreLang.Ty.loc (CoreLang.Mode.rgn r) τ => false
-    | a.prod b => TermSound.rgnFree a && TermSound.rgnFree b
-    | a.sum b => TermSound.rgnFree a && TermSound.rgnFree b
-    | CoreLang.Ty.array i t => TermSound.rgnFree t
-    | t.mu => TermSound.rgnFree t
-    | CoreLang.Ty.tex κ t => TermSound.rgnFree t
-    | t.iall => TermSound.rgnFree t
-    | t.iex => TermSound.rgnFree t
-    | t.refine ψ => TermSound.rgnFree t
-    | x => true
 TermSound.shp : CoreLang.Ty → TermSound.Shp
   eq_def ∀ (x : CoreLang.Ty),
   TermSound.shp x =
@@ -1098,7 +1098,7 @@ TermSpawn.KidOK : CoreTerm.Prog → CoreLang.Ty → TermSpawn.Kid → Prop
   := fun p rt kd =>
   kd.ty.affine = false ∧
     TermClose.tb 0 kd.ty = true ∧
-      TermScope.drf kd.ty = true ∧
+      TermC1.drf1 kd.ty = true ∧
         kd.ts.all TermScope.drf = true ∧
           kd.ts.all TermScope.argOK = true ∧
             TermScope.wrapOK kd.ty = true ∧

@@ -179,7 +179,7 @@ theorem boxPlantSep_thread (hK : PtrRtsThreadGL p) (hk : k.storeDepRts = true)
     (hPfrP : PfrG { gOf p k arch c i with pf := fun l => TermOwnG0Defs.PubAt th l } (CE η) E')
     (hNCE : FootNCE (CE η) E' r) (hG : PtrRtsGL Eg Tot HP c) (hGW : GranuleW Eg.sto c.mem c.pairs)
     (hLay : ∀ l cl, Eg.sto l = some cl → LayT cl.ty) (hsc : TermTyped.ScopeOK p th)
-    (hdrf : TermScope.ThScope th) (hps : TermScope.ProgScopeOK p = true) (hPT : ProgT p)
+    (hdrf : TermScope.ThScopeI th) (hps : TermScope.ProgScopeOK p = true) (hPT : ProgT p)
     (hFBP : TermFootBP0.FootBP { gOf p k arch c i with pf := fun l => TermOwnG0Defs.PubAt th l } E' th r)
     (hRP : RetPw th.σs th.stack cx.ret) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) (hBP : BoxPlantSep Eg Tot HP c) :
     BoxPlantSep (EgT Eg (gOf p k arch c i) th.nalloc r.2.2.nalloc E' c') (upd Tot i Tot') (upd HP i HP') c' :=

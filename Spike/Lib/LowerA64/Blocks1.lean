@@ -367,6 +367,7 @@ theorem runsAux_shift : ∀ (l : Label) (acc c S : List Directive), (∀ d ∈ c
     | label l'' => exact absurd rfl (hd l'')
     | instr i => simp only [List.cons_append, runsAux]; rw [ih]; simp
     | byteArray a => simp only [List.cons_append, runsAux]; rw [ih]; simp
+    | zeros n => simp only [List.cons_append, runsAux]; rw [ih]; simp
 
 /-- **The current run** of `runsAux l acc S`: `acc` (reversed) and the
 directives of `S` up to its first label. -/
@@ -379,6 +380,9 @@ theorem runsAux_run0 : ∀ (l : Label) (acc S : List Directive), ∃ P, (l, acc.
   | l, acc, .byteArray a :: S => by
     obtain ⟨P, hP⟩ := runsAux_run0 l (.byteArray a :: acc) S
     exact ⟨.byteArray a :: P, by simpa [runsAux] using hP⟩
+  | l, acc, .zeros n :: S => by
+    obtain ⟨P, hP⟩ := runsAux_run0 l (.zeros n :: acc) S
+    exact ⟨.zeros n :: P, by simpa [runsAux] using hP⟩
 
 /-- **The runs past instructions `A`** after `xs`: those from `xs ++ A`. -/
 theorem runs_shift (l : Label) (xs : List Directive) {A : List Directive} (hA : A.all isIns = true)

@@ -5,7 +5,8 @@ import Scc.Test.Src
 /-!
 # Publish-free programs
 
-`Scc.Sem.PubFree.ProgPubFree` (no `let _ = publish _` in any code block)
+`Scc.Sem.PubFree.ProgPubFree` (no `let _ = publish _`, `region` binder or
+`let _ = intoRgn _ _` in any code block)
 lets M1 take its typing facts from WeakCore's token soundness theorems with
 no run fact left. `hello1.w`, the single-thread hello, is publish-free;
 `hello.w` (which publishes its slice and its flag) is not.

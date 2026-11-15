@@ -27,7 +27,7 @@ def SpuriousWake (p : Prog) (k : Promises.Knobs) (arch : Arch) (c : Cfg) (i : Na
     evalAt th.env a = some (rt, ws) ∧ Certified p k arch (extCfg c i th x .park e ws []) i ∧
     c' = extCfg c i th x .park e ws []
 def mstepE (p : Prog) (k : Promises.Knobs) (arch : Arch) (c : Cfg) : Nat × Lbl → Cfg → Prop
-  | (i, .thr), c' => (c' ∈ threadSteps p k arch c i ∧ Certified p k arch c' i) ∨ SpawnBy c.cap c i c' ∨ ExtBy p k arch c i c'
+  | (i, .thr), c' => (c' ∈ threadSteps p k arch c i ∧ Certified p k arch c' i) ∨ SpawnBy p c.cap c i c' ∨ ExtBy p k arch c i c'
   | (i, .prom), c' => ∃ a v w, i < c.ths.size ∧ w < c.mem.size ∧ Certified p k arch (promise c i a v w) i ∧ c' = promise c i a v w
   | (i, .env), c' => SpuriousWake p k arch c i c'
 def machineE (p : Prog) (k : Promises.Knobs) (arch : Arch) : LSys where
@@ -42,10 +42,12 @@ theorem mstepE_step {p : Prog} {k : Promises.Knobs} {arch : Arch} {c c' : Cfg} {
   obtain ⟨i, b⟩ := l
   cases b with
   | thr =>
-      rcases h with ⟨h1, h2⟩ | ⟨x, f, a, T, ts, e, th, rt, ws, h1, h2, h3, h4, h5, rfl⟩ |
+      rcases h with ⟨h1, h2⟩ | (⟨x, f, a, T, ts, e, th, rt, ws, h1, h2, h3, h4, h5, rfl⟩ |
+        ⟨x, f, is, a, T, ts, e, th, d, rt, ws, h1, h2, h3, h4, h5, h6, rfl⟩) |
         ⟨x, n, a, e, th, rt, ws, rs, h1, h2, h3, -, h4, h5, h6, rfl⟩
       · exact .inl (.thread i h1 h2)
       · exact .inr (.inl (.mk i x f a T ts e th rt ws h1 h2 h3 h4 h5))
+      · exact .inr (.inl (.mkI i x f is a T ts e th d rt ws h1 h2 h3 h4 h5 h6))
       · exact .inr (.inr (.mk i x n a e th rt ws rs h1 h2 h3 h4 h5 h6))
   | prom =>
       obtain ⟨a, v, w, hi, hw, hc, rfl⟩ := h
@@ -67,7 +69,7 @@ theorem spuriousWake_elim {p : Prog} {k : Promises.Knobs} {arch : Arch} {c c' : 
 
 theorem spawn_cap_eq {p : Prog} {k : Promises.Knobs} {arch : Arch} {cap : Nat} {c c' : Cfg}
     (h : Spawn p k arch cap c c') : c'.cap = c.cap := by
-  cases h; rfl
+  cases h <;> rfl
 
 theorem step_cap_eq {p : Prog} {k : Promises.Knobs} {arch : Arch} {c c' : Cfg} (h : Step p k arch c c') :
     c'.cap = c.cap := by

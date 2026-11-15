@@ -37,12 +37,12 @@ info: "\
 -- their digests, and states the lowerability theorem.
 #guard
   let c := render { arch := .x64 } "t.w" "src\n" "asm\n" none [] { hasNeed := true }
-  c.startsWith "import Scc.Cert.X64\nimport Scc.Cert.OutStageX64\nimport Scc.Cert.OutStageWX64\nimport Scc.Cert.MapsPartX64\nimport Scc.Cert.SrcTerm\n" &&
+  c.startsWith "import Scc.Cert.X64\nimport Scc.Cert.OutStageX64\nimport Scc.Cert.OutStageWX64\nimport Scc.Cert.MapsPartX64\nimport Scc.Cert.MapsFast\nimport Scc.Cert.SrcTerm\n" &&
   (c.splitOn "-- SHA-256 (UTF-8): ").length == 3 &&
   (c.splitOn "theorem lowerable : Scc.Emit.X64.ProgramWCLowerable prog := by decide +kernel").length == 2 &&
   (c.splitOn "#guard Scc.Cert.X64.reproduces config source asm").length == 2
 #guard (render { arch := .arm } "t.w" "" "" none [] { hasNeed := true }).startsWith
-  "import Scc.Cert.Arm\nimport Scc.Cert.OutStageA64\nimport Scc.Cert.OutStageWA64\nimport Scc.Cert.MapsPartA64\nimport Scc.Cert.SrcTerm\n"
+  "import Scc.Cert.Arm\nimport Scc.Cert.OutStageA64\nimport Scc.Cert.OutStageWA64\nimport Scc.Cert.MapsPartA64\nimport Scc.Cert.MapsFast\nimport Scc.Cert.SrcTerm\n"
 
 -- On both ISAs a file with a stack need table states the GC tables at
 -- `configW` (`prog_tablesW`), that run's agreement with scc's
@@ -174,5 +174,33 @@ info: "\
   c == renderOutside { arch := .arm } "t.w" "src\n" &&
   (c.splitOn outsideMark).length == 2 && (c.splitOn "theorem").length == 1 &&
   (c.splitOn "import").length == 1
+-- With `granule` (`scc --granule`) the file imports the post-pass output's module, passes
+-- the flag to the reproducibility check, relates the pass's items to the emitter's
+-- (`final_check`, `outF_out`) and states placement of the post-pass output `outF`, decided on
+-- `outFLit`; it states no `out_eq` and no `outLit`. On x86-64 it keeps the assembler's table
+-- and checks the cells (`cells_eq`), with no size walk of its own (A2 checks the sizes).
+#guard
+  let c := render { arch := .arm } "t.w" "" "" none [] { accepted := true, hasNeed := true, granule := true }
+  c.startsWith "import Scc.Cert.Arm\nimport Scc.Cert.OutStageA64\nimport Scc.Cert.GranuleOutA64\n" &&
+  (c.splitOn "#guard Scc.Cert.Arm.reproduces config source asm (granule := true)").length == 2 &&
+  (c.splitOn "theorem final_check : Scc.Cert.Granule.A64.check finalLit emittedLit.1 = true").length == 2 &&
+  (c.splitOn "Scc.Cert.Granule.A64.ofFinal_of_stages lowered_eq emitted_eq tables_eq final_check\n    blocksF_eq").length == 2 &&
+  (c.splitOn "theorem prog_placeOK : Scc.Cert.PlaceOK.A64.placeOK placeCfg outF = true").length == 2 &&
+  (c.splitOn "theorem prog_placeOK_1 : Scc.Cert.PlaceOK.A64.a1 outFLit").length == 2 &&
+  (c.splitOn "#guard Scc.Cert.Link.A64.parsesTo asm outF.prog outF.secs").length == 2 &&
+  (c.splitOn "theorem out_eq :").length == 1 && (c.splitOn "def outLit").length == 1
+#guard
+  let c := render { arch := .x64 } "t.w" "" "" (some ([], [])) [] { hasNeed := true, granule := true }
+  (c.splitOn "def sizes : List Nat").length == 2 && (c.splitOn "def labelOffs").length == 2 &&
+  (c.splitOn "progT").length == 1 && (c.splitOn "theorem sizes_ok").length == 1 &&
+  (c.splitOn "theorem walk_eq").length == 1 &&
+  (c.splitOn "theorem cells_eq :").length == 2 &&
+  (c.splitOn "ofFinal_of_stages sizes labelOffs lowered_eq emitted_eq tables_eq final_check cells_eq").length == 2 &&
+  (c.splitOn "#guard Scc.Cert.Link.X64.parsesTo ⟨asm, sizes, labelOffs⟩ outF.prog outF.secs").length == 2
+-- Without it, none of that.
+#guard
+  let c := render { arch := .x64 } "t.w" "" "" (some ([], [])) [] { hasNeed := true }
+  (c.splitOn "GranuleOut").length == 1 && (c.splitOn "outF").length == 1 &&
+  (c.splitOn "(granule := true)").length == 1 && (c.splitOn "progT").length == 1
 
 end Scc.Test.Cert

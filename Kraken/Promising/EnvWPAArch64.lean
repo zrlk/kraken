@@ -615,6 +615,7 @@ theorem directive_esim (hL : L.WF) [Labels] (dir : Directive) (p : Std.Rco Int64
   | instr i => exact instr_esim hL i p hk hj hrel h
   | label l => exact hk _ _ _ _ _ hrel h
   | byteArray b => exact h.elim
+  | zeros n => exact h.elim
 
 end ESim
 

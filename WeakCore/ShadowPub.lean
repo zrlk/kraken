@@ -14,12 +14,12 @@ def shadowEnv (η : TEnv) (l : AllocLabel) (V : Ts) : TEnv := { η with pfr := p
 theorem MemInv_publishSB {g : G} {E : TEnv} {s : St} {l : AllocLabel} {c : Cell}
     (hm : MemInvB g E s) (hsto : E.sto l = some c) (hown : c.owner = some E.tid)
     (hcpl : ∀ b S, SegOf c.ty b S → accs S ≠ none → TearOKB S) (hcT : Ty.coupledOKIn [] c.ty = true)
-    (hnT : Ty.noOwnIn [] c.ty = true) (hrT : rgnFree c.ty = true) :
+    (hnT : Ty.noOwnIn [] c.ty = true) (hrT : TermC1.drf1 c.ty = true) :
     MemInvB g (shadowEnv E l s.vs.vWr) (fenceS s .st) := by
   cases hpf : E.pfr l with
   | none =>
     refine MemInv_fenceB (MemInv_plantFB (F := s.vs.vWr) hm hsto hown hpf rfl rfl rfl rfl ?_ rfl rfl
-      (Or.inl (Nat.le_refl _)) hcpl hcT hnT hrT)
+      (Or.inl (Nat.le_refl _)) hcpl hcT hnT (.inr hrT))
     funext l'
     simp only [shadowEnv, pubP]
     split

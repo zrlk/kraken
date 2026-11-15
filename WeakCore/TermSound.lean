@@ -598,7 +598,7 @@ def ModeOK (i : Nat) (P : WeakMem.AllocLabel → Option WeakMem.Ts) (S : WeakMem
     Mode → WeakMem.AllocLabel → Cell → List Word → Prop
   | .own, _, c, _ => c.owner = some i
   | .pub, l, _, ws => ∃ f, P l = some f ∧ (S l ∨ ∀ w ∈ ws, f ≤ w.view)
-  | .rgn _, _, _, _ => True
+  | .rgn _, l, _, ws => ∃ f, P l = some f ∧ (S l ∨ ∀ w ∈ ws, f ≤ w.view)
 
 theorem ModeOK_shift (i c : Nat) (P : WeakMem.AllocLabel → Option WeakMem.Ts) (S : WeakMem.AllocLabel → Prop)
     (μ : Mode) : ModeOK i P S (μ.shift c) = ModeOK i P S μ := by cases μ <;> rfl
@@ -621,11 +621,10 @@ theorem ModeOK_mono {i : Nat} {P P' : WeakMem.AllocLabel → Option WeakMem.Ts}
     ModeOK i P S μ l c ws → ModeOK i P' S' μ l c ws' := by
   cases μ with
   | own => exact id
-  | pub =>
+  | pub | rgn _ =>
     rintro ⟨f, h1, h2 | h2⟩
     · exact ⟨f, hP l f h1, Or.inl (hS l h2)⟩
     · exact ⟨f, hP l f h1, Or.inr (hw f h2)⟩
-  | rgn _ => exact id
 
 /-- (T3c-5d) **A boxed sum's block** (§3.5 tier 3), as a ghost: born frozen, so
 its words are fixed at the injection.  `tag`: the flattened arm of the sum it
@@ -1290,9 +1289,9 @@ macro "rini_le" : tactic =>
     | (intro l; simp))
 
 /-- (S7) No region reference reachable by `VR` (own references allowed; `VR`
-does not descend into a reference's target).  Until region cells are covered
-(R2), a published cell's type is region-free (TermStep's `PubCpl`, from the
-scope), and so is every `share` witness (`WitOK`, `WitR`). -/
+does not descend into a reference's target).  A published cell's type is
+`rgnFree` or `TermC1.drf1` (TermStep's `PubCpl`, M12 L1), and every `share`
+witness is region-free (`WitOK`, `WitR`). -/
 def rgnFree : Ty → Bool
   | .ptr (.rgn _) _    => false
   | .ptrOpt (.rgn _) _ => false
@@ -1326,7 +1325,7 @@ witness is region-free (`rgnFree`; the scope's check at `packT`, until R2).  (GS
 bodies are guarded (`mg`, as `WitAF`). -/
 def WitOK (κ : Kind) (s : Ty) : Prop := s.arrFree = true ∧ (κ.share = true → Ty.coupledOK s = true) ∧
     (κ.copy = true → Ty.affine s = false) ∧ (κ.noOwn = true → Ty.noOwn s = true) ∧
-    (κ.share = true → rgnFree s = true) ∧ noIallV s = true ∧ TermTv.mg s = true
+    TermC1.drf1 s = true ∧ noIallV s = true ∧ TermTv.mg s = true
 
 /-- (T3c-5d) A boxed summand read through its enclosing sum's box: the shape of
 the summand with the box's tag offset by `s`, the arms to its left, carried in
@@ -2573,7 +2572,7 @@ theorem ModeOK_unsee {i : Nat} {P P' : WeakMem.AllocLabel → Option WeakMem.Ts}
     ModeOK i P S μ l c ws → ModeOK i P' S' μ l c ws := by
   cases μ with
   | own => exact id
-  | pub =>
+  | pub | rgn _ =>
     rintro ⟨f, h1, h2 | h2⟩
     · rcases hS l h2 with h3 | ⟨f', h3, h4⟩
       · exact ⟨f, hP l f h1, Or.inl h3⟩
@@ -2582,7 +2581,6 @@ theorem ModeOK_unsee {i : Nat} {P P' : WeakMem.AllocLabel → Option WeakMem.Ts}
         have : w.val ∈ ws.map (·.val) := List.mem_map_of_mem hw'
         rw [hw] at this; simpa using this
     · exact ⟨f, hP l f h1, Or.inr h2⟩
-  | rgn _ => exact id
 
 
 
@@ -8189,7 +8187,7 @@ def WitN (ke : KEnv) (η : TEnv) : Prop := ∀ k, ke.ask k true (·.noOwn) = tru
 
 /-- (S7) `share` witnesses are region-free (until R2): the scope checks every
 type argument (`call`, `tail`) and every `share` package witness (`packT`). -/
-def WitR (ke : KEnv) (η : TEnv) : Prop := ∀ k, ke.ask k true (·.share) = true → rgnFree (η.wit k) = true
+def WitR (ke : KEnv) (η : TEnv) : Prop := ∀ k, ke.ask k true (fun _ => true) = true → TermC1.drf1 (η.wit k) = true
 
 /-- (P3) Under `WitC` and `CohR`, copy-kinded variables denote resource-free
 values: the hypotheses of `VRR_copy_zero`. -/
@@ -9153,6 +9151,105 @@ def RetOKR (ρ : Nat → Nat) (η : TEnv) (σs : List Ty) (ret : Ty)
 
 end TermSound
 
+namespace TermC1
+
+open CoreLang CoreTerm TermClose TermSound TermTv TermScope
+
+theorem drfM_clM (ρ : Nat → Nat) (d : Nat) (μ : Mode) : drfM (clM ρ d μ) = drfM μ := by
+  cases μ <;> rfl
+
+/-- The `drf1_clK` premise under a type binder (`mu`/`tex`: the cut moves up by one). -/
+theorem drf1_clK_up {W : Nat → Ty} {t : Ty} {c : Nat}
+    (hW : ∀ k, c ≤ k → t.tyMentions (k + 1) = true → drf1 (W (k - c)) = true) :
+    ∀ k, c + 1 ≤ k → t.tyMentions k = true → drf1 (W (k - (c + 1))) = true := by
+  intro k hk hm
+  have e1 : k = (k - 1) + 1 := by omega
+  have e2 : k - (c + 1) = (k - 1) - c := by omega
+  rw [e2]; rw [e1] at hm; exact hW (k - 1) (by omega) hm
+
+/-- **Closing keeps `drf1`** (local form, as `rgnFree_clK`): only the witnesses of type variables
+that occur free in `t` (`tyMentions`, at or above the cut `c`) need `drf1`. -/
+theorem drf1_clK {ρ : Nat → Nat} {W : Nat → Ty} (t : Ty) :
+    ∀ c d, (∀ k, c ≤ k → t.tyMentions k = true → drf1 (W (k - c)) = true) →
+      drf1 t = true → drf1 (cl ρ W c d t) = true := by
+  induction t with
+  | tvar j =>
+      intro c d hW _
+      by_cases h : j < c
+      · simp [cl, h, drf1]
+      · simp only [cl, h, ↓reduceIte]; exact hW j (by omega) (by simp [Ty.tyMentions])
+  | prod a b iha ihb | sum a b iha ihb | code a b _ iha ihb =>
+      intro c d hW h; simp only [drf1, Bool.and_eq_true] at h
+      simp only [cl, drf1, Bool.and_eq_true]
+      exact ⟨iha c d (fun k hk hm => hW k hk (by simp [Ty.tyMentions, hm])) h.1,
+        ihb c d (fun k hk hm => hW k hk (by simp [Ty.tyMentions, hm])) h.2⟩
+  | array _ t ih | ptr _ t ih | ptrOpt _ t ih => intro c d hW h; simp only [drf1] at h; simp only [cl, drf1]; exact ih c d hW h
+  | loc μ t ih =>
+      intro c d hW h; simp only [drf1, Bool.and_eq_true] at h
+      simp only [cl, drf1, drfM_clM, h.1, ih c d hW h.2, Bool.and_self]
+  | mu t ih => intro c d hW h; simp only [drf1] at h; simp only [cl, drf1]; exact ih (c + 1) d (drf1_clK_up hW) h
+  | tex κ t ih => intro c d hW h; simp only [drf1] at h; simp only [cl, drf1]; exact ih (c + 1) d (drf1_clK_up hW) h
+  | iall t _ => intro c d _ h; simp [drf1] at h
+  | iex t ih => intro c d hW h; simp only [drf1] at h; simp only [cl, drf1]; exact ih c (d + 1) hW h
+  | refine t ψ ih => intro c d hW h; simp only [drf1] at h; simp only [cl, drf1]; exact ih c d hW h
+  | _ => intro c d _ _; simp [cl, drf1]
+
+/-- Closing keeps `drf1` when every witness has it (`drf1_clK` with the global premise). -/
+theorem drf1_cl {ρ : Nat → Nat} {W : Nat → Ty} (hW : ∀ k, drf1 (W k) = true) (t : Ty) :
+    ∀ c d, drf1 t = true → drf1 (cl ρ W c d t) = true :=
+  fun c d => drf1_clK t c d (fun k _ _ => hW (k - c))
+
+/-- `drf1_clK` at the top (`rgnFree_cl0`'s counterpart): only the witnesses of `t`'s free variables. -/
+theorem drf1_cl0K (ρ : Nat → Nat) {W : Nat → Ty} {t : Ty}
+    (hW : ∀ k, t.tyMentions k = true → drf1 (W k) = true)
+    (h : drf1 t = true) : drf1 (cl ρ W 0 0 t) = true :=
+  drf1_clK t 0 0 (fun k _ hm => by simpa using hW k hm) h
+
+/-- `drf1_cl` at the top, global premise. -/
+theorem drf1_cl0 (ρ : Nat → Nat) {W : Nat → Ty} (hW : ∀ k, drf1 (W k) = true) {t : Ty}
+    (h : drf1 t = true) : drf1 (cl ρ W 0 0 t) = true :=
+  drf1_cl0K ρ (fun k _ => hW k) h
+
+theorem ask_true_iff (ke : KEnv) (k : Nat) : ke.ask k true (fun _ => true) = true ↔ k < ke.length := by
+  unfold KEnv.ask
+  cases e : ke[k]? with
+  | none => simp only [List.getElem?_eq_none_iff] at e; simp; omega
+  | some o =>
+      have := (List.getElem?_eq_some_iff.mp e).1
+      cases o <;> simp [this]
+
+/-- A type variable a `tb c` type mentions is below `c`. -/
+theorem mentions_lt : ∀ (t : Ty) (c j : Nat), tb c t = true → t.tyMentions j = true → j < c := by
+  intro t
+  induction t with
+  | tvar k => intro c j h hm; simp only [tb, decide_eq_true_eq] at h; simp only [Ty.tyMentions, beq_iff_eq] at hm; omega
+  | prod a b iha ihb | sum a b iha ihb | code a b _ iha ihb =>
+      intro c j h hm; simp only [tb, Bool.and_eq_true] at h; simp only [Ty.tyMentions, Bool.or_eq_true] at hm
+      rcases hm with hm | hm
+      · exact iha c j h.1 hm
+      · exact ihb c j h.2 hm
+  | array _ t ih | ptr _ t ih | ptrOpt _ t ih | loc _ t ih | iall t ih | iex t ih | refine t _ ih =>
+      intro c j h hm; simp only [tb] at h; simp only [Ty.tyMentions] at hm; exact ih c j h hm
+  | mu t ih | tex _ t ih =>
+      intro c j h hm; simp only [tb] at h; simp only [Ty.tyMentions] at hm; have := ih (c + 1) (j + 1) h hm; omega
+  | _ => intro c j _ hm; simp [Ty.tyMentions] at hm
+
+/-- `WitR` in index form (M5: every in-scope witness is `drf1`). -/
+theorem WitR_iffLt {ke : KEnv} {η : TEnv} : WitR ke η ↔ ∀ k, k < ke.length → drf1 (η.wit k) = true :=
+  ⟨fun h k hk => h k ((ask_true_iff ke k).2 hk), fun h k hk => h k ((ask_true_iff ke k).1 hk)⟩
+
+/-- The witnesses a frame's type mentions are `drf1`. -/
+theorem WitR_occ {ke : KEnv} {η : TEnv} {u : Ty} (h : WitR ke η) (ht : tb ke.length u = true) :
+    ∀ k, u.tyMentions k = true → drf1 (η.wit k) = true :=
+  fun k hm => WitR_iffLt.1 h k (mentions_lt u ke.length k ht hm)
+
+/-- A `drf1` type closes to a `drf1` type in a `WitR` frame. -/
+theorem drf1_cl_frameR (ρ : Nat → Nat) {ke : KEnv} {η : TEnv} {σ : Ty} (h : WitR ke η)
+    (ht : tb ke.length σ = true) (hd : drf1 σ = true) : drf1 (cl ρ η.wit 0 0 σ) = true :=
+  drf1_cl0K ρ (WitR_occ h ht) hd
+
+end TermC1
+
 /-! ## Pub-position words (`cnt`) (moved unchanged from `TermPtrRtsDefs`: `ThInvRE`/`ResumeR` read them) -/
 
 namespace TermPtrRts
@@ -9161,6 +9258,7 @@ open CoreLang CoreTerm CoreTyping TermRun TermTv TermSound
 /-- `pub` (not `own`, not a region's). -/
 def mPub : Mode → Bool
   | .pub => true
+  | .rgn _ => true -- c1
   | _ => false
 
 /-- **Shallow pub-ness**: every reference at a value position is `pub` and every package kind
@@ -9224,18 +9322,6 @@ end TermPtrRts
 namespace TermSound
 open CoreLang CoreTerm CoreTyping TermRun TermClose TermTv
 
-open TermRun in
-/-- A set of (callee, tainted type parameters) closed under the walk: no refused allocation, and
-every tainted call edge stays in the set. -/
-def TaintClosed (p : Prog) (ann : Op → Option Ty) (tg : List Ty) (S : List (String × List Nat)) : Prop :=
-  ∀ g b, (g, b) ∈ S → ∀ d, p.find? (·.name == g) = some d →
-    (scan ann tg b d.body).1 = [] ∧ ∀ e ∈ (scan ann tg b d.body).2, e.2 ≠ [] → e ∈ S
-
-/-- A term with hidden positions `H` refuses nothing, and its tainted calls are in `S`. -/
-def HidClean (ann : Op → Option Ty) (tg : List Ty) (S : List (String × List Nat)) (H : List Nat)
-    (e : Expr) : Prop :=
-  (scan ann tg H e).1 = [] ∧ ∀ c ∈ (scan ann tg H e).2, c.2 ≠ [] → c ∈ S
-
 open TermClose in
 /-- O1's invariant on one list: no type variable in any entry. -/
 def TbS (σs : List Ty) : Prop := ∀ σ ∈ σs, tb 0 σ = true
@@ -9251,13 +9337,18 @@ def DyFr (p : Prog) (ann : Op → Option Ty) (tg : List Ty) (η : TermSound.TEnv
   ∃ (S : List (String × List Nat)) (H : List Nat),
     TaintClosed p ann tg S ∧ HidClean ann tg S H e ∧ TbS σs ∧ WitXw η.wit σs H
 
+/-- (A1 checker invariant) A frame's typing: `Typed`, at the checker's context (`CkW`: `checkW` accepts the
+rest of the block, the variables are `wrapOK`, the non-opaque witnesses `argTop`). -/
+def TypedK (p : Prog) (η : TEnv) (cx : Cx) (e : Expr) : Prop := Typed p cx e ∧ TermA4.CkW p η.wit cx e
+
 /-- The stack below a frame, as a return continuation: returning `ws` into the
 top frame `f` resumes a well-typed caller, whose own continuation is the rest.
-(T3c-4) The caller's context keeps its types in scope (`TvOK`, TermTv).  (RetPw) Each frame
-carries the return link of the frame below it, as in `ResumeR`. -/
+(T3c-4) The caller's context keeps its types in scope (`TvOK`, TermTv). (RetPw) Each frame
+carries the return link of the frame below it, as in `ResumeR`. (RgnCpl) Each frame is typed at
+the checker's context (`TypedK`), as in `ResumeR`. -/
 def Resume (p : Prog) : List Frame → TEnv → List Word → Prop
   | [], _, _ => True
-  | f :: rest, E, ws => ∃ ρ η c, CE η = E ∧ EnvOK p η ∧ Typed p c f.body ∧ TvOK c ∧
+  | f :: rest, E, ws => ∃ ρ η c, CE η = E ∧ EnvOK p η ∧ TypedK p η c f.body ∧ TvOK c ∧
       FInv ρ η f.σs (Resume p rest) c ((f.x, f.ty, ws) :: f.env) ∧
       (∀ (f' : Frame) (rest' : List Frame), rest = f' :: rest' → ∀ ws,
         TermPtrRts.pubWords f'.ty ws = TermPtrRts.pubWords (close f.σs c.ret) ws) ∧
@@ -9268,10 +9359,6 @@ trivial continuation, plus the resourceful return clause and the holdings. -/
 def FInvR (ρ : Nat → Nat) (η : TEnv) (σs : List Ty) (K : TEnv → Nat → List Word → Res → Prop)
     (cx : Cx) (env : Env) (Rf : Res) : Prop :=
   FInv ρ η σs (fun _ _ => True) cx env ∧ RetOKR ρ η σs cx.ret K ∧ HeldOK ρ η cx env Rf
-
-/-- (A1 checker invariant) A frame's typing: `Typed`, at the checker's context (`CkW`: `checkW` accepts the
-rest of the block, the variables are `wrapOK`, the non-opaque witnesses `argTop`). -/
-def TypedK (p : Prog) (η : TEnv) (cx : Cx) (e : Expr) : Prop := Typed p cx e ∧ TermA4.CkW p η.wit cx e
 
 /-- `TypedK` reads the view only through its witnesses. -/
 theorem TypedK.wit {p : Prog} {η η' : TEnv} {cx : Cx} {e : Expr} (h : TypedK p η cx e)
@@ -9301,7 +9388,7 @@ theorem scanNilMatch (ann : Op → Option Ty) (tg : List Ty) (op : Op) :
   · simp [hits]
   · rfl
 
-/-! ### DyFr helpers (S3, proof only; from the DY1 probe DynS6Ar10) -/
+/-! ### DyFr helpers (S3, proof only; from the probe DynS6Ar10) -/
 
 /-- A type with no type variable is unchanged by `shiftT`. -/
 theorem shiftT_tb0 : ∀ (t : Ty) (c k : Nat), TermClose.tb c t = true → c ≤ k → t.shiftT k = t := by
@@ -10017,6 +10104,14 @@ theorem endCx_ret (cx : Cx) (y : String) : (cx.endCx y).ret = cx.ret := rfl
 
 theorem push_ret (cx : Cx) (n : String) : (cx.push n).ret = cx.ret.shiftI 0 := rfl
 
+theorem iteH_ret (b : Bool) (T : Ty) (cx : Cx) : (if b = true then cx.handOffR T else cx).ret = cx.ret := by
+  cases b
+  · rfl
+  · show (Cx.handOffR cx T).ret = cx.ret
+    unfold Cx.handOffR Cx.handOff; split <;> (try split) <;> (try split) <;> rfl
+
+theorem handOffR_ret (T : Ty) (cx : Cx) : (cx.handOffR T).ret = cx.ret := iteH_ret true T cx
+
 theorem OpT_ret3 {p : Prog} {cx c' : Cx} {x : String} {op : Op} (h : OpT p cx x op c') :
     c'.ret = cx.ret ∨ c'.ret = cx.ret.shiftI 0 ∨ c'.ret = (cx.ret.shiftI 0).shiftI 0 := by
   cases h <;> first
@@ -10027,6 +10122,8 @@ theorem OpT_ret3 {p : Prog} {cx c' : Cx} {x : String} {op : Op} (h : OpT p cx x 
         | exact Or.inl rfl
         | exact Or.inl (use_ret ‹_›)
         | exact Or.inl ((use_ret ‹_›).trans (use_ret ‹_›))
+        | exact Or.inl ((iteH_ret _ _ _).trans (use_ret ‹_›))
+        | exact Or.inl ((handOffR_ret _ _).trans (use_ret ‹_›))
         | exact Or.inl (fenceCx_ret _ _)
         | exact Or.inr (Or.inl rfl)
         | exact Or.inr (Or.inr rfl))
@@ -10462,7 +10559,7 @@ theorem pushT_FInv {K : TEnv → List Word → Prop} {ρ : Nat → Nat} {η : TE
         | zero => simpa [TEnv.consC, TEnv.insR] using haf.2.2.2.1 (by simpa [Cx.pushT, KEnv.ask] using hk)
         | succ k => simpa [TEnv.consC, TEnv.insR] using hi.2.2.2.2.2.2.2.2.2.1 k (by simpa [Cx.pushT, KEnv.ask] using hk)
       · cases k with
-        | zero => simpa [TEnv.consC, TEnv.insR] using haf.2.2.2.2.1 (by simpa [Cx.pushT, KEnv.ask] using hk)
+        | zero => simpa [TEnv.consC, TEnv.insR] using haf.2.2.2.2.1
         | succ k => simpa [TEnv.consC, TEnv.insR] using hi.2.2.2.2.2.2.2.2.2.2 k (by simpa [Cx.pushT, KEnv.ask] using hk)
 
 theorem Sat_cons {fs : Facts} {ρ : Nat → Nat} {k : Nat} {t : Idx} (h : Sat fs ρ) (hk : ρ k = ev ρ t) :
@@ -10569,7 +10666,7 @@ def PackOK : Ty → Prop
 /-- (S7) The scope's check at `packT` (until R2): a `share` witness is
 region-free.  Checked at the instantiation, so polymorphic bodies stay in. -/
 def PackTOK (σ : Ty) : Ty → Prop
-  | .tex κ _ => κ.share = true → rgnFree σ = true
+  | .tex _ _ => TermC1.drf1 σ = true
   | _ => True
 
 /-- The fragment covered so far: arithmetic, pairs, and packing. -/
@@ -11038,6 +11135,7 @@ def sitesOf : Expr → List (String × Nat)
   | .let_ _ op e => (match op with
       | .call f _ _ ts => [(f, ts.length)]
       | .spawn f _ _ ts => [(f, ts.length)]
+      | .spawnI f _ _ _ ts => [(f, ts.length)]
       | _ => []) ++ sitesOf e
   | .split _ _ _ e => sitesOf e
   | .unpack _ _ _ e => sitesOf e
@@ -11167,6 +11265,13 @@ theorem progDy_of_checked {p : Prog} (h : checkProg p = .ok ()) :
   · simp only [bind_ok_iff] at h
     obtain ⟨u, hu, -⟩ := h
     exact hu
+
+/-- (CHECKED r3) **Bridge**: a program the checker accepts meets the two new headline premises
+(old ⇒ new, a strict widening; strictness: `TermSound.typed_dy_not_checked`, Complete). -/
+theorem typed_dy_of_checked {p : Prog} (h : checkProg p = .ok ()) : CoreTyping.ProgT p ∧ DyClean p :=
+  ⟨CoreTyping.checkProg_sound p h, progDy_of_checked h⟩
+
+#print axioms TermSound.typed_dy_of_checked
 
 /-- The closures agree: substituting `σs` and closing in `η` is closing in the
 callee's `η`. -/
@@ -11542,9 +11647,7 @@ theorem pure_pres {K : TEnv → List Word → Prop} {p : Prog} {cx c' : Cx} {x :
         AffineCl.affine_cl0 ρ η.wit cx.ke hw (fun k _ hk => hi.2.2.2.2.2.2.2.2.1 k hk) σ
           ((admitsIn_word had).2 hcp) (tb_of_wf σ (admitsIn_wf had)), fun hno =>
         NoOwnCl.noOwn_cl0 ρ η.wit cx.ke hw (fun k _ hk => hi.2.2.2.2.2.2.2.2.2.1 k hk) σ
-          (admitsIn_noOwn had hno) (tb_of_wf σ (admitsIn_wf had)), fun hsh =>
-        rgnFree_cl0 ρ η.wit cx.ke (fun k hk => hi.2.2.2.2.2.2.2.2.2.2 k hk) (admitsIn_share had hsh)
-          (hA.1 hsh), noIallV_cl hi.2.2.2.2.2.2.1.ni σ 0 0 hA.2,
+          (admitsIn_noOwn had hno) (tb_of_wf σ (admitsIn_wf had)), TermC1.drf1_cl_frameR ρ hi.2.2.2.2.2.2.2.2.2.2 (tb_of_wf σ (admitsIn_wf had)) hA.1, noIallV_cl hi.2.2.2.2.2.2.1.ni σ 0 0 hA.2,
         TermTv.mg_cl (fun k => (hw k).1) hi.2.2.2.2.2.2.1.mg σ 0 0 (mg_of_wf σ (admitsIn_wf had))⟩, ?_⟩
     rw [← es]
     exact h2
@@ -11730,6 +11833,61 @@ theorem ifeq_step {K : TEnv → List Word → Prop} {p : Prog} {cx : Cx} {a b : 
       · obtain ⟨ρ', h'⟩ := noCx_pres hnc hi hne
         exact ⟨ρ', c', hn, NoCx_TvOK hnc htv, NoCx_retSk hnc, h'⟩
 
+/-- (RgnCpl) `ifeq_step` at `TypedK`: the continuation is the checker's too (as `ifeq_stepR`). -/
+theorem ifeq_stepK {K : TEnv → List Word → Prop} {p : Prog} {cx : Cx} {a b : At} {yes no : Expr} {ρ : Nat → Nat} {η : TEnv} {σs : List Ty}
+    {env : Env} (hT : TypedK p η cx (.ifeq a b yes no)) (hi : FInv ρ η σs K cx env) (htv : TvOK cx) :
+    (∃ ra wa rb wb n m, evalAt env a = some (ra, [wa]) ∧ evalAt env b = some (rb, [wb]) ∧
+      wa.val = .num n ∧ wb.val = .num m ∧
+      (n = m → ∃ ρ' cy, TypedK p η cy yes ∧ TvOK cy ∧ skel cy.ret = skel cx.ret ∧ FInv ρ' η σs K cy env) ∧
+      (n ≠ m → ∃ ρ' cn, TypedK p η cn no ∧ TvOK cn ∧ skel cn.ret = skel cx.ret ∧ FInv ρ' η σs K cn env)) ∨
+    (∃ ra wa rb wb la lb, evalAt env a = some (ra, [wa]) ∧ evalAt env b = some (rb, [wb]) ∧
+      wa.val = .loc ⟨la, 0⟩ 0 ∧ wb.val = .loc ⟨lb, 0⟩ 0 ∧ TypedK p η cx yes ∧ TypedK p η cx no) := by
+  cases TermA4.CkW_inv_ifeq hT.2 with
+  | ifeqPlain hpe hy hn =>
+      rcases atom_plainEq hi.2.1 hpe with ⟨⟨ra, wa, n, hea, hwa⟩, ⟨rb, wb, m, heb, hwb⟩⟩ |
+          ⟨⟨ra, wa, la, hea, hwa⟩, ⟨rb, wb, lb, heb, hwb⟩⟩
+      · exact Or.inl ⟨ra, wa, rb, wb, n, m, hea, heb, hwa, hwb, fun _ => ⟨ρ, cx, hy.tk, htv, rfl, hi⟩,
+          fun _ => ⟨ρ, cx, hn.tk, htv, rfl, hi⟩⟩
+      · exact Or.inr ⟨ra, wa, rb, wb, la, lb, hea, heb, hwa, hwb, hy.tk, hn.tk⟩
+  | ifeq hia hib hy hnc hn =>
+      rename_i c' i j
+      obtain ⟨ta, hpa, hta⟩ := hia; obtain ⟨tb, hpb, htb⟩ := hib
+      obtain ⟨ra, wa, hea, hwa, -⟩ := atom_num hi.2.1 hpa hta
+      obtain ⟨rb, wb, heb, hwb, -⟩ := atom_num hi.2.1 hpb htb
+      refine Or.inl ⟨ra, wa, rb, wb, _, _, hea, heb, hwa, hwb, fun _ => ⟨ρ, cx, hy.tk, htv, rfl, hi⟩, fun hne => ?_⟩
+      obtain ⟨ρ', h'⟩ := noCx_pres hnc hi hne
+      exact ⟨ρ', c', hn.tk, NoCx_TvOK hnc htv, NoCx_retSk hnc, h'⟩
+  | ifeqRec hia hib hrec hy hnc hn =>
+      rename_i c' i j t v
+      obtain ⟨ta, hpa, hta⟩ := hia; obtain ⟨tb, hpb, htb⟩ := hib
+      obtain ⟨ra, wa, hea, hwa, -⟩ := atom_num hi.2.1 hpa hta
+      obtain ⟨rb, wb, heb, hwb, -⟩ := atom_num hi.2.1 hpb htb
+      refine Or.inl ⟨ra, wa, rb, wb, _, _, hea, heb, hwa, hwb, fun heq => ?_, fun hne => ?_⟩
+      · refine ⟨ρ, _, hy.tk, htv, rfl, Sat_cons hi.1 ?_, hi.2⟩
+        rcases hrec with ⟨h1, h2⟩ | ⟨h1, h2⟩
+        · have e1 := h1 ρ hi.1; have e2 := h2 ρ hi.1; simp only [ev] at e1; omega
+        · have e1 := h1 ρ hi.1; have e2 := h2 ρ hi.1; simp only [ev] at e1; omega
+      · obtain ⟨ρ', h'⟩ := noCx_pres hnc hi hne
+        exact ⟨ρ', c', hn.tk, NoCx_TvOK hnc htv, NoCx_retSk hnc, h'⟩
+  | ifeqZero hia hib hz hy hnc hn =>
+      rename_i c' i j u s
+      obtain ⟨ta, hpa, hta⟩ := hia; obtain ⟨tb, hpb, htb⟩ := hib
+      obtain ⟨ra, wa, hea, hwa, -⟩ := atom_num hi.2.1 hpa hta
+      obtain ⟨rb, wb, heb, hwb, -⟩ := atom_num hi.2.1 hpb htb
+      refine Or.inl ⟨ra, wa, rb, wb, _, _, hea, heb, hwa, hwb, fun heq => ?_, fun hne => ?_⟩
+      · refine ⟨ρ, _, hy.tk, htv, rfl, Sat_cons hi.1 ?_, hi.2⟩
+        obtain ⟨hs, hz⟩ := hz
+        simp only [ev]
+        rcases hz with ⟨h1, h2⟩ | ⟨h1, h2⟩
+        · have e1 := h1 ρ hi.1; have e2 := h2 ρ hi.1; simp only [ev] at e1 e2
+          rw [heq, e2] at e1
+          exact (Nat.mul_eq_zero.1 e1.symm).resolve_left (by omega)
+        · have e1 := h1 ρ hi.1; have e2 := h2 ρ hi.1; simp only [ev] at e1 e2
+          rw [← heq, e2] at e1
+          exact (Nat.mul_eq_zero.1 e1.symm).resolve_left (by omega)
+      · obtain ⟨ρ', h'⟩ := noCx_pres hnc hi hne
+        exact ⟨ρ', c', hn.tk, NoCx_TvOK hnc htv, NoCx_retSk hnc, h'⟩
+
 /-- **P1 + P4, `parity`.**  The operand is one `num` word, and the halving
 facts of either branch are witnessed. -/
 theorem parity_step {K : TEnv → List Word → Prop} {p : Prog} {cx : Cx} {a : At} {k : String} {ev₀ od : Expr} {ρ : Nat → Nat}
@@ -11747,6 +11905,25 @@ theorem parity_step {K : TEnv → List Word → Prop} {p : Prog} {cx : Cx} {a : 
       have hp := push_FInv k (ev ρ i / 2) hi
       refine ⟨r, w, _, hea, hw, fun h0 => ⟨_, _, he, push_TvOK k htv, skel_shiftI cx.ret 0, Sat_cons hp.1 ?_, hp.2⟩,
         fun h1 => ⟨_, _, ho, push_TvOK k htv, skel_shiftI cx.ret 0, Sat_cons hp.1 ?_, hp.2⟩⟩
+      · simp only [ev, vcons_succ, vcons_zero]; omega
+      · simp only [ev, vcons_succ, vcons_zero]; omega
+
+/-- (RgnCpl) `parity_step` at `TypedK`: the continuation is the checker's too (as `parity_stepR`). -/
+theorem parity_stepK {K : TEnv → List Word → Prop} {p : Prog} {cx : Cx} {a : At} {k : String} {ev₀ od : Expr} {ρ : Nat → Nat}
+    {η : TEnv} {σs : List Ty} {env : Env} (hT : TypedK p η cx (.parity a k ev₀ od)) (hi : FInv ρ η σs K cx env)
+    (htv : TvOK cx) :
+    ∃ r w n, evalAt env a = some (r, [w]) ∧ w.val = .num n ∧
+      (n % 2 = 0 → ∃ ρ' c, TypedK p η c ev₀ ∧ TvOK c ∧ skel c.ret = skel cx.ret ∧ FInv ρ' η σs K c env) ∧
+      (n % 2 ≠ 0 → ∃ ρ' c, TypedK p η c od ∧ TvOK c ∧ skel c.ret = skel cx.ret ∧ FInv ρ' η σs K c env) := by
+  cases TermA4.CkW_inv_parity hT.2 with
+  | parity hia hv he ho =>
+      rename_i i v
+      obtain ⟨ta, hpa, hta⟩ := hia
+      obtain ⟨r, w, hea, hw, -⟩ := atom_num hi.2.1 hpa hta
+      have e := hv ρ hi.1; simp only [ev] at e
+      have hp := push_FInv k (ev ρ i / 2) hi
+      refine ⟨r, w, _, hea, hw, fun h0 => ⟨_, _, he.tk, push_TvOK k htv, skel_shiftI cx.ret 0, Sat_cons hp.1 ?_, hp.2⟩,
+        fun h1 => ⟨_, _, ho.tk, push_TvOK k htv, skel_shiftI cx.ret 0, Sat_cons hp.1 ?_, hp.2⟩⟩
       · simp only [ev, vcons_succ, vcons_zero]; omega
       · simp only [ev, vcons_succ, vcons_zero]; omega
 
@@ -11791,6 +11968,46 @@ theorem split_step {K : TEnv → List Word → Prop} {p : Prog} {cx : Cx} {a : A
       exact ⟨_, he, split_TvOK hu hb1 hb2 htv, by rw [bind_ret hb2, bind_ret hb1, use_ret hu], bind_FInv hb2 (bind_FInv hb1 hi1 hva ⟨sha, hsa, hwa, hvp.1, hy.1⟩) hvb
         ⟨shb, hsb, hwb, hvp.2, hy.2⟩⟩
 
+/-- (RgnCpl) `split_step` at `TypedK`: the continuation is the checker's too (as `split_stepR`). -/
+theorem split_stepK {K : TEnv → List Word → Prop} {p : Prog} {cx : Cx} {a : At} {x y : String} {e : Expr} {ρ : Nat → Nat}
+    {η : TEnv} {σs : List Ty} {env : Env} (hT : TypedK p η cx (.split a x y e)) (hi : FInv ρ η σs K cx env)
+    (htv : TvOK cx) :
+    ∃ ra rb ws us, evalAt env a = some (.prod ra rb, ws) ∧ accs ra = some us ∧
+      ∃ c, TypedK p η c e ∧ TvOK c ∧ skel c.ret = skel cx.ret ∧ 
+        FInv ρ η σs K c ((y, rb, ws.drop (nWords us)) :: (x, ra, ws.take (nWords us)) :: env) := by
+  cases hT.1 with
+  | split hu hb1 hb2 he =>
+      obtain ⟨hi1, rt, ws, hea, hv, hl⟩ := use_FInv hu hi
+      have hs := hl.2.1
+      simp only [close, substTs, skel, etok] at hs
+      obtain ⟨ra, rb, rfl, hsa, hsb⟩ := eskel_eq_prod hs
+      have hsh := hl.1
+      have hwa : wc ra ≠ none := by
+        intro h; apply hl.2.2.1; simp [wc_prod, h]
+      have hwb : wc rb ≠ none := by
+        intro h; apply hl.2.2.1; rw [wc_prod, h]; cases wc ra <;> rfl
+      obtain ⟨us, hus⟩ : ∃ us, accs ra = some us := by
+        cases h : accs ra with
+        | none => exact absurd (by simp [wc, h]) hwa
+        | some us => exact ⟨us, rfl⟩
+      simp only [VR, shp, Shp.prod.injEq] at hv
+      obtain ⟨sa, sb, ⟨rfl, rfl⟩, hf⟩ := hv
+      refine ⟨ra, rb, ws, us, hea, hus, ?_⟩
+      obtain ⟨hle, hva, hvb⟩ := hf (nWords us) (by rw [shp_wc]; simp [wc, hus])
+      have sha : ShapeC ra (ws.take (nWords us)) := by
+        intro us' h'; rw [hus] at h'; simp only [Option.some.injEq] at h'; subst h'
+        simp; omega
+      have shb : ShapeC rb (ws.drop (nWords us)) := by
+        intro ub h'
+        have := hsh (us ++ ub) (by simp [accs, hus, h'])
+        rw [nWords_append] at this
+        simp; omega
+      have hvp := hl.2.2.2.1 (nWords us) (by simp [wc, hus])
+      have hy := hl.2.2.2.2
+      simp only [close, substTs, lyt, etok, Ty.prod.injEq] at hy
+      exact ⟨_, ⟨he, TermA4.CkW_split hT.2 hu hb1 hb2⟩, split_TvOK hu hb1 hb2 htv, by rw [bind_ret hb2, bind_ret hb1, use_ret hu], bind_FInv hb2 (bind_FInv hb1 hi1 hva ⟨sha, hsa, hwa, hvp.1, hy.1⟩) hvb
+        ⟨shb, hsb, hwb, hvp.2, hy.2⟩⟩
+
 /-- **P1 + P4, `unpack`.**  The operand is a runtime package, and its witness
 becomes the new index variable's value. -/
 theorem unpack_step {K : TEnv → List Word → Prop} {p : Prog} {cx : Cx} {a : At} {i x : String} {e : Expr} {ρ : Nat → Nat}
@@ -11807,6 +12024,32 @@ theorem unpack_step {K : TEnv → List Word → Prop} {p : Prog} {cx : Cx} {a : 
       simp only [VR, shp, Shp.iex.injEq] at hv
       obtain ⟨n, sb, w, ⟨-, rfl⟩, hv⟩ := hv
       refine ⟨rb, ws, hea, vcons w ρ, _, he, unpack_TvOK hu hb htv, by rw [bind_ret hb, push_ret, skel_shiftI, use_ret hu],
+        bind_FInv hb (push_FInv i w hi1) hv ⟨ShapeC_iex hl.1, ?_, ?_, ?_, ?_⟩⟩
+      · rw [hsb]; exact congrArg etok (skel_subst_eq rfl σs 0 1 0)
+      · rw [← wc_iex]; exact hl.2.2.1
+      · exact hl.2.2.2.1
+      · have hy := hl.2.2.2.2
+        simp only [close, substTs, lyt, etok, Ty.iex.injEq] at hy
+        show etok (lyt 0 rb) = etok (lyt 0 (substTs σs 0 0 _))
+        congr 1
+        rw [← lyt_down rb 1 0 (by omega), hy, lyt_down _ 1 0 (by omega),
+          lyt_substTs _ σs 0 0 1 (by omega), lyt_substTs _ σs 0 0 0 (Nat.le_refl 0)]
+
+/-- (RgnCpl) `unpack_step` at `TypedK`: the continuation is the checker's too (as `unpack_stepR`). -/
+theorem unpack_stepK {K : TEnv → List Word → Prop} {p : Prog} {cx : Cx} {a : At} {i x : String} {e : Expr} {ρ : Nat → Nat}
+    {η : TEnv} {σs : List Ty} {env : Env} (hT : TypedK p η cx (.unpack a i x e)) (hi : FInv ρ η σs K cx env)
+    (htv : TvOK cx) :
+    ∃ rb ws, evalAt env a = some (.iex rb, ws) ∧
+      ∃ ρ' c, TypedK p η c e ∧ TvOK c ∧ skel c.ret = skel cx.ret ∧ FInv ρ' η σs K c ((x, rb, ws) :: env) := by
+  cases hT.1 with
+  | unpack hu hb he =>
+      obtain ⟨hi1, rt, ws, hea, hv, hl⟩ := use_FInv hu hi
+      have hs := hl.2.1
+      simp only [close, substTs, skel, etok] at hs
+      obtain ⟨rb, rfl, hsb⟩ := eskel_eq_iex hs
+      simp only [VR, shp, Shp.iex.injEq] at hv
+      obtain ⟨n, sb, w, ⟨-, rfl⟩, hv⟩ := hv
+      refine ⟨rb, ws, hea, vcons w ρ, _, ⟨he, TermA4.CkW_unpack hT.2 hu hb⟩, unpack_TvOK hu hb htv, by rw [bind_ret hb, push_ret, skel_shiftI, use_ret hu],
         bind_FInv hb (push_FInv i w hi1) hv ⟨ShapeC_iex hl.1, ?_, ?_, ?_, ?_⟩⟩
       · rw [hsb]; exact congrArg etok (skel_subst_eq rfl σs 0 1 0)
       · rw [← wc_iex]; exact hl.2.2.1
@@ -11862,6 +12105,48 @@ theorem unpackT_step {K : TEnv → List Word → Prop} {p : Prog} {cx : Cx} {a :
         congr 1
         rw [lyt_substT_unit, hy.2, ← lyt_substT_unit, substT_substTs_unit]
 
+/-- (RgnCpl) `unpackT_step` at `TypedK`: the continuation is the checker's too (as `unpackT_stepR`). -/
+theorem unpackT_stepK {K : TEnv → List Word → Prop} {p : Prog} {cx : Cx} {a : At} {α x : String} {e : Expr} {ρ : Nat → Nat}
+    {η : TEnv} {σs : List Ty} {env : Env} (hT : TypedK p η cx (.unpackT a α x e)) (hi : FInv ρ η σs K cx env) (hc : Coh η)
+    (htv : TvOK cx) :
+    ∃ κ rb ws, evalAt env a = some (.tex κ rb, ws) ∧ ∃ s, Clo s ∧
+      ∃ c, TypedK p (η.consC s) c e ∧ TvOK c ∧ skel (close (.unit :: σs) c.ret) = skel (close σs cx.ret) ∧
+        FInv ρ (η.consC s) (.unit :: σs) K c ((x, Ty.substT 0 .unit rb, ws) :: env) := by
+  cases hT.1 with
+  | unpackT hu hg hb he =>
+      rename_i κ b
+      obtain ⟨hi1, rt, ws, hea, hv, hl⟩ := use_FInv hu hi
+      have hs := hl.2.1
+      simp only [close, substTs, skel, etok] at hs
+      obtain ⟨rb, rfl, hsb⟩ := eskel_eq_tex hs
+      simp only [VR, shp, Shp.tex.injEq] at hv
+      obtain ⟨n, sb, s, ⟨-, rfl⟩, hs, haf, hv⟩ := hv
+      have hk : skel (Ty.substT 0 .unit rb) = skel (close (.unit :: σs) b) := by
+        rw [skel_substT_unit, hsb]; unfold close; rw [skel_substTs, skel_substTs]
+        exact substT_substS_unit _ _ 0
+      have eσ : sig (Ty.substT 0 .unit rb) = sig rb := by
+        have h1 : sig (Ty.substT 0 .unit rb) = sig (close (.unit :: σs) b) := by simp only [sig, hk]
+        have h2 : sig rb = sig (substTs σs (0 + 1) 0 b) := by simp only [sig, hsb]
+        rw [h1, h2]; unfold close; rw [← substTs_substT_unit]
+        exact sig_pack σs b 0 0 .unit hg
+      refine ⟨_, rb, ws, hea, s, hs, _, ⟨he, TermA4.CkW_unpackT hT.2 hu hb (fun k => by simp [TEnv.consC, TEnv.insR])⟩, unpackT_TvOK hu hb htv,
+        (by rw [bind_ret hb]; show skel (substTs (.unit :: σs) 0 0 (((_ : Ty)).shiftT 0)) = _
+            rw [substTs_cons_shiftT, use_ret hu]; rfl), bind_FInv hb (pushT_FInv _ s hc hs haf hi1) ?_ ⟨?_, eskel_of_skel hk, ?_, ?_, ?_⟩⟩
+      · rw [shp_of_sig eσ]
+        refine (VR_relsG b 0 (η.push0 s) (η.consC s) ρ _ ws (unguarded_of_guardT hg) (fun k hk => ?_)
+          (fun k hk => ?_) rfl rfl).1 hv
+        all_goals (cases k with
+          | zero => exact absurd rfl hk
+          | succ k => simp [TEnv.push0, TEnv.ins, TEnv.consC, TEnv.insR])
+      · exact ShapeC_wc (wc_of_sig eσ.symm) (ShapeC_wc (wc_tex _ rb) hl.1)
+      · rw [wc_of_sig eσ, ← wc_tex _ rb]; exact hl.2.2.1
+      · exact Valid_of_sig eσ.symm hl.2.2.2.1
+      · have hy := hl.2.2.2.2
+        simp only [close, substTs, lyt, etok, Ty.tex.injEq] at hy
+        show etok (lyt 0 (Ty.substT 0 .unit rb)) = etok (lyt 0 (substTs (.unit :: σs) 0 0 b))
+        congr 1
+        rw [lyt_substT_unit, hy.2, ← lyt_substT_unit, substT_substTs_unit]
+
 theorem eskel_eq_ptrOpt {rt : Ty} {μ : Mode} {u : Ty} (h : etok (skel rt) = .ptrOpt μ u) :
     ∃ μ' u', rt = .ptrOpt μ' u' ∧ skelM μ' = μ ∧ etok (skel u') = u := by
   cases rt with
@@ -11896,6 +12181,32 @@ theorem ifnull_step {K : TEnv → List Word → Prop} {p : Prog} {cx : Cx} {a : 
         exact ⟨μ', u', w, hea, Or.inl ⟨hw, _, he1, (ifnull_TvOK hu hb htv).1, by rw [use_ret hu], hi1⟩⟩
       · obtain ⟨w, rfl, hw⟩ := map_singleton hp
         refine ⟨μ', u', w, hea, Or.inr ⟨ad, hw, _, he2, (ifnull_TvOK hu hb htv).2, by rw [bind_ret hb, use_ret hu], bind_FInv hb hi1 ⟨ad, cc, by simp [hw], hrest⟩ ?_⟩⟩
+        refine ⟨fun us h => by simp [accs] at h; subst h; rfl, ?_, by simp [wc, accs], ⟨ad, by simp [hw]⟩, ?_⟩
+        · show Ty.ptr (skelM μ') (etok (skel u')) = Ty.ptr _ _
+          rw [hμ, hsu]
+        · have hy := hl.2.2.2.2
+          simp only [close, substTs, lyt, etok, Ty.ptrOpt.injEq] at hy
+          simp only [close, substTs, lyt, etok, hy]
+
+/-- (RgnCpl) `ifnull_step` at `TypedK`: the continuation is the checker's too (as `ifnull_stepR`). -/
+theorem ifnull_stepK {K : TEnv → List Word → Prop} {p : Prog} {cx : Cx} {a : At} {y : String} {e₁ e₂ : Expr} {ρ : Nat → Nat}
+    {η : TEnv} {σs : List Ty} {env : Env} (hT : TypedK p η cx (.ifnull a e₁ y e₂)) (hi : FInv ρ η σs K cx env)
+    (htv : TvOK cx) :
+    ∃ μ u w, evalAt env a = some (.ptrOpt μ u, [w]) ∧
+      ((w.val = .null ∧ ∃ c, TypedK p η c e₁ ∧ TvOK c ∧ skel c.ret = skel cx.ret ∧ FInv ρ η σs K c env) ∨
+       (∃ ad, w.val = .loc ad 0 ∧ ∃ c, TypedK p η c e₂ ∧ TvOK c ∧ skel c.ret = skel cx.ret ∧ FInv ρ η σs K c ((y, .ptr μ u, [w]) :: env))) := by
+  cases hT.1 with
+  | ifnull hu he1 hb he2 =>
+      obtain ⟨hi1, rt, ws, hea, hv, hl⟩ := use_FInv hu hi
+      have hs := hl.2.1
+      simp only [close, substTs, skel, etok] at hs
+      obtain ⟨μ', u', rfl, hμ, hsu⟩ := eskel_eq_ptrOpt hs
+      simp only [VR] at hv
+      rcases hv with hn | ⟨ad, cc, hp, hrest⟩
+      · obtain ⟨w, rfl, hw⟩ := map_singleton hn
+        exact ⟨μ', u', w, hea, Or.inl ⟨hw, _, ⟨he1, (TermA4.CkW_ifnull hT.2 hu hb).1⟩, (ifnull_TvOK hu hb htv).1, by rw [use_ret hu], hi1⟩⟩
+      · obtain ⟨w, rfl, hw⟩ := map_singleton hp
+        refine ⟨μ', u', w, hea, Or.inr ⟨ad, hw, _, ⟨he2, (TermA4.CkW_ifnull hT.2 hu hb).2⟩, (ifnull_TvOK hu hb htv).2, by rw [bind_ret hb, use_ret hu], bind_FInv hb hi1 ⟨ad, cc, by simp [hw], hrest⟩ ?_⟩⟩
         refine ⟨fun us h => by simp [accs] at h; subst h; rfl, ?_, by simp [wc, accs], ⟨ad, by simp [hw]⟩, ?_⟩
         · show Ty.ptr (skelM μ') (etok (skel u')) = Ty.ptr _ _
           rw [hμ, hsu]
@@ -12301,6 +12612,59 @@ theorem case_step {K : TEnv → List Word → Prop} {p : Prog} {cx : Cx} {a : At
         rw [shp_lnorm] at hvq
         exact ⟨q, hq, _, he2, (case_TvOK hu hb1 hb2 htv).2, by rw [bind_ret hb2, use_ret hu], bind_FInv hb2 hi1 hvq ⟨hsb', hsb, hwb, hvb, hly.2⟩⟩
 
+/-- (RgnCpl) `case_step` at `TypedK`: the continuation is the checker's too (as `case_stepR`). -/
+theorem case_stepK {K : TEnv → List Word → Prop} {p : Prog} {cx : Cx} {a : At} {x y : String} {e₁ e₂ : Expr} {ρ : Nat → Nat}
+    {η : TEnv} {σs : List Ty} {env : Env} (hT : TypedK p η cx (.case a x e₁ y e₂)) (hi : FInv ρ η σs K cx env)
+    (hnb : ∀ t c₁, cx.use a = .ok (t, c₁) → (close σs t).tier ≠ .boxed) (htv : TvOK cx) :
+    ∃ ra rb ws j p', evalAt env a = some (.sum ra rb, ws) ∧ (Ty.sum ra rb).tier ≠ .boxed ∧
+      asArm (.sum ra rb) ws = some (j, p') ∧
+      (j < (armsOf ra).length → ∃ q, ofArm ra j p' = some q ∧
+        ∃ c, TypedK p η c e₁ ∧ TvOK c ∧ skel c.ret = skel cx.ret ∧ FInv ρ η σs K c ((x, ra, q) :: env)) ∧
+      ((armsOf ra).length ≤ j → ∃ q, ofArm rb (j - (armsOf ra).length) p' = some q ∧
+        ∃ c, TypedK p η c e₂ ∧ TvOK c ∧ skel c.ret = skel cx.ret ∧ FInv ρ η σs K c ((y, rb, q) :: env)) := by
+  cases hT.1 with
+  | case hu hb1 he1 hb2 he2 =>
+      obtain ⟨hi1, rt, ws, hea, hv, hl⟩ := use_FInv hu hi
+      have hs := hl.2.1
+      simp only [close, substTs, skel, etok] at hs
+      obtain ⟨ra, rb, rfl, hsa, hsb⟩ := eskel_eq_sum hs
+      have hS : (Ty.sum ra rb).tier ≠ .boxed := by
+        rw [tier_of_eskel hl.2.1]; exact hnb _ _ hu
+      obtain ⟨-, -, -, hval, hly⟩ := hl
+      simp only [close, substTs, lyt, etok, Ty.sum.injEq] at hly
+      rcases hval with hbx | ⟨j, p', arm, hd, -, -, -, hA, hB⟩
+      · exact absurd hbx hS
+      simp only [VR, shp] at hv
+      obtain ⟨n, Ra, Rb, hR, hv⟩ := hv
+      simp only [lnorm, Shp.sum.injEq, Ty.sum.injEq] at hR
+      obtain ⟨-, rfl, rfl⟩ := hR
+      have htl := tier_lnorm (.sum ra rb)
+      simp only [lnorm] at htl
+      rcases hv with hbx | ⟨j', p'', hd', hl1, hl2⟩
+      · rw [htl] at hbx; exact absurd hbx.1 hS
+      have hd2 := decodeArm_mono (arms_lnorm (.sum ra rb)) hd
+      simp only [lnorm] at hd2
+      rw [htl, hd2] at hd'
+      simp only [Option.some.injEq, Prod.mk.injEq] at hd'
+      obtain ⟨e1, e2⟩ := hd'
+      subst e1; subst e2
+      have hlen := ArmsLe.length (arms_lnorm ra)
+      refine ⟨ra, rb, ws, j, p', hea, hS, by simp only [asArm, sumHead, ite_true]; exact hd, ?_, ?_⟩
+      · intro hj
+        obtain ⟨q, hq, hsa', hwa, hva⟩ := hA hj
+        obtain ⟨q'', hq'', hvq⟩ := hl1 (by omega)
+        rw [ofArm_lnorm hq, Option.some.injEq] at hq''
+        subst hq''
+        rw [shp_lnorm] at hvq
+        exact ⟨q, hq, _, ⟨he1, (TermA4.CkW_case hT.2 hu hb1 hb2).1⟩, (case_TvOK hu hb1 hb2 htv).1, by rw [bind_ret hb1, use_ret hu], bind_FInv hb1 hi1 hvq ⟨hsa', hsa, hwa, hva, hly.1⟩⟩
+      · intro hj
+        obtain ⟨q, hq, hsb', hwb, hvb⟩ := hB hj
+        obtain ⟨q'', hq'', hvq⟩ := hl2 (by omega)
+        rw [← hlen, ofArm_lnorm hq, Option.some.injEq] at hq''
+        subst hq''
+        rw [shp_lnorm] at hvq
+        exact ⟨q, hq, _, ⟨he2, (TermA4.CkW_case hT.2 hu hb1 hb2).2⟩, (case_TvOK hu hb1 hb2 htv).2, by rw [bind_ret hb2, use_ret hu], bind_FInv hb2 hi1 hvq ⟨hsb', hsb, hwb, hvb, hly.2⟩⟩
+
 /-! ## §6 At the thread: `tstep` -/
 
 /-- A thread whose frame is well typed at `cx`, witnessed by `ρ` and `η`;
@@ -12310,15 +12674,16 @@ def ThInv (p : Prog) (th : TTh) : Prop :=
 
 /-- `ThInv` with the thread-wide part of the frame's `η` named (T3c-4d):
 `CE η = E` (Σ, program, thread).  The memory invariant (TermMem) reads only
-`E`, so each step lemma says how `E` moves; the steps here keep it. -/
+`E`, so each step lemma says how `E` moves; the steps here keep it. (RgnCpl) The frame is typed
+at the checker's context (`TypedK`), as in `ThInvRE`. -/
 def ThInvE (p : Prog) (E : TEnv) (th : TTh) : Prop :=
-  ∃ ρ η cx, CE η = E ∧ EnvOK p η ∧ Typed p cx th.term ∧ TvOK cx ∧
+  ∃ ρ η cx, CE η = E ∧ EnvOK p η ∧ TypedK p η cx th.term ∧ TvOK cx ∧
     FInv ρ η th.σs (Resume p th.stack) cx th.env ∧ RetPw th.σs th.stack cx.ret ∧
     DyFr p annNew (progTgts p) η th.σs th.term
 
 theorem ThInvE.thInv {p : Prog} {E : TEnv} {th : TTh} (h : ThInvE p E th) : ThInv p th := by
   obtain ⟨ρ, η, cx, -, hE, hT, hv, hF, -⟩ := h
-  exact ⟨ρ, η, cx, hE, hT, hv, hF⟩
+  exact ⟨ρ, η, cx, hE, hT.1, hv, hF⟩
 
 /-! ### (P1) A plain value of an `∀`-free type carries resources -/
 
@@ -12499,7 +12864,7 @@ theorem ResumeR_Resume {p : Prog} (hT : ∀ c : Cx, TvOK c → noIallV c.ret = t
   | [], _, _, _, _, _, _ => trivial
   | _ :: rest, _, _, _, _, _, h => by
       obtain ⟨Rc, Rrest, -, ρ, η, c, hCE, -, hEO, hTy, hTv, hF, hpw, hDF⟩ := h
-      exact ⟨ρ, η, c, hCE, hEO, hTy.1, hTv,
+      exact ⟨ρ, η, c, hCE, hEO, hTy, hTv,
         FInvR_FInv (hT c hTv) (fun E rd ws R h => ResumeR_Resume hT rest Rrest E rd ws R h) hF, hpw, hDF⟩
 
 /-- **(P1) The resourceful thread invariant gives the plain one.** -/
@@ -12507,20 +12872,21 @@ theorem ThInvRE.thInvE {p : Prog} {E : TEnv} {th : TTh} {Tot : Res}
     (h : ThInvRE p E th Tot) : ThInvE p E th := by
   have hT : ∀ c : Cx, TvOK c → noIallV c.ret = true := fun _ h => h.2.2.2.2.2.2.2
   obtain ⟨ρ, η, cx, Rf, Rs, hCE, hEO, hTy, hTv, hF, -, hpw, hDy⟩ := h
-  exact ⟨ρ, η, cx, hCE, hEO, hTy.1, hTv,
+  exact ⟨ρ, η, cx, hCE, hEO, hTy, hTv,
     FInvR_FInv (hT cx hTv) (fun E rd ws R h => ResumeR_Resume hT th.stack Rs E rd ws R h) hF, hpw, hDy⟩
 
 /-- **P1 + P4 at the thread, pure `let`.** -/
 theorem tstep_pure {p : Prog} {g : G} {mem : WeakMem.Memory} {pairs : List WeakMem.Ts} {th : TTh}
     {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {x : String} {op : Op} {e : Expr}
     (hterm : th.term = .let_ x op e) (hA : PureOp op) (hP : ProgT p)
-    (hT : Typed p cx th.term) (hi : FInv ρ η th.σs (Resume p th.stack) cx th.env)
+    (hT : TypedK p η cx th.term) (hi : FInv ρ η th.σs (Resume p th.stack) cx th.env)
     (hE : EnvOK p η) (htv : TvOK cx) (hpw : RetPw th.σs th.stack cx.ret) (hPS : PwSkel) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
     tstep g mem pairs th ≠ [] ∧ ∀ r ∈ tstep g mem pairs th, ThInvE p (CE η) r.2.2 := by
   rw [hterm] at hT
-  cases hT with
+  cases hT.1 with
   | let_ hop he =>
       rename_i c₁
+      obtain ⟨c₁, -, hop, he, hck, -⟩ := TermA4.CkW_let hT.2
       have hne := pure_progress g (stOf mem pairs th) hop hA hi
       have key : tstep g mem pairs th = (evalOp g th.env th.σs (stOf mem pairs th) op).map
           fun (s', t, ws) => (s'.mem, s'.pairs, withS { th with term := e, env := (x, t, ws) :: th.env } s') := by
@@ -12531,16 +12897,16 @@ theorem tstep_pure {p : Prog} {g : G} {mem : WeakMem.Memory} {pairs : List WeakM
       simp only [List.mem_map] at hr
       obtain ⟨⟨s', t, ws⟩, hm, rfl⟩ := hr
       obtain ⟨ρ', h'⟩ := pure_pres hop hA hi hm (fun k => (hE.2.1 k).1)
-      exact ⟨ρ', η, c₁, rfl, hE, he, OpT_TvOK hP hop htv, h', retPw_skel hPS hpw (skel_subst_eq (OpT_retSk hop) th.σs 0 0 0), hDy.letW hterm rfl⟩
+      exact ⟨ρ', η, c₁, rfl, hE, ⟨he, hck⟩, OpT_TvOK hP hop htv, h', retPw_skel hPS hpw (skel_subst_eq (OpT_retSk hop) th.σs 0 0 0), hDy.letW hterm rfl⟩
 
 /-- **P1 + P4 at the thread, `ifeq`.** -/
 theorem tstep_ifeq {p : Prog} {g : G} {mem : WeakMem.Memory} {pairs : List WeakMem.Ts} {th : TTh}
     {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {a b : At} {yes no : Expr}
-    (hterm : th.term = .ifeq a b yes no) (hT : Typed p cx th.term) (hi : FInv ρ η th.σs (Resume p th.stack) cx th.env)
+    (hterm : th.term = .ifeq a b yes no) (hT : TypedK p η cx th.term) (hi : FInv ρ η th.σs (Resume p th.stack) cx th.env)
     (hE : EnvOK p η) (htv : TvOK cx) (hpw : RetPw th.σs th.stack cx.ret) (hPS : PwSkel) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
     tstep g mem pairs th ≠ [] ∧ ∀ r ∈ tstep g mem pairs th, ThInvE p (CE η) r.2.2 := by
   rw [hterm] at hT
-  rcases ifeq_step hT hi htv with ⟨ra, wa, rb, wb, n, m, hea, heb, hwa, hwb, hy, hn⟩ |
+  rcases ifeq_stepK hT hi htv with ⟨ra, wa, rb, wb, n, m, hea, heb, hwa, hwb, hy, hn⟩ |
       ⟨ra, wa, rb, wb, la, lb, hea, heb, hwa, hwb, hy, hn⟩
   rotate_left
   · simp only [tstep, hterm, hea, heb, hwa, hwb]
@@ -12565,11 +12931,11 @@ theorem tstep_ifeq {p : Prog} {g : G} {mem : WeakMem.Memory} {pairs : List WeakM
 /-- **P1 + P4 at the thread, `parity`.** -/
 theorem tstep_parity {p : Prog} {g : G} {mem : WeakMem.Memory} {pairs : List WeakMem.Ts} {th : TTh}
     {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {a : At} {k : String} {ev₀ od : Expr}
-    (hterm : th.term = .parity a k ev₀ od) (hT : Typed p cx th.term) (hi : FInv ρ η th.σs (Resume p th.stack) cx th.env)
+    (hterm : th.term = .parity a k ev₀ od) (hT : TypedK p η cx th.term) (hi : FInv ρ η th.σs (Resume p th.stack) cx th.env)
     (hE : EnvOK p η) (htv : TvOK cx) (hpw : RetPw th.σs th.stack cx.ret) (hPS : PwSkel) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
     tstep g mem pairs th ≠ [] ∧ ∀ r ∈ tstep g mem pairs th, ThInvE p (CE η) r.2.2 := by
   rw [hterm] at hT
-  obtain ⟨r, w, n, hea, hw, he, ho⟩ := parity_step hT hi htv
+  obtain ⟨r, w, n, hea, hw, he, ho⟩ := parity_stepK hT hi htv
   simp only [tstep, hterm, hea, hw]
   refine ⟨by simp, ?_⟩
   intro q hq
@@ -12584,11 +12950,11 @@ theorem tstep_parity {p : Prog} {g : G} {mem : WeakMem.Memory} {pairs : List Wea
 /-- **P1 + P4 at the thread, `split`.** -/
 theorem tstep_split {p : Prog} {g : G} {mem : WeakMem.Memory} {pairs : List WeakMem.Ts} {th : TTh}
     {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {a : At} {x y : String} {e : Expr}
-    (hterm : th.term = .split a x y e) (hT : Typed p cx th.term) (hi : FInv ρ η th.σs (Resume p th.stack) cx th.env)
+    (hterm : th.term = .split a x y e) (hT : TypedK p η cx th.term) (hi : FInv ρ η th.σs (Resume p th.stack) cx th.env)
     (hE : EnvOK p η) (htv : TvOK cx) (hpw : RetPw th.σs th.stack cx.ret) (hPS : PwSkel) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
     tstep g mem pairs th ≠ [] ∧ ∀ r ∈ tstep g mem pairs th, ThInvE p (CE η) r.2.2 := by
   rw [hterm] at hT
-  obtain ⟨ra, rb, ws, us, hea, hus, c, hc, hvc, hk, hf⟩ := split_step hT hi htv
+  obtain ⟨ra, rb, ws, us, hea, hus, c, hc, hvc, hk, hf⟩ := split_stepK hT hi htv
   simp only [tstep, hterm, hea, hus]
   refine ⟨by simp, ?_⟩
   intro r hr
@@ -12599,11 +12965,11 @@ theorem tstep_split {p : Prog} {g : G} {mem : WeakMem.Memory} {pairs : List Weak
 /-- **P1 + P4 at the thread, `unpack`.** -/
 theorem tstep_unpack {p : Prog} {g : G} {mem : WeakMem.Memory} {pairs : List WeakMem.Ts} {th : TTh}
     {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {a : At} {i x : String} {e : Expr}
-    (hterm : th.term = .unpack a i x e) (hT : Typed p cx th.term) (hi : FInv ρ η th.σs (Resume p th.stack) cx th.env)
+    (hterm : th.term = .unpack a i x e) (hT : TypedK p η cx th.term) (hi : FInv ρ η th.σs (Resume p th.stack) cx th.env)
     (hE : EnvOK p η) (htv : TvOK cx) (hpw : RetPw th.σs th.stack cx.ret) (hPS : PwSkel) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
     tstep g mem pairs th ≠ [] ∧ ∀ r ∈ tstep g mem pairs th, ThInvE p (CE η) r.2.2 := by
   rw [hterm] at hT
-  obtain ⟨rb, ws, hea, ρ', c, hc, hvc, hk, hf⟩ := unpack_step hT hi htv
+  obtain ⟨rb, ws, hea, ρ', c, hc, hvc, hk, hf⟩ := unpack_stepK hT hi htv
   simp only [tstep, hterm, hea]
   refine ⟨by simp, ?_⟩
   intro r hr
@@ -12614,11 +12980,11 @@ theorem tstep_unpack {p : Prog} {g : G} {mem : WeakMem.Memory} {pairs : List Wea
 /-- **P1 + P4 at the thread, `unpackT`** (24e). -/
 theorem tstep_unpackT {p : Prog} {g : G} {mem : WeakMem.Memory} {pairs : List WeakMem.Ts} {th : TTh}
     {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {a : At} {α x : String} {e : Expr}
-    (hterm : th.term = .unpackT a α x e) (hT : Typed p cx th.term) (hi : FInv ρ η th.σs (Resume p th.stack) cx th.env)
+    (hterm : th.term = .unpackT a α x e) (hT : TypedK p η cx th.term) (hi : FInv ρ η th.σs (Resume p th.stack) cx th.env)
     (hE : EnvOK p η) (htv : TvOK cx) (hpw : RetPw th.σs th.stack cx.ret) (hPS : PwSkel) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
     tstep g mem pairs th ≠ [] ∧ ∀ r ∈ tstep g mem pairs th, ThInvE p (CE η) r.2.2 := by
   rw [hterm] at hT
-  obtain ⟨κ, rb, ws, hea, s, hs, c, hc, hvc, hk, hf⟩ := unpackT_step hT hi hE.2.1 htv
+  obtain ⟨κ, rb, ws, hea, s, hs, c, hc, hvc, hk, hf⟩ := unpackT_stepK hT hi hE.2.1 htv
   simp only [tstep, hterm, hea]
   refine ⟨by simp, ?_⟩
   intro r hr
@@ -12629,11 +12995,11 @@ theorem tstep_unpackT {p : Prog} {g : G} {mem : WeakMem.Memory} {pairs : List We
 /-- **P1 + P4 at the thread, `ifnull`.** -/
 theorem tstep_ifnull {p : Prog} {g : G} {mem : WeakMem.Memory} {pairs : List WeakMem.Ts} {th : TTh}
     {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {a : At} {y : String} {e₁ e₂ : Expr}
-    (hterm : th.term = .ifnull a e₁ y e₂) (hT : Typed p cx th.term) (hi : FInv ρ η th.σs (Resume p th.stack) cx th.env)
+    (hterm : th.term = .ifnull a e₁ y e₂) (hT : TypedK p η cx th.term) (hi : FInv ρ η th.σs (Resume p th.stack) cx th.env)
     (hE : EnvOK p η) (htv : TvOK cx) (hpw : RetPw th.σs th.stack cx.ret) (hPS : PwSkel) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
     tstep g mem pairs th ≠ [] ∧ ∀ r ∈ tstep g mem pairs th, ThInvE p (CE η) r.2.2 := by
   rw [hterm] at hT
-  obtain ⟨μ, u, w, hea, h⟩ := ifnull_step hT hi htv
+  obtain ⟨μ, u, w, hea, h⟩ := ifnull_stepK hT hi htv
   rcases h with ⟨hw, c, hc, hvc, hk, hf⟩ | ⟨ad, hw, c, hc, hvc, hk, hf⟩
   · simp only [tstep, hterm, hea, hw]
     refine ⟨by simp, ?_⟩
@@ -12653,13 +13019,14 @@ theorem tstep_inl {p : Prog} {g : G} {mem : WeakMem.Memory} {pairs : List WeakMe
     {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {x : String} {τ : Ty} {a : At} {e : Expr}
     (hterm : th.term = .let_ x (.inl τ a) e) (hP : ProgT p)
     (hnb : ∀ t c₁, cx.use a = .ok (t, c₁) → (close th.σs (.sum t τ)).tier ≠ .boxed)
-    (hT : Typed p cx th.term) (hi : FInv ρ η th.σs (Resume p th.stack) cx th.env)
+    (hT : TypedK p η cx th.term) (hi : FInv ρ η th.σs (Resume p th.stack) cx th.env)
     (hE : EnvOK p η) (htv : TvOK cx) (hpw : RetPw th.σs th.stack cx.ret) (hPS : PwSkel) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
     tstep g mem pairs th ≠ [] ∧ ∀ r ∈ tstep g mem pairs th, ThInvE p (CE η) r.2.2 := by
   rw [hterm] at hT
-  cases hT with
+  cases hT.1 with
   | let_ hop he =>
       rename_i c'
+      obtain ⟨c', -, hop, he, hck, -⟩ := TermA4.CkW_let hT.2
       have htv' := OpT_TvOK hP hop htv
       have hk := OpT_retSk hop
       cases hop with
@@ -12677,20 +13044,21 @@ theorem tstep_inl {p : Prog} {g : G} {mem : WeakMem.Memory} {pairs : List WeakMe
           intro r hr
           simp only [List.mem_singleton] at hr
           subst hr
-          exact ⟨ρ, η, c', rfl, hE, he, htv', by simpa [withS] using bind_FInv hb hi1 hvr hlay, retPw_skel hPS hpw (skel_subst_eq hk th.σs 0 0 0), hDy.letW hterm rfl⟩
+          exact ⟨ρ, η, c', rfl, hE, ⟨he, hck⟩, htv', by simpa [withS] using bind_FInv hb hi1 hvr hlay, retPw_skel hPS hpw (skel_subst_eq hk th.σs 0 0 0), hDy.letW hterm rfl⟩
 
 /-- **P1 + P4 at the thread, `inr`.** -/
 theorem tstep_inr {p : Prog} {g : G} {mem : WeakMem.Memory} {pairs : List WeakMem.Ts} {th : TTh}
     {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {x : String} {τ : Ty} {a : At} {e : Expr}
     (hterm : th.term = .let_ x (.inr τ a) e) (hP : ProgT p)
     (hnb : ∀ t c₁, cx.use a = .ok (t, c₁) → (close th.σs (.sum τ t)).tier ≠ .boxed)
-    (hT : Typed p cx th.term) (hi : FInv ρ η th.σs (Resume p th.stack) cx th.env)
+    (hT : TypedK p η cx th.term) (hi : FInv ρ η th.σs (Resume p th.stack) cx th.env)
     (hE : EnvOK p η) (htv : TvOK cx) (hpw : RetPw th.σs th.stack cx.ret) (hPS : PwSkel) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
     tstep g mem pairs th ≠ [] ∧ ∀ r ∈ tstep g mem pairs th, ThInvE p (CE η) r.2.2 := by
   rw [hterm] at hT
-  cases hT with
+  cases hT.1 with
   | let_ hop he =>
       rename_i c'
+      obtain ⟨c', -, hop, he, hck, -⟩ := TermA4.CkW_let hT.2
       have htv' := OpT_TvOK hP hop htv
       have hk := OpT_retSk hop
       cases hop with
@@ -12708,18 +13076,18 @@ theorem tstep_inr {p : Prog} {g : G} {mem : WeakMem.Memory} {pairs : List WeakMe
           intro r hr
           simp only [List.mem_singleton] at hr
           subst hr
-          exact ⟨ρ, η, c', rfl, hE, he, htv', by simpa [withS] using bind_FInv hb hi1 hvr hlay, retPw_skel hPS hpw (skel_subst_eq hk th.σs 0 0 0), hDy.letW hterm rfl⟩
+          exact ⟨ρ, η, c', rfl, hE, ⟨he, hck⟩, htv', by simpa [withS] using bind_FInv hb hi1 hvr hlay, retPw_skel hPS hpw (skel_subst_eq hk th.σs 0 0 0), hDy.letW hterm rfl⟩
 
 /-- **P1 + P4 at the thread, `case`.** -/
 theorem tstep_case {p : Prog} {g : G} {mem : WeakMem.Memory} {pairs : List WeakMem.Ts} {th : TTh}
     {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {a : At} {x y : String} {e₁ e₂ : Expr}
     (hterm : th.term = .case a x e₁ y e₂)
     (hnb : ∀ t c₁, cx.use a = .ok (t, c₁) → (close th.σs t).tier ≠ .boxed)
-    (hT : Typed p cx th.term) (hi : FInv ρ η th.σs (Resume p th.stack) cx th.env)
+    (hT : TypedK p η cx th.term) (hi : FInv ρ η th.σs (Resume p th.stack) cx th.env)
     (hE : EnvOK p η) (htv : TvOK cx) (hpw : RetPw th.σs th.stack cx.ret) (hPS : PwSkel) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
     tstep g mem pairs th ≠ [] ∧ ∀ r ∈ tstep g mem pairs th, ThInvE p (CE η) r.2.2 := by
   rw [hterm] at hT
-  obtain ⟨ra, rb, ws, j, p', hea, hS, has, hA, hB⟩ := case_step hT hi hnb htv
+  obtain ⟨ra, rb, ws, j, p', hea, hS, has, hA, hB⟩ := case_stepK hT hi hnb htv
   obtain ⟨hta, htb⟩ := tier_sum hS
   by_cases hj : j < (armsOf ra).length
   · obtain ⟨q, hq, c, hc, hvc, hk, hf⟩ := hA hj
@@ -13677,9 +14045,7 @@ theorem pure_presR {p : Prog} {cx c' : Cx} {x : String} {op : Op} {ρ : Nat → 
         AffineCl.affine_cl0 ρ η.wit cx.ke hw (fun k _ hk => hi.1.2.2.2.2.2.2.2.2.1 k hk) σ
           ((admitsIn_word had).2 hcp) (tb_of_wf σ (admitsIn_wf had)), fun hno =>
         NoOwnCl.noOwn_cl0 ρ η.wit cx.ke hw (fun k _ hk => hi.1.2.2.2.2.2.2.2.2.2.1 k hk) σ
-          (admitsIn_noOwn had hno) (tb_of_wf σ (admitsIn_wf had)), fun hsh =>
-        rgnFree_cl0 ρ η.wit cx.ke (fun k hk => hi.1.2.2.2.2.2.2.2.2.2.2 k hk) (admitsIn_share had hsh)
-          (hA.1 hsh), noIallV_cl hi.1.2.2.2.2.2.2.1.ni σ 0 0 hA.2,
+          (admitsIn_noOwn had hno) (tb_of_wf σ (admitsIn_wf had)), TermC1.drf1_cl_frameR ρ hi.1.2.2.2.2.2.2.2.2.2.2 (tb_of_wf σ (admitsIn_wf had)) hA.1, noIallV_cl hi.1.2.2.2.2.2.2.1.ni σ 0 0 hA.2,
         TermTv.mg_cl (fun k => (hw k).1) hi.1.2.2.2.2.2.2.1.mg σ 0 0 (mg_of_wf σ (admitsIn_wf had))⟩, ?_⟩
     rw [← es]
     exact h2
@@ -15661,7 +16027,7 @@ of `share`-admitted (so `coupledOKIn`), region-free type arguments (the scope's
 check at the call, until R2). -/
 theorem WitR_call {ρ₀ : Nat → Nat} {η : TEnv} {cx : Cx} {d : Decl} {is : List String} {ts : List Ty}
     {at_ rt : Ty} (hS : WitR cx.ke η) (hinst : instantiate cx d is ts = .ok (at_, rt))
-    (hrt : ∀ σ ∈ ts, rgnFree σ = true) :
+    (hrt : ∀ σ ∈ ts, TermC1.drf1 σ = true) :
     WitR (d.tparams.reverse.map some) (subE ρ₀ η ts.reverse) := by
   obtain ⟨hl, ha⟩ := instantiate_admits hinst
   intro k hk
@@ -15671,7 +16037,6 @@ theorem WitR_call {ρ₀ : Nat → Nat} {η : TEnv} {cx : Cx} {d : Decl} {is : L
   cases hκ : d.tparams.reverse[k]? with
   | none => rw [hκ] at hk; simp at hk
   | some κ =>
-    have hsh : κ.share = true := by rw [hκ] at hk; simpa using hk
     have hkl : k < d.tparams.length := by
       have := (List.getElem?_eq_some_iff.mp hκ).1; simpa using this
     rw [List.getElem?_reverse hkl] at hκ
@@ -15682,9 +16047,9 @@ theorem WitR_call {ρ₀ : Nat → Nat} {η : TEnv} {cx : Cx} {d : Decl} {is : L
     have hm : (κ, σ) ∈ d.tparams.zip ts := List.mem_of_getElem? (List.getElem?_zip_eq_some.2 ⟨hκ, hσ⟩)
     have e : ts.reverse[k]? = some σ := by rw [List.getElem?_reverse (by omega), hl]; exact hσ
     have had := ha κ σ hm
-    show rgnFree (match ts.reverse[k]? with | some σ => cl ρ₀ η.wit 0 0 σ | none => η.wit (k - ts.reverse.length)) = true
+    show TermC1.drf1 (match ts.reverse[k]? with | some σ => cl ρ₀ η.wit 0 0 σ | none => η.wit (k - ts.reverse.length)) = true
     rw [e]
-    exact rgnFree_cl0 ρ₀ η.wit cx.ke hS (admitsIn_share had hsh) (hrt σ (List.mem_of_getElem? hσ))
+    exact TermC1.drf1_cl_frameR ρ₀ hS (tb_of_wf σ (admitsIn_wf had)) (hrt σ (List.mem_of_getElem? hσ))
 
 theorem instantiate_arrFree {cx : Cx} {d : Decl} {is : List String} {ts : List Ty} {at_ rt : Ty}
     (hinst : instantiate cx d is ts = .ok (at_, rt)) : ∀ σ ∈ ts.reverse, σ.arrFree = true := by
@@ -15785,22 +16150,141 @@ theorem Lay_move_sig {σ1 σ2 : List Ty} {t1 t2 T : Ty} {ws : List Word} (hl : L
 
 theorem Sat_nil (ρ : Nat → Nat) : Sat [] ρ := by intro k t h; simp at h
 
+/-! The call/callc arms' handOff (`checkOp`'s call-site hand-off guard).  `handOffR`'s
+keep test is name-keyed (`Cx.firstKeep`, as `firstOK` for `handOff`), so `VarsOK` survives it with no
+`Nodup`; `HeldOK` (which carries `Nodup`) survives any sweep keeping every first-class entry. -/
+
+theorem find_filter_named (P : String → Bool) (x : String) (e : String × Ty × Bool) :
+    ∀ l : List (String × Ty × Bool),
+      (l.filter (fun e => P e.1)).find? (·.1 == x) = some e → l.find? (·.1 == x) = some e
+  | [], h => by simp at h
+  | a :: l, h => by
+      have ih := find_filter_named P x e l
+      cases hpa : P a.1 <;> cases hax : (a.1 == x) <;>
+        simp only [List.filter_cons, hpa, hax, List.find?_cons, Bool.false_eq_true, ite_true, ite_false] at h ⊢
+      · exact ih h
+      · have hm := List.mem_of_find?_eq_some h
+        have he := List.find?_some h
+        have hpe := (List.mem_filter.1 hm).2
+        simp only [beq_iff_eq] at he hax
+        rw [he, ← hax, hpa] at hpe
+        cases hpe
+      · exact ih h
+      · exact h
+
+/-- The name-keyed test behind `firstOK` / `firstKeep`. -/
+def namedP (l : List (String × Ty × Bool)) (q : String × Ty × Bool → Bool) (n : String) : Bool :=
+  match l.find? (·.1 == n) with
+  | some e0 => q e0
+  | none => true
+
+theorem handOffR_named (cx : Cx) (T : Ty) : ∃ (q : String × Ty × Bool → Bool) (pl : String → Bool),
+    (∀ e, e.2.1.secondClass = false → q e = true) ∧
+    cx.handOffR T = { cx with lent := cx.lent.filter pl, vars := cx.vars.filter (fun e => namedP cx.vars q e.1) } := by
+  unfold Cx.handOffR
+  split
+  · refine ⟨fun _ => true, fun _ => true, fun _ _ => rfl, ?_⟩
+    have h1 : cx.vars.filter (fun e => namedP cx.vars (fun _ => true) e.1) = cx.vars :=
+      List.filter_eq_self.2 (fun e _ => by unfold namedP; split <;> rfl)
+    have h2 : cx.lent.filter (fun _ => true) = cx.lent := List.filter_eq_self.2 (fun _ _ => rfl)
+    rw [h1, h2]
+  split
+  · unfold Cx.handOff
+    split
+    · refine ⟨fun e0 => !e0.2.1.secondClass, fun _ => false, fun e h => by simp [h], ?_⟩
+      have h0 : cx.lent.filter (fun _ => false) = [] := by simp
+      rw [h0]; rfl
+    · refine ⟨fun _ => true, fun _ => true, fun _ _ => rfl, ?_⟩
+      have h1 : cx.vars.filter (fun e => namedP cx.vars (fun _ => true) e.1) = cx.vars :=
+        List.filter_eq_self.2 (fun e _ => by unfold namedP; split <;> rfl)
+      have h2 : cx.lent.filter (fun _ => true) = cx.lent := List.filter_eq_self.2 (fun _ _ => rfl)
+      rw [h1, h2]
+  · exact ⟨_, _, fun e h => by simp [h], rfl⟩
+
+theorem VarsOK_filterN {ρ : Nat → Nat} {η : TEnv} {σs : List Ty} {vars : List (String × Ty × Bool)} {env : Env}
+    (P : String → Bool) (h : VarsOK ρ η σs vars env) : VarsOK ρ η σs (vars.filter (fun e => P e.1)) env :=
+  fun x e he => h x e (find_filter_named P x e vars he)
+
+/-- The F-level frame invariant survives the call arm's guarded handOff. -/
+theorem handOff_FInv {ρ : Nat → Nat} {η : TEnv} {σs : List Ty} {K : TEnv → List Word → Prop} {cx : Cx} {env : Env}
+    (b : Bool) (T : Ty) (hi : FInv ρ η σs K cx env) : FInv ρ η σs K (if b = true then cx.handOffR T else cx) env := by
+  cases b
+  · exact hi
+  · show FInv ρ η σs K (cx.handOffR T) env
+    obtain ⟨q, pl, -, he⟩ := handOffR_named cx T
+    rw [he]
+    exact ⟨hi.1, VarsOK_filterN _ hi.2.1, hi.2.2⟩
+
+theorem sum_filter_monoH (H' H : String × Ty × Bool → Bool) (Rx : String → Res)
+    (hH : ∀ e, H' e = true → H e = true) :
+    ∀ l : List (String × Ty × Bool),
+      Res.sum ((l.filter H').map (fun e => Rx e.1)) ≤ Res.sum ((l.filter H).map (fun e => Rx e.1))
+  | [] => Res.le_refl _
+  | e :: l => by
+      have ih := sum_filter_monoH H' H Rx hH l
+      cases h1 : H' e <;> cases h2 : H e <;>
+        simp only [List.filter_cons, h1, h2, List.map_cons, Res.sum_cons, Bool.false_eq_true, ite_true, ite_false]
+      · exact ih
+      · exact Res.le_trans ih (by rw [Res.add_comm]; exact Res.le_add_right _ _)
+      · exact absurd (hH e h1) (by simp [h2])
+      · exact Res.add_le_add (Res.le_refl _) ih
+
+/-- Any sweep that keeps every first-class entry, with any sub-filter of `lent` (no re-live). -/
+theorem handOff_HeldOK {ρ : Nat → Nat} {η : TEnv} {cx : Cx} {env : Env} {Rf : Res}
+    (q : String × Ty × Bool → Bool) (pl : String → Bool)
+    (hq : ∀ e ∈ cx.vars, e.2.1.secondClass = false → q e = true) (hH : HeldOK ρ η cx env Rf) :
+    HeldOK ρ η { cx with lent := cx.lent.filter pl, vars := cx.vars.filter q } env Rf := by
+  obtain ⟨hn, hln, hlent, Rx, hx, hs⟩ := hH
+  let c₀ : Cx := { cx with lent := cx.lent.filter pl, vars := cx.vars.filter q }
+  have hHo : ∀ e, Holds c₀ e = true → Holds cx e = true := by
+    intro e h
+    simp only [Holds, c₀, Bool.or_eq_true, decide_eq_true_eq] at h ⊢
+    rcases h with h | h
+    · exact Or.inl h
+    · exact Or.inr ((List.mem_filter.1 h).1)
+  refine ⟨?_, hln.filter pl, ?_, Rx, ?_, ?_⟩
+  · show ((cx.vars.filter q).map (·.1)).Nodup
+    exact hn.sublist ((List.filter_sublist).map _)
+  · intro z hz
+    obtain ⟨e, he1, h1, h2, h3⟩ := hlent z ((List.mem_filter.1 hz).1)
+    exact ⟨e, List.mem_filter.2 ⟨he1, hq e he1 h3⟩, h1, h2, h3⟩
+  · intro z e hfe hh
+    exact hx z e (find_filter_nodup q z e cx.vars hn hfe) (hHo e hh)
+  · show Res.sum (((cx.vars.filter q).filter (Holds c₀)).map (fun e => Rx e.1)) ≤ Rf
+    exact Res.le_trans (sum_filter_monoH _ _ Rx hHo _) (Res.le_trans (sum_filter_le q (Holds cx) Rx cx.vars) hs)
+
+/-- The R-level frame invariant survives the call arm's guarded handOff, at the same `Rf`. -/
+theorem handOff_FInvR {ρ : Nat → Nat} {η : TEnv} {σs : List Ty} {K : TEnv → Nat → List Word → Res → Prop} {cx : Cx}
+    {env : Env} {Rf : Res} (b : Bool) (T : Ty) (hi : FInvR ρ η σs K cx env Rf) :
+    FInvR ρ η σs K (if b = true then cx.handOffR T else cx) env Rf := by
+  cases b
+  · exact hi
+  · show FInvR ρ η σs K (cx.handOffR T) env Rf
+    obtain ⟨q, pl, hq, he⟩ := handOffR_named cx T
+    rw [he]
+    refine ⟨⟨hi.1.1, VarsOK_filterN _ hi.1.2.1, hi.1.2.2⟩, hi.2.1, handOff_HeldOK _ pl (fun e hm h3 => ?_) hi.2.2⟩
+    unfold namedP
+    rw [find_self_nodup cx.vars hi.2.2.1 e hm]
+    exact hq e h3
+
+
 /-- **P1 + P4 at the thread, `call`.**  The callee's frame is typed at the
 declaration's context with `ρ` extended by the index arguments and `η` the
 caller's `VR` at the type arguments (row 18); the pushed frame resumes the
 caller at the instantiated return type. -/
 theorem tstep_call {p : Prog} {g : G} {mem : WeakMem.Memory} {pairs : List WeakMem.Ts} {th : TTh}
     {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {x f : String} {is : List String} {a : At} {ts : List Ty} {e : Expr}
-    (hp : g.p = p) [ProgRetIall p] (hP : ProgT p)
-    (hterm : th.term = .let_ x (.call f is a ts) e) (hT : Typed p cx th.term)
+    (hp : g.p = p) [ProgRetIall p] [hPW : TermA4.ProgCkWC p] (hP : ProgT p)
+    (hterm : th.term = .let_ x (.call f is a ts) e) (hT : TypedK p η cx th.term)
     (hi : FInv ρ η th.σs (Resume p th.stack) cx th.env)
     (hE : EnvOK p η) (htv : TvOK cx) (hZ : ZeroCloseP)
-    (hrt : ∀ σ ∈ ts, rgnFree σ = true ∧ noIallV σ = true) (hpw : RetPw th.σs th.stack cx.ret) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
+    (hrt : ∀ σ ∈ ts, TermC1.drf1 σ = true ∧ noIallV σ = true) (hpw : RetPw th.σs th.stack cx.ret) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
     tstep g mem pairs th ≠ [] ∧ ∀ r ∈ tstep g mem pairs th, ThInvE p (CE η) r.2.2 := by
   rw [hterm] at hT
-  cases hT with
+  cases hT.1 with
   | let_ hop he =>
       rename_i c'
+      obtain ⟨c', -, hop, he, hck, hoa⟩ := TermA4.CkW_let hT.2
       have htv' := OpT_TvOK hP hop htv
       cases hop with
       | @call _ _ _ _ _ _ _ d at_ rt t hfind hinst hu _ hsub hb =>
@@ -15820,9 +16304,10 @@ theorem tstep_call {p : Prog} {g : G} {mem : WeakMem.Memory} {pairs : List WeakM
           intro r hr
           simp only [List.mem_singleton] at hr
           subst hr
-          refine ⟨vinsL 0 (us.map (ev ρ)) ρ, subE ρ η ts.reverse, declCx d, rfl, ⟨hE.1, Coh_subE hE.2.1, CohR_subE hE.2.1 hE.2.2⟩, hbody, declCx_TvOK hDT hRI,
+          refine ⟨vinsL 0 (us.map (ev ρ)) ρ, subE ρ η ts.reverse, declCx d, rfl, ⟨hE.1, Coh_subE hE.2.1, CohR_subE hE.2.1 hE.2.2⟩, ⟨hbody, TermA4.CkW_call (ρ₀ := ρ) hT.2.2.2 (fun k => (hE.2.1 k).1.1) hinst
+              (TermA4.opArgOK_call hoa) (hPW.ck d (List.mem_of_find?_eq_some hd))⟩, declCx_TvOK hDT hRI,
             ⟨Sat_nil _, ?_, ?_, ?_, ?_⟩,
-            fun f rest h ws => by injection h with h1 h2; subst h1; rfl, by rw [hterm] at hDy; obtain ⟨S, H, hS, hin, hσ, hX⟩ := hDy.callEdge; exact dyFr_enter (progDy_of_checked (ProgRetIall.checked (p := p))) hS hin hσ hX (fun k => (hE.2.1 k).1) hd (ts_tb_of_inst hinst hi.2.2.2.2.1)⟩
+            fun f rest h ws => by injection h with h1 h2; subst h1; rfl, by rw [hterm] at hDy; obtain ⟨S, H, hS, hin, hσ, hX⟩ := hDy.callEdge; exact dyFr_enter (ProgRetIall.dy (p := p)) hS hin hσ hX (fun k => (hE.2.1 k).1) hd (ts_tb_of_inst hinst hi.2.2.2.2.1)⟩
           · intro y en hen
             simp only [declCx, List.find?_cons, List.find?_nil] at hen
             split at hen
@@ -15837,8 +16322,8 @@ theorem tstep_call {p : Prog} {g : G} {mem : WeakMem.Memory} {pairs : List WeakM
           · intro η' hx ws' hv' hl2
             obtain ⟨h2, hC⟩ := Ext_back (η₁ := subE ρ η ts.reverse) hE.2.1 hx rfl rfl rfl rfl rfl rfl rfl rfl
             have hv'' := (VR_coh (Coh_subE h2.1) hx.1 hx.2.1.symm hC _ _ _ _).2 hv'
-            refine ⟨ρ, η.withSto η'.sto η'.ini η'.pfr η'.seen η'.box (max η.rid η'.rid) η'.fp η'.rini, c', hC, ⟨hE.1, h2.1, h2.2.2.2.2.2.2.2.2.2.2.1⟩, he, htv',
-              bind_FInv hb (FInv_ext hE.2.1 h2 hi1) ((VR_call ts us _ ρ d.retTy _ ws').2 hv'') ?_, fun f rest h ws => by rw [bind_ret hb, use_ret hu]; exact hpw f rest h ws, by rw [hterm] at hDy; exact hDy.let_.wit rfl⟩
+            refine ⟨ρ, η.withSto η'.sto η'.ini η'.pfr η'.seen η'.box (max η.rid η'.rid) η'.fp η'.rini, c', hC, ⟨hE.1, h2.1, h2.2.2.2.2.2.2.2.2.2.2.1⟩, ⟨he, hck⟩, htv',
+              bind_FInv hb (FInv_ext hE.2.1 h2 (handOff_FInv _ _ hi1)) ((VR_call ts us _ ρ d.retTy _ ws').2 hv'') ?_, fun f rest h ws => by rw [bind_ret hb, iteH_ret, use_ret hu]; exact hpw f rest h ws, by rw [hterm] at hDy; exact hDy.let_.wit rfl⟩
             exact ⟨hl2.1, (eskel_of_skel Er).symm, hl2.2.2.1, hl2.2.2.2.1, (elyt_of_lyt Lr).symm⟩
           · exact WitL_call hi.2.2.2.1 hi.2.2.2.2.1 (fun k => (hE.2.1 k).1) (instantiate_ts hinst)
           · exact ⟨by simp [declCx, hlen], KindsOK_call hZ hi.2.2.2.2.2.1 hi.2.2.2.2.1 hinst,
@@ -15854,14 +16339,14 @@ theorem tstep_call {p : Prog} {g : G} {mem : WeakMem.Memory} {pairs : List WeakM
 straight into the current frame's continuation, via `SubS rt c₁.ret`. -/
 theorem tstep_tail {p : Prog} {g : G} {mem : WeakMem.Memory} {pairs : List WeakMem.Ts} {th : TTh}
     {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {f : String} {is : List String} {a : At} {ts : List Ty}
-    (hp : g.p = p) [ProgRetIall p] (hP : ProgT p)
-    (hterm : th.term = .tail f is a ts) (hT : Typed p cx th.term)
+    (hp : g.p = p) [ProgRetIall p] [hPW : TermA4.ProgCkWC p] (hP : ProgT p)
+    (hterm : th.term = .tail f is a ts) (hT : TypedK p η cx th.term)
     (hi : FInv ρ η th.σs (Resume p th.stack) cx th.env)
     (hE : EnvOK p η) (htv : TvOK cx) (hZ : ZeroCloseP)
-    (hrt : ∀ σ ∈ ts, rgnFree σ = true ∧ noIallV σ = true) (hpw : RetPw th.σs th.stack cx.ret) (hPS : PwSkel) (hSub : PwSubS) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
+    (hrt : ∀ σ ∈ ts, TermC1.drf1 σ = true ∧ noIallV σ = true) (hpw : RetPw th.σs th.stack cx.ret) (hPS : PwSkel) (hSub : PwSubS) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
     tstep g mem pairs th ≠ [] ∧ ∀ r ∈ tstep g mem pairs th, ThInvE p (CE η) r.2.2 := by
   rw [hterm] at hT
-  cases hT with
+  cases hT.1 with
   | @tail _ _ _ _ _ _ d at_ rt t hfind hinst hu _ hsub hsubr =>
       obtain ⟨us, hlen, rfl, rfl⟩ := instantiate_ok hinst
       have hd := find_ok hfind
@@ -15879,11 +16364,12 @@ theorem tstep_tail {p : Prog} {g : G} {mem : WeakMem.Memory} {pairs : List WeakM
       intro r hr
       simp only [List.mem_singleton] at hr
       subst hr
-      refine ⟨vinsL 0 (us.map (ev ρ)) ρ, subE ρ η ts.reverse, declCx d, rfl, ⟨hE.1, Coh_subE hE.2.1, CohR_subE hE.2.1 hE.2.2⟩, hbody, declCx_TvOK hDT hRI,
+      refine ⟨vinsL 0 (us.map (ev ρ)) ρ, subE ρ η ts.reverse, declCx d, rfl, ⟨hE.1, Coh_subE hE.2.1, CohR_subE hE.2.1 hE.2.2⟩, ⟨hbody, TermA4.CkW_call (ρ₀ := ρ) hT.2.2.2 (fun k => (hE.2.1 k).1.1) hinst
+              (TermA4.checkW_tail_args hT.2.1) (hPW.ck d (List.mem_of_find?_eq_some hd))⟩, declCx_TvOK hDT hRI,
             ⟨Sat_nil _, ?_, ?_, ?_, ?_⟩,
             fun f rest h ws => by
               rw [hpw f rest h ws, ← use_ret hu]
-              exact (hSub _ _ _ hsubr th.σs 0 0 ws).symm.trans (hPS _ _ Er ws), by rw [hterm] at hDy; obtain ⟨S, H, hS, hin, hσ, hX⟩ := hDy.tailEdge; exact dyFr_enter (progDy_of_checked (ProgRetIall.checked (p := p))) hS hin hσ hX (fun k => (hE.2.1 k).1) hd (ts_tb_of_inst hinst hi.2.2.2.2.1)⟩
+              exact (hSub _ _ _ hsubr th.σs 0 0 ws).symm.trans (hPS _ _ Er ws), by rw [hterm] at hDy; obtain ⟨S, H, hS, hin, hσ, hX⟩ := hDy.tailEdge; exact dyFr_enter (ProgRetIall.dy (p := p)) hS hin hσ hX (fun k => (hE.2.1 k).1) hd (ts_tb_of_inst hinst hi.2.2.2.2.1)⟩
       · intro y en hen
         simp only [declCx, List.find?_cons, List.find?_nil] at hen
         split at hen
@@ -16014,14 +16500,15 @@ signature (a well-formed closed signature is its own closure, `cl_wf`). -/
 theorem tstep_fnptr {p : Prog} {g : G} {mem : WeakMem.Memory} {pairs : List WeakMem.Ts} {th : TTh}
     {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {x f : String} {e : Expr}
     (hp : g.p = p) (hP : ProgT p)
-    (hterm : th.term = .let_ x (.fnptr f) e) (hT : Typed p cx th.term)
+    (hterm : th.term = .let_ x (.fnptr f) e) (hT : TypedK p η cx th.term)
     (hi : FInv ρ η th.σs (Resume p th.stack) cx th.env)
     (hE : EnvOK p η) (htv : TvOK cx) (hpw : RetPw th.σs th.stack cx.ret) (hPS : PwSkel) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
     tstep g mem pairs th ≠ [] ∧ ∀ r ∈ tstep g mem pairs th, ThInvE p (CE η) r.2.2 := by
   rw [hterm] at hT
-  cases hT with
+  cases hT.1 with
   | let_ hop he =>
       rename_i c'
+      obtain ⟨c', -, hop, he, hck, -⟩ := TermA4.CkW_let hT.2
       have htv' := OpT_TvOK hP hop htv
       have hk := OpT_retSk hop
       cases hop with
@@ -16043,7 +16530,7 @@ theorem tstep_fnptr {p : Prog} {g : G} {mem : WeakMem.Memory} {pairs : List Weak
           intro r hr
           simp only [List.mem_singleton] at hr
           subst hr
-          exact ⟨ρ, η, c', rfl, hE, he, htv', by (have h := bind_FInv hb hi (hvr _) (Lay_code th.σs hwa' hwr' _); (try simp only [withS] at h); (try simp only [withS]); revert h; cases d.kind <;> exact id), retPw_skel hPS hpw (skel_subst_eq hk th.σs 0 0 0), hDy.letW hterm rfl⟩
+          exact ⟨ρ, η, c', rfl, hE, ⟨he, hck⟩, htv', by (have h := bind_FInv hb hi (hvr _) (Lay_code th.σs hwa' hwr' _); (try simp only [withS] at h); (try simp only [withS]); revert h; cases d.kind <;> exact id), retPw_skel hPS hpw (skel_subst_eq hk th.σs 0 0 0), hDy.letW hterm rfl⟩
 
 /-- **P1 + P4 at the thread, `callc`**: a call through a code value.  The
 value's `VR` names the block, whose declared signature is the closure of the
@@ -16051,15 +16538,16 @@ static one; `VR_code` carries the argument in and the result out.  The callee ru
 own view: no indices, no type variables (`CE η`). -/
 theorem tstep_callc {p : Prog} {g : G} {mem : WeakMem.Memory} {pairs : List WeakMem.Ts} {th : TTh}
     {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {x : String} {f a : At} {e : Expr}
-    (hp : g.p = p) [ProgRetIall p] (hP : ProgT p)
-    (hterm : th.term = .let_ x (.callc f a) e) (hT : Typed p cx th.term)
+    (hp : g.p = p) [ProgRetIall p] [hPW : TermA4.ProgCkWC p] (hP : ProgT p)
+    (hterm : th.term = .let_ x (.callc f a) e) (hT : TypedK p η cx th.term)
     (hi : FInv ρ η th.σs (Resume p th.stack) cx th.env)
     (hE : EnvOK p η) (htv : TvOK cx) (hpw : RetPw th.σs th.stack cx.ret) (hSig : PwSig) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
     tstep g mem pairs th ≠ [] ∧ ∀ r ∈ tstep g mem pairs th, ThInvE p (CE η) r.2.2 := by
   rw [hterm] at hT
-  cases hT with
+  cases hT.1 with
   | let_ hop he =>
       rename_i c'
+      obtain ⟨c', -, hop, he, hck, -⟩ := TermA4.CkW_let hT.2
       have htv' := OpT_TvOK hP hop htv
       cases hop with
       | @callc c₁ _ _ _ _ tf σ τ t htf hc hu _ hsub hb =>
@@ -16089,7 +16577,7 @@ theorem tstep_callc {p : Prog} {g : G} {mem : WeakMem.Memory} {pairs : List Weak
           have hoσ : cx.opaqueOK σ = true :=
             sub_opaqueOK hsub (peek_opaqueOK htv (use_inv (ρ := ρ) (η := η) (σs := th.σs) (env := th.env) hu).1)
           have hoτ : cx.opaqueOK τ = true := by
-            have h := bind_opaqueOK hb; unfold Cx.opaqueOK at h ⊢; rwa [(use_opq hu).1] at h
+            have h := bind_opaqueOK hb; unfold Cx.opaqueOK at h ⊢; rwa [TermA4.iteH_opq, (use_opq hu).1] at h
           have hD : ∀ v : Ty, v.wf 0 0 = true → sig (clD v) = sig (close [] v) := fun v hv =>
             (sig_close_cl [] (fun _ => 0) (fun _ => .void) v 0 0 (fun k hk =>
               absurd (lt_of_guardT (tb_of_wf v hv) (Nat.le_refl 0) k (by simpa using hk))
@@ -16107,10 +16595,10 @@ theorem tstep_callc {p : Prog} {g : G} {mem : WeakMem.Memory} {pairs : List Weak
           intro r hr
           simp only [List.mem_singleton] at hr
           subst hr
-          refine ⟨fun _ => 0, CE η, declCx D, rfl, ⟨hE.1, Coh_CE η, CohR_CE η⟩, hbody, declCx_TvOK hDT hRI, ⟨Sat_nil _, ?_, ?_, ?_, ?_⟩,
+          refine ⟨fun _ => 0, CE η, declCx D, rfl, ⟨hE.1, Coh_CE η, CohR_CE η⟩, ⟨hbody, TermA4.CkW_decl (hPW.ck D (List.mem_of_find?_eq_some hfd)) (TermA4.WitA_void (fun _ => rfl))⟩, declCx_TvOK hDT hRI, ⟨Sat_nil _, ?_, ?_, ?_, ?_⟩,
             fun f rest h ws => by
               injection h with h1 h2; subst h1
-              exact (hSig rr ws).symm.trans ((congrArg (fun t => TermPtrRts.pubWords t ws) Er).trans (hSig _ ws)), dyFr_enter_nil (progDy_of_checked (ProgRetIall.checked (p := p))) (List.mem_of_find?_eq_some hfd)⟩
+              exact (hSig rr ws).symm.trans ((congrArg (fun t => TermPtrRts.pubWords t ws) Er).trans (hSig _ ws)), dyFr_enter_nil (ProgRetIall.dy (p := p)) (List.mem_of_find?_eq_some hfd)⟩
           · intro y en hen
             simp only [declCx, List.find?_cons, List.find?_nil] at hen
             split at hen
@@ -16127,11 +16615,11 @@ theorem tstep_callc {p : Prog} {g : G} {mem : WeakMem.Memory} {pairs : List Weak
             have hv'' : VR (fun _ => 0) (CE (η.withSto η'.sto η'.ini η'.pfr η'.seen η'.box (max η.rid η'.rid) η'.fp η'.rini)) D.retTy _ ws' :=
               (VR_coh hx.1 (Coh_CE (η.withSto η'.sto η'.ini η'.pfr η'.seen η'.box (max η.rid η'.rid) η'.fp η'.rini)) hx.2.1 hC.symm _ _ _ _).1 hv'
             have hw2 : wc (close [] D.retTy) = wc rr := (wc_of_sig Er).symm
-            refine ⟨ρ, η.withSto η'.sto η'.ini η'.pfr η'.seen η'.box (max η.rid η'.rid) η'.fp η'.rini, c', hC, ⟨hE.1, h2.1, h2.2.2.2.2.2.2.2.2.2.2.1⟩, he, htv', bind_FInv hb (FInv_ext hE.2.1 h2 hi1) ?_
+            refine ⟨ρ, η.withSto η'.sto η'.ini η'.pfr η'.seen η'.box (max η.rid η'.rid) η'.fp η'.rini, c', hC, ⟨hE.1, h2.1, h2.2.2.2.2.2.2.2.2.2.2.1⟩, ⟨he, hck⟩, htv', bind_FInv hb (FInv_ext hE.2.1 h2 (handOff_FInv _ _ hi1)) ?_
               ⟨ShapeC_wc hw2 hl2.1, hsr, hw2 ▸ hl2.2.2.1, Valid_of_sig Er.symm hl2.2.2.2.1, by
                 have hy := hlf.2.2.2.2
                 simp only [close, substTs, lyt, etok, Ty.code.injEq] at hy
-                exact hy.2.1⟩, fun f rest h ws => by rw [bind_ret hb, use_ret hu]; exact hpw f rest h ws, by rw [hterm] at hDy; exact hDy.let_.wit rfl⟩
+                exact hy.2.1⟩, fun f rest h ws => by rw [bind_ret hb, iteH_ret, use_ret hu]; exact hpw f rest h ws, by rw [hterm] at hDy; exact hDy.let_.wit rfl⟩
             rw [shp_of_sig Er]; exact (VR_code h2.1 lτ _ _).2 hv''
           · exact ⟨fun k _ hk => by simp at hk, fun k σ h => by simp at h, fun k _ hk => by simp at hk⟩
           · exact ⟨by simp [declCx, htp], ⟨fun k hk => by simp [declCx, htp, KEnv.ask] at hk, fun k hk => by simp [declCx, htp, KEnv.ask] at hk,
@@ -16284,7 +16772,7 @@ theorem tstep_callR {p : Prog} {g : G} {mem : WeakMem.Memory} {pairs : List Weak
     (hterm : th.term = .let_ x (.call f is a ts) e) (hT : Typed p cx th.term) (hCk : TermA4.CkW p η.wit cx th.term) [hPW : TermA4.ProgCkWC p]
     (hi : FInvR ρ η th.σs (ResumeR p th.stack Rs) cx th.env Rf)
     (hE : EnvOK p η) (htv : TvOK cx) (hZ : ZeroCloseP)
-    (hrt : ∀ σ ∈ ts, rgnFree σ = true ∧ noIallV σ = true) (hpw : RetPw th.σs th.stack cx.ret) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
+    (hrt : ∀ σ ∈ ts, TermC1.drf1 σ = true ∧ noIallV σ = true) (hpw : RetPw th.σs th.stack cx.ret) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
     tstep g mem pairs th ≠ [] ∧ ∀ r ∈ tstep g mem pairs th, ThInvRE p (CE η) r.2.2 (Rf + Rs) := by
   rw [hterm] at hT hCk
   cases hT with
@@ -16315,7 +16803,7 @@ theorem tstep_callR {p : Prog} {g : G} {mem : WeakMem.Memory} {pairs : List Weak
             ⟨hE.1, Coh_subE hE.2.1, CohR_subE hE.2.1 hE.2.2⟩, ⟨hbody, TermA4.CkW_call (ρ₀ := ρ) hCk.2.2 (fun k => (hE.2.1 k).1.1) hinst (TermA4.opArgOK_call hoa)
               (hPW.ck d (List.mem_of_find?_eq_some hd))⟩, declCx_TvOK hDT hRI,
             ⟨⟨Sat_nil _, ?_, fun _ _ _ _ _ => trivial, ?_, ?_⟩, ?_, HeldOK_mono (declCx_HeldOK ?_) hR'⟩, hsum Rs,
-            fun f rest h ws => by injection h with h1 h2; subst h1; rfl, by rw [hterm] at hDy; obtain ⟨S, H, hS, hin, hσ, hX⟩ := hDy.callEdge; exact dyFr_enter (progDy_of_checked hPW.checked) hS hin hσ hX (fun k => (hE.2.1 k).1) hd (ts_tb_of_inst hinst hi.1.2.2.2.2.1)⟩
+            fun f rest h ws => by injection h with h1 h2; subst h1; rfl, by rw [hterm] at hDy; obtain ⟨S, H, hS, hin, hσ, hX⟩ := hDy.callEdge; exact dyFr_enter (hPW.dy) hS hin hσ hX (fun k => (hE.2.1 k).1) hd (ts_tb_of_inst hinst hi.1.2.2.2.2.1)⟩
           · intro y en hen
             simp only [declCx, List.find?_cons, List.find?_nil] at hen
             split at hen
@@ -16345,8 +16833,8 @@ theorem tstep_callR {p : Prog} {g : G} {mem : WeakMem.Memory} {pairs : List Weak
               Nat.max_eq_right hx.2.2.2.2.2.2.2.2.2.1
             refine ⟨Rr, Rs, rfl, ρ, η.withSto η'.sto η'.ini η'.pfr η'.seen η'.box (max η.rid η'.rid) η'.fp η'.rini, c', hC,
               hrid, ⟨hE.1, h2.1, hr2⟩, ⟨he, hck⟩, htv',
-              bindR hb (FInvR_ext hE.2.1 hE.2.2 h2 hi1) (RLink_of h2.1 hr2)
-                ((VRR_call ts us _ ρ d.retTy _ ws' R').2 hv'') ?_, fun f rest h ws => by rw [bind_ret hb, use_ret hu]; exact hpw f rest h ws, by rw [hterm] at hDy; exact hDy.let_.wit rfl⟩
+              bindR hb (FInvR_ext hE.2.1 hE.2.2 h2 (handOff_FInvR _ _ hi1)) (RLink_of h2.1 hr2)
+                ((VRR_call ts us _ ρ d.retTy _ ws' R').2 hv'') ?_, fun f rest h ws => by rw [bind_ret hb, iteH_ret, use_ret hu]; exact hpw f rest h ws, by rw [hterm] at hDy; exact hDy.let_.wit rfl⟩
             exact ⟨hl2.1, (eskel_of_skel Er).symm, hl2.2.2.1, hl2.2.2.2.1, (elyt_of_lyt Lr).symm⟩
           · rw [← shp_of_skel Ea, ← hs]
             exact (VRR_call ts us η ρ d.argTy _ ws R).1 (VRR_sub hi1.1.1 hsub _ _ _ hvr)
@@ -16360,7 +16848,7 @@ theorem tstep_tailR {p : Prog} {g : G} {mem : WeakMem.Memory} {pairs : List Weak
     (hterm : th.term = .tail f is a ts) (hT : Typed p cx th.term) (hCk : TermA4.CkW p η.wit cx th.term) [hPW : TermA4.ProgCkWC p]
     (hi : FInvR ρ η th.σs (ResumeR p th.stack Rs) cx th.env Rf)
     (hE : EnvOK p η) (htv : TvOK cx) (hZ : ZeroCloseP)
-    (hrt : ∀ σ ∈ ts, rgnFree σ = true ∧ noIallV σ = true) (hpw : RetPw th.σs th.stack cx.ret) (hPS : PwSkel) (hSub : PwSubS) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
+    (hrt : ∀ σ ∈ ts, TermC1.drf1 σ = true ∧ noIallV σ = true) (hpw : RetPw th.σs th.stack cx.ret) (hPS : PwSkel) (hSub : PwSubS) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
     tstep g mem pairs th ≠ [] ∧ ∀ r ∈ tstep g mem pairs th, ThInvRE p (CE η) r.2.2 (Rf + Rs) := by
   rw [hterm] at hT hCk
   cases hT with
@@ -16388,7 +16876,7 @@ theorem tstep_tailR {p : Prog} {g : G} {mem : WeakMem.Memory} {pairs : List Weak
           HeldOK_mono (declCx_HeldOK ?_) (Res_le_of_add_le hle)⟩, rfl,
         fun f rest h ws => by
           rw [hpw f rest h ws, ← use_ret hu]
-          exact (hSub _ _ _ hsubr th.σs 0 0 ws).symm.trans (hPS _ _ Er ws), by rw [hterm] at hDy; obtain ⟨S, H, hS, hin, hσ, hX⟩ := hDy.tailEdge; exact dyFr_enter (progDy_of_checked hPW.checked) hS hin hσ hX (fun k => (hE.2.1 k).1) hd (ts_tb_of_inst hinst hi.1.2.2.2.2.1)⟩
+          exact (hSub _ _ _ hsubr th.σs 0 0 ws).symm.trans (hPS _ _ Er ws), by rw [hterm] at hDy; obtain ⟨S, H, hS, hin, hσ, hX⟩ := hDy.tailEdge; exact dyFr_enter (hPW.dy) hS hin hσ hX (fun k => (hE.2.1 k).1) hd (ts_tb_of_inst hinst hi.1.2.2.2.2.1)⟩
       · intro y en hen
         simp only [declCx, List.find?_cons, List.find?_nil] at hen
         split at hen
@@ -16483,7 +16971,7 @@ theorem tstep_callcR {p : Prog} {g : G} {mem : WeakMem.Memory} {pairs : List Wea
           have hoσ : cx.opaqueOK σ = true :=
             sub_opaqueOK hsub (peek_opaqueOK htv (use_inv (ρ := ρ) (η := η) (σs := th.σs) (env := th.env) hu).1)
           have hoτ : cx.opaqueOK τ = true := by
-            have h := bind_opaqueOK hb; unfold Cx.opaqueOK at h ⊢; rwa [(use_opq hu).1] at h
+            have h := bind_opaqueOK hb; unfold Cx.opaqueOK at h ⊢; rwa [TermA4.iteH_opq, (use_opq hu).1] at h
           have hD : ∀ v : Ty, v.wf 0 0 = true → sig (clD v) = sig (close [] v) := fun v hv =>
             (sig_close_cl [] (fun _ => 0) (fun _ => .void) v 0 0 (fun k hk =>
               absurd (lt_of_guardT (tb_of_wf v hv) (Nat.le_refl 0) k (by simpa using hk))
@@ -16507,7 +16995,7 @@ theorem tstep_callcR {p : Prog} {g : G} {mem : WeakMem.Memory} {pairs : List Wea
             ⟨⟨Sat_nil _, ?_, fun _ _ _ _ _ => trivial, ?_, ?_⟩, ?_, HeldOK_mono (declCx_HeldOK ?_) hR'⟩, hsum Rs,
             fun f rest h ws => by
               injection h with h1 h2; subst h1
-              exact (hSig rr ws).symm.trans ((congrArg (fun t => TermPtrRts.pubWords t ws) Er).trans (hSig _ ws)), dyFr_enter_nil (progDy_of_checked hPW.checked) (List.mem_of_find?_eq_some hfd)⟩
+              exact (hSig rr ws).symm.trans ((congrArg (fun t => TermPtrRts.pubWords t ws) Er).trans (hSig _ ws)), dyFr_enter_nil (hPW.dy) (List.mem_of_find?_eq_some hfd)⟩
           · intro y en hen
             simp only [declCx, List.find?_cons, List.find?_nil] at hen
             split at hen
@@ -16539,11 +17027,11 @@ theorem tstep_callcR {p : Prog} {g : G} {mem : WeakMem.Memory} {pairs : List Wea
             have hw2 : wc (close [] D.retTy) = wc rr := (wc_of_sig Er).symm
             refine ⟨Rr, Rs, rfl, ρ, η.withSto η'.sto η'.ini η'.pfr η'.seen η'.box (max η.rid η'.rid) η'.fp η'.rini, c', hC,
               hrid, ⟨hE.1, h2.1, hr2⟩, ⟨he, hck⟩, htv',
-              bindR hb (FInvR_ext hE.2.1 hE.2.2 h2 hi1) (RLink_of h2.1 hr2) ?_
+              bindR hb (FInvR_ext hE.2.1 hE.2.2 h2 (handOff_FInvR _ _ hi1)) (RLink_of h2.1 hr2) ?_
               ⟨ShapeC_wc hw2 hl2.1, hsr, hw2 ▸ hl2.2.2.1, Valid_of_sig Er.symm hl2.2.2.2.1, by
                 have hy := hlf.2.2.2.2
                 simp only [close, substTs, lyt, etok, Ty.code.injEq] at hy
-                exact hy.2.1⟩, fun f rest h ws => by rw [bind_ret hb, use_ret hu]; exact hpw f rest h ws, by rw [hterm] at hDy; exact hDy.let_.wit rfl⟩
+                exact hy.2.1⟩, fun f rest h ws => by rw [bind_ret hb, iteH_ret, use_ret hu]; exact hpw f rest h ws, by rw [hterm] at hDy; exact hDy.let_.wit rfl⟩
             rw [shp_of_sig Er]; exact (VRR_code h2.1 hr2 lτ _ _ _).2 hv''
           · rw [← shp_of_sig Ea, ← hs]
             exact (VRR_CER _ _ _ _ _).1 ((VRR_code hE.2.1 hE.2.2 lσ _ _ _).1 (VRR_sub hi1.1.1 hsub _ _ _ hvr))

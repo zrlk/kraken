@@ -35,7 +35,7 @@ variable {Sp : TermRun.Cfg → TermRun.Cfg → Prop}
 theorem ptrRtsAt_of : TermPlantAtW.PtrRtsAt p k arch Sp Init MintOK c0 := fun X hk => X.inv.ptrGL hk
 
 /-- **The `Obligations` field `plantIdxT`**, from `plantIdx_thread`. -/
-theorem plantIdxT_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermTyped.WrIniC] (hP : ProgT p) (hps : TermScope.ProgScopeOK p = true)
+theorem plantIdxT_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [TermTyped.WrIniC] (hP : ProgT p) (hps : TermScope.ProgScopeOK p = true)
     (h0d : TermScope.RunScopeR p k arch Sp c0) (hCW : TermCertScope.CertWinC p k arch Sp Init MintOK c0)
     (h0 : TermPlantF.PromViewLtR p k arch Sp c0) (hNP : TermPtrKey.NoFulPlRunGL p k arch) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) :
     ∀ {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {i : Nat}
@@ -65,7 +65,7 @@ theorem promise_gB (c : Cfg) (i : Nat) (a : Address) (v : WeakMem.Val) (w : Ts) 
   split <;> rfl
 
 /-- **The `Obligations` field `plantIdxP`** at `TermPlantF.plantOf`/`plantN`, from `plantIdx_prom`. -/
-theorem plantIdxP_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermTyped.WrIniC] (hP : ProgT p) (hps : TermScope.ProgScopeOK p = true)
+theorem plantIdxP_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [TermTyped.WrIniC] (hP : ProgT p) (hps : TermScope.ProgScopeOK p = true)
     (h0d : TermScope.RunScopeR p k arch Sp c0) (hCWP : TermCertScope.CertWinP p k arch Sp Init MintOK c0)
     (hNP : TermPtrKey.NoFulPlRunGL p k arch) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) :
     ∀ {c : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {j : Nat} {th : TTh}

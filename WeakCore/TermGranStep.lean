@@ -278,8 +278,9 @@ theorem tstep_granT {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TT
     (hLay : ∀ l c, E.sto l = some c → LayT c.ty)
     (hF : th.nalloc < r.2.2.nalloc → FreshOK g sto mem pairs th.nalloc)
     (hr : r ∈ tstep g mem pairs th) (hG : GranuleWP sto mem pairs P) : GranuleWP sto r.1 r.2.1 P := by
-  obtain ⟨ρ, η, cx, rfl, hE, hT, htv, hi, -⟩ := hI
-  have hD := hsc ρ η cx hE hT htv hi
+  obtain ⟨ρ, η, cx, rfl, hE, hTK, htv, hi, -⟩ := hI
+  have hT := hTK.1
+  have hD := hsc ρ η cx hE hTK htv hi
   refine tstep_gran hr ?_ ?_ ?_ hF hG
   · intro x op e b us hterm hn
     rw [hterm] at hT hD
@@ -369,8 +370,9 @@ theorem granuleWP_step {p : Prog} {g : G} {E : TEnv} {sto sto' : Sto} {mem : Mem
     GranuleWP sto' r.1 r.2.1 r.2.2.promises := by
   have hPO := hM.2.2.2.2.2.2.2.2.2.2
   have hc := tstep_granT hI hM hsc h1 hLay (freshOK_of hM hfr) hr hG
-  obtain ⟨ρ, η, cx, rfl, hE, hT, htv, hi, -⟩ := hI
-  have hD := hsc ρ η cx hE hT htv hi
+  obtain ⟨ρ, η, cx, rfl, hE, hTK, htv, hi, -⟩ := hI
+  have hT := hTK.1
+  have hD := hsc ρ η cx hE hTK htv hi
   obtain ⟨-, hrem⟩ := TermFul.tstep_fulfil (MemInv_promLt hM) hPO.2.1 hr
   have hext := (TermFul.tstep_grow hr).1
   have hWv : ∀ v, v ∈ th.promises → v ∉ r.2.2.promises → ∃ m, r.1[v]? = some m ∧ WT sto m.loc [.one] := by

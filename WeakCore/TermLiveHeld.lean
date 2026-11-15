@@ -369,13 +369,15 @@ theorem cas_word_epoch {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th :
     (hi : FInv ρ η th.σs K cx th.env) (hE : EnvOK p η) (htv : TvOK cx)
     (hm : MemInv g (CE η) (stOf mem pairs th)) (hsc : StepScope cx (.cas acq rel w e v x ok fail))
     (hep : P0.epoch = true) : P0.ghost = false ∧ NoHeld P0 := by
-  rcases hsc tw hpk with ⟨μ, r1, P1, hteq, hμ⟩ | ⟨u, -, hnw⟩
-  · have hpwf1 := wordRef_pwf hpk hteq hμ hi hE htv hm
+  rcases hsc tw hpk with ⟨μ, r1, P1, hteq⟩ | ⟨u, -, hnw⟩ | ⟨_, u, -, hnw⟩
+  · have hpwf1 := wordRef_pwf hpk hteq hi hE htv hm
     have hP : P1 = P0 := by
       rcases hteq with rfl | rfl <;> simp only [wordOf, Option.some.injEq, Prod.mk.injEq] at hwd <;>
         exact hwd.2
     subst hP
     exact epoch_facts hpwf1 hep
+  · rw [hwd] at hnw
+    cases hnw
   · rw [hwd] at hnw
     cases hnw
 
@@ -422,11 +424,9 @@ theorem fetch_word_facts {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th
     P0.ghost = false ∧ NoHeld P0 := by
   rcases fetch_word_inv hop hpk hwd with ⟨d, hd⟩ | hep
   · exact fetchOK_facts hd
-  · obtain ⟨μ, u, hteq, hμ⟩ := hsc tw hpk
+  · obtain ⟨μ, u, hteq⟩ := hsc tw hpk
     obtain ⟨μ', hteq'⟩ := wordOf_cases hwd
-    have hμ' : μ' = .own ∨ μ' = .pub := by
-      rcases hteq' with rfl | rfl <;> rcases hteq with h | h <;> cases h <;> exact hμ
-    exact epoch_facts (wordRef_pwf hpk hteq' hμ' hi hE htv hm) hep
+    exact epoch_facts (wordRef_pwf hpk hteq' hi hE htv hm) hep
 
 /-- **Word `fetch`.**  A fetch on a protocol word appends only at a word whose
 protocol has no held state (`fetchOK`, or an epoch counter). -/
@@ -2563,6 +2563,214 @@ theorem held_word_changes_only_by_holder_sum {p : Prog} {g : G} {mem : Memory} {
 
 /-! ## `NonWordFootT` discharged -/
 
+/-- (stage ii) **`storePub_wd_frameG` at any mode**: a whole-cell store through a pointer of
+mode `μ` whose value is a subtype of the payload (a region store, `rgnStore_facts`). -/
+theorem storeCell_wd_frameG {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
+    {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {K : TEnv → Nat → List Word → Res → Prop} {Rf : Res}
+    {x : String} {rel : Bool} {a v : At} {tok : Option At} {μ : Mode} {u tv : Ty} {c₁ : Cx} {e : Expr}
+    (hterm : th.term = .let_ x (.store rel a v tok) e)
+    (hpk : cx.peek a = .ok (.ptr μ u)) (hu : cx.use v = .ok (tv, c₁)) (hsub : SubS c₁ tv u)
+    (hi : FInvR ρ η th.σs K cx th.env Rf) (hE : EnvOK p η) (htv : TvOK cx)
+    {r : Memory × List Ts × TTh} (hr : r ∈ tstep g mem pairs th) {t : Ts} {m : Msg}
+    (hn : NewAt mem r.1 t m) {n : Nat} (hw : WdAt (CE η) m.loc n) :
+    1 ≤ Rf (.wd n) := by
+  have hi0 := hi.1
+  have hotv : cx.opaqueOK tv = true :=
+    peek_opaqueOK htv (use_inv (ρ := ρ) (η := η) (σs := th.σs) (env := th.env) hu).1
+  have ho : cx.opaqueOK u = true := sub_opaqueOK hsub hotv
+  have htb : tb cx.ke.length u = true := tb_cellOf (peek_tb htv hpk) (rfl : cellOf (.ptr μ u) = some (μ, u))
+  obtain ⟨lab, c, pw, μr, ru, hea, hpw, hsto, hcty, -, hacc, -, -, hsig⟩ := ptr_view hi0 hpk htv ho
+  obtain ⟨rv, wsv, Rv, Rr, hev, hvv, hlv, hvrv, hi1, hle⟩ := useR hu hi hE.2.2
+  have hsat : Sat c₁.facts ρ := hi1.1.1
+  have hlr : accs ru = accs c.ty := by
+    rw [(Fd_lay hcty).2.2.1]
+    exact pub_accs hi0.2.2.2.1 hi0.2.2.2.2.1 (fun k => (hE.2.1 k).1) hi0.2.1 htv hpk rfl ho hea rfl
+  obtain ⟨us, hus⟩ : ∃ us, accs ru = some us := by
+    cases h : accs ru with
+    | none => rw [h] at hlr; exact absurd hlr.symm hacc
+    | some us => exact ⟨us, rfl⟩
+  have husc : accs c.ty = some us := by rw [← hlr, hus]
+  have hus' : wc c.ty = some (nWords us) := by simp [wc, husc]
+  obtain ⟨hval, hlen⟩ := ownStoreVal hE.2.1 hi0.2.2.2.1 hi0.2.2.2.2.1 hsat hsub ho htb hvv hlv hsig hus
+  have hsigu : sig (close th.σs u) = sig (cl ρ η.wit 0 0 u) :=
+    sig_WitL hi0.2.2.2.1 ρ ho (lt_of_guardT htb hi0.2.2.2.2.1)
+  have hvR : VRR (fun _ => 0) (CE (CE η)) c.ty (shp c.ty) wsv Rv := by
+    obtain ⟨hs, -⟩ := Lay_canon hsub hlv
+    have hvu : VRR ρ η u (shp (close th.σs u)) wsv Rv := by rw [← hs]; exact VRR_sub hsat hsub _ _ _ hvrv
+    have hvc : VRR (fun _ => 0) (CE η) (cl ρ η.wit 0 0 u) (shp (cl ρ η.wit 0 0 u)) wsv Rv := by
+      rw [← shp_of_sig hsigu]
+      exact (VRR_close hE.2.1 hE.2.2 ρ u [] 0 ρ (fun _ => 0) (shp (close th.σs u)) wsv Rv (fun k => rfl)
+        (fun k hk => absurd hk (Nat.not_lt_zero _))).1 hvu
+    rw [(Fd_lay hcty).1]
+    exact (Fd_VRR η hcty).2 hvc
+  have key : tstep g mem pairs th =
+      (storeUnits g.k g.arch pw ⟨lab, 0⟩ rel us wsv 0 (stOf mem pairs th)).map fun s' =>
+        (s'.mem, s'.pairs, withS { th with term := e, env := (x, .unit, []) :: th.env } s') := by
+    simp only [tstep, hterm, evalOp, hea, hev, cellOf, addrOf, hpw, hus, List.map_map]; rfl
+  rw [key, List.mem_map] at hr
+  obtain ⟨s', hs', rfl⟩ := hr
+  obtain ⟨jj, -, hloc⟩ := storeUnits_new_loc hs' rfl hn
+  have hl : m.loc.label = lab := by rw [hloc]; rfl
+  exact wd_frame_wholeG (by rw [hl]; exact hsto) hvR (by rw [hus', hlen]) hle hw
+
+/-- (stage ii) **`storePubLoc_wd_frameG` at any mode** (a locative, value a subtype of the payload). -/
+theorem storeCellLoc_wd_frameG {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
+    {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {K : TEnv → Nat → List Word → Res → Prop} {Rf : Res}
+    {x : String} {rel : Bool} {a v : At} {tok : Option At} {μ : Mode} {u tv : Ty} {c₁ : Cx} {e : Expr}
+    (hterm : th.term = .let_ x (.store rel a v tok) e)
+    (hpk : cx.peek a = .ok (.loc μ u)) (hu : cx.use v = .ok (tv, c₁)) (hsub : SubS c₁ tv u)
+    (hi : FInvR ρ η th.σs K cx th.env Rf) (hE : EnvOK p η) (htv : TvOK cx)
+    {r : Memory × List Ts × TTh} (hr : r ∈ tstep g mem pairs th) {t : Ts} {m : Msg}
+    (hn : NewAt mem r.1 t m) {n : Nat} (hw : WdAt (CE η) m.loc n) :
+    1 ≤ Rf (.wd n) := by
+  have hi0 := hi.1
+  have hotv : cx.opaqueOK tv = true :=
+    peek_opaqueOK htv (use_inv (ρ := ρ) (η := η) (σs := th.σs) (env := th.env) hu).1
+  have ho : cx.opaqueOK u = true := sub_opaqueOK hsub hotv
+  have htb : tb cx.ke.length u = true :=
+    tb_cellOf (peek_tb htv hpk) (rfl : cellOf (.loc μ u) = some (μ, u))
+  obtain ⟨rv, wsv, Rv, Rr, hev, hvv, hlv, hvrv, hi1, hle⟩ := useR hu hi hE.2.2
+  have hsat : Sat c₁.facts ρ := hi1.1.1
+  have hsigu : sig (close th.σs u) = sig (cl ρ η.wit 0 0 u) :=
+    sig_WitL hi0.2.2.2.1 ρ ho (lt_of_guardT htb hi0.2.2.2.2.1)
+  have hwcu : wc (cl ρ η.wit 0 0 u) ≠ none := by
+    rw [← wc_of_sig hsigu]; exact (Lay_canon hsub hlv).2.2.2.1
+  obtain ⟨rt, ws, hea, hv, hl⟩ := peek_VR hi0.2.1 hpk
+  obtain ⟨ad, c, hws, hsto, hat, -, -⟩ :=
+    cell_target (rfl : cellOf (.loc μ u) = some (μ, u)) (Fd_noarr fun h => hwcu (by simp [wc, h])) hv
+  obtain ⟨pw, rfl, hpw⟩ := map_singleton hws
+  have hsk := hl.2.1
+  obtain ⟨μr, ru, rfl, hsku⟩ : ∃ μr ru, rt = .loc μr ru ∧
+      etok (skel ru) = etok (skel (close th.σs u)) := by
+    simp only [close, substTs, skel, etok] at hsk
+    obtain ⟨μr, ru, rfl, -, h2⟩ := eskel_eq_loc hsk
+    exact ⟨μr, ru, rfl, h2⟩
+  have hsig : sig ru = sig (cl ρ η.wit 0 0 u) := by
+    have h1 : sig ru = sig (close th.σs u) := sig_of_eskel hsku
+    rw [h1]; exact hsigu
+  obtain ⟨us, hus⟩ : ∃ us, accs ru = some us := by
+    have : wc ru ≠ none := by rw [wc_of_sig hsig]; exact hwcu
+    cases h : accs ru with
+    | none => simp [wc, h] at this
+    | some us => exact ⟨us, rfl⟩
+  obtain ⟨hval, hlen⟩ := ownStoreVal hE.2.1 hi0.2.2.2.1 hi0.2.2.2.2.1 hsat hsub ho htb hvv hlv hsig hus
+  have hwU : wc (cl ρ η.wit 0 0 u) = some (nWords us) := by rw [← wc_of_sig hsig]; simp [wc, hus]
+  have hvalR := storeValR hE.2.1 hE.2.2 hi0.2.2.2.1 hi0.2.2.2.2.1 hsat hsub ho htb hvrv hlv hval.2
+  have key : tstep g mem pairs th =
+      (storeUnits g.k g.arch pw ad rel us wsv 0 (stOf mem pairs th)).map fun s' =>
+        (s'.mem, s'.pairs, withS { th with term := e, env := (x, .unit, []) :: th.env } s') := by
+    simp only [tstep, hterm, evalOp, hea, hev, cellOf, addrOf, hpw, hus, List.map_map]; rfl
+  rw [key, List.mem_map] at hr
+  obtain ⟨s', hs', rfl⟩ := hr
+  obtain ⟨jj, hjj, hloc⟩ := storeUnits_new_loc hs' rfl hn
+  exact wd_frame_compG hsto hat hvalR.1 (by rw [hwU, hlen]) hle (by rw [hloc]; rfl) (by rw [hloc]; rfl)
+    (by rw [hlen]; exact hjj) hw
+
+/-- (G2 P2) `storeCell_wd_frameG` at an `xchg` (any mode; value a subtype of the payload). -/
+theorem xchgCell_wd_frameG {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
+    {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {K : TEnv → Nat → List Word → Res → Prop} {Rf : Res}
+    {x : String} {a v : At} {μ : Mode} {u tv : Ty} {c₁ : Cx} {e : Expr}
+    (hterm : th.term = .let_ x (.xchg a v) e)
+    (hpk : cx.peek a = .ok (.ptr μ u)) (hu : cx.use v = .ok (tv, c₁)) (hsub : SubS c₁ tv u)
+    (hi : FInvR ρ η th.σs K cx th.env Rf) (hE : EnvOK p η) (htv : TvOK cx)
+    {r : Memory × List Ts × TTh} (hr : r ∈ tstep g mem pairs th) {t : Ts} {m : Msg}
+    (hn : NewAt mem r.1 t m) {n : Nat} (hw : WdAt (CE η) m.loc n) :
+    1 ≤ Rf (.wd n) := by
+  have hi0 := hi.1
+  have hotv : cx.opaqueOK tv = true :=
+    peek_opaqueOK htv (use_inv (ρ := ρ) (η := η) (σs := th.σs) (env := th.env) hu).1
+  have ho : cx.opaqueOK u = true := sub_opaqueOK hsub hotv
+  have htb : tb cx.ke.length u = true := tb_cellOf (peek_tb htv hpk) (rfl : cellOf (.ptr μ u) = some (μ, u))
+  obtain ⟨lab, c, pw, μr, ru, hea, hpw, hsto, hcty, -, hacc, -, -, hsig⟩ := ptr_view hi0 hpk htv ho
+  obtain ⟨rv, wsv, Rv, Rr, hev, hvv, hlv, hvrv, hi1, hle⟩ := useR hu hi hE.2.2
+  have hsat : Sat c₁.facts ρ := hi1.1.1
+  have hlr : accs ru = accs c.ty := by
+    rw [(Fd_lay hcty).2.2.1]
+    exact pub_accs hi0.2.2.2.1 hi0.2.2.2.2.1 (fun k => (hE.2.1 k).1) hi0.2.1 htv hpk rfl ho hea rfl
+  obtain ⟨us, hus⟩ : ∃ us, accs ru = some us := by
+    cases h : accs ru with
+    | none => rw [h] at hlr; exact absurd hlr.symm hacc
+    | some us => exact ⟨us, rfl⟩
+  have husc : accs c.ty = some us := by rw [← hlr, hus]
+  have hus' : wc c.ty = some (nWords us) := by simp [wc, husc]
+  obtain ⟨hval, hlen⟩ := ownStoreVal hE.2.1 hi0.2.2.2.1 hi0.2.2.2.2.1 hsat hsub ho htb hvv hlv hsig hus
+  have hsigu : sig (close th.σs u) = sig (cl ρ η.wit 0 0 u) :=
+    sig_WitL hi0.2.2.2.1 ρ ho (lt_of_guardT htb hi0.2.2.2.2.1)
+  have hvR : VRR (fun _ => 0) (CE (CE η)) c.ty (shp c.ty) wsv Rv := by
+    obtain ⟨hs, -⟩ := Lay_canon hsub hlv
+    have hvu : VRR ρ η u (shp (close th.σs u)) wsv Rv := by rw [← hs]; exact VRR_sub hsat hsub _ _ _ hvrv
+    have hvc : VRR (fun _ => 0) (CE η) (cl ρ η.wit 0 0 u) (shp (cl ρ η.wit 0 0 u)) wsv Rv := by
+      rw [← shp_of_sig hsigu]
+      exact (VRR_close hE.2.1 hE.2.2 ρ u [] 0 ρ (fun _ => 0) (shp (close th.σs u)) wsv Rv (fun k => rfl)
+        (fun k hk => absurd hk (Nat.not_lt_zero _))).1 hvu
+    rw [(Fd_lay hcty).1]
+    exact (Fd_VRR η hcty).2 hvc
+  have key : tstep g mem pairs th =
+      ((loadUnits g.arch pw ⟨lab, 0⟩ false us 0 (stOf mem pairs th)).flatMap fun (s1, old) =>
+        (storeUnits g.k g.arch pw ⟨lab, 0⟩ false us wsv 0 s1).map fun s2 => (s2, ru, old)).map
+        fun (s', t, ws) => (s'.mem, s'.pairs, withS { th with term := e, env := (x, t, ws) :: th.env } s') := by
+    simp only [tstep, hterm, evalOp, hea, hev, cellOf, addrOf, hpw, hus]
+  rw [key, List.mem_map] at hr
+  obtain ⟨r1, hr1, rfl⟩ := hr
+  obtain ⟨jj, -, hloc⟩ := xchg_new_loc (T := fun _ => ru) rfl hr1 hn
+  have hl : m.loc.label = lab := by rw [hloc]; rfl
+  exact wd_frame_wholeG (by rw [hl]; exact hsto) hvR (by rw [hus', hlen]) hle hw
+
+
+/-- (G2 P2) `storeCellLoc_wd_frameG` at an `xchg` (a locative of any mode). -/
+theorem xchgCellLoc_wd_frameG {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
+    {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {K : TEnv → Nat → List Word → Res → Prop} {Rf : Res}
+    {x : String} {a v : At} {μ : Mode} {u tv : Ty} {c₁ : Cx} {e : Expr}
+    (hterm : th.term = .let_ x (.xchg a v) e)
+    (hpk : cx.peek a = .ok (.loc μ u)) (hu : cx.use v = .ok (tv, c₁)) (hsub : SubS c₁ tv u)
+    (hi : FInvR ρ η th.σs K cx th.env Rf) (hE : EnvOK p η) (htv : TvOK cx)
+    {r : Memory × List Ts × TTh} (hr : r ∈ tstep g mem pairs th) {t : Ts} {m : Msg}
+    (hn : NewAt mem r.1 t m) {n : Nat} (hw : WdAt (CE η) m.loc n) :
+    1 ≤ Rf (.wd n) := by
+  have hi0 := hi.1
+  have hotv : cx.opaqueOK tv = true :=
+    peek_opaqueOK htv (use_inv (ρ := ρ) (η := η) (σs := th.σs) (env := th.env) hu).1
+  have ho : cx.opaqueOK u = true := sub_opaqueOK hsub hotv
+  have htb : tb cx.ke.length u = true :=
+    tb_cellOf (peek_tb htv hpk) (rfl : cellOf (.loc μ u) = some (μ, u))
+  obtain ⟨rv, wsv, Rv, Rr, hev, hvv, hlv, hvrv, hi1, hle⟩ := useR hu hi hE.2.2
+  have hsat : Sat c₁.facts ρ := hi1.1.1
+  have hsigu : sig (close th.σs u) = sig (cl ρ η.wit 0 0 u) :=
+    sig_WitL hi0.2.2.2.1 ρ ho (lt_of_guardT htb hi0.2.2.2.2.1)
+  have hwcu : wc (cl ρ η.wit 0 0 u) ≠ none := by
+    rw [← wc_of_sig hsigu]; exact (Lay_canon hsub hlv).2.2.2.1
+  obtain ⟨rt, ws, hea, hv, hl⟩ := peek_VR hi0.2.1 hpk
+  obtain ⟨ad, c, hws, hsto, hat, -, -⟩ :=
+    cell_target (rfl : cellOf (.loc μ u) = some (μ, u)) (Fd_noarr fun h => hwcu (by simp [wc, h])) hv
+  obtain ⟨pw, rfl, hpw⟩ := map_singleton hws
+  have hsk := hl.2.1
+  obtain ⟨μr, ru, rfl, hsku⟩ : ∃ μr ru, rt = .loc μr ru ∧
+      etok (skel ru) = etok (skel (close th.σs u)) := by
+    simp only [close, substTs, skel, etok] at hsk
+    obtain ⟨μr, ru, rfl, -, h2⟩ := eskel_eq_loc hsk
+    exact ⟨μr, ru, rfl, h2⟩
+  have hsig : sig ru = sig (cl ρ η.wit 0 0 u) := by
+    have h1 : sig ru = sig (close th.σs u) := sig_of_eskel hsku
+    rw [h1]; exact hsigu
+  obtain ⟨us, hus⟩ : ∃ us, accs ru = some us := by
+    have : wc ru ≠ none := by rw [wc_of_sig hsig]; exact hwcu
+    cases h : accs ru with
+    | none => simp [wc, h] at this
+    | some us => exact ⟨us, rfl⟩
+  obtain ⟨hval, hlen⟩ := ownStoreVal hE.2.1 hi0.2.2.2.1 hi0.2.2.2.2.1 hsat hsub ho htb hvv hlv hsig hus
+  have hwU : wc (cl ρ η.wit 0 0 u) = some (nWords us) := by rw [← wc_of_sig hsig]; simp [wc, hus]
+  have hvalR := storeValR hE.2.1 hE.2.2 hi0.2.2.2.1 hi0.2.2.2.2.1 hsat hsub ho htb hvrv hlv hval.2
+  have key : tstep g mem pairs th =
+      ((loadUnits g.arch pw ad false us 0 (stOf mem pairs th)).flatMap fun (s1, old) =>
+        (storeUnits g.k g.arch pw ad false us wsv 0 s1).map fun s2 => (s2, ru, old)).map
+        fun (s', t, ws) => (s'.mem, s'.pairs, withS { th with term := e, env := (x, t, ws) :: th.env } s') := by
+    simp only [tstep, hterm, evalOp, hea, hev, cellOf, addrOf, hpw, hus]
+  rw [key, List.mem_map] at hr
+  obtain ⟨r1, hr1, rfl⟩ := hr
+  obtain ⟨jj, hjj, hloc⟩ := xchg_new_loc (T := fun _ => ru) rfl hr1 hn
+  exact wd_frame_compG hsto hat hvalR.1 (by rw [hwU, hlen]) hle (by rw [hloc]; rfl) (by rw [hloc]; rfl)
+    (by rw [hlen]; exact hjj) hw
+
 /-- (pair gate) **The word-key footprint**: `nonWordFootT_of`'s case analysis for every word-key unit (`WdAt`), for
 a term that addresses neither a word (`WordOp`) nor a pair (`Word2Op`). -/
 theorem nonWdFootT_of {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
@@ -2586,7 +2794,15 @@ theorem nonWdFootT_of {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : 
     cases hop with
     | storeWordGive hpk hw' | storeWordKeep hpk hw' | storeWordHand hpk hw' =>
         exact (hnw (by simp only [WordOp]; exact ⟨_, _, hpk, hw'⟩)).elim
-    | storeRgn hpk _ hc | storeCap hpk _ hc => exact absurd hc (hsc' _ hpk _ _)
+    | storeRgn hpk _ hc _ hu _ hsub _ | storeCap hpk _ hc _ hu _ _ hsub _ =>
+        rcases cell_cases hc with rfl | rfl
+        · have had : adapt _ _ = _ := TermC1.rgn_adapt hi.1 hpk hm (TermC1.hmo_of_vars hi.1.2.1 hpk rfl)
+          rw [had, or_self] at hsub
+          exact storeCell_wd_frameG ht hpk hu hsub hi hE htv hr hn hw
+        · rcases hsub with hsub | hsub
+          · exact storeCellLoc_wd_frameG ht hpk hu hsub hi hE htv hr hn hw
+          · rw [TermC1.rgnLoc_adaptS hi.1 htv hpk hm (TermC1.hmo_of_varsL hi.1.2.1 hpk) _ _ hu hsub] at hsub
+            exact storeCellLoc_wd_frameG ht hpk hu hsub hi hE htv hr hn hw
     | storeOwn hpk hnw' hc =>
         rcases cell_cases hc with rfl | rfl
         · exact storeOwn_wd_frameG ht hpk hnw' hT hi hE htv hr hn hw
@@ -2599,13 +2815,21 @@ theorem nonWdFootT_of {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : 
         rcases hc with hc | ⟨_, hc, _⟩ <;> exact (fetchCell_no_wordAtG ht hpk hc hi.1 hE htv hr hn hw.unit).elim
     | fetchEpoch hpk hw' | fetchShare hpk hw' =>
         exact (hnw (by simp only [WordOp]; exact ⟨_, _, hpk, hw'⟩)).elim
-    | xchg hpk hx =>
+    | xchg hpk hx hu hsub _ =>
         cases hx with
         | own _ hc =>
             rcases cell_cases hc with rfl | rfl
             · exact xchgOwn_wd_frameG ht hpk hT hi hE htv hr hn hw
             · exact xchgLoc_wd_frameG ht hpk hT hi hE htv hr hn hw
-        | rgn _ hc => exact absurd hc (hsc' _ hpk _ _)
+        | rgn _ hc =>
+            rcases cell_cases hc with rfl | rfl
+            · have had : adapt _ _ = _ := TermC1.rgn_adapt hi.1 hpk hm (TermC1.hmo_of_vars hi.1.2.1 hpk rfl)
+              rw [had, or_self] at hsub
+              exact xchgCell_wd_frameG ht hpk hu hsub hi hE htv hr hn hw
+            · rcases hsub with hsub | hsub
+              · exact xchgCellLoc_wd_frameG ht hpk hu hsub hi hE htv hr hn hw
+              · rw [TermC1.rgnLoc_adaptS hi.1 htv hpk hm (TermC1.hmo_of_varsL hi.1.2.1 hpk) _ _ hu hsub] at hsub
+                exact xchgCellLoc_wd_frameG ht hpk hu hsub hi hE htv hr hn hw
     | xchgAt => exact xchgAt_wd_frameG ht hT hi hE htv hr hn hw
     | xchgAtF => exact xchgAtF_wd_frameG ht hT hi hE htv hr hn hw
     | bufInit => exact bufInit_wd_frameG ht hT hi hE htv hr hn hw

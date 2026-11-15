@@ -92,9 +92,9 @@ theorem anchPost [WrIniC] {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : 
   have hb : ∀ l, (CE η').sto l ≠ none → (CE η'').pfr l ≠ (CE η').pfr l →
       ∀ x bb ib v e0, th.term ≠ .let_ x (.bufInit bb ib v) e0 := by
     intro l hs hne x bb ib v e0 hterm
-    obtain ⟨y, a, e1, -, -, -, hpub, -⟩ := hPfr l hs hne
-    rw [hpub] at hterm; cases hterm
-  have hA := anchR_post hF hm' hb hE' hT' htv' hi' hm0 (hsc th X.hth (TermStep.not_spawnT_of_mem X.hr) ρ' η' cx' hE' hT' htv' hi')
+    obtain ⟨a, rt, ws, ad, hk, -⟩ := hPfr l hs hne
+    rcases hk with ⟨y, e1, hpub⟩ | ⟨r0, pn, tn, e1, hpub⟩ | ⟨y, r0, e1, hpub⟩ <;> (rw [hpub] at hterm; cases hterm)
+  have hA := anchR_post hF hm' hb hE' hT'.1 htv' hi' hm0 (hsc th X.hth (TermStep.not_spawnT_of_mem X.hr) ρ' η' cx' hE' hT' htv' hi')
     (TermViewInv.envVR_of_run hV0 X.run X.hth) X.hr (hWL (noPfr (CE η')))
     (by rw [hCE']; exact X.inv.riniCoh i th S X.hth)
     (fun l cl f hs hp => by rw [hCE'] at hs hp; exact X.inv.frlt l cl f (cutSto_sub hs) hp)
@@ -107,7 +107,7 @@ theorem anchPost [WrIniC] {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : 
 ghost `zf` covers `Z` and the labels the run has published (`PubZO`), where no `bufInit` follows
 (`hZo`). -/
 theorem solo_typedXFO {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c : Cfg} {E0 : TEnv} {Eu Ea : TEnv}
-    {n0 v0 na0 : Nat} {Z : AllocLabel → Prop} {H : AllocLabel → Nat → Ts → Prop} [ProgRetIall p] [WrIniC] (hP : ProgT p)
+    {n0 v0 na0 : Nat} {Z : AllocLabel → Prop} {H : AllocLabel → Nat → Ts → Prop} [ProgRetIall p] [TermA4.ProgCkWC p] [WrIniC] (hP : ProgT p)
     (hsc : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → ScopeAt p i c0) (hvI : TermViewInv.ViewInv c)
     (hwin : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → NoHoldPubA p k arch Eu Ea i c0)
     {st : Cfg} (h0 : InvAtXFO Z p k arch i E0 n0 v0 na0 st c H (Ea := Ea) (Eu := Eu)) (hTA : TermTyped.TidAt i c E0) {c2 : Cfg} (h : Solo p k arch i c c2)
@@ -160,7 +160,7 @@ configuration**: the value is defined (`certified_promNotUndefX`), the fulfillin
 (`certified_promTypedX`), and the environment there from `solo_typedXFO`, where the promise is no
 longer outstanding, so `MemInv` types its word. -/
 theorem certified_promNotUndefXO {p : Prog} {k : Promises.Knobs} {arch : Arch} {c : Cfg} {i : Nat}
-    {E0 : TEnv} {Eu Ea : TEnv} {n0 v0 na0 : Nat} {Z : AllocLabel → Prop} {H : AllocLabel → Nat → Ts → Prop} [ProgRetIall p] [WrIniC]
+    {E0 : TEnv} {Eu Ea : TEnv} {n0 v0 na0 : Nat} {Z : AllocLabel → Prop} {H : AllocLabel → Nat → Ts → Prop} [ProgRetIall p] [TermA4.ProgCkWC p] [WrIniC]
     (hP : ProgT p)
     (hsc : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → ScopeAt p i c0) (hvI : TermViewInv.ViewInv c)
     (hwin : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → NoHoldPubA p k arch Eu Ea i c0)

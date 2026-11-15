@@ -16,7 +16,7 @@ already initialised at `Eg.ini` (`Inh` of the promiser's cut gives a value there
 certificate's `WordOK` value is spliced at the promise's `.one` unit, `TearOK`/no two-word unit),
 moved to the planted environment by `ValOf_monoK`; a slot not initialised at `Eg.ini` is at a
 planted label (`plantG` raises `ini` only there) and is `PromWordNewF`. -/
-theorem promWordW_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : CertRunP p k arch Sp Init MintOK c0)
+theorem promWordW_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : CertRunP p k arch Sp Init MintOK c0)
     (hagree : RunAgreeF p k arch Sp Init MintOK c0) (hbp : BufInitPubF p k arch Sp Init MintOK c0) (hbr : BufInitPubFR p k arch Sp Init MintOK c0) (hNew : PromWordNewF p k arch Sp Init MintOK c0) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) :
     PromWordWF p k arch Sp Init MintOK c0 := by
   intro c Eg Tot HP HS cr db j th a v w X t m htm hmm cl hcl hsh hI hlab hpv b S us hseg hus h1 hb ho
@@ -64,7 +64,7 @@ theorem promWordW_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p]
   -- the cell in the promiser's cut, and its type facts
   obtain ⟨hcl0, hTr, hnT, hrT⟩ : (Cut Eg j S0).sto m.loc.label = some cl ∧
       (∀ b S, SegOf cl.ty b S → accs S ≠ none → TearOK S) ∧ Ty.noOwnIn [] cl.ty = true ∧
-      rgnFree cl.ty = true := by
+      (rgnFree cl.ty = true ∨ TermC1.drf1 cl.ty = true) := by
     rcases hsh with ⟨f, hf⟩
     by_cases hL : PlantL c Eg j th a v w m.loc.label
     · obtain ⟨l', -, hR⟩ := id hL
@@ -78,7 +78,7 @@ theorem promWordW_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p]
       obtain ⟨-, hT2, -, h4, h5⟩ := hm.2.2.2.2.2.2.2.2.1.2.2.1 m.loc.label cl f hc0 h
       exact ⟨hc0, hT2, h4, h5⟩
   have hnS := noOwn_seg hseg hnT
-  have hrS := rgnFree_seg hseg hrT
+  have hrS := hrT.imp (rgnFree_seg hseg) (drf1_seg hseg)
   -- a value of the segment in the promiser's cut
   obtain ⟨wsE, hE, hlE⟩ := hm.2.2.2.2.2.2.2.2.1.2.1 m.loc.label cl b S us hcl0 hseg hus hIS
   -- no two-word unit at the promise
@@ -107,7 +107,7 @@ theorem promWordW_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p]
     subst hal
     exact ⟨cl1, hc1, ho1, hn1⟩
   have hV1 : ValOf (plantE (Cut Eg j S0) (stOf c.mem c.pairs th) (PlantL c Eg j th a v w)) S ws := by
-    refine ValOf_monoK (G := PlantG (Cut Eg j S0) (PlantL c Eg j th a v w)) hnS hrS hus hL
+    refine ValOf_monoKL (G := PlantG (Cut Eg j S0) (PlantL c Eg j th a v w)) hnS hrS hus hL
       hx2.2.2.1 hx2.2.2.2.1 (fun l c0 hG hc0 => ?_) (fun l hG => ?_) (fun l f hG hf => ?_) (fun l B hG hB => ?_)
       hR.pay ?_ hV
     · show (Cut Eg j S0).sto l = some c0
@@ -142,10 +142,10 @@ theorem promWordW_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p]
       · rw [hx2.2.2.2.2.2.2.2.2.1 l B0 hB0] at hB; rw [hB0, hB]
     · intro w1 hw1 a' g hv'
       rcases hmem w1 hw1 with hwE | rfl
-      · rcases noJunk_valOf hE hnS hrS hus hlE w1 hwE a' g hv' with ⟨c1, f1, h1', h2', -⟩ | ⟨B, hB, -⟩
+      · rcases noJunk_valOfL hE hnS hrS hus hlE w1 hwE a' g hv' with ⟨c1, f1, h1', h2', -⟩ | ⟨B, hB, -⟩
         · exact .inl ⟨c1, f1, h1', h2'⟩
         · exact .inr (.inr ⟨B, hB⟩)
-      have hJ := noJunk_valOf hV hnS hrS hus hL w1 hw1 a' g hv'
+      have hJ := noJunk_valOfL hV hnS hrS hus hL w1 hw1 a' g hv'
       have hvm : w1.view ≤ m.view := hle.2 a' g hv'
       have hmv : m.val = .loc a' g := by rw [← hv']; exact hle.1.symm
       have hfb2' : FrBound (Cut Eg j S0) (c.mem.size + 1) th.vs.vWr E2 := by
@@ -164,12 +164,12 @@ theorem promWordW_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p]
             rcases hlab with h | ⟨l', h1', hR'⟩
             · rw [h]; exact ClR.base
             · exact ClR.step h1' hR'
-          exact .inr (.inl ⟨m.loc.label, hroot, ⟨t, htm, m, hmm, rfl, ⟨cl, hcl0, hnT, hrT⟩, a', g, hmv, rfl, c1, hc1,
+          exact .inr (.inl ⟨m.loc.label, hroot, ⟨t, htm, m, hmm, rfl, ⟨cl, hcl0, hnT⟩, a', g, hmv, rfl, c1, hc1,
             ho1, hpf⟩⟩)
         · exact .inl ⟨c1, f, hc1, hpf⟩
       · exact .inr (.inr ⟨B, hB⟩)
   have hV2 := ValOf_transferS (InclS_cut_pub (EgP Eg (plantOf c Eg j a v w) (plantN c Eg j a v w) j c.mem.size) j S0)
-    (noOR_of S [] hnS hrS) (ValOf_transferS (inclS_plantE X S0 j S0) (noOR_of S [] hnS hrS) hV1)
+    (noOR_ofL S [] hnS hrS) (ValOf_transferS (inclS_plantE X S0 j S0) (noOR_ofL S [] hnS hrS) hV1)
   exact ⟨b, S, ws, m.loc.offset - b, w0, hseg,
     ⟨hV2, fun us' hus' => by rw [hus] at hus'; cases hus'; exact hL⟩, hget, hle, by omega⟩
 

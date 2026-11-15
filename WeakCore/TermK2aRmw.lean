@@ -235,13 +235,13 @@ theorem rmw_fetch {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
     cases u <;> simp [wordOf] at hw
     obtain ⟨rfl, rfl⟩ := hw
     rename_i r P
-    have hpwf := wordRef_pwf hpk (.inl rfl) hμ hi hE htv hm
+    have hpwf := wordRef_pwf hpk (.inl rfl) hi hE htv hm
     have hg : P.ghost = false := by
       have := pwf_epochOK hpwf hep
       unfold epochOK at this; simp only [Bool.and_eq_true, Bool.not_eq_true'] at this
       exact this.1.2
     obtain ⟨lab, pw, μQ, rQ, hea, hpw, -, hcell⟩ :=
-      wordCellF (acq := acq) (rel := rel) (g := g) (mem := mem) (pairs := pairs) hpk hμ hg hi hE htv hm
+      wordCellF (acq := acq) (rel := rel) (g := g) (mem := mem) (pairs := pairs) hpk hg hi hE htv hm
     obtain ⟨tv, htvk, hjo⟩ := hj
     obtain ⟨rtv, nw, hev, hnwv, -⟩ := atom_num hi.2.1 htvk hjo
     have hj1 := heq ρ hi.1
@@ -261,7 +261,7 @@ theorem rmw_fetch {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
       unfold fetchOK at hok; simp only [Bool.and_eq_true, Bool.not_eq_true'] at hok
       exact hok.1.1.1.1
     obtain ⟨lab, pw, μQ, rQ, hea, hpw, -, hcell⟩ :=
-      wordCellF (acq := acq) (rel := rel) (g := g) (mem := mem) (pairs := pairs) hpk hμ hg hi hE htv hm
+      wordCellF (acq := acq) (rel := rel) (g := g) (mem := mem) (pairs := pairs) hpk hg hi hE htv hm
     obtain ⟨tv, htvk, hjo⟩ := hj
     obtain ⟨rtv, nw, hev, hnwv, -⟩ := atom_num hi.2.1 htvk hjo
     have hjd := heq ρ hi.1
@@ -296,7 +296,7 @@ theorem rmw_fetchLoc {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : T
       obtain ⟨rfl, rfl⟩ := hc
       have hus1 : accs (cl ρ η.wit 0 0 .int) = some [.one] := by simp [cl, accs]
       obtain ⟨ad, pw, μr, ru, hea, haddr, -, -, -, -, hld, -, -⟩ :=
-        locCell (acq := acq) (rel := rel) (g := g) (mem := mem) (pairs := pairs) hpk hμ
+        locCell (acq := acq) (rel := rel) (g := g) (mem := mem) (pairs := pairs) hpk
           (by simp [Cx.opaqueOK, Ty.guardT]) hus1 hi hE htv hm
       obtain ⟨hi1, rv, wsv, hev, hvv, -⟩ := use_FInv hu hi
       have hvi := VR_sub hi1.1 hsub _ _ hvv
@@ -314,14 +314,14 @@ theorem rmw_fetchLoc {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : T
     cases u <;> simp [wordOf] at hw
     obtain ⟨rfl, rfl⟩ := hw
     rename_i r P
-    have hpwf := wordRef_pwf hpk (.inr rfl) hμ hi hE htv hm
+    have hpwf := wordRef_pwf hpk (.inr rfl) hi hE htv hm
     have hg : P.ghost = false := by
       have := pwf_epochOK hpwf hep
       unfold epochOK at this; simp only [Bool.and_eq_true, Bool.not_eq_true'] at this
       exact this.1.2
     have hus1 : accs (cl ρ η.wit 0 0 (.word r P)) = some [.one] := by simp [cl, accs, hg]
     obtain ⟨ad, pw, μr, ru, hea, haddr, -, hsku, -, -, hld, -, -⟩ :=
-      locCell (acq := acq) (rel := rel) (g := g) (mem := mem) (pairs := pairs) hpk hμ
+      locCell (acq := acq) (rel := rel) (g := g) (mem := mem) (pairs := pairs) hpk
         (by simp [Cx.opaqueOK, Ty.guardT]) hus1 hi hE htv hm
     obtain ⟨rQ, rfl⟩ := eskel_word (show etok (skel ru) = .word (.lit 0) P by rw [hsku]; rfl)
     obtain ⟨tv, htvk, hjo⟩ := hj
@@ -344,7 +344,7 @@ theorem rmw_fetchLoc {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : T
       exact hok.1.1.1.1
     have hus1 : accs (cl ρ η.wit 0 0 (.word r P)) = some [.one] := by simp [cl, accs, hg]
     obtain ⟨ad, pw, μr, ru, hea, haddr, -, hsku, -, -, hld, -, -⟩ :=
-      locCell (acq := acq) (rel := rel) (g := g) (mem := mem) (pairs := pairs) hpk hμ
+      locCell (acq := acq) (rel := rel) (g := g) (mem := mem) (pairs := pairs) hpk
         (by simp [Cx.opaqueOK, Ty.guardT]) hus1 hi hE htv hm
     obtain ⟨rQ, rfl⟩ := eskel_word (show etok (skel ru) = .word (.lit 0) P by rw [hsku]; rfl)
     obtain ⟨tv, htvk, hjo⟩ := hj

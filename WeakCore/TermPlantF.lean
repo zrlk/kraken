@@ -35,7 +35,7 @@ stepper has no outstanding promise there.  `certified_promLoc` from `c'`
 (start environment `E'`): the promise lies at a cell of `E'` (but a box label
 is no Σ cell, `BoxInv`) or at a label of index at least the new allocation
 count (but the box label's index is below it). -/
-theorem noBoxProm_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [WrIniC] (hP : ProgT p) (hrun : CertRunT p k arch Sp Init MintOK c0) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) :
+theorem noBoxProm_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [WrIniC] (hP : ProgT p) (hrun : CertRunT p k arch Sp Init MintOK c0) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) :
     NoBoxPromF p k arch Sp Init MintOK c0 := by
   intro c c' Eg Tot HP HS cr db i th r S ρ η cx Rf Rs E' Tot' HP' HS' C F cr' db' δ X Y Z hS hPfr l B hfr hB t ht m hm
   have hAP := TermXFO.anchPost (hV0 := hV0) X Y.1 Z hS hPfr (hrun X S hS).1
@@ -140,7 +140,7 @@ cell.  The promise is fulfilled along the certificate by a single-word write
 (`certified_promTypedX`, `SWOne_holds`), a `.one` unit of a component of the
 cell (cells keep their type along `Ext`); `oneAt_twoAtT`.  The cell is in the
 promiser's cut (`promLocP`; at a label yet to allocate `Eg.sto` is `none`). -/
-theorem promNoTwoP_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [WrIniC] (hP : ProgT p) (hrun : CertRunP p k arch Sp Init MintOK c0) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) :
+theorem promNoTwoP_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [WrIniC] (hP : ProgT p) (hrun : CertRunP p k arch Sp Init MintOK c0) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) :
     PromNoTwoPF p k arch Sp Init MintOK c0 := by
   intro c Eg Tot HP HS cr db j th a v w X cl hcl o htw
   obtain ⟨S, hS_S⟩ := X.inv.thr j th X.hth
@@ -243,13 +243,13 @@ variable {Sp : TermRun.Cfg → TermRun.Cfg → Prop}
 
 /-- The type facts at a planted label, from `plant_typeFacts` at its `PlantR`
 edge (in the promised configuration, typed at the promiser's cut). -/
-theorem plant_facts (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [WrIniC] (hP : ProgT p) (hrun : CertRunP p k arch Sp Init MintOK c0)
+theorem plant_facts (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [WrIniC] (hP : ProgT p) (hrun : CertRunP p k arch Sp Init MintOK c0)
     {c : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {j : Nat} {th : TTh}
     {a : Address} {v : WeakMem.Val} {w : Ts} (X : PCtxX p k arch Sp Init MintOK c0 c Eg Tot HP HS cr db j th a v w)
     {l l' : AllocLabel} (hR : PlantR (cutP Eg j) (c.mem.push ⟨a, v, w⟩) (th.promises ++ [c.mem.size]) l' l) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) :
     ∃ cl, Eg.sto l = some cl ∧ cl.owner = some j ∧ Eg.pfr l = none ∧
       LayT cl.ty ∧ (∀ b S, SegOf cl.ty b S → accs S ≠ none → TearOK S) ∧ Ty.coupledOKIn [] cl.ty = true ∧
-      Ty.noOwnIn [] cl.ty = true ∧ rgnFree cl.ty = true := by
+      Ty.noOwnIn [] cl.ty = true ∧ (rgnFree cl.ty = true ∨ TermC1.drf1 cl.ty = true) := by
   obtain ⟨S, hS_S⟩ := X.inv.thr j th X.hth
   obtain ⟨-, hTE, hm, -⟩ := id hS_S
   have hpi := promise_inv (a := a) (v := v) (w := w) X.hth
@@ -261,19 +261,19 @@ theorem plant_facts (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] 
       (Nat.sub_le_sub_right (by rw [hpi.1]; show c.mem.size ≤ (c.mem.push _).size; rw [Array.size_push]; exact Nat.le_succ _) 1))
   have hX : InvAtX p k arch j (Cut Eg j S) _ _ (promise c j a v w) :=
     ⟨th0, E, hth0, hx, hTE0, hm0, hSC0, hbo0, hfb, hfr, fun _ _ _ h => h.elim, hIH0, hTyP, hRcP⟩
-  obtain ⟨t, ht, m, hmt, hl', ⟨ca, hca, hno, hrf⟩, a', g, hv, hal, cl, hcl, hown, hnone⟩ := hR
+  obtain ⟨t, ht, m, hmt, hl', ⟨ca, hca, hno⟩, a', g, hv, hal, cl, hcl, hown, hnone⟩ := hR
   have ht' : t ∈ TermFul.promsOf (promise c j a v w) j := by rw [TermFul.promsOf_some hpi.2.1]; exact ht
   have hmt' : (promise c j a v w).mem[t]? = some m := by rw [hpi.1]; exact hmt
   have hca' : (Cut Eg j S).sto m.loc.label = some ca := by rw [hl']; exact hca
   have hcl' : (Cut Eg j S).sto a'.label = some cl := by rw [hal]; exact hcl
   obtain ⟨h1, h2, h3, h4, h5⟩ := plant_typeFacts (hPS := hPS) (hSub := hSub) (hSig := hSig) hP (fun c1 h1 h2 => (hrun X S hS_S c1 h1 h2).1) (by first | exact TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw | exact TermViewInv.viewInv_run hV0 X.run | exact TermViewInv.viewInv_thread (TermViewInv.viewInv_run hV0 X.run) X.hc')
-    (fun c1 h1 h2 => (hrun X S hS_S c1 h1 h2).2) hX (TermMain.tidAt_cutP X.inv j S) X.cert ht' hmt' hca' hno hrf hv hcl'
+    (fun c1 h1 h2 => (hrun X S hS_S c1 h1 h2).2) hX (TermMain.tidAt_cutP X.inv j S) X.cert ht' hmt' hca' hno hv hcl'
   exact ⟨cl, cutSto_sub hcl, hown, hnone, h1, h2, h3, h4, h5⟩
 
 /-- **P2 `plantSpec`** for `plantOf`: a planted label had no frontier, is an
 own cell of the promiser, its frontier is at most memory's size, and its type
 is `noOR`. -/
-theorem plantSpec_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [WrIniC] (hP : ProgT p) (hrun : CertRunP p k arch Sp Init MintOK c0)
+theorem plantSpec_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [WrIniC] (hP : ProgT p) (hrun : CertRunP p k arch Sp Init MintOK c0)
     {c : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {j : Nat} {th : TTh}
     {a : Address} {v : WeakMem.Val} {w : Ts} (X : PCtxX p k arch Sp Init MintOK c0 c Eg Tot HP HS cr db j th a v w) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) :
     PlantSpec Eg (plantOf c Eg j a v w) j c.mem.size := by
@@ -286,10 +286,10 @@ theorem plantSpec_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p]
     have hu' : u ∈ th.promises := (List.mem_filter.1 hu).1
     exact Nat.le_of_lt (X.inv.plt j th u X.hth hu')
   · rw [hcl] at hcl'; cases hcl'
-    exact noOR_of _ [] h4 h5
+    exact noOR_ofL _ [] h4 h5
 
 /-- **P4b `plantCpl`** for `plantOf`. -/
-theorem plantCpl_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [WrIniC] (hP : ProgT p) (hrun : CertRunP p k arch Sp Init MintOK c0) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) :
+theorem plantCpl_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [WrIniC] (hP : ProgT p) (hrun : CertRunP p k arch Sp Init MintOK c0) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) :
     PlantCplF p k arch Sp Init MintOK c0 plantOf := by
   intro c Eg Tot HP HS cr db j th a v w X l f hf cl hcl
   obtain ⟨⟨l', -, hR⟩, -⟩ := plantOf_some X.hth hf
@@ -716,6 +716,12 @@ theorem rgnFree_seg {T S : Ty} {b : Nat} (hs : SegOf T b S) (h : rgnFree T = tru
   · exact h
   · simpa [rgnFree] using h
 
+/-- (M12B) `rgnFree_seg` for `drf1`: a segment of a `drf1` cell type is `drf1`. -/
+theorem drf1_seg {T S : Ty} {b : Nat} (hs : SegOf T b S) (h : TermC1.drf1 T = true) : TermC1.drf1 S = true := by
+  rcases hs with ⟨-, rfl, -⟩ | ⟨N, us, j, rfl, -⟩
+  · exact h
+  · simpa [TermC1.drf1] using h
+
 theorem plantOf_of {c : Cfg} {Eg : GEnv} {j : Nat} {th : TTh} {a : Address} {v : WeakMem.Val} {w : Ts}
     {l : AllocLabel} (hth : c.ths[j]? = some th) (h : PlantL c Eg j th a v w l) :
     plantOf c Eg j a v w l = some (plantF (cutP Eg j) (stOf c.mem c.pairs th) l) := by
@@ -734,9 +740,12 @@ variable {Sp : TermRun.Cfg → TermRun.Cfg → Prop}
 cells (`ownSeen`: no `bufInit` reaches them, `TermOwnK5`). -/
 def IniZF (Eg : GEnv) (l : AllocLabel) : Prop := Eg.pubd l ∧ Eg.sto l ≠ none
 
-/-- (iniop) The thread step publishes the own cell `l` (the term-level T-split). -/
+/-- (iniop) The thread step publishes the own cell `l` (the term-level T-split): a fencing op
+(`publish`, `region`, `intoRgn`; c1 PubAt) whose reference names `l`. -/
 def PubStepOf (Eg : GEnv) (i : Nat) (th : TTh) (l : AllocLabel) : Prop :=
-  ∃ cl y a e rt ws ad g', Eg.sto l = some cl ∧ cl.owner = some i ∧ th.term = .let_ y (.publish a) e ∧
+  ∃ cl a rt ws ad g', Eg.sto l = some cl ∧ cl.owner = some i ∧
+    ((∃ y e, th.term = .let_ y (.publish a) e) ∨ (∃ r pn tn e, th.term = .region a r pn tn e) ∨
+      (∃ y r e, th.term = .let_ y (.intoRgn r a) e)) ∧
     evalAt th.env a = some (rt, ws) ∧ ws.map (·.val) = [.loc ad g'] ∧ ad.label = l
 
 /-- (iniop) The start labels whose counts a thread step's certificate run keeps: the published
@@ -875,7 +884,7 @@ theorem inclS_bare (E : TEnv) : InclS ({ prog := E.prog } : TEnv) E := by
 /-- (Z-alt (a)) **`PlantInhF` at zero-width slots**: a planted buffer of
 uninhabited zero-width elements is not raised (`NpZ`), and an inhabited element type
 has a value of no words in every environment of the program (`InhZ`, `ValOf_transferS`). -/
-theorem plantInhZ (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [WrIniC] (hP : ProgT p) (hrun : CertRunP p k arch Sp Init MintOK c0)
+theorem plantInhZ (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [WrIniC] (hP : ProgT p) (hrun : CertRunP p k arch Sp Init MintOK c0)
     {c : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {j : Nat} {th : TTh}
     {a : Address} {v : WeakMem.Val} {w : Ts} (X : PCtxX p k arch Sp Init MintOK c0 c Eg Tot HP HS cr db j th a v w)
     (j' : Nat) (Sj : AllocLabel → Prop) (l : AllocLabel) (f : Ts) (cl : Cell) (b : Nat) (S : Ty) (us : List Acc)
@@ -889,7 +898,7 @@ theorem plantInhZ (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [W
   obtain ⟨clp, hclp, -, -, -, -, -, h4, h5⟩ := plant_facts (hV0 := hV0) (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hrun X hRp
   rw [hcl0] at hclp; cases hclp
   have hnS := noOwn_seg hseg h4
-  have hrS := rgnFree_seg hseg h5
+  have hrS := h5.imp (rgnFree_seg hseg) (drf1_seg hseg)
   have hcP : (cutP Eg j).sto l = some cl := by
     obtain ⟨-, -, t, -, m, -, -, -, a1, g, -, hal, cl1, hc1, -, -⟩ := hPL
     subst hal
@@ -913,13 +922,13 @@ theorem plantInhZ (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [W
     exact hini
   · obtain ⟨ws, hv, hlen⟩ : InhZ (cutP Eg j).prog S :=
       Classical.byContradiction fun hn => hE ⟨cl, N, S, us, hcP, hT, hus, h0, hn⟩
-    refine ⟨ws, ValOf_transferS (inclS_bare _) (noOR_of S [] hnS hrS) hv, ?_⟩
+    refine ⟨ws, ValOf_transferS (inclS_bare _) (noOR_ofL S [] hnS hrS) hv, ?_⟩
     rw [hlen, h0]
 
 #print axioms plantInhZ
 
 /-- **P4b `plantInh`** for `plantOf`/`plantN`: one-word slots by `certified_hinhW1`. -/
-theorem plantInh_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [WrIniC] (hP : ProgT p) (hrun : CertRunP p k arch Sp Init MintOK c0) (h0 : TermPlantF.PromViewLtR p k arch Sp c0)
+theorem plantInh_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [WrIniC] (hP : ProgT p) (hrun : CertRunP p k arch Sp Init MintOK c0) (h0 : TermPlantF.PromViewLtR p k arch Sp c0)
     (hagree : RunAgreeF p k arch Sp Init MintOK c0) (hbp : BufInitPubF p k arch Sp Init MintOK c0) (hbr : BufInitPubFR p k arch Sp Init MintOK c0)
     (hwide : PlantInhWF p k arch Sp Init MintOK c0) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) :
     PlantInhF p k arch Sp Init MintOK c0 plantOf plantN := by
@@ -948,7 +957,7 @@ theorem plantInh_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] 
   obtain ⟨clp, hclp, -, -, -, -, -, h4, h5⟩ := plant_facts (hV0 := hV0) (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hrun X hRp
   rw [hcl0] at hclp; cases hclp
   have hnS := noOwn_seg hseg h4
-  have hrS := rgnFree_seg hseg h5
+  have hrS := h5.imp (rgnFree_seg hseg) (drf1_seg hseg)
   have hpv := promViewLt_run h0 X.run
   obtain ⟨ws, hv, hlen⟩ := TermIni.certified_hinhW1HP (hTy0 := (X.inv.tyRec X.hth S0).1) (hRc0 := (X.inv.tyRec X.hth S0).2) (hPS := hPS) (hSub := hSub) (hSig := hSig) (E0 := Cut Eg j S0)
     (hrc0 := X.inv.riniCoh _ _ _ X.hth) (hfl0 := fun l cl f hs hp => X.inv.frlt l cl f (cutSto_sub hs) hp) (Lp := PlantL c Eg j th a v w)
@@ -967,8 +976,8 @@ theorem plantInh_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] 
           by show (plantG Eg (plantOf c Eg j a v w) (plantN c Eg j a v w)).pfr l1 = _
              simp only [plantG, plantOf_of X.hth hl1]⟩
       obtain ⟨l2, h2, hR⟩ := id hl1
-      obtain ⟨ca, hca, hoa, -, -, -, -, hno, hrf⟩ := plant_facts (hV0 := hV0) (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hrun X hR
-      exact ⟨l1, ClR.step h2 hR, ⟨u, List.mem_append_left _ hu, m, hmp, hl, ⟨ca, cutSto_own hca hoa, hno, hrf⟩,
+      obtain ⟨ca, hca, hoa, -, -, -, -, hno, -⟩ := plant_facts (hV0 := hV0) (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hrun X hR
+      exact ⟨l1, ClR.step h2 hR, ⟨u, List.mem_append_left _ hu, m, hmp, hl, ⟨ca, cutSto_own hca hoa, hno⟩,
         a', g, hv, rfl, cl2, hc2, ho2, hn2⟩⟩)
     (fun a2 cl2 hc2 hn2 => by
       rcases (cutSto_some.1 hc2).2 with h | ⟨f2, hf2⟩
@@ -994,7 +1003,7 @@ theorem plantInh_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] 
         rfl
       unfold IniSeg at hini ⊢; rw [e]; exact hini)
     hnot
-  exact ⟨ws, ValOf_transferS (inclS_plantE X S0 j' Sj) (noOR_of S [] hnS hrS) hv, hlen⟩
+  exact ⟨ws, ValOf_transferS (inclS_plantE X S0 j' Sj) (noOR_ofL S [] hnS hrS) hv, hlen⟩
 
 end
 
@@ -1072,8 +1081,10 @@ theorem store_uaI {p : Prog} {g : G} {s : St} {ρ : Nat → Nat} {η : TEnv} {σ
   | storePub hp _ hc _ hu' hsub _ _ =>
       exact cell_uaI hi hE htv hp hc (sub_opaqueOK hsub
         (peek_opaqueOK htv (use_inv (ρ := ρ) (η := η) (σs := σs) (env := env) hu').1)) hea hcr hb hus
-  | storeRgn hp _ hc => exact absurd hc (hsc _ hp _ _)
-  | storeCap hp _ hc => exact absurd hc (hsc _ hp _ _)
+  -- a region cell's store (TermTyped `store_ua` pattern)
+  | storeRgn hp _ hc _ hu' _ hsub _ | storeCap hp _ hc _ hu' _ _ hsub _ =>
+      exact cell_uaI hi hE htv hp hc (opaqueOK_subR
+        (peek_opaqueOK htv (use_inv (ρ := ρ) (η := η) (σs := σs) (env := env) hu').1) hsub) hea hcr hb hus
   | storeWordGive hp hw | storeWordKeep hp hw | storeWordHand hp hw =>
       obtain ⟨μ, ht⟩ := wordOf_cases hw
       rcases ht with rfl | rfl
@@ -1090,7 +1101,9 @@ theorem xchg_uaI {p : Prog} {g : G} {s : St} {ρ : Nat → Nat} {η : TEnv} {σs
   cases hop with
   | xchg hp hx hu' hsub _ =>
       cases hx with
-      | rgn _ hc _ _ _ => exact absurd hc (hsc _ hp _ _)
+      | rgn _ hc _ _ _ =>
+          exact cell_uaI hi hE htv hp hc (opaqueOK_subR
+            (peek_opaqueOK htv (use_inv (ρ := ρ) (η := η) (σs := σs) (env := env) hu').1) hsub) hea hcr hb hus
       | own _ hc _ =>
           exact cell_uaI hi hE htv hp hc (sub_opaqueOK (hsub.elim id id)
             (peek_opaqueOK htv (use_inv (ρ := ρ) (η := η) (σs := σs) (env := env) hu').1)) hea hcr hb hus
@@ -1297,10 +1310,9 @@ theorem fetch_swI {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
   | fetchEpoch hp hw hep =>
       obtain ⟨μ, ht⟩ := wordOf_cases hw
       simp only at ht
-      obtain ⟨μ', u', ht', hμ'⟩ := hsc _ hp
-      have hμ := word_mode ht ht' hμ'
+      obtain ⟨μ', u', ht'⟩ := hsc _ hp
       exact tgt_swI hi.2.1 hp ht hea hb
-        (by simp [cl, accs, pwf_epoch_ghost (wordRef_pwf hp ht hμ hi hE htv hm) hep])
+        (by simp [cl, accs, pwf_epoch_ghost (wordRef_pwf hp ht hi hE htv hm) hep])
   | fetchShare hp hw _ _ _ hok =>
       obtain ⟨μ, ht⟩ := wordOf_cases hw
       simp only at ht
@@ -1330,10 +1342,11 @@ theorem cas_swI {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {
   | casEpoch hp hw hep =>
       obtain ⟨μ, ht⟩ := wordOf_cases hw
       simp only at ht
-      rcases hsc _ hp with ⟨μ', r', P', ht', hμ'⟩ | ⟨u, -, hnw⟩
-      · have hμ := word_mode ht ht' hμ'
+      rcases hsc _ hp with ⟨μ', r', P', ht'⟩ | ⟨u, -, hnw⟩ | ⟨r', u, -, hnw⟩
+      ·
         exact tgt_swI hi.2.1 hp ht hea hb
-          (by simp [cl, accs, pwf_epoch_ghost (wordRef_pwf hp ht hμ hi hE htv hm) hep])
+          (by simp [cl, accs, pwf_epoch_ghost (wordRef_pwf hp ht hi hE htv hm) hep])
+      · rw [hw] at hnw; cases hnw
       · rw [hw] at hnw; cases hnw
 
 theorem unitsOp_uaI {p : Prog} {g : G} {s : St} {ρ : Nat → Nat} {η : TEnv} {σs : List Ty}
@@ -1408,7 +1421,7 @@ def BufInitIniF (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → Cfg 
 
 /-- (shared; `promIniGen`'s count comparison) **A certificate count at a label shared after a
 promise step is at most the planted global count** (`RunAgree.ini`, at any certificate environment). -/
-theorem plantIni_le (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [WrIniC] (hP : ProgT p) (hrun : CertRunP p k arch Sp Init MintOK c0)
+theorem plantIni_le (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [WrIniC] (hP : ProgT p) (hrun : CertRunP p k arch Sp Init MintOK c0)
     {c : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {j : Nat} {th : TTh}
     {a : Address} {v : WeakMem.Val} {w : Ts} (X : PCtxX p k arch Sp Init MintOK c0 c Eg Tot HP HS cr db j th a v w)
     {S0 : AllocLabel → Prop} {E2 : TEnv} {L : AllocLabel} {cl : Cell} (hcl : Eg.sto L = some cl)
@@ -1448,7 +1461,7 @@ theorem plantIni_le (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] 
 
 /-- **InitR of a promise at a label shared after a promise step** (the new promise or an old one
 of the promiser): at an initialised offset of the planted global count. -/
-theorem promIniGen (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [WrIniC] (hP : ProgT p) (hrun : CertRunP p k arch Sp Init MintOK c0)
+theorem promIniGen (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [WrIniC] (hP : ProgT p) (hrun : CertRunP p k arch Sp Init MintOK c0)
     (hagree : RunAgreeF p k arch Sp Init MintOK c0) (hbp : BufInitPubF p k arch Sp Init MintOK c0) (hbr : BufInitPubFR p k arch Sp Init MintOK c0) (hbuf : BufInitIniF p k arch Sp Init MintOK c0)
     {c : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {j : Nat} {th : TTh}
     {a : Address} {v : WeakMem.Val} {w : Ts} (X : PCtxX p k arch Sp Init MintOK c0 c Eg Tot HP HS cr db j th a v w)
@@ -1487,7 +1500,7 @@ theorem promIniGen (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [
     have e : (promise c j a v w).mem.size = c.mem.size + 1 := by rw [hpi.1, Array.size_push]
     rw [e] at hfb1; exact hfb1) hIL1 hIH1 hPV1 hPO1
   obtain ⟨hcl0, hgle⟩ := plantIni_le (hV0 := hV0) hP hrun X hcl hsh hag hPS hSub hSig
-  rcases SWIni hE hT htv hi hmi1 (TermTyped.scopeD_SW hscope hsw) hsw with ⟨c', hc', hI⟩ | ⟨x, bb, i, v', e, hterm⟩
+  rcases SWIni hE hT.1 htv hi hmi1 (TermTyped.scopeD_SW hscope hsw) hsw with ⟨c', hc', hI⟩ | ⟨x, bb, i, v', e, hterm⟩
   · have hc'' : η.sto m.loc.label = some c' := hc'
     have hE1 : η.sto m.loc.label = some cl := hx1.2.2.2.2.1 _ _ hcl0
     rw [hE1] at hc''
@@ -1497,7 +1510,7 @@ theorem promIniGen (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [
 
 
 /-- **PromNewOKF, InitR half**. -/
-theorem promNewIni_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [WrIniC] (hP : ProgT p) (hrun : CertRunP p k arch Sp Init MintOK c0)
+theorem promNewIni_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [WrIniC] (hP : ProgT p) (hrun : CertRunP p k arch Sp Init MintOK c0)
     (hagree : RunAgreeF p k arch Sp Init MintOK c0) (hbp : BufInitPubF p k arch Sp Init MintOK c0) (hbr : BufInitPubFR p k arch Sp Init MintOK c0) (hbuf : BufInitIniF p k arch Sp Init MintOK c0)
     {c : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {j : Nat} {th : TTh}
     {a : Address} {v : WeakMem.Val} {w : Ts} (X : PCtxX p k arch Sp Init MintOK c0 c Eg Tot HP HS cr db j th a v w)
@@ -1546,7 +1559,7 @@ def PromWordNewF (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → Cfg
 
 /-- **WordOK of a promise at a label shared after a promise step** (the new promise, or an old one
 of the promiser at the promised label or a planted label). -/
-theorem promWordGen (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [WrIniC] (hP : ProgT p) (hrun : CertRunP p k arch Sp Init MintOK c0)
+theorem promWordGen (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [WrIniC] (hP : ProgT p) (hrun : CertRunP p k arch Sp Init MintOK c0)
     (hagree : RunAgreeF p k arch Sp Init MintOK c0) (hbp : BufInitPubF p k arch Sp Init MintOK c0) (hbr : BufInitPubFR p k arch Sp Init MintOK c0)
     (hW2 : PromWordWF p k arch Sp Init MintOK c0)
     {c : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {j : Nat} {th : TTh}
@@ -1589,7 +1602,7 @@ theorem promWordGen (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] 
     exact ⟨cl1, hc1, ho1, hn1⟩
   -- the cell in the promiser's cut, and its type facts
   obtain ⟨hcl0, hnT, hrT⟩ : (Cut Eg j S0).sto m.loc.label = some cl ∧ Ty.noOwnIn [] cl.ty = true ∧
-      rgnFree cl.ty = true := by
+      (rgnFree cl.ty = true ∨ TermC1.drf1 cl.ty = true) := by
     rcases hsh with ⟨f, hf⟩
     by_cases hL : PlantL c Eg j th a v w m.loc.label
     · obtain ⟨l', -, hR⟩ := id hL
@@ -1609,7 +1622,7 @@ theorem promWordGen (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] 
     · exact ⟨us, hus⟩
   have hlen : ws.length = nWords us := hshp us hus
   have hnS := noOwn_seg hseg hnT
-  have hrS := rgnFree_seg hseg hrT
+  have hrS := hrT.imp (rgnFree_seg hseg) (drf1_seg hseg)
   have ho'lt : o' < ws.length := (List.getElem?_eq_some_iff.1 hw0).1
   by_cases h1 : nWords us = 1
   rotate_left
@@ -1629,7 +1642,7 @@ theorem promWordGen (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] 
   have hbi := hm2.2.2.2.2.2.2.2.2.2.1
   have hLc := hLc0
   have hV1 : ValOf (plantE (Cut Eg j S0) (stOf c.mem c.pairs th) (PlantL c Eg j th a v w)) S [w0] := by
-    refine ValOf_monoK (G := PlantG (Cut Eg j S0) (PlantL c Eg j th a v w)) hnS hrS hus (by rw [h1]; rfl)
+    refine ValOf_monoKL (G := PlantG (Cut Eg j S0) (PlantL c Eg j th a v w)) hnS hrS hus (by rw [h1]; rfl)
       hx2.2.2.1 hx2.2.2.2.1 (fun l c0 hG hc0 => ?_) (fun l hG => ?_) (fun l f hG hf => ?_) (fun l B hG hB => ?_)
       hR.pay ?_ hv
     · show (Cut Eg j S0).sto l = some c0
@@ -1665,7 +1678,7 @@ theorem promWordGen (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] 
     · intro w1 hw1 a' g hv'
       rw [List.mem_singleton] at hw1
       subst hw1
-      have hJ := noJunk_valOf hv hnS hrS hus (by rw [h1]; rfl) w1 (List.mem_singleton_self _) a' g hv'
+      have hJ := noJunk_valOfL hv hnS hrS hus (by rw [h1]; rfl) w1 (List.mem_singleton_self _) a' g hv'
       have hvm : w1.view ≤ m.view := hle.2 a' g hv'
       have hmv : m.val = .loc a' g := by rw [← hv']; exact hle.1.symm
       have hfb2' : FrBound (Cut Eg j S0) (c.mem.size + 1) th.vs.vWr E2 := by
@@ -1684,17 +1697,17 @@ theorem promWordGen (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] 
             rcases hlab with h | ⟨l', h1', hR'⟩
             · rw [h]; exact ClR.base
             · exact ClR.step h1' hR'
-          exact .inr (.inl ⟨m.loc.label, hroot, ⟨t, htm, m, hmm, rfl, ⟨cl, hcl0, hnT, hrT⟩, a', g, hmv, rfl, c1, hc1,
+          exact .inr (.inl ⟨m.loc.label, hroot, ⟨t, htm, m, hmm, rfl, ⟨cl, hcl0, hnT⟩, a', g, hmv, rfl, c1, hc1,
             ho1, hpf⟩⟩)
         · exact .inl ⟨c1, f, hc1, hpf⟩
       · exact .inr (.inr ⟨B, hB⟩)
   have hV2 := ValOf_transferS (InclS_cut_pub (EgP Eg (plantOf c Eg j a v w) (plantN c Eg j a v w) j c.mem.size) j S0)
-    (noOR_of S [] hnS hrS) (ValOf_transferS (inclS_plantE X S0 j S0) (noOR_of S [] hnS hrS) hV1)
+    (noOR_ofL S [] hnS hrS) (ValOf_transferS (inclS_plantE X S0 j S0) (noOR_ofL S [] hnS hrS) hV1)
   exact ⟨b, S, [w0], 0, w0, hseg, ⟨hV2, hshp⟩, rfl, hle, hbo⟩
 
 
 /-- **PromNewOKF, WordOK half.** -/
-theorem promNewWord_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [WrIniC] (hP : ProgT p) (hrun : CertRunP p k arch Sp Init MintOK c0)
+theorem promNewWord_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [WrIniC] (hP : ProgT p) (hrun : CertRunP p k arch Sp Init MintOK c0)
     (hagree : RunAgreeF p k arch Sp Init MintOK c0) (hbp : BufInitPubF p k arch Sp Init MintOK c0) (hbr : BufInitPubFR p k arch Sp Init MintOK c0)
     (hW2 : PromWordWF p k arch Sp Init MintOK c0)
     {c : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {j : Nat} {th : TTh}
@@ -1714,7 +1727,7 @@ variable {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {MintOK : Re
 variable {Sp : TermRun.Cfg → TermRun.Cfg → Prop}
 
 /-- **P4b residual `PromNewOKF`** for `plantOf`/`plantN`. -/
-theorem promNewOK_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [WrIniC] (hP : ProgT p) (hrun : CertRunP p k arch Sp Init MintOK c0)
+theorem promNewOK_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [WrIniC] (hP : ProgT p) (hrun : CertRunP p k arch Sp Init MintOK c0)
     (hagree : RunAgreeF p k arch Sp Init MintOK c0) (hbp : BufInitPubF p k arch Sp Init MintOK c0) (hbr : BufInitPubFR p k arch Sp Init MintOK c0) (hbuf : BufInitIniF p k arch Sp Init MintOK c0)
     (hW2 : PromWordWF p k arch Sp Init MintOK c0) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) :
     PromNewOKF p k arch Sp Init MintOK c0 plantOf plantN :=
@@ -1732,7 +1745,7 @@ variable {Sp : TermRun.Cfg → TermRun.Cfg → Prop}
 
 /-- **P4b residual `PlantPromOKF`** for `plantOf`/`plantN`: the promiser's old promises at a
 planted label are initialised (planted count) and typed (holders' values). -/
-theorem plantPromOK_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [WrIniC] (hP : ProgT p) (hrun : CertRunP p k arch Sp Init MintOK c0)
+theorem plantPromOK_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [WrIniC] (hP : ProgT p) (hrun : CertRunP p k arch Sp Init MintOK c0)
     (h0 : TermPlantF.PromViewLtR p k arch Sp c0) (hagree : RunAgreeF p k arch Sp Init MintOK c0) (hbp : BufInitPubF p k arch Sp Init MintOK c0) (hbr : BufInitPubFR p k arch Sp Init MintOK c0) (hbuf : BufInitIniF p k arch Sp Init MintOK c0)
     (hW2 : PromWordWF p k arch Sp Init MintOK c0) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) :
     PlantPromOKF p k arch Sp Init MintOK c0 plantOf plantN := by
@@ -1952,7 +1965,7 @@ theorem pubCell_of {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {c
 
 /-- **T16b/T16d residual `PubPromOKF`**: the stepper's promises at a cell the step newly shares
 are initialised and typed in `PubE EgT`. -/
-theorem pubPromOK_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [WrIniC] (hP : ProgT p) (hrunT : CertRunT p k arch Sp Init MintOK c0)
+theorem pubPromOK_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [WrIniC] (hP : ProgT p) (hrunT : CertRunT p k arch Sp Init MintOK c0)
     (h0 : TermPlantF.PromViewLtR p k arch Sp c0) (hagree : RunAgreeT p k arch Sp Init MintOK c0) (hbp : BufInitPubT p k arch Sp Init MintOK c0)
     (hbtr : BufInitPubTR p k arch Sp Init MintOK c0) (hbuf : BufInitIniT p k arch Sp Init MintOK c0)
     (hclos : PubClosT p k arch Sp Init MintOK c0) (hW2 : PubWordWF p k arch Sp Init MintOK c0) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) :
@@ -1999,7 +2012,7 @@ theorem pubPromOK_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p]
     have hag := hagree X Y Z hPfrP c1 th1 (CE η1) h1 hc1 hth1 hx1 hmi1 hfb1 hIL1 hIH1 hPO1
     have hgle : (CE η1).ini l ≤ (PubE (EgT Eg (gOf p k arch c i) th.nalloc r.2.2.nalloc E' c')).ini l :=
       hag.ini l (.inl ⟨cl, f, hcl', hf⟩)
-    rcases SWIni hE1 hT1 htv1 hi1 hmi1 (TermTyped.scopeD_SW hscope hsw) hsw with ⟨c'', hc'', hI⟩ | ⟨x, bb, i', v', e, hterm⟩
+    rcases SWIni hE1 hT1.1 htv1 hi1 hmi1 (TermTyped.scopeD_SW hscope hsw) hsw with ⟨c'', hc'', hI⟩ | ⟨x, bb, i', v', e, hterm⟩
     · have hc3 : η1.sto m.loc.label = some c'' := hc''
       have hE1 : η1.sto l = some cl := hx1.2.2.2.2.1 _ _ hcl'
       rw [hl, hE1] at hc3
@@ -2023,7 +2036,7 @@ theorem pubPromOK_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p]
       · exact ⟨us, hus⟩
     have hlen : ws.length = nWords us := hshp us hus
     have hnS := noOwn_seg hseg hnT
-    have hrS := rgnFree_seg hseg hrT
+    have hrS := hrT.imp (rgnFree_seg hseg) (drf1_seg hseg)
     have ho'lt : o' < ws.length := (List.getElem?_eq_some_iff.1 hw0).1
     have hbo' : b + o' = m.loc.offset := hbo
     by_cases h1 : nWords us = 1
@@ -2047,7 +2060,7 @@ theorem pubPromOK_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p]
       ⟨c'.mem.size - 1, (Nat.sub_add_cancel (Nat.lt_of_le_of_lt (Nat.zero_le _) hlt)).symm⟩
     have hfb2' : FrBound E' (n + 1) r.2.2.vs.vWr E2 := by rw [← hn]; exact hfb2
     have hV1 : ValOf E' S' [w0] := by
-      refine ValOf_monoK (G := PlantG E' (fun _ => False)) hnS hrS hus (by rw [h1]; rfl)
+      refine ValOf_monoKL (G := PlantG E' (fun _ => False)) hnS hrS hus (by rw [h1]; rfl)
         hx2.2.2.1 hx2.2.2.2.1 (fun l2 c0 hG hc0 => ?_) (fun l2 hG => ?_) (fun l2 f2 hG hf2 => ?_)
         (fun l2 B hG hB => ?_) hR.pay ?_ hv
       · rcases hG with ⟨c1, f1, h1', -⟩ | hF0 | ⟨B, hB⟩
@@ -2073,7 +2086,7 @@ theorem pubPromOK_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p]
       · intro w1 hw1 a' g hv'
         rw [List.mem_singleton] at hw1
         subst hw1
-        have hJ := noJunk_valOf hv hnS hrS hus (by rw [h1]; rfl) w1 (List.mem_singleton_self _) a' g hv'
+        have hJ := noJunk_valOfL hv hnS hrS hus (by rw [h1]; rfl) w1 (List.mem_singleton_self _) a' g hv'
         have hvm : w1.view ≤ m.view := hle.2 a' g hv'
         have hmv : m.val = .loc a' g := by rw [← hv']; exact hle.1.symm
         rcases FrBound_inspM hfb2' hJ (Nat.lt_of_le_of_lt hvm (Nat.lt_of_lt_of_le hpvl (Nat.le_of_lt_succ (show t < n + 1 by rw [← hn]; exact hlt)))) with ⟨c1, hc1⟩ | ⟨B, hB⟩
@@ -2084,7 +2097,7 @@ theorem pubPromOK_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p]
             rw [hpf] at hf'; cases hf'
           · exact .inl ⟨c1, f1, hc1, hpf⟩
         · exact .inr (.inr ⟨B, hB⟩)
-    have hV2 := ValOf_transferS (inclS_post (c' := c') Y ZC) (noOR_of S' [] hnS hrS) hV1
+    have hV2 := ValOf_transferS (inclS_post (c' := c') Y ZC) (noOR_ofL S' [] hnS hrS) hV1
     exact ⟨b, S', [w0], 0, w0, hseg, ⟨hV2, hshp⟩, rfl, hle, hbo⟩
 
 end

@@ -107,34 +107,47 @@ theorem CkW_unpack {p : Prog} {ω : Nat → Ty} {cx c₁ c₂ : Cx} {a : At} {i 
   · obtain ⟨k1, o1⟩ := ko_use hu; obtain ⟨k2, o2⟩ := ko_bind hb
     exact WitA_of_eq (k2.trans k1) (o2.trans o1) hA
 
-theorem CkW_region {p : Prog} {ω : Nat → Ty} {cx c₁ c₂ c₃ : Cx} {a : At} {rn pn tn : String} {e : Expr} {u : Ty}
+theorem CkW_regionC1 {p : Prog} {ω : Nat → Ty} {cx c₁ c₂ c₃ : Cx} {a : At} {rn pn tn : String} {e : Expr} {u : Ty}
     (h : CkW p ω cx (.region a rn pn tn e)) (hu : cx.use a = .ok (.ptr .own u, c₁))
     (hb1 : (c₁.push rn).bind pn (.ptr (.rgn (.var 0)) (u.shiftI 0)) = .ok c₂)
-    (hb2 : c₂.bind tn (.tok (.var 0) none) = .ok c₃) : CkW p ω c₃ e := by
+    (hb2 : c₂.bind tn (.tok (.var 0) none) = .ok c₃) : Ty.coupledOKIn c₁.ke u = true ∧ CkW p ω c₃ e := by
   obtain ⟨hW, hV, hA⟩ := h
   obtain ⟨ht, hV1⟩ := VarsW_use hV hu
   have hp : wrapOK (.ptr (.rgn (.var 0)) (u.shiftI 0)) = true := by
     have := wrapOK_shiftI 0 (show wrapOK u = true by simpa only [wrapOK, wrapOKE] using ht)
     simpa only [wrapOK, wrapOKE] using this
-  refine ⟨?_, VarsW_bind (VarsW_bind (VarsW_push rn hV1) hp hb1) rfl hb2, ?_⟩
-  · simp only [checkW, bind_ok_iff] at hW
-    obtain ⟨⟨t, c₁'⟩, hu', hW⟩ := hW
-    rw [hu] at hu'; simp only [Except.ok.injEq, Prod.mk.injEq] at hu'
-    obtain ⟨rfl, rfl⟩ := hu'
-    dsimp only at hW
+  simp only [checkW, bind_ok_iff] at hW
+  obtain ⟨⟨t, c₁'⟩, hu', hW⟩ := hW
+  rw [hu] at hu'; simp only [Except.ok.injEq, Prod.mk.injEq] at hu'
+  obtain ⟨rfl, rfl⟩ := hu'
+  dsimp only at hW
+  have key : Ty.coupledOKIn c₁.ke u = true ∧ checkW p c₃ e = .ok () := by
     split at hW
     · simp [throw, throwThe, MonadExceptOf.throw] at hW
-    · simp only [bind_ok_iff] at hW
-      obtain ⟨c₂', hb', c₃', hb2', hW⟩ := hW
-      rw [hb1] at hb'; cases hb'; rw [hb2] at hb2'; cases hb2'; exact hW
-  · obtain ⟨k1, o1⟩ := ko_use hu; obtain ⟨k2, o2⟩ := ko_bind hb1; obtain ⟨k3, o3⟩ := ko_bind hb2
-    exact WitA_of_eq (k3.trans (k2.trans k1)) (o3.trans (o2.trans o1)) hA
+    · split at hW
+      · simp [throw, throwThe, MonadExceptOf.throw] at hW
+      · rename_i hc
+        refine ⟨by simpa using hc, ?_⟩
+        split at hW
+        · simp [throw, throwThe, MonadExceptOf.throw] at hW
+        · simp only [bind_ok_iff] at hW
+          obtain ⟨c₂', hb', c₃', hb2', hW⟩ := hW
+          rw [hb1] at hb'; cases hb'; rw [hb2] at hb2'; cases hb2'; exact hW
+  refine ⟨key.1, key.2, VarsW_bind (VarsW_bind (VarsW_push rn hV1) hp hb1) rfl hb2, ?_⟩
+  obtain ⟨k1, o1⟩ := ko_use hu; obtain ⟨k2, o2⟩ := ko_bind hb1; obtain ⟨k3, o3⟩ := ko_bind hb2
+  exact WitA_of_eq (k3.trans (k2.trans k1)) (o3.trans (o2.trans o1)) hA
 
-theorem CkW_regionBuf {p : Prog} {ω : Nat → Ty} {cx c₁ c₂ c₃ : Cx} {a : At} {rn pn tn : String} {e : Expr}
+theorem CkW_region {p : Prog} {ω : Nat → Ty} {cx c₁ c₂ c₃ : Cx} {a : At} {rn pn tn : String} {e : Expr} {u : Ty}
+    (h : CkW p ω cx (.region a rn pn tn e)) (hu : cx.use a = .ok (.ptr .own u, c₁))
+    (hb1 : (c₁.push rn).bind pn (.ptr (.rgn (.var 0)) (u.shiftI 0)) = .ok c₂)
+    (hb2 : c₂.bind tn (.tok (.var 0) none) = .ok c₃) : CkW p ω c₃ e :=
+  (CkW_regionC1 h hu hb1 hb2).2
+
+theorem CkW_regionBufC1 {p : Prog} {ω : Nat → Ty} {cx c₁ c₂ c₃ : Cx} {a : At} {rn pn tn : String} {e : Expr}
     {n k : Idx} {u : Ty}
     (h : CkW p ω cx (.region a rn pn tn e)) (hu : cx.use a = .ok (.refine (.loc .own (.array n u)) (.ini k), c₁))
     (hb1 : (c₁.push rn).bind pn (.refine (.loc (.rgn (.var 0)) ((Ty.array n u).shiftI 0)) ((Pred.ini k).shift 0)) = .ok c₂)
-    (hb2 : c₂.bind tn (.tok (.var 0) none) = .ok c₃) : CkW p ω c₃ e := by
+    (hb2 : c₂.bind tn (.tok (.var 0) none) = .ok c₃) : Ty.coupledOKIn c₁.ke (.array n u) = true ∧ CkW p ω c₃ e := by
   obtain ⟨hW, hV, hA⟩ := h
   obtain ⟨ht, hV1⟩ := VarsW_use hV hu
   have hp : wrapOK (.refine (.loc (.rgn (.var 0)) ((Ty.array n u).shiftI 0)) ((Pred.ini k).shift 0)) = true := by
@@ -143,19 +156,75 @@ theorem CkW_regionBuf {p : Prog} {ω : Nat → Ty} {cx c₁ c₂ c₃ : Cx} {a :
     have := wrapOK_shiftI 0 hu'
     simp only [wrapOK] at this
     simp only [wrapOK, wrapOKE, rcarE, Bool.not_false, Bool.true_and]; exact this
-  refine ⟨?_, VarsW_bind (VarsW_bind (VarsW_push rn hV1) hp hb1) rfl hb2, ?_⟩
-  · simp only [checkW, bind_ok_iff] at hW
-    obtain ⟨⟨t, c₁'⟩, hu', hW⟩ := hW
-    rw [hu] at hu'; simp only [Except.ok.injEq, Prod.mk.injEq] at hu'
-    obtain ⟨rfl, rfl⟩ := hu'
-    dsimp only at hW
+  simp only [checkW, bind_ok_iff] at hW
+  obtain ⟨⟨t, c₁'⟩, hu', hW⟩ := hW
+  rw [hu] at hu'; simp only [Except.ok.injEq, Prod.mk.injEq] at hu'
+  obtain ⟨rfl, rfl⟩ := hu'
+  dsimp only at hW
+  have key : Ty.coupledOKIn c₁.ke (.array n u) = true ∧ checkW p c₃ e = .ok () := by
     split at hW
     · simp [throw, throwThe, MonadExceptOf.throw] at hW
-    · simp only [bind_ok_iff] at hW
-      obtain ⟨c₂', hb', c₃', hb2', hW⟩ := hW
-      rw [hb1] at hb'; cases hb'; rw [hb2] at hb2'; cases hb2'; exact hW
-  · obtain ⟨k1, o1⟩ := ko_use hu; obtain ⟨k2, o2⟩ := ko_bind hb1; obtain ⟨k3, o3⟩ := ko_bind hb2
-    exact WitA_of_eq (k3.trans (k2.trans k1)) (o3.trans (o2.trans o1)) hA
+    · split at hW
+      · simp [throw, throwThe, MonadExceptOf.throw] at hW
+      · rename_i hc
+        refine ⟨by simpa using hc, ?_⟩
+        split at hW
+        · simp [throw, throwThe, MonadExceptOf.throw] at hW
+        · split at hW
+          · simp [throw, throwThe, MonadExceptOf.throw] at hW
+          · simp only [bind_ok_iff] at hW
+            obtain ⟨c₂', hb', c₃', hb2', hW⟩ := hW
+            rw [hb1] at hb'; cases hb'; rw [hb2] at hb2'; cases hb2'; exact hW
+  refine ⟨key.1, key.2, VarsW_bind (VarsW_bind (VarsW_push rn hV1) hp hb1) rfl hb2, ?_⟩
+  obtain ⟨k1, o1⟩ := ko_use hu; obtain ⟨k2, o2⟩ := ko_bind hb1; obtain ⟨k3, o3⟩ := ko_bind hb2
+  exact WitA_of_eq (k3.trans (k2.trans k1)) (o3.trans (o2.trans o1)) hA
+
+theorem CkW_regionBuf {p : Prog} {ω : Nat → Ty} {cx c₁ c₂ c₃ : Cx} {a : At} {rn pn tn : String} {e : Expr}
+    {n k : Idx} {u : Ty}
+    (h : CkW p ω cx (.region a rn pn tn e)) (hu : cx.use a = .ok (.refine (.loc .own (.array n u)) (.ini k), c₁))
+    (hb1 : (c₁.push rn).bind pn (.refine (.loc (.rgn (.var 0)) ((Ty.array n u).shiftI 0)) ((Pred.ini k).shift 0)) = .ok c₂)
+    (hb2 : c₂.bind tn (.tok (.var 0) none) = .ok c₃) : CkW p ω c₃ e :=
+  (CkW_regionBufC1 h hu hb1 hb2).2
+
+/-- (FLD e) `checkW`'s `region` test at an own pointer: the cell type is `drf1`. -/
+theorem CkW_regionDrf1 {p : Prog} {ω : Nat → Ty} {cx c₁ : Cx} {a : At} {rn pn tn : String} {e : Expr} {u : Ty}
+    (h : CkW p ω cx (.region a rn pn tn e)) (hu : cx.use a = .ok (.ptr .own u, c₁)) : TermC1.drf1 u = true := by
+  obtain ⟨hW, -, -⟩ := h
+  simp only [checkW, bind_ok_iff] at hW
+  obtain ⟨⟨t, c₁'⟩, hu', hW⟩ := hW
+  rw [hu] at hu'; simp only [Except.ok.injEq, Prod.mk.injEq] at hu'
+  obtain ⟨rfl, rfl⟩ := hu'
+  dsimp only at hW
+  split at hW
+  · simp [throw, throwThe, MonadExceptOf.throw] at hW
+  · split at hW
+    · simp [throw, throwThe, MonadExceptOf.throw] at hW
+    · split at hW
+      · simp [throw, throwThe, MonadExceptOf.throw] at hW
+      · rename_i hd
+        simpa using hd
+
+/-- (FLD e) `checkW`'s `region` test at an own buffer: the cell type is `drf1`. -/
+theorem CkW_regionBufDrf1 {p : Prog} {ω : Nat → Ty} {cx c₁ : Cx} {a : At} {rn pn tn : String} {e : Expr}
+    {n k : Idx} {u : Ty}
+    (h : CkW p ω cx (.region a rn pn tn e)) (hu : cx.use a = .ok (.refine (.loc .own (.array n u)) (.ini k), c₁)) :
+    TermC1.drf1 (.array n u) = true := by
+  obtain ⟨hW, -, -⟩ := h
+  simp only [checkW, bind_ok_iff] at hW
+  obtain ⟨⟨t, c₁'⟩, hu', hW⟩ := hW
+  rw [hu] at hu'; simp only [Except.ok.injEq, Prod.mk.injEq] at hu'
+  obtain ⟨rfl, rfl⟩ := hu'
+  dsimp only at hW
+  split at hW
+  · simp [throw, throwThe, MonadExceptOf.throw] at hW
+  · split at hW
+    · simp [throw, throwThe, MonadExceptOf.throw] at hW
+    · split at hW
+      · simp [throw, throwThe, MonadExceptOf.throw] at hW
+      · split at hW
+        · simp [throw, throwThe, MonadExceptOf.throw] at hW
+        · rename_i hd
+          simpa using hd
 
 theorem CkW_openPub {p : Prog} {ω : Nat → Ty} {cx c₁ c₂ c₃ : Cx} {a : At} {rn pn cn : String} {e : Expr} {u : Ty}
     (h : CkW p ω cx (.openPub a rn pn cn e)) (hu : cx.use a = .ok (.ptr .pub u, c₁))

@@ -275,10 +275,13 @@ theorem units_cls {p : Prog} {g : G} {s : St} {ρ : Nat → Nat} {η : TEnv} {σ
     | storePub hp hw hcl =>
         right
         rcases cell_cases hcl with rfl | rfl
-        · exact ⟨x, rl, a, v, tok, e, _, hterm, .inl ⟨hp, hw⟩⟩
-        · exact ⟨x, rl, a, v, tok, e, _, hterm, .inr ⟨hp, hw⟩⟩
-    | storeRgn hp _ hcl => exact absurd hcl (hsc _ hp _ _)
-    | storeCap hp _ hcl => exact absurd hcl (hsc _ hp _ _)
+        · exact .inl ⟨x, rl, a, v, tok, e, _, hterm, .inl ⟨hp, hw⟩⟩
+        · exact .inl ⟨x, rl, a, v, tok, e, _, hterm, .inr (.inl ⟨hp, hw⟩)⟩
+    | storeRgn hp hw hcl | storeCap hp hw hcl =>
+        right
+        rcases cell_cases hcl with rfl | rfl
+        · exact .inl ⟨x, rl, a, v, tok, e, _, hterm, .inr (.inr (.inl ⟨_, hp, hw⟩))⟩
+        · exact .inl ⟨x, rl, a, v, tok, e, _, hterm, .inr (.inr (.inr ⟨_, hp, hw⟩))⟩
     | storeWordGive hp hw | storeWordKeep hp hw | storeWordHand hp hw =>
         obtain ⟨μ, ht⟩ := wordOf_cases hw
         simp only at ht
@@ -307,7 +310,11 @@ theorem units_cls {p : Prog} {g : G} {s : St} {ρ : Nat → Nat} {η : TEnv} {σ
     cases hop with
     | xchg hp hx =>
         cases hx with
-        | rgn _ hcl => exact absurd hcl (hsc _ hp _ _)
+        | rgn _ hcl =>
+            right
+            rcases cell_cases hcl with rfl | rfl
+            · exact .inr ⟨x, a, v, e, _, _, hterm, .inl hp⟩
+            · exact .inr ⟨x, a, v, e, _, _, hterm, .inr hp⟩
         | own _ hcl =>
             obtain ⟨c1, hs1, hmo⟩ := TermStepPred.cell_mode hi.2.1 hp hcl hea hb
             rw [hc] at hs1; cases hs1
@@ -356,9 +363,7 @@ theorem fetch_cls {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
   | fetchEpoch hp hw hep =>
       obtain ⟨μ, ht⟩ := wordOf_cases hw
       simp only at ht
-      obtain ⟨μ', u', ht', hμ'⟩ := hsc _ hp
-      have hμ := word_mode ht ht' hμ'
-      have hg := pwf_epoch_ghost (wordRef_pwf hp ht hμ hi hE htv hm) hep
+      have hg := pwf_epoch_ghost (wordRef_pwf hp ht hi hE htv hm) hep
       obtain ⟨c, n, hsto, hat⟩ := word_tgt hi.2.1 hp ht hea hb
       exact .inl ⟨c, hsto, .inl ⟨_, _, hg, hat⟩⟩
   | fetchShare hp hw _ _ _ hok =>
@@ -414,12 +419,9 @@ theorem cas_cls {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {
   | casEpoch hp hw hep =>
       obtain ⟨μ, ht⟩ := wordOf_cases hw
       simp only at ht
-      rcases hsc _ hp with ⟨μ', r', P', ht', hμ'⟩ | ⟨u, -, hnw⟩
-      · have hμ := word_mode ht ht' hμ'
-        have hg := pwf_epoch_ghost (wordRef_pwf hp ht hμ hi hE htv hm) hep
-        obtain ⟨c, n, hsto, hat⟩ := word_tgt hi.2.1 hp ht hea hb
-        exact .inl ⟨c, hsto, .inl ⟨_, _, hg, hat⟩⟩
-      · rw [hw] at hnw; cases hnw
+      have hg := pwf_epoch_ghost (wordRef_pwf hp ht hi hE htv hm) hep
+      obtain ⟨c, n, hsto, hat⟩ := word_tgt hi.2.1 hp ht hea hb
+      exact .inl ⟨c, hsto, .inl ⟨_, _, hg, hat⟩⟩
 
 #print axioms cas_cls
 
@@ -434,7 +436,7 @@ theorem casp_cls {p : Prog} {ρ : Nat → Nat} {η : TEnv} {σs : List Ty} {K : 
     (∀ j, j < 2 → WordUnit (CE η) (offs A j)) ∨ (∀ j, j < 2 → RmwAtom (CE η) (offs A j)) := by
   have hp : ∃ t, cx.peek w = .ok t := by cases hT <;> exact ⟨_, ‹_›⟩
   obtain ⟨t, hp⟩ := hp
-  obtain ⟨μ, u, ht, -, hu⟩ := hsc t hp
+  obtain ⟨μ, u, ht, hu⟩ := hsc t hp
   rcases hu with ⟨r, P, rfl⟩ | ⟨r, P, rfl⟩
   · obtain ⟨c, n, hsto, hat⟩ := word2_tgt hi.2.1 hp ht hea hb
     exact .inl (w2_wu (E := CE η) hsto hat)
@@ -474,7 +476,7 @@ theorem tstep_newFW {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TT
           exact (units_cls hterm hop hsc0 hi hE htv hu hj hc hown).elim .inl (fun h => .inr (.inr h))
         · have hp : ∃ t, cx.peek a = .ok t := by cases hop <;> exact ⟨_, ‹_›⟩
           obtain ⟨t0, hp⟩ := hp
-          obtain ⟨μ, r0, P, ht0, -⟩ := hsc0 t0 hp
+          obtain ⟨μ, r0, P, ht0⟩ := hsc0 t0 hp
           obtain ⟨c, n, hsto, hat⟩ := word2_tgt hi.2.1 hp ht0 hea hb
           rw [hl]
           exact .inl (w2_wu (E := CE η) hsto hat j (by rw [nWords_two] at hj; exact hj))

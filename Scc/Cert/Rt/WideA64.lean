@@ -243,6 +243,7 @@ theorem directive_ew [Labels] {d : Directive} (hd : d.wideOk = true) (s : Machin
   | label => exact hn s
   | instr i => exact EW.require_exec_access fun _ => interp_ew i.operation hd p s hn hj
   | byteArray => exact EW.unimplemented _
+  | zeros => exact EW.unimplemented _
 
 theorem directives_ew [Labels] {ret : Int64 → MachineData → Effects} (hr : ∀ pc s, EW (ret pc s)) :
     ∀ (ds : List (Directive × Nat)), (∀ c ∈ ds, c.1.wideOk = true) → ∀ s pc, EW (Directives.interp ds s pc ret)

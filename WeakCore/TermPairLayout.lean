@@ -440,6 +440,23 @@ theorem spawn_ths {c : Cfg} {i : Nat} {th : TTh} {x : String} {e : Expr} {f : St
       · exact Or.inr (Or.inr h)
     · rw [set_other hji] at h; exact Or.inr (Or.inr h)
 
+theorem spawnI_ths {c : Cfg} {i : Nat} {th : TTh} {x : String} {e : Expr} {d : Decl} {ts : List Ty}
+    {ws : List Word} {j : Nat} {th' : TTh}
+    (h : (spawnT c i (spawnPar c i th x e) (spawnKidI c i th d ts ws)).ths[j]? = some th') :
+    th' = spawnPar c i th x e ∨ th' = spawnKidI c i th d ts ws ∨ c.ths[j]? = some th' := by
+  simp only [spawnT, Array.getElem?_push] at h
+  split at h
+  · exact Or.inr (Or.inl (Option.some.inj h).symm)
+  · by_cases hji : j = i
+    · subst hji
+      unfold Array.set! Array.setIfInBounds at h
+      split at h
+      · rw [Array.getElem?_set] at h
+        simp at h
+        first | exact Or.inl h.symm | exact Or.inl h
+      · exact Or.inr (Or.inr h)
+    · rw [set_other hji] at h; exact Or.inr (Or.inr h)
+
 theorem spawn_pairInv {p : Prog} {k : Promises.Knobs} {arch : Arch} {cap : Nat} {c c' : Cfg}
     (hs : Spawn p k arch cap c c') (h : PairInv c) : PairInv c' ∧ PairStep c c' := by
   cases hs with
@@ -449,6 +466,13 @@ theorem spawn_pairInv {p : Prog} {k : Promises.Knobs} {arch : Arch} {cap : Nat} 
       rcases spawn_ths hj with rfl | rfl | hj'
       · simp [spawnPar, withS, spawnS, fenceS, stOf, hp] at ht
       · simp [spawnKid] at ht
+      · exact h3 j thj hj' t ht
+  | mkI i x f is a T ts e th d rt ws hth _ hp _ _ _ =>
+      obtain ⟨h1, h2, h3⟩ := h
+      refine ⟨⟨h1, h2, fun j thj hj t ht => ?_⟩, pairStep_refl c⟩
+      rcases spawnI_ths hj with rfl | rfl | hj'
+      · simp [spawnPar, withS, spawnS, fenceS, stOf, hp] at ht
+      · simp [spawnKidI] at ht
       · exact h3 j thj hj' t ht
 
 /-! ## Runs -/

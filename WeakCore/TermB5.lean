@@ -380,8 +380,10 @@ theorem store_uaI {p : Prog} {g : G} {s : St} {ρ : Nat → Nat} {η : TEnv} {σ
   | storePub hp _ hc _ hu' hsub _ _ =>
       exact cell_uaI hi hE htv hp hc (sub_opaqueOK hsub
         (peek_opaqueOK htv (use_inv (ρ := ρ) (η := η) (σs := σs) (env := env) hu').1)) hea hcr hb hus
-  | storeRgn hp _ hc => exact absurd hc (hsc _ hp _ _)
-  | storeCap hp _ hc => exact absurd hc (hsc _ hp _ _)
+  -- a region cell's store (TermTyped `store_ua` pattern)
+  | storeRgn hp _ hc _ hu' _ hsub _ | storeCap hp _ hc _ hu' _ _ hsub _ =>
+      exact cell_uaI hi hE htv hp hc (opaqueOK_subR
+        (peek_opaqueOK htv (use_inv (ρ := ρ) (η := η) (σs := σs) (env := env) hu').1) hsub) hea hcr hb hus
   | storeWordGive hp hw | storeWordKeep hp hw | storeWordHand hp hw =>
       obtain ⟨μ, ht⟩ := wordOf_cases hw
       rcases ht with rfl | rfl
@@ -398,7 +400,9 @@ theorem xchg_uaI {p : Prog} {g : G} {s : St} {ρ : Nat → Nat} {η : TEnv} {σs
   cases hop with
   | xchg hp hx hu' hsub _ =>
       cases hx with
-      | rgn _ hc _ _ _ => exact absurd hc (hsc _ hp _ _)
+      | rgn _ hc _ _ _ =>
+          exact cell_uaI hi hE htv hp hc (opaqueOK_subR
+            (peek_opaqueOK htv (use_inv (ρ := ρ) (η := η) (σs := σs) (env := env) hu').1) hsub) hea hcr hb hus
       | own _ hc _ =>
           exact cell_uaI hi hE htv hp hc (sub_opaqueOK (hsub.elim id id)
             (peek_opaqueOK htv (use_inv (ρ := ρ) (η := η) (σs := σs) (env := env) hu').1)) hea hcr hb hus
@@ -654,10 +658,9 @@ theorem fetch_swI {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
   | fetchEpoch hp hw hep =>
       obtain ⟨μ, ht⟩ := wordOf_cases hw
       simp only at ht
-      obtain ⟨μ', u', ht', hμ'⟩ := hsc _ hp
-      have hμ := word_mode ht ht' hμ'
+      obtain ⟨μ', u', ht'⟩ := hsc _ hp
       exact tgt_swI hi.2.1 hp ht hea hb
-        (by simp [cl, accs, pwf_epoch_ghost (wordRef_pwf hp ht hμ hi hE htv hm) hep])
+        (by simp [cl, accs, pwf_epoch_ghost (wordRef_pwf hp ht hi hE htv hm) hep])
   | fetchShare hp hw _ _ _ hok =>
       obtain ⟨μ, ht⟩ := wordOf_cases hw
       simp only at ht
@@ -687,10 +690,11 @@ theorem cas_swI {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {
   | casEpoch hp hw hep =>
       obtain ⟨μ, ht⟩ := wordOf_cases hw
       simp only at ht
-      rcases hsc _ hp with ⟨μ', r', P', ht', hμ'⟩ | ⟨u, -, hnw⟩
-      · have hμ := word_mode ht ht' hμ'
+      rcases hsc _ hp with ⟨μ', r', P', ht'⟩ | ⟨u, -, hnw⟩ | ⟨r', u, -, hnw⟩
+      ·
         exact tgt_swI hi.2.1 hp ht hea hb
-          (by simp [cl, accs, pwf_epoch_ghost (wordRef_pwf hp ht hμ hi hE htv hm) hep])
+          (by simp [cl, accs, pwf_epoch_ghost (wordRef_pwf hp ht hi hE htv hm) hep])
+      · rw [hw] at hnw; cases hnw
       · rw [hw] at hnw; cases hnw
 
 
@@ -711,7 +715,7 @@ theorem stp_uaI {p : Prog} {ρ : Nat → Nat} {η : TEnv} {σs : List Ty} {K : T
     UnitsAtI η b [.two] := by
   have hp : ∃ t, cx.peek a = .ok t := by cases hop <;> exact ⟨_, ‹_›⟩
   obtain ⟨t', hp⟩ := hp
-  obtain ⟨μ, r, P, ht, -⟩ := hsc t' hp
+  obtain ⟨μ, r, P, ht⟩ := hsc t' hp
   exact pair_uaI hi.2.1 hp ht (.inl ⟨r, P, rfl⟩) hea hb
 
 theorem casp_uaI {p : Prog} {ρ : Nat → Nat} {η : TEnv} {σs : List Ty} {K : TEnv → List Word → Prop}
@@ -723,7 +727,7 @@ theorem casp_uaI {p : Prog} {ρ : Nat → Nat} {η : TEnv} {σs : List Ty} {K : 
     UnitsAtI η A [.two] := by
   have hp : ∃ t, cx.peek w = .ok t := by cases hT <;> exact ⟨_, ‹_›⟩
   obtain ⟨t, hp⟩ := hp
-  obtain ⟨μ, u, ht, -, hu⟩ := hsc t hp
+  obtain ⟨μ, u, ht, hu⟩ := hsc t hp
   exact pair_uaI hi.2.1 hp ht hu hea hb
 
 /-- The dispatcher over the `storeUnits`-issuing ops. -/
@@ -1042,7 +1046,7 @@ promises are old ones).  A promise at a label the step allocates is the
 stepper's (`GFreshL`, `PromsDisj`), fulfilled along its certificate from `c'`
 by a single-word write (`certified_promTypedX` at the step's own post state,
 stage A; `SWOne_holds`), a `.one` unit of a component, so in no `TwoAtT` unit. -/
-theorem promNoTwoOK_thread (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [WrIniC] (hP : ProgT p) (hrun : TermPlantF.CertRunT p k arch Sp Init MintOK c0)
+theorem promNoTwoOK_thread (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [WrIniC] (hP : ProgT p) (hrun : TermPlantF.CertRunT p k arch Sp Init MintOK c0)
     {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {i : Nat}
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res}
@@ -1098,7 +1102,7 @@ theorem promNoTwoOK_thread (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetI
 
 /-- **N6 `promNoTwoPost`**, given the candidate clause at the source of every
 thread step (`PromNoTwoTF`): `promNoTwoOK_thread`, restricted to shared cells. -/
-theorem promNoTwoPost_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [WrIniC] (hP : ProgT p) (hrun : TermPlantF.CertRunT p k arch Sp Init MintOK c0)
+theorem promNoTwoPost_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [WrIniC] (hP : ProgT p) (hrun : TermPlantF.CertRunT p k arch Sp Init MintOK c0)
     (hnt : PromNoTwoTF p k arch Sp Init MintOK c0) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) : PromNoTwoPostF p k arch Sp Init MintOK c0 := by
   intro c c' Eg Tot HP HS cr db i th r S ρ η cx Rf Rs E' Tot' HP' HS' C F cr' db' δ X Y Z hS hPfr k' thk t m hk ht hm cl hsto
     _ o htw

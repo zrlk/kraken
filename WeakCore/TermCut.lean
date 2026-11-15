@@ -36,8 +36,10 @@ descend into a reference's target).  Type variables are free: `VR` reads
 them through the relations, which the transfer carries (`hr`, `hur`). -/
 def noOR : Ty → Bool
   | .ptr .pub _    => true
+  | .ptr (.rgn _) _ => true
   | .ptr _ _       => false
   | .ptrOpt .pub _ => true
+  | .ptrOpt (.rgn _) _ => true
   | .ptrOpt _ _    => false
   | .loc .pub _    => true
   | .loc _ _       => false
@@ -51,10 +53,23 @@ def noOR : Ty → Bool
   | .refine t _    => noOR t
   | _              => true
 
-theorem noOR_ptr {μ : Mode} {u : Ty} (h : noOR (.ptr μ u) = true) : μ = .pub := by
+theorem noOR_ptr {μ : Mode} {u : Ty} (h : noOR (.ptr μ u) = true) : μ ≠ .own := by
   cases μ <;> simp_all [noOR]
-theorem noOR_ptrOpt {μ : Mode} {u : Ty} (h : noOR (.ptrOpt μ u) = true) : μ = .pub := by
+theorem noOR_ptrOpt {μ : Mode} {u : Ty} (h : noOR (.ptrOpt μ u) = true) : μ ≠ .own := by
   cases μ <;> simp_all [noOR]
+/-- (M9, needs M7) Off `own`, `ModeOK` is the `pub` clause. -/
+theorem ModeOK_eq_pub {μ : Mode} (hμ : μ ≠ .own) (i : Nat) (P : AllocLabel → Option Ts)
+    (S : AllocLabel → Prop) : ModeOK i P S μ = ModeOK i P S .pub := by
+  cases μ with
+  | own => exact absurd rfl hμ
+  | pub => rfl
+  | rgn _ => rfl
+/-- (M9) Off `own`, a reference carries no ownership resource. -/
+theorem ownW_ne_own {μ : Mode} (hμ : μ ≠ .own) (ws : List TermRun.Word) : ownW μ ws = .zero := by
+  cases μ with
+  | own => exact absurd rfl hμ
+  | pub => rfl
+  | rgn _ => rfl
 theorem noOR_loc {μ : Mode} {u : Ty} (h : noOR (.loc μ u) = true) : μ = .pub := by
   cases μ <;> simp_all [noOR]
 
@@ -141,14 +156,14 @@ theorem VR_transferS : ∀ (t : Ty) (η₁ η₂ : TEnv) (ρ : Nat → Nat) (rt 
         (push0_rels_mono hr) (push0_urels_mono hur) ?_ hp hs hi hri hP hS hBx h3⟩
       · simp only [TEnv.push0, TEnv.ins, TEnv.insR, hw]
   | .ptr μ u, η₁, η₂, ρ, rt, ws, hn, _, _, hw, _, hs, _, _, hP, hS, _, hv => by
-      have hμ := noOR_ptr hn; subst hμ
-      simp only [VR] at hv ⊢
+      have hμ := noOR_ptr hn
+      simp only [VR, ModeOK_eq_pub hμ] at hv ⊢
       obtain ⟨a, c, h1, h2, h3, h4, h5, h6⟩ := hv
       obtain ⟨f, hf⟩ := ModeOK_pub_pfr h5
       exact ⟨a, c, h1, h2, hs _ _ _ h3 hf, hw ▸ h4, ModeOK_pub_move hP hS h5, h6⟩
   | .ptrOpt μ u, η₁, η₂, ρ, rt, ws, hn, _, _, hw, _, hs, _, _, hP, hS, _, hv => by
-      have hμ := noOR_ptrOpt hn; subst hμ
-      simp only [VR] at hv ⊢
+      have hμ := noOR_ptrOpt hn
+      simp only [VR, ModeOK_eq_pub hμ] at hv ⊢
       rcases hv with hn0 | ⟨a, c, h1, h2, h3, h4, h5, h6⟩
       · exact Or.inl hn0
       · obtain ⟨f, hf⟩ := ModeOK_pub_pfr h5
@@ -382,15 +397,15 @@ theorem VR_transferL (L : AllocLabel → Prop) : ∀ (t : Ty) (η₁ η₂ : TEn
         (push0_rels_mono hr) (push0_urels_mono hur) ?_ hp hs hi hri hP hS hBx h3⟩
       · simp only [TEnv.push0, TEnv.ins, TEnv.insR, hw]
   | .ptr μ u, η₁, η₂, ρ, rt, ws, hn, hL, _, _, _, hw, _, hs, _, _, hP, hS, _, hv => by
-      have hμ := noOR_ptr hn; subst hμ
-      simp only [VR] at hv ⊢
+      have hμ := noOR_ptr hn
+      simp only [VR, ModeOK_eq_pub hμ] at hv ⊢
       obtain ⟨a, c, h1, h2, h3, h4, h5, h6⟩ := hv
       have hLa : L a.label := LabIn_one hL h1
       obtain ⟨f, hf⟩ := ModeOK_pub_pfr h5
       exact ⟨a, c, h1, h2, hs _ _ _ hLa h3 hf, hw ▸ h4, ModeOK_pub_moveL (hP _ · hLa) hS h5, h6⟩
   | .ptrOpt μ u, η₁, η₂, ρ, rt, ws, hn, hL, _, _, _, hw, _, hs, _, _, hP, hS, _, hv => by
-      have hμ := noOR_ptrOpt hn; subst hμ
-      simp only [VR] at hv ⊢
+      have hμ := noOR_ptrOpt hn
+      simp only [VR, ModeOK_eq_pub hμ] at hv ⊢
       rcases hv with hn0 | ⟨a, c, h1, h2, h3, h4, h5, h6⟩
       · exact Or.inl hn0
       · have hLa : L a.label := LabIn_one hL h1
@@ -503,14 +518,14 @@ theorem VRR_transferS : ∀ (t : Ty) (η₁ η₂ : TEnv) (ρ : Nat → Nat) (rt
         (push0_rrs_mono hr) (push0_urrs_mono hur) ?_ hp hs hi hri hP hS hBx h3⟩
       · simp only [TEnv.push0, TEnv.ins, TEnv.insR, hw]
   | .ptr μ u, η₁, η₂, ρ, rt, ws, X, hn, _, _, hw, _, hs, _, _, hP, hS, _, hv => by
-      have hμ := noOR_ptr hn; subst hμ
-      simp only [VRR] at hv ⊢
+      have hμ := noOR_ptr hn
+      simp only [VRR, ModeOK_eq_pub hμ] at hv ⊢
       obtain ⟨⟨a, c, h1, h2, h3, h4, h5, h6⟩, hR⟩ := hv
       obtain ⟨f, hf⟩ := ModeOK_pub_pfr h5
       exact ⟨⟨a, c, h1, h2, hs _ _ _ h3 hf, hw ▸ h4, ModeOK_pub_move hP hS h5, h6⟩, hR⟩
   | .ptrOpt μ u, η₁, η₂, ρ, rt, ws, X, hn, _, _, hw, _, hs, _, _, hP, hS, _, hv => by
-      have hμ := noOR_ptrOpt hn; subst hμ
-      simp only [VRR] at hv ⊢
+      have hμ := noOR_ptrOpt hn
+      simp only [VRR, ModeOK_eq_pub hμ] at hv ⊢
       obtain ⟨hn0 | ⟨a, c, h1, h2, h3, h4, h5, h6⟩, hR⟩ := hv
       · exact ⟨Or.inl hn0, hR⟩
       · obtain ⟨f, hf⟩ := ModeOK_pub_pfr h5
@@ -558,28 +573,27 @@ theorem VRR_transferS : ∀ (t : Ty) (η₁ η₂ : TEnv) (ρ : Nat → Nat) (rt
 
 /-- `noOR` from what `PubCpl` records (`noOwnIn`) plus region-freedom (an
 interim scope fact before R2). -/
-theorem noOR_of : ∀ (T : Ty) (ke : KEnv), Ty.noOwnIn ke T = true → rgnFree T = true → noOR T = true
-  | .ptr μ _, _, h1, h2 => by cases μ <;> simp_all [Ty.noOwnIn, rgnFree, noOR]
-  | .ptrOpt μ _, _, h1, h2 => by cases μ <;> simp_all [Ty.noOwnIn, rgnFree, noOR]
-  | .loc μ _, _, h1, h2 => by cases μ <;> simp_all [Ty.noOwnIn, rgnFree, noOR]
+theorem noOR_of : ∀ (T : Ty) (ke : KEnv), Ty.noOwnIn ke T = true → TermC1.drf1 T = true → noOR T = true
+  | .ptr μ _, _, h1, h2 => by cases μ <;> simp_all [Ty.noOwnIn, TermC1.drf1, TermScope.drfM, noOR]
+  | .ptrOpt μ _, _, h1, h2 => by cases μ <;> simp_all [Ty.noOwnIn, TermC1.drf1, TermScope.drfM, noOR]
+  | .loc μ _, _, h1, h2 => by cases μ <;> simp_all [Ty.noOwnIn, TermC1.drf1, TermScope.drfM, noOR]
   | .prod a b, ke, h1, h2 => by
-      simp only [Ty.noOwnIn, rgnFree, noOR, Bool.and_eq_true] at h1 h2 ⊢
+      simp only [Ty.noOwnIn, TermC1.drf1, noOR, Bool.and_eq_true] at h1 h2 ⊢
       exact ⟨noOR_of a ke h1.1 h2.1, noOR_of b ke h1.2 h2.2⟩
   | .sum a b, ke, h1, h2 => by
-      simp only [Ty.noOwnIn, rgnFree, noOR, Bool.and_eq_true] at h1 h2 ⊢
+      simp only [Ty.noOwnIn, TermC1.drf1, noOR, Bool.and_eq_true] at h1 h2 ⊢
       exact ⟨noOR_of a ke h1.1 h2.1, noOR_of b ke h1.2 h2.2⟩
   | .array _ t, ke, h1, h2 => by
-      simp only [Ty.noOwnIn, rgnFree, noOR] at h1 h2 ⊢; exact noOR_of t ke h1 h2
+      simp only [Ty.noOwnIn, TermC1.drf1, noOR] at h1 h2 ⊢; exact noOR_of t ke h1 h2
   | .mu t, ke, h1, h2 => by
-      simp only [Ty.noOwnIn, rgnFree, noOR] at h1 h2 ⊢; exact noOR_of t _ h1 h2
+      simp only [Ty.noOwnIn, TermC1.drf1, noOR] at h1 h2 ⊢; exact noOR_of t _ h1 h2
   | .tex κ t, ke, h1, h2 => by
-      simp only [Ty.noOwnIn, rgnFree, noOR, Bool.and_eq_true] at h1 h2 ⊢; exact noOR_of t _ h1.2 h2
-  | .iall t, ke, h1, h2 => by
-      simp only [Ty.noOwnIn, rgnFree, noOR] at h1 h2 ⊢; exact noOR_of t ke h1 h2
+      simp only [Ty.noOwnIn, TermC1.drf1, noOR, Bool.and_eq_true] at h1 h2 ⊢; exact noOR_of t _ h1.2 h2
+  | .iall t, ke, h1, h2 => by simp [TermC1.drf1] at h2
   | .iex t, ke, h1, h2 => by
-      simp only [Ty.noOwnIn, rgnFree, noOR] at h1 h2 ⊢; exact noOR_of t ke h1 h2
+      simp only [Ty.noOwnIn, TermC1.drf1, noOR] at h1 h2 ⊢; exact noOR_of t ke h1 h2
   | .refine t _, ke, h1, h2 => by
-      simp only [Ty.noOwnIn, rgnFree, noOR] at h1 h2 ⊢; exact noOR_of t ke h1 h2
+      simp only [Ty.noOwnIn, TermC1.drf1, noOR] at h1 h2 ⊢; exact noOR_of t ke h1 h2
   | .intS _, _, _, _ | .int, _, _, _ | .tid, _, _, _ | .fix _ _, _, _, _ | .lanes _ _, _, _, _ | .unit, _, _, _
   | .void, _, _, _ | .share _, _, _, _ | .cap _ _, _, _, _ | .word _ _, _, _, _ | .tok _ _, _, _, _
   | .word2 _ _, _, _, _ | .tok2 _ _ _ _, _, _, _ | .epair _ _, _, _, _ | .tokE _ _ _, _, _, _
@@ -1710,7 +1724,41 @@ theorem GBoxNamed_empty : GBoxNamed {} := fun _ _ h => by cases h
 #print axioms ModeOK_pub_move
 #print axioms VR_transferS
 #print axioms VRR_transferS
+/-- (M12 L1) `noOR` from `noOwnIn` plus `rgnFree` (the old `PubCpl` conjunct). -/
+theorem noOR_of_rgnFree : ∀ (T : Ty) (ke : KEnv), Ty.noOwnIn ke T = true → rgnFree T = true → noOR T = true
+  | .ptr μ _, _, h1, h2 => by cases μ <;> simp_all [Ty.noOwnIn, rgnFree, noOR]
+  | .ptrOpt μ _, _, h1, h2 => by cases μ <;> simp_all [Ty.noOwnIn, rgnFree, noOR]
+  | .loc μ _, _, h1, h2 => by cases μ <;> simp_all [Ty.noOwnIn, rgnFree, noOR]
+  | .prod a b, ke, h1, h2 => by
+      simp only [Ty.noOwnIn, rgnFree, noOR, Bool.and_eq_true] at h1 h2 ⊢
+      exact ⟨noOR_of_rgnFree a ke h1.1 h2.1, noOR_of_rgnFree b ke h1.2 h2.2⟩
+  | .sum a b, ke, h1, h2 => by
+      simp only [Ty.noOwnIn, rgnFree, noOR, Bool.and_eq_true] at h1 h2 ⊢
+      exact ⟨noOR_of_rgnFree a ke h1.1 h2.1, noOR_of_rgnFree b ke h1.2 h2.2⟩
+  | .array _ t, ke, h1, h2 => by
+      simp only [Ty.noOwnIn, rgnFree, noOR] at h1 h2 ⊢; exact noOR_of_rgnFree t ke h1 h2
+  | .mu t, ke, h1, h2 => by
+      simp only [Ty.noOwnIn, rgnFree, noOR] at h1 h2 ⊢; exact noOR_of_rgnFree t _ h1 h2
+  | .tex κ t, ke, h1, h2 => by
+      simp only [Ty.noOwnIn, rgnFree, noOR, Bool.and_eq_true] at h1 h2 ⊢; exact noOR_of_rgnFree t _ h1.2 h2
+  | .iall t, ke, h1, h2 => by
+      simp only [Ty.noOwnIn, rgnFree, noOR] at h1 h2 ⊢; exact noOR_of_rgnFree t ke h1 h2
+  | .iex t, ke, h1, h2 => by
+      simp only [Ty.noOwnIn, rgnFree, noOR] at h1 h2 ⊢; exact noOR_of_rgnFree t ke h1 h2
+  | .refine t _, ke, h1, h2 => by
+      simp only [Ty.noOwnIn, rgnFree, noOR] at h1 h2 ⊢; exact noOR_of_rgnFree t ke h1 h2
+  | .intS _, _, _, _ | .int, _, _, _ | .tid, _, _, _ | .fix _ _, _, _, _ | .lanes _ _, _, _, _ | .unit, _, _, _
+  | .void, _, _, _ | .share _, _, _, _ | .cap _ _, _, _, _ | .word _ _, _, _, _ | .tok _ _, _, _, _
+  | .word2 _ _, _, _, _ | .tok2 _ _ _ _, _, _, _ | .epair _ _, _, _, _ | .tokE _ _ _, _, _, _
+  | .tvar _, _, _, _ | .code _ _ _, _, _, _ | .opq _, _, _, _ => by simp [noOR]
+
+/-- (M12 L1) `noOR` from what `PubCpl` records: `noOwnIn` plus `rgnFree ∨ drf1`. -/
+theorem noOR_ofL (T : Ty) (ke : KEnv) (h1 : Ty.noOwnIn ke T = true)
+    (h2 : rgnFree T = true ∨ TermC1.drf1 T = true) : noOR T = true :=
+  h2.elim (noOR_of_rgnFree T ke h1) (noOR_of T ke h1)
+
 #print axioms noOR_of
+#print axioms noOR_ofL
 #print axioms InclS.of_incl
 #print axioms InclS.refl
 #print axioms InclS.trans

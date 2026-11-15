@@ -195,39 +195,44 @@ local notation "S0" h => Scc.Sem.X64.threadAt Scc.Sem.Entry.linux (Ly h).Λ.code
 /-- The outside move: the take of the first stack. -/
 local notation "KS" h => K (Ly h) (Spike.Lib.X64.Rt.rS0 (Ly h))
 
-/-- **The x86-64 compiler theorem at an admissible entry state `E`**
-(`hE`), with the runtime's start as a hypothesis (`hgen`) and no static
-label (`hs`): `Correct` over the target on parsed texts at `E`. -/
-theorem x64_lower_correctE (hd : Scc.Lower.Accepted0 [d] = true) {em : Scc.Lower.X64.Emitted}
-    (hlow : Scc.Lower.X64.lowerAll? cfg [d] = .ok em) {Λ : Scc.Sem.Layout} (h : placeOKAt pcfg Λ (O) = true)
+/-- The value invariant of an output `o` (`G0` at `o`). -/
+local notation "G0o" h:max o:max =>
+  Spike.Lib.X64.PhRec.GOf (Ly h) (Spike.Lib.X64.PhRec.m0Of (Ly h).Λ (o).prog (o).secs)
+
+/-- **The x86-64 compiler theorem at an admissible entry state, for any output
+naming the lowering's IR** (`hir`) **with a bare tail** (`htl`):
+`x64_lower_correctE`'s proof, over any output `o` passing `placeOKAt`. -/
+theorem x64_lower_correctE_of (hd : Scc.Lower.Accepted0 [d] = true) {em : Scc.Lower.X64.Emitted}
+    (hlow : Scc.Lower.X64.lowerAll? cfg [d] = .ok em) {Λ : Scc.Sem.Layout}
+    {o : Scc.Cert.PlaceOK.X64.Out} (h : placeOKAt pcfg Λ o = true)
+    (hir : o.place.ir = some (Scc.Lower.X64.lowerAll cfg [d]).low.ir) (htl : o.place.tail = .bare)
     (hs : ∀ l, Λ.static l = none) {B : Scc.Sem.Budget} {arch : WeakMem.Arch} {E : Entry} (hE : E.Ok (Ly h).Λ)
     -- Runtime: `startAllUW_gen`'s conclusion
     (hgen : ∀ fr : Scc.Emit.X64.Frame, fr.size ≤ 4096 →
       ∀ F' : MachineData → Prop, FStable (EC E) F' → KStable (KS h) F' → (∀ m, F' m → rtF (Ly h) m) →
       SwUW (WS h (Ly h).Λ.static) (KS h) [d] (Ly h).Λ.static (Ly h).exe (Ly h).endPc (EC E)
-          (fun m => F' m ∧ StackM (Spike.Lib.X64.Rt.rS0 (Ly h)) m) (MS h (G0 h)) (Spike.Lib.X64.Rt.rS0 (Ly h))
+          (fun m => F' m ∧ StackM (Spike.Lib.X64.Rt.rS0 (Ly h)) m) (MS h (G0o h o)) (Spike.Lib.X64.Rt.rS0 (Ly h))
           (Ret0.pinA (Ly h).lab + 0#64 + 8#64) (Ret0.stacksA (Ly h).lab + 0#64 + 16384#64)
           Spike.Lib.X64Consumer.c0 (swL fr.size) bareMC ((fr.size : Int) + 48) (Int64.ofInt fr.size)
           (UPost [d] (Ly h).Λ.static Spike.Lib.X64Consumer.c0) →
         StartAllUW (WS h (Ly h).Λ.static) (KS h) [d] (Ly h).Λ.static (Ly h).exe (Ly h).endPc (EC E) F'
-          (MS h (G0 h)) (Spike.Lib.X64.Rt.rS0 (Ly h)) 0#64 0#64 Spike.Lib.X64Consumer.c0 (swL fr.size) bareMC
+          (MS h (G0o h o)) (Spike.Lib.X64.Rt.rS0 (Ly h)) 0#64 0#64 Spike.Lib.X64Consumer.c0 (swL fr.size) bareMC
           ((fr.size : Int) + 48) (Int64.ofInt fr.size) (UPost [d] (Ly h).Λ.static Spike.Lib.X64Consumer.c0)) :
     Scc.Sem.Correct (TParE E) (Scc.Sem.SrcSem.source (Spike.Lib.srcP1 arch) [d]) (Ly h).Λ B
-      ((O).prog, (O).secs, (O).labelOffs) := by
-  have hload : ∃ t0, (TParE E).load ((O).prog, (O).secs, (O).labelOffs) (Ly h).Λ = some t0 :=
+      (o.prog, o.secs, o.labelOffs) := by
+  have hload : ∃ t0, (TParE E).load (o.prog, o.secs, o.labelOffs) (Ly h).Λ = some t0 :=
     ⟨_, Scc.Cert.Link.X64.loadParsed_of_loadOk (loadOk_link_of_placeOKAt (i := immsOf d) h) hE.1⟩
-  have hss0 : imageOk (Ly h).Λ (O).secs (Scc.Sem.X64.codeLabel (Ly h).Λ.code.lo (O).prog) = true :=
+  have hss0 : imageOk (Ly h).Λ o.secs (Scc.Sem.X64.codeLabel (Ly h).Λ.code.lo o.prog) = true :=
     imageIn_link_of_placeOKAt (i := immsOf d) h
-  have hss : Scc.Sem.StaticSyms (Ly h).Λ (O).secs (Scc.Sem.X64.codeLabel (Ly h).Λ.code.lo (O).prog)
+  have hss : Scc.Sem.StaticSyms (Ly h).Λ o.secs (Scc.Sem.X64.codeLabel (Ly h).Λ.code.lo o.prog)
       (fun _ => 0) (fun _ => "") :=
     Scc.Sem.StaticSyms.of_none hs
   have hs' : (Ly h).Λ.static = fun _ => none := funext hs
   obtain ⟨fr, r, entry, m, zl, zf, z1, z2, zs, hr, hf, h4, h16, hpro, hbody, hphB, hphP, hab⟩ :=
-    mainPh_ofPlaceOK hd hlow h (immsOf d)
+    mainPh_ofPlaceOK_of hd hlow h hir (immsOf d)
   have hpc := Spike.Lib.X64.PhRec.hpc_ofPlaceOKE h (immsOf d) E
-  have htl := tail_bare_of_accepted0 hd hlow sizes labelOffs
   have hS := x64_start_segW h (immsOf d) hd htl hf h4 h16 hpro hr hbody
-    (Dt := OvfDt (Ly h).exe (Ly h).endPc (Ly h).lab) (rd := fun _ => True) (G := G0 h)
+    (Dt := OvfDt (Ly h).exe (Ly h).endPc (Ly h).lab) (rd := fun _ => True) (G := (G0o h o))
     (hs' ▸ rtFree_ofPlaceOK h _) hE hphB hphP Ret0.Inst.cfacts_c0 hab rfl
     (fun _ _ hlo hhi _ _ _ hA => ovfDt_of_at hlo hhi hA)
     (hGh_ofPlaceOK h _) (hGf_ofPlaceOK h _) (hGt_ofPlaceOK h _)
@@ -257,6 +262,28 @@ theorem x64_lower_correctE (hd : Scc.Lower.Accepted0 [d] = true) {em : Scc.Lower
       (Spike.Lib.X64.PhRec.abortPhOk_ofPlaceOK h _) (hrel_ofPlaceOK h _) (htk_ofPlaceOK h _) hWr)) (fun _ => trivial)
     (wf_link_of_placeOKAt (i := immsOf d) h) (G0_ofPlaceOKE h _ hE.1)
     (hGpl_ofPlaceOK h _ (Spike.Lib.X64.PhRec.hclr_ofPlaceOK h _)) hA (fun h => h)
+
+/-- **The x86-64 compiler theorem at an admissible entry state `E`**
+(`hE`), with the runtime's start as a hypothesis (`hgen`) and no static
+label (`hs`): `Correct` over the target on parsed texts at `E`. -/
+theorem x64_lower_correctE (hd : Scc.Lower.Accepted0 [d] = true) {em : Scc.Lower.X64.Emitted}
+    (hlow : Scc.Lower.X64.lowerAll? cfg [d] = .ok em) {Λ : Scc.Sem.Layout} (h : placeOKAt pcfg Λ (O) = true)
+    (hs : ∀ l, Λ.static l = none) {B : Scc.Sem.Budget} {arch : WeakMem.Arch} {E : Entry} (hE : E.Ok (Ly h).Λ)
+    -- Runtime: `startAllUW_gen`'s conclusion
+    (hgen : ∀ fr : Scc.Emit.X64.Frame, fr.size ≤ 4096 →
+      ∀ F' : MachineData → Prop, FStable (EC E) F' → KStable (KS h) F' → (∀ m, F' m → rtF (Ly h) m) →
+      SwUW (WS h (Ly h).Λ.static) (KS h) [d] (Ly h).Λ.static (Ly h).exe (Ly h).endPc (EC E)
+          (fun m => F' m ∧ StackM (Spike.Lib.X64.Rt.rS0 (Ly h)) m) (MS h (G0 h)) (Spike.Lib.X64.Rt.rS0 (Ly h))
+          (Ret0.pinA (Ly h).lab + 0#64 + 8#64) (Ret0.stacksA (Ly h).lab + 0#64 + 16384#64)
+          Spike.Lib.X64Consumer.c0 (swL fr.size) bareMC ((fr.size : Int) + 48) (Int64.ofInt fr.size)
+          (UPost [d] (Ly h).Λ.static Spike.Lib.X64Consumer.c0) →
+        StartAllUW (WS h (Ly h).Λ.static) (KS h) [d] (Ly h).Λ.static (Ly h).exe (Ly h).endPc (EC E) F'
+          (MS h (G0 h)) (Spike.Lib.X64.Rt.rS0 (Ly h)) 0#64 0#64 Spike.Lib.X64Consumer.c0 (swL fr.size) bareMC
+          ((fr.size : Int) + 48) (Int64.ofInt fr.size) (UPost [d] (Ly h).Λ.static Spike.Lib.X64Consumer.c0)) :
+    Scc.Sem.Correct (TParE E) (Scc.Sem.SrcSem.source (Spike.Lib.srcP1 arch) [d]) (Ly h).Λ B
+      ((O).prog, (O).secs, (O).labelOffs) :=
+  x64_lower_correctE_of hd hlow h (lowerAll_place_ir cfg [d] sizes labelOffs)
+    (tail_bare_of_accepted0 hd hlow sizes labelOffs) hs hE hgen
 
 /-- The runtime's layout at the static link of an output passing `placeOK`. -/
 local notation "Lyt" h => RuntimeLayout.ofPlaceOK (atTables h) (immsOf d)
@@ -412,6 +439,24 @@ theorem x64_scc_correctE_text (hd : Scc.Lower.Accepted0 [d] = true) (h : placeOK
     let ⟨h1, h2⟩ := Scc.Cert.Link.X64.parsed_of_parsesTo hpa
     Scc.Sem.X64.correct_of_parsed _ E h1 h2 (x64_scc_correctE hd h hgen E hE)
 
+/-- **`hgen` from `placeOK`, for any output** `o`: `hgen_ofPlaceOK`'s proof. -/
+theorem hgen_ofPlaceOK_of {Λ : Scc.Sem.Layout} {o : Scc.Cert.PlaceOK.X64.Out} (h : placeOKAt pcfg Λ o = true)
+    (hs : o.place.tail = .bare) :
+    ∀ E : Entry, E.Ok (Ly h).Λ → ∀ fr : Scc.Emit.X64.Frame, fr.size ≤ 4096 →
+      ∀ F' : MachineData → Prop, FStable (EC E) F' → KStable (KS h) F' → (∀ m, F' m → rtF (Ly h) m) →
+      SwUW (WS h (Ly h).Λ.static) (KS h) [d] (Ly h).Λ.static (Ly h).exe (Ly h).endPc (EC E)
+          (fun m => F' m ∧ StackM (Spike.Lib.X64.Rt.rS0 (Ly h)) m) (MS h (G0o h o)) (Spike.Lib.X64.Rt.rS0 (Ly h))
+          (Ret0.pinA (Ly h).lab + 0#64 + 8#64) (Ret0.stacksA (Ly h).lab + 0#64 + 16384#64)
+          Spike.Lib.X64Consumer.c0 (swL fr.size) bareMC ((fr.size : Int) + 48) (Int64.ofInt fr.size)
+          (UPost [d] (Ly h).Λ.static Spike.Lib.X64Consumer.c0) →
+        StartAllUW (WS h (Ly h).Λ.static) (KS h) [d] (Ly h).Λ.static (Ly h).exe (Ly h).endPc (EC E) F'
+          (MS h (G0o h o)) (Spike.Lib.X64.Rt.rS0 (Ly h)) 0#64 0#64 Spike.Lib.X64Consumer.c0 (swL fr.size) bareMC
+          ((fr.size : Int) + 48) (Int64.ofInt fr.size) (UPost [d] (Ly h).Λ.static Spike.Lib.X64Consumer.c0) :=
+  fun E hE _ _ _ _ _ hFF hs3 =>
+    have hEC := ec_facts _ hE (Spike.Lib.X64.Rt.rS0_sub _)
+    Spike.Lib.X64.Rt.startAllUW_gen h (immsOf d) hs Ret0.Inst.cfacts_c0 hEC.1 hEC.2.1 hEC.2.2.1 hFF rfl
+      (rS0_eq_lab _) (Spike.Lib.X64.Rt.rS0_sub _) hEC.2.2.2.2 hs3
+
 /-- **`hgen` from `placeOKAt`** (`startAllUW_gen`, `Spike/Lib/Rt/X64RtStartU.lean`):
 at every admissible entry state `E`, `scc_rt_start`'s blocks after `_start`
 are inside the run's facts given the switch's and `scc_rt_main`'s
@@ -431,10 +476,7 @@ theorem hgen_ofPlaceOK {Λ : Scc.Sem.Layout} (h : placeOKAt pcfg Λ (O) = true) 
         StartAllUW (WS h (Ly h).Λ.static) (KS h) [d] (Ly h).Λ.static (Ly h).exe (Ly h).endPc (EC E) F'
           (MS h (G0 h)) (Spike.Lib.X64.Rt.rS0 (Ly h)) 0#64 0#64 Spike.Lib.X64Consumer.c0 (swL fr.size) bareMC
           ((fr.size : Int) + 48) (Int64.ofInt fr.size) (UPost [d] (Ly h).Λ.static Spike.Lib.X64Consumer.c0) :=
-  fun E hE _ _ _ _ _ hFF hs3 =>
-    have hEC := ec_facts _ hE (Spike.Lib.X64.Rt.rS0_sub _)
-    Spike.Lib.X64.Rt.startAllUW_gen h (immsOf d) hs Ret0.Inst.cfacts_c0 hEC.1 hEC.2.1 hEC.2.2.1 hFF rfl
-      (rS0_eq_lab _) (Spike.Lib.X64.Rt.rS0_sub _) hEC.2.2.2.2 hs3
+  hgen_ofPlaceOK_of h hs
 
 /-- **The x86-64 compiler theorem at every admissible entry state, closed**:
 `x64_scc_correctE` with its `hgen` discharged (`hgen_ofPlaceOK`). For a

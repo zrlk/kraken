@@ -322,6 +322,7 @@ def ppDirective : Directive → String
   | .instr i => "\t" ++ ppInstr i
   | .label l => l ++ ":"
   | .byteArray b => ppBytes b
+  | .zeros n => s!"\t.zero {n}"
 
 /-! ## Labels -/
 
@@ -370,6 +371,7 @@ def Item.ok : Item → Bool
   | .comment _ => true
   | .d (.label l) => labelOk l
   | .d (.byteArray _) => false
+  | .d (.zeros _) => false
   | .d (.instr _) => true
 
 def Item.render : Item → String

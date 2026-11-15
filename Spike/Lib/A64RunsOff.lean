@@ -37,6 +37,7 @@ def nthIns : List Directive → Nat → Option Nat
   | .instr _ :: ds, j + 1 => (nthIns ds j).map (· + 1)
   | .label _ :: ds, j => (nthIns ds j).map (· + 1)
   | .byteArray _ :: _, _ => none
+  | .zeros _ :: _, _ => none
 
 /-- **The index of the instruction at `label l + 4j`**: the `j`-th
 instruction after the first `label l`, labels skipped. -/
@@ -100,6 +101,7 @@ theorem addr_nthIns (hp : Lays exe prog kp) :
       refine ⟨by rw [show s + (m' + 1) = s + 1 + m' by omega]; exact hc, ?_⟩
       rw [show s + (m' + 1) = s + 1 + m' by omega, ha, hsucc, show Int64.ofNat 0 = 0 by decide, Int64.add_zero]
     | byteArray _ => simp [nthIns] at h
+    | zeros _ => simp [nthIns] at h
 
 /-- **`label l + 4j` is the address of the instruction cell `insIdx`.** -/
 theorem label_insIdx (hp : Lays exe prog kp) {l : Label} {j n : Nat} (h : insIdx prog l j = some n) :

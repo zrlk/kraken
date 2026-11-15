@@ -19,15 +19,29 @@ theorem fenceS_vWr (s : St) (f : WeakMem.Fence) : (fenceS s f).vs.vWr = s.vs.vWr
 theorem pub_vWr {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {l : AllocLabel}
     {r : Memory × List Ts × TTh} (h : PubAt th l) (hr : r ∈ tstep g mem pairs th) :
     r.2.2.vs.vWr = th.vs.vWr := by
-  obtain ⟨y, a, e, rt, ws, ad, hterm, hea, -, -⟩ := h
-  simp only [tstep, hterm, evalOp, hea] at hr
-  cases rt <;> simp [ol] at hr
-  all_goals first
-    | (obtain ⟨-, rfl⟩ := hr; simp [withS, fenceS_vWr, stOf])
-    | (rcases hr with ⟨_, _, rfl⟩; simp [withS, fenceS_vWr, stOf])
-    | (obtain ⟨a1, a2, a3, hm, rfl⟩ := hr
-       split at hm <;> simp at hm
-       all_goals (obtain ⟨rfl, -, -⟩ := hm; simp [withS, fenceS_vWr, stOf]))
+  obtain ⟨a, rt, ws, ad, hk, hea, -, -⟩ := h
+  rcases hk with ⟨y, e, hterm⟩ | ⟨rn, pn, tn, e, hterm⟩ | ⟨y, rn, e, hterm⟩
+  · simp only [tstep, hterm, evalOp, hea] at hr
+    cases rt <;> simp [ol] at hr
+    all_goals first
+      | (obtain ⟨-, rfl⟩ := hr; simp [withS, fenceS_vWr, stOf])
+      | (rcases hr with ⟨_, _, rfl⟩; simp [withS, fenceS_vWr, stOf])
+      | (obtain ⟨a1, a2, a3, hm, rfl⟩ := hr
+         split at hm <;> simp at hm
+         all_goals (obtain ⟨rfl, -, -⟩ := hm; simp [withS, fenceS_vWr, stOf]))
+  · -- `region` (the fence)
+    simp only [tstep, hterm, hea] at hr
+    split at hr <;> simp only [List.mem_singleton, List.not_mem_nil] at hr
+    all_goals (subst hr; simp [withS, fenceS_vWr, stOf])
+  · -- `intoRgn` (the fence)
+    simp only [tstep, hterm, evalOp, hea] at hr
+    cases rt <;> simp [ol] at hr
+    all_goals first
+      | (obtain ⟨-, rfl⟩ := hr; simp [withS, fenceS_vWr, stOf])
+      | (rcases hr with ⟨_, _, rfl⟩; simp [withS, fenceS_vWr, stOf])
+      | (obtain ⟨a1, a2, a3, hm, rfl⟩ := hr
+         split at hm <;> simp at hm
+         all_goals (obtain ⟨rfl, -, -⟩ := hm; simp [withS, fenceS_vWr, stOf]))
 
 end TermK5V
 

@@ -105,6 +105,7 @@ def cellOk : Directive × Nat → Bool
   | (.label _, z) => z == 0
   | (.instr _, z) => z == 4
   | (.byteArray _, z) => 0 < z
+  | (.zeros _, z) => 0 < z
 
 /-- **A decidable check of `ValidLayout`**: every cell is `cellOk` and the
 cells fit the address space. -/
@@ -117,6 +118,9 @@ theorem validLayout_of_cellsOk (e : Kraken.Executable Directive) (hc : e.2.all c
     have := List.all_eq_true.mp hc _ (List.mem_of_getElem? h)
     simpa [cellOk] using this
   data_size i a z h := by
+    have := List.all_eq_true.mp hc _ (List.mem_of_getElem? h)
+    simpa [cellOk] using this
+  zeros_size i n z h := by
     have := List.all_eq_true.mp hc _ (List.mem_of_getElem? h)
     simpa [cellOk] using this
   no_wrap := hw

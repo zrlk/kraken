@@ -54,6 +54,66 @@ theorem lowerAll_accepted1main_a64 (cfg : Scc.Config) {d : Decl} (hd : Scc.Lower
   rw [hir']
   simp [Scc.Lower.Inv.progOf, List.mem_zipIdx_iff_getElem?]
 
+/-- **`mainPh1_ofPlaceOK` for any output naming the lowering's IR** (`hir`):
+its proof, over any output `o` passing `placeOKAt`. -/
+theorem mainPh1_ofPlaceOK_of {cfg : Scc.Config} {d : Decl} (hd : Scc.Lower.Accepted1 [d] = true)
+    {em : Scc.Lower.A64.Emitted} (hlow : Scc.Lower.A64.lowerAll? cfg [d] = .ok em)
+    {pcfg : Scc.Cert.PlaceOK.Config} {Λ : Scc.Sem.Layout}
+    {o : Scc.Cert.PlaceOK.A64.Out} (h : placeOKAt pcfg Λ o = true)
+    (hir : o.place.ir = some (Scc.Lower.A64.lowerAll cfg [d]).low.ir)
+    (i : CoreTerm.Expr → String → Nat → Option Nat) :
+    let ir := (Scc.Lower.A64.lowerAll cfg [d]).low.ir
+    let Ly := RuntimeLayout.ofPlaceOK h i
+    let ra := Int64.ofBitVec (Ly.lab bareMC.e0 + 4).toBitVec
+    ∃ (cx : FnCtx) (r : Res1) (fi : Nat) (entry : Label),
+      lower1 [(d.arg, .unit, [])] 0 d.body = some r ∧
+      (func1 (Scc.Lower.Names.user "main") [] r, fi) ∈ ir.funcs.zipIdx ∧
+      cx = ctxOf ir fi (func1 (Scc.Lower.Names.user "main") [] r) ∧
+      FrameOk cx ∧ cx.frame ≤ 4095 ∧ cx.frame % 16 = 0 ∧
+      cx.blockLabel "entry" = .ok entry ∧
+      proInC o.prog cx bareMC.fn entry = true ∧
+      blocksOk o.prog cx 0 (func1 (Scc.Lower.Names.user "main") [] r).blocks = true ∧
+      blocksPh (Spike.Lib.A64.PhRec.okPc Ly) (Spike.Lib.A64.PhRec.ph Ly) (labC Λ.code.lo o.prog)
+        (fun l => (codeOf Λ.code.lo o.prog l).isSome) cx ra 0
+        (func1 (Scc.Lower.Names.user "main") [] r).blocks = true ∧
+      (∀ l a, codeOf Λ.code.lo o.prog l = some a → Ly.lab l = Int64.ofNat a) ∧
+      ProPh (Spike.Lib.A64.PhRec.okPc Ly) (Spike.Lib.A64.PhRec.ph Ly) Ly.lab
+        (cx.local "stack_check") (Int64.ofInt cx.frame) (proL cx) [] ∧
+      (hasAddChk (func1 (Scc.Lower.Names.user "main") [] r) = true →
+        Scc.Cert.Rt.A64.blockAt o.prog (cx.local "abort_overflow") 0 ovfBlk = true ∧
+        Spike.Lib.A64Consumer.blkPh (Spike.Lib.A64.PhRec.okPc Ly) (Spike.Lib.A64.PhRec.ph Ly)
+          (fun _ => false) Ly.lab (Ly.lab (cx.local "abort_overflow") + Int64.ofNat (4 * 0)) 0
+          A64.Abort.Local.lb = true) := by
+  intro ir Ly ra
+  obtain ⟨r, rt, hr, -, hmem⟩ := lowerAll_accepted1main_a64 cfg hd hlow
+  have hlab := lab_ofPlaceOK h i
+  have hc1 := fnOk1_of_fnCode1Ok (fnCode1_of_placeOKAt h hir) hmem rfl
+  obtain ⟨⟨entry, hent, hpro⟩, hle, h16, hbo, hovf, -⟩ := fnOk1_facts hc1 rfl (spills_nil _)
+  obtain ⟨hra, hall⟩ := fnPh1Ok_parts (fnPh1_of_placeOKAt h hir)
+  have hF := fnPhF_of_fnPhAll1 hall hmem rfl
+  obtain ⟨-, rsc, rpro, hpp, hbp, hovp⟩ := fnPhF_facts hF (spills_nil _)
+  rw [labC_eq hlab hra] at hbp
+  have hpr := List.all_eq_true.mp rpro
+  have e := fun (blk : List Directive)
+      (hsub : ∀ L ∈ blkLabs blk, L ∈ proLabs (Int64.ofInt (ctxOf ir rt.length
+        (func1 (Scc.Lower.Names.user "main") [] r)).frame)
+        (proL (ctxOf ir rt.length (func1 (Scc.Lower.Names.user "main") [] r))) []) =>
+    (List.all_eq_true.mpr fun L hL => hpr L (hsub L hL) :
+      (blkLabs blk).all (fun l => (codeOf Λ.code.lo o.prog l).isSome) = true)
+  refine ⟨_, r, rt.length, entry, hr, hmem, rfl, fnCtx_frameOk .., hle, h16, hent,
+    user_main_eq_bareMC_fn ▸ hpro, hbo, hbp, hlab, ?_, ?_⟩
+  · apply proPh_of_proPhOk
+    simp only [proPhOk, Bool.and_eq_true, beq_iff_eq] at hpp ⊢
+    rw [labC_eq hlab rsc] at hpp
+    obtain ⟨⟨⟨⟨hd', ld1⟩, ld2⟩, br⟩, frr⟩ := hpp
+    refine ⟨⟨⟨⟨?_, ld1⟩, ld2⟩, ?_⟩, ?_⟩
+    · rw [← blkPh_labC hlab (e _ fun L hL => by simp [proLabs, hL])]; exact hd'
+    · rw [← blkPh_labC hlab (e _ fun L hL => by simp [proLabs, hL])]; exact br
+    · rw [← blkPh_labC hlab (e _ fun L hL => by simp [proLabs, hL])]; exact frr
+  · intro ha
+    obtain ⟨rab, rlb, hb⟩ := hovp ha
+    rw [labC_eq hlab rab, blkPh_labC hlab rlb, ovfBlk_eq_lb] at hb
+    exact ⟨hovf ha, hb⟩
 /-- **`main`'s code and phase facts from `PlaceOK`** on a one-block
 `Accepted1` program (see the module docstring), at the layout
 `RuntimeLayout.ofPlaceOK h i` (any immediates `i`), the return address
@@ -85,37 +145,7 @@ theorem mainPh1_ofPlaceOK {cfg : Scc.Config} {d : Decl} (hd : Scc.Lower.Accepted
         Scc.Cert.Rt.A64.blockAt o.prog (cx.local "abort_overflow") 0 ovfBlk = true ∧
         Spike.Lib.A64Consumer.blkPh (Spike.Lib.A64.PhRec.okPc Ly) (Spike.Lib.A64.PhRec.ph Ly)
           (fun _ => false) Ly.lab (Ly.lab (cx.local "abort_overflow") + Int64.ofNat (4 * 0)) 0
-          A64.Abort.Local.lb = true) := by
-  intro o ir Ly ra
-  obtain ⟨r, rt, hr, -, hmem⟩ := lowerAll_accepted1main_a64 cfg hd hlow
-  have hlab := lab_ofPlaceOK h i
-  have hir := lowerAll_place_ir cfg [d]
-  have hc1 := fnOk1_of_fnCode1Ok (fnCode1_of_placeOKAt h hir) hmem rfl
-  obtain ⟨⟨entry, hent, hpro⟩, hle, h16, hbo, hovf, -⟩ := fnOk1_facts hc1 rfl (spills_nil _)
-  obtain ⟨hra, hall⟩ := fnPh1Ok_parts (fnPh1_of_placeOKAt h hir)
-  have hF := fnPhF_of_fnPhAll1 hall hmem rfl
-  obtain ⟨-, rsc, rpro, hpp, hbp, hovp⟩ := fnPhF_facts hF (spills_nil _)
-  rw [labC_eq hlab hra] at hbp
-  have hpr := List.all_eq_true.mp rpro
-  have e := fun (blk : List Directive)
-      (hsub : ∀ L ∈ blkLabs blk, L ∈ proLabs (Int64.ofInt (ctxOf ir rt.length
-        (func1 (Scc.Lower.Names.user "main") [] r)).frame)
-        (proL (ctxOf ir rt.length (func1 (Scc.Lower.Names.user "main") [] r))) []) =>
-    (List.all_eq_true.mpr fun L hL => hpr L (hsub L hL) :
-      (blkLabs blk).all (fun l => (codeOf Λ.code.lo o.prog l).isSome) = true)
-  refine ⟨_, r, rt.length, entry, hr, hmem, rfl, fnCtx_frameOk .., hle, h16, hent,
-    user_main_eq_bareMC_fn ▸ hpro, hbo, hbp, hlab, ?_, ?_⟩
-  · apply proPh_of_proPhOk
-    simp only [proPhOk, Bool.and_eq_true, beq_iff_eq] at hpp ⊢
-    rw [labC_eq hlab rsc] at hpp
-    obtain ⟨⟨⟨⟨hd', ld1⟩, ld2⟩, br⟩, frr⟩ := hpp
-    refine ⟨⟨⟨⟨?_, ld1⟩, ld2⟩, ?_⟩, ?_⟩
-    · rw [← blkPh_labC hlab (e _ fun L hL => by simp [proLabs, hL])]; exact hd'
-    · rw [← blkPh_labC hlab (e _ fun L hL => by simp [proLabs, hL])]; exact br
-    · rw [← blkPh_labC hlab (e _ fun L hL => by simp [proLabs, hL])]; exact frr
-  · intro ha
-    obtain ⟨rab, rlb, hb⟩ := hovp ha
-    rw [labC_eq hlab rab, blkPh_labC hlab rlb, ovfBlk_eq_lb] at hb
-    exact ⟨hovf ha, hb⟩
+          A64.Abort.Local.lb = true) :=
+  mainPh1_ofPlaceOK_of hd hlow h (lowerAll_place_ir cfg [d]) i
 
 end Spike.Lib.LowerA64

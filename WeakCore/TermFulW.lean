@@ -43,9 +43,8 @@ theorem fetch_cls1 {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh
   | fetchEpoch hp hw hep =>
       obtain ⟨μ, ht⟩ := wordOf_cases hw
       simp only at ht
-      obtain ⟨μ', u', ht', hμ'⟩ := hsc _ hp
-      have hμ := word_mode ht ht' hμ'
-      have hg := pwf_epoch_ghost (wordRef_pwf hp ht hμ hi hE htv hm) hep
+      obtain ⟨μ', u', ht'⟩ := hsc _ hp
+      have hg := pwf_epoch_ghost (wordRef_pwf hp ht hi hE htv hm) hep
       obtain ⟨c, n, hsto, hat⟩ := word_tgt hi.2.1 hp ht hea hb
       exact .inl ⟨c, hsto, .inl ⟨_, _, hg, hat⟩⟩
   | fetchShare hp hw _ _ _ hok =>
@@ -98,11 +97,12 @@ theorem cas_cls1 {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} 
   | casEpoch hp hw hep =>
       obtain ⟨μ, ht⟩ := wordOf_cases hw
       simp only at ht
-      rcases hsc _ hp with ⟨μ', r', P', ht', hμ'⟩ | ⟨u, -, hnw⟩
-      · have hμ := word_mode ht ht' hμ'
-        have hg := pwf_epoch_ghost (wordRef_pwf hp ht hμ hi hE htv hm) hep
+      rcases hsc _ hp with ⟨μ', r', P', ht'⟩ | ⟨u, -, hnw⟩ | ⟨r', u, -, hnw⟩
+      ·
+        have hg := pwf_epoch_ghost (wordRef_pwf hp ht hi hE htv hm) hep
         obtain ⟨c, n, hsto, hat⟩ := word_tgt hi.2.1 hp ht hea hb
         exact .inl ⟨c, hsto, .inl ⟨_, _, hg, hat⟩⟩
+      · rw [hw] at hnw; cases hnw
       · rw [hw] at hnw; cases hnw
 
 #print axioms cas_cls1

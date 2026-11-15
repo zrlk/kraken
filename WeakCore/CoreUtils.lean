@@ -435,6 +435,7 @@ def fmtOp (n : Names) : Op → String
                             sp ++ fmtAtN n v ++ sp ++ kw "with" ++ sp ++ fmtAtN n tok
   | .claim a tok       => opn "claim" ++ sp ++ fmtAtN n a ++ sp ++ kw "with" ++ sp ++ fmtAtN n tok
   | .spawn f a _ _ => opn "spawn" ++ sp ++ ident f ++ sp ++ fmtAtN n a
+  | .spawnI f is a _ ts => opn "spawnI" ++ sp ++ fmtCall n f is a ts
   | .ext e a => opn e.name ++ sp ++ fmtAtN n a
   | .isTy a τ => opn "isTy" ++ "_" ++ br (fmtTyT n τ) ++ sp ++ fmtAtN n a
   | .fetch o acq rel a v => opn "fetch" ++ "_" ++ o.name ++ ord acq rel ++ sp ++ fmtAtN n a ++ sp ++ fmtAtN n v

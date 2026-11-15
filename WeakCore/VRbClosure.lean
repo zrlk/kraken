@@ -25,6 +25,25 @@ def _root_.TermSound.TEnv.pubTop (η : TEnv) : Ty → Bool
   | .tvar k => (η.wit k).pubHead
   | t => t.pubHead
 
+/-- a region locative at the syntactic head. -/
+def _root_.CoreLang.Ty.rgnLocHead : Ty → Bool
+  | .loc (.rgn _) _ => true
+  | _ => false
+
+/-- the region-locative head seen through a type variable (its witness), as `TEnv.pubTop`. -/
+def _root_.TermSound.TEnv.rgnTop (η : TEnv) : Ty → Bool
+  | .tvar k => (η.wit k).rgnLocHead
+  | t => t.rgnLocHead
+
+/-- the words are one reference whose cell (if in Σ) the running thread owns.  The `∀` form
+pulls back along forward store inclusion with an equal `tid` (ExtB). -/
+def RgnOwnW (η : TEnv) (ws : List Word) : Prop :=
+  ∃ a : WeakMem.Address, ws.map (·.val) = [.loc a 0] ∧ ∀ c, η.sto a.label = some c → c.owner = some η.tid
+
+/-- An owner region locative, the second antecedent of the refine clause
+(a non-owner region locative keeps the frontier route). -/
+def RgnOwnE (η : TEnv) (t : Ty) (ws : List Word) : Prop := η.rgnTop t = true ∧ RgnOwnW η ws
+
 def VRz (ρ : Nat → Nat) (η : TEnv) : Prop → Ty → Shp → List Word → Prop
   | _bk, .intS i, _, ws => ws.map (·.val) = [.num (ev ρ i)]
   | _bk, .int, _, ws => ∃ n, ws.map (·.val) = [.num n]
@@ -34,7 +53,7 @@ def VRz (ρ : Nat → Nat) (η : TEnv) : Prop → Ty → Shp → List Word → P
   | _bk, .fix sg w, rt, ws => rt = .fix sg w ∧ ∃ n, ws.map (·.val) = [.num n] ∧ n < pw2 w
   | _bk, .lanes sg w, rt, ws => rt = .lanes sg w ∧ ∃ n, ws.map (·.val) = [.num n]
   | bk, .refine t ψ, rt, ws => VRz ρ η bk t rt ws ∧ IniR ρ (η.selIni t) ψ ws ∧
-      (PubPosE η t rt ws → FreshW η ws ∨ IniR ρ η.rc ψ ws)
+      ((PubPosE η t rt ws ∨ RgnOwnE η t ws) → FreshW η ws ∨ IniR ρ η.rc ψ ws)
   | bk, .iex b, rt, ws => ∃ n rb w, rt = .iex n rb ∧ VRz (vcons w ρ) η bk b rb ws
   | _bk, .prod a b, rt, ws => ∃ ra rb, rt = .prod ra rb ∧ ∀ n, ra.wc = some n →
       n ≤ ws.length ∧ VRz ρ η False a ra (ws.take n) ∧ VRz ρ η False b rb (ws.drop n)
@@ -69,7 +88,7 @@ def VRz (ρ : Nat → Nat) (η : TEnv) : Prop → Ty → Shp → List Word → P
   -- no access reaches (T3c-5a)
   | bk, .loc μ u, _, ws => (ws.map (·.val) = [.null] ∧ ∃ e, Fd (.array (.lit 0) e) (cl ρ η.wit 0 0 u)) ∨
       ∃ a c U, ws.map (·.val) = [.loc a 0] ∧ η.sto a.label = some c ∧
-        AtOff c.ty a.offset U ∧ Fd U (cl ρ η.wit 0 0 u) ∧ ModeOKb η.tid η.pfr η.seen (bk ∨ IniAt η.rc c a U) μ a.label c ws ∧
+        AtOff c.ty a.offset U ∧ Fd U (cl ρ η.wit 0 0 u) ∧ ModeOKbLoc η.tid η.pfr η.seen (bk ∨ IniAt η.rc c a U) μ a.label c ws ∧
           IniAt (modeIni μ η.ini η.rini) c a U
   | bk, .ptrOpt μ u, _, ws => ws.map (·.val) = [.null] ∨
       ∃ a c, ws.map (·.val) = [.loc a 0] ∧ a.offset = 0 ∧ η.sto a.label = some c ∧
@@ -106,7 +125,7 @@ def VRb2 (ρ : Nat → Nat) (η : TEnv) : Prop → Ty → Shp → List Word → 
   | _bk, .fix sg w, rt, ws => rt = .fix sg w ∧ ∃ n, ws.map (·.val) = [.num n] ∧ n < pw2 w
   | _bk, .lanes sg w, rt, ws => rt = .lanes sg w ∧ ∃ n, ws.map (·.val) = [.num n]
   | bk, .refine t ψ, rt, ws => VRb2 ρ η bk t rt ws ∧ IniR ρ (η.selIni t) ψ ws ∧
-      (PubPosE η t rt ws → FreshW η ws ∨ IniR ρ η.rc ψ ws)
+      ((PubPosE η t rt ws ∨ RgnOwnE η t ws) → FreshW η ws ∨ IniR ρ η.rc ψ ws)
   | bk, .iex b, rt, ws => ∃ n rb w, rt = .iex n rb ∧ VRb2 (vcons w ρ) η bk b rb ws
   | _bk, .prod a b, rt, ws => ∃ ra rb, rt = .prod ra rb ∧ ∀ n, ra.wc = some n →
       n ≤ ws.length ∧ VRb2 ρ η False a ra (ws.take n) ∧ VRb2 ρ η False b rb (ws.drop n)
@@ -141,7 +160,7 @@ def VRb2 (ρ : Nat → Nat) (η : TEnv) : Prop → Ty → Shp → List Word → 
   -- no access reaches (T3c-5a)
   | bk, .loc μ u, _, ws => (ws.map (·.val) = [.null] ∧ ∃ e, Fd (.array (.lit 0) e) (cl ρ η.wit 0 0 u)) ∨
       ∃ a c U, ws.map (·.val) = [.loc a 0] ∧ η.sto a.label = some c ∧
-        AtOff c.ty a.offset U ∧ Fd U (cl ρ η.wit 0 0 u) ∧ ModeOKb η.tid η.pfr η.seen (bk ∨ IniAt η.rc c a U) μ a.label c ws ∧
+        AtOff c.ty a.offset U ∧ Fd U (cl ρ η.wit 0 0 u) ∧ ModeOKbLoc η.tid η.pfr η.seen (bk ∨ IniAt η.rc c a U) μ a.label c ws ∧
           IniAt (modeIni μ η.ini η.rini) c a U
   | bk, .ptrOpt μ u, _, ws => ws.map (·.val) = [.null] ∨
       ∃ a c, ws.map (·.val) = [.loc a 0] ∧ a.offset = 0 ∧ η.sto a.label = some c ∧
@@ -174,7 +193,7 @@ def VRb2 (ρ : Nat → Nat) (η : TEnv) : Prop → Ty → Shp → List Word → 
 theorem ModeOKb_flag {i P S} {bk bk' : Prop} (hb : bk → bk') {μ l c ws} (h : ModeOKb i P S bk μ l c ws) :
     ModeOKb i P S bk' μ l c ws := by
   cases μ with
-  | pub => obtain ⟨f, hf, h⟩ := h; exact ⟨f, hf, h.imp id (Or.imp id (And.imp id hb))⟩
+  | pub | rgn _ => obtain ⟨f, hf, h⟩ := h; exact ⟨f, hf, h.imp id (Or.imp id (And.imp id hb))⟩
   | _ => exact h
 
 theorem VRb_flag (t : Ty) : ∀ (ρ : Nat → Nat) (η : TEnv) (bk bk' : Prop) (rt : Shp) (ws : List Word),
@@ -199,7 +218,7 @@ theorem VRb_flag (t : Ty) : ∀ (ρ : Nat → Nat) (η : TEnv) (bk bk' : Prop) (
     intro ρ η bk bk' rt ws hb h; simp only [VRb] at h ⊢
     rcases h with h | ⟨a, c, U, h1, h2, h3, h4, hm, h5⟩
     · exact Or.inl h
-    · exact Or.inr ⟨a, c, U, h1, h2, h3, h4, ModeOKb_flag (Or.imp_left hb) hm, h5⟩
+    · exact Or.inr ⟨a, c, U, h1, h2, h3, h4, ModeOKbLoc.flag (Or.imp_left hb) hm, h5⟩
   | tex κ b ih =>
     intro ρ η bk bk' rt ws hb h; simp only [VRb] at h ⊢
     obtain ⟨n, rb, s, hrt, hc, hw, hv⟩ := h; exact ⟨n, rb, s, hrt, hc, hw, ih _ _ _ _ _ _ hb hv⟩
@@ -369,23 +388,26 @@ theorem VR_ppFresh (bx : WeakMem.AllocLabel → Option Box) (t : Ty) : ∀ (PT :
   | ptr μ u =>
     intro PT ρ η rt ws i _ _ hv hp
     cases μ <;> simp [pp] at hp
-    simp only [VR] at hv
-    obtain ⟨a, c, h1, -, -, -, hm, -⟩ := hv
-    exact FreshAt_head h1 hm i
+    all_goals
+      simp only [VR] at hv
+      obtain ⟨a, c, h1, -, -, -, hm, -⟩ := hv
+      exact FreshAt_head h1 hm i
   | ptrOpt μ u =>
     intro PT ρ η rt ws i _ _ hv hp
     cases μ <;> simp [pp] at hp
-    simp only [VR] at hv
-    rcases hv with hn | ⟨a, c, h1, -, -, -, hm, -⟩
-    · exact FreshAt_null hn i
-    · exact FreshAt_head h1 hm i
+    all_goals
+      simp only [VR] at hv
+      rcases hv with hn | ⟨a, c, h1, -, -, -, hm, -⟩
+      · exact FreshAt_null hn i
+      · exact FreshAt_head h1 hm i
   | loc μ u =>
     intro PT ρ η rt ws i _ _ hv hp
     cases μ <;> simp [pp] at hp
-    simp only [VR] at hv
-    rcases hv with ⟨hn, -⟩ | ⟨a, c, U, h1, -, -, -, hm, -⟩
-    · exact FreshAt_null hn i
-    · exact FreshAt_head h1 hm i
+    all_goals
+      simp only [VR] at hv
+      rcases hv with ⟨hn, -⟩ | ⟨a, c, U, h1, -, -, -, hm, -⟩
+      · exact FreshAt_null hn i
+      · exact FreshAt_head h1 hm i
   | tid =>
     intro PT ρ η rt ws i _ _ hv _
     simp only [VR] at hv
@@ -507,15 +529,47 @@ theorem VR_PubPosEFresh {ρ : Nat → Nat} {η : TEnv} {t : Ty} {rt : Shp} {ws :
   exact VR_ppFresh bx (η.wit k) (fun _ _ _ _ => false) (fun _ => 0) (CE η) rt' ws' i
     hbx (fun _ _ _ _ h => by simp at h) hv hq
 
+/- VR_VRb2/VR_VRB restored via ModeOK_b0. -/
+/-- a base region locative is fresh (`ModeOK .rgn` is the frontier clause). Twin of K2BGapB.VR1_rgnLoc_fresh. -/
+theorem VR_rgnLoc_freshS {ρ : Nat → Nat} {η : TEnv} {r : Idx} {u : Ty} {rt : Shp} {ws : List Word}
+    (h : VR ρ η (.loc (.rgn r) u) rt ws) : FreshW η ws := by
+  intro a ha
+  simp only [VR] at h
+  rcases h with ⟨hn, -⟩ | ⟨a', c, U, h1, -, -, -, hm, -⟩
+  · rw [hn] at ha; simp at ha
+  · rw [h1] at ha
+    simp only [List.cons.injEq, WeakMem.Val.loc.injEq, and_true] at ha
+    subst ha
+    exact hm
+
+theorem VR_rgnHead_freshS {ρ : Nat → Nat} {η : TEnv} {t : Ty} {rt : Shp} {ws : List Word}
+    (hg : t.rgnLocHead = true) (h : VR ρ η t rt ws) : FreshW η ws := by
+  cases t <;> try (simp [Ty.rgnLocHead] at hg; done)
+  rename_i μ u
+  cases μ <;> try (simp [Ty.rgnLocHead] at hg; done)
+  exact VR_rgnLoc_freshS h
+
+/-- `RelsSound` feeds the tvar case (as `VR_pubTopFresh`); no new hypothesis. -/
+theorem VR_rgnTop_freshS {ρ : Nat → Nat} {η : TEnv} {t : Ty} {rt : Shp} {ws : List Word} (hR : RelsSound η)
+    (hg : η.rgnTop t = true) (h : VR ρ η t rt ws) : FreshW η ws := by
+  cases t with
+  | tvar k =>
+    simp only [TEnv.rgnTop] at hg
+    simp only [VR, TEnv.get] at h
+    obtain ⟨w0, h0, h1⟩ := h
+    exact FreshW_wle h0 (VR_rgnHead_freshS (η := CE η) hg (hR.1 k rt w0 h1))
+  | _ => refine VR_rgnHead_freshS ?_ h; exact hg
+
 theorem VR_VRb2 (t : Ty) : ∀ (ρ : Nat → Nat) (η : TEnv) (bk : Prop) (rt : Shp) (ws : List Word),
     RelsSound η → VR ρ η t rt ws → VRb2 ρ η bk t rt ws := by
   induction t with
   | tid =>
     intro ρ η bk rt ws hR h; simp only [VR] at h; simp only [VRb2]
-    obtain ⟨l, c, h1, h2, h3, hm⟩ := h; exact ⟨l, c, h1, h2, h3, ModeOK_b _ hm⟩
+    obtain ⟨l, c, h1, h2, h3, hm⟩ := h; exact ⟨l, c, h1, h2, h3, ModeOK_b0 _ hm⟩
   | refine t ψ ih =>
     intro ρ η bk rt ws hR h; simp only [VR] at h; simp only [VRb2]
-    exact ⟨ih _ _ _ _ _ hR h.1, h.2, fun hp => Or.inl (VR_PubPosEFresh hR hp h.1)⟩
+    exact ⟨ih _ _ _ _ _ hR h.1, h.2, fun hp => Or.inl (hp.elim (fun hp => VR_PubPosEFresh hR hp h.1)
+      (fun hq => VR_rgnTop_freshS hR hq.1 h.1))⟩
   | iex b ih =>
     intro ρ η bk rt ws hR h; simp only [VR] at h; simp only [VRb2]
     obtain ⟨n, rb, w, hrt, hv⟩ := h; exact ⟨n, rb, w, hrt, ih _ _ _ _ _ hR hv⟩
@@ -537,17 +591,17 @@ theorem VR_VRb2 (t : Ty) : ∀ (ρ : Nat → Nat) (η : TEnv) (bk : Prop) (rt : 
       · obtain ⟨q, q1, q2⟩ := hB hj; exact ⟨q, q1, ihb _ _ _ _ _ hR q2⟩
   | ptr μ u _ =>
     intro ρ η bk rt ws hR h; simp only [VR] at h; simp only [VRb2]
-    obtain ⟨a, c, h1, h2, h3, h4, hm, h5⟩ := h; exact ⟨a, c, h1, h2, h3, h4, ModeOK_b _ hm, h5⟩
+    obtain ⟨a, c, h1, h2, h3, h4, hm, h5⟩ := h; exact ⟨a, c, h1, h2, h3, h4, ModeOK_b0 _ hm, h5⟩
   | ptrOpt μ u _ =>
     intro ρ η bk rt ws hR h; simp only [VR] at h; simp only [VRb2]
     rcases h with h | ⟨a, c, h1, h2, h3, h4, hm, h5⟩
     · exact Or.inl h
-    · exact Or.inr ⟨a, c, h1, h2, h3, h4, ModeOK_b _ hm, h5⟩
+    · exact Or.inr ⟨a, c, h1, h2, h3, h4, ModeOK_b0 _ hm, h5⟩
   | loc μ u _ =>
     intro ρ η bk rt ws hR h; simp only [VR] at h; simp only [VRb2]
     rcases h with h | ⟨a, c, U, h1, h2, h3, h4, hm, h5⟩
     · exact Or.inl h
-    · exact Or.inr ⟨a, c, U, h1, h2, h3, h4, ModeOK_b _ hm, h5⟩
+    · exact Or.inr ⟨a, c, U, h1, h2, h3, h4, ModeOK_bLoc0 _ hm, h5⟩
   | tex κ b ih =>
     intro ρ η bk rt ws hR h; simp only [VR] at h; simp only [VRb2]
     obtain ⟨n, rb, s, hrt, hc, hw, hv⟩ := h; exact ⟨n, rb, s, hrt, hc, hw, ih _ _ _ _ _ (hR.push0 s) hv⟩
@@ -566,5 +620,6 @@ theorem VR_VRb2 (t : Ty) : ∀ (ρ : Nat → Nat) (η : TEnv) (bk : Prop) (rt : 
 
 
 theorem VR_VRB {ρ η t rt ws} (hR : RelsSound η) (h : VR ρ η t rt ws) : VRB ρ η t rt ws := VR_VRb2 t ρ η False rt ws hR h
+
 
 end TermSound.Flat

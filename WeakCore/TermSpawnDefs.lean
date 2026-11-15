@@ -94,9 +94,9 @@ def spawnS (cs : Cfg) (res : List Word) (kids : List Kid) : Cfg :=
 def ConstVal (p : Prog) (t : Ty) (vals : List WeakMem.Val) : Prop :=
   VRR (fun _ => 0) (Cut (TermInit.Eg0 p) 0 TermInit.S0) t (shp t) (vals.map cst) .zero ∧ Lay [] t t (vals.map cst)
 
-/-- What each kid needs: a copyable, region-free argument type, a checked entry, and an argument shape. -/
+/-- What each kid needs: a copyable argument type that may contain region pointers (a lock, for example) but no region locative or index-`∀` (`drf1`), type arguments free of region pointers (`drf`), a checked entry, and an argument shape. -/
 def KidOK (p : Prog) (rt : Ty) (kd : Kid) : Prop :=
-  Ty.affine kd.ty = false ∧ tb 0 kd.ty = true ∧ TermScope.drf kd.ty = true ∧ kd.ts.all TermScope.drf = true ∧
+  Ty.affine kd.ty = false ∧ tb 0 kd.ty = true ∧ TermC1.drf1 kd.ty = true ∧ kd.ts.all TermScope.drf = true ∧
   kd.ts.all TermScope.argOK = true ∧ TermScope.wrapOK kd.ty = true ∧
   (∃ r, check p { vars := [("a", kd.ty, true)], ret := r } (.tail kd.f [] (.var "a") kd.ts) = .ok () ∧
     TvOK { vars := [("a", kd.ty, true)], ret := r }) ∧
@@ -115,3 +115,13 @@ def phant (R0 : Ty) (c : Cfg) : Cfg :=
 #print axioms TermSpawn.toObligationsS
 #print axioms TermSpawn.machine_tokens_mainS
 #print axioms TermSpawn.startOK_of_initOK
+
+/-! ### `KidOK` admits a lock-typed kid: the mutex scenario's kid (`useMutex` started on the setup's `mutex Int`) -/
+/-- The mutex scenario's kid: `useMutex` started on the setup's result, a `mutex Int`. -/
+def mutexKid : Kid := { f := "useMutex", ts := [], ty := mutex .int, useRes := true, vals := [] }
+#guard TermScope.drf (mutex .int) = false
+#guard TermC1.drf1 (mutex .int) = true
+theorem kidOK_mutex : KidOK mutexLib (mutex .int) mutexKid := by
+  refine ⟨by decide, by decide, by decide, by decide, by decide, by decide, ⟨.unit, by rfl, ?_⟩, Or.inl ⟨rfl, Or.inl ⟨rfl, rfl⟩⟩⟩
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;> decide
+#print axioms TermSpawn.kidOK_mutex

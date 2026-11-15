@@ -214,7 +214,9 @@ theorem caseB_of (hsc : StepScopeF p k arch Sp Init MintOK c0) :
         evalAt th.env i' = some (rti, [wi]) → numOf [wi] = some n → n ≠ (CE η).rc l := by
       intro x b i' v e hterm
       exfalso
-      refine hK ⟨by rw [hterm]; rfl, Or.inl ⟨x, e, ?_⟩, l, hpf0, (TermPlant.opTgt_iffP).2 hOT⟩
+      refine hK ⟨by rw [hterm]; rfl, Or.inl ⟨x, e, ?_⟩,
+        TermPlant.ownXT_nx (fun x1 a1 v1 e1 h1 => by rw [hterm] at h1; cases h1), l, hpf0,
+        (TermPlant.opTgt_iffP).2 hOT⟩
       exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inr ⟨b, i', v, hterm⟩))))
     have hown : cl.owner = some (CE η).tid := by
       show cl.owner = some η.tid

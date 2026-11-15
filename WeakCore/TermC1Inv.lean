@@ -21,14 +21,6 @@ open CoreLang CoreTerm CoreTyping TermRun TermClose TermTv TermCert TermSound Te
 open TermCut TermPtrRts TermScope
 open WeakMem (Val Msg Memory Address VState Ts Arch AllocLabel)
 
-/-- (M1, c1) `ModeOK` with a region reference held to the `pub` clause: the cell has a frontier and
-the word carries a view past it, or the thread has seen the cell. -/
-def ModeOK1 (i : Nat) (P : WeakMem.AllocLabel → Option WeakMem.Ts) (S : WeakMem.AllocLabel → Prop) :
-    Mode → WeakMem.AllocLabel → Cell → List Word → Prop
-  | .own, _, c, _ => c.owner = some i
-  | .pub, l, _, ws => ∃ f, P l = some f ∧ (S l ∨ ∀ w ∈ ws, f ≤ w.view)
-  | .rgn _, l, _, ws => ∃ f, P l = some f ∧ (S l ∨ ∀ w ∈ ws, f ≤ w.view)
-
 /-- (S7e, c1) `noOR` with region pointers admitted (they carry views, `ModeOK1`); `loc (rgn _)` stays
 out. -/
 def noOR1 : Ty → Bool
@@ -72,8 +64,10 @@ def PubWinTN1 (E : TEnv) (s : St) (th : TTh) : Prop :=
   (∀ x r a e rt ws ad, th.term = .let_ x (.intoRgn r a) e → evalAt th.env a = some (rt, ws) →
     ws.map (·.val) = [.loc ad 0] → ¬ E.seen ad.label → NoHold E s ad.label)
 
-/-- The publish conjunct of `PubWinTN1` is `PubWinTN`. -/
-theorem PubWinTN1.pub {E : TEnv} {s : St} {th : TTh} (h : PubWinTN1 E s th) : PubWinTN E s th := h.1
+/-- The publish conjunct of `PubWinTN1`: the publish window (the pre-M1 `PubWinTN`). -/
+theorem PubWinTN1.pub {E : TEnv} {s : St} {th : TTh} (h : PubWinTN1 E s th) :
+    ∀ x a e rt ws ad, th.term = .let_ x (.publish a) e → evalAt th.env a = some (rt, ws) →
+      ws.map (·.val) = [.loc ad 0] → ¬ E.seen ad.label → NoHold E s ad.label := h.1
 
 /-- `noOR` implies `noOR1` (c1 only admits more). -/
 theorem noOR1_of_noOR : ∀ {t : Ty}, noOR t = true → noOR1 t = true
@@ -101,7 +95,7 @@ theorem noOR1_of_noOR : ∀ {t : Ty}, noOR t = true → noOR1 t = true
 /-- `PlantEdge` implies `PlantEdge1`. -/
 theorem PlantEdge1_of_PlantEdge {sto : Sto} {m : Msg} {a : AllocLabel} (h : PlantEdge sto m a) :
     PlantEdge1 sto m a :=
-  ⟨let ⟨ca, h1, h2, _⟩ := h.1; ⟨ca, h1, h2⟩, h.2⟩
+  h
 
 /-- `ModeOK1` agrees with `ModeOK` off region modes. -/
 theorem ModeOK1_pub (i : Nat) (P : WeakMem.AllocLabel → Option WeakMem.Ts) (S : WeakMem.AllocLabel → Prop) :

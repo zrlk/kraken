@@ -1542,6 +1542,16 @@ needed: Kraken's executable is a list of `(directive, size)` cells, and
   quadratic in the kernel (over 20 minutes). The check is at base 0: the
   emitter puts no alignment directive in the x64 text, so the table checks
   at any base, and the loader re-checks it at `Λ.code.lo`.
+- A `scc --granule` certificate has no `sizes_ok` and no walk of its own.
+  The assembler sized the post-pass text, whose cells are `prog`'s
+  instructions and the pass's `.zero k` fillers and `.quad` descriptor
+  words, which `prog` drops; those are fixed-size data cells, not alignment
+  (the only alignment the pass adds, the granule tail's `.p2align 16`, is in
+  its own section, outside the text's cells), so a base-0 walk would be
+  sound, but its program would be an unchecked literal. The check is on the
+  certified output's cells instead: `cells_eq` pairs the sizes with the
+  cells of the pass's items, and A2's `sizeOkW` walks those cells (`outFLit`)
+  at `Λ.code.lo` with every listed label at its offset.
 - §4 trusts the sizes to be `as`'s: the check shows them consistent with
   the parsed program and the label offsets, not that they are the
   binary's. Model and binary addresses then agree, return addresses
@@ -2677,17 +2687,20 @@ for its construct, as a compiler-side check.
 **Decision: (a), WeakCore's theorem for publish-free programs.** The
 choice is to take `SrcTyped` from WeakCore's token soundness theorem.
 The obligations `CertWinCNX`/`CertWinPNX` are discharged, for programs
-with no `publish`, by `certWinCNX_of_noPublish`/`certWinPNX_of_noPublish`
-(`Scc/Sem/PubFree.lean`, in progress). Their argument: `NoHoldPubN` only
-constrains a thread whose term is `let x = publish a; e`. A run invariant
-in the style of `TermScope.RunScope` (every thread term and every frame
-body is `publish`-free, kept by steps, promises and spawns of a program
-whose declaration bodies are `publish`-free) excludes that form. Programs
-that use `publish` stay outside this route until the obligations are
-proved in general. Until the `SrcTyped` corollary lands, `ThreadTyped`
-and its consequences are used through hypotheses (the earlier interim
-choice). Nothing in `Scc/Sem/Typing.lean` imports WeakCore's token
-soundness theorem yet.
+with no `publish`, `region` binder or `intoRgn`, by
+`certWinCNX_of_noPublish`/`certWinPNX_of_noPublish`
+(`Scc/Sem/PubFree.lean`). Their argument: `NoHoldPubN` only constrains a
+thread whose term is `let x = publish a; e`, a `region` binder or
+`let x = intoRgn r a; e` (scc's fragment has neither of the last two). A
+run invariant in the style of `TermScope.RunScope` (every thread term and
+every frame body is free of all three, kept by steps, promises and spawns
+of a program whose declaration bodies are free of all three) excludes
+those forms. Programs that use `publish` stay outside this route until
+the obligations are proved in general. The `SrcTyped` corollaries are
+`srcTyped_spawn_of_noPublish` and `srcTyped_mainF_of_noPublish`
+(`Scc/Sem/PubFree.lean`); `Scc/Sem/SrcStart.lean`, `SrcProj.lean` and
+`SrcExtStep.lean` use the first. `Scc/Sem/Typing.lean` itself does not
+import WeakCore's token soundness theorem; `PubFree.lean` does.
 
 **Not covered.**
 - Literals: scc must reject `.lit n` with `n ≥ 2^64`. This is a

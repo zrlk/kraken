@@ -60,7 +60,7 @@ theorem stoJ_none {sto : TermPtrRts.Sto} {E' : TEnv} {l : AllocLabel} (h : sto l
   simp only [stoJ, h]
 
 /-- **The typed post-state** of the taken step (the Q2 route). -/
-theorem postTyped [ProgRetIall p] (hP : ProgT p) (hps : TermScope.ProgScopeOK p = true)
+theorem postTyped [ProgRetIall p] [TermA4.ProgCkWC p] (hP : ProgT p) (hps : TermScope.ProgScopeOK p = true)
     (h0d : TermScope.RunScopeR p k arch Sp c0) (hCW : TermCertScope.CertWinC p k arch Sp Init MintOK c0)
     {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {i : Nat}
     {th : TTh} {r : Memory × List Ts × TTh}
@@ -81,7 +81,7 @@ theorem postTyped [ProgRetIall p] (hP : ProgT p) (hps : TermScope.ProgScopeOK p 
       (fun E rd ws R h => ResumeR_Resume (fun _ h => h.2.2.2.2.2.2.2) th.stack Rs E rd ws R h) hFI
   have hdrf := TermScope.run_drf hps h0d X.run i th X.hth
   have hsc : ScopeD th.σs cx th.term :=
-    TermCertScope.scopeD_of hdrf.ok (TermScope.scope_termV hT.1 hFi.2.1 hdrf.ok hdrf.env (TermStep.not_spawnT_of_mem X.hr))
+    TermCertScope.scopeD_of hdrf.ok (TermScope.scope_termV hT.1 hT.2 hFi.2.1 hdrf.ok hdrf.env (TermStep.not_spawnT_of_mem X.hr))
   have hn : 0 < (gOf p k arch c i).n := by
     show 0 < c.n
     exact TermLiveProps.lt_of_get X.hth |> fun h => Nat.lt_of_le_of_lt (Nat.zero_le _) (Cfg.lt_n h)
@@ -95,12 +95,12 @@ theorem postTyped [ProgRetIall p] (hP : ProgT p) (hps : TermScope.ProgScopeOK p 
     rw [X.e1, X.e2] at h1
     exact h1
   have hpx := TermTyped.PAx_of_step X.hc' X.cert X.hth
-  obtain ⟨-, hf⟩ := tstep_footprint (hDy := hDy) (hPS := hPS) (hSub := hSub) (hSig := hSig) hP rfl hn hnd hsc hT.1 hFi hE htv hm X.inv.bf hpx hwin (hRP := hrp)
+  obtain ⟨-, hf⟩ := tstep_footprint (hDy := hDy) (hPS := hPS) (hSub := hSub) (hSig := hSig) hP rfl hn hnd hsc hT hFi hE htv hm X.inv.bf hpx hwin (hRP := hrp)
     (hTy := by rw [hCE']; exact (X.inv.tyRec X.hth S).1)
   obtain ⟨E', hF, -, hT', hm'⟩ := hf r X.hr hpa
   have hF2 : Foot (gOf p k arch c i) (Cut Eg i S) E' (stOf c.mem c.pairs th) (stOf r.1 r.2.1 r.2.2) := by
     rw [← hCE']; exact hF
-  refine ⟨S, E', ⟨ρ, η, cx, hCE', hE, hT.1, htv, hFi, hrp, hDy⟩, ?_, hF2, hT', hm', hpa, ?_⟩
+  refine ⟨S, E', ⟨ρ, η, cx, hCE', hE, hT, htv, hFi, hrp, hDy⟩, ?_, hF2, hT', hm', hpa, ?_⟩
   · rw [← hCE']; exact hm
   · intro l cl hl
     rcases hF2.1.2.2.1 l with e | ⟨hfr, -⟩

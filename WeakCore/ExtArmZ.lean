@@ -34,9 +34,9 @@ theorem viewInv_wake {c : Cfg} {i : Nat} {v : Ts} {n : ExtName} {ws : List Word}
   refine ⟨by rw [wake_mem]; exact hv.1, ?_⟩
   rw [wake_mem]; exact wake_all (fun _ _ h => h) hv.2
 
-theorem runScope_wake {c : Cfg} {i : Nat} {v : Ts} {n : ExtName} {ws : List Word} (hd : TermScope.RunScope c) :
-    TermScope.RunScope (wake c i v n ws) :=
-  wake_all (Q := TermScope.ThScope) (fun _ _ h => ⟨h.ok, h.σs, h.env, h.stk⟩) hd
+theorem runScope_wake {c : Cfg} {i : Nat} {v : Ts} {n : ExtName} {ws : List Word} (hd : TermScope.RunScopeI c) :
+    TermScope.RunScopeI (wake c i v n ws) :=
+  wake_all (Q := TermScope.ThScopeI) (fun _ _ h => ⟨h.ok, h.σs, h.env, h.stk⟩) hd
 
 theorem promViewLt_wake {c : Cfg} {i : Nat} {v : Ts} {n : ExtName} {ws : List Word} (hc : TermPlantF.PromViewLt c) :
     TermPlantF.PromViewLt (wake c i v n ws) := by
@@ -146,7 +146,7 @@ theorem viewInv_ext {c c' : Cfg} (h : Ext p k arch c c') (hv : TermViewInv.ViewI
     · exact h1 en hen
   · exact hv.2 j t hj'
 
-theorem runScope_ext {c c' : Cfg} (h : Ext p k arch c c') (hd : TermScope.RunScope c) : TermScope.RunScope c' := by
+theorem runScope_ext {c c' : Cfg} (h : Ext p k arch c c') (hd : TermScope.RunScopeI c) : TermScope.RunScopeI c' := by
   obtain ⟨i, th, th', tr, wn, wws, wv, hth, -, -, -, -, hst, hσ, ⟨x, n, a, e, ws, hterm, hte, henv, -⟩, rfl⟩ :=
     ext_shape h
   refine runScope_wake ?_
@@ -209,9 +209,9 @@ theorem SpLeafArms.or {Sp1 Sp2 : Cfg → Cfg → Prop} (L1 : SpLeafArms Sp1) (L2
     fun c c' h => h.elim (L1.promPos c c') (L2.promPos c c'),
     fun c c' h => h.elim (L1.promNodup c c') (L2.promNodup c c')⟩
 
-theorem spLeafArms_em0 {cap : Nat} :
+theorem spLeafArms_em0 {cap : Nat} (hp : TermScope.ProgScopeOK p = true) :
     SpLeafArms (fun c c' => TermSpawnStep.Spawn p k arch cap c c' ∨ Ext p k arch c c') :=
-  SpLeafArms.or SpawnLeafZ.spLeafArms_spawn spLeafArms_ext
+  SpLeafArms.or (SpawnLeafZ.spLeafArms_spawn hp) spLeafArms_ext
 
 end
 
@@ -239,8 +239,8 @@ theorem step_trace {c c' : Cfg} (h : Step p k arch c c') : c'.trace = c.trace :=
 
 /-- No spawn changes the trace. -/
 theorem spawn_trace {cap : Nat} {c c' : Cfg} (h : TermSpawnStep.Spawn p k arch cap c c') : c'.trace = c.trace := by
-  obtain ⟨i, x, f, a, T, ts, e, th, rt, ws, -, -, -, -, -, rfl⟩ := TermSpawnStep.Spawn.elim h
-  rfl
+  rcases TermSpawnStep.Spawn.elim h with ⟨_, _, _, _, _, _, _, _, _, _, -, -, -, -, -, rfl⟩ |
+      ⟨_, _, _, _, _, _, _, _, _, _, _, _, -, -, -, -, -, -, rfl⟩ <;> rfl
 
 /-- **`trace_mono`**: along a run with spawns and extern steps the trace only grows (behaviours
 read the delta `c.trace.drop c0.trace.length`). -/
@@ -268,20 +268,34 @@ theorem site_noPromE {cap : Nat} {c0 c : Cfg} (hr : StepsE p k arch cap c0 c) (h
   have h : TermSpawnStep.SiteNoProm c :=
     TermSpawnStep.stepsG_pres (P := TermSpawnStep.SiteNoProm) (fun _ _ h => TermSpawnStep.siteNoProm_step h)
       (fun _ _ h => h.elim (fun h => TermSpawnStep.siteNoProm_spawn h) (fun h => siteNoProm_ext h)) hr h0
-  h i th hth ⟨x, f, a, T, ts, e, he⟩
+  h i th hth (.inl ⟨x, f, a, T, ts, e, he⟩)
 
 end
 
 /-! ## `SpawnArmX` at `Spawn ∨ Ext`, and the EM0 finals -/
 
+/-- `RunScopeI` along every `Spawn ∨ Ext` run of a program meeting `ObligationsFX` (`run_drf`; spawn arm
+`runScope_spawnStep`, extern arm `runScope_ext`). -/
+theorem runScopeI_em0 {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {MintOK : Res → Prop}
+    {c0 c : Cfg}
+    (O : ObligationsFX p k arch (fun c c' => TermSpawnStep.Spawn p k arch c0.cap c c' ∨ Ext p k arch c c') Init
+      MintOK c0)
+    (hr : StepsG p k arch (fun c c' => TermSpawnStep.Spawn p k arch c0.cap c c' ∨ Ext p k arch c c') c0 c) :
+    TermScope.RunScopeI c :=
+  TermScope.run_drf (TermScope.ProgScopeOKW.scope O.progScope)
+    (TermScope.runDRFR_of (TermScope.ProgScopeOKW.scope O.progScope)
+      (fun _ _ hs h => hs.elim (fun h1 => TermSpawnScope.runScope_spawnStep (TermScope.ProgScopeOKW.scope O.progScope) h1 h)
+        (fun h2 => runScope_ext h2 h)) O.runDRF0) hr
+
 /-- **The step arm at `Spawn ∨ Ext`** (the `SpawnArmX` split): a spawn by `TermSpawnMid.sysInvN_spawnArm` (capacity
 from `stepsE_cap_eq`), an extern step by `sysInvN_extStep`.  No hypotheses. -/
 theorem spawnArmX_em0 {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {c0 : Cfg} :
     SpawnArmX p k arch (fun c c' => TermSpawnStep.Spawn p k arch c0.cap c c' ∨ Ext p k arch c c') Init c0 := by
-  intro _ _ _ c c' hr hI hsp
+  intro O _ _ c c' hr hI hsp
   obtain ⟨Eg, Tot, HP, HS, cr, db, hN, hOL, hObs⟩ := hI
   rcases hsp with hs | hx
-  · exact TermSpawnMid.sysInvN_spawnArm hN hOL hObs hs (stepsE_cap_eq hr)
+  · exact TermSpawnMid.sysInvN_spawnArm hN hOL hObs hs (stepsE_cap_eq hr) (runScopeI_em0 O hr)
+      O.progScope O.typed
   · exact sysInvN_extStep hN hOL hObs hx
 
 /-- **`machine_tokens_mainX` at `Sp := Spawn ∨ Ext`, from `InitOK`** (all Sp-arms discharged). -/
@@ -297,7 +311,7 @@ theorem machine_tokens_main_em0 {p : Prog} {k : Promises.Knobs} {arch : Arch} {I
       ∀ i th, c.ths[i]? = some th → ∃ S ρ η cx Rf Rs, CE η = Cut Eg i S ∧ EnvOK p η ∧ Typed p cx th.term ∧
         FInvR ρ η th.σs (ResumeR p th.stack Rs) cx th.env Rf ∧ Rf + Rs = Tot i ∧
         MemInv (gOf p k arch c i) (CE η) (stOf c.mem c.pairs th) :=
-  machine_tokens_mainX O hk (startOKX_of_initOK h0) spLeafArms_em0 spawnArmX_em0 hr
+  machine_tokens_mainX O hk (startOKX_of_initOK h0) (spLeafArms_em0 (TermScope.ProgScopeOKW.scope O.progScope)) spawnArmX_em0 hr
 
 /-- **`token_unique_netX` at `Sp := Spawn ∨ Ext`, from `InitOK`**. -/
 theorem token_unique_net_em0 {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {c0 : Cfg}
@@ -308,7 +322,7 @@ theorem token_unique_net_em0 {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init
       FrameTie p k arch c Eg Tot ∧ SysInvN p k arch Init (fun _ => True) c Eg Tot HP HS cr db ∧
       ∀ n, Debt c db (.rg n) = 0 →
       ∀ i j, i < c.ths.size → j < c.ths.size → 1 ≤ Tot i (.rg n) → 1 ≤ Tot j (.rg n) → i = j :=
-  token_unique_netX O hk (startOKX_of_initOK h0) spLeafArms_em0 spawnArmX_em0 hr
+  token_unique_netX O hk (startOKX_of_initOK h0) (spLeafArms_em0 (TermScope.ProgScopeOKW.scope O.progScope)) spawnArmX_em0 hr
 
 /-- **`token_unique_finalX` at `Sp := Spawn ∨ Ext`, from `InitOK`**. -/
 theorem token_unique_final_em0 {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {c0 : Cfg}
@@ -317,7 +331,7 @@ theorem token_unique_final_em0 {p : Prog} {k : Promises.Knobs} {arch : Arch} {In
     {c : Cfg} (hr : StepsE p k arch c0.cap c0 c) (hn : AllNoProm c) :
     ∃ (Eg : GEnv) (Tot : Nat → Res), FrameTie p k arch c Eg Tot ∧ ∀ i j n, i < c.ths.size → j < c.ths.size →
       1 ≤ Tot i (.rg n) → 1 ≤ Tot j (.rg n) → i = j :=
-  token_unique_finalX O hk (startOKX_of_initOK h0) spLeafArms_em0 spawnArmX_em0 hr hn
+  token_unique_finalX O hk (startOKX_of_initOK h0) (spLeafArms_em0 (TermScope.ProgScopeOKW.scope O.progScope)) spawnArmX_em0 hr hn
 
 /-- **`reachable_typedX` at `Sp := Spawn ∨ Ext`, from `InitOK`**. -/
 theorem reachable_typed_em0 {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {c0 : Cfg}
@@ -325,7 +339,7 @@ theorem reachable_typed_em0 {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init 
       (fun _ => True) c0) (hk : k.storeDepRts = true) (h0 : InitOK p k arch Init (fun _ => True) c0)
     {c : Cfg} (hr : StepsE p k arch c0.cap c0 c) :
     ∃ (Eg : GEnv) (Tot : Nat → Res), FrameTie p k arch c Eg Tot :=
-  reachable_typedX O hk (startOKX_of_initOK h0) spLeafArms_em0 spawnArmX_em0 hr
+  reachable_typedX O hk (startOKX_of_initOK h0) (spLeafArms_em0 (TermScope.ProgScopeOKW.scope O.progScope)) spawnArmX_em0 hr
 
 end ExtArmZ
 

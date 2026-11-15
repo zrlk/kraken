@@ -513,6 +513,7 @@ Spike.Lib.A64HelloRootFinal
 Spike.Lib.A64HelloOfCtl
 Spike.Lib.A64HelloProArgs
 Spike.Test.HelloLinkedA64Elf
+Spike.Test.ElfBytesTestA64
 Spike.Test.HelloLinkedA64A1
 Spike.Test.HelloLinkedA64A2
 Spike.Test.HelloLinkedA64A4

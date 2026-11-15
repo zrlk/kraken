@@ -149,6 +149,17 @@ theorem emitNoProm_spawn {p : Prog} {k : Promises.Knobs} {arch : Arch} {cap : Na
       · split at hth
         · cases hth; simpa [spawnPar, spawnS, withS, fenceS, stOf] using h3
         · exact h0 j th' (by simpa using hth) hs
+  | mkI i x f is a T ts e th d rt ws h1 _ h3 _ _ _ =>
+      have hi : i < c.ths.size := by
+        rcases Nat.lt_or_ge i c.ths.size with h | h
+        · exact h
+        · simp [Array.getElem?_eq_none h] at h1
+      simp only [spawnT, Array.getElem?_push, Array.set!, Array.getElem?_setIfInBounds] at hth
+      split at hth
+      · cases hth; rfl
+      · split at hth
+        · cases hth; simpa [spawnPar, spawnS, withS, fenceS, stOf] using h3
+        · exact h0 j th' (by simpa using hth) hs
 
 theorem emitNoProm_ext {p : Prog} {k : Promises.Knobs} {arch : Arch} {c c' : Cfg}
     (h : Ext p k arch c c') (h0 : EmitNoProm c) : EmitNoProm c' := by

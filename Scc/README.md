@@ -15,7 +15,7 @@ calls, no libc.
 
 ```
 lake build scc scc_x64 scc_arm
-.lake/build/bin/scc [--arch x64|arm] [--host linux|raw] [--gc none] [-o out.s | -o - | -S] [--report] [--cert c.lean] [--blocks b.lean] [--code c.lean] prog.w
+.lake/build/bin/scc [--arch x64|arm] [--host linux|raw] [--gc none] [--granule] [-o out.s | -o - | -S] [--report] [--cert c.lean] [--blocks b.lean] [--code c.lean] prog.w
 .lake/build/bin/scc --check c.lean
 ```
 
@@ -47,6 +47,7 @@ Spike`; about 33 minutes for the last 242 of 1151 modules, on one core).
 | `--arch arm` | AArch64 with FEAT_LSE2 (`isaLSE2`): acquire `ldar`, release `stlr`, atomics `swpal`/`ldaddal`, no 64-bit `ldp`/`stp`, no sub-word store |
 | `--host linux` (default) | a static Linux binary; `--host raw` is not implemented |
 | `--gc none` (default) | a bump allocator that never frees; no other collector exists yet |
+| `--granule` | the text goes through the granule pass (a descriptor word at the end of every 64 KiB granule) before the GC tables; `--cert` writes a certificate about the post-pass output; `--host raw`, `--blocks` and `--code` refuse it |
 | `-o out.s` | output file (default: `prog.s` next to `prog.w`) |
 | `-o -`, `-S` | write the assembly listing to standard output; diagnostics and `--report` then go to standard error only, so `scc -S prog.w \| as -o prog.o` works |
 | `--report` | list every `Int` `+` site (all keep their overflow check), marking those that index facts bound |
@@ -101,7 +102,8 @@ what it does not; in short, it
   `Scc.Emit.X64.ProgramWCLowerable` (`Scc/Emit/X64Lowerable.lean`: every
   memory RMW is locked, no `movnti`), on arm Kraken's `Program.WCLowerable`;
   on x64 it also checks GNU `as`'s instruction sizes and label offsets
-  against the parsed program (`sizes_ok`);
+  against the parsed program (`sizes_ok`; with `--granule`, against the
+  post-pass output's cells instead: `cells_eq` and A2);
 * reads the source as a term (`prog_src`, checked against the frontend by a
   `#guard`) and proves by `decide +kernel` that it is in the fragment the
   first compiler theorem covers (`prog_accepted`, `Scc.Lower.Accepted0`) or

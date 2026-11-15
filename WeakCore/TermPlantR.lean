@@ -1151,7 +1151,7 @@ theorem ThInvMC_plantW {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th :
           ∃ ws, ValOf (CE (η.withSto η.sto (fun l' => if l' = l then Np else η.ini l')
             (fun l' => if l' = l then some F else η.pfr l') η.seen)) S ws ∧ ws.length = nWords us) ∧
         (∀ b S, SegOf c.ty b S → accs S ≠ none → TearOK S) ∧ Ty.coupledOKIn [] c.ty = true ∧
-        Ty.noOwnIn [] c.ty = true ∧ rgnFree c.ty = true ∧
+        Ty.noOwnIn [] c.ty = true ∧ (rgnFree c.ty = true ∨ TermC1.drf1 c.ty = true) ∧
         FlipOK (CE η) (stOf mem pairs th) l ∧ FpOK (CE η) (stOf mem pairs th) ∧
         (∀ j, η.ini l ≤ j → j < Np → ∃ t0 m0, mem[t0]? = some m0 ∧ m0.loc = ⟨l, j⟩ ∧
           m0.val = .undef ∧ t0 ∉ th.promises ∧ (∃ t, AtA mem ⟨l, j⟩ t0 t = true) ∧
@@ -1301,7 +1301,7 @@ theorem ThInvMC_plantWH {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th 
           ∃ ws, ValOf (CE (η.withSto η.sto (fun l' => if l' = l then Np else η.ini l')
             (fun l' => if l' = l then some F else η.pfr l') η.seen)) S ws ∧ ws.length = nWords us) ∧
         (∀ b S, SegOf c.ty b S → accs S ≠ none → TearOK S) ∧ Ty.coupledOKIn [] c.ty = true ∧
-        Ty.noOwnIn [] c.ty = true ∧ rgnFree c.ty = true ∧
+        Ty.noOwnIn [] c.ty = true ∧ (rgnFree c.ty = true ∨ TermC1.drf1 c.ty = true) ∧
         FlipOK (CE η) (stOf mem pairs th) l ∧ FpOK (CE η) (stOf mem pairs th) ∧
         (∀ j, η.ini l ≤ j → j < Np → ∃ t0 m0, mem[t0]? = some m0 ∧ m0.loc = ⟨l, j⟩ ∧
           m0.val = .undef ∧ t0 ∉ th.promises ∧ (∃ t, AtA mem ⟨l, j⟩ t0 t = true) ∧
@@ -1336,7 +1336,7 @@ theorem ThInvMC_plantWF {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th 
           ∃ ws, ValOf (CE (η.withSto η.sto (fun l' => if l' = l then Np else η.ini l')
             (fun l' => if l' = l then some (plantF (CE η) (stOf mem pairs th) l) else η.pfr l') η.seen)) S ws ∧ ws.length = nWords us) ∧
         (∀ b S, SegOf c.ty b S → accs S ≠ none → TearOK S) ∧ Ty.coupledOKIn [] c.ty = true ∧
-        Ty.noOwnIn [] c.ty = true ∧ rgnFree c.ty = true ∧
+        Ty.noOwnIn [] c.ty = true ∧ (rgnFree c.ty = true ∨ TermC1.drf1 c.ty = true) ∧
         FlipOK (CE η) (stOf mem pairs th) l ∧ FpOK (CE η) (stOf mem pairs th) ∧
         (∀ j, η.ini l ≤ j → j < Np → ∃ t0 m0, mem[t0]? = some m0 ∧ m0.loc = ⟨l, j⟩ ∧
           m0.val = .undef ∧ t0 ∉ th.promises ∧ (∃ t, AtA mem ⟨l, j⟩ t0 t = true) ∧

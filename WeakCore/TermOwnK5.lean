@@ -106,6 +106,48 @@ theorem ownXLe_pub_noOwnUse [WrIniC] {p : Prog} {k : Promises.Knobs} {arch : Arc
         evalAt th.env a = some (rt, ws) → ws.map (·.val) = [.loc ad g] → ad.label ≠ x :=
   (ownXLe_pub_chain hP hQ hvI h0 hTA h1 hs hth hterm hea hws hx h2 hc2 hPS hSub hSig).use_ne
 
+/-! ## (c1 PubAt) The fencing chain: `publish`, `region`, `intoRgn` -/
+
+/-- (c1 PubAt) **The Solo split at a fencing step of `x`** (`publish`, `region` or `intoRgn`): as
+`ownXLe_pub_chain`, with `TermOwnK4.ownXFence1` at the step. -/
+theorem ownXLe_fence_chain [WrIniC] {p : Prog} {k : Promises.Knobs} {arch : Arch} {E0 : TEnv} {i : Nat} {x : AllocLabel}
+    {c c1 c1' c2 : Cfg} {th : TTh} {a : At} {rt : Ty} {ws : List Word} {ad : Address} {g' : Nat}
+    [ProgRetIall p] [TermA4.ProgCkWC p] (hP : ProgT p)
+    (hQ : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → ScopeAt p i c0 ∧ NoHoldPubA p k arch E0 E0 i c0) (hvI : TermViewInv.ViewInv c)
+    (h0 : OwnXLe p k arch E0 i x 1 c) (hTA : TermTyped.TidAt i c E0) (h1 : Solo p k arch i c c1) (hs : c1' ∈ threadSteps p k arch c1 i)
+    (hth : c1.ths[i]? = some th)
+    (hterm : ((∃ y e, th.term = .let_ y (.publish a) e) ∨ (∃ r pn tn e, th.term = .region a r pn tn e) ∨
+      (∃ y r e, th.term = .let_ y (.intoRgn r a) e)))
+    (hea : evalAt th.env a = some (rt, ws)) (hws : ws.map (·.val) = [.loc ad g']) (hx : ad.label = x)
+    (h2 : Solo p k arch i c1' c2) (hc2 : Certified p k arch c2 i) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) : OwnXLe p k arch E0 i x 0 c2 := by
+  have hT : ∀ n, OwnXStepT p k arch i x n := ownXStepT_all hP hPS hSub hSig
+  have hc1' : Certified p k arch c1' i := certified_back h2 hc2
+  have hc1 : Certified p k arch c1 i := certified_back (.thread hs h2) hc2
+  have hI1 := ownXLe_run (hT 1) (ownXStepP_all 1) hQ hvI h0 hTA h1 hc1
+  obtain ⟨hsc1, hw1⟩ := hQ c1 h1 hc1
+  have hI1' := TermOwnK4.ownXFence1 hP hPS hsc1 hw1 (TermViewInv.viewInv_solo hvI h1) hI1 hs hc1' hth hterm hea hws hx
+  exact ownXLe_run (hT 0) (ownXStepP_all 0) (fun c0 h3 h4 => hQ c0 (solo_trans h1 (.thread hs h3)) h4)
+    (TermViewInv.viewInv_thread (TermViewInv.viewInv_solo hvI h1) hs) hI1'
+    (TermTyped.tidAt_thread hs (TermTyped.tidAt_solo h1 hTA)) h2 hc2
+
+/-- (c1 PubAt) **No own use of `x` after a fencing step of `x`** (the chain plus `use_ne`). -/
+theorem ownXLe_fence_noOwnUse [WrIniC] {p : Prog} {k : Promises.Knobs} {arch : Arch} {E0 : TEnv} {i : Nat} {x : AllocLabel}
+    {c c1 c1' c2 : Cfg} {th : TTh} {a : At} {rt : Ty} {ws : List Word}
+    {ad : Address} {g' : Nat} [ProgRetIall p] [TermA4.ProgCkWC p] (hP : ProgT p)
+    (hQ : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → ScopeAt p i c0 ∧ NoHoldPubA p k arch E0 E0 i c0) (hvI : TermViewInv.ViewInv c)
+    (h0 : OwnXLe p k arch E0 i x 1 c) (hTA : TermTyped.TidAt i c E0) (h1 : Solo p k arch i c c1) (hs : c1' ∈ threadSteps p k arch c1 i)
+    (hth : c1.ths[i]? = some th)
+    (hterm : ((∃ y e, th.term = .let_ y (.publish a) e) ∨ (∃ r pn tn e, th.term = .region a r pn tn e) ∨
+      (∃ y r e, th.term = .let_ y (.intoRgn r a) e)))
+    (hea : evalAt th.env a = some (rt, ws)) (hws : ws.map (·.val) = [.loc ad g']) (hx : ad.label = x)
+    (h2 : Solo p k arch i c1' c2) (hc2 : Certified p k arch c2 i) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) :
+    ∃ th, c2.ths[i]? = some th ∧ ∃ ρ η cx Rf Rs, EnvOK p η ∧ Typed p cx th.term ∧
+      FInvR ρ η th.σs (ResumeR p th.stack Rs) cx th.env Rf ∧
+      ∀ a t c₁ rt ws ad g, cx.use a = .ok (t, c₁) →
+        ((∃ u, cellOf t = some (.own, u)) ∨ ∃ n u k, bufOf t = some (.own, n, u, k)) →
+        evalAt th.env a = some (rt, ws) → ws.map (·.val) = [.loc ad g] → ad.label ≠ x :=
+  (ownXLe_fence_chain hP hQ hvI h0 hTA h1 hs hth hterm hea hws hx h2 hc2 hPS hSub hSig).use_ne
+
 /-! ## The `n = 0` runs (a cell published at the run start) -/
 
 /-- **No own use of a start-published `x`** along a thread's certified solo run. -/
@@ -218,6 +260,30 @@ theorem bufInitIniT_pub [WrIniC] {p : Prog} {k : Promises.Knobs} {arch : Arch} {
   obtain rfl : th2 = th1 := Option.some.inj (hth2.symm.trans hth1)
   exact bufInit_ne_of_use hterm1 h
 
+/-- (c1 PubAt) **BufInitIniT, fenced case**: as `bufInitIniT_pub`, after the thread step that fences `l`
+(`publish`, `region` or `intoRgn`; an own cell of `i`). -/
+theorem bufInitIniT_fence [WrIniC] {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {MintOK : Res → Prop}
+    {c0 : Cfg} (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] (hP : ProgT p)
+    {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {i : Nat}
+    {th : TTh} {r : Memory × List Ts × TTh} {l : AllocLabel} {cl : Cell}
+    (hsc : CertScopeC p k arch Sp Init MintOK c0) (hw : CertWinC p k arch Sp Init MintOK c0)
+    (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r)
+    (hsto : Eg.sto l = some cl) (hown : cl.owner = some i)
+    {a : At} {rt : Ty} {ws : List Word} {ad : Address} {g' : Nat}
+    (hterm : ((∃ y e, th.term = .let_ y (.publish a) e) ∨ (∃ r pn tn e, th.term = .region a r pn tn e) ∨
+      (∃ y r e, th.term = .let_ y (.intoRgn r a) e)))
+    (hea : evalAt th.env a = some (rt, ws))
+    (hws : ws.map (·.val) = [.loc ad g']) (hx : ad.label = l)
+    {c1 : Cfg} {th1 : TTh} {y' : String} {bb ib v' : At} {e' : Expr}
+    (h1 : Solo p k arch i c' c1) (hc1 : Certified p k arch c1 i) (hth1 : c1.ths[i]? = some th1)
+    (hterm1 : th1.term = .let_ y' (.bufInit bb ib v') e') (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) :
+    ∀ rt w' ad' g0, evalAt th1.env bb = some (rt, [w']) → w'.val = .loc ad' g0 → ad'.label ≠ l := by
+  obtain ⟨S, hS⟩ := X.inv.thr i th X.hth
+  obtain ⟨th2, hth2, h⟩ := ownXLe_fence_noOwnUse hP (winQC hsc hw X hS) (TermViewInv.viewInv_run hV0 X.run)
+    (ownXLe_start X.inv X.hth hS hsto (.inl hown)) (TermMain.tidAt_cut X.inv i S) (.refl _) X.hc' X.hth hterm hea hws hx h1 hc1 hPS hSub hSig
+  obtain rfl : th2 = th1 := Option.some.inj (hth2.symm.trans hth1)
+  exact bufInit_ne_of_use hterm1 h
+
 end TermOwnK5
 
 #print axioms TermOwnK5.winQC
@@ -231,3 +297,6 @@ end TermOwnK5
 #print axioms TermOwnK5.bufInit_ne_of_use
 #print axioms TermOwnK5.bufInitIniF_pub
 #print axioms TermOwnK5.bufInitIniT_pub
+#print axioms TermOwnK5.ownXLe_fence_chain
+#print axioms TermOwnK5.ownXLe_fence_noOwnUse
+#print axioms TermOwnK5.bufInitIniT_fence

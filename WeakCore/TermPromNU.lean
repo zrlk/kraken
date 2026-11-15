@@ -41,7 +41,7 @@ theorem promNU_thread {p : Prog} {k : Promises.Knobs} {arch : Arch} {c c' : Cfg}
 
 /-- **A promise step keeps `PromNotUndef`**: the new promise is certified. -/
 theorem promNU_prom {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {MintOK : Res → Prop}
-    {c0 : Cfg} (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : CertRunP p k arch Sp Init MintOK c0)
+    {c0 : Cfg} (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : CertRunP p k arch Sp Init MintOK c0)
     {c : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {j : Nat} {th : TTh}
     {a : Address} {v : WeakMem.Val} {w : Ts} (X : PCtxX p k arch Sp Init MintOK c0 c Eg Tot HP HS cr db j th a v w)
     (h : PromNotUndef c) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) : PromNotUndef (promise c j a v w) := by

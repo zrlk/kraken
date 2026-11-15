@@ -379,7 +379,7 @@ theorem checkW_f0 {p : Prog} {R0 : Ty} (hR0 : R0.wf 0 0 = true) (ha : R0.arrFree
   cases haf : affine [] R0 <;> cases haf2 : affine [] (Ty.tex Kind.top R0) <;>
   simp [checkW, opArgOK, checkOp, cx0, hg, hwf, hwt, Cx.use, Cx.peek, Cx.find, haf, noLeak, Cx.bind,
     noDrop, hk, bind, Except.bind, pure, Except.pure, argOK, hsub2, hsu, hadm, hu1, hu2, Cx.opaqueOK, Ty.arrFree, ha, hs] <;>
-  (try rw [haf2]) <;> simp [toksOf, takenOf, taken2Of, hk, hsub]
+  (try rw [haf2]) <;> simp [toksOf, takenOf, taken2Of, hk, hsub, TermC1.ruleA]
 
 /-- (spawn-site checker rule) **The phantom frame is the checker's** (`CkW`). -/
 theorem ckW_f0 {p : Prog} {R0 : Ty} {w : Nat → Ty} (hR0 : R0.wf 0 0 = true) (ha : R0.arrFree = true)

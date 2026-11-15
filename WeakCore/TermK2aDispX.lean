@@ -33,7 +33,7 @@ theorem stepOKX_disp {p : Prog} {g : G} {E : TEnv} {sto : Sto} {mem : Memory} {p
   by_cases hc : ∃ a x e₁ y e₂, th.term = .case a x e₁ y e₂
   · obtain ⟨a, x, e₁, y, e₂, ht⟩ := hc
     obtain ⟨ρ, η, cx, rfl, hE, hT, htv, hi, -⟩ := hI
-    exact TermK2aCaseB.sum_caseTX (N := Gl) ht hT hi htv hE hM sto hPf hBx hgb hr hA hfa hGf hGf
+    exact TermK2aCaseB.sum_caseTX (N := Gl) ht hT.1 hi htv hE hM sto hPf hBx hgb hr hA hfa hGf hGf
   · exact stepOKX_of_stepOK (TermK2aDisp.stepOK_disp hp hP hI hM h1 hLay hG hPf hBx hsc hnr hfa hGf hnp hGp
       (fun a x e₁ y e₂ ht => (hc ⟨a, x, e₁, y, e₂, ht⟩).elim) hr hA)
 

@@ -23,7 +23,7 @@ variable {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {MintOK : Re
 variable {Sp : TermRun.Cfg → TermRun.Cfg → Prop}
 
 /-- (W2) **`PlantInhWF` from `PlantPromOKF`.** -/
-theorem plantInhW_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : CertRunP p k arch Sp Init MintOK c0)
+theorem plantInhW_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : CertRunP p k arch Sp Init MintOK c0)
     (hPO : PlantPromOKF p k arch Sp Init MintOK c0 plantOf plantN) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) :
     PlantInhWF p k arch Sp Init MintOK c0 := by
   intro c Eg Tot HP HS cr db j th a v w X j' Sj l f cl b S us hpl hcl0 hseg hus h1 hnot hini
@@ -78,7 +78,7 @@ theorem plantInhW_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p]
 
 /-- **P4b `plantInh`** for `plantOf`/`plantN`, the multi-word slots by `plantInhW_of`
 (no W2 leaf). -/
-theorem plantInh_ofP (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : CertRunP p k arch Sp Init MintOK c0) (h0 : TermPlantF.PromViewLtR p k arch Sp c0)
+theorem plantInh_ofP (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : CertRunP p k arch Sp Init MintOK c0) (h0 : TermPlantF.PromViewLtR p k arch Sp c0)
     (hagree : RunAgreeF p k arch Sp Init MintOK c0) (hbp : BufInitPubF p k arch Sp Init MintOK c0) (hbr : BufInitPubFR p k arch Sp Init MintOK c0)
     (hPO : PlantPromOKF p k arch Sp Init MintOK c0 plantOf plantN) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) :
     PlantInhF p k arch Sp Init MintOK c0 plantOf plantN :=
@@ -86,13 +86,13 @@ theorem plantInh_ofP (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p]
 
 /-- (W2) **`PromWordWF`, closed**: the slots initialised at `Eg.ini` by `W2Prom.promWordW_of`, the
 newly planted ones by `W2New.promWordNew_of`. -/
-theorem promWordW_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : CertRunP p k arch Sp Init MintOK c0)
+theorem promWordW_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : CertRunP p k arch Sp Init MintOK c0)
     (h0 : TermPlantF.PromViewLtR p k arch Sp c0) (hagree : RunAgreeF p k arch Sp Init MintOK c0) (hbp : BufInitPubF p k arch Sp Init MintOK c0) (hbr : BufInitPubFR p k arch Sp Init MintOK c0) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) :
     PromWordWF p k arch Sp Init MintOK c0 :=
   W2Prom.promWordW_of (hV0 := hV0) hP hrun hagree hbp hbr (W2New.promWordNew_of (hV0 := hV0) (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hrun h0 hagree hbp hbr) hPS hSub hSig
 
 /-- (W2) `PubWordWF`, closed (`W2Pub.pubWordW_of`). -/
-theorem pubWordW_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermTyped.WrIniC] (hP : ProgT p) (hrunT : CertRunT p k arch Sp Init MintOK c0)
+theorem pubWordW_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [TermTyped.WrIniC] (hP : ProgT p) (hrunT : CertRunT p k arch Sp Init MintOK c0)
     (h0 : TermPlantF.PromViewLtR p k arch Sp c0) (hagree : RunAgreeT p k arch Sp Init MintOK c0) (hbp : BufInitPubT p k arch Sp Init MintOK c0)
     (hbtr : BufInitPubTR p k arch Sp Init MintOK c0)
     (hclos : PubClosT p k arch Sp Init MintOK c0) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) :

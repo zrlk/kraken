@@ -94,16 +94,18 @@ theorem exprEqT_eq {e e' : Expr} (h : exprEqT e e' = true) : e = e' := by
   | _ => simp [exprEqT] at h
 
 /-- **`d` is textually `d'`**: the same name, index and argument names,
-types, no type parameters, the same body (`exprEqT`) and the same kind; then `d = d'`
+types, no type parameters, the same body (`exprEqT`), the same kind and the same `swap`
+index parameters; then `d = d'`
 (`declIs_eq`). -/
 def declIs (d d' : Decl) : Bool :=
   d.name == d'.name && d.tparams.isEmpty && d'.tparams.isEmpty && d.idx == d'.idx && d.arg == d'.arg &&
-    d.argTy == d'.argTy && d.retTy == d'.retTy && exprEqT d.body d'.body && d.kind == d'.kind
+    d.argTy == d'.argTy && d.retTy == d'.retTy && exprEqT d.body d'.body && d.kind == d'.kind &&
+    d.swapIdx == d'.swapIdx
 
 theorem declIs_eq {d d' : Decl} (h : declIs d d' = true) : d = d' := by
   cases d; cases d'
   simp only [declIs, Bool.and_eq_true, beq_iff_eq, List.isEmpty_iff] at h
-  obtain ⟨⟨⟨⟨⟨⟨⟨⟨rfl, rfl⟩, rfl⟩, rfl⟩, rfl⟩, rfl⟩, rfl⟩, hb⟩, rfl⟩ := h
+  obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨rfl, rfl⟩, rfl⟩, rfl⟩, rfl⟩, rfl⟩, rfl⟩, hb⟩, rfl⟩, rfl⟩ := h
   rw [exprEqT_eq hb]
 
 /-! ## The extern's model -/

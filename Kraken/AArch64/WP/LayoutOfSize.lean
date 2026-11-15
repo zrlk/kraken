@@ -22,9 +22,11 @@ theorem validLayout_ofSize_fakeSize (start : Int64) (prog : Program)
     obtain ⟨d', hd', he⟩ := Option.map_eq_some_iff.mp h
     cases he
     exact ⟨List.mem_of_getElem? hd', rfl⟩
-  refine ⟨fun i l z h => ?_, fun i ins z h => ?_, fun i a z h => ?_, ?_⟩
+  refine ⟨fun i l z h => ?_, fun i ins z h => ?_, fun i a z h => ?_, fun i n z h => ?_, ?_⟩
   · rw [(hget i _ z h).2]; rfl
   · rw [(hget i _ z h).2]; rfl
+  · obtain ⟨hm, rfl⟩ := hget i _ z h
+    exact hdata _ hm rfl
   · obtain ⟨hm, rfl⟩ := hget i _ z h
     exact hdata _ hm rfl
   · show ((prog.map fun d => (d, d.fakeSize)).map (·.2)).sum < 2 ^ 64

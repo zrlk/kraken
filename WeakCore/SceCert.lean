@@ -71,7 +71,7 @@ def checkStart (p : Prog) (X : List Nat) (N : Nat) (c0 : Cfg) : Checked :=
   let produced := ct.succ.size == ct.nodes.size
   let accepted := produced && TermLiveCert.check p Promises.Knobs.all .arm X [] ct c0
   { produced, accepted, size := ct.nodes.size,
-    spawn := accepted && !TermLiveCert.noSpawnB ct,
+    spawn := accepted && !TermLiveCert.noSpawnB p ct,
     term := accepted && X.isEmpty && TermLiveCert.noStuckB p Promises.Knobs.all .arm [] ct }
 
 /-- The setup's result type (`SceLive.runSpecT`'s `rt`). -/
@@ -128,7 +128,7 @@ def xLit (j : CertJob) : String := s!"({repr j.crash.toList} : List Nat)"
 def nodeOKFn (j : CertJob) : String :=
   s!"(TermLiveCert.Cert.nodeOK prog Promises.Knobs.all WeakMem.Arch.arm {xLit j} [] certK)"
 def stuckFn : String := "(TermLiveCert.stuckOK prog Promises.Knobs.all WeakMem.Arch.arm [] certK)"
-def spawnFn : String := "(TermLiveCert.spawnOK certK)"
+def spawnFn : String := "(TermLiveCert.spawnOK prog certK)"
 /-- The flag ranges a job needs: `noSpawnB` without the spawn clause, `noStuckB` for the termination line. -/
 def needsFlags (j : CertJob) : Bool := !j.spawn || j.term
 

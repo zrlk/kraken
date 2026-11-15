@@ -259,7 +259,7 @@ theorem valB_fold {p : Prog} {E : TEnv} {g : G} {s s1 : St} {r : St × Ty × Lis
     {sto : Sto} {lb : AllocLabel} {N : AllocLabel → Prop} {th : TTh} {y : String} {v : At} {τ : Ty} {e : Expr}
     (hT : ThInvE p E th) (hterm : th.term = .let_ y (.fold v τ) e)
     (h : r ∈ evalOp g th.env th.σs s (.fold v τ)) : ValB sto s1 lb N th r.2.1 r.2.2 := by
-  obtain ⟨ρ, η, cx, -, -, hTy, -, hF, -⟩ := hT
+  obtain ⟨ρ, η, cx, -, -, ⟨hTy, -⟩, -, hF, -⟩ := hT
   rw [hterm] at hTy
   cases hTy with
   | let_ hop _ =>
@@ -277,7 +277,7 @@ theorem valB_pack {p : Prog} {E : TEnv} {g : G} {s s1 : St} {r : St × Ty × Lis
     {sto : Sto} {lb : AllocLabel} {N : AllocLabel → Prop} {th : TTh} {y wn : String} {v : At} {τ : Ty}
     {e : Expr} (hT : ThInvE p E th) (hterm : th.term = .let_ y (.pack v wn τ) e)
     (h : r ∈ evalOp g th.env th.σs s (.pack v wn τ)) : ValB sto s1 lb N th r.2.1 r.2.2 := by
-  obtain ⟨ρ, η, cx, -, -, hTy, -, hF, -⟩ := hT
+  obtain ⟨ρ, η, cx, -, -, ⟨hTy, -⟩, -, hF, -⟩ := hT
   rw [hterm] at hTy
   cases hTy with
   | let_ hop _ =>
@@ -295,7 +295,7 @@ theorem valB_packT {p : Prog} {E : TEnv} {g : G} {s s1 : St} {r : St × Ty × Li
     {sto : Sto} {lb : AllocLabel} {N : AllocLabel → Prop} {th : TTh} {y : String} {v : At} {σ τ : Ty}
     {e : Expr} (hT : ThInvE p E th) (hterm : th.term = .let_ y (.packT v σ τ) e)
     (h : r ∈ evalOp g th.env th.σs s (.packT v σ τ)) : ValB sto s1 lb N th r.2.1 r.2.2 := by
-  obtain ⟨ρ, η, cx, -, -, hTy, -, hF, -⟩ := hT
+  obtain ⟨ρ, η, cx, -, -, ⟨hTy, -⟩, -, hF, -⟩ := hT
   rw [hterm] at hTy
   cases hTy with
   | let_ hop _ =>
@@ -326,7 +326,7 @@ theorem stepB_call {p : Prog} {E : TEnv} {g : G} {mem : Memory} {pairs : List Ts
     {x f : String} {is : List String} {a : At} {ts : List Ty} {e : Expr}
     (hp : g.p = p) (hP : ProgT p) (hT : ThInvE p E th) (hterm : th.term = .let_ x (.call f is a ts) e)
     (hr : r ∈ tstep g mem pairs th) : StepB sto mem pairs lb N th r.2.2 := by
-  obtain ⟨ρ, η, cx, -, -, hTy, -, hF, -⟩ := hT
+  obtain ⟨ρ, η, cx, -, -, ⟨hTy, -⟩, -, hF, -⟩ := hT
   rw [hterm] at hTy
   cases hTy with
   | let_ hop _ =>
@@ -361,7 +361,7 @@ theorem stepB_tail {p : Prog} {E : TEnv} {g : G} {mem : Memory} {pairs : List Ts
     {f : String} {is : List String} {a : At} {ts : List Ty}
     (hp : g.p = p) (hP : ProgT p) (hT : ThInvE p E th) (hterm : th.term = .tail f is a ts)
     (hr : r ∈ tstep g mem pairs th) : StepB sto mem pairs lb N th r.2.2 := by
-  obtain ⟨ρ, η, cx, -, -, hTy, -, hF, -⟩ := hT
+  obtain ⟨ρ, η, cx, -, -, ⟨hTy, -⟩, -, hF, -⟩ := hT
   rw [hterm] at hTy
   cases hTy with
   | @tail _ _ _ _ _ _ d at_ rt t hfind hinst hu _ hsub _ =>
@@ -428,7 +428,7 @@ theorem stepB_callc {p : Prog} {E : TEnv} {g : G} {mem : Memory} {pairs : List T
     {x : String} {f a : At} {e : Expr}
     (hp : g.p = p) (hP : ProgT p) (hT : ThInvE p E th) (hterm : th.term = .let_ x (.callc f a) e)
     (hr : r ∈ tstep g mem pairs th) : StepB sto mem pairs lb N th r.2.2 := by
-  obtain ⟨ρ, η, cx, -, hE, hTy, htv, hi, -⟩ := hT
+  obtain ⟨ρ, η, cx, -, hE, ⟨hTy, -⟩, htv, hi, -⟩ := hT
   rw [hterm] at hTy
   cases hTy with
   | let_ hop _ =>

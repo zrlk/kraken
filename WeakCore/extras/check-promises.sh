@@ -459,6 +459,22 @@ if ! echo "$cty_out" | grep -q "'CoreTyping.checkProg_sound' depends on axioms";
   fail=1
 fi
 
+# --- TermDyDefs.lean ---------------------------------------------------------
+# The run-time premise `DyClean` (with `TaintClosed`, `HidClean`) that replaces
+# `checkProg p = .ok ()` in the final theorems; definitions only.  Built here
+# because Complete.lean and TermTv.lean import it.
+echo "building TermDyDefs.lean ..."
+if ! tdd_out=$(leanb TermDyDefs 2>&1); then
+  echo "$tdd_out"
+  echo 'FAIL: TermDyDefs.lean does not compile.'
+  fail=1
+fi
+case "$tdd_out" in
+  *"declaration uses"*|*sorryAx*)
+    echo "FAIL: TermDyDefs.lean has a sorry"
+    fail=1 ;;
+esac
+
 # --- Complete.lean -----------------------------------------------------------
 # How far the checker is from `Typed`: kernel-checked witnesses of terms that
 # are `Typed` and refused (`typed_not_checked`), and the algorithmic judgement.
@@ -597,6 +613,7 @@ done
 # (E1) TermExtStep: every #print axioms theorem, std axioms only.
 for thm in \
     "TermExtStep.Ext.elim" \
+    "TermExtStep.emit_promFree" \
     "TermExtStep.extCfg_mem" \
     "TermExtStep.extCfg_pairs" \
     "TermExtStep.extCfg_cap" \
@@ -606,6 +623,10 @@ for thm in \
     "TermExtStep.extCfg_trace" \
     "TermExtStep.extCfg_ths_self" \
     "TermExtStep.extCfg_ths_ne" \
+    "TermExtStep.setPermit_eq" \
+    "TermExtStep.wake_eq" \
+    "TermExtStep.wake_get" \
+    "TermExtStep.wake_of_ne" \
     "TermExtStep.Ext.frame" \
     "TermExtStep.tstep_ext" \
     "TermExtStep.threadSteps_ext" \
@@ -2632,6 +2653,7 @@ for thm in \
     "TermSpawnScope.thScope_spawnKid" \
     "TermSpawnScope.runScope_spawnStep" \
     "TermSpawnScope.runScopeR_spawn" \
+    "TermSpawnScope.scope_kidI_hp" \
     "TermSpawnScope.run_scopeX"; do
   thm_re=$(printf '%s' "$thm" | sed 's/[][\\.*^$?+(){}|]/\\&/g')  # names may contain ? ! etc.
   if ! echo "${b2_termspawnscope_out}" | grep -qE "'([^' ]*\.)?$thm_re' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
@@ -8297,7 +8319,7 @@ done
 # (G5) `CertWinProof.certWinC_of`/`certWinP_of` and their layers, built before TermMain, which
 # imports them (TermMainPre, EtaCertWinSnd).  The *Axioms modules print their axiom census.
 echo "building the 84 G5 certificate-window modules ..."
-for g5m in AxAll VRb Emb PubPos VRbClosure TvarB Head VRzLemmas PubPosL FlagB GenLayer KLayer ShadowPub ShadowPubStep ShadowPubAxioms ShadowWinChain ShadowWinChainAxioms WLayer WrIniInst ELayer ELayerAxioms TermMainPre AnchorFrameTyping AnchorFrameAxioms WinScope WinScopeAxioms WinStart WinStartAxioms WinPubSplit WinPremises WinPremisesAxioms KLayerAxioms MergeP MergeStmt MergeH Merge MergeQ PubPosM MergeV MergeW MergeR ZRel Frame CopyPlan PairNat EtaC LiftG LiftE LiftH Lift LiftPosZero DPub LiftTidBox LiftUpClosed VarBox EtaA EtaB EtaD StackFrameLevel StackInduction StackLevelZero VRLift StackResFree StackAxioms CopyPlanAxioms NLayer EtaL EtaS EtaP EtaNC EtaR ScalB PlantedHolder EtaN EtaO ContIV EtaFD BornU BornW EtaW EtaCertWinFst EtaCertWinSnd EtaCertWinAxioms OwnerExemptWitness; do
+for g5m in TermC1Defs TermC1Inv TermC1VR1 AxAll VRb Emb PubPos VRbClosure TvarB Head VRzLemmas PubPosL FlagB GenLayer KLayer ShadowPub ShadowPubStep ShadowPubAxioms ShadowWinChain ShadowWinChainAxioms WLayer WrIniInst ELayer ELayerAxioms TermMainPre AnchorFrameTyping AnchorFrameAxioms WinScope WinScopeAxioms WinStart WinStartAxioms WinPubSplit WinPremises WinPremisesAxioms KLayerAxioms MergeP MergeStmt MergeH Merge MergeQ PubPosM MergeV MergeW MergeR ZRel Frame CopyPlan PairNat EtaC LiftG LiftE LiftH Lift LiftPosZero DPub LiftTidBox LiftUpClosed VarBox EtaA EtaB EtaD StackFrameLevel StackInduction StackLevelZero VRLift StackResFree StackAxioms CopyPlanAxioms NLayer EtaL EtaS EtaP EtaNC EtaR ScalB PlantedHolder EtaN EtaO ContIV EtaFD BornU BornW EtaW EtaCertWinFst EtaCertWinSnd EtaCertWinAxioms OwnerExemptWitness; do
   if ! g5_out=$(leanb $g5m 2>&1); then
     echo "$g5_out"
     echo "FAIL: $g5m.lean does not compile: the certificate-window proof no longer goes through."
@@ -9481,6 +9503,83 @@ for thm in \
   fi
 done
 
+# --- TermSpawnKidI.lean -------------------------------------------------
+# (spawnI) spawnI kid: noOwnIn/noOR of the instantiated argument type.
+echo "building TermSpawnKidI.lean ..."
+if ! cb_termspawnkidi_out=$(leanb TermSpawnKidI 2>&1); then
+  echo "$cb_termspawnkidi_out"
+  echo 'FAIL: TermSpawnKidI.lean does not compile.'
+  fail=1
+fi
+case "$cb_termspawnkidi_out" in
+  *"declaration uses"*|*sorryAx*)
+    echo "FAIL: a TermSpawnKidI.lean theorem has a sorry"
+    fail=1 ;;
+esac
+# (spawnI) TermSpawnKidI: every #print axioms theorem, std axioms only.
+for thm in \
+    "TermSpawnI.noOwnIn_tyEqS" \
+    "TermSpawnI.noOwnIn_subS" \
+    "TermSpawnI.substTs_nil" \
+    "TermSpawnI.noOwnIn_substTs_instT" \
+    "TermSpawnI.instantiate_fst" \
+    "TermSpawnI.noOR_kidI"; do
+  thm_re=$(printf '%s' "$thm" | sed 's/[][\\.*^$?+(){}|]/\\&/g')  # names may contain ? ! etc.
+  if ! echo "${cb_termspawnkidi_out}" | grep -qE "'([^' ]*\.)?$thm_re' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
+    echo "FAIL: TermSpawnKidI.lean: '#print axioms $thm' missing or non-standard axioms"
+    fail=1
+  fi
+done
+
+# --- TermSpawnMidI.lean -------------------------------------------------
+# (spawnI) spawnI kid: wrapOK of the substituted argument type.
+echo "building TermSpawnMidI.lean ..."
+if ! cb_termspawnmidi_out=$(leanb TermSpawnMidI 2>&1); then
+  echo "$cb_termspawnmidi_out"
+  echo 'FAIL: TermSpawnMidI.lean does not compile.'
+  fail=1
+fi
+case "$cb_termspawnmidi_out" in
+  *"declaration uses"*|*sorryAx*)
+    echo "FAIL: a TermSpawnMidI.lean theorem has a sorry"
+    fail=1 ;;
+esac
+# (spawnI) TermSpawnMidI: every #print axioms theorem, std axioms only.
+for thm in \
+    "TermSpawnI.wrapOK_substTs"; do
+  thm_re=$(printf '%s' "$thm" | sed 's/[][\\.*^$?+(){}|]/\\&/g')  # names may contain ? ! etc.
+  if ! echo "${cb_termspawnmidi_out}" | grep -qE "'([^' ]*\.)?$thm_re' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
+    echo "FAIL: TermSpawnMidI.lean: '#print axioms $thm' missing or non-standard axioms"
+    fail=1
+  fi
+done
+
+# --- TermSpawnMidI2.lean ------------------------------------------------
+# (spawnI) spawnI mid (mkI arm of sysInvN_spawnStepW).
+echo "building TermSpawnMidI2.lean ..."
+if ! cb_termspawnmidi2_out=$(leanb TermSpawnMidI2 2>&1); then
+  echo "$cb_termspawnmidi2_out"
+  echo 'FAIL: TermSpawnMidI2.lean does not compile.'
+  fail=1
+fi
+case "$cb_termspawnmidi2_out" in
+  *"declaration uses"*|*sorryAx*)
+    echo "FAIL: a TermSpawnMidI2.lean theorem has a sorry"
+    fail=1 ;;
+esac
+# (spawnI) TermSpawnMidI2: every #print axioms theorem, std axioms only.
+for thm in \
+    "TermSpawnI.spawnI_sites" \
+    "TermSpawnI.sysInvN_spawnMidI" \
+    "TermSpawnI.entryR_ofRI" \
+    "TermSpawnI.thSys_kidMR"; do
+  thm_re=$(printf '%s' "$thm" | sed 's/[][\\.*^$?+(){}|]/\\&/g')  # names may contain ? ! etc.
+  if ! echo "${cb_termspawnmidi2_out}" | grep -qE "'([^' ]*\.)?$thm_re' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
+    echo "FAIL: TermSpawnMidI2.lean: '#print axioms $thm' missing or non-standard axioms"
+    fail=1
+  fi
+done
+
 # --- TermSpawnMidM0.lean ----------------------------------------------
 # (2b) spawn mid on M0.
 echo "building TermSpawnMidM0.lean ..."
@@ -10034,6 +10133,7 @@ esac
 # --- Doc.lean -------------------------------------------------------------------
 # Doc.lean: the helpers for checked CoreLang documents, with their own guards.
 # Only Doc.lean itself is built here.
+docs_built=0
 echo "building Doc.lean ..."
 if ! doc_out=$(leanb Doc 2>&1); then
   echo "$doc_out"
@@ -10045,8 +10145,9 @@ else
     echo "$docu_out"
     echo 'FAIL: DocU.lean (cldoc support for syntax=u) does not compile.'
     fail=1
+  else
+    docs_built=1
   fi
-  echo "docs: not part of this distribution"
 fi
 
 # Deliberately no count here: this grep asserts *0 failing*, and item 28 is
@@ -12589,6 +12690,11 @@ case "$c1_termc1defs_out" in
     fail=1 ;;
 esac
 for thm in \
+    "TermC1.opOK1_share" \
+    "TermC1.allOK1_tail_rgnFree" \
+    "TermC1.opShareOK_spawn" \
+    "TermC1.opOK1_spawn" \
+    "TermC1.hasTok1_hasTok" \
     "TermC1.ProgScopeOKW1.scope" \
     "TermC1.ProgScopeOKW1.wrap"; do
   thm_re=$(printf '%s' "$thm" | sed 's/[][\\.*^$?+(){}|]/\\&/g')
@@ -12632,11 +12738,6 @@ case "$c1_termc1lem_out" in
     fail=1 ;;
 esac
 for thm in \
-    "TermC1.noMonoSaw_not_tornLic" \
-    "TermC1.rgnOpOK1_load" \
-    "TermC1.rgnOpOK1_store" \
-    "TermC1.rgnOpOK1_xchg" \
-    "TermC1.rgnOpOK1_fetch" \
     "TermC1.noRes_of_not_affine" \
     "TermC1.noRes_of_affine_false" \
     "TermC1.noRes_of_rgnPay" \
@@ -13224,6 +13325,57 @@ for thm in \
   thm_re=$(printf '%s' "$thm" | sed 's/[][\\.*^$?+(){}|]/\\&/g')
   if ! echo "${c1_termc1wit_out}" | grep -qE "'([^' ]*\.)?$thm_re' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
     echo "FAIL: TermC1Wit.lean: '#print axioms $thm' missing or non-standard axioms"
+    fail=1
+  fi
+done
+
+# (C1) spawn/tail second-class scope lemmas over checkW1.
+echo "building TermC1F10.lean ..."
+if ! c1_termc1f10_out=$(leanb TermC1F10 2>&1); then
+  echo "$c1_termc1f10_out"
+  echo 'FAIL: TermC1F10.lean does not compile.'
+  fail=1
+fi
+case "$c1_termc1f10_out" in
+  *"declaration uses"*|*sorryAx*|*ofReduceBool*)
+    echo "FAIL: a TermC1F10.lean theorem has a sorry"
+    fail=1 ;;
+esac
+for thm in \
+    "TermC1F10.instantiate_noSecond" \
+    "TermC1F10.tailCheck_noSecond" \
+    "TermC1F10.kidOK_ts_noSecond"; do
+  thm_re=$(printf '%s' "$thm" | sed 's/[][\\.*^$?+(){}|]/\\&/g')
+  if ! echo "${c1_termc1f10_out}" | grep -qE "'([^' ]*\.)?$thm_re' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
+    echo "FAIL: TermC1F10.lean: '#print axioms $thm' missing or non-standard axioms"
+    fail=1
+  fi
+done
+
+# (C1) VR1/ModeOK1 monotonicity and unsee lemmas.
+echo "building TermC1VR1.lean ..."
+if ! c1_termc1vr1_out=$(leanb TermC1VR1 2>&1); then
+  echo "$c1_termc1vr1_out"
+  echo 'FAIL: TermC1VR1.lean does not compile.'
+  fail=1
+fi
+case "$c1_termc1vr1_out" in
+  *"declaration uses"*|*sorryAx*|*ofReduceBool*)
+    echo "FAIL: a TermC1VR1.lean theorem has a sorry"
+    fail=1 ;;
+esac
+for thm in \
+    "TermC1.ModeOK1_mono" \
+    "TermC1.ModeOK1_unsee" \
+    "TermC1.VR1_up" \
+    "TermC1.VR1_mono" \
+    "TermC1.VR1_unsee" \
+    "TermC1.EnvVal1.store" \
+    "TermC1.ValOf1.env" \
+    "TermC1.ModeOK1_rgn_pub"; do
+  thm_re=$(printf '%s' "$thm" | sed 's/[][\\.*^$?+(){}|]/\\&/g')
+  if ! echo "${c1_termc1vr1_out}" | grep -qE "'([^' ]*\.)?$thm_re' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
+    echo "FAIL: TermC1VR1.lean: '#print axioms $thm' missing or non-standard axioms"
     fail=1
   fi
 done
@@ -13851,6 +14003,7 @@ for thm in \
   fi
 done
 
+
 # --- SceText, SceCli, SceLive, SceProof, SceRun, SceTest, tools/sce (UnElab M3a, M3b, M3d) -----------
 # sce, the UnElab front end.  SceRun.run is the whole command as a pure function (imports with
 # -I and .i over .u, cycles, duplicates, UDiag's diagnostics, the whole-program check, emission re-parsed and
@@ -13861,8 +14014,8 @@ done
 # (status, verdict, results, final states, each livelock kind with its threads placed in the source), and the
 # --live / --live-strict / --final checks (exit 5); SceTest checks its counts and verdicts against Doc.threads.
 # SceProof (M3d): the liveness instance behind `live def` (TermLiveL3's theorems under the decidable robust
-# premise robustOK); sce prints it for every live def and --live-proof writes and builds it (tools/test-sce.sh
-# builds one).  This step runs after TermLiveL3, which SceProof imports.
+# premise robustOK); sce prints it for every live def whose start wrapper checks and --live-proof writes and
+# builds it (tools/test-sce.sh builds one).  This step runs after TermLiveL3, which SceProof imports.
 # SceCertK, SceCert (item 38): liveness certificates -- mode A (TermLiveCert.check by compiled evaluation, the
 # report lines and refusals) and the texts of the root.cert/ files --live-proof writes; SceCertK holds the ToExpr
 # instances and the #sce_start/#sce_cert commands those files run.  Nothing in them is trusted: the files are
@@ -13913,6 +14066,138 @@ else
   echo "$tsce_out" | tail -1
 fi
 echo "cldoc cert: not part of this distribution"
+
+echo "docs: not part of this distribution"
+
+# Premise witnesses: checks that some definitions the finals' statements name (checkProg, parseProg, the lock protocols, mutex, seqLock, arrowRgn, Typed, Sat, LatestIs) are not vacuous.
+# Each predicate check below has an accepting and a rejecting case, so a definition made constant
+# true or constant false fails it; Typed and Sat each get one inhabited and one refused instance.
+# These checks run in this repository's check only, not in the vendored layout.  Generated here, no olean.
+echo "checking the premise witnesses ..."
+witness_tmp=$(mktemp -d)
+cat > "$witness_tmp/PremiseWitness.lean" <<'WITNESS_EOF'
+import CoreTyping
+import Syntax
+import Promises
+open CoreLang CoreTerm CoreTyping
+
+namespace PremiseWitness
+
+-- checkProg is not constant-false: a demo program is accepted.
+#guard accepts (checkProg mutexLib)
+-- checkProg is not constant-true: a program with an unshareable payload is refused.
+#guard rejects (checkProg (claimLib CoreTerm.buf)) "not shareable"
+
+/-- A demo program over a pair protocol (`Ticket`), in the concrete syntax. -/
+def pairSrc : String := "
+def mkT(x : Int) : exists a. Ptr pub Pair[a, Ticket] =
+  let p = new[Int] x
+  let <r, d, t0> = region p
+  let w = mkWord2 r Ticket (0, 0) t0
+  let s = new[Pair[r, Ticket]] w
+  let s2 = publish s
+  let mx = pack s2 at r : exists a. Ptr pub Pair[a, Ticket]
+  ret mx
+
+def take{r}(m : Ptr pub Pair[r, Ticket]) : Int =
+  let q = ldp acq m as (k0, k1)
+  ret 0
+"
+-- parseProg is not constant-error and checkProg accepts a program with a pair protocol.
+#guard match Syntax.parseProg pairSrc with
+  | .ok p => p.length == 2 && accepts (checkProg p)
+  | .error _ => false
+-- parseProg is not constant-ok: text that is not a program is refused.
+#guard match Syntax.parseProg "def f(x : Int) : Int =\n  ldp" with
+  | .ok _ => false
+  | .error _ => true
+
+-- mutexP: free -> held is a move, free -> free is not (not empty, not wild).
+#guard pwf mutexP && pstep mutexP 0 (.ofVar 0) 1 (.ofVar 0) && !pstep mutexP 0 (.ofVar 0) 0 (.ofVar 0)
+-- seqP: release bumps the version, release without the bump is not a move.
+#guard pwf seqP && pstep seqP 1 (.ofVar 0) 0 ((Lin.ofVar 0).add (.ofConst 1)) &&
+  !pstep seqP 1 (.ofVar 0) 0 (.ofVar 0)
+-- claimP: unclaimed -> claimed is a move, claimed -> unclaimed is not.
+#guard pwf claimP && pstep claimP 0 (.ofVar 0) 1 (.ofVar 0) && !pstep claimP 1 (.ofVar 0) 0 (.ofVar 0)
+-- ticketP: taking a ticket bumps next only; bumping both is not a move.
+#guard pwf2 ticketP && pstep2 ticketP 0 (.ofVar 3) (.ofVar 3) 1 ((Lin.ofVar 3).add (.ofConst 1)) (.ofVar 3) &&
+  !pstep2 ticketP 0 (.ofVar 3) (.ofVar 3) 1 ((Lin.ofVar 3).add (.ofConst 1)) (.ofVar 4)
+-- epochP: an update bumps the epoch; an update that keeps the epoch is not a move.
+#guard pwf2 epochP && pstep2 epochP 0 (.ofVar 3) (.ofVar 4) 0 ((Lin.ofVar 3).add (.ofConst 1)) (.ofConst 7) &&
+  !pstep2 epochP 0 (.ofVar 3) (.ofVar 4) 0 (.ofVar 3) (.ofConst 7)
+-- mutex and seqLock are the guarded cell of their protocol, and differ.
+#guard mutex .int == .iex (.ptr .pub (.prod (.word (.var 0) mutexP) (.ptr (.rgn (.var 0)) .int))) &&
+  seqLock .int == .iex (.ptr .pub (.prod (.word (.var 0) seqP) (.ptr (.rgn (.var 0)) .int))) &&
+  mutex .int != seqLock .int
+-- arrowRgn is a well-formed one-word-pair closure type; a `bor` one is second-class, a `pub` one is not.
+#guard (arrowRgn .bor .int .int).words == some 2 && (arrowRgn .bor .int .int).wf 0 0 &&
+  (arrowRgn .bor .int .int).secondClass && !(arrowRgn .pub .int .int).secondClass
+
+/-- `Typed` is inhabited: the body of `lock` in a checked demo program. -/
+theorem typed_inhabited : ∃ p cx e, Typed p cx e :=
+  ⟨mutexLib, _, _, (mutexLib_typed lockD (List.Mem.head _)).2.2.2.2⟩
+
+/-- `Typed` is not everything: a tail call to a code block the program lacks is not typed. -/
+theorem typed_refuses (cx : Cx) : ¬ Typed ([] : Prog) cx (.tail "f" [] (.lit 0) []) := by
+  intro h
+  cases h with
+  | tail hf => simp [Prog.find, List.find?] at hf
+
+/-- `Sat` holds when the valuation agrees with the facts. -/
+theorem sat_holds : Sat [(0, .lit 1)] (fun _ => 1) := by
+  intro k t h
+  cases k <;> simp [List.lookup] at h
+  subst h; rfl
+
+/-- `Sat` fails when the valuation contradicts a fact. -/
+theorem sat_refuses : ¬ Sat [(0, .lit 1)] (fun _ => 0) := by
+  intro h
+  have := h 0 (.lit 1) rfl
+  simp [ev] at this
+
+/-- `LatestIs` holds of a one-message memory at its address and value. -/
+theorem latestIs_inhabited :
+    Promises.LatestIs #[⟨⟨0, 0⟩, .num 1, 0⟩] ⟨0, 0⟩ (.num 1) :=
+  ⟨0, _, rfl, rfl, rfl, by decide⟩
+
+/-- `LatestIs` fails on the empty memory. -/
+theorem latestIs_empty (a : WeakMem.Address) (v : WeakMem.Val) : ¬ Promises.LatestIs #[] a v := by
+  rintro ⟨t, m, h, -⟩
+  simp at h
+
+end PremiseWitness
+
+#print axioms PremiseWitness.typed_inhabited
+#print axioms PremiseWitness.typed_refuses
+#print axioms PremiseWitness.sat_holds
+#print axioms PremiseWitness.sat_refuses
+#print axioms PremiseWitness.latestIs_inhabited
+#print axioms PremiseWitness.latestIs_empty
+WITNESS_EOF
+if ! witness_out=$(LEAN_PATH="$BUILD" "$LEAN" $(dyn) "$witness_tmp/PremiseWitness.lean" 2>&1); then
+  echo "$witness_out"
+  echo 'FAIL: the premise witnesses do not hold.'
+  fail=1
+fi
+rm -rf "$witness_tmp"
+case "$witness_out" in
+  *"declaration uses"*|*sorryAx*|*ofReduceBool*|*error*)
+    echo "FAIL: a premise witness has an error, a sorry or a native_decide"
+    fail=1 ;;
+esac
+for thm in \
+    "PremiseWitness.typed_inhabited" \
+    "PremiseWitness.typed_refuses" \
+    "PremiseWitness.sat_holds" \
+    "PremiseWitness.sat_refuses" \
+    "PremiseWitness.latestIs_inhabited" \
+    "PremiseWitness.latestIs_empty"; do
+  thm_re=$(printf '%s' "$thm" | sed 's/[][\\.*^$?+(){}|]/\\&/g')
+  if ! echo "${witness_out}" | grep -qE "'([^' ]*\.)?$thm_re' (depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]|does not depend on any axioms)"; then
+    echo "FAIL: premise witnesses: '#print axioms $thm' missing or non-standard axioms"
+    fail=1
+  fi
+done
 
 # Premise-meaning guard: the transitive definition closure of every
 # user-facing final's statement (premises and conclusion: InitOK, ObligationsF,

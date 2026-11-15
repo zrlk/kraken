@@ -744,6 +744,33 @@ theorem uSpawnCfg_inv {U : UProg} {c : UCfg} {i : Nat} {th : UTTh} {x : String} 
     · intro f' hf'
       simp [fromCore0] at hf'
 
+theorem uSpawnCfgI_inv {U : UProg} {c : UCfg} {i : Nat} {th : UTTh} {x : String} {o : Op} {j : Nat} {e : UExpr}
+    (d : Decl) (ts : List Ty) (ws : List Word) (hc : UInv U c) (hth : c.ths[i]? = some th)
+    (hl : layer th.ctr th.term = .letOp x o j e) : UInv U (uSpawnCfgI c i th x e j d ts ws) := by
+  have ht := hc.2 i th hth
+  obtain ⟨hkj, hx, he⟩ := layer_letOp_hyg ht.1 hl
+  refine ⟨hc.1, ?_⟩
+  intro i' t h'
+  simp only [uSpawnCfgI] at h'
+  rcases get_push h' with h1 | h1
+  · refine uInv_set hc (thInv_back ht hkj he ?_) _ rfl i' t h1
+    intro y hy
+    simp only [spawnPar, withS, List.mem_cons] at hy
+    rcases hy with rfl | hy
+    · exact Or.inl hx
+    · exact Or.inr hy
+  · subst h1
+    have ha : okName 0 "a" := okName_of_res (by simp [reserved])
+    refine ⟨?_, ?_, ?_⟩
+    · intro s hs
+      simp [fromCore0, uNames, argNames, atNames] at hs
+      subst hs; exact ha
+    · intro y hy
+      simp only [fromCore0, spawnKidI, List.mem_cons, List.not_mem_nil, or_false] at hy
+      subst hy; exact ha
+    · intro f' hf'
+      simp [fromCore0] at hf'
+
 theorem USolo.inv {U : UProg} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c c' : UCfg}
     (h : USolo U k arch i c c') (hc : UInv U c) : UInv U c' := by
   induction h with
@@ -762,6 +789,7 @@ theorem USpawn.inv {U : UProg} {k : Promises.Knobs} {arch : Arch} {cap : Nat} {c
     (h : USpawn U k arch cap c c') (hc : UInv U c) : UInv U c' := by
   cases h with
   | mk i x f a T ts j e th rt ws hth hl _ _ _ => exact uSpawnCfg_inv f ts T ws hc hth hl
+  | mkI i x f is a T ts j e th d rt ws hth hl _ _ _ _ => exact uSpawnCfgI_inv d ts ws hc hth hl
 
 theorem UExt.inv {U : UProg} {k : Promises.Knobs} {arch : Arch} {c c' : UCfg}
     (h : UExt U k arch c c') (hc : UInv U c) : UInv U c' := by

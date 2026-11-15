@@ -46,6 +46,11 @@ def spawnKid (c : Cfg) (i : Nat) (th : TTh) (f : String) (ts : List Ty) (T : Ty)
   { term := .tail f [] (.var "a") ts, env := [("a", T, ws.map (TermSpawn.bumpW (spawnS c th).vs.vRelSt))],
     vs := { (spawnS c th).vs with mine := [] }, tidLbl := some (tidLabel c i th) }
 
+def spawnKidI (c : Cfg) (i : Nat) (th : TTh) (d : Decl) (ts : List Ty) (ws : List Word) : TTh :=
+  { term := .tail d.name d.idx (.var "a") ts,
+    env := [("a", close (ts.map (close [])).reverse d.argTy, ws.map (TermSpawn.bumpW (spawnS c th).vs.vRelSt))],
+    vs := { (spawnS c th).vs with mine := [] }, tidLbl := some (tidLabel c i th) }
+
 /-- Replace thread `i` by `par` and append `kid`. -/
 def spawnT (c : Cfg) (i : Nat) (par kid : TTh) : Cfg := { c with ths := (c.ths.set! i par).push kid }
 
@@ -61,6 +66,11 @@ inductive Spawn (p : Prog) (k : Promises.Knobs) (arch : Arch) (cap : Nat) : Cfg 
       c.ths[i]? = some th → th.term = .let_ x (.spawn f a T ts) e → th.promises = [] →
       c.ths.size < cap → evalAt th.env a = some (rt, ws) →
       Spawn p k arch cap c (spawnCfg c i th x e f ts T ws)
+  | mkI {c : Cfg} (i : Nat) (x f : String) (is : List String) (a : At) (T : Ty) (ts : List Ty) (e : Expr)
+      (th : TTh) (d : Decl) (rt : Ty) (ws : List Word) :
+      c.ths[i]? = some th → th.term = .let_ x (.spawnI f is a T ts) e → th.promises = [] →
+      c.ths.size < cap → p.find? (·.name == f) = some d → evalAt th.env a = some (rt, ws) →
+      Spawn p k arch cap c (spawnT c i (spawnPar c i th x e) (spawnKidI c i th d ts ws))
 
 /-- A machine step or a spawn. -/
 def StepX (p : Prog) (k : Promises.Knobs) (arch : Arch) (cap : Nat) (c c' : Cfg) : Prop :=
@@ -135,17 +145,24 @@ theorem stepsX_pres {p : Prog} {k : Promises.Knobs} {arch : Arch} {cap : Nat} {P
 
 /-- Elimination form of `Spawn` (for clients that need only the shape, e.g. The `viewInv_spawn`). -/
 theorem Spawn.elim {p : Prog} {k : Promises.Knobs} {arch : Arch} {cap : Nat} {c c' : Cfg}
-    (h : Spawn p k arch cap c c') : ∃ i x f a T ts e th rt ws, c.ths[i]? = some th ∧
+    (h : Spawn p k arch cap c c') : (∃ i x f a T ts e th rt ws, c.ths[i]? = some th ∧
       th.term = .let_ x (.spawn f a T ts) e ∧ th.promises = [] ∧ c.ths.size < cap ∧
-      evalAt th.env a = some (rt, ws) ∧ c' = spawnCfg c i th x e f ts T ws := by
+      evalAt th.env a = some (rt, ws) ∧ c' = spawnCfg c i th x e f ts T ws) ∨
+    (∃ i x f is a T ts e th d rt ws, c.ths[i]? = some th ∧
+      th.term = .let_ x (.spawnI f is a T ts) e ∧ th.promises = [] ∧ c.ths.size < cap ∧
+      p.find? (·.name == f) = some d ∧ evalAt th.env a = some (rt, ws) ∧
+      c' = spawnT c i (spawnPar c i th x e) (spawnKidI c i th d ts ws)) := by
   cases h with
-  | mk i x f a T ts e th rt ws h1 h2 h3 h4 h5 => exact ⟨i, x, f, a, T, ts, e, th, rt, ws, h1, h2, h3, h4, h5, rfl⟩
+  | mk i x f a T ts e th rt ws h1 h2 h3 h4 h5 => exact .inl ⟨i, x, f, a, T, ts, e, th, rt, ws, h1, h2, h3, h4, h5, rfl⟩
+  | mkI i x f is a T ts e th d rt ws h1 h2 h3 h4 h5 h6 =>
+      exact .inr ⟨i, x, f, is, a, T, ts, e, th, d, rt, ws, h1, h2, h3, h4, h5, h6, rfl⟩
 
 /-! ## Spawn-free programs and configurations (for `StepsX` → `Steps` reductions) -/
 
 /-- `op` is not a spawn. -/
 def opNoSpawn : Op → Bool
   | .spawn .. => false
+  | .spawnI .. => false
   | .isTy _ _ => true
   | _ => true
 
@@ -200,10 +217,22 @@ theorem threadSteps_spawn {p : Prog} {k : Promises.Knobs} {arch : Arch} {c : Cfg
     (h : th.term = .let_ x (.spawn f a T ts) e) : threadSteps p k arch c i = [] := by
   simp [threadSteps, hth, tstep_spawn h]
 
+theorem tstep_spawnI {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {x f : String} {is : List String}
+    {a : At} {T : Ty} {ts : List Ty} {e : Expr} (h : th.term = .let_ x (.spawnI f is a T ts) e) :
+    tstep g mem pairs th = [] := by
+  simp [tstep, h, evalOp]
+
+theorem threadSteps_spawnI {p : Prog} {k : Promises.Knobs} {arch : Arch} {c : Cfg} {i : Nat} {th : TTh}
+    {x f : String} {is : List String} {a : At} {T : Ty} {ts : List Ty} {e : Expr} (hth : c.ths[i]? = some th)
+    (h : th.term = .let_ x (.spawnI f is a T ts) e) : threadSteps p k arch c i = [] := by
+  simp [threadSteps, hth, tstep_spawnI h]
+
 /-! ## `site_noProm` -/
 
 /-- Thread `i` of `c` sits at a spawn site. -/
-def AtSite (th : TTh) : Prop := ∃ x f a T ts e, th.term = .let_ x (.spawn f a T ts) e
+def AtSite (th : TTh) : Prop :=
+  (∃ x f a T ts e, th.term = .let_ x (.spawn f a T ts) e) ∨
+    ∃ x f is a T ts e, th.term = .let_ x (.spawnI f is a T ts) e
 
 theorem promise_ths {c : Cfg} {i : Nat} {th : TTh} (hth : c.ths[i]? = some th) (a : Address) (v : Val) (w : Ts) :
     (promise c i a v w).ths[i]? = some { th with promises := th.promises ++ [c.mem.size] } := by
@@ -253,22 +282,28 @@ theorem cert_stuck {p : Prog} {k : Promises.Knobs} {arch : Arch} {Q : TTh → Pr
 /-- A thread at a spawn site has no extern move. -/
 theorem atSite_extSteps {c : Cfg} {i : Nat} {th : TTh} (hth : c.ths[i]? = some th) (hs : AtSite th) :
     extSteps c i = [] := by
-  obtain ⟨x, f, a, T, ts, e, he⟩ := hs
-  exact extSteps_nil hth (fun _ _ _ _ h => by rw [he] at h; cases h)
+  rcases hs with ⟨x, f, a, T, ts, e, he⟩ | ⟨x, f, is, a, T, ts, e, he⟩ <;>
+    exact extSteps_nil hth (fun _ _ _ _ h => by rw [he] at h; cases h)
 
 /-- Along `Solo i`, a thread at a spawn site keeps its term and its promises only grow. -/
 theorem solo_site {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c c' : Cfg}
     (h : Solo p k arch i c c') : ∀ th, c.ths[i]? = some th → AtSite th →
       ∃ th', c'.ths[i]? = some th' ∧ th.promises <+: th'.promises :=
   solo_stuck (Q := AtSite) (fun _ _ h => h)
-    (fun _ h _ _ hth => by obtain ⟨x, f, a, T, ts, e, he⟩ := h; exact threadSteps_spawn hth he)
+    (fun _ h _ _ hth => by
+      rcases h with ⟨x, f, a, T, ts, e, he⟩ | ⟨x, f, is, a, T, ts, e, he⟩
+      · exact threadSteps_spawn hth he
+      · exact threadSteps_spawnI hth he)
     (fun _ h _ _ hth => atSite_extSteps hth h) h
 
 /-- **A certified thread at a spawn site has no promises.** -/
 theorem cert_site {p : Prog} {k : Promises.Knobs} {arch : Arch} {c : Cfg} {i : Nat} {th : TTh}
     (hth : c.ths[i]? = some th) (hs : AtSite th) (hc : Certified p k arch c i) : th.promises = [] :=
   cert_stuck (Q := AtSite) (fun _ _ h => h)
-    (fun _ h _ _ hth => by obtain ⟨x, f, a, T, ts, e, he⟩ := h; exact threadSteps_spawn hth he)
+    (fun _ h _ _ hth => by
+      rcases h with ⟨x, f, a, T, ts, e, he⟩ | ⟨x, f, is, a, T, ts, e, he⟩
+      · exact threadSteps_spawn hth he
+      · exact threadSteps_spawnI hth he)
     (fun _ h _ _ hth => atSite_extSteps hth h) hth hs hc
 
 /-- The run invariant: every thread at a spawn site has no promises. -/
@@ -318,6 +353,17 @@ theorem siteNoProm_spawn {p : Prog} {k : Promises.Knobs} {arch : Arch} {cap : Na
       · split at hth
         · cases hth; simpa [spawnPar, spawnS, withS, fenceS, stOf] using h3
         · exact h0 j th' (by simpa using hth) hs
+  | mkI i x f is a T ts e th d rt ws h1 _ h3 _ _ _ =>
+      have hi : i < c.ths.size := by
+        rcases Nat.lt_or_ge i c.ths.size with h | h
+        · exact h
+        · simp [Array.getElem?_eq_none h] at h1
+      simp only [spawnT, Array.getElem?_push, Array.set!, Array.getElem?_setIfInBounds] at hth
+      split at hth
+      · cases hth; rfl
+      · split at hth
+        · cases hth; simpa [spawnPar, spawnS, withS, fenceS, stOf] using h3
+        · exact h0 j th' (by simpa using hth) hs
 
 /-- **`site_noProm`**: from a start where every thread at a spawn site has no promises
 (e.g. no thread has any), every reachable thread at a spawn site has none. -/
@@ -327,7 +373,7 @@ theorem site_noProm {p : Prog} {k : Promises.Knobs} {arch : Arch} {cap : Nat} {c
     (he : th.term = .let_ x (.spawn f a T ts) e) : th.promises = [] :=
   have h : SiteNoProm c :=
     stepsX_pres (P := SiteNoProm) (fun _ _ h => siteNoProm_step h) (fun _ _ h => siteNoProm_spawn h) hr h0
-  h i th hth ⟨x, f, a, T, ts, e, he⟩
+  h i th hth (.inl ⟨x, f, a, T, ts, e, he⟩)
 
 end TermSpawnStep
 

@@ -172,6 +172,13 @@ structure Isa where
   /-- The module of the tables' per-function slice (`tablesPart`:
   `Scc/Cert/MapsPartX64.lean`, `Scc/Cert/MapsPartA64.lean`). -/
   tablesMod : String := "Scc.Cert.MapsPart"
+  /-- The module and namespace of the post-pass output (`Scc/Cert/GranuleOutA64.lean`,
+  `GranuleOutX64.lean`: `ofFinal`, `check`, `blocksOfFinal`, `ofFinal_of_stages`), and the
+  architecture's `Scc.Arch` constructor (`Scc.Lower.stackNeed`): a certificate for
+  `scc --granule` (`Placement.granule`). -/
+  final : String := ""
+  finalNs : String := ""
+  archTok : String := ""
 
 def isaOf : Arch → Isa
   | .x64 => {
@@ -185,6 +192,7 @@ def isaOf : Arch → Isa
       a2split := true
       spawnMod := "Scc.Cert.SpawnX64", spawnNs := "Scc.Cert.Spawn.X64"
       tablesMod := "Scc.Cert.MapsPartX64"
+      final := "Scc.Cert.GranuleOutX64", finalNs := "Scc.Cert.Granule.X64", archTok := "x64"
       predicateDoc := "`Scc.Emit.X64.ProgramWCLowerable` (`Scc/Emit/X64Lowerable.lean`: \
         every memory RMW is locked, no `movnti`)"
       dropped := "the assembler directive lines (sections, symbols, data, the stack-map \
@@ -199,6 +207,7 @@ def isaOf : Arch → Isa
       emitStaged := true, blocksStaged := true, a2fast := true, rt := "Scc.Cert.Rt.A64"
       spawnMod := "Scc.Cert.SpawnA64", spawnNs := "Scc.Cert.Spawn.A64"
       tablesMod := "Scc.Cert.MapsPartA64"
+      final := "Scc.Cert.GranuleOutA64", finalNs := "Scc.Cert.Granule.A64", archTok := "arm"
       predicateDoc := "Kraken's `Program.WCLowerable` (`Kraken/Promising/Lower/Lowerable.lean`: \
         the AArch64 forms a WeakCore lowering may emit)"
       dropped := "the assembler directive lines (sections, symbols, data, the stack-map \
@@ -253,6 +262,11 @@ structure Placement where
   input: it only selects which statement the file makes, and the kernel
   decides that statement either way. -/
   spawn : Bool := false
+  /-- Whether `asm` is `scc --granule`'s text (the emitter's items through the post-emission
+  pipeline, `Scc.Lower.A64.Emitted.listing`): the file then states placement of the
+  post-pass output `outF` (`Isa.final`), relates it to the emitter's by the pass check
+  `final_check`, and its reproducibility check passes `(granule := true)`. -/
+  granule : Bool := false
 
 /-- The programs with a release theorem (`Spike/Test/Ret0Release{A64,X64}.lean`):
 their certificate's docstring points at it (`docstring`). -/
@@ -263,7 +277,20 @@ def docstring (cfg : Config) (name srcHash asmHash : String) (sized : Bool := fa
     (pl : Placement := {}) : String :=
   let accepted := pl.accepted
   let isa := isaOf cfg.arch
-  let sizesItem := if sized then "
+  -- `Placement.granule`: the decisions are on the post-pass literal (`granulePart`)
+  let oL := if pl.granule then "outFLit" else "outLit"
+  let oT := if pl.granule then "outF" else "out"
+  let sizesItem := if sized && pl.granule then "
+4. *Sizes, by `decide +kernel`:* `sizes` and `labelOffs` are the length of
+   every non-label cell of the program the loader reads from `asm`'s `.text`
+   (`prog`'s instructions with the pass's `.zero` filler and `.quad` word
+   cells; the text has no alignment directive: the granule tail's `.p2align`
+   is in its own section) and the offsets of the labels, read off GNU `as`'s
+   object file for `asm` (untrusted). They are not
+   checked against `prog`: `cells_eq` pairs them with the cells of the pass's
+   items `finalLit`, and A2 (`prog_placeOK_2w`, on `outFLit`) lays those cells
+   out at the executable's code base with every listed label at its offset; the
+   statement's loader lays the code out at these sizes." else if sized then "
 4. *Sizes, by `decide +kernel`:* `sizes` and `labelOffs` are the length of
    every instruction of `prog` in text order and the offsets of the labels,
    read off GNU `as`'s object file for `asm` (untrusted), and `sizes_ok`
@@ -317,31 +344,43 @@ def docstring (cfg : Config) (name srcHash asmHash : String) (sized : Bool := fa
   let placeProof := match pl.fails with
     | some n => s!"`prog_not_placeOK` proves `placeOK` of it `false` at `placeCfg`:
    its component A{n} fails (`prog_placeOK_{n}`, decided on
-   `outLit`)"
+   `{oL}`)"
     | none =>
       if pl.spawn then s!"`prog_placeOK2` proves `placeOK2` of it at `placeCfg` (`{isa.spawnMod}`:
    `placeOK` with A11', A12' and A13 for a program that takes its thread id
-   or spawns; decided on `outLit` in separate declarations, A1 to A9, A11',
+   or spawns; decided on `{oL}` in separate declarations, A1 to A9, A11',
    A12''s two parts and A13, combined by `placeOK2_of`)"
-      else if isa.a12 then "`prog_placeOK` proves `placeOK` of it at `placeCfg` (decided on
-   `outLit` in separate declarations, A1 to A8, A9 and A12 where the ISA
+      else if isa.a12 then s!"`prog_placeOK` proves `placeOK` of it at `placeCfg` (decided on
+   `{oL}` in separate declarations, A1 to A8, A9 and A12 where the ISA
    checks them, A11, combined by `placeOK_of`)"
-      else "`prog_placeOK` proves `placeOK` of it at `placeCfg` (decided on
-   `outLit` in separate declarations, A1 to A8, A9 where the ISA checks
+      else s!"`prog_placeOK` proves `placeOK` of it at `placeCfg` (decided on
+   `{oL}` in separate declarations, A1 to A8, A9 where the ISA checks
    it, A11, combined by `placeOK_of`)"
+  let outEqText := if pl.granule then "its stages are literals"
+    else "`out_eq` proves it\n   equal to the literal `outLit` (its value, computed at elaboration time)"
   let placeText := s!"`out` is `scc`'s output for
    `prog_src` as the placement check reads it (`{isa.placeNs}.Out.ofEmitted`
-   of `{isa.lower}.lowerAll config prog_src`{sizedOut}), `out_eq` proves it
-   equal to the literal `outLit` (its value, computed at elaboration time){stagedText},
+   of `{isa.lower}.lowerAll config prog_src`{sizedOut}), {outEqText}{stagedText},
    and {placeProof}: the canonical configuration with the program's thread
    entries and their stack budget. `prog_tablesOk` proves that the GC
    tables' stage of `lowerAll config prog_src` (scc's own run) succeeds, with
-   the data `tblLit` that ends `outLit`'s `.rodata`. The proofs run the
+   the data `tblLit` that ends `{oL}`'s `.rodata`. The proofs run the
    pipeline at `configW`, `config` with the ranked witness `gwLit` (the
    tables' stage `emitTablesW`: every function's witness its least fixpoint),
    and `prog_sameAsScc` proves that run is scc's. The
-   loader's parse of `asm` is `out`'s code and data sections, the GC tables
+   loader's parse of `asm` is `{oT}`'s code and data sections, the GC tables
    included (`parsesTo`, by evaluation: the trust boundary).{readyText}"
+  let granuleItem := if pl.granule then s!"
+{placeN + 3}. *The post-emission pipeline (`scc --granule`), by `decide +kernel`:* `asm` is
+   the rendering of `finalLit`, the post-emission pipeline's items (`{isa.emit}.postEmit`: the
+   granule pass), and the GC tables after them; `final_check` relates `finalLit` to the
+   emitter's items (`{isa.finalNs}.check`: erasing the pass's own cells, fillers, descriptor
+   words and their labels, gives the emitter's text, and nothing falls into them). The
+   placement statements are about the post-pass output `outF` (`{isa.finalNs}.ofFinal`): the
+   pipeline's output with the program the loader reads from `finalLit` and the block table
+   recomputed on it (`outF_out` relates it to `out`), equal to the literal `outFLit` (`outF_eq`),
+   on which the components are decided; the loader's parse of `asm` is `outF`'s code and data
+   sections (`parsesTo`). The reproducibility check passes `(granule := true)`." else ""
   s!"/-!
 # scc certificate skeleton: `{name}`, `--arch {cfg.arch.name}`
 
@@ -372,7 +411,7 @@ What the file establishes:
    the kernel does not run the frontend's parser, so the decisions below are
    about this term.
 {placeN + 1}. *Acceptance, by `decide +kernel`:* {acceptedText}
-{placeN + 2}. *Placement, by `decide +kernel`:* {placeText}
+{placeN + 2}. *Placement, by `decide +kernel`:* {placeText}{granuleItem}
 
 What it does not establish:
 
@@ -390,11 +429,26 @@ def sizesChunk : Nat := 64
 kernel checks the linear `sizesOkFast`, which implies `sizesOk`
 (`Scc.Cert.X64.sizesOk_of_fast`), in pieces (`sizesOkFast_of_chunks`): the
 walk over the program on literals, then the listed labels' offsets,
-`sizesChunk` labels per kernel run, chained by `offsAll_drop`. -/
-def sizesPart : Option (List Nat × List (String × Nat)) → String
-  | none => ""
-  | some (sizes, offs) =>
+`sizesChunk` labels per kernel run, chained by `offsAll_drop`. With `granule`, only the
+table: the assembler sized the post-pass text, whose cells are `prog`'s instructions and the
+pass's `.zero` filler and `.quad` word cells (which `prog` drops), and the sizes are checked
+on the certified output's cells (`cells_eq` ties them to the pass's items, A2's
+`sizeOkW` lays them out with the label offsets at the executable's code base). -/
+def sizesPart : Option (List Nat × List (String × Nat)) → (granule : Bool := false) → String
+  | none, _ => ""
+  | some (sizes, offs), granule =>
     let offsT := ", ".intercalate (offs.map fun (l, o) => s!"({quoteLine l}, {o})")
+    let table := s!"
+/-- The length of every {if granule then "non-label cell of the program the loader reads from
+`asm`'s `.text` (`prog`'s instructions and the pass's `.zero` and `.quad` cells)" else "instruction of `prog`"}, in text order, as GNU `as`
+assembled `asm` (untrusted). -/
+def sizes : List Nat := {sizes}
+
+/-- The offsets in `.text` of the labels of `asm`, as GNU `as` placed them
+(untrusted). -/
+def labelOffs : List (String × Nat) := [{offsT}]
+"
+    if granule then table else
     let c := sizesChunk
     let k := (offs.length + c - 1) / c
     let chunks := String.join ((List.range k).map fun i => s!"
@@ -405,15 +459,7 @@ theorem sizes_offs_{i} :
 ")
     let chain := String.join ((List.range k).map (s!"Scc.Cert.X64.offsAll_drop {c} sizes_offs_{·} <|\n    ")) ++
       "by decide +kernel"
-    s!"
-/-- The length of every instruction of `prog`, in text order, as GNU `as`
-assembled `asm` (untrusted). -/
-def sizes : List Nat := {sizes}
-
-/-- The offsets in `.text` of the labels of `asm`, as GNU `as` placed them
-(untrusted). -/
-def labelOffs : List (String × Nat) := [{offsT}]
-
+    s!"{table}
 /-- The walk over `prog` and `sizes` from 0, at elaboration time. -/
 def walkVal : Option (List (String × Nat) × Nat) := Scc.Cert.X64.sizeWalk (Int64.ofNat 0) prog sizes 0
 
@@ -756,8 +802,8 @@ def wLit_{i} : Array (List Int) := scc_lit% wVal_{i}
 
 /-- `wLit_{i}` is a post-fixpoint of slot liveness on function {i}'s body
 (kernel-checked). -/
-theorem tables_w_{i} : {m}.liveOk ({m}.bodyOf sliceLit_{i}.2.2 sliceLit_{i}.2.1) wLit_{i} = true := by
-  decide +kernel
+theorem tables_w_{i} : {m}.liveOk ({m}.bodyOf sliceLit_{i}.2.2 sliceLit_{i}.2.1) wLit_{i} = true :=
+  ({m}.liveOk_eq_E _ _).trans (by decide +kernel)
 
 /-- Function {i}'s tables from `wLit_{i}`, at elaboration time. -/
 def tVal_{i} : Option {m}.Tables :=
@@ -768,8 +814,8 @@ def tLit_{i} : {m}.Tables := (scc_lit% tVal_{i}).get!
 
 /-- The tables `computeW` builds from `wLit_{i}` on function {i}'s slice are
 `tLit_{i}` (kernel-checked). -/
-theorem tables_c_{i} : {m}.computeW [sliceLit_{i}.2.2] sliceLit_{i}.2.1 [wLit_{i}] = .ok tLit_{i} := by
-  kernel_rfl
+theorem tables_c_{i} : {m}.computeW [sliceLit_{i}.2.2] sliceLit_{i}.2.1 [wLit_{i}] = .ok tLit_{i} :=
+  ({m}.computeW_eq_E _ _ _).trans (by kernel_rfl)
 
 /-- `tLit_{i}` has the format's shape (kernel-checked). -/
 theorem tables_g_{i} : tLit_{i}.g1Ok = true := by decide +kernel
@@ -899,8 +945,8 @@ theorem gc_fn_eq_{i} : {tagsPre} {fnArg i} = .ok gcFnLit_{i} := by kernel_rfl
 /-- Function {i}'s ranked witness is the least fixpoint of slot liveness on its body
 (kernel-checked: `leastOk`, a post-fixpoint, every slot justified at its rank, the ranks below
 the fuel). -/
-theorem gc_least_{i} : {m}.leastOk ({m}.bodyOf gcFnLit_{i} gcItemsLit) gwLit_{i}.1 gwLit_{i}.2 = true := by
-  decide +kernel
+theorem gc_least_{i} : {m}.leastOk ({m}.bodyOf gcFnLit_{i} gcItemsLit) gwLit_{i}.1 gwLit_{i}.2 = true :=
+  ({m}.leastOk_eq_E _ _ _).trans (by decide +kernel)
 ")
   let leastChain := String.join ((List.range n).map (s!"{m}.leastFrom_cons gc_least_{·} <|\n    ")) ++ "rfl"
   let maps := String.join ((List.range n).map fun i => s!"
@@ -911,7 +957,8 @@ def gcMsVal_{i} : Option (List {m}.RootMap) := ({m}.fnMapsW gcFnLit_{i} gcItemsL
 def gcMsLit_{i} : List {m}.RootMap := (scc_lit% gcMsVal_{i}).get!
 
 /-- Function {i}'s root maps are `gcMsLit_{i}` (kernel-checked). -/
-theorem gc_ms_eq_{i} : {m}.fnMapsW gcFnLit_{i} gcItemsLit gwLit_{i}.1 = .ok gcMsLit_{i} := by kernel_rfl
+theorem gc_ms_eq_{i} : {m}.fnMapsW gcFnLit_{i} gcItemsLit gwLit_{i}.1 = .ok gcMsLit_{i} :=
+  ({m}.fnMapsW_eq_E _ _ _).trans (by kernel_rfl)
 
 /-- Function {i}'s exit successors, at elaboration time. -/
 def gcOsVal_{i} : Option (List {m}.Succs) :=
@@ -932,7 +979,8 @@ def gcFsVal_{i} : List {m}.Succs := {m}.fnSuccs gcFnLit_{i} gcItemsLit
 def gcFsLit_{i} : List {m}.Succs := scc_lit% gcFsVal_{i}
 
 /-- Function {i}'s block successors are `gcFsLit_{i}` (kernel-checked). -/
-theorem gc_fs_eq_{i} : {m}.fnSuccs gcFnLit_{i} gcItemsLit = gcFsLit_{i} := by kernel_rfl
+theorem gc_fs_eq_{i} : {m}.fnSuccs gcFnLit_{i} gcItemsLit = gcFsLit_{i} :=
+  ({m}.fnSuccs_eq_E _ _).trans (by kernel_rfl)
 ")
   let fsLits := ", ".intercalate ((List.range n).map (s!"gcFsLit_{·}"))
   let fsRws := ", ".intercalate ((List.range n).map (s!"gc_fs_eq_{·}"))
@@ -987,7 +1035,8 @@ theorem gc_least : {m}.leastFrom gcItemsLit gcFnsLit gwLit = true :=
   {leastChain}
 
 /-- No conditional branch leaves a body but to a stub (kernel-checked). -/
-theorem gc_stubs : {m}.stubsOk gcFnsLit gcItemsLit = .ok () := by kernel_rfl
+theorem gc_stubs : {m}.stubsOk gcFnsLit gcItemsLit = .ok () :=
+  ({m}.stubsOk_eq_E _ _).trans (by kernel_rfl)
 
 /-- One witness per function (kernel-checked). -/
 theorem gc_len : (gwLit.map (·.1)).length = gcFnsLit.length := by kernel_rfl
@@ -1074,6 +1123,83 @@ theorem tables_eq : {isa.lower}.tablesOf loweredLit.1 emittedLit.1 configW.gcWit
   {mx}.emitTablesW_of_stages gc_growth gc_tags_eq gc_wr_eq gc_labs_eq gc_ser_eq
 "
 
+/-- The post-pass part of a staged certificate for `scc --granule` (`Placement.granule`), in
+place of `out_eq`: the post-emission pipeline's items `finalLit` on the literal emission, the
+pass check `final_check` relating them to the emitter's, the certified output `outF`
+(`Isa.final`: `ofFinal`) and its literal `outFLit` (`outF_eq`, from the post-pass block table
+`blocksF_eq` and, on x86-64, the cells `cells_eq`), and `outF_out` relating `outF` to `out`.
+The block table is one kernel check (no per-function split). -/
+def granulePart (isa : Isa) (sized : Bool) (outArgs asmArg : String) : String :=
+  let gns := isa.finalNs
+  let szArg := if sized then "sizes " else ""
+  let stArg := s!"(loweredLit.1, emittedLit.1, emittedLit.2, tblLit,
+    (Scc.Lower.stackNeed .{isa.archTok} loweredLit.1).toOption, loweredLit.2)"
+  let cellsPart := if sized then s!"
+/-- The post-pass cells: `outFLit`'s (checked by `cells_eq`). -/
+def cellsFLit := outFLit.prog
+
+/-- The program the loader reads from `finalLit` fits `sizes`, with the cells `cellsFLit`
+(kernel-checked). -/
+theorem cells_eq :
+    ({gns}.textCells finalLit).bind (Kraken.Promising.X64.sizedCells · sizes) = some cellsFLit := by
+  kernel_rfl
+" else ""
+  let progF := if sized then "cellsFLit" else s!"{gns}.textCells finalLit"
+  let cellsArg := if sized then " cells_eq" else ""
+  let offsArg := if sized then " (labelOffs := labelOffs)" else ""
+  s!"
+/-- The post-emission pipeline's items on the literal emission (`{isa.emit}.postEmit`: the
+granule pass), at elaboration time. -/
+def finalVal : Option (List {isa.emit}.Item) :=
+  ({isa.emit}.postEmit loweredLit.1 emittedLit.1 emittedLit.2).toOption.map (·.1)
+
+/-- The items `asm` renders before the GC tables, as a literal (untrusted: `final_check`
+relates them to the emitter's items, `parsesTo` to `asm`). -/
+def finalLit : List {isa.emit}.Item := (scc_lit% finalVal).get!
+
+/-- The pass inserts only its own cells (fillers, descriptor words and their labels), where
+nothing falls into them: erasing them from `finalLit`'s text gives the emitter's
+(kernel-checked). -/
+theorem final_check : {gns}.check finalLit emittedLit.1 = true := by
+  decide +kernel
+
+/-- The certified output: the pipeline's output at `configW` with the program the loader reads
+from `finalLit`{if sized then " at `sizes`" else ""} and the block table recomputed on it. -/
+def outF : {isa.placeNs}.Out := {gns}.ofFinal{outArgs} {stArg}
+  finalLit
+
+/-- `outF` as a literal: its value computed at elaboration time (`scc_lit%`, untrusted),
+trusted through `outF_eq`. -/
+def outFLit : {isa.placeNs}.Out := scc_lit% outF
+
+/-- The post-pass block table: `outFLit`'s (checked by `blocksF_eq`). -/
+def blocksFLit := outFLit.place.blocks
+
+/-- The post-pass program gives the block table `blocksFLit` (kernel-checked: the offsets
+fixpoint of every function). -/
+theorem blocksF_eq : {gns}.blocksOfFinal {szArg}loweredLit.1 finalLit = some blocksFLit := by
+  kernel_rfl
+{cellsPart}
+/-- `outF` is `outFLit` (kernel-checked: the block table above, then the rest on the literals;
+the decisions below read `outFLit`). -/
+theorem outF_eq : outF = outFLit := by
+  rw [show outF = _ from {gns}.ofFinal_eq_B{offsArg} (st := {stArg}) blocksF_eq]
+  kernel_rfl
+
+/-- **`outF` is `out` with the post-pass program and block table** (`ofFinal_of_stages`: from
+the lowering, the emitter, the GC tables, the pass check{if sized then ", the cells" else ""} and
+the block table above; `out_eqW`). -/
+theorem outF_out :
+    outF = \{ out with prog := {progF}, place := \{ out.place with blocks := blocksFLit } } := by
+  rw [out_eqW]
+  exact ({gns}.ofFinal_of_stages{outArgs} lowered_eq emitted_eq tables_eq final_check{cellsArg}
+    blocksF_eq).1
+
+-- The loader's parse of `asm` is `outF`'s code and data sections (evaluation, not a proof:
+-- the trust boundary).
+#guard {isa.link}.parsesTo {asmArg} outF.prog outF.secs
+"
+
 /-- The acceptance and placement part of a certificate (`render`): the
 source program as a term, its acceptance, `out`, the parse check, the
 placement decisions and, for an accepted program, `prog_cert_ready`. -/
@@ -1088,9 +1214,14 @@ theorem prog_accepted1 : Scc.Lower.Accepted1 prog_src = true := by decide +kerne
 " else ""
   let outArgs := if sized then " sizes labelOffs" else ""
   let asmArg := if sized then "⟨asm, sizes, labelOffs⟩" else "asm"
+  -- With `Placement.granule` the decisions read the post-pass output's literal `outFLit`
+  -- (`granulePart`), and the statements are about the post-pass output `outF`.
+  let oL := if pl.granule then "outFLit" else "outLit"
+  let oT := if pl.granule then "outF" else "out"
+  let oEq := if pl.granule then "outF_eq" else "out_eq"
   let can := "placeCfg"
   let es := ", ".intercalate (pl.entries.map quoteLine)
-  let t := s!"({ns}.tablesOf {can} outLit)"
+  let t := s!"({ns}.tablesOf {can} {oL})"
   -- With the keyed forms, A9 and A12's two parts are three declarations
   -- (`Scc/Cert/A12StageA64.lean`): the kernel's memory is held per
   -- declaration, so the peak is the largest of the three, not their sum.
@@ -1098,8 +1229,8 @@ theorem prog_accepted1 : Scc.Lower.Accepted1 prog_src = true := by decide +kerne
   let a9Pf :=
     if isa.a9fast then s!"\n  {ns}.a9_of_fast (by decide +kernel)" else " by\n  decide +kernel"
   let a9Thm := if isa.a9 then s!"
-/-- A9 of `outLit`: the lowered code blocks (kernel-checked). -/
-theorem prog_placeOK_9 : {ns}.a9 outLit {t} = true :={a9Pf}
+/-- A9 of `{oL}`: the lowered code blocks (kernel-checked). -/
+theorem prog_placeOK_9 : {ns}.a9 {oL} {t} = true :={a9Pf}
 " else ""
   let a9Arg := if isa.a9 then " prog_placeOK_9" else ""
   let a2Pf := if isa.a2fast then s!"\n  {ns}.a2_of_fast (by decide +kernel)"
@@ -1109,46 +1240,46 @@ theorem prog_placeOK_9 : {ns}.a9 outLit {t} = true :={a9Pf}
   -- A2 part by part (`Isa.a2split`): each part its own declaration, so the peak is the
   -- largest part's
   let lΛ := s!"{t}.Λ"
-  let syms := s!"(Scc.Sem.loadSyms {lΛ} outLit.secs.rodata)"
-  let codeEnd := s!"(Scc.Sem.X64.codeEnd {lΛ}.code.lo outLit.prog)"
+  let syms := s!"(Scc.Sem.loadSyms {lΛ} {oL}.secs.rodata)"
+  let codeEnd := s!"(Scc.Sem.X64.codeEnd {lΛ}.code.lo {oL}.prog)"
   let a2Parts := if isa.a2split && !isa.a2fast then s!"
 /-- A2's code sizes against the assembler's label offsets (kernel-checked). -/
-theorem prog_placeOK_2w : {isa.link}.sizeOkW (Int64.ofNat {lΛ}.code.lo) outLit.prog outLit.labelOffs = true := by
+theorem prog_placeOK_2w : {isa.link}.sizeOkW (Int64.ofNat {lΛ}.code.lo) {oL}.prog {oL}.labelOffs = true := by
   decide +kernel
 
 /-- A2's code labels, each once (kernel-checked). -/
-theorem prog_placeOK_2l : {isa.link}.labelsNodupL (Int64.ofNat {lΛ}.code.lo) outLit.prog = true := by
+theorem prog_placeOK_2l : {isa.link}.labelsNodupL (Int64.ofNat {lΛ}.code.lo) {oL}.prog = true := by
   decide +kernel
 
 /-- A2's `.quad` labels resolve (kernel-checked, the code labels keyed:
 `Scc.Cert.Rt.X64.codeT_eq`; the GC tables' key words name code labels out of code order). -/
 theorem prog_placeOK_2q :
-    Scc.Sem.quadsResolve {lΛ} outLit.secs.rodata (Scc.Sem.X64.codeLabel {lΛ}.code.lo outLit.prog) = true := by
+    Scc.Sem.quadsResolve {lΛ} {oL}.secs.rodata (Scc.Sem.X64.codeLabel {lΛ}.code.lo {oL}.prog) = true := by
   rw [← Scc.Cert.Rt.X64.codeT_eq]; decide +kernel
 
 /-- A2's `.rodata` and data symbols against the layout and the code (kernel-checked). -/
-theorem prog_placeOK_2r : (Scc.Sem.rodataFits {lΛ} outLit.secs.rodata && Scc.Sem.symsAgree {lΛ} outLit.secs.rodata &&
+theorem prog_placeOK_2r : (Scc.Sem.rodataFits {lΛ} {oL}.secs.rodata && Scc.Sem.symsAgree {lΛ} {oL}.secs.rodata &&
     Scc.Sem.symsAbove {lΛ}.code.lo {codeEnd} {syms} &&
-    {isa.link}.symsAround {lΛ}.code.lo outLit.prog {syms} &&
-    {isa.link}.noClash {lΛ}.code.lo outLit.prog {syms} &&
+    {isa.link}.symsAround {lΛ}.code.lo {oL}.prog {syms} &&
+    {isa.link}.noClash {lΛ}.code.lo {oL}.prog {syms} &&
     decide ({codeEnd} < 2 ^ 64)) = true := by
   decide +kernel
 
 /-- A2's abort labels in the cells (kernel-checked). -/
-theorem prog_placeOK_2a : {isa.link}.abortsIn outLit.prog {lΛ} = true := by
+theorem prog_placeOK_2a : {isa.link}.abortsIn {oL}.prog {lΛ} = true := by
   decide +kernel
 
 /-- A2's image (kernel-checked). -/
-theorem prog_placeOK_2i : {isa.link}.imageIn outLit.prog outLit.secs {lΛ} = true := by
+theorem prog_placeOK_2i : {isa.link}.imageIn {oL}.prog {oL}.secs {lΛ} = true := by
   decide +kernel
 " else ""
   let a12Parts := if split then s!"
-/-- A12's code part of `outLit` (kernel-checked). -/
-theorem prog_placeOK_12c : {ns}.a12code outLit = true := by
+/-- A12's code part of `{oL}` (kernel-checked). -/
+theorem prog_placeOK_12c : {ns}.a12code {oL} = true := by
   decide +kernel
 
-/-- A12's phase part of `outLit` (kernel-checked). -/
-theorem prog_placeOK_12p : {ns}.a12ph outLit {t} = true := by
+/-- A12's phase part of `{oL}` (kernel-checked). -/
+theorem prog_placeOK_12p : {ns}.a12ph {oL} {t} = true := by
   decide +kernel
 " else ""
   let a12Pf := if split then s!"\n  {ns}.a12_of_split prog_placeOK_12c prog_placeOK_12p" else " by\n  decide +kernel"
@@ -1158,12 +1289,12 @@ theorem prog_placeOK_12p : {ns}.a12ph outLit {t} = true := by
   let perFn := split && isa.blocksStaged && pl.parts != 0 && pl.funcs != 0 && !pl.spawn
   let a12Thm := if isa.a12 then
     if perFn then a12PerFn ns t "" pl.funcs pl.checked else s!"{a12Parts}
-/-- A12 of `outLit`: the code of every user function (kernel-checked). -/
-theorem prog_placeOK_12 : {ns}.a12 outLit {t} = true :={a12Pf}
+/-- A12 of `{oL}`: the code of every user function (kernel-checked). -/
+theorem prog_placeOK_12 : {ns}.a12 {oL} {t} = true :={a12Pf}
 " else ""
   let a12Arg := if isa.a12 then " prog_placeOK_12" else ""
   let blocksSt := isa.blocksStaged || (isa.blocksStagedLarge && pl.parts != 0)
-  let outLast := if blocksSt then s!"{blocksStage ns isa.rt (if sized then "sizes " else "") pl.parts}
+  let outLast := if pl.granule then granulePart isa sized outArgs asmArg else if blocksSt then s!"{blocksStage ns isa.rt (if sized then "sizes " else "") pl.parts}
 /-- `out` is `outLit` (kernel-checked in five steps, `ofEmitted_of_stages`
 and `ofStage_eq_B`: the lowering, the emitter, the GC tables and the block table above,
 and here the stack need table and the `.text` filter on the literals; the
@@ -1203,7 +1334,7 @@ theorem out_eqW : out = {ns}.Out.ofEmitted ({isa.lower}.lowerAll configW prog_sr
 /-- **The GC tables of `scc`'s output** for `prog_src`: the tables' stage of
 `{isa.lower}.lowerAll config prog_src` (scc's configuration: the reference stage
 `emitTables`) succeeds, with the items `titsLit` the listing appends and the data `tblLit`
-that ends `outLit`'s `.rodata` (`prog_sameAsScc`, `prog_tablesW`). -/
+that ends `{oL}`'s `.rodata` (`prog_sameAsScc`, `prog_tablesW`). -/
 theorem prog_tablesOk : ({isa.lower}.lowerAll config prog_src).tables = .ok (titsLit, tblLit) := by
   rw [prog_sameAsScc]; exact prog_tablesW
 
@@ -1268,47 +1399,47 @@ theorem prog_not_accepted : Scc.Lower.Accepted0 prog_src = false := by decide +k
   -- A1 to A9: `placeOK`'s and `placeOK2`'s alike.
   let sns := isa.spawnNs
   let common := s!"
-/-- A1 of `outLit` (kernel-checked; each component is its own declaration,
+/-- A1 of `{oL}` (kernel-checked; each component is its own declaration,
 so that the kernel keeps one component's terms alive at a time). -/
-theorem prog_placeOK_1 : {ns}.a1 outLit {t} = true := by
+theorem prog_placeOK_1 : {ns}.a1 {oL} {t} = true := by
   decide +kernel
 
 {a2Parts}
-/-- A2 of `outLit` (kernel-checked). -/
-theorem prog_placeOK_2 : {ns}.a2 outLit {t} = true :={a2Pf}
+/-- A2 of `{oL}` (kernel-checked). -/
+theorem prog_placeOK_2 : {ns}.a2 {oL} {t} = true :={a2Pf}
 
-/-- A4 of `outLit` (kernel-checked). -/
-theorem prog_placeOK_4 : {ns}.a4 {can} outLit {t} = true := by
+/-- A4 of `{oL}` (kernel-checked). -/
+theorem prog_placeOK_4 : {ns}.a4 {can} {oL} {t} = true := by
   decide +kernel
 
-/-- A7 of `outLit` (kernel-checked). -/
-theorem prog_placeOK_7 : {ns}.a7 outLit {t} = true := by
+/-- A7 of `{oL}` (kernel-checked). -/
+theorem prog_placeOK_7 : {ns}.a7 {oL} {t} = true := by
   decide +kernel
 
-/-- A3 of `outLit`: the block table at its places (kernel-checked). -/
-theorem prog_placeOK_3 : {ns}.a3 outLit {t} = true :=
+/-- A3 of `{oL}`: the block table at its places (kernel-checked). -/
+theorem prog_placeOK_3 : {ns}.a3 {oL} {t} = true :=
   {ns}.a3_of_parts (by decide +kernel) (by decide +kernel)
 
-/-- A5 of `outLit`: the block table covered at its offsets (kernel-checked). -/
-theorem prog_placeOK_5 : {ns}.a5 outLit {t} = true := by
+/-- A5 of `{oL}`: the block table covered at its offsets (kernel-checked). -/
+theorem prog_placeOK_5 : {ns}.a5 {oL} {t} = true := by
   decide +kernel
 
-/-- A6 of `outLit`: the block table in its phases (kernel-checked). -/
-theorem prog_placeOK_6 : {ns}.a6 outLit {t} = true :=
+/-- A6 of `{oL}`: the block table in its phases (kernel-checked). -/
+theorem prog_placeOK_6 : {ns}.a6 {oL} {t} = true :=
   {ns}.a6_of_parts (by decide +kernel) (by decide +kernel)
 
-/-- A8 of `outLit`: the runtime's data words (kernel-checked). -/
-theorem prog_placeOK_8 : {ns}.a8 outLit {t} = true := by
+/-- A8 of `{oL}`: the runtime's data words (kernel-checked). -/
+theorem prog_placeOK_8 : {ns}.a8 {oL} {t} = true := by
   decide +kernel
 {a9Thm}"
   let positive := s!"{common}
-/-- A11 of `outLit`: the runtime's fixed code (kernel-checked). -/
-theorem prog_placeOK_11 : {ns}.a11 outLit {t} = true := by
+/-- A11 of `{oL}`: the runtime's fixed code (kernel-checked). -/
+theorem prog_placeOK_11 : {ns}.a11 {oL} {t} = true := by
   decide +kernel
 {a12Thm}
 /-- **`placeOK` of `scc`'s output** for `prog_src`. -/
-theorem prog_placeOK : {ns}.placeOK {can} out = true := by
-  rw [out_eq]
+theorem prog_placeOK : {ns}.placeOK {can} {oT} = true := by
+  rw [{oEq}]
   exact {ns}.placeOK_of prog_placeOK_1 prog_placeOK_2 prog_placeOK_3 prog_placeOK_4 prog_placeOK_5
     prog_placeOK_6 prog_placeOK_7 prog_placeOK_8{a9Arg} prog_placeOK_11{a12Arg}
 "
@@ -1316,27 +1447,27 @@ theorem prog_placeOK : {ns}.placeOK {can} out = true := by
   -- spawns: A1 to A9 as `placeOK`'s, A11'
   -- for A11, A12' in its two parts and A13, each its own declaration.
   let positive2 := s!"{common}
-/-- A11' of `outLit`: the runtime's fixed code, at the thread-id shape when
+/-- A11' of `{oL}`: the runtime's fixed code, at the thread-id shape when
 `main` takes its thread id (kernel-checked). -/
-theorem prog_placeOK_11 : {sns}.a11' outLit {t} = true := by
+theorem prog_placeOK_11 : {sns}.a11' {oL} {t} = true := by
   decide +kernel
 
-/-- A12''s code part of `outLit` (kernel-checked). -/
-theorem prog_placeOK_12c : {sns}.a12code' outLit = true := by
+/-- A12''s code part of `{oL}` (kernel-checked). -/
+theorem prog_placeOK_12c : {sns}.a12code' {oL} = true := by
   decide +kernel
 
-/-- A12''s phase part of `outLit` (kernel-checked). -/
-theorem prog_placeOK_12p : {sns}.a12ph' outLit {t} = true := by
+/-- A12''s phase part of `{oL}` (kernel-checked). -/
+theorem prog_placeOK_12p : {sns}.a12ph' {oL} {t} = true := by
   decide +kernel
 
-/-- A13 of `outLit`: the second thread's words and the spawn path's runtime
+/-- A13 of `{oL}`: the second thread's words and the spawn path's runtime
 code (kernel-checked). -/
-theorem prog_placeOK_13 : {sns}.a13 outLit {t} = true := by
+theorem prog_placeOK_13 : {sns}.a13 {oL} {t} = true := by
   decide +kernel
 
 /-- **`placeOK2` of `scc`'s output** for `prog_src`. -/
-theorem prog_placeOK2 : {sns}.placeOK2 {can} out = true := by
-  rw [out_eq]
+theorem prog_placeOK2 : {sns}.placeOK2 {can} {oT} = true := by
+  rw [{oEq}]
   exact {sns}.placeOK2_of prog_placeOK_1 prog_placeOK_2 prog_placeOK_3 prog_placeOK_4 prog_placeOK_5
     prog_placeOK_6 prog_placeOK_7 prog_placeOK_8 prog_placeOK_9 prog_placeOK_11 prog_placeOK_12c
     prog_placeOK_12p prog_placeOK_13
@@ -1344,38 +1475,45 @@ theorem prog_placeOK2 : {sns}.placeOK2 {can} out = true := by
   let negative (n : Nat) : String :=
     let cfgArg := if n == 4 then s!" {can}" else ""
     s!"
-/-- A{n} of `outLit` fails (kernel-checked). -/
-theorem prog_placeOK_{n} : {ns}.a{n}{cfgArg} outLit {t} = false := by
+/-- A{n} of `{oL}` fails (kernel-checked). -/
+theorem prog_placeOK_{n} : {ns}.a{n}{cfgArg} {oL} {t} = false := by
   decide +kernel
 
 /-- **`placeOK` of `scc`'s output is `false`** for `prog_src` (A{n}): no
 `prog_cert_ready` is stated. -/
-theorem prog_not_placeOK : {ns}.placeOK {can} out = false := by
-  rw [out_eq]
+theorem prog_not_placeOK : {ns}.placeOK {can} {oT} = false := by
+  rw [{oEq}]
   exact {ns}.placeOK_eq_false_of_a{n} prog_placeOK_{n}
 "
   -- The tables per function (`tablesPart`): on the staged emitter's literals
   -- (`areasLit`), x86-64 with its sizes.
   let tables := if isa.staged && isa.emitStaged && pl.funcs != 0 && (sized || cfg.arch == .arm) then
     tablesPart cfg.arch pl.funcs else ""
+  let outLitDef := if pl.granule then "" else s!"
+/-- `out` as a literal: its value computed at elaboration time (`scc_lit%`,
+untrusted), trusted through `out_eq`. -/
+def outLit : {ns}.Out := scc_lit% out
+"
   let place := s!"
 /-- The configuration of the placement check: the canonical one, with the
 program's thread entries and their stack budget (`needOk`'s). -/
 def placeCfg : Scc.Cert.PlaceOK.Config :=
   \{ Scc.Cert.PlaceOK.Config.canonical with needBudget := {pl.budget}, entries := [{es}] }
-
-/-- `out` as a literal: its value computed at elaboration time (`scc_lit%`,
-untrusted), trusted through `out_eq`. -/
-def outLit : {ns}.Out := scc_lit% out
-{outEq}{tables}{match pl.fails with | some n => negative n | none => if pl.spawn then positive2 else positive}"
+{outLitDef}{outEq}{tables}{match pl.fails with | some n => negative n | none => if pl.spawn then positive2 else positive}"
+  -- With `Placement.granule` the parse is checked against `outF` (`granulePart`).
+  let outGuard := if pl.granule then "" else s!"
+-- The loader's parse of `asm` is `out`'s code and data sections (evaluation,
+-- not a proof: the trust boundary).
+#guard {isa.link}.parsesTo {asmArg} out.prog out.secs
+"
   let ready := if accepted && pl.fails.isNone then
     if pl.spawn then s!"
 /-- **Acceptance and placement** of `prog_src`'s compilation. -/
-theorem prog_cert_ready : Scc.Lower.Accepted0 prog_src = true ∧ {sns}.placeOK2 {can} out = true :=
+theorem prog_cert_ready : Scc.Lower.Accepted0 prog_src = true ∧ {sns}.placeOK2 {can} {oT} = true :=
   ⟨prog_accepted, prog_placeOK2⟩
 " else s!"
 /-- **Acceptance and placement** of `prog_src`'s compilation. -/
-theorem prog_cert_ready : Scc.Lower.Accepted0 prog_src = true ∧ {ns}.placeOK {can} out = true :=
+theorem prog_cert_ready : Scc.Lower.Accepted0 prog_src = true ∧ {ns}.placeOK {can} {oT} = true :=
   ⟨prog_accepted, prog_placeOK⟩
 " else ""
   s!"
@@ -1393,11 +1531,7 @@ def prog_src : CoreTerm.Prog :=
 lowering and the emission (`{isa.lower}.lowerAll`) with the placement data
 computed from them. -/
 def out : {ns}.Out := {ns}.Out.ofEmitted ({isa.lower}.lowerAll config prog_src){outArgs}
-
--- The loader's parse of `asm` is `out`'s code and data sections (evaluation,
--- not a proof: the trust boundary).
-#guard {isa.link}.parsesTo {asmArg} out.prog out.secs
-{place}{ready}"
+{outGuard}{place}{ready}"
 
 /-- The line that marks a file `render` writes for a program outside the
 certified fragment (`renderOutside`); `Scc/Test/run.sh` counts such files as
@@ -1452,11 +1586,14 @@ def render (cfg : Config) (name src asm : String)
   let isa := isaOf cfg.arch
   let srcHash := Sha256.ofString src
   let asmHash := Sha256.ofString asm
-  let spawnImport := if pl.spawn then s!"\nimport {isa.spawnMod}" else ""
+  -- `--granule`: the post-pass output's module, after the placement stages'
+  let spawnImport := (if pl.granule then s!"\nimport {isa.final}" else "") ++
+    (if pl.spawn then s!"\nimport {isa.spawnMod}" else "")
   s!"import {isa.module}
 import {isa.place}{spawnImport}
 import {isa.placeW}
 import {isa.tablesMod}
+import Scc.Cert.MapsFast
 import Scc.Cert.SrcTerm
 
 {docstring cfg name srcHash asmHash sizes.isSome pl}
@@ -1486,7 +1623,7 @@ def configW : Scc.Config := \{ config with gcWit := some gwLit }
 
 -- Reproducibility check (evaluation, not a proof): `source` compiles to
 -- exactly `asm`.
-#guard {isa.ns}.reproduces config source asm
+#guard {isa.ns}.reproduces config source asm{if pl.granule then " (granule := true)" else ""}
 
 /-- The program Kraken's parser reads from `asm` (computed at elaboration
 time). -/
@@ -1494,7 +1631,7 @@ def prog : _root_.Program := {isa.reparse} asm
 
 /-- `prog` satisfies the lowerability predicate (kernel-checked). -/
 theorem lowerable : {isa.predicate} := by decide +kernel
-{sizesPart sizes}{placePart cfg prog (blocksParts asm pl) sizes.isSome}
+{sizesPart sizes pl.granule}{placePart cfg prog (if pl.granule then { pl with parts := 0 } else blocksParts asm pl) sizes.isSome}
 -- Placeholder for the future correctness statement (not stated yet):
 -- theorem correct : Scc.Correct config source prog
 

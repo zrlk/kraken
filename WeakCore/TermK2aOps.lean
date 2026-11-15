@@ -334,16 +334,27 @@ theorem valB_newBuf {g : G} {env : Env} {σs : List Ty} {s s1 : St} {r : St × T
   obtain ⟨_, _, _, _, _, _, _, rfl⟩ := h
   exact valB_of_pubNil (by simp [pubWords, sNo, mPub])
 
+/-- (c1: `mPub (.rgn _) = true`, so the moved reference's words are counted) `intoRgn`'s result is
+new-fine (`ValB`) when every word of the operand names only labels other than the gated label `lb`
+and in `N`. -/
 theorem valB_intoRgn {g : G} {env : Env} {σs : List Ty} {s s1 : St} {r : St × Ty × List Word}
     {sto : Sto} {lb : AllocLabel} {N : AllocLabel → Prop} {th : TTh} {rg : String} {x : At}
-    (h : r ∈ evalOp g env σs s (.intoRgn rg x)) : ValB sto s1 lb N th r.2.1 r.2.2 := by
+    (h : r ∈ evalOp g env σs s (.intoRgn rg x))
+    (hW : ∀ rt ws, evalAt env x = some (rt, ws) → ∀ w ∈ ws, ∀ l, Names l w → l ≠ lb ∧ N l) :
+    ValB sto s1 lb N th r.2.1 r.2.2 := by
   simp [evalOp, ol, Option.bind_eq_some_iff] at h
-  obtain ⟨t, ws, -, h⟩ := h
+  obtain ⟨t, ws, hea, h⟩ := h
   split at h
   · simp only [Option.some.injEq] at h; subst h
-    exact valB_of_pubNil (by simp [pubWords, sNo, mPub])
+    intro w hw
+    dsimp only at hw
+    rw [pubWords_of_sNo (by rfl)] at hw
+    exact ⟨.inl fun hn => absurd rfl (hW _ _ hea w hw lb hn).1, .inr (.inr fun l hn => (hW _ _ hea w hw l hn).2)⟩
   · simp only [Option.some.injEq] at h; subst h
-    exact valB_of_pubNil (by simp [pubWords, sNo, mPub])
+    intro w hw
+    dsimp only at hw
+    rw [pubWords_refine, pubWords_of_sNo (by rfl)] at hw
+    exact ⟨.inl fun hn => absurd rfl (hW _ _ hea w hw lb hn).1, .inr (.inr fun l hn => (hW _ _ hea w hw l hn).2)⟩
   · cases h
 
 theorem pubWords_cellOf {t u : Ty} {μ : Mode} (h : cellOf t = some (μ, u)) (ws : List Word) :
@@ -468,7 +479,7 @@ theorem valB_pair {p : Prog} {E : TEnv} {g : G} {s s1 : St} {r : St × Ty × Lis
     {sto : Sto} {lb : AllocLabel} {N : AllocLabel → Prop} {th : TTh} {y : String} {a b : At} {e : Expr}
     (hT : ThInvE p E th) (hterm : th.term = .let_ y (.pair a b) e)
     (h : r ∈ evalOp g th.env th.σs s (.pair a b)) : ValB sto s1 lb N th r.2.1 r.2.2 := by
-  obtain ⟨ρ, η, cx, -, -, hTy, -, hF, -⟩ := hT
+  obtain ⟨ρ, η, cx, -, -, ⟨hTy, -⟩, -, hF, -⟩ := hT
   rw [hterm] at hTy
   cases hTy with
   | let_ hop _ =>
@@ -505,7 +516,7 @@ theorem valB_mkWord {p : Prog} {E : TEnv} {g : G} {s s1 : St} {r : St × Ty × L
     {sto : Sto} {lb : AllocLabel} {N : AllocLabel → Prop} {th : TTh} {y rn : String} {P : Proto} {v tk : At}
     {e : Expr} (hT : ThInvE p E th) (hterm : th.term = .let_ y (.mkWord rn P v tk) e)
     (h : r ∈ evalOp g th.env th.σs s (.mkWord rn P v tk)) : ValB sto s1 lb N th r.2.1 r.2.2 := by
-  obtain ⟨ρ, η, cx, -, -, hTy, -, hF, -⟩ := hT
+  obtain ⟨ρ, η, cx, -, -, ⟨hTy, -⟩, -, hF, -⟩ := hT
   rw [hterm] at hTy
   cases hTy with
   | let_ hop _ =>
@@ -525,7 +536,7 @@ theorem valB_mkWord2 {p : Prog} {E : TEnv} {g : G} {s s1 : St} {r : St × Ty × 
     {sto : Sto} {lb : AllocLabel} {N : AllocLabel → Prop} {th : TTh} {y rn : String} {P : Proto2}
     {v0 v1 tk : At} {e : Expr} (hT : ThInvE p E th) (hterm : th.term = .let_ y (.mkWord2 rn P v0 v1 tk) e)
     (h : r ∈ evalOp g th.env th.σs s (.mkWord2 rn P v0 v1 tk)) : ValB sto s1 lb N th r.2.1 r.2.2 := by
-  obtain ⟨ρ, η, cx, -, -, hTy, -, hF, -⟩ := hT
+  obtain ⟨ρ, η, cx, -, -, ⟨hTy, -⟩, -, hF, -⟩ := hT
   rw [hterm] at hTy
   cases hTy with
   | let_ hop _ =>
@@ -543,7 +554,7 @@ theorem valB_mkEPair {p : Prog} {E : TEnv} {g : G} {s s1 : St} {r : St × Ty × 
     {sto : Sto} {lb : AllocLabel} {N : AllocLabel → Prop} {th : TTh} {y rn : String} {P : ECounter}
     {v0 v1 : At} {e : Expr} (hT : ThInvE p E th) (hterm : th.term = .let_ y (.mkEPair rn P v0 v1) e)
     (h : r ∈ evalOp g th.env th.σs s (.mkEPair rn P v0 v1)) : ValB sto s1 lb N th r.2.1 r.2.2 := by
-  obtain ⟨ρ, η, cx, -, -, hTy, -, hF, -⟩ := hT
+  obtain ⟨ρ, η, cx, -, -, ⟨hTy, -⟩, -, hF, -⟩ := hT
   rw [hterm] at hTy
   cases hTy with
   | let_ hop _ =>
@@ -560,7 +571,7 @@ theorem valB_mkTicket {p : Prog} {E : TEnv} {g : G} {s s1 : St} {r : St × Ty ×
     {sto : Sto} {lb : AllocLabel} {N : AllocLabel → Prop} {th : TTh} {y rn : String} {N0 P : Proto}
     {v tk : At} {e : Expr} (hT : ThInvE p E th) (hterm : th.term = .let_ y (.mkTicket rn N0 P v tk) e)
     (h : r ∈ evalOp g th.env th.σs s (.mkTicket rn N0 P v tk)) : ValB sto s1 lb N th r.2.1 r.2.2 := by
-  obtain ⟨ρ, η, cx, -, -, hTy, -, hF, -⟩ := hT
+  obtain ⟨ρ, η, cx, -, -, ⟨hTy, -⟩, -, hF, -⟩ := hT
   rw [hterm] at hTy
   cases hTy with
   | let_ hop _ =>
@@ -777,7 +788,7 @@ theorem stepB_unpackT {p : Prog} {E : TEnv} {g : G} {mem : Memory} {pairs : List
     {r : Memory × List Ts × TTh} {sto : Sto} {lb : AllocLabel} {N : AllocLabel → Prop} {a : At} {α x : String}
     {e : Expr} (hT : ThInvE p E th) (hterm : th.term = .unpackT a α x e) (hr : r ∈ tstep g mem pairs th) :
     StepB sto mem pairs lb N th r.2.2 := by
-  obtain ⟨ρ, η, cx, -, -, hTy, htv, hF, -⟩ := hT
+  obtain ⟨ρ, η, cx, -, -, ⟨hTy, -⟩, htv, hF, -⟩ := hT
   rw [hterm] at hTy
   cases hTy with
   | unpackT hu hg hb hTe =>

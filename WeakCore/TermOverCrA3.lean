@@ -554,12 +554,20 @@ theorem openOverCrOwnA_of {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : 
   -- the old frontier at `l` is the new one: KindA terms are no `publish` (`PfrG` at `PubAt th`)
   have hold : (CE η).sto l = some cl ∧ (CE η).pfr l = E'.pfr l := by
     refine TermOverCrOwnCommon.old_of_newP X Y hF hPfr ?_ hs hp
-    rintro ⟨y, a, e, rt, ws, ad, ht, -⟩
+    rintro ⟨a, rt, ws, ad, ⟨y, e, ht⟩ | ⟨r', pn, tn, e, ht⟩ | ⟨y, r', e, ht⟩, -⟩ <;>
+      (have h1 := hK.1; rw [ht] at h1; simp [TermPiece.opAtomP] at h1)
+  have hnp : ∀ x a e, th.term ≠ .let_ x (.publish a) e := by
+    intro x a e ht
     have h1 := hK.1
     rw [ht] at h1
     simp [TermPiece.opAtomP] at h1
-  have hnp : ∀ x a e, th.term ≠ .let_ x (.publish a) e := by
-    intro x a e ht
+  have hnr : ∀ a rn pn tn e, th.term ≠ .region a rn pn tn e := by
+    intro a rn pn tn e ht
+    have h1 := hK.1
+    rw [ht] at h1
+    simp [TermPiece.opAtomP] at h1
+  have hnir : ∀ x r a e, th.term ≠ .let_ x (.intoRgn r a) e := by
+    intro x r a e ht
     have h1 := hK.1
     rw [ht] at h1
     simp [TermPiece.opAtomP] at h1
@@ -607,7 +615,7 @@ theorem openOverCrOwnA_of {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : 
     have hsto : E'.sto l = (CE η).sto l := hs.trans hold.1.symm
     have hown : cl.owner = some (CE η).tid := by rw [ho, Y.1]; rfl
     have hgd : ∃ lab, TermPiece.OpTgtP th lab ∧ (CE η).pfr lab ≠ none := by
-      obtain ⟨lab, h1, h2⟩ := hOw.2
+      obtain ⟨lab, h1, h2⟩ := hOw.2.2
       exact ⟨lab, h2, h1⟩
     -- the total credits: `cr0 + kept pool` plus both re-pin lists
     have hcrE : ∀ t, cr' t + plStep pl i (stOf r.1 r.2.1 r.2.2) plh t =
@@ -628,7 +636,7 @@ theorem openOverCrOwnA_of {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : 
     have hle0 : ∀ t, cr0 t + (if t ∈ (stOf r.1 r.2.1 r.2.2).promises then pl i t else .zero) ≤
         cr i t + pl i t := by
       intro t
-      have h1 := (hKq hnp).2 t
+      have h1 := (hKq hnp hnr hnir).2 t
       by_cases ht : t ∈ (stOf r.1 r.2.1 r.2.2).promises
       · simp only [ht, ite_true]
         rw [hcSP t ht] at h1
@@ -668,7 +676,7 @@ theorem openOverCrOwnA_of {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : 
               exact h)
             hV hpc
         rw [← hcSP t ht] at hpc' hk
-        have e := (hKq hnp).1 t ht (.inr ⟨m, by rw [hmem]; exact hm, hpc', hk⟩)
+        have e := (hKq hnp hnr hnir).1 t ht (.inr ⟨m, by rw [hmem]; exact hm, hpc', hk⟩)
         rw [e, hcSP t ht]
         exact Res.le_refl _
     -- `FulP`: a discharged promise at `l` discharges its whole pieces
@@ -720,10 +728,8 @@ theorem openOverCrOwnA_of {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : 
       · exact hg.1
       · rfl
     have hnPub : ∀ l, ¬ TermOwnG0Defs.PubAt th l := by
-      rintro l ⟨y, a, e, rt, ws, ad, ht, -⟩
-      have h1 := hK.1
-      rw [ht] at h1
-      simp [TermPiece.opAtomP] at h1
+      rintro l ⟨a, rt, ws, ad, ⟨y, e, ht⟩ | ⟨r', pn, tn, e, ht⟩ | ⟨y, r', e, ht⟩, -⟩ <;>
+        (have h1 := hK.1; rw [ht] at h1; simp [TermPiece.opAtomP] at h1)
     obtain ⟨s1, hLS, e1, e3, e4⟩ := TermUnitKeepC.tstep_LS hK.1 X.hr
     have hUK : ∀ a : Address, (∀ t m, t ∈ (stOf c.mem c.pairs th).promises →
         t ∉ (stOf r.1 r.2.1 r.2.2).promises → (stOf c.mem c.pairs th).mem[t]? = some m → m.loc ≠ a) →

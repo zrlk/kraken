@@ -56,7 +56,7 @@ theorem fetch_new_numP {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th :
     {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {x : String} {o : FetchOp} {acq rel : Bool} {a v : At}
     {e : Expr} {μ : Mode} {u : Ty}
     (hterm : th.term = .let_ x (.fetch o acq rel a v) e) (_hP : ProgT p)
-    (hpk : cx.peek a = .ok (.ptr μ u)) (hμ : μ = .own ∨ μ = .pub)
+    (hpk : cx.peek a = .ok (.ptr μ u))
     (hT : Typed p cx th.term) (hi : FInv ρ η th.σs (Resume p th.stack) cx th.env)
     (hE : EnvOK p η) (htv : TvOK cx) (hm : MemInv g (CE η) (stOf mem pairs th))
     {r : Memory × List Ts × TTh} (hr : r ∈ tstep g mem pairs th) (hpr : PromAbove (stOf r.1 r.2.1 r.2.2))
@@ -69,37 +69,35 @@ theorem fetch_new_numP {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th :
   cases hop with
   | fetchCell hp _ hc hu hsub hb =>
     rw [hpk] at hp; cases hp
-    rcases hc with hc | ⟨r, hc, -⟩
-    · simp only [cellOf, Option.some.injEq, Prod.mk.injEq] at hc
-      obtain ⟨rfl, rfl⟩ := hc
-      obtain ⟨lab, pw, ru, hea, hpw, -, -, hcell⟩ :=
-        pubIntCell (acq := acq) (rel := rel) (g := g) (mem := mem) (pairs := pairs) hpk hi hE htv hm
-      obtain ⟨hi1, rv, wsv, hev, hvv, -⟩ := use_FInv hu hi
-      have hvi := VR_sub hi1.1 hsub _ _ hvv
-      simp only [VR] at hvi
-      obtain ⟨dd, hdd⟩ := hvi
-      obtain ⟨nw, rfl, hnwv⟩ := map_singleton hdd
-      refine fetch_new_core (Q := fun ws => ∃ n, ws.map (·.val) = [.num n]) hterm hea
-        (by simp [addrOf, hpw]) hev hnwv (fun s1 ws hl hp1 => (hcell s1 ws hl hp1).2.1)
-        (fun rd hq => ?_) hr hpr t m ht hmt
-      obtain ⟨n, hn'⟩ := hq
-      simp only [List.map_cons, List.map_nil, List.cons.injEq, and_true] at hn'
-      exact ⟨n, hn'⟩
-    · simp only [cellOf, Option.some.injEq, Prod.mk.injEq] at hc
-      obtain ⟨rfl, -⟩ := hc
-      rcases hμ with h | h <;> cases h
+    have hc' : μ ≠ .own ∧ u = .int := by
+      rcases hc with hc | ⟨r, hc, -⟩ <;> simp only [cellOf, Option.some.injEq, Prod.mk.injEq] at hc <;>
+        exact ⟨by rw [hc.1]; exact fun h => Mode.noConfusion h, hc.2⟩
+    obtain ⟨hμ', rfl⟩ := hc'
+    obtain ⟨lab, pw, μr, ru, hea, hpw, -, -, hcell⟩ :=
+      pubIntCellNO (acq := acq) (rel := rel) (g := g) (mem := mem) (pairs := pairs) hpk hμ' hi hE htv hm
+    obtain ⟨hi1, rv, wsv, hev, hvv, -⟩ := use_FInv hu hi
+    have hvi := VR_sub hi1.1 hsub _ _ hvv
+    simp only [VR] at hvi
+    obtain ⟨dd, hdd⟩ := hvi
+    obtain ⟨nw, rfl, hnwv⟩ := map_singleton hdd
+    refine fetch_new_core (Q := fun ws => ∃ n, ws.map (·.val) = [.num n]) hterm hea
+      (by simp [addrOf, hpw]) hev hnwv (fun s1 ws hl hp1 => (hcell s1 ws hl hp1).2.1)
+      (fun rd hq => ?_) hr hpr t m ht hmt
+    obtain ⟨n, hn'⟩ := hq
+    simp only [List.map_cons, List.map_nil, List.cons.injEq, and_true] at hn'
+    exact ⟨n, hn'⟩
   | fetchEpoch hp hw hep _ hj heq hb =>
     rw [hpk] at hp; cases hp
     cases u <;> simp [wordOf] at hw
     obtain ⟨rfl, rfl⟩ := hw
     rename_i r P
-    have hpwf := wordRef_pwf hpk (.inl rfl) hμ hi hE htv hm
+    have hpwf := wordRef_pwf hpk (.inl rfl) hi hE htv hm
     have hg : P.ghost = false := by
       have := pwf_epochOK hpwf hep
       unfold epochOK at this; simp only [Bool.and_eq_true, Bool.not_eq_true'] at this
       exact this.1.2
     obtain ⟨lab, pw, μ', r', hea, hpw, -, hcell⟩ :=
-      wordCellF (acq := acq) (rel := rel) (g := g) (mem := mem) (pairs := pairs) hpk hμ hg hi hE htv hm
+      wordCellF (acq := acq) (rel := rel) (g := g) (mem := mem) (pairs := pairs) hpk hg hi hE htv hm
     obtain ⟨tv, htvk, hjo⟩ := hj
     obtain ⟨rtv, nw, hev, hnwv, -⟩ := atom_num hi.2.1 htvk hjo
     have hj1 := heq ρ hi.1
@@ -117,12 +115,12 @@ theorem fetch_new_numP {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th :
     cases u <;> simp [wordOf] at hw
     obtain ⟨rfl, rfl⟩ := hw
     rename_i r P
-    have hpwf := wordRef_pwf hpk (.inl rfl) hμ hi hE htv hm
+    have hpwf := wordRef_pwf hpk (.inl rfl) hi hE htv hm
     have hg : P.ghost = false := by
       unfold fetchOK at hok; simp only [Bool.and_eq_true, Bool.not_eq_true'] at hok
       exact hok.1.1.1.1
     obtain ⟨lab, pw, μ', r', hea, hpw, -, hcell⟩ :=
-      wordCellF (acq := acq) (rel := rel) (g := g) (mem := mem) (pairs := pairs) hpk hμ hg hi hE htv hm
+      wordCellF (acq := acq) (rel := rel) (g := g) (mem := mem) (pairs := pairs) hpk hg hi hE htv hm
     obtain ⟨tv, htvk, hjo⟩ := hj
     obtain ⟨rtv, nw, hev, hnwv, -⟩ := atom_num hi.2.1 htvk hjo
     rename_i d
@@ -143,7 +141,7 @@ theorem fetch_new_numL {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th :
     {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {x : String} {o : FetchOp} {acq rel : Bool} {a v : At}
     {e : Expr} {μ : Mode} {u : Ty}
     (hterm : th.term = .let_ x (.fetch o acq rel a v) e) (_hP : ProgT p)
-    (hpk : cx.peek a = .ok (.loc μ u)) (hμ : μ = .own ∨ μ = .pub)
+    (hpk : cx.peek a = .ok (.loc μ u))
     (hT : Typed p cx th.term) (hi : FInv ρ η th.σs (Resume p th.stack) cx th.env)
     (hE : EnvOK p η) (htv : TvOK cx) (hm : MemInv g (CE η) (stOf mem pairs th))
     {r : Memory × List Ts × TTh} (hr : r ∈ tstep g mem pairs th) (hpr : PromAbove (stOf r.1 r.2.1 r.2.2))
@@ -156,39 +154,35 @@ theorem fetch_new_numL {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th :
   cases hop with
   | fetchCell hp _ hc hu hsub hb =>
     rw [hpk] at hp; cases hp
-    rcases hc with hc | ⟨r, hc, -⟩
-    · simp only [cellOf, Option.some.injEq, Prod.mk.injEq] at hc
-      obtain ⟨rfl, rfl⟩ := hc
-      have hus1 : accs (cl ρ η.wit 0 0 .int) = some [.one] := by simp [cl, accs]
-      obtain ⟨ad, pw, μr, ru, hea, haddr, -, -, -, -, hld, -, -⟩ :=
-        locCell (acq := acq) (rel := rel) (g := g) (mem := mem) (pairs := pairs) hpk hμ
-          (by simp [Cx.opaqueOK, Ty.guardT]) hus1 hi hE htv hm
-      obtain ⟨hi1, rv, wsv, hev, hvv, -⟩ := use_FInv hu hi
-      have hvi := VR_sub hi1.1 hsub _ _ hvv
-      simp only [VR] at hvi
-      obtain ⟨dd, hdd⟩ := hvi
-      obtain ⟨nw, rfl, hnwv⟩ := map_singleton hdd
-      refine fetch_new_core (Q := fun ws => ∃ n, ws.map (·.val) = [.num n]) hterm hea haddr hev hnwv
-        (fun s1 ws hl hp1 => by simpa [VR] using (hld s1 ws hl hp1).1) (fun rd hq => ?_) hr hpr t m ht hmt
-      obtain ⟨n, hn'⟩ := hq
-      simp only [List.map_cons, List.map_nil, List.cons.injEq, and_true] at hn'
-      exact ⟨n, hn'⟩
-    · simp only [cellOf, Option.some.injEq, Prod.mk.injEq] at hc
-      obtain ⟨rfl, -⟩ := hc
-      rcases hμ with h | h <;> cases h
+    obtain rfl : u = .int := by
+      rcases hc with hc | ⟨r, hc, -⟩ <;> simp only [cellOf, Option.some.injEq, Prod.mk.injEq] at hc <;> exact hc.2
+    have hus1 : accs (cl ρ η.wit 0 0 .int) = some [.one] := by simp [cl, accs]
+    obtain ⟨ad, pw, μr, ru, hea, haddr, -, -, -, -, hld, -, -⟩ :=
+      locCell (acq := acq) (rel := rel) (g := g) (mem := mem) (pairs := pairs) hpk
+        (by simp [Cx.opaqueOK, Ty.guardT]) hus1 hi hE htv hm
+    obtain ⟨hi1, rv, wsv, hev, hvv, -⟩ := use_FInv hu hi
+    have hvi := VR_sub hi1.1 hsub _ _ hvv
+    simp only [VR] at hvi
+    obtain ⟨dd, hdd⟩ := hvi
+    obtain ⟨nw, rfl, hnwv⟩ := map_singleton hdd
+    refine fetch_new_core (Q := fun ws => ∃ n, ws.map (·.val) = [.num n]) hterm hea haddr hev hnwv
+      (fun s1 ws hl hp1 => by simpa [VR] using (hld s1 ws hl hp1).1) (fun rd hq => ?_) hr hpr t m ht hmt
+    obtain ⟨n, hn'⟩ := hq
+    simp only [List.map_cons, List.map_nil, List.cons.injEq, and_true] at hn'
+    exact ⟨n, hn'⟩
   | fetchEpoch hp hw hep _ hj heq hb =>
     rw [hpk] at hp; cases hp
     cases u <;> simp [wordOf] at hw
     obtain ⟨rfl, rfl⟩ := hw
     rename_i r P
-    have hpwf := wordRef_pwf hpk (.inr rfl) hμ hi hE htv hm
+    have hpwf := wordRef_pwf hpk (.inr rfl) hi hE htv hm
     have hg : P.ghost = false := by
       have := pwf_epochOK hpwf hep
       unfold epochOK at this; simp only [Bool.and_eq_true, Bool.not_eq_true'] at this
       exact this.1.2
     have hus1 : accs (cl ρ η.wit 0 0 (.word r P)) = some [.one] := by simp [cl, accs, hg]
     obtain ⟨ad, pw, μr, ru, hea, haddr, -, hsku, -, -, hld, -, -⟩ :=
-      locCell (acq := acq) (rel := rel) (g := g) (mem := mem) (pairs := pairs) hpk hμ
+      locCell (acq := acq) (rel := rel) (g := g) (mem := mem) (pairs := pairs) hpk
         (by simp [Cx.opaqueOK, Ty.guardT]) hus1 hi hE htv hm
     obtain ⟨r', rfl⟩ := eskel_word (show etok (skel ru) = .word (.lit 0) P by rw [hsku]; rfl)
     obtain ⟨tv, htvk, hjo⟩ := hj
@@ -207,13 +201,13 @@ theorem fetch_new_numL {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th :
     cases u <;> simp [wordOf] at hw
     obtain ⟨rfl, rfl⟩ := hw
     rename_i r P
-    have hpwf := wordRef_pwf hpk (.inr rfl) hμ hi hE htv hm
+    have hpwf := wordRef_pwf hpk (.inr rfl) hi hE htv hm
     have hg : P.ghost = false := by
       unfold fetchOK at hok; simp only [Bool.and_eq_true, Bool.not_eq_true'] at hok
       exact hok.1.1.1.1
     have hus1 : accs (cl ρ η.wit 0 0 (.word r P)) = some [.one] := by simp [cl, accs, hg]
     obtain ⟨ad, pw, μr, ru, hea, haddr, -, hsku, -, -, hld, -, -⟩ :=
-      locCell (acq := acq) (rel := rel) (g := g) (mem := mem) (pairs := pairs) hpk hμ
+      locCell (acq := acq) (rel := rel) (g := g) (mem := mem) (pairs := pairs) hpk
         (by simp [Cx.opaqueOK, Ty.guardT]) hus1 hi hE htv hm
     obtain ⟨r', rfl⟩ := eskel_word (show etok (skel ru) = .word (.lit 0) P by rw [hsku]; rfl)
     obtain ⟨tv, htvk, hjo⟩ := hj
@@ -252,11 +246,11 @@ theorem fetch_new_num {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : 
       | fetchCell hp => exact ⟨_, hp⟩
       | fetchEpoch hp => exact ⟨_, hp⟩
       | fetchShare hp => exact ⟨_, hp⟩
-  obtain ⟨μ, u, hteq | hteq, hμ⟩ := hs tA hpkA
+  obtain ⟨μ, u, hteq | hteq⟩ := hs tA hpkA
   · rw [hteq] at hpkA
-    exact fetch_new_numP hterm hP hpkA hμ hT hi hE htv hm hr hpr t m ht hmt
+    exact fetch_new_numP hterm hP hpkA hT hi hE htv hm hr hpr t m ht hmt
   · rw [hteq] at hpkA
-    exact fetch_new_numL hterm hP hpkA hμ hT hi hE htv hm hr hpr t m ht hmt
+    exact fetch_new_numL hterm hP hpkA hT hi hE htv hm hr hpr t m ht hmt
 
 #print axioms fetch_new_core
 #print axioms fetch_new_num

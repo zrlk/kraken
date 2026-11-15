@@ -118,8 +118,9 @@ theorem source_run_spawn {P : SrcSem.SrcParams} {p : Prog} (hP : P.hooks = SrcSe
     hs.elim (fun h => h.spawn) (fun h => by rw [hP] at h; exact h.elim)
 
 /-- **The checks on a program** that the source typing needs: the checker,
-the scope check, no `publish`, and `main`'s entry at return type `r`. Each is
-decidable for a concrete program (`SrcChecks.of_decide`). -/
+the scope check, no `publish`, `region` binder or `intoRgn` (`ProgPubFree`), and
+`main`'s entry at return type `r`. Each is decidable for a concrete program
+(`SrcChecks.of_decide`). -/
 structure SrcChecks (p : Prog) (r : Ty) : Prop where
   checked : checkProg p = .ok ()
   scope : TermScope.ProgScopeOKW p = true

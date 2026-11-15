@@ -2,6 +2,28 @@ import WeakCore.MergeW
 namespace TermSound.Flat
 open CoreLang CoreTerm CoreTyping TermRun TermClose TermTv TermSound
 
+/-- (A1) W `VR` at a region-locative head is fresh: W `ModeOK .rgn` is the pub clause (M7). -/
+theorem VR_rgnLocFresh {ρ : Nat → Nat} {η : TEnv} {t : Ty} {rt : Shp} {ws : List Word}
+    (hp : t.rgnLocHead = true) (h : VR ρ η t rt ws) : FreshW η ws := by
+  intro a' ha'
+  match t, hp, h with
+  | .loc (.rgn _) u, _, h =>
+    simp only [VR] at h
+    rcases h with h | ⟨a, c, U, h1, -, -, -, hm, -⟩
+    · rw [h.1] at ha'; simp at ha'
+    · obtain rfl : a = a' := by have := h1.symm.trans ha'; simpa using this
+      exact hm
+
+/-- (A1) `VR_rgnLocFresh` through a type variable (`rgnTop`), as `VR_pubTopFresh`. -/
+theorem VR_rgnTopFresh {ρ : Nat → Nat} {η : TEnv} {t : Ty} {rt : Shp} {ws : List Word} (hR : RelsSound η)
+    (hp : η.rgnTop t = true) (h : VR ρ η t rt ws) : FreshW η ws := by
+  cases t with
+  | tvar k =>
+    simp only [VR, TEnv.get] at h
+    obtain ⟨w0, h0, h1⟩ := h
+    exact FreshW_wle h0 (VR_rgnLocFresh (η := CE η) hp (hR.1 k rt w0 h1))
+  | _ => refine VR_rgnLocFresh ?_ h; exact hp
+
 section
 variable {cp : WeakMem.AllocLabel → Prop} {f σ : WeakMem.AllocLabel → WeakMem.AllocLabel}
 
@@ -59,8 +81,9 @@ theorem VR_merge (t : Ty) : ∀ (ρ : Nat → Nat) (η₁ η₂ : TEnv) (rt : Sh
   | refine t ψ ih =>
     intro ρ η₁ η₂ rt ws hm hR hr hur h; simp only [VR] at h; simp only [VRF, VRb2]
     refine ⟨ih _ _ _ _ _ hm hR hr hur h.1, IniR_rl (fun m => selIni_merge hm t m) ψ ws h.2, fun hp => ?_⟩
-    replace hp := PubPosE_rl hm.wit (fun m B h => ⟨_, hm.box m B h, rfl⟩) hp
-    have hF := VR_PubPosEFresh hR hp h.1
+    have hF : FreshW η₁ ws := hp.elim
+      (fun hp => VR_PubPosEFresh hR (PubPosE_rl hm.wit (fun m B h => ⟨_, hm.box m B h, rfl⟩) hp) h.1)
+      (fun hq => VR_rgnTopFresh hR (by rw [TEnv.rgnTop_congr hm.wit]; exact hq.1) h.1)
     by_cases hc : ∃ a, ws.map (·.val) = [.loc a 0] ∧ cp a.label
     · obtain ⟨a, ha, hcp⟩ := hc
       exact Or.inr (IniR_rl1 ha (Nat.le_trans (η₁.selIni_le_ini t _) (hm.inil _ hcp)) ψ h.2)
@@ -135,7 +158,9 @@ theorem VR_merge (t : Ty) : ∀ (ρ : Nat → Nat) (η₁ η₂ : TEnv) (rt : Sh
     rcases h with ⟨hn, e, he⟩ | ⟨a, c, U, h1, h3, h4, h5, hmo, hI⟩
     · exact Or.inl ⟨vals_rl_null.2 hn, e, by rw [← hm.wit]; exact he⟩
     · obtain ⟨c₂, hs2, hty, hmo2, hle, -⟩ := refAt hm (fun c₂ => IniAt η₂.rc c₂ ⟨f a.label, a.offset⟩ U) h1 h3 hmo
-        (fun c₂ hty _ hμ hl => by subst hμ; exact IniAt_at (a := a) hty rfl hl hI)
+        (fun c₂ hty _ hμ hl => by cases μ with
+          | own => exact absurd rfl hμ
+          | pub | rgn _ => exact IniAt_at (a := a) hty rfl hl hI)
       exact Or.inr ⟨⟨f a.label, a.offset⟩, c₂, U, vals_rl_loc h1, hs2, by rw [hty]; exact h4,
         by rw [← hm.wit]; exact h5, hmo2, IniAt_at (a := a) hty rfl hle hI⟩
   | void => intro ρ η₁ η₂ rt ws hm hR hr hur h; simp only [VR] at h

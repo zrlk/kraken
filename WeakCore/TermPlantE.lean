@@ -189,7 +189,7 @@ theorem lt_of_max_ge {i k j : Nat} (h1 : i ≤ j) (h2 : j < max i k) : j < k := 
   · rw [Nat.max_eq_left h] at h2; exact absurd h1 (Nat.not_le.2 h2)
 
 /-- (dedup) master of `plantStep`: also exports `KeepNW` (old non-word credits kept). -/
-theorem plantStepK (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : TermNoHold.CertRunP p k arch Sp Init MintOK c0)
+theorem plantStepK (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : TermNoHold.CertRunP p k arch Sp Init MintOK c0)
     {c : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {j : Nat}
     {th : TTh} {a : Address} {v : WeakMem.Val} {w : Ts} {S : AllocLabel → Prop} {l : AllocLabel} {f : Ts}
     (X : PCtxX p k arch Sp Init MintOK c0 c Eg Tot HP HS cr db j th a v w)
@@ -310,7 +310,7 @@ theorem plantStepK (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [
 /-- (E2) **One planted label's step**: from the promise context, the plant of `l` at any partial
 plant agreeing with `Eg` at `l` (`ThSysAt_plant1B` with every hypothesis derived, except the
 residual `hR1w` = PrivSlotFresh and the word-buffer shape `hWB`). -/
-theorem plantStep (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : TermNoHold.CertRunP p k arch Sp Init MintOK c0)
+theorem plantStep (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : TermNoHold.CertRunP p k arch Sp Init MintOK c0)
     {c : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {j : Nat}
     {th : TTh} {a : Address} {v : WeakMem.Val} {w : Ts} {S : AllocLabel → Prop} {l : AllocLabel} {f : Ts}
     (X : PCtxX p k arch Sp Init MintOK c0 c Eg Tot HP HS cr db j th a v w)
@@ -342,7 +342,7 @@ theorem plantStep (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [T
 /-! ## (E5, A′) A planted label with no new slots: the flip alone -/
 
 /-- (E5) `FlipOK` after the promise at any label, from the tied certificate (`flipOK_cert`). -/
-theorem flipOK_post (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : TermNoHold.CertRunP p k arch Sp Init MintOK c0)
+theorem flipOK_post (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : TermNoHold.CertRunP p k arch Sp Init MintOK c0)
     {c : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {j : Nat}
     {th : TTh} {a : Address} {v : WeakMem.Val} {w : Ts} {S : AllocLabel → Prop}
     (X : PCtxX p k arch Sp Init MintOK c0 c Eg Tot HP HS cr db j th a v w)
@@ -378,7 +378,7 @@ theorem flipOK_post (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] 
   exact h
 
 /-- (dedup) master of `flipStep`: also exports `KeepNW` (old non-word credits kept). -/
-theorem flipStepK (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : TermNoHold.CertRunP p k arch Sp Init MintOK c0)
+theorem flipStepK (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : TermNoHold.CertRunP p k arch Sp Init MintOK c0)
     {c : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {j : Nat}
     {th : TTh} {a : Address} {v : WeakMem.Val} {w : Ts} {S : AllocLabel → Prop} {l : AllocLabel} {f : Ts}
     (X : PCtxX p k arch Sp Init MintOK c0 c Eg Tot HP HS cr db j th a v w)
@@ -439,7 +439,7 @@ theorem flipStepK (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [T
 
 /-- (E5, A′) **One planted label with no new slots** (`plantN ≤ ini`): its flip at any partial
 plant agreeing with `Eg` at `l`, for any cell type, every hypothesis derived. -/
-theorem flipStep (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : TermNoHold.CertRunP p k arch Sp Init MintOK c0)
+theorem flipStep (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : TermNoHold.CertRunP p k arch Sp Init MintOK c0)
     {c : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {j : Nat}
     {th : TTh} {a : Address} {v : WeakMem.Val} {w : Ts} {S : AllocLabel → Prop} {l : AllocLabel} {f : Ts}
     (X : PCtxX p k arch Sp Init MintOK c0 c Eg Tot HP HS cr db j th a v w)
@@ -499,7 +499,7 @@ def locLab (o : Option Msg) : Option AllocLabel :=
 /-- (E3) **`ThSys_plantW`**: the promiser's part of a planting promise step (the `selfPlant`
 field) for events whose planted labels are single-word protocol buffers, modulo the residual
 PrivSlotFresh (`hR1w`) and the obligations `hwu`, `hfw`, `plantPromOK`, `promNewOK`, `plantInh`. -/
-theorem ThSys_plantW (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : TermNoHold.CertRunP p k arch Sp Init MintOK c0)
+theorem ThSys_plantW (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : TermNoHold.CertRunP p k arch Sp Init MintOK c0)
     {c : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {j : Nat}
     {th : TTh} {a : Address} {v : WeakMem.Val} {w : Ts}
     (X : PCtxX p k arch Sp Init MintOK c0 c Eg Tot HP HS cr db j th a v w)
@@ -596,7 +596,7 @@ def SelfPlantRestF (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → C
         (EgP Eg (TermPlantF.plantOf c Eg j a v w) (TermPlantF.plantN c Eg j a v w) j c.mem.size) (Tot j) HP' HS' cr' db'
 
 /-- (E4) **`selfPlant`** from `ThSys_plantW` (word-buffer events) and `selfPlantRest` (the others). -/
-theorem selfPlant_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : TermNoHold.CertRunP p k arch Sp Init MintOK c0)
+theorem selfPlant_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : TermNoHold.CertRunP p k arch Sp Init MintOK c0)
     (hPO : TermPlantF.PlantPromOKF p k arch Sp Init MintOK c0 TermPlantF.plantOf TermPlantF.plantN)
     (hNO : TermPlantF.PromNewOKF p k arch Sp Init MintOK c0 TermPlantF.plantOf TermPlantF.plantN)
     (hInh : TermInterf.PlantInhF p k arch Sp Init MintOK c0 TermPlantF.plantOf TermPlantF.plantN)

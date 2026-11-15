@@ -43,11 +43,40 @@ theorem viewInv_spawnCfg {c : Cfg} {i : Nat} {th : TTh} {x : String} {e : Expr} 
       exact ⟨EnvV_cons (WsV_cons (WV_cst _ _) (WsV_nil _)) hT.1, hT.2.1, hF⟩
     · exact hv.2 j th0 hj
 
+/-- **The `spawnI` arm of `ViewInv`** (`Spawn.mkI`). -/
+theorem viewInv_spawnTI {c : Cfg} {i : Nat} {th : TTh} {x : String} {e : Expr} {d : Decl} {ts : List Ty}
+    {a : At} {rt : Ty} {ws : List Word} (hv : ViewInv c) (hth : c.ths[i]? = some th)
+    (hev : evalAt th.env a = some (rt, ws)) :
+    ViewInv (spawnT c i (spawnPar c i th x e) (spawnKidI c i th d ts ws)) := by
+  have hT : ThV c.mem.size th := hv.2 i th hth
+  have hF := (stepFence_V (n := c.mem.size)
+    (th := mth (stOf c.mem c.pairs th) (cst (.num 0)) (cst (.num 0)) (cst (.num 0))) hT.2.2 .sy).1
+  refine ⟨hv.1, fun j th0 hj => ?_⟩
+  simp only [spawnT] at hj
+  rw [Array.getElem?_push] at hj
+  split at hj
+  · -- the child
+    cases hj
+    unfold ThV
+    refine ⟨fun e' he' => ?_, fun fr hf => by simp [spawnKidI] at hf, ?_⟩
+    · simp only [spawnKidI] at he'
+      rcases List.mem_singleton.1 he' with rfl
+      intro w hw
+      obtain ⟨w0, hw0, rfl⟩ := List.mem_map.1 hw
+      exact WV_bump (evalAt_V hT.1 hev w0 hw0) hF.2.2.2.2
+    · exact hF
+  · rcases getElem?_set!_cases hj with rfl | hj
+    · -- the parent
+      unfold ThV
+      exact ⟨EnvV_cons (WsV_cons (WV_cst _ _) (WsV_nil _)) hT.1, hT.2.1, hF⟩
+    · exact hv.2 j th0 hj
+
 /-- The `Spawn`-step form. -/
 theorem viewInv_spawnStep {p : Prog} {k : Promises.Knobs} {arch : Arch} {cap : Nat} {c c' : Cfg}
     (h : Spawn p k arch cap c c') (hv : ViewInv c) : ViewInv c' := by
   cases h with
   | mk i x f a T ts e th rt ws h1 _ _ _ h5 => exact viewInv_spawnCfg hv h1 h5
+  | mkI i x f is a T ts e th d rt ws h1 _ _ _ _ h6 => exact viewInv_spawnTI hv h1 h6
 
 /-- **`ViewInv` along every run with spawns.** -/
 theorem viewInv_runX {p : Prog} {k : Promises.Knobs} {arch : Arch} {cap : Nat} {c0 c : Cfg} (h0 : ViewInv c0)

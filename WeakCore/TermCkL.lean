@@ -33,6 +33,32 @@ theorem VarsW_bindx {cx c' : Cx} {x : String} {t : Ty} (hv : VarsW cx) (hb : cx.
   refine VarsW_bind hv (hx x t true ?_) hb
   rw [e]; simp
 
+theorem VarsW_handOffR {cx : Cx} (T : Ty) (hv : VarsW cx) : VarsW (cx.handOffR T) := by
+  intro v; unfold Cx.handOffR Cx.handOff
+  split <;> (try split) <;> (try split) <;> intro hm <;> first | exact hv v hm | exact hv v (List.mem_filter.mp hm).1
+
+theorem VarsW_iteH {cx : Cx} (b : Bool) (T : Ty) (hv : VarsW cx) :
+    VarsW (if b = true then cx.handOffR T else cx) := by
+  cases b
+  · exact hv
+  · exact VarsW_handOffR T hv
+
+theorem handOffR_ke {cx : Cx} (T : Ty) : (cx.handOffR T).ke = cx.ke := by
+  unfold Cx.handOffR Cx.handOff; split <;> (try split) <;> (try split) <;> rfl
+
+theorem handOffR_opq {cx : Cx} (T : Ty) : (cx.handOffR T).opq = cx.opq := by
+  unfold Cx.handOffR Cx.handOff; split <;> (try split) <;> (try split) <;> rfl
+
+theorem iteH_ke {cx : Cx} (b : Bool) (T : Ty) : (if b = true then cx.handOffR T else cx).ke = cx.ke := by
+  cases b
+  · rfl
+  · exact handOffR_ke T
+
+theorem iteH_opq {cx : Cx} (b : Bool) (T : Ty) : (if b = true then cx.handOffR T else cx).opq = cx.opq := by
+  cases b
+  · rfl
+  · exact handOffR_opq T
+
 /-- **`OpT` keeps `VarsW`** at a `wrapOK` bound type. -/
 theorem OpT_VarsW {p : Prog} {cx c' : Cx} {x : String} {op : Op} (h : OpT p cx x op c') (hv : VarsW cx)
     (hx : ∀ y u b, c'.vars.find? (·.1 == x) = some (y, u, b) → wrapOK u = true) : VarsW c' := by
@@ -48,6 +74,8 @@ theorem OpT_VarsW {p : Prog} {cx c' : Cx} {x : String} {op : Op} (h : OpT p cx x
     first
     | exact hv
     | exact (VarsW_use hv ‹_›).2
+    | exact VarsW_iteH _ _ (VarsW_use hv ‹_›).2
+    | exact VarsW_handOffR _ (VarsW_use hv ‹_›).2
     | exact (VarsW_use (VarsW_use hv ‹_›).2 ‹_›).2
     | exact VarsW_observeCx _ _ _ hv
     | exact VarsW_fenceCx _ hv
@@ -75,6 +103,8 @@ theorem OpT_ke_opq {p : Prog} {cx c' : Cx} {x : String} {op : Op} (h : OpT p cx 
     | (have k1 := use_ke_opq ‹cx.use _ = _›; have k2 := use_ke_opq ‹_›
        exact ⟨k.1.trans (k2.1.trans k1.1), k.2.trans (k2.2.trans k1.2)⟩)
     | exact k
+    | (simp only [iteH_ke, iteH_opq, handOffR_ke, handOffR_opq] at k
+       have k1 := use_ke_opq ‹_›; exact ⟨k.1.trans k1.1, k.2.trans k1.2⟩)
     | (simp only [observeCx, Cx.push] at k; exact k)
     | (simp only [fenceCx] at k; split at k <;> split at k <;> exact k)
     | (simp only [Cx.endCx] at k; exact k)
@@ -91,4 +121,87 @@ theorem CkW_let {p : Prog} {ω : Nat → Ty} {cx : Cx} {x : String} {op : Op} {e
   exact ⟨c, hc, hop, checkW_sound p e c hWe, ⟨hWe, OpT_VarsW hop hV hx, WitA_of_eq k.1 k.2 hA⟩, hargs⟩
 
 end TermA4
+
+
+/-! (G2 P2) The region-load checker facts, kept below TermStep (checkW.match_5: equation lemmas are taken here). -/
+
+namespace TermC1
+open CoreLang CoreTerm CoreTyping
+
+theorem ruleA_of_checkW {p : Prog} {cx : Cx} {x : String} {op : Op} {e : Expr}
+    (h : TermScope.checkW p cx (.let_ x op e) = .ok ()) : ruleA cx op = true := by
+  cases hr : ruleA cx op with
+  | true => rfl
+  | false =>
+    exfalso
+    rw [TermScope.checkW.eq_1] at h
+    split at h <;> (try simp only [hr, Bool.not_false, ite_true] at h) <;>
+      simp [throw, throwThe, MonadExceptOf.throw, bind, Except.bind] at h
+
+theorem bind_torn1 {cx c : Cx} {x : String} {t : Ty} (h : cx.bind x t = .ok c) : c.torn = cx.torn := by
+  unfold Cx.bind at h
+  split at h <;> split at h <;> (try split at h) <;>
+    simp_all [pure, Except.pure, throw, throwThe, MonadExceptOf.throw, bind, Except.bind]
+  cases h; rfl
+
+theorem checkOp_loadRgn {p : Prog} {cx c : Cx} {x : String} {acq : Bool} {a : At} {t u : Ty} {r : Idx}
+    (hpk : cx.peek a = .ok t) (hnw : wordOf t = none) (hcl : cellOf t = some (.rgn r, u))
+    (h : checkOp p cx x (.load acq a) = .ok c) :
+    ((cx.hasTok r || cx.hasShare r || cx.hasCap r false) = true → c.torn = cx.torn) ∧
+    ((cx.hasTok r || cx.hasShare r || cx.hasCap r false) = false →
+      ∃ w s, c = { cx with torn := ⟨x, adapt r u, w, s, .opn⟩ :: cx.torn } ∧ cx.vars.any (·.1 == x) = false) := by
+  simp only [checkOp, bind_ok_iff] at h
+  obtain ⟨t', ht, h⟩ := h
+  rw [hpk] at ht; cases ht
+  simp only [hnw, hcl] at h
+  cases hb : (cx.hasTok r || cx.hasShare r || cx.hasCap r false) with
+  | true =>
+    refine ⟨fun _ => ?_, fun h' => (nomatch h')⟩
+    simp only [Bool.or_eq_true] at hb
+    split at h
+    · split at h
+      · simp at h
+      · exact bind_torn1 h
+    · rename_i hts
+      split at h
+      · split at h
+        · simp at h
+        · split at h
+          · simp at h
+          · exact bind_torn1 h
+      · rename_i hcap
+        exfalso; simp_all
+  | false =>
+    refine ⟨fun h' => (nomatch h'), fun _ => ?_⟩
+    simp only [Bool.or_eq_false_iff] at hb
+    obtain ⟨⟨h1, h2⟩, h3⟩ := hb
+    simp only [h1, h2, h3, Bool.or_false, Bool.false_eq_true, ite_false, bind_ok_iff] at h
+    obtain ⟨⟨w, s⟩, -, h⟩ := h
+    split at h
+    · simp at h
+    · rename_i hx
+      have hx1 : cx.vars.any (·.1 == x) = false := by
+        cases hv : cx.vars.any (·.1 == x) with
+        | false => rfl
+        | true => exact absurd (by rw [hv]; rfl) hx
+      refine ⟨w, s, ?_, hx1⟩
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      exact h.symm
+/-- At a region-cell `xchg`, `checkW` admits only a payload that is not affine or carries no key. -/
+theorem xchgGuard_of_checkW {p : Prog} {cx : Cx} {x : String} {a v : At} {e : Expr} {t u : Ty} {r : Idx}
+    (h : TermScope.checkW p cx (.let_ x (.xchg a v) e) = .ok ()) (hpk : cx.peek a = .ok t)
+    (hcl : cellOf t = some (.rgn r, u)) :
+    affine cx.ke (adapt r u) = false ∨ keyFree cx.ke (adapt r u) = true := by
+  cases hr : affine cx.ke (adapt r u) with
+  | false => exact Or.inl rfl
+  | true =>
+    cases hk : keyFree cx.ke (adapt r u) with
+    | true => exact Or.inr rfl
+    | false =>
+    exfalso
+    rw [TermScope.checkW.eq_1] at h
+    split at h <;> (try simp only [Bool.not_eq_true'] at h) <;>
+      simp [throw, throwThe, MonadExceptOf.throw, bind, Except.bind, hpk, hcl, hr, hk] at h <;>
+      (try split at h) <;> (try split at h) <;> simp_all
+end TermC1
 

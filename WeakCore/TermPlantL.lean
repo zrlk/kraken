@@ -98,7 +98,7 @@ theorem ThSysAt_plant1BK {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th
       IniSeg (Cut (plant1 Eg0 l F Np) g.i S) c l b → ¬ IniSeg (Cut Eg0 g.i S) c l b →
       ∃ ws, ValOf (Cut (plant1 Eg0 l F Np) g.i S) S' ws ∧ ws.length = nWords us)
     (hcpl : ∀ b S', SegOf c.ty b S' → accs S' ≠ none → TearOK S') (hcT : Ty.coupledOKIn [] c.ty = true)
-    (hnT : Ty.noOwnIn [] c.ty = true) (hrT : rgnFree c.ty = true)
+    (hnT : Ty.noOwnIn [] c.ty = true) (hrT : rgnFree c.ty = true ∨ TermC1.drf1 c.ty = true)
     (hf : FlipOK (Cut Eg0 g.i S) (stOf mem pairs th) l) (hfo : FpOK (Cut Eg0 g.i S) (stOf mem pairs th))
     (hR1w : ∀ j, Eg0.ini l ≤ j → j < Np → ∃ t0 m0, mem[t0]? = some m0 ∧ m0.loc = ⟨l, j⟩ ∧
       m0.val = .undef ∧ t0 ∉ th.promises ∧ (∃ t, AtA mem ⟨l, j⟩ t0 t = true) ∧
@@ -151,7 +151,7 @@ theorem ThSysAt_plant1B {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th 
       IniSeg (Cut (plant1 Eg0 l F Np) g.i S) c l b → ¬ IniSeg (Cut Eg0 g.i S) c l b →
       ∃ ws, ValOf (Cut (plant1 Eg0 l F Np) g.i S) S' ws ∧ ws.length = nWords us)
     (hcpl : ∀ b S', SegOf c.ty b S' → accs S' ≠ none → TearOK S') (hcT : Ty.coupledOKIn [] c.ty = true)
-    (hnT : Ty.noOwnIn [] c.ty = true) (hrT : rgnFree c.ty = true)
+    (hnT : Ty.noOwnIn [] c.ty = true) (hrT : rgnFree c.ty = true ∨ TermC1.drf1 c.ty = true)
     (hf : FlipOK (Cut Eg0 g.i S) (stOf mem pairs th) l) (hfo : FpOK (Cut Eg0 g.i S) (stOf mem pairs th))
     (hR1w : ∀ j, Eg0.ini l ≤ j → j < Np → ∃ t0 m0, mem[t0]? = some m0 ∧ m0.loc = ⟨l, j⟩ ∧
       m0.val = .undef ∧ t0 ∉ th.promises ∧ (∃ t, AtA mem ⟨l, j⟩ t0 t = true) ∧
@@ -322,7 +322,7 @@ theorem ThSysAt_flip1K {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th :
     (hrl : Eg.rini l ≤ Eg.ini l) (hNp : Np = Eg.ini l)
     (hF : F ≤ (stOf mem pairs th).vs.vWr ∨ HoldW (Cut Eg g.i S) (stOf mem pairs th) l F)
     (hcpl : ∀ b S', SegOf c.ty b S' → accs S' ≠ none → TearOK S') (hcT : Ty.coupledOKIn [] c.ty = true)
-    (hnT : Ty.noOwnIn [] c.ty = true) (hrT : rgnFree c.ty = true)
+    (hnT : Ty.noOwnIn [] c.ty = true) (hrT : rgnFree c.ty = true ∨ TermC1.drf1 c.ty = true)
     (hf : FlipOK (Cut Eg g.i S) (stOf mem pairs th) l) (hfo : FpOK (Cut Eg g.i S) (stOf mem pairs th)) :
     ∃ HP' HS' cr' db', ThSysAt p g mem pairs th (plant1 Eg l F Np) Tot HP' HS' cr' db' S ∧
       (HP' + HS') + pSum (stOf mem pairs th) cr' + pSum (stOf mem pairs th) db =
@@ -441,7 +441,7 @@ theorem ThSysAt_flip1 {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : 
     (hrl : Eg.rini l ≤ Eg.ini l) (hNp : Np = Eg.ini l)
     (hF : F ≤ (stOf mem pairs th).vs.vWr ∨ HoldW (Cut Eg g.i S) (stOf mem pairs th) l F)
     (hcpl : ∀ b S', SegOf c.ty b S' → accs S' ≠ none → TearOK S') (hcT : Ty.coupledOKIn [] c.ty = true)
-    (hnT : Ty.noOwnIn [] c.ty = true) (hrT : rgnFree c.ty = true)
+    (hnT : Ty.noOwnIn [] c.ty = true) (hrT : rgnFree c.ty = true ∨ TermC1.drf1 c.ty = true)
     (hf : FlipOK (Cut Eg g.i S) (stOf mem pairs th) l) (hfo : FpOK (Cut Eg g.i S) (stOf mem pairs th)) :
     ∃ HP' HS' cr' db', ThSysAt p g mem pairs th (plant1 Eg l F Np) Tot HP' HS' cr' db' S ∧
       (HP' + HS') + pSum (stOf mem pairs th) cr' + pSum (stOf mem pairs th) db =
@@ -458,7 +458,7 @@ theorem ThSysAt_flip1BK {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th 
     (hrl : Eg0.rini l ≤ Eg0.ini l) (hNp : Np = Eg0.ini l)
     (hF : F ≤ (stOf mem pairs th).vs.vWr ∨ HoldW (Cut Eg0 g.i S) (stOf mem pairs th) l F)
     (hcpl : ∀ b S', SegOf c.ty b S' → accs S' ≠ none → TearOK S') (hcT : Ty.coupledOKIn [] c.ty = true)
-    (hnT : Ty.noOwnIn [] c.ty = true) (hrT : rgnFree c.ty = true)
+    (hnT : Ty.noOwnIn [] c.ty = true) (hrT : rgnFree c.ty = true ∨ TermC1.drf1 c.ty = true)
     (hf : FlipOK (Cut Eg0 g.i S) (stOf mem pairs th) l) (hfo : FpOK (Cut Eg0 g.i S) (stOf mem pairs th)) :
     ∃ HP' HS' cr' db', ThSysAt p g mem pairs th (plant1 Eg l F Np) Tot HP' HS' cr' db' S ∧
       (HP' + HS') + pSum (stOf mem pairs th) cr' + pSum (stOf mem pairs th) db =
@@ -477,7 +477,7 @@ theorem ThSysAt_flip1B {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th :
     (hrl : Eg0.rini l ≤ Eg0.ini l) (hNp : Np = Eg0.ini l)
     (hF : F ≤ (stOf mem pairs th).vs.vWr ∨ HoldW (Cut Eg0 g.i S) (stOf mem pairs th) l F)
     (hcpl : ∀ b S', SegOf c.ty b S' → accs S' ≠ none → TearOK S') (hcT : Ty.coupledOKIn [] c.ty = true)
-    (hnT : Ty.noOwnIn [] c.ty = true) (hrT : rgnFree c.ty = true)
+    (hnT : Ty.noOwnIn [] c.ty = true) (hrT : rgnFree c.ty = true ∨ TermC1.drf1 c.ty = true)
     (hf : FlipOK (Cut Eg0 g.i S) (stOf mem pairs th) l) (hfo : FpOK (Cut Eg0 g.i S) (stOf mem pairs th)) :
     ∃ HP' HS' cr' db', ThSysAt p g mem pairs th (plant1 Eg l F Np) Tot HP' HS' cr' db' S ∧
       (HP' + HS') + pSum (stOf mem pairs th) cr' + pSum (stOf mem pairs th) db =

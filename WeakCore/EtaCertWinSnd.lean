@@ -51,7 +51,7 @@ theorem tidAt_cutEgP {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} 
 `hW` (base, as `certWinP1_of`), `hWC` (as `certWinC_of`), and `hWA` (the anchor temporaries at
 `Cut (EgP …) j S1`, window from `promise c j a v w`). -/
 theorem certWinP2_of {p : Prog} {k : Promises.Knobs} {arch : Arch} {Sp : Cfg → Cfg → Prop} {Init : Res}
-    {MintOK : Res → Prop} {c0 : Cfg} (hck : checkProg p = .ok ()) (hsw : TermScope.ProgScopeOKW p = true)
+    {MintOK : Res → Prop} {c0 : Cfg} (hty : ProgT p) (hdy : TermSound.DyClean p) (hsw : TermScope.ProgScopeOKW p = true)
     (hk : k.storeDepRts = true) (A : SpArms p k arch Sp c0)
     (hWC : ∀ {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {i : Nat}
       {th : TTh} {r : Memory × List Ts × TTh}, TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r →
@@ -79,19 +79,19 @@ theorem certWinP2_of {p : Prog} {k : Promises.Knobs} {arch : Arch} {Sp : Cfg →
         NoHoldPubN p k arch (Cut Eg j S1)
           (Cut (EgP Eg (TermPlantF.plantOf c Eg j a v w) (TermPlantF.plantN c Eg j a v w) j c.mem.size) j S1) j c1 := by
   intro c Eg Tot HP HS cr db j th a v w X HP' HS' cr' db' S1 hS1 c1 h1 h2
-  have hP : ProgT p := TermScope.progT_of_check hck
+  have hP : ProgT p := hty
   have hPSc : TermScope.ProgScopeOK p = true := TermScope.ProgScopeOKW.scope hsw
-  haveI hR : ProgRetIall p := ⟨fun _ hd => TermScope.noIallV_of_drf _ (TermScope.ProgScopeOK.decl hPSc hd).2.1, hck⟩
-  haveI : TermA4.ProgCkWC p := ⟨TermA4.progCkW_of_scopeW hsw, hck⟩
+  haveI hR : ProgRetIall p := ⟨fun _ hd => TermScope.noIallV_of_drf1L _ (TermScope.drf1L_of_drf1 _ (TermScope.ProgScopeOK.decl hPSc hd).2.1), hdy⟩
+  haveI : TermA4.ProgCkWC p := ⟨TermA4.progCkW_of_scopeW hsw, hdy⟩
   haveI : TermTyped.WrIniC := TermWrSiteA.wrIniC
   -- the run facts, on conjunct 1 only
   have P1 : TermCertScope.CertWinP1 p k arch Sp Init MintOK c0 := fun X S hS c1 h1 h2 =>
-    TermDPlus.noHoldPubA_of_N (certWinP1_of hck hsw A hW X S hS c1 h1 h2)
+    TermDPlus.noHoldPubA_of_N (certWinP1_of hty hdy hsw A hW X S hS c1 h1 h2)
   have hsc : TermCertScope.CertScopeP p k arch Sp Init MintOK c0 := TermCertScope.certScopeP_of hPSc A.runDRF
   have hRP : TermNoHold.CertRunP p k arch Sp Init MintOK c0 := fun X S hS c1 h1 h2 =>
     ⟨hsc X c1 h1 h2, P1 X S hS c1 h1 h2⟩
   have hCW : TermCertScope.CertWinC p k arch Sp Init MintOK c0 :=
-    TermCertScope.certWinC_of_N (certWinC_of hck hsw A hWC)
+    TermCertScope.certWinC_of_N (certWinC_of hty hdy hsw A hWC)
   have hNP : TermPtrKey.NoFulPlRunGL p k arch :=
     TermPtrKey.noFulPlRunGL_of (hPS := pwSkel_ok) (hSub := pwSubS_ok) (hSig := pwSig_ok) hP
       (TermK2aFin.ptrRtsThreadGL_v3d (TermFulCntROf.fulCntR_of p)) (TermPtrKey.footNCB_of p pwSkel_ok pwSubS_ok pwSig_ok)
@@ -117,7 +117,7 @@ theorem certWinP2_of {p : Prog} {k : Promises.Knobs} {arch : Arch} {Sp : Cfg →
   have hPH := TermPredHoldP.predHold_promX (n' := c.mem.size) X X.inv.predHold hspec (TermPredHoldP.plantHeld_of X)
   obtain ⟨epc, hpj, -⟩ := promise_inv (a := a) (v := v) (w := w) X.hth
   have hthS : (promise c j a v w).ths[j]? = some (thP th c.mem.size) := hpj
-  have hrsS : TermScope.RunScope (promise c j a v w) := TermCertScope.drf_prom (A.runDRF X.run)
+  have hrsS : TermScope.RunScopeI (promise c j a v w) := TermCertScope.drf_prom (A.runDRF X.run)
   have hvIS : TermViewInv.ViewInv (promise c j a v w) := TermViewInv.viewInv_prom (A.viewInv X.run) X.hw
   have hTAS := tidAt_cutEgP X.inv (N := TermPlantF.plantN c Eg j a v w) hspec S1 (a := a) (v := v) (w := w)
   have hmS : MemInv (gOf p k arch (promise c j a v w) j)
@@ -135,7 +135,7 @@ theorem certWinP2_of {p : Prog} {k : Promises.Knobs} {arch : Arch} {Sp : Cfg →
 
 /-- **(B12) `CertWinPNX`** (both conjuncts) from the named window temporaries. -/
 theorem certWinP_of {p : Prog} {k : Promises.Knobs} {arch : Arch} {Sp : Cfg → Cfg → Prop} {Init : Res}
-    {MintOK : Res → Prop} {c0 : Cfg} (hck : checkProg p = .ok ()) (hsw : TermScope.ProgScopeOKW p = true)
+    {MintOK : Res → Prop} {c0 : Cfg} (hty : ProgT p) (hdy : TermSound.DyClean p) (hsw : TermScope.ProgScopeOKW p = true)
     (hk : k.storeDepRts = true) (A : SpArms p k arch Sp c0)
     (hWC : ∀ {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {i : Nat}
       {th : TTh} {r : Memory × List Ts × TTh}, TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r →
@@ -154,6 +154,6 @@ theorem certWinP_of {p : Prog} {k : Promises.Knobs} {arch : Arch} {Sp : Cfg → 
       WinTmpA p k arch (EgP Eg (TermPlantF.plantOf c Eg j a v w) (TermPlantF.plantN c Eg j a v w) j c.mem.size)
         j S1 (promise c j a v w)) :
     TermCertScope.CertWinPNX p k arch Sp Init MintOK c0 :=
-  fun X => ⟨certWinP1_of hck hsw A hW X, certWinP2_of hck hsw hk A hWC hW hWA X⟩
+  fun X => ⟨certWinP1_of hty hdy hsw A hW X, certWinP2_of hty hdy hsw hk A hWC hW hWA X⟩
 
 end CertWinProof

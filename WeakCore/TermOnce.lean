@@ -167,6 +167,10 @@ theorem MintStep_wd {g : G} {η : TEnv} {s s' : St} {C F : Res} (h : MintStep g 
       by_cases e : n = ridNext η
       · exact Or.inr ⟨e, rfl⟩
       · left; simp [Res.add_apply, e]
+  | freshC _ =>
+      by_cases e : n = ridNext η
+      · exact Or.inr ⟨e, rfl⟩
+      · left; simp [Res.add_apply, e]
   | epoch => left; simp
   | share => left; simp
   | claim => left; simp
@@ -182,6 +186,10 @@ theorem MintStep_rg {g : G} {η : TEnv} {s s' : St} {C F : Res} (h : MintStep g 
   cases h with
   | none => exact Or.inl rfl
   | fresh =>
+      by_cases e : n = ridNext η
+      · exact Or.inr (Or.inl ⟨e, rfl⟩)
+      · left; simp [Res.add_apply, e]
+  | freshC _ =>
       by_cases e : n = ridNext η
       · exact Or.inr (Or.inl ⟨e, rfl⟩)
       · left; simp [Res.add_apply, e]
@@ -572,6 +580,7 @@ theorem MintStep_sh {g : G} {η : TEnv} {s s' : St} {C F : Res} (h : MintStep g 
   cases h with
   | none => exact Or.inl rfl
   | fresh => left; simp
+  | freshC _ => left; simp
   | epoch => left; simp
   | share => exact one_sh_cases _ n
   | claim => left; simp
@@ -588,6 +597,7 @@ theorem MintStep_own {g : G} {η : TEnv} {s s' : St} {C F : Res} (h : MintStep g
   cases h with
   | none => exact Or.inl rfl
   | fresh => left; simp
+  | freshC _ => left; simp
   | epoch => left; simp
   | share => left; simp
   | claim => left; simp
@@ -623,6 +633,7 @@ theorem MintOwnL_step {g : G} {A : List Nat} {M : Res} (h : MintOwnL A M) {η : 
   cases hm with
   | none => exact keep fun _ => rfl
   | fresh => exact keep fun _ => by simp
+  | freshC _ => exact keep fun _ => by simp
   | epoch => exact keep fun _ => by simp
   | share => exact keep fun _ => by simp
   | claim => exact keep fun _ => by simp

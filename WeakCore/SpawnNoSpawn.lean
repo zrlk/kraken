@@ -190,11 +190,14 @@ theorem cfgNoS_step {p : Prog} {k : Promises.Knobs} {arch : Arch} {c c' : Cfg}
 theorem no_spawn {p : Prog} {k : Promises.Knobs} {arch : Arch} {cap : Nat} {c c' : Cfg}
     (hc : CfgNoS isSpawn c) (h : Spawn p k arch cap c c') : False := by
   -- version-independent destructuring (survives the `spawn f a ts` → `spawn f a T ts`)
-  cases h
-  rename_i hth hterm _ _ _
-  have := (hc _ _ hth).1
-  rw [hterm] at this
-  exact this.1 rfl
+  rcases TermSpawnStep.Spawn.elim h with ⟨_, _, _, _, _, _, _, _, _, _, hth, hterm, -⟩ |
+      ⟨_, _, _, _, _, _, _, _, _, _, _, _, hth, hterm, -⟩
+  · have := (hc _ _ hth).1
+    rw [hterm] at this
+    exact this.1 rfl
+  · have := (hc _ _ hth).1
+    rw [hterm] at this
+    exact this.1 rfl
 
 /-- (StepsR removed, copy rule) The spawn-free run relation is `StepsG p k arch (fun _ _ => False)`
 (the TermSpawnStep); at assembly `StepsG.ofSteps`/`StepsG.toSteps_bot` (SpawnFinal) identify it with

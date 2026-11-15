@@ -52,7 +52,7 @@ variable {Sp : TermRun.Cfg → TermRun.Cfg → Prop}
 
 /-- (P2) **`PrivSlotF` from `PrivCoh`**: given that every `MemInv` carries `PrivCoh` (the clause,
 folded into `FreshLP`), the residual PrivSlotFresh holds. -/
-theorem privSlot_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : TermNoHold.CertRunP p k arch Sp Init MintOK c0)
+theorem privSlot_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : TermNoHold.CertRunP p k arch Sp Init MintOK c0)
     (hPC : ∀ {g : G} {E : TEnv} {s : St}, MemInv g E s → PrivCoh E s) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) :
     TermPlantS.PrivSlotF p k arch Sp Init MintOK c0 := by
   intro c Eg Tot HP HS cr db j th a v w X l f hf hno cl N e us hcl _ hT hu i h1 h2
@@ -153,7 +153,7 @@ variable {Sp : TermRun.Cfg → TermRun.Cfg → Prop}
 /-- (P3) **No new slots past a two-word unit**: a planted buffer whose element layout has a
 `.two` unit is not raised (`plantN ≤ ini`): the first word of that unit in slot `ini` would be
 held by an outstanding promise, but certified promises lie at `.one` units (`SWOne_holds`). -/
-theorem plantN_two (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : TermNoHold.CertRunP p k arch Sp Init MintOK c0)
+theorem plantN_two (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : TermNoHold.CertRunP p k arch Sp Init MintOK c0)
     {c : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {j : Nat} {th : TTh}
     {a : Address} {v : WeakMem.Val} {w : Ts} (X : PCtxX p k arch Sp Init MintOK c0 c Eg Tot HP HS cr db j th a v w)
     {l : AllocLabel} {f : Ts} {cl : Cell} {N : Nat} {e : Ty} {us : List Acc} {i : Nat}

@@ -84,18 +84,18 @@ theorem promClos_spawnT (h : PromClosG Eg c) : PromClosG (EgK Eg c) (spawnT c i 
     (P := fun j _ t => ∀ m, c.mem[t]? = some m →
       ∀ (a' : Address) (g : Nat), m.val = .loc a' g → ∀ cl, Eg.sto a'.label = some cl → cl.owner = some j →
       ∀ cm, Eg.sto m.loc.label = some cm → (cm.owner = some j ∨ Eg.Shared m.loc.label) →
-        Ty.noOwnIn [] cm.ty = true → rgnFree cm.ty = true → ∃ f, Eg.pfr a'.label = some f)
+        Ty.noOwnIn [] cm.ty = true → ∃ f, Eg.pfr a'.label = some f)
     (fun j tj t hj ht m hm => h j tj t m hj ht hm) j tj t hj ht m hm
 
 /-- `fgnClos`, given the target transfer (`TgtOK` reads the stride `c.ths.size`; on M0 it is `c.n`, kept). -/
 theorem fgnClos_spawnT (h : FgnPromClosG Eg c)
     (hT : ∀ j l, TgtOK Eg c j l → TgtOK (EgK Eg c) (spawnT c i par kid) j l) :
     FgnPromClosG (EgK Eg c) (spawnT c i par kid) :=
-  fun j tj t m hj ht hm a' g hv cm hcm hno hrg => hT j _ (spawnT_promAll hth hpp hkp
+  fun j tj t m hj ht hm a' g hv cm hcm hno => hT j _ (spawnT_promAll hth hpp hkp
     (P := fun j _ t => ∀ m, c.mem[t]? = some m →
       ∀ (a' : Address) (g : Nat), m.val = .loc a' g → ∀ cm, Eg.sto m.loc.label = some cm →
-        Ty.noOwnIn [] cm.ty = true → rgnFree cm.ty = true → TgtOK Eg c j a'.label)
-    (fun j tj t hj ht m hm => h j tj t m hj ht hm) j tj t hj ht m hm a' g hv cm hcm hno hrg)
+        Ty.noOwnIn [] cm.ty = true → TgtOK Eg c j a'.label)
+    (fun j tj t hj ht m hm => h j tj t m hj ht hm) j tj t hj ht m hm a' g hv cm hcm hno)
 
 theorem promAbove_spawnT (h : TermOverCr.PromAboveG c) : TermOverCr.PromAboveG (spawnT c i par kid) :=
   spawnT_thAll hth (P := fun _ tj => PromAbove (stOf c.mem c.pairs tj)) (fun j tj hj _ => h j tj hj)

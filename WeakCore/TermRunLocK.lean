@@ -208,7 +208,7 @@ theorem runAgreeT3K_of {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res
 /-- **The `RunAgree` field's content holds** (`TermRunPayT.RunAgreeFT3`): `runAgreeF2_of`/`runAgreeT2_of`
 at `runAgreeF3K_of`/`runAgreeT3K_of`. -/
 theorem runAgreeFT3_holds {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {MintOK : Res → Prop}
-    {c0 : Cfg} (hV0 : TermViewInv.ViewInvR p k arch Sp c0) (h0 : TermPlantF.PromViewLtR p k arch Sp c0) (hk : k.storeDepRts = true) (hP : ProgT p) [ProgRetIall p] [TermTyped.WrIniC]
+    {c0 : Cfg} (hV0 : TermViewInv.ViewInvR p k arch Sp c0) (h0 : TermPlantF.PromViewLtR p k arch Sp c0) (hk : k.storeDepRts = true) (hP : ProgT p) [ProgRetIall p] [TermA4.ProgCkWC p] [TermTyped.WrIniC]
     (hps : TermScope.ProgScopeOK p = true) (h0d : TermScope.RunScopeR p k arch Sp c0)
     (hS : TermCertScope.CertScopeP p k arch Sp Init MintOK c0) (hWn : TermCertScope.CertWinP p k arch Sp Init MintOK c0)
     (hCW : TermCertScope.CertWinC p k arch Sp Init MintOK c0) (hNP : TermPtrKey.NoFulPlRunGL p k arch)

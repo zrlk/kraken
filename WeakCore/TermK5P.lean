@@ -47,45 +47,158 @@ theorem pfrProvE_start (p : Prog) (k : Promises.Knobs) (arch : Arch) (j : Nat) (
     (E0 : TEnv) (st : Cfg) : PfrProvE p k arch j H E0 st st E0 :=
   fun _ _ _ _ h0 => .inl ⟨h0, .refl _⟩
 
+/-- **`tstep_footprint` at a `region`**: the footprint's environment also gives the region's cell a
+frontier (`TermC1.tstepM_region1`'s `RgnPubT1`), as `tstep_footprintP` at a `publish`. -/
+theorem tstep_footprintRg {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
+    {cx : Cx} {ρ : Nat → Nat} {η : TEnv}
+    (hsc : ScopeD th.σs cx th.term)
+    (hT : TypedK p η cx th.term) (hi : FInv ρ η th.σs (Resume p th.stack) cx th.env)
+    (hE : EnvOK p η) (htv : TvOK cx) (hm : MemInv g (CE η) (stOf mem pairs th))
+    (hwin : PubWinT (CE η) (stOf mem pairs th) th)
+    (hRP : RetPw th.σs th.stack cx.ret) (hPS : PwSkel)
+    {a : At} {rn pn tn : String} {e : Expr} (hterm : th.term = .region a rn pn tn e)
+    (hPbR : ∀ rt ws ad, evalAt th.env a = some (rt, ws) → ws.map (·.val) = [.loc ad 0] → g.pf ad.label)
+    (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
+    tstep g mem pairs th ≠ [] ∧ ∀ r ∈ tstep g mem pairs th,
+      ∃ E', Foot g (CE η) E' (stOf mem pairs th) (stOf r.1 r.2.1 r.2.2) ∧ Ext (CE η) E' ∧
+        ThInvE p E' r.2.2 ∧ MemInv g E' (stOf r.1 r.2.1 r.2.2) ∧ TermC1.RgnPubT1 E' th := by
+  have hsc' : StepScope cx th.term := by
+    rcases hsc with hsc | ⟨-, x', e', ⟨a1, b1, h1⟩ | ⟨a1, h1⟩ | ⟨a1, h1⟩⟩
+    · exact hsc
+    all_goals (rw [hterm] at h1; cases h1)
+  rw [hterm] at hsc'
+  have hsc2 : PubScope cx a ∧ RgnCpl cx a := hsc'
+  have h := TermC1.tstepM_region1 (hDy := hDy) hterm hT hi hE htv hm hRP hPS hsc2.2 hsc2.1
+    (fun rt ws ad => hwin.2.1 _ _ _ _ _ rt ws ad hterm) hPbR
+  refine ⟨h.1, fun r hr => ?_⟩
+  obtain ⟨E', hF, h1, h2, hD⟩ := h.2 r hr
+  have hF' : Foot g (CE η) E' (stOf mem pairs th) (stOf r.1 r.2.1 r.2.2) := ⟨hF, fun l hl => fresh_blank hm hl⟩
+  have hx : Ext (CE η) E' := by
+    obtain ⟨_, η', _, hce, _⟩ := h1
+    subst hce; exact Foot_ext hF'
+  exact ⟨E', hF', hx, h1, h2, hD⟩
+
+/-- **`tstep_footprint` at an `intoRgn`**: as `tstep_footprintRg` (`TermC1.tstepM_intoRgn1`'s `IntoPubT1`). -/
+theorem tstep_footprintIn {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
+    {cx : Cx} {ρ : Nat → Nat} {η : TEnv}
+    (hsc : ScopeD th.σs cx th.term)
+    (hT : TypedK p η cx th.term) (hi : FInv ρ η th.σs (Resume p th.stack) cx th.env)
+    (hE : EnvOK p η) (htv : TvOK cx) (hm : MemInv g (CE η) (stOf mem pairs th))
+    (hwin : PubWinT (CE η) (stOf mem pairs th) th)
+    (hRP : RetPw th.σs th.stack cx.ret) (hPS : PwSkel)
+    (hP : ProgT p) {x rn : String} {a : At} {e : Expr} (hterm : th.term = .let_ x (.intoRgn rn a) e)
+    (hPbI : ∀ rt ws ad, evalAt th.env a = some (rt, ws) → ws.map (·.val) = [.loc ad 0] → g.pf ad.label)
+    (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
+    tstep g mem pairs th ≠ [] ∧ ∀ r ∈ tstep g mem pairs th,
+      ∃ E', Foot g (CE η) E' (stOf mem pairs th) (stOf r.1 r.2.1 r.2.2) ∧ Ext (CE η) E' ∧
+        ThInvE p E' r.2.2 ∧ MemInv g E' (stOf r.1 r.2.1 r.2.2) ∧ TermC1.IntoPubT1 E' th := by
+  have hsc' : StepScope cx th.term := by
+    rcases hsc with hsc | ⟨-, x', e', ⟨a1, b1, h1⟩ | ⟨a1, h1⟩ | ⟨a1, h1⟩⟩
+    · exact hsc
+    all_goals (rw [hterm] at h1; cases h1)
+  rw [hterm] at hsc'
+  have hsc2 : PubScope cx a ∧ RgnCpl cx a := hsc'
+  have h := TermC1.tstepM_intoRgn1 (hDy := hDy) hterm hP hT hi hE htv hm hRP hPS hsc2.2 hsc2.1
+    (fun rt ws ad => hwin.2.2 _ _ _ _ rt ws ad hterm) hPbI
+  refine ⟨h.1, fun r hr => ?_⟩
+  obtain ⟨E', hF, h1, h2, hD⟩ := h.2 r hr
+  have hF' : Foot g (CE η) E' (stOf mem pairs th) (stOf r.1 r.2.1 r.2.2) := ⟨hF, fun l hl => fresh_blank hm hl⟩
+  have hx : Ext (CE η) E' := by
+    obtain ⟨_, η', _, hce, _⟩ := h1
+    subst hce; exact Foot_ext hF'
+  exact ⟨E', hF', hx, h1, h2, hD⟩
+
+
+/-- `tstep_footprintK` with `NewCellSto` of its witness (route (a): the consumers' `tyRun_thread` link). -/
+theorem tstep_footprintKN {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
+    {cx : Cx} {ρ : Nat → Nat} {η : TEnv}
+    [ProgRetIall p] [TermA4.ProgCkWC p] (hP : ProgT p) (hp : g.p = p) (hn : 0 < g.n) (hnd : isDone th = false)
+    (hsc : ScopeD th.σs cx th.term)
+    (hT : TypedK p η cx th.term) (hi : FInv ρ η th.σs (Resume p th.stack) cx th.env)
+    (hE : EnvOK p η) (htv : TvOK cx) (hm : MemInv g (CE η) (stOf mem pairs th)) (hbf : g.boxFence = true)
+    (hpx : PAx g mem pairs th) (hwin : PubWinT (CE η) (stOf mem pairs th) th)
+    (hZ : ∀ l, BufInitOn th l → ¬ g.zf l) (hgp : ∀ l, PubAt th l → g.pf l) (hRP : RetPw th.σs th.stack cx.ret) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) (hTy : TyOKE g (CE η)) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
+    tstep g mem pairs th ≠ [] ∧ ∀ r ∈ tstep g mem pairs th, PromAbove (stOf r.1 r.2.1 r.2.2) →
+      ∃ E', Foot g (CE η) E' (stOf mem pairs th) (stOf r.1 r.2.1 r.2.2) ∧ Ext (CE η) E' ∧
+        ThInvE p E' r.2.2 ∧ MemInv g E' (stOf r.1 r.2.1 r.2.2) ∧ (∀ l, PubAt th l → E'.pfr l ≠ none) ∧
+        NewCellSto g ρ η th E' := by
+  have hPb : ∀ y a e rt ws ad, th.term = .let_ y (.publish a) e → evalAt th.env a = some (rt, ws) →
+      ws.map (·.val) = [.loc ad 0] → g.pf ad.label :=
+    fun y a e rt ws ad h1 h2 h3 => hgp _ ⟨a, rt, ws, ad, Or.inl ⟨y, e, h1⟩, h2, h3, rfl⟩
+  have hPbR : ∀ a rn pn tn e rt ws ad, th.term = .region a rn pn tn e → evalAt th.env a = some (rt, ws) →
+      ws.map (·.val) = [.loc ad 0] → g.pf ad.label :=
+    fun a rn pn tn e rt ws ad h1 h2 h3 => hgp _ ⟨a, rt, ws, ad, Or.inr (Or.inl ⟨rn, pn, tn, e, h1⟩), h2, h3, rfl⟩
+  have hPbI : ∀ x r a e rt ws ad, th.term = .let_ x (.intoRgn r a) e → evalAt th.env a = some (rt, ws) →
+      ws.map (·.val) = [.loc ad 0] → g.pf ad.label :=
+    fun x r a e rt ws ad h1 h2 h3 => hgp _ ⟨a, rt, ws, ad, Or.inr (Or.inr ⟨x, r, e, h1⟩), h2, h3, rfl⟩
+  by_cases hpub : ∃ x a e, th.term = .let_ x (.publish a) e
+  · obtain ⟨x, a, e, hterm⟩ := hpub
+    have h := tstep_footprintP (hDy := hDy) (hPb := hPb) (hRP := hRP) (hPS := hPS) hP hsc hT hi hE htv hm hwin hterm
+    refine ⟨h.1, fun r hr _ => ?_⟩
+    obtain ⟨E', hF, hx, h1, h2, hD⟩ := h.2 r hr
+    refine ⟨E', hF, hx, h1, h2, fun l hl => ?_, NewCellSto_vac fun x' a' T e' he => by rw [hterm] at he; cases he⟩
+    obtain ⟨a', rt, ws, ad, ⟨y, e', h3⟩ | ⟨rn', pn', tn', e', h3⟩ | ⟨y, rn', e', h3⟩, h4, h5, rfl⟩ := hl
+    · exact hD y a' e' rt ws ad h3 h4 h5
+    all_goals (rw [hterm] at h3; cases h3)
+  rcases (show (∃ a rn pn tn e, th.term = .region a rn pn tn e) ∨ ¬ (∃ a rn pn tn e, th.term = .region a rn pn tn e) from
+      if h : TermStep.termIsRgn th.term = true then .inl ((TermStep.termIsRgn_iff _).1 h)
+      else .inr (fun h' => h ((TermStep.termIsRgn_iff _).2 h'))) with hrg | hrg
+  · obtain ⟨a, rn, pn, tn, e, hterm⟩ := hrg
+    have h := tstep_footprintRg (hDy := hDy) hsc hT hi hE htv hm hwin hRP hPS hterm
+      (fun rt ws ad => hPbR _ _ _ _ _ rt ws ad hterm)
+    refine ⟨h.1, fun r hr _ => ?_⟩
+    obtain ⟨E', hF, hx, h1, h2, hD⟩ := h.2 r hr
+    refine ⟨E', hF, hx, h1, h2, fun l hl => ?_, NewCellSto_vac fun x' a' T e' he => by rw [hterm] at he; cases he⟩
+    obtain ⟨a', rt, ws, ad, ⟨y, e', h3⟩ | ⟨rn', pn', tn', e', h3⟩ | ⟨y, rn', e', h3⟩, h4, h5, rfl⟩ := hl
+    · rw [hterm] at h3; cases h3
+    · exact (hD a' rn' pn' tn' e' rt ws ad h3 h4 h5).1
+    · rw [hterm] at h3; cases h3
+  rcases (show (∃ x rn a e, th.term = .let_ x (.intoRgn rn a) e) ∨ ¬ (∃ x rn a e, th.term = .let_ x (.intoRgn rn a) e) from
+      if h : TermStep.termIsInto th.term = true then .inl ((TermStep.termIsInto_iff _).1 h)
+      else .inr (fun h' => h ((TermStep.termIsInto_iff _).2 h'))) with hin | hin
+  · obtain ⟨x, rn, a, e, hterm⟩ := hin
+    have h := tstep_footprintIn (hDy := hDy) hsc hT hi hE htv hm hwin hRP hPS hP hterm
+      (fun rt ws ad => hPbI _ _ _ _ rt ws ad hterm)
+    refine ⟨h.1, fun r hr _ => ?_⟩
+    obtain ⟨E', hF, hx, h1, h2, hD⟩ := h.2 r hr
+    refine ⟨E', hF, hx, h1, h2, fun l hl => ?_, NewCellSto_vac fun x' a' T e' he => by rw [hterm] at he; cases he⟩
+    obtain ⟨a', rt, ws, ad, ⟨y, e', h3⟩ | ⟨rn', pn', tn', e', h3⟩ | ⟨y, rn', e', h3⟩, h4, h5, rfl⟩ := hl
+    · rw [hterm] at h3; cases h3
+    · rw [hterm] at h3; cases h3
+    · exact (hD y rn' a' e' rt ws ad h3 h4 h5).1
+  have h := tstep_footprintN (hDy := hDy) (hZ := ZOK_of_not hZ) (hPb := hPb) (hPbR := hPbR) (hPbI := hPbI) hP hp hn hnd hsc hT hi hE htv hm hbf hpx hwin hRP hPS hSub hSig hTy
+  refine ⟨h.1, fun r hr hpa => ?_⟩
+  obtain ⟨E', hF, hx, h1, h2, hN⟩ := h.2 r hr hpa
+  refine ⟨E', hF, hx, h1, h2, fun l hl => ?_, hN⟩
+  obtain ⟨a', -, -, -, ⟨y, e', h3⟩ | ⟨rn', pn', tn', e', h3⟩ | ⟨y, rn', e', h3⟩, -⟩ := hl
+  · exact absurd ⟨y, a', e', h3⟩ hpub
+  · exact absurd ⟨a', rn', pn', tn', e', h3⟩ hrg
+  · exact absurd ⟨y, rn', a', e', h3⟩ hin
+
 /-- (S1b) **The footprint with the publish recorded**: `tstep_footprint` at a thread step whose
 ghost `g.pf` admits the `publish` labels (`hgp`); at a `publish` naming `l` the new environment has
 a frontier at `l` (`tstep_footprintP`; off a `publish` there is no such `l`). -/
 theorem tstep_footprintK {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
     {cx : Cx} {ρ : Nat → Nat} {η : TEnv}
-    [ProgRetIall p] (hP : ProgT p) (hp : g.p = p) (hn : 0 < g.n) (hnd : isDone th = false)
+    [ProgRetIall p] [TermA4.ProgCkWC p] (hP : ProgT p) (hp : g.p = p) (hn : 0 < g.n) (hnd : isDone th = false)
     (hsc : ScopeD th.σs cx th.term)
-    (hT : Typed p cx th.term) (hi : FInv ρ η th.σs (Resume p th.stack) cx th.env)
+    (hT : TypedK p η cx th.term) (hi : FInv ρ η th.σs (Resume p th.stack) cx th.env)
     (hE : EnvOK p η) (htv : TvOK cx) (hm : MemInv g (CE η) (stOf mem pairs th)) (hbf : g.boxFence = true)
     (hpx : PAx g mem pairs th) (hwin : PubWinT (CE η) (stOf mem pairs th) th)
     (hZ : ∀ l, BufInitOn th l → ¬ g.zf l) (hgp : ∀ l, PubAt th l → g.pf l) (hRP : RetPw th.σs th.stack cx.ret) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) (hTy : TyOKE g (CE η)) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
     tstep g mem pairs th ≠ [] ∧ ∀ r ∈ tstep g mem pairs th, PromAbove (stOf r.1 r.2.1 r.2.2) →
       ∃ E', Foot g (CE η) E' (stOf mem pairs th) (stOf r.1 r.2.1 r.2.2) ∧ Ext (CE η) E' ∧
         ThInvE p E' r.2.2 ∧ MemInv g E' (stOf r.1 r.2.1 r.2.2) ∧ ∀ l, PubAt th l → E'.pfr l ≠ none := by
-  have hPb : ∀ y a e rt ws ad, th.term = .let_ y (.publish a) e → evalAt th.env a = some (rt, ws) →
-      ws.map (·.val) = [.loc ad 0] → g.pf ad.label :=
-    fun y a e rt ws ad h1 h2 h3 => hgp _ ⟨y, a, e, rt, ws, ad, h1, h2, h3, rfl⟩
-  by_cases hpub : ∃ x a e, th.term = .let_ x (.publish a) e
-  · obtain ⟨x, a, e, hterm⟩ := hpub
-    have h := tstep_footprintP (hDy := hDy) (hPb := hPb) (hRP := hRP) (hPS := hPS) hP hsc hT hi hE htv hm hwin hterm
-    refine ⟨h.1, fun r hr _ => ?_⟩
-    obtain ⟨E', hF, hx, h1, h2, hD⟩ := h.2 r hr
-    refine ⟨E', hF, hx, h1, h2, fun l hl => ?_⟩
-    obtain ⟨y, a', e', rt, ws, ad, h3, h4, h5, rfl⟩ := hl
-    exact hD y a' e' rt ws ad h3 h4 h5
-  · have h := tstep_footprint (hDy := hDy) (hZ := ZOK_of_not hZ) (hPb := hPb) hP hp hn hnd hsc hT hi hE htv hm hbf hpx hwin hRP hPS hSub hSig hTy
-    refine ⟨h.1, fun r hr hpa => ?_⟩
-    obtain ⟨E', hF, hx, h1, h2⟩ := h.2 r hr hpa
-    refine ⟨E', hF, hx, h1, h2, fun l hl => ?_⟩
-    obtain ⟨y, a', e', -, -, -, h3, -⟩ := hl
-    exact absurd ⟨y, a', e', h3⟩ hpub
+  have h := tstep_footprintKN (hDy := hDy) hP hp hn hnd hsc hT hi hE htv hm hbf hpx hwin hZ hgp hRP hPS hSub hSig hTy
+  exact ⟨h.1, fun r hr hpa => let ⟨E', h1, h2, h3, h4, h5, _⟩ := h.2 r hr hpa; ⟨E', h1, h2, h3, h4, h5⟩⟩
 
 /-- (certWin-D) **`tstep_footprintK` with the count a `bufInit` leaves** (`TermTyped.BumpIf`):
 `TermTyped.tstep_footprintB` at a `bufInit` (no `publish` label), `tstep_footprintK` elsewhere. -/
 theorem tstep_footprintKQ {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
     {cx : Cx} {ρ : Nat → Nat} {η : TEnv}
-    [ProgRetIall p] (hP : ProgT p) (hp : g.p = p) (hn : 0 < g.n) (hnd : isDone th = false)
+    [ProgRetIall p] [TermA4.ProgCkWC p] (hP : ProgT p) (hp : g.p = p) (hn : 0 < g.n) (hnd : isDone th = false)
     (hsc : ScopeD th.σs cx th.term)
-    (hT : Typed p cx th.term) (hi : FInv ρ η th.σs (Resume p th.stack) cx th.env)
+    (hT : TypedK p η cx th.term) (hi : FInv ρ η th.σs (Resume p th.stack) cx th.env)
     (hE : EnvOK p η) (htv : TvOK cx) (hm : MemInv g (CE η) (stOf mem pairs th)) (hbf : g.boxFence = true)
     (hpx : PAx g mem pairs th) (hwin : PubWinT (CE η) (stOf mem pairs th) th)
     (hZ : ∀ l, BufInitOn th l → ¬ g.zf l) (hgp : ∀ l, PubAt th l → g.pf l) (hRP : RetPw th.σs th.stack cx.ret) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) (hTy : TyOKE g (CE η)) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
@@ -99,8 +212,8 @@ theorem tstep_footprintKQ {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {t
     refine ⟨h.1, fun r hr hpa => ?_⟩
     obtain ⟨E', h1, h2, h3, h4, h5⟩ := h.2 r hr hpa
     refine ⟨E', h1, h2, h3, h4, fun l hl => ?_, TermTyped.bumpIf_of hterm h5⟩
-    obtain ⟨y, a', e', -, -, -, h6, -⟩ := hl
-    rw [hterm] at h6; cases h6
+    obtain ⟨a', -, -, -, ⟨y, e', h6⟩ | ⟨rn', pn', tn', e', h6⟩ | ⟨y, rn', e', h6⟩, -⟩ := hl <;>
+      (rw [hterm] at h6; cases h6)
   · have h := tstep_footprintK (hDy := hDy) hP hp hn hnd hsc hT hi hE htv hm hbf hpx hwin hZ hgp hRP hPS hSub hSig hTy
     refine ⟨h.1, fun r hr hpa => ?_⟩
     obtain ⟨E', h1, h2, h3, h4, h5⟩ := h.2 r hr hpa
@@ -108,43 +221,12 @@ theorem tstep_footprintKQ {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {t
 
 #print axioms TermK5P.tstep_footprintKQ
 
-/-- `tstep_footprintK` with `NewCellSto` of its witness (route (a): the consumers' `tyRun_thread` link). -/
-theorem tstep_footprintKN {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
-    {cx : Cx} {ρ : Nat → Nat} {η : TEnv}
-    [ProgRetIall p] (hP : ProgT p) (hp : g.p = p) (hn : 0 < g.n) (hnd : isDone th = false)
-    (hsc : ScopeD th.σs cx th.term)
-    (hT : Typed p cx th.term) (hi : FInv ρ η th.σs (Resume p th.stack) cx th.env)
-    (hE : EnvOK p η) (htv : TvOK cx) (hm : MemInv g (CE η) (stOf mem pairs th)) (hbf : g.boxFence = true)
-    (hpx : PAx g mem pairs th) (hwin : PubWinT (CE η) (stOf mem pairs th) th)
-    (hZ : ∀ l, BufInitOn th l → ¬ g.zf l) (hgp : ∀ l, PubAt th l → g.pf l) (hRP : RetPw th.σs th.stack cx.ret) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) (hTy : TyOKE g (CE η)) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
-    tstep g mem pairs th ≠ [] ∧ ∀ r ∈ tstep g mem pairs th, PromAbove (stOf r.1 r.2.1 r.2.2) →
-      ∃ E', Foot g (CE η) E' (stOf mem pairs th) (stOf r.1 r.2.1 r.2.2) ∧ Ext (CE η) E' ∧
-        ThInvE p E' r.2.2 ∧ MemInv g E' (stOf r.1 r.2.1 r.2.2) ∧ (∀ l, PubAt th l → E'.pfr l ≠ none) ∧
-        NewCellSto g ρ η th E' := by
-  have hPb : ∀ y a e rt ws ad, th.term = .let_ y (.publish a) e → evalAt th.env a = some (rt, ws) →
-      ws.map (·.val) = [.loc ad 0] → g.pf ad.label :=
-    fun y a e rt ws ad h1 h2 h3 => hgp _ ⟨y, a, e, rt, ws, ad, h1, h2, h3, rfl⟩
-  by_cases hpub : ∃ x a e, th.term = .let_ x (.publish a) e
-  · obtain ⟨x, a, e, hterm⟩ := hpub
-    have h := tstep_footprintP (hDy := hDy) (hPb := hPb) (hRP := hRP) (hPS := hPS) hP hsc hT hi hE htv hm hwin hterm
-    refine ⟨h.1, fun r hr _ => ?_⟩
-    obtain ⟨E', hF, hx, h1, h2, hD⟩ := h.2 r hr
-    refine ⟨E', hF, hx, h1, h2, fun l hl => ?_, NewCellSto_vac fun x' a' T e' he => by rw [hterm] at he; cases he⟩
-    obtain ⟨y, a', e', rt, ws, ad, h3, h4, h5, rfl⟩ := hl
-    exact hD y a' e' rt ws ad h3 h4 h5
-  · have h := tstep_footprintN (hDy := hDy) (hZ := ZOK_of_not hZ) (hPb := hPb) hP hp hn hnd hsc hT hi hE htv hm hbf hpx hwin hRP hPS hSub hSig hTy
-    refine ⟨h.1, fun r hr hpa => ?_⟩
-    obtain ⟨E', hF, hx, h1, h2, hN⟩ := h.2 r hr hpa
-    refine ⟨E', hF, hx, h1, h2, fun l hl => ?_, hN⟩
-    obtain ⟨y, a', e', -, -, -, h3, -⟩ := hl
-    exact absurd ⟨y, a', e', h3⟩ hpub
-
 /-- `tstep_footprintKQ` with `NewCellSto` of its witness. -/
 theorem tstep_footprintKQN {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
     {cx : Cx} {ρ : Nat → Nat} {η : TEnv}
-    [ProgRetIall p] (hP : ProgT p) (hp : g.p = p) (hn : 0 < g.n) (hnd : isDone th = false)
+    [ProgRetIall p] [TermA4.ProgCkWC p] (hP : ProgT p) (hp : g.p = p) (hn : 0 < g.n) (hnd : isDone th = false)
     (hsc : ScopeD th.σs cx th.term)
-    (hT : Typed p cx th.term) (hi : FInv ρ η th.σs (Resume p th.stack) cx th.env)
+    (hT : TypedK p η cx th.term) (hi : FInv ρ η th.σs (Resume p th.stack) cx th.env)
     (hE : EnvOK p η) (htv : TvOK cx) (hm : MemInv g (CE η) (stOf mem pairs th)) (hbf : g.boxFence = true)
     (hpx : PAx g mem pairs th) (hwin : PubWinT (CE η) (stOf mem pairs th) th)
     (hZ : ∀ l, BufInitOn th l → ¬ g.zf l) (hgp : ∀ l, PubAt th l → g.pf l) (hRP : RetPw th.σs th.stack cx.ret) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) (hTy : TyOKE g (CE η)) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
@@ -159,8 +241,8 @@ theorem tstep_footprintKQN {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {
     obtain ⟨E', h1, h2, h3, h4, h5⟩ := h.2 r hr hpa
     refine ⟨E', h1, h2, h3, h4, fun l hl => ?_, TermTyped.bumpIf_of hterm h5,
       NewCellSto_vac fun x' a T e' he => by rw [hterm] at he; cases he⟩
-    obtain ⟨y, a', e', -, -, -, h6, -⟩ := hl
-    rw [hterm] at h6; cases h6
+    obtain ⟨a', -, -, -, ⟨y, e', h6⟩ | ⟨rn', pn', tn', e', h6⟩ | ⟨y, rn', e', h6⟩, -⟩ := hl <;>
+      (rw [hterm] at h6; cases h6)
   · have h := tstep_footprintKN (hDy := hDy) hP hp hn hnd hsc hT hi hE htv hm hbf hpx hwin hZ hgp hRP hPS hSub hSig hTy
     refine ⟨h.1, fun r hr hpa => ?_⟩
     obtain ⟨E', h1, h2, h3, h4, h5, hN⟩ := h.2 r hr hpa

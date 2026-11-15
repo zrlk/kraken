@@ -78,6 +78,7 @@ import Scc.Sem.Kernel
 import Kraken.Promising.X64
 import Kraken.Promising.X64Sized
 import Kraken.X64.Parser
+import Scc.Sem.TextX64
 
 namespace Scc.Sem.X64
 
@@ -120,28 +121,8 @@ structure Asm where
   labelOffs : List (String × Nat) := []
   deriving Repr, Inhabited
 
-/-- **The program of a text's `.text` sections**: Kraken's parser on the
-lines of `textSection`, directive lines dropped (`stripDirectives`), except
-that an alignment directive (`.p2align k`, `.balign n`) becomes Kraken's
-`nopalign` cell (`.align n`), whose size is the padding. -/
-def textProgram (asm : String) : Except String Program := do
-  let parseChunk (ls : List String) : Except String Program :=
-    Kraken.X64.Parser.parse (Kraken.X64.Parser.stripDirectives ("\n".intercalate ls.reverse))
-  let alignOf (t : String) : Option Nat :=
-    let ops := ((t.splitOn " ").filter (· ≠ "")).drop 1
-    if t.startsWith ".p2align" then (ops.headD "").toNat?.map (2 ^ ·)
-    else if t.startsWith ".balign" then (ops.headD "").toNat?
-    else none
-  let mut out : Program := []
-  let mut cur : List String := []
-  for l in (textSection asm).splitOn "\n" do
-    let t := " ".intercalate ((l.trimAscii.toString.splitOn "\t").map (·.trimAscii.toString))
-    match alignOf t with
-    | some n =>
-        out := out ++ (← parseChunk cur) ++ (← Kraken.X64.Parser.parse s!".align {n}")
-        cur := []
-    | none => cur := l :: cur
-  return out ++ (← parseChunk cur)
+/-! The program of a text's `.text` sections, `textProgram`, is in
+`Scc/Sem/TextX64.lean`. -/
 
 /-- A text with one byte per instruction (Kraken's `unitTable`) and no
 label offsets: Kraken's unit layout, for the checks below. -/

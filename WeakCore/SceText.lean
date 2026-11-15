@@ -105,6 +105,14 @@ def noInstance (f p : String) : String :=
   s!"live: live def {f}: no instance: protocol {p} is neither robust nor an epoch counter (the held branch is not proved yet)"
 def noScenInstance (s f g t : String) : String :=
   s!"live: live[{s}] def {f}: no scenario instance: thread {g}'s argument type {t} is not the setup's result, a pair of it and the literals, or the literals alone"
+/-- Why a program has no main-start instance (the start wrapper does not check). -/
+def noMainWhy : String :=
+  "the start wrapper's call `main(())` is not accepted by the checker (no `main`, a `main` whose argument is not `Unit` or that takes index or type parameters, or a `main` whose call or result the checker refuses)"
+/-- A bare `live def` in a program without a main-start instance (exit 5). -/
+def noMainInstance (f : String) : String := s!"live: live def {f}: no main-start instance: {noMainWhy}"
+/-- A `live[S] def` in a program without a main-start instance: a note; its scenario instance is still decided. -/
+def noMainNote (f s : String) : String :=
+  s!"live def {f}: no main-start instance: {noMainWhy}; at most the live[{s}] scenario instance is proved"
 /-! ## `--live-proof`, the scenario instance, `--check-only --live-proof` -/
 /-- A scenario instance that holds. -/
 def provedScen (s f : String) : String := s!"live[{s}] def {f}: PROVED (under the standard obligations)"

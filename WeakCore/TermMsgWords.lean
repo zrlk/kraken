@@ -62,7 +62,7 @@ message at a label the step allocates is a promise of the stepper (`fresh`), ful
 (`promAlloc_loc`), not `undef` (`promNU`): `MemOKP` at `E'`.  A new message at a label the step
 allocates: `NewAtT`; elsewhere, `tstep_newPos` at the stepper's own typing (a frame-only step
 appends nothing, `frame_keep`). -/
-theorem msgWords_thread (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [WrIniC] (hP : ProgT p) (hrun : TermPlantF.CertRunT p k arch Sp Init MintOK c0)
+theorem msgWords_thread (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [WrIniC] (hP : ProgT p) (hrun : TermPlantF.CertRunT p k arch Sp Init MintOK c0)
     (hsc : StepScopeF p k arch Sp Init MintOK c0)
     {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {i : Nat}
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
@@ -137,7 +137,7 @@ theorem msgWords_thread (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall
 /-- **The promised address lies within its cell's words**: the promise is fulfilled along the
 certificate by a single-word write (`certified_promTypedX`, `SWOne_holds`), a `.one` unit of a
 component of the cell (as `TermPlantF.promNoTwoP_of`). -/
-theorem promWords_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : CertRunP p k arch Sp Init MintOK c0)
+theorem promWords_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : CertRunP p k arch Sp Init MintOK c0)
     {c : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {j : Nat} {th : TTh}
     {a : Address} {v : WeakMem.Val} {w : Ts}
     (X : PCtxX p k arch Sp Init MintOK c0 c Eg Tot HP HS cr db j th a v w) (cl : Cell)
@@ -178,7 +178,7 @@ theorem promWords_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p]
 
 /-- **`MsgWordsG` after a promise step**: old messages unchanged (the plant keeps `sto`), the new
 one by `promWords_of`. -/
-theorem msgWords_prom (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : CertRunP p k arch Sp Init MintOK c0)
+theorem msgWords_prom (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : CertRunP p k arch Sp Init MintOK c0)
     {c : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {j : Nat} {th : TTh}
     {a : Address} {v : WeakMem.Val} {w : Ts}
     (X : PCtxX p k arch Sp Init MintOK c0 c Eg Tot HP HS cr db j th a v w) (h : MsgWordsG Eg c)

@@ -14,7 +14,9 @@ the return's exit `retNSL` at a held pair, which is `ExitC2SLF`'s
   (the held source takes no step);
 - `seg_heldRN`: a one-exit block's edge at the held nodes is one segment at
   the held frames;
-- `exitC2SLF_of_heldRN`: the return's exit at a held pair is `ExitC2SLF`.
+- `exitC2SLF_of_heldRN`: the return's exit at a held pair is `ExitC2SLF`;
+- `CallC2R`, `CallC2.toR`, `CallC2R.ofCons`: a plain call's segment asked
+  off the return tail at the empty frames.
 -/
 import Spike.Lib.LowerX64.MainExitF
 import Spike.Lib.LowerX64.HeldTail
@@ -165,6 +167,64 @@ theorem heldRetOk_unpack {a : At} {x y : String} {e : Expr} (h : Scc.Lower.heldR
     Scc.Lower.heldRetOk e = true := by
   simpa [Scc.Lower.heldRetOk] using h
 
+/-- **A plain call off the return tail** (`CallC2` asked only where the
+call does not continue with `ret` at the empty frames): at no suspended
+frame a call `let x = g(a) in ret b` is a held tail (`HeldTailCX`), so a
+body with held return tails asks the plain call's segment only at the
+others. At nonempty frames it is `CallC2` (`CallC2.toR`, `CallC2R.ofCons`). -/
+def CallC2R (p : Prog) (lbl : WeakMem.AllocLabel → Option Nat) (lsize : WeakMem.AllocLabel → Nat)
+    (lcx : Scc.Lower.Ctx) (fr : Scc.Emit.X64.Frame)
+    (Cd : Int64 → List (Directive × Nat) → Prop) (Bl : Int64 → Nat → Label → Nat → Prop)
+    (exe : _root_.Executable) (endPc : Int64) (R : Region) (F : MachineData → Prop) (W : FragS isa)
+    (K : State → State → Prop) (ms : List TermRun.Frame → MemSide isa) (fp ra : BitVec 64) (tp : UInt64)
+    (fs : List TermRun.Frame) (G0 : Ctl → Prop) (i : Expr → String → Nat → Option Nat) (T : Expr → Prop)
+    (Ab : FragS isa) (Lk : Expr × List (String × Scc.Lower.LitV) → Prop) : Prop :=
+  ∀ (c0 : Ctl) (pc pc' : Int64) (kk kk' : Nat) (env : Scc.Lower.Env) (n : Nat) (x g : String) (is : List String)
+    (a : At) (ts : List Ty) (e : Expr) (t : Ty) (w : Scc.IR.Operand) (lits : List (String × Scc.Lower.LitV))
+    (cs bufs : List (String × Nat)),
+    (fs = [] → ∀ b, e ≠ .ret b) →
+    G0 c0 → T (.let_ x (.call g is a ts) e) → Fresh env n →
+    LitPt (.let_ x (.call g is a ts) e, lits) → EnvTy2 (.let_ x (.call g is a ts) e, env, n) → GrpL env →
+    Scc.Lower.countsB lcx.prog cs bufs lits (.let_ x (.call g is a ts) e) = true →
+    Spike.Lib.LowerCall.Callee lcx g → atomV env a = some (t, [w]) →
+    InstsC2 fr Cd Bl kk pc [.call [regName "r" n] (Scc.Lower.Names.user g) [w]] kk' pc' →
+    (∀ y ∈ Scc.Sem.exprFv e,
+      (Spike.Lib.Form.lookupS (ofEnv2 ((x, .int, [.reg (regName "r" n)]) :: env)) y).isSome) →
+    ImmIn i (ofEnv2 ((x, .int, [.reg (regName "r" n)]) :: env)) e →
+    LocBaseRegAt (ofEnv2 ((x, .int, [.reg (regName "r" n)]) :: env)) e →
+    PtC2 lcx fr Cd Bl (_root_.Executable.labels exe).label i T Lk kk pc env n lits cs bufs
+      (.let_ x (.call g is a ts) e) →
+    SegWS W K p lbl ms
+      (LetAt p lbl lsize i fr exe endPc R F fp ra tp c0 fs pc (.let_ x (.call g is a ts) e) env lits cs bufs)
+      (ContC p lbl lsize i fr exe endPc R F fp ra tp c0 fs Ab pc' e ((x, .int, [.reg (regName "r" n)]) :: env)
+        ((x, Scc.Lower.opLit lcx.prog lits (.call g is a ts)) :: lits) (Scc.Lower.csAfter x cs (.call g is a ts))
+        (Scc.Lower.bufsAfter x cs bufs (.call g is a ts)))
+
+section CallR
+
+variable {p : Prog} {lbl : WeakMem.AllocLabel → Option Nat} {lsize : WeakMem.AllocLabel → Nat}
+  {lcx : Scc.Lower.Ctx} {fr : Scc.Emit.X64.Frame} {Cd : Int64 → List (Directive × Nat) → Prop}
+  {Bl : Int64 → Nat → Label → Nat → Prop}
+  {exe : _root_.Executable} {endPc : Int64} {R : Region} {F : MachineData → Prop} {W : FragS isa}
+  {K : State → State → Prop} {ms : List TermRun.Frame → MemSide isa} {fp ra : BitVec 64} {tp : UInt64}
+  {fs : List TermRun.Frame} {G0 : Ctl → Prop} {i : Expr → String → Nat → Option Nat} {T : Expr → Prop}
+  {Ab : FragS isa} {Lk : Expr × List (String × Scc.Lower.LitV) → Prop}
+
+/-- **`CallC2` is `CallC2R`** (the side condition dropped). -/
+theorem CallC2.toR (h : CallC2 p lbl lsize lcx fr Cd Bl exe endPc R F W K ms fp ra tp fs G0 i T Ab Lk) :
+    CallC2R p lbl lsize lcx fr Cd Bl exe endPc R F W K ms fp ra tp fs G0 i T Ab Lk :=
+  fun c0 pc pc' kk kk' env n x g is a ts e t w lits cs bufs _ =>
+    h c0 pc pc' kk kk' env n x g is a ts e t w lits cs bufs
+
+/-- **At nonempty frames `CallC2R` is `CallC2`** (the side condition vacuous). -/
+theorem CallC2R.ofCons (hfs : fs ≠ [])
+    (h : CallC2R p lbl lsize lcx fr Cd Bl exe endPc R F W K ms fp ra tp fs G0 i T Ab Lk) :
+    CallC2 p lbl lsize lcx fr Cd Bl exe endPc R F W K ms fp ra tp fs G0 i T Ab Lk :=
+  fun c0 pc pc' kk kk' env n x g is a ts e t w lits cs bufs =>
+    h c0 pc pc' kk kk' env n x g is a ts e t w lits cs bufs fun he => absurd he hfs
+
+end CallR
+
 /-- **The held return tail to the exits `X`**: from the node at
 `let x = call g … in ret b` (`b` a literal or `x`) with the walk's facts
 there, a segment to `X` at the ghost `c0`. -/
@@ -195,7 +255,9 @@ def HeldTailCX (p : Prog) (lbl : WeakMem.AllocLabel → Option Nat) (lsize : Wea
 
 /-- **A lowered body whose paths all end in a held return tail is one
 segment to the exits `X`** (`body2_segS_ofX` under `heldRetOk`): each
-`let x = call … in ret b` by `HeldTailCX`; no bare `ret` is reached. -/
+`let x = call … in ret b` by `HeldTailCX`; no bare `ret` is reached. The
+plain calls are asked off the return tail only (`CallC2R`: every other
+call continues with a body under `heldRetOk`, never a `ret`). -/
 theorem body2_segS_ofXH {fr : Scc.Emit.X64.Frame} {fp ra : BitVec 64} {Cd : Int64 → List (Directive × Nat) → Prop}
     {Bl : Int64 → Nat → Label → Nat → Prop} {fs : List TermRun.Frame}
     {G0 : Ctl → Prop} (hG0 : ∀ c c', G0 c → FrameRunM p (c, fs) (c', fs) → G0 c')
@@ -205,7 +267,7 @@ theorem body2_segS_ofXH {fr : Scc.Emit.X64.Frame} {fp ra : BitVec 64} {Cd : Int6
     {X : Ctl → FragS isa}
     (hXr : ∀ c0 c0', FrameRunM p (c0, fs) (c0', fs) → ∀ s c fs', X c0' s c fs' → X c0 s c fs')
     (hAbX : ∀ c0 s c fs', Ab s c fs' → X c0 s c fs')
-    (hcall : CallC2 p lbl lsize lcx fr Cd Bl exe endPc R F W K ms fp ra tp fs G0 i T Ab Lk)
+    (hcall : CallC2R p lbl lsize lcx fr Cd Bl exe endPc R F W K ms fp ra tp fs G0 i T Ab Lk)
     (hlane : LaneC p lbl lsize lcx fr Cd Bl exe endPc R F W K ms fp ra tp fs G0 i T Ab)
     (hbuf : NewBufC p lbl lsize lcx fr Cd Bl exe endPc R F W K ms fp ra tp fs G0 i T Ab Lk)
     (hprint : PrintCallC p lbl lsize lcx fr Cd Bl exe endPc R F W K ms fp ra tp fs G0 i T Ab)
@@ -300,7 +362,8 @@ theorem body2_segS_ofXH {fr : Scc.Emit.X64.Frame} {fp ra : BitVec 64} {Cd : Int6
         have hW' := walk2_tail_call hfrm hx hdg hrt ha hW
         have hF := hcf hr' hW'
         exact seg_contX hG0 hXr hAbX hG
-          (hcall c0 pc pc' kk kk' env n x g is a ts e t w lits cs bufs hG hP.2.1 hfr hP.2.2.2.1
+          (hcall c0 pc pc' kk kk' env n x g is a ts e t w lits cs bufs
+            (fun _ b he => by subst he; simp [Scc.Lower.heldRetOk] at hH') hG hP.2.1 hfr hP.2.2.2.1
             hP.2.2.2.2.1 hP.2.2.2.2.2.1 hC ⟨hx, dg, hdg, hrt⟩ ha hi hF.1 hF.2.1 hF.2.2.2.2
             ⟨l, k, _, hr, hcode, hbl,
             fun q hq =>
@@ -515,3 +578,9 @@ end Spike.Lib.LowerX64
 
 /-- info: 'Spike.Lib.LowerX64.heldTailCX_of' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms Spike.Lib.LowerX64.heldTailCX_of
+
+/-- info: 'Spike.Lib.LowerX64.CallC2.toR' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in #print axioms Spike.Lib.LowerX64.CallC2.toR
+
+/-- info: 'Spike.Lib.LowerX64.CallC2R.ofCons' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in #print axioms Spike.Lib.LowerX64.CallC2R.ofCons

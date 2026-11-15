@@ -397,6 +397,7 @@ theorem directive_isim [Labels] (dir : Directive) (p : Std.Rco Int64) {s : Machi
     exact operation_isim _ _ hk hj h'
   | label l => exact hk _ h
   | byteArray b => exact h.elim
+  | zeros n => exact h.elim
 
 end ISim
 

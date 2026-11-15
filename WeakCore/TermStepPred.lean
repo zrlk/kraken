@@ -636,17 +636,16 @@ theorem cell_mode {ρ : Nat → Nat} {η : TEnv} {σs : List Ty} {cx : Cx} {env 
 #print axioms cell_mode
 
 /-- A foreign target's mode gives a frontier below `t`: not `own` (foreign),
-not `rgn` (scope), so `pub`; not seen (`SeenOwn`), so below the address
+so `pub` or `rgn` (the same clause, `ModeOK`); not seen (`SeenOwn`), so below the address
 word's view, below the message's, below `t`. -/
 theorem mode_frontier {g : G} {η : TEnv} {mem : Memory} {pairs : List Ts} {th : TTh} {μ : Mode}
     {b : Address} {c : Cell} {pw : Word} {m : Msg} {t : Ts} (hm : MemInv g (CE η) (stOf mem pairs th))
-    (hsto : η.sto b.label = some c) (hown : c.owner ≠ some η.tid) (hnr : ∀ r, μ ≠ .rgn r)
+    (hsto : η.sto b.label = some c) (hown : c.owner ≠ some η.tid)
     (hmo : ModeOK η.tid η.pfr η.seen μ b.label c [pw]) (hpv : pw.view ≤ m.view) (hv : m.view < t) :
     ∃ f, η.pfr b.label = some f ∧ f < t := by
   cases μ with
   | own => exact absurd hmo hown
-  | rgn r => exact absurd rfl (hnr r)
-  | pub =>
+  | pub | rgn _ =>
       obtain ⟨f, hf, hS | hle⟩ := hmo
       · obtain ⟨-, -, -, -, -, -, -, -, hPI, -, -⟩ := hm
         rcases hPI.1 b.label hS with ⟨c', hc', ho'⟩ | ⟨hn0, -⟩
@@ -682,7 +681,6 @@ theorem foreign_frontier {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th
   rw [hterm] at hT' hsc
   cases op
   case store rl a v tok =>
-    have hsc' : OpScope cx (.store rl a v tok) := hsc
     cases hT' with
     | let_ hop _ =>
         have hu0 := hu
@@ -695,10 +693,9 @@ theorem foreign_frontier {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th
         rw [List.mem_map] at hr
         obtain ⟨⟨s', t', ws'⟩, hin, hr⟩ := hr
         have hn' : t ∉ s'.promises := by rw [← hr] at hn; exact hn
-        exact mode_frontier hm hsto' hown (fun r0 h => by subst h; exact hsc' _ hp _ _ hcy) hmo
+        exact mode_frontier hm hsto' hown hmo
           (store_view hin hu hlt ht hn' hmt) hv
   case xchg a v =>
-    have hsc' : OpScope cx (.xchg a v) := hsc
     cases hT' with
     | let_ hop _ =>
         have hu0 := hu
@@ -711,7 +708,7 @@ theorem foreign_frontier {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th
         rw [List.mem_map] at hr
         obtain ⟨⟨s', t', ws'⟩, hin, hr⟩ := hr
         have hn' : t ∉ s'.promises := by rw [← hr] at hn; exact hn
-        exact mode_frontier hm hsto' hown (fun r0 h => by subst h; exact hsc' _ hp _ _ hcy) hmo
+        exact mode_frontier hm hsto' hown hmo
           (xchg_view hin hu hlt ht hn' hmt) hv
   case xchgAt =>
     cases hT' with
@@ -801,7 +798,7 @@ theorem stepPredNumX_of {p : Prog} (hP : ProgT p) : StepPredNumX p := by
 view below it and an `undef` message at its location not among the thread's
 promises (both carried to the fulfilling step's configuration). -/
 theorem certified_promPredEX {p : Prog} {k : Promises.Knobs} {arch : Arch} {c : Cfg} {i : Nat} {E0 : TEnv}
-    {n0 v0 na0 : Nat} [ProgRetIall p] [TermTyped.WrIniC] (hP : ProgT p) (hstep : StepPredNumX p)
+    {n0 v0 na0 : Nat} [ProgRetIall p] [TermA4.ProgCkWC p] [TermTyped.WrIniC] (hP : ProgT p) (hstep : StepPredNumX p)
     (hsc : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → ScopeAt p i c0) (hvI : TermViewInv.ViewInv c)
     (hwin : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → NoHoldPubA p k arch E0 E0 i c0)
     (h0 : InvAtXF p k arch i E0 n0 v0 na0 c) (hTA : TermTyped.TidAt i c E0) (hc : Certified p k arch c i)
@@ -846,7 +843,7 @@ theorem certified_promPredEX {p : Prog} {k : Promises.Knobs} {arch : Arch} {c : 
       exact h4m h6
     · exact absurd (TermMem.lt_of_get h1m) (Nat.not_lt.2 h6)
   obtain ⟨c0, hc0, -⟩ := id hW
-  obtain ⟨w, hpw, hnum⟩ := hstep (gOf p k arch c1 i) c1.mem c1.pairs th1 ρ η cx rfl hE hT htv hi hmi1 hscope
+  obtain ⟨w, hpw, hnum⟩ := hstep (gOf p k arch c1 i) c1.mem c1.pairs th1 ρ η cx rfl hE hT.1 htv hi hmi1 hscope
     (certified_promAboveSt hc1 hth1) r hr hpa t m ht1 hn hm1 (IniWr_ext hx1 hc0 hIW) n P (WordAt_ext hx1 hW) hep
     hv hund1
   have htlt : t < c.mem.size := (hpwf.2 t ht).1
@@ -862,7 +859,7 @@ promise-free configuration: the promise's view is below it
 (`TermPlantF.promViewLt_run`), and its location's allocation `undef`
 (`UndefAtG`) is no promise (`PromNotUndef`). -/
 theorem promPredTX {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {MintOK : Res → Prop} {c0 : Cfg} (hV0 : TermViewInv.ViewInvR p k arch Sp c0)
-    [ProgRetIall p] [TermTyped.WrIniC] (hP : ProgT p) (hstep : StepPredNumX p) (hz : TermPlantF.PromViewLtR p k arch Sp c0)
+    [ProgRetIall p] [TermA4.ProgCkWC p] [TermTyped.WrIniC] (hP : ProgT p) (hstep : StepPredNumX p) (hz : TermPlantF.PromViewLtR p k arch Sp c0)
     {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {i : Nat}
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r)
@@ -904,7 +901,7 @@ theorem promPredTX {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {M
 configuration and the run premise `TermCohLe.CertRunC` (scope and `NoHoldPub`
 along solo runs from the pre-step configuration), via `promPredTX`. -/
 theorem promPred_of {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {MintOK : Res → Prop} {c0 : Cfg} (hV0 : TermViewInv.ViewInvR p k arch Sp c0)
-    [ProgRetIall p] [TermTyped.WrIniC] (hP : ProgT p) (hz : TermPlantF.PromViewLtR p k arch Sp c0)
+    [ProgRetIall p] [TermA4.ProgCkWC p] [TermTyped.WrIniC] (hP : ProgT p) (hz : TermPlantF.PromViewLtR p k arch Sp c0)
     (hrun : TermCohLe.CertRunC p k arch Sp Init MintOK c0) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) :
     ∀ {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {i : Nat}
       {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}

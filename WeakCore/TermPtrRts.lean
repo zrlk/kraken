@@ -21,8 +21,8 @@ open WeakMem (Msg Memory Address VState Ts Arch AllocLabel)
 /-- `PlantEdge` grows with the store typing. -/
 theorem PlantEdge_mono {sto sto2 : Sto} {m : Msg} {a : AllocLabel}
     (hs : ∀ l c, sto l = some c → sto2 l = some c) (h : PlantEdge sto m a) : PlantEdge sto2 m a := by
-  obtain ⟨⟨ca, h1, h2, h3⟩, h4⟩ := h
-  exact ⟨⟨ca, hs _ _ h1, h2, h3⟩, h4⟩
+  obtain ⟨⟨ca, h1, h2⟩, h4⟩ := h
+  exact ⟨⟨ca, hs _ _ h1, h2⟩, h4⟩
 
 /-- A cut's store typing is part of the global one. -/
 theorem cut_sto_le (Eg : GEnv) (j : Nat) (S : AllocLabel → Prop) :
@@ -47,7 +47,8 @@ variable {p : Prog} {k : Promises.Knobs} {arch : Arch} {j : Nat} {a : AllocLabel
 
 /-- **K-5** (`winLe_cert` re-rooted at an arbitrary `c1`, same proof): along a run to no promises,
 from a configuration reached by `SoloNP a` from `c1` with `t` (message `m`) outstanding, the
-thread meets a `publish a` with `t` outstanding first, so `vWr ≤ m.view`. -/
+thread meets a `PubAt a` site (`publish a`, `region a`, or `intoRgn _ a`) with `t` outstanding first,
+so `vWr ≤ m.view`. -/
 theorem winLe_gen {c1 : Cfg} {t : Nat} {m : Msg}
     (hNo : ∀ c th, SoloNP p k arch j a c1 c → Certified p k arch c j → c.ths[j]? = some th → t ∈ th.promises)
     (hmB : ∀ c, SoloNP p k arch j a c1 c → c.mem[t]? = some m)
@@ -64,8 +65,13 @@ theorem winLe_gen {c1 : Cfg} {t : Nat} {m : Msg}
     intro hn hP th hth hB
     have hc1 : Certified p k arch c3 j := ⟨_, hrest, hn⟩
     by_cases hpub : PubAt th a
-    · obtain ⟨y, a2, e, -, -, -, hterm, -⟩ := hpub
-      exact certified_pub_vWrLe hs hc1 hth hterm hB (hmB c hP)
+    · -- `certified_relStLe` at every `PubAt` kind (as `TermOwnG0.winLe_cert`)
+      simp only [threadSteps, hth, List.mem_map] at hs
+      obtain ⟨⟨mem, pairs, th'⟩, hr, rfl⟩ := hs
+      obtain ⟨h1, h2, h3⟩ := TermOwnG0.tstep_pubAt_relSt hpub hr
+      dsimp only at h1 h2 h3
+      subst h3
+      exact Nat.le_trans h1 (certified_relStLe hc1 (arr_set hth) (by rw [h2]; exact hB) (hmB c hP))
     · have hP1 := TermOwnG0.soloNP_snoc_thread hP c3 hs (fun th2 h2 => by rw [hth] at h2; cases h2; exact hpub)
       obtain ⟨th0, th1, h0, h1, hv, -⟩ := winInv_thread (winInv_refl hth) hs
       rw [hth] at h0; cases h0
@@ -156,7 +162,7 @@ def PtrRtsThreadGL (p : Prog) : Prop :=
     ThInvE p E' r.2.2 → PromAbove (stOf r.1 r.2.1 r.2.2) →
     (∀ u ∈ r.2.2.promises, ∀ m, r.1[u]? = some m → sto m.loc.label = none → sto' m.loc.label = none) →
     ThLbl Eg th →
-    TermTyped.ScopeOK p th → TermScope.ThScope th → TermScope.ProgScopeOK g.p = true →
+    TermTyped.ScopeOK p th → TermScope.ThScopeI th → TermScope.ProgScopeOK g.p = true →
     (∀ t, tminOf sto (stOf mem pairs th) a = some t → MemRtsC sto t a mem pairs th.promises) →
     GranuleWP sto mem pairs th.promises →
     (∀ l, FreshIn g th.nalloc r.2.2.nalloc l → sto l = none) → (∀ l c, sto l = some c → LayT c.ty) →
@@ -214,7 +220,7 @@ theorem ptrRtsThreadGL_proj {p : Prog} (h : PtrRtsThreadGL p) (g : G) (E E' : TE
     (hBS : ∀ t, tminOf sto (stOf mem pairs th) a = some t → BoxSep E t a mem) :
     PtrRtsE sto' (stOf r.1 r.2.1 r.2.2) r.2.2 a ∧
       ∀ t, tminOf sto (stOf mem pairs th) a = some t → tminOf sto' (stOf r.1 r.2.1 r.2.2) a = some t :=
-  (h g E E' Eg Eg' sto sto' mem pairs th a r hk h1 h2 h3 h4 p1 p2 p3 p4 p5 p6 hI hM hP hnp hr hF hI' hA hNF hL hsc hdrf hps hC hgw hfrS hLay hNC hNC4
+  (h g E E' Eg Eg' sto sto' mem pairs th a r hk h1 h2 h3 h4 p1 p2 p3 p4 p5 p6 hI hM hP hnp hr hF hI' hA hNF hL hsc (TermScope.thScopeI_of hdrf) hps hC hgw hfrS hLay hNC hNC4
     hp hPT hfa hBN hB1 hB2 hRL hBS).1
 
 /-- `LblSto` at a thread. -/
@@ -1220,7 +1226,7 @@ theorem pubWords_nonstruct {R : Ty} (hs : sNo R = false) (hn : IsStruct (sig R) 
       · rfl
 
 /-- `labsIn_VR` at a shallow-pub type: every `loc` word names a cell with a frontier or a box
-(`VR` at a `pub` reference reads `η.pfr`, `ModeOK`). -/
+(`VR` at a `pub` or `rgn` reference reads `η.pfr`, `ModeOK`). -/
 theorem labsIn_VR_sNo {G : AllocLabel → Prop} : ∀ (T : Ty) (ρ : Nat → Nat) (η : TEnv) (R : Ty) (ws : List Word),
     (∀ k r vs, ¬ η.rels k r vs) → (∀ l f, η.pfr l = some f → G l) → (∀ l B, η.box l = some B → G l) →
     shp R = shp T → sNo T = true → wc R = some ws.length → Valid R ws → VR ρ η T (shp R) ws → LabsIn G ws := by
@@ -1380,34 +1386,34 @@ theorem labsIn_VR_sNo {G : AllocLabel → Prop} : ∀ (T : Ty) (ρ : Nat → Nat
   | ptr μ u =>
     intro ρ η R ws hrel hS hB hshp hsn hwc hval hv w hw x g hx
     cases μ with
-    | pub =>
+    | pub | rgn _ =>
       obtain ⟨a, c, h1, -, -, -, ⟨f, hf, -⟩, -⟩ := hv
       have hm := locPub_mem_val h1 hw
       rw [hx] at hm; simp at hm; obtain ⟨rfl, -⟩ := hm
       exact hS _ _ hf
-    | _ => simp [sNo, mPub] at hsn
+    | own => simp [sNo, mPub] at hsn
   | ptrOpt μ u =>
     intro ρ η R ws hrel hS hB hshp hsn hwc hval hv w hw x g hx
     cases μ with
-    | pub =>
+    | pub | rgn _ =>
       rcases hv with h0 | ⟨a, c, h1, -, -, -, ⟨f, hf, -⟩, -⟩
       · have hm := locPub_mem_val h0 hw
         rw [hx] at hm; simp at hm
       · have hm := locPub_mem_val h1 hw
         rw [hx] at hm; simp at hm; obtain ⟨rfl, -⟩ := hm
         exact hS _ _ hf
-    | _ => simp [sNo, mPub] at hsn
+    | own => simp [sNo, mPub] at hsn
   | loc μ u =>
     intro ρ η R ws hrel hS hB hshp hsn hwc hval hv w hw x g hx
     cases μ with
-    | pub =>
+    | pub | rgn _ =>
       rcases hv with ⟨h0, -⟩ | ⟨a, c, U, h1, -, -, -, ⟨f, hf, -⟩, -⟩
       · have hm := locPub_mem_val h0 hw
         rw [hx] at hm; simp at hm
       · have hm := locPub_mem_val h1 hw
         rw [hx] at hm; simp at hm; obtain ⟨rfl, -⟩ := hm
         exact hS _ _ hf
-    | _ => simp [sNo, mPub] at hsn
+    | own => simp [sNo, mPub] at hsn
   | void =>
     intro ρ η R ws hrel hS hB hshp hsn hwc hval hv
     simp [VR] at hv
@@ -1845,11 +1851,11 @@ theorem envLbl_cons_VR {Eg : GEnv} {env : Env} {x : String} {ρ : Nat → Nat} {
 planted/published cell or a box (`wordOK_locPub`). -/
 theorem names_of_memOKP {η : TEnv} {mem : Memory} {pairs P : List Ts} {u : Ts} {m : Msg} {cl : Cell}
     {a : Address} {g : Nat} (hm : MemOKP η mem pairs P) (hu : u ∉ P) (hmu : mem[u]? = some m)
-    (hc : η.sto m.loc.label = some cl) (hno : Ty.noOwnIn [] cl.ty = true) (hrf : rgnFree cl.ty = true)
+    (hc : η.sto m.loc.label = some cl) (hno : Ty.noOwnIn [] cl.ty = true)
     (hv : m.val = .loc a g) : η.pfr a.label ≠ none ∨ η.box a.label ≠ none := by
   rcases hm.1 u m cl hu hmu hc with h | h
   · rw [hv] at h; cases h
-  · rcases wordOK_locPub h hno hrf (show (mw m).val = .loc a g from hv) with ⟨_, f, -, hf⟩ | ⟨B, hB⟩
+  · rcases wordOK_locPub h hno (show (mw m).val = .loc a g from hv) with ⟨_, f, -, hf⟩ | ⟨B, hB⟩
     · left; rw [hf]; exact fun h => by cases h
     · right; rw [hB]; exact fun h => by cases h
 
@@ -1862,10 +1868,10 @@ theorem plantEdge_lbl_of_thSys {p : Prog} {g : G} {mem : Memory} {pairs : List T
     (hin : ∀ ca, Eg.sto m.loc.label = some ca → ca.owner = some g.i ∨ Eg.Shared m.loc.label) :
     Eg.pfr L ≠ none ∨ Eg.box L ≠ none := by
   obtain ⟨S, -, -, hm, -⟩ := hT
-  obtain ⟨⟨ca, hca, hno, hrf⟩, a, gg, hv, rfl⟩ := hE
+  obtain ⟨⟨ca, hca, hno⟩, a, gg, hv, rfl⟩ := hE
   have hc : (Cut Eg g.i S).sto m.loc.label = some ca := by
     rw [Cut_sto]; exact cutSto_some.2 ⟨hca, hin ca hca⟩
-  exact names_of_memOKP hm.1 hu hmu hc hno hrf hv
+  exact names_of_memOKP hm.1 hu hmu hc hno hv
 
 /-- **NewPfr at a thread step** (route B's `PfrG` at `pf := PubAt th`): a cell of `Eg` whose
 frontier the step of `g.i` sets from none is the label of the step's `publish`.  Other owners' cells keep

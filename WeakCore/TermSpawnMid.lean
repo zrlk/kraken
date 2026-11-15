@@ -234,7 +234,7 @@ theorem entryR_ofR {p : Prog} {Eg : GEnv} {i : Nat} {S : AllocLabel → Prop} {t
   refine ⟨⟨fun _ => 0, Cut Eg i S, { vars := [("a", t, true)], ret := r }, Tot, .zero, rfl, hE, hT, htv,
     ⟨finv_entryR (fun _ _ => trivial) henv hσ hv hlay, ?_, ?_⟩, Res.add_zero _,
     (fun f rest h => by rw [hstk] at h; cases h), by rw [hterm, hσ]; exact dyFr_tail annNew (progTgts p) p _ f _ ts⟩,
-    ⟨fun _ => 0, Cut Eg i S, { vars := [("a", t, true)], ret := r }, rfl, hE, hT.1, htv, ?_⟩⟩
+    ⟨fun _ => 0, Cut Eg i S, { vars := [("a", t, true)], ret := r }, rfl, hE, hT, htv, ?_⟩⟩
   · rw [hstk]; intro _ _ _ _ _ _; rfl
   · refine HeldOK_mono (Rf := .zero) ⟨by simp, by simp, fun y h => by simp at h, fun _ => .zero, fun x e hx _ => ?_, ?_⟩
       (Res.zero_le _)

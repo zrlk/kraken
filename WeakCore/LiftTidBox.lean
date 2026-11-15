@@ -5,6 +5,7 @@ open CoreLang CoreTerm CoreTyping TermRun TermClose TermTv TermSound
 noncomputable def gR (cpy σ : WeakMem.AllocLabel → WeakMem.AllocLabel) (Cp : WeakMem.AllocLabel → Prop)
     (E : TEnv) (ws : List Word) : Mode → Nat → WeakMem.AllocLabel → WeakMem.AllocLabel
   | .pub => pubG cpy σ Cp E ws
+  | .rgn _ => pubG cpy σ Cp E ws
   | _ => fun _ => σ
 
 section
@@ -43,17 +44,14 @@ theorem ref_lift {ρ : Nat → Nat} {η₁ η₂ E : TEnv} (hm : LiftOKQ cpy σ 
     refine ⟨⟨⟨σ a.label, a.offset⟩, c, vals_rl_loc h1, h2, hm.sto _ _ h3, by rw [hm.wit]; exact h4, ?_, h5⟩,
       ownW_lift hm.sl hm.sr σ .own ws (fun _ => rfl)⟩
     simp only [ModeOK]; simp only [ModeOKb] at hmo; rw [hm.tid]; exact hmo
-  | rgn r =>
-    exact ⟨⟨⟨σ a.label, a.offset⟩, c, vals_rl_loc h1, h2, hm.sto _ _ h3, by rw [hm.wit]; exact h4, trivial, h5⟩,
-      ownW_lift hm.sl hm.sr σ (.rgn r) ws (fun e => by cases e)⟩
-  | pub =>
+  | pub | rgn _ =>
     simp only [gR]
     by_cases hx : exmW Cp E ws
     · rw [pubG_of_exm hx]
       obtain ⟨a', ha', hc, hnF⟩ := hx; rw [h1] at ha'; simp at ha'; subst ha'
       obtain ⟨c₂, hs2, hty⟩ := hm.csto _ _ hc h3
       exact ⟨⟨⟨cpy a.label, a.offset⟩, c₂, vals_rl_loc h1, h2, hs2, by rw [hty, hm.wit]; exact h4,
-        modeOK_cpy hm hc _, by rw [hty]; exact h5⟩, ownW_lift hm.sl hm.sr cpy .pub ws (fun e => by cases e)⟩
+        modeOK_cpy hm hc (c := c₂) _, by rw [hty]; exact h5⟩, ownW_lift hm.sl hm.sr cpy .pub ws (fun e => by cases e)⟩
     · rw [pubG_of_nexm hx]
       have hF := fresh_of_nexm hE hm.cown h1 h3 hmo hx
       have hmo2 := modeOK_lift hm (c := c) hF (fun _ => σ); rw [rlI_cst] at hmo2
@@ -93,17 +91,14 @@ theorem loc_lift {ρ : Nat → Nat} {η₁ η₂ E : TEnv} (hm : LiftOKQ cpy σ 
       IniAt_at (a := a) rfl rfl ?_ hI⟩, ownW_lift hm.sl hm.sr σ .own ws (fun _ => rfl)⟩
     · simp only [ModeOK]; simp only [ModeOKb] at hmo; rw [hm.tid]; exact hmo
     · have := hm.ini a.label; have := hm.rini a.label; simp only [modeIni]; omega
-  | rgn r =>
-    exact ⟨⟨⟨σ a.label, a.offset⟩, c, U, vals_rl_loc h1, hm.sto _ _ h3, h4, by rw [hm.wit]; exact h5, trivial,
-      IniAt_at (a := a) rfl rfl (hm.ini a.label) hI⟩, ownW_lift hm.sl hm.sr σ (.rgn r) ws (fun e => by cases e)⟩
-  | pub =>
+  | pub | rgn _ =>
     simp only [gR]
     by_cases hx : exmW Cp E ws
     · rw [pubG_of_exm hx]
       obtain ⟨a', ha', hc, hnF⟩ := hx; rw [h1] at ha'; simp at ha'; subst ha'
       obtain ⟨c₂, hs2, hty⟩ := hm.csto _ _ hc h3
       exact ⟨⟨⟨cpy a.label, a.offset⟩, c₂, U, vals_rl_loc h1, hs2, by rw [hty]; exact h4,
-        by rw [hm.wit]; exact h5, modeOK_cpy hm hc _, IniAt_at (a := a) hty rfl (hci _ hc) (iniRc_of_exm hE h1 hmo hnF)⟩,
+        by rw [hm.wit]; exact h5, modeOK_cpy hm hc (c := c₂) _, IniAt_at (a := a) hty rfl (hci _ hc) (iniRc_of_exm hE h1 hmo hnF)⟩,
         ownW_lift hm.sl hm.sr cpy .pub ws (fun e => by cases e)⟩
     · rw [pubG_of_nexm hx]
       have hF := fresh_of_nexm hE hm.cown h1 h3 hmo hx

@@ -1,0 +1,1 @@
+reject_spawni.w:18:3: error: an index-parameter spawn (`spawnI`) is not in the accepted fragment (in 'main', binding 't')

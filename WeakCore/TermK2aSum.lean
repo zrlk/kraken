@@ -717,13 +717,6 @@ theorem sum_case {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
 
 /-! ## 8. Regions: the new bindings count no words -/
 
-theorem pubWords_rgn (u : Ty) (ws : List Word) : pubWords (.ptr (.rgn (.lit 0)) u) ws = [] := by
-  simp [pubWords, sNo, mPub]
-
-theorem pubWords_rgnLoc (u : Ty) (ψ : Pred) (ws : List Word) :
-    pubWords (.refine (.loc (.rgn (.lit 0)) u) ψ) ws = [] := by
-  rw [pubWords_refine]; simp [pubWords, sNo, mPub]
-
 /-- Two new bindings counting no words. -/
 theorem stepOK_of_nil2 {sto : Sto} {s : St} {a : AllocLabel} {N Gl : AllocLabel → Prop} {th thP : TTh}
     {b1 b2 : String × Ty × List Word}
@@ -748,32 +741,6 @@ theorem stepOK_of_nil2 {sto : Sto} {s : St} {a : AllocLabel} {N Gl : AllocLabel 
   · rcases hb b hbb with h | h
     · exact .inl h
     · exact .inr fun w hw => by rw [h] at hw; cases hw
-
-/-- **`region`** (mirrors `tstepM_region`): a region pointer and a token, neither counted. -/
-theorem rgn_region {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {a : At} {rn pn tn : String} {e : Expr}
-    (hterm : th.term = .region a rn pn tn e)
-    (sto : Sto) (Gl : AllocLabel → Prop) (ga : AllocLabel) (N : AllocLabel → Prop) :
-    ∀ r ∈ tstep g mem pairs th, StepOK sto (stOf mem pairs th) ga N Gl th r.2.2 := by
-  intro r hr
-  simp only [tstep, hterm] at hr
-  split at hr
-  · simp only [List.mem_singleton] at hr; subst hr
-    exact stepOK_of_nil2 rfl rfl (by rw [pubWords.eq_def]; simp) (pubWords_rgn _ _)
-  · simp only [List.mem_singleton] at hr; subst hr
-    exact stepOK_of_nil2 rfl rfl (by rw [pubWords.eq_def]; simp) (pubWords_rgnLoc _ _ _)
-  · cases hr
-
-/-- **`openPub`** (mirrors `tstepM_openPub`): a region pointer and a capability, neither counted. -/
-theorem rgn_openPub {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {a : At} {rn pn cn : String} {e : Expr}
-    (hterm : th.term = .openPub a rn pn cn e)
-    (sto : Sto) (Gl : AllocLabel → Prop) (ga : AllocLabel) (N : AllocLabel → Prop) :
-    ∀ r ∈ tstep g mem pairs th, StepOK sto (stOf mem pairs th) ga N Gl th r.2.2 := by
-  intro r hr
-  simp only [tstep, hterm] at hr
-  split at hr
-  · simp only [List.mem_singleton] at hr; subst hr
-    exact stepOK_of_nil2 rfl rfl (by rw [pubWords.eq_def]; simp) (pubWords_rgn _ _)
-  · cases hr
 
 /-! ## 9. `publish` -/
 
@@ -823,14 +790,14 @@ theorem pub_publish {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TT
       rw [hea0] at hea; simp only [Option.some.injEq, Prod.mk.injEq] at hea; obtain ⟨rfl, rfl⟩ := hea
       simp only [VR] at hv
       obtain ⟨ad, c, hws, -⟩ := hv
-      exact ⟨x, a, e, rt0, ws0, ad, hterm, hea0, hws, (names_of_map hws w hw l hn).symm⟩
+      exact ⟨a, rt0, ws0, ad, .inl ⟨x, e, hterm⟩, hea0, hws, (names_of_map hws w hw l hn).symm⟩
     | publishBuf hu _ _ =>
       obtain ⟨-, rt, ws, hea, hv, -⟩ := use_FInv hu hi
       rw [hea0] at hea; simp only [Option.some.injEq, Prod.mk.injEq] at hea; obtain ⟨rfl, rfl⟩ := hea
       simp only [VR] at hv
       rcases hv.1 with ⟨hnull, -⟩ | ⟨ad, c, U, hws, -⟩
       · exact absurd hn (not_names_of_null hnull w hw l)
-      · exact ⟨x, a, e, rt0, ws0, ad, hterm, hea0, hws, (names_of_map hws w hw l hn).symm⟩
+      · exact ⟨a, rt0, ws0, ad, .inl ⟨x, e, hterm⟩, hea0, hws, (names_of_map hws w hw l hn).symm⟩
   have fin : ∀ thP rt ws, thP.env = (x, rt, ws) :: th.env → thP.stack = th.stack →
       (∀ w ∈ pubWords rt ws, ∀ l, Names l w → PubAt th l) →
       StepOK sto (stOf mem pairs th) ga N Gl th thP := by
@@ -843,6 +810,192 @@ theorem pub_publish {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TT
     rcases List.mem_append.1 hb with hb | hb
     · rcases List.mem_cons.1 hb with e | hb
       · subst e; exact .inr fun w hw l hn => .inl (hGp l (hP w hw l hn))
+      · exact .inl (TermK2a.mem_binds_env hb)
+    · exact .inl (List.mem_append_right _ hb)
+  intro r hr
+  simp only [tstep, hterm, evalOp] at hr
+  cases hea : evalAt th.env a with
+  | none => simp [hea, ol] at hr
+  | some v =>
+    obtain ⟨t, ws⟩ := v
+    have hWP := hW t ws hea
+    simp only [hea, bind, Option.bind] at hr
+    split at hr
+    · simp only [ol, pure, Option.toList, List.mem_map, List.mem_cons, List.not_mem_nil, or_false] at hr
+      obtain ⟨_, rfl, rfl⟩ := hr
+      refine fin _ _ _ rfl rfl fun w hw => hWP w ?_
+      rwa [pubWords_of_sNo (by rfl)] at hw
+    · simp only [ol, pure, Option.toList, List.mem_map, List.mem_cons, List.not_mem_nil, or_false] at hr
+      obtain ⟨_, rfl, rfl⟩ := hr
+      refine fin _ _ _ rfl rfl fun w hw => hWP w ?_
+      rwa [pubWords_refine, pubWords_of_sNo (by rfl)] at hw
+    · simp [ol] at hr
+
+/-! ## 9b. The fencing twins of `publish` (c1: `mPub (.rgn _) = true`, so a region reference's
+words are counted; `region` / `intoRgn` are `PubAt` fences, `openPub` re-binds a counted `pub` operand) -/
+
+/-- Two new bindings: the first counting no words, the second's counted words old-covered. -/
+theorem stepOK_of_old2 {sto : Sto} {s : St} {a : AllocLabel} {N Gl : AllocLabel → Prop} {th thP : TTh}
+    {b1 b2 : String × Ty × List Word}
+    (he : thP.env = b1 :: b2 :: th.env) (hst : thP.stack = th.stack)
+    (h1 : pubWords b1.2.1 b1.2.2 = []) (h2 : CntOld th (pubWords b2.2.1 b2.2.2)) :
+    StepOK sto s a N Gl th thP := by
+  have hb : ∀ b ∈ TermK2a.Binds thP, b ∈ TermK2a.Binds th ∨ CntOld th (pubWords b.2.1 b.2.2) := by
+    intro b hb
+    unfold TermK2a.Binds at hb
+    rw [he, hst] at hb
+    rcases List.mem_append.1 hb with hb | hb
+    · rcases List.mem_cons.1 hb with hbe | hb
+      · subst hbe; exact .inr (by rw [h1]; exact fun _ hw => by cases hw)
+      · rcases List.mem_cons.1 hb with hbe | hb
+        · subst hbe; exact .inr h2
+        · exact .inl (TermK2a.mem_binds_env hb)
+    · exact .inl (List.mem_append_right _ hb)
+  refine ⟨fun b hbb => ?_, fun b hbb => ?_⟩
+  · rcases hb b hbb with h | h
+    · exact .inl h
+    · refine .inr fun w hw => ⟨.inl fun hn => h w hw a hn, .inl fun l hn => ?_⟩
+      obtain ⟨b', hb', w0, h0, hn0, -⟩ := h w hw l hn
+      exact ⟨b', hb', w0, h0, hn0⟩
+  · rcases hb b hbb with h | h
+    · exact .inl h
+    · refine .inr fun w hw l hn => ?_
+      obtain ⟨b', hb', w0, h0, hn0, -⟩ := h w hw l hn
+      exact .inr ⟨b', hb', w0, h0, hn0⟩
+
+/-- Two new bindings: the first counting no words, the second's counted words naming only labels
+fenced at `th` (`PubAt`): (R) and `ThLbl` as for `publish`. -/
+theorem stepOK_of_pub2 {sto : Sto} {s : St} {ga : AllocLabel} {N Gl : AllocLabel → Prop} {th thP : TTh}
+    {b1 b2 : String × Ty × List Word}
+    (he : thP.env = b1 :: b2 :: th.env) (hst : thP.stack = th.stack)
+    (h1 : pubWords b1.2.1 b1.2.2 = []) (h2 : ∀ w ∈ pubWords b2.2.1 b2.2.2, ∀ l, Names l w → PubAt th l)
+    (hnp : ¬ PubAt th ga) (hNp : ∀ l, PubAt th l → N l) (hGp : ∀ l, PubAt th l → Gl l) :
+    StepOK sto s ga N Gl th thP := by
+  have hb : ∀ b ∈ TermK2a.Binds thP, b ∈ TermK2a.Binds th ∨
+      ∀ w ∈ pubWords b.2.1 b.2.2, ∀ l, Names l w → PubAt th l := by
+    intro b hb
+    unfold TermK2a.Binds at hb
+    rw [he, hst] at hb
+    rcases List.mem_append.1 hb with hb | hb
+    · rcases List.mem_cons.1 hb with hbe | hb
+      · subst hbe; exact .inr fun w hw => by rw [h1] at hw; cases hw
+      · rcases List.mem_cons.1 hb with hbe | hb
+        · subst hbe; exact .inr h2
+        · exact .inl (TermK2a.mem_binds_env hb)
+    · exact .inl (List.mem_append_right _ hb)
+  refine ⟨fun b hbb => ?_, fun b hbb => ?_⟩
+  · rcases hb b hbb with h | h
+    · exact .inl h
+    · exact .inr fun w hw => ⟨.inl fun hn => absurd (h w hw ga hn) hnp, .inr (.inr fun l hn => hNp l (h w hw l hn))⟩
+  · rcases hb b hbb with h | h
+    · exact .inl h
+    · exact .inr fun w hw l hn => .inl (hGp l (h w hw l hn))
+
+/-- **`region`** (mirrors `tstepM_region`; c1): the token counts no words; the region pointer's
+words (counted, `mPub (.rgn _)`) name only the fenced cell (`PubAt`, region disjunct). -/
+theorem rgn_region {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
+    {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {a : At} {rn pn tn : String} {e : Expr}
+    (hterm : th.term = .region a rn pn tn e)
+    (hT : Typed p cx th.term) (hi : FInv ρ η th.σs (Resume p th.stack) cx th.env)
+    (sto : Sto) (Gl : AllocLabel → Prop) (ga : AllocLabel) (N : AllocLabel → Prop)
+    (hnp : ¬ PubAt th ga) (hNp : ∀ l, PubAt th l → N l) (hGp : ∀ l, PubAt th l → Gl l) :
+    ∀ r ∈ tstep g mem pairs th, StepOK sto (stOf mem pairs th) ga N Gl th r.2.2 := by
+  have hW : ∀ rt ws, evalAt th.env a = some (rt, ws) → ∀ w ∈ ws, ∀ l, Names l w → PubAt th l := by
+    intro rt0 ws0 hea0 w hw l hn
+    rw [hterm] at hT
+    cases hT with
+    | region hu _ _ _ _ =>
+      obtain ⟨-, rt, ws, hea, hv, -⟩ := use_FInv hu hi
+      rw [hea0] at hea; simp only [Option.some.injEq, Prod.mk.injEq] at hea; obtain ⟨rfl, rfl⟩ := hea
+      simp only [VR] at hv
+      obtain ⟨ad, c, hws, -⟩ := hv
+      exact ⟨a, rt0, ws0, ad, .inr (.inl ⟨rn, pn, tn, e, hterm⟩), hea0, hws, (names_of_map hws w hw l hn).symm⟩
+    | regionBuf hu _ _ _ _ =>
+      obtain ⟨-, rt, ws, hea, hv, -⟩ := use_FInv hu hi
+      rw [hea0] at hea; simp only [Option.some.injEq, Prod.mk.injEq] at hea; obtain ⟨rfl, rfl⟩ := hea
+      simp only [VR] at hv
+      rcases hv.1 with ⟨hnull, -⟩ | ⟨ad, c, U, hws, -⟩
+      · exact absurd hn (not_names_of_null hnull w hw l)
+      · exact ⟨a, rt0, ws0, ad, .inr (.inl ⟨rn, pn, tn, e, hterm⟩), hea0, hws, (names_of_map hws w hw l hn).symm⟩
+  intro r hr
+  simp only [tstep, hterm] at hr
+  split at hr
+  · rename_i heq
+    simp only [List.mem_singleton] at hr; subst hr
+    exact stepOK_of_pub2 rfl rfl (by rw [pubWords.eq_def]; simp)
+      (fun w hw => hW _ _ heq w (by rwa [pubWords_of_sNo (by rfl)] at hw)) hnp hNp hGp
+  · rename_i heq
+    simp only [List.mem_singleton] at hr; subst hr
+    exact stepOK_of_pub2 rfl rfl (by rw [pubWords.eq_def]; simp)
+      (fun w hw => hW _ _ heq w (by rwa [pubWords_refine, pubWords_of_sNo (by rfl)] at hw)) hnp hNp hGp
+  · cases hr
+
+/-- **`openPub`** (mirrors `tstepM_openPub`; c1): the capability counts no words; the region
+pointer's words (counted, `mPub (.rgn _)`) are the `pub` operand's, already counted (`CntOld`). -/
+theorem rgn_openPub {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
+    {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {a : At} {rn pn cn : String} {e : Expr}
+    (hterm : th.term = .openPub a rn pn cn e)
+    (hT : Typed p cx th.term) (hi : FInv ρ η th.σs (Resume p th.stack) cx th.env)
+    (sto : Sto) (Gl : AllocLabel → Prop) (ga : AllocLabel) (N : AllocLabel → Prop) :
+    ∀ r ∈ tstep g mem pairs th, StepOK sto (stOf mem pairs th) ga N Gl th r.2.2 := by
+  have hC : ∀ rt ws, evalAt th.env a = some (rt, ws) → CntOld th ws := by
+    intro rt0 ws0 hea0
+    rw [hterm] at hT
+    cases hT with
+    | openPub hu _ _ _ =>
+      obtain ⟨-, rt, ws, hea, -, hl⟩ := use_FInv hu hi
+      rw [hea0] at hea; simp only [Option.some.injEq, Prod.mk.injEq] at hea; obtain ⟨rfl, rfl⟩ := hea
+      have h := cntOld_evalAt hea0
+      rwa [pubWords_Lay hl, pubWords_of_sNo (by first | rfl | simp [close, substTs, sNo, mPub])] at h
+  intro r hr
+  simp only [tstep, hterm] at hr
+  split at hr
+  · rename_i heq
+    simp only [List.mem_singleton] at hr; subst hr
+    exact stepOK_of_old2 rfl rfl (by rw [pubWords.eq_def]; simp)
+      (by rw [pubWords_of_sNo (by rfl)]; exact hC _ _ heq)
+  · cases hr
+
+/-- **`intoRgn`** (mirrors `tstepM_publish` at a region-mode result; c1): as `pub_publish`, the
+moved reference's words name only the fenced cell (`PubAt`, intoRgn disjunct). -/
+theorem pub_intoRgn {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
+    {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {x rg : String} {a : At} {e : Expr}
+    (hterm : th.term = .let_ x (.intoRgn rg a) e)
+    (hT : Typed p cx th.term) (hi : FInv ρ η th.σs (Resume p th.stack) cx th.env)
+    (sto : Sto) {Gl : AllocLabel → Prop} {ga : AllocLabel} {N : AllocLabel → Prop}
+    (hnp : ¬ PubAt th ga) (hNp : ∀ l, PubAt th l → N l) (hGp : ∀ l, PubAt th l → Gl l) :
+    ∀ r ∈ tstep g mem pairs th, StepOK sto (stOf mem pairs th) ga N Gl th r.2.2 := by
+  have hW : ∀ rt ws, evalAt th.env a = some (rt, ws) → ∀ w ∈ ws, ∀ l, Names l w → PubAt th l := by
+    intro rt0 ws0 hea0 w hw l hn
+    rw [hterm] at hT
+    cases hT with
+    | let_ hop _ =>
+    cases hop with
+    | intoRgn _ hu _ _ =>
+      obtain ⟨-, rt, ws, hea, hv, -⟩ := use_FInv hu hi
+      rw [hea0] at hea; simp only [Option.some.injEq, Prod.mk.injEq] at hea; obtain ⟨rfl, rfl⟩ := hea
+      simp only [VR] at hv
+      obtain ⟨ad, c, hws, -⟩ := hv
+      exact ⟨a, rt0, ws0, ad, .inr (.inr ⟨x, rg, e, hterm⟩), hea0, hws, (names_of_map hws w hw l hn).symm⟩
+    | intoRgnBuf _ hu _ _ =>
+      obtain ⟨-, rt, ws, hea, hv, -⟩ := use_FInv hu hi
+      rw [hea0] at hea; simp only [Option.some.injEq, Prod.mk.injEq] at hea; obtain ⟨rfl, rfl⟩ := hea
+      simp only [VR] at hv
+      rcases hv.1 with ⟨hnull, -⟩ | ⟨ad, c, U, hws, -⟩
+      · exact absurd hn (not_names_of_null hnull w hw l)
+      · exact ⟨a, rt0, ws0, ad, .inr (.inr ⟨x, rg, e, hterm⟩), hea0, hws, (names_of_map hws w hw l hn).symm⟩
+  have fin : ∀ thP rt ws, thP.env = (x, rt, ws) :: th.env → thP.stack = th.stack →
+      (∀ w ∈ pubWords rt ws, ∀ l, Names l w → PubAt th l) →
+      StepOK sto (stOf mem pairs th) ga N Gl th thP := by
+    intro thP rt ws he hst hP
+    have hv : TermK2a.ValB sto (stOf mem pairs th) ga N th rt ws := fun w hw =>
+      ⟨.inl fun hn => absurd (hP w hw ga hn) hnp, .inr (.inr fun l hn => hNp l (hP w hw l hn))⟩
+    refine ⟨TermK2a.stepB_let he hst hv, fun b hb => ?_⟩
+    unfold TermK2a.Binds at hb
+    rw [he, hst] at hb
+    rcases List.mem_append.1 hb with hb | hb
+    · rcases List.mem_cons.1 hb with hbe | hb
+      · subst hbe; exact .inr fun w hw l hn => .inl (hGp l (hP w hw l hn))
       · exact .inl (TermK2a.mem_binds_env hb)
     · exact .inl (List.mem_append_right _ hb)
   intro r hr
@@ -1130,3 +1283,6 @@ end TermK2aSum
 #print axioms TermK2aSum.pub_publish
 #print axioms TermK2aSum.rgn_region
 #print axioms TermK2aSum.rgn_openPub
+#print axioms TermK2aSum.pub_intoRgn
+#print axioms TermK2aSum.stepOK_of_old2
+#print axioms TermK2aSum.stepOK_of_pub2

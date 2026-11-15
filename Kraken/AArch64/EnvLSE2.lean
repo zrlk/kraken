@@ -263,6 +263,11 @@ theorem Kraken.Executable.wpEnvLSE2_cons {e : Kraken.Executable Directive} {D : 
     have h1 := h pc ⟨z, rest, hcode, trivial⟩
     simp only [Executable.after, hcode] at h1 ⊢
     exact eventually_trans _ _ _ _ h1 (hcont _ hq)
+  | zeros n =>
+    obtain ⟨z, rest, hcode, hq⟩ := hpl
+    have h1 := h pc ⟨z, rest, hcode, trivial⟩
+    simp only [Executable.after, hcode] at h1 ⊢
+    exact eventually_trans _ _ _ _ h1 (hcont _ hq)
 
 namespace MachineWP
 

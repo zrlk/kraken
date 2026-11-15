@@ -474,7 +474,7 @@ of `E'` (`certified_promLoc` from the result, under the run hypotheses `hscR`/`h
 cell of the stepper without a frontier (`Foot`), in a one-word slot of it (`SWOne` at its
 certificate's fulfilling write); the allocation wrote a message there past the old memory
 (`NewAtT`), so `LatestSF` at `E'` puts coherence past the promise, against `certified_promAbove`. -/
-theorem promAlloc_locS {p : Prog} {k : Promises.Knobs} {arch : Arch} {j : Nat} {Eu Ea : TEnv} [ProgRetIall p] [WrIniC] (hP : ProgT p)
+theorem promAlloc_locS {p : Prog} {k : Promises.Knobs} {arch : Arch} {j : Nat} {Eu Ea : TEnv} [ProgRetIall p] [TermA4.ProgCkWC p] [WrIniC] (hP : ProgT p)
     {c c' : Cfg} (hs : c' ∈ threadSteps p k arch c j) (hc' : Certified p k arch c' j)
     (hscR : ∀ c0, Solo p k arch j c' c0 → Certified p k arch c0 j → ScopeAt p j c0) (hvIR : TermViewInv.ViewInv c')
     (hwinR : ∀ c0, Solo p k arch j c' c0 → Certified p k arch c0 j → NoHoldPubA p k arch Eu Ea j c0)

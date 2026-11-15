@@ -19,6 +19,11 @@
 # (`scc --check`; its time and peak RssAnon, `Scc/Test/rssanon.sh`, are printed) and record the SHA-256
 # of the source and assembler text; a tampered certificate (one instruction of
 # the embedded text changed so that it is no longer lowerable) must not check.
+# Every accepted test is also compiled with `--granule` (the granule pass:
+# `scc_text_start` and `scc_text_end` on 64 KiB granules, checked with `nm`),
+# linked as T.g with no pin (the pass aligns `.text` to a granule; `link`
+# pins only wake and hello), and must run as T.code, T.out, T.stderr and
+# T.runs say.
 # A program outside the certified fragment (no stack need table: non-tail
 # recursion) gets a file with its source and the reason only
 # (`Scc.Cert.Gen.renderOutside`), counted as not certifiable, not as a failure.
@@ -81,6 +86,33 @@ runbin() {
   echo $?
 }
 
+# How many times test $1 runs (T.runs, default 1).
+runsof() { if [ -f "$TESTS/$1.runs" ]; then cat "$TESTS/$1.runs"; else echo 1; fi; }
+
+# Run binary $2 as test $1 expects (T.code, T.out, T.stderr, T.runs); prints
+# the first failure, or nothing.
+runcheck() {
+  local t=$1 b=$2 code=0 runs i rc
+  [ -f "$TESTS/$t.code" ] && code=$(cat "$TESTS/$t.code")
+  runs=$(runsof "$t")
+  if [ -f "$TESTS/$t.out" ]; then cp "$TESTS/$t.out" "$b.out.expected"; else : >"$b.out.expected"; fi
+  for i in $(seq 1 "$runs"); do
+    rc=$(runbin "$b" "$b.out.actual" "$b.stderr.actual")
+    if [ "$rc" != "$code" ]; then echo "run $i: exit $rc, expected $code"; return; fi
+    if ! cmp -s "$b.out.actual" "$b.out.expected"; then echo "run $i: stdout differs"; return; fi
+    if [ -f "$TESTS/$t.stderr" ] && ! cmp -s "$b.stderr.actual" "$TESTS/$t.stderr"; then
+      echo "run $i: stderr differs"; return
+    fi
+  done
+}
+
+# The address of symbol $2 in executable $1 (`nm`), in decimal; empty if absent.
+symaddr() {
+  local a
+  a=$(nm "$1" 2>/dev/null | awk -v s="$2" '$3 == s { print $1; exit }')
+  [ -n "$a" ] && echo $((16#$a))
+}
+
 for src in "$TESTS"/*.w; do
   t=$(basename "$src" .w)
   cp "$src" .
@@ -98,19 +130,19 @@ for src in "$TESTS"/*.w; do
     bad "$t" "report differs: $(cat "$t.report.actual")"; continue
   fi
   link "$t" 2>"$t.link.err" || { bad "$t" "assemble/link failed: $(cat "$t.link.err")"; continue; }
-  code=0; [ -f "$TESTS/$t.code" ] && code=$(cat "$TESTS/$t.code")
-  runs=1; [ -f "$TESTS/$t.runs" ] && runs=$(cat "$TESTS/$t.runs")
-  if [ -f "$TESTS/$t.out" ]; then cp "$TESTS/$t.out" "$t.out.expected"; else : >"$t.out.expected"; fi
-  failed=""
-  for i in $(seq 1 "$runs"); do
-    rc=$(runbin "$t" "$t.out.actual" "$t.stderr.actual")
-    if [ "$rc" != "$code" ]; then failed="run $i: exit $rc, expected $code"; break; fi
-    if ! cmp -s "$t.out.actual" "$t.out.expected"; then failed="run $i: stdout differs"; break; fi
-    if [ -f "$TESTS/$t.stderr" ] && ! cmp -s "$t.stderr.actual" "$TESTS/$t.stderr"; then
-      failed="run $i: stderr differs"; break
-    fi
-  done
+  runs=$(runsof "$t"); failed=$(runcheck "$t" "$t")
   if [ -n "$failed" ]; then bad "$t" "$failed"; else ok "$t (x$runs)"; fi
+  # The same program through the granule pass.
+  g="$t.g"
+  "$SCC" --arch "$ARCH" --granule -o "$g.s" "$t.w" 2>"$g.scc.err" \
+    || { bad "$t --granule" "scc failed: $(cat "$g.scc.err")"; continue; }
+  link "$g" 2>"$g.link.err" || { bad "$t --granule" "assemble/link failed: $(cat "$g.link.err")"; continue; }
+  lo=$(symaddr "$g" scc_text_start); hi=$(symaddr "$g" scc_text_end)
+  if [ -z "$lo" ] || [ -z "$hi" ] || [ $((lo % 65536)) -ne 0 ] || [ $((hi % 65536)) -ne 0 ]; then
+    bad "$t --granule" "scc_text_start ${lo:-?}, scc_text_end ${hi:-?}: not on 64 KiB granules"; continue
+  fi
+  failed=$(runcheck "$t" "$g")
+  if [ -n "$failed" ]; then bad "$t --granule" "$failed"; else ok "$t --granule (x$runs, granules: $(( (hi - lo) / 65536 )))"; fi
 done
 
 # Certificates: each checks, with the digests of the embedded texts. A file
@@ -225,6 +257,8 @@ cli() {  # name, expected message, args...
 }
 cli "--host raw --cert" "scc: --host raw: --cert, --blocks and --code are not available (a raw unit is not certified)" \
   --host raw --cert raw.lean hello.w
+cli "--granule --blocks" "scc: --granule: --host raw, --blocks and --code are not available yet" \
+  --granule --blocks blocks.lean hello.w
 cli "--gc unknown" "scc: --gc copying: unknown collector (available: none)" --gc copying hello.w
 cli "--arch unknown" "scc: --arch sparc: unknown architecture (available: x64, arm)" --arch sparc hello.w
 cli "no input" "scc: no input file"

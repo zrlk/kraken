@@ -186,6 +186,7 @@ theorem directive_ed [Labels] {d : Directive} (hd : d.wideOk = true) {D : DataMe
   | label => exact hn s hs
   | instr i => exact ED.require_exec_access fun _ => interp_ed i.operation hd p s hs hn hj
   | byteArray => exact ED.unimplemented _
+  | zeros => exact ED.unimplemented _
 
 theorem directives_ed [Labels] {D : DataMem} {ret : Int64 → MachineData → Effects}
     (hr : ∀ pc s, SameDom D s → ED D (ret pc s)) :

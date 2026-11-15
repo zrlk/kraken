@@ -62,12 +62,22 @@ theorem checkW_sound (p : Prog) : ∀ (e : Expr) (cx : Cx), checkW p cx e = .ok 
         split at h
         · simp at h
         · rename_i hs
+          split at h
+          · simp at h
+          split at h
+          · simp at h
           simp only [bind_ok_iff] at h
           obtain ⟨c₂, h2, c₃, h3, h4⟩ := h
           exact .region h1 (by simpa using hs) h2 h3 (ih c₃ h4)
       · split at h
         · simp at h
         · rename_i hs
+          split at h
+          · simp at h
+          split at h
+          · simp at h
+          split at h
+          · simp at h
           simp only [bind_ok_iff] at h
           obtain ⟨c₂, h2, c₃, h3, h4⟩ := h
           exact .regionBuf h1 (by simpa using hs) h2 h3 (ih c₃ h4)

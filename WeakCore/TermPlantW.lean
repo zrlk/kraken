@@ -312,7 +312,7 @@ theorem ThSysAt_plant1K {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th 
       IniSeg (Cut (plant1 Eg l F Np) g.i S) c l b → ¬ IniSeg (Cut Eg g.i S) c l b →
       ∃ ws, ValOf (Cut (plant1 Eg l F Np) g.i S) S' ws ∧ ws.length = nWords us)
     (hcpl : ∀ b S', SegOf c.ty b S' → accs S' ≠ none → TearOK S') (hcT : Ty.coupledOKIn [] c.ty = true)
-    (hnT : Ty.noOwnIn [] c.ty = true) (hrT : rgnFree c.ty = true)
+    (hnT : Ty.noOwnIn [] c.ty = true) (hrT : rgnFree c.ty = true ∨ TermC1.drf1 c.ty = true)
     (hf : FlipOK (Cut Eg g.i S) (stOf mem pairs th) l) (hfo : FpOK (Cut Eg g.i S) (stOf mem pairs th))
     (hR1w : ∀ j, Eg.ini l ≤ j → j < Np → ∃ t0 m0, mem[t0]? = some m0 ∧ m0.loc = ⟨l, j⟩ ∧
       m0.val = .undef ∧ t0 ∉ th.promises ∧ (∃ t, AtA mem ⟨l, j⟩ t0 t = true) ∧
@@ -453,7 +453,7 @@ theorem ThSysAt_plant1 {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th :
       IniSeg (Cut (plant1 Eg l F Np) g.i S) c l b → ¬ IniSeg (Cut Eg g.i S) c l b →
       ∃ ws, ValOf (Cut (plant1 Eg l F Np) g.i S) S' ws ∧ ws.length = nWords us)
     (hcpl : ∀ b S', SegOf c.ty b S' → accs S' ≠ none → TearOK S') (hcT : Ty.coupledOKIn [] c.ty = true)
-    (hnT : Ty.noOwnIn [] c.ty = true) (hrT : rgnFree c.ty = true)
+    (hnT : Ty.noOwnIn [] c.ty = true) (hrT : rgnFree c.ty = true ∨ TermC1.drf1 c.ty = true)
     (hf : FlipOK (Cut Eg g.i S) (stOf mem pairs th) l) (hfo : FpOK (Cut Eg g.i S) (stOf mem pairs th))
     (hR1w : ∀ j, Eg.ini l ≤ j → j < Np → ∃ t0 m0, mem[t0]? = some m0 ∧ m0.loc = ⟨l, j⟩ ∧
       m0.val = .undef ∧ t0 ∉ th.promises ∧ (∃ t, AtA mem ⟨l, j⟩ t0 t = true) ∧

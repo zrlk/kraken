@@ -1,4 +1,5 @@
 import Kraken.X64.Parser
+import Scc.Sem.TextX64
 import Scc.Cert.Rt.WideOkX64
 
 /-!
@@ -8,9 +9,9 @@ The x64 twin of `Scc/Cert/WideCheckA64.lean`. `Scc/Cert/Rt/WideX64.lean`
 certifies programs whose memory writes are all 8 bytes
 (`Scc.Cert.WideX64.wideIn`, `Scc/Cert/Rt/WideOkX64.lean`). `check asm` runs
 that test on the program the canonical loader reads from the listing
-(`progOf`: `Scc.Sem.X64.textProgram`, restated here because `scc-x64`
-cannot import the loader's modules, which bring WeakCore's root `main`;
-`Scc/Test/WideCheckX64Test.lean` checks the restatement by `rfl`) and, when
+(`progOf`: `Scc.Sem.X64.textProgram` itself, from its own module
+`Scc/Sem/TextX64.lean`, since `scc-x64` cannot import the loader's target
+module, which brings WeakCore's root `main`) and, when
 it fails, names the offending listing lines. `scc-x64` passes it to
 `Scc.Cert.Blocks.code` (`Scc.Cli.run`'s `wide`), which refuses a program
 outside the fragment and states `<P>_wide` for one inside.
@@ -21,36 +22,11 @@ needs no label definitions), the verdict is the whole program's `wideIn`.
 
 namespace Scc.Cert.WideCheckX64
 
-/-- `Scc.Sem.textSection`: the lines of the `.text` sections. -/
-def textOf (asm : String) : String :=
-  let step (acc : Bool × List String) (l : String) : Bool × List String :=
-    let t := l.trimAscii.toString
-    if t.startsWith ".text" then (true, acc.2)
-    else if t.startsWith ".data" || t.startsWith ".bss" || t.startsWith ".section" ||
-        t.startsWith ".rodata" then (false, acc.2)
-    else if acc.1 then (true, l :: acc.2) else acc
-  "\n".intercalate ((asm.splitOn "\n").foldl step (true, [])).2.reverse
+/-- The lines of the `.text` sections: the loader's `Scc.Sem.textSection`. -/
+abbrev textOf : String → String := Scc.Sem.textSection
 
-/-- `Scc.Sem.X64.textProgram`: Kraken's x64 parser on the `.text` sections,
-alignment directives as `nopalign` cells. -/
-def progOf (asm : String) : Except String Program := do
-  let parseChunk (ls : List String) : Except String Program :=
-    Kraken.X64.Parser.parse (Kraken.X64.Parser.stripDirectives ("\n".intercalate ls.reverse))
-  let alignOf (t : String) : Option Nat :=
-    let ops := ((t.splitOn " ").filter (· ≠ "")).drop 1
-    if t.startsWith ".p2align" then (ops.headD "").toNat?.map (2 ^ ·)
-    else if t.startsWith ".balign" then (ops.headD "").toNat?
-    else none
-  let mut out : Program := []
-  let mut cur : List String := []
-  for l in (textOf asm).splitOn "\n" do
-    let t := " ".intercalate ((l.trimAscii.toString.splitOn "\t").map (·.trimAscii.toString))
-    match alignOf t with
-    | some n =>
-        out := out ++ (← parseChunk cur) ++ (← Kraken.X64.Parser.parse s!".align {n}")
-        cur := []
-    | none => cur := l :: cur
-  return out ++ (← parseChunk cur)
+/-- The program the canonical loader reads: `Scc.Sem.X64.textProgram`. -/
+abbrev progOf : String → Except String Program := Scc.Sem.X64.textProgram
 
 /-- The memory writes outside the fragment, as text for messages. -/
 def fragmentLimit : String :=

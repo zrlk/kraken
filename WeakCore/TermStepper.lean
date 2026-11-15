@@ -726,7 +726,7 @@ theorem tstep_writeAt {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : 
   intro t m ht hm
   rcases tstep_new hpl h t m ht hm with hf | ⟨a, ha, hA⟩
   · exact .inl hf
-  · exact .inr (termTgt_sto (η := η) hT hi.2.1 ha hA)
+  · exact .inr (termTgt_sto (η := η) hT.1 hi.2.1 ha hA)
 
 /-- **(B1, system)**: under `SysInvW`, a step of thread `i` appends only at
 `i`'s fresh labels (globally blank, `fresh`) or at labels of `i`'s cut. -/
@@ -800,7 +800,7 @@ theorem sw_noWord2E {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TT
     ∃ cl, E.sto loc.label = some cl ∧
       ∀ o2 r P, AtOff cl.ty o2 (.word2 r P) → loc.offset ≠ o2 ∧ loc.offset ≠ o2 + 1 := by
   obtain ⟨ρ, η, cx, rfl, hEo, hT, htv, hi, -⟩ := hE
-  exact sw_noWord2 (η := η) hEo hT htv hi hm (hsc η cx rfl hT) hpa hsw
+  exact sw_noWord2 (η := η) hEo hT.1 htv hi hm (hsc η cx rfl hT.1) hpa hsw
 
 /-! ## (B5) Every append: where it lands, in its unit's role
 
@@ -1130,7 +1130,7 @@ theorem stp_ua {p : Prog} {ρ : Nat → Nat} {η : TEnv} {σs : List Ty} {K : TE
     TermTyped.UnitsAt η b [.two] := by
   have hp : ∃ t, cx.peek a = .ok t := by cases hop <;> exact ⟨_, ‹_›⟩
   obtain ⟨t', hp⟩ := hp
-  obtain ⟨μ, r, P, ht, -⟩ := hsc t' hp
+  obtain ⟨μ, r, P, ht⟩ := hsc t' hp
   exact pair_ua hi.2.1 hp ht (.inl ⟨r, P, rfl⟩) hea hb
 
 theorem casp_ua {p : Prog} {ρ : Nat → Nat} {η : TEnv} {σs : List Ty} {K : TEnv → List Word → Prop}
@@ -1142,7 +1142,7 @@ theorem casp_ua {p : Prog} {ρ : Nat → Nat} {η : TEnv} {σs : List Ty} {K : T
     TermTyped.UnitsAt η A [.two] := by
   have hp : ∃ t, cx.peek w = .ok t := by cases hT <;> exact ⟨_, ‹_›⟩
   obtain ⟨t, hp⟩ := hp
-  obtain ⟨μ, u, ht, -, hu⟩ := hsc t hp
+  obtain ⟨μ, u, ht, hu⟩ := hsc t hp
   exact pair_ua hi.2.1 hp ht hu hea hb
 
 /-- **(B5, thread step, typed)**: every message a typed, in-scope thread's step
@@ -1183,7 +1183,7 @@ theorem tstep_newPosE {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : 
     ∀ (t : Nat) (m : Msg), mem.size ≤ t → r.1[t]? = some m →
       FreshIn g th.nalloc r.2.2.nalloc m.loc.label ∨ NewPos E m.loc := by
   obtain ⟨ρ, η, cx, rfl, hEo, hT, htv, hi, -⟩ := hE
-  exact tstep_newPos (η := η) hEo hT htv hi hm (hsc η cx rfl hT) h
+  exact tstep_newPos (η := η) hEo hT.1 htv hi hm (hsc η cx rfl hT.1) h
 
 /-- Two two-word units of one access list start at the same word or are disjoint. -/
 theorem twoAt_twoAt {us : List Acc} {a b : Nat} (ha : TwoAt us a) (hb : TwoAt us b) :

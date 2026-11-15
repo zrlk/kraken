@@ -118,7 +118,7 @@ theorem memInvB : MemInvB g0 E s1 := by
     exact ⟨[⟨.num 0, 0, 0⟩], (valOf_num E _ 0 rfl).1, rfl⟩
   · intro l c f hc _
     obtain ⟨-, rfl⟩ := sto_E hc
-    refine ⟨Or.inl (by decide), fun b S hS _ => ?_, by decide, by decide, by decide⟩
+    refine ⟨Or.inl (by decide), fun b S hS _ => ?_, by decide, by decide⟩
     obtain ⟨-, rfl⟩ := seg_int hS; exact TearOK_of_cplB (by decide)
   · intro l c f o hc _ _ ht; exact absurd (by obtain ⟨-, rfl⟩ := sto_E hc; exact ht) twoAt_int
   · intro l c f b S us o hc ho; obtain ⟨-, rfl⟩ := sto_E hc; exact absurd rfl ho

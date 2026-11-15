@@ -1,8 +1,19 @@
-# bodyloss allowlist: M0 freeze vs pre-M0 freeze. Each entry is a deliberate M0 change.
-# renamed (bodies byte-identical): RunDRF/ThDRF -> RunScope/ThScope
-# (older base, replaced by the extern-step relaxation) TermScope.RunDRF
-# (older base, replaced by the extern-step relaxation) TermScope.ThDRF
-# gOf's stride is now `c.n` (was `c.ths.size`): gOf's own closure no longer reaches ths/TTh directly
-# (older base, replaced by the extern-step relaxation) TermRun.Cfg.ths@lang.TermRun.gOf.txt
-# (older base, replaced by the extern-step relaxation) TermRun.TTh@lang.TermRun.gOf.txt
-# base: the installed post-E2 freeze; the 17 texts whose premises lost the certificate-window conditions are re-rendered after that change.
+# region pack/share check removed from the scope premise: these finals no longer print TermC1.packShareOK / CoreLang.Kind.share
+CoreLang.Kind.share@TermMain.ObligationsF.txt
+TermC1.packShareOK@A9SpawnFinal.startOKX_spawnS.txt
+TermC1.packShareOK@ExtArmZ.machine_tokens_main_em0.txt
+TermC1.packShareOK@ExtArmZ.reachable_typed_em0.txt
+TermC1.packShareOK@ExtArmZ.token_unique_final_em0.txt
+TermC1.packShareOK@ExtArmZ.token_unique_net_em0.txt
+TermC1.packShareOK@SpawnArmZ.machine_tokens_main_spawn.txt
+TermC1.packShareOK@SpawnArmZ.machine_tokens_main_spawn_init.txt
+TermC1.packShareOK@SpawnArmZ.reachable_typed_spawn.txt
+TermC1.packShareOK@SpawnArmZ.token_unique_final_spawn.txt
+TermC1.packShareOK@SpawnArmZ.token_unique_net_spawn.txt
+TermC1.packShareOK@TermMain.ObligationsF.txt
+TermC1.packShareOK@TermMain.machine_tokens_mainF.txt
+TermC1.packShareOK@TermMain.reachable_typedF.txt
+TermC1.packShareOK@TermMain.token_unique_finalF.txt
+TermC1.packShareOK@TermMain.token_unique_netF.txt
+TermC1.packShareOK@TermSpawn.machine_tokens_mainS.txt
+TermC1.packShareOK@TermSpawn.startOK_spawnS.txt

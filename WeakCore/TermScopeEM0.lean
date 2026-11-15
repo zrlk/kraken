@@ -46,7 +46,8 @@ abbrev SpE (k : Promises.Knobs) (arch : Arch) : Cfg → Cfg → Prop :=
 /-- **EM0's obligations**. -/
 theorem em0_oblX {k : Promises.Knobs} {arch : Arch} {Init : Res} :
     ObligationsFX em0 k arch (SpE k arch) Init (fun _ => True) (startW em0 2) :=
-  ⟨em0_checked, em0_scopeW, runScope_startW em0 2⟩
+  ⟨(TermSound.typed_dy_of_checked em0_checked).1, (TermSound.typed_dy_of_checked em0_checked).2, em0_scopeW,
+    runScope_startW em0 2⟩
 
 /-- **`machine_tokens_main_em0` for EM0.** -/
 theorem machine_tokens_main_hello {k : Promises.Knobs} {arch : Arch} {Init : Res}

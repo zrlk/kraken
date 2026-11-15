@@ -64,6 +64,8 @@ structure UDecl where
   body    : UExpr
   /-- (M1, T2) The decl kind (copied to and from the core `Decl`). -/
   kind    : DeclKind := .plain
+  /-- The swap-flagged index parameters (copied to and from the core `Decl`). -/
+  swapIdx : List String := []
 
 abbrev UProg := List UDecl
 
@@ -105,6 +107,7 @@ def setAts (o : Op) (as : List At) : Op :=
       | _ => .validate y
   | .call f is _ ts => .call f is (g 0) ts
   | .spawn f _ T ts => .spawn f (g 0) T ts
+  | .spawnI f is _ T ts => .spawnI f is (g 0) T ts
   | .ext n _ => .ext n (g 0)
   | .borrow c _ => .borrow c (g 0)
   | .endBorrow _ => .endBorrow (g 0)
@@ -238,7 +241,7 @@ def elabT (k : Nat) : UExpr → Expr
 
 def elabDecl (d : UDecl) : Decl :=
   { name := d.name, tparams := d.tparams, idx := d.idx, arg := d.arg, argTy := d.argTy, retTy := d.retTy,
-    body := elabT 0 d.body, kind := d.kind }
+    body := elabT 0 d.body, kind := d.kind, swapIdx := d.swapIdx }
 
 def elabProg (U : UProg) : Prog := U.map elabDecl
 
@@ -263,7 +266,7 @@ def embed : Expr → UExpr
 
 def embedDecl (d : Decl) : UDecl :=
   { name := d.name, tparams := d.tparams, idx := d.idx, arg := d.arg, argTy := d.argTy, retTy := d.retTy,
-    body := embed d.body, kind := d.kind }
+    body := embed d.body, kind := d.kind, swapIdx := d.swapIdx }
 
 def embedProg (p : Prog) : UProg := p.map embedDecl
 

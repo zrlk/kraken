@@ -1,0 +1,13 @@
+# C and C++ under runtime/efi (stub/stub.cc, generate_font.cc): Google style.
+# The next five settings are Google's own, spelled out.
+BasedOnStyle: Google
+UseTab: Never
+IndentWidth: 2
+TabWidth: 2
+ContinuationIndentWidth: 4
+ColumnLimit: 80
+# Pointer and reference marks on the type (int* p, int& r), always: Google
+# style otherwise follows whichever placement a file already uses most.
+DerivePointerAlignment: false
+PointerAlignment: Left
+ReferenceAlignment: Pointer

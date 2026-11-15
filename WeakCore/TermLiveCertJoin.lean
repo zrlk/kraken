@@ -45,7 +45,7 @@ theorem scen_no_livelock {p : Prog} {arch : Arch} {X V : List Nat} {ct : Cert} {
 
 /-- The fair form (no spawn move in the certificate): `Fair`, not `FairS`. -/
 theorem scen_no_livelock_fair {p : Prog} {arch : Arch} {X V : List Nat} {ct : Cert} {c0K : Cfg}
-    {kids : List TermSpawn.Kid} (hc : check p Promises.Knobs.all arch X V ct c0K = true) (hns : noSpawnB ct = true)
+    {kids : List TermSpawn.Kid} (hc : check p Promises.Knobs.all arch X V ct c0K = true) (hns : noSpawnB p ct = true)
     (Init : TermSound.Res) (c0 : Cfg)
     (hS : ScenarioStartK p Promises.Knobs.all arch Init kids c0) (hk : cfgKey c0 = cfgKey c0K)
     (r : LRun (machineE p Promises.Knobs.all arch).L) (D : Nat → Option Nat)
@@ -79,17 +79,17 @@ theorem scen_terminates {p : Prog} {arch : Arch} {V : List Nat} {ct : Cert} {c0K
   terminates_of_check (check_congr hc hk) hst (cfgCoh_scenario hS) r hr hs hpf hsr hf
 
 /-- `noSpawnB`'s per-node test (the generated `s{a}.lean` files prove it on a node range). -/
-def spawnOK (ct : Cert) (v : Nat) : Bool :=
-  (List.range (ct.nd v).ths.size).all fun i => (TermSpawnSuccs.spawnSuccsAt (ct.nd v) i).isEmpty
+def spawnOK (p : Prog) (ct : Cert) (v : Nat) : Bool :=
+  (List.range (ct.nd v).ths.size).all fun i => (TermSpawnSuccs.spawnSuccsAt p (ct.nd v) i).isEmpty
 
 /-- `noStuckB`'s per-node test. -/
 def stuckOK (p : Prog) (k : Promises.Knobs) (arch : Arch) (V : List Nat) (ct : Cert) (v : Nat) : Bool :=
   (ct.nd v).final || (List.range (ct.nd v).ths.size).any fun i => !(movesPF p k arch V (ct.nd v) i).isEmpty
 
 /-- `noSpawnB` from its node range (proved chunk by chunk, joined by `all_range_join`). -/
-theorem noSpawnB_intro {ct : Cert}
-    (h : (List.range' 0 ct.nodes.size).all (spawnOK ct) = true) :
-    noSpawnB ct = true := by
+theorem noSpawnB_intro {p : Prog} {ct : Cert}
+    (h : (List.range' 0 ct.nodes.size).all (spawnOK p ct) = true) :
+    noSpawnB p ct = true := by
   unfold noSpawnB; rw [List.range_eq_range']; exact h
 
 /-- `noStuckB` from its node range. -/
@@ -140,7 +140,7 @@ theorem noLivelockAt_of_check {p : Prog} {X : List Nat} {ct : Cert} {c0K cs : Cf
   fun Init c0 hS h0 r D hr hs hpf hsr hD hf => scen_no_livelock hc Init c0 hS (h0.trans hk) r D hr hs hpf hsr hD hf
 
 theorem noLivelockFairAt_of_check {p : Prog} {X : List Nat} {ct : Cert} {c0K cs : Cfg} {kids : List TermSpawn.Kid}
-    (hc : check p Promises.Knobs.all .arm X [] ct c0K = true) (hns : noSpawnB ct = true) (hk : cfgKey cs = cfgKey c0K) :
+    (hc : check p Promises.Knobs.all .arm X [] ct c0K = true) (hns : noSpawnB p ct = true) (hk : cfgKey cs = cfgKey c0K) :
     NoLivelockFairAt p X kids cs :=
   fun Init c0 hS h0 r D hr hs hpf hsr hD hf =>
     scen_no_livelock_fair hc hns Init c0 hS (h0.trans hk) r D hr hs hpf hsr hD hf

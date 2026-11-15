@@ -115,9 +115,8 @@ theorem footB1_newBuf {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {x : S
 theorem pubAt_eq {th : TTh} {x : String} {a : At} {e : Expr} {rt : Ty} {ws : List Word} {ad : Address}
     (hterm : th.term = .let_ x (.publish a) e) (hea : evalAt th.env a = some (rt, ws))
     (hws : ws.map (·.val) = [.loc ad 0]) {l : AllocLabel} (h : PubAt th l) : l = ad.label := by
-  obtain ⟨y, a', e', rt', ws', ad', h1, h2, h3, rfl⟩ := h
-  rw [hterm] at h1
-  cases h1
+  obtain ⟨a', rt', ws', ad', hk, h2, h3, rfl⟩ := h
+  rcases hk with ⟨y, e', h1⟩ | ⟨r', pn', tn', e', h1⟩ | ⟨y, r', e', h1⟩ <;> rw [hterm] at h1 <;> cases h1
   rw [hea] at h2
   cases h2
   rw [hws] at h3
@@ -127,18 +126,21 @@ theorem pubAt_eq {th : TTh} {x : String} {a : At} {e : Expr} {rt : Ty} {ws : Lis
 theorem pubAt_not {th : TTh} {x : String} {a : At} {e : Expr} {rt : Ty} {ws : List Word}
     (hterm : th.term = .let_ x (.publish a) e) (hea : evalAt th.env a = some (rt, ws))
     (hws : ∀ ad, ws.map (·.val) ≠ [.loc ad 0]) {l : AllocLabel} : ¬ PubAt th l := by
-  rintro ⟨y, a', e', rt', ws', ad', h1, h2, h3, rfl⟩
-  rw [hterm] at h1
-  cases h1
+  rintro ⟨a', rt', ws', ad', hk, h2, h3, rfl⟩
+  rcases hk with ⟨y, e', h1⟩ | ⟨r', pn', tn', e', h1⟩ | ⟨y, r', e', h1⟩ <;> rw [hterm] at h1 <;> cases h1
   rw [hea] at h2
   cases h2
   exact hws _ h3
 
-/-- Off `publish`, no label is published. -/
-theorem pubAt_nopub {th : TTh} (h : ∀ x a e, th.term ≠ .let_ x (.publish a) e) {l : AllocLabel} :
-    ¬ PubAt th l := by
-  rintro ⟨y, a', e', -, -, -, h1, -⟩
-  exact h _ _ _ h1
+/-- Off `publish`, `region` and `intoRgn`, no label is published. -/
+theorem pubAt_nopub {th : TTh} (h : ∀ x a e, th.term ≠ .let_ x (.publish a) e)
+    (hr : ∀ a rn pn tn e, th.term ≠ .region a rn pn tn e) (hi : ∀ x r a e, th.term ≠ .let_ x (.intoRgn r a) e)
+    {l : AllocLabel} : ¬ PubAt th l := by
+  rintro ⟨a', -, -, -, hk, -⟩
+  rcases hk with ⟨y, e', h1⟩ | ⟨r, pn, tn, e', h1⟩ | ⟨y, r, e', h1⟩
+  · exact h _ _ _ h1
+  · exact hr _ _ _ _ _ h1
+  · exact hi _ _ _ _ h1
 
 #print axioms footBP_of
 #print axioms footB1_nalloc

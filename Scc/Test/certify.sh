@@ -4,7 +4,7 @@
 # and check, in the kernel, the placement check at that layout and (with
 # --instantiate) the compiler theorem at it.
 #
-# Usage: Scc/Test/certify.sh [--arch x64|arm] [--instantiate] [--elf EXE] [-v|--verbose] PROG.w
+# Usage: Scc/Test/certify.sh [--arch x64|arm] [--instantiate] [--granule] [--elf EXE] [-v|--verbose] PROG.w
 #
 # First it builds what it needs (`lake build`: scc and the certificate
 # modules, and with --instantiate the compiler theorem's module), printing
@@ -58,6 +58,19 @@
 #   1  failed: scc, the assembler, the linker or the reader fails (a damaged
 #      executable), or T.post.lean does not check for another reason;
 #   2  usage.
+#
+# --granule: `scc --granule` (the granule pass), in the work directory
+# .lake/certify/ARCH/T-granule. The path is chosen by the certificate: one with
+# `final_check` (the certificate of the output after the pass) takes the
+# post-pass path below, any other the plain path. On the post-pass path the theorem is
+# the `_final` twin of the one named below (`Spike.Lib.Lower{X64,A64}.CorrectFinal`:
+# `*_closedAt1_final`, `x64_scc_correctE_text_closedAt_final`), about the
+# certificate's `outF` (`Scc.Cert.Granule.*.ofFinal`), from its `lowered_eq`,
+# `emitted_eq`, `tables_eq`, `final_check`, on x64 `cells_eq`, and `blocksF_eq`;
+# T.post.lean also runs the byte check of the executable against `outFLit`
+# (`Scc.Cert.ElfBytes.{X64,A64}.check`, an `#eval` that throws on a mismatch).
+# A registry program (hello1, wake, hello, below) with --granule is not
+# certifiable (exit 3): no proved theorem for the post-pass text.
 #
 # The theorem instantiated: on arm `a64_scc_correctE_text_closedAt1`
 # (fragment `Scc.Lower.Accepted1`, `prog_accepted1`). On x64
@@ -154,12 +167,13 @@
 # measured here), another executable not certifiable (exit 3).
 set -u
 
-ARCH=x64; INST=0; ELF=""; SRC=""; VERBOSE=0
-USAGE="usage: $0 [--arch x64|arm] [--instantiate] [--elf EXE] [-v|--verbose] PROG.w"
+ARCH=x64; INST=0; GRAN=0; ELF=""; SRC=""; VERBOSE=0
+USAGE="usage: $0 [--arch x64|arm] [--instantiate] [--granule] [--elf EXE] [-v|--verbose] PROG.w"
 while [ $# -gt 0 ]; do
   case "$1" in
     --arch) ARCH="${2:-}"; shift 2 ;;
     --instantiate) INST=1; shift ;;
+    --granule) GRAN=1; shift ;;
     --elf) ELF="${2:-}"; shift 2 ;;
     -v|--verbose) VERBOSE=1; shift ;;
     -*) echo "$USAGE" >&2; exit 2 ;;
@@ -180,6 +194,8 @@ LAKE=${LAKE:-lake}
 SCC="$ROOT/.lake/build/bin/scc"
 T=$(basename "$SRC" .w)
 REL=".lake/certify/$ARCH/$T"
+[ $GRAN = 1 ] && REL="$REL-granule"
+SCCF=(); [ $GRAN = 1 ] && SCCF=(--granule)
 WORK="$ROOT/$REL"
 SRCABS=$(cd "$(dirname "$SRC")" && pwd)/$(basename "$SRC")
 
@@ -219,14 +235,15 @@ build "scc and the certificate modules" "about 15 minutes on 64 cores" scc scc_x
 # (hello1.w builds its own theorem's module instead, below.)
 if [ $INST = 1 ] && ! cmp -s "$SRCABS" "$ROOT/Scc/Test/hello1.w"; then
   if [ "$ARCH" = x64 ]; then THM_MOD=Spike.Lib.LowerX64.Correct1; else THM_MOD=Spike.Lib.LowerA64.Correct1; fi
+  [ $GRAN = 1 ] && THM_MOD=${THM_MOD%.Correct1}.CorrectFinal
   build "the compiler theorem" "about 3 minutes" "$THM_MOD" || verdict 1 "failed: lake build $THM_MOD (log: $BLOG)"
 fi
 show "$WORK" cp "$SRCABS" "$T.w"
 cp "$SRCABS" "$T.w"
 
 # 1. Compile, with the certificate.
-show "$WORK" "$SCC" --arch "$ARCH" --cert "$T.cert.lean" -o "$T.s" "$T.w"
-"$SCC" --arch "$ARCH" --cert "$T.cert.lean" -o "$T.s" "$T.w" >"$T.scc.out" 2>"$T.scc.err" \
+show "$WORK" "$SCC" --arch "$ARCH" "${SCCF[@]}" --cert "$T.cert.lean" -o "$T.s" "$T.w"
+"$SCC" --arch "$ARCH" "${SCCF[@]}" --cert "$T.cert.lean" -o "$T.s" "$T.w" >"$T.scc.out" 2>"$T.scc.err" \
   || verdict 1 "failed: scc: $(head -c 2000 "$T.scc.err")"
 OUTSIDE="-- outside the certified fragment: no stack need table (non-tail recursion)"
 if grep -qxF -- "$OUTSIDE" "$T.cert.lean"; then
@@ -237,6 +254,16 @@ hs=$(sha256sum "$T.w" | cut -d' ' -f1); ha=$(sha256sum "$T.s" | cut -d' ' -f1)
 if [ "$(grep -c "^-- SHA-256 (UTF-8): \($hs\|$ha\)\$" "$T.cert.lean")" != 2 ]; then
   verdict 1 "failed: the certificate's digests differ from sha256sum"
 fi
+# The path: a certificate of the output after the granule pass has
+# `final_check` (and its `outF`, `outFLit`, `outF_eq`); any other has `out`,
+# `outLit`, `out_eq`.
+FINAL=0
+grep -q "^theorem final_check :" "$T.cert.lean" && FINAL=1
+[ $FINAL = $GRAN ] || verdict 1 "failed: the certificate does not match --granule (final_check: $FINAL)"
+O=out; OL=outLit; OEQ=out_eq; LITDOC='`out` as a literal'
+if [ $FINAL = 1 ]; then O=outF; OL=outFLit; OEQ=outF_eq; LITDOC='`outF` as a literal'; fi
+POSTPASS="not certifiable: no proved theorem for the post-pass text (--granule; the registry's \
+theorems are about the text without the granule pass)"
 # The fragment: `Scc.Lower.Accepted1` (`prog_accepted1`, which every
 # `Accepted0` program has: `Scc.Lower.accepted1_of_accepted0`). On x64 the
 # theorem over it also needs `main`'s frame within 4096 bytes
@@ -249,13 +276,14 @@ WAKE=0
 HELLO=0
 # A program that takes its thread id or spawns: `placeOK2` (see the header).
 SPAWN=0
-grep -q "^theorem prog_placeOK2 : $SNS.placeOK2 placeCfg out = true" "$T.cert.lean" && SPAWN=1
+grep -q "^theorem prog_placeOK2 : $SNS.placeOK2 placeCfg $O = true" "$T.cert.lean" && SPAWN=1
 if [ $SPAWN = 1 ] && [ $INST = 1 ]; then
   # The registry's hello entry (see the header): `Scc/Test/hello.w` byte for byte.
   show "$WORK" cmp "$T.w" "$ROOT/Scc/Test/hello.w"
   cmp -s "$T.w" "$ROOT/Scc/Test/hello.w" && HELLO=1
 fi
 if [ $HELLO = 1 ]; then
+  [ $FINAL = 1 ] && verdict 3 "$POSTPASS"
   if [ "$ARCH" = x64 ]; then
     HD=hellox64; HMOD=Spike.Test.HelloLinkedX64Root; HTHM=hello_linkedX
     [ -f "$ROOT/Spike/Test/HelloLinkedX64Root.lean" ] || verdict 3 "not certifiable: no proved \
@@ -279,6 +307,7 @@ elif [ $SPAWN = 1 ] && [ $INST = 1 ]; then
   show "$WORK" cmp "$T.w" "$ROOT/Scc/Test/wake.w"
   cmp -s "$T.w" "$ROOT/Scc/Test/wake.w" || verdict 3 "not certifiable: no proved \
 theorem for a program that takes its thread id or spawns (placeOK2; decide the placement without --instantiate)"
+  [ $FINAL = 1 ] && verdict 3 "$POSTPASS"
   if [ "$ARCH" = x64 ]; then
     WD=wakex64; WMOD=Spike.Test.WakeLinkedX64Root; WTHM=wake_linkedX
   else
@@ -325,6 +354,7 @@ Scc/Test/hello1.w have no proved theorem: no proved theorem for this program/tex
   fi
 fi
 if [ $HELLO1 = 1 ]; then
+  [ $FINAL = 1 ] && verdict 3 "$POSTPASS"
   # hello1's theorem is about the checked-in text: T.s must be it, byte for byte.
   if [ "$ARCH" = x64 ]; then H1ISA=x64; else H1ISA=a64; fi
   H1S="Scc/Test/elf/hello1$H1ISA/hello1.s"
@@ -700,16 +730,28 @@ fi
 
 # 4. The certificate after the link.
 if [ "$ARCH" = x64 ]; then
-  HPA="Scc.Cert.Link.X64.parsesTo ⟨asm, sizes, labelOffs⟩ out.prog out.secs"; TEXT="⟨asm, sizes, labelOffs⟩"
+  HPA="Scc.Cert.Link.X64.parsesTo ⟨asm, sizes, labelOffs⟩ $O.prog $O.secs"; TEXT="⟨asm, sizes, labelOffs⟩"
   CORRECTE="Scc.Sem.X64.CorrectE"; THM="Spike.Lib.LowerX64.x64_scc_correctE_text_closedAt"
   [ "$ACC" = prog_accepted1 ] && THM="Spike.Lib.LowerX64.x64_scc_correctE_text_closedAt1"
   CODEEND="Scc.Sem.X64.codeEnd"; E2E="Scc.Cert.E2E.X64"; E2E_MOD="Scc.Cert.E2EX64"
 else
   CODEEND="Scc.Sem.A64.codeEnd"; E2E="Scc.Cert.E2E.A64"; E2E_MOD="Scc.Cert.E2EA64"
-  HPA="Scc.Cert.Link.A64.parsesTo asm out.prog out.secs"; TEXT="asm"
+  HPA="Scc.Cert.Link.A64.parsesTo asm $O.prog $O.secs"; TEXT="asm"
   CORRECTE="Scc.Sem.A64.CorrectE"; THM="Spike.Lib.LowerA64.a64_scc_correctE_text_closedAt1"
 fi
 L="⟨elf.1⟩"
+# The theorem's arguments after the acceptance (and the frame bound): the plain path's, or
+# on the post-pass path the certificate's stages, check, cells and block table.
+# The configuration of the lowering: on the post-pass path the certificate's
+# `lowered_eq` is at `configW` (`config` with the GC tables' witness).
+THMARGS=" prog_placeOKAt$HFR hpa"; CFG=config
+if [ $FINAL = 1 ]; then
+  CFG=configW
+  THM="${THM}_final"; EB_MOD="Scc.Cert.ElfBytesX64"; EB="Scc.Cert.ElfBytes.X64"; HZ=" cells_eq"
+  if [ "$ARCH" = arm ]; then EB_MOD="Scc.Cert.ElfBytesA64"; EB="Scc.Cert.ElfBytes.A64"; HZ=""; fi
+  THMARGS="$HFR lowered_eq emitted_eq tables_eq final_check$HZ blocksF_eq
+    prog_placeOKAt hpa"
+fi
 # On both ISAs A9 is by its keyed form and A12 (the code of every user
 # function) by its two keyed parts, each its own declaration
 # (`Scc/Cert/A12StageA64.lean`, `Scc/Cert/A12StageX64.lean`: the kernel's
@@ -721,40 +763,88 @@ if [ "$ARCH" = arm ]; then
   # A2 by its keyed form (`a2fast`, `Scc/Cert/A2StageA64.lean`).
   A2="a2fast"; A2PF="($NS.a2_of_fast h1.1.1.2)"
 fi
+# A2 on x64 by its parts, each its own declaration (as the certificate's
+# \`prog_placeOK_2\`: \`a2_of_partsAt\` over \`Link.X64.loadOk_ofR\`); on arm
+# its keyed form decided whole.
+A2SYMS="(Scc.Sem.loadSyms elf.1 $OL.secs.rodata)"
+A2END="(Scc.Sem.X64.codeEnd elf.1.code.lo $OL.prog)"
+A2THM="/-- A2 of \`$OL\` at the executable's layout (kernel-checked). -/
+theorem prog_placeOKAt_1b : $NS.$A2 $OL $L = true := by
+  decide +kernel"
+[ "$ARCH" = x64 ] && A2THM="/-- A2's code sizes against the assembler's label offsets (kernel-checked). -/
+theorem prog_placeOKAt_2w :
+    Scc.Cert.Link.X64.sizeOkW (Int64.ofNat elf.1.code.lo) $OL.prog $OL.labelOffs = true := by
+  decide +kernel
+
+/-- A2's code labels, each once (kernel-checked). -/
+theorem prog_placeOKAt_2l : Scc.Cert.Link.X64.labelsNodupL (Int64.ofNat elf.1.code.lo) $OL.prog = true := by
+  decide +kernel
+
+/-- A2's \`.quad\` labels resolve (kernel-checked, the code labels keyed:
+\`Scc.Cert.Rt.X64.codeT_eq\`). -/
+theorem prog_placeOKAt_2q :
+    Scc.Sem.quadsResolve elf.1 $OL.secs.rodata (Scc.Sem.X64.codeLabel elf.1.code.lo $OL.prog) = true := by
+  rw [← Scc.Cert.Rt.X64.codeT_eq]; decide +kernel
+
+/-- A2's \`.rodata\` and data symbols against the layout and the code (kernel-checked). -/
+theorem prog_placeOKAt_2r : (Scc.Sem.rodataFits elf.1 $OL.secs.rodata &&
+    Scc.Sem.symsAgree elf.1 $OL.secs.rodata && Scc.Sem.symsAbove elf.1.code.lo $A2END $A2SYMS &&
+    Scc.Cert.Link.X64.symsAround elf.1.code.lo $OL.prog $A2SYMS &&
+    Scc.Cert.Link.X64.noClash elf.1.code.lo $OL.prog $A2SYMS && decide ($A2END < 2 ^ 64)) = true := by
+  decide +kernel
+
+/-- A2's abort labels in the cells (kernel-checked). -/
+theorem prog_placeOKAt_2a : Scc.Cert.Link.X64.abortsIn $OL.prog elf.1 = true := by
+  decide +kernel
+
+/-- A2's image (kernel-checked). -/
+theorem prog_placeOKAt_2i : Scc.Cert.Link.X64.imageIn $OL.prog $OL.secs elf.1 = true := by
+  decide +kernel
+
+/-- A2 of \`$OL\` at the executable's layout (its parts above). -/
+theorem prog_placeOKAt_1b : $NS.a2 $OL $L = true :=
+  $NS.a2_of_partsAt (Scc.Cert.Link.X64.loadOk_ofR prog_placeOKAt_2w prog_placeOKAt_2l prog_placeOKAt_2q
+    prog_placeOKAt_2r) prog_placeOKAt_2a prog_placeOKAt_2i"
+# A7 by its three conjuncts (as the certificate's \`prog_placeOK_7\`).
+A7RT="$NS.mainRtOk $OL.prog $OL.place.tail"; STUBW="Spike.Lib.X64.StubW"
+if [ "$ARCH" = arm ]; then
+  A7RT="Scc.Cert.Rt.A64.rtIn $OL.prog (Scc.Cert.Rt.A64.RtIn.rtTab ($NS.mainGrps $OL.place.tail))"
+  STUBW="Spike.Lib.A64.StubW"
+fi
 A12THM="
-/-- A12's code part of \`outLit\` (kernel-checked). -/
-theorem prog_placeOKAt_12c : $NS.a12code outLit = true := by
+/-- A12's code part of \`$OL\` (kernel-checked). -/
+theorem prog_placeOKAt_12c : $NS.a12code $OL = true := by
   decide +kernel
 
-/-- A12's phase part of \`outLit\` at the executable's layout (kernel-checked). -/
-theorem prog_placeOKAt_12p : $NS.a12ph outLit $L = true := by
+/-- A12's phase part of \`$OL\` at the executable's layout (kernel-checked). -/
+theorem prog_placeOKAt_12p : $NS.a12ph $OL $L = true := by
   decide +kernel
 
-/-- A12 of \`outLit\` at the executable's layout. -/
-theorem prog_placeOKAt_12 : $NS.a12 outLit $L = true :=
+/-- A12 of \`$OL\` at the executable's layout. -/
+theorem prog_placeOKAt_12 : $NS.a12 $OL $L = true :=
   $NS.a12_of_split prog_placeOKAt_12c prog_placeOKAt_12p
 "
 A12ARG=" prog_placeOKAt_12"
-A11THM="/-- A11 of \`outLit\` at the executable's layout (kernel-checked). -/
-theorem prog_placeOKAt_11 : $NS.a11 outLit $L = true := by
+A11THM="/-- A11 of \`$OL\` at the executable's layout (kernel-checked). -/
+theorem prog_placeOKAt_11 : $NS.a11 $OL $L = true := by
   decide +kernel"
 PNAME="placeOKAt"; PNS=$NS
 if [ $SPAWN = 1 ]; then
   # `placeOK2At`: A11', A12' in its two parts and A13 (`Scc/Cert/Spawn*.lean`).
-  A11THM="/-- A11' of \`outLit\` at the executable's layout (kernel-checked). -/
-theorem prog_placeOKAt_11 : $SNS.a11' outLit $L = true := by
+  A11THM="/-- A11' of \`$OL\` at the executable's layout (kernel-checked). -/
+theorem prog_placeOKAt_11 : $SNS.a11' $OL $L = true := by
   decide +kernel"
   A12THM="
-/-- A12''s code part of \`outLit\` (kernel-checked). -/
-theorem prog_placeOKAt_12c : $SNS.a12code' outLit = true := by
+/-- A12''s code part of \`$OL\` (kernel-checked). -/
+theorem prog_placeOKAt_12c : $SNS.a12code' $OL = true := by
   decide +kernel
 
-/-- A12''s phase part of \`outLit\` at the executable's layout (kernel-checked). -/
-theorem prog_placeOKAt_12p : $SNS.a12ph' outLit $L = true := by
+/-- A12''s phase part of \`$OL\` at the executable's layout (kernel-checked). -/
+theorem prog_placeOKAt_12p : $SNS.a12ph' $OL $L = true := by
   decide +kernel
 
-/-- A13 of \`outLit\` at the executable's layout (kernel-checked). -/
-theorem prog_placeOKAt_13 : $SNS.a13 outLit $L = true := by
+/-- A13 of \`$OL\` at the executable's layout (kernel-checked). -/
+theorem prog_placeOKAt_13 : $SNS.a13 $OL $L = true := by
   decide +kernel
 "
   A12ARG=" prog_placeOKAt_12c prog_placeOKAt_12p prog_placeOKAt_13"
@@ -765,6 +855,7 @@ CODEFILLS="(by decide +kernel)"
 {
   echo "import Scc.Cert.Elf"
   echo "import $E2E_MOD"
+  [ $FINAL = 1 ] && echo "import $EB_MOD"
   if [ $HELLO1 = 1 ]; then
     if [ $INST = 1 ]; then echo "import $H1MOD"; else echo "import $H1CERT"; fi
     cat <<EOF
@@ -789,7 +880,7 @@ EOF
   fi
   # The certificate up to its decisions at the static link (they are not
   # needed: the decisions below are at the executable's layout).
-  [ $HELLO1 = 1 ] || sed -e '/^\/-- A1 of `outLit`/,$d' "$T.cert.lean"
+  [ $HELLO1 = 1 ] || sed -e "/^\\/-- A1 of \`$OL\`/,\$d" "$T.cert.lean"
   cat <<EOF
 /-! ## After the link
 
@@ -806,52 +897,86 @@ def elf : Scc.Sem.Layout × String := scc_elf_layout% "$REL/$T"
 -- The file read is the executable linked (evaluation, not a proof).
 #guard elf.2 == "$he"
 EOF
+  if [ $FINAL = 1 ]; then cat <<EOF
+
+-- The executable's bytes against \`outFLit\` (\`$EB.check\`: evaluation, throws on a mismatch).
+#eval $EB.check "$REL/$T" outFLit.prog outFLit.secs
+EOF
+  fi
   if [ $HELLO1 = 1 ]; then cat <<EOF
 
-/-- \`outLit\`'s code fills the executable's code region (kernel-checked). -/
-theorem prog_codeFills : $E2E.codeFills outLit elf.1 = true := by
+/-- \`$OL\`'s code fills the executable's code region (kernel-checked). -/
+theorem prog_codeFills : $E2E.codeFills $OL elf.1 = true := by
   decide +kernel
 EOF
   fi
   cat <<EOF
 
-/-- The code the canonical loader lays out from \`outLit\` ends where the
+/-- The code the canonical loader lays out from \`$OL\` ends where the
 executable's code region does (kernel-checked). -/
-theorem prog_codeEnd : $CODEEND elf.1.code.lo outLit.prog = elf.1.code.lo + elf.1.code.size :=
-  $E2E.codeEnd_eq_of_codeFills (o := outLit) (Λ := elf.1) $CODEFILLS
+theorem prog_codeEnd : $CODEEND elf.1.code.lo $OL.prog = elf.1.code.lo + elf.1.code.size :=
+  $E2E.codeEnd_eq_of_codeFills (o := $OL) (Λ := elf.1) $CODEFILLS
 
-/-- A1, A2, A4 and A7 of \`outLit\` at the executable's layout (kernel-checked). -/
-theorem prog_placeOKAt_1 : ($NS.a1 outLit $L && $NS.$A2 outLit $L &&
-    $NS.a4 placeCfg outLit $L && $NS.a7 outLit $L) = true := by
+/-- A1 of \`$OL\` at the executable's layout (kernel-checked; A1, A2's parts, A4
+and A7's three conjuncts are each their own declaration, so that the kernel keeps
+one of them alive at a time). -/
+theorem prog_placeOKAt_1a : $NS.a1 $OL $L = true := by
   decide +kernel
 
-/-- A3 of \`outLit\` at the executable's layout (kernel-checked). -/
-theorem prog_placeOKAt_3 : $NS.a3 outLit $L = true :=
+$A2THM
+
+/-- A4 of \`$OL\` at the executable's layout (kernel-checked). -/
+theorem prog_placeOKAt_1c : $NS.a4 placeCfg $OL $L = true := by
+  decide +kernel
+
+/-- A7's runtime code of \`$OL\` (kernel-checked). -/
+theorem prog_placeOKAt_7rt : $A7RT = true := by
+  decide +kernel
+
+/-- A7's abort phases of \`$OL\` at the executable's layout (kernel-checked). -/
+theorem prog_placeOKAt_7ab : $STUBW.abortPhC elf.1.code.lo elf.1 $OL.prog = true := by
+  decide +kernel
+
+/-- A7's tail offsets of \`$OL\` at the executable's layout (kernel-checked). -/
+theorem prog_placeOKAt_7tl : $STUBW.tailOffC elf.1.code.lo elf.1 $OL.prog = true := by
+  decide +kernel
+
+/-- A7 of \`$OL\` at the executable's layout (its three conjuncts above). -/
+theorem prog_placeOKAt_7 : $NS.a7 $OL $L = true := by
+  simp only [$NS.a7, prog_placeOKAt_7rt, prog_placeOKAt_7ab, prog_placeOKAt_7tl, Bool.and_self]
+
+/-- A1, A2, A4 and A7 of \`$OL\` at the executable's layout (the parts above). -/
+theorem prog_placeOKAt_1 : ($NS.a1 $OL $L && $NS.$A2 $OL $L &&
+    $NS.a4 placeCfg $OL $L && $NS.a7 $OL $L) = true := by
+  simp only [prog_placeOKAt_1a, prog_placeOKAt_1b, prog_placeOKAt_1c, prog_placeOKAt_7, Bool.and_self]
+
+/-- A3 of \`$OL\` at the executable's layout (kernel-checked). -/
+theorem prog_placeOKAt_3 : $NS.a3 $OL $L = true :=
   $NS.a3_of_partsAt (by decide +kernel) (by decide +kernel)
 
-/-- A5 of \`outLit\` at the executable's layout (kernel-checked). -/
-theorem prog_placeOKAt_5 : $NS.a5 outLit $L = true := by
+/-- A5 of \`$OL\` at the executable's layout (kernel-checked). -/
+theorem prog_placeOKAt_5 : $NS.a5 $OL $L = true := by
   decide +kernel
 
-/-- A6 of \`outLit\` at the executable's layout (kernel-checked). -/
-theorem prog_placeOKAt_6 : $NS.a6 outLit $L = true :=
+/-- A6 of \`$OL\` at the executable's layout (kernel-checked). -/
+theorem prog_placeOKAt_6 : $NS.a6 $OL $L = true :=
   $NS.a6_of_partsAt (by decide +kernel) (by decide +kernel)
 
-/-- A8 of \`outLit\` at the executable's layout (kernel-checked). -/
-theorem prog_placeOKAt_8 : $NS.a8 outLit $L = true := by
+/-- A8 of \`$OL\` at the executable's layout (kernel-checked). -/
+theorem prog_placeOKAt_8 : $NS.a8 $OL $L = true := by
   decide +kernel
 
 $A11THM
 $A12THM
-/-- A9 of \`outLit\` at the executable's layout (kernel-checked). -/
-theorem prog_placeOKAt_9 : $NS.a9 outLit $L = true :=$A9PF
+/-- A9 of \`$OL\` at the executable's layout (kernel-checked). -/
+theorem prog_placeOKAt_9 : $NS.a9 $OL $L = true :=$A9PF
 
 /-- **\`$PNAME\` of \`scc\`'s output at the executable's layout**, from its
 components (\`${PNAME}_of\`). -/
-theorem prog_placeOKAt : $PNS.$PNAME placeCfg elf.1 out = true := by
+theorem prog_placeOKAt : $PNS.$PNAME placeCfg elf.1 $O = true := by
   have h1 := prog_placeOKAt_1
   simp only [Bool.and_eq_true] at h1
-  rw [out_eq]
+  rw [$OEQ]
   exact $PNS.${PNAME}_of
     h1.1.1.1 $A2PF prog_placeOKAt_3 h1.1.2 prog_placeOKAt_5 prog_placeOKAt_6 h1.2 prog_placeOKAt_8
     prog_placeOKAt_9 prog_placeOKAt_11$A12ARG
@@ -905,7 +1030,7 @@ EOF
   elif [ $SPAWN = 0 ]; then cat <<EOF
 
 /-- **Acceptance and placement at the executable's layout.** -/
-theorem prog_linked_ready : $ACCP prog_src = true ∧ $NS.placeOKAt placeCfg elf.1 out = true :=
+theorem prog_linked_ready : $ACCP prog_src = true ∧ $NS.placeOKAt placeCfg elf.1 $O = true :=
   ⟨$ACC, prog_placeOKAt⟩
 EOF
   fi
@@ -918,7 +1043,7 @@ EOF
 
 /-- \`main\`'s frame is at most 4096 bytes, the reach of the stack check's
 probe (\`Spike.Lib.LowerX64.MainFrame1Ok\`; kernel-checked). -/
-theorem prog_mainFrame1 : Spike.Lib.LowerX64.MainFrame1Ok config main = true := by
+theorem prog_mainFrame1 : Spike.Lib.LowerX64.MainFrame1Ok $CFG main = true := by
   decide +kernel
 EOF
     fi
@@ -932,7 +1057,7 @@ theorem prog_correct_linked (B : Scc.Sem.Budget) (arch : WeakMem.Arch)
     (hpa : $HPA = true) :
     $CORRECTE 1 (Scc.Sem.SrcSem.source (Spike.Lib.srcP1 arch) prog_src)
       { elf.1 with static := fun _ => none, imms := $IMMS } B $TEXT :=
-  $THM (cfg := config) (pcfg := placeCfg) elf.1 $ACC prog_placeOKAt$HFR hpa
+  $THM (cfg := $CFG) (pcfg := placeCfg) elf.1 $ACC$THMARGS
 
 /--
 info: 'SccCertificate.prog_correct_linked' depends on axioms: [propext, Classical.choice, Quot.sound]
@@ -972,7 +1097,7 @@ CHECKS="$NS.checks"; [ $SPAWN = 1 ] && CHECKS="$SNS.checks2"
   echo "import Scc.Cert.Elf"
   if [ $HELLO1 = 1 ]; then echo "import $H1CERT"; echo; echo "namespace SccCertificate"; echo
     echo "#eval do IO.println s!\"certify-text: {(← IO.FS.readFile \"$REL/$T.s\") == asm}\""; else
-  sed -e '/^\/-- `out` as a literal/,$d' "$T.cert.lean" | awk '
+  sed -e "/^\\/-- $LITDOC/,\$d" "$T.cert.lean" | awk '
     function flush() { if (nd) printf "%s", doc; doc = ""; nd = 0 }
     skip && /^[ \t]/ { next }
     { skip = 0 }
@@ -984,7 +1109,7 @@ CHECKS="$NS.checks"; [ $SPAWN = 1 ] && CHECKS="$SNS.checks2"
   fi
   cat <<EOF
 def elf : Scc.Sem.Layout × String := scc_elf_layout% "$REL/$T"
-#eval IO.println (match Scc.Cert.PlaceOK.Checks.firstFail ($CHECKS placeCfg) (fun _ => $L) out with
+#eval IO.println (match Scc.Cert.PlaceOK.Checks.firstFail ($CHECKS placeCfg) (fun _ => $L) $O with
   | some n => s!"certify-diag: a{n}"
   | none => "certify-diag: none")
 

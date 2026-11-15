@@ -186,32 +186,40 @@ theorem VarsW_pushT {cx : Cx} {κ : Kind} (hv : VarsW cx) : VarsW (cx.pushT κ) 
 /-! ## The checker-pinned clause -/
 
 
+theorem ok_of_ite_error {c : Prop} [Decidable c] {s : String} {r : M Unit}
+    (h : (if c then Except.error s else r) = .ok ()) : r = .ok () := by
+  by_cases hc : c <;> simp [hc] at h ⊢ <;> exact h
+
 /-- (r4) **`let`: the checker's operation typing**, re-selected: `checkOp`'s context, an `OpT`
 by `checkOp_sound`, the bound type `wrapOK`, and `checkW` on the rest. -/
 theorem checkW_let {p : Prog} {cx : Cx} {x : String} {op : Op} {e : Expr}
     (h : checkW p cx (.let_ x op e) = .ok ()) :
     opArgOK op = true ∧ ∃ c, checkOp p cx x op = .ok c ∧ OpT p cx x op c ∧
       (∀ y t b, c.vars.find? (·.1 == x) = some (y, t, b) → wrapOK t = true) ∧ checkW p c e = .ok () := by
-  simp only [checkW] at h
+  rw [checkW.eq_1] at h
   split at h
   · simp [throw, throwThe, MonadExceptOf.throw, bind, Except.bind] at h
   rename_i hA
-  simp only [bind_ok_iff] at h
-  obtain ⟨c, hc, h⟩ := h
-  refine ⟨by simpa using hA, c, hc, checkOp_sound p cx x op c hc, ?_⟩
-  split at h
-  · rename_i y t b hf
+  -- c1: ruleA, the (e) test, then the intoRgn / xchg payload matches; each throw branch closes
+  repeat' (split at h)
+  all_goals (try (simp [throw, throwThe, MonadExceptOf.throw, bind, Except.bind] at h; done))
+  all_goals
+    simp only [bind_ok_iff] at h
+    obtain ⟨c, hc, h⟩ := h
+    refine ⟨by simpa using hA, c, hc, checkOp_sound _ _ _ _ _ hc, ?_⟩
     split at h
-    · simp [throw, throwThe, MonadExceptOf.throw, bind, Except.bind] at h
-    · rename_i hw
+    · rename_i y t b hf
+      split at h
+      · simp [throw, throwThe, MonadExceptOf.throw, bind, Except.bind] at h
+      · rename_i hw
+        try (simp only [bind_ok_iff, pure, Except.pure] at h; obtain ⟨_, -, h⟩ := h)
+        refine ⟨fun y' t' b' hf' => ?_, h⟩
+        rw [hf] at hf'; simp only [Option.some.injEq, Prod.mk.injEq] at hf'
+        obtain ⟨-, rfl, -⟩ := hf'; simpa using hw
+    · rename_i hf
       try (simp only [bind_ok_iff, pure, Except.pure] at h; obtain ⟨_, -, h⟩ := h)
       refine ⟨fun y' t' b' hf' => ?_, h⟩
-      rw [hf] at hf'; simp only [Option.some.injEq, Prod.mk.injEq] at hf'
-      obtain ⟨-, rfl, -⟩ := hf'; simpa using hw
-  · rename_i hf
-    try (simp only [bind_ok_iff, pure, Except.pure] at h; obtain ⟨_, -, h⟩ := h)
-    refine ⟨fun y' t' b' hf' => ?_, h⟩
-    rw [hf] at hf'; cases hf'
+      rw [hf] at hf'; cases hf'
 
 /-- (r1) **`unpackT`: the child of an accepted block is accepted**, at the context `Typed`'s
 `unpackT` rule computes (`use`/`pushT`/`bind` are functions). -/

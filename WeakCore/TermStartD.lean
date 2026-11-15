@@ -36,8 +36,8 @@ def slotP : Proto := ⟨[⟨0, 0, true⟩, ⟨0, 1, false⟩, ⟨0, 2, true⟩, 
 returns the CPU's and the device's arguments `(ca, da)`; thread 0 spawns the device decl `dev` on `da` at the checked
 type `T` (the platform attaching the device to the regions `setup` chose; a trusted assumption), then calls the CPU decl
 `main` on `(ca, d)`, `d` the device thread's id, and exits as `wrapTerm` does. This is the only spawn of a device decl
-outside device decls: no CPU decl spawns, calls or tail-calls a device decl or takes one as a value (`checkDecl`'s kind
-rules). A device decl may itself spawn threads, running device or CPU decls, and call CPU decls; the trusted device assumption counts
+outside device decls: no CPU decl spawns, calls or tail-calls a device decl or takes one as a value. That is a boundary the lowering
+must enforce, and no theorem here uses it. `checkDecl`'s kind rules also refuse it for now. A device decl may itself spawn threads, running device or CPU decls, and call CPU decls; the trusted device assumption counts
 the device thread and every thread descended from it by spawns as part of the device. The wrapper is not a decl: `checkDecl`'s kind rules do not apply to it; `check`/`checkW` do. -/
 def boardTerm (dev : String) (T : Ty) (rt : Option Ty) : Expr :=
   .let_ "s" (.call "setup" [] (.var "a")) <|
@@ -183,7 +183,8 @@ theorem initOK_startD {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res}
 theorem oblX_board {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {b : Board} {cap : Nat}
     (B : BoardOK p b) :
     ObligationsFX p k arch (SpD p k arch cap) Init (fun _ => True) (startD p b cap) :=
-  ⟨B.checked, B.scope, runScope_startD B⟩
+  ⟨(TermSound.typed_dy_of_checked B.checked).1, (TermSound.typed_dy_of_checked B.checked).2, B.scope,
+    runScope_startD B⟩
 
 /-- **Slot-ownership (token) race freedom at a device start** (`token_unique_net_em0` at `startD`): along every
 run of a checked device program from its device start, at every reachable configuration, no region token is held by

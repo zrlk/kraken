@@ -70,6 +70,7 @@ layout is clear of the initial stack) and a check of the refusal.
 import Scc.Sem.Kernel
 import Kraken.Promising.AArch64
 import Kraken.AArch64.Parser
+import Scc.Sem.TextA64
 
 namespace Scc.Sem.A64
 
@@ -146,11 +147,8 @@ def labelName : Directive → Option String
   | .label l => some l
   | _ => none
 
-/-- The program of a text's `.text` sections (Kraken's parser, directive
-lines dropped; AArch64 instructions are 4 bytes, so `.p2align 2` pads
-nothing, and the `.p2align 4` opening `.text` is at offset 0). -/
-def textProgram (asm : String) : Except String Program :=
-  Kraken.AArch64.Parser.parse (Kraken.AArch64.Parser.stripDirectives (textSection asm))
+/-! The program of a text's `.text` sections, `textProgram`, is in
+`Scc/Sem/TextA64.lean`. -/
 
 /-- **The AArch64 target with hooks `H` and entry state `E`**: the text's
 `.text` sections, parsed by Kraken's parser, its `.rodata` image at

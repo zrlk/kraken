@@ -8,7 +8,9 @@ twin of `Spike/Lib/LowerX64/HeldPostXV.lean`): `HeldPostA`'s producer at
 - `mainCallWSF_ofPlaceOKHMV`: `mainCallWSF_ofPlaceOKHV` at
   `Q := MainCtlV Λv lbl` (with `Λv := lay2 Λ p`, `lbl := fun _ => none`
   the post `UPostRF p (fun _ => none) ∧ MainCtlV (lay2 Λ p) (fun _ => none)`);
-  `mainCallWSF_ofPlaceOKHMVC` the same from `mainCallWSF_ofPlaceOKHVC`.
+  `mainCallWSF_ofPlaceOKHMVC` the same from `mainCallWSF_ofPlaceOKHVC`;
+  `mainCallWSF_ofPlaceOKHMVCR` the same with the plain calls off the return
+  tail (`CallC2R`).
 -/
 import Spike.Lib.LowerA64.HeldPostA
 import Spike.Lib.LowerA64.RtMainXVA
@@ -128,6 +130,83 @@ theorem mainCallWSF_ofPlaceOKHMV {j : Nat} {d : Decl} (hd : (compiled2 p)[j]? = 
     hsw hc0t hmeL hmeN hmeV hme hfo hmr hun hsub hfit hpN hpre
 
 include hp in
+/-- **`mainCallWSF_ofPlaceOKHMV` at any code facts of the check's output,
+the plain calls off the return tail** (`mainCallWSF_ofPlaceOKHVC` at
+`Q := MainCtlV Λv lbl`, its construct premise's plain calls `CallC2R`;
+e.g. `fnCode2OfPMe`). -/
+theorem mainCallWSF_ofPlaceOKHMVCR {j : Nat} {d : Decl} (hd : (compiled2 p)[j]? = some d)
+    {im : Expr → String → Nat → Option Nat}
+    (c : FnCode2 (LY).exe (LY).prog (LY).endPc
+      (fun ra => Spike.Lib.A64.PhRec.ph LY (Int64.ofBitVec ra).toBitVec.toNat =
+        Spike.Lib.A64.PhRec.ph LY (Int64.ofBitVec ((LY).lab Spike.Lib.A64.Rt.bareMC.e0 + 4).toBitVec).toBitVec.toNat)
+      (fun ra => CdCLE OP (Spike.Lib.A64.PhRec.okPc LY) (Spike.Lib.A64.PhRec.ph LY) (LY).lab
+        (Int64.ofBitVec ra))
+      im (TailAt2 p j) d)
+    (hcPro : ProOK LY c) (hlcx : c.lcx = lcx2 p cfg.layout.obj d)
+    {Λw : Scc.Sem.Layout} {rd : TermRun.Word → Prop} {G : Loc → Val → Prop} {rS : Range} {ar : Arena} {J : InvS}
+    {Dt : State → Prop} {lbl : WeakMem.AllocLabel → Option Nat} {lsize : WeakMem.AllocLabel → Nat}
+    {ms : List TermRun.Frame → MemSide isaLSE2}
+    {CxOk : Region → (MachineData → Prop) → List TermRun.Frame → BitVec 64 → BitVec 64 → UInt64 →
+      (Ctl → Prop) → FragS isaLSE2 → Prop}
+    (hint : d.retTy = .int) (hok : Scc.Lower.heldRetOk d.body = true)
+    (hlitP : ∀ x g is a ts k, TailOf (.let_ x (.call g is a ts) (.ret (.lit k))) d.body →
+      g = "print" ∧ is.length = 1)
+    {Λv : Scc.Sem.Layout} {sw : Nat}
+    (hc : rtCodeOkS OP (setupMC sw) = true)
+    {R : Region} {F : MachineData → Prop} {fn : Label} {Z : Int64} {D : Int} {ZU : Int64} {tp : UInt64}
+    (hfn : fn = c.fn)
+    (hL : PosOff OP (LY).lab ((LY).lab (proL c.cx)))
+    {ty : Ty} (hdT : d.argTy = .prod ty (.ptr .pub .void)) (hfd : p.find? (·.name == "main") = some d)
+    (hna : c.na = sw + 1) (hnl : Scc.Lower.shapeOf ty ≠ .loc)
+    (hZU : ZU = Int64.ofInt c.cx.frame)
+    {c0 : Ctl} {x0 : BitVec 64}
+    (hsT : Scc.Lower.simpleTy ty = true) (hw : Scc.Obj.valWords ty = some sw) (hsw : sw ≤ 7)
+    (hc0t : c0.term = Scc.Sem.SrcSem.setupTerm) {tm : Ty} {meW : TermRun.Word}
+    (hmeL : TermRun.lookupE c0.env "me" = some (tm, [meW])) (hmeN : IsNum meW)
+    (hmeV : ValRep lbl meW.val x0.toNat)
+    (hme : ∀ y t ws, TermRun.lookupE c0.env y = some (t, ws) → ∀ k (hk : k < ws.length),
+      ValRep lbl ws[k].val x0.toNat)
+    (hfo : ∀ c regs, SetupArgs (SPostC p lbl ty c0) sw x0 c regs → FrOk2 c [])
+    (hmr : Scc.Sem.Kernel.mapped (K0 Λw) false ⟨limA tp, 8⟩ = true)
+    (hun : ∀ m, F m → Mem.loadInt m.dmem (limA tp) 8 = none)
+    (hsub : rS.Sub Λw.stackPool) (hfit : rS.lo + rS.size ≤ 2 ^ 64) (hpN : ProgNoS ZBad p)
+    (hpre : ∀ F' : MachineData → Prop, (R.callee (-Z.toInt) (-D) 0).OK →
+      (R.callee (-Z.toInt) (-D) 0).base.toNat % 16 = 0 → FStable (R.callee (-Z.toInt) (-D) 0) F' →
+      (∀ m, F' m → F m ∧ CallerCells R (-Z.toInt) (-D) 0 m) →
+      ∀ g : WcG, g.ra = ((LY).lab (setupMC sw).sp1).toBitVec → g.tp = tp → ∀ cP : Ctl,
+      FrOk2 cP [] →
+      ∃ (G0 : Ctl → Prop) (Ab : FragS isaLSE2),
+        CalleePre2R (WW) (Spike.Lib.A64.PhRec.K LY rS) p lbl lsize ms CxOk c rS
+          (R.callee (-Z.toInt) (-D) 0) F' [] g.fp g.ra tp G0 Ab cP ∧
+        CallC2R p lbl lsize c.lcx c.cx (CD g.ra)
+          (c.Bl g.ra) (LY).exe (LY).endPc (R.callee (-Z.toInt) (-D) 0) F' (WW)
+          (Spike.Lib.A64.PhRec.K LY rS) ms g.fp g.ra tp [] G0 im (TailAt2 p j) Ab
+          (RetLk d.retTy) ∧
+        LaneC p lbl lsize c.lcx c.cx (CD g.ra)
+          (c.Bl g.ra) (LY).exe (LY).endPc (R.callee (-Z.toInt) (-D) 0) F' (WW)
+          (Spike.Lib.A64.PhRec.K LY rS) ms g.fp g.ra tp [] G0 im (TailAt2 p j) Ab ∧
+        NewBufC p lbl lsize c.lcx c.cx (CD g.ra)
+          (c.Bl g.ra) (LY).exe (LY).endPc (R.callee (-Z.toInt) (-D) 0) F' (WW)
+          (Spike.Lib.A64.PhRec.K LY rS) ms g.fp g.ra tp [] G0 im (TailAt2 p j) Ab
+          (RetLk d.retTy) ∧
+        PrintCallC p lbl lsize c.lcx c.cx (CD g.ra)
+          (c.Bl g.ra) (LY).exe (LY).endPc (R.callee (-Z.toInt) (-D) 0) F' (WW)
+          (Spike.Lib.A64.PhRec.K LY rS) ms g.fp g.ra tp [] G0 im (TailAt2 p j) Ab ∧
+        CallC2H p lbl lsize c.lcx c.cx (CD g.ra)
+          (c.Bl g.ra) (LY).exe (LY).endPc (R.callee (-Z.toInt) (-D) 0) F' (WW)
+          (Spike.Lib.A64.PhRec.K LY rS) ms g.fp g.ra tp [] G0 im (TailAt2 p j) Ab
+          (RetLk d.retTy) ∧
+        PrintCallCH p lbl lsize c.lcx c.cx (CD g.ra)
+          (c.Bl g.ra) (LY).exe (LY).endPc (R.callee (-Z.toInt) (-D) 0) F' (WW)
+          (Spike.Lib.A64.PhRec.K LY rS) ms g.fp g.ra tp [] G0 im (TailAt2 p j) Ab ∧
+        SegWS (WW) (Spike.Lib.A64.PhRec.K LY rS) p lbl ms Ab (fun _ _ _ => False)) :
+    Spike.Lib.A64.Rt.MainCallWSF (WW) (Spike.Lib.A64.PhRec.K LY rS) p lbl ms (LY).exe (LY).endPc R F fn Z D ZU
+      (SetupArgs (SPostC p lbl ty c0) sw x0) (fun c fs v => UPostRF p lbl c fs v ∧ MainCtlV Λv lbl c fs v)
+      ((LY).lab (setupMC sw).sp1).toBitVec tp :=
+  mainCallWSF_ofPlaceOKHVC hp h hd c hcPro hlcx hint hok hlitP (fun _ _ _ => mainCtlV_held) hc hfn hL hdT hfd hna
+    hnl hZU hsT hw hsw hc0t hmeL hmeN hmeV hme hfo hmr hun hsub hfit hpN hpre
+
+include hp in
 /-- **`mainCallWSF_ofPlaceOKHMV` at any code facts of the check's output**
 (`mainCallWSF_ofPlaceOKHVC` at `Q := MainCtlV Λv lbl`; e.g. `fnCode2OfPMe`). -/
 theorem mainCallWSF_ofPlaceOKHMVC {j : Nat} {d : Decl} (hd : (compiled2 p)[j]? = some d)
@@ -199,8 +278,10 @@ theorem mainCallWSF_ofPlaceOKHMVC {j : Nat} {d : Decl} (hd : (compiled2 p)[j]? =
     Spike.Lib.A64.Rt.MainCallWSF (WW) (Spike.Lib.A64.PhRec.K LY rS) p lbl ms (LY).exe (LY).endPc R F fn Z D ZU
       (SetupArgs (SPostC p lbl ty c0) sw x0) (fun c fs v => UPostRF p lbl c fs v ∧ MainCtlV Λv lbl c fs v)
       ((LY).lab (setupMC sw).sp1).toBitVec tp :=
-  mainCallWSF_ofPlaceOKHVC hp h hd c hcPro hlcx hint hok hlitP (fun _ _ _ => mainCtlV_held) hc hfn hL hdT hfd hna
-    hnl hZU hsT hw hsw hc0t hmeL hmeN hmeV hme hfo hmr hun hsub hfit hpN hpre
+  mainCallWSF_ofPlaceOKHMVCR hp h hd c hcPro hlcx hint hok hlitP hc hfn hL hdT hfd hna hnl hZU hsT hw hsw
+    hc0t hmeL hmeN hmeV hme hfo hmr hun hsub hfit hpN fun F' h1 h2 h3 h4 g h5 h6 cP h7 =>
+      let ⟨G0, Ab, hP, hcall, H⟩ := hpre F' h1 h2 h3 h4 g h5 h6 cP h7
+      ⟨G0, Ab, hP, hcall.toR, H⟩
 
 end Place
 
@@ -214,3 +295,8 @@ end Spike.Lib.LowerA64
 
 /-- info: 'Spike.Lib.LowerA64.mainCallWSF_ofPlaceOKHMVC' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms Spike.Lib.LowerA64.mainCallWSF_ofPlaceOKHMVC
+
+/--
+info: 'Spike.Lib.LowerA64.mainCallWSF_ofPlaceOKHMVCR' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Spike.Lib.LowerA64.mainCallWSF_ofPlaceOKHMVCR

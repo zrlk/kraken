@@ -75,6 +75,15 @@ theorem permV_spawn {p : Prog} {k : Promises.Knobs} {arch : Arch} {cap : Nat} {c
     · rcases getElem?_set!_cases hj with rfl | hj
       · exact h0 i th h1 u hu
       · exact h0 j t hj u hu
+  | mkI i x f is a T ts e th d rt ws h1 _ _ _ _ _ =>
+    intro j t hj u hu
+    simp only [spawnT] at hj
+    rw [Array.getElem?_push] at hj
+    split at hj
+    · cases hj; simp [spawnKidI] at hu
+    · rcases getElem?_set!_cases hj with rfl | hj
+      · exact h0 i th h1 u hu
+      · exact h0 j t hj u hu
 
 theorem permV_wake {c : Cfg} (h0 : PermV c) (i : Nat) {v : Ts} (hv : v ≤ c.mem.size) (n : ExtName)
     (ws : List Word) : PermV (wake c i v n ws) := by

@@ -18,24 +18,40 @@ open CoreLang CoreTerm CoreTyping TermRun TermClose TermTv TermSound TermMem Ter
   TermCohLe
 open WeakMem (Msg Memory Address VState Ts Arch AllocLabel)
 
-/-- In scope, a `cas`/`fetch` reference is `own` or `pub`. -/
-theorem rmw_mode {cx : Cx} {σs : List Ty} {th : TTh} {w : At} {tw u : Ty} {μ : Mode}
-    (hsc : StepScope cx th.term ∨ StepScopeR σs cx th.term)
-    (hrmw : (∃ acq rel e v x ok fail, th.term = .cas acq rel w e v x ok fail) ∨
-      (∃ x o acq rel v e, th.term = .let_ x (.fetch o acq rel w v) e))
-    (hpk : cx.peek w = .ok tw) (hc : cellOf tw = some (μ, u)) : μ = .own ∨ μ = .pub := by
-  rcases hrmw with ⟨acq, rel, e, v, x, ok, fail, ht⟩ | ⟨x, o, acq, rel, v, e, ht⟩ <;> rw [ht] at hsc
-  · rcases hsc with hs | hs
-    · simp only [StepScope] at hs
-      rcases hs tw hpk with ⟨μ', r, P, htw, hμ⟩ | ⟨u', htw, -⟩
-      · rcases cellOf_cases hc with rfl | rfl <;> rcases htw with h | h <;> cases h <;> exact hμ
-      · rcases cellOf_cases hc with rfl | rfl <;> rcases htw with h | h <;> cases h <;> exact .inr rfl
-    · simp [StepScopeR] at hs
-  · rcases hsc with hs | hs
-    · simp only [StepScope, OpScope] at hs
-      obtain ⟨μ', u', htw, hμ⟩ := hs tw hpk
-      rcases cellOf_cases hc with rfl | rfl <;> rcases htw with h | h <;> cases h <;> exact hμ
-    · simp [StepScopeR, OpScopeR] at hs
+/-- The target of a `cas`/`fetch` reference (a cell reference `ptr`/`loc` evaluating to an
+address): unless the reference is `own`, the target's label has a frontier (`pfr = some`) —
+`ModeOK`'s non-`own` clause, the same for `pub` and `rgn` (`VR` of the reference). -/
+theorem rmw_mode {ρ : Nat → Nat} {η : TEnv} {σs : List Ty} {cx : Cx} {env : Env} {w : At} {tw u rt : Ty}
+    {μ : Mode} {pw : Word} {ad : Address}
+    (hv : VarsOK ρ η σs cx.vars env) (hpk : cx.peek w = .ok tw) (hc : cellOf tw = some (μ, u))
+    (hea : evalAt env w = some (rt, [pw])) (had : addrOf pw = some ad) :
+    μ = .own ∨ ∃ f, η.pfr ad.label = some f := by
+  obtain ⟨rt', ws, hea', hvr, -⟩ := peek_VR hv hpk
+  rw [hea] at hea'
+  simp only [Option.some.injEq, Prod.mk.injEq] at hea'
+  obtain ⟨-, rfl⟩ := hea'
+  rcases mode_own_or μ with h | hμ
+  · exact .inl h
+  · refine .inr ?_
+    have key : ∀ (a : Address) (c : Cell), [pw].map (·.val) = [.loc a 0] →
+        ModeOK η.tid η.pfr η.seen μ a.label c [pw] → ∃ f, η.pfr ad.label = some f := by
+      intro a c hws hmode
+      simp only [List.map_cons, List.map_nil, List.cons.injEq, and_true] at hws
+      have e : ad = a := by simp only [addrOf, hws, Option.some.injEq] at had; exact had.symm
+      subst e
+      rw [ModeOK_eq_pubG hμ] at hmode
+      simp only [ModeOK] at hmode
+      obtain ⟨f, hf, -⟩ := hmode
+      exact ⟨f, hf⟩
+    rcases cellOf_cases hc with rfl | rfl
+    · simp only [VR] at hvr
+      obtain ⟨a, c, hws, -, -, -, hmode, -⟩ := hvr
+      exact key a c hws hmode
+    · simp only [VR] at hvr
+      rcases hvr with ⟨hws, -⟩ | ⟨a, c, U, hws, -, -, -, hmode, -⟩
+      · simp only [List.map_cons, List.map_nil, List.cons.injEq, and_true] at hws
+        simp [addrOf, hws] at had
+      · exact key a c hws hmode
 
 /-- The reference of the current `cas`/`fetch` is determined by the term. -/
 theorem rmw_ref {th : TTh} {w w' : At}
@@ -47,8 +63,8 @@ theorem rmw_ref {th : TTh} {w w' : At}
     rcases h' with ⟨_, _, _, _, _, _, _, ht'⟩ | ⟨_, _, _, _, _, _, ht'⟩ <;>
     rw [ht] at ht' <;> cases ht' <;> rfl
 
-/-- **(N2) `NoPlantRMW` from the scope and memory's invariant**: a `pub` reference at an
-own label with `rini < ini` has a frontier (`OwnHidP`), so not at a private cell. -/
+/-- **(N2) `NoPlantRMW` from typing and memory's invariant**: a non-`own` reference's target has
+a frontier (`rmw_mode`), so it is not a private cell; an `own` one is `rmwS_core`'s. -/
 theorem noPlantRMW_core {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {cx : Cx}
     {ρ : Nat → Nat} {η : TEnv} {K : TEnv → Nat → List Word → Res → Prop} {Rf : Res}
     (hsc : StepScope cx th.term ∨ StepScopeR th.σs cx th.term)
@@ -63,17 +79,10 @@ theorem noPlantRMW_core {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th 
   obtain ⟨-, rfl⟩ := hea'
   rw [had] at had'
   obtain rfl := Option.some.inj had'
-  rcases rmw_mode hsc hcase' hpk hc with rfl | rfl
+  rcases rmw_mode hi.1.2.1 hpk hc hea had with rfl | ⟨f, hf⟩
   · exact absurd rfl hne
-  · rcases hor with h' | h'
-    · exact absurd rfl h'
-    · exfalso
-      obtain ⟨c, hsto, how⟩ := hown
-      have hlt : (CE η).rc ad.label < (CE η).ini ad.label := by
-        simp only [TermSound.TEnv.rc]
-        omega
-      obtain ⟨f, hf, -⟩ := hm.2.2.2.2.2.1.2 ad.label c hsto how hlt
-      rw [hpf] at hf; cases hf
+  · simp only [CE] at hpf
+    rw [hpf] at hf; cases hf
 
 /-- `NoPlantRMW` reads only `sto`, `tid`, `ini`, `rini` and `pfr`. -/
 theorem noPlantRMW_congr {E E' : TEnv} {th : TTh} (hs : E'.sto = E.sto) (ht : E'.tid = E.tid)

@@ -160,6 +160,7 @@ theorem Program.labels_append (a b : Program) :
     | label l => simp only [List.cons_append, Program.labels, ih]
     | instr i => exact ih
     | byteArray a' => exact ih
+    | zeros n => exact ih
 
 theorem Program.mem_labels_of_cell {t : Program} {l : Label}
     (h : Directive.label l ∈ t) : l ∈ Program.labels t := by
@@ -173,6 +174,7 @@ theorem Program.mem_labels_of_cell {t : Program} {l : Label}
       | label l' => exact List.mem_cons_of_mem _ (ih hmem)
       | instr i => exact ih hmem
       | byteArray a => exact ih hmem
+      | zeros n => exact ih hmem
 
 /-- A nonempty scope suffix starts with its own label cell. -/
 theorem Program.fromLabel_head :
@@ -212,6 +214,9 @@ theorem Program.fromLabel_ne_nil_of_mem {p : Program} {l : Label}
       rw [Program.fromLabel_cons_instr]
       exact ih h
     | byteArray a =>
+      rw [Program.fromLabel_cons, ite_eq_right (fun hc => by cases hc.2)]
+      exact ih h
+    | zeros n =>
       rw [Program.fromLabel_cons, ite_eq_right (fun hc => by cases hc.2)]
       exact ih h
 
@@ -269,6 +274,9 @@ theorem Program.view_eq (p : Program) :
     | byteArray a =>
       simp only [Program.view, List.cons_append]
       exact congrArg (Directive.byteArray a :: ·) ih
+    | zeros n =>
+      simp only [Program.view, List.cons_append]
+      exact congrArg (Directive.zeros n :: ·) ih
 
 /-- The entry segment and every body are label-free. -/
 theorem Program.view_free (p : Program) :
@@ -294,6 +302,11 @@ theorem Program.view_free (p : Program) :
       rcases List.mem_cons.mp hd' with heq | hmem
       · rw [heq]; rfl
       · exact ih.1 d' hmem
+    | zeros n =>
+      refine ⟨fun d' hd' => ?_, ih.2⟩
+      rcases List.mem_cons.mp hd' with heq | hmem
+      · rw [heq]; rfl
+      · exact ih.1 d' hmem
 
 /-- The labels are the view's block labels, in order. -/
 theorem Program.labels_view (p : Program) :
@@ -305,6 +318,7 @@ theorem Program.labels_view (p : Program) :
     | label l => simp only [Program.labels, Program.view, List.map_cons, ih]
     | instr i => exact ih
     | byteArray a => exact ih
+    | zeros n => exact ih
 
 /-- The scope suffix at a label, through the view: the blocks from the
 label's position. -/
@@ -349,6 +363,11 @@ theorem Program.fromLabel_view {p : Program} (hnd : (Program.labels p).Nodup) :
       simp only [Program.view]
       exact ih hnd hi
     | byteArray a =>
+      simp only [Program.view] at hi
+      rw [Program.fromLabel_cons, ite_eq_right (fun hc => by cases hc.2)]
+      simp only [Program.view]
+      exact ih hnd hi
+    | zeros n =>
       simp only [Program.view] at hi
       rw [Program.fromLabel_cons, ite_eq_right (fun hc => by cases hc.2)]
       simp only [Program.view]

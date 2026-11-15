@@ -73,7 +73,7 @@ theorem CalleePre2.segH {RaOk : BitVec 64 → Prop} {Cd : BitVec 64 → Int64 �
   have hCd := c.hCd ra h.hra
   have hW₀ : ∀ s c', (fun s c => W s c fs) s c' → W s c' fs := fun _ _ h => h
   exact (SegWS.liftS fs (proSeg2 c h.hF h.hR h.hal h.hlo h.hhi h.hpro h.hedge) hW₀).seq
-    (body2_segS_ofXH h.hG0 c.hfrm (fun _ _ hr => ExitC2SLF.trans hr) (fun _ _ _ _ h => .inr h) hcall hlane hbuf
+    (body2_segS_ofXH h.hG0 c.hfrm (fun _ _ hr => ExitC2SLF.trans hr) (fun _ _ _ _ h => .inr h) hcall.toR hlane hbuf
       hprint (addC2_ofQ (Q := fun t => fs = [] → ∀ a, t ≠ .ret a)
         c.hf c.h1 c.h16 h.hF h.hR h.hal h.hlo h.hhi hCd hW₀
         h.hW h.hWp (ContNR.qAdd hT) h.hab c.lcx tp)

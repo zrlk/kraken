@@ -54,6 +54,7 @@ CoreLang.Ty.int : CoreLang.Ty
 CoreLang.Ty.intS : CoreLang.Idx → CoreLang.Ty
 CoreLang.Ty.lanes : Bool → CoreLang.Wd → CoreLang.Ty
 CoreLang.Ty.loc : CoreLang.Mode → CoreLang.Ty → CoreLang.Ty
+CoreLang.Ty.noOwnIn : CoreLang.KEnv → CoreLang.Ty → Bool
 CoreLang.Ty.payloadFree : CoreLang.Ty → Bool
   := fun t =>
   have a := (CoreLang.info CoreLang.Ty.top t).arms;
@@ -145,6 +146,7 @@ CoreTerm.Cx : Type
 CoreTerm.Cx.bind : CoreTerm.Cx → String → CoreLang.Ty → CoreTerm.M CoreTerm.Cx
 CoreTerm.Cx.endCx : CoreTerm.Cx → String → CoreTerm.Cx
 CoreTerm.Cx.facts : CoreTerm.Cx → CoreTerm.Facts
+CoreTerm.Cx.handOffR : CoreTerm.Cx → CoreLang.Ty → CoreTerm.Cx
 CoreTerm.Cx.idx : CoreTerm.Cx → String → CoreTerm.M CoreLang.Idx
 CoreTerm.Cx.inames : CoreTerm.Cx → List String
 CoreTerm.Cx.ke : CoreTerm.Cx → CoreLang.KEnv
@@ -228,6 +230,7 @@ CoreTerm.Op.publish : CoreTerm.At → CoreTerm.Op
 CoreTerm.Op.rem : CoreTerm.At → CoreTerm.At → CoreTerm.Op
 CoreTerm.Op.setLane : CoreTerm.At → CoreTerm.At → CoreTerm.At → CoreTerm.Op
 CoreTerm.Op.spawn : String → CoreTerm.At → CoreLang.Ty → optParam (List CoreLang.Ty) [] → CoreTerm.Op
+CoreTerm.Op.spawnI : String → List String → CoreTerm.At → CoreLang.Ty → optParam (List CoreLang.Ty) [] → CoreTerm.Op
 CoreTerm.Op.stl : CoreTerm.At → CoreTerm.At → CoreTerm.At → CoreTerm.Op
 CoreTerm.Op.stlw : CoreTerm.At → CoreTerm.At → CoreTerm.At → CoreTerm.At → CoreTerm.Op
 CoreTerm.Op.store : Bool → CoreTerm.At → CoreTerm.At → Option CoreTerm.At → CoreTerm.Op
@@ -255,6 +258,7 @@ CoreTerm.admitsIn : CoreTerm.Cx → CoreLang.Kind → CoreLang.Ty → Bool
 CoreTerm.affine : CoreLang.KEnv → CoreLang.Ty → Bool
 CoreTerm.bufOf : CoreLang.Ty → Option (CoreLang.Mode × CoreLang.Idx × CoreLang.Ty × CoreLang.Idx)
 CoreTerm.cellOf : CoreLang.Ty → Option (CoreLang.Mode × CoreLang.Ty)
+CoreTerm.codeMaySpawnI : CoreTerm.Prog → Bool
 CoreTerm.codeOf : CoreLang.Ty → Option (CoreLang.Ty × CoreLang.Ty)
 CoreTerm.compTy : CoreLang.Ty → List Nat → Option CoreLang.Ty
 CoreTerm.cvtSrc : CoreLang.Ty → Bool
@@ -266,12 +270,14 @@ CoreTerm.instantiate : CoreTerm.Cx → CoreTerm.Decl → List String → optPara
 CoreTerm.intOf : CoreLang.Ty → Option (Option CoreLang.Idx)
 CoreTerm.lanesOf : CoreLang.Ty → Option (Bool × CoreLang.Wd)
 CoreTerm.lendOf : CoreTerm.Cx → CoreLang.Cap → CoreLang.Ty → CoreTerm.M CoreLang.Idx
+CoreTerm.maySpawnI : CoreTerm.Prog → String → Bool
 CoreTerm.pairRef : CoreLang.Ty → Bool
 CoreTerm.pwf : CoreLang.Proto → Bool
 CoreTerm.pwf2 : CoreLang.Proto2 → Bool
 CoreTerm.pwfE : CoreLang.ECounter → Bool
 CoreTerm.rgnCellOK : CoreLang.KEnv → CoreLang.Ty → Bool
 CoreTerm.slotOK : CoreLang.Ty → Bool
+CoreTerm.substTs : List CoreLang.Ty → Nat → Nat → CoreLang.Ty → CoreLang.Ty
 CoreTerm.tailCheck : CoreTerm.Prog → CoreTerm.Cx → String → List String → CoreTerm.At → List CoreLang.Ty → CoreTerm.M Unit
 CoreTerm.tgtOK : CoreLang.Ty → Bool
 CoreTerm.toIntSrc : CoreLang.Ty → Bool
@@ -743,7 +749,9 @@ CoreTyping.OpT : CoreTerm.Prog → CoreTerm.Cx → String → CoreTerm.Op → Co
     CoreTerm.instantiate cx d is ts = Except.ok (at_, rt) →
       cx.use a = Except.ok (t, c₁) →
         CoreTyping.NoLeak c₁ t →
-          CoreTyping.SubS c₁ t at_ → c₁.bind x rt = Except.ok c' → CoreTyping.OpT p cx x (CoreTerm.Op.call f is a ts) c'
+          CoreTyping.SubS c₁ t at_ →
+            (if (t.secondClass && CoreTerm.maySpawnI p f) = true then c₁.handOffR t else c₁).bind x rt = Except.ok c' →
+              CoreTyping.OpT p cx x (CoreTerm.Op.call f is a ts) c'
   | CoreTyping.OpT.spawn : ∀ {p : CoreTerm.Prog} {cx c₁ c' : CoreTerm.Cx} {x f : String} {a : CoreTerm.At} {T : CoreLang.Ty}
   {ts : List CoreLang.Ty} {t : CoreLang.Ty} {d : CoreTerm.Decl} {at_ rt : CoreLang.Ty},
   cx.use a = Except.ok (t, c₁) →
@@ -765,6 +773,29 @@ CoreTyping.OpT : CoreTerm.Prog → CoreTerm.Cx → String → CoreTerm.Op → Co
                               (TermClose.tb 0 rt && TermTv.mg rt && TermTv.noIallV rt) = true →
                                 c₁.bind x CoreLang.Ty.tid = Except.ok c' →
                                   CoreTyping.OpT p cx x (CoreTerm.Op.spawn f a T ts) c'
+  | CoreTyping.OpT.spawnI : ∀ {p : CoreTerm.Prog} {cx c₁ c' : CoreTerm.Cx} {x f : String} {is : List String} {a : CoreTerm.At} {T : CoreLang.Ty}
+  {ts : List CoreLang.Ty} {t : CoreLang.Ty} {d : CoreTerm.Decl} {at_ rt : CoreLang.Ty},
+  p.find f = Except.ok d →
+    CoreTerm.instantiate cx d is ts = Except.ok (at_, rt) →
+      cx.use a = Except.ok (t, c₁) →
+        CoreTyping.SubS c₁ t T →
+          CoreTyping.SubS c₁ T at_ →
+            CoreLang.Ty.noOwnIn c₁.ke T = true →
+              (ts.all fun x => CoreLang.Ty.wf (List.length c₁.ke) 0 x) = true →
+                ts.all (TermClose.tb 0) = true →
+                  TermScope.wrapOK T = true →
+                    ts.all TermScope.argOK = true →
+                      CoreTerm.tailCheck p
+                            { inames := d.idx.reverse, vars := [("a", CoreTerm.substTs ts.reverse 0 0 d.argTy, true)],
+                              ret := CoreTerm.substTs ts.reverse 0 0 d.retTy }
+                            f d.idx (CoreTerm.At.var "a") ts =
+                          Except.ok () →
+                        (TermClose.tb 0 (CoreTerm.substTs ts.reverse 0 0 d.retTy) &&
+                                TermTv.mg (CoreTerm.substTs ts.reverse 0 0 d.retTy) &&
+                              TermTv.noIallV (CoreTerm.substTs ts.reverse 0 0 d.retTy)) =
+                            true →
+                          (c₁.handOffR T).bind x CoreLang.Ty.tid = Except.ok c' →
+                            CoreTyping.OpT p cx x (CoreTerm.Op.spawnI f is a T ts) c'
   | CoreTyping.OpT.ext : ∀ {p : CoreTerm.Prog} {cx c₁ c' : CoreTerm.Cx} {x : String} {n : CoreTerm.ExtName} {a : CoreTerm.At} {t : CoreLang.Ty},
   cx.use a = Except.ok (t, c₁) →
     n.ok = true →
@@ -811,7 +842,9 @@ CoreTyping.OpT : CoreTerm.Prog → CoreTerm.Cx → String → CoreTerm.Op → Co
     CoreTerm.codeOf tf = some (σ, τ) →
       cx.use a = Except.ok (t, c₁) →
         CoreTyping.NoLeak c₁ t →
-          CoreTyping.SubS c₁ t σ → c₁.bind x τ = Except.ok c' → CoreTyping.OpT p cx x (CoreTerm.Op.callc f a) c'
+          CoreTyping.SubS c₁ t σ →
+            (if (t.secondClass && CoreTerm.codeMaySpawnI p) = true then c₁.handOffR t else c₁).bind x τ = Except.ok c' →
+              CoreTyping.OpT p cx x (CoreTerm.Op.callc f a) c'
   | CoreTyping.OpT.rem : ∀ {p : CoreTerm.Prog} {cx c' : CoreTerm.Cx} {x : String} {a n : CoreTerm.At} {ta : CoreLang.Ty}
   {o : Option CoreLang.Idx} {j : CoreLang.Idx} {v : Nat},
   cx.peek a = Except.ok ta →

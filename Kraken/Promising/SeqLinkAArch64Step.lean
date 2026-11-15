@@ -131,6 +131,7 @@ theorem directivesAtAddress_of_codeAt {e : Kraken.Executable Directive} [hv : Kr
     | label l => exact hv.label_size i l z' hi
     | instr _ => simp [Directive.isLabel] at hl
     | byteArray _ => simp [Directive.isLabel] at hl
+    | zeros _ => simp [Directive.isLabel] at hl
   generalize ds'.takeWhile (fun c => c.1.isLabel) = ls at hsplit hlab
   -- the instruction occupies at least one byte and less than the address space
   have hdz : pc + Int64.ofNat z ≠ pc := by

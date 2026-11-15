@@ -319,7 +319,8 @@ theorem bh1_of {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
   by_cases hw : 0 < nWords us
   · -- positive width: the first unit's fulfilled promise is below `ini`
     have hof : OwnFrOp (CE η) cx th := by
-      refine ⟨Or.inl ⟨x, e, Or.inr (Or.inr (Or.inr (Or.inr (Or.inr ⟨b, i, v, hterm0⟩))))⟩, ad.label, hpf0, ?_⟩
+      refine ⟨Or.inl ⟨x, e, Or.inr (Or.inr (Or.inr (Or.inr (Or.inr ⟨b, i, v, hterm0⟩))))⟩,
+        ownXT_nx (fun _ _ _ _ h => by rw [hterm0] at h; cases h), ad.label, hpf0, ?_⟩
       exact ⟨b, _, w, ad, 0, by rw [hterm0]; rfl, hea, hwv, rfl⟩
     obtain ⟨t1, m1, ht1, hm1, hl1⟩ := bufInit_tstep_ful hterm0 hr (hful hof) hea hwv hei hni rfl hus hw
     have hI := hpi t1 m1 ht1 hm1 c (by rw [hl1]; exact hsto) (by rw [hl1]; exact hpf0)

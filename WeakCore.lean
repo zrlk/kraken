@@ -144,6 +144,7 @@ import WeakCore.TermBufPubT
 import WeakCore.TermC1Cnt
 import WeakCore.TermC1Defs
 import WeakCore.TermC1Drf
+import WeakCore.TermC1F10
 import WeakCore.TermC1Guards
 import WeakCore.TermC1Inv
 import WeakCore.TermC1Ld
@@ -152,6 +153,7 @@ import WeakCore.TermC1Pay
 import WeakCore.TermC1Ptr
 import WeakCore.TermC1Rgn
 import WeakCore.TermC1RgnR
+import WeakCore.TermC1VR1
 import WeakCore.TermC1Win
 import WeakCore.TermC1Wit
 import WeakCore.TermCellOwn
@@ -175,6 +177,7 @@ import WeakCore.TermCut
 import WeakCore.TermDBWire
 import WeakCore.TermDPlus
 import WeakCore.TermDwf
+import WeakCore.TermDyDefs
 import WeakCore.TermEnvExt
 import WeakCore.TermExtMid
 import WeakCore.TermExtStep
@@ -471,12 +474,15 @@ import WeakCore.TermSpawnF0
 import WeakCore.TermSpawnFinal
 import WeakCore.TermSpawnGlobM
 import WeakCore.TermSpawnKid
+import WeakCore.TermSpawnKidI
 import WeakCore.TermSpawnKidMem
 import WeakCore.TermSpawnMain
 import WeakCore.TermSpawnMid
 import WeakCore.TermSpawnMidAsm
 import WeakCore.TermSpawnMidBridge
 import WeakCore.TermSpawnMidGlob
+import WeakCore.TermSpawnMidI
+import WeakCore.TermSpawnMidI2
 import WeakCore.TermSpawnMidKid
 import WeakCore.TermSpawnMidM0
 import WeakCore.TermSpawnPh

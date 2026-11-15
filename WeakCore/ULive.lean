@@ -214,9 +214,14 @@ def umstep (U : UProg) (k : Promises.Knobs) (arch : Arch) (u : UCfg) : Nat × Bo
 /-- Thread `i` of `u` spawns (`SpawnBy` over U configurations). -/
 def USpawnBy (_U : UProg) (_k : Promises.Knobs) (_arch : Arch) (cap : Nat) (u : UCfg) (i : Nat) (u' : UCfg) :
     Prop :=
-  ∃ (x f : String) (a : At) (T : Ty) (ts : List Ty) (j : Nat) (e : UExpr) (th : UTTh) (rt : Ty) (ws : List Word),
+  (∃ (x f : String) (a : At) (T : Ty) (ts : List Ty) (j : Nat) (e : UExpr) (th : UTTh) (rt : Ty) (ws : List Word),
     u.ths[i]? = some th ∧ layer th.ctr th.term = .letOp x (.spawn f a T ts) j e ∧ th.promises = [] ∧
-    u.ths.size < cap ∧ evalAt th.env a = some (rt, ws) ∧ u' = uSpawnCfg u i th x e j f ts T ws
+    u.ths.size < cap ∧ evalAt th.env a = some (rt, ws) ∧ u' = uSpawnCfg u i th x e j f ts T ws) ∨
+  ∃ (x f : String) (is : List String) (a : At) (T : Ty) (ts : List Ty) (j : Nat) (e : UExpr) (th : UTTh)
+    (d : Decl) (rt : Ty) (ws : List Word),
+    u.ths[i]? = some th ∧ layer th.ctr th.term = .letOp x (.spawnI f is a T ts) j e ∧ th.promises = [] ∧
+    u.ths.size < cap ∧ (elabProg _U).find? (·.name == f) = some d ∧ evalAt th.env a = some (rt, ws) ∧
+    u' = uSpawnCfgI u i th x e j d ts ws
 
 /-- `mstepX` over U configurations. -/
 def umstepX (U : UProg) (k : Promises.Knobs) (arch : Arch) (cap : Nat) (u : UCfg) : Nat × Bool → UCfg → Prop
@@ -278,25 +283,41 @@ theorem umstep.ofCore {u : UCfg} {l : Nat × Bool} {d : Cfg} (h : mstep (elabPro
 
 theorem USpawnBy.toCore {cap : Nat} {u u' : UCfg} {i : Nat} (h : USpawnBy U k arch cap u i u') :
     SpawnBy (elabProg U) k arch cap (toCoreCfg u) i (toCoreCfg u') := by
-  obtain ⟨x, f, a, T, ts, j, e, th, rt, ws, hth, hl, hp, hcap, hev, rfl⟩ := h
-  refine ⟨x, f, a, T, ts, elabT j e, toCoreTh th, rt, ws, by rw [toCoreCfg_get, hth]; rfl, ?_, hp,
-    by simpa using hcap, hev, spawnCfg_elab u i th x e j f ts T ws⟩
-  show elabT th.ctr th.term = _
-  rw [elab_layer, hl]; rfl
+  rcases h with ⟨x, f, a, T, ts, j, e, th, rt, ws, hth, hl, hp, hcap, hev, rfl⟩ |
+    ⟨x, f, is, a, T, ts, j, e, th, d, rt, ws, hth, hl, hp, hcap, hfd, hev, rfl⟩
+  · refine .inl ⟨x, f, a, T, ts, elabT j e, toCoreTh th, rt, ws, by rw [toCoreCfg_get, hth]; rfl, ?_, hp,
+      by simpa using hcap, hev, spawnCfg_elab u i th x e j f ts T ws⟩
+    show elabT th.ctr th.term = _
+    rw [elab_layer, hl]; rfl
+  · refine .inr ⟨x, f, is, a, T, ts, elabT j e, toCoreTh th, d, rt, ws, by rw [toCoreCfg_get, hth]; rfl, ?_, hp,
+      by simpa using hcap, hfd, hev, spawnCfgI_elab u i th x e j d ts ws⟩
+    show elabT th.ctr th.term = _
+    rw [elab_layer, hl]; rfl
 
 theorem USpawnBy.ofCore {cap : Nat} {u : UCfg} {i : Nat} {d : Cfg}
     (h : SpawnBy (elabProg U) k arch cap (toCoreCfg u) i d) : ∃ u', USpawnBy U k arch cap u i u' ∧ d = toCoreCfg u' := by
-  obtain ⟨x, f, a, T, ts, e, th', rt, ws, hth, hterm, hp, hcap, hev, rfl⟩ := h
-  rw [toCoreCfg_get] at hth
-  cases hc : u.ths[i]? with
-  | none => rw [hc] at hth; simp at hth
-  | some th =>
-    rw [hc] at hth
-    simp only [Option.map_some, Option.some.injEq] at hth
-    subst hth
-    obtain ⟨j, e', hl, rfl⟩ := layer_let_inv hterm
-    exact ⟨_, ⟨x, f, a, T, ts, j, e', th, rt, ws, hc, hl, hp, by simpa using hcap, hev, rfl⟩,
-      (spawnCfg_elab u i th x e' j f ts T ws).symm⟩
+  rcases h with ⟨x, f, a, T, ts, e, th0, rt, ws, hth, hterm, hp, hcap, hev, rfl⟩ |
+    ⟨x, f, is, a, T, ts, e, th0, d0, rt, ws, hth, hterm, hp, hcap, hfd, hev, rfl⟩
+  · rw [toCoreCfg_get] at hth
+    cases hc : u.ths[i]? with
+    | none => rw [hc] at hth; simp at hth
+    | some th =>
+      rw [hc] at hth
+      simp only [Option.map_some, Option.some.injEq] at hth
+      subst hth
+      obtain ⟨j, e1, hl, rfl⟩ := layer_let_inv hterm
+      exact ⟨_, .inl ⟨x, f, a, T, ts, j, e1, th, rt, ws, hc, hl, hp, by simpa using hcap, hev, rfl⟩,
+        (spawnCfg_elab u i th x e1 j f ts T ws).symm⟩
+  · rw [toCoreCfg_get] at hth
+    cases hc : u.ths[i]? with
+    | none => rw [hc] at hth; simp at hth
+    | some th =>
+      rw [hc] at hth
+      simp only [Option.map_some, Option.some.injEq] at hth
+      subst hth
+      obtain ⟨j, e1, hl, rfl⟩ := layer_let_inv hterm
+      exact ⟨_, .inr ⟨x, f, is, a, T, ts, j, e1, th, d0, rt, ws, hc, hl, hp, by simpa using hcap, hfd, hev, rfl⟩,
+        (spawnCfgI_elab u i th x e1 j d0 ts ws).symm⟩
 
 theorem umstepX.toCore {cap : Nat} {u u' : UCfg} {l : Nat × Bool} (h : umstepX U k arch cap u l u') :
     mstepX (elabProg U) k arch cap (toCoreCfg u) l (toCoreCfg u') := by
@@ -330,8 +351,10 @@ theorem umstep.inv {u u' : UCfg} {l : Nat × Bool} (h : umstep U k arch u l u') 
 
 theorem USpawnBy.inv {cap : Nat} {u u' : UCfg} {i : Nat} (h : USpawnBy U k arch cap u i u') (hu : UInv U u) :
     UInv U u' := by
-  obtain ⟨x, f, a, T, ts, j, e, th, rt, ws, hth, hl, -, -, -, rfl⟩ := h
-  exact uSpawnCfg_inv f ts T ws hu hth hl
+  rcases h with ⟨x, f, a, T, ts, j, e, th, rt, ws, hth, hl, -, -, -, rfl⟩ |
+    ⟨x, f, is, a, T, ts, j, e, th, d, rt, ws, hth, hl, -, -, -, -, rfl⟩
+  · exact uSpawnCfg_inv f ts T ws hu hth hl
+  · exact uSpawnCfgI_inv d ts ws hu hth hl
 
 theorem umstepX.inv {cap : Nat} {u u' : UCfg} {l : Nat × Bool} (h : umstepX U k arch cap u l u')
     (hu : UInv U u) : UInv U u' := by

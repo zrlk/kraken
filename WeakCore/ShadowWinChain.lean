@@ -63,7 +63,7 @@ theorem ownXPub1S [WrIniCB] {p : Prog} [ProgRetIall p] (hP : ProgT p) {k : Promi
   have hFp := TermOwnX2.Flat.finv_ofB htv hFI
   have hS : SrcB p (gOf p k arch c0 i) x 1 c0.mem c0.pairs th ρ η cx Rf Rs HP :=
     ⟨rfl, Nat.lt_of_le_of_lt (Nat.zero_le _) (Cfg.lt_n (arr_lt hth)), hE, hT.1, hT.2, htv, hFI, hm, hH, hbf, hnie, hsto, hle,
-      hsc th hth (TermTyped.not_spawnT_of_steps hth hs) ρ η cx hE hT.1 htv hFp, PAx_of_step hs hc hth, hRP, hDy, hTy, hRc⟩
+      hsc th hth (TermTyped.not_spawnT_of_steps hth hs) ρ η cx hE hT htv hFp, PAx_of_step hs hc hth, hRP, hDy, hTy, hRc⟩
   obtain ⟨th', r, hth', hr, e1, e2, e3, hpa⟩ := taken_promAbove hs hc
   rw [hth] at hth'
   cases hth'

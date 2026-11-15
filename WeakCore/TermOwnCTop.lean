@@ -268,13 +268,24 @@ theorem openOverCrOwnC_of {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : 
     refine Res.ext fun key => ?_
     simp only [Res.add_apply]
     omega
-  by_cases hpub : ∃ x a e, th.term = .let_ x (.publish a) e
-  · -- `publish`: memory, promises and coherence kept; the old credits kept (`PubKeep`)
-    obtain ⟨yv, av, ev, hterm⟩ := hpub
-    obtain ⟨hPr, -, hCo, -⟩ := TermOwnCPub.tstep_publish_keep hterm X.hr
+  rcases (show ((∃ x a e, th.term = .let_ x (.publish a) e) ∨ (∃ a rn pn tn e, th.term = .region a rn pn tn e) ∨
+        ∃ x r a e, th.term = .let_ x (.intoRgn r a) e) ∨ ¬ ((∃ x a e, th.term = .let_ x (.publish a) e) ∨ (∃ a rn pn tn e, th.term = .region a rn pn tn e) ∨
+        ∃ x r a e, th.term = .let_ x (.intoRgn r a) e) from
+      if h1 : TermStep.termIsPub th.term = true then .inl (.inl ((TermStep.termIsPub_iff _).1 h1))
+      else if h2 : TermStep.termIsRgn th.term = true then .inl (.inr (.inl ((TermStep.termIsRgn_iff _).1 h2)))
+      else if h3 : TermStep.termIsInto th.term = true then .inl (.inr (.inr ((TermStep.termIsInto_iff _).1 h3)))
+      else .inr (fun h' => by
+        rcases h' with h' | h' | h'
+        · exact h1 ((TermStep.termIsPub_iff _).2 h')
+        · exact h2 ((TermStep.termIsRgn_iff _).2 h')
+        · exact h3 ((TermStep.termIsInto_iff _).2 h'))) with hpub | hpub
+  · -- `publish` / `region` / `intoRgn`: memory, promises and coherence kept; the old credits kept (`PubKeep`)
+    obtain ⟨hPr, -, hCo, -⟩ := hpub.elim (fun ⟨_, _, _, hterm⟩ => TermOwnCPub.tstep_publish_keep hterm X.hr) fun hpub =>
+      hpub.elim (fun ⟨_, _, _, _, _, hterm⟩ => TermOwnCPub.tstep_region_keep hterm X.hr)
+        (fun ⟨_, _, _, _, hterm⟩ => TermOwnCPub.tstep_intoRgn_keep hterm X.hr)
     have hkeep : ∀ t m, t ∈ (stOf r.1 r.2.1 r.2.2).promises → (stOf c.mem c.pairs th).mem[t]? = some m →
         m.loc.label = l → cr' t = cr i t :=
-      fun t m ht hm hl => (hPKt ⟨yv, av, ev, hterm⟩ t m ht hm (by rw [hl]; exact hpf0)
+      fun t m ht hm hl => (hPKt hpub t m ht hm (by rw [hl]; exact hpf0)
         (by rw [hSe t ht]; exact hCF t m (hsub t ht) hm)).trans (hSe t ht)
     have hcoh : (stOf r.1 r.2.1 r.2.2).vs.coh = (stOf c.mem c.pairs th).vs.coh := hCo
     refine TermOwnCOldR.overCr_oldR (RS := RSh) (cr := fun t => cr i t + pl i t) hpre hP hsub hold hcpl hni
@@ -308,7 +319,9 @@ theorem openOverCrOwnC_of {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : 
       · rw [hcoh] at hgt; exact absurd hgt (Nat.lt_irrefl _)
       · rw [hcoh] at hgt; exact absurd hgt (Nat.lt_irrefl _)
   · -- off `publish`: `KeepQ`
-    have hnp : ∀ x a e, th.term ≠ .let_ x (.publish a) e := fun x a e h => hpub ⟨x, a, e, h⟩
+    have hnp : ∀ x a e, th.term ≠ .let_ x (.publish a) e := fun x a e h => hpub (.inl ⟨x, a, e, h⟩)
+    have hnr : ∀ a rn pn tn e, th.term ≠ .region a rn pn tn e := fun a rn pn tn e h => hpub (.inr (.inl ⟨a, rn, pn, tn, e, h⟩))
+    have hnir : ∀ x r a e, th.term ≠ .let_ x (.intoRgn r a) e := fun x r a e h => hpub (.inr (.inr ⟨x, r, a, e, h⟩))
     have hRS : TermPiece.RepinQh E' (stOf r.1 r.2.1 r.2.2) (RSc ++ RSh) :=
       repinQh_append (repinQh_of_U hQU) hQh
     have hcrE : ∀ t, cr' t + plStep pl i (stOf r.1 r.2.1 r.2.2) plh t =
@@ -324,7 +337,7 @@ theorem openOverCrOwnC_of {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : 
     have hle0 : ∀ t, cr0 t + (if t ∈ (stOf r.1 r.2.1 r.2.2).promises then pl i t else .zero) ≤
         cr i t + pl i t := by
       intro t
-      have h1 := (hKq hnp).2 t
+      have h1 := (hKq hnp hnr hnir).2 t
       by_cases ht : t ∈ (stOf r.1 r.2.1 r.2.2).promises
       · simp only [ht, ↓reduceIte]
         rw [hSe t ht] at h1
@@ -352,7 +365,7 @@ theorem openOverCrOwnC_of {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : 
               exact h)
             hV hc
         have hm' : (stOf r.1 r.2.1 r.2.2).mem[t]? = some m := by rw [hpre t (hP t (hsub t ht))]; exact hm
-        have e := (hKq hnp).1 t ht (.inr ⟨m, hm', by rw [hSe t ht]; exact hpc', by rw [hSe t ht]; exact hk⟩)
+        have e := (hKq hnp hnr hnir).1 t ht (.inr ⟨m, hm', by rw [hSe t ht]; exact hpc', by rw [hSe t ht]; exact hk⟩)
         rw [e, hSe t ht]
         exact Res.le_refl _
     refine TermOwnCOldR.overCr_oldR (RS := RSc ++ RSh) (cr := fun t => cr i t + pl i t) hpre hP hsub hold hcpl

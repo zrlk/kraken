@@ -811,6 +811,7 @@ def evalOp (g : G) (env : Env) (σs : List Ty) (s : St) : Op → List (St × Ty 
   | .call .. => []
   -- a spawn is a configuration step (`TermSpawnStep.StepX.spawn`), not a thread step.
   | .spawn .. => []
+  | .spawnI .. => []
   -- (E1) an extern is a configuration step (`TermExtStep.Ext`), not a thread step.
   | .ext .. => []
   -- Capabilities are zero-width: lending and taking back are no-ops at runtime.
@@ -1838,6 +1839,7 @@ def Trunc.reasons (t : Trunc) : List String :=
 def atSpawnB (th : TTh) : Bool :=
   match th.term with
   | .let_ _ (.spawn ..) _ => th.promises.isEmpty
+  | .let_ _ (.spawnI ..) _ => th.promises.isEmpty
   | _ => false
 
 /-- (the device-set cut) A promise-free thread at `devChoice w` whose scenario set has no in-range value: the node is
@@ -1910,7 +1912,7 @@ def touchesMem (th : TTh) : Bool :=
   match th.term with
   | .let_ _ op _ =>
       match op with
-      | .load .. | .store .. | .xchg .. | .fetch .. | .xchgAt .. | .loadAt .. | .xchgAtF .. | .loadAtF .. | .ldl .. | .stl .. | .ldlw .. | .stlw .. | .new _ _ | .publish _ | .intoRgn .. | .fence _ | .newBuf .. | .bufInit .. | .ldp .. | .stp .. | .spawn .. | .ext .. => true
+      | .load .. | .store .. | .xchg .. | .fetch .. | .xchgAt .. | .loadAt .. | .xchgAtF .. | .loadAtF .. | .ldl .. | .stl .. | .ldlw .. | .stlw .. | .new _ _ | .publish _ | .intoRgn .. | .fence _ | .newBuf .. | .bufInit .. | .ldp .. | .stp .. | .spawn .. | .spawnI .. | .ext .. => true
       -- an injection allocates when the source or the sum is boxed
       | .inl τ a | .inr τ a =>
           boxedAt a || isBoxed τ ||

@@ -1,90 +1,164 @@
-# scc release note: `wake.w` and `hello.w` certified on AArch64 and x86-64 at their executables; `hello1.w` and `ret0.w` on AArch64 and x86-64
+# scc release note: `wake.w` and `hello.w` certified on AArch64 and x86-64 at their executables; `hello1.w` and `ret0.w` on AArch64 and x86-64; `--granule` certificates for `Accepted0`/`Accepted1` programs
 
 This note states what this release of `scc` proves, what it trusts, and what
 it does not cover. Statements are quoted from the source tree.
 
-## New in this release: GC tables, relinked executables, memory, raw-host executables, and `write` after a barrier
+## New in this release: the granule pass (`--granule`), its certificates and byte check, WeakCore release 7, faster certificates, and an EFI preview
 
 The statements of the final theorems in §1 are those of the previous
-release, word for word, and so are their axioms; the layouts and SHA-256
-pins they are instantiated at change with the relink below. One premise of
-the `wake` and `hello` root statements quoted in §1 changes: the bytes
-required inside the pinned region from the first TCB's address grow from
-168 to 200 (`hpin2`; §1 `hello`, x86-64). WeakCore stays at 621ec97a (next
-section, unchanged).
+release, word for word, and so are their axioms (`#print axioms` of
+48 names from §1, in 32 modules: `propext`, `Classical.choice` and
+`Quot.sound`, as in the previous release; `ret0_codeEnd` on each ISA depends
+on no axiom).
+Every statement the previous release quoted in §1 was compared with its text
+in this tree: none changed. The new statements are quoted in §1 with
+their differences from the theorems they mirror: the three `_final`
+theorems of the granule pass (*The compiler theorems on the post-pass
+text*), the `Accepted2` statements at the header bound (*The `Accepted2`
+statements, proved at the header bound*), and the theorems at the linked
+post-pass executables (*The granule instances at the linked post-pass
+executables*).
+WeakCore moves to release 7 (next section).
+The executables checked in by the previous release are unchanged, and so
+are their SHA-256 pins and the layouts quoted in §1 and §2.
 
-- **GC tables are checked against scc's reference.** scc emits GC tables
-  (the call maps at return addresses, successors and the descriptor
-  `scc_gc_desc` in `.rodata`). Each certificate proves that the tables in
-  its text are those scc's reference tables stage computes for the program
-  (`prog_tablesOk`, `prog_sameAsScc`). It does so without running the
-  reference iteration, by checking a least-fixpoint witness. Nothing reads
-  the tables at run time, and no statement is about a collector (§5,
-  *GC tables*).
-- **Twelve executables are relinked.** `ret0` (x86-64 with GNU `ld`, x86-64
-  with `ld.lld`, AArch64), `call1` (x86-64, AArch64), `frame0` (x86-64),
-  `hello1` (x86-64, AArch64), `hello` (AArch64, x86-64) and `wake`
-  (AArch64, x86-64). Their `.s` files are regenerated with the GC tables,
-  and their SHA-256 pins and the layouts quoted in §1 and §2 change with
-  them. `Scc/Test/elf.sh --relink-check` reproduces them byte for byte.
-- **Building needs more memory.** The largest module, `WeakCore.TermStep`,
-  needs about 6 GiB of anonymous memory, and the certificate modules
-  2.0–5.4 GiB each (§4).
-- **Raw-host executables.** `scc --host raw` builds of `hello1.w` for both
-  ISAs are checked in (`Scc/Test/elf/hello1raw{x64,a64}/hello1`). They are
-  pinned and compared with the Linux build, not certified (§4, §5).
-- **`write` and promises.** On AArch64 the print routine issues `dmb ish`
-  immediately before its `write`, and the placement check verifies it
-  (`printIn`). What this argues and what remains open is in §5.
+- **The granule pass, behind `--granule` (default off).** `scc --granule`
+  passes the emitter's items through the granule pass before the GC tables
+  are appended: `.text` is laid out in 64 KiB granules, with a descriptor
+  word (`.quad scc_gc_desc - .`) in the last 8 bytes of every granule
+  (`Scc/README.md`). Without the flag scc's output is unchanged. `--host
+  raw`, `--blocks` and `--code` refuse the flag.
+- **What it certifies.** With `--granule`, `--cert` writes a certificate
+  about the output after the pass, and `Scc/Test/certify.sh --granule
+  --instantiate` instantiates the `_final` twin of the theorem it would
+  instantiate without the flag (`Spike.Lib.Lower{X64,A64}.CorrectFinal`):
+  `a64_scc_correctE_text_closedAt1_final` on AArch64,
+  `x64_scc_correctE_text_closedAt1_final` on x86-64, or
+  `x64_scc_correctE_text_closedAt_final` for an `Accepted0` program whose
+  `main` frame exceeds 4096 bytes (or with `CERTIFY_X64_FRAGMENT=0`). These
+  are the `closedAt1` finals for the simple fragments: the programs
+  `certify.sh` certifies without the flag. `Scc/Test/certify_test.sh`
+  certifies `ret0` on both ISAs, `ifsub1` on x86-64, `ret0` on x86-64 over
+  `Accepted0`, and `ret0`'s post-pass listing linked by x86-64 `ld.lld`.
+- **What answers exit 3.** A registry program (`hello1`, `wake`, `hello`)
+  with `--granule` is not certifiable: "no proved theorem for the post-pass
+  text (--granule; the registry's theorems are about the text without the
+  granule pass)". `certify_test.sh` checks this for `hello1.w` on both ISAs.
+- **The byte check (P6).** `T.post.lean` of a `--granule` certificate runs
+  `Scc.Cert.ElfBytes.{X64,A64}.check` on the executable (an `#eval` that
+  throws on a mismatch). It compares the executable's whole `.rodata` with
+  the image the loader lays out from the text, and checks that a `.text` of a
+  granule or more is whole granules on a granule boundary, ends at the
+  text's `scc_text_end`, and has in the last 8 bytes of every granule the
+  word `scc_gc_desc - .` (modulo `2 ^ 64`), with the executable's own
+  `scc_gc_desc` symbol at the loader's address. The loader's cell of a
+  descriptor word is empty, so these bytes are checked here and nowhere
+  else (§3, item 18).
+- **Granule executables.** Eight post-pass executables are checked in and
+  pinned: `ret0` (x86-64 with GNU `ld`, x86-64 with `ld.lld`, AArch64),
+  `call1` (x86-64, AArch64), `frame0` (x86-64) and `hello1` (x86-64,
+  AArch64), under `Scc/Test/elf/*g/`. `Scc/Test/elf.sh --relink-check`
+  reproduces them byte for byte.
+- **Theorems at the post-pass executables.** At the layout of each
+  checked-in post-pass executable, given the loader's parse of its text:
+  `hello1` is correct on AArch64 (`hello1_finalCAG`) and x86-64
+  (`hello1_finalCF`), and `ret0` on AArch64 and x86-64 with GNU `ld`
+  (`ret0_linked_correctG`) and with `ld.lld` (`lld_linked_correctG`). For
+  `call1` (both ISAs) and `frame0` (x86-64) only the placement check is
+  proved there (`call1G_placeOKAt`, `frame0G_placeOKAt`), as for their
+  pre-pass executables. `certify.sh --granule` still answers exit 3 for
+  `hello1.w` (above): these are checked-in theorems about the checked-in
+  texts, not a `certify.sh` path.
+- **The `Accepted2` statements are proved** at every configuration with
+  the header bound (`Scc.Obj.nShift cfg.layout.obj < 22`):
+  `closed2StmtAH_final : Closed2StmtAH` on AArch64 and
+  `closed2Stmt_x64_final : Closed2StmtH` on x86-64. The previous release
+  stated `Closed2StmtA`/`Closed2Stmt` and proved them only from open
+  segment obligations. `certify.sh` does not use them.
+- **`hello` on x86-64: a closed run at the current layout.**
+  `ctxU_OX_closed` and `landRdUg_OX_closed`
+  (`Spike/Test/HelloRootL0XClosed.lean`) show, from the loader's parse
+  alone, that a run of the checked-in `hello` text from the load at `Λe`
+  reaches, after 283 instructions of thread 0, a state in the root's
+  level-0 context, and that the counter add there lands in the antecedent
+  of the root's landing obligation. These are non-vacuity results about
+  the root's premises; they add no correctness statement.
+- **Faster certificate checks (the generator's arithmetic rounds).**
+  `Scc/Cert/MapsFast.lean` gives structural forms of the GC table
+  computation (leaders, successors, maps, tables, stubs, liveness, least
+  fixpoint) and proves each equal to the original for all inputs. Generated
+  certificates still state their theorems about the originals and prove them
+  through these equalities, so the kernel evaluates only the structural form;
+  the originals stay the specification. Round 1 covers the per-function
+  maps, successors and tables; round 2 the remaining table checks. The 12
+  checked-in certificates are regenerated. Timings and memory: §4.
+- **Refused programs.** scc refuses a `device` declaration and an
+  index-parameter spawn (`spawnI`) as outside the accepted fragment, and
+  WeakCore's checker refuses a device extern called outside a device
+  function (`Scc/Test/reject_{device,spawni,devext}.w`).
+- `runtime/efi/`: an unverified preview of the raw runtime as a UEFI application. On x86-64 it
+  boots, starts the other CPUs and runs the raw-host `hello1` on one thread (`Hello, world`); on
+  AArch64 it prints a banner and halts. It is outside every statement in this note.
+## WeakCore release 7 (47e9c32c)
 
-## WeakCore 621ec97a (unchanged since the previous release)
+The vendored WeakCore (`WeakCore/`) is upstream release 7, commit 47e9c32c
+(parent 621ec97a, the previous release's). It changes only `WeakCore/` and
+`WeakCore.lean`; the lakefile and toolchain are unchanged. scc and its
+proofs are adapted to it.
 
-This section is carried over from the previous release; nothing in it
-changes in this one. The vendored WeakCore (`WeakCore/`) is upstream
-621ec97a, and scc and its proofs are adapted to it.
+What changes for users (`WeakCore/README.md` has what is proved, open and
+assumed):
 
-What changes for users:
+- **Region code in the scope check.** `TermScope.ProgScopeOK` (with the
+  checks of `TermScope.ProgScopeOKW`) admits region types in signatures and
+  annotations, live region binders over a reference, `intoRgn` of an owned
+  reference to a coupled payload, and access to region payloads, as the type
+  checker permits, with the exceptions listed in `WeakCore/README.md`. Two
+  new refusals: the payload of a region binder must be coupled, even when
+  the binder's pointer is unused; `endBorrow` is refused while a variable it
+  would sweep away still holds a linear token.
+- **`spawnI`.** A new operation starts a thread at the parent's index
+  parameters on a copy of its argument: affine values move to the child, and
+  the second-class capabilities in the argument's type end in the parent
+  (`CoreTerm.handOff`, `CoreTerm.handOffR`). New definitions
+  `CoreTerm.keyFreeTE` and `CoreTerm.keyFreeT` (a type carries no key).
+  `spawnI` and `isTy` are new keywords. scc's frontend refuses `spawnI`
+  (above), and `Scc/Sem/Correct.lean`'s `opAts` gives its argument atom, as
+  for `spawn`; this matters only outside the fragment.
+- **The device cell rule is dropped.** The checker no longer restricts the
+  cells a `device def` function's argument points to; `CoreTerm.devCellOK`
+  remains as an unused definition. The other device rules stay. scc refuses
+  device declarations (above).
+- **Obligations.** `ObligationsF` and `ObligationsFX` take `typed`
+  (`CoreTyping.ProgT`) and `dyClean` (`TermSound.DyClean`) in place of
+  `checked`; `TermSound.typed_dy_of_checked` derives both from acceptance.
+  On the scc side `Scc/Sem/PubFree.lean` builds them so. Its `pubFree` now
+  also refuses a region binder and `intoRgn`, so `ProgPubFree p` means no
+  `publish`, no region binder and no `intoRgn` in any code block, as its
+  docstring and that of `SrcChecks` (`Scc/Sem/SrcStart.lean`) say. This is
+  forced: release 7's `PubWinTN` also constrains a thread at a region binder
+  and at `intoRgn`. It strengthens a premise, and scc's frontend refuses
+  both constructs (`region` is not in the accepted fragment; `intoRgn` is
+  refused as an operation), so every program scc accepts gets the same
+  verdict, and no scc statement changes. `Decl.swapIdx` is a new field that
+  no check reads yet, so the semantics ignore it; scc's `declIs` compares
+  it, so it is still equality of declarations, and the `print` extern's
+  model has `swapIdx = []`. With `Op.spawnI`, it is the only new
+  source-language construct of release 7.
+- **Memory model.** No change (`WeakCore/README.md`).
 
-- **Typed allocation, `new[T] a`.** A `new` in a source program now names
-  the type it allocates at (`CoreTerm.Op.new a (some T)`). WeakCore's checker
-  refuses a `new` without the annotation ("new: the allocation's type
-  annotation is missing") and one whose annotation is not the value's type.
-  The test programs now write, for example, `let o = new[Int] z`. scc lowers
-  `new[T] a` as it lowered `new a`: the emitted assembly of the `Scc/Test`
-  programs was unchanged on both ISAs by this change, and so were the
-  checked-in texts and executables at the time (`Scc/Test/elf.sh
-  --relink-check`, the `regen_*.sh --check` runs); this release regenerates
-  them for the GC tables (above). The wake certificate's `source` changes by that line; its `asm` does
-  not.
-- **Certificate windows are proved.** WeakCore's soundness theorems assumed
-  the certificate-window conditions `CertWinCN` and `CertWinPN` (and their
-  spawn and extern forms). They are now discharged inside WeakCore's proof
-  (`ObligationsFX.toObligationsCX`), so the obligations scc supplies no
-  longer contain them.
-- **`emit` takes no promises.** `emit` is now an `ExtNeedsNoProm` call
-  (`TermRun.ExtNeedsNoProm`): a thread takes it only with no outstanding
-  promise, and a certification run never takes it, so no promise spans an
-  output byte. This removes from the source semantics the executions in
-  which a store after an `emit` is promised, and read by another thread,
-  before that `emit` runs (`TermRun.LBE`); WeakCore lists them as not
-  covered (§5). On the scc side, the source step of `emit` takes
-  `th.promises = []` as a hypothesis, discharged by `prom_nil_of_write`
-  (`Scc/Sem/CertSys.lean`).
-- **The opened-scope check.** The checker refuses an allocation inside an
-  opened type package whose type mentions the hidden type and could be a
-  type-test target, and a call that passes such a type to a callee that
-  allocates so (`CoreTerm.scopeAllocOK`, at `annNew` and `progTgts`). scc's
-  frontend refuses type tests (`isTy`), so an accepted program has no
-  type-test target and this check refuses none of them.
-
-**The premise guard.** WeakCore ships a guard,
-`WeakCore/extras/tools/premises/guard.sh`, that freezes the meaning of the
+**The premise guard.** WeakCore's guard,
+`WeakCore/extras/tools/premises/guard.sh`, freezes the meaning of the
 statements of WeakCore's final theorems: the transitive closure of the
-definitions each statement mentions, printed and compared with the vendored
-set. It was run with this repository's toolchain on a cold build of
-`WeakCore`, including the nine modules that only the guard imports
-(`TermProgress`, `TermLiveL3`, `TermLiveCertRun`, `TermLiveCertScen`,
-`TermLiveC`, `TermLiveG3`, `SceProof`, `TermStartD`, `DmaRing`):
+definitions each statement mentions, and the full text of a list of language
+definitions (`CheckPremises.langRoots`, `forceBody`). Release 7 ships 143
+frozen texts (59 for the final theorems, 84 language definitions) and the
+set `sets/pr-release-15067-vendored`. Run with this repository's toolchain
+on a cold build of `WeakCore`, including the 14 modules the guard's
+`CheckPremises` imports (`TermSpawnMain`,
+`SpawnFinalX`, `SpawnArmZ`, `SpawnNoSpawn`, `ExtArmZ`, `TermProgress`, `TermLiveL3`,
+`TermLiveCertRun`, `TermLiveCertScen`, `TermLiveC`, `TermLiveG3`, `SceProof`,
+`TermStartD`, `DmaRing`):
 
 ```
 cd WeakCore/extras
@@ -94,26 +168,40 @@ WM_BUILD=<repository>/.lake/build/lib/lean WM_LEAN=<lean> tools/premises/guard.s
 Its last lines:
 
 ```
-premise set: sets/pr-release-15067-vendored (da7648300c64202c3b348dad50a81c22; lean: Lean (version 4.35.0-pre, x86_64-unknown-linux-gnu, commit d0d716161618bd9fbd0bf2d9b8bbb9b48cccd7dd, Release); layout: vendored)
-premises: meaning unchanged (143 finals/premises; set sets/pr-release-15067-vendored da7648300c64202c3b348dad50a81c22)
+premise set: sets/pr-release-15067-vendored (b4f242a84cfb41595d1985a33c1200b0; lean: Lean (version 4.35.0-pre, x86_64-unknown-linux-gnu, commit d0d716161618bd9fbd0bf2d9b8bbb9b48cccd7dd, Release); layout: vendored)
+premises: meaning unchanged (143 finals/premises; set sets/pr-release-15067-vendored b4f242a84cfb41595d1985a33c1200b0)
 ```
 
 **What the guard does not cover.** The closure stops at WeakCore's machine
-and language layer (`CheckPremises.stopModules`, which includes `CoreTerm`
-and `TermRun`). Definitions there are listed by name only; their bodies are
-not frozen. Among them, the release depends on these bodies:
-- `TermRun.tstep`, one step of one thread; its `new` step now records the
-  allocation's type, and whether that type is a type-test target, in the
-  thread's `tys`;
-- `CoreTerm.scan`, `CoreTerm.annNew` and `CoreTerm.progTgts`: the walk of the
-  opened-scope check, the allocation annotation, and the program's type-test
-  targets;
+and language layer (`CheckPremises.stopModules`, which includes `CoreTerm`,
+`CoreTyping` and `TermRun`). Definitions there are listed by signature only,
+unless they are language roots or forced; their bodies are otherwise not
+frozen. The release depends on these bodies, none of which is a language
+root or forced:
+- `TermRun.tstep`, one step of one thread (its `new` step records the
+  allocation's type, and whether it is a type-test target, in the thread's
+  `tys`); `TermRun.threadSteps` is frozen, and shows `tstep` by signature
+  only;
+- `CoreTerm.scan`, `CoreTerm.annNew`, `CoreTerm.progTgts` and
+  `CoreTerm.scopeAllocOK`: the walk of the opened-scope check, the
+  allocation annotation, and the program's type-test targets;
 - `TermRun.tysOf`, the type recorded for an allocation label in a
-  configuration.
+  configuration;
+- new in release 7: `CoreTerm.keyFreeTE`/`CoreTerm.keyFreeT` and
+  `CoreTerm.handOff`/`CoreTerm.handOffR`, the key-free test and the
+  capability hand-off of `spawnI` and of a call that may reach it. The
+  hand-off at a call applies only to a callee that may reach `spawnI`; scc
+  refuses `spawnI` in every code block, so no program scc accepts has such
+  a callee, and neither form applies to one (without `spawnI` the set of
+  such callees is empty: `CoreTerm.spawnSet_nil_of_noSpawnI`).
 
 The guard would not report a change to these bodies. They are part of the
 specification (§3, item 15).
 
+**Reproducing the WeakCore build.** `LEAN_NUM_THREADS=1 lake build WeakCore`
+(the modules of §4's WeakCore table alone first), then the guard as above.
+A cold build of `WeakCore` with the guard's modules took 52
+minutes on 64 cores.
 ## 0. The claim
 
 ### `wake.w`
@@ -689,13 +777,15 @@ Their entry quantifier is not vacuous: `hello1_ok_witness_of_placeOKAtA` /
 admissible entry state (a 64 KiB stack at `2 ^ 32`). `certify.sh` uses both
 (§2, §4).
 
-### The fragment-generic statements (open)
+### The fragment-generic statements
 
 `Spike/Lib/LowerA64/Closed2StmtA.lean` and
 `Spike/Lib/LowerX64/Closed2Stmt.lean` state the compiler theorem for every
 `Accepted2` program (setup block, `newBuf`, lane stores, `print`) whose
 `main` ends on every path in a call returning its result or a literal
-(`mainRetOk`). They are **stated as `Prop`s, not proved**:
+(`mainRetOk`). They are stated as `Prop`s; this release proves them at the
+header bound (*The `Accepted2` statements, proved at the header bound*,
+below):
 
 ```lean
 def Closed2StmtA : Prop :=
@@ -726,15 +816,16 @@ def Closed2Stmt : Prop :=
       { Λ with static := fun _ => none, imms := Spike.Lib.LowerNode.imms2Me Λ p } B ⟨text, sizes, labelOffs⟩
 ```
 
-What the tree proves about them is conditional:
+Without the header bound, what the tree proves about them is conditional:
 
 - `a64_scc_correctE_text_closedAt2 (H : Closed2InA) : Closed2StmtA`
   (`Spike/Lib/LowerA64/Closed2AtA.lean`) and
   `x64_scc_correctE_text_closedAt2 (H : Closed2In) : Closed2Stmt`
   (`Spike/Lib/LowerX64/Closed2At.lean`): each from the segment obligations
   `Closed2In(A)` (`In2A`/`In2X` at every instance and admissible entry state),
-  which are **not proved** for the fragment. No theorem in the tree proves
-  `Closed2Stmt` or `Closed2StmtA` outright.
+  which are not proved for the fragment as a whole. No theorem in the tree
+  proves `Closed2Stmt` or `Closed2StmtA` outright; `Closed2StmtH` and
+  `Closed2StmtAH`, which add the header bound, are proved.
 - `hello1` discharges these obligations for its own instance only, which is
   what `hello1_finalC(A)` packages.
 - `hello1_of_closed2A (H : Closed2StmtA)` / `hello1_of_closed2 (H :
@@ -840,6 +931,504 @@ theorem x64_scc_correctE_text_closedAt1 (Λ : Scc.Sem.Layout) (hd : Scc.Lower.Ac
 
 On AArch64 the text is the bare `asm` string: instructions are 4 bytes, so
 there is no `sizes`/`labelOffs` table.
+
+### The compiler theorems on the post-pass text (`--granule`)
+
+New in this release. `Spike/Lib/Lower{A64,X64}/CorrectFinal.lean` state the
+twins of the theorems above for the output after the granule pass, `F`
+(local notation: `Scc.Cert.Granule.{X64,A64}.ofFinal … final`, the
+lowering's stage with the pass's items `final`). In place of `placeOKAt` and
+the parse of scc's output `O`, they take the stages of the lowering and the
+emitter (`h1`, `h2`, `h3`), the pass check (`hc`: the post-pass items
+`Expand` the emitter's), on x86-64 that the post-pass program fits the sizes
+(`hz`), the post-pass block table (`hb`), and `placeOKAt` and the loader's
+parse (`hpa`) on `F` itself. Nothing about the pre-pass layout is
+transferred. The conclusion is the same as the twin's.
+
+`a64_scc_correctE_text_closedAt1_final` (`Spike/Lib/LowerA64/CorrectFinal.lean`):
+
+```lean
+theorem a64_scc_correctE_text_closedAt1_final (Λ : Scc.Sem.Layout) (hd : Scc.Lower.Accepted1 [d] = true)
+    {ir : Scc.IR.Program} {setup : Bool} {items final tits : List Scc.Emit.A64.Item}
+    {sps : List Scc.Emit.A64.Safepoint} {blks : List Scc.Cert.Rt.A64.OGrp} {tbl : List Kraken.DataImage.Item}
+    (h1 : lowered1 cfg [d] = some (ir, setup)) (h2 : Scc.Emit.A64.emitItemsMaps ir = .ok (items, sps))
+    (h3 : Scc.Lower.A64.tablesOf ir items cfg.gcWit = .ok (tits, tbl))
+    (hc : Scc.Cert.Granule.A64.check final items = true)
+    (hb : Scc.Cert.Granule.A64.blocksOfFinal ir final = some blks)
+    (h : placeOKAt pcfg Λ (F) = true) {asm : String}
+    (hpa : Scc.Cert.Link.A64.parsesTo asm (F).prog (F).secs = true) {B : Scc.Sem.Budget} {arch : WeakMem.Arch} :
+    Scc.Sem.A64.CorrectE 1 (Scc.Sem.SrcSem.source (Spike.Lib.srcP1 arch) [d])
+      { Λ with static := fun _ => none, imms := Scc.Lower.imms1Of [d] } B asm
+```
+
+Against `a64_scc_correctE_text_closedAt1` (as quoted in the previous release's note):
+
+```diff
+--- previous a64_scc_correctE_text_closedAt1
++++ this release a64_scc_correctE_text_closedAt1_final
+@@ -1,4 +1,10 @@
+-theorem a64_scc_correctE_text_closedAt1 (Λ : Scc.Sem.Layout) (hd : Scc.Lower.Accepted1 [d] = true)
+-    (h : placeOKAt pcfg Λ (O) = true) {asm : String}
+-    (hpa : Scc.Cert.Link.A64.parsesTo asm (O).prog (O).secs = true) {B : Scc.Sem.Budget} {arch : WeakMem.Arch} :
++theorem a64_scc_correctE_text_closedAt1_final (Λ : Scc.Sem.Layout) (hd : Scc.Lower.Accepted1 [d] = true)
++    {ir : Scc.IR.Program} {setup : Bool} {items final tits : List Scc.Emit.A64.Item}
++    {sps : List Scc.Emit.A64.Safepoint} {blks : List Scc.Cert.Rt.A64.OGrp} {tbl : List Kraken.DataImage.Item}
++    (h1 : lowered1 cfg [d] = some (ir, setup)) (h2 : Scc.Emit.A64.emitItemsMaps ir = .ok (items, sps))
++    (h3 : Scc.Lower.A64.tablesOf ir items cfg.gcWit = .ok (tits, tbl))
++    (hc : Scc.Cert.Granule.A64.check final items = true)
++    (hb : Scc.Cert.Granule.A64.blocksOfFinal ir final = some blks)
++    (h : placeOKAt pcfg Λ (F) = true) {asm : String}
++    (hpa : Scc.Cert.Link.A64.parsesTo asm (F).prog (F).secs = true) {B : Scc.Sem.Budget} {arch : WeakMem.Arch} :
+     Scc.Sem.A64.CorrectE 1 (Scc.Sem.SrcSem.source (Spike.Lib.srcP1 arch) [d])
+```
+
+`x64_scc_correctE_text_closedAt1_final` (`Spike/Lib/LowerX64/CorrectFinal.lean`):
+
+```lean
+theorem x64_scc_correctE_text_closedAt1_final (Λ : Scc.Sem.Layout) (hd : Scc.Lower.Accepted1 [d] = true)
+    (hfr : MainFrame1Ok cfg d = true) {ir : Scc.IR.Program} {setup : Bool}
+    {items final tits : List Scc.Emit.X64.Item} {sps : List (String × List Int × List Int)}
+    {tbl : List Kraken.DataImage.Item}
+    {cs : List (Directive × Nat)} {blks : List Scc.Cert.Rt.X64.OGrp}
+    (h1 : lowered1 cfg [d] = some (ir, setup)) (h2 : Scc.Emit.X64.emitItemsMaps ir = .ok (items, sps))
+    (h3 : Scc.Lower.X64.tablesOf ir items cfg.gcWit = .ok (tits, tbl))
+    (hc : Scc.Cert.Granule.X64.check final items = true)
+    (hz : (Scc.Cert.Granule.X64.textCells final).bind (sizedCells · sizes) = some cs)
+    (hb : Scc.Cert.Granule.X64.blocksOfFinal sizes ir final = some blks)
+    (h : placeOKAt pcfg Λ (F) = true) {text : String}
+    (hpa : Scc.Cert.Link.X64.parsesTo ⟨text, sizes, labelOffs⟩ (F).prog (F).secs = true)
+    {B : Scc.Sem.Budget} {arch : WeakMem.Arch} :
+    Scc.Sem.X64.CorrectE 1 (Scc.Sem.SrcSem.source (Spike.Lib.srcP1 arch) [d])
+      { Λ with static := fun _ => none, imms := Scc.Lower.imms1Of [d] } B ⟨text, sizes, labelOffs⟩
+```
+
+Against `x64_scc_correctE_text_closedAt1` (as quoted in the previous release's note):
+
+```diff
+--- previous x64_scc_correctE_text_closedAt1
++++ this release x64_scc_correctE_text_closedAt1_final
+@@ -1,4 +1,13 @@
+-theorem x64_scc_correctE_text_closedAt1 (Λ : Scc.Sem.Layout) (hd : Scc.Lower.Accepted1 [d] = true)
+-    (h : placeOKAt pcfg Λ (O) = true) (hfr : MainFrame1Ok cfg d = true) {text : String}
+-    (hpa : Scc.Cert.Link.X64.parsesTo ⟨text, sizes, labelOffs⟩ (O).prog (O).secs = true)
++theorem x64_scc_correctE_text_closedAt1_final (Λ : Scc.Sem.Layout) (hd : Scc.Lower.Accepted1 [d] = true)
++    (hfr : MainFrame1Ok cfg d = true) {ir : Scc.IR.Program} {setup : Bool}
++    {items final tits : List Scc.Emit.X64.Item} {sps : List (String × List Int × List Int)}
++    {tbl : List Kraken.DataImage.Item}
++    {cs : List (Directive × Nat)} {blks : List Scc.Cert.Rt.X64.OGrp}
++    (h1 : lowered1 cfg [d] = some (ir, setup)) (h2 : Scc.Emit.X64.emitItemsMaps ir = .ok (items, sps))
++    (h3 : Scc.Lower.X64.tablesOf ir items cfg.gcWit = .ok (tits, tbl))
++    (hc : Scc.Cert.Granule.X64.check final items = true)
++    (hz : (Scc.Cert.Granule.X64.textCells final).bind (sizedCells · sizes) = some cs)
++    (hb : Scc.Cert.Granule.X64.blocksOfFinal sizes ir final = some blks)
++    (h : placeOKAt pcfg Λ (F) = true) {text : String}
++    (hpa : Scc.Cert.Link.X64.parsesTo ⟨text, sizes, labelOffs⟩ (F).prog (F).secs = true)
+     {B : Scc.Sem.Budget} {arch : WeakMem.Arch} :
+```
+
+`x64_scc_correctE_text_closedAt_final` (`Spike/Lib/LowerX64/CorrectFinal.lean`):
+
+```lean
+theorem x64_scc_correctE_text_closedAt_final (Λ : Scc.Sem.Layout) (hd : Scc.Lower.Accepted0 [d] = true)
+    {ir : Scc.IR.Program} {setup : Bool}
+    {items final tits : List Scc.Emit.X64.Item} {sps : List (String × List Int × List Int)}
+    {tbl : List Kraken.DataImage.Item}
+    {cs : List (Directive × Nat)} {blks : List Scc.Cert.Rt.X64.OGrp}
+    (h1 : lowered1 cfg [d] = some (ir, setup)) (h2 : Scc.Emit.X64.emitItemsMaps ir = .ok (items, sps))
+    (h3 : Scc.Lower.X64.tablesOf ir items cfg.gcWit = .ok (tits, tbl))
+    (hc : Scc.Cert.Granule.X64.check final items = true)
+    (hz : (Scc.Cert.Granule.X64.textCells final).bind (sizedCells · sizes) = some cs)
+    (hb : Scc.Cert.Granule.X64.blocksOfFinal sizes ir final = some blks)
+    (h : placeOKAt pcfg Λ (F) = true) {text : String}
+    (hpa : Scc.Cert.Link.X64.parsesTo ⟨text, sizes, labelOffs⟩ (F).prog (F).secs = true)
+    {B : Scc.Sem.Budget} {arch : WeakMem.Arch} :
+    Scc.Sem.X64.CorrectE 1 (Scc.Sem.SrcSem.source (Spike.Lib.srcP1 arch) [d])
+      { Λ with static := fun _ => none, imms := immsOf d } B ⟨text, sizes, labelOffs⟩
+```
+
+Against `x64_scc_correctE_text_closedAt` (at the previous release, `Spike/Lib/LowerX64/Correct.lean`):
+
+```diff
+--- previous x64_scc_correctE_text_closedAt
++++ this release x64_scc_correctE_text_closedAt_final
+@@ -1,4 +1,13 @@
+-theorem x64_scc_correctE_text_closedAt (Λ : Scc.Sem.Layout) (hd : Scc.Lower.Accepted0 [d] = true)
+-    (h : placeOKAt pcfg Λ (O) = true) {text : String}
+-    (hpa : Scc.Cert.Link.X64.parsesTo ⟨text, sizes, labelOffs⟩ (O).prog (O).secs = true)
++theorem x64_scc_correctE_text_closedAt_final (Λ : Scc.Sem.Layout) (hd : Scc.Lower.Accepted0 [d] = true)
++    {ir : Scc.IR.Program} {setup : Bool}
++    {items final tits : List Scc.Emit.X64.Item} {sps : List (String × List Int × List Int)}
++    {tbl : List Kraken.DataImage.Item}
++    {cs : List (Directive × Nat)} {blks : List Scc.Cert.Rt.X64.OGrp}
++    (h1 : lowered1 cfg [d] = some (ir, setup)) (h2 : Scc.Emit.X64.emitItemsMaps ir = .ok (items, sps))
++    (h3 : Scc.Lower.X64.tablesOf ir items cfg.gcWit = .ok (tits, tbl))
++    (hc : Scc.Cert.Granule.X64.check final items = true)
++    (hz : (Scc.Cert.Granule.X64.textCells final).bind (sizedCells · sizes) = some cs)
++    (hb : Scc.Cert.Granule.X64.blocksOfFinal sizes ir final = some blks)
++    (h : placeOKAt pcfg Λ (F) = true) {text : String}
++    (hpa : Scc.Cert.Link.X64.parsesTo ⟨text, sizes, labelOffs⟩ (F).prog (F).secs = true)
+     {B : Scc.Sem.Budget} {arch : WeakMem.Arch} :
+```
+
+### The `Accepted2` statements, proved at the header bound
+
+New in this release. `Closed2StmtA` and `Closed2Stmt` (above) are proved at
+every configuration whose object layout's header scalar count starts below
+bit 22 (`Scc.Obj.nShift cfg.layout.obj < 22`), the configuration premise of
+the theorems. The statements are `Closed2StmtA`/`Closed2Stmt` with that
+premise added:
+
+`Closed2StmtAH` (`Spike/Lib/LowerA64/Closed2StmtAH.lean`):
+
+```lean
+def Closed2StmtAH : Prop :=
+  ∀ (cfg : Scc.Config), Scc.Obj.nShift cfg.layout.obj < 22 →
+  ∀ (pcfg : Scc.Cert.PlaceOK.Config) (p : CoreTerm.Prog) (Λ : Scc.Sem.Layout),
+    Scc.Lower.Accepted2 p = true → Scc.Lower.mainRetOk p = true →
+    placeOKAt pcfg Λ (Out.ofEmitted (Scc.Lower.A64.lowerAll cfg p)) = true →
+    CfgNeedOkA pcfg = true →
+    ∀ {asm : String}, Scc.Cert.Link.A64.parsesTo asm
+      (Out.ofEmitted (Scc.Lower.A64.lowerAll cfg p)).prog
+      (Out.ofEmitted (Scc.Lower.A64.lowerAll cfg p)).secs = true →
+    ∀ {B : Scc.Sem.Budget}, B.cells = Scc.Cert.PlaceOK.allocCells → ∀ {arch : WeakMem.Arch},
+    Scc.Sem.A64.CorrectE 1 (Scc.Sem.SrcSem.source (Scc.Sem.SrcSem.srcP1o arch p) p)
+      { Λ with static := fun _ => none, imms := Spike.Lib.LowerNode.imms2Me Λ p } B asm
+```
+
+`Closed2StmtH` (`Spike/Lib/LowerX64/G1Closed2Final.lean`):
+
+```lean
+def Closed2StmtH : Prop :=
+  ∀ (cfg : Scc.Config), Scc.Obj.nShift cfg.layout.obj < 22 →
+  ∀ (pcfg : Scc.Cert.PlaceOK.Config) (p : CoreTerm.Prog) (sizes : List Nat)
+    (labelOffs : List (String × Nat)) (Λ : Scc.Sem.Layout), Scc.Lower.Accepted2 p = true →
+    Scc.Lower.mainRetOk p = true →
+    placeOKAt pcfg Λ (Out.ofEmitted (Scc.Lower.X64.lowerAll cfg p) sizes labelOffs) = true →
+    CfgNeedOk pcfg = true →
+    ∀ {text : String}, Scc.Cert.Link.X64.parsesTo ⟨text, sizes, labelOffs⟩
+      (Out.ofEmitted (Scc.Lower.X64.lowerAll cfg p) sizes labelOffs).prog
+      (Out.ofEmitted (Scc.Lower.X64.lowerAll cfg p) sizes labelOffs).secs = true →
+    ∀ {B : Scc.Sem.Budget}, B.cells = Scc.Cert.PlaceOK.allocCells → ∀ {arch : WeakMem.Arch},
+    Scc.Sem.X64.CorrectE 1 (Scc.Sem.SrcSem.source (Scc.Sem.SrcSem.srcP1o arch p) p)
+      { Λ with static := fun _ => none, imms := Spike.Lib.LowerNode.imms2Me Λ p } B ⟨text, sizes, labelOffs⟩
+```
+
+`closed2StmtAH_final : Closed2StmtAH` (`Spike/Lib/LowerA64/Closed2StmtAH.lean`)
+and `closed2Stmt_x64_final : Closed2StmtH`
+(`Spike/Lib/LowerX64/G1Closed2X64.lean`) prove them with no premises.
+`certify.sh` does not instantiate them: it still certifies `Accepted0`/
+`Accepted1` programs and the registry (§5).
+
+### The granule instances at the linked post-pass executables
+
+New in this release. The granule pass leaves the compiler's cells with the
+end label `scc_text_end` replaced by a tail (a `.zero` filler, `.Lgw0:`, the
+descriptor word and `scc_text_end`) and the data sections unchanged. The
+theorems below are about the post-pass text at the layout of the checked-in
+`Scc/Test/elf/*g/` executable, each given the loader's parse of that text
+(`hpa`/`hpaF`, checked by a compiled `#guard`, the trust boundary as for the
+other instances).
+
+The generic theorems they use, for a text whose cells are the compiler's
+with the end label replaced by an instruction-free tail: on AArch64, the
+twins of `a64_scc_correctE_text_closedAt1` and its `Accepted0` corollary,
+from the placement check of the output with the tail and the lowering's
+success (`hlow`); on x86-64, for an `Accepted2` program, from the stages a
+certificate decides and both placement checks (the compiler's output, `hE`,
+and the post-pass output, `hF`):
+
+`a64_scc_correctE_text_closedAt1_tail` (`Spike/Lib/LowerA64/Correct1Tail.lean`):
+
+```lean
+theorem a64_scc_correctE_text_closedAt1_tail (Λ : Scc.Sem.Layout) (hd : Scc.Lower.Accepted1 [d] = true)
+    (hlow : ∃ em, Scc.Lower.A64.lowerAll? cfg [d] = .ok em) {T : Program}
+    (h : placeOKAt pcfg Λ (withTail (O) T) = true) {asm : String}
+    (hpa : Scc.Cert.Link.A64.parsesTo asm (withTail (O) T).prog (withTail (O) T).secs = true)
+    {B : Scc.Sem.Budget} {arch : WeakMem.Arch} :
+    Scc.Sem.A64.CorrectE 1 (Scc.Sem.SrcSem.source (Spike.Lib.srcP1 arch) [d])
+      { Λ with static := fun _ => none, imms := Scc.Lower.imms1Of [d] } B asm := by
+  have h' : placeOKAt pcfg { Λ with static := fun _ => none } (withTail (O) T) = true
+```
+
+Against `a64_scc_correctE_text_closedAt1` (`Spike/Lib/LowerA64/Correct1.lean`, the previous release):
+
+```diff
+--- previous a64_scc_correctE_text_closedAt1
++++ this release a64_scc_correctE_text_closedAt1_tail
+@@ -1,5 +1,8 @@
+-theorem a64_scc_correctE_text_closedAt1 (Λ : Scc.Sem.Layout) (hd : Scc.Lower.Accepted1 [d] = true)
+-    (h : placeOKAt pcfg Λ (O) = true) {asm : String}
+-    (hpa : Scc.Cert.Link.A64.parsesTo asm (O).prog (O).secs = true) {B : Scc.Sem.Budget} {arch : WeakMem.Arch} :
++theorem a64_scc_correctE_text_closedAt1_tail (Λ : Scc.Sem.Layout) (hd : Scc.Lower.Accepted1 [d] = true)
++    (hlow : ∃ em, Scc.Lower.A64.lowerAll? cfg [d] = .ok em) {T : Program}
++    (h : placeOKAt pcfg Λ (withTail (O) T) = true) {asm : String}
++    (hpa : Scc.Cert.Link.A64.parsesTo asm (withTail (O) T).prog (withTail (O) T).secs = true)
++    {B : Scc.Sem.Budget} {arch : WeakMem.Arch} :
+     Scc.Sem.A64.CorrectE 1 (Scc.Sem.SrcSem.source (Spike.Lib.srcP1 arch) [d])
+-      { Λ with static := fun _ => none, imms := Scc.Lower.imms1Of [d] } B asm
++      { Λ with static := fun _ => none, imms := Scc.Lower.imms1Of [d] } B asm := by
++  have h' : placeOKAt pcfg { Λ with static := fun _ => none } (withTail (O) T) = true
+```
+
+`a64_scc_correctE_text_closedAt_tail` (`Spike/Lib/LowerA64/Correct1Tail.lean`):
+
+```lean
+theorem a64_scc_correctE_text_closedAt_tail (Λ : Scc.Sem.Layout) (hd : Scc.Lower.Accepted0 [d] = true)
+    (hlow : ∃ em, Scc.Lower.A64.lowerAll? cfg [d] = .ok em) {T : Program}
+    (h : placeOKAt pcfg Λ (withTail (O) T) = true) {asm : String}
+    (hpa : Scc.Cert.Link.A64.parsesTo asm (withTail (O) T).prog (withTail (O) T).secs = true)
+    {B : Scc.Sem.Budget} {arch : WeakMem.Arch} :
+    Scc.Sem.A64.CorrectE 1 (Scc.Sem.SrcSem.source (Spike.Lib.srcP1 arch) [d])
+      { Λ with static := fun _ => none, imms := Spike.Lib.LowerNode.immsOf d } B asm
+```
+
+`x64_scc_correctE_text_closedAt2_final` (`Spike/Lib/LowerX64/Closed2TailFinal.lean`):
+
+```lean
+theorem x64_scc_correctE_text_closedAt2_final (cfg : Scc.Config) (hobj : Scc.Obj.nShift cfg.layout.obj < 22)
+    {pcfg : Scc.Cert.PlaceOK.Config} {p : Prog} {sizesE : List Nat} {labelOffsE : List (String × Nat)}
+    {sizes : List Nat} {labelOffs : List (String × Nat)} {Λ : Scc.Sem.Layout}
+    (hp : Scc.Lower.Accepted2 p = true) (hR : Scc.Lower.mainRetOk p = true)
+    (hE : placeOKAt pcfg Λ (Out.ofEmitted (Scc.Lower.X64.lowerAll cfg p) sizesE labelOffsE) = true)
+    (hcfg : CfgNeedOk pcfg = true)
+    {ir : Scc.IR.Program} {setup : Bool} {items final tits : List Scc.Emit.X64.Item}
+    {sps : List (String × List Int × List Int)} {tbl : List Kraken.DataImage.Item}
+    {cs : List (Directive × Nat)} {blks : List Scc.Cert.Rt.X64.OGrp}
+    (h1 : lowered1 cfg p = some (ir, setup)) (h2 : Scc.Emit.X64.emitItemsMaps ir = .ok (items, sps))
+    (h3 : Scc.Lower.X64.tablesOf ir items cfg.gcWit = .ok (tits, tbl))
+    (hc : Scc.Cert.Granule.X64.check final items = true)
+    (hz : (Scc.Cert.Granule.X64.textCells final).bind (sizedCells · sizes) = some cs)
+    (hb : Scc.Cert.Granule.X64.blocksOfFinal sizes ir final = some blks)
+    (hF : placeOKAt pcfg Λ (Scc.Cert.Granule.X64.ofFinal sizes labelOffs
+      (ir, items, sps, tbl, (Scc.Lower.stackNeed .x64 ir).toOption, setup) final) = true)
+    {P T : List (Directive × Nat)} {te : String} {B : List String}
+    (hPE : (Out.ofEmitted (Scc.Lower.X64.lowerAll cfg p) sizesE labelOffsE).prog = P ++ [(.label te, 0)])
+    (hPF : cs = P ++ T)
+    (hte : te ∈ B) (hT : ∀ dz ∈ T, ∀ l, dz.1 = .label l → l ∈ B) (hTi : ∀ dz ∈ T, ∀ i, dz.1 ≠ .instr i)
+    (hfree : ∀ i z, (Directive.instr i, z) ∈ P → Directive.Free B (.instr i))
+    (hs : ∀ k : XferKind, k.label ∉ B) (ha : ∀ k, Λ.abortLbl k ∉ B) (hn : ∀ x ∈ rtNames, x ∉ B)
+    (hrow : ∀ r ∈ bPR ++ bLR ++ bNR ++ bTR, r.l1 ∉ B ∧ r.l2 ∉ B)
+    {text : String}
+    (hpa : Scc.Cert.Link.X64.parsesTo ⟨text, sizes, labelOffs⟩
+      (Scc.Cert.Granule.X64.ofFinal sizes labelOffs
+        (ir, items, sps, tbl, (Scc.Lower.stackNeed .x64 ir).toOption, setup) final).prog
+      (Scc.Cert.Granule.X64.ofFinal sizes labelOffs
+        (ir, items, sps, tbl, (Scc.Lower.stackNeed .x64 ir).toOption, setup) final).secs = true)
+    {Bu : Budget} (hB : Bu.cells = allocCells) {arch : WeakMem.Arch} :
+    CorrectE 1 (SrcSem.source (SrcSem.srcP1o arch p) p)
+      { Λ with static := fun _ => none, imms := Spike.Lib.LowerNode.imms2Me Λ p } Bu ⟨text, sizes, labelOffs⟩ := by
+  obtain ⟨hf, -, -, -, -, -, hfp, -, -⟩
+```
+
+The instances (each `#print axioms`: `propext`, `Classical.choice`,
+`Quot.sound`, checked by `#guard_msgs` in its file or as listed in §1
+*Axioms*; the axiom run printed these three for `hello1_finalCAG`,
+`hello1_finalCAG_of`, `hello1_finalCF`, both `ret0_linked_correctG`,
+`lld_linked_correctG`, `ret0_correctG` and
+`x64_scc_correctE_text_closedAt2_final`, and the files of the placement-only
+instances built without error):
+
+- **`hello1`, AArch64** (`Scc/Test/elf/hello1a64g/hello1`): `hello1_finalCAG`,
+  `hello1_finalCAG_of` (`Spike/Test/A64Hello1FinalCAG.lean`) at the
+  executable's layout `ΛG`, where the placement check holds for both the
+  certificate's output and the output with the tail.
+- **`hello1`, x86-64** (`Scc/Test/elf/hello1x64g/hello1`): `hello1_finalCF`,
+  `x64_scc_correctE_text_closedAt2_final` at the post-pass output computed
+  from the certificate's literals (`Spike/Test/X64Hello1GOut.lean`), with
+  the pre-pass output's placement check at the post-pass layout
+  (`Hello1LinkedX64G.pre_placeOKAt`) and the post-pass output's
+  (`Hello1LinkedX64GPost.post_placeOKAt`).
+- **`ret0`**: AArch64 (`Scc/Test/elf/ret0a64g/ret0`), `ret0_linked_correctG`
+  (`Spike/Test/Ret0LinkedA64G.lean`, from `a64_scc_correctE_text_closedAt_tail`);
+  x86-64 with GNU `ld` (`Scc/Test/elf/ret0x64g/ret0`), `ret0_linked_correctG`
+  (`Spike/Test/Ret0LinkedX64G.lean`), and with `ld.lld`
+  (`Scc/Test/elf/ret0x64lldg/ret0`), `lld_linked_correctG`
+  (`Spike/Test/Ret0LldX64G.lean`), both from `ret0_correctG`
+  (`Spike/Test/X64Ret0GOut.lean`: `x64_scc_correctE_text_closedAt_final` at
+  any layout where the post-pass output passes the placement check).
+- **`call1`** (AArch64 and x86-64) **and `frame0`** (x86-64): placement only.
+  `call1G_placeOKAt` (`Spike/Test/Call1LinkedA64G.lean`,
+  `Spike/Test/Call1LinkedX64G.lean`) and `frame0G_placeOKAt`
+  (`Spike/Test/Frame0LinkedX64G.lean`) prove the placement check of the
+  post-pass output at the executable's layout; no correctness theorem is
+  stated, as for their pre-pass executables. With one instruction of
+  `pick` replaced, A12 fails and so does the placement check, while A9
+  passes (`perturbedG_not_placeOKAt`/`perturbed_not_placeOKAt`,
+  `perturbedG_a9`/`perturbed_a9`).
+
+`hello1_finalCAG` (`Spike/Test/Hello1LinkedA64G.lean`):
+
+```lean
+theorem hello1_finalCAG (hpa : Scc.Cert.Link.A64.parsesTo asmG outF.prog outF.secs = true)
+    {B : Scc.Sem.Budget} (hB : B.cells = Scc.Cert.PlaceOK.allocCells) {arch : WeakMem.Arch} :
+    Scc.Sem.A64.CorrectE 1
+      (SrcSem.source (SrcSem.srcP1o arch Spike.Test.Hello1MainSrc.hello1o) Spike.Test.Hello1MainSrc.hello1o)
+      (Spike.Lib.LowerA64.lay2 ΛG Spike.Test.Hello1MainSrc.hello1o) B asmG := by
+  have h0 : A64.placeOKAt placeCfg ΛG (Scc.Cert.PlaceOK.A64.Out.ofEmitted
+      (Scc.Lower.A64.lowerAll SccCertificate.config Spike.Test.Hello1MainSrc.hello1o)) = true
+```
+
+Against `hello1_finalCA` (`Spike/Test/A64Hello1FinalCA.lean`, the previous release):
+
+```diff
+--- previous hello1_finalCA
++++ this release hello1_finalCAG
+@@ -1,6 +1,7 @@
+-theorem hello1_finalCA
+-    (hpa : Scc.Cert.Link.A64.parsesTo SccCertificate.asm SccCertificate.outLit.prog
+-      SccCertificate.outLit.secs = true)
++theorem hello1_finalCAG (hpa : Scc.Cert.Link.A64.parsesTo asmG outF.prog outF.secs = true)
+     {B : Scc.Sem.Budget} (hB : B.cells = Scc.Cert.PlaceOK.allocCells) {arch : WeakMem.Arch} :
+-    CorrectE 1 (Scc.Sem.SrcSem.source (Scc.Sem.SrcSem.srcP1o arch P1A) P1A) (lay2 LeA P1A) B
+-      SccCertificate.asm
++    Scc.Sem.A64.CorrectE 1
++      (SrcSem.source (SrcSem.srcP1o arch Spike.Test.Hello1MainSrc.hello1o) Spike.Test.Hello1MainSrc.hello1o)
++      (Spike.Lib.LowerA64.lay2 ΛG Spike.Test.Hello1MainSrc.hello1o) B asmG := by
++  have h0 : A64.placeOKAt placeCfg ΛG (Scc.Cert.PlaceOK.A64.Out.ofEmitted
++      (Scc.Lower.A64.lowerAll SccCertificate.config Spike.Test.Hello1MainSrc.hello1o)) = true
+```
+
+`hello1_finalCF` (`Spike/Test/X64Hello1FinalCF.lean`):
+
+```lean
+theorem hello1_finalCF
+    (hpaF : Scc.Cert.Link.X64.parsesTo ⟨textF, sizesFLit, offsFLit⟩ oF.prog oF.secs = true)
+    {Bu : Scc.Sem.Budget} (hB : Bu.cells = Scc.Cert.PlaceOK.allocCells) {arch : WeakMem.Arch} :
+    CorrectE 1 (Scc.Sem.SrcSem.source (Scc.Sem.SrcSem.srcP1o arch P1) P1) (lay2 ΛF P1) Bu
+      ⟨textF, sizesFLit, offsFLit⟩
+```
+
+Against `hello1_finalC` (`Spike/Test/X64Hello1FinalC.lean`, the previous release):
+
+```diff
+--- previous hello1_finalC
++++ this release hello1_finalCF
+@@ -1,6 +1,5 @@
+-theorem hello1_finalC
+-    (hpa : Scc.Cert.Link.X64.parsesTo ⟨SccCertificate.asm, SccCertificate.sizes, SccCertificate.labelOffs⟩
+-      SccCertificate.outLit.prog SccCertificate.outLit.secs = true)
+-    {B : Scc.Sem.Budget} (hB : B.cells = Scc.Cert.PlaceOK.allocCells) {arch : WeakMem.Arch} :
+-    CorrectE 1 (Scc.Sem.SrcSem.source (Scc.Sem.SrcSem.srcP1o arch P1) P1) (lay2 Le P1) B
+-      ⟨SccCertificate.asm, SccCertificate.sizes, SccCertificate.labelOffs⟩
++theorem hello1_finalCF
++    (hpaF : Scc.Cert.Link.X64.parsesTo ⟨textF, sizesFLit, offsFLit⟩ oF.prog oF.secs = true)
++    {Bu : Scc.Sem.Budget} (hB : Bu.cells = Scc.Cert.PlaceOK.allocCells) {arch : WeakMem.Arch} :
++    CorrectE 1 (Scc.Sem.SrcSem.source (Scc.Sem.SrcSem.srcP1o arch P1) P1) (lay2 ΛF P1) Bu
++      ⟨textF, sizesFLit, offsFLit⟩
+```
+
+`ret0_linked_correctG` (`Spike/Test/Ret0LinkedA64G.lean`):
+
+```lean
+theorem ret0_linked_correctG (B : Scc.Sem.Budget) (arch : WeakMem.Arch)
+    (hpa : Scc.Cert.Link.A64.parsesTo asmG (withTail out tailG).prog (withTail out tailG).secs = true) :
+    Scc.Sem.A64.CorrectE 1 (Scc.Sem.SrcSem.source (Spike.Lib.srcP1 arch) SccCertificate.prog_src)
+      { ΛG with static := fun _ => none, imms := Spike.Lib.LowerNode.immsOf Spike.Test.Ret0ReleaseA64.main } B
+      asmG
+```
+
+Against `ret0_linked_correct` (`Spike/Test/Ret0LinkedA64.lean`, the previous release):
+
+```diff
+--- previous ret0_linked_correct
++++ this release ret0_linked_correctG
+@@ -1,5 +1,5 @@
+-theorem ret0_linked_correct (B : Scc.Sem.Budget) (arch : WeakMem.Arch)
+-    (hpa : Scc.Cert.Link.A64.parsesTo asm out.prog out.secs = true) :
++theorem ret0_linked_correctG (B : Scc.Sem.Budget) (arch : WeakMem.Arch)
++    (hpa : Scc.Cert.Link.A64.parsesTo asmG (withTail out tailG).prog (withTail out tailG).secs = true) :
+     Scc.Sem.A64.CorrectE 1 (Scc.Sem.SrcSem.source (Spike.Lib.srcP1 arch) SccCertificate.prog_src)
+-      { Λe with static := fun _ => none, imms := Spike.Lib.LowerNode.immsOf Spike.Test.Ret0ReleaseA64.main } B
+-      asm
++      { ΛG with static := fun _ => none, imms := Spike.Lib.LowerNode.immsOf Spike.Test.Ret0ReleaseA64.main } B
++      asmG
+```
+
+`ret0_linked_correctG` (`Spike/Test/Ret0LinkedX64G.lean`):
+
+```lean
+theorem ret0_linked_correctG (B : Scc.Sem.Budget) (arch : WeakMem.Arch)
+    (hpa : Scc.Cert.Link.X64.parsesTo ⟨textF, sizesFLit, offsFLit⟩ oFLit.prog oFLit.secs = true) :
+    Scc.Sem.X64.CorrectE 1 (Scc.Sem.SrcSem.source (Spike.Lib.srcP1 arch) prog_src)
+      { ΛF with static := fun _ => none, imms := Spike.Lib.LowerNode.immsOf Spike.Test.Ret0ReleaseX64.main }
+      B ⟨textF, sizesFLit, offsFLit⟩
+```
+
+Against `ret0_linked_correct` (`Spike/Test/Ret0LinkedX64.lean`, the previous release):
+
+```diff
+--- previous ret0_linked_correct
++++ this release ret0_linked_correctG
+@@ -1,5 +1,5 @@
+-theorem ret0_linked_correct (B : Scc.Sem.Budget) (arch : WeakMem.Arch)
+-    (hpa : Scc.Cert.Link.X64.parsesTo ⟨asm, sizes, labelOffs⟩ out.prog out.secs = true) :
+-    Scc.Sem.X64.CorrectE 1 (Scc.Sem.SrcSem.source (Spike.Lib.srcP1 arch) SccCertificate.prog_src)
+-      { Λe with static := fun _ => none, imms := Spike.Lib.LowerNode.immsOf Spike.Test.Ret0ReleaseX64.main } B
+-      ⟨asm, sizes, labelOffs⟩
++theorem ret0_linked_correctG (B : Scc.Sem.Budget) (arch : WeakMem.Arch)
++    (hpa : Scc.Cert.Link.X64.parsesTo ⟨textF, sizesFLit, offsFLit⟩ oFLit.prog oFLit.secs = true) :
++    Scc.Sem.X64.CorrectE 1 (Scc.Sem.SrcSem.source (Spike.Lib.srcP1 arch) prog_src)
++      { ΛF with static := fun _ => none, imms := Spike.Lib.LowerNode.immsOf Spike.Test.Ret0ReleaseX64.main }
++      B ⟨textF, sizesFLit, offsFLit⟩
+```
+
+`lld_linked_correctG` (`Spike/Test/Ret0LldX64G.lean`):
+
+```lean
+theorem lld_linked_correctG (B : Scc.Sem.Budget) (arch : WeakMem.Arch)
+    (hpa : Scc.Cert.Link.X64.parsesTo ⟨textF, sizesFLit, offsFLit⟩ oFLit.prog oFLit.secs = true) :
+    Scc.Sem.X64.CorrectE 1 (Scc.Sem.SrcSem.source (Spike.Lib.srcP1 arch) prog_src)
+      { ΛF with static := fun _ => none, imms := Spike.Lib.LowerNode.immsOf Spike.Test.Ret0ReleaseX64.main }
+      B ⟨textF, sizesFLit, offsFLit⟩
+```
+
+Against `lld_linked_correct` (`Spike/Test/Ret0LldX64.lean`, the previous release):
+
+```diff
+--- previous lld_linked_correct
++++ this release lld_linked_correctG
+@@ -1,5 +1,5 @@
+-theorem lld_linked_correct (B : Scc.Sem.Budget) (arch : WeakMem.Arch)
+-    (hpa : Scc.Cert.Link.X64.parsesTo ⟨asm, sizes, labelOffs⟩ out.prog out.secs = true) :
+-    Scc.Sem.X64.CorrectE 1 (Scc.Sem.SrcSem.source (Spike.Lib.srcP1 arch) SccCertificate.prog_src)
+-      { Λe with static := fun _ => none, imms := Spike.Lib.LowerNode.immsOf Spike.Test.Ret0ReleaseX64.main } B
+-      ⟨asm, sizes, labelOffs⟩
++theorem lld_linked_correctG (B : Scc.Sem.Budget) (arch : WeakMem.Arch)
++    (hpa : Scc.Cert.Link.X64.parsesTo ⟨textF, sizesFLit, offsFLit⟩ oFLit.prog oFLit.secs = true) :
++    Scc.Sem.X64.CorrectE 1 (Scc.Sem.SrcSem.source (Spike.Lib.srcP1 arch) prog_src)
++      { ΛF with static := fun _ => none, imms := Spike.Lib.LowerNode.immsOf Spike.Test.Ret0ReleaseX64.main }
++      B ⟨textF, sizesFLit, offsFLit⟩
+```
+
+`ret0_correctG` (`Spike/Test/X64Ret0GOut.lean`):
+
+```lean
+theorem ret0_correctG (Λ : Scc.Sem.Layout) (B : Scc.Sem.Budget) (arch : WeakMem.Arch)
+    (h : placeOKAt SccCertificate.placeCfg Λ oFLit = true)
+    (hpa : Scc.Cert.Link.X64.parsesTo ⟨textF, sizesFLit, offsFLit⟩ oFLit.prog oFLit.secs = true) :
+    Scc.Sem.X64.CorrectE 1 (Scc.Sem.SrcSem.source (Spike.Lib.srcP1 arch) SccCertificate.prog_src)
+      { Λ with static := fun _ => none, imms := Spike.Lib.LowerNode.immsOf Spike.Test.Ret0ReleaseX64.main }
+      B ⟨textF, sizesFLit, offsFLit⟩ := by
+  have hF : placeOKAt SccCertificate.placeCfg Λ oF = true := oF_eq ▸ h
+  have hpF : Scc.Cert.Link.X64.parsesTo ⟨textF, sizesFLit, offsFLit⟩ oF.prog oF.secs = true := oF_eq ▸ hpa
+  exact Spike.Lib.LowerX64.x64_scc_correctE_text_closedAt_final (cfg := SccCertificate.configW)
+    (d := Spike.Test.Ret0ReleaseX64.main) (sizes := sizesFLit) (labelOffs := offsFLit)
+    (pcfg := SccCertificate.placeCfg) Λ SccCertificate.prog_accepted SccCertificate.lowered_eq
+    SccCertificate.emitted_eq SccCertificate.tables_eq hcF hzF hbF hF hpF
+
+end Spike.Test.X64Ret0GOut
+
+-- No axioms beyond Lean's.
+
+/-- info: 'Spike.Test.X64Ret0GOut.oF_eq' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in #print axioms Spike.Test.X64Ret0GOut.oF_eq
+
+/-- info: 'Spike.Test.X64Ret0GOut.hcF' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in #print axioms Spike.Test.X64Ret0GOut.hcF
+
+/-- info: 'Spike.Test.X64Ret0GOut.ret0_correctG' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in #print axioms Spike.Test.X64Ret0GOut.ret0_correctG
+```
 
 ### Axioms
 
@@ -1262,11 +1851,12 @@ specification. In addition:
     (x86-64) the x86-64 one, `X64WakeA64.srcS`, at the same `helloSrc`. They
     are part of the specification.
 15. **WeakCore's machine and language layer.** The bodies of `TermRun.tstep`
-    (with `new`), `CoreTerm.scan`, `CoreTerm.annNew`, `CoreTerm.progTgts` and
-    `TermRun.tysOf` are part of the source semantics and are not covered by
-    WeakCore's premise guard (see "WeakCore 621ec97a (unchanged since the previous release)"). This is the
-    definition text of WeakCore 621ec97a as vendored.
-
+    (with `new`), `CoreTerm.scan`, `CoreTerm.annNew`, `CoreTerm.progTgts`,
+    `CoreTerm.scopeAllocOK`, `TermRun.tysOf`, and, new in release 7,
+    `CoreTerm.keyFreeTE`, `CoreTerm.keyFreeT`, `CoreTerm.handOff` and
+    `CoreTerm.handOffR` are part of the source semantics and are not covered
+    by WeakCore's premise guard (see "WeakCore release 7 (47e9c32c)"). This
+    is the definition text of WeakCore 47e9c32c as vendored.
 16. **The AArch64 link of `wake` and `hello`** (`Scc/Test/a64link.sh`,
     sourced by `run.sh`, `certify.sh` and `elf.sh`). Their proofs are stated
     with `.text` at `0x210550`, so their executables are linked with the
@@ -1286,78 +1876,95 @@ The trusted files' documentation states the above: `Scc/Sem/CorrectE.lean`
 calls) and `Scc/DESIGN.md` §4 (the loader, the ELF reader, the `Entry.Ok`
 quantifier) and its notes on AArch64 alignment.
 
+18. **The byte check of a `--granule` executable** (`Scc/Cert/ElfBytes.lean`,
+    `Scc/Cert/ElfBytes{X64,A64}.lean`). The descriptor words in the last 8
+    bytes of every granule, and the whole `.rodata`, are compared with the
+    text by an `#eval` in `T.post.lean` that throws on a mismatch: evaluated
+    by the compiled code, not kernel-checked. The loader's cell of a
+    descriptor word is empty, so the theorem says nothing about those bytes;
+    this check is the only link between them and the text.
+19. **The granule pass check and its tables** (`Scc/Cert/Granule*.lean`,
+    `Scc/Cert/MapsFast.lean`). `Scc.Cert.Granule.{X64,A64}.check`,
+    `blocksOfFinal`, `textCells` and `ofFinal` appear in the `_final`
+    statements' premises, and the MapsFast equalities are proved for all
+    inputs; the trusted files that changed are listed by
+    `tools/trusted_check.sh` (against the previous release, 5e8882c5: 20
+    added, 0 removed, 57 changed).
+
 ## 4. Reproducing
 
 **Building.** `lake build Kraken KrakenAArch64 WeakCore Scc Spike scc`
-(5953 jobs), then `lake build scc_x64 scc_arm` and the test modules.
+(6227 jobs), then `lake build scc_x64 scc_arm` and the test modules.
 
 **Memory.** Build with `LEAN_NUM_THREADS=1`: Lake may run several `lean`
 processes at once, each single-threaded, and the figures below are per
-process. The WeakCore and certificate modules in the tables below were built alone,
-once their imports were built; the third table is from the release build,
-where several single-threaded `lean` processes ran at once. The largest module, `WeakCore.TermStep`, needs about
-6 GiB of anonymous memory; the largest certificate module,
-`Spike.Test.Cert.A64Chain5Cert`, about 5.4 GiB.
-The resident size also counts the mapped `.olean` files. Build each module
-below alone once its imports are built, e.g.
-`LEAN_NUM_THREADS=1 lake build WeakCore.TermStep`, with about 8 GB of memory
-free and nothing else heavy running. To bound the total of a whole build,
-build serially, e.g. `LEAN_NUM_THREADS=1 taskset -c 0 lake build Scc Spike`.
-No module outside the three tables below needs more than 3.5 GiB of anonymous
-memory.
+process. `tools/memory_caps.tsv` lists the measured peak anonymous memory and
+cap of every module above 2.5 GiB; `tools/quick_gate.sh` builds its `solo`
+and `cert` rows alone before the main build. Build each module below alone
+once its imports are built, e.g. `LEAN_NUM_THREADS=1 lake build
+WeakCore.TermStep`, with about 20 GB of memory free and nothing else
+heavy running. No module outside the tables below needs more than
+3.5 GiB of anonymous memory.
 
-WeakCore (unchanged since the previous release; peak anonymous memory / peak
-resident size):
+WeakCore release 7 (peak anonymous memory / peak resident size):
 
 | Module | Anonymous | Resident |
 |---|---|---|
-| `WeakCore.TermStep` | 5.9 GiB | 7.4 GiB |
-| `WeakCore.GenLayer` | 4.5 GiB | 6.1 GiB |
-| `WeakCore.TermScopeFHM` | 4.0 GiB | 6.1 GiB |
-| `WeakCore.TermPlant` | 2.9 GiB | 4.5 GiB |
+| `WeakCore.TermStep` | 6.3 GiB | 7.9 GiB |
+| `WeakCore.GenLayer` | 4.9 GiB | 6.7 GiB |
+| `WeakCore.TermScopeFHM` | 4.1 GiB | 6.2 GiB |
+| `WeakCore.TermPlant` | 3.0 GiB | 4.7 GiB |
 
-A cold build of `WeakCore` with the nine guard-only modules took 52 minutes
-on 16 cores.
+Certificate modules (each built alone with `LEAN_NUM_THREADS=1` once its
+imports are built), the 12 regenerated certificates and the granule
+certificates and packages:
 
-The certificate modules need more memory than in the previous release. Peak
-anonymous memory per module, each built alone with `LEAN_NUM_THREADS=1` once
-its imports are built:
+| Certificate module | Peak anonymous memory | Time |
+|---|---|---|
+| `Spike.Test.Cert.A64Chain5Cert` | 5.4 GiB (5519 MB) | 627 s |
+| `Spike.Test.Cert.A64HelloCert` | 4.6 GiB (4720 MB) | 509 s |
+| `Spike.Test.Cert.A64WakeCert` | 4.0 GiB (4115 MB) | 499 s |
+| `Spike.Test.Cert.X64HelloCert` | 3.9 GiB (4040 MB) | 407 s |
+| `Spike.Test.Cert.X64WakeCert` | 3.5 GiB (3547 MB) | 356 s |
+| `Spike.Test.Cert.A64Hello1Cert` | 2.9 GiB (2951 MB) | 383 s |
+| `Spike.Test.Cert.A64Call1Cert` | 2.6 GiB (2656 MB) | 376 s |
+| `Spike.Test.Cert.X64Hello1Cert` | 2.5 GiB (2549 MB) | 367 s |
+| `Spike.Test.Cert.A64Ret0Cert` | 2.3 GiB (2363 MB) | 350 s |
+| `Spike.Test.Cert.X64Call1Cert` | 2.2 GiB (2301 MB) | 291 s |
+| `Spike.Test.Cert.X64Ret0Cert` | 2.1 GiB (2101 MB) | 267 s |
+| `Spike.Test.Cert.X64Frame0Cert` | 2.0 GiB (2083 MB) | 269 s |
+| `Spike.Test.Call1LinkedA64G` | 2.2 GiB (2270 MB) | 44 s |
+| `Spike.Test.Hello1LinkedA64G` | 1.7 GiB (1766 MB) | 94 s |
+| `Spike.Test.Ret0LinkedA64GC` | 1.7 GiB (1701 MB) | 44 s |
+| `Spike.Test.Hello1LinkedX64GPost` | 1.6 GiB (1602 MB) | 39 s |
+| `Spike.Test.Hello1LinkedX64G` | 1.6 GiB (1596 MB) | 37 s |
+| `Spike.Test.Ret0LinkedX64G` | 1.6 GiB (1595 MB) | 47 s |
+| `Spike.Test.Frame0LinkedX64G` | 1.5 GiB (1587 MB) | 45 s |
+| `Spike.Test.Call1LinkedX64G` | 1.5 GiB (1584 MB) | 49 s |
+| `Spike.Test.Ret0LldX64G` | 1.5 GiB (1580 MB) | 48 s |
+| `Spike.Test.X64Hello1GOut` | 1.2 GiB (1207 MB) | 19 s |
+| `Spike.Test.X64Call1GOut` | 1.2 GiB (1189 MB) | 19 s |
+| `Spike.Test.X64Ret0GOut` | 1.1 GiB (1144 MB) | 18 s |
+| `Spike.Test.X64Frame0GOut` | 1.1 GiB (1135 MB) | 18 s |
 
-| Certificate module | Peak anonymous memory |
-|---|---|
-| `Spike.Test.Cert.A64Chain5Cert` | 5.4 GiB (5525 MB) |
-| `Spike.Test.Cert.A64HelloCert` | 4.6 GiB (4742 MB) |
-| `Spike.Test.Cert.A64WakeCert` | 4.0 GiB (4119 MB) |
-| `Spike.Test.Cert.X64HelloCert` | 3.9 GiB (4040 MB) |
-| `Spike.Test.Cert.X64WakeCert` | 3.5 GiB (3545 MB) |
-| `Spike.Test.Cert.A64Hello1Cert` | 2.9 GiB (2953 MB) |
-| `Spike.Test.Cert.A64Call1Cert` | 2.6 GiB (2659 MB) |
-| `Spike.Test.Cert.X64Hello1Cert` | 2.5 GiB (2554 MB) |
-| `Spike.Test.Cert.A64Ret0Cert` | 2.3 GiB (2378 MB) |
-| `Spike.Test.Cert.X64Call1Cert` | 2.3 GiB (2307 MB) |
-| `Spike.Test.Cert.X64Frame0Cert` | 2.0 GiB (2097 MB) |
-| `Spike.Test.Cert.X64Ret0Cert` | 2.0 GiB (2092 MB) |
-
-`Spike.Test.Cert.A64Chain5Cert` takes about 11 minutes.
-
-These other modules need more than 3.5 GiB each (peak anonymous memory per
-process in the release build):
+These other modules need more than 3.5 GiB each (peak anonymous
+memory per process in the release build):
 
 | Module | Peak anonymous memory |
 |---|---|
-| `Spike.Test.X64Hello1PlaceOK` | 5.2 GiB (5291 MB) |
-| `Spike.Test.A64HelloRootLitSmoke` | 4.0 GiB (4132 MB) |
-| `Spike.Test.A64HelloRootBaseInhSmoke` | 4.0 GiB (4129 MB) |
-| `Spike.Test.Call1LinkedX64` | 3.9 GiB (4019 MB) |
-| `Spike.Lib.A64HelloCode` | 3.9 GiB (3967 MB) |
-| `Spike.Test.Ret0LinkedA64` | 3.8 GiB (3927 MB) |
-| `Spike.Test.WakeLinkedX64A2` | 3.8 GiB (3901 MB) |
-| `Spike.Test.Ret0LldX64` | 3.8 GiB (3884 MB) |
-| `Spike.Test.WakeLinkedA64A2` | 3.8 GiB (3873 MB) |
-| `Spike.Test.Ret0LinkedX64` | 3.7 GiB (3811 MB) |
-| `Spike.Test.Frame0LinkedX64` | 3.7 GiB (3768 MB) |
+| `Spike.Test.X64Hello1PlaceOK` | 5.2 GiB (5292 MB) |
+| `Spike.Test.A64HelloRootLitSmoke` | 4.0 GiB (4134 MB) |
+| `Spike.Test.A64HelloRootBaseInhSmoke` | 4.0 GiB (4132 MB) |
+| `Spike.Test.Call1LinkedX64` | 3.9 GiB (4029 MB) |
+| `Spike.Lib.A64HelloCode` | 3.9 GiB (3973 MB) |
+| `Spike.Test.Ret0LinkedA64` | 3.8 GiB (3917 MB) |
+| `Spike.Test.WakeLinkedX64A2` | 3.8 GiB (3907 MB) |
+| `Spike.Test.Ret0LldX64` | 3.8 GiB (3893 MB) |
+| `Spike.Test.WakeLinkedA64A2` | 3.8 GiB (3882 MB) |
+| `Spike.Test.Ret0LinkedX64` | 3.7 GiB (3809 MB) |
+| `Spike.Test.Frame0LinkedX64` | 3.7 GiB (3780 MB) |
 | `Spike.Test.WakeLinkedX64Load` | 3.7 GiB (3761 MB) |
-| `Spike.Lib.A64WakeCode` | 3.6 GiB (3692 MB) |
+| `Spike.Lib.A64WakeCode` | 3.6 GiB (3702 MB) |
 
 **Checking the `hello1` theorems.**
 
@@ -1462,16 +2069,21 @@ of the checking Lean process:
 
 | Command | Verdict |
 |---|---|
-| `Scc/Test/certify.sh --arch arm --instantiate Scc/Test/ret0.w` | **certified** (426 s, 2532 MB) |
-| `Scc/Test/certify.sh --arch x64 --instantiate Scc/Test/ret0.w` | **certified** (321 s, 4173 MB) |
-| `Scc/Test/certify.sh --arch arm --instantiate Spike/Gen/frame0.w` | **certified** (405 s, 2518 MB) |
-| `Scc/Test/certify.sh --arch x64 --instantiate Spike/Gen/frame0.w` | **certified** (315 s, 4125 MB) |
-| `Scc/Test/certify.sh --arch arm --instantiate Scc/Test/hello1.w` | **certified** (44 s, 2283 MB) |
-| `Scc/Test/certify.sh --arch x64 --instantiate Scc/Test/hello1.w` | **certified** (50 s, 4044 MB) |
-| `Scc/Test/certify.sh --arch arm --instantiate Scc/Test/wake.w` | **certified** (3 s, 148 MB) |
-| `Scc/Test/certify.sh --arch x64 --instantiate Scc/Test/wake.w` | **certified** (3 s, 143 MB) |
-| `Scc/Test/certify.sh --arch arm --instantiate Scc/Test/hello.w` | **certified** (3 s, 160 MB) |
-| `Scc/Test/certify.sh --arch x64 --instantiate Scc/Test/hello.w` | **certified** (3 s, 153 MB) |
+| `Scc/Test/certify.sh --arch arm --instantiate Scc/Test/ret0.w` | **certified** (379 s, 2383 MB) |
+| `Scc/Test/certify.sh --arch x64 --instantiate Scc/Test/ret0.w` | **certified** (294 s, 2103 MB) |
+| `Scc/Test/certify.sh --arch arm --instantiate Spike/Gen/frame0.w` | **certified** (382 s, 2359 MB) |
+| `Scc/Test/certify.sh --arch x64 --instantiate Spike/Gen/frame0.w` | **certified** (289 s, 2085 MB) |
+| `Scc/Test/certify.sh --arch arm --instantiate Scc/Test/hello1.w` | **certified** (54 s, 1377 MB) |
+| `Scc/Test/certify.sh --arch x64 --instantiate Scc/Test/hello1.w` | **certified** (49 s, 1382 MB) |
+| `Scc/Test/certify.sh --arch arm --instantiate Scc/Test/wake.w` | **certified** (3 s, 154 MB) |
+| `Scc/Test/certify.sh --arch x64 --instantiate Scc/Test/wake.w` | **certified** (3 s, 145 MB) |
+| `Scc/Test/certify.sh --arch arm --instantiate Scc/Test/hello.w` | **certified** (3 s, 153 MB) |
+| `Scc/Test/certify.sh --arch x64 --instantiate Scc/Test/hello.w` | **certified** (3 s, 155 MB) |
+| `Scc/Test/certify.sh --arch arm --granule --instantiate Scc/Test/ret0.w` | **certified** (387 s, 2336 MB) |
+| `Scc/Test/certify.sh --arch x64 --granule --instantiate Scc/Test/ret0.w` | **certified** (285 s, 2042 MB) |
+| `Scc/Test/certify.sh --arch x64 --granule --instantiate Scc/Test/ifsub1.w` | **certified** (291 s, 2042 MB) |
+| `Scc/Test/certify.sh --arch arm --granule --instantiate Scc/Test/hello1.w` | **not certifiable, exit 3** (1 s, no Lean check) |
+| `Scc/Test/certify.sh --arch x64 --granule --instantiate Scc/Test/hello1.w` | **not certifiable, exit 3** (1 s, no Lean check) |
 
 For `hello1.w`, the first run builds `Spike.Test.X64Hello1FinalC` /
 `Spike.Test.A64Hello1FinalCA` if they are not built (peak 3.4 GiB RssAnon,
@@ -1486,41 +2098,44 @@ run builds `Spike.Test.WakeLinkedA64Root` or `Spike.Test.WakeLinkedX64Root`
 if it is not built (above), and for `hello.w`
 `Spike.Test.HelloLinkedA64Root` or `Spike.Test.HelloLinkedX64Root`; the
 times in the table are with it built.
-
 **Tests.**
 
-- `#print axioms` over every non-test module (3404 modules) reports only
-  `propext`, `Classical.choice` and `Quot.sound`.
-- `Scc/Test/run.sh`, both ISAs: 60 checks, 54 passed, 0 failed,
+- Every `#print axioms` of a §1 final: `propext`, `Classical.choice` and
+  `Quot.sound` (48 names in 32 modules; `ret0_codeEnd` on each ISA depends on
+  no axiom); `#print axioms` over every non-test module (3627 modules)
+  reports no other axiom.
+- `Scc/Test/run.sh`, both ISAs: 85 checks, 79 passed, 0 failed,
   6 not certifiable; certificates 15 certified, 6 not certifiable
   (`deeprec`, `growmany`, `spill`, `stackcap` and `stackdepth` without a
-  stack need table, `tailwide` refused by A12). Its `arith` certificate
-  check peaks at about 10 GB of anonymous memory on x86-64 (9 GB on
-  AArch64).
+  stack need table, `tailwide` refused by A12). The checks include a
+  `--granule` run of each of the 21 programs (all ok); `run.sh` checks no
+  granule certificate.
 - `Scc/Test/blocks.sh --check`: 42 passed; `Spike/Gen/drift.sh`: clean;
-  `Scc/Test/elf.sh`: ok; `Scc/Test/elf.sh --relink-check`: ok;
-  `Scc/Test/elf.sh --raw-check`: ok; `Scc/Test/textalign.sh`: ok
-  (21 programs).
-- `Scc/Test/certify_test.sh`: 109 ok, 0 failed, 0 skipped,
-  without `CERTIFY_TEST_SKIP_MISSING` (including `-v`, `hello1.w` on both ISAs at its `run.sh` link and at a
-  moved link, `wake.w` and `hello.w` certified on both ISAs at their
-  checked-in executables, `hello.w` refused at another link or with one byte
-  changed, and refusals of other programs outside `Accepted1`). The linker
-  matrix checks that each tool is installed and prints its version; the
-  expectations were recorded with GNU ld 2.47, gold 1.16, LLD 21.1.8 and
-  clang 21.1.8. A case whose tool is missing is skipped and counts as a
-  failure unless `CERTIFY_TEST_SKIP_MISSING=1` is set, and a `.text` that
-  differs from the assembled listing outside relocated fields
-  (`Scc/Test/textcheck.py`) is a failure.
-- `tools/diff_place.sh`: ok on both ISAs (narrow: 21 certifiable, 9 without a
-  stack need table, 0 failed).
+  `Scc/Test/elf.sh`: ok; `Scc/Test/elf.sh --relink-check`: ok
+  (including the eight `*g/` executables); `Scc/Test/elf.sh --raw-check`:
+  ok; `Scc/Test/textalign.sh`: ok (21 programs).
+- `Scc/Test/certify_test.sh`: 126 ok, 0 failed, 0 skipped, with `lake env`
+  processes allowed 6 GiB (`KRAKEN_ENV_MAX=6G`, as in `tools/quick_gate.sh`),
+  without
+  `CERTIFY_TEST_SKIP_MISSING` (including the `--granule` cases: `ret0` on
+  both ISAs, `ifsub1` on x86-64, `ret0` with `CERTIFY_X64_FRAGMENT=0`,
+  `ret0`'s post-pass listing linked by `ld.lld`, and exit 3 for `hello1.w`
+  with `--granule` on both ISAs; and the refusals of `reject_device.w`,
+  `reject_devext.w` and `reject_spawni.w`). Tool versions of the linker
+  matrix: GNU ld 2.47, gold 1.16, LLD 21.1.8 and clang 21.1.8.
+- `tools/diff_place.sh`: ok on both ISAs (wide: 0 certifiable, 19 refused by
+  A12, 11 without a stack need table; narrow: 21 certifiable, 9 without a
+  stack need table; 0 failed). The AArch64 runs took 75 minutes and were
+  run separately from the rest of the release run.
 - `Kraken/AArch64/Test/asm_tests.py`: 66/66; `Kraken/X64/Test/asm_tests.py`:
   63/63.
 - `Scc/Test/diff.sh -n 300`, each ISA: 300/300 agree with the reference
   interpreter, 0 mismatches; a placement sample of 30 generated programs:
   0 certifiable, 30 refused (19 by A12, 11 without a stack need table),
   0 failed.
-
+- `tools/trusted_check.sh` at the release commit: no difference from
+  `tools/trusted_paths.md5` (5826 trusted files); against the previous
+  release, 20 added, 0 removed, 57 changed.
 ## 5. Scope and caveats
 
 In this release `ret0.w` is certified at linked binaries and by `certify.sh
@@ -1529,7 +2144,8 @@ In this release `ret0.w` is certified at linked binaries and by `certify.sh
 --instantiate` on a fresh build, and at its two checked-in executables, and
 `wake.w` and `hello.w` on AArch64 and x86-64 at their checked-in
 executables, also by `certify.sh --instantiate` when a fresh build is those
-files byte for byte.
+files byte for byte; and, with `--granule`, `Accepted0`/`Accepted1` programs by `certify.sh
+--granule --instantiate` at the `_final` theorems.
 
 - **`wake`'s theorems are at one layout each.** They hold at `Λe`, the
   layout of `Scc/Test/elf/wakea64/wake` and of `Scc/Test/elf/wakex64/wake`
@@ -1543,9 +2159,15 @@ files byte for byte.
   respectively, only, and each covers its listing only. The canonical
   static link (`Scc.Cert.Link.canonical`, code at `0x400000`) is not such a
   layout.
-- **No `.text` granule pass in this release.** `scc` does not lay `.text`
-  out in 64 KiB granules and writes no granule descriptor words. The layouts
-  of §2 are the executables' as linked, and no statement mentions granules.
+- **The granule pass is certified only for `certify.sh`'s fragments.**
+  With `--granule`, `certify.sh` instantiates the `_final` theorems for
+  `Accepted0`/`Accepted1` programs (§1). The registry programs (`hello1`,
+  `wake`, `hello`) answer exit 3 with `--granule`: their registry theorems
+  are about the text without the pass. `hello1`'s and `ret0`'s checked-in
+  post-pass executables have their own theorems at their layouts (§1);
+  `call1`'s and `frame0`'s have the placement check only. The
+  descriptor words are checked by the byte check (§3, item 18), not by a
+  theorem, and nothing reads them at run time in the model.
 - **The GC tables have no consumer.** The tables in `.rodata` (call maps at
   return addresses, successors, the descriptor) are proved equal to what
   scc's reference tables stage (`emitTables`) computes for the program
@@ -1592,14 +2214,15 @@ files byte for byte.
   certificate's `asm`; `certify.sh` certifies a build only when scc produces
   exactly that text. A change to scc that changes hello1's output makes
   `hello1.w` not certifiable until the theorems are redone.
-- **The `Accepted2` statements are open.** `Closed2Stmt`/`Closed2StmtA` are
-  stated, and proved only from the segment obligations `Closed2In`/
-  `Closed2InA`, which are not proved for the fragment (§1). `hello1` is
-  proved for its own instance.
+- **The `Accepted2` statements are proved at the header bound only.**
+  `Closed2StmtAH`/`Closed2StmtH` hold at configurations with
+  `Scc.Obj.nShift cfg.layout.obj < 22`; without that premise
+  `Closed2StmtA`/`Closed2Stmt` are proved only from the segment obligations
+  `Closed2InA`/`Closed2In` (§1). `certify.sh` does not instantiate them.
 - **`certify.sh` covers `Accepted0` and `Accepted1`.** It instantiates
   `a64_scc_correctE_text_closedAt1` on AArch64 and
   `x64_scc_correctE_text_closedAt1` (or `…_closedAt` for an `Accepted0`
-  program whose `main` frame exceeds 4096 bytes) on x86-64, and
+  program whose `main` frame exceeds 4096 bytes) on x86-64 (their `_final` twins with `--granule`), and
   `hello1_finalCA_gen` / `hello1_finalC_gen` for `hello1.w`. Anything else
   that allocates, prints, spawns or recurses is outside it; scc's output for
   such programs is uncertified.
@@ -1624,6 +2247,14 @@ files byte for byte.
   by any proof (trusted, §3 item 6), for `wake` and `hello` as for the
   others; `certify_test.sh` compares them for its links (`textcheck.py`), as
   a test.
+- **The EFI runtime (`runtime/efi/`) is not verified and not covered.** It is ordinary C++ and
+  assembly, tested only by `runtime/efi/qemu_smoke.py` under QEMU and by booting it. It
+  implements 3 of the 14 kernel routines a raw unit calls (`scc_rt_alloc`, `scc_rt_print`,
+  `scc_rt_exit_process`); the other 11 stop the machine with a panic message, so only raw units
+  that use those three, such as `hello1`, run. There is one thread, on the boot CPU. The raw-host
+  `hello1` executable it runs is the checked-in `Scc/Test/elf/hello1rawx64/hello1`, which is not
+  certified either (see "Raw-host executables are not certified"). Building it needs GNU Unifont
+  (`runtime/efi/stub/font.note`), which is not part of this repository.
 - **Liveness/termination is not claimed** (§0). `CorrectE` is a trace-prefix
   refinement with justified aborts; that `wake`'s `main` is woken is not
   part of the statement.
@@ -1632,7 +2263,7 @@ files byte for byte.
 - **`print` is specified by its model.** The `hello1` theorem is about
   `hello1o`, with `print`'s WeakCore model linked; `hello`'s `print` is the
   model text written in `hello.w` (§3 item 9).
-- **`emit` with outstanding promises.** Under WeakCore 621ec97a a thread
+- **`emit` with outstanding promises.** Under WeakCore release 7 a thread
   cannot `emit` while it has outstanding promises; executions that need this
   (a store after an `emit`, promised before that `emit` runs,
   `TermRun.LBE`) are not part of the source semantics, and WeakCore lists

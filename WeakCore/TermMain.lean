@@ -137,11 +137,13 @@ Fields `T*` concern a thread step, `P*` a promise step. -/
 structure Obligations (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → Cfg → Prop) (Init : Res) (MintOK : Res → Prop)
     (c0 : Cfg) (plantOf : Cfg → GEnv → Nat → Address → WeakMem.Val → Ts → AllocLabel → Option Ts)
     (plantN : Cfg → GEnv → Nat → Address → WeakMem.Val → Ts → AllocLabel → Nat) : Prop where
-  /-- O0 the checker accepts the program (`progT` is `checkProg_sound`). -/
-  checked : checkProg p = .ok ()
+  /-- O0 the program is well typed: every block meets the declarative typing rules. -/
+  typed : CoreTyping.ProgT p
+  /-- O0′ the program is clean for type tests (`DyClean`; every checked program meets it, `typed_dy_of_checked`). -/
+  dyClean : TermSound.DyClean p
   /-- every block body passes `checkW` at its entry context (`ProgCkW`, from
-  part of `ObligationsF.progScope`, via `TermA4.progCkW_of_scopeW`), and the checker accepts the
-  program (`checked`, from `ObligationsF.checked`). -/
+  part of `ObligationsF.progScope`, via `TermA4.progCkW_of_scopeW`), and the program is clean for
+  type tests (`dyClean`, from `ObligationsF.dyClean`). -/
   ckW : TermA4.ProgCkWC p
   /-- O2 the program passes the syntactic scope check: region-free interim
   (ProgScope), no `∀` in annotations (ProgIall), no ticket lock (`NoTicket`); `scope`,
@@ -185,8 +187,7 @@ structure Obligations (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg �
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res},
     TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
-    ∀ x a e rt ws ad, th.term = .let_ x (.publish a) e → evalAt th.env a = some (rt, ws) →
-      ws.map (·.val) = [.loc ad 0] → FlipOK (CE η) (stOf c.mem c.pairs th) ad.label
+    ∀ ad : Address, TermOwnG0Defs.PubAt th ad.label → FlipOK (CE η) (stOf c.mem c.pairs th) ad.label
   /-- T6 (NoHoldPub) `hwin`, at the step's typing with its memory invariant (`TermWin.winM_of`). -/
   win : ∀ {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {i : Nat}
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
@@ -365,29 +366,32 @@ variable {Sp : TermRun.Cfg → TermRun.Cfg → Prop}
 
 /-- O0 the program is well formed. -/
 theorem Obligations.progT (O : Obligations p k arch Sp Init MintOK c0 plantOf plantN) : ProgT p :=
-  TermScope.progT_of_check O.checked
+  O.typed
 
 /-- (P1) every declared return type is `∀`-free at value positions (from the
 scope check's `drf d.retTy`). -/
 theorem Obligations.retIall (O : Obligations p k arch Sp Init MintOK c0 plantOf plantN) : ProgRetIall p :=
-  ⟨fun _ hd => TermScope.noIallV_of_drf _ (TermScope.ProgScopeOK.decl O.progScope hd).2.1, O.checked⟩
+  ⟨fun _ hd => TermScope.noIallV_of_drf1L _ (TermScope.drf1L_of_drf1 _ (TermScope.ProgScopeOK.decl O.progScope hd).2.1), O.dyClean⟩
 
 /-- P4–P7 (`TermNoHold.promLocF_of`) a promise lies in the promiser's cut or at one of its labels yet
 to allocate. -/
 theorem Obligations.promLoc (O : Obligations p k arch Sp Init MintOK c0 plantOf plantN) : PromLocF p k arch Sp Init MintOK c0 :=
   haveI := O.retIall
+  haveI := O.ckW
   TermNoHold.promLocF_of (hV0 := O.seenFacts) (hPS := pwSkel_ok) (hSub := pwSubS_ok) (hSig := pwSig_ok) O.progT O.certRun
 
 /-- T17 (`TermPlantF.noBoxProm_of`) a stepper keeps no promise at a box it created. -/
 theorem Obligations.noBoxProm (O : Obligations p k arch Sp Init MintOK c0 plantOf plantN) :
     NoBoxPromF p k arch Sp Init MintOK c0 :=
   haveI := O.retIall
+  haveI := O.ckW
   TermPlantF.noBoxProm_of (hV0 := O.seenFacts) (hPS := pwSkel_ok) (hSub := pwSubS_ok) (hSig := pwSig_ok) O.progT O.certRunT
 
 /-- P4b (`TermPlantF.promNoTwoP_of`) the promised address is in no two-word unit. -/
 theorem Obligations.promNoTwoP (O : Obligations p k arch Sp Init MintOK c0 plantOf plantN) :
     PromNoTwoPF p k arch Sp Init MintOK c0 :=
   haveI := O.retIall
+  haveI := O.ckW
   TermPlantF.promNoTwoP_of (hV0 := O.seenFacts) (hPS := pwSkel_ok) (hSub := pwSubS_ok) (hSig := pwSig_ok) O.progT O.certRun
 
 /-- T16b (B3, `TermPlantF.promTyAPost_of`) PromTyOK (a) after a thread step. -/
@@ -445,6 +449,26 @@ theorem Obligations.iall (O : Obligations p k arch Sp Init MintOK c0 plantOf pla
     StoreIall ρ η cx th :=
   TermIall.iall_of O.progScope O.runDRF0
 
+/-- (G2) `XchgIall` at every reachable thread step (`TermIall.xchgIall_of`). -/
+theorem Obligations.xchgIall (O : Obligations p k arch Sp Init MintOK c0 plantOf plantN) :
+    ∀ {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {i : Nat}
+    {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
+    {Rf Rs : Res},
+    TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
+    XchgIall ρ η cx th :=
+  TermIall.xchgIall_of O.progScope O.runDRF0
+
+/-- (G2) `XchgNI` at every reachable `xchg` (`TermStoreNI.xchgNI_of` with `TermSeenHid.seenHidX_of`). -/
+theorem Obligations.xchgNI (O : Obligations p k arch Sp Init MintOK c0 plantOf plantN) :
+    ∀ {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {i : Nat}
+    {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
+    {Rf Rs : Res},
+    TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
+    XchgNI (CE η) (stOf c.mem c.pairs th) th :=
+  fun X Y => TermStoreNI.xchgNI_of X (TermSeenHid.seenHidX_of X (TermViewInv.envVR_of_run O.seenFacts X.run X.hth)
+    ⟨congrArg TEnv.sto Y.1, congrArg TEnv.pfr Y.1, congrArg TEnv.ini Y.1, congrArg TEnv.rini Y.1,
+      congrArg TEnv.tid Y.1⟩ (TermUndefInv.undefAt_cut X.inv.undefAt (congrArg TEnv.sto Y.1)))
+
 /-- (switch) A deeply region- and `∀`-free type is deeply `∀`-free. -/
 theorem niDeep_of_drf : ∀ t : Ty, TermScope.drf t = true → TermPlant.niDeep t = true := by
   intro t
@@ -466,6 +490,27 @@ theorem niDeep_of_drf : ∀ t : Ty, TermScope.drf t = true → TermPlant.niDeep 
   | iall t _ => intro h; simp [TermScope.drf] at h
   | _ => intro _; rfl
 
+/-- (switch, FLD route (c)) A `drf1L` type is deeply `∀`-free (`niDeep` has the same arms). -/
+theorem niDeep_of_drf1L : ∀ t : Ty, TermScope.drf1L t = true → TermPlant.niDeep t = true := by
+  intro t
+  induction t with
+  | prod a b iha ihb =>
+    intro h; simp only [TermScope.drf1L, TermPlant.niDeep, Bool.and_eq_true] at h ⊢; exact ⟨iha h.1, ihb h.2⟩
+  | sum a b iha ihb =>
+    intro h; simp only [TermScope.drf1L, TermPlant.niDeep, Bool.and_eq_true] at h ⊢; exact ⟨iha h.1, ihb h.2⟩
+  | code a b _ iha ihb =>
+    intro h; simp only [TermScope.drf1L, TermPlant.niDeep, Bool.and_eq_true] at h ⊢; exact ⟨iha h.1, ihb h.2⟩
+  | array i t ih => intro h; exact ih h
+  | ptr μ t ih => intro h; exact ih h
+  | ptrOpt μ t ih => intro h; exact ih h
+  | loc μ t ih => intro h; exact ih h
+  | mu t ih => intro h; exact ih h
+  | tex κ t ih => intro h; exact ih h
+  | iex t ih => intro h; exact ih h
+  | refine t ψ ih => intro h; exact ih h
+  | iall t _ => intro h; simp [TermScope.drf1L] at h
+  | _ => intro _; rfl
+
 /-- (switch) The op's address atom is free in the term. -/
 theorem opAtom_free {e : Expr} {q : At} {y : String} (h : TermPlant.opAtom e = some q)
     (hy : TermScope.freeA y q = true) : TermScope.freeB y e = true := by
@@ -483,7 +528,7 @@ theorem opNI_of {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {Mint
       TermPlant.OpNI cx th := by
   intro c c' Eg Tot HP HS cr db i th r S ρ η cx Rf Rs X Y q t hq hpk
   have h := TermScope.run_drf hp h0 X.run i th X.hth
-  exact niDeep_of_drf t (TermScope.peek_drf Y.2.2.2.2.2.1 hpk (fun y hy => h.env y (opAtom_free hq hy)))
+  exact niDeep_of_drf1L t (TermScope.peek_drf Y.2.2.2.2.2.1 hpk (fun y hy => h.env y (opAtom_free hq hy)))
 
 /-- (switch) `OpNI` from the obligations. -/
 theorem Obligations.opNI (O : Obligations p k arch Sp Init MintOK c0 plantOf plantN) :
@@ -730,6 +775,7 @@ theorem MintStep_unpf {g : G} {P : AllocLabel → Prop} {η : TEnv} {s s' : St} 
     MintStep { g with pf := P } η s s' C F → MintStep g η s s' C F
   | .none => .none
   | .fresh => .fresh
+  | .freshC ws => .freshC ws
   | .alloc h1 h2 => .alloc h1 h2
   | .consume μ ws => .consume μ ws
   | .epoch h1 h2 h3 h4 h5 h6 h7 h8 h9 => .epoch h1 h2 h3 h4 h5 h6 h7 h8 h9
@@ -808,8 +854,14 @@ theorem stepAtCrS (O : Obligations p k arch Sp Init MintOK c0 plantOf plantN) {c
   exact (TermFootBPKB.tstepMCF_stepTKA_zfNBBN (hDy := hDy) (hPS := pwSkel_ok) (hSub := pwSubS_ok) (hSig := pwSig_ok) (g := { gOf p k arch c i with pf := fun l => TermOwnG0Defs.PubAt th l })
       (hTy := by rw [hCE]; exact (X.inv.tyRec X.hth S).1)
     (cr₁ := fun t => cr i t + pl i t)
-    (hPb := fun y a e rt ws ad h1 h2 h3 => ⟨y, a, e, rt, ws, ad, h1, h2, h3, rfl⟩) O.progT rfl hn hnd (O.scope X Y) hT.1 hT.2 hFI hE htv hm hH hpx hCS
-    (O.iall X Y) (O.dwf X Y) (O.wp X Y) (O.win X Y hS hm) hfo (O.rmw X Y) h.bf (O.plantOp X Y hPI.cov) hleR (O.opNI X Y) hclo
+    (hPb := fun y a e rt ws ad h1 h2 h3 => ⟨a, rt, ws, ad, Or.inl ⟨y, e, h1⟩, h2, h3, rfl⟩) O.progT rfl hn hnd (O.scope X Y) hT.1 hT.2 hFI hE htv hm hH hpx hCS
+    (O.iall X Y) (O.dwf X Y) (O.xchgNI X Y) (O.xchgIall X Y) (fun x a e rt ws ad h1 h2 h3 => O.wp X Y ad ⟨a, rt, ws, ad, Or.inl ⟨x, e, h1⟩, h2, h3, rfl⟩)
+    (O.win X Y hS hm)
+    ⟨fun a rn pn tn e rt ws ad h1 h2 h3 => ⟨O.wp X Y ad ⟨a, rt, ws, ad, Or.inr (Or.inl ⟨rn, pn, tn, e, h1⟩), h2, h3, rfl⟩,
+      (O.win X Y hS hm).2.1 a rn pn tn e rt ws ad h1 h2 h3, ⟨a, rt, ws, ad, Or.inr (Or.inl ⟨rn, pn, tn, e, h1⟩), h2, h3, rfl⟩⟩,
+     fun y rn a e rt ws ad h1 h2 h3 => ⟨O.wp X Y ad ⟨a, rt, ws, ad, Or.inr (Or.inr ⟨y, rn, e, h1⟩), h2, h3, rfl⟩,
+      (O.win X Y hS hm).2.2 y rn a e rt ws ad h1 h2 h3, ⟨a, rt, ws, ad, Or.inr (Or.inr ⟨y, rn, e, h1⟩), h2, h3, rfl⟩⟩⟩
+    hfo (O.rmw X Y) h.bf (O.plantOp X Y hPI.cov) hleR (O.opNI X Y) hclo
     (fun x b ia v e hterm => ⟨TermPlantWin.bh1_of hterm hT.1 hFI hE htv hH X.hr (O.plantFulfil X Y)
       (by rw [hCE]; exact TermZwIniP.promIniE_cut h.promIni hth)
       (by rw [hCE]; exact TermZwIni.zwIniE_cut h.zwIni i S)
@@ -822,6 +874,8 @@ theorem stepAtCrS (O : Obligations p k arch Sp Init MintOK c0 plantOf plantN) {c
       (fun x b ia v e hterm => TermPredHoldW.bufInit_ownNP h.ownPub hth hCE hsum hT.1 hFI (O.scope X Y) hterm)
       (O.bufInitHeld X Y))).2 r X.hr hpa ⟨O.plantFulfil X Y, rfl⟩
 #print axioms TermMain.stepAtCrS
+#print axioms TermMain.Obligations.xchgNI
+#print axioms TermMain.Obligations.xchgIall
 
 /-- **`sysInv_threadRP` with the witness frame**: as `sysInv_threadRP`, and every other
 existing thread `j ≠ i` keeps its frame bound `Tot j` and its debits `db j` (the post witness is
@@ -940,7 +994,7 @@ theorem sysInv_threadRPW (O : Obligations p k arch Sp Init MintOK c0 plantOf pla
     have hm1 : MemInv (gOf p k arch c i) (CE η') (stOf c.mem c.pairs th) := by rw [hCE']; exact hm0
     intro E0
     rw [← e]
-    refine TermTyped.wrLocA2_of (TermTyped.WrIniC.wrA hE' hT' htv' hi' hm1
+    refine TermTyped.wrLocA2_of (TermTyped.WrIniC.wrA hE' hT'.1 htv' hi' hm1
       ((O.certRunT X S hS).1 th X.hth (TermStep.not_spawnT_of_mem X.hr) ρ' η' cx' hE' hT' htv' hi') (TermViewInv.envVR_of_run O.seenFacts X.run X.hth) X.hr)
       (fun x bb ib v e0 ht rt w ad rti wi n hea hw hei hn => ?_) E0
     have h := hBiO1 x bb ib v e0 rt w ad rti wi n ht hea hw hei hn
@@ -967,8 +1021,13 @@ theorem sysInv_threadRPW (O : Obligations p k arch Sp Init MintOK c0 plantOf pla
   have hPub : ∀ l, TermOwnG0Defs.PubAt th l → ∀ t,
       TermPoolResplit.crR cr pl i (TermHbiPOf.QS Eg c i S th r) i t = cr i t := fun l hl t =>
     TermPoolResplit.crR_neg fun hq => by
-      obtain ⟨y, a, e, -, -, -, hterm, -⟩ := hl
-      exact hq.2.2.1 (by rw [(TermPlantAtN.tstep_publish_vWr hterm hr).2]; exact hq.2.1)
+      obtain ⟨a, -, -, -, hk, -⟩ := hl
+      have hpr : r.2.2.promises = th.promises := by
+        rcases hk with ⟨y, e, hterm⟩ | ⟨rn, pn, tn, e, hterm⟩ | ⟨y, rn, e, hterm⟩
+        · exact (TermPlantAtN.tstep_publish_vWr hterm hr).2
+        · exact (TermPlantAtN.tstep_region_vWr hterm hr).2
+        · exact (TermPlantAtN.tstep_intoRgn_vWr hterm hr).2
+      exact hq.2.2.1 (by rw [hpr]; exact hq.2.1)
   have hKS : ∀ t l, TermPoolResplit.crR cr pl i (TermHbiPOf.QS Eg c i S th r) i t (.own l) = cr i t (.own l) :=
     fun t l => TermPoolResplit.crR_own hPI.tag hth i t l
   have hsub : ∀ t, t ∈ r.2.2.promises → t ∈ th.promises := fun t ht =>
@@ -1125,7 +1184,7 @@ theorem sysInv_threadRPW (O : Obligations p k arch Sp Init MintOK c0 plantOf pla
       have hl : TermRiniCoh.HltOwn (CE η).sto (CE η).pfr (CE η).tid c.mem.size := by
         rw [hCE]; exact TermRiniCoh.hltOwn_cut (TermRiniCoh.hltOwn_sys h hth)
       have h1 := TermRiniCohW.riniCoh_thread hE hT.1 htv hFp hm
-        (TermCertScope.scopeAt_of hdrfR th hth (TermStep.not_spawnT_of_mem hr) ρ η cx hE hT.1 htv hFp)
+        (TermCertScope.scopeAt_of hdrfR th hth (TermStep.not_spawnT_of_mem hr) ρ η cx hE hT htv hFp)
         (TermViewInv.envVR_of_run O.seenFacts X.run X.hth) hr hF hBiO1 hl h0
       rw [← hCut] at h1
       exact TermRiniCoh.riniCoh_seen h1
@@ -1368,7 +1427,7 @@ theorem sysInv_promPW (O : Obligations p k arch Sp Init MintOK c0 plantOf plantN
     TermBal.knetP_proof X hacct, ?bf, O.boxtopP X, PromsDisj_promise h.disj h.plt hth, fpfree', plt',
     VWrLe_promise h.vwr hth, ?frle, fun l => Nat.le_trans (h.rle l) (plantG_ini_le _ _ _ l), TermZwIniP.zwIni_prom h.zwIni (O.plantSpec X).2.1 _ _,
     TermPredHoldP.predHold_promX X h.predHold (O.plantSpec X).1 (O.plantSpec X).2.2, h.bnamed, TermBal.ridP_N X hacct,
-    O.promIniPostP X, O.promTyAPostP X, haveI := O.retIall; TermPromNU.promNU_prom (hV0 := O.seenFacts) (hPS := pwSkel_ok) (hSub := pwSubS_ok) (hSig := pwSig_ok) O.progT O.certRun X h.promNU,
+    O.promIniPostP X, O.promTyAPostP X, haveI := O.retIall; haveI := O.ckW; TermPromNU.promNU_prom (hV0 := O.seenFacts) (hPS := pwSkel_ok) (hSub := pwSubS_ok) (hSig := pwSig_ok) O.progT O.certRun X h.promNU,
     TermOwnFresh.ownFresh_prom X hacct (fun l => by obtain ⟨_, -, -, -, -, -, hK⟩ := hS; exact (TermOwnFresh.promCrK_own hK l).2) h.ownF,
     TermB5.promNoTwoOK_promise O.promNoTwoP X h.promNoTwo _ _ _, by rw [hmem]; exact TermUndefInv.undefAtG_prom h.undefAt,
     TermOwnPub.ownKeyOwn_prom X h.ownKeyOwn _ _ _,
@@ -1380,18 +1439,18 @@ theorem sysInv_promPW (O : Obligations p k arch Sp Init MintOK c0 plantOf plantN
     TermPtrStab.promInCut_prom hth h.plt (fun q hq => (h.fresh j th hth q hq).1) (O.promLoc X) h.promInCut,
     O.promClosP X, h.stoNI,
     TermUndefLow.undefLow_prom (fun _ => rfl)
-      (haveI := O.retIall; TermPromNU.promNU_prom (hV0 := O.seenFacts) (hPS := pwSkel_ok) (hSub := pwSubS_ok) (hSig := pwSig_ok) O.progT O.certRun X h.promNU) hth h.undefLow,
+      (haveI := O.retIall; haveI := O.ckW; TermPromNU.promNU_prom (hV0 := O.seenFacts) (hPS := pwSkel_ok) (hSub := pwSubS_ok) (hSig := pwSig_ok) O.progT O.certRun X h.promNU) hth h.undefLow,
     TermPromAboveG.promAboveG_step (TermLiveProps.promise_ext c j a v w)
       (fun i0 th0 => TermPromAboveG.promise_oth i0 th0) hcert h.plt h.promAbove,
-    (haveI := O.retIall; TermMsgWords.msgWords_prom (hV0 := O.seenFacts) (hPS := pwSkel_ok) (hSub := pwSubS_ok) (hSig := pwSig_ok) O.progT O.certRun X h.msgWords _ _ _),
-    (haveI := O.retIall; TermFgnClos.fgnClos_prom (hV0 := O.seenFacts) (hPS := pwSkel_ok) (hSub := pwSubS_ok) (hSig := pwSig_ok) O.progT O.certRun X h.fgnClos),
+    (haveI := O.retIall; haveI := O.ckW; TermMsgWords.msgWords_prom (hV0 := O.seenFacts) (hPS := pwSkel_ok) (hSub := pwSubS_ok) (hSig := pwSig_ok) O.progT O.certRun X h.msgWords _ _ _),
+    (haveI := O.retIall; haveI := O.ckW; TermFgnClos.fgnClos_prom (hV0 := O.seenFacts) (hPS := pwSkel_ok) (hSub := pwSubS_ok) (hSig := pwSig_ok) O.progT O.certRun X h.fgnClos),
     TermCellOwn.cellOwn_prom X (O.plantSpec X).1 (O.promLoc X) h.cellOwn,
     fun hk => TermPtrRtsK.ptrGL_promW X hPL hacct hdb (h.ptrGL hk) (h.fgnCnt hk),
     fun hk => Or.inr (TermPtrRtsK.granuleW_prom O.promNoTwoP O.promLoc X (hGW0 hk) _ _ _),
     fun hk => h.stoLay hk,
     fun hk => TermPtrRtsK.boxPlantSep_prom hth hPL h.plt (h.ptrGL hk).2.2.1 (TermPtrKey.ownKey_prom_le X hacct hdb)
       h.payOwn h.boxPV h.boxFrOwn (h.boxPlantSep hk),
-    fun hk => (haveI := O.retIall; TermFgnCnt.fgnCnt_prom (hV0 := O.seenFacts) (hPS := pwSkel_ok) (hSub := pwSubS_ok) (hSig := pwSig_ok) O.progT O.certRun X (h.fgnCnt hk)),
+    fun hk => (haveI := O.retIall; haveI := O.ckW; TermFgnCnt.fgnCnt_prom (hV0 := O.seenFacts) (hPS := pwSkel_ok) (hSub := pwSubS_ok) (hSig := pwSig_ok) O.progT O.certRun X (h.fgnCnt hk)),
     TermPoolThread.field_of_poolInv (TermPoolThread.poolProm PS X (O.plantSpec X).1 hPIp hacct hS hcrK),
     fun hk => O.plantIdxP X hacct hS hk (TermPtrRtsK.ptrGL_promW X hPL hacct hdb (h.ptrGL hk) (h.fgnCnt hk))
       (TermPtrRtsK.boxPlantSep_prom hth hPL h.plt (h.ptrGL hk).2.2.1 (TermPtrKey.ownKey_prom_le X hacct hdb)
@@ -1773,8 +1832,10 @@ step (`promTyAPostP`).  So every headline holds modulo `ObligationsF`, `k.storeD
 /-- **Every open obligation of headline 1 at the plant choice `TermPlantF.plantOf`** (see above). -/
 structure ObligationsF (p : Prog) (k : Promises.Knobs) (arch : Arch) (Init : Res) (MintOK : Res → Prop)
     (c0 : Cfg) : Prop where
-  /-- O0 the checker accepts the program (`progT` is `checkProg_sound`). -/
-  checked : checkProg p = .ok ()
+  /-- O0 the program is well typed: every block meets the declarative typing rules. -/
+  typed : CoreTyping.ProgT p
+  /-- O0′ the program is clean for type tests (`DyClean`; every checked program meets it, `typed_dy_of_checked`). -/
+  dyClean : TermSound.DyClean p
   /-- O2 the program passes the syntactic scope check: region-free interim
   (ProgScope), no `∀` in annotations (ProgIall), no ticket lock (`NoTicket`); `scope`,
   `iall`, `noTicket`, `residualNoTicket` follow (TermScope/TermIall). -/
@@ -1784,17 +1845,18 @@ structure ObligationsF (p : Prog) (k : Promises.Knobs) (arch : Arch) (Init : Res
   runDRF0 : TermScope.RunScope c0
 
 /-- (spawn) **The obligations over runs with an extra relation `Sp`**: the same
-three fields as `ObligationsF` (`ofF_bot`: from `ObligationsF` at `Sp := ⊥`). -/
+four fields as `ObligationsF` (`ofF_bot`: from `ObligationsF` at `Sp := ⊥`). -/
 structure ObligationsFX (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → Cfg → Prop) (Init : Res)
     (MintOK : Res → Prop) (c0 : Cfg) : Prop where
-  checked : checkProg p = .ok ()
+  typed : CoreTyping.ProgT p
+  dyClean : TermSound.DyClean p
   progScope : TermScope.ProgScopeOKW p = true
   runDRF0 : TermScope.RunScope c0
 
 /-- **The old obligations are the new ones at `Sp := ⊥`.** -/
 theorem ofF_bot {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {MintOK : Res → Prop} {c0 : Cfg}
     (O : ObligationsF p k arch Init MintOK c0) : ObligationsFX p k arch (fun _ _ => False) Init MintOK c0 :=
-  ⟨O.checked, O.progScope, O.runDRF0⟩
+  ⟨O.typed, O.dyClean, O.progScope, O.runDRF0⟩
 
 section
 variable {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {MintOK : Res → Prop} {c0 : Cfg}
@@ -1837,20 +1899,20 @@ theorem ObligationsFX.toObligationsCX (O : ObligationsFX p k arch Sp Init (fun _
     (hk : k.storeDepRts = true) (A : SpArms p k arch Sp c0) :
     Obligations p k arch Sp Init (fun _ => True) c0 TermPlantF.plantOf TermPlantF.plantN := by
   have hCW : TermCertScope.CertWinCNX p k arch Sp Init (fun _ => True) c0 :=
-    CertWinProof.certWinC_of O.checked O.progScope A (fun _ _ _ => {})
+    CertWinProof.certWinC_of O.typed O.dyClean O.progScope A (fun _ _ _ => {})
   have hPW : TermCertScope.CertWinPNX p k arch Sp Init (fun _ => True) c0 :=
-    CertWinProof.certWinP_of O.checked O.progScope hk A (fun _ _ _ => {}) (fun _ _ _ => {}) (fun _ _ _ _ _ _ _ => {})
+    CertWinProof.certWinP_of O.typed O.dyClean O.progScope hk A (fun _ _ _ => {}) (fun _ _ _ => {}) (fun _ _ _ _ _ _ _ => {})
   obtain ⟨hvi, hpn, hdrf, h0, h0P⟩ := A
   haveI : TermTyped.WrIniC := TermWrSiteA.wrIniC
   have hPSc : TermScope.ProgScopeOK p = true := TermScope.ProgScopeOKW.scope O.progScope
-  haveI hCkW : TermA4.ProgCkWC p := ⟨TermA4.progCkW_of_scopeW O.progScope, O.checked⟩
+  haveI hCkW : TermA4.ProgCkWC p := ⟨TermA4.progCkW_of_scopeW O.progScope, O.dyClean⟩
   have hRC : TermCohLe.CertRunC p k arch Sp Init (fun _ => True) c0 :=
     TermCertScope.certRunC_of (TermCertScope.certScopeC_of hPSc hdrf) (TermCertScope.certWinC_of_N hCW)
   have hRP : TermNoHold.CertRunP p k arch Sp Init (fun _ => True) c0 :=
     TermCertScope.certRunP_of (TermCertScope.certScopeP_of hPSc hdrf) (TermCertScope.certWinP_of_N hPW)
-  have hP : ProgT p := TermScope.progT_of_check O.checked
+  have hP : ProgT p := O.typed
   have hR : ProgRetIall p :=
-    ⟨fun _ hd => TermScope.noIallV_of_drf _ (TermScope.ProgScopeOK.decl hPSc hd).2.1, O.checked⟩
+    ⟨fun _ hd => TermScope.noIallV_of_drf1L _ (TermScope.drf1L_of_drf1 _ (TermScope.ProgScopeOK.decl hPSc hd).2.1), O.dyClean⟩
   -- the plant provenance from the SysInvN clause `plantIdx` (`TermPlantAtB`); K-4 is the run (v3d)
   have hNP : TermPtrKey.NoFulPlRunGL p k arch :=
     haveI := hR; TermPtrKey.noFulPlRunGL_of (hPS := pwSkel_ok) (hSub := pwSubS_ok) (hSig := pwSig_ok) hP (TermK2aFin.ptrRtsThreadGL_v3d (TermFulCntROf.fulCntR_of p)) (TermPtrKey.footNCB_of p pwSkel_ok pwSubS_ok pwSig_ok)
@@ -1893,10 +1955,10 @@ theorem ObligationsFX.toObligationsCX (O : ObligationsFX p k arch Sp Init (fun _
       (TermPlantF.promNewOK_of (hV0 := hvi) (hPS := pwSkel_ok) (hSub := pwSubS_ok) (hSig := pwSig_ok) hP hRP hRA hBP hBPR ObufInitIni.1 (TermPlantW2.promWordW_of (hV0 := hvi) (hPS := pwSkel_ok) (hSub := pwSubS_ok) (hSig := pwSig_ok) hP hRP h0 hRA hBP hBPR))
       (TermPlantW2.plantInh_ofP (hV0 := hvi) (hPS := pwSkel_ok) (hSub := pwSubS_ok) (hSig := pwSig_ok) hP hRP h0 hRA hBP hBPR
       (TermPlantF.plantPromOK_of (hV0 := hvi) (hPS := pwSkel_ok) (hSub := pwSubS_ok) (hSig := pwSig_ok) hP hRP h0 hRA hBP hBPR ObufInitIni.1 (TermPlantW2.promWordW_of (hV0 := hvi) (hPS := pwSkel_ok) (hSub := pwSubS_ok) (hSig := pwSig_ok) hP hRP h0 hRA hBP hBPR))) (fun hm => hm.2.2.2.1.2) X
-      (fun S => @TermPromStep.hwu_of (hV0 := hvi) (hPS := pwSkel_ok) (hSub := pwSubS_ok) (hSig := pwSig_ok) p k arch Init (fun _ => True) c0 Sp hR _ hP hRP _ _
+      (fun S => @TermPromStep.hwu_of (hV0 := hvi) (hPS := pwSkel_ok) (hSub := pwSubS_ok) (hSig := pwSig_ok) p k arch Init (fun _ => True) c0 Sp hR _ _ hP hRP _ _
         (fun X => TermPlantF.plantSpec_of (hV0 := hvi) (hPS := pwSkel_ok) (hSub := pwSubS_ok) (hSig := pwSig_ok) hP hRP X)
         (TermPlantF.promNewOK_of (hV0 := hvi) (hPS := pwSkel_ok) (hSub := pwSubS_ok) (hSig := pwSig_ok) hP hRP hRA hBP hBPR ObufInitIni.1 (TermPlantW2.promWordW_of (hV0 := hvi) (hPS := pwSkel_ok) (hSub := pwSubS_ok) (hSig := pwSig_ok) hP hRP h0 hRA hBP hBPR)) _ _ _ _ _ _ _ _ _ _ _ _ X S)
-      (fun S => @TermPromStep.hfw_of (hV0 := hvi) (hPS := pwSkel_ok) (hSub := pwSubS_ok) (hSig := pwSig_ok) p k arch Init (fun _ => True) c0 Sp hR _ hP hRP _ _ _ _ _ _ _ _ _ _ _ _ X S)
+      (fun S => @TermPromStep.hfw_of (hV0 := hvi) (hPS := pwSkel_ok) (hSub := pwSubS_ok) (hSig := pwSig_ok) p k arch Init (fun _ => True) c0 Sp hR _ _ hP hRP _ _ _ _ _ _ _ _ _ _ _ _ X S)
   exact { O with
     runDRF0 := hdrf
     progScope := hPSc
@@ -1925,11 +1987,11 @@ theorem ObligationsFX.toObligationsCX (O : ObligationsFX p k arch Sp Init (fun _
     ownCohLe := TermCohLe.ownCohLe_of TermOwnCoh.ownCohInvT_of
     newForeignTyped := TermB5.newForeignTyped_of (TermScope.scope_of hPSc hdrf)
     newPair := TermB5.newPair_of (TermScope.scope_of hPSc hdrf)
-    promNoTwoPost := @TermB5.promNoTwoPost_of (hV0 := hvi) (hPS := pwSkel_ok) (hSub := pwSubS_ok) (hSig := pwSig_ok) p k arch Init (fun _ => True) c0 Sp hR _ hP (TermCohLe.certRunT_of hRC) (fun X => X.inv.promNoTwo)
-    hwu := fun X S => @TermPromStep.hwu_of (hV0 := hvi) (hPS := pwSkel_ok) (hSub := pwSubS_ok) (hSig := pwSig_ok) p k arch Init (fun _ => True) c0 Sp hR _ hP hRP _ _
+    promNoTwoPost := @TermB5.promNoTwoPost_of (hV0 := hvi) (hPS := pwSkel_ok) (hSub := pwSubS_ok) (hSig := pwSig_ok) p k arch Init (fun _ => True) c0 Sp hR _ _ hP (TermCohLe.certRunT_of hRC) (fun X => X.inv.promNoTwo)
+    hwu := fun X S => @TermPromStep.hwu_of (hV0 := hvi) (hPS := pwSkel_ok) (hSub := pwSubS_ok) (hSig := pwSig_ok) p k arch Init (fun _ => True) c0 Sp hR _ _ hP hRP _ _
       (fun X => TermPlantF.plantSpec_of (hV0 := hvi) (hPS := pwSkel_ok) (hSub := pwSubS_ok) (hSig := pwSig_ok) hP hRP X)
       (TermPlantF.promNewOK_of (hV0 := hvi) (hPS := pwSkel_ok) (hSub := pwSubS_ok) (hSig := pwSig_ok) hP hRP hRA hBP hBPR ObufInitIni.1 (TermPlantW2.promWordW_of (hV0 := hvi) (hPS := pwSkel_ok) (hSub := pwSubS_ok) (hSig := pwSig_ok) hP hRP h0 hRA hBP hBPR)) _ _ _ _ _ _ _ _ _ _ _ _ X S
-    hfw := fun X S => @TermPromStep.hfw_of (hV0 := hvi) (hPS := pwSkel_ok) (hSub := pwSubS_ok) (hSig := pwSig_ok) p k arch Init (fun _ => True) c0 Sp hR _ hP hRP _ _ _ _ _ _ _ _ _ _ _ _ X S
+    hfw := fun X S => @TermPromStep.hfw_of (hV0 := hvi) (hPS := pwSkel_ok) (hSub := pwSubS_ok) (hSig := pwSig_ok) p k arch Init (fun _ => True) c0 Sp hR _ _ hP hRP _ _ _ _ _ _ _ _ _ _ _ _ X S
     plantN0 := TermScalIni.plantN0_of
     plantSpec := fun X => ⟨TermPlantF.plantSpec_of (hV0 := hvi) (hPS := pwSkel_ok) (hSub := pwSubS_ok) (hSig := pwSig_ok) hP hRP X,
       TermZwIniP.plantN_zw (TermPlantF.plantSpec_of (hV0 := hvi) (hPS := pwSkel_ok) (hSub := pwSubS_ok) (hSig := pwSig_ok) hP hRP X), TermPredHoldP.plantHeld_of X⟩

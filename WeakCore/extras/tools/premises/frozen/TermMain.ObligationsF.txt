@@ -13,7 +13,10 @@ CoreLang.Idx.add : CoreLang.Idx → CoreLang.Idx → CoreLang.Idx
 CoreLang.Idx.lit : Nat → CoreLang.Idx
 CoreLang.Idx.smul : Nat → CoreLang.Idx → CoreLang.Idx
 CoreLang.Idx.var : Nat → CoreLang.Idx
+CoreLang.KEnv : Type
+CoreLang.KEnv.ask : CoreLang.KEnv → Nat → Bool → (CoreLang.Kind → Bool) → Bool
 CoreLang.Kind : Type
+CoreLang.Kind.copy : CoreLang.Kind → Bool
 CoreLang.Mode : Type
 CoreLang.Mode.rgn : CoreLang.Idx → CoreLang.Mode
 CoreLang.Pred : Type
@@ -26,13 +29,16 @@ CoreLang.Proto.lends : CoreLang.Proto → List Nat
 CoreLang.Proto.lendsDown : CoreLang.Proto → List Nat
 CoreLang.Proto2 : Type
 CoreLang.Ty : Type
+CoreLang.Ty.arrFree : CoreLang.Ty → Bool
 CoreLang.Ty.array : CoreLang.Idx → CoreLang.Ty → CoreLang.Ty
 CoreLang.Ty.cap : CoreLang.Cap → CoreLang.Idx → CoreLang.Ty
+CoreLang.Ty.coupledOKIn : CoreLang.KEnv → CoreLang.Ty → Bool
 CoreLang.Ty.guardT : Nat → CoreLang.Ty → Bool
 CoreLang.Ty.loc : CoreLang.Mode → CoreLang.Ty → CoreLang.Ty
 CoreLang.Ty.ptr : CoreLang.Mode → CoreLang.Ty → CoreLang.Ty
 CoreLang.Ty.rawWords : CoreLang.Ty → Option Nat
 CoreLang.Ty.refine : CoreLang.Ty → CoreLang.Pred → CoreLang.Ty
+CoreLang.Ty.secondClass : CoreLang.Ty → Bool
 CoreLang.Ty.sensitiveIn : CoreLang.KEnv → CoreLang.Ty → Bool
 CoreLang.Ty.shiftI : Nat → CoreLang.Ty → CoreLang.Ty
 CoreLang.Ty.tok : CoreLang.Idx → Option (CoreLang.Proto × CoreLang.Idx) → CoreLang.Ty
@@ -40,6 +46,7 @@ CoreLang.Ty.tok2 : CoreLang.Idx → CoreLang.Proto2 → CoreLang.Idx → CoreLan
 CoreLang.Ty.tokE : CoreLang.Idx → CoreLang.ECounter → CoreLang.Idx → CoreLang.Ty
 CoreLang.Ty.unit : CoreLang.Ty
 CoreLang.Wd : Type
+CoreLang.instDecidableEqIdx : DecidableEq CoreLang.Idx
 CoreTerm.At : Type
 CoreTerm.At.var : String → CoreTerm.At
 CoreTerm.BitOp : Type
@@ -47,17 +54,20 @@ CoreTerm.BitOp1 : Type
 CoreTerm.Cx : Type
 CoreTerm.Cx.bind : CoreTerm.Cx → String → CoreLang.Ty → CoreTerm.M CoreTerm.Cx
 CoreTerm.Cx.facts : CoreTerm.Cx → CoreTerm.Facts
+CoreTerm.Cx.hasTok : CoreTerm.Cx → CoreLang.Idx → Bool
 CoreTerm.Cx.hasTokE : CoreTerm.Cx → CoreLang.Idx → CoreLang.ECounter → CoreLang.Idx → Bool
 CoreTerm.Cx.inames : CoreTerm.Cx → List String
 CoreTerm.Cx.ke : CoreTerm.Cx → CoreLang.KEnv
 CoreTerm.Cx.lent : CoreTerm.Cx → List String
 CoreTerm.Cx.norm : CoreTerm.Cx → CoreLang.Idx → Option CoreTerm.Lin
+CoreTerm.Cx.opaqueOK : CoreTerm.Cx → CoreLang.Ty → Bool
 CoreTerm.Cx.opq : CoreTerm.Cx → List Nat
 CoreTerm.Cx.peek : CoreTerm.Cx → CoreTerm.At → CoreTerm.M CoreLang.Ty
 CoreTerm.Cx.push : CoreTerm.Cx → String → CoreTerm.Cx
 CoreTerm.Cx.pushT : CoreTerm.Cx → CoreLang.Kind → CoreTerm.Cx
 CoreTerm.Cx.ret : CoreTerm.Cx → CoreLang.Ty
 CoreTerm.Cx.saws : CoreTerm.Cx → List (String × CoreLang.Idx × Bool)
+CoreTerm.Cx.sealedR : CoreTerm.Cx → CoreLang.Idx → Bool
 CoreTerm.Cx.torn : CoreTerm.Cx → List CoreTerm.Torn
 CoreTerm.Cx.unsealed : CoreTerm.Cx → List CoreLang.Idx
 CoreTerm.Cx.use : CoreTerm.Cx → CoreTerm.At → CoreTerm.M (CoreLang.Ty × CoreTerm.Cx)
@@ -67,6 +77,7 @@ CoreTerm.Decl.arg : CoreTerm.Decl → String
 CoreTerm.Decl.argTy : CoreTerm.Decl → CoreLang.Ty
 CoreTerm.Decl.body : CoreTerm.Decl → CoreTerm.Expr
 CoreTerm.Decl.idx : CoreTerm.Decl → List String
+CoreTerm.Decl.name : CoreTerm.Decl → String
 CoreTerm.Decl.retTy : CoreTerm.Decl → CoreLang.Ty
 CoreTerm.Decl.tparams : CoreTerm.Decl → List CoreLang.Kind
 CoreTerm.Expr : Type
@@ -85,11 +96,13 @@ CoreTerm.Op : Type
 CoreTerm.Prog : Type
 CoreTerm.Prog.find : CoreTerm.Prog → String → CoreTerm.M CoreTerm.Decl
 CoreTerm.Torn : Type
+CoreTerm.adapt : CoreLang.Idx → CoreLang.Ty → CoreLang.Ty
 CoreTerm.affine : CoreLang.KEnv → CoreLang.Ty → Bool
+CoreTerm.annNew : CoreTerm.Op → Option CoreLang.Ty
 CoreTerm.bump2 : CoreLang.Proto2 → CoreTerm.Lin → CoreTerm.Lin → Bool
 CoreTerm.casCellTy : CoreTerm.Cx → CoreLang.Ty → CoreTerm.M CoreLang.Ty
+CoreTerm.cellOf : CoreLang.Ty → Option (CoreLang.Mode × CoreLang.Ty)
 CoreTerm.checkOp : CoreTerm.Prog → CoreTerm.Cx → String → CoreTerm.Op → CoreTerm.M CoreTerm.Cx
-CoreTerm.checkProg : CoreTerm.Prog → CoreTerm.M Unit
 CoreTerm.classify2M : CoreTerm.Cx → CoreLang.Proto2 → CoreLang.Idx → CoreLang.Idx → CoreTerm.M (Nat × CoreTerm.Lin × CoreTerm.Lin)
 CoreTerm.classifyM : CoreTerm.Cx → CoreLang.Proto → CoreLang.Idx → CoreTerm.M (Nat × CoreTerm.Lin)
 CoreTerm.clause2M : CoreLang.Proto2 → Nat → CoreTerm.M CoreLang.Clause2
@@ -104,20 +117,114 @@ CoreTerm.noCx : CoreTerm.Cx → CoreTerm.Lin → CoreTerm.Lin → CoreTerm.Cx
 CoreTerm.noDrop : CoreTerm.Cx → CoreTerm.M Unit
 CoreTerm.noLeak : CoreTerm.Cx → CoreLang.Ty → CoreTerm.M Unit
 CoreTerm.plainEq : CoreTerm.Cx → CoreTerm.At → CoreTerm.At → Bool
+CoreTerm.progTgts : CoreTerm.Prog → List CoreLang.Ty
 CoreTerm.pstep : CoreLang.Proto → Nat → CoreTerm.Lin → Nat → CoreTerm.Lin → Bool
 CoreTerm.pstep2 : CoreLang.Proto2 → Nat → CoreTerm.Lin → CoreTerm.Lin → Nat → CoreTerm.Lin → CoreTerm.Lin → Bool
 CoreTerm.rgnCellOK : CoreLang.KEnv → CoreLang.Ty → Bool
+CoreTerm.scan : (CoreTerm.Op → Option CoreLang.Ty) → List CoreLang.Ty → List Nat → CoreTerm.Expr → CoreTerm.Scan
 CoreTerm.shareMove : CoreLang.Proto → Nat → CoreTerm.Lin → Nat → CoreTerm.Lin → Option Int
 CoreTerm.sub : CoreTerm.Cx → CoreLang.Ty → CoreLang.Ty → Bool
+CoreTerm.tokRgn : CoreLang.Ty → Option CoreLang.Idx
 CoreTerm.word2Of : CoreLang.Ty → Option (CoreLang.Idx × CoreLang.Proto2)
 CoreTerm.wordOf : CoreLang.Ty → Option (CoreLang.Idx × CoreLang.Proto)
 CoreTerm.zeroVar : CoreTerm.Lin → CoreTerm.Lin → Option Nat
+CoreTyping.ProgT : CoreTerm.Prog → Prop
 Promises.Knobs : Type
+TermC1.drf1 : CoreLang.Ty → Bool
+  eq_def ∀ (x : CoreLang.Ty),
+  TermC1.drf1 x =
+    match x with
+    | a.prod b => TermC1.drf1 a && TermC1.drf1 b
+    | a.sum b => TermC1.drf1 a && TermC1.drf1 b
+    | a.code b k => TermC1.drf1 a && TermC1.drf1 b
+    | CoreLang.Ty.array i t => TermC1.drf1 t
+    | CoreLang.Ty.ptr μ t => TermC1.drf1 t
+    | CoreLang.Ty.ptrOpt μ t => TermC1.drf1 t
+    | CoreLang.Ty.loc μ t => TermScope.drfM μ && TermC1.drf1 t
+    | t.mu => TermC1.drf1 t
+    | CoreLang.Ty.tex κ t => TermC1.drf1 t
+    | τ.iall => false
+    | t.iex => TermC1.drf1 t
+    | t.refine ψ => TermC1.drf1 t
+    | x => true
+TermC1.hasTok1 : CoreTerm.Cx → CoreLang.Idx → Bool
+  := fun cx r =>
+  cx.vars.any fun x =>
+    match x with
+    | (fst, t, b) =>
+      b &&
+        match CoreTerm.tokRgn t with
+        | some s => r == s
+        | none => false
+TermC1.keyFree : CoreLang.KEnv → CoreLang.Ty → Bool
+  := fun ke t => TermC1.keyFreeIn ke t
+TermC1.keyFreeIn : CoreLang.KEnv → CoreLang.Ty → Bool
+  eq_def ∀ (ke : CoreLang.KEnv) (x : CoreLang.Ty),
+  TermC1.keyFreeIn ke x =
+    match x with
+    | CoreLang.Ty.tok r st => false
+    | CoreLang.Ty.tok2 r P i0 i1 => false
+    | CoreLang.Ty.tokE r P e => false
+    | CoreLang.Ty.share r => false
+    | CoreLang.Ty.word r P => false
+    | CoreLang.Ty.word2 r P => false
+    | a.prod b => TermC1.keyFreeIn ke a && TermC1.keyFreeIn ke b
+    | a.sum b => TermC1.keyFreeIn ke a && TermC1.keyFreeIn ke b
+    | CoreLang.Ty.array i t => TermC1.keyFreeIn ke t
+    | CoreLang.Ty.ptr μ t => TermC1.keyFreeIn ke t
+    | CoreLang.Ty.ptrOpt μ t => TermC1.keyFreeIn ke t
+    | CoreLang.Ty.loc μ t => TermC1.keyFreeIn ke t
+    | t.refine ψ => TermC1.keyFreeIn ke t
+    | t.iex => TermC1.keyFreeIn ke t
+    | t.iall => TermC1.keyFreeIn ke t
+    | CoreLang.Ty.tex κ t => TermC1.keyFreeIn (some κ :: ke) t
+    | t.mu => TermC1.keyFreeIn (none :: ke) t
+    | CoreLang.Ty.tvar k => ke.ask k true fun x => x.copy
+    | x => true
+TermC1.opShareOK : CoreTerm.Op → Bool
+  := fun x =>
+  match x with
+  | CoreTerm.Op.spawn f a T ts => ts.all TermSound.rgnFree && ts.all fun x => !x.secondClass
+  | CoreTerm.Op.spawnI f is a T ts => ts.all TermSound.rgnFree && ts.all fun x => !x.secondClass
+  | x => true
+TermC1.pubOpDrf : CoreTerm.Cx → CoreTerm.Op → Bool
+  := fun cx x =>
+  match x with
+  | CoreTerm.Op.publish a => TermC1.pubPayDrf cx a
+  | CoreTerm.Op.intoRgn r a => TermC1.pubPayDrf cx a
+  | x => true
+TermC1.pubPayDrf : CoreTerm.Cx → CoreTerm.At → Bool
+  := fun cx a =>
+  match cx.peek a with
+  | Except.ok (CoreLang.Ty.ptr μ u) => TermC1.drf1 u
+  | Except.ok ((CoreLang.Ty.loc μ u).refine ψ) => TermC1.drf1 u
+  | x => true
+TermC1.rgnCellAt : CoreTerm.Cx → CoreTerm.At → Option (CoreLang.Idx × CoreLang.Ty)
+  := fun cx a =>
+  match cx.peek a with
+  | Except.ok t =>
+    if (CoreTerm.wordOf t).isNone = true then
+      match CoreTerm.cellOf t with
+      | some (CoreLang.Mode.rgn r, u) => some (r, u)
+      | x => none
+    else none
+  | Except.error a => none
+TermC1.rgnPay : CoreLang.KEnv → CoreLang.Ty → Bool
+  := fun ke u => CoreLang.Ty.coupledOKIn ke u
+TermC1.ruleA : CoreTerm.Cx → CoreTerm.Op → Bool
+  := fun cx x =>
+  match x with
+  | CoreTerm.Op.load acq a =>
+    match TermC1.rgnCellAt cx a with
+    | some (r, u) => cx.opaqueOK u && u.arrFree && !CoreTerm.affine cx.ke (CoreTerm.adapt r u)
+    | none => true
+  | x => true
 TermMain.ObligationsF : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → TermSound.Res → (TermSound.Res → Prop) → TermRun.Cfg → Prop
   | TermMain.ObligationsF.mk : ∀ {p : CoreTerm.Prog} {k : Promises.Knobs} {arch : WeakMem.Arch} {Init : TermSound.Res} {MintOK : TermSound.Res → Prop}
   {c0 : TermRun.Cfg},
-  CoreTerm.checkProg p = Except.ok () →
-    TermScope.ProgScopeOKW p = true → TermScope.RunScope c0 → TermMain.ObligationsF p k arch Init MintOK c0
+  CoreTyping.ProgT p →
+    TermSound.DyClean p →
+      TermScope.ProgScopeOKW p = true → TermScope.RunScope c0 → TermMain.ObligationsF p k arch Init MintOK c0
 TermRun.Cfg : Type
 TermRun.Cfg.ths : TermRun.Cfg → Array TermRun.TTh
 TermRun.Env : Type
@@ -135,25 +242,25 @@ TermRun.TTh.σs : TermRun.TTh → List CoreLang.Ty
 TermRun.Word : Type
 TermRun.lookupE : TermRun.Env → String → Option (CoreLang.Ty × List TermRun.Word)
 TermScope.AllDrf : List CoreLang.Ty → Prop
-  := fun σs => ∀ (σ : CoreLang.Ty), σ ∈ σs → TermScope.drf σ = true
+  := fun σs => ∀ (σ : CoreLang.Ty), σ ∈ σs → TermC1.drf1 σ = true
 TermScope.EnvDRF : TermRun.Env → CoreTerm.Expr → Prop
   := fun env t =>
   ∀ (x : String),
     TermScope.freeB x t = true →
-      ∀ (rt : CoreLang.Ty) (ws : List TermRun.Word), TermRun.lookupE env x = some (rt, ws) → TermScope.drf rt = true
+      ∀ (rt : CoreLang.Ty) (ws : List TermRun.Word), TermRun.lookupE env x = some (rt, ws) → TermC1.drf1 rt = true
 TermScope.FrDRF : TermRun.Frame → Prop
   | TermScope.FrDRF.mk : ∀ {f : TermRun.Frame},
   TermScope.allOK f.body = true →
     TermScope.AllDrf f.σs →
-      TermScope.drf f.ty = true →
+      TermC1.drf1 f.ty = true →
         (∀ (x : String),
             TermScope.freeB x f.body = true →
               x ≠ f.x →
                 ∀ (rt : CoreLang.Ty) (ws : List TermRun.Word),
-                  TermRun.lookupE f.env x = some (rt, ws) → TermScope.drf rt = true) →
+                  TermRun.lookupE f.env x = some (rt, ws) → TermC1.drf1 rt = true) →
           TermScope.FrDRF f
 TermScope.ProgScopeOK : CoreTerm.Prog → Bool
-  := fun p => List.all p fun d => TermScope.drf d.argTy && TermScope.drf d.retTy && TermScope.allOK d.body
+  := fun p => List.all p fun d => TermC1.drf1 d.argTy && TermC1.drf1 d.retTy && TermScope.allOK d.body
 TermScope.ProgScopeOKW : CoreTerm.Prog → Bool
   := fun p => TermScope.ProgScopeOK p && TermScope.ProgWrapOK p
 TermScope.ProgWrapOK : CoreTerm.Prog → Bool
@@ -173,8 +280,8 @@ TermScope.allOK : CoreTerm.Expr → Bool
     | CoreTerm.Expr.split a x y e => TermScope.allOK e
     | CoreTerm.Expr.unpack a i x e => TermScope.allOK e
     | CoreTerm.Expr.unpackT a α x e => TermScope.allOK e
-    | CoreTerm.Expr.region a r p t e => !TermScope.freeB p e && TermScope.allOK e
-    | CoreTerm.Expr.openPub a r p c e => !TermScope.freeB p e && TermScope.allOK e
+    | CoreTerm.Expr.region a r p t e => TermScope.allOK e
+    | CoreTerm.Expr.openPub a r p c e => TermScope.allOK e
     | CoreTerm.Expr.case a x e₁ y e₂ => TermScope.allOK e₁ && TermScope.allOK e₂
     | CoreTerm.Expr.ifnull a e₁ x e₂ => TermScope.allOK e₁ && TermScope.allOK e₂
     | CoreTerm.Expr.parity a k e₁ e₂ => TermScope.allOK e₁ && TermScope.allOK e₂
@@ -182,7 +289,7 @@ TermScope.allOK : CoreTerm.Expr → Bool
     | CoreTerm.Expr.cas acq rel w e v t ok fail => TermScope.allOK ok && TermScope.allOK fail
     | CoreTerm.Expr.casp acq rel w e0 e1 v0 v1 t ok fail => TermScope.allOK ok && TermScope.allOK fail
     | CoreTerm.Expr.ret a => true
-    | CoreTerm.Expr.tail f is a ts => ts.all TermScope.drf
+    | CoreTerm.Expr.tail f is a ts => ts.all TermC1.drf1 && ts.all TermSound.rgnFree
 TermScope.argOK : CoreLang.Ty → Bool
   := fun t => TermScope.wrapOK t && !TermScope.rcar t
 TermScope.checkW : CoreTerm.Prog → CoreTerm.Cx → CoreTerm.Expr → CoreTerm.M Unit
@@ -190,16 +297,73 @@ TermScope.checkW : CoreTerm.Prog → CoreTerm.Cx → CoreTerm.Expr → CoreTerm.
   TermScope.checkW p cx x =
     match x with
     | CoreTerm.Expr.let_ x op e =>
-      have __do_jp := fun __r => do
-        let cx ← CoreTerm.checkOp p cx x op
-        have __do_jp : Unit → CoreTerm.M Unit := fun __r => TermScope.checkW p cx e
-        match List.find? (fun x_1 => x_1.fst == x) cx.vars with
-          | some (fst, t, snd) =>
-            if (!TermScope.wrapOK t) = true then do
-              let __r ← throw (toString "A1: " ++ toString x ++ toString " has a key-carrying wrapper type")
-              __do_jp __r
-            else __do_jp ()
-          | none => __do_jp ();
+      have __do_jp := fun __r =>
+        have __do_jp := fun __r =>
+          have __do_jp := fun __r =>
+            have __do_jp := fun __r => do
+              let cx ← CoreTerm.checkOp p cx x op
+              have __do_jp : Unit → CoreTerm.M Unit := fun __r => TermScope.checkW p cx e
+              match List.find? (fun x_1 => x_1.fst == x) cx.vars with
+                | some (fst, t, snd) =>
+                  if (!TermScope.wrapOK t) = true then do
+                    let __r ← throw (toString "A1: " ++ toString x ++ toString " has a key-carrying wrapper type")
+                    __do_jp __r
+                  else __do_jp ()
+                | none => __do_jp ();
+            match op with
+            | CoreTerm.Op.intoRgn r a0 =>
+              match cx.peek a0 with
+              | Except.ok (CoreLang.Ty.ptr CoreLang.Mode.own u0) =>
+                if (!TermC1.rgnPay cx.ke u0) = true then do
+                  let __r ← throw "c1: intoRgn payload not coupled"
+                  __do_jp __r
+                else __do_jp ()
+              | Except.ok a => do
+                let __r ← throw "c1: intoRgn buffer form is outside c1"
+                __do_jp __r
+              | Except.error a => __do_jp ()
+            | CoreTerm.Op.xchg a0 v =>
+              match cx.peek a0 with
+              | Except.ok ta =>
+                match CoreTerm.cellOf ta with
+                | some (CoreLang.Mode.rgn r, u) =>
+                  have __do_jp := fun __r =>
+                    have __do_jp := fun __r =>
+                      have __do_jp := fun __r =>
+                        if (CoreLang.Ty.sensitiveIn cx.ke (CoreTerm.adapt r u) && !TermC1.hasTok1 cx r) = true then do
+                          let __r ← throw "c1: region xchg of a view-sensitive payload needs a held token"
+                          __do_jp __r
+                        else __do_jp ();
+                      if (cx.hasTok r && !cx.sealedR r) = true then do
+                        let __r ←
+                          throw
+                              "c1: region xchg under a token taken from an observable state before fence st (§4.4 rule 7)"
+                        __do_jp __r
+                      else __do_jp ();
+                    if
+                        (CoreTerm.affine cx.ke (CoreTerm.adapt r u) && !TermC1.keyFree cx.ke (CoreTerm.adapt r u)) =
+                          true then
+                      do
+                      let __r ← throw "c1: region xchg of an affine payload with a key (token, share or word)"
+                      __do_jp __r
+                    else __do_jp ();
+                  if (CoreTerm.affine cx.ke (CoreTerm.adapt r u) && !cx.hasTok r) = true then do
+                    let __r ← throw "c1: region xchg of an affine payload needs a held token of the region"
+                    __do_jp __r
+                  else __do_jp ()
+                | x => __do_jp ()
+              | Except.error a => __do_jp ()
+            | x => __do_jp ();
+          if (!TermC1.pubOpDrf cx op) = true then do
+            let __r ← throw "c1: a published or region cell's type must not hold a region locative (drf1)"
+            __do_jp __r
+          else __do_jp ();
+        if (!TermC1.ruleA cx op) = true then do
+          let __r ←
+            throw
+                "c1: torn read of a region cell whose type can never be validated (layout depends on an unpacked type, array by value, or an affine payload)"
+          __do_jp __r
+        else __do_jp ();
       if (!TermScope.opArgOK op) = true then do
         let __r ← throw "A1: a type argument or witness carries a key"
         __do_jp __r
@@ -244,11 +408,22 @@ TermScope.checkW : CoreTerm.Prog → CoreTerm.Cx → CoreTerm.Expr → CoreTerm.
           match t with
           | CoreLang.Ty.ptr CoreLang.Mode.own u =>
             have __do_jp := fun __r =>
-              have cx := cx.push rn;
-              do
-              let cx ← cx.bind pn (CoreLang.Ty.ptr (CoreLang.Mode.rgn (CoreLang.Idx.var 0)) (CoreLang.Ty.shiftI 0 u))
-              let cx ← cx.bind tn (CoreLang.Ty.tok (CoreLang.Idx.var 0) none)
-              TermScope.checkW p cx e;
+              have __do_jp := fun __r =>
+                have __do_jp := fun __r =>
+                  have cx := cx.push rn;
+                  do
+                  let cx ←
+                    cx.bind pn (CoreLang.Ty.ptr (CoreLang.Mode.rgn (CoreLang.Idx.var 0)) (CoreLang.Ty.shiftI 0 u))
+                  let cx ← cx.bind tn (CoreLang.Ty.tok (CoreLang.Idx.var 0) none)
+                  TermScope.checkW p cx e;
+                if (!TermC1.drf1 u) = true then do
+                  let __r ← throw "c1: a published or region cell's type must not hold a region locative (drf1)"
+                  __do_jp __r
+                else __do_jp ();
+              if (!CoreLang.Ty.coupledOKIn cx.ke u) = true then do
+                let __r ← throw "c1 (e1): region payload not coupledOK"
+                __do_jp __r
+              else __do_jp ();
             if (!CoreTerm.rgnCellOK cx.ke u) = true then do
               let __r ←
                 throw
@@ -257,15 +432,30 @@ TermScope.checkW : CoreTerm.Prog → CoreTerm.Cx → CoreTerm.Expr → CoreTerm.
             else __do_jp ()
           | (CoreLang.Ty.loc CoreLang.Mode.own (CoreLang.Ty.array n u)).refine (CoreLang.Pred.ini k) =>
             have __do_jp := fun __r =>
-              have cx := cx.push rn;
-              do
-              let cx ←
-                cx.bind pn
-                    ((CoreLang.Ty.loc (CoreLang.Mode.rgn (CoreLang.Idx.var 0))
-                          (CoreLang.Ty.shiftI 0 (CoreLang.Ty.array n u))).refine
-                      (CoreLang.Pred.shift 0 (CoreLang.Pred.ini k)))
-              let cx ← cx.bind tn (CoreLang.Ty.tok (CoreLang.Idx.var 0) none)
-              TermScope.checkW p cx e;
+              have __do_jp := fun __r =>
+                have __do_jp := fun __r =>
+                  have __do_jp := fun __r =>
+                    have cx := cx.push rn;
+                    do
+                    let cx ←
+                      cx.bind pn
+                          ((CoreLang.Ty.loc (CoreLang.Mode.rgn (CoreLang.Idx.var 0))
+                                (CoreLang.Ty.shiftI 0 (CoreLang.Ty.array n u))).refine
+                            (CoreLang.Pred.shift 0 (CoreLang.Pred.ini k)))
+                    let cx ← cx.bind tn (CoreLang.Ty.tok (CoreLang.Idx.var 0) none)
+                    TermScope.checkW p cx e;
+                  if (!TermC1.drf1 (CoreLang.Ty.array n u)) = true then do
+                    let __r ← throw "c1: a published or region cell's type must not hold a region locative (drf1)"
+                    __do_jp __r
+                  else __do_jp ();
+                if TermScope.freeB pn e = true then do
+                  let __r ← throw "c1: live region buffers are outside c1"
+                  __do_jp __r
+                else __do_jp ();
+              if (!CoreLang.Ty.coupledOKIn cx.ke (CoreLang.Ty.array n u)) = true then do
+                let __r ← throw "c1 (e1): region buffer payload not coupledOK"
+                __do_jp __r
+              else __do_jp ();
             if (!CoreTerm.rgnCellOK cx.ke (CoreLang.Ty.array n u)) = true then do
               let __r ←
                 throw
@@ -606,23 +796,6 @@ TermScope.declWrapOK : CoreTerm.Prog → CoreTerm.Decl → Bool
         d.body with
     | Except.ok a => true
     | x => false
-TermScope.drf : CoreLang.Ty → Bool
-  eq_def ∀ (x : CoreLang.Ty),
-  TermScope.drf x =
-    match x with
-    | a.prod b => TermScope.drf a && TermScope.drf b
-    | a.sum b => TermScope.drf a && TermScope.drf b
-    | a.code b k => TermScope.drf a && TermScope.drf b
-    | CoreLang.Ty.array i t => TermScope.drf t
-    | CoreLang.Ty.ptr μ t => TermScope.drfM μ && TermScope.drf t
-    | CoreLang.Ty.ptrOpt μ t => TermScope.drfM μ && TermScope.drf t
-    | CoreLang.Ty.loc μ t => TermScope.drfM μ && TermScope.drf t
-    | t.mu => TermScope.drf t
-    | CoreLang.Ty.tex κ t => TermScope.drf t
-    | τ.iall => false
-    | t.iex => TermScope.drf t
-    | t.refine ψ => TermScope.drf t
-    | x => true
 TermScope.drfM : CoreLang.Mode → Bool
   := fun x =>
   match x with
@@ -664,6 +837,7 @@ TermScope.opArgOK : CoreTerm.Op → Bool
   match x with
   | CoreTerm.Op.call f is a ts => ts.all TermScope.argOK
   | CoreTerm.Op.spawn f a T ts => TermScope.wrapOK T && ts.all TermScope.argOK
+  | CoreTerm.Op.spawnI f is a T ts => TermScope.wrapOK T && ts.all TermScope.argOK
   | CoreTerm.Op.packT a σ τ => TermScope.argOK σ && TermScope.wrapOK τ
   | op => (TermScope.opTys op).all TermScope.wrapOK
 TermScope.opAts : CoreTerm.Op → List CoreTerm.At
@@ -693,6 +867,7 @@ TermScope.opAts : CoreTerm.Op → List CoreTerm.At
   | CoreTerm.Op.validate y => [CoreTerm.At.var y]
   | CoreTerm.Op.call f is a ts => [a]
   | CoreTerm.Op.spawn f a T ts => [a]
+  | CoreTerm.Op.spawnI f is a T ts => [a]
   | CoreTerm.Op.ext n a => [a]
   | CoreTerm.Op.borrow s t => [t]
   | CoreTerm.Op.endBorrow t => [t]
@@ -735,11 +910,10 @@ TermScope.opOK : CoreTerm.Op → Bool
   := fun x =>
   match x with
   | CoreTerm.Op.validate x => false
-  | CoreTerm.Op.intoRgn r a => false
   | CoreTerm.Op.mkTicket r N P v tok => false
   | CoreTerm.Op.claim a tok => false
-  | CoreTerm.Op.null μ τ => TermScope.drfM μ && TermScope.drf τ
-  | op => (TermScope.opTys op).all TermScope.drf
+  | CoreTerm.Op.null μ τ => TermScope.drfM μ && TermC1.drf1 τ
+  | op => (TermScope.opTys op).all TermC1.drf1 && TermC1.opShareOK op
 TermScope.opTys : CoreTerm.Op → List CoreLang.Ty
   := fun x =>
   match x with
@@ -753,6 +927,7 @@ TermScope.opTys : CoreTerm.Op → List CoreLang.Ty
   | CoreTerm.Op.packT a σ τ => [σ, τ]
   | CoreTerm.Op.call f is a ts => ts
   | CoreTerm.Op.spawn f a T ts => T :: ts
+  | CoreTerm.Op.spawnI f is a T ts => ts
   | CoreTerm.Op.isTy a τ => [τ]
   | x => []
 TermScope.rcar : CoreLang.Ty → Bool
@@ -795,6 +970,15 @@ TermScope.wrapOKE : List Bool → CoreLang.Ty → Bool
     | CoreLang.Ty.loc μ t => TermScope.wrapOKE env t
     | t.iall => TermScope.wrapOKE env t
     | x => true
+TermSound.DyClean : CoreTerm.Prog → Prop
+  := fun p =>
+  ∃ S,
+    TermSound.TaintClosed p CoreTerm.annNew (CoreTerm.progTgts p) S ∧
+      ∀ (d : CoreTerm.Decl), d ∈ p → TermSound.HidClean CoreTerm.annNew (CoreTerm.progTgts p) S [] d.body
+TermSound.HidClean : (CoreTerm.Op → Option CoreLang.Ty) → List CoreLang.Ty → List (String × List Nat) → List Nat → CoreTerm.Expr → Prop
+  := fun ann tg S H e =>
+  (CoreTerm.scan ann tg H e).fst = [] ∧
+    ∀ (c : String × List Nat), c ∈ (CoreTerm.scan ann tg H e).snd → c.snd ≠ [] → c ∈ S
 TermSound.Key : Type
   | TermSound.Key.rg : Nat → TermSound.Key
   | TermSound.Key.ep : Nat → Nat → TermSound.Key
@@ -803,4 +987,28 @@ TermSound.Key : Type
   | TermSound.Key.own : Nat → TermSound.Key
 TermSound.Res : Type
   := TermSound.Key → Nat
+TermSound.TaintClosed : CoreTerm.Prog → (CoreTerm.Op → Option CoreLang.Ty) → List CoreLang.Ty → List (String × List Nat) → Prop
+  := fun p ann tg S =>
+  ∀ (g : String) (b : List Nat),
+    (g, b) ∈ S →
+      ∀ (d : CoreTerm.Decl),
+        List.find? (fun x => x.name == g) p = some d →
+          (CoreTerm.scan ann tg b d.body).fst = [] ∧
+            ∀ (e : String × List Nat), e ∈ (CoreTerm.scan ann tg b d.body).snd → e.snd ≠ [] → e ∈ S
+TermSound.rgnFree : CoreLang.Ty → Bool
+  eq_def ∀ (x : CoreLang.Ty),
+  TermSound.rgnFree x =
+    match x with
+    | CoreLang.Ty.ptr (CoreLang.Mode.rgn r) τ => false
+    | CoreLang.Ty.ptrOpt (CoreLang.Mode.rgn r) τ => false
+    | CoreLang.Ty.loc (CoreLang.Mode.rgn r) τ => false
+    | a.prod b => TermSound.rgnFree a && TermSound.rgnFree b
+    | a.sum b => TermSound.rgnFree a && TermSound.rgnFree b
+    | CoreLang.Ty.array i t => TermSound.rgnFree t
+    | t.mu => TermSound.rgnFree t
+    | CoreLang.Ty.tex κ t => TermSound.rgnFree t
+    | t.iall => TermSound.rgnFree t
+    | t.iex => TermSound.rgnFree t
+    | t.refine ψ => TermSound.rgnFree t
+    | x => true
 WeakMem.Arch : Type

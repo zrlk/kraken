@@ -328,6 +328,13 @@ theorem runsAux_noLabel : ∀ (l : Label) (acc ds : List Directive), (∀ d ∈ 
     rcases List.mem_cons.mp hd with rfl | hd
     · cases he
     · exact hacc d hd l'' he
+  | l, acc, .zeros n :: ds, hacc, r, hr => by
+    simp only [runsAux] at hr
+    refine runsAux_noLabel l (.zeros n :: acc) ds ?_ r hr
+    intro d hd l'' he
+    rcases List.mem_cons.mp hd with rfl | hd
+    · cases he
+    · exact hacc d hd l'' he
 
 /-- **The first run** of a segment `xs ++ .label l' :: ys` with `xs`
 label-free is `xs`, after `l`, and the rest are `ys`'s after `l'`. -/
@@ -341,6 +348,7 @@ theorem runsAux_label : ∀ (l l' : Label) (acc xs ys : List Directive), (∀ d 
     | label l'' => exact absurd rfl (hd l'')
     | instr i => simp only [List.cons_append, runsAux]; rw [ih]; simp
     | byteArray a => simp only [List.cons_append, runsAux]; rw [ih]; simp
+    | zeros n => simp only [List.cons_append, runsAux]; rw [ih]; simp
 
 /-- **The runs split at a label**: the runs of `P ++ .label m :: S` are
 `P`'s, then `S`'s after `m`. -/
@@ -350,6 +358,7 @@ theorem runsAux_append_label : ∀ (l m : Label) (acc P S : List Directive),
   | l, m, acc, .label l' :: P, S => by simp [runsAux, runsAux_append_label l' m [] P S]
   | l, m, acc, .instr i :: P, S => by simp [runsAux, runsAux_append_label l m _ P S]
   | l, m, acc, .byteArray a :: P, S => by simp [runsAux, runsAux_append_label l m _ P S]
+  | l, m, acc, .zeros n :: P, S => by simp [runsAux, runsAux_append_label l m _ P S]
 
 /-- **The last run** of a segment: its label-free tail `ys`, after the
 segment's last label `L` (`X` ends with it), or after `l` when the segment
@@ -373,6 +382,9 @@ theorem runsAux_last : ∀ (l : Label) (acc P : List Directive), ∃ L X ys,
   | l, acc, .byteArray a :: P => by
     obtain ⟨L, X, ys, h1, h2, h3⟩ := runsAux_last l (.byteArray a :: acc) P
     exact ⟨L, X, ys, by simpa [runsAux] using h1, by simpa using h2, h3⟩
+  | l, acc, .zeros n :: P => by
+    obtain ⟨L, X, ys, h1, h2, h3⟩ := runsAux_last l (.zeros n :: acc) P
+    exact ⟨L, X, ys, by simpa [runsAux] using h1, by simpa using h2, h3⟩
 
 /-- The first run of a segment is after its label. -/
 theorem runsAux_head : ∀ (l : Label) (acc S : List Directive), ∃ ys, (l, ys) ∈ runsAux l acc S
@@ -383,6 +395,9 @@ theorem runsAux_head : ∀ (l : Label) (acc S : List Directive), ∃ ys, (l, ys)
     exact ⟨ys, by simpa [runsAux] using h⟩
   | l, acc, .byteArray a :: S => by
     obtain ⟨ys, h⟩ := runsAux_head l (.byteArray a :: acc) S
+    exact ⟨ys, by simpa [runsAux] using h⟩
+  | l, acc, .zeros n :: S => by
+    obtain ⟨ys, h⟩ := runsAux_head l (.zeros n :: acc) S
     exact ⟨ys, by simpa [runsAux] using h⟩
 
 /-- The runs of a label-free segment: the segment itself. -/
@@ -396,5 +411,6 @@ theorem runsAux_nil : ∀ (l : Label) (acc xs : List Directive), (∀ d ∈ xs, 
     | label l'' => exact absurd rfl (hd l'')
     | instr i => simp only [runsAux]; rw [ih]; simp
     | byteArray a => simp only [runsAux]; rw [ih]; simp
+    | zeros n => simp only [runsAux]; rw [ih]; simp
 
 end Scc.Cert.Ph1A64

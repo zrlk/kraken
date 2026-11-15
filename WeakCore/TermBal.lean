@@ -235,6 +235,9 @@ theorem MintStep_le_one {g : G} {η : TEnv} {s s' : St} {C F : Res} (h : MintSte
   | fresh =>
     simp only [Res.add_apply, Res.one_apply]
     split <;> split <;> simp_all
+  | freshC _ =>
+    simp only [Res.add_apply, Res.one_apply]
+    split <;> split <;> simp_all
   | _ => simp only [Res.one_apply]; split <;> simp
 
 theorem mintRoomT_of_zero (h : MintZeroT p k arch Sp Init MintOK c0) : MintRoomT p k arch Sp Init MintOK c0 := by

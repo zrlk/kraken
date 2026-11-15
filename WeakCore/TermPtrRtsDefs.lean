@@ -17,9 +17,9 @@ open WeakMem (Msg Memory Address VState Ts Arch AllocLabel)
 superset of the thread's typing in the E-parametric lemmas). -/
 abbrev Sto := AllocLabel → Option Cell
 
-/-- A plant edge: message `m` sits at a noOwn, rgnFree cell of `sto` and names label `a`. -/
+/-- A plant edge: message `m` sits at a noOwn cell of `sto` and names label `a`. -/
 def PlantEdge (sto : Sto) (m : Msg) (a : AllocLabel) : Prop :=
-  (∃ ca, sto m.loc.label = some ca ∧ Ty.noOwnIn [] ca.ty = true ∧ rgnFree ca.ty = true) ∧
+  (∃ ca, sto m.loc.label = some ca ∧ Ty.noOwnIn [] ca.ty = true) ∧
   ∃ (a' : Address) (g : Nat), m.val = .loc a' g ∧ a'.label = a
 
 /-- The plant-edge test on promise index `t` (classical). -/

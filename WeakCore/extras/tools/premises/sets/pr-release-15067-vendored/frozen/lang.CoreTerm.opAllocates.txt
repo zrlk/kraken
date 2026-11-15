@@ -14,6 +14,7 @@ CoreTerm.opAllocates : CoreTerm.Op → Bool
   | CoreTerm.Op.mkEPair r P v0 v1 => true
   | CoreTerm.Op.mkTicket r N P v tok => true
   | CoreTerm.Op.spawn f a T ts => true
+  | CoreTerm.Op.spawnI f is a T ts => true
   | CoreTerm.Op.intoRgn r a => true
   | CoreTerm.Op.publish a => true
   | CoreTerm.Op.isTy a τ => false

@@ -21,7 +21,7 @@ open WeakMem (Msg Memory Address VState Ts Arch AllocLabel)
 theorem ObligationsFX.toF {p : Prog} {k : Promises.Knobs} {arch : Arch} {Sp : Cfg → Cfg → Prop} {Init : Res}
     {MintOK : Res → Prop} {c0 : Cfg} (O : ObligationsFX p k arch Sp Init MintOK c0) :
     ObligationsF p k arch Init MintOK c0 :=
-  ⟨O.checked, O.progScope, O.runDRF0⟩
+  ⟨O.typed, O.dyClean, O.progScope, O.runDRF0⟩
 
 /-! ## The spawn-era start state -/
 
@@ -66,7 +66,7 @@ theorem startOKX_spawnS {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Re
 /-- **(named) The five per-step `Sp`-arms** feeding the `*R_of` (L1–L5). -/
 structure SpLeafArms (Sp : Cfg → Cfg → Prop) : Prop where
   viewInv : ∀ c c', Sp c c' → TermViewInv.ViewInv c → TermViewInv.ViewInv c'
-  runDRF : ∀ c c', Sp c c' → TermScope.RunScope c → TermScope.RunScope c'
+  runDRF : ∀ c c', Sp c c' → TermScope.RunScopeI c → TermScope.RunScopeI c'
   promViewLt : ∀ c c', Sp c c' → TermPlantF.PromViewLt c → TermPlantF.PromViewLt c'
   promPos : ∀ c c', Sp c c' → TermPlantAtPos.PromPos c → TermPlantAtPos.PromPos c'
   promNodup : ∀ c c', Sp c c' → TermBal.PromNodupI c → TermBal.PromNodupI c'

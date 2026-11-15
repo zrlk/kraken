@@ -409,7 +409,7 @@ variable {p : Prog} {lbl : WeakMem.AllocLabel → Option Nat} {lsize : WeakMem.A
 
 /-- **A held function's segment at a context to `ExitC2SLFV`**
 (`CalleePre2.segH` at the held tails' exits `ExitC2SLFV`, e.g.
-`heldTailCX_mainV`). -/
+`heldTailCX_mainV`; the plain calls off the return tail, `CallC2R`). -/
 theorem CalleePre2.segHV {RaOk : BitVec 64 → Prop} {Cd : BitVec 64 → Int64 → List (Directive × Nat) → Prop}
     {i : Expr → String → Nat → Option Nat} {T : Expr → Prop} {d : Decl}
     {CxOk : Region → (MachineData → Prop) → List TermRun.Frame → BitVec 64 → BitVec 64 → UInt64 →
@@ -417,7 +417,7 @@ theorem CalleePre2.segHV {RaOk : BitVec 64 → Prop} {Cd : BitVec 64 → Int64 �
     {c : FnCode2 exe cells endPc RaOk Cd i T d} {R : Region} {F : MachineData → Prop}
     {fp ra : BitVec 64} {tp : UInt64} {G0 : Ctl → Prop} {Ab : FragS isa} {J : AS → Ctl → Prop} {c0 : Ctl}
     (h : CalleePre2 W K p lbl lsize ms CxOk c R F [] fp ra tp G0 Ab J c0)
-    (hcall : CallC2 p lbl lsize c.lcx c.fr (Cd ra) (c.Bl ra) exe endPc (rbR R) F W K ms fp ra tp [] G0 i T Ab
+    (hcall : CallC2R p lbl lsize c.lcx c.fr (Cd ra) (c.Bl ra) exe endPc (rbR R) F W K ms fp ra tp [] G0 i T Ab
       (RetLk d.retTy))
     (hlane : LaneC p lbl lsize c.lcx c.fr (Cd ra) (c.Bl ra) exe endPc (rbR R) F W K ms fp ra tp [] G0 i T Ab)
     (hbuf : NewBufC p lbl lsize c.lcx c.fr (Cd ra) (c.Bl ra) exe endPc (rbR R) F W K ms fp ra tp [] G0 i T Ab
@@ -493,7 +493,7 @@ theorem mainCallWSF_of_exitC2SLFV {R : Region} {F : MachineData → Prop} {fn : 
 /-- **The user `main` after the setup block, its paths held, at
 `UPostRF ∧ Q`** (`mainCallWSF_ofHeld` at the held tails' exits
 `ExitC2SLFV`, e.g. `heldTailCX_mainV`; `Q` from the held pair's facts,
-`hQ`). -/
+`hQ`; the plain calls off the return tail, `CallC2R`). -/
 theorem mainCallWSF_ofHeldV {RaOk : BitVec 64 → Prop}
     {Cd : BitVec 64 → Int64 → List (Directive × Nat) → Prop}
     {i : Expr → String → Nat → Option Nat} {T : Expr → Prop} {d : Decl}
@@ -514,7 +514,7 @@ theorem mainCallWSF_ofHeldV {RaOk : BitVec 64 → Prop}
         CalleePre2 W K p lbl lsize ms CxOk c (R.callee (-8 - Z.toInt - 8 - 0) (-D) 8) F' [] g.fp g.ra tp G0 Ab
           (Spike.Lib.X64.Rt.uNM (_root_.Executable.labels exe).label (ms []) F fn ZU
             (fun c rs => Pre c rs ∧ c = cP) g).J c0' ∧
-        CallC2 p lbl lsize c.lcx c.fr (Cd g.ra) (c.Bl g.ra) exe endPc (rbR (R.callee (-8 - Z.toInt - 8 - 0) (-D) 8))
+        CallC2R p lbl lsize c.lcx c.fr (Cd g.ra) (c.Bl g.ra) exe endPc (rbR (R.callee (-8 - Z.toInt - 8 - 0) (-D) 8))
           F' W K ms g.fp g.ra tp [] G0 i T Ab (RetLk d.retTy) ∧
         LaneC p lbl lsize c.lcx c.fr (Cd g.ra) (c.Bl g.ra) exe endPc (rbR (R.callee (-8 - Z.toInt - 8 - 0) (-D) 8))
           F' W K ms g.fp g.ra tp [] G0 i T Ab ∧
@@ -584,7 +584,8 @@ paths held, at `UPostRF ∧ Q`, at any code facts of the check's output**
 (the body of `mainCallWSF_ofPlaceOKHV` at `c` with the return address's
 phase and `main`'s code as `fnCode2OfP`'s, any immediates `im`, e.g.
 `fnCode2OfPMe`'s `imms2Me`): its prologue's facts `hcPro` and lowering
-context `hlcx`; the rest as `mainCallWSF_ofPlaceOKHV`. -/
+context `hlcx`; the plain calls off the return tail (`CallC2R`); the rest
+as `mainCallWSF_ofPlaceOKHV`. -/
 theorem mainCallWSF_ofPlaceOKHVC {j : Nat} {d : Decl} (hd : (compiled2 p)[j]? = some d)
     {im : Expr → String → Nat → Option Nat}
     (c : FnCode2 (LY).exe (LY).prog (LY).endPc
@@ -631,7 +632,7 @@ theorem mainCallWSF_ofPlaceOKHVC {j : Nat} {d : Decl} (hd : (compiled2 p)[j]? = 
           (R.callee (-8 - Z.toInt - 8 - 0) (-D) 8) F' [] g.fp g.ra tp G0 Ab
           (Spike.Lib.X64.Rt.uNM (_root_.Executable.labels (LY).exe).label (ms []) F fn ZU
             (fun c rs => SetupArgs (SPostC p lbl ty c0) sw x0 c rs ∧ c = cP) g).J c0' ∧
-        CallC2 p lbl lsize c.lcx c.fr
+        CallC2R p lbl lsize c.lcx c.fr
           (CdCLE OP (Spike.Lib.X64.PhRec.okPc LY) (Spike.Lib.X64.PhRec.ph LY) (LY).lab (Int64.ofBitVec g.ra))
           (c.Bl g.ra) (LY).exe (LY).endPc (rbR (R.callee (-8 - Z.toInt - 8 - 0) (-D) 8)) F'
           (fun s c fs => W2 Λw (Spike.Lib.X64.PhRec.μ LY) p rd G (Spike.Lib.X64.PhRec.own LY) rS
@@ -805,7 +806,10 @@ theorem mainCallWSF_ofPlaceOKHV {j : Nat} {d : Decl} (hd : (compiled2 p)[j]? = s
       (SetupArgs (SPostC p lbl ty c0) sw x0) (fun c fs v => UPostRF p lbl c fs v ∧ Q c fs v)
       ((LY).lab (setupMC sw).sp1).toBitVec tp :=
   mainCallWSF_ofPlaceOKHVC hp h hd (fnCode2OfP hp h j d hd) (fnCode2OfP_spec hp h j d hd).2.2
-    (fnCode2OfP_spec hp h j d hd).1 hint hok hlitP hQ hc hfn hL hsT hw hsw hme hE hfo hmr hun hsub hfit hpN hpre
+    (fnCode2OfP_spec hp h j d hd).1 hint hok hlitP hQ hc hfn hL hsT hw hsw hme hE hfo hmr hun hsub hfit hpN
+    fun F' h1 h2 h3 g h4 h5 h6 cP h7 =>
+      let ⟨G0, Ab, c0', hP, hcall, H⟩ := hpre F' h1 h2 h3 g h4 h5 h6 cP h7
+      ⟨G0, Ab, c0', hP, hcall.toR, H⟩
 
 end Place
 

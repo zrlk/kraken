@@ -1549,7 +1549,7 @@ theorem ownXStepL_ldlw [WrIniC] {p : Prog} {x : AllocLabel} {n : Nat} (hP : Prog
 theorem ownXStepL_new [WrIniC] {p : Prog} {x : AllocLabel} {n : Nat} (hP : ProgT p) (hPS : PwSkel) : OwnXStepL p x n IsNew :=
   ownXStepL_of (fun _ _ _ th r ρ η cx _ Rs _ hpp hn ht hsc _ hE hT htv hi hRP hDy hm hH _ hni hx hTyE hRc hr hpa _ => by
     obtain ⟨_, a, _, _, hte⟩ := ht
-    have hsd := hsc ρ η cx hE hT.1 htv (finv_of htv hi)
+    have hsd := hsc ρ η cx hE hT htv (finv_of htv hi)
     rw [hte] at hsd
     have hniA : ∀ t c₁, cx.use a = .ok (t, c₁) → noIallV t = true := by
       rcases hsd with h | ⟨_, _, _, ⟨_, _, h⟩ | ⟨_, h⟩ | ⟨_, h⟩⟩
@@ -1560,7 +1560,7 @@ theorem ownXStepL_new [WrIniC] {p : Prog} {x : AllocLabel} {n : Nat} (hP : ProgT
 theorem ownXStepL_newBuf [WrIniC] {p : Prog} {x : AllocLabel} {n : Nat} (hP : ProgT p) (hPS : PwSkel) : OwnXStepL p x n IsNewBuf :=
   ownXStepL_of (fun _ _ _ th r ρ η cx _ Rs _ _ hn ht hsc _ hE hT htv hi hRP hDy hm hH _ hni hx hTyE hRc hr hpa _ => by
     obtain ⟨_, _, τ, _, hte⟩ := ht
-    have hsd := hsc ρ η cx hE hT.1 htv (finv_of htv hi)
+    have hsd := hsc ρ η cx hE hT htv (finv_of htv hi)
     rw [hte] at hsd
     have hniA : noIallV τ = true := by
       rcases hsd with h | ⟨_, _, _, ⟨_, _, h⟩ | ⟨_, h⟩ | ⟨_, h⟩⟩

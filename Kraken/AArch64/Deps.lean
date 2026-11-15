@@ -246,6 +246,7 @@ def Directive.deps : Directive → Kraken.InstrDeps RegId
   | .instr i => i.deps
   | .label _ => {}
   | .byteArray _ => {}
+  | .zeros _ => {}
 
 -- Sanity checks.
 

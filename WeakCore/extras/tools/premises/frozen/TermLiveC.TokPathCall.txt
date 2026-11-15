@@ -96,6 +96,7 @@ TermScope.opAts : CoreTerm.Op → List CoreTerm.At
   | CoreTerm.Op.validate y => [CoreTerm.At.var y]
   | CoreTerm.Op.call f is a ts => [a]
   | CoreTerm.Op.spawn f a T ts => [a]
+  | CoreTerm.Op.spawnI f is a T ts => [a]
   | CoreTerm.Op.ext n a => [a]
   | CoreTerm.Op.borrow s t => [t]
   | CoreTerm.Op.endBorrow t => [t]

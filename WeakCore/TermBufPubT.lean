@@ -16,12 +16,12 @@ open CoreLang CoreTerm CoreTyping TermRun TermClose TermTv TermSound TermMem Ter
   TermTyped TermMain TermPlantF TermCertScope
 open WeakMem (Msg Memory Address VState Ts Arch AllocLabel)
 
-/-- A `publish` naming the stepper's own cell is the step's publish (`PubStepOf`): the reference's
-offset `0` is an instance of `PubStepOf`'s `g'`. -/
+/-- A fencing op (`publish`, `region`, `intoRgn`) naming the stepper's own cell is the step's publish
+(`PubStepOf`): the reference's offset `0` is an instance of `PubStepOf`'s `g'`. -/
 theorem pubStep_of {Eg : GEnv} {i : Nat} {th : TTh} {l : AllocLabel} {cl : Cell}
     (h : TermOwnG0Defs.PubAt th l) (hs : Eg.sto l = some cl) (ho : cl.owner = some i) : PubStepOf Eg i th l :=
-  let ⟨y, a, e, rt, ws, ad, h1, h2, h3, h4⟩ := h
-  ⟨cl, y, a, e, rt, ws, ad, 0, hs, ho, h1, h2, h3, h4⟩
+  let ⟨a, rt, ws, ad, h1, h2, h3, h4⟩ := h
+  ⟨cl, a, rt, ws, ad, 0, hs, ho, h1, h2, h3, h4⟩
 
 /-- (shared) **A cell of the post-step environment with a frontier** is a start cell of the stepper's
 cut with that frontier (the footprint keeps the frontier of a start cell, fresh cells have none), or
@@ -63,7 +63,7 @@ theorem bufInitPubTR_of [TermTyped.WrIniC] {p : Prog} {k : Promises.Knobs} {arch
   have hF := Z.1
   have htid : E'.tid = i := by rw [hF.2.1, hCE]; rfl
   obtain ⟨cl0, hsto, hoi⟩ : ∃ cl0, Eg.sto l = some cl0 ∧ cl0.owner = some i := by
-    rcases post_pfr_sto X hCE hF hPfrP hcl hf with ⟨h, -⟩ | ⟨cl0, -, -, -, -, -, -, -, hs0, ho0, -⟩
+    rcases post_pfr_sto X hCE hF hPfrP hcl hf with ⟨h, -⟩ | ⟨cl0, -, -, -, -, -, hs0, ho0, -⟩
     · exact ⟨cl, h, by rw [ho, htid]⟩
     · exact ⟨cl0, hs0, ho0⟩
   exact TermNoBufOwn.noBufT_pub (hV0 := hV0) hP hsc hw X hsto (.inl hoi) h1.toSolo hth1 hpub hs h2 hc3 hth3 hPS hSub hSig

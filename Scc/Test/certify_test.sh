@@ -10,7 +10,9 @@
 # command trace names scc and `lake env lean`; the verdict, up to time and
 # memory, and the status are those without -v), and hello1 on both ISAs (the
 # registry; cases below), and hello (the registry: certified on arm, on x64
-# when its theorem's module is in the checkout; cases below).  `lake` from `$LAKE`, default
+# when its theorem's module is in the checkout; cases below), and three programs scc refuses
+# (a device declaration, a device extern in a plain block, `spawnI`), and --granule (cases at the
+# end).  `lake` from `$LAKE`, default
 # `lake`.  Prints one line per case and exits 1 when a case differs.
 set -u
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
@@ -32,10 +34,10 @@ run() { # expected-status expected-verdict-prefix args...
 
 run 0 "certified" --instantiate Scc/Test/ret0.w
 # x64 instantiates the theorem over `Accepted1` with `main`'s frame bound.
-thm() { # case, post file, expected theorem, expected frame-bound flag (1/0)
-  local t=$1 f=$2 want=$3 hfr=$4 n
+thm() { # case, post file, expected theorem, expected frame-bound flag (1/0), [configuration (config)]
+  local t=$1 f=$2 want=$3 hfr=$4 cfg=${5:-config} n
   n=$(grep -c "^theorem prog_mainFrame1 " "$f" 2>/dev/null)
-  if grep -q "^  Spike\.Lib\.LowerX64\.$want (cfg := config)" "$f" && [ "$n" = "$hfr" ]; then
+  if grep -Eq "^  Spike\.Lib\.Lower(X64|A64)\.$want \(cfg := $cfg\)" "$f" && [ "$n" = "$hfr" ]; then
     echo "ok   $t: $want"
   else echo "FAIL $t: not $want (prog_mainFrame1: $n)"; fails=$((fails+1)); fi
 }
@@ -78,6 +80,14 @@ EOF
 run 1 "failed: the ELF reader refuses ret0: truncated" --elf "$ROOT/$N/trunc" Scc/Test/ret0.w
 run 1 "failed: the ELF reader refuses ret0: scc_rt_heap has size 0" --elf "$ROOT/$N/heap0" Scc/Test/ret0.w
 run 3 "not certifiable" Scc/Test/deeprec.w
+# Programs scc refuses: certify.sh fails at its first step, with scc's diagnostic (a device
+# declaration; a device extern in a plain block, refused by WeakCore's checker; `spawnI`).
+for A in x64 arm; do
+  run 1 "failed: scc: reject_device.w: error: a device declaration is not in the accepted fragment" \
+    --arch $A Scc/Test/reject_device.w
+  run 1 "failed: scc: reject_devext.w:2:1: error: type error in 'main'" --arch $A Scc/Test/reject_devext.w
+  run 1 "failed: scc: reject_spawni.w:18:3: error: an index-parameter spawn" --arch $A Scc/Test/reject_spawni.w
+done
 run 10 "placement decided" --arch arm Scc/Test/ret0.w
 run 0 "certified" --arch arm --instantiate Scc/Test/ret0.w
 # Programs that take their thread id and spawn: `placeOK2At` decided
@@ -312,6 +322,33 @@ if lmneed clang; then
 fi
 [ "$textdiff" = 0 ] && echo "ok   linker matrix: no linker changed .text outside relocated fields" \
   || echo "FAIL linker matrix: TEXT DIFFERS in $textdiff executables (each counted as a failure above)"
+# --granule (the output after the granule pass: its certificate, the `_final` theorem of
+# `Spike.Lib.Lower{X64,A64}.CorrectFinal`, and the post file's byte check of the granule words,
+# `Scc.Cert.ElfBytes`): ret0 on both ISAs (arm over `Accepted1`; x64 over `Accepted1` with
+# `main`'s frame bound, and with CERTIFY_X64_FRAGMENT=0 over `Accepted0`), ifsub1 on x64
+# (`Accepted1`, outside `Accepted0`), and ret0's post-pass listing linked by x64 `ld.lld` (--elf;
+# the pass aligns `.text` to a granule). A registry program with --granule is not certifiable:
+# the registry's theorems are about the text without the pass.
+G=.lake/certify
+run 0 "certified" --arch arm --granule --instantiate Scc/Test/ret0.w
+thm "arm ret0 --granule" $G/arm/ret0-granule/ret0.post.lean a64_scc_correctE_text_closedAt1_final 0 configW
+run 0 "certified" --arch x64 --granule --instantiate Scc/Test/ifsub1.w
+thm "x64 ifsub1 --granule" $G/x64/ifsub1-granule/ifsub1.post.lean x64_scc_correctE_text_closedAt1_final 1 configW
+CERTIFY_X64_FRAGMENT=0 run 0 "certified" --arch x64 --granule --instantiate Scc/Test/ret0.w
+thm "x64 ret0 --granule, CERTIFY_X64_FRAGMENT=0" $G/x64/ret0-granule/ret0.post.lean \
+  x64_scc_correctE_text_closedAt_final 0 configW
+run 0 "certified" --arch x64 --granule --instantiate Scc/Test/ret0.w
+thm "x64 ret0 --granule" $G/x64/ret0-granule/ret0.post.lean x64_scc_correctE_text_closedAt1_final 1 configW
+if lmneed lld; then
+  lmlink as -o "$N/ret0g.o" $G/x64/ret0-granule/ret0.s
+  lmlink ld.lld -static -o "$N/ret0g.lld" "$N/ret0g.o"
+  run 0 "certified" --arch x64 --granule --instantiate --elf "$ROOT/$N/ret0g.lld" Scc/Test/ret0.w
+fi
+for a in x64 arm; do
+  run 3 "not certifiable: no proved theorem for the post-pass text (--granule" \
+    --arch $a --granule --instantiate Scc/Test/hello1.w
+done
+
 lmskips=0
 for t in bfd gold lld clang; do
   [ -n "${LMSKIP[$t]:-}" ] || continue

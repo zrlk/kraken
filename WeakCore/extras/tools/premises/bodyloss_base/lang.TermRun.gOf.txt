@@ -6,6 +6,8 @@ TermRun.Cfg.lbase : TermRun.Cfg → Nat
 TermRun.Cfg.n : TermRun.Cfg → Nat
 TermRun.G : Type
 TermRun.gOf : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → TermRun.Cfg → Nat → TermRun.G
-  := fun p k arch c i => { p := p, k := k, arch := arch, n := c.n, i := i, lbase := c.lbase, boxFence := c.boxFence }
+  := fun p k arch c i =>
+  { p := p, k := k, arch := arch, n := c.n, i := i, lbase := c.lbase, boxFence := c.boxFence, tys := TermRun.tysOf c }
+TermRun.tysOf : TermRun.Cfg → WeakMem.AllocLabel → Option (CoreLang.Ty × Bool)
 WeakMem.AllocLabel : Type
 WeakMem.Arch : Type

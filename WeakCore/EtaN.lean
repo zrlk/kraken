@@ -37,7 +37,7 @@ theorem unseen_of_pinnedB {E' η : TEnv} {mem : Memory} {vs : VState} {P : List 
 theorem pub_sto {p : Prog} {E : TEnv} {th : TTh} {y : String} {a : At} {e : Expr} {rt : Ty} {ws : List Word}
     {ad : Address} (hT1 : ThInvEBN glb gnum gi p E th) (hterm : th.term = .let_ y (.publish a) e)
     (hea : evalAt th.env a = some (rt, ws)) (hws : ws.map (·.val) = [.loc ad 0]) : E.sto ad.label ≠ none := by
-  obtain ⟨ρ, η, cx, rfl, hE, hT, htv, hi, -⟩ := hT1
+  obtain ⟨ρ, η, cx, rfl, hE, ⟨hT, -⟩, htv, hi, -⟩ := hT1
   rw [hterm] at hT
   cases hT with
   | let_ hop he =>
@@ -72,7 +72,7 @@ theorem pub_sto {p : Prog} {E : TEnv} {th : TTh} {y : String} {a : At} {e : Expr
 /-- **The site of a fulfilling write** (N form of WinPubSplit `fulfil_siteB`, at the η-lineage env). -/
 theorem fulfil_siteN {p : Prog} {k : Promises.Knobs} {arch : Arch} {E0 : TEnv} {i : Nat}
     {x : AllocLabel} {c c' : Cfg} {th : TTh} {t : Ts} {m : Msg}
-    (hth : c.ths[i]? = some th) (hrs : TermScope.RunScope c) (hvI : TermViewInv.ViewInv c)
+    (hth : c.ths[i]? = some th) (hrs : TermScope.RunScopeI c) (hvI : TermViewInv.ViewInv c)
     (hI : EtaInv p k arch E0 i x c) (hs : c' ∈ threadSteps p k arch c i) (hnb : ¬ BufInitL th x)
     (hsx : E0.sto x ≠ none)
     (ht : t ∈ th.promises) (hn : t ∉ TermFul.promsOf c' i) (hm : c.mem[t]? = some m) (hl : m.loc.label = x) :
@@ -80,7 +80,7 @@ theorem fulfil_siteN {p : Prog} {k : Promises.Knobs} {arch : Arch} {E0 : TEnv} {
       E.ini x ≤ E0.ini x ∧ E.rini x ≤ E0.rini x ∧
       ∃ cl, E.sto x = some cl ∧ InitR E cl x m.loc.offset ∧
         (InitRr E cl x m.loc.offset ∨ (∀ f, E.pfr x = some f → f < t) ∨ E.seen x) := by
-  obtain ⟨th1, E, hth1, ⟨ρ, η, cx, hCE, hE, hT, htv, hFI, -⟩, hmi, -, hx0, hini, hrini, -⟩ := hI
+  obtain ⟨th1, E, hth1, ⟨ρ, η, cx, hCE, hE, ⟨hT, hCk⟩, htv, hFI, -⟩, hmi, -, hx0, hini, hrini, -⟩ := hI
   rw [hth] at hth1
   cases hth1
   subst hCE
@@ -93,7 +93,7 @@ theorem fulfil_siteN {p : Prog} {k : Promises.Knobs} {arch : Arch} {E0 : TEnv} {
   have hns := TermTyped.not_spawnT_of_steps hth hs
   have hscD : ScopeD th.σs cx th.term := by
     have h := hrs i th hth
-    exact TermCertScope.scopeD_of h.ok (TermScope.Flat.scope_termVB hT hFI.2.1 h.ok h.env hns)
+    exact TermCertScope.scopeD_of h.ok (TermScope.Flat.scope_termVB hT hCk hFI.2.1 h.ok h.env hns)
   have hvr := TermViewInv.envVR_solo (p := p) (k := k) (arch := arch) hvI (.refl _) hth
   obtain ⟨th', r, hth', hr, e1, e2, e3, -⟩ := threadSteps_inv hs
   rw [hth] at hth'
@@ -123,10 +123,10 @@ theorem fulfil_siteN {p : Prog} {k : Promises.Knobs} {arch : Arch} {E0 : TEnv} {
 
 /-- **(L5) The lineage at the fulfilment**: an outstanding promise `t` at `x` at the publish point `c1` is
 fulfilled, along the certificate, at an initialised unit of a lineage env. -/
-theorem eta_fulfil {p : Prog} [ProgRetIall p] (hP : ProgT p) (hPS : PwSkel) (hSub : PwSubS)
+theorem eta_fulfil {p : Prog} [ProgRetIall p] [TermA4.ProgCkWC p] (hP : ProgT p) (hPS : PwSkel) (hSub : PwSubS)
     (hSig : PwSig) (hps : TermScope.ProgScopeOK p = true) {k : Promises.Knobs} {arch : Arch} {E0 : TEnv} {i : Nat}
     {x : AllocLabel} {c1 : Cfg} {th1 : TTh} {t : Ts} {m : Msg} (hsx : E0.sto x ≠ none)
-    (hc1 : Certified p k arch c1 i) (hth1 : c1.ths[i]? = some th1) (hrs : TermScope.RunScope c1)
+    (hc1 : Certified p k arch c1 i) (hth1 : c1.ths[i]? = some th1) (hrs : TermScope.RunScopeI c1)
     (hvI : TermViewInv.ViewInv c1) (hTA : TermTyped.TidAt i c1 E0)
     (hO : ∀ c0, Solo p k arch i c1 c0 → Certified p k arch c0 i → ∀ th, c0.ths[i]? = some th → ¬ BufInitL th x)
     (hI : EtaInv p k arch E0 i x c1)
@@ -179,23 +179,23 @@ theorem bfail_pfr {g : G} {Eg : GEnv} {c : Cfg} {i : Nat} {th : TTh} {S : AllocL
       exact absurd (by unfold TEnv.rc at this; simp only [Cut_ini, Cut_rini] at this; omega) hdis
   exact ⟨cl0, F, ho0, hηs, hF⟩
 
-/-- **(L6) NoHold at the adversarial typing of a window publish.** -/
-theorem noHold_eta {p : Prog} [ProgRetIall p] (hP : ProgT p) (hPS : PwSkel) (hSub : PwSubS)
+/-- **(L6, any fenced cell)** `noHold_eta` from the cell at `CE η` (`hsx`); `noHold_eta` is its publish
+corollary via `pub_sto`, and EtaW's `EtaFence.noHold_eta_fence` its fence corollary via `fence_sto`. -/
+theorem noHold_eta_sto {p : Prog} [ProgRetIall p] [TermA4.ProgCkWC p] (hP : ProgT p) (hPS : PwSkel) (hSub : PwSubS)
     (hSig : PwSig) (hps : TermScope.ProgScopeOK p = true) {k : Promises.Knobs} {arch : Arch} {Eg : GEnv}
     {S : AllocLabel → Prop} {i : Nat} {c c1 : Cfg} {th th1 : TTh} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
-    {y : String} {a : At} {e : Expr} {rt : Ty} {ws : List Word} {ad : Address}
+    {ad : Address}
     (hth : c.ths[i]? = some th) (hsolo : Solo p k arch i c c1) (hc1 : Certified p k arch c1 i)
     (hth1 : c1.ths[i]? = some th1)
-    (hrs : TermScope.RunScope c) (hvI : TermViewInv.ViewInv c) (hTA : TermTyped.TidAt i c (Cut Eg i S))
+    (hrs : TermScope.RunScopeI c) (hvI : TermViewInv.ViewInv c) (hTA : TermTyped.TidAt i c (Cut Eg i S))
     (hPH : TermPredHold.PredHoldG Eg c) (hPT : TermMain.PromTyAOK Eg c)
     (hm0 : MemInv (gOf p k arch c i) (Cut Eg i S) (stOf c.mem c.pairs th))
-    (hE : EnvOK p η) (hT : Typed p cx th1.term) (htv : TvOK cx)
+    (hE : EnvOK p η) (hT : TermSound.TypedK p η cx th1.term) (htv : TvOK cx)
     (hF : FInv ρ η th1.σs (Resume p th1.stack) cx th1.env)
     (hm : MemInv (gOf p k arch c1 i) (CE η) (stOf c1.mem c1.pairs th1))
     (hExt : Ext (Cut Eg i S) (CE η)) (hA : IniAnch (Cut Eg i S) (CE η))
     (hR : RiniMem (Cut Eg i S) (CE η) (stOf c1.mem c1.pairs th1))
-    (hterm : th1.term = .let_ y (.publish a) e) (hea : evalAt th1.env a = some (rt, ws))
-    (hws : ws.map (·.val) = [.loc ad 0]) (hns : ¬ (CE η).seen ad.label)
+    (hsx : (CE η).sto ad.label ≠ none) (hns : ¬ (CE η).seen ad.label)
     (hK : ContE c1.lbase c1.n i p th1 (CE η))
     (hbf : (gOf p k arch c1 i).boxFence = true)
     (hO : ∀ c0, Solo p k arch i c1 c0 → Certified p k arch c0 i → ∀ th, c0.ths[i]? = some th →
@@ -207,7 +207,6 @@ theorem noHold_eta {p : Prog} [ProgRetIall p] (hP : ProgT p) (hPS : PwSkel) (hSu
     (hRc : RecFresh (gOf p k arch c1 i) i th1.nalloc) :
     NoHold (CE η) (stOf c1.mem c1.pairs th1) ad.label := by
   have hT1 : ThInvEBN c1.lbase c1.n i p (CE η) th1 := eta_seed hK hE hT htv hF hDy
-  have hsx : (CE η).sto ad.label ≠ none := pub_sto hT1 hterm hea hws
   have hI1 : EtaInv p k arch (CE η) i ad.label c1 :=
     ⟨th1, CE η, hth1, hT1, FlatAnchor.MemInv_B hm, hbf, Ext_reflB (Coh_CEB η) (CohR_CEB η), Nat.le_refl _,
       Nat.le_refl _, hTy, hRc⟩
@@ -287,5 +286,35 @@ theorem noHold_eta {p : Prog} [ProgRetIall p] (hP : ProgT p) (hPS : PwSkel) (hSu
       rw [hrc, ← hiE]
       exact h1
   exact ⟨fun f _ _ => hH f, hB, fun _ u => hH u⟩
+
+/-- **(L6) NoHold at the adversarial typing of a window publish.** -/
+theorem noHold_eta {p : Prog} [ProgRetIall p] [TermA4.ProgCkWC p] (hP : ProgT p) (hPS : PwSkel) (hSub : PwSubS)
+    (hSig : PwSig) (hps : TermScope.ProgScopeOK p = true) {k : Promises.Knobs} {arch : Arch} {Eg : GEnv}
+    {S : AllocLabel → Prop} {i : Nat} {c c1 : Cfg} {th th1 : TTh} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
+    {y : String} {a : At} {e : Expr} {rt : Ty} {ws : List Word} {ad : Address}
+    (hth : c.ths[i]? = some th) (hsolo : Solo p k arch i c c1) (hc1 : Certified p k arch c1 i)
+    (hth1 : c1.ths[i]? = some th1)
+    (hrs : TermScope.RunScopeI c) (hvI : TermViewInv.ViewInv c) (hTA : TermTyped.TidAt i c (Cut Eg i S))
+    (hPH : TermPredHold.PredHoldG Eg c) (hPT : TermMain.PromTyAOK Eg c)
+    (hm0 : MemInv (gOf p k arch c i) (Cut Eg i S) (stOf c.mem c.pairs th))
+    (hE : EnvOK p η) (hT : TermSound.TypedK p η cx th1.term) (htv : TvOK cx)
+    (hF : FInv ρ η th1.σs (Resume p th1.stack) cx th1.env)
+    (hm : MemInv (gOf p k arch c1 i) (CE η) (stOf c1.mem c1.pairs th1))
+    (hExt : Ext (Cut Eg i S) (CE η)) (hA : IniAnch (Cut Eg i S) (CE η))
+    (hR : RiniMem (Cut Eg i S) (CE η) (stOf c1.mem c1.pairs th1))
+    (hterm : th1.term = .let_ y (.publish a) e) (hea : evalAt th1.env a = some (rt, ws))
+    (hws : ws.map (·.val) = [.loc ad 0]) (hns : ¬ (CE η).seen ad.label)
+    (hK : ContE c1.lbase c1.n i p th1 (CE η))
+    (hbf : (gOf p k arch c1 i).boxFence = true)
+    (hO : ∀ c0, Solo p k arch i c1 c0 → Certified p k arch c0 i → ∀ th, c0.ths[i]? = some th →
+      ¬ BufInitL th ad.label)
+    (hlab : (∃ cl0, Eg.sto ad.label = some cl0 ∧ cl0.owner = some i) ∨ Eg.ini ad.label = 0)
+    (hnp : ¬ Eg.pubd ad.label)
+    (hsc : ScalFlat.ScalIni Eg)
+    (hTy : TyOKE (gOf p k arch c1 i) (CE η)) (hDy : DyFr p annNew (progTgts p) η th1.σs th1.term)
+    (hRc : RecFresh (gOf p k arch c1 i) i th1.nalloc) :
+    NoHold (CE η) (stOf c1.mem c1.pairs th1) ad.label := by
+  exact noHold_eta_sto hP hPS hSub hSig hps hth hsolo hc1 hth1 hrs hvI hTA hPH hPT hm0 hE hT htv hF hm hExt hA hR
+    (pub_sto (eta_seed hK hE hT htv hF hDy) hterm hea hws) hns hK hbf hO hlab hnp hsc hTy hDy hRc
 
 end CertWinProof

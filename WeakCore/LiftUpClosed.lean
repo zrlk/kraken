@@ -8,11 +8,11 @@ theorem ModeOKb_up {i : Nat} {P : WeakMem.AllocLabel → Option WeakMem.Ts} {S :
     ModeOKb i P S bk μ l c ws → ModeOKb i P S bk μ l c ws' := by
   cases μ with
   | own => exact id
-  | pub => rintro ⟨f, h1, h2 | h2 | h2⟩
-           · exact ⟨f, h1, Or.inl h2⟩
-           · exact ⟨f, h1, Or.inr (Or.inl (hw f h2))⟩
-           · exact ⟨f, h1, Or.inr (Or.inr h2)⟩
-  | rgn _ => exact id
+  | pub | rgn _ =>
+    rintro ⟨f, h1, h2 | h2 | h2⟩
+    · exact ⟨f, h1, Or.inl h2⟩
+    · exact ⟨f, h1, Or.inr (Or.inl (hw f h2))⟩
+    · exact ⟨f, h1, Or.inr (Or.inr h2)⟩
 
 /-- `VRRB` is upward closed in the words' views. -/
 theorem VRRB_up {ρ : Nat → Nat} {η : TEnv} : ∀ (t : Ty) (rt : Shp) (ws ws' : List Word) (R : Res),
@@ -39,7 +39,7 @@ theorem VRRB_up {ρ : Nat → Nat} {η : TEnv} : ∀ (t : Ty) (rt : Shp) (ws ws'
   | refine t ψ ih =>
       intro rt ws ws' R e hv; simp only [VRRB] at hv ⊢
       exact ⟨ih rt ws ws' R e hv.1, IniR_vals e.vals ψ hv.2.1,
-        fun hp => (hv.2.2 (PubPosE_vals e.vals hp)).imp (FreshW_wle e) (IniR_vals e.vals ψ)⟩
+        fun hp => (hv.2.2 (hp.imp (PubPosE_vals e.vals) (RgnOwnE_vals e.vals))).imp (FreshW_wle e) (IniR_vals e.vals ψ)⟩
   | sum a b iha ihb =>
       intro rt ws ws' R e hv
       simp only [VRRB] at hv ⊢

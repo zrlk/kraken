@@ -4,6 +4,28 @@ namespace TermSound.Flat
 open CoreLang CoreTerm CoreTyping TermRun TermClose TermTv TermSound
 open FlatAnchor (RRSound VRR_PubPosEFresh RRSound.push0 RRSound.unsee)
 
+/-- (A1) W `VRR` at a region-locative head is fresh: W `ModeOK .rgn` is the pub clause (M7). -/
+theorem VRR_rgnLocFresh {ρ : Nat → Nat} {η : TEnv} {t : Ty} {rt : Shp} {ws : List Word} {R : Res}
+    (hp : t.rgnLocHead = true) (h : VRR ρ η t rt ws R) : FreshW η ws := by
+  intro a' ha'
+  match t, hp, h with
+  | .loc (.rgn _) u, _, h =>
+    simp only [VRR] at h
+    rcases h with ⟨h | ⟨a, c, U, h1, -, -, -, hm, -⟩, -⟩
+    · rw [h.1] at ha'; simp at ha'
+    · obtain rfl : a = a' := by have := h1.symm.trans ha'; simpa using this
+      exact hm
+
+/-- (A1) `VRR_rgnLocFresh` through a type variable (`rgnTop`), as `VRR_pubTopFresh`. -/
+theorem VRR_rgnTopFresh {ρ : Nat → Nat} {η : TEnv} {t : Ty} {rt : Shp} {ws : List Word} {R : Res}
+    (hR : RRSound η) (hp : η.rgnTop t = true) (h : VRR ρ η t rt ws R) : FreshW η ws := by
+  cases t with
+  | tvar k =>
+    simp only [VRR] at h
+    obtain ⟨w0, h0, h1⟩ := h
+    exact FreshW_wle h0 (VRR_rgnLocFresh (η := CE η) hp (hR.1 k rt w0 R h1))
+  | _ => refine VRR_rgnLocFresh ?_ h; exact hp
+
 section
 variable {cp : WeakMem.AllocLabel → Prop} {f σ : WeakMem.AllocLabel → WeakMem.AllocLabel}
 
@@ -48,8 +70,9 @@ theorem VRR_merge (t : Ty) : ∀ (ρ : Nat → Nat) (η₁ η₂ : TEnv) (rt : S
   | refine t ψ ih =>
     intro ρ η₁ η₂ rt ws X hm hRR hr hur h; simp only [VRR] at h; simp only [VRRB]
     refine ⟨ih _ _ _ _ _ _ hm hRR hr hur h.1, IniR_rl (fun m => selIni_merge hm t m) ψ ws h.2, fun hp => ?_⟩
-    replace hp := PubPosE_rl hm.wit (fun m B h => ⟨_, hm.box m B h, rfl⟩) hp
-    have hF := VRR_PubPosEFresh hRR hp h.1
+    have hF : FreshW η₁ ws := hp.elim
+      (fun hp => VRR_PubPosEFresh hRR (PubPosE_rl hm.wit (fun m B h => ⟨_, hm.box m B h, rfl⟩) hp) h.1)
+      (fun hq => VRR_rgnTopFresh hRR (by rw [TEnv.rgnTop_congr hm.wit]; exact hq.1) h.1)
     by_cases hc : ∃ a, ws.map (·.val) = [.loc a 0] ∧ cp a.label
     · obtain ⟨a, ha, hcp⟩ := hc
       refine Or.inr (IniR_rl1 ha ?_ ψ h.2)
@@ -130,7 +153,9 @@ theorem VRR_merge (t : Ty) : ∀ (ρ : Nat → Nat) (η₁ η₂ : TEnv) (rt : S
     · refine ⟨Or.inl ⟨vals_rl_null.2 hn, e, by rw [← hm.wit]; exact he⟩, ?_⟩
       rw [hX]; exact ownW_sw hm.fσ hm.σf μ ws (fun _ a g hv => by rw [hn] at hv; simp at hv)
     · obtain ⟨c₂, hs2, hty, hmo2, hle, hR⟩ := refAt hm (fun c₂ => IniAt η₂.rc c₂ ⟨f a.label, a.offset⟩ U) h1 h3 hmo
-        (fun c₂ hty _ hμ hl => by subst hμ; exact IniAt_at (a := a) hty rfl hl hI)
+        (fun c₂ hty _ hμ hl => by cases μ with
+          | own => exact absurd rfl hμ
+          | pub | rgn _ => exact IniAt_at (a := a) hty rfl hl hI)
       refine ⟨Or.inr ⟨⟨f a.label, a.offset⟩, c₂, U, vals_rl_loc h1, hs2, by rw [hty]; exact h4,
         by rw [← hm.wit]; exact h5, hmo2, IniAt_at (a := a) hty rfl hle hI⟩, by rw [hX]; exact hR⟩
   | void => intro ρ η₁ η₂ rt ws X hm hRR hr hur h; simp only [VRR] at h

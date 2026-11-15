@@ -15,13 +15,14 @@ namespace TermOwnG0Defs
 open CoreLang CoreTerm TermRun TermStep
 open WeakMem (Msg Memory Address VState Ts Arch AllocLabel)
 
-/-- The thread is at a `publish` whose reference names `r`. -/
-def PubAt (th : TTh) (r : AllocLabel) : Prop :=
-  ∃ (y : String) (a : At) (e : Expr) (rt : Ty) (ws : List Word) (ad : Address),
-    th.term = .let_ y (.publish a) e ∧ evalAt th.env a = some (rt, ws) ∧ ws.map (·.val) = [.loc ad 0] ∧
-      ad.label = r
+/-- The thread is at a fencing op (publish, region, intoRgn) whose reference names `l`. -/
+def PubAt (th : TTh) (l : AllocLabel) : Prop :=
+  ∃ (a : At) (rt : Ty) (ws : List Word) (ad : Address),
+    ((∃ y e, th.term = .let_ y (.publish a) e) ∨ (∃ r pn tn e, th.term = .region a r pn tn e) ∨
+      (∃ y r e, th.term = .let_ y (.intoRgn r a) e)) ∧
+    evalAt th.env a = some (rt, ws) ∧ ws.map (·.val) = [.loc ad 0] ∧ ad.label = l
 
-/-- `Solo` without a thread step at a `publish` naming `r`. -/
+/-- `Solo` without a thread step at a fencing op (publish, region, intoRgn) naming `r`. -/
 inductive SoloNP (p : Prog) (k : Promises.Knobs) (arch : Arch) (i : Nat) (r : AllocLabel) : Cfg → Cfg → Prop
   | refl (c) : SoloNP p k arch i r c c
   | thread {c c' c''} : c' ∈ threadSteps p k arch c i → (∀ th, c.ths[i]? = some th → ¬ PubAt th r) →

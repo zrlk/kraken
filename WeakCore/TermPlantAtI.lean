@@ -208,7 +208,7 @@ theorem plant_vWr {c : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db
     (hfr : ∀ q, th.nalloc ≤ q → sto (freshLabel (promise c j a v w).lbase (promise c j a v w).n j q) = none)
     (hL : TermPtrRts.ThLbl { pfr := E1.pfr, box := E1.box } { th with promises := th.promises ++ [c.mem.size] })
     (hSC : TermTyped.StoClo E1) (hps : TermScope.ProgScopeOK p = true)
-    (hD : TermScope.ThScope { th with promises := th.promises ++ [c.mem.size] })
+    (hD : TermScope.ThScopeI { th with promises := th.promises ++ [c.mem.size] })
     (hC : ∀ t', TermPtrRts.tminOf sto (stOf (promise c j a v w).mem (promise c j a v w).pairs { th with promises := th.promises ++ [c.mem.size] }) l = some t' →
       TermPtrRts.MemRtsC sto t' l (promise c j a v w).mem (promise c j a v w).pairs (th.promises ++ [c.mem.size]))
     (hG : TermPtrRts.GranuleWP sto (promise c j a v w).mem (promise c j a v w).pairs (th.promises ++ [c.mem.size]))

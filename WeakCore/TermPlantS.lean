@@ -617,7 +617,7 @@ variable {Sp : TermRun.Cfg → TermRun.Cfg → Prop}
 
 /-- **Shared master of `unitFacts` and `r1Facts`**: the facts at a new-slot label `l`
 of an array type, with the element-specific conjunct `Z cl N e us` supplied by `hZ`. -/
-theorem slotFacts (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : TermNoHold.CertRunP p k arch Sp Init MintOK c0)
+theorem slotFacts (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : TermNoHold.CertRunP p k arch Sp Init MintOK c0)
     {c : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {j : Nat}
     {th : TTh} {a : Address} {v : WeakMem.Val} {w : Ts} {S : AllocLabel → Prop} {l : AllocLabel}
     {Z : Cell → Nat → Ty → List Acc → Prop}
@@ -666,7 +666,7 @@ theorem slotFacts (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [T
       (∀ b S' us', SegOf cl.ty b S' → accs S' = some us' → IniSeg (Cut EgF j S) cl l b →
         ¬ IniSeg (Cut Eg1 j S) cl l b → ∃ ws, ValOf (Cut EgF j S) S' ws ∧ ws.length = nWords us') ∧
       (∀ b S', SegOf cl.ty b S' → accs S' ≠ none → TearOK S') ∧ Ty.coupledOKIn [] cl.ty = true ∧
-      Ty.noOwnIn [] cl.ty = true ∧ rgnFree cl.ty = true := by
+      Ty.noOwnIn [] cl.ty = true ∧ (rgnFree cl.ty = true ∨ TermC1.drf1 cl.ty = true) := by
   obtain ⟨f, hpl⟩ := Option.ne_none_iff_exists'.mp hpl0
   obtain ⟨⟨l', -, hR⟩, -⟩ := plantOf_some X hpl
   obtain ⟨cl, hcl, ho, hnone, -, hcpl, hcT, hnT, hrT⟩ := TermPlantF.plant_facts (hV0 := hV0) (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hrun X hR
@@ -733,7 +733,7 @@ theorem slotFacts (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [T
 /-- (S6) **The facts at a new-slot unit-buffer label `l`** after the promise, at a partial plant
 `Eg1` agreeing with `Eg` at `l`, against the final environment `EgF` (whose cut is the published
 planted one): the hypotheses of `ThSysAt_plantS` and of `MemInv_plantSet` at `l`. -/
-theorem unitFacts (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : TermNoHold.CertRunP p k arch Sp Init MintOK c0)
+theorem unitFacts (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : TermNoHold.CertRunP p k arch Sp Init MintOK c0)
     {c : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {j : Nat}
     {th : TTh} {a : Address} {v : WeakMem.Val} {w : Ts} {S : AllocLabel → Prop} {l : AllocLabel}
     (X : PCtxX p k arch Sp Init MintOK c0 c Eg Tot HP HS cr db j th a v w)
@@ -785,7 +785,7 @@ theorem unitFacts (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [T
       (∀ b S' us', SegOf cl.ty b S' → accs S' = some us' → IniSeg (Cut EgF j S) cl l b →
         ¬ IniSeg (Cut Eg1 j S) cl l b → ∃ ws, ValOf (Cut EgF j S) S' ws ∧ ws.length = nWords us') ∧
       (∀ b S', SegOf cl.ty b S' → accs S' ≠ none → TearOK S') ∧ Ty.coupledOKIn [] cl.ty = true ∧
-      Ty.noOwnIn [] cl.ty = true ∧ rgnFree cl.ty = true := by
+      Ty.noOwnIn [] cl.ty = true ∧ (rgnFree cl.ty = true ∨ TermC1.drf1 cl.ty = true) := by
   obtain ⟨f, hpl⟩ := Option.ne_none_iff_exists'.mp hpl0
   have hi1 : Eg1.ini l = Eg.ini l := A.ini
   refine slotFacts (hV0 := hV0) hP hrun X hS hInh hm0 hH0 hTE1 hm1 hpl0

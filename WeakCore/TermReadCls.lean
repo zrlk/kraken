@@ -127,11 +127,11 @@ theorem box_none {p : Prog} {g : G} {ρ : Nat → Nat} {η : TEnv} {σs : List T
 /-- A pair reference (`ldp`, `casp`) reads word units or epoch-pair units. -/
 theorem pair_rd {ρ : Nat → Nat} {η : TEnv} {σs : List Ty} {cx : Cx} {env : Env} {a : At} {t rt : Ty}
     {pw : Word} {b0 b : Address} (hvars : VarsOK ρ η σs cx.vars env) (hp : cx.peek a = .ok t)
-    (hsc : ∃ μ u, (t = .ptr μ u ∨ t = .loc μ u) ∧ (μ = .own ∨ μ = .pub) ∧
+    (hsc : ∃ μ u, (t = .ptr μ u ∨ t = .loc μ u) ∧
       ((∃ r P, u = .word2 r P) ∨ (∃ r P, u = .epair r P)))
     (hea : evalAt env a = some (rt, [pw])) (hb0 : addrOf pw = some b0) (hb : b = b0 ∨ b = b0.next) :
     WordUnit (CE η) b ∨ EPairUnit (CE η) b := by
-  obtain ⟨μ, u, ht, -, ⟨r, P, rfl⟩ | ⟨r, P, rfl⟩⟩ := hsc
+  obtain ⟨μ, u, ht, ⟨r, P, rfl⟩ | ⟨r, P, rfl⟩⟩ := hsc
   · obtain ⟨c, n, hsto, hat⟩ := word2_tgt hvars hp ht hea hb0
     rcases hb with rfl | rfl
     · exact .inl ⟨c, hsto, .inr (.inl ⟨_, _, hat⟩)⟩
@@ -157,9 +157,26 @@ theorem rmw_rdC {E : TEnv} {b : Address} (h : WordUnit E b ∨ TermOwnCR5.RmwAto
 theorem load_rdC {p : Prog} {g : G} {ρ : Nat → Nat} {η : TEnv} {σs : List Ty} {K : TEnv → List Word → Prop}
     {cx c' : Cx} {env : Env} {s : St} {x : String} {acq : Bool} {a : At} {b : Address}
     (hop : OpT p cx x (.load acq a) c') (hsc : OpScope cx (.load acq a))
+    (hra : ∀ t r u, cx.peek a = .ok t → wordOf t = none → cellOf t = some (.rgn r, u) →
+      cx.opaqueOK u = true ∧ u.arrFree = true ∧ Ty.affineIn cx.ke (adapt r u) = false)
+    (hm : MemInv g (CE η) s)
     (hi : FInv ρ η σs K cx env) (hE : EnvOK p η) (htv : TvOK cx)
     (hrd : RdOp g env s (.load acq a) b) : RdC (CE η) b := by
+  have _ := hsc
+  have hop0 := hop
   obtain ⟨rt, pw, μr, ru, b0, us, j, hea, hcr, hb0, hus, hj, hb⟩ := hrd
+  -- a region cell's bound type is its payload (`TermC1.rgnLoc_adaptL`, at either reference form)
+  have hadL : ∀ {t u : Ty} {r : Idx}, cx.peek a = .ok t → cellOf t = some (.rgn r, u) →
+      (adapt r u).arrFree = true → adapt r u = u := by
+    intro t u r hp hc haf0
+    have hnb : ∀ n e, ¬ Fd (.array (.lit n) e) (cl ρ η.wit 0 0 u) := fun n e hF => by
+      have h := Fd_arrFree hF (arrFree_cl hi.2.2.2.2.2.2.1.af u 0 0
+        (by rw [← TermC1.arrFree_adapt u r]; exact haf0))
+      simp [Ty.arrFree] at h
+    obtain ⟨rt', ws', -, hv, -⟩ := peek_VR hi.2.1 hp
+    obtain ⟨ad, c, -, hsto, hat, hmo, -⟩ := cell_target hc hnb hv
+    obtain ⟨f, hf, -⟩ := hmo
+    exact TermC1.adapt_cl ρ η.wit r u [] 0 0 (noOwn_AtOff hat (MemInv_noOwnT hm hsto hf))
   have own : ∀ {t u : Ty} {μ : Mode}, cx.peek a = .ok t → cellOf t = some (μ, u) →
       Ty.affineIn cx.ke u = false → cx.opaqueOK u = true → RdC (CE η) b := by
     intro t u μ hp hc haf ho
@@ -173,9 +190,13 @@ theorem load_rdC {p : Prog} {g : G} {ρ : Nat → Nat} {η : TEnv} {σs : List T
   cases hop with
   | loadOwn hp _ hc haf hbind => exact own hp hc haf (bind_opaqueOK hbind)
   | loadPub hp _ hc haf _ hbind => exact own hp hc haf (bind_opaqueOK hbind)
-  | loadRgn hp _ hc => exact absurd hc (hsc _ hp _ _)
-  | loadCap hp _ hc => exact absurd hc (hsc _ hp _ _)
-  | loadTorn hp _ hc => exact absurd hc (hsc _ hp _ _)
+  -- (torn option iii) a region-cell load, held or torn: `ruleA` gives an opaqueOK, arrFree,
+  -- non-affine adapted payload (`hra`); `adapt r u = u` (`hadL`)
+  | loadRgn hp hnw hc | loadCap hp hnw hc | loadTorn hp hnw hc =>
+      obtain ⟨hoq, harr, haff⟩ := hra _ _ _ hp hnw hc
+      have hau := hadL hp hc (by rw [TermC1.arrFree_adapt]; exact harr)
+      rw [hau] at haff
+      exact own hp hc haff hoq
   | @loadWord _ _ _ _ tw rP hp hw hg _ =>
       obtain ⟨μ, ht⟩ := wordOf_cases hw
       obtain ⟨c, n, hsto, hat⟩ := word_tgt hi.2.1 hp ht hea hb0
@@ -274,13 +295,16 @@ theorem pair_rdC {E : TEnv} {b : Address} (h : WordUnit E b ∨ EPairUnit E b) :
 theorem op_rdC {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {ρ : Nat → Nat} {η : TEnv}
     {K : TEnv → List Word → Prop} {cx c' : Cx} {x : String} {op : Op} {b : Address}
     (hop : OpT p cx x op c') (hsc : OpScope cx op ∨ OpScopeR th.σs cx op)
+    (hra : ∀ acq a, op = .load acq a →
+      ∀ t r u, cx.peek a = .ok t → wordOf t = none → cellOf t = some (.rgn r, u) →
+      cx.opaqueOK u = true ∧ u.arrFree = true ∧ Ty.affineIn cx.ke (adapt r u) = false)
     (hi : FInv ρ η th.σs K cx th.env) (hE : EnvOK p η) (htv : TvOK cx)
     (hm : MemInv g (CE η) (stOf mem pairs th)) (hrd : RdOp g th.env (stOf mem pairs th) op b) :
     RdC (CE η) b := by
   cases op
   case load acq a =>
     rcases hsc with h | h
-    · exact load_rdC hop h hi hE htv hrd
+    · exact load_rdC hop h (hra acq a rfl) hm hi hE htv hrd
     · simp only [OpScopeR] at h
   case ldp acq a n0 n1 =>
     obtain ⟨rt, pw, b0, j, hea, -, hb0, hj, hb⟩ := hrd
@@ -318,7 +342,8 @@ theorem op_rdC {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {�
 /-- **The step-level typed classification.** -/
 theorem tstep_rdC {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {ρ : Nat → Nat} {η : TEnv}
     {K : TEnv → List Word → Prop} {cx : Cx} {r : Memory × List Ts × TTh} {b : Address}
-    (hE : EnvOK p η) (hT : Typed p cx th.term) (htv : TvOK cx) (hi : FInv ρ η th.σs K cx th.env)
+    (hE : EnvOK p η) (hT : Typed p cx th.term) (hCk : TermA4.CkW p η.wit cx th.term) (htv : TvOK cx)
+    (hi : FInv ρ η th.σs K cx th.env)
     (hm : MemInv g (CE η) (stOf mem pairs th)) (hsc : StepScope cx th.term ∨ StepScopeR th.σs cx th.term)
     (h : r ∈ tstep g mem pairs th)
     (h1 : th.vs.coh b < r.2.2.vs.coh b) (h2 : r.2.2.vs.coh b < mem.size) (h3 : r.2.2.vs.coh b ∉ th.promises) :
@@ -326,9 +351,14 @@ theorem tstep_rdC {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
   rcases tstep_rd h (MemInv_promLt hm) h1 h2 h3 with ⟨x, op, e, hterm, hrd⟩ | ⟨a, x, e1, y, e2, hterm, hB⟩ |
       ⟨acq, rel, w, e, v, tn, ok, fail, t, pw, hterm, hea, hb⟩ |
       ⟨acq, rel, w, e0, e1, v0, v1, tn, ok, fail, t, pw, b0, hterm, hea, hb0, hb⟩
-  · rw [hterm] at hT hsc
-    cases hT with
-    | let_ hop _ => exact op_rdC hop hsc hi hE htv hm hrd
+  · -- (torn option iii) a region-cell load, held or torn: `ruleA` from `checkW`
+    rw [hterm] at hsc hCk
+    obtain ⟨c, -, hop, -, -, -⟩ := TermA4.CkW_let hCk
+    refine op_rdC hop hsc ?_ hi hE htv hm hrd
+    intro acq a he t r u hpk hnw hcl
+    subst he
+    have hA := TermC1.rgnLoad_ruleA hCk.1 hpk hnw hcl
+    exact ⟨hA.1, hA.2, TermC1.rgnLoad_notAff hCk.1 hpk hnw hcl⟩
   · rw [hterm] at hT
     cases hT with
     | case hu _ _ _ _ => exact .inr (.inr (.inr (box_none hE hi htv hm hu hB)))
@@ -347,7 +377,8 @@ theorem tstep_rdC {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
 /-- **ReadCls, step form.** -/
 theorem tstep_readCls {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {ρ : Nat → Nat}
     {η : TEnv} {K : TEnv → List Word → Prop} {cx : Cx} {r : Memory × List Ts × TTh} {b : Address} {cl : Cell}
-    (hE : EnvOK p η) (hT : Typed p cx th.term) (htv : TvOK cx) (hi : FInv ρ η th.σs K cx th.env)
+    (hE : EnvOK p η) (hT : Typed p cx th.term) (hCk : TermA4.CkW p η.wit cx th.term) (htv : TvOK cx)
+    (hi : FInv ρ η th.σs K cx th.env)
     (hm : MemInv g (CE η) (stOf mem pairs th)) (hsc : StepScope cx th.term ∨ StepScopeR th.σs cx th.term)
     (h : r ∈ tstep g mem pairs th)
     (hsto : (CE η).sto b.label = some cl) (ho : cl.owner = some η.tid) (hclo : Clo cl.ty)
@@ -355,7 +386,7 @@ theorem tstep_readCls {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : 
     (h1 : th.vs.coh b < r.2.2.vs.coh b) (h2 : r.2.2.vs.coh b < mem.size) (h3 : r.2.2.vs.coh b ∉ th.promises) :
     ∃ q U us, TermPiece.Piece cl.ty q U ∧ accs U = some us ∧ q ≤ b.offset ∧ b.offset < q + nWords us ∧
       Ty.affine U = false := by
-  rcases tstep_rdC hE hT htv hi hm hsc h h1 h2 h3 with ⟨b0, us, j, hca, hj, hb⟩ | hw | hp | hn
+  rcases tstep_rdC hE hT hCk htv hi hm hsc h h1 h2 h3 with ⟨b0, us, j, hca, hj, hb⟩ | hw | hp | hn
   · obtain ⟨vals, hc, -, -⟩ := hm.2.1 b.label cl hsto ho
     exact readAt_goal hc hclo hmg hsto hca hj hb
   · exact absurd hw hnw
@@ -397,7 +428,7 @@ theorem tctx_readCls (hsc : StepScopeF p k arch Sp Init MintOK c0) : ReadClsFE p
   have hst : ∀ l, (CE η2).sto l = (CE η).sto l := fun l => by rw [Y.1, hce2]; rfl
   have hsG : Eg.sto b.label = some cl := cutSto_sub (by rw [Y.1] at hsto; exact hsto)
   have ho2 : cl.owner = some η2.tid := by rw [Y2.2.1]; exact ho
-  exact tstep_readCls hE2 hT2.1 htv2 hFi hm hs0 X.hr (by rw [hst]; exact hsto) ho2 (X.inv.clo _ _ hsG)
+  exact tstep_readCls hE2 hT2.1 hT2.2 htv2 hFi hm hs0 X.hr (by rw [hst]; exact hsto) ho2 (X.inv.clo _ _ hsG)
     (X.inv.cmg _ _ hsG) (fun hw => hnw ((WordUnit_congr (hst _)).1 hw))
     (fun hp => hne ((EPairUnit_congr (hst _)).1 hp)) h1 h2 h3
 

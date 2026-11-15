@@ -25,14 +25,15 @@ open Scc
 
 /-- The pipeline of `scc --arch arm` on a source text: the lowering (`Lower.lowerIR`), the
 emission at the configuration's GC witness (`Lower.A64.emitAll`) and its text with the GC
-tables' items (`Lower.A64.Emitted.listing`, which refuses where the tables' stage fails). -/
-def compile (cfg : Config) (src : String) : Except String String := do
+tables' items (`Lower.A64.Emitted.listing`, which refuses where the tables' stage fails), through the
+granule pass first with `granule` (`scc --granule`). -/
+def compile (cfg : Config) (src : String) (granule : Bool := false) : Except String String := do
   let c ← match Frontend.run src with
     | .ok c => pure c
     | .error ds => throw (String.intercalate "\n" (ds.map (·.render "input")))
   let l ← Lower.lowerIR cfg c.prog
   let e ← Lower.A64.emitAll l cfg.gcWit
-  return (← e.listing).text
+  return (← e.listing granule).text
 
 /-- **The GC tables' ranked witness scc computes** for a source text: `Scc.Cert.MapsA64.gcWitness`
 on the lowering and the emitter's items at `cfg` (whose own witness it does not read). The
@@ -46,9 +47,10 @@ def gcWitOf (cfg : Config) (src : String) : Except String Scc.Cert.Maps.GcWit :=
   let (its, _) ← Emit.A64.emitItemsMaps l.ir
   Scc.Cert.MapsA64.gcWitness l.ir its
 
-/-- The reproducibility check: `src` compiles to exactly `asm`. -/
-def reproduces (cfg : Config) (src asm : String) : Bool :=
-  match compile cfg src with
+/-- The reproducibility check: `src` compiles to exactly `asm` (through the granule pass with
+`granule`, `scc --granule`). -/
+def reproduces (cfg : Config) (src asm : String) (granule : Bool := false) : Bool :=
+  match compile cfg src granule with
   | .ok t => t == asm
   | .error _ => false
 

@@ -115,14 +115,14 @@ theorem plantRoot {c : Cfg} {Eg : GEnv} {j : Nat} {th : TTh} {a : Address} {v : 
     (hl : PlantL c Eg j th a v w l) :
     ∃ t b a' g wt ca cr, (t = c.mem.size ∨ t ∈ th.promises) ∧
       (promise c j a v w).mem[t]? = some ⟨b, .loc a' g, wt⟩ ∧ a'.label = l ∧
-      (cutP Eg j).sto b.label = some ca ∧ Ty.noOwnIn [] ca.ty = true ∧ rgnFree ca.ty = true ∧
+      (cutP Eg j).sto b.label = some ca ∧ Ty.noOwnIn [] ca.ty = true ∧
       (cutP Eg j).sto l = some cr ∧ wt < c.mem.size := by
-  obtain ⟨l', -, t, ht, m, hm, hml, ⟨ca, hca, hno, hrf⟩, a', g, hv, hal, cr, hcr, -, -⟩ := hl
+  obtain ⟨l', -, t, ht, m, hm, hml, ⟨ca, hca, hno⟩, a', g, hv, hal, cr, hcr, -, -⟩ := hl
   have hpm : (promise c j a v w).mem = c.mem.push ⟨a, v, w⟩ := by simp only [promise, hth]
   obtain ⟨b, mv, wt⟩ := m
   simp only at hv hml
   subst hv
-  refine ⟨t, b, a', g, wt, ca, cr, ?_, by rw [hpm]; exact hm, hal, by rw [hml]; exact hca, hno, hrf,
+  refine ⟨t, b, a', g, wt, ca, cr, ?_, by rw [hpm]; exact hm, hal, by rw [hml]; exact hca, hno,
     hcr, ?_⟩
   · rcases List.mem_append.1 ht with h | h
     · exact Or.inr h
@@ -397,7 +397,7 @@ edge), `plantE` changes only the planted labels and raises counts; (G-b) the G-0
 label is (gb2) `TermOwnG0.g0WinT_ofP` at its last plant edge (`plantRoot`) and the promiser's start
 witness (`rootH0P`), with the certificate's scope and `NoHoldPub` from the raw run facts `hS`/`hWn`. -/
 theorem runAgreeF2_of {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {MintOK : Res → Prop} {c0 : Cfg} (hV0 : TermViewInv.ViewInvR p k arch Sp c0)
-    (h0 : TermPlantF.PromViewLtR p k arch Sp c0) (_hk : k.storeDepRts = true) (hP : ProgT p) [ProgRetIall p] [TermTyped.WrIniC]
+    (h0 : TermPlantF.PromViewLtR p k arch Sp c0) (_hk : k.storeDepRts = true) (hP : ProgT p) [ProgRetIall p] [TermA4.ProgCkWC p] [TermTyped.WrIniC]
     (hS : TermCertScope.CertScopeP p k arch Sp Init MintOK c0) (hWn : TermCertScope.CertWinP p k arch Sp Init MintOK c0)
     (h : RunAgreeF3K p k arch Sp Init MintOK c0) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) : TermRunPay.RunAgreeF2 p k arch Sp Init MintOK c0 := by
   intro c Eg Tot HP HS cr db j th a v w X S c2 th2 E2 hs hc hth2 hext hmi hfb hIL hIH hPV hPO
@@ -414,13 +414,13 @@ theorem runAgreeF2_of {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res}
     have hpf : (cutP Eg j).pfr l = none := by
       obtain ⟨l', -, t, -, m, -, -, -, a', g, -, hal, cl1, -, -, hpf⟩ := hl
       subst hal; exact hpf
-    obtain ⟨t, b, a', g, wt, ca, cr0, -, hmt, ha, hca, hno, hrf, hcr, hwt⟩ := plantRoot X.hth X.hw hvl hl
+    obtain ⟨t, b, a', g, wt, ca, cr0, -, hmt, ha, hca, hno, hcr, hwt⟩ := plantRoot X.hth X.hw hvl hl
     obtain ⟨S0, hS0⟩ := X.inv.thr j th X.hth
     obtain ⟨E0, hE0e, hE0, h0P⟩ := rootH0P (cl := cr0) X hS0 hpf
     have hcr0 : E0.sto l = some cr0 := by rw [hE0]; exact hcr
     exact ⟨wt, hwt, TermOwnG0.g0WinT_ofP (hPS := hPS) (hSub := hSub) (hSig := hSig) hP (hS X) (TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw)
       (fun c1 h1 h2 => by rw [hE0e]; exact (hWn X).1 S0 hS0 c1 h1 h2) X.hth hpl hcr0
-      (TermCert.winInv_prom (TermCert.winInv_refl X.hth)) h0P hmt ha (by rw [hE0]; exact hca) hno hrf hcr0 (hTA := by rw [hE0e]; exact TermMain.tidAt_cut X.inv j S0)⟩
+      (TermCert.winInv_prom (TermCert.winInv_refl X.hth)) h0P hmt ha (by rw [hE0]; exact hca) hno hcr0 (hTA := by rw [hE0e]; exact TermMain.tidAt_cut X.inv j S0)⟩
   have hini : ∀ l, (Cut Eg j S).ini l ≤ (plantE (Cut Eg j S) (stOf c.mem c.pairs th) (PlantL c Eg j th a v w)).ini l :=
     fun l => by
       by_cases hl : PlantL c Eg j th a v w l
@@ -449,7 +449,7 @@ theorem runAgreeT2_of {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res}
 
 /-- The `RunAgree` field from `RunAgreeFT4`. -/
 theorem runAgreeFT3_of {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {MintOK : Res → Prop} {c0 : Cfg} (hV0 : TermViewInv.ViewInvR p k arch Sp c0)
-    (h0 : TermPlantF.PromViewLtR p k arch Sp c0) (hk : k.storeDepRts = true) (hP : ProgT p) [ProgRetIall p] [TermTyped.WrIniC]
+    (h0 : TermPlantF.PromViewLtR p k arch Sp c0) (hk : k.storeDepRts = true) (hP : ProgT p) [ProgRetIall p] [TermA4.ProgCkWC p] [TermTyped.WrIniC]
     (hS : TermCertScope.CertScopeP p k arch Sp Init MintOK c0) (hWn : TermCertScope.CertWinP p k arch Sp Init MintOK c0)
     (h : RunAgreeFT4 p k arch Sp Init MintOK c0) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) : TermRunPayT.RunAgreeFT3 p k arch Sp Init MintOK c0 :=
   ⟨runAgreeF2_of (hV0 := hV0) (hPS := hPS) (hSub := hSub) (hSig := hSig) h0 hk hP hS hWn (runAgreeF3K_of_F3 h.1),

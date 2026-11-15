@@ -6,12 +6,16 @@ CoreLang.Ty.tid : CoreLang.Ty
 CoreTerm.At : Type
 CoreTerm.At.var : String → CoreTerm.At
 CoreTerm.Decl : Type
+CoreTerm.Decl.argTy : CoreTerm.Decl → CoreLang.Ty
 CoreTerm.Decl.body : CoreTerm.Decl → CoreTerm.Expr
+CoreTerm.Decl.idx : CoreTerm.Decl → List String
+CoreTerm.Decl.name : CoreTerm.Decl → String
 CoreTerm.Expr : Type
 CoreTerm.Expr.let_ : String → CoreTerm.Op → CoreTerm.Expr → CoreTerm.Expr
 CoreTerm.Expr.tail : String → List String → CoreTerm.At → optParam (List CoreLang.Ty) [] → CoreTerm.Expr
 CoreTerm.Op : Type
 CoreTerm.Op.spawn : String → CoreTerm.At → CoreLang.Ty → optParam (List CoreLang.Ty) [] → CoreTerm.Op
+CoreTerm.Op.spawnI : String → List String → CoreTerm.At → CoreLang.Ty → optParam (List CoreLang.Ty) [] → CoreTerm.Op
 CoreTerm.Prog : Type
 Promises.Knobs : Type
 Promises.TVal.rts : Promises.TVal → WeakMem.Ts
@@ -34,14 +38,17 @@ TermRun.Step : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → TermRun.Cfg
 TermRun.TTh : Type
 TermRun.TTh.env : TermRun.TTh → TermRun.Env
 TermRun.TTh.nalloc : TermRun.TTh → Nat
+TermRun.TTh.permit : TermRun.TTh → Option WeakMem.Ts
 TermRun.TTh.promises : TermRun.TTh → List WeakMem.Ts
 TermRun.TTh.stack : TermRun.TTh → List TermRun.Frame
 TermRun.TTh.term : TermRun.TTh → CoreTerm.Expr
 TermRun.TTh.tidLbl : TermRun.TTh → Option WeakMem.AllocLabel
+TermRun.TTh.tys : TermRun.TTh → List (WeakMem.AllocLabel × CoreLang.Ty × Bool)
 TermRun.TTh.undefs : TermRun.TTh → Nat
 TermRun.TTh.vs : TermRun.TTh → WeakMem.VState
 TermRun.TTh.σs : TermRun.TTh → List CoreLang.Ty
 TermRun.Word : Type
+TermRun.close : List CoreLang.Ty → CoreLang.Ty → CoreLang.Ty
 TermRun.cst : WeakMem.Val → TermRun.Word
 TermRun.evalAt : TermRun.Env → CoreTerm.At → Option (CoreLang.Ty × List TermRun.Word)
 TermRun.fenceS : TermRun.St → WeakMem.Fence → TermRun.St
@@ -68,6 +75,17 @@ TermSpawnStep.Spawn : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → Nat 
         c.ths.size < cap →
           TermRun.evalAt th.env a = some (rt, ws) →
             TermSpawnStep.Spawn p k arch cap c (TermSpawnStep.spawnCfg c i th x e f ts T ws)
+  | TermSpawnStep.Spawn.mkI : ∀ {p : CoreTerm.Prog} {k : Promises.Knobs} {arch : WeakMem.Arch} {cap : Nat} {c : TermRun.Cfg} (i : Nat) (x f : String)
+  (is : List String) (a : CoreTerm.At) (T : CoreLang.Ty) (ts : List CoreLang.Ty) (e : CoreTerm.Expr) (th : TermRun.TTh)
+  (d : CoreTerm.Decl) (rt : CoreLang.Ty) (ws : List TermRun.Word),
+  c.ths[i]? = some th →
+    th.term = CoreTerm.Expr.let_ x (CoreTerm.Op.spawnI f is a T ts) e →
+      th.promises = [] →
+        c.ths.size < cap →
+          List.find? (fun x => x.name == f) p = some d →
+            TermRun.evalAt th.env a = some (rt, ws) →
+              TermSpawnStep.Spawn p k arch cap c
+                (TermSpawnStep.spawnT c i (TermSpawnStep.spawnPar c i th x e) (TermSpawnStep.spawnKidI c i th d ts ws))
 TermSpawnStep.StepsG : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → (TermRun.Cfg → TermRun.Cfg → Prop) → TermRun.Cfg → TermRun.Cfg → Prop
   | TermSpawnStep.StepsG.refl : ∀ {p : CoreTerm.Prog} {k : Promises.Knobs} {arch : WeakMem.Arch} {Sp : TermRun.Cfg → TermRun.Cfg → Prop}
   (c : TermRun.Cfg), TermSpawnStep.StepsG p k arch Sp c c
@@ -100,6 +118,8 @@ TermSpawnStep.opNoSpawn : CoreTerm.Op → Bool
   := fun x =>
   match x with
   | CoreTerm.Op.spawn f a T ts => false
+  | CoreTerm.Op.spawnI f is a T ts => false
+  | CoreTerm.Op.isTy a τ => true
   | x => true
 TermSpawnStep.spawnCfg : TermRun.Cfg →
   Nat → TermRun.TTh → String → CoreTerm.Expr → String → List CoreLang.Ty → CoreLang.Ty → List TermRun.Word → TermRun.Cfg
@@ -114,6 +134,17 @@ TermSpawnStep.spawnKid : TermRun.Cfg → Nat → TermRun.TTh → String → List
       { coh := __src.coh, vRd := __src.vRd, vWr := __src.vWr, vCtrl := __src.vCtrl, vPreBase := __src.vPreBase,
         vRelSt := __src.vRelSt, fwd := __src.fwd },
     tidLbl := some (TermSpawnStep.tidLabel c i th) }
+TermSpawnStep.spawnKidI : TermRun.Cfg → Nat → TermRun.TTh → CoreTerm.Decl → List CoreLang.Ty → List TermRun.Word → TermRun.TTh
+  := fun c i th d ts ws =>
+  { term := CoreTerm.Expr.tail d.name d.idx (CoreTerm.At.var "a") ts,
+    env :=
+      [("a", TermRun.close (List.map (TermRun.close []) ts).reverse d.argTy,
+          List.map (TermSpawn.bumpW (TermSpawnStep.spawnS c th).vs.vRelSt) ws)],
+    vs :=
+      have __src := (TermSpawnStep.spawnS c th).vs;
+      { coh := __src.coh, vRd := __src.vRd, vWr := __src.vWr, vCtrl := __src.vCtrl, vPreBase := __src.vPreBase,
+        vRelSt := __src.vRelSt, fwd := __src.fwd },
+    tidLbl := some (TermSpawnStep.tidLabel c i th) }
 TermSpawnStep.spawnPar : TermRun.Cfg → Nat → TermRun.TTh → String → CoreTerm.Expr → TermRun.TTh
   := fun c i th x e =>
   have __src := TermRun.withS th (TermSpawnStep.spawnS c th);
@@ -121,8 +152,10 @@ TermSpawnStep.spawnPar : TermRun.Cfg → Nat → TermRun.TTh → String → Core
     env :=
       (x, CoreLang.Ty.tid, [TermRun.cst (WeakMem.Val.loc { label := TermSpawnStep.tidLabel c i th, offset := 0 } 0)]) ::
         th.env,
-    σs := __src.σs, stack := __src.stack, vs := __src.vs, promises := __src.promises, nalloc := th.nalloc + 1,
-    undefs := __src.undefs, tidLbl := __src.tidLbl }
+    σs := __src.σs, stack := __src.stack, vs := __src.vs, promises := __src.promises,
+    nalloc := th.nalloc + if th.tidLbl = none then 2 else 1, undefs := __src.undefs,
+    tidLbl := th.tidLbl.orElse fun x => some (TermRun.freshLabel c.lbase c.n i (th.nalloc + 1)), permit := __src.permit,
+    tys := __src.tys }
 TermSpawnStep.spawnS : TermRun.Cfg → TermRun.TTh → TermRun.St
   := fun c th => TermRun.fenceS (TermRun.stOf c.mem c.pairs th) WeakMem.Fence.sy
 TermSpawnStep.spawnT : TermRun.Cfg → Nat → TermRun.TTh → TermRun.TTh → TermRun.Cfg

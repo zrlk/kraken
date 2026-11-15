@@ -143,7 +143,7 @@ theorem sysInvW_init {p : Prog} {k : Promises.Knobs} {arch : WeakMem.Arch} {Init
     obtain ⟨hp, hst, hv, ρ, cx, hT, htv, hFI, hD⟩ := hs.thr i th hth
     have hE : EnvOK p (Cut (Eg0 p) i S0) := ⟨rfl, Coh_CE (Cut (Eg0 p) i S0), CohR_CE (Cut (Eg0 p) i S0)⟩
     refine ⟨S0, ⟨ρ, Cut (Eg0 p) i S0, cx, .zero, .zero, rfl, hE, hT, htv, by rw [hst]; exact hFI,
-      Res.add_zero _, fun _ _ h => (by rw [hst] at h; cases h), hD⟩, ⟨ρ, Cut (Eg0 p) i S0, cx, rfl, hE, hT.1, htv, by rw [hst]; exact ⟨hFI.1, (fun _ _ h => by cases h), hD⟩⟩, ?_,
+      Res.add_zero _, fun _ _ h => (by rw [hst] at h; cases h), hD⟩, ⟨ρ, Cut (Eg0 p) i S0, cx, rfl, hE, hT, htv, by rw [hst]; exact ⟨hFI.1, (fun _ _ h => by cases h), hD⟩⟩, ?_,
       memHeldOn_init, memHeldOn_init, ?_⟩
     · show MemInv _ _ (stOf c0.mem c0.pairs th)
       rw [hs.mem, hs.pairs]
@@ -231,7 +231,7 @@ theorem envDRF_all {env : Env} {t : Expr} (h : ∀ e ∈ env, drf e.2.1 = true) 
     simp only [Option.map_some, Option.some.injEq] at hl
     have := h e (List.mem_of_find?_eq_some hf)
     rw [hl] at this
-    exact this
+    exact TermC1.drf1_of_drf _ this
 
 /-- **`RunScope` initially** (T1's initial hypothesis): every thread's term
 passes `allOK`, its type arguments and environment types are `drf`, and its
@@ -252,7 +252,10 @@ theorem runDRF_spawn {c0 : Cfg}
     RunScope c0 := by
   refine runDRF_init fun i th hth => ?_
   obtain ⟨f, ts, t, ws, h1, h2, h3, h4, h5, h6⟩ := h i th hth
-  refine ⟨by rw [h1]; exact h5, ?_, ?_, h4⟩
+  refine ⟨by
+      rw [h1]; simp only [allOK, Bool.and_eq_true, List.all_eq_true] at h5 ⊢
+      exact ⟨fun x hx => TermC1.drf1_of_drf _ (h5 x hx), fun x hx => TermScope.rgnFree_of_drf _ (h5 x hx)⟩,
+    ?_, ?_, h4⟩
   · rw [h3]; intro σ hσ; cases hσ
   rw [h2]
   intro e he

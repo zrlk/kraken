@@ -51,7 +51,7 @@ structure GLT (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → Cfg �
   hGW : GranuleW Eg.sto c.mem c.pairs
   hLay : ∀ l cl, Eg.sto l = some cl → LayT cl.ty
   hsc : TermTyped.ScopeOK p th
-  hdrf : TermScope.ThScope th
+  hdrf : TermScope.ThScopeI th
   hps : TermScope.ProgScopeOK p = true
   hPT : ProgT p
   hFBP : TermFootBP0.FootBP { gOf p k arch c i with pf := fun l => TermOwnG0Defs.PubAt th l } E' th r
@@ -82,14 +82,17 @@ theorem le_sum_mem {x : Nat} {L : List Nat} (h : x ∈ L) : x ≤ L.sum := by
 
 theorem pubAt_uniq {th : TTh} {a1 a2 : AllocLabel} (h1 : TermOwnG0Defs.PubAt th a1)
     (h2 : TermOwnG0Defs.PubAt th a2) : a1 = a2 := by
-  obtain ⟨y, x1, e, rt, ws, ad, ht, hev, hws, hl⟩ := h1
-  obtain ⟨y', x2, e', rt', ws', ad', ht', hev', hws', hl'⟩ := h2
+  obtain ⟨y, x1, e, rt, ws, ad, ht, hl⟩ := h1
+  obtain ⟨y', x2, e', rt', ws', ad', ht', hl'⟩ := h2
+  have hy : y = y' := by
+    rcases ws with ⟨z, e1, h⟩ | ⟨r, pn, tn, e1, h⟩ | ⟨z, r, e1, h⟩ <;>
+      rcases ws' with ⟨z2, e2, h2⟩ | ⟨r2, pn2, tn2, e2, h2⟩ | ⟨z2, r2, e2, h2⟩ <;>
+      rw [h] at h2 <;> cases h2 <;> rfl
+  subst hy
+  rw [ad] at ad'
+  cases ad'
   rw [ht] at ht'
   cases ht'
-  rw [hev] at hev'
-  cases hev'
-  rw [hws] at hws'
-  cases hws'
   rw [← hl, ← hl']
 
 theorem exists_free (th : TTh) (mem : Memory) : ∃ a, ¬ TermOwnG0Defs.PubAt th a ∧
@@ -355,9 +358,9 @@ theorem ptrRtsG_T
     have htl : t < c.mem.size := H.X.inv.plt j thj t hq (tminOf_spec ht).1
     rcases Nat.lt_or_ge u c.mem.size with hlt | hge
     · have hm0 : c.mem[u]? = some m := (tctx_pre H.X u hlt).symm.trans hu
-      obtain ⟨⟨ca, hca, h1, h2⟩, h3⟩ := hE
+      obtain ⟨⟨ca, hca, h1⟩, h3⟩ := hE
       rw [msgStoKeep H hlt hu] at hca
-      exact hM u m hm0 ⟨⟨ca, hca, h1, h2⟩, h3⟩ hnp
+      exact hM u m hm0 ⟨⟨ca, hca, h1⟩, h3⟩ hnp
     · exact Nat.le_of_lt (Nat.lt_of_lt_of_le htl hge)
 
 /-- A label no promise of `th` names, `th` does not publish, not fresh in the step, and no box. -/
@@ -493,7 +496,7 @@ theorem ptrRtsGL_thread (hK : PtrRtsThreadGL p) (hk : k.storeDepRts = true)
     (hPfrP : PfrG { gOf p k arch c i with pf := fun l => TermOwnG0Defs.PubAt th l } (CE η) E')
     (hNCE : FootNCE (CE η) E' r) (hG : PtrRtsGL Eg Tot HP c) (hGW : GranuleW Eg.sto c.mem c.pairs)
     (hLay : ∀ l cl, Eg.sto l = some cl → LayT cl.ty) (hsc : TermTyped.ScopeOK p th)
-    (hdrf : TermScope.ThScope th) (hps : TermScope.ProgScopeOK p = true) (hPT : ProgT p)
+    (hdrf : TermScope.ThScopeI th) (hps : TermScope.ProgScopeOK p = true) (hPT : ProgT p)
     (hFBP : TermFootBP0.FootBP { gOf p k arch c i with pf := fun l => TermOwnG0Defs.PubAt th l } E' th r)
     (hRP : RetPw th.σs th.stack cx.ret) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) (hBP : BoxPlantSep Eg Tot HP c) :
     PtrRtsGL (EgT Eg (gOf p k arch c i) th.nalloc r.2.2.nalloc E' c') (upd Tot i Tot') (upd HP i HP') c' :=

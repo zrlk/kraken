@@ -73,7 +73,7 @@ theorem refAt {η₁ η₂ : TEnv} (hm : MergeOKQ cp f σ η₁ η₂) {μ : Mod
     {c : Cell} {ws : List Word} (bk : Cell → Prop)
     (hv : ws.map (·.val) = [.loc a g]) (hs : η₁.sto a.label = some c)
     (hmo : ModeOK η₁.tid η₁.pfr η₁.seen μ a.label c ws)
-    (flag : ∀ c₂, c₂.ty = c.ty → cp a.label → μ = .pub → η₁.ini a.label ≤ η₂.rc (f a.label) → bk c₂) :
+    (flag : ∀ c₂, c₂.ty = c.ty → cp a.label → μ ≠ .own → η₁.ini a.label ≤ η₂.rc (f a.label) → bk c₂) :
     ∃ c₂, η₂.sto (f a.label) = some c₂ ∧ c₂.ty = c.ty ∧
       ModeOKb η₂.tid η₂.pfr η₂.seen (False ∨ bk c₂) μ (f a.label) c₂ (ws.map (rl f)) ∧
       modeIni μ η₁.ini η₁.rini a.label ≤ modeIni μ η₂.ini η₂.rini (f a.label) ∧
@@ -83,18 +83,16 @@ theorem refAt {η₁ η₂ : TEnv} (hm : MergeOKQ cp f σ η₁ η₂) {μ : Mod
     have hle : η₁.ini a.label ≤ η₂.ini (f a.label) := Nat.le_trans (hm.inil _ hcp) (Nat.min_le_left _ _)
     cases μ with
     | own => simp only [ModeOK] at hmo; rw [ho] at hmo; cases hmo
-    | pub =>
+    | pub | rgn _ =>
       obtain ⟨q, hq⟩ := hm.pfrl _ hcp
-      exact ⟨c₂, hs2, hty.symm, ⟨q, hq, Or.inr (Or.inr ⟨ho2, Or.inr (flag c₂ hty.symm hcp rfl (hm.inil _ hcp))⟩)⟩,
-        hle, rfl⟩
-    | rgn r => exact ⟨c₂, hs2, hty.symm, trivial, hle, rfl⟩
+      exact ⟨c₂, hs2, hty.symm, ⟨q, hq, Or.inr (Or.inr ⟨ho2, Or.inr (flag c₂ hty.symm hcp (fun e => by cases e)
+        (hm.inil _ hcp))⟩)⟩, hle, rfl⟩
   · refine ⟨c, hm.sto _ _ hcp hs, rfl, ?_, ?_, ownW_sw hm.fσ hm.σf μ ws ?_⟩
     · cases μ with
       | own => simp only [ModeOK] at hmo; simp only [ModeOKb]; rw [hmo, hm.tid]
-      | pub =>
+      | pub | rgn _ =>
         obtain ⟨q, hq, h⟩ := hmo
         exact ⟨q, hm.pfr _ _ hcp hq, h.imp (hm.seen _ hcp) (fun hv => Or.inl (mem_map_rl_view hv))⟩
-      | rgn r => trivial
     · have h1 := hm.ini _ hcp; have h2 := hm.rini _ hcp
       cases μ <;> simp only [modeIni] <;> omega
     · intro _ a' g' hv'; rw [hv] at hv'; simp at hv'; rw [← hv'.1]

@@ -485,6 +485,7 @@ TermRun.evalOp : TermRun.G →
         (TermRun.lookupE env y))
   | CoreTerm.Op.call f is a ts => []
   | CoreTerm.Op.spawn f a T ts => []
+  | CoreTerm.Op.spawnI f is a T ts => []
   | CoreTerm.Op.ext n a => []
   | CoreTerm.Op.borrow c t => [(s, CoreLang.Ty.cap c (CoreLang.Idx.lit 0), [])]
   | CoreTerm.Op.freeze t => [(s, CoreLang.Ty.cap CoreLang.Cap.frz (CoreLang.Idx.lit 0), [])]

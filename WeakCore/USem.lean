@@ -369,6 +369,14 @@ def uSpawnCfg (c : UCfg) (i : Nat) (th : UTTh) (x : String) (e : UExpr) (j : Nat
   let kid := fromCore0 (spawnKid (toCoreCfg c) i (toCoreTh th) f ts T ws) (.tail f [] (.at (.var "a")) ts)
   { c with ths := (c.ths.set! i par).push kid }
 
+/-- The spawn move of thread `i` at an instantiated spawn (`spawnI`), through the core's
+`spawnPar`/`spawnKidI` on the image; the child starts at the callee's tail call. -/
+def uSpawnCfgI (c : UCfg) (i : Nat) (th : UTTh) (x : String) (e : UExpr) (j : Nat) (d : Decl) (ts : List Ty)
+    (ws : List Word) : UCfg :=
+  let par := backTh th (spawnPar (toCoreCfg c) i (toCoreTh th) x S0) e j
+  let kid := fromCore0 (spawnKidI (toCoreCfg c) i (toCoreTh th) d ts ws) (.tail d.name d.idx (.at (.var "a")) ts)
+  { c with ths := (c.ths.set! i par).push kid }
+
 def uNoPromises (c : UCfg) (i : Nat) : Bool := (c.ths[i]?.map (·.promises.isEmpty)).getD true
 
 /-- Steps of thread `i` alone, promises included (`Solo`'s rules). -/
@@ -394,6 +402,11 @@ inductive USpawn (U : UProg) (k : Promises.Knobs) (arch : Arch) (cap : Nat) : UC
       c.ths[i]? = some th → layer th.ctr th.term = .letOp x (.spawn f a T ts) j e → th.promises = [] →
       c.ths.size < cap → evalAt th.env a = some (rt, ws) →
       USpawn U k arch cap c (uSpawnCfg c i th x e j f ts T ws)
+  | mkI {c : UCfg} (i : Nat) (x f : String) (is : List String) (a : At) (T : Ty) (ts : List Ty) (j : Nat)
+      (e : UExpr) (th : UTTh) (d : Decl) (rt : Ty) (ws : List Word) :
+      c.ths[i]? = some th → layer th.ctr th.term = .letOp x (.spawnI f is a T ts) j e → th.promises = [] →
+      c.ths.size < cap → (elabProg U).find? (·.name == f) = some d → evalAt th.env a = some (rt, ws) →
+      USpawn U k arch cap c (uSpawnCfgI c i th x e j d ts ws)
 
 /-- The extern step (`Ext`'s rule), at an extern layer. -/
 inductive UExt (U : UProg) (k : Promises.Knobs) (arch : Arch) : UCfg → UCfg → Prop

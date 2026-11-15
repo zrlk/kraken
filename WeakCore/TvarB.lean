@@ -66,8 +66,12 @@ theorem ModeOKb_seen {i P} {S S' : WeakMem.AllocLabel → Prop} {bk μ l c ws} (
     (h : ModeOKb i P S bk μ l c ws) : ModeOKb i P S' bk μ l c ws := by
   cases μ with
   | own => exact h
-  | pub => obtain ⟨f, hf, h⟩ := h; exact ⟨f, hf, h.imp_left (hS l)⟩
-  | rgn _ => trivial
+  | pub | rgn _ => obtain ⟨f, hf, h⟩ := h; exact ⟨f, hf, h.imp_left (hS l)⟩
+
+/-- P1 twin (`ModeOKbLoc`). -/
+theorem ModeOKbLoc.seen {i P} {S S' : WeakMem.AllocLabel → Prop} {bk μ l c ws} (hS : ∀ l, S l → S' l)
+    (h : ModeOKbLoc i P S bk μ l c ws) : ModeOKbLoc i P S' bk μ l c ws :=
+  ModeOKbLoc.lift (ModeOKb_seen (μ := .own) hS) (ModeOKb_seen (μ := .pub) hS) id h
 
 theorem VRz_seen (t : Ty) : ∀ (ρ : Nat → Nat) (η : TEnv) (S' : WeakMem.AllocLabel → Prop) (bk : Prop)
     (rt : Shp) (ws : List Word), (∀ l, η.seen l → S' l) →
@@ -111,7 +115,7 @@ theorem VRz_seen (t : Ty) : ∀ (ρ : Nat → Nat) (η : TEnv) (S' : WeakMem.All
     intro ρ η S' bk rt ws hS h; simp only [VRz] at h ⊢
     rcases h with h | ⟨a, c, U, h1, h2, h3, h4, hm, h5⟩
     · exact Or.inl h
-    · exact Or.inr ⟨a, c, U, h1, h2, h3, h4, ModeOKb_seen hS hm, h5⟩
+    · exact Or.inr ⟨a, c, U, h1, h2, h3, h4, ModeOKbLoc.seen hS hm, h5⟩
   | tex κ b ih =>
     intro ρ η S' bk rt ws hS h; simp only [VRz] at h ⊢
     obtain ⟨n, rb, s, hrt, hc, hw, hv⟩ := h

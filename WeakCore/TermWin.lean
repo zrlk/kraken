@@ -42,7 +42,7 @@ theorem winM_of (hrun : TermCohLe.CertRunC p k arch Sp Init MintOK c0) :
   have hFi : FInv ρ1 η1 th.σs (Resume p th.stack) cx1 th.env :=
     FInvR_FInv (htv.2.2.2.2.2.2.2)
       (fun E rd ws R h => ResumeR_Resume (fun _ h => h.2.2.2.2.2.2.2) th.stack Rs1 E rd ws R h) hF
-  exact hw ρ1 η1 cx1 hE hT.1 htv hFi hm (Ext_refl (Coh_CE η1) (CohR_CE η1)) hA.1 hA.2.2.1 hTy hDy hrp
+  exact hw ρ1 η1 cx1 hE hT htv hFi hm (Ext_refl (Coh_CE η1) (CohR_CE η1)) hA.1 hA.2.2.1 hTy hDy hrp
 
 end
 

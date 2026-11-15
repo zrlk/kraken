@@ -97,7 +97,7 @@ theorem ownXStep_k1 {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {x :
   have hFI0 : FInv ρ η th0.σs (Resume p th0.stack) cx th0.env :=
     FInvR_FInv htv.2.2.2.2.2.2.2
       (fun E rd ws R h => ResumeR_Resume (fun _ h => h.2.2.2.2.2.2.2) th0.stack Rs E rd ws R h) hFI
-  have hR := scopeR_of_pkg1 hTy.1 hq (hsc th0 hth (TermTyped.not_spawnT_of_steps hth hs) ρ η cx hE hTy.1 htv hFI0)
+  have hR := scopeR_of_pkg1 hTy.1 hq (hsc th0 hth (TermTyped.not_spawnT_of_steps hth hs) ρ η cx hE hTy htv hFI0)
   obtain ⟨th1, r, hth1, hr, e1, e2, e3, -⟩ := threadSteps_inv hs
   obtain rfl : th1 = th0 := Option.some.inj (hth1.symm.trans hth)
   obtain ⟨Tot', hT', hts⟩ := (tstepR_step (hDy := hDy) hP rfl (tstep_notDone hr) hR hTy.1 hTy.2 hFI hE htv hRP hPS hSub hSig).2 r hr

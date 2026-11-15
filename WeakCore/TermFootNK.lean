@@ -116,8 +116,10 @@ theorem tstepMCF_stepKN {Sp : AllocLabel → List Res} {p : Prog} {g : G} {mem :
     (hH : MemHeldL (CE η) (stOf mem pairs th) H Sp)
     (hpx : PAx g mem pairs th) (hC : PromCr (CE η) (stOf mem pairs th) cr db)
     (hia : StoreIall ρ η cx th)
-    (hdw : StoreCrZ η cx (stOf mem pairs th) th) (hnvp : OwnOpT cx th.term → OwnNVPF (CE η) (stOf mem pairs th))
-    (hnp : ∀ x a e, th.term ≠ .let_ x (.publish a) e)
+    (hdw : StoreCrZ η cx (stOf mem pairs th) th)
+    (hxni : XchgNI (CE η) (stOf mem pairs th) th) (hxia : XchgIall ρ η cx th) (hnvp : OwnOpT cx th.term → OwnNVPF (CE η) (stOf mem pairs th))
+    (hnp : ∀ x a e, th.term ≠ .let_ x (.publish a) e) (hnr : ∀ a rn pn tn e, th.term ≠ .region a rn pn tn e)
+    (hnir : ∀ x r a e, th.term ≠ .let_ x (.intoRgn r a) e)
     (hfo : FpOK (CE η) (stOf mem pairs th)) (hRF : OwnFrontierRMWT (CE η) (stOf mem pairs th) th.term) (hrmw : NoPlantRMW (CE η) th) (hbf : g.boxFence = true)
     (hRP : RetPw th.σs th.stack cx.ret) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) (hTy : TyOKE g (CE η)) (hZ : ZOK g (CE η) th := by exact fun _ _ h => False.elim h) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
     tstep g mem pairs th ≠ [] ∧ ∀ r ∈ tstep g mem pairs th, PromAbove (stOf r.1 r.2.1 r.2.2) → ∃ Tot H' C F,
@@ -126,7 +128,7 @@ theorem tstepMCF_stepKN {Sp : AllocLabel → List Res} {p : Prog} {g : G} {mem :
         Rf + Rs + H + pSum (stOf mem pairs th) cr + pSum (stOf r.1 r.2.1 r.2.2) db + F := by
   by_cases hAl : AllocT th.term
   rotate_left
-  · have h0 := tstepMCF_stepK (hDy := hDy) (hZ := hZ) hP hp hn hnd hsc hT hCk hi hE htv hm hH hpx hC hia hdw hnvp hnp hfo hRF hrmw hbf hRP hPS hSub hSig hTy
+  · have h0 := tstepMCF_stepK (hxni := hxni) (hxia := hxia) (hDy := hDy) (hZ := hZ) hP hp hn hnd hsc hT hCk hi hE htv hm hH hpx hC hia hdw hnvp hnp hnr hnir hfo hRF hrmw hbf hRP hPS hSub hSig hTy
     refine ⟨h0.1, fun r hr hpa => ?_⟩
     obtain ⟨Tot, H', C, F, h1, h2⟩ := h0.2 r hr hpa
     exact ⟨Tot, H', C, F, mcfs_addFoot h1 (Nat.le_of_eq (tstep_nalloc hAl r hr)), h2⟩
@@ -161,9 +163,10 @@ theorem tstepMCF_stepTKA_zfN {p : Prog} {g : G} {mem : Memory} {pairs : List Ts}
     (hpx : PAx g mem pairs th) (hC : PromCrK (CE η) (stOf mem pairs th) cr db)
     (hia : StoreIall ρ η cx th)
     (hdw : StoreCrZ η cx (stOf mem pairs th) th)
+    (hxni : XchgNI (CE η) (stOf mem pairs th) th) (hxia : XchgIall ρ η cx th)
     (hwp : ∀ x a e rt ws ad, th.term = .let_ x (.publish a) e → evalAt th.env a = some (rt, ws) →
       ws.map (·.val) = [.loc ad 0] → FlipOK (CE η) (stOf mem pairs th) ad.label)
-    (hwin : PubWinT (CE η) (stOf mem pairs th) th)
+    (hwin : PubWinT (CE η) (stOf mem pairs th) th) (hrs : RgnSide (CE η) (stOf mem pairs th) g th)
     (hfo : FpOK (CE η) (stOf mem pairs th)) (hrmw : NoPlantRMW (CE η) th) (hbf : g.boxFence = true)
     {Ok : Memory × List Ts × TTh → Prop}
     (hpo : OwnFrOp (CE η) cx th → ∀ lab c, (CE η).sto lab = some c → c.owner = some (CE η).tid →
@@ -198,8 +201,8 @@ theorem tstepMCF_stepTKA_zfN {p : Prog} {g : G} {mem : Memory} {pairs : List Ts}
       (PubShape cx th → GdCovT (CE η) (stOf mem pairs th) (stOf r.1 r.2.1 r.2.2) Gd th) := by
   by_cases hAl : AllocT th.term
   rotate_left
-  · have h := tstepMCF_stepTKA_zf (hDy := hDy) (hz0 := hz0) (hPb := hPb) (Ok := Ok) hP hp hn hnd hsc hT hCk hi hE htv hm hH hpx hC hia
-      hdw hwp hwin hfo hrmw hbf hpo hni hclo hbi hRP hPS hSub hSig hTy hown1
+  · have h := tstepMCF_stepTKA_zf (hxni := hxni) (hxia := hxia) (hDy := hDy) (hz0 := hz0) (hPb := hPb) (Ok := Ok) hP hp hn hnd hsc hT hCk hi hE htv hm hH hpx hC hia
+      hdw hwp hwin hrs hfo hrmw hbf hpo hni hclo hbi hRP hPS hSub hSig hTy hown1
     refine ⟨h.1, fun r hr hpa hok => ?_⟩
     obtain ⟨Tot, H', C, F, cr', db', Gd, plh, ⟨E', hq, hF, hR⟩, hR2⟩ := h.2 r hr hpa hok
     exact ⟨Tot, H', C, F, cr', db', Gd, plh,
@@ -208,8 +211,11 @@ theorem tstepMCF_stepTKA_zfN {p : Prog} {g : G} {mem : Memory} {pairs : List Ts}
   have hO : ¬ OwnOpT cx th.term := by
     rintro (⟨x, e, ⟨a, v, h⟩ | ⟨b, i, v, h⟩ | ⟨b, i, q, v, h⟩ | ⟨b, wi, jl, v, h⟩ | ⟨b, i, v, h⟩ | ⟨b, i, v, h⟩⟩ |
       ⟨x, rel, a, v, tok, e, u, h, -⟩) <;> exact hne _ _ _ h
-  have hps : ¬ PubShape cx th := fun ⟨x, rel, a, v, tok, e, u, h, _⟩ => hne _ _ _ h
+  have hps : ¬ PubShape cx th := fun hq => hq.elim (fun ⟨_, _, _, _, _, _, _, h, _⟩ => hne _ _ _ h)
+    (fun ⟨_, _, _, _, _, _, h, _⟩ => hne _ _ _ h)
   have hnp : ∀ x a e, th.term ≠ .let_ x (.publish a) e := fun x a e h => hne _ _ _ h
+  have hnr : ∀ a rn pn tn e, th.term ≠ .region a rn pn tn e := fun a rn pn tn e h => by rw [h] at hAl; exact hAl
+  have hnir : ∀ x r a e, th.term ≠ .let_ x (.intoRgn r a) e := fun x r a e h => hne _ _ _ h
   have hnb : ∀ x b i v e, th.term ≠ .let_ x (.bufInit b i v) e := fun x b i v e h => hne _ _ _ h
   have hnopA : opAtomP th.term = none := by
     generalize th.term = t0 at hAl
@@ -223,8 +229,8 @@ theorem tstepMCF_stepTKA_zfN {p : Prog} {g : G} {mem : Memory} {pairs : List Ts}
     exact ⟨hlo, Nat.lt_of_lt_of_le hlo hzl.2⟩
   obtain ⟨Sp, hHL⟩ := hH.toS
   have hC' := PromCrP_drop hC.toP
-  have hK0 := tstepMCF_stepKN (hDy := hDy) (g := { g with zf := fun l => (CE η).pfr l ≠ none ∧ (CE η).ini l ≤ (CE η).rini l })
-    (hZ := hZ2) hP hp hn hnd hsc hT hCk hi hE htv hm hHL hpx hC' hia hdw (fun h => absurd h hO) hnp hfo
+  have hK0 := tstepMCF_stepKN (hxni := hxni) (hxia := hxia) (hDy := hDy) (g := { g with zf := fun l => (CE η).pfr l ≠ none ∧ (CE η).ini l ≤ (CE η).rini l })
+    (hZ := hZ2) hP hp hn hnd hsc hT hCk hi hE htv hm hHL hpx hC' hia hdw (fun h => absurd h hO) hnp hnr hnir hfo
     (fun h => absurd (Or.inl h) hO) hrmw hbf hRP hPS hSub hSig hTy
   have hV := repinCovU_stepK (g := { g with zf := fun l => (CE η).pfr l ≠ none ∧ (CE η).ini l ≤ (CE η).rini l })
     (mem := mem) (pairs := pairs) hsc hT hi hE htv hO hps
@@ -235,9 +241,9 @@ theorem tstepMCF_stepTKA_zfN {p : Prog} {g : G} {mem : Memory} {pairs : List Ts}
       mem pairs th r hr).prom
   obtain ⟨E', hq, hF, hR⟩ := (ThInvMCFSQK.mono (Q' := fun E' => BiOut th E' ∧
     KeepQRS (CE η) E' (stOf mem pairs th) (stOf r.1 r.2.1 r.2.2) th cr cr' (fun _ => .zero) ∧ FootNCE (CE η) E' r)
-    (fun E' hk => ⟨biOut_nb hnb, keepQRS_of_keepQ hk.2 (covS_nil (hV r hr E')) (fulP_nop hnopA) (rcKeepP_nop hnopA) (pubKeep_np hnp), hk.1⟩) hA).toFQK
+    (fun E' hk => ⟨biOut_nb hnb, keepQRS_of_keepQ hk.2 (covS_nil (hV r hr E')) (fulP_nop hnopA) (rcKeepP_nop hnopA) (pubKeep_np hnp hnr hnir), hk.1⟩) hA).toFQK
   refine ⟨Tot, H', C, F, cr', db, [], fun _ => .zero, ⟨E', ⟨hq.1, hq.2.1, hF.iniFixZ, hq.2.2⟩, efootDrop hz0 hF, hR⟩,
-    mintStepDrop h2, ClaimAtP.of_not hcl (fun x a e h => hnp x a e h), Drop_nil,
+    mintStepDrop h2, ClaimAtP.of_not hcl (fun x a e h => hnp x a e h) hnr hnir, Drop_nil,
     le_plh0 (G_nil (Res.le_def.2 fun k => ?_)), fun h => absurd h hps⟩
   have e1 := h3 k
   have e2 := hsw k

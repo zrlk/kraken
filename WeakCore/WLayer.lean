@@ -132,8 +132,10 @@ theorem store_uaIB {p : Prog} {g : G} {s : St} {ρ : Nat → Nat} {η : TEnv} {�
   | storePub hp _ hc _ hu' hsub _ _ =>
       exact cell_uaIB hi hE htv hp hc (sub_opaqueOK hsub
         (peek_opaqueOK htv (use_invB (ρ := ρ) (η := η) (σs := σs) (env := env) hu').1)) hea hcr hb hus
-  | storeRgn hp _ hc => exact absurd hc (hsc _ hp _ _)
-  | storeCap hp _ hc => exact absurd hc (hsc _ hp _ _)
+  -- a region cell's store (TermTyped `store_ua` pattern)
+  | storeRgn hp _ hc _ hu' _ hsub _ | storeCap hp _ hc _ hu' _ _ hsub _ =>
+      exact cell_uaIB hi hE htv hp hc (opaqueOK_subR
+        (peek_opaqueOK htv (use_invB (ρ := ρ) (η := η) (σs := σs) (env := env) hu').1) hsub) hea hcr hb hus
   | storeWordGive hp hw | storeWordKeep hp hw | storeWordHand hp hw =>
       obtain ⟨μ, ht⟩ := wordOf_cases hw
       rcases ht with rfl | rfl
@@ -162,7 +164,10 @@ theorem xchg_uaIB {p : Prog} {g : G} {s : St} {ρ : Nat → Nat} {η : TEnv} {σ
   cases hop with
   | xchg hp hx hu' hsub _ =>
       cases hx with
-      | rgn _ hc _ _ _ => exact absurd hc (hsc _ hp _ _)
+      -- (G2) a region cell's xchg: as `storeRgn`
+      | rgn _ hc _ _ _ =>
+          exact cell_uaIB hi hE htv hp hc (opaqueOK_subR
+            (peek_opaqueOK htv (use_invB (ρ := ρ) (η := η) (σs := σs) (env := env) hu').1) hsub) hea hcr hb hus
       | own _ hc _ =>
           exact cell_uaIB hi hE htv hp hc (sub_opaqueOK (hsub.elim id id)
             (peek_opaqueOK htv (use_invB (ρ := ρ) (η := η) (σs := σs) (env := env) hu').1)) hea hcr hb hus
@@ -424,10 +429,9 @@ theorem fetch_swIB {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh
   | fetchEpoch hp hw hep =>
       obtain ⟨μ, ht⟩ := wordOf_cases hw
       simp only at ht
-      obtain ⟨μ', u', ht', hμ'⟩ := hsc _ hp
-      have hμ := word_mode ht ht' hμ'
+      obtain ⟨μ', u', ht'⟩ := hsc _ hp
       exact tgt_swIB hi.2.1 hp ht hea hb
-        (by simp [cl, accs, pwf_epoch_ghost (wordRef_pwfB hp ht hμ hi hE htv hm) hep])
+        (by simp [cl, accs, pwf_epoch_ghost (wordRef_pwfB hp ht hi hE htv hm) hep])
   | fetchShare hp hw _ _ _ hok =>
       obtain ⟨μ, ht⟩ := wordOf_cases hw
       simp only at ht
@@ -469,10 +473,11 @@ theorem cas_swIB {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} 
   | casEpoch hp hw hep =>
       obtain ⟨μ, ht⟩ := wordOf_cases hw
       simp only at ht
-      rcases hsc _ hp with ⟨μ', r', P', ht', hμ'⟩ | ⟨u, -, hnw⟩
-      · have hμ := word_mode ht ht' hμ'
+      rcases hsc _ hp with ⟨μ', r', P', ht'⟩ | ⟨u, -, hnw⟩ | ⟨r'', u, -, hnw⟩
+      ·
         exact tgt_swIB hi.2.1 hp ht hea hb
-          (by simp [cl, accs, pwf_epoch_ghost (wordRef_pwfB hp ht hμ hi hE htv hm) hep])
+          (by simp [cl, accs, pwf_epoch_ghost (wordRef_pwfB hp ht hi hE htv hm) hep])
+      · rw [hw] at hnw; cases hnw
       · rw [hw] at hnw; cases hnw
 end
 end TermPlantF.Flat
@@ -646,8 +651,10 @@ theorem store_uaIB {p : Prog} {g : G} {s : St} {ρ : Nat → Nat} {η : TEnv} {�
   | storePub hp _ hc _ hu' hsub _ _ =>
       exact cell_uaIB hi hE htv hp hc (sub_opaqueOK hsub
         (peek_opaqueOK htv (use_invB (ρ := ρ) (η := η) (σs := σs) (env := env) hu').1)) hea hcr hb hus
-  | storeRgn hp _ hc => exact absurd hc (hsc _ hp _ _)
-  | storeCap hp _ hc => exact absurd hc (hsc _ hp _ _)
+  -- a region cell's store (TermTyped `store_ua` pattern)
+  | storeRgn hp _ hc _ hu' _ hsub _ | storeCap hp _ hc _ hu' _ _ hsub _ =>
+      exact cell_uaIB hi hE htv hp hc (opaqueOK_subR
+        (peek_opaqueOK htv (use_invB (ρ := ρ) (η := η) (σs := σs) (env := env) hu').1) hsub) hea hcr hb hus
   | storeWordGive hp hw | storeWordKeep hp hw | storeWordHand hp hw =>
       obtain ⟨μ, ht⟩ := wordOf_cases hw
       rcases ht with rfl | rfl
@@ -675,7 +682,10 @@ theorem xchg_uaIB {p : Prog} {g : G} {s : St} {ρ : Nat → Nat} {η : TEnv} {σ
   cases hop with
   | xchg hp hx hu' hsub _ =>
       cases hx with
-      | rgn _ hc _ _ _ => exact absurd hc (hsc _ hp _ _)
+      -- (G2) a region cell's xchg: as `storeRgn`
+      | rgn _ hc _ _ _ =>
+          exact cell_uaIB hi hE htv hp hc (opaqueOK_subR
+            (peek_opaqueOK htv (use_invB (ρ := ρ) (η := η) (σs := σs) (env := env) hu').1) hsub) hea hcr hb hus
       | own _ hc _ =>
           exact cell_uaIB hi hE htv hp hc (sub_opaqueOK (hsub.elim id id)
             (peek_opaqueOK htv (use_invB (ρ := ρ) (η := η) (σs := σs) (env := env) hu').1)) hea hcr hb hus
@@ -1005,10 +1015,9 @@ theorem fetch_swIB {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh
   | fetchEpoch hp hw hep =>
       obtain ⟨μ, ht⟩ := wordOf_cases hw
       simp only at ht
-      obtain ⟨μ', u', ht', hμ'⟩ := hsc _ hp
-      have hμ := word_mode ht ht' hμ'
+      obtain ⟨μ', u', ht'⟩ := hsc _ hp
       exact tgt_swIB hi.2.1 hp ht hea hb
-        (by simp [cl, accs, pwf_epoch_ghost (wordRef_pwfB hp ht hμ hi hE htv hm) hep])
+        (by simp [cl, accs, pwf_epoch_ghost (wordRef_pwfB hp ht hi hE htv hm) hep])
   | fetchShare hp hw _ _ _ hok =>
       obtain ⟨μ, ht⟩ := wordOf_cases hw
       simp only at ht
@@ -1049,10 +1058,11 @@ theorem cas_swIB {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} 
   | casEpoch hp hw hep =>
       obtain ⟨μ, ht⟩ := wordOf_cases hw
       simp only at ht
-      rcases hsc _ hp with ⟨μ', r', P', ht', hμ'⟩ | ⟨u, -, hnw⟩
-      · have hμ := word_mode ht ht' hμ'
+      rcases hsc _ hp with ⟨μ', r', P', ht'⟩ | ⟨u, -, hnw⟩ | ⟨r'', u, -, hnw⟩
+      ·
         exact tgt_swIB hi.2.1 hp ht hea hb
-          (by simp [cl, accs, pwf_epoch_ghost (wordRef_pwfB hp ht hμ hi hE htv hm) hep])
+          (by simp [cl, accs, pwf_epoch_ghost (wordRef_pwfB hp ht hi hE htv hm) hep])
+      · rw [hw] at hnw; cases hnw
       · rw [hw] at hnw; cases hnw
 end
 end TermB5.Flat
@@ -1116,7 +1126,7 @@ theorem stp_uaIPB {p : Prog} {ρ : Nat → Nat} {η : TEnv} {σs : List Ty} {K :
     TermPlantF.UnitsAtI η b [.two] := by
   have hp : ∃ t, cx.peek a = .ok t := by cases hop <;> exact ⟨_, ‹_›⟩
   obtain ⟨t', hp⟩ := hp
-  obtain ⟨μ, r, P, ht, -⟩ := hsc t' hp
+  obtain ⟨μ, r, P, ht⟩ := hsc t' hp
   exact pair_uaIPB hi.2.1 hp ht (.inl ⟨r, P, rfl⟩) hea hb
 end
 end TermAnch.Flat
@@ -1137,7 +1147,7 @@ theorem casp_uaIPB {p : Prog} {ρ : Nat → Nat} {η : TEnv} {σs : List Ty} {K 
     TermPlantF.UnitsAtI η A [.two] := by
   have hp : ∃ t, cx.peek w = .ok t := by cases hT <;> exact ⟨_, ‹_›⟩
   obtain ⟨t, hp⟩ := hp
-  obtain ⟨μ, u, ht, -, hu⟩ := hsc t hp
+  obtain ⟨μ, u, ht, hu⟩ := hsc t hp
   exact pair_uaIPB hi.2.1 hp ht hu hea hb
 end
 end TermAnch.Flat
@@ -1280,7 +1290,7 @@ theorem ptr_targetMB {bkG : Prop} {ρ : Nat → Nat} {η : TEnv} {σs : List Ty}
     · have hpw : pw.val = .loc a' 0 := by simpa using hws
       have e : b = a' := by simp [addrOf, hpw] at hb; exact hb.symm
       subst e
-      exact ⟨c, U, hsto, hat, hFd, hmo, hini⟩
+      exact ⟨c, U, hsto, hat, hFd, hmo.toB, hini⟩
 end
 end TermPredStoreFree.Flat
 
@@ -1526,6 +1536,34 @@ theorem cell_TIB {p : Prog} {ρ : Nat → Nat} {η : TEnv} {σs : List Ty} {K : 
     (hus : accs ru = some us) : TIB η b us pw :=
   tgt_TIB hi.2.1 hp (cell_cases hc) hμ hea hb (by
     rw [← pub_accsB hi.2.2.2.1 hi.2.2.2.2.1 (fun k => (hE.2.1 k).1) hi.2.1 htv hp hc ho hea hcr, hus])
+
+/-- (♭ of `tgt_TIG`): `tgt_TIB` at any mode; off `own` the ♭ mode clause and `modeIni`
+are the `pub` ones (`ModeOKb_pubG`, `modeIni_eq_pubG`). -/
+theorem tgt_TIGB {ρ : Nat → Nat} {η : TEnv} {σs : List Ty} {cx : Cx} {env : Env} {a : At} {t : Ty}
+    {μ : Mode} {u rt : Ty} {pw : Word} {b : Address} {us : List Acc} (hvars : VarsOKB ρ η σs cx.vars env)
+    (hp : cx.peek a = .ok t) (ht : t = .ptr μ u ∨ t = .loc μ u)
+    (hea : evalAt env a = some (rt, [pw])) (hb : addrOf pw = some b)
+    (hacc : accs (cl ρ η.wit 0 0 u) = some us) : TIB η b us pw := by
+  obtain ⟨c, U, hsto, hat, hFd, hmo, hini⟩ := ptr_targetMB (bkG := False) hvars hp ht hea hb
+  cases μ with
+  | own => exact ⟨c, U, .own, hsto, hat, (Fd_accs hFd).trans hacc, ModeOKb_flag (fun h => h.resolve_left id) hmo, hini, .inl rfl⟩
+  | pub => exact ⟨c, U, .pub, hsto, hat, (Fd_accs hFd).trans hacc, ModeOKb_flag (fun h => h.resolve_left id) hmo, hini, .inr rfl⟩
+  | rgn r =>
+    have hne : Mode.rgn r ≠ .own := fun h => Mode.noConfusion h
+    replace hmo := ModeOKb_pubG hne hmo
+    rw [modeIni_eq_pubG hne] at hini
+    exact ⟨c, U, .pub, hsto, hat, (Fd_accs hFd).trans hacc, ModeOKb_flag (fun h => h.resolve_left id) hmo, hini, .inr rfl⟩
+
+/-- (♭ of `cell_TIG`): `cell_TIB` at any mode (`tgt_TIGB`). -/
+theorem cell_TIGB {p : Prog} {ρ : Nat → Nat} {η : TEnv} {σs : List Ty} {K : TEnv → List Word → Prop}
+    {cx : Cx} {env : Env} {a : At} {t u rt ru : Ty} {μ μr : Mode} {pw : Word} {b : Address}
+    {us : List Acc}
+    (hi : FInvB glb gnum gi ρ η σs K cx env) (hE : EnvOKB p η) (htv : TvOK cx)
+    (hp : cx.peek a = .ok t) (hc : cellOf t = some (μ, u)) (ho : cx.opaqueOK u = true)
+    (hea : evalAt env a = some (rt, [pw])) (hcr : cellOf rt = some (μr, ru)) (hb : addrOf pw = some b)
+    (hus : accs ru = some us) : TIB η b us pw :=
+  tgt_TIGB hi.2.1 hp (cell_cases hc) hea hb (by
+    rw [← pub_accsB hi.2.2.2.1 hi.2.2.2.2.1 (fun k => (hE.2.1 k).1) hi.2.1 htv hp hc ho hea hcr, hus])
 end
 end TermPredStoreFree.Flat
 
@@ -1545,19 +1583,25 @@ theorem store_TIB {p : Prog} {g : G} {s : St} {ρ : Nat → Nat} {η : TEnv} {σ
   obtain ⟨-, rt, rv, μr, ru, hea, -, hcr, hb, hus⟩ := hu
   cases hop with
   | storeOwn hp _ hc _ hu' hsub _ =>
-      exact cell_TIB hi hE htv hp hc (sub_opaqueOK hsub
+      exact cell_TIGB hi hE htv hp hc (sub_opaqueOK hsub
         (peek_opaqueOK htv (use_invB (ρ := ρ) (η := η) (σs := σs) (env := env) hu').1))
-        (mode_of_cell hc (hsc _ hp)) hea hcr hb hus
+        hea hcr hb hus
   | storePub hp _ hc _ hu' hsub _ _ =>
-      exact cell_TIB hi hE htv hp hc (sub_opaqueOK hsub
+      exact cell_TIGB hi hE htv hp hc (sub_opaqueOK hsub
         (peek_opaqueOK htv (use_invB (ρ := ρ) (η := η) (σs := σs) (env := env) hu').1))
-        (mode_of_cell hc (hsc _ hp)) hea hcr hb hus
-  | storeRgn hp _ hc => exact absurd hc (hsc _ hp _ _)
-  | storeCap hp _ hc => exact absurd hc (hsc _ hp _ _)
+        hea hcr hb hus
+  -- (♭ of LDST) a region cell's store: its mode reads as `pub` (`tgt_TIGB`)
+  | storeRgn hp _ hc _ hu' _ hsub _ =>
+      have hotv := peek_opaqueOK htv (use_invB (ρ := ρ) (η := η) (σs := σs) (env := env) hu').1
+      exact cell_TIGB hi hE htv hp hc (hsub.elim (fun h => sub_opaqueOK h hotv)
+        (fun h => by have h2 := sub_opaqueOK h hotv; rwa [opaqueOK_adaptT] at h2)) hea hcr hb hus
+  | storeCap hp _ hc _ hu' _ _ hsub _ =>
+      have hotv := peek_opaqueOK htv (use_invB (ρ := ρ) (η := η) (σs := σs) (env := env) hu').1
+      exact cell_TIGB hi hE htv hp hc (hsub.elim (fun h => sub_opaqueOK h hotv)
+        (fun h => by have h2 := sub_opaqueOK h hotv; rwa [opaqueOK_adaptT] at h2)) hea hcr hb hus
   | storeWordGive hp hw | storeWordKeep hp hw | storeWordHand hp hw =>
       obtain ⟨μ, hc⟩ := TermSeenHid.cellOf_of_wordOf hw
-      exact cell_TIB hi hE htv hp hc (by simp [Cx.opaqueOK, Ty.guardT]) (mode_of_cell hc (hsc _ hp))
-        hea hcr hb hus
+      exact cell_TIGB hi hE htv hp hc (by simp [Cx.opaqueOK, Ty.guardT]) hea hcr hb hus
 end
 end TermPredStoreFree.Flat
 
@@ -1578,11 +1622,15 @@ theorem xchg_TIB {p : Prog} {g : G} {s : St} {ρ : Nat → Nat} {η : TEnv} {σs
   cases hop with
   | xchg hp hx hu' hsub _ =>
       cases hx with
-      | rgn _ hc _ _ _ => exact absurd hc (hsc _ hp _ _)
+      -- (G2) a region cell's xchg: as `storeRgn` (`cell_TIGB`, any mode)
+      | rgn _ hc _ _ _ =>
+          have hotv := peek_opaqueOK htv (use_invB (ρ := ρ) (η := η) (σs := σs) (env := env) hu').1
+          exact cell_TIGB hi hE htv hp hc (hsub.elim (fun h => sub_opaqueOK h hotv)
+            (fun h => by have h2 := sub_opaqueOK h hotv; rwa [opaqueOK_adaptT] at h2)) hea hcr hb hus
       | own _ hc _ =>
-          exact cell_TIB hi hE htv hp hc (sub_opaqueOK (hsub.elim id id)
+          exact cell_TIGB hi hE htv hp hc (sub_opaqueOK (hsub.elim id id)
             (peek_opaqueOK htv (use_invB (ρ := ρ) (η := η) (σs := σs) (env := env) hu').1))
-            (mode_of_cell hc (hsc _ hp)) hea hcr hb hus
+            hea hcr hb hus
 end
 end TermPredStoreFree.Flat
 
@@ -1602,26 +1650,19 @@ theorem fetch_TIB {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
     (hea : evalAt th.env a = some (t, [pw])) (hb : addrOf pw = some loc) : TIB η loc [.one] pw := by
   cases hop with
   | fetchCell hp _ hc =>
-      obtain ⟨μ', u', ht', hμ'⟩ := hsc _ hp
       rcases hc with hc | ⟨r, hc, -⟩
-      · exact tgt_TIB hi.2.1 hp (cell_cases hc) (mode_ok (cell_cases hc) ht' hμ') hea hb
-          (by simp [cl, accs])
-      · exact tgt_TIB hi.2.1 hp (cell_cases hc) (mode_ok (cell_cases hc) ht' hμ') hea hb
-          (by simp [cl, accs])
+      · exact tgt_TIGB hi.2.1 hp (cell_cases hc) hea hb (by simp [cl, accs])
+      · exact tgt_TIGB hi.2.1 hp (cell_cases hc) hea hb (by simp [cl, accs])
   | fetchEpoch hp hw hep =>
       obtain ⟨μ, ht⟩ := wordOf_cases hw
       simp only at ht
-      obtain ⟨μ', u', ht', hμ'⟩ := hsc _ hp
-      have hμ : μ = .own ∨ μ = .pub := mode_ok ht ht' hμ'
-      exact tgt_TIB hi.2.1 hp ht hμ hea hb
-        (by simp [cl, accs, pwf_epoch_ghost (wordRef_pwfB hp ht hμ hi hE htv hm) hep])
+      exact tgt_TIGB hi.2.1 hp ht hea hb
+        (by simp [cl, accs, pwf_epoch_ghost (wordRef_pwfB hp ht hi hE htv hm) hep])
   | fetchShare hp hw _ _ _ hok =>
       obtain ⟨μ, ht⟩ := wordOf_cases hw
       simp only at ht
-      obtain ⟨μ', u', ht', hμ'⟩ := hsc _ hp
-      have hμ : μ = .own ∨ μ = .pub := mode_ok ht ht' hμ'
       simp only [fetchOK, Bool.and_eq_true, Bool.not_eq_true'] at hok
-      exact tgt_TIB hi.2.1 hp ht hμ hea hb (by simp [cl, accs, hok.1.1.1.1])
+      exact tgt_TIGB hi.2.1 hp ht hea hb (by simp [cl, accs, hok.1.1.1.1])
 end
 end TermPredStoreFree.Flat
 
@@ -1642,22 +1683,21 @@ theorem cas_TIB {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {
   cases hT with
   | casCell hp _ hc hraw =>
       rcases hc with hc | ⟨r, hc, -⟩
-      · exact tgt_TIB hi.2.1 hp (cell_cases hc) (cas_mode hsc hp (cell_cases hc)) hea hb (accs_cl_one hraw)
-      · exact tgt_TIB hi.2.1 hp (cell_cases hc) (cas_mode hsc hp (cell_cases hc)) hea hb (accs_cl_one hraw)
+      · exact tgt_TIGB hi.2.1 hp (cell_cases hc) hea hb (accs_cl_one hraw)
+      · exact tgt_TIGB hi.2.1 hp (cell_cases hc) hea hb (accs_cl_one hraw)
   | casShare hp hw hg =>
       obtain ⟨μ, ht⟩ := wordOf_cases hw
       simp only at ht
-      exact tgt_TIB hi.2.1 hp ht (cas_mode hsc hp ht) hea hb (by simp [cl, accs, hg])
+      exact tgt_TIGB hi.2.1 hp ht hea hb (by simp [cl, accs, hg])
   | casTake hp hw hg =>
       obtain ⟨μ, ht⟩ := wordOf_cases hw
       simp only at ht
-      exact tgt_TIB hi.2.1 hp ht (cas_mode hsc hp ht) hea hb (by simp [cl, accs, hg])
+      exact tgt_TIGB hi.2.1 hp ht hea hb (by simp [cl, accs, hg])
   | casEpoch hp hw hep =>
       obtain ⟨μ, ht⟩ := wordOf_cases hw
       simp only at ht
-      have hμ := cas_mode hsc hp ht
-      exact tgt_TIB hi.2.1 hp ht hμ hea hb
-        (by simp [cl, accs, pwf_epoch_ghost (wordRef_pwfB hp ht hμ hi hE htv hm) hep])
+      exact tgt_TIGB hi.2.1 hp ht hea hb
+        (by simp [cl, accs, pwf_epoch_ghost (wordRef_pwfB hp ht hi hE htv hm) hep])
 end
 end TermPredStoreFree.Flat
 

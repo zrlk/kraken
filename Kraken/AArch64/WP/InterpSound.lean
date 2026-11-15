@@ -287,6 +287,7 @@ theorem Directive.interp_mono [Labels] {P₁ P₂ : MachineState → Prop}
   cases d with
   | label l => exact hk _ h
   | byteArray bs => simp only [Directive.interp, Effects.All] at h
+  | zeros n => simp only [Directive.interp, Effects.All] at h
   | instr i =>
     simp only [Directive.interp, Instr.interp, Effects.All] at h ⊢
     exact operation_mono hk hj h
@@ -340,6 +341,7 @@ theorem Directives.interp_label_prefix [Labels] :
       exact ih X s pc ret (fun c hc => hls c (List.mem_cons_of_mem _ hc))
     | instr i => simp [Directive.isLabel] at hlab
     | byteArray a => simp [Directive.isLabel] at hlab
+    | zeros n => simp [Directive.isLabel] at hlab
 
 /- The fold transport unifies `Directive.interp` applications of a symbolic
 directive; sealing the interpreters keeps that unification a comparison of

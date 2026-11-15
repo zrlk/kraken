@@ -166,7 +166,7 @@ theorem ld_wordLoc {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh
   have hg' : P.ghost = false := hg
   have hus1 : accs (cl ρ η.wit 0 0 (.word r P)) = some [.one] := by simp [cl, accs, hg']
   obtain ⟨ad, pw, μr, ru, hea, haddr, hus, hsku, -, -, hld, -, -⟩ :=
-    locCell (acq := acq) (rel := false) (g := g) (mem := mem) (pairs := pairs) hpk hμ
+    locCell (acq := acq) (rel := false) (g := g) (mem := mem) (pairs := pairs) hpk
       (by simp [Cx.opaqueOK, Ty.guardT]) hus1 hi hE htv hm
   obtain ⟨r', rfl⟩ := eskel_word (show etok (skel ru) = .word (.lit 0) P by rw [hsku]; rfl)
   have key : tstep g mem pairs th =
@@ -285,7 +285,7 @@ theorem ld_pLoc {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
   have hoq : cx.opaqueOK u = true := by
     rcases hu with ⟨r, P, rfl⟩ | ⟨r, P, rfl⟩ <;> simp [Cx.opaqueOK, Ty.guardT]
   obtain ⟨ad, pw, μr, ru, hea, haddr, -, hsku, -, -, hld, -, -⟩ :=
-    locCell (acq := acq) (rel := false) (g := g) (mem := mem) (pairs := pairs) hpk hμ hoq
+    locCell (acq := acq) (rel := false) (g := g) (mem := mem) (pairs := pairs) hpk hoq
       (pair_accs_cl hu) hi hE htv hm
   obtain ⟨-, hpr⟩ := pair_ru_loc μr hu hsku
   have key : tstep g mem pairs th =

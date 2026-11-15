@@ -1,0 +1,1 @@
+reject_devext.w:2:1: error: type error in 'main': main: device externs and device functions may be used only inside a device function

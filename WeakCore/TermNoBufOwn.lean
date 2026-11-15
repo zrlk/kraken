@@ -142,9 +142,9 @@ theorem noBufT_pub [WrIniC] {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init 
     (h2 : Solo p k arch i c1' c2) (hc2 : Certified p k arch c2 i) (hth2 : c2.ths[i]? = some th2)
     (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) :
     ¬ BufInitOn th2 l := by
-  obtain ⟨y1, a1, e1, rt1, ws1, ad1, hterm1, hea1, hws1, hx1⟩ := hpub
+  obtain ⟨a1, rt1, ws1, ad1, hterm1, hea1, hws1, hx1⟩ := hpub
   obtain ⟨S, hS⟩ := X.inv.thr i th X.hth
-  obtain ⟨th3, hth3, h⟩ := ownXLe_pub_noOwnUse hP (winQC hsc hw X hS) (TermViewInv.viewInv_run hV0 X.run) (ownXLe_start X.inv X.hth hS hsto hin)
+  obtain ⟨th3, hth3, h⟩ := ownXLe_fence_noOwnUse hP (winQC hsc hw X hS) (TermViewInv.viewInv_run hV0 X.run) (ownXLe_start X.inv X.hth hS hsto hin)
     (TermMain.tidAt_cut X.inv i S) (.thread X.hc' h1) hs hth1 hterm1 hea1 hws1 hx1 h2 hc2 hPS hSub hSig
   obtain rfl : th3 = th2 := Option.some.inj (hth3.symm.trans hth2)
   exact not_bufInitOn h

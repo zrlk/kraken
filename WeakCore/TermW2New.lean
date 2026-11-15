@@ -87,7 +87,7 @@ variable {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {MintOK : Re
 variable {Sp : TermRun.Cfg → TermRun.Cfg → Prop}
 
 /-- (W2) **`PromWordNewF`**: a promise at a newly planted multi-word slot. -/
-theorem promWordNew_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : CertRunP p k arch Sp Init MintOK c0)
+theorem promWordNew_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : CertRunP p k arch Sp Init MintOK c0)
     (h0 : TermPlantF.PromViewLtR p k arch Sp c0) (hagree : RunAgreeF p k arch Sp Init MintOK c0) (hbp : BufInitPubF p k arch Sp Init MintOK c0) (hbr : BufInitPubFR p k arch Sp Init MintOK c0) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) :
     PromWordNewF p k arch Sp Init MintOK c0 := by
   intro c Eg Tot HP HS cr db j th a v w X t m htm hmm cl hcl hPL hpv hI b S us hseg hus h1 hb ho hnIS
@@ -115,7 +115,7 @@ theorem promWordNew_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall 
     have e := cutSto_sub hc1'
     rw [hcl] at e; cases e; exact hc1'
   have hnS := noOwn_seg hseg hnT
-  have hrS := rgnFree_seg hseg hrT
+  have hrS := hrT.imp (rgnFree_seg hseg) (drf1_seg hseg)
   have hseg0 := hseg
   -- the slot: above the start count, below the planted count
   rcases hseg with ⟨-, rfl, hA⟩ | ⟨N, us2, jj, hT, hus2, -, rfl⟩
@@ -208,7 +208,7 @@ theorem promWordNew_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall 
       WLe1 w0 (mw mu) → ∀ (a' : Address) (g : Nat), w0.val = .loc a' g →
         PlantG (Cut Eg j S0) (PlantL c Eg j th a v w) a'.label := by
     intro u mu W w0 hu hmu hL hvu hV hlW hw0 hle a' g hv'
-    have hJ := noJunk_valOf hV hnS hrS hus hlW w0 hw0 a' g hv'
+    have hJ := noJunk_valOfL hV hnS hrS hus hlW w0 hw0 a' g hv'
     have hvm : w0.view ≤ mu.view := hle.2 a' g hv'
     have hmv : mu.val = .loc a' g := by rw [← hv']; exact hle.1.symm
     rcases FrBound_inspM hfbF' hJ (Nat.lt_of_le_of_lt hvm hvu) with ⟨c1, hc1⟩ | ⟨B, hB⟩
@@ -222,7 +222,7 @@ theorem promWordNew_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall 
             mu.loc.label := by
           rw [hL]; obtain ⟨l1, h1', hR'⟩ := hPL; exact ClR.step h1' hR'
         have hclu : (Cut Eg j S0).sto mu.loc.label = some cl := by rw [hL]; exact hcl0
-        exact .inr (.inl ⟨mu.loc.label, hroot, ⟨u, hu, mu, hmu, rfl, ⟨cl, hclu, hnT, hrT⟩, a', g, hmv, rfl, c1, hc1,
+        exact .inr (.inl ⟨mu.loc.label, hroot, ⟨u, hu, mu, hmu, rfl, ⟨cl, hclu, hnT⟩, a', g, hmv, rfl, c1, hc1,
           ho1, hpf⟩⟩)
       · exact .inl ⟨c1, f, hc1, hpf⟩
     · exact .inr (.inr ⟨B, hB⟩)
@@ -265,7 +265,7 @@ theorem promWordNew_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall 
     subst hal
     exact ⟨cl1, hc1, ho1, hn1⟩
   have hV1 : ValOf (plantE (Cut Eg j S0) (stOf c.mem c.pairs th) (PlantL c Eg j th a v w)) S V := by
-    refine ValOf_monoK (G := G) hnS hrS hus hlV
+    refine ValOf_monoKL (G := G) hnS hrS hus hlV
       hxF.2.2.1 hxF.2.2.2.1 (fun l c0 hG hc0 => ?_) (fun l hG => ?_) (fun l f hG hf => ?_) (fun l B hG hB => ?_)
       hR.pay ?_ hV
     · show (Cut Eg j S0).sto l = some c0
@@ -302,7 +302,7 @@ theorem promWordNew_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall 
       obtain ⟨x, hx, e⟩ := List.getElem_of_mem hw1
       exact (hQ x w1 (by rw [← e]; exact List.getElem?_eq_getElem hx)).1 a' g hv'
   have hV2 := ValOf_transferS (InclS_cut_pub (EgP Eg (plantOf c Eg j a v w) (plantN c Eg j a v w) j c.mem.size) j S0)
-    (noOR_of S [] hnS hrS) (ValOf_transferS (inclS_plantE X S0 j S0) (noOR_of S [] hnS hrS) hV1)
+    (noOR_ofL S [] hnS hrS) (ValOf_transferS (inclS_plantE X S0 j S0) (noOR_ofL S [] hnS hrS) hV1)
   exact ⟨jj * nWords us, S, V, m.loc.offset - jj * nWords us, w0, hseg0,
     ⟨hV2, fun us' hus' => by rw [hus] at hus'; cases hus'; exact hlV⟩, hw0, (hQ _ w0 hw0).2 rfl, Nat.add_sub_of_le hb'⟩
 

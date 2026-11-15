@@ -52,9 +52,9 @@ theorem bufInitIniT_pfr [TermTyped.WrIniC] {p : Prog} {k : Promises.Knobs} {arch
   -- its frontier changed, so the step publishes it
   have hpub : TermOwnG0Defs.PubAt th l :=
     hPfrP l (by rw [hcc]; exact fun h => by cases h) (by rw [hf, hpf0]; exact fun h => by cases h)
-  obtain ⟨y, a, e, rt, ws, ad, hterm, hea, hws, hx⟩ := hpub
+  obtain ⟨a, rt, ws, ad, hterm, hea, hws, hx⟩ := hpub
   obtain ⟨y1, bb, ib, v1, e1, rt1, w1, ad1, g1, hterm1, hbb, hw1, hl1⟩ := hon
-  exact bufInitIniT_pub (hV0 := hV0) (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hsc hw X hsto hoc hterm hea hws hx h1 hc1 hth1 hterm1 rt1 w1 ad1 g1 hbb hw1 hl1
+  exact bufInitIniT_fence (hV0 := hV0) (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hsc hw X hsto hoc hterm hea hws hx h1 hc1 hth1 hterm1 rt1 w1 ad1 g1 hbb hw1 hl1
 
 /-- **`BufInitIniT`** (thread-step half of the old `bufInitIni` field, restated), from `CertScopeC`
 and `CertWinC`. -/

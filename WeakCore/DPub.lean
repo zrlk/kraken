@@ -20,7 +20,7 @@ def D5bTmp : Prop :=
 
 /-- **D5bTmp discharged**: the ♭ refine arm reads `PubPosE`, and `PubPos` gives it at
 `η.box` (`PubPosE_of`).  `D5bTmp` is no longer a premise of anything. -/
-theorem D5bTmp_holds : D5bTmp := fun _ _ _ _ _ _ h hp => h.2.2 (PubPosE_of hp)
+theorem D5bTmp_holds : D5bTmp := fun _ _ _ _ _ _ h hp => h.2.2 (Or.inl (PubPosE_of hp))
 
 /-- The resourceful reading of `D5bTmp` (one named fact, stated resource-free). -/
 theorem D5bTmp.toR (hD : D5bTmp) {ρ : Nat → Nat} {η : TEnv} {t : Ty} {ψ : Pred} {rt : Shp} {ws : List Word}

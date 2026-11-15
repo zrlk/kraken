@@ -24,7 +24,7 @@ theorem tstepMF_stepNB {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th :
     {cx : Cx} {ρ : Nat → Nat} {η : TEnv}
     (hAl : AllocT th.term) (hP : ProgT p) (hn : 0 < g.n)
     (hsc : StepScope cx th.term)
-    (hT : Typed p cx th.term) (hi : FInv ρ η th.σs (Resume p th.stack) cx th.env)
+    (hT : TypedK p η cx th.term) (hi : FInv ρ η th.σs (Resume p th.stack) cx th.env)
     (hE : EnvOK p η) (htv : TvOK cx) (hm : MemInv g (CE η) (stOf mem pairs th)) (hbf : g.boxFence = true)
     (hpx : PAx g mem pairs th) (hPS : PwSkel) (hRP : RetPw th.σs th.stack cx.ret) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
     tstep g mem pairs th ≠ [] ∧ ∀ r ∈ tstep g mem pairs th, PromAbove (stOf r.1 r.2.1 r.2.2) →
@@ -33,7 +33,7 @@ theorem tstepMF_stepNB {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th :
   have hmS : ∀ {r : Memory × List Ts × TTh}, (∀ x a T e, th.term ≠ .let_ x (.new a (some T)) e) → ThInvMFQ (QF (CE η) g th.nalloc r.2.2) p g (CE η) (stOf mem pairs th) r.1 r.2.1 r.2.2 →
       ThInvMFQ (fun E' => (FootNCE (CE η) E' r ∧ FootB1 g th.nalloc th.env r E') ∧ NewCellSto g ρ η th E') p g (CE η) (stOf mem pairs th) r.1 r.2.1 r.2.2 :=
     fun hv h => ThInvMFQ.mono (fun _ hs => ⟨⟨footNC_sto hs.1, footB1_boxFr hs.2⟩, NewCellSto_vac hv⟩) h
-  have hT0 := hT
+  have hT0 := hT.1
   generalize ht : th.term = t0 at hT0 hsc hAl
   cases hT0 with
   | let_ hop _ =>
@@ -59,9 +59,9 @@ theorem tstepMF_stepNB {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th :
 /-- **(FootNCB) `TermFootNG.tstep_footprintK_nc` with `FootB1 g th.nalloc th.env r E'` on the witness.** -/
 theorem tstep_footprintK_ncB {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
     {cx : Cx} {ρ : Nat → Nat} {η : TEnv}
-    [ProgRetIall p] (hP : ProgT p) (hp : g.p = p) (hn : 0 < g.n) (hnd : isDone th = false)
+    [ProgRetIall p] [TermA4.ProgCkWC p] (hP : ProgT p) (hp : g.p = p) (hn : 0 < g.n) (hnd : isDone th = false)
     (hsc : ScopeD th.σs cx th.term)
-    (hT : Typed p cx th.term) (hi : FInv ρ η th.σs (Resume p th.stack) cx th.env)
+    (hT : TypedK p η cx th.term) (hi : FInv ρ η th.σs (Resume p th.stack) cx th.env)
     (hE : EnvOK p η) (htv : TvOK cx) (hm : MemInv g (CE η) (stOf mem pairs th)) (hbf : g.boxFence = true)
     (hpx : PAx g mem pairs th) (hwin : PubWinT (CE η) (stOf mem pairs th) th)
     (hZ : ∀ l, BufInitOn th l → ¬ g.zf l) (hgp : ∀ l, PubAt th l → g.pf l) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) (hTy : TyOKE g (CE η)) (hRP : RetPw th.σs th.stack cx.ret) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
@@ -80,8 +80,8 @@ theorem tstep_footprintK_ncB {p : Prog} {g : G} {mem : Memory} {pairs : List Ts}
       refine ⟨E', hF, hx, h1, h2, fun l hl => ?_, footNC_efoot hF.1 (Nat.le_of_eq (TermFootNC.tstep_nalloc hAl r hr)),
         footB1_nalloc (Nat.le_of_eq (TermFootNC.tstep_nalloc hAl r hr)), TermTyped.bumpIf_of hterm h5,
         NewCellSto_vac (fun _ _ _ _ h' => by rw [hterm] at h'; cases h')⟩
-      obtain ⟨y, a', e', -, -, -, h6, -⟩ := hl
-      rw [hterm] at h6; cases h6
+      obtain ⟨a', rt', ws', ad', hk, -⟩ := hl
+      rcases hk with ⟨y, e', h6⟩ | ⟨r0, pn, tn, e', h6⟩ | ⟨y, r0, e', h6⟩ <;> (rw [hterm] at h6; cases h6)
     have h := tstep_footprintK_nc (hDy := hDy) (hPS := hPS) (hSub := hSub) (hSig := hSig) (hTy := hTy) hP hp hn hnd hsc hT hi hE htv hm hbf hpx hwin hZ hgp hRP
     refine ⟨h.1, fun r hr hpa => ?_⟩
     obtain ⟨E', hF, hx, h1, h2, h3, h4⟩ := h.2 r hr hpa
@@ -103,8 +103,9 @@ theorem tstep_footprintK_ncB {p : Prog} {g : G} {mem : Memory} {pairs : List Ts}
     obtain ⟨_, η', _, hce, _⟩ := h1
     subst hce; exact Foot_ext hF'
   refine ⟨E', hF', hx, h1, h2, fun l hl => ?_, hq, hb, fun x bb ib v e ht => absurd (hne _ _ _ ht) id, hN⟩
-  obtain ⟨y, a', e', -, -, -, h3, -⟩ := hl
-  exact absurd (hne _ _ _ h3) id
+  obtain ⟨a', rt', ws', ad', hk, -⟩ := hl
+  rcases hk with ⟨y, e', h3⟩ | ⟨r0, pn, tn, e', h3⟩ | ⟨y, r0, e', h3⟩ <;>
+    first | exact absurd (hne _ _ _ h3) id | (rw [h3] at hAl; exact hAl.elim)
 
 #print axioms footB1_boxFr
 #print axioms tstepMF_stepNB

@@ -212,7 +212,7 @@ def opKeywords : List String :=
   ["inl", "inr", "new", "publish", "intoRgn", "newBuf", "bufInit", "null", "fold", "fld", "load", "store", "fence",
    "mkWord", "mkTicket", "claim", "fetch", "mkWord2", "ldp", "stp", "mkEPair", "pack", "validate", "borrow",
    "endBorrow", "freeze", "xchg", "fnptr", "callc", "nameI", "bits", "bit1", "vmatch", "zero", "cvt", "toInt",
-   "asLanes", "fop", "fcmp", "fop1", "lane", "spawn", "emit", "current", "exitEv", "setLane", "ldl", "stl", "ldlw",
+   "asLanes", "fop", "fcmp", "fop1", "lane", "spawn", "spawnI", "isTy", "emit", "current", "exitEv", "setLane", "ldl", "stl", "ldlw",
    "stlw", "park", "unpark", "mmioRead", "mmioWrite", "regAt", "devRecv", "devWrite", "devChoice", "devIrq",
    "devOut"]
 
@@ -560,6 +560,21 @@ partial def pKwOp (env : Env) (es : ES) (s : String) (i0 : Nat) : UP (POp × ES)
           bumpU; let ts ← sepByU (liftP (pTy env es.sc)) ","; expectSymU "]"; pure ts) else pure []
       expectSymU ":"
       mk (.spawn f U (← liftP (pTy env es.sc)) ts) [u] [a] es
+  | "spawnI" =>
+      -- `spawnI f[ts]{is}(ITEM, …) : T`: the call form, as a call's (`pCallRest`), then the checked type
+      let f ← liftP pNameU
+      let (po, es) ← pCallRest env es f (i0 + 1)
+      match po.head with
+      | .call _ is _ ts =>
+          expectSymU ":"
+          mk (.spawnI f is U (← liftP (pTy env es.sc)) ts) po.args po.ats es
+      | _ => failU "spawnI needs a call form f(…)"
+  | "isTy" =>
+      let tpos ← tokPos
+      let _ ← pBrTyU env es.sc
+      let (u, a, es) ← pOperand env es
+      let t ← reparse tpos (pBrTyU env es.sc)
+      mk (.isTy U t) [u] [a] es
   | "emit" => one (.ext .emit U) es
   | "current" => one (.ext .current U) es
   | "exitEv" => one (.ext .exitEv U) es
@@ -821,19 +836,24 @@ def pSigHead (env : Env) : UP (Decl × Sc) := do
         pure (a, κ)) ","
       expectSymU "]"; pure ps
     else pure []
-  let idx ← if ← eatSymU "{" then do let is ← sepByU (liftP pNameU) ","; expectSymU "}"; pure is else pure []
+  -- index binders, as `Syntax.pDecl`: `{swap r, …}` declares `r` swap-flagged
+  let ibs ← if ← eatSymU "{" then do
+      let is ← sepByU (do let sw ← eatKwU "swap"; let r ← liftP pNameU; pure (r, sw)) ","; expectSymU "}"; pure is
+    else pure []
+  let idx := ibs.map (·.1)
+  let swapIdx := (ibs.filter (·.2)).map (·.1)
   let sc : Sc := { tvs := (tps.map (·.1)).reverse, ivs := idx.reverse.map some }
   expectSymU "("; recBind (← curName) (← tokPos) []; let x ← liftP pNameU; expectSymU ":"
   let at_ ← liftP (pTy env sc); expectSymU ")"
   expectSymU ":"; let rt ← liftP (pTy env sc)
-  pure ({ name, tparams := tps.map (·.2), idx, arg := x, argTy := at_, retTy := rt, body := Scope.hole, kind }, sc)
+  pure ({ name, tparams := tps.map (·.2), idx, arg := x, argTy := at_, retTy := rt, body := Scope.hole, kind, swapIdx }, sc)
 
 def pDeclU (env : Env) : UP UDecl := do
   let (sig, sc) ← pSigHead env
   expectSymU "="
   let body ← pExprU { env with lib := sig :: env.lib } { sc := { sc with cx := some (Scope.start sig) } }
   pure { name := sig.name, tparams := sig.tparams, idx := sig.idx, arg := sig.arg, argTy := sig.argTy,
-         retTy := sig.retTy, body, kind := sig.kind }
+         retTy := sig.retTy, body, kind := sig.kind, swapIdx := sig.swapIdx }
 
 /-- A scenario (data for `sce`; nothing of it reaches the `.w`). -/
 structure Scenario where
@@ -1126,7 +1146,8 @@ def showDeclElab (d : Decl) (sp : List Span) (env : Env := {}) : String :=
   let tps := (tns.zip d.tparams).map fun (a, κ) => if κ == {} then a else a ++ " : " ++ showKind κ
   let head := "def " ++ nameStr d.name ++
     (if tps.isEmpty then "" else "[" ++ ", ".intercalate tps ++ "]") ++
-    (if d.idx.isEmpty then "" else "{" ++ ", ".intercalate (d.idx.map nameStr) ++ "}") ++
+    (if d.idx.isEmpty then "" else "{" ++ ", ".intercalate (d.idx.map fun r =>
+      (if d.swapIdx.contains r then "swap " else "") ++ nameStr r) ++ "}") ++
     "(" ++ nameStr d.arg ++ " : " ++ showTy env sc 0 d.argTy ++ ") : " ++ showTy env sc 0 d.retTy ++ " ="
   render ((0, head) :: elabLines { env with lib := d :: env.lib } sp d.name sc 1 [] d.body)
 

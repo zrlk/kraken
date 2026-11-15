@@ -40,9 +40,9 @@ there).  At a boxed-sum pointer whose arm is unboxed, the pointer goes to the bo
 (`PCode.enc`) of the payload's own canonical relabel at `η.unsee` (nested pointers get nested variants). -/
 noncomputable def gc (T TU : Nat → Shp → List Word → Nat → WeakMem.AllocLabel → WeakMem.AllocLabel) (η : TEnv) :
     Ty → Shp → List Word → Nat → WeakMem.AllocLabel → WeakMem.AllocLabel
-  | .ptr μ _, _, ws => match μ with | .pub => pubG cpy σ Cp η ws | _ => fun _ => σ
-  | .ptrOpt μ _, _, ws => match μ with | .pub => pubG cpy σ Cp η ws | _ => fun _ => σ
-  | .loc μ _, _, ws => match μ with | .pub => pubG cpy σ Cp η ws | _ => fun _ => σ
+  | .ptr μ _, _, ws => match μ with | .pub => pubG cpy σ Cp η ws | .rgn _ => pubG cpy σ Cp η ws | _ => fun _ => σ
+  | .ptrOpt μ _, _, ws => match μ with | .pub => pubG cpy σ Cp η ws | .rgn _ => pubG cpy σ Cp η ws | _ => fun _ => σ
+  | .loc μ _, _, ws => match μ with | .pub => pubG cpy σ Cp η ws | .rgn _ => pubG cpy σ Cp η ws | _ => fun _ => σ
   | .refine t _, rt, ws => gc T TU η t rt ws
   | .iex b, rt, ws => match rt with | .iex _ rb => gc T TU η b rb ws | _ => fun _ => σ
   | .prod a b, rt, ws => match rt with

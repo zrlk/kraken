@@ -32,7 +32,7 @@ def PromAllocF (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → Cfg �
     PfrG { gOf p k arch c i with pf := fun l => TermOwnG0Defs.PubAt th l } (CE η) E' →
     ∀ L, FreshIn (gOf p k arch c i) th.nalloc r.2.2.nalloc L → ∀ (t : Ts) (m : Msg), t ∈ r.2.2.promises →
       c'.mem[t]? = some m → m.loc.label ≠ L ∧ ∀ (a' : Address) (g : Nat), m.val = .loc a' g →
-        ∀ cm, E'.sto m.loc.label = some cm → Ty.noOwnIn [] cm.ty = true → rgnFree cm.ty = true →
+        ∀ cm, E'.sto m.loc.label = some cm → Ty.noOwnIn [] cm.ty = true →
         ∀ cl, E'.sto a'.label = some cl → a'.label ≠ L
 
 /-- Frontiers survive a step of `E_g`. -/
@@ -71,7 +71,7 @@ theorem promClos_thread (hA : PromAllocF p k arch Sp Init MintOK c0)
     (hS : ThSysAt p (gOf p k arch c i) c.mem c.pairs th Eg (Tot i) (HP i) HS (cr i) (db i) S)
     (hPfr : PfrG { gOf p k arch c i with pf := fun l => TermOwnG0Defs.PubAt th l } (CE η) E') :
     PromClosG (EgT Eg (gOf p k arch c i) th.nalloc r.2.2.nalloc E' c') c' := by
-  intro j thj t m hj ht hm a' g hv cl hcl ho cm hcm hin hno hrf
+  intro j thj t m hj ht hm a' g hv cl hcl ho cm hcm hin hno
   have hgf := gfoot_of X Y Z
   have hCut := tctx_cut X Y Z
   obtain ⟨th0, h0, hs, hi, -⟩ := tctx_old X hj
@@ -112,7 +112,7 @@ theorem promClos_thread (hA : PromAllocF p k arch Sp Init MintOK c0)
         have h3 : (Cut (EgT Eg (gOf p k arch c j) th.nalloc r.2.2.nalloc E' c') j E'.seen).sto a'.label =
             some ⟨T, some j⟩ := cutSto_own hcl ho
         rw [hCut] at h3; exact h3
-      exact absurd rfl ((hA X Y Z hS hPfr _ hF t m ht hm).2 a' g hv cm hEm hno hrf _ hEl)
+      exact absurd rfl ((hA X Y Z hS hPfr _ hF t m ht hm).2 a' g hv cm hEm hno _ hEl)
   have hin0 : cm.owner = some j ∨ Eg.Shared m.loc.label := by
     rcases hin with h4 | ⟨f4, hf4⟩
     · exact .inl h4
@@ -125,7 +125,7 @@ theorem promClos_thread (hA : PromAllocF p k arch Sp Init MintOK c0)
         · exact (foreign_priv X.inv h0 X.hth hji ht0 hm0 hcm0 hoq hp0).elim
       · have h2 : (Eg.post (gOf p k arch c i) th.nalloc r.2.2.nalloc E').sto m.loc.label = some cm := hcm
         rw [e] at h2; cases h2
-  obtain ⟨f, hf⟩ := X.inv.promClos j th0 t m h0 ht0 hm0 a' g hv cl hcl0 ho cm hcm0 hin0 hno hrf
+  obtain ⟨f, hf⟩ := X.inv.promClos j th0 t m h0 ht0 hm0 a' g hv cl hcl0 ho cm hcm0 hin0 hno
   exact ⟨f, gfoot_pfr hgf hf⟩
 
 /-- **A promise step keeps `promClos`**: the new promise's own `PlantR` edge plants its target. -/
@@ -150,7 +150,7 @@ theorem promClos_prom (hpl : PromLocF p k arch Sp Init MintOK c0)
     rw [Array.getElem?_push_lt hlt] at hm
     rw [Array.getElem?_eq_getElem hlt]
     exact hm
-  intro i thi t m hi ht hm a' g hv cl hcl ho cm hcm hin hno hrf
+  intro i thi t m hi ht hm a' g hv cl hcl ho cm hcm hin hno
   have hcl0 : Eg.sto a'.label = some cl := hcl
   have hcm0 : Eg.sto m.loc.label = some cm := hcm
   have hin0 : ∀ thi', c.ths[i]? = some thi' → t ∈ thi'.promises → c.mem[t]? = some m →
@@ -179,7 +179,7 @@ theorem promClos_prom (hpl : PromLocF p k arch Sp Init MintOK c0)
     cases hi
     rcases List.mem_append.1 ht with ht | ht
     · obtain ⟨f, hf⟩ := X.inv.promClos i th t m X.hth ht (hold i th t m X.hth ht hm) a' g hv cl hcl0 ho cm hcm0
-        (hin0 th X.hth ht (hold i th t m X.hth ht hm)) hno hrf
+        (hin0 th X.hth ht (hold i th t m X.hth ht hm)) hno
       exact hpfr _ f hf
     · rw [List.mem_singleton] at ht
       subst ht
@@ -201,13 +201,13 @@ theorem promClos_prom (hpl : PromLocF p k arch Sp Init MintOK c0)
             cases hcm0
         have hR : TermTyped.PlantR (cutP Eg i) (c.mem.push ⟨a, v, w⟩) (th.promises ++ [c.mem.size]) a.label a'.label :=
           ⟨c.mem.size, List.mem_append_right _ (List.mem_singleton_self _), ⟨a, v, w⟩, Array.getElem?_push_size,
-            rfl, ⟨cm, hcutA, hno, hrf⟩, a', g, hv, rfl, cl, cutSto_own hcl0 ho, ho, hq⟩
+            rfl, ⟨cm, hcutA, hno⟩, a', g, hv, rfl, cl, cutSto_own hcl0 ho, ho, hq⟩
         have hpo := plantOf_of (Eg := Eg) (a := a) (v := v) (w := w) (l := a'.label) X.hth ⟨a.label, ClR.base, hR⟩
         refine ⟨plantF (cutP Eg i) (stOf c.mem c.pairs th) a'.label, ?_⟩
         simp only [EgP, GEnv.withFp, plantG, hpo]
   · have hi' : c.ths[i]? = some thi := by rw [← TermStepper.promise_other X.hth hij]; exact hi
     obtain ⟨f, hf⟩ := X.inv.promClos i thi t m hi' ht (hold i thi t m hi' ht hm) a' g hv cl hcl0 ho cm hcm0
-      (hin0 thi hi' ht (hold i thi t m hi' ht hm)) hno hrf
+      (hin0 thi hi' ht (hold i thi t m hi' ht hm)) hno
     exact hpfr _ f hf
 
 /-- **The former field `plantClos`** (`PubClosT`) from the `SysInvN` clause `promClos` and
@@ -240,13 +240,13 @@ theorem pubClosT_of (hA : PromAllocF p k arch Sp Init MintOK c0) : PubClosT p k 
       exact ⟨cm, hcm, hown, h3⟩
     · exact absurd hml ((hA X Y Z hS hPfr l hF t m ht hm).1)
   obtain ⟨cm, hcm0, hcmo, hcm1⟩ := hcm
-  obtain ⟨-, -, -, hno, hrf⟩ := Z.2.2.1.2.2.2.2.2.2.2.2.1.2.2.1 l cm f hcm1 hl1
+  obtain ⟨-, -, -, hno, -⟩ := Z.2.2.1.2.2.2.2.2.2.2.2.1.2.2.1 l cm f hcm1 hl1
   have hcl0 : Eg.sto a'.label = some cl := by
     rcases hgf.2.1 a'.label with e | ⟨hF, -⟩
     · rw [e] at hcl2; exact hcl2
-    · exact absurd rfl ((hA X Y Z hS hPfr _ hF t m ht hm).2 a' g hv cm (by rw [hml]; exact hcm1) hno hrf cl hcl)
+    · exact absurd rfl ((hA X Y Z hS hPfr _ hF t m ht hm).2 a' g hv cm (by rw [hml]; exact hcm1) hno cl hcl)
   obtain ⟨f', hf'⟩ := X.inv.promClos i th t m X.hth ht0 hm0 a' g hv cl hcl0 ho cm (by rw [hml]; exact hcm0)
-    (.inl hcmo) hno hrf
+    (.inl hcmo) hno
   exact ⟨f', gfoot_pfr hgf hf'⟩
 
 end

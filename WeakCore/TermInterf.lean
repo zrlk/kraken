@@ -1687,7 +1687,7 @@ theorem cl1_memOKP (hpa : PromTyAPostF p k arch Sp Init MintOK c0) :
       have h : (Cut (EgT Eg (gOf p k arch c i) th.nalloc r.2.2.nalloc E' c') i E'.seen).pfr l = some f := hf
       rw [hCut] at h; exact h
     obtain ⟨-, -, -, h4, h5⟩ := hm'.2.2.2.2.2.2.2.2.1.2.2.1 l cl f hs' hf'
-    exact ⟨hs', noOR_of _ _ h4 h5⟩
+    exact ⟨hs', noOR_ofL _ _ h4 h5⟩
   -- an unshared cell of `j`'s new cut is a private cell of `j`, untouched by the step
   have hpriv : ∀ l cl, cutSto (EgT Eg (gOf p k arch c i) th.nalloc r.2.2.nalloc E' c') j l = some cl →
       (EgT Eg (gOf p k arch c i) th.nalloc r.2.2.nalloc E' c').pfr l = none →
@@ -1774,7 +1774,7 @@ theorem tctx_shared {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {
     have h : (Cut (EgT Eg (gOf p k arch c i) th.nalloc r.2.2.nalloc E' c') i E'.seen).pfr l = some f := hf
     rw [hCut] at h; exact h
   obtain ⟨-, -, -, h4, h5⟩ := Z.2.2.1.2.2.2.2.2.2.2.2.1.2.2.1 l cl f hs' hf'
-  exact ⟨hs', hf', noOR_of _ _ h4 h5⟩
+  exact ⟨hs', hf', noOR_ofL _ _ h4 h5⟩
 
 /-- (B2 at an idle thread's cell) A new message at an initialised offset of a
 cell of `j` is a typed word in `j`'s new cut. -/
@@ -3019,7 +3019,7 @@ def PlantCplF (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → Cfg �
     PCtxX p k arch Sp Init MintOK c0 c Eg Tot HP HS cr db j th a v w →
     ∀ l f, plantOf c Eg j a v w l = some f → ∀ cl, Eg.sto l = some cl →
       LayT cl.ty ∧ (∀ b S, SegOf cl.ty b S → accs S ≠ none → TearOK S) ∧ Ty.coupledOKIn [] cl.ty = true ∧
-        Ty.noOwnIn [] cl.ty = true ∧ rgnFree cl.ty = true
+        Ty.noOwnIn [] cl.ty = true ∧ (rgnFree cl.ty = true ∨ TermC1.drf1 cl.ty = true)
 
 /-- (plant) **The planted cell's initialised words are hidden below
 its frontier** for any reader (no promise skipped, typing in `PubE`): what

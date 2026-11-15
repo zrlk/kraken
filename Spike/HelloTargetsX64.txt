@@ -64,6 +64,7 @@ Spike.Lib.X64HelloUFrameKeep
 Spike.Lib.X64PlacedFr
 Spike.Lib.X64HelloSplit
 Spike.Test.HelloLinkedX64Elf
+Spike.Test.ElfBytesTestX64
 Spike.Test.HelloLinkedX64A1
 Spike.Test.HelloLinkedX64A2
 Spike.Test.HelloLinkedX64A3
@@ -556,3 +557,14 @@ Spike.Lib.X64HelloRootLit
 Spike.Lib.X64HelloRootFinal
 Spike.Test.HelloLinkedX64Root
 Spike.Test.HelloRootL0XInh
+Spike.Test.HelloRootL0XClosedBase
+Spike.Test.HelloRootL0XClosedStep
+Spike.Test.HelloRootL0XClosedC1
+Spike.Test.HelloRootL0XClosedC2
+Spike.Test.HelloRootL0XClosedC3
+Spike.Test.HelloRootL0XClosedC4
+Spike.Test.HelloRootL0XClosedC5
+Spike.Test.HelloRootL0XClosedC6
+Spike.Test.HelloRootL0XClosedC7
+Spike.Test.HelloRootL0XClosedC8
+Spike.Test.HelloRootL0XClosed

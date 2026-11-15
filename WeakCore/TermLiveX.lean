@@ -35,12 +35,16 @@ open Promises.Sim (MemExt)
 /-! ## §1 The spawn step of a given parent -/
 
 /-- Thread `i` of `c` spawns, giving `c'` (`Spawn` with the parent named). -/
-def SpawnBy (_p : Prog) (_k : Promises.Knobs) (_arch : Arch) (cap : Nat) (c : Cfg) (i : Nat)
+def SpawnBy (p : Prog) (_k : Promises.Knobs) (_arch : Arch) (cap : Nat) (c : Cfg) (i : Nat)
     (c' : Cfg) : Prop :=
-  ∃ (x f : String) (a : At) (T : Ty) (ts : List Ty) (e : Expr) (th : TTh) (rt : Ty)
+  (∃ (x f : String) (a : At) (T : Ty) (ts : List Ty) (e : Expr) (th : TTh) (rt : Ty)
     (ws : List Word), c.ths[i]? = some th ∧ th.term = .let_ x (.spawn f a T ts) e ∧
     th.promises = [] ∧ c.ths.size < cap ∧ evalAt th.env a = some (rt, ws) ∧
-    c' = spawnCfg c i th x e f ts T ws
+    c' = spawnCfg c i th x e f ts T ws) ∨
+  ∃ (x f : String) (is : List String) (a : At) (T : Ty) (ts : List Ty) (e : Expr) (th : TTh) (d : Decl)
+    (rt : Ty) (ws : List Word), c.ths[i]? = some th ∧ th.term = .let_ x (.spawnI f is a T ts) e ∧
+    th.promises = [] ∧ c.ths.size < cap ∧ p.find? (·.name == f) = some d ∧ evalAt th.env a = some (rt, ws) ∧
+    c' = spawnT c i (spawnPar c i th x e) (spawnKidI c i th d ts ws)
 
 section Spawn
 variable {p : Prog} {k : Promises.Knobs} {arch : Arch} {cap : Nat}
@@ -48,10 +52,14 @@ variable {p : Prog} {k : Promises.Knobs} {arch : Arch} {cap : Nat}
 theorem spawn_iff {c c' : Cfg} : Spawn p k arch cap c c' ↔ ∃ i, SpawnBy p k arch cap c i c' := by
   constructor
   · intro h
-    obtain ⟨i, x, f, a, T, ts, e, th, rt, ws, h1, h2, h3, h4, h5, h6⟩ := Spawn.elim h
-    exact ⟨i, x, f, a, T, ts, e, th, rt, ws, h1, h2, h3, h4, h5, h6⟩
-  · rintro ⟨i, x, f, a, T, ts, e, th, rt, ws, h1, h2, h3, h4, h5, rfl⟩
-    exact Spawn.mk i x f a T ts e th rt ws h1 h2 h3 h4 h5
+    rcases Spawn.elim h with ⟨i, x, f, a, T, ts, e, th, rt, ws, h1, h2, h3, h4, h5, h6⟩ |
+        ⟨i, x, f, is, a, T, ts, e, th, d, rt, ws, h1, h2, h3, h4, h5, h6, h7⟩
+    · exact ⟨i, .inl ⟨x, f, a, T, ts, e, th, rt, ws, h1, h2, h3, h4, h5, h6⟩⟩
+    · exact ⟨i, .inr ⟨x, f, is, a, T, ts, e, th, d, rt, ws, h1, h2, h3, h4, h5, h6, h7⟩⟩
+  · rintro ⟨i, ⟨x, f, a, T, ts, e, th, rt, ws, h1, h2, h3, h4, h5, rfl⟩ |
+        ⟨x, f, is, a, T, ts, e, th, d, rt, ws, h1, h2, h3, h4, h5, h6, rfl⟩⟩
+    · exact Spawn.mk i x f a T ts e th rt ws h1 h2 h3 h4 h5
+    · exact Spawn.mkI i x f is a T ts e th d rt ws h1 h2 h3 h4 h5 h6
 
 /-- The barrier does not move coherence views. -/
 theorem spawnS_coh (c : Cfg) (th : TTh) : (spawnS c th).vs.coh = th.vs.coh := by
@@ -71,46 +79,94 @@ theorem spawnCfg_get {c : Cfg} {i : Nat} (hi : i < c.ths.size) (th : TTh) (x : S
   simp only [spawnCfg, spawnT, Array.getElem?_push, Array.set!_eq_setIfInBounds,
     Array.size_setIfInBounds, Array.getElem?_setIfInBounds, hi, ↓reduceIte]
 
+theorem spawnTI_size (c : Cfg) (i : Nat) (th : TTh) (x : String) (e : Expr) (d : Decl) (ts : List Ty)
+    (ws : List Word) : (spawnT c i (spawnPar c i th x e) (spawnKidI c i th d ts ws)).ths.size = c.ths.size + 1 := by
+  simp [spawnT]
+
+theorem spawnTI_get {c : Cfg} {i : Nat} (hi : i < c.ths.size) (th : TTh) (x : String) (e : Expr) (d : Decl)
+    (ts : List Ty) (ws : List Word) (j : Nat) :
+    (spawnT c i (spawnPar c i th x e) (spawnKidI c i th d ts ws)).ths[j]? =
+      if j = c.ths.size then some (spawnKidI c i th d ts ws)
+      else if i = j then some (spawnPar c i th x e) else c.ths[j]? := by
+  simp only [spawnT, Array.getElem?_push, Array.set!_eq_setIfInBounds,
+    Array.size_setIfInBounds, Array.getElem?_setIfInBounds, hi, ↓reduceIte]
+
 /-- **What a spawn does to the lifts' quantities.** -/
 theorem spawnBy_sound {c c' : Cfg} {i : Nat} (h : SpawnBy p k arch cap c i c') :
     MemExt c.mem c'.mem ∧ (CfgCoh c → CfgCoh c' ∧ CohLeX c c') ∧
       c.ths.size < c'.ths.size ∧ c'.ths.size ≤ cap := by
-  obtain ⟨x, f, a, T, ts, e, th, rt, ws, hth, -, -, hcap, -, rfl⟩ := h
-  have hi := lt_of_get hth
-  have hsz := spawnCfg_size c i th x e f ts T ws
-  refine ⟨Promises.Sim.MemExt.refl _, fun hc => ⟨fun j t hj => ?_, ⟨by omega, ?_⟩⟩, by omega,
-    by omega⟩
-  · rw [spawnCfg_get hi] at hj
-    show CohAt c.mem t.vs
-    split at hj
-    · cases hj
-      intro b
-      show (spawnS c th).vs.coh b = 0 ∨ ∃ m, c.mem[(spawnS c th).vs.coh b]? = some m ∧ m.loc = b
-      rw [spawnS_coh]
-      exact hc i th hth b
-    · split at hj
+  rcases h with ⟨x, f, a, T, ts, e, th, rt, ws, hth, -, -, hcap, -, rfl⟩ |
+      ⟨x, f, is, a, T, ts, e, th, d, rt, ws, hth, -, -, hcap, -, -, rfl⟩
+  · have hi := lt_of_get hth
+    have hsz := spawnCfg_size c i th x e f ts T ws
+    refine ⟨Promises.Sim.MemExt.refl _, fun hc => ⟨fun j t hj => ?_, ⟨by omega, ?_⟩⟩, by omega,
+      by omega⟩
+    · rw [spawnCfg_get hi] at hj
+      show CohAt c.mem t.vs
+      split at hj
       · cases hj
         intro b
         show (spawnS c th).vs.coh b = 0 ∨ ∃ m, c.mem[(spawnS c th).vs.coh b]? = some m ∧ m.loc = b
         rw [spawnS_coh]
         exact hc i th hth b
-      · exact hc j t hj
-  · intro j t t' h1 h2 b
-    rw [spawnCfg_get hi] at h2
-    have hj : j ≠ c.ths.size := Nat.ne_of_lt (lt_of_get h1)
-    simp only [hj, ↓reduceIte] at h2
-    split at h2
-    · rename_i hij
-      subst hij
-      cases h2
-      rw [hth] at h1
-      cases h1
-      show th.vs.coh b ≤ (spawnS c th).vs.coh b
-      rw [spawnS_coh]
-      exact Nat.le_refl _
-    · rw [h1] at h2
-      cases h2
-      exact Nat.le_refl _
+      · split at hj
+        · cases hj
+          intro b
+          show (spawnS c th).vs.coh b = 0 ∨ ∃ m, c.mem[(spawnS c th).vs.coh b]? = some m ∧ m.loc = b
+          rw [spawnS_coh]
+          exact hc i th hth b
+        · exact hc j t hj
+    · intro j t t' h1 h2 b
+      rw [spawnCfg_get hi] at h2
+      have hj : j ≠ c.ths.size := Nat.ne_of_lt (lt_of_get h1)
+      simp only [hj, ↓reduceIte] at h2
+      split at h2
+      · rename_i hij
+        subst hij
+        cases h2
+        rw [hth] at h1
+        cases h1
+        show th.vs.coh b ≤ (spawnS c th).vs.coh b
+        rw [spawnS_coh]
+        exact Nat.le_refl _
+      · rw [h1] at h2
+        cases h2
+        exact Nat.le_refl _
+  · have hi := lt_of_get hth
+    have hsz := spawnTI_size c i th x e d ts ws
+    refine ⟨Promises.Sim.MemExt.refl _, fun hc => ⟨fun j t hj => ?_, ⟨by omega, ?_⟩⟩, by omega,
+      by omega⟩
+    · rw [spawnTI_get hi] at hj
+      show CohAt c.mem t.vs
+      split at hj
+      · cases hj
+        intro b
+        show (spawnS c th).vs.coh b = 0 ∨ ∃ m, c.mem[(spawnS c th).vs.coh b]? = some m ∧ m.loc = b
+        rw [spawnS_coh]
+        exact hc i th hth b
+      · split at hj
+        · cases hj
+          intro b
+          show (spawnS c th).vs.coh b = 0 ∨ ∃ m, c.mem[(spawnS c th).vs.coh b]? = some m ∧ m.loc = b
+          rw [spawnS_coh]
+          exact hc i th hth b
+        · exact hc j t hj
+    · intro j t t' h1 h2 b
+      rw [spawnTI_get hi] at h2
+      have hj : j ≠ c.ths.size := Nat.ne_of_lt (lt_of_get h1)
+      simp only [hj, ↓reduceIte] at h2
+      split at h2
+      · rename_i hij
+        subst hij
+        cases h2
+        rw [hth] at h1
+        cases h1
+        show th.vs.coh b ≤ (spawnS c th).vs.coh b
+        rw [spawnS_coh]
+        exact Nat.le_refl _
+      · rw [h1] at h2
+        cases h2
+        exact Nat.le_refl _
 
 /-! ## §2 The labelled spawn machine -/
 

@@ -37,6 +37,7 @@ def Directive.rmwLive : Directive → Bool
   | .instr i => i.operation.rmwLive
   | .label _ => true
   | .byteArray _ => true
+  | .zeros _ => true
 
 /-- **The static `RmwLive` check** of a program: every directive passes. -/
 def Program.rmwLive (p : Program) : Bool := p.all Directive.rmwLive
@@ -310,6 +311,7 @@ theorem directive_live [Labels] (dir : Directive) (p : Std.Rco Int64) {s : Machi
     exact operation_live _ _ hd hk hj
   | label l => exact hk _
   | byteArray b => simp only [Directive.interp, toEv, EvTree.RmwLive]
+  | zeros n => simp only [Directive.interp, toEv, EvTree.RmwLive]
 
 end Live
 

@@ -686,6 +686,7 @@ theorem evalOp_sim (p : Prog) (k : Promises.Knobs) (n i lbase : Nat) (bf : Bool)
     ∃ ra ∈ evalOp ⟨p, k, .arm, n, i, lbase, bf, fun _ => False, fun _ => True, ty⟩ ea σs sa op , ResLe O ra rt := by
   cases op with
   | spawn => simp [evalOp] at hin
+  | spawnI => simp [evalOp] at hin
   | ext => simp [evalOp] at hin
   | atom a =>
       simp only [evalOp, ol] at hin ⊢

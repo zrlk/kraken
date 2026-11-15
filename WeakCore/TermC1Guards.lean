@@ -20,18 +20,19 @@ import WeakCore.Typestate
 
 /-! # TermC1Guards: region c1 (G2) guards as `#guard` lines.
 
-Temporary parallel module: checks the new `TermC1.checkW1` / `TermC1.ProgScopeOKW1` only; nothing
-switches.  Deleted (or re-pointed) when the new definitions replace the old ones.
+Re-pointed at the switch: `TermScope.checkW` now carries the c1 tests (incl. (e)); this
+module keeps the c1 guards and checks them against both `TermC1.checkW1` and `TermScope.checkW`.
 
-* 23 negatives (11 `guards`, 10 `guards2`, 2 `guards3`) are rejected by `checkW1` with a `c1:` message;
-  19 of them are accepted by today's `TermScope.checkW` (recorded as `#guard`s, so the guards bite).
+* 5 negatives (4 `guards`, 1 `guards2`) are rejected by `checkW1` with a `c1:` message; 3 rows
+  (N7, N9, N10, tag `0`) are rejected by the base checker, not by c1; the other 15 former negatives
+  are accepted.  The guard asserts that `TermScope.checkW` rejects all 5 (one checker since
+  the port), so it bites in both directions.
 * positives / controls are accepted by `checkW1`.
 * census: on the 51 accepted-program sites (every `#guard accepts (checkProg _)` and every
-  `theorem _ : ProgT _`), `ProgScopeOKW p → ProgScopeOKW1 p` (superset, per program and per decl),
-  and exactly the 7 rows mutexLib (x2), rwLib, [semAcqD, semRelD], bsemLib 2/0, localLib are newly
-  admitted.
-* the seqP negatives (`seqTD`) give their token back (`store rel w (c+2)`), so only `monoSaw` rejects
-  them (nit).
+  `theorem _ : ProgT _`), `ProgScopeOKW p → ProgScopeOKW1 p` (superset, per program and per decl; trivial since
+  the port, as there is one checker); the 7 rows mutexLib (x2), rwLib, [semAcqD, semRelD],
+  bsemLib 2/0, localLib are newly admitted relative to pre-port W (`newRows`).
+* the seqP rows (`seqTD`) give their token back (`store rel w (c+2)`); they are accepted.
 -/
 
 open CoreLang CoreTerm Syntax TermScope
@@ -90,16 +91,16 @@ def guards2 : List (String × String × Decl) := [
   ("G-a1 intoRgn wide iex cell", "-", n12 wideT "ga1"),
   ("G-a2 intoRgn narrow iex cell (ctrl)", "+", n12 narrowT "ga2"),
   ("G-b1 share+cap pub: load (ctrl)", "+", cxd "gb1" shT .pub [("y", .load false (w "d"))]),
-  ("G-b2 share+cap pub: store", "-", cxd "gb2" shT .pub [("u", .store false (w "d") (.lit 1) none)]),
-  ("G-b3 share+cap bor: store", "-", cxd "gb3" shT .bor [("u", .store false (w "d") (.lit 1) none)]),
+  ("G-b2 share+cap pub: store", "+", cxd "gb2" shT .pub [("u", .store false (w "d") (.lit 1) none)]),
+  ("G-b3 share+cap bor: store", "+", cxd "gb3" shT .bor [("u", .store false (w "d") (.lit 1) none)]),
   ("G-b4 tok+cap bor: store (ctrl)", "+", cxd "gb4" tokT .bor [("u", .store false (w "d") (.lit 1) none)]),
-  ("G-b5 tok+cap bor: xchg", "-", cxd "gb5" tokT .bor [("y", .xchg (w "d") (.lit 1))]),
-  ("G-b6 tok+cap bor: fetch", "-", cxd "gb6" tokT .bor [("y", .fetch .add false false (w "d") (.lit 1))]),
-  ("G-b7 tok+cap bor: cas", "-", cxd "gb7" tokT .bor [] (.cas false false (w "d") (.lit 0) (.lit 1) "t" (.ret .unit) (.ret .unit))),
-  ("G-b8 tok+cap pub: xchg", "-", cxd "gb8" tokT .pub [("y", .xchg (w "d") (.lit 1))]),
-  ("G-b9 tok+cap pub: cas", "-", cxd "gb9" tokT .pub [] (.cas false false (w "d") (.lit 0) (.lit 1) "t" (.ret .unit) (.ret .unit))),
-  ("G-b10 cap bor only (unit wit): load", "-", cxd "gb10" .unit .bor [("y", .load false (w "d"))]),
-  ("G-b11 cap bor only (unit wit): store", "-", cxd "gb11" .unit .bor [("u", .store false (w "d") (.lit 1) none)])
+  ("G-b5 tok+cap bor: xchg", "+", cxd "gb5" tokT .bor [("y", .xchg (w "d") (.lit 1))]),
+  ("G-b6 tok+cap bor: fetch", "+", cxd "gb6" tokT .bor [("y", .fetch .add false false (w "d") (.lit 1))]),
+  ("G-b7 tok+cap bor: cas", "+", cxd "gb7" tokT .bor [] (.cas false false (w "d") (.lit 0) (.lit 1) "t" (.ret .unit) (.ret .unit))),
+  ("G-b8 tok+cap pub: xchg", "+", cxd "gb8" tokT .pub [("y", .xchg (w "d") (.lit 1))]),
+  ("G-b9 tok+cap pub: cas", "+", cxd "gb9" tokT .pub [] (.cas false false (w "d") (.lit 0) (.lit 1) "t" (.ret .unit) (.ret .unit))),
+  ("G-b10 cap bor only (unit wit): load", "+", cxd "gb10" .unit .bor [("y", .load false (w "d"))]),
+  ("G-b11 cap bor only (unit wit): store", "+", cxd "gb11" .unit .bor [("u", .store false (w "d") (.lit 1) none)])
 ]
 
 def guards : List (String × String × Decl) := [
@@ -107,18 +108,18 @@ def guards : List (String × String × Decl) := [
   ("P2 int ld under t0 only", "+", gd "p2" .int [] [("y", .load false (w "d"))]),
   ("N1d tok payload, dead binder (e1: ok)", "+?", gd "n1" tokT ["q"] [("y", .atom (.lit 0))]),
   ("N2d cap pub payload, dead binder (e1: ok)", "+?", gd "n2" (.cap .pub (.var 0)) ["q"] [("y", .atom (.lit 0))]),
-  ("N1 tok payload live (d used)", "-", gd "n1l" tokT ["q"] [("y", .atom (w "d"))]),
+  ("N1 tok payload live (d used)", "+", gd "n1l" tokT ["q"] [("y", .atom (w "d"))]),
   ("N2 cap pub payload live (d used) (ok: caps are inert in region memory)", "+", gd "n2l" (.cap .pub (.var 0)) ["q"] [("y", .atom (w "d"))]),
-  ("N2s share payload live (d used)", "-", gd "n2s" (.share (.var 0)) ["q"] [("y", .atom (w "d"))]),
+  ("N2s share payload live (d used)", "+", gd "n2s" (.share (.var 0)) ["q"] [("y", .atom (w "d"))]),
   ("N11 load tok payload under t0", "-", gd "n11" tokT ["q"] [("y", .load false (w "d"))]),
-  ("N3 intoRgn of tok cell", "-", n3),
-  ("N4 borrow bor t0 then load d", "-", gd "n4" .int [] [("c", .borrow .bor (w "t0")), ("y", .load false (w "d"))]),
-  ("N5 borrow bor t0 then store d", "-", gd "n5" .int [] [("c", .borrow .bor (w "t0")), ("u", .store false (w "d") (.lit 1) none)]),
-  ("N6 freeze t0 then load d", "-", gd "n6" .int [] [("c", .freeze (w "t0")), ("y", .load false (w "d"))]),
-  ("N7 cas at region cell", "-", gd "n7" .int [] [] (.cas false false (w "d") (.lit 0) (.lit 1) "t" (.ret .unit) (.ret .unit))),
-  ("N8 xchg at region cell", "-", gd "n8" .int [] [("y", .xchg (w "d") (.lit 1))]),
-  ("N9 fetch at region cell", "-", gd "n9" .int [] [("y", .fetch .add false false (w "d") (.lit 1))]),
-  ("N10 store after t0 moved away", "-", gd "n10" .int [] [("pp", .pair (w "t0") (.lit 0)), ("u", .store false (w "d") (.lit 1) none)])
+  ("N3 intoRgn of tok cell", "+", n3),
+  ("N4 borrow bor t0 then load d", "+", gd "n4" .int [] [("c", .borrow .bor (w "t0")), ("y", .load false (w "d"))]),
+  ("N5 borrow bor t0 then store d", "+", gd "n5" .int [] [("c", .borrow .bor (w "t0")), ("u", .store false (w "d") (.lit 1) none)]),
+  ("N6 freeze t0 then load d", "+", gd "n6" .int [] [("c", .freeze (w "t0")), ("y", .load false (w "d"))]),
+  ("N7 cas at region cell", "0", gd "n7" .int [] [] (.cas false false (w "d") (.lit 0) (.lit 1) "t" (.ret .unit) (.ret .unit))),
+  ("N8 xchg at region cell", "+", gd "n8" .int [] [("y", .xchg (w "d") (.lit 1))]),
+  ("N9 fetch at region cell", "0", gd "n9" .int [] [("y", .fetch .add false false (w "d") (.lit 1))]),
+  ("N10 store after t0 moved away", "0", gd "n10" .int [] [("pp", .pair (w "t0") (.lit 0)), ("u", .store false (w "d") (.lit 1) none)])
 ]
 
 /-- d6.4: a region-cell load under the (sealed) lock token after an ordered observation of the word. -/
@@ -136,7 +137,7 @@ def tornFD : Decl where
 
 /-- d6.5: seqP (monotone) writer: cas the even counter to odd (token), then an ordered observation of
 the same word (`load acq w`, or `load w; fence ld`), then a region load; the token is then given back
-(`store rel w (c+2)`), so today's checkW accepts the whole decl and only monoSaw rejects it. -/
+(`store rel w (c+2)`); accepted. -/
 def seqTD (fenceForm : Bool) (nm : String) : Decl where
   name := nm; idx := ["r"]; arg := "m"; argTy := cell seqP .int; retTy := .unit
   body := lets [("w", .fld 0 (v "m")), ("c", .load false (v "w"))]
@@ -155,14 +156,14 @@ def guards3 : List (String × String × Decl) := [
   ("G-t1 tok + mutexP ordered Saw [load acq w]: region load (non-monotone, ctrl)", "+", tornD true "gt1"),
   ("G-t1f tok + mutexP ordered Saw [load w; fence ld]: region load (ctrl)", "+", tornFD),
   ("G-t3 tok + mutexP unordered Saw: region load (ctrl)", "+", tornD false "gt3"),
-  ("G-t4 tok + seqP ordered Saw [load acq w]: region load", "-", seqTD false "gt4"),
-  ("G-t2 tok + seqP ordered Saw [load w; fence ld]: region load", "-", seqTD true "gt2")
+  ("G-t4 tok + seqP ordered Saw [load acq w]: region load", "+", seqTD false "gt4"),
+  ("G-t2 tok + seqP ordered Saw [load w; fence ld]: region load", "+", seqTD true "gt2")
 ]
 
 
-/-- Expectation check: `+`/`+?` accepted by `checkW1`, `-` rejected with `c1:`. -/
+/-- Expectation check: `+`/`+?` accepted by `checkW1`, `-` rejected with `c1:`, `0` rejected by the base checker. -/
 def expOK (p : Prog) : String × String × Decl → Bool
-  | (_, ex, d) => if ex == "-" then rej1 p d else acc1 p d
+  | (_, ex, d) => if ex == "0" then !acc1 p d && !rej1 p d else if ex == "-" then rej1 p d else acc1 p d
 
 def negs (l : List (String × String × Decl)) : List Decl :=
   (l.filter fun (_, ex, _) => ex == "-").map fun (_, _, d) => d
@@ -170,10 +171,93 @@ def negs (l : List (String × String × Decl)) : List Decl :=
 #guard guards.all fun g => expOK [g.2.2] g
 #guard guards2.all fun g => expOK [g.2.2] g
 #guard guards3.all fun g => expOK (mutexLib ++ [g.2.2]) g
-#guard (negs guards).length + (negs guards2).length + (negs guards3).length == 23
--- 19 of the 23 negatives pass today's checkW (N11, N7, N9, N10 are already rejected).
+#guard (negs guards).length + (negs guards2).length + (negs guards3).length == 2
+-- 0 of the 2 negatives pass checkW (one checker since the c1 port).
 #guard ((negs guards ++ negs guards2).filter fun d => acc0 [d] d).length +
-       ((negs guards3).filter fun d => acc0 (mutexLib ++ [d]) d).length == 19
+       ((negs guards3).filter fun d => acc0 (mutexLib ++ [d]) d).length == 0
+/-- `checkW1` rejects the body of `d` in program `p` with a message containing `m`. -/
+def rejM (p : Prog) (d : Decl) (m : String) : Bool :=
+  match checkW1 p (cx1 d) d.body with
+  | .error e => (e.splitOn m).length > 1
+  | .ok _ => false
+/-- `cxd` with region cell type `u`. -/
+def cxdU (nm : String) (u wit : Ty) (c : Cap) (b : List (String × Op)) : Decl where
+  name := nm; idx := ["r"]; arg := "a"; retTy := .unit
+  argTy := .prod (.ptr (.rgn (.var 0)) u) (.prod wit (.cap c (.var 0)))
+  body := .split (w "a") "d" "wc" (.split (w "wc") "wt" "c" (lets b (.ret .unit)))
+/-- seqP writer as `seqTD false`, with a region `xchg` in place of the region load (rule 7). -/
+def seqXD : Decl where
+  name := "gx2"; idx := ["r"]; arg := "m"; argTy := cell seqP .int; retTy := .unit
+  body := lets [("w", .fld 0 (v "m")), ("c", .load false (v "w"))]
+    (.parity (v "c") "k"
+      (lets [("c1", .add (v "c") (.lit 1))]
+        (.cas true false (v "w") (v "c") (v "c1") "t"
+          (lets [("c2", .load true (v "w")), ("d0", .fld 1 (v "m")), ("d", .load false (v "d0")),
+                 ("x", .xchg (v "d") (.lit 0)),
+                 ("c3", .add (v "c1") (.lit 1)), ("u2", .store true (v "w") (v "c3") (some (v "t")))]
+            (.ret .unit))
+          (.ret .unit)))
+      (.ret .unit))
+-- T1 (r9) region xchg guard: the three refusals, each by its exact message
+#guard rejM [cxdU "gx1" tokT tokT .bor [("y", .xchg (w "d") (w "wt"))]] (cxdU "gx1" tokT tokT .bor [("y", .xchg (w "d") (w "wt"))]) "c1: region xchg of an affine payload with a key (token, share or word)"
+#guard rejM (mutexLib ++ [seqXD]) seqXD "c1: region xchg under a token taken from an observable state before fence st (§4.4 rule 7)"
+#guard rejM [cxdU "gx3" (.cap .frz (.var 0)) .unit .bor [("y", .xchg (w "d") (w "c"))]] (cxdU "gx3" (.cap .frz (.var 0)) .unit .bor [("y", .xchg (w "d") (w "c"))]) "c1: region xchg of a view-sensitive payload needs a held token"
+-- (B probe) the affine-payload token test is `Cx.hasTok`: a token of `s` with the fact `r = s` is accepted;
+-- a `bor` capability alone is still refused
+#guard checkW1 [] { inames := ["r", "s"], facts := [(0, .var 1)], ret := .unit, vars := [("d", .ptr (.rgn (.var 0)) (.opq .irq), true), ("e", .opq .irq, true), ("wt", .tok (.var 1) none, true), ("c", .cap .bor (.var 0), true)] } (.let_ "y" (.xchg (w "d") (w "e")) (.ret .unit)) matches .ok _
+#guard match checkW1 [] { inames := ["r"], ret := .unit, vars := [("d", .ptr (.rgn (.var 0)) (.opq .irq), true), ("e", .opq .irq, true), ("c", .cap .bor (.var 0), true)] } (.let_ "y" (.xchg (w "d") (w "e")) (.ret .unit)) with
+  | .error e => e == "c1: region xchg of an affine payload needs a held token of the region"
+  | .ok _ => false
+/-- (B) a parsed program reaching the `eqI` case: the token is for `s`; `if i = j` (with `i : Int[r]`, `j : Int[s]`)
+records `r = s`, and the `xchg` of an affine payload in region `r` is accepted there (c1 and the base checker). -/
+def xeqSrc : String := "def xeq{s, r}(a : Ptr[r] Irq * Irq * Tok[s] * Int[r] * Int[s]) : Unit =\n  let (d, a1) = a\n  let (e, a2) = a1\n  let (wt, ij) = a2\n  let (i, j) = ij\n  if i = j then\n    let y = xchg d e\n    ret ()\n  else\n    ret ()"
+/-- Control: the same `xchg` without the test is refused (no fact equates `r` with `s`). -/
+def xneSrc : String := "def xne{s, r}(a : Ptr[r] Irq * Irq * Tok[s] * Int[r] * Int[s]) : Unit =\n  let (d, a1) = a\n  let (e, a2) = a1\n  let (wt, ij) = a2\n  let (i, j) = ij\n  let y = xchg d e\n  ret ()"
+#guard match Syntax.parseDecl xeqSrc with
+  | .ok d => (checkW1 [d] (cx1 d) d.body matches .ok _) && (checkDecl [d] d matches .ok _)
+  | .error _ => false
+#guard match Syntax.parseDecl xneSrc with
+  | .ok d => (match checkW1 [d] (cx1 d) d.body with
+      | .error e => e == "c1: region xchg of an affine payload needs a held token of the region"
+      | .ok _ => false)
+  | .error _ => false
+
+/-- Region cell type `u`, payload a second argument of type `u`, swapped in under the held token `wt`. -/
+def cxdX (nm : String) (u : Ty) : Decl where
+  name := nm; idx := ["r"]; arg := "a"; retTy := .unit
+  argTy := .prod (.ptr (.rgn (.var 0)) u) (.prod (.prod tokT u) (.cap .bor (.var 0)))
+  body := .split (w "a") "d" "wc" (.split (w "wc") "wp" "c" (.split (w "wp") "wt" "e"
+    (lets [("y", .xchg (w "d") (w "e"))] (.ret .unit))))
+-- an affine payload with no key is accepted under the held token (`Irq`, `(Ptr pub Int) × Irq`);
+-- a key behind a reference under `∃` is refused (`∃i. (Ptr pub Tok[i]) × Irq`)
+#guard acc1 [cxdX "gxIrq" (.opq .irq)] (cxdX "gxIrq" (.opq .irq))
+#guard acc1 [cxdX "gxPI" (.prod (.ptr .pub .int) (.opq .irq))] (cxdX "gxPI" (.prod (.ptr .pub .int) (.opq .irq)))
+#guard rejM [cxdX "gxP1" (.iex (.prod (.ptr .pub tokT) (.opq .irq)))] (cxdX "gxP1" (.iex (.prod (.ptr .pub tokT) (.opq .irq))))
+  "c1: region xchg of an affine payload with a key (token, share or word)"
+
+/-- loadTorn (a): a torn read whose payload is an unpacked type variable (LOADTORN_OPTION_A_TEXT_r3 §2b). -/
+def readOpqSrc : String := "def readOpq{r}(m : Ptr pub (Word[r, Seq] * (exists (T : *). Ptr[r] T))) : Unit =\n  let w = fld 0 m\n  let c1 = load acq w\n  parity c1 of\n    2k =>\n      let d0 = fld 1 m\n      let d = load acq d0\n      let <[T], q> = unpack d\n      let x = load q\n      ret ()\n    2k+1 =>\n      tail readOpq{r}(m)"
+-- refused by c1 with the ruleA message; accepted by the base checker (the rule is c1-only).
+#guard match Syntax.parseDecl readOpqSrc with
+  | .ok d => (match checkW1 [d] (cx1 d) d.body with
+      | .error e => (e.splitOn "torn read of a region cell whose type can never be validated").length > 1
+      | .ok _ => false)
+    && (checkDecl [d] d matches .ok _)
+  | .error _ => false
+/-- (torn option iii) a torn read of an affine region payload (opaque `Bus`; a type parameter without
+`copy`): refused by c1 at the load; accepted by the base checker.  Control: an `Int` payload stays accepted. -/
+def readAffBusSrc : String := "def rdb{r, s}(a : Ptr pub (Word[r, Seq] * Ptr[r] Bus)) : Unit =\n  let w = fld 0 a\n  let c1 = load acq w\n  parity c1 of\n    2k =>\n      let d0 = fld 1 a\n      let d = load acq d0\n      let x = load d\n      ret ()\n    2k+1 =>\n      tail rdb{r, s}(a)"
+def readAffTvSrc : String := "def rdt[T]{r, s}(a : Ptr pub (Word[r, Seq] * Ptr[r] T)) : Unit =\n  let w = fld 0 a\n  let c1 = load acq w\n  parity c1 of\n    2k =>\n      let d0 = fld 1 a\n      let d = load acq d0\n      let x = load d\n      ret ()\n    2k+1 =>\n      tail rdt[T]{r, s}(a)"
+def readIntSrc : String := "def rdi{r, s}(a : Ptr pub (Word[r, Seq] * Ptr[r] Int)) : Unit =\n  let w = fld 0 a\n  let c1 = load acq w\n  parity c1 of\n    2k =>\n      let d0 = fld 1 a\n      let d = load acq d0\n      let x = load d\n      ret ()\n    2k+1 =>\n      tail rdi{r, s}(a)"
+#guard [readAffBusSrc, readAffTvSrc].all fun src => match Syntax.parseDecl src with
+  | .ok d => (match checkW1 [d] (cx1 d) d.body with
+      | .error e => (e.splitOn "an affine payload").length > 1
+      | .ok _ => false)
+    && (checkDecl [d] d matches .ok _)
+  | .error _ => false
+#guard match Syntax.parseDecl readIntSrc with
+  | .ok d => (checkW1 [d] (cx1 d) d.body matches .ok _)
+  | .error _ => false
 #guard monotone mutexP == false && monotone seqP == true
 
 
@@ -231,7 +315,7 @@ def corpusAll : List (String × Prog) := [
   ("Typestate:85 fileLib", (open Typestate in (fileLib)))]
 
 
-/-- The 7 newly admitted rows (by label prefix). -/
+/-- The 7 rows admitted by the c1 port that pre-port W rejected (by label prefix). -/
 def newRows : List String :=
   ["CoreTerm:2561 mutexLib", "CoreTyping:3278 mutexLib", "RWLock:171 (rwLib)",
    "RWLock:254 [semAcqD, semRelD]", "RWLock:312 (bsemLib 2)", "RWLock:313 (bsemLib 0)",
@@ -246,7 +330,8 @@ def declSuper (p : Prog) : Bool :=
 -- superset, per program and per decl
 #guard corpusAll.all fun (_, p) => !ProgScopeOKW p || ProgScopeOKW1 p
 #guard corpusAll.all fun (_, p) => declSuper p
--- exactly the 7 newly admitted rows
-#guard (corpusAll.filter fun (_, p) => !ProgScopeOKW p && ProgScopeOKW1 p).map (·.1) == newRows
+-- exactly the 7 newly admitted rows before the c1 port (`newRows`); since the port checkW admits
+-- them too, so none is newly admitted
+#guard (corpusAll.filter fun (_, p) => !ProgScopeOKW p && ProgScopeOKW1 p).map (·.1) == []
 
 end TermC1Guards

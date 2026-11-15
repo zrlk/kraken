@@ -191,7 +191,7 @@ theorem InvAtXH_promOf {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {
   · rw [hpi.2.2]; exact HoldB_start hrl0
 
 theorem solo_typedXH {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c : Cfg} {E0 : TEnv}
-    {n0 v0 : Nat} {pb : AllocLabel → Ts} {Z : AllocLabel → Prop} {H : AllocLabel → Nat → Ts → Prop} [ProgRetIall p] [WrIniC] (hP : ProgT p)
+    {n0 v0 : Nat} {pb : AllocLabel → Ts} {Z : AllocLabel → Prop} {H : AllocLabel → Nat → Ts → Prop} [ProgRetIall p] [TermA4.ProgCkWC p] [WrIniC] (hP : ProgT p)
     (hsc : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → ScopeAt p i c0) (hvI : TermViewInv.ViewInv c)
     (hwin : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → NoHoldPubA p k arch E0 E0 i c0)
     (h0 : InvAtXHZ Z p k arch i E0 n0 v0 pb c H) (hTA : TermTyped.TidAt i c E0) {c2 : Cfg} (h : Solo p k arch i c c2) (hc2 : Certified p k arch c2 i)
@@ -218,7 +218,7 @@ theorem solo_typedXH {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c 
     obtain ⟨E', hF, hx', hT', hm', hbB, hN⟩ := hstep r hr hpa
     have hTyN := TermTyped.tyRun_thread (hDy := hDy) (hC := fun k => (hE.2.1 k).1) (hN := hN) (g := { gOf p k arch c0 i with zf := Z }) hs hth e3 rfl rfl rfl rfl
       (Nat.lt_of_le_of_lt (Nat.zero_le _) (Cfg.lt_n (arr_lt hth))) hr hF.1 hTyR hRcR
-    have hA' := anchR_tstep hF hm' hbB hE hT htv hi hm hscope (TermViewInv.envVR_solo hvI hc0 hth) hr (frRunA_ext hfr hx) hfr.2.1
+    have hA' := anchR_tstep hF hm' hbB hE hT.1 htv hi hm hscope (TermViewInv.envVR_solo hvI hc0 hth) hr (frRunA_ext hfr hx) hfr.2.1
     have hfb' := FrBound_foot hF (tstep_wrUp _ _ _ _ r hr) hfb hfr.1
     have hIL' := IniLoc_foot hF (fun _ h => h) hfb hIL
     have hlt := MemInv_promLt hm
@@ -291,7 +291,7 @@ theorem InvAtXHP_promOf {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} 
   · rw [hpi.2.2]; exact HoldB_start hrl0
 
 theorem solo_typedXHP {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c : Cfg} {E0 : TEnv}
-    {n0 v0 : Nat} {pb : AllocLabel → Ts} {Z : AllocLabel → Prop} {H : AllocLabel → Nat → Ts → Prop} [ProgRetIall p] [WrIniC] (hP : ProgT p)
+    {n0 v0 : Nat} {pb : AllocLabel → Ts} {Z : AllocLabel → Prop} {H : AllocLabel → Nat → Ts → Prop} [ProgRetIall p] [TermA4.ProgCkWC p] [WrIniC] (hP : ProgT p)
     (hsc : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → ScopeAt p i c0) (hvI : TermViewInv.ViewInv c)
     (hwin : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → NoHoldPubA p k arch E0 E0 i c0)
     {st : Cfg} (h0 : InvAtXHP Z p k arch i E0 n0 v0 pb st c H) (hTA : TermTyped.TidAt i c E0) {c2 : Cfg} (h : Solo p k arch i c c2) (hc2 : Certified p k arch c2 i)
@@ -332,7 +332,7 @@ theorem solo_typedXHP {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c
     obtain ⟨E', hF, hx', hT', hm', hD, hbB, hN⟩ := hstep r hr hpa
     have hTyN := TermTyped.tyRun_thread (hDy := hDy) (hC := fun k => (hE.2.1 k).1) (hN := hN) (g := { ({ gOf p k arch c0 i with zf := fun l => Z l ∨ TermK5P.PubZ E0 (CE η) l ∨ TermK5O.PubZO p k arch i E0 st c0 l } : G) with pf := fun l => TermOwnG0Defs.PubAt th l }) hs hth e3 rfl rfl rfl rfl
       (Nat.lt_of_le_of_lt (Nat.zero_le _) (Cfg.lt_n (arr_lt hth))) hr hF.1 hTyR hRcR
-    have hA' := anchR_tstep hF hm' hbB hE hT htv hi hm hscope (TermViewInv.envVR_solo hvI hc0 hth) hr (frRunA_ext hfr hx) hfr.2.1
+    have hA' := anchR_tstep hF hm' hbB hE hT.1 htv hi hm hscope (TermViewInv.envVR_solo hvI hc0 hth) hr (frRunA_ext hfr hx) hfr.2.1
     have hfb' := FrBound_foot hF (tstep_wrUp _ _ _ _ r hr) hfb hfr.1
     have hIL' := IniLoc_foot hF (fun _ h => .inl h) hfb hIL
     have hlt := MemInv_promLt hm
@@ -376,7 +376,7 @@ theorem solo_typedXHP {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c
 
 
 theorem certified_promTypedXH {p : Prog} {k : Promises.Knobs} {arch : Arch} {c : Cfg} {i : Nat} {E0 : TEnv}
-    {n0 v0 : Nat} {pb : AllocLabel → Ts} {Z : AllocLabel → Prop} {H : AllocLabel → Nat → Ts → Prop} [ProgRetIall p] [WrIniC] (hP : ProgT p)
+    {n0 v0 : Nat} {pb : AllocLabel → Ts} {Z : AllocLabel → Prop} {H : AllocLabel → Nat → Ts → Prop} [ProgRetIall p] [TermA4.ProgCkWC p] [WrIniC] (hP : ProgT p)
     (hsc : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → ScopeAt p i c0) (hvI : TermViewInv.ViewInv c)
     (hwin : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → NoHoldPubA p k arch E0 E0 i c0)
     (h0 : InvAtXHZ Z p k arch i E0 n0 v0 pb c H) (hTA : TermTyped.TidAt i c E0) (hc : Certified p k arch c i)
@@ -411,14 +411,14 @@ theorem certified_promTypedXH {p : Prog} {k : Promises.Knobs} {arch : Arch} {c :
   rw [hth1] at hth'
   cases hth'
   have hm2 : c2.mem[t]? = some m := by rw [e1]; exact (tstep_grow hr).1 t m hm1
-  refine ⟨c1, c2, th1, th2, ρ, η, cx, E2, h1, hc1, h2, hc2, hth1, hth2, hx1, hE, hT, htv, hi, hmi1,
+  refine ⟨c1, c2, th1, th2, ρ, η, cx, E2, h1, hc1, h2, hc2, hth1, hth2, hx1, hE, hT.1, htv, hi, hmi1,
     hsc c1 h1 hc1 th1 hth1 (TermTyped.not_spawnT_of_steps hth1 h2) ρ η cx hE hT htv hi, certified_promAboveSt hc1 hth1, hx2, hT2, hm2i, hm1, hm2,
     ht1, ?_, hsw, hfb2, hB2, hIL2, hIH2⟩
   rwa [promsOf_some hth2] at hn2
 
 
 theorem certified_promNotUndefXH {p : Prog} {k : Promises.Knobs} {arch : Arch} {c : Cfg} {i : Nat}
-    {E0 : TEnv} {n0 v0 : Nat} {pb : AllocLabel → Ts} {Z : AllocLabel → Prop} {H : AllocLabel → Nat → Ts → Prop} [ProgRetIall p] [WrIniC] (hP : ProgT p)
+    {E0 : TEnv} {n0 v0 : Nat} {pb : AllocLabel → Ts} {Z : AllocLabel → Prop} {H : AllocLabel → Nat → Ts → Prop} [ProgRetIall p] [TermA4.ProgCkWC p] [WrIniC] (hP : ProgT p)
     (hsc : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → ScopeAt p i c0) (hvI : TermViewInv.ViewInv c)
     (hwin : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → NoHoldPubA p k arch E0 E0 i c0)
     (h0 : InvAtXHZ Z p k arch i E0 n0 v0 pb c H) (hTA : TermTyped.TidAt i c E0) (hc : Certified p k arch c i)
@@ -455,7 +455,7 @@ theorem certified_promNotUndefXH {p : Prog} {k : Promises.Knobs} {arch : Arch} {
 
 
 theorem certified_holderWordH {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {cP c' : Cfg}
-    {thP : TTh} {E0 : TEnv} {a0 : Address} {vB : WeakMem.Val} {w : Ts} [ProgRetIall p] [WrIniC] (hP : ProgT p)
+    {thP : TTh} {E0 : TEnv} {a0 : Address} {vB : WeakMem.Val} {w : Ts} [ProgRetIall p] [TermA4.ProgCkWC p] [WrIniC] (hP : ProgT p)
     (hsc : ∀ c0, Solo p k arch i (promise cP i a0 vB w) c0 → Certified p k arch c0 i → ScopeAt p i c0) (hvI : TermViewInv.ViewInv (promise cP i a0 vB w))
     (hwin : ∀ c0, Solo p k arch i (promise cP i a0 vB w) c0 → Certified p k arch c0 i → NoHoldPubA p k arch E0 E0 i c0)
     (hthP : cP.ths[i]? = some thP) (hT0 : ThInvE p E0 thP)
@@ -490,7 +490,7 @@ theorem certified_holderWordH {p : Prog} {k : Promises.Knobs} {arch : Arch} {i :
 
 
 theorem certified_hinhW1H {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {cP c' : Cfg}
-    {thP : TTh} {E0 : TEnv} {a0 : Address} {vB : WeakMem.Val} {w : Ts} [ProgRetIall p] [WrIniC] (hP : ProgT p)
+    {thP : TTh} {E0 : TEnv} {a0 : Address} {vB : WeakMem.Val} {w : Ts} [ProgRetIall p] [TermA4.ProgCkWC p] [WrIniC] (hP : ProgT p)
     (hsc : ∀ c0, Solo p k arch i (promise cP i a0 vB w) c0 → Certified p k arch c0 i → ScopeAt p i c0) (hvI : TermViewInv.ViewInv (promise cP i a0 vB w))
     (hwin : ∀ c0, Solo p k arch i (promise cP i a0 vB w) c0 → Certified p k arch c0 i → NoHoldPubA p k arch E0 E0 i c0)
     (hthP : cP.ths[i]? = some thP) (hT0 : ThInvE p E0 thP)
@@ -516,7 +516,7 @@ theorem certified_hinhW1H {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat
       RunAgree E0 (plantE E0 (stOf cP.mem cP.pairs thP) Lp) Lp E2)
     {l : AllocLabel} {c : Cell} (hl : Lp l) (hc : E0.sto l = some c) {b : Nat} {S : Ty} {us : List Acc}
     (hseg : SegOf c.ty b S) (hus : accs S = some us) (h1 : nWords us = 1)
-    (hnS : Ty.noOwnIn [] S = true) (hrS : rgnFree S = true)
+    (hnS : Ty.noOwnIn [] S = true) (hrS : rgnFree S = true ∨ TermC1.drf1 S = true)
     (hini : IniSeg (plantE E0 (stOf cP.mem cP.pairs thP) Lp) c l b) (hnot : ¬ IniSeg E0 c l b)
     (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) (hZr : ∀ c1, Solo p k arch i (promise cP i a0 vB w) c1 → Certified p k arch c1 i → ∀ th1, c1.ths[i]? = some th1 →
       ∀ l, BufInitOn th1 l → ¬ Z l := by exact fun _ _ _ _ _ _ _ h => h) :
@@ -554,7 +554,7 @@ theorem certified_hinhW1H {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat
   obtain ⟨w0, hV, hle⟩ := wordOK_slot1 hw2 hus h1
   have hR := hres c2 th2 E2 h2 hc2 hth2 hx2 hm2 hfb2 hB2 hIL2 hIH2
   have hbi := hm2.2.2.2.2.2.2.2.2.2.1
-  refine ⟨[w0], ValOf_monoK (G := PlantG E0 Lp) hnS hrS hus (by rw [h1]; rfl) hx2.2.2.1 hx2.2.2.2.1
+  refine ⟨[w0], ValOf_monoKL (G := PlantG E0 Lp) hnS hrS hus (by rw [h1]; rfl) hx2.2.2.1 hx2.2.2.2.1
     (fun a c0 hG hc0 => ?_) (fun a hG => ?_) (fun a f hG hf => ?_) (fun a B hG hB => ?_) hR.pay ?_ hV, rfl⟩
   · show E0.sto a = some c0
     rcases hG with ⟨c1, f, h1', -⟩ | hLa | ⟨B, hB⟩
@@ -586,7 +586,7 @@ theorem certified_hinhW1H {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat
     intro w1 hw1 a g hv
     rw [List.mem_singleton] at hw1
     subst hw1
-    have hJ := noJunk_valOf hV hnS hrS hus (by rw [h1]; rfl) w1 (List.mem_singleton_self _) a g hv
+    have hJ := noJunk_valOfL hV hnS hrS hus (by rw [h1]; rfl) w1 (List.mem_singleton_self _) a g hv
     have hvm : w1.view ≤ m.view := hle.2 a g hv
     have hmv : m.val = .loc a g := by rw [← hv]; exact hle.1.symm
     rcases FrBound_inspM hfb2 hJ (Nat.lt_of_le_of_lt hvm (hpv u hu' m hm')) with ⟨c1, hc1⟩ | ⟨B, hB⟩
@@ -596,7 +596,7 @@ theorem certified_hinhW1H {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat
     · exact .inr (.inr ⟨B, hB⟩)
 
 theorem certified_promTypedXHP {p : Prog} {k : Promises.Knobs} {arch : Arch} {c : Cfg} {i : Nat} {E0 : TEnv}
-    {n0 v0 : Nat} {pb : AllocLabel → Ts} {Z : AllocLabel → Prop} {H : AllocLabel → Nat → Ts → Prop} [ProgRetIall p] [WrIniC] (hP : ProgT p)
+    {n0 v0 : Nat} {pb : AllocLabel → Ts} {Z : AllocLabel → Prop} {H : AllocLabel → Nat → Ts → Prop} [ProgRetIall p] [TermA4.ProgCkWC p] [WrIniC] (hP : ProgT p)
     (hsc : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → ScopeAt p i c0) (hvI : TermViewInv.ViewInv c)
     (hwin : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → NoHoldPubA p k arch E0 E0 i c0)
     {st : Cfg} (h0 : InvAtXHP Z p k arch i E0 n0 v0 pb st c H) (hTA : TermTyped.TidAt i c E0) (hc : Certified p k arch c i)
@@ -637,13 +637,13 @@ theorem certified_promTypedXHP {p : Prog} {k : Promises.Knobs} {arch : Arch} {c 
   rw [hth1] at hth'
   cases hth'
   have hm2 : c2.mem[t]? = some m := by rw [e1]; exact (tstep_grow hr).1 t m hm1
-  refine ⟨c1, c2, th1, th2, ρ, η, cx, E2, h1, hc1, h2, hc2, hth1, hth2, hx1, hE, hT, htv, hi, hmi1,
+  refine ⟨c1, c2, th1, th2, ρ, η, cx, E2, h1, hc1, h2, hc2, hth1, hth2, hx1, hE, hT.1, htv, hi, hmi1,
     hsc c1 h1 hc1 th1 hth1 (TermTyped.not_spawnT_of_steps hth1 h2) ρ η cx hE hT htv hi, certified_promAboveSt hc1 hth1, hx2, hT2, hm2i, hm1, hm2,
     ht1, ?_, hsw, hfb2, hB2, hIL2, hIH2, hPV2, hPO2⟩
   rwa [promsOf_some hth2] at hn2
 
 theorem certified_promNotUndefXHP {p : Prog} {k : Promises.Knobs} {arch : Arch} {c : Cfg} {i : Nat}
-    {E0 : TEnv} {n0 v0 : Nat} {pb : AllocLabel → Ts} {Z : AllocLabel → Prop} {H : AllocLabel → Nat → Ts → Prop} [ProgRetIall p] [WrIniC] (hP : ProgT p)
+    {E0 : TEnv} {n0 v0 : Nat} {pb : AllocLabel → Ts} {Z : AllocLabel → Prop} {H : AllocLabel → Nat → Ts → Prop} [ProgRetIall p] [TermA4.ProgCkWC p] [WrIniC] (hP : ProgT p)
     (hsc : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → ScopeAt p i c0) (hvI : TermViewInv.ViewInv c)
     (hwin : ∀ c0, Solo p k arch i c c0 → Certified p k arch c0 i → NoHoldPubA p k arch E0 E0 i c0)
     {st : Cfg} (h0 : InvAtXHP Z p k arch i E0 n0 v0 pb st c H) (hTA : TermTyped.TidAt i c E0) (hc : Certified p k arch c i)
@@ -685,7 +685,7 @@ theorem certified_promNotUndefXHP {p : Prog} {k : Promises.Knobs} {arch : Arch} 
   · exact h
 
 theorem certified_holderWordHP {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {cP c' : Cfg}
-    {thP : TTh} {E0 : TEnv} {a0 : Address} {vB : WeakMem.Val} {w : Ts} [ProgRetIall p] [WrIniC] (hP : ProgT p)
+    {thP : TTh} {E0 : TEnv} {a0 : Address} {vB : WeakMem.Val} {w : Ts} [ProgRetIall p] [TermA4.ProgCkWC p] [WrIniC] (hP : ProgT p)
     (hsc : ∀ c0, Solo p k arch i (promise cP i a0 vB w) c0 → Certified p k arch c0 i → ScopeAt p i c0) (hvI : TermViewInv.ViewInv (promise cP i a0 vB w))
     (hwin : ∀ c0, Solo p k arch i (promise cP i a0 vB w) c0 → Certified p k arch c0 i → NoHoldPubA p k arch E0 E0 i c0)
     (hthP : cP.ths[i]? = some thP) (hT0 : ThInvE p E0 thP)
@@ -725,7 +725,7 @@ theorem certified_holderWordHP {p : Prog} {k : Promises.Knobs} {arch : Arch} {i 
   exact ⟨c2, th2, E2, h2, hc2, hth2, hx2, hm2, hw2 cl hcl, hfb2, hB2, hIL2, hIH2, hPV2, hPO2⟩
 
 theorem certified_hinhW1HP {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {cP c' : Cfg}
-    {thP : TTh} {E0 : TEnv} {a0 : Address} {vB : WeakMem.Val} {w : Ts} [ProgRetIall p] [WrIniC] (hP : ProgT p)
+    {thP : TTh} {E0 : TEnv} {a0 : Address} {vB : WeakMem.Val} {w : Ts} [ProgRetIall p] [TermA4.ProgCkWC p] [WrIniC] (hP : ProgT p)
     (hsc : ∀ c0, Solo p k arch i (promise cP i a0 vB w) c0 → Certified p k arch c0 i → ScopeAt p i c0) (hvI : TermViewInv.ViewInv (promise cP i a0 vB w))
     (hwin : ∀ c0, Solo p k arch i (promise cP i a0 vB w) c0 → Certified p k arch c0 i → NoHoldPubA p k arch E0 E0 i c0)
     (hthP : cP.ths[i]? = some thP) (hT0 : ThInvE p E0 thP)
@@ -757,7 +757,7 @@ theorem certified_hinhW1HP {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Na
       RunAgree E0 (plantE E0 (stOf cP.mem cP.pairs thP) Lp) Lp E2)
     {l : AllocLabel} {c : Cell} (hl : Lp l) (hc : E0.sto l = some c) {b : Nat} {S : Ty} {us : List Acc}
     (hseg : SegOf c.ty b S) (hus : accs S = some us) (h1 : nWords us = 1)
-    (hnS : Ty.noOwnIn [] S = true) (hrS : rgnFree S = true)
+    (hnS : Ty.noOwnIn [] S = true) (hrS : rgnFree S = true ∨ TermC1.drf1 S = true)
     (hini : IniSeg (plantE E0 (stOf cP.mem cP.pairs thP) Lp) c l b) (hnot : ¬ IniSeg E0 c l b)
     (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) (hZr : ∀ c1, Solo p k arch i (promise cP i a0 vB w) c1 → Certified p k arch c1 i → ∀ th1, c1.ths[i]? = some th1 →
       ∀ l, BufInitOn th1 l → ¬ Z l := by exact fun _ _ _ _ _ _ _ h => h) :
@@ -795,7 +795,7 @@ theorem certified_hinhW1HP {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Na
   obtain ⟨w0, hV, hle⟩ := wordOK_slot1 hw2 hus h1
   have hR := hres c2 th2 E2 h2 hc2 hth2 hx2 hm2 hfb2 hB2 hIL2 hIH2 hPV2 hPO2
   have hbi := hm2.2.2.2.2.2.2.2.2.2.1
-  refine ⟨[w0], ValOf_monoK (G := PlantG E0 Lp) hnS hrS hus (by rw [h1]; rfl) hx2.2.2.1 hx2.2.2.2.1
+  refine ⟨[w0], ValOf_monoKL (G := PlantG E0 Lp) hnS hrS hus (by rw [h1]; rfl) hx2.2.2.1 hx2.2.2.2.1
     (fun a c0 hG hc0 => ?_) (fun a hG => ?_) (fun a f hG hf => ?_) (fun a B hG hB => ?_) hR.pay ?_ hV, rfl⟩
   · show E0.sto a = some c0
     rcases hG with ⟨c1, f, h1', -⟩ | hLa | ⟨B, hB⟩
@@ -827,7 +827,7 @@ theorem certified_hinhW1HP {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Na
     intro w1 hw1 a g hv
     rw [List.mem_singleton] at hw1
     subst hw1
-    have hJ := noJunk_valOf hV hnS hrS hus (by rw [h1]; rfl) w1 (List.mem_singleton_self _) a g hv
+    have hJ := noJunk_valOfL hV hnS hrS hus (by rw [h1]; rfl) w1 (List.mem_singleton_self _) a g hv
     have hvm : w1.view ≤ m.view := hle.2 a g hv
     have hmv : m.val = .loc a g := by rw [← hv]; exact hle.1.symm
     rcases FrBound_inspM hfb2 hJ (Nat.lt_of_le_of_lt hvm (hpv u hu' m hm')) with ⟨c1, hc1⟩ | ⟨B, hB⟩

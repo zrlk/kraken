@@ -2,6 +2,7 @@ import Scc.Cert.Arm
 import Scc.Cert.OutStageA64
 import Scc.Cert.OutStageWA64
 import Scc.Cert.MapsPartA64
+import Scc.Cert.MapsFast
 import Scc.Cert.SrcTerm
 
 /-!
@@ -4124,122 +4125,122 @@ theorem gc_tags_eq : Scc.Cert.MapsA64.fnTagsA64 loweredLit.1 emittedLit.1 = .ok 
 /-- Function 0's ranked witness is the least fixpoint of slot liveness on its body
 (kernel-checked: `leastOk`, a post-fixpoint, every slot justified at its rank, the ranks below
 the fuel). -/
-theorem gc_least_0 : Scc.Cert.Maps.leastOk (Scc.Cert.Maps.bodyOf gcFnLit_0 gcItemsLit) gwLit_0.1 gwLit_0.2 = true := by
-  decide +kernel
+theorem gc_least_0 : Scc.Cert.Maps.leastOk (Scc.Cert.Maps.bodyOf gcFnLit_0 gcItemsLit) gwLit_0.1 gwLit_0.2 = true :=
+  (Scc.Cert.Maps.leastOk_eq_E _ _ _).trans (by decide +kernel)
 
 /-- Function 1's ranked witness is the least fixpoint of slot liveness on its body
 (kernel-checked: `leastOk`, a post-fixpoint, every slot justified at its rank, the ranks below
 the fuel). -/
-theorem gc_least_1 : Scc.Cert.Maps.leastOk (Scc.Cert.Maps.bodyOf gcFnLit_1 gcItemsLit) gwLit_1.1 gwLit_1.2 = true := by
-  decide +kernel
+theorem gc_least_1 : Scc.Cert.Maps.leastOk (Scc.Cert.Maps.bodyOf gcFnLit_1 gcItemsLit) gwLit_1.1 gwLit_1.2 = true :=
+  (Scc.Cert.Maps.leastOk_eq_E _ _ _).trans (by decide +kernel)
 
 /-- Function 2's ranked witness is the least fixpoint of slot liveness on its body
 (kernel-checked: `leastOk`, a post-fixpoint, every slot justified at its rank, the ranks below
 the fuel). -/
-theorem gc_least_2 : Scc.Cert.Maps.leastOk (Scc.Cert.Maps.bodyOf gcFnLit_2 gcItemsLit) gwLit_2.1 gwLit_2.2 = true := by
-  decide +kernel
+theorem gc_least_2 : Scc.Cert.Maps.leastOk (Scc.Cert.Maps.bodyOf gcFnLit_2 gcItemsLit) gwLit_2.1 gwLit_2.2 = true :=
+  (Scc.Cert.Maps.leastOk_eq_E _ _ _).trans (by decide +kernel)
 
 /-- Function 3's ranked witness is the least fixpoint of slot liveness on its body
 (kernel-checked: `leastOk`, a post-fixpoint, every slot justified at its rank, the ranks below
 the fuel). -/
-theorem gc_least_3 : Scc.Cert.Maps.leastOk (Scc.Cert.Maps.bodyOf gcFnLit_3 gcItemsLit) gwLit_3.1 gwLit_3.2 = true := by
-  decide +kernel
+theorem gc_least_3 : Scc.Cert.Maps.leastOk (Scc.Cert.Maps.bodyOf gcFnLit_3 gcItemsLit) gwLit_3.1 gwLit_3.2 = true :=
+  (Scc.Cert.Maps.leastOk_eq_E _ _ _).trans (by decide +kernel)
 
 /-- Function 4's ranked witness is the least fixpoint of slot liveness on its body
 (kernel-checked: `leastOk`, a post-fixpoint, every slot justified at its rank, the ranks below
 the fuel). -/
-theorem gc_least_4 : Scc.Cert.Maps.leastOk (Scc.Cert.Maps.bodyOf gcFnLit_4 gcItemsLit) gwLit_4.1 gwLit_4.2 = true := by
-  decide +kernel
+theorem gc_least_4 : Scc.Cert.Maps.leastOk (Scc.Cert.Maps.bodyOf gcFnLit_4 gcItemsLit) gwLit_4.1 gwLit_4.2 = true :=
+  (Scc.Cert.Maps.leastOk_eq_E _ _ _).trans (by decide +kernel)
 
 /-- Function 5's ranked witness is the least fixpoint of slot liveness on its body
 (kernel-checked: `leastOk`, a post-fixpoint, every slot justified at its rank, the ranks below
 the fuel). -/
-theorem gc_least_5 : Scc.Cert.Maps.leastOk (Scc.Cert.Maps.bodyOf gcFnLit_5 gcItemsLit) gwLit_5.1 gwLit_5.2 = true := by
-  decide +kernel
+theorem gc_least_5 : Scc.Cert.Maps.leastOk (Scc.Cert.Maps.bodyOf gcFnLit_5 gcItemsLit) gwLit_5.1 gwLit_5.2 = true :=
+  (Scc.Cert.Maps.leastOk_eq_E _ _ _).trans (by decide +kernel)
 
 /-- Function 6's ranked witness is the least fixpoint of slot liveness on its body
 (kernel-checked: `leastOk`, a post-fixpoint, every slot justified at its rank, the ranks below
 the fuel). -/
-theorem gc_least_6 : Scc.Cert.Maps.leastOk (Scc.Cert.Maps.bodyOf gcFnLit_6 gcItemsLit) gwLit_6.1 gwLit_6.2 = true := by
-  decide +kernel
+theorem gc_least_6 : Scc.Cert.Maps.leastOk (Scc.Cert.Maps.bodyOf gcFnLit_6 gcItemsLit) gwLit_6.1 gwLit_6.2 = true :=
+  (Scc.Cert.Maps.leastOk_eq_E _ _ _).trans (by decide +kernel)
 
 /-- Function 7's ranked witness is the least fixpoint of slot liveness on its body
 (kernel-checked: `leastOk`, a post-fixpoint, every slot justified at its rank, the ranks below
 the fuel). -/
-theorem gc_least_7 : Scc.Cert.Maps.leastOk (Scc.Cert.Maps.bodyOf gcFnLit_7 gcItemsLit) gwLit_7.1 gwLit_7.2 = true := by
-  decide +kernel
+theorem gc_least_7 : Scc.Cert.Maps.leastOk (Scc.Cert.Maps.bodyOf gcFnLit_7 gcItemsLit) gwLit_7.1 gwLit_7.2 = true :=
+  (Scc.Cert.Maps.leastOk_eq_E _ _ _).trans (by decide +kernel)
 
 /-- Function 8's ranked witness is the least fixpoint of slot liveness on its body
 (kernel-checked: `leastOk`, a post-fixpoint, every slot justified at its rank, the ranks below
 the fuel). -/
-theorem gc_least_8 : Scc.Cert.Maps.leastOk (Scc.Cert.Maps.bodyOf gcFnLit_8 gcItemsLit) gwLit_8.1 gwLit_8.2 = true := by
-  decide +kernel
+theorem gc_least_8 : Scc.Cert.Maps.leastOk (Scc.Cert.Maps.bodyOf gcFnLit_8 gcItemsLit) gwLit_8.1 gwLit_8.2 = true :=
+  (Scc.Cert.Maps.leastOk_eq_E _ _ _).trans (by decide +kernel)
 
 /-- Function 9's ranked witness is the least fixpoint of slot liveness on its body
 (kernel-checked: `leastOk`, a post-fixpoint, every slot justified at its rank, the ranks below
 the fuel). -/
-theorem gc_least_9 : Scc.Cert.Maps.leastOk (Scc.Cert.Maps.bodyOf gcFnLit_9 gcItemsLit) gwLit_9.1 gwLit_9.2 = true := by
-  decide +kernel
+theorem gc_least_9 : Scc.Cert.Maps.leastOk (Scc.Cert.Maps.bodyOf gcFnLit_9 gcItemsLit) gwLit_9.1 gwLit_9.2 = true :=
+  (Scc.Cert.Maps.leastOk_eq_E _ _ _).trans (by decide +kernel)
 
 /-- Function 10's ranked witness is the least fixpoint of slot liveness on its body
 (kernel-checked: `leastOk`, a post-fixpoint, every slot justified at its rank, the ranks below
 the fuel). -/
-theorem gc_least_10 : Scc.Cert.Maps.leastOk (Scc.Cert.Maps.bodyOf gcFnLit_10 gcItemsLit) gwLit_10.1 gwLit_10.2 = true := by
-  decide +kernel
+theorem gc_least_10 : Scc.Cert.Maps.leastOk (Scc.Cert.Maps.bodyOf gcFnLit_10 gcItemsLit) gwLit_10.1 gwLit_10.2 = true :=
+  (Scc.Cert.Maps.leastOk_eq_E _ _ _).trans (by decide +kernel)
 
 /-- Function 11's ranked witness is the least fixpoint of slot liveness on its body
 (kernel-checked: `leastOk`, a post-fixpoint, every slot justified at its rank, the ranks below
 the fuel). -/
-theorem gc_least_11 : Scc.Cert.Maps.leastOk (Scc.Cert.Maps.bodyOf gcFnLit_11 gcItemsLit) gwLit_11.1 gwLit_11.2 = true := by
-  decide +kernel
+theorem gc_least_11 : Scc.Cert.Maps.leastOk (Scc.Cert.Maps.bodyOf gcFnLit_11 gcItemsLit) gwLit_11.1 gwLit_11.2 = true :=
+  (Scc.Cert.Maps.leastOk_eq_E _ _ _).trans (by decide +kernel)
 
 /-- Function 12's ranked witness is the least fixpoint of slot liveness on its body
 (kernel-checked: `leastOk`, a post-fixpoint, every slot justified at its rank, the ranks below
 the fuel). -/
-theorem gc_least_12 : Scc.Cert.Maps.leastOk (Scc.Cert.Maps.bodyOf gcFnLit_12 gcItemsLit) gwLit_12.1 gwLit_12.2 = true := by
-  decide +kernel
+theorem gc_least_12 : Scc.Cert.Maps.leastOk (Scc.Cert.Maps.bodyOf gcFnLit_12 gcItemsLit) gwLit_12.1 gwLit_12.2 = true :=
+  (Scc.Cert.Maps.leastOk_eq_E _ _ _).trans (by decide +kernel)
 
 /-- Function 13's ranked witness is the least fixpoint of slot liveness on its body
 (kernel-checked: `leastOk`, a post-fixpoint, every slot justified at its rank, the ranks below
 the fuel). -/
-theorem gc_least_13 : Scc.Cert.Maps.leastOk (Scc.Cert.Maps.bodyOf gcFnLit_13 gcItemsLit) gwLit_13.1 gwLit_13.2 = true := by
-  decide +kernel
+theorem gc_least_13 : Scc.Cert.Maps.leastOk (Scc.Cert.Maps.bodyOf gcFnLit_13 gcItemsLit) gwLit_13.1 gwLit_13.2 = true :=
+  (Scc.Cert.Maps.leastOk_eq_E _ _ _).trans (by decide +kernel)
 
 /-- Function 14's ranked witness is the least fixpoint of slot liveness on its body
 (kernel-checked: `leastOk`, a post-fixpoint, every slot justified at its rank, the ranks below
 the fuel). -/
-theorem gc_least_14 : Scc.Cert.Maps.leastOk (Scc.Cert.Maps.bodyOf gcFnLit_14 gcItemsLit) gwLit_14.1 gwLit_14.2 = true := by
-  decide +kernel
+theorem gc_least_14 : Scc.Cert.Maps.leastOk (Scc.Cert.Maps.bodyOf gcFnLit_14 gcItemsLit) gwLit_14.1 gwLit_14.2 = true :=
+  (Scc.Cert.Maps.leastOk_eq_E _ _ _).trans (by decide +kernel)
 
 /-- Function 15's ranked witness is the least fixpoint of slot liveness on its body
 (kernel-checked: `leastOk`, a post-fixpoint, every slot justified at its rank, the ranks below
 the fuel). -/
-theorem gc_least_15 : Scc.Cert.Maps.leastOk (Scc.Cert.Maps.bodyOf gcFnLit_15 gcItemsLit) gwLit_15.1 gwLit_15.2 = true := by
-  decide +kernel
+theorem gc_least_15 : Scc.Cert.Maps.leastOk (Scc.Cert.Maps.bodyOf gcFnLit_15 gcItemsLit) gwLit_15.1 gwLit_15.2 = true :=
+  (Scc.Cert.Maps.leastOk_eq_E _ _ _).trans (by decide +kernel)
 
 /-- Function 16's ranked witness is the least fixpoint of slot liveness on its body
 (kernel-checked: `leastOk`, a post-fixpoint, every slot justified at its rank, the ranks below
 the fuel). -/
-theorem gc_least_16 : Scc.Cert.Maps.leastOk (Scc.Cert.Maps.bodyOf gcFnLit_16 gcItemsLit) gwLit_16.1 gwLit_16.2 = true := by
-  decide +kernel
+theorem gc_least_16 : Scc.Cert.Maps.leastOk (Scc.Cert.Maps.bodyOf gcFnLit_16 gcItemsLit) gwLit_16.1 gwLit_16.2 = true :=
+  (Scc.Cert.Maps.leastOk_eq_E _ _ _).trans (by decide +kernel)
 
 /-- Function 17's ranked witness is the least fixpoint of slot liveness on its body
 (kernel-checked: `leastOk`, a post-fixpoint, every slot justified at its rank, the ranks below
 the fuel). -/
-theorem gc_least_17 : Scc.Cert.Maps.leastOk (Scc.Cert.Maps.bodyOf gcFnLit_17 gcItemsLit) gwLit_17.1 gwLit_17.2 = true := by
-  decide +kernel
+theorem gc_least_17 : Scc.Cert.Maps.leastOk (Scc.Cert.Maps.bodyOf gcFnLit_17 gcItemsLit) gwLit_17.1 gwLit_17.2 = true :=
+  (Scc.Cert.Maps.leastOk_eq_E _ _ _).trans (by decide +kernel)
 
 /-- Function 18's ranked witness is the least fixpoint of slot liveness on its body
 (kernel-checked: `leastOk`, a post-fixpoint, every slot justified at its rank, the ranks below
 the fuel). -/
-theorem gc_least_18 : Scc.Cert.Maps.leastOk (Scc.Cert.Maps.bodyOf gcFnLit_18 gcItemsLit) gwLit_18.1 gwLit_18.2 = true := by
-  decide +kernel
+theorem gc_least_18 : Scc.Cert.Maps.leastOk (Scc.Cert.Maps.bodyOf gcFnLit_18 gcItemsLit) gwLit_18.1 gwLit_18.2 = true :=
+  (Scc.Cert.Maps.leastOk_eq_E _ _ _).trans (by decide +kernel)
 
 /-- Function 19's ranked witness is the least fixpoint of slot liveness on its body
 (kernel-checked: `leastOk`, a post-fixpoint, every slot justified at its rank, the ranks below
 the fuel). -/
-theorem gc_least_19 : Scc.Cert.Maps.leastOk (Scc.Cert.Maps.bodyOf gcFnLit_19 gcItemsLit) gwLit_19.1 gwLit_19.2 = true := by
-  decide +kernel
+theorem gc_least_19 : Scc.Cert.Maps.leastOk (Scc.Cert.Maps.bodyOf gcFnLit_19 gcItemsLit) gwLit_19.1 gwLit_19.2 = true :=
+  (Scc.Cert.Maps.leastOk_eq_E _ _ _).trans (by decide +kernel)
 
 /-- Every function's ranked witness is its least fixpoint (`gc_least_i`, chained). -/
 theorem gc_least : Scc.Cert.Maps.leastFrom gcItemsLit gcFnsLit gwLit = true :=
@@ -4266,7 +4267,8 @@ theorem gc_least : Scc.Cert.Maps.leastFrom gcItemsLit gcFnsLit gwLit = true :=
     rfl
 
 /-- No conditional branch leaves a body but to a stub (kernel-checked). -/
-theorem gc_stubs : Scc.Cert.Maps.stubsOk gcFnsLit gcItemsLit = .ok () := by kernel_rfl
+theorem gc_stubs : Scc.Cert.Maps.stubsOk gcFnsLit gcItemsLit = .ok () :=
+  (Scc.Cert.Maps.stubsOk_eq_E _ _).trans (by kernel_rfl)
 
 /-- One witness per function (kernel-checked). -/
 theorem gc_len : (gwLit.map (·.1)).length = gcFnsLit.length := by kernel_rfl
@@ -4278,7 +4280,8 @@ def gcMsVal_0 : Option (List Scc.Cert.Maps.RootMap) := (Scc.Cert.Maps.fnMapsW gc
 def gcMsLit_0 : List Scc.Cert.Maps.RootMap := (scc_lit% gcMsVal_0).get!
 
 /-- Function 0's root maps are `gcMsLit_0` (kernel-checked). -/
-theorem gc_ms_eq_0 : Scc.Cert.Maps.fnMapsW gcFnLit_0 gcItemsLit gwLit_0.1 = .ok gcMsLit_0 := by kernel_rfl
+theorem gc_ms_eq_0 : Scc.Cert.Maps.fnMapsW gcFnLit_0 gcItemsLit gwLit_0.1 = .ok gcMsLit_0 :=
+  (Scc.Cert.Maps.fnMapsW_eq_E _ _ _).trans (by kernel_rfl)
 
 /-- Function 0's exit successors, at elaboration time. -/
 def gcOsVal_0 : Option (List Scc.Cert.Maps.Succs) :=
@@ -4299,7 +4302,8 @@ def gcFsVal_0 : List Scc.Cert.Maps.Succs := Scc.Cert.Maps.fnSuccs gcFnLit_0 gcIt
 def gcFsLit_0 : List Scc.Cert.Maps.Succs := scc_lit% gcFsVal_0
 
 /-- Function 0's block successors are `gcFsLit_0` (kernel-checked). -/
-theorem gc_fs_eq_0 : Scc.Cert.Maps.fnSuccs gcFnLit_0 gcItemsLit = gcFsLit_0 := by kernel_rfl
+theorem gc_fs_eq_0 : Scc.Cert.Maps.fnSuccs gcFnLit_0 gcItemsLit = gcFsLit_0 :=
+  (Scc.Cert.Maps.fnSuccs_eq_E _ _).trans (by kernel_rfl)
 
 /-- Function 1's root maps from its witness, at elaboration time. -/
 def gcMsVal_1 : Option (List Scc.Cert.Maps.RootMap) := (Scc.Cert.Maps.fnMapsW gcFnLit_1 gcItemsLit gwLit_1.1).toOption
@@ -4308,7 +4312,8 @@ def gcMsVal_1 : Option (List Scc.Cert.Maps.RootMap) := (Scc.Cert.Maps.fnMapsW gc
 def gcMsLit_1 : List Scc.Cert.Maps.RootMap := (scc_lit% gcMsVal_1).get!
 
 /-- Function 1's root maps are `gcMsLit_1` (kernel-checked). -/
-theorem gc_ms_eq_1 : Scc.Cert.Maps.fnMapsW gcFnLit_1 gcItemsLit gwLit_1.1 = .ok gcMsLit_1 := by kernel_rfl
+theorem gc_ms_eq_1 : Scc.Cert.Maps.fnMapsW gcFnLit_1 gcItemsLit gwLit_1.1 = .ok gcMsLit_1 :=
+  (Scc.Cert.Maps.fnMapsW_eq_E _ _ _).trans (by kernel_rfl)
 
 /-- Function 1's exit successors, at elaboration time. -/
 def gcOsVal_1 : Option (List Scc.Cert.Maps.Succs) :=
@@ -4329,7 +4334,8 @@ def gcFsVal_1 : List Scc.Cert.Maps.Succs := Scc.Cert.Maps.fnSuccs gcFnLit_1 gcIt
 def gcFsLit_1 : List Scc.Cert.Maps.Succs := scc_lit% gcFsVal_1
 
 /-- Function 1's block successors are `gcFsLit_1` (kernel-checked). -/
-theorem gc_fs_eq_1 : Scc.Cert.Maps.fnSuccs gcFnLit_1 gcItemsLit = gcFsLit_1 := by kernel_rfl
+theorem gc_fs_eq_1 : Scc.Cert.Maps.fnSuccs gcFnLit_1 gcItemsLit = gcFsLit_1 :=
+  (Scc.Cert.Maps.fnSuccs_eq_E _ _).trans (by kernel_rfl)
 
 /-- Function 2's root maps from its witness, at elaboration time. -/
 def gcMsVal_2 : Option (List Scc.Cert.Maps.RootMap) := (Scc.Cert.Maps.fnMapsW gcFnLit_2 gcItemsLit gwLit_2.1).toOption
@@ -4338,7 +4344,8 @@ def gcMsVal_2 : Option (List Scc.Cert.Maps.RootMap) := (Scc.Cert.Maps.fnMapsW gc
 def gcMsLit_2 : List Scc.Cert.Maps.RootMap := (scc_lit% gcMsVal_2).get!
 
 /-- Function 2's root maps are `gcMsLit_2` (kernel-checked). -/
-theorem gc_ms_eq_2 : Scc.Cert.Maps.fnMapsW gcFnLit_2 gcItemsLit gwLit_2.1 = .ok gcMsLit_2 := by kernel_rfl
+theorem gc_ms_eq_2 : Scc.Cert.Maps.fnMapsW gcFnLit_2 gcItemsLit gwLit_2.1 = .ok gcMsLit_2 :=
+  (Scc.Cert.Maps.fnMapsW_eq_E _ _ _).trans (by kernel_rfl)
 
 /-- Function 2's exit successors, at elaboration time. -/
 def gcOsVal_2 : Option (List Scc.Cert.Maps.Succs) :=
@@ -4359,7 +4366,8 @@ def gcFsVal_2 : List Scc.Cert.Maps.Succs := Scc.Cert.Maps.fnSuccs gcFnLit_2 gcIt
 def gcFsLit_2 : List Scc.Cert.Maps.Succs := scc_lit% gcFsVal_2
 
 /-- Function 2's block successors are `gcFsLit_2` (kernel-checked). -/
-theorem gc_fs_eq_2 : Scc.Cert.Maps.fnSuccs gcFnLit_2 gcItemsLit = gcFsLit_2 := by kernel_rfl
+theorem gc_fs_eq_2 : Scc.Cert.Maps.fnSuccs gcFnLit_2 gcItemsLit = gcFsLit_2 :=
+  (Scc.Cert.Maps.fnSuccs_eq_E _ _).trans (by kernel_rfl)
 
 /-- Function 3's root maps from its witness, at elaboration time. -/
 def gcMsVal_3 : Option (List Scc.Cert.Maps.RootMap) := (Scc.Cert.Maps.fnMapsW gcFnLit_3 gcItemsLit gwLit_3.1).toOption
@@ -4368,7 +4376,8 @@ def gcMsVal_3 : Option (List Scc.Cert.Maps.RootMap) := (Scc.Cert.Maps.fnMapsW gc
 def gcMsLit_3 : List Scc.Cert.Maps.RootMap := (scc_lit% gcMsVal_3).get!
 
 /-- Function 3's root maps are `gcMsLit_3` (kernel-checked). -/
-theorem gc_ms_eq_3 : Scc.Cert.Maps.fnMapsW gcFnLit_3 gcItemsLit gwLit_3.1 = .ok gcMsLit_3 := by kernel_rfl
+theorem gc_ms_eq_3 : Scc.Cert.Maps.fnMapsW gcFnLit_3 gcItemsLit gwLit_3.1 = .ok gcMsLit_3 :=
+  (Scc.Cert.Maps.fnMapsW_eq_E _ _ _).trans (by kernel_rfl)
 
 /-- Function 3's exit successors, at elaboration time. -/
 def gcOsVal_3 : Option (List Scc.Cert.Maps.Succs) :=
@@ -4389,7 +4398,8 @@ def gcFsVal_3 : List Scc.Cert.Maps.Succs := Scc.Cert.Maps.fnSuccs gcFnLit_3 gcIt
 def gcFsLit_3 : List Scc.Cert.Maps.Succs := scc_lit% gcFsVal_3
 
 /-- Function 3's block successors are `gcFsLit_3` (kernel-checked). -/
-theorem gc_fs_eq_3 : Scc.Cert.Maps.fnSuccs gcFnLit_3 gcItemsLit = gcFsLit_3 := by kernel_rfl
+theorem gc_fs_eq_3 : Scc.Cert.Maps.fnSuccs gcFnLit_3 gcItemsLit = gcFsLit_3 :=
+  (Scc.Cert.Maps.fnSuccs_eq_E _ _).trans (by kernel_rfl)
 
 /-- Function 4's root maps from its witness, at elaboration time. -/
 def gcMsVal_4 : Option (List Scc.Cert.Maps.RootMap) := (Scc.Cert.Maps.fnMapsW gcFnLit_4 gcItemsLit gwLit_4.1).toOption
@@ -4398,7 +4408,8 @@ def gcMsVal_4 : Option (List Scc.Cert.Maps.RootMap) := (Scc.Cert.Maps.fnMapsW gc
 def gcMsLit_4 : List Scc.Cert.Maps.RootMap := (scc_lit% gcMsVal_4).get!
 
 /-- Function 4's root maps are `gcMsLit_4` (kernel-checked). -/
-theorem gc_ms_eq_4 : Scc.Cert.Maps.fnMapsW gcFnLit_4 gcItemsLit gwLit_4.1 = .ok gcMsLit_4 := by kernel_rfl
+theorem gc_ms_eq_4 : Scc.Cert.Maps.fnMapsW gcFnLit_4 gcItemsLit gwLit_4.1 = .ok gcMsLit_4 :=
+  (Scc.Cert.Maps.fnMapsW_eq_E _ _ _).trans (by kernel_rfl)
 
 /-- Function 4's exit successors, at elaboration time. -/
 def gcOsVal_4 : Option (List Scc.Cert.Maps.Succs) :=
@@ -4419,7 +4430,8 @@ def gcFsVal_4 : List Scc.Cert.Maps.Succs := Scc.Cert.Maps.fnSuccs gcFnLit_4 gcIt
 def gcFsLit_4 : List Scc.Cert.Maps.Succs := scc_lit% gcFsVal_4
 
 /-- Function 4's block successors are `gcFsLit_4` (kernel-checked). -/
-theorem gc_fs_eq_4 : Scc.Cert.Maps.fnSuccs gcFnLit_4 gcItemsLit = gcFsLit_4 := by kernel_rfl
+theorem gc_fs_eq_4 : Scc.Cert.Maps.fnSuccs gcFnLit_4 gcItemsLit = gcFsLit_4 :=
+  (Scc.Cert.Maps.fnSuccs_eq_E _ _).trans (by kernel_rfl)
 
 /-- Function 5's root maps from its witness, at elaboration time. -/
 def gcMsVal_5 : Option (List Scc.Cert.Maps.RootMap) := (Scc.Cert.Maps.fnMapsW gcFnLit_5 gcItemsLit gwLit_5.1).toOption
@@ -4428,7 +4440,8 @@ def gcMsVal_5 : Option (List Scc.Cert.Maps.RootMap) := (Scc.Cert.Maps.fnMapsW gc
 def gcMsLit_5 : List Scc.Cert.Maps.RootMap := (scc_lit% gcMsVal_5).get!
 
 /-- Function 5's root maps are `gcMsLit_5` (kernel-checked). -/
-theorem gc_ms_eq_5 : Scc.Cert.Maps.fnMapsW gcFnLit_5 gcItemsLit gwLit_5.1 = .ok gcMsLit_5 := by kernel_rfl
+theorem gc_ms_eq_5 : Scc.Cert.Maps.fnMapsW gcFnLit_5 gcItemsLit gwLit_5.1 = .ok gcMsLit_5 :=
+  (Scc.Cert.Maps.fnMapsW_eq_E _ _ _).trans (by kernel_rfl)
 
 /-- Function 5's exit successors, at elaboration time. -/
 def gcOsVal_5 : Option (List Scc.Cert.Maps.Succs) :=
@@ -4449,7 +4462,8 @@ def gcFsVal_5 : List Scc.Cert.Maps.Succs := Scc.Cert.Maps.fnSuccs gcFnLit_5 gcIt
 def gcFsLit_5 : List Scc.Cert.Maps.Succs := scc_lit% gcFsVal_5
 
 /-- Function 5's block successors are `gcFsLit_5` (kernel-checked). -/
-theorem gc_fs_eq_5 : Scc.Cert.Maps.fnSuccs gcFnLit_5 gcItemsLit = gcFsLit_5 := by kernel_rfl
+theorem gc_fs_eq_5 : Scc.Cert.Maps.fnSuccs gcFnLit_5 gcItemsLit = gcFsLit_5 :=
+  (Scc.Cert.Maps.fnSuccs_eq_E _ _).trans (by kernel_rfl)
 
 /-- Function 6's root maps from its witness, at elaboration time. -/
 def gcMsVal_6 : Option (List Scc.Cert.Maps.RootMap) := (Scc.Cert.Maps.fnMapsW gcFnLit_6 gcItemsLit gwLit_6.1).toOption
@@ -4458,7 +4472,8 @@ def gcMsVal_6 : Option (List Scc.Cert.Maps.RootMap) := (Scc.Cert.Maps.fnMapsW gc
 def gcMsLit_6 : List Scc.Cert.Maps.RootMap := (scc_lit% gcMsVal_6).get!
 
 /-- Function 6's root maps are `gcMsLit_6` (kernel-checked). -/
-theorem gc_ms_eq_6 : Scc.Cert.Maps.fnMapsW gcFnLit_6 gcItemsLit gwLit_6.1 = .ok gcMsLit_6 := by kernel_rfl
+theorem gc_ms_eq_6 : Scc.Cert.Maps.fnMapsW gcFnLit_6 gcItemsLit gwLit_6.1 = .ok gcMsLit_6 :=
+  (Scc.Cert.Maps.fnMapsW_eq_E _ _ _).trans (by kernel_rfl)
 
 /-- Function 6's exit successors, at elaboration time. -/
 def gcOsVal_6 : Option (List Scc.Cert.Maps.Succs) :=
@@ -4479,7 +4494,8 @@ def gcFsVal_6 : List Scc.Cert.Maps.Succs := Scc.Cert.Maps.fnSuccs gcFnLit_6 gcIt
 def gcFsLit_6 : List Scc.Cert.Maps.Succs := scc_lit% gcFsVal_6
 
 /-- Function 6's block successors are `gcFsLit_6` (kernel-checked). -/
-theorem gc_fs_eq_6 : Scc.Cert.Maps.fnSuccs gcFnLit_6 gcItemsLit = gcFsLit_6 := by kernel_rfl
+theorem gc_fs_eq_6 : Scc.Cert.Maps.fnSuccs gcFnLit_6 gcItemsLit = gcFsLit_6 :=
+  (Scc.Cert.Maps.fnSuccs_eq_E _ _).trans (by kernel_rfl)
 
 /-- Function 7's root maps from its witness, at elaboration time. -/
 def gcMsVal_7 : Option (List Scc.Cert.Maps.RootMap) := (Scc.Cert.Maps.fnMapsW gcFnLit_7 gcItemsLit gwLit_7.1).toOption
@@ -4488,7 +4504,8 @@ def gcMsVal_7 : Option (List Scc.Cert.Maps.RootMap) := (Scc.Cert.Maps.fnMapsW gc
 def gcMsLit_7 : List Scc.Cert.Maps.RootMap := (scc_lit% gcMsVal_7).get!
 
 /-- Function 7's root maps are `gcMsLit_7` (kernel-checked). -/
-theorem gc_ms_eq_7 : Scc.Cert.Maps.fnMapsW gcFnLit_7 gcItemsLit gwLit_7.1 = .ok gcMsLit_7 := by kernel_rfl
+theorem gc_ms_eq_7 : Scc.Cert.Maps.fnMapsW gcFnLit_7 gcItemsLit gwLit_7.1 = .ok gcMsLit_7 :=
+  (Scc.Cert.Maps.fnMapsW_eq_E _ _ _).trans (by kernel_rfl)
 
 /-- Function 7's exit successors, at elaboration time. -/
 def gcOsVal_7 : Option (List Scc.Cert.Maps.Succs) :=
@@ -4509,7 +4526,8 @@ def gcFsVal_7 : List Scc.Cert.Maps.Succs := Scc.Cert.Maps.fnSuccs gcFnLit_7 gcIt
 def gcFsLit_7 : List Scc.Cert.Maps.Succs := scc_lit% gcFsVal_7
 
 /-- Function 7's block successors are `gcFsLit_7` (kernel-checked). -/
-theorem gc_fs_eq_7 : Scc.Cert.Maps.fnSuccs gcFnLit_7 gcItemsLit = gcFsLit_7 := by kernel_rfl
+theorem gc_fs_eq_7 : Scc.Cert.Maps.fnSuccs gcFnLit_7 gcItemsLit = gcFsLit_7 :=
+  (Scc.Cert.Maps.fnSuccs_eq_E _ _).trans (by kernel_rfl)
 
 /-- Function 8's root maps from its witness, at elaboration time. -/
 def gcMsVal_8 : Option (List Scc.Cert.Maps.RootMap) := (Scc.Cert.Maps.fnMapsW gcFnLit_8 gcItemsLit gwLit_8.1).toOption
@@ -4518,7 +4536,8 @@ def gcMsVal_8 : Option (List Scc.Cert.Maps.RootMap) := (Scc.Cert.Maps.fnMapsW gc
 def gcMsLit_8 : List Scc.Cert.Maps.RootMap := (scc_lit% gcMsVal_8).get!
 
 /-- Function 8's root maps are `gcMsLit_8` (kernel-checked). -/
-theorem gc_ms_eq_8 : Scc.Cert.Maps.fnMapsW gcFnLit_8 gcItemsLit gwLit_8.1 = .ok gcMsLit_8 := by kernel_rfl
+theorem gc_ms_eq_8 : Scc.Cert.Maps.fnMapsW gcFnLit_8 gcItemsLit gwLit_8.1 = .ok gcMsLit_8 :=
+  (Scc.Cert.Maps.fnMapsW_eq_E _ _ _).trans (by kernel_rfl)
 
 /-- Function 8's exit successors, at elaboration time. -/
 def gcOsVal_8 : Option (List Scc.Cert.Maps.Succs) :=
@@ -4539,7 +4558,8 @@ def gcFsVal_8 : List Scc.Cert.Maps.Succs := Scc.Cert.Maps.fnSuccs gcFnLit_8 gcIt
 def gcFsLit_8 : List Scc.Cert.Maps.Succs := scc_lit% gcFsVal_8
 
 /-- Function 8's block successors are `gcFsLit_8` (kernel-checked). -/
-theorem gc_fs_eq_8 : Scc.Cert.Maps.fnSuccs gcFnLit_8 gcItemsLit = gcFsLit_8 := by kernel_rfl
+theorem gc_fs_eq_8 : Scc.Cert.Maps.fnSuccs gcFnLit_8 gcItemsLit = gcFsLit_8 :=
+  (Scc.Cert.Maps.fnSuccs_eq_E _ _).trans (by kernel_rfl)
 
 /-- Function 9's root maps from its witness, at elaboration time. -/
 def gcMsVal_9 : Option (List Scc.Cert.Maps.RootMap) := (Scc.Cert.Maps.fnMapsW gcFnLit_9 gcItemsLit gwLit_9.1).toOption
@@ -4548,7 +4568,8 @@ def gcMsVal_9 : Option (List Scc.Cert.Maps.RootMap) := (Scc.Cert.Maps.fnMapsW gc
 def gcMsLit_9 : List Scc.Cert.Maps.RootMap := (scc_lit% gcMsVal_9).get!
 
 /-- Function 9's root maps are `gcMsLit_9` (kernel-checked). -/
-theorem gc_ms_eq_9 : Scc.Cert.Maps.fnMapsW gcFnLit_9 gcItemsLit gwLit_9.1 = .ok gcMsLit_9 := by kernel_rfl
+theorem gc_ms_eq_9 : Scc.Cert.Maps.fnMapsW gcFnLit_9 gcItemsLit gwLit_9.1 = .ok gcMsLit_9 :=
+  (Scc.Cert.Maps.fnMapsW_eq_E _ _ _).trans (by kernel_rfl)
 
 /-- Function 9's exit successors, at elaboration time. -/
 def gcOsVal_9 : Option (List Scc.Cert.Maps.Succs) :=
@@ -4569,7 +4590,8 @@ def gcFsVal_9 : List Scc.Cert.Maps.Succs := Scc.Cert.Maps.fnSuccs gcFnLit_9 gcIt
 def gcFsLit_9 : List Scc.Cert.Maps.Succs := scc_lit% gcFsVal_9
 
 /-- Function 9's block successors are `gcFsLit_9` (kernel-checked). -/
-theorem gc_fs_eq_9 : Scc.Cert.Maps.fnSuccs gcFnLit_9 gcItemsLit = gcFsLit_9 := by kernel_rfl
+theorem gc_fs_eq_9 : Scc.Cert.Maps.fnSuccs gcFnLit_9 gcItemsLit = gcFsLit_9 :=
+  (Scc.Cert.Maps.fnSuccs_eq_E _ _).trans (by kernel_rfl)
 
 /-- Function 10's root maps from its witness, at elaboration time. -/
 def gcMsVal_10 : Option (List Scc.Cert.Maps.RootMap) := (Scc.Cert.Maps.fnMapsW gcFnLit_10 gcItemsLit gwLit_10.1).toOption
@@ -4578,7 +4600,8 @@ def gcMsVal_10 : Option (List Scc.Cert.Maps.RootMap) := (Scc.Cert.Maps.fnMapsW g
 def gcMsLit_10 : List Scc.Cert.Maps.RootMap := (scc_lit% gcMsVal_10).get!
 
 /-- Function 10's root maps are `gcMsLit_10` (kernel-checked). -/
-theorem gc_ms_eq_10 : Scc.Cert.Maps.fnMapsW gcFnLit_10 gcItemsLit gwLit_10.1 = .ok gcMsLit_10 := by kernel_rfl
+theorem gc_ms_eq_10 : Scc.Cert.Maps.fnMapsW gcFnLit_10 gcItemsLit gwLit_10.1 = .ok gcMsLit_10 :=
+  (Scc.Cert.Maps.fnMapsW_eq_E _ _ _).trans (by kernel_rfl)
 
 /-- Function 10's exit successors, at elaboration time. -/
 def gcOsVal_10 : Option (List Scc.Cert.Maps.Succs) :=
@@ -4599,7 +4622,8 @@ def gcFsVal_10 : List Scc.Cert.Maps.Succs := Scc.Cert.Maps.fnSuccs gcFnLit_10 gc
 def gcFsLit_10 : List Scc.Cert.Maps.Succs := scc_lit% gcFsVal_10
 
 /-- Function 10's block successors are `gcFsLit_10` (kernel-checked). -/
-theorem gc_fs_eq_10 : Scc.Cert.Maps.fnSuccs gcFnLit_10 gcItemsLit = gcFsLit_10 := by kernel_rfl
+theorem gc_fs_eq_10 : Scc.Cert.Maps.fnSuccs gcFnLit_10 gcItemsLit = gcFsLit_10 :=
+  (Scc.Cert.Maps.fnSuccs_eq_E _ _).trans (by kernel_rfl)
 
 /-- Function 11's root maps from its witness, at elaboration time. -/
 def gcMsVal_11 : Option (List Scc.Cert.Maps.RootMap) := (Scc.Cert.Maps.fnMapsW gcFnLit_11 gcItemsLit gwLit_11.1).toOption
@@ -4608,7 +4632,8 @@ def gcMsVal_11 : Option (List Scc.Cert.Maps.RootMap) := (Scc.Cert.Maps.fnMapsW g
 def gcMsLit_11 : List Scc.Cert.Maps.RootMap := (scc_lit% gcMsVal_11).get!
 
 /-- Function 11's root maps are `gcMsLit_11` (kernel-checked). -/
-theorem gc_ms_eq_11 : Scc.Cert.Maps.fnMapsW gcFnLit_11 gcItemsLit gwLit_11.1 = .ok gcMsLit_11 := by kernel_rfl
+theorem gc_ms_eq_11 : Scc.Cert.Maps.fnMapsW gcFnLit_11 gcItemsLit gwLit_11.1 = .ok gcMsLit_11 :=
+  (Scc.Cert.Maps.fnMapsW_eq_E _ _ _).trans (by kernel_rfl)
 
 /-- Function 11's exit successors, at elaboration time. -/
 def gcOsVal_11 : Option (List Scc.Cert.Maps.Succs) :=
@@ -4629,7 +4654,8 @@ def gcFsVal_11 : List Scc.Cert.Maps.Succs := Scc.Cert.Maps.fnSuccs gcFnLit_11 gc
 def gcFsLit_11 : List Scc.Cert.Maps.Succs := scc_lit% gcFsVal_11
 
 /-- Function 11's block successors are `gcFsLit_11` (kernel-checked). -/
-theorem gc_fs_eq_11 : Scc.Cert.Maps.fnSuccs gcFnLit_11 gcItemsLit = gcFsLit_11 := by kernel_rfl
+theorem gc_fs_eq_11 : Scc.Cert.Maps.fnSuccs gcFnLit_11 gcItemsLit = gcFsLit_11 :=
+  (Scc.Cert.Maps.fnSuccs_eq_E _ _).trans (by kernel_rfl)
 
 /-- Function 12's root maps from its witness, at elaboration time. -/
 def gcMsVal_12 : Option (List Scc.Cert.Maps.RootMap) := (Scc.Cert.Maps.fnMapsW gcFnLit_12 gcItemsLit gwLit_12.1).toOption
@@ -4638,7 +4664,8 @@ def gcMsVal_12 : Option (List Scc.Cert.Maps.RootMap) := (Scc.Cert.Maps.fnMapsW g
 def gcMsLit_12 : List Scc.Cert.Maps.RootMap := (scc_lit% gcMsVal_12).get!
 
 /-- Function 12's root maps are `gcMsLit_12` (kernel-checked). -/
-theorem gc_ms_eq_12 : Scc.Cert.Maps.fnMapsW gcFnLit_12 gcItemsLit gwLit_12.1 = .ok gcMsLit_12 := by kernel_rfl
+theorem gc_ms_eq_12 : Scc.Cert.Maps.fnMapsW gcFnLit_12 gcItemsLit gwLit_12.1 = .ok gcMsLit_12 :=
+  (Scc.Cert.Maps.fnMapsW_eq_E _ _ _).trans (by kernel_rfl)
 
 /-- Function 12's exit successors, at elaboration time. -/
 def gcOsVal_12 : Option (List Scc.Cert.Maps.Succs) :=
@@ -4659,7 +4686,8 @@ def gcFsVal_12 : List Scc.Cert.Maps.Succs := Scc.Cert.Maps.fnSuccs gcFnLit_12 gc
 def gcFsLit_12 : List Scc.Cert.Maps.Succs := scc_lit% gcFsVal_12
 
 /-- Function 12's block successors are `gcFsLit_12` (kernel-checked). -/
-theorem gc_fs_eq_12 : Scc.Cert.Maps.fnSuccs gcFnLit_12 gcItemsLit = gcFsLit_12 := by kernel_rfl
+theorem gc_fs_eq_12 : Scc.Cert.Maps.fnSuccs gcFnLit_12 gcItemsLit = gcFsLit_12 :=
+  (Scc.Cert.Maps.fnSuccs_eq_E _ _).trans (by kernel_rfl)
 
 /-- Function 13's root maps from its witness, at elaboration time. -/
 def gcMsVal_13 : Option (List Scc.Cert.Maps.RootMap) := (Scc.Cert.Maps.fnMapsW gcFnLit_13 gcItemsLit gwLit_13.1).toOption
@@ -4668,7 +4696,8 @@ def gcMsVal_13 : Option (List Scc.Cert.Maps.RootMap) := (Scc.Cert.Maps.fnMapsW g
 def gcMsLit_13 : List Scc.Cert.Maps.RootMap := (scc_lit% gcMsVal_13).get!
 
 /-- Function 13's root maps are `gcMsLit_13` (kernel-checked). -/
-theorem gc_ms_eq_13 : Scc.Cert.Maps.fnMapsW gcFnLit_13 gcItemsLit gwLit_13.1 = .ok gcMsLit_13 := by kernel_rfl
+theorem gc_ms_eq_13 : Scc.Cert.Maps.fnMapsW gcFnLit_13 gcItemsLit gwLit_13.1 = .ok gcMsLit_13 :=
+  (Scc.Cert.Maps.fnMapsW_eq_E _ _ _).trans (by kernel_rfl)
 
 /-- Function 13's exit successors, at elaboration time. -/
 def gcOsVal_13 : Option (List Scc.Cert.Maps.Succs) :=
@@ -4689,7 +4718,8 @@ def gcFsVal_13 : List Scc.Cert.Maps.Succs := Scc.Cert.Maps.fnSuccs gcFnLit_13 gc
 def gcFsLit_13 : List Scc.Cert.Maps.Succs := scc_lit% gcFsVal_13
 
 /-- Function 13's block successors are `gcFsLit_13` (kernel-checked). -/
-theorem gc_fs_eq_13 : Scc.Cert.Maps.fnSuccs gcFnLit_13 gcItemsLit = gcFsLit_13 := by kernel_rfl
+theorem gc_fs_eq_13 : Scc.Cert.Maps.fnSuccs gcFnLit_13 gcItemsLit = gcFsLit_13 :=
+  (Scc.Cert.Maps.fnSuccs_eq_E _ _).trans (by kernel_rfl)
 
 /-- Function 14's root maps from its witness, at elaboration time. -/
 def gcMsVal_14 : Option (List Scc.Cert.Maps.RootMap) := (Scc.Cert.Maps.fnMapsW gcFnLit_14 gcItemsLit gwLit_14.1).toOption
@@ -4698,7 +4728,8 @@ def gcMsVal_14 : Option (List Scc.Cert.Maps.RootMap) := (Scc.Cert.Maps.fnMapsW g
 def gcMsLit_14 : List Scc.Cert.Maps.RootMap := (scc_lit% gcMsVal_14).get!
 
 /-- Function 14's root maps are `gcMsLit_14` (kernel-checked). -/
-theorem gc_ms_eq_14 : Scc.Cert.Maps.fnMapsW gcFnLit_14 gcItemsLit gwLit_14.1 = .ok gcMsLit_14 := by kernel_rfl
+theorem gc_ms_eq_14 : Scc.Cert.Maps.fnMapsW gcFnLit_14 gcItemsLit gwLit_14.1 = .ok gcMsLit_14 :=
+  (Scc.Cert.Maps.fnMapsW_eq_E _ _ _).trans (by kernel_rfl)
 
 /-- Function 14's exit successors, at elaboration time. -/
 def gcOsVal_14 : Option (List Scc.Cert.Maps.Succs) :=
@@ -4719,7 +4750,8 @@ def gcFsVal_14 : List Scc.Cert.Maps.Succs := Scc.Cert.Maps.fnSuccs gcFnLit_14 gc
 def gcFsLit_14 : List Scc.Cert.Maps.Succs := scc_lit% gcFsVal_14
 
 /-- Function 14's block successors are `gcFsLit_14` (kernel-checked). -/
-theorem gc_fs_eq_14 : Scc.Cert.Maps.fnSuccs gcFnLit_14 gcItemsLit = gcFsLit_14 := by kernel_rfl
+theorem gc_fs_eq_14 : Scc.Cert.Maps.fnSuccs gcFnLit_14 gcItemsLit = gcFsLit_14 :=
+  (Scc.Cert.Maps.fnSuccs_eq_E _ _).trans (by kernel_rfl)
 
 /-- Function 15's root maps from its witness, at elaboration time. -/
 def gcMsVal_15 : Option (List Scc.Cert.Maps.RootMap) := (Scc.Cert.Maps.fnMapsW gcFnLit_15 gcItemsLit gwLit_15.1).toOption
@@ -4728,7 +4760,8 @@ def gcMsVal_15 : Option (List Scc.Cert.Maps.RootMap) := (Scc.Cert.Maps.fnMapsW g
 def gcMsLit_15 : List Scc.Cert.Maps.RootMap := (scc_lit% gcMsVal_15).get!
 
 /-- Function 15's root maps are `gcMsLit_15` (kernel-checked). -/
-theorem gc_ms_eq_15 : Scc.Cert.Maps.fnMapsW gcFnLit_15 gcItemsLit gwLit_15.1 = .ok gcMsLit_15 := by kernel_rfl
+theorem gc_ms_eq_15 : Scc.Cert.Maps.fnMapsW gcFnLit_15 gcItemsLit gwLit_15.1 = .ok gcMsLit_15 :=
+  (Scc.Cert.Maps.fnMapsW_eq_E _ _ _).trans (by kernel_rfl)
 
 /-- Function 15's exit successors, at elaboration time. -/
 def gcOsVal_15 : Option (List Scc.Cert.Maps.Succs) :=
@@ -4749,7 +4782,8 @@ def gcFsVal_15 : List Scc.Cert.Maps.Succs := Scc.Cert.Maps.fnSuccs gcFnLit_15 gc
 def gcFsLit_15 : List Scc.Cert.Maps.Succs := scc_lit% gcFsVal_15
 
 /-- Function 15's block successors are `gcFsLit_15` (kernel-checked). -/
-theorem gc_fs_eq_15 : Scc.Cert.Maps.fnSuccs gcFnLit_15 gcItemsLit = gcFsLit_15 := by kernel_rfl
+theorem gc_fs_eq_15 : Scc.Cert.Maps.fnSuccs gcFnLit_15 gcItemsLit = gcFsLit_15 :=
+  (Scc.Cert.Maps.fnSuccs_eq_E _ _).trans (by kernel_rfl)
 
 /-- Function 16's root maps from its witness, at elaboration time. -/
 def gcMsVal_16 : Option (List Scc.Cert.Maps.RootMap) := (Scc.Cert.Maps.fnMapsW gcFnLit_16 gcItemsLit gwLit_16.1).toOption
@@ -4758,7 +4792,8 @@ def gcMsVal_16 : Option (List Scc.Cert.Maps.RootMap) := (Scc.Cert.Maps.fnMapsW g
 def gcMsLit_16 : List Scc.Cert.Maps.RootMap := (scc_lit% gcMsVal_16).get!
 
 /-- Function 16's root maps are `gcMsLit_16` (kernel-checked). -/
-theorem gc_ms_eq_16 : Scc.Cert.Maps.fnMapsW gcFnLit_16 gcItemsLit gwLit_16.1 = .ok gcMsLit_16 := by kernel_rfl
+theorem gc_ms_eq_16 : Scc.Cert.Maps.fnMapsW gcFnLit_16 gcItemsLit gwLit_16.1 = .ok gcMsLit_16 :=
+  (Scc.Cert.Maps.fnMapsW_eq_E _ _ _).trans (by kernel_rfl)
 
 /-- Function 16's exit successors, at elaboration time. -/
 def gcOsVal_16 : Option (List Scc.Cert.Maps.Succs) :=
@@ -4779,7 +4814,8 @@ def gcFsVal_16 : List Scc.Cert.Maps.Succs := Scc.Cert.Maps.fnSuccs gcFnLit_16 gc
 def gcFsLit_16 : List Scc.Cert.Maps.Succs := scc_lit% gcFsVal_16
 
 /-- Function 16's block successors are `gcFsLit_16` (kernel-checked). -/
-theorem gc_fs_eq_16 : Scc.Cert.Maps.fnSuccs gcFnLit_16 gcItemsLit = gcFsLit_16 := by kernel_rfl
+theorem gc_fs_eq_16 : Scc.Cert.Maps.fnSuccs gcFnLit_16 gcItemsLit = gcFsLit_16 :=
+  (Scc.Cert.Maps.fnSuccs_eq_E _ _).trans (by kernel_rfl)
 
 /-- Function 17's root maps from its witness, at elaboration time. -/
 def gcMsVal_17 : Option (List Scc.Cert.Maps.RootMap) := (Scc.Cert.Maps.fnMapsW gcFnLit_17 gcItemsLit gwLit_17.1).toOption
@@ -4788,7 +4824,8 @@ def gcMsVal_17 : Option (List Scc.Cert.Maps.RootMap) := (Scc.Cert.Maps.fnMapsW g
 def gcMsLit_17 : List Scc.Cert.Maps.RootMap := (scc_lit% gcMsVal_17).get!
 
 /-- Function 17's root maps are `gcMsLit_17` (kernel-checked). -/
-theorem gc_ms_eq_17 : Scc.Cert.Maps.fnMapsW gcFnLit_17 gcItemsLit gwLit_17.1 = .ok gcMsLit_17 := by kernel_rfl
+theorem gc_ms_eq_17 : Scc.Cert.Maps.fnMapsW gcFnLit_17 gcItemsLit gwLit_17.1 = .ok gcMsLit_17 :=
+  (Scc.Cert.Maps.fnMapsW_eq_E _ _ _).trans (by kernel_rfl)
 
 /-- Function 17's exit successors, at elaboration time. -/
 def gcOsVal_17 : Option (List Scc.Cert.Maps.Succs) :=
@@ -4809,7 +4846,8 @@ def gcFsVal_17 : List Scc.Cert.Maps.Succs := Scc.Cert.Maps.fnSuccs gcFnLit_17 gc
 def gcFsLit_17 : List Scc.Cert.Maps.Succs := scc_lit% gcFsVal_17
 
 /-- Function 17's block successors are `gcFsLit_17` (kernel-checked). -/
-theorem gc_fs_eq_17 : Scc.Cert.Maps.fnSuccs gcFnLit_17 gcItemsLit = gcFsLit_17 := by kernel_rfl
+theorem gc_fs_eq_17 : Scc.Cert.Maps.fnSuccs gcFnLit_17 gcItemsLit = gcFsLit_17 :=
+  (Scc.Cert.Maps.fnSuccs_eq_E _ _).trans (by kernel_rfl)
 
 /-- Function 18's root maps from its witness, at elaboration time. -/
 def gcMsVal_18 : Option (List Scc.Cert.Maps.RootMap) := (Scc.Cert.Maps.fnMapsW gcFnLit_18 gcItemsLit gwLit_18.1).toOption
@@ -4818,7 +4856,8 @@ def gcMsVal_18 : Option (List Scc.Cert.Maps.RootMap) := (Scc.Cert.Maps.fnMapsW g
 def gcMsLit_18 : List Scc.Cert.Maps.RootMap := (scc_lit% gcMsVal_18).get!
 
 /-- Function 18's root maps are `gcMsLit_18` (kernel-checked). -/
-theorem gc_ms_eq_18 : Scc.Cert.Maps.fnMapsW gcFnLit_18 gcItemsLit gwLit_18.1 = .ok gcMsLit_18 := by kernel_rfl
+theorem gc_ms_eq_18 : Scc.Cert.Maps.fnMapsW gcFnLit_18 gcItemsLit gwLit_18.1 = .ok gcMsLit_18 :=
+  (Scc.Cert.Maps.fnMapsW_eq_E _ _ _).trans (by kernel_rfl)
 
 /-- Function 18's exit successors, at elaboration time. -/
 def gcOsVal_18 : Option (List Scc.Cert.Maps.Succs) :=
@@ -4839,7 +4878,8 @@ def gcFsVal_18 : List Scc.Cert.Maps.Succs := Scc.Cert.Maps.fnSuccs gcFnLit_18 gc
 def gcFsLit_18 : List Scc.Cert.Maps.Succs := scc_lit% gcFsVal_18
 
 /-- Function 18's block successors are `gcFsLit_18` (kernel-checked). -/
-theorem gc_fs_eq_18 : Scc.Cert.Maps.fnSuccs gcFnLit_18 gcItemsLit = gcFsLit_18 := by kernel_rfl
+theorem gc_fs_eq_18 : Scc.Cert.Maps.fnSuccs gcFnLit_18 gcItemsLit = gcFsLit_18 :=
+  (Scc.Cert.Maps.fnSuccs_eq_E _ _).trans (by kernel_rfl)
 
 /-- Function 19's root maps from its witness, at elaboration time. -/
 def gcMsVal_19 : Option (List Scc.Cert.Maps.RootMap) := (Scc.Cert.Maps.fnMapsW gcFnLit_19 gcItemsLit gwLit_19.1).toOption
@@ -4848,7 +4888,8 @@ def gcMsVal_19 : Option (List Scc.Cert.Maps.RootMap) := (Scc.Cert.Maps.fnMapsW g
 def gcMsLit_19 : List Scc.Cert.Maps.RootMap := (scc_lit% gcMsVal_19).get!
 
 /-- Function 19's root maps are `gcMsLit_19` (kernel-checked). -/
-theorem gc_ms_eq_19 : Scc.Cert.Maps.fnMapsW gcFnLit_19 gcItemsLit gwLit_19.1 = .ok gcMsLit_19 := by kernel_rfl
+theorem gc_ms_eq_19 : Scc.Cert.Maps.fnMapsW gcFnLit_19 gcItemsLit gwLit_19.1 = .ok gcMsLit_19 :=
+  (Scc.Cert.Maps.fnMapsW_eq_E _ _ _).trans (by kernel_rfl)
 
 /-- Function 19's exit successors, at elaboration time. -/
 def gcOsVal_19 : Option (List Scc.Cert.Maps.Succs) :=
@@ -4869,7 +4910,8 @@ def gcFsVal_19 : List Scc.Cert.Maps.Succs := Scc.Cert.Maps.fnSuccs gcFnLit_19 gc
 def gcFsLit_19 : List Scc.Cert.Maps.Succs := scc_lit% gcFsVal_19
 
 /-- Function 19's block successors are `gcFsLit_19` (kernel-checked). -/
-theorem gc_fs_eq_19 : Scc.Cert.Maps.fnSuccs gcFnLit_19 gcItemsLit = gcFsLit_19 := by kernel_rfl
+theorem gc_fs_eq_19 : Scc.Cert.Maps.fnSuccs gcFnLit_19 gcItemsLit = gcFsLit_19 :=
+  (Scc.Cert.Maps.fnSuccs_eq_E _ _).trans (by kernel_rfl)
 
 /-- Every function's root maps (`gc_ms_eq_i`, chained). -/
 theorem gc_ms : (gcFnsLit.zip (gwLit.map (·.1))).mapM (fun (t, w) => Scc.Cert.Maps.fnMapsW t gcItemsLit w) =
@@ -5457,8 +5499,8 @@ def wLit_0 : Array (List Int) := scc_lit% wVal_0
 
 /-- `wLit_0` is a post-fixpoint of slot liveness on function 0's body
 (kernel-checked). -/
-theorem tables_w_0 : Scc.Cert.Maps.liveOk (Scc.Cert.Maps.bodyOf sliceLit_0.2.2 sliceLit_0.2.1) wLit_0 = true := by
-  decide +kernel
+theorem tables_w_0 : Scc.Cert.Maps.liveOk (Scc.Cert.Maps.bodyOf sliceLit_0.2.2 sliceLit_0.2.1) wLit_0 = true :=
+  (Scc.Cert.Maps.liveOk_eq_E _ _).trans (by decide +kernel)
 
 /-- Function 0's tables from `wLit_0`, at elaboration time. -/
 def tVal_0 : Option Scc.Cert.Maps.Tables :=
@@ -5469,8 +5511,8 @@ def tLit_0 : Scc.Cert.Maps.Tables := (scc_lit% tVal_0).get!
 
 /-- The tables `computeW` builds from `wLit_0` on function 0's slice are
 `tLit_0` (kernel-checked). -/
-theorem tables_c_0 : Scc.Cert.Maps.computeW [sliceLit_0.2.2] sliceLit_0.2.1 [wLit_0] = .ok tLit_0 := by
-  kernel_rfl
+theorem tables_c_0 : Scc.Cert.Maps.computeW [sliceLit_0.2.2] sliceLit_0.2.1 [wLit_0] = .ok tLit_0 :=
+  (Scc.Cert.Maps.computeW_eq_E _ _ _).trans (by kernel_rfl)
 
 /-- `tLit_0` has the format's shape (kernel-checked). -/
 theorem tables_g_0 : tLit_0.g1Ok = true := by decide +kernel
@@ -5504,8 +5546,8 @@ def wLit_1 : Array (List Int) := scc_lit% wVal_1
 
 /-- `wLit_1` is a post-fixpoint of slot liveness on function 1's body
 (kernel-checked). -/
-theorem tables_w_1 : Scc.Cert.Maps.liveOk (Scc.Cert.Maps.bodyOf sliceLit_1.2.2 sliceLit_1.2.1) wLit_1 = true := by
-  decide +kernel
+theorem tables_w_1 : Scc.Cert.Maps.liveOk (Scc.Cert.Maps.bodyOf sliceLit_1.2.2 sliceLit_1.2.1) wLit_1 = true :=
+  (Scc.Cert.Maps.liveOk_eq_E _ _).trans (by decide +kernel)
 
 /-- Function 1's tables from `wLit_1`, at elaboration time. -/
 def tVal_1 : Option Scc.Cert.Maps.Tables :=
@@ -5516,8 +5558,8 @@ def tLit_1 : Scc.Cert.Maps.Tables := (scc_lit% tVal_1).get!
 
 /-- The tables `computeW` builds from `wLit_1` on function 1's slice are
 `tLit_1` (kernel-checked). -/
-theorem tables_c_1 : Scc.Cert.Maps.computeW [sliceLit_1.2.2] sliceLit_1.2.1 [wLit_1] = .ok tLit_1 := by
-  kernel_rfl
+theorem tables_c_1 : Scc.Cert.Maps.computeW [sliceLit_1.2.2] sliceLit_1.2.1 [wLit_1] = .ok tLit_1 :=
+  (Scc.Cert.Maps.computeW_eq_E _ _ _).trans (by kernel_rfl)
 
 /-- `tLit_1` has the format's shape (kernel-checked). -/
 theorem tables_g_1 : tLit_1.g1Ok = true := by decide +kernel
@@ -5551,8 +5593,8 @@ def wLit_2 : Array (List Int) := scc_lit% wVal_2
 
 /-- `wLit_2` is a post-fixpoint of slot liveness on function 2's body
 (kernel-checked). -/
-theorem tables_w_2 : Scc.Cert.Maps.liveOk (Scc.Cert.Maps.bodyOf sliceLit_2.2.2 sliceLit_2.2.1) wLit_2 = true := by
-  decide +kernel
+theorem tables_w_2 : Scc.Cert.Maps.liveOk (Scc.Cert.Maps.bodyOf sliceLit_2.2.2 sliceLit_2.2.1) wLit_2 = true :=
+  (Scc.Cert.Maps.liveOk_eq_E _ _).trans (by decide +kernel)
 
 /-- Function 2's tables from `wLit_2`, at elaboration time. -/
 def tVal_2 : Option Scc.Cert.Maps.Tables :=
@@ -5563,8 +5605,8 @@ def tLit_2 : Scc.Cert.Maps.Tables := (scc_lit% tVal_2).get!
 
 /-- The tables `computeW` builds from `wLit_2` on function 2's slice are
 `tLit_2` (kernel-checked). -/
-theorem tables_c_2 : Scc.Cert.Maps.computeW [sliceLit_2.2.2] sliceLit_2.2.1 [wLit_2] = .ok tLit_2 := by
-  kernel_rfl
+theorem tables_c_2 : Scc.Cert.Maps.computeW [sliceLit_2.2.2] sliceLit_2.2.1 [wLit_2] = .ok tLit_2 :=
+  (Scc.Cert.Maps.computeW_eq_E _ _ _).trans (by kernel_rfl)
 
 /-- `tLit_2` has the format's shape (kernel-checked). -/
 theorem tables_g_2 : tLit_2.g1Ok = true := by decide +kernel
@@ -5598,8 +5640,8 @@ def wLit_3 : Array (List Int) := scc_lit% wVal_3
 
 /-- `wLit_3` is a post-fixpoint of slot liveness on function 3's body
 (kernel-checked). -/
-theorem tables_w_3 : Scc.Cert.Maps.liveOk (Scc.Cert.Maps.bodyOf sliceLit_3.2.2 sliceLit_3.2.1) wLit_3 = true := by
-  decide +kernel
+theorem tables_w_3 : Scc.Cert.Maps.liveOk (Scc.Cert.Maps.bodyOf sliceLit_3.2.2 sliceLit_3.2.1) wLit_3 = true :=
+  (Scc.Cert.Maps.liveOk_eq_E _ _).trans (by decide +kernel)
 
 /-- Function 3's tables from `wLit_3`, at elaboration time. -/
 def tVal_3 : Option Scc.Cert.Maps.Tables :=
@@ -5610,8 +5652,8 @@ def tLit_3 : Scc.Cert.Maps.Tables := (scc_lit% tVal_3).get!
 
 /-- The tables `computeW` builds from `wLit_3` on function 3's slice are
 `tLit_3` (kernel-checked). -/
-theorem tables_c_3 : Scc.Cert.Maps.computeW [sliceLit_3.2.2] sliceLit_3.2.1 [wLit_3] = .ok tLit_3 := by
-  kernel_rfl
+theorem tables_c_3 : Scc.Cert.Maps.computeW [sliceLit_3.2.2] sliceLit_3.2.1 [wLit_3] = .ok tLit_3 :=
+  (Scc.Cert.Maps.computeW_eq_E _ _ _).trans (by kernel_rfl)
 
 /-- `tLit_3` has the format's shape (kernel-checked). -/
 theorem tables_g_3 : tLit_3.g1Ok = true := by decide +kernel
@@ -5645,8 +5687,8 @@ def wLit_4 : Array (List Int) := scc_lit% wVal_4
 
 /-- `wLit_4` is a post-fixpoint of slot liveness on function 4's body
 (kernel-checked). -/
-theorem tables_w_4 : Scc.Cert.Maps.liveOk (Scc.Cert.Maps.bodyOf sliceLit_4.2.2 sliceLit_4.2.1) wLit_4 = true := by
-  decide +kernel
+theorem tables_w_4 : Scc.Cert.Maps.liveOk (Scc.Cert.Maps.bodyOf sliceLit_4.2.2 sliceLit_4.2.1) wLit_4 = true :=
+  (Scc.Cert.Maps.liveOk_eq_E _ _).trans (by decide +kernel)
 
 /-- Function 4's tables from `wLit_4`, at elaboration time. -/
 def tVal_4 : Option Scc.Cert.Maps.Tables :=
@@ -5657,8 +5699,8 @@ def tLit_4 : Scc.Cert.Maps.Tables := (scc_lit% tVal_4).get!
 
 /-- The tables `computeW` builds from `wLit_4` on function 4's slice are
 `tLit_4` (kernel-checked). -/
-theorem tables_c_4 : Scc.Cert.Maps.computeW [sliceLit_4.2.2] sliceLit_4.2.1 [wLit_4] = .ok tLit_4 := by
-  kernel_rfl
+theorem tables_c_4 : Scc.Cert.Maps.computeW [sliceLit_4.2.2] sliceLit_4.2.1 [wLit_4] = .ok tLit_4 :=
+  (Scc.Cert.Maps.computeW_eq_E _ _ _).trans (by kernel_rfl)
 
 /-- `tLit_4` has the format's shape (kernel-checked). -/
 theorem tables_g_4 : tLit_4.g1Ok = true := by decide +kernel
@@ -5692,8 +5734,8 @@ def wLit_5 : Array (List Int) := scc_lit% wVal_5
 
 /-- `wLit_5` is a post-fixpoint of slot liveness on function 5's body
 (kernel-checked). -/
-theorem tables_w_5 : Scc.Cert.Maps.liveOk (Scc.Cert.Maps.bodyOf sliceLit_5.2.2 sliceLit_5.2.1) wLit_5 = true := by
-  decide +kernel
+theorem tables_w_5 : Scc.Cert.Maps.liveOk (Scc.Cert.Maps.bodyOf sliceLit_5.2.2 sliceLit_5.2.1) wLit_5 = true :=
+  (Scc.Cert.Maps.liveOk_eq_E _ _).trans (by decide +kernel)
 
 /-- Function 5's tables from `wLit_5`, at elaboration time. -/
 def tVal_5 : Option Scc.Cert.Maps.Tables :=
@@ -5704,8 +5746,8 @@ def tLit_5 : Scc.Cert.Maps.Tables := (scc_lit% tVal_5).get!
 
 /-- The tables `computeW` builds from `wLit_5` on function 5's slice are
 `tLit_5` (kernel-checked). -/
-theorem tables_c_5 : Scc.Cert.Maps.computeW [sliceLit_5.2.2] sliceLit_5.2.1 [wLit_5] = .ok tLit_5 := by
-  kernel_rfl
+theorem tables_c_5 : Scc.Cert.Maps.computeW [sliceLit_5.2.2] sliceLit_5.2.1 [wLit_5] = .ok tLit_5 :=
+  (Scc.Cert.Maps.computeW_eq_E _ _ _).trans (by kernel_rfl)
 
 /-- `tLit_5` has the format's shape (kernel-checked). -/
 theorem tables_g_5 : tLit_5.g1Ok = true := by decide +kernel
@@ -5739,8 +5781,8 @@ def wLit_6 : Array (List Int) := scc_lit% wVal_6
 
 /-- `wLit_6` is a post-fixpoint of slot liveness on function 6's body
 (kernel-checked). -/
-theorem tables_w_6 : Scc.Cert.Maps.liveOk (Scc.Cert.Maps.bodyOf sliceLit_6.2.2 sliceLit_6.2.1) wLit_6 = true := by
-  decide +kernel
+theorem tables_w_6 : Scc.Cert.Maps.liveOk (Scc.Cert.Maps.bodyOf sliceLit_6.2.2 sliceLit_6.2.1) wLit_6 = true :=
+  (Scc.Cert.Maps.liveOk_eq_E _ _).trans (by decide +kernel)
 
 /-- Function 6's tables from `wLit_6`, at elaboration time. -/
 def tVal_6 : Option Scc.Cert.Maps.Tables :=
@@ -5751,8 +5793,8 @@ def tLit_6 : Scc.Cert.Maps.Tables := (scc_lit% tVal_6).get!
 
 /-- The tables `computeW` builds from `wLit_6` on function 6's slice are
 `tLit_6` (kernel-checked). -/
-theorem tables_c_6 : Scc.Cert.Maps.computeW [sliceLit_6.2.2] sliceLit_6.2.1 [wLit_6] = .ok tLit_6 := by
-  kernel_rfl
+theorem tables_c_6 : Scc.Cert.Maps.computeW [sliceLit_6.2.2] sliceLit_6.2.1 [wLit_6] = .ok tLit_6 :=
+  (Scc.Cert.Maps.computeW_eq_E _ _ _).trans (by kernel_rfl)
 
 /-- `tLit_6` has the format's shape (kernel-checked). -/
 theorem tables_g_6 : tLit_6.g1Ok = true := by decide +kernel
@@ -5786,8 +5828,8 @@ def wLit_7 : Array (List Int) := scc_lit% wVal_7
 
 /-- `wLit_7` is a post-fixpoint of slot liveness on function 7's body
 (kernel-checked). -/
-theorem tables_w_7 : Scc.Cert.Maps.liveOk (Scc.Cert.Maps.bodyOf sliceLit_7.2.2 sliceLit_7.2.1) wLit_7 = true := by
-  decide +kernel
+theorem tables_w_7 : Scc.Cert.Maps.liveOk (Scc.Cert.Maps.bodyOf sliceLit_7.2.2 sliceLit_7.2.1) wLit_7 = true :=
+  (Scc.Cert.Maps.liveOk_eq_E _ _).trans (by decide +kernel)
 
 /-- Function 7's tables from `wLit_7`, at elaboration time. -/
 def tVal_7 : Option Scc.Cert.Maps.Tables :=
@@ -5798,8 +5840,8 @@ def tLit_7 : Scc.Cert.Maps.Tables := (scc_lit% tVal_7).get!
 
 /-- The tables `computeW` builds from `wLit_7` on function 7's slice are
 `tLit_7` (kernel-checked). -/
-theorem tables_c_7 : Scc.Cert.Maps.computeW [sliceLit_7.2.2] sliceLit_7.2.1 [wLit_7] = .ok tLit_7 := by
-  kernel_rfl
+theorem tables_c_7 : Scc.Cert.Maps.computeW [sliceLit_7.2.2] sliceLit_7.2.1 [wLit_7] = .ok tLit_7 :=
+  (Scc.Cert.Maps.computeW_eq_E _ _ _).trans (by kernel_rfl)
 
 /-- `tLit_7` has the format's shape (kernel-checked). -/
 theorem tables_g_7 : tLit_7.g1Ok = true := by decide +kernel
@@ -5833,8 +5875,8 @@ def wLit_8 : Array (List Int) := scc_lit% wVal_8
 
 /-- `wLit_8` is a post-fixpoint of slot liveness on function 8's body
 (kernel-checked). -/
-theorem tables_w_8 : Scc.Cert.Maps.liveOk (Scc.Cert.Maps.bodyOf sliceLit_8.2.2 sliceLit_8.2.1) wLit_8 = true := by
-  decide +kernel
+theorem tables_w_8 : Scc.Cert.Maps.liveOk (Scc.Cert.Maps.bodyOf sliceLit_8.2.2 sliceLit_8.2.1) wLit_8 = true :=
+  (Scc.Cert.Maps.liveOk_eq_E _ _).trans (by decide +kernel)
 
 /-- Function 8's tables from `wLit_8`, at elaboration time. -/
 def tVal_8 : Option Scc.Cert.Maps.Tables :=
@@ -5845,8 +5887,8 @@ def tLit_8 : Scc.Cert.Maps.Tables := (scc_lit% tVal_8).get!
 
 /-- The tables `computeW` builds from `wLit_8` on function 8's slice are
 `tLit_8` (kernel-checked). -/
-theorem tables_c_8 : Scc.Cert.Maps.computeW [sliceLit_8.2.2] sliceLit_8.2.1 [wLit_8] = .ok tLit_8 := by
-  kernel_rfl
+theorem tables_c_8 : Scc.Cert.Maps.computeW [sliceLit_8.2.2] sliceLit_8.2.1 [wLit_8] = .ok tLit_8 :=
+  (Scc.Cert.Maps.computeW_eq_E _ _ _).trans (by kernel_rfl)
 
 /-- `tLit_8` has the format's shape (kernel-checked). -/
 theorem tables_g_8 : tLit_8.g1Ok = true := by decide +kernel
@@ -5880,8 +5922,8 @@ def wLit_9 : Array (List Int) := scc_lit% wVal_9
 
 /-- `wLit_9` is a post-fixpoint of slot liveness on function 9's body
 (kernel-checked). -/
-theorem tables_w_9 : Scc.Cert.Maps.liveOk (Scc.Cert.Maps.bodyOf sliceLit_9.2.2 sliceLit_9.2.1) wLit_9 = true := by
-  decide +kernel
+theorem tables_w_9 : Scc.Cert.Maps.liveOk (Scc.Cert.Maps.bodyOf sliceLit_9.2.2 sliceLit_9.2.1) wLit_9 = true :=
+  (Scc.Cert.Maps.liveOk_eq_E _ _).trans (by decide +kernel)
 
 /-- Function 9's tables from `wLit_9`, at elaboration time. -/
 def tVal_9 : Option Scc.Cert.Maps.Tables :=
@@ -5892,8 +5934,8 @@ def tLit_9 : Scc.Cert.Maps.Tables := (scc_lit% tVal_9).get!
 
 /-- The tables `computeW` builds from `wLit_9` on function 9's slice are
 `tLit_9` (kernel-checked). -/
-theorem tables_c_9 : Scc.Cert.Maps.computeW [sliceLit_9.2.2] sliceLit_9.2.1 [wLit_9] = .ok tLit_9 := by
-  kernel_rfl
+theorem tables_c_9 : Scc.Cert.Maps.computeW [sliceLit_9.2.2] sliceLit_9.2.1 [wLit_9] = .ok tLit_9 :=
+  (Scc.Cert.Maps.computeW_eq_E _ _ _).trans (by kernel_rfl)
 
 /-- `tLit_9` has the format's shape (kernel-checked). -/
 theorem tables_g_9 : tLit_9.g1Ok = true := by decide +kernel
@@ -5927,8 +5969,8 @@ def wLit_10 : Array (List Int) := scc_lit% wVal_10
 
 /-- `wLit_10` is a post-fixpoint of slot liveness on function 10's body
 (kernel-checked). -/
-theorem tables_w_10 : Scc.Cert.Maps.liveOk (Scc.Cert.Maps.bodyOf sliceLit_10.2.2 sliceLit_10.2.1) wLit_10 = true := by
-  decide +kernel
+theorem tables_w_10 : Scc.Cert.Maps.liveOk (Scc.Cert.Maps.bodyOf sliceLit_10.2.2 sliceLit_10.2.1) wLit_10 = true :=
+  (Scc.Cert.Maps.liveOk_eq_E _ _).trans (by decide +kernel)
 
 /-- Function 10's tables from `wLit_10`, at elaboration time. -/
 def tVal_10 : Option Scc.Cert.Maps.Tables :=
@@ -5939,8 +5981,8 @@ def tLit_10 : Scc.Cert.Maps.Tables := (scc_lit% tVal_10).get!
 
 /-- The tables `computeW` builds from `wLit_10` on function 10's slice are
 `tLit_10` (kernel-checked). -/
-theorem tables_c_10 : Scc.Cert.Maps.computeW [sliceLit_10.2.2] sliceLit_10.2.1 [wLit_10] = .ok tLit_10 := by
-  kernel_rfl
+theorem tables_c_10 : Scc.Cert.Maps.computeW [sliceLit_10.2.2] sliceLit_10.2.1 [wLit_10] = .ok tLit_10 :=
+  (Scc.Cert.Maps.computeW_eq_E _ _ _).trans (by kernel_rfl)
 
 /-- `tLit_10` has the format's shape (kernel-checked). -/
 theorem tables_g_10 : tLit_10.g1Ok = true := by decide +kernel
@@ -5974,8 +6016,8 @@ def wLit_11 : Array (List Int) := scc_lit% wVal_11
 
 /-- `wLit_11` is a post-fixpoint of slot liveness on function 11's body
 (kernel-checked). -/
-theorem tables_w_11 : Scc.Cert.Maps.liveOk (Scc.Cert.Maps.bodyOf sliceLit_11.2.2 sliceLit_11.2.1) wLit_11 = true := by
-  decide +kernel
+theorem tables_w_11 : Scc.Cert.Maps.liveOk (Scc.Cert.Maps.bodyOf sliceLit_11.2.2 sliceLit_11.2.1) wLit_11 = true :=
+  (Scc.Cert.Maps.liveOk_eq_E _ _).trans (by decide +kernel)
 
 /-- Function 11's tables from `wLit_11`, at elaboration time. -/
 def tVal_11 : Option Scc.Cert.Maps.Tables :=
@@ -5986,8 +6028,8 @@ def tLit_11 : Scc.Cert.Maps.Tables := (scc_lit% tVal_11).get!
 
 /-- The tables `computeW` builds from `wLit_11` on function 11's slice are
 `tLit_11` (kernel-checked). -/
-theorem tables_c_11 : Scc.Cert.Maps.computeW [sliceLit_11.2.2] sliceLit_11.2.1 [wLit_11] = .ok tLit_11 := by
-  kernel_rfl
+theorem tables_c_11 : Scc.Cert.Maps.computeW [sliceLit_11.2.2] sliceLit_11.2.1 [wLit_11] = .ok tLit_11 :=
+  (Scc.Cert.Maps.computeW_eq_E _ _ _).trans (by kernel_rfl)
 
 /-- `tLit_11` has the format's shape (kernel-checked). -/
 theorem tables_g_11 : tLit_11.g1Ok = true := by decide +kernel
@@ -6021,8 +6063,8 @@ def wLit_12 : Array (List Int) := scc_lit% wVal_12
 
 /-- `wLit_12` is a post-fixpoint of slot liveness on function 12's body
 (kernel-checked). -/
-theorem tables_w_12 : Scc.Cert.Maps.liveOk (Scc.Cert.Maps.bodyOf sliceLit_12.2.2 sliceLit_12.2.1) wLit_12 = true := by
-  decide +kernel
+theorem tables_w_12 : Scc.Cert.Maps.liveOk (Scc.Cert.Maps.bodyOf sliceLit_12.2.2 sliceLit_12.2.1) wLit_12 = true :=
+  (Scc.Cert.Maps.liveOk_eq_E _ _).trans (by decide +kernel)
 
 /-- Function 12's tables from `wLit_12`, at elaboration time. -/
 def tVal_12 : Option Scc.Cert.Maps.Tables :=
@@ -6033,8 +6075,8 @@ def tLit_12 : Scc.Cert.Maps.Tables := (scc_lit% tVal_12).get!
 
 /-- The tables `computeW` builds from `wLit_12` on function 12's slice are
 `tLit_12` (kernel-checked). -/
-theorem tables_c_12 : Scc.Cert.Maps.computeW [sliceLit_12.2.2] sliceLit_12.2.1 [wLit_12] = .ok tLit_12 := by
-  kernel_rfl
+theorem tables_c_12 : Scc.Cert.Maps.computeW [sliceLit_12.2.2] sliceLit_12.2.1 [wLit_12] = .ok tLit_12 :=
+  (Scc.Cert.Maps.computeW_eq_E _ _ _).trans (by kernel_rfl)
 
 /-- `tLit_12` has the format's shape (kernel-checked). -/
 theorem tables_g_12 : tLit_12.g1Ok = true := by decide +kernel
@@ -6068,8 +6110,8 @@ def wLit_13 : Array (List Int) := scc_lit% wVal_13
 
 /-- `wLit_13` is a post-fixpoint of slot liveness on function 13's body
 (kernel-checked). -/
-theorem tables_w_13 : Scc.Cert.Maps.liveOk (Scc.Cert.Maps.bodyOf sliceLit_13.2.2 sliceLit_13.2.1) wLit_13 = true := by
-  decide +kernel
+theorem tables_w_13 : Scc.Cert.Maps.liveOk (Scc.Cert.Maps.bodyOf sliceLit_13.2.2 sliceLit_13.2.1) wLit_13 = true :=
+  (Scc.Cert.Maps.liveOk_eq_E _ _).trans (by decide +kernel)
 
 /-- Function 13's tables from `wLit_13`, at elaboration time. -/
 def tVal_13 : Option Scc.Cert.Maps.Tables :=
@@ -6080,8 +6122,8 @@ def tLit_13 : Scc.Cert.Maps.Tables := (scc_lit% tVal_13).get!
 
 /-- The tables `computeW` builds from `wLit_13` on function 13's slice are
 `tLit_13` (kernel-checked). -/
-theorem tables_c_13 : Scc.Cert.Maps.computeW [sliceLit_13.2.2] sliceLit_13.2.1 [wLit_13] = .ok tLit_13 := by
-  kernel_rfl
+theorem tables_c_13 : Scc.Cert.Maps.computeW [sliceLit_13.2.2] sliceLit_13.2.1 [wLit_13] = .ok tLit_13 :=
+  (Scc.Cert.Maps.computeW_eq_E _ _ _).trans (by kernel_rfl)
 
 /-- `tLit_13` has the format's shape (kernel-checked). -/
 theorem tables_g_13 : tLit_13.g1Ok = true := by decide +kernel
@@ -6115,8 +6157,8 @@ def wLit_14 : Array (List Int) := scc_lit% wVal_14
 
 /-- `wLit_14` is a post-fixpoint of slot liveness on function 14's body
 (kernel-checked). -/
-theorem tables_w_14 : Scc.Cert.Maps.liveOk (Scc.Cert.Maps.bodyOf sliceLit_14.2.2 sliceLit_14.2.1) wLit_14 = true := by
-  decide +kernel
+theorem tables_w_14 : Scc.Cert.Maps.liveOk (Scc.Cert.Maps.bodyOf sliceLit_14.2.2 sliceLit_14.2.1) wLit_14 = true :=
+  (Scc.Cert.Maps.liveOk_eq_E _ _).trans (by decide +kernel)
 
 /-- Function 14's tables from `wLit_14`, at elaboration time. -/
 def tVal_14 : Option Scc.Cert.Maps.Tables :=
@@ -6127,8 +6169,8 @@ def tLit_14 : Scc.Cert.Maps.Tables := (scc_lit% tVal_14).get!
 
 /-- The tables `computeW` builds from `wLit_14` on function 14's slice are
 `tLit_14` (kernel-checked). -/
-theorem tables_c_14 : Scc.Cert.Maps.computeW [sliceLit_14.2.2] sliceLit_14.2.1 [wLit_14] = .ok tLit_14 := by
-  kernel_rfl
+theorem tables_c_14 : Scc.Cert.Maps.computeW [sliceLit_14.2.2] sliceLit_14.2.1 [wLit_14] = .ok tLit_14 :=
+  (Scc.Cert.Maps.computeW_eq_E _ _ _).trans (by kernel_rfl)
 
 /-- `tLit_14` has the format's shape (kernel-checked). -/
 theorem tables_g_14 : tLit_14.g1Ok = true := by decide +kernel
@@ -6162,8 +6204,8 @@ def wLit_15 : Array (List Int) := scc_lit% wVal_15
 
 /-- `wLit_15` is a post-fixpoint of slot liveness on function 15's body
 (kernel-checked). -/
-theorem tables_w_15 : Scc.Cert.Maps.liveOk (Scc.Cert.Maps.bodyOf sliceLit_15.2.2 sliceLit_15.2.1) wLit_15 = true := by
-  decide +kernel
+theorem tables_w_15 : Scc.Cert.Maps.liveOk (Scc.Cert.Maps.bodyOf sliceLit_15.2.2 sliceLit_15.2.1) wLit_15 = true :=
+  (Scc.Cert.Maps.liveOk_eq_E _ _).trans (by decide +kernel)
 
 /-- Function 15's tables from `wLit_15`, at elaboration time. -/
 def tVal_15 : Option Scc.Cert.Maps.Tables :=
@@ -6174,8 +6216,8 @@ def tLit_15 : Scc.Cert.Maps.Tables := (scc_lit% tVal_15).get!
 
 /-- The tables `computeW` builds from `wLit_15` on function 15's slice are
 `tLit_15` (kernel-checked). -/
-theorem tables_c_15 : Scc.Cert.Maps.computeW [sliceLit_15.2.2] sliceLit_15.2.1 [wLit_15] = .ok tLit_15 := by
-  kernel_rfl
+theorem tables_c_15 : Scc.Cert.Maps.computeW [sliceLit_15.2.2] sliceLit_15.2.1 [wLit_15] = .ok tLit_15 :=
+  (Scc.Cert.Maps.computeW_eq_E _ _ _).trans (by kernel_rfl)
 
 /-- `tLit_15` has the format's shape (kernel-checked). -/
 theorem tables_g_15 : tLit_15.g1Ok = true := by decide +kernel
@@ -6209,8 +6251,8 @@ def wLit_16 : Array (List Int) := scc_lit% wVal_16
 
 /-- `wLit_16` is a post-fixpoint of slot liveness on function 16's body
 (kernel-checked). -/
-theorem tables_w_16 : Scc.Cert.Maps.liveOk (Scc.Cert.Maps.bodyOf sliceLit_16.2.2 sliceLit_16.2.1) wLit_16 = true := by
-  decide +kernel
+theorem tables_w_16 : Scc.Cert.Maps.liveOk (Scc.Cert.Maps.bodyOf sliceLit_16.2.2 sliceLit_16.2.1) wLit_16 = true :=
+  (Scc.Cert.Maps.liveOk_eq_E _ _).trans (by decide +kernel)
 
 /-- Function 16's tables from `wLit_16`, at elaboration time. -/
 def tVal_16 : Option Scc.Cert.Maps.Tables :=
@@ -6221,8 +6263,8 @@ def tLit_16 : Scc.Cert.Maps.Tables := (scc_lit% tVal_16).get!
 
 /-- The tables `computeW` builds from `wLit_16` on function 16's slice are
 `tLit_16` (kernel-checked). -/
-theorem tables_c_16 : Scc.Cert.Maps.computeW [sliceLit_16.2.2] sliceLit_16.2.1 [wLit_16] = .ok tLit_16 := by
-  kernel_rfl
+theorem tables_c_16 : Scc.Cert.Maps.computeW [sliceLit_16.2.2] sliceLit_16.2.1 [wLit_16] = .ok tLit_16 :=
+  (Scc.Cert.Maps.computeW_eq_E _ _ _).trans (by kernel_rfl)
 
 /-- `tLit_16` has the format's shape (kernel-checked). -/
 theorem tables_g_16 : tLit_16.g1Ok = true := by decide +kernel
@@ -6256,8 +6298,8 @@ def wLit_17 : Array (List Int) := scc_lit% wVal_17
 
 /-- `wLit_17` is a post-fixpoint of slot liveness on function 17's body
 (kernel-checked). -/
-theorem tables_w_17 : Scc.Cert.Maps.liveOk (Scc.Cert.Maps.bodyOf sliceLit_17.2.2 sliceLit_17.2.1) wLit_17 = true := by
-  decide +kernel
+theorem tables_w_17 : Scc.Cert.Maps.liveOk (Scc.Cert.Maps.bodyOf sliceLit_17.2.2 sliceLit_17.2.1) wLit_17 = true :=
+  (Scc.Cert.Maps.liveOk_eq_E _ _).trans (by decide +kernel)
 
 /-- Function 17's tables from `wLit_17`, at elaboration time. -/
 def tVal_17 : Option Scc.Cert.Maps.Tables :=
@@ -6268,8 +6310,8 @@ def tLit_17 : Scc.Cert.Maps.Tables := (scc_lit% tVal_17).get!
 
 /-- The tables `computeW` builds from `wLit_17` on function 17's slice are
 `tLit_17` (kernel-checked). -/
-theorem tables_c_17 : Scc.Cert.Maps.computeW [sliceLit_17.2.2] sliceLit_17.2.1 [wLit_17] = .ok tLit_17 := by
-  kernel_rfl
+theorem tables_c_17 : Scc.Cert.Maps.computeW [sliceLit_17.2.2] sliceLit_17.2.1 [wLit_17] = .ok tLit_17 :=
+  (Scc.Cert.Maps.computeW_eq_E _ _ _).trans (by kernel_rfl)
 
 /-- `tLit_17` has the format's shape (kernel-checked). -/
 theorem tables_g_17 : tLit_17.g1Ok = true := by decide +kernel
@@ -6303,8 +6345,8 @@ def wLit_18 : Array (List Int) := scc_lit% wVal_18
 
 /-- `wLit_18` is a post-fixpoint of slot liveness on function 18's body
 (kernel-checked). -/
-theorem tables_w_18 : Scc.Cert.Maps.liveOk (Scc.Cert.Maps.bodyOf sliceLit_18.2.2 sliceLit_18.2.1) wLit_18 = true := by
-  decide +kernel
+theorem tables_w_18 : Scc.Cert.Maps.liveOk (Scc.Cert.Maps.bodyOf sliceLit_18.2.2 sliceLit_18.2.1) wLit_18 = true :=
+  (Scc.Cert.Maps.liveOk_eq_E _ _).trans (by decide +kernel)
 
 /-- Function 18's tables from `wLit_18`, at elaboration time. -/
 def tVal_18 : Option Scc.Cert.Maps.Tables :=
@@ -6315,8 +6357,8 @@ def tLit_18 : Scc.Cert.Maps.Tables := (scc_lit% tVal_18).get!
 
 /-- The tables `computeW` builds from `wLit_18` on function 18's slice are
 `tLit_18` (kernel-checked). -/
-theorem tables_c_18 : Scc.Cert.Maps.computeW [sliceLit_18.2.2] sliceLit_18.2.1 [wLit_18] = .ok tLit_18 := by
-  kernel_rfl
+theorem tables_c_18 : Scc.Cert.Maps.computeW [sliceLit_18.2.2] sliceLit_18.2.1 [wLit_18] = .ok tLit_18 :=
+  (Scc.Cert.Maps.computeW_eq_E _ _ _).trans (by kernel_rfl)
 
 /-- `tLit_18` has the format's shape (kernel-checked). -/
 theorem tables_g_18 : tLit_18.g1Ok = true := by decide +kernel
@@ -6350,8 +6392,8 @@ def wLit_19 : Array (List Int) := scc_lit% wVal_19
 
 /-- `wLit_19` is a post-fixpoint of slot liveness on function 19's body
 (kernel-checked). -/
-theorem tables_w_19 : Scc.Cert.Maps.liveOk (Scc.Cert.Maps.bodyOf sliceLit_19.2.2 sliceLit_19.2.1) wLit_19 = true := by
-  decide +kernel
+theorem tables_w_19 : Scc.Cert.Maps.liveOk (Scc.Cert.Maps.bodyOf sliceLit_19.2.2 sliceLit_19.2.1) wLit_19 = true :=
+  (Scc.Cert.Maps.liveOk_eq_E _ _).trans (by decide +kernel)
 
 /-- Function 19's tables from `wLit_19`, at elaboration time. -/
 def tVal_19 : Option Scc.Cert.Maps.Tables :=
@@ -6362,8 +6404,8 @@ def tLit_19 : Scc.Cert.Maps.Tables := (scc_lit% tVal_19).get!
 
 /-- The tables `computeW` builds from `wLit_19` on function 19's slice are
 `tLit_19` (kernel-checked). -/
-theorem tables_c_19 : Scc.Cert.Maps.computeW [sliceLit_19.2.2] sliceLit_19.2.1 [wLit_19] = .ok tLit_19 := by
-  kernel_rfl
+theorem tables_c_19 : Scc.Cert.Maps.computeW [sliceLit_19.2.2] sliceLit_19.2.1 [wLit_19] = .ok tLit_19 :=
+  (Scc.Cert.Maps.computeW_eq_E _ _ _).trans (by kernel_rfl)
 
 /-- `tLit_19` has the format's shape (kernel-checked). -/
 theorem tables_g_19 : tLit_19.g1Ok = true := by decide +kernel

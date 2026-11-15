@@ -29,7 +29,7 @@ def SpawnShapeT (Sp : Cfg → Cfg → Prop) : Prop :=
 /-- **`SpLeafArms` from the shape** plus the ViewInv and RunScope spawn arms. -/
 theorem spLeafArms_of_shape {Sp : Cfg → Cfg → Prop} (hShape : SpawnShapeT Sp)
     (hV : ∀ c c', Sp c c' → TermViewInv.ViewInv c → TermViewInv.ViewInv c')
-    (hD : ∀ c c', Sp c c' → TermScope.RunScope c → TermScope.RunScope c') : SpLeafArms Sp where
+    (hD : ∀ c c', Sp c c' → TermScope.RunScopeI c → TermScope.RunScopeI c') : SpLeafArms Sp where
   viewInv := hV
   runDRF := hD
   promViewLt := fun c c' h hc => by
@@ -52,7 +52,7 @@ theorem machine_tokens_mainX_shape {p : Prog} {k : Promises.Knobs} {arch : Arch}
     (O : ObligationsFX p k arch Sp Init (fun _ => True) c0) (hk : k.storeDepRts = true)
     (hS : StartOKX p k arch Init c0) (hShape : SpawnShapeT Sp)
     (hV : ∀ c c', Sp c c' → TermViewInv.ViewInv c → TermViewInv.ViewInv c')
-    (hD : ∀ c c', Sp c c' → TermScope.RunScope c → TermScope.RunScope c')
+    (hD : ∀ c c', Sp c c' → TermScope.RunScopeI c → TermScope.RunScopeI c')
     (hP : SpawnArmX p k arch Sp Init c0)
     {c : Cfg} (hr : StepsG p k arch Sp c0 c) :
     ∃ (Eg : GEnv) (Tot HP : Nat → Res) (HS : Res) (cr db : Nat → Ts → Res),

@@ -1,4 +1,5 @@
 import WeakCore.TermStep
+import WeakCore.TermC1Inv
 /-! The original relation `VRb` (P1/P2).  Route (iii): `ModeOKb` exempts a pub word whose range is
 backed by `rc` (flag `bk`); `VRb` is `VR` (TermSound:1412–1481, generated from it) with
 `ModeOK` swapped and `bk` threaded: set by a refinement `ini k` with `k ≤ rc` (`IniRc`) for
@@ -10,7 +11,16 @@ def ModeOKb (i : Nat) (P : WeakMem.AllocLabel → Option WeakMem.Ts) (S : WeakMe
     Mode → WeakMem.AllocLabel → Cell → List Word → Prop
   | .own, _, c, _ => c.owner = some i
   | .pub, l, c, ws => ∃ f, P l = some f ∧ (S l ∨ (∀ w ∈ ws, f ≤ w.view) ∨ (c.owner = some i ∧ bk))
-  | .rgn _, _, _, _ => True
+  | .rgn _, l, c, ws => ∃ f, P l = some f ∧ (S l ∨ (∀ w ∈ ws, f ≤ w.view) ∨ (c.owner = some i ∧ bk))
+    -- g1m7 (parent, route (a)): `.rgn` is the `.pub` clause, as M7 makes W `ModeOK .rgn` the pub
+    -- clause (TermSound:601); no pfr-free owner disjunct (the pub owner case has a W lift, LiftPosZero:43)
+
+/-- a published label's frontier. -/
+theorem pfrSomeB {P : WeakMem.AllocLabel → Option WeakMem.Ts} {l : WeakMem.AllocLabel} (h : P l ≠ none) :
+    ∃ f, P l = some f := by
+  cases hP : P l with
+  | none => exact absurd hP h
+  | some f => exact ⟨f, rfl⟩
 
 /-- A refinement's count is backed by `rc` (positive reading; `False` off `.ini`). -/
 def IniRc (ρ : Nat → Nat) (rc : WeakMem.AllocLabel → Nat) : Pred → List Word → Prop
@@ -18,12 +28,122 @@ def IniRc (ρ : Nat → Nat) (rc : WeakMem.AllocLabel → Nat) : Pred → List W
   | .and p q, ws => IniRc ρ rc p ws ∨ IniRc ρ rc q ws
   | _, _ => False
 
-theorem ModeOK_b {i P S} (bk : Prop) {μ l c ws} (h : ModeOK i P S μ l c ws) : ModeOKb i P S bk μ l c ws := by
+/-- C7a probe (S11 form): the bridge from the c1 mode clause `ModeOK1` (= `ModeOK` after the switch, M7). -/
+theorem ModeOK_b {i P S} (bk : Prop) {μ l c ws} (h : TermC1.ModeOK1 i P S μ l c ws) : ModeOKb i P S bk μ l c ws := by
   cases μ with
   | own => exact h
-  | pub => obtain ⟨f, hf, h⟩ := h; exact ⟨f, hf, h.elim Or.inl (fun h => Or.inr (Or.inl h))⟩
-  | rgn _ => trivial
+  | pub | rgn _ => obtain ⟨f, hf, h⟩ := h; exact ⟨f, hf, h.elim Or.inl (fun h => Or.inr (Or.inl h))⟩
 
+/-- base `ModeOK` is `ModeOK1` arm-for-arm. -/
+theorem ModeOK_toC1 {i P S μ l c ws} (h : ModeOK i P S μ l c ws) : TermC1.ModeOK1 i P S μ l c ws := by
+  cases μ <;> exact h
+
+/-- the gate bridge from base `ModeOK`. -/
+theorem ModeOK_b0 {i P S} (bk : Prop) {μ l c ws} (h : ModeOK i P S μ l c ws) : ModeOKb i P S bk μ l c ws :=
+  ModeOK_b bk (ModeOK_toC1 h)
+
+/-- C7a route (d): any reference's mode clause gives the region clause (region/openPub aliases keep `ws`). -/
+theorem ModeOKb_toRgn {i P S} {bk bk' : Prop} {μ l c ws} (r : Idx) (_h : ModeOKb i P S bk μ l c ws)
+    (hR : P l ≠ none ∧ S l) : ModeOKb i P S bk' (.rgn r) l c ws := by
+  obtain ⟨f, hf⟩ := pfrSomeB hR.1
+  exact ⟨f, hf, Or.inl hR.2⟩
+
+/-- the pub clause is the region clause (`openPub`, W `region_ptr_VR_pub`). -/
+theorem ModeOKb_pubRgn {i P S} {bk : Prop} {l c ws} (r : Idx) (h : ModeOKb i P S bk .pub l c ws) :
+    ModeOKb i P S bk (.rgn r) l c ws := h
+
+/-- C7a route (d): off the owner, a region clause gives the pub frontier. -/
+theorem ModeOKb_rgnFr {i P S} {bk : Prop} {r l c ws} (h : ModeOKb i P S bk (.rgn r) l c ws) (hown : c.owner ≠ some i) :
+    ∃ f, P l = some f ∧ (S l ∨ ∀ w ∈ ws, f ≤ w.view) := by
+  obtain ⟨f, hf, h⟩ := h
+  exact ⟨f, hf, h.imp id (fun h => h.resolve_right (fun h1 => hown h1.1))⟩
+
+/-- Off the owner, a pub clause gives the pub frontier. -/
+theorem ModeOKb_pubFr {i P S} {bk : Prop} {l c ws} (h : ModeOKb i P S bk .pub l c ws) (hown : c.owner ≠ some i) :
+    ∃ f, P l = some f ∧ (S l ∨ ∀ w ∈ ws, f ≤ w.view) := by
+  obtain ⟨f, hf, h⟩ := h
+  exact ⟨f, hf, h.imp id (fun h => h.resolve_right (fun h1 => hown h1.1))⟩
+
+/-- C7a: off the owner, any mode clause gives the pub frontier (`own` is refuted). -/
+theorem ModeOKb_offFr {i P S} {bk : Prop} {μ l c ws} (h : ModeOKb i P S bk μ l c ws) (hown : c.owner ≠ some i) :
+    ∃ f, P l = some f ∧ (S l ∨ ∀ w ∈ ws, f ≤ w.view) := by
+  cases μ with
+  | own => exact absurd h hown
+  | pub => exact ModeOKb_pubFr h hown
+  | rgn _ => exact ModeOKb_rgnFr h hown
+
+
+/-- E3b P1 (user, route (L)): the locative mode clause. Same as `ModeOKb` off `rgn`; at `rgn` the owner
+needs the flag (`bk ∨ IniAt rc`, set by the `.loc` arm), else the frontier. `ModeOKb` itself is unchanged. -/
+def ModeOKbLoc (i : Nat) (P : WeakMem.AllocLabel → Option WeakMem.Ts) (S : WeakMem.AllocLabel → Prop) (bk : Prop) :
+    Mode → WeakMem.AllocLabel → Cell → List Word → Prop
+  | .own, l, c, ws => ModeOKb i P S bk .own l c ws
+  | .pub, l, c, ws => ModeOKb i P S bk .pub l c ws
+  | .rgn _, l, c, ws => ModeOKb i P S bk .pub l c ws
+
+/-- the locative clause gives the plain clause. -/
+theorem ModeOKbLoc.toB {i P S} {bk : Prop} {μ l c ws} (h : ModeOKbLoc i P S bk μ l c ws) : ModeOKb i P S bk μ l c ws := by
+  cases μ with
+  | own => exact h
+  | pub => exact h
+  | rgn _ => exact h
+
+/-- the plain clause plus the owner's flag at `rgn` gives the locative clause. -/
+theorem ModeOKbLoc.of {i P S} {bk : Prop} {μ l c ws} (h : ModeOKb i P S bk μ l c ws)
+    (hr : ∀ r, μ = .rgn r → c.owner = some i → bk) : ModeOKbLoc i P S bk μ l c ws := by
+  cases μ with
+  | own => exact h
+  | pub => exact h
+  | rgn _ => exact h
+
+/-- at `rgn`, the owner gets the flag or the frontier. -/
+theorem ModeOKbLoc.rgnOwn {i P S} {bk : Prop} {r l c ws} (h : ModeOKbLoc i P S bk (.rgn r) l c ws) :
+    c.owner = some i → bk ∨ ∃ f, P l = some f ∧ (S l ∨ ∀ w ∈ ws, f ≤ w.view) := by
+  intro _
+  obtain ⟨f, hf, h⟩ := h
+  rcases h with h | h | ⟨-, hk⟩
+  · exact Or.inr ⟨f, hf, Or.inl h⟩
+  · exact Or.inr ⟨f, hf, Or.inr h⟩
+  · exact Or.inl hk
+
+/-- transport along any change that transports the `own` and `pub` clauses and the flag. -/
+theorem ModeOKbLoc.lift {i P S i' P' S'} {bk bk' : Prop} {l c ws l' c' ws'}
+    (Ho : ModeOKb i P S bk .own l c ws → ModeOKb i' P' S' bk' .own l' c' ws')
+    (Hp : ModeOKb i P S bk .pub l c ws → ModeOKb i' P' S' bk' .pub l' c' ws') (hb : bk → bk') {μ}
+    (h : ModeOKbLoc i P S bk μ l c ws) : ModeOKbLoc i' P' S' bk' μ l' c' ws' := by
+  cases μ with
+  | own => exact Ho h
+  | pub => exact Hp h
+  | rgn _ => exact Hp h
+
+/-- the flag is monotone. -/
+theorem ModeOKbLoc.flag {i P S} {bk bk' : Prop} (hb : bk → bk') {μ l c ws} (h : ModeOKbLoc i P S bk μ l c ws) :
+    ModeOKbLoc i P S bk' μ l c ws := by
+  cases μ with
+  | own => exact h
+  | pub | rgn _ => obtain ⟨f, hf, h⟩ := h; exact ⟨f, hf, h.imp id (Or.imp id (And.imp id hb))⟩
+
+/-- off the owner, the locative clause gives the frontier. -/
+theorem ModeOKbLoc.offFr {i P S} {bk : Prop} {μ l c ws} (h : ModeOKbLoc i P S bk μ l c ws) (hown : c.owner ≠ some i) :
+    ∃ f, P l = some f ∧ (S l ∨ ∀ w ∈ ws, f ≤ w.view) := ModeOKb_offFr h.toB hown
+
+/-- P1 (region/openPub aliases keep `ws`): any locative clause gives the region one; an `own` source's owner
+supplies the flag (`hb`), the others carry it (`hbb`). -/
+theorem ModeOKbLoc.toRgn {i P S} {bk bk' : Prop} {μ l c ws} (r : Idx) (h : ModeOKbLoc i P S bk μ l c ws)
+    (hR : μ = .own → P l ≠ none ∧ S l) (hbb : bk → bk') : ModeOKbLoc i P S bk' (.rgn r) l c ws := by
+  cases μ with
+  | own => obtain ⟨f, hf⟩ := pfrSomeB (hR rfl).1; exact ⟨f, hf, Or.inl (hR rfl).2⟩
+  | pub | rgn _ => obtain ⟨f, hf, h⟩ := h; exact ⟨f, hf, h.imp id (Or.imp id (And.imp id hbb))⟩
+
+/-- the W→♭ bridge at a locative (`rgn`: the frontier, `Or.inr`, as `ModeOK_b`). -/
+theorem ModeOK_bLoc {i P S} (bk : Prop) {μ l c ws} (h : TermC1.ModeOK1 i P S μ l c ws) : ModeOKbLoc i P S bk μ l c ws := by
+  cases μ with
+  | own => exact h
+  | pub => exact ModeOK_b bk h
+  | rgn _ => exact ModeOK_b (μ := .rgn _) bk h
+/-- the locative bridge from base `ModeOK`. -/
+theorem ModeOK_bLoc0 {i P S} (bk : Prop) {μ l c ws} (h : ModeOK i P S μ l c ws) : ModeOKbLoc i P S bk μ l c ws :=
+  ModeOK_bLoc bk (ModeOK_toC1 h)
 def VRb (ρ : Nat → Nat) (η : TEnv) : Prop → Ty → Shp → List Word → Prop
   | _bk, .intS i, _, ws => ws.map (·.val) = [.num (ev ρ i)]
   | _bk, .int, _, ws => ∃ n, ws.map (·.val) = [.num n]
@@ -67,7 +187,7 @@ def VRb (ρ : Nat → Nat) (η : TEnv) : Prop → Ty → Shp → List Word → P
   -- no access reaches (T3c-5a)
   | bk, .loc μ u, _, ws => (ws.map (·.val) = [.null] ∧ ∃ e, Fd (.array (.lit 0) e) (cl ρ η.wit 0 0 u)) ∨
       ∃ a c U, ws.map (·.val) = [.loc a 0] ∧ η.sto a.label = some c ∧
-        AtOff c.ty a.offset U ∧ Fd U (cl ρ η.wit 0 0 u) ∧ ModeOKb η.tid η.pfr η.seen (bk ∨ IniAt η.rc c a U) μ a.label c ws ∧
+        AtOff c.ty a.offset U ∧ Fd U (cl ρ η.wit 0 0 u) ∧ ModeOKbLoc η.tid η.pfr η.seen (bk ∨ IniAt η.rc c a U) μ a.label c ws ∧
           IniAt (modeIni μ η.ini η.rini) c a U
   | bk, .ptrOpt μ u, _, ws => ws.map (·.val) = [.null] ∨
       ∃ a c, ws.map (·.val) = [.loc a 0] ∧ a.offset = 0 ∧ η.sto a.label = some c ∧

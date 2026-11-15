@@ -552,14 +552,13 @@ theorem flipOK_congr {E E' : TEnv} {s : St} {l : AllocLabel} (hs : E'.sto = E.st
 /-- **T5 `wp`** from `CertRunC`: `TermTyped.flipOK_cert` at the stepper's cut in
 `SysInvN` (stage A, the PRE-step `MemInv`), certified through the step; `FlipOK` does
 not read `seen`, so it transfers to the step's cut. -/
-theorem wp_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [WrIniC] (hP : ProgT p) (hrun : CertRunC p k arch Sp Init MintOK c0) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) :
+theorem wp_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [WrIniC] (hP : ProgT p) (hrun : CertRunC p k arch Sp Init MintOK c0) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) :
     ∀ {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {i : Nat}
       {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
       {Rf Rs : Res},
       TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
-      ∀ x a e rt ws ad, th.term = .let_ x (.publish a) e → evalAt th.env a = some (rt, ws) →
-        ws.map (·.val) = [.loc ad 0] → FlipOK (CE η) (stOf c.mem c.pairs th) ad.label := by
-  intro c c' Eg Tot HP HS cr db i th r S ρ η cx Rf Rs X Y x a e rt ws ad _ _ _
+      ∀ ad : Address, TermOwnG0Defs.PubAt th ad.label → FlipOK (CE η) (stOf c.mem c.pairs th) ad.label := by
+  intro c c' Eg Tot HP HS cr db i th r S ρ η cx Rf Rs X Y ad _
   obtain ⟨S0, hS0⟩ := X.inv.thr i th X.hth
   obtain ⟨hRE0, hTE, hmi, -⟩ := id hS0
   obtain ⟨ρ2, η2, cx2, Rf2, Rs2, hce2, -⟩ := hRE0
@@ -684,7 +683,7 @@ theorem rmwS_core {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
     fun tw μ u hp hc hμ hl => hres w rt pw ad tw μ u hcase hp hc hμ hl hea had hown
   have hEp : ∀ {tw : Ty} {r : Idx} {P : Proto}, cx.peek w = .ok tw → P.epoch = true →
       ∀ μ, cellOf tw = some (μ, .word r P) → (μ = .own ∨ μ = .pub) → P.ghost = false :=
-    fun hp hep μ hc hpo => pwf_epoch_ghost (wordRef_pwf hp (cellOf_cases hc) hpo hi.1 hE htv hm) hep
+    fun hp hep μ hc hpo => pwf_epoch_ghost (wordRef_pwf hp (cellOf_cases hc) hi.1 hE htv hm) hep
   rcases hcase with ⟨acq, rel, e, v, x, ok, fail, hterm⟩ | ⟨x, o, acq, rel, v, e, hterm⟩
   · rw [hterm] at hT0
     cases hT0 with

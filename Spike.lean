@@ -2123,6 +2123,19 @@ by `Spike.X64`) (the setup call's frame placed at any layout: `setupCont_fv`, `f
 theorems' immediate table `imms2Me`: `imms2Of p` and the first TCB for `me` at the setup start; `imms2Me_setup`,
 `imms2Me_of_ne`, `imms2Me_of_none`),
 `Spike.Test.SrcNumA64`, `Spike.Test.SrcNumX64`.
+The generic route of an `Accepted2` program (AArch64; G1): the program-wide
+function segment at a generic base context, `main`'s segment at every
+reachable placement, the landings, the bare start and the branch-target
+check, `Spike.Lib.LowerA64.G1*` (their x86-64 twins `Spike.Lib.LowerX64.G1*`
+imported by `Spike.X64`), with the ISA-neutral `Spike.Lib.G1TgRtLabs`,
+`Spike.Lib.LowerAddChk2`, `Spike.Lib.LowerShapeC2Br`,
+`Spike.Lib.Src.CalleePlain2`, `Spike.Lib.Src.G1LeafMask`,
+`Spike.Lib.Src.G1NewBufK`, `Spike.Lib.Src.MainNoBuf2`;
+`Spike.Lib.LowerA64.G1Closed2Fin` (`closed2StmtA_g1`) and
+`Spike.Lib.LowerA64.Closed2StmtAH` (`Closed2StmtAH`: `Closed2StmtA` at the
+configurations with the header bound, `closed2StmtAH_final`; the x86-64
+`Closed2StmtH`, `closed2Stmt_x64_final` in `Spike.Lib.LowerX64.G1Closed2X64`);
+`Spike.Test.A64Hello1G1` (`hello1` as an instance of the generic route).
 -/
 import Spike.Bridge.Progress
 import Spike.Bridge.LoopCorrect
@@ -2774,3 +2787,86 @@ import Spike.Lib.LowerA64.PlacedRetJS
 import Spike.Test.A64Hello1HWBot
 import Spike.Test.A64Hello1AllocPt
 import Spike.Test.A64Hello1AllocPtH
+import Spike.Lib.G1TgRtLabs
+import Spike.Lib.LowerA64.Closed2StmtAH
+import Spike.Lib.LowerA64.G1AbG2
+import Spike.Lib.LowerA64.G1AbG2L
+import Spike.Lib.LowerA64.G1AbLU
+import Spike.Lib.LowerA64.G1AllocL
+import Spike.Lib.LowerA64.G1AllocOpen
+import Spike.Lib.LowerA64.G1AllocPt
+import Spike.Lib.LowerA64.G1CallC2HL
+import Spike.Lib.LowerA64.G1CallC2RL
+import Spike.Lib.LowerA64.G1CallCx
+import Spike.Lib.LowerA64.G1CallCxL
+import Spike.Lib.LowerA64.G1CalleeFacts
+import Spike.Lib.LowerA64.G1CalleePlace
+import Spike.Lib.LowerA64.G1CalleePre
+import Spike.Lib.LowerA64.G1CalleePreL
+import Spike.Lib.LowerA64.G1CallG2
+import Spike.Lib.LowerA64.G1CallG2L
+import Spike.Lib.LowerA64.G1CallHW
+import Spike.Lib.LowerA64.G1CallHW2
+import Spike.Lib.LowerA64.G1CallLU
+import Spike.Lib.LowerA64.G1CallW
+import Spike.Lib.LowerA64.G1CallW2
+import Spike.Lib.LowerA64.G1CallWStmt
+import Spike.Lib.LowerA64.G1Closed2
+import Spike.Lib.LowerA64.G1Closed2Fin
+import Spike.Lib.LowerA64.G1FnSpec
+import Spike.Lib.LowerA64.G1FnSpecL
+import Spike.Lib.LowerA64.G1FnSpecOf
+import Spike.Lib.LowerA64.G1FnSpecOfL
+import Spike.Lib.LowerA64.G1FnSpecStmt
+import Spike.Lib.LowerA64.G1FnSpecStmtL
+import Spike.Lib.LowerA64.G1FnSpecStmtLOf
+import Spike.Lib.LowerA64.G1H1
+import Spike.Lib.LowerA64.G1H1Bot
+import Spike.Lib.LowerA64.G1H1Land
+import Spike.Lib.LowerA64.G1H1Mono
+import Spike.Lib.LowerA64.G1H1Res
+import Spike.Lib.LowerA64.G1H1Stmt
+import Spike.Lib.LowerA64.G1Hmr
+import Spike.Lib.LowerA64.G1LaneBuf
+import Spike.Lib.LowerA64.G1LaneBufL
+import Spike.Lib.LowerA64.G1LimOkL
+import Spike.Lib.LowerA64.G1MainCall
+import Spike.Lib.LowerA64.G1MainCallL
+import Spike.Lib.LowerA64.G1MainCx
+import Spike.Lib.LowerA64.G1MainSegL
+import Spike.Lib.LowerA64.G1MainStmt
+import Spike.Lib.LowerA64.G1MainStmtL
+import Spike.Lib.LowerA64.G1NoSetup
+import Spike.Lib.LowerA64.G1NoSetupBounds
+import Spike.Lib.LowerA64.G1NoSetupCall
+import Spike.Lib.LowerA64.G1NoSetupCallStmt
+import Spike.Lib.LowerA64.G1NoSetupDefs
+import Spike.Lib.LowerA64.G1NoSetupH0
+import Spike.Lib.LowerA64.G1NoSetupMain
+import Spike.Lib.LowerA64.G1NoSetupRt
+import Spike.Lib.LowerA64.G1NoSetupStmt
+import Spike.Lib.LowerA64.G1Print
+import Spike.Lib.LowerA64.G1PrintHL
+import Spike.Lib.LowerA64.G1PrintL
+import Spike.Lib.LowerA64.G1ProCallG2
+import Spike.Lib.LowerA64.G1ProCallG2L
+import Spike.Lib.LowerA64.G1ProW
+import Spike.Lib.LowerA64.G1Room2
+import Spike.Lib.LowerA64.G1SetupCx
+import Spike.Lib.LowerA64.G1SetupHS
+import Spike.Lib.LowerA64.G1SetupOpen
+import Spike.Lib.LowerA64.G1TgBlock
+import Spike.Lib.LowerA64.G1TgEmit
+import Spike.Lib.LowerA64.G1TgFunc
+import Spike.Lib.LowerA64.G1TgInst
+import Spike.Lib.LowerA64.G1TgOk
+import Spike.Lib.LowerA64.G1TgSeg
+import Spike.Lib.LowerA64.G1WCallG2
+import Spike.Lib.LowerA64.G1WCallG2L
+import Spike.Lib.LowerAddChk2
+import Spike.Lib.LowerShapeC2Br
+import Spike.Lib.Src.CalleePlain2
+import Spike.Lib.Src.G1LeafMask
+import Spike.Lib.Src.G1NewBufK
+import Spike.Lib.Src.MainNoBuf2
+import Spike.Test.A64Hello1G1

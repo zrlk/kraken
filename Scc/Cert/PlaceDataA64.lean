@@ -385,6 +385,7 @@ where
       else go ds (some (f, .lab l k :: its)) acc
     | .instr i :: ds, cur, acc => go ds (cur.map fun (f, its) => (f, It.ofIns i :: its)) acc
     | .byteArray _ :: ds, cur, acc => go ds cur acc
+    | .zeros _ :: ds, cur, acc => go ds cur acc
 
 /-! ## The offsets before every item -/
 

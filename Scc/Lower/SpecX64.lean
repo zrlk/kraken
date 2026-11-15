@@ -1,5 +1,6 @@
 import Scc.Lower.Spec
 import Scc.Emit.X64
+import Scc.Emit.PostX64
 import Scc.Cert.MapsEmitX64
 
 /-!
@@ -43,7 +44,7 @@ open Scc.IR
 
 namespace Scc.Lower.X64
 
-open Scc.Emit.X64 (Item emitItemsMaps render dataSecs kabiFirst)
+open Scc.Emit.X64 (Item emitItemsMaps render dataSecs kabiFirst postEmit)
 
 /-! The line functions below work on lists of characters: core's
 `String.trimAscii`, `String.splitOn` and `String.toNat?` do not reduce in
@@ -202,11 +203,15 @@ def lowerAll (cfg : Config) (p : Prog) : Emitted :=
 rendered (`Scc.Emit.X64.render`, which refuses an item it cannot print), the
 GC tables' items after them (refused where the tables' stage fails, `tables`),
 and the stack need table; no placement data on x86-64. `--host raw`: refused unless the
-trampolines precede every block entry (`Scc.Emit.X64.kabiFirst`). -/
-def Emitted.listing (e : Emitted) : Except String Listing := do
+trampolines precede every block entry (`Scc.Emit.X64.kabiFirst`). With `granule`
+(`scc --granule`), the emitter's items go through the post-emission
+pipeline (`Scc.Emit.X64.postEmit`: the granule pass) before the tables are appended;
+`items`, `prog` and `secs` stay the emitter's. -/
+def Emitted.listing (e : Emitted) (granule : Bool := false) : Except String Listing := do
   if e.low.ir.host == .raw then kabiFirst e.items
   let (tits, _) ← e.tables
-  pure { text := ← render (e.items ++ tits), need := e.need }
+  let items ← if granule then Prod.fst <$> postEmit e.low.ir e.items e.safepoints else pure e.items
+  pure { text := ← render (items ++ tits), need := e.need }
 
 /-- **A successful emission from its stages**: the emitter's items and
 safepoints, and the fields of the emission computed from them. -/

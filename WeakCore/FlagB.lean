@@ -27,7 +27,7 @@ theorem VRz_flag (t : Ty) : ∀ (ρ : Nat → Nat) (η : TEnv) (bk bk' : Prop) (
     intro ρ η bk bk' rt ws hb h; simp only [VRz] at h ⊢
     rcases h with h | ⟨a, c, U, h1, h2, h3, h4, hm, h5⟩
     · exact Or.inl h
-    · exact Or.inr ⟨a, c, U, h1, h2, h3, h4, ModeOKb_flag (Or.imp_left hb) hm, h5⟩
+    · exact Or.inr ⟨a, c, U, h1, h2, h3, h4, ModeOKbLoc.flag (Or.imp_left hb) hm, h5⟩
   | tex κ b ih =>
     intro ρ η bk bk' rt ws hb h; simp only [VRz] at h ⊢
     obtain ⟨n, rb, s, hrt, hc, hw, hv⟩ := h; exact ⟨n, rb, s, hrt, hc, hw, ih _ _ _ _ _ _ hb hv⟩
@@ -130,7 +130,7 @@ theorem VRb2_flag (t : Ty) : ∀ (ρ : Nat → Nat) (η : TEnv) (bk bk' : Prop) 
     intro ρ η bk bk' rt ws hb h; simp only [VRb2] at h ⊢
     rcases h with h | ⟨a, c, U, h1, h2, h3, h4, hm, h5⟩
     · exact Or.inl h
-    · exact Or.inr ⟨a, c, U, h1, h2, h3, h4, ModeOKb_flag (Or.imp_left hb) hm, h5⟩
+    · exact Or.inr ⟨a, c, U, h1, h2, h3, h4, ModeOKbLoc.flag (Or.imp_left hb) hm, h5⟩
   | tex κ b ih =>
     intro ρ η bk bk' rt ws hb h; simp only [VRb2] at h ⊢
     obtain ⟨n, rb, s, hrt, hc, hw, hv⟩ := h; exact ⟨n, rb, s, hrt, hc, hw, ih _ _ _ _ _ _ hb hv⟩
@@ -169,9 +169,117 @@ theorem buf_rc {ρ : Nat → Nat} {η : TEnv} {bk : Prop} {n : Idx} {u : Ty} {k 
     (h : VRb2 ρ η bk (.refine (.loc .pub (.array n u)) (.ini k)) rt ws) :
     FreshW η ws ∨ ∀ a : WeakMem.Address, ws.map (·.val) = [.loc a 0] → ev ρ k ≤ η.rc a.label := by
   simp only [VRb2] at h
-  rcases h.2.2 ⟨η.box, fun _ _ h => h, rfl⟩ with hf | hr
+  rcases h.2.2 (Or.inl ⟨η.box, fun _ _ h => h, rfl⟩) with hf | hr
   · exact Or.inl hf
   · exact Or.inr (by simpa [IniR] using hr)
+
+/-! `TEnv.rgnTop` lemmas (copies of the `TEnv.pubTop_*` proofs, `pubHead` ↦ `rgnLocHead`) and the
+`RgnOwnE` twins of the `PubPosE_*` transports (store and `tid` are untouched by the type-level env ops). -/
+theorem TEnv.rgnTop_congr {η₁ η₂ : TEnv} (hw : η₁.wit = η₂.wit) (t : Ty) : η₁.rgnTop t = η₂.rgnTop t := by
+  cases t <;> simp [TEnv.rgnTop, hw]
+
+theorem TEnv.rgnTop_agree {η₁ η₂ : TEnv} (t : Ty) (hw : ∀ j, t.tyMentions j = true → η₁.wit j = η₂.wit j) :
+    η₁.rgnTop t = η₂.rgnTop t := by
+  cases t with
+  | tvar k => simp [TEnv.rgnTop, hw k (by simp [Ty.tyMentions])]
+  | _ => rfl
+
+theorem TEnv.rgnTop_shiftI (η : TEnv) (c : Nat) (t : Ty) : η.rgnTop (t.shiftI c) = η.rgnTop t := by
+  cases t with
+  | loc μ _ => cases μ <;> rfl
+  | ptr μ _ => cases μ <;> rfl
+  | ptrOpt μ _ => cases μ <;> rfl
+  | _ => rfl
+
+theorem TEnv.rgnTop_instT (η : TEnv) (us : List Idx) (d : Nat) (t : Ty) : η.rgnTop (instT us d t) = η.rgnTop t := by
+  cases t with
+  | loc μ _ => cases μ <;> rfl
+  | ptr μ _ => cases μ <;> rfl
+  | ptrOpt μ _ => cases μ <;> rfl
+  | _ => rfl
+
+theorem TEnv.rgnTop_tyEq (η : TEnv) {cx : Cx} {d : Nat} {t u : Ty} (h : TyEqS cx d t u) : η.rgnTop t = η.rgnTop u := by
+  cases h with
+  | ptr hm _ => cases hm <;> rfl
+  | ptrOpt hm _ => cases hm <;> rfl
+  | loc hm _ => cases hm <;> rfl
+  | _ => rfl
+
+theorem TEnv.rgnTop_of_Clo (η : TEnv) {s : Ty} (h : Clo s) : η.rgnTop s = s.rgnLocHead := by
+  cases s with
+  | tvar k => exact absurd h.1 (by simp [tb])
+  | _ => rfl
+
+theorem TEnv.rgnTop_shiftT_insR (η : TEnv) (c : Nat) {R : Shp → List Word → Prop} {s : Ty}
+    {UR : Shp → List Word → Prop} {RR URR : Shp → List Word → Res → Prop} (t : Ty) :
+    (η.insR c R s UR RR URR).rgnTop (t.shiftT c) = η.rgnTop t := by
+  cases t with
+  | tvar k =>
+      by_cases h : k ≥ c
+      · have h1 : ¬ k + 1 < c := by omega
+        have h2 : k + 1 ≠ c := by omega
+        simp [Ty.shiftT, h, TEnv.rgnTop, TEnv.insR, h1, h2]
+      · have h1 : k < c := by omega
+        simp [Ty.shiftT, h, TEnv.rgnTop, TEnv.insR, h1]
+  | loc μ _ => cases μ <;> rfl
+  | ptr μ _ => cases μ <;> rfl
+  | ptrOpt μ _ => cases μ <;> rfl
+  | _ => rfl
+
+theorem TEnv.rgnTop_cl {η : TEnv} (hw : ∀ k, Clo (η.wit k)) (X : TEnv) (ρ₀ : Nat → Nat) (P : List Ty)
+    (d : Nat) (t : Ty) : (TEnv.pre P X).rgnTop (cl ρ₀ η.wit P.length d t) = (TEnv.pre P η).rgnTop t := by
+  cases t with
+  | tvar k =>
+      by_cases h : k < P.length
+      · simp only [cl, h, ↓reduceIte]; exact congrArg Ty.rgnLocHead (pre_wit_lt X η P k h)
+      · simp only [cl, h, ↓reduceIte]
+        rw [TEnv.rgnTop_of_Clo _ (hw _)]
+        exact (congrArg Ty.rgnLocHead (pre_wit_ge η P k (by omega))).symm
+  | loc μ _ => cases μ <;> rfl
+  | ptr μ _ => cases μ <;> rfl
+  | ptrOpt μ _ => cases μ <;> rfl
+  | _ => rfl
+
+theorem RgnOwnE_congr {η₁ η₂ : TEnv} {t₁ t₂ : Ty} {ws : List Word} (h : η₁.rgnTop t₁ = η₂.rgnTop t₂)
+    (hs : η₁.sto = η₂.sto) (ht : η₁.tid = η₂.tid) : RgnOwnE η₁ t₁ ws ↔ RgnOwnE η₂ t₂ ws := by
+  simp only [RgnOwnE, RgnOwnW, h, hs, ht]
+
+theorem RgnOwnE_vals {η : TEnv} {t : Ty} {ws ws' : List Word} (e : VEq ws ws') (h : RgnOwnE η t ws') :
+    RgnOwnE η t ws := by
+  obtain ⟨h1, a, ha, hc⟩ := h; exact ⟨h1, a, e.trans ha, hc⟩
+
+theorem RgnOwnE_mono {η₁ η₂ : TEnv} {t : Ty} {ws : List Word} (hw : η₁.wit = η₂.wit)
+    (hs : ∀ l c, η₁.sto l = some c → η₂.sto l = some c) (ht : η₁.tid = η₂.tid) (h : RgnOwnE η₂ t ws) :
+    RgnOwnE η₁ t ws := by
+  obtain ⟨h1, a, ha, hc⟩ := h
+  exact ⟨by rw [TEnv.rgnTop_congr hw]; exact h1, a, ha, fun c h' => by rw [ht]; exact hc c (hs _ _ h')⟩
+
+theorem RgnOwnE_wit {η₁ η₂ : TEnv} {t : Ty} {ws : List Word} (hw : η₁.wit = η₂.wit) (hs : η₁.sto = η₂.sto)
+    (ht : η₁.tid = η₂.tid) : RgnOwnE η₁ t ws ↔ RgnOwnE η₂ t ws :=
+  RgnOwnE_congr (TEnv.rgnTop_congr hw t) hs ht
+
+theorem RgnOwnE_shiftI {η : TEnv} {c : Nat} {t : Ty} {ws : List Word} :
+    RgnOwnE η (t.shiftI c) ws ↔ RgnOwnE η t ws := RgnOwnE_congr (TEnv.rgnTop_shiftI η c t) rfl rfl
+
+theorem RgnOwnE_instT {η : TEnv} {us : List Idx} {d : Nat} {t : Ty} {ws : List Word} :
+    RgnOwnE η (instT us d t) ws ↔ RgnOwnE η t ws := RgnOwnE_congr (TEnv.rgnTop_instT η us d t) rfl rfl
+
+theorem RgnOwnE_tyEq {η : TEnv} {cx : Cx} {d : Nat} {t u : Ty} {ws : List Word} (h : TyEqS cx d t u) :
+    RgnOwnE η t ws ↔ RgnOwnE η u ws := RgnOwnE_congr (TEnv.rgnTop_tyEq η h) rfl rfl
+
+theorem RgnOwnE_agree {η₁ η₂ : TEnv} {t : Ty} {ws : List Word} (hs : η₁.sto = η₂.sto) (ht : η₁.tid = η₂.tid)
+    (hw : ∀ j, t.tyMentions j = true → η₁.wit j = η₂.wit j) : RgnOwnE η₁ t ws ↔ RgnOwnE η₂ t ws :=
+  RgnOwnE_congr (TEnv.rgnTop_agree t hw) hs ht
+
+theorem RgnOwnE_shiftT_insR {η : TEnv} {c : Nat} {R : Shp → List Word → Prop} {s : Ty}
+    {UR : Shp → List Word → Prop} {RR URR : Shp → List Word → Res → Prop} {t : Ty} {ws : List Word} :
+    RgnOwnE (η.insR c R s UR RR URR) (t.shiftT c) ws ↔ RgnOwnE η t ws :=
+  RgnOwnE_congr (TEnv.rgnTop_shiftT_insR η c t) rfl rfl
+
+theorem RgnOwnE_cl {η : TEnv} (hw : ∀ k, Clo (η.wit k)) {X : TEnv} (hXs : X.sto = η.sto) (hXt : X.tid = η.tid)
+    (ρ₀ : Nat → Nat) (P : List Ty) (d : Nat) (t : Ty) {ws : List Word} :
+    RgnOwnE (TEnv.pre P X) (cl ρ₀ η.wit P.length d t) ws ↔ RgnOwnE (TEnv.pre P η) t ws :=
+  RgnOwnE_congr (TEnv.rgnTop_cl hw X ρ₀ P d t) (by rw [pre_sto, pre_sto, hXs]) (by rw [pre_tid, pre_tid, hXt])
 
 /-! Z″ conjunct transports. -/
 theorem RcC_wle {ρ : Nat → Nat} {η : TEnv} {b : Bool} {ψ : Pred} {ws ws' : List Word} (e : WLe ws ws')
@@ -180,9 +288,9 @@ theorem RcC_wle {ρ : Nat → Nat} {η : TEnv} {b : Bool} {ψ : Pred} {ws ws' : 
   fun hp => (h hp).imp (FreshW_wle e) (IniR_vals e.vals ψ)
 
 theorem RcCE_wle {ρ : Nat → Nat} {η : TEnv} {t : Ty} {rt : Shp} {ψ : Pred} {ws ws' : List Word} (e : WLe ws ws')
-    (h : PubPosE η t rt ws → FreshW η ws ∨ IniR ρ η.rc ψ ws) :
-    PubPosE η t rt ws' → FreshW η ws' ∨ IniR ρ η.rc ψ ws' :=
-  fun hp => (h (PubPosE_vals e.vals hp)).imp (FreshW_wle e) (IniR_vals e.vals ψ)
+    (h : (PubPosE η t rt ws ∨ RgnOwnE η t ws) → FreshW η ws ∨ IniR ρ η.rc ψ ws) :
+    (PubPosE η t rt ws' ∨ RgnOwnE η t ws') → FreshW η ws' ∨ IniR ρ η.rc ψ ws' :=
+  fun hp => (h (hp.imp (PubPosE_vals e.vals) (RgnOwnE_vals e.vals))).imp (FreshW_wle e) (IniR_vals e.vals ψ)
 
 
 /-! (P3) `PubPosE` twins of the `TEnv.pubTop` lemmas (via the generic `pp` lemmas
@@ -355,12 +463,18 @@ theorem ModeOKb_monoP {bk : Prop} {i : Nat} {P P' : WeakMem.AllocLabel → Optio
     ModeOKb i P S bk μ l c ws → ModeOKb i P' S' bk μ l c ws := by
   cases μ with
   | own => exact id
-  | pub =>
+  | pub | rgn _ =>
     rintro ⟨f, h1, h2 | h2 | h2⟩
     · exact ⟨f, hP l f h1, Or.inl (hS l h2)⟩
     · exact ⟨f, hP l f h1, Or.inr (Or.inl h2)⟩
     · exact ⟨f, hP l f h1, Or.inr (Or.inr h2)⟩
-  | rgn _ => exact id
+
+/-- P1 twin (`ModeOKbLoc`). -/
+theorem ModeOKbLoc.monoP {bk : Prop} {i : Nat} {P P' : WeakMem.AllocLabel → Option WeakMem.Ts}
+    {S S' : WeakMem.AllocLabel → Prop} (hP : ∀ l f, P l = some f → P' l = some f) (hS : ∀ l, S l → S' l)
+    {μ : Mode} {l : WeakMem.AllocLabel} {c : Cell} {ws : List Word} :
+    ModeOKbLoc i P S bk μ l c ws → ModeOKbLoc i P' S' bk μ l c ws :=
+  ModeOKbLoc.lift (ModeOKb_monoP (μ := .own) hP hS) (ModeOKb_monoP (μ := .pub) hP hS) id
 
 theorem IniRc_monoR {ρ : Nat → Nat} {rc rc' : WeakMem.AllocLabel → Nat} (hr : ∀ l, rc l ≤ rc' l) (ψ : Pred) :
     ∀ ws, IniRc ρ rc ψ ws → IniRc ρ rc' ψ ws := by
@@ -386,7 +500,7 @@ theorem VRz_mono : ∀ (t : Ty) (bk : Prop) (η₁ η₂ : TEnv) (ρ : Nat → N
   | .refine t ψ, bk, η₁, η₂, ρ, rt, ws, hr, hur, hw, hp, ht, hs, hi, hP, hS, hBx, hri, hv => by
       simp only [VRz] at hv ⊢
       exact ⟨VRz_mono t _ η₁ η₂ ρ rt ws hr hur hw hp ht hs hi hP hS hBx hri hv.1, IniR_mono (TEnv.selIni_le hw hi hri t) hv.2.1,
-        fun hq => (hv.2.2 (PubPosE_mono hw hBx hq)).imp (FreshW_mono hP hS) (IniR_mono (TEnv.rc_mono hi hri))⟩
+        fun hq => (hv.2.2 (hq.imp (PubPosE_mono hw hBx) (RgnOwnE_mono hw hs ht))).imp (FreshW_mono hP hS) (IniR_mono (TEnv.rc_mono hi hri))⟩
   | .iex b, bk, η₁, η₂, ρ, rt, ws, hr, hur, hw, hp, ht, hs, hi, hP, hS, hBx, hri, hv => by
       simp only [VRz] at hv ⊢
       obtain ⟨n, rb, w, h1, h2⟩ := hv
@@ -431,7 +545,7 @@ theorem VRz_mono : ∀ (t : Ty) (bk : Prop) (η₁ η₂ : TEnv) (ρ : Nat → N
       simp only [VRz] at hv ⊢
       rcases hv with hn | ⟨a, c, U, h1, h3, h4, hF, h5, h6⟩
       · exact Or.inl ⟨hn.1, hw ▸ hn.2⟩
-      · exact Or.inr ⟨a, c, U, h1, hs _ _ h3, h4, hw ▸ hF, ht ▸ ModeOKb_flag (fun h => h.imp id (IniAt_mono (TEnv.rc_mono hi hri))) (ModeOKb_monoP hP hS h5),
+      · exact Or.inr ⟨a, c, U, h1, hs _ _ h3, h4, hw ▸ hF, ht ▸ ModeOKbLoc.flag (fun h => h.imp id (IniAt_mono (TEnv.rc_mono hi hri))) (ModeOKbLoc.monoP hP hS h5),
           IniAt_mono (modeIni_le hi hri μ) h6⟩
   | .intS _, bk, _, _, _, _, _, _, _, _, _, _, _, _, hP, hS, hBx, hri, hv => by simpa only [VRz] using hv
   | .int, bk, _, _, _, _, _, _, _, _, _, _, _, _, hP, hS, hBx, hri, hv => by simpa only [VRz] using hv
@@ -472,7 +586,7 @@ theorem ModeOKb_unseeP {bkG : Prop} {i : Nat} {P P' : WeakMem.AllocLabel → Opt
     ModeOKb i P S bkG μ l c ws → ModeOKb i P' S' bkG μ l c ws := by
   cases μ with
   | own => exact id
-  | pub =>
+  | pub | rgn _ =>
     rintro ⟨f, h1, h2 | h2⟩
     · rcases hS l h2 with h3 | ⟨f', h3, h4⟩
       · exact ⟨f, hP l f h1, Or.inl h3⟩
@@ -481,7 +595,16 @@ theorem ModeOKb_unseeP {bkG : Prop} {i : Nat} {P P' : WeakMem.AllocLabel → Opt
         have : w.val ∈ ws.map (·.val) := List.mem_map_of_mem hw'
         rw [hw] at this; simpa using this
     · exact ⟨f, hP l f h1, Or.inr h2⟩
-  | rgn _ => exact id
+
+/-- P1 twin (`ModeOKbLoc`). -/
+theorem ModeOKbLoc.unseeP {bkG : Prop} {i : Nat} {P P' : WeakMem.AllocLabel → Option WeakMem.Ts}
+    {S S' : WeakMem.AllocLabel → Prop} {V : WeakMem.Ts}
+    (hP : ∀ l f, P l = some f → P' l = some f)
+    (hS : ∀ l, S l → S' l ∨ ∃ f, P l = some f ∧ f ≤ V)
+    {μ : Mode} {l : WeakMem.AllocLabel} {c : Cell} {ws : List Word} {a : WeakMem.Address}
+    (hw : ws.map (·.val) = [.loc a 0]) (hL : LocAbove V ws) :
+    ModeOKbLoc i P S bkG μ l c ws → ModeOKbLoc i P' S' bkG μ l c ws :=
+  ModeOKbLoc.lift (ModeOKb_unseeP (μ := .own) hP hS hw hL) (ModeOKb_unseeP (μ := .pub) hP hS hw hL) id
 
 theorem FreshW_unsee {η₁ η₂ : TEnv} {V : WeakMem.Ts} (hP : ∀ l f, η₁.pfr l = some f → η₂.pfr l = some f)
     (hS : ∀ l, η₁.seen l → η₂.seen l ∨ ∃ f, η₁.pfr l = some f ∧ f ≤ V) {ws : List Word} (hL : LocAbove V ws)
@@ -511,7 +634,7 @@ theorem VRz_unsee (V : WeakMem.Ts) : ∀ (t : Ty) (bk : Prop) (η₁ η₂ : TEn
   | .refine t ψ, bk, η₁, η₂, ρ, rt, ws, hr, hur, hw, hp, ht, hs, hi, hP, hS, hBx, hL, hri, hv => by
       simp only [VRz] at hv ⊢
       exact ⟨VRz_unsee V t _ η₁ η₂ ρ rt ws hr hur hw hp ht hs hi hP hS hBx hL hri hv.1, IniR_mono (TEnv.selIni_le hw hi hri t) hv.2.1,
-        fun hq => (hv.2.2 (PubPosE_mono hw hBx hq)).imp (FreshW_unsee hP hS hL) (IniR_mono (TEnv.rc_mono hi hri))⟩
+        fun hq => (hv.2.2 (hq.imp (PubPosE_mono hw hBx) (RgnOwnE_mono hw hs ht))).imp (FreshW_unsee hP hS hL) (IniR_mono (TEnv.rc_mono hi hri))⟩
   | .iex b, bk, η₁, η₂, ρ, rt, ws, hr, hur, hw, hp, ht, hs, hi, hP, hS, hBx, hL, hri, hv => by
       simp only [VRz] at hv ⊢
       obtain ⟨n, rb, w, h1, h2⟩ := hv
@@ -560,7 +683,7 @@ theorem VRz_unsee (V : WeakMem.Ts) : ∀ (t : Ty) (bk : Prop) (η₁ η₂ : TEn
       simp only [VRz] at hv ⊢
       rcases hv with hn | ⟨a, c, U, h1, h3, h4, hF, h5, h6⟩
       · exact Or.inl ⟨hn.1, hw ▸ hn.2⟩
-      · exact Or.inr ⟨a, c, U, h1, hs _ _ h3, h4, hw ▸ hF, ht ▸ ModeOKb_flag (fun h => h.imp id (IniAt_mono (TEnv.rc_mono hi hri))) (ModeOKb_unseeP hP hS h1 hL h5),
+      · exact Or.inr ⟨a, c, U, h1, hs _ _ h3, h4, hw ▸ hF, ht ▸ ModeOKbLoc.flag (fun h => h.imp id (IniAt_mono (TEnv.rc_mono hi hri))) (ModeOKbLoc.unseeP hP hS h1 hL h5),
           IniAt_mono (modeIni_le hi hri μ) h6⟩
   | .intS _, bk, _, _, _, _, _, _, _, _, _, _, _, _, _, _, hBx, _, hri, hv => by simpa only [VRz] using hv
   | .int, bk, _, _, _, _, _, _, _, _, _, _, _, _, _, _, hBx, _, hri, hv => by simpa only [VRz] using hv
@@ -599,12 +722,19 @@ theorem ModeOKb_monoV {bkG : Prop} {i : Nat} {P P' : WeakMem.AllocLabel → Opti
     ModeOKb i P S bkG μ l c ws → ModeOKb i P' S' bkG μ l c ws' := by
   cases μ with
   | own => exact id
-  | pub =>
+  | pub | rgn _ =>
     rintro ⟨f, h1, h2 | h2 | h2⟩
     · exact ⟨f, hP l f h1, Or.inl (hS l h2)⟩
     · exact ⟨f, hP l f h1, Or.inr (Or.inl (hw f h2))⟩
     · exact ⟨f, hP l f h1, Or.inr (Or.inr h2)⟩
-  | rgn _ => exact id
+
+/-- P1 twin (`ModeOKbLoc`). -/
+theorem ModeOKbLoc.monoV {bkG : Prop} {i : Nat} {P P' : WeakMem.AllocLabel → Option WeakMem.Ts}
+    {S S' : WeakMem.AllocLabel → Prop} (hP : ∀ l f, P l = some f → P' l = some f) (hS : ∀ l, S l → S' l)
+    {μ : Mode} {l : WeakMem.AllocLabel} {c : Cell} {ws ws' : List Word}
+    (hw : ∀ f, (∀ w ∈ ws, f ≤ w.view) → ∀ w ∈ ws', f ≤ w.view) :
+    ModeOKbLoc i P S bkG μ l c ws → ModeOKbLoc i P' S' bkG μ l c ws' :=
+  ModeOKbLoc.lift (ModeOKb_monoV (μ := .own) hP hS hw) (ModeOKb_monoV (μ := .pub) hP hS hw) id
 
 /-- `VRz` is upward closed in word views (port of W `VR_up`). -/
 theorem VRz_up {bkG : Prop} {ρ : Nat → Nat} {η : TEnv} : ∀ (t : Ty) (rt : Shp) (ws ws' : List Word),
@@ -667,7 +797,7 @@ theorem VRz_up {bkG : Prop} {ρ : Nat → Nat} {η : TEnv} : ∀ (t : Ty) (rt : 
       rcases hv with hn | ⟨a, c, U, h1, h3, h4, hF, h5, h6⟩
       · exact Or.inl ⟨e.vals.symm.trans hn.1, hn.2⟩
       · exact Or.inr ⟨a, c, U, e.vals.symm.trans h1, h3, h4, hF,
-          ModeOKb_monoV (fun _ _ x => x) (fun _ x => x) (WLe_view e h1) h5, h6⟩
+          ModeOKbLoc.monoV (fun _ _ x => x) (fun _ x => x) (WLe_view e h1) h5, h6⟩
   | tid =>
       intro rt ws ws' e hv; simp only [VRz] at hv ⊢
       obtain ⟨l, c, h1, h2, h3, h5⟩ := hv

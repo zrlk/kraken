@@ -407,7 +407,7 @@ theorem ownXStepL_of [WrIniC] {p : Prog} {x : AllocLabel} {n : Nat} {T : Expr �
   obtain ⟨E', Tot', HP', h1, h2, h3, h0, h4, h5, h6, h7, h8⟩ :=
     h g mem pairs th r ρ η cx Rf Rs HP hp hn ht hsc ⟨E0, hw⟩ hE hT htv hi hRP hDy hm hP hb hni hx hTy hRc hr hpa hpx
   have hFp := finv_of htv hi
-  obtain ⟨hx', hA'⟩ := h6 E0 hx0 hA hm.2.2.2.1 h2 (wrHyp hE hT.1 htv hFp hm (hsc ρ η cx hE hT.1 htv hFp) hvr hr)
+  obtain ⟨hx', hA'⟩ := h6 E0 hx0 hA hm.2.2.2.1 h2 (wrHyp hE hT.1 htv hFp hm (hsc ρ η cx hE hT htv hFp) hvr hr)
   exact ⟨E', Tot', HP', h1, (MemInv_tys _ _ _ _).2 h2, h3, hb, h0, h4, by omega, hx', hA', h7, h8⟩
 
 end TermOwnHeldQ

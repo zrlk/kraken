@@ -74,23 +74,26 @@ theorem VRR_ppFresh (bx : WeakMem.AllocLabel → Option Box) (t : Ty) : ∀ (PT 
   | ptr μ u =>
     intro PT ρ η rt ws R i _ _ hv hp
     cases μ <;> simp [pp] at hp
-    simp only [VRR] at hv
-    obtain ⟨⟨a, c, h1, -, -, -, hm, -⟩, -⟩ := hv
-    exact FreshAt_head h1 hm i
+    all_goals
+      simp only [VRR] at hv
+      obtain ⟨⟨a, c, h1, -, -, -, hm, -⟩, -⟩ := hv
+      exact FreshAt_head h1 hm i
   | ptrOpt μ u =>
     intro PT ρ η rt ws R i _ _ hv hp
     cases μ <;> simp [pp] at hp
-    simp only [VRR] at hv
-    rcases hv with ⟨hn | ⟨a, c, h1, -, -, -, hm, -⟩, -⟩
-    · exact FreshAt_null hn i
-    · exact FreshAt_head h1 hm i
+    all_goals
+      simp only [VRR] at hv
+      rcases hv with ⟨hn | ⟨a, c, h1, -, -, -, hm, -⟩, -⟩
+      · exact FreshAt_null hn i
+      · exact FreshAt_head h1 hm i
   | loc μ u =>
     intro PT ρ η rt ws R i _ _ hv hp
     cases μ <;> simp [pp] at hp
-    simp only [VRR] at hv
-    rcases hv with ⟨⟨hn, -⟩ | ⟨a, c, U, h1, -, -, -, hm, -⟩, -⟩
-    · exact FreshAt_null hn i
-    · exact FreshAt_head h1 hm i
+    all_goals
+      simp only [VRR] at hv
+      rcases hv with ⟨⟨hn, -⟩ | ⟨a, c, U, h1, -, -, -, hm, -⟩, -⟩
+      · exact FreshAt_null hn i
+      · exact FreshAt_head h1 hm i
   | tid =>
     intro PT ρ η rt ws R i _ _ hv _
     simp only [VRR, VR] at hv
@@ -201,6 +204,29 @@ theorem VRR_PubPosEFresh {ρ : Nat → Nat} {η : TEnv} {t : Ty} {rt : Shp} {ws 
   exact VRR_ppFresh bx (η.wit k) (fun _ _ _ _ => false) (fun _ => 0) (CE η) rt' ws' R' i
     hbx (fun _ _ _ _ h => by simp at h) hv hq
 
+/-- (LiftTidBox (a), candidate fix) W `VRR` at a region-locative head is fresh: W `ModeOK .rgn` is the pub
+clause (M7).  The `FlatAnchor` copy of MergeW's `VRR_rgnLocFresh`, needed by `VRR_VRRB0`'s `RgnOwnE` disjunct. -/
+theorem VRR_rgnLocFreshA {ρ : Nat → Nat} {η : TEnv} {t : Ty} {rt : Shp} {ws : List Word} {R : Res}
+    (hp : t.rgnLocHead = true) (h : VRR ρ η t rt ws R) : FreshW η ws := by
+  intro a' ha'
+  match t, hp, h with
+  | .loc (.rgn _) u, _, h =>
+    simp only [VRR] at h
+    rcases h with ⟨h | ⟨a, c, U, h1, -, -, -, hm, -⟩, -⟩
+    · rw [h.1] at ha'; simp at ha'
+    · obtain rfl : a = a' := by have := h1.symm.trans ha'; simpa using this
+      exact hm
+
+/-- (LiftTidBox (a), candidate fix) `VRR_rgnLocFreshA` through a type variable (`rgnTop`). -/
+theorem VRR_rgnTopFreshA {ρ : Nat → Nat} {η : TEnv} {t : Ty} {rt : Shp} {ws : List Word} {R : Res}
+    (hR : RRSound η) (hp : η.rgnTop t = true) (h : VRR ρ η t rt ws R) : FreshW η ws := by
+  cases t with
+  | tvar k =>
+    simp only [VRR] at h
+    obtain ⟨w0, h0, h1⟩ := h
+    exact FreshW_wle h0 (VRR_rgnLocFreshA (η := CE η) hp (hR.1 k rt w0 R h1))
+  | _ => refine VRR_rgnLocFreshA ?_ h; exact hp
+
 /-- W `VRR` embeds in ♭ `VRRB` at the same env. -/
 theorem VRR_VRRB0 (t : Ty) : ∀ (ρ : Nat → Nat) (η : TEnv) (rt : Shp) (ws : List Word) (R : Res),
     RelsSound η → RRSound η → VRR ρ η t rt ws R → VRRB ρ η t rt ws R := by
@@ -213,7 +239,8 @@ theorem VRR_VRRB0 (t : Ty) : ∀ (ρ : Nat → Nat) (η : TEnv) (rt : Shp) (ws :
     exact ⟨VR_VRB hR h.1, h.2⟩
   | refine t ψ ih =>
     intro ρ η rt ws R hR hRR h; simp only [VRR] at h; simp only [VRRB]
-    exact ⟨ih _ _ _ _ _ hR hRR h.1, h.2, fun hp => Or.inl (VRR_PubPosEFresh hRR hp h.1)⟩
+    exact ⟨ih _ _ _ _ _ hR hRR h.1, h.2, fun hp => Or.inl (hp.elim (fun hp => VRR_PubPosEFresh hRR hp h.1)
+      (fun hq => VRR_rgnTopFreshA hRR hq.1 h.1))⟩
   | iex b ih =>
     intro ρ η rt ws R hR hRR h; simp only [VRR] at h; simp only [VRRB]
     obtain ⟨n, rb, w, hrt, hv⟩ := h; exact ⟨n, rb, w, hrt, ih _ _ _ _ _ hR hRR hv⟩
@@ -390,8 +417,8 @@ theorem segTearB {T S : Ty} {b : Nat} (hc : Ty.coupledOKIn [] T = true) (hs : Se
 theorem PubCpl_B (h : PubCpl η) : PubCplB η := by
   unfold PubCpl at h; unfold PubCplB
   intro l c f a b
-  obtain ⟨h1, -, h3, h4, h5⟩ := h l c f a b
-  exact ⟨h1, fun b S hs _ => segTearB h3 hs, h3, h4, h5⟩
+  obtain ⟨h1, -, h3, h4, -⟩ := h l c f a b
+  exact ⟨h1, fun b S hs _ => segTearB h3 hs, h3, h4⟩
 theorem PubPair_B {mem : Memory} {pairs P : List Ts} (h : PubPair η mem pairs P) : PubPairB η mem pairs P := by
   unfold PubPair at h; unfold PubPairB
   intro l c f o a b d e t0 t1 m0 m1 q1 q2 q3 q4 q5 q6 q7 q8 q9

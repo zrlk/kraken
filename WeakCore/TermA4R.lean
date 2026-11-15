@@ -87,9 +87,9 @@ theorem vrr_zero_of_rcar : ∀ (t : Ty) (env : List Bool) (ρ : Nat → Nat) (η
       simp only [rcarE] at hr; simp only [TermCut.noOR] at hn; simp only [VRR] at hv
       exact vrr_zero_of_rcar b _ ρ _ rt ws R hr hn (RZ_push0 hz _) hv
   | .ptr μ _, _, _, _, _, _, _, _, hn, _, hv => by
-      simp only [VRR] at hv; rw [hv.2, TermCut.noOR_ptr hn]; rfl
+      simp only [VRR] at hv; rw [hv.2, TermCut.ownW_ne_own (TermCut.noOR_ptr hn)]
   | .ptrOpt μ _, _, _, _, _, _, _, _, hn, _, hv => by
-      simp only [VRR] at hv; rw [hv.2, TermCut.noOR_ptrOpt hn]; rfl
+      simp only [VRR] at hv; rw [hv.2, TermCut.ownW_ne_own (TermCut.noOR_ptrOpt hn)]
   | .loc μ _, _, _, _, _, _, _, _, hn, _, hv => by
       simp only [VRR] at hv; rw [hv.2, TermCut.noOR_loc hn]; rfl
   | .unit, _, _, _, _, _, _, _, _, _, hv => by simpa only [VRR] using hv
@@ -207,9 +207,9 @@ theorem VR_VRR_rc : ∀ (t : Ty) (env : List Bool) (ρ : Nat → Nat) (η : TEnv
   | .code _ _ _, _, _, _, _, _, _, _, _, _, _, hv => by simp only [VR] at hv; simp only [VRR, and_true]; exact hv
   | .epair _ _, _, _, _, _, _, _, _, _, _, _, hv => by simp only [VR] at hv; simp only [VRR, and_true]; exact hv
   | .ptr μ _, _, _, _, _, _, _, hn, _, _, _, hv => by
-      simp only [VR] at hv; simp only [VRR]; refine ⟨hv, ?_⟩; rw [TermCut.noOR_ptr hn]; rfl
+      simp only [VR] at hv; simp only [VRR]; refine ⟨hv, ?_⟩; rw [TermCut.ownW_ne_own (TermCut.noOR_ptr hn)]
   | .ptrOpt μ _, _, _, _, _, _, _, hn, _, _, _, hv => by
-      simp only [VR] at hv; simp only [VRR]; refine ⟨hv, ?_⟩; rw [TermCut.noOR_ptrOpt hn]; rfl
+      simp only [VR] at hv; simp only [VRR]; refine ⟨hv, ?_⟩; rw [TermCut.ownW_ne_own (TermCut.noOR_ptrOpt hn)]
   | .loc μ _, _, _, _, _, _, _, hn, _, _, _, hv => by
       simp only [VR] at hv; simp only [VRR]; refine ⟨hv, ?_⟩; rw [TermCut.noOR_loc hn]; rfl
   | .word _ _, _, _, _, _, _, hc, _, _, _, _, _ => by simp [rcarE] at hc

@@ -187,7 +187,7 @@ theorem pubCpl_boxE (h : PubCpl E) : PubCpl (boxE E l) := by
   intro x c f hc hf
   by_cases ne : x = l
   · subst ne; rw [boxE_sto_self] at hc; cases hc
-    refine ⟨Or.inl (by rw [show accs .unit = some [] from rfl]; simp), fun b S hS _ => ?_, rfl, rfl, rfl⟩
+    refine ⟨Or.inl (by rw [show accs .unit = some [] from rfl]; simp), fun b S hS _ => ?_, rfl, rfl, .inl rfl⟩
     rw [segOf_unit hS]; exact TearOK_of_cpl rfl
   · rw [boxE_sto_ne ne] at hc; rw [boxE_pfr_ne ne] at hf
     exact h x c f hc hf

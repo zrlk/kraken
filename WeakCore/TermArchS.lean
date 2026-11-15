@@ -97,6 +97,36 @@ theorem spawn_sim (p : Prog) (k : Promises.Knobs) (cap : Nat) : SpawnSim p k cap
     · have : t ∈ tt.promises := by simpa [spawnPar, withS, spawnS, fenceS, stOf] using ht
       exact h.agree t (mem_allP h1 this)
     · exact h.agree t ht
+  | mkI i x f is a T ts e tt d rt ws h1 h2 h3 h4 h5 h6 =>
+    obtain ⟨ta, ha, hta, htl⟩ := ths_some_tid h.ths h1
+    obtain ⟨wa, hwa, hw⟩ := evalAt_tso hta.env h6
+    have hn : ca.n = ct.n := by simp only [Cfg.n, h.ths.1, h.cap]
+    have hlbl : tidLabel ca i ta = tidLabel ct i tt := by
+      simp only [tidLabel, h.lbase, hn, hta.nalloc]
+    have hs : StLe (allP ct) (stOf ca.mem ca.pairs ta) (stOf ct.mem ct.pairs tt) :=
+      ⟨h.mem, h.pairs, hta.vs, hta.promises, hta.nalloc, hta.undefs,
+       fun t ht => h.agree t (mem_allP h1 ht), h.agree⟩
+    have hS : StLe (allP ct) (spawnS ca ta) (spawnS ct tt) := fenceS_sim hs .sy
+    have hv := hS.vs
+    refine ⟨spawnT ca i (spawnPar ca i ta x e) (spawnKidI ca i ta d ts wa),
+      Spawn.mkI i x f is a T ts e ta d rt wa ha (hta.term.trans h2) (hta.promises.trans h3)
+        (h.ths.1 ▸ h4) h5 hwa, ⟨?_, htr⟩⟩
+    have hpar : TThLe (spawnPar ca i ta x e) (spawnPar ct i tt x e) :=
+      ⟨rfl, ⟨rfl, rfl, by simp only [hlbl]; exact WsLe.refl _, hta.env⟩, hta.σs, hta.stack, hv,
+        hS.promises, by simp only [spawnPar, withS]; rw [hta.nalloc, htl], hS.undefs, hta.permit, hta.tys⟩
+    have hparl : (spawnPar ca i ta x e).tidLbl = (spawnPar ct i tt x e).tidLbl := by
+      simp only [spawnPar, htl, h.lbase, hn, hta.nalloc]
+    have hkid : TThLe (spawnKidI ca i ta d ts wa) (spawnKidI ct i tt d ts ws) :=
+      ⟨rfl, ⟨rfl, rfl, wsle_bump hv.vRelSt hw, trivial⟩, rfl, trivial,
+        ⟨hv.coh, hv.vRd, hv.vWr, hv.vCtrl, hv.vPreBase, hv.vRelSt, rfl, hv.fwd⟩, rfl, rfl, rfl, .none, rfl⟩
+    have hkidl : (spawnKidI ca i ta d ts wa).tidLbl = (spawnKidI ct i tt d ts ws).tidLbl := by
+      simp only [spawnKidI, hlbl]
+    refine ⟨h.mem, h.pairs, thsLe_push (thsLe_set h.ths i hpar hparl) hkid hkidl, h.lbase,
+      h.boxFence, fun t ht => ?_, h.cap, h.trace⟩
+    rcases allP_spawnT (c := ct) rfl ht with ht | ht
+    · have : t ∈ tt.promises := by simpa [spawnPar, withS, spawnS, fenceS, stOf] using ht
+      exact h.agree t (mem_allP h1 this)
+    · exact h.agree t ht
 
 /-- **Headline (`StepsE`), no `SpawnSim` premise.**  Every TSO run of machine, extern and spawn steps is
 matched by an ARM run with the same trace, terms, values and counters, and views and read

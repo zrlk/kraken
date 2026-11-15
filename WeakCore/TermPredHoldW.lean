@@ -28,7 +28,8 @@ theorem bufInit_ownNP {p : Prog} {c : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {H
   intro rt w ad he hw
   have hop' : OwnOpT cx th.term := Or.inl ⟨x, e, Or.inr (Or.inr (Or.inr (Or.inr (Or.inr ⟨b, ia, v, hterm⟩))))⟩
   have htg : TermPlant.OpTgt th ad.label := ⟨b, rt, w, ad, 0, by rw [hterm]; rfl, he, hw, rfl⟩
-  obtain ⟨cl, hs, ho, h1⟩ := TermPlantFul.ownKey_frame hT hi hsc hop' htg
+  obtain ⟨cl, hs, ho, h1⟩ := TermPlantFul.ownKey_frame hT hi hsc hop'
+    (TermPlant.ownXT_nx fun _ _ _ _ h => by rw [hterm] at h; cases h) htg
   have hs' : (Cut Eg i S).sto ad.label = some cl := by rw [← hCE]; exact hs
   have hg := cutSto_sub hs'
   have ho' : cl.owner = some i := by

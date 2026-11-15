@@ -174,19 +174,20 @@ theorem extStepW {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr 
 theorem spawnStepW {cap : Nat} {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res}
     {MintOK : Res → Prop}
     (hN : SysInvN p k arch Init MintOK c Eg Tot HP HS cr db) (hOL : OwnLive Eg c) (hObs : ObsAll Eg c)
-    (hS : TermSpawnStep.Spawn p k arch cap c c') (hc : c.cap = cap) :
+    (hS : TermSpawnStep.Spawn p k arch cap c c') (hc : c.cap = cap) (hSc : TermScope.RunScopeI c)
+    (hp : TermScope.ProgScopeOKW p = true) (hPT : CoreTyping.ProgT p) :
     ∃ (Eg' : GEnv) (Tot' HP' : Nat → Res) (HS' : Res) (cr' db' : Nat → Ts → Res),
       SysInvN p k arch Init MintOK c' Eg' Tot' HP' HS' cr' db' ∧ OwnLive Eg' c' ∧ ObsAll Eg' c' ∧
-        StoIniExt Eg Eg' ∧ ∀ j, j < c.ths.size → Tot' j = Tot j ∧ db' j = db j :=
+        StoIniExt Eg Eg' ∧ ∀ j, j < c.ths.size → c'.ths[j]? = c.ths[j]? → Tot' j = Tot j ∧ db' j = db j :=
   let ⟨Eg', Tot', HP', HS', cr', db', h1, h2, h3, hs, hi, hf⟩ :=
-    TermSpawnMid.sysInvN_spawnStepW hN hOL hObs hS hc (TermSpawnMid.spawnTy_of_sysInvN hN)
+    TermSpawnMid.sysInvN_spawnStepW hN hOL hObs hS hc hSc hp hPT (TermSpawnMid.spawnTy_of_sysInvN hN)
   ⟨Eg', Tot', HP', HS', cr', db', h1, h2, h3, ⟨hs, hi⟩, hf⟩
 
 /-- The setting's obligations (the EM0 form: `Sp := Spawn ∨ Ext`). -/
 theorem obl_of_setting {c₀ : Cfg} (S : Setting p k arch Init c₀) :
     Obligations p k arch (fun c c' => Spawn p k arch c₀.cap c c' ∨ Ext p k arch c c') Init (fun _ => True) c₀
       TermPlantF.plantOf TermPlantF.plantN :=
-  S.obl.toObligationsCX S.sdr (A9SpawnFinal.spArms_of S.obl ExtArmZ.spLeafArms_em0 S.start)
+  S.obl.toObligationsCX S.sdr (A9SpawnFinal.spArms_of S.obl (ExtArmZ.spLeafArms_em0 (TermScope.ProgScopeOKW.scope S.obl.progScope)) S.start)
 
 /-- **The thread arm with the witness frame**, plus `CutNew` (a new message at a typed label is in the stepper's cut,
 from `TOut`'s `WrLocA2`). -/
@@ -281,10 +282,18 @@ theorem sysInvO_mstepE_ext {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init :
     rcases hs with ⟨hc', hcert⟩ | hsp | hx
     · obtain ⟨Eg', Tot', HP', HS', cr', db', h1, h2, h3, h4, -⟩ := threadStepW S hrun hN hOL hObs hc' hcert
       exact ⟨Eg', Tot', HP', HS', cr', db', h1, h2, h3, h4⟩
-    · obtain ⟨x, f, a, T, ts, e, th, rt, ws, h1, h2, h3, h4, h5, rfl⟩ := hsp
+    · have hS : TermSpawnStep.Spawn p k arch c.cap c c' ∧
+          ∀ i, i ≠ j → i < c.ths.size → c'.ths[i]? = c.ths[i]? := by
+        rcases hsp with ⟨x, f, a, T, ts, e, th, rt, ws, h1, h2, h3, h4, h5, rfl⟩ |
+          ⟨x, f, is, a, T, ts, e, th, d, rt, ws, h1, h2, h3, h4, h5, h6, rfl⟩
+        · exact ⟨.mk j x f a T ts e th rt ws h1 h2 h3 h4 h5,
+            fun i hij hi => TermSpawnMid.spawnT_get_ne hij (Nat.ne_of_lt hi)⟩
+        · exact ⟨.mkI j x f is a T ts e th d rt ws h1 h2 h3 h4 h5 h6,
+            fun i hij hi => TermSpawnMid.spawnT_get_ne hij (Nat.ne_of_lt hi)⟩
       obtain ⟨Eg', Tot', HP', HS', cr', db', g1, g2, g3, g4, g5⟩ :=
-        spawnStepW hN hOL hObs (.mk j x f a T ts e th rt ws h1 h2 h3 h4 h5) rfl
-      exact ⟨Eg', Tot', HP', HS', cr', db', g1, g2, g3, g4.1, g4.2, fun i _ hi => g5 i hi⟩
+        spawnStepW hN hOL hObs hS.1 rfl (ExtArmZ.runScopeI_em0 S.obl hrun)
+          S.obl.progScope S.obl.typed
+      exact ⟨Eg', Tot', HP', HS', cr', db', g1, g2, g3, g4.1, g4.2, fun i hij hi => g5 i hi (hS.2 i hij hi)⟩
     · obtain ⟨Eg', Tot', HP', HS', cr', db', g1, g2, g3, g4, g5⟩ := extStepW hN hOL hObs (extBy_ext hx)
       exact ⟨Eg', Tot', HP', HS', cr', db', g1, g2, g3, g4.1, g4.2, fun i _ hi => g5 i hi⟩
   | prom =>
@@ -337,11 +346,21 @@ theorem mstep_wit {c₀ c c' : Cfg} (S : Setting p k arch Init c₀) (hrun : Ste
     · obtain ⟨Eg', Tot', HP', HS', cr', db', h1, h2, h3, h4, h5⟩ := threadStepW S hrun hN hOL hObs hc' hcert
       exact ⟨Eg', Tot', HP', HS', cr', db', h1, h2, h3, h4, Nat.le_of_eq (TermStep.threadSteps_size hc').symm,
         .inr ⟨hc', hcert, h5⟩⟩
-    · obtain ⟨x, f, a, T, ts, e, th, rt, ws, g1, g2, g3, g4, g5, rfl⟩ := hsp
+    · have hS : TermSpawnStep.Spawn p k arch c.cap c c' ∧ c.ths.size ≤ c'.ths.size ∧ c'.mem = c.mem ∧
+          ∀ i, i ≠ j → i < c.ths.size → c'.ths[i]? = c.ths[i]? := by
+        rcases hsp with ⟨x, f, a, T, ts, e, th, rt, ws, g1, g2, g3, g4, g5, rfl⟩ |
+          ⟨x, f, is, a, T, ts, e, th, d, rt, ws, g1, g2, g3, g4, g5, g6, rfl⟩
+        · exact ⟨.mk j x f a T ts e th rt ws g1 g2 g3 g4 g5,
+            by show c.ths.size ≤ (spawnT c j _ _).ths.size; rw [TermSpawnMid.spawnT_size]; omega, rfl,
+            fun i hij hi => TermSpawnMid.spawnT_get_ne hij (Nat.ne_of_lt hi)⟩
+        · exact ⟨.mkI j x f is a T ts e th d rt ws g1 g2 g3 g4 g5 g6,
+            by rw [TermSpawnMid.spawnT_size]; omega, rfl,
+            fun i hij hi => TermSpawnMid.spawnT_get_ne hij (Nat.ne_of_lt hi)⟩
       obtain ⟨Eg', Tot', HP', HS', cr', db', k1, k2, k3, k4, k5⟩ :=
-        spawnStepW hN hOL hObs (.mk j x f a T ts e th rt ws g1 g2 g3 g4 g5) rfl
-      exact ⟨Eg', Tot', HP', HS', cr', db', k1, k2, k3, ⟨k4.1, k4.2, fun i _ hi => k5 i hi⟩,
-        by show c.ths.size ≤ (spawnT c j _ _).ths.size; rw [TermSpawnMid.spawnT_size]; omega, .inl rfl⟩
+        spawnStepW hN hOL hObs hS.1 rfl (ExtArmZ.runScopeI_em0 S.obl hrun)
+          S.obl.progScope S.obl.typed
+      exact ⟨Eg', Tot', HP', HS', cr', db', k1, k2, k3, ⟨k4.1, k4.2, fun i hij hi => k5 i hi (hS.2.2.2 i hij hi)⟩,
+        hS.2.1, .inl hS.2.2.1⟩
     · have hX : Ext p k arch c c' := extBy_ext hx
       obtain ⟨Eg', Tot', HP', HS', cr', db', k1, k2, k3, k4, k5⟩ := extStepW hN hOL hObs hX
       have hfr := Ext.frame hX

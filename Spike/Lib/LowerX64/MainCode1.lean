@@ -99,6 +99,72 @@ theorem lowerAll_accepted1main_x64 (cfg : Scc.Config) {d : Decl} (hd : Scc.Lower
   rw [hir']
   simp [Scc.Lower.Inv.progOf]
 
+/-- **`mainPh1_ofPlaceOK` for any output naming the lowering's IR** (`hir`):
+its proof, over any output `o` passing `placeOKAt`. -/
+theorem mainPh1_ofPlaceOK_of {cfg : Scc.Config} {d : Decl} (hd : Scc.Lower.Accepted1 [d] = true)
+    (hfr : MainFrame1Ok cfg d = true)
+    {em : Scc.Lower.X64.Emitted} (hlow : Scc.Lower.X64.lowerAll? cfg [d] = .ok em)
+    {pcfg : Scc.Cert.PlaceOK.Config} {Λ : Scc.Sem.Layout}
+    {o : Scc.Cert.PlaceOK.X64.Out} (h : placeOKAt pcfg Λ o = true)
+    (hir : o.place.ir = some (Scc.Lower.X64.lowerAll cfg [d]).low.ir)
+    (i : CoreTerm.Expr → String → Nat → Option Nat) :
+    let ir := (Scc.Lower.X64.lowerAll cfg [d]).low.ir
+    let L := RuntimeLayout.ofPlaceOK h i
+    let okPc := Spike.Lib.X64.PhRec.okPc L
+    let ph := Spike.Lib.X64.PhRec.ph L
+    ∃ (fr : Scc.Emit.X64.Frame) (r : Res1) (n : Nat) (zl zf z1 z2 zs : Nat),
+      lower1 [(d.arg, .unit, [])] 0 d.body = some r ∧
+      (func1 (Scc.Lower.Names.user "main") [] r, n) ∈ starts ir 0 ir.funcs ∧
+      fr = frOf ir (func1 (Scc.Lower.Names.user "main") [] r) ∧
+      FrameOk fr ∧ fr.size ≤ 4096 ∧ fr.size % 16 = 0 ∧
+      proInC o.prog fr Spike.Lib.X64.Rt.bareMC.fn (labelOf (Scc.Lower.Names.user "main") "entry")
+        zl zf z1 z2 zs = true ∧
+      blocksOk o.prog fr n ((func1 (Scc.Lower.Names.user "main") [] r).blocks.zip
+        (Scc.IR.StackMap.callMaps (func1 (Scc.Lower.Names.user "main") [] r))) = true ∧
+      blocksPh okPc ph (labC Λ.code.lo o.prog) (fun l => (codeLabel Λ.code.lo o.prog l).isSome) o.prog fr
+        (L.lab raL) n ((func1 (Scc.Lower.Names.user "main") [] r).blocks.zip
+          (Scc.IR.StackMap.callMaps (func1 (Scc.Lower.Names.user "main") [] r))) = true ∧
+      (∀ l a, codeLabel Λ.code.lo o.prog l = some a → L.lab l = Int64.ofNat a) ∧
+      ProPh okPc ph L.lab Spike.Lib.X64.Rt.bareMC.fn (labelOf fr.fn "chk") (Int64.ofInt fr.size) (proL fr)
+        zl zf z1 z2 zs [] ∧
+      (hasAddChk (func1 (Scc.Lower.Names.user "main") [] r) = true →
+        Scc.Cert.Rt.X64.blockAtB o.prog (ovfL fr) 0 ovfBlk = true ∧
+        blkPh okPc ph (fun _ => false) L.lab (L.lab (ovfL fr) + Int64.ofNat 0) 0
+          Spike.Lib.X64.Abort.Local.lb = true) := by
+  intro ir L okPc ph
+  obtain ⟨r, rt, hr, -, hmem⟩ := lowerAll_accepted1main_x64 cfg hd hlow
+  obtain ⟨n, hn⟩ := mem_starts ir 0 hmem
+  have hlab : ∀ l a, codeLabel Λ.code.lo o.prog l = some a → L.lab l = Int64.ofNat a :=
+    Spike.Lib.X64.Rt.PhRecOf.hlab_ofPlaceOK h i
+  have hc1 := fnOk1_of_fnCode1Ok (fnCode1_of_placeOKAt h hir) hn rfl
+  obtain ⟨zl, zf, z1, z2, zs, hz⟩ := fnOk1_sizes_nil hc1 rfl
+  obtain ⟨-, hpro, -, h16, hbo, hovf, -⟩ := fnOk1_facts hc1 rfl hz (spills_nil _)
+  obtain ⟨hra, hall⟩ := fnPh1Ok_parts (fnPh1_of_placeOKAt h hir)
+  have hF := fnPhF_of_fnPhAll1 hall hn rfl
+  obtain ⟨rfn, rsc, rpro, hpp, hbp, hovp⟩ := fnPhF_facts hF hz (spills_nil _)
+  rw [labC_eq hlab hra] at hbp
+  have hpr := List.all_eq_true.mp rpro
+  have e := fun (blk : List (Directive × Nat))
+      (hsub : ∀ L ∈ blkLabs blk, L ∈ proLabs (Int64.ofInt (frOf ir (func1 (Scc.Lower.Names.user "main") [] r)).size)
+        (proL (frOf ir (func1 (Scc.Lower.Names.user "main") [] r))) zl z1 z2 zs []) =>
+    (List.all_eq_true.mpr fun L hL => hpr L (hsub L hL) :
+      (blkLabs blk).all (fun l => (codeLabel Λ.code.lo o.prog l).isSome) = true)
+  refine ⟨_, r, n, zl, zf, z1, z2, zs, hr, hn, rfl, ⟨_, _, rfl, rfl⟩, mainFrame1Ok_size hfr hr, h16,
+    user_main_eq_bareMC_fn ▸ hpro, hbo, hbp, hlab, ?_, ?_⟩
+  · rw [← user_main_eq_bareMC_fn]
+    apply proPh_of_proPhOk
+    simp only [proPhOk, Bool.and_eq_true, beq_iff_eq] at hpp ⊢
+    rw [labC_eq hlab rfn, labC_eq hlab rsc] at hpp
+    obtain ⟨⟨⟨⟨⟨hd', lea⟩, ld1⟩, ld2⟩, cmp⟩, frr⟩ := hpp
+    refine ⟨⟨⟨⟨⟨?_, ?_⟩, ld1⟩, ld2⟩, ?_⟩, ?_⟩
+    · rw [← blkPh_labC hlab (e _ fun L hL => by simp [proLabs, hL])]; exact hd'
+    · rw [← blkPh_labC hlab (e _ fun L hL => by simp [proLabs, hL])]; exact lea
+    · rw [← blkPh_labC hlab (e _ fun L hL => by simp [proLabs, hL])]; exact cmp
+    · rw [← blkPh_labC hlab (e _ fun L hL => by simp [proLabs, hL])]; exact frr
+  · intro ha
+    obtain ⟨rab, rlb, hb⟩ := hovp ha
+    rw [labC_eq hlab rab, blkPh_labC hlab rlb, ovfBlk_eq_lb] at hb
+    exact ⟨(hovf ha).2, hb⟩
 /-- **`main`'s code and phase facts from `PlaceOK`** on a one-block
 `Accepted1` program (see the module docstring), at the layout
 `RuntimeLayout.ofPlaceOK h i` (any immediates `i`). -/
@@ -132,41 +198,7 @@ theorem mainPh1_ofPlaceOK {cfg : Scc.Config} {d : Decl} (hd : Scc.Lower.Accepted
       (hasAddChk (func1 (Scc.Lower.Names.user "main") [] r) = true →
         Scc.Cert.Rt.X64.blockAtB o.prog (ovfL fr) 0 ovfBlk = true ∧
         blkPh okPc ph (fun _ => false) L.lab (L.lab (ovfL fr) + Int64.ofNat 0) 0
-          Spike.Lib.X64.Abort.Local.lb = true) := by
-  intro o ir L okPc ph
-  obtain ⟨r, rt, hr, -, hmem⟩ := lowerAll_accepted1main_x64 cfg hd hlow
-  obtain ⟨n, hn⟩ := mem_starts ir 0 hmem
-  have hlab : ∀ l a, codeLabel Λ.code.lo o.prog l = some a → L.lab l = Int64.ofNat a :=
-    Spike.Lib.X64.Rt.PhRecOf.hlab_ofPlaceOK h i
-  have hir := lowerAll_place_ir cfg [d] sizes labelOffs
-  have hc1 := fnOk1_of_fnCode1Ok (fnCode1_of_placeOKAt h hir) hn rfl
-  obtain ⟨zl, zf, z1, z2, zs, hz⟩ := fnOk1_sizes_nil hc1 rfl
-  obtain ⟨-, hpro, -, h16, hbo, hovf, -⟩ := fnOk1_facts hc1 rfl hz (spills_nil _)
-  obtain ⟨hra, hall⟩ := fnPh1Ok_parts (fnPh1_of_placeOKAt h hir)
-  have hF := fnPhF_of_fnPhAll1 hall hn rfl
-  obtain ⟨rfn, rsc, rpro, hpp, hbp, hovp⟩ := fnPhF_facts hF hz (spills_nil _)
-  rw [labC_eq hlab hra] at hbp
-  have hpr := List.all_eq_true.mp rpro
-  have e := fun (blk : List (Directive × Nat))
-      (hsub : ∀ L ∈ blkLabs blk, L ∈ proLabs (Int64.ofInt (frOf ir (func1 (Scc.Lower.Names.user "main") [] r)).size)
-        (proL (frOf ir (func1 (Scc.Lower.Names.user "main") [] r))) zl z1 z2 zs []) =>
-    (List.all_eq_true.mpr fun L hL => hpr L (hsub L hL) :
-      (blkLabs blk).all (fun l => (codeLabel Λ.code.lo o.prog l).isSome) = true)
-  refine ⟨_, r, n, zl, zf, z1, z2, zs, hr, hn, rfl, ⟨_, _, rfl, rfl⟩, mainFrame1Ok_size hfr hr, h16,
-    user_main_eq_bareMC_fn ▸ hpro, hbo, hbp, hlab, ?_, ?_⟩
-  · rw [← user_main_eq_bareMC_fn]
-    apply proPh_of_proPhOk
-    simp only [proPhOk, Bool.and_eq_true, beq_iff_eq] at hpp ⊢
-    rw [labC_eq hlab rfn, labC_eq hlab rsc] at hpp
-    obtain ⟨⟨⟨⟨⟨hd', lea⟩, ld1⟩, ld2⟩, cmp⟩, frr⟩ := hpp
-    refine ⟨⟨⟨⟨⟨?_, ?_⟩, ld1⟩, ld2⟩, ?_⟩, ?_⟩
-    · rw [← blkPh_labC hlab (e _ fun L hL => by simp [proLabs, hL])]; exact hd'
-    · rw [← blkPh_labC hlab (e _ fun L hL => by simp [proLabs, hL])]; exact lea
-    · rw [← blkPh_labC hlab (e _ fun L hL => by simp [proLabs, hL])]; exact cmp
-    · rw [← blkPh_labC hlab (e _ fun L hL => by simp [proLabs, hL])]; exact frr
-  · intro ha
-    obtain ⟨rab, rlb, hb⟩ := hovp ha
-    rw [labC_eq hlab rab, blkPh_labC hlab rlb, ovfBlk_eq_lb] at hb
-    exact ⟨(hovf ha).2, hb⟩
+          Spike.Lib.X64.Abort.Local.lb = true) :=
+  mainPh1_ofPlaceOK_of hd hfr hlow h (lowerAll_place_ir cfg [d] sizes labelOffs) i
 
 end Spike.Lib.LowerX64

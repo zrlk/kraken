@@ -150,8 +150,6 @@ def checkDeclWith (p : Prog) (body : Cx → M (List (String × Ty))) (d : Decl) 
                    ke := d.tparams.reverse.map some }
   -- the kind rules; no rule mentions a decl by name (`isDev` is by KIND)
   let isDev : String → Bool := fun f => ((p.find? (·.name == f)).map (·.kind == .device)).getD false
-  if d.kind == .device && !(devCells d.argTy).all devCellOK then
-    throw s!"{d.name}: a device function may only be given cells of plain bits, protocol words or word pairs"
   if d.kind != .device && !exprNoDevOnly isDev d.body then
     throw s!"{d.name}: device externs and device functions may be used only inside a device function"
   if !exprNoDevFnptr isDev d.body then

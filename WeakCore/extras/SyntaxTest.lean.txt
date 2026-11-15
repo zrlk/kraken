@@ -80,6 +80,45 @@ def progFailures : List String :=
 
 #guard progFailures.isEmpty
 
+/-! ## `spawnI` and `isTy` read back what `showOp` prints -/
+
+def spiSrc : String := "
+def kid0(a : Int) : Unit = ret ()
+def kid{r}(a : Int) : Unit = ret ()
+def kidT[α : *]{r}(a : α) : Unit = ret ()
+def par{i}(n : Int) : Int =
+  let t0 = spawnI kid0(n) : Int
+  let t1 = spawnI kid{i}(n) : Int
+  let t2 = spawnI kidT[Ptr[i] Int]{i}(n) : Ptr[i] Int
+  let t3 = spawnI kidT[Int](0) : Int
+  let b = isTy[Int] n
+  let c = isTy[Ptr[i] Int] t2
+  ret b
+"
+
+def spiProg : Prog := match parseProg spiSrc with | .ok p => p | .error _ => []
+
+/-- The operations of a straight-line body. -/
+def opsOf : Expr → List Op
+  | .let_ _ op e => op :: opsOf e
+  | _ => []
+
+#guard spiProg.length == 4
+#guard (spiProg.find? (·.name == "par")).map (fun d => opsOf d.body) == some
+  [.spawnI "kid0" [] (.var "n") .int [], .spawnI "kid" ["i"] (.var "n") .int [],
+   .spawnI "kidT" ["i"] (.var "n") (.ptr (.rgn (.var 0)) .int) [.ptr (.rgn (.var 0)) .int],
+   .spawnI "kidT" [] (.lit 0) .int [.int], .isTy (.var "n") .int, .isTy (.var "t2") (.ptr (.rgn (.var 0)) .int)]
+#guard spiProg.all (roundTrips ·)
+#guard match parseProg (showProg spiProg) with
+  | .ok q => q.length == spiProg.length && (spiProg.zip q).all fun (a, b) => sameDecl a b
+  | .error _ => false
+-- both words are keywords: as names they are written `«…»`
+#guard (parseProg "def spawnI(a : Int) : Int = ret a") matches .error _
+#guard (parseProg "def f(isTy : Int) : Int = ret isTy") matches .error _
+def kwNamed : Decl := { name := "spawnI", idx := [], arg := "isTy", argTy := .int, retTy := .int, body := .ret (.var "isTy") }
+#guard match parseProg (showProg [kwNamed]) with
+  | .ok [d] => sameDecl d kwNamed | _ => false
+
 /-- `Scope.branches` follows the checker to the end of every block the
 checker accepts (in its own program). -/
 def scopeGaps : List String :=

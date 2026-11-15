@@ -92,7 +92,7 @@ theorem arg_of_site {p : Prog} {E : TEnv} {th : TTh} {x f : String} {a : At} {T 
     {rt : Ty} {ws : List Word}
     (h : ThInvE p E th) (hterm : th.term = .let_ x (.spawn f a T ts) e) (hev : evalAt th.env a = some (rt, ws)) :
     VR (fun _ => 0) E T (shp T) ws ∧ Lay [] T T ws := by
-  obtain ⟨ρ, η, cx, hCE, hE, hT, -, hi, -⟩ := h
+  obtain ⟨ρ, η, cx, hCE, hE, ⟨hT, -⟩, -, hi, -⟩ := h
   rw [hterm] at hT
   cases hT with
   | let_ hop _ =>
@@ -145,20 +145,18 @@ theorem par_of_site {p : Prog} {E : TEnv} {th par : TTh} {Tot : Res} {x f : Stri
     rw [hret, hps]; exact hpw fr rest hst ws
   · obtain ⟨ρ, η, cx, hCE, hE, hT, htv, hi, hpw, hDy⟩ := hE'
     rw [hterm] at hT
-    cases hT with
-    | let_ hop he =>
-      rename_i c'
-      have P := spawnPrem_of hop
-      have hret : c'.ret = cx.ret := bind_ret P.bind
-      have htv' := (bind_TvOK P.bind htv (by simp [tb]) (by simp [mg])).1
-      have hs1 : η.sto L = some ⟨.unit, none⟩ := by rw [← CE_sto, hCE]; exact hbx.1
-      have hp1 : η.pfr L = some 0 := by rw [← CE_pfr, hCE]; exact hbx.2
-      have hvr : VR ρ η .tid (shp .tid) [cst (.loc ⟨L, 0⟩ 0)] :=
-        ⟨L, ⟨.unit, none⟩, rfl, hs1, rfl, 0, hp1, .inr fun _ _ => Nat.zero_le _⟩
-      refine ⟨ρ, η, c', hCE, hE, by rw [hpt]; exact he, htv', by rw [hps, hpe, hpk]; exact bind_FInv P.bind hi hvr hl, ?_⟩
-      refine ⟨?_, by rw [hpt, hps]; exact hDy.letW hterm rfl⟩
-      show RetPw par.σs par.stack c'.ret
-      rw [hret, hps, hpk]; exact hpw
+    obtain ⟨c', -, hop, he, hck, -⟩ := TermA4.CkW_let hT.2
+    have P := spawnPrem_of hop
+    have hret : c'.ret = cx.ret := bind_ret P.bind
+    have htv' := (bind_TvOK P.bind htv (by simp [tb]) (by simp [mg])).1
+    have hs1 : η.sto L = some ⟨.unit, none⟩ := by rw [← CE_sto, hCE]; exact hbx.1
+    have hp1 : η.pfr L = some 0 := by rw [← CE_pfr, hCE]; exact hbx.2
+    have hvr : VR ρ η .tid (shp .tid) [cst (.loc ⟨L, 0⟩ 0)] :=
+      ⟨L, ⟨.unit, none⟩, rfl, hs1, rfl, 0, hp1, .inr fun _ _ => Nat.zero_le _⟩
+    refine ⟨ρ, η, c', hCE, hE, ⟨by rw [hpt]; exact he, by rw [hpt]; exact hck⟩, htv', by rw [hps, hpe, hpk]; exact bind_FInv P.bind hi hvr hl, ?_⟩
+    refine ⟨?_, by rw [hpt, hps]; exact hDy.letW hterm rfl⟩
+    show RetPw par.σs par.stack c'.ret
+    rw [hret, hps, hpk]; exact hpw
 
 end TermSpawnMid
 

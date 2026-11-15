@@ -1,0 +1,52 @@
+import Spike.Test.HelloLinkedX64Le
+import Scc.Sem.SysX64
+open Scc.Sem Scc.Sem.X64 Spike.Test.HelloLinkedX64 Kraken Kraken.Promising Kraken.Promising.X64
+
+abbrev syms : List (String × Nat) := loadSyms Λe SccCode.helloSecs.rodata
+abbrev st0 : State := threadAt .linux Λe.code.lo SccCode.helloCells syms
+abbrev mem0 : List (Loc × Val) :=
+  imageMem Λe ++ wordsMem (rodataWords Λe SccCode.helloSecs.rodata (Scc.Cert.Link.X64.quadCode Λe SccCode.helloCells))
+
+def regsStr (r : Reg64s) : String :=
+  let l := [("rax", r.rax), ("rbx", r.rbx), ("rcx", r.rcx), ("rdx", r.rdx), ("rsi", r.rsi), ("rdi", r.rdi),
+    ("rsp", r.rsp), ("rbp", r.rbp), ("r8", r.r8), ("r9", r.r9), ("r10", r.r10), ("r11", r.r11), ("r12", r.r12),
+    ("r13", r.r13), ("r14", r.r14), ("r15", r.r15), ("fs", r.fsBase)]
+  ", ".intercalate ((l.filter (·.2 != 0)).map fun (n, v) => s!"{n} := {v}")
+
+def flagsStr (f : StatusFlags) : String :=
+  s!"⟨{f.cf}, {f.pf}, {f.af}, {f.zf}, {f.sf}, {f.of}⟩"
+
+partial def leaf (m : Memory) (t : EvTree State) (ev : List String) : Option (State × Memory × List String) :=
+  match t with
+  | .done s => some (s, m, ev)
+  | .choose n k => if h : 0 < n then leaf m (k ⟨0, h⟩) ev else none
+  | .load _ _ l f => let v := m.finalVal l; leaf m (f v) (ev ++ [s!"load {l.addr.toNat}/{l.bytes} = {v.toNat}"])
+  | .store _ _ l v f => leaf (m.append ⟨l, v, 0⟩).1 (f true) (ev ++ [s!"store {l.addr.toNat}/{l.bytes} := {v.toNat}"])
+  | .rmw _ _ l op f => let old := m.finalVal l
+      match op old with
+      | some nv => leaf (m.append ⟨l, nv, 0⟩).1 (f old) (ev ++ [s!"rmw {l.addr.toNat}/{l.bytes} {old.toNat} -> {nv.toNat}"])
+      | none => leaf m (f old) (ev ++ [s!"rmw-nowrite {l.addr.toNat}"])
+  | .fence _ f => leaf m (f ()) (ev ++ ["fence"])
+  | .fault msg => none
+
+def stepN : Nat → Nat → State → Memory → List String → List String
+  | 0, _, _, _, acc => acc
+  | n+1, i, s, m, acc =>
+    let pc := pcOf s
+    let dstr := match s.directive with | some d => (toString (repr d)).replace "\n" " " | none => "?"
+    let line := s!"{i} pc={pc} [{regsStr s.st.1.regs}] F={flagsStr s.st.1.status} D={dstr}"
+    if atSyscall s then
+      let r := s.st.1.regs
+      let s' := if r.rax.toNat == 158 then abi.ret (abi.setTp s r.rsi.toNat) 0 else abi.ret s 0
+      stepN n (i+1) s' m (acc ++ [line ++ s!" SYSCALL nr={r.rax.toNat}"])
+    else if pc == ((codeLabel Λe.code.lo SccCode.helloCells Scc.Sem.XferKind.take.label).getD 0) then
+      let rr := Kernel.siteRange abi s
+      let s' := abi.skip (abi.setDmem s (Kernel.copyRange ∅ (abi.dmem s) rr))
+      stepN n (i+1) s' m (acc ++ [line ++ s!" TAKE {rr.lo} {rr.size}"])
+    else match isa.exec s with
+      | some t => match leaf m t [] with
+        | some (s', m', ev) => stepN n (i+1) s' m' (acc ++ [line ++ (if ev.isEmpty then "" else " " ++ toString ev)])
+        | none => acc ++ [line ++ " FAULT"]
+      | none => acc ++ [line ++ " NONE"]
+
+#eval IO.println ("\n".intercalate (stepN 300 0 st0 ⟨mem0, #[]⟩ []))

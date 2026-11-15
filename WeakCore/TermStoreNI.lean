@@ -400,4 +400,136 @@ theorem storeNI_field {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res}
 #print axioms storeNI_of
 #print axioms storeNI_field
 
+/-! ## (G2) `xchgNI`: twin of `storeNI_bound` / `storeNI_of` at an `xchg` (ported from K2XchgNI) -/
+
+/-- A load only raises the monotone views. -/
+theorem loadUnits_VLe {arch : Arch} {pw : Word} {a : Address} {acq : Bool} :
+    ∀ (us : List Acc) (k : Nat) (s : St) (r : St × List Word), r ∈ loadUnits arch pw a acq us k s →
+      VLe s.vs r.1.vs
+  | [], _, s, r, hr => by
+      simp only [loadUnits, List.mem_singleton] at hr; subst hr; exact VLe.rfl' _
+  | .one :: us, k, s, r, hr => by
+      simp only [loadUnits, List.mem_flatMap, List.mem_map] at hr
+      obtain ⟨th, hth, ⟨s', ws⟩, hmem, rfl⟩ := hr
+      have g := loadUnits_VLe us (k + 1) { s with vs := th.vs, undefs := s.undefs + countUndef [th.regs 1] }
+        (s', ws) hmem
+      simp only [Promises.stepLoad, List.mem_map, List.mem_filter, List.mem_range] at hth
+      obtain ⟨t, -, rfl⟩ := hth
+      refine VLe.trans ?_ g
+      refine ⟨?_, Nat.le_refl _, Nat.le_max_left _ _, Nat.le_refl _⟩
+      dsimp only
+      split
+      · exact Nat.le_max_left _ _
+      · exact Nat.le_refl _
+  | .two :: us, k, s, r, hr => by
+      simp only [loadUnits, List.mem_flatMap, List.mem_map] at hr
+      obtain ⟨th, hth, ⟨s', ws⟩, hmem, rfl⟩ := hr
+      have g := loadUnits_VLe us (k + 2)
+        { s with vs := th.vs, undefs := s.undefs + countUndef [th.regs 1, th.regs 2] } (s', ws) hmem
+      simp only [Promises.stepLoadPair, List.mem_flatMap, List.mem_filterMap, List.mem_filter,
+        List.mem_range] at hth
+      obtain ⟨t0, -, t1, -, hs⟩ := hth
+      split at hs
+      · exact absurd hs (by simp)
+      · simp only [Option.some.injEq] at hs
+        subst hs
+        refine VLe.trans ?_ g
+        refine ⟨?_, Nat.le_refl _, Nat.le_max_left _ _, Nat.le_refl _⟩
+        dsimp only
+        split
+        · exact Nat.le_max_left _ _
+        · exact Nat.le_refl _
+
+/-- `Bnd` is monotone in the views when `coh b` only rises (cf. `Bnd_mono`, which fixes `coh b`). -/
+theorem Bnd_mono2 {k : Promises.Knobs} {arch : Arch} {pw : Word} {v w : VState} {b : Address}
+    (h : VLe v w) (hc : v.coh b ≤ w.coh b) : Bnd k arch pw v b ≤ Bnd k arch pw w b := by
+  unfold Bnd
+  exact Nat.max_le.2 ⟨Nat.le_trans (obLow_mono h) (Nat.le_max_left _ _),
+    Nat.max_le.2 ⟨Nat.le_trans hc (Nat.le_trans (Nat.le_max_left _ _) (Nat.le_max_right _ _)),
+      Nat.le_trans (Nat.le_max_right _ _) (Nat.le_max_right _ _)⟩⟩
+
+/-- Twin of `SeenHid` at an `xchg` (the hiding at the pre-state bound). -/
+def SeenHidX (k : Promises.Knobs) (arch : Arch) (E : TEnv) (mem : Memory) (th : TTh) : Prop :=
+  ∀ x a v e, th.term = .let_ x (.xchg a v) e →
+    ∀ rt pw ad μ ru us j, evalAt th.env a = some (rt, [pw]) → addrOf pw = some ad →
+      cellOf rt = some (μ, ru) → accs ru = some us → j < nWords us →
+        ((∃ n P, WordAt E (offs ad j) n P) ∨ (PredU E (offs ad j) ∧ DStart E (offs ad j))) →
+        HidBy mem (offs ad j) (Bnd k arch pw th.vs (offs ad j))
+
+/-- Twin of `storeNI_bound`: the xchg's pre-state bound is below every own promise at a written unit. -/
+theorem xchgNI_bound {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {MintOK : Res → Prop}
+    {c0 c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {i : Nat}
+    {th : TTh} {r : Memory × List Ts × TTh}
+    (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r)
+    {x : String} {a v : At} {e : Expr}
+    (hterm : th.term = .let_ x (.xchg a v) e)
+    {rt : Ty} {pw : Word} {ad : Address} {μ : Mode} {ru : Ty} {us : List Acc} {j : Nat}
+    (hev : evalAt th.env a = some (rt, [pw])) (had : addrOf pw = some ad) (hc : cellOf rt = some (μ, ru))
+    (hus : accs ru = some us) (hj : j < nWords us)
+    {t : Ts} {m : Msg} (ht : t ∈ th.promises) (hm : c.mem[t]? = some m) (hloc : m.loc = offs ad j) :
+    Bnd k arch pw th.vs m.loc < t := by
+  have hr := X.hr
+  simp only [tstep, hterm, evalOp] at hr
+  rw [List.mem_map] at hr
+  obtain ⟨⟨s', t', ws'⟩, hin, hr⟩ := hr
+  split at hin
+  · rename_i rt1 pw1 tv ws hea _
+    rw [hev] at hea
+    simp only [Option.some.injEq, Prod.mk.injEq, List.cons.injEq, and_true] at hea
+    obtain ⟨rfl, rfl⟩ := hea
+    split at hin
+    · rename_i μ1 u b hc1 hb
+      rw [hc] at hc1; rw [had] at hb
+      simp only [Option.some.injEq, Prod.mk.injEq] at hc1 hb
+      obtain ⟨rfl, rfl⟩ := hc1
+      subst hb
+      split at hin
+      · rename_i us1 hus1
+        rw [hus] at hus1
+        simp only [Option.some.injEq] at hus1
+        subst hus1
+        rw [List.mem_flatMap] at hin
+        obtain ⟨⟨s1, old⟩, hl, hin⟩ := hin
+        rw [List.mem_map] at hin
+        obtain ⟨s'', hs'', he⟩ := hin
+        injection he with e1 e2
+        subst e1
+        obtain ⟨k1, -, k3⟩ := loadUnits_keep us 0 _ _ hl
+        have hB : Bnd k arch pw th.vs m.loc ≤ Bnd k arch pw s1.vs m.loc :=
+          Bnd_mono2 (loadUnits_VLe us 0 _ _ hl) (loadUnits_cohMono us 0 _ _ hl m.loc)
+        have ht1 : t ∈ s1.promises := by rw [k3]; exact ht
+        have hm1 : s1.mem[t]? = some m := by rw [k1]; exact hm
+        have hloc0 : m.loc = offs ad (0 + j) := by rw [Nat.zero_add]; exact hloc
+        rcases storeUnits_bound us ws 0 s1 s'' hs'' t j m ht1 hm1 hloc0 hj with h | ⟨h1, h2⟩
+        · exact Nat.lt_of_le_of_lt hB h
+        · obtain ⟨hme, -, -⟩ := storeUnits_ful us ws 0 _ s'' hs''
+          have hth' : c'.ths[i]? = some (withS { th with term := e, env := (x, t', ws') :: th.env } s'') := by
+            rw [X.e3, ← hr]
+          have hm' : c'.mem[t]? = some m := by rw [X.e1, ← hr]; exact hme t m hm1
+          have hab := certified_promAbove X.cert hth' h1 hm'
+          change s''.vs.coh m.loc < t at hab
+          rcases h2 with h2 | h2
+          · exact absurd (Nat.lt_trans h2 hab) (Nat.lt_irrefl _)
+          · exact Nat.lt_of_le_of_lt hB (Nat.lt_trans h2 hab)
+      · simp at hin
+    · simp at hin
+  · simp at hin
+
+/-- **`XchgNI` from `SeenHidX`** (twin of `storeNI_of`; discharges PLACEHOLDER-XNI at system level). -/
+theorem xchgNI_of {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {MintOK : Res → Prop}
+    {c0 c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {i : Nat}
+    {th : TTh} {r : Memory × List Ts × TTh} {η : TEnv}
+    (X : TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r)
+    (hseen : SeenHidX k arch (CE η) c.mem th) :
+    XchgNI (CE η) (stOf c.mem c.pairs th) th := by
+  intro x a v e hterm rt pw ad μ ru us j hev had hc hus hj t m ht hm hloc hword hinit
+  have hb := xchgNI_bound X hterm hev had hc hus hj ht hm hloc
+  rw [hloc] at hb
+  exact initAt_hid (hseen x a v e hterm rt pw ad μ ru us j hev had hc hus hj hword) hb hinit
+
+#print axioms loadUnits_VLe
+#print axioms Bnd_mono2
+#print axioms xchgNI_bound
+#print axioms xchgNI_of
+
 end TermStoreNI

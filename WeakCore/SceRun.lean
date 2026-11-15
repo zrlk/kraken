@@ -26,7 +26,9 @@ parse 1 → import/interface 3 → check 2 → live 5; usage/IO 4; internal 6):
    `live def f: PROVED …` (and `live[S] def f: PROVED …` for a scenario instance) at the end, for each instance
    that holds, even if the run fails elsewhere (with `--live-proof`, only once the instance file builds, each with
    `  re-checked in Lean: F` under it); a protocol outside the premise, or a thread outside the kid shapes, is
-   exit 5 (for that instance).
+   exit 5 (for that instance).  The main instance (`live def f: PROVED`, about runs from `main`) is decided only
+   when the checker accepts the start wrapper's call `main(())` (`mainCallable`); otherwise it would hold
+   vacuously, so a bare `live def` is exit 5 and a `live[S]` def gets a note (only its scenario instance).
 5. emission (no errors): the header, then the program; re-parsed, compared with `sameDecl`, re-checked.
 A `.w` input is parsed (`Syntax.parseProg`), checked block by block, scope-checked and reprinted; the live stage
 runs only for `--threads`.
@@ -168,12 +170,24 @@ structure Inst where
   mains  : List String := []
   scens  : List (String × String × List TermSpawn.Kid) := []
 
+/-- The main-start instance applies: the checker accepts the start wrapper (`TermStartW.wrapTerm`, the call
+`main(())`) at its context, by `check` and `checkW` — the hypotheses of `TermStartW.initShape_startW`, from which
+`TermMain.initOK_of` builds the initial `InitOK`.  When the wrapper does not check because there is no `main`,
+`main`'s argument is not `Unit`, or `main` takes index or type parameters, no start state satisfies `InitOK`, so
+`SceProof.MainInst` would hold vacuously; any other refusal is not reported either, as a precaution. -/
+def mainCallable (prog : Prog) : Bool :=
+  let w := TermStartW.wrapTerm (TermStartW.mainRet prog)
+  CoreTerm.accepts (CoreTerm.check prog TermStartW.wcx w) && CoreTerm.accepts (TermScope.checkW prog TermStartW.wcx w)
+
 /-- The instance stage: for every `live` def of the root unit, the robust premise of the liveness theorems
 (`SceProof.robustOK`, evaluated) for the program's protocols, and for `live[S]` also for the kids of scenario `S`
 (`SceLive.scenKids`, the kids the search spawns).  A protocol outside it, or a thread outside the kid shapes, is
-exit 5; the def's main instance is reported regardless of its scenario. -/
+exit 5; the def's main instance is reported regardless of its scenario.  The main instance needs `mainCallable`:
+without it a bare `live def` is exit 5 and a `live[S]` def gets a note (warning class), its scenario instance
+decided as before. -/
 def instStage (prog : Prog) (env : Env) (file src : String) (r : UParsed) : Inst :=
   let ms := TermLiveL3.protosOf prog
+  let callable := mainCallable prog
   let scens := scenarioSites src (r.unit.items.zip r.itemAt)
   let cx : SceLive.Ctx := { prog, units := [], src := fun _ => "" }
   (liveDefs src r).foldl (init := {}) fun acc (f, s, rng) =>
@@ -181,7 +195,13 @@ def instStage (prog : Prog) (env : Env) (file src : String) (r : UParsed) : Inst
     match SceProof.firstBad ms with
     | some P => err (SceText.noInstance f (showProto env P))
     | none =>
-      let acc : Inst := { acc with proved := acc.proved ++ [SceText.proved f], mains := acc.mains ++ [f] }
+      let note (sn : String) : SDiag :=
+        { cls := 0, d := { file, severity := "note", block := some f, msg := SceText.noMainNote f sn, at_ := rng } }
+      let acc : Inst :=
+        if callable then { acc with proved := acc.proved ++ [SceText.proved f], mains := acc.mains ++ [f] }
+        else match s with
+          | some sn => { acc with ds := acc.ds ++ [note sn] }
+          | none => err (SceText.noMainInstance f)
       let err (m : String) : Inst := { acc with ds := acc.ds ++ [mkD 5 file m rng (some f)] }
       match s.bind fun s => scens.find? (·.1.name == s) with
       | none => acc

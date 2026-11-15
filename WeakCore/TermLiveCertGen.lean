@@ -76,7 +76,7 @@ open CoreLang CoreTerm TermLiveCert TermSmoke TermRun in
 #guard mSetup.all fun s =>
   let c0 := spawn s (mThr s)
   let ct := certOf mutexLib Promises.Knobs.all .arm [] [] 100000 c0
-  check mutexLib Promises.Knobs.all .arm [] [] ct c0 && noSpawnB ct && noStuckB mutexLib Promises.Knobs.all .arm [] ct
+  check mutexLib Promises.Knobs.all .arm [] [] ct c0 && noSpawnB mutexLib ct && noStuckB mutexLib Promises.Knobs.all .arm [] ct
 
 open CoreLang CoreTerm TermLiveCert TermSmoke TermRun in
 #guard mSetup.all fun s =>

@@ -440,7 +440,7 @@ theorem labsV_VR_sNo {Q : AllocLabel → Ts → Prop} : ∀ (T : Ty) (ρ : Nat �
   | ptr μ u =>
     intro ρ η R ws hrel hS hB hshp hsn hwc hval hv w hw x g hx
     cases μ with
-    | pub =>
+    | pub | rgn _ =>
       obtain ⟨a, c, h1, -, -, -, ⟨f, hf, hmo⟩, -⟩ := hv
       have hm := locPub_mem_val h1 hw
       rw [hx] at hm; simp at hm; obtain ⟨rfl, -⟩ := hm
@@ -449,7 +449,7 @@ theorem labsV_VR_sNo {Q : AllocLabel → Ts → Prop} : ∀ (T : Ty) (ρ : Nat �
   | ptrOpt μ u =>
     intro ρ η R ws hrel hS hB hshp hsn hwc hval hv w hw x g hx
     cases μ with
-    | pub =>
+    | pub | rgn _ =>
       rcases hv with h0 | ⟨a, c, h1, -, -, -, ⟨f, hf, hmo⟩, -⟩
       · have hm := locPub_mem_val h0 hw
         rw [hx] at hm; simp at hm
@@ -460,7 +460,7 @@ theorem labsV_VR_sNo {Q : AllocLabel → Ts → Prop} : ∀ (T : Ty) (ρ : Nat �
   | loc μ u =>
     intro ρ η R ws hrel hS hB hshp hsn hwc hval hv w hw x g hx
     cases μ with
-    | pub =>
+    | pub | rgn _ =>
       rcases hv with ⟨h0, -⟩ | ⟨a, c, U, h1, -, -, -, ⟨f, hf, hmo⟩, -⟩
       · have hm := locPub_mem_val h0 hw
         rw [hx] at hm; simp at hm

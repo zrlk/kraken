@@ -63,7 +63,7 @@ variable {Sp : TermRun.Cfg → TermRun.Cfg → Prop}
 /-- **`promIniGen` without `hbuf`**: InitR of a promise at a label shared after a promise step. The
 fulfilling `bufInit` is taken one more step (`xfz_threadB`), where `RunAgreeF` bounds the count that
 covers the written slot. -/
-theorem promIniGenB (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : CertRunP p k arch Sp Init MintOK c0)
+theorem promIniGenB (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : CertRunP p k arch Sp Init MintOK c0)
     (hagree : RunAgreeF p k arch Sp Init MintOK c0) (hbp : BufInitPubF p k arch Sp Init MintOK c0) (hbr : BufInitPubFR p k arch Sp Init MintOK c0)
     {c : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {j : Nat} {th : TTh}
     {a : Address} {v : WeakMem.Val} {w : Ts} (X : PCtxX p k arch Sp Init MintOK c0 c Eg Tot HP HS cr db j th a v w)
@@ -104,7 +104,7 @@ theorem promIniGenB (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] 
   obtain ⟨ρ, η, cx, rfl, hE, hT, htv, hi, -⟩ := hTE1'
   have hscope := hsc c1 h1 hc1 th1 hth1 (TermTyped.not_spawnT_of_steps hth1 h2) ρ η cx hE hT htv hi
   have e : (promise c j a v w).mem.size = c.mem.size + 1 := by rw [hpi.1, Array.size_push]
-  rcases SWIni hE hT htv hi hmi1 (TermTyped.scopeD_SW hscope hsw) hsw with ⟨c', hc', hI⟩ | ⟨x, bb, i, v', e', hterm⟩
+  rcases SWIni hE hT.1 htv hi hmi1 (TermTyped.scopeD_SW hscope hsw) hsw with ⟨c', hc', hI⟩ | ⟨x, bb, i, v', e', hterm⟩
   · have hag := hagree X S0 c1 th1 (CE η) h1 hc1 hth1 hx1 hmi1 (by rw [e] at hfb1; exact hfb1) hIL1 hIH1 hPV1 hPO1
     obtain ⟨hcl0, hgle⟩ := plantIni_le (hV0 := hV0) hP hrun X hcl hsh hag hPS hSub hSig
     have hc'' : η.sto m.loc.label = some c' := hc'
@@ -137,8 +137,9 @@ theorem promIniGenB (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] 
       cases ht'
       rcases hw with ⟨pw, b, rel, us, ws, jw, w', hUo, hone, -, hloc, -⟩ |
           ⟨_, _, _, _, _, _, _, _, _, _, _, hop, -⟩
-      · rw [hterm] at hT
-        cases hT with
+      · have hT0 := hT.1
+        rw [hterm] at hT0
+        cases hT0 with
         | let_ hop _ =>
           obtain ⟨c', hc', hI⟩ := unitsAtI_initR (bufInit_uaIP hop hi hE htv hUo hx12 hB) hone
           have hE2 : E2.sto m.loc.label = some cl := hx2.2.2.2.2.1 _ _ hcl0
@@ -152,7 +153,7 @@ theorem promIniGenB (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] 
 
 /-- **`BufInitIniF`** (the promise half of the old `bufInitIni` field), from the certificate run facts
 and `RunAgreeF`; the field's own `bufInit` configuration is not used. -/
-theorem bufInitIniF_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : CertRunP p k arch Sp Init MintOK c0)
+theorem bufInitIniF_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : CertRunP p k arch Sp Init MintOK c0)
     (hagree : RunAgreeF p k arch Sp Init MintOK c0) (hbp : BufInitPubF p k arch Sp Init MintOK c0)
     (hbr : BufInitPubFR p k arch Sp Init MintOK c0) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) :
     BufInitIniF p k arch Sp Init MintOK c0 := by

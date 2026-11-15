@@ -50,6 +50,7 @@ theorem labelsAtK_eq (prog : List Directive) :
     cases labelIdx prog l <;> simp
   | j, .instr _ :: ds => by simp only [labelsAtK, labelsAt, labelsAtK_eq prog (j + 1) ds]
   | j, .byteArray _ :: ds => by simp only [labelsAtK, labelsAt, labelsAtK_eq prog (j + 1) ds]
+  | j, .zeros _ :: ds => by simp only [labelsAtK, labelsAt, labelsAtK_eq prog (j + 1) ds]
 
 /-- **`segIn`, keyed**: the run after the label found once. -/
 def segInK (T : List (Nat × Nat × List Directive)) (l : Label) (ds : List Directive) : Bool :=
@@ -218,6 +219,7 @@ private theorem tailTab_mem : ∀ (prog : List Directive) (i : Nat), ∀ p ∈ t
       · exact step p hp
     | instr _ => exact step p (by simpa [tailTab] using hp)
     | byteArray _ => exact step p (by simpa [tailTab] using hp)
+    | zeros _ => exact step p (by simpa [tailTab] using hp)
 
 /-- **The labels' table is rebuilt from its indices.** -/
 theorem tailOf_idxTab (prog : List Directive) : tailOf prog (idxTab prog) = tailTab prog 0 := by

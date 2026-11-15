@@ -133,12 +133,11 @@ theorem opArgOK_call {f : String} {is : List String} {a : At} {ts : List Ty}
 parameter type (what `declWrapOK` checks, at `declCx`). -/
 def ProgCkW (p : Prog) : Prop := ∀ d ∈ p, checkW p (declCx d) d.body = .ok () ∧ wrapOK d.argTy = true
 
-/-- `ProgCkW` as an instance (threaded like `ProgRetIall`), with the checker's verdict on the whole
-program (its opened-type-package allocation check is what keeps the per-frame invariant `DyFr`
-closed under calls). -/
+/-- `ProgCkW` as an instance (threaded like `ProgRetIall`), with the program-wide type-test
+cleanliness `TermSound.DyClean` (what keeps the per-frame invariant `DyFr` closed under calls). -/
 class ProgCkWC (p : Prog) : Prop where
   ck : ProgCkW p
-  checked : checkProg p = .ok ()
+  dy : TermSound.DyClean p
 
 /-- An entry frame is the checker's, at any witnesses meeting `WitA`. -/
 theorem CkW_decl {p : Prog} {ω : Nat → Ty} {d : Decl}

@@ -1,0 +1,201 @@
+/-
+**Every context's aborts never end at a reachable placement** (x86-64; the
+twin of `Spike/Lib/LowerA64/G1AbG2L.lean`): `AbG2L`
+(`Spike/Lib/LowerX64/G1FnSpecL.lean`, the aborts of every context with
+`CxCore2L` at the placement `L`, `ls`) as a segment to the empty fragment
+inside `W2AtL … L ls`, as `abG2_seg` (`Spike/Lib/LowerX64/G1AbG2.lean`) at
+the start's placement: the three abort kinds' segments (`ovfAb_segF`,
+`heapAb_seg`, `printAb_segP`) take the placement as a parameter, the frames
+placed at `L` (`CxCore2L.hfp`).
+
+- `abCxL_seg`: one context's aborts never end;
+- `abG2L_seg`: every context's.
+-/
+import Spike.Lib.LowerX64.G1FnSpecL
+import Spike.Lib.LowerX64.G1AbG2
+
+namespace Spike.Lib.LowerX64
+
+set_option autoImplicit false
+
+open CoreLang CoreTerm A9NoSpawn
+open Kraken Kraken.Promising Kraken.Promising.X64
+
+section G2L
+
+open Kraken.Promising.Lower.X64
+open Scc.Sem (Marks Range)
+open Scc.Cert.PlaceOK Scc.Cert.PlaceOK.X64
+open Spike.Lib (Region FrameRunM Arena)
+open Spike.Lib.Consumer1 Spike.Lib.X64Consumer Spike.Lib.X64ConsumerS Spike.Lib.X64ConsumerA
+open Spike.Lib.X64 (At AS)
+open Spike.Lib.X64.Flow.Ret0 (StackOff limA pinA)
+open Spike.Lib.X64.Flow.NewBuf (nbX allocAbortDepth)
+open Spike.Lib.X64.Rt (rS0 arOf)
+open Spike.Lib.LowerNode (FrOk2 ZBad compiled2 TailAt2 imms2Me IsNum printFrame)
+open Scc.Sem.X64 (pcOf)
+open Spike.Lib.AllocReach (IN Reach)
+
+variable {cfg : Scc.Config} {pcfg : Scc.Cert.PlaceOK.Config} {Λ : Scc.Sem.Layout} {p : Prog}
+  {sizes : List Nat} {labelOffs : List (String × Nat)}
+  (h : placeOKAt pcfg (lay2 Λ p) (Out.ofEmitted (Scc.Lower.X64.lowerAll cfg p) sizes labelOffs) = true)
+
+set_option hygiene false in
+/-- The runtime's layout of the output at the theorem's immediates. -/
+local notation "Ly" => Spike.Lib.X64.Rt.RuntimeLayout.ofPlaceOK h (imms2Me Λ p)
+
+set_option hygiene false in
+/-- `W2AtL` at `Closed2At`'s instance and the placement `L`, `ls`. -/
+local notation "W2L" J:max L:max ls:max => W2AtL h (imms2Me Λ p) p IsNum (rS0 (Ly)) J Dt (fun _ => 0) L ls
+
+set_option hygiene false in
+/-- `MSAtL` at `Closed2At`'s instance (the nodes' abort `ab2`) and the
+placement `L`, `ls`. -/
+local notation "MSL" J:max L:max ls:max => MSAtL h (imms2Me Λ p) p IsNum J (ab2 p (Ly).lab) (fun _ => 0) L ls
+
+set_option hygiene false in
+/-- The take's outside moves. -/
+local notation "KT" => Spike.Lib.X64.Flow.Ret0.TakeK ((Ly).lab Spike.Lib.X64.Flow.Ret0.StackTake.siteL) (rS0 (Ly))
+
+set_option hygiene false in
+/-- The `j`th compiled block's code facts at the theorem's immediates. -/
+local notation "FC" j:max d:max hd:max => fnCode2OfPMe hp h Λ j d hd
+
+/-- **One context's aborts never end at a placement** `L`, `ls` (`AbG2L`'s
+body at a context with `CxCore2L`; `abCx_seg` at `L`, `ls`): the overflow
+label by `ovfAb_segF`, the heap abort exits by `heapAb_seg`, the output
+call's aborts by `printAb_segP`, each at the placement `L`, the frames
+placed at `L` (`CxCore2L.hfp`), in the context's region, whose room below
+the frame (`CxCore2L.room` and `Room2OwnStmt`) holds the frame, the saved
+`%rbp` and the slack `256`. -/
+theorem abCxL_seg {Dt : State → Prop} (hp : Scc.Lower.Accepted2 p = true) (hRo : Room2OwnStmt h hp) (J : InvS)
+    (L : WeakMem.AllocLabel → Option Nat) (ls : WeakMem.AllocLabel → Nat)
+    (hDtO : ∀ (R' : Region) (F' : MachineData → Prop) c s c', At (Ly).exe (Ly).endPc R' F'
+      (Spike.Lib.X64.Abort.N (Ly).lab Spike.Lib.X64.Abort.overflow c .sys) s c' → Dt s)
+    (hDtW : ∀ (R' : Region) (F' : MachineData → Prop) c s c', At (Ly).exe (Ly).endPc R' F'
+      (Spike.Lib.X64.Abort.N (Ly).lab Spike.Lib.X64.Abort.write c .sys) s c' → Dt s)
+    (hDtH : ∀ (R' : Region) (F' : MachineData → Prop) c s c', At (Ly).exe (Ly).endPc R' F'
+      (Spike.Lib.X64.Abort.N (Ly).lab Spike.Lib.X64.Abort.heap c .sys) s c' → Dt s)
+    {j : Nat} {d : Decl} (hd : (compiled2 p)[j]? = some d) {R : Region} {F : MachineData → Prop}
+    {fs : List TermRun.Frame} {fp ra : BitVec 64} {tp : UInt64} {G0 : Ctl → Prop}
+    (hC : CxCore2L h hp Dt J L ls j R F fs fp ra tp G0) :
+    SegWS (W2L J L ls) (KT) p L (MSL J L ls)
+      (fun s c fs' =>
+        (fs' = fs ∧ ∃ c0, G0 c0 ∧ At (Ly).exe (Ly).endPc R F
+            (abortN2 (imms2Me Λ p) (TailAt2 p j) p L (FC j d hd).fr
+              (_root_.Executable.labels (Ly).exe).label fp ra c0) s c) ∨
+         (fs' = fs ∧ ∃ (Jc : AS → Ctl → Prop) (pcR : Int64),
+            NbJcOf (imms2Me Λ p) L (FC j d hd).fr Jc ∧
+            (∀ σ c', Jc σ c' → TailAt2 p j c'.term) ∧
+            At (Ly).exe (Ly).endPc R F (nbX ((MSL J L ls) fs) (_root_.Executable.labels (Ly).exe).label
+              L R (FC j d hd).fr.size pcR Jc .abort) s c) ∨
+         (∃ c0 x is a e c1, G0 c0 ∧ TailAt2 p j (.let_ x (.call "print" is a []) e) ∧
+            fs' = printFrame x e c1 :: fs ∧
+            At (Ly).exe (Ly).endPc R F (printNAS (_root_.Executable.labels (Ly).exe).label (FC j d hd).fr
+              L (imms2Me Λ p) x e c1) s c))
+      (fun _ _ _ => False) := by
+  by_cases hm : ∃ m, F m
+  case neg =>
+    refine SegWS.empty ?_
+    rintro s c fs' (⟨_, _, _, hA⟩ | ⟨_, _, _, _, _, hA⟩ | ⟨_, _, _, _, _, _, _, _, _, hA⟩)
+    all_goals exact hm ⟨_, at_F hA⟩
+  obtain ⟨m, hm⟩ := hm
+  have hes := hC.hes m hm
+  have hlo := hRo j d hd 256 (R.lo - 8) (hC.room d hd)
+  have hhi0 : (0 : Int) ≤ R.hi := by have := hC.hhi; omega
+  have hpz := Spike.Lib.LowerNode.progNoS_zbad_of_accepted2 hp
+  have hsub := Spike.Lib.X64.Rt.rS0_sub (Ly)
+  have hfit := Spike.Lib.X64.Rt.fitS_of_sub _ hsub
+  obtain ⟨w, -, -, -, hfr⟩ := fnCode2OfPMe_spec2 hp h Λ j d hd
+  have hfn : (FC j d hd).fr.fn = Scc.Lower.Names.user d.name := by rw [hfr]; rfl
+  have hma : ∀ fs1, ∀ s : State, (∃ k a, (Spike.Lib.X64.PhRec.μ (Ly)).abortAt k = some a ∧ pcOf s = a) →
+      ((MSL J L ls) fs1).abortAt s := by
+    intro fs1
+    dsimp only [MSAtL]; generalize ab2 p _ = ab; cases ab <;> exact fun _ h' => h'
+  refine SegWS.or_pre ?_ (SegWS.or_pre ?_ ?_)
+  · -- the overflow label
+    refine (SegWS.exists_pre (P := fun c0 s c fs' => G0 c0 ∧ (At (Ly).exe (Ly).endPc R F
+        (abortN2 (imms2Me Λ p) (TailAt2 p j) p L (FC j d hd).fr
+          (_root_.Executable.labels (Ly).exe).label fp ra c0)).at fs s c fs') fun c0 => ?_).mono_pre
+      fun s c fs' ⟨hfs, c0, hg, hA⟩ => ⟨c0, hg, hA, hfs⟩
+    by_cases hg : G0 c0
+    case neg => exact SegWS.empty fun _ _ _ h' => hg h'.1
+    refine (ovfAb_segF h (imms2Me Λ p) (FC j d hd).hf hfn (ovfFacts_me hp h Λ hd (imms2Me Λ p)) hC.hR hC.hR8
+      (by omega) hhi0 hC.hl hC.hh hC.hFS hsub hfit hC.hFO hpz hC.hfp
+      (abortN2_slotRepAt h (imms2Me Λ p) rfl) (hC.hG0F c0 hg) hes (hma fs) msOfAX_K_abi hDtO _).mono_pre
+      fun _ _ _ h' => h'.2
+  · -- the heap abort exits
+    refine (SegWS.exists_pre (P := fun (q : (AS → Ctl → Prop) × Int64) s c fs' => fs' = fs ∧
+        NbJcOf (imms2Me Λ p) L (FC j d hd).fr q.1 ∧
+        At (Ly).exe (Ly).endPc R F (nbX ((MSL J L ls) fs) (_root_.Executable.labels (Ly).exe).label
+          L R (FC j d hd).fr.size q.2 q.1 .abort) s c) fun ⟨Jc, pcR⟩ => ?_).mono_pre
+      fun s c fs' ⟨hfs, Jc, pcR, hJ, _, hA⟩ => ⟨⟨Jc, pcR⟩, hfs, hJ, hA⟩
+    by_cases hJc : NbJcOf (imms2Me Λ p) L (FC j d hd).fr Jc
+    case neg => exact SegWS.empty fun _ _ _ h' => hJc h'.2.1
+    refine (heapAb_seg h (imms2Me Λ p) (Λw := (Ly).Λ) (fs := fs) (pcR := pcR)
+      (FC j d hd).hf hJc hC.hR hC.hR8
+      (by simp only [allocAbortDepth, Spike.Lib.X64.Flow.NewBuf.allocFrame]; omega)
+      hhi0 hC.hl hC.hh hC.hFS hsub hfit hC.hFO hC.hfp ?_ ?_ ?_ (hma fs) msOfAX_K_abi hDtH _).mono_pre ?_
+    · intro n τ us hus
+      try dsimp only [MSAtL]
+      generalize ab2 p _ = ab
+      cases ab <;>
+        (show (arOf (Ly).Λ).units n τ ≤ _
+         unfold arOf; exact arena_ofWords_units_le hus)
+    · try dsimp only [MSAtL]
+      generalize ab2 p _ = ab; cases ab <;> rfl
+    · try dsimp only [MSAtL]
+      generalize ab2 p _ = ab; cases ab <;> rfl
+    · rintro s c fs' ⟨rfl, -, hA⟩
+      exact ⟨hA, rfl⟩
+  · -- the output call's aborts
+    refine (SegWS.exists_pre (P := fun (q : Ctl × String × List String × CoreTerm.At × Expr × Ctl) s c fs' =>
+        G0 q.1 ∧ TailAt2 p j (.let_ q.2.1 (.call "print" q.2.2.1 q.2.2.2.1 []) q.2.2.2.2.1) ∧
+        (At (Ly).exe (Ly).endPc R F (printNAS (_root_.Executable.labels (Ly).exe).label (FC j d hd).fr
+          L (imms2Me Λ p) q.2.1 q.2.2.2.2.1 q.2.2.2.2.2)).at
+          (printFrame q.2.1 q.2.2.2.2.1 q.2.2.2.2.2 :: fs) s c fs') fun ⟨c0, x, is, a, e, c1⟩ => ?_).mono_pre
+      fun s c fs' ⟨c0, x, is, a, e, c1, hg, hT, hfs, hA⟩ => ⟨⟨c0, x, is, a, e, c1⟩, hg, hT, hA, hfs⟩
+    by_cases hgT : G0 c0 ∧ TailAt2 p j (.let_ x (.call "print" is a []) e)
+    case neg => exact SegWS.empty fun _ _ _ h' => hgT ⟨h'.1, h'.2.1⟩
+    obtain ⟨hg, hT⟩ := hgT
+    have he : NoS ZBad e :=
+      (noS_of_tailOf (hT d hd) (hpz d (List.mem_filter.1 (List.mem_of_getElem? hd)).1)).2
+    refine (printAb_segP h (imms2Me Λ p) (it := imms2Me Λ p) (e := e) (FC j d hd).hf
+      hC.hR hC.hR8 (by omega) hhi0 hC.hl hC.hh hC.hFS hsub hfit hC.hFO hpz rfl he
+      (hC.hG0F c0 hg).2 hC.hfp (hma _) msOfAX_K_abi hDtW _).mono_pre
+      fun _ _ _ h' => h'.2.2
+
+/-- **Every context's aborts never end at a reachable placement** (`AbG2L`
+as a segment to the empty fragment inside `W2AtL … L ls`): at each context
+(`abCxL_seg`), no state at a tuple failing `CxCore2L`. The placement's
+`Reach` (`hre`) is `CxCore2L.hre` at every context, unused here. -/
+theorem abG2L_seg {Dt : State → Prop} (hp : Scc.Lower.Accepted2 p = true) (hRo : Room2OwnStmt h hp) (J : InvS)
+    (L : WeakMem.AllocLabel → Option Nat) (ls : WeakMem.AllocLabel → Nat)
+    (_hre : Reach (arOf (Ly).Λ) (fun _ => none) (fun _ => 0) L ls)
+    (hDtO : ∀ (R' : Region) (F' : MachineData → Prop) c s c', At (Ly).exe (Ly).endPc R' F'
+      (Spike.Lib.X64.Abort.N (Ly).lab Spike.Lib.X64.Abort.overflow c .sys) s c' → Dt s)
+    (hDtW : ∀ (R' : Region) (F' : MachineData → Prop) c s c', At (Ly).exe (Ly).endPc R' F'
+      (Spike.Lib.X64.Abort.N (Ly).lab Spike.Lib.X64.Abort.write c .sys) s c' → Dt s)
+    (hDtH : ∀ (R' : Region) (F' : MachineData → Prop) c s c', At (Ly).exe (Ly).endPc R' F'
+      (Spike.Lib.X64.Abort.N (Ly).lab Spike.Lib.X64.Abort.heap c .sys) s c' → Dt s) :
+    SegWS (W2L J L ls) (KT) p L (MSL J L ls) (AbG2L h hp Dt J L ls) (fun _ _ _ => False) := by
+  unfold AbG2L
+  refine SegWS.exists_pre fun j => SegWS.exists_pre fun d => SegWS.exists_pre fun hd =>
+    SegWS.exists_pre fun R => SegWS.exists_pre fun F => SegWS.exists_pre fun fs =>
+    SegWS.exists_pre fun fp => SegWS.exists_pre fun ra => SegWS.exists_pre fun tp =>
+    SegWS.exists_pre fun G0 => ?_
+  by_cases hC : CxCore2L h hp Dt J L ls j R F fs fp ra tp G0
+  case neg => exact SegWS.empty fun _ _ _ h' => hC h'.1
+  exact (abCxL_seg h hp hRo J L ls hDtO hDtW hDtH hd hC).mono_pre fun _ _ _ h' => h'.2
+
+end G2L
+
+end Spike.Lib.LowerX64
+
+-- No axioms beyond Lean's.
+
+/-- info: 'Spike.Lib.LowerX64.abCxL_seg' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in #print axioms Spike.Lib.LowerX64.abCxL_seg
+
+/-- info: 'Spike.Lib.LowerX64.abG2L_seg' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in #print axioms Spike.Lib.LowerX64.abG2L_seg

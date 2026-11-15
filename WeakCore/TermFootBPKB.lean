@@ -27,9 +27,10 @@ theorem tstepMCF_stepTKA_zfNBBN {p : Prog} {g : G} {mem : Memory} {pairs : List 
     (hpx : PAx g mem pairs th) (hC : PromCrK (CE η) (stOf mem pairs th) cr db)
     (hia : StoreIall ρ η cx th)
     (hdw : StoreCrZ η cx (stOf mem pairs th) th)
+    (hxni : XchgNI (CE η) (stOf mem pairs th) th) (hxia : XchgIall ρ η cx th)
     (hwp : ∀ x a e rt ws ad, th.term = .let_ x (.publish a) e → evalAt th.env a = some (rt, ws) →
       ws.map (·.val) = [.loc ad 0] → FlipOK (CE η) (stOf mem pairs th) ad.label)
-    (hwin : PubWinT (CE η) (stOf mem pairs th) th)
+    (hwin : PubWinT (CE η) (stOf mem pairs th) th) (hrs : RgnSide (CE η) (stOf mem pairs th) g th)
     (hfo : FpOK (CE η) (stOf mem pairs th)) (hrmw : NoPlantRMW (CE η) th) (hbf : g.boxFence = true)
     {Ok : Memory × List Ts × TTh → Prop}
     (hpo : OwnFrOp (CE η) cx th → ∀ lab c, (CE η).sto lab = some c → c.owner = some (CE η).tid →
@@ -70,10 +71,10 @@ theorem tstepMCF_stepTKA_zfNBBN {p : Prog} {g : G} {mem : Memory} {pairs : List 
         (¬ PubShape cx th → Gd = []) :=
   tstepMCF_stepTKA_zfNBCN (hDy := hDy) (KP := fun r E' cr' plh =>
       KeepQRSB (CE η) E' (stOf mem pairs th) (stOf r.1 r.2.1 r.2.2) th cr cr' plh) (hz0 := hz0) (hPb := hPb) (Ok := Ok)
-    hP hp hn hnd hsc hT hCk hi hE htv hm hH hpx hC hia hdw hwp hwin hfo hrmw hbf hbi hPS hSub hSig hTy hRP hown1
+    hP hp hn hnd hsc hT hCk hi hE htv hm hH hpx hC hia hdw hwp hwin hrs hfo hrmw hbf hbi hPS hSub hSig hTy hRP hown1
     (fun _ _ _ _ hnb hK => keepQRSB_of_nb hnb hK)
-    (fun _ _ => tstepMCF_stepTKA_zfB (hDy := hDy) (hz0 := hz0) (hPb := hPb) (Ok := Ok) hP hp hn hnd hsc hT hCk hi hE htv hm hH hpx hC hia
-      hdw hwp hwin hfo hrmw hbf hpo (fun _ => hle) hni hclo hbi hbiP hRP hPS hSub hSig hTy hown1)
+    (fun _ _ => tstepMCF_stepTKA_zfB (hxni := hxni) (hxia := hxia) (hDy := hDy) (hz0 := hz0) (hPb := hPb) (Ok := Ok) hP hp hn hnd hsc hT hCk hi hE htv hm hH hpx hC hia
+      hdw hwp hwin hrs hfo hrmw hbf hpo (fun _ => hle) hni hclo hbi hbiP hRP hPS hSub hSig hTy hown1)
 
 /-- (BI) **The R4 stepper producer with the `bufInit`-at-`rc` pool consumed.** -/
 theorem tstepMCF_stepTKA_zfNBB {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
@@ -87,9 +88,10 @@ theorem tstepMCF_stepTKA_zfNBB {p : Prog} {g : G} {mem : Memory} {pairs : List T
     (hpx : PAx g mem pairs th) (hC : PromCrK (CE η) (stOf mem pairs th) cr db)
     (hia : StoreIall ρ η cx th)
     (hdw : StoreCrZ η cx (stOf mem pairs th) th)
+    (hxni : XchgNI (CE η) (stOf mem pairs th) th) (hxia : XchgIall ρ η cx th)
     (hwp : ∀ x a e rt ws ad, th.term = .let_ x (.publish a) e → evalAt th.env a = some (rt, ws) →
       ws.map (·.val) = [.loc ad 0] → FlipOK (CE η) (stOf mem pairs th) ad.label)
-    (hwin : PubWinT (CE η) (stOf mem pairs th) th)
+    (hwin : PubWinT (CE η) (stOf mem pairs th) th) (hrs : RgnSide (CE η) (stOf mem pairs th) g th)
     (hfo : FpOK (CE η) (stOf mem pairs th)) (hrmw : NoPlantRMW (CE η) th) (hbf : g.boxFence = true)
     {Ok : Memory × List Ts × TTh → Prop}
     (hpo : OwnFrOp (CE η) cx th → ∀ lab c, (CE η).sto lab = some c → c.owner = some (CE η).tid →
@@ -128,8 +130,8 @@ theorem tstepMCF_stepTKA_zfNBB {p : Prog} {g : G} {mem : Memory} {pairs : List T
         Rf + Rs + H + pSum (stOf mem pairs th) cr + pSum (stOf r.1 r.2.1 r.2.2) db' + F ∧
       (PubShape cx th → GdCovT (CE η) (stOf mem pairs th) (stOf r.1 r.2.1 r.2.2) Gd th) ∧
         (¬ PubShape cx th → Gd = [])  :=
-  let h := tstepMCF_stepTKA_zfNBBN (hDy := hDy) (hz0 := hz0) (hPb := hPb) (Ok := Ok) hP hp hn hnd hsc hT hCk hi hE htv hm hH
-    hpx hC hia hdw hwp hwin hfo hrmw hbf hpo hle hni hclo hbi hPS hSub hSig hTy hRP hbiP hown1
+  let h := tstepMCF_stepTKA_zfNBBN (hxni := hxni) (hxia := hxia) (hDy := hDy) (hz0 := hz0) (hPb := hPb) (Ok := Ok) hP hp hn hnd hsc hT hCk hi hE htv hm hH
+    hpx hC hia hdw hwp hwin hrs hfo hrmw hbf hpo hle hni hclo hbi hPS hSub hSig hTy hRP hbiP hown1
   ⟨h.1, fun r hr hpa hok =>
     let ⟨Tot, H', C, F, cr', db', Gd, plh, ⟨E', hq, hR⟩, hR2⟩ := h.2 r hr hpa hok
     ⟨Tot, H', C, F, cr', db', Gd, plh, ⟨E', ⟨hq.1, hq.2.1, hq.2.2.1, hq.2.2.2.1, hq.2.2.2.2.1⟩, hR⟩, hR2⟩⟩

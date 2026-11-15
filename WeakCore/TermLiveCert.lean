@@ -29,7 +29,7 @@ def canon (c : Cfg) : Cfg :=
 (a promise-free successor is certified by `Solo.refl`; `certB 0` is `noPromises`). (M1) Device values from the scenario
 set `V`: a `devChoice w` site offers one successor per in-range value of `V`. -/
 def movesPF (p : Prog) (k : Promises.Knobs) (arch : Arch) (V : List Nat) (c : Cfg) (i : Nat) : List Cfg :=
-  threadSteps p k arch c i ++ extSuccs p k arch { solo := 0, io := V } c i ++ TermSpawnSuccs.spawnSuccsAt c i
+  threadSteps p k arch c i ++ extSuccs p k arch { solo := 0, io := V } c i ++ TermSpawnSuccs.spawnSuccsAt p c i
 
 /-- (D4) Thread `i`'s `machineE` environment moves (spurious wakes) from a promise-free configuration. -/
 def wakesPF (p : Prog) (k : Promises.Knobs) (arch : Arch) (c : Cfg) (i : Nat) : List Cfg :=
@@ -120,7 +120,7 @@ def check (c0 : Cfg) : Bool :=
 /-- No node has a spawn move. -/
 def noSpawnB : Bool :=
   (List.range ct.nodes.size).all fun v =>
-    (List.range (ct.nd v).ths.size).all fun i => (TermSpawnSuccs.spawnSuccsAt (ct.nd v) i).isEmpty
+    (List.range (ct.nd v).ths.size).all fun i => (TermSpawnSuccs.spawnSuccsAt p (ct.nd v) i).isEmpty
 
 /-- Every node without a move is final. -/
 def noStuckB : Bool :=

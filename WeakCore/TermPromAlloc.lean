@@ -94,14 +94,14 @@ theorem ofArm_locV {t : Ty} {j : Nat} {p q : List Word} (h : ofArm t j p = some 
 /-- **Inversion, with views.**  Every `loc` word of an `own`- and region-free value names a box or
 a published cell whose frontier is below the word's view (or seen). -/
 theorem locPubV_VR : ∀ (T : Ty) (ke : KEnv) (ρ : Nat → Nat) (η : TEnv) (ws : List Word),
-    (∀ k r vs, ¬ η.rels k r vs) → Ty.noOwnIn ke T = true → rgnFree T = true →
+    (∀ k r vs, ¬ η.rels k r vs) → Ty.noOwnIn ke T = true →
     wc T = some ws.length → Valid T ws → VR ρ η T (shp T) ws →
     ∀ w ∈ ws, ∀ x g, w.val = .loc x g → LPGoodV η x.label w.view := by
   intro T
   induction T with
   | prod a b iha ihb =>
-    intro ke ρ η ws hrel hno hrf hlen hval hv w hw x g hx
-    simp only [Ty.noOwnIn, rgnFree, Bool.and_eq_true] at hno hrf
+    intro ke ρ η ws hrel hno hlen hval hv w hw x g hx
+    simp only [Ty.noOwnIn, Bool.and_eq_true] at hno
     rw [wc_prod] at hlen
     cases ha : wc a with
     | none => simp [ha] at hlen
@@ -117,11 +117,11 @@ theorem locPubV_VR : ∀ (T : Ty) (ke : KEnv) (ρ : Nat → Nat) (η : TEnv) (ws
         obtain ⟨Va, Vb⟩ := hval na ha
         rw [← List.take_append_drop na ws] at hw
         rcases List.mem_append.1 hw with h | h
-        · exact iha ke ρ η _ hrel hno.1 hrf.1 (by rw [ha, List.length_take]; congr 1; omega) Va hva w h x g hx
-        · exact ihb ke ρ η _ hrel hno.2 hrf.2 (by rw [hb, List.length_drop]; congr 1; omega) Vb hvb w h x g hx
+        · exact iha ke ρ η _ hrel hno.1 (by rw [ha, List.length_take]; congr 1; omega) Va hva w h x g hx
+        · exact ihb ke ρ η _ hrel hno.2 (by rw [hb, List.length_drop]; congr 1; omega) Vb hvb w h x g hx
   | sum a b iha ihb =>
-    intro ke ρ η ws hrel hno hrf hlen hval hv w hw x g hx
-    simp only [Ty.noOwnIn, rgnFree, Bool.and_eq_true] at hno hrf
+    intro ke ρ η ws hrel hno hlen hval hv w hw x g hx
+    simp only [Ty.noOwnIn, Bool.and_eq_true] at hno
     obtain ⟨n, Ra, Rb, hr, hcase⟩ := hv
     simp only [shp, lnorm, Shp.sum.injEq, Ty.sum.injEq] at hr
     obtain ⟨-, rfl, rfl⟩ := hr
@@ -159,7 +159,7 @@ theorem locPubV_VR : ∀ (T : Ty) (ke : KEnv) (ρ : Nat → Nat) (η : TEnv) (ws
             | none => simp [wc, hu] at hwq
             | some us => simp only [wc, hu, Option.map_some]; rw [hsq us hu]
           rw [shp_lnorm] at hvq
-          have hr := iha ke ρ η q' hrel hno.1 hrf.1 hwc hvalq hvq w2 hw2 x g2 hv2
+          have hr := iha ke ρ η q' hrel hno.1 hwc hvalq hvq w2 hw2 x g2 hv2
           rw [hvw2, hvw1] at hr
           exact hr
         · have hj2 : (armsOf a).length ≤ j := Nat.le_of_not_lt hj
@@ -174,53 +174,51 @@ theorem locPubV_VR : ∀ (T : Ty) (ke : KEnv) (ρ : Nat → Nat) (η : TEnv) (ws
             | none => simp [wc, hu] at hwq
             | some us => simp only [wc, hu, Option.map_some]; rw [hsq us hu]
           rw [shp_lnorm] at hvq
-          have hr := ihb ke ρ η q' hrel hno.2 hrf.2 hwc hvalq hvq w2 hw2 x g2 hv2
+          have hr := ihb ke ρ η q' hrel hno.2 hwc hvalq hvq w2 hw2 x g2 hv2
           rw [hvw2, hvw1] at hr
           exact hr
   | refine t ψ ih =>
-    intro ke ρ η ws hrel hno hrf hlen hval hv
-    exact ih ke ρ η ws hrel hno hrf hlen hval hv.1
+    intro ke ρ η ws hrel hno hlen hval hv
+    exact ih ke ρ η ws hrel hno hlen hval hv.1
   | iall t ih =>
-    intro ke ρ η ws hrel hno hrf hlen hval hv
-    exact ih ke (vcons 0 ρ) η ws hrel hno hrf hlen hval (hv 0)
+    intro ke ρ η ws hrel hno hlen hval hv
+    exact ih ke (vcons 0 ρ) η ws hrel hno hlen hval (hv 0)
   | iex t ih =>
-    intro ke ρ η ws hrel hno hrf hlen hval hv
+    intro ke ρ η ws hrel hno hlen hval hv
     obtain ⟨n, rb, w, hr, hv⟩ := hv
     simp only [shp, Shp.iex.injEq] at hr
     obtain ⟨-, rfl⟩ := hr
     rw [wc_iex] at hlen
-    exact ih ke (vcons w ρ) η ws hrel hno hrf hlen hval hv
+    exact ih ke (vcons w ρ) η ws hrel hno hlen hval hv
   | mu t ih =>
-    intro ke ρ η ws hrel hno hrf hlen hval hv
-    exact ih (none :: ke) ρ (η.push0 (cl ρ η.wit 0 0 (.mu t))) ws (locPub_push0_rels hrel _) hno hrf hlen hval hv
+    intro ke ρ η ws hrel hno hlen hval hv
+    exact ih (none :: ke) ρ (η.push0 (cl ρ η.wit 0 0 (.mu t))) ws (locPub_push0_rels hrel _) hno hlen hval hv
   | tex κ t ih =>
-    intro ke ρ η ws hrel hno hrf hlen hval hv
+    intro ke ρ η ws hrel hno hlen hval hv
     simp only [Ty.noOwnIn, Bool.and_eq_true] at hno
     obtain ⟨n, rb, s, hr, -, -, hv⟩ := hv
     simp only [shp, Shp.tex.injEq] at hr
     obtain ⟨-, rfl⟩ := hr
     rw [wc_tex] at hlen
-    exact ih (some κ :: ke) ρ (η.push0 s) ws (locPub_push0_rels hrel s) hno.2 hrf hlen hval hv
+    exact ih (some κ :: ke) ρ (η.push0 s) ws (locPub_push0_rels hrel s) hno.2 hlen hval hv
   | tvar k =>
-    intro ke ρ η ws hrel hno hrf hlen hval hv
+    intro ke ρ η ws hrel hno hlen hval hv
     obtain ⟨ws', -, hg⟩ := hv
     exact absurd hg (hrel _ _ _)
   | ptr μ u =>
-    intro ke ρ η ws hrel hno hrf hlen hval hv w hw x g hx
+    intro ke ρ η ws hrel hno hlen hval hv w hw x g hx
     cases μ with
     | own => simp [Ty.noOwnIn] at hno
-    | rgn r => simp [rgnFree] at hrf
-    | pub =>
+    | pub | rgn _ =>
       obtain ⟨a, c, h1, -, h3, -, ⟨f, hf, hS⟩, -⟩ := hv
       have hm := locPub_mem_val h1 hw
       rw [hx] at hm; simp at hm; obtain ⟨rfl, -⟩ := hm
       exact Or.inl ⟨c, f, h3, hf, hS.imp id (fun h => h w hw)⟩
   | ptrOpt μ u =>
-    intro ke ρ η ws hrel hno hrf hlen hval hv w hw x g hx
+    intro ke ρ η ws hrel hno hlen hval hv w hw x g hx
     cases μ with
     | own => simp [Ty.noOwnIn] at hno
-    | rgn r => simp [rgnFree] at hrf
-    | pub =>
+    | pub | rgn _ =>
       rcases hv with h0 | ⟨a, c, h1, -, h3, -, ⟨f, hf, hS⟩, -⟩
       · have hm := locPub_mem_val h0 hw
         rw [hx] at hm; simp at hm
@@ -228,11 +226,10 @@ theorem locPubV_VR : ∀ (T : Ty) (ke : KEnv) (ρ : Nat → Nat) (η : TEnv) (ws
         rw [hx] at hm; simp at hm; obtain ⟨rfl, -⟩ := hm
         exact Or.inl ⟨c, f, h3, hf, hS.imp id (fun h => h w hw)⟩
   | loc μ u =>
-    intro ke ρ η ws hrel hno hrf hlen hval hv w hw x g hx
+    intro ke ρ η ws hrel hno hlen hval hv w hw x g hx
     cases μ with
     | own => simp [Ty.noOwnIn] at hno
-    | rgn r => simp [rgnFree] at hrf
-    | pub =>
+    | pub | rgn _ =>
       rcases hv with ⟨h0, -⟩ | ⟨a, c, U, h1, h3, -, -, ⟨f, hf, hS⟩, -⟩
       · have hm := locPub_mem_val h0 hw
         rw [hx] at hm; simp at hm
@@ -240,24 +237,24 @@ theorem locPubV_VR : ∀ (T : Ty) (ke : KEnv) (ρ : Nat → Nat) (η : TEnv) (ws
         rw [hx] at hm; simp at hm; obtain ⟨rfl, -⟩ := hm
         exact Or.inl ⟨c, f, h3, hf, hS.imp id (fun h => h w hw)⟩
   | void =>
-    intro ke ρ η ws hrel hno hrf hlen hval hv
+    intro ke ρ η ws hrel hno hlen hval hv
     simp [VR] at hv
   | intS i =>
-    intro ke ρ η ws hrel hno hrf hlen hval hv w hw x g hx
+    intro ke ρ η ws hrel hno hlen hval hv w hw x g hx
     have hm := locPub_mem_val hv hw
     rw [hx] at hm; simp at hm
   | opq _ =>
-    intro ke ρ η ws hrel hno hrf hlen hval hv w hw x g hx
+    intro ke ρ η ws hrel hno hlen hval hv w hw x g hx
     obtain ⟨n, hn⟩ := hv
     have hm := locPub_mem_val hn hw
     rw [hx] at hm; simp at hm
   | int =>
-    intro ke ρ η ws hrel hno hrf hlen hval hv w hw x g hx
+    intro ke ρ η ws hrel hno hlen hval hv w hw x g hx
     obtain ⟨n, hn⟩ := hv
     have hm := locPub_mem_val hn hw
     rw [hx] at hm; simp at hm
   | tid =>
-    intro ke ρ η ws hrel hno hrf hlen hval hv w hw x g hx
+    intro ke ρ η ws hrel hno hlen hval hv w hw x g hx
     obtain ⟨n, c, hn, hs, -, hmo⟩ := hv
     have hm := locPub_mem_val hn hw
     rw [hx] at hm
@@ -266,22 +263,22 @@ theorem locPubV_VR : ∀ (T : Ty) (ke : KEnv) (ρ : Nat → Nat) (η : TEnv) (ws
     obtain ⟨f, hf, hS⟩ := hmo
     exact Or.inl ⟨c, f, hs, hf, hS.imp id (fun h => h w hw)⟩
   | fix sg wd =>
-    intro ke ρ η ws hrel hno hrf hlen hval hv w hw x g hx
+    intro ke ρ η ws hrel hno hlen hval hv w hw x g hx
     obtain ⟨-, n, hn, -⟩ := hv
     have hm := locPub_mem_val hn hw
     rw [hx] at hm; simp at hm
   | lanes sg wd =>
-    intro ke ρ η ws hrel hno hrf hlen hval hv w hw x g hx
+    intro ke ρ η ws hrel hno hlen hval hv w hw x g hx
     obtain ⟨-, n, hn⟩ := hv
     have hm := locPub_mem_val hn hw
     rw [hx] at hm; simp at hm
   | code a b _ _ =>
-    intro ke ρ η ws hrel hno hrf hlen hval hv w hw x g hx
+    intro ke ρ η ws hrel hno hlen hval hv w hw x g hx
     obtain ⟨i, d, hn, -⟩ := hv
     have hm := locPub_mem_val hn hw
     rw [hx] at hm; simp at hm
   | word r P =>
-    intro ke ρ η ws hrel hno hrf hlen hval hv w hw x g hx
+    intro ke ρ η ws hrel hno hlen hval hv w hw x g hx
     cases hg : P.ghost with
     | true =>
       simp [wc, accs, hg, nWords] at hlen
@@ -291,43 +288,43 @@ theorem locPubV_VR : ∀ (T : Ty) (ke : KEnv) (ρ : Nat → Nat) (η : TEnv) (ws
       have hm := locPub_mem_val hn hw
       rw [hx] at hm; simp at hm
   | word2 r P =>
-    intro ke ρ η ws hrel hno hrf hlen hval hv w hw x g hx
+    intro ke ρ η ws hrel hno hlen hval hv w hw x g hx
     obtain ⟨-, n0, n1, hn, -⟩ := hv
     have hm := locPub_mem_val hn hw
     rw [hx] at hm; simp at hm
   | epair r P =>
-    intro ke ρ η ws hrel hno hrf hlen hval hv w hw x g hx
+    intro ke ρ η ws hrel hno hlen hval hv w hw x g hx
     obtain ⟨-, n0, n1, hn⟩ := hv
     have hm := locPub_mem_val hn hw
     rw [hx] at hm; simp at hm
   | array i t _ =>
-    intro ke ρ η ws hrel hno hrf hlen
+    intro ke ρ η ws hrel hno hlen
     simp [wc, accs] at hlen
   | unit | share _ | cap _ _ | tok _ _ | tok2 _ _ _ _ | tokE _ _ _ =>
-    intro ke ρ η ws hrel hno hrf hlen hval hv w hw
+    intro ke ρ η ws hrel hno hlen hval hv w hw
     simp [wc, accs, nWords] at hlen
     rw [List.eq_nil_of_length_eq_zero hlen.symm] at hw; simp at hw
 
 /-- **`wordOK_locPub` with views**: a `loc` word of a `noOwnIn`/`rgnFree` cell's `WordOK` value names a
 box or a cell whose frontier is at most the word's view. -/
 theorem wordOK_locPubV {E : TEnv} {T : Ty} {o : Nat} {w : Word} {a : Address} {g : Nat}
-    (h : WordOK E T o w) (hno : Ty.noOwnIn [] T = true) (hrf : rgnFree T = true)
+    (h : WordOK E T o w) (hno : Ty.noOwnIn [] T = true)
     (hv : w.val = .loc a g) :
     (∃ c f, E.sto a.label = some c ∧ E.pfr a.label = some f ∧ f ≤ w.view) ∨ ∃ B, E.box a.label = some B := by
   obtain ⟨b, S, ws, o', w0, hseg, ⟨⟨hvr, hval⟩, hsh⟩, hget, hle, -⟩ := h
-  have hS : Ty.noOwnIn [] S = true ∧ rgnFree S = true ∧ accs S ≠ none := by
+  have hS : Ty.noOwnIn [] S = true ∧ accs S ≠ none := by
     rcases hseg with ⟨-, rfl, hacc⟩ | ⟨N, us, j, rfl, hus, -, -⟩
-    · exact ⟨hno, hrf, hacc⟩
-    · simp only [Ty.noOwnIn, rgnFree] at hno hrf
-      exact ⟨hno, hrf, by rw [hus]; simp⟩
-  obtain ⟨hnoS, hrfS, hacc⟩ := hS
+    · exact ⟨hno, hacc⟩
+    · simp only [Ty.noOwnIn] at hno
+      exact ⟨hno, by rw [hus]; simp⟩
+  obtain ⟨hnoS, hacc⟩ := hS
   have hwc : wc S = some ws.length := by
     cases hu : accs S with
     | none => exact absurd hu hacc
     | some us => simp only [wc, hu, Option.map_some]; rw [hsh us hu]
   have hrel : ∀ k r vs, ¬ (CE E.unsee).rels k r vs := fun _ _ _ h => h
   have hw0 : w0.val = .loc a g := hle.1.trans hv
-  rcases locPubV_VR S [] (fun _ => 0) (CE E.unsee) ws hrel hnoS hrfS hwc hval hvr w0
+  rcases locPubV_VR S [] (fun _ => 0) (CE E.unsee) ws hrel hnoS hwc hval hvr w0
     (List.mem_of_getElem? hget) a g hw0 with ⟨c, f, hc, hf, hs⟩ | ⟨B, hB⟩
   · refine .inl ⟨c, f, hc, hf, ?_⟩
     rcases hs with hs | hs
@@ -380,7 +377,7 @@ cell gets a frontier `f` at most the promise's view (`wordOK_locPubV`; a box lab
 `BoxInv`).  The label has no frontier in `E'`, so `f` is at least the post-step `vWr` (`FrBound`),
 which is at least the pre-step memory size less one (`WrUp`, the step allocates); but the promise is
 an old message whose view is below its timestamp (`PromViewLt`). -/
-theorem promAlloc_val (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [WrIniC] (hP : ProgT p) (hrun : TermPlantF.CertRunT p k arch Sp Init MintOK c0)
+theorem promAlloc_val (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [WrIniC] (hP : ProgT p) (hrun : TermPlantF.CertRunT p k arch Sp Init MintOK c0)
     (hn0 : TermPlantF.PromViewLtR p k arch Sp c0)
     {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {i : Nat}
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
@@ -392,7 +389,7 @@ theorem promAlloc_val (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p
     {L : AllocLabel} (hF : FreshIn (gOf p k arch c i) th.nalloc r.2.2.nalloc L) {t : Ts} {m : Msg}
     (ht : t ∈ r.2.2.promises) (hm : c'.mem[t]? = some m) {a' : Address} {g : Nat} (hv : m.val = .loc a' g)
     {cm : Cell} (hcm : E'.sto m.loc.label = some cm) (hno : Ty.noOwnIn [] cm.ty = true)
-    (hrf : rgnFree cm.ty = true) {cl : Cell} (hcl : E'.sto a'.label = some cl) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) : a'.label ≠ L := by
+    {cl : Cell} (hcl : E'.sto a'.label = some cl) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) : a'.label ≠ L := by
   intro hL
   subst hL
   have hgf := gfoot_of X Y Z
@@ -428,7 +425,7 @@ theorem promAlloc_val (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p
   obtain ⟨c2, th2, E2, -, -, -, hx2, -, hm2, hok, hfb2⟩ := certified_promWordX (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hsc (by first | exact TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw | exact TermViewInv.viewInv_run hV0 X.run | exact TermViewInv.viewInv_thread (TermViewInv.viewInv_run hV0 X.run) X.hc') hwin hX (TermTyped.tidAt_mono hAP.2 (TermTyped.tidAt_thread X.hc' (TermMain.tidAt_cut X.inv i S))) X.cert htp hm
   rcases hok cm hcm with hu | hw
   · rw [hv] at hu; cases hu
-  rcases wordOK_locPubV hw hno hrf hv with ⟨c3, f, hs3, hf3, hle⟩ | ⟨B, hB⟩
+  rcases wordOK_locPubV hw hno hv with ⟨c3, f, hs3, hf3, hle⟩ | ⟨B, hB⟩
   · have hvw : r.2.2.vs.vWr ≤ f := hfb2.1 a'.label c3 f hpfr hs3 hf3
     have hle2 : f ≤ m.view := hle
     have h5 : c.mem.size ≤ t :=
@@ -445,7 +442,7 @@ in a one-word slot of it (`SWOne` at its certificate's fulfilling write).  The a
 message there past the old memory (`NewAtT`), so not a promise; the owner's invariant at `E'`
 (`LatestSF`, no frontier) puts coherence at or past it, past the promise (an old message), against
 `certified_promAbove`. -/
-theorem promAlloc_loc (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [WrIniC] (hP : ProgT p) (hrun : TermPlantF.CertRunT p k arch Sp Init MintOK c0)
+theorem promAlloc_loc (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [WrIniC] (hP : ProgT p) (hrun : TermPlantF.CertRunT p k arch Sp Init MintOK c0)
     {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {i : Nat}
     {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
     {Rf Rs : Res} {E' : TEnv} {Tot' HP' HS' C F : Res} {cr' db' δ : Ts → Res}
@@ -532,11 +529,11 @@ theorem promAlloc_loc (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p
   exact Nat.lt_irrefl _ (Nat.lt_of_le_of_lt (Nat.le_trans htu hcoh) (Nat.lt_trans hpa hlt))
 
 /-- **`PromAllocF`**: the value half (`promAlloc_val`) and the location half (`promAlloc_loc`). -/
-theorem promAllocF_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [WrIniC] (hP : ProgT p) (hrun : TermPlantF.CertRunT p k arch Sp Init MintOK c0)
+theorem promAllocF_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [WrIniC] (hP : ProgT p) (hrun : TermPlantF.CertRunT p k arch Sp Init MintOK c0)
     (hn0 : TermPlantF.PromViewLtR p k arch Sp c0) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) : PromAllocF p k arch Sp Init MintOK c0 := by
   intro c c' Eg Tot HP HS cr db i th r S ρ η cx Rf Rs E' Tot' HP' HS' C F cr' db' δ X Y Z hS hPfr L hF t m ht hm
   exact ⟨promAlloc_loc (hV0 := hV0) (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hrun X Y Z hS hPfr hF ht hm,
-    fun a' g hv cm hcm hno hrf cl hcl => promAlloc_val (hV0 := hV0) (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hrun hn0 X Y Z hS hPfr hF ht hm hv hcm hno hrf hcl⟩
+    fun a' g hv cm hcm hno cl hcl => promAlloc_val (hV0 := hV0) (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hrun hn0 X Y Z hS hPfr hF ht hm hv hcm hno hcl⟩
 
 end
 

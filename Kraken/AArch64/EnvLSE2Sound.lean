@@ -345,6 +345,7 @@ theorem Directive.interp_mono_lse2 [Labels] {P₁ P₂ : MachineState → env.St
   cases d with
   | label l => exact hk _ _ h
   | byteArray bs => simp only [Directive.interp, Effects.AllEnvLSE2] at h
+  | zeros n => simp only [Directive.interp, Effects.AllEnvLSE2] at h
   | instr i =>
     simp only [Directive.interp, Instr.interp, Effects.AllEnvLSE2] at h ⊢
     exact operation_mono hk hj h

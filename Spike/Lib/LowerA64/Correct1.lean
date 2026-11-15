@@ -75,48 +75,51 @@ local notation "S0" h => Scc.Sem.A64.threadAt Scc.Sem.Entry.linux (Ly h).Λ.code
   (Scc.Sem.loadSyms (Ly h).Λ (O).secs.rodata)
 
 
-/-- **The AArch64 compiler theorem for a main-only call-free `Accepted1`
-program at an admissible entry state `E`**
-(`hE`), with the runtime's start as a hypothesis (`hgen`) and no static
-label (`hs`): `Correct` over the target on
-parsed texts at `E`. -/
-theorem a64_lower_correctE1 (hd : Scc.Lower.Accepted1 [d] = true) {em : Scc.Lower.A64.Emitted}
-    (hlow : Scc.Lower.A64.lowerAll? cfg [d] = .ok em) {Λ : Scc.Sem.Layout} (h : placeOKAt pcfg Λ (O) = true)
+/-- The value invariant of an output `o` (`G0` at `o`). -/
+local notation "G0o" h:max o:max =>
+  Spike.Lib.A64.PhRec.GOf (Ly h) (Spike.Lib.A64.PhRec.m0Of (Ly h).Λ (o).prog (o).secs)
+
+/-- **`a64_lower_correctE1` for any output naming the lowering's IR** (`hir`) **with a
+bare tail** (`htl`): its proof, over any output `o` passing `placeOKAt`. -/
+theorem a64_lower_correctE1_of (hd : Scc.Lower.Accepted1 [d] = true) {em : Scc.Lower.A64.Emitted}
+    (hlow : Scc.Lower.A64.lowerAll? cfg [d] = .ok em) {Λ : Scc.Sem.Layout}
+    {o : Scc.Cert.PlaceOK.A64.Out} (h : placeOKAt pcfg Λ o = true)
+    (hir : o.place.ir = some (Scc.Lower.A64.lowerAll cfg [d]).low.ir) (htl : o.place.tail = .bare)
     (hs : ∀ l, Λ.static l = none) {B : Scc.Sem.Budget} {arch : WeakMem.Arch} {E : Entry} (hE : E.Ok (Ly h).Λ)
     -- Runtime: `startAllUW_gen`'s conclusion
     (hgen : ∀ cx : FnCtx, cx.frame ≤ 4095 →
       SwUW (WS h (Ly h).Λ.static) (K (Ly h) (Spike.Lib.A64.Rt.rS0 (Ly h))) [d] (Ly h).Λ.static (Ly h).exe
         (Ly h).endPc (entryR E) (fun m => rtF (Ly h) m ∧ StackM (Spike.Lib.A64.Rt.rS0 (Ly h)) m)
-        (MS h (G0 h) (Ly h).Λ.static (fun _ => 0)) (Spike.Lib.A64.Rt.rS0 (Ly h))
+        (MS h (G0o h o) (Ly h).Λ.static (fun _ => 0)) (Spike.Lib.A64.Rt.rS0 (Ly h))
         (Ret0.pinA (Ly h).lab + 0#64 + 8#64) (Ret0.stacksA (Ly h).lab + 0#64 + 16384#64)
         Spike.Lib.A64Consumer.c0 (cx.frame + 96) bareMC (cx.frame + 48) (Int64.ofInt cx.frame)
         (UPost [d] (Ly h).Λ.static Spike.Lib.A64Consumer.c0) →
       StartAllUW (WS h (Ly h).Λ.static) (K (Ly h) (Spike.Lib.A64.Rt.rS0 (Ly h))) [d] (Ly h).Λ.static
-        (Ly h).exe (Ly h).endPc (entryR E) (rtF (Ly h)) (MS h (G0 h) (Ly h).Λ.static (fun _ => 0))
+        (Ly h).exe (Ly h).endPc (entryR E) (rtF (Ly h)) (MS h (G0o h o) (Ly h).Λ.static (fun _ => 0))
         (Spike.Lib.A64.Rt.rS0 (Ly h)) 0#64 0#64 Spike.Lib.A64Consumer.c0 (cx.frame + 96) bareMC
         (cx.frame + 48) (Int64.ofInt cx.frame) (UPost [d] (Ly h).Λ.static Spike.Lib.A64Consumer.c0)) :
     Scc.Sem.Correct (TParE E) (Scc.Sem.SrcSem.source (Spike.Lib.srcP1 arch) [d]) (Ly h).Λ B
-      ((O).prog, (O).secs) := by
-  have hload : ∃ t0, (TParE E).load ((O).prog, (O).secs) (Ly h).Λ = some t0 :=
+      (o.prog, o.secs) := by
+  have hload : ∃ t0, (TParE E).load (o.prog, o.secs) (Ly h).Λ = some t0 :=
     ⟨_, Scc.Cert.Link.A64.loadParsed_of_loadOk (loadOk_link_of_placeOKAt (i := Scc.Lower.imms1Of [d]) h) hE.1⟩
   obtain ⟨cx, r, -, entry, hr, -, -, hf, h1, h16, hent, hpro, hbo, hbp, hlab, hphP, hab⟩ :=
-    mainPh1_ofPlaceOK hd hlow h (Scc.Lower.imms1Of [d])
+    mainPh1_ofPlaceOK_of hd hlow h hir (Scc.Lower.imms1Of [d])
   have hsh := lower1_shape d.body [] _ 0 r (Scc.Lower.Inv.accepted1_main hd).2.2.2.2.2.2
     (Scc.Lower.Inv.envScalar_nil _) hr
   have hI := Spike.Lib.A64.PhRec.instOk_ofPlaceOK h (Scc.Lower.imms1Of [d]) (rS := Spike.Lib.A64.Rt.rS0 (Ly h))
-  have hgap : ∀ a b n, Scc.Cert.Rt.A64.labelGap (O).prog a b n = true → (Ly h).lab b = (Ly h).lab a + Int64.ofNat (4 * n) :=
+  have hgap : ∀ a b n, Scc.Cert.Rt.A64.labelGap o.prog a b n = true → (Ly h).lab b = (Ly h).lab a + Int64.ofNat (4 * n) :=
     fun _ _ _ hg => by rw [← hI.labOk]; exact Scc.Cert.Rt.A64.label_labelGap hI.lays hg
   have hcode := entryCode1 hf h1 h16 hgap hlab hent hbo hbp hsh.1
   have hbl := blocksCode1 (pre := [⟨"entry", r.insts, r.term⟩]) hf h1 h16 hgap hlab hbo hbp hsh.2
-  have hss0 : imageOk (Ly h).Λ (O).secs (Scc.Cert.Link.A64.codeOf (Ly h).Λ.code.lo (O).prog) = true :=
+  have hss0 : imageOk (Ly h).Λ o.secs (Scc.Cert.Link.A64.codeOf (Ly h).Λ.code.lo o.prog) = true :=
     imageIn_link_of_placeOKAt (i := Scc.Lower.imms1Of [d]) h
-  have hss : Scc.Sem.StaticSyms (Ly h).Λ (O).secs (Scc.Cert.Link.A64.codeOf (Ly h).Λ.code.lo (O).prog)
+  have hss : Scc.Sem.StaticSyms (Ly h).Λ o.secs (Scc.Cert.Link.A64.codeOf (Ly h).Λ.code.lo o.prog)
       (fun _ => 0) (fun _ => "") :=
     Scc.Sem.StaticSyms.of_none hs
   have hs' : (Ly h).Λ.static = fun _ => none := funext hs
-  have htl := tail_bare_of_accepted1main hd hlow
   have hseg := a64_start_segW1 h (Scc.Lower.imms1Of [d]) hd htl hf h1 h16 hpro hr hcode hbl
-    (Dt := OvfDt (Ly h).exe (Ly h).endPc (Ly h).lab) (rd := fun _ => True) (G := G0 h) (hs' ▸ rtFree_ofPlaceOK h _) hE
+    (Dt := OvfDt (Ly h).exe (Ly h).endPc (Ly h).lab) (rd := fun _ => True) (G := (G0o h o))
+    (hs' ▸ rtFree_ofPlaceOK h _) hE
     hphP Ret0.Inst.cfacts_c0 hab rfl
     (fun _ _ hal hlo hhi _ _ _ hA => ovfDt_of_at hal hlo hhi hA)
     (hGh_ofPlaceOK h _) (hGf_ofPlaceOK h _) (hGt_ofPlaceOK h _) (hownT_ofPlaceOK h _) (hG1_ofPlaceOK h _)
@@ -138,9 +141,55 @@ theorem a64_lower_correctE1 (hd : Scc.Lower.Accepted1 [d] = true) {em : Scc.Lowe
     (Spike.Lib.A64.PhRec.hown0_of_pcE h _ hE.1 (Spike.Lib.A64.PhRec.hpc_ofPlaceOKE h _ E))
     (Spike.Lib.A64Consumer.writeNoProm_of_tail (tailNoFul_ovf hI (abortIn_of_placeOKAt h)
       (Spike.Lib.A64.PhRec.abortPhOk_ofPlaceOK h _) (hrel_ofPlaceOK h _) (htk_ofPlaceOK h _) hWr))
-    (fun _ => trivial) (wf_link_of_placeOKAt (i := Scc.Lower.imms1Of [d]) h) (Spike.Lib.A64.PhRec.G0_ofPlaceOKE h _ hE.1)
+    (fun _ => trivial) (wf_link_of_placeOKAt (i := Scc.Lower.imms1Of [d]) h)
+    (Spike.Lib.A64.PhRec.G0_ofPlaceOKE h _ hE.1)
     (Spike.Lib.A64.PhRec.hGpl_ofPlaceOK h _) hA
     (fun h => h)
+
+/-- **The AArch64 compiler theorem for a main-only call-free `Accepted1`
+program at an admissible entry state `E`**
+(`hE`), with the runtime's start as a hypothesis (`hgen`) and no static
+label (`hs`): `Correct` over the target on
+parsed texts at `E`. -/
+theorem a64_lower_correctE1 (hd : Scc.Lower.Accepted1 [d] = true) {em : Scc.Lower.A64.Emitted}
+    (hlow : Scc.Lower.A64.lowerAll? cfg [d] = .ok em) {Λ : Scc.Sem.Layout} (h : placeOKAt pcfg Λ (O) = true)
+    (hs : ∀ l, Λ.static l = none) {B : Scc.Sem.Budget} {arch : WeakMem.Arch} {E : Entry} (hE : E.Ok (Ly h).Λ)
+    -- Runtime: `startAllUW_gen`'s conclusion
+    (hgen : ∀ cx : FnCtx, cx.frame ≤ 4095 →
+      SwUW (WS h (Ly h).Λ.static) (K (Ly h) (Spike.Lib.A64.Rt.rS0 (Ly h))) [d] (Ly h).Λ.static (Ly h).exe
+        (Ly h).endPc (entryR E) (fun m => rtF (Ly h) m ∧ StackM (Spike.Lib.A64.Rt.rS0 (Ly h)) m)
+        (MS h (G0 h) (Ly h).Λ.static (fun _ => 0)) (Spike.Lib.A64.Rt.rS0 (Ly h))
+        (Ret0.pinA (Ly h).lab + 0#64 + 8#64) (Ret0.stacksA (Ly h).lab + 0#64 + 16384#64)
+        Spike.Lib.A64Consumer.c0 (cx.frame + 96) bareMC (cx.frame + 48) (Int64.ofInt cx.frame)
+        (UPost [d] (Ly h).Λ.static Spike.Lib.A64Consumer.c0) →
+      StartAllUW (WS h (Ly h).Λ.static) (K (Ly h) (Spike.Lib.A64.Rt.rS0 (Ly h))) [d] (Ly h).Λ.static
+        (Ly h).exe (Ly h).endPc (entryR E) (rtF (Ly h)) (MS h (G0 h) (Ly h).Λ.static (fun _ => 0))
+        (Spike.Lib.A64.Rt.rS0 (Ly h)) 0#64 0#64 Spike.Lib.A64Consumer.c0 (cx.frame + 96) bareMC
+        (cx.frame + 48) (Int64.ofInt cx.frame) (UPost [d] (Ly h).Λ.static Spike.Lib.A64Consumer.c0)) :
+    Scc.Sem.Correct (TParE E) (Scc.Sem.SrcSem.source (Spike.Lib.srcP1 arch) [d]) (Ly h).Λ B
+      ((O).prog, (O).secs) :=
+  a64_lower_correctE1_of hd hlow h (lowerAll_place_ir cfg [d])
+    (tail_bare_of_accepted1main hd hlow) hs hE hgen
+
+/-- **`hgen1_ofPlaceOK` for any output** `o`: its proof. -/
+theorem hgen1_ofPlaceOK_of {Λ : Scc.Sem.Layout} {o : Scc.Cert.PlaceOK.A64.Out}
+    (h : placeOKAt pcfg Λ o = true) :
+    ∀ E : Entry, E.Ok (Ly h).Λ → ∀ cx : FnCtx, cx.frame ≤ 4095 →
+      SwUW (WS h (Ly h).Λ.static) (K (Ly h) (Spike.Lib.A64.Rt.rS0 (Ly h))) [d] (Ly h).Λ.static (Ly h).exe
+        (Ly h).endPc (entryR E) (fun m => rtF (Ly h) m ∧ StackM (Spike.Lib.A64.Rt.rS0 (Ly h)) m)
+        (MS h (G0o h o) (Ly h).Λ.static (fun _ => 0)) (Spike.Lib.A64.Rt.rS0 (Ly h))
+        (Ret0.pinA (Ly h).lab + 0#64 + 8#64) (Ret0.stacksA (Ly h).lab + 0#64 + 16384#64)
+        Spike.Lib.A64Consumer.c0 (cx.frame + 96) bareMC (cx.frame + 48) (Int64.ofInt cx.frame)
+        (UPost [d] (Ly h).Λ.static Spike.Lib.A64Consumer.c0) →
+      StartAllUW (WS h (Ly h).Λ.static) (K (Ly h) (Spike.Lib.A64.Rt.rS0 (Ly h))) [d] (Ly h).Λ.static
+        (Ly h).exe (Ly h).endPc (entryR E) (rtF (Ly h)) (MS h (G0o h o) (Ly h).Λ.static (fun _ => 0))
+        (Spike.Lib.A64.Rt.rS0 (Ly h)) 0#64 0#64 Spike.Lib.A64Consumer.c0 (cx.frame + 96) bareMC
+        (cx.frame + 48) (Int64.ofInt cx.frame) (UPost [d] (Ly h).Λ.static Spike.Lib.A64Consumer.c0) :=
+  fun E hE _ _ hs3 => Spike.Lib.A64.Rt.startAllUW_gen h (Scc.Lower.imms1Of [d]) (rtPh_of_placeOKAt h)
+    Ret0.Inst.cfacts_c0
+    (Spike.Lib.A64.Rt.entryR_ok hE) (Spike.Lib.A64.Rt.entryR_al hE) (by show (-65536 : Int) ≤ -304; decide)
+    (by show (0 : Int) ≤ 0; decide) (fun _ hm => hm) rfl (rS0_eq_lab _) (Spike.Lib.A64.Rt.rS0_sub _)
+    (stackM_rS0 _ hE).1 (stackM_rS0 _ hE).2.1 (stackM_rS0 _ hE).2.2 hs3
 
 /-- **`hgen` from `placeOK`** (`hgen_ofPlaceOK` at the immediates `imms1Of [d]`) (`startAllUW_gen`): at every admissible entry
 state `E`, `scc_rt_start`'s blocks after `_start` are inside the run's facts
@@ -161,10 +210,7 @@ theorem hgen1_ofPlaceOK {Λ : Scc.Sem.Layout} (h : placeOKAt pcfg Λ (O) = true)
         (Ly h).exe (Ly h).endPc (entryR E) (rtF (Ly h)) (MS h (G0 h) (Ly h).Λ.static (fun _ => 0))
         (Spike.Lib.A64.Rt.rS0 (Ly h)) 0#64 0#64 Spike.Lib.A64Consumer.c0 (cx.frame + 96) bareMC
         (cx.frame + 48) (Int64.ofInt cx.frame) (UPost [d] (Ly h).Λ.static Spike.Lib.A64Consumer.c0) :=
-  fun E hE _ _ hs3 => Spike.Lib.A64.Rt.startAllUW_gen h (Scc.Lower.imms1Of [d]) (rtPh_of_placeOKAt h) Ret0.Inst.cfacts_c0
-    (Spike.Lib.A64.Rt.entryR_ok hE) (Spike.Lib.A64.Rt.entryR_al hE) (by show (-65536 : Int) ≤ -304; decide)
-    (by show (0 : Int) ≤ 0; decide) (fun _ hm => hm) rfl (rS0_eq_lab _) (Spike.Lib.A64.Rt.rS0_sub _)
-    (stackM_rS0 _ hE).1 (stackM_rS0 _ hE).2.1 (stackM_rS0 _ hE).2.2 hs3
+  hgen1_ofPlaceOK_of h
 
 /-- **The AArch64 compiler theorem for a main-only call-free `Accepted1`
 program at any layout, closed**: for a program

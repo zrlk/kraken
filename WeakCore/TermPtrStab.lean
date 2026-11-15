@@ -28,12 +28,12 @@ theorem edgeB_agree {sto sto2 : Sto} {s s2 : St} {a : AllocLabel} {u : Ts} {m : 
   apply Bool.eq_iff_iff.2
   rw [edgeB_iff, edgeB_iff, hm1, hm2]
   constructor
-  · rintro ⟨m1, h1, ⟨ca, e1, e2, e3⟩, e4⟩
-    cases h1
-    exact ⟨m, rfl, ⟨ca, hl ▸ e1, e2, e3⟩, e4⟩
-  · rintro ⟨m1, h1, ⟨ca, e1, e2, e3⟩, e4⟩
-    cases h1
-    exact ⟨m, rfl, ⟨ca, hl.symm ▸ e1, e2, e3⟩, e4⟩
+  · rintro ⟨m1, h1, ⟨ca, e1, e2⟩, e3⟩
+    obtain rfl := Option.some.inj h1
+    exact ⟨_, rfl, ⟨ca, by rw [← hl]; exact e1, e2⟩, e3⟩
+  · rintro ⟨m1, h1, ⟨ca, e1, e2⟩, e3⟩
+    obtain rfl := Option.some.inj h1
+    exact ⟨_, rfl, ⟨ca, by rw [hl]; exact e1, e2⟩, e3⟩
 
 /-- Shrinking the promises, edges kept on the survivors, the old `tmin` surviving: `tmin` kept. -/
 theorem tminOf_shrink {sto sto2 : Sto} {s s2 : St} {a : AllocLabel}
@@ -223,9 +223,9 @@ theorem tminG_plant {P : AllocLabel → Option Ts} {c : Cfg} {Eg : GEnv} {N : Al
     fun u hu => edgeB_congr rfl (push_get (hplt j th u hth hu))
   refine tminOf_grow_none rfl he h0 ?_
   obtain ⟨hL, -⟩ := hPL _ _ hpl
-  obtain ⟨l', -, u, hu, m, hm, hml, ⟨ca, hca, hno, hrf⟩, a', g, hv, ha', -⟩ := hL
+  obtain ⟨l', -, u, hu, m, hm, hml, ⟨ca, hca, hno⟩, a', g, hv, ha', -⟩ := hL
   have hE : PlantEdge Eg.sto m l :=
-    ⟨⟨ca, hml ▸ cut_sto_le Eg j (fun _ => False) _ _ hca, hno, hrf⟩, a', g, hv, ha'⟩
+    ⟨⟨ca, hml ▸ cut_sto_le Eg j (fun _ => False) _ _ hca, hno⟩, a', g, hv, ha'⟩
   rcases List.mem_append.1 hu with hu | hu
   · exfalso
     have hm0 : c.mem[u]? = some m := by
@@ -253,9 +253,9 @@ theorem noEdgeUnpl_of {Eg : GEnv} {c : Cfg} (hC : PromClosG Eg c) (hI : PromInCu
     | none => rfl
     | some t =>
       exfalso
-      obtain ⟨htp, m, hm, ⟨ca, hca, hno, hrf⟩, a', g, hv, ha'⟩ := tminOf_spec ht
+      obtain ⟨htp, m, hm, ⟨ca, hca, hno⟩, a', g, hv, ha'⟩ := tminOf_spec ht
       have hsa : Eg.sto a'.label = some cl := by rw [ha']; exact hsto
-      obtain ⟨f, hf⟩ := hC j th t m hq htp hm a' g hv cl hsa hown ca hca (hI j th t m hq htp hm ca hca) hno hrf
+      obtain ⟨f, hf⟩ := hC j th t m hq htp hm a' g hv cl hsa hown ca hca (hI j th t m hq htp hm ca hca) hno
       rw [ha', hpf] at hf; cases hf
 
 /-- `PromInCut` across a thread step of `i` (given the global footprint, `TermInterf.gfoot_of`). -/
@@ -422,8 +422,8 @@ theorem ptrRtsG_prom_own {P : AllocLabel → Option Ts} {c : Cfg} {Eg : GEnv} {T
       have hmu := push_get_ne hu hne
       by_cases hpr : ∃ (q : Nat) (thq : TTh), c.ths[q]? = some thq ∧ u ∈ thq.promises
       · obtain ⟨q, thq, hq, hu'⟩ := hpr
-        obtain ⟨⟨cm, hcm, hno, hrf⟩, a', g, hv, ha'⟩ := hE
-        rcases hFP q thq u m hq hu' hmu a' g hv cm hcm hno hrf with
+        obtain ⟨⟨cm, hcm, hno⟩, a', g, hv, ha'⟩ := hE
+        rcases hFP q thq u m hq hu' hmu a' g hv cm hcm hno with
           ⟨f2, hf2⟩ | ⟨cl2, hcl2, ho2⟩ | ⟨B, hB⟩ | ⟨n2, -, hn2⟩
         · rw [ha', hpn0] at hf2; cases hf2
         · rw [ha', hsto] at hcl2
@@ -576,14 +576,14 @@ theorem nonPromLbl_of {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res}
     (X : SysInvN p k arch Init MintOK c Eg Tot HP HS cr db) (hCO : CellOwnerLive Eg c)
     {j : Nat} {th : TTh} (hth : c.ths[j]? = some th) : NonPromLbl Eg c := by
   intro u m L hmu hE hall
-  obtain ⟨⟨ca, hca, -, -⟩, -⟩ := id hE
+  obtain ⟨⟨ca, hca, -⟩, -⟩ := id hE
   obtain ⟨hlive, hsh⟩ := hCO _ ca hca
   cases ho : ca.owner with
   | some i =>
     have hi := hlive i ho
     have hthi : c.ths[i]? = some c.ths[i] := Array.getElem?_eq_getElem hi
     exact plantEdge_lbl_of_thSys (X.thr i _ hthi) (hall i _ hthi) hmu hE
-      (fun ca' h => by rw [hca] at h; cases h; exact Or.inl ho)
+      (fun ca' h => by rw [hca] at h; obtain rfl := Option.some.inj h; exact Or.inl ho)
   | none =>
     exact plantEdge_lbl_of_thSys (X.thr j th hth) (hall j th hth) hmu hE
       (fun _ _ => Or.inr (hsh ho))

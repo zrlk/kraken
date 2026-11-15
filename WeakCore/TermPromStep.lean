@@ -178,7 +178,7 @@ variable {Sp : TermRun.Cfg → TermRun.Cfg → Prop}
 
 /-- (B5) The certificate at the promiser's own environment `CE η`: the promised
 address lies in a `.one` unit of its cell there (`SWOne_holds`). -/
-theorem prom_oneAt (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : TermNoHold.CertRunP p k arch Sp Init MintOK c0)
+theorem prom_oneAt (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : TermNoHold.CertRunP p k arch Sp Init MintOK c0)
     {c : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {j : Nat} {th : TTh}
     {a : Address} {v : WeakMem.Val} {w : Ts} (X : PCtxX p k arch Sp Init MintOK c0 c Eg Tot HP HS cr db j th a v w)
     {η : TEnv} {S : AllocLabel → Prop} (hCE : CE η = Cut Eg j S) {cl : Cell} (hcl : (CE η).sto a.label = some cl) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) :
@@ -211,7 +211,7 @@ theorem prom_oneAt (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [
   exact ⟨o1, U, us, j1, h1o, hus, hj, ho⟩
 
 /-- **`hfw`** at the promiser's cut. -/
-theorem hfw_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : TermNoHold.CertRunP p k arch Sp Init MintOK c0)
+theorem hfw_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : TermNoHold.CertRunP p k arch Sp Init MintOK c0)
     {c : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {j : Nat} {th : TTh}
     {a : Address} {v : WeakMem.Val} {w : Ts} (X : PCtxX p k arch Sp Init MintOK c0 c Eg Tot HP HS cr db j th a v w)
     (S : AllocLabel → Prop) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) : HFW p (gOf p k arch c j) c.mem c.pairs th (Tot j) a (Cut Eg j S) := by
@@ -227,7 +227,7 @@ theorem hfw_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [Term
 /-- **`hwu`** at the promiser's cut: the new promise's `PromNewOK` (initialised, a
 typed word in the planted public environment, no plant at a visible label),
 the `.one` unit from the certificate excluding `word2` units. -/
-theorem hwu_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : TermNoHold.CertRunP p k arch Sp Init MintOK c0)
+theorem hwu_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : TermNoHold.CertRunP p k arch Sp Init MintOK c0)
     {plantOf : Cfg → GEnv → Nat → Address → WeakMem.Val → Ts → AllocLabel → Option Ts}
     {plantN : Cfg → GEnv → Nat → Address → WeakMem.Val → Ts → AllocLabel → Nat}
     (hspec : PlantSpecF p k arch Sp Init MintOK c0 plantOf)
@@ -309,6 +309,7 @@ theorem allocG_of {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {Mi
     subst e
     exact hf
   | fresh => exact absurd (by simp [Res.add_apply, Res.one_apply]) hF
+  | freshC _ => exact absurd (by simp [Res.add_apply, Res.one_apply]) hF
   | _ => exact absurd (by simp [Res.one_apply]) hF
 
 end TermPromStep

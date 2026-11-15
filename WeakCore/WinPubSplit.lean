@@ -63,7 +63,7 @@ theorem fulfil_siteB [WrIniCB] {p : Prog} {k : Promises.Knobs} {arch : Arch} {E0
   simp only [Res.add_apply] at h3
   have h0 : Rf (.own x) = 0 := by omega
   have hFp := TermOwnX2.Flat.finv_ofB htv hFI
-  have hscD := hsc th hth (TermTyped.not_spawnT_of_steps hth hs) ρ η cx hE hT.1 htv hFp
+  have hscD := hsc th hth (TermTyped.not_spawnT_of_steps hth hs) ρ η cx hE hT htv hFp
   have hvr := TermViewInv.envVR_solo (p := p) (k := k) (arch := arch) hvI (.refl _) hth
   obtain ⟨th', r, hth', hr, e1, e2, e3, -⟩ := threadSteps_inv hs
   rw [hth] at hth'

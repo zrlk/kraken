@@ -405,14 +405,14 @@ def WriteFrom (g : G) (mem : Memory) (pairs : List Ts) (th : TTh) (x : String) (
       evalAt th.env wa = some (t1, [pw]) ∧ evalAt th.env e = some (t2, [ew]) ∧ addrOf pw = some loc))
 
 /-- **Staging (PubOnly; never in a final theorem)**: the environment entry a typed thread's data
-word naming a label comes from, when written into a noOwn, rgnFree cell, has a shallow-pub runtime type (so all
+word naming a label comes from, when written into a noOwn cell (region references count as pub after M8), has a shallow-pub runtime type (so all
 its words count, `pubWords_of_sNo`). -/
 def FulSNo (p : Prog) : Prop :=
   ∀ (E : TEnv) (sto : Sto) (g : G) (mem : Memory) (pairs : List Ts) (th : TTh) (x : String) (rt : Ty)
     (ws : List Word) (w : Word) (loc : Address) (a : AllocLabel),
     (∀ l c, E.sto l = some c → sto l = some c) → ThInvE p E th → TermStep.MemInv g E (stOf mem pairs th) →
     WriteFrom g mem pairs th x rt ws w loc → Names a w →
-    (∃ ca, sto loc.label = some ca ∧ Ty.noOwnIn [] ca.ty = true ∧ rgnFree ca.ty = true) →
+    (∃ ca, sto loc.label = some ca ∧ Ty.noOwnIn [] ca.ty = true) →
     sNo rt = true
 
 theorem fetch_notLoc (o : FetchOp) (mr nw : WeakMem.Val) (a' : Address) (n : Nat) :
@@ -425,7 +425,7 @@ theorem noFul_step (p : Prog) (hF : FulSNo p) : NoFulStep p := by
   have hlt := TermStep.MemInv_promLt hM
   have hpp := TermStep.MemInv_nopair hM
   obtain ⟨htp, m, hm, hpe⟩ := tminOf_spec htm
-  obtain ⟨⟨ca, hca, hno, hrf⟩, a', n, hv, ha'⟩ := hpe
+  obtain ⟨⟨ca, hca, hno⟩, a', n, hv, ha'⟩ := hpe
   have hRts := (hR t htm).2
   refine (Classical.em _).elim id fun hn => (?_ : False).elim
   obtain ⟨-, rem⟩ := tstep_fulT hlt hpp hr
@@ -440,7 +440,7 @@ theorem noFul_step (p : Prog) (hF : FulSNo p) : NoFulStep p := by
     have hwm : w ∈ ws := List.mem_of_getElem? hwj
     obtain ⟨x, rt, hdv, hx⟩ := unitsOp_var hU hwm hnames
     have hs := hF E sto g mem pairs th x rt ws w m2.loc a hsto hT hM
-      ⟨hx, hwm, Or.inl ⟨y, op, e, pw, b, rel, us, j, hterm, hdv, hU, hj, hwj, hl⟩⟩ hnames ⟨ca, hca, hno, hrf⟩
+      ⟨hx, hwm, Or.inl ⟨y, op, e, pw, b, rel, us, j, hterm, hdv, hU, hj, hwj, hl⟩⟩ hnames ⟨ca, hca, hno⟩
     have hle := hRts.1 x rt ws (lookupE_mem hx) w (by rw [pubWords_of_sNo hs]; exact hwm) hnames
     exact Nat.lt_irrefl _ (Nat.lt_of_le_of_lt hle (hrts hk a' n hwv))
   · obtain ⟨o, -, -, -, -, -, mr, nw, hval⟩ := hW
@@ -451,7 +451,7 @@ theorem noFul_step (p : Prog) (hF : FulSNo p) : NoFulStep p := by
     obtain ⟨x, rfl, hx⟩ := evalAt_names h3 (List.mem_singleton_self nw) hnames
     have hs := hF E sto g mem pairs th x t3 [nw] nw m2.loc a hsto hT hM
       ⟨hx, List.mem_singleton_self nw, Or.inr ⟨acq, rel, wa, ee, tn, ok, fail, t1, t2, pw, ew, hterm, rfl, h1,
-        h2, hb⟩⟩ hnames ⟨ca, hca, hno, hrf⟩
+        h2, hb⟩⟩ hnames ⟨ca, hca, hno⟩
     have hle := hRts.1 x t3 [nw] (lookupE_mem hx) nw
       (by rw [pubWords_of_sNo hs]; exact List.mem_singleton_self nw) hnames
     exact Nat.lt_irrefl _ (Nat.lt_of_le_of_lt hle (hrts hk a' n hnv))

@@ -48,6 +48,7 @@ Build:  LEAN_PATH=build lean -o build/Complete.olean Complete.lean
 -/
 
 import WeakCore.CoreTyping
+import WeakCore.TermDyDefs
 
 namespace Complete
 
@@ -171,6 +172,21 @@ theorem progT_not_checked : ∃ p, ProgT p ∧ accepts (checkProg p) = false :=
   ⟨w1Prog, w1Prog_typed, w1Prog_refused⟩
 
 #print axioms progT_not_checked
+
+/-- (CHECKED r3, C1) **The new headline premises cover strictly more programs**: `w1Prog` is well
+typed and clean for type tests (its one body allocates nothing and calls nothing), yet the checker
+refuses it. -/
+theorem _root_.TermSound.typed_dy_not_checked :
+    ∃ p, ProgT p ∧ TermSound.DyClean p ∧ accepts (checkProg p) = false := by
+  refine ⟨Complete.w1Prog, Complete.w1Prog_typed, ?_, Complete.w1Prog_refused⟩
+  unfold TermSound.DyClean TermSound.TaintClosed TermSound.HidClean
+  refine ⟨[], fun g b h => by simp at h, fun d hd => ?_⟩
+  simp only [Complete.w1Prog, List.mem_singleton] at hd
+  subst hd
+  exact ⟨by first | rfl | simp [Complete.w1D, Complete.w1, scan],
+    fun c hc => by simp [Complete.w1D, Complete.w1, scan] at hc⟩
+
+#print axioms TermSound.typed_dy_not_checked
 
 /-! ## §2. Type equality and subsumption with the checker's index equality
 
@@ -777,7 +793,8 @@ inductive OpTA (p : Prog) : Cx → String → Op → Cx → Prop
   | call {cx c₁ c' : Cx} {x f : String} {is : List String} {a : At} {ts : List Ty} {d : Decl}
       {at_ rt t : Ty} :
       p.find f = .ok d → instantiate cx d is ts = .ok (at_, rt) → cx.use a = .ok (t, c₁) →
-      noLeak c₁ t = .ok () → SubA c₁ t at_ → c₁.bind x rt = .ok c' → OpTA p cx x (.call f is a ts) c'
+      noLeak c₁ t = .ok () → SubA c₁ t at_ → (if t.secondClass && maySpawnI p f then c₁.handOffR t else c₁).bind x rt = .ok c' →
+      OpTA p cx x (.call f is a ts) c'
   /-- `OpT.spawn` with the checker's subsumption (`SubA`). -/
   | spawn {cx c₁ c' : Cx} {x f : String} {a : At} {T : Ty} {ts : List Ty} {t : Ty} {d : Decl} {at_ rt : Ty} :
       cx.use a = .ok (t, c₁) → SubA c₁ t T → (affine c₁.ke t || affine c₁.ke T) = false →
@@ -789,6 +806,18 @@ inductive OpTA (p : Prog) : Cx → String → Op → Cx → Prop
       tailCheck p { vars := [("a", T, true)], ret := rt } f [] (.var "a") ts = .ok () →
       (TermClose.tb 0 rt && TermTv.mg rt && TermTv.noIallV rt) = true →
       c₁.bind x .tid = .ok c' → OpTA p cx x (.spawn f a T ts) c'
+  /-- A spawn at the callee's own signature (`checkOp`'s `.spawnI`): a second-class argument
+  is handed off (`Cx.handOffR`); the child's body is checked by `tailCheck`. -/
+  | spawnI {cx c₁ c' : Cx} {x f : String} {is : List String} {a : At} {T : Ty} {ts : List Ty} {t : Ty}
+      {d : Decl} {at_ rt : Ty} :
+      p.find f = .ok d → instantiate cx d is ts = .ok (at_, rt) → cx.use a = .ok (t, c₁) →
+      SubA c₁ t T → SubA c₁ T at_ → Ty.noOwnIn c₁.ke T = true →
+      ts.all (·.wf c₁.ke.length 0) = true → ts.all (TermClose.tb 0) = true →
+      TermScope.wrapOK T = true → ts.all TermScope.argOK = true →
+      tailCheck p { inames := d.idx.reverse, vars := [("a", substTs ts.reverse 0 0 d.argTy, true)], ret := substTs ts.reverse 0 0 d.retTy } f d.idx (.var "a") ts = .ok () →
+      (TermClose.tb 0 (substTs ts.reverse 0 0 d.retTy) && TermTv.mg (substTs ts.reverse 0 0 d.retTy) &&
+        TermTv.noIallV (substTs ts.reverse 0 0 d.retTy)) = true →
+      (c₁.handOffR T).bind x .tid = .ok c' → OpTA p cx x (.spawnI f is a T ts) c'
   /-- (E1) `OpT.ext` with the checker's subsumption (`SubA`). -/
   | ext {cx c₁ c' : Cx} {x : String} {n : ExtName} {a : At} {t : Ty} :
       cx.use a = .ok (t, c₁) → n.ok = true → SubA c₁ t n.sig.1 → c₁.bind x n.sig.2 = .ok c' →
@@ -803,8 +832,8 @@ inductive OpTA (p : Prog) : Cx → String → Op → Cx → Prop
       cx.use a = .ok (.tok r none, c₁) → c₁.sealedR r = true → c₁.bind x (.cap .frz r) = .ok c' →
       OpTA p cx x (.freeze a) c'
   | endBorrow {cx c' : Cx} {x y : String} {a : At} :
-      varOf a = .ok y → cx.lent.contains y = true → (cx.endCx y).bind x .unit = .ok c' →
-      OpTA p cx x (.endBorrow a) c'
+      varOf a = .ok y → cx.lent.contains y = true → sweptDrop cx = none →
+      (cx.endCx y).bind x .unit = .ok c' → OpTA p cx x (.endBorrow a) c'
   | xchg {cx c₁ c' : Cx} {x : String} {a v : At} {t u o tv : Ty} :
       cx.peek a = .ok t → xchgCell cx t = .ok (u, o) → cx.use v = .ok (tv, c₁) →
       (SubA c₁ tv u ∨ SubA c₁ tv o) → c₁.bind x o = .ok c' → OpTA p cx x (.xchg a v) c'
@@ -814,7 +843,8 @@ inductive OpTA (p : Prog) : Cx → String → Op → Cx → Prop
       OpTA p cx x (.fnptr f) c'
   | callc {cx c₁ c' : Cx} {x : String} {f a : At} {tf σ τ t : Ty} :
       cx.peek f = .ok tf → codeOf tf = some (σ, τ) → cx.use a = .ok (t, c₁) → noLeak c₁ t = .ok () →
-      SubA c₁ t σ → c₁.bind x τ = .ok c' → OpTA p cx x (.callc f a) c'
+      SubA c₁ t σ → (if t.secondClass && codeMaySpawnI p then c₁.handOffR t else c₁).bind x τ = .ok c' →
+      OpTA p cx x (.callc f a) c'
   | rem {cx c' : Cx} {x : String} {a n : At} {ta : Ty} {o : Option Idx} {j : Idx} {v : Nat} :
       cx.peek a = .ok ta → intOf ta = some o → intIdx cx n = .ok j → (cx.norm j).bind Lin.succVar? = some v →
       { (cx.push (x ++ "_d")).push x with
@@ -1056,6 +1086,16 @@ theorem checkOp_complete {p : Prog} {cx : Cx} {x : String} {op : Op} {c' : Cx}
   case fold =>
     rename_i h1 h2 h3 h4
     simp [checkOp, h1, h2, foldOk_complete h3, h4]
+  case call =>
+    rename_i hd hi h1 hn hs hb
+    simp only [checkOp, hd, hi, h1, hn, bind, Except.bind, sub_complete hs, Bool.not_true,
+      Bool.false_eq_true, ↓reduceIte]
+    exact hb
+  case callc =>
+    rename_i hp hc h1 hn hs hb
+    simp only [checkOp, hp, hc, h1, hn, bind, Except.bind, sub_complete hs, Bool.not_true,
+      Bool.false_eq_true, ↓reduceIte]
+    exact hb
   case addI =>
     rename_i hpa hpb hia hib hor hb
     simp only [checkOp, hpa, hpb, hia, hib, bind, Except.bind]
@@ -1089,12 +1129,10 @@ theorem check_complete {p : Prog} {cx : Cx} {e : Expr} (h : TypedA p cx e) : che
   all_goals (split <;> simp_all)
 
 /-- (M1, T6) The kind rules `checkDecl` runs after the body check, as a proposition:
-a device function's cells are device cells, device externs and device functions occur
-only inside a device function, no device function is taken as a value, and the
+device externs and device functions occur only inside a device function, no device function is taken as a value, and the
 decl obeys the call-site rule for loop functions, and, if restricted, passes the restricted rules and its cell pass
 within its stack budget. -/
 def DeclKindA (p : Prog) (d : Decl) : Prop :=
-  (d.kind == .device && !(devCells d.argTy).all devCellOK) = false ∧
   (d.kind != .device &&
     !exprNoDevOnly (fun f => ((p.find? (·.name == f)).map (·.kind == .device)).getD false) d.body) = false ∧
   exprNoDevFnptr (fun f => ((p.find? (·.name == f)).map (·.kind == .device)).getD false) d.body = true ∧
@@ -1171,7 +1209,7 @@ theorem restrictedPass_of {p : Prog} {d : Decl} {tbl : List (String × Ty)} {fue
   cases loop <;> cases selfBound d d.body <;> simp [hrest]
 
 theorem checkDecl_complete {p : Prog} {d : Decl} (h : DeclTA p d) : checkDecl p d = .ok () := by
-  obtain ⟨h1, h2, h3, h4, h5, k1, k2, k3, kl, k4⟩ := h
+  obtain ⟨h1, h2, h3, h4, h5, k2, k3, kl, k4⟩ := h
   have hl : loopCallBad p d.name d.allNames [] [] d.body = none := Option.isNone_iff_eq_none.1 kl
   have := check_complete h5
   obtain ⟨tbl, this⟩ := (check_eq_checkBinders _ _ _).1 this
@@ -1179,7 +1217,7 @@ theorem checkDecl_complete {p : Prog} {d : Decl} (h : DeclTA p d) : checkDecl p 
   rw [checkDecl_eq]
   simp only [h1, h2, h3, h4, Bool.not_true, Bool.or_false,
     if_false, Bool.false_eq_true, ite_false]
-  simp only [this, k1, k2, k3, hl, Bool.not_true, Bool.false_eq_true, ite_false, if_false, bind, Except.bind,
+  simp only [this, k2, k3, hl, Bool.not_true, Bool.false_eq_true, ite_false, if_false, bind, Except.bind,
     pure, Except.pure]
   all_goals (cases hk : d.kind with
     | restricted f s ro l =>
@@ -1301,6 +1339,39 @@ theorem checkOp_alg (p : Prog) (cx : Cx) (x : String) (op : Op) (cx' : Cx)
       obtain ⟨hD1, hD2⟩ := nor hb5
       obtain ⟨hK1, hK2⟩ := nor hb6
       exact .spawn h1 (subA_of _ _ _ hsb) hb2 hW1 hW2 hT1 hT2 hD1 hD2 hK1 hK2 hd hi hc hb7 h
+  | spawnI f is a T ts =>
+      simp only [checkOp, bind_ok_iff] at h
+      obtain ⟨d, hd, ⟨at_, rt⟩, hi, ⟨t, c₁⟩, h1, h⟩ := h
+      have nor : ∀ {b c : Bool}, (!b || !c) = false → b = true ∧ c = true := by
+        intro b c h; cases b <;> cases c <;> first | exact ⟨rfl, rfl⟩ | exact absurd h (by decide)
+      dsimp only at h
+      generalize hb1 : (!sub c₁ t T || !sub c₁ T at_) = b1 at h
+      cases b1
+      case true => cases h
+      rw [if_neg (by decide)] at h
+      generalize hb2 : Ty.noOwnIn c₁.ke T = b2 at h
+      cases b2
+      · cases h
+      rw [if_neg (by decide)] at h
+      generalize hb3 : (!ts.all (fun x => Ty.wf c₁.ke.length 0 x) || !ts.all (TermClose.tb 0)) = b3 at h
+      cases b3
+      case true => cases h
+      rw [if_neg (by decide)] at h
+      generalize hb6 : (!TermScope.wrapOK T || !ts.all TermScope.argOK) = b6 at h
+      cases b6
+      case true => cases h
+      rw [if_neg (by decide)] at h
+      simp only [bind_ok_iff] at h
+      obtain ⟨u, hc, h⟩ := h
+      generalize hb7 : (TermClose.tb 0 (substTs ts.reverse 0 0 d.retTy) && TermTv.mg (substTs ts.reverse 0 0 d.retTy) &&
+        TermTv.noIallV (substTs ts.reverse 0 0 d.retTy)) = b7 at h
+      cases b7
+      · cases h
+      rw [if_neg (by decide)] at h
+      obtain ⟨hS1, hS2⟩ := nor hb1
+      obtain ⟨hW, hT⟩ := nor hb3
+      obtain ⟨hK1, hK2⟩ := nor hb6
+      exact .spawnI hd hi h1 (subA_of _ _ _ hS1) (subA_of _ _ _ hS2) hb2 hW hT hK1 hK2 hc hb7 h
   | ext n a =>
       simp only [checkOp, bind_ok_iff] at h
       obtain ⟨⟨t, c₁⟩, h1, h⟩ := h
@@ -1928,7 +1999,10 @@ theorem checkOp_alg (p : Prog) (cx : Cx) (x : String) (op : Op) (cx' : Cx)
       split at h
       · simp at h
       · rename_i hl
-        exact .endBorrow hy (by simpa using hl) h
+        split at h
+        · simp at h
+        · rename_i hsd
+          exact .endBorrow hy (by simpa using hl) hsd h
   | xchg a v =>
       simp only [checkOp, bind_ok_iff] at h
       obtain ⟨t, ht, ⟨u, o⟩, hx, ⟨tv, c₁⟩, h1, h⟩ := h
@@ -2648,20 +2722,19 @@ theorem checkDecl_alg {p : Prog} {d : Decl} (h : checkDecl p d = .ok ()) : DeclT
       obtain ⟨u, hb, h⟩ := h
       refine ⟨hwf.1, hwf.2, hsc.1, hsc.2, check_alg p d.body _ ((check_eq_checkBinders _ _ _).2 ⟨u, hb⟩), ?_⟩
       revert h
-      generalize hc1 : (d.kind == .device && !(devCells d.argTy).all devCellOK) = c1
       generalize hc2 : (d.kind != .device &&
         !exprNoDevOnly (fun f => ((p.find? (·.name == f)).map (·.kind == .device)).getD false) d.body) = c2
       generalize hc3 : exprNoDevFnptr (fun f => ((p.find? (·.name == f)).map (·.kind == .device)).getD false)
         d.body = c3
       intro h
-      cases c1 <;> cases c2 <;> cases c3 <;> simp [bind_ok_iff, throw, throwThe, MonadExceptOf.throw] at h
+      cases c2 <;> cases c3 <;> simp [bind_ok_iff, throw, throwThe, MonadExceptOf.throw] at h
       revert h
       cases hl : loopCallBad p d.name d.allNames [] [] d.body with
       | some r => simp [bind, Except.bind, throw, throwThe, MonadExceptOf.throw]
       | none =>
       simp only [bind, Except.bind, pure, Except.pure]
       intro h
-      refine ⟨hc1, hc2, hc3, by simp [loopCallsOK, hl], ?_⟩
+      refine ⟨hc2, hc3, by simp [loopCallsOK, hl], ?_⟩
       revert h
       cases hk : d.kind with
       | restricted fuel stack ro loop =>
@@ -2705,7 +2778,7 @@ restricted decl. -/
 theorem checkProg_restricted {p : Prog} (h : checkProg p = .ok ())
     (hr : ∃ d ∈ p, ∃ f s ro l, d.kind = .restricted f s ro l) : RestrictedProg p := by
   refine ⟨checkProg_nodup h hr, fun d hd => ?_⟩
-  obtain ⟨-, -, -, -, -, -, -, -, kl, k4⟩ := (checkProg_iff.1 h).2.1 d hd
+  obtain ⟨-, -, -, -, -, -, -, kl, k4⟩ := (checkProg_iff.1 h).2.1 d hd
   refine ⟨?_, kl⟩
   revert k4
   cases hk : d.kind with

@@ -53,8 +53,8 @@ theorem extSuccs0_extBy {p : Prog} {k : Promises.Knobs} {arch : Arch} {c e : Cfg
     | _ => simp [hterm] at h
 
 /-- A spawn move of `spawnSuccsAt` is a `SpawnBy` move of the same thread at the configuration's capacity. -/
-theorem spawnSuccsAt_spawnBy {c e : Cfg} {i : Nat} (h : e ∈ TermSpawnSuccs.spawnSuccsAt c i) :
-    SpawnBy c.cap c i e := by
+theorem spawnSuccsAt_spawnBy {p : Prog} {c e : Cfg} {i : Nat} (h : e ∈ TermSpawnSuccs.spawnSuccsAt p c i) :
+    SpawnBy p c.cap c i e := by
   unfold TermSpawnSuccs.spawnSuccsAt at h
   split at h
   · rename_i th hth
@@ -67,7 +67,21 @@ theorem spawnSuccsAt_spawnBy {c e : Cfg} {i : Nat} (h : e ∈ TermSpawnSuccs.spa
         · rename_i rt ws hev
           simp only [List.mem_singleton] at h
           subst h
-          exact ⟨x, f, a, T, ts, e', th, rt, ws, hth, hterm, hc.1, hc.2, hev, rfl⟩
+          exact .inl ⟨x, f, a, T, ts, e', th, rt, ws, hth, hterm, hc.1, hc.2, hev, rfl⟩
+        · cases h
+      · cases h
+    · rename_i x f is a T ts e' hterm
+      split at h
+      · rename_i hc
+        simp only [Bool.and_eq_true, List.isEmpty_iff, decide_eq_true_eq] at hc
+        split at h
+        · rename_i d hd
+          split at h
+          · rename_i rt ws hev
+            simp only [List.mem_singleton] at h
+            subst h
+            exact .inr ⟨x, f, is, a, T, ts, e', th, d, rt, ws, hth, hterm, hc.1, hc.2, hd, hev, rfl⟩
+          · cases h
         · cases h
       · cases h
     · cases h
@@ -90,11 +104,14 @@ theorem movesPF_complete {p : Prog} {k : Promises.Knobs} {arch : Arch} {V : List
       ∃ v, v ∈ V ∧ (e.ths[i]?).bind (·.env.head?) = some (x, (ExtName.devChoice w).sig.2, [cst (.num v)])) :
     e ∈ movesPF p k arch V c i := by
   simp only [movesPF, List.mem_append]
-  rcases h with ⟨h1, -⟩ | ⟨x, f, a, T, ts, e', th, rt, ws, h1, h2, h3, h4, h5, rfl⟩ |
+  rcases h with ⟨h1, -⟩ | (⟨x, f, a, T, ts, e', th, rt, ws, h1, h2, h3, h4, h5, rfl⟩ |
+      ⟨x, f, is, a, T, ts, e', th, d, rt, ws, h1, h2, h3, h4, h5, h6, rfl⟩) |
       ⟨x, n, a, e', th, rt, ws, rs, h1, h2, h3, hen, h4, hadm, h5, rfl⟩
   · exact Or.inl (Or.inl h1)
   · right
     simp [TermSpawnSuccs.spawnSuccsAt, h1, h2, h3, h4, h5]
+  · right
+    simp [TermSpawnSuccs.spawnSuccsAt, h1, h2, h3, h4, h5, h6]
   · left; right
     have hp : th.promises = [] := by simpa [noPromises, h1] using hc
     have hrs : rs ∈ extRs { solo := 0, io := V } n i ws c.trace := by

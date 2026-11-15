@@ -263,6 +263,7 @@ class ValidLayout (e : Kraken.Executable Directive) : Prop where
   label_size : ∀ (i : Nat) l z, e.2[i]? = some (Directive.label l, z) → z = 0
   instr_size : ∀ (i : Nat) ins z, e.2[i]? = some (Directive.instr ins, z) → z = 4
   data_size : ∀ (i : Nat) a z, e.2[i]? = some (Directive.byteArray a, z) → 0 < z
+  zeros_size : ∀ (i : Nat) n z, e.2[i]? = some (Directive.zeros n, z) → 0 < z
   no_wrap : (e.2.map (·.2)).sum < 2 ^ 64
 
 /-- Every directive other than a label occupies at least one byte (x64's
@@ -272,6 +273,7 @@ theorem ValidLayout.size_pos {e : Kraken.Executable Directive} [hv : ValidLayout
   | _, .label l, _, _, h => absurd rfl (h l)
   | i, .instr ins, z, hd, _ => by rw [hv.instr_size i ins z hd]; decide
   | i, .byteArray a, z, hd, _ => hv.data_size i a z hd
+  | i, .zeros n, z, hd, _ => hv.zeros_size i n z hd
 
 private theorem sum_map_take_le {α} (f : α → Nat) (l : List α) (k : Nat) :
     ((l.take k).map f).sum ≤ (l.map f).sum := by
@@ -388,7 +390,7 @@ theorem label_between_of_addrOf_eq (e : Kraken.Executable Directive) [hv : Valid
     ⟨_, List.getElem?_eq_getElem (by omega)⟩
   cases d with
   | label l => exact ⟨l, z, hdz⟩
-  | instr i | byteArray a =>
+  | instr i | byteArray a | zeros _ =>
     exfalso
     have hz : 0 < z := ValidLayout.size_pos _ _ _ hdz (fun l h => Directive.noConfusion h)
     have h1 : e.sizeBefore j ≤ e.sizeBefore k := sizeBefore_mono e hjk

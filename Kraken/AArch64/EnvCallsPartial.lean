@@ -64,6 +64,10 @@ theorem _root_.Kraken.Executable.sits_append (e : Kraken.Executable Directive) :
     obtain ⟨z, rest, hc, hs⟩ := h
     obtain ⟨h1, h2, h3⟩ := Executable.sits_append e q p _ hs
     refine ⟨⟨z, rest, hc, h1⟩, ?_, ?_⟩ <;> simp only [Executable.after, hc, List.cons_append, h2, h3]
+  | .zeros n :: q, p, pc, h => by
+    obtain ⟨z, rest, hc, hs⟩ := h
+    obtain ⟨h1, h2, h3⟩ := Executable.sits_append e q p _ hs
+    refine ⟨⟨z, rest, hc, h1⟩, ?_, ?_⟩ <;> simp only [Executable.after, hc, List.cons_append, h2, h3]
 
 namespace MachineWP
 

@@ -36,6 +36,7 @@ private def cellOk : Directive × Nat → Bool
   | (.label _, z) => z == 0
   | (.instr _, z) => z == 4
   | (.byteArray _, z) => 0 < z
+  | (.zeros _, z) => 0 < z
 
 private theorem cells_ok : (swpLayout swpWorker).2.all cellOk = true := by decide
 
@@ -49,6 +50,7 @@ instance swpValid : Executable.ValidLayout (swpLayout swpWorker) where
   label_size i l z h := by simpa [cellOk] using cellOk_of h
   instr_size i ins z h := by simpa [cellOk] using cellOk_of h
   data_size i a z h := by simpa [cellOk] using cellOk_of h
+  zeros_size i n z h := by simpa [cellOk] using cellOk_of h
   no_wrap := by decide
 
 /-! ## The parameters and the initial configuration -/

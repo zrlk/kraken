@@ -25,11 +25,12 @@ section NoFulRun
 open TermCert TermGlob TermTyped
 
 /-- (staged) **`FootNC` with `FootB1`** on the witness: the global resource-free footprint stepper
-with clause (1) of `TermFootBP0.FootBP`. -/
+with clause (1) of `TermFootBP0.FootBP`.  (RgnCpl) The frame is typed at the checker's context
+(`TypedK`, with the program's checker verdict `ProgCkWC`), as in `ThInvE`. -/
 def FootNCB (p : Prog) : Prop :=
   ∀ {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {cx : Cx} {ρ : Nat → Nat} {η : TEnv}
-    [ProgRetIall p], ProgT p → g.p = p → 0 < g.n → isDone th = false →
-    ScopeD th.σs cx th.term → Typed p cx th.term → FInv ρ η th.σs (Resume p th.stack) cx th.env →
+    [ProgRetIall p] [TermA4.ProgCkWC p], ProgT p → g.p = p → 0 < g.n → isDone th = false →
+    ScopeD th.σs cx th.term → TypedK p η cx th.term → FInv ρ η th.σs (Resume p th.stack) cx th.env →
     EnvOK p η → TvOK cx → MemInv g (CE η) (stOf mem pairs th) → TyOKE g (CE η) → g.boxFence = true →
     PAx g mem pairs th → PubWinT (CE η) (stOf mem pairs th) th →
     (∀ l, BufInitOn th l → ¬ g.zf l) → (∀ l, TermOwnG0Defs.PubAt th l → g.pf l) → RetPw th.σs th.stack cx.ret →
@@ -56,7 +57,7 @@ def NoFulPlRunGL (p : Prog) (k : Promises.Knobs) (arch : Arch) : Prop :=
     TermPtrRts.tminOf sto (stOf c1.mem c1.pairs th1) a = some t →
     c1.boxFence = true → (∀ q, th1.nalloc ≤ q → sto (freshLabel c1.lbase c1.n j q) = none) →
     TermPtrRts.ThLbl { pfr := E1.pfr, box := E1.box } th1 → StoClo E1 →
-    TermScope.ProgScopeOK p = true → TermScope.ThScope th1 →
+    TermScope.ProgScopeOK p = true → TermScope.ThScopeI th1 →
     (∀ t', TermPtrRts.tminOf sto (stOf c1.mem c1.pairs th1) a = some t' →
       TermPtrRts.MemRtsC sto t' a c1.mem c1.pairs th1.promises) →
     TermPtrRts.GranuleWP sto c1.mem c1.pairs th1.promises → (∀ l cl, sto l = some cl → LayT cl.ty) →
@@ -71,7 +72,7 @@ def NFInv (p : Prog) (k : Promises.Knobs) (arch : Arch) (j : Nat) (a : AllocLabe
     (∀ l cl, E.sto l = some cl → S l = some cl) ∧ TermPtrRts.PtrRtsE S (stOf c.mem c.pairs th) th a ∧
     TermPtrRts.tminOf S (stOf c.mem c.pairs th) a = some t ∧ c.boxFence = true ∧
     (∀ q, th.nalloc ≤ q → S (freshLabel c.lbase c.n j q) = none) ∧
-    TermPtrRts.ThLbl { pfr := E.pfr, box := E.box } th ∧ StoClo E ∧ TermScope.ThScope th ∧
+    TermPtrRts.ThLbl { pfr := E.pfr, box := E.box } th ∧ StoClo E ∧ TermScope.ThScopeI th ∧
     (∀ t', TermPtrRts.tminOf S (stOf c.mem c.pairs th) a = some t' →
       TermPtrRts.MemRtsC S t' a c.mem c.pairs th.promises) ∧
     TermPtrRts.GranuleWP S c.mem c.pairs th.promises ∧ (∀ l cl, S l = some cl → LayT cl.ty) ∧
@@ -222,7 +223,7 @@ theorem nfInv_ext {p : Prog} {k : Promises.Knobs} {arch : Arch} {j : Nat} {a : A
     exact hNa th hth
 
 theorem nfInv_thread {p : Prog} {k : Promises.Knobs} {arch : Arch} {j : Nat} {a : AllocLabel} {t : Ts}
-    {c c' : Cfg} {Eu Ea : TEnv} [ProgRetIall p] [WrIniC] (hP : ProgT p) (hK : TermPtrRts.PtrRtsThreadGL p) (hFN : FootNCB p)
+    {c c' : Cfg} {Eu Ea : TEnv} [ProgRetIall p] [TermA4.ProgCkWC p] [WrIniC] (hP : ProgT p) (hK : TermPtrRts.PtrRtsThreadGL p) (hFN : FootNCB p)
     (hk : k.storeDepRts = true)
     (hps : TermScope.ProgScopeOK p = true) (hJ : NFInv p k arch j a t Eu Ea c) (hs : c' ∈ threadSteps p k arch c j)
     (hnp : ∀ th, c.ths[j]? = some th → ¬ TermOwnG0Defs.PubAt th a) (hc' : Certified p k arch c' j)
@@ -251,7 +252,7 @@ theorem nfInv_thread {p : Prog} {k : Promises.Knobs} {arch : Arch} {j : Nat} {a 
     htv hm hTyJ hbf hpx hw0 (fun _ _ h => h) (fun _ _ => trivial) hrp hDy).2 r hr hpa
   have hnw := TermStep.hnew_of (g := gOf p k arch c j) hr hRcJ hDy (fun k => (hEO.2.1 k).1) hNw
   have hTyR := TermTyped.tyRun_threadW (g := gOf p k arch c j) hs hth e3 rfl rfl rfl rfl hn hr hF.1 hTyJ hRcJ hnw
-  have hA' := anchR_tstep hF hm' hBump hEO hT htv hFI hm hsc0 (TermViewInv.envVR_solo (p := p) (k := k) (arch := arch) hvI (.refl _) hth) hr hXa hA
+  have hA' := anchR_tstep hF hm' hBump hEO hT.1 htv hFI hm hsc0 (TermViewInv.envVR_solo (p := p) (k := k) (arch := arch) hvI (.refl _) hth) hr hXa hA
   have hXa' : Ext Ea E' := Ext_trans hXa hX
   let S' : TermPtrRts.Sto := fun l =>
     if FreshIn (gOf p k arch c j) th.nalloc r.2.2.nalloc l then E'.sto l else S l
@@ -325,7 +326,7 @@ theorem nfInv_thread {p : Prog} {k : Promises.Knobs} {arch : Arch} {j : Nat} {a 
     (fun l B h h' => by change E'.box l = none at h'; rw [h] at h'; cases h')
     (fun l f h => hX.2.2.2.2.2.2.1 l f h) (fun l B h => hX.2.2.2.2.2.2.2.2.1 l B h)
     hE hm hR (hnp th hth) hr hF hE' hpa hNF hL (hsc th hth (TermTyped.not_spawnT_of_steps hth hs)) hD hps (fun t' h => hC t' h) hG hfrS hLay hNC hNC4
-    rfl hP hfa hba hB1 hPf (fun _ _ => let ⟨ρ0, η0, cx0, e1, e2, e3, e4, e5, e6, _⟩ := hE; ⟨ρ0, η0, cx0, e1, e2, e3, e4, e5, e6⟩) (fun t' h => hBS t' h)
+    rfl hP hfa hba hB1 hPf (fun _ _ => let ⟨ρ0, η0, cx0, e1, e2, e3, e4, e5, e6, _⟩ := hE; ⟨ρ0, η0, cx0, e1, e2, e3.1, e4, e5, e6⟩) (fun t' h => hBS t' h)
   refine ⟨r.2.2, E', S', e3, hE', ?_, h2, ?_, ?_, hlb.2.trans hbf, ?_, hL', StoClo_EFoot hF.1 hSC,
     TermScope.tstep_drf hps hD hr, fun t' h => ?_, ?_, hLay', ?_, by rw [hpeq]; exact hpa0, ?_, ?_, (by rw [e1, e2]; exact hA'), hXa',
     TermTyped.tidAt_thread hs hTA, fun th2 hth2 => by
@@ -375,7 +376,7 @@ theorem nfInv_thread {p : Prog} {k : Promises.Knobs} {arch : Arch} {j : Nat} {a 
       · exact Nat.le_trans (Nat.le_of_lt hlt0) (Nat.le_of_not_lt hul)
 
 theorem nfInv_run {p : Prog} {k : Promises.Knobs} {arch : Arch} {j : Nat} {a : AllocLabel} {t : Ts} {Eu Ea : TEnv}
-    [ProgRetIall p] [WrIniC] (hP : ProgT p) (hK : TermPtrRts.PtrRtsThreadGL p) (hFN : FootNCB p)
+    [ProgRetIall p] [TermA4.ProgCkWC p] [WrIniC] (hP : ProgT p) (hK : TermPtrRts.PtrRtsThreadGL p) (hFN : FootNCB p)
     (hk : k.storeDepRts = true)
     (hps : TermScope.ProgScopeOK p = true) {c c2 : Cfg} (h : TermOwnG0Defs.SoloNP p k arch j a c c2) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) :
     Certified p k arch c2 j → (∀ c0, Solo p k arch j c c0 → Certified p k arch c0 j → ScopeAt p j c0) →
@@ -404,7 +405,7 @@ theorem nfInv_run {p : Prog} {k : Promises.Knobs} {arch : Arch} {j : Nat} {a : A
 
 /-- **NoFulPlRun**, conditional on K-2a (`PtrRtsThreadGL`) and `FootNC`: along the owner's solo run not
 publishing `a`, `tmin` stays an outstanding promise. -/
-theorem noFulPlRunGL_of {p : Prog} {k : Promises.Knobs} {arch : Arch} [ProgRetIall p] [WrIniC] (hP : ProgT p)
+theorem noFulPlRunGL_of {p : Prog} {k : Promises.Knobs} {arch : Arch} [ProgRetIall p] [TermA4.ProgCkWC p] [WrIniC] (hP : ProgT p)
     (hK : TermPtrRts.PtrRtsThreadGL p) (hFN : FootNCB p) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) : NoFulPlRunGL p k arch := by
   intro j a c1 th1 E1 sto t hk hES hsc hvI Eu Ea hwin hA1 hXa1 hTA1 hNa1 hth1 hE1 hm1 hTy1 hRc1 hR1 ht1 hbf hfr hL1 hSC1 hps hD1 hC1 hG1 hLay1 hsa hpa hba
     hBS c2 th2 hrun hc2 hth2

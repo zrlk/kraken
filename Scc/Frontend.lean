@@ -366,6 +366,9 @@ def opBad : Op → Option String
   -- before the check could abort.
   | .fetch .. => some "a fetch-op (`fetch`)"
   | .isTy _ _ => some "a type test (`isTy`)"
+  -- No lowering yet: the child starts at the parent's index parameters, and the
+  -- capabilities in the argument's type are handed off (WeakCore's `Op.spawnI`).
+  | .spawnI .. => some "an index-parameter spawn (`spawnI`)"
 
 /-- The atoms an operation of the fragment reads. -/
 def opAts : Op → List At

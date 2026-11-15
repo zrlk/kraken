@@ -15,7 +15,7 @@ The vocabulary (`StuckWhy`, `SpawnBy`, `ExtBy`, `MovesBy`, `movesBy_step`) lives
 the liveness system).  The definition and statement texts are the original ones, with the
 rename `progress_em0` → `progress_main`, `progress_em0_cfg` →
 `progress_main_cfg`; its unused premise `c.final = false` is dropped.  The helper lemmas (`cert_movesBy`, `thr_typed`, `pf_progress`, `site_eval`,
-`publish_progress`) were moved here.
+`publish_progress`; also `region_progress`, `intoRgn_progress`) were moved here.
 
 Proof route (STUDY §A):
 * promises out: `Certified c i` gives the first move of the certifying solo run (`cert_movesBy`), else (u);
@@ -82,11 +82,13 @@ theorem threadStep_promFree {p : Prog} {k : Promises.Knobs} {arch : Arch} {c c' 
 
 /-- A `SpawnT` term is a spawn site or an extern site. -/
 theorem spawnT_cases {t : Expr} (h : TermStep.SpawnT t) :
-    (∃ x f a T ts e, t = .let_ x (.spawn f a T ts) e) ∨ (∃ x n a e, t = .let_ x (.ext n a) e) := by
+    (∃ x f a T ts e, t = .let_ x (.spawn f a T ts) e) ∨
+      (∃ x f is a T ts e, t = .let_ x (.spawnI f is a T ts) e) ∨ (∃ x n a e, t = .let_ x (.ext n a) e) := by
   unfold TermStep.SpawnT at h
   split at h
   · exact .inl ⟨_, _, _, _, _, _, rfl⟩
-  · exact .inr ⟨_, _, _, _, rfl⟩
+  · exact .inr (.inl ⟨_, _, _, _, _, _, _, rfl⟩)
+  · exact .inr (.inr ⟨_, _, _, _, rfl⟩)
   · exact h.elim
 
 /-! ## Typing helpers -/
@@ -108,14 +110,19 @@ theorem thr_typed {p : Prog} {k : Promises.Knobs} {arch : WeakMem.Arch} {Init : 
 theorem site_eval {p : Prog} {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {th : TTh} {x : String} {op : Op} {e : Expr}
     (hterm : th.term = .let_ x op e)
     (hT : Typed p cx th.term) (hi : FInv ρ η th.σs (Resume p th.stack) cx th.env) :
-    ∀ a, (∃ f T ts, op = .spawn f a T ts) ∨ (∃ n, op = .ext n a) → ∃ rt ws, evalAt th.env a = some (rt, ws) := by
+    ∀ a, (∃ f T ts, op = .spawn f a T ts) ∨ (∃ f is T ts, op = .spawnI f is a T ts) ∨ (∃ n, op = .ext n a) →
+      ∃ rt ws, evalAt th.env a = some (rt, ws) := by
   intro a ha
   rw [hterm] at hT
   cases hT with
   | let_ hop' _ =>
-    rcases ha with ⟨f, T, ts, rfl⟩ | ⟨n, rfl⟩
+    rcases ha with ⟨f, T, ts, rfl⟩ | ⟨f, is, T, ts, rfl⟩ | ⟨n, rfl⟩
     · cases hop' with
       | spawn hu =>
+        obtain ⟨-, rt, ws, hea, -⟩ := use_FInv hu hi
+        exact ⟨rt, ws, hea⟩
+    · cases hop' with
+      | spawnI _ _ hu =>
         obtain ⟨-, rt, ws, hea, -⟩ := use_FInv hu hi
         exact ⟨rt, ws, hea⟩
     · cases hop' with
@@ -140,12 +147,44 @@ theorem publish_progress {p : Prog} {g : G} {mem : WeakMem.Memory} {pairs : List
       obtain ⟨-, μr, nr, ur, ψ, wsb, hea, -⟩ := ownBuf_inv hu hi
       simp [tstep, hterm, evalOp, hea, ol]
 
+/-- A `region` has a thread step (its release fence; no `NoHold` needed for progress). -/
+theorem region_progress {p : Prog} {g : G} {mem : WeakMem.Memory} {pairs : List WeakMem.Ts} {th : TTh}
+    {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {a : At} {rn pn tn : String} {e : Expr}
+    (hterm : th.term = .region a rn pn tn e)
+    (hT : Typed p cx th.term) (hi : FInv ρ η th.σs (Resume p th.stack) cx th.env) :
+    tstep g mem pairs th ≠ [] := by
+  rw [hterm] at hT
+  cases hT with
+  | region hu _ _ _ _ =>
+    obtain ⟨-, lab, c, pw, μr, ru, hea, hpw, -⟩ := ownPtr_inv hu hi
+    simp [tstep, hterm, hea]
+  | regionBuf hu _ _ _ _ =>
+    obtain ⟨-, μr, nr, ur, ψ, wsb, hea, -⟩ := ownBuf_inv hu hi
+    simp [tstep, hterm, hea]
+
+/-- An `intoRgn` has a thread step (its release fence; no `NoHold` needed for progress). -/
+theorem intoRgn_progress {p : Prog} {g : G} {mem : WeakMem.Memory} {pairs : List WeakMem.Ts} {th : TTh}
+    {cx : Cx} {ρ : Nat → Nat} {η : TEnv} {x rn : String} {a : At} {e : Expr}
+    (hterm : th.term = .let_ x (.intoRgn rn a) e)
+    (hT : Typed p cx th.term) (hi : FInv ρ η th.σs (Resume p th.stack) cx th.env) :
+    tstep g mem pairs th ≠ [] := by
+  rw [hterm] at hT
+  cases hT with
+  | let_ hop _ =>
+    cases hop with
+    | intoRgn _ hu _ _ =>
+      obtain ⟨-, lab, c, pw, μr, ru, hea, hpw, -⟩ := ownPtr_inv hu hi
+      simp [tstep, hterm, evalOp, hea, ol]
+    | intoRgnBuf _ hu _ _ =>
+      obtain ⟨-, μr, nr, ur, ψ, wsb, hea, -⟩ := ownBuf_inv hu hi
+      simp [tstep, hterm, evalOp, hea, ol]
+
 /-- (now also covering `publish` via `publish_progress`) A promise-free, unfinished
 thread of a `SysInvN` configuration in run scope that is not at a spawn/ext site has a thread step. -/
 theorem pf_progress {p : Prog} {k : Promises.Knobs} {arch : WeakMem.Arch} {Init : Res} {MintOK : Res → Prop}
     {c : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → WeakMem.Ts → Res}
-    {i : Nat} {th : TTh} [ProgRetIall p] (hP : ProgT p)
-    (h : SysInvN p k arch Init MintOK c Eg Tot HP HS cr db) (hrs : TermScope.RunScope c)
+    {i : Nat} {th : TTh} [ProgRetIall p] [TermA4.ProgCkWC p] (hP : ProgT p)
+    (h : SysInvN p k arch Init MintOK c Eg Tot HP HS cr db) (hrs : TermScope.RunScopeI c)
     (hth : c.ths[i]? = some th) (hnd : isDone th = false) (hnp : th.promises = [])
     (hns : ¬ SpawnT th.term) :
     threadSteps p k arch c i ≠ [] := by
@@ -155,18 +194,39 @@ theorem pf_progress {p : Prog} {k : Promises.Knobs} {arch : WeakMem.Arch} {Init 
   have hNI : ∀ c : Cx, TvOK c → noIallV c.ret = true := fun _ h => h.2.2.2.2.2.2.2
   have hi : FInv ρ η th.σs (Resume p th.stack) cx th.env :=
     FInvR_FInv (hNI cx htv) (fun E rd ws R h => ResumeR_Resume hNI th.stack Rs E rd ws R h) hFI
-  rcases Classical.em (∃ x a e, th.term = .let_ x (.publish a) e) with ⟨x, a, e, hpub⟩ | hnpub
-  · have key := publish_progress (g := gOf p k arch c i) (mem := c.mem) (pairs := c.pairs) hpub hT' hi
-    unfold threadSteps; rw [hth]; simpa using key
-  have hsc := TermCertScope.scopeAt_of (p := p) (i := i) hrs th hth hns ρ η cx hE hT' htv hi
+  have hstep : tstep (gOf p k arch c i) c.mem c.pairs th ≠ [] → threadSteps p k arch c i ≠ [] :=
+    fun hk => by unfold threadSteps; rw [hth]; simpa using hk
+  -- the three fencing shapes step by themselves (`publish_progress`, `region_progress`, `intoRgn_progress`);
+  -- the split is on the Bool shape tests (`TermStep.termIsPub`/`termIsRgn`/`termIsInto`)
+  cases hpb : TermStep.termIsPub th.term
+  case true =>
+    obtain ⟨x, a, e, hpub⟩ := (TermStep.termIsPub_iff _).1 hpb
+    exact hstep (publish_progress hpub hT' hi)
+  cases hrg : TermStep.termIsRgn th.term
+  case true =>
+    obtain ⟨a, rn, pn, tn, e, ht⟩ := (TermStep.termIsRgn_iff _).1 hrg
+    exact hstep (region_progress ht hT' hi)
+  cases hin : TermStep.termIsInto th.term
+  case true =>
+    obtain ⟨x, rn, a, e, ht⟩ := (TermStep.termIsInto_iff _).1 hin
+    exact hstep (intoRgn_progress ht hT' hi)
+  have hnpub : ¬ ∃ x a e, th.term = .let_ x (.publish a) e := fun h' => by
+    rw [(TermStep.termIsPub_iff _).2 h'] at hpb; cases hpb
+  have hnrg : ¬ ∃ a rn pn tn e, th.term = .region a rn pn tn e := fun h' => by
+    rw [(TermStep.termIsRgn_iff _).2 h'] at hrg; cases hrg
+  have hnin : ¬ ∃ x r a e, th.term = .let_ x (.intoRgn r a) e := fun h' => by
+    rw [(TermStep.termIsInto_iff _).2 h'] at hin; cases hin
+  have hsc := TermCertScope.scopeAt_of (p := p) (i := i) hrs th hth hns ρ η cx hE hT htv hi
   have hn : 0 < (gOf p k arch c i).n := by
     show 0 < c.n
     exact Nat.lt_of_le_of_lt (Nat.zero_le _) (Cfg.lt_n (lt_of_get hth))
-  have hwin : PubWinT (CE η) (stOf c.mem c.pairs th) th := by
-    intro x a e rt ws ad hterm; exact absurd ⟨x, a, e, hterm⟩ hnpub
-  have key := (tstep_footprint (hDy := hDy) (g := gOf p k arch c i) (mem := c.mem) (pairs := c.pairs) hP rfl hn hnd hsc hT' hi hE htv
+  have hwin : PubWinT (CE η) (stOf c.mem c.pairs th) th :=
+    ⟨fun x a e _ _ _ hterm => absurd ⟨x, a, e, hterm⟩ hnpub,
+      fun a r pn tn e _ _ _ hterm => absurd ⟨a, r, pn, tn, e, hterm⟩ hnrg,
+      fun x r a e _ _ _ hterm => absurd ⟨x, r, a, e, hterm⟩ hnin⟩
+  have key := (tstep_footprint (hDy := hDy) (g := gOf p k arch c i) (mem := c.mem) (pairs := c.pairs) hP rfl hn hnd hsc hT hi hE htv
     hm h.bf (Or.inl hnp) hwin hRP pwSkel_ok pwSubS_ok pwSig_ok (by rw [hCE]; exact (h.tyRec hth S).1)).1
-  unfold threadSteps; rw [hth]; simpa using key
+  exact hstep key
 
 end
 
@@ -204,12 +264,24 @@ theorem progress_main {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Term
       · exact absurd ⟨hd, hp⟩ hnf
     by_cases hs : TermStep.SpawnT th.term
     · obtain ⟨ρ, η, cx, hT, hi⟩ := thr_typed hN hth
-      rcases spawnT_cases hs with ⟨x, f, a, T, ts, e, hterm⟩ | ⟨x, n, a, e, hterm⟩
+      rcases spawnT_cases hs with ⟨x, f, a, T, ts, e, hterm⟩ | ⟨x, f, is, a, T, ts, e, hterm⟩ | ⟨x, n, a, e, hterm⟩
       · obtain ⟨rt, ws, hev⟩ := site_eval hterm hT hi a (.inl ⟨f, T, ts, rfl⟩)
         by_cases hcap : c.ths.size < c0.cap
-        · exact .inl (.inr (.inr (.inl ⟨_, x, f, a, T, ts, e, th, rt, ws, hth, hterm, hp, hcap, hev, rfl⟩)))
-        · exact .inr (.atCap ⟨x, f, a, T, ts, e, hterm⟩ hp (Nat.le_of_not_lt hcap))
-      · obtain ⟨rt, ws, hev⟩ := site_eval hterm hT hi a (.inr ⟨n, rfl⟩)
+        · exact .inl (.inr (.inr (.inl ⟨_, .inl ⟨x, f, a, T, ts, e, th, rt, ws, hth, hterm, hp, hcap, hev, rfl⟩⟩)))
+        · exact .inr (.atCap (.inl ⟨x, f, a, T, ts, e, hterm⟩) hp (Nat.le_of_not_lt hcap))
+      · obtain ⟨rt, ws, hev⟩ := site_eval hterm hT hi a (.inr (.inl ⟨f, is, T, ts, rfl⟩))
+        have hfd : ∃ d, p.find? (·.name == f) = some d := by
+          have hT1 := hT
+          rw [hterm] at hT1
+          cases hT1 with
+          | let_ hop1 _ =>
+            cases hop1 with
+            | spawnI hd => exact ⟨_, TermSound.find_ok hd⟩
+        obtain ⟨d, hd⟩ := hfd
+        by_cases hcap : c.ths.size < c0.cap
+        · exact .inl (.inr (.inr (.inl ⟨_, .inr ⟨x, f, is, a, T, ts, e, th, d, rt, ws, hth, hterm, hp, hcap, hd, hev, rfl⟩⟩)))
+        · exact .inr (.atCap (.inr ⟨x, f, is, a, T, ts, e, hterm⟩) hp (Nat.le_of_not_lt hcap))
+      · obtain ⟨rt, ws, hev⟩ := site_eval hterm hT hi a (.inr (.inr ⟨n, rfl⟩))
         have hen : ExtEnabled n th := by
           by_cases hn : n = .park
           · subst hn
@@ -222,10 +294,11 @@ theorem progress_main {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Term
           ⟨_, .refl _, by rw [extCfg_noPromises hth, hp]; rfl⟩, rfl⟩)))
     · have hPSc : TermScope.ProgScopeOK p = true := TermScope.ProgScopeOKW.scope O.progScope
       haveI : TermTv.ProgRetIall p :=
-        ⟨fun _ hd => TermScope.noIallV_of_drf _ (TermScope.ProgScopeOK.decl hPSc hd).2.1, O.checked⟩
-      have hrs : TermScope.RunScope c :=
-        TermScope.runDRFR_of hPSc (ExtArmZ.spLeafArms_em0 (cap := c0.cap)).runDRF O.runDRF0 hr
-      have hne := pf_progress (TermScope.progT_of_check O.checked) hN hrs hth hnd hp hs
+        ⟨fun _ hd => TermScope.noIallV_of_drf1L _ (TermScope.drf1L_of_drf1 _ (TermScope.ProgScopeOK.decl hPSc hd).2.1), O.dyClean⟩
+      have hrs : TermScope.RunScopeI c :=
+        TermScope.runDRFR_of hPSc (ExtArmZ.spLeafArms_em0 (cap := c0.cap) hPSc).runDRF O.runDRF0 hr
+      haveI : TermA4.ProgCkWC p := ⟨TermA4.progCkW_of_scopeW O.progScope, O.dyClean⟩
+      have hne := pf_progress O.typed hN hrs hth hnd hp hs
       obtain ⟨c', hc'⟩ := List.exists_mem_of_ne_nil _ hne
       exact .inl (.inl ⟨c', hc', c', .refl _, threadStep_promFree hth hp hc'⟩)
   · by_cases hc : Certified p k arch c i
@@ -240,38 +313,48 @@ theorem stuck_sharp {p : Prog} {k : Promises.Knobs} {arch : Arch} {cap : Nat} {c
   | uncert hp hnc =>
     apply hnc
     rcases hm with ⟨c', h1, c'', h2, h3⟩ | ⟨a, v, w, -, hw, c'', h2, h3⟩ |
-      ⟨c', x, f, a, T, ts, e, th', rt, ws, h1, -, h3, -⟩ | ⟨c', x, n, a, e, th', rt, ws, rs, h1, h2, h3, -, h4, hadm, ⟨c'', h5, h6⟩, -⟩
+      ⟨c', ⟨x, f, a, T, ts, e, th', rt, ws, h1, -, h3, -⟩ | ⟨x, f, is, a, T, ts, e, th', d, rt, ws, h1, -, h3, -⟩⟩ |
+      ⟨c', x, n, a, e, th', rt, ws, rs, h1, h2, h3, -, h4, hadm, ⟨c'', h5, h6⟩, -⟩
     · exact ⟨c'', .thread h1 h2, h3⟩
     · exact ⟨c'', .prom a v w hw h2, h3⟩
+    · rw [hth] at h1; cases h1; exact absurd h3 hp
     · rw [hth] at h1; cases h1; exact absurd h3 hp
     · rw [hth] at h1; cases h1
       have hN : ¬ ExtNeedsNoProm n th := fun hn => hp (h3 hn)
       have hmem : extCfg c i th x n e ws rs ∈ extSteps c i := extSteps_intro hth h2 hN h4 ((mem_resultsL _ _ _ _ _).2 hadm)
       exact ⟨c'', .ext hmem h5, h6⟩
   | atCap hs hp hcap =>
-    obtain ⟨x, f, a, T, ts, e, hterm⟩ := hs
+    have hts : threadSteps p k arch c i = [] := by
+      rcases hs with ⟨x, f, a, T, ts, e, hterm⟩ | ⟨x, f, is, a, T, ts, e, hterm⟩
+      · exact threadSteps_spawn hth hterm
+      · exact threadSteps_spawnI hth hterm
     rcases hm with ⟨c', h1, -⟩ | ⟨a', v, w, hi, -, hc⟩ |
-      ⟨c', x', f', a'', T', ts', e', th', rt, ws, h1, -, -, h4, -⟩ | ⟨c', x', n, a'', e', th', rt, ws, rs, h1, h2, -⟩
-    · rw [threadSteps_spawn hth hterm] at h1; simp at h1
+      ⟨c', ⟨x', f', a'', T', ts', e', th', rt, ws, h1, -, -, h4, -⟩ |
+        ⟨x', f', is0, a'', T', ts', e', th', d0, rt, ws, h1, -, -, h4, -⟩⟩ | ⟨c', x', n, a'', e', th', rt, ws, rs, h1, h2, -⟩
+    · rw [hts] at h1; simp at h1
     · have hget : (promise c i a' v w).ths[i]? = some
           ⟨th.term, th.env, th.σs, th.stack, th.vs, th.promises ++ [c.mem.size], th.nalloc, th.undefs, th.tidLbl,
             th.permit, th.tys⟩ := by
         have he : c.ths[i] = th := Option.some.inj ((Array.getElem?_eq_getElem hi).symm.trans hth)
         simp [promise, Array.set!, hi, he]
-      have := cert_site hget ⟨x, f, a, T, ts, e, hterm⟩ hc
+      have := cert_site hget hs hc
       simp at this
     · rw [hth] at h1; cases h1; exact absurd h4 (Nat.not_lt.mpr hcap)
-    · rw [hth] at h1; cases h1; rw [hterm] at h2; cases h2
+    · rw [hth] at h1; cases h1; exact absurd h4 (Nat.not_lt.mpr hcap)
+    · rw [hth] at h1; cases h1
+      rcases hs with ⟨_, _, _, _, _, _, hterm⟩ | ⟨_, _, _, _, _, _, _, hterm⟩ <;> (rw [hterm] at h2; cases h2)
   | parked hs hpm hnc =>
     obtain ⟨x, a, e, hterm⟩ := hs
     rcases hm with ⟨c', h1, -⟩ | ⟨a', v, w, -, hw, hc⟩ |
-      ⟨c', x', f', a'', T', ts', e', th', rt, ws, h1, h2, -⟩ | ⟨c', x', n, a'', e', th', rt, ws, rs, h1, h2, -, hen, -⟩
+      ⟨c', ⟨x', f', a'', T', ts', e', th', rt, ws, h1, h2, -⟩ | ⟨x', f', is0, a'', T', ts', e', th', d0, rt, ws, h1, h2, -⟩⟩ |
+      ⟨c', x', n, a'', e', th', rt, ws, rs, h1, h2, -, hen, -⟩
     · unfold threadSteps at h1
       rw [hth] at h1
       simp only [List.mem_map] at h1
       obtain ⟨r, hr, -⟩ := h1
       exact TermStep.not_spawnT_of_mem hr (by rw [hterm]; trivial)
     · exact hnc a' v w hw hc
+    · rw [hth] at h1; cases h1; rw [hterm] at h2; cases h2
     · rw [hth] at h1; cases h1; rw [hterm] at h2; cases h2
     · rw [hth] at h1; cases h1; rw [hterm] at h2; cases h2
       rcases hen with hen | hen

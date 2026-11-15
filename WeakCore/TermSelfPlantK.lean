@@ -49,7 +49,7 @@ variable {Sp : TermRun.Cfg → TermRun.Cfg → Prop}
 
 /-- (selfPlantK) **`selfPlant` with old credits kept at non-word units**: `selfPlant_ofN`
 without `SelfPlantRestN` (vacuous by `stoNI`), exporting `KeepNW` at every cut of `j`. -/
-theorem selfPlant_ofNK (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : TermNoHold.CertRunP p k arch Sp Init MintOK c0)
+theorem selfPlant_ofNK (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : TermNoHold.CertRunP p k arch Sp Init MintOK c0)
     (hPO : TermPlantF.PlantPromOKF p k arch Sp Init MintOK c0 TermPlantF.plantOf TermPlantF.plantN)
     (hNO : TermPlantF.PromNewOKF p k arch Sp Init MintOK c0 TermPlantF.plantOf TermPlantF.plantN)
     (hInh : TermInterf.PlantInhF p k arch Sp Init MintOK c0 TermPlantF.plantOf TermPlantF.plantN)
@@ -77,7 +77,7 @@ theorem selfPlant_ofNK (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall 
 
 /-- (selfPlantK, the `Obligations` form) `selfPlant_ofNK` at every promise context planting a
 label, from per-context `HWU`/`HFW` (as at `TermMain`'s `selfPlant` call). -/
-theorem selfPlantK_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : TermNoHold.CertRunP p k arch Sp Init MintOK c0)
+theorem selfPlantK_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : TermNoHold.CertRunP p k arch Sp Init MintOK c0)
     (hPO : TermPlantF.PlantPromOKF p k arch Sp Init MintOK c0 TermPlantF.plantOf TermPlantF.plantN)
     (hNO : TermPlantF.PromNewOKF p k arch Sp Init MintOK c0 TermPlantF.plantOf TermPlantF.plantN)
     (hInh : TermInterf.PlantInhF p k arch Sp Init MintOK c0 TermPlantF.plantOf TermPlantF.plantN)

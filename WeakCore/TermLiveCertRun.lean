@@ -50,11 +50,16 @@ theorem wake_vs (c : Cfg) (i : Nat) (v : WeakMem.Ts) (n : ExtName) (ws : List Wo
 /-- A `machineE` thread move keeps `CfgCoh`, extends memory and raises no existing thread's coherence view. -/
 theorem moveE_facts {p : Prog} {k : Promises.Knobs} {arch : Arch} {c c' : Cfg} {i : Nat} (hc : CfgCoh c)
     (h : mstepE p k arch c (i, .thr) c') : CfgCoh c' ∧ MemExt c.mem c'.mem ∧ CohLeX c c' := by
-  rcases h with ⟨h1, -⟩ | ⟨x, f, a, T, ts, e, th, rt, ws, h1, h2, h3, h4, h5, h6⟩ |
+  rcases h with ⟨h1, -⟩ | (⟨x, f, a, T, ts, e, th, rt, ws, h1, h2, h3, h4, h5, h6⟩ |
+      ⟨x, f, is, a, T, ts, e, th, d, rt, ws, h1, h2, h3, h4, h5, h6, h7⟩) |
       ⟨x, n, a, e, th, rt, ws, rs, h1, h2, h3, h4, h5, -, h6, rfl⟩
   · obtain ⟨hc', hl⟩ := threadSteps_coh h1 hc
     exact ⟨hc', threadSteps_ext h1, CohLeX.ofCohLe hl⟩
-  · have hs : TermLiveX.SpawnBy p k arch c.cap c i c' := ⟨x, f, a, T, ts, e, th, rt, ws, h1, h2, h3, h4, h5, h6⟩
+  · have hs : TermLiveX.SpawnBy p k arch c.cap c i c' := .inl ⟨x, f, a, T, ts, e, th, rt, ws, h1, h2, h3, h4, h5, h6⟩
+    obtain ⟨hm, hcc, -, -⟩ := TermLiveX.spawnBy_sound hs
+    exact ⟨(hcc hc).1, hm, (hcc hc).2⟩
+  · have hs : TermLiveX.SpawnBy p k arch c.cap c i c' :=
+      .inr ⟨x, f, is, a, T, ts, e, th, d, rt, ws, h1, h2, h3, h4, h5, h6, h7⟩
     obtain ⟨hm, hcc, -, -⟩ := TermLiveX.spawnBy_sound hs
     exact ⟨(hcc hc).1, hm, (hcc hc).2⟩
   · obtain ⟨hm0, hsz0, hv0⟩ := extCfg_facts h1 x n e ws rs
@@ -713,7 +718,7 @@ variable {p : Prog} {k : Promises.Knobs} {arch : Arch} {X : List Nat} {V : List 
   {r : LRun (machineE p k arch).L}
 
 theorem move_size {c e : Cfg} {i : Nat} (he : e ∈ movesPF p k arch V c i)
-    (hsp : TermSpawnSuccs.spawnSuccsAt c i = []) : e.ths.size = c.ths.size := by
+    (hsp : TermSpawnSuccs.spawnSuccsAt p c i = []) : e.ths.size = c.ths.size := by
   simp only [movesPF, List.mem_append, hsp, List.not_mem_nil, or_false] at he
   rcases he with he | he
   · exact TermLiveMach.threadSteps_size he
@@ -721,13 +726,13 @@ theorem move_size {c e : Cfg} {i : Nat} (he : e ∈ movesPF p k arch V c i)
     rw [wake_size]
     exact (extCfg_facts h1 x n e' ws rs).2.1
 
-theorem noSpawnB_spec (h : noSpawnB ct = true) {v i : Nat} (hv : v < ct.nodes.size)
-    (hi : i < (ct.nd v).ths.size) : TermSpawnSuccs.spawnSuccsAt (ct.nd v) i = [] := by
+theorem noSpawnB_spec (h : noSpawnB p ct = true) {v i : Nat} (hv : v < ct.nodes.size)
+    (hi : i < (ct.nd v).ths.size) : TermSpawnSuccs.spawnSuccsAt p (ct.nd v) i = [] := by
   simp only [noSpawnB, List.all_eq_true, List.mem_range, List.isEmpty_iff] at h
   exact h v hv i hi
 
 /-- Without spawn moves the thread count is constant along the run. -/
-theorem run_size (hc : check p k arch X V ct c0 = true) (hns : noSpawnB ct = true) (h0 : CfgCoh c0)
+theorem run_size (hc : check p k arch X V ct c0 = true) (hns : noSpawnB p ct = true) (h0 : CfgCoh c0)
     (hr : (machineE p k arch).Run r) (hs : r.cfg 0 = c0) (hpf : PromiseFreeRun r) (hsr : ScriptedRun V r) :
     ∀ n, (r.cfg n).ths.size = (r.cfg 0).ths.size
   | 0 => rfl
@@ -751,7 +756,7 @@ end Spawn
 section
 variable {p : Prog} {k : Promises.Knobs} {arch : Arch} {X : List Nat} {V : List Nat} {c0 : Cfg} {ct : Cert}
 
-theorem no_livelock_of_check_fair (hc : check p k arch X V ct c0 = true) (hns : noSpawnB ct = true)
+theorem no_livelock_of_check_fair (hc : check p k arch X V ct c0 = true) (hns : noSpawnB p ct = true)
     (h0 : CfgCoh c0)
     (r : LRun (machineE p k arch).L) (D : Nat → Option Nat) (hr : (machineE p k arch).Run r) (hs : r.cfg 0 = c0)
     (hpf : PromiseFreeRun r) (hsr : ScriptedRun V r) (hD : ∀ i, D i ≠ none → i ∈ X) (hf : Fair (machineE p k arch) r D (fun _ => True)) :

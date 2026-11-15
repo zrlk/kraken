@@ -126,14 +126,14 @@ theorem noIallV_Fd {T U : Ty} (h : Fd T U) (hU : noIallV U = true) : noIallV T =
 /-- **`StoreIall` at a term whose free variables have `drf` runtime types**,
 for every typing, given `∀`-free witnesses. -/
 theorem storeIall_term {ρ : Nat → Nat} {η : TEnv} {K : TEnv → Nat → List Word → Res → Prop} {cx : Cx}
-    {th : TTh} {Rf : Res} (hi : FInvR ρ η th.σs K cx th.env Rf) (henv : EnvDRF th.env th.term)
+    {th : TTh} {Rf : Res} (hi : FInvR ρ η th.σs K cx th.env Rf) (henv : EnvDRFI th.env th.term)
     (hW : ∀ k, noIallV (η.wit k) = true) : StoreIall ρ η cx th := by
   intro x rel a v tok e t hterm hpk _ rt pw ad hev had cl0 hcl
-  have hdt : drf t = true :=
+  have hdt : drf1L t = true :=
     peek_drf hi hpk (fun y hy => henv y (by rw [hterm]; exact free_let_op (by simp [opAts]) hy))
   refine ⟨fun μ u htu o U hat => ?_, fun μ u U htu _ hfd => ?_⟩
   · subst htu
-    simp only [drf, Bool.and_eq_true] at hdt
+    simp only [drf1L] at hdt
     cases a with
     | lit n => simp [Cx.peek] at hpk
     | unit => simp [Cx.peek] at hpk
@@ -152,10 +152,43 @@ theorem storeIall_term {ρ : Nat → Nat} {η : TEnv} {K : TEnv → Nat → List
       have hs : (CE η).sto a0.label = η.sto a0.label := rfl
       rw [hs, hsto] at hcl
       cases hcl
-      exact IallOK_of_noIallV _ _ (noIallV_AtOff hat (noIallV_Fd hfd (noIallV_cl hW u 0 0 (noIallV_of_drf u hdt.2))))
+      exact IallOK_of_noIallV _ _ (noIallV_AtOff hat (noIallV_Fd hfd (noIallV_cl hW u 0 0 (noIallV_of_drf1L u hdt))))
   · subst htu
-    simp only [drf, Bool.and_eq_true] at hdt
-    exact IallOK_of_noIallV _ _ (noIallV_Fd hfd (noIallV_cl hW u 0 0 (noIallV_of_drf u hdt.2)))
+    simp only [drf1L] at hdt
+    exact IallOK_of_noIallV _ _ (noIallV_Fd hfd (noIallV_cl hW u 0 0 (noIallV_of_drf1L u hdt)))
+
+/-- (G2) **`XchgIall` at a term whose free variables have `drf` runtime types** (twin of `storeIall_term`). -/
+theorem xchgIall_term {ρ : Nat → Nat} {η : TEnv} {K : TEnv → Nat → List Word → Res → Prop} {cx : Cx}
+    {th : TTh} {Rf : Res} (hi : FInvR ρ η th.σs K cx th.env Rf) (henv : EnvDRFI th.env th.term)
+    (hW : ∀ k, noIallV (η.wit k) = true) : XchgIall ρ η cx th := by
+  intro x a v e t hterm hpk rt pw ad hev had cl0 hcl
+  have hdt : drf1L t = true :=
+    peek_drf hi hpk (fun y hy => henv y (by rw [hterm]; exact free_let_op (by simp [opAts]) hy))
+  refine ⟨fun μ u htu o U hat => ?_, fun μ u U htu _ hfd => ?_⟩
+  · subst htu
+    simp only [drf1L] at hdt
+    cases a with
+    | lit n => simp [Cx.peek] at hpk
+    | unit => simp [Cx.peek] at hpk
+    | var y =>
+      obtain ⟨ent, hent, het⟩ := TermScope.peek_var hpk
+      obtain ⟨rt', ws, hl, hv, -⟩ := hi.1.2.1 y ent hent
+      rw [het] at hv
+      simp only [evalAt] at hev
+      rw [hl] at hev
+      simp only [Option.some.injEq, Prod.mk.injEq] at hev
+      obtain ⟨-, rfl⟩ := hev
+      obtain ⟨a0, c0, hws, -, hsto, hfd, -, -⟩ := hv
+      simp only [List.map_cons, List.map_nil, List.cons.injEq, and_true] at hws
+      simp only [addrOf, hws, Option.some.injEq] at had
+      subst had
+      have hs : (CE η).sto a0.label = η.sto a0.label := rfl
+      rw [hs, hsto] at hcl
+      cases hcl
+      exact IallOK_of_noIallV _ _ (noIallV_AtOff hat (noIallV_Fd hfd (noIallV_cl hW u 0 0 (noIallV_of_drf1L u hdt))))
+  · subst htu
+    simp only [drf1L] at hdt
+    exact IallOK_of_noIallV _ _ (noIallV_Fd hfd (noIallV_cl hW u 0 0 (noIallV_of_drf1L u hdt)))
 
 /-- **T2 restated (`StoreIall`)** at every reachable thread step of a program
 passing `ProgScopeOK` (which now includes ProgIall), on runs from a `RunScope`
@@ -172,9 +205,24 @@ theorem iall_of {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {Mint
   have hFI := Y.2.2.2.2.2.1
   exact storeIall_term hFI h.env (WitAF.ni hFI.1.2.2.2.2.2.2.1)
 
+/-- (G2) `XchgIall` at every reachable thread step (twin of `iall_of`). -/
+theorem xchgIall_of {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {MintOK : Res → Prop}
+    {c0 : Cfg} (hp : ProgScopeOK p = true) (h0 : TermScope.RunScopeR p k arch Sp c0) :
+    ∀ {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {i : Nat}
+      {th : TTh} {r : Memory × List Ts × TTh} {S : AllocLabel → Prop} {ρ : Nat → Nat} {η : TEnv} {cx : Cx}
+      {Rf Rs : Res},
+      TCtxX p k arch Sp Init MintOK c0 c c' Eg Tot HP HS cr db i th r → EnvAt p Eg i th (Tot i) S ρ η cx Rf Rs →
+      XchgIall ρ η cx th := by
+  intro c c' Eg Tot HP HS cr db i th r S ρ η cx Rf Rs X Y
+  have h := run_drf hp h0 X.run i th X.hth
+  have hFI := Y.2.2.2.2.2.1
+  exact xchgIall_term hFI h.env (WitAF.ni hFI.1.2.2.2.2.2.2.1)
+
 #print axioms noIallV_AtOff
 #print axioms noIallV_Fd
 #print axioms storeIall_term
 #print axioms iall_of
+#print axioms xchgIall_term
+#print axioms xchgIall_of
 
 end TermIall

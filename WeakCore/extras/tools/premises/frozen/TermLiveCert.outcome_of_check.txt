@@ -34,6 +34,10 @@ CoreTerm.At : Type
 CoreTerm.At.var : String → CoreTerm.At
 CoreTerm.BitOp : Type
 CoreTerm.BitOp1 : Type
+CoreTerm.Decl : Type
+CoreTerm.Decl.argTy : CoreTerm.Decl → CoreLang.Ty
+CoreTerm.Decl.idx : CoreTerm.Decl → List String
+CoreTerm.Decl.name : CoreTerm.Decl → String
 CoreTerm.Expr : Type
 CoreTerm.Expr.cas : Bool → Bool → CoreTerm.At → CoreTerm.At → CoreTerm.At → String → CoreTerm.Expr → CoreTerm.Expr → CoreTerm.Expr
 CoreTerm.Expr.case : CoreTerm.At → String → CoreTerm.Expr → String → CoreTerm.Expr → CoreTerm.Expr
@@ -115,6 +119,7 @@ CoreTerm.Op.publish : CoreTerm.At → CoreTerm.Op
 CoreTerm.Op.rem : CoreTerm.At → CoreTerm.At → CoreTerm.Op
 CoreTerm.Op.setLane : CoreTerm.At → CoreTerm.At → CoreTerm.At → CoreTerm.Op
 CoreTerm.Op.spawn : String → CoreTerm.At → CoreLang.Ty → optParam (List CoreLang.Ty) [] → CoreTerm.Op
+CoreTerm.Op.spawnI : String → List String → CoreTerm.At → CoreLang.Ty → optParam (List CoreLang.Ty) [] → CoreTerm.Op
 CoreTerm.Op.stl : CoreTerm.At → CoreTerm.At → CoreTerm.At → CoreTerm.Op
 CoreTerm.Op.stlw : CoreTerm.At → CoreTerm.At → CoreTerm.At → CoreTerm.At → CoreTerm.Op
 CoreTerm.Op.store : Bool → CoreTerm.At → CoreTerm.At → Option CoreTerm.At → CoreTerm.Op
@@ -748,6 +753,16 @@ TermLiveCert.instDecidableEqOp_termLiveCert.decEq : (x x_1 : CoreTerm.Op) → De
             h ▸ if h : a_2 = b_2 then h ▸ if h : a_3 = b_3 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
           else isFalse ⋯
       else isFalse ⋯
+    | CoreTerm.Op.spawnI a a_1 a_2 a_3 a_4, CoreTerm.Op.spawnI b b_1 b_2 b_3 b_4, ⋯ =>
+      if h : a = b then
+        h ▸
+          if h : a_1 = b_1 then
+            h ▸
+              if h : a_2 = b_2 then
+                h ▸ if h : a_3 = b_3 then h ▸ if h : a_4 = b_4 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
+              else isFalse ⋯
+          else isFalse ⋯
+      else isFalse ⋯
     | CoreTerm.Op.ext a a_1, CoreTerm.Op.ext b b_1, ⋯ =>
       if h : a = b then h ▸ if h : a_1 = b_1 then h ▸ isTrue ⋯ else isFalse ⋯ else isFalse ⋯
     | CoreTerm.Op.isTy a a_1, CoreTerm.Op.isTy b b_1, ⋯ =>
@@ -815,7 +830,7 @@ TermLiveCert.locs : TermRun.Cfg → List WeakMem.Address
 TermLiveCert.movesPF : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → List Nat → TermRun.Cfg → Nat → List TermRun.Cfg
   := fun p k arch V c i =>
   TermRun.threadSteps p k arch c i ++ TermRun.extSuccs p k arch { solo := 0, io := V } c i ++
-    TermSpawnSuccs.spawnSuccsAt c i
+    TermSpawnSuccs.spawnSuccsAt p c i
 TermLiveCert.outcome : Nat → List (Nat × Nat) → TermRun.Cfg → List (Option (List WeakMem.Val)) × List (Option WeakMem.Val)
   := fun m watch c =>
   (List.map (fun i => c.ths[i]?.bind TermSmoke.resWs) (List.range m),
@@ -856,7 +871,7 @@ TermLiveL3.mstepE : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → TermRu
   match x, x_1 with
   | (i, TermLiveL3.Lbl.thr), c' =>
     c' ∈ TermRun.threadSteps p k arch c i ∧ TermRun.Certified p k arch c' i ∨
-      TermProgress.SpawnBy c.cap c i c' ∨ TermProgress.ExtBy p k arch c i c'
+      TermProgress.SpawnBy p c.cap c i c' ∨ TermProgress.ExtBy p k arch c i c'
   | (i, TermLiveL3.Lbl.prom), c' =>
     ∃ a v w,
       i < c.ths.size ∧
@@ -898,13 +913,24 @@ TermProgress.ExtBy : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → TermR
               n.Admits i ws c.trace rs ∧
                 TermRun.Certified p k arch (TermRun.extCfg c i th x n e ws rs) i ∧
                   c' = TermRun.wake (TermRun.extCfg c i th x n e ws rs) i (TermRun.relView th.vs) n ws
-TermProgress.SpawnBy : Nat → TermRun.Cfg → Nat → TermRun.Cfg → Prop
-  := fun cap c i c' =>
-  ∃ x f a T ts e th rt ws,
-    c.ths[i]? = some th ∧
-      th.term = CoreTerm.Expr.let_ x (CoreTerm.Op.spawn f a T ts) e ∧
-        th.promises = [] ∧
-          c.ths.size < cap ∧ TermRun.evalAt th.env a = some (rt, ws) ∧ c' = TermSpawnStep.spawnCfg c i th x e f ts T ws
+TermProgress.SpawnBy : CoreTerm.Prog → Nat → TermRun.Cfg → Nat → TermRun.Cfg → Prop
+  := fun p cap c i c' =>
+  (∃ x f a T ts e th rt ws,
+      c.ths[i]? = some th ∧
+        th.term = CoreTerm.Expr.let_ x (CoreTerm.Op.spawn f a T ts) e ∧
+          th.promises = [] ∧
+            c.ths.size < cap ∧
+              TermRun.evalAt th.env a = some (rt, ws) ∧ c' = TermSpawnStep.spawnCfg c i th x e f ts T ws) ∨
+    ∃ x f is a T ts e th d rt ws,
+      c.ths[i]? = some th ∧
+        th.term = CoreTerm.Expr.let_ x (CoreTerm.Op.spawnI f is a T ts) e ∧
+          th.promises = [] ∧
+            c.ths.size < cap ∧
+              List.find? (fun x => x.name == f) p = some d ∧
+                TermRun.evalAt th.env a = some (rt, ws) ∧
+                  c' =
+                    TermSpawnStep.spawnT c i (TermSpawnStep.spawnPar c i th x e)
+                      (TermSpawnStep.spawnKidI c i th d ts ws)
 TermRun.Certified : CoreTerm.Prog → Promises.Knobs → WeakMem.Arch → TermRun.Cfg → Nat → Prop
 TermRun.Cfg : Type
 TermRun.Cfg.boxFence : TermRun.Cfg → Bool
@@ -939,6 +965,7 @@ TermRun.TTh.σs : TermRun.TTh → List CoreLang.Ty
 TermRun.ThKey : Type
 TermRun.Word : Type
 TermRun.cfgKey : TermRun.Cfg → TermRun.CfgKey
+TermRun.close : List CoreLang.Ty → CoreLang.Ty → CoreLang.Ty
 TermRun.cst : WeakMem.Val → TermRun.Word
 TermRun.evalAt : TermRun.Env → CoreTerm.At → Option (CoreLang.Ty × List TermRun.Word)
 TermRun.extCfg : TermRun.Cfg →
@@ -976,6 +1003,17 @@ TermSpawnStep.spawnKid : TermRun.Cfg → Nat → TermRun.TTh → String → List
       { coh := __src.coh, vRd := __src.vRd, vWr := __src.vWr, vCtrl := __src.vCtrl, vPreBase := __src.vPreBase,
         vRelSt := __src.vRelSt, fwd := __src.fwd },
     tidLbl := some (TermSpawnStep.tidLabel c i th) }
+TermSpawnStep.spawnKidI : TermRun.Cfg → Nat → TermRun.TTh → CoreTerm.Decl → List CoreLang.Ty → List TermRun.Word → TermRun.TTh
+  := fun c i th d ts ws =>
+  { term := CoreTerm.Expr.tail d.name d.idx (CoreTerm.At.var "a") ts,
+    env :=
+      [("a", TermRun.close (List.map (TermRun.close []) ts).reverse d.argTy,
+          List.map (TermSpawn.bumpW (TermSpawnStep.spawnS c th).vs.vRelSt) ws)],
+    vs :=
+      have __src := (TermSpawnStep.spawnS c th).vs;
+      { coh := __src.coh, vRd := __src.vRd, vWr := __src.vWr, vCtrl := __src.vCtrl, vPreBase := __src.vPreBase,
+        vRelSt := __src.vRelSt, fwd := __src.fwd },
+    tidLbl := some (TermSpawnStep.tidLabel c i th) }
 TermSpawnStep.spawnPar : TermRun.Cfg → Nat → TermRun.TTh → String → CoreTerm.Expr → TermRun.TTh
   := fun c i th x e =>
   have __src := TermRun.withS th (TermSpawnStep.spawnS c th);
@@ -995,8 +1033,8 @@ TermSpawnStep.spawnT : TermRun.Cfg → Nat → TermRun.TTh → TermRun.TTh → T
     cap := c.cap, trace := c.trace }
 TermSpawnStep.tidLabel : TermRun.Cfg → Nat → TermRun.TTh → WeakMem.AllocLabel
   := fun c i th => TermRun.freshLabel c.lbase c.n i th.nalloc
-TermSpawnSuccs.spawnSuccsAt : TermRun.Cfg → Nat → List TermRun.Cfg
-  := fun c i =>
+TermSpawnSuccs.spawnSuccsAt : CoreTerm.Prog → TermRun.Cfg → Nat → List TermRun.Cfg
+  := fun p c i =>
   match c.ths[i]? with
   | some th =>
     match th.term with
@@ -1004,6 +1042,16 @@ TermSpawnSuccs.spawnSuccsAt : TermRun.Cfg → Nat → List TermRun.Cfg
       if (th.promises.isEmpty && decide (c.ths.size < c.cap)) = true then
         match TermRun.evalAt th.env a with
         | some (fst, ws) => [TermSpawnStep.spawnCfg c i th x e f ts T ws]
+        | none => []
+      else []
+    | CoreTerm.Expr.let_ x (CoreTerm.Op.spawnI f is a T ts) e =>
+      if (th.promises.isEmpty && decide (c.ths.size < c.cap)) = true then
+        match List.find? (fun x => x.name == f) p with
+        | some d =>
+          match TermRun.evalAt th.env a with
+          | some (fst, ws) =>
+            [TermSpawnStep.spawnT c i (TermSpawnStep.spawnPar c i th x e) (TermSpawnStep.spawnKidI c i th d ts ws)]
+          | none => []
         | none => []
       else []
     | x => []

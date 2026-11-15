@@ -18,7 +18,7 @@ open WeakMem (Val Msg Memory Address VState Ts Arch AllocLabel)
 /-- **`tstep_footprint` at a `bufInit`**: the footprint's environment counts the written slot. -/
 theorem tstep_footprintB {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
     {cx : Cx} {ρ : Nat → Nat} {η : TEnv} (hP : ProgT p)
-    (hT : Typed p cx th.term) (hi : FInv ρ η th.σs (Resume p th.stack) cx th.env)
+    (hT : TypedK p η cx th.term) (hi : FInv ρ η th.σs (Resume p th.stack) cx th.env)
     (hE : EnvOK p η) (htv : TvOK cx) (hm : MemInv g (CE η) (stOf mem pairs th)) (hZ : ZOK g (CE η) th)
     (hRP : RetPw th.σs th.stack cx.ret) (hPS : PwSkel)
     {x : String} {b i v : At} {e : Expr} (hterm : th.term = .let_ x (.bufInit b i v) e) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
@@ -62,15 +62,15 @@ theorem xfz_threadB {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {E0 
       TermTyped.IniHeld H E0 E' th'.vs.vWr ∧ BufInitBump th b ib E' ∧ Ext E E' := by
   obtain ⟨ρ, η, cx, rfl, hE, hT, htv, hi, hrp, hDy⟩ := hTE
   have hscope := hsc0 th hth (TermTyped.not_spawnT_of_steps hth hs) ρ η cx hE hT htv hi
-  have hpub : ∀ l, ¬ TermOwnG0Defs.PubAt th l := fun l ⟨y, a, e', _, _, _, h, _⟩ => by
-    rw [hterm] at h; cases h
+  have hpub : ∀ l, ¬ TermOwnG0Defs.PubAt th l := fun l ⟨a, _, _, _, h, _⟩ => by
+    rcases h with ⟨y, e', h⟩ | ⟨rn, pn, tn, e', h⟩ | ⟨y, rn, e', h⟩ <;> (rw [hterm] at h; cases h)
   have hF := tstep_footprintB (hDy := hDy) (g := { ({ gOf p k arch c0 i with zf := fun l => Z l ∨ W l } : G) with
       pf := fun l => TermOwnG0Defs.PubAt th l }) hP hT hi hE htv hm (ZOK_of_not hZW) hrp hPS hterm
   exact xfz_of_foot (Q := fun _ E' => BufInitBump th b ib E' ∧ Ext (CE η) E') hth hx hSC hbo hfb hfr hna hfresh hIL hIH hs hc0' hHr
     (fun r hr hpa => by
       obtain ⟨E', h1, h2, h3, h4, h5⟩ := hF.2 r hr hpa
       exact ⟨E', h1, h2, h3, h4, fun l hl => absurd hl (hpub l),
-        TermTyped.anchR_tstep h1 h4 (TermTyped.bumpIf_of hterm h5) hE hT htv hi hm hscope
+        TermTyped.anchR_tstep h1 h4 (TermTyped.bumpIf_of hterm h5) hE hT.1 htv hi hm hscope
           (TermViewInv.envVR_solo (p := p) (k := k) (arch := arch) hvI0 (.refl _) hth) hr
           (TermTyped.frRunA_ext hfr hx) hfr.2.1, h5, h2⟩)
 

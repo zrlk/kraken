@@ -2,8 +2,8 @@
 # tools/premises/guard.sh -- gate hook: fail if the MEANING of any final's premises or conclusion
 # changed (the transitive definition closure of each final's statement; see CheckPremises.lean).
 # usage: WM_BUILD=<olean dir> [WM_LEAN=<lean>] tools/premises/guard.sh
-# Approve a change (after the design-decision entry exists in the decisions log):
-#   WM_APPROVE_PREMISES="<entry, e.g. a decision label>" ... guard.sh
+# Approve a change (after reviewing the printed diff):
+#   WM_APPROVE_PREMISES="<reason>" ... guard.sh
 # Exit codes: 0 meaning unchanged; 1 PREMISE MEANING CHANGED (a text moved, or "structural": a final, language
 # root or forced constant is missing or renders without its text, or a recursive definition has no unfolding
 # equation; also: no frozen baseline yet and no baseline approval); 2 GUARD ERROR (the check did not complete;

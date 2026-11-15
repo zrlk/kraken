@@ -1,17 +1,18 @@
 import Scc.Cert.Rt.WideOkA64
 import Kraken.AArch64.Parser
+import Scc.Sem.TextA64
 
 /-!
 # `scc --code`'s one-word fragment check on AArch64
 
 `check asm`: the listing's program, as the canonical loader parses it
-(`progOf`, which is `Scc.Sem.A64.textProgram`: `Scc/Test/WideCheckTest.lean`
-checks the equation by `rfl`), is in the certified one-word fragment
+(`progOf`, which is `Scc.Sem.A64.textProgram` itself), is in the certified
+one-word fragment
 (`Scc.Cert.WideA64.wideIn`, `Scc/Cert/Rt/WideOkA64.lean`, keyed off the parsed
 `Operation` by `Operation.wideOk`), or the error names the listing lines
-outside it. The loader's modules bring WeakCore's root `main` into scope, so
-the compiler cannot import them; `textOf` and `progOf` restate
-`Scc.Sem.textSection` and `textProgram`.
+outside it. The loader's target module brings WeakCore's root `main` into
+scope, so the compiler cannot import it; the loader's program reader is in
+its own module (`Scc/Sem/TextA64.lean`), which this file imports.
 `scc-arm` passes it to `Scc.Cert.Blocks.code` (`Scc.Cli.run`'s `wide`), which
 refuses a program outside the fragment and states `<P>_wide` for one inside.
 
@@ -23,20 +24,11 @@ namespace Scc.Cert.WideCheckA64
 
 open Kraken Kraken.Promising.AArch64
 
-/-- `Scc.Sem.textSection`: the lines of the `.text` sections. -/
-def textOf (asm : String) : String :=
-  let step (acc : Bool × List String) (l : String) : Bool × List String :=
-    let t := l.trimAscii.toString
-    if t.startsWith ".text" then (true, acc.2)
-    else if t.startsWith ".data" || t.startsWith ".bss" || t.startsWith ".section" ||
-        t.startsWith ".rodata" then (false, acc.2)
-    else if acc.1 then (true, l :: acc.2) else acc
-  "\n".intercalate ((asm.splitOn "\n").foldl step (true, [])).2.reverse
+/-- The lines of the `.text` sections: the loader's `Scc.Sem.textSection`. -/
+abbrev textOf : String → String := Scc.Sem.textSection
 
-/-- `Scc.Sem.A64.textProgram`: Kraken's AArch64 parser on the `.text`
-sections. -/
-def progOf (asm : String) : Except String Program :=
-  Kraken.AArch64.Parser.parse (Kraken.AArch64.Parser.stripDirectives (textOf asm))
+/-- The program the canonical loader reads: `Scc.Sem.A64.textProgram`. -/
+abbrev progOf : String → Except String Program := Scc.Sem.A64.textProgram
 
 /-- The stores outside the fragment, as text for messages. -/
 def fragmentLimit : String :=

@@ -94,7 +94,7 @@ theorem noFulT {cP : Cfg} {thP : TTh} {a0 b a' : Address} {v0 : WeakMem.Val} {g 
     {E0 : TEnv} {ca cr : Cell} {n0 vw : Nat} {l : AllocLabel} {cl : Cell} {t : Nat}
     (hthP : cP.ths[i]? = some thP) (hmt : (promise cP i a0 v0 w).mem[t]? = some ⟨b, .loc a' g, wt⟩)
     (ha : a'.label = r)
-    (hca : E0.sto b.label = some ca) (hno : Ty.noOwnIn [] ca.ty = true) (hrf : rgnFree ca.ty = true)
+    (hca : E0.sto b.label = some ca) (hno : Ty.noOwnIn [] ca.ty = true)
     (hcr : E0.sto r = some cr) (hPfr : PfrX p k arch cP i a0 v0 w r E0 n0 vw cP.mem thP.promises l cl)
     {c : Cfg} {th : TTh} (hs : SoloNP p k arch i r (promise cP i a0 v0 w) c)
     (hc : Certified p k arch c i) (hth : c.ths[i]? = some th) : t ∈ th.promises := by
@@ -106,7 +106,7 @@ theorem noFulT {cP : Cfg} {thP : TTh} {a0 b a' : Address} {v0 : WeakMem.Val} {g 
   have hcr' : E.sto r = some cr := hx.2.2.2.2.1 _ _ hcr
   rcases hm.1.1 t ⟨b, .loc a' g, wt⟩ ca hB hmB hca' with h | h
   · cases h
-  · rcases wordOK_locPub (a := a') (g := g) h hno hrf rfl with ⟨c1, f, -, hf⟩ | ⟨B, hbx⟩
+  · rcases wordOK_locPub (a := a') (g := g) h hno rfl with ⟨c1, f, -, hf⟩ | ⟨B, hbx⟩
     · rw [ha, hpf] at hf; cases hf
     · have h2 := (hm.2.2.2.2.2.2.2.2.2.1.2.2 _ _ hbx).1
       rw [ha, hcr'] at h2; cases h2
@@ -116,11 +116,32 @@ theorem noFulT {cP : Cfg} {thP : TTh} {a0 b a' : Address} {v0 : WeakMem.Val} {g 
 theorem noFul {cP : Cfg} {thP : TTh} {a0 a' : Address} {g : Nat} {w : Ts} {E0 : TEnv} {ca cr : Cell}
     {n0 vw : Nat} {l : AllocLabel} {cl : Cell}
     (hthP : cP.ths[i]? = some thP) (ha : a'.label = r)
-    (hca : E0.sto a0.label = some ca) (hno : Ty.noOwnIn [] ca.ty = true) (hrf : rgnFree ca.ty = true)
+    (hca : E0.sto a0.label = some ca) (hno : Ty.noOwnIn [] ca.ty = true)
     (hcr : E0.sto r = some cr) (hPfr : PfrX p k arch cP i a0 (.loc a' g) w r E0 n0 vw cP.mem thP.promises l cl)
     {c : Cfg} {th : TTh} (hs : SoloNP p k arch i r (promise cP i a0 (.loc a' g) w) c)
     (hc : Certified p k arch c i) (hth : c.ths[i]? = some th) : cP.mem.size ∈ th.promises :=
-  noFulT (g := g) (wt := w) hthP (by simp only [promise, hthP, Array.getElem?_push_size]) ha hca hno hrf hcr hPfr hs hc hth
+  noFulT (g := g) (wt := w) hthP (by simp only [promise, hthP, Array.getElem?_push_size]) ha hca hno hcr hPfr hs hc hth
+
+/-- `TermCert.tstep_publish_relSt` at every `PubAt` kind (`publish`, `region`, `intoRgn`: each is the
+release fence). -/
+theorem tstep_pubAt_relSt {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {l : AllocLabel}
+    {r : Memory × List Ts × TTh} (h : PubAt th l) (hr : r ∈ tstep g mem pairs th) :
+    th.vs.vWr ≤ r.2.2.vs.vRelSt ∧ r.2.2.promises = th.promises ∧ r.1 = mem := by
+  obtain ⟨a, rt, ws, ad, hk, hea, -, -⟩ := h
+  rcases hk with ⟨y, e, hterm⟩ | ⟨rn, pn, tn, e, hterm⟩ | ⟨y, rn, e, hterm⟩
+  · exact tstep_publish_relSt hterm hr
+  · simp only [tstep, hterm, hea] at hr
+    split at hr <;> simp only [List.mem_singleton, List.not_mem_nil] at hr
+    all_goals (subst hr; exact ⟨show th.vs.vWr ≤ max th.vs.vRelSt th.vs.vWr from Nat.le_max_right _ _, rfl, rfl⟩)
+  · simp only [tstep, hterm, evalOp, List.mem_map] at hr
+    obtain ⟨⟨s', t', ws'⟩, hs, rfl⟩ := hr
+    simp only [hea, ol, bind, Option.bind, pure] at hs
+    split at hs
+    all_goals first
+      | (simp at hs; done)
+      | (cases hs with
+         | head => exact ⟨show th.vs.vWr ≤ max th.vs.vRelSt th.vs.vWr from Nat.le_max_right _ _, rfl, rfl⟩
+         | tail _ h => cases h)
 
 /-- **(R) The window along a certificate**: from a configuration reached by `SoloNP r` with a promise
 `t` (message `m`) outstanding, a run to no promises meets a `publish r` with `t` outstanding first. -/
@@ -141,8 +162,13 @@ theorem winLe_cert {cP : Cfg} {a0 : Address} {v0 : WeakMem.Val} {w : Ts} {t : Na
     intro hn hP th hth hB
     have hc1 : Certified p k arch c1 i := ⟨_, hrest, hn⟩
     by_cases hpub : PubAt th r
-    · obtain ⟨y, a, e, -, -, -, hterm, -⟩ := hpub
-      exact certified_pub_vWrLe hs hc1 hth hterm hB (hmB c hP)
+    · -- `certified_pub_vWrLe` at every `PubAt` kind
+      simp only [threadSteps, hth, List.mem_map] at hs
+      obtain ⟨⟨mem, pairs, th'⟩, hr, rfl⟩ := hs
+      obtain ⟨h1, h2, h3⟩ := tstep_pubAt_relSt hpub hr
+      dsimp only at h1 h2 h3
+      subst h3
+      exact Nat.le_trans h1 (certified_relStLe hc1 (arr_set hth) (by rw [h2]; exact hB) (hmB c hP))
     · have hP1 := soloNP_snoc_thread hP c1 hs (fun th' h' => by rw [hth] at h'; cases h'; exact hpub)
       obtain ⟨th0, th1, h0, h1, hv, -⟩ := winInv_thread (winInv_refl hth) hs
       rw [hth] at h0; cases h0
@@ -179,13 +205,13 @@ theorem g0WinT_of {cP : Cfg} {thP : TTh} {a0 b a' : Address} {v0 : WeakMem.Val} 
     (_h0 : InvAtXR p k arch i E0 n0 vw cP.mem thP.promises l cl (promise cP i a0 v0 w))
     (_ht : t = cP.mem.size ∨ t ∈ thP.promises)
     (hmt : (promise cP i a0 v0 w).mem[t]? = some ⟨b, .loc a' g, wt⟩) (ha : a'.label = r)
-    (hca : E0.sto b.label = some ca) (hno : Ty.noOwnIn [] ca.ty = true) (hrf : rgnFree ca.ty = true)
+    (hca : E0.sto b.label = some ca) (hno : Ty.noOwnIn [] ca.ty = true)
     (hcr : E0.sto r = some cr) (hPfr : PfrX p k arch cP i a0 v0 w r E0 n0 vw cP.mem thP.promises l cl) :
     G0WinW p k arch cP i a0 v0 w r wt := by
   intro c th hs hc hth
   obtain ⟨c', hrun, hn⟩ := hc
   have hNo := fun c th hs hc hth => noFulT (p := p) (k := k) (arch := arch) hthP hmt ha
-    hca hno hrf hcr hPfr (c := c) (th := th) hs hc hth
+    hca hno hcr hPfr (c := c) (th := th) hs hc hth
   exact winLe_cert hNo (fun c hs => memT hthP hmt hs.toSolo) hrun hn hs th hth (hNo c th hs ⟨c', hrun, hn⟩ hth)
 
 /-- **G-0** (route S): the window `vWr ≤ w` at every certified configuration before `publish r`,
@@ -199,10 +225,10 @@ theorem g0Win_of {cP : Cfg} {thP : TTh} {a0 a' : Address} {g : Nat} {w : Ts} {E0
     (_hcl : E0.sto l = some cl) (_hW : WinInv cP i (promise cP i a0 (.loc a' g) w))
     (_h0 : InvAtXR p k arch i E0 n0 vw cP.mem thP.promises l cl (promise cP i a0 (.loc a' g) w))
     (ha : a'.label = r)
-    (hca : E0.sto a0.label = some ca) (hno : Ty.noOwnIn [] ca.ty = true) (hrf : rgnFree ca.ty = true)
+    (hca : E0.sto a0.label = some ca) (hno : Ty.noOwnIn [] ca.ty = true)
     (hcr : E0.sto r = some cr) (hPfr : PfrX p k arch cP i a0 (.loc a' g) w r E0 n0 vw cP.mem thP.promises l cl) :
     G0Win p k arch cP i a0 (.loc a' g) w r :=
-  g0WinT_of (g := g) (wt := w) _hk _hP _hsc _hwin hthP _hpl _hcl _hW _h0 (Or.inl rfl) (by simp only [promise, hthP, Array.getElem?_push_size]) ha hca hno hrf hcr hPfr
+  g0WinT_of (g := g) (wt := w) _hk _hP _hsc _hwin hthP _hpl _hcl _hW _h0 (Or.inl rfl) (by simp only [promise, hthP, Array.getElem?_push_size]) ha hca hno hcr hPfr
 
 end
 

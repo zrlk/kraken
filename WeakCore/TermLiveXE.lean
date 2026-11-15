@@ -38,7 +38,7 @@ open WeakMem (Val Msg Memory Address VState Ts Arch AllocLabel)
 /-! ## §1 Spawn successors -/
 
 /-- The spawn successors of thread `i` (at most one). -/
-def spawnSucc (cap : Nat) (c : Cfg) (i : Nat) : List Cfg :=
+def spawnSucc (p : Prog) (cap : Nat) (c : Cfg) (i : Nat) : List Cfg :=
   match c.ths[i]? with
   | some th =>
       match th.term with
@@ -48,11 +48,20 @@ def spawnSucc (cap : Nat) (c : Cfg) (i : Nat) : List Cfg :=
             | some (_, ws) => [spawnCfg c i th x e f ts T ws]
             | none => []
           else []
+      | .let_ x (.spawnI f is a T ts) e =>
+          if th.promises.isEmpty && decide (c.ths.size < cap) then
+            match p.find? (·.name == f) with
+            | some d =>
+                match evalAt th.env a with
+                | some (_, ws) => [spawnT c i (spawnPar c i th x e) (spawnKidI c i th d ts ws)]
+                | none => []
+            | none => []
+          else []
       | _ => []
   | none => []
 
 theorem spawnSucc_iff {p : Prog} {k : Promises.Knobs} {arch : Arch} {cap : Nat} {c c' : Cfg}
-    {i : Nat} : c' ∈ spawnSucc cap c i ↔ SpawnBy p k arch cap c i c' := by
+    {i : Nat} : c' ∈ spawnSucc p cap c i ↔ SpawnBy p k arch cap c i c' := by
   constructor
   · intro h
     unfold spawnSucc at h
@@ -66,41 +75,56 @@ theorem spawnSucc_iff {p : Prog} {k : Promises.Knobs} {arch : Arch} {cap : Nat} 
           split at h
           · rename_i rt ws hev
             simp only [List.mem_singleton] at h
-            exact ⟨x, f, a, T, ts, e, th, rt, ws, hth, hterm, hc.1, hc.2, hev, h⟩
+            exact .inl ⟨x, f, a, T, ts, e, th, rt, ws, hth, hterm, hc.1, hc.2, hev, h⟩
+          · simp at h
+        · simp at h
+      · rename_i x f is a T ts e hterm
+        split at h
+        · rename_i hc
+          simp only [Bool.and_eq_true, List.isEmpty_iff, decide_eq_true_eq] at hc
+          split at h
+          · rename_i d hfind
+            split at h
+            · rename_i rt ws hev
+              simp only [List.mem_singleton] at h
+              exact .inr ⟨x, f, is, a, T, ts, e, th, d, rt, ws, hth, hterm, hc.1, hc.2, hfind, hev, h⟩
+            · simp at h
           · simp at h
         · simp at h
       · simp at h
     · simp at h
-  · rintro ⟨x, f, a, T, ts, e, th, rt, ws, hth, hterm, hp, hcap, hev, rfl⟩
-    simp [spawnSucc, hth, hterm, hp, hcap, hev]
+  · rintro (⟨x, f, a, T, ts, e, th, rt, ws, hth, hterm, hp, hcap, hev, rfl⟩ |
+        ⟨x, f, is, a, T, ts, e, th, d, rt, ws, hth, hterm, hp, hcap, hfind, hev, rfl⟩)
+    · simp [spawnSucc, hth, hterm, hp, hcap, hev]
+    · simp [spawnSucc, hth, hterm, hp, hcap, hfind, hev]
 
 /-- Every enabled spawn of `c`, labelled with its parent and `true`. -/
-def spawnMoves (cap : Nat) (c : Cfg) : List (Nat × Bool × Cfg) :=
-  (List.range c.ths.size).flatMap fun i => (spawnSucc cap c i).map fun c' => (i, true, c')
+def spawnMoves (p : Prog) (cap : Nat) (c : Cfg) : List (Nat × Bool × Cfg) :=
+  (List.range c.ths.size).flatMap fun i => (spawnSucc p cap c i).map fun c' => (i, true, c')
 
 theorem spawnMoves_iff {p : Prog} {k : Promises.Knobs} {arch : Arch} {cap : Nat} {c c' : Cfg}
-    {i : Nat} {t : Bool} : (i, t, c') ∈ spawnMoves cap c ↔ t = true ∧ SpawnBy p k arch cap c i c' := by
+    {i : Nat} {t : Bool} : (i, t, c') ∈ spawnMoves p cap c ↔ t = true ∧ SpawnBy p k arch cap c i c' := by
   simp only [spawnMoves, List.mem_flatMap, List.mem_range, List.mem_map, Prod.mk.injEq]
   constructor
   · rintro ⟨j, -, d, hd, rfl, rfl, rfl⟩
     exact ⟨rfl, spawnSucc_iff.1 hd⟩
   · rintro ⟨rfl, h⟩
     have hi : i < c.ths.size := by
-      obtain ⟨_, _, _, _, _, _, _, _, _, hth, -⟩ := h
-      exact lt_of_get hth
+      rcases h with ⟨_, _, _, _, _, _, _, _, _, hth, -⟩ | ⟨_, _, _, _, _, _, _, _, _, _, _, hth, -⟩ <;>
+        exact lt_of_get hth
     exact ⟨i, hi, c', spawnSucc_iff.2 h, rfl, rfl, rfl⟩
 
 /-- `successorsL` plus the spawn moves. -/
 def successorsLX (p : Prog) (k : Promises.Knobs) (arch : Arch) (b : Bounds) (cap : Nat) (c : Cfg) :
     List (Nat × Bool × Cfg) :=
-  successorsL p k arch b c ++ spawnMoves cap c
+  successorsL p k arch b c ++ spawnMoves p cap c
 
 /-- `successorsLX`, with `successorsLT`'s truncations (spawn sites are not one: their moves are
 offered). -/
 def successorsLXT (p : Prog) (k : Promises.Knobs) (arch : Arch) (b : Bounds) (cap : Nat) (c : Cfg) :
     List (Nat × Bool × Cfg) × Trunc :=
   let r := successorsLT p k arch b false c
-  (r.1 ++ spawnMoves cap c, r.2)
+  (r.1 ++ spawnMoves p cap c, r.2)
 
 theorem successorsLXT_fst (p : Prog) (k : Promises.Knobs) (arch : Arch) (b : Bounds) (cap : Nat)
     (c : Cfg) : (successorsLXT p k arch b cap c).1 = successorsLX p k arch b cap c := by
@@ -119,9 +143,9 @@ no thread step. -/
 theorem site_not_silent {p : Prog} {k : Promises.Knobs} {arch : Arch} {c : Cfg} {i : Nat}
     {th : TTh} (hth : c.ths[i]? = some th) (hs : AtSite th) :
     (threadSteps p k arch c i).isEmpty = true := by
-  obtain ⟨x, f, a, T, ts, e, h⟩ := hs
-  rw [threadSteps_spawn hth h]
-  rfl
+  rcases hs with ⟨x, f, a, T, ts, e, h⟩ | ⟨x, f, is, a, T, ts, e, h⟩
+  · rw [threadSteps_spawn hth h]; rfl
+  · rw [threadSteps_spawnI hth h]; rfl
 
 /-- **A spawn is an exit**: no `StepX` path leads back. -/
 theorem spawn_exit {p : Prog} {k : Promises.Knobs} {arch : Arch} {cap : Nat} {c c' : Cfg} {i : Nat}
@@ -141,6 +165,7 @@ def exploreGX (p : Prog) (k : Promises.Knobs) (arch : Arch) (b : Bounds) (cap fu
 def atSiteB (th : TTh) : Bool :=
   match th.term with
   | .let_ _ (.spawn ..) _ => th.promises.isEmpty
+  | .let_ _ (.spawnI ..) _ => th.promises.isEmpty
   | _ => false
 
 /-- Expanded configurations in which a parent waits at a spawn site at capacity. -/

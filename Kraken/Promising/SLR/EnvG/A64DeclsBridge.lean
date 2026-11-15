@@ -59,6 +59,7 @@ def Directive.noPairs : Directive → Bool
   | .instr i => i.operation.noPairs
   | .label _ => true
   | .byteArray _ => true
+  | .zeros _ => true
 
 /-- **The static no-pair check** of a program: every directive passes. -/
 def Program.noPairs (p : Program) : Bool := p.all Directive.noPairs
@@ -349,6 +350,7 @@ theorem directive_noPairs [Labels] (dir : Directive) (p : Std.Rco Int64) {s : Ma
     exact operation_noPairs _ _ hd hk hj
   | label l => exact hk _
   | byteArray b => simp only [Directive.interp, Effects.NoPairs]
+  | zeros n => simp only [Directive.interp, Effects.NoPairs]
 
 end NoPairs
 

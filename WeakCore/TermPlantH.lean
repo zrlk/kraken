@@ -69,7 +69,7 @@ theorem NpZ_le_slot {E : TEnv} {s : St} {l : AllocLabel} {c : Cell} (hc : E.sto 
 
 /-- **The classification**: a label planted with new slots that is neither a word buffer nor a
 `UnitT` buffer is in an (H) class. -/
-theorem hclass_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : CertRunP p k arch Sp Init MintOK c0)
+theorem hclass_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : CertRunP p k arch Sp Init MintOK c0)
     {c : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {j : Nat} {th : TTh}
     {a : Address} {v : WeakMem.Val} {w : Ts} (X : PCtxX p k arch Sp Init MintOK c0 c Eg Tot HP HS cr db j th a v w)
     {l : AllocLabel} {f : Ts} {cl : Cell} (hf : TermPlantF.plantOf c Eg j a v w l = some f)
@@ -126,7 +126,7 @@ theorem hclass_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [T
       | false => exact .inr ⟨hnil, hA, hS, hM⟩
 
 /-- **`SelfPlantRestF` from the (H)-narrowed residual.** -/
-theorem selfPlantRest_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : CertRunP p k arch Sp Init MintOK c0)
+theorem selfPlantRest_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : CertRunP p k arch Sp Init MintOK c0)
     (hH : SelfPlantRestHF p k arch Sp Init MintOK c0) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) : TermPlantS.SelfPlantRestF p k arch Sp Init MintOK c0 := by
   intro c Eg Tot HP HS cr db j th a v w X ⟨l, f, cl, hf, hno, hcl, hW, hU⟩
   obtain ⟨N, e, us, hT, hus, hone, hC⟩ := hclass_of (hV0 := hV0) (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hrun X hf hno hcl hW hU

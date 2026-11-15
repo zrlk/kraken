@@ -41,6 +41,42 @@ theorem tstep_publish_keep {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {
 
 #print axioms tstep_publish_keep
 
+/-- A `region` step (the release fence of `publish`, D1) keeps memory, promises, coherence
+and the allocation count. -/
+theorem tstep_region_keep {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {a : At} {rn pn tn : String}
+    {e : Expr} {r : Memory × List Ts × TTh} (hterm : th.term = .region a rn pn tn e)
+    (hr : r ∈ tstep g mem pairs th) :
+    r.2.2.promises = th.promises ∧ r.1 = mem ∧ r.2.2.vs.coh = th.vs.coh ∧ r.2.2.nalloc = th.nalloc := by
+  simp only [tstep, hterm] at hr
+  split at hr
+  all_goals first
+    | (simp at hr; done)
+    | (simp only [List.mem_singleton] at hr; subst hr; exact ⟨rfl, rfl, rfl, rfl⟩)
+
+#print axioms tstep_region_keep
+
+/-- An `intoRgn` step (`publish`'s fence with a region result) keeps memory, promises, coherence
+and the allocation count. -/
+theorem tstep_intoRgn_keep {g : G} {mem : Memory} {pairs : List Ts} {th : TTh} {y r : String} {a : At}
+    {e : Expr} {q : Memory × List Ts × TTh} (hterm : th.term = .let_ y (.intoRgn r a) e)
+    (hr : q ∈ tstep g mem pairs th) :
+    q.2.2.promises = th.promises ∧ q.1 = mem ∧ q.2.2.vs.coh = th.vs.coh ∧ q.2.2.nalloc = th.nalloc := by
+  simp only [tstep, hterm, evalOp, List.mem_map] at hr
+  obtain ⟨⟨s', t', ws⟩, hs, rfl⟩ := hr
+  cases hev : evalAt th.env a with
+  | none => simp [hev, ol] at hs
+  | some q =>
+    obtain ⟨t0, ws0⟩ := q
+    simp only [hev, ol, bind, Option.bind, pure] at hs
+    split at hs
+    all_goals first
+      | (simp at hs; done)
+      | (cases hs with
+         | head => exact ⟨rfl, rfl, rfl, rfl⟩
+         | tail _ h => cases h)
+
+#print axioms tstep_intoRgn_keep
+
 /-- A nonzero sum has a nonzero summand. -/
 theorem res_add_ne {a b : Res} (h : a + b ≠ .zero) : a ≠ .zero ∨ b ≠ .zero := by
   by_cases ha : a = .zero
@@ -127,8 +163,14 @@ theorem ownC_pub {c c' : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr 
   have hpub : TermOwnG0Defs.PubAt th l := by
     obtain ⟨c1, hc1, -⟩ := hown0
     exact hPG l (by rw [hc1]; exact fun h => by cases h) (fun h => hpf (h.trans hnone))
-  obtain ⟨yv, av, ev, -, -, -, hterm, -⟩ := hpub
-  obtain ⟨hP, hM, hC, hN⟩ := tstep_publish_keep hterm X.hr
+  obtain ⟨av, -, -, -, hfence, -⟩ := hpub
+  -- `PubAt` is any fencing op (publish, region, intoRgn); each keeps memory/promises/coh/nalloc
+  obtain ⟨hP, hM, hC, hN⟩ : r.2.2.promises = th.promises ∧ r.1 = c.mem ∧ r.2.2.vs.coh = th.vs.coh ∧
+      r.2.2.nalloc = th.nalloc := by
+    rcases hfence with ⟨yv, ev, hterm⟩ | ⟨rv, pv, tv, ev, hterm⟩ | ⟨yv, rv, ev, hterm⟩
+    · exact tstep_publish_keep hterm X.hr
+    · exact tstep_region_keep hterm X.hr
+    · exact tstep_intoRgn_keep hterm X.hr
   -- the pre-step cell
   have hnf : ¬ FreshIn (gOf p k arch c i) th.nalloc r.2.2.nalloc l := by
     rintro ⟨j, h1, h2, -⟩; rw [hN] at h2; omega

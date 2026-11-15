@@ -16,7 +16,7 @@ segment initialised in the post-step environment `E'`.  `Inh E'` gives a value o
 segment in `E'` (its references name published cells or boxes of `E'`); the certificate's
 `WordOK` value in `E2 ⊇ E'` is spliced into it at the promise's `.one` unit (`TearOK`,
 `PromNoTwoOK`), and the result moves back to `E'` by `ValOf_monoK`. -/
-theorem pubWordW_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermTyped.WrIniC] (hP : ProgT p) (hrunT : CertRunT p k arch Sp Init MintOK c0)
+theorem pubWordW_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [TermTyped.WrIniC] (hP : ProgT p) (hrunT : CertRunT p k arch Sp Init MintOK c0)
     (h0 : TermPlantF.PromViewLtR p k arch Sp c0) (hagree : RunAgreeT p k arch Sp Init MintOK c0) (hbp : BufInitPubT p k arch Sp Init MintOK c0)
     (hbtr : BufInitPubTR p k arch Sp Init MintOK c0)
     (hclos : PubClosT p k arch Sp Init MintOK c0) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) :
@@ -53,7 +53,7 @@ theorem pubWordW_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] 
       (hbtr X Y Z hPfrP) ht' hm (hbp X) hHrT
   obtain ⟨-, hTr, -, hnT, hrT⟩ := hmE.2.2.2.2.2.2.2.2.1.2.2.1 l cl f hcl' hf
   have hnS := noOwn_seg hseg hnT
-  have hrS := rgnFree_seg hseg hrT
+  have hrS := hrT.imp (rgnFree_seg hseg) (drf1_seg hseg)
   -- a value of the segment in `E'`
   have hIS : IniSeg E' cl l b := W2Core.iniSeg_of_initR hseg hus hb hI
   obtain ⟨wsE, hE, hlE⟩ := hmE.2.2.2.2.2.2.2.2.1.2.1 l cl b S' us hcl' hseg hus hIS
@@ -73,7 +73,7 @@ theorem pubWordW_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] 
     ⟨c'.mem.size - 1, (Nat.sub_add_cancel (Nat.lt_of_le_of_lt (Nat.zero_le _) hlt)).symm⟩
   have hfb2' : FrBound E' (n + 1) r.2.2.vs.vWr E2 := by rw [← hn1]; exact hfb2
   have hV1 : ValOf E' S' ws := by
-    refine ValOf_monoK (G := PlantG E' (fun _ => False)) hnS hrS hus hL
+    refine ValOf_monoKL (G := PlantG E' (fun _ => False)) hnS hrS hus hL
       hx2.2.2.1 hx2.2.2.2.1 (fun l2 c0 hG hc0 => ?_) (fun l2 hG => ?_) (fun l2 f2 hG hf2 => ?_)
       (fun l2 B hG hB => ?_) hR.pay ?_ hV
     · rcases hG with ⟨c1, f1, h1', -⟩ | hF0 | ⟨B, hB⟩
@@ -98,10 +98,10 @@ theorem pubWordW_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] 
       · rw [hx2.2.2.2.2.2.2.2.2.1 l2 B0 hB0] at hB; rw [hB0, hB]
     · intro w1 hw1 a' g hv'
       rcases hmem w1 hw1 with hwE | rfl
-      · rcases noJunk_valOf hE hnS hrS hus hlE w1 hwE a' g hv' with ⟨c1, f1, h1', h2', -⟩ | ⟨B, hB, -⟩
+      · rcases noJunk_valOfL hE hnS hrS hus hlE w1 hwE a' g hv' with ⟨c1, f1, h1', h2', -⟩ | ⟨B, hB, -⟩
         · exact .inl ⟨c1, f1, h1', h2'⟩
         · exact .inr (.inr ⟨B, hB⟩)
-      · have hJ := noJunk_valOf hV hnS hrS hus hL w1 hw1 a' g hv'
+      · have hJ := noJunk_valOfL hV hnS hrS hus hL w1 hw1 a' g hv'
         have hvm : w1.view ≤ m.view := hle.2 a' g hv'
         have hmv : m.val = .loc a' g := by rw [← hv']; exact hle.1.symm
         rcases FrBound_inspM hfb2' hJ (Nat.lt_of_le_of_lt hvm (Nat.lt_of_lt_of_le hpvl
@@ -113,7 +113,7 @@ theorem pubWordW_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] 
             rw [hpf] at hf'; cases hf'
           · exact .inl ⟨c1, f1, hc1, hpf⟩
         · exact .inr (.inr ⟨B, hB⟩)
-  have hV2 := ValOf_transferS (inclS_post (c' := c') Y ZC) (noOR_of S' [] hnS hrS) hV1
+  have hV2 := ValOf_transferS (inclS_post (c' := c') Y ZC) (noOR_ofL S' [] hnS hrS) hV1
   exact ⟨b, S', ws, m.loc.offset - b, w0, hseg,
     ⟨hV2, fun us' hus' => by rw [hus] at hus'; cases hus'; exact hL⟩, hget, hle, by omega⟩
 

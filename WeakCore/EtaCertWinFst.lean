@@ -131,12 +131,12 @@ theorem bufInitPubFR1 [TermTyped.WrIniC] {p : Prog} {k : Promises.Knobs} {arch :
     (h2 : Solo p k arch j c1' c2) (hc2 : Certified p k arch c2 j) (hth2 : c2.ths[j]? = some th2) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) :
     ¬ BufInitOn th2 l := by
   rintro ⟨y, bb, ib, v', e, rt, w', ad, g, hterm, hea, hwv, hl⟩
-  obtain ⟨y1, a1, e1, rt1, ws1, ad1, hterm1, hea1, hws1, hx1⟩ := hpub
+  obtain ⟨a1, rt1, ws1, ad1, hterm1, hea1, hws1, hx1⟩ := hpub
   obtain ⟨S, hS⟩ := X.inv.thr j th X.hth
   have h0 : OwnXLe p k arch (Cut Eg j S) j l 1 (promise c j a v w) :=
     ownXStepP_all 1 _ c a v w (ownXLe_start X.inv X.hth hS hsto hin) X.hw X.cert
   obtain ⟨th3, hth3, h⟩ :=
-    ownXLe_pub_noOwnUse hP (winQP1 hsc hw X hS) (TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw) h0 (TermMain.tidAt_cutP X.inv j S) h1 hs hth1 hterm1 hea1 hws1 hx1 h2 hc2 hPS hSub hSig
+    ownXLe_fence_noOwnUse hP (winQP1 hsc hw X hS) (TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw) h0 (TermMain.tidAt_cutP X.inv j S) h1 hs hth1 hterm1 hea1 hws1 hx1 h2 hc2 hPS hSub hSig
   obtain rfl : th3 = th2 := Option.some.inj (hth3.symm.trans hth2)
   exact bufInit_ne_of_use hterm h rt w' ad g hea hwv hl
 
@@ -207,7 +207,7 @@ open CoreLang CoreTerm CoreTyping TermRun TermClose TermTv TermSound TermMem Ter
 open WeakMem (Val Msg Memory Address VState Ts Arch AllocLabel)
 open TermCertScope
 theorem runAgreeF2_of1 {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {MintOK : Res → Prop} {c0 : Cfg} (hV0 : TermViewInv.ViewInvR p k arch Sp c0)
-    (h0 : TermPlantF.PromViewLtR p k arch Sp c0) (_hk : k.storeDepRts = true) (hP : ProgT p) [ProgRetIall p] [TermTyped.WrIniC]
+    (h0 : TermPlantF.PromViewLtR p k arch Sp c0) (_hk : k.storeDepRts = true) (hP : ProgT p) [ProgRetIall p] [TermA4.ProgCkWC p] [TermTyped.WrIniC]
     (hS : TermCertScope.CertScopeP p k arch Sp Init MintOK c0) (hWn : TermCertScope.CertWinP1 p k arch Sp Init MintOK c0)
     (h : RunAgreeF3K p k arch Sp Init MintOK c0) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) : TermRunPay.RunAgreeF2 p k arch Sp Init MintOK c0 := by
   intro c Eg Tot HP HS cr db j th a v w X S c2 th2 E2 hs hc hth2 hext hmi hfb hIL hIH hPV hPO
@@ -224,13 +224,13 @@ theorem runAgreeF2_of1 {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res
     have hpf : (cutP Eg j).pfr l = none := by
       obtain ⟨l', -, t, -, m, -, -, -, a', g, -, hal, cl1, -, -, hpf⟩ := hl
       subst hal; exact hpf
-    obtain ⟨t, b, a', g, wt, ca, cr0, -, hmt, ha, hca, hno, hrf, hcr, hwt⟩ := plantRoot X.hth X.hw hvl hl
+    obtain ⟨t, b, a', g, wt, ca, cr0, -, hmt, ha, hca, hno, hcr, hwt⟩ := plantRoot X.hth X.hw hvl hl
     obtain ⟨S0, hS0⟩ := X.inv.thr j th X.hth
     obtain ⟨E0, hE0e, hE0, h0P⟩ := rootH0P (cl := cr0) X hS0 hpf
     have hcr0 : E0.sto l = some cr0 := by rw [hE0]; exact hcr
     exact ⟨wt, hwt, TermOwnG0.g0WinT_ofP (hPS := hPS) (hSub := hSub) (hSig := hSig) hP (hS X) (TermViewInv.viewInv_prom (TermViewInv.viewInv_run hV0 X.run) X.hw)
       (fun c1 h1 h2 => by rw [hE0e]; exact (hWn X) S0 hS0 c1 h1 h2) X.hth hpl hcr0
-      (TermCert.winInv_prom (TermCert.winInv_refl X.hth)) h0P hmt ha (by rw [hE0]; exact hca) hno hrf hcr0 (hTA := by rw [hE0e]; exact TermMain.tidAt_cut X.inv j S0)⟩
+      (TermCert.winInv_prom (TermCert.winInv_refl X.hth)) h0P hmt ha (by rw [hE0]; exact hca) hno hcr0 (hTA := by rw [hE0e]; exact TermMain.tidAt_cut X.inv j S0)⟩
   have hini : ∀ l, (Cut Eg j S).ini l ≤ (plantE (Cut Eg j S) (stOf c.mem c.pairs th) (PlantL c Eg j th a v w)).ini l :=
     fun l => by
       by_cases hl : PlantL c Eg j th a v w l
@@ -315,7 +315,7 @@ theorem runAgreeF3K_of1 {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Re
   fun X _ _ _ _ _ hc hth2 hext hmi _ hIL hIH _ hPO => w3K_F1 (hV0 := hV0) h0 hps h0d hsc hw hNP hk X hc hth2 hext hmi hIL hIH hPO
 
 theorem runAgreeFT3_holds1 {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res} {MintOK : Res → Prop}
-    {c0 : Cfg} (hV0 : TermViewInv.ViewInvR p k arch Sp c0) (h0 : TermPlantF.PromViewLtR p k arch Sp c0) (hk : k.storeDepRts = true) (hP : ProgT p) [ProgRetIall p] [TermTyped.WrIniC]
+    {c0 : Cfg} (hV0 : TermViewInv.ViewInvR p k arch Sp c0) (h0 : TermPlantF.PromViewLtR p k arch Sp c0) (hk : k.storeDepRts = true) (hP : ProgT p) [ProgRetIall p] [TermA4.ProgCkWC p] [TermTyped.WrIniC]
     (hps : TermScope.ProgScopeOK p = true) (h0d : TermScope.RunScopeR p k arch Sp c0)
     (hS : TermCertScope.CertScopeP p k arch Sp Init MintOK c0) (hWn : TermCertScope.CertWinP1 p k arch Sp Init MintOK c0)
     (hCW : TermCertScope.CertWinC p k arch Sp Init MintOK c0) (hNP : TermPtrKey.NoFulPlRunGL p k arch)

@@ -28,7 +28,7 @@ open WeakMem (Msg Memory Address VState Ts Arch AllocLabel)
 /-! ## `RunScope` along solo runs -/
 
 theorem drf_thread {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c c' : Cfg}
-    (hp : ProgScopeOK p = true) (h0 : RunScope c) (hc : c' ∈ threadSteps p k arch c i) : RunScope c' := by
+    (hp : ProgScopeOK p = true) (h0 : RunScopeI c) (hc : c' ∈ threadSteps p k arch c i) : RunScopeI c' := by
   obtain ⟨th, r, hth, hr, -, -, e3, ho⟩ := TermStepper.threadSteps_upd hc
   intro j thj hj
   by_cases hji : j = i
@@ -39,8 +39,8 @@ theorem drf_thread {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c c'
   · rw [ho j hji] at hj
     exact h0 j thj hj
 
-theorem drf_prom {c : Cfg} {i : Nat} {a : Address} {v : WeakMem.Val} {w : Ts} (h0 : RunScope c) :
-    RunScope (promise c i a v w) := by
+theorem drf_prom {c : Cfg} {i : Nat} {a : Address} {v : WeakMem.Val} {w : Ts} (h0 : RunScopeI c) :
+    RunScopeI (promise c i a v w) := by
   cases hth : c.ths[i]? with
   | none =>
     have e : promise c i a v w = c := by simp only [promise, hth]
@@ -57,8 +57,8 @@ theorem drf_prom {c : Cfg} {i : Nat} {a : Address} {v : WeakMem.Val} {w : Ts} (h
       exact h0 j thj hj
 
 /-- The extern move keeps `RunScope` (the continuation of a scoped `let`, one more binding). -/
-theorem drf_ext {c c' : Cfg} {i : Nat} (h0 : TermScope.RunScope c) (hs : c' ∈ extSteps c i) :
-    TermScope.RunScope c' := by
+theorem drf_ext {c c' : Cfg} {i : Nat} (h0 : TermScope.RunScopeI c) (hs : c' ∈ extSteps c i) :
+    TermScope.RunScopeI c' := by
   rcases extSteps_shape hs with ⟨th, hth, ⟨x, n, a, e, evs, rs, hterm, -, -, rfl⟩ | ⟨x, a, e, l, hterm, -, rfl⟩⟩ <;>
   · intro j t hj
     rcases set_get_cases hj with ⟨rfl, rfl⟩ | ⟨-, hj'⟩
@@ -71,7 +71,7 @@ theorem drf_ext {c c' : Cfg} {i : Nat} (h0 : TermScope.RunScope c) (hs : c' ∈ 
 
 /-- **`RunScope` along every solo run** of a checked program. -/
 theorem solo_drf {p : Prog} {k : Promises.Knobs} {arch : Arch} {i : Nat} {c c1 : Cfg}
-    (hp : ProgScopeOK p = true) (h : Solo p k arch i c c1) : RunScope c → RunScope c1 := by
+    (hp : ProgScopeOK p = true) (h : Solo p k arch i c c1) : RunScopeI c → RunScopeI c1 := by
   induction h with
   | refl => exact id
   | thread hs _ ih => exact fun h0 => ih (drf_thread hp h0 hs)
@@ -97,13 +97,14 @@ theorem scopeD_of {cx : Cx} {σs : List Ty} {t : Expr} (hok : allOK t = true)
   | cas => simp [StepScopeR] at h
   | casp => simp [StepScopeR] at h
   | tail => exact .inl (by simpa [StepScopeR, StepScope] using h)
+  | region => simp [StepScopeR] at h
   | _ => exact .inl (by simp [StepScope])
 
 /-- **`ScopeAt` at a `RunScope` configuration** of a checked program. -/
-theorem scopeAt_of {p : Prog} {i : Nat} {c : Cfg} (h0 : RunScope c) : ScopeAt p i c := by
+theorem scopeAt_of {p : Prog} {i : Nat} {c : Cfg} (h0 : RunScopeI c) : ScopeAt p i c := by
   intro th hth hns ρ η cx _ hT _ hi
   have h := h0 i th hth
-  exact scopeD_of h.ok (scope_termV hT hi.2.1 h.ok h.env hns)
+  exact scopeD_of h.ok (scope_termV hT.1 hT.2 hi.2.1 h.ok h.env hns)
 
 /-! ## The split run facts -/
 

@@ -2215,7 +2215,7 @@ theorem wordAt_of_unit {E : TEnv} {l : AllocLabel} {o : Nat} {cl : Cell} {N : Na
 a copyable word-free one): the plant facts, and the R1 data — the new units are a placeholder under
 own promises (`hR1w`), the protocol word units literal, and every reading (`RdW`) of a new slot is
 a value of the element type, carrying some resources (`slotR_tear`). -/
-theorem r1Facts (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : TermNoHold.CertRunP p k arch Sp Init MintOK c0)
+theorem r1Facts (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : TermNoHold.CertRunP p k arch Sp Init MintOK c0)
     {c : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {j : Nat}
     {th : TTh} {a : Address} {v : WeakMem.Val} {w : Ts} {S : AllocLabel → Prop} {l : AllocLabel}
     (X : PCtxX p k arch Sp Init MintOK c0 c Eg Tot HP HS cr db j th a v w)
@@ -2272,7 +2272,7 @@ theorem r1Facts (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [Ter
       (∀ b S' us', SegOf cl.ty b S' → accs S' = some us' → IniSeg (Cut EgF j S) cl l b →
         ¬ IniSeg (Cut Eg1 j S) cl l b → ∃ ws, ValOf (Cut EgF j S) S' ws ∧ ws.length = nWords us') ∧
       (∀ b S', SegOf cl.ty b S' → accs S' ≠ none → TearOK S') ∧ Ty.coupledOKIn [] cl.ty = true ∧
-      Ty.noOwnIn [] cl.ty = true ∧ rgnFree cl.ty = true := by
+      Ty.noOwnIn [] cl.ty = true ∧ (rgnFree cl.ty = true ∨ TermC1.drf1 cl.ty = true) := by
   obtain ⟨f, hpl⟩ := Option.ne_none_iff_exists'.mp hpl0
   have hi1 : Eg1.ini l = Eg.ini l := A.ini
   refine slotFacts (hV0 := hV0) hP hrun X hS hInh hm0 hH0 hTE1 hm1 hpl0
@@ -2360,7 +2360,7 @@ theorem PrivSlotA.toF {p : Prog} {k : Promises.Knobs} {arch : Arch} {Init : Res}
 
 /-- (R1) **`PrivSlotA` from `PrivCoh`**: `TermPlantP.privSlot_of`, whose proof never used the
 element guard. -/
-theorem privSlot_any (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : TermNoHold.CertRunP p k arch Sp Init MintOK c0)
+theorem privSlot_any (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : TermNoHold.CertRunP p k arch Sp Init MintOK c0)
     (hPC : ∀ {g : G} {E : TEnv} {s : St}, MemInv g E s → PrivCoh E s) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) :
     PrivSlotA p k arch Sp Init MintOK c0 := by
   intro c Eg Tot HP HS cr db j th a v w X l f hf hno cl N e us hcl hT hu i h1 h2
@@ -2462,7 +2462,7 @@ theorem qSplit {c : Cfg} {Eg : GEnv} {j : Nat} {a : Address} {v : WeakMem.Val} {
 
 /-- (R1) **The facts at a new-slot label of `ThSys_plantR`**: `unitFacts` off `Rl`, `r1Facts` on it,
 in the per-label shape of `ThSysAt_plantQ`. -/
-theorem qFacts (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : TermNoHold.CertRunP p k arch Sp Init MintOK c0)
+theorem qFacts (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : TermNoHold.CertRunP p k arch Sp Init MintOK c0)
     {c : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {j : Nat}
     {th : TTh} {a : Address} {v : WeakMem.Val} {w : Ts} {S : AllocLabel → Prop} {l : AllocLabel}
     (X : PCtxX p k arch Sp Init MintOK c0 c Eg Tot HP HS cr db j th a v w)
@@ -2526,7 +2526,7 @@ theorem qFacts (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [Term
       (∀ b S' us', SegOf cl.ty b S' → accs S' = some us' → IniSeg (Cut EgF j S) cl l b →
         ¬ IniSeg (Cut Eg1 j S) cl l b → ∃ ws, ValOf (Cut EgF j S) S' ws ∧ ws.length = nWords us') ∧
       (∀ b S', SegOf cl.ty b S' → accs S' ≠ none → TearOK S') ∧ Ty.coupledOKIn [] cl.ty = true ∧
-      Ty.noOwnIn [] cl.ty = true ∧ rgnFree cl.ty = true := by
+      Ty.noOwnIn [] cl.ty = true ∧ (rgnFree cl.ty = true ∨ TermC1.drf1 cl.ty = true) := by
   rcases hq with ⟨hr, hU⟩ | ⟨hr, hU⟩
   · obtain ⟨cl, N, e, us, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18⟩ :=
       unitFacts (hV0 := hV0) (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hrun X hS hPO hNO hInh hm0 hH0 hTE1 hm1 hpl0 hU hR1w A hF hFi
@@ -2538,7 +2538,7 @@ theorem qFacts (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [Term
       a17, a18⟩
 
 /-- (dedup) master of `ThSys_plantR`: also exports `KeepNW` (old non-word credits kept). -/
-theorem ThSys_plantRK (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : TermNoHold.CertRunP p k arch Sp Init MintOK c0)
+theorem ThSys_plantRK (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : TermNoHold.CertRunP p k arch Sp Init MintOK c0)
     {c : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {j : Nat}
     {th : TTh} {a : Address} {v : WeakMem.Val} {w : Ts}
     (X : PCtxX p k arch Sp Init MintOK c0 c Eg Tot HP HS cr db j th a v w)
@@ -2727,7 +2727,7 @@ theorem ThSys_plantRK (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p
 
 /-- (R1) **`ThSys_plantR`**: `TermPlantS.ThSys_plantS` whose new-slot labels may also be `R1T`
 buffers (paid by `raise_pay` through `ThSysAt_plantQ`), modulo PrivSlot (`hR1w`). -/
-theorem ThSys_plantR (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : TermNoHold.CertRunP p k arch Sp Init MintOK c0)
+theorem ThSys_plantR (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : TermNoHold.CertRunP p k arch Sp Init MintOK c0)
     {c : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {j : Nat}
     {th : TTh} {a : Address} {v : WeakMem.Val} {w : Ts}
     (X : PCtxX p k arch Sp Init MintOK c0 c Eg Tot HP HS cr db j th a v w)
@@ -2767,7 +2767,7 @@ def SelfPlantRestR (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → C
 
 /-- (R1) **`selfPlant`** from `ThSys_plantR` and `SelfPlantRestR`, with PrivSlot from `PrivCoh`
 (`privSlot_any`). -/
-theorem selfPlant_ofR (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : TermNoHold.CertRunP p k arch Sp Init MintOK c0)
+theorem selfPlant_ofR (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : TermNoHold.CertRunP p k arch Sp Init MintOK c0)
     (hPO : TermPlantF.PlantPromOKF p k arch Sp Init MintOK c0 TermPlantF.plantOf TermPlantF.plantN)
     (hNO : TermPlantF.PromNewOKF p k arch Sp Init MintOK c0 TermPlantF.plantOf TermPlantF.plantN)
     (hInh : TermInterf.PlantInhF p k arch Sp Init MintOK c0 TermPlantF.plantOf TermPlantF.plantN)
@@ -2816,7 +2816,7 @@ theorem Np_nonarr {E : TEnv} {s : St} {l : AllocLabel} {c : Cell} (hc : E.sto l 
 /-- (R1) **A label planted with new slots is a buffer whose element has a layout, and it is
 `R1T` as soon as it is not `UnitT` and its element is `∀`-free at value positions** (all-`.one`
 from `TermPredOne.plantNew_allOne`). -/
-theorem plantNew_shape (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : TermNoHold.CertRunP p k arch Sp Init MintOK c0)
+theorem plantNew_shape (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : TermNoHold.CertRunP p k arch Sp Init MintOK c0)
     {c : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res}
     {j : Nat} {th : TTh} {a : Address} {v : WeakMem.Val} {w : Ts}
     (X : PCtxX p k arch Sp Init MintOK c0 c Eg Tot HP HS cr db j th a v w)
@@ -2868,7 +2868,7 @@ def SelfPlantRestN (p : Prog) (k : Promises.Knobs) (arch : Arch) (Sp : Cfg → C
       ThSys p (gOf p k arch c j) (c.mem.push ⟨a, v, w⟩) c.pairs (thP th c.mem.size)
         (EgP Eg (TermPlantF.plantOf c Eg j a v w) (TermPlantF.plantN c Eg j a v w) j c.mem.size) (Tot j) HP' HS' cr' db'
 
-theorem SelfPlantRestN.toR (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : TermNoHold.CertRunP p k arch Sp Init MintOK c0)
+theorem SelfPlantRestN.toR (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : TermNoHold.CertRunP p k arch Sp Init MintOK c0)
     (h : SelfPlantRestN p k arch Sp Init MintOK c0) (hPS : PwSkel) (hSub : PwSubS) (hSig : PwSig) : SelfPlantRestR p k arch Sp Init MintOK c0 := by
   intro c Eg Tot HP HS cr db j th a v w X ⟨l, f, cl, hf, hno, hcl, hnw, hnu, hnr⟩
   obtain ⟨N, e, us, hT, hu, hR⟩ := plantNew_shape (hV0 := hV0) (hPS := hPS) (hSub := hSub) (hSig := hSig) hP hrun X hf hno hcl
@@ -2878,7 +2878,7 @@ theorem SelfPlantRestN.toR (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetI
   · exact absurd (hR hnu hni) hnr
 
 /-- (R1) **`selfPlant`** from `ThSys_plantR`, `PrivCoh` and `SelfPlantRestN`. -/
-theorem selfPlant_ofN (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : TermNoHold.CertRunP p k arch Sp Init MintOK c0)
+theorem selfPlant_ofN (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : TermNoHold.CertRunP p k arch Sp Init MintOK c0)
     (hPO : TermPlantF.PlantPromOKF p k arch Sp Init MintOK c0 TermPlantF.plantOf TermPlantF.plantN)
     (hNO : TermPlantF.PromNewOKF p k arch Sp Init MintOK c0 TermPlantF.plantOf TermPlantF.plantN)
     (hInh : TermInterf.PlantInhF p k arch Sp Init MintOK c0 TermPlantF.plantOf TermPlantF.plantN)
@@ -3204,7 +3204,7 @@ theorem ThSysAt_plantS (hV0 : TermViewInv.ViewInvR p k arch Sp c0) {p : Prog} {g
 planted labels with new slots are single-word protocol buffers or copyable word-free
 buffers of single-word units, modulo PrivSlotFresh (`hR1w`, at those labels) and the obligations `hwu`,
 `hfw`, `plantPromOK`, `promNewOK`, `plantInh`. -/
-theorem ThSys_plantS (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : TermNoHold.CertRunP p k arch Sp Init MintOK c0)
+theorem ThSys_plantS (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : TermNoHold.CertRunP p k arch Sp Init MintOK c0)
     {c : Cfg} {Eg : GEnv} {Tot HP : Nat → Res} {HS : Res} {cr db : Nat → Ts → Res} {j : Nat}
     {th : TTh} {a : Address} {v : WeakMem.Val} {w : Ts}
     (X : PCtxX p k arch Sp Init MintOK c0 c Eg Tot HP HS cr db j th a v w)
@@ -3231,7 +3231,7 @@ theorem ThSys_plantS (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p]
 
 /-- (S8) **`selfPlant`** from `ThSys_plantS` (word-buffer and unit-buffer events) and
 `selfPlantRest` (the others). -/
-theorem selfPlant_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : TermNoHold.CertRunP p k arch Sp Init MintOK c0)
+theorem selfPlant_of (hV0 : TermViewInv.ViewInvR p k arch Sp c0) [ProgRetIall p] [TermA4.ProgCkWC p] [TermTyped.WrIniC] (hP : ProgT p) (hrun : TermNoHold.CertRunP p k arch Sp Init MintOK c0)
     (hPO : TermPlantF.PlantPromOKF p k arch Sp Init MintOK c0 TermPlantF.plantOf TermPlantF.plantN)
     (hNO : TermPlantF.PromNewOKF p k arch Sp Init MintOK c0 TermPlantF.plantOf TermPlantF.plantN)
     (hInh : TermInterf.PlantInhF p k arch Sp Init MintOK c0 TermPlantF.plantOf TermPlantF.plantN)

@@ -250,6 +250,7 @@ def mapOp (f : Proto → Proto) : Op → Op
   | .packT a σ t      => .packT a (mapTy f σ) (mapTy f t)
   | .call g is a ts   => .call g is a (ts.map (mapTy f))
   | .spawn g a T ts   => .spawn g a (mapTy f T) (ts.map (mapTy f))
+  | .spawnI g is a T ts => .spawnI g is a (mapTy f T) (ts.map (mapTy f))
   | .zero t           => .zero (mapTy f t)
   | .isTy a t         => .isTy a (mapTy f t)
   | op                => op

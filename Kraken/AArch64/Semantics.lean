@@ -1251,6 +1251,7 @@ set_option maxHeartbeats 1000000
   | .label _ => next s
   | .instr i => i.interp s p next jmp
   | .byteArray _ => .unimplemented s!"Unimplemented: execution reached data block at {p.1}"
+  | .zeros _ => .unimplemented s!"Unimplemented: execution reached data block at {p.1}"
 
 def Directives.interp [Labels]
   (ds : List (Directive × Nat)) (s : MachineData) (pc : Int64)
@@ -1311,6 +1312,7 @@ def Directive.fakeSize (d : Directive) : Nat :=
   | .instr _ => 4
   | .label _ => 0
   | .byteArray bs => bs.size
+  | .zeros n => n
 
 def Program.fakeLayout (prog : Program) : Executable :=
   let : Inhabited Directive := .mk (.byteArray (.mk #[]))

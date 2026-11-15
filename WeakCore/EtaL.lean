@@ -67,7 +67,7 @@ theorem cap_presB {p : Prog} {cx c' : Cx} {x : String} {op : Op} {ρ : Nat → N
 /-- **The cap step on N**: same state, typed at the same environment. -/
 theorem tstep_capBN {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TTh}
     {cx : Cx} {ρ : Nat → Nat} {η : TEnv} (hP : ProgT p) (hc : CapT th.term)
-    (hT : Typed p cx th.term) (hi : FInvB g.lbase g.n g.i ρ η th.σs (ResumeBN g.lbase g.n g.i p th.stack) cx th.env)
+    (hT : Typed p cx th.term) (hCk : TermA4.CkW p η.wit cx th.term) (hi : FInvB g.lbase g.n g.i ρ η th.σs (ResumeBN g.lbase g.n g.i p th.stack) cx th.env)
     (hE : EnvOKB p η) (htv : TvOK cx) (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
     tstep g mem pairs th ≠ [] ∧ ∀ r ∈ tstep g mem pairs th,
       ThInvEBN g.lbase g.n g.i p (CE η) r.2.2 ∧ Same (stOf mem pairs th) (stOf r.1 r.2.1 r.2.2) := by
@@ -75,17 +75,17 @@ theorem tstep_capBN {p : Prog} {g : G} {mem : Memory} {pairs : List Ts} {th : TT
   have hsame := same_let (g := g) (mem := mem) (pairs := pairs) hterm
     (fun f is a ts h => by subst h; simp [CapOp] at hA) (fun f a h => by subst h; simp [CapOp] at hA)
     (fun r hr => same_of_eq (cap_state hA r hr))
-  rw [hterm] at hT
+  rw [hterm] at hT hCk
   cases hT with
   | let_ hop he =>
-      rename_i c₁
+      obtain ⟨c₁, -, hop, he, hck, -⟩ := TermA4.CkW_let hCk
       have key := tstep_capOp (g := g) (mem := mem) (pairs := pairs) hterm hA
       refine ⟨?_, fun r hr => ⟨?_, hsame r hr⟩⟩
       · rw [key]; cases op <;> simp only [CapOp] at hA <;> simp [evalOp]
       · rw [key] at hr
         simp only [List.mem_map] at hr
         obtain ⟨⟨s', t, ws⟩, hm, rfl⟩ := hr
-        exact ⟨ρ, η, c₁, rfl, hE, he, OpT_TvOK hP hop htv, cap_presB hop hA hncl hi hm, retPwN_true, hDy.letW hterm rfl⟩
+        exact ⟨ρ, η, c₁, rfl, hE, ⟨he, hck⟩, OpT_TvOK hP hop htv, cap_presB hop hA hncl hi hm, retPwN_true, hDy.letW hterm rfl⟩
 
 /-! ### `ResumeB → ResumeBN` (drop the pubWords clauses) -/
 
@@ -112,7 +112,7 @@ def ContE (lb n i : Nat) (p : Prog) (th : TTh) (E : TEnv) : Prop :=
 /-- **(L1) The seed**: W's adversarial typing (PubWinSAN's antecedents) gives the N thread invariant at the same
 environment, given `ContE`. -/
 theorem eta_seed {p : Prog} {th : TTh} {ρ : Nat → Nat} {η : TEnv} {cx : Cx} (hK : ContE glb gnum gi p th (CE η))
-    (hE : EnvOK p η) (hT : Typed p cx th.term) (htv : TvOK cx) (hF : FInv ρ η th.σs (Resume p th.stack) cx th.env)
+    (hE : EnvOK p η) (hT : TermSound.TypedK p η cx th.term) (htv : TvOK cx) (hF : FInv ρ η th.σs (Resume p th.stack) cx th.env)
     (hDy : DyFr p annNew (progTgts p) η th.σs th.term) :
     ThInvEBN glb gnum gi p (CE η) th := by
   obtain ⟨h1, h2, -, h4⟩ := FlatAnchor.FInvB_flat (glb := glb) (gnum := gnum) (gi := gi) hE.2.1 hF

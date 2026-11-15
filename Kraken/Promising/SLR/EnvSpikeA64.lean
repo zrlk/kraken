@@ -359,6 +359,7 @@ theorem directive_jsim [Labels] (dir : Directive) (p : Std.Rco Int64) {s : Machi
     exact operation_jsim J _ _ hk hj h'
   | label l => exact hk _ _ h
   | byteArray b => exact h.elim
+  | zeros n => exact h.elim
 
 end JSim
 

@@ -12,6 +12,7 @@ CoreTerm.exprNoDevOnly : (String → Bool) → CoreTerm.Expr → Bool
     | CoreTerm.Expr.let_ x (CoreTerm.Op.call f is a ts) e => !isDev f && CoreTerm.exprNoDevOnly isDev e
     | CoreTerm.Expr.let_ x (CoreTerm.Op.fnptr f) e => !isDev f && CoreTerm.exprNoDevOnly isDev e
     | CoreTerm.Expr.let_ x (CoreTerm.Op.spawn f a T ts) e => !isDev f && CoreTerm.exprNoDevOnly isDev e
+    | CoreTerm.Expr.let_ x (CoreTerm.Op.spawnI f is a T ts) e => !isDev f && CoreTerm.exprNoDevOnly isDev e
     | CoreTerm.Expr.let_ x op e => CoreTerm.exprNoDevOnly isDev e
     | CoreTerm.Expr.split a x y e => CoreTerm.exprNoDevOnly isDev e
     | CoreTerm.Expr.unpack a i x e => CoreTerm.exprNoDevOnly isDev e

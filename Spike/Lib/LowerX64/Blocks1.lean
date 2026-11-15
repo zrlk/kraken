@@ -1071,13 +1071,10 @@ theorem hgap_of_lays (hp : Scc.Cert.Rt.X64.Lays exe cells kp) :
 end Lays
 
 /-- **`code1_of_seg`'s `hgap` at the layout of an output passing `PlaceOK`.** -/
-theorem hgap_ofPlaceOK {cfg : Scc.Config} {p : CoreTerm.Prog} {sizes : List Nat} {labelOffs : List (String × Nat)}
-    {pcfg : Scc.Cert.PlaceOK.Config} {Λ : Scc.Sem.Layout}
-    (h : Scc.Cert.PlaceOK.X64.placeOKAt pcfg Λ
-      (Scc.Cert.PlaceOK.X64.Out.ofEmitted (Scc.Lower.X64.lowerAll cfg p) sizes labelOffs) = true)
+theorem hgap_ofPlaceOK {pcfg : Scc.Cert.PlaceOK.Config} {Λ : Scc.Sem.Layout} {o : Scc.Cert.PlaceOK.X64.Out}
+    (h : Scc.Cert.PlaceOK.X64.placeOKAt pcfg Λ o = true)
     (i : CoreTerm.Expr → String → Nat → Option Nat) :
-    ∀ a b n off, labelGap (Scc.Cert.PlaceOK.X64.Out.ofEmitted (Scc.Lower.X64.lowerAll cfg p) sizes labelOffs).prog
-      a b n off = true →
+    ∀ a b n off, labelGap o.prog a b n off = true →
       (Spike.Lib.X64.Rt.RuntimeLayout.ofPlaceOK h i).lab b =
         (Spike.Lib.X64.Rt.RuntimeLayout.ofPlaceOK h i).lab a + Int64.ofNat off := by
   haveI := (Spike.Lib.X64.Rt.RuntimeLayout.ofPlaceOK h i).valid

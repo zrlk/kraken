@@ -553,6 +553,9 @@ inductive Directive
   | instr (_ : Instr)
   | label (_ : Label)
   | byteArray (_ : ByteArray)
+  /-- `n` zero bytes (`.zero n`), held as their count: a data cell of size
+  `n` whose term does not grow with `n`. -/
+  | zeros (n : Nat)
   deriving BEq, DecidableEq, Repr, Hashable, Lean.ToExpr
 
 abbrev Program := List Directive

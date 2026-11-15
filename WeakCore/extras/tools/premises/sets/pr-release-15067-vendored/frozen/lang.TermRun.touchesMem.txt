@@ -48,6 +48,7 @@ TermRun.touchesMem : TermRun.TTh → Bool
     | CoreTerm.Op.ldp acq a n0 n1 => true
     | CoreTerm.Op.stp rel a v0 v1 tok => true
     | CoreTerm.Op.spawn f a T ts => true
+    | CoreTerm.Op.spawnI f is a T ts => true
     | CoreTerm.Op.ext n a => true
     | CoreTerm.Op.inl τ a =>
       boxedAt a || TermRun.isBoxed τ ||

@@ -645,6 +645,22 @@ theorem spawnCfg_elab (c : UCfg) (i : Nat) (th : UTTh) (x : String) (e : UExpr) 
   rw [h, hp, hk]
   rfl
 
+theorem spawnCfgI_elab (c : UCfg) (i : Nat) (th : UTTh) (x : String) (e : UExpr) (j : Nat) (d : Decl)
+    (ts : List Ty) (ws : List Word) :
+    toCoreCfg (uSpawnCfgI c i th x e j d ts ws) =
+      spawnT (toCoreCfg c) i (spawnPar (toCoreCfg c) i (toCoreTh th) x (elabT j e))
+        (spawnKidI (toCoreCfg c) i (toCoreTh th) d ts ws) := by
+  have hp : toCoreTh (backTh th (spawnPar (toCoreCfg c) i (toCoreTh th) x S0) e j) =
+      spawnPar (toCoreCfg c) i (toCoreTh th) x (elabT j e) := rfl
+  have hk : toCoreTh (fromCore0 (spawnKidI (toCoreCfg c) i (toCoreTh th) d ts ws)
+      (.tail d.name d.idx (.at (.var "a")) ts)) = spawnKidI (toCoreCfg c) i (toCoreTh th) d ts ws := rfl
+  have h : toCoreCfg (uSpawnCfgI c i th x e j d ts ws) =
+      spawnT (toCoreCfg c) i (toCoreTh (backTh th (spawnPar (toCoreCfg c) i (toCoreTh th) x S0) e j))
+        (toCoreTh (fromCore0 (spawnKidI (toCoreCfg c) i (toCoreTh th) d ts ws)
+          (.tail d.name d.idx (.at (.var "a")) ts))) := by
+    simp [uSpawnCfgI, spawnT, toCoreCfg, Array.set!]
+  rw [h, hp, hk]
+
 /-- The core `let` an image term starts with comes from a `letOp` layer. -/
 theorem layer_let_inv {k : Nat} {t : UExpr} {x : String} {o : Op} {e : Expr}
     (h : elabT k t = .let_ x o e) : ∃ j e', layer k t = .letOp x o j e' ∧ e = elabT j e' := by
@@ -774,6 +790,12 @@ theorem USpawn.toCore {cap : Nat} {c c' : UCfg} (h : USpawn U k arch cap c c') :
       (by simpa using hcap) hev
     show elabT th.ctr th.term = _
     rw [elab_layer, hl]; rfl
+  | mkI i x f is a T ts j e th d rt ws hth hl hp hcap hfd hev =>
+    rw [spawnCfgI_elab]
+    refine Spawn.mkI i x f is a T ts (elabT j e) (toCoreTh th) d rt ws (by rw [toCoreCfg_get, hth]; rfl) ?_ hp
+      (by simpa using hcap) hfd hev
+    show elabT th.ctr th.term = _
+    rw [elab_layer, hl]; rfl
 
 theorem USpawn.ofCore {cap : Nat} {c : UCfg} {d : Cfg} (h : Spawn (elabProg U) k arch cap (toCoreCfg c) d) :
     ∃ c', USpawn U k arch cap c c' ∧ d = toCoreCfg c' := by
@@ -789,6 +811,17 @@ theorem USpawn.ofCore {cap : Nat} {c : UCfg} {d : Cfg} (h : Spawn (elabProg U) k
       obtain ⟨j, e', hl, rfl⟩ := layer_let_inv hterm
       exact ⟨_, USpawn.mk i x f a T ts j e' th rt ws hc hl hp (by simpa using hcap) hev,
         (spawnCfg_elab c i th x e' j f ts T ws).symm⟩
+  | mkI i x f is a T ts e th' d rt ws hth hterm hp hcap hfd hev =>
+    rw [toCoreCfg_get] at hth
+    cases hc : c.ths[i]? with
+    | none => rw [hc] at hth; simp at hth
+    | some th =>
+      rw [hc] at hth
+      simp only [Option.map_some, Option.some.injEq] at hth
+      subst hth
+      obtain ⟨j, e', hl, rfl⟩ := layer_let_inv hterm
+      exact ⟨_, USpawn.mkI i x f is a T ts j e' th d rt ws hc hl hp (by simpa using hcap) hfd hev,
+        (spawnCfgI_elab c i th x e' j d ts ws).symm⟩
 
 theorem UExt.toCore {c c' : UCfg} (h : UExt U k arch c c') :
     Ext (elabProg U) k arch (toCoreCfg c) (toCoreCfg c') := by
@@ -946,7 +979,8 @@ theorem uNoSpawnP_iff (U : UProg) : UNoSpawnP U ↔ NoSpawnP (elabProg U) := by
   simp [UNoSpawnP, NoSpawnP, elabProg, elabDecl, exprNoSpawn_elab]
 
 /-- A UnElab thread at a spawn: its layer is a spawn `let`. -/
-def UAtSite (th : UTTh) : Prop := ∃ x f a T ts j e, layer th.ctr th.term = .letOp x (.spawn f a T ts) j e
+def UAtSite (th : UTTh) : Prop := (∃ x f a T ts j e, layer th.ctr th.term = .letOp x (.spawn f a T ts) j e) ∨
+  ∃ x f is a T ts j e, layer th.ctr th.term = .letOp x (.spawnI f is a T ts) j e
 
 /-- A UnElab thread at an extern call. -/
 def UExtSite (th : UTTh) : Prop := ∃ x n a j e, layer th.ctr th.term = .letOp x (.ext n a) j e
@@ -956,11 +990,14 @@ def USiteNoProm (c : UCfg) : Prop := ∀ (i : Nat) (th : UTTh), c.ths[i]? = some
 
 theorem uAtSite_iff (th : UTTh) : UAtSite th ↔ AtSite (toCoreTh th) := by
   constructor
-  · rintro ⟨x, f, a, T, ts, j, e, hl⟩
-    exact ⟨x, f, a, T, ts, elabT j e, show elabT th.ctr th.term = _ by rw [elab_layer, hl]; rfl⟩
-  · rintro ⟨x, f, a, T, ts, e, he⟩
-    obtain ⟨j, e', hl, -⟩ := layer_let_inv (show elabT th.ctr th.term = _ from he)
-    exact ⟨x, f, a, T, ts, j, e', hl⟩
+  · rintro (⟨x, f, a, T, ts, j, e, hl⟩ | ⟨x, f, is, a, T, ts, j, e, hl⟩)
+    · exact .inl ⟨x, f, a, T, ts, elabT j e, show elabT th.ctr th.term = _ by rw [elab_layer, hl]; rfl⟩
+    · exact .inr ⟨x, f, is, a, T, ts, elabT j e, show elabT th.ctr th.term = _ by rw [elab_layer, hl]; rfl⟩
+  · rintro (⟨x, f, a, T, ts, e, he⟩ | ⟨x, f, is, a, T, ts, e, he⟩)
+    · obtain ⟨j, e1, hl, -⟩ := layer_let_inv (show elabT th.ctr th.term = _ from he)
+      exact .inl ⟨x, f, a, T, ts, j, e1, hl⟩
+    · obtain ⟨j, e1, hl, -⟩ := layer_let_inv (show elabT th.ctr th.term = _ from he)
+      exact .inr ⟨x, f, is, a, T, ts, j, e1, hl⟩
 
 theorem uExtSite_iff (th : UTTh) : UExtSite th ↔ ExtSite (toCoreTh th) := by
   constructor

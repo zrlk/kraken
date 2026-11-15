@@ -1,0 +1,13 @@
+import Spike.Test.HelloLinkedX64Le
+open Scc.Sem Scc.Sem.X64 Spike.Test.HelloLinkedX64
+def tab : List (Nat × Nat × Nat) := Id.run do
+  let mut a := Λe.code.lo
+  let mut out := []
+  for ((_, z), i) in SccCode.helloCells.zipIdx do
+    out := (i, a, z) :: out
+    a := a + z
+  return out.reverse
+#eval IO.println ("\n".intercalate ((tab.filter fun (_, a, z) => z != 0 && 4198400 ≤ a && a < 4204000).map fun (i,a,z) => s!"CELL {i} {a} {z}"))
+def labs : List String := ["scc_rt_start","scc_rt_sigign","scc_rt_alloc_tcb",".Lscc_rt_alloc_tcb.full",".Lscc_rt_alloc_tcb.len","scc_rt_pinned_next",".Lscc_rt_alloc_tcb.ok","scc_rt_pinned","scc_rt_thread_init","scc_rt_stack_take",".Lscc_rt_stack_take.cls5",".Lscc_rt_stack_take.clsnext6",".Lscc_rt_stack_take.clsdone7","scc_rt_stack_free_n","scc_rt_stack_free","scc_rt_stack_lock",".Lscc_rt_stack_take.spin14",".Lscc_rt_stack_take.locked15",".Lscc_rt_stack_take.bump","scc_rt_stack_next",".Lscc_rt_stack_take.full",".Lscc_rt_stack_take.ok","scc_rt_stacks",".Lscc_rt_stack_take.taken","scc_rt_main",".Lscc_rt_main.stk","wc_rodata",".Lwc_rodata.stk","scc_rt_alloc",".Lscc_rt_alloc.full",".Lscc_rt_alloc.cnt","scc_rt_heap_use"]
+def syms : List (String × Nat) := loadSyms Λe SccCode.helloSecs.rodata
+#eval IO.println ("\n".intercalate (labs.map fun l => s!"LAB {l} {codeLabel Λe.code.lo SccCode.helloCells l} {(syms.filter (·.1 == l)).map (·.2)}"))
