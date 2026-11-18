@@ -11,7 +11,8 @@
     "Kraken.Examples.Sbr.SessionBin.ff_aac_sbr_config_usac_spec",
     "Kraken.Examples.Sbr.SessionBin.ff_aac_sbr_apply_spec",
     "Kraken.Examples.Sbr.SessionBin.ff_aac_sbr_apply_only_its_regions",
-    "Kraken.Examples.Sbr.SessionBin.ff_aac_sbr_apply_keeps_the_rest"
+    "Kraken.Examples.Sbr.SessionBin.ff_aac_sbr_apply_keeps_the_rest",
+    "Kraken.Examples.Sbr.SessionBin.Wit.wit_session"
   ],
   "permitted_axioms": [
     "propext",

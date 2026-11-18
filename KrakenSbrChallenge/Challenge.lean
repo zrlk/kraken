@@ -3,8 +3,9 @@ import Kraken.X64.Examples.Sbr.SessionSpec
 /-!
 # The statements, for `lake challenge`
 
-The top theorems and the per-procedure theorems, stated over the specification alone, each
-with `sorry` as its proof. `lake challenge --config scripts/sbr/challenge.json` checks that
+The top theorems, the per-procedure theorems and the satisfiability of their hypotheses,
+stated over the specification alone, each with `sorry` as its proof.
+`lake challenge --config scripts/sbr/challenge.json` checks that
 `KrakenSbrChallenge/Solution.lean` proves each with the same statement, using only the permitted
 axioms, and replays the proofs through the kernel in a separate process. This library is outside
 `Kraken/` (its own `lean_lib`, not a default target), so the `sorry`s here are not part of the
@@ -217,3 +218,79 @@ theorem ff_aac_sbr_apply_keeps_the_rest {S : Setup}
   sorry
 
 end Kraken.Examples.Sbr.SessionBin
+
+/-! ## The satisfiability of the per-procedure theorems' hypotheses (`SessionBin/Witness.lean`) -/
+
+namespace Kraken.Examples.Sbr.SessionBin.Wit
+
+theorem wit_session :
+    ∃ (C : CodeEnv) (S : Setup) (X : Mem 64 → Prop), letI := C;
+    SbrBinary ∧ InitExt S X ∧ StackBound S
+    -- `ff_aac_sbr_ctx_alloc_init_spec`
+    ∧ (∃ (ac che_slot : BitVec 64) (id_aac : BitVec 32) (avctx fdsp : BitVec 64)
+        (er ps : BitVec 32) (sp : BitVec 64) (Rest : Mem 64 → Prop) (ra : Int64)
+        (t : MachineData),
+        t.regs.get64 .rdi = ac ∧ t.regs.get64 .rsi = che_slot
+        ∧ (t.regs.get64 .rdx).setWidth 32 = id_aac ∧ t.regs.get64 .rsp = sp
+        ∧ t.dmem =⋆
+            StackAt ra sp (initStack S.k)
+          ⋆ AcInit S ac avctx fdsp er ps
+          ⋆ 8 ?@ che_slot
+          ⋆ SharedData S
+          ⋆ X
+          ⋆ Rest)
+    -- `ff_aac_sbr_decode_extension_spec`
+    ∧ (∃ (ac che gb : BitVec 64) (cnt : BitVec 32) (avctx : BitVec 64) (er ps : BitVec 32)
+        (buf : BitVec 64) (i sib p8 pad : BitVec 32) (L : Nat)
+        (sp : BitVec 64) (Rest : Mem 64 → Prop) (ra : Int64) (t : MachineData),
+        t.regs.get64 .rdi = ac ∧ t.regs.get64 .rsi = che
+        ∧ t.regs.get64 .rdx = gb ∧ (t.regs.get64 .r8).setWidth 32 = cnt
+        ∧ t.regs.get64 .rsp = sp ∧ StackAligned sp ∧ ReaderOK i p8 L
+        ∧ t.dmem =⋆
+            StackAt ra sp (decStack S.k)
+          ⋆ SbrInitialized S che ac
+          ⋆ AcFields ac avctx er ps
+          ⋆ DecReader gb buf i sib p8 pad L
+          ⋆ DecScratch ac avctx
+          ⋆ Rest)
+    -- `ff_aac_sbr_decode_usac_data_spec`
+    ∧ (∃ (ac che ue gb : BitVec 64) (avctx : BitVec 64) (er ps : BitVec 32)
+        (buf : BitVec 64) (i p8 : BitVec 32) (L : Nat) (uev : List UInt8)
+        (sp : BitVec 64) (Rest : Mem 64 → Prop) (ra : Int64) (t : MachineData),
+        t.regs.get64 .rdi = ac ∧ t.regs.get64 .rsi = che
+        ∧ t.regs.get64 .rdx = ue ∧ t.regs.get64 .rcx = gb
+        ∧ t.regs.get64 .rsp = sp ∧ StackAligned sp
+        ∧ ReaderOK i p8 L ∧ UsacSbrOK uev
+        ∧ t.dmem =⋆
+            StackAt ra sp (usacStack S.k)
+          ⋆ SbrInitialized S che ac
+          ⋆ AcFields ac avctx er ps
+          ⋆ UsacReader gb buf i p8 L
+          ⋆ uev =@ (ue + 0xc#64)
+          ⋆ Rest)
+    -- `ff_aac_sbr_config_usac_spec`
+    ∧ (∃ (ac che : BitVec 64) (avctx : BitVec 64) (er ps : BitVec 32)
+        (sp : BitVec 64) (Rest : Mem 64 → Prop) (ra : Int64) (t : MachineData),
+        t.regs.get64 .rdi = ac ∧ t.regs.get64 .rsi = che
+        ∧ t.regs.get64 .rsp = sp
+        ∧ t.dmem =⋆
+            StackAt ra sp 0
+          ⋆ SbrInitialized S che ac
+          ⋆ AcFields ac avctx er ps
+          ⋆ Rest)
+    -- `ff_aac_sbr_apply_spec`
+    ∧ (∃ (ac che L R : BitVec 64) (avctx : BitVec 64) (er ps : BitVec 32)
+        (sp : BitVec 64) (Rest : Mem 64 → Prop) (ra : Int64) (t : MachineData),
+        t.regs.get64 .rdi = ac ∧ t.regs.get64 .rsi = che
+        ∧ t.regs.get64 .rcx = L ∧ t.regs.get64 .r8 = R
+        ∧ t.regs.get64 .rsp = sp ∧ StackAligned sp
+        ∧ (isAligned 32 L = true ∧ isAligned 32 R = true)
+        ∧ t.dmem =⋆
+            StackAt ra sp (applyStack S.k)
+          ⋆ SbrReady S che ac
+          ⋆ AcFields ac avctx er ps
+          ⋆ OutBuffers L R
+          ⋆ Rest) := by
+  sorry
+
+end Kraken.Examples.Sbr.SessionBin.Wit

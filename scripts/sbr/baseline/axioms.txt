@@ -85,3 +85,10 @@
 'Kraken.Examples.Sbr.SessionBin.ff_aac_sbr_apply_keeps_the_rest' depends on axioms: [propext,
  Classical.choice,
  Quot.sound]
+'Kraken.Examples.Sbr.SessionBin.Wit.wit_init' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Kraken.Examples.Sbr.SessionBin.Wit.wit_decode' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Kraken.Examples.Sbr.SessionBin.Wit.wit_usac' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Kraken.Examples.Sbr.SessionBin.Wit.wit_config' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Kraken.Examples.Sbr.SessionBin.Wit.wit_apply' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Kraken.Examples.Sbr.SessionBin.Wit.wit_session' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Kraken.Examples.Sbr.SessionBin.Wit.wit_init_success' depends on axioms: [propext, Classical.choice, Quot.sound]

@@ -69,11 +69,20 @@ The two parsers may instead stop at FFmpeg's `abort` (an `av_assert0`) or the bo
 Every step up to the stop is a defined one, so a trap is a controlled stop, not an access outside
 the listed regions.
 
+## Non-vacuity
+
+The hypotheses are jointly satisfiable (`SessionBin/Witness.lean`, `Wit.wit_session`): under one
+ambient code (the laid-out image of every text of `SbrBinary`, with small stand-ins for the
+external routines), one `S` and one allocator state `X` (a bump allocator's heap with room for
+init's element), every theorem's hypotheses hold of concrete parameters and a concrete machine
+state. Each stand-in is proved against its contract, `BandsOK` holds for its `powf`/`log2f`, and
+`Wit.wit_init_success` shows that its `av_mallocz` and `av_tx_init` can succeed. This shows the
+assumptions consistent; that FFmpeg's real routines meet them is the separate evidence of
+translation validation and testing. The element in the witnesses of the four post-init
+theorems is in the state init leaves, not obtained by running init.
+
 ## What is not claimed
 
-* **Non-vacuity.** The assumptions (`SbrBinary`, `InitExt`, and the preconditions) are not shown
-  jointly satisfiable for these theorems. (The stage-1 apply proof has such witnesses for its own,
-  different hypotheses.)
 * **Functional correctness.** Output buffers, bitstream bytes and the element's contents are owned
   but unspecified.
 * **When a trap happens.** The theorems allow a trap; they do not say for which inputs.

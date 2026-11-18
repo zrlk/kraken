@@ -19,7 +19,7 @@ Run it from anywhere inside the repository; everything is resolved from the repo
 | step | checks |
 |---|---|
 | build | `lake build` of each module of the proof, one at a time in dependency order (Spec, Dsp/*, the C procedures, ApplySpec, ApplyTable, the Apply shards, Apply, Link, Witness, Linked, Session, ParseModel); fails on a nonzero exit, an `error`, or `declaration uses 'sorry'` |
-| axioms | `#print axioms` (`Ax.lean`) of the final theorem, every procedure specification and the four satisfiability witnesses equals `baseline/axioms.txt`: each exactly `[propext, Classical.choice, Quot.sound]` |
+| axioms | `#print axioms` (`Ax.lean`) of the final theorem, every procedure specification, the four satisfiability witnesses and the seven witnesses for the per-procedure theorems (`SessionBin/Witness.lean`) equals `baseline/axioms.txt`: each exactly `[propext, Classical.choice, Quot.sound]` |
 | tv | `tv/tv.sh`, translation validation. The objects' hashes equal `baseline/objects.sha256`; the oleans are built from the current sources. The elaborated program texts (`tv/Export.lean`) are re-assembled with `llvm-mc` at the object addresses and compared with the objects byte for byte (relocations resolved, labels at their symbols, padding sized). `tv/tv_data.py` checks that the object variants agree and that every data region, alignment and constant the proofs assume holds in the objects. The row-crossing discipline (below). Finally each edit in `tv/mutations/` is applied to the exported text and must be caught |
 | a2 | `tv/a2_discipline.py`, the row-crossing discipline: `HfAssemble.lean` (with `HfAssemble/*.lean`) crosses a row of `Y` only through `a2_row_spill` |
 | count | `count_instr.py`: counts the non-padding instructions of each exported text and, separately, of the same routine in the objects with `llvm-objdump` (range from the ELF symbol size, or to the next function symbol for NASM code); fails unless the two agree for all 39 texts. Independent of `tv.py`. Run alone: `python3 scripts/sbr/count_instr.py $SBR_OUT/tv/lean $SBR_OBJ_DIR` after `tv/tv.sh`. |
@@ -58,7 +58,11 @@ reviewer reads the trusted closure (`tcb` step), not the proofs:
   `KrakenSbrChallenge/Challenge.lean`;
 - for adequacy: whether the `SbrAssumed` contracts hold of the real routines (an over-strong
   one makes the theorem vacuous; see FD1) and the statements, not the proofs, of
-  the satisfiability witnesses (`Witness.lean`, `Linked.lean`).
+  the satisfiability witnesses (`Witness.lean`, `Linked.lean`), and of `SessionBin/Witness.lean`:
+  `Wit.wit_session` states that one code environment, initial state and value predicate satisfy
+  `SbrBinary`, `InitExt`, `StackBound` and every hypothesis of the five theorems of
+  `SessionBin/Api.lean` at once, so those theorems are not vacuous. Its limits are listed in
+  the "Non-vacuity" section of `SessionBin/Api.lean`'s module docstring.
 - for the use of the theorem across calls: `Session.lean` (not in the trusted closure; it imports
   `Link.lean` and nothing imports it). It states a decoding session of one element: the values
   after `ff_aac_sbr_ctx_alloc_init` (`xInit`, with `SbrWF` proved), the reachable values
@@ -193,7 +197,8 @@ SBR_CHALLENGE=1 SBR_OBJ_DIR=… scripts/sbr/ci.sh
 
 `KrakenSbrChallenge/Challenge.lean` states the theorems over the specification alone, each with
 `sorry` as its proof: `ff_aac_sbr_apply_linked`, `sbr_session_safe`, and the per-procedure
-theorems of `SessionBin/Api.lean`. `KrakenSbrChallenge/Solution.lean` only imports the proof.
+theorems of `SessionBin/Api.lean`, and the witness `Wit.wit_session`.
+`KrakenSbrChallenge/Solution.lean` only imports the proof.
 `KrakenSbrChallenge` is its own `lean_lib`, not a default target, outside `Kraken/`, so the
 `sorry`s are not part of the proof and `srcscan.py` does not see them. The step:
 
