@@ -13,13 +13,16 @@ module (`Kraken*`), the source lines those declarations span and their number; p
 validation) are counted on their own rows.
 
 Each table ends with a fingerprint line, a hash of the closure's names, types and definition
-bodies (independent of which module or line a declaration sits in): `FINGERPRINT` for
+bodies, and of each root's name and statement (its type, not its proof), independent of which
+module or line a declaration sits in: `FINGERPRINT` for
 `ff_aac_sbr_apply_linked`, `FINGERPRINT_SESSION` for `sbr_session_safe`, `FINGERPRINT_API` for
-the per-procedure theorems. It changes exactly when the meaning of the statement can change;
-ci.sh compares them with `baseline/tcb_fingerprint.txt`, `baseline/tcb_fingerprint_session.txt`
-and `baseline/tcb_fingerprint_api.txt`. After an intended
-change to the specification, the machine model or a program text, re-record it
-(`lake env lean scripts/sbr/Tcb.lean`) and review the change.
+the per-procedure theorems. It changes whenever a root's statement or a definition the
+statements reach changes; edits that touch neither leave it unchanged. It is a hash, so a
+collision is possible in principle; the exact check of the statements is the comparator step
+(`challenge.sh`). ci.sh compares them with `baseline/tcb_fingerprint.txt`,
+`baseline/tcb_fingerprint_session.txt` and `baseline/tcb_fingerprint_api.txt`. After an intended
+change to a root's statement, the specification, the machine model or a program text, re-record
+it (`lake env lean scripts/sbr/Tcb.lean`) and review the change.
 
 Auxiliary constants (`isAux`) are hashed by content, not by name. Lean shares a nested proof
 `…._proof_N` or a matcher `…match_N` between the declarations of one file that need the same one
@@ -142,6 +145,10 @@ def reportAll (roots : List Name) (tag : String) : MetaM Unit := do
     IO.println s!"{l}\t{c}\t{m}"
   IO.println s!"TOTAL\t{total}\t{decls} project decls ({seen.size} reachable in all modules)"
   for h in aux.toList do fp := fp + mixHash (hash "aux") h
+  -- the roots' statements (their types; not their proofs)
+  for root in roots do
+    if let some ci := env.find? root then
+      fp := fp + mixHash (hash "root") (mixHash (hash root) (hash (norm env ci.type)))
   IO.println s!"{tag} {fp}"
 
 /-- The per-procedure theorems of `SessionBin/Api.lean`. -/
@@ -153,7 +160,15 @@ def apiRoots : List Name := [
     `Kraken.Examples.Sbr.SessionBin.ff_aac_sbr_apply_spec,
     `Kraken.Examples.Sbr.SessionBin.ff_aac_sbr_apply_only_its_regions,
     `Kraken.Examples.Sbr.SessionBin.ff_aac_sbr_apply_keeps_the_rest,
-    `Kraken.Examples.Sbr.SessionBin.SbrReady.initialized]
+    `Kraken.Examples.Sbr.SessionBin.SbrReady.initialized,
+    `Kraken.Examples.Sbr.SessionBin.sbrInitialized_split,
+    `Kraken.Examples.Sbr.SessionBin.sbrReady_split,
+    `Kraken.Examples.Sbr.SessionBin.sbr_switch_element,
+    `Kraken.Examples.Sbr.SessionBin.sbr_switch_element_ready,
+    `Kraken.Examples.Sbr.SessionBin.sbr_switch_ready,
+    `Kraken.Examples.Sbr.SessionBin.sbr_switch_from_ready,
+    `Kraken.Examples.Sbr.SessionBin.ff_aac_sbr_ctx_alloc_init_another_spec,
+    `Kraken.Examples.Sbr.SessionBin.ff_aac_sbr_ctx_alloc_init_another_ready_spec]
 
 def main : MetaM Unit := do
   reportAll [`Kraken.Examples.Sbr.ff_aac_sbr_apply_linked] "FINGERPRINT"

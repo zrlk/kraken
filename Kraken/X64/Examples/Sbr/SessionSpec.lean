@@ -94,8 +94,10 @@ a section, in that module's order, with the same namespaces and `open`s.
   `TabF`, `SbrF` (§17); `decode_usac_data`'s (§18); the reader and the caller's objects
   `Rdr`, `DecObj`, `UsacObj` (§19); `FdspW` (§20); `OutBufs`, `UsacObjects` (§23); init's
   `InitOwn`, `InitQ` (§24).
-* **Vocabulary** — `Live`, `Ready`, `AcFields`, `ElemState`, `EnvOK`, `Ends`, `Traps`, and
-  the call shapes `DecCall`, `UsacCall`, `ConfigCall`, `ApplyCall` (§23).
+* **Vocabulary** — `Live`, `Ready`, `AcFields`, `ElemState`, `EnvOK`, `EnvShares`, `Ends`,
+  `Traps`, and the call shapes `DecCall`, `UsacCall`, `ConfigCall`, `ApplyCall` (§23); the
+  per-procedure statements' words, with an element's own part (`SbrElemInitialized`,
+  `SbrElemReady`) and the part all elements share (`SbrShared`) (§26).
 * **Models** — the functional models the invariants are stated in: the session (`ApplyRel`,
   `FrameStep`, `InitIn`, `GridInv`, §10); the parser's state (`ParseModel.Live`, `St`, §11);
   the session steps over the binary (`HV`, `SV`, `σInit`, `Step`, `SReach`, §19).
@@ -2310,19 +2312,29 @@ def ElemAt (e : Env) (vs : Nat → Vlc.VlcTab) (vp : Nat → Ps.VlcTab) (σ : SV
 def EnvOK (S : Setup) (e : Env) : Prop :=
   SessionAssumed S.k e S.vs S.vp S.pw S.lg ∧ SbrSlots e
 
+/-- The element's environment shares the caller's: the transforms' tables, the PS tables,
+`av_log`'s state and the three `float_dsp` routines (`vector_fmul`, `vector_fmul_add`,
+`vector_fmul_reverse`) are `S.env`'s (only the element's own function slots differ). -/
+def EnvShares (S : Setup) (e : Env) : Prop :=
+  e.TxTab = S.env.TxTab ∧ e.PsTab = S.env.PsTab ∧ e.Ext = S.env.Ext
+    ∧ e.fs.qfs.fmul = S.env.fs.qfs.fmul ∧ e.fs.qfs.fmulAdd = S.env.fs.qfs.fmulAdd
+    ∧ e.fs.fmulRev = S.env.fs.fmulRev
+
 /-- The element at `che` in a state reachable from init with flag `ok`: its memory (the whole
-allocation at `che`, and `ac->fdsp`) in some environment meeting the contracts. -/
+allocation at `che`, and `ac->fdsp`) in some environment meeting the contracts and sharing the
+caller's tables and state. -/
 def ElemState (S : Setup) (che ac : BitVec 64) (ok : Bool) : Mem 64 → Prop :=
-  fun m => ∃ (e : Env) (i : InitIn) (σ : SV), EnvOK S e ∧ SReach (σInit i) σ ok
-    ∧ (ElemAt e S.vs S.vp σ che ac ⋆ Init.InitGap che) m
+  fun m => ∃ (e : Env) (i : InitIn) (σ : SV), EnvOK S e ∧ EnvShares S e
+    ∧ SReach (σInit i) σ ok ∧ (ElemAt e S.vs S.vp σ che ac ⋆ Init.InitGap che) m
 
 /-- **The SBR element at `che` is live**: in a state reachable from `ff_aac_sbr_ctx_alloc_init`
 by calls of the entry points. -/
 def Live (S : Setup) (che ac : BitVec 64) : Mem 64 → Prop :=
   fun m => ∃ ok, ElemState S che ac ok m
 
-/-- **The SBR element at `che` is ready**: live, and the last parse succeeded (what
-`ff_aac_sbr_apply` needs). -/
+/-- **The SBR element at `che` is ready**: live, and no parse has failed since it was created,
+configured (`ff_aac_sbr_config_usac`) or last parsed successfully (what `ff_aac_sbr_apply`
+needs). -/
 def Ready (S : Setup) (che ac : BitVec 64) : Mem 64 → Prop :=
   ElemState S che ac true
 
@@ -2653,14 +2665,64 @@ abbrev SharedData (S : Setup) : Mem 64 → Prop :=
 address with the element's address facts (`ElemOK`: 32-aligned, in the lower half of the address
 space), and since then only the SBR entry points changed it (`Live`). Besides the element's own
 allocation it owns the shared data (`SharedData`), the cell `ac->fdsp` and the `float_dsp`
-routine table it points to, so these statements describe one initialized element at a time. -/
+routine table it points to. `sbrInitialized_split` (`SessionBin/Api.lean`) splits it into these
+shared parts (`SbrShared`) and the element's own part (`SbrElemInitialized`), so that a caller
+may hold several elements. -/
 def SbrInitialized (S : Setup) (che ac : BitVec 64) : Mem 64 → Prop :=
   fun m => ElemOK che ∧ Live S che ac m
 
-/-- **The SBR element at `che` is ready**: initialized, and the last parse succeeded, so
-`ff_aac_sbr_apply` may run (`Ready`). -/
+/-- **The SBR element at `che` is ready**: initialized, and no parse has failed since it was
+created, configured (`ff_aac_sbr_config_usac`) or last parsed successfully, so `ff_aac_sbr_apply`
+may run (`Ready`). -/
 def SbrReady (S : Setup) (che ac : BitVec 64) : Mem 64 → Prop :=
   fun m => ElemOK che ∧ Ready S che ac m
+
+/-- The element's own function-pointer cells and transform contexts: `FnW` without the
+`float_dsp` slots of `*ac->fdsp` and the shared tables and state. -/
+def FnOwn (e : Env) (x : Args) (t : MachineData) : Mem 64 → Prop :=
+  let s := sbrA t
+  Int.toBytes 8 x.anaCtx.toInt =@ (s + 0x601c0#64) ⋆ (FnCell (s + 0x601c8#64) e.fs.mdctAna
+    ⋆ (Int.toBytes 8 x.synCtx.toInt =@ (s + 0x601d0#64) ⋆ (FnCell (s + 0x601d8#64) e.fs.qfs.tx
+    ⋆ (FnCell (s + 0x60250#64) e.fs.lfGen ⋆ (FnCell (s + 0x60258#64) e.fs.hfAsm
+    ⋆ (FnCell (s + 0x60260#64) e.fs.xGen ⋆ (FnCell (s + 0x60268#64) e.fs.hfInv
+    ⋆ (e.Ctx x.anaCtx ⋆ e.Ctx x.synCtx))))))))
+
+/-- The element's own memory: its whole allocation at `che`, at the values `σ`. These cells
+depend on `che` only: `tAt che 0#64` is used for its first argument (`che`); its second argument
+(the decoder `ac`) is not read by them, and `0` is a placeholder. -/
+def ElemOwn (e : Env) (σ : SV) (che : BitVec 64) : Mem 64 → Prop :=
+  let t := tAt che 0#64
+  DecExt.SbrF (toDS σ) (sbrA t) ⋆ (PsRest σ.1 t ⋆ (ArrW t ⋆ (DspW e t
+    ⋆ (FnOwn e σ.1 t ⋆ InitGap che))))
+
+/-- **The part of an initialized element that is its own**: the allocation at `che` (with the
+element's address facts `ElemOK`), in a state reachable from init, in an environment meeting
+the contracts and sharing the caller's tables and state. `ok` is as in `ElemState`: `true` when
+the element is ready (no parse has failed since it was created, configured or last parsed
+successfully), so that `ff_aac_sbr_apply` may run. It does not mention `ac`. -/
+def SbrElem (S : Setup) (che : BitVec 64) (ok : Bool) : Mem 64 → Prop :=
+  fun m => ElemOK che ∧ ∃ (e : Env) (i : InitIn) (σ : SV), EnvOK S e ∧ EnvShares S e
+    ∧ SReach (σInit i) σ ok ∧ ElemOwn e σ che m
+
+/-- **An initialized element's own part**: the element at `che` without the parts it shares with
+the other elements of its decoder (`SbrShared`). It mentions no decoder `ac`. Joined with the
+shared part (`sbrInitialized_split`, or `sbr_switch_element`) it is `SbrInitialized` again, as
+`ff_aac_sbr_decode_extension`, `ff_aac_sbr_decode_usac_data` and `ff_aac_sbr_config_usac`
+require. -/
+def SbrElemInitialized (S : Setup) (che : BitVec 64) : Mem 64 → Prop :=
+  fun m => ∃ ok, SbrElem S che ok m
+
+/-- **A ready element's own part**: as `SbrElemInitialized`, for a ready element (no parse has
+failed since it was created, configured or last parsed successfully). It mentions no decoder
+`ac`. Joined with the shared part (`sbrReady_split`, or
+`sbr_switch_element_ready`) it is `SbrReady` again, as `ff_aac_sbr_apply` requires. -/
+def SbrElemReady (S : Setup) (che : BitVec 64) : Mem 64 → Prop :=
+  SbrElem S che true
+
+/-- **What all elements of one decoder share**: the cell `ac->fdsp`, the `float_dsp` routine
+table it points to, and the shared data (`SharedData`). -/
+def SbrShared (S : Setup) (ac : BitVec 64) : Mem 64 → Prop :=
+  fun m => ∃ f, (c8 (ac + 0x2550#64) f ⋆ (FdspW S.env f ⋆ SharedData S)) m
 
 /-- **The stack bound**: the deepest call chain (`sbr_reset`'s `0x9d0` bytes of frames plus the
 external routines' `k`) fits in 32 bits. -/

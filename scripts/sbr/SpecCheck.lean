@@ -85,7 +85,15 @@ def main : MetaM Unit := do
     `Kraken.Examples.Sbr.SessionBin.ff_aac_sbr_apply_spec,
     `Kraken.Examples.Sbr.SessionBin.ff_aac_sbr_apply_only_its_regions,
     `Kraken.Examples.Sbr.SessionBin.ff_aac_sbr_apply_keeps_the_rest,
-    `Kraken.Examples.Sbr.SessionBin.SbrReady.initialized]
+    `Kraken.Examples.Sbr.SessionBin.SbrReady.initialized,
+    `Kraken.Examples.Sbr.SessionBin.sbrInitialized_split,
+    `Kraken.Examples.Sbr.SessionBin.sbrReady_split,
+    `Kraken.Examples.Sbr.SessionBin.sbr_switch_element,
+    `Kraken.Examples.Sbr.SessionBin.sbr_switch_element_ready,
+    `Kraken.Examples.Sbr.SessionBin.sbr_switch_ready,
+    `Kraken.Examples.Sbr.SessionBin.sbr_switch_from_ready,
+    `Kraken.Examples.Sbr.SessionBin.ff_aac_sbr_ctx_alloc_init_another_spec,
+    `Kraken.Examples.Sbr.SessionBin.ff_aac_sbr_ctx_alloc_init_another_ready_spec]
   let mut errs : Array String := #[]
   let mut textMods : NameSet := {}
   let mut nSpec := 0

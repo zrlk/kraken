@@ -58,7 +58,7 @@ theorem sat_elemAt : SatIn (ElemAt wEnv wS.vs wS.vp (σInit wI) cheW acW ⋆ Ini
 theorem elem_ready (hE : EnvOK wS wEnv) {m : Mem 64}
     (h : (ElemAt wEnv wS.vs wS.vp (σInit wI) cheW acW ⋆ InitGap cheW) m) :
     SbrReady wS cheW acW m :=
-  ⟨elemOK_cheW, wEnv, wI, σInit wI, hE, SReach.init, h⟩
+  ⟨elemOK_cheW, wEnv, wI, σInit wI, hE, ⟨rfl, rfl, rfl, rfl, rfl, rfl⟩, SReach.init, h⟩
 
 theorem sat_ready (hE : EnvOK wS wEnv) : SatIn (SbrReady wS cheW acW) elemL :=
   SatIn.imp sat_elemAt fun _ h => elem_ready hE h

@@ -19,7 +19,7 @@ Run it from anywhere inside the repository; everything is resolved from the repo
 | step | checks |
 |---|---|
 | build | `lake build` of each module of the proof, one at a time in dependency order (Spec, Dsp/*, the C procedures, ApplySpec, ApplyTable, the Apply shards, Apply, Link, Witness, Linked, Session, ParseModel); fails on a nonzero exit, an `error`, or `declaration uses 'sorry'` |
-| axioms | `#print axioms` (`Ax.lean`) of the final theorem, every procedure specification, the four satisfiability witnesses and the seven witnesses for the per-procedure theorems (`SessionBin/Witness.lean`) equals `baseline/axioms.txt`: each exactly `[propext, Classical.choice, Quot.sound]` |
+| axioms | `#print axioms` (`Ax.lean`) of the final theorem, every procedure specification, the four satisfiability witnesses and the eight witnesses for the per-procedure theorems (`SessionBin/Witness.lean`, `SessionBin/WitAnother.lean`) equals `baseline/axioms.txt`: each exactly `[propext, Classical.choice, Quot.sound]` |
 | tv | `tv/tv.sh`, translation validation. The objects' hashes equal `baseline/objects.sha256`; the oleans are built from the current sources. The elaborated program texts (`tv/Export.lean`) are re-assembled with `llvm-mc` at the object addresses and compared with the objects byte for byte (relocations resolved, labels at their symbols, padding sized). `tv/tv_data.py` checks that the object variants agree and that every data region, alignment and constant the proofs assume holds in the objects. The row-crossing discipline (below). Finally each edit in `tv/mutations/` is applied to the exported text and must be caught |
 | a2 | `tv/a2_discipline.py`, the row-crossing discipline: `HfAssemble.lean` (with `HfAssemble/*.lean`) crosses a row of `Y` only through `a2_row_spill` |
 | count | `count_instr.py`: counts the non-padding instructions of each exported text and, separately, of the same routine in the objects with `llvm-objdump` (range from the ELF symbol size, or to the next function symbol for NASM code); fails unless the two agree for all 39 texts. Independent of `tv.py`. Run alone: `python3 scripts/sbr/count_instr.py $SBR_OUT/tv/lean $SBR_OBJ_DIR` after `tv/tv.sh`. |
@@ -27,7 +27,7 @@ Run it from anywhere inside the repository; everything is resolved from the repo
 | srcscan | `srcscan.py`: no `sorry`, `admit`, `axiom`, `native_decide`, `bv_decide`, and none of the kernel-bypassing `debug.*` options (e.g. `debug.skipKernelTC`), `implemented_by`, `@[extern]`, `unsafe`, in `Kraken/X64/Examples/Sbr/`; elsewhere in `Kraken/` nothing beyond `baseline/srcscan_baseline.txt` (19 upstream uses, one an `unsafe def` in `Eval.lean`). `closure.py` prints which of those files the proof imports (`Rules/IntMisc.lean`, `Specs.lean`; the axioms step shows none of their `bv_decide` lemmas is used) |
 | regen | `apply/check_regen.sh` and `hfasm/check_regen.sh`: the generators regenerate `ApplyText.lean`, `ApplyTable.lean`, `Apply.lean`, `Apply/*.lean`, and `HfAssemble.lean`, `HfAssemble/{Base,Part1,Part2}.lean`, into a scratch directory; they must equal the checked-in files byte for byte (no Lean run) |
 | spec | `SpecCheck.lean`: every declaration of the trusted closures that is neither the machine model (`Kraken.*` outside `Kraken.X64.Examples`, and Lean) nor a program text is defined in `SessionSpec.lean` or `SessionSpecData.lean`; the modules holding the program texts import (transitively) only the machine model and other text modules; `SessionSpec`/`SessionSpecData` import only those. Also `spec_text.py`: `parse/init/foot.py --spec` (the generated `EV`, `ElemS`) must appear verbatim in `SessionSpec.lean`, and the statement of `sbr_session_safe` quoted in its module docstring must equal the one in `SessionBin/Top.lean` (up to `:=`, whitespace-normalized) |
-| tcb | `Tcb.lean`: the trusted closures of the final theorems, `ff_aac_sbr_apply_linked`, `SessionBin.sbr_session_safe` and (together) the per-procedure theorems of `SessionBin/Api.lean`, i.e. every declaration reachable from a statement through statements and definition bodies but not proofs, with its source lines per module, and a fingerprint of each closure's names, types and bodies. The fingerprints must equal `baseline/tcb_fingerprint.txt` (`FINGERPRINT`), `baseline/tcb_fingerprint_session.txt` (`FINGERPRINT_SESSION`) and `baseline/tcb_fingerprint_api.txt` (`FINGERPRINT_API`). They change exactly when the specification, the machine model or a program text changes; review such a change, then re-record the printed line |
+| tcb | `Tcb.lean`: the trusted closures of the final theorems, `ff_aac_sbr_apply_linked`, `SessionBin.sbr_session_safe` and (together) the per-procedure theorems of `SessionBin/Api.lean`, i.e. every declaration reachable from a statement through statements and definition bodies but not proofs, with its source lines per module, and a fingerprint of each closure's names, types and bodies and of the root theorems' statements. The fingerprints must equal `baseline/tcb_fingerprint.txt` (`FINGERPRINT`), `baseline/tcb_fingerprint_session.txt` (`FINGERPRINT_SESSION`) and `baseline/tcb_fingerprint_api.txt` (`FINGERPRINT_API`). They change whenever a root theorem's statement or a definition it reaches (in the specification, the machine model or a program text) changes, and not for edits that touch neither; being hashes, they could in principle collide, and the comparator step (`challenge.sh`) is the exact check of the statements; review such a change, then re-record the printed line |
 
 ## What to review
 
@@ -47,8 +47,12 @@ reviewer reads the trusted closure (`tcb` step), not the proofs:
 - the per-procedure theorems, `SessionBin/Api.lean`: one theorem per entry point, stated for a
   reader new to the development (arguments as registers, memory as a flat list of disjoint
   regions, the vocabulary in `SessionSpec.lean` §26), and two corollaries for
-  `ff_aac_sbr_apply` that state the memory-safety reading directly. Its module docstring gives
-  the protocol, how to read the theorems as memory safety, and what they do not claim;
+  `ff_aac_sbr_apply` that state the memory-safety reading directly. For a decoder with several
+  elements: two theorems for init while another element exists (initialized or ready), and four
+  "switch" theorems that hand the data all elements share from one element to another (split
+  theorems `sbrInitialized_split`/`sbrReady_split` underneath). Its module docstring gives the
+  protocol, how to read the theorems as memory safety, a walk-through of two elements in
+  FFmpeg's frame order (its switch steps checked as `walk_step*`), and what they do not claim;
 - the machine model this work added to: `Kraken/X64/Semantics.lean`, `Syntax.lean`;
 - not the program texts themselves but the checker that matches them to the objects:
   `tv/tv.py`, `tv/tv_data.py`, `tv/tv.sh`, `tv/Export.lean`, `tv/Fresh.lean`,
@@ -62,7 +66,8 @@ reviewer reads the trusted closure (`tcb` step), not the proofs:
   `Wit.wit_session` states that one code environment, initial state and value predicate satisfy
   `SbrBinary`, `InitExt`, `StackBound` and every hypothesis of the five theorems of
   `SessionBin/Api.lean` at once, so those theorems are not vacuous. Its limits are listed in
-  the "Non-vacuity" section of `SessionBin/Api.lean`'s module docstring.
+  the "Non-vacuity" section of `SessionBin/Api.lean`'s module docstring. `Wit.wit_init_another`
+  (`SessionBin/WitAnother.lean`) does the same for the two init theorems with another element.
 - for the use of the theorem across calls: `Session.lean` (not in the trusted closure; it imports
   `Link.lean` and nothing imports it). It states a decoding session of one element: the values
   after `ff_aac_sbr_ctx_alloc_init` (`xInit`, with `SbrWF` proved), the reachable values
@@ -197,7 +202,8 @@ SBR_CHALLENGE=1 SBR_OBJ_DIR=… scripts/sbr/ci.sh
 
 `KrakenSbrChallenge/Challenge.lean` states the theorems over the specification alone, each with
 `sorry` as its proof: `ff_aac_sbr_apply_linked`, `sbr_session_safe`, and the per-procedure
-theorems of `SessionBin/Api.lean`, and the witness `Wit.wit_session`.
+theorems of `SessionBin/Api.lean`, and the witnesses `Wit.wit_session` and
+`Wit.wit_init_another` (20 theorems).
 `KrakenSbrChallenge/Solution.lean` only imports the proof.
 `KrakenSbrChallenge` is its own `lean_lib`, not a default target, outside `Kraken/`, so the
 `sorry`s are not part of the proof and `srcscan.py` does not see them. The step:

@@ -85,7 +85,7 @@ theorem init_live_elem {S : Setup} {r : IR} {id : BitVec 32} {avctx fdsp : BitVe
   have h3 := init_sessW_full S.vs S.vp (tAt_arg1 r.p ac) hpsd h'
   rw [sessW_split, tAt_arg0, tAt_arg1, initSafe_perm3] at h3
   obtain ⟨m1, m2, hu, hi, h4, h5⟩ := h3
-  exact ⟨m1, m2, hu, hi, ⟨true, envOf S.env r, _, _, henv, SReach.init, h4⟩, h5⟩
+  exact ⟨m1, m2, hu, hi, ⟨true, envOf S.env r, _, _, henv, ⟨rfl, rfl, rfl, rfl, rfl, rfl⟩, SReach.init, h4⟩, h5⟩
 
 omit [CodeEnv] in
 theorem initSafe_sep_r2 {A B P Q : Mem 64 → Prop} (h : ∀ m, P m → Q m) {m : Mem 64}

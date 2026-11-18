@@ -148,11 +148,11 @@ MODS="ApplyText Dsp.NegOdd64Text Dsp.Sum64x5Text Dsp.SumSquareText Dsp.QmfPreShu
  SessionBin.SApply SessionBin.SConfig SessionBin.SDec SessionBin.BridgeU SessionBin.UsacAsmS
  SessionBin.FUsac SessionBin.SUsac SessionBin.Main
  SessionBin.SInit SessionBin.TopDefs SessionBin.InitSafe SessionBin.TopCalls
- SessionBin.Top SessionBin.Api
+ SessionBin.Top SessionBin.MultiReach SessionBin.MultiSplit SessionBin.Api
  SessionBin.WitEnvDefs SessionBin.WitEnvLabs SessionBin.WitImage SessionBin.WitLeafBasic
  SessionBin.WitLeafBands SessionBin.WitLeafMemset SessionBin.WitLeafMemcpy SessionBin.WitLeafSbrDsp
  SessionBin.WitLeafMallocz SessionBin.WitEnv SessionBin.WitMemBase SessionBin.WitMemShared
- SessionBin.WitMemElem SessionBin.WitMemCalls SessionBin.Witness"
+ SessionBin.WitMemElem SessionBin.WitMemCalls SessionBin.Witness SessionBin.WitAnother"
 # tv/Export.lean imports Kraken.X64.PrintIntel (tv/Fresh.lean checks its olean), which no
 # module in MODS imports: build it first, alone, so it never races with the module builds
 tvlib=ok

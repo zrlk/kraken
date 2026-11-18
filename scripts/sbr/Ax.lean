@@ -23,6 +23,7 @@ import Kraken.X64.Examples.Sbr.SessionBin.InitSafe
 import Kraken.X64.Examples.Sbr.SessionBin.Top
 import Kraken.X64.Examples.Sbr.SessionBin.Api
 import Kraken.X64.Examples.Sbr.SessionBin.Witness
+import Kraken.X64.Examples.Sbr.SessionBin.WitAnother
 open Kraken.Examples.Sbr
 #print axioms ff_aac_sbr_apply_linked
 #print axioms applyCallees_of_link
@@ -101,6 +102,14 @@ open Kraken.Examples.Sbr
 #print axioms Kraken.Examples.Sbr.SessionBin.ff_aac_sbr_apply_spec
 #print axioms Kraken.Examples.Sbr.SessionBin.ff_aac_sbr_apply_only_its_regions
 #print axioms Kraken.Examples.Sbr.SessionBin.ff_aac_sbr_apply_keeps_the_rest
+#print axioms Kraken.Examples.Sbr.SessionBin.sbrInitialized_split
+#print axioms Kraken.Examples.Sbr.SessionBin.sbrReady_split
+#print axioms Kraken.Examples.Sbr.SessionBin.sbr_switch_element
+#print axioms Kraken.Examples.Sbr.SessionBin.sbr_switch_element_ready
+#print axioms Kraken.Examples.Sbr.SessionBin.sbr_switch_ready
+#print axioms Kraken.Examples.Sbr.SessionBin.sbr_switch_from_ready
+#print axioms Kraken.Examples.Sbr.SessionBin.ff_aac_sbr_ctx_alloc_init_another_spec
+#print axioms Kraken.Examples.Sbr.SessionBin.ff_aac_sbr_ctx_alloc_init_another_ready_spec
 #print axioms Kraken.Examples.Sbr.SessionBin.Wit.wit_init
 #print axioms Kraken.Examples.Sbr.SessionBin.Wit.wit_decode
 #print axioms Kraken.Examples.Sbr.SessionBin.Wit.wit_usac
@@ -108,3 +117,4 @@ open Kraken.Examples.Sbr
 #print axioms Kraken.Examples.Sbr.SessionBin.Wit.wit_apply
 #print axioms Kraken.Examples.Sbr.SessionBin.Wit.wit_session
 #print axioms Kraken.Examples.Sbr.SessionBin.Wit.wit_init_success
+#print axioms Kraken.Examples.Sbr.SessionBin.Wit.wit_init_another

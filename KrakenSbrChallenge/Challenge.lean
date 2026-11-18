@@ -217,6 +217,97 @@ theorem ff_aac_sbr_apply_keeps_the_rest {S : Setup}
       ⋆ (· = r)) := by                            -- the same bytes r
   sorry
 
+/-! ### More than one element -/
+
+theorem sbrInitialized_split {S : Setup} {che ac : BitVec 64} {m : Mem 64} :
+    (m =⋆ SbrInitialized S che ac) ↔ (m =⋆ SbrShared S ac ⋆ SbrElemInitialized S che) := by
+  sorry
+
+theorem sbrReady_split {S : Setup} {che ac : BitVec 64} {m : Mem 64} :
+    (m =⋆ SbrReady S che ac) ↔ (m =⋆ SbrShared S ac ⋆ SbrElemReady S che) := by
+  sorry
+
+theorem sbr_switch_element {S : Setup} {a b ac : BitVec 64} {m : Mem 64} :
+    (m =⋆ SbrInitialized S a ac ⋆ SbrElemInitialized S b)
+      ↔ (m =⋆ SbrInitialized S b ac ⋆ SbrElemInitialized S a) := by
+  sorry
+
+theorem sbr_switch_element_ready {S : Setup} {a b ac : BitVec 64} {m : Mem 64} :
+    (m =⋆ SbrInitialized S a ac ⋆ SbrElemReady S b)
+      ↔ (m =⋆ SbrReady S b ac ⋆ SbrElemInitialized S a) := by
+  sorry
+
+theorem sbr_switch_ready {S : Setup} {a b ac : BitVec 64} {m : Mem 64} :
+    (m =⋆ SbrReady S a ac ⋆ SbrElemReady S b) ↔ (m =⋆ SbrReady S b ac ⋆ SbrElemReady S a) := by
+  sorry
+
+theorem sbr_switch_from_ready {S : Setup} {a b ac : BitVec 64} {m : Mem 64} :
+    (m =⋆ SbrReady S a ac ⋆ SbrElemInitialized S b)
+      ↔ (m =⋆ SbrInitialized S b ac ⋆ SbrElemReady S a) := by
+  sorry
+
+theorem ff_aac_sbr_ctx_alloc_init_another_spec {S : Setup} {X : Mem 64 → Prop}
+    (h_bin : SbrBinary) (h_ext : InitExt S X)
+    (ac che₁ che_slot : BitVec 64) (id_aac : BitVec 32) (avctx : BitVec 64) (er ps : BitVec 32)
+    (sp : BitVec 64) (Rest : Mem 64 → Prop) (ra : Int64) (t : MachineData)
+    (h_ac : t.regs.get64 .rdi = ac) (h_che : t.regs.get64 .rsi = che_slot)
+    (h_id : (t.regs.get64 .rdx).setWidth 32 = id_aac) (h_sp : t.regs.get64 .rsp = sp)
+    (h_mem : t.dmem =⋆
+        StackAt ra sp (initStack S.k)          -- return address; free stack below
+      ⋆ SbrInitialized S che₁ ac               -- the element already initialized
+      ⋆ AcFields ac avctx er ps                -- *ac's three fields
+      ⋆ 8 ?@ che_slot                          -- the slot for the new pointer
+      ⋆ X                                      -- the allocator's and transforms' state
+      ⋆ Rest) :                                -- everything else the caller owns
+    Returns "ff_aac_sbr_ctx_alloc_init" t ra (fun s => AbiReturn t s ∧
+      ((ret32 s = 0#32 ∧ ∃ p : BitVec 64, s.dmem =⋆
+            StackAfter sp (initStack S.k)      -- the stack region, back
+          ⋆ SbrInitialized S p ac              -- the new element
+          ⋆ SbrElemInitialized S che₁          -- the first element's own part
+          ⋆ AcFields ac avctx er ps            -- *ac's three fields
+          ⋆ PtrAt che_slot p                   -- *che_slot = p
+          ⋆ X
+          ⋆ Rest)                              -- holds again
+      ∨ ((ret32 s).toInt < 0 ∧ s.dmem =⋆
+            StackAfter sp (initStack S.k)
+          ⋆ SbrInitialized S che₁ ac           -- the first element, as before
+          ⋆ AcFields ac avctx er ps
+          ⋆ InitFailed S che_slot id_aac       -- what the failed call left
+          ⋆ X
+          ⋆ Rest))) := by
+  sorry
+
+theorem ff_aac_sbr_ctx_alloc_init_another_ready_spec {S : Setup} {X : Mem 64 → Prop}
+    (h_bin : SbrBinary) (h_ext : InitExt S X)
+    (ac che₁ che_slot : BitVec 64) (id_aac : BitVec 32) (avctx : BitVec 64) (er ps : BitVec 32)
+    (sp : BitVec 64) (Rest : Mem 64 → Prop) (ra : Int64) (t : MachineData)
+    (h_ac : t.regs.get64 .rdi = ac) (h_che : t.regs.get64 .rsi = che_slot)
+    (h_id : (t.regs.get64 .rdx).setWidth 32 = id_aac) (h_sp : t.regs.get64 .rsp = sp)
+    (h_mem : t.dmem =⋆
+        StackAt ra sp (initStack S.k)          -- return address; free stack below
+      ⋆ SbrReady S che₁ ac                     -- the element already initialized, ready
+      ⋆ AcFields ac avctx er ps                -- *ac's three fields
+      ⋆ 8 ?@ che_slot                          -- the slot for the new pointer
+      ⋆ X                                      -- the allocator's and transforms' state
+      ⋆ Rest) :                                -- everything else the caller owns
+    Returns "ff_aac_sbr_ctx_alloc_init" t ra (fun s => AbiReturn t s ∧
+      ((ret32 s = 0#32 ∧ ∃ p : BitVec 64, s.dmem =⋆
+            StackAfter sp (initStack S.k)      -- the stack region, back
+          ⋆ SbrInitialized S p ac              -- the new element
+          ⋆ SbrElemReady S che₁                -- the first element's own part, ready
+          ⋆ AcFields ac avctx er ps            -- *ac's three fields
+          ⋆ PtrAt che_slot p                   -- *che_slot = p
+          ⋆ X
+          ⋆ Rest)                              -- holds again
+      ∨ ((ret32 s).toInt < 0 ∧ s.dmem =⋆
+            StackAfter sp (initStack S.k)
+          ⋆ SbrReady S che₁ ac                 -- the first element, as before
+          ⋆ AcFields ac avctx er ps
+          ⋆ InitFailed S che_slot id_aac       -- what the failed call left
+          ⋆ X
+          ⋆ Rest))) := by
+  sorry
+
 end Kraken.Examples.Sbr.SessionBin
 
 /-! ## The satisfiability of the per-procedure theorems' hypotheses (`SessionBin/Witness.lean`) -/
@@ -290,6 +381,37 @@ theorem wit_session :
           ⋆ SbrReady S che ac
           ⋆ AcFields ac avctx er ps
           ⋆ OutBuffers L R
+          ⋆ Rest) := by
+  sorry
+
+theorem wit_init_another :
+    ∃ (C : CodeEnv) (S : Setup) (X : Mem 64 → Prop), letI := C;
+    SbrBinary ∧ InitExt S X
+    -- `ff_aac_sbr_ctx_alloc_init_another_spec`
+    ∧ (∃ (ac che₁ che_slot : BitVec 64) (id_aac : BitVec 32) (avctx : BitVec 64)
+        (er ps : BitVec 32) (sp : BitVec 64) (Rest : Mem 64 → Prop) (ra : Int64)
+        (t : MachineData),
+        t.regs.get64 .rdi = ac ∧ t.regs.get64 .rsi = che_slot
+        ∧ (t.regs.get64 .rdx).setWidth 32 = id_aac ∧ t.regs.get64 .rsp = sp
+        ∧ t.dmem =⋆
+            StackAt ra sp (initStack S.k)
+          ⋆ SbrInitialized S che₁ ac
+          ⋆ AcFields ac avctx er ps
+          ⋆ 8 ?@ che_slot
+          ⋆ X
+          ⋆ Rest)
+    -- `ff_aac_sbr_ctx_alloc_init_another_ready_spec`
+    ∧ (∃ (ac che₁ che_slot : BitVec 64) (id_aac : BitVec 32) (avctx : BitVec 64)
+        (er ps : BitVec 32) (sp : BitVec 64) (Rest : Mem 64 → Prop) (ra : Int64)
+        (t : MachineData),
+        t.regs.get64 .rdi = ac ∧ t.regs.get64 .rsi = che_slot
+        ∧ (t.regs.get64 .rdx).setWidth 32 = id_aac ∧ t.regs.get64 .rsp = sp
+        ∧ t.dmem =⋆
+            StackAt ra sp (initStack S.k)
+          ⋆ SbrReady S che₁ ac
+          ⋆ AcFields ac avctx er ps
+          ⋆ 8 ?@ che_slot
+          ⋆ X
           ⋆ Rest) := by
   sorry
 

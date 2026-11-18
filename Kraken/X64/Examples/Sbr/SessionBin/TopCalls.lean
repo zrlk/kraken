@@ -58,7 +58,7 @@ theorem sessW_withAc (e : Env) (vs : Nat → Vlc.VlcTab) (vp : Nat → Ps.VlcTab
 /-- `Live` opened at a call: the values, the environment, the memory with the gap. -/
 theorem live_open {S : Setup} {che ac : BitVec 64} {A B C : Mem 64 → Prop} {m : Mem 64}
     (h : (A ⋆ (B ⋆ (Live S che ac ⋆ C))) m) : ∃ (ok : Bool) (e : Env) (i : InitIn) (σ : SV),
-      EnvOK S e ∧ SReach (σInit i) σ ok
+      EnvOK S e ∧ EnvShares S e ∧ SReach (σInit i) σ ok
       ∧ (A ⋆ (B ⋆ ((ElemAt e S.vs S.vp σ che ac ⋆ Init.InitGap che) ⋆ C))) m := by
   unfold Live at h
   obtain ⟨ok, h⟩ := sep_ex3 h
@@ -67,28 +67,31 @@ theorem live_open {S : Setup} {che ac : BitVec 64} {A B C : Mem 64 → Prop} {m 
   obtain ⟨i, h⟩ := sep_ex3 h
   obtain ⟨σ, h⟩ := sep_ex3 h
   obtain ⟨he, h⟩ := sep_pure3 h
+  obtain ⟨hsh, h⟩ := sep_pure3 h
   obtain ⟨hσ, h⟩ := sep_pure3 h
-  exact ⟨ok, e, i, σ, he, hσ, h⟩
+  exact ⟨ok, e, i, σ, he, hsh, hσ, h⟩
 
 /-- `ElemState` opened at a call. -/
 theorem elem_open {S : Setup} {che ac : BitVec 64} {ok : Bool} {A B C : Mem 64 → Prop}
     {m : Mem 64} (h : (A ⋆ (B ⋆ (ElemState S che ac ok ⋆ C))) m) :
-    ∃ (e : Env) (i : InitIn) (σ : SV), EnvOK S e ∧ SReach (σInit i) σ ok
+    ∃ (e : Env) (i : InitIn) (σ : SV), EnvOK S e ∧ EnvShares S e ∧ SReach (σInit i) σ ok
       ∧ (A ⋆ (B ⋆ ((ElemAt e S.vs S.vp σ che ac ⋆ Init.InitGap che) ⋆ C))) m := by
   unfold ElemState at h
   obtain ⟨e, h⟩ := sep_ex3 h
   obtain ⟨i, h⟩ := sep_ex3 h
   obtain ⟨σ, h⟩ := sep_ex3 h
   obtain ⟨he, h⟩ := sep_pure3 h
+  obtain ⟨hsh, h⟩ := sep_pure3 h
   obtain ⟨hσ, h⟩ := sep_pure3 h
-  exact ⟨e, i, σ, he, hσ, h⟩
+  exact ⟨e, i, σ, he, hsh, hσ, h⟩
 
 /-- Closing `ElemState` after a call. -/
 theorem elem_close {S : Setup} {che ac : BitVec 64} {ok : Bool} {e : Env} {i : InitIn}
-    {σ : SV} (he : EnvOK S e) (hσ : SReach (σInit i) σ ok) {A B C : Mem 64 → Prop}
+    {σ : SV} (he : EnvOK S e) (hsh : EnvShares S e) (hσ : SReach (σInit i) σ ok)
+    {A B C : Mem 64 → Prop}
     {m : Mem 64} (h : (A ⋆ (B ⋆ ((ElemAt e S.vs S.vp σ che ac ⋆ Init.InitGap che) ⋆ C))) m) :
     (A ⋆ (B ⋆ (ElemState S che ac ok ⋆ C))) m :=
-  sep_mono3 (fun _ hm => ⟨e, i, σ, he, hσ, hm⟩) h
+  sep_mono3 (fun _ hm => ⟨e, i, σ, he, hsh, hσ, hm⟩) h
 
 theorem ready_live {S : Setup} {che ac : BitVec 64} {A B C : Mem 64 → Prop} {m : Mem 64}
     {ok : Bool} (h : (A ⋆ (B ⋆ (ElemState S che ac ok ⋆ C))) m) :
@@ -161,7 +164,7 @@ theorem dec_top (B : SessPlaced) (S : Setup) (hk : 0x9d0 + S.k ≤ 2 ^ 32)
       ∧ CallPost (decStack S.k)
         (Ready S che ac ⋆ (AcFields ac avctx er' ps ⋆ DecObj b avctx Rc i' t)) ra t s) Traps := by
   obtain ⟨h0, h1⟩ := hc.args
-  obtain ⟨ok, e, ii, σ, ⟨has, hsl⟩, hσ, hm⟩ := live_open hm
+  obtain ⟨ok, e, ii, σ, ⟨has, hsl⟩, hsh, hσ, hm⟩ := live_open hm
   have hfr : DecFrame (decKc S.k) e S.vs S.vp (withAc σ avctx er ps) b i
       (Init.InitGap che ⋆ Rc) ra t :=
     { own := by
@@ -177,7 +180,7 @@ theorem dec_top (B : SessPlaced) (S : Setup) (hk : 0x9d0 + S.k ≤ 2 ^ 32)
   refine ⟨hra, i', σ'.1.extRate, hi', hrax, c1, c2, c3, ?_⟩
   simp only [withAc] at hav hps
   rw [sessW_split, h0, h1, hav, hps] at hm'
-  exact elem_close ⟨has, hsl⟩ hσ' (sep_eq3 (dec_mem _ _ _ b avctx Rc i' t).symm hm')
+  exact elem_close ⟨has, hsl⟩ hsh hσ' (sep_eq3 (dec_mem _ _ _ b avctx Rc i' t).symm hm')
 
 /-- `ff_aac_sbr_decode_usac_data` on a live element. -/
 theorem usac_top (B : SessPlaced) (S : Setup) (hk : 0x9d0 + S.k ≤ 2 ^ 32)
@@ -190,7 +193,7 @@ theorem usac_top (B : SessPlaced) (S : Setup) (hk : 0x9d0 + S.k ≤ 2 ^ 32)
       ∧ CallPost (usacStack S.k) (ElemState S che ac (decide (ret32 s = 0#32))
         ⋆ (AcFields ac avctx er ps ⋆ UsacObjects u che ac Rc i')) ra t s) Traps := by
   obtain ⟨h0, h1, h2, h3⟩ := hc.args
-  obtain ⟨ok, e, ii, σ, ⟨has, hsl⟩, hσ, hm⟩ := live_open hm
+  obtain ⟨ok, e, ii, σ, ⟨has, hsl⟩, hsh, hσ, hm⟩ := live_open hm
   have hfr : UsacFrame (usacK S.k) e S.vs S.vp (withAc σ avctx er ps)
       (u.q che ac (Init.InitGap che ⋆ Rc)) i ra t :=
     { own := by
@@ -209,7 +212,7 @@ theorem usac_top (B : SessPlaced) (S : Setup) (hk : 0x9d0 + S.k ≤ 2 ^ 32)
   refine ⟨hra, i', hi', c1, c2, c3, ?_⟩
   simp only [withAc] at hav her hps
   rw [sessW_split, h0, h1, hav, her, hps] at hm'
-  exact elem_close ⟨has, hsl⟩ hσ' (sep_eq3 (usac_mem _ _ _ u che ac Rc i').symm hm')
+  exact elem_close ⟨has, hsl⟩ hsh hσ' (sep_eq3 (usac_mem _ _ _ u che ac Rc i').symm hm')
 
 /-- `ff_aac_sbr_config_usac` on a live element. -/
 theorem config_top (B : SessPlaced) (S : Setup)
@@ -219,7 +222,7 @@ theorem config_top (B : SessPlaced) (S : Setup)
     Ends "ff_aac_sbr_config_usac" t ra (fun s => ret32 s = 0#32
       ∧ CallPost 0 (Ready S che ac ⋆ (AcFields ac avctx er ps ⋆ Rc)) ra t s) NoStops := by
   obtain ⟨h0, h1⟩ := hc.args
-  obtain ⟨ok, e, ii, σ, ⟨has, hsl⟩, hσ, hm⟩ := live_open hm
+  obtain ⟨ok, e, ii, σ, ⟨has, hsl⟩, hsh, hσ, hm⟩ := live_open hm
   have hfr : ConfigFrame e S.vs S.vp (withAc σ avctx er ps) (Init.InitGap che ⋆ Rc) ra t :=
     { own := by
         refine sep_eq3 ?_ hm
@@ -231,7 +234,7 @@ theorem config_top (B : SessPlaced) (S : Setup)
   refine ⟨hra, hrax, c1, c2, c3, ?_⟩
   simp only [withAc] at hav her hps
   rw [sessW_split, h0, h1, hav, her, hps] at hm'
-  exact elem_close ⟨has, hsl⟩ hσ' (sep_eq3 (cfg_mem _ _ _ Rc).symm hm')
+  exact elem_close ⟨has, hsl⟩ hsh hσ' (sep_eq3 (cfg_mem _ _ _ Rc).symm hm')
 
 /-- `ff_aac_sbr_apply` on a ready element. -/
 theorem apply_top (B : SessPlaced) (S : Setup) (hk : 0x9d0 + S.k ≤ 2 ^ 32)
@@ -242,7 +245,7 @@ theorem apply_top (B : SessPlaced) (S : Setup) (hk : 0x9d0 + S.k ≤ 2 ^ 32)
     Ends "ff_aac_sbr_apply" t ra (fun s => CallPost (applyStack S.k)
       (Ready S che ac ⋆ (AcFields ac avctx er ps ⋆ (OutBufs t ⋆ Rc))) ra t s) NoStops := by
   obtain ⟨h0, h1⟩ := hc.args
-  obtain ⟨e, ii, σ, ⟨has, hsl⟩, hσ, hm⟩ := elem_open hm
+  obtain ⟨e, ii, σ, ⟨has, hsl⟩, hsh, hσ, hm⟩ := elem_open hm
   have hn : 8192 >>> dsN (withAc σ avctx er ps).1 ≤ 8192 := Nat.shiftRight_le _ _
   rw [out_split t hn] at hm
   have hfr : ApplyFrame S.k e S.vs S.vp (withAc σ avctx er ps)
@@ -264,6 +267,6 @@ theorem apply_top (B : SessPlaced) (S : Setup) (hk : 0x9d0 + S.k ≤ 2 ^ 32)
   have hm'' := sep_eq3 (apply_mem _ _ _ _ _ Rc).symm hm'
   unfold OutW at hm''
   rw [← out_split t hn] at hm''
-  exact elem_close ⟨has, hsl⟩ hσ' hm''
+  exact elem_close ⟨has, hsl⟩ hsh hσ' hm''
 
 end Kraken.Examples.Sbr.SessionBin
