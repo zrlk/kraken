@@ -52,6 +52,41 @@ struct SccKabi {
 };
 static_assert(sizeof(SccKabi) == 8 * kSccKabiSlotCount);
 
+/* The routine table inside the unit: the form of the next compiler release.
+   This compiler release still emits the form above: each trampoline jumps
+   through the TCB's kabi word. In the next form, each unit carries its own
+   table and each trampoline reaches its slot RIP-relative
+   (`jmp *scc_kabi_<n>(%rip)`, the label scc_kabi_<n> naming routine[n]), so
+   no thread or interrupt path needs the TCB to find a routine. The sample
+   unit next/hello1rawx64/hello1 is in that form.
+
+   Layout: a section `.scc_kabi`, 4 KiB aligned and 4 KiB long, the first
+   thing in the unit's writable segment: at the granule after `.rodata`,
+   before `.data` (next/raw.ld, the next release's link script; this
+   release's Scc/Test/elf/raw.ld has no such section). Word 0 is the magic
+   "SCCKABI1" (the bytes S C C K A B I 1 in memory order), word 1 the number
+   of slots the unit uses, both written by the compiler; words 2.. are the
+   routine addresses in SccKabiSlot order, zero in the file.
+
+   What the kernel does with a unit in this form: it finds the table at the
+   start of the unit's writable segment; it refuses the unit unless word 0
+   is the magic and word 1 is at most the number of slots it implements;
+   it writes routine[0 .. slot_count) before the unit's first instruction;
+   it may then map the table's page read-only. Compiled code never writes
+   the table. The TCB's kabi word is then reserved: units in this form never
+   read it. The kernel needs a writable copy of the unit to fill the table,
+   so this form needs a loader that copies the unit out of the image. */
+constexpr uint64_t kSccUnitKabiMagic = 0x314942414b434353ull;  // "SCCKABI1"
+constexpr uint64_t kSccUnitKabiAlign = 4096;
+struct SccUnitKabi {
+  uint64_t magic;       // kSccUnitKabiMagic
+  uint64_t slot_count;  // slots the unit uses, at most kSccKabiSlotCount
+  const void* routine[];
+};
+static_assert(offsetof(SccUnitKabi, slot_count) == 8);
+static_assert(offsetof(SccUnitKabi, routine) == 16);
+static_assert(16 + 8 * kSccKabiSlotCount <= kSccUnitKabiAlign);
+
 /* Bytes of stack below stack_limit for the paths that run without a stack
    check (the abort routine; the grow routine and what it calls), scc's
    Tcb.headroom: stack_limit is stack_base + kSccTcbHeadroom. */

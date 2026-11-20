@@ -31,9 +31,12 @@ none`, no host directories or files exposed to the guest except our image.
 QEMU binaries and firmware: $KRAKEN_QEMU_DIR (required on Linux; the directory
 holding qemu-system-x86_64 and qemu-system-aarch64, tested with QEMU 11.0.5); x86-64 firmware from
 .lake/efi/fw (edk2-x86_64-code.fd and edk2-i386-vars.fd, decompressed from
-QEMU's pc-bios/), aarch64 firmware from $KRAKEN_QEMU_DIR/fw. On macOS,
-$KRAKEN_QEMU_DIR defaults to where the PATH finds QEMU (brew install qemu), and
-both firmwares come from share/qemu next to it.
+QEMU's pc-bios/), aarch64 firmware from $KRAKEN_QEMU_DIR/fw. QEMU's option
+ROMs (vgabios-stdvga.bin, kvmvapic.bin, ...) are looked up in
+$KRAKEN_QEMU_DIR/fw too (`-L`), for a QEMU that is not installed in its
+configured prefix. On macOS, $KRAKEN_QEMU_DIR defaults to where the PATH finds
+QEMU (brew install qemu), both firmwares come from share/qemu next to it, and
+QEMU finds its ROMs itself.
 """
 import os
 import re
@@ -64,7 +67,9 @@ AFTER_BANNER = {"x64": r"\b%d total CPUs online\s+EnterRuntime\(\) on BSP\s*BSP 
 
 def cmdline(isa, tmp, mon):
     img = os.path.join(EFI, isa, "esp.img")
-    common = ["-nodefaults", "-nic", "none", "-accel", "tcg", "-display", "none",
+    # Linux: QEMU's data directory for option ROMs (macOS: QEMU's own default).
+    roms = [] if MACOS else ["-L", os.path.join(QDIR, "fw")]
+    common = roms + ["-nodefaults", "-nic", "none", "-accel", "tcg", "-display", "none",
               "-serial", "file:" + os.path.join(tmp, "serial.txt"), "-m", "256M",
               "-no-user-config", "-monitor", "unix:%s,server,nowait" % mon,
               "-drive", "if=none,id=esp,format=raw,snapshot=on,file=" + img,
