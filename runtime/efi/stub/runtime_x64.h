@@ -4,10 +4,11 @@
  * expects of the kernel that enters it.
  *
  * A raw unit reaches its thread control block (TCB) through the %fs base,
- * and the kernel's routines through the TCB's `kabi` word: each routine's
- * trampoline in the unit jumps through slot n of that table, the word at
- * byte 8*n. The layout and the slot order are scc's (Scc/IR/Core.lean,
- * namespace Tcb), checked below by offset; they never change order.
+ * and the kernel's routines through its own routine table (SccUnitKabi):
+ * each routine's trampoline in the unit jumps through the table's routine
+ * word for slot n, which the kernel fills when it loads the unit. The TCB
+ * layout and the slot order are scc's (Scc/IR/Core.lean, namespace Tcb),
+ * checked below by offset; they never change order.
  *
  * Calling convention: a raw unit is System V x86-64 code (arguments in %rdi,
  * %rsi, %rdx, %rcx, %r8, %r9; results in %rax, %rdx, ...). This stub is
@@ -44,38 +45,37 @@ enum SccKabiSlot : uint32_t {
   kSccKabiSlotCount = 14,
 };
 
-/* The table a TCB's kabi word points to (scc: `struct scc_kabi`): one
-   KRAKEN_SCC_ABI routine per slot. The slots hold addresses rather than one
-   function type because the routines' signatures differ. */
+/* The kernel's routines in slot order (scc: `struct scc_kabi`): one
+   KRAKEN_SCC_ABI routine per slot, which the loader copies into each unit's
+   table (FillUnitKabi). The slots hold addresses rather than one function
+   type because the routines' signatures differ. */
 struct SccKabi {
   const void* routine[kSccKabiSlotCount];
 };
 static_assert(sizeof(SccKabi) == 8 * kSccKabiSlotCount);
 
-/* The routine table inside the unit: the form of the next compiler release.
-   This compiler release still emits the form above: each trampoline jumps
-   through the TCB's kabi word. In the next form, each unit carries its own
-   table and each trampoline reaches its slot RIP-relative
+/* The routine table inside the unit (Scc/Emit/Kabi.lean). Each unit carries
+   its own table and each trampoline reaches its slot RIP-relative
    (`jmp *scc_kabi_<n>(%rip)`, the label scc_kabi_<n> naming routine[n]), so
-   no thread or interrupt path needs the TCB to find a routine. The sample
-   unit next/hello1rawx64/hello1 is in that form.
+   no thread or interrupt path needs the TCB to find a routine.
 
    Layout: a section `.scc_kabi`, 4 KiB aligned and 4 KiB long, the first
    thing in the unit's writable segment: at the granule after `.rodata`,
-   before `.data` (next/raw.ld, the next release's link script; this
-   release's Scc/Test/elf/raw.ld has no such section). Word 0 is the magic
-   "SCCKABI1" (the bytes S C C K A B I 1 in memory order), word 1 the number
-   of slots the unit uses, both written by the compiler; words 2.. are the
-   routine addresses in SccKabiSlot order, zero in the file.
+   before `.data` (Scc/Test/elf/raw.ld). Word 0 is the magic "SCCKABI1" (the
+   bytes S C C K A B I 1 in memory order), word 1 the number of slots the
+   unit uses, both written by the compiler; words 2.. are the routine
+   addresses in SccKabiSlot order, zero in the file.
 
    What the kernel does with a unit in this form: it finds the table at the
    start of the unit's writable segment; it refuses the unit unless word 0
-   is the magic and word 1 is at most the number of slots it implements;
-   it writes routine[0 .. slot_count) before the unit's first instruction;
-   it may then map the table's page read-only. Compiled code never writes
-   the table. The TCB's kabi word is then reserved: units in this form never
-   read it. The kernel needs a writable copy of the unit to fill the table,
-   so this form needs a loader that copies the unit out of the image. */
+   is the magic, word 1 is at least 1 and at most the number of slots it
+   implements, and those slots' routine words are zero (CheckUnitKabi); it
+   writes routine[0 .. slot_count) before the unit's
+   first instruction (FillUnitKabi); it may then map the table's page
+   read-only. Compiled code never writes the table. The TCB's kabi word is
+   reserved: units in this form never read it. The kernel needs a writable
+   copy of the table to fill it, so the loader copies the unit's writable
+   segment out of the image (stub_x64.cc). */
 constexpr uint64_t kSccUnitKabiMagic = 0x314942414b434353ull;  // "SCCKABI1"
 constexpr uint64_t kSccUnitKabiAlign = 4096;
 struct SccUnitKabi {
@@ -86,6 +86,15 @@ struct SccUnitKabi {
 static_assert(offsetof(SccUnitKabi, slot_count) == 8);
 static_assert(offsetof(SccUnitKabi, routine) == 16);
 static_assert(16 + 8 * kSccKabiSlotCount <= kSccUnitKabiAlign);
+
+/* Whether `table`, the first kSccUnitKabiAlign bytes of a unit's writable
+   segment as in the file, is a routine table this kernel can fill: the
+   magic, 1 to kSccKabiSlotCount slots, and those slots' routine words zero.
+   If not, says why (DisplayString) and returns false. */
+bool CheckUnitKabi(const SccUnitKabi* table);
+/* Writes the kernel's routines into a table CheckUnitKabi accepted:
+   routine[0 .. slot_count). */
+void FillUnitKabi(SccUnitKabi* table);
 
 /* Bytes of stack below stack_limit for the paths that run without a stack
    check (the abort routine; the grow routine and what it calls), scc's
@@ -139,8 +148,8 @@ struct SccTcb {
   uint64_t alloc_blk;    // platform-owned; not used by any code yet (0)
   uint64_t rseq_desc;    // platform-owned; not used by any code yet (0)
   uint64_t ckpt;         // kernel-owned; not used by any code yet (0)
-  const SccKabi* kabi;   // the routine table, written before the first
-                         // instruction and never by the thread (%fs:96)
+  const SccKabi* kabi;   // reserved: no unit reads it (SccUnitKabi); left
+                         // null (%fs:96)
   uint64_t args[kSccMaxSpawnArgs];  // a spawned thread's scalar argument
                                     // words (%fs:104 + 8*i)
   uint64_t kernel_reserved;         // padding; free for the kernel

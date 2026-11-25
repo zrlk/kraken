@@ -288,3 +288,25 @@ void* Map4kPage(uint64_t virtual_address, uint64_t physical_address,
   invlpg((void*)virtual_address);
   return (void*)(virtual_address);
 }
+
+void Set4kPageReadOnly(uint64_t virtual_address) {
+  auto pt4 = GetRootPageTable();
+  DisableWriteProtection dwp;
+  auto pt4_ofs = (virtual_address >> (uint64_t)(12 + 9 * 3)) & 0x1FFULL;
+  if (!pt4[pt4_ofs].present) PANIC("Set4kPageReadOnly: not mapped");
+  auto pt3 = (pt3e*)(pt4[pt4_ofs].ptr_shr_12 << 12);
+  auto pt3_ofs = (virtual_address >> (uint64_t)(12 + 9 * 2)) & 0x1FFULL;
+  if (!pt3[pt3_ofs].present || (pt3[pt3_ofs].raw & kPageSizeBit)) {
+    PANIC("Set4kPageReadOnly: not a 4K mapping");
+  }
+  auto pt2 = (pt2e*)(pt3[pt3_ofs].ptr_shr_12 << 12);
+  auto pt2_ofs = (virtual_address >> (uint64_t)(12 + 9 * 1)) & 0x1FFULL;
+  if (!pt2[pt2_ofs].present || pt2[pt2_ofs].is_2mb_pt2e) {
+    PANIC("Set4kPageReadOnly: not a 4K mapping");
+  }
+  auto pt1 = (pt1e*)(pt2[pt2_ofs].ptr_shr_12 << 12);
+  auto pt1_ofs = (virtual_address >> (12 + 9 * 0)) & 0x1FFULL;
+  if (!pt1[pt1_ofs].present) PANIC("Set4kPageReadOnly: not mapped");
+  pt1[pt1_ofs].read_write = 0;
+  invlpg((void*)virtual_address);
+}

@@ -128,5 +128,8 @@ void* Map2MPage(uint64_t virtual_address, uint64_t physical_address,
 void* Map4kPage(uint64_t virtual_address, uint64_t physical_address,
                 bool cache_disable, bool writethrough, bool remap_ok = false,
                 bool no_alloc = false);
+/* Clears the writable bit of a page Map4kPage mapped. Supervisor writes
+   fault on it only while CR0.WP is set, as the firmware leaves it. */
+void Set4kPageReadOnly(uint64_t virtual_address);
 
 #endif  // KRAKEN_EFI_X64_MMU_H_

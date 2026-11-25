@@ -110,7 +110,8 @@ KRAKEN_SCC_ABI void SccRtSpawn() {
   PANIC("SccRtSpawn");
 }
 
-/* The routine table every thread's TCB points to, in SccKabiSlot order. */
+/* The kernel's routines, in SccKabiSlot order: what FillUnitKabi copies
+   into each unit's table. */
 #define KABI(f) reinterpret_cast<const void*>(&f)
 const SccKabi gKabi = {{
     KABI(SccRtAlloc),        KABI(SccRtAllocTcb),     KABI(SccRtPrint),
@@ -120,6 +121,37 @@ const SccKabi gKabi = {{
     KABI(SccRtThreadInit),   KABI(SccRtSpawn),
 }};
 #undef KABI
+
+bool CheckUnitKabi(const SccUnitKabi* table) {
+  if (table->magic != kSccUnitKabiMagic) {
+    DisplayString("raw unit refused: no routine table (magic SCCKABI1) at the "
+                  "start of its writable segment\n");
+    return false;
+  }
+  if (table->slot_count == 0 || table->slot_count > kSccKabiSlotCount) {
+    DisplayString("raw unit refused: its routine table uses 0x");
+    DisplayUint64(table->slot_count);
+    DisplayString(" slots; this kernel has 1 to 0x");
+    DisplayUint64(kSccKabiSlotCount);
+    DisplayString("\n");
+    return false;
+  }
+  for (uint64_t i = 0; i < table->slot_count; ++i) {
+    if (table->routine[i] != nullptr) {
+      DisplayString("raw unit refused: routine word 0x");
+      DisplayUint64(i);
+      DisplayString(" of its routine table is not zero in the file\n");
+      return false;
+    }
+  }
+  return true;
+}
+
+void FillUnitKabi(SccUnitKabi* table) {
+  for (uint64_t i = 0; i < table->slot_count; ++i) {
+    table->routine[i] = gKabi.routine[i];
+  }
+}
 
 extern "C" void RuntimeEnterThread();
 
@@ -181,7 +213,7 @@ SccTcb* AllocThread(const void* entry) {
   new_thread->stack_limit = new_thread->stack_base + kSccTcbHeadroom;
   new_thread->gprs.rsp = new_thread->stack_top;
   new_thread->index = 0;
-  new_thread->kabi = &gKabi;
+  new_thread->kabi = nullptr;  // reserved (SccUnitKabi)
   new_thread->rip = reinterpret_cast<uint64_t>(entry);
   InitXsave(new_thread->xsave, xsave_bytes);
   return new_thread;

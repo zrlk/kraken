@@ -60,31 +60,136 @@ extern "C" const uint8_t Hello1Raw[];
 extern "C" const uint8_t Hello1RawEnd[];
 constexpr uint64_t kHello1RawAlign = 16384;
 
-// The entry point of Hello1Raw (scc_rt_main: raw.ld's ENTRY), as a pointer
-// into the buffer, or nullptr if the ELF header or segments don't fit. The
-// entry is e_entry, a virtual address; the PT_LOAD segment holding it maps it
-// to its file offset (0x100b5 for the checked-in file). The buffer's segments
-// keep their relative layout, so code there finds the rest of the unit where
-// raw.ld put it, as long as it is mapped executable.
-static const uint8_t* Hello1RawEntry() {
-  const uint8_t* b = Hello1Raw;
-  uint64_t size = Hello1RawEnd - Hello1Raw;
+// Refuses a raw unit (LoadRawUnit): says why, and returns nullptr.
+static const uint8_t* RefuseRawUnit(const char* why) {
+  DisplayString("raw unit refused: ");
+  DisplayString(why);
+  DisplayString("\n");
+  return nullptr;
+}
+
+// Loads the raw unit b[0 .. size), an x86-64 ELF executable of
+// `scc --host raw` (linked by Scc/Test/elf/raw.ld), and returns its entry
+// point (e_entry: scc_rt_main, raw.ld's ENTRY), or refuses it (says why and
+// returns nullptr).
+//
+// The unit is mapped at fresh virtual addresses, aligned to its largest
+// segment alignment, with its segments' relative layout, so that its code
+// reaches the rest of the unit, its routine table included, RIP-relative.
+// Each read-only segment is mapped onto the buffer's own pages, in place;
+// the writable segment is copied into fresh zeroed pages, since its first
+// 4 KiB are the unit's routine table (SccUnitKabi), which the kernel fills.
+//
+// The table is found from the program headers, at the start of the first
+// writable PT_LOAD segment, where raw.ld puts it: a loader reads the program
+// headers anyway, while the section headers and the symbol scc_kabi are not
+// needed to run an executable and may be stripped. A unit linked otherwise
+// has no magic there, or a table that is not file-backed, and is refused.
+// Everything is checked in the buffer before anything is mapped: the ELF
+// header, each PT_LOAD's page alignment and bounds, the table's segment
+// (4 KiB aligned, at least 4 KiB in the file) and the table (CheckUnitKabi).
+// The table is then filled through the new mapping and its page made
+// read-only; it holds nothing else (the section is padded to 4 KiB). The
+// fresh page's identity mapping stays writable, as all the kernel's memory
+// does, and every other page of the unit is mapped writable and executable
+// (Map4kPage has no other permissions yet).
+static const uint8_t* LoadRawUnit(const uint8_t* b, uint64_t size) {
   auto u16 = [&](uint64_t o) { return *reinterpret_cast<const uint16_t*>(b + o); };
   auto u32 = [&](uint64_t o) { return *reinterpret_cast<const uint32_t*>(b + o); };
   auto u64 = [&](uint64_t o) { return *reinterpret_cast<const uint64_t*>(b + o); };
-  if (size < 64 || u32(0) != 0x464C457F) return nullptr;  // "\x7fELF"
+  constexpr uint64_t kPage = 4096;
+  constexpr uint32_t kPtLoad = 1, kPfX = 1, kPfW = 2;
+  // "\x7fELF", 64-bit (ELFCLASS64), little-endian, EM_X86_64.
+  if (size < 64 || u32(0) != 0x464C457F || b[4] != 2 || b[5] != 1 ||
+      u16(0x12) != 62) {
+    return RefuseRawUnit("not an x86-64 ELF executable");
+  }
+  // The read-only segments are mapped onto the buffer's pages.
+  if (reinterpret_cast<uint64_t>(b) % kPage != 0) {
+    return RefuseRawUnit("its buffer is not page aligned");
+  }
   uint64_t entry = u64(0x18), phoff = u64(0x20);
   uint16_t phentsize = u16(0x36), phnum = u16(0x38);
-  for (uint16_t i = 0; i < phnum; ++i) {
-    uint64_t ph = phoff + uint64_t{i} * phentsize;
-    if (ph + 56 > size) return nullptr;
-    if (u32(ph) != 1) continue;  // PT_LOAD
-    uint64_t offset = u64(ph + 8), vaddr = u64(ph + 16), filesz = u64(ph + 32);
-    if (entry >= vaddr && entry < vaddr + filesz && offset + filesz <= size)
-      return b + offset + (entry - vaddr);
+  if (phentsize < 56 || phoff > size || uint64_t{phnum} * phentsize > size - phoff) {
+    return RefuseRawUnit("program headers out of the file");
   }
-  return nullptr;
+  auto ph = [&](uint16_t i) { return phoff + uint64_t{i} * phentsize; };
+  // The unit's extent [lo, hi), its alignment, the table's segment and
+  // whether an executable segment holds the entry point.
+  uint64_t lo = ~uint64_t{0}, hi = 0, align = kPage;
+  uint64_t kabi_offset = 0, kabi_vaddr = 0;
+  bool have_kabi = false, have_entry = false;
+  for (uint16_t i = 0; i < phnum; ++i) {
+    if (u32(ph(i)) != kPtLoad) continue;
+    uint32_t flags = u32(ph(i) + 4);
+    uint64_t offset = u64(ph(i) + 8), vaddr = u64(ph(i) + 16);
+    uint64_t filesz = u64(ph(i) + 32), memsz = u64(ph(i) + 40);
+    uint64_t p_align = u64(ph(i) + 48);
+    if (offset % kPage != 0 || vaddr % kPage != 0 || vaddr < hi) {
+      return RefuseRawUnit("a PT_LOAD segment is not page aligned or overlaps another");
+    }
+    if (offset > size || filesz > size - offset || filesz > memsz ||
+        vaddr > (uint64_t{1} << 32) || memsz > (uint64_t{1} << 32)) {
+      return RefuseRawUnit("a PT_LOAD segment is out of the file");
+    }
+    if ((flags & kPfW) == 0 && memsz != filesz) {
+      return RefuseRawUnit("a read-only PT_LOAD segment has zero-filled bytes");
+    }
+    if ((p_align & (p_align - 1)) != 0 || p_align > (uint64_t{1} << 30)) {
+      return RefuseRawUnit("a PT_LOAD segment's alignment is not a power of two");
+    }
+    if (p_align > align) align = p_align;
+    if (lo > vaddr) lo = vaddr;
+    hi = (vaddr + memsz + kPage - 1) & ~(kPage - 1);
+    if ((flags & kPfW) != 0 && !have_kabi) {
+      if (filesz < kSccUnitKabiAlign) {
+        return RefuseRawUnit("its writable segment is shorter than a routine table");
+      }
+      have_kabi = true;
+      kabi_offset = offset;
+      kabi_vaddr = vaddr;
+    }
+    if ((flags & kPfX) != 0 && entry >= vaddr && entry < vaddr + filesz) {
+      have_entry = true;
+    }
+  }
+  if (!have_kabi) return RefuseRawUnit("no writable segment, so no routine table");
+  if (!have_entry) return RefuseRawUnit("its entry point is in no executable segment");
+  if (!CheckUnitKabi(reinterpret_cast<const SccUnitKabi*>(b + kabi_offset))) {
+    return nullptr;  // CheckUnitKabi said why
+  }
+  // The unit's vaddr v is at base + v; base + lo is `align` aligned.
+  lo &= ~(align - 1);
+  uint64_t va = AllocateVirtualAddress((hi - lo + align) / kPage);
+  uint64_t base = ((va + align - 1) & ~(align - 1)) - lo;
+  for (uint16_t i = 0; i < phnum; ++i) {
+    if (u32(ph(i)) != kPtLoad) continue;
+    bool writable = (u32(ph(i) + 4) & kPfW) != 0;
+    uint64_t offset = u64(ph(i) + 8), vaddr = u64(ph(i) + 16);
+    uint64_t filesz = u64(ph(i) + 32), memsz = u64(ph(i) + 40);
+    for (uint64_t p = 0; p < memsz; p += kPage) {
+      uint64_t phys;
+      if (writable) {
+        phys = AllocatePages(1);  // zeroed, identity-mapped
+        if (p < filesz) {
+          uint64_t n = filesz - p < kPage ? filesz - p : kPage;
+          memcpy(reinterpret_cast<void*>(phys), b + offset + p, n);
+        }
+      } else {
+        phys = PhysicalAddressForVirtualAddress(
+            reinterpret_cast<uint64_t>(b + offset + p));
+      }
+      Map4kPage(base + vaddr + p, phys, false, false);
+    }
+  }
+  FillUnitKabi(reinterpret_cast<SccUnitKabi*>(base + kabi_vaddr));
+  Set4kPageReadOnly(base + kabi_vaddr);
+  return reinterpret_cast<const uint8_t*>(base + entry);
 }
+
+// Hello1Raw's entry point, as loaded (MapRuntimeStartImage), or nullptr if
+// the loader refused it.
+static const uint8_t* gHello1RawEntry = nullptr;
 
 // various of methods to read the tsc frequency. we need to know this because
 // we need to be able to pause for precise amounts of time when eg initializing
@@ -350,7 +455,10 @@ void SetupBootstrap() {
   PANIC("Could not find bootstrap code");
 }
 
+// Loads Hello1Raw (LoadRawUnit) before the APs start, so that nothing else
+// changes the page tables meanwhile; CpuEntryPoint enters it on the BSP.
 void MapRuntimeStartImage() {
+  gHello1RawEntry = LoadRawUnit(Hello1Raw, Hello1RawEnd - Hello1Raw);
 }
 
 uint8_t ConfigureBspLapic() {
@@ -778,11 +886,12 @@ extern "C" void CpuEntryPoint(Cpu* self) {
   }
   DebugSetActiveStatus();
   if (self->is_bsp) {
-    const void* entry = Hello1RawEntry();
-    if (entry == nullptr) {
-      PANIC("no entry point");
+    if (gHello1RawEntry == nullptr) {
+      // The loader said why; go idle without running it.
+      DisplayString("Hello1Raw not run\n");
+      return;
     }
-    auto* tcb = AllocThread(entry);
+    auto* tcb = AllocThread(gHello1RawEntry);
     EnterThread(tcb);
   }
 }

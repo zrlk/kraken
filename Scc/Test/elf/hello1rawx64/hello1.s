@@ -5,73 +5,59 @@ scc_text_start:
 scc_kabi_start:
 	.type scc_rt_alloc, @function
 scc_rt_alloc:
-	movq %fs:96, %r11
-	jmp *(%r11)
+	jmp *scc_kabi_0(%rip)
 	.size scc_rt_alloc, .-scc_rt_alloc
 	.type scc_rt_alloc_tcb, @function
 scc_rt_alloc_tcb:
-	movq %fs:96, %r11
-	jmp *8(%r11)
+	jmp *scc_kabi_1(%rip)
 	.size scc_rt_alloc_tcb, .-scc_rt_alloc_tcb
 	.type scc_rt_print, @function
 scc_rt_print:
-	movq %fs:96, %r11
-	jmp *16(%r11)
+	jmp *scc_kabi_2(%rip)
 	.size scc_rt_print, .-scc_rt_print
 	.type scc_rt_park, @function
 scc_rt_park:
-	movq %fs:96, %r11
-	jmp *24(%r11)
+	jmp *scc_kabi_3(%rip)
 	.size scc_rt_park, .-scc_rt_park
 	.type scc_rt_unpark, @function
 scc_rt_unpark:
-	movq %fs:96, %r11
-	jmp *32(%r11)
+	jmp *scc_kabi_4(%rip)
 	.size scc_rt_unpark, .-scc_rt_unpark
 	.type scc_rt_abort, @function
 scc_rt_abort:
-	movq %fs:96, %r11
-	jmp *40(%r11)
+	jmp *scc_kabi_5(%rip)
 	.size scc_rt_abort, .-scc_rt_abort
 	.type scc_rt_exit_thread, @function
 scc_rt_exit_thread:
-	movq %fs:96, %r11
-	jmp *48(%r11)
+	jmp *scc_kabi_6(%rip)
 	.size scc_rt_exit_thread, .-scc_rt_exit_thread
 	.type scc_rt_exit_process, @function
 scc_rt_exit_process:
-	movq %fs:96, %r11
-	jmp *56(%r11)
+	jmp *scc_kabi_7(%rip)
 	.size scc_rt_exit_process, .-scc_rt_exit_process
 	.type scc_rt_stack_take, @function
 scc_rt_stack_take:
-	movq %fs:96, %r11
-	jmp *64(%r11)
+	jmp *scc_kabi_8(%rip)
 	.size scc_rt_stack_take, .-scc_rt_stack_take
 	.type scc_rt_stack_release, @function
 scc_rt_stack_release:
-	movq %fs:96, %r11
-	jmp *72(%r11)
+	jmp *scc_kabi_9(%rip)
 	.size scc_rt_stack_release, .-scc_rt_stack_release
 	.type scc_rt_grow, @function
 scc_rt_grow:
-	movq %fs:96, %r11
-	jmp *80(%r11)
+	jmp *scc_kabi_10(%rip)
 	.size scc_rt_grow, .-scc_rt_grow
 	.type scc_rt_thread_reserve, @function
 scc_rt_thread_reserve:
-	movq %fs:96, %r11
-	jmp *88(%r11)
+	jmp *scc_kabi_11(%rip)
 	.size scc_rt_thread_reserve, .-scc_rt_thread_reserve
 	.type scc_rt_thread_init, @function
 scc_rt_thread_init:
-	movq %fs:96, %r11
-	jmp *96(%r11)
+	jmp *scc_kabi_12(%rip)
 	.size scc_rt_thread_init, .-scc_rt_thread_init
 	.type scc_rt_spawn, @function
 scc_rt_spawn:
-	movq %fs:96, %r11
-	jmp *104(%r11)
+	jmp *scc_kabi_13(%rip)
 	.size scc_rt_spawn, .-scc_rt_spawn
 	.globl scc_kabi_end
 scc_kabi_end:
@@ -264,6 +250,42 @@ scc_rt_morestack:
 	ret
 	.size scc_rt_morestack, .-scc_rt_morestack
 scc_text_end:
+
+	.section .scc_kabi,"aw",@progbits
+	.balign 4096
+	.globl scc_kabi
+scc_kabi:
+	.quad 3551442629361353555
+	.quad 14
+scc_kabi_0:
+	.quad 0
+scc_kabi_1:
+	.quad 0
+scc_kabi_2:
+	.quad 0
+scc_kabi_3:
+	.quad 0
+scc_kabi_4:
+	.quad 0
+scc_kabi_5:
+	.quad 0
+scc_kabi_6:
+	.quad 0
+scc_kabi_7:
+	.quad 0
+scc_kabi_8:
+	.quad 0
+scc_kabi_9:
+	.quad 0
+scc_kabi_10:
+	.quad 0
+scc_kabi_11:
+	.quad 0
+scc_kabi_12:
+	.quad 0
+scc_kabi_13:
+	.quad 0
+	.balign 4096
 
 	.data
 	.balign 16
