@@ -2,6 +2,7 @@
  * Kraken EFI stub, x86-64: the host side of scc's raw ABI (runtime_x64.h).
  */
 #include "runtime_x64.h"
+#include "start.h"  // compiled for its layout checks; not used yet
 #include "x64.h"
 #include "debug.h"
 #include "stub.h"  // halt_forever

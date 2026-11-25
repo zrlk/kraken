@@ -2,6 +2,7 @@
  * Kraken EFI stub, AArch64 part (see stub.cc): InitPlatform and the final
  * halt.
  */
+#include "start.h"  // compiled for its layout checks; not used yet
 #include "stub.h"
 
 /* NASM has no AArch64 target: the halt loop is inline asm. */
