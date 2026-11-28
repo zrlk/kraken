@@ -13,6 +13,12 @@
  *                 engine writes it, and after the wait the CPU reads it again
  *                 through the same mapping with no set_domain.
  *   hg5-partner   The same with the destination's caching set to NONE.
+ *   checker       hc17's objects, but the CPU reads the destination right
+ *                 after submitting, before the blit can have finished: the
+ *                 check itself must report stale words (sensitivity of the
+ *                 checker, not of coherence; on a shared-LLC GPU the GT
+ *                 snoops the CPU caches even with caching NONE, so the two
+ *                 partners above cannot fire there).
  *
  * The program never touches registers, never reloads a module and never uses
  * the display. All GPU work is one copy-engine batch per iteration with
@@ -134,10 +140,10 @@ static const char *const batch_notes[BATCH_DWORDS] = {
 
 /* ---- Options ---- */
 
-enum mode_id { M_HC17, M_HC17P, M_HG5, M_HG5P, M_COUNT };
+enum mode_id { M_HC17, M_HC17P, M_HG5, M_HG5P, M_CHECK, M_COUNT };
 
 static const char *const mode_names[M_COUNT] = {"hc17", "hc17-partner", "hg5",
-                                                "hg5-partner"};
+                                                "hg5-partner", "checker"};
 
 struct options {
   uint64_t iters;
@@ -156,7 +162,7 @@ static void usage(FILE *f) {
   fprintf(f,
           "usage: gtcoh [options]\n"
           "  --mode LIST       comma-separated: hc17,hc17-partner,hg5,"
-          "hg5-partner,all (default all)\n"
+          "hg5-partner,checker,all (default all)\n"
           "  --iters N         iterations per mode (default 100000)\n"
           "  --size BYTES      object size, multiple of 4096, at most 64 MiB "
           "(default 65536)\n"
@@ -483,14 +489,44 @@ struct result {
   int fatal; /* exit code if the mode could not run */
 };
 
+/* Compares the destination with iteration `it`'s pattern and counts the
+ * iteration as stale (a word holds the previous pattern) and/or other. */
+static void check_dst(const struct options *o, enum mode_id m,
+                      volatile uint32_t *vd, uint32_t words, uint64_t it,
+                      struct result *r, int *printed) {
+  uint32_t bad_stale = 0, bad_other = 0;
+  for (uint32_t i = 0; i < words; i++) {
+    uint32_t v = vd[i];
+    if (v == pattern(it, i)) continue;
+    if (v == pattern(it - 1, i))
+      bad_stale++;
+    else
+      bad_other++;
+    if (o->verbose && *printed < 8) {
+      (*printed)++;
+      fprintf(stderr, "gtcoh: %s: iter %" PRIu64 " word %u: got 0x%08x "
+                      "want 0x%08x prev 0x%08x\n", mode_names[m], it, i, v,
+              pattern(it, i), pattern(it - 1, i));
+    }
+  }
+  if (bad_stale) {
+    r->stale++;
+    if (r->first_stale < 0) r->first_stale = (int64_t)it;
+  }
+  if (bad_other) r->other++;
+}
+
 static int run_mode(int fd, const struct options *o, enum mode_id m,
                     struct result *r) {
-  const int gt_reads_cpu = (m == M_HC17 || m == M_HC17P);
+  const int gt_reads_cpu = (m == M_HC17 || m == M_HC17P || m == M_CHECK);
+  /* checker: read the destination before waiting for the blit. */
+  const int early = (m == M_CHECK);
   /* Caching of the object under test; the other object uses the setting
    * i915's own coherent path handles (see README). */
   uint32_t src_caching, dst_caching;
   switch (m) {
-  case M_HC17: src_caching = I915_CACHING_CACHED; dst_caching = I915_CACHING_CACHED; break;
+  case M_HC17:
+  case M_CHECK: src_caching = I915_CACHING_CACHED; dst_caching = I915_CACHING_CACHED; break;
   case M_HC17P: src_caching = I915_CACHING_NONE; dst_caching = I915_CACHING_CACHED; break;
   case M_HG5: src_caching = I915_CACHING_NONE; dst_caching = I915_CACHING_CACHED; break;
   default: src_caching = I915_CACHING_NONE; dst_caching = I915_CACHING_NONE; break;
@@ -583,6 +619,7 @@ static int run_mode(int fd, const struct options *o, enum mode_id m,
       rc = errno == ENODEV || errno == EINVAL ? EXIT_UNSUPPORTED : EXIT_GPU;
       break;
     }
+    if (early) check_dst(o, m, vd, words, it, r, &printed);
     if (gem_wait(fd, hd, o->timeout_ns)) {
       fprintf(stderr, "gtcoh: %s: GEM_WAIT failed at iteration %" PRIu64
                       ": %s\n", mode_names[m], it, strerror(errno));
@@ -590,35 +627,18 @@ static int run_mode(int fd, const struct options *o, enum mode_id m,
       rc = EXIT_GPU;
       break;
     }
-    if (gt_reads_cpu) {
-      /* HC-17 reads the destination through i915's CPU-read domain. */
-      if (gem_set_domain(fd, hd, I915_GEM_DOMAIN_CPU, 0)) {
-        r->errors++;
-        rc = EXIT_GPU;
-        break;
+    if (!early) {
+      if (gt_reads_cpu) {
+        /* HC-17 reads the destination through i915's CPU-read domain. */
+        if (gem_set_domain(fd, hd, I915_GEM_DOMAIN_CPU, 0)) {
+          r->errors++;
+          rc = EXIT_GPU;
+          break;
+        }
       }
+      __asm__ volatile("" ::: "memory");
+      check_dst(o, m, vd, words, it, r, &printed);
     }
-    __asm__ volatile("" ::: "memory");
-    uint32_t bad_stale = 0, bad_other = 0;
-    for (uint32_t i = 0; i < words; i++) {
-      uint32_t v = vd[i];
-      if (v == pattern(it, i)) continue;
-      if (v == pattern(it - 1, i))
-        bad_stale++;
-      else
-        bad_other++;
-      if (o->verbose && printed < 8) {
-        printed++;
-        fprintf(stderr, "gtcoh: %s: iter %" PRIu64 " word %u: got 0x%08x "
-                        "want 0x%08x prev 0x%08x\n", mode_names[m], it, i, v,
-                pattern(it, i), pattern(it - 1, i));
-      }
-    }
-    if (bad_stale) {
-      r->stale++;
-      if (r->first_stale < 0) r->first_stale = (int64_t)it;
-    }
-    if (bad_other) r->other++;
     r->iters = it;
   }
 out:

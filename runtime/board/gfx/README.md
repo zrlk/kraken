@@ -30,6 +30,7 @@ sensitivity partner, on the same board and kernel, has fired at least once.
 | HC-17 partner | With the source object's caching set to NONE, the same blit can read stale memory. | sensitivity | `gtcoh --mode hc17-partner` |
 | HG-5 | GT writes to an LLC-cached object are seen by CPU write-back reads after the wait, even when the CPU had the old data cached. | soundness | `gtcoh --mode hg5` |
 | HG-5 partner | With the destination's caching set to NONE, the CPU can read its stale cached copy. | sensitivity | `gtcoh --mode hg5-partner` |
+| checker | Reading the destination right after submitting, before the blit can have finished, reports stale words: the check can see a stale result. On a shared-LLC GPU (has_llc=1) the GT snoops the CPU caches even with caching NONE (i915, `i915_gem_object_types.h`), so the two partners above cannot fire; this mode is then the sensitivity check of the checker itself. | sensitivity | `gtcoh --mode checker` |
 | HG-1 | With `i915.enable_guc=0` the GT runs on execlists with no GuC/HuC loaded, and copy-engine blits complete with correct data. | fact | reboot, then `run_all.sh` again |
 | HG-2 | Which engines the N200 exposes (RCS0, BCS0, VCS*, VECS0). | fact | `facts/engines.txt`, `facts/debugfs-engines.txt` |
 | HC-2 | VT-d ECAP of each unit; expected dmar0 SC=0, C=0 and dmar1 SC=1, C=0. | fact | `facts/iommu.txt` |
