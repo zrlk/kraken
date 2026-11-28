@@ -13,8 +13,8 @@
 # and periphery accesses with their values, interrupts and the driver's own
 # messages. Not recorded: command payloads, frame contents (the
 # iwlwifi_data events stay off), the scan results (only their count), the
-# password, or nmcli's output. Use a phone hotspot with a throwaway password
-# all the same: the SSID and MAC addresses appear in dmesg.
+# password, the network's name (SSID), or nmcli's output. MAC addresses do
+# appear: the adapter's in dmesg, the access point's in driver messages.
 #
 # The reload takes Wi-Fi down for a few seconds; it never touches the
 # Ethernet ports. Tracing is switched off and the buffer size restored at
@@ -80,7 +80,8 @@ lspci -nn -vvv -xxxx -s 00:14.3 >"$OUT/lspci-00-14.3.txt" 2>&1
 dmesg | awk '/iwlwifi/' >"$OUT/dmesg-before.txt"
 IF=$(ifname) || IF=""
 log "trace.sh: interface ${IF:-none}"
-[ -n "$IF" ] && iw dev "$IF" info >"$OUT/iw-info.txt" 2>&1
+# Without the "ssid" line: the network's name stays out of the tarball.
+[ -n "$IF" ] && iw dev "$IF" info 2>&1 | awk '$1 != "ssid"' >"$OUT/iw-info.txt"
 iw list >"$OUT/iw-list.txt" 2>&1
 
 if [ $HAVE_TRACE -eq 1 ]; then
@@ -121,6 +122,9 @@ if [ -n "$IF" ]; then
   log "trace.sh: scan found $n networks"
   if [ -n "$SSID" ]; then
     mark connect
+    # A profile for this network that existed before is kept and brought up
+    # again at the end; one this script creates is deleted.
+    had=$(nmcli -g NAME connection show 2>/dev/null | awk -v s="$SSID" '$0 == s' | head -1)
     if nmcli --wait 40 dev wifi connect "$SSID" password "$PSK" ifname "$IF" >/dev/null 2>&1; then
       log "trace.sh: connect ok"
       mark ping
@@ -132,12 +136,21 @@ if [ -n "$IF" ]; then
       fi
       mark disconnect
       nmcli dev disconnect "$IF" >/dev/null 2>&1
-      nmcli connection delete id "$SSID" >/dev/null 2>&1
+      if [ -z "$had" ]; then
+        nmcli connection delete id "$SSID" >/dev/null 2>&1
+      fi
     else
       log "trace.sh: connect failed (nmcli exit $?)"
     fi
   fi
   mark end
+  if [ -n "$SSID" ] && [ -n "${had:-}" ]; then
+    # Tracing stops at the end marker; restore the network the board was on.
+    echo 0 >"$T/tracing_on" 2>/dev/null
+    nmcli --wait 40 connection up id "$SSID" >/dev/null 2>&1 &&
+      log "trace.sh: reconnected to the existing profile" ||
+      log "trace.sh: could not bring the existing profile up again"
+  fi
 else
   log "trace.sh: no iwlwifi interface; nothing to scan"
 fi
