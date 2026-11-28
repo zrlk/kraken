@@ -408,16 +408,6 @@ static int gem_set_domain(int fd, uint32_t handle, uint32_t read,
   return xioctl(fd, DRM_IOCTL_I915_GEM_SET_DOMAIN, &d);
 }
 
-static int gem_pwrite(int fd, uint32_t handle, const void *data,
-                      uint64_t size) {
-  struct drm_i915_gem_pwrite p;
-  memset(&p, 0, sizeof p);
-  p.handle = handle;
-  p.size = size;
-  p.data_ptr = (uintptr_t)data;
-  return xioctl(fd, DRM_IOCTL_I915_GEM_PWRITE, &p);
-}
-
 /* Write-back CPU mapping through I915_GEM_MMAP_OFFSET. */
 static void *gem_mmap_wb(int fd, uint32_t handle, uint64_t size) {
   struct drm_i915_gem_mmap_offset m;
@@ -428,6 +418,22 @@ static void *gem_mmap_wb(int fd, uint32_t handle, uint64_t size) {
   void *p = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd,
                  (off_t)m.offset);
   return p == MAP_FAILED ? NULL : p;
+}
+
+/* Copies `size` bytes into an object through a write-back mapping, in i915's
+ * CPU write domain, so that the next execbuf makes them visible to the GT.
+ * (i915 refuses GEM_PWRITE on graphics version 12 and later, except Tiger
+ * Lake.) Returns 0, or -1 with errno. */
+static int gem_write(int fd, uint32_t handle, const void *data,
+                     uint64_t size) {
+  void *p = gem_mmap_wb(fd, handle, size);
+  if (!p) return -1;
+  int rc = gem_set_domain(fd, handle, I915_GEM_DOMAIN_CPU, I915_GEM_DOMAIN_CPU);
+  if (rc == 0) memcpy(p, data, size);
+  int e = errno;
+  munmap(p, size);
+  errno = e;
+  return rc;
 }
 
 /* Returns 0, or -1 with errno (ETIME on timeout). */
@@ -521,8 +527,8 @@ static int run_mode(int fd, const struct options *o, enum mode_id m,
   memset(batch, 0, sizeof batch);
   const uint64_t va_off = (uint64_t)m * MODE_VA_STEP;
   build_batch(batch, o->size, va_off);
-  if (gem_pwrite(fd, hb, batch, sizeof batch)) {
-    fprintf(stderr, "gtcoh: GEM_PWRITE failed: %s\n", strerror(errno));
+  if (gem_write(fd, hb, batch, sizeof batch)) {
+    fprintf(stderr, "gtcoh: writing the batch failed: %s\n", strerror(errno));
     rc = EXIT_UNSUPPORTED;
     goto out;
   }
