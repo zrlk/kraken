@@ -98,6 +98,8 @@ fi
 if [ $RELOAD -eq 1 ]; then
   mark reload
   [ -n "$IF" ] && nmcli dev disconnect "$IF" >/dev/null 2>&1
+  # (Ubuntu's modprobe.d remove rule for iwlwifi may print a harmless
+  # "rmmod: missing module name" once iwlmvm is gone.)
   modprobe -r iwlmvm iwlwifi 2>>"$LOG"
   sleep 2
   # The module's events go away with it. Ask the kernel (6.14 and later,
@@ -122,11 +124,22 @@ if [ -n "$IF" ]; then
   log "trace.sh: scan found $n networks"
   if [ -n "$SSID" ]; then
     mark connect
-    # A profile for this network that existed before is kept and brought up
-    # again at the end; one this script creates is deleted.
+    # A profile for this network that existed before is used, kept and
+    # brought up again at the end; one this script creates is deleted.
     had=$(nmcli -g NAME connection show 2>/dev/null | awk -v s="$SSID" '$0 == s' | head -1)
-    if nmcli --wait 40 dev wifi connect "$SSID" password "$PSK" ifname "$IF" >/dev/null 2>&1; then
+    # After the reload NetworkManager's list of networks is empty: rescan
+    # and give it time, or the connection fails at once.
+    nmcli dev wifi rescan ifname "$IF" >/dev/null 2>&1
+    sleep 8
+    if [ -n "$had" ]; then
+      err=$(nmcli --wait 40 connection up id "$SSID" ifname "$IF" 2>&1 >/dev/null)
+    else
+      err=$(nmcli --wait 40 dev wifi connect "$SSID" password "$PSK" ifname "$IF" 2>&1 >/dev/null)
+    fi
+    rc=$?
+    if [ $rc -eq 0 ]; then
       log "trace.sh: connect ok"
+      sleep 3
       mark ping
       gw=$(ip -4 route show dev "$IF" default | awk '{print $3; exit}')
       if [ -n "$gw" ]; then
@@ -136,11 +149,13 @@ if [ -n "$IF" ]; then
       fi
       mark disconnect
       nmcli dev disconnect "$IF" >/dev/null 2>&1
+      sleep 2
       if [ -z "$had" ]; then
         nmcli connection delete id "$SSID" >/dev/null 2>&1
       fi
     else
-      log "trace.sh: connect failed (nmcli exit $?)"
+      # nmcli's message with the network's name replaced.
+      log "trace.sh: connect failed (nmcli exit $rc): ${err//"$SSID"/<ssid>}"
     fi
   fi
   mark end
