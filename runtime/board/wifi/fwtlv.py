@@ -19,8 +19,11 @@ NAMES = {19: 'SEC_RT', 24: 'SECURE_SEC_RT', 27: 'NUM_OF_CPU',
 
 def load(path):
     if path.endswith('.zst'):
-        return subprocess.run(['zstd', '-dc', path], check=True,
-                              stdout=subprocess.PIPE).stdout
+        # Through stdin: zstd refuses to read a symbolic link by name, and
+        # /lib/firmware links to the real file on some distributions.
+        with open(path, 'rb') as f:
+            return subprocess.run(['zstd', '-dc'], stdin=f, check=True,
+                                  stdout=subprocess.PIPE).stdout
     with open(path, 'rb') as f:
         return f.read()
 
